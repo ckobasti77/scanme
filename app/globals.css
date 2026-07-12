@@ -1,0 +1,341 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --font-sans: var(--font-plex-mono);
+  --font-mono: var(--font-plex-mono);
+  --radius-sm: 2px;
+  --radius-md: 2px;
+  --radius-lg: 2px;
+  --radius-xl: 2px;
+}
+
+:root {
+  color-scheme: dark;
+  --radius: 2px;
+  --background: #0b0c0a;
+  --foreground: #f1f3ed;
+  --card: #10110e;
+  --card-foreground: #f1f3ed;
+  --popover: #10110e;
+  --popover-foreground: #f1f3ed;
+  --primary: #c6ff4a;
+  --primary-foreground: #0b0c0a;
+  --secondary: #171913;
+  --secondary-foreground: #f1f3ed;
+  --muted: #171913;
+  --muted-foreground: #a7ab9f;
+  --accent: #c6ff4a;
+  --accent-foreground: #0b0c0a;
+  --destructive: #ff6f66;
+  --destructive-foreground: #0b0c0a;
+  --border: rgb(241 243 237 / 0.16);
+  --input: rgb(241 243 237 / 0.22);
+  --ring: #c6ff4a;
+}
+
+* {
+  border-color: var(--border);
+}
+
+html {
+  scroll-behavior: smooth;
+  background: var(--background);
+}
+
+body {
+  overflow-x: clip;
+  background: var(--background);
+  color: var(--foreground);
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: #c6ff4a;
+  color: #0b0c0a;
+}
+
+button:not(:disabled),
+[role="button"]:not(:disabled) {
+  cursor: pointer;
+}
+
+section[id] {
+  scroll-margin-top: 72px;
+}
+
+.section-shell {
+  width: 100%;
+  max-width: 1440px;
+  margin-inline: auto;
+  padding-inline: 1rem;
+}
+
+.button-primary,
+.button-secondary {
+  display: inline-flex;
+  min-height: 3rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  border: 1px solid;
+  border-radius: 2px;
+  padding-inline: 1.25rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  touch-action: manipulation;
+  transition:
+    transform 180ms cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 180ms cubic-bezier(0.16, 1, 0.3, 1),
+    color 180ms cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.button-primary {
+  border-color: #c6ff4a;
+  background: #c6ff4a;
+  color: #0b0c0a;
+}
+
+.button-primary:hover {
+  border-color: #d4ff73;
+  background: #d4ff73;
+}
+
+.button-secondary {
+  border-color: rgb(255 255 255 / 0.32);
+  background: rgb(11 12 10 / 0.56);
+  color: #f1f3ed;
+}
+
+.button-secondary:hover {
+  border-color: #c6ff4a;
+  color: #c6ff4a;
+}
+
+.button-primary:active,
+.button-secondary:active {
+  transform: scale(0.98);
+}
+
+.button-primary:disabled,
+.button-secondary:disabled {
+  cursor: not-allowed;
+  opacity: 0.52;
+}
+
+.focus-signal:focus-visible,
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+[data-slot="accordion-trigger"]:focus-visible {
+  outline: 2px solid #c6ff4a;
+  outline-offset: 3px;
+}
+
+.skip-link {
+  position: fixed;
+  left: 1rem;
+  top: 1rem;
+  z-index: 100;
+  transform: translateY(-180%);
+  border: 1px solid #c6ff4a;
+  background: #0b0c0a;
+  color: #f1f3ed;
+  padding: 0.75rem 1rem;
+  transition: transform 180ms ease-out;
+}
+
+.skip-link:focus {
+  transform: translateY(0);
+}
+
+.scan-mark {
+  display: inline-block;
+  width: 1.125rem;
+  height: 1.125rem;
+  background:
+    linear-gradient(#c6ff4a, #c6ff4a) left top / 7px 1px no-repeat,
+    linear-gradient(#c6ff4a, #c6ff4a) left top / 1px 7px no-repeat,
+    linear-gradient(#c6ff4a, #c6ff4a) right top / 7px 1px no-repeat,
+    linear-gradient(#c6ff4a, #c6ff4a) right top / 1px 7px no-repeat,
+    linear-gradient(#c6ff4a, #c6ff4a) left bottom / 7px 1px no-repeat,
+    linear-gradient(#c6ff4a, #c6ff4a) left bottom / 1px 7px no-repeat,
+    linear-gradient(#c6ff4a, #c6ff4a) right bottom / 7px 1px no-repeat,
+    linear-gradient(#c6ff4a, #c6ff4a) right bottom / 1px 7px no-repeat;
+}
+
+.hero-static {
+  background: #0b0c0a;
+}
+
+.hero-scrim {
+  background: linear-gradient(
+    90deg,
+    rgb(11 12 10 / 0.94) 0%,
+    rgb(11 12 10 / 0.72) 52%,
+    rgb(11 12 10 / 0.38) 100%
+  );
+}
+
+.scan-frame {
+  position: absolute;
+  aspect-ratio: 1;
+}
+
+.scan-frame i {
+  position: absolute;
+  width: 22%;
+  height: 22%;
+  border-color: #c6ff4a;
+  border-style: solid;
+}
+
+.scan-frame i:nth-child(1) {
+  left: 0;
+  top: 0;
+  border-width: 2px 0 0 2px;
+}
+
+.scan-frame i:nth-child(2) {
+  right: 0;
+  top: 0;
+  border-width: 2px 2px 0 0;
+}
+
+.scan-frame i:nth-child(3) {
+  bottom: 0;
+  left: 0;
+  border-width: 0 0 2px 2px;
+}
+
+.scan-frame i:nth-child(4) {
+  right: 0;
+  bottom: 0;
+  border-width: 0 2px 2px 0;
+}
+
+.scan-frame-hero {
+  top: 22%;
+  right: -18%;
+  width: min(92vw, 620px);
+  opacity: 0.58;
+}
+
+.scan-frame-hero::after {
+  content: "";
+  position: absolute;
+  left: 8%;
+  top: 8%;
+  width: 84%;
+  height: 1px;
+  background: #c6ff4a;
+  transform: translateY(0);
+}
+
+.form-field {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.form-control {
+  min-height: 3rem;
+  border: 1px solid rgb(255 255 255 / 0.22) !important;
+  border-radius: 2px !important;
+  background: #13150f !important;
+  color: #f1f3ed !important;
+  box-shadow: none !important;
+}
+
+.form-control::placeholder {
+  color: rgb(241 243 237 / 0.48);
+}
+
+.form-control[aria-invalid="true"] {
+  border-color: #ff8f86 !important;
+}
+
+select.form-control option {
+  background: #13150f;
+  color: #f1f3ed;
+}
+
+@keyframes scan-line {
+  0%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.42;
+  }
+  50% {
+    transform: translateY(460px);
+    opacity: 1;
+  }
+}
+
+@media (min-width: 640px) {
+  .section-shell {
+    padding-inline: 1.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .section-shell {
+    padding-inline: 2.5rem;
+  }
+
+  .scan-frame-hero {
+    right: 8%;
+    width: min(48vw, 660px);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .scan-frame-hero::after {
+    animation: scan-line 3.6s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .scan-frame-hero::after {
+    top: 50%;
+  }
+}

@@ -1,0 +1,103 @@
+"use client";
+
+import Link from "next/link";
+import { ArrowUpRight, Menu } from "lucide-react";
+import {
+  Sheet,
+  SheetClose,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
+
+const links = [
+  { href: "#kako-radi", label: "Kako radi" },
+  { href: "#resenja", label: "Rešenja" },
+  { href: "#za-koga", label: "Za koga" },
+  { href: "#faq", label: "FAQ" },
+];
+
+export function Wordmark() {
+  return (
+    <span className="inline-flex items-center gap-2 text-base font-semibold tracking-[-0.04em]">
+      <span className="scan-mark" aria-hidden="true" />
+      ScanMe
+    </span>
+  );
+}
+
+export function SiteNav() {
+  return (
+    <header className="fixed inset-x-0 top-0 z-40 border-b border-white/10 bg-[#0b0c0a]/90 backdrop-blur-md supports-[backdrop-filter]:bg-[#0b0c0a]/72">
+      <nav
+        className="mx-auto flex h-[72px] max-w-[1440px] items-center justify-between px-4 sm:px-6 lg:px-10"
+        aria-label="Glavna navigacija"
+      >
+        <Link href="#pocetak" className="focus-signal inline-flex min-h-11 items-center" aria-label="ScanMe, početak">
+          <Wordmark />
+        </Link>
+
+        <div className="hidden items-center gap-7 lg:flex">
+          {links.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className="focus-signal inline-flex min-h-11 items-center text-sm text-white/72 transition-colors duration-200 hover:text-white"
+            >
+              {link.label}
+            </Link>
+          ))}
+        </div>
+
+        <div className="hidden lg:block">
+          <Link href="#ponuda" className="button-primary focus-signal">
+            Zatraži ponudu
+            <ArrowUpRight aria-hidden="true" className="size-4" strokeWidth={1.75} />
+          </Link>
+        </div>
+
+        <Sheet>
+          <SheetTrigger asChild>
+            <button
+              type="button"
+              className="focus-signal inline-flex size-11 items-center justify-center border border-white/20 text-white lg:hidden"
+              aria-label="Otvori meni"
+            >
+              <Menu aria-hidden="true" className="size-5" strokeWidth={1.75} />
+            </button>
+          </SheetTrigger>
+          <SheetContent className="w-[min(88vw,420px)] border-white/15 bg-[#0b0c0a] p-6 text-white shadow-none">
+            <SheetHeader className="border-b border-white/12 pb-6 text-left">
+              <SheetTitle aria-label="ScanMe meni">
+                <Wordmark />
+              </SheetTitle>
+              <SheetDescription className="text-white/60">
+                Fizički materijal koji vodi do prave digitalne akcije.
+              </SheetDescription>
+            </SheetHeader>
+            <div className="grid gap-1 py-5">
+              {links.map((link) => (
+                <SheetClose asChild key={link.href}>
+                  <Link
+                    href={link.href}
+                    className="focus-signal flex min-h-12 items-center border-b border-white/10 text-lg text-white/84"
+                  >
+                    {link.label}
+                  </Link>
+                </SheetClose>
+              ))}
+            </div>
+            <SheetClose asChild>
+              <Link href="#ponuda" className="button-primary focus-signal mt-auto w-full">
+                Zatraži ponudu
+                <ArrowUpRight aria-hidden="true" className="size-4" strokeWidth={1.75} />
+              </Link>
+            </SheetClose>
+          </SheetContent>
+        </Sheet>
+      </nav>
+    </header>
+  );
+}
