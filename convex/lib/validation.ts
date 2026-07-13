@@ -21,7 +21,12 @@ export function optionalText(value: string | undefined, maxLength: number) {
 }
 
 export function isSafeGoogleReviewDestination(value: string) {
+  return isSafePublicDestination(value);
+}
+
+export function isSafePublicDestination(value: string) {
   try {
+    if (value.length > 2048) return false;
     const url = new URL(value);
     if (
       url.protocol !== "https:" ||
@@ -32,29 +37,53 @@ export function isSafeGoogleReviewDestination(value: string) {
       return false;
     }
 
-    const hostname = url.hostname.toLowerCase();
-    const path = url.pathname.toLowerCase();
-
-    if (hostname === "search.google.com") {
-      return path.startsWith("/local/writereview");
-    }
-    if (hostname === "www.google.com" || hostname === "google.com") {
-      return path.startsWith("/maps");
-    }
-    if (hostname === "g.page") {
-      return path.startsWith("/r/");
-    }
-    if (hostname === "maps.app.goo.gl") {
-      return path.length > 1;
-    }
-    if (hostname === "goo.gl") {
-      return path.startsWith("/maps/");
+    const hostname = url.hostname.toLowerCase().replace(/^\[|\]$/g, "");
+    if (
+      hostname === "localhost" ||
+      hostname.endsWith(".localhost") ||
+      hostname.endsWith(".local") ||
+      hostname === "0.0.0.0" ||
+      hostname === "::" ||
+      hostname === "::1"
+    ) {
+      return false;
     }
 
-    return false;
+    const ipv4 = hostname.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+    if (ipv4) {
+      const octets = ipv4.slice(1).map(Number);
+      if (octets.some((octet) => octet > 255)) return false;
+      if (
+        octets[0] === 10 ||
+        octets[0] === 127 ||
+        octets[0] === 0 ||
+        (octets[0] === 169 && octets[1] === 254) ||
+        (octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31) ||
+        (octets[0] === 192 && octets[1] === 168)
+      ) {
+        return false;
+      }
+    }
+
+    if (hostname.includes(":")) {
+      const compact = hostname.toLowerCase();
+      if (compact.startsWith("fc") || compact.startsWith("fd") || compact.startsWith("fe8") || compact.startsWith("fe9") || compact.startsWith("fea") || compact.startsWith("feb")) {
+        return false;
+      }
+    }
+
+    return hostname.includes(".");
   } catch {
     return false;
   }
+}
+
+export function normalizeEmail(value: string) {
+  const email = value.trim().toLowerCase();
+  if (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    throw new Error("Email adresa nije ispravna.");
+  }
+  return email;
 }
 
 export function requireSlug(value: string) {

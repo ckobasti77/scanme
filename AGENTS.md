@@ -54,7 +54,7 @@ The test: Every changed line should trace directly to the user's request.
 **Define success criteria. Loop until verified.**
 
 Transform tasks into verifiable goals:
-- "Add validation" â†’ "Write tests for invalid inputs, then make them pass"
+- "Add vanlidation" â†’ "Write tests for invalid inputs, then make them pass"
 - "Fix the bug" â†’ "Write a test that reproduces it, then make it pass"
 - "Refactor X" â†’ "Ensure tests pass before and after"
 
