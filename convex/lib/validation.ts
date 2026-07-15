@@ -88,10 +88,28 @@ export function normalizeEmail(value: string) {
   return email;
 }
 
+export function normalizePhone(value: string) {
+  const phone = value.trim().replace(/\s+/g, " ");
+  const digitCount = (phone.match(/\d/g) ?? []).length;
+  if (
+    phone.length > 40 ||
+    digitCount < 7 ||
+    digitCount > 15 ||
+    !/^\+?[0-9\s().-]+$/.test(phone)
+  ) {
+    throw new Error(
+      "Telefon mora biti u formatu sa 7–15 cifara; dozvoljeni su početni +, razmak, zagrade i crtica.",
+    );
+  }
+  return phone;
+}
+
 export function requireSlug(value: string) {
   const slug = value.trim().toLowerCase();
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) || slug.length > 80) {
-    throw new Error("QR oznaka nije ispravna.");
+    throw new Error(
+      "QR slug mora biti u formatu: mala slova a-z, cifre 0-9 i crtice između reči, bez razmaka ili crtice na početku/kraju (npr. naziv-lokala), najviše 80 karaktera.",
+    );
   }
   if (RESERVED_SLUGS.has(slug)) {
     throw new Error("Ova QR oznaka je rezervisana za ScanMe sistem.");

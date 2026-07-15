@@ -4,7 +4,7 @@ import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx } from "./_generated/server";
 import { isAdminEmail, requireAdmin } from "./lib/access";
-import { isSafePublicDestination, normalizeEmail, requireSlug, requireText } from "./lib/validation";
+import { isSafePublicDestination, normalizeEmail, normalizePhone, requireSlug, requireText } from "./lib/validation";
 
 const INVITATION_LIFETIME = 7 * 24 * 60 * 60 * 1000;
 const BELGRADE_TIME_ZONE = "Europe/Belgrade";
@@ -42,24 +42,40 @@ const contactArgs = {
   positionTitle: v.string(),
 };
 
+function normalizeOptionalEmail(value: string) {
+  const email = value.trim();
+  return email ? normalizeEmail(email) : "";
+}
+
+function normalizeOptionalPhone(value: string) {
+  const phone = value.trim();
+  return phone ? normalizePhone(phone) : "";
+}
+
+function normalizeOptionalPosition(value: string) {
+  return value.trim() ? requireText(value, "Uloga", 2, 80) : "";
+}
+
 async function createContactAndInvitation(
   ctx: MutationCtx,
   businessId: Id<"businesses">,
   contact: { firstName: string; lastName: string; email: string; phone: string; positionTitle: string },
+  { sendInvitation = true }: { sendInvitation?: boolean } = {},
 ) {
   const now = Date.now();
-  const normalizedEmail = normalizeEmail(contact.email);
+  const normalizedEmail = normalizeOptionalEmail(contact.email);
   const contactId = await ctx.db.insert("businessContacts", {
     businessId,
     firstName: requireText(contact.firstName, "Ime", 2, 80),
     lastName: requireText(contact.lastName, "Prezime", 2, 80),
     normalizedEmail,
-    phone: requireText(contact.phone, "Telefon", 5, 40),
-    positionTitle: requireText(contact.positionTitle, "Uloga", 2, 80),
+    phone: normalizeOptionalPhone(contact.phone),
+    positionTitle: normalizeOptionalPosition(contact.positionTitle),
     status: "invited",
     createdAt: now,
     updatedAt: now,
   });
+  if (!normalizedEmail) return { contactId, invitationId: null };
   const invitationId = await ctx.db.insert("businessInvitations", {
     businessId,
     contactId,
@@ -70,7 +86,9 @@ async function createContactAndInvitation(
     createdAt: now,
     updatedAt: now,
   });
-  await ctx.scheduler.runAfter(0, internal.invitationEmails.sendInvitation, { invitationId });
+  if (sendInvitation) {
+    await ctx.scheduler.runAfter(0, internal.invitationEmails.sendInvitation, { invitationId });
+  }
   return { contactId, invitationId };
 }
 
@@ -100,19 +118,46 @@ export const listBusinesses = query({
           .order("desc")
           .take(20);
         const link = selectPrimaryLink(links);
-        const contacts = await ctx.db
+        const contactRows = await ctx.db
           .query("businessContacts")
           .withIndex("by_businessId", (q) => q.eq("businessId", business._id))
-          .order("desc")
-          .take(1);
-        const contact = contacts[0] ?? null;
-        const invitations = contact
-          ? await ctx.db
+          .order("asc")
+          .take(50);
+        const activeContactRows = contactRows.filter((contact) => contact.status !== "inactive");
+        const orderedContactRows = activeContactRows.length
+          ? activeContactRows
+          : contactRows.length
+            ? [contactRows[contactRows.length - 1]]
+            : [];
+        const contactViews = await Promise.all(
+          orderedContactRows.map(async (contact) => {
+            const invitations = await ctx.db
               .query("businessInvitations")
               .withIndex("by_contactId", (q) => q.eq("contactId", contact._id))
               .order("desc")
-              .take(1)
-          : [];
+              .take(1);
+            const invitation = invitations[0] ?? null;
+            return {
+              id: contact._id,
+              firstName: contact.firstName,
+              lastName: contact.lastName,
+              email: contact.normalizedEmail,
+              phone: contact.phone,
+              positionTitle: contact.positionTitle,
+              status: contact.status,
+              invitation: invitation
+                ? {
+                    id: invitation._id,
+                    status: invitation.status,
+                    expiresAt: invitation.expiresAt,
+                    failureReason: invitation.failureReason ?? null,
+                    sentAt: invitation.sentAt ?? null,
+                  }
+                : null,
+            };
+          }),
+        );
+        const contact = contactViews[0] ?? null;
         return {
           id: business._id,
           name: business.name,
@@ -129,26 +174,9 @@ export const listBusinesses = query({
                 updatedAt: link.updatedAt,
               }
             : null,
-          contact: contact
-            ? {
-                id: contact._id,
-                firstName: contact.firstName,
-                lastName: contact.lastName,
-                email: contact.normalizedEmail,
-                phone: contact.phone,
-                positionTitle: contact.positionTitle,
-                status: contact.status,
-              }
-            : null,
-          invitation: invitations[0]
-            ? {
-                id: invitations[0]._id,
-                status: invitations[0].status,
-                expiresAt: invitations[0].expiresAt,
-                failureReason: invitations[0].failureReason ?? null,
-                sentAt: invitations[0].sentAt ?? null,
-              }
-            : null,
+          contact,
+          contacts: contactViews,
+          invitation: contact?.invitation ?? null,
         };
       }),
     );
@@ -160,13 +188,19 @@ export const createBusiness = mutation({
     name: v.string(),
     slug: v.string(),
     destinationUrl: v.string(),
-    ...contactArgs,
+    contacts: v.optional(v.array(v.object(contactArgs))),
+    firstName: v.optional(v.string()),
+    lastName: v.optional(v.string()),
+    email: v.optional(v.string()),
+    phone: v.optional(v.string()),
+    positionTitle: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
     const name = requireText(args.name, "Naziv lokala", 2, 120);
     const slug = requireSlug(args.slug);
-    if (!isSafePublicDestination(args.destinationUrl)) {
+    const destinationUrl = args.destinationUrl.trim();
+    if (destinationUrl && !isSafePublicDestination(destinationUrl)) {
       throw new Error("Destinacija mora biti bezbedan javni HTTPS link.");
     }
     const existingLink = await ctx.db
@@ -195,15 +229,33 @@ export const createBusiness = mutation({
     const linkId = await ctx.db.insert("dynamicLinks", {
       businessId,
       slug,
-      destinationUrl: args.destinationUrl.trim(),
+      destinationUrl,
       type: "google_review",
       active: true,
       scanCount: 0,
       createdAt: now,
       updatedAt: now,
     });
-    const { invitationId } = await createContactAndInvitation(ctx, businessId, args);
-    return { businessId, linkId, invitationId };
+    const legacyContact = args.firstName || args.lastName || args.email || args.phone || args.positionTitle
+      ? {
+          firstName: args.firstName ?? "",
+          lastName: args.lastName ?? "",
+          email: args.email ?? "",
+          phone: args.phone ?? "",
+          positionTitle: args.positionTitle ?? "",
+        }
+      : null;
+    const contacts = args.contacts?.length ? args.contacts : legacyContact ? [legacyContact] : [];
+    const invitations = [];
+    for (const contact of contacts) {
+      invitations.push(await createContactAndInvitation(ctx, businessId, contact, { sendInvitation: false }));
+    }
+    return {
+      businessId,
+      linkId,
+      invitationId: invitations[0]?.invitationId ?? null,
+      invitationIds: invitations.map(({ invitationId }) => invitationId),
+    };
   },
 });
 
@@ -406,6 +458,97 @@ export const revokeInvitation = mutation({
     }
     await ctx.db.patch(invitation._id, { status: "revoked", updatedAt: Date.now() });
     return { revoked: true };
+  },
+});
+
+export const addContact = mutation({
+  args: { businessId: v.id("businesses"), ...contactArgs },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    const business = await ctx.db.get(args.businessId);
+    if (!business) throw new Error("Lokal nije pronađen.");
+    return await createContactAndInvitation(ctx, args.businessId, args, { sendInvitation: false });
+  },
+});
+
+export const updateContact = mutation({
+  args: { businessId: v.id("businesses"), contactId: v.id("businessContacts"), ...contactArgs },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    const contact = await ctx.db.get(args.contactId);
+    if (!contact || contact.businessId !== args.businessId || contact.status === "inactive") {
+      throw new Error("POC kontakt nije pronađen.");
+    }
+    const normalizedEmail = normalizeOptionalEmail(args.email);
+    await ctx.db.patch(contact._id, {
+      firstName: requireText(args.firstName, "Ime", 2, 80),
+      lastName: requireText(args.lastName, "Prezime", 2, 80),
+      normalizedEmail,
+      phone: normalizeOptionalPhone(args.phone),
+      positionTitle: normalizeOptionalPosition(args.positionTitle),
+      updatedAt: Date.now(),
+    });
+    const latestInvitation = await ctx.db
+      .query("businessInvitations")
+      .withIndex("by_contactId", (q) => q.eq("contactId", contact._id))
+      .order("desc")
+      .take(1);
+    let invitationId = latestInvitation[0]?._id ?? null;
+    if (normalizedEmail && !latestInvitation[0]) {
+      const now = Date.now();
+      invitationId = await ctx.db.insert("businessInvitations", {
+        businessId: args.businessId,
+        contactId: contact._id,
+        normalizedEmail,
+        tokenHash: "",
+        status: "queued",
+        expiresAt: now + INVITATION_LIFETIME,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+    return { contactId: contact._id, invitationId };
+  },
+});
+
+export const deleteContact = mutation({
+  args: { businessId: v.id("businesses"), contactId: v.id("businessContacts") },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    const contact = await ctx.db.get(args.contactId);
+    if (!contact || contact.businessId !== args.businessId) {
+      throw new Error("POC kontakt nije pronađen.");
+    }
+    const contacts = await ctx.db
+      .query("businessContacts")
+      .withIndex("by_businessId", (q) => q.eq("businessId", args.businessId))
+      .order("asc")
+      .take(50);
+    const primary = contacts.find((candidate) => candidate.status !== "inactive");
+    if (!primary || primary._id === contact._id) {
+      throw new Error("Glavni POC kontakt ne može da se obriše. Dodajte drugi kontakt pa obrišite njega.");
+    }
+    const now = Date.now();
+    await ctx.db.patch(contact._id, { status: "inactive", updatedAt: now });
+    if (contact.authUserId) {
+      const membership = await ctx.db
+        .query("businessMemberships")
+        .withIndex("by_userId_and_businessId", (q) =>
+          q.eq("userId", contact.authUserId!).eq("businessId", args.businessId),
+        )
+        .unique();
+      if (membership) await ctx.db.patch(membership._id, { active: false, updatedAt: now });
+    }
+    const invitations = await ctx.db
+      .query("businessInvitations")
+      .withIndex("by_contactId", (q) => q.eq("contactId", contact._id))
+      .take(50);
+    for (const invitation of invitations) {
+      if (invitation.status !== "accepted" && invitation.status !== "revoked") {
+        await ctx.db.patch(invitation._id, { status: "revoked", updatedAt: now });
+      }
+    }
+    return { deleted: true };
   },
 });
 

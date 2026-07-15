@@ -8,6 +8,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ClientWordmark } from "@/components/client-panel/client-wordmark";
 import { api } from "@/convex/_generated/api";
 
 const shortDate = new Intl.DateTimeFormat("sr-Latn-RS", { day: "2-digit", month: "2-digit" });
@@ -19,8 +20,7 @@ export function ClientPanel({ slug }: { slug: string }) {
     <main className="min-h-[100dvh] bg-background">
       <header className="border-b border-border">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
-          <div className="flex min-h-11 items-center gap-3 font-semibold"><span className="scan-mark" aria-hidden="true" /> SCANME</div>
-          <span className="text-xs text-muted-foreground">Klijentski panel</span>
+          <ClientWordmark />
         </div>
       </header>
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-12">

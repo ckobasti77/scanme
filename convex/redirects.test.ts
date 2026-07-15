@@ -111,6 +111,30 @@ describe("QR preusmeravanje", () => {
 });
 
 describe("pristup klijentskom panelu", () => {
+  test("POC dobija aktivni panel za automatski redirect posle prijave", async () => {
+    const t = convexTest(schema, modules);
+    const seeded = await seedLink(t, "landing-panel", "https://reviews.example.com/landing");
+    const userId = await t.run(async (ctx) => {
+      const now = Date.now();
+      const id = await ctx.db.insert("users", {
+        email: "landing-poc@example.com",
+        emailVerificationTime: now,
+      });
+      await ctx.db.insert("businessMemberships", {
+        userId: id,
+        businessId: seeded.businessId,
+        accessRole: "viewer",
+        active: true,
+        createdAt: now,
+        updatedAt: now,
+      });
+      return id;
+    });
+
+    await expect(t.withIdentity({ subject: userId, issuer: "https://test.local" }).query(api.clientPanel.myPanels, {}))
+      .resolves.toEqual([{ slug: "landing-panel", name: "Lokal landing-panel" }]);
+  });
+
   test("POC vidi metrike aktivnog linka kada lokal ima i stariji neaktivni link", async () => {
     const t = convexTest(schema, modules);
     const seeded = await seedLink(t, "lokal-sa-vise-linkova", "https://reviews.example.com/aktivan");
@@ -215,10 +239,12 @@ describe("admin kreiranje lokala", () => {
       phone: "+38160111222",
       positionTitle: "Vlasnik",
     });
+    const invitationId = created.invitationId;
+    if (!invitationId) throw new Error("Test setup nije kreirao pozivnicu.");
     const rows = await t.run(async (ctx) => {
       const business = await ctx.db.get(created.businessId);
       const link = await ctx.db.get(created.linkId);
-      const invitation = await ctx.db.get(created.invitationId);
+      const invitation = await ctx.db.get(invitationId);
       const contact = invitation ? await ctx.db.get(invitation.contactId) : null;
       return { business, link, invitation, contact };
     });

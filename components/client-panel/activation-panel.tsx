@@ -9,6 +9,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ClientWordmark } from "@/components/client-panel/client-wordmark";
 import { api } from "@/convex/_generated/api";
 
 export function ActivationPanel({ slug, token }: { slug: string; token: string }) {
@@ -16,7 +17,7 @@ export function ActivationPanel({ slug, token }: { slug: string; token: string }
   return (
     <main className="grid min-h-[100dvh] place-items-center bg-background px-4 py-8">
       <div className="w-full max-w-xl border border-border bg-card p-6 sm:p-10">
-        <div className="mb-10 flex items-center gap-3 font-semibold"><span className="scan-mark" aria-hidden="true" /> SCANME</div>
+        <div className="mb-10"><ClientWordmark /></div>
         {invitation === undefined ? <div className="h-48 animate-pulse bg-secondary" /> : invitation.status === "valid" ? (
           <>
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">{invitation.businessName}</p>

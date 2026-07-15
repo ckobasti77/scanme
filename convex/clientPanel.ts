@@ -1,9 +1,35 @@
 import { v } from "convex/values";
+import { getAuthUserId } from "@convex-dev/auth/server";
 import { query } from "./_generated/server";
 import { BusinessAccessDeniedError, requireBusinessAccessBySlug } from "./lib/access";
 import { requireSlug } from "./lib/validation";
 
 const BELGRADE_TIME_ZONE = "Europe/Belgrade";
+
+export const myPanels = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return [];
+
+    const memberships = await ctx.db
+      .query("businessMemberships")
+      .withIndex("by_userId_and_active", (q) =>
+        q.eq("userId", userId).eq("active", true),
+      )
+      .take(20);
+
+    const panels = [];
+    for (const membership of memberships) {
+      const business = await ctx.db.get(membership.businessId);
+      if (business && business.status !== "inactive") {
+        panels.push({ slug: business.slug, name: business.name });
+      }
+    }
+
+    return panels;
+  },
+});
 
 function dateKey(timestamp: number) {
   const parts = new Intl.DateTimeFormat("en-CA", {
