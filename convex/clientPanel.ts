@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { query } from "./_generated/server";
-import { requireBusinessAccessBySlug } from "./lib/access";
+import { BusinessAccessDeniedError, requireBusinessAccessBySlug } from "./lib/access";
 import { requireSlug } from "./lib/validation";
 
 const BELGRADE_TIME_ZONE = "Europe/Belgrade";
@@ -25,12 +25,10 @@ export const publicLocation = query({
   args: { slug: v.string() },
   handler: async (ctx, args) => {
     const slug = requireSlug(args.slug);
-    const link = await ctx.db
-      .query("dynamicLinks")
+    const business = await ctx.db
+      .query("businesses")
       .withIndex("by_slug", (q) => q.eq("slug", slug))
       .unique();
-    if (!link) return null;
-    const business = await ctx.db.get(link.businessId);
     if (!business || business.status === "inactive") return null;
     return { name: business.name };
   },
@@ -42,8 +40,11 @@ export const metrics = query({
     let access;
     try {
       access = await requireBusinessAccessBySlug(ctx, args.slug);
-    } catch {
-      return { status: "forbidden" as const };
+    } catch (error) {
+      if (error instanceof BusinessAccessDeniedError) {
+        return { status: "forbidden" as const };
+      }
+      throw error;
     }
     const { business, link } = access;
     const keys = lastDateKeys(7);
@@ -57,20 +58,6 @@ export const metrics = query({
           .unique(),
       ),
     );
-    const recentRows = await ctx.db
-      .query("scanEvents")
-      .withIndex("by_dynamicLinkId_and_scannedAt", (q) => q.eq("dynamicLinkId", link._id))
-      .order("desc")
-      .take(120);
-    const recent = recentRows.filter((row) => row.deviceCategory !== "bot").slice(0, 100);
-    const deviceCounts = { mobile: 0, tablet: 0, desktop: 0, unknown: 0 };
-    const referrerCounts: Record<string, number> = {};
-    for (const event of recent) {
-      const category = event.deviceCategory;
-      if (category && category !== "bot") deviceCounts[category] += 1;
-      if (event.referrerHost) referrerCounts[event.referrerHost] = (referrerCounts[event.referrerHost] ?? 0) + 1;
-    }
-
     return {
       status: "available" as const,
       businessName: business.name,
@@ -80,18 +67,6 @@ export const metrics = query({
       daily: keys
         .map((key, index) => ({ dateKey: key, count: dailyRows[index]?.count ?? 0 }))
         .reverse(),
-      recent: recent.slice(0, 20).map((event) => ({
-        id: event._id,
-        scannedAt: event.scannedAt,
-        deviceCategory: event.deviceCategory ?? "unknown",
-        referrerHost: event.referrerHost ?? null,
-      })),
-      deviceCounts,
-      topReferrers: Object.entries(referrerCounts)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 5)
-        .map(([host, count]) => ({ host, count })),
-      sampleSize: recent.length,
     };
   },
 });

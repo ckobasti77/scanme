@@ -93,7 +93,7 @@ npx convex env set SCANME_DEMO_SETUP_KEY <lokalni-kljuc>
 npx convex run demo:seed '{"setupKey":"<lokalni-kljuc>"}'
 ```
 
-Aktivan primer je `/s/primer-review`, a namerno isključen primer je
-`/s/primer-neaktivan`. Odredište koristi jasno označen `DEMO_PLACE_ID` i nije
+Aktivan primer je `/primer-review`, a namerno isključen primer je
+`/primer-neaktivan`. Odredište koristi jasno označen `DEMO_PLACE_ID` i nije
 predstavljeno kao stvarni klijent. Pre produkcije postavite pravi Google Review
 link kroz zaštićen administrativni proces i uklonite lokalni demo ključ.

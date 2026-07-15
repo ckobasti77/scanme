@@ -42,10 +42,17 @@ export const resolveAndRecord = mutation({
   ),
   handler: async (ctx, args) => {
     const slug = requireSlug(args.slug);
-    const link = await ctx.db
+    let link = await ctx.db
       .query("dynamicLinks")
       .withIndex("by_slug", (q) => q.eq("slug", slug))
       .unique();
+    if (!link) {
+      const alias = await ctx.db
+        .query("dynamicLinkAliases")
+        .withIndex("by_slug", (q) => q.eq("slug", slug))
+        .unique();
+      link = alias ? await ctx.db.get(alias.dynamicLinkId) : null;
+    }
 
     if (!link) return { status: "missing" as const };
     if (!link.active) return { status: "inactive" as const };

@@ -22,12 +22,12 @@ export async function findInvitationByToken(ctx: DatabaseCtx, token: string, raw
     .withIndex("by_tokenHash", (q) => q.eq("tokenHash", tokenHash))
     .unique();
   if (!invitation) return null;
-  const link = await ctx.db
-    .query("dynamicLinks")
+  const business = await ctx.db
+    .query("businesses")
     .withIndex("by_slug", (q) => q.eq("slug", slug))
     .unique();
-  if (!link || link.businessId !== invitation.businessId) return null;
-  return { invitation, link };
+  if (!business || business._id !== invitation.businessId) return null;
+  return { invitation, business };
 }
 
 export async function acceptInvitationForUser(

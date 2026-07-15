@@ -43,6 +43,7 @@ function GoogleReviewsWorkspace() {
   const metrics = useQuery(api.admin.getBusinessMetrics, effectiveSelectedId ? { businessId: effectiveSelectedId } : "skip");
   const createBusiness = useMutation(api.admin.createBusiness);
   const updateBusinessName = useMutation(api.admin.updateBusinessName);
+  const updateBusinessSlug = useMutation(api.admin.updateBusinessSlug);
   const updateDestination = useMutation(api.admin.updateDestination);
   const setBusinessActive = useMutation(api.admin.setBusinessActive);
   const resendInvitation = useMutation(api.admin.resendInvitation);
@@ -109,6 +110,26 @@ function GoogleReviewsWorkspace() {
       form.closest("details")?.removeAttribute("open");
       feedback("Naziv lokala je promenjen. QR slug i adrese ostali su isti.");
     } catch (reason) { fail(reason); } finally { setPending(null); }
+  }
+
+  async function saveSlug(kind: "qr" | "clientPanel", slug: string) {
+    if (!selected?.link) return false;
+    const pendingKey = `slug:${kind}`;
+    setPending(pendingKey);
+    try {
+      await updateBusinessSlug({ businessId: selected.id, linkId: selected.link.id, kind, slug });
+      feedback(
+        kind === "qr"
+          ? "QR adresa je promenjena. Stara odštampana QR adresa nastavlja da radi."
+          : "Adresa klijentskog panela je promenjena.",
+      );
+      return true;
+    } catch (reason) {
+      fail(reason);
+      return false;
+    } finally {
+      setPending(null);
+    }
   }
 
   async function toggleActive() {
@@ -236,8 +257,24 @@ function GoogleReviewsWorkspace() {
                   <div className="border border-border bg-card p-5 sm:p-7">
                     <h3 className="font-semibold">Stabilne adrese</h3>
                     <div className="mt-6 grid gap-3">
-                      <LinkRow label="QR adresa" path={`/s/${selected.link.slug}`} />
-                      <LinkRow label="Klijentski panel" path={`/s/${selected.link.slug}/client-panel`} />
+                      <LinkRow
+                        key={`qr-${selected.id}-${selected.link.slug}`}
+                        label="QR adresa"
+                        path={`/${selected.link.slug}`}
+                        slug={selected.link.slug}
+                        pending={pending === "slug:qr"}
+                        onSave={(slug) => saveSlug("qr", slug)}
+                        preservesPreviousAddress
+                      />
+                      <LinkRow
+                        key={`client-panel-${selected.id}-${selected.clientPanelSlug}`}
+                        label="Klijentski panel"
+                        path={`/${selected.clientPanelSlug}/client-panel`}
+                        slug={selected.clientPanelSlug}
+                        pending={pending === "slug:clientPanel"}
+                        onSave={(slug) => saveSlug("clientPanel", slug)}
+                        invitationWarning
+                      />
                     </div>
                   </div>
                 </div>
@@ -285,11 +322,94 @@ function Field({ name, label, type = "text", placeholder, pattern }: { name: str
   return <div className="form-field"><Label htmlFor={`field-${name}`}>{label} *</Label><Input id={`field-${name}`} name={name} type={type} placeholder={placeholder} pattern={pattern} required className="form-control h-11" /></div>;
 }
 
-function LinkRow({ label, path }: { label: string; path: string }) {
+function LinkRow({
+  label,
+  path,
+  slug,
+  pending,
+  onSave,
+  invitationWarning = false,
+  preservesPreviousAddress = false,
+}: {
+  label: string;
+  path: string;
+  slug: string;
+  pending: boolean;
+  onSave: (slug: string) => Promise<boolean>;
+  invitationWarning?: boolean;
+  preservesPreviousAddress?: boolean;
+}) {
   const [copied, setCopied] = useState(false);
+  const [editing, setEditing] = useState(false);
   const fullUrl = typeof window === "undefined" ? path : `${window.location.origin}${path}`;
   async function copy() { await navigator.clipboard.writeText(fullUrl); setCopied(true); window.setTimeout(() => setCopied(false), 1800); }
-  return <div className="grid gap-2 border border-border p-3"><span className="text-xs text-muted-foreground">{label}</span><code className="break-all text-xs">{path}</code><div className="flex gap-2"><Button type="button" size="sm" variant="outline" onClick={() => void copy()}><Copy className="size-3.5" /> {copied ? "Kopirano" : "Kopiraj"}</Button><Button size="sm" variant="outline" asChild><a href={path} target="_blank" rel="noreferrer"><ExternalLink className="size-3.5" /> Otvori</a></Button></div></div>;
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const data = new FormData(event.currentTarget);
+    if (await onSave(String(data.get("slug") ?? ""))) setEditing(false);
+  }
+  const descriptionId = `slug-description-${label.toLowerCase().replace(/\s+/g, "-")}`;
+  return (
+    <div className="grid gap-2 border border-border p-3 sm:p-4">
+      <span className="text-xs text-muted-foreground">{label}</span>
+      <code className="break-all text-sm">{path}</code>
+      <div className="flex flex-wrap gap-2">
+        <Button type="button" size="sm" variant="outline" className="min-h-11" onClick={() => void copy()}>
+          <Copy className="size-3.5" /> {copied ? "Kopirano" : "Kopiraj"}
+        </Button>
+        <Button size="sm" variant="outline" className="min-h-11" asChild>
+          <a href={path} target="_blank" rel="noreferrer"><ExternalLink className="size-3.5" /> Otvori</a>
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          className="ml-auto min-h-11"
+          aria-expanded={editing}
+          onClick={() => setEditing((current) => !current)}
+        >
+          <Pencil className="size-3.5" /> Izmeni
+        </Button>
+      </div>
+      {editing ? (
+        <form onSubmit={submit} className="mt-2 border-t border-border pt-4">
+          <div className="form-field">
+            <Label htmlFor={`slug-${descriptionId}`}>Novi slug *</Label>
+            <Input
+              id={`slug-${descriptionId}`}
+              name="slug"
+              defaultValue={slug}
+              pattern="[a-z0-9]+(?:-[a-z0-9]+)*"
+              maxLength={80}
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              aria-describedby={descriptionId}
+              required
+              autoFocus
+              className="form-control h-11"
+            />
+            <p id={descriptionId} className="text-xs leading-5 text-muted-foreground">
+              {`Koristite mala slova, brojeve i crtice. ${
+                preservesPreviousAddress
+                  ? "Prethodne odštampane QR adrese nastavljaju da rade."
+                  : "Promenom stara adresa prestaje da radi."
+              }`}
+              {invitationWarning ? " Ako postoji aktivna pozivnica, pošaljite novu." : ""}
+            </p>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button type="submit" size="sm" disabled={pending}>
+              {pending ? <LoaderCircle className="size-3.5 animate-spin" /> : <Save className="size-3.5" />}
+              Sačuvaj
+            </Button>
+            <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => setEditing(false)}>
+              Otkaži
+            </Button>
+          </div>
+        </form>
+      ) : null}
+    </div>
+  );
 }
 
 function ContactPanel({ selected, pending, onResend, onRevoke, onReplace }: { selected: BusinessList[number]; pending: string | null; onResend: () => void; onRevoke: () => void; onReplace: (event: FormEvent<HTMLFormElement>) => void }) {

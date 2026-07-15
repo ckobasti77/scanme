@@ -43,6 +43,14 @@ export default defineSchema({
     .index("by_businessId_and_type", ["businessId", "type"])
     .index("by_active", ["active"]),
 
+  dynamicLinkAliases: defineTable({
+    slug: v.string(),
+    dynamicLinkId: v.id("dynamicLinks"),
+    createdAt: v.number(),
+  })
+    .index("by_slug", ["slug"])
+    .index("by_dynamicLinkId", ["dynamicLinkId"]),
+
   scanEvents: defineTable({
     dynamicLinkId: v.id("dynamicLinks"),
     requestId: v.optional(v.string()),
@@ -113,6 +121,8 @@ export default defineSchema({
     acceptedAt: v.optional(v.number()),
     failedAt: v.optional(v.number()),
     failureReason: v.optional(v.string()),
+    emailMessageId: v.optional(v.string()),
+    // Legacy field retained so existing Resend invitation rows remain valid.
     resendEmailId: v.optional(v.string()),
     createdAt: v.number(),
     updatedAt: v.number(),

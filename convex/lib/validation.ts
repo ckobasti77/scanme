@@ -1,3 +1,5 @@
+const RESERVED_SLUGS = new Set(["admin", "api", "icon"]);
+
 export function requireText(
   value: string,
   label: string,
@@ -90,6 +92,9 @@ export function requireSlug(value: string) {
   const slug = value.trim().toLowerCase();
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) || slug.length > 80) {
     throw new Error("QR oznaka nije ispravna.");
+  }
+  if (RESERVED_SLUGS.has(slug)) {
+    throw new Error("Ova QR oznaka je rezervisana za ScanMe sistem.");
   }
   return slug;
 }

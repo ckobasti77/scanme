@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default async function ScanPage({ params }: PageProps<"/s/[slug]">) {
+export default async function ScanPage({ params }: PageProps<"/[slug]">) {
   const { slug } = await params;
   return <ScanRedirect slug={slug} />;
 }

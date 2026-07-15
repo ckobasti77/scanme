@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { internal } from "./_generated/api";
-import type { Id } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx } from "./_generated/server";
 import { isAdminEmail, requireAdmin } from "./lib/access";
 import { isSafePublicDestination, normalizeEmail, requireSlug, requireText } from "./lib/validation";
@@ -24,6 +24,14 @@ function lastDateKeys(days: number) {
   return Array.from({ length: days }, (_, index) =>
     dateKey(Date.now() - index * 24 * 60 * 60 * 1000),
   );
+}
+
+function selectPrimaryLink(links: Doc<"dynamicLinks">[]) {
+  return links.reduce<Doc<"dynamicLinks"> | null>((selected, link) => {
+    if (!selected) return link;
+    if (link.active !== selected.active) return link.active ? link : selected;
+    return link.updatedAt > selected.updatedAt ? link : selected;
+  }, null);
 }
 
 const contactArgs = {
@@ -90,8 +98,8 @@ export const listBusinesses = query({
             q.eq("businessId", business._id).eq("type", "google_review"),
           )
           .order("desc")
-          .take(1);
-        const link = links[0] ?? null;
+          .take(20);
+        const link = selectPrimaryLink(links);
         const contacts = await ctx.db
           .query("businessContacts")
           .withIndex("by_businessId", (q) => q.eq("businessId", business._id))
@@ -108,6 +116,7 @@ export const listBusinesses = query({
         return {
           id: business._id,
           name: business.name,
+          clientPanelSlug: business.slug,
           status: business.status,
           createdAt: business.createdAt,
           link: link
@@ -165,6 +174,11 @@ export const createBusiness = mutation({
       .withIndex("by_slug", (q) => q.eq("slug", slug))
       .unique();
     if (existingLink) throw new Error("Ovaj QR slug se već koristi.");
+    const existingAlias = await ctx.db
+      .query("dynamicLinkAliases")
+      .withIndex("by_slug", (q) => q.eq("slug", slug))
+      .unique();
+    if (existingAlias) throw new Error("Ovaj QR slug je sačuvan za ranije odštampanu adresu.");
     const existingBusiness = await ctx.db
       .query("businesses")
       .withIndex("by_slug", (q) => q.eq("slug", slug))
@@ -203,8 +217,8 @@ export const getBusinessMetrics = query({
         q.eq("businessId", args.businessId).eq("type", "google_review"),
       )
       .order("desc")
-      .take(1);
-    const link = links[0] ?? null;
+      .take(20);
+    const link = selectPrimaryLink(links);
     if (!link) return null;
     const keys = lastDateKeys(7);
     const dailyRows = await Promise.all(
@@ -268,6 +282,74 @@ export const updateBusinessName = mutation({
   },
 });
 
+export const updateBusinessSlug = mutation({
+  args: {
+    businessId: v.id("businesses"),
+    linkId: v.id("dynamicLinks"),
+    kind: v.union(v.literal("qr"), v.literal("clientPanel")),
+    slug: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    const business = await ctx.db.get(args.businessId);
+    if (!business) throw new Error("Lokal nije pronađen.");
+    const slug = requireSlug(args.slug);
+    const link = await ctx.db.get(args.linkId);
+    if (!link || link.businessId !== args.businessId || link.type !== "google_review") {
+      throw new Error("QR link nije pronađen.");
+    }
+
+    const matchingLinks = await ctx.db
+      .query("dynamicLinks")
+      .withIndex("by_slug", (q) => q.eq("slug", slug))
+      .take(2);
+    if (matchingLinks.some((candidate) => candidate._id !== link._id)) {
+      throw new Error("Ovaj slug se već koristi za drugu QR adresu.");
+    }
+    const matchingBusinesses = await ctx.db
+      .query("businesses")
+      .withIndex("by_slug", (q) => q.eq("slug", slug))
+      .take(2);
+    if (matchingBusinesses.some((candidate) => candidate._id !== business._id)) {
+      throw new Error("Ovaj slug se već koristi za drugi klijentski panel.");
+    }
+    const matchingAliases = await ctx.db
+      .query("dynamicLinkAliases")
+      .withIndex("by_slug", (q) => q.eq("slug", slug))
+      .take(2);
+    if (matchingAliases.some((candidate) => candidate.dynamicLinkId !== link._id)) {
+      throw new Error("Ovaj slug je sačuvan za ranije odštampanu QR adresu.");
+    }
+
+    if (args.kind === "qr") {
+      if (slug !== link.slug) {
+        const existingOldSlugAlias = await ctx.db
+          .query("dynamicLinkAliases")
+          .withIndex("by_slug", (q) => q.eq("slug", link.slug))
+          .unique();
+        if (!existingOldSlugAlias) {
+          await ctx.db.insert("dynamicLinkAliases", {
+            slug: link.slug,
+            dynamicLinkId: link._id,
+            createdAt: Date.now(),
+          });
+        }
+        const promotedAlias = matchingAliases.find(
+          (candidate) => candidate.dynamicLinkId === link._id,
+        );
+        if (promotedAlias) await ctx.db.delete(promotedAlias._id);
+        await ctx.db.patch(link._id, { slug, updatedAt: Date.now() });
+      }
+    } else {
+      await ctx.db.patch(business._id, { slug });
+    }
+    return {
+      qrSlug: args.kind === "qr" ? slug : link.slug,
+      clientPanelSlug: args.kind === "clientPanel" ? slug : business.slug,
+    };
+  },
+});
+
 export const setBusinessActive = mutation({
   args: { businessId: v.id("businesses"), active: v.boolean() },
   handler: async (ctx, args) => {
@@ -278,8 +360,8 @@ export const setBusinessActive = mutation({
         q.eq("businessId", args.businessId).eq("type", "google_review"),
       )
       .order("desc")
-      .take(1);
-    const link = links[0] ?? null;
+      .take(20);
+    const link = selectPrimaryLink(links);
     await ctx.db.patch(args.businessId, { status: args.active ? "active" : "inactive" });
     if (link) await ctx.db.patch(link._id, { active: args.active, updatedAt: Date.now() });
     return { active: args.active };

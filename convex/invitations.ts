@@ -2,6 +2,18 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { acceptInvitationForUser, findInvitationByToken } from "./lib/invitations";
+import { normalizeEmail } from "./lib/validation";
+
+export const currentViewer = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return null;
+    const user = await ctx.db.get(userId);
+    if (!user?.email) return null;
+    return { email: normalizeEmail(user.email) };
+  },
+});
 
 export const getStatus = query({
   args: { token: v.string(), slug: v.string() },
@@ -50,14 +62,8 @@ export const getEmailData = internalQuery({
     if (!invitation) return null;
     const contact = await ctx.db.get(invitation.contactId);
     const business = await ctx.db.get(invitation.businessId);
-    const link = await ctx.db
-      .query("dynamicLinks")
-      .withIndex("by_businessId_and_type", (q) =>
-        q.eq("businessId", invitation.businessId).eq("type", "google_review"),
-      )
-      .unique();
-    if (!contact || !business || !link) return null;
-    return { invitation, contact, business, slug: link.slug };
+    if (!contact || !business) return null;
+    return { invitation, contact, business, slug: business.slug };
   },
 });
 
@@ -83,13 +89,13 @@ export const prepareForSend = internalMutation({
 });
 
 export const markSent = internalMutation({
-  args: { invitationId: v.id("businessInvitations"), resendEmailId: v.string() },
+  args: { invitationId: v.id("businessInvitations"), emailMessageId: v.string() },
   handler: async (ctx, args) => {
     const invitation = await ctx.db.get(args.invitationId);
     if (!invitation || invitation.status === "revoked" || invitation.status === "accepted") return;
     await ctx.db.patch(invitation._id, {
       status: "sent",
-      resendEmailId: args.resendEmailId,
+      emailMessageId: args.emailMessageId,
       sentAt: Date.now(),
       updatedAt: Date.now(),
     });

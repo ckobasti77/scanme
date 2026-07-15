@@ -4,7 +4,7 @@ import { convexTest } from "convex-test";
 import { describe, expect, test } from "vitest";
 import { api } from "./_generated/api";
 import schema from "./schema";
-import { isSafePublicDestination } from "./lib/validation";
+import { isSafePublicDestination, requireSlug } from "./lib/validation";
 
 const modules = import.meta.glob(["./**/*.ts", "!./**/*.test.ts"]);
 
@@ -111,6 +111,42 @@ describe("QR preusmeravanje", () => {
 });
 
 describe("pristup klijentskom panelu", () => {
+  test("POC vidi metrike aktivnog linka kada lokal ima i stariji neaktivni link", async () => {
+    const t = convexTest(schema, modules);
+    const seeded = await seedLink(t, "lokal-sa-vise-linkova", "https://reviews.example.com/aktivan");
+    const userId = await t.run(async (ctx) => {
+      const now = Date.now();
+      await ctx.db.patch(seeded.linkId, { scanCount: 7, updatedAt: now });
+      await ctx.db.insert("dynamicLinks", {
+        businessId: seeded.businessId,
+        slug: "stari-neaktivni-link",
+        destinationUrl: "https://reviews.example.com/stari",
+        type: "google_review",
+        active: false,
+        scanCount: 99,
+        createdAt: now - 1_000,
+        updatedAt: now + 1_000,
+      });
+      const id = await ctx.db.insert("users", {
+        email: "poc-vise-linkova@example.com",
+        emailVerificationTime: now,
+      });
+      await ctx.db.insert("businessMemberships", {
+        userId: id,
+        businessId: seeded.businessId,
+        accessRole: "viewer",
+        active: true,
+        createdAt: now,
+        updatedAt: now,
+      });
+      return id;
+    });
+    const asPoc = t.withIdentity({ subject: userId, issuer: "https://test.local" });
+
+    await expect(asPoc.query(api.clientPanel.metrics, { slug: "lokal-sa-vise-linkova" }))
+      .resolves.toMatchObject({ status: "available", total: 7 });
+  });
+
   test("član lokala A ne može da pročita lokal B", async () => {
     const t = convexTest(schema, modules);
     const localA = await seedLink(t, "lokal-a", "https://reviews.example.com/a");
@@ -219,6 +255,217 @@ describe("admin kreiranje lokala", () => {
     expect(state.link?.slug).toBe("scanme-primer");
     delete process.env.SCANME_ADMIN_EMAILS;
   });
+
+  test("admin nezavisno menja QR i klijentski slug", async () => {
+    process.env.SCANME_ADMIN_EMAILS = "admin@scanme.test";
+    const t = convexTest(schema, modules);
+    const seeded = await seedLink(t, "stari-slug", "https://reviews.example.com/scanme-primer");
+    const adminId = await t.run(async (ctx) =>
+      await ctx.db.insert("users", {
+        email: "admin@scanme.test",
+        emailVerificationTime: Date.now(),
+      }),
+    );
+    const asAdmin = t.withIdentity({ subject: adminId, issuer: "https://test.local" });
+
+    await asAdmin.mutation(api.admin.updateBusinessSlug, {
+      businessId: seeded.businessId,
+      linkId: seeded.linkId,
+      kind: "qr",
+      slug: "nova-qr-adresa",
+    });
+    await asAdmin.mutation(api.admin.updateBusinessSlug, {
+      businessId: seeded.businessId,
+      linkId: seeded.linkId,
+      kind: "clientPanel",
+      slug: "novi-klijentski-panel",
+    });
+
+    const state = await t.run(async (ctx) => ({
+      business: await ctx.db.get(seeded.businessId),
+      link: await ctx.db.get(seeded.linkId),
+    }));
+    expect(state.business?.slug).toBe("novi-klijentski-panel");
+    expect(state.link?.slug).toBe("nova-qr-adresa");
+    await expect(t.query(api.clientPanel.publicLocation, { slug: "novi-klijentski-panel" }))
+      .resolves.toEqual({ name: "Lokal stari-slug" });
+    await expect(t.query(api.clientPanel.publicLocation, { slug: "nova-qr-adresa" }))
+      .resolves.toBeNull();
+    await expect(t.mutation(api.redirects.resolveAndRecord, {
+      slug: "nova-qr-adresa",
+      requestId: "66666666-6666-4666-8666-666666666666",
+    })).resolves.toMatchObject({ status: "available" });
+    await expect(t.mutation(api.redirects.resolveAndRecord, {
+      slug: "stari-slug",
+      requestId: "77777777-7777-4777-8777-777777777777",
+    })).resolves.toMatchObject({
+      status: "available",
+      destinationUrl: "https://reviews.example.com/scanme-primer",
+    });
+    delete process.env.SCANME_ADMIN_EMAILS;
+  });
+
+  test("odštampani QR slug ostaje aktivan posle promene sluga i destinacije", async () => {
+    process.env.SCANME_ADMIN_EMAILS = "admin@scanme.test";
+    const t = convexTest(schema, modules);
+    const seeded = await seedLink(t, "odstampana-adresa", "https://reviews.example.com/stara");
+    const other = await seedLink(t, "drugi-qr", "https://reviews.example.com/drugi");
+    const adminId = await t.run(async (ctx) =>
+      await ctx.db.insert("users", {
+        email: "admin@scanme.test",
+        emailVerificationTime: Date.now(),
+      }),
+    );
+    const asAdmin = t.withIdentity({ subject: adminId, issuer: "https://test.local" });
+
+    await asAdmin.mutation(api.admin.updateBusinessSlug, {
+      businessId: seeded.businessId,
+      linkId: seeded.linkId,
+      kind: "qr",
+      slug: "nova-adresa",
+    });
+    await asAdmin.mutation(api.admin.updateBusinessSlug, {
+      businessId: seeded.businessId,
+      linkId: seeded.linkId,
+      kind: "clientPanel",
+      slug: "novi-panel",
+    });
+    await asAdmin.mutation(api.admin.updateDestination, {
+      linkId: seeded.linkId,
+      destinationUrl: "https://reviews.example.com/nova",
+    });
+    await expect(asAdmin.mutation(api.admin.updateBusinessSlug, {
+      businessId: other.businessId,
+      linkId: other.linkId,
+      kind: "qr",
+      slug: "odstampana-adresa",
+    })).rejects.toThrow("ranije odštampanu QR adresu");
+
+    await expect(t.mutation(api.redirects.resolveAndRecord, {
+      slug: "odstampana-adresa",
+      requestId: "88888888-8888-4888-8888-888888888888",
+    })).resolves.toEqual({
+      status: "available",
+      destinationUrl: "https://reviews.example.com/nova",
+    });
+    await expect(t.mutation(api.redirects.resolveAndRecord, {
+      slug: "nova-adresa",
+      requestId: "99999999-9999-4999-8999-999999999999",
+    })).resolves.toEqual({
+      status: "available",
+      destinationUrl: "https://reviews.example.com/nova",
+    });
+
+    const state = await t.run(async (ctx) => {
+      const aliases = await ctx.db
+        .query("dynamicLinkAliases")
+        .withIndex("by_dynamicLinkId", (q) => q.eq("dynamicLinkId", seeded.linkId))
+        .take(10);
+      return {
+        aliases: aliases.map((alias) => alias.slug),
+        scanCount: (await ctx.db.get(seeded.linkId))?.scanCount,
+      };
+    });
+    expect(state).toEqual({ aliases: ["odstampana-adresa"], scanCount: 2 });
+    delete process.env.SCANME_ADMIN_EMAILS;
+  });
+
+  test("admin ne može da preuzme slug drugog lokala", async () => {
+    process.env.SCANME_ADMIN_EMAILS = "admin@scanme.test";
+    const t = convexTest(schema, modules);
+    const first = await seedLink(t, "prvi-lokal", "https://reviews.example.com/prvi");
+    await seedLink(t, "drugi-lokal", "https://reviews.example.com/drugi");
+    const adminId = await t.run(async (ctx) =>
+      await ctx.db.insert("users", {
+        email: "admin@scanme.test",
+        emailVerificationTime: Date.now(),
+      }),
+    );
+    const asAdmin = t.withIdentity({ subject: adminId, issuer: "https://test.local" });
+
+    await expect(asAdmin.mutation(api.admin.updateBusinessSlug, {
+      businessId: first.businessId,
+      linkId: first.linkId,
+      kind: "qr",
+      slug: "drugi-lokal",
+    })).rejects.toThrow("već koristi");
+    delete process.env.SCANME_ADMIN_EMAILS;
+  });
+
+  test("admin menja tačno prikazani QR link kada lokal ima više linkova", async () => {
+    process.env.SCANME_ADMIN_EMAILS = "admin@scanme.test";
+    const t = convexTest(schema, modules);
+    const seeded = await seedLink(t, "aktuelni-link", "https://reviews.example.com/aktuelni");
+    const olderLinkId = await t.run(async (ctx) => {
+      const now = Date.now() - 1_000;
+      return await ctx.db.insert("dynamicLinks", {
+        businessId: seeded.businessId,
+        slug: "stari-link",
+        destinationUrl: "https://reviews.example.com/stari",
+        type: "google_review",
+        active: false,
+        scanCount: 0,
+        createdAt: now,
+        updatedAt: now,
+      });
+    });
+    const adminId = await t.run(async (ctx) =>
+      await ctx.db.insert("users", {
+        email: "admin@scanme.test",
+        emailVerificationTime: Date.now(),
+      }),
+    );
+    const asAdmin = t.withIdentity({ subject: adminId, issuer: "https://test.local" });
+
+    await expect(asAdmin.mutation(api.admin.updateBusinessSlug, {
+      businessId: seeded.businessId,
+      linkId: seeded.linkId,
+      kind: "qr",
+      slug: "nova-aktuelna-adresa",
+    })).resolves.toMatchObject({ qrSlug: "nova-aktuelna-adresa" });
+
+    const state = await t.run(async (ctx) => ({
+      current: await ctx.db.get(seeded.linkId),
+      older: await ctx.db.get(olderLinkId),
+    }));
+    expect(state.current?.slug).toBe("nova-aktuelna-adresa");
+    expect(state.older?.slug).toBe("stari-link");
+    delete process.env.SCANME_ADMIN_EMAILS;
+  });
+
+  test("admin prikazuje aktivni QR link kada demo lokal ima i neaktivni link", async () => {
+    process.env.SCANME_ADMIN_EMAILS = "admin@scanme.test";
+    const t = convexTest(schema, modules);
+    const seeded = await seedLink(t, "aktivan-review", "https://reviews.example.com/aktivan");
+    await t.run(async (ctx) => {
+      const now = Date.now() + 1_000;
+      await ctx.db.insert("dynamicLinks", {
+        businessId: seeded.businessId,
+        slug: "neaktivan-review",
+        destinationUrl: "https://reviews.example.com/neaktivan",
+        type: "google_review",
+        active: false,
+        scanCount: 0,
+        createdAt: now,
+        updatedAt: now,
+      });
+    });
+    const adminId = await t.run(async (ctx) =>
+      await ctx.db.insert("users", {
+        email: "admin@scanme.test",
+        emailVerificationTime: Date.now(),
+      }),
+    );
+    const asAdmin = t.withIdentity({ subject: adminId, issuer: "https://test.local" });
+
+    const businesses = await asAdmin.query(api.admin.listBusinesses, {});
+    expect(businesses[0]?.link).toMatchObject({
+      id: seeded.linkId,
+      slug: "aktivan-review",
+      active: true,
+    });
+    delete process.env.SCANME_ADMIN_EMAILS;
+  });
 });
 
 test("dozvoljava javni HTTPS domen, a odbija lokalne i privatne adrese", () => {
@@ -226,4 +473,11 @@ test("dozvoljava javni HTTPS domen, a odbija lokalne i privatne adrese", () => {
   expect(isSafePublicDestination("http://reviews.example.com/lokal")).toBe(false);
   expect(isSafePublicDestination("https://localhost/lokal")).toBe(false);
   expect(isSafePublicDestination("https://192.168.1.10/lokal")).toBe(false);
+});
+
+test("rezerviše sistemske root slugove", () => {
+  expect(() => requireSlug("admin")).toThrow("rezervisana");
+  expect(() => requireSlug("api")).toThrow("rezervisana");
+  expect(() => requireSlug("icon")).toThrow("rezervisana");
+  expect(requireSlug("studio-osmica")).toBe("studio-osmica");
 });
