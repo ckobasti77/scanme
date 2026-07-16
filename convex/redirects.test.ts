@@ -492,6 +492,77 @@ describe("admin kreiranje lokala", () => {
     });
     delete process.env.SCANME_ADMIN_EMAILS;
   });
+
+  test("arhiviranje je dozvoljeno tek posle deaktivacije i čuva podatke lokala", async () => {
+    process.env.SCANME_ADMIN_EMAILS = "admin@scanme.test";
+    const t = convexTest(schema, modules);
+    const seeded = await seedLink(t, "lokal-za-arhivu", "https://reviews.example.com/arhiva");
+    const { adminId, contactId, secondaryLinkId } = await t.run(async (ctx) => {
+      const now = Date.now();
+      const adminId = await ctx.db.insert("users", {
+        email: "admin@scanme.test",
+        emailVerificationTime: now,
+      });
+      const contactId = await ctx.db.insert("businessContacts", {
+        businessId: seeded.businessId,
+        firstName: "Test",
+        lastName: "Kontakt",
+        normalizedEmail: "kontakt@example.com",
+        phone: "+38160111222",
+        positionTitle: "Vlasnik",
+        status: "active",
+        createdAt: now,
+        updatedAt: now,
+      });
+      const secondaryLinkId = await ctx.db.insert("dynamicLinks", {
+        businessId: seeded.businessId,
+        slug: "lokal-za-arhivu-drugi-link",
+        destinationUrl: "https://reviews.example.com/arhiva-drugi",
+        type: "google_review",
+        active: true,
+        scanCount: 12,
+        createdAt: now,
+        updatedAt: now,
+      });
+      return { adminId, contactId, secondaryLinkId };
+    });
+    const asAdmin = t.withIdentity({ subject: adminId, issuer: "https://test.local" });
+
+    await expect(asAdmin.mutation(api.admin.archiveBusiness, {
+      businessId: seeded.businessId,
+    })).rejects.toThrow("deaktiviran");
+    await asAdmin.mutation(api.admin.setBusinessActive, {
+      businessId: seeded.businessId,
+      active: false,
+    });
+    await expect(asAdmin.mutation(api.admin.archiveBusiness, {
+      businessId: seeded.businessId,
+    })).resolves.toMatchObject({ archivedAt: expect.any(Number) });
+
+    const state = await t.run(async (ctx) => ({
+      business: await ctx.db.get(seeded.businessId),
+      primaryLink: await ctx.db.get(seeded.linkId),
+      secondaryLink: await ctx.db.get(secondaryLinkId),
+      contact: await ctx.db.get(contactId),
+    }));
+    expect(state.business).toMatchObject({
+      name: "Lokal lokal-za-arhivu",
+      status: "inactive",
+      archivedAt: expect.any(Number),
+    });
+    expect(state.primaryLink?.active).toBe(false);
+    expect(state.secondaryLink).toMatchObject({ active: false, scanCount: 12 });
+    expect(state.contact).toMatchObject({ normalizedEmail: "kontakt@example.com" });
+    await expect(asAdmin.mutation(api.admin.setBusinessActive, {
+      businessId: seeded.businessId,
+      active: true,
+    })).rejects.toThrow("Arhivirani lokal");
+
+    const businesses = await asAdmin.query(api.admin.listBusinesses, {});
+    expect(businesses.find((business) => business.id === seeded.businessId)?.archivedAt)
+      .toEqual(expect.any(Number));
+    delete process.env.SCANME_ADMIN_EMAILS;
+  });
 });
 
 test("dozvoljava javni HTTPS domen, a odbija lokalne i privatne adrese", () => {

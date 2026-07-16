@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { query } from "./_generated/server";
 import { BusinessAccessDeniedError, requireBusinessAccessBySlug } from "./lib/access";
+import { aggregateMetricRows, getMetricRows, metricsRangeConfig } from "./lib/metrics";
 import { requireSlug } from "./lib/validation";
 
 const BELGRADE_TIME_ZONE = "Europe/Belgrade";
@@ -61,7 +62,11 @@ export const publicLocation = query({
 });
 
 export const metrics = query({
-  args: { slug: v.string() },
+  args: {
+    slug: v.string(),
+    range: v.optional(v.union(v.literal("7d"), v.literal("30d"), v.literal("90d"), v.literal("1y"), v.literal("all"))),
+    summaryRange: v.optional(v.union(v.literal("7d"), v.literal("30d"), v.literal("90d"), v.literal("1y"), v.literal("all"))),
+  },
   handler: async (ctx, args) => {
     let access;
     try {
@@ -73,26 +78,30 @@ export const metrics = query({
       throw error;
     }
     const { business, link } = access;
-    const keys = lastDateKeys(7);
-    const dailyRows = await Promise.all(
-      keys.map((key) =>
-        ctx.db
-          .query("dailyScanCounts")
-          .withIndex("by_dynamicLinkId_and_dateKey", (q) =>
-            q.eq("dynamicLinkId", link._id).eq("dateKey", key),
-          )
-          .unique(),
-      ),
-    );
+    const range = args.range ?? "7d";
+    const summaryRange = args.summaryRange ?? range;
+    const config = metricsRangeConfig[range];
+    const summaryConfig = metricsRangeConfig[summaryRange];
+    const metricRows = await getMetricRows(ctx, link._id, range);
+    const summaryRows = summaryRange === range ? metricRows : await getMetricRows(ctx, link._id, summaryRange);
+    const last7Keys = new Set(lastDateKeys(7));
+    const last7Days = metricRows
+      .filter((row) => last7Keys.has(row.dateKey))
+      .reduce((sum, row) => sum + row.count, 0);
+    const todayKey = dateKey(Date.now());
     return {
       status: "available" as const,
       businessName: business.name,
       total: link.scanCount,
-      today: dailyRows[0]?.count ?? 0,
-      last7Days: dailyRows.reduce((sum, row) => sum + (row?.count ?? 0), 0),
-      daily: keys
-        .map((key, index) => ({ dateKey: key, count: dailyRows[index]?.count ?? 0 }))
-        .reverse(),
+      today: metricRows.find((row) => row.dateKey === todayKey)?.count ?? 0,
+      last7Days,
+      periodTotal: range === "all" ? link.scanCount : metricRows.reduce((sum, row) => sum + row.count, 0),
+      range,
+      rangeLabel: config.label,
+      summaryRange,
+      summaryRangeLabel: summaryConfig.label,
+      summaryPeriodTotal: summaryRange === "all" ? link.scanCount : summaryRows.reduce((sum, row) => sum + row.count, 0),
+      daily: aggregateMetricRows(metricRows, config.granularity),
     };
   },
 });

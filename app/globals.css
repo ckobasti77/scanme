@@ -306,6 +306,25 @@ select.form-control option {
   color: #f1f3ed;
 }
 
+.metrics-scroll-viewport {
+  scrollbar-width: none;
+}
+
+.metrics-scroll-viewport::-webkit-scrollbar {
+  display: none;
+}
+
+.metrics-scroll-thumb {
+  cursor: ew-resize !important;
+}
+
+@media (max-width: 639px), (pointer: coarse) {
+  .metrics-scroll-thumb {
+    pointer-events: none;
+    cursor: default !important;
+  }
+}
+
 @keyframes scan-line {
   0%,
   100% {

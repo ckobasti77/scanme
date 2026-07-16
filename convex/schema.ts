@@ -23,6 +23,7 @@ export default defineSchema({
     logoStorageId: v.optional(v.id("_storage")),
     logoUrl: v.optional(v.string()),
     status: businessStatus,
+    archivedAt: v.optional(v.number()),
     createdAt: v.number(),
   })
     .index("by_slug", ["slug"])

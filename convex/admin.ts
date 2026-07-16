@@ -4,6 +4,7 @@ import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx } from "./_generated/server";
 import { isAdminEmail, requireAdmin } from "./lib/access";
+import { aggregateMetricRows, getMetricRows, metricsRangeConfig } from "./lib/metrics";
 import { isSafePublicDestination, normalizeEmail, normalizePhone, requireSlug, requireText } from "./lib/validation";
 
 const INVITATION_LIFETIME = 7 * 24 * 60 * 60 * 1000;
@@ -163,6 +164,7 @@ export const listBusinesses = query({
           name: business.name,
           clientPanelSlug: business.slug,
           status: business.status,
+          archivedAt: business.archivedAt ?? null,
           createdAt: business.createdAt,
           link: link
             ? {
@@ -260,7 +262,11 @@ export const createBusiness = mutation({
 });
 
 export const getBusinessMetrics = query({
-  args: { businessId: v.id("businesses") },
+  args: {
+    businessId: v.id("businesses"),
+    range: v.optional(v.union(v.literal("7d"), v.literal("30d"), v.literal("90d"), v.literal("1y"), v.literal("all"))),
+    summaryRange: v.optional(v.union(v.literal("7d"), v.literal("30d"), v.literal("90d"), v.literal("1y"), v.literal("all"))),
+  },
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
     const links = await ctx.db
@@ -272,17 +278,12 @@ export const getBusinessMetrics = query({
       .take(20);
     const link = selectPrimaryLink(links);
     if (!link) return null;
-    const keys = lastDateKeys(7);
-    const dailyRows = await Promise.all(
-      keys.map((key) =>
-        ctx.db
-          .query("dailyScanCounts")
-          .withIndex("by_dynamicLinkId_and_dateKey", (q) =>
-            q.eq("dynamicLinkId", link._id).eq("dateKey", key),
-          )
-          .unique(),
-      ),
-    );
+    const range = args.range ?? "7d";
+    const summaryRange = args.summaryRange ?? range;
+    const config = metricsRangeConfig[range];
+    const summaryConfig = metricsRangeConfig[summaryRange];
+    const metricRows = await getMetricRows(ctx, link._id, range);
+    const summaryRows = summaryRange === range ? metricRows : await getMetricRows(ctx, link._id, summaryRange);
     const recent = (
       await ctx.db
         .query("scanEvents")
@@ -292,11 +293,22 @@ export const getBusinessMetrics = query({
     )
       .filter((event) => event.deviceCategory !== "bot")
       .slice(0, 20);
+    const last7Keys = new Set(lastDateKeys(7));
+    const last7Days = metricRows
+      .filter((row) => last7Keys.has(row.dateKey))
+      .reduce((sum, row) => sum + row.count, 0);
+    const todayKey = dateKey(Date.now());
     return {
       total: link.scanCount,
-      today: dailyRows[0]?.count ?? 0,
-      last7Days: dailyRows.reduce((sum, row) => sum + (row?.count ?? 0), 0),
-      daily: keys.map((key, index) => ({ dateKey: key, count: dailyRows[index]?.count ?? 0 })).reverse(),
+      today: metricRows.find((row) => row.dateKey === todayKey)?.count ?? 0,
+      last7Days,
+      periodTotal: range === "all" ? link.scanCount : metricRows.reduce((sum, row) => sum + row.count, 0),
+      range,
+      rangeLabel: config.label,
+      summaryRange,
+      summaryRangeLabel: summaryConfig.label,
+      summaryPeriodTotal: summaryRange === "all" ? link.scanCount : summaryRows.reduce((sum, row) => sum + row.count, 0),
+      daily: aggregateMetricRows(metricRows, config.granularity),
       recent: recent.map((event) => ({
         id: event._id,
         scannedAt: event.scannedAt,
@@ -406,6 +418,9 @@ export const setBusinessActive = mutation({
   args: { businessId: v.id("businesses"), active: v.boolean() },
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
+    const business = await ctx.db.get(args.businessId);
+    if (!business) throw new Error("Lokal nije pronađen.");
+    if (business.archivedAt) throw new Error("Arhivirani lokal ne može biti aktiviran.");
     const links = await ctx.db
       .query("dynamicLinks")
       .withIndex("by_businessId_and_type", (q) =>
@@ -417,6 +432,32 @@ export const setBusinessActive = mutation({
     await ctx.db.patch(args.businessId, { status: args.active ? "active" : "inactive" });
     if (link) await ctx.db.patch(link._id, { active: args.active, updatedAt: Date.now() });
     return { active: args.active };
+  },
+});
+
+export const archiveBusiness = mutation({
+  args: { businessId: v.id("businesses") },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    const business = await ctx.db.get(args.businessId);
+    if (!business) throw new Error("Lokal nije pronađen.");
+    if (business.archivedAt) throw new Error("Lokal je već arhiviran.");
+    if (business.status !== "inactive") {
+      throw new Error("Lokal mora biti deaktiviran pre arhiviranja.");
+    }
+
+    const now = Date.now();
+    const links = await ctx.db
+      .query("dynamicLinks")
+      .withIndex("by_businessId", (q) => q.eq("businessId", args.businessId))
+      .take(100);
+    await ctx.db.patch(args.businessId, { archivedAt: now });
+    await Promise.all(
+      links.map((link) =>
+        ctx.db.patch(link._id, { active: false, updatedAt: now }),
+      ),
+    );
+    return { archivedAt: now };
   },
 });
 

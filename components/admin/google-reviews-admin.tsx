@@ -2,19 +2,22 @@
 
 import { useMutation, useQuery } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
-import { Copy, ExternalLink, LoaderCircle, MapPin, Pencil, Plus, RefreshCw, Save, ShieldOff, Trash2, UserRoundPlus } from "lucide-react";
+import { Archive, ArrowDown, ArrowUp, Copy, ExternalLink, ListFilter, LoaderCircle, MapPin, Pencil, Plus, RefreshCw, Save, ShieldOff, Trash2, UserRoundPlus } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
+import { MetricsBarChart } from "@/components/metrics-bar-chart";
+import { MetricsPeriodSelect } from "@/components/metrics-period-select";
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
+import { useRetainedQueryResult } from "@/lib/use-retained-query-result";
 import { AdminGuard } from "./admin-guard";
 import { AdminShell } from "./admin-shell";
 
 const dateFormatter = new Intl.DateTimeFormat("sr-Latn-RS", { dateStyle: "medium", timeStyle: "short" });
-const shortDate = new Intl.DateTimeFormat("sr-Latn-RS", { day: "2-digit", month: "2-digit" });
 
 const invitationLabels: Record<string, string> = {
   queued: "Čeka slanje",
@@ -56,6 +59,10 @@ type CreateBusinessValues = {
   contacts: ContactValues[];
 };
 
+type BusinessSort = "name" | "scans" | "status";
+type SortDirection = "asc" | "desc";
+type MetricsRange = "7d" | "30d" | "90d" | "1y" | "all";
+
 function emptyContact(id: number): ContactDraft {
   return { id, firstName: "", lastName: "", email: "", phone: "", positionTitle: "", roleChoice: "", customRole: "" };
 }
@@ -71,14 +78,41 @@ export function GoogleReviewsAdmin() {
 function GoogleReviewsWorkspace() {
   const businesses = useQuery(api.admin.listBusinesses);
   const [selectedId, setSelectedId] = useState<Id<"businesses"> | null>(null);
-  const effectiveSelectedId = selectedId ?? businesses?.[0]?.id ?? null;
-  const selected = businesses?.find((business) => business.id === effectiveSelectedId) ?? null;
-  const metrics = useQuery(api.admin.getBusinessMetrics, effectiveSelectedId ? { businessId: effectiveSelectedId } : "skip");
+  const [showArchived, setShowArchived] = useState(false);
+  const [businessSort, setBusinessSort] = useState<BusinessSort>("name");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+  const visibleBusinesses = useMemo(() => {
+    const visible = (businesses ?? []).filter((business) => Boolean(business.archivedAt) === showArchived);
+    return [...visible].sort((first, second) => {
+      const direction = sortDirection === "asc" ? 1 : -1;
+      const byName = first.name.localeCompare(second.name, "sr-Latn", { sensitivity: "base" });
+      const firstInactive = first.status === "inactive" ? 1 : 0;
+      const secondInactive = second.status === "inactive" ? 1 : 0;
+
+      if (businessSort !== "status" && firstInactive !== secondInactive) {
+        return firstInactive - secondInactive;
+      }
+      if (businessSort === "name") return byName * direction;
+      const firstScans = first.link?.scanCount ?? 0;
+      const secondScans = second.link?.scanCount ?? 0;
+      if (businessSort === "scans") return (firstScans - secondScans) * direction || byName;
+      return (firstInactive - secondInactive) * direction || byName;
+    });
+  }, [businesses, businessSort, showArchived, sortDirection]);
+  const effectiveSelectedId = visibleBusinesses.some((business) => business.id === selectedId)
+    ? selectedId
+    : visibleBusinesses[0]?.id ?? null;
+  const selected = visibleBusinesses.find((business) => business.id === effectiveSelectedId) ?? null;
+  const [graphRange, setGraphRange] = useState<MetricsRange>("7d");
+  const [summaryRange, setSummaryRange] = useState<MetricsRange>("7d");
+  const metricsQuery = useQuery(api.admin.getBusinessMetrics, effectiveSelectedId ? { businessId: effectiveSelectedId, range: graphRange, summaryRange } : "skip");
+  const metrics = useRetainedQueryResult(metricsQuery, effectiveSelectedId);
   const createBusiness = useMutation(api.admin.createBusiness);
   const updateBusinessName = useMutation(api.admin.updateBusinessName);
   const updateBusinessSlug = useMutation(api.admin.updateBusinessSlug);
   const updateDestination = useMutation(api.admin.updateDestination);
   const setBusinessActive = useMutation(api.admin.setBusinessActive);
+  const archiveBusiness = useMutation(api.admin.archiveBusiness);
   const resendInvitation = useMutation(api.admin.resendInvitation);
   const revokeInvitation = useMutation(api.admin.revokeInvitation);
   const addContact = useMutation(api.admin.addContact);
@@ -88,6 +122,7 @@ function GoogleReviewsWorkspace() {
   const [pending, setPending] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
 
   function feedback(success?: string) {
     setMessage(success ?? null);
@@ -114,13 +149,11 @@ function GoogleReviewsWorkspace() {
     } catch (reason) { fail(reason); return false; } finally { setPending(null); }
   }
 
-  async function submitDestination(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function submitDestination(destinationUrl: string) {
     if (!selected?.link) return;
-    const data = new FormData(event.currentTarget);
     setPending("destination");
     try {
-      await updateDestination({ linkId: selected.link.id, destinationUrl: String(data.get("destinationUrl") ?? "") });
+      await updateDestination({ linkId: selected.link.id, destinationUrl });
       feedback("Dinamička destinacija je promenjena. Sledeći sken koristi novi link.");
     } catch (reason) { fail(reason); } finally { setPending(null); }
   }
@@ -170,6 +203,20 @@ function GoogleReviewsWorkspace() {
       await setBusinessActive({ businessId: selected.id, active: nextActive });
       feedback(nextActive ? "Lokal je ponovo aktivan." : "Lokal i QR preusmeravanje su deaktivirani.");
     } catch (reason) { fail(reason); } finally { setPending(null); }
+  }
+
+  async function archiveSelectedBusiness() {
+    if (!selected || selected.status !== "inactive" || selected.archivedAt) return;
+    setPending("archive");
+    try {
+      await archiveBusiness({ businessId: selected.id });
+      setArchiveDialogOpen(false);
+      feedback("Lokal je prebačen u arhivirane lokale. Svi podaci su sačuvani.");
+    } catch (reason) {
+      fail(reason);
+    } finally {
+      setPending(null);
+    }
   }
 
   async function resend(invitationId: InvitationId) {
@@ -242,17 +289,81 @@ function GoogleReviewsWorkspace() {
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
         <aside aria-label="Lista lokala" className="border border-border bg-card">
-          <div className="border-b border-border px-4 py-3 text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Lokali ({businesses?.length ?? 0})</div>
-          {businesses === undefined ? <div className="h-28 animate-pulse bg-secondary" /> : businesses.length ? (
-            <div className="max-h-[70dvh] overflow-y-auto">
-              {businesses.map((business) => (
-                <button key={business.id} type="button" onClick={() => { setSelectedId(business.id); feedback(); }} className={`block min-h-20 w-full border-b border-border px-4 py-4 text-left transition-colors ${effectiveSelectedId === business.id ? "bg-primary text-primary-foreground" : "hover:bg-secondary"}`}>
-                  <span className="block font-semibold">{business.name}</span>
-                  <span className={`mt-1 block text-xs ${effectiveSelectedId === business.id ? "text-primary-foreground/70" : "text-muted-foreground"}`}>{business.link?.slug ?? "Nema QR linka"} · {business.link?.scanCount ?? 0} skenova</span>
-                </button>
-              ))}
+          <div className="grid gap-3 border-b border-border px-4 py-3">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Lokali ({visibleBusinesses.length})</span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={showArchived}
+                aria-label={showArchived ? "Prikaži aktuelne lokale" : "Prikaži arhivirane lokale"}
+                title={showArchived ? "Prikaži aktuelne lokale" : "Prikaži arhivirane lokale"}
+                onClick={() => { setShowArchived((current) => !current); feedback(); }}
+                className={`inline-flex min-h-11 items-center gap-2 border px-3 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${showArchived ? "border-primary bg-primary text-primary-foreground" : "border-border text-muted-foreground hover:bg-secondary hover:text-foreground"}`}
+              >
+                <Archive className={`size-4 ${showArchived ? "fill-current" : ""}`} />
+                Arhiva
+              </button>
             </div>
-          ) : <div className="p-6 text-sm leading-6 text-muted-foreground">Još nema lokala. Dodajte prvi lokal i POC kontakt.</div>}
+            <div className="flex items-stretch border border-border bg-background">
+              <Select value={businessSort} onValueChange={(value) => setBusinessSort(value as BusinessSort)}>
+                <SelectTrigger className="h-11 min-w-0 flex-1 justify-start gap-0 rounded-none border-0 border-r border-border bg-secondary/35 px-3 text-left shadow-none focus-visible:ring-inset [&>svg]:ml-auto" aria-label="Vrsta sortiranja lokala">
+                  <span className="!flex min-w-0 flex-1 items-center gap-3">
+                    <ListFilter className="size-4 shrink-0 text-primary" />
+                    <span className="min-w-0 truncate font-medium"><SelectValue /></span>
+                  </span>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="name">Naziv</SelectItem>
+                  <SelectItem value="scans">Skenovi</SelectItem>
+                  <SelectItem value="status">Status</SelectItem>
+                </SelectContent>
+              </Select>
+              <button
+                type="button"
+                onClick={() => setSortDirection((current) => current === "asc" ? "desc" : "asc")}
+                aria-label={sortDirection === "asc" ? "Rastući redosled. Promeni u opadajući." : "Opadajući redosled. Promeni u rastući."}
+                title={sortDirection === "asc" ? "Rastući redosled" : "Opadajući redosled"}
+                className="group flex h-11 w-12 shrink-0 cursor-pointer items-center justify-center transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+              >
+                <span className="flex items-center gap-0.5" aria-hidden="true">
+                  <ArrowUp className={`size-4 transition-colors ${sortDirection === "asc" ? "text-primary" : "text-muted-foreground/45 group-hover:text-muted-foreground"}`} />
+                  <ArrowDown className={`size-4 transition-colors ${sortDirection === "desc" ? "text-primary" : "text-muted-foreground/45 group-hover:text-muted-foreground"}`} />
+                </span>
+              </button>
+            </div>
+          </div>
+          {businesses === undefined ? <div className="h-28 animate-pulse bg-secondary" /> : visibleBusinesses.length ? (
+            <div className="max-h-[70dvh] overflow-y-auto">
+              {visibleBusinesses.map((business) => {
+                const isSelected = effectiveSelectedId === business.id;
+                const isInactive = business.status === "inactive";
+                const isArchived = Boolean(business.archivedAt);
+                const stateClasses = isInactive
+                  ? `bg-destructive text-destructive-foreground hover:bg-destructive/90 ${isSelected ? "ring-2 ring-inset ring-white/70" : ""}`
+                  : isSelected
+                    ? "bg-primary text-primary-foreground"
+                    : "hover:bg-secondary";
+                return (
+                  <button
+                    key={business.id}
+                    type="button"
+                    aria-current={isSelected ? "true" : undefined}
+                    onClick={() => { setSelectedId(business.id); feedback(); }}
+                    className={`block min-h-20 w-full border-b border-border px-4 py-4 text-left transition-colors focus-visible:relative focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${stateClasses}`}
+                  >
+                    <span className="flex items-center gap-2 font-semibold">
+                      {isArchived ? <Archive className="size-4 fill-current" /> : isInactive ? <ShieldOff className="size-4" /> : null}
+                      {business.name}
+                    </span>
+                    <span className={`mt-1 block text-xs ${isInactive || isSelected ? "text-current/70" : "text-muted-foreground"}`}>
+                      {business.link?.slug ?? "Nema QR linka"} · {business.link?.scanCount ?? 0} skenova{isArchived ? " · Arhiviran" : isInactive ? " · Deaktiviran" : ""}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          ) : <div className="p-6 text-sm leading-6 text-muted-foreground">{showArchived ? "Nema arhiviranih lokala." : "Još nema aktuelnih lokala. Dodajte prvi lokal i POC kontakt."}</div>}
         </aside>
 
         <section className="min-w-0">
@@ -279,22 +390,56 @@ function GoogleReviewsWorkspace() {
                       </form>
                     </details>
                   </div>
-                  <Button variant={selected.status === "inactive" ? "default" : "destructive"} onClick={toggleActive} disabled={pending === "active"}>
-                    {pending === "active" ? <LoaderCircle className="size-4 animate-spin" /> : <ShieldOff className="size-4" />}
-                    {selected.status === "inactive" ? "Aktiviraj" : "Deaktiviraj"}
-                  </Button>
+                  {selected.archivedAt ? (
+                    <div className="inline-flex min-h-11 items-center gap-2 border border-destructive bg-destructive px-4 text-sm font-semibold text-destructive-foreground">
+                      <Archive className="size-4 fill-current" /> Arhiviran
+                    </div>
+                  ) : (
+                    <div className="grid gap-2">
+                      <Button variant={selected.status === "inactive" ? "default" : "destructive"} onClick={toggleActive} disabled={pending === "active"}>
+                        {pending === "active" ? <LoaderCircle className="size-4 animate-spin" /> : <ShieldOff className="size-4" />}
+                        {selected.status === "inactive" ? "Aktiviraj" : "Deaktiviraj"}
+                      </Button>
+                      {selected.status === "inactive" ? (
+                        <Dialog open={archiveDialogOpen} onOpenChange={setArchiveDialogOpen}>
+                          <DialogTrigger asChild>
+                            <Button type="button" size="sm" variant="destructive" disabled={pending === "archive"}>
+                              <Trash2 className="size-3.5" /> Delete
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="rounded-none border-border bg-card shadow-none" showCloseButton={pending !== "archive"}>
+                            <DialogHeader>
+                              <DialogTitle>Da li ste sigurni da zelite da obrisete lokal</DialogTitle>
+                              <DialogDescription>
+                                Lokal će biti prebačen u arhivirane lokale. Sve informacije, kontakti, linkovi i metrike ostaće sačuvani.
+                              </DialogDescription>
+                            </DialogHeader>
+                            <DialogFooter>
+                              <DialogClose asChild>
+                                <Button type="button" variant="outline" disabled={pending === "archive"}>Otkaži</Button>
+                              </DialogClose>
+                              <Button type="button" variant="destructive" disabled={pending === "archive"} onClick={() => void archiveSelectedBusiness()}>
+                                {pending === "archive" ? <LoaderCircle className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
+                                Obriši lokal
+                              </Button>
+                            </DialogFooter>
+                          </DialogContent>
+                        </Dialog>
+                      ) : null}
+                    </div>
+                  )}
                 </div>
-                <MetricStrip metrics={metrics} />
+                <MetricStrip metrics={metrics} range={summaryRange} onRangeChange={setSummaryRange} />
               </div>
 
               {selected.link ? (
                 <div className="grid gap-6 xl:grid-cols-2">
-                  <form onSubmit={submitDestination} className="border border-border bg-card p-5 sm:p-7">
-                    <h3 className="font-semibold">Dinamička destinacija</h3>
-                    <p className="mt-2 text-xs leading-5 text-muted-foreground">Promena se primenjuje na sledeći sken. Odštampani QR ostaje isti.</p>
-                    <div className="form-field mt-6"><Label htmlFor="destination-url">HTTPS URL *</Label><Input id="destination-url" name="destinationUrl" type="url" defaultValue={selected.link.destinationUrl} required className="form-control h-12" /></div>
-                    <Button type="submit" className="mt-5" disabled={pending === "destination"}>{pending === "destination" ? <LoaderCircle className="size-4 animate-spin" /> : <Save className="size-4" />} Sačuvaj link</Button>
-                  </form>
+                  <DestinationForm
+                    key={`${selected.id}-${selected.link.id}-${selected.link.destinationUrl}`}
+                    initialValue={selected.link.destinationUrl}
+                    pending={pending === "destination"}
+                    onSubmit={submitDestination}
+                  />
                   <div className="border border-border bg-card p-5 sm:p-7">
                     <h3 className="font-semibold">Stabilne adrese</h3>
                     <div className="mt-6 grid gap-3">
@@ -333,7 +478,7 @@ function GoogleReviewsWorkspace() {
                   onAdd={(values) => submitContact(values, "add")}
                   onDelete={removeContact}
                 />
-                <RecentScans metrics={metrics} />
+                <RecentScans metrics={metrics} range={graphRange} onRangeChange={setGraphRange} />
               </div>
             </div>
           ) : <div className="border border-border bg-card p-10 text-sm text-muted-foreground">Izaberite lokal da biste videli podatke.</div>}
@@ -343,14 +488,40 @@ function GoogleReviewsWorkspace() {
   );
 }
 
-function MetricStrip({ metrics }: { metrics: BusinessMetrics | undefined }) {
+function MetricStrip({ metrics, range, onRangeChange }: { metrics: BusinessMetrics | undefined; range: MetricsRange; onRangeChange: (range: MetricsRange) => void }) {
   if (metrics === undefined) return <div className="mt-7 h-24 animate-pulse bg-secondary" />;
-  const values = [
-    ["Ukupno", metrics?.total ?? 0],
-    ["Danas", metrics?.today ?? 0],
-    ["Poslednjih 7 dana", metrics?.last7Days ?? 0],
-  ];
-  return <dl className="mt-7 grid border border-border sm:grid-cols-3">{values.map(([label, value], index) => <div key={String(label)} className={`p-4 sm:p-5 ${index ? "border-t border-border sm:border-l sm:border-t-0" : ""}`}><dt className="text-xs text-muted-foreground">{label}</dt><dd className="mt-3 text-3xl font-semibold tabular-nums text-primary">{value}</dd></div>)}</dl>;
+  return (
+    <dl className="mt-7 grid border border-border sm:grid-cols-3">
+      <div className="p-4 sm:p-5"><dt className="text-xs text-muted-foreground">Ukupno</dt><dd className="mt-3 text-3xl font-semibold tabular-nums text-primary">{metrics?.total ?? 0}</dd></div>
+      <div className="border-t border-border p-4 sm:border-l sm:border-t-0 sm:p-5"><dt className="text-xs text-muted-foreground">Danas</dt><dd className="mt-3 text-3xl font-semibold tabular-nums text-primary">{metrics?.today ?? 0}</dd></div>
+      <div className="border-t border-border p-4 sm:border-l sm:border-t-0 sm:p-5">
+        <dt><MetricsPeriodSelect value={range} onChange={onRangeChange} ariaLabel="Period prikazane metrike" /></dt>
+        <dd className="mt-3 text-3xl font-semibold tabular-nums text-primary">{metrics?.summaryPeriodTotal ?? metrics?.periodTotal ?? metrics?.last7Days ?? 0}</dd>
+      </div>
+    </dl>
+  );
+}
+
+function DestinationForm({ initialValue, pending, onSubmit }: { initialValue: string; pending: boolean; onSubmit: (value: string) => Promise<void> }) {
+  const [value, setValue] = useState(initialValue);
+  const changed = value.trim() !== initialValue.trim();
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!changed) return;
+    await onSubmit(value.trim());
+  }
+
+  return (
+    <form onSubmit={submit} className="border border-border bg-card p-5 sm:p-7">
+      <h3 className="font-semibold">Dinamička destinacija</h3>
+      <p className="mt-2 text-xs leading-5 text-muted-foreground">Promena se primenjuje na sledeći sken. Odštampani QR ostaje isti.</p>
+      <div className="form-field mt-6"><Label htmlFor="destination-url">HTTPS URL *</Label><Input id="destination-url" name="destinationUrl" type="url" value={value} onChange={(event) => setValue(event.target.value)} required className="form-control h-12" /></div>
+      <Button type="submit" className="mt-5" disabled={pending || !changed} title={changed ? "Sačuvaj izmenjeni link" : "Link nije promenjen"}>
+        {pending ? <LoaderCircle className="size-4 animate-spin" /> : <Save className="size-4" />} Sačuvaj link
+      </Button>
+    </form>
+  );
 }
 
 function CreateBusinessPopover({ pending, onSubmit }: { pending: boolean; onSubmit: (values: CreateBusinessValues) => Promise<boolean> }) {
@@ -774,7 +945,35 @@ function ContactPanel({ selected, pending, onResend, onRevoke, onEdit, onReplace
   );
 }
 
-function RecentScans({ metrics }: { metrics: BusinessMetrics | undefined }) {
-  const max = useMemo(() => Math.max(1, ...(metrics?.daily.map((row) => row.count) ?? [1])), [metrics]);
-  return <div className="border border-border bg-card p-5 sm:p-7"><h3 className="font-semibold">Poslednjih 7 dana</h3>{metrics === undefined ? <div className="mt-5 h-32 animate-pulse bg-secondary" /> : <><div className="mt-6 grid h-36 grid-cols-7 items-end gap-2" role="img" aria-label="Broj skeniranja po danu">{metrics?.daily.map((row) => <div key={row.dateKey} className="grid h-full grid-rows-[1fr_auto] gap-2"><div className="flex items-end"><div className="w-full bg-primary" style={{ height: `${Math.max(3, row.count / max * 100)}%` }} title={`${row.dateKey}: ${row.count}`} /></div><span className="text-center text-[10px] text-muted-foreground">{shortDate.format(new Date(`${row.dateKey}T12:00:00`))}</span></div>)}</div><h4 className="mt-8 text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Nedavni skenovi</h4>{metrics?.recent.length ? <ol className="mt-3 grid gap-2">{metrics.recent.slice(0, 6).map((scan) => <li key={scan.id} className="flex items-center justify-between gap-3 border border-border px-3 py-2 text-xs"><span>{scan.deviceCategory}</span><time className="text-muted-foreground">{dateFormatter.format(new Date(scan.scannedAt))}</time></li>)}</ol> : <p className="mt-3 text-sm text-muted-foreground">Još nema skeniranja za ovaj lokal.</p>}</>}</div>;
+function RecentScans({ metrics, range, onRangeChange }: { metrics: BusinessMetrics | undefined; range: MetricsRange; onRangeChange: (range: MetricsRange) => void }) {
+  return (
+    <div className="min-w-0 border border-border bg-card p-5 sm:p-7">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h3 className="font-semibold">{metrics?.rangeLabel ?? "Poslednjih 7 dana"}</h3>
+        <Select value={range} onValueChange={(value) => onRangeChange(value as MetricsRange)} disabled={metrics === undefined}>
+          <SelectTrigger className="h-10 w-full sm:w-44" aria-label="Period skenova">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="7d">7 dana</SelectItem>
+            <SelectItem value="30d">30 dana</SelectItem>
+            <SelectItem value="90d">3 meseca</SelectItem>
+            <SelectItem value="1y">1 godina</SelectItem>
+            <SelectItem value="all">Oduvek</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      {metrics === undefined ? <div className="mt-5 h-32 animate-pulse bg-secondary" /> : <>
+        <MetricsBarChart
+          rows={metrics?.daily ?? []}
+          rangeLabel={metrics?.rangeLabel ?? "Izabrani period"}
+          heightClassName="h-36"
+          barMinWidth={36}
+          variant={metrics?.range === "all" ? "line" : "bars"}
+        />
+        <h4 className="mt-8 text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Nedavni skenovi</h4>
+        {metrics?.recent.length ? <ol className="mt-3 grid gap-2">{metrics.recent.slice(0, 6).map((scan) => <li key={scan.id} className="flex items-center justify-between gap-3 border border-border px-3 py-2 text-xs"><span>{scan.deviceCategory}</span><time className="text-muted-foreground">{dateFormatter.format(new Date(scan.scannedAt))}</time></li>)}</ol> : <p className="mt-3 text-sm text-muted-foreground">Još nema skeniranja za ovaj lokal.</p>}
+      </>}
+    </div>
+  );
 }

@@ -9,9 +9,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ClientWordmark } from "@/components/client-panel/client-wordmark";
+import { MetricsBarChart } from "@/components/metrics-bar-chart";
+import { MetricsPeriodSelect } from "@/components/metrics-period-select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { api } from "@/convex/_generated/api";
+import type { MetricsRange } from "@/convex/lib/metrics";
+import { useRetainedQueryResult } from "@/lib/use-retained-query-result";
 
-const shortDate = new Intl.DateTimeFormat("sr-Latn-RS", { day: "2-digit", month: "2-digit" });
 const numberFormatter = new Intl.NumberFormat("sr-Latn-RS");
 
 export function ClientPanel({ slug }: { slug: string }) {
@@ -71,15 +75,17 @@ function ClientLogin({ businessName }: { slug: string; businessName: string | nu
 }
 
 function MetricsPanel({ slug }: { slug: string }) {
-  const metrics = useQuery(api.clientPanel.metrics, { slug });
+  const [graphRange, setGraphRange] = useState<MetricsRange>("7d");
+  const [summaryRange, setSummaryRange] = useState<MetricsRange>("7d");
+  const metricsQuery = useQuery(api.clientPanel.metrics, { slug, range: graphRange, summaryRange });
+  const metrics = useRetainedQueryResult(metricsQuery, slug);
   const { signOut } = useAuthActions();
   if (metrics === undefined) return <PanelLoading />;
   if (metrics.status === "forbidden") {
     return <section className="border border-border bg-card p-6 sm:p-10"><ShieldCheck className="size-8 text-destructive" /><h1 className="mt-7 text-3xl font-semibold tracking-[-0.05em]">Nemate pristup ovom lokalu.</h1><p className="mt-4 max-w-xl text-sm leading-6 text-muted-foreground">Prijavljeni nalog nije povezan sa lokalom iz ove adrese. Promena sluga ne otkriva podatke drugih lokala.</p><Button variant="outline" className="mt-7" onClick={() => void signOut()}><LogOut className="size-4" /> Odjavi se</Button></section>;
   }
-  const maximum = Math.max(1, ...metrics.daily.map((row) => row.count));
   return (
-    <div>
+    <div aria-busy={metricsQuery === undefined}>
       <div className="flex flex-col gap-5 border-b border-border pb-7 sm:flex-row sm:items-end sm:justify-between">
         <div><p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">Google Review kartice</p><h1 className="mt-3 text-3xl font-semibold tracking-[-0.05em] sm:text-4xl">{metrics.businessName}</h1></div>
         <Button variant="outline" onClick={() => void signOut()}><LogOut className="size-4" /> Odjava</Button>
@@ -94,23 +100,32 @@ function MetricsPanel({ slug }: { slug: string }) {
           <dd className="mt-5 text-3xl font-semibold tabular-nums text-primary sm:text-4xl">{numberFormatter.format(metrics.today)}</dd>
         </div>
         <div className="p-5 sm:p-7">
-          <dt className="text-xs text-muted-foreground">Poslednjih 7 dana</dt>
-          <dd className="mt-5 text-3xl font-semibold tabular-nums text-primary sm:text-4xl">{numberFormatter.format(metrics.last7Days)}</dd>
+          <dt><MetricsPeriodSelect value={summaryRange} onChange={setSummaryRange} ariaLabel="Period prikazane metrike" /></dt>
+          <dd className="mt-5 text-3xl font-semibold tabular-nums text-primary sm:text-4xl">{numberFormatter.format(metrics.summaryPeriodTotal)}</dd>
         </div>
       </dl>
       <section className="mt-5 border border-border bg-card p-5 sm:mt-7 sm:p-7">
-        <h2 className="font-semibold">Skeniranja po danu</h2>
-        <div className="mt-6 grid h-44 grid-cols-7 items-end gap-2 sm:h-64 sm:gap-4" role="img" aria-label={`Skeniranja tokom poslednjih sedam dana: ${metrics.daily.map((row) => `${shortDate.format(new Date(`${row.dateKey}T12:00:00`))}, ${row.count}`).join("; ")}`}>
-          {metrics.daily.map((row) => (
-            <div key={row.dateKey} className="grid h-full min-w-0 grid-rows-[1fr_auto_auto] gap-2">
-              <div className="flex items-end border-b border-border">
-                <div className="w-full bg-primary" style={{ height: `${Math.max(3, row.count / maximum * 100)}%` }} />
-              </div>
-              <strong className="text-center text-xs tabular-nums">{numberFormatter.format(row.count)}</strong>
-              <span className="truncate text-center text-[10px] text-muted-foreground sm:text-xs">{shortDate.format(new Date(`${row.dateKey}T12:00:00`))}</span>
-            </div>
-          ))}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <h2 className="font-semibold">Skeniranja po periodu</h2>
+          <Select value={graphRange} onValueChange={(value) => setGraphRange(value as MetricsRange)}>
+            <SelectTrigger className="h-10 w-full sm:w-44" aria-label="Period skenova"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="7d">7 dana</SelectItem>
+              <SelectItem value="30d">30 dana</SelectItem>
+              <SelectItem value="90d">3 meseca</SelectItem>
+              <SelectItem value="1y">1 godina</SelectItem>
+              <SelectItem value="all">Oduvek</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
+        <MetricsBarChart
+          rows={metrics.daily}
+          rangeLabel={metrics.rangeLabel}
+          heightClassName="h-44 sm:h-64"
+          showCounts
+          barMinWidth={48}
+          variant={metrics.range === "all" ? "line" : "bars"}
+        />
       </section>
     </div>
   );
