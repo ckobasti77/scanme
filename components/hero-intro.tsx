@@ -17,13 +17,13 @@ export function HeroIntro() {
         <div className="max-w-4xl">
           <motion.h1
             {...enter(0.05)}
-            className="max-w-[13ch] text-[clamp(3.25rem,8vw,7.5rem)] font-semibold leading-[0.88] tracking-[-0.075em] text-white"
+            className="max-w-[13ch] text-[clamp(3.25rem,8vw,7.5rem)] font-semibold leading-[0.88] tracking-[-0.075em] text-foreground"
           >
             Jedan sken. Prava akcija.
           </motion.h1>
           <motion.p
             {...enter(0.16)}
-            className="mt-6 max-w-[58ch] text-base leading-7 text-white/76 sm:text-lg"
+            className="mt-6 max-w-[58ch] text-base leading-7 text-foreground/76 sm:text-lg"
           >
             Pretvaramo nalepnice, kartice i stolove u recenzije, ponude i rezervacije.
           </motion.p>

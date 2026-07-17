@@ -140,11 +140,11 @@ export function LeadForm() {
 
   if (status === "success") {
     return (
-      <div className="flex min-h-[420px] flex-col justify-between border border-[#c6ff4a] p-6 sm:p-8" aria-live="polite">
-        <Check aria-hidden="true" className="size-10 text-[#c6ff4a]" strokeWidth={1.5} />
+      <div className="flex min-h-[420px] flex-col justify-between border border-primary p-6 sm:p-8" aria-live="polite">
+        <Check aria-hidden="true" className="size-10 text-accent-readable" strokeWidth={1.5} />
         <div>
           <h3 className="text-2xl font-semibold tracking-[-0.04em]">Zahtev je sačuvan.</h3>
-          <p className="mt-3 max-w-[42ch] leading-7 text-white/66">
+          <p className="mt-3 max-w-[42ch] leading-7 text-foreground/66">
             Hvala. Javićemo se preko telefona ili imejla koji ste ostavili.
           </p>
         </div>
@@ -154,7 +154,7 @@ export function LeadForm() {
 
   const errorFor = (field: FieldName) =>
     errors[field] ? (
-      <p id={`${field}-error`} className="text-sm leading-5 text-[#ff8f86]" role="alert">
+      <p id={`${field}-error`} className="text-sm leading-5 text-destructive" role="alert">
         {errors[field]}
       </p>
     ) : null;
@@ -162,7 +162,7 @@ export function LeadForm() {
   return (
     <form noValidate onSubmit={handleSubmit} className="grid gap-5" aria-label="Zahtev za ScanMe ponudu">
       {status === "error" ? (
-        <div className="border border-[#ff8f86] p-4 text-sm leading-6 text-[#ffd2ce]" role="alert">
+        <div className="border border-destructive bg-destructive/10 p-4 text-sm leading-6 text-destructive" role="alert">
           {serverError}
         </div>
       ) : null}
@@ -240,7 +240,7 @@ export function LeadForm() {
 
       <fieldset className="grid gap-3">
         <legend className="text-sm font-medium">Kontakt *</legend>
-        <p className="text-sm leading-5 text-white/56">Dovoljan je telefon ili imejl.</p>
+        <p className="text-sm leading-5 text-foreground/56">Dovoljan je telefon ili imejl.</p>
         <div className="grid gap-5 sm:grid-cols-2">
           <div className="form-field">
             <Label htmlFor="phone">Telefon</Label>

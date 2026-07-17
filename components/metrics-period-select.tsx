@@ -6,7 +6,7 @@ import type { MetricsRange } from "@/convex/lib/metrics";
 export function MetricsPeriodSelect({ value, onChange, ariaLabel }: { value: MetricsRange; onChange: (value: MetricsRange) => void; ariaLabel: string }) {
   return (
     <Select value={value} onValueChange={(nextValue) => onChange(nextValue as MetricsRange)}>
-      <SelectTrigger className="min-h-11 w-full justify-start border-0 bg-transparent px-0 py-1 text-left text-xs text-muted-foreground shadow-none focus-visible:ring-1 focus-visible:ring-primary" aria-label={ariaLabel}>
+      <SelectTrigger className="min-h-11 w-full justify-center border-0 bg-transparent px-0 py-1 text-center text-xs text-muted-foreground shadow-none focus-visible:ring-1 focus-visible:ring-primary" aria-label={ariaLabel}>
         <SelectValue />
       </SelectTrigger>
       <SelectContent>

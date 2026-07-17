@@ -340,7 +340,7 @@ function GoogleReviewsWorkspace() {
                 const isInactive = business.status === "inactive";
                 const isArchived = Boolean(business.archivedAt);
                 const stateClasses = isInactive
-                  ? `bg-destructive text-destructive-foreground hover:bg-destructive/90 ${isSelected ? "ring-2 ring-inset ring-white/70" : ""}`
+                  ? `bg-destructive text-destructive-foreground hover:bg-destructive/90 ${isSelected ? "ring-2 ring-inset ring-background/70" : ""}`
                   : isSelected
                     ? "bg-primary text-primary-foreground"
                     : "hover:bg-secondary";

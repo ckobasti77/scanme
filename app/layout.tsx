@@ -11,6 +11,8 @@ const plexMono = IBM_Plex_Mono({
   display: "swap",
 });
 
+const themeScript = `(function(){try{var t=localStorage.getItem("scanme-theme");if(t!=="dark"&&t!=="light")t="light";var r=document.documentElement;r.setAttribute("data-theme",t);r.classList.toggle("dark",t==="dark")}catch(e){}})()`;
+
 export const metadata: Metadata = {
   title: "ScanMe | Dinamički QR kodovi za lokalne biznise",
   description: "ScanMe dizajnira, priprema i održava QR rešenja koja fizičke materijale pretvaraju u Google recenzije, ponude i rezervacije.",
@@ -33,7 +35,15 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="sr-Latn" className={`dark ${plexMono.variable} antialiased`}>
+    <html
+      lang="sr-Latn"
+      data-theme="light"
+      suppressHydrationWarning
+      className={`${plexMono.variable} antialiased`}
+    >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+      </head>
       <body className="min-h-svh bg-background font-mono text-foreground antialiased">
         <ConvexAuthNextjsServerProvider>
           <ConvexClientProvider>{children}</ConvexClientProvider>
