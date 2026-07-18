@@ -19,13 +19,13 @@ export function HeroIntro() {
             {...enter(0.05)}
             className="max-w-[13ch] text-[clamp(3.25rem,8vw,7.5rem)] font-semibold leading-[0.88] tracking-[-0.075em] text-foreground"
           >
-            Jedan sken. Prava akcija.
+            Jedan gost. Mnogo novih.
           </motion.h1>
           <motion.p
             {...enter(0.16)}
             className="mt-6 max-w-[58ch] text-base leading-7 text-foreground/76 sm:text-lg"
           >
-            Pretvaramo nalepnice, kartice i stolove u recenzije, ponude i rezervacije.
+            Vaš najbolji marketing već sedi za stolom.
           </motion.p>
           <motion.div {...enter(0.27)} className="mt-8 flex flex-col gap-3 sm:flex-row">
             <a href="#ponuda" className="button-primary focus-signal">

@@ -25,7 +25,7 @@ export const metadata: Metadata = {
     "digitalne ponude",
   ],
   openGraph: {
-    title: "ScanMe | Jedan sken. Prava akcija.",
+    title: "ScanMe | Jedan gost. Mnogo novih.",
     description: "Kompletno QR rešenje za lokalne biznise, od dizajna i štampe do dinamičkog odredišta i statistike skeniranja.",
     type: "website",
     locale: "sr_RS",

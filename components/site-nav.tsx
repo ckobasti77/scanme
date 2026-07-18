@@ -2,9 +2,10 @@
 
 import { useConvexAuth } from "convex/react";
 import { ArrowUpRight, Menu } from "lucide-react";
+import { motion, useMotionValueEvent, useReducedMotion, useScroll } from "framer-motion";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -44,18 +45,62 @@ export function SiteNav() {
   const { isAuthenticated, isLoading } = useConvexAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [clientLoginOpen, setClientLoginOpen] = useState(false);
+  const [navHidden, setNavHidden] = useState(false);
+  const lastScrollY = useRef(0);
+  const reduceMotion = Boolean(useReducedMotion());
+  const { scrollY } = useScroll();
   const router = useRouter();
+
+  useEffect(() => {
+    lastScrollY.current = scrollY.get();
+  }, [scrollY]);
+
+  useMotionValueEvent(scrollY, "change", (currentScrollY) => {
+    const previousScrollY = lastScrollY.current;
+    const delta = currentScrollY - previousScrollY;
+
+    if (mobileOpen || clientLoginOpen || currentScrollY <= 8) {
+      setNavHidden(false);
+    } else if (delta > 1) {
+      setNavHidden(true);
+    } else if (delta < 0) {
+      setNavHidden(false);
+    }
+
+    lastScrollY.current = currentScrollY;
+  });
 
   function openClientLogin() {
     setMobileOpen(false);
     setClientLoginOpen(true);
+    setNavHidden(false);
+  }
+
+  function handleMobileOpenChange(open: boolean) {
+    setMobileOpen(open);
+    if (open) setNavHidden(false);
+  }
+
+  function handleClientLoginOpenChange(open: boolean) {
+    setClientLoginOpen(open);
+    if (open) setNavHidden(false);
   }
 
   return (
     <>
-      <header className="fixed inset-x-0 top-0 z-40 border-b border-foreground/10 bg-background/90 backdrop-blur-md supports-[backdrop-filter]:bg-background/72">
+      <motion.header
+        initial={false}
+        animate={{ y: navHidden ? "-100%" : "0%" }}
+        transition={reduceMotion
+          ? { duration: 0 }
+          : navHidden
+            ? { duration: 0.2, ease: [0.4, 0, 1, 1] }
+            : { duration: 0.26, ease: [0.16, 1, 0.3, 1] }}
+        onFocusCapture={() => setNavHidden(false)}
+        className="pointer-events-none fixed inset-x-0 top-0 z-40 will-change-transform"
+      >
         <nav
-          className="mx-auto flex h-[72px] max-w-[1440px] items-center justify-between px-4 sm:px-6 lg:grid lg:grid-cols-[1fr_auto_1fr] lg:px-10"
+          className="site-nav-glass pointer-events-auto flex h-[72px] w-full items-center justify-between px-4 sm:px-6 lg:grid lg:grid-cols-[1fr_auto_1fr] lg:px-10"
           aria-label="Glavna navigacija"
         >
           <Link
@@ -89,7 +134,7 @@ export function SiteNav() {
 
           <div className="flex items-center gap-2 lg:hidden">
             <ThemeToggle />
-            <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+            <Sheet open={mobileOpen} onOpenChange={handleMobileOpenChange}>
               <SheetTrigger asChild>
                 <button
                   type="button"
@@ -143,9 +188,9 @@ export function SiteNav() {
             </Sheet>
           </div>
         </nav>
-      </header>
+      </motion.header>
 
-      <Dialog open={clientLoginOpen} onOpenChange={setClientLoginOpen}>
+      <Dialog open={clientLoginOpen} onOpenChange={handleClientLoginOpenChange}>
         <DialogContent className="max-h-[min(90dvh,720px)] overflow-y-auto border-foreground/15 bg-card p-6 text-foreground shadow-none sm:p-8">
           <DialogHeader className="pr-8 text-left">
             <DialogTitle className="text-2xl tracking-[-0.04em]">Prijava za klijente</DialogTitle>

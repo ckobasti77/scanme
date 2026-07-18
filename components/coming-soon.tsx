@@ -21,7 +21,7 @@ export function ComingSoon() {
         <div>
           <p className="accent-label text-sm font-medium">Uskoro</p>
           <h1 className="mt-6 max-w-[12ch] text-5xl font-semibold leading-[0.94] tracking-[-0.065em] sm:text-6xl lg:text-7xl">
-            Jedan sken. Prava akcija. Uskoro.
+            Jedan gost. Mnogo novih. Uskoro.
           </h1>
           <p className="mt-7 max-w-[48ch] text-base leading-7 text-foreground/64 sm:text-lg">
             Pripremamo ScanMe platformu za lokalne biznise. Vraćamo se uskoro.

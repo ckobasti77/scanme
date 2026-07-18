@@ -65,6 +65,12 @@
   --hero-scrim-end: rgb(243 232 238 / 0.36);
   --form-surface: #fbf6f8;
   --loader-track: rgb(0 0 0 / 0.12);
+  --nav-glass-surface: rgb(251 246 248 / 0.56);
+  --nav-glass-fallback: rgb(251 246 248 / 0.96);
+  --nav-glass-border: rgb(255 255 255 / 0.68);
+  --nav-glass-inner: rgb(255 255 255 / 0.42);
+  --nav-glass-highlight: rgb(255 255 255 / 0.58);
+  --nav-glass-shadow: rgb(40 21 31 / 0.16);
 }
 
 html[data-theme="dark"] {
@@ -98,6 +104,12 @@ html[data-theme="dark"] {
   --hero-scrim-end: rgb(11 12 10 / 0.38);
   --form-surface: #13150f;
   --loader-track: rgb(241 243 237 / 0.12);
+  --nav-glass-surface: rgb(11 12 10 / 0.5);
+  --nav-glass-fallback: rgb(11 12 10 / 0.96);
+  --nav-glass-border: rgb(241 243 237 / 0.2);
+  --nav-glass-inner: rgb(255 255 255 / 0.12);
+  --nav-glass-highlight: rgb(255 255 255 / 0.24);
+  --nav-glass-shadow: rgb(0 0 0 / 0.34);
 }
 
 * {
@@ -114,6 +126,64 @@ body {
   background: var(--background);
   color: var(--foreground);
   text-rendering: optimizeLegibility;
+}
+
+.site-nav-glass {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border: 1px solid var(--nav-glass-border);
+  border-radius: 0;
+  background: var(--nav-glass-surface);
+  -webkit-backdrop-filter: blur(18px) saturate(142%) contrast(1.04);
+  backdrop-filter: blur(18px) saturate(142%) contrast(1.04);
+  box-shadow:
+    inset 0 1px 0 var(--nav-glass-inner),
+    inset 0 -1px 0 color-mix(in srgb, var(--foreground) 8%, transparent),
+    0 14px 42px var(--nav-glass-shadow);
+}
+
+.site-nav-glass::before,
+.site-nav-glass::after {
+  position: absolute;
+  z-index: 0;
+  content: "";
+  pointer-events: none;
+}
+
+.site-nav-glass::before {
+  inset: 0;
+  background:
+    radial-gradient(80% 180% at 8% -110%, var(--nav-glass-highlight), transparent 62%),
+    linear-gradient(112deg, color-mix(in srgb, var(--nav-glass-highlight) 42%, transparent), transparent 28% 72%, color-mix(in srgb, var(--primary) 7%, transparent));
+}
+
+.site-nav-glass::after {
+  inset: 1px;
+  border: 1px solid color-mix(in srgb, var(--nav-glass-inner) 54%, transparent);
+  border-radius: 0;
+  box-shadow:
+    inset 14px 0 24px -24px var(--nav-glass-highlight),
+    inset -14px 0 24px -24px color-mix(in srgb, var(--primary) 28%, transparent);
+}
+
+.site-nav-glass > * {
+  position: relative;
+  z-index: 1;
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .site-nav-glass {
+    background: var(--nav-glass-fallback);
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .site-nav-glass {
+    background: var(--nav-glass-fallback);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
 }
 
 ::selection {
