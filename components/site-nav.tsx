@@ -1,10 +1,10 @@
 "use client";
 
 import { useConvexAuth } from "convex/react";
-import { ArrowUpRight, Menu, Moon, Sun } from "lucide-react";
+import { ArrowUpRight, Menu } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useSyncExternalStore } from "react";
+import { useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -22,6 +22,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { ClientLoginForm } from "@/components/client-panel/client-login";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 const links = [
   { href: "#kako-radi", label: "Kako radi" },
@@ -29,30 +30,6 @@ const links = [
   { href: "#za-koga", label: "Za koga" },
   { href: "#faq", label: "FAQ" },
 ];
-
-type Theme = "light" | "dark";
-
-function readTheme(): Theme {
-  if (typeof document === "undefined") return "light";
-  return document.documentElement.dataset.theme === "dark" ? "dark" : "light";
-}
-
-function readServerTheme(): Theme {
-  return "light";
-}
-
-function subscribeToTheme(onStoreChange: () => void) {
-  const handleStorage = (event: StorageEvent) => {
-    if (event.key === "scanme-theme") onStoreChange();
-  };
-
-  window.addEventListener("scanme-theme-change", onStoreChange);
-  window.addEventListener("storage", handleStorage);
-  return () => {
-    window.removeEventListener("scanme-theme-change", onStoreChange);
-    window.removeEventListener("storage", handleStorage);
-  };
-}
 
 export function Wordmark() {
   return (
@@ -67,26 +44,11 @@ export function SiteNav() {
   const { isAuthenticated, isLoading } = useConvexAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [clientLoginOpen, setClientLoginOpen] = useState(false);
-  const theme = useSyncExternalStore(subscribeToTheme, readTheme, readServerTheme);
   const router = useRouter();
 
   function openClientLogin() {
     setMobileOpen(false);
     setClientLoginOpen(true);
-  }
-
-  function toggleTheme() {
-    const nextTheme: Theme = theme === "dark" ? "light" : "dark";
-    const root = document.documentElement;
-
-    root.dataset.theme = nextTheme;
-    root.classList.toggle("dark", nextTheme === "dark");
-    try {
-      window.localStorage.setItem("scanme-theme", nextTheme);
-    } catch {
-      // The selected theme still applies for this visit when storage is unavailable.
-    }
-    window.dispatchEvent(new Event("scanme-theme-change"));
   }
 
   return (
@@ -117,7 +79,7 @@ export function SiteNav() {
           </div>
 
           <div className="hidden items-center gap-3 lg:flex lg:justify-self-end">
-            <ThemeToggle theme={theme} onToggle={toggleTheme} />
+            <ThemeToggle />
             <ClientAccessAction isAuthenticated={isAuthenticated} isLoading={isLoading} onOpen={openClientLogin} />
             <Link href="#ponuda" className="button-primary focus-signal">
               Zatraži ponudu
@@ -126,7 +88,7 @@ export function SiteNav() {
           </div>
 
           <div className="flex items-center gap-2 lg:hidden">
-            <ThemeToggle theme={theme} onToggle={toggleTheme} />
+            <ThemeToggle />
             <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
               <SheetTrigger asChild>
                 <button
@@ -201,28 +163,6 @@ export function SiteNav() {
         </DialogContent>
       </Dialog>
     </>
-  );
-}
-
-function ThemeToggle({ theme, onToggle }: { theme: Theme; onToggle: () => void }) {
-  const dark = theme === "dark";
-
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={dark}
-      aria-label={dark ? "Uključi svetlu temu" : "Uključi tamnu temu"}
-      title={dark ? "Svetla tema" : "Tamna tema"}
-      suppressHydrationWarning
-      onClick={onToggle}
-      className="focus-signal relative inline-flex size-11 shrink-0 items-center justify-center border border-foreground/20 bg-background text-foreground transition-colors duration-200 hover:border-primary hover:bg-primary hover:text-primary-foreground"
-    >
-      <span className="relative size-5" aria-hidden="true">
-        <Sun className="theme-icon theme-icon-sun size-5" strokeWidth={1.75} />
-        <Moon className="theme-icon theme-icon-moon size-5" strokeWidth={1.75} />
-      </span>
-    </button>
   );
 }
 

@@ -8,6 +8,7 @@ import { useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export function AdminLogin() {
   const [mode, setMode] = useState<"signIn" | "setup">("signIn");
@@ -35,7 +36,8 @@ export function AdminLogin() {
   }
 
   return (
-    <main className="grid min-h-[100dvh] bg-background lg:grid-cols-[1fr_1.1fr]">
+    <main className="relative grid min-h-[100dvh] bg-background lg:grid-cols-[1fr_1.1fr]">
+      <ThemeToggle className="absolute right-4 top-4 z-10" />
       <section className="hidden border-r border-border p-10 lg:flex lg:flex-col lg:justify-between">
         <div className="flex items-center gap-3 font-semibold"><span className="scan-mark" aria-hidden="true" /> SCANME ADMIN</div>
         <div>

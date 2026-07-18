@@ -400,6 +400,10 @@ select.form-control option {
   transform: rotate(-24deg) scale(0.72);
 }
 
+body:has([data-theme-toggle="local"]) [data-theme-toggle="global"] {
+  display: none;
+}
+
 html[data-theme="dark"] .theme-icon-sun {
   opacity: 0;
   transform: rotate(24deg) scale(0.72);

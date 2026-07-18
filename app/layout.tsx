@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { IBM_Plex_Mono } from "next/font/google";
 import { ConvexAuthNextjsServerProvider } from "@convex-dev/auth/nextjs/server";
 import { ConvexClientProvider } from "./convex-client-provider";
+import { ThemeToggle } from "@/components/theme-toggle";
 import "./globals.css";
 
 const plexMono = IBM_Plex_Mono({
@@ -38,6 +39,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html
       lang="sr-Latn"
       data-theme="light"
+      data-scroll-behavior="smooth"
       suppressHydrationWarning
       className={`${plexMono.variable} antialiased`}
     >
@@ -45,6 +47,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body className="min-h-svh bg-background font-mono text-foreground antialiased">
+        <ThemeToggle placement="global" />
         <ConvexAuthNextjsServerProvider>
           <ConvexClientProvider>{children}</ConvexClientProvider>
         </ConvexAuthNextjsServerProvider>

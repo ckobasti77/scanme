@@ -10,12 +10,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ClientWordmark } from "@/components/client-panel/client-wordmark";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { api } from "@/convex/_generated/api";
 
 export function ActivationPanel({ slug, token }: { slug: string; token: string }) {
   const invitation = useQuery(api.invitations.getStatus, { slug, token });
   return (
-    <main className="grid min-h-[100dvh] place-items-center bg-background px-4 py-8">
+    <main className="relative grid min-h-[100dvh] place-items-center bg-background px-4 py-20 sm:py-8">
+      <ThemeToggle className="absolute right-4 top-4" />
       <div className="w-full max-w-xl border border-border bg-card p-6 sm:p-10">
         <div className="mb-10"><ClientWordmark /></div>
         {invitation === undefined ? <div className="h-48 animate-pulse bg-secondary" /> : invitation.status === "valid" ? (

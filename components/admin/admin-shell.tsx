@@ -6,6 +6,7 @@ import { LogOut } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useRef, useState, type ReactNode } from "react";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { cn } from "@/lib/utils";
 
 const navigation = [
@@ -41,10 +42,13 @@ export function AdminShell({ children }: { children: ReactNode }) {
             <span className="scan-mark" aria-hidden="true" />
             <span className="hidden sm:inline">SCANME ADMIN</span>
           </Link>
-          <button type="button" onClick={() => void signOut()} className="button-secondary h-11 min-h-11 px-3" aria-label="Odjavi se">
-            <LogOut className="size-4" aria-hidden="true" />
-            <span className="hidden sm:inline">Odjava</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <button type="button" onClick={() => void signOut()} className="button-secondary h-11 min-h-11 px-3" aria-label="Odjavi se">
+              <LogOut className="size-4" aria-hidden="true" />
+              <span className="hidden sm:inline">Odjava</span>
+            </button>
+          </div>
         </div>
         <nav aria-label="Admin servisi" className="mx-auto max-w-[1500px] overflow-x-auto px-4 lg:px-8">
           <div className="flex min-w-max gap-1">

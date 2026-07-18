@@ -19,6 +19,8 @@ import { Reveal } from "@/components/reveal";
 import { ScanStory } from "@/components/scan-story";
 import { SiteNav, Wordmark } from "@/components/site-nav";
 import { SiteScrollMotion } from "@/components/site-scroll-motion";
+import { ComingSoon } from "@/components/coming-soon";
+import { hasPreviewAccess } from "@/lib/preview-access";
 
 const reviewBenefits = [
   { icon: Palette, title: "Dizajn za vaš biznis", body: "Logo je opcionalan, a izgled može biti prilagođen ili izabran iz proverenog predloška." },
@@ -56,7 +58,9 @@ const faqItems = [
   },
 ];
 
-export default function Home() {
+export default async function Home() {
+  if (!(await hasPreviewAccess())) return <ComingSoon />;
+
   const hasVideo = existsSync(path.join(process.cwd(), "public", "videos", "scanme-hero.mp4"));
   const hasPoster = existsSync(
     path.join(process.cwd(), "public", "images", "scanme-hero-poster.webp"),

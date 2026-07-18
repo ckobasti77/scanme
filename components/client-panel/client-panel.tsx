@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ClientWordmark } from "@/components/client-panel/client-wordmark";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { MetricsBarChart } from "@/components/metrics-bar-chart";
 import { MetricsPeriodSelect } from "@/components/metrics-period-select";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -25,6 +26,7 @@ export function ClientPanel({ slug }: { slug: string }) {
       <header className="border-b border-border">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
           <ClientWordmark />
+          <ThemeToggle />
         </div>
       </header>
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-12">
