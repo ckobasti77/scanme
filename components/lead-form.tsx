@@ -6,6 +6,13 @@ import { Check, LoaderCircle } from "lucide-react";
 import { api } from "@/convex/_generated/api";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
 type FormValues = {
@@ -15,7 +22,7 @@ type FormValues = {
   phone: string;
   email: string;
   city: string;
-  interest: "review" | "page" | "venue" | "memories" | "not_sure";
+  interest: "review" | "page" | "venue" | "memories" | "loyalty" | "not_sure";
   message: string;
   website: string;
 };
@@ -29,7 +36,7 @@ const initialValues: FormValues = {
   businessType: "",
   phone: "",
   email: "",
-  city: "",
+  city: "Beograd",
   interest: "review",
   message: "",
   website: "",
@@ -227,14 +234,16 @@ export function LeadForm() {
 
         <div className="form-field">
           <Label htmlFor="city">Grad</Label>
-          <Input
+          <select
             id="city"
             name="city"
             autoComplete="address-level2"
             value={values.city}
             onChange={(event) => update("city", event.target.value)}
-            className="form-control"
-          />
+            className="form-control h-12 w-full px-3 text-base"
+          >
+            <option value="Beograd">Beograd</option>
+          </select>
         </div>
       </div>
 
@@ -281,19 +290,63 @@ export function LeadForm() {
 
       <div className="form-field">
         <Label htmlFor="interest">Zanima me *</Label>
-        <select
-          id="interest"
+        <Select
           name="interest"
           value={values.interest}
-          onChange={(event) => update("interest", event.target.value)}
-          className="form-control h-12 w-full appearance-none px-3 text-base"
+          onValueChange={(value) => update("interest", value as FormValues["interest"])}
         >
-          <option value="review">ScanMe Review</option>
-          <option value="page">ScanMe Page</option>
-          <option value="venue">ScanMe Venue</option>
-          <option value="memories">ScanMe Memories</option>
-          <option value="not_sure">Nisam siguran</option>
-        </select>
+          <SelectTrigger
+            id="interest"
+            className="form-control h-12 w-full px-3 text-base"
+            aria-label="Zanima me"
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent className="rounded-[2px] border-border bg-popover p-0 shadow-none">
+            <SelectItem value="review" className="min-h-11 rounded-none pr-3 pl-9">
+              ScanMe Review
+            </SelectItem>
+            <SelectItem
+              value="page"
+              className="min-h-11 rounded-none pr-24 pl-9 text-muted-foreground"
+            >
+              ScanMe Page
+              <span className="absolute right-3 text-[0.68rem] font-semibold uppercase tracking-[0.14em]">
+                U planu
+              </span>
+            </SelectItem>
+            <SelectItem
+              value="venue"
+              className="min-h-11 rounded-none pr-24 pl-9 text-muted-foreground"
+            >
+              ScanMe Venue
+              <span className="absolute right-3 text-[0.68rem] font-semibold uppercase tracking-[0.14em]">
+                U planu
+              </span>
+            </SelectItem>
+            <SelectItem
+              value="memories"
+              className="min-h-11 rounded-none pr-24 pl-9 text-muted-foreground"
+            >
+              ScanMe Memories
+              <span className="absolute right-3 text-[0.68rem] font-semibold uppercase tracking-[0.14em]">
+                U planu
+              </span>
+            </SelectItem>
+            <SelectItem
+              value="loyalty"
+              className="min-h-11 rounded-none pr-24 pl-9 text-muted-foreground"
+            >
+              ScanMe Loyalty
+              <span className="absolute right-3 text-[0.68rem] font-semibold uppercase tracking-[0.14em]">
+                U planu
+              </span>
+            </SelectItem>
+            <SelectItem value="not_sure" className="min-h-11 rounded-none pr-3 pl-9">
+              Nisam siguran
+            </SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="form-field">

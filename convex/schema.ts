@@ -144,6 +144,7 @@ export default defineSchema({
       v.literal("page"),
       v.literal("venue"),
       v.literal("memories"),
+      v.literal("loyalty"),
       v.literal("not_sure"),
     ),
     message: v.optional(v.string()),

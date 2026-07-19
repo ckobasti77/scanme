@@ -2,6 +2,7 @@
 
 import { motion, useReducedMotion } from "framer-motion";
 import { ArrowDownRight, ArrowUpRight } from "lucide-react";
+import { HeroOutcomeAnimation } from "@/components/hero-outcome-animation";
 
 export function HeroIntro() {
   const reduce = useReducedMotion();
@@ -12,30 +13,39 @@ export function HeroIntro() {
   });
 
   return (
-    <div className="relative z-10 flex min-h-[100dvh] items-end pb-10 pt-24 sm:pb-14 lg:pb-16">
+    <div className="relative z-10 flex min-h-[100dvh] items-end pb-10 pt-28 sm:pb-14 lg:pb-16 lg:pt-32">
       <div className="mx-auto w-full max-w-[1440px] px-4 sm:px-6 lg:px-10">
-        <div className="max-w-4xl">
-          <motion.h1
-            {...enter(0.05)}
-            className="max-w-[13ch] text-[clamp(3.25rem,8vw,7.5rem)] font-semibold leading-[0.88] tracking-[-0.075em] text-foreground"
+        <div className="grid items-end gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(28rem,0.74fr)] lg:gap-10 xl:gap-16">
+          <div className="max-w-4xl">
+            <motion.h1
+              {...enter(0.05)}
+              className="max-w-[13ch] text-[clamp(3.25rem,7vw,7.5rem)] font-semibold leading-[0.88] tracking-[-0.075em] text-foreground"
+            >
+              Jedan gost. Mnogo novih.
+            </motion.h1>
+            <motion.p
+              {...enter(0.16)}
+              className="mt-6 max-w-[58ch] text-base leading-7 text-foreground/76 sm:text-lg"
+            >
+              Vaš najbolji marketing već sedi za stolom.
+            </motion.p>
+            <motion.div {...enter(0.27)} className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <a href="#ponuda" className="button-primary focus-signal">
+                Zatraži ponudu
+                <ArrowUpRight aria-hidden="true" className="size-4" strokeWidth={1.75} />
+              </a>
+              <a href="#kako-radi" className="button-secondary focus-signal">
+                Pogledaj kako radi
+                <ArrowDownRight aria-hidden="true" className="size-4" strokeWidth={1.75} />
+              </a>
+            </motion.div>
+          </div>
+
+          <motion.div
+            {...enter(0.18)}
+            className="mx-auto w-full max-w-[20rem] sm:max-w-[24rem] lg:mx-0 lg:max-w-[38rem] lg:justify-self-end"
           >
-            Jedan gost. Mnogo novih.
-          </motion.h1>
-          <motion.p
-            {...enter(0.16)}
-            className="mt-6 max-w-[58ch] text-base leading-7 text-foreground/76 sm:text-lg"
-          >
-            Vaš najbolji marketing već sedi za stolom.
-          </motion.p>
-          <motion.div {...enter(0.27)} className="mt-8 flex flex-col gap-3 sm:flex-row">
-            <a href="#ponuda" className="button-primary focus-signal">
-              Zatraži ponudu
-              <ArrowUpRight aria-hidden="true" className="size-4" strokeWidth={1.75} />
-            </a>
-            <a href="#kako-radi" className="button-secondary focus-signal">
-              Pogledaj kako radi
-              <ArrowDownRight aria-hidden="true" className="size-4" strokeWidth={1.75} />
-            </a>
+            <HeroOutcomeAnimation />
           </motion.div>
         </div>
       </div>

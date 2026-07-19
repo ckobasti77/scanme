@@ -3,13 +3,17 @@ import path from "node:path";
 import Image from "next/image";
 import {
   BarChart3,
+  BriefcaseBusiness,
+  CalendarDays,
   Check,
-  MapPin,
+  Coffee,
+  Music2,
   Palette,
   Printer,
   QrCode,
-  Radio,
-  RefreshCw,
+  Route,
+  Scissors,
+  Store,
 } from "lucide-react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { HeroIntro } from "@/components/hero-intro";
@@ -20,15 +24,14 @@ import { ScanStory } from "@/components/scan-story";
 import { SiteNav, Wordmark } from "@/components/site-nav";
 import { SiteScrollMotion } from "@/components/site-scroll-motion";
 import { ComingSoon } from "@/components/coming-soon";
+import { EcosystemProductDeck } from "@/components/ecosystem-product-deck";
 import { hasPreviewAccess } from "@/lib/preview-access";
 
 const reviewBenefits = [
-  { icon: Palette, title: "Dizajn za vaš biznis", body: "Logo je opcionalan, a izgled može biti prilagođen ili izabran iz proverenog predloška." },
-  { icon: QrCode, title: "Dinamički ScanMe QR", body: "Stabilna adresa ostaje ista i kada promenite Google odredište." },
-  { icon: Printer, title: "Priprema fizičkog proizvoda", body: "Pripremamo štampu za nalepnicu, karticu za sto ili premium stalak." },
-  { icon: BarChart3, title: "Osnovna statistika", body: "Vidite broj skeniranja i odlaznih preusmerenja, bez identifikovanja osobe." },
-  { icon: RefreshCw, title: "Promena bez nove štampe", body: "Odredište ažuriramo iza postojećeg koda kada se poslovna potreba promeni." },
-  { icon: Radio, title: "NFC kao premium dodatak", body: "QR je standard. NFC može biti ugrađen u odabrani premium predmet." },
+  { icon: Palette, title: "Dizajn", body: "Izaberi dizajn ili to prepusti nama" },
+  { icon: Printer, title: "Izrada", body: "Priprema, štampa i dostava proizvoda" },
+  { icon: QrCode, title: "Dinamički QR", body: "Mi povezujemo i održavamo link" },
+  { icon: BarChart3, title: "Statistika", body: "Promet linka u realnom vremenu" },
 ];
 
 const faqItems = [
@@ -80,119 +83,94 @@ export default async function Home() {
         <ScanStory />
 
         <section id="resenja" className="section-shell py-24 sm:py-32 lg:py-40">
-          <div className="grid gap-14 lg:grid-cols-[0.92fr_1.08fr] lg:items-start lg:gap-20">
+          <div className="grid gap-12 lg:grid-cols-[0.82fr_1.18fr] lg:items-center lg:gap-16">
             <div data-reveal-group>
-              <p className="accent-label text-sm font-medium">ScanMe Review. Prvo dostupno rešenje.</p>
-              <h2 className="mt-5 max-w-[14ch] text-4xl font-semibold leading-[0.98] tracking-[-0.055em] sm:text-5xl lg:text-6xl">
-                Lakši put do Google recenzije, dok je gost još tu.
+              <h2 className="max-w-[12ch] text-4xl font-semibold leading-[0.98] tracking-[-0.055em] sm:text-5xl lg:text-6xl">
+                Od dizajna do rezultata
               </h2>
-              <p className="mt-6 max-w-[58ch] leading-7 text-foreground/64">
-                Dobijate dizajn, dinamički QR, pripremu štampe, fizički format i održavanje digitalnog odredišta. Ne morate da sklapate sistem sami.
+              <p className="mt-6 max-w-[52ch] leading-7 text-foreground/64">
+                Pripremamo, izrađujemo i održavamo kompletan ScanMe sistem. Vi dobijate gotov proizvod i jasan uvid u rezultate.
               </p>
               <a href="#ponuda" className="button-primary focus-signal mt-8">Zatraži ponudu</a>
             </div>
 
-            <div data-reveal-group className="grid gap-5 sm:grid-cols-[1.25fr_0.75fr] sm:items-end">
-              <Reveal>
-                <figure data-parallax-root>
-                  <div data-parallax="6" className="relative aspect-[3/2] overflow-hidden border border-foreground/12">
-                    <Image
-                      src="/images/scanme-review-sticker-example.webp"
-                      alt="Primer ScanMe Review nalepnice pored terminala na kasi"
-                      fill
-                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 62vw, 38vw"
-                      className="object-cover"
-                    />
-                  </div>
-                  <figcaption className="mt-3 text-xs text-foreground/48">Primer postavljanja nalepnice. Nije prikazan stvarni klijent.</figcaption>
-                </figure>
-              </Reveal>
-              <Reveal>
-                <figure data-parallax-root>
-                  <div data-parallax="9" className="relative aspect-[4/5] overflow-hidden border border-foreground/12">
-                    <Image
-                      src="/images/scanme-review-premium-example.webp"
-                      alt="Primer premium ScanMe Review stalka od drveta i akrila"
-                      fill
-                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 35vw, 24vw"
-                      className="object-cover"
-                    />
-                  </div>
-                  <figcaption className="mt-3 text-xs text-foreground/48">Primer premium formata sa opcionim NFC dodatkom.</figcaption>
-                </figure>
-              </Reveal>
-            </div>
+            <Reveal>
+              <div data-parallax-root className="w-full lg:max-w-[42rem] lg:justify-self-end">
+                <div data-parallax="6" className="relative aspect-[16/9] overflow-hidden border border-foreground/12">
+                  <Image
+                    src="/images/scanme-review-sticker-example.webp"
+                    alt="ScanMe Review nalepnica spremna za korišćenje u lokalu"
+                    fill
+                    sizes="(max-width: 1024px) 100vw, 48vw"
+                    className="object-cover"
+                  />
+                </div>
+              </div>
+            </Reveal>
           </div>
 
-          <div data-reveal-group className="mt-24 grid gap-x-8 gap-y-10 sm:grid-cols-2 lg:mt-32 lg:grid-cols-3">
+          <div data-reveal-group className="mt-16 grid border-y border-foreground/14 lg:mt-20 lg:grid-cols-4">
             {reviewBenefits.map((benefit) => {
               const Icon = benefit.icon;
               return (
-                <article key={benefit.title} className="border-t border-foreground/16 pt-5">
+                <article
+                  key={benefit.title}
+                  className="min-h-36 border-b border-foreground/14 py-6 last:border-b-0 lg:min-h-44 lg:border-b-0 lg:border-l lg:px-7 lg:py-7 lg:first:border-l-0 lg:first:pl-0 lg:last:pr-0"
+                >
                   <Icon aria-hidden="true" className="accent-icon" strokeWidth={1.5} />
-                  <h3 className="mt-8 text-lg font-semibold tracking-[-0.03em]">{benefit.title}</h3>
-                  <p className="mt-3 text-sm leading-6 text-foreground/58">{benefit.body}</p>
+                  <h3 className="mt-7 text-lg font-semibold tracking-[-0.03em]">{benefit.title}</h3>
+                  <p className="mt-2 text-sm leading-6 text-foreground/58">{benefit.body}</p>
                 </article>
               );
             })}
           </div>
         </section>
 
-        <section className="border-y border-foreground/10 bg-card py-24 sm:py-32 lg:py-40">
-          <div className="section-shell">
+        <section className="border-y border-foreground/10 bg-card py-20 sm:py-24 lg:py-28">
+          <div className="section-shell grid gap-12 lg:grid-cols-[minmax(0,1.2fr)_minmax(20rem,0.8fr)] lg:items-start lg:gap-20 xl:gap-28">
             <div data-reveal-group>
-              <h2 className="max-w-[15ch] text-4xl font-semibold leading-[0.98] tracking-[-0.055em] sm:text-5xl lg:text-6xl">
+              <h2 className="max-w-[19ch] text-4xl font-semibold leading-[0.98] tracking-[-0.055em] sm:text-5xl lg:text-6xl">
                 Štampa ostaje. Odredište se menja.
               </h2>
-              <p className="mt-6 max-w-[62ch] leading-7 text-foreground/62">
-                ScanMe kod ne vodi direktno na nasumičan link. Vodi kroz kontrolisanu adresu koja beleži preusmerenje i šalje gosta dalje.
+              <p className="mt-6 max-w-[60ch] leading-7 text-foreground/62">
+                ScanMe kod ostaje otporan na promene Google Review linka usled ažuriranja ili izmene podataka. Mi ažuriramo odredište, a vaš gost i dalje stiže na pravo mesto.
               </p>
             </div>
-            <div data-reveal-group className="mt-16 grid gap-8 md:grid-cols-2 lg:grid-cols-4">
-              {[
-                ["Isti QR", "Odštampani kod ostaje na svom mestu."],
-                ["Novo odredište", "Link može da se ažurira bez nove štampe."],
-                ["Broj skeniranja", "Merimo ulaz i odlazno preusmerenje."],
-                ["Više formata", "Jedna postavka može da podrži više fizičkih predmeta."],
-              ].map(([title, body]) => (
-                <article key={title} className="border-l border-primary pl-5">
-                  <h3 className="text-xl font-semibold tracking-[-0.035em]">{title}</h3>
-                  <p className="mt-3 text-sm leading-6 text-foreground/58">{body}</p>
-                </article>
-              ))}
+            <div data-reveal-group className="border-y border-foreground/14 lg:mt-2">
+              <article className="grid grid-cols-[2.25rem_minmax(0,1fr)] gap-4 border-b border-foreground/14 py-6 sm:grid-cols-[2.5rem_minmax(0,1fr)] sm:gap-5 sm:py-7">
+                <QrCode aria-hidden="true" className="accent-icon mt-0.5" strokeWidth={1.6} />
+                <div>
+                  <h3 className="text-xl font-semibold tracking-[-0.035em]">Isti QR</h3>
+                  <p className="mt-2 text-sm leading-6 text-foreground/58">Jednom odštampan kod ostaje validan.</p>
+                </div>
+              </article>
+              <article className="grid grid-cols-[2.25rem_minmax(0,1fr)] gap-4 py-6 sm:grid-cols-[2.5rem_minmax(0,1fr)] sm:gap-5 sm:py-7">
+                <Route aria-hidden="true" className="accent-icon mt-0.5" strokeWidth={1.6} />
+                <div>
+                  <h3 className="text-xl font-semibold tracking-[-0.035em]">Novo odredište</h3>
+                  <p className="mt-2 text-sm leading-6 text-foreground/58">Link menjamo bez nove štampe.</p>
+                </div>
+              </article>
             </div>
           </div>
         </section>
 
-        <section className="section-shell py-24 sm:py-32 lg:py-40">
+        <section id="ekosistem" className="section-shell py-24 sm:py-32 lg:py-36">
           <div data-reveal-group>
             <p className="accent-label text-sm font-medium">ScanMe ekosistem</p>
-            <h2 className="mt-5 max-w-[15ch] text-4xl font-semibold leading-[0.98] tracking-[-0.055em] sm:text-5xl lg:text-6xl">
-              Review prvo. Ostala rešenja dolaze redom.
+            <h2 className="mt-5 text-4xl font-semibold leading-[0.98] tracking-[-0.055em] sm:text-5xl lg:text-6xl">
+              Review je početak.
             </h2>
+            <p className="mt-7 max-w-[78ch] leading-7 text-foreground/62">
+              Danas pomažemo da lakše dođete do Google recenzija. Sutra isti jednostavan sken povezuje ponude, rezervacije, uspomene i još mnogo toga. Mi postavljamo i održavamo sve iza tog skena, tako da vi ne morate da povezujete različite alate niti da se bavite tehničkim podešavanjima.
+            </p>
           </div>
-          <div data-reveal-group className="mt-16 grid gap-12">
-            <article className="max-w-4xl border-t border-foreground/16 pt-6 md:grid md:grid-cols-[0.7fr_1.3fr] md:gap-12">
-              <div>
-                <p className="accent-label text-sm">Sledeći proizvod</p>
-                <h3 className="mt-3 text-3xl font-semibold tracking-[-0.05em]">ScanMe Page</h3>
-              </div>
-              <p className="mt-5 leading-7 text-foreground/62 md:mt-0">Kontrolisana mini-stranica za ponude, usluge, cene, lokaciju i direktne kontakte. Jednostavno uređivanje bez slobodnog lomljenja dizajna.</p>
-            </article>
-            <article className="max-w-4xl border-t border-foreground/16 pt-6 md:ml-[12%] md:grid md:grid-cols-[0.7fr_1.3fr] md:gap-12">
-              <div>
-                <p className="text-sm text-foreground/50">Planirana specijalizacija</p>
-                <h3 className="mt-3 text-3xl font-semibold tracking-[-0.05em]">ScanMe Venue</h3>
-              </div>
-              <p className="mt-5 leading-7 text-foreground/62 md:mt-0">Verzija za kafiće, restorane, barove i klubove sa događajima, ponudama i vezom ka postojećem kanalu za rezervacije.</p>
-            </article>
-            <article className="max-w-4xl border-t border-foreground/16 pt-6 md:ml-[24%] md:grid md:grid-cols-[0.7fr_1.3fr] md:gap-12">
-              <div>
-                <p className="text-sm text-foreground/50">Kasnija ekspanzija</p>
-                <h3 className="mt-3 text-3xl font-semibold tracking-[-0.05em]">ScanMe Memories</h3>
-              </div>
-              <p className="mt-5 leading-7 text-foreground/62 md:mt-0">Privatni album za događaje sa gostujućim fotografijama, moderacijom, preuzimanjem i jasno definisanim periodom čuvanja.</p>
-            </article>
+
+          <EcosystemProductDeck />
+
+          <div data-reveal-group className="mt-9 sm:flex sm:items-center sm:justify-between sm:gap-8">
+            <p className="font-medium tracking-[-0.02em]">Prepoznajete rešenje za svoj biznis?</p>
+            <a href="#ponuda" className="button-primary focus-signal mt-4 sm:mt-0">Javite nam se</a>
           </div>
         </section>
 
@@ -200,13 +178,20 @@ export default async function Home() {
           <div className="section-shell grid gap-14 lg:grid-cols-[0.8fr_1.2fr] lg:gap-20">
             <div data-reveal-group>
               <h2 className="max-w-[12ch] text-4xl font-semibold leading-[0.98] tracking-[-0.055em] sm:text-5xl">Za biznise koji žele rezultat, ne još jedan alat.</h2>
-              <p className="mt-6 max-w-[48ch] leading-7 text-foreground/62">ScanMe preuzima tehnički i fizički deo, od ideje do predmeta koji možete da postavite u lokalu.</p>
+              <p className="mt-6 max-w-[48ch] leading-7 text-foreground/62">ScanMe preuzima tehnički deo, jer znamo da vođenje biznisa već traži dovoljno vašeg vremena. Ne morate da učite nove alate ni da razmišljate o podešavanjima. Javite nam se, a mi preuzimamo sve ostalo.</p>
             </div>
-            <div data-reveal-group className="grid gap-5 sm:grid-cols-2">
-              {["Kafići i restorani", "Frizerski i kozmetički saloni", "Lokalne prodavnice", "Klubovi i prostori za događaje", "Uslužni biznisi"].map((item, index) => (
-                <div key={item} className={`min-h-28 border-l border-foreground/20 p-5 ${index === 0 ? "border-primary sm:col-span-2" : ""}`}>
-                  <MapPin aria-hidden="true" className="accent-icon" strokeWidth={1.5} />
-                  <p className="mt-6 text-lg font-semibold tracking-[-0.03em]">{item}</p>
+            <div data-reveal-group className="grid gap-3 sm:grid-cols-2 sm:gap-5">
+              {[
+                { icon: Coffee, label: "Kafići i restorani" },
+                { icon: Music2, label: "Barovi i klubovi" },
+                { icon: Scissors, label: "Frizerski i kozmetički saloni" },
+                { icon: CalendarDays, label: "Prostori za događaje" },
+                { icon: Store, label: "Lokalne prodavnice" },
+                { icon: BriefcaseBusiness, label: "Uslužni biznisi" },
+              ].map(({ icon: Icon, label }) => (
+                <div key={label} className="grid min-h-20 grid-cols-[1.75rem_minmax(0,1fr)] items-center gap-4 border-l border-foreground/20 px-5 py-4 sm:block sm:min-h-28 sm:p-5">
+                  <Icon aria-hidden="true" className="accent-icon" strokeWidth={1.5} />
+                  <p className="text-base font-semibold tracking-[-0.03em] sm:mt-6 sm:text-lg">{label}</p>
                 </div>
               ))}
             </div>

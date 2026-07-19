@@ -36,7 +36,8 @@
 :root {
   color-scheme: light;
   --radius: 2px;
-  --background: #f3e8ee;
+  --button-radius: 0.5rem;
+  --background: #e9e5da;
   --foreground: #000000;
   --card: #fbf6f8;
   --card-foreground: #000000;
@@ -59,10 +60,10 @@
   --focus-ring: #000000;
   --primary-hover: #d4ff73;
   --secondary-button-border: rgb(0 0 0 / 0.28);
-  --secondary-button-background: rgb(243 232 238 / 0.72);
-  --hero-scrim-start: rgb(243 232 238 / 0.96);
-  --hero-scrim-middle: rgb(243 232 238 / 0.78);
-  --hero-scrim-end: rgb(243 232 238 / 0.36);
+  --secondary-button-background: rgb(233 229 218 / 0.72);
+  --hero-scrim-start: rgb(233 229 218 / 0.96);
+  --hero-scrim-middle: rgb(233 229 218 / 0.78);
+  --hero-scrim-end: rgb(233 229 218 / 0.36);
   --form-surface: #fbf6f8;
   --loader-track: rgb(0 0 0 / 0.12);
   --nav-glass-surface: rgb(251 246 248 / 0.56);
@@ -75,7 +76,7 @@
 
 html[data-theme="dark"] {
   color-scheme: dark;
-  --background: #0b0c0a;
+  --background: #1c2221;
   --foreground: #f1f3ed;
   --card: #10110e;
   --card-foreground: #f1f3ed;
@@ -98,14 +99,14 @@ html[data-theme="dark"] {
   --focus-ring: #c6ff4a;
   --primary-hover: #d4ff73;
   --secondary-button-border: rgb(255 255 255 / 0.32);
-  --secondary-button-background: rgb(11 12 10 / 0.56);
-  --hero-scrim-start: rgb(11 12 10 / 0.94);
-  --hero-scrim-middle: rgb(11 12 10 / 0.72);
-  --hero-scrim-end: rgb(11 12 10 / 0.38);
+  --secondary-button-background: rgb(28 34 33 / 0.56);
+  --hero-scrim-start: rgb(28 34 33 / 0.94);
+  --hero-scrim-middle: rgb(28 34 33 / 0.72);
+  --hero-scrim-end: rgb(28 34 33 / 0.38);
   --form-surface: #13150f;
   --loader-track: rgb(241 243 237 / 0.12);
-  --nav-glass-surface: rgb(11 12 10 / 0.5);
-  --nav-glass-fallback: rgb(11 12 10 / 0.96);
+  --nav-glass-surface: rgb(28 34 33 / 0.5);
+  --nav-glass-fallback: rgb(28 34 33 / 0.96);
   --nav-glass-border: rgb(241 243 237 / 0.2);
   --nav-glass-inner: rgb(255 255 255 / 0.12);
   --nav-glass-highlight: rgb(255 255 255 / 0.24);
@@ -132,26 +133,26 @@ body {
   position: relative;
   isolation: isolate;
   overflow: hidden;
-  border: 1px solid var(--nav-glass-border);
+  border-bottom: 1px solid var(--nav-glass-border);
   border-radius: 0;
   background: var(--nav-glass-surface);
-  -webkit-backdrop-filter: blur(18px) saturate(142%) contrast(1.04);
-  backdrop-filter: blur(18px) saturate(142%) contrast(1.04);
-  box-shadow:
+  -webkit-backdrop-filter: blur(5px) saturate(142%) contrast(1.04);
+  backdrop-filter: blur(5px) saturate(142%) contrast(1.04);
+  /* box-shadow:
     inset 0 1px 0 var(--nav-glass-inner),
     inset 0 -1px 0 color-mix(in srgb, var(--foreground) 8%, transparent),
-    0 14px 42px var(--nav-glass-shadow);
+    0 14px 42px var(--nav-glass-shadow); */
 }
 
-.site-nav-glass::before,
+/* .site-nav-glass::before,
 .site-nav-glass::after {
   position: absolute;
   z-index: 0;
   content: "";
   pointer-events: none;
-}
+} */
 
-.site-nav-glass::before {
+/* .site-nav-glass::before {
   inset: 0;
   background:
     radial-gradient(80% 180% at 8% -110%, var(--nav-glass-highlight), transparent 62%),
@@ -165,7 +166,7 @@ body {
   box-shadow:
     inset 14px 0 24px -24px var(--nav-glass-highlight),
     inset -14px 0 24px -24px color-mix(in srgb, var(--primary) 28%, transparent);
-}
+} */
 
 .site-nav-glass > * {
   position: relative;
@@ -238,12 +239,13 @@ html[data-theme="dark"] .accent-icon {
 .button-primary,
 .button-secondary {
   display: inline-flex;
-  min-height: 3rem;
+  min-height: 2.5rem;
   align-items: center;
   justify-content: center;
   gap: 0.6rem;
   border: 1px solid;
-  border-radius: 2px;
+  border-radius: var(--button-radius);
+  transform:skewX(-5deg);
   padding-inline: 1.25rem;
   font-size: 0.875rem;
   font-weight: 600;
@@ -255,6 +257,12 @@ html[data-theme="dark"] .accent-icon {
     background-color 180ms cubic-bezier(0.16, 1, 0.3, 1),
     color 180ms cubic-bezier(0.16, 1, 0.3, 1),
     border-color 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Keep every native and shared button on the same soft corner system. */
+button:not([data-slot="button"]),
+[data-slot="button"] {
+  border-radius: var(--button-radius);
 }
 
 .button-primary {
@@ -388,28 +396,6 @@ html[data-theme="light"] .scan-mark {
   border-width: 0 2px 2px 0;
 }
 
-.scan-frame-hero {
-  top: 22%;
-  right: -18%;
-  width: min(92vw, 620px);
-  opacity: 0.58;
-}
-
-html[data-theme="light"] .scan-frame-hero {
-  opacity: 0.78;
-}
-
-.scan-frame-hero::after {
-  content: "";
-  position: absolute;
-  left: 8%;
-  top: 8%;
-  width: 84%;
-  height: 1px;
-  background: var(--primary);
-  transform: translateY(0);
-}
-
 .form-field {
   display: grid;
   gap: 0.5rem;
@@ -422,6 +408,10 @@ html[data-theme="light"] .scan-frame-hero {
   background: var(--form-surface) !important;
   color: var(--foreground) !important;
   box-shadow: none !important;
+}
+
+button.form-control {
+  border-radius: var(--button-radius) !important;
 }
 
 .form-control::placeholder {
@@ -503,18 +493,6 @@ html[data-theme="dark"] .theme-icon-moon {
   }
 }
 
-@keyframes scan-line {
-  0%,
-  100% {
-    transform: translateY(0);
-    opacity: 0.42;
-  }
-  50% {
-    transform: translateY(460px);
-    opacity: 1;
-  }
-}
-
 @media (min-width: 640px) {
   .section-shell {
     padding-inline: 1.5rem;
@@ -526,17 +504,9 @@ html[data-theme="dark"] .theme-icon-moon {
     padding-inline: 2.5rem;
   }
 
-  .scan-frame-hero {
-    right: 8%;
-    width: min(48vw, 660px);
-  }
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  .scan-frame-hero::after {
-    animation: scan-line 3.6s cubic-bezier(0.65, 0, 0.35, 1) infinite;
-  }
-
   .scan-loader span {
     animation: scan-progress 800ms cubic-bezier(0.65, 0, 0.35, 1) infinite;
   }
@@ -556,7 +526,4 @@ html[data-theme="dark"] .theme-icon-moon {
     transition-duration: 0.01ms !important;
   }
 
-  .scan-frame-hero::after {
-    top: 50%;
-  }
 }

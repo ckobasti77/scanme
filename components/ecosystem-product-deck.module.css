@@ -1,0 +1,324 @@
+.showcase {
+  --deck-surface: #fbf6f8;
+  --deck-surface-active: #fffafb;
+  --deck-border: rgb(28 34 33 / 0.18);
+  --deck-muted: #51444b;
+  --deck-shadow: rgb(70 51 61 / 0.15);
+  display: grid;
+  gap: 1rem;
+  margin-top: 3.5rem;
+}
+
+:global(html[data-theme="dark"]) .showcase {
+  --deck-surface: #232927;
+  --deck-surface-active: #282f2c;
+  --deck-border: rgb(241 243 237 / 0.18);
+  --deck-muted: #b8bcb2;
+  --deck-shadow: rgb(0 0 0 / 0.38);
+}
+
+.reviewCard,
+.futureCard {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--deck-border);
+  border-radius: 0.75rem;
+  background: var(--deck-surface);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.5),
+    0 1.25rem 3.5rem -2rem var(--deck-shadow);
+}
+
+:global(html[data-theme="dark"]) .reviewCard,
+:global(html[data-theme="dark"]) .futureCard {
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.07),
+    0 1.25rem 3.5rem -2rem var(--deck-shadow);
+}
+
+.reviewCard {
+  display: flex;
+  min-height: 28rem;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 1.5rem;
+}
+
+.cardTopline {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.availableStatus {
+  display: inline-flex;
+  min-height: 2rem;
+  align-items: center;
+  border-radius: 0.5rem;
+  background: var(--primary);
+  padding-inline: 0.75rem;
+  color: var(--primary-foreground);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.reviewIcon,
+.futureIcon {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 0.625rem;
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.reviewIcon {
+  width: 3.5rem;
+  height: 3.5rem;
+}
+
+.reviewIcon svg {
+  width: 1.75rem;
+  height: 1.75rem;
+}
+
+.reviewContent {
+  max-width: 31rem;
+  padding-top: 5rem;
+}
+
+.productKind {
+  color: var(--deck-muted);
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
+.reviewContent h3 {
+  margin-top: 0.75rem;
+  font-size: clamp(2rem, 4vw, 3rem);
+  font-weight: 600;
+  letter-spacing: -0.055em;
+  line-height: 1;
+}
+
+.reviewContent > p:last-child {
+  margin-top: 1.25rem;
+  color: var(--deck-muted);
+  font-size: 0.9375rem;
+  line-height: 1.75;
+}
+
+.deckWrap {
+  min-width: 0;
+}
+
+.deck {
+  display: grid;
+  grid-auto-columns: minmax(16.5rem, 82vw);
+  grid-auto-flow: column;
+  gap: 0.875rem;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  padding: 0.25rem 0.125rem 1.25rem;
+  scroll-padding-inline: 0.125rem;
+  scroll-snap-type: inline mandatory;
+  scrollbar-width: thin;
+  scrollbar-color: var(--primary) transparent;
+}
+
+.futureCard {
+  min-height: 24rem;
+  scroll-snap-align: start;
+  transition:
+    transform 260ms cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 220ms cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 220ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 260ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.futureCard[data-active="true"] {
+  border-color: color-mix(in srgb, var(--primary) 74%, var(--deck-border));
+  background: var(--deck-surface-active);
+}
+
+.cardButton {
+  position: absolute;
+  z-index: 3;
+  inset: 0;
+  width: 100%;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+}
+
+.cardButton:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: -4px;
+}
+
+.futureCardContent {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  min-height: 24rem;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 1.5rem;
+  pointer-events: none;
+}
+
+.futureIcon {
+  width: 2.75rem;
+  height: 2.75rem;
+}
+
+.futureIcon svg {
+  width: 1.375rem;
+  height: 1.375rem;
+}
+
+.plannedStatus {
+  display: inline-flex;
+  min-height: 1.75rem;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--foreground);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.plannedStatus > span {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 0.1875rem;
+  background: var(--primary);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--foreground) 22%, transparent);
+}
+
+.futureCopy {
+  padding-top: 4rem;
+}
+
+.futureCopy h3,
+.edgeTitle {
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: -0.045em;
+  line-height: 1.08;
+}
+
+.futureCopy p {
+  margin-top: 1rem;
+  color: var(--deck-muted);
+  font-size: 0.875rem;
+  line-height: 1.7;
+}
+
+.edgeTitle {
+  display: none;
+}
+
+@media (min-width: 640px) {
+  .reviewCard {
+    min-height: 31rem;
+    padding: 2rem;
+  }
+
+  .futureCardContent {
+    padding: 1.75rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .showcase {
+    grid-template-columns: minmax(0, 0.78fr) minmax(0, 1.22fr);
+    gap: 1.5rem;
+  }
+
+  .reviewCard {
+    min-height: 36rem;
+    padding: 2.25rem;
+  }
+
+  .deckWrap,
+  .deck {
+    min-height: 36rem;
+  }
+
+  .deck {
+    position: relative;
+    display: block;
+    overflow: visible;
+    padding: 0;
+  }
+
+  .futureCard {
+    position: absolute;
+    top: calc(var(--deck-index) * 0.9rem);
+    left: calc(var(--deck-index) * 17.25%);
+    width: 48.25%;
+    min-height: 34rem;
+    transform: rotate(var(--deck-rotation));
+    transform-origin: 50% 90%;
+  }
+
+  .futureCard[data-active="true"] {
+    transform: translateY(-0.7rem) rotate(0deg) scale(1.012);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.54),
+      0 2rem 4.5rem -2rem var(--deck-shadow);
+  }
+
+  :global(html[data-theme="dark"]) .futureCard[data-active="true"] {
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.09),
+      0 2rem 4.5rem -2rem var(--deck-shadow);
+  }
+
+  .futureCardContent {
+    min-height: 34rem;
+    padding: 1.75rem;
+  }
+
+  .futureCard:not([data-active="true"]) .cardButton {
+    right: 0;
+    left: auto;
+    width: 36%;
+  }
+
+  .futureCopy {
+    max-width: 16rem;
+    transition:
+      opacity 180ms ease,
+      transform 240ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .futureCard:not([data-active="true"]) .futureCopy {
+    opacity: 0;
+    transform: translateY(0.75rem);
+  }
+
+  .edgeTitle {
+    position: absolute;
+    right: 1.15rem;
+    bottom: 1.5rem;
+    display: block;
+    width: 6.25rem;
+    transition: opacity 160ms ease;
+  }
+
+  .futureCard[data-active="true"] .edgeTitle {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .futureCard,
+  .futureCopy,
+  .edgeTitle {
+    transition: none;
+  }
+}
