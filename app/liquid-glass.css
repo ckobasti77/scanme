@@ -1,0 +1,76 @@
+.liquid-glass {
+  --liquid-glass-shadow:
+    0 0 8px rgb(0 0 0 / 0.03),
+    0 2px 6px rgb(0 0 0 / 0.08),
+    inset 3px 3px 0.5px -3.5px rgb(255 255 255 / 0.09),
+    inset -3px -3px 0.5px -3.5px rgb(255 255 255 / 0.85),
+    inset 1px 1px 1px -0.5px rgb(255 255 255 / 0.6),
+    inset -1px -1px 1px -0.5px rgb(255 255 255 / 0.6),
+    inset 0 0 6px 6px rgb(255 255 255 / 0.12),
+    inset 0 0 2px 2px rgb(255 255 255 / 0.06),
+    0 0 12px rgb(0 0 0 / 0.15);
+  position: relative;
+  isolation: isolate;
+  border-color: var(--marketing-border);
+  background: rgb(12 14 11 / 0.12);
+  box-shadow: var(--liquid-glass-shadow);
+  -webkit-backdrop-filter: blur(18px) saturate(135%);
+  backdrop-filter: url("#marketing-liquid-glass-filter");
+}
+
+.liquid-glass::before {
+  display: none !important;
+  content: none !important;
+}
+
+html[data-marketing-theme="light"] .liquid-glass {
+  --liquid-glass-shadow:
+    0 0 6px rgb(0 0 0 / 0.03),
+    0 2px 6px rgb(0 0 0 / 0.08),
+    inset 3px 3px 0.5px -3px rgb(0 0 0 / 0.9),
+    inset -3px -3px 0.5px -3px rgb(0 0 0 / 0.85),
+    inset 1px 1px 1px -0.5px rgb(0 0 0 / 0.6),
+    inset -1px -1px 1px -0.5px rgb(0 0 0 / 0.6),
+    inset 0 0 6px 6px rgb(0 0 0 / 0.12),
+    inset 0 0 2px 2px rgb(0 0 0 / 0.06),
+    0 0 12px rgb(255 255 255 / 0.15);
+  background: rgb(251 246 248 / 0.12);
+  box-shadow: var(--liquid-glass-shadow);
+}
+
+.marketing-site-header.liquid-glass {
+  position: fixed;
+  border: 0 !important;
+  box-shadow: none;
+}
+
+.marketing-site-header .marketing-service-links .marketing-service-control.is-active::before,
+.marketing-site-header .marketing-service-links .marketing-service-control.is-active::after {
+  display: none !important;
+  content: none !important;
+}
+
+.marketing-context-service.liquid-glass.is-active,
+html[data-marketing-theme="light"] .marketing-context-service.liquid-glass.is-active {
+  border-color: var(--marketing-border);
+  color: var(--marketing-accent);
+  box-shadow: var(--liquid-glass-shadow);
+}
+
+.marketing-site-header.liquid-glass.hero-is-behind {
+  box-shadow: none;
+}
+
+.marketing-scroll-top.liquid-glass {
+  position: fixed;
+}
+
+.marketing-footer-cta {
+  color: var(--marketing-text) !important;
+}
+
+@supports not ((backdrop-filter: blur(2px)) or (-webkit-backdrop-filter: blur(2px))) {
+  .liquid-glass {
+    background: var(--marketing-glass-still) !important;
+  }
+}

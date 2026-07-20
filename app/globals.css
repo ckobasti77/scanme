@@ -1,0 +1,1486 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --font-sans: var(--font-plex-mono);
+  --font-mono: var(--font-plex-mono);
+  --radius-sm: 2px;
+  --radius-md: 2px;
+  --radius-lg: 2px;
+  --radius-xl: 2px;
+}
+
+:root {
+  color-scheme: dark;
+  --page-shell-padding: 1.5rem;
+  --radius: 2px;
+  --background: #0b0c0a;
+  --foreground: #f1f3ed;
+  --card: #10110e;
+  --card-foreground: #f1f3ed;
+  --popover: #10110e;
+  --popover-foreground: #f1f3ed;
+  --primary: #c6ff4a;
+  --primary-foreground: #0b0c0a;
+  --secondary: #171913;
+  --secondary-foreground: #f1f3ed;
+  --muted: #171913;
+  --muted-foreground: #a7ab9f;
+  --accent: #c6ff4a;
+  --accent-foreground: #0b0c0a;
+  --destructive: #ff6f66;
+  --destructive-foreground: #0b0c0a;
+  --border: rgb(241 243 237 / 0.16);
+  --input: rgb(241 243 237 / 0.22);
+  --ring: #c6ff4a;
+}
+
+* {
+  border-color: var(--border);
+}
+
+html {
+  scroll-behavior: smooth;
+  background: var(--background);
+}
+
+body {
+  overflow-x: clip;
+  background: var(--background);
+  color: var(--foreground);
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: #c6ff4a;
+  color: #0b0c0a;
+}
+
+button:not(:disabled),
+[role="button"]:not(:disabled) {
+  cursor: pointer;
+}
+
+section[id] {
+  scroll-margin-top: 72px;
+}
+
+.section-shell {
+  width: 100%;
+  max-width: 1440px;
+  margin-inline: auto;
+  padding-inline: var(--page-shell-padding);
+}
+
+.button-primary,
+.button-secondary {
+  display: inline-flex;
+  min-height: 3rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  border: 1px solid;
+  border-radius: 2px;
+  padding-inline: 1.25rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  touch-action: manipulation;
+  transition:
+    transform 180ms cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 180ms cubic-bezier(0.16, 1, 0.3, 1),
+    color 180ms cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.button-primary {
+  border-color: #c6ff4a;
+  background: #c6ff4a;
+  color: #0b0c0a;
+}
+
+.button-primary:hover {
+  border-color: #d4ff73;
+  background: #d4ff73;
+}
+
+.button-secondary {
+  border-color: rgb(255 255 255 / 0.32);
+  background: rgb(11 12 10 / 0.56);
+  color: #f1f3ed;
+}
+
+.button-secondary:hover {
+  border-color: #c6ff4a;
+  color: #c6ff4a;
+}
+
+.button-primary:active,
+.button-secondary:active {
+  transform: scale(0.98);
+}
+
+.button-primary:disabled,
+.button-secondary:disabled {
+  cursor: not-allowed;
+  opacity: 0.52;
+}
+
+.focus-signal:focus-visible,
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+[data-slot="accordion-trigger"]:focus-visible {
+  outline: 2px solid #c6ff4a;
+  outline-offset: 3px;
+}
+
+.skip-link {
+  position: fixed;
+  left: 1rem;
+  top: 1rem;
+  z-index: 100;
+  transform: translateY(-180%);
+  border: 1px solid #c6ff4a;
+  background: #0b0c0a;
+  color: #f1f3ed;
+  padding: 0.75rem 1rem;
+  transition: transform 180ms ease-out;
+}
+
+.skip-link:focus {
+  transform: translateY(0);
+}
+
+.hero-static {
+  background: #0b0c0a;
+}
+
+.hero-scrim {
+  background: linear-gradient(
+    90deg,
+    rgb(11 12 10 / 0.94) 0%,
+    rgb(11 12 10 / 0.72) 52%,
+    rgb(11 12 10 / 0.38) 100%
+  );
+}
+
+.scan-frame {
+  position: absolute;
+  aspect-ratio: 1;
+}
+
+.scan-frame i {
+  position: absolute;
+  width: 22%;
+  height: 22%;
+  border-color: #c6ff4a;
+  border-style: solid;
+}
+
+.scan-frame i:nth-child(1) {
+  left: 0;
+  top: 0;
+  border-width: 2px 0 0 2px;
+}
+
+.scan-frame i:nth-child(2) {
+  right: 0;
+  top: 0;
+  border-width: 2px 2px 0 0;
+}
+
+.scan-frame i:nth-child(3) {
+  bottom: 0;
+  left: 0;
+  border-width: 0 0 2px 2px;
+}
+
+.scan-frame i:nth-child(4) {
+  right: 0;
+  bottom: 0;
+  border-width: 0 2px 2px 0;
+}
+
+.scan-frame-hero {
+  top: 22%;
+  right: -18%;
+  width: min(92vw, 620px);
+  opacity: 0.58;
+}
+
+.scan-frame-hero::after {
+  content: "";
+  position: absolute;
+  left: 8%;
+  top: 8%;
+  width: 84%;
+  height: 1px;
+  background: #c6ff4a;
+  transform: translateY(0);
+}
+
+.form-field {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.form-control {
+  min-height: 3rem;
+  border: 1px solid rgb(255 255 255 / 0.22) !important;
+  border-radius: 2px !important;
+  background: #13150f !important;
+  color: #f1f3ed !important;
+  box-shadow: none !important;
+}
+
+.form-control::placeholder {
+  color: rgb(241 243 237 / 0.48);
+}
+
+.form-control[aria-invalid="true"] {
+  border-color: #ff8f86 !important;
+}
+
+.scan-loader {
+  position: relative;
+  width: 100%;
+  height: 3px;
+  overflow: hidden;
+  background: rgb(241 243 237 / 0.12);
+}
+
+.scan-loader span {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 38%;
+  background: #c6ff4a;
+  transform: translateX(-110%);
+}
+
+@keyframes scan-progress {
+  to { transform: translateX(365%); }
+}
+
+select.form-control option {
+  background: #13150f;
+  color: #f1f3ed;
+}
+
+@keyframes scan-line {
+  0%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.42;
+  }
+  50% {
+    transform: translateY(460px);
+    opacity: 1;
+  }
+}
+
+@media (min-width: 640px) {
+  :root {
+    --page-shell-padding: 2rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --page-shell-padding: 3rem;
+  }
+
+  .scan-frame-hero {
+    right: 8%;
+    width: min(48vw, 660px);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .scan-frame-hero::after {
+    animation: scan-line 3.6s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+  }
+
+  .scan-loader span {
+    animation: scan-progress 800ms cubic-bezier(0.65, 0, 0.35, 1) infinite;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .scan-frame-hero::after {
+    top: 50%;
+  }
+}
+
+/* ScanMe public marketing redesign. These tokens never style product/admin routes. */
+.marketing-home,
+.marketing-sheet,
+.marketing-service-menu {
+  --marketing-accent: #c6ff4a;
+  --marketing-bg: #1c2221;
+  --marketing-band-bg: #10110e;
+  --marketing-surface: #171913;
+  --marketing-surface-soft: rgb(241 243 237 / 0.045);
+  --marketing-text: #f1f3ed;
+  --marketing-muted: #a7ab9f;
+  --marketing-border: rgb(241 243 237 / 0.13);
+  --marketing-border-strong: rgb(241 243 237 / 0.22);
+  --marketing-glass: rgb(23 25 19 / 0.68);
+  --marketing-glass-still: rgb(23 25 19 / 0.92);
+  --marketing-liquid-tint: rgb(12 14 11 / 0.56);
+  --marketing-shadow: rgb(0 0 0 / 0.34);
+  --marketing-control-bg: rgb(16 17 14 / 0.88);
+  --marketing-on-accent: #10110e;
+}
+
+html[data-marketing-theme="light"] .marketing-home,
+.marketing-sheet[data-marketing-theme="light"],
+.marketing-service-menu[data-marketing-theme="light"] {
+  --marketing-bg: #e9e5da;
+  --marketing-band-bg: #fbf6f8;
+  --marketing-surface: #e7d9e1;
+  --marketing-surface-soft: rgb(81 68 75 / 0.055);
+  --marketing-text: #000000;
+  --marketing-muted: #51444b;
+  --marketing-border: rgb(81 68 75 / 0.18);
+  --marketing-border-strong: rgb(81 68 75 / 0.3);
+  --marketing-glass: rgb(251 246 248 / 0.66);
+  --marketing-glass-still: rgb(251 246 248 / 0.94);
+  --marketing-liquid-tint: rgb(251 246 248 / 0.5);
+  --marketing-shadow: rgb(81 68 75 / 0.2);
+  --marketing-control-bg: rgb(251 246 248 / 0.9);
+}
+
+.marketing-home {
+  min-height: 100svh;
+  overflow: clip;
+  background: var(--marketing-bg);
+  color: var(--marketing-text);
+  color-scheme: dark;
+}
+
+.marketing-video-background {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background: var(--marketing-bg);
+}
+
+.marketing-video-background::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  z-index: 2;
+  background:
+    linear-gradient(180deg, rgb(7 8 6 / 0.58), rgb(7 8 6 / 0.7)),
+    radial-gradient(circle at 50% 22%, transparent, rgb(7 8 6 / 0.16) 72%);
+}
+
+.marketing-video-background video {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  filter: saturate(0.76) contrast(1.06);
+}
+
+.marketing-video-background video.is-loading {
+  visibility: hidden;
+}
+
+html[data-marketing-theme="light"] .marketing-home {
+  color-scheme: light;
+}
+
+.marketing-home main,
+.marketing-home footer {
+  position: relative;
+  z-index: 1;
+  background: transparent;
+  color: var(--marketing-text);
+}
+
+.marketing-home .marketing-band {
+  border-color: var(--marketing-border) !important;
+  background-color: color-mix(in srgb, var(--marketing-band-bg) 64%, transparent) !important;
+  background-image:
+    radial-gradient(circle at 18% 0%, rgb(198 255 74 / 0.055), transparent 30rem),
+    linear-gradient(180deg, color-mix(in srgb, var(--marketing-text) 2%, transparent), transparent 45%);
+}
+
+.marketing-home .marketing-video-accent {
+  background-color: rgb(198 255 74 / 0.82) !important;
+}
+
+html[data-marketing-theme="light"] .marketing-video-background {
+  background: #e9e5da;
+}
+
+html[data-marketing-theme="light"] .marketing-video-background::after {
+  background:
+    linear-gradient(rgb(251 246 248 / 0.15), rgb(251 246 248 / 0.15)),
+    linear-gradient(180deg, rgb(45 43 39 / 0.035), rgb(45 43 39 / 0.07)),
+    radial-gradient(circle at 50% 22%, transparent, rgb(45 43 39 / 0.05) 72%);
+}
+
+html[data-marketing-theme="light"] .marketing-video-background video {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marketing-video-background video {
+    display: none;
+  }
+}
+
+.marketing-home [class*="text-white/"] {
+  color: color-mix(in srgb, var(--marketing-muted) 86%, transparent) !important;
+}
+
+.marketing-home [class*="border-white/"] {
+  border-color: var(--marketing-border) !important;
+}
+
+.marketing-home [class*="bg-white/"] {
+  background-color: var(--marketing-surface-soft) !important;
+}
+
+.marketing-home [class*="bg-black/"] {
+  background-color: color-mix(in srgb, var(--marketing-surface) 76%, transparent) !important;
+}
+
+.marketing-home .marketing-card {
+  border-color: var(--marketing-border) !important;
+  background-color: var(--marketing-surface-soft) !important;
+  box-shadow:
+    0 22px 60px var(--marketing-shadow),
+    inset 0 1px 0 color-mix(in srgb, var(--marketing-text) 7%, transparent);
+}
+
+.marketing-home .marketing-card::after {
+  background: linear-gradient(
+    130deg,
+    color-mix(in srgb, var(--marketing-text) 6%, transparent),
+    transparent 42%
+  );
+}
+
+.marketing-home .marketing-form-panel {
+  border-color: var(--marketing-border) !important;
+  background: color-mix(in srgb, var(--marketing-surface) 90%, transparent) !important;
+  box-shadow:
+    0 36px 90px var(--marketing-shadow),
+    inset 0 1px 0 color-mix(in srgb, var(--marketing-text) 8%, transparent);
+}
+
+.marketing-home .marketing-faq-item {
+  border-color: var(--marketing-border) !important;
+  background: var(--marketing-surface-soft) !important;
+}
+
+.marketing-home .marketing-faq-item[data-state="open"] {
+  border-color: rgb(198 255 74 / 0.45) !important;
+  background: rgb(198 255 74 / 0.07) !important;
+}
+
+.marketing-home .form-control {
+  border-color: var(--marketing-border-strong) !important;
+  background: var(--marketing-control-bg) !important;
+  color: var(--marketing-text) !important;
+}
+
+.marketing-home .form-control::placeholder {
+  color: color-mix(in srgb, var(--marketing-muted) 72%, transparent);
+}
+
+.marketing-home select.form-control option {
+  background: var(--marketing-band-bg);
+  color: var(--marketing-text);
+}
+
+.marketing-home .marketing-media {
+  border-color: var(--marketing-border) !important;
+}
+
+.marketing-site-header {
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: 45;
+  min-height: 76px;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  color: var(--marketing-text);
+}
+
+.marketing-site-header.hero-is-behind {
+  box-shadow:
+    0 22px 62px var(--marketing-shadow),
+    0 10px 42px rgb(198 255 74 / 0.045),
+    inset 0 1px 0 color-mix(in srgb, var(--marketing-text) 16%, transparent);
+}
+
+.marketing-nav-grid {
+  display: flex;
+  min-height: 76px;
+  align-items: center;
+}
+
+.marketing-nav-left,
+.marketing-nav-center,
+.marketing-nav-right {
+  display: none;
+}
+
+.marketing-mobile-nav {
+  display: grid;
+  width: 100%;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.marketing-wordmark-link {
+  display: inline-flex;
+  min-height: 44px;
+  width: fit-content;
+  align-items: center;
+  color: var(--marketing-text);
+}
+
+.marketing-nav-link {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  border: 0;
+  background: transparent;
+  padding-inline: 0.45rem;
+  color: color-mix(in srgb, var(--marketing-text) 72%, transparent);
+  font-size: 0.82rem;
+  transition: color 180ms ease;
+}
+
+.marketing-nav-link:hover {
+  color: var(--marketing-text);
+}
+
+.marketing-service-links {
+  display: flex;
+  min-height: 76px;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(0.1rem, 0.4vw, 0.45rem);
+}
+
+.marketing-service-control {
+  position: relative;
+  display: inline-flex;
+  min-width: 0;
+  min-height: 36px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  padding-inline: clamp(0.48rem, 0.72vw, 0.78rem);
+  color: color-mix(in srgb, var(--marketing-text) 72%, transparent);
+  font-family: var(--font-plex-mono), monospace;
+  font-size: clamp(0.68rem, 0.76vw, 0.79rem);
+  line-height: 1;
+  white-space: nowrap;
+  transition: color 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.marketing-service-label {
+  position: relative;
+  z-index: 2;
+}
+
+.marketing-service-control:hover {
+  color: var(--marketing-text);
+}
+
+.marketing-site-header .marketing-service-links .marketing-service-control.is-active {
+  z-index: 2;
+  color: var(--marketing-accent);
+}
+
+.marketing-context-service {
+  display: inline-flex;
+  min-height: 42px;
+  max-width: 8.4rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.42rem;
+  overflow: visible;
+  border: 1px solid var(--marketing-border);
+  border-radius: 14px;
+  padding-inline: 0.8rem;
+  color: var(--marketing-text);
+  font-family: var(--font-plex-mono), monospace;
+  font-size: 0.7rem;
+  line-height: 1;
+}
+
+.marketing-context-service.is-active {
+  color: var(--marketing-accent);
+}
+
+.marketing-icon-button {
+  display: inline-flex;
+  width: 44px;
+  height: 44px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--marketing-border);
+  border-radius: 14px;
+  background: var(--marketing-surface-soft);
+  color: var(--marketing-text);
+  transition: border-color 180ms ease, background-color 180ms ease, color 180ms ease;
+}
+
+.marketing-icon-button:hover {
+  border-color: rgb(198 255 74 / 0.6);
+  background: rgb(198 255 74 / 0.08);
+  color: var(--marketing-accent);
+}
+
+.marketing-theme-icon-dark {
+  display: none !important;
+}
+
+html[data-marketing-theme="light"] .marketing-theme-icon-light,
+[data-marketing-theme="light"] .marketing-theme-icon-light {
+  display: none !important;
+}
+
+html[data-marketing-theme="light"] .marketing-theme-icon-dark,
+[data-marketing-theme="light"] .marketing-theme-icon-dark {
+  display: block !important;
+}
+
+html[data-marketing-theme="light"] .marketing-site-header .marketing-service-links .marketing-service-control.is-active,
+html[data-marketing-theme="light"] .marketing-context-service.is-active,
+html[data-marketing-theme="light"] .marketing-service-chip.is-active .marketing-service-chip-surface {
+  color: #1f2a09;
+}
+
+.marketing-floating-wrap {
+  position: fixed;
+  inset: 10px 0 auto;
+  z-index: 46;
+  display: flex;
+  justify-content: center;
+  padding-inline: 12px;
+  pointer-events: none;
+}
+
+.marketing-floating-shell {
+  display: grid;
+  width: min(calc(100vw - 24px), 70rem);
+  grid-template-columns: minmax(5.5rem, 1fr) minmax(0, 31rem) minmax(8.5rem, 1fr);
+  align-items: center;
+  gap: clamp(0.4rem, 1.2vw, 1rem);
+  pointer-events: auto;
+}
+
+.marketing-floating-wordmark.liquid-glass {
+  display: inline-flex;
+  min-height: 44px;
+  width: 44px;
+  align-items: center;
+  justify-content: center;
+  justify-self: start;
+  overflow: hidden;
+  border: 0;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--marketing-glass) 38%, transparent);
+  box-shadow: 0 10px 30px var(--marketing-shadow);
+  color: var(--marketing-text);
+}
+
+.marketing-floating-actions {
+  display: flex;
+  align-items: center;
+  justify-self: end;
+  gap: clamp(0.3rem, 0.7vw, 0.5rem);
+}
+
+.marketing-floating-theme-toggle.liquid-glass {
+  width: 44px;
+  height: 36px;
+  border-color: transparent;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--marketing-glass) 38%, transparent);
+  box-shadow: 0 10px 30px var(--marketing-shadow);
+}
+
+.marketing-home .marketing-floating-cta {
+  min-height: 36px !important;
+  gap: 0.4rem;
+  border-radius: 12px !important;
+  padding-inline: 0.85rem !important;
+  font-family: var(--font-plex-mono), monospace;
+  font-size: 0.72rem;
+}
+
+.marketing-home .marketing-floating-cta::before {
+  border-radius: 12px;
+}
+
+.marketing-floating-services {
+  display: grid;
+  width: 100%;
+  max-width: 31rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: clamp(0.25rem, 1vw, 0.55rem);
+  pointer-events: auto;
+}
+
+@media (max-width: 639px) {
+  .marketing-floating-shell {
+    grid-template-columns: 2.75rem minmax(0, 1fr) auto;
+    gap: 0.3rem;
+  }
+
+  .marketing-floating-services {
+    gap: 0.2rem;
+  }
+
+  .marketing-floating-services .marketing-service-chip {
+    font-size: 0.5rem;
+  }
+
+  .marketing-floating-services .marketing-service-chip-surface {
+    padding-inline: 0;
+  }
+
+  .marketing-floating-theme-toggle {
+    width: 36px;
+  }
+
+  .marketing-home .marketing-floating-cta {
+    gap: 0;
+    padding-inline: 0.55rem !important;
+  }
+
+  .marketing-floating-cta svg {
+    display: none;
+  }
+}
+
+.marketing-service-chip {
+  min-height: 44px;
+  overflow: visible;
+  border: 0;
+  border-radius: 14px;
+  padding: 4px 0;
+  background: transparent;
+  font-size: clamp(0.58rem, 2.65vw, 0.75rem);
+}
+
+.marketing-service-chip-surface.liquid-glass {
+  display: inline-flex;
+  width: 100%;
+  min-height: 36px;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  padding-inline: clamp(0.3rem, 1.2vw, 0.75rem);
+  background: color-mix(in srgb, var(--marketing-glass) 38%, transparent);
+  box-shadow: 0 10px 30px var(--marketing-shadow);
+  color: color-mix(in srgb, var(--marketing-text) 78%, transparent);
+  transition:
+    border-color 180ms ease,
+    color 180ms ease,
+    box-shadow 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.marketing-service-chip:hover .marketing-service-chip-surface {
+  border-color: transparent;
+  color: var(--marketing-text);
+}
+
+.marketing-service-chip.is-active .marketing-service-chip-surface {
+  border-color: transparent;
+  background:
+    linear-gradient(rgb(198 255 74 / 0.16), rgb(198 255 74 / 0.16)),
+    color-mix(in srgb, var(--marketing-glass) 48%, transparent) !important;
+  color: var(--marketing-accent);
+  box-shadow:
+    0 14px 34px rgb(198 255 74 / 0.13),
+    0 10px 30px var(--marketing-shadow);
+}
+
+.marketing-service-chip.is-active .marketing-service-chip-surface::before {
+  display: none;
+}
+
+.marketing-service-menu {
+  z-index: 60 !important;
+  min-width: 12rem !important;
+  border: 1px solid var(--marketing-border) !important;
+  border-radius: 18px !important;
+  background: var(--marketing-glass-still) !important;
+  padding: 0.45rem !important;
+  color: var(--marketing-text) !important;
+  box-shadow: 0 24px 64px var(--marketing-shadow) !important;
+  backdrop-filter: blur(24px) saturate(145%);
+  -webkit-backdrop-filter: blur(24px) saturate(145%);
+}
+
+.marketing-service-menu-item {
+  min-height: 42px;
+  border-radius: 12px !important;
+  padding-inline: 0.8rem !important;
+  color: color-mix(in srgb, var(--marketing-text) 78%, transparent) !important;
+  font-family: var(--font-plex-mono), monospace;
+}
+
+.marketing-service-menu-item:focus,
+.marketing-service-menu-item.is-current {
+  background: rgb(198 255 74 / 0.11) !important;
+  color: var(--marketing-accent) !important;
+}
+
+.marketing-sheet {
+  inset: 0 0 0 auto !important;
+  width: min(88vw, 420px) !important;
+  height: 100dvh !important;
+  max-width: none !important;
+  gap: 0 !important;
+  border: 0 !important;
+  border-left: 1px solid var(--marketing-border) !important;
+  border-radius: 28px 0 0 28px !important;
+  background:
+    radial-gradient(circle at 90% 5%, rgb(198 255 74 / 0.08), transparent 33%),
+    var(--marketing-glass-still) !important;
+  padding: 1.5rem !important;
+  color: var(--marketing-text) !important;
+  box-shadow:
+    -28px 0 90px var(--marketing-shadow),
+    inset 1px 0 0 color-mix(in srgb, var(--marketing-text) 8%, transparent) !important;
+  backdrop-filter: blur(28px) saturate(145%);
+  -webkit-backdrop-filter: blur(28px) saturate(145%);
+}
+
+.marketing-sheet > button {
+  top: 1rem;
+  right: 1rem;
+  border-color: var(--marketing-border);
+  border-radius: 14px;
+  background: var(--marketing-surface-soft);
+  color: var(--marketing-text);
+}
+
+.marketing-sheet-header {
+  border-bottom: 1px solid var(--marketing-border);
+  padding: 0.35rem 3rem 1.4rem 0;
+}
+
+.marketing-sheet-header [data-slot="sheet-description"] {
+  color: color-mix(in srgb, var(--marketing-muted) 88%, transparent);
+}
+
+.marketing-sheet-links {
+  display: grid;
+  padding-block: 1rem;
+}
+
+.marketing-sheet-link {
+  display: flex;
+  min-height: 52px;
+  align-items: center;
+  border-bottom: 1px solid var(--marketing-border);
+  color: color-mix(in srgb, var(--marketing-text) 84%, transparent);
+  font-size: 1.05rem;
+  transition: color 180ms ease, padding-left 180ms ease;
+}
+
+.marketing-sheet-link:hover {
+  padding-left: 0.35rem;
+  color: var(--marketing-accent);
+}
+
+.marketing-sheet-theme-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+  color: var(--marketing-muted);
+  font-size: 0.88rem;
+}
+
+.marketing-home .button-primary,
+.marketing-home .button-secondary,
+.marketing-sheet .button-primary,
+.marketing-sheet .button-secondary,
+.marketing-home .marketing-dark-cta {
+  position: relative;
+  isolation: isolate;
+  overflow: visible;
+  border: 0 !important;
+  border-radius: 14px !important;
+  background: transparent !important;
+}
+
+.marketing-home .button-primary,
+.marketing-sheet .button-primary {
+  color: var(--marketing-on-accent) !important;
+}
+
+.marketing-home .button-secondary,
+.marketing-sheet .button-secondary {
+  color: var(--marketing-text) !important;
+}
+
+.marketing-home .button-primary::before,
+.marketing-sheet .button-primary::before,
+.marketing-home .button-secondary::before,
+.marketing-sheet .button-secondary::before,
+.marketing-home .marketing-dark-cta::before {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: 14px;
+  content: "";
+  transform: skewX(-10deg);
+  transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1), background-color 200ms ease, box-shadow 200ms ease;
+}
+
+.marketing-home .button-primary::before,
+.marketing-sheet .button-primary::before {
+  background: var(--marketing-accent);
+  box-shadow:
+    0 14px 34px rgb(198 255 74 / 0.16),
+    inset 0 1px 0 rgb(255 255 255 / 0.35);
+}
+
+.marketing-home .button-secondary::before,
+.marketing-sheet .button-secondary::before {
+  border: 1px solid var(--marketing-border-strong);
+  background: var(--marketing-glass-still);
+}
+
+.marketing-home .marketing-dark-cta {
+  color: #c6ff4a !important;
+}
+
+.marketing-home .marketing-dark-cta::before {
+  border: 1px solid #10110e;
+  background: #10110e;
+  box-shadow: 0 14px 34px rgb(16 17 14 / 0.2);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .marketing-home .button-primary:hover::before,
+  .marketing-sheet .button-primary:hover::before,
+  .marketing-home .button-secondary:hover::before,
+  .marketing-sheet .button-secondary:hover::before,
+  .marketing-home .marketing-dark-cta:hover::before {
+    transform: skewX(-10deg) translateY(-2px);
+  }
+
+  .marketing-home .marketing-card:hover {
+    border-color: rgb(198 255 74 / 0.3) !important;
+    background-color: color-mix(in srgb, var(--marketing-surface) 54%, transparent) !important;
+  }
+
+  .marketing-home .marketing-faq-item:hover {
+    border-color: var(--marketing-border-strong) !important;
+  }
+}
+
+@media (min-width: 768px) {
+  .marketing-ecosystem-card-2 {
+    margin-left: 7%;
+  }
+
+  .marketing-ecosystem-card-3 {
+    margin-left: 14%;
+  }
+
+  .marketing-ecosystem-card-4 {
+    margin-left: 21%;
+  }
+}
+
+@media (min-width: 1180px) {
+  .marketing-nav-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    gap: 1rem;
+  }
+
+  .marketing-nav-left,
+  .marketing-nav-center,
+  .marketing-nav-right {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+  }
+
+  .marketing-nav-left {
+    justify-self: start;
+    gap: clamp(0.35rem, 0.7vw, 0.8rem);
+  }
+
+  .marketing-nav-center {
+    justify-self: center;
+  }
+
+  .marketing-nav-right {
+    justify-self: end;
+    gap: clamp(0.25rem, 0.52vw, 0.62rem);
+  }
+
+  .marketing-mobile-nav {
+    display: none;
+  }
+}
+
+@supports not ((backdrop-filter: blur(2px)) or (-webkit-backdrop-filter: blur(2px))) {
+  .liquid-glass:not([data-liquid-glass="ready"]),
+  .marketing-sheet,
+  .marketing-service-menu {
+    background: var(--marketing-glass-still) !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marketing-home .button-primary::before,
+  .marketing-sheet .button-primary::before,
+  .marketing-home .button-secondary::before,
+  .marketing-sheet .button-secondary::before,
+  .marketing-home .marketing-dark-cta::before {
+    transform: skewX(-10deg) !important;
+  }
+}
+
+/* Public marketing page only. Product surfaces keep the global square token set. */
+.marketing-home {
+  --marketing-radius-panel: 40px;
+  --marketing-radius-card: 28px;
+  --marketing-radius-control: 18px;
+  --marketing-radius-pill: 999px;
+  font-family: var(--font-manrope), sans-serif;
+}
+
+.marketing-home section[id] {
+  scroll-margin-top: 96px;
+}
+
+.marketing-home .marketing-data {
+  font-family: var(--font-plex-mono), monospace;
+  letter-spacing: -0.015em;
+}
+
+.marketing-home .button-primary,
+.marketing-home .button-secondary,
+.marketing-sheet .button-primary,
+.marketing-sheet .button-secondary {
+  min-height: 2.75rem;
+  border-radius: var(--marketing-radius-pill, 999px);
+  padding-inline: 1.2rem;
+}
+
+.marketing-home .skip-link {
+  border-radius: 14px;
+}
+
+.marketing-nav {
+  background:
+    linear-gradient(115deg, rgb(255 255 255 / 0.075), transparent 38%),
+    rgb(11 12 10 / 0.74);
+  box-shadow:
+    0 22px 60px rgb(0 0 0 / 0.28),
+    inset 0 1px 0 rgb(255 255 255 / 0.08);
+  backdrop-filter: blur(22px) saturate(130%);
+}
+
+.marketing-sheet {
+  overflow: hidden;
+  font-family: var(--font-manrope, sans-serif);
+  box-shadow:
+    0 28px 90px rgb(0 0 0 / 0.48),
+    inset 0 1px 0 rgb(255 255 255 / 0.08);
+}
+
+.marketing-sheet > button {
+  top: 1.1rem;
+  right: 1.1rem;
+  border: 1px solid rgb(255 255 255 / 0.12);
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.055);
+  opacity: 1;
+}
+
+.marketing-band {
+  background-image:
+    radial-gradient(circle at 18% 0%, rgb(198 255 74 / 0.045), transparent 30rem),
+    linear-gradient(180deg, rgb(255 255 255 / 0.012), transparent 45%);
+}
+
+.marketing-card {
+  position: relative;
+  overflow: hidden;
+  box-shadow:
+    0 22px 60px rgb(0 0 0 / 0.13),
+    inset 0 1px 0 rgb(255 255 255 / 0.035);
+  transition:
+    transform 320ms cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 320ms cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 320ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 320ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.marketing-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background: linear-gradient(130deg, rgb(255 255 255 / 0.035), transparent 42%);
+}
+
+.marketing-signal-card::before {
+  content: "";
+  position: absolute;
+  right: 1.4rem;
+  bottom: 1.4rem;
+  width: 2.2rem;
+  height: 0.35rem;
+  border-radius: 999px;
+  background: #c6ff4a;
+  box-shadow: 0 0 22px rgb(198 255 74 / 0.22);
+}
+
+.marketing-media {
+  box-shadow:
+    0 32px 80px rgb(0 0 0 / 0.25),
+    inset 0 1px 0 rgb(255 255 255 / 0.08);
+}
+
+.marketing-media::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.08);
+}
+
+.marketing-media img {
+  transition: transform 700ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.marketing-form-panel {
+  backdrop-filter: blur(18px);
+  box-shadow:
+    0 36px 90px rgb(0 0 0 / 0.24),
+    inset 0 1px 0 rgb(255 255 255 / 0.055);
+}
+
+.marketing-home .form-control {
+  min-height: 3.35rem;
+  border-radius: var(--marketing-radius-control) !important;
+  background: rgb(21 23 17 / 0.9) !important;
+  padding-inline: 1rem;
+  transition:
+    border-color 200ms ease,
+    background-color 200ms ease,
+    box-shadow 200ms ease;
+}
+
+.marketing-home .form-control:hover {
+  border-color: rgb(255 255 255 / 0.32) !important;
+}
+
+.marketing-home .form-control:focus-visible {
+  border-color: #c6ff4a !important;
+  outline: none;
+  box-shadow: 0 0 0 4px rgb(198 255 74 / 0.1) !important;
+}
+
+.marketing-home select.form-control {
+  padding-right: 3rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23c6ff4a' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") !important;
+  background-position: right 1rem center !important;
+  background-repeat: no-repeat !important;
+}
+
+.marketing-home .form-field > p[role="alert"] {
+  width: fit-content;
+  border-radius: 10px;
+  background: rgb(255 143 134 / 0.07);
+  padding: 0.3rem 0.55rem;
+}
+
+.marketing-form-status {
+  box-shadow:
+    0 26px 70px rgb(0 0 0 / 0.2),
+    inset 0 1px 0 rgb(255 255 255 / 0.05);
+}
+
+.marketing-faq-item {
+  transition:
+    border-color 240ms ease,
+    background-color 240ms ease,
+    transform 240ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.marketing-faq-item[data-state="open"] {
+  border-color: rgb(198 255 74 / 0.26);
+  background: rgb(198 255 74 / 0.035);
+}
+
+.marketing-dark-cta {
+  background: #0b0c0a;
+  color: #c6ff4a;
+  box-shadow: 0 14px 34px rgb(11 12 10 / 0.16);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .marketing-home .button-primary:hover,
+  .marketing-home .button-secondary:hover,
+  .marketing-sheet .button-primary:hover {
+    transform: translateY(-2px);
+  }
+
+  .marketing-home .button-primary:active,
+  .marketing-home .button-secondary:active,
+  .marketing-sheet .button-primary:active {
+    transform: scale(0.98);
+  }
+
+  .marketing-card:hover {
+    z-index: 1;
+    transform: translateY(-5px);
+    border-color: rgb(198 255 74 / 0.22);
+    background-color: rgb(255 255 255 / 0.04);
+    box-shadow:
+      0 30px 78px rgb(0 0 0 / 0.2),
+      inset 0 1px 0 rgb(255 255 255 / 0.055);
+  }
+
+  .marketing-media:hover img {
+    transform: scale(1.025);
+  }
+
+  .marketing-faq-item:hover {
+    transform: translateY(-2px);
+    border-color: rgb(255 255 255 / 0.18);
+  }
+
+  .marketing-dark-cta:hover {
+    transform: translateY(-2px);
+    background: #171913;
+    color: #d4ff73;
+  }
+}
+
+@media (max-width: 639px) {
+  .marketing-home {
+    --marketing-radius-panel: 32px;
+    --marketing-radius-card: 24px;
+    --marketing-radius-control: 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marketing-card,
+  .marketing-media img,
+  .marketing-faq-item,
+  .marketing-dark-cta {
+    transform: none !important;
+  }
+}
+
+/* Final cascade guards for legacy marketing declarations above. */
+.marketing-home .form-control {
+  border-color: var(--marketing-border-strong) !important;
+  background: var(--marketing-control-bg) !important;
+  color: var(--marketing-text) !important;
+}
+
+.marketing-home .form-control:hover {
+  border-color: color-mix(in srgb, var(--marketing-text) 34%, transparent) !important;
+}
+
+.marketing-home .form-control:focus-visible {
+  border-color: #c6ff4a !important;
+}
+
+.marketing-sheet > button {
+  border-color: var(--marketing-border) !important;
+  border-radius: 14px !important;
+  background: var(--marketing-surface-soft) !important;
+  color: var(--marketing-text) !important;
+}
+
+/* Unified public canvas: one video background, two type roles, functional glass. */
+.marketing-home {
+  --font-display: var(--font-plex-mono), "IBM Plex Mono", monospace;
+  --font-body: var(--font-manrope), "Manrope", system-ui, sans-serif;
+  background: transparent;
+  font-family: var(--font-body);
+}
+
+.marketing-home h1,
+.marketing-home h2,
+.marketing-home h3,
+.marketing-home .marketing-display {
+  font-family: var(--font-display);
+  text-wrap: balance;
+}
+
+.marketing-home p,
+.marketing-home a,
+.marketing-home button,
+.marketing-home input,
+.marketing-home select,
+.marketing-home textarea,
+.marketing-home label,
+.marketing-home .marketing-data {
+  font-family: var(--font-body);
+}
+
+.marketing-home [data-scroll-story-hero],
+.marketing-home .marketing-section,
+.marketing-home .marketing-band,
+.marketing-home .marketing-video-accent,
+.marketing-home .marketing-footer {
+  background-color: transparent !important;
+  background-image: none !important;
+  color: var(--marketing-text) !important;
+}
+
+.marketing-home .marketing-section,
+.marketing-home .marketing-footer,
+.marketing-home .marketing-final-cta {
+  border-color: var(--marketing-border) !important;
+}
+
+.marketing-home .marketing-card.liquid-glass,
+.marketing-home .marketing-form-panel.liquid-glass,
+.marketing-home .marketing-faq-item.liquid-glass,
+.marketing-home .marketing-final-cta.liquid-glass,
+.marketing-home .marketing-footer .liquid-glass {
+  border-color: var(--marketing-border) !important;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--marketing-text) 5%, transparent), transparent 44%),
+    color-mix(in srgb, var(--marketing-glass) 78%, transparent) !important;
+  box-shadow:
+    0 24px 70px var(--marketing-shadow),
+    inset 0 1px 0 color-mix(in srgb, var(--marketing-text) 9%, transparent);
+  -webkit-backdrop-filter: blur(22px) saturate(138%);
+  backdrop-filter: url("#marketing-liquid-glass-filter");
+}
+
+.marketing-home .marketing-form-panel.liquid-glass {
+  background:
+    linear-gradient(145deg, color-mix(in srgb, var(--marketing-text) 5%, transparent), transparent 42%),
+    color-mix(in srgb, var(--marketing-glass-still) 70%, transparent) !important;
+}
+
+.marketing-home .marketing-faq-item.liquid-glass[data-state="open"] {
+  border-color: rgb(198 255 74 / 0.42) !important;
+  background:
+    linear-gradient(135deg, rgb(198 255 74 / 0.075), transparent 46%),
+    color-mix(in srgb, var(--marketing-glass) 84%, transparent) !important;
+}
+
+.marketing-home .marketing-media.liquid-glass {
+  background: color-mix(in srgb, var(--marketing-glass) 74%, transparent);
+  -webkit-backdrop-filter: blur(18px) saturate(130%);
+  backdrop-filter: url("#marketing-liquid-glass-filter");
+}
+
+.marketing-home .marketing-final-cta {
+  background:
+    radial-gradient(circle at 78% 10%, rgb(198 255 74 / 0.13), transparent 24rem),
+    color-mix(in srgb, var(--marketing-glass) 82%, transparent) !important;
+}
+
+.marketing-step-number {
+  display: inline-flex;
+  min-width: 3rem;
+  align-items: center;
+  justify-content: center;
+  border-bottom: 1px solid rgb(198 255 74 / 0.5);
+  padding-bottom: 0.35rem;
+  color: #c6ff4a;
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  letter-spacing: 0.14em;
+}
+
+.footer-link {
+  width: fit-content;
+  transition: color 180ms ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .footer-link:hover {
+    color: var(--marketing-accent);
+  }
+}
+
+@supports not ((backdrop-filter: blur(2px)) or (-webkit-backdrop-filter: blur(2px))) {
+  .marketing-home .marketing-card.liquid-glass,
+  .marketing-home .marketing-form-panel.liquid-glass,
+  .marketing-home .marketing-faq-item.liquid-glass,
+  .marketing-home .marketing-final-cta.liquid-glass,
+  .marketing-home .marketing-footer .liquid-glass,
+  .marketing-home .marketing-media.liquid-glass {
+    background: var(--marketing-glass-still) !important;
+  }
+}
