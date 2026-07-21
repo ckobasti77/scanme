@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { query } from "./_generated/server";
 import { BusinessAccessDeniedError, requireBusinessAccessBySlug } from "./lib/access";
-import { aggregateMetricRows, getMetricRows, metricsRangeConfig } from "./lib/metrics";
+import { aggregateMetricRowsForRange, getMetricRows, metricsRangeConfig } from "./lib/metrics";
 import { requireSlug } from "./lib/validation";
 
 const BELGRADE_TIME_ZONE = "Europe/Belgrade";
@@ -101,7 +101,7 @@ export const metrics = query({
       summaryRange,
       summaryRangeLabel: summaryConfig.label,
       summaryPeriodTotal: summaryRange === "all" ? link.scanCount : summaryRows.reduce((sum, row) => sum + row.count, 0),
-      daily: aggregateMetricRows(metricRows, config.granularity),
+      daily: aggregateMetricRowsForRange(metricRows, range),
     };
   },
 });

@@ -8,8 +8,8 @@ const app = defineApp({
     SCANME_ADMIN_SETUP_SECRET: v.optional(v.string()),
     SCANME_INVITE_SECRET: v.optional(v.string()),
     SCANME_SITE_URL: v.optional(v.string()),
-    GMAIL_USER: v.optional(v.string()),
-    GMAIL_APP_PASSWORD: v.optional(v.string()),
+    RESEND_API_KEY: v.optional(v.string()),
+    RESEND_FROM_EMAIL: v.optional(v.string()),
   },
 });
 

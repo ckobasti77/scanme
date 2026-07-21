@@ -72,6 +72,13 @@
   --nav-glass-inner: rgb(255 255 255 / 0.42);
   --nav-glass-highlight: rgb(255 255 255 / 0.58);
   --nav-glass-shadow: rgb(40 21 31 / 0.16);
+  --scan-wash: rgb(102 143 0 / 0.035);
+  --scan-shoulder: rgb(102 143 0 / 0.075);
+  --scan-core: rgb(102 143 0 / 0.2);
+  --hero-scan-focus: rgb(102 143 0 / 0.09);
+  --hero-scan-copy: rgb(255 255 255 / 0.22);
+  --landing-footer-surface: rgb(251 246 248 / 0.84);
+  --wordmark-accent: #668f00;
 }
 
 html[data-theme="dark"] {
@@ -111,6 +118,13 @@ html[data-theme="dark"] {
   --nav-glass-inner: rgb(255 255 255 / 0.12);
   --nav-glass-highlight: rgb(255 255 255 / 0.24);
   --nav-glass-shadow: rgb(0 0 0 / 0.34);
+  --scan-wash: rgb(198 255 74 / 0.025);
+  --scan-shoulder: rgb(198 255 74 / 0.055);
+  --scan-core: rgb(198 255 74 / 0.18);
+  --hero-scan-focus: rgb(198 255 74 / 0.1);
+  --hero-scan-copy: rgb(233 229 218 / 0.025);
+  --landing-footer-surface: rgb(16 17 14 / 0.82);
+  --wordmark-accent: #c6ff4a;
 }
 
 * {
@@ -148,7 +162,6 @@ body {
 .site-nav-glass::after {
   position: absolute;
   z-index: 0;
-  content: "";
   pointer-events: none;
 } */
 
@@ -174,13 +187,17 @@ body {
 }
 
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .site-nav-glass {
+  .site-nav-glass,
+  .landing-soft-section,
+  .landing-glass-section {
     background: var(--nav-glass-fallback);
   }
 }
 
 @media (prefers-reduced-transparency: reduce) {
-  .site-nav-glass {
+  .site-nav-glass,
+  .landing-soft-section,
+  .landing-glass-section {
     background: var(--nav-glass-fallback);
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
@@ -206,6 +223,74 @@ section[id] {
   max-width: 1440px;
   margin-inline: auto;
   padding-inline: 1rem;
+}
+
+.scanme-wordmark {
+  display: inline-block;
+  width: 7.25rem;
+  aspect-ratio: 2400 / 502;
+  flex: 0 0 auto;
+  background: linear-gradient(90deg, currentColor 0 63%, var(--wordmark-accent) 63% 100%);
+  -webkit-mask: url("/brand/scanme-wordmark-mask.png") center / contain no-repeat;
+  mask: url("/brand/scanme-wordmark-mask.png") center / contain no-repeat;
+}
+
+.landing-atmosphere {
+  position: relative;
+  isolation: isolate;
+  overflow: clip;
+  background: transparent;
+}
+
+.landing-scan-layer {
+  position: fixed;
+  z-index: 0;
+  top: -34vh;
+  left: 0;
+  width: 100%;
+  height: clamp(13rem, 30vh, 22rem);
+  content: "";
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    var(--scan-wash) 32%,
+    var(--scan-shoulder) calc(50% - 1.125rem),
+    var(--scan-core) 50%,
+    var(--scan-shoulder) calc(50% + 1.125rem),
+    var(--scan-wash) 68%,
+    transparent 100%
+  );
+  opacity: 0;
+  transform: translate3d(0, 0, 0);
+}
+
+.landing-atmosphere > main,
+.landing-atmosphere > footer {
+  position: relative;
+  z-index: 1;
+}
+
+.landing-soft-section,
+.landing-glass-section {
+  background: var(--nav-glass-surface);
+  -webkit-backdrop-filter: blur(5px) saturate(142%) contrast(1.04);
+  backdrop-filter: blur(5px) saturate(142%) contrast(1.04);
+}
+
+.landing-footer {
+  background: var(--landing-footer-surface);
+}
+
+.hero-scan-depth::before {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  content: "";
+  pointer-events: none;
+  background:
+    linear-gradient(225deg, var(--hero-scan-focus) 0%, color-mix(in srgb, var(--hero-scan-focus) 46%, transparent) 28%, transparent 62%),
+    linear-gradient(135deg, var(--hero-scan-copy) 0%, color-mix(in srgb, var(--hero-scan-copy) 42%, transparent) 24%, transparent 58%);
 }
 
 .accent-label {
@@ -326,28 +411,8 @@ select:focus-visible,
   transform: translateY(0);
 }
 
-.scan-mark {
-  display: inline-block;
-  width: 1.125rem;
-  height: 1.125rem;
-  background:
-    linear-gradient(var(--primary), var(--primary)) left top / 7px 1px no-repeat,
-    linear-gradient(var(--primary), var(--primary)) left top / 1px 7px no-repeat,
-    linear-gradient(var(--primary), var(--primary)) right top / 7px 1px no-repeat,
-    linear-gradient(var(--primary), var(--primary)) right top / 1px 7px no-repeat,
-    linear-gradient(var(--primary), var(--primary)) left bottom / 7px 1px no-repeat,
-    linear-gradient(var(--primary), var(--primary)) left bottom / 1px 7px no-repeat,
-    linear-gradient(var(--primary), var(--primary)) right bottom / 7px 1px no-repeat,
-    linear-gradient(var(--primary), var(--primary)) right bottom / 1px 7px no-repeat;
-}
-
-html[data-theme="light"] .scan-mark {
-  background-color: #0b0c0a;
-  box-shadow: 0 0 0 2px var(--primary);
-}
-
 .hero-static {
-  background: var(--background);
+  background: transparent;
 }
 
 .hero-scrim {
@@ -507,14 +572,46 @@ html[data-theme="dark"] .theme-icon-moon {
 }
 
 @media (prefers-reduced-motion: no-preference) {
+  .landing-scan-layer {
+    animation: landing-scan-sweep 11s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+    will-change: transform, opacity;
+  }
+
   .scan-loader span {
     animation: scan-progress 800ms cubic-bezier(0.65, 0, 0.35, 1) infinite;
+  }
+}
+
+@keyframes landing-scan-sweep {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0);
+  }
+
+  7% {
+    opacity: 1;
+  }
+
+  72% {
+    opacity: 1;
+    transform: translate3d(0, 142vh, 0);
+  }
+
+  78%,
+  100% {
+    opacity: 0;
+    transform: translate3d(0, 142vh, 0);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
+  }
+
+  .landing-scan-layer {
+    opacity: 1;
+    transform: translate3d(0, 60vh, 0);
   }
 
   *,

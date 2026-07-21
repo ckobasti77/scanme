@@ -2,6 +2,7 @@
 
 import { RotateCcw } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { BrandLogo } from "@/components/brand-logo";
 
 type ScanResult =
   | { status: "available"; destinationUrl: string }
@@ -53,9 +54,8 @@ export function ScanRedirect({ slug }: { slug: string }) {
   return (
     <main className="grid min-h-[100dvh] place-items-center bg-background px-4 py-8">
       <div className="w-full max-w-md border border-border bg-card p-6 sm:p-10">
-        <div className="mb-12 flex items-center gap-3 text-sm font-semibold">
-          <span className="scan-mark" aria-hidden="true" />
-          <span>SCANME</span>
+        <div className="mb-12 flex items-center" aria-label="ScanMe">
+          <BrandLogo width="7rem" />
         </div>
         {error ? (
           <div role="alert">

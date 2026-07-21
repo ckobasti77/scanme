@@ -23,20 +23,22 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { ClientLoginForm } from "@/components/client-panel/client-login";
+import { BrandLogo } from "@/components/brand-logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 const links = [
   { href: "#kako-radi", label: "Kako radi" },
-  { href: "#resenja", label: "Rešenja" },
+  { href: "#scanme-review", label: "ScanMe Review" },
   { href: "#za-koga", label: "Za koga" },
   { href: "#faq", label: "FAQ" },
+  { href: "#ponuda", label: "Kontakt" },
 ];
 
 export function Wordmark() {
   return (
-    <span className="inline-flex items-center gap-2 text-base font-semibold tracking-[-0.04em]">
-      <span className="scan-mark" aria-hidden="true" />
-      ScanMe
+    <span className="inline-flex min-h-11 items-center">
+      <BrandLogo />
+      <span className="sr-only">ScanMe</span>
     </span>
   );
 }
@@ -103,28 +105,28 @@ export function SiteNav() {
           className="site-nav-glass pointer-events-auto h-[72px] w-full"
           aria-label="Glavna navigacija"
         >
-          <div className="section-shell flex h-full items-center justify-between lg:grid lg:grid-cols-[1fr_auto_1fr]">
+          <div className="section-shell flex h-full items-center justify-between xl:grid xl:grid-cols-[auto_minmax(0,1fr)_auto] xl:gap-5">
           <Link
             href="#pocetak"
-            className="focus-signal inline-flex min-h-11 items-center lg:justify-self-start"
+            className="focus-signal inline-flex min-h-11 items-center xl:justify-self-start"
             aria-label="ScanMe, početak"
           >
             <Wordmark />
           </Link>
 
-          <div className="hidden items-center gap-7 lg:flex lg:justify-self-center">
+          <div className="hidden min-w-0 items-center justify-center gap-4 xl:flex xl:justify-self-center 2xl:gap-6">
             {links.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
-                className="focus-signal inline-flex min-h-11 items-center text-sm text-foreground/72 transition-colors duration-200 hover:text-foreground"
+                className="focus-signal inline-flex min-h-11 items-center whitespace-nowrap text-[0.78rem] text-foreground/72 transition-colors duration-200 hover:text-foreground 2xl:text-sm"
               >
                 {link.label}
               </Link>
             ))}
           </div>
 
-          <div className="hidden items-center gap-3 lg:flex lg:justify-self-end">
+          <div className="hidden items-center gap-2 xl:flex xl:justify-self-end 2xl:gap-3">
             <ThemeToggle />
             <ClientAccessAction isAuthenticated={isAuthenticated} isLoading={isLoading} onOpen={openClientLogin} />
             <Link href="#ponuda" className="button-primary focus-signal">
@@ -133,13 +135,13 @@ export function SiteNav() {
             </Link>
           </div>
 
-          <div className="flex items-center gap-2 lg:hidden">
+          <div className="flex items-center gap-2 xl:hidden">
             <ThemeToggle />
             <Sheet open={mobileOpen} onOpenChange={handleMobileOpenChange}>
               <SheetTrigger asChild>
                 <button
                   type="button"
-                  className="focus-signal inline-flex size-11 items-center justify-center border border-foreground/20 text-foreground lg:hidden"
+                  className="focus-signal inline-flex size-11 items-center justify-center border border-foreground/20 text-foreground xl:hidden"
                   aria-label="Otvori meni"
                 >
                   <Menu aria-hidden="true" className="size-5" strokeWidth={1.75} />

@@ -2,7 +2,6 @@
 
 import { createHash, createHmac } from "node:crypto";
 import { v } from "convex/values";
-import nodemailer from "nodemailer";
 import { internal } from "./_generated/api";
 import { env, internalAction } from "./_generated/server";
 
@@ -26,8 +25,8 @@ export const sendInvitation = internalAction({
     if (!data) return null;
 
     const secret = env.SCANME_INVITE_SECRET ?? "";
-    const gmailUser = (env.GMAIL_USER ?? "").trim().toLowerCase();
-    const gmailAppPassword = (env.GMAIL_APP_PASSWORD ?? "").replace(/\s/g, "");
+    const resendApiKey = (env.RESEND_API_KEY ?? "").trim();
+    const resendFromEmail = (env.RESEND_FROM_EMAIL ?? "").trim();
     const siteUrl = (env.SCANME_SITE_URL ?? "").replace(/\/$/, "");
     const validSiteUrl = siteUrl.startsWith("https://") || siteUrl.startsWith("http://localhost:");
 
@@ -45,10 +44,10 @@ export const sendInvitation = internalAction({
       });
       return null;
     }
-    if (!gmailUser || gmailAppPassword.length !== 16) {
+    if (!resendApiKey.startsWith("re_") || !resendFromEmail) {
       await ctx.runMutation(internal.invitations.markFailed, {
         invitationId: args.invitationId,
-        failureReason: "Nedostaje Gmail adresa ili važeći Google App Password.",
+        failureReason: "RESEND_API_KEY ili RESEND_FROM_EMAIL nije podešen u ovom Convex deploymentu.",
       });
       return null;
     }
@@ -63,27 +62,29 @@ export const sendInvitation = internalAction({
 
     const activationUrl = `${siteUrl}/${encodeURIComponent(data.slug)}/client-panel/activate/${token}`;
     try {
-      const transporter = nodemailer.createTransport({
-        service: "gmail",
-        auth: {
-          user: gmailUser,
-          pass: gmailAppPassword,
+      const response = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${resendApiKey}`,
+          "Content-Type": "application/json",
+          "Idempotency-Key": `scanme-invitation/${args.invitationId}`,
         },
-      });
-      const result = await transporter.sendMail({
-        from: { name: "ScanMe", address: gmailUser },
-        to: data.invitation.normalizedEmail,
-        subject: `Aktivirajte ScanMe panel za ${data.business.name}`,
-        text: `Zdravo ${data.contact.firstName}, otvorite ${activationUrl} da postavite šifru i pristupite metrici lokala ${data.business.name}. Link važi 7 dana.`,
-        html: `<div style="background:#0b0c0a;color:#f1f3ed;padding:32px;font-family:ui-monospace,monospace"><h1 style="font-size:28px">Aktivirajte ScanMe panel</h1><p>Zdravo ${escapeHtml(data.contact.firstName)},</p><p>Dobili ste pristup metrici lokala <strong>${escapeHtml(data.business.name)}</strong>.</p><p><a href="${activationUrl}" style="display:inline-block;background:#c6ff4a;color:#0b0c0a;padding:14px 18px;text-decoration:none;font-weight:700">Postavi šifru</a></p><p style="color:#a7ab9f">Link važi 7 dana.</p></div>`,
+        body: JSON.stringify({
+          from: resendFromEmail,
+          to: [data.invitation.normalizedEmail],
+          subject: `Aktivirajte ScanMe panel za ${data.business.name}`,
+          text: `Zdravo ${data.contact.firstName}, otvorite ${activationUrl} da postavite šifru i pristupite metrici lokala ${data.business.name}. Link važi 7 dana.`,
+          html: `<div style="background:#0b0c0a;color:#f1f3ed;padding:32px;font-family:ui-monospace,monospace"><h1 style="font-size:28px">Aktivirajte ScanMe panel</h1><p>Zdravo ${escapeHtml(data.contact.firstName)},</p><p>Dobili ste pristup metrici lokala <strong>${escapeHtml(data.business.name)}</strong>.</p><p><a href="${activationUrl}" style="display:inline-block;background:#c6ff4a;color:#0b0c0a;padding:14px 18px;text-decoration:none;font-weight:700">Postavi šifru</a></p><p style="color:#a7ab9f">Link važi 7 dana.</p></div>`,
+        }),
       });
 
-      if (!result.messageId || result.rejected.length > 0) {
-        throw new Error("Gmail nije prihvatio email pozivnicu.");
+      const result = (await response.json()) as { id?: string; message?: string; name?: string };
+      if (!response.ok || !result.id) {
+        throw new Error(result.message || result.name || `Resend je vratio HTTP ${response.status}.`);
       }
       await ctx.runMutation(internal.invitations.markSent, {
         invitationId: args.invitationId,
-        emailMessageId: result.messageId,
+        emailMessageId: result.id,
       });
     } catch (error) {
       await ctx.runMutation(internal.invitations.markFailed, {

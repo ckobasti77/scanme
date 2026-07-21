@@ -6,7 +6,6 @@ import {
   BarChart3,
   BriefcaseBusiness,
   CalendarDays,
-  Check,
   Coffee,
   Music2,
   Palette,
@@ -26,6 +25,7 @@ import { SiteNav, Wordmark } from "@/components/site-nav";
 import { SiteScrollMotion } from "@/components/site-scroll-motion";
 import { ComingSoon } from "@/components/coming-soon";
 import { EcosystemProductDeck } from "@/components/ecosystem-product-deck";
+import { BackToTop } from "@/components/back-to-top";
 import { hasPreviewAccess } from "@/lib/preview-access";
 
 const reviewBenefits = [
@@ -64,11 +64,12 @@ const faqItems = [
 
 const footerLinks = [
   { href: "#kako-radi", label: "Kako radi" },
-  { href: "#resenja", label: "Rešenja" },
-  { href: "#ekosistem", label: "Ekosistem" },
+  { href: "#scanme-review", label: "ScanMe Review" },
+  { href: "#trajni-qr", label: "Trajan QR" },
   { href: "#za-koga", label: "Za koga" },
-  { href: "#proces", label: "Proces" },
   { href: "#faq", label: "FAQ" },
+  { href: "#ponuda", label: "Kontakt" },
+  { href: "#ekosistem", label: "Ekosistem" },
 ] as const;
 
 const footerProducts = [
@@ -91,16 +92,18 @@ export default async function Home() {
     <>
       <a href="#glavni-sadrzaj" className="skip-link">Pređi na glavni sadržaj</a>
       <SiteNav />
+      <div className="landing-scan-layer" aria-hidden="true" />
       <SiteScrollMotion>
+        <div className="landing-atmosphere">
         <main id="glavni-sadrzaj">
-        <section id="pocetak" className="relative min-h-[100dvh] overflow-hidden border-b border-foreground/10">
+        <section id="pocetak" className="hero-scan-depth relative min-h-[100dvh] overflow-hidden border-b border-foreground/10">
           <HeroMedia hasVideo={hasVideo} hasPoster={hasPoster} />
           <HeroIntro />
         </section>
 
         <ScanStory />
 
-        <section id="resenja" className="section-shell py-24 sm:py-32 lg:py-40">
+        <section id="scanme-review" className="section-shell py-24 sm:py-32 lg:py-40">
           <div className="grid gap-12 lg:grid-cols-[0.82fr_1.18fr] lg:items-center lg:gap-16">
             <div data-reveal-group>
               <h2 className="max-w-[12ch] text-4xl font-semibold leading-[0.98] tracking-[-0.055em] sm:text-5xl lg:text-6xl">
@@ -144,7 +147,7 @@ export default async function Home() {
           </div>
         </section>
 
-        <section className="border-y border-foreground/10 bg-card py-20 sm:py-24 lg:py-28">
+        <section id="trajni-qr" className="landing-soft-section border-y border-foreground/10 py-20 sm:py-24 lg:py-28">
           <div className="section-shell grid gap-12 lg:grid-cols-[minmax(0,1.2fr)_minmax(20rem,0.8fr)] lg:items-start lg:gap-20 xl:gap-28">
             <div data-reveal-group>
               <h2 className="max-w-[19ch] text-4xl font-semibold leading-[0.98] tracking-[-0.055em] sm:text-5xl lg:text-6xl">
@@ -173,26 +176,7 @@ export default async function Home() {
           </div>
         </section>
 
-        <section id="ekosistem" className="section-shell py-24 sm:py-32 lg:py-36">
-          <div data-reveal-group>
-            <p className="accent-label text-sm font-medium">ScanMe ekosistem</p>
-            <h2 className="mt-5 text-4xl font-semibold leading-[0.98] tracking-[-0.055em] sm:text-5xl lg:text-6xl">
-              Review je početak.
-            </h2>
-            <p className="mt-7 max-w-[78ch] leading-7 text-foreground/62">
-              Danas pomažemo da lakše dođete do Google recenzija. Sutra isti jednostavan sken povezuje ponude, rezervacije, uspomene i još mnogo toga. Mi postavljamo i održavamo sve iza tog skena, tako da vi ne morate da povezujete različite alate niti da se bavite tehničkim podešavanjima.
-            </p>
-          </div>
-
-          <EcosystemProductDeck />
-
-          <div data-reveal-group className="mt-9 sm:flex sm:items-center sm:justify-between sm:gap-8">
-            <p className="font-medium tracking-[-0.02em]">Prepoznajete rešenje za svoj biznis?</p>
-            <a href="#ponuda" className="button-primary focus-signal mt-4 sm:mt-0">Javite nam se</a>
-          </div>
-        </section>
-
-        <section id="za-koga" className="border-y border-foreground/10 bg-card py-24 sm:py-32">
+        <section id="za-koga" className="landing-soft-section border-y border-foreground/10 py-24 sm:py-32">
           <div className="section-shell grid gap-14 lg:grid-cols-[0.8fr_1.2fr] lg:gap-20">
             <div data-reveal-group>
               <h2 className="max-w-[12ch] text-4xl font-semibold leading-[0.98] tracking-[-0.055em] sm:text-5xl">Za biznise koji žele rezultat, ne još jedan alat.</h2>
@@ -216,37 +200,6 @@ export default async function Home() {
           </div>
         </section>
 
-        <section id="proces" className="section-shell py-24 sm:py-32 lg:py-40">
-          <h2 data-reveal-item className="max-w-[14ch] text-4xl font-semibold leading-[0.98] tracking-[-0.055em] sm:text-5xl lg:text-6xl">Od zahteva do gotovog proizvoda.</h2>
-          <ol data-reveal-group className="mt-16 grid gap-x-10 gap-y-12 md:grid-cols-2">
-            {[
-              ["Kažete nam šta vam treba", "Kratko definišemo cilj, lokaciju i format koji ima smisla za vaš biznis."],
-              ["Pripremamo dizajn i QR odredište", "Povezujemo fizički izgled sa stabilnim i bezbednim dinamičkim linkom."],
-              ["Dobijate spreman fizički proizvod", "Pripremamo ili organizujemo štampu i dogovaramo isporuku."],
-              ["ScanMe održava digitalni deo", "Pratimo skeniranja i menjamo odredište kada se dogovorena potreba promeni."],
-            ].map(([title, body]) => (
-              <li key={title} className="border-t border-foreground/16 pt-6">
-                <Check aria-hidden="true" className="accent-icon" strokeWidth={1.5} />
-                <h3 className="mt-8 text-xl font-semibold tracking-[-0.035em]">{title}</h3>
-                <p className="mt-3 max-w-[48ch] text-sm leading-6 text-foreground/58">{body}</p>
-              </li>
-            ))}
-          </ol>
-        </section>
-
-        <section id="ponuda" className="border-y border-foreground/10 bg-card py-24 sm:py-32 lg:py-40">
-          <div className="section-shell grid gap-14 lg:grid-cols-[0.82fr_1.18fr] lg:gap-24">
-            <div data-reveal-group>
-              <p className="accent-label text-sm font-medium">ScanMe Review ponuda</p>
-              <h2 className="mt-5 max-w-[12ch] text-4xl font-semibold leading-[0.98] tracking-[-0.055em] sm:text-5xl lg:text-6xl">Recite nam šta želite da postavite.</h2>
-              <p className="mt-6 max-w-[48ch] leading-7 text-foreground/62">Pošaljite osnovne podatke. Zatim dogovaramo format, dizajn, količinu i realan rok izrade.</p>
-            </div>
-            <div data-reveal-item>
-              <LeadForm />
-            </div>
-          </div>
-        </section>
-
         <section id="faq" className="section-shell py-24 sm:py-32 lg:py-40">
           <h2 data-reveal-item className="max-w-[12ch] text-4xl font-semibold leading-[0.98] tracking-[-0.055em] sm:text-5xl lg:text-6xl">Praktična pitanja pre odluke.</h2>
           <Accordion data-reveal-item type="single" collapsible className="mt-14 max-w-4xl">
@@ -259,15 +212,46 @@ export default async function Home() {
           </Accordion>
         </section>
 
+        <section id="ponuda" className="landing-soft-section border-y border-foreground/10 py-24 sm:py-32 lg:py-40">
+          <div className="section-shell grid gap-14 lg:grid-cols-[0.82fr_1.18fr] lg:gap-24">
+            <div data-reveal-group>
+              <p className="accent-label text-sm font-medium">ScanMe Review ponuda</p>
+              <h2 className="mt-5 max-w-[12ch] text-4xl font-semibold leading-[0.98] tracking-[-0.055em] sm:text-5xl lg:text-6xl">Recite nam šta želite da postavite.</h2>
+              <p className="mt-6 max-w-[48ch] leading-7 text-foreground/62">Pošaljite osnovne podatke. Zatim dogovaramo format, dizajn, količinu i realan rok izrade.</p>
+            </div>
+            <div data-reveal-item>
+              <LeadForm />
+            </div>
+          </div>
+        </section>
+
+        <section id="ekosistem" className="section-shell py-24 sm:py-32 lg:py-36">
+          <div data-reveal-group>
+            <p className="accent-label text-sm font-medium">ScanMe ekosistem</p>
+            <h2 className="mt-5 text-4xl font-semibold leading-[0.98] tracking-[-0.055em] sm:text-5xl lg:text-6xl">
+              Review je početak.
+            </h2>
+            <p className="mt-7 max-w-[78ch] leading-7 text-foreground/62">
+              Danas pomažemo da lakše dođete do Google recenzija. Sutra isti jednostavan sken povezuje ponude, rezervacije, uspomene i još mnogo toga. Mi postavljamo i održavamo sve iza tog skena, tako da vi ne morate da povezujete različite alate niti da se bavite tehničkim podešavanjima.
+            </p>
+          </div>
+
+          <EcosystemProductDeck />
+
+          <div data-reveal-group className="mt-9 sm:flex sm:items-center sm:justify-between sm:gap-8">
+            <p className="font-medium tracking-[-0.02em]">Prepoznajete rešenje za svoj biznis?</p>
+            <a href="#ponuda" className="button-primary focus-signal mt-4 sm:mt-0">Javite nam se</a>
+          </div>
+        </section>
+
         <section className="border-t border-foreground/10 bg-primary py-20 text-primary-foreground sm:py-28">
           <div data-reveal-group className="section-shell">
-            <h2 className="max-w-[14ch] text-4xl font-semibold leading-[0.95] tracking-[-0.06em] sm:text-5xl lg:text-7xl">Postavite lakši put do sledeće akcije.</h2>
-            <a href="#ponuda" className="focus-signal mt-8 inline-flex min-h-12 items-center border border-primary-foreground px-5 text-sm font-semibold transition-transform duration-200 active:scale-[0.98]">Zatraži ponudu</a>
+            <h2 className="max-w-[14ch] text-4xl font-semibold leading-[0.95] tracking-[-0.06em] sm:text-5xl lg:text-7xl">Jedan sken. Više mogućnosti.</h2>
           </div>
         </section>
         </main>
 
-        <footer id="kontakt" className="border-t border-foreground/10 bg-card">
+        <footer id="kontakt" className="landing-footer border-t border-foreground/10">
           <div className="section-shell py-16 sm:py-20 lg:py-24">
             <div
               data-reveal-group
@@ -360,7 +344,9 @@ export default async function Home() {
             </div>
           </div>
         </footer>
+        </div>
       </SiteScrollMotion>
+      <BackToTop />
     </>
   );
 }

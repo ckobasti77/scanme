@@ -4,7 +4,7 @@ import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx } from "./_generated/server";
 import { isAdminEmail, requireAdmin } from "./lib/access";
-import { aggregateMetricRows, getMetricRows, metricsRangeConfig } from "./lib/metrics";
+import { aggregateMetricRowsForRange, getMetricRows, metricsRangeConfig } from "./lib/metrics";
 import { isSafePublicDestination, normalizeEmail, normalizePhone, requireSlug, requireText } from "./lib/validation";
 
 const INVITATION_LIFETIME = 7 * 24 * 60 * 60 * 1000;
@@ -308,7 +308,7 @@ export const getBusinessMetrics = query({
       summaryRange,
       summaryRangeLabel: summaryConfig.label,
       summaryPeriodTotal: summaryRange === "all" ? link.scanCount : summaryRows.reduce((sum, row) => sum + row.count, 0),
-      daily: aggregateMetricRows(metricRows, config.granularity),
+      daily: aggregateMetricRowsForRange(metricRows, range),
       recent: recent.map((event) => ({
         id: event._id,
         scannedAt: event.scannedAt,

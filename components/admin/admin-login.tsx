@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { BrandLogo } from "@/components/brand-logo";
 
 export function AdminLogin() {
   const [mode, setMode] = useState<"signIn" | "setup">("signIn");
@@ -39,7 +40,7 @@ export function AdminLogin() {
     <main className="relative grid min-h-[100dvh] bg-background lg:grid-cols-[1fr_1.1fr]">
       <ThemeToggle className="absolute right-4 top-4 z-10" />
       <section className="hidden border-r border-border p-10 lg:flex lg:flex-col lg:justify-between">
-        <div className="flex items-center gap-3 font-semibold"><span className="scan-mark" aria-hidden="true" /> SCANME ADMIN</div>
+        <div className="flex items-center gap-3" aria-label="ScanMe Admin"><BrandLogo width="7rem" /><span className="border-l border-foreground/20 pl-3 text-xs font-semibold tracking-[0.08em]">ADMIN</span></div>
         <div>
           <div className="mb-8 h-px w-full bg-primary" />
           <p className="max-w-xl text-4xl font-semibold leading-tight tracking-[-0.06em]">Kontrola QR odredišta, lokala i metrike sa jednog mesta.</p>
@@ -47,7 +48,7 @@ export function AdminLogin() {
       </section>
       <section className="grid place-items-center px-4 py-8 sm:px-8">
         <div className="w-full max-w-md border border-border bg-card p-6 sm:p-9">
-          <div className="mb-10 flex items-center gap-3 font-semibold lg:hidden"><span className="scan-mark" aria-hidden="true" /> SCANME ADMIN</div>
+          <div className="mb-10 flex items-center gap-3 lg:hidden" aria-label="ScanMe Admin"><BrandLogo width="7rem" /><span className="border-l border-foreground/20 pl-3 text-xs font-semibold tracking-[0.08em]">ADMIN</span></div>
           <h1 className="text-3xl font-semibold tracking-[-0.05em]">{mode === "setup" ? "Aktivacija administratora" : "Admin prijava"}</h1>
           <p className="mt-3 text-sm leading-6 text-muted-foreground">{mode === "setup" ? "Koristi dozvoljeni admin email i setup secret iz okruženja." : "Prijavite se administratorskim emailom i šifrom."}</p>
 

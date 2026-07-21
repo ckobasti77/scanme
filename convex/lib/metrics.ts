@@ -84,3 +84,38 @@ export function aggregateMetricRows(rows: Array<{ dateKey: string; count: number
     .sort(([first], [second]) => first.localeCompare(second))
     .map(([dateKey, count]) => ({ dateKey, label: metricBucketLabel(dateKey, granularity), count }));
 }
+
+function nextBucketKey(value: string, granularity: "day" | "month") {
+  const [year, month, day = 1] = value.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (granularity === "day") date.setUTCDate(date.getUTCDate() + 1);
+  else date.setUTCMonth(date.getUTCMonth() + 1);
+  const nextYear = date.getUTCFullYear();
+  const nextMonth = String(date.getUTCMonth() + 1).padStart(2, "0");
+  return granularity === "day"
+    ? `${nextYear}-${nextMonth}-${String(date.getUTCDate()).padStart(2, "0")}`
+    : `${nextYear}-${nextMonth}`;
+}
+
+export function aggregateMetricRowsForRange(
+  rows: Array<{ dateKey: string; count: number }>,
+  range: MetricsRange,
+  currentDateKey = dateKey(Date.now()),
+) {
+  if (range !== "all" || rows.length === 0) {
+    return aggregateMetricRows(rows, metricsRangeConfig[range].granularity);
+  }
+
+  const firstDateKey = rows.reduce((first, row) => row.dateKey < first ? row.dateKey : first, rows[0].dateKey);
+  const singleMonth = firstDateKey.slice(0, 7) === currentDateKey.slice(0, 7);
+  const granularity = singleMonth ? "day" : "month";
+  const aggregated = aggregateMetricRows(rows, granularity);
+  const counts = new Map(aggregated.map((row) => [row.dateKey, row.count]));
+  const endKey = metricBucketKey(currentDateKey, granularity);
+  const result = [];
+
+  for (let key = aggregated[0].dateKey; key <= endKey; key = nextBucketKey(key, granularity)) {
+    result.push({ dateKey: key, label: metricBucketLabel(key, granularity), count: counts.get(key) ?? 0 });
+  }
+  return result;
+}

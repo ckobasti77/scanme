@@ -149,25 +149,32 @@ export function MetricsBarChart({
 
   return (
     <div className="mt-6">
-      <div
-        id={viewportId}
-        ref={viewportRef}
-        className={cn("metrics-scroll-viewport overflow-x-auto overscroll-x-contain", heightClassName)}
-        aria-label={`Grafikon skeniranja za period ${rangeLabel}`}
-      >
+      <div className="relative">
+        {variant === "line" && rows.length ? (
+          <div className="pointer-events-none absolute inset-0 z-10 text-[10px] uppercase tracking-[0.12em] text-muted-foreground" aria-hidden="true">
+            <span className="absolute left-2 top-1 bg-card/90 px-1.5 py-1">Y / Skeniranja</span>
+            <span className="absolute bottom-7 right-2 bg-card/90 px-1.5 py-1">Vreme / X</span>
+          </div>
+        ) : null}
         <div
-          className={cn(
-            "h-full min-w-full w-max",
-            variant === "line" ? "relative text-primary" : "grid items-end gap-2 sm:gap-4",
-          )}
-          style={variant === "line"
-            ? { width: `${lineChartWidth}px` }
-            : { gridTemplateColumns: `repeat(${Math.max(rows.length, 1)}, minmax(${barMinWidth}px, 1fr))` }}
-          role={rows.length ? "img" : "status"}
-          aria-label={rows.length
-            ? `Skeniranja za period ${rangeLabel}: ${chartLabel}`
-            : `Još nema skeniranja za period ${rangeLabel}.`}
+          id={viewportId}
+          ref={viewportRef}
+          className={cn("metrics-scroll-viewport overflow-x-auto overscroll-x-contain", heightClassName)}
+          aria-label={`Grafikon skeniranja za period ${rangeLabel}`}
         >
+          <div
+            className={cn(
+              "h-full min-w-full w-max",
+              variant === "line" ? "relative text-primary" : "grid items-end gap-2 sm:gap-4",
+            )}
+            style={variant === "line"
+              ? { width: `${lineChartWidth}px` }
+              : { gridTemplateColumns: `repeat(${Math.max(rows.length, 1)}, minmax(${barMinWidth}px, 1fr))` }}
+            role={rows.length ? "img" : "status"}
+            aria-label={rows.length
+              ? `Skeniranja za period ${rangeLabel}: ${chartLabel}`
+              : `Još nema skeniranja za period ${rangeLabel}.`}
+          >
           {variant === "line" ? (
             rows.length ? (
               <>
@@ -232,6 +239,7 @@ export function MetricsBarChart({
                 <span className="whitespace-nowrap text-center text-[10px] text-muted-foreground sm:text-xs">{row.label}</span>
               </div>
             ))}
+          </div>
         </div>
       </div>
 

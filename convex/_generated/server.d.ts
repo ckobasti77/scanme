@@ -25,8 +25,8 @@ import type { DataModel } from "./dataModel.js";
  * Typesafe environment variables declared in `convex.config.ts`.
  */
 type Env = {
-  readonly GMAIL_APP_PASSWORD: string | undefined;
-  readonly GMAIL_USER: string | undefined;
+  readonly RESEND_API_KEY: string | undefined;
+  readonly RESEND_FROM_EMAIL: string | undefined;
   readonly SCANME_ADMIN_EMAILS: string | undefined;
   readonly SCANME_ADMIN_SETUP_SECRET: string | undefined;
   readonly SCANME_DEMO_SETUP_KEY: string | undefined;

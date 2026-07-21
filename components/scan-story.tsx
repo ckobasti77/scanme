@@ -302,7 +302,7 @@ export function ScanStory() {
     <section
       ref={sectionRef}
       id="kako-radi"
-      className="relative border-y border-foreground/10 bg-card"
+      className="landing-glass-section relative border-y border-foreground/10"
     >
       <div data-reveal-group className="mx-auto max-w-[1440px] px-4 py-24 sm:px-6 lg:px-10 lg:py-28">
         <h2 className="max-w-[14ch] text-4xl font-semibold leading-[0.98] tracking-[-0.055em] sm:text-5xl lg:text-6xl">

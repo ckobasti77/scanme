@@ -308,6 +308,7 @@ export function LeadForm() {
             </SelectItem>
             <SelectItem
               value="page"
+              disabled
               className="min-h-11 rounded-none pr-24 pl-9 text-muted-foreground"
             >
               ScanMe Page
@@ -317,6 +318,7 @@ export function LeadForm() {
             </SelectItem>
             <SelectItem
               value="venue"
+              disabled
               className="min-h-11 rounded-none pr-24 pl-9 text-muted-foreground"
             >
               ScanMe Venue
@@ -326,6 +328,7 @@ export function LeadForm() {
             </SelectItem>
             <SelectItem
               value="memories"
+              disabled
               className="min-h-11 rounded-none pr-24 pl-9 text-muted-foreground"
             >
               ScanMe Memories
@@ -335,6 +338,7 @@ export function LeadForm() {
             </SelectItem>
             <SelectItem
               value="loyalty"
+              disabled
               className="min-h-11 rounded-none pr-24 pl-9 text-muted-foreground"
             >
               ScanMe Loyalty

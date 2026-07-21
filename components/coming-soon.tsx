@@ -1,14 +1,15 @@
 import { ArrowUpRight } from "lucide-react";
 import Link from "next/link";
+import { BrandLogo } from "@/components/brand-logo";
 
 export function ComingSoon() {
   return (
     <main className="flex min-h-[100dvh] flex-col overflow-hidden bg-background text-foreground">
       <header className="border-b border-foreground/12">
         <div className="mx-auto flex h-[72px] w-full max-w-[1440px] items-center justify-between gap-4 px-4 sm:px-6 lg:px-10">
-          <span className="inline-flex items-center gap-3 font-semibold tracking-[-0.04em]">
-            <span className="scan-mark" aria-hidden="true" />
-            ScanMe
+          <span className="inline-flex min-h-11 items-center">
+            <BrandLogo width="7.5rem" />
+            <span className="sr-only">ScanMe</span>
           </span>
           <Link href="/preview-login" className="button-secondary focus-signal h-11 min-h-11 px-4">
             Admin login
@@ -36,8 +37,8 @@ export function ComingSoon() {
             <i />
           </div>
           <div className="absolute inset-[14%] border border-foreground/12" />
-          <div className="absolute inset-[31%] grid place-items-center border border-primary bg-card">
-            <span className="scan-mark scale-[3]" />
+          <div className="absolute inset-[24%] grid place-items-center border border-primary bg-card px-[8%]">
+            <BrandLogo width="100%" className="text-primary" />
           </div>
         </div>
       </section>
