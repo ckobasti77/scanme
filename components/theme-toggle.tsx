@@ -6,6 +6,26 @@ import { cn } from "@/lib/utils";
 
 type Theme = "light" | "dark";
 
+const THEME_STORAGE_KEY = "scanme-theme";
+const DARK_MODE_QUERY = "(prefers-color-scheme: dark)";
+
+function isTheme(value: string | null): value is Theme {
+  return value === "light" || value === "dark";
+}
+
+function readStoredTheme(): Theme | null {
+  try {
+    const storedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
+    return isTheme(storedTheme) ? storedTheme : null;
+  } catch {
+    return null;
+  }
+}
+
+function readSystemTheme(): Theme {
+  return window.matchMedia(DARK_MODE_QUERY).matches ? "dark" : "light";
+}
+
 function readTheme(): Theme {
   if (typeof document === "undefined") return "light";
   return document.documentElement.dataset.theme === "dark" ? "dark" : "light";
@@ -22,17 +42,27 @@ function applyTheme(theme: Theme) {
 }
 
 function subscribeToTheme(onStoreChange: () => void) {
+  const systemTheme = window.matchMedia(DARK_MODE_QUERY);
+
   const handleStorage = (event: StorageEvent) => {
-    if (event.key !== "scanme-theme") return;
-    applyTheme(event.newValue === "dark" ? "dark" : "light");
+    if (event.key !== THEME_STORAGE_KEY) return;
+    applyTheme(isTheme(event.newValue) ? event.newValue : readSystemTheme());
+    onStoreChange();
+  };
+
+  const handleSystemTheme = () => {
+    if (readStoredTheme()) return;
+    applyTheme(readSystemTheme());
     onStoreChange();
   };
 
   window.addEventListener("scanme-theme-change", onStoreChange);
   window.addEventListener("storage", handleStorage);
+  systemTheme.addEventListener("change", handleSystemTheme);
   return () => {
     window.removeEventListener("scanme-theme-change", onStoreChange);
     window.removeEventListener("storage", handleStorage);
+    systemTheme.removeEventListener("change", handleSystemTheme);
   };
 }
 
@@ -51,7 +81,7 @@ export function ThemeToggle({
 
     applyTheme(nextTheme);
     try {
-      window.localStorage.setItem("scanme-theme", nextTheme);
+      window.localStorage.setItem(THEME_STORAGE_KEY, nextTheme);
     } catch {
       // The selected theme still applies for this visit when storage is unavailable.
     }

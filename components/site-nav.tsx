@@ -100,9 +100,10 @@ export function SiteNav() {
         className="pointer-events-none fixed inset-x-0 top-0 z-40 will-change-transform"
       >
         <nav
-          className="site-nav-glass pointer-events-auto flex h-[72px] w-full items-center justify-between px-4 sm:px-6 lg:grid lg:grid-cols-[1fr_auto_1fr] lg:px-10"
+          className="site-nav-glass pointer-events-auto h-[72px] w-full"
           aria-label="Glavna navigacija"
         >
+          <div className="section-shell flex h-full items-center justify-between lg:grid lg:grid-cols-[1fr_auto_1fr]">
           <Link
             href="#pocetak"
             className="focus-signal inline-flex min-h-11 items-center lg:justify-self-start"
@@ -186,6 +187,7 @@ export function SiteNav() {
                 </SheetClose>
               </SheetContent>
             </Sheet>
+          </div>
           </div>
         </nav>
       </motion.header>

@@ -210,13 +210,6 @@
   line-height: 1.08;
 }
 
-.futureCopy p {
-  margin-top: 1rem;
-  color: var(--deck-muted);
-  font-size: 0.875rem;
-  line-height: 1.7;
-}
-
 .edgeTitle {
   display: none;
 }
@@ -283,7 +276,13 @@
     padding: 1.75rem;
   }
 
-  .futureCard:not([data-active="true"]) .cardButton {
+  .futureCard[data-position="before"] .cardButton {
+    right: auto;
+    left: 0;
+    width: 36%;
+  }
+
+  .futureCard[data-position="after"] .cardButton {
     right: 0;
     left: auto;
     width: 36%;

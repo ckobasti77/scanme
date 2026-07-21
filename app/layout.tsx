@@ -12,7 +12,7 @@ const plexMono = IBM_Plex_Mono({
   display: "swap",
 });
 
-const themeScript = `(function(){try{var t=localStorage.getItem("scanme-theme");if(t!=="dark"&&t!=="light")t="light";var r=document.documentElement;r.setAttribute("data-theme",t);r.classList.toggle("dark",t==="dark")}catch(e){}})()`;
+const themeScript = `(function(){var t;try{t=localStorage.getItem("scanme-theme")}catch(e){}if(t!=="dark"&&t!=="light")t=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";var r=document.documentElement;r.setAttribute("data-theme",t);r.classList.toggle("dark",t==="dark")})()`;
 
 export const metadata: Metadata = {
   title: "ScanMe | Dinamički QR kodovi za lokalne biznise",

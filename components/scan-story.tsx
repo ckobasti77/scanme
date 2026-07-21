@@ -409,9 +409,6 @@ function StoryNode({ index, activeIndex, attentionActive, panelId, mobile = fals
       aria-controls={panelId}
       aria-label={step.title}
       onClick={() => onSelect(index)}
-      whileHover={reducedMotion ? undefined : { y: -3 }}
-      whileTap={reducedMotion ? undefined : { scale: 0.985 }}
-      transition={{ duration: reducedMotion ? 0 : 0.24, ease: [0.16, 1, 0.3, 1] }}
       className={`group relative cursor-pointer border border-foreground/20 transition-[background-color,color] duration-200 focus-visible:z-30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background ${signalState} ${mobile ? "flex min-h-16 w-full items-center gap-4 px-3 py-2 text-left" : "z-10 flex aspect-square min-w-0 flex-1 items-center justify-center"}`}
     >
       <SignalNodeOverlay index={index} mobile={mobile} />

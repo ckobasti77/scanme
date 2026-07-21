@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import Image from "next/image";
 import {
+  ArrowUpRight,
   BarChart3,
   BriefcaseBusiness,
   CalendarDays,
@@ -60,6 +61,23 @@ const faqItems = [
     answer: "Rok zavisi od formata, obima dizajna i načina fizičke izrade. Nakon kratkog dogovora dobićete realan rok pre početka rada.",
   },
 ];
+
+const footerLinks = [
+  { href: "#kako-radi", label: "Kako radi" },
+  { href: "#resenja", label: "Rešenja" },
+  { href: "#ekosistem", label: "Ekosistem" },
+  { href: "#za-koga", label: "Za koga" },
+  { href: "#proces", label: "Proces" },
+  { href: "#faq", label: "FAQ" },
+] as const;
+
+const footerProducts = [
+  { name: "ScanMe Review", status: "Dostupno" },
+  { name: "ScanMe Page", status: "Uskoro" },
+  { name: "ScanMe Venue", status: "Uskoro" },
+  { name: "ScanMe Memories", status: "Uskoro" },
+  { name: "ScanMe Loyalty", status: "Uskoro" },
+] as const;
 
 export default async function Home() {
   if (!(await hasPreviewAccess())) return <ComingSoon />;
@@ -198,7 +216,7 @@ export default async function Home() {
           </div>
         </section>
 
-        <section className="section-shell py-24 sm:py-32 lg:py-40">
+        <section id="proces" className="section-shell py-24 sm:py-32 lg:py-40">
           <h2 data-reveal-item className="max-w-[14ch] text-4xl font-semibold leading-[0.98] tracking-[-0.055em] sm:text-5xl lg:text-6xl">Od zahteva do gotovog proizvoda.</h2>
           <ol data-reveal-group className="mt-16 grid gap-x-10 gap-y-12 md:grid-cols-2">
             {[
@@ -249,10 +267,97 @@ export default async function Home() {
         </section>
         </main>
 
-        <footer className="border-t border-foreground/10 py-10">
-          <div data-reveal-group data-reveal-start="96" className="section-shell flex flex-col gap-6 text-sm text-foreground/54 sm:flex-row sm:items-center sm:justify-between">
-            <Wordmark />
-            <p>Fizičko postaje digitalno.</p>
+        <footer id="kontakt" className="border-t border-foreground/10 bg-card">
+          <div className="section-shell py-16 sm:py-20 lg:py-24">
+            <div
+              data-reveal-group
+              data-reveal-start="96"
+              className="grid gap-x-12 gap-y-14 md:grid-cols-2 xl:grid-cols-[minmax(18rem,1.45fr)_0.72fr_1.05fr_1.3fr] xl:gap-x-16"
+            >
+              <div className="max-w-[31rem]">
+                <a href="#pocetak" className="focus-signal inline-flex min-h-11 items-center" aria-label="ScanMe, povratak na početak">
+                  <Wordmark />
+                </a>
+                <p className="mt-7 max-w-[36ch] text-base leading-7 text-foreground/58">
+                  Fizički predmet postaje jasan digitalni put, bez dodatne aplikacije i bez tehničkog tereta za vaš tim.
+                </p>
+                <a href="#ponuda" className="button-secondary focus-signal mt-8">
+                  Zatraži ponudu
+                  <ArrowUpRight aria-hidden="true" className="size-4" strokeWidth={1.7} />
+                </a>
+              </div>
+
+              <nav aria-label="Sadržaj footera">
+                <h2 className="text-sm font-semibold tracking-[-0.02em]">Sadržaj</h2>
+                <ul className="mt-5 grid">
+                  {footerLinks.map((link) => (
+                    <li key={link.href}>
+                      <a
+                        href={link.href}
+                        className="focus-signal inline-flex min-h-11 items-center text-sm text-foreground/58 transition-colors duration-200 hover:text-foreground"
+                      >
+                        {link.label}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </nav>
+
+              <div>
+                <h2 className="text-sm font-semibold tracking-[-0.02em]">Proizvodi</h2>
+                <ul className="mt-5 grid">
+                  {footerProducts.map((product) => (
+                    <li
+                      key={product.name}
+                      className="grid min-h-11 grid-cols-[minmax(0,1fr)_auto] items-center gap-4 text-sm"
+                    >
+                      <span className="text-foreground/58">{product.name}</span>
+                      <span className="text-xs font-semibold text-primary">{product.status}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div>
+                <h2 className="text-sm font-semibold tracking-[-0.02em]">Kontakt</h2>
+                <dl className="mt-5 grid gap-5 text-sm">
+                  <div className="grid gap-1.5">
+                    <dt className="text-foreground/44">Telefon</dt>
+                    <dd>
+                      <a
+                        href="tel:+381658644488"
+                        className="focus-signal inline-flex min-h-11 items-center leading-6 text-foreground/72 transition-colors duration-200 hover:text-foreground"
+                      >
+                        065/86-444-88 (Aleksa Đorđević)
+                      </a>
+                    </dd>
+                  </div>
+                  <div className="grid gap-1.5">
+                    <dt className="text-foreground/44">Email</dt>
+                    <dd>
+                      <a
+                        href="mailto:office@scanme.rs"
+                        className="focus-signal inline-flex min-h-11 items-center text-foreground/72 transition-colors duration-200 hover:text-foreground"
+                      >
+                        office@scanme.rs
+                      </a>
+                    </dd>
+                  </div>
+                  <div className="grid min-h-11 grid-cols-[minmax(0,1fr)_auto] items-center gap-4">
+                    <dt className="text-foreground/58">Instagram</dt>
+                    <dd className="text-xs font-semibold text-primary">Uskoro</dd>
+                  </div>
+                  <div className="grid min-h-11 grid-cols-[minmax(0,1fr)_auto] items-center gap-4">
+                    <dt className="text-foreground/58">Facebook</dt>
+                    <dd className="text-xs font-semibold text-primary">Uskoro</dd>
+                  </div>
+                </dl>
+              </div>
+            </div>
+
+            <div className="mt-14 border-t border-foreground/10 pt-7 text-sm text-foreground/48 sm:mt-16">
+              <p>© 2026 ScanMe. Sva prava zadržana.</p>
+            </div>
           </div>
         </footer>
       </SiteScrollMotion>

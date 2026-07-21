@@ -13,21 +13,21 @@ export function HeroIntro() {
   });
 
   return (
-    <div className="relative z-10 flex min-h-[100dvh] items-end pb-10 pt-28 sm:pb-14 lg:pb-16 lg:pt-32">
-      <div className="mx-auto w-full max-w-[1440px] px-4 sm:px-6 lg:px-10">
-        <div className="grid items-end gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(28rem,0.74fr)] lg:gap-10 xl:gap-16">
-          <div className="max-w-4xl">
+    <div className="relative z-10 flex min-h-[100dvh] items-center py-24 sm:py-28 lg:py-24">
+      <div className="section-shell">
+        <div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-12 xl:gap-16">
+          <div className="max-w-4xl lg:justify-self-start">
             <motion.h1
               {...enter(0.05)}
-              className="max-w-[13ch] text-[clamp(3.25rem,7vw,7.5rem)] font-semibold leading-[0.88] tracking-[-0.075em] text-foreground"
+              className="max-w-[13ch] text-[clamp(3.25rem,5vw,7.5rem)] font-semibold leading-[0.88] tracking-[-0.075em] text-foreground"
             >
-              Jedan gost. Mnogo novih.
+              Jedan gost. <span className="text-nowrap">Mnogo novih.</span>
             </motion.h1>
             <motion.p
               {...enter(0.16)}
               className="mt-6 max-w-[58ch] text-base leading-7 text-foreground/76 sm:text-lg"
             >
-              Vaš najbolji marketing već sedi za stolom.
+              Vaš najbolji marketing već sedi za stolom. <span className="text">Poruči svoju <b>Google Review</b> karticu danas i pretvori svakog gosta u promotera.</span>
             </motion.p>
             <motion.div {...enter(0.27)} className="mt-8 flex flex-col gap-3 sm:flex-row">
               <a href="#ponuda" className="button-primary focus-signal">

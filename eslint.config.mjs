@@ -12,6 +12,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Standalone business-card generators use Node CommonJS and Adobe ExtendScript.
+    "scripts/build-business-card-concept.js",
+    "scripts/build-business-card-reference-concept.js",
+    "scripts/create-scanme-business-card-template.jsx",
   ]),
 ]);
 

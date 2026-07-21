@@ -14,7 +14,6 @@ import styles from "./ecosystem-product-deck.module.css";
 
 type PlannedProduct = {
   title: string;
-  body: string;
   icon: LucideIcon;
   rotation: string;
 };
@@ -22,25 +21,21 @@ type PlannedProduct = {
 const plannedProducts: PlannedProduct[] = [
   {
     title: "ScanMe Page",
-    body: "Ponude, cene i informacije na jednostavnoj mini-stranici za vaš biznis.",
     icon: PanelsTopLeft,
     rotation: "-1.1deg",
   },
   {
     title: "ScanMe Venue",
-    body: "Novosti, promocije i rezervacije na mini-stranici prilagođenoj vašem lokalu.",
     icon: CalendarCheck,
     rotation: "0.65deg",
   },
   {
     title: "ScanMe Memories",
-    body: "Zajednički album događaja za fotografije, reakcije i preuzimanje uspomena.",
     icon: Images,
     rotation: "1.55deg",
   },
   {
     title: "ScanMe Loyalty",
-    body: "Digitalna kartica lojalnosti sa sigurnim NFC evidentiranjem i nagradama vašeg lokala.",
     icon: Stamp,
     rotation: "2.4deg",
   },
@@ -77,10 +72,16 @@ export function EcosystemProductDeck() {
           {plannedProducts.map((product, index) => {
             const Icon = product.icon;
             const active = activeProduct === index;
+            const position =
+              index < activeProduct ? "before" : index > activeProduct ? "after" : "active";
             const cardStyle = {
               "--deck-index": index,
               "--deck-rotation": product.rotation,
-              zIndex: active ? 50 : 20 - index,
+              zIndex: active
+                ? 50
+                : position === "before"
+                  ? 20 + index
+                  : 20 + plannedProducts.length - index,
             } as CSSProperties;
 
             return (
@@ -88,6 +89,7 @@ export function EcosystemProductDeck() {
                 key={product.title}
                 className={styles.futureCard}
                 data-active={active}
+                data-position={position}
                 style={cardStyle}
                 onMouseEnter={() => setActiveProduct(index)}
               >
@@ -95,7 +97,7 @@ export function EcosystemProductDeck() {
                   type="button"
                   className={styles.cardButton}
                   aria-pressed={active}
-                  aria-label={`Prikaži detalje za ${product.title}`}
+                  aria-label={`Istakni ${product.title}`}
                   onClick={() => setActiveProduct(index)}
                   onFocus={() => setActiveProduct(index)}
                 />
@@ -113,7 +115,6 @@ export function EcosystemProductDeck() {
 
                   <div className={styles.futureCopy}>
                     <h3>{product.title}</h3>
-                    <p>{product.body}</p>
                   </div>
 
                   <span className={styles.edgeTitle} aria-hidden="true">
