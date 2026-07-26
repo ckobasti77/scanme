@@ -246,10 +246,28 @@ describe("admin kreiranje lokala", () => {
       const link = await ctx.db.get(created.linkId);
       const invitation = await ctx.db.get(invitationId);
       const contact = invitation ? await ctx.db.get(invitation.contactId) : null;
-      return { business, link, invitation, contact };
+      const profiles = await ctx.db
+        .query("serviceProfiles")
+        .withIndex("by_businessId", (q) => q.eq("businessId", created.businessId))
+        .take(10);
+      return { business, link, invitation, contact, profiles };
     });
     expect(rows.business).toMatchObject({ name: "Zova", status: "active" });
-    expect(rows.link).toMatchObject({ slug: "zova-test", active: true, scanCount: 0 });
+    expect(rows.link).toMatchObject({
+      slug: "zova-test-google-review",
+      active: false,
+      scanCount: 0,
+    });
+    expect(rows.profiles).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: "scanme_links", slug: "zova-test", status: "inactive" }),
+        expect.objectContaining({
+          type: "google_review",
+          slug: "zova-test-google-review",
+          status: "inactive",
+        }),
+      ]),
+    );
     expect(rows.contact).toMatchObject({ normalizedEmail: "milan@zova.test", status: "invited" });
     expect(rows.invitation).toMatchObject({ status: "queued", normalizedEmail: "milan@zova.test" });
     delete process.env.SCANME_ADMIN_EMAILS;

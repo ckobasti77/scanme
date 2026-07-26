@@ -3,9 +3,12 @@
 import { RotateCcw } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { BrandLogo } from "@/components/brand-logo";
+import { PublicScanMeLinks } from "@/components/scanme-links/public-scanme-links";
+import type { ScanMeLinksViewModel } from "@/components/scanme-links/templates/types";
 
 type ScanResult =
-  | { status: "available"; destinationUrl: string }
+  | { status: "direct"; destinationUrl: string }
+  | { status: "links"; scanSessionId: string; view: ScanMeLinksViewModel }
   | { status: "missing" | "inactive" | "invalid_destination" | "error"; message: string };
 
 const minimumLoaderTime = 400;
@@ -15,6 +18,10 @@ export function ScanRedirect({ slug }: { slug: string }) {
   const requestId = useRef<string | null>(null);
   const [attempt, setAttempt] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [linksSession, setLinksSession] = useState<{
+    view: ScanMeLinksViewModel;
+    requestId: string;
+  } | null>(null);
 
   const runScan = useCallback(async () => {
     setError(null);
@@ -30,8 +37,12 @@ export function ScanRedirect({ slug }: { slug: string }) {
         new Promise((resolve) => window.setTimeout(resolve, minimumLoaderTime)),
       ]);
       const result = (await response.json()) as ScanResult;
-      if (response.ok && result.status === "available") {
+      if (response.ok && result.status === "direct") {
         window.location.replace(result.destinationUrl);
+        return;
+      }
+      if (response.ok && result.status === "links") {
+        setLinksSession({ view: result.view, requestId: requestId.current! });
         return;
       }
       setError("message" in result ? result.message : "Odredište trenutno nije dostupno.");
@@ -49,6 +60,15 @@ export function ScanRedirect({ slug }: { slug: string }) {
   function retry() {
     started.current = false;
     setAttempt((value) => value + 1);
+  }
+
+  if (linksSession) {
+    return (
+      <PublicScanMeLinks
+        view={linksSession.view}
+        requestId={linksSession.requestId}
+      />
+    );
   }
 
   return (

@@ -1,9 +1,10 @@
 "use client";
 
 import { useAuthActions } from "@convex-dev/auth/react";
-import { Authenticated, AuthLoading, Unauthenticated, useQuery } from "convex/react";
+import { Authenticated, AuthLoading, Unauthenticated, useMutation, useQuery } from "convex/react";
 import { animate, motion, useMotionValue, useReducedMotion, useTransform } from "framer-motion";
-import { Eye, EyeOff, LoaderCircle, LogOut, ShieldCheck } from "lucide-react";
+import { ArrowUpRight, Eye, EyeOff, LoaderCircle, LogOut, ShieldCheck } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,7 +14,9 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { MetricsBarChart } from "@/components/metrics-bar-chart";
 import { MetricsPeriodSelect } from "@/components/metrics-period-select";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
 import type { MetricsRange } from "@/convex/lib/metrics";
 import { useRetainedQueryResult } from "@/lib/use-retained-query-result";
 
@@ -32,9 +35,254 @@ export function ClientPanel({ slug }: { slug: string }) {
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-12">
         <AuthLoading><PanelLoading /></AuthLoading>
         <Unauthenticated><ClientLogin slug={slug} businessName={location?.name ?? null} /></Unauthenticated>
-        <Authenticated><MetricsPanel slug={slug} /></Authenticated>
+        <Authenticated><ServicesPanel slug={slug} /></Authenticated>
       </div>
     </main>
+  );
+}
+
+type ServiceTab = "scanme_links" | "google_review";
+
+function ServicesPanel({ slug }: { slug: string }) {
+  const overview = useQuery(api.clientPanel.overview, { slug });
+  const [selectedTab, setSelectedTab] = useState<ServiceTab | null>(null);
+
+  if (overview === undefined) return <PanelLoading />;
+  if (overview.status === "forbidden") {
+    return (
+      <section className="border border-border bg-card p-6 sm:p-10">
+        <ShieldCheck className="size-8 text-destructive" />
+        <h1 className="mt-7 text-3xl font-semibold tracking-[-0.05em]">
+          Nemate pristup ovom lokalu.
+        </h1>
+        <p className="mt-4 max-w-xl text-sm leading-6 text-muted-foreground">
+          Prijavljeni nalog nije povezan sa lokalom iz ove adrese.
+        </p>
+      </section>
+    );
+  }
+  const defaultTab: ServiceTab = overview.services.scanMeLinks.active
+    ? "scanme_links"
+    : overview.services.googleReview.active
+      ? "google_review"
+      : "scanme_links";
+  const tab = selectedTab ?? defaultTab;
+
+  return (
+    <Tabs value={tab} onValueChange={(value) => setSelectedTab(value as ServiceTab)}>
+      <div className="mb-7 flex justify-end border-b border-border pb-5">
+        <TabsList className="h-auto min-h-11 w-full sm:w-auto">
+          <TabsTrigger value="scanme_links" className="min-h-9 px-4">
+            ScanMe Links
+          </TabsTrigger>
+          <TabsTrigger value="google_review" className="min-h-9 px-4">
+            Google Review
+          </TabsTrigger>
+        </TabsList>
+      </div>
+      <TabsContent value="scanme_links">
+        {overview.services.scanMeLinks.active ? (
+          <ScanMeLinksMetricsPanel slug={slug} />
+        ) : (
+          <LockedService
+            businessId={overview.businessId}
+            service="scanme_links"
+            hasOpenRequest={overview.services.scanMeLinks.hasOpenRequest}
+          />
+        )}
+      </TabsContent>
+      <TabsContent value="google_review">
+        {overview.services.googleReview.active ? (
+          <MetricsPanel slug={slug} />
+        ) : (
+          <LockedService
+            businessId={overview.businessId}
+            service="google_review"
+            hasOpenRequest={overview.services.googleReview.hasOpenRequest}
+          />
+        )}
+      </TabsContent>
+    </Tabs>
+  );
+}
+
+function LockedService({
+  businessId,
+  service,
+  hasOpenRequest,
+}: {
+  businessId: Id<"businesses">;
+  service: ServiceTab;
+  hasOpenRequest: boolean;
+}) {
+  const createRequest = useMutation(api.activationRequests.create);
+  const [pending, setPending] = useState(false);
+  const [sent, setSent] = useState(hasOpenRequest);
+  const [error, setError] = useState<string | null>(null);
+  const label = service === "scanme_links" ? "ScanMe Links" : "Google Review";
+
+  async function submitRequest() {
+    setPending(true);
+    setError(null);
+    try {
+      await createRequest({ businessId, requestedService: service });
+      setSent(true);
+    } catch (reason) {
+      setError(
+        reason instanceof Error
+          ? reason.message
+          : "Upit trenutno nije moguće poslati. Pokušajte ponovo.",
+      );
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <section className="border border-border bg-card p-6 sm:p-10">
+      <p className="text-sm font-semibold text-destructive">Usluga nije aktivna</p>
+      <h2 className="mt-4 text-3xl font-semibold tracking-[-0.05em]">
+        Trenutno niste pretplaćeni na ovu uslugu.
+      </h2>
+      <p className="mt-4 max-w-2xl text-sm leading-6 text-muted-foreground">
+        {label} može biti dodat postojećem ScanMe nalogu bez otvaranja novog
+        klijentskog panela.
+      </p>
+      <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+        <Button onClick={submitRequest} disabled={pending || sent}>
+          {pending ? <LoaderCircle className="size-4 animate-spin" /> : null}
+          {sent ? "Upit je poslat" : "Pošalji upit za aktivaciju"}
+        </Button>
+        <Button asChild variant="outline">
+          <Link href="/#scanme-links">
+            Saznaj više <ArrowUpRight className="size-4" />
+          </Link>
+        </Button>
+      </div>
+      {error ? (
+        <p className="mt-4 text-sm text-destructive" role="alert">
+          {error}
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
+function ScanMeLinksMetricsPanel({ slug }: { slug: string }) {
+  const [range, setRange] = useState<MetricsRange>("7d");
+  const [destinationId, setDestinationId] =
+    useState<Id<"serviceDestinations"> | null>(null);
+  const metricsQuery = useQuery(api.clientPanel.scanMeLinksMetrics, {
+    slug,
+    range,
+    ...(destinationId ? { destinationId } : {}),
+  });
+  const metrics = useRetainedQueryResult(metricsQuery, `${slug}-scanme-links`);
+  const { signOut } = useAuthActions();
+  if (metrics === undefined) return <PanelLoading />;
+  if (metrics.status !== "available") return null;
+
+  return (
+    <div aria-busy={metricsQuery === undefined}>
+      <div className="flex flex-col gap-5 border-b border-border pb-7 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">
+            ScanMe Links
+          </p>
+          <h1 className="mt-3 text-3xl font-semibold tracking-[-0.05em] sm:text-4xl">
+            {metrics.businessName}
+          </h1>
+        </div>
+        <Button variant="outline" onClick={() => void signOut()}>
+          <LogOut className="size-4" /> Odjava
+        </Button>
+      </div>
+      <dl className="mt-7 grid grid-cols-1 border border-border bg-card sm:grid-cols-3">
+        <div className="flex min-h-40 flex-col items-center justify-center border-b border-border p-5 text-center sm:border-b-0 sm:border-r">
+          <dt className="text-xs text-muted-foreground">Ukupno skeniranja</dt>
+          <dd className="mt-5 text-5xl font-semibold tabular-nums text-primary">
+            {numberFormatter.format(metrics.totalScans)}
+          </dd>
+        </div>
+        <div className="flex min-h-40 flex-col items-center justify-center border-b border-border p-5 text-center sm:border-b-0 sm:border-r">
+          <dt className="text-xs text-muted-foreground">Prikazi stranice</dt>
+          <dd className="mt-5 text-4xl font-semibold tabular-nums text-primary">
+            {numberFormatter.format(metrics.totalPageViews)}
+          </dd>
+        </div>
+        <div className="flex min-h-40 flex-col items-center justify-center p-5 text-center">
+          <dt className="text-xs text-muted-foreground">CTR</dt>
+          <dd className="mt-5 text-4xl font-semibold tabular-nums text-primary">
+            {metrics.totalPageViews
+              ? new Intl.NumberFormat("sr-Latn-RS", {
+                  style: "percent",
+                  maximumFractionDigits: 1,
+                }).format(metrics.ctr)
+              : "—"}
+          </dd>
+        </div>
+      </dl>
+
+      <section className="mt-5 border border-border bg-card p-5 sm:mt-7 sm:p-7">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <h2 className="font-semibold">
+              {destinationId ? "Aktivnost izabrane destinacije" : "Skeniranja po periodu"}
+            </h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Izaberite destinaciju za njen broj klikova ili direktnih odlazaka.
+            </p>
+          </div>
+          <Select value={range} onValueChange={(value) => setRange(value as MetricsRange)}>
+            <SelectTrigger className="h-10 w-full sm:w-44" aria-label="Period metrike">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="7d">7 dana</SelectItem>
+              <SelectItem value="30d">30 dana</SelectItem>
+              <SelectItem value="90d">3 meseca</SelectItem>
+              <SelectItem value="1y">1 godina</SelectItem>
+              <SelectItem value="all">Oduvek</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="mt-5 flex gap-2 overflow-x-auto pb-2">
+          <Button
+            type="button"
+            variant={destinationId ? "outline" : "default"}
+            onClick={() => setDestinationId(null)}
+          >
+            Svi skenovi
+          </Button>
+          {metrics.destinations.map((destination) => (
+            <Button
+              key={destination.id}
+              type="button"
+              variant={destinationId === destination.id ? "default" : "outline"}
+              className={destination.state !== "active" ? "opacity-60" : ""}
+              onClick={() => setDestinationId(destination.id)}
+            >
+              {destination.label}
+              <span className="tabular-nums">
+                {numberFormatter.format(
+                  destination.totalClicks || destination.totalDirectVisits,
+                )}
+              </span>
+            </Button>
+          ))}
+        </div>
+
+        <MetricsBarChart
+          rows={metrics.daily}
+          rangeLabel={metrics.rangeLabel}
+          heightClassName="h-44 sm:h-64"
+          showCounts
+          barMinWidth={48}
+          variant={metrics.range === "all" ? "line" : "bars"}
+        />
+      </section>
+    </div>
   );
 }
 

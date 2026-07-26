@@ -14,6 +14,47 @@ const leadStatus = v.union(
   v.literal("closed"),
 );
 
+const serviceType = v.union(
+  v.literal("scanme_links"),
+  v.literal("google_review"),
+);
+
+const serviceStatus = v.union(
+  v.literal("inactive"),
+  v.literal("active"),
+  v.literal("archived"),
+);
+
+const destinationKind = v.union(
+  v.literal("instagram"),
+  v.literal("facebook"),
+  v.literal("tiktok"),
+  v.literal("linkedin"),
+  v.literal("website"),
+  v.literal("reservations"),
+  v.literal("whatsapp"),
+  v.literal("viber"),
+  v.literal("telegram"),
+  v.literal("youtube"),
+  v.literal("custom"),
+);
+
+const destinationState = v.union(
+  v.literal("active"),
+  v.literal("inactive"),
+  v.literal("archived"),
+  v.literal("deleted"),
+);
+
+const accentTokens = v.object({
+  accent: v.string(),
+  strong: v.string(),
+  soft: v.string(),
+  border: v.string(),
+  focus: v.string(),
+  onAccent: v.string(),
+});
+
 export default defineSchema({
   ...authTables,
 
@@ -52,6 +93,75 @@ export default defineSchema({
     .index("by_slug", ["slug"])
     .index("by_dynamicLinkId", ["dynamicLinkId"]),
 
+  serviceProfiles: defineTable({
+    businessId: v.id("businesses"),
+    type: serviceType,
+    slug: v.string(),
+    status: serviceStatus,
+    clientEditingEnabled: v.optional(v.boolean()),
+    totalScans: v.number(),
+    totalPageViews: v.number(),
+    totalConvertedSessions: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_slug", ["slug"])
+    .index("by_businessId", ["businessId"])
+    .index("by_businessId_and_type", ["businessId", "type"])
+    .index("by_type_and_status", ["type", "status"]),
+
+  serviceSlugAliases: defineTable({
+    slug: v.string(),
+    serviceProfileId: v.id("serviceProfiles"),
+    createdAt: v.number(),
+  })
+    .index("by_slug", ["slug"])
+    .index("by_serviceProfileId", ["serviceProfileId"]),
+
+  scanMeLinksConfigs: defineTable({
+    serviceProfileId: v.id("serviceProfiles"),
+    draftDisplayName: v.optional(v.string()),
+    draftLogoStorageId: v.optional(v.id("_storage")),
+    draftTemplateKey: v.string(),
+    draftBackgroundKey: v.string(),
+    draftPalette: v.array(v.string()),
+    draftAccent: v.string(),
+    draftAccentTokens: accentTokens,
+    publishedDisplayName: v.optional(v.string()),
+    publishedLogoStorageId: v.optional(v.id("_storage")),
+    publishedTemplateKey: v.optional(v.string()),
+    publishedBackgroundKey: v.optional(v.string()),
+    publishedAccent: v.optional(v.string()),
+    publishedAccentTokens: v.optional(accentTokens),
+    hasUnpublishedChanges: v.boolean(),
+    draftRevision: v.number(),
+    publishedRevision: v.number(),
+    publishedAt: v.optional(v.number()),
+    updatedAt: v.number(),
+  }).index("by_serviceProfileId", ["serviceProfileId"]),
+
+  serviceDestinations: defineTable({
+    serviceProfileId: v.id("serviceProfiles"),
+    kind: destinationKind,
+    totalClicks: v.number(),
+    totalDirectVisits: v.number(),
+    draftLabel: v.string(),
+    draftUrl: v.string(),
+    draftIconKey: v.string(),
+    draftOrder: v.number(),
+    draftState: destinationState,
+    publishedLabel: v.optional(v.string()),
+    publishedUrl: v.optional(v.string()),
+    publishedIconKey: v.optional(v.string()),
+    publishedOrder: v.optional(v.number()),
+    publishedState: v.optional(destinationState),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_serviceProfileId", ["serviceProfileId"])
+    .index("by_serviceProfileId_and_draftOrder", ["serviceProfileId", "draftOrder"])
+    .index("by_serviceProfileId_and_publishedOrder", ["serviceProfileId", "publishedOrder"]),
+
   scanEvents: defineTable({
     dynamicLinkId: v.id("dynamicLinks"),
     requestId: v.optional(v.string()),
@@ -70,12 +180,62 @@ export default defineSchema({
     .index("by_dynamicLinkId_and_scannedAt", ["dynamicLinkId", "scannedAt"])
     .index("by_requestId", ["requestId"]),
 
+  serviceScanEvents: defineTable({
+    serviceProfileId: v.id("serviceProfiles"),
+    requestId: v.string(),
+    scannedAt: v.number(),
+    mode: v.union(v.literal("direct"), v.literal("links")),
+    directDestinationId: v.optional(v.id("serviceDestinations")),
+    convertedAt: v.optional(v.number()),
+    deviceCategory: v.optional(
+      v.union(
+        v.literal("mobile"),
+        v.literal("tablet"),
+        v.literal("desktop"),
+        v.literal("bot"),
+        v.literal("unknown"),
+      ),
+    ),
+    referrerHost: v.optional(v.string()),
+  })
+    .index("by_serviceProfileId_and_scannedAt", ["serviceProfileId", "scannedAt"])
+    .index("by_requestId", ["requestId"]),
+
+  destinationVisitEvents: defineTable({
+    serviceProfileId: v.id("serviceProfiles"),
+    destinationId: v.id("serviceDestinations"),
+    scanEventId: v.id("serviceScanEvents"),
+    visitId: v.string(),
+    kind: v.union(v.literal("click"), v.literal("direct")),
+    occurredAt: v.number(),
+  })
+    .index("by_visitId", ["visitId"])
+    .index("by_destinationId_and_occurredAt", ["destinationId", "occurredAt"])
+    .index("by_scanEventId", ["scanEventId"]),
+
   dailyScanCounts: defineTable({
     dynamicLinkId: v.id("dynamicLinks"),
     dateKey: v.string(),
     count: v.number(),
     updatedAt: v.number(),
   }).index("by_dynamicLinkId_and_dateKey", ["dynamicLinkId", "dateKey"]),
+
+  dailyServiceMetrics: defineTable({
+    serviceProfileId: v.id("serviceProfiles"),
+    dateKey: v.string(),
+    scans: v.number(),
+    pageViews: v.number(),
+    convertedSessions: v.number(),
+    updatedAt: v.number(),
+  }).index("by_serviceProfileId_and_dateKey", ["serviceProfileId", "dateKey"]),
+
+  dailyDestinationMetrics: defineTable({
+    destinationId: v.id("serviceDestinations"),
+    dateKey: v.string(),
+    clicks: v.number(),
+    directVisits: v.number(),
+    updatedAt: v.number(),
+  }).index("by_destinationId_and_dateKey", ["destinationId", "dateKey"]),
 
   businessContacts: defineTable({
     businessId: v.id("businesses"),
@@ -131,6 +291,25 @@ export default defineSchema({
     .index("by_tokenHash", ["tokenHash"])
     .index("by_businessId_and_status", ["businessId", "status"])
     .index("by_contactId", ["contactId"]),
+
+  serviceActivationRequests: defineTable({
+    businessId: v.id("businesses"),
+    serviceProfileId: v.id("serviceProfiles"),
+    requestedService: serviceType,
+    contactId: v.optional(v.id("businessContacts")),
+    status: v.union(v.literal("new"), v.literal("contacted"), v.literal("closed")),
+    requestedAt: v.number(),
+    updatedAt: v.number(),
+    emailStatus: v.union(
+      v.literal("queued"),
+      v.literal("sent"),
+      v.literal("failed"),
+    ),
+    emailMessageId: v.optional(v.string()),
+    emailFailureReason: v.optional(v.string()),
+  })
+    .index("by_businessId_and_requestedService", ["businessId", "requestedService"])
+    .index("by_status_and_requestedAt", ["status", "requestedAt"]),
 
   leads: defineTable({
     contactName: v.string(),

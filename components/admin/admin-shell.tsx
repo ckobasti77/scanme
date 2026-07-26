@@ -11,6 +11,7 @@ import { BrandLogo } from "@/components/brand-logo";
 import { cn } from "@/lib/utils";
 
 const navigation = [
+  { href: "/admin/scanme-links", label: "ScanMe Links" },
   { href: "/admin/google-reviews", label: "Google Review kartice" },
   { href: "/admin/page", label: "ScanMe Page" },
   { href: "/admin/venue", label: "ScanMe Venue" },
@@ -39,7 +40,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
     <div className="min-h-[100dvh] bg-background">
       <header className={cn("sticky top-0 z-20 border-b border-border bg-background/95 backdrop-blur transition-transform duration-300 ease-out will-change-transform", navHidden && !reducedMotion ? "-translate-y-full" : "translate-y-0")}>
         <div className="mx-auto flex max-w-[1500px] items-center justify-between gap-4 px-4 py-3 lg:px-8">
-          <Link href="/admin/google-reviews" className="flex min-h-11 shrink-0 items-center gap-3" aria-label="ScanMe Admin">
+          <Link href="/admin/scanme-links" className="flex min-h-11 shrink-0 items-center gap-3" aria-label="ScanMe Admin">
             <BrandLogo width="6.75rem" />
             <span className="hidden border-l border-foreground/20 pl-3 text-xs font-semibold tracking-[0.08em] sm:inline">ADMIN</span>
           </Link>

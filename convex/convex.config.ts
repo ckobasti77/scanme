@@ -10,6 +10,7 @@ const app = defineApp({
     SCANME_SITE_URL: v.optional(v.string()),
     RESEND_API_KEY: v.optional(v.string()),
     RESEND_FROM_EMAIL: v.optional(v.string()),
+    SCANME_ACTIVATION_REQUEST_EMAIL: v.optional(v.string()),
   },
 });
 

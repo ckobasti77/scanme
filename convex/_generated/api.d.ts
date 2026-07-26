@@ -8,6 +8,9 @@
  * @module
  */
 
+import type * as activationRequestEmails from "../activationRequestEmails.js";
+import type * as activationRequestEmailsData from "../activationRequestEmailsData.js";
+import type * as activationRequests from "../activationRequests.js";
 import type * as admin from "../admin.js";
 import type * as auth from "../auth.js";
 import type * as clientPanel from "../clientPanel.js";
@@ -19,8 +22,11 @@ import type * as leads from "../leads.js";
 import type * as lib_access from "../lib/access.js";
 import type * as lib_invitations from "../lib/invitations.js";
 import type * as lib_metrics from "../lib/metrics.js";
+import type * as lib_serviceMetrics from "../lib/serviceMetrics.js";
 import type * as lib_validation from "../lib/validation.js";
+import type * as migrations from "../migrations.js";
 import type * as redirects from "../redirects.js";
+import type * as scanMeLinks from "../scanMeLinks.js";
 
 import type {
   ApiFromModules,
@@ -29,6 +35,9 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  activationRequestEmails: typeof activationRequestEmails;
+  activationRequestEmailsData: typeof activationRequestEmailsData;
+  activationRequests: typeof activationRequests;
   admin: typeof admin;
   auth: typeof auth;
   clientPanel: typeof clientPanel;
@@ -40,8 +49,11 @@ declare const fullApi: ApiFromModules<{
   "lib/access": typeof lib_access;
   "lib/invitations": typeof lib_invitations;
   "lib/metrics": typeof lib_metrics;
+  "lib/serviceMetrics": typeof lib_serviceMetrics;
   "lib/validation": typeof lib_validation;
+  migrations: typeof migrations;
   redirects: typeof redirects;
+  scanMeLinks: typeof scanMeLinks;
 }>;
 
 /**

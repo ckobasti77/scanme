@@ -28,7 +28,7 @@ export function AdminLogin() {
     formData.set("flow", mode === "setup" ? "signUp" : "signIn");
     try {
       await signIn("password", formData);
-      router.replace("/admin/google-reviews");
+      router.replace("/admin/scanme-links");
     } catch {
       setError(mode === "setup" ? "Admin nalog nije aktiviran. Proverite email, setup secret i pravila za šifru." : "Email ili šifra nisu ispravni.");
     } finally {
@@ -56,7 +56,7 @@ export function AdminLogin() {
             <div className="mt-8 border border-border bg-secondary p-4">
               <p className="text-sm text-muted-foreground">Jedan nalog je već prijavljen u ovom browseru.</p>
               <div className="mt-4 flex flex-wrap gap-3">
-                <Button onClick={() => router.replace("/admin/google-reviews")}>Nastavi</Button>
+                <Button onClick={() => router.replace("/admin/scanme-links")}>Nastavi</Button>
                 <Button variant="outline" onClick={() => void signOut()}><LogOut className="size-4" /> Odjavi nalog</Button>
               </div>
             </div>

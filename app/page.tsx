@@ -65,11 +65,11 @@ const faqItems = [
 const footerLinks = [
   { href: "#kako-radi", label: "Kako radi" },
   { href: "#scanme-review", label: "ScanMe Review" },
-  { href: "#trajni-qr", label: "Trajan QR" },
+  // { href: "#trajni-qr", label: "Trajan QR" },
   { href: "#za-koga", label: "Za koga" },
   { href: "#faq", label: "FAQ" },
   { href: "#ponuda", label: "Kontakt" },
-  { href: "#ekosistem", label: "Ekosistem" },
+  // { href: "#ekosistem", label: "Ekosistem" },
 ] as const;
 
 const footerProducts = [

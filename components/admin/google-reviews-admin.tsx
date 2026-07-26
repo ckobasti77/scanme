@@ -725,10 +725,10 @@ function CreateBusinessForm({ pending, onSubmit }: { pending: boolean; onSubmit:
   return (
     <form onSubmit={submit} noValidate>
       <h2 className="text-xl font-semibold">Novi lokal</h2>
-      <p className="mt-2 text-sm leading-6 text-muted-foreground">Obavezni su samo naziv lokala i QR slug. Ostale informacije možete dodati kasnije.</p>
+      <p className="mt-2 text-sm leading-6 text-muted-foreground">Obavezni su samo naziv lokala i osnovni slug. Google Review adresa automatski dobija nastavak -google-review.</p>
       <div className="mt-5 grid gap-4 sm:grid-cols-2">
         <InputField id="create-business-name" label="Naziv lokala" value={name} required error={touched.name ? errors.name : undefined} onChange={(value) => { setName(value); if (!slugEdited.current) setSlug(slugify(value)); }} onBlur={() => markTouched("name")} />
-        <InputField id="create-business-slug" label="QR slug" value={slug} required placeholder="naziv-lokala" error={touched.slug ? errors.slug : undefined} onChange={(value) => { slugEdited.current = true; setSlug(value.toLowerCase().replace(/\s+/g, "-")); }} onBlur={() => markTouched("slug")} />
+        <InputField id="create-business-slug" label="Osnovni slug" value={slug} required placeholder="naziv-lokala" error={touched.slug ? errors.slug : undefined} onChange={(value) => { slugEdited.current = true; setSlug(value.toLowerCase().replace(/\s+/g, "-")); }} onBlur={() => markTouched("slug")} />
         <div className="sm:col-span-2"><InputField id="create-destination-url" label="Google Review / Dynamic Link" type="url" value={destinationUrl} error={touched.destinationUrl ? errors.destinationUrl : undefined} onChange={setDestinationUrl} onBlur={() => markTouched("destinationUrl")} /></div>
         <div className="sm:col-span-2 border-t border-border pt-5">
           <h3 className="font-semibold">POC kontakti</h3>

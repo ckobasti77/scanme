@@ -42,13 +42,15 @@ export async function POST(request: Request, { params }: RouteContext<"/api/scan
     }
     const referrerHost = externalReferrerHost(request);
     const convex = new ConvexHttpClient(convexUrl);
-    const result = await convex.mutation(api.redirects.resolveAndRecord, {
+    const result = await convex.mutation(api.scanMeLinks.resolveAndRecord, {
       slug,
       requestId: body.requestId,
       deviceCategory: deviceCategory(request.headers.get("user-agent") ?? ""),
       ...(referrerHost ? { referrerHost } : {}),
     });
-    if (result.status === "available") return response(200, result);
+    if (result.status === "direct" || result.status === "links") {
+      return response(200, result);
+    }
     if (result.status === "inactive") {
       return response(200, { ...result, message: "Ovaj ScanMe kod više nije aktivan." });
     }

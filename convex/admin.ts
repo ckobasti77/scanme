@@ -6,6 +6,11 @@ import { mutation, query, type MutationCtx } from "./_generated/server";
 import { isAdminEmail, requireAdmin } from "./lib/access";
 import { aggregateMetricRowsForRange, getMetricRows, metricsRangeConfig } from "./lib/metrics";
 import { isSafePublicDestination, normalizeEmail, normalizePhone, requireSlug, requireText } from "./lib/validation";
+import {
+  DEFAULT_ACCENT,
+  DEFAULT_ACCENT_TOKENS,
+  googleReviewSlug,
+} from "../lib/scanme-links";
 
 const INVITATION_LIFETIME = 7 * 24 * 60 * 60 * 1000;
 const BELGRADE_TIME_ZONE = "Europe/Belgrade";
@@ -159,11 +164,17 @@ export const listBusinesses = query({
           }),
         );
         const contact = contactViews[0] ?? null;
+        const reviewProfile = await ctx.db
+          .query("serviceProfiles")
+          .withIndex("by_businessId_and_type", (q) =>
+            q.eq("businessId", business._id).eq("type", "google_review"),
+          )
+          .unique();
         return {
           id: business._id,
           name: business.name,
           clientPanelSlug: business.slug,
-          status: business.status,
+          status: reviewProfile?.status === "active" ? "active" : "inactive",
           archivedAt: business.archivedAt ?? null,
           createdAt: business.createdAt,
           link: link
@@ -201,18 +212,19 @@ export const createBusiness = mutation({
     await requireAdmin(ctx);
     const name = requireText(args.name, "Naziv lokala", 2, 120);
     const slug = requireSlug(args.slug);
+    const reviewSlug = googleReviewSlug(slug);
     const destinationUrl = args.destinationUrl.trim();
     if (destinationUrl && !isSafePublicDestination(destinationUrl)) {
       throw new Error("Destinacija mora biti bezbedan javni HTTPS link.");
     }
     const existingLink = await ctx.db
       .query("dynamicLinks")
-      .withIndex("by_slug", (q) => q.eq("slug", slug))
+      .withIndex("by_slug", (q) => q.eq("slug", reviewSlug))
       .unique();
     if (existingLink) throw new Error("Ovaj QR slug se već koristi.");
     const existingAlias = await ctx.db
       .query("dynamicLinkAliases")
-      .withIndex("by_slug", (q) => q.eq("slug", slug))
+      .withIndex("by_slug", (q) => q.eq("slug", reviewSlug))
       .unique();
     if (existingAlias) throw new Error("Ovaj QR slug je sačuvan za ranije odštampanu adresu.");
     const existingBusiness = await ctx.db
@@ -220,6 +232,18 @@ export const createBusiness = mutation({
       .withIndex("by_slug", (q) => q.eq("slug", slug))
       .unique();
     if (existingBusiness) throw new Error("Oznaka lokala se već koristi.");
+
+    const existingLinksProfile = await ctx.db
+      .query("serviceProfiles")
+      .withIndex("by_slug", (q) => q.eq("slug", slug))
+      .unique();
+    const existingReviewProfile = await ctx.db
+      .query("serviceProfiles")
+      .withIndex("by_slug", (q) => q.eq("slug", reviewSlug))
+      .unique();
+    if (existingLinksProfile || existingReviewProfile) {
+      throw new Error("Ovaj servisni slug se već koristi.");
+    }
 
     const now = Date.now();
     const businessId = await ctx.db.insert("businesses", {
@@ -230,11 +254,64 @@ export const createBusiness = mutation({
     });
     const linkId = await ctx.db.insert("dynamicLinks", {
       businessId,
-      slug,
+      slug: reviewSlug,
       destinationUrl,
       type: "google_review",
-      active: true,
+      active: false,
       scanCount: 0,
+      createdAt: now,
+      updatedAt: now,
+    });
+    const scanMeLinksProfileId = await ctx.db.insert("serviceProfiles", {
+      businessId,
+      type: "scanme_links",
+      slug,
+      status: "inactive",
+      totalScans: 0,
+      totalPageViews: 0,
+      totalConvertedSessions: 0,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await ctx.db.insert("scanMeLinksConfigs", {
+      serviceProfileId: scanMeLinksProfileId,
+      draftDisplayName: name,
+      draftTemplateKey: "option-two",
+      draftBackgroundKey: "warm-ivory",
+      draftPalette: [DEFAULT_ACCENT],
+      draftAccent: DEFAULT_ACCENT,
+      draftAccentTokens: DEFAULT_ACCENT_TOKENS,
+      hasUnpublishedChanges: true,
+      draftRevision: 1,
+      publishedRevision: 0,
+      updatedAt: now,
+    });
+    const googleReviewProfileId = await ctx.db.insert("serviceProfiles", {
+      businessId,
+      type: "google_review",
+      slug: reviewSlug,
+      status: "inactive",
+      totalScans: 0,
+      totalPageViews: 0,
+      totalConvertedSessions: 0,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await ctx.db.insert("serviceDestinations", {
+      serviceProfileId: googleReviewProfileId,
+      kind: "custom",
+      totalClicks: 0,
+      totalDirectVisits: 0,
+      draftLabel: "Google Review",
+      draftUrl: destinationUrl,
+      draftIconKey: "link",
+      draftOrder: 0,
+      draftState: destinationUrl ? "active" : "inactive",
+      publishedLabel: "Google Review",
+      publishedUrl: destinationUrl,
+      publishedIconKey: "link",
+      publishedOrder: 0,
+      publishedState: destinationUrl ? "active" : "inactive",
       createdAt: now,
       updatedAt: now,
     });
@@ -255,6 +332,8 @@ export const createBusiness = mutation({
     return {
       businessId,
       linkId,
+      scanMeLinksProfileId,
+      googleReviewProfileId,
       invitationId: invitations[0]?.invitationId ?? null,
       invitationIds: invitations.map(({ invitationId }) => invitationId),
     };
@@ -323,6 +402,8 @@ export const updateDestination = mutation({
   args: { linkId: v.id("dynamicLinks"), destinationUrl: v.string() },
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
+    const legacyLink = await ctx.db.get(args.linkId);
+    if (!legacyLink) throw new Error("QR link nije pronađen.");
     if (!isSafePublicDestination(args.destinationUrl)) {
       throw new Error("Destinacija mora biti bezbedan javni HTTPS link.");
     }
@@ -330,6 +411,31 @@ export const updateDestination = mutation({
       destinationUrl: args.destinationUrl.trim(),
       updatedAt: Date.now(),
     });
+    const profile = await ctx.db
+      .query("serviceProfiles")
+      .withIndex("by_businessId_and_type", (q) =>
+        q.eq("businessId", legacyLink.businessId).eq("type", "google_review"),
+      )
+      .unique();
+    if (profile) {
+      const destination = (
+        await ctx.db
+          .query("serviceDestinations")
+          .withIndex("by_serviceProfileId", (q) =>
+            q.eq("serviceProfileId", profile._id),
+          )
+          .take(1)
+      )[0];
+      if (destination) {
+        await ctx.db.patch(destination._id, {
+          draftUrl: args.destinationUrl.trim(),
+          publishedUrl: args.destinationUrl.trim(),
+          draftState: "active",
+          publishedState: "active",
+          updatedAt: Date.now(),
+        });
+      }
+    }
     return { updated: true };
   },
 });
@@ -362,7 +468,20 @@ export const updateBusinessSlug = mutation({
     if (!link || link.businessId !== args.businessId || link.type !== "google_review") {
       throw new Error("QR link nije pronađen.");
     }
+    const linksProfile = await ctx.db
+      .query("serviceProfiles")
+      .withIndex("by_businessId_and_type", (q) =>
+        q.eq("businessId", args.businessId).eq("type", "scanme_links"),
+      )
+      .unique();
+    const reviewProfile = await ctx.db
+      .query("serviceProfiles")
+      .withIndex("by_businessId_and_type", (q) =>
+        q.eq("businessId", args.businessId).eq("type", "google_review"),
+      )
+      .unique();
 
+    const targetProfile = args.kind === "qr" ? reviewProfile : linksProfile;
     const matchingLinks = await ctx.db
       .query("dynamicLinks")
       .withIndex("by_slug", (q) => q.eq("slug", slug))
@@ -384,27 +503,70 @@ export const updateBusinessSlug = mutation({
     if (matchingAliases.some((candidate) => candidate.dynamicLinkId !== link._id)) {
       throw new Error("Ovaj slug je sačuvan za ranije odštampanu QR adresu.");
     }
+    const matchingProfiles = await ctx.db
+      .query("serviceProfiles")
+      .withIndex("by_slug", (q) => q.eq("slug", slug))
+      .take(2);
+    if (matchingProfiles.some((candidate) => candidate._id !== targetProfile?._id)) {
+      throw new Error("Ovaj servisni slug se već koristi.");
+    }
+    const matchingServiceAliases = await ctx.db
+      .query("serviceSlugAliases")
+      .withIndex("by_slug", (q) => q.eq("slug", slug))
+      .take(2);
+    if (
+      matchingServiceAliases.some(
+        (candidate) => candidate.serviceProfileId !== targetProfile?._id,
+      )
+    ) {
+      throw new Error("Ovaj servisni slug je sačuvan kao ranija adresa.");
+    }
 
-    if (args.kind === "qr") {
-      if (slug !== link.slug) {
-        const existingOldSlugAlias = await ctx.db
-          .query("dynamicLinkAliases")
-          .withIndex("by_slug", (q) => q.eq("slug", link.slug))
-          .unique();
-        if (!existingOldSlugAlias) {
-          await ctx.db.insert("dynamicLinkAliases", {
-            slug: link.slug,
-            dynamicLinkId: link._id,
-            createdAt: Date.now(),
-          });
-        }
-        const promotedAlias = matchingAliases.find(
-          (candidate) => candidate.dynamicLinkId === link._id,
-        );
-        if (promotedAlias) await ctx.db.delete(promotedAlias._id);
-        await ctx.db.patch(link._id, { slug, updatedAt: Date.now() });
+    const now = Date.now();
+    if (args.kind === "qr" && slug !== link.slug) {
+      const existingOldSlugAlias = await ctx.db
+        .query("dynamicLinkAliases")
+        .withIndex("by_slug", (q) => q.eq("slug", link.slug))
+        .unique();
+      if (!existingOldSlugAlias) {
+        await ctx.db.insert("dynamicLinkAliases", {
+          slug: link.slug,
+          dynamicLinkId: link._id,
+          createdAt: now,
+        });
       }
-    } else {
+      const promotedAlias = matchingAliases.find(
+        (candidate) => candidate.dynamicLinkId === link._id,
+      );
+      if (promotedAlias) await ctx.db.delete(promotedAlias._id);
+      await ctx.db.patch(link._id, { slug, updatedAt: now });
+    }
+
+    if (targetProfile && targetProfile.slug !== slug) {
+      const previousProfileSlug = targetProfile.slug;
+      const existingOldAlias = await ctx.db
+        .query("serviceSlugAliases")
+        .withIndex("by_slug", (q) => q.eq("slug", previousProfileSlug))
+        .unique();
+      if (!existingOldAlias) {
+        await ctx.db.insert("serviceSlugAliases", {
+          slug: previousProfileSlug,
+          serviceProfileId: targetProfile._id,
+          createdAt: now,
+        });
+      }
+      const promotedAlias = matchingServiceAliases.find(
+        (candidate) => candidate.serviceProfileId === targetProfile._id,
+      );
+      if (promotedAlias) {
+        await ctx.db.delete(promotedAlias._id);
+      }
+      await ctx.db.patch(targetProfile._id, {
+        slug,
+        updatedAt: now,
+      });
+    }
+    if (args.kind === "clientPanel") {
       await ctx.db.patch(business._id, { slug });
     }
     return {
@@ -429,8 +591,37 @@ export const setBusinessActive = mutation({
       .order("desc")
       .take(20);
     const link = selectPrimaryLink(links);
-    await ctx.db.patch(args.businessId, { status: args.active ? "active" : "inactive" });
     if (link) await ctx.db.patch(link._id, { active: args.active, updatedAt: Date.now() });
+    const profile = await ctx.db
+      .query("serviceProfiles")
+      .withIndex("by_businessId_and_type", (q) =>
+        q.eq("businessId", args.businessId).eq("type", "google_review"),
+      )
+      .unique();
+    if (profile) {
+      const destinations = await ctx.db
+        .query("serviceDestinations")
+        .withIndex("by_serviceProfileId", (q) =>
+          q.eq("serviceProfileId", profile._id),
+        )
+        .take(2);
+      if (
+        args.active &&
+        (!destinations[0]?.publishedUrl ||
+          !isSafePublicDestination(destinations[0].publishedUrl))
+      ) {
+        throw new Error("Google Review servis mora imati bezbednu destinaciju.");
+      }
+      await ctx.db.patch(profile._id, {
+        status: args.active ? "active" : "inactive",
+        updatedAt: Date.now(),
+      });
+    } else {
+      // Legacy fallback remains during the development migration window.
+      await ctx.db.patch(args.businessId, {
+        status: args.active ? "active" : "inactive",
+      });
+    }
     return { active: args.active };
   },
 });
@@ -442,16 +633,28 @@ export const archiveBusiness = mutation({
     const business = await ctx.db.get(args.businessId);
     if (!business) throw new Error("Lokal nije pronađen.");
     if (business.archivedAt) throw new Error("Lokal je već arhiviran.");
-    if (business.status !== "inactive") {
-      throw new Error("Lokal mora biti deaktiviran pre arhiviranja.");
-    }
-
-    const now = Date.now();
+    const serviceProfiles = await ctx.db
+      .query("serviceProfiles")
+      .withIndex("by_businessId", (q) => q.eq("businessId", args.businessId))
+      .take(10);
     const links = await ctx.db
       .query("dynamicLinks")
       .withIndex("by_businessId", (q) => q.eq("businessId", args.businessId))
       .take(100);
+    if (
+      serviceProfiles.some((profile) => profile.status === "active") ||
+      (serviceProfiles.length === 0 && business.status !== "inactive")
+    ) {
+      throw new Error("Svi servisi lokala moraju biti deaktivirani pre arhiviranja.");
+    }
+
+    const now = Date.now();
     await ctx.db.patch(args.businessId, { archivedAt: now });
+    await Promise.all(
+      serviceProfiles.map((profile) =>
+        ctx.db.patch(profile._id, { status: "archived", updatedAt: now }),
+      ),
+    );
     await Promise.all(
       links.map((link) =>
         ctx.db.patch(link._id, { active: false, updatedAt: now }),
