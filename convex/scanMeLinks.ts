@@ -180,8 +180,7 @@ async function publishedDestinations(
     .filter(
       (row) =>
         row.publishedState === "active" &&
-        row.publishedUrl &&
-        isSafePublicDestination(row.publishedUrl),
+        (!row.publishedUrl || isSafePublicDestination(row.publishedUrl)),
     )
     .sort((a, b) => (a.publishedOrder ?? 0) - (b.publishedOrder ?? 0))
     .slice(0, 10);
@@ -284,7 +283,7 @@ async function publicLinksView(
       id: destination._id,
       kind: destination.kind,
       label: destination.publishedLabel ?? DESTINATION_DEFAULTS[destination.kind].label,
-      url: destination.publishedUrl!,
+      url: destination.publishedUrl ?? "",
       iconKey:
         destination.publishedIconKey ?? DESTINATION_DEFAULTS[destination.kind].iconKey,
     })),
@@ -350,12 +349,24 @@ async function currentResolution(
     }
   }
   const destinations = await publishedDestinations(ctx, profile._id);
-  if (!destinations.length) return { status: "unavailable" as const };
-  if (profile.type === "google_review" || destinations.length === 1) {
+  const linkedDestinations = destinations.filter(
+    (destination) =>
+      destination.publishedUrl &&
+      isSafePublicDestination(destination.publishedUrl),
+  );
+  if (profile.type === "google_review") {
+    if (!linkedDestinations.length) return { status: "unavailable" as const };
     return {
       status: "direct" as const,
-      destinationUrl: destinations[0].publishedUrl!,
-      destination: destinations[0],
+      destinationUrl: linkedDestinations[0].publishedUrl!,
+      destination: linkedDestinations[0],
+    };
+  }
+  if (destinations.length === 1 && linkedDestinations.length === 1) {
+    return {
+      status: "direct" as const,
+      destinationUrl: linkedDestinations[0].publishedUrl!,
+      destination: linkedDestinations[0],
     };
   }
   const view = await publicLinksView(ctx, profile, destinations);
@@ -665,12 +676,11 @@ export const editor = query({
       .filter(
         (row) =>
           row.publishedState === "active" &&
-          Boolean(row.publishedUrl) &&
-          isSafePublicDestination(row.publishedUrl ?? ""),
+          (!row.publishedUrl || isSafePublicDestination(row.publishedUrl)),
       )
       .sort((a, b) => (a.publishedOrder ?? 0) - (b.publishedOrder ?? 0));
     const publishedView =
-      summary.config?.publishedAt && publishedRows.length
+      summary.config?.publishedAt
         ? await publicLinksView(ctx, profile, publishedRows)
         : null;
     return {
@@ -867,9 +877,6 @@ export const updateDestination = mutation({
     if (url && !isSafePublicDestination(url)) {
       throw new Error("Destinacija mora biti bezbedan javni HTTPS link.");
     }
-    if (args.state === "active" && !url) {
-      throw new Error("Aktivna destinacija mora imati URL.");
-    }
     if (args.state === "active" && row.draftState !== "active") {
       const rows = await ctx.db
         .query("serviceDestinations")
@@ -1026,7 +1033,7 @@ export const publishDraft = mutation({
     const active = rows.filter((row) => row.draftState === "active");
     if (active.length > 10) throw new Error("Možete objaviti najviše 10 aktivnih destinacija.");
     for (const row of active) {
-      if (!row.draftUrl || !isSafePublicDestination(row.draftUrl)) {
+      if (row.draftUrl && !isSafePublicDestination(row.draftUrl)) {
         throw new Error(`Destinacija „${row.draftLabel}“ nema bezbedan HTTPS URL.`);
       }
     }
@@ -1078,12 +1085,6 @@ export const setServiceActive = mutation({
     const business = await ctx.db.get(profile.businessId);
     if (!business || business.archivedAt) {
       throw new Error("Arhivirani lokal ne može biti aktiviran.");
-    }
-    if (args.active) {
-      const activeDestinations = await publishedDestinations(ctx, profile._id);
-      if (!activeDestinations.length) {
-        throw new Error("Objavite najmanje jednu aktivnu destinaciju pre aktivacije.");
-      }
     }
     await ctx.db.patch(profile._id, {
       status: args.active ? "active" : "inactive",

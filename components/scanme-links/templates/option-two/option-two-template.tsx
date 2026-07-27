@@ -135,21 +135,39 @@ export function OptionTwoTemplate({
   return (
     <OptionTwoFrame view={view} preview={preview}>
       <ul className="grid gap-5 pl-3">
-        {view.destinations.map((destination, index) => (
-          <li key={destination.id}>
-            <a
-              href={destination.url || "#"}
-              onClick={(event) => onDestinationClick?.(destination, event)}
-              className={optionTwoDestinationClassName}
-              style={{ borderRadius: "9999px" }}
-            >
+        {view.destinations.map((destination, index) => {
+          const content = (
+            <>
               <OptionTwoDestinationContent
                 destination={destination}
                 duplicate={duplicates[index]}
               />
-            </a>
-          </li>
-        ))}
+            </>
+          );
+          return (
+            <li key={destination.id}>
+              {destination.url ? (
+                <a
+                  href={destination.url}
+                  onClick={(event) => onDestinationClick?.(destination, event)}
+                  className={optionTwoDestinationClassName}
+                  style={{ borderRadius: "9999px" }}
+                >
+                  {content}
+                </a>
+              ) : (
+                <button
+                  type="button"
+                  aria-disabled="true"
+                  className={optionTwoDestinationClassName}
+                  style={{ borderRadius: "9999px" }}
+                >
+                  {content}
+                </button>
+              )}
+            </li>
+          );
+        })}
       </ul>
     </OptionTwoFrame>
   );

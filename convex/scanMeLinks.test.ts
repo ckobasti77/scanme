@@ -87,6 +87,92 @@ async function addPublishedDestination(
 }
 
 describe("ScanMe Links javni tok", () => {
+  test("objavljena stranica može biti aktivna bez ijedne destinacije", async () => {
+    const setup = await seedScanMeLinks();
+    const editor = await setup.asAdmin.query(api.scanMeLinks.editor, {
+      businessId: setup.businessId,
+    });
+    await setup.asAdmin.mutation(api.scanMeLinks.publishDraft, {
+      serviceProfileId: setup.serviceProfileId,
+      expectedDraftRevision: editor!.config!.draftRevision,
+    });
+    await expect(
+      setup.asAdmin.mutation(api.scanMeLinks.setServiceActive, {
+        serviceProfileId: setup.serviceProfileId,
+        active: true,
+      }),
+    ).resolves.toEqual({ active: true });
+
+    const scan = await setup.t.mutation(api.scanMeLinks.resolveAndRecord, {
+      slug: "mera-cafe",
+      requestId: "80f1177b-6cc8-4ac0-a8b8-9fab63fd0dad",
+      deviceCategory: "mobile",
+    });
+    expect(scan).toMatchObject({
+      status: "links",
+      view: { destinations: [] },
+    });
+    delete process.env.SCANME_ADMIN_EMAILS;
+  });
+
+  test("placeholder izgleda kao destinacija, ali nema klik ni preusmeravanje", async () => {
+    const setup = await seedScanMeLinks();
+    const added = await setup.asAdmin.mutation(api.scanMeLinks.addDestination, {
+      serviceProfileId: setup.serviceProfileId,
+      kind: "instagram",
+    });
+    await setup.asAdmin.mutation(api.scanMeLinks.updateDestination, {
+      destinationId: added.destinationId,
+      kind: "instagram",
+      label: "Instagram",
+      url: "",
+      iconKey: "instagram",
+      state: "active",
+    });
+    const editor = await setup.asAdmin.query(api.scanMeLinks.editor, {
+      businessId: setup.businessId,
+    });
+    await setup.asAdmin.mutation(api.scanMeLinks.publishDraft, {
+      serviceProfileId: setup.serviceProfileId,
+      expectedDraftRevision: editor!.config!.draftRevision,
+    });
+    await setup.asAdmin.mutation(api.scanMeLinks.setServiceActive, {
+      serviceProfileId: setup.serviceProfileId,
+      active: true,
+    });
+
+    const requestId = "dfd8a675-d82f-43b4-ac50-32b3972a5d20";
+    const scan = await setup.t.mutation(api.scanMeLinks.resolveAndRecord, {
+      slug: "mera-cafe",
+      requestId,
+      deviceCategory: "mobile",
+    });
+    expect(scan).toMatchObject({
+      status: "links",
+      view: {
+        destinations: [
+          {
+            id: added.destinationId,
+            label: "Instagram",
+            url: "",
+          },
+        ],
+      },
+    });
+    await expect(
+      setup.t.mutation(api.scanMeLinks.recordClick, {
+        requestId,
+        destinationId: added.destinationId,
+        clickId: "d5e70765-86d2-48ce-9fde-b2c6c2d5e75e",
+      }),
+    ).rejects.toThrow("Destinacija nije dostupna.");
+    const destination = await setup.t.run((ctx) =>
+      ctx.db.get(added.destinationId),
+    );
+    expect(destination?.totalClicks).toBe(0);
+    delete process.env.SCANME_ADMIN_EMAILS;
+  });
+
   test("jedna destinacija direktno preusmerava i dupli request ne uvećava metriku", async () => {
     const setup = await seedScanMeLinks();
     await addPublishedDestination(

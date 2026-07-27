@@ -21,6 +21,7 @@ export function PublicScanMeLinks({
     event: MouseEvent<HTMLAnchorElement>,
   ) {
     event.preventDefault();
+    if (!destination.url) return;
     if (openingId) return;
     setOpeningId(destination.id);
     const clickId = crypto.randomUUID();
