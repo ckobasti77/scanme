@@ -1,0 +1,7 @@
+interface:
+  display_name: "Liquid Glass"
+  short_description: "Build orientation-safe liquid glass UI"
+  default_prompt: "Use $liquid-glass to build a polished liquid glass surface that preserves the background orientation."
+
+policy:
+  allow_implicit_invocation: true
