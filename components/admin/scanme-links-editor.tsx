@@ -1,50 +1,53 @@
 "use client";
 
-import {
-  closestCenter,
-  DndContext,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-} from "@dnd-kit/core";
-import {
-  arrayMove,
-  SortableContext,
-  sortableKeyboardCoordinates,
-  useSortable,
-  verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
+import { arrayMove } from "@dnd-kit/sortable";
 import { useMutation, useQuery } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
-  ArrowLeft,
+  BarChart3,
   Check,
-  ExternalLink,
-  GripVertical,
+  CircleHelp,
+  Crown,
+  Image,
   LoaderCircle,
-  Plus,
+  Palette,
+  PanelTop,
+  Paintbrush,
+  Redo2,
+  Save,
   Send,
-  Settings2,
-  Smartphone,
-  Trash2,
-  Upload,
+  Settings,
+  SlidersHorizontal,
+  Type,
+  Undo2,
 } from "lucide-react";
 import Link from "next/link";
-import { useMemo, useState, type SetStateAction } from "react";
+import { useRouter } from "next/navigation";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import { toast } from "sonner";
 import { AdminGuard } from "@/components/admin/admin-guard";
-import { BrandLogo } from "@/components/brand-logo";
 import {
-  OptionTwoDestinationContent,
-  OptionTwoFrame,
-  optionTwoDestinationClassName,
-  optionTwoDuplicateNumber,
-} from "@/components/scanme-links/templates/option-two/option-two-template";
-import type { ScanMeLinksViewModel } from "@/components/scanme-links/templates/types";
-import { ThemeToggle } from "@/components/theme-toggle";
-import { Button } from "@/components/ui/button";
+  AnalyticsPanel,
+  BackgroundPanel,
+  ButtonPanel,
+  ColorPanel,
+  ContentPanel,
+  HelpPanel,
+  ProPanel,
+  SettingsPanel,
+  StylePanel,
+  TextPanel,
+} from "@/components/admin/scanme-links-editor-panels";
+import { ScanMeLinksEditorPreview } from "@/components/admin/scanme-links-editor-preview";
+import { BrandLogo } from "@/components/brand-logo";
 import {
   Dialog,
   DialogClose,
@@ -54,1083 +57,1219 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
+import { extractAccentCandidates } from "@/lib/accent-palette";
 import {
-  createAccentTokens,
-  extractAccentCandidates,
-} from "@/lib/accent-palette";
-import {
-  DEFAULT_ACCENT,
-  DEFAULT_ACCENT_TOKENS,
   DESTINATION_DEFAULTS,
-  DESTINATION_KINDS,
-  ICON_KEYS,
-  TEMPLATE_REGISTRY,
-  defaultBackgroundForTemplate,
   type DestinationKind,
   type DestinationLifecycle,
-  type TemplateKey,
 } from "@/lib/scanme-links";
+import {
+  createSafeScanMeLinksDesignV2,
+  type ScanMeLinksDesignV2,
+} from "@/lib/scanme-links-design";
 import { cn } from "@/lib/utils";
+import styles from "./scanme-links-editor.module.css";
+import type {
+  EditorDestination,
+  EditorPanelId,
+  EditorSaveState,
+  PreviewDevice,
+  ScanMeLinksEditorDocument,
+} from "./scanme-links-editor-types";
+import { useEditorHistory } from "./use-editor-history";
 
 type EditorData = NonNullable<
-  FunctionReturnType<typeof api.scanMeLinks.editor>
+  FunctionReturnType<typeof api.scanMeLinks.editorBySlug>
 >;
 
-type EditorDestination = EditorData["destinations"][number];
+const primaryRailItems = [
+  { id: "content", label: "Sadržaj", icon: PanelTop },
+  { id: "style", label: "Stil", icon: Paintbrush },
+  { id: "background", label: "Pozadina", icon: Image },
+  { id: "button", label: "Dugme", icon: SlidersHorizontal },
+  { id: "text", label: "Tekst", icon: Type },
+  { id: "color", label: "Boja", icon: Palette },
+] as const;
 
-type AppearanceDraft = {
-  displayName: string;
-  templateKey: TemplateKey;
-  backgroundKey: string;
-  palette: string[];
-  accent: string;
-  accentTokens: typeof DEFAULT_ACCENT_TOKENS;
-  logoStorageId?: Id<"_storage">;
-  logoUrl: string | null;
+const secondaryRailItems = [
+  { id: "analytics", label: "Analitika", icon: BarChart3 },
+  { id: "settings", label: "Podešavanja", icon: Settings },
+  { id: "pro", label: "Pro", icon: Crown },
+  { id: "help", label: "Pomoć", icon: CircleHelp },
+] as const;
+
+const panelCopy: Record<
+  EditorPanelId,
+  { title: string; description: string }
+> = {
+  content: {
+    title: "Sadržaj",
+    description:
+      "Uredite identitet stranice i kliknite na dugme u previewu da promenite njegov link.",
+  },
+  style: {
+    title: "Stilovi",
+    description:
+      "Stil određuje skladne pozadine, dugmad, fontove i izgled ikonica.",
+  },
+  background: {
+    title: "Pozadina",
+    description:
+      "Izaberite tip, a zatim fino podesite boje, medij ili efekat.",
+  },
+  button: {
+    title: "Dugmad",
+    description:
+      "Podesite formu, boju i senku u granicama izabranog stila.",
+  },
+  text: {
+    title: "Tekst",
+    description: "Dostupni fontovi su odabrani da odgovaraju aktivnom stilu.",
+  },
+  color: {
+    title: "Boje",
+    description: "Ključne boje cele stranice dostupne su na jednom mestu.",
+  },
+  analytics: {
+    title: "Analitika",
+    description: "Metrika objavljene stranice i pojedinačnih linkova.",
+  },
+  settings: {
+    title: "Podešavanja",
+    description: "Javna adresa, status stranice i budući pristup klijenta.",
+  },
+  pro: {
+    title: "Pro",
+    description: "Napredne opcije za bogatije ScanMe Links iskustvo.",
+  },
+  help: {
+    title: "Pomoć",
+    description: "Kratak vodič kroz najvažnije tokove u editoru.",
+  },
 };
 
 export function ScanMeLinksEditorScreen({
+  slug,
   businessId,
 }: {
-  businessId: string;
+  slug?: string;
+  businessId?: string;
 }) {
   return (
     <AdminGuard>
-      <EditorLoader businessId={businessId as Id<"businesses">} />
+      <EditorLoader slug={slug} businessId={businessId} />
     </AdminGuard>
   );
 }
 
-function EditorLoader({ businessId }: { businessId: Id<"businesses"> }) {
-  const data = useQuery(api.scanMeLinks.editor, { businessId });
+function EditorLoader({
+  slug,
+  businessId,
+}: {
+  slug?: string;
+  businessId?: string;
+}) {
+  const bySlug = useQuery(
+    api.scanMeLinks.editorBySlug,
+    slug ? { slug } : "skip",
+  );
+  const byBusinessId = useQuery(
+    api.scanMeLinks.editor,
+    !slug && businessId
+      ? { businessId: businessId as Id<"businesses"> }
+      : "skip",
+  );
+  const data = (slug ? bySlug : byBusinessId) as EditorData | null | undefined;
 
   if (data === undefined) {
     return (
-      <div className="min-h-[100dvh] bg-background p-5">
-        <div className="h-1 w-48 animate-pulse bg-primary" />
-      </div>
+      <main className="grid min-h-[100dvh] place-items-center bg-[#f4efe7]">
+        <div className="grid justify-items-center gap-4 text-sm font-semibold text-black/55">
+          <LoaderCircle className="size-7 animate-spin" aria-hidden="true" />
+          Učitavanje editora…
+        </div>
+      </main>
     );
   }
+
   if (!data?.profile || !data.config) {
     return (
-      <main className="grid min-h-[100dvh] place-items-center bg-background px-4">
-        <section className="w-full max-w-lg border border-border bg-card p-7">
-          <h1 className="text-2xl font-semibold">Editor nije dostupan</h1>
-          <p className="mt-3 text-sm leading-6 text-muted-foreground">
-            ScanMe Links profil za ovaj lokal nije pronađen.
+      <main className="grid min-h-[100dvh] place-items-center bg-[#f4efe7] p-5">
+        <section className="w-full max-w-lg rounded-[2rem] border border-white/65 bg-white/70 p-8 text-center shadow-xl backdrop-blur-xl">
+          <h1 className="text-2xl font-bold tracking-[-0.04em]">
+            Editor nije dostupan
+          </h1>
+          <p className="mt-3 text-sm leading-6 text-black/55">
+            ScanMe Links profil za ovaj lokal nije pronađen ili nemate dozvolu
+            da ga uređujete.
           </p>
-          <Button asChild className="mt-6">
-            <Link href="/admin/scanme-links">Nazad na lokale</Link>
-          </Button>
         </section>
       </main>
     );
   }
 
-  return <EditorWorkspace data={data} />;
+  return (
+    <EditorWorkspace
+      key={data.profile.id}
+      data={data}
+      enteredThroughLegacyRoute={!slug}
+      requestedSlug={slug}
+    />
+  );
 }
 
-function EditorWorkspace({ data }: { data: EditorData }) {
-  const config = data.config!;
-  const profile = data.profile!;
-  const serverAppearance = appearanceFromData(data);
-  const [appearanceOverride, setAppearanceOverride] =
-    useState<AppearanceDraft | null>(null);
-  const appearance = appearanceOverride ?? serverAppearance;
-  const setAppearance = (next: SetStateAction<AppearanceDraft>) => {
-    setAppearanceOverride((current) => {
-      const base = current ?? serverAppearance;
-      return typeof next === "function" ? next(base) : next;
-    });
-  };
-  const [preferredSelectedId, setSelectedId] =
-    useState<Id<"serviceDestinations"> | null>(
-      data.destinations[0]?.id ?? null,
-    );
-  const [mobilePanel, setMobilePanel] = useState<"settings" | "preview">(
-    "settings",
+function EditorWorkspace({
+  data,
+  enteredThroughLegacyRoute,
+  requestedSlug,
+}: {
+  data: EditorData;
+  enteredThroughLegacyRoute: boolean;
+  requestedSlug?: string;
+}) {
+  const router = useRouter();
+  const reducedMotion = useReducedMotion();
+  const initialDocument = useMemo(() => documentFromData(data), [data]);
+  const history = useEditorHistory(initialDocument);
+  const document = history.value;
+  const [saveState, setSaveState] = useState<EditorSaveState>("saved");
+  const setDocument = useCallback(
+    (
+      next:
+        | ScanMeLinksEditorDocument
+        | ((
+            current: ScanMeLinksEditorDocument,
+          ) => ScanMeLinksEditorDocument),
+      group?: string,
+    ) => {
+      setSaveState("saving");
+      history.set(next, group);
+    },
+    [history],
   );
-  const [publishOpen, setPublishOpen] = useState(false);
-  const [deleteId, setDeleteId] =
+  const [activePanel, setActivePanel] = useState<EditorPanelId | null>(null);
+  const [selectedDestinationId, setSelectedDestinationId] =
     useState<Id<"serviceDestinations"> | null>(null);
-  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [device, setDevice] = useState<PreviewDevice>("phone");
+  const [zoom, setZoom] = useState(100);
+  const [deleteTarget, setDeleteTarget] =
+    useState<EditorDestination | null>(null);
+  const [publishOpen, setPublishOpen] = useState(false);
   const [publishing, setPublishing] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [addKind, setAddKind] = useState<DestinationKind>("instagram");
+  const [uploadBusy, setUploadBusy] = useState(false);
+  const [addBusy, setAddBusy] = useState(false);
+  const [settingsBusy, setSettingsBusy] = useState(false);
+  const [dragDepth, setDragDepth] = useState(0);
+  const editorRootRef = useRef<HTMLDivElement>(null);
+  const currentDocumentRef = useRef(document);
+  const persistedHashRef = useRef(documentHash(initialDocument));
+  const latestRevisionRef = useRef(data.config!.draftRevision);
+  const saveRequestRef = useRef(0);
+  const objectUrlsRef = useRef(new Set<string>());
 
-  const saveAppearance = useMutation(api.scanMeLinks.saveDraftAppearance);
-  const generateUploadUrl = useMutation(
-    api.scanMeLinks.generateDisplayLogoUploadUrl,
-  );
-  const addDestination = useMutation(api.scanMeLinks.addDestination);
-  const reorderDestinations = useMutation(
-    api.scanMeLinks.reorderDestinations,
-  );
-  const discardDraft = useMutation(api.scanMeLinks.discardDraft);
+  const saveEditorDraft = useMutation(api.scanMeLinks.saveEditorDraft);
   const publishDraft = useMutation(api.scanMeLinks.publishDraft);
-  const markDeleted = useMutation(api.scanMeLinks.markDestinationDeleted);
-
-  const destinations = useMemo(
-    () => [...data.destinations].sort((a, b) => a.order - b.order),
-    [data.destinations],
+  const addDestination = useMutation(api.scanMeLinks.addDestination);
+  const generateEditorUploadUrl = useMutation(
+    api.scanMeLinks.generateEditorUploadUrl,
   );
-  const selectedId =
-    preferredSelectedId &&
-    destinations.some(
-      (destination) => destination.id === preferredSelectedId,
-    )
-      ? preferredSelectedId
-      : (destinations[0]?.id ?? null);
-  const activeDestinations = destinations.filter(
-    (destination) => destination.state === "active",
-  );
-  const selected =
-    destinations.find((destination) => destination.id === selectedId) ?? null;
-  const preview: ScanMeLinksViewModel = {
-    displayName: appearance.displayName.trim() || data.name,
-    logoUrl: appearance.logoUrl,
-    templateKey: appearance.templateKey,
-    backgroundKey: appearance.backgroundKey as "warm-ivory",
-    accent: appearance.accent,
-    accentTokens: appearance.accentTokens,
-    destinations: activeDestinations.map((destination) => ({
-      id: destination.id,
-      kind: destination.kind,
-      label: destination.label,
-      url: destination.url,
-      iconKey: destination.iconKey,
-    })),
-  };
-  const backgrounds = TEMPLATE_REGISTRY[appearance.templateKey].backgrounds;
+  const updateBusinessName = useMutation(api.admin.updateBusinessName);
+  const updateBusinessSlug = useMutation(api.admin.updateBusinessSlug);
+  const setServiceActive = useMutation(api.scanMeLinks.setServiceActive);
 
-  async function persistAppearance(next = appearance) {
-    setSaving(true);
-    try {
-      await saveAppearance({
-        serviceProfileId: profile.id,
-        displayName: next.displayName.trim() || data.name,
-        ...(next.logoStorageId ? { logoStorageId: next.logoStorageId } : {}),
-        templateKey: next.templateKey,
-        backgroundKey: next.backgroundKey,
-        palette: next.palette,
-        accent: next.accent,
-        accentTokens: next.accentTokens,
+  const currentHash = useMemo(() => documentHash(document), [document]);
+  const selectedDestination =
+    document.destinations.find(
+      (destination) => destination.id === selectedDestinationId,
+    ) ?? null;
+  const mediaDropEnabled =
+    activePanel === "background" &&
+    document.design.background.category === "media";
+
+  useEffect(() => {
+    currentDocumentRef.current = document;
+  }, [document]);
+
+  useEffect(() => {
+    if (
+      data.clientPanelSlug &&
+      (enteredThroughLegacyRoute || requestedSlug !== data.clientPanelSlug)
+    ) {
+      router.replace(`/${data.clientPanelSlug}/editor`);
+    }
+  }, [
+    data.clientPanelSlug,
+    enteredThroughLegacyRoute,
+    requestedSlug,
+    router,
+  ]);
+
+  useEffect(
+    () => () => {
+      for (const url of objectUrlsRef.current) URL.revokeObjectURL(url);
+    },
+    [],
+  );
+
+  const persistDocument = useCallback(
+    async (
+      target: ScanMeLinksEditorDocument,
+      options?: { force?: boolean },
+    ) => {
+      const hash = documentHash(target);
+      if (!options?.force && hash === persistedHashRef.current) {
+        return { draftRevision: latestRevisionRef.current };
+      }
+
+      validateDocument(target);
+      const requestId = ++saveRequestRef.current;
+      setSaveState("saving");
+      setSaveError(null);
+      try {
+        const result = await saveEditorDraft({
+          serviceProfileId: data.profile!.id,
+          displayName: target.title.trim() || null,
+          description: target.description.trim() || null,
+          ...(target.inheritsBusinessLogo
+            ? {}
+            : { logoStorageId: target.logoStorageId }),
+          palette: target.palette,
+          paletteAnalysis: target.paletteAnalysis,
+          design: target.design,
+          backgroundImageStorageId: target.backgroundImageStorageId,
+          backgroundVideoStorageId: target.backgroundVideoStorageId,
+          destinations: target.destinations.map((destination, order) => ({
+            id: destination.id,
+            kind: destination.kind,
+            label: destination.label.trim(),
+            url: destination.url.trim(),
+            order,
+            state:
+              destination.state === "deleted"
+                ? ("deleted" as const)
+                : destination.state === "inactive"
+                  ? ("inactive" as const)
+                  : ("active" as const),
+          })),
+        });
+        persistedHashRef.current = hash;
+        latestRevisionRef.current = result.draftRevision;
+        if (requestId === saveRequestRef.current) {
+          setSaveState(
+            documentHash(currentDocumentRef.current) === hash
+              ? "saved"
+              : "saving",
+          );
+        }
+        return result;
+      } catch (error) {
+        const message = errorMessage(error, "Nacrt nije sačuvan.");
+        if (requestId === saveRequestRef.current) {
+          setSaveState("error");
+          setSaveError(message);
+        }
+        throw error;
+      }
+    },
+    [data.profile, saveEditorDraft],
+  );
+
+  useEffect(() => {
+    if (currentHash === persistedHashRef.current) {
+      const settledTimer = window.setTimeout(() => {
+        setSaveState((current) => (current === "error" ? current : "saved"));
+      }, 0);
+      return () => window.clearTimeout(settledTimer);
+    }
+    const timer = window.setTimeout(() => {
+      void persistDocument(document).catch(() => {
+        // The visible save state and toast from explicit actions carry the error.
       });
+    }, 720);
+    return () => window.clearTimeout(timer);
+  }, [currentHash, document, persistDocument]);
+
+  useEffect(() => {
+    function handleKeyboard(event: KeyboardEvent) {
+      if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== "z") {
+        return;
+      }
+      if (!editorRootRef.current || !window.document.hasFocus()) return;
+      event.preventDefault();
+      setSaveState("saving");
+      if (event.shiftKey) history.redo();
+      else history.undo();
+    }
+    window.addEventListener("keydown", handleKeyboard);
+    return () => window.removeEventListener("keydown", handleKeyboard);
+  }, [history]);
+
+  async function handleExplicitSave() {
+    try {
+      await persistDocument(document, { force: currentHash !== persistedHashRef.current });
+      toast.success("Nacrt je sačuvan.");
     } catch (error) {
       toast.error(errorMessage(error, "Nacrt nije sačuvan."));
-    } finally {
-      setSaving(false);
     }
   }
 
-  async function uploadLogo(file: File | undefined) {
-    if (!file) return;
-    if (
-      !["image/png", "image/jpeg", "image/webp"].includes(file.type) ||
-      file.size > 5 * 1024 * 1024
-    ) {
-      toast.error("Logo mora biti PNG, JPEG ili WebP fajl do 5 MB.");
-      return;
-    }
-    setUploading(true);
-    try {
-      const [uploadUrl, palette] = await Promise.all([
-        generateUploadUrl({ serviceProfileId: profile.id }),
-        extractAccentCandidates(file),
-      ]);
-      const response = await fetch(uploadUrl, {
-        method: "POST",
-        headers: { "Content-Type": file.type },
-        body: file,
-      });
-      if (!response.ok) throw new Error("Logo nije otpremljen.");
-      const { storageId } = (await response.json()) as {
-        storageId: Id<"_storage">;
-      };
-      const accent = palette[0] ?? DEFAULT_ACCENT;
-      const next: AppearanceDraft = {
-        ...appearance,
-        logoStorageId: storageId,
-        logoUrl: URL.createObjectURL(file),
-        palette,
-        accent,
-        accentTokens: createAccentTokens(accent),
-      };
-      setAppearance(next);
-      await persistAppearance(next);
-      toast.success("Logo i predlozi boja su sačuvani u nacrtu.");
-    } catch (error) {
-      toast.error(errorMessage(error, "Logo nije otpremljen."));
-    } finally {
-      setUploading(false);
-    }
-  }
-
-  async function addNewDestination() {
-    try {
-      const result = await addDestination({
-        serviceProfileId: profile.id,
-        kind: addKind,
-      });
-      setSelectedId(result.destinationId);
-      setMobilePanel("settings");
-      toast.success("Destinacija je dodata u nacrt.");
-    } catch (error) {
-      toast.error(errorMessage(error, "Destinacija nije dodata."));
-    }
-  }
-
-  async function reorder(destinationIds: Id<"serviceDestinations">[]) {
-    try {
-      await reorderDestinations({
-        serviceProfileId: profile.id,
-        destinationIds,
-      });
-    } catch (error) {
-      toast.error(errorMessage(error, "Redosled nije sačuvan."));
-      throw error;
-    }
-  }
-
-  async function discard() {
-    if (
-      !window.confirm(
-        "Odbaciti sve izmene nacrta i vratiti poslednju objavljenu verziju?",
-      )
-    ) {
-      return;
-    }
-    try {
-      await discardDraft({ serviceProfileId: profile.id });
-      setAppearanceOverride(null);
-      setSelectedId(null);
-      toast.success("Nacrt je vraćen na poslednju objavljenu verziju.");
-    } catch (error) {
-      toast.error(errorMessage(error, "Nacrt nije odbačen."));
-    }
-  }
-
-  async function publish() {
+  async function handlePublish() {
     setPublishing(true);
     try {
+      const saveResult = await persistDocument(currentDocumentRef.current);
       await publishDraft({
-        serviceProfileId: profile.id,
-        expectedDraftRevision: config.draftRevision,
+        serviceProfileId: data.profile!.id,
+        expectedDraftRevision: saveResult.draftRevision,
       });
       setPublishOpen(false);
       toast.success("ScanMe Links stranica je objavljena.");
     } catch (error) {
-      toast.error(errorMessage(error, "Izmene nisu objavljene."));
+      toast.error(errorMessage(error, "Nacrt nije objavljen."));
     } finally {
       setPublishing(false);
     }
   }
 
-  return (
-    <div className="min-h-[100dvh] overflow-x-clip bg-background">
-      <header className="sticky top-0 z-30 border-b border-border bg-background/95 backdrop-blur">
-        <div className="mx-auto flex min-h-16 max-w-[1600px] items-center gap-3 px-4 lg:px-8">
-          <Button asChild variant="ghost" size="icon" aria-label="Nazad na ScanMe Links lokale">
-            <Link href="/admin/scanme-links">
-              <ArrowLeft className="size-5" />
-            </Link>
-          </Button>
-          <Link
-            href="/admin/scanme-links"
-            className="hidden shrink-0 sm:block"
-            aria-label="ScanMe Admin"
-          >
-            <BrandLogo width="6rem" />
-          </Link>
-          <div className="min-w-0 flex-1 border-l border-border pl-3">
-            <p className="truncate text-sm font-semibold">{data.name}</p>
-            <p className="truncate text-xs text-muted-foreground">
-              Uredi ScanMe Links stranicu
-            </p>
-          </div>
-          <span
-            className="hidden text-xs text-muted-foreground md:inline"
-            aria-live="polite"
-          >
-            {saving
-              ? "Čuvanje..."
-              : config.hasUnpublishedChanges
-                ? "Nacrt ima izmene"
-                : "Sve izmene su objavljene"}
-          </span>
-          <ThemeToggle />
-          <Button
-            type="button"
-            variant="outline"
-            className="hidden sm:inline-flex"
-            onClick={() => void discard()}
-            disabled={!config.hasUnpublishedChanges || publishing}
-          >
-            Odbaci
-          </Button>
-          <Button
-            type="button"
-            onClick={() => setPublishOpen(true)}
-            disabled={!config.hasUnpublishedChanges || publishing}
-          >
-            <Send className="size-4" />
-            <span className="hidden sm:inline">Objavi izmene</span>
-            <span className="sm:hidden">Objavi</span>
-          </Button>
-        </div>
-      </header>
-
-      <div
-        role="tablist"
-        aria-label="Prikaz editora"
-        className="sticky top-16 z-20 grid grid-cols-2 border-b border-border bg-background p-2 lg:hidden"
-      >
-        <button
-          type="button"
-          role="tab"
-          aria-selected={mobilePanel === "settings"}
-          onClick={() => setMobilePanel("settings")}
-          className={cn(
-            "flex min-h-11 items-center justify-center gap-2 border px-3 text-sm font-semibold",
-            mobilePanel === "settings"
-              ? "border-primary bg-primary text-primary-foreground"
-              : "border-transparent text-muted-foreground",
-          )}
-        >
-          <Settings2 className="size-4" /> Podešavanja
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={mobilePanel === "preview"}
-          onClick={() => setMobilePanel("preview")}
-          className={cn(
-            "flex min-h-11 items-center justify-center gap-2 border px-3 text-sm font-semibold",
-            mobilePanel === "preview"
-              ? "border-primary bg-primary text-primary-foreground"
-              : "border-transparent text-muted-foreground",
-          )}
-        >
-          <Smartphone className="size-4" /> Preview
-        </button>
-      </div>
-
-      <main className="mx-auto grid max-w-[1600px] lg:grid-cols-[minmax(0,1fr)_minmax(430px,0.78fr)]">
-        <section
-          role="tabpanel"
-          className={cn(
-            "min-w-0 border-r border-border px-4 py-6 lg:block lg:px-8 lg:py-8",
-            mobilePanel !== "settings" && "hidden",
-          )}
-        >
-          <div className="mx-auto grid max-w-3xl gap-6">
-            <section className="border border-border bg-card p-5 sm:p-6">
-              <h1 className="text-xl font-semibold tracking-[-0.03em]">
-                Identitet i izgled
-              </h1>
-              <p className="mt-2 text-xs leading-5 text-muted-foreground">
-                Sve izmene se automatski čuvaju u nacrtu.
-              </p>
-              <div className="mt-6 grid gap-5 sm:grid-cols-2">
-                <div className="grid gap-2 sm:col-span-2">
-                  <Label htmlFor="links-display-name">Naziv za prikaz</Label>
-                  <Input
-                    id="links-display-name"
-                    value={appearance.displayName}
-                    onChange={(event) =>
-                      setAppearance((current) => ({
-                        ...current,
-                        displayName: event.target.value,
-                      }))
-                    }
-                    onBlur={() => void persistAppearance()}
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label>Template</Label>
-                  <Select
-                    value={appearance.templateKey}
-                    onValueChange={(value) => {
-                      const templateKey = value as TemplateKey;
-                      const next = {
-                        ...appearance,
-                        templateKey,
-                        backgroundKey:
-                          defaultBackgroundForTemplate(templateKey),
-                      };
-                      setAppearance(next);
-                      void persistAppearance(next);
-                    }}
-                  >
-                    <SelectTrigger className="h-11">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.values(TEMPLATE_REGISTRY).map((template) => (
-                        <SelectItem key={template.key} value={template.key}>
-                          {template.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid gap-2">
-                  <Label>Pozadina</Label>
-                  <Select
-                    value={appearance.backgroundKey}
-                    onValueChange={(backgroundKey) => {
-                      const next = { ...appearance, backgroundKey };
-                      setAppearance(next);
-                      void persistAppearance(next);
-                    }}
-                  >
-                    <SelectTrigger className="h-11">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {backgrounds.map((background) => (
-                        <SelectItem key={background.key} value={background.key}>
-                          {background.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid gap-2 sm:col-span-2">
-                  <Label htmlFor="links-logo">
-                    Logo, PNG/JPEG/WebP do 5 MB
-                  </Label>
-                  <label className="flex min-h-12 cursor-pointer items-center justify-center gap-2 border border-dashed border-border px-4 text-sm transition-colors hover:border-primary focus-within:ring-2 focus-within:ring-ring">
-                    {uploading ? (
-                      <LoaderCircle className="size-4 animate-spin" />
-                    ) : (
-                      <Upload className="size-4" />
-                    )}
-                    {uploading ? "Obrada logotipa..." : "Izaberi logo"}
-                    <input
-                      id="links-logo"
-                      type="file"
-                      accept="image/png,image/jpeg,image/webp"
-                      className="sr-only"
-                      disabled={uploading}
-                      onChange={(event) =>
-                        void uploadLogo(event.target.files?.[0])
-                      }
-                    />
-                  </label>
-                </div>
-                <div className="grid gap-3 sm:col-span-2">
-                  <Label>Predlozi akcentne boje</Label>
-                  <div className="flex flex-wrap items-center gap-3">
-                    {(appearance.palette.length
-                      ? appearance.palette
-                      : [appearance.accent]
-                    ).map((color) => (
-                      <button
-                        key={color}
-                        type="button"
-                        aria-label={`Izaberi akcentnu boju ${color}`}
-                        aria-pressed={appearance.accent === color}
-                        onClick={() => {
-                          const next = {
-                            ...appearance,
-                            accent: color,
-                            accentTokens: createAccentTokens(color),
-                          };
-                          setAppearance(next);
-                          void persistAppearance(next);
-                        }}
-                        className="grid size-12 place-items-center border-2 border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                        style={{ backgroundColor: color }}
-                      >
-                        {appearance.accent === color ? (
-                          <Check className="size-4 text-white drop-shadow-sm" />
-                        ) : null}
-                      </button>
-                    ))}
-                    <Input
-                      type="color"
-                      aria-label="Ručno izaberi akcentnu boju"
-                      value={appearance.accent}
-                      className="h-12 w-16 cursor-pointer p-1"
-                      onChange={(event) => {
-                        const accent = event.target.value.toUpperCase();
-                        setAppearance((current) => ({
-                          ...current,
-                          accent,
-                          accentTokens: createAccentTokens(accent),
-                        }));
-                      }}
-                      onBlur={() => void persistAppearance()}
-                    />
-                    <Input
-                      aria-label="HEX akcentna boja"
-                      value={appearance.accent}
-                      className="h-12 w-32"
-                      onChange={(event) =>
-                        setAppearance((current) => ({
-                          ...current,
-                          accent: event.target.value.toUpperCase(),
-                        }))
-                      }
-                      onBlur={() => {
-                        const accent = appearance.accent;
-                        if (/^#[0-9A-F]{6}$/.test(accent)) {
-                          const next = {
-                            ...appearance,
-                            accent,
-                            accentTokens: createAccentTokens(accent),
-                          };
-                          setAppearance(next);
-                          void persistAppearance(next);
-                        }
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            <section className="border border-border bg-card p-5 sm:p-6">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-                <div>
-                  <h2 className="text-xl font-semibold tracking-[-0.03em]">
-                    Destinacije
-                  </h2>
-                  <p className="mt-2 text-xs leading-5 text-muted-foreground">
-                    Izaberite dugme ovde ili direktno na telefonu. Redosled
-                    menjate prevlačenjem dugmeta na telefonu.
-                  </p>
-                </div>
-                <div className="flex min-w-0 gap-2">
-                  <Select
-                    value={addKind}
-                    onValueChange={(value) =>
-                      setAddKind(value as DestinationKind)
-                    }
-                  >
-                    <SelectTrigger className="h-11 min-w-0 flex-1 sm:w-44">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {DESTINATION_KINDS.map((kind) => (
-                        <SelectItem key={kind} value={kind}>
-                          {DESTINATION_DEFAULTS[kind].label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => void addNewDestination()}
-                  >
-                    <Plus className="size-4" /> Dodaj
-                  </Button>
-                </div>
-              </div>
-
-              {destinations.length ? (
-                <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-3">
-                  {destinations.map((destination) => (
-                    <button
-                      key={destination.id}
-                      type="button"
-                      onClick={() => setSelectedId(destination.id)}
-                      className={cn(
-                        "min-h-12 border px-3 py-2 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                        selectedId === destination.id
-                          ? "border-primary bg-primary/10 text-foreground"
-                          : "border-border hover:bg-secondary",
-                      )}
-                    >
-                      <span className="block truncate font-semibold">
-                        {destination.label}
-                      </span>
-                      <span className="mt-1 block text-xs text-muted-foreground">
-                        {destinationStateLabel(destination.state)}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <div className="mt-5 border border-dashed border-border p-5 text-sm leading-6 text-muted-foreground">
-                  Dodajte prvu destinaciju. Servis ostaje neaktivan dok ne
-                  objavite najmanje jednu aktivnu destinaciju.
-                </div>
-              )}
-
-              {selected ? (
-                <DestinationSettings
-                  key={`${selected.id}-${selected.updatedAt}`}
-                  destination={selected}
-                  onDelete={() => setDeleteId(selected.id)}
-                />
-              ) : null}
-            </section>
-          </div>
-        </section>
-
-        <section
-          role="tabpanel"
-          className={cn(
-            "min-w-0 bg-muted/35 px-4 py-6 lg:block lg:px-8 lg:py-8",
-            mobilePanel !== "preview" && "hidden",
-          )}
-        >
-          <div className="mx-auto lg:sticky lg:top-24">
-            <div className="mb-4 flex items-center justify-between gap-3">
-              <div>
-                <h2 className="font-semibold">Preview nacrta</h2>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Prevucite celo dugme da promenite redosled.
-                </p>
-              </div>
-              <Button asChild variant="outline" size="sm">
-                <Link href={`/${profile.slug}`} target="_blank">
-                  <ExternalLink className="size-4" /> Javna stranica
-                </Link>
-              </Button>
-            </div>
-            <div className="mx-auto max-w-[420px] rounded-[2.55rem] border-[9px] border-[#181a1b] bg-[#181a1b] p-1 shadow-[0_28px_70px_rgba(0,0,0,.28)]">
-              <SortablePhonePreview
-                key={destinations
-                  .map(
-                    (destination) =>
-                      `${destination.id}:${destination.order}:${destination.state}`,
-                  )
-                  .join("|")}
-                view={preview}
-                destinations={destinations}
-                selectedId={selectedId}
-                onSelect={(id) => {
-                  setSelectedId(id);
-                  setMobilePanel("settings");
-                }}
-                onReorder={reorder}
-              />
-            </div>
-          </div>
-        </section>
-      </main>
-
-      <Dialog open={publishOpen} onOpenChange={setPublishOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Da li želite da objavite izmene?</DialogTitle>
-            <DialogDescription>
-              Nova verzija će odmah postati vidljiva posetiocima.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="outline" disabled={publishing}>
-                Otkaži
-              </Button>
-            </DialogClose>
-            <Button onClick={() => void publish()} disabled={publishing}>
-              {publishing ? (
-                <LoaderCircle className="size-4 animate-spin" />
-              ) : (
-                <Send className="size-4" />
-              )}
-              Objavi
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog
-        open={Boolean(deleteId)}
-        onOpenChange={(open) => !open && setDeleteId(null)}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Trajno obrisati destinaciju?</DialogTitle>
-            <DialogDescription>
-              Brisanje će nakon objave ukloniti destinaciju i svu njenu metriku.
-              Ovu radnju nije moguće poništiti.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="outline">Otkaži</Button>
-            </DialogClose>
-            <Button
-              variant="destructive"
-              onClick={async () => {
-                if (!deleteId) return;
-                try {
-                  await markDeleted({ destinationId: deleteId });
-                  setDeleteId(null);
-                  toast.success("Brisanje je dodato u nacrt.");
-                } catch (error) {
-                  toast.error(
-                    errorMessage(error, "Brisanje nije dodato u nacrt."),
-                  );
-                }
-              }}
-            >
-              <Trash2 className="size-4" /> Dodaj brisanje u nacrt
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
-}
-
-function appearanceFromData(data: EditorData): AppearanceDraft {
-  const config = data.config!;
-  return {
-    displayName: config.displayName,
-    templateKey: config.templateKey as TemplateKey,
-    backgroundKey: config.backgroundKey,
-    palette: config.palette,
-    accent: config.accent,
-    accentTokens: config.accentTokens,
-    logoUrl: config.logoUrl,
-  };
-}
-
-function DestinationSettings({
-  destination,
-  onDelete,
-}: {
-  destination: EditorDestination;
-  onDelete: () => void;
-}) {
-  const update = useMutation(api.scanMeLinks.updateDestination);
-  const [draft, setDraft] = useState(destination);
-  const [saving, setSaving] = useState(false);
-
-  async function save(next = draft) {
-    setSaving(true);
+  async function handleAddDestination() {
+    if (addBusy) return;
+    setAddBusy(true);
     try {
-      await update({
-        destinationId: destination.id,
-        kind: next.kind,
-        label: next.label,
-        url: next.url,
-        iconKey: next.iconKey,
-        state: next.state,
+      const result = await addDestination({
+        serviceProfileId: data.profile!.id,
+        kind: "instagram",
       });
+      const visible = document.destinations.filter(
+        (destination) => destination.state !== "deleted",
+      );
+      const nextDestination: EditorDestination = {
+        id: result.destinationId,
+        kind: "instagram",
+        label: DESTINATION_DEFAULTS.instagram.label,
+        url: "",
+        iconKey: DESTINATION_DEFAULTS.instagram.iconKey,
+        order: visible.length,
+        state: "active",
+        publishedState: null,
+        totalClicks: 0,
+        totalDirectVisits: 0,
+      };
+      latestRevisionRef.current = result.draftRevision;
+      setDocument((current) => ({
+        ...current,
+        destinations: [...current.destinations, nextDestination],
+      }));
+      setSelectedDestinationId(result.destinationId);
+      setActivePanel("content");
     } catch (error) {
-      toast.error(errorMessage(error, "Destinacija nije sačuvana."));
+      toast.error(errorMessage(error, "Novi link nije dodat."));
     } finally {
-      setSaving(false);
+      setAddBusy(false);
     }
   }
 
+  function handleReorder(activeId: string, overId: string) {
+    const ordered = document.destinations
+      .filter((destination) => destination.state !== "deleted")
+      .sort((a, b) => a.order - b.order);
+    const oldIndex = ordered.findIndex(
+      (destination) => destination.id === activeId,
+    );
+    const newIndex = ordered.findIndex(
+      (destination) => destination.id === overId,
+    );
+    if (oldIndex < 0 || newIndex < 0 || oldIndex === newIndex) return;
+    const moved = arrayMove(ordered, oldIndex, newIndex).map(
+      (destination, order) => ({ ...destination, order }),
+    );
+    const movedById = new Map(moved.map((destination) => [destination.id, destination]));
+    setDocument((current) => ({
+      ...current,
+      destinations: current.destinations.map(
+        (destination) => movedById.get(destination.id) ?? destination,
+      ),
+    }));
+  }
+
+  function handleSelectDestination(
+    destinationId: Id<"serviceDestinations">,
+  ) {
+    setSelectedDestinationId(destinationId);
+    setActivePanel("content");
+  }
+
+  function confirmDeleteDestination() {
+    if (!deleteTarget) return;
+    const destinationId = deleteTarget.id;
+    setDocument((current) => ({
+      ...current,
+      destinations: current.destinations.map((destination) =>
+        destination.id === destinationId
+          ? { ...destination, state: "deleted" }
+          : destination,
+      ),
+    }));
+    setSelectedDestinationId(null);
+    setDeleteTarget(null);
+    toast.success("Link je uklonjen iz nacrta.");
+  }
+
+  async function uploadLogo(file: File) {
+    const allowed = [
+      "image/png",
+      "image/jpeg",
+      "image/webp",
+      "image/svg+xml",
+    ];
+    if (!allowed.includes(file.type) || file.size > 5 * 1024 * 1024) {
+      toast.error("Logo mora biti PNG, JPEG, WebP ili SVG fajl do 5 MB.");
+      return;
+    }
+    setUploadBusy(true);
+    try {
+      const [storageId, palette] = await Promise.all([
+        uploadFile(file, generateEditorUploadUrl, data.profile!.id),
+        extractAccentCandidates(file),
+      ]);
+      const previewUrl = rememberObjectUrl(file, objectUrlsRef.current);
+      setDocument((current) => ({
+        ...current,
+        logoStorageId: storageId,
+        inheritsBusinessLogo: false,
+        logoUrl: previewUrl,
+        palette,
+        paletteAnalysis: {
+          original: palette,
+          adjusted: palette,
+          correctedRoles: [],
+        },
+        design: {
+          ...current.design,
+          colors: {
+            ...current.design.colors,
+            accent: palette[0] ?? current.design.colors.accent,
+            icon: palette[0] ?? current.design.colors.icon,
+          },
+        },
+      }));
+    } catch (error) {
+      toast.error(errorMessage(error, "Logo nije otpremljen."));
+    } finally {
+      setUploadBusy(false);
+    }
+  }
+
+  async function uploadBackground(kind: "image" | "video", file: File) {
+    const imageAllowed = ["image/png", "image/jpeg", "image/webp"];
+    const videoAllowed = ["video/mp4", "video/webm"];
+    const valid =
+      kind === "image"
+        ? imageAllowed.includes(file.type) && file.size <= 12 * 1024 * 1024
+        : videoAllowed.includes(file.type) && file.size <= 30 * 1024 * 1024;
+    if (!valid) {
+      toast.error(
+        kind === "image"
+          ? "Pozadinska slika mora biti PNG, JPEG ili WebP do 12 MB."
+          : "Pozadinski video mora biti MP4 ili WebM do 30 MB.",
+      );
+      return;
+    }
+    setUploadBusy(true);
+    try {
+      const storageId = await uploadFile(
+        file,
+        generateEditorUploadUrl,
+        data.profile!.id,
+      );
+      const previewUrl = rememberObjectUrl(file, objectUrlsRef.current);
+      setDocument((current) => ({
+        ...current,
+        backgroundImageStorageId:
+          kind === "image" ? storageId : current.backgroundImageStorageId,
+        backgroundImageUrl:
+          kind === "image" ? previewUrl : current.backgroundImageUrl,
+        backgroundVideoStorageId:
+          kind === "video" ? storageId : current.backgroundVideoStorageId,
+        backgroundVideoUrl:
+          kind === "video" ? previewUrl : current.backgroundVideoUrl,
+        design: {
+          ...current.design,
+          background:
+            current.design.background.category === "media"
+              ? { ...current.design.background, mediaType: kind }
+              : current.design.background,
+        },
+      }));
+    } catch (error) {
+      toast.error(errorMessage(error, "Pozadina nije otpremljena."));
+    } finally {
+      setUploadBusy(false);
+      setDragDepth(0);
+    }
+  }
+
+  async function saveBusinessIdentity(name: string, nextSlug: string) {
+    setSettingsBusy(true);
+    try {
+      if (name.trim() !== data.name) {
+        await updateBusinessName({
+          businessId: data.id,
+          name: name.trim(),
+        });
+      }
+      let resolvedSlug = data.clientPanelSlug;
+      if (nextSlug.trim().toLowerCase() !== data.clientPanelSlug) {
+        const result = await updateBusinessSlug({
+          businessId: data.id,
+          kind: "clientPanel",
+          slug: nextSlug.trim().toLowerCase(),
+        });
+        resolvedSlug = result.clientPanelSlug;
+      }
+      toast.success("Naziv i javna adresa su sačuvani.");
+      if (resolvedSlug !== data.clientPanelSlug) {
+        router.replace(`/${resolvedSlug}/editor`);
+      }
+    } catch (error) {
+      toast.error(errorMessage(error, "Podešavanja nisu sačuvana."));
+    } finally {
+      setSettingsBusy(false);
+    }
+  }
+
+  async function togglePublic(active: boolean) {
+    setSettingsBusy(true);
+    try {
+      await setServiceActive({
+        serviceProfileId: data.profile!.id,
+        active,
+      });
+      toast.success(
+        active ? "Javna stranica je aktivirana." : "Javna stranica je deaktivirana.",
+      );
+    } catch (error) {
+      toast.error(errorMessage(error, "Status stranice nije promenjen."));
+    } finally {
+      setSettingsBusy(false);
+    }
+  }
+
+  function handleWorkspacePointerDown(event: ReactPointerEvent<HTMLDivElement>) {
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    if (
+      target.closest(
+        "[data-editor-preserve-panel='true'],[data-context-panel='true'],[data-rail='true']",
+      )
+    ) {
+      return;
+    }
+    setActivePanel(null);
+  }
+
+  function handleDragEnter(event: React.DragEvent<HTMLDivElement>) {
+    if (!mediaDropEnabled || !hasFiles(event.dataTransfer)) return;
+    event.preventDefault();
+    setDragDepth((value) => value + 1);
+  }
+
+  function handleDragLeave(event: React.DragEvent<HTMLDivElement>) {
+    if (!mediaDropEnabled || !hasFiles(event.dataTransfer)) return;
+    event.preventDefault();
+    setDragDepth((value) => Math.max(0, value - 1));
+  }
+
+  function handleDragOver(event: React.DragEvent<HTMLDivElement>) {
+    if (!mediaDropEnabled || !hasFiles(event.dataTransfer)) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "copy";
+  }
+
+  function handleDrop(event: React.DragEvent<HTMLDivElement>) {
+    if (!mediaDropEnabled || !hasFiles(event.dataTransfer)) return;
+    event.preventDefault();
+    setDragDepth(0);
+    const file = event.dataTransfer.files[0];
+    if (!file) return;
+    const kind =
+      file.type.startsWith("video/") ? ("video" as const) : ("image" as const);
+    void uploadBackground(kind, file);
+  }
+
+  const activeEmptyCount = document.destinations.filter(
+    (destination) =>
+      destination.state === "active" && !destination.url.trim(),
+  ).length;
+
   return (
-    <div className="mt-6 border-t border-border pt-6">
-      <div className="flex items-center justify-between gap-3">
-        <h3 className="font-semibold">Podešavanja dugmeta</h3>
-        <span className="text-xs text-muted-foreground" aria-live="polite">
-          {saving ? "Čuvanje..." : "Sačuvano u nacrtu"}
-        </span>
-      </div>
-      <div className="mt-5 grid gap-4 sm:grid-cols-2">
-        <div className="grid gap-2">
-          <Label>Tip</Label>
-          <Select
-            value={draft.kind}
-            onValueChange={(value) => {
-              const kind = value as DestinationKind;
-              const next = {
-                ...draft,
-                kind,
-                label:
-                  draft.label === DESTINATION_DEFAULTS[draft.kind].label
-                    ? DESTINATION_DEFAULTS[kind].label
-                    : draft.label,
-                iconKey:
-                  draft.iconKey === DESTINATION_DEFAULTS[draft.kind].iconKey
-                    ? DESTINATION_DEFAULTS[kind].iconKey
-                    : draft.iconKey,
-              };
-              setDraft(next);
-              void save(next);
-            }}
+    <div
+      ref={editorRootRef}
+      className={styles.editorRoot}
+      tabIndex={-1}
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+    >
+      <span data-theme-toggle="local" hidden />
+      <div className={styles.desktopEditor}>
+        <EditorBackdrop />
+
+        <header className={styles.topBar} data-editor-preserve-panel="true">
+          <Link className={styles.brandLink} href="/admin/scanme-links">
+            <BrandLogo width="6.6rem" />
+            <span className="sr-only">Nazad na ScanMe Links admin panel</span>
+          </Link>
+          <SaveStatus state={saveState} error={saveError} />
+          <div className={styles.topSpacer} />
+          <div className={styles.utilityGroup} aria-label="Istorija izmena">
+            <button
+              className={styles.iconButton}
+              type="button"
+              disabled={!history.canUndo}
+              aria-label="Vrati prethodnu izmenu (Ctrl+Z)"
+              title="Undo · Ctrl+Z"
+              onClick={() => {
+                setSaveState("saving");
+                history.undo();
+              }}
+            >
+              <Undo2 className="size-[17px]" aria-hidden="true" />
+            </button>
+            <button
+              className={styles.iconButton}
+              type="button"
+              disabled={!history.canRedo}
+              aria-label="Ponovi izmenu (Ctrl+Shift+Z)"
+              title="Redo · Ctrl+Shift+Z"
+              onClick={() => {
+                setSaveState("saving");
+                history.redo();
+              }}
+            >
+              <Redo2 className="size-[17px]" aria-hidden="true" />
+            </button>
+          </div>
+          <button
+            type="button"
+            className={cn(styles.topAction, styles.saveButton)}
+            onClick={() => void handleExplicitSave()}
           >
-            <SelectTrigger className="h-11">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {DESTINATION_KINDS.map((kind) => (
-                <SelectItem key={kind} value={kind}>
-                  {DESTINATION_DEFAULTS[kind].label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="grid gap-2">
-          <Label>Status</Label>
-          <Select
-            value={draft.state}
-            onValueChange={(value) => {
-              const next = {
-                ...draft,
-                state: value as DestinationLifecycle,
-              };
-              setDraft(next);
-              void save(next);
-            }}
+            <Save className="mr-2 inline size-4" aria-hidden="true" />
+            Sačuvaj nacrt
+          </button>
+          <button
+            type="button"
+            className={cn(styles.topAction, styles.publishButton)}
+            onClick={() => setPublishOpen(true)}
           >
-            <SelectTrigger className="h-11">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="active">Aktivno</SelectItem>
-              <SelectItem value="inactive">Isključeno</SelectItem>
-              <SelectItem value="archived">Arhivirano</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="grid gap-2">
-          <Label htmlFor={`destination-label-${destination.id}`}>Naziv</Label>
-          <Input
-            id={`destination-label-${destination.id}`}
-            value={draft.label}
-            onChange={(event) =>
-              setDraft((current) => ({
-                ...current,
-                label: event.target.value,
-              }))
+            <Send className="mr-2 inline size-4" aria-hidden="true" />
+            Objavi
+          </button>
+        </header>
+
+        <div
+          className={styles.workspace}
+          onPointerDown={handleWorkspacePointerDown}
+        >
+          <EditorRail
+            activePanel={activePanel}
+            onSelect={(panel) =>
+              setActivePanel((current) => (current === panel ? null : panel))
             }
-            onBlur={() => void save()}
+          />
+
+          <div className={styles.contextSlot}>
+            <AnimatePresence initial={false}>
+              {activePanel ? (
+                <motion.aside
+                  key="context-panel"
+                  className={styles.contextPanel}
+                  data-context-panel="true"
+                  initial={
+                    reducedMotion
+                      ? false
+                      : {
+                          opacity: 0,
+                          clipPath: "inset(0 100% 0 0 round 44px)",
+                        }
+                  }
+                  animate={{
+                    opacity: 1,
+                    clipPath: "inset(0 0% 0 0 round 44px)",
+                  }}
+                  exit={
+                    reducedMotion
+                      ? { opacity: 0 }
+                      : {
+                          opacity: 0,
+                          clipPath: "inset(0 100% 0 0 round 44px)",
+                        }
+                  }
+                  transition={{
+                    duration: reducedMotion ? 0.01 : 0.3,
+                    ease: [0.22, 1, 0.36, 1],
+                  }}
+                >
+                  <div className={styles.panelHeader}>
+                    <div>
+                      <h2 className={styles.panelTitle}>
+                        {panelCopy[activePanel].title}
+                      </h2>
+                      <p className={styles.panelDescription}>
+                        {panelCopy[activePanel].description}
+                      </p>
+                    </div>
+                  </div>
+                  <div className={styles.panelScroll}>
+                    <AnimatePresence mode="wait" initial={false}>
+                      <motion.div
+                        key={activePanel}
+                        initial={
+                          reducedMotion ? false : { opacity: 0, y: 5, scale: 0.99 }
+                        }
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={
+                          reducedMotion ? undefined : { opacity: 0, y: -3 }
+                        }
+                        transition={{
+                          duration: reducedMotion ? 0.01 : 0.2,
+                          ease: [0.22, 1, 0.36, 1],
+                        }}
+                      >
+                        <EditorPanelContent
+                          panel={activePanel}
+                          data={data}
+                          document={document}
+                          setDocument={setDocument}
+                          selectedDestination={selectedDestination}
+                          uploadLogo={uploadLogo}
+                          uploadBackground={uploadBackground}
+                          uploadBusy={uploadBusy}
+                          setDeleteTarget={setDeleteTarget}
+                          settingsBusy={settingsBusy}
+                          saveBusinessIdentity={saveBusinessIdentity}
+                          togglePublic={togglePublic}
+                        />
+                      </motion.div>
+                    </AnimatePresence>
+                  </div>
+                </motion.aside>
+              ) : null}
+            </AnimatePresence>
+          </div>
+
+          <ScanMeLinksEditorPreview
+            businessName={data.name}
+            document={document}
+            selectedDestinationId={selectedDestinationId}
+            onSelectDestination={handleSelectDestination}
+            onReorder={handleReorder}
+            onAddDestination={() => void handleAddDestination()}
+            addBusy={addBusy}
+            device={device}
+            setDevice={setDevice}
+            zoom={zoom}
+            setZoom={setZoom}
           />
         </div>
-        <div className="grid gap-2">
-          <Label>Ikonica</Label>
-          <Select
-            value={draft.iconKey}
-            onValueChange={(iconKey) => {
-              const next = { ...draft, iconKey };
-              setDraft(next);
-              void save(next);
-            }}
-          >
-            <SelectTrigger className="h-11">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {ICON_KEYS.map((icon) => (
-                <SelectItem key={icon} value={icon}>
-                  {icon}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="grid gap-2 sm:col-span-2">
-          <Label htmlFor={`destination-url-${destination.id}`}>
-            HTTPS URL
-          </Label>
-          <Input
-            id={`destination-url-${destination.id}`}
-            type="url"
-            placeholder="https://"
-            value={draft.url}
-            onChange={(event) =>
-              setDraft((current) => ({ ...current, url: event.target.value }))
-            }
-            onBlur={() => void save()}
-          />
-        </div>
+
+        {dragDepth > 0 && mediaDropEnabled ? (
+          <div className={styles.dropOverlay} aria-hidden="true">
+            <div className={styles.dropMessage}>
+              Pustite fajl da ga postavite kao pozadinu
+            </div>
+          </div>
+        ) : null}
       </div>
-      <div className="mt-5 flex justify-end">
-        <Button type="button" variant="destructive" onClick={onDelete}>
-          <Trash2 className="size-4" /> Trajno obriši
-        </Button>
+
+      <div className={styles.desktopNotice}>
+        <section className={styles.noticeCard}>
+          <BrandLogo className="mx-auto" width="7rem" />
+          <h1 className="mt-7 text-2xl font-bold tracking-[-0.04em]">
+            Editor je trenutno dostupan na desktopu
+          </h1>
+          <p className="mt-3 text-sm leading-6 text-black/55">
+            Mobilna verzija imaće poseban raspored prilagođen radu dodirom.
+            Otvorite ovu stranicu na većem ekranu da nastavite uređivanje.
+          </p>
+        </section>
       </div>
+
+      <Dialog open={Boolean(deleteTarget)} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <DialogContent className="rounded-[1.75rem] border-white/60 bg-[#fffaf4] shadow-2xl">
+          <DialogHeader>
+            <DialogTitle>Obriši „{deleteTarget?.label}”?</DialogTitle>
+            <DialogDescription className="leading-6">
+              Dugme se odmah uklanja iz nacrta, ali promena na javnoj stranici
+              važi tek kada objavite nacrt. Prethodna analitika i broj klikova
+              ostaju trajno sačuvani i biće označeni kao obrisan link.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <DialogClose asChild>
+              <button className={cn(styles.topAction, styles.saveButton)} type="button">
+                Odustani
+              </button>
+            </DialogClose>
+            <button
+              className={styles.dangerButton}
+              type="button"
+              onClick={confirmDeleteDestination}
+            >
+              Obriši iz nacrta
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={publishOpen} onOpenChange={setPublishOpen}>
+        <DialogContent className="rounded-[1.75rem] border-white/60 bg-[#fffaf4] shadow-2xl">
+          <DialogHeader>
+            <DialogTitle>Objavi trenutni nacrt?</DialogTitle>
+            <DialogDescription className="leading-6">
+              Sve sačuvane izmene postaće vidljive na javnoj ScanMe Links
+              stranici.
+              {activeEmptyCount
+                ? ` ${activeEmptyCount} aktivn${
+                    activeEmptyCount === 1 ? "o dugme nema" : "a dugmeta nemaju"
+                  } URL i neće biti prikazano javno.`
+                : ""}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <DialogClose asChild>
+              <button className={cn(styles.topAction, styles.saveButton)} type="button">
+                Odustani
+              </button>
+            </DialogClose>
+            <button
+              className={cn(styles.topAction, styles.publishButton)}
+              type="button"
+              disabled={publishing}
+              onClick={() => void handlePublish()}
+            >
+              {publishing ? (
+                <LoaderCircle className="mr-2 inline size-4 animate-spin" />
+              ) : (
+                <Send className="mr-2 inline size-4" />
+              )}
+              Objavi nacrt
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
 
-function SortablePhonePreview({
-  view,
-  destinations,
-  selectedId,
+function EditorRail({
+  activePanel,
   onSelect,
-  onReorder,
 }: {
-  view: ScanMeLinksViewModel;
-  destinations: EditorDestination[];
-  selectedId: Id<"serviceDestinations"> | null;
-  onSelect: (id: Id<"serviceDestinations">) => void;
-  onReorder: (ids: Id<"serviceDestinations">[]) => Promise<void>;
+  activePanel: EditorPanelId | null;
+  onSelect: (panel: EditorPanelId) => void;
 }) {
-  const serverActive = destinations
-    .filter((destination) => destination.state === "active")
-    .sort((a, b) => a.order - b.order);
-  const [orderedIds, setOrderedIds] = useState(() =>
-    serverActive.map((destination) => destination.id),
-  );
-  const activeById = new Map(
-    serverActive.map((destination) => [destination.id, destination]),
-  );
-  const active = orderedIds
-    .map((destinationId) => activeById.get(destinationId))
-    .filter((destination): destination is EditorDestination =>
-      Boolean(destination),
-    );
-  const viewById = new Map(
-    view.destinations.map((destination) => [destination.id, destination]),
-  );
-  const orderedViewDestinations = active
-    .map((destination) => viewById.get(destination.id))
-    .filter(
-      (
-        destination,
-      ): destination is ScanMeLinksViewModel["destinations"][number] =>
-        Boolean(destination),
-    );
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
-  );
-
-  function onDragEnd(event: DragEndEvent) {
-    if (!event.over || event.active.id === event.over.id) return;
-    const oldIndex = active.findIndex(
-      (destination) => destination.id === event.active.id,
-    );
-    const newIndex = active.findIndex(
-      (destination) => destination.id === event.over?.id,
-    );
-    if (oldIndex < 0 || newIndex < 0) return;
-    const movedActive = arrayMove(active, oldIndex, newIndex);
-    const previousIds = orderedIds;
-    setOrderedIds(movedActive.map((destination) => destination.id));
-    let activeIndex = 0;
-    const merged = [...destinations]
-      .sort((a, b) => a.order - b.order)
-      .map((destination) =>
-        destination.state === "active"
-          ? movedActive[activeIndex++]
-          : destination,
-      );
-    void onReorder(merged.map((destination) => destination.id)).catch(() => {
-      setOrderedIds(previousIds);
-    });
-  }
-
   return (
-    <DndContext
-      sensors={sensors}
-      collisionDetection={closestCenter}
-      onDragEnd={onDragEnd}
+    <nav
+      className={styles.railStack}
+      data-rail="true"
+      aria-label="Alati editora"
     >
-      <SortableContext
-        items={active.map((destination) => destination.id)}
-        strategy={verticalListSortingStrategy}
-      >
-        <OptionTwoFrame view={view} preview>
-          {active.length ? (
-            <ul className="grid gap-5 pl-3">
-              {active.map((destination, index) => (
-                <SortablePreviewDestination
-                  key={destination.id}
-                  destination={orderedViewDestinations[index]}
-                  duplicate={optionTwoDuplicateNumber(
-                    orderedViewDestinations,
-                    index,
-                  )}
-                  selected={selectedId === destination.id}
-                  onSelect={() => onSelect(destination.id)}
-                />
-              ))}
-            </ul>
-          ) : (
-            <div className="rounded-3xl border border-dashed border-[var(--links-accent-border)] bg-white/55 px-5 py-8 text-center text-sm leading-6 text-[#5d6063]">
-              Uključite najmanje jednu destinaciju da biste videli dugmad.
-            </div>
-          )}
-        </OptionTwoFrame>
-      </SortableContext>
-    </DndContext>
+      <div className={styles.rail}>
+        {primaryRailItems.map((item) => (
+          <RailButton
+            key={item.id}
+            item={item}
+            active={activePanel === item.id}
+            activeSurfaceId="editor-rail-active-primary"
+            onClick={() => onSelect(item.id)}
+          />
+        ))}
+      </div>
+      <div className={styles.railBottom}>
+        {secondaryRailItems.map((item) => (
+          <RailButton
+            key={item.id}
+            item={item}
+            active={activePanel === item.id}
+            activeSurfaceId="editor-rail-active-secondary"
+            onClick={() => onSelect(item.id)}
+          />
+        ))}
+      </div>
+    </nav>
   );
 }
 
-function SortablePreviewDestination({
-  destination,
-  duplicate,
-  selected,
-  onSelect,
+function RailButton({
+  item,
+  active,
+  activeSurfaceId,
+  onClick,
 }: {
-  destination: ScanMeLinksViewModel["destinations"][number];
-  duplicate: number | null;
-  selected: boolean;
-  onSelect: () => void;
+  item: {
+    id: EditorPanelId;
+    label: string;
+    icon: typeof PanelTop;
+  };
+  active: boolean;
+  activeSurfaceId: string;
+  onClick: () => void;
 }) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: destination.id });
-
+  const Icon = item.icon;
   return (
-    <li
-      ref={setNodeRef}
-      style={{
-        transform: transform
-          ? `translate3d(${transform.x}px, ${transform.y}px, 0)`
-          : undefined,
-        transition,
-      }}
-      className={cn(isDragging && "relative z-20")}
+    <button
+      type="button"
+      className={styles.railButton}
+      aria-pressed={active}
+      aria-label={item.label}
+      onClick={onClick}
     >
-      <button
-        type="button"
-        {...attributes}
-        {...listeners}
-        style={{ borderRadius: "9999px" }}
-        aria-pressed={selected}
-        aria-label={`${destination.label}. Kliknite za uređivanje ili prevucite da promenite redosled.`}
-        onClick={onSelect}
-        className={cn(
-          optionTwoDestinationClassName,
-          "cursor-grab active:cursor-grabbing",
-          selected &&
-            "ring-4 ring-[var(--links-accent-soft)] ring-offset-2 ring-offset-[#f8f5ef]",
-          isDragging && "shadow-[0_22px_50px_rgba(0,0,0,.24)]",
-        )}
-      >
-        <span className="sr-only">
-          <GripVertical className="size-4" /> Promeni redosled
-        </span>
-        <OptionTwoDestinationContent
-          destination={destination}
-          duplicate={duplicate}
+      {active ? (
+        <motion.span
+          className={styles.railActiveSurface}
+          layoutId={activeSurfaceId}
+          initial={{ opacity: 0, scale: 0.82 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ type: "spring", stiffness: 430, damping: 34 }}
         />
-      </button>
-    </li>
+      ) : null}
+      <Icon className="size-[20px]" strokeWidth={1.7} aria-hidden="true" />
+      <span>{item.label}</span>
+    </button>
   );
 }
 
-function destinationStateLabel(state: DestinationLifecycle) {
-  if (state === "active") return "Aktivno";
-  if (state === "inactive") return "Isključeno";
-  if (state === "archived") return "Arhivirano";
-  return "Brisanje u nacrtu";
+function SaveStatus({
+  state,
+  error,
+}: {
+  state: EditorSaveState;
+  error: string | null;
+}) {
+  return (
+    <span
+      className={styles.saveState}
+      role="status"
+      title={state === "error" ? error ?? "Greška pri čuvanju" : undefined}
+    >
+      <span className={styles.saveStateDot}>
+        {state === "saving" ? (
+          <LoaderCircle className="size-3 animate-spin" aria-hidden="true" />
+        ) : state === "error" ? (
+          <span aria-hidden="true">!</span>
+        ) : (
+          <Check className="size-3" aria-hidden="true" />
+        )}
+      </span>
+      {state === "saving"
+        ? "Čuvanje…"
+        : state === "error"
+          ? "Nije sačuvano"
+          : "Sačuvano"}
+    </span>
+  );
+}
+
+function EditorBackdrop() {
+  return (
+    <div className={styles.backdrop} aria-hidden="true">
+      <span className={styles.paperIndigo} />
+      <span className={styles.paperSage} />
+      <span className={styles.paperCoral} />
+      <span className={styles.paperMauve} />
+      <span className={styles.paperOchre} />
+    </div>
+  );
+}
+
+function EditorPanelContent({
+  panel,
+  data,
+  document,
+  setDocument,
+  selectedDestination,
+  uploadLogo,
+  uploadBackground,
+  uploadBusy,
+  setDeleteTarget,
+  settingsBusy,
+  saveBusinessIdentity,
+  togglePublic,
+}: {
+  panel: EditorPanelId;
+  data: EditorData;
+  document: ScanMeLinksEditorDocument;
+  setDocument: ReturnType<typeof useEditorHistory<ScanMeLinksEditorDocument>>["set"];
+  selectedDestination: EditorDestination | null;
+  uploadLogo: (file: File) => Promise<void>;
+  uploadBackground: (kind: "image" | "video", file: File) => Promise<void>;
+  uploadBusy: boolean;
+  setDeleteTarget: (destination: EditorDestination) => void;
+  settingsBusy: boolean;
+  saveBusinessIdentity: (name: string, slug: string) => Promise<void>;
+  togglePublic: (active: boolean) => Promise<void>;
+}) {
+  switch (panel) {
+    case "content":
+      return (
+        <ContentPanel
+          document={document}
+          setDocument={setDocument}
+          selectedDestination={selectedDestination}
+          onUploadLogo={(file) => void uploadLogo(file)}
+          onDeleteDestination={setDeleteTarget}
+          uploadBusy={uploadBusy}
+        />
+      );
+    case "style":
+      return <StylePanel document={document} setDocument={setDocument} />;
+    case "background":
+      return (
+        <BackgroundPanel
+          document={document}
+          setDocument={setDocument}
+          onUploadBackground={(kind, file) =>
+            void uploadBackground(kind, file)
+          }
+          uploadBusy={uploadBusy}
+        />
+      );
+    case "button":
+      return <ButtonPanel document={document} setDocument={setDocument} />;
+    case "text":
+      return <TextPanel document={document} setDocument={setDocument} />;
+    case "color":
+      return <ColorPanel document={document} setDocument={setDocument} />;
+    case "analytics":
+      return <AnalyticsPanel businessId={data.id} />;
+    case "settings":
+      return (
+        <SettingsPanel
+          businessName={data.name}
+          slug={data.clientPanelSlug}
+          publicActive={data.profile?.status === "active"}
+          onSaveIdentity={saveBusinessIdentity}
+          onTogglePublic={togglePublic}
+          busy={settingsBusy}
+        />
+      );
+    case "pro":
+      return <ProPanel />;
+    case "help":
+      return <HelpPanel />;
+  }
+}
+
+function documentFromData(data: EditorData): ScanMeLinksEditorDocument {
+  const config = data.config!;
+  return {
+    title: config.displayName ?? data.name,
+    description: config.description ?? "",
+    logoStorageId: config.logoStorageId ?? null,
+    inheritsBusinessLogo: config.inheritsBusinessLogo,
+    logoUrl: config.logoUrl ?? null,
+    palette: config.palette ?? [],
+    paletteAnalysis: config.paletteAnalysis ?? null,
+    design: createSafeScanMeLinksDesignV2(
+      config.design as ScanMeLinksDesignV2,
+    ),
+    backgroundImageStorageId: config.backgroundImageStorageId ?? null,
+    backgroundImageUrl: config.backgroundImageUrl ?? null,
+    backgroundVideoStorageId: config.backgroundVideoStorageId ?? null,
+    backgroundVideoUrl: config.backgroundVideoUrl ?? null,
+    destinations: data.destinations.map((destination) => ({
+      id: destination.id,
+      kind: destination.kind as DestinationKind,
+      label: destination.label,
+      url: destination.url,
+      iconKey: destination.iconKey,
+      order: destination.order,
+      state: destination.state as DestinationLifecycle,
+      publishedState:
+        (destination.publishedState as DestinationLifecycle | null) ?? null,
+      totalClicks: destination.totalClicks,
+      totalDirectVisits: destination.totalDirectVisits,
+    })),
+  };
+}
+
+function documentHash(document: ScanMeLinksEditorDocument) {
+  return JSON.stringify({
+    title: document.title,
+    description: document.description,
+    logoStorageId: document.logoStorageId,
+    inheritsBusinessLogo: document.inheritsBusinessLogo,
+    palette: document.palette,
+    paletteAnalysis: document.paletteAnalysis,
+    design: document.design,
+    backgroundImageStorageId: document.backgroundImageStorageId,
+    backgroundVideoStorageId: document.backgroundVideoStorageId,
+    destinations: document.destinations.map(
+      ({ id, kind, label, url, order, state }) => ({
+        id,
+        kind,
+        label,
+        url,
+        order,
+        state,
+      }),
+    ),
+  });
+}
+
+function validateDocument(document: ScanMeLinksEditorDocument) {
+  if (document.title.length > 20) {
+    throw new Error("Naziv lokala može imati najviše 20 karaktera.");
+  }
+  if (document.description.length > 50) {
+    throw new Error("Kratak opis može imati najviše 50 karaktera.");
+  }
+  for (const destination of document.destinations) {
+    const url = destination.url.trim();
+    if (url && !/^https:\/\/[^\s]+$/i.test(url)) {
+      throw new Error(
+        `Link „${destination.label}” mora biti bezbedna HTTPS adresa.`,
+      );
+    }
+    if (destination.state !== "deleted" && !destination.label.trim()) {
+      throw new Error("Svako dugme mora imati naziv.");
+    }
+  }
+}
+
+async function uploadFile(
+  file: File,
+  generateUploadUrl: (args: {
+    serviceProfileId: Id<"serviceProfiles">;
+  }) => Promise<string>,
+  serviceProfileId: Id<"serviceProfiles">,
+) {
+  const uploadUrl = await generateUploadUrl({ serviceProfileId });
+  const response = await fetch(uploadUrl, {
+    method: "POST",
+    headers: { "Content-Type": file.type },
+    body: file,
+  });
+  if (!response.ok) throw new Error("Otpremanje fajla nije uspelo.");
+  const body = (await response.json()) as { storageId: Id<"_storage"> };
+  return body.storageId;
+}
+
+function rememberObjectUrl(file: File, urls: Set<string>) {
+  const url = URL.createObjectURL(file);
+  urls.add(url);
+  return url;
+}
+
+function hasFiles(dataTransfer: DataTransfer) {
+  return Array.from(dataTransfer.types).includes("Files");
 }
 
 function errorMessage(error: unknown, fallback: string) {
-  return error instanceof Error ? error.message : fallback;
+  if (error instanceof Error && error.message.trim()) return error.message;
+  return fallback;
 }

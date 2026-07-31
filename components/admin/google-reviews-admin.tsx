@@ -183,7 +183,7 @@ function GoogleReviewsWorkspace() {
       feedback(
         kind === "qr"
           ? "QR adresa je promenjena. Stara odštampana QR adresa nastavlja da radi."
-          : "Adresa klijentskog panela je promenjena.",
+          : "Osnovni slug je promenjen. Klijentski panel, ScanMe Links i Google Review adresa su usklađeni.",
       );
       return true;
     } catch (reason) {

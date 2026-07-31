@@ -300,7 +300,7 @@ describe("admin kreiranje lokala", () => {
     delete process.env.SCANME_ADMIN_EMAILS;
   });
 
-  test("admin nezavisno menja QR i klijentski slug", async () => {
+  test("promena osnovnog sluga usklađuje klijentski panel i Google Review adresu", async () => {
     process.env.SCANME_ADMIN_EMAILS = "admin@scanme.test";
     const t = convexTest(schema, modules);
     const seeded = await seedLink(t, "stari-slug", "https://reviews.example.com/scanme-primer");
@@ -330,13 +330,13 @@ describe("admin kreiranje lokala", () => {
       link: await ctx.db.get(seeded.linkId),
     }));
     expect(state.business?.slug).toBe("novi-klijentski-panel");
-    expect(state.link?.slug).toBe("nova-qr-adresa");
+    expect(state.link?.slug).toBe("novi-klijentski-panel-google-review");
     await expect(t.query(api.clientPanel.publicLocation, { slug: "novi-klijentski-panel" }))
       .resolves.toEqual({ name: "Lokal stari-slug" });
     await expect(t.query(api.clientPanel.publicLocation, { slug: "nova-qr-adresa" }))
       .resolves.toBeNull();
     await expect(t.mutation(api.redirects.resolveAndRecord, {
-      slug: "nova-qr-adresa",
+      slug: "novi-klijentski-panel-google-review",
       requestId: "66666666-6666-4666-8666-666666666666",
     })).resolves.toMatchObject({ status: "available" });
     await expect(t.mutation(api.redirects.resolveAndRecord, {
@@ -406,11 +406,84 @@ describe("admin kreiranje lokala", () => {
         .withIndex("by_dynamicLinkId", (q) => q.eq("dynamicLinkId", seeded.linkId))
         .take(10);
       return {
-        aliases: aliases.map((alias) => alias.slug),
+        aliases: aliases.map((alias) => alias.slug).sort(),
         scanCount: (await ctx.db.get(seeded.linkId))?.scanCount,
       };
     });
-    expect(state).toEqual({ aliases: ["odstampana-adresa"], scanCount: 2 });
+    expect(state).toEqual({
+      aliases: ["nova-adresa", "odstampana-adresa"],
+      scanCount: 2,
+    });
+    delete process.env.SCANME_ADMIN_EMAILS;
+  });
+
+  test("osnovni slug može da preuzme trenutni Google Review slug istog lokala", async () => {
+    process.env.SCANME_ADMIN_EMAILS = "admin@scanme.test";
+    const t = convexTest(schema, modules);
+    const seeded = await seedLink(
+      t,
+      "resend-test",
+      "https://reviews.example.com/cognis",
+    );
+    const profiles = await t.run(async (ctx) => {
+      const now = Date.now();
+      const linksProfileId = await ctx.db.insert("serviceProfiles", {
+        businessId: seeded.businessId,
+        type: "scanme_links",
+        slug: "resend-test",
+        status: "inactive",
+        totalScans: 0,
+        totalPageViews: 0,
+        totalConvertedSessions: 0,
+        createdAt: now,
+        updatedAt: now,
+      });
+      const reviewProfileId = await ctx.db.insert("serviceProfiles", {
+        businessId: seeded.businessId,
+        type: "google_review",
+        slug: "cognis",
+        status: "active",
+        totalScans: 0,
+        totalPageViews: 0,
+        totalConvertedSessions: 0,
+        createdAt: now,
+        updatedAt: now,
+      });
+      await ctx.db.patch(seeded.linkId, { slug: "cognis", updatedAt: now });
+      return { linksProfileId, reviewProfileId };
+    });
+    const adminId = await t.run(async (ctx) =>
+      await ctx.db.insert("users", {
+        email: "admin@scanme.test",
+        emailVerificationTime: Date.now(),
+      }),
+    );
+    const asAdmin = t.withIdentity({
+      subject: adminId,
+      issuer: "https://test.local",
+    });
+
+    await expect(
+      asAdmin.mutation(api.admin.updateBusinessSlug, {
+        businessId: seeded.businessId,
+        kind: "clientPanel",
+        slug: "cognis",
+      }),
+    ).resolves.toEqual({
+      qrSlug: "cognis-google-review",
+      clientPanelSlug: "cognis",
+    });
+
+    const state = await t.run(async (ctx) => ({
+      business: await ctx.db.get(seeded.businessId),
+      link: await ctx.db.get(seeded.linkId),
+      linksProfile: await ctx.db.get(profiles.linksProfileId),
+      reviewProfile: await ctx.db.get(profiles.reviewProfileId),
+    }));
+    expect(state.business?.slug).toBe("cognis");
+    expect(state.linksProfile?.slug).toBe("cognis");
+    expect(state.reviewProfile?.slug).toBe("cognis-google-review");
+    expect(state.link?.slug).toBe("cognis-google-review");
     delete process.env.SCANME_ADMIN_EMAILS;
   });
 

@@ -455,7 +455,7 @@ export const updateBusinessName = mutation({
 export const updateBusinessSlug = mutation({
   args: {
     businessId: v.id("businesses"),
-    linkId: v.id("dynamicLinks"),
+    linkId: v.optional(v.id("dynamicLinks")),
     kind: v.union(v.literal("qr"), v.literal("clientPanel")),
     slug: v.string(),
   },
@@ -464,10 +464,20 @@ export const updateBusinessSlug = mutation({
     const business = await ctx.db.get(args.businessId);
     if (!business) throw new Error("Lokal nije pronađen.");
     const slug = requireSlug(args.slug);
-    const link = await ctx.db.get(args.linkId);
-    if (!link || link.businessId !== args.businessId || link.type !== "google_review") {
-      throw new Error("QR link nije pronađen.");
-    }
+    const selectedLink = args.linkId ? await ctx.db.get(args.linkId) : null;
+    const links = await ctx.db
+      .query("dynamicLinks")
+      .withIndex("by_businessId_and_type", (q) =>
+        q.eq("businessId", args.businessId).eq("type", "google_review"),
+      )
+      .order("desc")
+      .take(20);
+    const link =
+      selectedLink?.businessId === args.businessId &&
+      selectedLink.type === "google_review"
+        ? selectedLink
+        : selectPrimaryLink(links);
+    if (!link) throw new Error("QR link nije pronađen.");
     const linksProfile = await ctx.db
       .query("serviceProfiles")
       .withIndex("by_businessId_and_type", (q) =>
@@ -481,7 +491,131 @@ export const updateBusinessSlug = mutation({
       )
       .unique();
 
-    const targetProfile = args.kind === "qr" ? reviewProfile : linksProfile;
+    if (args.kind === "clientPanel") {
+      const reviewSlug = googleReviewSlug(slug);
+      const ownProfileIds = new Set(
+        [linksProfile?._id, reviewProfile?._id].filter(
+          (id): id is Id<"serviceProfiles"> => id !== undefined,
+        ),
+      );
+      const desiredSlugs = [slug, reviewSlug];
+
+      for (const desiredSlug of desiredSlugs) {
+        const matchingLinks = await ctx.db
+          .query("dynamicLinks")
+          .withIndex("by_slug", (q) => q.eq("slug", desiredSlug))
+          .take(2);
+        if (
+          matchingLinks.some(
+            (candidate) =>
+              candidate._id !== link._id &&
+              candidate.businessId !== business._id,
+          )
+        ) {
+          throw new Error("Ovaj slug se već koristi za drugu QR adresu.");
+        }
+        const matchingBusinesses = await ctx.db
+          .query("businesses")
+          .withIndex("by_slug", (q) => q.eq("slug", desiredSlug))
+          .take(2);
+        if (
+          matchingBusinesses.some((candidate) => candidate._id !== business._id)
+        ) {
+          throw new Error("Ovaj slug se već koristi za drugi lokal.");
+        }
+        const matchingProfiles = await ctx.db
+          .query("serviceProfiles")
+          .withIndex("by_slug", (q) => q.eq("slug", desiredSlug))
+          .take(2);
+        if (
+          matchingProfiles.some(
+            (candidate) => !ownProfileIds.has(candidate._id),
+          )
+        ) {
+          throw new Error("Ovaj servisni slug se već koristi.");
+        }
+        const matchingLinkAliases = await ctx.db
+          .query("dynamicLinkAliases")
+          .withIndex("by_slug", (q) => q.eq("slug", desiredSlug))
+          .take(2);
+        if (
+          matchingLinkAliases.some(
+            (candidate) => candidate.dynamicLinkId !== link._id,
+          )
+        ) {
+          throw new Error("Ovaj slug je sačuvan za ranije odštampanu QR adresu.");
+        }
+        const matchingServiceAliases = await ctx.db
+          .query("serviceSlugAliases")
+          .withIndex("by_slug", (q) => q.eq("slug", desiredSlug))
+          .take(2);
+        if (
+          matchingServiceAliases.some(
+            (candidate) => !ownProfileIds.has(candidate.serviceProfileId),
+          )
+        ) {
+          throw new Error("Ovaj servisni slug je sačuvan kao ranija adresa.");
+        }
+      }
+
+      const now = Date.now();
+      const desiredSlugSet = new Set(desiredSlugs);
+      if (link.slug !== reviewSlug) {
+        const oldAlias = await ctx.db
+          .query("dynamicLinkAliases")
+          .withIndex("by_slug", (q) => q.eq("slug", link.slug))
+          .unique();
+        if (!desiredSlugSet.has(link.slug) && !oldAlias) {
+          await ctx.db.insert("dynamicLinkAliases", {
+            slug: link.slug,
+            dynamicLinkId: link._id,
+            createdAt: now,
+          });
+        }
+        const promotedAlias = await ctx.db
+          .query("dynamicLinkAliases")
+          .withIndex("by_slug", (q) => q.eq("slug", reviewSlug))
+          .unique();
+        if (promotedAlias?.dynamicLinkId === link._id) {
+          await ctx.db.delete(promotedAlias._id);
+        }
+        await ctx.db.patch(link._id, { slug: reviewSlug, updatedAt: now });
+      }
+
+      for (const [profile, nextSlug] of [
+        [linksProfile, slug],
+        [reviewProfile, reviewSlug],
+      ] as const) {
+        if (!profile || profile.slug === nextSlug) continue;
+        const oldAlias = await ctx.db
+          .query("serviceSlugAliases")
+          .withIndex("by_slug", (q) => q.eq("slug", profile.slug))
+          .unique();
+        if (!desiredSlugSet.has(profile.slug) && !oldAlias) {
+          await ctx.db.insert("serviceSlugAliases", {
+            slug: profile.slug,
+            serviceProfileId: profile._id,
+            createdAt: now,
+          });
+        }
+        const promotedAlias = await ctx.db
+          .query("serviceSlugAliases")
+          .withIndex("by_slug", (q) => q.eq("slug", nextSlug))
+          .unique();
+        if (
+          promotedAlias &&
+          ownProfileIds.has(promotedAlias.serviceProfileId)
+        ) {
+          await ctx.db.delete(promotedAlias._id);
+        }
+        await ctx.db.patch(profile._id, { slug: nextSlug, updatedAt: now });
+      }
+
+      await ctx.db.patch(business._id, { slug });
+      return { qrSlug: reviewSlug, clientPanelSlug: slug };
+    }
+
+    const targetProfile = reviewProfile;
     const matchingLinks = await ctx.db
       .query("dynamicLinks")
       .withIndex("by_slug", (q) => q.eq("slug", slug))
@@ -523,7 +657,7 @@ export const updateBusinessSlug = mutation({
     }
 
     const now = Date.now();
-    if (args.kind === "qr" && slug !== link.slug) {
+    if (slug !== link.slug) {
       const existingOldSlugAlias = await ctx.db
         .query("dynamicLinkAliases")
         .withIndex("by_slug", (q) => q.eq("slug", link.slug))
@@ -566,12 +700,9 @@ export const updateBusinessSlug = mutation({
         updatedAt: now,
       });
     }
-    if (args.kind === "clientPanel") {
-      await ctx.db.patch(business._id, { slug });
-    }
     return {
-      qrSlug: args.kind === "qr" ? slug : link.slug,
-      clientPanelSlug: args.kind === "clientPanel" ? slug : business.slug,
+      qrSlug: slug,
+      clientPanelSlug: business.slug,
     };
   },
 });

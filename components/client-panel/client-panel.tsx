@@ -264,6 +264,11 @@ function ScanMeLinksMetricsPanel({ slug }: { slug: string }) {
               onClick={() => setDestinationId(destination.id)}
             >
               {destination.label}
+              {destination.state === "deleted" ? (
+                <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-destructive">
+                  Obrisano
+                </span>
+              ) : null}
               <span className="tabular-nums">
                 {numberFormatter.format(
                   destination.totalClicks || destination.totalDirectVisits,

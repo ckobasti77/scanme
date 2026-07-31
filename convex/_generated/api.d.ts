@@ -22,6 +22,7 @@ import type * as leads from "../leads.js";
 import type * as lib_access from "../lib/access.js";
 import type * as lib_invitations from "../lib/invitations.js";
 import type * as lib_metrics from "../lib/metrics.js";
+import type * as lib_scanMeDesignValidators from "../lib/scanMeDesignValidators.js";
 import type * as lib_serviceMetrics from "../lib/serviceMetrics.js";
 import type * as lib_validation from "../lib/validation.js";
 import type * as migrations from "../migrations.js";
@@ -49,6 +50,7 @@ declare const fullApi: ApiFromModules<{
   "lib/access": typeof lib_access;
   "lib/invitations": typeof lib_invitations;
   "lib/metrics": typeof lib_metrics;
+  "lib/scanMeDesignValidators": typeof lib_scanMeDesignValidators;
   "lib/serviceMetrics": typeof lib_serviceMetrics;
   "lib/validation": typeof lib_validation;
   migrations: typeof migrations;

@@ -1,6 +1,12 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import { authTables } from "@convex-dev/auth/server";
+import {
+  destinationPresentationValidator,
+  paletteAnalysisValidator,
+  scanMeDesignStateValidator,
+  scanMeDesignValidator,
+} from "./lib/scanMeDesignValidators";
 
 const businessStatus = v.union(
   v.literal("active"),
@@ -121,18 +127,40 @@ export default defineSchema({
   scanMeLinksConfigs: defineTable({
     serviceProfileId: v.id("serviceProfiles"),
     draftDisplayName: v.optional(v.string()),
-    draftLogoStorageId: v.optional(v.id("_storage")),
+    draftLogoStorageId: v.optional(v.union(v.id("_storage"), v.null())),
     draftTemplateKey: v.string(),
     draftBackgroundKey: v.string(),
     draftPalette: v.array(v.string()),
     draftAccent: v.string(),
     draftAccentTokens: accentTokens,
+    draftDesignState: v.optional(scanMeDesignStateValidator),
+    draftDesign: v.optional(scanMeDesignValidator),
+    draftDescription: v.optional(v.string()),
+    draftPaletteAnalysis: v.optional(paletteAnalysisValidator),
+    draftBackgroundImageStorageId: v.optional(
+      v.union(v.id("_storage"), v.null()),
+    ),
+    draftBackgroundVideoStorageId: v.optional(
+      v.union(v.id("_storage"), v.null()),
+    ),
     publishedDisplayName: v.optional(v.string()),
-    publishedLogoStorageId: v.optional(v.id("_storage")),
+    publishedLogoStorageId: v.optional(
+      v.union(v.id("_storage"), v.null()),
+    ),
     publishedTemplateKey: v.optional(v.string()),
     publishedBackgroundKey: v.optional(v.string()),
     publishedAccent: v.optional(v.string()),
     publishedAccentTokens: v.optional(accentTokens),
+    publishedPalette: v.optional(v.array(v.string())),
+    publishedDesign: v.optional(scanMeDesignValidator),
+    publishedDescription: v.optional(v.string()),
+    publishedPaletteAnalysis: v.optional(paletteAnalysisValidator),
+    publishedBackgroundImageStorageId: v.optional(
+      v.union(v.id("_storage"), v.null()),
+    ),
+    publishedBackgroundVideoStorageId: v.optional(
+      v.union(v.id("_storage"), v.null()),
+    ),
     hasUnpublishedChanges: v.boolean(),
     draftRevision: v.number(),
     publishedRevision: v.number(),
@@ -150,15 +178,30 @@ export default defineSchema({
     draftIconKey: v.string(),
     draftOrder: v.number(),
     draftState: destinationState,
+    draftPresentation: v.optional(destinationPresentationValidator),
     publishedLabel: v.optional(v.string()),
     publishedUrl: v.optional(v.string()),
     publishedIconKey: v.optional(v.string()),
     publishedOrder: v.optional(v.number()),
     publishedState: v.optional(destinationState),
+    publishedPresentation: v.optional(destinationPresentationValidator),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
     .index("by_serviceProfileId", ["serviceProfileId"])
+    .index("by_serviceProfileId_and_draftState", [
+      "serviceProfileId",
+      "draftState",
+    ])
+    .index("by_serviceProfileId_and_draftState_and_updatedAt", [
+      "serviceProfileId",
+      "draftState",
+      "updatedAt",
+    ])
+    .index("by_serviceProfileId_and_publishedState", [
+      "serviceProfileId",
+      "publishedState",
+    ])
     .index("by_serviceProfileId_and_draftOrder", ["serviceProfileId", "draftOrder"])
     .index("by_serviceProfileId_and_publishedOrder", ["serviceProfileId", "publishedOrder"]),
 

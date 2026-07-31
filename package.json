@@ -34,9 +34,9 @@
     "framer-motion": "^12.42.2",
     "gsap": "^3.15.0",
     "lucide-react": "^1.24.0",
-    "next": "16.2.10",
-    "react": "19.2.4",
-    "react-dom": "19.2.4",
+    "next": "16.2.12",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
     "shadcn": "^4.13.0",
     "simple-icons": "^16.27.0",
     "sonner": "^2.0.7",
@@ -45,25 +45,29 @@
   },
   "devDependencies": {
     "@edge-runtime/vm": "^5.0.0",
+    "@next/eslint-plugin-next": "^16.2.12",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "convex-test": "^0.0.54",
-    "eslint": "^9",
-    "eslint-config-next": "16.2.10",
+    "eslint": "^10.8.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.8.0",
     "tailwindcss": "^4",
     "typescript": "^5",
+    "typescript-eslint": "^8.65.0",
     "vitest": "^4.1.10"
   },
   "allowScripts": {
-    "sharp@0.34.5": true,
+    "sharp@0.35.3": true,
     "unrs-resolver@1.12.2": true,
     "esbuild@0.27.0": true
   },
   "overrides": {
+    "sharp": "0.35.3",
     "next": {
-      "postcss": "8.5.10"
+      "postcss": "8.5.25"
     }
   }
 }

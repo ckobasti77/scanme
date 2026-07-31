@@ -6,6 +6,7 @@ import {
   Archive,
   ArrowDown,
   ArrowUp,
+  Copy,
   ExternalLink,
   ListFilter,
   LoaderCircle,
@@ -465,25 +466,20 @@ function BusinessWorkspace({
             </div>
           ) : null}
 
-          <div className="mt-6 grid gap-3">
-            <div className="border border-border bg-background p-4">
-              <p className="text-xs text-muted-foreground">Javna adresa</p>
-              <p className="mt-2 break-all text-sm font-semibold">
-                /{data.profile.slug}
-              </p>
-            </div>
-            <div className="border border-border bg-background p-4">
-              <p className="text-xs text-muted-foreground">Klijentski panel</p>
-              <p className="mt-2 break-all text-sm font-semibold">
-                /{data.clientPanelSlug}/client-panel
-              </p>
-            </div>
-          </div>
+          <StableAddresses
+            key={`${data.id}-${data.clientPanelSlug}`}
+            businessId={data.id}
+            baseSlug={data.clientPanelSlug}
+          />
 
           <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
             <Button asChild>
               <Link
-                href={`/admin/scanme-links/${data.id}/editor`}
+                href={
+                  data.clientPanelSlug
+                    ? `/${data.clientPanelSlug}/editor`
+                    : `/admin/scanme-links/${data.id}/editor`
+                }
                 target="_blank"
                 rel="noopener noreferrer"
               >
@@ -561,6 +557,7 @@ function BusinessWorkspace({
             heightClassName="mt-6 h-56"
             showCounts
             barMinWidth={38}
+            variant={metrics.range === "all" ? "line" : "bars"}
           />
         </section>
       ) : null}
@@ -817,6 +814,146 @@ function SharedBusinessDetails({ data }: { data: EditorData }) {
         Sačuvaj zajedničke podatke
       </Button>
     </form>
+  );
+}
+
+function StableAddresses({
+  businessId,
+  baseSlug,
+}: {
+  businessId: Id<"businesses">;
+  baseSlug: string;
+}) {
+  const updateBusinessSlug = useMutation(api.admin.updateBusinessSlug);
+  const [editing, setEditing] = useState(false);
+  const [pending, setPending] = useState(false);
+  const [copied, setCopied] = useState<"public" | "panel" | null>(null);
+
+  async function copy(path: string, kind: "public" | "panel") {
+    await navigator.clipboard.writeText(`${window.location.origin}${path}`);
+    setCopied(kind);
+    window.setTimeout(() => setCopied(null), 1800);
+  }
+
+  async function save(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    setPending(true);
+    try {
+      await updateBusinessSlug({
+        businessId,
+        kind: "clientPanel",
+        slug: String(form.get("slug") ?? ""),
+      });
+      setEditing(false);
+      toast.success("Stabilne adrese lokala su promenjene.");
+    } catch (error) {
+      toast.error(errorMessage(error, "Stabilne adrese nisu promenjene."));
+    } finally {
+      setPending(false);
+    }
+  }
+
+  const publicPath = `/${baseSlug}`;
+  const panelPath = `/${baseSlug}/client-panel`;
+
+  return (
+    <div className="mt-6 border border-border bg-background p-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="grid min-w-0 gap-4">
+          <div>
+            <p className="text-xs text-muted-foreground">Javna adresa</p>
+            <p className="mt-2 break-all text-sm font-semibold">{publicPath}</p>
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground">Klijentski panel</p>
+            <p className="mt-2 break-all text-sm font-semibold">{panelPath}</p>
+          </div>
+        </div>
+        <Button
+          type="button"
+          size="sm"
+          className="min-h-11 shrink-0"
+          aria-expanded={editing}
+          onClick={() => setEditing((current) => !current)}
+        >
+          <Pencil className="size-3.5" /> Izmeni adrese
+        </Button>
+      </div>
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="min-h-11"
+          onClick={() => void copy(publicPath, "public")}
+        >
+          <Copy className="size-3.5" />
+          {copied === "public" ? "Kopirano" : "Kopiraj javnu"}
+        </Button>
+        <Button type="button" size="sm" variant="outline" className="min-h-11" asChild>
+          <Link href={publicPath} target="_blank" rel="noopener noreferrer">
+            <ExternalLink className="size-3.5" /> Otvori javnu
+          </Link>
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="min-h-11"
+          onClick={() => void copy(panelPath, "panel")}
+        >
+          <Copy className="size-3.5" />
+          {copied === "panel" ? "Kopirano" : "Kopiraj panel"}
+        </Button>
+      </div>
+
+      {editing ? (
+        <form onSubmit={save} className="mt-5 border-t border-border pt-5">
+          <div className="grid gap-2">
+            <Label htmlFor={`links-base-slug-${businessId}`}>
+              Osnovni slug *
+            </Label>
+            <Input
+              id={`links-base-slug-${businessId}`}
+              name="slug"
+              defaultValue={baseSlug}
+              pattern="[a-z0-9]+(?:-[a-z0-9]+)*"
+              maxLength={80}
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              required
+              autoFocus
+            />
+            <p className="text-xs leading-5 text-muted-foreground">
+              Menja javnu ScanMe Links adresu i klijentski panel. Google Review
+              adresa se usklađuje kao /novi-slug-google-review.
+            </p>
+          </div>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Button type="submit" size="sm" disabled={pending}>
+              {pending ? (
+                <LoaderCircle className="size-3.5 animate-spin" />
+              ) : (
+                <Save className="size-3.5" />
+              )}
+              Sačuvaj
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={pending}
+              onClick={() => setEditing(false)}
+            >
+              Otkaži
+            </Button>
+          </div>
+        </form>
+      ) : null}
+    </div>
   );
 }
 

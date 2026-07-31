@@ -1,8 +1,6 @@
 import { v } from "convex/values";
-import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import {
-  internalMutation,
   mutation,
   query,
   type MutationCtx,
@@ -40,6 +38,15 @@ import {
   type IconKey,
   type TemplateKey,
 } from "../lib/scanme-links";
+import {
+  createDefaultScanMeLinksDesignV2,
+  normalizeDesignForPreset,
+  type ScanMeLinksDesignV2,
+} from "../lib/scanme-links-design";
+import {
+  paletteAnalysisValidator,
+  scanMeDesignV2Validator,
+} from "./lib/scanMeDesignValidators";
 
 const destinationKindValidator = v.union(
   v.literal("instagram"),
@@ -61,6 +68,19 @@ const destinationStateValidator = v.union(
   v.literal("archived"),
   v.literal("deleted"),
 );
+
+const editableDestinationStates = [
+  "active",
+  "inactive",
+  "archived",
+] as const;
+
+const publishedDestinationStates = [
+  "active",
+  "inactive",
+  "archived",
+  "deleted",
+] as const;
 
 const metricsRangeValidator = v.union(
   v.literal("7d"),
@@ -87,10 +107,27 @@ const accentTokensValidator = v.object({
   onAccent: v.string(),
 });
 
+const editorDestinationValidator = v.object({
+  id: v.id("serviceDestinations"),
+  kind: destinationKindValidator,
+  label: v.string(),
+  url: v.string(),
+  order: v.number(),
+  state: destinationStateValidator,
+});
+
 function normalizeHex(value: string) {
   const normalized = value.trim().toUpperCase();
   if (!/^#[0-9A-F]{6}$/.test(normalized)) {
     throw new Error("Boja mora biti HEX vrednost u formatu #RRGGBB.");
+  }
+  return normalized;
+}
+
+function normalizeDesignHex(value: string) {
+  const normalized = value.trim().toUpperCase();
+  if (!/^#[0-9A-F]{6}(?:[0-9A-F]{2})?$/.test(normalized)) {
+    throw new Error("Boja u dizajnu mora biti HEX vrednost u formatu #RRGGBB ili #RRGGBBAA.");
   }
   return normalized;
 }
@@ -111,6 +148,182 @@ function normalizeIconKey(value: string): IconKey {
     throw new Error("Izabrana ikonica nije podržana.");
   }
   return value as IconKey;
+}
+
+function storedDesignV2(
+  design:
+    | Doc<"scanMeLinksConfigs">["draftDesign"]
+    | Doc<"scanMeLinksConfigs">["publishedDesign"],
+) {
+  if (design?.version === 2) {
+    return normalizeDesignForPreset(design, design.presetKey);
+  }
+  return createDefaultScanMeLinksDesignV2(design?.presetKey);
+}
+
+function normalizeEditorDesign(design: ScanMeLinksDesignV2) {
+  const normalized = normalizeDesignForPreset(design, design.presetKey);
+  const colors = Object.fromEntries(
+    Object.entries(normalized.colors).map(([key, value]) => [
+      key,
+      normalizeDesignHex(value),
+    ]),
+  ) as ScanMeLinksDesignV2["colors"];
+  const background = (() => {
+    switch (normalized.background.category) {
+      case "flat":
+        return {
+          ...normalized.background,
+          color: normalizeDesignHex(normalized.background.color),
+        };
+      case "gradient":
+        return {
+          ...normalized.background,
+          startColor: normalizeDesignHex(normalized.background.startColor),
+          endColor: normalizeDesignHex(normalized.background.endColor),
+        };
+      case "pattern":
+        return {
+          ...normalized.background,
+          backgroundColor: normalizeDesignHex(
+            normalized.background.backgroundColor,
+          ),
+          patternColor: normalizeDesignHex(normalized.background.patternColor),
+        };
+      case "texture":
+        return {
+          ...normalized.background,
+          backgroundColor: normalizeDesignHex(
+            normalized.background.backgroundColor,
+          ),
+          tintColor: normalizeDesignHex(normalized.background.tintColor),
+        };
+      case "media":
+        return {
+          ...normalized.background,
+          overlayColor: normalizeDesignHex(normalized.background.overlayColor),
+        };
+      case "animation":
+        return {
+          ...normalized.background,
+          baseColor: normalizeDesignHex(normalized.background.baseColor),
+          accentColor: normalizeDesignHex(normalized.background.accentColor),
+        };
+    }
+  })();
+  return {
+    ...normalized,
+    background,
+    colors,
+    buttons: {
+      ...normalized.buttons,
+      shadow: {
+        ...normalized.buttons.shadow,
+        color: normalizeDesignHex(normalized.buttons.shadow.color),
+      },
+    },
+  } satisfies ScanMeLinksDesignV2;
+}
+
+function normalizeEditorText(
+  value: string | null,
+  label: string,
+  maxLength: number,
+) {
+  const normalized = (value ?? "").trim().replace(/\s+/g, " ");
+  if (normalized.length > maxLength) {
+    throw new Error(`${label} može imati najviše ${maxLength} karaktera.`);
+  }
+  return normalized;
+}
+
+function normalizePaletteAnalysis(
+  value:
+    | {
+        original: string[];
+        adjusted: string[];
+        correctedRoles: string[];
+      }
+    | null
+    | undefined,
+) {
+  if (value == null) return undefined;
+  if (
+    value.original.length > 8 ||
+    value.adjusted.length > 8 ||
+    value.correctedRoles.length > 8
+  ) {
+    throw new Error("Analiza palete može imati najviše osam vrednosti po grupi.");
+  }
+  return {
+    original: value.original.map(normalizeHex),
+    adjusted: value.adjusted.map(normalizeHex),
+    correctedRoles: value.correctedRoles.map((role) =>
+      requireText(role, "Uloga boje", 1, 64),
+    ),
+  };
+}
+
+async function validateStoredFile(
+  ctx: MutationCtx,
+  storageId: Id<"_storage"> | null,
+  options: {
+    label: string;
+    maxBytes: number;
+    contentTypes: readonly string[];
+  },
+) {
+  if (!storageId) return;
+  const metadata = await ctx.db.system.get("_storage", storageId);
+  if (!metadata) throw new Error(`${options.label} nije pronađen.`);
+  if (metadata.size > options.maxBytes) {
+    throw new Error(
+      `${options.label} može imati najviše ${Math.floor(options.maxBytes / 1024 / 1024)} MB.`,
+    );
+  }
+  const contentType = metadata.contentType
+    ?.split(";", 1)[0]
+    .trim()
+    .toLowerCase();
+  if (!contentType || !options.contentTypes.includes(contentType)) {
+    throw new Error(`${options.label} nema podržan format.`);
+  }
+}
+
+async function validateEditorMedia(
+  ctx: MutationCtx,
+  media: {
+    logoStorageId: Id<"_storage"> | null;
+    backgroundImageStorageId: Id<"_storage"> | null;
+    backgroundVideoStorageId: Id<"_storage"> | null;
+  },
+) {
+  await validateStoredFile(ctx, media.logoStorageId, {
+    label: "Logotip",
+    maxBytes: 5 * 1024 * 1024,
+    contentTypes: [
+      "image/png",
+      "image/jpeg",
+      "image/webp",
+      "image/svg+xml",
+    ],
+  });
+  await validateStoredFile(ctx, media.backgroundImageStorageId, {
+    label: "Pozadinska slika",
+    maxBytes: 12 * 1024 * 1024,
+    contentTypes: [
+      "image/png",
+      "image/jpeg",
+      "image/webp",
+      "image/avif",
+      "image/gif",
+    ],
+  });
+  await validateStoredFile(ctx, media.backgroundVideoStorageId, {
+    label: "Pozadinski video",
+    maxBytes: 30 * 1024 * 1024,
+    contentTypes: ["video/mp4", "video/webm"],
+  });
 }
 
 async function serviceBySlug(ctx: QueryCtx | MutationCtx, rawSlug: string) {
@@ -172,18 +385,83 @@ async function publishedDestinations(
 ) {
   const rows = await ctx.db
     .query("serviceDestinations")
-    .withIndex("by_serviceProfileId_and_publishedOrder", (q) =>
-      q.eq("serviceProfileId", serviceProfileId),
+    .withIndex("by_serviceProfileId_and_publishedState", (q) =>
+      q
+        .eq("serviceProfileId", serviceProfileId)
+        .eq("publishedState", "active"),
     )
     .take(100);
   return rows
     .filter(
       (row) =>
         row.publishedState === "active" &&
-        (!row.publishedUrl || isSafePublicDestination(row.publishedUrl)),
+        Boolean(row.publishedUrl) &&
+        isSafePublicDestination(row.publishedUrl!),
     )
     .sort((a, b) => (a.publishedOrder ?? 0) - (b.publishedOrder ?? 0))
     .slice(0, 10);
+}
+
+async function editorDestinations(
+  ctx: QueryCtx | MutationCtx,
+  serviceProfileId: Id<"serviceProfiles">,
+) {
+  const groups = await Promise.all(
+    editableDestinationStates.map((state) =>
+      ctx.db
+        .query("serviceDestinations")
+        .withIndex("by_serviceProfileId_and_draftState", (q) =>
+          q.eq("serviceProfileId", serviceProfileId).eq("draftState", state),
+        )
+        .take(101),
+    ),
+  );
+  return groups
+    .flat()
+    .sort((a, b) => a.draftOrder - b.draftOrder)
+    .slice(0, 101);
+}
+
+async function draftRowsForCommit(
+  ctx: MutationCtx,
+  serviceProfileId: Id<"serviceProfiles">,
+) {
+  const [visible, recentDeleted] = await Promise.all([
+    editorDestinations(ctx, serviceProfileId),
+    ctx.db
+      .query("serviceDestinations")
+      .withIndex(
+        "by_serviceProfileId_and_draftState_and_updatedAt",
+        (q) =>
+          q
+            .eq("serviceProfileId", serviceProfileId)
+            .eq("draftState", "deleted"),
+      )
+      .order("desc")
+      .take(101),
+  ]);
+  return [
+    ...visible,
+    ...recentDeleted.filter((row) => row.publishedState !== "deleted"),
+  ];
+}
+
+async function analyticsDestinations(
+  ctx: QueryCtx,
+  serviceProfileId: Id<"serviceProfiles">,
+) {
+  const rows: Doc<"serviceDestinations">[] = [];
+  for (const state of publishedDestinationStates) {
+    const query = ctx.db
+      .query("serviceDestinations")
+      .withIndex("by_serviceProfileId_and_publishedState", (q) =>
+        q
+          .eq("serviceProfileId", serviceProfileId)
+          .eq("publishedState", state),
+      );
+    for await (const row of query) rows.push(row);
+  }
+  return rows;
 }
 
 async function incrementServiceDaily(
@@ -268,17 +546,35 @@ async function publicLinksView(
   ) {
     return null;
   }
-  const logoStorageId = config.publishedLogoStorageId ?? business.logoStorageId;
+  const usesBusinessLogo = config.publishedLogoStorageId === undefined;
+  const logoStorageId = usesBusinessLogo
+    ? business.logoStorageId
+    : config.publishedLogoStorageId;
   const logoUrl = logoStorageId
     ? await ctx.storage.getUrl(logoStorageId)
-    : business.logoUrl ?? null;
+    : usesBusinessLogo
+      ? business.logoUrl ?? null
+      : null;
+  const backgroundImageUrl = config.publishedBackgroundImageStorageId
+    ? await ctx.storage.getUrl(config.publishedBackgroundImageStorageId)
+    : null;
+  const backgroundVideoUrl = config.publishedBackgroundVideoStorageId
+    ? await ctx.storage.getUrl(config.publishedBackgroundVideoStorageId)
+    : null;
   return {
     displayName: config.publishedDisplayName ?? business.name,
+    description: config.publishedDescription ?? "",
     logoUrl,
     templateKey: config.publishedTemplateKey,
     backgroundKey: config.publishedBackgroundKey,
     accent: config.publishedAccent ?? DEFAULT_ACCENT,
     accentTokens: config.publishedAccentTokens ?? DEFAULT_ACCENT_TOKENS,
+    design:
+      config.publishedDesign?.version === 2
+        ? storedDesignV2(config.publishedDesign)
+        : null,
+    backgroundImageUrl,
+    backgroundVideoUrl,
     destinations: destinations.map((destination) => ({
       id: destination._id,
       kind: destination.kind,
@@ -305,27 +601,46 @@ async function draftLinksView(
   )
     ? config.draftBackgroundKey
     : TEMPLATE_REGISTRY["option-two"].defaultBackground;
-  const logoStorageId = config.draftLogoStorageId ?? business.logoStorageId;
+  const usesBusinessLogo = config.draftLogoStorageId === undefined;
+  const logoStorageId = usesBusinessLogo
+    ? business.logoStorageId
+    : config.draftLogoStorageId;
   const logoUrl = logoStorageId
     ? await ctx.storage.getUrl(logoStorageId)
-    : business.logoUrl ?? null;
+    : usesBusinessLogo
+      ? business.logoUrl ?? null
+      : null;
+  const backgroundImageUrl = config.draftBackgroundImageStorageId
+    ? await ctx.storage.getUrl(config.draftBackgroundImageStorageId)
+    : null;
+  const backgroundVideoUrl = config.draftBackgroundVideoStorageId
+    ? await ctx.storage.getUrl(config.draftBackgroundVideoStorageId)
+    : null;
   return {
     displayName: config.draftDisplayName ?? business.name,
+    description: config.draftDescription ?? "",
     logoUrl,
     templateKey,
     backgroundKey,
     accent: config.draftAccent,
     accentTokens: config.draftAccentTokens,
+    design: storedDesignV2(config.draftDesign),
+    backgroundImageUrl,
+    backgroundVideoUrl,
     destinations: destinations
-      .filter((row) => row.draftState === "active")
+      .filter(
+        (row) =>
+          row.draftState === "active" || row.draftState === "inactive",
+      )
       .sort((a, b) => a.draftOrder - b.draftOrder)
-      .slice(0, 10)
+      .slice(0, 100)
       .map((row) => ({
         id: row._id,
         kind: row.kind,
         label: row.draftLabel,
         url: row.draftUrl,
         iconKey: row.draftIconKey,
+        state: row.draftState,
       })),
   };
 }
@@ -560,17 +875,23 @@ async function businessView(ctx: QueryCtx, business: Doc<"businesses">) {
         .unique()
     : null;
   const destinations = profile
-    ? await ctx.db
-        .query("serviceDestinations")
-        .withIndex("by_serviceProfileId_and_draftOrder", (q) =>
-          q.eq("serviceProfileId", profile._id),
-        )
-        .take(100)
+    ? await editorDestinations(ctx, profile._id)
     : [];
-  const logoStorageId = config?.draftLogoStorageId ?? business.logoStorageId;
+  const usesBusinessLogo = config?.draftLogoStorageId === undefined;
+  const logoStorageId = usesBusinessLogo
+    ? business.logoStorageId
+    : config?.draftLogoStorageId;
   const logoUrl = logoStorageId
     ? await ctx.storage.getUrl(logoStorageId)
-    : business.logoUrl ?? null;
+    : usesBusinessLogo
+      ? business.logoUrl ?? null
+      : null;
+  const backgroundImageUrl = config?.draftBackgroundImageStorageId
+    ? await ctx.storage.getUrl(config.draftBackgroundImageStorageId)
+    : null;
+  const backgroundVideoUrl = config?.draftBackgroundVideoStorageId
+    ? await ctx.storage.getUrl(config.draftBackgroundVideoStorageId)
+    : null;
   const businessLogoUrl = business.logoStorageId
     ? await ctx.storage.getUrl(business.logoStorageId)
     : business.logoUrl ?? null;
@@ -592,12 +913,23 @@ async function businessView(ctx: QueryCtx, business: Doc<"businesses">) {
     config: config
       ? {
           displayName: config.draftDisplayName ?? business.name,
+          description: config.draftDescription ?? "",
+          logoStorageId: logoStorageId ?? null,
+          inheritsBusinessLogo: usesBusinessLogo,
           logoUrl,
           templateKey: config.draftTemplateKey,
           backgroundKey: config.draftBackgroundKey,
           palette: config.draftPalette,
+          paletteAnalysis: config.draftPaletteAnalysis ?? null,
           accent: config.draftAccent,
           accentTokens: config.draftAccentTokens,
+          design: storedDesignV2(config.draftDesign),
+          backgroundImageStorageId:
+            config.draftBackgroundImageStorageId ?? null,
+          backgroundImageUrl,
+          backgroundVideoStorageId:
+            config.draftBackgroundVideoStorageId ?? null,
+          backgroundVideoUrl,
           hasUnpublishedChanges: config.hasUnpublishedChanges,
           draftRevision: config.draftRevision,
           publishedRevision: config.publishedRevision,
@@ -649,12 +981,7 @@ export const editor = query({
     }
     const access = await requireEditorAccess(ctx, profile);
     const summary = await businessView(ctx, business);
-    const destinations = await ctx.db
-      .query("serviceDestinations")
-      .withIndex("by_serviceProfileId_and_draftOrder", (q) =>
-        q.eq("serviceProfileId", profile._id),
-      )
-      .take(100);
+    const destinations = await editorDestinations(ctx, profile._id);
     const draftView = summary.config
       ? await draftLinksView(
           ctx,
@@ -672,13 +999,7 @@ export const editor = query({
           destinations,
         )
       : null;
-    const publishedRows = destinations
-      .filter(
-        (row) =>
-          row.publishedState === "active" &&
-          (!row.publishedUrl || isSafePublicDestination(row.publishedUrl)),
-      )
-      .sort((a, b) => (a.publishedOrder ?? 0) - (b.publishedOrder ?? 0));
+    const publishedRows = await publishedDestinations(ctx, profile._id);
     const publishedView =
       summary.config?.publishedAt
         ? await publicLinksView(ctx, profile, publishedRows)
@@ -709,6 +1030,86 @@ export const editor = query({
   },
 });
 
+async function adminEditorPayload(
+  ctx: QueryCtx,
+  business: Doc<"businesses">,
+  profile: Doc<"serviceProfiles"> | null,
+) {
+  const summary = await businessView(ctx, business);
+  if (!profile) {
+    return {
+      ...summary,
+      destinations: [],
+      draftView: null,
+      publishedView: null,
+      editorRole: "admin" as const,
+      templateRegistry: TEMPLATE_REGISTRY,
+    };
+  }
+  const config = await ctx.db
+    .query("scanMeLinksConfigs")
+    .withIndex("by_serviceProfileId", (q) =>
+      q.eq("serviceProfileId", profile._id),
+    )
+    .unique();
+  const destinations = await editorDestinations(ctx, profile._id);
+  const draftView = config
+    ? await draftLinksView(ctx, business, config, destinations)
+    : null;
+  const publishedRows = await publishedDestinations(ctx, profile._id);
+  const publishedView =
+    config?.publishedAt
+      ? await publicLinksView(ctx, profile, publishedRows)
+      : null;
+  return {
+    ...summary,
+    draftView,
+    publishedView,
+    editorRole: "admin" as const,
+    destinations: destinations
+      .filter((row) => row.draftState !== "deleted")
+      .sort((a, b) => a.draftOrder - b.draftOrder)
+      .map((row) => ({
+        id: row._id,
+        kind: row.kind,
+        label: row.draftLabel,
+        url: row.draftUrl,
+        iconKey: row.draftIconKey,
+        order: row.draftOrder,
+        state: row.draftState,
+        publishedState: row.publishedState ?? null,
+        totalClicks: row.totalClicks,
+        totalDirectVisits: row.totalDirectVisits,
+        updatedAt: row.updatedAt,
+      })),
+    templateRegistry: TEMPLATE_REGISTRY,
+  };
+}
+
+export const editorBySlug = query({
+  args: { slug: v.string() },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    const slug = requireSlug(args.slug);
+    const resolvedProfile = await serviceBySlug(ctx, slug);
+    let profile =
+      resolvedProfile?.type === "scanme_links" ? resolvedProfile : null;
+    let business = profile ? await ctx.db.get(profile.businessId) : null;
+
+    if (!business) {
+      business = await ctx.db
+        .query("businesses")
+        .withIndex("by_slug", (q) => q.eq("slug", slug))
+        .unique();
+      profile = business
+        ? await profileForBusiness(ctx, business._id, "scanme_links")
+        : null;
+    }
+    if (!business) return null;
+    return await adminEditorPayload(ctx, business, profile);
+  },
+});
+
 export const generateLogoUploadUrl = mutation({
   args: {},
   handler: async (ctx) => {
@@ -718,6 +1119,16 @@ export const generateLogoUploadUrl = mutation({
 });
 
 export const generateDisplayLogoUploadUrl = mutation({
+  args: { serviceProfileId: v.id("serviceProfiles") },
+  handler: async (ctx, args) => {
+    const profile = await ctx.db.get(args.serviceProfileId);
+    if (!profile) throw new Error("ScanMe Links profil nije pronađen.");
+    await requireEditorAccess(ctx, profile);
+    return await ctx.storage.generateUploadUrl();
+  },
+});
+
+export const generateEditorUploadUrl = mutation({
   args: { serviceProfileId: v.id("serviceProfiles") },
   handler: async (ctx, args) => {
     const profile = await ctx.db.get(args.serviceProfileId);
@@ -801,6 +1212,128 @@ export const saveDraftAppearance = mutation({
   },
 });
 
+export const saveEditorDraft = mutation({
+  args: {
+    serviceProfileId: v.id("serviceProfiles"),
+    displayName: v.union(v.string(), v.null()),
+    description: v.union(v.string(), v.null()),
+    logoStorageId: v.optional(v.union(v.id("_storage"), v.null())),
+    palette: v.array(v.string()),
+    paletteAnalysis: v.optional(
+      v.union(paletteAnalysisValidator, v.null()),
+    ),
+    design: scanMeDesignV2Validator,
+    backgroundImageStorageId: v.union(v.id("_storage"), v.null()),
+    backgroundVideoStorageId: v.union(v.id("_storage"), v.null()),
+    destinations: v.array(editorDestinationValidator),
+  },
+  handler: async (ctx, args) => {
+    const profile = await ctx.db.get(args.serviceProfileId);
+    if (!profile) throw new Error("ScanMe Links profil nije pronađen.");
+    await requireEditorAccess(ctx, profile);
+    const config = await ctx.db
+      .query("scanMeLinksConfigs")
+      .withIndex("by_serviceProfileId", (q) =>
+        q.eq("serviceProfileId", profile._id),
+      )
+      .unique();
+    if (!config) throw new Error("Konfiguracija nije pronađena.");
+    if (args.palette.length > 8) {
+      throw new Error("Paleta može imati najviše osam boja.");
+    }
+    if (args.destinations.length > 100) {
+      throw new Error("Nacrt može imati najviše 100 destinacija.");
+    }
+
+    const displayName = normalizeEditorText(
+      args.displayName,
+      "Naziv lokala",
+      20,
+    );
+    const description = normalizeEditorText(
+      args.description,
+      "Kratak opis",
+      50,
+    );
+    const palette = args.palette.map(normalizeHex);
+    const paletteAnalysis = normalizePaletteAnalysis(args.paletteAnalysis);
+    const design = normalizeEditorDesign(args.design);
+    await validateEditorMedia(ctx, {
+      logoStorageId: args.logoStorageId ?? null,
+      backgroundImageStorageId: args.backgroundImageStorageId,
+      backgroundVideoStorageId: args.backgroundVideoStorageId,
+    });
+
+    const submittedIds = new Set<Id<"serviceDestinations">>();
+    let activeCount = 0;
+
+    for (const destination of args.destinations) {
+      if (submittedIds.has(destination.id)) {
+        throw new Error("Ista destinacija je poslata više puta.");
+      }
+      submittedIds.add(destination.id);
+      const row = await ctx.db.get(destination.id);
+      if (!row || row.serviceProfileId !== profile._id) {
+        throw new Error("Destinacija ne pripada ovom ScanMe Links profilu.");
+      }
+      if (
+        !Number.isInteger(destination.order) ||
+        destination.order < 0 ||
+        destination.order >= 100
+      ) {
+        throw new Error("Redosled destinacije nije ispravan.");
+      }
+      const url = destination.url.trim();
+      if (url && !isSafePublicDestination(url)) {
+        throw new Error("Destinacija mora biti bezbedan javni HTTPS link.");
+      }
+      if (destination.state === "active") activeCount += 1;
+      const defaults =
+        DESTINATION_DEFAULTS[destination.kind as DestinationKind];
+      await ctx.db.patch(row._id, {
+        kind: destination.kind,
+        draftLabel: requireText(
+          destination.label,
+          "Naziv destinacije",
+          1,
+          80,
+        ),
+        draftUrl: url,
+        draftIconKey: defaults.iconKey,
+        draftOrder: destination.order,
+        draftState: destination.state,
+        updatedAt: Date.now(),
+      });
+    }
+    if (activeCount > 10) {
+      throw new Error("ScanMe Links može imati najviše 10 aktivnih destinacija.");
+    }
+    const now = Date.now();
+    const draftRevision = config.draftRevision + 1;
+    await ctx.db.patch(config._id, {
+      draftDisplayName: displayName,
+      draftDescription: description,
+      draftLogoStorageId: args.logoStorageId,
+      draftPalette: palette,
+      draftPaletteAnalysis: paletteAnalysis,
+      draftDesignState: "ready",
+      draftDesign: design,
+      draftBackgroundImageStorageId: args.backgroundImageStorageId,
+      draftBackgroundVideoStorageId: args.backgroundVideoStorageId,
+      draftAccent: design.colors.accent.slice(0, 7),
+      hasUnpublishedChanges: true,
+      draftRevision,
+      updatedAt: now,
+    });
+    return {
+      saved: true,
+      draftRevision,
+      updatedAt: now,
+      design,
+    };
+  },
+});
+
 export const addDestination = mutation({
   args: {
     serviceProfileId: v.id("serviceProfiles"),
@@ -812,13 +1345,21 @@ export const addDestination = mutation({
       throw new Error("ScanMe Links profil nije pronađen.");
     }
     await requireEditorAccess(ctx, profile);
-    const rows = await ctx.db
+    const activeRows = await ctx.db
       .query("serviceDestinations")
-      .withIndex("by_serviceProfileId", (q) =>
-        q.eq("serviceProfileId", profile._id),
+      .withIndex("by_serviceProfileId_and_draftState", (q) =>
+        q
+          .eq("serviceProfileId", profile._id)
+          .eq("draftState", "active"),
       )
-      .take(200);
-    const visible = rows.filter((row) => row.draftState !== "deleted");
+      .take(10);
+    if (activeRows.length >= 10) {
+      throw new Error("ScanMe Links može imati najviše 10 aktivnih destinacija.");
+    }
+    const visible = await editorDestinations(ctx, profile._id);
+    if (visible.length >= 100) {
+      throw new Error("ScanMe Links nacrt moÅ¾e imati najviÅ¡e 100 destinacija.");
+    }
     const defaults = DESTINATION_DEFAULTS[args.kind as DestinationKind];
     const now = Date.now();
     const destinationId = await ctx.db.insert("serviceDestinations", {
@@ -830,12 +1371,13 @@ export const addDestination = mutation({
       draftUrl: "",
       draftIconKey: defaults.iconKey,
       draftOrder: visible.length,
-      draftState: "inactive",
+      draftState: "active",
+      draftPresentation: "button",
       createdAt: now,
       updatedAt: now,
     });
-    await markDraftChanged(ctx, profile._id);
-    return { destinationId };
+    const draftRevision = await markDraftChanged(ctx, profile._id);
+    return { destinationId, draftRevision };
   },
 });
 
@@ -850,12 +1392,15 @@ async function markDraftChanged(
     )
     .unique();
   if (config) {
+    const draftRevision = config.draftRevision + 1;
     await ctx.db.patch(config._id, {
       hasUnpublishedChanges: true,
-      draftRevision: config.draftRevision + 1,
+      draftRevision,
       updatedAt: Date.now(),
     });
+    return draftRevision;
   }
+  throw new Error("Konfiguracija nije pronađena.");
 }
 
 export const updateDestination = mutation({
@@ -878,13 +1423,15 @@ export const updateDestination = mutation({
       throw new Error("Destinacija mora biti bezbedan javni HTTPS link.");
     }
     if (args.state === "active" && row.draftState !== "active") {
-      const rows = await ctx.db
+      const activeRows = await ctx.db
         .query("serviceDestinations")
-        .withIndex("by_serviceProfileId", (q) =>
-          q.eq("serviceProfileId", row.serviceProfileId),
+        .withIndex("by_serviceProfileId_and_draftState", (q) =>
+          q
+            .eq("serviceProfileId", row.serviceProfileId)
+            .eq("draftState", "active"),
         )
-        .take(200);
-      if (rows.filter((candidate) => candidate.draftState === "active").length >= 10) {
+        .take(10);
+      if (activeRows.length >= 10) {
         throw new Error("ScanMe Links može imati najviše 10 aktivnih destinacija.");
       }
     }
@@ -950,12 +1497,7 @@ export const discardDraft = mutation({
       )
       .unique();
     if (!config) throw new Error("Konfiguracija nije pronađena.");
-    const rows = await ctx.db
-      .query("serviceDestinations")
-      .withIndex("by_serviceProfileId", (q) =>
-        q.eq("serviceProfileId", args.serviceProfileId),
-      )
-      .take(200);
+    const rows = await draftRowsForCommit(ctx, args.serviceProfileId);
     for (const row of rows) {
       if (!row.publishedState) {
         await ctx.db.delete(row._id);
@@ -966,6 +1508,8 @@ export const discardDraft = mutation({
           draftIconKey: row.publishedIconKey ?? row.draftIconKey,
           draftOrder: row.publishedOrder ?? row.draftOrder,
           draftState: row.publishedState,
+          draftPresentation:
+            row.publishedPresentation ?? row.draftPresentation ?? "button",
           updatedAt: Date.now(),
         });
       }
@@ -973,10 +1517,23 @@ export const discardDraft = mutation({
     await ctx.db.patch(config._id, {
       draftDisplayName: config.publishedDisplayName,
       draftLogoStorageId: config.publishedLogoStorageId,
+      draftDescription: config.publishedDescription ?? "",
       draftTemplateKey: config.publishedTemplateKey ?? "option-two",
       draftBackgroundKey: config.publishedBackgroundKey ?? "warm-ivory",
+      draftPalette:
+        config.publishedPalette ??
+        (config.publishedAccent
+          ? [config.publishedAccent]
+          : [DEFAULT_ACCENT]),
       draftAccent: config.publishedAccent ?? DEFAULT_ACCENT,
       draftAccentTokens: config.publishedAccentTokens ?? DEFAULT_ACCENT_TOKENS,
+      draftDesignState: "ready",
+      draftDesign: storedDesignV2(config.publishedDesign),
+      draftPaletteAnalysis: config.publishedPaletteAnalysis,
+      draftBackgroundImageStorageId:
+        config.publishedBackgroundImageStorageId ?? null,
+      draftBackgroundVideoStorageId:
+        config.publishedBackgroundVideoStorageId ?? null,
       hasUnpublishedChanges: false,
       draftRevision: config.draftRevision + 1,
       updatedAt: Date.now(),
@@ -1014,22 +1571,14 @@ export const publishDraft = mutation({
     ) {
       throw new Error("Pozadina ne pripada izabranom template-u.");
     }
-    if (config.draftLogoStorageId) {
-      const metadata = await ctx.db.system.get("_storage", config.draftLogoStorageId);
-      if (
-        !metadata ||
-        metadata.size > 5 * 1024 * 1024 ||
-        !["image/png", "image/jpeg", "image/webp"].includes(metadata.contentType ?? "")
-      ) {
-        throw new Error("Logo mora biti PNG, JPEG ili WebP fajl do 5 MB.");
-      }
-    }
-    const rows = await ctx.db
-      .query("serviceDestinations")
-      .withIndex("by_serviceProfileId", (q) =>
-        q.eq("serviceProfileId", profile._id),
-      )
-      .take(200);
+    await validateEditorMedia(ctx, {
+      logoStorageId: config.draftLogoStorageId ?? null,
+      backgroundImageStorageId:
+        config.draftBackgroundImageStorageId ?? null,
+      backgroundVideoStorageId:
+        config.draftBackgroundVideoStorageId ?? null,
+    });
+    const rows = await draftRowsForCommit(ctx, profile._id);
     const active = rows.filter((row) => row.draftState === "active");
     if (active.length > 10) throw new Error("Možete objaviti najviše 10 aktivnih destinacija.");
     for (const row of active) {
@@ -1041,11 +1590,13 @@ export const publishDraft = mutation({
     for (const row of rows) {
       if (row.draftState === "deleted") {
         await ctx.db.patch(row._id, {
+          publishedLabel: row.draftLabel,
+          publishedUrl: row.draftUrl,
+          publishedIconKey: row.draftIconKey,
+          publishedOrder: row.draftOrder,
           publishedState: "deleted",
+          publishedPresentation: row.draftPresentation ?? "button",
           updatedAt: now,
-        });
-        await ctx.scheduler.runAfter(0, internal.scanMeLinks.purgeDestination, {
-          destinationId: row._id,
         });
         continue;
       }
@@ -1055,22 +1606,35 @@ export const publishDraft = mutation({
         publishedIconKey: row.draftIconKey,
         publishedOrder: row.draftOrder,
         publishedState: row.draftState,
+        publishedPresentation: row.draftPresentation ?? "button",
         updatedAt: now,
       });
     }
+    const design = storedDesignV2(config.draftDesign);
     await ctx.db.patch(config._id, {
       publishedDisplayName: config.draftDisplayName,
       publishedLogoStorageId: config.draftLogoStorageId,
+      publishedDescription: config.draftDescription ?? "",
       publishedTemplateKey: config.draftTemplateKey,
       publishedBackgroundKey: config.draftBackgroundKey,
+      publishedPalette: config.draftPalette,
       publishedAccent: config.draftAccent,
       publishedAccentTokens: config.draftAccentTokens,
+      publishedDesign: design,
+      publishedPaletteAnalysis: config.draftPaletteAnalysis,
+      publishedBackgroundImageStorageId:
+        config.draftBackgroundImageStorageId ?? null,
+      publishedBackgroundVideoStorageId:
+        config.draftBackgroundVideoStorageId ?? null,
       hasUnpublishedChanges: false,
       publishedRevision: config.draftRevision,
       publishedAt: now,
       updatedAt: now,
     });
-    return { publishedAt: now };
+    return {
+      publishedAt: now,
+      publishedRevision: config.draftRevision,
+    };
   },
 });
 
@@ -1127,12 +1691,7 @@ export const metrics = query({
     const rows = args.destinationId
       ? await getDestinationMetricRows(ctx, args.destinationId, range, "clicks")
       : await getServiceMetricRows(ctx, profile._id, range, "scans");
-    const destinations = await ctx.db
-      .query("serviceDestinations")
-      .withIndex("by_serviceProfileId", (q) =>
-        q.eq("serviceProfileId", profile._id),
-      )
-      .take(100);
+    const destinations = await analyticsDestinations(ctx, profile._id);
     return {
       totalScans: profile.totalScans,
       totalPageViews: profile.totalPageViews,
@@ -1145,7 +1704,7 @@ export const metrics = query({
       rangeLabel: metricsRangeConfig[range].label,
       daily: aggregateMetricRowsForRange(rows, range),
       destinations: destinations
-        .filter((row) => row.publishedState && row.publishedState !== "deleted")
+        .filter((row) => Boolean(row.publishedState))
         .sort((a, b) => (a.publishedOrder ?? 0) - (b.publishedOrder ?? 0))
         .map((row) => ({
           id: row._id,
@@ -1156,74 +1715,5 @@ export const metrics = query({
           totalDirectVisits: row.totalDirectVisits,
         })),
     };
-  },
-});
-
-export const purgeDestination = internalMutation({
-  args: { destinationId: v.id("serviceDestinations") },
-  handler: async (ctx, args) => {
-    const destination = await ctx.db.get(args.destinationId);
-    if (!destination || destination.publishedState !== "deleted") return null;
-    const visits = await ctx.db
-      .query("destinationVisitEvents")
-      .withIndex("by_destinationId_and_occurredAt", (q) =>
-        q.eq("destinationId", destination._id),
-      )
-      .take(50);
-    for (const visit of visits) {
-      await ctx.db.delete(visit._id);
-      if (visit.kind !== "click") continue;
-      const scan = await ctx.db.get(visit.scanEventId);
-      if (!scan?.convertedAt) continue;
-      const remainingClicks = (
-        await ctx.db
-          .query("destinationVisitEvents")
-          .withIndex("by_scanEventId", (q) => q.eq("scanEventId", scan._id))
-          .take(20)
-      ).filter((event) => event.kind === "click");
-      if (remainingClicks.length) continue;
-      const profile = await ctx.db.get(scan.serviceProfileId);
-      if (profile) {
-        await ctx.db.patch(profile._id, {
-          totalConvertedSessions: Math.max(0, profile.totalConvertedSessions - 1),
-          updatedAt: Date.now(),
-        });
-      }
-      await ctx.db.patch(scan._id, { convertedAt: undefined });
-      const dateKey = serviceMetricDateKey(scan.scannedAt);
-      const dailyService = await ctx.db
-        .query("dailyServiceMetrics")
-        .withIndex("by_serviceProfileId_and_dateKey", (q) =>
-          q.eq("serviceProfileId", scan.serviceProfileId).eq("dateKey", dateKey),
-        )
-        .unique();
-      if (dailyService) {
-        await ctx.db.patch(dailyService._id, {
-          convertedSessions: Math.max(0, dailyService.convertedSessions - 1),
-          updatedAt: Date.now(),
-        });
-      }
-    }
-    if (visits.length) {
-      await ctx.scheduler.runAfter(0, internal.scanMeLinks.purgeDestination, {
-        destinationId: destination._id,
-      });
-      return null;
-    }
-    const daily = await ctx.db
-      .query("dailyDestinationMetrics")
-      .withIndex("by_destinationId_and_dateKey", (q) =>
-        q.eq("destinationId", destination._id),
-      )
-      .take(50);
-    for (const row of daily) await ctx.db.delete(row._id);
-    if (daily.length) {
-      await ctx.scheduler.runAfter(0, internal.scanMeLinks.purgeDestination, {
-        destinationId: destination._id,
-      });
-      return null;
-    }
-    await ctx.db.delete(destination._id);
-    return null;
   },
 });

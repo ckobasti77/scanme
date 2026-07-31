@@ -6,10 +6,13 @@ import {
 
 const isProtectedAdminRoute = createRouteMatcher(["/admin", "/admin/(.*)"]);
 const isAdminLogin = createRouteMatcher(["/admin/login"]);
+const isProtectedLinksEditorRoute = createRouteMatcher(
+  /^\/[^/]+\/editor\/?$/,
+);
 
 export default convexAuthNextjsMiddleware(async (request, { convexAuth }) => {
   if (
-    isProtectedAdminRoute(request) &&
+    (isProtectedAdminRoute(request) || isProtectedLinksEditorRoute(request)) &&
     !isAdminLogin(request) &&
     !(await convexAuth.isAuthenticated())
   ) {

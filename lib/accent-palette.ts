@@ -1,6 +1,9 @@
 import type { AccentTokens } from "@/lib/scanme-links";
 
 type Rgb = { r: number; g: number; b: number };
+type PaletteSource = HTMLCanvasElement | ImageBitmap;
+
+const MAX_SVG_RASTER_SIZE = 512;
 
 function clamp(value: number) {
   return Math.max(0, Math.min(255, Math.round(value)));
@@ -99,18 +102,78 @@ export function selectAccentCandidates(colors: string[]) {
   return selected.slice(0, 3);
 }
 
+async function rasterizeSvg(file: File) {
+  const objectUrl = URL.createObjectURL(file);
+  const image = new Image();
+
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const cleanup = () => {
+        image.onload = null;
+        image.onerror = null;
+      };
+
+      image.onload = () => {
+        cleanup();
+        resolve();
+      };
+      image.onerror = () => {
+        cleanup();
+        reject(new Error("SVG logotip nije moguće učitati."));
+      };
+      image.src = objectUrl;
+    });
+
+    if (!image.naturalWidth || !image.naturalHeight) {
+      throw new Error("SVG logotip nema ispravne dimenzije.");
+    }
+
+    const scale = Math.min(
+      1,
+      MAX_SVG_RASTER_SIZE / Math.max(image.naturalWidth, image.naturalHeight),
+    );
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+    canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+
+    const context = canvas.getContext("2d");
+    if (!context) {
+      throw new Error("SVG logotip nije moguće obraditi.");
+    }
+
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+    return canvas;
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
 export async function extractAccentCandidates(file: File) {
-  const bitmap = await createImageBitmap(file);
+  let source: PaletteSource;
+  let release: () => void;
+
+  if (file.type.toLowerCase() === "image/svg+xml") {
+    const canvas = await rasterizeSvg(file);
+    source = canvas;
+    release = () => {
+      canvas.width = 0;
+      canvas.height = 0;
+    };
+  } else {
+    const bitmap = await createImageBitmap(file);
+    source = bitmap;
+    release = () => bitmap.close();
+  }
+
   try {
     const { getPalette } = await import("colorthief");
-    const palette = await getPalette(bitmap, {
+    const palette = await getPalette(source, {
       colorCount: 10,
       quality: 6,
       colorSpace: "oklch",
     });
     return selectAccentCandidates((palette ?? []).map((color) => color.hex()));
   } finally {
-    bitmap.close();
+    release();
   }
 }
-

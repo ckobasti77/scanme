@@ -163,12 +163,24 @@ export const scanMeLinksMetrics = query({
             : "clicks",
         )
       : await getServiceMetricRows(ctx, profile._id, range, "scans");
-    const destinations = await ctx.db
-      .query("serviceDestinations")
-      .withIndex("by_serviceProfileId", (q) =>
-        q.eq("serviceProfileId", profile._id),
-      )
-      .take(100);
+    const destinations = [];
+    for (const state of [
+      "active",
+      "inactive",
+      "archived",
+      "deleted",
+    ] as const) {
+      const destinationQuery = ctx.db
+        .query("serviceDestinations")
+        .withIndex("by_serviceProfileId_and_publishedState", (q) =>
+          q
+            .eq("serviceProfileId", profile._id)
+            .eq("publishedState", state),
+        );
+      for await (const destination of destinationQuery) {
+        destinations.push(destination);
+      }
+    }
     return {
       status: "available" as const,
       businessName: access.business.name,
@@ -184,7 +196,7 @@ export const scanMeLinksMetrics = query({
       selectedDestinationId: selectedDestination?._id ?? null,
       daily: aggregateMetricRowsForRange(rows, range),
       destinations: destinations
-        .filter((row) => row.publishedState && row.publishedState !== "deleted")
+        .filter((row) => Boolean(row.publishedState))
         .sort((a, b) => (a.publishedOrder ?? 0) - (b.publishedOrder ?? 0))
         .map((row) => ({
           id: row._id,
