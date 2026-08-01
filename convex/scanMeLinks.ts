@@ -1248,7 +1248,7 @@ export const saveEditorDraft = mutation({
     const displayName = normalizeEditorText(
       args.displayName,
       "Naziv lokala",
-      20,
+      50,
     );
     const description = normalizeEditorText(
       args.description,

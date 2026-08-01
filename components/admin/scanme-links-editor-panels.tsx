@@ -12,7 +12,10 @@ import {
   Upload,
   Video,
 } from "lucide-react";
+import { motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
+import { EditorTooltip } from "@/components/admin/editor-tooltip";
+import { ScanMeColorField as ColorField } from "@/components/admin/scanme-color-picker";
 import { EditorAnalyticsPanel } from "@/components/scanme-links/editor-analytics-panel";
 import {
   Select,
@@ -22,6 +25,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { Id } from "@/convex/_generated/dataModel";
+import { colorDisplayName } from "@/lib/color-display-name";
 import {
   DESTINATION_DEFAULTS,
   DESTINATION_KINDS,
@@ -137,11 +141,11 @@ export function ContentPanel({
           <label className={styles.fieldLabel}>
             <span className="flex items-center justify-between gap-3">
               Naziv lokala
-              <span className={styles.counter}>{document.title.length}/20</span>
+              <span className={styles.counter}>{document.title.length}/50</span>
             </span>
             <input
               className={styles.fieldControl}
-              maxLength={20}
+              maxLength={50}
               value={document.title}
               onChange={(event) =>
                 setDocument(
@@ -226,12 +230,15 @@ export function ContentPanel({
           <div className={styles.paletteRow}>
             {document.palette.length ? (
               document.palette.map((color) => (
-                <span
+                <EditorTooltip
                   key={color}
-                  className={styles.swatch}
-                  style={{ backgroundColor: color }}
-                  title={color}
-                />
+                  label={`${colorDisplayName(color)} · ${color.toUpperCase()}`}
+                >
+                  <span
+                    className={styles.swatch}
+                    style={{ backgroundColor: color }}
+                  />
+                </EditorTooltip>
               ))
             ) : (
               <span className="text-[11px] text-black/45">
@@ -511,21 +518,29 @@ export function BackgroundPanel({
   return (
     <>
       <div className={styles.backgroundTabs} aria-label="Tip pozadine">
-        {allowedCategories.map((category) => (
-          <button
-            key={category}
-            type="button"
-            className={cn(
-              styles.backgroundTab,
-              design.background.category === category &&
-                styles.backgroundTabActive,
-            )}
-            aria-pressed={design.background.category === category}
-            onClick={() => selectCategory(category)}
-          >
-            {backgroundLabels[category]}
-          </button>
-        ))}
+        {allowedCategories.map((category) => {
+          const selected = design.background.category === category;
+          return (
+            <button
+              key={category}
+              type="button"
+              className={styles.backgroundTab}
+              aria-pressed={selected}
+              onClick={() => selectCategory(category)}
+            >
+              {selected ? (
+                <motion.span
+                  className={styles.backgroundTabActive}
+                  layoutId="editor-background-active"
+                  transition={{ type: "spring", stiffness: 430, damping: 34 }}
+                />
+              ) : null}
+              <span className={styles.backgroundTabLabel}>
+                {backgroundLabels[category]}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
       <section className={styles.sectionCard}>
@@ -860,28 +875,73 @@ function BackgroundFields({
         <label
           className={cn(
             styles.uploadZone,
-            "mt-4 !grid-cols-1 text-center",
+            styles.mediaUploadZone,
+            "mt-4",
             uploadBusy && "pointer-events-none opacity-60",
           )}
         >
-          <span className="mx-auto grid size-12 place-items-center rounded-2xl bg-white/65">
-            {mediaType === "image" ? (
-              <ImagePlus className="size-5" aria-hidden="true" />
-            ) : (
-              <Video className="size-5" aria-hidden="true" />
-            )}
-          </span>
-          <span className="text-xs font-bold">
-            {uploadBusy
-              ? "Otpremanje…"
-              : mediaUrl
-                ? "Zameni medij"
-                : "Dodaj medij ili prevuci bilo gde"}
-          </span>
-          <span className="text-[10px] text-black/45">
-            {mediaType === "image"
-              ? "PNG, JPEG ili WebP do 12 MB"
-              : "MP4 ili WebM do 30 MB"}
+          {mediaUrl ? (
+            <span
+              className={styles.mediaUploadPreview}
+              data-media-upload-preview={mediaType}
+            >
+              {mediaType === "image" ? (
+                // User-uploaded backgrounds can be arbitrary supported image formats.
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={mediaUrl} alt="" />
+              ) : (
+                <video
+                  src={mediaUrl}
+                  muted
+                  playsInline
+                  preload="metadata"
+                  controls={false}
+                  controlsList="nodownload nofullscreen noremoteplayback"
+                  disablePictureInPicture
+                  disableRemotePlayback
+                  tabIndex={-1}
+                  onContextMenu={(event) => event.preventDefault()}
+                  onLoadedMetadata={(event) => {
+                    const video = event.currentTarget;
+                    video.controls = false;
+                    if (Number.isFinite(video.duration) && video.duration > 0) {
+                      video.currentTime = Math.min(0.1, video.duration / 2);
+                    }
+                  }}
+                  {...{ "x-webkit-airplay": "deny" }}
+                />
+              )}
+              <span className={styles.mediaUploadKind} aria-hidden="true">
+                {mediaType === "image" ? (
+                  <ImagePlus className="size-4" />
+                ) : (
+                  <Video className="size-4" />
+                )}
+                {mediaType === "image" ? "Slika" : "Video"}
+              </span>
+            </span>
+          ) : (
+            <span className={styles.mediaUploadPlaceholder}>
+              {mediaType === "image" ? (
+                <ImagePlus className="size-5" aria-hidden="true" />
+              ) : (
+                <Video className="size-5" aria-hidden="true" />
+              )}
+            </span>
+          )}
+          <span className={styles.mediaUploadCopy}>
+            <span className="text-xs font-bold">
+              {uploadBusy
+                ? "Otpremanje…"
+                : mediaUrl
+                  ? "Zameni medij"
+                  : "Dodaj medij ili prevuci bilo gde"}
+            </span>
+            <span className="text-[10px] text-black/45">
+              {mediaType === "image"
+                ? "PNG, JPEG ili WebP do 12 MB"
+                : "MP4 ili WebM do 30 MB"}
+            </span>
           </span>
           <input
             className="sr-only"
@@ -1097,40 +1157,53 @@ export function ButtonPanel({
       <section className={styles.sectionCard}>
         <h3 className={styles.subheading}>Tip dugmeta</h3>
         <div className={styles.choiceGrid}>
-          {capabilities.allowedButtonVariants.map((variant) => (
-            <button
-              key={variant}
-              type="button"
-              className={cn(
-                styles.choiceCard,
-                design.buttons.variant === variant && styles.selectedCard,
-              )}
-              onClick={() =>
-                patchButtons({ variant }, "button-variant")
-              }
-            >
-              <span
-                className="block h-9 w-full"
-                style={{
-                  border: `${Math.max(1, design.buttons.borderWidth)}px solid ${design.colors.border}`,
-                  borderRadius: design.buttons.radius,
-                  background:
-                    variant === "outline"
-                      ? "transparent"
-                      : variant === "glass"
-                        ? "rgba(255,255,255,.5)"
-                        : design.colors.button,
-                  boxShadow:
-                    variant === "glass"
-                      ? "inset 0 1px rgba(255,255,255,.7)"
-                      : undefined,
-                }}
-              />
-              <span className="mt-2 block text-xs font-bold">
-                {buttonVariantLabel(variant)}
-              </span>
-            </button>
-          ))}
+          {(["solid", "outline", "glass"] as const).map((variant) => {
+            const available = capabilities.allowedButtonVariants.includes(variant);
+            const button = (
+              <button
+                type="button"
+                disabled={!available}
+                className={cn(
+                  styles.choiceCard,
+                  design.buttons.variant === variant && styles.selectedCard,
+                  !available && styles.disabledCard,
+                )}
+                onClick={() => patchButtons({ variant }, "button-variant")}
+              >
+                <span
+                  className="block h-9 w-full"
+                  style={{
+                    border: `${Math.max(1, design.buttons.borderWidth)}px solid ${design.colors.border}`,
+                    borderRadius: design.buttons.radius,
+                    background:
+                      variant === "outline"
+                        ? "transparent"
+                        : variant === "glass"
+                          ? "rgba(255,255,255,.5)"
+                          : design.colors.button,
+                    boxShadow:
+                      variant === "glass"
+                        ? "inset 0 1px rgba(255,255,255,.7)"
+                        : undefined,
+                  }}
+                />
+                <span className="mt-2 block text-xs font-bold">
+                  {buttonVariantLabel(variant)}
+                </span>
+              </button>
+            );
+
+            return available ? (
+              <span key={variant}>{button}</span>
+            ) : (
+              <EditorTooltip
+                key={variant}
+                label="Ovaj tip dugmeta nije dostupan za ovaj stil."
+              >
+                {button}
+              </EditorTooltip>
+            );
+          })}
         </div>
         <div className={cn(styles.fieldGrid, "mt-4")}>
           <RadiusField
@@ -1276,16 +1349,19 @@ export function ButtonPanel({
             ["stroke", "Stroke"],
             ["liquid-metal", "Liquid metal"],
           ].map(([value, label]) => (
-            <button
+            <EditorTooltip
               key={value}
-              type="button"
-              disabled
-              className={cn(styles.choiceCard, styles.disabledCard)}
-              title="Vizuelna referenca će biti dodata u sledećoj fazi."
+              label="Vizuelna referenca će biti dodata u sledećoj fazi."
             >
-              <Sparkles className="size-5" aria-hidden="true" />
-              <span className="mt-3 block text-xs font-bold">{label}</span>
-            </button>
+              <button
+                type="button"
+                disabled
+                className={cn(styles.choiceCard, styles.disabledCard)}
+              >
+                <Sparkles className="size-5" aria-hidden="true" />
+                <span className="mt-3 block text-xs font-bold">{label}</span>
+              </button>
+            </EditorTooltip>
           ))}
         </div>
       </section>
@@ -1680,9 +1756,9 @@ function EditorSelect({
 }
 
 const radiusOptions = [
-  { value: 12, label: "Blago" },
-  { value: 24, label: "Srednje" },
-  { value: 36, label: "Naglašeno" },
+  { value: 0, previewRadius: 0, label: "Oštro" },
+  { value: 24, previewRadius: 12, label: "Srednje" },
+  { value: 36, previewRadius: 28, label: "Naglašeno" },
 ] as const;
 
 function RadiusField({
@@ -1705,60 +1781,29 @@ function RadiusField({
         {radiusOptions.map((option) => {
           const selected = option.value === selectedValue;
           return (
-            <button
-              key={option.value}
-              type="button"
-              className={cn(
-                styles.radiusChoice,
-                selected && styles.radiusChoiceActive,
-              )}
-              aria-label={`${option.label} zaobljenje`}
-              aria-pressed={selected}
-              title={option.label}
-              onClick={() => onChange(option.value)}
-            >
-              <span
-                className={styles.radiusShape}
-                style={{ borderTopLeftRadius: option.value }}
-                aria-hidden="true"
-              />
-              <span className="sr-only">{option.label}</span>
-            </button>
+            <EditorTooltip key={option.value} label={option.label}>
+              <button
+                type="button"
+                className={cn(
+                  styles.radiusChoice,
+                  selected && styles.radiusChoiceActive,
+                )}
+                aria-label={`${option.label} zaobljenje`}
+                aria-pressed={selected}
+                onClick={() => onChange(option.value)}
+              >
+                <span
+                  className={styles.radiusShape}
+                  style={{ borderTopLeftRadius: option.previewRadius }}
+                  aria-hidden="true"
+                />
+                <span className="sr-only">{option.label}</span>
+              </button>
+            </EditorTooltip>
           );
         })}
       </div>
     </fieldset>
-  );
-}
-
-function ColorField({
-  label,
-  value,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-}) {
-  return (
-    <label className={styles.fieldLabel}>
-      {label}
-      <span className={styles.colorControl}>
-        <input
-          className={styles.colorInput}
-          type="color"
-          value={safeColor(value)}
-          onChange={(event) => onChange(event.target.value.toUpperCase())}
-        />
-        <input
-          className={styles.fieldControl}
-          value={value}
-          maxLength={9}
-          onChange={(event) => onChange(event.target.value)}
-          aria-label={`${label} heksadecimalna vrednost`}
-        />
-      </span>
-    </label>
   );
 }
 
@@ -1931,10 +1976,6 @@ function TexturePreview({
       }}
     />
   );
-}
-
-function safeColor(value: string) {
-  return /^#[0-9a-f]{6}$/i.test(value) ? value : "#000000";
 }
 
 function buttonVariantLabel(variant: ScanMeLinksButtonVariant) {

@@ -271,13 +271,34 @@ function safeDestinationHref(url: string) {
   }
 }
 
-function BackgroundVideo({ src }: { src: string }) {
+function BackgroundVideo({
+  src,
+  fit,
+  positionX,
+  positionY,
+}: {
+  src: string;
+  fit: "cover" | "contain";
+  positionX: number;
+  positionY: number;
+}) {
   const ref = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
     const element = ref.current;
-    if (!element) return;
+    const canvas = canvasRef.current;
+    if (!element || !canvas) return;
     const motionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+    let active = true;
+    let animationFrameId: number | null = null;
+    let videoFrameId: number | null = null;
+    const lockNativeControls = () => {
+      element.controls = false;
+      element.disablePictureInPicture = true;
+      element.disableRemotePlayback = true;
+      element.removeAttribute("controls");
+    };
     const syncPlayback = () => {
       if (motionQuery.matches) {
         element.pause();
@@ -288,25 +309,134 @@ function BackgroundVideo({ src }: { src: string }) {
         // Browser autoplay policies can still pause the decorative background.
       });
     };
+    const preventContextMenu = (event: MouseEvent) => event.preventDefault();
+    const leavePictureInPicture = () => {
+      if (document.pictureInPictureElement === element) {
+        void document.exitPictureInPicture().catch(() => undefined);
+      }
+    };
+    const resumeDecorativePlayback = () => {
+      if (active && !motionQuery.matches) syncPlayback();
+    };
+    const drawFrame = () => {
+      if (
+        !active ||
+        element.readyState < HTMLMediaElement.HAVE_CURRENT_DATA ||
+        !element.videoWidth ||
+        !element.videoHeight
+      ) {
+        return;
+      }
 
+      const bounds = canvas.getBoundingClientRect();
+      const density = Math.min(window.devicePixelRatio || 1, 2);
+      const targetWidth = Math.max(1, Math.round(bounds.width * density));
+      const targetHeight = Math.max(1, Math.round(bounds.height * density));
+      if (canvas.width !== targetWidth || canvas.height !== targetHeight) {
+        canvas.width = targetWidth;
+        canvas.height = targetHeight;
+      }
+
+      const context = canvas.getContext("2d");
+      if (!context) return;
+      const scale =
+        fit === "contain"
+          ? Math.min(
+              targetWidth / element.videoWidth,
+              targetHeight / element.videoHeight,
+            )
+          : Math.max(
+              targetWidth / element.videoWidth,
+              targetHeight / element.videoHeight,
+            );
+      const drawWidth = element.videoWidth * scale;
+      const drawHeight = element.videoHeight * scale;
+      const offsetX =
+        (targetWidth - drawWidth) * (Math.min(100, Math.max(0, positionX)) / 100);
+      const offsetY =
+        (targetHeight - drawHeight) *
+        (Math.min(100, Math.max(0, positionY)) / 100);
+
+      context.clearRect(0, 0, targetWidth, targetHeight);
+      context.imageSmoothingEnabled = true;
+      context.imageSmoothingQuality = "high";
+      context.drawImage(element, offsetX, offsetY, drawWidth, drawHeight);
+    };
+    const scheduleFrame = () => {
+      if (!active) return;
+      if ("requestVideoFrameCallback" in element) {
+        videoFrameId = element.requestVideoFrameCallback(() => {
+          drawFrame();
+          scheduleFrame();
+        });
+      } else {
+        animationFrameId = window.requestAnimationFrame(() => {
+          drawFrame();
+          scheduleFrame();
+        });
+      }
+    };
+    const controlsObserver = new MutationObserver(lockNativeControls);
+    const resizeObserver = new ResizeObserver(drawFrame);
+
+    lockNativeControls();
     syncPlayback();
+    controlsObserver.observe(element, {
+      attributes: true,
+      attributeFilter: ["controls"],
+    });
+    element.addEventListener("contextmenu", preventContextMenu);
+    element.addEventListener("enterpictureinpicture", leavePictureInPicture);
+    element.addEventListener("loadeddata", drawFrame);
+    element.addEventListener("seeked", drawFrame);
+    element.addEventListener("pause", resumeDecorativePlayback);
+    resizeObserver.observe(canvas);
+    scheduleFrame();
     motionQuery.addEventListener("change", syncPlayback);
     return () => {
+      active = false;
+      controlsObserver.disconnect();
+      resizeObserver.disconnect();
+      if (animationFrameId !== null) {
+        window.cancelAnimationFrame(animationFrameId);
+      }
+      if (videoFrameId !== null && "cancelVideoFrameCallback" in element) {
+        element.cancelVideoFrameCallback(videoFrameId);
+      }
+      element.removeEventListener("contextmenu", preventContextMenu);
+      element.removeEventListener(
+        "enterpictureinpicture",
+        leavePictureInPicture,
+      );
+      element.removeEventListener("loadeddata", drawFrame);
+      element.removeEventListener("seeked", drawFrame);
+      element.removeEventListener("pause", resumeDecorativePlayback);
       motionQuery.removeEventListener("change", syncPlayback);
       element.pause();
     };
-  }, [src]);
+  }, [fit, positionX, positionY, src]);
 
   return (
-    <video
-      ref={ref}
-      src={src}
-      muted
-      loop
-      playsInline
-      preload="metadata"
-      tabIndex={-1}
-    />
+    <>
+      <canvas ref={canvasRef} aria-hidden="true" />
+      <video
+        ref={ref}
+        className={styles.mediaDecoder}
+        src={src}
+        aria-hidden="true"
+        muted
+        loop
+        playsInline
+        preload="auto"
+        controls={false}
+        controlsList="nodownload nofullscreen noremoteplayback"
+        disablePictureInPicture
+        disableRemotePlayback
+        tabIndex={-1}
+        onContextMenu={(event) => event.preventDefault()}
+        {...{ "x-webkit-airplay": "deny" }}
+      />
+    </>
   );
 }
 
@@ -400,6 +530,7 @@ function Background({
         <span
           aria-hidden="true"
           className={styles.mediaLayer}
+          data-fit={background.fit}
           style={
             {
               "--links-media-fit": background.fit,
@@ -409,7 +540,12 @@ function Background({
           }
         >
           {background.mediaType === "video" ? (
-            <BackgroundVideo src={mediaUrl} />
+            <BackgroundVideo
+              src={mediaUrl}
+              fit={background.fit}
+              positionX={background.positionX}
+              positionY={background.positionY}
+            />
           ) : (
             // User-uploaded backgrounds can be arbitrary supported image formats.
             // eslint-disable-next-line @next/next/no-img-element
@@ -451,7 +587,7 @@ export function OptionTwoFrame({
   children: ReactNode;
 }) {
   const design = resolveDesign(view);
-  const title = view.displayName.trim().slice(0, 20);
+  const title = view.displayName.trim().slice(0, 50);
   const description = view.description?.trim().slice(0, 50) ?? "";
   const hasIdentity = Boolean(view.logoUrl || title || description);
 

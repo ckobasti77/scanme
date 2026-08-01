@@ -434,9 +434,9 @@ test("novi editor validira tekst i normalizuje opcije koje stil ne podržava", a
   await expect(
     setup.asAdmin.mutation(api.scanMeLinks.saveEditorDraft, {
       ...baseArgs,
-      displayName: "x".repeat(21),
+      displayName: "x".repeat(51),
     }),
-  ).rejects.toThrow("20 karaktera");
+  ).rejects.toThrow("50 karaktera");
   await expect(
     setup.asAdmin.mutation(api.scanMeLinks.saveEditorDraft, {
       ...baseArgs,

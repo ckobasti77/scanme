@@ -27,13 +27,18 @@ import { useRouter } from "next/navigation";
 import {
   useCallback,
   useEffect,
+  useId,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
+  type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
+  type ReactNode,
 } from "react";
 import { toast } from "sonner";
 import { AdminGuard } from "@/components/admin/admin-guard";
+import { EditorTooltip } from "@/components/admin/editor-tooltip";
 import {
   AnalyticsPanel,
   BackgroundPanel,
@@ -500,6 +505,14 @@ function EditorWorkspace({
     setActivePanel("content");
   }
 
+  function handlePanelSelect(panel: EditorPanelId) {
+    const nextPanel = activePanel === panel ? null : panel;
+    if (nextPanel !== "content") {
+      setSelectedDestinationId(null);
+    }
+    setActivePanel(nextPanel);
+  }
+
   function confirmDeleteDestination() {
     if (!deleteTarget) return;
     const destinationId = deleteTarget.id;
@@ -659,13 +672,43 @@ function EditorWorkspace({
   function handleWorkspacePointerDown(event: ReactPointerEvent<HTMLDivElement>) {
     const target = event.target;
     if (!(target instanceof Element)) return;
+
     if (
       target.closest(
-        "[data-editor-preserve-panel='true'],[data-context-panel='true'],[data-rail='true']",
+        "[data-slot='select-content'],[data-radix-popper-content-wrapper]",
       )
     ) {
       return;
     }
+
+    if (target.closest("[data-editor-destination='true']")) {
+      return;
+    }
+
+    if (target.closest("[data-editor-preview='true']")) {
+      setSelectedDestinationId(null);
+      return;
+    }
+
+    if (target.closest("[data-context-panel='true']")) {
+      if (activePanel !== "content") {
+        setSelectedDestinationId(null);
+      }
+      return;
+    }
+
+    if (target.closest("[data-rail='true']")) return;
+
+    if (
+      target.closest(
+        "button,a,input,textarea,select,[role='button'],[role='combobox'],[data-editor-preserve-panel='true']",
+      )
+    ) {
+      setSelectedDestinationId(null);
+      return;
+    }
+
+    setSelectedDestinationId(null);
     setActivePanel(null);
   }
 
@@ -717,7 +760,11 @@ function EditorWorkspace({
       <div className={styles.desktopEditor}>
         <EditorBackdrop />
 
-        <header className={styles.topBar} data-editor-preserve-panel="true">
+        <header
+          className={styles.topBar}
+          data-editor-preserve-panel="true"
+          onPointerDown={() => setSelectedDestinationId(null)}
+        >
           <Link className={styles.brandLink} href="/admin/scanme-links">
             <BrandLogo width="6.6rem" />
             <span className="sr-only">Nazad na ScanMe Links admin panel</span>
@@ -725,12 +772,12 @@ function EditorWorkspace({
           <SaveStatus state={saveState} error={saveError} />
           <div className={styles.topSpacer} />
           <div className={styles.utilityGroup} aria-label="Istorija izmena">
+            <EditorTooltip label="Undo · Ctrl+Z">
             <button
               className={styles.iconButton}
               type="button"
               disabled={!history.canUndo}
               aria-label="Vrati prethodnu izmenu (Ctrl+Z)"
-              title="Undo · Ctrl+Z"
               onClick={() => {
                 setSaveState("saving");
                 history.undo();
@@ -738,12 +785,13 @@ function EditorWorkspace({
             >
               <Undo2 className="size-[17px]" aria-hidden="true" />
             </button>
+            </EditorTooltip>
+            <EditorTooltip label="Redo · Ctrl+Shift+Z">
             <button
               className={styles.iconButton}
               type="button"
               disabled={!history.canRedo}
               aria-label="Ponovi izmenu (Ctrl+Shift+Z)"
-              title="Redo · Ctrl+Shift+Z"
               onClick={() => {
                 setSaveState("saving");
                 history.redo();
@@ -751,6 +799,7 @@ function EditorWorkspace({
             >
               <Redo2 className="size-[17px]" aria-hidden="true" />
             </button>
+            </EditorTooltip>
           </div>
           <button
             type="button"
@@ -776,9 +825,7 @@ function EditorWorkspace({
         >
           <EditorRail
             activePanel={activePanel}
-            onSelect={(panel) =>
-              setActivePanel((current) => (current === panel ? null : panel))
-            }
+            onSelect={handlePanelSelect}
           />
 
           <div className={styles.contextSlot}>
@@ -823,7 +870,7 @@ function EditorWorkspace({
                       </p>
                     </div>
                   </div>
-                  <div className={styles.panelScroll}>
+                  <PanelScrollArea key={activePanel}>
                     <AnimatePresence mode="wait" initial={false}>
                       <motion.div
                         key={activePanel}
@@ -855,7 +902,7 @@ function EditorWorkspace({
                         />
                       </motion.div>
                     </AnimatePresence>
-                  </div>
+                  </PanelScrollArea>
                 </motion.aside>
               ) : null}
             </AnimatePresence>
@@ -1004,6 +1051,173 @@ function EditorRail({
   );
 }
 
+type PanelScrollState = {
+  clientHeight: number;
+  scrollHeight: number;
+  scrollTop: number;
+  trackHeight: number;
+};
+
+function PanelScrollArea({ children }: { children: ReactNode }) {
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const trackRef = useRef<HTMLDivElement>(null);
+  const viewportId = useId();
+  const dragRef = useRef<{
+    pointerId: number;
+    startY: number;
+    startScrollTop: number;
+  } | null>(null);
+  const [scrollState, setScrollState] = useState<PanelScrollState>({
+    clientHeight: 0,
+    scrollHeight: 0,
+    scrollTop: 0,
+    trackHeight: 0,
+  });
+
+  const syncScrollState = useCallback(() => {
+    const viewport = viewportRef.current;
+    const track = trackRef.current;
+    if (!viewport) return;
+    setScrollState({
+      clientHeight: viewport.clientHeight,
+      scrollHeight: viewport.scrollHeight,
+      scrollTop: viewport.scrollTop,
+      trackHeight: track?.clientHeight ?? 0,
+    });
+  }, []);
+
+  useLayoutEffect(() => {
+    syncScrollState();
+  }, [syncScrollState]);
+
+  useEffect(() => {
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+
+    const resizeObserver = new ResizeObserver(syncScrollState);
+    resizeObserver.observe(viewport);
+    if (viewport.firstElementChild) {
+      resizeObserver.observe(viewport.firstElementChild);
+    }
+    if (trackRef.current) resizeObserver.observe(trackRef.current);
+    syncScrollState();
+
+    return () => resizeObserver.disconnect();
+  }, [syncScrollState]);
+
+  const maxScroll = Math.max(
+    0,
+    scrollState.scrollHeight - scrollState.clientHeight,
+  );
+  const viewportRatio =
+    scrollState.scrollHeight > 0
+      ? Math.min(1, scrollState.clientHeight / scrollState.scrollHeight)
+      : 1;
+  const hasOverflow = maxScroll > 1;
+  const thumbHeight = scrollState.trackHeight
+    ? Math.max(42, scrollState.trackHeight * viewportRatio)
+    : 0;
+  const movableTrackHeight = Math.max(
+    0,
+    scrollState.trackHeight - thumbHeight,
+  );
+  const scrollProgress = maxScroll
+    ? Math.min(1, Math.max(0, scrollState.scrollTop / maxScroll))
+    : 0;
+
+  function moveTo(scrollTop: number) {
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+    viewport.scrollTop = Math.min(maxScroll, Math.max(0, scrollTop));
+  }
+
+  function handlePointerDown(event: ReactPointerEvent<HTMLButtonElement>) {
+    dragRef.current = {
+      pointerId: event.pointerId,
+      startY: event.clientY,
+      startScrollTop: scrollState.scrollTop,
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+
+  function handlePointerMove(event: ReactPointerEvent<HTMLButtonElement>) {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId || !movableTrackHeight) {
+      return;
+    }
+    moveTo(
+      drag.startScrollTop +
+        (event.clientY - drag.startY) * (maxScroll / movableTrackHeight),
+    );
+  }
+
+  function handlePointerEnd(event: ReactPointerEvent<HTMLButtonElement>) {
+    if (dragRef.current?.pointerId !== event.pointerId) return;
+    dragRef.current = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+  }
+
+  function handleKeyDown(event: ReactKeyboardEvent<HTMLButtonElement>) {
+    const step = Math.max(72, scrollState.clientHeight * 0.18);
+    if (event.key === "ArrowUp") moveTo(scrollState.scrollTop - step);
+    else if (event.key === "ArrowDown") moveTo(scrollState.scrollTop + step);
+    else if (event.key === "PageUp") {
+      moveTo(scrollState.scrollTop - scrollState.clientHeight * 0.8);
+    } else if (event.key === "PageDown") {
+      moveTo(scrollState.scrollTop + scrollState.clientHeight * 0.8);
+    } else if (event.key === "Home") moveTo(0);
+    else if (event.key === "End") moveTo(maxScroll);
+    else return;
+    event.preventDefault();
+  }
+
+  return (
+    <div className={styles.panelScrollShell}>
+      <div
+        id={viewportId}
+        ref={viewportRef}
+        className={styles.panelScroll}
+        data-panel-scroll="true"
+        onScroll={syncScrollState}
+      >
+        {children}
+      </div>
+      <div
+        ref={trackRef}
+        className={styles.panelScrollTrack}
+        data-visible={hasOverflow}
+        aria-hidden={!hasOverflow}
+      >
+        <span className={styles.panelScrollRail} aria-hidden="true" />
+        {hasOverflow ? (
+          <button
+            type="button"
+            role="scrollbar"
+            aria-label="Pomeranje panela"
+            aria-controls={viewportId}
+            aria-orientation="vertical"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={Math.round(scrollProgress * 100)}
+            className={styles.panelScrollThumb}
+            style={{
+              height: `${thumbHeight}px`,
+              top: `${scrollProgress * movableTrackHeight}px`,
+            }}
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerEnd}
+            onPointerCancel={handlePointerEnd}
+            onKeyDown={handleKeyDown}
+          />
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 function RailButton({
   item,
   active,
@@ -1050,11 +1264,10 @@ function SaveStatus({
   state: EditorSaveState;
   error: string | null;
 }) {
-  return (
+  const status = (
     <span
       className={styles.saveState}
       role="status"
-      title={state === "error" ? error ?? "Greška pri čuvanju" : undefined}
     >
       <span className={styles.saveStateDot}>
         {state === "saving" ? (
@@ -1071,6 +1284,14 @@ function SaveStatus({
           ? "Nije sačuvano"
           : "Sačuvano"}
     </span>
+  );
+
+  return state === "error" ? (
+    <EditorTooltip label={error ?? "Greška pri čuvanju"} align="start">
+      {status}
+    </EditorTooltip>
+  ) : (
+    status
   );
 }
 
@@ -1222,8 +1443,8 @@ function documentHash(document: ScanMeLinksEditorDocument) {
 }
 
 function validateDocument(document: ScanMeLinksEditorDocument) {
-  if (document.title.length > 20) {
-    throw new Error("Naziv lokala može imati najviše 20 karaktera.");
+  if (document.title.length > 50) {
+    throw new Error("Naziv lokala može imati najviše 50 karaktera.");
   }
   if (document.description.length > 50) {
     throw new Error("Kratak opis može imati najviše 50 karaktera.");

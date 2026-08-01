@@ -40,10 +40,12 @@ export function MetricsBarChart({
   const maximum = useMemo(() => Math.max(1, ...rows.map((row) => row.count)), [rows]);
   const dataKey = `${rangeLabel}:${rows.map((row) => row.dateKey).join("|")}`;
   const chartLabel = rows.map((row) => `${row.label}, ${row.count}`).join("; ");
-  const lineChartWidth = Math.max(76, rows.length * 76);
+  const lineChartWidth = Math.max(400, rows.length * 76);
+  const lineEdgePadding = Math.min(110, 44 / lineChartWidth * 1000);
+  const linePointSpan = 1000 - lineEdgePadding * 2;
   const linePoints = rows.map((row, index) => ({
     ...row,
-    x: rows.length === 1 ? 500 : 40 + index * (920 / Math.max(1, rows.length - 1)),
+    x: rows.length === 1 ? 500 : lineEdgePadding + index * (linePointSpan / Math.max(1, rows.length - 1)),
     y: rows.length === 1 ? 45 : 14 + (1 - row.count / maximum) * 60,
   }));
 
@@ -60,7 +62,7 @@ export function MetricsBarChart({
   useLayoutEffect(() => {
     const viewport = viewportRef.current;
     if (!viewport) return;
-    viewport.scrollLeft = Math.max(0, viewport.scrollWidth - viewport.clientWidth);
+    viewport.scrollLeft = 0;
     syncScrollState();
   }, [dataKey]);
 
@@ -148,12 +150,22 @@ export function MetricsBarChart({
   }
 
   return (
-    <div className="mt-6">
+    <div className="mt-6 min-w-0 max-w-full">
       <div className="relative">
         {variant === "line" && rows.length ? (
-          <div className="pointer-events-none absolute inset-0 z-10 text-[10px] uppercase tracking-[0.12em] text-muted-foreground" aria-hidden="true">
-            <span className="absolute left-2 top-1 bg-card/90 px-1.5 py-1">Y / Skeniranja</span>
-            <span className="absolute bottom-7 right-2 bg-card/90 px-1.5 py-1">Vreme / X</span>
+          <div
+            className="pointer-events-none absolute inset-0 z-10 text-[10px] uppercase tracking-[0.12em] text-muted-foreground"
+            aria-hidden="true"
+          >
+            <span
+              className="absolute left-3 top-1/2 -translate-x-1/2 -translate-y-1/2 -rotate-90 bg-card/90 px-1.5 py-1"
+              data-line-y-axis-label
+            >
+              Y / Skeniranja
+            </span>
+            <span className="absolute right-2 top-0 bg-card/90 px-1.5 py-1" data-line-x-axis-label>
+              X / Vreme
+            </span>
           </div>
         ) : null}
         <div
@@ -178,7 +190,7 @@ export function MetricsBarChart({
           {variant === "line" ? (
             rows.length ? (
               <>
-                <div className="absolute inset-x-0 bottom-8 top-2 border-b border-border">
+                <div className="absolute inset-x-0 bottom-8 top-12 border-b border-border">
                   {[14, 44, 74].map((position) => (
                     <span key={position} className="absolute inset-x-0 h-px bg-border/55" style={{ top: `${position}%` }} aria-hidden="true" />
                   ))}
@@ -198,12 +210,13 @@ export function MetricsBarChart({
                   {linePoints.map((point) => (
                     <span
                       key={point.dateKey}
-                      className="absolute size-3 -translate-x-1/2 -translate-y-1/2 bg-primary ring-4 ring-card"
+                      className="metric-tooltip-target absolute size-3 -translate-x-1/2 -translate-y-1/2 bg-primary ring-4 ring-card"
                       style={{ left: `${point.x / 10}%`, top: `${point.y}%` }}
-                      title={`${point.label}: ${numberFormatter.format(point.count)}`}
+                      data-metric-tooltip={`${point.label}: ${numberFormatter.format(point.count)}`}
+                      data-line-point
                       aria-hidden="true"
                     >
-                      <strong className="absolute bottom-full left-1/2 mb-2 -translate-x-1/2 whitespace-nowrap text-[10px] font-semibold tabular-nums text-foreground sm:text-xs">
+                      <strong className="absolute bottom-full left-1/2 mb-2 -translate-x-1/2 whitespace-nowrap text-[10px] font-semibold tabular-nums text-foreground sm:text-xs" data-line-value>
                         {numberFormatter.format(point.count)}
                       </strong>
                     </span>
@@ -215,6 +228,7 @@ export function MetricsBarChart({
                       key={point.dateKey}
                       className="absolute -translate-x-1/2 whitespace-nowrap text-[10px] text-muted-foreground sm:text-xs"
                       style={{ left: `${point.x / 10}%` }}
+                      data-line-label
                     >
                       {point.label}
                     </span>
@@ -230,9 +244,9 @@ export function MetricsBarChart({
               <div key={row.dateKey} className={cn("grid h-full gap-2", showCounts ? "grid-rows-[1fr_auto_auto]" : "grid-rows-[1fr_auto]")}>
                 <div className="flex items-end border-b border-border">
                   <div
-                    className="w-full bg-primary transition-[height] duration-300 ease-out motion-reduce:transition-none"
+                    className="metric-tooltip-target relative w-full bg-primary transition-[height] duration-300 ease-out motion-reduce:transition-none"
                     style={{ height: `${Math.max(3, row.count / maximum * 100)}%` }}
-                    title={`${row.label}: ${numberFormatter.format(row.count)}`}
+                    data-metric-tooltip={`${row.label}: ${numberFormatter.format(row.count)}`}
                   />
                 </div>
                 {showCounts ? <strong className="text-center text-xs tabular-nums">{numberFormatter.format(row.count)}</strong> : null}
@@ -245,7 +259,7 @@ export function MetricsBarChart({
 
       {hasOverflow ? (
         <div ref={trackRef} className="relative mt-4 h-5">
-          <div className="absolute inset-x-0 top-2 h-px bg-border" />
+          <div className="metrics-scroll-track absolute inset-x-0 top-2 h-px bg-border" />
           <button
             type="button"
             role="scrollbar"
@@ -255,7 +269,7 @@ export function MetricsBarChart({
             aria-valuemin={0}
             aria-valuemax={100}
             aria-valuenow={Math.round(scrollProgress * 100)}
-            className="metrics-scroll-thumb pointer-events-none absolute top-1 h-2 touch-none bg-primary outline-none transition-[box-shadow] focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:pointer-events-auto"
+            className="metrics-scroll-thumb pointer-events-none absolute top-1 h-2 touch-none outline-none transition-[box-shadow] focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:pointer-events-auto"
             style={{
               left: `${scrollProgress * (1 - viewportRatio) * 100}%`,
               width: `${viewportRatio * 100}%`,

@@ -12,8 +12,7 @@
 }
 
 .preview {
-  min-height: 660px;
-  border-radius: 1.8rem;
+  min-height: 100%;
 }
 
 .backgroundLayer,
@@ -54,13 +53,30 @@
   transform-origin: center;
 }
 
+.mediaLayer[data-fit="cover"] {
+  inset: -2px;
+  width: auto;
+  height: auto;
+}
+
 .mediaLayer img,
-.mediaLayer video {
+.mediaLayer canvas {
   display: block;
   width: 100%;
   height: 100%;
   object-fit: var(--links-media-fit, cover);
   object-position: var(--links-media-position, 50% 50%);
+}
+
+.mediaDecoder {
+  position: absolute !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 1px !important;
+  height: 1px !important;
+  clip-path: inset(50%) !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
 }
 
 .mediaOverlay {

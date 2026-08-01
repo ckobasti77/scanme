@@ -14,7 +14,10 @@ import { MetricsPeriodSelect } from "@/components/metrics-period-select";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import type { MetricsRange } from "@/convex/lib/metrics";
+import { serbianPluralForm } from "@/lib/serbian-plural";
 import { useRetainedQueryResult } from "@/lib/use-retained-query-result";
+import { cn } from "@/lib/utils";
+import styles from "@/components/admin/scanme-links-editor.module.css";
 
 const numberFormatter = new Intl.NumberFormat("sr-Latn-RS");
 const percentFormatter = new Intl.NumberFormat("sr-Latn-RS", {
@@ -49,34 +52,31 @@ export function EditorAnalyticsPanel({
     );
   }
 
+  const destinationCountLabel = serbianPluralForm(
+    metrics.destinations.length,
+    ["link", "linka", "linkova"],
+  );
+
   return (
     <section
-      className="grid gap-5"
+      className={cn(styles.editorAnalytics, "grid min-w-0 gap-5")}
       aria-busy={metricsQuery === undefined}
-      aria-labelledby="editor-analytics-heading"
+      aria-label="Analitika"
     >
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h2
-            id="editor-analytics-heading"
-            className="text-xl font-semibold tracking-[-0.04em]"
-          >
-            Analitika
-          </h2>
-          <p className="mt-1 text-xs leading-5 text-muted-foreground">
-            Rezultati objavljene ScanMe Links stranice.
-          </p>
-        </div>
-        <div className="w-44 shrink-0 rounded-2xl border border-border/70 bg-background/75 px-3">
+      <div className="flex min-w-0 justify-end">
+        <div className="w-44 max-w-full shrink-0 rounded-2xl border border-border/70 bg-background/75 px-3">
           <MetricsPeriodSelect
             value={range}
             onChange={setRange}
             ariaLabel="Period prikazane ScanMe Links analitike"
+            triggerClassName={styles.analyticsSelectTrigger}
+            contentClassName={styles.editorSelectContent}
+            itemClassName={styles.editorSelectItem}
           />
         </div>
       </div>
 
-      <dl className="grid grid-cols-2 gap-3">
+      <dl className="grid min-w-0 grid-cols-2 gap-3">
         <MetricCard
           icon={ScanLine}
           label="Skeniranja"
@@ -104,7 +104,7 @@ export function EditorAnalyticsPanel({
         />
       </dl>
 
-      <div className="rounded-[1.5rem] border border-border/70 bg-background/75 p-4 shadow-[0_14px_34px_rgba(28,25,23,0.06)]">
+      <div className="min-w-0 max-w-full overflow-hidden rounded-[1.5rem] border border-border/70 bg-background/75 p-4 shadow-[0_14px_34px_rgba(28,25,23,0.06)]">
         <div>
           <h3 className="text-sm font-semibold">Aktivnost po periodu</h3>
           <p className="mt-1 text-xs text-muted-foreground">
@@ -121,7 +121,7 @@ export function EditorAnalyticsPanel({
         />
       </div>
 
-      <div>
+      <div className="min-w-0">
         <div className="flex items-end justify-between gap-3">
           <div>
             <h3 className="text-sm font-semibold">Linkovi</h3>
@@ -131,9 +131,9 @@ export function EditorAnalyticsPanel({
           </div>
           <span
             className="text-[11px] font-medium text-muted-foreground"
-            aria-label={`${metrics.destinations.length} linkova u analitici`}
+            aria-label={`${metrics.destinations.length} ${destinationCountLabel} u analitici`}
           >
-            {metrics.destinations.length} linkova
+            {metrics.destinations.length} {destinationCountLabel}
           </span>
         </div>
 
@@ -141,6 +141,10 @@ export function EditorAnalyticsPanel({
           <ul className="mt-3 grid gap-2" aria-label="Klikovi po linkovima">
             {metrics.destinations.map((destination) => {
               const deleted = String(destination.state) === "deleted";
+              const clickCountLabel = serbianPluralForm(
+                destination.totalClicks,
+                ["klik", "klika", "klikova"],
+              );
 
               return (
                 <li
@@ -159,11 +163,11 @@ export function EditorAnalyticsPanel({
                   </div>
                   <span
                     className="shrink-0 text-sm font-semibold tabular-nums"
-                    aria-label={`${numberFormatter.format(destination.totalClicks)} klikova`}
+                    aria-label={`${numberFormatter.format(destination.totalClicks)} ${clickCountLabel}`}
                   >
                     {numberFormatter.format(destination.totalClicks)}
                     <span className="ml-1 text-[11px] font-normal text-muted-foreground">
-                      klikova
+                      {clickCountLabel}
                     </span>
                   </span>
                 </li>
@@ -212,12 +216,8 @@ function MetricCard({
 
 function AnalyticsPanelSkeleton() {
   return (
-    <section className="grid animate-pulse gap-5" aria-label="Učitavanje analitike">
-      <div className="flex items-start justify-between gap-4">
-        <div className="grid gap-2">
-          <div className="h-6 w-24 rounded-full bg-foreground/10" />
-          <div className="h-3 w-48 rounded-full bg-foreground/5" />
-        </div>
+    <section className="grid min-w-0 animate-pulse gap-5" aria-label="Učitavanje analitike">
+      <div className="flex justify-end">
         <div className="h-11 w-44 rounded-2xl bg-foreground/8" />
       </div>
       <div className="grid grid-cols-2 gap-3">
