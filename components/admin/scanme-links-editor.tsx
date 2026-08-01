@@ -105,6 +105,31 @@ const secondaryRailItems = [
   { id: "help", label: "Pomoć", icon: CircleHelp },
 ] as const;
 
+const PRIMARY_RAIL_DISPLACEMENT_MAP = `data:image/svg+xml,${encodeURIComponent(`
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" preserveAspectRatio="none">
+    <defs>
+      <linearGradient id="x" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0" stop-color="rgb(255,0,0)" />
+        <stop offset="0.045" stop-color="rgb(178,0,0)" />
+        <stop offset="0.1" stop-color="rgb(128,0,0)" />
+        <stop offset="0.9" stop-color="rgb(128,0,0)" />
+        <stop offset="0.955" stop-color="rgb(78,0,0)" />
+        <stop offset="1" stop-color="rgb(0,0,0)" />
+      </linearGradient>
+      <linearGradient id="y" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="rgb(0,255,0)" />
+        <stop offset="0.009" stop-color="rgb(0,178,0)" />
+        <stop offset="0.019" stop-color="rgb(0,128,0)" />
+        <stop offset="0.981" stop-color="rgb(0,128,0)" />
+        <stop offset="0.991" stop-color="rgb(0,78,0)" />
+        <stop offset="1" stop-color="rgb(0,0,0)" />
+      </linearGradient>
+    </defs>
+    <rect width="100" height="100" fill="url(#x)" />
+    <rect width="100" height="100" fill="url(#y)" style="mix-blend-mode:screen" />
+  </svg>
+`)}`;
+
 const panelCopy: Record<
   EditorPanelId,
   { title: string; description: string }
@@ -759,6 +784,7 @@ function EditorWorkspace({
       <span data-theme-toggle="local" hidden />
       <div className={styles.desktopEditor}>
         <EditorBackdrop />
+        <EditorLensFilterDefinitions />
 
         <header
           className={styles.topBar}
@@ -1019,13 +1045,40 @@ function EditorRail({
   activePanel: EditorPanelId | null;
   onSelect: (panel: EditorPanelId) => void;
 }) {
+  function handleLensPointerMove(event: ReactPointerEvent<HTMLDivElement>) {
+    if (
+      event.pointerType === "touch" ||
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches ||
+      window.matchMedia("(prefers-reduced-transparency: reduce)").matches
+    ) {
+      return;
+    }
+
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const x = ((event.clientX - bounds.left) / bounds.width) * 100;
+    const y = ((event.clientY - bounds.top) / bounds.height) * 100;
+
+    event.currentTarget.style.setProperty("--scanme-rail-lens-x", `${x}%`);
+    event.currentTarget.style.setProperty("--scanme-rail-lens-y", `${y}%`);
+  }
+
+  function handleLensPointerLeave(event: ReactPointerEvent<HTMLDivElement>) {
+    event.currentTarget.style.removeProperty("--scanme-rail-lens-x");
+    event.currentTarget.style.removeProperty("--scanme-rail-lens-y");
+  }
+
   return (
     <nav
       className={styles.railStack}
       data-rail="true"
       aria-label="Alati editora"
     >
-      <div className={styles.rail}>
+      <div
+        className={cn(styles.rail, styles.primaryRailLens)}
+        data-liquid-lens="primary-rail"
+        onPointerMove={handleLensPointerMove}
+        onPointerLeave={handleLensPointerLeave}
+      >
         {primaryRailItems.map((item) => (
           <RailButton
             key={item.id}
@@ -1304,6 +1357,46 @@ function EditorBackdrop() {
       <span className={styles.paperMauve} />
       <span className={styles.paperOchre} />
     </div>
+  );
+}
+
+function EditorLensFilterDefinitions() {
+  return (
+    <svg
+      className={styles.lensFilterDefinitions}
+      width="0"
+      height="0"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <defs>
+        <filter
+          id="scanme-primary-rail-refraction"
+          x="-6%"
+          y="-2%"
+          width="112%"
+          height="104%"
+          colorInterpolationFilters="sRGB"
+        >
+          <feImage
+            href={PRIMARY_RAIL_DISPLACEMENT_MAP}
+            x="0"
+            y="0"
+            width="100%"
+            height="100%"
+            preserveAspectRatio="none"
+            result="rail-displacement-map"
+          />
+          <feDisplacementMap
+            in="SourceGraphic"
+            in2="rail-displacement-map"
+            scale="3"
+            xChannelSelector="R"
+            yChannelSelector="G"
+          />
+        </filter>
+      </defs>
+    </svg>
   );
 }
 

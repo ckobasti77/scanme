@@ -359,6 +359,106 @@
   padding: 8px 7px;
 }
 
+@property --scanme-rail-lens-x {
+  syntax: "<percentage>";
+  inherits: false;
+  initial-value: 16%;
+}
+
+@property --scanme-rail-lens-y {
+  syntax: "<percentage>";
+  inherits: false;
+  initial-value: 8%;
+}
+
+.lensFilterDefinitions {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.primaryRailLens {
+  --scanme-rail-lens-edge: 8px;
+  --scanme-rail-lens-x: 16%;
+  --scanme-rail-lens-y: 8%;
+
+  border-color: rgba(255, 255, 255, 0.5);
+  background: linear-gradient(
+    145deg,
+    rgba(255, 249, 243, 0.12),
+    rgba(255, 249, 243, 0.08)
+  );
+  -webkit-backdrop-filter: blur(10px) saturate(116%) brightness(102%);
+  backdrop-filter: blur(10px) saturate(116%) brightness(102%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    inset 1px 0 0 rgba(255, 255, 255, 0.32),
+    inset 0 -1px 0 rgba(62, 46, 40, 0.07),
+    0 2px 5px rgba(47, 36, 31, 0.05),
+    0 18px 42px rgba(47, 36, 31, 0.1);
+}
+
+.primaryRailLens::before,
+.primaryRailLens::after {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  box-sizing: border-box;
+  border-radius: inherit;
+  content: "";
+  pointer-events: none;
+  padding: var(--scanme-rail-lens-edge);
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+}
+
+.primaryRailLens::before {
+  background: rgba(255, 255, 255, 0.012);
+  -webkit-backdrop-filter: url("#scanme-primary-rail-refraction");
+  backdrop-filter: url("#scanme-primary-rail-refraction");
+  opacity: 0.72;
+}
+
+.primaryRailLens::after {
+  inset: 1px;
+  padding: calc(var(--scanme-rail-lens-edge) - 1px);
+  background:
+    radial-gradient(
+      35px 55px at var(--scanme-rail-lens-x) var(--scanme-rail-lens-y),
+      rgba(255, 255, 255, 0.1),
+      transparent 100%
+    ),
+    linear-gradient(
+      145deg,
+      rgba(255, 255, 255, 0.12),
+      transparent 38% 72%,
+      rgba(62, 46, 40, 0.035)
+    );
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+  opacity: 0.6;
+  transition:
+    opacity 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    --scanme-rail-lens-x 140ms cubic-bezier(0.22, 1, 0.36, 1),
+    --scanme-rail-lens-y 140ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.primaryRailLens:hover::after {
+  opacity: 1;
+}
+
+.primaryRailLens > * {
+  position: relative;
+  z-index: 1;
+}
+
 .railBottom {
   composes: rail;
   margin-top: auto;
@@ -1742,6 +1842,11 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .primaryRailLens {
+    --scanme-rail-lens-x: 16% !important;
+    --scanme-rail-lens-y: 8% !important;
+  }
+
   .editorRoot *,
   .editorRoot *::before,
   .editorRoot *::after {
@@ -1761,5 +1866,10 @@
     background: rgba(250, 246, 240, 0.96);
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
+  }
+
+  .primaryRailLens::before,
+  .primaryRailLens::after {
+    display: none;
   }
 }
