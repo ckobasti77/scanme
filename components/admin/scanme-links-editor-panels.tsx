@@ -7,15 +7,16 @@ import {
   ImagePlus,
   Link2,
   Palette,
-  Sparkles,
   Trash2,
   Upload,
   Video,
+  Waves,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import { EditorTooltip } from "@/components/admin/editor-tooltip";
 import { ScanMeColorField as ColorField } from "@/components/admin/scanme-color-picker";
+import { ScanMeSmartPalette } from "@/components/admin/scanme-smart-palette";
 import { EditorAnalyticsPanel } from "@/components/scanme-links/editor-analytics-panel";
 import {
   Select,
@@ -41,7 +42,9 @@ import {
   type ScanMeLinksButtonVariant,
   type ScanMeLinksDesignV2,
   type ScanMeLinksFontKey,
+  type ScanMeLinksShadowV2,
 } from "@/lib/scanme-links-design";
+import { deriveBackgroundCompanionColor } from "@/lib/scanme-palette";
 import { cn } from "@/lib/utils";
 import styles from "./scanme-links-editor.module.css";
 import type {
@@ -248,17 +251,28 @@ export function ContentPanel({
           </div>
         </div>
 
-        <div className={cn(styles.futurePalette, "mt-4")}>
-          <Sparkles className="size-5 shrink-0" aria-hidden="true" />
-          <span>
-            <strong className="block text-black/65">
-              Pametni predlog palete
-            </strong>
-            Uskoro ćemo ovde predlagati skladne pozadinske, akcentne i tekstualne
-            boje na osnovu logotipa.
-          </span>
-        </div>
+        <ScanMeSmartPalette document={document} setDocument={setDocument} />
       </section>
+
+      <ShadowControls
+        title="Senka logotipa"
+        description="Suptilna dubina logotipa bez uticaja na ostale elemente."
+        switchLabel="Uključi senku logotipa"
+        shadow={document.design.effects.logoShadow}
+        groupPrefix="logo-shadow"
+        onChange={(logoShadow, group) =>
+          setDocument(
+            (current) => ({
+              ...current,
+              design: {
+                ...current.design,
+                effects: { ...current.design.effects, logoShadow },
+              },
+            }),
+            group,
+          )
+        }
+      />
 
       {selectedDestination ? (
         <section
@@ -1021,7 +1035,7 @@ function BackgroundFields({
           </div>
           <div className={styles.twoColumns}>
             <ColorField
-              label="Preliv"
+              label="Overlay"
               value={background.overlayColor}
               onChange={(overlayColor) =>
                 updateBackground(
@@ -1031,7 +1045,7 @@ function BackgroundFields({
               }
             />
             <RangeField
-              label={`Preliv · ${Math.round(background.overlayOpacity * 100)}%`}
+              label={`Overlay · ${Math.round(background.overlayOpacity * 100)}%`}
               min={0}
               max={80}
               value={background.overlayOpacity * 100}
@@ -1067,7 +1081,7 @@ function BackgroundFields({
               )
             }
           >
-            <Sparkles className="size-5" aria-hidden="true" />
+            <Waves className="size-5" aria-hidden="true" />
             <span className="mt-3 block text-xs font-bold">
               {variant === "aurora" ? "Aurora" : "Meki talasi"}
             </span>
@@ -1123,6 +1137,90 @@ function BackgroundFields({
         />
       </div>
     </>
+  );
+}
+
+function ShadowControls({
+  title,
+  description,
+  switchLabel,
+  shadow,
+  groupPrefix,
+  onChange,
+}: {
+  title: string;
+  description: string;
+  switchLabel: string;
+  shadow: ScanMeLinksShadowV2;
+  groupPrefix: string;
+  onChange: (shadow: ScanMeLinksShadowV2, group: string) => void;
+}) {
+  function patchShadow(
+    patch: Partial<ScanMeLinksShadowV2>,
+    groupSuffix: string,
+  ) {
+    onChange({ ...shadow, ...patch }, `${groupPrefix}-${groupSuffix}`);
+  }
+
+  return (
+    <section className={styles.sectionCard}>
+      <div className={styles.switchRow}>
+        <div>
+          <h3 className="text-sm font-bold">{title}</h3>
+          <p className="mt-1 text-[11px] text-black/50">{description}</p>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={shadow.enabled}
+          aria-label={switchLabel}
+          className={cn(styles.switch, shadow.enabled && styles.switchOn)}
+          onClick={() => patchShadow({ enabled: !shadow.enabled }, "toggle")}
+        />
+      </div>
+
+      {shadow.enabled ? (
+        <div className={cn(styles.fieldGrid, "mt-4")}>
+          <ColorField
+            label="Boja senke"
+            value={shadow.color}
+            onChange={(color) => patchShadow({ color }, "color")}
+          />
+          <div className={styles.twoColumns}>
+            <RangeField
+              label={`X · ${Math.round(shadow.x)} px`}
+              min={-24}
+              max={24}
+              value={shadow.x}
+              onChange={(x) => patchShadow({ x }, "x")}
+            />
+            <RangeField
+              label={`Y · ${Math.round(shadow.y)} px`}
+              min={-24}
+              max={32}
+              value={shadow.y}
+              onChange={(y) => patchShadow({ y }, "y")}
+            />
+          </div>
+          <div className={styles.twoColumns}>
+            <RangeField
+              label={`Blur · ${Math.round(shadow.blur)} px`}
+              min={0}
+              max={64}
+              value={shadow.blur}
+              onChange={(blur) => patchShadow({ blur }, "blur")}
+            />
+            <RangeField
+              label={`Intenzitet · ${Math.round(shadow.opacity * 100)}%`}
+              min={0}
+              max={60}
+              value={shadow.opacity * 100}
+              onChange={(value) => patchShadow({ opacity: value / 100 }, "opacity")}
+            />
+          </div>
+        </div>
+      ) : null}
+    </section>
   );
 }
 
@@ -1233,111 +1331,14 @@ export function ButtonPanel({
         </div>
       </section>
 
-      <section className={styles.sectionCard}>
-        <div className={styles.switchRow}>
-          <div>
-            <h3 className="text-sm font-bold">Drop shadow</h3>
-            <p className="mt-1 text-[11px] text-black/50">
-              Neutralna ili obojena senka ispod dugmeta.
-            </p>
-          </div>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={design.buttons.shadow.enabled}
-            aria-label="Uključi senku dugmeta"
-            className={cn(
-              styles.switch,
-              design.buttons.shadow.enabled && styles.switchOn,
-            )}
-            onClick={() =>
-              patchButtons(
-                {
-                  shadow: {
-                    ...design.buttons.shadow,
-                    enabled: !design.buttons.shadow.enabled,
-                  },
-                },
-                "button-shadow-toggle",
-              )
-            }
-          />
-        </div>
-
-        {design.buttons.shadow.enabled ? (
-          <div className={cn(styles.fieldGrid, "mt-4")}>
-            <ColorField
-              label="Boja senke"
-              value={design.buttons.shadow.color}
-              onChange={(color) =>
-                patchButtons(
-                  { shadow: { ...design.buttons.shadow, color } },
-                  "button-shadow-color",
-                )
-              }
-            />
-            <div className={styles.twoColumns}>
-              <RangeField
-                label={`X · ${Math.round(design.buttons.shadow.x)} px`}
-                min={-24}
-                max={24}
-                value={design.buttons.shadow.x}
-                onChange={(x) =>
-                  patchButtons(
-                    { shadow: { ...design.buttons.shadow, x } },
-                    "button-shadow-x",
-                  )
-                }
-              />
-              <RangeField
-                label={`Y · ${Math.round(design.buttons.shadow.y)} px`}
-                min={-24}
-                max={32}
-                value={design.buttons.shadow.y}
-                onChange={(y) =>
-                  patchButtons(
-                    { shadow: { ...design.buttons.shadow, y } },
-                    "button-shadow-y",
-                  )
-                }
-              />
-            </div>
-            <div className={styles.twoColumns}>
-              <RangeField
-                label={`Blur · ${Math.round(design.buttons.shadow.blur)} px`}
-                min={0}
-                max={64}
-                value={design.buttons.shadow.blur}
-                onChange={(blur) =>
-                  patchButtons(
-                    { shadow: { ...design.buttons.shadow, blur } },
-                    "button-shadow-blur",
-                  )
-                }
-              />
-              <RangeField
-                label={`Intenzitet · ${Math.round(
-                  design.buttons.shadow.opacity * 100,
-                )}%`}
-                min={0}
-                max={60}
-                value={design.buttons.shadow.opacity * 100}
-                onChange={(value) =>
-                  patchButtons(
-                    {
-                      shadow: {
-                        ...design.buttons.shadow,
-                        opacity: value / 100,
-                      },
-                    },
-                    "button-shadow-opacity",
-                  )
-                }
-              />
-            </div>
-          </div>
-        ) : null}
-      </section>
+      <ShadowControls
+        title="Drop shadow"
+        description="Neutralna ili obojena senka ispod dugmeta."
+        switchLabel="Uključi senku dugmeta"
+        shadow={design.buttons.shadow}
+        groupPrefix="button-shadow"
+        onChange={(shadow, group) => patchButtons({ shadow }, group)}
+      />
 
       <section className={styles.sectionCard}>
         <div className="flex items-center justify-between gap-3">
@@ -1358,7 +1359,7 @@ export function ButtonPanel({
                 disabled
                 className={cn(styles.choiceCard, styles.disabledCard)}
               >
-                <Sparkles className="size-5" aria-hidden="true" />
+                <Waves className="size-5" aria-hidden="true" />
                 <span className="mt-3 block text-xs font-bold">{label}</span>
               </button>
             </EditorTooltip>
@@ -1436,9 +1437,212 @@ export function TextPanel({
           />
         </div>
       </section>
+
+      <ShadowControls
+        title="Senka teksta"
+        description="Jedna senka za naslov, opis i tekst dugmadi."
+        switchLabel="Uključi senku teksta"
+        shadow={document.design.effects.textShadow}
+        groupPrefix="text-shadow"
+        onChange={(textShadow, group) =>
+          setDocument(
+            (current) => ({
+              ...current,
+              design: {
+                ...current.design,
+                effects: { ...current.design.effects, textShadow },
+              },
+            }),
+            group,
+          )
+        }
+      />
     </div>
   );
 }
+
+function MasterBackgroundFields({
+  document,
+  setDocument,
+}: {
+  document: ScanMeLinksEditorDocument;
+  setDocument: EditorDocumentSetter;
+}) {
+  const background = document.design.background;
+
+  function updateBackground(
+    nextBackground: ScanMeLinksBackgroundV2,
+    group: string,
+    pageColor?: string,
+  ) {
+    setDocument(
+      (current) => ({
+        ...current,
+        design: {
+          ...current.design,
+          background: nextBackground,
+          colors: pageColor
+            ? { ...current.design.colors, page: pageColor }
+            : current.design.colors,
+        },
+      }),
+      group,
+    );
+  }
+
+  if (background.category === "flat") {
+    return (
+      <ColorField
+        label="Pozadina"
+        value={background.color}
+        onChange={(color) =>
+          updateBackground({ ...background, color }, "master-background-flat", color)
+        }
+      />
+    );
+  }
+
+  if (background.category === "gradient") {
+    return (
+      <div className={styles.twoColumns}>
+        <ColorField
+          label="Početna boja"
+          value={background.startColor}
+          onChange={(startColor) =>
+            updateBackground(
+              { ...background, startColor },
+              "master-background-gradient-start",
+              startColor,
+            )
+          }
+        />
+        <ColorField
+          label="Završna boja"
+          value={background.endColor}
+          onChange={(endColor) =>
+            updateBackground(
+              { ...background, endColor },
+              "master-background-gradient-end",
+            )
+          }
+        />
+      </div>
+    );
+  }
+
+  if (background.category === "pattern") {
+    return (
+      <div className={styles.twoColumns}>
+        <ColorField
+          label="Boja pozadine"
+          value={background.backgroundColor}
+          onChange={(backgroundColor) =>
+            updateBackground(
+              { ...background, backgroundColor },
+              "master-background-pattern-base",
+              backgroundColor,
+            )
+          }
+        />
+        <ColorField
+          label="Boja šare"
+          value={background.patternColor}
+          onChange={(patternColor) =>
+            updateBackground(
+              { ...background, patternColor },
+              "master-background-pattern-detail",
+            )
+          }
+        />
+      </div>
+    );
+  }
+
+  if (background.category === "texture") {
+    return (
+      <div className={styles.twoColumns}>
+        <ColorField
+          label="Boja pozadine"
+          value={background.backgroundColor}
+          onChange={(backgroundColor) =>
+            updateBackground(
+              { ...background, backgroundColor },
+              "master-background-texture-base",
+              backgroundColor,
+            )
+          }
+        />
+        <ColorField
+          label="Ton teksture"
+          value={background.tintColor}
+          onChange={(tintColor) =>
+            updateBackground(
+              { ...background, tintColor },
+              "master-background-texture-tint",
+            )
+          }
+        />
+      </div>
+    );
+  }
+
+  if (background.category === "media") {
+    return (
+      <div className={styles.twoColumns}>
+        <ColorField
+          label="Overlay"
+          value={background.overlayColor}
+          onChange={(overlayColor) =>
+            updateBackground(
+              { ...background, overlayColor },
+              "master-background-media-overlay",
+            )
+          }
+        />
+        <RangeField
+          label={`Overlay · ${Math.round(background.overlayOpacity * 100)}%`}
+          min={0}
+          max={80}
+          value={background.overlayOpacity * 100}
+          onChange={(value) =>
+            updateBackground(
+              { ...background, overlayOpacity: value / 100 },
+              "master-background-media-opacity",
+            )
+          }
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className={styles.twoColumns}>
+      <ColorField
+        label="Boja osnove"
+        value={background.baseColor}
+        onChange={(baseColor) =>
+          updateBackground(
+            { ...background, baseColor },
+            "master-background-animation-base",
+            baseColor,
+          )
+        }
+      />
+      <ColorField
+        label="Akcent animacije"
+        value={background.accentColor}
+        onChange={(accentColor) =>
+          updateBackground(
+            { ...background, accentColor },
+            "master-background-animation-accent",
+          )
+        }
+      />
+    </div>
+  );
+}
+
+type MasterShadowTarget = "global" | "button" | "text" | "logo";
 
 export function ColorPanel({
   document,
@@ -1448,6 +1652,47 @@ export function ColorPanel({
   setDocument: EditorDocumentSetter;
 }) {
   const colors = document.design.colors;
+  const [shadowTarget, setShadowTarget] =
+    useState<MasterShadowTarget>("global");
+  const shadowColor =
+    shadowTarget === "text"
+      ? document.design.effects.textShadow.color
+      : shadowTarget === "logo"
+        ? document.design.effects.logoShadow.color
+        : document.design.buttons.shadow.color;
+
+  function updateShadowColor(color: string) {
+    setDocument(
+      (current) => {
+        const updateButton =
+          shadowTarget === "global" || shadowTarget === "button";
+        const updateText = shadowTarget === "global" || shadowTarget === "text";
+        const updateLogo = shadowTarget === "global" || shadowTarget === "logo";
+
+        return {
+          ...current,
+          design: {
+            ...current.design,
+            buttons: updateButton
+              ? {
+                  ...current.design.buttons,
+                  shadow: { ...current.design.buttons.shadow, color },
+                }
+              : current.design.buttons,
+            effects: {
+              textShadow: updateText
+                ? { ...current.design.effects.textShadow, color }
+                : current.design.effects.textShadow,
+              logoShadow: updateLogo
+                ? { ...current.design.effects.logoShadow, color }
+                : current.design.effects.logoShadow,
+            },
+          },
+        };
+      },
+      `master-shadow-${shadowTarget}`,
+    );
+  }
 
   return (
     <div className="grid gap-4">
@@ -1462,26 +1707,10 @@ export function ColorPanel({
           </div>
         </div>
         <div className={styles.fieldGrid}>
-          <ColorField
-            label="Pozadina / osnova"
-            value={colors.page}
-            onChange={(page) =>
-              setDocument(
-                (current) => ({
-                  ...current,
-                  design: {
-                    ...current.design,
-                    colors: { ...current.design.colors, page },
-                    background:
-                      current.design.background.category === "flat"
-                        ? { category: "flat", color: page }
-                        : current.design.background,
-                  },
-                }),
-                "master-page",
-              )
-            }
-          />
+          <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-black/45">
+            Pozadina · {backgroundLabels[document.design.background.category]}
+          </p>
+          <MasterBackgroundFields document={document} setDocument={setDocument} />
           <ColorField
             label="Površine"
             value={colors.surface}
@@ -1547,6 +1776,37 @@ export function ColorPanel({
                 patchDesignColors(setDocument, { border }, "master-border")
               }
             />
+          </div>
+          <div className="mt-2 border-t border-black/10 pt-4">
+            <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.12em] text-black/45">
+              Boja senke
+            </p>
+            <div className={styles.twoColumns}>
+              <div className={styles.fieldLabel}>
+                <span>Primena</span>
+                <EditorSelect
+                  ariaLabel="Izaberi senku"
+                  value={shadowTarget}
+                  onValueChange={(value) =>
+                    setShadowTarget(value as MasterShadowTarget)
+                  }
+                  options={[
+                    { value: "global", label: "Globalna" },
+                    { value: "button", label: "Dugme" },
+                    { value: "text", label: "Tekst" },
+                    { value: "logo", label: "Logo" },
+                  ]}
+                />
+              </div>
+              <ColorField
+                label={shadowTarget === "global" ? "Sve senke" : "Izabrana senka"}
+                value={shadowColor}
+                onChange={updateShadowColor}
+              />
+            </div>
+            <p className="mt-2 text-[10px] leading-4 text-black/45">
+              Promena boje ne uključuje senke koje su trenutno isključene.
+            </p>
           </div>
         </div>
       </section>
@@ -1863,6 +2123,7 @@ function defaultBackgroundForCategory(
   design: ScanMeLinksDesignV2,
 ): ScanMeLinksBackgroundV2 {
   const colors = design.colors;
+  const companion = deriveBackgroundCompanionColor(colors.page, category);
   const variants =
     SCANME_LINKS_PRESET_CAPABILITIES[design.presetKey]
       .allowedBackgroundVariants;
@@ -1873,7 +2134,7 @@ function defaultBackgroundForCategory(
         category,
         variant: variants.gradient?.[0] ?? "linear",
         startColor: colors.page,
-        endColor: colors.accent,
+        endColor: companion,
         angle: 135,
         centerX: 50,
         centerY: 50,
@@ -1883,7 +2144,7 @@ function defaultBackgroundForCategory(
         category,
         variant: variants.pattern?.[0] ?? "grid",
         backgroundColor: colors.page,
-        patternColor: colors.accent,
+        patternColor: companion,
         scale: 24,
         opacity: 0.18,
       };
@@ -1892,7 +2153,7 @@ function defaultBackgroundForCategory(
         category,
         variant: variants.texture?.[0] ?? "paper",
         backgroundColor: colors.page,
-        tintColor: colors.accent,
+        tintColor: companion,
         intensity: 0.2,
       };
     case "media":
@@ -1911,7 +2172,7 @@ function defaultBackgroundForCategory(
         category,
         variant: variants.animation?.[0] ?? "aurora",
         baseColor: colors.page,
-        accentColor: colors.accent,
+        accentColor: companion,
         speed: 1,
         intensity: 0.4,
       };

@@ -62,6 +62,9 @@ export type AccentStyle = CSSProperties & {
   "--links-button-padding-x"?: string;
   "--links-button-padding-y"?: string;
   "--links-button-shadow"?: string;
+  "--links-text-shadow"?: string;
+  "--links-logo-shadow"?: string;
+  "--links-powered-color"?: string;
   "--links-flow-gap"?: string;
   "--links-heading-size"?: string;
   "--links-body-size"?: string;

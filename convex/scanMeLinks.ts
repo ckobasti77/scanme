@@ -42,6 +42,7 @@ import {
   createDefaultScanMeLinksDesignV2,
   normalizeDesignForPreset,
   type ScanMeLinksDesignV2,
+  type ScanMeLinksDesignV2Input,
 } from "../lib/scanme-links-design";
 import {
   paletteAnalysisValidator,
@@ -161,7 +162,7 @@ function storedDesignV2(
   return createDefaultScanMeLinksDesignV2(design?.presetKey);
 }
 
-function normalizeEditorDesign(design: ScanMeLinksDesignV2) {
+function normalizeEditorDesign(design: ScanMeLinksDesignV2Input) {
   const normalized = normalizeDesignForPreset(design, design.presetKey);
   const colors = Object.fromEntries(
     Object.entries(normalized.colors).map(([key, value]) => [
@@ -222,6 +223,16 @@ function normalizeEditorDesign(design: ScanMeLinksDesignV2) {
         color: normalizeDesignHex(normalized.buttons.shadow.color),
       },
     },
+    effects: {
+      textShadow: {
+        ...normalized.effects.textShadow,
+        color: normalizeDesignHex(normalized.effects.textShadow.color),
+      },
+      logoShadow: {
+        ...normalized.effects.logoShadow,
+        color: normalizeDesignHex(normalized.effects.logoShadow.color),
+      },
+    },
   } satisfies ScanMeLinksDesignV2;
 }
 
@@ -243,6 +254,8 @@ function normalizePaletteAnalysis(
         original: string[];
         adjusted: string[];
         correctedRoles: string[];
+        generationMode?: "light" | "dark";
+        lockedSlots?: boolean[];
       }
     | null
     | undefined,
@@ -251,7 +264,8 @@ function normalizePaletteAnalysis(
   if (
     value.original.length > 8 ||
     value.adjusted.length > 8 ||
-    value.correctedRoles.length > 8
+    value.correctedRoles.length > 8 ||
+    (value.lockedSlots?.length ?? 0) > 5
   ) {
     throw new Error("Analiza palete može imati najviše osam vrednosti po grupi.");
   }
@@ -261,6 +275,12 @@ function normalizePaletteAnalysis(
     correctedRoles: value.correctedRoles.map((role) =>
       requireText(role, "Uloga boje", 1, 64),
     ),
+    ...(value.generationMode
+      ? { generationMode: value.generationMode }
+      : {}),
+    ...(value.lockedSlots
+      ? { lockedSlots: value.lockedSlots.slice(0, 5) }
+      : {}),
   };
 }
 

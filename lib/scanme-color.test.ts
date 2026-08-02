@@ -9,6 +9,7 @@ import {
   rgbToHex,
   rgbToHsl,
   rgbToHsv,
+  stableHsvFromHex,
 } from "./scanme-color";
 
 describe("ScanMe color conversions", () => {
@@ -27,4 +28,21 @@ describe("ScanMe color conversions", () => {
       expect(rgbToHex(cmykToRgb(rgbToCmyk(rgb)))).toBe(hex);
     },
   );
+
+  it("preserves the picker position when every hue maps to exact black", () => {
+    expect(
+      stableHsvFromHex("#000000", { h: 342, s: 100, v: 4 }),
+    ).toEqual({ h: 342, s: 100, v: 0 });
+  });
+
+  it("preserves hue but resets saturation for a non-black neutral", () => {
+    const stable = stableHsvFromHex("#808080", {
+      h: 168,
+      s: 72,
+      v: 50,
+    });
+    expect(stable.h).toBe(168);
+    expect(stable.s).toBe(0);
+    expect(stable.v).toBeCloseTo(50.196, 2);
+  });
 });

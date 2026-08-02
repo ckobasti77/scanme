@@ -16,7 +16,10 @@ import {
   type ScanMeLinksDesignV2,
   type ScanMeLinksFontKey,
   type ScanMeLinksIconStyle,
+  type ScanMeLinksShadowV2,
 } from "@/lib/scanme-links-design";
+import { safeNeutralForBackgrounds } from "@/lib/scanme-color-science";
+import { backgroundContrastSamples } from "@/lib/scanme-contrast";
 import { cn } from "@/lib/utils";
 import styles from "./option-two-template.module.css";
 
@@ -190,6 +193,24 @@ function alignmentTokens(
   return { text: "center", cross: "center" };
 }
 
+function shadowCss(shadow: ScanMeLinksShadowV2) {
+  return shadow.enabled && shadow.opacity > 0
+    ? `${shadow.x}px ${shadow.y}px ${shadow.blur}px ${rgba(
+        shadow.color,
+        shadow.opacity,
+      )}`
+    : "0 0 0 transparent";
+}
+
+function logoShadowCss(shadow: ScanMeLinksShadowV2) {
+  return shadow.enabled && shadow.opacity > 0
+    ? `drop-shadow(${shadow.x}px ${shadow.y}px ${shadow.blur}px ${rgba(
+        shadow.color,
+        shadow.opacity,
+      )})`
+    : "none";
+}
+
 function designStyle(
   view: ScanMeLinksViewModel,
   design: ScanMeLinksDesignV2,
@@ -197,14 +218,12 @@ function designStyle(
   const background = backgroundPresentation(design.background);
   const type = scaleTokens(design.typography.scale);
   const alignment = alignmentTokens(design.typography.alignment);
-  const shadow = design.buttons.shadow;
-  const buttonShadow =
-    shadow.enabled && shadow.opacity > 0
-      ? `${shadow.x}px ${shadow.y}px ${shadow.blur}px ${rgba(
-          shadow.color,
-          shadow.opacity,
-        )}`
-      : "0 0 0 transparent";
+  const buttonShadow = shadowCss(design.buttons.shadow);
+  const textShadow = shadowCss(design.effects.textShadow);
+  const logoShadow = logoShadowCss(design.effects.logoShadow);
+  const poweredColor = safeNeutralForBackgrounds(
+    backgroundContrastSamples(design),
+  );
   const animationSpeed =
     design.background.category === "animation"
       ? Math.max(0.25, design.background.speed)
@@ -239,6 +258,9 @@ function designStyle(
     "--links-button-padding-x": `${design.buttons.paddingX}px`,
     "--links-button-padding-y": `${design.buttons.paddingY}px`,
     "--links-button-shadow": buttonShadow,
+    "--links-text-shadow": textShadow,
+    "--links-logo-shadow": logoShadow,
+    "--links-powered-color": poweredColor,
     "--links-flow-gap": `${design.typography.verticalSpacing}px`,
     "--links-heading-size": type.heading,
     "--links-body-size": type.body,
@@ -609,16 +631,27 @@ export function OptionTwoFrame({
                 src={view.logoUrl}
                 alt={title ? `${title} logo` : "Logotip lokala"}
                 className={styles.logo}
+                data-contrast-anchor="logo"
                 draggable={false}
               />
             ) : title ? (
-              <div aria-hidden="true" className={styles.fallbackMark}>
+              <div
+                aria-hidden="true"
+                className={styles.fallbackMark}
+                data-contrast-anchor="logo"
+              >
                 {title.slice(0, 1).toUpperCase()}
               </div>
             ) : null}
-            {title ? <h1 className={styles.title}>{title}</h1> : null}
+            {title ? (
+              <h1 className={styles.title} data-contrast-anchor="title">
+                {title}
+              </h1>
+            ) : null}
             {description ? (
-              <p className={styles.description}>{description}</p>
+              <p className={styles.description} data-contrast-anchor="body">
+                {description}
+              </p>
             ) : null}
           </header>
         ) : null}
@@ -686,6 +719,7 @@ export function OptionTwoTemplate({
                   href={href}
                   onClick={(event) => onDestinationClick?.(destination, event)}
                   className={className}
+                  data-contrast-anchor={index === 0 ? "button" : undefined}
                 >
                   {content}
                 </a>
@@ -694,6 +728,7 @@ export function OptionTwoTemplate({
                   type="button"
                   aria-disabled="true"
                   className={className}
+                  data-contrast-anchor={index === 0 ? "button" : undefined}
                   onClick={(event) => event.preventDefault()}
                 >
                   {content}

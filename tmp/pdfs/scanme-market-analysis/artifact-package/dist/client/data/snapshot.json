@@ -1,0 +1,271 @@
+{
+  "version": 1,
+  "status": "ready",
+  "generatedAt": "2026-08-01T12:00:00+02:00",
+  "datasets": {
+    "materials": [
+      {
+        "material": "Muflon, 9×5 cm, 4/0",
+        "tiraz": "100 kom",
+        "low_rsd": 15,
+        "high_rsd": 15,
+        "unit": "RSD/kom",
+        "confidence": "objavljena cena"
+      },
+      {
+        "material": "Muflon, krug Ø30–50 mm",
+        "tiraz": "200 kom",
+        "low_rsd": 6,
+        "high_rsd": 8,
+        "unit": "RSD/kom",
+        "confidence": "objavljena cena"
+      },
+      {
+        "material": "Muflon A6, 1/0",
+        "tiraz": "2.000–4.000",
+        "low_rsd": 2.82,
+        "high_rsd": 3.17,
+        "unit": "RSD/kom",
+        "confidence": "preračun po kursu NBS"
+      },
+      {
+        "material": "Muflon A6, 4/0",
+        "tiraz": "2.000–4.000",
+        "low_rsd": 4.93,
+        "high_rsd": 7.75,
+        "unit": "RSD/kom",
+        "confidence": "preračun po kursu NBS"
+      },
+      {
+        "material": "Muflon tabak 330×480 mm",
+        "tiraz": "10–100 tabaka",
+        "low_rsd": 90,
+        "high_rsd": 135,
+        "unit": "RSD/tabak",
+        "confidence": "objavljena cena"
+      },
+      {
+        "material": "PVC, 9×5 cm, 4/0",
+        "tiraz": "100 kom",
+        "low_rsd": 20,
+        "high_rsd": 20,
+        "unit": "RSD/kom",
+        "confidence": "objavljena cena"
+      },
+      {
+        "material": "PVC, krug Ø30–50 mm",
+        "tiraz": "200 kom",
+        "low_rsd": 9,
+        "high_rsd": 11,
+        "unit": "RSD/kom",
+        "confidence": "objavljena cena"
+      },
+      {
+        "material": "PVC, 60×80 mm",
+        "tiraz": "165–660 kom",
+        "low_rsd": 13.9,
+        "high_rsd": 19.2,
+        "unit": "RSD/kom",
+        "confidence": "objavljena cena"
+      },
+      {
+        "material": "Papirni A6 uložak, kolor",
+        "tiraz": "500–20.000",
+        "low_rsd": 1.04,
+        "high_rsd": 15.03,
+        "unit": "RSD/kom",
+        "confidence": "preračun po kursu NBS"
+      },
+      {
+        "material": "Drvena baza od bukve",
+        "tiraz": "1–100 kom",
+        "low_rsd": 102,
+        "high_rsd": 120,
+        "unit": "RSD/kom",
+        "confidence": "komponenta, ne gotov proizvod"
+      },
+      {
+        "material": "Metalni držač — tržišni proxy",
+        "tiraz": "1 kom",
+        "low_rsd": 618.43,
+        "high_rsd": 618.43,
+        "unit": "RSD/kom",
+        "confidence": "bez brendinga; nije custom baza"
+      },
+      {
+        "material": "A6 gotov stoni stalak — proxy",
+        "tiraz": "1 kom",
+        "low_rsd": 875,
+        "high_rsd": 875,
+        "unit": "RSD/kom",
+        "confidence": "akril/plastika, ne staklo"
+      },
+      {
+        "material": "Laserska gravura",
+        "tiraz": "1–91+ radnih min",
+        "low_rsd": 35.21,
+        "high_rsd": 117.38,
+        "unit": "RSD/min",
+        "confidence": "materijal i priprema nisu uključeni"
+      }
+    ],
+    "competitors": [
+      {
+        "group": "QR/NFC digitalne kartice",
+        "one_time_low_eur": 16.95,
+        "one_time_high_eur": 25.47,
+        "monthly_low_eur": 1.62,
+        "monthly_high_eur": 2.04,
+        "scope": "personalizovani dizajn + linkovi; znatno uži outcome"
+      },
+      {
+        "group": "Izrada sajta",
+        "one_time_low_eur": 250,
+        "one_time_high_eur": 1000,
+        "monthly_low_eur": null,
+        "monthly_high_eur": null,
+        "scope": "sajt, osnovni SEO, analitika i podrška zavisno od paketa"
+      },
+      {
+        "group": "Branding i dizajn",
+        "one_time_low_eur": 500,
+        "one_time_high_eur": 1700,
+        "monthly_low_eur": null,
+        "monthly_high_eur": null,
+        "scope": "vizuelni identitet; 4.500 € je širi premium paket i nije u osnovnom rasponu"
+      },
+      {
+        "group": "Održavanje sajta",
+        "one_time_low_eur": null,
+        "one_time_high_eur": null,
+        "monthly_low_eur": 20,
+        "monthly_high_eur": 50,
+        "scope": "ažuriranje, osnovna optimizacija i podrška"
+      },
+      {
+        "group": "Društvene mreže / lokalno prisustvo",
+        "one_time_low_eur": null,
+        "one_time_high_eur": null,
+        "monthly_low_eur": 250,
+        "monthly_high_eur": 400,
+        "scope": "jedna mreža do kombinacije Instagram + Google Business"
+      },
+      {
+        "group": "Google/Meta Ads upravljanje",
+        "one_time_low_eur": null,
+        "one_time_high_eur": null,
+        "monthly_low_eur": 299,
+        "monthly_high_eur": 499,
+        "scope": "+ 10% stvarnog budžeta za oglase"
+      },
+      {
+        "group": "Foto/video sadržaj",
+        "one_time_low_eur": 80,
+        "one_time_high_eur": 220,
+        "monthly_low_eur": 80,
+        "monthly_high_eur": 140,
+        "scope": "lokalni foto + kratki video/reels paketi"
+      }
+    ],
+    "monthly_bundle": [
+      {
+        "component": "Održavanje sajta",
+        "low_eur": 20,
+        "high_eur": 50,
+        "kind": "usluga",
+        "source_note": "javni paketi"
+      },
+      {
+        "component": "Društvene mreže / GBP",
+        "low_eur": 250,
+        "high_eur": 400,
+        "kind": "usluga",
+        "source_note": "jedna mreža do kombinovanog paketa"
+      },
+      {
+        "component": "Google/Meta Ads upravljanje",
+        "low_eur": 299,
+        "high_eur": 499,
+        "kind": "usluga",
+        "source_note": "bez medijskog budžeta; +10% budžeta"
+      },
+      {
+        "component": "Foto/video sadržaj",
+        "low_eur": 80,
+        "high_eur": 140,
+        "kind": "usluga",
+        "source_note": "paketi relevantni lokalnim biznisima"
+      },
+      {
+        "component": "Zbir usluga odvojeno",
+        "low_eur": 649,
+        "high_eur": 1089,
+        "kind": "model",
+        "source_note": "prost zbir navedenih javnih raspona; ne znači da svaki klijent kupuje sve"
+      },
+      {
+        "component": "Stvarni budžet za oglase",
+        "low_eur": 100,
+        "high_eur": 1200,
+        "kind": "medijski budžet",
+        "source_note": "mali do srednji lokalni biznis"
+      }
+    ],
+    "budgets": [
+      {
+        "size": "Mikro (1–9 zaposlenih)",
+        "service_low_eur": 100,
+        "service_high_eur": 600,
+        "total_low_eur": 200,
+        "total_high_eur": 1500,
+        "fit": "jedna lokacija; kafić, frizer, solo salon, mali restoran",
+        "confidence": "planerski raspon"
+      },
+      {
+        "size": "Malo (10–49)",
+        "service_low_eur": 500,
+        "service_high_eur": 2500,
+        "total_low_eur": 1000,
+        "total_high_eur": 6000,
+        "fit": "jači lokalni brend, hotel/apartmani, ordinacija, teretana, više lokacija",
+        "confidence": "planerski raspon"
+      },
+      {
+        "size": "Srednje (50–249)",
+        "service_low_eur": 2000,
+        "service_high_eur": 10000,
+        "total_low_eur": 4000,
+        "total_high_eur": 25000,
+        "fit": "lanac ili regionalni operator; više kanala i produkcije",
+        "confidence": "planerski raspon"
+      }
+    ],
+    "margins": [
+      {
+        "target_margin_pct": 10,
+        "markup_on_cost_pct": 11.1,
+        "interpretation": "donja održiva zona; malo prostora za greške"
+      },
+      {
+        "target_margin_pct": 15,
+        "markup_on_cost_pct": 17.6,
+        "interpretation": "dugoročni industrijski orijentir"
+      },
+      {
+        "target_margin_pct": 20,
+        "markup_on_cost_pct": 25,
+        "interpretation": "zdrava diferencirana usluga"
+      },
+      {
+        "target_margin_pct": 25,
+        "markup_on_cost_pct": 33.3,
+        "interpretation": "visoka efikasnost/premium pozicija"
+      },
+      {
+        "target_margin_pct": 30,
+        "markup_on_cost_pct": 42.9,
+        "interpretation": "ambiciozno; traži dokazanu vrednost i disciplinovan scope"
+      }
+    ]
+  }
+}

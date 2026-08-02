@@ -158,6 +158,15 @@ export type ScanMeLinksBackgroundV2 =
       intensity: number;
     };
 
+export type ScanMeLinksShadowV2 = {
+  enabled: boolean;
+  color: string;
+  x: number;
+  y: number;
+  blur: number;
+  opacity: number;
+};
+
 export type ScanMeLinksDesignV2 = {
   version: 2;
   presetKey: ScanMeLinksPresetKey;
@@ -170,15 +179,12 @@ export type ScanMeLinksDesignV2 = {
     borderWidth: number;
     paddingX: number;
     paddingY: number;
-    shadow: {
-      enabled: boolean;
-      color: string;
-      x: number;
-      y: number;
-      blur: number;
-      opacity: number;
-    };
+    shadow: ScanMeLinksShadowV2;
     animation: ScanMeLinksButtonAnimation;
+  };
+  effects: {
+    textShadow: ScanMeLinksShadowV2;
+    logoShadow: ScanMeLinksShadowV2;
   };
   typography: {
     fontKey: ScanMeLinksFontKey;
@@ -190,6 +196,10 @@ export type ScanMeLinksDesignV2 = {
     verticalSpacing: number;
   };
   iconStyle: ScanMeLinksIconStyle;
+};
+
+export type ScanMeLinksDesignV2Input = Omit<ScanMeLinksDesignV2, "effects"> & {
+  effects?: ScanMeLinksDesignV2["effects"];
 };
 
 type ScanMeLinksBackgroundVariantMap = {
@@ -543,13 +553,31 @@ function buildDefaultDesign(
       paddingY: 14,
       shadow: {
         enabled: presetKey !== "minimal",
-        color: "#000000",
+        color: "#161916",
         x: 0,
         y: 8,
         blur: 24,
         opacity: presetKey === "ios" ? 0.12 : 0.16,
       },
       animation: "none",
+    },
+    effects: {
+      textShadow: {
+        enabled: false,
+        color: "#161916",
+        x: 0,
+        y: 2,
+        blur: 8,
+        opacity: 0.2,
+      },
+      logoShadow: {
+        enabled: false,
+        color: "#161916",
+        x: 0,
+        y: 6,
+        blur: 18,
+        opacity: 0.18,
+      },
     },
     typography: {
       fontKey: capability.fonts[0],
@@ -693,7 +721,7 @@ function normalizeBackground(
 }
 
 export function normalizeDesignForPreset(
-  design: ScanMeLinksDesignV2 | null | undefined,
+  design: ScanMeLinksDesignV2Input | null | undefined,
   presetKey?: unknown,
 ): ScanMeLinksDesignV2 {
   const resolvedPreset = safeScanMeLinksPresetKey(
@@ -715,6 +743,21 @@ export function normalizeDesignForPreset(
     ? design.typography.fontKey
     : fallback.typography.fontKey;
 
+  const normalizeShadow = (
+    shadow: ScanMeLinksShadowV2 | undefined,
+    shadowFallback: ScanMeLinksShadowV2,
+  ): ScanMeLinksShadowV2 => {
+    const value = shadow ?? shadowFallback;
+    return {
+      ...shadowFallback,
+      ...value,
+      x: clamp(value.x, -64, 64),
+      y: clamp(value.y, -64, 64),
+      blur: clamp(value.blur, 0, 96),
+      opacity: clamp(value.opacity, 0, 1),
+    };
+  };
+
   return {
     version: 2,
     presetKey: resolvedPreset,
@@ -728,13 +771,17 @@ export function normalizeDesignForPreset(
       borderWidth: clamp(design.buttons.borderWidth, 0, 8),
       paddingX: clamp(design.buttons.paddingX, 8, 48),
       paddingY: clamp(design.buttons.paddingY, 8, 32),
-      shadow: {
-        ...design.buttons.shadow,
-        x: clamp(design.buttons.shadow.x, -64, 64),
-        y: clamp(design.buttons.shadow.y, -64, 64),
-        blur: clamp(design.buttons.shadow.blur, 0, 96),
-        opacity: clamp(design.buttons.shadow.opacity, 0, 1),
-      },
+      shadow: normalizeShadow(design.buttons.shadow, fallback.buttons.shadow),
+    },
+    effects: {
+      textShadow: normalizeShadow(
+        design.effects?.textShadow,
+        fallback.effects.textShadow,
+      ),
+      logoShadow: normalizeShadow(
+        design.effects?.logoShadow,
+        fallback.effects.logoShadow,
+      ),
     },
     typography: {
       ...design.typography,

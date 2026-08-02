@@ -4,6 +4,7 @@ import type {
   DestinationLifecycle,
 } from "@/lib/scanme-links";
 import type { ScanMeLinksDesignV2 } from "@/lib/scanme-links-design";
+import type { PaletteGenerationMode } from "@/lib/scanme-palette";
 
 export const EDITOR_PANEL_IDS = [
   "content",
@@ -37,6 +38,8 @@ export type EditorPaletteAnalysis = {
   original: string[];
   adjusted: string[];
   correctedRoles: string[];
+  generationMode: PaletteGenerationMode;
+  lockedSlots: boolean[];
 };
 
 export type ScanMeLinksEditorDocument = {

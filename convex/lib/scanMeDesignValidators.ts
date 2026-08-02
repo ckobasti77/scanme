@@ -38,6 +38,8 @@ export const paletteAnalysisValidator = v.object({
   original: v.array(v.string()),
   adjusted: v.array(v.string()),
   correctedRoles: v.array(v.string()),
+  generationMode: v.optional(v.union(v.literal("light"), v.literal("dark"))),
+  lockedSlots: v.optional(v.array(v.boolean())),
 });
 
 export const scanMeBackgroundValidator = v.union(
@@ -211,6 +213,15 @@ export const scanMeDesignV2BackgroundValidator = v.union(
   }),
 );
 
+const scanMeShadowValidator = v.object({
+  enabled: v.boolean(),
+  color: v.string(),
+  x: v.number(),
+  y: v.number(),
+  blur: v.number(),
+  opacity: v.number(),
+});
+
 export const scanMeDesignV2Validator = v.object({
   version: v.literal(2),
   presetKey: scanMeDesignV2PresetKeyValidator,
@@ -239,20 +250,19 @@ export const scanMeDesignV2Validator = v.object({
     borderWidth: v.number(),
     paddingX: v.number(),
     paddingY: v.number(),
-    shadow: v.object({
-      enabled: v.boolean(),
-      color: v.string(),
-      x: v.number(),
-      y: v.number(),
-      blur: v.number(),
-      opacity: v.number(),
-    }),
+    shadow: scanMeShadowValidator,
     animation: v.union(
       v.literal("none"),
       v.literal("stroke"),
       v.literal("liquid-metal"),
     ),
   }),
+  effects: v.optional(
+    v.object({
+      textShadow: scanMeShadowValidator,
+      logoShadow: scanMeShadowValidator,
+    }),
+  ),
   typography: v.object({
     fontKey: v.union(
       v.literal("dm-sans"),

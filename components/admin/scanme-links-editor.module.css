@@ -359,106 +359,6 @@
   padding: 8px 7px;
 }
 
-@property --scanme-rail-lens-x {
-  syntax: "<percentage>";
-  inherits: false;
-  initial-value: 16%;
-}
-
-@property --scanme-rail-lens-y {
-  syntax: "<percentage>";
-  inherits: false;
-  initial-value: 8%;
-}
-
-.lensFilterDefinitions {
-  position: absolute;
-  width: 0;
-  height: 0;
-  overflow: hidden;
-  pointer-events: none;
-}
-
-.primaryRailLens {
-  --scanme-rail-lens-edge: 8px;
-  --scanme-rail-lens-x: 16%;
-  --scanme-rail-lens-y: 8%;
-
-  border-color: rgba(255, 255, 255, 0.5);
-  background: linear-gradient(
-    145deg,
-    rgba(255, 249, 243, 0.12),
-    rgba(255, 249, 243, 0.08)
-  );
-  -webkit-backdrop-filter: blur(10px) saturate(116%) brightness(102%);
-  backdrop-filter: blur(10px) saturate(116%) brightness(102%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.5),
-    inset 1px 0 0 rgba(255, 255, 255, 0.32),
-    inset 0 -1px 0 rgba(62, 46, 40, 0.07),
-    0 2px 5px rgba(47, 36, 31, 0.05),
-    0 18px 42px rgba(47, 36, 31, 0.1);
-}
-
-.primaryRailLens::before,
-.primaryRailLens::after {
-  position: absolute;
-  z-index: 0;
-  inset: 0;
-  box-sizing: border-box;
-  border-radius: inherit;
-  content: "";
-  pointer-events: none;
-  padding: var(--scanme-rail-lens-edge);
-  -webkit-mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0);
-  mask-composite: exclude;
-}
-
-.primaryRailLens::before {
-  background: rgba(255, 255, 255, 0.012);
-  -webkit-backdrop-filter: url("#scanme-primary-rail-refraction");
-  backdrop-filter: url("#scanme-primary-rail-refraction");
-  opacity: 0.72;
-}
-
-.primaryRailLens::after {
-  inset: 1px;
-  padding: calc(var(--scanme-rail-lens-edge) - 1px);
-  background:
-    radial-gradient(
-      35px 55px at var(--scanme-rail-lens-x) var(--scanme-rail-lens-y),
-      rgba(255, 255, 255, 0.1),
-      transparent 100%
-    ),
-    linear-gradient(
-      145deg,
-      rgba(255, 255, 255, 0.12),
-      transparent 38% 72%,
-      rgba(62, 46, 40, 0.035)
-    );
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
-  opacity: 0.6;
-  transition:
-    opacity 180ms cubic-bezier(0.22, 1, 0.36, 1),
-    --scanme-rail-lens-x 140ms cubic-bezier(0.22, 1, 0.36, 1),
-    --scanme-rail-lens-y 140ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.primaryRailLens:hover::after {
-  opacity: 1;
-}
-
-.primaryRailLens > * {
-  position: relative;
-  z-index: 1;
-}
-
 .railBottom {
   composes: rail;
   margin-top: auto;
@@ -977,6 +877,374 @@
   color: #656863;
   font-size: 11px;
   line-height: 1.45;
+}
+
+.smartPalette {
+  position: relative;
+  margin-top: 16px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.78);
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 12% 0%, rgba(255, 255, 255, 0.82), transparent 40%),
+    linear-gradient(145deg, rgba(255, 250, 245, 0.88), rgba(239, 226, 218, 0.72));
+  padding: 15px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.92),
+    0 12px 28px rgba(49, 39, 31, 0.07);
+  -webkit-backdrop-filter: blur(10px) saturate(126%);
+  backdrop-filter: blur(10px) saturate(126%);
+}
+
+.smartPaletteHeader {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.smartPaletteIcon {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  flex: none;
+  place-items: center;
+  border: 1px solid rgba(65, 57, 49, 0.09);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.68);
+  color: #303632;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85);
+}
+
+.smartPaletteTitle {
+  display: block;
+  color: #272c29;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.smartPaletteDescription {
+  display: block;
+  margin-top: 3px;
+  color: rgba(45, 50, 46, 0.56);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.paletteModeRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.paletteModeLabel {
+  color: rgba(43, 48, 44, 0.58);
+  font-size: 10px;
+  font-weight: 750;
+}
+
+.paletteModeControl {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  border: 1px solid rgba(71, 63, 55, 0.1);
+  border-radius: 13px;
+  background: rgba(255, 255, 255, 0.45);
+  padding: 3px;
+}
+
+.paletteModeButton {
+  display: inline-flex;
+  min-height: 32px;
+  align-items: center;
+  gap: 5px;
+  border-radius: 10px !important;
+  padding-inline: 9px;
+  color: rgba(41, 46, 42, 0.56);
+  font-size: 10px;
+  font-weight: 750;
+  transition:
+    color 160ms ease,
+    background-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.paletteModeButton:hover {
+  color: #262b28;
+}
+
+.paletteModeButton:focus-visible,
+.generatedSwatchButton:focus-visible,
+.paletteLockButton:focus-visible,
+.smartPaletteSecondaryAction:focus-visible,
+.smartPalettePrimaryAction:focus-visible {
+  outline: 2px solid rgba(42, 48, 44, 0.62);
+  outline-offset: 2px;
+}
+
+.paletteModeButtonActive {
+  background: rgba(255, 246, 238, 0.96);
+  color: #222724;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 4px 10px rgba(52, 42, 34, 0.08);
+}
+
+.generatedPaletteGrid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 7px;
+  margin-top: 13px;
+}
+
+.generatedPaletteItem {
+  position: relative;
+  min-width: 0;
+}
+
+.generatedSwatchButton {
+  position: relative;
+  display: grid;
+  width: 100%;
+  min-height: 64px;
+  place-items: center;
+  overflow: hidden;
+  border: 2px solid rgba(255, 255, 255, 0.82);
+  border-radius: 15px !important;
+  box-shadow:
+    0 0 0 1px rgba(54, 48, 43, 0.12),
+    0 7px 14px rgba(45, 37, 31, 0.08);
+  transition:
+    transform 170ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 170ms ease;
+}
+
+.generatedSwatchButton > svg {
+  width: 17px;
+  height: 17px;
+  border-radius: 8px;
+  padding: 3px;
+  box-sizing: content-box;
+  background: rgba(20, 23, 21, 0.58);
+  color: white;
+  opacity: 0;
+  transform: translateY(3px);
+  transition:
+    opacity 150ms ease,
+    transform 150ms ease;
+}
+
+.generatedSwatchButton:hover {
+  z-index: 2;
+  transform: translateY(-2px);
+  box-shadow:
+    0 0 0 1px rgba(54, 48, 43, 0.16),
+    0 11px 20px rgba(45, 37, 31, 0.13);
+}
+
+.generatedSwatchButton:hover > svg,
+.generatedSwatchButton:focus-visible > svg {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.paletteAnchorBadge {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 999px;
+  background: rgba(22, 25, 23, 0.64);
+  color: white;
+  padding: 2px 5px;
+  font-size: 7px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.paletteLockAnchor {
+  position: absolute;
+  z-index: 4;
+  top: 4px;
+  right: 4px;
+  display: block;
+}
+
+.paletteLockButton {
+  display: grid;
+  width: 27px;
+  height: 27px;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.54);
+  border-radius: 9px !important;
+  background: rgba(25, 28, 26, 0.58);
+  color: white;
+  box-shadow: 0 3px 9px rgba(19, 22, 20, 0.15);
+  transition:
+    transform 150ms ease,
+    background-color 150ms ease;
+}
+
+.paletteLockButton:hover:not(:disabled) {
+  background: rgba(20, 23, 21, 0.78);
+  transform: scale(1.04);
+}
+
+.paletteLockButton:disabled {
+  cursor: default;
+}
+
+.generatedPaletteRole,
+.generatedPaletteHex {
+  display: block;
+  overflow: hidden;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.generatedPaletteRole {
+  margin-top: 7px;
+  color: rgba(37, 42, 38, 0.76);
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.generatedPaletteHex {
+  margin-top: 2px;
+  color: rgba(44, 49, 45, 0.43);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.smartPaletteActions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.smartPaletteSecondaryAction,
+.smartPalettePrimaryAction {
+  display: inline-flex;
+  min-height: 41px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border-radius: 13px !important;
+  padding-inline: 11px;
+  font-size: 10px;
+  font-weight: 800;
+  transition:
+    transform 160ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 160ms ease,
+    background-color 160ms ease;
+}
+
+.smartPaletteSecondaryAction {
+  border: 1px solid rgba(64, 57, 51, 0.11);
+  background: rgba(255, 255, 255, 0.6);
+  color: #363c38;
+}
+
+.smartPalettePrimaryAction {
+  border: 1px solid #202522;
+  background: #202522;
+  color: white;
+  box-shadow: 0 8px 18px rgba(31, 36, 33, 0.14);
+}
+
+.smartPaletteSecondaryAction:hover,
+.smartPalettePrimaryAction:hover {
+  transform: translateY(-1px);
+}
+
+.smartPaletteSecondaryAction:hover {
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.smartPalettePrimaryAction:hover {
+  background: #151917;
+  box-shadow: 0 10px 21px rgba(31, 36, 33, 0.2);
+}
+
+.smartPaletteEmpty {
+  margin-top: 13px;
+  border-radius: 15px;
+  background: rgba(255, 255, 255, 0.46);
+  color: rgba(43, 48, 44, 0.54);
+  padding: 11px 12px;
+  font-size: 10px;
+  line-height: 1.55;
+}
+
+.smartPaletteMenu {
+  z-index: 120 !important;
+  width: 210px;
+  max-height: min(350px, var(--radix-dropdown-menu-content-available-height));
+  overflow-y: auto !important;
+  border: 1px solid rgba(255, 255, 255, 0.78) !important;
+  border-radius: 18px !important;
+  background:
+    radial-gradient(circle at 16% 0%, rgba(255, 255, 255, 0.82), transparent 38%),
+    linear-gradient(145deg, rgba(255, 249, 243, 0.97), rgba(242, 224, 217, 0.95)) !important;
+  padding: 6px !important;
+  color: #202522 !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.94),
+    0 18px 42px rgba(47, 37, 31, 0.18) !important;
+  scrollbar-width: thin;
+  scrollbar-color: var(--ui-scrollbar-thumb-background) transparent;
+  -webkit-backdrop-filter: blur(14px) saturate(132%);
+  backdrop-filter: blur(14px) saturate(132%);
+}
+
+.smartPaletteMenu::-webkit-scrollbar {
+  width: 8px;
+}
+
+.smartPaletteMenu::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: var(--ui-scrollbar-thumb-background);
+  background-clip: padding-box;
+}
+
+.smartPaletteMenuLabel {
+  padding: 8px 9px 6px !important;
+  color: rgba(35, 40, 36, 0.58);
+  font-size: 10px !important;
+  font-weight: 800 !important;
+}
+
+.smartPaletteMenuSeparator {
+  background: rgba(67, 59, 52, 0.09) !important;
+}
+
+.smartPaletteMenuItem {
+  min-height: 38px;
+  border-radius: 11px !important;
+  padding: 7px 9px !important;
+  font-size: 11px !important;
+  font-weight: 700;
+}
+
+.smartPaletteMenuItem:focus {
+  background: rgba(255, 255, 255, 0.68) !important;
+  color: #1d211e !important;
+}
+
+.smartPaletteMenuSwatch {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  border: 2px solid rgba(255, 255, 255, 0.72);
+  border-radius: 6px;
+  box-shadow: 0 0 0 1px rgba(54, 48, 43, 0.15);
 }
 
 .styleGrid,
@@ -1604,7 +1872,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  color: #101311;
+  color: #161916;
   font-size: 11px;
   font-weight: 750;
   pointer-events: none;
@@ -1647,6 +1915,220 @@
   overflow: auto;
   border-radius: 13px;
   background: #f8f5ef;
+}
+
+.contrastAssistantLayer {
+  position: absolute;
+  z-index: 70;
+  inset: 0 11px 0 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.contrastCard {
+  composes: glassSurface;
+  position: absolute;
+  pointer-events: auto;
+  border-color: rgba(255, 255, 255, 0.82);
+  border-radius: 23px;
+  box-shadow:
+    inset 0 1.5px 0 rgba(255, 255, 255, 0.94),
+    inset 1px 0 0 rgba(255, 255, 255, 0.48),
+    0 14px 34px rgba(43, 35, 29, 0.14);
+}
+
+.contrastCard[data-expanded="false"] {
+  border-radius: 18px;
+}
+
+.contrastCardHeader {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  width: 100%;
+  min-height: 55px;
+  align-items: center;
+  gap: 10px;
+  border-radius: inherit;
+  padding: 8px 10px;
+  text-align: left;
+}
+
+.contrastCardHeader:focus-visible {
+  outline: 2px solid rgba(44, 50, 46, 0.64);
+  outline-offset: -3px;
+}
+
+.contrastWarningIcon {
+  display: grid;
+  width: 35px;
+  height: 35px;
+  flex: none;
+  place-items: center;
+  border: 1px solid rgba(146, 95, 42, 0.14);
+  border-radius: 12px;
+  background: rgba(255, 240, 215, 0.78);
+  color: #8d5f2f;
+}
+
+.contrastWarningIcon[data-severity="poor"] {
+  border-color: rgba(172, 49, 49, 0.22);
+  background: rgba(255, 225, 222, 0.88);
+  color: #b52f2f;
+}
+
+.contrastWarningIcon[data-severity="excellent"] {
+  border-color: rgba(45, 116, 79, 0.18);
+  background: rgba(226, 246, 234, 0.84);
+  color: #39795a;
+}
+
+.contrastWarningIcon svg {
+  width: 17px;
+  height: 17px;
+}
+
+.contrastCardHeading {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  justify-content: space-between;
+  gap: 9px;
+}
+
+.contrastCardHeading strong {
+  overflow: hidden;
+  color: #2a302c;
+  font-size: 12px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.contrastCardHeading small {
+  flex: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.58);
+  color: rgba(52, 58, 54, 0.58);
+  padding: 4px 7px;
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.contrastChevron {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  color: rgba(45, 51, 47, 0.48);
+  transition: transform 170ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.contrastChevron[data-open="true"] {
+  transform: rotate(180deg);
+}
+
+.contrastCardBody {
+  position: relative;
+  z-index: 1;
+  overflow: hidden;
+  padding: 0 11px 12px;
+}
+
+.contrastCardBody > p {
+  border-top: 1px solid rgba(67, 58, 51, 0.08);
+  color: rgba(45, 50, 46, 0.56);
+  padding: 10px 2px 0;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.contrastSuggestions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+  margin-top: 10px;
+}
+
+.contrastSuggestions > span {
+  min-width: 0;
+}
+
+.contrastSuggestion {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  min-height: 76px;
+  place-items: center;
+  gap: 5px;
+  border: 1px solid rgba(70, 62, 55, 0.1);
+  border-radius: 14px !important;
+  background: rgba(255, 255, 255, 0.52);
+  padding: 7px 4px;
+  color: #333934;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+  transition:
+    background-color 150ms ease,
+    transform 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.contrastSuggestion:hover {
+  background: rgba(255, 255, 255, 0.78);
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.84),
+    0 5px 10px rgba(48, 39, 33, 0.08);
+}
+
+.contrastSuggestion:focus-visible {
+  outline: 2px solid rgba(44, 50, 46, 0.64);
+  outline-offset: 1px;
+}
+
+.contrastSuggestionSwatch {
+  width: 30px;
+  height: 30px;
+  border: 2px solid rgba(255, 255, 255, 0.78);
+  border-radius: 10px;
+  box-shadow: 0 0 0 1px rgba(54, 48, 43, 0.14);
+}
+
+.contrastSuggestion > span:last-child {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  text-align: center;
+}
+
+.contrastSuggestion strong,
+.contrastSuggestion small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.contrastSuggestion strong {
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.contrastSuggestion small {
+  margin-top: 1px;
+  color: rgba(43, 48, 44, 0.48);
+  font-size: 8px;
+  font-weight: 700;
+}
+
+.contrastStandard {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 10px;
+  color: rgba(48, 54, 50, 0.43);
+  font-size: 9px;
+  font-weight: 750;
 }
 
 .previewDestinationSelected {
@@ -1755,7 +2237,10 @@
   .rail,
   .railBottom,
   .contextPanel,
-  .backgroundTabs {
+  .backgroundTabs,
+  .smartPalette,
+  .smartPaletteMenu,
+  .contrastCard {
     background: rgba(250, 246, 240, 0.94);
   }
 }
@@ -1842,11 +2327,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .primaryRailLens {
-    --scanme-rail-lens-x: 16% !important;
-    --scanme-rail-lens-y: 8% !important;
-  }
-
   .editorRoot *,
   .editorRoot *::before,
   .editorRoot *::after {
@@ -1862,14 +2342,12 @@
   .rail,
   .railBottom,
   .contextPanel,
-  .backgroundTabs {
+  .backgroundTabs,
+  .smartPalette,
+  .smartPaletteMenu,
+  .contrastCard {
     background: rgba(250, 246, 240, 0.96);
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
-  }
-
-  .primaryRailLens::before,
-  .primaryRailLens::after {
-    display: none;
   }
 }

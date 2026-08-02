@@ -61,6 +61,21 @@ export function rgbToHsv({ r, g, b }: RgbColor): HsvColor {
   };
 }
 
+export function stableHsvFromHex(
+  value: string,
+  fallback?: HsvColor,
+): HsvColor {
+  const next = rgbToHsv(hexToRgb(value));
+  const isBlack = next.v <= 0.0001;
+  const isAchromatic = next.s <= 0.0001;
+
+  return {
+    h: isAchromatic ? (fallback?.h ?? next.h) : next.h,
+    s: isBlack ? (fallback?.s ?? next.s) : next.s,
+    v: next.v,
+  };
+}
+
 export function hsvToRgb({ h, s, v }: HsvColor): RgbColor {
   const hue = ((h % 360) + 360) % 360;
   const saturation = clamp(s, 0, 100) / 100;

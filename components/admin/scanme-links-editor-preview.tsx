@@ -42,6 +42,7 @@ import {
   optionTwoDestinationClassName,
   optionTwoDuplicateNumber,
 } from "@/components/scanme-links/templates/option-two/option-two-template";
+import { ScanMeContrastAssistant } from "@/components/admin/scanme-contrast-assistant";
 import type { ScanMeLinksViewModel } from "@/components/scanme-links/templates/types";
 import {
   Select,
@@ -51,6 +52,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { DEFAULT_ACCENT_TOKENS } from "@/lib/scanme-links";
+import { safeNeutralForBackgrounds } from "@/lib/scanme-color-science";
+import {
+  analyzeScanMeContrast,
+  backgroundContrastSamples,
+  type ContrastSuggestion,
+} from "@/lib/scanme-contrast";
 import { cn } from "@/lib/utils";
 import styles from "./scanme-links-editor.module.css";
 import type {
@@ -71,6 +78,7 @@ export function ScanMeLinksEditorPreview({
   setDevice,
   zoom,
   setZoom,
+  onApplyContrastSuggestion,
 }: {
   businessName: string;
   document: ScanMeLinksEditorDocument;
@@ -83,10 +91,12 @@ export function ScanMeLinksEditorPreview({
   setDevice: (device: PreviewDevice) => void;
   zoom: number;
   setZoom: (zoom: number) => void;
+  onApplyContrastSuggestion: (suggestion: ContrastSuggestion) => void;
 }) {
   const reducedMotion = useReducedMotion();
   const [localTime, setLocalTime] = useState("--:--");
   const canvasRef = useRef<HTMLDivElement>(null);
+  const canvasShellRef = useRef<HTMLDivElement>(null);
   const canvasTrackRef = useRef<HTMLDivElement>(null);
   const canvasId = useId();
   const canvasDragRef = useRef<{
@@ -178,6 +188,22 @@ export function ScanMeLinksEditorPreview({
       state: destination.state,
     })),
   };
+  const contrastIssues = useMemo(
+    () =>
+      analyzeScanMeContrast(
+        document.design,
+        document.paletteAnalysis?.adjusted ?? document.palette,
+        document.paletteAnalysis?.original ?? document.palette,
+      ),
+    [document.design, document.palette, document.paletteAnalysis],
+  );
+  const phoneStatusColor = useMemo(
+    () =>
+      safeNeutralForBackgrounds(
+        backgroundContrastSamples(document.design),
+      ),
+    [document.design],
+  );
 
   const canvasMaxScroll = Math.max(
     0,
@@ -319,11 +345,16 @@ export function ScanMeLinksEditorPreview({
         </Select>
       </div>
 
-      <div className={styles.deviceCanvasShell}>
+      <div
+        ref={canvasShellRef}
+        className={styles.deviceCanvasShell}
+        data-has-contrast-assistant={contrastIssues.length > 0}
+      >
         <div
           id={canvasId}
           ref={canvasRef}
           className={styles.deviceCanvas}
+          data-device={device}
           data-editor-preview-scroll="true"
           onScroll={syncCanvasScroll}
         >
@@ -344,7 +375,11 @@ export function ScanMeLinksEditorPreview({
               >
                 <div className={styles.phoneScreen}>
                   <div className={styles.dynamicIsland} aria-hidden="true" />
-                  <div className={styles.phoneStatus} aria-hidden="true">
+                  <div
+                    className={styles.phoneStatus}
+                    aria-hidden="true"
+                    style={{ color: phoneStatusColor }}
+                  >
                     <span>{localTime}</span>
                     <span className="flex items-center gap-1">
                       <SignalBars />
@@ -392,6 +427,12 @@ export function ScanMeLinksEditorPreview({
             )}
           </AnimatePresence>
         </div>
+        <ScanMeContrastAssistant
+          issues={contrastIssues}
+          device={device}
+          containerRef={canvasShellRef}
+          onApply={onApplyContrastSuggestion}
+        />
         <div
           ref={canvasTrackRef}
           className={styles.deviceCanvasScrollTrack}
@@ -543,6 +584,7 @@ function SortablePreviewDestination({
         {...listeners}
         data-draft-state={destination.state}
         data-missing-url={missingUrl ? "true" : undefined}
+        data-contrast-anchor="button"
         onClick={onSelect}
         aria-label={`${destination.label}. Kliknite za uređivanje ili prevucite za promenu redosleda.`}
       >

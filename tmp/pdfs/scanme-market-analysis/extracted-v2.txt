@@ -1,0 +1,209 @@
+Data Analytics report 1. avgust 2026, 12:00
+ScanMe: analiza tržišta i ulaznih raspona za cenu (Beograd)
+Srbija i Beograd, bez PDV-a gde je izvor to eksplicitno omogućio; konačna cena nije
+formirana.
+Executive Summary
+Materijal nije glavni nosilac buduće cene. Papirni i PVC elementi imaju snažan količinski popust, dok dizajn,
+implementacija, sadržaj, analitika i dugoročna podrška nose najveći deo ekonomske vrednosti.
+ScanMe se ne poredi sa QR generatorom. Relevantan outcome je zbir fizičkog kontaktnog mesta, dizajna,
+web iskustva, sadržaja, marketinga, analitike i podrške.
+Odvojena nabavka sličnog outcome-a ima širok raspon. Model javnih cenovnika daje približno 830–2.945
+€ jednokratno i 649–1.089 € mesečno za usluge, pre stvarnog budžeta za oglase. To je tržišni referentni
+okvir, ne predlog ScanMe cene.
+Za profit planirati neto marginu, ne proizvoljan dodatak na trošak. Tipičan raspon digitalnih agencija je
+10–20% neto, sa oko 15% kao dugoročnim orijentirom.
+Šta je obuhvaćeno i kako čitati raspone
+Analiza pokriva Beograd i Srbiju, stanje dostupno 1. avgusta 2026. Novčani iznosi su normalizovani na približno
+117,38 RSD za 1 EUR. Kada izvor nije naveo PDV, iznos je označen kao objavljena cena, a ne kao potvrđena neto
+nabavna cena. „Mikro, malo i srednje” u budžetskom delu koristi praktične grupe po broju zaposlenih, jer
+računovodstvene APR granice obuhvataju preširok raspon kupovne moći za prodajnu segmentaciju.
+Troškovna osnova: rad je stabilan, materijal zavisi od formata i tiraža
+Minimalna cena rada za 2026. je nacionalna, pa je ista i u Beogradu: 371 RSD neto po satu. Vlada kao mesečni
+referentni iznos navodi 64.554 RSD, dok stvarna mesečna minimalna zarada varira sa fondom sati — približno
+59.360–68.264 RSD za 160–184 sata. Za kasniju cenu rada mora se koristiti ukupan trošak poslodavca, ne samo
+neto minimalac. Vlada Srbije
+
+--- PAGE BREAK ---
+
+Materijali i proizvodne komponente
+Source: Javni cenovnici dobavljača u Srbiji
+Tables: plusbeograd.com/cenovnik, online-stamparija.rs/izrada-nalepnica-cena, kupujemprodajem.com oglas 189488750,
+akcijskastampa.rs/nalepnice, samitean.co.rs/cnc-i-lasersko-graviranje, stonicom.rs/modelb, internetknjizara.rs A6 stalak, promostar.rs metalni držač
+Materijal / komponenta Tiraž Donja granica Gornja granica Jedinica Napomena
+A6 gotov stoni stalak — 1 kom 875 875 RSD/kom akril/plastika, ne staklo
+proxy
+Drvena baza od bukve 1–100 kom 102 120 RSD/kom komponenta, ne gotov
+proizvod
+Laserska gravura 1–91+ radnih min 35.21 117.38 RSD/min materijal i priprema nisu
+uključeni
+Metalni držač — tržišni 1 kom 618.43 618.43 RSD/kom bez brendinga; nije custom
+proxy baza
+Muflon A6, 1/0 2.000–4.000 2.82 3.17 RSD/kom preračun po kursu NBS
+Muflon A6, 4/0 2.000–4.000 4.93 7.75 RSD/kom preračun po kursu NBS
+Muflon tabak 330×480 mm 10–100 tabaka 90 135 RSD/tabak objavljena cena
+Muflon, 9×5 cm, 4/0 100 kom 15 15 RSD/kom objavljena cena
+Muflon, krug Ø30–50 mm 200 kom 6 8 RSD/kom objavljena cena
+Papirni A6 uložak, kolor 500–20.000 1.04 15.03 RSD/kom preračun po kursu NBS
+PVC, 9×5 cm, 4/0 100 kom 20 20 RSD/kom objavljena cena
+PVC, 60×80 mm 165–660 kom 13.9 19.2 RSD/kom objavljena cena
+PVC, krug Ø30–50 mm 200 kom 9 11 RSD/kom objavljena cena
+Šta materijalni rasponi znače
+Muflon: realan javni raspon ide od oko 2,8–7,8 RSD/kom u velikom A6 tiražu do 6–15 RSD/kom u malim tiražima,
+uz cenu tabaka 90–135 RSD. PVC: mali i srednji tiraži u relevantnim formatima su približno 9–20 RSD/kom, dok vrlo
+veliki ili manji formati mogu pasti niže; cena je često zasnovana na kvadraturi.
+Držači: drvena baza od bukve ima javan komponentni raspon 102–120 RSD/kom, ali gotov proizvod sa precizno
+obrađenim staklom nema pouzdan javni cenovnik. Metalni držač od 618 RSD i A6 stalak od 875 RSD bez PDV-a
+služe samo kao tržišni proxy, ne kao ponuda za vaš custom proizvod.
+Staklo i gravura: javna cena lasera je 0,3–1 €/radni minut, uz minimalne naplate kod pojedinih ponuđača. Cena
+stakla, obrade ivica, otpada, pripreme i kontrole očitavanja mora se tražiti kroz RFQ/prototip.
+Direktna gravura na providnom staklu je tehnički rizik, ne samo trošak
+DENSO WAVE upozorava da QR na transparentnom materijalu može izgubiti dovoljno reflektovane svetlosti u
+„belim” zonama, pa očitavanje zavisi od pozadine, ugla i kontrasta. Zato direktno gravirano staklo treba tretirati kao
+premium prototip koji prolazi test očitavanja, a papirni, nesamolepljivi uložak između stakala kao pouzdaniju
+standardnu varijantu. DENSO WAVE
+Tržišna vrednost nastaje objedinjavanjem više dobavljača
+ScanMe-ova relevantna konkurencija nije štamparija, već zbir usluga koje klijent inače kupuje odvojeno: branding,
+web, sadržaj, marketing, oglasi, analitika i podrška. Najbliži digitalni QR/NFC proizvodi jesu cenovni anchor, ali daju
+uži outcome i zato ne treba da postanu glavni referentni plafon.
+
+--- PAGE BREAK ---
+
+Konkurencija po outcome-u
+Source: Javni cenovnici relevantnih dobavljača
+Tables: tapcard.rs, izradasajtova-beograd.rs, konncept.net, odrzavanjesajta.rs, rastem.rs, tyne.rs, fotostudio-beograd.rs
+Grupa Jednokratno od Jednokratno do Mesečno od Mesečno do Šta pokriva
+Branding i dizajn $500 $1.7K — — vizuelni identitet; 4.500 € je
+širi premium paket i nije u
+osnovnom rasponu
+Društvene mreže / lokalno — — $250 $400 jedna mreža do kombinacije
+prisustvo Instagram + Google
+Business
+Foto/video sadržaj $80 $220 $80 $140 lokalni foto + kratki
+video/reels paketi
+Google/Meta Ads — — $299 $499 + 10% stvarnog budžeta za
+upravljanje oglase
+Izrada sajta $250 $1K — — sajt, osnovni SEO, analitika i
+podrška zavisno od paketa
+Održavanje sajta — — $20 $50 ažuriranje, osnovna
+optimizacija i podrška
+QR/NFC digitalne kartice $16.95 $25.47 $1.62 $2.04 personalizovani dizajn +
+linkovi; znatno uži outcome
+Odvojeni mesečni dobavljači stvaraju najveći prostor za bundled value
+Javni cenovnici daju zbir od približno 649–1.089 € mesečno za održavanje sajta, organsko/lokalno prisustvo,
+upravljanje oglasima i foto/video sadržaj. Stvarni medijski budžet je dodatnih približno 100–1.200 € za mali do
+srednji lokalni biznis. Zbir je scenario pune nabavke, ne tvrdnja da svaki klijent svakog meseca kupuje sve
+komponente.
+Mesečni trošak odvojenih dobavljača
+Source: Model iz domaćih javnih cenovnika
+Tables: odrzavanjesajta.rs javni cenovnik, rastem.rs javni cenovnik, tyne.rs javni cenovnik, fotostudio-beograd.rs javni cenovnik, webant.rs
+tržišni vodič
+Component Low Eur High Eur
+Održavanje sajta 20 50
+Društvene mreže / GBP 250 400
+Google/Meta Ads upravljanje 299 499
+Foto/video sadržaj 80 140
+Zbir usluga odvojeno 649 1.09K
+Stvarni budžet za oglase 100 1.2K
+Koliko objedinjavanje može da vredi klijentu
+Na relevantnom profesionalnom nivou odvojena jednokratna nabavka — branding 500–1.700 €, web 250–1.000 €,
+početni foto/video 80–220 € i osnovni digitalni QR/NFC element oko 17–25 € — daje približno 847–2.945 € pre
+fizičkog custom proizvoda. ScanMe može imati jasnu ekonomsku prednost ako isporučuje isti ili bolji outcome uz
+jedan proces, jednu odgovornost, konzistentan dizajn i niži ukupni trošak koordinacije. Ovo poređenje važi samo
+kada su scope i kvalitet zaista uporedivi.
+Gde je konkurencija, a gde ScanMe
+
+--- PAGE BREAK ---
+
+QR/NFC alati: jeftini i jednostavni, ali uglavnom self-service i bez strategije, sadržaja i terenske
+implementacije.
+Web dizajneri/agencije: rešavaju digitalno prisustvo, ali ne i fizičku tačku kontakta u lokalu niti kompletan
+ciklus korišćenja.
+Marketing agencije: rešavaju sadržaj i akviziciju, ali obično ne isporučuju sopstveni fizičko-digitalni proizvod.
+Freelanceri i više dobavljača: mogu biti povoljniji po pojedinačnoj stavci, ali klijent preuzima koordinaciju,
+kontrolu kvaliteta i rizik prekida saradnje.
+Pozicija ScanMe-a: productized, done-for-you fizičko-digitalna usluga sa dugoročnim održavanjem i merenjem —
+ne „QR kod kao proizvod”.
+Kupovna moć: najveća greška bi bila jedna cena za sve veličine klijenata
+U Srbiji ne postoji javna, reprezentativna baza koja direktno kaže koliko restorani, saloni, hoteli i ordinacije izdvajaju
+za marketing. Sledeći rasponi su zato planerski, izvedeni iz domaćih javnih cenovnika, lokalnih preporučenih ad
+spend nivoa i šireg benchmarka da mali uslužni biznisi često planiraju približno 2–8% prihoda za marketing. Koriste
+se za segmentaciju prodaje, ne kao potvrđeni proseci.
+Planerski budžetski rasponi ciljanih klijenata
+Source: Planerski model, ne reprezentativna anketa
+Tables: rastem.rs, tyne.rs, webant.rs, smartthink.rs, Shopify small-business benchmark, APR klasifikacija
+Veličina Usluge od Usluge do Sa oglasima od Sa oglasima do Tipičan profil Status
+Mikro (1–9 zaposlenih) $100 $600 $200 $1.5K jedna lokacija; kafić, planerski raspon
+frizer, solo salon, mali
+restoran
+Malo (10–49) $500 $2.5K $1K $6K jači lokalni brend, planerski raspon
+hotel/apartmani,
+ordinacija, teretana, više
+lokacija
+Srednje (50–249) $2K $10K $4K $25K lanac ili regionalni planerski raspon
+operator; više kanala i
+produkcije
+Sektorski modifikatori
+Donja polovina mikro raspona: kafići, barberi, solo frizeri i mali beauty saloni sa punim rasporedom i jakim
+preporukama.
+Sredina raspona: restorani, estetski saloni, teretane, apartmani i ordinacije kojima je potreban kontinuiran
+dotok novih klijenata.
+Gornja polovina: hoteli, privatne klinike, multi-location saloni/restorani i biznisi sa visokom vrednošću jednog
+novog klijenta.
+Launch/growth faza: privremeno može podići budžet oko 1,5–2× u odnosu na stabilan objekat.
+Profit: zdrava ciljna neto margina je 10–20%
+Promethean Research za 2025. nalazi prosečnu neto marginu digitalnih agencija od oko 13%, uz dugoročni orijentir
+oko 15% i tipičan raspon 10–20%. Za ScanMe je razumno kasnije modelovati tri scenarija: 10–12% zaštitni
+minimum, 15–20% zdrava ciljna zona i 20–25% premium/efikasna zona. Fizički materijal i spoljni dobavljači
+treba da imaju zasebnu contribution margin kontrolu.
+
+--- PAGE BREAK ---
+
+Ciljna marža i potreban markup na trošak
+Source: Promethean Research benchmark + standardna formula
+Table: prometheanresearch.com/how-profitable-are-digital-agencies
+Ciljna neto marža Potreban markup na trošak Tumačenje
+10% 11.1% donja održiva zona; malo prostora za greške
+15% 17.6% dugoročni industrijski orijentir
+20% 25% zdrava diferencirana usluga
+25% 33.3% visoka efikasnost/premium pozicija
+30% 42.9% ambiciozno; traži dokazanu vrednost i disciplinovan scope
+Marža nije isto što i markup
+Ako je trošak 100, dodavanje 20% daje cenu 120 i stvarnu maržu samo 16,7%. Za ciljnu maržu od 20% cena mora biti
+125. Zato se kasniji model računa kao cena = ukupni trošak / (1 − ciljna marža).
+Pre formiranja cene uraditi četiri konkretna testa
+1. Poslati identičan RFQ najmanje trima dobavljačima za 10 / 50 / 100 / 500 / 1.000 komada po
+standardizovanom formatu.
+2. Napraviti po jedan funkcionalni prototip: muflon, PVC, papirni uložak u držaču i gravirano staklo.
+3. Testirati svaki kod na najmanje 10 telefona, pri dnevnom i veštačkom svetlu, iz više uglova i nakon habanja/
+čišćenja.
+4. Izmeriti interne sate po fazi: prodaja, dizajn, sadržaj, razvoj, implementacija, QA, podrška i mesečno
+održavanje.
+Dalja pitanja koja najviše menjaju buduću cenu
+Koliki mesečni obim marketinga stvarno ulazi u pretplatu: broj objava, snimanja, kampanja i izmena?
+Da li oglasni budžet plaća klijent direktno ili prolazi kroz ScanMe?
+Koliko lokacija, kodova i korisnika pokriva jedan ugovor?
+Koji SLA i količina podrške ulaze u pretplatu?
+Da li se fizički proizvod prodaje, iznajmljuje ili subvencioniše kroz minimalni period pretplate?
+Ograničenja i pretpostavke
+Konačna ScanMe cena nije formirana.
+Drvena gravura i vaš interni trošak održavanja sajta namerno su izostavljeni.
+Javni cenovnici nisu ponude i mogu zavisiti od pripreme, boje, sečenja, dostave i roka.
+Tamo gde PDV nije eksplicitno naveden, cena nije predstavljena kao potvrđeno „bez PDV-a”.
+Budžeti po veličini firme su izvedeni planerski rasponi, jer reprezentativni srpski podaci o stvarnom marketing
+spendu po navedenim delatnostima nisu javno dostupni.
+Direktna gravura na staklu zahteva dokaz čitljivosti pre komercijalizacije.
+
+--- PAGE BREAK ---
+
+Sources
+1. Vlada Srbije — minimalna cena rada 2026 2. NBS — srednji kurs EUR/RSD
+3. Štamparija Plus Beograd — muflon i A6 cenovnik 4. Online štamparija Beograd — muflon po tabaku
+5. Beograd Čukarica — PVC i muflon mali tiraži 6. Akcijska štampa — PVC cenovnik po kvadraturi
+7. Samitean — lasersko graviranje po minutu 8. Stonicom — drveni stoni nosači po tiražu
+9. Internet knjižara — A6 stoni stalak bez PDV-a 10. PromoStar — metalni držač bez brendinga i PDV-a
+11. DENSO WAVE — QR čitljivost na transparentnim materijalima 12. TapCard Srbija — NFC/digitalna kartica
+13. AM Design Beograd — izrada sajta 14. OdržavanjeSajta.rs — mesečni paketi
+15. Konncept — branding paketi 16. Rastem — vođenje društvenih mreža
+17. Tyne — Google/Meta Ads upravljanje 18. Webant — budžeti Google Ads u Srbiji 2026
+19. VizArt Media — foto/video sadržaj 20. Promethean Research — profitabilnost digitalnih agencija
+21. APR — razvrstavanje privrednih subjekata

@@ -23,8 +23,9 @@ import {
   rgbToCmyk,
   rgbToHex,
   rgbToHsl,
-  rgbToHsv,
+  stableHsvFromHex,
   type CmykColor,
+  type HsvColor,
 } from "@/lib/scanme-color";
 import editorStyles from "./scanme-links-editor.module.css";
 import styles from "./scanme-color-picker.module.css";
@@ -305,9 +306,69 @@ function PickerView({
   previousValue: string;
   onChange: (value: string) => void;
 }) {
-  const rgb = hexToRgb(value);
-  const hsv = rgbToHsv(rgb);
-  const previousHsv = rgbToHsv(hexToRgb(previousValue));
+  const [hsv, setHsv] = useState<HsvColor>(() => stableHsvFromHex(value));
+  const hsvRef = useRef(hsv);
+  const draggingPointerRef = useRef<number | null>(null);
+  const changeFrameRef = useRef<number | null>(null);
+  const pendingHexRef = useRef<string | null>(null);
+  const onChangeRef = useRef(onChange);
+
+  const previousHsv = stableHsvFromHex(previousValue);
+  const displayHex = rgbToHex(hsvToRgb(hsv));
+
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
+
+  useEffect(() => {
+    if (draggingPointerRef.current !== null) return;
+    const next = stableHsvFromHex(value, hsvRef.current);
+    hsvRef.current = next;
+    setHsv((current) =>
+      current.h === next.h && current.s === next.s && current.v === next.v
+        ? current
+        : next,
+    );
+  }, [value]);
+
+  useEffect(
+    () => () => {
+      if (changeFrameRef.current !== null) {
+        window.cancelAnimationFrame(changeFrameRef.current);
+      }
+    },
+    [],
+  );
+
+  function flushChange() {
+    if (changeFrameRef.current !== null) {
+      window.cancelAnimationFrame(changeFrameRef.current);
+      changeFrameRef.current = null;
+    }
+    if (!pendingHexRef.current) return;
+    const nextHex = pendingHexRef.current;
+    pendingHexRef.current = null;
+    onChangeRef.current(nextHex);
+  }
+
+  function updateDraft(next: HsvColor, immediately = false) {
+    hsvRef.current = next;
+    setHsv(next);
+    pendingHexRef.current = rgbToHex(hsvToRgb(next));
+
+    if (immediately) {
+      flushChange();
+      return;
+    }
+    if (changeFrameRef.current !== null) return;
+    changeFrameRef.current = window.requestAnimationFrame(() => {
+      changeFrameRef.current = null;
+      if (!pendingHexRef.current) return;
+      const nextHex = pendingHexRef.current;
+      pendingHexRef.current = null;
+      onChangeRef.current(nextHex);
+    });
+  }
 
   function updatePlane(event: ReactPointerEvent<HTMLDivElement>) {
     const rect = event.currentTarget.getBoundingClientRect();
@@ -321,7 +382,20 @@ function PickerView({
       0,
       100,
     );
-    onChange(rgbToHex(hsvToRgb({ h: hsv.h, s: saturation, v: brightness })));
+    updateDraft({ h: hsvRef.current.h, s: saturation, v: brightness });
+  }
+
+  function finishPlaneDrag(
+    event: ReactPointerEvent<HTMLDivElement>,
+    updateAtRelease: boolean,
+  ) {
+    if (draggingPointerRef.current !== event.pointerId) return;
+    if (updateAtRelease) updatePlane(event);
+    flushChange();
+    draggingPointerRef.current = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
   }
 
   return (
@@ -337,14 +411,18 @@ function PickerView({
         aria-valuetext={`${Math.round(hsv.s)}% saturation, ${Math.round(hsv.v)}% brightness`}
         style={{ "--picker-hue": hsv.h } as CSSProperties}
         onPointerDown={(event) => {
+          event.preventDefault();
+          draggingPointerRef.current = event.pointerId;
           event.currentTarget.setPointerCapture(event.pointerId);
           updatePlane(event);
         }}
         onPointerMove={(event) => {
-          if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+          if (draggingPointerRef.current === event.pointerId) {
             updatePlane(event);
           }
         }}
+        onPointerUp={(event) => finishPlaneDrag(event, true)}
+        onPointerCancel={(event) => finishPlaneDrag(event, false)}
         onKeyDown={(event) => {
           const step = event.shiftKey ? 5 : 1;
           let saturation = hsv.s;
@@ -355,14 +433,13 @@ function PickerView({
           else if (event.key === "ArrowDown") brightness -= step;
           else return;
           event.preventDefault();
-          onChange(
-            rgbToHex(
-              hsvToRgb({
-                h: hsv.h,
-                s: clamp(saturation, 0, 100),
-                v: clamp(brightness, 0, 100),
-              }),
-            ),
+          updateDraft(
+            {
+              h: hsv.h,
+              s: clamp(saturation, 0, 100),
+              v: clamp(brightness, 0, 100),
+            },
+            true,
           );
         }}
       >
@@ -371,7 +448,7 @@ function PickerView({
           style={{
             left: `${hsv.s}%`,
             top: `${100 - hsv.v}%`,
-            background: value,
+            background: displayHex,
           }}
         />
       </div>
@@ -379,17 +456,15 @@ function PickerView({
       <HueSlider
         value={hsv.h}
         previousValue={previousHsv.h}
-        color={value}
-        onChange={(hue) =>
-          onChange(rgbToHex(hsvToRgb({ ...hsv, h: hue })))
-        }
+        color={displayHex}
+        onChange={(hue) => updateDraft({ ...hsvRef.current, h: hue })}
       />
 
       <div className={styles.hexRow}>
         <input
-          key={value}
+          key={displayHex}
           className={styles.hexInput}
-          defaultValue={value}
+          defaultValue={displayHex}
           maxLength={7}
           spellCheck={false}
           aria-label="HEX code"
@@ -397,15 +472,21 @@ function PickerView({
             const draft = event.target.value.startsWith("#")
               ? event.target.value.toUpperCase()
               : `#${event.target.value.toUpperCase()}`;
-            if (isCompleteHexColor(draft)) onChange(draft);
+            if (isCompleteHexColor(draft)) {
+              const next = stableHsvFromHex(draft, hsvRef.current);
+              updateDraft(next, true);
+            }
           }}
           onBlur={(event) => {
             if (!isCompleteHexColor(event.currentTarget.value)) {
-              event.currentTarget.value = value;
+              event.currentTarget.value = displayHex;
             }
           }}
         />
-        <span className={styles.currentSwatch} style={{ background: value }} />
+        <span
+          className={styles.currentSwatch}
+          style={{ background: displayHex }}
+        />
       </div>
     </div>
   );
