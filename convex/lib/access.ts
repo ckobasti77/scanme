@@ -1,3 +1,4 @@
+import { ConvexError } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import type { Doc } from "../_generated/dataModel";
 import { env, type MutationCtx, type QueryCtx } from "../_generated/server";
@@ -39,47 +40,16 @@ export function isAdminEmail(email: string | undefined) {
 
 export async function requireAuthUser(ctx: DatabaseCtx) {
   const userId = await getAuthUserId(ctx);
-  if (!userId) throw new Error("Niste prijavljeni.");
+  if (!userId) throw new ConvexError("Niste prijavljeni.");
   const user = await ctx.db.get(userId);
-  if (!user) throw new Error("Korisnički nalog nije pronađen.");
+  if (!user) throw new ConvexError("Korisnički nalog nije pronađen.");
   return user;
 }
 
 export async function requireAdmin(ctx: DatabaseCtx) {
   const user = await requireAuthUser(ctx);
-  if (!isAdminEmail(user.email)) throw new Error("Nemate administratorski pristup.");
+  if (!isAdminEmail(user.email)) throw new ConvexError("Nemate administratorski pristup.");
   return user;
-}
-
-export async function resolveBusinessByScanMeSlug(
-  ctx: DatabaseCtx,
-  rawSlug: string,
-) {
-  const slug = requireSlug(rawSlug);
-  const business = await ctx.db
-    .query("businesses")
-    .withIndex("by_slug", (q) => q.eq("slug", slug))
-    .unique();
-  if (business) {
-    return { business, canonicalSlug: business.slug };
-  }
-
-  let profile = await ctx.db
-    .query("serviceProfiles")
-    .withIndex("by_slug", (q) => q.eq("slug", slug))
-    .unique();
-  if (!profile) {
-    const alias = await ctx.db
-      .query("serviceSlugAliases")
-      .withIndex("by_slug", (q) => q.eq("slug", slug))
-      .unique();
-    profile = alias ? await ctx.db.get(alias.serviceProfileId) : null;
-  }
-  if (!profile || profile.type !== "scanme_links") return null;
-
-  const profileBusiness = await ctx.db.get(profile.businessId);
-  if (!profileBusiness) return null;
-  return { business: profileBusiness, canonicalSlug: profileBusiness.slug };
 }
 
 export async function requireBusinessAccessBySlug(ctx: DatabaseCtx, rawSlug: string) {
@@ -87,11 +57,14 @@ export async function requireBusinessAccessBySlug(ctx: DatabaseCtx, rawSlug: str
   if (!userId) denyBusinessAccess("Niste prijavljeni.");
   const user = await ctx.db.get(userId);
   if (!user) denyBusinessAccess("Korisnički nalog nije pronađen.");
-  const resolved = await resolveBusinessByScanMeSlug(ctx, rawSlug);
-  if (!resolved || resolved.business.status === "inactive") {
+  const slug = requireSlug(rawSlug);
+  const business = await ctx.db
+    .query("businesses")
+    .withIndex("by_slug", (q) => q.eq("slug", slug))
+    .unique();
+  if (!business || business.status === "inactive") {
     denyBusinessAccess("Panel nije dostupan.");
   }
-  const { business, canonicalSlug } = resolved;
   const links = await ctx.db
     .query("dynamicLinks")
     .withIndex("by_businessId_and_type", (q) =>
@@ -103,14 +76,7 @@ export async function requireBusinessAccessBySlug(ctx: DatabaseCtx, rawSlug: str
   if (!link) denyBusinessAccess("Panel nije pronađen.");
 
   if (isAdminEmail(user.email)) {
-    return {
-      user,
-      business,
-      link,
-      membership: null,
-      accessRole: "admin" as const,
-      canonicalSlug,
-    };
+    return { user, business, link, membership: null, accessRole: "admin" as const };
   }
 
   const membership = await ctx.db
@@ -121,12 +87,5 @@ export async function requireBusinessAccessBySlug(ctx: DatabaseCtx, rawSlug: str
     .unique();
   if (!membership?.active) denyBusinessAccess("Nemate pristup ovom lokalu.");
 
-  return {
-    user,
-    business,
-    link,
-    membership,
-    accessRole: "viewer" as const,
-    canonicalSlug,
-  };
+  return { user, business, link, membership, accessRole: "viewer" as const };
 }

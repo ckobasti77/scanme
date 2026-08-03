@@ -2,10 +2,10 @@
 
 import { convexTest } from "convex-test";
 import { describe, expect, test } from "vitest";
-import { api, internal } from "./_generated/api";
+import { api } from "./_generated/api";
 import schema from "./schema";
 import { DEFAULT_ACCENT, DEFAULT_ACCENT_TOKENS } from "../lib/scanme-links";
-import { PRESET_DESIGNS } from "../lib/scanme-design";
+import { createDefaultScanMeLinksDesignV2 } from "../lib/scanme-links-design";
 
 const modules = import.meta.glob("./**/*.ts");
 
@@ -88,6 +88,96 @@ async function addPublishedDestination(
 }
 
 describe("ScanMe Links javni tok", () => {
+  test("objavljena stranica može biti aktivna bez ijedne destinacije", async () => {
+    const setup = await seedScanMeLinks();
+    const editor = await setup.asAdmin.query(api.scanMeLinks.editor, {
+      businessId: setup.businessId,
+    });
+    await setup.asAdmin.mutation(api.scanMeLinks.publishDraft, {
+      serviceProfileId: setup.serviceProfileId,
+      expectedDraftRevision: editor!.config!.draftRevision,
+    });
+    await expect(
+      setup.asAdmin.mutation(api.scanMeLinks.setServiceActive, {
+        serviceProfileId: setup.serviceProfileId,
+        active: true,
+      }),
+    ).resolves.toEqual({ active: true });
+
+    const scan = await setup.t.mutation(api.scanMeLinks.resolveAndRecord, {
+      slug: "mera-cafe",
+      requestId: "80f1177b-6cc8-4ac0-a8b8-9fab63fd0dad",
+      deviceCategory: "mobile",
+    });
+    expect(scan).toMatchObject({
+      status: "links",
+      view: { destinations: [] },
+    });
+    delete process.env.SCANME_ADMIN_EMAILS;
+  });
+
+  test("aktivan link bez URL-a se vidi u nacrtu, ali ne i javno", async () => {
+    const setup = await seedScanMeLinks();
+    const added = await setup.asAdmin.mutation(api.scanMeLinks.addDestination, {
+      serviceProfileId: setup.serviceProfileId,
+      kind: "instagram",
+    });
+    const initialDraft = await setup.asAdmin.query(api.scanMeLinks.editor, {
+      businessId: setup.businessId,
+    });
+    expect(initialDraft?.draftView?.destinations).toContainEqual(
+      expect.objectContaining({
+        id: added.destinationId,
+        state: "active",
+        url: "",
+      }),
+    );
+    await setup.asAdmin.mutation(api.scanMeLinks.updateDestination, {
+      destinationId: added.destinationId,
+      kind: "instagram",
+      label: "Instagram",
+      url: "",
+      iconKey: "instagram",
+      state: "active",
+    });
+    const editor = await setup.asAdmin.query(api.scanMeLinks.editor, {
+      businessId: setup.businessId,
+    });
+    await setup.asAdmin.mutation(api.scanMeLinks.publishDraft, {
+      serviceProfileId: setup.serviceProfileId,
+      expectedDraftRevision: editor!.config!.draftRevision,
+    });
+    await setup.asAdmin.mutation(api.scanMeLinks.setServiceActive, {
+      serviceProfileId: setup.serviceProfileId,
+      active: true,
+    });
+
+    const requestId = "dfd8a675-d82f-43b4-ac50-32b3972a5d20";
+    const scan = await setup.t.mutation(api.scanMeLinks.resolveAndRecord, {
+      slug: "mera-cafe",
+      requestId,
+      deviceCategory: "mobile",
+    });
+    expect(scan).toMatchObject({
+      status: "links",
+      view: {
+        destinations: [],
+      },
+    });
+    await expect(
+      setup.t.mutation(api.scanMeLinks.recordClick, {
+        requestId,
+        destinationId: added.destinationId,
+        clickId: "d5e70765-86d2-48ce-9fde-b2c6c2d5e75e",
+      }),
+    ).rejects.toThrow("Destinacija nije dostupna.");
+    const destination = await setup.t.run((ctx) =>
+      ctx.db.get(added.destinationId),
+    );
+    expect(destination?.totalClicks).toBe(0);
+    delete process.env.SCANME_ADMIN_EMAILS;
+  });
+
   test("jedna destinacija direktno preusmerava i dupli request ne uvećava metriku", async () => {
     const setup = await seedScanMeLinks();
     await addPublishedDestination(
@@ -220,22 +310,200 @@ describe("ScanMe Links javni tok", () => {
         state: "active",
       });
     }
-    const eleventh = await setup.asAdmin.mutation(api.scanMeLinks.addDestination, {
-      serviceProfileId: setup.serviceProfileId,
-      kind: "custom",
-    });
     await expect(
-      setup.asAdmin.mutation(api.scanMeLinks.updateDestination, {
-        destinationId: eleventh.destinationId,
+      setup.asAdmin.mutation(api.scanMeLinks.addDestination, {
+        serviceProfileId: setup.serviceProfileId,
         kind: "custom",
-        label: "Link 11",
-        url: "https://example.com/11",
-        iconKey: "link",
-        state: "active",
       }),
-    ).rejects.toThrow("najviše 10 aktivnih destinacija");
+    ).rejects.toThrow("10 aktivnih destinacija");
     delete process.env.SCANME_ADMIN_EMAILS;
   });
+});
+
+test("brisanje ostavlja tombstone i kompletnu analitiku", async () => {
+  const setup = await seedScanMeLinks();
+  const instagramId = await addPublishedDestination(
+    setup,
+    "instagram",
+    "https://instagram.com/mera.cafe",
+  );
+  await addPublishedDestination(
+    setup,
+    "website",
+    "https://mera.example.com",
+  );
+  await setup.asAdmin.mutation(api.scanMeLinks.setServiceActive, {
+    serviceProfileId: setup.serviceProfileId,
+    active: true,
+  });
+  const requestId = "d986d93a-8eec-4e8a-aaf8-3ce23044ca9c";
+  await setup.t.mutation(api.scanMeLinks.resolveAndRecord, {
+    slug: "mera-cafe",
+    requestId,
+    deviceCategory: "mobile",
+  });
+  await setup.t.mutation(api.scanMeLinks.recordClick, {
+    requestId,
+    destinationId: instagramId,
+    clickId: "1d1111d8-b594-458b-9027-f9020321528a",
+  });
+
+  await setup.asAdmin.mutation(api.scanMeLinks.markDestinationDeleted, {
+    destinationId: instagramId,
+  });
+  const draft = await setup.asAdmin.query(api.scanMeLinks.editor, {
+    businessId: setup.businessId,
+  });
+  await setup.asAdmin.mutation(api.scanMeLinks.publishDraft, {
+    serviceProfileId: setup.serviceProfileId,
+    expectedDraftRevision: draft!.config!.draftRevision,
+  });
+
+  const state = await setup.t.run(async (ctx) => ({
+    destination: await ctx.db.get(instagramId),
+    visits: await ctx.db
+      .query("destinationVisitEvents")
+      .withIndex("by_destinationId_and_occurredAt", (q) =>
+        q.eq("destinationId", instagramId),
+      )
+      .take(10),
+    daily: await ctx.db
+      .query("dailyDestinationMetrics")
+      .withIndex("by_destinationId_and_dateKey", (q) =>
+        q.eq("destinationId", instagramId),
+      )
+      .take(10),
+  }));
+  expect(state.destination).toMatchObject({
+    publishedState: "deleted",
+    totalClicks: 1,
+  });
+  expect(state.visits).toHaveLength(1);
+  expect(state.daily).toHaveLength(1);
+
+  const metrics = await setup.asAdmin.query(api.scanMeLinks.metrics, {
+    businessId: setup.businessId,
+    range: "7d",
+  });
+  expect(metrics?.destinations).toContainEqual(
+    expect.objectContaining({
+      id: instagramId,
+      state: "deleted",
+      totalClicks: 1,
+    }),
+  );
+  delete process.env.SCANME_ADMIN_EMAILS;
+});
+
+test("novi editor validira tekst i normalizuje opcije koje stil ne podržava", async () => {
+  const setup = await seedScanMeLinks();
+  const added = await setup.asAdmin.mutation(api.scanMeLinks.addDestination, {
+    serviceProfileId: setup.serviceProfileId,
+    kind: "instagram",
+  });
+  const gentle = createDefaultScanMeLinksDesignV2("gentle");
+  const incompatibleDesign = {
+    ...gentle,
+    buttons: {
+      ...gentle.buttons,
+      variant: "glass" as const,
+    },
+  };
+  const baseArgs = {
+    serviceProfileId: setup.serviceProfileId,
+    displayName: "Mera Cafe",
+    description: "Mali gradski kafe",
+    logoStorageId: null,
+    palette: ["#F7F1EA", "#D98B79"],
+    paletteAnalysis: null,
+    design: incompatibleDesign,
+    backgroundImageStorageId: null,
+    backgroundVideoStorageId: null,
+    destinations: [
+      {
+        id: added.destinationId,
+        kind: "website" as const,
+        label: "Moj sajt",
+        url: "",
+        order: 0,
+        state: "active" as const,
+      },
+    ],
+  };
+
+  await expect(
+    setup.asAdmin.mutation(api.scanMeLinks.saveEditorDraft, {
+      ...baseArgs,
+      displayName: "x".repeat(51),
+    }),
+  ).rejects.toThrow("50 karaktera");
+  await expect(
+    setup.asAdmin.mutation(api.scanMeLinks.saveEditorDraft, {
+      ...baseArgs,
+      description: "x".repeat(51),
+    }),
+  ).rejects.toThrow("50 karaktera");
+
+  const saved = await setup.asAdmin.mutation(
+    api.scanMeLinks.saveEditorDraft,
+    baseArgs,
+  );
+  expect(saved).toMatchObject({
+    saved: true,
+    design: {
+      presetKey: "gentle",
+      buttons: { variant: "solid" },
+      iconStyle: "soft-line",
+    },
+  });
+  const editor = await setup.asAdmin.query(api.scanMeLinks.editorBySlug, {
+    slug: "mera-cafe",
+  });
+  expect(editor?.config).toMatchObject({
+    displayName: "Mera Cafe",
+    description: "Mali gradski kafe",
+    draftRevision: saved.draftRevision,
+    design: {
+      presetKey: "gentle",
+      buttons: { variant: "solid" },
+    },
+  });
+  expect(editor?.destinations).toContainEqual(
+    expect.objectContaining({
+      id: added.destinationId,
+      kind: "website",
+      label: "Moj sajt",
+      iconKey: "globe",
+      state: "active",
+    }),
+  );
+  delete process.env.SCANME_ADMIN_EMAILS;
+});
+
+test("editor po slugu prati stari servisni alias i vraća null bez pristupa", async () => {
+  const setup = await seedScanMeLinks();
+  await setup.t.run(async (ctx) => {
+    await ctx.db.insert("serviceSlugAliases", {
+      slug: "stari-mera-cafe",
+      serviceProfileId: setup.serviceProfileId,
+      createdAt: Date.now(),
+    });
+  });
+  const editor = await setup.asAdmin.query(api.scanMeLinks.editorBySlug, {
+    slug: "stari-mera-cafe",
+  });
+  expect(editor).toMatchObject({
+    id: setup.businessId,
+    clientPanelSlug: "mera-cafe",
+    profile: { id: setup.serviceProfileId },
+    editorRole: "admin",
+  });
+  await expect(
+    setup.t.query(api.scanMeLinks.editorBySlug, {
+      slug: "mera-cafe",
+    }),
+  ).resolves.toBeNull();
+  delete process.env.SCANME_ADMIN_EMAILS;
 });
 
 test("odbacivanje vraća poslednju objavljenu verziju", async () => {
@@ -263,376 +531,6 @@ test("odbacivanje vraća poslednju objavljenu verziju", async () => {
     label: "Instagram",
     url: "https://instagram.com/mera.cafe",
     state: "active",
-  });
-  delete process.env.SCANME_ADMIN_EMAILS;
-});
-
-test("novi lokal se inicijalizuje jednim presetom i prvom draft revizijom", async () => {
-  const setup = await seedScanMeLinks();
-  await setup.t.run(async (ctx) => {
-    const config = await ctx.db
-      .query("scanMeLinksConfigs")
-      .withIndex("by_serviceProfileId", (q) =>
-        q.eq("serviceProfileId", setup.serviceProfileId),
-      )
-      .unique();
-    if (!config) throw new Error("Test konfiguracija nije pronađena.");
-    await ctx.db.patch(config._id, {
-      draftDesignState: "uninitialized",
-      draftDesign: undefined,
-      draftDescription: undefined,
-      draftPaletteAnalysis: undefined,
-      hasUnpublishedChanges: false,
-      draftRevision: 0,
-    });
-  });
-
-  const before = await setup.asAdmin.query(api.scanMeLinks.editor, {
-    businessId: setup.businessId,
-  });
-  expect(before?.config).toMatchObject({
-    designState: "uninitialized",
-    design: null,
-    draftRevision: 0,
-  });
-
-  const initialized = await setup.asAdmin.mutation(
-    api.scanMeLinks.initializeDraftDesign,
-    {
-      serviceProfileId: setup.serviceProfileId,
-      expectedDraftRevision: 0,
-      source: { kind: "preset", presetKey: "lux" },
-      description: "Kafa i doručak u centru grada.",
-    },
-  );
-  expect(initialized).toMatchObject({
-    draftRevision: 1,
-    corrections: [],
-    design: { version: 1, presetKey: "lux" },
-  });
-
-  const after = await setup.asAdmin.query(api.scanMeLinks.editor, {
-    businessId: setup.businessId,
-  });
-  expect(after?.config).toMatchObject({
-    designState: "ready",
-    description: "Kafa i doručak u centru grada.",
-    draftRevision: 1,
-    hasUnpublishedChanges: true,
-    design: { presetKey: "lux" },
-  });
-  delete process.env.SCANME_ADMIN_EMAILS;
-});
-
-test("nepristupačan dizajn se atomski odbija bez promene revizije", async () => {
-  const setup = await seedScanMeLinks();
-  const inaccessible = structuredClone(PRESET_DESIGNS.gentle);
-  inaccessible.autoContrast = false;
-  inaccessible.presetKey = "custom";
-  inaccessible.colors.page = "#FFFFFF";
-  inaccessible.colors.title = "#FFFFFF";
-
-  await expect(
-    setup.asAdmin.mutation(api.scanMeLinks.saveDraftDesign, {
-      serviceProfileId: setup.serviceProfileId,
-      expectedDraftRevision: 1,
-      design: inaccessible,
-      description: "",
-    }),
-  ).rejects.toThrow("Kontrast");
-
-  const config = await setup.t.run(async (ctx) =>
-    ctx.db
-      .query("scanMeLinksConfigs")
-      .withIndex("by_serviceProfileId", (q) =>
-        q.eq("serviceProfileId", setup.serviceProfileId),
-      )
-      .unique(),
-  );
-  expect(config?.draftRevision).toBe(1);
-  expect(config?.draftDesign).toBeUndefined();
-  delete process.env.SCANME_ADMIN_EMAILS;
-});
-
-test("publish i discard kopiraju ceo V1 dizajn i presentation bez gubitka metrika", async () => {
-  const setup = await seedScanMeLinks();
-  const saved = await setup.asAdmin.mutation(api.scanMeLinks.saveDraftDesign, {
-    serviceProfileId: setup.serviceProfileId,
-    expectedDraftRevision: 1,
-    design: PRESET_DESIGNS.lux,
-    description: "Objavljena verzija.",
-    paletteAnalysis: {
-      original: ["#C79A3B"],
-      adjusted: ["#C79A3B"],
-      correctedRoles: [],
-    },
-  });
-  const added = await setup.asAdmin.mutation(api.scanMeLinks.addDestination, {
-    serviceProfileId: setup.serviceProfileId,
-    kind: "instagram",
-    presentation: "social",
-  });
-  const updated = await setup.asAdmin.mutation(
-    api.scanMeLinks.updateDestination,
-    {
-      destinationId: added.destinationId,
-      kind: "instagram",
-      label: "Instagram",
-      url: "https://instagram.com/mera.cafe",
-      iconKey: "instagram",
-      state: "active",
-      presentation: "social",
-    },
-  );
-  expect(saved.draftRevision).toBe(2);
-  expect(updated.draftRevision).toBe(4);
-  await setup.asAdmin.mutation(api.scanMeLinks.publishDraft, {
-    serviceProfileId: setup.serviceProfileId,
-    expectedDraftRevision: updated.draftRevision,
-  });
-
-  const changed = await setup.asAdmin.mutation(api.scanMeLinks.saveDraftDesign, {
-    serviceProfileId: setup.serviceProfileId,
-    expectedDraftRevision: updated.draftRevision,
-    design: PRESET_DESIGNS.ios,
-    description: "Privremena verzija.",
-  });
-  await setup.asAdmin.mutation(api.scanMeLinks.updateDestination, {
-    destinationId: added.destinationId,
-    kind: "instagram",
-    label: "Privremeni Instagram",
-    url: "https://instagram.com/mera.cafe/privremeno",
-    iconKey: "instagram",
-    state: "active",
-    presentation: "button",
-  });
-  const discarded = await setup.asAdmin.mutation(
-    api.scanMeLinks.discardDraft,
-    { serviceProfileId: setup.serviceProfileId },
-  );
-  expect(discarded.draftRevision).toBe(changed.draftRevision + 2);
-
-  const state = await setup.t.run(async (ctx) => ({
-    config: await ctx.db
-      .query("scanMeLinksConfigs")
-      .withIndex("by_serviceProfileId", (q) =>
-        q.eq("serviceProfileId", setup.serviceProfileId),
-      )
-      .unique(),
-    destination: await ctx.db.get(added.destinationId),
-  }));
-  expect(state.config).toMatchObject({
-    draftDesign: { presetKey: "lux" },
-    publishedDesign: { presetKey: "lux" },
-    draftDescription: "Objavljena verzija.",
-    publishedDescription: "Objavljena verzija.",
-    hasUnpublishedChanges: false,
-  });
-  expect(state.destination).toMatchObject({
-    draftPresentation: "social",
-    publishedPresentation: "social",
-    totalClicks: 0,
-    totalDirectVisits: 0,
-  });
-  delete process.env.SCANME_ADMIN_EMAILS;
-});
-
-test("publish prihvata eksplicitni Nature asset bez storage slike i bez oslanjanja na presetKey", async () => {
-  const setup = await seedScanMeLinks();
-  const natureDesign = structuredClone(PRESET_DESIGNS.nature);
-  natureDesign.presetKey = "custom";
-
-  const saved = await setup.asAdmin.mutation(api.scanMeLinks.saveDraftDesign, {
-    serviceProfileId: setup.serviceProfileId,
-    expectedDraftRevision: 1,
-    design: natureDesign,
-    description: "Prirodna pozadina.",
-  });
-
-  await expect(
-    setup.asAdmin.mutation(api.scanMeLinks.publishDraft, {
-      serviceProfileId: setup.serviceProfileId,
-      expectedDraftRevision: saved.draftRevision,
-    }),
-  ).resolves.toMatchObject({
-    publishedRevision: saved.draftRevision,
-  });
-
-  const config = await setup.t.run(async (ctx) =>
-    ctx.db
-      .query("scanMeLinksConfigs")
-      .withIndex("by_serviceProfileId", (q) =>
-        q.eq("serviceProfileId", setup.serviceProfileId),
-      )
-      .unique(),
-  );
-  expect(config?.publishedDesign?.background).toMatchObject({
-    kind: "image",
-    builtInAsset: "nature",
-  });
-  expect(config?.publishedBackgroundImageStorageId).toBeUndefined();
-  delete process.env.SCANME_ADMIN_EMAILS;
-});
-
-test("V1 migracija ima dry-run i idempotentno čuva revizije i metrike", async () => {
-  const setup = await seedScanMeLinks();
-  const destinationId = await setup.t.run(async (ctx) => {
-    const now = Date.now();
-    return await ctx.db.insert("serviceDestinations", {
-      serviceProfileId: setup.serviceProfileId,
-      kind: "website",
-      totalClicks: 17,
-      totalDirectVisits: 4,
-      draftLabel: "Website",
-      draftUrl: "https://mera.example.com",
-      draftIconKey: "globe",
-      draftOrder: 0,
-      draftState: "active",
-      publishedLabel: "Website",
-      publishedUrl: "https://mera.example.com",
-      publishedIconKey: "globe",
-      publishedOrder: 0,
-      publishedState: "active",
-      createdAt: now,
-      updatedAt: now,
-    });
-  });
-
-  const dryRun = await setup.t.mutation(
-    internal.migrations.migrateScanMeDesignV1,
-    { dryRun: true, limit: 100 },
-  );
-  expect(dryRun).toMatchObject({
-    dryRun: true,
-    configsChanged: 1,
-    destinationsChanged: 1,
-  });
-  const before = await setup.t.run(async (ctx) => ({
-    config: await ctx.db
-      .query("scanMeLinksConfigs")
-      .withIndex("by_serviceProfileId", (q) =>
-        q.eq("serviceProfileId", setup.serviceProfileId),
-      )
-      .unique(),
-    destination: await ctx.db.get(destinationId),
-  }));
-  expect(before.config?.draftDesign).toBeUndefined();
-  expect(before.destination?.draftPresentation).toBeUndefined();
-
-  const migrated = await setup.t.mutation(
-    internal.migrations.migrateScanMeDesignV1,
-    { limit: 100 },
-  );
-  const repeated = await setup.t.mutation(
-    internal.migrations.migrateScanMeDesignV1,
-    { limit: 100 },
-  );
-  const verified = await setup.t.query(
-    internal.migrations.verifyScanMeDesignV1,
-    { limit: 100 },
-  );
-  expect(migrated).toMatchObject({
-    configsChanged: 1,
-    destinationsChanged: 1,
-  });
-  expect(repeated).toMatchObject({
-    configsChanged: 0,
-    destinationsChanged: 0,
-  });
-  expect(verified).toMatchObject({ ok: true });
-
-  const after = await setup.t.run(async (ctx) => ({
-    config: await ctx.db
-      .query("scanMeLinksConfigs")
-      .withIndex("by_serviceProfileId", (q) =>
-        q.eq("serviceProfileId", setup.serviceProfileId),
-      )
-      .unique(),
-    destination: await ctx.db.get(destinationId),
-  }));
-  expect(after.config).toMatchObject({
-    draftDesignState: "ready",
-    draftRevision: 1,
-    publishedRevision: 0,
-  });
-  expect(after.destination).toMatchObject({
-    draftPresentation: "button",
-    publishedPresentation: "button",
-    totalClicks: 17,
-    totalDirectVisits: 4,
-  });
-  delete process.env.SCANME_ADMIN_EMAILS;
-});
-
-test("editor ruta prihvata kanonski slug, alias i legacy business ID", async () => {
-  const setup = await seedScanMeLinks();
-  await setup.t.run(async (ctx) => {
-    await ctx.db.insert("serviceSlugAliases", {
-      slug: "stara-mera",
-      serviceProfileId: setup.serviceProfileId,
-      createdAt: Date.now(),
-    });
-  });
-
-  for (const routeKey of [
-    "mera-cafe",
-    "stara-mera",
-    setup.businessId,
-  ]) {
-    const editor = await setup.asAdmin.query(
-      api.scanMeLinks.editorByRouteKey,
-      { routeKey },
-    );
-    expect(editor).toMatchObject({
-      id: setup.businessId,
-      name: "Mera Cafe",
-      clientPanelSlug: "mera-cafe",
-    });
-  }
-  delete process.env.SCANME_ADMIN_EMAILS;
-});
-
-test("kanonski naziv lokala nadjačava legacy draft i published nazive", async () => {
-  const setup = await seedScanMeLinks();
-  await addPublishedDestination(
-    setup,
-    "instagram",
-    "https://instagram.com/mera.cafe",
-  );
-  await addPublishedDestination(setup, "website", "https://mera.example.com");
-  await setup.asAdmin.mutation(api.scanMeLinks.setServiceActive, {
-    serviceProfileId: setup.serviceProfileId,
-    active: true,
-  });
-  await setup.t.run(async (ctx) => {
-    const config = await ctx.db
-      .query("scanMeLinksConfigs")
-      .withIndex("by_serviceProfileId", (q) =>
-        q.eq("serviceProfileId", setup.serviceProfileId),
-      )
-      .unique();
-    if (!config) throw new Error("Test konfiguracija nije pronađena.");
-    await ctx.db.patch(setup.businessId, { name: "Nova Mera" });
-    await ctx.db.patch(config._id, {
-      draftDisplayName: "Stari draft naziv",
-      publishedDisplayName: "Stari objavljeni naziv",
-    });
-  });
-
-  const editor = await setup.asAdmin.query(api.scanMeLinks.editor, {
-    businessId: setup.businessId,
-  });
-  expect(editor?.draftView?.displayName).toBe("Nova Mera");
-  expect(editor?.publishedView?.displayName).toBe("Nova Mera");
-
-  const scan = await setup.t.mutation(api.scanMeLinks.resolveAndRecord, {
-    slug: "mera-cafe",
-    requestId: "2632c7f4-e671-4dc2-9549-80ba9a640e97",
-    deviceCategory: "mobile",
-  });
-  expect(scan).toMatchObject({
-    status: "links",
-    view: { displayName: "Nova Mera" },
   });
   delete process.env.SCANME_ADMIN_EMAILS;
 });
@@ -700,6 +598,154 @@ test("klijentski editor je zatvoren po defaultu i radi tek posle admin dozvole",
   delete process.env.SCANME_ADMIN_EMAILS;
 });
 
+test("legacy objava zadržava stare accent tokene dok nema v2 dizajn", async () => {
+  const setup = await seedScanMeLinks();
+  const legacyTokens = {
+    accent: "#A23B72",
+    strong: "#5B163C",
+    soft: "#F4DDEA",
+    border: "#C987AA",
+    focus: "#7A2352",
+    onAccent: "#FFFFFF",
+  };
+  await setup.t.run(async (ctx) => {
+    const config = await ctx.db
+      .query("scanMeLinksConfigs")
+      .withIndex("by_serviceProfileId", (q) =>
+        q.eq("serviceProfileId", setup.serviceProfileId),
+      )
+      .unique();
+    if (!config) throw new Error("Missing config.");
+    await ctx.db.patch(config._id, {
+      publishedDisplayName: "Mera Cafe",
+      publishedTemplateKey: "option-two",
+      publishedBackgroundKey: "warm-ivory",
+      publishedAccent: legacyTokens.accent,
+      publishedAccentTokens: legacyTokens,
+      publishedRevision: 1,
+      publishedAt: Date.now(),
+    });
+    await ctx.db.patch(setup.serviceProfileId, {
+      status: "active",
+      updatedAt: Date.now(),
+    });
+  });
+
+  const result = await setup.t.mutation(api.scanMeLinks.resolveAndRecord, {
+    slug: "mera-cafe",
+    requestId: "9bc157b8-7ddc-4e90-9e36-dae443840da9",
+  });
+  expect(result).toMatchObject({
+    status: "links",
+    view: {
+      design: null,
+      accent: legacyTokens.accent,
+      accentTokens: legacyTokens,
+    },
+  });
+  delete process.env.SCANME_ADMIN_EMAILS;
+});
+
+test("editor čuva nasleđeni legacy logo kada se sačuva drugo polje", async () => {
+  const setup = await seedScanMeLinks();
+  const logoUrl = "https://cdn.example.com/legacy-logo.svg";
+  await setup.t.run(async (ctx) => {
+    await ctx.db.patch(setup.businessId, { logoUrl });
+  });
+  const before = await setup.asAdmin.query(api.scanMeLinks.editorBySlug, {
+    slug: "mera-cafe",
+  });
+  expect(before?.config?.logoStorageId).toBeNull();
+  expect(before?.config?.inheritsBusinessLogo).toBe(true);
+  expect(before?.config?.logoUrl).toBe(logoUrl);
+
+  await setup.asAdmin.mutation(api.scanMeLinks.saveEditorDraft, {
+    serviceProfileId: setup.serviceProfileId,
+    displayName: "Mera Cafe Novi",
+    description: null,
+    palette: [DEFAULT_ACCENT],
+    paletteAnalysis: null,
+    design: createDefaultScanMeLinksDesignV2("gentle"),
+    backgroundImageStorageId: null,
+    backgroundVideoStorageId: null,
+    destinations: [],
+  });
+
+  const after = await setup.asAdmin.query(api.scanMeLinks.editorBySlug, {
+    slug: "mera-cafe",
+  });
+  expect(after?.config?.logoStorageId).toBeNull();
+  expect(after?.config?.inheritsBusinessLogo).toBe(true);
+  expect(after?.config?.logoUrl).toBe(logoUrl);
+  delete process.env.SCANME_ADMIN_EMAILS;
+});
+
+test("trajni tombstone redovi ne blokiraju novi link niti nestaju iz analitike", async () => {
+  const setup = await seedScanMeLinks();
+  await setup.t.run(async (ctx) => {
+    const now = Date.now();
+    for (let index = 0; index < 205; index += 1) {
+      await ctx.db.insert("serviceDestinations", {
+        serviceProfileId: setup.serviceProfileId,
+        kind: "custom",
+        totalClicks: index,
+        totalDirectVisits: 0,
+        draftLabel: `Obrisan ${index}`,
+        draftUrl: "",
+        draftIconKey: "link",
+        draftOrder: index,
+        draftState: "deleted",
+        publishedLabel: `Obrisan ${index}`,
+        publishedUrl: "",
+        publishedIconKey: "link",
+        publishedOrder: index,
+        publishedState: "deleted",
+        createdAt: now + index,
+        updatedAt: now + index,
+      });
+    }
+  });
+
+  const added = await setup.asAdmin.mutation(api.scanMeLinks.addDestination, {
+    serviceProfileId: setup.serviceProfileId,
+    kind: "instagram",
+  });
+  const saved = await setup.asAdmin.mutation(api.scanMeLinks.saveEditorDraft, {
+    serviceProfileId: setup.serviceProfileId,
+    displayName: "Mera Cafe",
+    description: null,
+    logoStorageId: null,
+    palette: [DEFAULT_ACCENT],
+    paletteAnalysis: null,
+    design: createDefaultScanMeLinksDesignV2("gentle"),
+    backgroundImageStorageId: null,
+    backgroundVideoStorageId: null,
+    destinations: [
+      {
+        id: added.destinationId,
+        kind: "instagram",
+        label: "Instagram",
+        url: "",
+        order: 0,
+        state: "active",
+      },
+    ],
+  });
+  await setup.asAdmin.mutation(api.scanMeLinks.publishDraft, {
+    serviceProfileId: setup.serviceProfileId,
+    expectedDraftRevision: saved.draftRevision,
+  });
+  const metrics = await setup.asAdmin.query(api.scanMeLinks.metrics, {
+    businessId: setup.businessId,
+    range: "all",
+  });
+  expect(metrics?.destinations).toHaveLength(206);
+  expect(metrics?.destinations.filter((row) => row.state === "deleted")).toHaveLength(
+    205,
+  );
+  delete process.env.SCANME_ADMIN_EMAILS;
+});
+
 test("klijent može imati samo jedan otvoren upit po servisu", async () => {
   const setup = await seedScanMeLinks();
   const now = Date.now();
@@ -757,70 +803,5 @@ test("klijent može imati samo jedan otvoren upit po servisu", async () => {
     status: "new",
     emailStatus: "queued",
   });
-  delete process.env.SCANME_ADMIN_EMAILS;
-});
-
-test("editor access guard i analitika poštuju klijentsku dozvolu", async () => {
-  const setup = await seedScanMeLinks();
-  const clientId = await setup.t.run(async (ctx) => {
-    const now = Date.now();
-    const userId = await ctx.db.insert("users", {
-      email: "metrics-client@scanme.test",
-      emailVerificationTime: now,
-    });
-    await ctx.db.insert("businessMemberships", {
-      userId,
-      businessId: setup.businessId,
-      accessRole: "viewer",
-      active: true,
-      createdAt: now,
-      updatedAt: now,
-    });
-    return userId;
-  });
-  const client = setup.t.withIdentity({
-    subject: clientId,
-    issuer: "https://test.local",
-  });
-
-  await expect(
-    setup.t.query(api.scanMeLinks.editorAccessByRouteKey, {
-      routeKey: "mera-cafe",
-    }),
-  ).resolves.toEqual({
-    status: "unauthenticated",
-    canonicalSlug: "mera-cafe",
-  });
-  await expect(
-    client.query(api.scanMeLinks.editorAccessByRouteKey, {
-      routeKey: "mera-cafe",
-    }),
-  ).resolves.toEqual({
-    status: "forbidden",
-    canonicalSlug: "mera-cafe",
-    reason: "editing_disabled",
-  });
-
-  await setup.asAdmin.mutation(api.scanMeLinks.setClientEditingEnabled, {
-    serviceProfileId: setup.serviceProfileId,
-    enabled: true,
-  });
-  await expect(
-    client.query(api.scanMeLinks.editorAccessByRouteKey, {
-      routeKey: "mera-cafe",
-    }),
-  ).resolves.toMatchObject({
-    status: "available",
-    canonicalSlug: "mera-cafe",
-    businessName: "Mera Cafe",
-    role: "client",
-    clientEditingEnabled: true,
-  });
-  await expect(
-    client.query(api.scanMeLinks.metrics, {
-      businessId: setup.businessId,
-      range: "7d",
-    }),
-  ).resolves.toMatchObject({ totalScans: 0, range: "7d" });
   delete process.env.SCANME_ADMIN_EMAILS;
 });

@@ -1,9 +1,6 @@
-import { v } from "convex/values";
-import { getAuthUserId } from "@convex-dev/auth/server";
-import { internal } from "./_generated/api";
+import { ConvexError, v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import {
-  internalMutation,
   mutation,
   query,
   type MutationCtx,
@@ -36,26 +33,20 @@ import {
   ICON_KEYS,
   TEMPLATE_REGISTRY,
   isTemplateBackgroundCompatible,
-  normalizeDestinationUrl,
   type AccentTokens,
   type DestinationKind,
   type IconKey,
   type TemplateKey,
 } from "../lib/scanme-links";
 import {
-  PRESET_DESIGNS,
-  legacyScanMeDesign,
-  normalizePaletteAnalysis,
-  normalizeScanMeDescription,
-  normalizeScanMeDesign,
-  type PaletteAnalysis,
-  type ScanMeDesignV1,
-} from "../lib/scanme-design";
+  createDefaultScanMeLinksDesignV2,
+  normalizeDesignForPreset,
+  type ScanMeLinksDesignV2,
+  type ScanMeLinksDesignV2Input,
+} from "../lib/scanme-links-design";
 import {
-  destinationPresentationValidator,
   paletteAnalysisValidator,
-  scanMeDesignValidator,
-  scanMePresetKeyValidator,
+  scanMeDesignV2Validator,
 } from "./lib/scanMeDesignValidators";
 
 const destinationKindValidator = v.union(
@@ -78,6 +69,19 @@ const destinationStateValidator = v.union(
   v.literal("archived"),
   v.literal("deleted"),
 );
+
+const editableDestinationStates = [
+  "active",
+  "inactive",
+  "archived",
+] as const;
+
+const publishedDestinationStates = [
+  "active",
+  "inactive",
+  "archived",
+  "deleted",
+] as const;
 
 const metricsRangeValidator = v.union(
   v.literal("7d"),
@@ -104,10 +108,27 @@ const accentTokensValidator = v.object({
   onAccent: v.string(),
 });
 
+const editorDestinationValidator = v.object({
+  id: v.id("serviceDestinations"),
+  kind: destinationKindValidator,
+  label: v.string(),
+  url: v.string(),
+  order: v.number(),
+  state: destinationStateValidator,
+});
+
 function normalizeHex(value: string) {
   const normalized = value.trim().toUpperCase();
   if (!/^#[0-9A-F]{6}$/.test(normalized)) {
-    throw new Error("Boja mora biti HEX vrednost u formatu #RRGGBB.");
+    throw new ConvexError("Boja mora biti HEX vrednost u formatu #RRGGBB.");
+  }
+  return normalized;
+}
+
+function normalizeDesignHex(value: string) {
+  const normalized = value.trim().toUpperCase();
+  if (!/^#[0-9A-F]{6}(?:[0-9A-F]{2})?$/.test(normalized)) {
+    throw new ConvexError("Boja u dizajnu mora biti HEX vrednost u formatu #RRGGBB ili #RRGGBBAA.");
   }
   return normalized;
 }
@@ -125,119 +146,204 @@ function normalizeAccentTokens(tokens: AccentTokens) {
 
 function normalizeIconKey(value: string): IconKey {
   if (!ICON_KEYS.includes(value as IconKey)) {
-    throw new Error("Izabrana ikonica nije podržana.");
+    throw new ConvexError("Izabrana ikonica nije podržana.");
   }
   return value as IconKey;
 }
 
-function designState(config: Doc<"scanMeLinksConfigs">) {
-  // Rows created before the V1 design rollout already represent a real page.
-  return config.draftDesignState ?? ("ready" as const);
-}
-
-function legacyDraftDesign(config: Doc<"scanMeLinksConfigs">) {
-  return legacyScanMeDesign({
-    accent: config.draftAccent,
-    accentTokens: config.draftAccentTokens,
-  });
-}
-
-function effectiveDraftDesign(config: Doc<"scanMeLinksConfigs">) {
-  if (designState(config) === "uninitialized") return null;
-  return config.draftDesign
-    ? normalizeScanMeDesign(config.draftDesign).design
-    : legacyDraftDesign(config);
-}
-
-function effectivePublishedDesign(config: Doc<"scanMeLinksConfigs">) {
-  if (config.publishedDesign) {
-    return normalizeScanMeDesign(config.publishedDesign).design;
+function storedDesignV2(
+  design:
+    | Doc<"scanMeLinksConfigs">["draftDesign"]
+    | Doc<"scanMeLinksConfigs">["publishedDesign"],
+) {
+  if (design?.version === 2) {
+    return normalizeDesignForPreset(design, design.presetKey);
   }
-  if (!config.publishedTemplateKey) return null;
-  return legacyScanMeDesign({
-    accent: config.publishedAccent ?? DEFAULT_ACCENT,
-    accentTokens: config.publishedAccentTokens ?? DEFAULT_ACCENT_TOKENS,
-  });
+  return createDefaultScanMeLinksDesignV2(design?.presetKey);
 }
 
-function legacyTokensFromDesign(design: ScanMeDesignV1): AccentTokens {
+function normalizeEditorDesign(design: ScanMeLinksDesignV2Input) {
+  const normalized = normalizeDesignForPreset(design, design.presetKey);
+  const colors = Object.fromEntries(
+    Object.entries(normalized.colors).map(([key, value]) => [
+      key,
+      normalizeDesignHex(value),
+    ]),
+  ) as ScanMeLinksDesignV2["colors"];
+  const background = (() => {
+    switch (normalized.background.category) {
+      case "flat":
+        return {
+          ...normalized.background,
+          color: normalizeDesignHex(normalized.background.color),
+        };
+      case "gradient":
+        return {
+          ...normalized.background,
+          startColor: normalizeDesignHex(normalized.background.startColor),
+          endColor: normalizeDesignHex(normalized.background.endColor),
+        };
+      case "pattern":
+        return {
+          ...normalized.background,
+          backgroundColor: normalizeDesignHex(
+            normalized.background.backgroundColor,
+          ),
+          patternColor: normalizeDesignHex(normalized.background.patternColor),
+        };
+      case "texture":
+        return {
+          ...normalized.background,
+          backgroundColor: normalizeDesignHex(
+            normalized.background.backgroundColor,
+          ),
+          tintColor: normalizeDesignHex(normalized.background.tintColor),
+        };
+      case "media":
+        return {
+          ...normalized.background,
+          overlayColor: normalizeDesignHex(normalized.background.overlayColor),
+        };
+      case "animation":
+        return {
+          ...normalized.background,
+          baseColor: normalizeDesignHex(normalized.background.baseColor),
+          accentColor: normalizeDesignHex(normalized.background.accentColor),
+        };
+    }
+  })();
   return {
-    accent: design.colors.accent,
-    strong: design.colors.buttonHover,
-    soft: design.colors.surface,
-    border: design.colors.border,
-    focus: design.colors.focus,
-    onAccent: design.colors.buttonText,
+    ...normalized,
+    background,
+    colors,
+    buttons: {
+      ...normalized.buttons,
+      shadow: {
+        ...normalized.buttons.shadow,
+        color: normalizeDesignHex(normalized.buttons.shadow.color),
+      },
+    },
+    effects: {
+      textShadow: {
+        ...normalized.effects.textShadow,
+        color: normalizeDesignHex(normalized.effects.textShadow.color),
+      },
+      logoShadow: {
+        ...normalized.effects.logoShadow,
+        color: normalizeDesignHex(normalized.effects.logoShadow.color),
+      },
+    },
+  } satisfies ScanMeLinksDesignV2;
+}
+
+function normalizeEditorText(
+  value: string | null,
+  label: string,
+  maxLength: number,
+) {
+  const normalized = (value ?? "").trim().replace(/\s+/g, " ");
+  if (normalized.length > maxLength) {
+    throw new ConvexError(`${label} može imati najviše ${maxLength} karaktera.`);
+  }
+  return normalized;
+}
+
+function normalizePaletteAnalysis(
+  value:
+    | {
+        original: string[];
+        adjusted: string[];
+        correctedRoles: string[];
+        generationMode?: "light" | "dark";
+        lockedSlots?: boolean[];
+      }
+    | null
+    | undefined,
+) {
+  if (value == null) return undefined;
+  if (
+    value.original.length > 8 ||
+    value.adjusted.length > 8 ||
+    value.correctedRoles.length > 8 ||
+    (value.lockedSlots?.length ?? 0) > 5
+  ) {
+    throw new ConvexError("Analiza palete može imati najviše osam vrednosti po grupi.");
+  }
+  return {
+    original: value.original.map(normalizeHex),
+    adjusted: value.adjusted.map(normalizeHex),
+    correctedRoles: value.correctedRoles.map((role) =>
+      requireText(role, "Uloga boje", 1, 64),
+    ),
+    ...(value.generationMode
+      ? { generationMode: value.generationMode }
+      : {}),
+    ...(value.lockedSlots
+      ? { lockedSlots: value.lockedSlots.slice(0, 5) }
+      : {}),
   };
 }
 
-async function configForProfile(
-  ctx: QueryCtx | MutationCtx,
-  serviceProfileId: Id<"serviceProfiles">,
-) {
-  return await ctx.db
-    .query("scanMeLinksConfigs")
-    .withIndex("by_serviceProfileId", (q) =>
-      q.eq("serviceProfileId", serviceProfileId),
-    )
-    .unique();
-}
-
-function assertExpectedRevision(
-  config: Doc<"scanMeLinksConfigs">,
-  expectedDraftRevision: number | undefined,
-) {
-  if (
-    expectedDraftRevision !== undefined &&
-    config.draftRevision !== expectedDraftRevision
-  ) {
-    throw new Error(
-      "Nacrt je u međuvremenu izmenjen. Osvežite editor i pokušajte ponovo.",
-    );
-  }
-}
-
-async function validateStoredImage(
-  ctx: QueryCtx | MutationCtx,
-  storageId: Id<"_storage">,
+async function validateStoredFile(
+  ctx: MutationCtx,
+  storageId: Id<"_storage"> | null,
   options: {
-    maximumBytes: number;
-    allowedTypes: readonly string[];
     label: string;
+    maxBytes: number;
+    contentTypes: readonly string[];
   },
 ) {
+  if (!storageId) return;
   const metadata = await ctx.db.system.get("_storage", storageId);
-  if (!metadata) throw new Error(`${options.label} nije pronađen.`);
-  if (metadata.size > options.maximumBytes) {
-    throw new Error(
-      `${options.label} može imati najviše ${Math.round(options.maximumBytes / 1024 / 1024)} MB.`,
+  if (!metadata) throw new ConvexError(`${options.label} nije pronađen.`);
+  if (metadata.size > options.maxBytes) {
+    throw new ConvexError(
+      `${options.label} može imati najviše ${Math.floor(options.maxBytes / 1024 / 1024)} MB.`,
     );
   }
-  if (
-    !metadata.contentType ||
-    !options.allowedTypes.includes(metadata.contentType)
-  ) {
-    throw new Error(`${options.label} nije u podržanom formatu.`);
+  const contentType = metadata.contentType
+    ?.split(";", 1)[0]
+    .trim()
+    .toLowerCase();
+  if (!contentType || !options.contentTypes.includes(contentType)) {
+    throw new ConvexError(`${options.label} nema podržan format.`);
   }
 }
 
-async function effectiveLogoUrl(
-  ctx: QueryCtx | MutationCtx,
-  business: Doc<"businesses">,
-  storageId: Id<"_storage"> | null | undefined,
+async function validateEditorMedia(
+  ctx: MutationCtx,
+  media: {
+    logoStorageId: Id<"_storage"> | null;
+    backgroundImageStorageId: Id<"_storage"> | null;
+    backgroundVideoStorageId: Id<"_storage"> | null;
+  },
 ) {
-  if (storageId === null) return null;
-  const effectiveStorageId = storageId ?? business.logoStorageId;
-  return effectiveStorageId
-    ? await ctx.storage.getUrl(effectiveStorageId)
-    : business.logoUrl ?? null;
-}
-
-async function backgroundImageUrl(
-  ctx: QueryCtx | MutationCtx,
-  storageId: Id<"_storage"> | null | undefined,
-) {
-  return storageId ? await ctx.storage.getUrl(storageId) : null;
+  await validateStoredFile(ctx, media.logoStorageId, {
+    label: "Logotip",
+    maxBytes: 5 * 1024 * 1024,
+    contentTypes: [
+      "image/png",
+      "image/jpeg",
+      "image/webp",
+      "image/svg+xml",
+    ],
+  });
+  await validateStoredFile(ctx, media.backgroundImageStorageId, {
+    label: "Pozadinska slika",
+    maxBytes: 12 * 1024 * 1024,
+    contentTypes: [
+      "image/png",
+      "image/jpeg",
+      "image/webp",
+      "image/avif",
+      "image/gif",
+    ],
+  });
+  await validateStoredFile(ctx, media.backgroundVideoStorageId, {
+    label: "Pozadinski video",
+    maxBytes: 30 * 1024 * 1024,
+    contentTypes: ["video/mp4", "video/webm"],
+  });
 }
 
 async function serviceBySlug(ctx: QueryCtx | MutationCtx, rawSlug: string) {
@@ -274,12 +380,12 @@ async function requireEditorAccess(
   profile: Doc<"serviceProfiles">,
 ) {
   if (profile.type !== "scanme_links") {
-    throw new Error("ScanMe Links profil nije pronađen.");
+    throw new ConvexError("ScanMe Links profil nije pronađen.");
   }
   const user = await requireAuthUser(ctx);
   if (isAdminEmail(user.email)) return { role: "admin" as const, user };
   if (!profile.clientEditingEnabled) {
-    throw new Error("Uređivanje ScanMe Links stranice nije omogućeno za klijenta.");
+    throw new ConvexError("Uređivanje ScanMe Links stranice nije omogućeno za klijenta.");
   }
   const membership = await ctx.db
     .query("businessMemberships")
@@ -288,7 +394,7 @@ async function requireEditorAccess(
     )
     .unique();
   if (!membership?.active) {
-    throw new Error("Nemate pristup ovom lokalu.");
+    throw new ConvexError("Nemate pristup ovom lokalu.");
   }
   return { role: "client" as const, user };
 }
@@ -299,19 +405,83 @@ async function publishedDestinations(
 ) {
   const rows = await ctx.db
     .query("serviceDestinations")
-    .withIndex("by_serviceProfileId_and_publishedOrder", (q) =>
-      q.eq("serviceProfileId", serviceProfileId),
+    .withIndex("by_serviceProfileId_and_publishedState", (q) =>
+      q
+        .eq("serviceProfileId", serviceProfileId)
+        .eq("publishedState", "active"),
     )
     .take(100);
   return rows
     .filter(
       (row) =>
         row.publishedState === "active" &&
-        row.publishedUrl &&
-        isSafePublicDestination(row.publishedUrl),
+        Boolean(row.publishedUrl) &&
+        isSafePublicDestination(row.publishedUrl!),
     )
     .sort((a, b) => (a.publishedOrder ?? 0) - (b.publishedOrder ?? 0))
     .slice(0, 10);
+}
+
+async function editorDestinations(
+  ctx: QueryCtx | MutationCtx,
+  serviceProfileId: Id<"serviceProfiles">,
+) {
+  const groups = await Promise.all(
+    editableDestinationStates.map((state) =>
+      ctx.db
+        .query("serviceDestinations")
+        .withIndex("by_serviceProfileId_and_draftState", (q) =>
+          q.eq("serviceProfileId", serviceProfileId).eq("draftState", state),
+        )
+        .take(101),
+    ),
+  );
+  return groups
+    .flat()
+    .sort((a, b) => a.draftOrder - b.draftOrder)
+    .slice(0, 101);
+}
+
+async function draftRowsForCommit(
+  ctx: MutationCtx,
+  serviceProfileId: Id<"serviceProfiles">,
+) {
+  const [visible, recentDeleted] = await Promise.all([
+    editorDestinations(ctx, serviceProfileId),
+    ctx.db
+      .query("serviceDestinations")
+      .withIndex(
+        "by_serviceProfileId_and_draftState_and_updatedAt",
+        (q) =>
+          q
+            .eq("serviceProfileId", serviceProfileId)
+            .eq("draftState", "deleted"),
+      )
+      .order("desc")
+      .take(101),
+  ]);
+  return [
+    ...visible,
+    ...recentDeleted.filter((row) => row.publishedState !== "deleted"),
+  ];
+}
+
+async function analyticsDestinations(
+  ctx: QueryCtx,
+  serviceProfileId: Id<"serviceProfiles">,
+) {
+  const rows: Doc<"serviceDestinations">[] = [];
+  for (const state of publishedDestinationStates) {
+    const query = ctx.db
+      .query("serviceDestinations")
+      .withIndex("by_serviceProfileId_and_publishedState", (q) =>
+        q
+          .eq("serviceProfileId", serviceProfileId)
+          .eq("publishedState", state),
+      );
+    for await (const row of query) rows.push(row);
+  }
+  return rows;
 }
 
 async function incrementServiceDaily(
@@ -396,37 +566,42 @@ async function publicLinksView(
   ) {
     return null;
   }
-  const logoUrl = await effectiveLogoUrl(
-    ctx,
-    business,
-    config.publishedLogoStorageId,
-  );
-  const design = effectivePublishedDesign(config);
-  if (!design) return null;
+  const usesBusinessLogo = config.publishedLogoStorageId === undefined;
+  const logoStorageId = usesBusinessLogo
+    ? business.logoStorageId
+    : config.publishedLogoStorageId;
+  const logoUrl = logoStorageId
+    ? await ctx.storage.getUrl(logoStorageId)
+    : usesBusinessLogo
+      ? business.logoUrl ?? null
+      : null;
+  const backgroundImageUrl = config.publishedBackgroundImageStorageId
+    ? await ctx.storage.getUrl(config.publishedBackgroundImageStorageId)
+    : null;
+  const backgroundVideoUrl = config.publishedBackgroundVideoStorageId
+    ? await ctx.storage.getUrl(config.publishedBackgroundVideoStorageId)
+    : null;
   return {
-    displayName: business.name,
+    displayName: config.publishedDisplayName ?? business.name,
     description: config.publishedDescription ?? "",
     logoUrl,
-    backgroundImageUrl: await backgroundImageUrl(
-      ctx,
-      config.publishedBackgroundImageStorageId,
-    ),
-    design,
     templateKey: config.publishedTemplateKey,
     backgroundKey: config.publishedBackgroundKey,
     accent: config.publishedAccent ?? DEFAULT_ACCENT,
     accentTokens: config.publishedAccentTokens ?? DEFAULT_ACCENT_TOKENS,
+    design:
+      config.publishedDesign?.version === 2
+        ? storedDesignV2(config.publishedDesign)
+        : null,
+    backgroundImageUrl,
+    backgroundVideoUrl,
     destinations: destinations.map((destination) => ({
       id: destination._id,
       kind: destination.kind,
       label: destination.publishedLabel ?? DESTINATION_DEFAULTS[destination.kind].label,
-      url: destination.publishedUrl!,
+      url: destination.publishedUrl ?? "",
       iconKey:
         destination.publishedIconKey ?? DESTINATION_DEFAULTS[destination.kind].iconKey,
-      presentation:
-        destination.publishedPresentation ??
-        destination.draftPresentation ??
-        ("button" as const),
     })),
   };
 }
@@ -446,33 +621,56 @@ async function draftLinksView(
   )
     ? config.draftBackgroundKey
     : TEMPLATE_REGISTRY["option-two"].defaultBackground;
-  const logoUrl = await effectiveLogoUrl(ctx, business, config.draftLogoStorageId);
+  const usesBusinessLogo = config.draftLogoStorageId === undefined;
+  const logoStorageId = usesBusinessLogo
+    ? business.logoStorageId
+    : config.draftLogoStorageId;
+  const logoUrl = logoStorageId
+    ? await ctx.storage.getUrl(logoStorageId)
+    : usesBusinessLogo
+      ? business.logoUrl ?? null
+      : null;
+  const backgroundImageUrl = config.draftBackgroundImageStorageId
+    ? await ctx.storage.getUrl(config.draftBackgroundImageStorageId)
+    : null;
+  const backgroundVideoUrl = config.draftBackgroundVideoStorageId
+    ? await ctx.storage.getUrl(config.draftBackgroundVideoStorageId)
+    : null;
   return {
-    displayName: business.name,
+    displayName: config.draftDisplayName ?? business.name,
     description: config.draftDescription ?? "",
     logoUrl,
-    backgroundImageUrl: await backgroundImageUrl(
-      ctx,
-      config.draftBackgroundImageStorageId,
-    ),
-    design: effectiveDraftDesign(config),
     templateKey,
     backgroundKey,
     accent: config.draftAccent,
     accentTokens: config.draftAccentTokens,
+    design: storedDesignV2(config.draftDesign),
+    backgroundImageUrl,
+    backgroundVideoUrl,
     destinations: destinations
-      .filter((row) => row.draftState === "active")
+      .filter(
+        (row) =>
+          row.draftState === "active" || row.draftState === "inactive",
+      )
       .sort((a, b) => a.draftOrder - b.draftOrder)
-      .slice(0, 10)
+      .slice(0, 100)
       .map((row) => ({
         id: row._id,
         kind: row.kind,
         label: row.draftLabel,
         url: row.draftUrl,
         iconKey: row.draftIconKey,
-        presentation: row.draftPresentation ?? ("button" as const),
+        state: row.draftState,
       })),
   };
+}
+
+function selectPrimaryLink(links: Doc<"dynamicLinks">[]) {
+  return links.reduce<Doc<"dynamicLinks"> | null>((selected, link) => {
+    if (!selected) return link;
+    if (link.active !== selected.active) return link.active ? link : selected;
+    return link.updatedAt > selected.updatedAt ? link : selected;
+  }, null);
 }
 
 async function currentResolution(
@@ -494,12 +692,24 @@ async function currentResolution(
     }
   }
   const destinations = await publishedDestinations(ctx, profile._id);
-  if (!destinations.length) return { status: "unavailable" as const };
-  if (profile.type === "google_review" || destinations.length === 1) {
+  const linkedDestinations = destinations.filter(
+    (destination) =>
+      destination.publishedUrl &&
+      isSafePublicDestination(destination.publishedUrl),
+  );
+  if (profile.type === "google_review") {
+    if (!linkedDestinations.length) return { status: "unavailable" as const };
     return {
       status: "direct" as const,
-      destinationUrl: destinations[0].publishedUrl!,
-      destination: destinations[0],
+      destinationUrl: linkedDestinations[0].publishedUrl!,
+      destination: linkedDestinations[0],
+    };
+  }
+  if (destinations.length === 1 && linkedDestinations.length === 1) {
+    return {
+      status: "direct" as const,
+      destinationUrl: linkedDestinations[0].publishedUrl!,
+      destination: linkedDestinations[0],
     };
   }
   const view = await publicLinksView(ctx, profile, destinations);
@@ -517,7 +727,7 @@ export const resolveAndRecord = mutation({
   handler: async (ctx, args) => {
     const requestId = args.requestId.trim();
     if (!/^[0-9a-f-]{36}$/i.test(requestId)) {
-      throw new Error("Zahtev skeniranja nije ispravan.");
+      throw new ConvexError("Zahtev skeniranja nije ispravan.");
     }
     const profile = await serviceBySlug(ctx, args.slug);
     if (!profile) return { status: "missing" as const };
@@ -531,9 +741,12 @@ export const resolveAndRecord = mutation({
       .unique();
     if (existing) {
       if (existing.serviceProfileId !== profile._id) {
-        throw new Error("Zahtev skeniranja nije ispravan.");
+        throw new ConvexError("Zahtev skeniranja nije ispravan.");
       }
       const resolution = await currentResolution(ctx, profile, existing);
+      if (resolution.status === "unavailable") {
+        return { status: "invalid_destination" as const };
+      }
       return resolution.status === "links"
         ? { ...resolution, scanSessionId: existing._id }
         : resolution;
@@ -566,6 +779,58 @@ export const resolveAndRecord = mutation({
       ...(args.deviceCategory ? { deviceCategory: args.deviceCategory } : {}),
       ...(referrerHost ? { referrerHost } : {}),
     });
+
+    // Google Review dashboardi (admin.getBusinessMetrics, clientPanel.metrics)
+    // i dalje čitaju legacy tabele, pa se sken ogleda i u njima.
+    if (profile.type === "google_review") {
+      const legacyLinks = await ctx.db
+        .query("dynamicLinks")
+        .withIndex("by_businessId_and_type", (q) =>
+          q.eq("businessId", profile.businessId).eq("type", "google_review"),
+        )
+        .order("desc")
+        .take(20);
+      const legacyLink = selectPrimaryLink(legacyLinks);
+      if (legacyLink) {
+        await ctx.db.insert("scanEvents", {
+          dynamicLinkId: legacyLink._id,
+          requestId,
+          scannedAt: now,
+          ...(args.deviceCategory
+            ? { deviceCategory: args.deviceCategory }
+            : {}),
+          ...(referrerHost ? { referrerHost } : {}),
+        });
+        if (!isBot) {
+          await ctx.db.patch(legacyLink._id, {
+            scanCount: legacyLink.scanCount + 1,
+            updatedAt: now,
+          });
+          const legacyDateKey = serviceMetricDateKey(now);
+          const daily = await ctx.db
+            .query("dailyScanCounts")
+            .withIndex("by_dynamicLinkId_and_dateKey", (q) =>
+              q
+                .eq("dynamicLinkId", legacyLink._id)
+                .eq("dateKey", legacyDateKey),
+            )
+            .unique();
+          if (daily) {
+            await ctx.db.patch(daily._id, {
+              count: daily.count + 1,
+              updatedAt: now,
+            });
+          } else {
+            await ctx.db.insert("dailyScanCounts", {
+              dynamicLinkId: legacyLink._id,
+              dateKey: legacyDateKey,
+              count: 1,
+              updatedAt: now,
+            });
+          }
+        }
+      }
+    }
 
     if (!isBot) {
       await ctx.db.patch(profile._id, {
@@ -619,13 +884,13 @@ export const recordClick = mutation({
   },
   handler: async (ctx, args) => {
     if (!/^[0-9a-f-]{36}$/i.test(args.clickId.trim())) {
-      throw new Error("Klik nije ispravan.");
+      throw new ConvexError("Klik nije ispravan.");
     }
     const scan = await ctx.db
       .query("serviceScanEvents")
       .withIndex("by_requestId", (q) => q.eq("requestId", args.requestId.trim()))
       .unique();
-    if (!scan || scan.mode !== "links") throw new Error("ScanMe sesija nije dostupna.");
+    if (!scan || scan.mode !== "links") throw new ConvexError("ScanMe sesija nije dostupna.");
     const destination = await ctx.db.get(args.destinationId);
     if (
       !destination ||
@@ -634,7 +899,7 @@ export const recordClick = mutation({
       !destination.publishedUrl ||
       !isSafePublicDestination(destination.publishedUrl)
     ) {
-      throw new Error("Destinacija nije dostupna.");
+      throw new ConvexError("Destinacija nije dostupna.");
     }
     const existing = await ctx.db
       .query("destinationVisitEvents")
@@ -693,18 +958,23 @@ async function businessView(ctx: QueryCtx, business: Doc<"businesses">) {
         .unique()
     : null;
   const destinations = profile
-    ? await ctx.db
-        .query("serviceDestinations")
-        .withIndex("by_serviceProfileId_and_draftOrder", (q) =>
-          q.eq("serviceProfileId", profile._id),
-        )
-        .take(100)
+    ? await editorDestinations(ctx, profile._id)
     : [];
-  const logoUrl = await effectiveLogoUrl(
-    ctx,
-    business,
-    config?.draftLogoStorageId,
-  );
+  const usesBusinessLogo = config?.draftLogoStorageId === undefined;
+  const logoStorageId = usesBusinessLogo
+    ? business.logoStorageId
+    : config?.draftLogoStorageId;
+  const logoUrl = logoStorageId
+    ? await ctx.storage.getUrl(logoStorageId)
+    : usesBusinessLogo
+      ? business.logoUrl ?? null
+      : null;
+  const backgroundImageUrl = config?.draftBackgroundImageStorageId
+    ? await ctx.storage.getUrl(config.draftBackgroundImageStorageId)
+    : null;
+  const backgroundVideoUrl = config?.draftBackgroundVideoStorageId
+    ? await ctx.storage.getUrl(config.draftBackgroundVideoStorageId)
+    : null;
   const businessLogoUrl = business.logoStorageId
     ? await ctx.storage.getUrl(business.logoStorageId)
     : business.logoUrl ?? null;
@@ -725,20 +995,24 @@ async function businessView(ctx: QueryCtx, business: Doc<"businesses">) {
       : null,
     config: config
       ? {
+          displayName: config.draftDisplayName ?? business.name,
+          description: config.draftDescription ?? "",
+          logoStorageId: logoStorageId ?? null,
+          inheritsBusinessLogo: usesBusinessLogo,
           logoUrl,
           templateKey: config.draftTemplateKey,
           backgroundKey: config.draftBackgroundKey,
           palette: config.draftPalette,
+          paletteAnalysis: config.draftPaletteAnalysis ?? null,
           accent: config.draftAccent,
           accentTokens: config.draftAccentTokens,
-          designState: designState(config),
-          design: effectiveDraftDesign(config),
-          description: config.draftDescription ?? "",
-          paletteAnalysis: config.draftPaletteAnalysis ?? null,
-          backgroundImageUrl: await backgroundImageUrl(
-            ctx,
-            config.draftBackgroundImageStorageId,
-          ),
+          design: storedDesignV2(config.draftDesign),
+          backgroundImageStorageId:
+            config.draftBackgroundImageStorageId ?? null,
+          backgroundImageUrl,
+          backgroundVideoStorageId:
+            config.draftBackgroundVideoStorageId ?? null,
+          backgroundVideoUrl,
           hasUnpublishedChanges: config.hasUnpublishedChanges,
           draftRevision: config.draftRevision,
           publishedRevision: config.publishedRevision,
@@ -770,11 +1044,87 @@ export const listBusinesses = query({
   },
 });
 
-async function editorView(ctx: QueryCtx, business: Doc<"businesses">) {
-  const profile = await profileForBusiness(ctx, business._id, "scanme_links");
-  if (!profile) {
-    await requireAdmin(ctx);
+export const editor = query({
+  // v.string() + normalizeId umesto v.id(): stari bookmark sa slugom u URL-u
+  // treba da dobije "nije pronađeno" umesto srušene stranice zbog
+  // ArgumentValidationError.
+  args: { businessId: v.string() },
+  handler: async (ctx, args) => {
+    const businessId = ctx.db.normalizeId("businesses", args.businessId);
+    if (!businessId) return null;
+    const business = await ctx.db.get(businessId);
+    if (!business) return null;
+    const profile = await profileForBusiness(ctx, business._id, "scanme_links");
+    if (!profile) {
+      await requireAdmin(ctx);
+      const summary = await businessView(ctx, business);
+      return {
+        ...summary,
+        destinations: [],
+        draftView: null,
+        publishedView: null,
+        editorRole: "admin" as const,
+        templateRegistry: TEMPLATE_REGISTRY,
+      };
+    }
+    const access = await requireEditorAccess(ctx, profile);
     const summary = await businessView(ctx, business);
+    const destinations = await editorDestinations(ctx, profile._id);
+    const draftView = summary.config
+      ? await draftLinksView(
+          ctx,
+          business,
+          await ctx.db
+            .query("scanMeLinksConfigs")
+            .withIndex("by_serviceProfileId", (q) =>
+              q.eq("serviceProfileId", profile._id),
+            )
+            .unique()
+            .then((config) => {
+              if (!config) throw new ConvexError("Konfiguracija nije pronađena.");
+              return config;
+            }),
+          destinations,
+        )
+      : null;
+    const publishedRows = await publishedDestinations(ctx, profile._id);
+    const publishedView =
+      summary.config?.publishedAt
+        ? await publicLinksView(ctx, profile, publishedRows)
+        : null;
+    return {
+      ...summary,
+      draftView,
+      publishedView,
+      editorRole: access.role,
+      destinations: destinations
+        .filter((row) => row.draftState !== "deleted")
+        .sort((a, b) => a.draftOrder - b.draftOrder)
+        .map((row) => ({
+          id: row._id,
+          kind: row.kind,
+          label: row.draftLabel,
+          url: row.draftUrl,
+          iconKey: row.draftIconKey,
+          order: row.draftOrder,
+          state: row.draftState,
+          publishedState: row.publishedState ?? null,
+          totalClicks: row.totalClicks,
+          totalDirectVisits: row.totalDirectVisits,
+          updatedAt: row.updatedAt,
+        })),
+      templateRegistry: TEMPLATE_REGISTRY,
+    };
+  },
+});
+
+async function adminEditorPayload(
+  ctx: QueryCtx,
+  business: Doc<"businesses">,
+  profile: Doc<"serviceProfiles"> | null,
+) {
+  const summary = await businessView(ctx, business);
+  if (!profile) {
     return {
       ...summary,
       destinations: [],
@@ -784,48 +1134,26 @@ async function editorView(ctx: QueryCtx, business: Doc<"businesses">) {
       templateRegistry: TEMPLATE_REGISTRY,
     };
   }
-  const access = await requireEditorAccess(ctx, profile);
-  const summary = await businessView(ctx, business);
-  const destinations = await ctx.db
-    .query("serviceDestinations")
-    .withIndex("by_serviceProfileId_and_draftOrder", (q) =>
+  const config = await ctx.db
+    .query("scanMeLinksConfigs")
+    .withIndex("by_serviceProfileId", (q) =>
       q.eq("serviceProfileId", profile._id),
     )
-    .take(100);
-  const draftView = summary.config
-    ? await draftLinksView(
-        ctx,
-        business,
-        await ctx.db
-          .query("scanMeLinksConfigs")
-          .withIndex("by_serviceProfileId", (q) =>
-            q.eq("serviceProfileId", profile._id),
-          )
-          .unique()
-          .then((config) => {
-            if (!config) throw new Error("Konfiguracija nije pronađena.");
-            return config;
-          }),
-        destinations,
-      )
+    .unique();
+  const destinations = await editorDestinations(ctx, profile._id);
+  const draftView = config
+    ? await draftLinksView(ctx, business, config, destinations)
     : null;
-  const publishedRows = destinations
-    .filter(
-      (row) =>
-        row.publishedState === "active" &&
-        Boolean(row.publishedUrl) &&
-        isSafePublicDestination(row.publishedUrl ?? ""),
-    )
-    .sort((a, b) => (a.publishedOrder ?? 0) - (b.publishedOrder ?? 0));
+  const publishedRows = await publishedDestinations(ctx, profile._id);
   const publishedView =
-    summary.config?.publishedAt && publishedRows.length
+    config?.publishedAt
       ? await publicLinksView(ctx, profile, publishedRows)
       : null;
   return {
     ...summary,
     draftView,
     publishedView,
-    editorRole: access.role,
+    editorRole: "admin" as const,
     destinations: destinations
       .filter((row) => row.draftState !== "deleted")
       .sort((a, b) => a.draftOrder - b.draftOrder)
@@ -835,11 +1163,9 @@ async function editorView(ctx: QueryCtx, business: Doc<"businesses">) {
         label: row.draftLabel,
         url: row.draftUrl,
         iconKey: row.draftIconKey,
-        presentation: row.draftPresentation ?? ("button" as const),
         order: row.draftOrder,
         state: row.draftState,
         publishedState: row.publishedState ?? null,
-        publishedPresentation: row.publishedPresentation ?? null,
         totalClicks: row.totalClicks,
         totalDirectVisits: row.totalDirectVisits,
         updatedAt: row.updatedAt,
@@ -848,100 +1174,40 @@ async function editorView(ctx: QueryCtx, business: Doc<"businesses">) {
   };
 }
 
-async function businessForEditorRoute(ctx: QueryCtx, routeKey: string) {
-  try {
-    const slug = requireSlug(routeKey);
-    const currentBusiness = await ctx.db
-      .query("businesses")
-      .withIndex("by_slug", (q) => q.eq("slug", slug))
-      .unique();
-    if (currentBusiness) return currentBusiness;
-
-    const profile = await serviceBySlug(ctx, slug);
-    if (profile?.type === "scanme_links") {
-      return await ctx.db.get(profile.businessId);
-    }
-  } catch {
-    // Invalid slugs may still be valid legacy Convex IDs.
-  }
-
-  const businessId = ctx.db.normalizeId("businesses", routeKey);
-  return businessId ? await ctx.db.get(businessId) : null;
-}
-
-export const editorAccessByRouteKey = query({
-  args: { routeKey: v.string() },
+export const editorBySlug = query({
+  args: { slug: v.string() },
   handler: async (ctx, args) => {
-    const business = await businessForEditorRoute(ctx, args.routeKey);
+    const slug = requireSlug(args.slug);
+    const resolvedProfile = await serviceBySlug(ctx, slug);
+    let profile =
+      resolvedProfile?.type === "scanme_links" ? resolvedProfile : null;
+    let business = profile ? await ctx.db.get(profile.businessId) : null;
+
     if (!business) {
-      return {
-        status: "forbidden" as const,
-        canonicalSlug: args.routeKey.trim().toLowerCase(),
-        reason: "not_assigned" as const,
-      };
+      business = await ctx.db
+        .query("businesses")
+        .withIndex("by_slug", (q) => q.eq("slug", slug))
+        .unique();
+      profile = business
+        ? await profileForBusiness(ctx, business._id, "scanme_links")
+        : null;
     }
-    const canonicalSlug = business.slug;
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
-      return { status: "unauthenticated" as const, canonicalSlug };
+    if (!business) return null;
+    if (!profile) {
+      await requireAdmin(ctx);
+      return await adminEditorPayload(ctx, business, null);
     }
-    const user = await ctx.db.get(userId);
-    if (!user) {
-      return { status: "unauthenticated" as const, canonicalSlug };
+    // Editor je dostupan adminu i klijentu sa uključenim uređivanjem; bez
+    // pristupa vraćamo null da EditorLoader prikaže prijateljski ekran
+    // umesto srušene stranice.
+    let access;
+    try {
+      access = await requireEditorAccess(ctx, profile);
+    } catch {
+      return null;
     }
-    const profile = await profileForBusiness(ctx, business._id, "scanme_links");
-    if (isAdminEmail(user.email)) {
-      return {
-        status: "available" as const,
-        canonicalSlug,
-        businessName: business.name,
-        role: "admin" as const,
-        clientEditingEnabled: profile?.clientEditingEnabled ?? false,
-      };
-    }
-    if (!profile?.clientEditingEnabled) {
-      return {
-        status: "forbidden" as const,
-        canonicalSlug,
-        reason: "editing_disabled" as const,
-      };
-    }
-    const membership = await ctx.db
-      .query("businessMemberships")
-      .withIndex("by_userId_and_businessId", (q) =>
-        q.eq("userId", user._id).eq("businessId", business._id),
-      )
-      .unique();
-    if (!membership?.active) {
-      return {
-        status: "forbidden" as const,
-        canonicalSlug,
-        reason: "not_assigned" as const,
-      };
-    }
-    return {
-      status: "available" as const,
-      canonicalSlug,
-      businessName: business.name,
-      role: "client" as const,
-      clientEditingEnabled: true,
-    };
-  },
-});
-
-export const editor = query({
-  args: { businessId: v.id("businesses") },
-  handler: async (ctx, args) => {
-    const business = await ctx.db.get(args.businessId);
-    return business ? await editorView(ctx, business) : null;
-  },
-});
-
-export const editorByRouteKey = query({
-  args: { routeKey: v.string() },
-  handler: async (ctx, args) => {
-    const business = await businessForEditorRoute(ctx, args.routeKey);
-    return business ? await editorView(ctx, business) : null;
+    const payload = await adminEditorPayload(ctx, business, profile);
+    return { ...payload, editorRole: access.role };
   },
 });
 
@@ -957,7 +1223,17 @@ export const generateDisplayLogoUploadUrl = mutation({
   args: { serviceProfileId: v.id("serviceProfiles") },
   handler: async (ctx, args) => {
     const profile = await ctx.db.get(args.serviceProfileId);
-    if (!profile) throw new Error("ScanMe Links profil nije pronađen.");
+    if (!profile) throw new ConvexError("ScanMe Links profil nije pronađen.");
+    await requireEditorAccess(ctx, profile);
+    return await ctx.storage.generateUploadUrl();
+  },
+});
+
+export const generateEditorUploadUrl = mutation({
+  args: { serviceProfileId: v.id("serviceProfiles") },
+  handler: async (ctx, args) => {
+    const profile = await ctx.db.get(args.serviceProfileId);
+    if (!profile) throw new ConvexError("ScanMe Links profil nije pronađen.");
     await requireEditorAccess(ctx, profile);
     return await ctx.storage.generateUploadUrl();
   },
@@ -971,17 +1247,17 @@ export const updateBusinessLogo = mutation({
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
     const business = await ctx.db.get(args.businessId);
-    if (!business) throw new Error("Lokal nije pronađen.");
+    if (!business) throw new ConvexError("Lokal nije pronađen.");
     const metadata = await ctx.db.system.get("_storage", args.logoStorageId);
-    if (!metadata) throw new Error("Logotip nije pronađen.");
+    if (!metadata) throw new ConvexError("Logotip nije pronađen.");
     if (metadata.size > 5 * 1024 * 1024) {
-      throw new Error("Logotip može imati najviše 5 MB.");
+      throw new ConvexError("Logotip može imati najviše 5 MB.");
     }
     if (
       !metadata.contentType ||
       !["image/png", "image/jpeg", "image/webp"].includes(metadata.contentType)
     ) {
-      throw new Error("Dozvoljeni su PNG, JPEG i WebP logotipi.");
+      throw new ConvexError("Dozvoljeni su PNG, JPEG i WebP logotipi.");
     }
     await ctx.db.patch(args.businessId, {
       logoStorageId: args.logoStorageId,
@@ -990,198 +1266,10 @@ export const updateBusinessLogo = mutation({
   },
 });
 
-async function writeDraftDesign(
-  ctx: MutationCtx,
-  config: Doc<"scanMeLinksConfigs">,
-  input: {
-    design: ScanMeDesignV1;
-    description: string;
-    paletteAnalysis?: PaletteAnalysis;
-    expectedDraftRevision?: number;
-  },
-) {
-  assertExpectedRevision(config, input.expectedDraftRevision);
-  const normalized = normalizeScanMeDesign(input.design);
-  const paletteAnalysis = normalizePaletteAnalysis(input.paletteAnalysis);
-  const accentTokens = legacyTokensFromDesign(normalized.design);
-  const draftRevision = config.draftRevision + 1;
-  const palette =
-    paletteAnalysis?.adjusted.length
-      ? paletteAnalysis.adjusted.slice(0, 3)
-      : config.draftPalette.length
-        ? config.draftPalette
-        : [normalized.design.colors.accent];
-  await ctx.db.patch(config._id, {
-    draftDesignState: "ready",
-    draftDesign: normalized.design,
-    draftDescription: normalizeScanMeDescription(input.description),
-    ...(paletteAnalysis
-      ? {
-          draftPaletteAnalysis: {
-            ...paletteAnalysis,
-            correctedRoles: Array.from(
-              new Set([
-                ...paletteAnalysis.correctedRoles,
-                ...normalized.corrections,
-              ]),
-            ),
-          },
-        }
-      : {}),
-    // Keep the legacy appearance mirrors valid during the coordinated rollout.
-    draftTemplateKey: "option-two",
-    draftBackgroundKey: "warm-ivory",
-    draftPalette: palette,
-    draftAccent: normalized.design.colors.accent,
-    draftAccentTokens: accentTokens,
-    hasUnpublishedChanges: true,
-    draftRevision,
-    updatedAt: Date.now(),
-  });
-  return {
-    saved: true as const,
-    design: normalized.design,
-    corrections: normalized.corrections,
-    draftRevision,
-  };
-}
-
-export const initializeDraftDesign = mutation({
-  args: {
-    serviceProfileId: v.id("serviceProfiles"),
-    expectedDraftRevision: v.number(),
-    source: v.union(
-      v.object({
-        kind: v.literal("preset"),
-        presetKey: scanMePresetKeyValidator,
-      }),
-      v.object({
-        kind: v.literal("generated"),
-        design: scanMeDesignValidator,
-        paletteAnalysis: paletteAnalysisValidator,
-      }),
-    ),
-    description: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
-    const profile = await ctx.db.get(args.serviceProfileId);
-    if (!profile) throw new Error("ScanMe Links profil nije pronađen.");
-    await requireEditorAccess(ctx, profile);
-    const config = await configForProfile(ctx, profile._id);
-    if (!config) throw new Error("Konfiguracija nije pronađena.");
-    if (designState(config) !== "uninitialized") {
-      throw new Error("Početni stil je već izabran.");
-    }
-    const design =
-      args.source.kind === "preset"
-        ? PRESET_DESIGNS[args.source.presetKey]
-        : args.source.design;
-    return await writeDraftDesign(ctx, config, {
-      design,
-      description: args.description ?? "",
-      ...(args.source.kind === "generated"
-        ? { paletteAnalysis: args.source.paletteAnalysis }
-        : {}),
-      expectedDraftRevision: args.expectedDraftRevision,
-    });
-  },
-});
-
-export const saveDraftDesign = mutation({
-  args: {
-    serviceProfileId: v.id("serviceProfiles"),
-    expectedDraftRevision: v.number(),
-    design: scanMeDesignValidator,
-    description: v.string(),
-    paletteAnalysis: v.optional(paletteAnalysisValidator),
-  },
-  handler: async (ctx, args) => {
-    const profile = await ctx.db.get(args.serviceProfileId);
-    if (!profile) throw new Error("ScanMe Links profil nije pronađen.");
-    await requireEditorAccess(ctx, profile);
-    const config = await configForProfile(ctx, profile._id);
-    if (!config) throw new Error("Konfiguracija nije pronađena.");
-    if (designState(config) === "uninitialized") {
-      throw new Error("Prvo izaberite početni stil.");
-    }
-    return await writeDraftDesign(ctx, config, {
-      design: args.design,
-      description: args.description,
-      ...(args.paletteAnalysis
-        ? { paletteAnalysis: args.paletteAnalysis }
-        : {}),
-      expectedDraftRevision: args.expectedDraftRevision,
-    });
-  },
-});
-
-export const setDraftLogo = mutation({
-  args: {
-    serviceProfileId: v.id("serviceProfiles"),
-    expectedDraftRevision: v.optional(v.number()),
-    logoStorageId: v.union(v.id("_storage"), v.null()),
-  },
-  handler: async (ctx, args) => {
-    const profile = await ctx.db.get(args.serviceProfileId);
-    if (!profile) throw new Error("ScanMe Links profil nije pronađen.");
-    await requireEditorAccess(ctx, profile);
-    const config = await configForProfile(ctx, profile._id);
-    if (!config) throw new Error("Konfiguracija nije pronađena.");
-    assertExpectedRevision(config, args.expectedDraftRevision);
-    if (args.logoStorageId) {
-      await validateStoredImage(ctx, args.logoStorageId, {
-        maximumBytes: 5 * 1024 * 1024,
-        allowedTypes: ["image/png", "image/jpeg", "image/webp"],
-        label: "Logotip",
-      });
-    }
-    const draftRevision = config.draftRevision + 1;
-    await ctx.db.patch(config._id, {
-      draftLogoStorageId: args.logoStorageId,
-      hasUnpublishedChanges: true,
-      draftRevision,
-      updatedAt: Date.now(),
-    });
-    return { saved: true, draftRevision };
-  },
-});
-
-export const setDraftBackgroundImage = mutation({
-  args: {
-    serviceProfileId: v.id("serviceProfiles"),
-    expectedDraftRevision: v.optional(v.number()),
-    backgroundImageStorageId: v.union(v.id("_storage"), v.null()),
-  },
-  handler: async (ctx, args) => {
-    const profile = await ctx.db.get(args.serviceProfileId);
-    if (!profile) throw new Error("ScanMe Links profil nije pronađen.");
-    await requireEditorAccess(ctx, profile);
-    const config = await configForProfile(ctx, profile._id);
-    if (!config) throw new Error("Konfiguracija nije pronađena.");
-    assertExpectedRevision(config, args.expectedDraftRevision);
-    if (args.backgroundImageStorageId) {
-      await validateStoredImage(ctx, args.backgroundImageStorageId, {
-        maximumBytes: 8 * 1024 * 1024,
-        allowedTypes: ["image/png", "image/jpeg", "image/webp"],
-        label: "Pozadinska slika",
-      });
-    }
-    const draftRevision = config.draftRevision + 1;
-    await ctx.db.patch(config._id, {
-      draftBackgroundImageStorageId: args.backgroundImageStorageId,
-      hasUnpublishedChanges: true,
-      draftRevision,
-      updatedAt: Date.now(),
-    });
-    return { saved: true, draftRevision };
-  },
-});
-
 export const saveDraftAppearance = mutation({
   args: {
     serviceProfileId: v.id("serviceProfiles"),
-    // Accepted temporarily for clients deployed before the canonical-name rollout.
-    displayName: v.optional(v.string()),
+    displayName: v.string(),
     logoStorageId: v.optional(v.id("_storage")),
     templateKey: v.string(),
     backgroundKey: v.string(),
@@ -1192,44 +1280,158 @@ export const saveDraftAppearance = mutation({
   handler: async (ctx, args) => {
     const profile = await ctx.db.get(args.serviceProfileId);
     if (!profile) {
-      throw new Error("ScanMe Links profil nije pronađen.");
+      throw new ConvexError("ScanMe Links profil nije pronađen.");
     }
     await requireEditorAccess(ctx, profile);
     const templateKey = args.templateKey as TemplateKey;
-    if (!TEMPLATE_REGISTRY[templateKey]) throw new Error("Template nije podržan.");
+    if (!TEMPLATE_REGISTRY[templateKey]) throw new ConvexError("Template nije podržan.");
     if (!isTemplateBackgroundCompatible(templateKey, args.backgroundKey)) {
-      throw new Error("Pozadina ne pripada izabranom template-u.");
+      throw new ConvexError("Pozadina ne pripada izabranom template-u.");
     }
-    if (args.palette.length > 3) throw new Error("Paleta može imati najviše tri boje.");
+    if (args.palette.length > 3) throw new ConvexError("Paleta može imati najviše tri boje.");
     const palette = args.palette.map(normalizeHex);
-    const normalizedAccent = normalizeHex(args.accent);
-    const normalizedTokens = normalizeAccentTokens(args.accentTokens);
-    const design = legacyScanMeDesign({
-      accent: normalizedAccent,
-      accentTokens: normalizedTokens,
-    });
     const config = await ctx.db
       .query("scanMeLinksConfigs")
       .withIndex("by_serviceProfileId", (q) =>
         q.eq("serviceProfileId", profile._id),
       )
       .unique();
-    if (!config) throw new Error("Konfiguracija nije pronađena.");
-    const draftRevision = config.draftRevision + 1;
+    if (!config) throw new ConvexError("Konfiguracija nije pronađena.");
     await ctx.db.patch(config._id, {
+      draftDisplayName: requireText(args.displayName, "Naziv za prikaz", 2, 120),
       ...(args.logoStorageId ? { draftLogoStorageId: args.logoStorageId } : {}),
       draftTemplateKey: templateKey,
       draftBackgroundKey: args.backgroundKey,
       draftPalette: palette,
-      draftAccent: normalizedAccent,
-      draftAccentTokens: normalizedTokens,
-      draftDesignState: "ready",
-      draftDesign: design,
+      draftAccent: normalizeHex(args.accent),
+      draftAccentTokens: normalizeAccentTokens(args.accentTokens),
       hasUnpublishedChanges: true,
-      draftRevision,
+      draftRevision: config.draftRevision + 1,
       updatedAt: Date.now(),
     });
-    return { saved: true, draftRevision };
+    return { saved: true };
+  },
+});
+
+export const saveEditorDraft = mutation({
+  args: {
+    serviceProfileId: v.id("serviceProfiles"),
+    displayName: v.union(v.string(), v.null()),
+    description: v.union(v.string(), v.null()),
+    logoStorageId: v.optional(v.union(v.id("_storage"), v.null())),
+    palette: v.array(v.string()),
+    paletteAnalysis: v.optional(
+      v.union(paletteAnalysisValidator, v.null()),
+    ),
+    design: scanMeDesignV2Validator,
+    backgroundImageStorageId: v.union(v.id("_storage"), v.null()),
+    backgroundVideoStorageId: v.union(v.id("_storage"), v.null()),
+    destinations: v.array(editorDestinationValidator),
+  },
+  handler: async (ctx, args) => {
+    const profile = await ctx.db.get(args.serviceProfileId);
+    if (!profile) throw new ConvexError("ScanMe Links profil nije pronađen.");
+    await requireEditorAccess(ctx, profile);
+    const config = await ctx.db
+      .query("scanMeLinksConfigs")
+      .withIndex("by_serviceProfileId", (q) =>
+        q.eq("serviceProfileId", profile._id),
+      )
+      .unique();
+    if (!config) throw new ConvexError("Konfiguracija nije pronađena.");
+    if (args.palette.length > 8) {
+      throw new ConvexError("Paleta može imati najviše osam boja.");
+    }
+    if (args.destinations.length > 100) {
+      throw new ConvexError("Nacrt može imati najviše 100 destinacija.");
+    }
+
+    const displayName = normalizeEditorText(
+      args.displayName,
+      "Naziv lokala",
+      50,
+    );
+    const description = normalizeEditorText(
+      args.description,
+      "Kratak opis",
+      50,
+    );
+    const palette = args.palette.map(normalizeHex);
+    const paletteAnalysis = normalizePaletteAnalysis(args.paletteAnalysis);
+    const design = normalizeEditorDesign(args.design);
+    await validateEditorMedia(ctx, {
+      logoStorageId: args.logoStorageId ?? null,
+      backgroundImageStorageId: args.backgroundImageStorageId,
+      backgroundVideoStorageId: args.backgroundVideoStorageId,
+    });
+
+    const submittedIds = new Set<Id<"serviceDestinations">>();
+    let activeCount = 0;
+
+    for (const destination of args.destinations) {
+      if (submittedIds.has(destination.id)) {
+        throw new ConvexError("Ista destinacija je poslata više puta.");
+      }
+      submittedIds.add(destination.id);
+      const row = await ctx.db.get(destination.id);
+      if (!row || row.serviceProfileId !== profile._id) {
+        throw new ConvexError("Destinacija ne pripada ovom ScanMe Links profilu.");
+      }
+      if (
+        !Number.isInteger(destination.order) ||
+        destination.order < 0 ||
+        destination.order >= 100
+      ) {
+        throw new ConvexError("Redosled destinacije nije ispravan.");
+      }
+      const url = destination.url.trim();
+      if (url && !isSafePublicDestination(url)) {
+        throw new ConvexError("Destinacija mora biti bezbedan javni HTTPS link.");
+      }
+      if (destination.state === "active") activeCount += 1;
+      const defaults =
+        DESTINATION_DEFAULTS[destination.kind as DestinationKind];
+      await ctx.db.patch(row._id, {
+        kind: destination.kind,
+        draftLabel: requireText(
+          destination.label,
+          "Naziv destinacije",
+          1,
+          80,
+        ),
+        draftUrl: url,
+        draftIconKey: defaults.iconKey,
+        draftOrder: destination.order,
+        draftState: destination.state,
+        updatedAt: Date.now(),
+      });
+    }
+    if (activeCount > 10) {
+      throw new ConvexError("ScanMe Links može imati najviše 10 aktivnih destinacija.");
+    }
+    const now = Date.now();
+    const draftRevision = config.draftRevision + 1;
+    await ctx.db.patch(config._id, {
+      draftDisplayName: displayName,
+      draftDescription: description,
+      draftLogoStorageId: args.logoStorageId,
+      draftPalette: palette,
+      draftPaletteAnalysis: paletteAnalysis,
+      draftDesignState: "ready",
+      draftDesign: design,
+      draftBackgroundImageStorageId: args.backgroundImageStorageId,
+      draftBackgroundVideoStorageId: args.backgroundVideoStorageId,
+      draftAccent: design.colors.accent.slice(0, 7),
+      hasUnpublishedChanges: true,
+      draftRevision,
+      updatedAt: now,
+    });
+    return {
+      saved: true,
+      draftRevision,
+      updatedAt: now,
+      design,
+    };
   },
 });
 
@@ -1237,21 +1439,28 @@ export const addDestination = mutation({
   args: {
     serviceProfileId: v.id("serviceProfiles"),
     kind: destinationKindValidator,
-    presentation: v.optional(destinationPresentationValidator),
   },
   handler: async (ctx, args) => {
     const profile = await ctx.db.get(args.serviceProfileId);
     if (!profile) {
-      throw new Error("ScanMe Links profil nije pronađen.");
+      throw new ConvexError("ScanMe Links profil nije pronađen.");
     }
     await requireEditorAccess(ctx, profile);
-    const rows = await ctx.db
+    const activeRows = await ctx.db
       .query("serviceDestinations")
-      .withIndex("by_serviceProfileId", (q) =>
-        q.eq("serviceProfileId", profile._id),
+      .withIndex("by_serviceProfileId_and_draftState", (q) =>
+        q
+          .eq("serviceProfileId", profile._id)
+          .eq("draftState", "active"),
       )
-      .take(200);
-    const visible = rows.filter((row) => row.draftState !== "deleted");
+      .take(10);
+    if (activeRows.length >= 10) {
+      throw new ConvexError("ScanMe Links može imati najviše 10 aktivnih destinacija.");
+    }
+    const visible = await editorDestinations(ctx, profile._id);
+    if (visible.length >= 100) {
+      throw new ConvexError("ScanMe Links nacrt može imati najviše 100 destinacija.");
+    }
     const defaults = DESTINATION_DEFAULTS[args.kind as DestinationKind];
     const now = Date.now();
     const destinationId = await ctx.db.insert("serviceDestinations", {
@@ -1263,8 +1472,8 @@ export const addDestination = mutation({
       draftUrl: "",
       draftIconKey: defaults.iconKey,
       draftOrder: visible.length,
-      draftState: "inactive",
-      draftPresentation: args.presentation ?? "button",
+      draftState: "active",
+      draftPresentation: "button",
       createdAt: now,
       updatedAt: now,
     });
@@ -1283,14 +1492,16 @@ async function markDraftChanged(
       q.eq("serviceProfileId", serviceProfileId),
     )
     .unique();
-  if (!config) throw new Error("Konfiguracija nije pronađena.");
-  const draftRevision = config.draftRevision + 1;
-  await ctx.db.patch(config._id, {
-    hasUnpublishedChanges: true,
-    draftRevision,
-    updatedAt: Date.now(),
-  });
-  return draftRevision;
+  if (config) {
+    const draftRevision = config.draftRevision + 1;
+    await ctx.db.patch(config._id, {
+      hasUnpublishedChanges: true,
+      draftRevision,
+      updatedAt: Date.now(),
+    });
+    return draftRevision;
+  }
+  throw new ConvexError("Konfiguracija nije pronađena.");
 }
 
 export const updateDestination = mutation({
@@ -1301,30 +1512,28 @@ export const updateDestination = mutation({
     url: v.string(),
     iconKey: v.string(),
     state: destinationStateValidator,
-    presentation: v.optional(destinationPresentationValidator),
   },
   handler: async (ctx, args) => {
     const row = await ctx.db.get(args.destinationId);
-    if (!row) throw new Error("Destinacija nije pronađena.");
+    if (!row) throw new ConvexError("Destinacija nije pronađena.");
     const profile = await ctx.db.get(row.serviceProfileId);
-    if (!profile) throw new Error("ScanMe Links profil nije pronađen.");
+    if (!profile) throw new ConvexError("ScanMe Links profil nije pronađen.");
     await requireEditorAccess(ctx, profile);
-    const url = normalizeDestinationUrl(args.url);
+    const url = args.url.trim();
     if (url && !isSafePublicDestination(url)) {
-      throw new Error("Destinacija mora biti bezbedan javni HTTPS link.");
-    }
-    if (args.state === "active" && !url) {
-      throw new Error("Aktivna destinacija mora imati URL.");
+      throw new ConvexError("Destinacija mora biti bezbedan javni HTTPS link.");
     }
     if (args.state === "active" && row.draftState !== "active") {
-      const rows = await ctx.db
+      const activeRows = await ctx.db
         .query("serviceDestinations")
-        .withIndex("by_serviceProfileId", (q) =>
-          q.eq("serviceProfileId", row.serviceProfileId),
+        .withIndex("by_serviceProfileId_and_draftState", (q) =>
+          q
+            .eq("serviceProfileId", row.serviceProfileId)
+            .eq("draftState", "active"),
         )
-        .take(200);
-      if (rows.filter((candidate) => candidate.draftState === "active").length >= 10) {
-        throw new Error("ScanMe Links može imati najviše 10 aktivnih destinacija.");
+        .take(10);
+      if (activeRows.length >= 10) {
+        throw new ConvexError("ScanMe Links može imati najviše 10 aktivnih destinacija.");
       }
     }
     await ctx.db.patch(row._id, {
@@ -1333,13 +1542,10 @@ export const updateDestination = mutation({
       draftUrl: url,
       draftIconKey: normalizeIconKey(args.iconKey),
       draftState: args.state,
-      ...(args.presentation
-        ? { draftPresentation: args.presentation }
-        : {}),
       updatedAt: Date.now(),
     });
-    const draftRevision = await markDraftChanged(ctx, row.serviceProfileId);
-    return { saved: true, draftRevision };
+    await markDraftChanged(ctx, row.serviceProfileId);
+    return { saved: true };
   },
 });
 
@@ -1350,18 +1556,18 @@ export const reorderDestinations = mutation({
   },
   handler: async (ctx, args) => {
     const profile = await ctx.db.get(args.serviceProfileId);
-    if (!profile) throw new Error("ScanMe Links profil nije pronađen.");
+    if (!profile) throw new ConvexError("ScanMe Links profil nije pronađen.");
     await requireEditorAccess(ctx, profile);
-    if (args.destinationIds.length > 100) throw new Error("Redosled nije ispravan.");
+    if (args.destinationIds.length > 100) throw new ConvexError("Redosled nije ispravan.");
     for (const [order, destinationId] of args.destinationIds.entries()) {
       const row = await ctx.db.get(destinationId);
       if (!row || row.serviceProfileId !== args.serviceProfileId) {
-        throw new Error("Destinacija nije pronađena.");
+        throw new ConvexError("Destinacija nije pronađena.");
       }
       await ctx.db.patch(row._id, { draftOrder: order, updatedAt: Date.now() });
     }
-    const draftRevision = await markDraftChanged(ctx, args.serviceProfileId);
-    return { saved: true, draftRevision };
+    await markDraftChanged(ctx, args.serviceProfileId);
+    return { saved: true };
   },
 });
 
@@ -1369,13 +1575,13 @@ export const markDestinationDeleted = mutation({
   args: { destinationId: v.id("serviceDestinations") },
   handler: async (ctx, args) => {
     const row = await ctx.db.get(args.destinationId);
-    if (!row) throw new Error("Destinacija nije pronađena.");
+    if (!row) throw new ConvexError("Destinacija nije pronađena.");
     const profile = await ctx.db.get(row.serviceProfileId);
-    if (!profile) throw new Error("ScanMe Links profil nije pronađen.");
+    if (!profile) throw new ConvexError("ScanMe Links profil nije pronađen.");
     await requireEditorAccess(ctx, profile);
     await ctx.db.patch(row._id, { draftState: "deleted", updatedAt: Date.now() });
-    const draftRevision = await markDraftChanged(ctx, row.serviceProfileId);
-    return { marked: true, draftRevision };
+    await markDraftChanged(ctx, row.serviceProfileId);
+    return { marked: true };
   },
 });
 
@@ -1383,7 +1589,7 @@ export const discardDraft = mutation({
   args: { serviceProfileId: v.id("serviceProfiles") },
   handler: async (ctx, args) => {
     const profile = await ctx.db.get(args.serviceProfileId);
-    if (!profile) throw new Error("ScanMe Links profil nije pronađen.");
+    if (!profile) throw new ConvexError("ScanMe Links profil nije pronađen.");
     await requireEditorAccess(ctx, profile);
     const config = await ctx.db
       .query("scanMeLinksConfigs")
@@ -1391,13 +1597,8 @@ export const discardDraft = mutation({
         q.eq("serviceProfileId", args.serviceProfileId),
       )
       .unique();
-    if (!config) throw new Error("Konfiguracija nije pronađena.");
-    const rows = await ctx.db
-      .query("serviceDestinations")
-      .withIndex("by_serviceProfileId", (q) =>
-        q.eq("serviceProfileId", args.serviceProfileId),
-      )
-      .take(200);
+    if (!config) throw new ConvexError("Konfiguracija nije pronađena.");
+    const rows = await draftRowsForCommit(ctx, args.serviceProfileId);
     for (const row of rows) {
       if (!row.publishedState) {
         await ctx.db.delete(row._id);
@@ -1414,28 +1615,31 @@ export const discardDraft = mutation({
         });
       }
     }
-    const draftRevision = config.draftRevision + 1;
     await ctx.db.patch(config._id, {
+      draftDisplayName: config.publishedDisplayName,
       draftLogoStorageId: config.publishedLogoStorageId,
-      draftDesignState:
-        config.publishedDesign || config.publishedAt ? "ready" : "uninitialized",
-      draftDesign: config.publishedDesign,
-      draftDescription: config.publishedDescription,
-      draftPaletteAnalysis: config.publishedPaletteAnalysis,
-      draftBackgroundImageStorageId:
-        config.publishedBackgroundImageStorageId,
+      draftDescription: config.publishedDescription ?? "",
       draftTemplateKey: config.publishedTemplateKey ?? "option-two",
       draftBackgroundKey: config.publishedBackgroundKey ?? "warm-ivory",
       draftPalette:
-        config.publishedPaletteAnalysis?.adjusted.slice(0, 3) ??
-        [config.publishedAccent ?? DEFAULT_ACCENT],
+        config.publishedPalette ??
+        (config.publishedAccent
+          ? [config.publishedAccent]
+          : [DEFAULT_ACCENT]),
       draftAccent: config.publishedAccent ?? DEFAULT_ACCENT,
       draftAccentTokens: config.publishedAccentTokens ?? DEFAULT_ACCENT_TOKENS,
+      draftDesignState: "ready",
+      draftDesign: storedDesignV2(config.publishedDesign),
+      draftPaletteAnalysis: config.publishedPaletteAnalysis,
+      draftBackgroundImageStorageId:
+        config.publishedBackgroundImageStorageId ?? null,
+      draftBackgroundVideoStorageId:
+        config.publishedBackgroundVideoStorageId ?? null,
       hasUnpublishedChanges: false,
-      draftRevision,
+      draftRevision: config.draftRevision + 1,
       updatedAt: Date.now(),
     });
-    return { discarded: true, draftRevision };
+    return { discarded: true };
   },
 });
 
@@ -1447,7 +1651,7 @@ export const publishDraft = mutation({
   handler: async (ctx, args) => {
     const profile = await ctx.db.get(args.serviceProfileId);
     if (!profile) {
-      throw new Error("ScanMe Links profil nije pronađen.");
+      throw new ConvexError("ScanMe Links profil nije pronađen.");
     }
     await requireEditorAccess(ctx, profile);
     const config = await ctx.db
@@ -1456,67 +1660,44 @@ export const publishDraft = mutation({
         q.eq("serviceProfileId", profile._id),
       )
       .unique();
-    if (!config) throw new Error("Konfiguracija nije pronađena.");
+    if (!config) throw new ConvexError("Konfiguracija nije pronađena.");
     if (config.draftRevision !== args.expectedDraftRevision) {
-      throw new Error("Nacrt je u međuvremenu izmenjen. Osvežite editor i pokušajte ponovo.");
+      throw new ConvexError("Nacrt je u međuvremenu izmenjen. Osvežite editor i pokušajte ponovo.");
     }
-    if (designState(config) === "uninitialized") {
-      throw new Error("Prvo izaberite početni stil.");
-    }
-    const draftDesign = effectiveDraftDesign(config);
-    if (!draftDesign) throw new Error("Dizajn nacrta nije pronađen.");
-    const normalizedDesign = normalizeScanMeDesign(draftDesign).design;
     if (
       !isTemplateBackgroundCompatible(
         config.draftTemplateKey,
         config.draftBackgroundKey,
       )
     ) {
-      throw new Error("Pozadina ne pripada izabranom template-u.");
+      throw new ConvexError("Pozadina ne pripada izabranom template-u.");
     }
-    if (config.draftLogoStorageId) {
-      await validateStoredImage(ctx, config.draftLogoStorageId, {
-        maximumBytes: 5 * 1024 * 1024,
-        allowedTypes: ["image/png", "image/jpeg", "image/webp"],
-        label: "Logotip",
-      });
-    }
-    if (normalizedDesign.background.kind === "image") {
-      const usesBuiltInNatureAsset =
-        normalizedDesign.background.builtInAsset === "nature";
-      if (!config.draftBackgroundImageStorageId && !usesBuiltInNatureAsset) {
-        throw new Error("Izaberite pozadinsku sliku pre objavljivanja.");
-      }
-      if (config.draftBackgroundImageStorageId) {
-        await validateStoredImage(ctx, config.draftBackgroundImageStorageId, {
-        maximumBytes: 8 * 1024 * 1024,
-        allowedTypes: ["image/png", "image/jpeg", "image/webp"],
-        label: "Pozadinska slika",
-        });
-      }
-    }
-    const rows = await ctx.db
-      .query("serviceDestinations")
-      .withIndex("by_serviceProfileId", (q) =>
-        q.eq("serviceProfileId", profile._id),
-      )
-      .take(200);
+    await validateEditorMedia(ctx, {
+      logoStorageId: config.draftLogoStorageId ?? null,
+      backgroundImageStorageId:
+        config.draftBackgroundImageStorageId ?? null,
+      backgroundVideoStorageId:
+        config.draftBackgroundVideoStorageId ?? null,
+    });
+    const rows = await draftRowsForCommit(ctx, profile._id);
     const active = rows.filter((row) => row.draftState === "active");
-    if (active.length > 10) throw new Error("Možete objaviti najviše 10 aktivnih destinacija.");
+    if (active.length > 10) throw new ConvexError("Možete objaviti najviše 10 aktivnih destinacija.");
     for (const row of active) {
-      if (!row.draftUrl || !isSafePublicDestination(row.draftUrl)) {
-        throw new Error(`Destinacija „${row.draftLabel}“ nema bezbedan HTTPS URL.`);
+      if (row.draftUrl && !isSafePublicDestination(row.draftUrl)) {
+        throw new ConvexError(`Destinacija „${row.draftLabel}“ nema bezbedan HTTPS URL.`);
       }
     }
     const now = Date.now();
     for (const row of rows) {
       if (row.draftState === "deleted") {
         await ctx.db.patch(row._id, {
+          publishedLabel: row.draftLabel,
+          publishedUrl: row.draftUrl,
+          publishedIconKey: row.draftIconKey,
+          publishedOrder: row.draftOrder,
           publishedState: "deleted",
+          publishedPresentation: row.draftPresentation ?? "button",
           updatedAt: now,
-        });
-        await ctx.scheduler.runAfter(0, internal.scanMeLinks.purgeDestination, {
-          destinationId: row._id,
         });
         continue;
       }
@@ -1530,19 +1711,22 @@ export const publishDraft = mutation({
         updatedAt: now,
       });
     }
+    const design = storedDesignV2(config.draftDesign);
     await ctx.db.patch(config._id, {
+      publishedDisplayName: config.draftDisplayName,
       publishedLogoStorageId: config.draftLogoStorageId,
-      publishedDesign: normalizedDesign,
-      publishedDescription: normalizeScanMeDescription(
-        config.draftDescription ?? "",
-      ),
-      publishedPaletteAnalysis: config.draftPaletteAnalysis,
-      publishedBackgroundImageStorageId:
-        config.draftBackgroundImageStorageId,
+      publishedDescription: config.draftDescription ?? "",
       publishedTemplateKey: config.draftTemplateKey,
       publishedBackgroundKey: config.draftBackgroundKey,
+      publishedPalette: config.draftPalette,
       publishedAccent: config.draftAccent,
       publishedAccentTokens: config.draftAccentTokens,
+      publishedDesign: design,
+      publishedPaletteAnalysis: config.draftPaletteAnalysis,
+      publishedBackgroundImageStorageId:
+        config.draftBackgroundImageStorageId ?? null,
+      publishedBackgroundVideoStorageId:
+        config.draftBackgroundVideoStorageId ?? null,
       hasUnpublishedChanges: false,
       publishedRevision: config.draftRevision,
       publishedAt: now,
@@ -1550,7 +1734,6 @@ export const publishDraft = mutation({
     });
     return {
       publishedAt: now,
-      draftRevision: config.draftRevision,
       publishedRevision: config.draftRevision,
     };
   },
@@ -1562,17 +1745,11 @@ export const setServiceActive = mutation({
     await requireAdmin(ctx);
     const profile = await ctx.db.get(args.serviceProfileId);
     if (!profile || profile.type !== "scanme_links") {
-      throw new Error("ScanMe Links profil nije pronađen.");
+      throw new ConvexError("ScanMe Links profil nije pronađen.");
     }
     const business = await ctx.db.get(profile.businessId);
     if (!business || business.archivedAt) {
-      throw new Error("Arhivirani lokal ne može biti aktiviran.");
-    }
-    if (args.active) {
-      const activeDestinations = await publishedDestinations(ctx, profile._id);
-      if (!activeDestinations.length) {
-        throw new Error("Objavite najmanje jednu aktivnu destinaciju pre aktivacije.");
-      }
+      throw new ConvexError("Arhivirani lokal ne može biti aktiviran.");
     }
     await ctx.db.patch(profile._id, {
       status: args.active ? "active" : "inactive",
@@ -1591,7 +1768,7 @@ export const setClientEditingEnabled = mutation({
     await requireAdmin(ctx);
     const profile = await ctx.db.get(args.serviceProfileId);
     if (!profile || profile.type !== "scanme_links") {
-      throw new Error("ScanMe Links profil nije pronađen.");
+      throw new ConvexError("ScanMe Links profil nije pronađen.");
     }
     await ctx.db.patch(profile._id, {
       clientEditingEnabled: args.enabled,
@@ -1613,26 +1790,20 @@ export const metrics = query({
       await requireAdmin(ctx);
       return null;
     }
+    // Analitika je dostupna i klijentu sa uključenim uređivanjem (editor je
+    // otvoren za tu ulogu); requireEditorAccess pokriva admina i klijenta.
     await requireEditorAccess(ctx, profile);
     if (args.destinationId) {
-      const selectedDestination = await ctx.db.get(args.destinationId);
-      if (
-        !selectedDestination ||
-        selectedDestination.serviceProfileId !== profile._id
-      ) {
-        throw new Error("Destinacija nije pronađena.");
+      const destination = await ctx.db.get(args.destinationId);
+      if (destination?.serviceProfileId !== profile._id) {
+        throw new ConvexError("Destinacija ne pripada ovom lokalu.");
       }
     }
     const range = (args.range ?? "7d") as MetricsRange;
     const rows = args.destinationId
       ? await getDestinationMetricRows(ctx, args.destinationId, range, "clicks")
       : await getServiceMetricRows(ctx, profile._id, range, "scans");
-    const destinations = await ctx.db
-      .query("serviceDestinations")
-      .withIndex("by_serviceProfileId", (q) =>
-        q.eq("serviceProfileId", profile._id),
-      )
-      .take(100);
+    const destinations = await analyticsDestinations(ctx, profile._id);
     return {
       totalScans: profile.totalScans,
       totalPageViews: profile.totalPageViews,
@@ -1645,7 +1816,7 @@ export const metrics = query({
       rangeLabel: metricsRangeConfig[range].label,
       daily: aggregateMetricRowsForRange(rows, range),
       destinations: destinations
-        .filter((row) => row.publishedState && row.publishedState !== "deleted")
+        .filter((row) => Boolean(row.publishedState))
         .sort((a, b) => (a.publishedOrder ?? 0) - (b.publishedOrder ?? 0))
         .map((row) => ({
           id: row._id,
@@ -1656,74 +1827,5 @@ export const metrics = query({
           totalDirectVisits: row.totalDirectVisits,
         })),
     };
-  },
-});
-
-export const purgeDestination = internalMutation({
-  args: { destinationId: v.id("serviceDestinations") },
-  handler: async (ctx, args) => {
-    const destination = await ctx.db.get(args.destinationId);
-    if (!destination || destination.publishedState !== "deleted") return null;
-    const visits = await ctx.db
-      .query("destinationVisitEvents")
-      .withIndex("by_destinationId_and_occurredAt", (q) =>
-        q.eq("destinationId", destination._id),
-      )
-      .take(50);
-    for (const visit of visits) {
-      await ctx.db.delete(visit._id);
-      if (visit.kind !== "click") continue;
-      const scan = await ctx.db.get(visit.scanEventId);
-      if (!scan?.convertedAt) continue;
-      const remainingClicks = (
-        await ctx.db
-          .query("destinationVisitEvents")
-          .withIndex("by_scanEventId", (q) => q.eq("scanEventId", scan._id))
-          .take(20)
-      ).filter((event) => event.kind === "click");
-      if (remainingClicks.length) continue;
-      const profile = await ctx.db.get(scan.serviceProfileId);
-      if (profile) {
-        await ctx.db.patch(profile._id, {
-          totalConvertedSessions: Math.max(0, profile.totalConvertedSessions - 1),
-          updatedAt: Date.now(),
-        });
-      }
-      await ctx.db.patch(scan._id, { convertedAt: undefined });
-      const dateKey = serviceMetricDateKey(scan.scannedAt);
-      const dailyService = await ctx.db
-        .query("dailyServiceMetrics")
-        .withIndex("by_serviceProfileId_and_dateKey", (q) =>
-          q.eq("serviceProfileId", scan.serviceProfileId).eq("dateKey", dateKey),
-        )
-        .unique();
-      if (dailyService) {
-        await ctx.db.patch(dailyService._id, {
-          convertedSessions: Math.max(0, dailyService.convertedSessions - 1),
-          updatedAt: Date.now(),
-        });
-      }
-    }
-    if (visits.length) {
-      await ctx.scheduler.runAfter(0, internal.scanMeLinks.purgeDestination, {
-        destinationId: destination._id,
-      });
-      return null;
-    }
-    const daily = await ctx.db
-      .query("dailyDestinationMetrics")
-      .withIndex("by_destinationId_and_dateKey", (q) =>
-        q.eq("destinationId", destination._id),
-      )
-      .take(50);
-    for (const row of daily) await ctx.db.delete(row._id);
-    if (daily.length) {
-      await ctx.scheduler.runAfter(0, internal.scanMeLinks.purgeDestination, {
-        destinationId: destination._id,
-      });
-      return null;
-    }
-    await ctx.db.delete(destination._id);
-    return null;
   },
 });

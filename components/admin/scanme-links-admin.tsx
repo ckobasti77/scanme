@@ -1,17 +1,18 @@
 "use client";
 
+import { ConvexError } from "convex/values";
 import { useMutation, useQuery } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
 import {
   Archive,
   ArrowDown,
   ArrowUp,
+  Copy,
   ExternalLink,
   ListFilter,
   LoaderCircle,
   MapPin,
   Pencil,
-  Plus,
   Save,
   Send,
   ShieldOff,
@@ -49,6 +50,10 @@ import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { AdminGuard } from "./admin-guard";
 import { AdminShell } from "./admin-shell";
+import {
+  CreateBusinessPopover,
+  type CreateBusinessValues,
+} from "./create-business-popover";
 
 type EditorData = NonNullable<
   FunctionReturnType<typeof api.scanMeLinks.editor>
@@ -77,11 +82,36 @@ function ScanMeLinksWorkspace() {
   const businesses = useQuery(api.scanMeLinks.listBusinesses);
   const requests = useQuery(api.activationRequests.list);
   const archiveBusiness = useMutation(api.admin.archiveBusiness);
+  const createBusiness = useMutation(api.admin.createBusiness);
   const [selectedId, setSelectedId] = useState<Id<"businesses"> | null>(null);
   const [showArchived, setShowArchived] = useState(false);
   const [sort, setSort] = useState<BusinessSort>("name");
   const [direction, setDirection] = useState<SortDirection>("asc");
-  const [createOpen, setCreateOpen] = useState(false);
+  const [createPending, setCreatePending] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function submitCreate(values: CreateBusinessValues) {
+    setCreatePending(true);
+    try {
+      const result = await createBusiness({
+        name: values.name,
+        slug: values.slug,
+        destinationUrl: values.destinationUrl,
+        contacts: values.contacts,
+      });
+      setSelectedId(result.businessId);
+      setMessage("Lokal je sačuvan. Email pozivnice nije poslat automatski.");
+      setError(null);
+      return true;
+    } catch (reason) {
+      setMessage(null);
+      setError(errorMessage(reason, "Operacija nije uspela."));
+      return false;
+    } finally {
+      setCreatePending(false);
+    }
+  }
 
   const visibleBusinesses = useMemo(() => {
     const visible = (businesses ?? []).filter(
@@ -139,10 +169,25 @@ function ScanMeLinksWorkspace() {
             Lokali i njihove link stranice
           </h1>
         </div>
-        <Button onClick={() => setCreateOpen(true)}>
-          <Plus className="size-4" /> Dodaj lokal
-        </Button>
+        <CreateBusinessPopover pending={createPending} onSubmit={submitCreate} />
       </div>
+
+      {message ? (
+        <p
+          role="status"
+          className="mt-5 border border-primary/40 bg-primary/10 px-4 py-3 text-sm text-primary"
+        >
+          {message}
+        </p>
+      ) : null}
+      {error ? (
+        <p
+          role="alert"
+          className="mt-5 border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+        >
+          {error}
+        </p>
+      ) : null}
 
       <div className="mt-6 grid min-w-0 gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
         <aside
@@ -295,11 +340,6 @@ function ScanMeLinksWorkspace() {
       </div>
 
       <ActivationRequests requests={requests ?? []} />
-      <CreateBusinessDialog
-        open={createOpen}
-        onOpenChange={setCreateOpen}
-        onCreated={(businessId) => setSelectedId(businessId)}
-      />
     </>
   );
 }
@@ -314,16 +354,9 @@ function BusinessWorkspace({
   const data = useQuery(api.scanMeLinks.editor, { businessId });
   const [range, setRange] = useState<MetricsRange>("30d");
   const metrics = useQuery(api.scanMeLinks.metrics, { businessId, range });
-  const updateBusinessName = useMutation(api.admin.updateBusinessName);
   const setServiceActive = useMutation(api.scanMeLinks.setServiceActive);
   const publishDraft = useMutation(api.scanMeLinks.publishDraft);
   const [pending, setPending] = useState(false);
-  const [renamePending, setRenamePending] = useState(false);
-  const [renameFeedback, setRenameFeedback] = useState<{
-    businessId: Id<"businesses">;
-    tone: "success" | "error";
-    message: string;
-  } | null>(null);
   const [publishOpen, setPublishOpen] = useState(false);
 
   if (data === undefined) {
@@ -377,33 +410,6 @@ function BusinessWorkspace({
     }
   }
 
-  async function submitBusinessName(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const form = event.currentTarget;
-    const values = new FormData(form);
-    setRenameFeedback(null);
-    setRenamePending(true);
-    try {
-      await updateBusinessName({
-        businessId: data!.id,
-        name: String(values.get("businessName") ?? ""),
-      });
-      form.closest("details")?.removeAttribute("open");
-      setRenameFeedback({
-        businessId: data!.id,
-        tone: "success",
-        message: "Naziv lokala i obe kanonske adrese su promenjeni.",
-      });
-      toast.success("Naziv lokala i njegove adrese su promenjeni.");
-    } catch (error) {
-      const message = errorMessage(error, "Naziv lokala nije promenjen.");
-      setRenameFeedback({ businessId: data!.id, tone: "error", message });
-      toast.error(message);
-    } finally {
-      setRenamePending(false);
-    }
-  }
-
   return (
     <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-6">
       <div className="min-w-0 border border-border bg-card p-5 sm:p-7">
@@ -418,49 +424,6 @@ function BusinessWorkspace({
             <p className="mt-2 text-sm text-muted-foreground">
               /{data.profile.slug}
             </p>
-            <details className="mt-4">
-              <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground">
-                <Pencil className="size-4 text-primary" /> Promeni naziv lokala
-              </summary>
-              <form
-                key={data.id}
-                onSubmit={submitBusinessName}
-                className="mt-3 grid gap-3 sm:grid-cols-[minmax(220px,1fr)_auto] sm:items-end"
-              >
-                <div className="grid gap-2">
-                  <Label htmlFor={`business-name-${data.id}`}>Novi naziv *</Label>
-                  <Input
-                    id={`business-name-${data.id}`}
-                    name="businessName"
-                    defaultValue={data.name}
-                    required
-                    minLength={2}
-                    maxLength={120}
-                    className="h-11"
-                  />
-                </div>
-                <Button type="submit" disabled={renamePending}>
-                  {renamePending ? (
-                    <LoaderCircle className="size-4 animate-spin" />
-                  ) : (
-                    <Save className="size-4" />
-                  )}
-                  Sačuvaj naziv
-                </Button>
-              </form>
-            </details>
-            {renameFeedback?.businessId === data.id ? (
-              <p
-                role={renameFeedback.tone === "error" ? "alert" : "status"}
-                className={`mt-3 text-sm ${
-                  renameFeedback.tone === "error"
-                    ? "text-destructive"
-                    : "text-primary"
-                }`}
-              >
-                {renameFeedback.message}
-              </p>
-            ) : null}
           </div>
           {data.archivedAt ? (
             <div className="inline-flex min-h-11 items-center gap-2 border border-destructive bg-destructive px-4 text-sm font-semibold text-destructive-foreground">
@@ -542,25 +505,20 @@ function BusinessWorkspace({
             </div>
           ) : null}
 
-          <div className="mt-6 grid gap-3">
-            <div className="border border-border bg-background p-4">
-              <p className="text-xs text-muted-foreground">Javna adresa</p>
-              <p className="mt-2 break-all text-sm font-semibold">
-                /{data.profile.slug}
-              </p>
-            </div>
-            <div className="border border-border bg-background p-4">
-              <p className="text-xs text-muted-foreground">Klijentski panel</p>
-              <p className="mt-2 break-all text-sm font-semibold">
-                /{data.clientPanelSlug}/client-panel
-              </p>
-            </div>
-          </div>
+          <StableAddresses
+            key={`${data.id}-${data.clientPanelSlug}`}
+            businessId={data.id}
+            baseSlug={data.clientPanelSlug}
+          />
 
           <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
             <Button asChild>
               <Link
-                href={`/admin/scanme-links/${data.clientPanelSlug}/editor`}
+                href={
+                  data.clientPanelSlug
+                    ? `/${data.clientPanelSlug}/editor`
+                    : `/admin/scanme-links/${data.id}/editor`
+                }
                 target="_blank"
                 rel="noopener noreferrer"
               >
@@ -638,6 +596,7 @@ function BusinessWorkspace({
             heightClassName="mt-6 h-56"
             showCounts
             barMinWidth={38}
+            variant={metrics.range === "all" ? "line" : "bars"}
           />
         </section>
       ) : null}
@@ -712,10 +671,12 @@ function Metric({
 }
 
 function SharedBusinessDetails({ data }: { data: EditorData }) {
+  const updateName = useMutation(api.admin.updateBusinessName);
   const updateContact = useMutation(api.admin.updateContact);
   const addContact = useMutation(api.admin.addContact);
   const generateUploadUrl = useMutation(api.scanMeLinks.generateLogoUploadUrl);
   const updateBusinessLogo = useMutation(api.scanMeLinks.updateBusinessLogo);
+  const [name, setName] = useState(data.name);
   const [logoUrl, setLogoUrl] = useState(data.businessLogoUrl);
   const [contact, setContact] = useState({
     firstName: data.contact?.firstName ?? "",
@@ -765,6 +726,7 @@ function SharedBusinessDetails({ data }: { data: EditorData }) {
     event.preventDefault();
     setPending(true);
     try {
+      await updateName({ businessId: data.id, name });
       if (contact.firstName.trim() && contact.lastName.trim()) {
         if (data.contact) {
           await updateContact({
@@ -791,7 +753,7 @@ function SharedBusinessDetails({ data }: { data: EditorData }) {
     >
       <h2 className="text-lg font-semibold">Zajednički podaci lokala</h2>
       <p className="mt-2 text-xs leading-5 text-muted-foreground">
-        Logo i POC koriste oba servisa i klijentski panel.
+        Naziv, logo i POC koriste oba servisa i klijentski panel.
       </p>
       <div className="mt-5 grid gap-4 sm:grid-cols-2">
         <div className="grid gap-3 sm:col-span-2">
@@ -826,6 +788,16 @@ function SharedBusinessDetails({ data }: { data: EditorData }) {
               />
             </label>
           </div>
+        </div>
+        <div className="grid gap-2 sm:col-span-2">
+          <Label htmlFor={`shared-name-${data.id}`}>Interni naziv lokala</Label>
+          <Input
+            id={`shared-name-${data.id}`}
+            value={name}
+            minLength={2}
+            required
+            onChange={(event) => setName(event.target.value)}
+          />
         </div>
         <ContactInput
           id={`poc-first-${data.id}`}
@@ -884,6 +856,150 @@ function SharedBusinessDetails({ data }: { data: EditorData }) {
   );
 }
 
+function StableAddresses({
+  businessId,
+  baseSlug,
+}: {
+  businessId: Id<"businesses">;
+  baseSlug: string;
+}) {
+  const updateBusinessSlug = useMutation(api.admin.updateBusinessSlug);
+  const [editing, setEditing] = useState(false);
+  const [pending, setPending] = useState(false);
+  const [copied, setCopied] = useState<"public" | "panel" | null>(null);
+
+  async function copy(path: string, kind: "public" | "panel") {
+    try {
+      await navigator.clipboard.writeText(`${window.location.origin}${path}`);
+      setCopied(kind);
+      window.setTimeout(() => setCopied(null), 1800);
+    } catch {
+      toast.error("Adresa nije kopirana.");
+    }
+  }
+
+  async function save(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    setPending(true);
+    try {
+      await updateBusinessSlug({
+        businessId,
+        kind: "clientPanel",
+        slug: String(form.get("slug") ?? ""),
+      });
+      setEditing(false);
+      toast.success("Stabilne adrese lokala su promenjene.");
+    } catch (error) {
+      toast.error(errorMessage(error, "Stabilne adrese nisu promenjene."));
+    } finally {
+      setPending(false);
+    }
+  }
+
+  const publicPath = `/${baseSlug}`;
+  const panelPath = `/${baseSlug}/client-panel`;
+
+  return (
+    <div className="mt-6 border border-border bg-background p-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="grid min-w-0 gap-4">
+          <div>
+            <p className="text-xs text-muted-foreground">Javna adresa</p>
+            <p className="mt-2 break-all text-sm font-semibold">{publicPath}</p>
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground">Klijentski panel</p>
+            <p className="mt-2 break-all text-sm font-semibold">{panelPath}</p>
+          </div>
+        </div>
+        <Button
+          type="button"
+          size="sm"
+          className="min-h-11 shrink-0"
+          aria-expanded={editing}
+          onClick={() => setEditing((current) => !current)}
+        >
+          <Pencil className="size-3.5" /> Izmeni adrese
+        </Button>
+      </div>
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="min-h-11"
+          onClick={() => void copy(publicPath, "public")}
+        >
+          <Copy className="size-3.5" />
+          {copied === "public" ? "Kopirano" : "Kopiraj javnu"}
+        </Button>
+        <Button type="button" size="sm" variant="outline" className="min-h-11" asChild>
+          <Link href={publicPath} target="_blank" rel="noopener noreferrer">
+            <ExternalLink className="size-3.5" /> Otvori javnu
+          </Link>
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="min-h-11"
+          onClick={() => void copy(panelPath, "panel")}
+        >
+          <Copy className="size-3.5" />
+          {copied === "panel" ? "Kopirano" : "Kopiraj panel"}
+        </Button>
+      </div>
+
+      {editing ? (
+        <form onSubmit={save} className="mt-5 border-t border-border pt-5">
+          <div className="grid gap-2">
+            <Label htmlFor={`links-base-slug-${businessId}`}>
+              Osnovni slug *
+            </Label>
+            <Input
+              id={`links-base-slug-${businessId}`}
+              name="slug"
+              defaultValue={baseSlug}
+              pattern="[a-z0-9]+(?:-[a-z0-9]+)*"
+              maxLength={80}
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              required
+              autoFocus
+            />
+            <p className="text-xs leading-5 text-muted-foreground">
+              Menja javnu ScanMe Links adresu i klijentski panel. Google Review
+              adresa se usklađuje kao /novi-slug-google-review.
+            </p>
+          </div>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Button type="submit" size="sm" disabled={pending}>
+              {pending ? (
+                <LoaderCircle className="size-3.5 animate-spin" />
+              ) : (
+                <Save className="size-3.5" />
+              )}
+              Sačuvaj
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={pending}
+              onClick={() => setEditing(false)}
+            >
+              Otkaži
+            </Button>
+          </div>
+        </form>
+      ) : null}
+    </div>
+  );
+}
+
 function ContactInput({
   id,
   label,
@@ -906,128 +1022,6 @@ function ContactInput({
         value={value}
         onChange={(event) => onChange(event.target.value)}
       />
-    </div>
-  );
-}
-
-function CreateBusinessDialog({
-  open,
-  onOpenChange,
-  onCreated,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onCreated: (businessId: Id<"businesses">) => void;
-}) {
-  const createBusiness = useMutation(api.admin.createBusiness);
-  const [pending, setPending] = useState(false);
-
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    setPending(true);
-    try {
-      const result = await createBusiness({
-        name: String(form.get("name") ?? ""),
-        destinationUrl: "",
-        firstName: String(form.get("firstName") ?? ""),
-        lastName: String(form.get("lastName") ?? ""),
-        email: String(form.get("email") ?? ""),
-        phone: String(form.get("phone") ?? ""),
-        positionTitle: String(form.get("positionTitle") ?? ""),
-      });
-      onCreated(result.businessId);
-      onOpenChange(false);
-      toast.success("Lokal je kreiran sa oba neaktivna servisa.");
-    } catch (error) {
-      toast.error(errorMessage(error, "Lokal nije kreiran."));
-    } finally {
-      setPending(false);
-    }
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Dodaj lokal</DialogTitle>
-          <DialogDescription>
-            Kreiraćemo neaktivne ScanMe Links i Google Review servise.
-          </DialogDescription>
-        </DialogHeader>
-        <form onSubmit={submit} className="grid gap-5">
-          <div className="grid gap-2">
-            <Label htmlFor="new-business-name">Naziv lokala</Label>
-            <Input id="new-business-name" name="name" required minLength={2} />
-          </div>
-          <p className="text-xs leading-5 text-muted-foreground">
-            ScanMe Links i Google Review adrese biće automatski izvedene iz
-            naziva lokala.
-          </p>
-          <fieldset className="grid gap-4 border-t border-border pt-5 sm:grid-cols-2">
-            <legend className="px-2 text-sm font-semibold">POC, opciono</legend>
-            <ContactCreateInput id="new-poc-first" name="firstName" label="Ime" />
-            <ContactCreateInput
-              id="new-poc-last"
-              name="lastName"
-              label="Prezime"
-            />
-            <ContactCreateInput
-              id="new-poc-email"
-              name="email"
-              label="Email"
-              type="email"
-            />
-            <ContactCreateInput
-              id="new-poc-phone"
-              name="phone"
-              label="Telefon"
-              type="tel"
-            />
-            <div className="sm:col-span-2">
-              <ContactCreateInput
-                id="new-poc-role"
-                name="positionTitle"
-                label="Uloga"
-              />
-            </div>
-          </fieldset>
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button type="button" variant="outline">
-                Otkaži
-              </Button>
-            </DialogClose>
-            <Button type="submit" disabled={pending}>
-              {pending ? (
-                <LoaderCircle className="size-4 animate-spin" />
-              ) : (
-                <Save className="size-4" />
-              )}
-              Kreiraj lokal
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function ContactCreateInput({
-  id,
-  name,
-  label,
-  type = "text",
-}: {
-  id: string;
-  name: string;
-  label: string;
-  type?: "text" | "email" | "tel";
-}) {
-  return (
-    <div className="grid gap-2">
-      <Label htmlFor={id}>{label}</Label>
-      <Input id={id} name={name} type={type} />
     </div>
   );
 }
@@ -1083,7 +1077,11 @@ function ActivationRequests({
                 void setStatus({
                   requestId: request.id,
                   status: status as "new" | "contacted" | "closed",
-                })
+                }).catch((error) =>
+                  toast.error(
+                    errorMessage(error, "Status upita nije promenjen."),
+                  ),
+                )
               }
             >
               <SelectTrigger className="h-11 w-full lg:w-44">
@@ -1103,5 +1101,8 @@ function ActivationRequests({
 }
 
 function errorMessage(error: unknown, fallback: string) {
+  if (error instanceof ConvexError && typeof error.data === "string") {
+    return error.data;
+  }
   return error instanceof Error ? error.message : fallback;
 }

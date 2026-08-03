@@ -126,9 +126,7 @@ export default defineSchema({
 
   scanMeLinksConfigs: defineTable({
     serviceProfileId: v.id("serviceProfiles"),
-    // Deprecated rollout mirror of businesses.name; never use as canonical identity.
     draftDisplayName: v.optional(v.string()),
-    // null explicitly removes the service logo; undefined keeps the legacy business-logo fallback.
     draftLogoStorageId: v.optional(v.union(v.id("_storage"), v.null())),
     draftTemplateKey: v.string(),
     draftBackgroundKey: v.string(),
@@ -142,17 +140,25 @@ export default defineSchema({
     draftBackgroundImageStorageId: v.optional(
       v.union(v.id("_storage"), v.null()),
     ),
-    // Deprecated rollout mirror kept optional until all deployed readers use businesses.name.
+    draftBackgroundVideoStorageId: v.optional(
+      v.union(v.id("_storage"), v.null()),
+    ),
     publishedDisplayName: v.optional(v.string()),
-    publishedLogoStorageId: v.optional(v.union(v.id("_storage"), v.null())),
+    publishedLogoStorageId: v.optional(
+      v.union(v.id("_storage"), v.null()),
+    ),
     publishedTemplateKey: v.optional(v.string()),
     publishedBackgroundKey: v.optional(v.string()),
     publishedAccent: v.optional(v.string()),
     publishedAccentTokens: v.optional(accentTokens),
+    publishedPalette: v.optional(v.array(v.string())),
     publishedDesign: v.optional(scanMeDesignValidator),
     publishedDescription: v.optional(v.string()),
     publishedPaletteAnalysis: v.optional(paletteAnalysisValidator),
     publishedBackgroundImageStorageId: v.optional(
+      v.union(v.id("_storage"), v.null()),
+    ),
+    publishedBackgroundVideoStorageId: v.optional(
       v.union(v.id("_storage"), v.null()),
     ),
     hasUnpublishedChanges: v.boolean(),
@@ -183,6 +189,19 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_serviceProfileId", ["serviceProfileId"])
+    .index("by_serviceProfileId_and_draftState", [
+      "serviceProfileId",
+      "draftState",
+    ])
+    .index("by_serviceProfileId_and_draftState_and_updatedAt", [
+      "serviceProfileId",
+      "draftState",
+      "updatedAt",
+    ])
+    .index("by_serviceProfileId_and_publishedState", [
+      "serviceProfileId",
+      "publishedState",
+    ])
     .index("by_serviceProfileId_and_draftOrder", ["serviceProfileId", "draftOrder"])
     .index("by_serviceProfileId_and_publishedOrder", ["serviceProfileId", "publishedOrder"]),
 
@@ -314,7 +333,8 @@ export default defineSchema({
   })
     .index("by_tokenHash", ["tokenHash"])
     .index("by_businessId_and_status", ["businessId", "status"])
-    .index("by_contactId", ["contactId"]),
+    .index("by_contactId", ["contactId"])
+    .index("by_normalizedEmail", ["normalizedEmail"]),
 
   serviceActivationRequests: defineTable({
     businessId: v.id("businesses"),

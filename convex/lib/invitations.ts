@@ -1,7 +1,7 @@
+import { ConvexError } from "convex/values";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
-import { resolveBusinessByScanMeSlug } from "./access";
-import { normalizeEmail } from "./validation";
+import { normalizeEmail, requireSlug } from "./validation";
 
 type DatabaseCtx = QueryCtx | MutationCtx;
 
@@ -15,6 +15,7 @@ export async function hashInvitationToken(token: string) {
 }
 
 export async function findInvitationByToken(ctx: DatabaseCtx, token: string, rawSlug: string) {
+  const slug = requireSlug(rawSlug);
   if (token.length < 32 || token.length > 256) return null;
   const tokenHash = await hashInvitationToken(token);
   const invitation = await ctx.db
@@ -22,9 +23,12 @@ export async function findInvitationByToken(ctx: DatabaseCtx, token: string, raw
     .withIndex("by_tokenHash", (q) => q.eq("tokenHash", tokenHash))
     .unique();
   if (!invitation) return null;
-  const resolved = await resolveBusinessByScanMeSlug(ctx, rawSlug);
-  if (!resolved || resolved.business._id !== invitation.businessId) return null;
-  return { invitation, ...resolved };
+  const business = await ctx.db
+    .query("businesses")
+    .withIndex("by_slug", (q) => q.eq("slug", slug))
+    .unique();
+  if (!business || business._id !== invitation.businessId) return null;
+  return { invitation, business };
 }
 
 export async function acceptInvitationForUser(
@@ -34,20 +38,20 @@ export async function acceptInvitationForUser(
 ) {
   const invitation = await ctx.db.get(invitationId);
   const user = await ctx.db.get(userId);
-  if (!invitation || !user?.email) throw new Error("Pozivnica nije dostupna.");
+  if (!invitation || !user?.email) throw new ConvexError("Pozivnica nije dostupna.");
   if (
     invitation.status !== "sent" &&
     invitation.status !== "queued" &&
     invitation.status !== "failed"
   ) {
-    throw new Error("Pozivnica više nije aktivna.");
+    throw new ConvexError("Pozivnica više nije aktivna.");
   }
   if (invitation.expiresAt <= Date.now()) {
     await ctx.db.patch(invitation._id, { status: "expired", updatedAt: Date.now() });
-    throw new Error("Pozivnica je istekla. Zatražite novu od ScanMe administratora.");
+    throw new ConvexError("Pozivnica je istekla. Zatražite novu od ScanMe administratora.");
   }
   if (normalizeEmail(user.email) !== invitation.normalizedEmail) {
-    throw new Error("Pozivnica pripada drugoj email adresi.");
+    throw new ConvexError("Pozivnica pripada drugoj email adresi.");
   }
 
   const now = Date.now();

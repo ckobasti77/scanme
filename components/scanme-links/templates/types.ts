@@ -1,14 +1,12 @@
-import type { CSSProperties, MouseEvent, ReactNode } from "react";
-import type {
-  DestinationPresentation,
-  ScanMeDesignV1,
-} from "@/lib/scanme-design";
+import type { CSSProperties, MouseEvent } from "react";
 import type {
   AccentTokens,
   BackgroundKey,
   DestinationKind,
+  DestinationLifecycle,
   TemplateKey,
 } from "@/lib/scanme-links";
+import type { ScanMeLinksDesignV2 } from "@/lib/scanme-links-design";
 
 export type PublicDestination = {
   id: string;
@@ -16,23 +14,22 @@ export type PublicDestination = {
   label: string;
   url: string;
   iconKey: string;
-  presentation?: DestinationPresentation;
+  state?: DestinationLifecycle;
 };
 
 export type ScanMeLinksViewModel = {
   displayName: string;
   description?: string | null;
   logoUrl: string | null;
-  backgroundImageUrl?: string | null;
   templateKey: TemplateKey;
   backgroundKey: BackgroundKey;
   accent: string;
   accentTokens: AccentTokens;
-  design?: ScanMeDesignV1;
+  design?: ScanMeLinksDesignV2 | null;
+  backgroundImageUrl?: string | null;
+  backgroundVideoUrl?: string | null;
   destinations: PublicDestination[];
 };
-
-export type ScanMeRenderMode = "public" | "preview" | "thumbnail";
 
 export type TemplateProps = {
   view: ScanMeLinksViewModel;
@@ -42,8 +39,6 @@ export type TemplateProps = {
     event: MouseEvent<HTMLAnchorElement>,
   ) => void;
   preview?: boolean;
-  renderMode?: ScanMeRenderMode;
-  editorSlot?: ReactNode;
 };
 
 export type AccentStyle = CSSProperties & {
@@ -53,25 +48,37 @@ export type AccentStyle = CSSProperties & {
   "--links-accent-border": string;
   "--links-accent-focus": string;
   "--links-on-accent": string;
-};
-
-export type ScanMeDesignStyle = AccentStyle & {
-  "--scanme-page": string;
-  "--scanme-surface": string;
-  "--scanme-title": string;
-  "--scanme-body": string;
-  "--scanme-accent": string;
-  "--scanme-border": string;
-  "--scanme-focus": string;
-  "--scanme-button": string;
-  "--scanme-button-hover": string;
-  "--scanme-button-text": string;
-  "--scanme-button-radius": string;
-  "--scanme-button-border": string;
-  "--scanme-button-padding-x": string;
-  "--scanme-button-padding-y": string;
-  "--scanme-button-font-size": string;
-  "--scanme-line-height": number;
-  "--scanme-section-gap": string;
-  "--scanme-text-align": CSSProperties["textAlign"];
+  "--links-page"?: string;
+  "--links-surface"?: string;
+  "--links-title"?: string;
+  "--links-body"?: string;
+  "--links-button"?: string;
+  "--links-button-hover"?: string;
+  "--links-button-text"?: string;
+  "--links-icon"?: string;
+  "--links-border"?: string;
+  "--links-button-radius"?: string;
+  "--links-button-border-width"?: string;
+  "--links-button-padding-x"?: string;
+  "--links-button-padding-y"?: string;
+  "--links-button-shadow"?: string;
+  "--links-text-shadow"?: string;
+  "--links-logo-shadow"?: string;
+  "--links-powered-color"?: string;
+  "--links-flow-gap"?: string;
+  "--links-heading-size"?: string;
+  "--links-body-size"?: string;
+  "--links-line-height"?: string;
+  "--links-heading-weight"?: string;
+  "--links-body-weight"?: string;
+  "--links-font-family"?: string;
+  "--links-text-align"?: string;
+  "--links-cross-align"?: string;
+  "--links-background-image"?: string;
+  "--links-background-detail-image"?: string;
+  "--links-background-detail-size"?: string;
+  "--links-background-detail-opacity"?: string;
+  "--links-media-overlay"?: string;
+  "--links-animation-duration"?: string;
+  "--links-animation-intensity"?: string;
 };

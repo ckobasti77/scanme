@@ -1,19 +1,11 @@
 "use client";
 
+import { ConvexError } from "convex/values";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { Authenticated, AuthLoading, Unauthenticated, useMutation, useQuery } from "convex/react";
 import { animate, motion, useMotionValue, useReducedMotion, useTransform } from "framer-motion";
-import {
-  ArrowUpRight,
-  Eye,
-  EyeOff,
-  LoaderCircle,
-  LogOut,
-  PencilLine,
-  ShieldCheck,
-} from "lucide-react";
+import { ArrowUpRight, Eye, EyeOff, LoaderCircle, LogOut, PencilLine, ShieldCheck } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,16 +25,6 @@ const numberFormatter = new Intl.NumberFormat("sr-Latn-RS");
 
 export function ClientPanel({ slug }: { slug: string }) {
   const location = useQuery(api.clientPanel.publicLocation, { slug });
-  const router = useRouter();
-  const canonicalSlug = location?.canonicalSlug ?? slug;
-  useEffect(() => {
-    if (canonicalSlug === slug) return;
-    router.replace(
-      `/${encodeURIComponent(canonicalSlug)}/client-panel`,
-      { scroll: false },
-    );
-  }, [canonicalSlug, router, slug]);
-
   return (
     <main className="min-h-[100dvh] bg-background">
       <header className="border-b border-border">
@@ -53,8 +35,8 @@ export function ClientPanel({ slug }: { slug: string }) {
       </header>
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-12">
         <AuthLoading><PanelLoading /></AuthLoading>
-        <Unauthenticated><ClientLogin slug={canonicalSlug} businessName={location?.name ?? null} /></Unauthenticated>
-        <Authenticated><ServicesPanel slug={canonicalSlug} /></Authenticated>
+        <Unauthenticated><ClientLogin slug={slug} businessName={location?.name ?? null} /></Unauthenticated>
+        <Authenticated><ServicesPanel slug={slug} /></Authenticated>
       </div>
     </main>
   );
@@ -80,9 +62,7 @@ function ServicesPanel({ slug }: { slug: string }) {
       </section>
     );
   }
-  const defaultTab: ServiceTab =
-    overview.services.scanMeLinks.active ||
-    overview.services.scanMeLinks.clientEditingEnabled
+  const defaultTab: ServiceTab = overview.services.scanMeLinks.active
     ? "scanme_links"
     : overview.services.googleReview.active
       ? "google_review"
@@ -106,7 +86,6 @@ function ServicesPanel({ slug }: { slug: string }) {
         overview.services.scanMeLinks.clientEditingEnabled ? (
           <ScanMeLinksMetricsPanel
             slug={slug}
-            editorSlug={overview.canonicalSlug}
             canEdit={overview.services.scanMeLinks.clientEditingEnabled}
             serviceActive={overview.services.scanMeLinks.active}
           />
@@ -156,9 +135,11 @@ function LockedService({
       setSent(true);
     } catch (reason) {
       setError(
-        reason instanceof Error
-          ? reason.message
-          : "Upit trenutno nije moguće poslati. Pokušajte ponovo.",
+        reason instanceof ConvexError && typeof reason.data === "string"
+          ? reason.data
+          : reason instanceof Error
+            ? reason.message
+            : "Upit trenutno nije moguće poslati. Pokušajte ponovo.",
       );
     } finally {
       setPending(false);
@@ -197,12 +178,10 @@ function LockedService({
 
 function ScanMeLinksMetricsPanel({
   slug,
-  editorSlug,
   canEdit,
   serviceActive,
 }: {
   slug: string;
-  editorSlug: string;
   canEdit: boolean;
   serviceActive: boolean;
 }) {
@@ -242,9 +221,7 @@ function ScanMeLinksMetricsPanel({
         <div className="flex flex-wrap gap-2">
           {canEdit ? (
             <Button asChild>
-              <Link
-                href={`/admin/scanme-links/${encodeURIComponent(editorSlug)}/editor`}
-              >
+              <Link href={`/${encodeURIComponent(slug)}/editor`}>
                 <PencilLine className="size-4" />
                 Uredi stranicu
               </Link>
@@ -322,6 +299,11 @@ function ScanMeLinksMetricsPanel({
               onClick={() => setDestinationId(destination.id)}
             >
               {destination.label}
+              {destination.state === "deleted" ? (
+                <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-destructive">
+                  Obrisano
+                </span>
+              ) : null}
               <span className="tabular-nums">
                 {numberFormatter.format(
                   destination.totalClicks || destination.totalDirectVisits,

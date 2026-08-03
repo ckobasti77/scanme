@@ -1,5 +1,5 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { acceptInvitationForUser, findInvitationByToken } from "./lib/invitations";
 import { normalizeEmail } from "./lib/validation";
@@ -21,23 +21,19 @@ export const getStatus = query({
     const found = await findInvitationByToken(ctx, args.token, args.slug);
     if (!found) return { status: "invalid" as const };
     const { invitation } = found;
-    if (invitation.expiresAt <= Date.now()) {
-      return { status: "expired" as const, canonicalSlug: found.canonicalSlug };
-    }
-    if (invitation.status === "accepted") {
-      return { status: "accepted" as const, canonicalSlug: found.canonicalSlug };
-    }
+    if (invitation.expiresAt <= Date.now()) return { status: "expired" as const };
+    if (invitation.status === "accepted") return { status: "accepted" as const };
     if (invitation.status === "revoked" || invitation.status === "expired") {
-      return { status: invitation.status, canonicalSlug: found.canonicalSlug };
+      return { status: invitation.status };
     }
     const contact = await ctx.db.get(invitation.contactId);
-    if (!contact) return { status: "invalid" as const };
+    const business = await ctx.db.get(invitation.businessId);
+    if (!contact || !business) return { status: "invalid" as const };
     return {
       status: "valid" as const,
       email: invitation.normalizedEmail,
       firstName: contact.firstName,
-      businessName: found.business.name,
-      canonicalSlug: found.canonicalSlug,
+      businessName: business.name,
     };
   },
 });
@@ -46,18 +42,16 @@ export const claim = mutation({
   args: { token: v.string(), slug: v.string() },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
-    if (!userId) throw new Error("Prijavite se da biste prihvatili pozivnicu.");
+    if (!userId) throw new ConvexError("Prijavite se da biste prihvatili pozivnicu.");
     const found = await findInvitationByToken(ctx, args.token, args.slug);
-    if (!found) throw new Error("Pozivnica nije ispravna.");
+    if (!found) throw new ConvexError("Pozivnica nije ispravna.");
     if (found.invitation.status === "accepted") {
       const contact = await ctx.db.get(found.invitation.contactId);
-      if (contact?.authUserId === userId) {
-        return { accepted: true, canonicalSlug: found.canonicalSlug };
-      }
-      throw new Error("Pozivnica je već iskorišćena.");
+      if (contact?.authUserId === userId) return { accepted: true };
+      throw new ConvexError("Pozivnica je već iskorišćena.");
     }
     await acceptInvitationForUser(ctx, found.invitation._id, userId);
-    return { accepted: true, canonicalSlug: found.canonicalSlug };
+    return { accepted: true };
   },
 });
 
@@ -69,13 +63,7 @@ export const getEmailData = internalQuery({
     const contact = await ctx.db.get(invitation.contactId);
     const business = await ctx.db.get(invitation.businessId);
     if (!contact || !business) return null;
-    return {
-      invitation,
-      contact,
-      business,
-      slug: business.slug,
-      canonicalSlug: business.slug,
-    };
+    return { invitation, contact, business, slug: business.slug };
   },
 });
 

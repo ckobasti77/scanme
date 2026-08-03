@@ -1,9 +1,10 @@
 "use client";
 
+import { ConvexError } from "convex/values";
 import { useMutation, useQuery } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
 import { Archive, ArrowDown, ArrowUp, Copy, ExternalLink, ListFilter, LoaderCircle, MapPin, Pencil, Plus, RefreshCw, Save, ShieldOff, Trash2, UserRoundPlus } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { MetricsBarChart } from "@/components/metrics-bar-chart";
 import { MetricsPeriodSelect } from "@/components/metrics-period-select";
@@ -16,6 +17,16 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { useRetainedQueryResult } from "@/lib/use-retained-query-result";
 import { AdminGuard } from "./admin-guard";
 import { AdminShell } from "./admin-shell";
+import {
+  CreateBusinessPopover,
+  InputField,
+  RoleField,
+  roleOptions,
+  validateContactValues,
+  type ContactDraft,
+  type ContactValues,
+  type CreateBusinessValues,
+} from "./create-business-popover";
 
 const dateFormatter = new Intl.DateTimeFormat("sr-Latn-RS", { dateStyle: "medium", timeStyle: "short" });
 
@@ -33,37 +44,9 @@ type BusinessMetrics = FunctionReturnType<typeof api.admin.getBusinessMetrics>;
 type ContactRecord = NonNullable<BusinessList[number]["contact"]>;
 type InvitationId = NonNullable<ContactRecord["invitation"]>["id"];
 
-const emailFormatMessage = "Unesite email u formatu ime@domen.rs.";
-const phoneFormatMessage = "Unesite 7–15 cifara; dozvoljeni su početni +, razmak, zagrade i crtica.";
-const roleOptions = ["Vlasnik", "Menadžer", "Radnik"] as const;
-
-type ContactValues = {
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone: string;
-  positionTitle: string;
-};
-
-type ContactDraft = ContactValues & {
-  id: number;
-  roleChoice: (typeof roleOptions)[number] | "custom" | "";
-  customRole: string;
-};
-
-type CreateBusinessValues = {
-  name: string;
-  destinationUrl: string;
-  contacts: ContactValues[];
-};
-
 type BusinessSort = "name" | "scans" | "status";
 type SortDirection = "asc" | "desc";
 type MetricsRange = "7d" | "30d" | "90d" | "1y" | "all";
-
-function emptyContact(id: number): ContactDraft {
-  return { id, firstName: "", lastName: "", email: "", phone: "", positionTitle: "", roleChoice: "", customRole: "" };
-}
 
 export function GoogleReviewsAdmin() {
   return (
@@ -106,6 +89,8 @@ function GoogleReviewsWorkspace() {
   const metricsQuery = useQuery(api.admin.getBusinessMetrics, effectiveSelectedId ? { businessId: effectiveSelectedId, range: graphRange, summaryRange } : "skip");
   const metrics = useRetainedQueryResult(metricsQuery, effectiveSelectedId);
   const createBusiness = useMutation(api.admin.createBusiness);
+  const updateBusinessName = useMutation(api.admin.updateBusinessName);
+  const updateBusinessSlug = useMutation(api.admin.updateBusinessSlug);
   const updateDestination = useMutation(api.admin.updateDestination);
   const setBusinessActive = useMutation(api.admin.setBusinessActive);
   const archiveBusiness = useMutation(api.admin.archiveBusiness);
@@ -127,7 +112,13 @@ function GoogleReviewsWorkspace() {
 
   function fail(reason: unknown) {
     setMessage(null);
-    setError(reason instanceof Error ? reason.message : "Operacija nije uspela.");
+    setError(
+      reason instanceof ConvexError && typeof reason.data === "string"
+        ? reason.data
+        : reason instanceof Error
+          ? reason.message
+          : "Operacija nije uspela.",
+    );
   }
 
   async function submitCreate(values: CreateBusinessValues) {
@@ -135,6 +126,7 @@ function GoogleReviewsWorkspace() {
     try {
       const result = await createBusiness({
         name: values.name,
+        slug: values.slug,
         destinationUrl: values.destinationUrl,
         contacts: values.contacts,
       });
@@ -151,6 +143,42 @@ function GoogleReviewsWorkspace() {
       await updateDestination({ linkId: selected.link.id, destinationUrl });
       feedback("Dinamička destinacija je promenjena. Sledeći sken koristi novi link.");
     } catch (reason) { fail(reason); } finally { setPending(null); }
+  }
+
+  async function submitBusinessName(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selected) return;
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    setPending("name");
+    try {
+      await updateBusinessName({
+        businessId: selected.id,
+        name: String(data.get("businessName") ?? ""),
+      });
+      form.closest("details")?.removeAttribute("open");
+      feedback("Naziv lokala je promenjen. QR slug i adrese ostali su isti.");
+    } catch (reason) { fail(reason); } finally { setPending(null); }
+  }
+
+  async function saveSlug(kind: "qr" | "clientPanel", slug: string) {
+    if (!selected?.link) return false;
+    const pendingKey = `slug:${kind}`;
+    setPending(pendingKey);
+    try {
+      await updateBusinessSlug({ businessId: selected.id, linkId: selected.link.id, kind, slug });
+      feedback(
+        kind === "qr"
+          ? "QR adresa je promenjena. Stara odštampana QR adresa nastavlja da radi."
+          : "Osnovni slug je promenjen. Klijentski panel, ScanMe Links i Google Review adresa su usklađeni.",
+      );
+      return true;
+    } catch (reason) {
+      fail(reason);
+      return false;
+    } finally {
+      setPending(null);
+    }
   }
 
   async function toggleActive() {
@@ -333,6 +361,21 @@ function GoogleReviewsWorkspace() {
                   <div>
                     <div className="flex items-center gap-3"><MapPin className="size-5 text-primary" /><h2 className="text-2xl font-semibold tracking-[-0.04em]">{selected.name}</h2></div>
                     <p className="mt-2 text-sm text-muted-foreground">/{selected.link?.slug}</p>
+                    <details className="mt-4">
+                      <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground">
+                        <Pencil className="size-4 text-primary" /> Promeni naziv lokala
+                      </summary>
+                      <form key={selected.id} onSubmit={submitBusinessName} className="mt-3 grid gap-3 sm:grid-cols-[minmax(220px,1fr)_auto] sm:items-end">
+                        <div className="form-field">
+                          <Label htmlFor={`business-name-${selected.id}`}>Novi naziv *</Label>
+                          <Input id={`business-name-${selected.id}`} name="businessName" defaultValue={selected.name} required minLength={2} maxLength={120} className="form-control h-11" />
+                        </div>
+                        <Button type="submit" disabled={pending === "name"}>
+                          {pending === "name" ? <LoaderCircle className="size-4 animate-spin" /> : <Save className="size-4" />}
+                          Sačuvaj naziv
+                        </Button>
+                      </form>
+                    </details>
                   </div>
                   {selected.archivedAt ? (
                     <div className="inline-flex min-h-11 items-center gap-2 border border-destructive bg-destructive px-4 text-sm font-semibold text-destructive-foreground">
@@ -391,11 +434,19 @@ function GoogleReviewsWorkspace() {
                         key={`qr-${selected.id}-${selected.link.slug}`}
                         label="QR adresa"
                         path={`/${selected.link.slug}`}
+                        slug={selected.link.slug}
+                        pending={pending === "slug:qr"}
+                        onSave={(slug) => saveSlug("qr", slug)}
+                        preservesPreviousAddress
                       />
                       <LinkRow
                         key={`client-panel-${selected.id}-${selected.clientPanelSlug}`}
                         label="Klijentski panel"
                         path={`/${selected.clientPanelSlug}/client-panel`}
+                        slug={selected.clientPanelSlug}
+                        pending={pending === "slug:clientPanel"}
+                        onSave={(slug) => saveSlug("clientPanel", slug)}
+                        invitationWarning
                       />
                     </div>
                   </div>
@@ -460,219 +511,41 @@ function DestinationForm({ initialValue, pending, onSubmit }: { initialValue: st
   );
 }
 
-function CreateBusinessPopover({ pending, onSubmit }: { pending: boolean; onSubmit: (values: CreateBusinessValues) => Promise<boolean> }) {
-  const [open, setOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    function closeOnOutsidePointer(event: PointerEvent) {
-      if (!containerRef.current?.contains(event.target as Node)) setOpen(false);
-    }
-    function closeOnEscape(event: KeyboardEvent) {
-      if (event.key === "Escape") setOpen(false);
-    }
-    document.addEventListener("pointerdown", closeOnOutsidePointer);
-    document.addEventListener("keydown", closeOnEscape);
-    return () => {
-      document.removeEventListener("pointerdown", closeOnOutsidePointer);
-      document.removeEventListener("keydown", closeOnEscape);
-    };
-  }, [open]);
-
-  return (
-    <div ref={containerRef} className="relative">
-      <button type="button" className="button-primary cursor-pointer" aria-expanded={open} onClick={() => setOpen((current) => !current)}>
-        <Plus className="size-4" /> Dodaj lokal
-      </button>
-      <div hidden={!open} className="mt-4 border border-border bg-card p-5 sm:absolute sm:right-0 sm:z-10 sm:w-[680px] sm:max-w-[90vw]">
-        <CreateBusinessForm pending={pending} onSubmit={async (values) => { const saved = await onSubmit(values); if (saved) setOpen(false); return saved; }} />
-      </div>
-    </div>
-  );
-}
-
-function isValidEmail(value: string) {
-  return value.trim().length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
-}
-
-function isValidPhone(value: string) {
-  const phone = value.trim();
-  const digitCount = (phone.match(/\d/g) ?? []).length;
-  return digitCount >= 7 && digitCount <= 15 && /^\+?[0-9\s().-]+$/.test(phone);
-}
-
-function isValidDestination(value: string) {
-  if (!value.trim()) return true;
-  try {
-    const url = new URL(value.trim());
-    return url.protocol === "https:" && Boolean(url.hostname);
-  } catch {
-    return false;
-  }
-}
-
-function validateContactValues(values: ContactValues, required: boolean) {
-  const errors: Record<string, string> = {};
-  const hasAnyValue = values.firstName.trim() || values.lastName.trim() || values.email.trim() || values.phone.trim() || values.positionTitle.trim();
-  if (required || hasAnyValue) {
-    if (values.firstName.trim().length < 2) errors.firstName = "Unesite ime od najmanje 2 karaktera.";
-    if (values.lastName.trim().length < 2) errors.lastName = "Unesite prezime od najmanje 2 karaktera.";
-    if (values.email.trim() && !isValidEmail(values.email)) errors.email = emailFormatMessage;
-    if (values.phone.trim() && !isValidPhone(values.phone)) errors.phone = phoneFormatMessage;
-    if (values.positionTitle.trim() && values.positionTitle.trim().length < 2) errors.positionTitle = "Unesite ulogu od najmanje 2 karaktera.";
-  }
-  return errors;
-}
-
-function InputField({ id, label, value, onChange, onBlur, error, type = "text", placeholder, required = false, autoComplete }: {
-  id: string;
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  onBlur: () => void;
-  error?: string;
-  type?: string;
-  placeholder?: string;
-  required?: boolean;
-  autoComplete?: string;
-}) {
-  const errorId = `${id}-error`;
-  return (
-    <div className="form-field">
-      <Label htmlFor={id}>{label}{required ? " *" : ""}</Label>
-      <Input id={id} type={type} value={value} placeholder={placeholder} required={required} autoComplete={autoComplete} onChange={(event) => onChange(event.target.value)} onBlur={onBlur} aria-invalid={Boolean(error)} aria-describedby={error ? errorId : undefined} className="form-control h-11" />
-      {error ? <p id={errorId} role="alert" className="text-xs leading-5 text-destructive">{error}</p> : null}
-    </div>
-  );
-}
-
-function RoleField({ id, value, customValue, onChange, onCustomChange, onBlur, error, required = false }: {
-  id: string;
-  value: ContactDraft["roleChoice"];
-  customValue: string;
-  onChange: (value: ContactDraft["roleChoice"]) => void;
-  onCustomChange: (value: string) => void;
-  onBlur: () => void;
-  error?: string;
-  required?: boolean;
-}) {
-  const errorId = `${id}-error`;
-  return (
-    <div className="form-field sm:col-span-2">
-      <Label htmlFor={id}>Uloga u lokalu{required ? " *" : ""}</Label>
-      <select id={id} value={value} onChange={(event) => onChange(event.target.value as ContactDraft["roleChoice"])} onBlur={onBlur} aria-invalid={Boolean(error)} aria-describedby={error ? errorId : undefined} className="form-control h-11 cursor-pointer px-3">
-        <option value="">Izaberite ulogu</option>
-        {roleOptions.map((role) => <option key={role} value={role}>{role}</option>)}
-        <option value="custom">Upiši sam</option>
-      </select>
-      {value === "custom" ? <Input id={`${id}-custom`} value={customValue} placeholder="Upišite ulogu" onChange={(event) => onCustomChange(event.target.value)} onBlur={onBlur} aria-invalid={Boolean(error)} className="form-control h-11" /> : null}
-      {error ? <p id={errorId} role="alert" className="text-xs leading-5 text-destructive">{error}</p> : null}
-    </div>
-  );
-}
-
-function CreateBusinessForm({ pending, onSubmit }: { pending: boolean; onSubmit: (values: CreateBusinessValues) => Promise<boolean> }) {
-  const [name, setName] = useState("");
-  const [destinationUrl, setDestinationUrl] = useState("");
-  const [contacts, setContacts] = useState<ContactDraft[]>([emptyContact(1)]);
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [touched, setTouched] = useState<Record<string, boolean>>({});
-  const nextContactId = useRef(2);
-
-  function draftValues(): CreateBusinessValues {
-    return {
-      name,
-      destinationUrl,
-      contacts: contacts.filter((contact) => contact.firstName || contact.lastName || contact.email || contact.phone || contact.roleChoice || contact.customRole).map((contact) => ({
-        firstName: contact.firstName,
-        lastName: contact.lastName,
-        email: contact.email,
-        phone: contact.phone,
-        positionTitle: contact.roleChoice === "custom" ? contact.customRole : contact.roleChoice,
-      })),
-    };
-  }
-
-  function validate(values: CreateBusinessValues) {
-    const nextErrors: Record<string, string> = {};
-    if (values.name.trim().length < 2) nextErrors.name = "Naziv lokala mora imati najmanje 2 karaktera.";
-    if (!isValidDestination(values.destinationUrl)) nextErrors.destinationUrl = "Unesite javni HTTPS URL ili ostavite polje prazno.";
-    contacts.forEach((contact) => {
-      const contactValues = { ...contact, positionTitle: contact.roleChoice === "custom" ? contact.customRole : contact.roleChoice };
-      const contactErrors = validateContactValues(contactValues, false);
-      Object.entries(contactErrors).forEach(([field, message]) => { nextErrors[`contact-${contact.id}-${field}`] = message; });
-    });
-    return nextErrors;
-  }
-
-  function markTouched(key: string) {
-    setTouched((current) => ({ ...current, [key]: true }));
-    const nextErrors = validate(draftValues());
-    setErrors((current) => {
-      const next = { ...current };
-      if (nextErrors[key]) next[key] = nextErrors[key]; else delete next[key];
-      return next;
-    });
-  }
-
-  function updateContact(id: number, patch: Partial<ContactDraft>) {
-    setContacts((current) => current.map((contact) => contact.id === id ? { ...contact, ...patch } : contact));
-  }
-
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const values = draftValues();
-    const nextErrors = validate(values);
-    const allTouched = Object.keys(nextErrors).reduce<Record<string, boolean>>((result, key) => ({ ...result, [key]: true }), { name: true, destinationUrl: true });
-    setTouched(allTouched);
-    setErrors(nextErrors);
-    if (Object.keys(nextErrors).length) {
-      document.getElementById(Object.keys(nextErrors)[0])?.focus();
-      return;
-    }
-    if (await onSubmit(values)) {
-      setName("");
-      setDestinationUrl("");
-      setContacts([emptyContact(1)]);
-      setErrors({});
-      setTouched({});
-      nextContactId.current = 2;
-    }
-  }
-
-  return (
-    <form onSubmit={submit} noValidate>
-      <h2 className="text-xl font-semibold">Novi lokal</h2>
-      <p className="mt-2 text-sm leading-6 text-muted-foreground">Obavezan je samo naziv lokala. ScanMe Links i Google Review adrese automatski se izvode iz naziva.</p>
-      <div className="mt-5 grid gap-4 sm:grid-cols-2">
-        <div className="sm:col-span-2"><InputField id="create-business-name" label="Naziv lokala" value={name} required error={touched.name ? errors.name : undefined} onChange={setName} onBlur={() => markTouched("name")} /></div>
-        <div className="sm:col-span-2"><InputField id="create-destination-url" label="Google Review / Dynamic Link" type="url" value={destinationUrl} error={touched.destinationUrl ? errors.destinationUrl : undefined} onChange={setDestinationUrl} onBlur={() => markTouched("destinationUrl")} /></div>
-        <div className="sm:col-span-2 border-t border-border pt-5">
-          <h3 className="font-semibold">POC kontakti</h3>
-          <p className="mt-1 text-xs leading-5 text-muted-foreground">POC blok je opcioni. Ako ga dodate, obavezni su samo ime i prezime.</p>
-        </div>
-        {contacts.map((contact, index) => {
-          const prefix = `contact-${contact.id}`;
-          return <fieldset key={contact.id} className="sm:col-span-2 grid gap-4 border border-border p-4 sm:grid-cols-2"><legend className="px-2 text-sm font-semibold">POC {index + 1}</legend><InputField id={`${prefix}-firstName`} label="Ime" value={contact.firstName} error={touched[`${prefix}-firstName`] ? errors[`${prefix}-firstName`] : undefined} onChange={(value) => updateContact(contact.id, { firstName: value })} onBlur={() => markTouched(`${prefix}-firstName`)} /><InputField id={`${prefix}-lastName`} label="Prezime" value={contact.lastName} error={touched[`${prefix}-lastName`] ? errors[`${prefix}-lastName`] : undefined} onChange={(value) => updateContact(contact.id, { lastName: value })} onBlur={() => markTouched(`${prefix}-lastName`)} /><InputField id={`${prefix}-email`} label="POC email" type="email" value={contact.email} error={touched[`${prefix}-email`] ? errors[`${prefix}-email`] : undefined} onChange={(value) => updateContact(contact.id, { email: value })} onBlur={() => markTouched(`${prefix}-email`)} /><InputField id={`${prefix}-phone`} label="Telefon" type="tel" value={contact.phone} error={touched[`${prefix}-phone`] ? errors[`${prefix}-phone`] : undefined} onChange={(value) => updateContact(contact.id, { phone: value })} onBlur={() => markTouched(`${prefix}-phone`)} /><RoleField id={`${prefix}-role`} value={contact.roleChoice} customValue={contact.customRole} error={touched[`${prefix}-positionTitle`] ? errors[`${prefix}-positionTitle`] : undefined} onChange={(value) => updateContact(contact.id, { roleChoice: value, positionTitle: value === "custom" ? "" : value })} onCustomChange={(value) => updateContact(contact.id, { customRole: value, positionTitle: value })} onBlur={() => markTouched(`${prefix}-positionTitle`)} />{contacts.length > 1 ? <Button type="button" size="sm" variant="ghost" className="justify-self-start text-destructive hover:text-destructive" onClick={() => setContacts((current) => current.filter((item) => item.id !== contact.id))}><Trash2 className="size-4" /> Ukloni POC</Button> : null}</fieldset>;
-        })}
-      </div>
-      <Button type="button" variant="outline" className="mt-4" onClick={() => { setContacts((current) => [...current, emptyContact(nextContactId.current)]); nextContactId.current += 1; }}><Plus className="size-4" /> Dodaj novog POC-a</Button>
-      <div><Button type="submit" className="mt-5" disabled={pending}>{pending ? <LoaderCircle className="size-4 animate-spin" /> : <Save className="size-4" />} Sačuvaj lokal</Button></div>
-    </form>
-  );
-}
-
 function LinkRow({
   label,
   path,
+  slug,
+  pending,
+  onSave,
+  invitationWarning = false,
+  preservesPreviousAddress = false,
 }: {
   label: string;
   path: string;
+  slug: string;
+  pending: boolean;
+  onSave: (slug: string) => Promise<boolean>;
+  invitationWarning?: boolean;
+  preservesPreviousAddress?: boolean;
 }) {
   const [copied, setCopied] = useState(false);
+  const [editing, setEditing] = useState(false);
   const fullUrl = typeof window === "undefined" ? path : `${window.location.origin}${path}`;
-  async function copy() { await navigator.clipboard.writeText(fullUrl); setCopied(true); window.setTimeout(() => setCopied(false), 1800); }
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(fullUrl);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1800);
+    } catch {
+      // Clipboard API može biti odbijen (npr. http bez dozvole) — bez pada.
+    }
+  }
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const data = new FormData(event.currentTarget);
+    if (await onSave(String(data.get("slug") ?? ""))) setEditing(false);
+  }
+  const descriptionId = `slug-description-${label.toLowerCase().replace(/\s+/g, "-")}`;
   return (
     <div className="grid gap-2 border border-border p-3 sm:p-4">
       <span className="text-xs text-muted-foreground">{label}</span>
@@ -684,7 +557,54 @@ function LinkRow({
         <Button size="sm" variant="outline" className="min-h-11" asChild>
           <a href={path} target="_blank" rel="noreferrer"><ExternalLink className="size-3.5" /> Otvori</a>
         </Button>
+        <Button
+          type="button"
+          size="sm"
+          className="ml-auto min-h-11"
+          aria-expanded={editing}
+          onClick={() => setEditing((current) => !current)}
+        >
+          <Pencil className="size-3.5" /> Izmeni
+        </Button>
       </div>
+      {editing ? (
+        <form onSubmit={submit} className="mt-2 border-t border-border pt-4">
+          <div className="form-field">
+            <Label htmlFor={`slug-${descriptionId}`}>Novi slug *</Label>
+            <Input
+              id={`slug-${descriptionId}`}
+              name="slug"
+              defaultValue={slug}
+              pattern="[a-z0-9]+(?:-[a-z0-9]+)*"
+              maxLength={80}
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              aria-describedby={descriptionId}
+              required
+              autoFocus
+              className="form-control h-11"
+            />
+            <p id={descriptionId} className="text-xs leading-5 text-muted-foreground">
+              {`Koristite mala slova, brojeve i crtice. ${
+                preservesPreviousAddress
+                  ? "Prethodne odštampane QR adrese nastavljaju da rade."
+                  : "Promenom stara adresa prestaje da radi."
+              }`}
+              {invitationWarning ? " Ako postoji aktivna pozivnica, pošaljite novu." : ""}
+            </p>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button type="submit" size="sm" disabled={pending}>
+              {pending ? <LoaderCircle className="size-3.5 animate-spin" /> : <Save className="size-3.5" />}
+              Sačuvaj
+            </Button>
+            <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => setEditing(false)}>
+              Otkaži
+            </Button>
+          </div>
+        </form>
+      ) : null}
     </div>
   );
 }

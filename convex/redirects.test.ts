@@ -2,14 +2,9 @@
 
 import { convexTest } from "convex-test";
 import { describe, expect, test } from "vitest";
-import { api, internal } from "./_generated/api";
+import { api } from "./_generated/api";
 import schema from "./schema";
 import { isSafePublicDestination, requireSlug } from "./lib/validation";
-import {
-  BUSINESS_SLUG_MAX_LENGTH,
-  businessSlugFromName,
-  canonicalBusinessSlugs,
-} from "../lib/business-slug";
 
 const modules = import.meta.glob(["./**/*.ts", "!./**/*.test.ts"]);
 
@@ -34,17 +29,6 @@ async function seedLink(t: ReturnType<typeof convexTest>, slug: string, destinat
     });
     return { businessId, linkId };
   });
-}
-
-async function adminClient(t: ReturnType<typeof convexTest>) {
-  process.env.SCANME_ADMIN_EMAILS = "admin@scanme.test";
-  const adminId = await t.run(async (ctx) =>
-    await ctx.db.insert("users", {
-      email: "admin@scanme.test",
-      emailVerificationTime: Date.now(),
-    }),
-  );
-  return t.withIdentity({ subject: adminId, issuer: "https://test.local" });
 }
 
 describe("QR preusmeravanje", () => {
@@ -247,7 +231,6 @@ describe("admin kreiranje lokala", () => {
     const asAdmin = t.withIdentity({ subject: adminId, issuer: "https://test.local" });
     const created = await asAdmin.mutation(api.admin.createBusiness, {
       name: "Zova",
-      // Legacy value is accepted during rollout but deliberately ignored.
       slug: "zova-test",
       destinationUrl: "https://search.google.com/local/writereview?placeid=zova",
       firstName: "Milan",
@@ -271,16 +254,16 @@ describe("admin kreiranje lokala", () => {
     });
     expect(rows.business).toMatchObject({ name: "Zova", status: "active" });
     expect(rows.link).toMatchObject({
-      slug: "zova-google-review",
+      slug: "zova-test-google-review",
       active: false,
       scanCount: 0,
     });
     expect(rows.profiles).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ type: "scanme_links", slug: "zova", status: "inactive" }),
+        expect.objectContaining({ type: "scanme_links", slug: "zova-test", status: "inactive" }),
         expect.objectContaining({
           type: "google_review",
-          slug: "zova-google-review",
+          slug: "zova-test-google-review",
           status: "inactive",
         }),
       ]),
@@ -290,284 +273,280 @@ describe("admin kreiranje lokala", () => {
     delete process.env.SCANME_ADMIN_EMAILS;
   });
 
-  test("promena naziva atomski menja kanonski graf, čuva metrike i ne dira sekundarni link", async () => {
+  test("admin menja naziv lokala bez promene sluga i QR linka", async () => {
+    process.env.SCANME_ADMIN_EMAILS = "admin@scanme.test";
     const t = convexTest(schema, modules);
-    const asAdmin = await adminClient(t);
-    const created = await asAdmin.mutation(api.admin.createBusiness, {
-      name: "Stari Lokal",
-      destinationUrl: "https://reviews.example.com/stari",
-    });
-    const seeded = await t.run(async (ctx) => {
-      const config = (
-        await ctx.db
-          .query("scanMeLinksConfigs")
-          .withIndex("by_serviceProfileId", (q) =>
-            q.eq("serviceProfileId", created.scanMeLinksProfileId),
-          )
-          .unique()
-      )!;
-      await ctx.db.patch(config._id, {
-        draftDisplayName: "Draft kopija",
-        publishedDisplayName: "Published kopija",
-        hasUnpublishedChanges: true,
-        draftRevision: 7,
-        publishedRevision: 5,
-      });
-      await ctx.db.patch(created.scanMeLinksProfileId, {
-        totalScans: 11,
-        totalPageViews: 12,
-        totalConvertedSessions: 13,
-      });
-      await ctx.db.patch(created.googleReviewProfileId, {
-        totalScans: 21,
-        totalPageViews: 22,
-        totalConvertedSessions: 23,
-      });
-      await ctx.db.patch(created.linkId, { scanCount: 31 });
-      const now = Date.now() - 1_000;
-      const secondaryLinkId = await ctx.db.insert("dynamicLinks", {
-        businessId: created.businessId,
-        slug: "sekundarni-google-review",
-        destinationUrl: "https://reviews.example.com/sekundarni",
-        type: "google_review",
-        active: false,
-        scanCount: 41,
-        createdAt: now,
-        updatedAt: now,
-      });
-      return { configId: config._id, secondaryLinkId };
-    });
-
-    await expect(
-      asAdmin.mutation(api.admin.updateBusinessName, {
-        businessId: created.businessId,
-        name: "Studio Forma",
+    const seeded = await seedLink(t, "scanme-primer", "https://reviews.example.com/scanme-primer");
+    const adminId = await t.run(async (ctx) =>
+      await ctx.db.insert("users", {
+        email: "admin@scanme.test",
+        emailVerificationTime: Date.now(),
       }),
-    ).resolves.toEqual({
-      name: "Studio Forma",
-      slug: "studio-forma",
-      reviewSlug: "studio-forma-google-review",
-    });
+    );
+    const asAdmin = t.withIdentity({ subject: adminId, issuer: "https://test.local" });
 
-    const state = await t.run(async (ctx) => {
-      const serviceAliases = await ctx.db
-        .query("serviceSlugAliases")
-        .withIndex("by_slug")
-        .collect();
-      const linkAliases = await ctx.db
-        .query("dynamicLinkAliases")
-        .withIndex("by_slug")
-        .collect();
-      return {
-        business: await ctx.db.get(created.businessId),
-        linksProfile: await ctx.db.get(created.scanMeLinksProfileId),
-        reviewProfile: await ctx.db.get(created.googleReviewProfileId),
-        primary: await ctx.db.get(created.linkId),
-        secondary: await ctx.db.get(seeded.secondaryLinkId),
-        config: await ctx.db.get(seeded.configId),
-        serviceAliases: serviceAliases.map((alias) => alias.slug).sort(),
-        linkAliases: linkAliases.map((alias) => alias.slug).sort(),
-      };
-    });
-    expect(state.business).toMatchObject({ name: "Studio Forma", slug: "studio-forma" });
-    expect(state.linksProfile).toMatchObject({
-      slug: "studio-forma",
-      totalScans: 11,
-      totalPageViews: 12,
-      totalConvertedSessions: 13,
-    });
-    expect(state.reviewProfile).toMatchObject({
-      slug: "studio-forma-google-review",
-      totalScans: 21,
-      totalPageViews: 22,
-      totalConvertedSessions: 23,
-    });
-    expect(state.primary).toMatchObject({
-      slug: "studio-forma-google-review",
-      scanCount: 31,
-    });
-    expect(state.secondary).toMatchObject({
-      slug: "sekundarni-google-review",
-      scanCount: 41,
-    });
-    expect(state.config).toMatchObject({
-      draftDisplayName: "Studio Forma",
-      publishedDisplayName: "Studio Forma",
-      hasUnpublishedChanges: true,
-      draftRevision: 7,
-      publishedRevision: 5,
-    });
-    expect(state.serviceAliases).toEqual(["stari-lokal", "stari-lokal-google-review"]);
-    expect(state.linkAliases).toEqual(["stari-lokal-google-review"]);
+    await expect(asAdmin.mutation(api.admin.updateBusinessName, {
+      businessId: seeded.businessId,
+      name: "Novi naziv lokala",
+    })).resolves.toEqual({ name: "Novi naziv lokala" });
+
+    const state = await t.run(async (ctx) => ({
+      business: await ctx.db.get(seeded.businessId),
+      link: await ctx.db.get(seeded.linkId),
+    }));
+    expect(state.business?.name).toBe("Novi naziv lokala");
+    expect(state.business?.slug).toBe("scanme-primer");
+    expect(state.link?.slug).toBe("scanme-primer");
     delete process.env.SCANME_ADMIN_EMAILS;
   });
 
-  test("sopstveni istorijski slug može ponovo da postane kanonski", async () => {
+  test("promena osnovnog sluga usklađuje klijentski panel i Google Review adresu", async () => {
+    process.env.SCANME_ADMIN_EMAILS = "admin@scanme.test";
     const t = convexTest(schema, modules);
-    const asAdmin = await adminClient(t);
-    const created = await asAdmin.mutation(api.admin.createBusiness, {
-      name: "Originalni Lokal",
-      destinationUrl: "https://reviews.example.com/originalni",
-    });
-
-    await asAdmin.mutation(api.admin.updateBusinessName, {
-      businessId: created.businessId,
-      name: "Novi Lokal",
-    });
-    await asAdmin.mutation(api.admin.updateBusinessName, {
-      businessId: created.businessId,
-      name: "Originalni Lokal",
-    });
-
-    const state = await t.run(async (ctx) => {
-      const serviceAliases = await ctx.db.query("serviceSlugAliases").collect();
-      const linkAliases = await ctx.db.query("dynamicLinkAliases").collect();
-      return {
-        business: await ctx.db.get(created.businessId),
-        linksProfile: await ctx.db.get(created.scanMeLinksProfileId),
-        reviewProfile: await ctx.db.get(created.googleReviewProfileId),
-        link: await ctx.db.get(created.linkId),
-        serviceAliases: serviceAliases.map((alias) => alias.slug).sort(),
-        linkAliases: linkAliases.map((alias) => alias.slug).sort(),
-      };
-    });
-    expect(state.business?.slug).toBe("originalni-lokal");
-    expect(state.linksProfile?.slug).toBe("originalni-lokal");
-    expect(state.reviewProfile?.slug).toBe("originalni-lokal-google-review");
-    expect(state.link?.slug).toBe("originalni-lokal-google-review");
-    expect(state.serviceAliases).toEqual(["novi-lokal", "novi-lokal-google-review"]);
-    expect(state.linkAliases).toEqual(["novi-lokal-google-review"]);
-    delete process.env.SCANME_ADMIN_EMAILS;
-  });
-
-  test("aktivni i istorijski slug drugog lokala odbijaju promenu bez delimičnih upisa", async () => {
-    const t = convexTest(schema, modules);
-    const asAdmin = await adminClient(t);
-    const first = await asAdmin.mutation(api.admin.createBusiness, {
-      name: "Prvi Lokal",
-      destinationUrl: "https://reviews.example.com/prvi",
-    });
-    const second = await asAdmin.mutation(api.admin.createBusiness, {
-      name: "Drugi Lokal",
-      destinationUrl: "https://reviews.example.com/drugi",
-    });
-
-    await expect(
-      asAdmin.mutation(api.admin.updateBusinessName, {
-        businessId: first.businessId,
-        name: "Drugi Lokal",
+    const seeded = await seedLink(t, "stari-slug", "https://reviews.example.com/scanme-primer");
+    const adminId = await t.run(async (ctx) =>
+      await ctx.db.insert("users", {
+        email: "admin@scanme.test",
+        emailVerificationTime: Date.now(),
       }),
-    ).rejects.toThrow("već koristi");
+    );
+    const asAdmin = t.withIdentity({ subject: adminId, issuer: "https://test.local" });
 
-    await asAdmin.mutation(api.admin.updateBusinessName, {
-      businessId: second.businessId,
-      name: "Treći Lokal",
+    await asAdmin.mutation(api.admin.updateBusinessSlug, {
+      businessId: seeded.businessId,
+      linkId: seeded.linkId,
+      kind: "qr",
+      slug: "nova-qr-adresa",
     });
-    await expect(
-      asAdmin.mutation(api.admin.updateBusinessName, {
-        businessId: first.businessId,
-        name: "Drugi Lokal",
-      }),
-    ).rejects.toThrow("već koristi");
-
-    const state = await t.run(async (ctx) => {
-      const config = await ctx.db
-        .query("scanMeLinksConfigs")
-        .withIndex("by_serviceProfileId", (q) =>
-          q.eq("serviceProfileId", first.scanMeLinksProfileId),
-        )
-        .unique();
-      const serviceAliases = await ctx.db
-        .query("serviceSlugAliases")
-        .withIndex("by_serviceProfileId", (q) =>
-          q.eq("serviceProfileId", first.scanMeLinksProfileId),
-        )
-        .collect();
-      const linkAliases = await ctx.db
-        .query("dynamicLinkAliases")
-        .withIndex("by_dynamicLinkId", (q) => q.eq("dynamicLinkId", first.linkId))
-        .collect();
-      return {
-        business: await ctx.db.get(first.businessId),
-        linksProfile: await ctx.db.get(first.scanMeLinksProfileId),
-        reviewProfile: await ctx.db.get(first.googleReviewProfileId),
-        link: await ctx.db.get(first.linkId),
-        config,
-        serviceAliases,
-        linkAliases,
-      };
-    });
-    expect(state.business).toMatchObject({ name: "Prvi Lokal", slug: "prvi-lokal" });
-    expect(state.linksProfile?.slug).toBe("prvi-lokal");
-    expect(state.reviewProfile?.slug).toBe("prvi-lokal-google-review");
-    expect(state.link?.slug).toBe("prvi-lokal-google-review");
-    expect(state.config?.draftDisplayName).toBe("Prvi Lokal");
-    expect(state.serviceAliases).toHaveLength(0);
-    expect(state.linkAliases).toHaveLength(0);
-    delete process.env.SCANME_ADMIN_EMAILS;
-  });
-
-  test("promena kanonskog naziva je admin-only", async () => {
-    const t = convexTest(schema, modules);
-    const asAdmin = await adminClient(t);
-    const created = await asAdmin.mutation(api.admin.createBusiness, {
-      name: "Zaštićeni Lokal",
-      destinationUrl: "https://reviews.example.com/zasticeni",
-    });
-
-    await expect(
-      t.mutation(api.admin.updateBusinessName, {
-        businessId: created.businessId,
-        name: "Nedozvoljeni Naziv",
-      }),
-    ).rejects.toThrow();
-    const business = await t.run(async (ctx) => await ctx.db.get(created.businessId));
-    expect(business).toMatchObject({ name: "Zaštićeni Lokal", slug: "zasticeni-lokal" });
-    delete process.env.SCANME_ADMIN_EMAILS;
-  });
-
-  test("legacy primarni QR na base slugu može direktno da se preimenuje i vrati", async () => {
-    const t = convexTest(schema, modules);
-    const asAdmin = await adminClient(t);
-    const created = await asAdmin.mutation(api.admin.createBusiness, {
-      name: "Legacy Lokal",
-      destinationUrl: "https://reviews.example.com/legacy",
-    });
-    await t.run(async (ctx) => {
-      await ctx.db.patch(created.linkId, { slug: "legacy-lokal" });
-    });
-
-    await asAdmin.mutation(api.admin.updateBusinessName, {
-      businessId: created.businessId,
-      name: "Preimenovani Legacy Lokal",
-    });
-    await asAdmin.mutation(api.admin.updateBusinessName, {
-      businessId: created.businessId,
-      name: "Legacy Lokal",
-    });
-    await expect(
-      asAdmin.mutation(api.admin.updateBusinessName, {
-        businessId: created.businessId,
-        name: "Legacy Lokal",
-      }),
-    ).resolves.toEqual({
-      name: "Legacy Lokal",
-      slug: "legacy-lokal",
-      reviewSlug: "legacy-lokal-google-review",
+    await asAdmin.mutation(api.admin.updateBusinessSlug, {
+      businessId: seeded.businessId,
+      linkId: seeded.linkId,
+      kind: "clientPanel",
+      slug: "novi-klijentski-panel",
     });
 
     const state = await t.run(async (ctx) => ({
-      link: await ctx.db.get(created.linkId),
-      aliases: await ctx.db
-        .query("dynamicLinkAliases")
-        .withIndex("by_dynamicLinkId", (q) => q.eq("dynamicLinkId", created.linkId))
-        .collect(),
+      business: await ctx.db.get(seeded.businessId),
+      link: await ctx.db.get(seeded.linkId),
     }));
-    expect(state.link?.slug).toBe("legacy-lokal-google-review");
-    expect(state.aliases.map((alias) => alias.slug).sort()).toEqual([
-      "legacy-lokal",
-      "preimenovani-legacy-lokal-google-review",
-    ]);
+    expect(state.business?.slug).toBe("novi-klijentski-panel");
+    expect(state.link?.slug).toBe("novi-klijentski-panel-google-review");
+    await expect(t.query(api.clientPanel.publicLocation, { slug: "novi-klijentski-panel" }))
+      .resolves.toEqual({ name: "Lokal stari-slug" });
+    await expect(t.query(api.clientPanel.publicLocation, { slug: "nova-qr-adresa" }))
+      .resolves.toBeNull();
+    await expect(t.mutation(api.redirects.resolveAndRecord, {
+      slug: "novi-klijentski-panel-google-review",
+      requestId: "66666666-6666-4666-8666-666666666666",
+    })).resolves.toMatchObject({ status: "available" });
+    await expect(t.mutation(api.redirects.resolveAndRecord, {
+      slug: "stari-slug",
+      requestId: "77777777-7777-4777-8777-777777777777",
+    })).resolves.toMatchObject({
+      status: "available",
+      destinationUrl: "https://reviews.example.com/scanme-primer",
+    });
+    delete process.env.SCANME_ADMIN_EMAILS;
+  });
+
+  test("odštampani QR slug ostaje aktivan posle promene sluga i destinacije", async () => {
+    process.env.SCANME_ADMIN_EMAILS = "admin@scanme.test";
+    const t = convexTest(schema, modules);
+    const seeded = await seedLink(t, "odstampana-adresa", "https://reviews.example.com/stara");
+    const other = await seedLink(t, "drugi-qr", "https://reviews.example.com/drugi");
+    const adminId = await t.run(async (ctx) =>
+      await ctx.db.insert("users", {
+        email: "admin@scanme.test",
+        emailVerificationTime: Date.now(),
+      }),
+    );
+    const asAdmin = t.withIdentity({ subject: adminId, issuer: "https://test.local" });
+
+    await asAdmin.mutation(api.admin.updateBusinessSlug, {
+      businessId: seeded.businessId,
+      linkId: seeded.linkId,
+      kind: "qr",
+      slug: "nova-adresa",
+    });
+    await asAdmin.mutation(api.admin.updateBusinessSlug, {
+      businessId: seeded.businessId,
+      linkId: seeded.linkId,
+      kind: "clientPanel",
+      slug: "novi-panel",
+    });
+    await asAdmin.mutation(api.admin.updateDestination, {
+      linkId: seeded.linkId,
+      destinationUrl: "https://reviews.example.com/nova",
+    });
+    await expect(asAdmin.mutation(api.admin.updateBusinessSlug, {
+      businessId: other.businessId,
+      linkId: other.linkId,
+      kind: "qr",
+      slug: "odstampana-adresa",
+    })).rejects.toThrow("ranije odštampanu QR adresu");
+
+    await expect(t.mutation(api.redirects.resolveAndRecord, {
+      slug: "odstampana-adresa",
+      requestId: "88888888-8888-4888-8888-888888888888",
+    })).resolves.toEqual({
+      status: "available",
+      destinationUrl: "https://reviews.example.com/nova",
+    });
+    await expect(t.mutation(api.redirects.resolveAndRecord, {
+      slug: "nova-adresa",
+      requestId: "99999999-9999-4999-8999-999999999999",
+    })).resolves.toEqual({
+      status: "available",
+      destinationUrl: "https://reviews.example.com/nova",
+    });
+
+    const state = await t.run(async (ctx) => {
+      const aliases = await ctx.db
+        .query("dynamicLinkAliases")
+        .withIndex("by_dynamicLinkId", (q) => q.eq("dynamicLinkId", seeded.linkId))
+        .take(10);
+      return {
+        aliases: aliases.map((alias) => alias.slug).sort(),
+        scanCount: (await ctx.db.get(seeded.linkId))?.scanCount,
+      };
+    });
+    expect(state).toEqual({
+      aliases: ["nova-adresa", "odstampana-adresa"],
+      scanCount: 2,
+    });
+    delete process.env.SCANME_ADMIN_EMAILS;
+  });
+
+  test("osnovni slug može da preuzme trenutni Google Review slug istog lokala", async () => {
+    process.env.SCANME_ADMIN_EMAILS = "admin@scanme.test";
+    const t = convexTest(schema, modules);
+    const seeded = await seedLink(
+      t,
+      "resend-test",
+      "https://reviews.example.com/cognis",
+    );
+    const profiles = await t.run(async (ctx) => {
+      const now = Date.now();
+      const linksProfileId = await ctx.db.insert("serviceProfiles", {
+        businessId: seeded.businessId,
+        type: "scanme_links",
+        slug: "resend-test",
+        status: "inactive",
+        totalScans: 0,
+        totalPageViews: 0,
+        totalConvertedSessions: 0,
+        createdAt: now,
+        updatedAt: now,
+      });
+      const reviewProfileId = await ctx.db.insert("serviceProfiles", {
+        businessId: seeded.businessId,
+        type: "google_review",
+        slug: "cognis",
+        status: "active",
+        totalScans: 0,
+        totalPageViews: 0,
+        totalConvertedSessions: 0,
+        createdAt: now,
+        updatedAt: now,
+      });
+      await ctx.db.patch(seeded.linkId, { slug: "cognis", updatedAt: now });
+      return { linksProfileId, reviewProfileId };
+    });
+    const adminId = await t.run(async (ctx) =>
+      await ctx.db.insert("users", {
+        email: "admin@scanme.test",
+        emailVerificationTime: Date.now(),
+      }),
+    );
+    const asAdmin = t.withIdentity({
+      subject: adminId,
+      issuer: "https://test.local",
+    });
+
+    await expect(
+      asAdmin.mutation(api.admin.updateBusinessSlug, {
+        businessId: seeded.businessId,
+        kind: "clientPanel",
+        slug: "cognis",
+      }),
+    ).resolves.toEqual({
+      qrSlug: "cognis-google-review",
+      clientPanelSlug: "cognis",
+    });
+
+    const state = await t.run(async (ctx) => ({
+      business: await ctx.db.get(seeded.businessId),
+      link: await ctx.db.get(seeded.linkId),
+      linksProfile: await ctx.db.get(profiles.linksProfileId),
+      reviewProfile: await ctx.db.get(profiles.reviewProfileId),
+    }));
+    expect(state.business?.slug).toBe("cognis");
+    expect(state.linksProfile?.slug).toBe("cognis");
+    expect(state.reviewProfile?.slug).toBe("cognis-google-review");
+    expect(state.link?.slug).toBe("cognis-google-review");
+    delete process.env.SCANME_ADMIN_EMAILS;
+  });
+
+  test("admin ne može da preuzme slug drugog lokala", async () => {
+    process.env.SCANME_ADMIN_EMAILS = "admin@scanme.test";
+    const t = convexTest(schema, modules);
+    const first = await seedLink(t, "prvi-lokal", "https://reviews.example.com/prvi");
+    await seedLink(t, "drugi-lokal", "https://reviews.example.com/drugi");
+    const adminId = await t.run(async (ctx) =>
+      await ctx.db.insert("users", {
+        email: "admin@scanme.test",
+        emailVerificationTime: Date.now(),
+      }),
+    );
+    const asAdmin = t.withIdentity({ subject: adminId, issuer: "https://test.local" });
+
+    await expect(asAdmin.mutation(api.admin.updateBusinessSlug, {
+      businessId: first.businessId,
+      linkId: first.linkId,
+      kind: "qr",
+      slug: "drugi-lokal",
+    })).rejects.toThrow("već koristi");
+    delete process.env.SCANME_ADMIN_EMAILS;
+  });
+
+  test("admin menja tačno prikazani QR link kada lokal ima više linkova", async () => {
+    process.env.SCANME_ADMIN_EMAILS = "admin@scanme.test";
+    const t = convexTest(schema, modules);
+    const seeded = await seedLink(t, "aktuelni-link", "https://reviews.example.com/aktuelni");
+    const olderLinkId = await t.run(async (ctx) => {
+      const now = Date.now() - 1_000;
+      return await ctx.db.insert("dynamicLinks", {
+        businessId: seeded.businessId,
+        slug: "stari-link",
+        destinationUrl: "https://reviews.example.com/stari",
+        type: "google_review",
+        active: false,
+        scanCount: 0,
+        createdAt: now,
+        updatedAt: now,
+      });
+    });
+    const adminId = await t.run(async (ctx) =>
+      await ctx.db.insert("users", {
+        email: "admin@scanme.test",
+        emailVerificationTime: Date.now(),
+      }),
+    );
+    const asAdmin = t.withIdentity({ subject: adminId, issuer: "https://test.local" });
+
+    await expect(asAdmin.mutation(api.admin.updateBusinessSlug, {
+      businessId: seeded.businessId,
+      linkId: seeded.linkId,
+      kind: "qr",
+      slug: "nova-aktuelna-adresa",
+    })).resolves.toMatchObject({ qrSlug: "nova-aktuelna-adresa" });
+
+    const state = await t.run(async (ctx) => ({
+      current: await ctx.db.get(seeded.linkId),
+      older: await ctx.db.get(olderLinkId),
+    }));
+    expect(state.current?.slug).toBe("nova-aktuelna-adresa");
+    expect(state.older?.slug).toBe("stari-link");
     delete process.env.SCANME_ADMIN_EMAILS;
   });
 
@@ -688,164 +667,5 @@ test("rezerviše sistemske root slugove", () => {
   expect(() => requireSlug("admin")).toThrow("rezervisana");
   expect(() => requireSlug("api")).toThrow("rezervisana");
   expect(() => requireSlug("icon")).toThrow("rezervisana");
-  expect(() => requireSlug("client-panel")).toThrow("rezervisana");
-  expect(() => requireSlug("preview-login")).toThrow("rezervisana");
   expect(requireSlug("studio-osmica")).toBe("studio-osmica");
-});
-
-describe("kanonski slug iz naziva lokala", () => {
-  test("normalizuje srpsku latinicu, razmake i interpunkciju", () => {
-    expect(canonicalBusinessSlugs("Studio Forma")).toEqual({
-      slug: "studio-forma",
-      reviewSlug: "studio-forma-google-review",
-    });
-    expect(businessSlugFromName("  Đorđe Čačić — ŠŽ!  ")).toBe("djordje-cacic-sz");
-    expect(businessSlugFromName("Kafe... Bar / Beograd")).toBe("kafe-bar-beograd");
-  });
-
-  test("ograničava base slug i odbija prazan ili rezervisan rezultat", () => {
-    expect(businessSlugFromName("a".repeat(100))).toHaveLength(
-      BUSINESS_SLUG_MAX_LENGTH,
-    );
-    expect(() => businessSlugFromName("***")).toThrow("latinično slovo ili cifru");
-    expect(() => businessSlugFromName("Client panel")).toThrow("rezervisanu");
-    expect(() => businessSlugFromName("Preview login")).toThrow("rezervisanu");
-  });
-});
-
-test("kanonska migracija ima audit, dry-run, idempotentno izvršenje i verifikaciju", async () => {
-  const t = convexTest(schema, modules);
-  const asAdmin = await adminClient(t);
-  const created = await asAdmin.mutation(api.admin.createBusiness, {
-    name: "Migracioni Lokal",
-    destinationUrl: "https://reviews.example.com/migracioni",
-  });
-  const seeded = await t.run(async (ctx) => {
-    const config = (
-      await ctx.db
-        .query("scanMeLinksConfigs")
-        .withIndex("by_serviceProfileId", (q) =>
-          q.eq("serviceProfileId", created.scanMeLinksProfileId),
-        )
-        .unique()
-    )!;
-    await ctx.db.patch(created.businessId, { slug: "legacy-business" });
-    await ctx.db.patch(created.scanMeLinksProfileId, {
-      slug: "legacy-scanme",
-      totalScans: 101,
-      totalPageViews: 102,
-      totalConvertedSessions: 103,
-    });
-    await ctx.db.patch(created.googleReviewProfileId, {
-      slug: "legacy-review-profile",
-      totalScans: 201,
-      totalPageViews: 202,
-      totalConvertedSessions: 203,
-    });
-    await ctx.db.patch(created.linkId, { slug: "legacy-qr", scanCount: 301 });
-    await ctx.db.patch(config._id, {
-      draftDisplayName: "Legacy draft",
-      publishedDisplayName: "Legacy published",
-      hasUnpublishedChanges: true,
-      draftRevision: 17,
-      publishedRevision: 11,
-    });
-    const now = Date.now() - 10_000;
-    const secondaryLinkId = await ctx.db.insert("dynamicLinks", {
-      businessId: created.businessId,
-      slug: "sekundarni-migracioni-link",
-      destinationUrl: "https://reviews.example.com/sekundarni-migracioni",
-      type: "google_review",
-      active: false,
-      scanCount: 401,
-      createdAt: now,
-      updatedAt: now,
-    });
-    return { configId: config._id, secondaryLinkId };
-  });
-
-  await expect(
-    t.query(internal.migrations.auditCanonicalBusinessIdentity, {}),
-  ).resolves.toMatchObject({ checked: 1, ok: true, needsMigration: 1 });
-  await expect(
-    t.mutation(internal.migrations.migrateCanonicalBusinessIdentity, {
-      dryRun: true,
-    }),
-  ).resolves.toMatchObject({
-    checked: 1,
-    migrated: false,
-    changes: 0,
-    needsMigration: 1,
-  });
-  const firstRun = await t.mutation(
-    internal.migrations.migrateCanonicalBusinessIdentity,
-    {},
-  );
-  expect(firstRun.migrated).toBe(true);
-  expect(firstRun.changes).toBeGreaterThan(0);
-  await expect(
-    t.mutation(internal.migrations.migrateCanonicalBusinessIdentity, {}),
-  ).resolves.toMatchObject({
-    checked: 1,
-    migrated: true,
-    changes: 0,
-    needsMigration: 0,
-  });
-  await expect(
-    t.query(internal.migrations.verifyCanonicalBusinessIdentity, {}),
-  ).resolves.toEqual({ checked: 1, ok: true, problems: [] });
-
-  const state = await t.run(async (ctx) => ({
-    business: await ctx.db.get(created.businessId),
-    linksProfile: await ctx.db.get(created.scanMeLinksProfileId),
-    reviewProfile: await ctx.db.get(created.googleReviewProfileId),
-    primary: await ctx.db.get(created.linkId),
-    secondary: await ctx.db.get(seeded.secondaryLinkId),
-    config: await ctx.db.get(seeded.configId),
-    serviceAliases: (await ctx.db.query("serviceSlugAliases").collect())
-      .map((alias) => alias.slug)
-      .sort(),
-    linkAliases: (await ctx.db.query("dynamicLinkAliases").collect())
-      .map((alias) => alias.slug)
-      .sort(),
-  }));
-  expect(state.business).toMatchObject({
-    name: "Migracioni Lokal",
-    slug: "migracioni-lokal",
-  });
-  expect(state.linksProfile).toMatchObject({
-    slug: "migracioni-lokal",
-    totalScans: 101,
-    totalPageViews: 102,
-    totalConvertedSessions: 103,
-  });
-  expect(state.reviewProfile).toMatchObject({
-    slug: "migracioni-lokal-google-review",
-    totalScans: 201,
-    totalPageViews: 202,
-    totalConvertedSessions: 203,
-  });
-  expect(state.primary).toMatchObject({
-    slug: "migracioni-lokal-google-review",
-    scanCount: 301,
-  });
-  expect(state.secondary).toMatchObject({
-    slug: "sekundarni-migracioni-link",
-    scanCount: 401,
-  });
-  expect(state.config).toMatchObject({
-    draftDisplayName: "Migracioni Lokal",
-    publishedDisplayName: "Migracioni Lokal",
-    hasUnpublishedChanges: true,
-    draftRevision: 17,
-    publishedRevision: 11,
-  });
-  expect(state.serviceAliases).toEqual([
-    "legacy-business",
-    "legacy-qr",
-    "legacy-review-profile",
-    "legacy-scanme",
-  ]);
-  expect(state.linkAliases).toEqual(["legacy-qr"]);
-  delete process.env.SCANME_ADMIN_EMAILS;
 });

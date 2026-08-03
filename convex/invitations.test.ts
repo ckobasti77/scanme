@@ -19,17 +19,6 @@ async function seedInvitation(t: ReturnType<typeof convexTest>) {
       status: "active",
       createdAt: now,
     });
-    const serviceProfileId = await ctx.db.insert("serviceProfiles", {
-      businessId,
-      type: "scanme_links",
-      slug: "lokal-test",
-      status: "active",
-      totalScans: 0,
-      totalPageViews: 0,
-      totalConvertedSessions: 0,
-      createdAt: now,
-      updatedAt: now,
-    });
     const contactId = await ctx.db.insert("businessContacts", {
       businessId,
       firstName: "Petar",
@@ -59,14 +48,7 @@ async function seedInvitation(t: ReturnType<typeof convexTest>) {
       email: "admin@example.com",
       emailVerificationTime: now,
     });
-    return {
-      businessId,
-      contactId,
-      invitationId,
-      serviceProfileId,
-      pocUserId,
-      otherUserId,
-    };
+    return { businessId, contactId, invitationId, pocUserId, otherUserId };
   });
   return { ...seeded, token };
 }
@@ -94,7 +76,7 @@ describe("aktivacija POC pozivnice", () => {
     await expect(asPoc.mutation(api.invitations.claim, {
       slug: "lokal-test",
       token: seeded.token,
-    })).resolves.toEqual({ accepted: true, canonicalSlug: "lokal-test" });
+    })).resolves.toEqual({ accepted: true });
 
     const state = await t.run(async (ctx) => {
       const invitation = await ctx.db.get(seeded.invitationId);
@@ -111,138 +93,5 @@ describe("aktivacija POC pozivnice", () => {
     expect(state.invitation?.status).toBe("accepted");
     expect(state.contact).toMatchObject({ status: "active", authUserId: seeded.pocUserId });
     expect(state.membership).toMatchObject({ active: true, accessRole: "viewer" });
-  });
-
-  test("stara ScanMe adresa pozivnice ostaje važeća i vraća kanonski slug", async () => {
-    const t = convexTest(schema, modules);
-    const seeded = await seedInvitation(t);
-    await t.run(async (ctx) => {
-      const now = Date.now();
-      await ctx.db.patch(seeded.businessId, { slug: "novi-lokal-test" });
-      await ctx.db.patch(seeded.serviceProfileId, {
-        slug: "novi-lokal-test",
-        updatedAt: now,
-      });
-      await ctx.db.insert("serviceSlugAliases", {
-        slug: "lokal-test",
-        serviceProfileId: seeded.serviceProfileId,
-        createdAt: now,
-      });
-      await ctx.db.insert("dynamicLinks", {
-        businessId: seeded.businessId,
-        slug: "novi-lokal-test-google-review",
-        destinationUrl: "https://reviews.example.com/novi-lokal-test",
-        type: "google_review",
-        active: true,
-        scanCount: 4,
-        createdAt: now,
-        updatedAt: now,
-      });
-    });
-    const asPoc = t.withIdentity({
-      subject: seeded.pocUserId,
-      issuer: "https://test.local",
-    });
-
-    await expect(t.query(api.invitations.getStatus, {
-      slug: "lokal-test",
-      token: seeded.token,
-    })).resolves.toMatchObject({
-      status: "valid",
-      businessName: "Lokal Test",
-      canonicalSlug: "novi-lokal-test",
-    });
-    await expect(t.query(api.clientPanel.publicLocation, {
-      slug: "lokal-test",
-    })).resolves.toEqual({
-      name: "Lokal Test",
-      canonicalSlug: "novi-lokal-test",
-    });
-    await expect(asPoc.mutation(api.invitations.claim, {
-      slug: "lokal-test",
-      token: seeded.token,
-    })).resolves.toEqual({
-      accepted: true,
-      canonicalSlug: "novi-lokal-test",
-    });
-    await expect(asPoc.query(api.clientPanel.metrics, {
-      slug: "lokal-test",
-    })).resolves.toMatchObject({
-      status: "available",
-      businessName: "Lokal Test",
-      canonicalSlug: "novi-lokal-test",
-      total: 4,
-    });
-  });
-
-  test("Google Review slug i alias drugog lokala ne mogu da preuzmu pozivnicu", async () => {
-    const t = convexTest(schema, modules);
-    const seeded = await seedInvitation(t);
-    const slugs = await t.run(async (ctx) => {
-      const now = Date.now();
-      const reviewProfileId = await ctx.db.insert("serviceProfiles", {
-        businessId: seeded.businessId,
-        type: "google_review",
-        slug: "lokal-test-google-review",
-        status: "active",
-        totalScans: 0,
-        totalPageViews: 0,
-        totalConvertedSessions: 0,
-        createdAt: now,
-        updatedAt: now,
-      });
-      await ctx.db.insert("serviceSlugAliases", {
-        slug: "stari-review-slug",
-        serviceProfileId: reviewProfileId,
-        createdAt: now,
-      });
-
-      const otherBusinessId = await ctx.db.insert("businesses", {
-        name: "Drugi Lokal",
-        slug: "drugi-lokal",
-        status: "active",
-        createdAt: now,
-      });
-      const otherProfileId = await ctx.db.insert("serviceProfiles", {
-        businessId: otherBusinessId,
-        type: "scanme_links",
-        slug: "drugi-lokal",
-        status: "active",
-        totalScans: 0,
-        totalPageViews: 0,
-        totalConvertedSessions: 0,
-        createdAt: now,
-        updatedAt: now,
-      });
-      await ctx.db.insert("serviceSlugAliases", {
-        slug: "stari-drugi-lokal",
-        serviceProfileId: otherProfileId,
-        createdAt: now,
-      });
-      return {
-        reviewSlug: "lokal-test-google-review",
-        reviewAlias: "stari-review-slug",
-        otherAlias: "stari-drugi-lokal",
-      };
-    });
-    const asPoc = t.withIdentity({
-      subject: seeded.pocUserId,
-      issuer: "https://test.local",
-    });
-
-    for (const slug of [
-      slugs.reviewSlug,
-      slugs.reviewAlias,
-      slugs.otherAlias,
-    ]) {
-      await expect(t.query(api.invitations.getStatus, {
-        slug,
-        token: seeded.token,
-      })).resolves.toEqual({ status: "invalid" });
-      await expect(asPoc.mutation(api.invitations.claim, {
-        slug,
-        token: seeded.token,
-      })).rejects.toThrow("Pozivnica nije ispravna");
-    }
   });
 });

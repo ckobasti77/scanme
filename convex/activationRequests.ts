@@ -1,4 +1,4 @@
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { internal } from "./_generated/api";
 import { mutation, query } from "./_generated/server";
 import { requireAdmin, requireAuthUser } from "./lib/access";
@@ -21,15 +21,15 @@ export const create = mutation({
         q.eq("userId", user._id).eq("businessId", args.businessId),
       )
       .unique();
-    if (!membership?.active) throw new Error("Nemate pristup ovom lokalu.");
+    if (!membership?.active) throw new ConvexError("Nemate pristup ovom lokalu.");
     const profile = await ctx.db
       .query("serviceProfiles")
       .withIndex("by_businessId_and_type", (q) =>
         q.eq("businessId", args.businessId).eq("type", args.requestedService),
       )
       .unique();
-    if (!profile) throw new Error("Servis nije pronađen.");
-    if (profile.status === "active") throw new Error("Servis je već aktivan.");
+    if (!profile) throw new ConvexError("Servis nije pronađen.");
+    if (profile.status === "active") throw new ConvexError("Servis je već aktivan.");
     const existing = await ctx.db
       .query("serviceActivationRequests")
       .withIndex("by_businessId_and_requestedService", (q) =>
@@ -115,7 +115,7 @@ export const setStatus = mutation({
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
     const request = await ctx.db.get(args.requestId);
-    if (!request) throw new Error("Upit nije pronađen.");
+    if (!request) throw new ConvexError("Upit nije pronađen.");
     await ctx.db.patch(request._id, { status: args.status, updatedAt: Date.now() });
     return { updated: true };
   },

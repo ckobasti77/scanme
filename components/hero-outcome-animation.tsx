@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useEffect,
   useId,
   useLayoutEffect,
   useRef,
@@ -9,70 +10,18 @@ import {
 import { MapPin, Search, Star } from "lucide-react";
 import { useReducedMotion } from "framer-motion";
 import { gsap } from "gsap";
-
-const QR_SIZE = 29;
-const QR_VIEWBOX_SIZE = QR_SIZE + 4;
-const QR_GLOW_BAND_HEIGHT = 2.4;
-
-function isFinderCell(row: number, column: number, top: number, left: number) {
-  const localRow = row - top;
-  const localColumn = column - left;
-
-  if (localRow < 0 || localRow > 6 || localColumn < 0 || localColumn > 6) return false;
-
-  const outerEdge =
-    localRow === 0 || localRow === 6 || localColumn === 0 || localColumn === 6;
-  const center =
-    localRow >= 2 && localRow <= 4 && localColumn >= 2 && localColumn <= 4;
-
-  return outerEdge || center;
-}
-
-function isAlignmentCell(row: number, column: number, top: number, left: number) {
-  const localRow = row - top;
-  const localColumn = column - left;
-
-  if (localRow < 0 || localRow > 4 || localColumn < 0 || localColumn > 4) return false;
-
-  const outerEdge =
-    localRow === 0 || localRow === 4 || localColumn === 0 || localColumn === 4;
-  const center = localRow === 2 && localColumn === 2;
-  return outerEdge || center;
-}
-
-function isFinderReserve(row: number, column: number) {
-  return (
-    (row <= 7 && column <= 7) ||
-    (row <= 7 && column >= QR_SIZE - 8) ||
-    (row >= QR_SIZE - 8 && column <= 7)
-  );
-}
-
-function isQrCellActive(row: number, column: number) {
-  if (
-    isFinderCell(row, column, 0, 0) ||
-    isFinderCell(row, column, 0, QR_SIZE - 7) ||
-    isFinderCell(row, column, QR_SIZE - 7, 0)
-  ) {
-    return true;
-  }
-
-  if (isFinderReserve(row, column)) return false;
-  if (isAlignmentCell(row, column, QR_SIZE - 9, QR_SIZE - 9)) return true;
-  if (row >= 10 && row <= 18 && column >= 10 && column <= 18) return false;
-  if (row === 6 || column === 6) return (row + column) % 2 === 0;
-
-  const pattern = (row * 17 + column * 31 + row * column * 7) % 29;
-  return pattern < 13 || (row * 3 + column * 5) % 17 === 0;
-}
-
-const QR_CELLS = Array.from({ length: QR_SIZE }, (_, row) =>
-  Array.from({ length: QR_SIZE }, (_, column) => ({
-    row,
-    column,
-    active: isQrCellActive(row, column),
-  })),
-).flat();
+import {
+  appendHeroQrScanSequence,
+  HeroQrScanScene,
+  QR_GLOW_BAND_HEIGHT,
+  resetHeroQrScan,
+  resolveHeroQrScanElements,
+} from "@/components/hero-qr-scan-scene";
+import {
+  type HeroCarouselCycleAction,
+  isHeroAnimationVisible,
+  shouldPlayHeroAnimation,
+} from "@/lib/hero-animation-playback";
 
 function GoogleSegments({ monochrome = false }: { monochrome?: boolean }) {
   return (
@@ -130,14 +79,22 @@ function GoogleMark({
                 y="0"
                 width="18"
                 height="18"
-                style={{ transformBox: "fill-box" }}
+                style={{
+                  transform: "scaleY(0)",
+                  transformBox: "fill-box",
+                  transformOrigin: "50% 0%",
+                }}
               />
             </clipPath>
           </defs>
           <g data-google-mark-mono className="text-[#5d625c]">
             <GoogleSegments monochrome />
           </g>
-          <g data-google-mark-color clipPath={`url(#${clipId})`}>
+          <g
+            data-google-mark-color
+            clipPath={`url(#${clipId})`}
+            style={{ opacity: 0, visibility: "hidden" }}
+          >
             <GoogleSegments />
           </g>
         </>
@@ -192,21 +149,20 @@ function ReviewStars({
   );
 }
 
-export function HeroOutcomeAnimation() {
-  const qrEffectId = useId().replaceAll(":", "");
-  const qrGlowMaskId = `qr-glow-mask-${qrEffectId}`;
-  const qrGlowGradientId = `qr-glow-gradient-${qrEffectId}`;
-  const qrGlowWashGradientId = `qr-glow-wash-gradient-${qrEffectId}`;
-  const qrGlowFilterId = `qr-glow-filter-${qrEffectId}`;
+type HeroAnimationProps = {
+  active?: boolean;
+  paused?: boolean;
+  onCycleBoundary?: () => HeroCarouselCycleAction;
+};
+
+export function HeroOutcomeAnimation({
+  active = true,
+  paused = false,
+  onCycleBoundary,
+}: HeroAnimationProps) {
   const rootRef = useRef<HTMLDivElement>(null);
-  const qrSceneRef = useRef<HTMLDivElement>(null);
-  const qrTileRef = useRef<HTMLDivElement>(null);
-  const qrGlowBandRef = useRef<SVGRectElement>(null);
-  const qrGlowGroupRef = useRef<SVGGElement>(null);
   const googleMarkRef = useRef<SVGSVGElement>(null);
   const googleColorRevealRef = useRef<SVGRectElement>(null);
-  const scanAreaRef = useRef<HTMLDivElement>(null);
-  const scanLineRef = useRef<HTMLSpanElement>(null);
   const reviewPanelRef = useRef<HTMLDivElement>(null);
   const reviewCounterValueRef = useRef<HTMLSpanElement>(null);
   const mapCounterValueRef = useRef<HTMLSpanElement>(null);
@@ -219,18 +175,41 @@ export function HeroOutcomeAnimation() {
   const localResultRef = useRef<HTMLDivElement>(null);
   const activePinRef = useRef<HTMLDivElement>(null);
   const pinPulseRef = useRef<HTMLSpanElement>(null);
+  const timelineRef = useRef<gsap.core.Timeline | null>(null);
+  const activeRef = useRef(active);
+  const pausedRef = useRef(paused);
+  const visibleRef = useRef(false);
+  const cycleActionRef = useRef<HeroCarouselCycleAction>("repeat");
+  const onCycleBoundaryRef = useRef(onCycleBoundary);
+  const syncPlaybackRef = useRef<() => void>(() => undefined);
   const reduceMotion = Boolean(useReducedMotion());
+
+  useEffect(() => {
+    onCycleBoundaryRef.current = onCycleBoundary;
+  }, [onCycleBoundary]);
+
+  useLayoutEffect(() => {
+    const wasActive = activeRef.current;
+    activeRef.current = active;
+    pausedRef.current = paused;
+
+    if (active && !wasActive) {
+      timelineRef.current?.restart();
+    }
+
+    syncPlaybackRef.current();
+  }, [active, paused]);
 
   useLayoutEffect(() => {
     const root = rootRef.current;
-    const qrScene = qrSceneRef.current;
-    const qrTile = qrTileRef.current;
-    const qrGlowBand = qrGlowBandRef.current;
-    const qrGlowGroup = qrGlowGroupRef.current;
+    if (!root) return;
+
+    const qrElements = resolveHeroQrScanElements(root);
     const googleMark = googleMarkRef.current;
     const googleColorReveal = googleColorRevealRef.current;
-    const scanArea = scanAreaRef.current;
-    const scanLine = scanLineRef.current;
+    const googleColorLayer = googleMark?.querySelector<SVGGElement>(
+      "[data-google-mark-color]",
+    );
     const reviewPanel = reviewPanelRef.current;
     const reviewCounterValue = reviewCounterValueRef.current;
     const mapCounterValue = mapCounterValueRef.current;
@@ -245,15 +224,10 @@ export function HeroOutcomeAnimation() {
     const pinPulse = pinPulseRef.current;
 
     if (
-      !root ||
-      !qrScene ||
-      !qrTile ||
-      !qrGlowBand ||
-      !qrGlowGroup ||
+      !qrElements ||
       !googleMark ||
       !googleColorReveal ||
-      !scanArea ||
-      !scanLine ||
+      !googleColorLayer ||
       !reviewPanel ||
       !reviewCounterValue ||
       !mapCounterValue ||
@@ -326,26 +300,9 @@ export function HeroOutcomeAnimation() {
         localResult.dataset.localRank = rank;
       };
 
-      const revealProgress = (target: Element) => {
-        const lineBox = scanLine.getBoundingClientRect();
-        const targetBox = target.getBoundingClientRect();
-        const lineY = lineBox.top + lineBox.height / 2;
-        return gsap.utils.clamp(0, 1, (lineY - targetBox.top) / targetBox.height);
-      };
-
-      const syncScanReveal = () => {
-        const qrProgress = revealProgress(qrTile);
-        gsap.set(qrGlowBand, {
-          attr: { y: qrProgress * QR_VIEWBOX_SIZE - QR_GLOW_BAND_HEIGHT },
-        });
-        gsap.set(googleColorReveal, { scaleY: revealProgress(googleMark) });
-      };
-
-      gsap.set(qrScene, { autoAlpha: 1, y: 0 });
-      gsap.set(scanLine, { autoAlpha: 0, y: 0 });
-      gsap.set(qrGlowBand, { attr: { y: -QR_GLOW_BAND_HEIGHT } });
-      gsap.set(qrGlowGroup, { autoAlpha: 0 });
+      resetHeroQrScan(qrElements);
       gsap.set(googleColorReveal, { scaleY: 0, transformOrigin: "50% 0%" });
+      gsap.set(googleColorLayer, { autoAlpha: 0 });
       gsap.set(reviewPanel, { autoAlpha: 0, y: 10 });
       gsap.set(reviewCounterValue, { autoAlpha: 1 });
       gsap.set(mapCounterValue, { autoAlpha: 0 });
@@ -363,7 +320,7 @@ export function HeroOutcomeAnimation() {
       if (reduceMotion) {
         counterProgress.value = 0.42;
         renderCounter();
-        gsap.set(qrScene, { autoAlpha: 0 });
+        gsap.set(qrElements.scene, { autoAlpha: 0 });
         gsap.set(mapScene, { autoAlpha: 1, y: 0 });
         gsap.set(firstResult, { y: rowStep });
         gsap.set(secondResult, { y: () => rowStep() * 2 });
@@ -375,42 +332,45 @@ export function HeroOutcomeAnimation() {
         return;
       }
 
-      const scanEase = (progress: number) =>
-        progress < 0.5
-          ? 4 * progress * progress * progress
-          : 1 - Math.pow(-2 * progress + 2, 3) / 2;
-
       const timeline = gsap.timeline({
         paused: true,
-        repeat: -1,
-        repeatRefresh: true,
+        onComplete: () => {
+          if (activeRef.current && cycleActionRef.current === "repeat") {
+            timeline.restart();
+            syncPlaybackRef.current();
+          }
+        },
       });
+      timelineRef.current = timeline;
 
       timeline
         .call(() => {
+          cycleActionRef.current = "repeat";
           counterProgress.value = 0;
           renderCounter();
           setPhase("qr");
           setRank("3");
-        }, [], 0)
-        .set(scanLine, { y: 0, autoAlpha: 0 }, 0)
-        .set(qrGlowBand, { attr: { y: -QR_GLOW_BAND_HEIGHT } }, 0)
-        .set(qrGlowGroup, { autoAlpha: 0 }, 0)
-        .to(scanLine, { autoAlpha: 0.96, duration: 0.24, ease: "power1.out" }, 0.22)
-        .to(qrGlowGroup, { autoAlpha: 0.78, duration: 0.22, ease: "power1.out" }, 0.28)
-        .to(
-          scanLine,
-          {
-            y: () => Math.max(0, scanArea.clientHeight - 2),
-            duration: 2.15,
-            ease: scanEase,
-            onUpdate: syncScanReveal,
-          },
-          0.34,
-        )
-        .to(scanLine, { autoAlpha: 0, duration: 0.24, ease: "power1.out" }, 2.38)
-        .to(qrGlowGroup, { autoAlpha: 0, duration: 0.3, ease: "power1.out" }, 2.49)
-        .to(qrScene, { autoAlpha: 0, y: -6, duration: 0.34, ease: "power2.in" }, 2.54)
+          resetHeroQrScan(qrElements);
+          gsap.set(googleColorReveal, { scaleY: 0 });
+          gsap.set(googleColorLayer, { autoAlpha: 0 });
+        }, [], 0);
+
+      appendHeroQrScanSequence({
+        timeline,
+        elements: qrElements,
+        onProgress: (_progress, lineCenterY) => {
+          const markBox = googleMark.getBoundingClientRect();
+          const markProgress = gsap.utils.clamp(
+            0,
+            1,
+            (lineCenterY - markBox.top) / Math.max(1, markBox.height),
+          );
+          gsap.set(googleColorReveal, { scaleY: markProgress });
+        },
+      });
+      timeline.set(googleColorLayer, { autoAlpha: 1 }, 0.34);
+
+      timeline
         .call(() => setPhase("reviews"), [], 2.82)
         .to(reviewPanel, { autoAlpha: 1, y: 0, duration: 0.42, ease: "power3.out" }, 2.8)
         .to(
@@ -470,12 +430,30 @@ export function HeroOutcomeAnimation() {
         .to(activePin, { y: -10, scale: 1.08, duration: 1.05, ease: "power3.inOut" }, 6.32)
         .to(pinPulse, { autoAlpha: 0.5, scale: 1.15, duration: 0.48, ease: "power2.out" }, 7.08)
         .to(pinPulse, { autoAlpha: 0, scale: 1.48, duration: 0.58, ease: "power2.out" }, 7.42)
-        .call(() => setPhase("reset"), [], 9.25)
+        .call(() => {
+          const action = onCycleBoundaryRef.current?.() ?? "repeat";
+          cycleActionRef.current = action;
+          if (action === "switch") {
+            setPhase("switch-ready");
+            timeline.pause();
+          } else {
+            setPhase("reset");
+          }
+        }, [], 9.25)
         .to(mapScene, { autoAlpha: 0, y: -6, duration: 0.3, ease: "power2.in" }, 9.25)
         .set(googleColorReveal, { scaleY: 0 }, 9.45)
-        .set(qrGlowBand, { attr: { y: -QR_GLOW_BAND_HEIGHT } }, 9.45)
-        .set(qrGlowGroup, { autoAlpha: 0 }, 9.45)
-        .to(qrScene, { autoAlpha: 1, y: 0, duration: 0.27, ease: "power2.out" }, 9.53)
+        .set(googleColorLayer, { autoAlpha: 0 }, 9.45)
+        .set(
+          qrElements.glowBand,
+          { attr: { y: -QR_GLOW_BAND_HEIGHT } },
+          9.45,
+        )
+        .set(qrElements.glowGroup, { autoAlpha: 0 }, 9.45)
+        .to(
+          qrElements.scene,
+          { autoAlpha: 1, y: 0, duration: 0.27, ease: "power2.out" },
+          9.53,
+        )
         .set(reviewPanel, { autoAlpha: 0, y: 10 }, 9.8)
         .set(reviewCounterValue, { autoAlpha: 1 }, 9.8)
         .set(mapCounterValue, { autoAlpha: 0 }, 9.8)
@@ -487,17 +465,30 @@ export function HeroOutcomeAnimation() {
         .set(activePin, { y: 0, scale: 1 }, 9.8)
         .set(pinPulse, { autoAlpha: 0, scale: 0.7 }, 9.8);
 
-      let isVisible = false;
       const syncPlayback = () => {
-        if (isVisible && !document.hidden) {
-          timeline.resume();
+        if (shouldPlayHeroAnimation({
+          active: activeRef.current,
+          visible: visibleRef.current,
+          paused: pausedRef.current,
+          documentHidden: document.hidden,
+        })) {
+          timeline.play();
         } else {
           timeline.pause();
         }
       };
+      syncPlaybackRef.current = syncPlayback;
+
+      visibleRef.current = isHeroAnimationVisible(
+        root.getBoundingClientRect(),
+        window.innerWidth,
+        window.innerHeight,
+      );
+      syncPlayback();
+
       observer = new IntersectionObserver(
         ([entry]) => {
-          isVisible = entry.isIntersecting;
+          visibleRef.current = entry.isIntersecting;
           syncPlayback();
         },
         { threshold: 0.12 },
@@ -511,6 +502,9 @@ export function HeroOutcomeAnimation() {
     }, root);
 
     return () => {
+      timelineRef.current = null;
+      syncPlaybackRef.current = () => undefined;
+      visibleRef.current = false;
       observer?.disconnect();
       resizeObserver?.disconnect();
       if (visibilityHandler) {
@@ -537,145 +531,17 @@ export function HeroOutcomeAnimation() {
         <i />
       </div>
 
-      <div ref={qrSceneRef} className="absolute inset-0 grid place-items-center">
-        <div
-          ref={qrTileRef}
-          data-qr-tile
-          className="relative size-[64%] bg-[#f3f4ef] shadow-[inset_0_0_0_1px_rgba(35,39,35,0.12)]"
-        >
-          <svg
+      <HeroQrScanScene
+        center={
+          <GoogleMark
+            dataMark="qr"
+            mode="scan"
+            markRef={googleMarkRef}
+            revealRef={googleColorRevealRef}
             className="size-full"
-            viewBox={`0 0 ${QR_VIEWBOX_SIZE} ${QR_VIEWBOX_SIZE}`}
-            shapeRendering="crispEdges"
-          >
-            <defs>
-              <linearGradient id={qrGlowGradientId} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0" stopColor="white" stopOpacity="0" />
-                <stop offset="0.18" stopColor="white" stopOpacity="0.18" />
-                <stop offset="0.46" stopColor="white" />
-                <stop offset="0.72" stopColor="white" stopOpacity="0.42" />
-                <stop offset="1" stopColor="white" stopOpacity="0" />
-              </linearGradient>
-              <linearGradient
-                id={qrGlowWashGradientId}
-                x1="0"
-                y1="0"
-                x2="1"
-                y2="0"
-              >
-                <stop offset="0" stopColor="var(--primary)" stopOpacity="0" />
-                <stop offset="0.14" stopColor="var(--primary)" stopOpacity="0.12" />
-                <stop offset="0.5" stopColor="var(--primary)" stopOpacity="0.38" />
-                <stop offset="0.86" stopColor="var(--primary)" stopOpacity="0.12" />
-                <stop offset="1" stopColor="var(--primary)" stopOpacity="0" />
-              </linearGradient>
-              <mask id={qrGlowMaskId} maskUnits="userSpaceOnUse">
-                <rect
-                  ref={qrGlowBandRef}
-                  x="0"
-                  y={-QR_GLOW_BAND_HEIGHT}
-                  width={QR_VIEWBOX_SIZE}
-                  height={QR_GLOW_BAND_HEIGHT}
-                  fill={`url(#${qrGlowGradientId})`}
-                />
-              </mask>
-              <filter
-                id={qrGlowFilterId}
-                x="-35%"
-                y="-35%"
-                width="170%"
-                height="170%"
-                colorInterpolationFilters="sRGB"
-              >
-                <feGaussianBlur
-                  in="SourceGraphic"
-                  stdDeviation="0.72"
-                  result="qr-glow-blur"
-                />
-                <feComposite
-                  in="qr-glow-blur"
-                  in2="SourceGraphic"
-                  operator="out"
-                  result="qr-glow-halo"
-                />
-                <feComponentTransfer in="SourceGraphic" result="qr-glow-sheen">
-                  <feFuncA type="linear" slope="0.34" />
-                </feComponentTransfer>
-                <feMerge>
-                  <feMergeNode in="qr-glow-halo" />
-                  <feMergeNode in="qr-glow-sheen" />
-                </feMerge>
-              </filter>
-            </defs>
-            <g className="text-[#292c29]">
-              {QR_CELLS.map(({ row, column, active }) =>
-                active ? (
-                  <rect
-                    key={`base-${row}-${column}`}
-                    x={column + 2}
-                    y={row + 2}
-                    width="1"
-                    height="1"
-                    fill="currentColor"
-                  />
-                ) : null,
-              )}
-            </g>
-            <g
-              ref={qrGlowGroupRef}
-              data-qr-glow-wake
-              mask={`url(#${qrGlowMaskId})`}
-              style={{ color: "var(--primary)", opacity: 0 }}
-            >
-              <rect
-                data-qr-glow-wash
-                width={QR_VIEWBOX_SIZE}
-                height={QR_VIEWBOX_SIZE}
-                fill={`url(#${qrGlowWashGradientId})`}
-              />
-              <g filter={`url(#${qrGlowFilterId})`}>
-                {QR_CELLS.map(({ row, column, active }) =>
-                  active ? (
-                    <rect
-                      key={`glow-${row}-${column}`}
-                      x={column + 2}
-                      y={row + 2}
-                      width="1"
-                      height="1"
-                      fill="currentColor"
-                    />
-                  ) : null,
-                )}
-              </g>
-            </g>
-          </svg>
-          <span className="absolute left-1/2 top-1/2 grid size-[27%] -translate-x-1/2 -translate-y-1/2 place-items-center bg-[#f3f4ef] p-[6%] text-[#5d625c]">
-            <GoogleMark
-              dataMark="qr"
-              mode="scan"
-              markRef={googleMarkRef}
-              revealRef={googleColorRevealRef}
-              className="size-full"
-            />
-          </span>
-        </div>
-
-        <div
-          ref={scanAreaRef}
-          className="pointer-events-none absolute left-1/2 top-1/2 size-[70%] -translate-x-1/2 -translate-y-1/2 overflow-hidden"
-        >
-          <span
-            ref={scanLineRef}
-            data-scan-line
-            className="absolute left-0 top-0 h-[2px] w-full bg-primary"
-            style={{
-              boxShadow:
-                "0 0 12px 2px color-mix(in srgb, var(--primary) 38%, transparent)",
-              opacity: 0,
-            }}
           />
-        </div>
-      </div>
+        }
+      />
 
       <div
         ref={reviewPanelRef}

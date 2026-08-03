@@ -1,5 +1,6 @@
 "use client";
 
+import { ConvexError } from "convex/values";
 import { useEffect, useRef, useState } from "react";
 import { useMutation } from "convex/react";
 import { Check, LoaderCircle } from "lucide-react";
@@ -137,9 +138,11 @@ export function LeadForm() {
       setStatus("success");
     } catch (error) {
       const message =
-        error instanceof Error
-          ? error.message.replace(/^.*?Uncaught Error:\s*/, "")
-          : "Zahtev trenutno nije moguće poslati.";
+        error instanceof ConvexError && typeof error.data === "string"
+          ? error.data
+          : error instanceof Error
+            ? error.message.replace(/^.*?Uncaught Error:\s*/, "")
+            : "Zahtev trenutno nije moguće poslati.";
       setServerError(`${message} Proverite vezu i pokušajte ponovo.`);
       setStatus("error");
     }

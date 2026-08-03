@@ -23,7 +23,6 @@ const eslintConfig = defineConfig([
       "@typescript-eslint/no-unused-expressions": "warn",
     },
   },
-  // Ignore generated output and standalone design scripts.
   globalIgnores([
     ".next/**",
     "out/**",

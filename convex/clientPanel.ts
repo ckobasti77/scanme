@@ -1,13 +1,10 @@
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { query } from "./_generated/server";
-import {
-  BusinessAccessDeniedError,
-  requireBusinessAccessBySlug,
-  resolveBusinessByScanMeSlug,
-} from "./lib/access";
+import { BusinessAccessDeniedError, requireBusinessAccessBySlug } from "./lib/access";
 import { aggregateMetricRowsForRange, getMetricRows, metricsRangeConfig } from "./lib/metrics";
 import { getDestinationMetricRows, getServiceMetricRows } from "./lib/serviceMetrics";
+import { requireSlug } from "./lib/validation";
 
 const BELGRADE_TIME_ZONE = "Europe/Belgrade";
 
@@ -55,12 +52,13 @@ function lastDateKeys(days: number) {
 export const publicLocation = query({
   args: { slug: v.string() },
   handler: async (ctx, args) => {
-    const resolved = await resolveBusinessByScanMeSlug(ctx, args.slug);
-    if (!resolved || resolved.business.status === "inactive") return null;
-    return {
-      name: resolved.business.name,
-      canonicalSlug: resolved.canonicalSlug,
-    };
+    const slug = requireSlug(args.slug);
+    const business = await ctx.db
+      .query("businesses")
+      .withIndex("by_slug", (q) => q.eq("slug", slug))
+      .unique();
+    if (!business || business.status === "inactive") return null;
+    return { name: business.name };
   },
 });
 
@@ -106,7 +104,6 @@ export const overview = query({
       status: "available" as const,
       businessId: access.business._id,
       businessName: access.business.name,
-      canonicalSlug: access.canonicalSlug,
       services: {
         scanMeLinks: {
           profileId: links?._id ?? null,
@@ -170,16 +167,27 @@ export const scanMeLinksMetrics = query({
             : "clicks",
         )
       : await getServiceMetricRows(ctx, profile._id, range, "scans");
-    const destinations = await ctx.db
-      .query("serviceDestinations")
-      .withIndex("by_serviceProfileId", (q) =>
-        q.eq("serviceProfileId", profile._id),
-      )
-      .take(100);
+    const destinations = [];
+    for (const state of [
+      "active",
+      "inactive",
+      "archived",
+      "deleted",
+    ] as const) {
+      const destinationQuery = ctx.db
+        .query("serviceDestinations")
+        .withIndex("by_serviceProfileId_and_publishedState", (q) =>
+          q
+            .eq("serviceProfileId", profile._id)
+            .eq("publishedState", state),
+        );
+      for await (const destination of destinationQuery) {
+        destinations.push(destination);
+      }
+    }
     return {
       status: "available" as const,
       businessName: access.business.name,
-      canonicalSlug: access.canonicalSlug,
       totalScans: profile.totalScans,
       totalPageViews: profile.totalPageViews,
       totalConvertedSessions: profile.totalConvertedSessions,
@@ -192,7 +200,7 @@ export const scanMeLinksMetrics = query({
       selectedDestinationId: selectedDestination?._id ?? null,
       daily: aggregateMetricRowsForRange(rows, range),
       destinations: destinations
-        .filter((row) => row.publishedState && row.publishedState !== "deleted")
+        .filter((row) => Boolean(row.publishedState))
         .sort((a, b) => (a.publishedOrder ?? 0) - (b.publishedOrder ?? 0))
         .map((row) => ({
           id: row._id,
@@ -237,7 +245,6 @@ export const metrics = query({
     return {
       status: "available" as const,
       businessName: business.name,
-      canonicalSlug: access.canonicalSlug,
       total: link.scanCount,
       today: metricRows.find((row) => row.dateKey === todayKey)?.count ?? 0,
       last7Days,

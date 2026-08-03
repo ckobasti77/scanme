@@ -1,5 +1,6 @@
 "use client";
 
+import { ConvexError } from "convex/values";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { Authenticated, AuthLoading, Unauthenticated, useMutation, useQuery } from "convex/react";
 import { Check, Eye, EyeOff, LoaderCircle, LogOut, ShieldAlert } from "lucide-react";
@@ -13,28 +14,8 @@ import { ClientWordmark } from "@/components/client-panel/client-wordmark";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { api } from "@/convex/_generated/api";
 
-function clientPanelPath(slug: string) {
-  return `/${encodeURIComponent(slug)}/client-panel`;
-}
-
-function activationPath(slug: string, token: string) {
-  return `${clientPanelPath(slug)}/activate/${encodeURIComponent(token)}`;
-}
-
 export function ActivationPanel({ slug, token }: { slug: string; token: string }) {
   const invitation = useQuery(api.invitations.getStatus, { slug, token });
-  const router = useRouter();
-  const canonicalSlug =
-    invitation &&
-    "canonicalSlug" in invitation &&
-    typeof invitation.canonicalSlug === "string"
-      ? invitation.canonicalSlug
-      : slug;
-  useEffect(() => {
-    if (canonicalSlug === slug) return;
-    router.replace(activationPath(canonicalSlug, token), { scroll: false });
-  }, [canonicalSlug, router, slug, token]);
-
   return (
     <main className="relative grid min-h-[100dvh] place-items-center bg-background px-4 py-20 sm:py-8">
       <ThemeToggle className="absolute right-4 top-4" />
@@ -46,10 +27,10 @@ export function ActivationPanel({ slug, token }: { slug: string; token: string }
             <h1 className="mt-4 text-3xl font-semibold tracking-[-0.05em]">Aktivirajte klijentski panel</h1>
             <p className="mt-3 text-sm leading-6 text-muted-foreground">Zdravo {invitation.firstName}. Postavite šifru za {invitation.email} ili se prijavite ako već imate ScanMe nalog.</p>
             <AuthLoading><div className="mt-8 h-40 animate-pulse bg-secondary" /></AuthLoading>
-            <Unauthenticated><ActivationForms slug={canonicalSlug} token={token} email={invitation.email} /></Unauthenticated>
-            <Authenticated><AuthenticatedInvitation slug={canonicalSlug} token={token} invitationEmail={invitation.email} /></Authenticated>
+            <Unauthenticated><ActivationForms slug={slug} token={token} email={invitation.email} /></Unauthenticated>
+            <Authenticated><AuthenticatedInvitation slug={slug} token={token} invitationEmail={invitation.email} /></Authenticated>
           </>
-        ) : <InvalidInvitation status={invitation.status} slug={canonicalSlug} />}
+        ) : <InvalidInvitation status={invitation.status} slug={slug} />}
       </div>
     </main>
   );
@@ -121,10 +102,14 @@ function ActivationForms({ slug, token, email }: { slug: string; token: string; 
       data.set("scanSlug", slug);
     } else {
       data.set("flow", "signIn");
+      // Token i slug idu i uz prijavu: postojeći nalog bez aktivnog članstva
+      // prihvata pozivnicu tokom sign-in-a (inače bi prijava bila odbijena).
+      data.set("invitationToken", token);
+      data.set("scanSlug", slug);
     }
     try {
       await signIn("password", data);
-      if (mode === "new") router.replace(clientPanelPath(slug));
+      if (mode === "new") router.replace(`/${slug}/client-panel`);
     } catch {
       setError(mode === "new" ? "Nalog nije aktiviran. Proverite šifru i da li je pozivnica još važeća." : "Email ili šifra nisu ispravni.");
     } finally { setPending(false); }
@@ -141,18 +126,12 @@ function ClaimInvitation({ slug, token }: { slug: string; token: string }) {
   useEffect(() => {
     if (started.current) return;
     started.current = true;
-    void claim({ slug, token })
-      .then((result) => router.replace(clientPanelPath(result.canonicalSlug)))
-      .catch((reason: unknown) =>
-        setError(
-          reason instanceof Error ? reason.message : "Pozivnica nije prihvaćena.",
-        ),
-      );
+    void claim({ slug, token }).then(() => router.replace(`/${slug}/client-panel`)).catch((reason: unknown) => setError(reason instanceof ConvexError && typeof reason.data === "string" ? reason.data : reason instanceof Error ? reason.message : "Pozivnica nije prihvaćena."));
   }, [claim, router, slug, token]);
   return error ? <p role="alert" className="mt-8 text-sm leading-6 text-destructive">{error}</p> : <div className="mt-8 flex items-center gap-3 text-sm text-muted-foreground"><LoaderCircle className="size-4 animate-spin text-primary" /> Povezujemo nalog sa lokalom...</div>;
 }
 
 function InvalidInvitation({ status, slug }: { status: string; slug: string }) {
   const messages: Record<string, string> = { expired: "Pozivnica je istekla.", revoked: "Pozivnica je opozvana.", accepted: "Pozivnica je već iskorišćena.", invalid: "Pozivnica nije ispravna." };
-  return <div><Check className="size-8 text-primary" /><h1 className="mt-7 text-3xl font-semibold tracking-[-0.05em]">{messages[status] ?? "Pozivnica nije dostupna."}</h1><p className="mt-4 text-sm leading-6 text-muted-foreground">Ako već imate nalog, otvorite klijentski panel. Za novu pozivnicu kontaktirajte ScanMe administratora.</p><Button asChild className="mt-7"><Link href={clientPanelPath(slug)}>Otvori klijentski panel</Link></Button></div>;
+  return <div><Check className="size-8 text-primary" /><h1 className="mt-7 text-3xl font-semibold tracking-[-0.05em]">{messages[status] ?? "Pozivnica nije dostupna."}</h1><p className="mt-4 text-sm leading-6 text-muted-foreground">Ako već imate nalog, otvorite klijentski panel. Za novu pozivnicu kontaktirajte ScanMe administratora.</p><Button asChild className="mt-7"><Link href={`/${slug}/client-panel`}>Otvori klijentski panel</Link></Button></div>;
 }

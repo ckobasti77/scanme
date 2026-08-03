@@ -1,414 +1,179 @@
-import {
-  clampChroma,
-  converter,
-  formatHex,
-  wcagContrast as culoriWcagContrast,
-  type Color,
-  type OklchColor,
-} from "culori";
-import type { AccentTokens } from "./scanme-links";
-import {
-  designForPreset,
-  normalizeDesignHex,
-  normalizeScanMeDesign,
-  type PaletteAnalysis,
-  type ScanMeDesignV1,
-} from "./scanme-design";
+import type { AccentTokens } from "@/lib/scanme-links";
 
-const toOklch = converter("oklch");
-const FALLBACK_BRAND = "#7A5C43";
-const BLACK = "#11110F";
-const WHITE = "#FFFFFF";
+type Rgb = { r: number; g: number; b: number };
+type PaletteSource = HTMLCanvasElement | ImageBitmap;
 
-type PaletteColor = {
-  hex: string;
-  oklch: OklchColor;
-};
+const MAX_SVG_RASTER_SIZE = 512;
 
-export type GeneratedLogoTheme = {
-  design: ScanMeDesignV1;
-  paletteAnalysis: PaletteAnalysis;
-};
-
-function asHex(value: Color) {
-  const formatted = formatHex(clampChroma(value, "oklch", "rgb"));
-  if (!formatted) {
-    throw new Error("Boju nije moguće prikazati u sRGB prostoru.");
-  }
-  return normalizeDesignHex(formatted);
+function clamp(value: number) {
+  return Math.max(0, Math.min(255, Math.round(value)));
 }
 
-function parsePaletteColor(value: string): PaletteColor | null {
-  try {
-    const hex = normalizeDesignHex(value);
-    const oklch = toOklch(hex);
-    return oklch ? { hex, oklch } : null;
-  } catch {
-    return null;
-  }
-}
-
-function withOklch(
-  source: OklchColor,
-  values: Partial<Pick<OklchColor, "l" | "c" | "h">>,
-) {
-  return asHex({
-    mode: "oklch",
-    l: values.l ?? source.l,
-    c: values.c ?? source.c,
-    h: values.h ?? source.h ?? 0,
-  });
-}
-
-function hueDistance(first: number | undefined, second: number | undefined) {
-  const a = first ?? 0;
-  const b = second ?? 0;
-  const direct = Math.abs(a - b);
-  return Math.min(direct, 360 - direct) / 180;
-}
-
-function perceptualDistance(first: PaletteColor, second: PaletteColor) {
-  const averageChroma = (first.oklch.c + second.oklch.c) / 2;
-  return Math.sqrt(
-    (first.oklch.l - second.oklch.l) ** 2 +
-      (first.oklch.c - second.oklch.c) ** 2 +
-      (hueDistance(first.oklch.h, second.oklch.h) * averageChroma) ** 2,
-  );
-}
-
-export function normalizeExtractedPalette(colors: string[], maximum = 10) {
-  const parsed = colors
-    .map(parsePaletteColor)
-    .filter((color): color is PaletteColor => color !== null);
-  const unique: PaletteColor[] = [];
-
-  for (const color of parsed) {
-    if (unique.some((candidate) => perceptualDistance(candidate, color) < 0.045)) {
-      continue;
-    }
-    unique.push(color);
-    if (unique.length === maximum) break;
-  }
-
-  return unique;
-}
-
-function chooseBrandColor(colors: PaletteColor[]) {
-  const usable = colors.filter(
-    ({ oklch }) =>
-      oklch.l >= 0.14 &&
-      oklch.l <= 0.9 &&
-      oklch.c >= 0.035,
-  );
-  return (
-    usable.sort((first, second) => {
-      const firstScore =
-        first.oklch.c * 2.4 - Math.abs(first.oklch.l - 0.58) * 0.45;
-      const secondScore =
-        second.oklch.c * 2.4 - Math.abs(second.oklch.l - 0.58) * 0.45;
-      return secondScore - firstScore;
-    })[0] ??
-    colors.find(({ oklch }) => oklch.l > 0.08 && oklch.l < 0.94) ??
-    parsePaletteColor(FALLBACK_BRAND)!
-  );
-}
-
-function chooseAccentColor(colors: PaletteColor[], brand: PaletteColor) {
-  return (
-    colors
-      .filter((color) => color.hex !== brand.hex && color.oklch.c >= 0.025)
-      .sort(
-        (first, second) =>
-          perceptualDistance(second, brand) -
-          perceptualDistance(first, brand),
-      )[0] ?? brand
-  );
-}
-
-function repairContrast(
-  foreground: string,
-  backgrounds: string[],
-  minimum: number,
-) {
-  if (
-    backgrounds.every(
-      (background) => culoriWcagContrast(foreground, background) >= minimum,
-    )
-  ) {
-    return foreground;
-  }
-
-  const source = toOklch(foreground);
-  if (!source) return foreground;
-
-  const candidates: Array<{ hex: string; distance: number }> = [];
-  for (const targetLightness of [0, 1]) {
-    for (let step = 1; step <= 100; step += 1) {
-      const amount = step / 100;
-      const hex = withOklch(source, {
-        l: source.l + (targetLightness - source.l) * amount,
-        c: Math.max(0, source.c * (1 - amount * 0.35)),
-      });
-      if (
-        backgrounds.every(
-          (background) => culoriWcagContrast(hex, background) >= minimum,
-        )
-      ) {
-        candidates.push({ hex, distance: amount });
-        break;
-      }
-    }
-  }
-
-  candidates.sort((first, second) => first.distance - second.distance);
-  return candidates[0]?.hex ?? foreground;
-}
-
-function recordRepair(
-  role: string,
-  foreground: string,
-  backgrounds: string[],
-  minimum: number,
-  correctedRoles: string[],
-) {
-  const repaired = repairContrast(foreground, backgrounds, minimum);
-  if (repaired !== foreground) correctedRoles.push(role);
-  return repaired;
-}
-
-export function generateScanMeDesignFromPalette(
-  colors: string[],
-): GeneratedLogoTheme {
-  const original = colors
-    .map(parsePaletteColor)
-    .filter((color): color is PaletteColor => color !== null)
-    .slice(0, 10)
-    .map((color) => color.hex);
-  const usable = normalizeExtractedPalette(colors);
-  const brand = chooseBrandColor(usable);
-  const accentSource = chooseAccentColor(usable, brand);
-  const correctedRoles: string[] = [];
-
-  const page = withOklch(brand.oklch, {
-    l: 0.965,
-    c: Math.min(0.025, brand.oklch.c * 0.16),
-  });
-  const surface = withOklch(brand.oklch, {
-    l: 0.992,
-    c: Math.min(0.012, brand.oklch.c * 0.08),
-  });
-  const lightButton = brand.oklch.l >= 0.62;
-  const buttonColor = withOklch(brand.oklch, {
-    l: lightButton ? 0.78 : 0.4,
-    c: Math.min(0.18, Math.max(0.04, brand.oklch.c)),
-  });
-  const buttonOklch = toOklch(buttonColor) ?? brand.oklch;
-  const buttonHover = withOklch(buttonOklch, {
-    l: lightButton ? 0.7 : 0.32,
-  });
-  const titleCandidate = withOklch(brand.oklch, {
-    l: 0.2,
-    c: Math.min(0.045, brand.oklch.c * 0.35),
-  });
-  const bodyCandidate = withOklch(brand.oklch, {
-    l: 0.34,
-    c: Math.min(0.035, brand.oklch.c * 0.24),
-  });
-  const accent = withOklch(accentSource.oklch, {
-    l: Math.min(0.66, Math.max(0.38, accentSource.oklch.l)),
-    c: Math.min(0.22, Math.max(0.045, accentSource.oklch.c)),
-  });
-  const accentOklch = toOklch(accent) ?? accentSource.oklch;
-  const borderCandidate = withOklch(accentOklch, {
-    l: Math.min(0.56, accentOklch.l),
-    c: Math.min(0.08, accentOklch.c),
-  });
-  const focusCandidate = withOklch(accentOklch, {
-    l: Math.min(0.5, accentOklch.l),
-    c: Math.min(0.16, Math.max(0.05, accentOklch.c)),
-  });
-  const buttonTextCandidate = lightButton ? BLACK : WHITE;
-
-  const design = designForPreset("gentle");
-  design.presetKey = "custom";
-  design.background = { kind: "solid", color: page };
-  design.colors = {
-    page,
-    surface,
-    title: recordRepair(
-      "title",
-      titleCandidate,
-      [page],
-      4.5,
-      correctedRoles,
-    ),
-    body: recordRepair(
-      "body",
-      bodyCandidate,
-      [page],
-      4.5,
-      correctedRoles,
-    ),
-    accent,
-    border: recordRepair(
-      "border",
-      borderCandidate,
-      [page],
-      3,
-      correctedRoles,
-    ),
-    focus: recordRepair(
-      "focus",
-      focusCandidate,
-      [page],
-      3,
-      correctedRoles,
-    ),
-    button: buttonColor,
-    buttonHover,
-    buttonText: recordRepair(
-      "buttonText",
-      buttonTextCandidate,
-      [buttonColor, buttonHover],
-      4.5,
-      correctedRoles,
-    ),
-  };
-
-  const normalized = normalizeScanMeDesign(design);
-  const mergedCorrections = Array.from(
-    new Set([...correctedRoles, ...normalized.corrections]),
-  );
-  const adjusted = Array.from(
-    new Set([
-      normalized.design.colors.accent,
-      normalized.design.colors.button,
-      normalized.design.colors.buttonHover,
-      normalized.design.colors.title,
-      normalized.design.colors.body,
-      normalized.design.colors.page,
-      normalized.design.colors.surface,
-      normalized.design.colors.border,
-    ]),
-  ).slice(0, 10);
-
+function hexToRgb(hex: string): Rgb {
   return {
-    design: normalized.design,
-    paletteAnalysis: {
-      original: original.length ? original : [FALLBACK_BRAND],
-      adjusted,
-      correctedRoles: mergedCorrections,
-    },
+    r: Number.parseInt(hex.slice(1, 3), 16),
+    g: Number.parseInt(hex.slice(3, 5), 16),
+    b: Number.parseInt(hex.slice(5, 7), 16),
   };
+}
+
+function rgbToHex({ r, g, b }: Rgb) {
+  return `#${[r, g, b]
+    .map((value) => clamp(value).toString(16).padStart(2, "0"))
+    .join("")}`.toUpperCase();
+}
+
+function mix(first: Rgb, second: Rgb, amount: number): Rgb {
+  return {
+    r: first.r + (second.r - first.r) * amount,
+    g: first.g + (second.g - first.g) * amount,
+    b: first.b + (second.b - first.b) * amount,
+  };
+}
+
+function luminance(rgb: Rgb) {
+  const values = [rgb.r, rgb.g, rgb.b].map((value) => {
+    const normalized = value / 255;
+    return normalized <= 0.03928
+      ? normalized / 12.92
+      : ((normalized + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * values[0] + 0.7152 * values[1] + 0.0722 * values[2];
+}
+
+function saturation(rgb: Rgb) {
+  const values = [rgb.r, rgb.g, rgb.b].map((value) => value / 255);
+  return Math.max(...values) - Math.min(...values);
+}
+
+function distance(first: Rgb, second: Rgb) {
+  return Math.sqrt(
+    (first.r - second.r) ** 2 +
+      (first.g - second.g) ** 2 +
+      (first.b - second.b) ** 2,
+  );
 }
 
 export function createAccentTokens(hex: string): AccentTokens {
-  const accent = normalizeDesignHex(hex);
-  const accentOklch = toOklch(accent);
-  const soft = accentOklch
-    ? withOklch(accentOklch, {
-        l: 0.94,
-        c: Math.min(0.035, accentOklch.c * 0.2),
-      })
-    : "#EFE7DF";
-  const strong = accentOklch
-    ? withOklch(accentOklch, {
-        l: 0.34,
-        c: Math.min(0.12, accentOklch.c),
-      })
-    : "#493628";
+  const accentRgb = hexToRgb(hex);
+  const dark = { r: 22, g: 20, b: 18 };
+  const white = { r: 255, g: 255, b: 255 };
+  const accent = rgbToHex(
+    luminance(accentRgb) > 0.78
+      ? mix(accentRgb, dark, 0.28)
+      : luminance(accentRgb) < 0.08
+        ? mix(accentRgb, white, 0.24)
+        : accentRgb,
+  );
+  const normalized = hexToRgb(accent);
   return {
     accent,
-    strong,
-    soft,
-    border: accentOklch
-      ? repairContrast(
-          withOklch(accentOklch, {
-            l: Math.min(0.58, accentOklch.l),
-            c: Math.min(0.08, accentOklch.c),
-          }),
-          [soft],
-          3,
-        )
-      : "#CDBCAD",
-    focus: accentOklch
-      ? repairContrast(
-          withOklch(accentOklch, {
-            l: Math.min(0.5, accentOklch.l),
-            c: Math.min(0.15, Math.max(0.04, accentOklch.c)),
-          }),
-          [soft],
-          3,
-        )
-      : "#6C4D37",
-    onAccent: repairContrast(
-      culoriWcagContrast(BLACK, accent) >=
-        culoriWcagContrast(WHITE, accent)
-        ? BLACK
-        : WHITE,
-      [accent],
-      4.5,
-    ),
+    strong: rgbToHex(mix(normalized, dark, 0.42)),
+    soft: rgbToHex(mix(normalized, white, 0.84)),
+    border: rgbToHex(mix(normalized, white, 0.58)),
+    focus: rgbToHex(mix(normalized, dark, 0.28)),
+    onAccent: luminance(normalized) > 0.48 ? "#171511" : "#FFFFFF",
   };
 }
 
 export function selectAccentCandidates(colors: string[]) {
-  const unique = normalizeExtractedPalette(colors);
-  const brand = chooseBrandColor(unique);
-  const ordered = [
-    brand,
-    ...unique
-      .filter((color) => color.hex !== brand.hex)
-      .sort(
-        (first, second) =>
-          perceptualDistance(second, brand) -
-          perceptualDistance(first, brand),
-      ),
-  ]
-    .slice(0, 3)
-    .map((color) => createAccentTokens(color.hex).accent);
-
-  while (ordered.length < 3) {
-    const seed = toOklch(ordered[0] ?? FALLBACK_BRAND)!;
-    const next = withOklch(seed, {
-      l: ordered.length === 1 ? Math.max(0.18, seed.l - 0.16) : 0.88,
-      c: Math.max(0.025, seed.c * 0.65),
-    });
-    if (!ordered.includes(next)) ordered.push(next);
+  const selected: string[] = [];
+  for (const value of colors) {
+    const hex = value.toUpperCase();
+    if (!/^#[0-9A-F]{6}$/.test(hex)) continue;
+    const rgb = hexToRgb(hex);
+    const lightness = luminance(rgb);
+    if (lightness < 0.025 || lightness > 0.94 || saturation(rgb) < 0.08) continue;
+    if (selected.some((candidate) => distance(hexToRgb(candidate), rgb) < 54)) {
+      continue;
+    }
+    selected.push(createAccentTokens(hex).accent);
+    if (selected.length === 3) break;
+  }
+  if (!selected.length) selected.push("#7A5C43");
+  while (selected.length < 3) {
+    const base = hexToRgb(selected[0]);
+    const derived = rgbToHex(
+      mix(base, selected.length === 1 ? { r: 22, g: 20, b: 18 } : { r: 255, g: 255, b: 255 }, 0.18),
+    );
+    if (!selected.includes(derived)) selected.push(derived);
     else break;
   }
-  return ordered.slice(0, 3);
+  return selected.slice(0, 3);
 }
 
-export async function extractAccentCandidates(
-  file: File,
-  options?: { signal?: AbortSignal },
-) {
-  const { extractLogoColors } = await import("./logo-palette.client");
-  return selectAccentCandidates(await extractLogoColors(file, options));
+async function rasterizeSvg(file: File) {
+  const objectUrl = URL.createObjectURL(file);
+  const image = new Image();
+
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const cleanup = () => {
+        image.onload = null;
+        image.onerror = null;
+      };
+
+      image.onload = () => {
+        cleanup();
+        resolve();
+      };
+      image.onerror = () => {
+        cleanup();
+        reject(new Error("SVG logotip nije moguće učitati."));
+      };
+      image.src = objectUrl;
+    });
+
+    if (!image.naturalWidth || !image.naturalHeight) {
+      throw new Error("SVG logotip nema ispravne dimenzije.");
+    }
+
+    const scale = Math.min(
+      1,
+      MAX_SVG_RASTER_SIZE / Math.max(image.naturalWidth, image.naturalHeight),
+    );
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+    canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+
+    const context = canvas.getContext("2d");
+    if (!context) {
+      throw new Error("SVG logotip nije moguće obraditi.");
+    }
+
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+    return canvas;
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
 }
 
-export async function extractLogoTheme(
-  file: File,
-  options?: { signal?: AbortSignal },
-) {
-  const prepared = await prepareLogoTheme(file, options);
-  return {
-    design: prepared.design,
-    paletteAnalysis: prepared.paletteAnalysis,
-  };
-}
+export async function extractAccentCandidates(file: File) {
+  let source: PaletteSource;
+  let release: () => void;
 
-export async function prepareLogoTheme(
-  file: File,
-  options?: { signal?: AbortSignal },
-) {
-  const { extractLogoColors, rasterizeSvgLogo } = await import(
-    "./logo-palette.client"
-  );
-  const uploadFile = await rasterizeSvgLogo(file, options);
-  const generated = generateScanMeDesignFromPalette(
-    await extractLogoColors(uploadFile, options),
-  );
-  return { uploadFile, ...generated };
+  if (file.type.toLowerCase() === "image/svg+xml") {
+    const canvas = await rasterizeSvg(file);
+    source = canvas;
+    release = () => {
+      canvas.width = 0;
+      canvas.height = 0;
+    };
+  } else {
+    const bitmap = await createImageBitmap(file);
+    source = bitmap;
+    release = () => bitmap.close();
+  }
+
+  try {
+    const { getPalette } = await import("colorthief");
+    const palette = await getPalette(source, {
+      colorCount: 10,
+      quality: 6,
+      colorSpace: "oklch",
+    });
+    return selectAccentCandidates((palette ?? []).map((color) => color.hex()));
+  } finally {
+    release();
+  }
 }

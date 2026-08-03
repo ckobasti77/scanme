@@ -1,4 +1,6 @@
-import { isReservedRootSlug } from "../../lib/business-slug";
+import { ConvexError } from "convex/values";
+
+const RESERVED_SLUGS = new Set(["admin", "api", "icon"]);
 
 export function requireText(
   value: string,
@@ -8,7 +10,7 @@ export function requireText(
 ) {
   const normalized = value.trim().replace(/\s+/g, " ");
   if (normalized.length < minLength || normalized.length > maxLength) {
-    throw new Error(`${label} mora imati između ${minLength} i ${maxLength} karaktera.`);
+    throw new ConvexError(`${label} mora imati između ${minLength} i ${maxLength} karaktera.`);
   }
   return normalized;
 }
@@ -17,7 +19,7 @@ export function optionalText(value: string | undefined, maxLength: number) {
   const normalized = value?.trim().replace(/\s+/g, " ");
   if (!normalized) return undefined;
   if (normalized.length > maxLength) {
-    throw new Error(`Polje može imati najviše ${maxLength} karaktera.`);
+    throw new ConvexError(`Polje može imati najviše ${maxLength} karaktera.`);
   }
   return normalized;
 }
@@ -83,7 +85,7 @@ export function isSafePublicDestination(value: string) {
 export function normalizeEmail(value: string) {
   const email = value.trim().toLowerCase();
   if (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    throw new Error("Email adresa nije ispravna.");
+    throw new ConvexError("Email adresa nije ispravna.");
   }
   return email;
 }
@@ -97,7 +99,7 @@ export function normalizePhone(value: string) {
     digitCount > 15 ||
     !/^\+?[0-9\s().-]+$/.test(phone)
   ) {
-    throw new Error(
+    throw new ConvexError(
       "Telefon mora biti u formatu sa 7–15 cifara; dozvoljeni su početni +, razmak, zagrade i crtica.",
     );
   }
@@ -107,12 +109,12 @@ export function normalizePhone(value: string) {
 export function requireSlug(value: string) {
   const slug = value.trim().toLowerCase();
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) || slug.length > 80) {
-    throw new Error(
+    throw new ConvexError(
       "QR slug mora biti u formatu: mala slova a-z, cifre 0-9 i crtice između reči, bez razmaka ili crtice na početku/kraju (npr. naziv-lokala), najviše 80 karaktera.",
     );
   }
-  if (isReservedRootSlug(slug)) {
-    throw new Error("Ova QR oznaka je rezervisana za ScanMe sistem.");
+  if (RESERVED_SLUGS.has(slug)) {
+    throw new ConvexError("Ova QR oznaka je rezervisana za ScanMe sistem.");
   }
   return slug;
 }

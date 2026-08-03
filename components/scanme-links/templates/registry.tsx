@@ -1,11 +1,4 @@
 import { OptionTwoTemplate } from "@/components/scanme-links/templates/option-two/option-two-template";
-export {
-  resolveScanMeDesign,
-  scanMeButtonStyleClasses,
-  ScanMeLinksPageRenderer,
-  ScanMePageFrame,
-  ScanMePresetPreview,
-} from "@/components/scanme-links/templates/scanme-page-renderer";
 import type {
   ScanMeLinksViewModel,
   TemplateProps,
@@ -23,13 +16,6 @@ export function ScanMeLinksTemplate(props: TemplateProps) {
 export function normalizePublicView(
   view: ScanMeLinksViewModel,
 ): ScanMeLinksViewModel {
-  return {
-    ...view,
-    description: view.description?.trim() || null,
-    backgroundImageUrl: view.backgroundImageUrl ?? null,
-    destinations: view.destinations.map((destination) => ({
-      ...destination,
-      presentation: destination.presentation ?? "button",
-    })),
-  };
+  return view;
 }
+

@@ -1,4 +1,4 @@
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { mutation } from "./_generated/server";
 import { optionalText, requireText } from "./lib/validation";
 
@@ -30,13 +30,13 @@ export const create = mutation({
   }),
   handler: async (ctx, args) => {
     if (args.website.trim()) {
-      throw new Error("Slanje nije uspelo. Osvežite stranicu i pokušajte ponovo.");
+      throw new ConvexError("Slanje nije uspelo. Osvežite stranicu i pokušajte ponovo.");
     }
 
     const now = Date.now();
     const timeOnForm = now - args.formStartedAt;
     if (timeOnForm < 900 || timeOnForm > 86_400_000) {
-      throw new Error("Forma je istekla. Osvežite stranicu i pokušajte ponovo.");
+      throw new ConvexError("Forma je istekla. Osvežite stranicu i pokušajte ponovo.");
     }
 
     const submissionId = requireText(args.submissionId, "Oznaka prijave", 16, 100);
@@ -55,13 +55,13 @@ export const create = mutation({
     const message = optionalText(args.message, 1_000);
 
     if (!email && !phone) {
-      throw new Error("Unesite telefon ili imejl kako bismo mogli da vam odgovorimo.");
+      throw new ConvexError("Unesite telefon ili imejl kako bismo mogli da vam odgovorimo.");
     }
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      throw new Error("Unesite ispravnu imejl adresu.");
+      throw new ConvexError("Unesite ispravnu imejl adresu.");
     }
     if (phone && phone.replace(/\D/g, "").length < 7) {
-      throw new Error("Unesite ispravan broj telefona.");
+      throw new ConvexError("Unesite ispravan broj telefona.");
     }
 
     await ctx.db.insert("leads", {

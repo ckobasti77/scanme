@@ -15,6 +15,15 @@ export const scanMeDesignPresetKeyValidator = v.union(
   v.literal("custom"),
 );
 
+export const scanMeDesignV2PresetKeyValidator = v.union(
+  v.literal("gentle"),
+  v.literal("ios"),
+  v.literal("lux"),
+  v.literal("rustic"),
+  v.literal("minimal"),
+  v.literal("bold"),
+);
+
 export const scanMeDesignStateValidator = v.union(
   v.literal("uninitialized"),
   v.literal("ready"),
@@ -29,6 +38,8 @@ export const paletteAnalysisValidator = v.object({
   original: v.array(v.string()),
   adjusted: v.array(v.string()),
   correctedRoles: v.array(v.string()),
+  generationMode: v.optional(v.union(v.literal("light"), v.literal("dark"))),
+  lockedSlots: v.optional(v.array(v.boolean())),
 });
 
 export const scanMeBackgroundValidator = v.union(
@@ -69,7 +80,7 @@ export const scanMeBackgroundValidator = v.union(
   }),
 );
 
-export const scanMeDesignValidator = v.object({
+export const scanMeDesignV1Validator = v.object({
   version: v.literal(1),
   presetKey: scanMeDesignPresetKeyValidator,
   autoContrast: v.boolean(),
@@ -140,3 +151,169 @@ export const scanMeDesignValidator = v.object({
     verticalSpacing: v.number(),
   }),
 });
+
+export const scanMeLegacyDesignValidator = scanMeDesignV1Validator;
+
+export const scanMeDesignV2BackgroundValidator = v.union(
+  v.object({
+    category: v.literal("flat"),
+    color: v.string(),
+  }),
+  v.object({
+    category: v.literal("gradient"),
+    variant: v.union(v.literal("linear"), v.literal("radial")),
+    startColor: v.string(),
+    endColor: v.string(),
+    angle: v.number(),
+    centerX: v.number(),
+    centerY: v.number(),
+  }),
+  v.object({
+    category: v.literal("pattern"),
+    variant: v.union(
+      v.literal("grid"),
+      v.literal("checker"),
+      v.literal("dots"),
+      v.literal("waves"),
+    ),
+    backgroundColor: v.string(),
+    patternColor: v.string(),
+    scale: v.number(),
+    opacity: v.number(),
+  }),
+  v.object({
+    category: v.literal("texture"),
+    variant: v.union(
+      v.literal("paper"),
+      v.literal("linen"),
+      v.literal("wood"),
+      v.literal("metal"),
+    ),
+    backgroundColor: v.string(),
+    tintColor: v.string(),
+    intensity: v.number(),
+  }),
+  v.object({
+    category: v.literal("media"),
+    mediaType: v.union(v.literal("image"), v.literal("video")),
+    fit: v.union(v.literal("cover"), v.literal("contain")),
+    zoom: v.number(),
+    positionX: v.number(),
+    positionY: v.number(),
+    overlayColor: v.string(),
+    overlayOpacity: v.number(),
+  }),
+  v.object({
+    category: v.literal("animation"),
+    variant: v.union(v.literal("aurora"), v.literal("soft-waves")),
+    baseColor: v.string(),
+    accentColor: v.string(),
+    speed: v.number(),
+    intensity: v.number(),
+  }),
+);
+
+const scanMeShadowValidator = v.object({
+  enabled: v.boolean(),
+  color: v.string(),
+  x: v.number(),
+  y: v.number(),
+  blur: v.number(),
+  opacity: v.number(),
+});
+
+export const scanMeDesignV2Validator = v.object({
+  version: v.literal(2),
+  presetKey: scanMeDesignV2PresetKeyValidator,
+  autoContrast: v.boolean(),
+  background: scanMeDesignV2BackgroundValidator,
+  colors: v.object({
+    page: v.string(),
+    surface: v.string(),
+    title: v.string(),
+    body: v.string(),
+    accent: v.string(),
+    border: v.string(),
+    focus: v.string(),
+    button: v.string(),
+    buttonHover: v.string(),
+    buttonText: v.string(),
+    icon: v.string(),
+  }),
+  buttons: v.object({
+    variant: v.union(
+      v.literal("solid"),
+      v.literal("outline"),
+      v.literal("glass"),
+    ),
+    radius: v.number(),
+    borderWidth: v.number(),
+    paddingX: v.number(),
+    paddingY: v.number(),
+    shadow: scanMeShadowValidator,
+    animation: v.union(
+      v.literal("none"),
+      v.literal("stroke"),
+      v.literal("liquid-metal"),
+    ),
+  }),
+  effects: v.optional(
+    v.object({
+      textShadow: scanMeShadowValidator,
+      logoShadow: scanMeShadowValidator,
+    }),
+  ),
+  typography: v.object({
+    fontKey: v.union(
+      v.literal("dm-sans"),
+      v.literal("nunito-sans"),
+      v.literal("source-sans-3"),
+      v.literal("system-ui"),
+      v.literal("inter"),
+      v.literal("manrope"),
+      v.literal("cormorant-garamond"),
+      v.literal("playfair-display"),
+      v.literal("lora"),
+      v.literal("libre-baskerville"),
+      v.literal("space-grotesk"),
+      v.literal("archivo"),
+    ),
+    headingWeight: v.union(
+      v.literal(400),
+      v.literal(500),
+      v.literal(600),
+      v.literal(700),
+    ),
+    bodyWeight: v.union(
+      v.literal(400),
+      v.literal(500),
+      v.literal(600),
+      v.literal(700),
+    ),
+    alignment: v.union(
+      v.literal("left"),
+      v.literal("center"),
+      v.literal("right"),
+    ),
+    scale: v.union(
+      v.literal("small"),
+      v.literal("medium"),
+      v.literal("large"),
+    ),
+    lineHeight: v.number(),
+    verticalSpacing: v.number(),
+  }),
+  iconStyle: v.union(
+    v.literal("soft-line"),
+    v.literal("ios-rounded"),
+    v.literal("luxury-line"),
+    v.literal("rustic-stamp"),
+    v.literal("minimal-line"),
+    v.literal("bold-fill"),
+  ),
+});
+
+export const scanMeDesignValidator = v.union(
+  scanMeDesignV1Validator,
+  scanMeDesignV2Validator,
+);
