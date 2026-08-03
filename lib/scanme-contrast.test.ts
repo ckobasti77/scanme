@@ -55,6 +55,19 @@ const backgrounds: ScanMeLinksBackgroundV2[] = [
   },
 ];
 
+function mediaBackground(overlayOpacity: number): ScanMeLinksBackgroundV2 {
+  return {
+    category: "media",
+    mediaType: "image",
+    fit: "cover",
+    zoom: 1,
+    positionX: 50,
+    positionY: 50,
+    overlayColor: "#171918",
+    overlayOpacity,
+  };
+}
+
 describe("ScanMe contrast assistant", () => {
   it.each(backgrounds.map((background) => [background.category, background]))(
     "samples %s backgrounds",
@@ -72,38 +85,94 @@ describe("ScanMe contrast assistant", () => {
     design.background = { category: "flat", color: "#F7F1EA" };
     design.colors.title = "#E8E0D9";
 
-    const issues = analyzeScanMeContrast(
+    const issues = analyzeScanMeContrast({
       design,
-      ["#F7F1EA", "#E5D8CE", "#C6FF4A", "#242623", "#315B52"],
-      ["#C6FF4A"],
-    );
+      generatedPalette: ["#F7F1EA", "#E5D8CE", "#C6FF4A", "#242623", "#315B52"],
+      logoPalette: ["#C6FF4A"],
+    });
     const titleIssue = issues.find((candidate) => candidate.id === "title-contrast");
 
     expect(titleIssue).toBeDefined();
     expect(titleIssue?.required).toBe(4.5);
     expect(titleIssue?.suggestions.length).toBeGreaterThanOrEqual(2);
     expect(titleIssue?.suggestions.length).toBeLessThanOrEqual(3);
+    for (const suggestion of titleIssue?.suggestions ?? []) {
+      expect(suggestion.color).not.toBe("#000000");
+      expect(suggestion.color).not.toBe("#FFFFFF");
+    }
   });
 
-  it("offers an overlay repair for unstable media contrast", () => {
+  it("stays silent for an image background with no upload and no description", () => {
     const design = createDefaultScanMeLinksDesignV2("gentle");
+    design.background = mediaBackground(0.12);
     design.background = {
-      category: "media",
-      mediaType: "image",
-      fit: "cover",
-      zoom: 1,
-      positionX: 50,
-      positionY: 50,
-      overlayColor: "#171918",
-      overlayOpacity: 0.05,
-    };
+      ...design.background,
+      overlayColor: design.colors.page,
+    } as ScanMeLinksBackgroundV2;
 
-    const issues = analyzeScanMeContrast(design, [], []);
+    const issues = analyzeScanMeContrast({
+      design,
+      content: {
+        hasTitle: true,
+        hasDescription: false,
+        destinationCount: 0,
+        hasLogo: false,
+      },
+      media: { hasImage: false, hasVideo: false },
+    });
+
+    expect(issues).toHaveLength(0);
+  });
+
+  it("only flags the description when there is description text", () => {
+    const design = createDefaultScanMeLinksDesignV2("gentle");
+    design.background = { category: "flat", color: "#F7F1EA" };
+    design.colors.body = "#F4EDE6"; // clashes with the page
+
+    const withoutText = analyzeScanMeContrast({
+      design,
+      content: {
+        hasTitle: false,
+        hasDescription: false,
+        destinationCount: 0,
+        hasLogo: false,
+      },
+    });
+    expect(
+      withoutText.some((candidate) => candidate.id === "body-contrast"),
+    ).toBe(false);
+
+    const withText = analyzeScanMeContrast({
+      design,
+      content: {
+        hasTitle: false,
+        hasDescription: true,
+        destinationCount: 0,
+        hasLogo: false,
+      },
+    });
+    expect(
+      withText.some((candidate) => candidate.id === "body-contrast"),
+    ).toBe(true);
+  });
+
+  it("offers an overlay repair as an advisory only when media is displayed", () => {
+    const design = createDefaultScanMeLinksDesignV2("gentle");
+    design.background = mediaBackground(0.05);
+
+    const issues = analyzeScanMeContrast({
+      design,
+      media: { hasImage: true, hasVideo: false },
+    });
     const overlayIssue = issues.find((candidate) => candidate.id === "media-overlay");
 
     expect(overlayIssue).toBeDefined();
+    expect(overlayIssue?.advisory).toBe(true);
     expect(overlayIssue?.suggestions[0].role).toBe("background");
     expect(overlayIssue?.suggestions[0].overlayOpacity).toBe(0.78);
+    // Page-background text findings are folded into the advisory, not emitted separately.
+    expect(issues.some((candidate) => candidate.id === "title-contrast")).toBe(false);
+    expect(issues.some((candidate) => candidate.id === "body-contrast")).toBe(false);
   });
 
   it("translates technical ratios into plain-language quality", () => {
@@ -118,7 +187,7 @@ describe("ScanMe contrast assistant", () => {
     design.background = { category: "flat", color: "#F7F1EA" };
     design.colors.title = "#F4EDE6";
     design.colors.body = "#B8AAA0";
-    const issues = analyzeScanMeContrast(design);
+    const issues = analyzeScanMeContrast({ design });
     const criticalId = mostCriticalPoorIssueId(issues);
 
     expect(criticalId).toBeTruthy();
@@ -131,7 +200,7 @@ describe("ScanMe contrast assistant", () => {
     const design = createDefaultScanMeLinksDesignV2("gentle");
     design.background = { category: "flat", color: "#F7F1EA" };
     design.colors.title = "#F4EDE6";
-    const issue = analyzeScanMeContrast(design).find(
+    const issue = analyzeScanMeContrast({ design }).find(
       (candidate) => candidate.id === "title-contrast",
     );
     const neutral = issue?.suggestions.find(

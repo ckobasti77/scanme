@@ -220,9 +220,26 @@ function designStyle(
   const alignment = alignmentTokens(design.typography.alignment);
   const buttonShadow = shadowCss(design.buttons.shadow);
   const textShadow = shadowCss(design.effects.textShadow);
+  // Per-element text shadows fall back to the global one when no override is set.
+  const titleShadow = design.effects.titleShadow
+    ? shadowCss(design.effects.titleShadow)
+    : textShadow;
+  const descriptionShadow = design.effects.descriptionShadow
+    ? shadowCss(design.effects.descriptionShadow)
+    : textShadow;
+  const buttonTextShadow = design.effects.buttonTextShadow
+    ? shadowCss(design.effects.buttonTextShadow)
+    : textShadow;
   const logoShadow = logoShadowCss(design.effects.logoShadow);
+  const mediaPresent =
+    design.background.category === "media" &&
+    Boolean(
+      design.background.mediaType === "video"
+        ? view.backgroundVideoUrl
+        : view.backgroundImageUrl,
+    );
   const poweredColor = safeNeutralForBackgrounds(
-    backgroundContrastSamples(design),
+    backgroundContrastSamples(design, { mediaPresent }),
   );
   const animationSpeed =
     design.background.category === "animation"
@@ -259,6 +276,9 @@ function designStyle(
     "--links-button-padding-y": `${design.buttons.paddingY}px`,
     "--links-button-shadow": buttonShadow,
     "--links-text-shadow": textShadow,
+    "--links-title-shadow": titleShadow,
+    "--links-description-shadow": descriptionShadow,
+    "--links-button-text-shadow": buttonTextShadow,
     "--links-logo-shadow": logoShadow,
     "--links-powered-color": poweredColor,
     "--links-flow-gap": `${design.typography.verticalSpacing}px`,

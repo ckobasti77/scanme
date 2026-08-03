@@ -971,6 +971,75 @@
     0 4px 10px rgba(52, 42, 34, 0.08);
 }
 
+.paletteSchemeRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.paletteSchemeTrigger {
+  display: inline-flex;
+  min-height: 32px;
+  max-width: 62%;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid rgba(71, 63, 55, 0.16);
+  border-radius: 10px !important;
+  background: rgba(255, 255, 255, 0.55);
+  padding-inline: 11px;
+  color: #262b28;
+  font-size: 10px;
+  font-weight: 750;
+  transition:
+    color 160ms ease,
+    background-color 160ms ease,
+    border-color 160ms ease;
+}
+
+.paletteSchemeTrigger:hover {
+  border-color: rgba(71, 63, 55, 0.28);
+  background: rgba(255, 246, 238, 0.9);
+}
+
+.paletteSchemeTrigger:focus-visible {
+  outline: 2px solid rgba(42, 48, 44, 0.62);
+  outline-offset: 2px;
+}
+
+.schemeMenuItem {
+  display: flex;
+  min-height: 38px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 3px;
+  border-radius: 11px !important;
+  padding: 8px 10px !important;
+}
+
+.schemeMenuItem:focus {
+  background: rgba(255, 255, 255, 0.68) !important;
+  color: #1d211e !important;
+}
+
+.schemeMenuItemTitle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.schemeMenuItemDesc {
+  color: rgba(35, 40, 36, 0.62);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.35;
+  white-space: normal;
+}
+
 .generatedPaletteGrid {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -1960,6 +2029,14 @@
   border-color: rgba(45, 116, 79, 0.18);
   background: rgba(226, 246, 234, 0.84);
   color: #39795a;
+}
+
+/* Advisory findings (e.g. text over an unknown photo) read as calm information,
+   never the amber/red warning treatment. */
+.contrastWarningIcon[data-severity="advisory"] {
+  border-color: rgba(64, 92, 120, 0.18);
+  background: rgba(226, 236, 246, 0.84);
+  color: #4a6a86;
 }
 
 .contrastWarningIcon svg {

@@ -17,8 +17,8 @@ import type {
   ContrastSuggestion,
 } from "@/lib/scanme-contrast";
 import {
-  contrastQuality,
-  contrastQualityLabel,
+  contrastSeverity,
+  contrastSeverityLabel,
   mostCriticalPoorIssueId,
 } from "@/lib/scanme-contrast";
 import type { PreviewDevice } from "./scanme-links-editor-types";
@@ -69,9 +69,7 @@ export function ScanMeContrastAssistant({
   const poorIssueSignature = useMemo(
     () =>
       issues
-        .filter(
-          (issue) => contrastQuality(issue.ratio, issue.required) === "poor",
-        )
+        .filter((issue) => contrastSeverity(issue) === "poor")
         .map((issue) => issue.id)
         .sort()
         .join("|"),
@@ -257,7 +255,7 @@ export function ScanMeContrastAssistant({
     >
       {orderedIssues.map((issue, index) => {
         const expanded = issue.id === resolvedActiveId;
-        const severity = contrastQuality(issue.ratio, issue.required);
+        const severity = contrastSeverity(issue);
         const position = positions[issue.id] ?? {
           left: 12,
           top:
@@ -306,7 +304,7 @@ export function ScanMeContrastAssistant({
               </span>
               <span className={styles.contrastCardHeading}>
                 <strong>{issue.title}</strong>
-                <small>{contrastQualityLabel(issue.ratio, issue.required)}</small>
+                <small>{contrastSeverityLabel(issue)}</small>
               </span>
               <ChevronDown
                 className={styles.contrastChevron}

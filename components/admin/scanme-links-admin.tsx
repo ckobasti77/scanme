@@ -54,6 +54,7 @@ import {
   CreateBusinessPopover,
   type CreateBusinessValues,
 } from "./create-business-popover";
+import { PocAccessCard } from "./poc-access-panel";
 
 type EditorData = NonNullable<
   FunctionReturnType<typeof api.scanMeLinks.editor>
@@ -424,6 +425,7 @@ function BusinessWorkspace({
             <p className="mt-2 text-sm text-muted-foreground">
               /{data.profile.slug}
             </p>
+            <BusinessNameEditor businessId={data.id} name={data.name} />
           </div>
           {data.archivedAt ? (
             <div className="inline-flex min-h-11 items-center gap-2 border border-destructive bg-destructive px-4 text-sm font-semibold text-destructive-foreground">
@@ -571,7 +573,15 @@ function BusinessWorkspace({
         </aside>
       </div>
 
-      <SharedBusinessDetails key={`shared-${data.id}`} data={data} />
+      <div className="grid min-w-0 gap-6 xl:grid-cols-2">
+        <PocAccessCard
+          key={`poc-${data.id}`}
+          businessId={data.id}
+          contact={data.contact}
+          contacts={data.contacts}
+        />
+        <SharedBusinessDetails key={`shared-${data.id}`} data={data} />
+      </div>
 
       {metrics ? (
         <section className="border border-border bg-card p-5 sm:p-7">
@@ -670,22 +680,72 @@ function Metric({
   );
 }
 
+function BusinessNameEditor({
+  businessId,
+  name,
+}: {
+  businessId: Id<"businesses">;
+  name: string;
+}) {
+  const updateBusinessName = useMutation(api.admin.updateBusinessName);
+  const [value, setValue] = useState(name);
+  const [pending, setPending] = useState(false);
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const trimmed = value.trim();
+    if (trimmed.length < 2) {
+      toast.error("Naziv lokala mora imati bar 2 karaktera.");
+      return;
+    }
+    setPending(true);
+    try {
+      await updateBusinessName({ businessId, name: trimmed });
+      form.closest("details")?.removeAttribute("open");
+      toast.success(
+        "Naziv lokala je promenjen. Slug i sve adrese su automatski usklađeni; stare QR adrese i dalje rade.",
+      );
+    } catch (error) {
+      toast.error(errorMessage(error, "Naziv nije promenjen."));
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <details className="mt-3">
+      <summary className="inline-flex cursor-pointer list-none items-center gap-2 text-sm font-semibold text-primary">
+        <Pencil className="size-4" /> Promeni naziv lokala
+      </summary>
+      <form onSubmit={submit} className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end">
+        <div className="grid flex-1 gap-2">
+          <Label htmlFor={`name-edit-${businessId}`}>Naziv lokala</Label>
+          <Input
+            id={`name-edit-${businessId}`}
+            value={value}
+            minLength={2}
+            required
+            onChange={(event) => setValue(event.target.value)}
+          />
+        </div>
+        <Button type="submit" disabled={pending}>
+          {pending ? (
+            <LoaderCircle className="size-4 animate-spin" />
+          ) : (
+            <Save className="size-4" />
+          )}
+          Sačuvaj
+        </Button>
+      </form>
+    </details>
+  );
+}
+
 function SharedBusinessDetails({ data }: { data: EditorData }) {
-  const updateName = useMutation(api.admin.updateBusinessName);
-  const updateContact = useMutation(api.admin.updateContact);
-  const addContact = useMutation(api.admin.addContact);
   const generateUploadUrl = useMutation(api.scanMeLinks.generateLogoUploadUrl);
   const updateBusinessLogo = useMutation(api.scanMeLinks.updateBusinessLogo);
-  const [name, setName] = useState(data.name);
   const [logoUrl, setLogoUrl] = useState(data.businessLogoUrl);
-  const [contact, setContact] = useState({
-    firstName: data.contact?.firstName ?? "",
-    lastName: data.contact?.lastName ?? "",
-    email: data.contact?.email ?? "",
-    phone: data.contact?.phone ?? "",
-    positionTitle: data.contact?.positionTitle ?? "",
-  });
-  const [pending, setPending] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
 
   async function uploadSharedLogo(file: File | undefined) {
@@ -722,137 +782,39 @@ function SharedBusinessDetails({ data }: { data: EditorData }) {
     }
   }
 
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setPending(true);
-    try {
-      await updateName({ businessId: data.id, name });
-      if (contact.firstName.trim() && contact.lastName.trim()) {
-        if (data.contact) {
-          await updateContact({
-            businessId: data.id,
-            contactId: data.contact.id,
-            ...contact,
-          });
-        } else {
-          await addContact({ businessId: data.id, ...contact });
-        }
-      }
-      toast.success("Zajednički podaci lokala su sačuvani.");
-    } catch (error) {
-      toast.error(errorMessage(error, "Podaci nisu sačuvani."));
-    } finally {
-      setPending(false);
-    }
-  }
-
   return (
-    <form
-      onSubmit={submit}
-      className="border border-border bg-card p-5 sm:p-7"
-    >
-      <h2 className="text-lg font-semibold">Zajednički podaci lokala</h2>
+    <div className="border border-border bg-card p-5 sm:p-7">
+      <h2 className="text-lg font-semibold">Zajednički logo lokala</h2>
       <p className="mt-2 text-xs leading-5 text-muted-foreground">
-        Naziv, logo i POC koriste oba servisa i klijentski panel.
+        Logo koriste oba servisa i klijentski panel. Naziv i POC menjate iznad.
       </p>
-      <div className="mt-5 grid gap-4 sm:grid-cols-2">
-        <div className="grid gap-3 sm:col-span-2">
-          <Label htmlFor={`shared-logo-${data.id}`}>
-            Zajednički logo lokala
-          </Label>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <div className="grid size-16 shrink-0 place-items-center overflow-hidden border border-border bg-muted">
-              {logoUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={logoUrl} alt="" className="size-full object-contain p-2" />
-              ) : (
-                <span className="text-xs text-muted-foreground">Bez loga</span>
-              )}
-            </div>
-            <label className="flex min-h-11 cursor-pointer items-center justify-center gap-2 border border-dashed border-border px-4 text-sm transition-colors hover:border-primary focus-within:ring-2 focus-within:ring-ring">
-              {uploadingLogo ? (
-                <LoaderCircle className="size-4 animate-spin" />
-              ) : (
-                <Upload className="size-4" />
-              )}
-              {uploadingLogo ? "Otpremanje..." : "Promeni zajednički logo"}
-              <input
-                id={`shared-logo-${data.id}`}
-                type="file"
-                accept="image/png,image/jpeg,image/webp"
-                className="sr-only"
-                disabled={uploadingLogo}
-                onChange={(event) =>
-                  void uploadSharedLogo(event.target.files?.[0])
-                }
-              />
-            </label>
-          </div>
+      <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="grid size-16 shrink-0 place-items-center overflow-hidden border border-border bg-muted">
+          {logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={logoUrl} alt="" className="size-full object-contain p-2" />
+          ) : (
+            <span className="text-xs text-muted-foreground">Bez loga</span>
+          )}
         </div>
-        <div className="grid gap-2 sm:col-span-2">
-          <Label htmlFor={`shared-name-${data.id}`}>Interni naziv lokala</Label>
-          <Input
-            id={`shared-name-${data.id}`}
-            value={name}
-            minLength={2}
-            required
-            onChange={(event) => setName(event.target.value)}
+        <label className="flex min-h-11 cursor-pointer items-center justify-center gap-2 border border-dashed border-border px-4 text-sm transition-colors hover:border-primary focus-within:ring-2 focus-within:ring-ring">
+          {uploadingLogo ? (
+            <LoaderCircle className="size-4 animate-spin" />
+          ) : (
+            <Upload className="size-4" />
+          )}
+          {uploadingLogo ? "Otpremanje..." : "Promeni zajednički logo"}
+          <input
+            id={`shared-logo-${data.id}`}
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            className="sr-only"
+            disabled={uploadingLogo}
+            onChange={(event) => void uploadSharedLogo(event.target.files?.[0])}
           />
-        </div>
-        <ContactInput
-          id={`poc-first-${data.id}`}
-          label="POC ime"
-          value={contact.firstName}
-          onChange={(firstName) =>
-            setContact((current) => ({ ...current, firstName }))
-          }
-        />
-        <ContactInput
-          id={`poc-last-${data.id}`}
-          label="POC prezime"
-          value={contact.lastName}
-          onChange={(lastName) =>
-            setContact((current) => ({ ...current, lastName }))
-          }
-        />
-        <ContactInput
-          id={`poc-email-${data.id}`}
-          label="POC email"
-          type="email"
-          value={contact.email}
-          onChange={(email) =>
-            setContact((current) => ({ ...current, email }))
-          }
-        />
-        <ContactInput
-          id={`poc-phone-${data.id}`}
-          label="POC telefon"
-          type="tel"
-          value={contact.phone}
-          onChange={(phone) =>
-            setContact((current) => ({ ...current, phone }))
-          }
-        />
-        <div className="sm:col-span-2">
-          <ContactInput
-            id={`poc-role-${data.id}`}
-            label="POC uloga"
-            value={contact.positionTitle}
-            onChange={(positionTitle) =>
-              setContact((current) => ({ ...current, positionTitle }))
-            }
-          />
-        </div>
+        </label>
       </div>
-      <Button type="submit" className="mt-5" disabled={pending}>
-        {pending ? (
-          <LoaderCircle className="size-4 animate-spin" />
-        ) : (
-          <Save className="size-4" />
-        )}
-        Sačuvaj zajedničke podatke
-      </Button>
-    </form>
+    </div>
   );
 }
 
@@ -996,32 +958,6 @@ function StableAddresses({
           </div>
         </form>
       ) : null}
-    </div>
-  );
-}
-
-function ContactInput({
-  id,
-  label,
-  value,
-  type = "text",
-  onChange,
-}: {
-  id: string;
-  label: string;
-  value: string;
-  type?: "text" | "email" | "tel";
-  onChange: (value: string) => void;
-}) {
-  return (
-    <div className="grid gap-2">
-      <Label htmlFor={id}>{label}</Label>
-      <Input
-        id={id}
-        type={type}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-      />
     </div>
   );
 }

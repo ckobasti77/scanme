@@ -71,6 +71,7 @@ import {
 } from "@/lib/scanme-links-design";
 import {
   DEFAULT_PALETTE_LOCKS,
+  DEFAULT_PALETTE_SCHEME,
   applyPaletteColorToRole,
   generateScanMePalette,
   inferPaletteMode,
@@ -552,9 +553,11 @@ export function EditorWorkspace({
       const previewUrl = rememberObjectUrl(file, objectUrlsRef.current);
       setDocument((current) => {
         const generationMode = inferPaletteMode(current.design.colors.page);
+        const schemeType = DEFAULT_PALETTE_SCHEME;
         const adjusted = generateScanMePalette({
           sourceColors: palette,
           mode: generationMode,
+          schemeType,
         });
         return {
           ...current,
@@ -568,6 +571,7 @@ export function EditorWorkspace({
             correctedRoles: [],
             generationMode,
             lockedSlots: [...DEFAULT_PALETTE_LOCKS],
+            schemeType,
           },
           design: {
             ...current.design,
@@ -638,18 +642,29 @@ export function EditorWorkspace({
   async function saveBusinessIdentity(name: string, nextSlug: string) {
     setSettingsBusy(true);
     try {
-      if (name.trim() !== data.name) {
-        await updateBusinessName({
-          businessId: data.id,
-          name: name.trim(),
-        });
-      }
+      const trimmedName = name.trim();
+      const trimmedSlug = nextSlug.trim().toLowerCase();
       let resolvedSlug = data.clientPanelSlug;
-      if (nextSlug.trim().toLowerCase() !== data.clientPanelSlug) {
+      if (trimmedName !== data.name) {
+        // Renaming now re-slugs everything automatically; use the slug it resolved to.
+        const result = await updateBusinessName({
+          businessId: data.id,
+          name: trimmedName,
+        });
+        resolvedSlug = result.clientPanelSlug;
+      }
+      // Manual slug override: only when the typed slug genuinely differs from both the
+      // current and the name-derived slug (so leaving the field on the old value after a
+      // rename doesn't revert the automatic sync).
+      if (
+        trimmedSlug &&
+        trimmedSlug !== resolvedSlug &&
+        trimmedSlug !== data.clientPanelSlug
+      ) {
         const result = await updateBusinessSlug({
           businessId: data.id,
           kind: "clientPanel",
-          slug: nextSlug.trim().toLowerCase(),
+          slug: trimmedSlug,
         });
         resolvedSlug = result.clientPanelSlug;
       }
@@ -1311,6 +1326,8 @@ function documentFromData(data: EditorData): ScanMeLinksEditorDocument {
           lockedSlots: normalizePaletteLocks(
             config.paletteAnalysis.lockedSlots,
           ),
+          schemeType:
+            config.paletteAnalysis.schemeType ?? DEFAULT_PALETTE_SCHEME,
         }
       : null,
     design,

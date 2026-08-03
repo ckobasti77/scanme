@@ -114,6 +114,19 @@ export function defaultBackgroundForTemplate(templateKey: TemplateKey) {
   return TEMPLATE_REGISTRY[templateKey].defaultBackground;
 }
 
+export const SLUG_MAX_LENGTH = 66;
+
+export function slugify(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/đ/g, "dj")
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, SLUG_MAX_LENGTH);
+}
+
 export function googleReviewSlug(baseSlug: string) {
   return `${baseSlug}-google-review`;
 }

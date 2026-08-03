@@ -4,12 +4,15 @@ import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx } from "./_generated/server";
 import { isAdminEmail, requireAdmin } from "./lib/access";
+import { buildBusinessContactViews } from "./lib/contacts";
 import { aggregateMetricRowsForRange, getMetricRows, metricsRangeConfig } from "./lib/metrics";
 import { isSafePublicDestination, normalizeEmail, normalizePhone, requireSlug, requireText } from "./lib/validation";
 import {
   DEFAULT_ACCENT,
   DEFAULT_ACCENT_TOKENS,
   googleReviewSlug,
+  slugify,
+  SLUG_MAX_LENGTH,
 } from "../lib/scanme-links";
 
 const INVITATION_LIFETIME = 7 * 24 * 60 * 60 * 1000;
@@ -124,46 +127,10 @@ export const listBusinesses = query({
           .order("desc")
           .take(20);
         const link = selectPrimaryLink(links);
-        const contactRows = await ctx.db
-          .query("businessContacts")
-          .withIndex("by_businessId", (q) => q.eq("businessId", business._id))
-          .order("asc")
-          .take(50);
-        const activeContactRows = contactRows.filter((contact) => contact.status !== "inactive");
-        const orderedContactRows = activeContactRows.length
-          ? activeContactRows
-          : contactRows.length
-            ? [contactRows[contactRows.length - 1]]
-            : [];
-        const contactViews = await Promise.all(
-          orderedContactRows.map(async (contact) => {
-            const invitations = await ctx.db
-              .query("businessInvitations")
-              .withIndex("by_contactId", (q) => q.eq("contactId", contact._id))
-              .order("desc")
-              .take(1);
-            const invitation = invitations[0] ?? null;
-            return {
-              id: contact._id,
-              firstName: contact.firstName,
-              lastName: contact.lastName,
-              email: contact.normalizedEmail,
-              phone: contact.phone,
-              positionTitle: contact.positionTitle,
-              status: contact.status,
-              invitation: invitation
-                ? {
-                    id: invitation._id,
-                    status: invitation.status,
-                    expiresAt: invitation.expiresAt,
-                    failureReason: invitation.failureReason ?? null,
-                    sentAt: invitation.sentAt ?? null,
-                  }
-                : null,
-            };
-          }),
+        const { contact, contacts, invitation } = await buildBusinessContactViews(
+          ctx,
+          business._id,
         );
-        const contact = contactViews[0] ?? null;
         const reviewProfile = await ctx.db
           .query("serviceProfiles")
           .withIndex("by_businessId_and_type", (q) =>
@@ -188,8 +155,8 @@ export const listBusinesses = query({
               }
             : null,
           contact,
-          contacts: contactViews,
-          invitation: contact?.invitation ?? null,
+          contacts,
+          invitation,
         };
       }),
     );
@@ -445,6 +412,187 @@ export const updateDestination = mutation({
   },
 });
 
+// Re-slug a business's base slug and keep every derived slug in sync:
+// businesses.slug, both serviceProfiles.slug (scanme_links = base, google_review =
+// base-google-review), dynamicLinks.slug, plus alias rows for the vacated slugs so
+// previously printed QR codes and saved service URLs keep resolving. This is the exact
+// logic the `clientPanel` branch of `updateBusinessSlug` used inline; it is shared so a
+// rename can perform the same sync.
+async function applyBaseSlugSync(
+  ctx: MutationCtx,
+  params: {
+    business: Doc<"businesses">;
+    link: Doc<"dynamicLinks"> | null;
+    linksProfile: Doc<"serviceProfiles"> | null;
+    reviewProfile: Doc<"serviceProfiles"> | null;
+    base: string;
+  },
+) {
+  const { business, link, linksProfile, reviewProfile, base } = params;
+  const reviewSlug = googleReviewSlug(base);
+  const desiredSlugSet = new Set([base, reviewSlug]);
+  const ownProfileIds = new Set(
+    [linksProfile?._id, reviewProfile?._id].filter(
+      (id): id is Id<"serviceProfiles"> => id !== undefined,
+    ),
+  );
+  const now = Date.now();
+
+  if (link && link.slug !== reviewSlug) {
+    const oldAlias = await ctx.db
+      .query("dynamicLinkAliases")
+      .withIndex("by_slug", (q) => q.eq("slug", link.slug))
+      .unique();
+    if (!desiredSlugSet.has(link.slug) && !oldAlias) {
+      await ctx.db.insert("dynamicLinkAliases", {
+        slug: link.slug,
+        dynamicLinkId: link._id,
+        createdAt: now,
+      });
+    }
+    const promotedAlias = await ctx.db
+      .query("dynamicLinkAliases")
+      .withIndex("by_slug", (q) => q.eq("slug", reviewSlug))
+      .unique();
+    if (promotedAlias?.dynamicLinkId === link._id) {
+      await ctx.db.delete(promotedAlias._id);
+    }
+    await ctx.db.patch(link._id, { slug: reviewSlug, updatedAt: now });
+  }
+
+  for (const [profile, nextSlug] of [
+    [linksProfile, base],
+    [reviewProfile, reviewSlug],
+  ] as const) {
+    if (!profile || profile.slug === nextSlug) continue;
+    const oldAlias = await ctx.db
+      .query("serviceSlugAliases")
+      .withIndex("by_slug", (q) => q.eq("slug", profile.slug))
+      .unique();
+    if (!desiredSlugSet.has(profile.slug) && !oldAlias) {
+      await ctx.db.insert("serviceSlugAliases", {
+        slug: profile.slug,
+        serviceProfileId: profile._id,
+        createdAt: now,
+      });
+    }
+    const promotedAlias = await ctx.db
+      .query("serviceSlugAliases")
+      .withIndex("by_slug", (q) => q.eq("slug", nextSlug))
+      .unique();
+    if (promotedAlias && ownProfileIds.has(promotedAlias.serviceProfileId)) {
+      await ctx.db.delete(promotedAlias._id);
+    }
+    await ctx.db.patch(profile._id, { slug: nextSlug, updatedAt: now });
+  }
+
+  await ctx.db.patch(business._id, { slug: base });
+  return { qrSlug: reviewSlug, clientPanelSlug: base };
+}
+
+// Non-throwing collision check used by the rename auto-suffix path. Confirms both the
+// base slug and its derived google_review slug are free across every table (ignoring the
+// business's own rows).
+async function isBaseSlugAvailable(
+  ctx: MutationCtx,
+  base: string,
+  own: {
+    businessId: Id<"businesses">;
+    linkId: Id<"dynamicLinks"> | null;
+    profileIds: Set<Id<"serviceProfiles">>;
+  },
+) {
+  for (const slug of [base, googleReviewSlug(base)]) {
+    const links = await ctx.db
+      .query("dynamicLinks")
+      .withIndex("by_slug", (q) => q.eq("slug", slug))
+      .take(2);
+    if (links.some((candidate) => candidate._id !== own.linkId)) return false;
+    const businesses = await ctx.db
+      .query("businesses")
+      .withIndex("by_slug", (q) => q.eq("slug", slug))
+      .take(2);
+    if (businesses.some((candidate) => candidate._id !== own.businessId)) return false;
+    const profiles = await ctx.db
+      .query("serviceProfiles")
+      .withIndex("by_slug", (q) => q.eq("slug", slug))
+      .take(2);
+    if (profiles.some((candidate) => !own.profileIds.has(candidate._id))) return false;
+    const linkAliases = await ctx.db
+      .query("dynamicLinkAliases")
+      .withIndex("by_slug", (q) => q.eq("slug", slug))
+      .take(2);
+    if (linkAliases.some((candidate) => candidate.dynamicLinkId !== own.linkId)) return false;
+    const serviceAliases = await ctx.db
+      .query("serviceSlugAliases")
+      .withIndex("by_slug", (q) => q.eq("slug", slug))
+      .take(2);
+    if (serviceAliases.some((candidate) => !own.profileIds.has(candidate.serviceProfileId)))
+      return false;
+  }
+  return true;
+}
+
+// Derive an available base slug from the desired one, appending -2, -3, … on collision so
+// a rename always succeeds (unlike manual slug edits, which surface the collision).
+async function resolveAvailableBaseSlug(
+  ctx: MutationCtx,
+  desired: string,
+  own: {
+    businessId: Id<"businesses">;
+    linkId: Id<"dynamicLinks"> | null;
+    profileIds: Set<Id<"serviceProfiles">>;
+  },
+) {
+  const trimBase = (value: string, max: number) =>
+    value.slice(0, max).replace(/-+$/g, "");
+  const primary = trimBase(desired, SLUG_MAX_LENGTH);
+  if (primary && (await isBaseSlugAvailable(ctx, primary, own))) return primary;
+  for (let counter = 2; counter < 1000; counter += 1) {
+    const suffix = `-${counter}`;
+    const candidate = `${trimBase(desired, SLUG_MAX_LENGTH - suffix.length)}${suffix}`;
+    if (await isBaseSlugAvailable(ctx, candidate, own)) return candidate;
+  }
+  throw new ConvexError("Ne mogu da napravim jedinstven slug za ovaj naziv.");
+}
+
+// When the ScanMe Links page title still mirrors the old business name (i.e. it was never
+// customized in the editor), follow the rename. A client's intentionally customized title
+// is left untouched.
+async function syncLinksDisplayName(
+  ctx: MutationCtx,
+  businessId: Id<"businesses">,
+  previousName: string,
+  nextName: string,
+) {
+  const profile = await ctx.db
+    .query("serviceProfiles")
+    .withIndex("by_businessId_and_type", (q) =>
+      q.eq("businessId", businessId).eq("type", "scanme_links"),
+    )
+    .unique();
+  if (!profile) return;
+  const config = await ctx.db
+    .query("scanMeLinksConfigs")
+    .withIndex("by_serviceProfileId", (q) => q.eq("serviceProfileId", profile._id))
+    .unique();
+  if (!config) return;
+  const patch: {
+    draftDisplayName?: string;
+    publishedDisplayName?: string;
+    hasUnpublishedChanges?: boolean;
+  } = {};
+  if (config.draftDisplayName === previousName) patch.draftDisplayName = nextName;
+  if (config.publishedDisplayName === previousName) patch.publishedDisplayName = nextName;
+  if (patch.draftDisplayName === undefined && patch.publishedDisplayName === undefined) return;
+  const resolvedDraft = patch.draftDisplayName ?? config.draftDisplayName;
+  const resolvedPublished = patch.publishedDisplayName ?? config.publishedDisplayName;
+  if (patch.draftDisplayName !== undefined && resolvedDraft !== resolvedPublished) {
+    patch.hasUnpublishedChanges = true;
+  }
+  await ctx.db.patch(config._id, { ...patch, updatedAt: Date.now() });
+}
+
 export const updateBusinessName = mutation({
   args: { businessId: v.id("businesses"), name: v.string() },
   handler: async (ctx, args) => {
@@ -452,8 +600,63 @@ export const updateBusinessName = mutation({
     const business = await ctx.db.get(args.businessId);
     if (!business) throw new ConvexError("Lokal nije pronađen.");
     const name = requireText(args.name, "Naziv lokala", 2, 120);
+    const previousName = business.name;
+
     await ctx.db.patch(args.businessId, { name });
-    return { name };
+
+    // Re-slug so the address follows the name. Old QR prints keep working via aliases;
+    // the client-panel URL changes (accepted product decision — no businesses alias table).
+    let synced: { qrSlug: string; clientPanelSlug: string } | null = null;
+    const desiredBase = slugify(name);
+    if (desiredBase && desiredBase !== business.slug) {
+      const links = await ctx.db
+        .query("dynamicLinks")
+        .withIndex("by_businessId_and_type", (q) =>
+          q.eq("businessId", args.businessId).eq("type", "google_review"),
+        )
+        .order("desc")
+        .take(20);
+      const link = selectPrimaryLink(links);
+      const linksProfile = await ctx.db
+        .query("serviceProfiles")
+        .withIndex("by_businessId_and_type", (q) =>
+          q.eq("businessId", args.businessId).eq("type", "scanme_links"),
+        )
+        .unique();
+      const reviewProfile = await ctx.db
+        .query("serviceProfiles")
+        .withIndex("by_businessId_and_type", (q) =>
+          q.eq("businessId", args.businessId).eq("type", "google_review"),
+        )
+        .unique();
+      const profileIds = new Set(
+        [linksProfile?._id, reviewProfile?._id].filter(
+          (id): id is Id<"serviceProfiles"> => id !== undefined,
+        ),
+      );
+      const base = await resolveAvailableBaseSlug(ctx, desiredBase, {
+        businessId: args.businessId,
+        linkId: link?._id ?? null,
+        profileIds,
+      });
+      synced = await applyBaseSlugSync(ctx, {
+        business,
+        link,
+        linksProfile,
+        reviewProfile,
+        base,
+      });
+    }
+
+    if (previousName !== name) {
+      await syncLinksDisplayName(ctx, args.businessId, previousName, name);
+    }
+
+    return {
+      name,
+      qrSlug: synced?.qrSlug ?? null,
+      clientPanelSlug: synced?.clientPanelSlug ?? business.slug,
+    };
   },
 });
 
@@ -564,61 +767,13 @@ export const updateBusinessSlug = mutation({
         }
       }
 
-      const now = Date.now();
-      const desiredSlugSet = new Set(desiredSlugs);
-      if (link.slug !== reviewSlug) {
-        const oldAlias = await ctx.db
-          .query("dynamicLinkAliases")
-          .withIndex("by_slug", (q) => q.eq("slug", link.slug))
-          .unique();
-        if (!desiredSlugSet.has(link.slug) && !oldAlias) {
-          await ctx.db.insert("dynamicLinkAliases", {
-            slug: link.slug,
-            dynamicLinkId: link._id,
-            createdAt: now,
-          });
-        }
-        const promotedAlias = await ctx.db
-          .query("dynamicLinkAliases")
-          .withIndex("by_slug", (q) => q.eq("slug", reviewSlug))
-          .unique();
-        if (promotedAlias?.dynamicLinkId === link._id) {
-          await ctx.db.delete(promotedAlias._id);
-        }
-        await ctx.db.patch(link._id, { slug: reviewSlug, updatedAt: now });
-      }
-
-      for (const [profile, nextSlug] of [
-        [linksProfile, slug],
-        [reviewProfile, reviewSlug],
-      ] as const) {
-        if (!profile || profile.slug === nextSlug) continue;
-        const oldAlias = await ctx.db
-          .query("serviceSlugAliases")
-          .withIndex("by_slug", (q) => q.eq("slug", profile.slug))
-          .unique();
-        if (!desiredSlugSet.has(profile.slug) && !oldAlias) {
-          await ctx.db.insert("serviceSlugAliases", {
-            slug: profile.slug,
-            serviceProfileId: profile._id,
-            createdAt: now,
-          });
-        }
-        const promotedAlias = await ctx.db
-          .query("serviceSlugAliases")
-          .withIndex("by_slug", (q) => q.eq("slug", nextSlug))
-          .unique();
-        if (
-          promotedAlias &&
-          ownProfileIds.has(promotedAlias.serviceProfileId)
-        ) {
-          await ctx.db.delete(promotedAlias._id);
-        }
-        await ctx.db.patch(profile._id, { slug: nextSlug, updatedAt: now });
-      }
-
-      await ctx.db.patch(business._id, { slug });
-      return { qrSlug: reviewSlug, clientPanelSlug: slug };
+      return await applyBaseSlugSync(ctx, {
+        business,
+        link,
+        linksProfile,
+        reviewProfile,
+        base: slug,
+      });
     }
 
     const targetProfile = reviewProfile;

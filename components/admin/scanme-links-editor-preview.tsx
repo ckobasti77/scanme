@@ -113,12 +113,32 @@ export function useEditorPreviewModel(document: ScanMeLinksEditorDocument) {
 
   const contrastIssues = useMemo(
     () =>
-      analyzeScanMeContrast(
-        document.design,
-        document.paletteAnalysis?.adjusted ?? document.palette,
-        document.paletteAnalysis?.original ?? document.palette,
-      ),
-    [document.design, document.palette, document.paletteAnalysis],
+      analyzeScanMeContrast({
+        design: document.design,
+        generatedPalette: document.paletteAnalysis?.adjusted ?? document.palette,
+        logoPalette: document.paletteAnalysis?.original ?? document.palette,
+        content: {
+          hasTitle: document.title.trim().length > 0,
+          hasDescription: document.description.trim().length > 0,
+          destinationCount: destinations.length,
+          hasLogo: Boolean(document.logoUrl),
+        },
+        media: {
+          hasImage: Boolean(document.backgroundImageUrl),
+          hasVideo: Boolean(document.backgroundVideoUrl),
+        },
+      }),
+    [
+      document.design,
+      document.palette,
+      document.paletteAnalysis,
+      document.title,
+      document.description,
+      document.logoUrl,
+      document.backgroundImageUrl,
+      document.backgroundVideoUrl,
+      destinations,
+    ],
   );
 
   return { view, destinations, contrastIssues };
@@ -211,9 +231,13 @@ export function ScanMeLinksEditorPreview({
   const phoneStatusColor = useMemo(
     () =>
       safeNeutralForBackgrounds(
-        backgroundContrastSamples(document.design),
+        backgroundContrastSamples(document.design, {
+          mediaPresent:
+            Boolean(document.backgroundImageUrl) ||
+            Boolean(document.backgroundVideoUrl),
+        }),
       ),
-    [document.design],
+    [document.design, document.backgroundImageUrl, document.backgroundVideoUrl],
   );
 
   const canvasMaxScroll = Math.max(
@@ -343,7 +367,7 @@ export function ScanMeLinksEditorPreview({
             <SelectValue>{zoom}%</SelectValue>
           </SelectTrigger>
           <SelectContent className={styles.editorSelectContent}>
-            {[75, 90, 100, 110].map((value) => (
+            {[50, 75, 100, 125, 150].map((value) => (
               <SelectItem
                 key={value}
                 value={String(value)}

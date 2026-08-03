@@ -11,6 +11,7 @@ import {
   requireAdmin,
   requireAuthUser,
 } from "./lib/access";
+import { buildBusinessContactViews } from "./lib/contacts";
 import {
   aggregateMetricRowsForRange,
   metricsRangeConfig,
@@ -256,6 +257,12 @@ function normalizePaletteAnalysis(
         correctedRoles: string[];
         generationMode?: "light" | "dark";
         lockedSlots?: boolean[];
+        schemeType?:
+          | "complementary"
+          | "analogous"
+          | "monochromatic"
+          | "triadic"
+          | "split-complementary";
       }
     | null
     | undefined,
@@ -281,6 +288,7 @@ function normalizePaletteAnalysis(
     ...(value.lockedSlots
       ? { lockedSlots: value.lockedSlots.slice(0, 5) }
       : {}),
+    ...(value.schemeType ? { schemeType: value.schemeType } : {}),
   };
 }
 
@@ -944,11 +952,7 @@ export const recordClick = mutation({
 
 async function businessView(ctx: QueryCtx, business: Doc<"businesses">) {
   const profile = await profileForBusiness(ctx, business._id, "scanme_links");
-  const contacts = await ctx.db
-    .query("businessContacts")
-    .withIndex("by_businessId", (q) => q.eq("businessId", business._id))
-    .take(50);
-  const contact = contacts.find((row) => row.status !== "inactive") ?? null;
+  const contactView = await buildBusinessContactViews(ctx, business._id);
   const config = profile
     ? await ctx.db
         .query("scanMeLinksConfigs")
@@ -1022,16 +1026,9 @@ async function businessView(ctx: QueryCtx, business: Doc<"businesses">) {
     destinationCount: destinations.filter(
       (row) => row.draftState !== "deleted" && row.draftState !== "archived",
     ).length,
-    contact: contact
-      ? {
-          id: contact._id,
-          firstName: contact.firstName,
-          lastName: contact.lastName,
-          email: contact.normalizedEmail,
-          phone: contact.phone,
-          positionTitle: contact.positionTitle,
-        }
-      : null,
+    contact: contactView.contact,
+    contacts: contactView.contacts,
+    invitation: contactView.invitation,
   };
 }
 

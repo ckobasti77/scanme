@@ -3,7 +3,7 @@
 import { ConvexError } from "convex/values";
 import { useMutation, useQuery } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
-import { Archive, ArrowDown, ArrowUp, Copy, ExternalLink, ListFilter, LoaderCircle, MapPin, Pencil, Plus, RefreshCw, Save, ShieldOff, Trash2, UserRoundPlus } from "lucide-react";
+import { Archive, ArrowDown, ArrowUp, Copy, ExternalLink, ListFilter, LoaderCircle, MapPin, Pencil, Save, ShieldOff, Trash2 } from "lucide-react";
 import { useMemo, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { MetricsBarChart } from "@/components/metrics-bar-chart";
@@ -19,30 +19,13 @@ import { AdminGuard } from "./admin-guard";
 import { AdminShell } from "./admin-shell";
 import {
   CreateBusinessPopover,
-  InputField,
-  RoleField,
-  roleOptions,
-  validateContactValues,
-  type ContactDraft,
-  type ContactValues,
   type CreateBusinessValues,
 } from "./create-business-popover";
+import { PocAccessCard } from "./poc-access-panel";
 
 const dateFormatter = new Intl.DateTimeFormat("sr-Latn-RS", { dateStyle: "medium", timeStyle: "short" });
 
-const invitationLabels: Record<string, string> = {
-  queued: "Čeka slanje",
-  sent: "Poslata",
-  accepted: "Prihvaćena",
-  failed: "Slanje nije uspelo",
-  revoked: "Opozvana",
-  expired: "Istekla",
-};
-
-type BusinessList = FunctionReturnType<typeof api.admin.listBusinesses>;
 type BusinessMetrics = FunctionReturnType<typeof api.admin.getBusinessMetrics>;
-type ContactRecord = NonNullable<BusinessList[number]["contact"]>;
-type InvitationId = NonNullable<ContactRecord["invitation"]>["id"];
 
 type BusinessSort = "name" | "scans" | "status";
 type SortDirection = "asc" | "desc";
@@ -94,12 +77,6 @@ function GoogleReviewsWorkspace() {
   const updateDestination = useMutation(api.admin.updateDestination);
   const setBusinessActive = useMutation(api.admin.setBusinessActive);
   const archiveBusiness = useMutation(api.admin.archiveBusiness);
-  const resendInvitation = useMutation(api.admin.resendInvitation);
-  const revokeInvitation = useMutation(api.admin.revokeInvitation);
-  const addContact = useMutation(api.admin.addContact);
-  const updateContact = useMutation(api.admin.updateContact);
-  const deleteContact = useMutation(api.admin.deleteContact);
-  const replaceContact = useMutation(api.admin.replaceContact);
   const [pending, setPending] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -110,15 +87,17 @@ function GoogleReviewsWorkspace() {
     setError(null);
   }
 
+  function reasonMessage(reason: unknown) {
+    return reason instanceof ConvexError && typeof reason.data === "string"
+      ? reason.data
+      : reason instanceof Error
+        ? reason.message
+        : "Operacija nije uspela.";
+  }
+
   function fail(reason: unknown) {
     setMessage(null);
-    setError(
-      reason instanceof ConvexError && typeof reason.data === "string"
-        ? reason.data
-        : reason instanceof Error
-          ? reason.message
-          : "Operacija nije uspela.",
-    );
+    setError(reasonMessage(reason));
   }
 
   async function submitCreate(values: CreateBusinessValues) {
@@ -157,7 +136,7 @@ function GoogleReviewsWorkspace() {
         name: String(data.get("businessName") ?? ""),
       });
       form.closest("details")?.removeAttribute("open");
-      feedback("Naziv lokala je promenjen. QR slug i adrese ostali su isti.");
+      feedback("Naziv lokala je promenjen. Slug i sve adrese su automatski usklađeni; stare QR adrese i dalje rade.");
     } catch (reason) { fail(reason); } finally { setPending(null); }
   }
 
@@ -206,60 +185,6 @@ function GoogleReviewsWorkspace() {
     }
   }
 
-  async function resend(invitationId: InvitationId) {
-    setPending("invite");
-    try {
-      await resendInvitation({ invitationId });
-      feedback("Nova pozivnica je kreirana i stavljena u red za slanje.");
-    } catch (reason) { fail(reason); } finally { setPending(null); }
-  }
-
-  async function revoke(invitationId: InvitationId) {
-    if (!window.confirm("Opozvati ovu pozivnicu? Link iz emaila više neće raditi.")) return;
-    setPending("invite");
-    try {
-      await revokeInvitation({ invitationId });
-      feedback("Pozivnica je opozvana.");
-    } catch (reason) { fail(reason); } finally { setPending(null); }
-  }
-
-  async function submitContact(values: ContactValues, mode: "edit" | "replace" | "add", contactId?: ContactRecord["id"]) {
-    if (!selected) return false;
-    const pendingKey = `contact:${mode}`;
-    setPending(pendingKey);
-    try {
-      if (mode === "edit") {
-        if (!contactId) return false;
-        const result = await updateContact({ businessId: selected.id, contactId, ...values });
-        feedback(result.invitationId ? "POC kontakt je izmenjen. Pozivnica je pripremljena, ali email nije poslat automatski." : "POC kontakt je izmenjen. Status pozivnice nije promenjen.");
-      } else if (mode === "replace") {
-        const result = await replaceContact({ businessId: selected.id, ...values });
-        feedback(result.invitationId ? "POC kontakt je zamenjen, a pozivnica je pripremljena bez automatskog slanja emaila." : "POC kontakt je zamenjen. Email i pozivnica mogu se dodati kasnije.");
-      } else {
-        await addContact({ businessId: selected.id, ...values });
-        feedback("Novi POC kontakt je sačuvan. Email pozivnice nije poslat automatski.");
-      }
-      return true;
-    } catch (reason) {
-      fail(reason);
-      return false;
-    } finally {
-      setPending(null);
-    }
-  }
-
-  async function removeContact(contactId: ContactRecord["id"]) {
-    if (!selected || !window.confirm("Obrisati ovaj dodatni POC kontakt?")) return;
-    setPending("contact:delete");
-    try {
-      await deleteContact({ businessId: selected.id, contactId });
-      feedback("Dodatni POC kontakt je obrisan.");
-    } catch (reason) {
-      fail(reason);
-    } finally {
-      setPending(null);
-    }
-  }
 
   return (
     <>
@@ -454,16 +379,11 @@ function GoogleReviewsWorkspace() {
               ) : null}
 
               <div className="grid gap-6 xl:grid-cols-2">
-                <ContactPanel
+                <PocAccessCard
                   key={selected.id}
-                  selected={selected}
-                  pending={pending}
-                  onResend={resend}
-                  onRevoke={revoke}
-                  onEdit={(values, contactId) => submitContact(values, "edit", contactId)}
-                  onReplace={(values) => submitContact(values, "replace")}
-                  onAdd={(values) => submitContact(values, "add")}
-                  onDelete={removeContact}
+                  businessId={selected.id}
+                  contact={selected.contact}
+                  contacts={selected.contacts}
                 />
                 <RecentScans metrics={metrics} range={graphRange} onRangeChange={setGraphRange} />
               </div>
@@ -479,11 +399,11 @@ function MetricStrip({ metrics, range, onRangeChange }: { metrics: BusinessMetri
   if (metrics === undefined) return <div className="mt-7 h-24 animate-pulse bg-secondary" />;
   return (
     <dl className="mt-7 grid border border-border sm:grid-cols-3">
-      <div className="p-4 sm:p-5"><dt className="text-xs text-muted-foreground">Ukupno</dt><dd className="mt-3 text-3xl font-semibold tabular-nums text-primary">{metrics?.total ?? 0}</dd></div>
-      <div className="border-t border-border p-4 sm:border-l sm:border-t-0 sm:p-5"><dt className="text-xs text-muted-foreground">Danas</dt><dd className="mt-3 text-3xl font-semibold tabular-nums text-primary">{metrics?.today ?? 0}</dd></div>
+      <div className="p-4 sm:p-5"><dt className="flex min-h-9 items-center text-xs text-muted-foreground">Ukupno</dt><dd className="mt-2 text-3xl font-semibold tabular-nums text-primary">{metrics?.total ?? 0}</dd></div>
+      <div className="border-t border-border p-4 sm:border-l sm:border-t-0 sm:p-5"><dt className="flex min-h-9 items-center text-xs text-muted-foreground">Danas</dt><dd className="mt-2 text-3xl font-semibold tabular-nums text-primary">{metrics?.today ?? 0}</dd></div>
       <div className="border-t border-border p-4 sm:border-l sm:border-t-0 sm:p-5">
-        <dt><MetricsPeriodSelect value={range} onChange={onRangeChange} ariaLabel="Period prikazane metrike" /></dt>
-        <dd className="mt-3 text-3xl font-semibold tabular-nums text-primary">{metrics?.summaryPeriodTotal ?? metrics?.periodTotal ?? metrics?.last7Days ?? 0}</dd>
+        <dt className="flex min-h-9 items-center"><MetricsPeriodSelect value={range} onChange={onRangeChange} ariaLabel="Period prikazane metrike" triggerClassName="min-h-9 justify-start text-left" /></dt>
+        <dd className="mt-2 text-3xl font-semibold tabular-nums text-primary">{metrics?.summaryPeriodTotal ?? metrics?.periodTotal ?? metrics?.last7Days ?? 0}</dd>
       </div>
     </dl>
   );
@@ -605,116 +525,6 @@ function LinkRow({
           </div>
         </form>
       ) : null}
-    </div>
-  );
-}
-
-function ContactForm({ initial, pending, submitLabel, onSubmit, onCancel }: { initial?: ContactValues; pending: boolean; submitLabel: string; onSubmit: (values: ContactValues) => Promise<boolean>; onCancel: () => void }) {
-  const initialValues = initial ?? { firstName: "", lastName: "", email: "", phone: "", positionTitle: "" };
-  const initialRole = roleOptions.includes(initialValues.positionTitle as (typeof roleOptions)[number]) ? initialValues.positionTitle as ContactDraft["roleChoice"] : initialValues.positionTitle ? "custom" : "";
-  const [values, setValues] = useState<ContactValues>(initialValues);
-  const [roleChoice, setRoleChoice] = useState<ContactDraft["roleChoice"]>(initialRole);
-  const [customRole, setCustomRole] = useState(initialRole === "custom" ? initialValues.positionTitle : "");
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [touched, setTouched] = useState<Record<string, boolean>>({});
-
-  function currentValues(): ContactValues {
-    return { ...values, positionTitle: roleChoice === "custom" ? customRole : roleChoice };
-  }
-
-  function markTouched(field: string) {
-    setTouched((current) => ({ ...current, [field]: true }));
-    setErrors(validateContactValues(currentValues(), true));
-  }
-
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const nextErrors = validateContactValues(currentValues(), true);
-    setTouched({ firstName: true, lastName: true, email: true, phone: true, positionTitle: true });
-    setErrors(nextErrors);
-    if (Object.keys(nextErrors).length) {
-      document.getElementById(Object.keys(nextErrors)[0])?.focus();
-      return;
-    }
-    if (await onSubmit(currentValues())) onCancel();
-  }
-
-  return <form onSubmit={submit} noValidate className="mt-4 grid gap-3 border-t border-border pt-4 sm:grid-cols-2"><p className="text-xs leading-5 text-muted-foreground sm:col-span-2">Obavezni su samo ime i prezime. Email, telefon i uloga mogu se dodati kasnije.</p><InputField id="contact-form-firstName" label="Ime" value={values.firstName} required error={touched.firstName ? errors.firstName : undefined} onChange={(value) => setValues((current) => ({ ...current, firstName: value }))} onBlur={() => markTouched("firstName")} /><InputField id="contact-form-lastName" label="Prezime" value={values.lastName} required error={touched.lastName ? errors.lastName : undefined} onChange={(value) => setValues((current) => ({ ...current, lastName: value }))} onBlur={() => markTouched("lastName")} /><InputField id="contact-form-email" label="Email" type="email" value={values.email} error={touched.email ? errors.email : undefined} onChange={(value) => setValues((current) => ({ ...current, email: value }))} onBlur={() => markTouched("email")} /><InputField id="contact-form-phone" label="Telefon" type="tel" value={values.phone} error={touched.phone ? errors.phone : undefined} onChange={(value) => setValues((current) => ({ ...current, phone: value }))} onBlur={() => markTouched("phone")} /><RoleField id="contact-form-role" value={roleChoice} customValue={customRole} error={touched.positionTitle ? errors.positionTitle : undefined} onChange={(value) => { setRoleChoice(value); setValues((current) => ({ ...current, positionTitle: value === "custom" ? "" : value })); }} onCustomChange={(value) => { setCustomRole(value); setValues((current) => ({ ...current, positionTitle: value })); }} onBlur={() => markTouched("positionTitle")} /><div className="flex flex-wrap gap-2 sm:col-span-2"><Button type="submit" disabled={pending}>{pending ? <LoaderCircle className="size-4 animate-spin" /> : <Save className="size-4" />} {submitLabel}</Button><Button type="button" variant="outline" disabled={pending} onClick={onCancel}>Otkaži</Button></div></form>;
-}
-
-function ContactPanel({ selected, pending, onResend, onRevoke, onEdit, onReplace, onAdd, onDelete }: {
-  selected: BusinessList[number];
-  pending: string | null;
-  onResend: (invitationId: InvitationId) => void;
-  onRevoke: (invitationId: InvitationId) => void;
-  onEdit: (values: ContactValues, contactId: ContactRecord["id"]) => Promise<boolean>;
-  onReplace: (values: ContactValues) => Promise<boolean>;
-  onAdd: (values: ContactValues) => Promise<boolean>;
-  onDelete: (contactId: ContactRecord["id"]) => void;
-}) {
-  const [mode, setMode] = useState<"edit" | "replace" | "add" | null>(null);
-  const [activeContactId, setActiveContactId] = useState<ContactRecord["id"] | null>(selected.contact?.id ?? null);
-  const contacts = selected.contacts ?? (selected.contact ? [selected.contact] : []);
-  const primaryContactId = selected.contact?.id ?? null;
-  const activeContact = contacts.find((candidate) => candidate.id === activeContactId) ?? selected.contact;
-  const activeInvitation = activeContact?.invitation ?? null;
-  const isPrimary = activeContact?.id === primaryContactId;
-
-  function chooseContact(value: string) {
-    setActiveContactId(value as ContactRecord["id"]);
-    setMode(null);
-  }
-
-  return (
-    <div className="border border-border bg-card p-5 sm:p-7">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <h3 className="font-semibold">POC pristup</h3>
-        {contacts.length ? (
-          <div className="grid gap-2 sm:justify-items-end">
-            <label htmlFor="choose-poc" className="text-xs text-muted-foreground">Choose POC</label>
-            <Select value={activeContact?.id ?? ""} onValueChange={chooseContact}>
-              <SelectTrigger id="choose-poc" className="h-11 w-full sm:w-56" aria-label="Choose POC">
-                <SelectValue placeholder="Choose POC" />
-              </SelectTrigger>
-              <SelectContent>
-                {contacts.map((candidate) => (
-                  <SelectItem key={candidate.id} value={candidate.id}>
-                    {candidate.firstName} {candidate.lastName}{candidate.id === primaryContactId ? " *" : ""}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        ) : null}
-      </div>
-
-      {activeContact ? (
-        <dl className="mt-5 grid gap-3 text-sm">
-          <div><dt className="text-xs text-muted-foreground">Kontakt</dt><dd className="mt-1">{activeContact.firstName} {activeContact.lastName}</dd></div>
-          <div><dt className="text-xs text-muted-foreground">Email i telefon</dt><dd className="mt-1 break-all">{activeContact.email}<br />{activeContact.phone}</dd></div>
-          <div><dt className="text-xs text-muted-foreground">Uloga</dt><dd className="mt-1">{activeContact.positionTitle}</dd></div>
-          <div><dt className="text-xs text-muted-foreground">Pozivnica</dt><dd className="mt-1">{activeInvitation ? invitationLabels[activeInvitation.status] ?? activeInvitation.status : "Nije kreirana"}</dd>{activeInvitation?.failureReason ? <p className="mt-2 text-xs leading-5 text-destructive">{activeInvitation.failureReason}</p> : null}</div>
-        </dl>
-      ) : <p className="mt-4 text-sm text-muted-foreground">POC nije dodat.</p>}
-
-      {activeInvitation && activeInvitation.status !== "accepted" ? (
-        <div className="mt-5 flex flex-wrap gap-2">
-          <Button type="button" variant="outline" onClick={() => onResend(activeInvitation.id)} disabled={pending === "invite"}><RefreshCw className="size-4" /> {activeInvitation.status === "queued" ? "Pošalji" : "Pošalji novu"}</Button>
-          {activeInvitation.status !== "revoked" ? <Button type="button" variant="destructive" onClick={() => onRevoke(activeInvitation.id)} disabled={pending === "invite"}>Opozovi</Button> : null}
-        </div>
-      ) : null}
-
-      <div className="mt-6 grid gap-2 border-t border-border pt-5">
-        <Button type="button" variant={mode === "edit" ? "default" : "outline"} disabled={!activeContact || pending?.startsWith("contact:")} onClick={() => setMode(mode === "edit" ? null : "edit")}><Pencil className="size-4" /> Izmeni POC kontakt</Button>
-        <Button type="button" variant={mode === "replace" ? "default" : "outline"} disabled={pending?.startsWith("contact:")} onClick={() => setMode(mode === "replace" ? null : "replace")}><UserRoundPlus className="size-4" /> Zameni POC kontakt</Button>
-        <Button type="button" variant={mode === "add" ? "default" : "outline"} disabled={pending?.startsWith("contact:")} onClick={() => setMode(mode === "add" ? null : "add")}><Plus className="size-4" /> Dodaj novi POC kontakt</Button>
-      </div>
-
-      {mode === "edit" && activeContact ? <ContactForm initial={{ firstName: activeContact.firstName, lastName: activeContact.lastName, email: activeContact.email, phone: activeContact.phone, positionTitle: activeContact.positionTitle }} pending={pending === "contact:edit"} submitLabel="Sačuvaj izmene" onSubmit={(values) => onEdit(values, activeContact.id)} onCancel={() => setMode(null)} /> : null}
-      {mode === "replace" ? <ContactForm pending={pending === "contact:replace"} submitLabel="Zameni kontakt" onSubmit={onReplace} onCancel={() => setMode(null)} /> : null}
-      {mode === "add" ? <ContactForm pending={pending === "contact:add"} submitLabel="Dodaj POC kontakt" onSubmit={onAdd} onCancel={() => setMode(null)} /> : null}
-
-      {activeContact && !isPrimary ? <Button type="button" variant="destructive" className="mt-4 w-full" disabled={pending === "contact:delete"} onClick={() => onDelete(activeContact.id)}><Trash2 className="size-4" /> Obriši POC</Button> : null}
     </div>
   );
 }

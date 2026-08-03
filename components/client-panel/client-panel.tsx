@@ -381,17 +381,17 @@ function MetricsPanel({ slug }: { slug: string }) {
         <Button variant="outline" onClick={() => void signOut()}><LogOut className="size-4" /> Odjava</Button>
       </div>
       <dl className="mt-7 grid grid-cols-1 border border-border bg-card sm:grid-cols-2 lg:grid-cols-[1.55fr_1fr_1fr]">
-        <div className="relative col-span-1 flex min-h-36 flex-col items-center justify-center overflow-hidden border-b border-border p-5 text-center sm:col-span-2 sm:min-h-52 sm:p-7 lg:col-span-1 lg:border-b-0">
-          <dt className="text-xs text-muted-foreground">Ukupno skeniranja</dt>
+        <div className="relative col-span-1 flex min-h-36 flex-col overflow-hidden border-b border-border p-5 text-center sm:col-span-2 sm:min-h-52 sm:p-7 lg:col-span-1 lg:border-b-0">
+          <dt className="flex min-h-9 items-center justify-center text-xs text-muted-foreground">Ukupno skeniranja</dt>
           <AnimatedTotal value={metrics.total} />
         </div>
-        <div className="flex min-h-36 flex-col items-center justify-center border-b border-border p-5 text-center sm:min-h-52 sm:border-b-0 sm:border-r sm:p-7 lg:border-l">
-          <dt className="text-xs text-muted-foreground">Danas</dt>
-          <dd className="mt-5 text-3xl font-semibold tabular-nums text-primary sm:text-4xl">{numberFormatter.format(metrics.today)}</dd>
+        <div className="flex min-h-36 flex-col border-b border-border p-5 text-center sm:min-h-52 sm:border-b-0 sm:border-r sm:p-7 lg:border-l">
+          <dt className="flex min-h-9 items-center justify-center text-xs text-muted-foreground">Danas</dt>
+          <dd className="flex flex-1 items-center justify-center text-3xl font-semibold tabular-nums text-primary sm:text-4xl">{numberFormatter.format(metrics.today)}</dd>
         </div>
-        <div className="flex min-h-36 flex-col items-center justify-center p-5 text-center sm:min-h-52 sm:p-7">
-          <dt className="w-full"><MetricsPeriodSelect value={summaryRange} onChange={setSummaryRange} ariaLabel="Period prikazane metrike" /></dt>
-          <dd className="mt-5 text-3xl font-semibold tabular-nums text-primary sm:text-4xl">{numberFormatter.format(metrics.summaryPeriodTotal)}</dd>
+        <div className="flex min-h-36 flex-col p-5 text-center sm:min-h-52 sm:p-7">
+          <dt className="flex min-h-9 items-center justify-center"><MetricsPeriodSelect value={summaryRange} onChange={setSummaryRange} ariaLabel="Period prikazane metrike" triggerClassName="min-h-9" /></dt>
+          <dd className="flex flex-1 items-center justify-center text-3xl font-semibold tabular-nums text-primary sm:text-4xl">{numberFormatter.format(metrics.summaryPeriodTotal)}</dd>
         </div>
       </dl>
       <section className="mt-5 border border-border bg-card p-5 sm:mt-7 sm:p-7">
@@ -436,7 +436,7 @@ function AnimatedTotal({ value }: { value: number }) {
   }, [count, reducedMotion, value]);
 
   return (
-    <dd className="mt-5 text-center" aria-live="polite" aria-atomic="true">
+    <dd className="flex flex-1 flex-col items-center justify-center text-center" aria-live="polite" aria-atomic="true">
       <span className="sr-only">{numberFormatter.format(value)} ukupno skeniranja</span>
       <motion.span aria-hidden="true" className="block text-6xl font-semibold leading-none tabular-nums tracking-[-0.07em] text-primary sm:text-7xl">
         {displayedCount}

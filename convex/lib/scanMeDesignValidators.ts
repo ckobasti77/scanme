@@ -34,12 +34,21 @@ export const destinationPresentationValidator = v.union(
   v.literal("social"),
 );
 
+export const paletteSchemeTypeValidator = v.union(
+  v.literal("complementary"),
+  v.literal("analogous"),
+  v.literal("monochromatic"),
+  v.literal("triadic"),
+  v.literal("split-complementary"),
+);
+
 export const paletteAnalysisValidator = v.object({
   original: v.array(v.string()),
   adjusted: v.array(v.string()),
   correctedRoles: v.array(v.string()),
   generationMode: v.optional(v.union(v.literal("light"), v.literal("dark"))),
   lockedSlots: v.optional(v.array(v.boolean())),
+  schemeType: v.optional(paletteSchemeTypeValidator),
 });
 
 export const scanMeBackgroundValidator = v.union(
@@ -260,6 +269,9 @@ export const scanMeDesignV2Validator = v.object({
   effects: v.optional(
     v.object({
       textShadow: scanMeShadowValidator,
+      titleShadow: v.optional(scanMeShadowValidator),
+      descriptionShadow: v.optional(scanMeShadowValidator),
+      buttonTextShadow: v.optional(scanMeShadowValidator),
       logoShadow: scanMeShadowValidator,
     }),
   ),

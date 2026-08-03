@@ -5,6 +5,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { slugify } from "@/lib/scanme-links";
 
 export const slugFormatMessage = "Format: mala slova a-z, cifre 0-9 i pojedinačne crtice između reči, bez razmaka ili crtice na početku/kraju (npr. naziv-lokala), najviše 66 karaktera.";
 export const emailFormatMessage = "Unesite email u formatu ime@domen.rs.";
@@ -36,16 +37,7 @@ export function emptyContact(id: number): ContactDraft {
   return { id, firstName: "", lastName: "", email: "", phone: "", positionTitle: "", roleChoice: "", customRole: "" };
 }
 
-export function slugify(value: string) {
-  return value
-    .toLowerCase()
-    .replace(/đ/g, "dj")
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 66);
-}
+export { slugify };
 
 export function isValidEmail(value: string) {
   return value.trim().length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());

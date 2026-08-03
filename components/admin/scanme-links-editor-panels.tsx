@@ -13,7 +13,7 @@ import {
   Waves,
 } from "lucide-react";
 import { motion } from "framer-motion";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { EditorTooltip } from "@/components/admin/editor-tooltip";
 import { ScanMeColorField as ColorField } from "@/components/admin/scanme-color-picker";
 import { ScanMeSmartPalette } from "@/components/admin/scanme-smart-palette";
@@ -1147,6 +1147,7 @@ function ShadowControls({
   shadow,
   groupPrefix,
   onChange,
+  headerExtra,
 }: {
   title: string;
   description: string;
@@ -1154,6 +1155,7 @@ function ShadowControls({
   shadow: ScanMeLinksShadowV2;
   groupPrefix: string;
   onChange: (shadow: ScanMeLinksShadowV2, group: string) => void;
+  headerExtra?: ReactNode;
 }) {
   function patchShadow(
     patch: Partial<ScanMeLinksShadowV2>,
@@ -1178,6 +1180,8 @@ function ShadowControls({
           onClick={() => patchShadow({ enabled: !shadow.enabled }, "toggle")}
         />
       </div>
+
+      {headerExtra}
 
       {shadow.enabled ? (
         <div className={cn(styles.fieldGrid, "mt-4")}>
@@ -1221,6 +1225,118 @@ function ShadowControls({
         </div>
       ) : null}
     </section>
+  );
+}
+
+const TEXT_SHADOW_TARGETS = [
+  { value: "global", label: "Sve (globalno)" },
+  { value: "title", label: "Naslov" },
+  { value: "description", label: "Opis" },
+  { value: "buttonText", label: "Tekst dugmadi" },
+] as const;
+
+type TextShadowTarget = (typeof TEXT_SHADOW_TARGETS)[number]["value"];
+
+// Wraps ShadowControls with a target selector so the user can edit the global text
+// shadow (default) or a per-element override for the title, description, or button text.
+function TextShadowControls({
+  document,
+  setDocument,
+}: {
+  document: ScanMeLinksEditorDocument;
+  setDocument: EditorDocumentSetter;
+}) {
+  const [target, setTarget] = useState<TextShadowTarget>("global");
+  const effects = document.design.effects;
+  const override =
+    target === "title"
+      ? effects.titleShadow
+      : target === "description"
+        ? effects.descriptionShadow
+        : target === "buttonText"
+          ? effects.buttonTextShadow
+          : undefined;
+  const activeShadow =
+    target === "global" ? effects.textShadow : override ?? effects.textShadow;
+  const hasOverride = target !== "global" && override != null;
+
+  function applyShadow(shadow: ScanMeLinksShadowV2, group: string) {
+    setDocument((current) => {
+      const currentEffects = current.design.effects;
+      const nextEffects =
+        target === "global"
+          ? { ...currentEffects, textShadow: shadow }
+          : target === "title"
+            ? { ...currentEffects, titleShadow: shadow }
+            : target === "description"
+              ? { ...currentEffects, descriptionShadow: shadow }
+              : { ...currentEffects, buttonTextShadow: shadow };
+      return {
+        ...current,
+        design: { ...current.design, effects: nextEffects },
+      };
+    }, group);
+  }
+
+  function resetToGlobal() {
+    if (target === "global") return;
+    setDocument((current) => {
+      const nextEffects = { ...current.design.effects };
+      if (target === "title") delete nextEffects.titleShadow;
+      else if (target === "description") delete nextEffects.descriptionShadow;
+      else delete nextEffects.buttonTextShadow;
+      return {
+        ...current,
+        design: { ...current.design, effects: nextEffects },
+      };
+    }, "text-shadow-reset");
+  }
+
+  return (
+    <ShadowControls
+      title="Senka teksta"
+      description="Globalna senka za sav tekst, ili zasebna senka za naslov, opis i tekst dugmadi."
+      switchLabel="Uključi senku teksta"
+      shadow={activeShadow}
+      groupPrefix={`text-shadow-${target}`}
+      onChange={applyShadow}
+      headerExtra={
+        <>
+          <div className={styles.paletteModeRow}>
+            <span className={styles.paletteModeLabel}>Primeni na</span>
+            <Select
+              value={target}
+              onValueChange={(value) => setTarget(value as TextShadowTarget)}
+            >
+              <SelectTrigger
+                className="h-9 w-40 text-xs"
+                aria-label="Element za senku teksta"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {TEXT_SHADOW_TARGETS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          {hasOverride ? (
+            <div className="mt-2 flex justify-end">
+              <button
+                type="button"
+                className="text-[10px] font-semibold text-black/45 underline underline-offset-2 transition-colors hover:text-black/70"
+                onClick={resetToGlobal}
+              >
+                Vrati na globalnu senku
+              </button>
+            </div>
+          ) : null}
+        </>
+      }
+    />
   );
 }
 
@@ -1438,25 +1554,7 @@ export function TextPanel({
         </div>
       </section>
 
-      <ShadowControls
-        title="Senka teksta"
-        description="Jedna senka za naslov, opis i tekst dugmadi."
-        switchLabel="Uključi senku teksta"
-        shadow={document.design.effects.textShadow}
-        groupPrefix="text-shadow"
-        onChange={(textShadow, group) =>
-          setDocument(
-            (current) => ({
-              ...current,
-              design: {
-                ...current.design,
-                effects: { ...current.design.effects, textShadow },
-              },
-            }),
-            group,
-          )
-        }
-      />
+      <TextShadowControls document={document} setDocument={setDocument} />
     </div>
   );
 }

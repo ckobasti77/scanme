@@ -41,17 +41,48 @@ export type PaletteTargetRole =
 
 export const DEFAULT_PALETTE_LOCKS = [false, false, true, false, false] as const;
 
-const HARMONY_RECIPES = [
-  { surface: 0, text: 0, button: 0 },
-  { surface: -7, text: 3, button: 14 },
-  { surface: 8, text: -3, button: -16 },
-  { surface: -12, text: 5, button: 24 },
-  { surface: 12, text: -5, button: -24 },
+export const PALETTE_SCHEME_TYPES = [
+  "complementary",
+  "analogous",
+  "monochromatic",
+  "triadic",
+  "split-complementary",
 ] as const;
+export type PaletteSchemeType = (typeof PALETTE_SCHEME_TYPES)[number];
+export const DEFAULT_PALETTE_SCHEME: PaletteSchemeType = "complementary";
+
+// Tasteful clamp so no generated role ever reaches pure black/white, and neutrals keep a
+// whisper of chroma instead of reading as dead grey.
+const ROLE_L_MIN = 0.14;
+const ROLE_L_MAX = 0.95;
+const ROLE_C_FLOOR = 0.008;
+
+// A "scheme" manifests through two levers: the button hue (the one high-chroma non-anchor
+// slot → the scheme's secondary pole) and a subtle shared neutral undertone. Lightness and
+// chroma targets are identical across schemes; only hue changes.
+// `dir` ∈ {+1,-1} chooses which side of the anchor the scheme leans (from the logo's
+// secondary color when present, otherwise the seed).
+const SCHEME_HUE_PLANS: Record<
+  PaletteSchemeType,
+  {
+    buttonBase: number;
+    buttonSpread: number;
+    neutralBase: number;
+    neutralSpread: number;
+    useDir: boolean;
+  }
+> = {
+  monochromatic: { buttonBase: 0, buttonSpread: 0, neutralBase: 0, neutralSpread: 0, useDir: false },
+  analogous: { buttonBase: 0, buttonSpread: -30, neutralBase: 0, neutralSpread: 10, useDir: true },
+  complementary: { buttonBase: 180, buttonSpread: 0, neutralBase: 8, neutralSpread: 0, useDir: false },
+  "split-complementary": { buttonBase: 180, buttonSpread: -30, neutralBase: 0, neutralSpread: 8, useDir: true },
+  triadic: { buttonBase: 0, buttonSpread: 120, neutralBase: 0, neutralSpread: 0, useDir: true },
+};
 
 type GeneratePaletteOptions = {
   sourceColors: string[];
   mode: PaletteGenerationMode;
+  schemeType?: PaletteSchemeType;
   currentColors?: string[];
   lockedSlots?: boolean[];
   seed?: number;
@@ -70,20 +101,34 @@ function hueDistance(first: number, second: number) {
   return Math.abs(((second - first + 540) % 360) - 180);
 }
 
-function harmoniousSourceHue(
-  anchor: ReturnType<typeof colorToOklch>,
+// Which side of the anchor the scheme leans. Prefer the logo's second color (so the scheme
+// stays tied to the brand and doesn't flip sides on regenerate); otherwise vary by seed.
+function schemeDirection(
+  anchorHue: number,
   secondary: ReturnType<typeof colorToOklch> | null,
-) {
-  const anchorHue = anchor.h ?? secondary?.h ?? 80;
-  if (
-    secondary?.h === undefined ||
-    secondary.c < 0.025 ||
-    hueDistance(anchorHue, secondary.h) > 48
-  ) {
-    return anchorHue;
+  seed: number,
+): 1 | -1 {
+  if (secondary?.h != null && secondary.c >= 0.03) {
+    const delta = ((secondary.h - anchorHue + 540) % 360) - 180;
+    if (Math.abs(delta) > 4) return delta >= 0 ? 1 : -1;
   }
-  const delta = ((secondary.h - anchorHue + 540) % 360) - 180;
-  return hue(anchorHue + delta * 0.3);
+  return seededNoise(seed, 99) >= 0 ? 1 : -1;
+}
+
+// If the logo already contains a real color near the scheme's secondary pole, use that
+// exact hue for the button so the palette stays maximally tied to the logo.
+function resolveButtonHue(
+  syntheticHue: number,
+  secondary: ReturnType<typeof colorToOklch> | null,
+): number {
+  if (
+    secondary?.h != null &&
+    secondary.c >= 0.03 &&
+    hueDistance(secondary.h, syntheticHue) <= 22
+  ) {
+    return secondary.h;
+  }
+  return syntheticHue;
 }
 
 function avoidPureNeutral(color: string) {
@@ -92,17 +137,36 @@ function avoidPureNeutral(color: string) {
   return color;
 }
 
+// Clamp a role color into the tasteful band (never pure black/white) with a chroma floor,
+// then a last-resort pure-neutral swap.
+function sanitizeRoleColor(
+  lightness: number,
+  chroma: number,
+  hueValue: number,
+  chromaCap: number,
+) {
+  return avoidPureNeutral(
+    oklchToHex({
+      mode: "oklch",
+      l: clamp(lightness, ROLE_L_MIN, ROLE_L_MAX),
+      c: clamp(chroma, ROLE_C_FLOOR, chromaCap),
+      h: hue(hueValue),
+    }),
+  );
+}
+
 function createRoleColor(
-  anchor: ReturnType<typeof colorToOklch>,
+  anchorChroma: number,
   role: Exclude<GeneratedPaletteRole, "accent">,
   mode: PaletteGenerationMode,
-  hueOffset: number,
+  schemeHue: number,
   seed: number,
+  chromaScale = 1,
 ) {
   const light = mode === "light";
   const targets = light
     ? {
-        background: [0.96, 0.014],
+        background: [0.95, 0.014],
         surface: [0.895, 0.024],
         text: [0.225, 0.022],
         button: [0.52, 0.105],
@@ -115,18 +179,18 @@ function createRoleColor(
       };
   const [targetLightness, targetChroma] = targets[role];
   const chromaInfluence = role === "text" ? 0.07 : role === "button" ? 0.46 : 0.1;
+  const chromaCap = role === "button" ? 0.16 : role === "text" ? 0.04 : 0.05;
   const lightnessJitter = role === "button" ? 0.018 : 0.008;
 
-  return avoidPureNeutral(oklchToHex({
-    mode: "oklch",
-    l: clamp(targetLightness + seededNoise(seed, role.length) * lightnessJitter),
-    c: clamp(
-      targetChroma + anchor.c * chromaInfluence + seededNoise(seed, role.length + 9) * 0.005,
-      0,
-      role === "button" ? 0.16 : role === "text" ? 0.04 : 0.05,
-    ),
-    h: hue((anchor.h ?? 80) + hueOffset + seededNoise(seed, role.length + 17) * 2.5),
-  }));
+  return sanitizeRoleColor(
+    targetLightness + seededNoise(seed, role.length) * lightnessJitter,
+    (targetChroma +
+      anchorChroma * chromaInfluence +
+      seededNoise(seed, role.length + 9) * 0.005) *
+      chromaScale,
+    schemeHue + seededNoise(seed, role.length + 17) * 2.5,
+    chromaCap,
+  );
 }
 
 function preventSourceDuplicate(color: string, sourceColors: string[], index: number) {
@@ -151,6 +215,7 @@ export function inferPaletteMode(color: string): PaletteGenerationMode {
 export function generateScanMePalette({
   sourceColors,
   mode,
+  schemeType = DEFAULT_PALETTE_SCHEME,
   currentColors = [],
   lockedSlots,
   seed = 0,
@@ -160,18 +225,43 @@ export function generateScanMePalette({
     : [normalizeColorHex(currentColors[2] ?? "#7A5C43")];
   const anchorHex = sources[0];
   const anchor = colorToOklch(anchorHex);
+  const secondary = sources[1] ? colorToOklch(sources[1]) : null;
   const locks = normalizePaletteLocks(lockedSlots);
-  const recipe = HARMONY_RECIPES[Math.abs(seed) % HARMONY_RECIPES.length];
-  const secondarySource = sources[1] ? colorToOklch(sources[1]) : null;
-  const baseHue = harmoniousSourceHue(anchor, secondarySource);
-  const familyAnchor = { ...anchor, h: baseHue };
+
+  const baseHue = anchor.h ?? secondary?.h ?? 80;
+  const plan = SCHEME_HUE_PLANS[schemeType];
+  const dir = plan.useDir ? schemeDirection(baseHue, secondary, seed) : 1;
+
+  // A grey/black/white logo has no hue to build a complement/triad from — treat it as
+  // monochromatic and keep the whole palette near-neutral rather than inventing a color.
+  const achromatic = anchor.c < 0.02;
+  const chromaScale = achromatic ? 0.25 : 1;
+  const neutralHue = achromatic
+    ? baseHue
+    : hue(
+        baseHue +
+          plan.neutralBase +
+          plan.neutralSpread * dir +
+          seededNoise(seed, 37) * 4,
+      );
+  const buttonHue = achromatic
+    ? neutralHue
+    : resolveButtonHue(
+        hue(
+          baseHue +
+            plan.buttonBase +
+            plan.buttonSpread * dir +
+            seededNoise(seed, 31) * 8,
+        ),
+        secondary,
+      );
 
   const generated = [
-    createRoleColor(familyAnchor, "background", mode, recipe.surface * 0.35, seed + 1),
-    createRoleColor(familyAnchor, "surface", mode, recipe.surface, seed + 2),
+    createRoleColor(anchor.c, "background", mode, neutralHue, seed + 1, chromaScale),
+    createRoleColor(anchor.c, "surface", mode, neutralHue, seed + 2, chromaScale),
     anchorHex,
-    createRoleColor(familyAnchor, "text", mode, recipe.text, seed + 3),
-    createRoleColor(familyAnchor, "button", mode, recipe.button, seed + 4),
+    createRoleColor(anchor.c, "text", mode, neutralHue, seed + 3, chromaScale),
+    createRoleColor(anchor.c, "button", mode, buttonHue, seed + 4, chromaScale),
   ].map((color, index) =>
     index === 2 ? anchorHex : preventSourceDuplicate(color, sources, index),
   );

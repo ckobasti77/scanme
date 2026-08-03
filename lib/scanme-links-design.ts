@@ -183,7 +183,13 @@ export type ScanMeLinksDesignV2 = {
     animation: ScanMeLinksButtonAnimation;
   };
   effects: {
+    // Global text shadow, applied to any text element without its own override.
     textShadow: ScanMeLinksShadowV2;
+    // Optional per-element overrides. When present they replace the global shadow for
+    // that element only; when absent the element inherits `textShadow`.
+    titleShadow?: ScanMeLinksShadowV2;
+    descriptionShadow?: ScanMeLinksShadowV2;
+    buttonTextShadow?: ScanMeLinksShadowV2;
     logoShadow: ScanMeLinksShadowV2;
   };
   typography: {
@@ -778,6 +784,30 @@ export function normalizeDesignForPreset(
         design.effects?.textShadow,
         fallback.effects.textShadow,
       ),
+      ...(design.effects?.titleShadow
+        ? {
+            titleShadow: normalizeShadow(
+              design.effects.titleShadow,
+              fallback.effects.textShadow,
+            ),
+          }
+        : {}),
+      ...(design.effects?.descriptionShadow
+        ? {
+            descriptionShadow: normalizeShadow(
+              design.effects.descriptionShadow,
+              fallback.effects.textShadow,
+            ),
+          }
+        : {}),
+      ...(design.effects?.buttonTextShadow
+        ? {
+            buttonTextShadow: normalizeShadow(
+              design.effects.buttonTextShadow,
+              fallback.effects.textShadow,
+            ),
+          }
+        : {}),
       logoShadow: normalizeShadow(
         design.effects?.logoShadow,
         fallback.effects.logoShadow,

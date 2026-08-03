@@ -194,7 +194,7 @@
   line-height: 1.12;
   overflow-wrap: anywhere;
   text-wrap: balance;
-  text-shadow: var(--links-text-shadow);
+  text-shadow: var(--links-title-shadow, var(--links-text-shadow));
   letter-spacing: -0.04em;
 }
 
@@ -207,7 +207,7 @@
   line-height: var(--links-line-height);
   overflow-wrap: anywhere;
   text-wrap: pretty;
-  text-shadow: var(--links-text-shadow);
+  text-shadow: var(--links-description-shadow, var(--links-text-shadow));
   white-space: pre-wrap;
 }
 
@@ -406,7 +406,7 @@
   font-size: 1.05rem;
   font-weight: var(--links-body-weight);
   line-height: 1.2;
-  text-shadow: var(--links-text-shadow);
+  text-shadow: var(--links-button-text-shadow, var(--links-text-shadow));
   overflow-wrap: anywhere;
 }
 
@@ -417,7 +417,7 @@
   font-size: 0.69rem;
   font-weight: 600;
   line-height: 1.2;
-  text-shadow: var(--links-text-shadow);
+  text-shadow: var(--links-button-text-shadow, var(--links-text-shadow));
   letter-spacing: 0.03em;
 }
 
