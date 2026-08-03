@@ -239,14 +239,14 @@ export function MobileEditorShell({
           </div>
         </div>
         {/*
-          device="desktop" namerno: "phone" grana pozicionira kartice levo ili
-          desno OD preview okvira, a na mobilnom preview zauzima celu širinu,
-          pa bi kartice završile van ekrana. Desktop grana ih slaže unutar
-          kontejnera, preklopljene preko vrha kartice pregleda.
+          compact: mobilni prikaz — kartice su minimizovane u čipove (samo
+          ikonica upozorenja) uz desnu ivicu pregleda; ništa se ne otvara samo,
+          a prošireni oblik je kompaktna kartica, ne ploča preko celog ekrana.
         */}
         <ScanMeContrastAssistant
           issues={contrastIssues}
-          device="desktop"
+          device="phone"
+          compact
           containerRef={canvasAreaRef}
           onApply={onApplyContrastSuggestion}
         />

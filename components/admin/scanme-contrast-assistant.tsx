@@ -59,11 +59,16 @@ export function ScanMeContrastAssistant({
   device,
   containerRef,
   onApply,
+  compact = false,
 }: {
   issues: ContrastIssue[];
   device: PreviewDevice;
   containerRef: RefObject<HTMLDivElement | null>;
   onApply: (suggestion: ContrastSuggestion) => void;
+  // Mobilni shell: minimizovane kartice postaju čipovi (samo ikonica ! ), ništa
+  // se ne otvara automatski, a prošireni oblik je kompaktna kartica u rail-u uz
+  // desnu ivicu — ne apsolutno pozicionirana ploča preko celog pregleda.
+  compact?: boolean;
 }) {
   const reducedMotion = useReducedMotion();
   const poorIssueSignature = useMemo(
@@ -75,8 +80,10 @@ export function ScanMeContrastAssistant({
         .join("|"),
     [issues],
   );
+  // Na desktopu se najkritičniji "loš" problem otvara sam; na mobilnom sve
+  // ostaje minimizovano dok korisnik ne kucne čip.
   const [activeId, setActiveId] = useState<string | null>(() =>
-    mostCriticalPoorIssueId(issues) ?? null,
+    compact ? null : (mostCriticalPoorIssueId(issues) ?? null),
   );
   const previousPoorSignatureRef = useRef(poorIssueSignature);
   const [positions, setPositions] = useState<Record<string, CardPosition>>({});
@@ -85,6 +92,9 @@ export function ScanMeContrastAssistant({
     : null;
 
   useEffect(() => {
+    // Mobilni: nema auto-otvaranja. Zastareli aktivan id (ako problem nestane)
+    // ionako pokriva resolvedActiveId pri renderu, pa efekat ovde ništa ne radi.
+    if (compact) return;
     if (poorIssueSignature !== previousPoorSignatureRef.current) {
       previousPoorSignatureRef.current = poorIssueSignature;
       setActiveId(mostCriticalPoorIssueId(issues) ?? null);
@@ -93,9 +103,12 @@ export function ScanMeContrastAssistant({
     setActiveId((current) =>
       current && issues.some((issue) => issue.id === current) ? current : null,
     );
-  }, [issues, poorIssueSignature]);
+  }, [issues, poorIssueSignature, compact]);
 
   const measure = useCallback(() => {
+    // Mobilni raspored je čisto CSS (rail + kompaktna kartica); merenje pozicija
+    // pokreće se samo za apsolutno pozicionirane kartice na desktopu.
+    if (compact) return;
     const container = containerRef.current;
     if (!container || !issues.length) {
       setPositions({});
@@ -193,12 +206,13 @@ export function ScanMeContrastAssistant({
     setPositions((current) =>
       samePositions(current, nextPositions) ? current : nextPositions,
     );
-  }, [containerRef, device, issues, resolvedActiveId]);
+  }, [containerRef, device, issues, resolvedActiveId, compact]);
 
   // useEffect, ne useLayoutEffect: layout efekat deteta se izvršava pre nego
   // što React zakači ref predačkog elementa, pa bi containerRef.current bio
   // null na prvom mount-u i merenje se nikada ne bi pokrenulo.
   useEffect(() => {
+    if (compact) return;
     const container = containerRef.current;
     if (!container) return;
     measure();
@@ -233,7 +247,7 @@ export function ScanMeContrastAssistant({
       container.removeEventListener("scroll", measure, true);
       window.removeEventListener("resize", measure);
     };
-  }, [containerRef, measure]);
+  }, [containerRef, measure, compact]);
 
   const orderedIssues = useMemo(
     () =>
@@ -244,7 +258,137 @@ export function ScanMeContrastAssistant({
     [issues, positions],
   );
 
+  // Mobilni rail: najvažniji čip na vrhu (loš → dobar → preporuka), pošto se
+  // ne oslanjamo na izmerene pozicije.
+  const compactOrderedIssues = useMemo(() => {
+    const rank = (candidate: ContrastIssue) => {
+      const severity = contrastSeverity(candidate);
+      if (severity === "poor") return 0;
+      if (severity === "good") return 1;
+      return 2;
+    };
+    return [...issues].sort((first, second) => rank(first) - rank(second));
+  }, [issues]);
+
+  const renderCard = (
+    issue: ContrastIssue,
+    { expanded, position }: { expanded: boolean; position?: CardPosition },
+  ) => {
+    const severity = contrastSeverity(issue);
+    return (
+      <motion.article
+        key={issue.id}
+        className={styles.contrastCard}
+        data-compact={compact ? "true" : undefined}
+        data-expanded={expanded}
+        data-severity={severity}
+        data-side={position?.side}
+        initial={reducedMotion ? false : { opacity: 0, scale: 0.96 }}
+        animate={{
+          opacity: 1,
+          scale: 1,
+          // Apsolutne pozicije samo na desktopu; u compact modu raspored drži CSS.
+          ...(position
+            ? { left: position.left, top: position.top, width: position.width }
+            : {}),
+        }}
+        transition={
+          reducedMotion
+            ? { duration: 0.01 }
+            : { type: "spring", stiffness: 360, damping: 32 }
+        }
+      >
+        <button
+          type="button"
+          className={styles.contrastCardHeader}
+          aria-expanded={expanded}
+          aria-label={
+            compact
+              ? `${issue.title}: ${contrastSeverityLabel(issue)}`
+              : undefined
+          }
+          onClick={() =>
+            setActiveId((current) => (current === issue.id ? null : issue.id))
+          }
+        >
+          <span className={styles.contrastWarningIcon} data-severity={severity}>
+            <AlertTriangle aria-hidden="true" />
+          </span>
+          <span className={styles.contrastCardHeading}>
+            <strong>{issue.title}</strong>
+            <small>{contrastSeverityLabel(issue)}</small>
+          </span>
+          <ChevronDown
+            className={styles.contrastChevron}
+            data-open={expanded}
+            aria-hidden="true"
+          />
+        </button>
+
+        <AnimatePresence initial={false}>
+          {expanded ? (
+            <motion.div
+              className={styles.contrastCardBody}
+              initial={reducedMotion ? false : { opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={reducedMotion ? undefined : { opacity: 0, height: 0 }}
+              transition={{ duration: reducedMotion ? 0.01 : 0.18 }}
+            >
+              <p>{issue.detail}</p>
+              <div className={styles.contrastSuggestions}>
+                {issue.suggestions.map((suggestion) => (
+                  <EditorTooltip
+                    key={`${suggestion.role}-${suggestion.color}`}
+                    label={colorDisplayName(suggestion.color)}
+                  >
+                    <button
+                      type="button"
+                      className={styles.contrastSuggestion}
+                      onClick={() => onApply(suggestion)}
+                    >
+                      <span
+                        className={styles.contrastSuggestionSwatch}
+                        style={{ backgroundColor: suggestion.color }}
+                      />
+                      <span>
+                        <strong>{suggestion.label}</strong>
+                        <small>{suggestion.color.toUpperCase()}</small>
+                      </span>
+                    </button>
+                  </EditorTooltip>
+                ))}
+              </div>
+              <span className={styles.contrastStandard}>
+                Ovo je preporuka — ne blokira objavu
+              </span>
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
+      </motion.article>
+    );
+  };
+
   if (!issues.length) return null;
+
+  // Mobilni: čipovi (samo ikonica) u vertikalnom rail-u uz desnu ivicu; jedan
+  // se po potrebi širi u kompaktnu karticu, ostali ostaju sitni.
+  if (compact) {
+    return (
+      <div
+        className={styles.contrastAssistantLayer}
+        data-compact="true"
+        data-editor-preserve-panel="true"
+        aria-label="Asistent za kontrast"
+        aria-live="polite"
+      >
+        <div className={styles.contrastRail}>
+          {compactOrderedIssues.map((issue) =>
+            renderCard(issue, { expanded: issue.id === resolvedActiveId }),
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -255,7 +399,6 @@ export function ScanMeContrastAssistant({
     >
       {orderedIssues.map((issue, index) => {
         const expanded = issue.id === resolvedActiveId;
-        const severity = contrastSeverity(issue);
         const position = positions[issue.id] ?? {
           left: 12,
           top:
@@ -265,95 +408,7 @@ export function ScanMeContrastAssistant({
           width: 296,
           side: "left" as const,
         };
-        return (
-          <motion.article
-            key={issue.id}
-            className={styles.contrastCard}
-            data-expanded={expanded}
-            data-severity={severity}
-            data-side={position.side}
-            initial={reducedMotion ? false : { opacity: 0, scale: 0.96 }}
-            animate={{
-              opacity: 1,
-              scale: 1,
-              left: position.left,
-              top: position.top,
-              width: position.width,
-            }}
-            transition={
-              reducedMotion
-                ? { duration: 0.01 }
-                : { type: "spring", stiffness: 360, damping: 32 }
-            }
-          >
-            <button
-              type="button"
-              className={styles.contrastCardHeader}
-              aria-expanded={expanded}
-              onClick={() =>
-                setActiveId((current) =>
-                  current === issue.id ? null : issue.id,
-                )
-              }
-            >
-              <span
-                className={styles.contrastWarningIcon}
-                data-severity={severity}
-              >
-                <AlertTriangle aria-hidden="true" />
-              </span>
-              <span className={styles.contrastCardHeading}>
-                <strong>{issue.title}</strong>
-                <small>{contrastSeverityLabel(issue)}</small>
-              </span>
-              <ChevronDown
-                className={styles.contrastChevron}
-                data-open={expanded}
-                aria-hidden="true"
-              />
-            </button>
-
-            <AnimatePresence initial={false}>
-              {expanded ? (
-                <motion.div
-                  className={styles.contrastCardBody}
-                  initial={reducedMotion ? false : { opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  exit={reducedMotion ? undefined : { opacity: 0, height: 0 }}
-                  transition={{ duration: reducedMotion ? 0.01 : 0.18 }}
-                >
-                  <p>{issue.detail}</p>
-                  <div className={styles.contrastSuggestions}>
-                    {issue.suggestions.map((suggestion) => (
-                      <EditorTooltip
-                        key={`${suggestion.role}-${suggestion.color}`}
-                        label={colorDisplayName(suggestion.color)}
-                      >
-                        <button
-                          type="button"
-                          className={styles.contrastSuggestion}
-                          onClick={() => onApply(suggestion)}
-                        >
-                          <span
-                            className={styles.contrastSuggestionSwatch}
-                            style={{ backgroundColor: suggestion.color }}
-                          />
-                          <span>
-                            <strong>{suggestion.label}</strong>
-                            <small>{suggestion.color.toUpperCase()}</small>
-                          </span>
-                        </button>
-                      </EditorTooltip>
-                    ))}
-                  </div>
-                  <span className={styles.contrastStandard}>
-                    Ovo je preporuka — ne blokira objavu
-                  </span>
-                </motion.div>
-              ) : null}
-            </AnimatePresence>
-          </motion.article>
-        );
+        return renderCard(issue, { expanded, position });
       })}
     </div>
   );
