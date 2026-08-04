@@ -424,36 +424,13 @@
 
 .contextPanel {
   composes: glassSurface;
+  position: relative;
   display: flex;
   width: 100%;
   height: 100%;
   min-height: 0;
   flex-direction: column;
   border-radius: 44px;
-}
-
-.panelHeader {
-  display: flex;
-  flex: none;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 14px;
-  padding: 26px 26px 18px;
-}
-
-.panelTitle {
-  font-size: 25px;
-  font-weight: 750;
-  letter-spacing: -0.04em;
-  line-height: 1.15;
-}
-
-.panelDescription {
-  margin-top: 5px;
-  max-width: 38ch;
-  color: var(--editor-muted);
-  font-size: 12px;
-  line-height: 1.55;
 }
 
 .panelScrollShell {
@@ -470,7 +447,7 @@
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 0 28px 26px 22px;
+  padding: 20px 28px 26px 22px;
   scrollbar-width: none;
 }
 
@@ -534,6 +511,89 @@
 
 .panelScrollThumb:active {
   cursor: grabbing;
+}
+
+/*
+  Stek panela jedne grupe (gornji: Sadržaj → Boja; donji: Analitika → Pomoć).
+  Apsolutno preko cele kutije da bi prelaz između grupa mogao da bude crossfade
+  bez skoka u layoutu; PanelScrollArea unutra nosi skrol i prilagođeni skrolbar.
+*/
+.panelGroupBox {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+}
+
+.panelSection {
+  scroll-margin-top: 18px;
+}
+
+.panelSection + .panelSection {
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid rgba(80, 69, 58, 0.12);
+}
+
+.panelSectionHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  /* Negativni bočni margin pušta „doček" blesak do ivica panela. */
+  margin: 0 -10px 16px;
+  padding: 8px 10px;
+  border-radius: 18px;
+}
+
+.panelSectionBadge {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  color: #3a332c;
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  border-radius: 13px;
+  background:
+    radial-gradient(
+      circle at 22% 8%,
+      rgba(255, 255, 255, 0.8),
+      transparent 44%
+    ),
+    linear-gradient(
+      150deg,
+      rgba(255, 239, 224, 0.95),
+      rgba(247, 205, 193, 0.8)
+    );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 7px 16px rgba(78, 48, 35, 0.1);
+}
+
+.panelSectionHeading {
+  min-width: 0;
+}
+
+.panelSectionTitle {
+  font-size: 19px;
+  font-weight: 750;
+  letter-spacing: -0.035em;
+  line-height: 1.15;
+}
+
+.panelSectionDescription {
+  margin-top: 3px;
+  max-width: 40ch;
+  color: var(--editor-muted);
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panelSectionHeader {
+    background-color: transparent !important;
+  }
 }
 
 .editorAnalytics {
@@ -1862,7 +1922,6 @@
 .phoneFit {
   width: 350px;
   height: 720px;
-  transform-origin: center;
 }
 
 .phoneShell {
@@ -1876,7 +1935,7 @@
   box-shadow:
     0 30px 58px rgba(29, 25, 22, 0.2),
     0 7px 16px rgba(29, 25, 22, 0.1);
-  transform-origin: center center;
+  transform-origin: top left;
 }
 
 .phoneShell::after {
@@ -2785,24 +2844,6 @@
   }
 }
 
-@media (max-height: 850px) and (min-width: 1100px) {
-  .phoneFit {
-    transform: scale(0.92);
-  }
-}
-
-@media (max-height: 800px) and (min-width: 1100px) {
-  .phoneFit {
-    transform: scale(0.84);
-  }
-}
-
-@media (max-height: 750px) and (min-width: 1100px) {
-  .phoneFit {
-    transform: scale(0.75);
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .editorRoot *,
   .editorRoot *::before,
@@ -2829,4 +2870,132 @@
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
   }
+}
+/* Varijacije boja unutar izabranog stila. */
+.variationSection {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin-top: 1.1rem;
+}
+
+.variationTitle {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+
+.variationRow {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.variationCard {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.4rem;
+  border: 1px solid var(--editor-hairline, rgb(0 0 0 / 0.1));
+  border-radius: 0.6rem;
+  background: var(--editor-surface, rgb(255 255 255 / 0.6));
+  cursor: pointer;
+  text-align: left;
+}
+
+.variationSwatch {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  height: 1.65rem;
+  overflow: hidden;
+  border-radius: 0.35rem;
+}
+
+.variationSwatch > span {
+  display: block;
+  height: 100%;
+}
+
+.variationName {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.2rem;
+  font-size: 0.66rem;
+  line-height: 1.2;
+}
+
+/* Icon picker inside "Uredi link". Glyphs inherit the panel's text colour so
+   they stay legible on the editor surface; the themed colour is previewed live
+   on the phone. */
+.iconPicker {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-height: 15rem;
+  overflow-y: auto;
+  padding: 0.5rem;
+  border: 1px solid var(--editor-hairline, rgb(0 0 0 / 0.1));
+  border-radius: 0.7rem;
+  background: var(--editor-surface, rgb(255 255 255 / 0.6));
+}
+
+.iconPickerGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.iconPickerGroupLabel {
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.55;
+}
+
+.iconPickerGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(2.5rem, 1fr));
+  gap: 0.4rem;
+}
+
+.iconPickerCell {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  border: 1px solid var(--editor-hairline, rgb(0 0 0 / 0.12));
+  border-radius: 0.55rem;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  transition:
+    border-color 140ms ease,
+    background-color 140ms ease,
+    transform 140ms ease;
+}
+
+.iconPickerCell:hover {
+  border-color: color-mix(in srgb, currentColor 40%, transparent);
+  background: color-mix(in srgb, currentColor 6%, transparent);
+}
+
+.iconPickerCell:active {
+  transform: scale(0.94);
+}
+
+.iconPickerCellActive {
+  border-color: currentColor;
+  background: color-mix(in srgb, currentColor 12%, transparent);
+}
+
+.iconPickerCellActive:hover {
+  border-color: currentColor;
+}
+
+.iconPickerGlyph {
+  width: 1.3rem;
+  height: 1.3rem;
 }

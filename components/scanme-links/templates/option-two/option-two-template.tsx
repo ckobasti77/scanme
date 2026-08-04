@@ -11,10 +11,13 @@ import type {
 } from "@/components/scanme-links/templates/types";
 import {
   createDefaultScanMeLinksDesignV2,
+  iconPackageForPreset,
+  layoutForPreset,
   normalizeDesignForPreset,
   type ScanMeLinksBackgroundV2,
   type ScanMeLinksDesignV2,
   type ScanMeLinksFontKey,
+  type ScanMeLinksIconPackage,
   type ScanMeLinksIconStyle,
   type ScanMeLinksShadowV2,
 } from "@/lib/scanme-links-design";
@@ -25,21 +28,26 @@ import styles from "./option-two-template.module.css";
 
 export const optionTwoDestinationClassName = styles.destination;
 
+// Face names come from the Fontsource packages imported in app/layout.tsx. The
+// "… Variable" suffix is Fontsource's own naming for its variable builds, so it
+// has to be spelled exactly; the trailing stack only covers the swap window.
 const FONT_STACKS: Record<ScanMeLinksFontKey, string> = {
-  "dm-sans": '"DM Sans", "Segoe UI", Arial, sans-serif',
-  "nunito-sans": '"Nunito Sans", "Segoe UI", Arial, sans-serif',
-  "source-sans-3": '"Source Sans 3", "Segoe UI", Arial, sans-serif',
+  "dm-sans": '"DM Sans Variable", "Segoe UI", Arial, sans-serif',
+  "nunito-sans": '"Nunito Sans Variable", "Segoe UI", Arial, sans-serif',
+  "source-sans-3": '"Source Sans 3 Variable", "Segoe UI", Arial, sans-serif',
   "system-ui": 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-  inter: 'Inter, system-ui, -apple-system, "Segoe UI", sans-serif',
-  manrope: 'Manrope, system-ui, -apple-system, "Segoe UI", sans-serif',
+  inter: '"Inter Variable", system-ui, -apple-system, "Segoe UI", sans-serif',
+  manrope: '"Manrope Variable", system-ui, -apple-system, "Segoe UI", sans-serif',
   "cormorant-garamond":
-    '"Cormorant Garamond", Georgia, "Times New Roman", serif',
-  "playfair-display": '"Playfair Display", Georgia, "Times New Roman", serif',
-  lora: 'Lora, Georgia, "Times New Roman", serif',
+    '"Cormorant Garamond Variable", Georgia, "Times New Roman", serif',
+  "playfair-display":
+    '"Playfair Display Variable", Georgia, "Times New Roman", serif',
+  lora: '"Lora Variable", Georgia, "Times New Roman", serif',
   "libre-baskerville":
     '"Libre Baskerville", Georgia, "Times New Roman", serif',
-  "space-grotesk": '"Space Grotesk", "Arial Narrow", Arial, sans-serif',
-  archivo: 'Archivo, "Arial Narrow", Arial, sans-serif',
+  "space-grotesk":
+    '"Space Grotesk Variable", "Arial Narrow", Arial, sans-serif',
+  archivo: '"Archivo Variable", "Arial Narrow", Arial, sans-serif',
 };
 
 const ICON_STYLE_CLASSES: Record<ScanMeLinksIconStyle, string> = {
@@ -49,6 +57,10 @@ const ICON_STYLE_CLASSES: Record<ScanMeLinksIconStyle, string> = {
   "rustic-stamp": styles.iconRustic,
   "minimal-line": styles.iconMinimal,
   "bold-fill": styles.iconBold,
+  "editorial-outline": styles.iconEditorial,
+  "pop-sticker": styles.iconPop,
+  "craft-badge": styles.iconCraft,
+  "glass-tile": styles.iconGlass,
 };
 
 function duplicateNumbers(destinations: PublicDestination[]) {
@@ -487,11 +499,13 @@ export function OptionTwoDestinationContent({
   duplicate,
   preview = false,
   iconStyle = "soft-line",
+  packageStyle = "line",
 }: {
   destination: PublicDestination;
   duplicate: number | null;
   preview?: boolean;
   iconStyle?: ScanMeLinksIconStyle;
+  packageStyle?: ScanMeLinksIconPackage;
 }) {
   const href = safeDestinationHref(destination.url);
   const isInactive = destination.state === "inactive";
@@ -511,7 +525,11 @@ export function OptionTwoDestinationContent({
           ICON_STYLE_CLASSES[iconStyle],
         )}
       >
-        <TemplateIcon iconKey={destination.iconKey} className={styles.icon} />
+        <TemplateIcon
+          iconKey={destination.iconKey}
+          className={styles.icon}
+          packageStyle={packageStyle}
+        />
         {duplicate ? (
           <span className={styles.duplicate}>{duplicate}</span>
         ) : null}
@@ -638,6 +656,8 @@ export function OptionTwoFrame({
       style={designStyle(view, design)}
       data-button-variant={design.buttons.variant}
       data-icon-style={design.iconStyle}
+      data-layout={layoutForPreset(design.presetKey)}
+      data-preset={design.presetKey}
       className={cn(styles.frame, preview && styles.preview)}
     >
       <Background view={view} design={design} />
@@ -708,6 +728,7 @@ export function OptionTwoTemplate({
     );
   });
   const duplicates = duplicateNumbers(destinations);
+  const packageStyle = iconPackageForPreset(design.presetKey);
 
   return (
     <OptionTwoFrame view={view} preview={preview}>
@@ -729,6 +750,7 @@ export function OptionTwoTemplate({
               duplicate={duplicates[index]}
               preview={preview}
               iconStyle={design.iconStyle}
+              packageStyle={packageStyle}
             />
           );
 

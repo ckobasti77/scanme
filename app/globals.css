@@ -25,6 +25,9 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
   --color-accent-readable: var(--accent-readable);
+  /* Face name comes from @fontsource/ibm-plex-mono, imported in app/layout.tsx. */
+  --font-plex-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo,
+    monospace;
   --font-sans: var(--font-plex-mono);
   --font-mono: var(--font-plex-mono);
   --radius-sm: 2px;

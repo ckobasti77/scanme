@@ -70,6 +70,18 @@ export function visibleSecondaryToolItems(
     : secondaryToolItems.filter((item) => item.id !== "settings");
 }
 
+export type EditorPanelGroup = "primary" | "secondary";
+
+const primaryPanelIds = new Set<EditorPanelId>(
+  primaryToolItems.map((item) => item.id),
+);
+
+// Jedini izvor istine za pripadnost panela gornjem (Sadržaj → Boja) ili donjem
+// (Analitika → Pomoć) side-navu; desktop editor po grupi bira koji stek renderuje.
+export function panelGroupOf(panel: EditorPanelId): EditorPanelGroup {
+  return primaryPanelIds.has(panel) ? "primary" : "secondary";
+}
+
 export const panelCopy: Record<
   EditorPanelId,
   { title: string; description: string }

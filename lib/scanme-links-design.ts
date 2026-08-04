@@ -5,9 +5,80 @@ export const SCANME_LINKS_PRESET_KEYS = [
   "rustic",
   "minimal",
   "bold",
+  "nude-editorial",
+  "urban-pop",
+  "artisan-craft",
+  "glass-minimalist",
 ] as const;
 
 export type ScanMeLinksPresetKey = (typeof SCANME_LINKS_PRESET_KEYS)[number];
+
+/**
+ * Where the destination icon sits relative to its button.
+ *
+ * `float-icon` is the original Option 2 treatment: a large circle that
+ * overhangs the button's left edge. `inline-icon` keeps a compact tile inside
+ * the button, which is what the four editorial presets are drawn around.
+ */
+export const SCANME_LINKS_LAYOUTS = ["float-icon", "inline-icon"] as const;
+export type ScanMeLinksLayout = (typeof SCANME_LINKS_LAYOUTS)[number];
+
+const PRESET_LAYOUTS: Record<ScanMeLinksPresetKey, ScanMeLinksLayout> = {
+  gentle: "float-icon",
+  ios: "float-icon",
+  lux: "float-icon",
+  rustic: "float-icon",
+  minimal: "float-icon",
+  bold: "float-icon",
+  "nude-editorial": "inline-icon",
+  "urban-pop": "inline-icon",
+  "artisan-craft": "inline-icon",
+  "glass-minimalist": "inline-icon",
+};
+
+export function layoutForPreset(
+  presetKey: ScanMeLinksPresetKey,
+): ScanMeLinksLayout {
+  return PRESET_LAYOUTS[presetKey];
+}
+
+/**
+ * The rendering treatment applied to a template's icons. All three are strictly
+ * monochrome (driven by `--links-icon`); they never introduce a second hue.
+ *
+ * `line` is the minimalist outline default. `solid` fills/thickens the glyph for
+ * heavier templates. `soft-3d` extrudes a darker shade of the same colour under
+ * the glyph and casts a soft shadow — depth from one hue, not colour.
+ */
+export const SCANME_LINKS_ICON_PACKAGES = [
+  "line",
+  "solid",
+  "soft-3d",
+] as const;
+export type ScanMeLinksIconPackage =
+  (typeof SCANME_LINKS_ICON_PACKAGES)[number];
+
+const PRESET_ICON_PACKAGES: Record<
+  ScanMeLinksPresetKey,
+  ScanMeLinksIconPackage
+> = {
+  gentle: "line",
+  ios: "line",
+  lux: "line",
+  rustic: "line",
+  minimal: "line",
+  bold: "solid",
+  "nude-editorial": "line",
+  "urban-pop": "soft-3d",
+  "artisan-craft": "line",
+  "glass-minimalist": "soft-3d",
+};
+
+export function iconPackageForPreset(
+  presetKey: ScanMeLinksPresetKey,
+): ScanMeLinksIconPackage {
+  return PRESET_ICON_PACKAGES[presetKey];
+}
 
 export const SCANME_LINKS_BACKGROUND_CATEGORIES = [
   "flat",
@@ -92,6 +163,10 @@ export const SCANME_LINKS_ICON_STYLES = [
   "rustic-stamp",
   "minimal-line",
   "bold-fill",
+  "editorial-outline",
+  "pop-sticker",
+  "craft-badge",
+  "glass-tile",
 ] as const;
 export type ScanMeLinksIconStyle =
   (typeof SCANME_LINKS_ICON_STYLES)[number];
@@ -170,6 +245,12 @@ export type ScanMeLinksShadowV2 = {
 export type ScanMeLinksDesignV2 = {
   version: 2;
   presetKey: ScanMeLinksPresetKey;
+  /**
+   * Which colour variation of `presetKey` is active. The variation's tokens are
+   * already flattened into `colors`/`background`, so this only drives editor
+   * affordances; `undefined` means the palette was hand-edited.
+   */
+  variationKey?: string;
   autoContrast: boolean;
   background: ScanMeLinksBackgroundV2;
   colors: ScanMeLinksColorsV2;
@@ -383,6 +464,108 @@ export const SCANME_LINKS_PRESET_CAPABILITIES: Record<
     iconStyle: "bold-fill",
     recommendedBackgroundCategory: "gradient",
   },
+  "nude-editorial": {
+    key: "nude-editorial",
+    label: "Nude Editorial",
+    description: "Mirni nude tonovi, serif naslov i tanke pill forme.",
+    preview: {
+      background: "#F5EFE7",
+      surface: "#FFFFFF",
+      accent: "#B99A80",
+      text: "#2E2823",
+    },
+    allowedBackgroundCategories: ["flat", "gradient", "texture", "media"],
+    allowedBackgroundVariants: {
+      flat: ["flat"],
+      gradient: ["linear", "radial"],
+      texture: ["paper", "linen"],
+      media: ["image", "video"],
+    },
+    allowedButtonVariants: ["solid", "outline"],
+    fonts: ["cormorant-garamond", "playfair-display", "lora"],
+    iconStyle: "editorial-outline",
+    recommendedBackgroundCategory: "flat",
+  },
+  "urban-pop": {
+    key: "urban-pop",
+    label: "Urban Pop",
+    description: "Debeo crni okvir, tvrda senka i krupna verzalna tipografija.",
+    preview: {
+      background: "#E8402A",
+      surface: "#FFFFFF",
+      accent: "#111111",
+      text: "#FFFFFF",
+    },
+    allowedBackgroundCategories: [
+      "flat",
+      "gradient",
+      "pattern",
+      "media",
+      "animation",
+    ],
+    allowedBackgroundVariants: {
+      flat: ["flat"],
+      gradient: ["linear", "radial"],
+      pattern: ["dots", "checker", "waves"],
+      media: ["image", "video"],
+      animation: ["aurora", "soft-waves"],
+    },
+    allowedButtonVariants: ["solid", "outline"],
+    fonts: ["archivo", "space-grotesk", "inter"],
+    iconStyle: "pop-sticker",
+    recommendedBackgroundCategory: "gradient",
+  },
+  "artisan-craft": {
+    key: "artisan-craft",
+    label: "Artisan Craft",
+    description: "Papir i drvo, topli zanatski tonovi i serif naslov.",
+    preview: {
+      background: "#EFE3CC",
+      surface: "#F7EEDD",
+      accent: "#8A5A3B",
+      text: "#4A2F1B",
+    },
+    allowedBackgroundCategories: ["flat", "pattern", "texture", "media"],
+    allowedBackgroundVariants: {
+      flat: ["flat"],
+      pattern: ["grid", "dots"],
+      texture: ["paper", "linen", "wood"],
+      media: ["image", "video"],
+    },
+    allowedButtonVariants: ["solid", "outline"],
+    fonts: ["lora", "libre-baskerville", "source-sans-3"],
+    iconStyle: "craft-badge",
+    recommendedBackgroundCategory: "texture",
+  },
+  "glass-minimalist": {
+    key: "glass-minimalist",
+    label: "Glass Minimalist",
+    description: "Zamućeno staklo, tanak svetli rub i vazdušasti naslov.",
+    preview: {
+      background: "#123038",
+      surface: "#FFFFFF",
+      accent: "#7FB6C4",
+      text: "#FFFFFF",
+    },
+    allowedBackgroundCategories: [
+      "flat",
+      "gradient",
+      "texture",
+      "media",
+      "animation",
+    ],
+    allowedBackgroundVariants: {
+      flat: ["flat"],
+      gradient: ["linear", "radial"],
+      texture: ["metal", "linen"],
+      media: ["image", "video"],
+      animation: ["aurora", "soft-waves"],
+    },
+    allowedButtonVariants: ["glass", "solid", "outline"],
+    fonts: ["manrope", "inter", "cormorant-garamond"],
+    iconStyle: "glass-tile",
+    recommendedBackgroundCategory: "gradient",
+  },
 };
 
 const PRESET_COLORS: Record<ScanMeLinksPresetKey, ScanMeLinksColorsV2> = {
@@ -464,6 +647,58 @@ const PRESET_COLORS: Record<ScanMeLinksPresetKey, ScanMeLinksColorsV2> = {
     buttonText: "#FFFFFF",
     icon: "#C6FF4A",
   },
+  "nude-editorial": {
+    page: "#F5EFE7",
+    surface: "#FFFFFF",
+    title: "#2E2823",
+    body: "#6B615A",
+    accent: "#B99A80",
+    border: "#E2D6C9",
+    focus: "#8C7357",
+    button: "#FFFFFF",
+    buttonHover: "#FBF6F0",
+    buttonText: "#2E2823",
+    icon: "#4A4038",
+  },
+  "urban-pop": {
+    page: "#E8402A",
+    surface: "#FFFFFF",
+    title: "#FFFFFF",
+    body: "#FFF1EC",
+    accent: "#111111",
+    border: "#111111",
+    focus: "#111111",
+    button: "#FFFFFF",
+    buttonHover: "#F1F1F1",
+    buttonText: "#111111",
+    icon: "#111111",
+  },
+  "artisan-craft": {
+    page: "#EFE3CC",
+    surface: "#F7EEDD",
+    title: "#4A2F1B",
+    body: "#7A5C3E",
+    accent: "#8A5A3B",
+    border: "#C9A87C",
+    focus: "#6B4325",
+    button: "#A87C52",
+    buttonHover: "#966C45",
+    buttonText: "#FBF3E6",
+    icon: "#FBF3E6",
+  },
+  "glass-minimalist": {
+    page: "#123038",
+    surface: "#FFFFFF",
+    title: "#FFFFFF",
+    body: "#D5E3E6",
+    accent: "#7FB6C4",
+    border: "#FFFFFF",
+    focus: "#9FD3E0",
+    button: "#FFFFFF",
+    buttonHover: "#FFFFFF",
+    buttonText: "#FFFFFF",
+    icon: "#FFFFFF",
+  },
 };
 
 function defaultBackground(
@@ -532,10 +767,72 @@ function defaultBackground(
   }
 }
 
+/**
+ * Per-preset deviations from the shared defaults below. Only the four
+ * editorial presets need entries; the original six keep the historic values by
+ * having no entry at all.
+ */
+const PRESET_TUNING: Partial<
+  Record<
+    ScanMeLinksPresetKey,
+    {
+      borderWidth?: number;
+      paddingX?: number;
+      paddingY?: number;
+      shadow?: Partial<ScanMeLinksShadowV2>;
+      headingWeight?: ScanMeLinksDesignV2["typography"]["headingWeight"];
+      bodyWeight?: ScanMeLinksDesignV2["typography"]["bodyWeight"];
+      scale?: ScanMeLinksDesignV2["typography"]["scale"];
+      lineHeight?: number;
+      verticalSpacing?: number;
+    }
+  >
+> = {
+  "nude-editorial": {
+    paddingX: 22,
+    paddingY: 16,
+    shadow: { color: "#2E2823", y: 6, blur: 18, opacity: 0.1 },
+    headingWeight: 400,
+    scale: "large",
+    lineHeight: 1.35,
+    verticalSpacing: 14,
+  },
+  "urban-pop": {
+    borderWidth: 3,
+    paddingX: 18,
+    paddingY: 16,
+    // A hard, un-blurred offset is what reads as a sticker rather than a card.
+    shadow: { color: "#111111", x: 4, y: 4, blur: 0, opacity: 1 },
+    headingWeight: 700,
+    bodyWeight: 700,
+    scale: "large",
+    lineHeight: 1.25,
+    verticalSpacing: 14,
+  },
+  "artisan-craft": {
+    paddingY: 15,
+    shadow: { color: "#3A2413", y: 6, blur: 16, opacity: 0.22 },
+    headingWeight: 500,
+    bodyWeight: 400,
+    scale: "large",
+    lineHeight: 1.35,
+    verticalSpacing: 14,
+  },
+  "glass-minimalist": {
+    paddingY: 16,
+    shadow: { color: "#05161A", y: 10, blur: 30, opacity: 0.28 },
+    headingWeight: 400,
+    scale: "large",
+    lineHeight: 1.3,
+    verticalSpacing: 14,
+  },
+};
+
 function buildDefaultDesign(
   presetKey: ScanMeLinksPresetKey,
 ): ScanMeLinksDesignV2 {
   const capability = SCANME_LINKS_PRESET_CAPABILITIES[presetKey];
+  const tuning = PRESET_TUNING[presetKey] ?? {};
   const radiusByPreset: Record<ScanMeLinksPresetKey, number> = {
     gentle: 26,
     ios: 28,
@@ -543,20 +840,25 @@ function buildDefaultDesign(
     rustic: 18,
     minimal: 16,
     bold: 18,
+    "nude-editorial": 999,
+    "urban-pop": 12,
+    "artisan-craft": 16,
+    "glass-minimalist": 16,
   };
 
   return {
     version: 2,
     presetKey,
+    variationKey: `${presetKey}-1`,
     autoContrast: true,
     background: defaultBackground(presetKey),
     colors: { ...PRESET_COLORS[presetKey] },
     buttons: {
       variant: presetKey === "ios" ? "glass" : capability.allowedButtonVariants[0],
       radius: radiusByPreset[presetKey],
-      borderWidth: 1,
-      paddingX: 20,
-      paddingY: 14,
+      borderWidth: tuning.borderWidth ?? 1,
+      paddingX: tuning.paddingX ?? 20,
+      paddingY: tuning.paddingY ?? 14,
       shadow: {
         enabled: presetKey !== "minimal",
         color: "#161916",
@@ -564,6 +866,7 @@ function buildDefaultDesign(
         y: 8,
         blur: 24,
         opacity: presetKey === "ios" ? 0.12 : 0.16,
+        ...tuning.shadow,
       },
       animation: "none",
     },
@@ -587,12 +890,13 @@ function buildDefaultDesign(
     },
     typography: {
       fontKey: capability.fonts[0],
-      headingWeight: presetKey === "lux" ? 500 : 600,
-      bodyWeight: 500,
+      headingWeight:
+        tuning.headingWeight ?? (presetKey === "lux" ? 500 : 600),
+      bodyWeight: tuning.bodyWeight ?? 500,
       alignment: "center",
-      scale: "medium",
-      lineHeight: 1.4,
-      verticalSpacing: 16,
+      scale: tuning.scale ?? "medium",
+      lineHeight: tuning.lineHeight ?? 1.4,
+      verticalSpacing: tuning.verticalSpacing ?? 16,
     },
     iconStyle: capability.iconStyle,
   };
@@ -764,9 +1068,17 @@ export function normalizeDesignForPreset(
     };
   };
 
+  // A variation key only means anything inside its own preset, so one carried
+  // over from a different preset is dropped rather than shown as active.
+  const variationKey =
+    design.variationKey && design.variationKey.startsWith(`${resolvedPreset}-`)
+      ? design.variationKey
+      : undefined;
+
   return {
     version: 2,
     presetKey: resolvedPreset,
+    ...(variationKey ? { variationKey } : {}),
     autoContrast: design.autoContrast,
     background: normalizeBackground(design.background, resolvedPreset),
     colors: { ...fallback.colors, ...design.colors },

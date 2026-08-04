@@ -30,13 +30,19 @@ import { colorDisplayName } from "@/lib/color-display-name";
 import {
   DESTINATION_DEFAULTS,
   DESTINATION_KINDS,
+  ICON_LIBRARY,
   type DestinationKind,
 } from "@/lib/scanme-links";
+import {
+  applyVariation,
+  variationsForPreset,
+} from "@/lib/scanme-links-variations";
 import {
   SCANME_LINKS_BACKGROUND_CATEGORIES,
   SCANME_LINKS_PRESET_CAPABILITIES,
   SCANME_LINKS_PRESET_KEYS,
   createDefaultScanMeLinksDesignV2,
+  iconPackageForPreset,
   type ScanMeLinksBackgroundCategory,
   type ScanMeLinksBackgroundV2,
   type ScanMeLinksButtonVariant,
@@ -44,6 +50,7 @@ import {
   type ScanMeLinksFontKey,
   type ScanMeLinksShadowV2,
 } from "@/lib/scanme-links-design";
+import { TemplateIcon } from "@/components/scanme-links/template-icon";
 import { deriveBackgroundCompanionColor } from "@/lib/scanme-palette";
 import { cn } from "@/lib/utils";
 import styles from "./scanme-links-editor.module.css";
@@ -403,6 +410,18 @@ export function ContentPanel({
               </div>
             ) : null}
 
+            <IconPicker
+              packageStyle={iconPackageForPreset(document.design.presetKey)}
+              value={selectedDestination.iconKey}
+              onSelect={(iconKey) =>
+                updateDestination(
+                  selectedDestination.id,
+                  (destination) => ({ ...destination, iconKey }),
+                  `destination-${selectedDestination.id}-icon`,
+                )
+              }
+            />
+
             <button
               className={styles.dangerButton}
               type="button"
@@ -424,6 +443,69 @@ export function ContentPanel({
   );
 }
 
+// Icon picker shown inside "Uredi link". It lists every icon in ICON_LIBRARY,
+// each rendered in the current template's icon package, so the choice a user
+// makes previews in the same style the public page will use. Choosing an icon
+// is available for every link, custom links included.
+function IconPicker({
+  packageStyle,
+  value,
+  onSelect,
+}: {
+  packageStyle: ReturnType<typeof iconPackageForPreset>;
+  value: string;
+  onSelect: (iconKey: string) => void;
+}) {
+  const groups = [
+    {
+      label: "Brendovi",
+      items: ICON_LIBRARY.filter((entry) => entry.group === "brand"),
+    },
+    {
+      label: "Opšte",
+      items: ICON_LIBRARY.filter((entry) => entry.group === "general"),
+    },
+  ];
+
+  return (
+    <div className={styles.fieldLabel}>
+      <span>Ikonica</span>
+      <div className={styles.iconPicker}>
+        {groups.map((group) => (
+          <div key={group.label} className={styles.iconPickerGroup}>
+            <span className={styles.iconPickerGroupLabel}>{group.label}</span>
+            <div className={styles.iconPickerGrid}>
+              {group.items.map((entry) => {
+                const selected = value === entry.key;
+                return (
+                  <button
+                    key={entry.key}
+                    type="button"
+                    aria-pressed={selected}
+                    aria-label={entry.label}
+                    title={entry.label}
+                    className={cn(
+                      styles.iconPickerCell,
+                      selected && styles.iconPickerCellActive,
+                    )}
+                    onClick={() => onSelect(entry.key)}
+                  >
+                    <TemplateIcon
+                      iconKey={entry.key}
+                      packageStyle={packageStyle}
+                      className={styles.iconPickerGlyph}
+                    />
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function StylePanel({
   document,
   setDocument,
@@ -431,7 +513,10 @@ export function StylePanel({
   document: ScanMeLinksEditorDocument;
   setDocument: EditorDocumentSetter;
 }) {
+  const variations = variationsForPreset(document.design.presetKey);
+
   return (
+    <>
     <div className={styles.styleGrid}>
       {SCANME_LINKS_PRESET_KEYS.map((presetKey) => {
         const capability = SCANME_LINKS_PRESET_CAPABILITIES[presetKey];
@@ -443,10 +528,14 @@ export function StylePanel({
             className={cn(styles.styleCard, selected && styles.selectedCard)}
             aria-pressed={selected}
             onClick={() =>
-              setDocument((current) => ({
-                ...current,
-                design: createDefaultScanMeLinksDesignV2(presetKey),
-              }))
+              setDocument((current) => {
+                const base = createDefaultScanMeLinksDesignV2(presetKey);
+                const first = variationsForPreset(presetKey)[0];
+                return {
+                  ...current,
+                  design: first ? applyVariation(base, first) : base,
+                };
+              })
             }
           >
             <span
@@ -481,6 +570,48 @@ export function StylePanel({
         );
       })}
     </div>
+
+    {variations.length > 0 ? (
+      <section className={styles.variationSection}>
+        <h3 className={styles.variationTitle}>Varijacija boja</h3>
+        <div className={styles.variationRow}>
+          {variations.map((variation) => {
+            const selected = document.design.variationKey === variation.key;
+            return (
+              <button
+                key={variation.key}
+                type="button"
+                className={cn(
+                  styles.variationCard,
+                  selected && styles.selectedCard,
+                )}
+                aria-pressed={selected}
+                title={variation.label}
+                onClick={() =>
+                  setDocument((current) => ({
+                    ...current,
+                    design: applyVariation(current.design, variation),
+                  }))
+                }
+              >
+                <span className={styles.variationSwatch} aria-hidden="true">
+                  {variation.swatch.map((stop, index) => (
+                    <span key={index} style={{ backgroundColor: stop }} />
+                  ))}
+                </span>
+                <span className={styles.variationName}>
+                  {variation.label}
+                  {selected ? (
+                    <Check className="size-3.5" aria-hidden="true" />
+                  ) : null}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </section>
+    ) : null}
+    </>
   );
 }
 

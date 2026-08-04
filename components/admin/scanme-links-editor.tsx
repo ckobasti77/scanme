@@ -10,6 +10,8 @@ import {
   useQuery,
 } from "convex/react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { gsap } from "gsap";
+import { ScrollToPlugin } from "gsap/ScrollToPlugin";
 import {
   LoaderCircle,
   Redo2,
@@ -38,10 +40,12 @@ import {
   EditorBackdrop,
   EditorPanelContent,
   panelCopy,
+  panelGroupOf,
   primaryToolItems,
   SaveStatus,
   visibleSecondaryToolItems,
   useCompactEditor,
+  type EditorPanelGroup,
   type EditorToolItem,
 } from "@/components/admin/scanme-links-editor-common";
 import { MobileEditorShell } from "@/components/admin/scanme-links-editor-mobile";
@@ -82,12 +86,20 @@ import styles from "./scanme-links-editor.module.css";
 import type {
   EditorData,
   EditorDestination,
+  EditorDocumentSetter,
   EditorPanelId,
   EditorSaveState,
   PreviewDevice,
   ScanMeLinksEditorDocument,
 } from "./scanme-links-editor-types";
 import { useEditorHistory } from "./use-editor-history";
+
+// ScrollToPlugin pokreće glatko GSAP skrolovanje unutar steka panela kad se
+// klikne stavka side-nava. Registruje se jednom, na import klijentskog modula.
+gsap.registerPlugin(ScrollToPlugin);
+
+// Razmak (px) između vrha kutije i naslova sekcije do koje skrolujemo.
+const SECTION_SCROLL_OFFSET = 18;
 
 export function ScanMeLinksEditorScreen({
   slug,
@@ -232,6 +244,15 @@ export function EditorWorkspace({
     [history],
   );
   const [activePanel, setActivePanel] = useState<EditorPanelId | null>(null);
+  // Zahtev za skrol do sekcije: cilj (panel) uhvaćen u trenutku klika na
+  // side-nav + nonce (da se isti panel može ponovo zatražiti). Odvojen od
+  // activePanel-a jer i biranje linka menja panel na "content" — tada skrol
+  // prepuštamo ContentPanel-u (skroluje do editora izabranog linka), a mi ga
+  // ne diramo. nonce garantuje svež cilj bez oslanjanja na ref u efektu.
+  const [scrollRequest, setScrollRequest] = useState<{
+    panel: EditorPanelId;
+    nonce: number;
+  } | null>(null);
   const [selectedDestinationId, setSelectedDestinationId] =
     useState<Id<"serviceDestinations"> | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -270,6 +291,10 @@ export function EditorWorkspace({
   const mediaDropEnabled =
     activePanel === "background" &&
     document.design.background.category === "media";
+  // Koja grupa side-nava je aktivna → koji stek panela kutija prikazuje.
+  const activeGroup: EditorPanelGroup | null = activePanel
+    ? panelGroupOf(activePanel)
+    : null;
 
   useEffect(() => {
     currentDocumentRef.current = document;
@@ -445,6 +470,9 @@ export function EditorWorkspace({
       }));
       setSelectedDestinationId(result.destinationId);
       setActivePanel("content");
+      // Novi link se odmah uređuje: skrol prepuštamo ContentPanel-u, pa čistimo
+      // zaostali zahtev za skrol steka (v. handleSelectDestination).
+      setScrollRequest(null);
     } catch (error) {
       toast.error(errorMessage(error, "Novi link nije dodat."));
     } finally {
@@ -480,6 +508,10 @@ export function EditorWorkspace({
   ) {
     setSelectedDestinationId(destinationId);
     setActivePanel("content");
+    // Uređivanje linka: skrol do editora izabranog linka radi ContentPanel;
+    // poništavamo eventualni zaostali zahtev da stek ne bi odskrolovao do stare
+    // sekcije (npr. „Boja") kad se „content" kutija otvori.
+    setScrollRequest(null);
   }
 
   function handlePanelSelect(panel: EditorPanelId) {
@@ -488,6 +520,12 @@ export function EditorWorkspace({
       setSelectedDestinationId(null);
     }
     setActivePanel(nextPanel);
+    // Pri otvaranju/navigaciji tražimo skrol do te sekcije; pri zatvaranju
+    // brišemo zahtev (v. closeScrollRequest) da stari cilj ne bi „odskrolovao"
+    // stek kad se sledeći put otvori zbog izbora linka.
+    setScrollRequest((current) =>
+      nextPanel ? { panel: nextPanel, nonce: (current?.nonce ?? 0) + 1 } : null,
+    );
   }
 
   function closeActivePanel() {
@@ -891,7 +929,7 @@ export function EditorWorkspace({
 
           <div className={styles.contextSlot}>
             <AnimatePresence initial={false}>
-              {activePanel ? (
+              {activeGroup ? (
                 <motion.aside
                   key="context-panel"
                   className={styles.contextPanel}
@@ -921,49 +959,47 @@ export function EditorWorkspace({
                     ease: [0.22, 1, 0.36, 1],
                   }}
                 >
-                  <div className={styles.panelHeader}>
-                    <div>
-                      <h2 className={styles.panelTitle}>
-                        {panelCopy[activePanel].title}
-                      </h2>
-                      <p className={styles.panelDescription}>
-                        {panelCopy[activePanel].description}
-                      </p>
-                    </div>
-                  </div>
-                  <PanelScrollArea key={activePanel}>
-                    <AnimatePresence mode="wait" initial={false}>
-                      <motion.div
-                        key={activePanel}
-                        initial={
-                          reducedMotion ? false : { opacity: 0, y: 5, scale: 0.99 }
+                  {/*
+                    Ceo stek panela aktivne grupe (gornji: Sadržaj → Boja; donji:
+                    Analitika → Pomoć) živi u jednoj kutiji koja skroluje. Prelaz
+                    grupa je blagi crossfade; kretanje unutar grupe je GSAP skrol.
+                  */}
+                  <AnimatePresence initial={false}>
+                    <motion.div
+                      key={activeGroup}
+                      className={styles.panelGroupBox}
+                      initial={
+                        reducedMotion ? false : { opacity: 0, y: 6 }
+                      }
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={reducedMotion ? { opacity: 0 } : { opacity: 0, y: -4 }}
+                      transition={{
+                        duration: reducedMotion ? 0.01 : 0.22,
+                        ease: [0.22, 1, 0.36, 1],
+                      }}
+                    >
+                      <PanelGroupBox
+                        items={
+                          activeGroup === "primary"
+                            ? primaryToolItems
+                            : visibleSecondaryToolItems(data.editorRole)
                         }
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={
-                          reducedMotion ? undefined : { opacity: 0, y: -3 }
-                        }
-                        transition={{
-                          duration: reducedMotion ? 0.01 : 0.2,
-                          ease: [0.22, 1, 0.36, 1],
-                        }}
-                      >
-                        <EditorPanelContent
-                          panel={activePanel}
-                          data={data}
-                          document={document}
-                          setDocument={setDocument}
-                          selectedDestination={selectedDestination}
-                          uploadLogo={uploadLogo}
-                          uploadBackground={uploadBackground}
-                          uploadBusy={uploadBusy}
-                          setDeleteTarget={setDeleteTarget}
-                          settingsBusy={settingsBusy}
-                          saveBusinessIdentity={saveBusinessIdentity}
-                          togglePublic={togglePublic}
-                        />
-                      </motion.div>
-                    </AnimatePresence>
-                  </PanelScrollArea>
+                        scrollRequest={scrollRequest}
+                        reducedMotion={Boolean(reducedMotion)}
+                        data={data}
+                        document={document}
+                        setDocument={setDocument}
+                        selectedDestination={selectedDestination}
+                        uploadLogo={uploadLogo}
+                        uploadBackground={uploadBackground}
+                        uploadBusy={uploadBusy}
+                        setDeleteTarget={setDeleteTarget}
+                        settingsBusy={settingsBusy}
+                        saveBusinessIdentity={saveBusinessIdentity}
+                        togglePublic={togglePublic}
+                      />
+                    </motion.div>
+                  </AnimatePresence>
                 </motion.aside>
               ) : null}
             </AnimatePresence>
@@ -1103,6 +1139,134 @@ function EditorRail({
   );
 }
 
+// Ceo stek panela jedne grupe u jednoj skrol-kutiji. Klik na side-nav zada
+// scrollRequest (cilj + nonce) i GSAP odskroluje do te sekcije: prvi prikaz je
+// instant (kutija se već otvori na traženoj sekciji), a kretanje unutar iste
+// grupe je glatko. Cilj se čita direktno iz scrollRequest-a (svež po
+// konstrukciji), bez ref-ova — pa nema trke oko redosleda efekata.
+function PanelGroupBox({
+  items,
+  scrollRequest,
+  reducedMotion,
+  data,
+  document,
+  setDocument,
+  selectedDestination,
+  uploadLogo,
+  uploadBackground,
+  uploadBusy,
+  setDeleteTarget,
+  settingsBusy,
+  saveBusinessIdentity,
+  togglePublic,
+}: {
+  items: readonly EditorToolItem[];
+  scrollRequest: { panel: EditorPanelId; nonce: number } | null;
+  reducedMotion: boolean;
+  data: EditorData;
+  document: ScanMeLinksEditorDocument;
+  setDocument: EditorDocumentSetter;
+  selectedDestination: EditorDestination | null;
+  uploadLogo: (file: File) => Promise<void>;
+  uploadBackground: (kind: "image" | "video", file: File) => Promise<void>;
+  uploadBusy: boolean;
+  setDeleteTarget: (destination: EditorDestination) => void;
+  settingsBusy: boolean;
+  saveBusinessIdentity: (name: string, slug: string) => Promise<void>;
+  togglePublic: (active: boolean) => Promise<void>;
+}) {
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const revealedRef = useRef(false);
+
+  useEffect(() => {
+    const viewport = viewportRef.current;
+    // Prvi prikaz grupe je instant (kutija se otvori već na sekciji); svaka
+    // sledeća navigacija unutar iste grupe je glatka.
+    const firstReveal = !revealedRef.current;
+    revealedRef.current = true;
+    if (!viewport || !scrollRequest) return;
+    const target = viewport.querySelector<HTMLElement>(
+      `[data-panel-section="${scrollRequest.panel}"]`,
+    );
+    if (!target) return;
+    const instant = firstReveal || reducedMotion;
+    gsap.to(viewport, {
+      duration: instant ? 0 : 0.55,
+      ease: "power3.out",
+      overwrite: "auto",
+      scrollTo: { y: target, offsetY: SECTION_SCROLL_OFFSET },
+    });
+    // Diskretan doček: naslov sekcije kratko blesne i ugasi se.
+    if (!instant) {
+      const header = target.querySelector<HTMLElement>(
+        "[data-section-header]",
+      );
+      if (header) {
+        gsap.fromTo(
+          header,
+          { backgroundColor: "rgba(255, 231, 213, 0.6)" },
+          {
+            backgroundColor: "rgba(255, 231, 213, 0)",
+            duration: 1.05,
+            ease: "power2.out",
+            clearProps: "backgroundColor",
+          },
+        );
+      }
+    }
+  }, [scrollRequest, reducedMotion]);
+
+  useEffect(
+    () => () => {
+      const viewport = viewportRef.current;
+      if (viewport) gsap.killTweensOf(viewport);
+    },
+    [],
+  );
+
+  return (
+    <PanelScrollArea viewportRef={viewportRef}>
+      {items.map((item) => {
+        const Icon = item.icon;
+        const copy = panelCopy[item.id];
+        return (
+          <section
+            key={item.id}
+            data-panel-section={item.id}
+            className={styles.panelSection}
+          >
+            <header data-section-header className={styles.panelSectionHeader}>
+              <span className={styles.panelSectionBadge} aria-hidden="true">
+                <Icon className="size-[18px]" strokeWidth={1.7} />
+              </span>
+              <div className={styles.panelSectionHeading}>
+                <h2 className={styles.panelSectionTitle}>{copy.title}</h2>
+                <p className={styles.panelSectionDescription}>
+                  {copy.description}
+                </p>
+              </div>
+            </header>
+            <EditorPanelContent
+              panel={item.id}
+              data={data}
+              document={document}
+              setDocument={setDocument}
+              selectedDestination={selectedDestination}
+              uploadLogo={uploadLogo}
+              uploadBackground={uploadBackground}
+              uploadBusy={uploadBusy}
+              setDeleteTarget={setDeleteTarget}
+              settingsBusy={settingsBusy}
+              saveBusinessIdentity={saveBusinessIdentity}
+              togglePublic={togglePublic}
+            />
+          </section>
+        );
+      })}
+    </PanelScrollArea>
+  );
+}
+
 type PanelScrollState = {
   clientHeight: number;
   scrollHeight: number;
@@ -1110,9 +1274,24 @@ type PanelScrollState = {
   trackHeight: number;
 };
 
-function PanelScrollArea({ children }: { children: ReactNode }) {
+function PanelScrollArea({
+  children,
+  viewportRef: externalViewportRef,
+}: {
+  children: ReactNode;
+  viewportRef?: React.RefObject<HTMLDivElement | null>;
+}) {
   const viewportRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
+  // Prosleđujemo skrol-viewport roditelju (PanelGroupBox-u) preko callback ref-a
+  // da bi GSAP mogao da skroluje baš ovaj element; interni ref ostaje stabilan.
+  const assignViewport = useCallback(
+    (node: HTMLDivElement | null) => {
+      viewportRef.current = node;
+      if (externalViewportRef) externalViewportRef.current = node;
+    },
+    [externalViewportRef],
+  );
   const viewportId = useId();
   const dragRef = useRef<{
     pointerId: number;
@@ -1229,7 +1408,7 @@ function PanelScrollArea({ children }: { children: ReactNode }) {
     <div className={styles.panelScrollShell}>
       <div
         id={viewportId}
-        ref={viewportRef}
+        ref={assignViewport}
         className={styles.panelScroll}
         data-panel-scroll="true"
         onScroll={syncScrollState}

@@ -1,17 +1,30 @@
 import type { Metadata } from "next";
-import { IBM_Plex_Mono } from "next/font/google";
+// Fonts are self-hosted through Fontsource instead of fetched from Google at
+// build time. The ScanMe Links templates let a business pick any of these for
+// its public page, so they all have to be real loaded faces; going through
+// fonts.googleapis.com would make every build depend on reaching Google and
+// would hand EU visitor IPs to a third party on every page view.
+import "@fontsource/ibm-plex-mono/400.css";
+import "@fontsource/ibm-plex-mono/500.css";
+import "@fontsource/ibm-plex-mono/600.css";
+import "@fontsource/ibm-plex-mono/700.css";
+import "@fontsource-variable/dm-sans";
+import "@fontsource-variable/nunito-sans";
+import "@fontsource-variable/source-sans-3";
+import "@fontsource-variable/inter";
+import "@fontsource-variable/manrope";
+import "@fontsource-variable/cormorant-garamond";
+import "@fontsource-variable/playfair-display";
+import "@fontsource-variable/lora";
+import "@fontsource/libre-baskerville/400.css";
+import "@fontsource/libre-baskerville/700.css";
+import "@fontsource-variable/space-grotesk";
+import "@fontsource-variable/archivo";
 import { ConvexAuthNextjsServerProvider } from "@convex-dev/auth/nextjs/server";
 import { ConvexClientProvider } from "./convex-client-provider";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
-
-const plexMono = IBM_Plex_Mono({
-  subsets: ["latin", "latin-ext"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-plex-mono",
-  display: "swap",
-});
 
 const themeScript = `(function(){var t;try{t=localStorage.getItem("scanme-theme")}catch(e){}if(t!=="dark"&&t!=="light")t=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";var r=document.documentElement;r.setAttribute("data-theme",t);r.classList.toggle("dark",t==="dark")})()`;
 
@@ -42,7 +55,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       data-theme="light"
       data-scroll-behavior="smooth"
       suppressHydrationWarning
-      className={`${plexMono.variable} antialiased`}
+      className="antialiased"
     >
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />

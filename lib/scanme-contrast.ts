@@ -1,3 +1,4 @@
+import { layoutForPreset } from "./scanme-links-design";
 import type { ScanMeLinksDesignV2 } from "./scanme-links-design";
 import {
   compositeColors,
@@ -446,12 +447,19 @@ export function analyzeScanMeContrast(
       "Tekst na dugmetu nije dovoljno lak za čitanje.",
     );
     if (buttonTextIssue) issues.push(buttonTextIssue);
+    // Which surface the icon is read against depends on the layout: the
+    // float-icon presets seat it in a `surface`-filled circle, while the
+    // inline-icon presets keep a transparent tile directly on the button.
+    const iconBackdrop =
+      layoutForPreset(design.presetKey) === "inline-icon"
+        ? design.colors.button
+        : design.colors.surface;
     const iconIssue = issue(
       "icon-contrast",
       "button",
       "Ikonica na površini",
       design.colors.icon,
-      [design.colors.surface],
+      [iconBackdrop],
       CONTRAST_FLOORS.icon,
       "icon",
       palette,

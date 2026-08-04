@@ -42,6 +42,7 @@ import {
   optionTwoDestinationClassName,
   optionTwoDuplicateNumber,
 } from "@/components/scanme-links/templates/option-two/option-two-template";
+import { iconPackageForPreset } from "@/lib/scanme-links-design";
 import { ScanMeContrastAssistant } from "@/components/admin/scanme-contrast-assistant";
 import type { ScanMeLinksViewModel } from "@/components/scanme-links/templates/types";
 import {
@@ -184,6 +185,7 @@ export function ScanMeLinksEditorPreview({
   } | null>(null);
   const [canvasScroll, setCanvasScroll] = useState({
     clientHeight: 0,
+    clientWidth: 0,
     scrollHeight: 0,
     scrollTop: 0,
     trackHeight: 0,
@@ -194,6 +196,7 @@ export function ScanMeLinksEditorPreview({
     if (!canvas) return;
     setCanvasScroll({
       clientHeight: canvas.clientHeight,
+      clientWidth: canvas.clientWidth,
       scrollHeight: canvas.scrollHeight,
       scrollTop: canvas.scrollTop,
       trackHeight: canvasTrackRef.current?.clientHeight ?? 0,
@@ -258,6 +261,23 @@ export function ScanMeLinksEditorPreview({
   const canvasScrollProgress = canvasMaxScroll
     ? Math.min(1, Math.max(0, canvasScroll.scrollTop / canvasMaxScroll))
     : 0;
+
+  // Skala koja garantuje da ceo telefon (350×720) uvek stane u vidljivi deo
+  // canvasa, bez obzira na visinu ekrana. Zum korisnika se množi preko nje, pa
+  // 100% uvek znači „ceo telefon", a veći zum namerno prelazi u skrol.
+  const PHONE_WIDTH = 350;
+  const PHONE_HEIGHT = 720;
+  const phoneAvailableHeight = Math.max(0, canvasScroll.clientHeight - 14);
+  const phoneAvailableWidth = Math.max(0, canvasScroll.clientWidth - 16);
+  const phoneFitScale =
+    phoneAvailableHeight && phoneAvailableWidth
+      ? Math.min(
+          1,
+          phoneAvailableHeight / PHONE_HEIGHT,
+          phoneAvailableWidth / PHONE_WIDTH,
+        )
+      : 1;
+  const phoneScale = phoneFitScale * (zoom / 100);
 
   function moveCanvasTo(scrollTop: number) {
     const canvas = canvasRef.current;
@@ -398,6 +418,10 @@ export function ScanMeLinksEditorPreview({
             <motion.div
               key="phone"
               className={styles.phoneFit}
+              style={{
+                width: `${PHONE_WIDTH * phoneScale}px`,
+                height: `${PHONE_HEIGHT * phoneScale}px`,
+              }}
               initial={reducedMotion ? false : { opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={reducedMotion ? undefined : { opacity: 0 }}
@@ -406,7 +430,7 @@ export function ScanMeLinksEditorPreview({
               <div
                 className={styles.phoneShell}
                 data-editor-preview="true"
-                style={{ transform: `scale(${zoom / 100})` }}
+                style={{ transform: `scale(${phoneScale})` }}
               >
                 <div className={styles.phoneScreen}>
                   <div className={styles.dynamicIsland} aria-hidden="true" />
@@ -552,6 +576,11 @@ export function InteractivePreviewPage({
                 duplicate={optionTwoDuplicateNumber(destinations, index)}
                 selected={selectedDestinationId === destination.id}
                 iconStyle={view.design?.iconStyle}
+                packageStyle={
+                  view.design
+                    ? iconPackageForPreset(view.design.presetKey)
+                    : "line"
+                }
                 onSelect={() => onSelectDestination(destination.id)}
               />
             ))}
@@ -577,12 +606,14 @@ function SortablePreviewDestination({
   duplicate,
   selected,
   iconStyle,
+  packageStyle,
   onSelect,
 }: {
   destination: EditorDestination;
   duplicate: number | null;
   selected: boolean;
   iconStyle?: NonNullable<ScanMeLinksViewModel["design"]>["iconStyle"];
+  packageStyle?: ReturnType<typeof iconPackageForPreset>;
   onSelect: () => void;
 }) {
   const {
@@ -628,6 +659,7 @@ function SortablePreviewDestination({
           duplicate={duplicate}
           preview
           iconStyle={iconStyle}
+          packageStyle={packageStyle}
         />
       </button>
     </li>
