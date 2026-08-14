@@ -1499,6 +1499,9 @@ function documentFromData(data: EditorData): ScanMeLinksEditorDocument {
     paletteAnalysis: config.paletteAnalysis
       ? {
           ...config.paletteAnalysis,
+          original: config.paletteAnalysis.original.slice(0, 8),
+          adjusted: config.paletteAnalysis.adjusted.slice(0, 8),
+          correctedRoles: config.paletteAnalysis.correctedRoles.slice(0, 8),
           generationMode:
             config.paletteAnalysis.generationMode ??
             inferPaletteMode(design.colors.page),

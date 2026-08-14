@@ -2438,18 +2438,75 @@
   --mobile-dock-clearance: calc(100px + env(safe-area-inset-bottom, 0px));
   position: relative;
   z-index: 0;
-  display: flex;
   height: 100dvh;
-  min-height: 0;
-  flex-direction: column;
+  overflow: hidden;
   isolation: isolate;
 }
 
+/* iOS tamna tapeta — samo za mobilni editor. Zamenjuje deljeni "paper" backdrop
+   (koji ostaje na desktopu). Slojevi odozgo: topla defokusirana "magla"
+   (svetlija oko gornje-leve trećine, kao na iOS pozadini), sekundarni difuzni
+   sjaj, zatamnjenje dna, vignette ka ivicama i topla near-black osnova. */
+.mobileBackdrop {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  overflow: hidden;
+  background-color: #100f0e;
+  background-image:
+    radial-gradient(
+      58% 46% at 33% 29%,
+      rgba(194, 184, 171, 0.28),
+      rgba(194, 184, 171, 0) 70%
+    ),
+    radial-gradient(
+      50% 40% at 67% 22%,
+      rgba(170, 162, 152, 0.16),
+      rgba(170, 162, 152, 0) 72%
+    ),
+    radial-gradient(
+      62% 46% at 54% 84%,
+      rgba(150, 143, 133, 0.1),
+      rgba(150, 143, 133, 0) 70%
+    ),
+    radial-gradient(
+      72% 62% at 12% 96%,
+      rgba(0, 0, 0, 0.55),
+      rgba(0, 0, 0, 0) 60%
+    ),
+    radial-gradient(
+      122% 100% at 50% 40%,
+      rgba(0, 0, 0, 0) 45%,
+      rgba(0, 0, 0, 0.52) 100%
+    ),
+    linear-gradient(168deg, #1c1a17 0%, #151311 46%, #0d0c0b 100%);
+}
+
+/* Suptilni film-grain — iOS tapete nisu potpuno glatke; drži pojaseve (banding)
+   pod kontrolom i daje "fotografski" osećaj. */
+.mobileBackdrop::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  pointer-events: none;
+  opacity: 0.05;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='150' height='150'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .mobileBackdrop::after {
+    display: none;
+  }
+}
+
 .mobileTopBar {
-  position: relative;
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
   z-index: 50;
   display: flex;
-  flex: none;
   align-items: center;
   gap: 7px;
   min-height: 58px;
@@ -2457,8 +2514,27 @@
   background: rgba(250, 247, 241, 0.86);
   padding: calc(6px + env(safe-area-inset-top, 0px)) 12px 6px;
   box-shadow: 0 6px 22px rgba(47, 38, 30, 0.035);
+  will-change: transform;
+  transition: transform 0.42s cubic-bezier(0.22, 1, 0.36, 1);
   -webkit-backdrop-filter: blur(18px) saturate(140%);
   backdrop-filter: blur(18px) saturate(140%);
+}
+
+/* Dodir po praznom delu preview-a slajduje navbarove van ekrana (i vraća ih);
+   gornji ide naviše, donji naniže — nikad ne staju na ivici, izlaze skroz. */
+.mobileChromeUp {
+  transform: translateY(-120%);
+}
+
+.mobileChromeDown {
+  transform: translateY(120%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mobileTopBar,
+  .mobileDock {
+    transition-duration: 0.01ms;
+  }
 }
 
 .mobileIconButton {
@@ -2506,24 +2582,18 @@
 }
 
 .mobileCanvas {
-  position: relative;
+  position: absolute;
   z-index: 10;
-  min-height: 0;
-  flex: 1;
-  padding: 10px 10px 0;
+  inset: 0;
 }
 
+/* Editor preview je sada „preko celog ekrana" — identičan objavljenoj stranici;
+   gornji/donji navbar lebde preko njega (v. .mobileTopBar / .mobileDock). Bez
+   kartice: nema border-radius-a, tamne podloge ni senke „telefon u kutiji". */
 .mobileCanvasCard {
   position: relative;
   height: 100%;
-  max-width: 680px;
-  margin-inline: auto;
   overflow: hidden;
-  border-radius: 30px;
-  background: #141615;
-  box-shadow:
-    0 24px 48px rgba(29, 25, 22, 0.18),
-    0 6px 14px rgba(29, 25, 22, 0.09);
 }
 
 .mobileCanvasScroll {
@@ -2543,10 +2613,14 @@
 }
 
 .mobileDock {
-  position: relative;
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
   z-index: 60;
-  flex: none;
   padding: 10px 10px calc(10px + env(safe-area-inset-bottom, 0px));
+  will-change: transform;
+  transition: transform 0.42s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .mobileDockScroller {
