@@ -249,7 +249,7 @@ function normalizeEditorText(
   return normalized;
 }
 
-export function normalizePaletteAnalysis(
+function normalizePaletteAnalysis(
   value:
     | {
         original: string[];
@@ -268,12 +268,20 @@ export function normalizePaletteAnalysis(
     | undefined,
 ) {
   if (value == null) return undefined;
+  if (
+    value.original.length > 8 ||
+    value.adjusted.length > 8 ||
+    value.correctedRoles.length > 8 ||
+    (value.lockedSlots?.length ?? 0) > 5
+  ) {
+    throw new ConvexError("Analiza palete može imati najviše osam vrednosti po grupi.");
+  }
   return {
-    original: value.original.slice(0, 8).map(normalizeHex),
-    adjusted: value.adjusted.slice(0, 8).map(normalizeHex),
-    correctedRoles: value.correctedRoles
-      .slice(0, 8)
-      .map((role) => requireText(role, "Uloga boje", 1, 64)),
+    original: value.original.map(normalizeHex),
+    adjusted: value.adjusted.map(normalizeHex),
+    correctedRoles: value.correctedRoles.map((role) =>
+      requireText(role, "Uloga boje", 1, 64),
+    ),
     ...(value.generationMode
       ? { generationMode: value.generationMode }
       : {}),

@@ -20,13 +20,13 @@ import {
   useEffect,
   useId,
   useRef,
-  useState,
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import { ScanMeContrastAssistant } from "@/components/admin/scanme-contrast-assistant";
 import type { ContrastSuggestion } from "@/lib/scanme-contrast";
 import { cn } from "@/lib/utils";
 import {
+  EditorBackdrop,
   EditorPanelContent,
   panelCopy,
   primaryToolItems,
@@ -119,10 +119,6 @@ export function MobileEditorShell({
   const reducedMotion = useReducedMotion();
   const canvasAreaRef = useRef<HTMLDivElement>(null);
   const dockScrollerRef = useRef<HTMLDivElement>(null);
-  // Navbarovi (gornji + donji) su preklop preko preview stranice; dodir po
-  // praznom delu ih naizmenično slajduje van ekrana i vraća (v.
-  // handleCanvasPointerDown). Otvaranje panela uvek vraća chrome.
-  const [chromeHidden, setChromeHidden] = useState(false);
   const { view, destinations, contrastIssues } =
     useEditorPreviewModel(document);
 
@@ -138,13 +134,6 @@ export function MobileEditorShell({
     });
   }, [activePanel, reducedMotion]);
 
-  // Biranje linka otvara „content" panel; ako je chrome sakriven (dok van
-  // ekrana), vrati ga da bi se panel/dok video.
-  function handleSelectDestination(destinationId: EditorDestination["id"]) {
-    setChromeHidden(false);
-    onSelectDestination(destinationId);
-  }
-
   function handleCanvasPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
     const target = event.target;
     if (!(target instanceof Element)) return;
@@ -155,26 +144,16 @@ export function MobileEditorShell({
       return;
     }
     // Dodir po praznom delu stranice: kao klik na radnu površinu na desktopu —
-    // skida selekciju. Ako je panel otvoren, prvi dodir ga samo spušta; inače
-    // prebacuje (slajduje) gornji i donji navbar van/na ekran.
+    // skida selekciju i spušta otvoreni panel da se preview vidi ceo.
     onClearSelection();
-    if (activePanel) {
-      onClosePanel();
-      return;
-    }
-    setChromeHidden((hidden) => !hidden);
+    if (activePanel) onClosePanel();
   }
 
   return (
     <div className={styles.mobileEditor}>
-      <div className={styles.mobileBackdrop} aria-hidden="true" />
+      <EditorBackdrop />
 
-      <header
-        className={cn(
-          styles.mobileTopBar,
-          chromeHidden && styles.mobileChromeUp,
-        )}
-      >
+      <header className={styles.mobileTopBar}>
         <Link
           className={styles.mobileIconButton}
           href="/admin/scanme-links"
@@ -252,7 +231,7 @@ export function MobileEditorShell({
               view={view}
               destinations={destinations}
               selectedDestinationId={selectedDestinationId}
-              onSelectDestination={handleSelectDestination}
+              onSelectDestination={onSelectDestination}
               onReorder={onReorder}
               onAddDestination={onAddDestination}
               addBusy={addBusy}
@@ -278,7 +257,6 @@ export function MobileEditorShell({
         onSelect={onPanelSelect}
         scrollerRef={dockScrollerRef}
         editorRole={data.editorRole}
-        hidden={chromeHidden}
       />
 
       <AnimatePresence initial={false}>
@@ -315,19 +293,14 @@ function MobileDock({
   onSelect,
   scrollerRef,
   editorRole,
-  hidden,
 }: {
   activePanel: EditorPanelId | null;
   onSelect: (panel: EditorPanelId) => void;
   scrollerRef: React.RefObject<HTMLDivElement | null>;
   editorRole: EditorData["editorRole"];
-  hidden: boolean;
 }) {
   return (
-    <nav
-      className={cn(styles.mobileDock, hidden && styles.mobileChromeDown)}
-      aria-label="Alati editora"
-    >
+    <nav className={styles.mobileDock} aria-label="Alati editora">
       <div ref={scrollerRef} className={styles.mobileDockScroller}>
         {primaryToolItems.map((item) => (
           <MobileDockButton

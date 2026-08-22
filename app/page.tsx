@@ -19,6 +19,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { HeroIntro } from "@/components/hero-intro";
 import { HeroMedia } from "@/components/hero-media";
 import { LeadForm } from "@/components/lead-form";
+import { PricingPlans } from "@/components/pricing-plans";
 import { Reveal } from "@/components/reveal";
 import { ScanStory } from "@/components/scan-story";
 import { SiteNav, Wordmark } from "@/components/site-nav";
@@ -68,6 +69,7 @@ const footerLinks = [
   // { href: "#trajni-qr", label: "Trajan QR" },
   { href: "#za-koga", label: "Za koga" },
   { href: "#faq", label: "FAQ" },
+  { href: "#cenovnik", label: "Cenovnik" },
   { href: "#ponuda", label: "Kontakt" },
   // { href: "#ekosistem", label: "Ekosistem" },
 ] as const;
@@ -94,9 +96,9 @@ export default async function Home() {
       <SiteNav />
       <div className="landing-scan-layer" aria-hidden="true" />
       <SiteScrollMotion>
-        <div className="landing-atmosphere">
+        <div className="landing-atmosphere" data-text-reveal-root>
         <main id="glavni-sadrzaj">
-        <section id="pocetak" className="hero-scan-depth relative min-h-[100dvh] overflow-hidden border-b border-foreground/10">
+        <section id="pocetak" data-reveal="off" className="hero-scan-depth relative min-h-[100dvh] overflow-hidden border-b border-foreground/10">
           <HeroMedia hasVideo={hasVideo} hasPoster={hasPoster} />
           <HeroIntro />
         </section>
@@ -210,6 +212,10 @@ export default async function Home() {
               </AccordionItem>
             ))}
           </Accordion>
+        </section>
+
+        <section id="cenovnik" className="section-shell py-24 sm:py-32 lg:py-40">
+          <PricingPlans />
         </section>
 
         <section id="ponuda" className="landing-soft-section border-y border-foreground/10 py-24 sm:py-32 lg:py-40">

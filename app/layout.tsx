@@ -23,7 +23,9 @@ import "@fontsource-variable/archivo";
 import { ConvexAuthNextjsServerProvider } from "@convex-dev/auth/nextjs/server";
 import { ConvexClientProvider } from "./convex-client-provider";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { TextRevealGlobal } from "@/components/text-reveal-global";
 import { Toaster } from "@/components/ui/sonner";
+import { REVEAL_HIDE_CSS } from "@/constants/textRevealConfig";
 import "./globals.css";
 
 const themeScript = `(function(){var t;try{t=localStorage.getItem("scanme-theme")}catch(e){}if(t!=="dark"&&t!=="light")t=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";var r=document.documentElement;r.setAttribute("data-theme",t);r.classList.toggle("dark",t==="dark")})()`;
@@ -59,9 +61,11 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     >
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        <style dangerouslySetInnerHTML={{ __html: REVEAL_HIDE_CSS }} />
       </head>
       <body className="min-h-svh bg-background font-mono text-foreground antialiased">
         <ThemeToggle placement="global" />
+        <TextRevealGlobal />
         <ConvexAuthNextjsServerProvider>
           <ConvexClientProvider>{children}</ConvexClientProvider>
         </ConvexAuthNextjsServerProvider>

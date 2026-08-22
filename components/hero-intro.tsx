@@ -1,16 +1,19 @@
 "use client";
 
-import { useCallback, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import {
   AnimatePresence,
   motion,
   useIsPresent,
   useReducedMotion,
 } from "framer-motion";
+import { gsap } from "gsap";
 import { ArrowDownRight, ArrowUpRight } from "lucide-react";
 import { HeroLinksAnimation } from "@/components/hero-links-animation";
 import { HeroOutcomeAnimation } from "@/components/hero-outcome-animation";
 import { getHeroCarouselCycleAction } from "@/lib/hero-animation-playback";
+import { TEXT_REVEAL } from "@/constants/textRevealConfig";
+import { restoreWords, splitWords } from "@/lib/textReveal";
 
 type HeroService = "links" | "review";
 
@@ -102,6 +105,47 @@ export function HeroIntro() {
   const [autoplayEnabled, setAutoplayEnabled] = useState(true);
   const [completedCycles, setCompletedCycles] = useState(0);
   const animationPaused = selectorHovered || selectorFocused;
+  const textStageRef = useRef<HTMLDivElement>(null);
+
+  // The hero owns its own copy timing (it is opted out of the site-wide reveal),
+  // but the headline and body still arrive word by word — re-running on every
+  // Links/Review switch so each service reveals as it becomes active.
+  useEffect(() => {
+    const stage = textStageRef.current;
+    if (!stage) return;
+
+    stage
+      .querySelectorAll<HTMLElement>("[data-hero-panel]")
+      .forEach((panel) => restoreWords(panel));
+
+    if (reduce) return;
+
+    const active = stage.querySelector<HTMLElement>(
+      `[data-hero-service="${activeService}"]`,
+    );
+    if (!active) return;
+
+    const words = Array.from(
+      active.querySelectorAll<HTMLElement>("h1, [data-hero-body]"),
+    ).flatMap((node) => splitWords(node));
+    if (words.length === 0) return;
+
+    gsap.fromTo(
+      words,
+      { opacity: 0, y: TEXT_REVEAL.wordLift, filter: `blur(${TEXT_REVEAL.blur}px)` },
+      {
+        opacity: 1,
+        y: 0,
+        filter: "blur(0px)",
+        duration: TEXT_REVEAL.wordDuration,
+        ease: "power2.out",
+        stagger: { each: TEXT_REVEAL.wordStagger, from: "random" },
+        onComplete: () => gsap.set(words, { clearProps: "filter,transform" }),
+      },
+    );
+
+    return () => restoreWords(active);
+  }, [activeService, reduce]);
 
   const enter = (delay: number) => ({
     initial: reduce ? false : { opacity: 0, y: 24 },
@@ -186,13 +230,15 @@ export function HeroIntro() {
           </motion.div>
 
           <div className="order-2 max-w-4xl lg:col-start-1 lg:row-span-2 lg:row-start-1 lg:justify-self-start">
-            <motion.div {...enter(0.05)} className="grid">
+            <div ref={textStageRef} className="grid">
               {services.map((service) => {
                 const active = service.id === activeService;
 
                 return (
                   <motion.div
                     key={service.id}
+                    data-hero-panel
+                    data-hero-service={service.id}
                     aria-hidden={!active}
                     className={`[grid-area:1/1] ${
                       active ? "" : "pointer-events-none select-none"
@@ -218,13 +264,13 @@ export function HeroIntro() {
                     >
                       {service.headline}
                     </h1>
-                    <p className="mt-6 max-w-[58ch] text-base leading-7 text-foreground/76 sm:text-lg">
+                    <p data-hero-body className="mt-6 max-w-[58ch] text-base leading-7 text-foreground/76 sm:text-lg">
                       {service.body}
                     </p>
                   </motion.div>
                 );
               })}
-            </motion.div>
+            </div>
 
             <motion.div {...enter(0.27)} className="mt-8 flex flex-col gap-3 sm:flex-row">
               <a href="#ponuda" className="button-primary focus-signal">

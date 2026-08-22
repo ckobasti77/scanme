@@ -19,56 +19,10 @@ export function SiteScrollMotion({ children }: { children: ReactNode }) {
     media.add("(prefers-reduced-motion: no-preference)", () => {
       const context = gsap.context(() => {
         const compact = window.innerWidth < 768;
-        const revealOffset = compact ? 20 : 36;
 
-        gsap.utils.toArray<HTMLElement>("[data-reveal-group]", root).forEach((group) => {
-          const revealStart = group.dataset.revealStart ?? "84";
-          const items = Array.from(group.children).filter(
-            (child): child is HTMLElement =>
-              child instanceof HTMLElement && !child.hasAttribute("data-reveal-skip"),
-          );
-
-          if (items.length === 0) return;
-
-          gsap.fromTo(
-            items,
-            { autoAlpha: 0, y: revealOffset },
-            {
-              autoAlpha: 1,
-              y: 0,
-              duration: compact ? 0.56 : 0.7,
-              stagger: compact ? 0.045 : 0.065,
-              ease: "power3.out",
-              scrollTrigger: {
-                trigger: group,
-                start: `top ${revealStart}%`,
-                once: true,
-              },
-            },
-          );
-        });
-
-        gsap.utils
-          .toArray<HTMLElement>("[data-reveal-item]", root)
-          .filter((item) => !item.closest("[data-reveal-group]"))
-          .forEach((item) => {
-            gsap.fromTo(
-              item,
-              { autoAlpha: 0, y: revealOffset },
-              {
-                autoAlpha: 1,
-                y: 0,
-                duration: compact ? 0.56 : 0.7,
-                ease: "power3.out",
-                scrollTrigger: {
-                  trigger: item,
-                  start: "top 86%",
-                  once: true,
-                },
-              },
-            );
-          });
-
+        // Copy entrances are owned by the site-wide word-by-word reveal
+        // (TextRevealGlobal). This component keeps only the scroll parallax so
+        // the two never fight over the same element's opacity.
         gsap.utils.toArray<HTMLElement>("[data-parallax]", root).forEach((layer) => {
           const configuredAmount = Number(layer.dataset.parallax) || 8;
           const amount = compact ? configuredAmount * 0.55 : configuredAmount;
