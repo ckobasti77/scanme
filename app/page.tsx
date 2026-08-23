@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
 import Image from "next/image";
+import Link from "next/link";
 import {
   ArrowUpRight,
   BarChart3,
@@ -28,6 +29,7 @@ import { ComingSoon } from "@/components/coming-soon";
 import { EcosystemProductDeck } from "@/components/ecosystem-product-deck";
 import { BackToTop } from "@/components/back-to-top";
 import { hasPreviewAccess } from "@/lib/preview-access";
+import { readContactMessage } from "@/lib/offer-contact";
 
 const reviewBenefits = [
   { icon: Palette, title: "Dizajn", body: "Izaberi dizajn ili to prepusti nama" },
@@ -70,7 +72,7 @@ const footerLinks = [
   { href: "#za-koga", label: "Za koga" },
   { href: "#faq", label: "FAQ" },
   { href: "#cenovnik", label: "Cenovnik" },
-  { href: "#ponuda", label: "Kontakt" },
+  { href: "/#ponuda", label: "Kontakt" },
   // { href: "#ekosistem", label: "Ekosistem" },
 ] as const;
 
@@ -82,8 +84,18 @@ const footerProducts = [
   { name: "ScanMe Loyalty", status: "Uskoro" },
 ] as const;
 
-export default async function Home() {
+export default async function Home({ searchParams }: PageProps<"/">) {
   if (!(await hasPreviewAccess())) return <ComingSoon />;
+
+  // Ako je korisnik došao iz toka ponude (Enterprise CTA ili /ponuda/pregled), query
+  // nosi kontekst; ovde ga čitamo u čitljiv predlog poruke za kontakt formu.
+  const resolvedParams = await searchParams;
+  const contactParams = new URLSearchParams();
+  for (const [key, value] of Object.entries(resolvedParams)) {
+    if (typeof value === "string") contactParams.set(key, value);
+    else if (Array.isArray(value) && value[0] !== undefined) contactParams.set(key, value[0]);
+  }
+  const initialMessage = readContactMessage(contactParams) ?? "";
 
   const hasVideo = existsSync(path.join(process.cwd(), "public", "videos", "scanme-hero.mp4"));
   const hasPoster = existsSync(
@@ -114,7 +126,7 @@ export default async function Home() {
               <p className="mt-6 max-w-[52ch] leading-7 text-foreground/64">
                 Pripremamo, izrađujemo i održavamo kompletan ScanMe sistem. Vi dobijate gotov proizvod i jasan uvid u rezultate.
               </p>
-              <a href="#ponuda" className="button-primary focus-signal mt-8">Zatraži ponudu</a>
+              <Link href="/#ponuda" className="button-primary focus-signal mt-8">Zatraži ponudu</Link>
             </div>
 
             <Reveal>
@@ -226,7 +238,7 @@ export default async function Home() {
               <p className="mt-6 max-w-[48ch] leading-7 text-foreground/62">Pošaljite osnovne podatke. Zatim dogovaramo format, dizajn, količinu i realan rok izrade.</p>
             </div>
             <div data-reveal-item>
-              <LeadForm />
+              <LeadForm initialMessage={initialMessage} />
             </div>
           </div>
         </section>
@@ -246,7 +258,7 @@ export default async function Home() {
 
           <div data-reveal-group className="mt-9 sm:flex sm:items-center sm:justify-between sm:gap-8">
             <p className="font-medium tracking-[-0.02em]">Prepoznajete rešenje za svoj biznis?</p>
-            <a href="#ponuda" className="button-primary focus-signal mt-4 sm:mt-0">Javite nam se</a>
+            <Link href="/#ponuda" className="button-primary focus-signal mt-4 sm:mt-0">Javite nam se</Link>
           </div>
         </section>
 
@@ -271,10 +283,10 @@ export default async function Home() {
                 <p className="mt-7 max-w-[36ch] text-base leading-7 text-foreground/58">
                   Fizički predmet postaje jasan digitalni put, bez dodatne aplikacije i bez tehničkog tereta za vaš tim.
                 </p>
-                <a href="#ponuda" className="button-secondary focus-signal mt-8">
+                <Link href="/#ponuda" className="button-secondary focus-signal mt-8">
                   Zatraži ponudu
                   <ArrowUpRight aria-hidden="true" className="size-4" strokeWidth={1.7} />
-                </a>
+                </Link>
               </div>
 
               <nav aria-label="Sadržaj footera">

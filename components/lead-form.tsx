@@ -65,9 +65,14 @@ function validate(values: FormValues): FieldErrors {
   return errors;
 }
 
-export function LeadForm() {
+export function LeadForm({ initialMessage = "" }: { initialMessage?: string } = {}) {
   const createLead = useMutation(api.leads.create);
-  const [values, setValues] = useState(initialValues);
+  // `initialMessage` je predlog rezimea iz toka ponude (server-side); prazan bez konteksta.
+  // Kontrolisano polje — korisnik ga slobodno menja ili briše.
+  const [values, setValues] = useState<FormValues>(() => ({
+    ...initialValues,
+    message: initialMessage,
+  }));
   const [errors, setErrors] = useState<FieldErrors>({});
   const [status, setStatus] = useState<"idle" | "pending" | "success" | "error">("idle");
   const [serverError, setServerError] = useState("");

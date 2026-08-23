@@ -27,6 +27,7 @@ const eslintConfig = defineConfig([
     ".next/**",
     "out/**",
     "build/**",
+    "tmp/**",
     "next-env.d.ts",
     "convex/_generated/**",
     // Standalone business-card generators use Node CommonJS and Adobe ExtendScript.

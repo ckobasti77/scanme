@@ -8,6 +8,7 @@ import {
   useReducedMotion,
 } from "framer-motion";
 import { gsap } from "gsap";
+import Link from "next/link";
 import { ArrowDownRight, ArrowUpRight } from "lucide-react";
 import { HeroLinksAnimation } from "@/components/hero-links-animation";
 import { HeroOutcomeAnimation } from "@/components/hero-outcome-animation";
@@ -273,10 +274,10 @@ export function HeroIntro() {
             </div>
 
             <motion.div {...enter(0.27)} className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <a href="#ponuda" className="button-primary focus-signal">
+              <Link href="/#ponuda" className="button-primary focus-signal">
                 Zatraži ponudu
                 <ArrowUpRight aria-hidden="true" className="size-4" strokeWidth={1.75} />
-              </a>
+              </Link>
               <a href="#kako-radi" className="button-secondary focus-signal">
                 Pogledaj kako radi
                 <ArrowDownRight aria-hidden="true" className="size-4" strokeWidth={1.75} />
