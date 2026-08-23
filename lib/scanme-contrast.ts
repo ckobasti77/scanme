@@ -1,12 +1,15 @@
 import { layoutForPreset } from "./scanme-links-design";
 import type { ScanMeLinksDesignV2 } from "./scanme-links-design";
 import {
+  clamp,
+  colorToOklch,
   compositeColors,
   contrastRatio,
   harmoniousContrastColor,
   minimumContrast,
   mixColors,
   normalizeColorHex,
+  oklchToHex,
   safeNeutralForBackgrounds,
   softenSuggestionColor,
 } from "./scanme-color-science";
@@ -102,19 +105,6 @@ export function contrastSeverity(
 export function contrastSeverityLabel(issue: ContrastIssue) {
   if (issue.advisory) return "Preporuka";
   return contrastQualityLabel(issue.ratio, issue.required);
-}
-
-export function mostCriticalPoorIssueId(issues: ContrastIssue[]) {
-  return [...issues]
-    .filter(
-      (candidate) =>
-        !candidate.advisory &&
-        contrastQuality(candidate.ratio, candidate.required) === "poor",
-    )
-    .sort(
-      (first, second) =>
-        first.ratio / first.required - second.ratio / second.required,
-    )[0]?.id;
 }
 
 function uniqueColors(colors: string[]) {
@@ -230,6 +220,77 @@ export function backgroundContrastSamples(
   return context.mediaWorst ?? context.samples;
 }
 
+// The one contract every suggestion list obeys: exactly three, always in this order, each
+// tied to its own strategy. Foreground and background lists share the same three roles.
+const SUGGESTION_LABELS = [
+  "Iz palete",
+  "Najmanja izmena",
+  "Sigurna neutralna",
+] as const;
+
+// Find a softened, non-extreme tone near `seed` that clears `minimum` against `others` and
+// isn't already `taken`. Keeps the seed's hue/chroma and walks its lightness outward, so a
+// role's fallback still reads as a deliberate colour rather than a jump to black/white.
+function distinctPassingTone(
+  seed: string,
+  others: string[],
+  minimum: number,
+  taken: string[],
+) {
+  const clears = (color: string) => minimumContrast(color, others) >= minimum;
+  const start = softenSuggestionColor(seed);
+  if (clears(start) && !taken.includes(start)) return start;
+  const source = colorToOklch(start);
+  // Track the most-separated UNTAKEN tone seen, so that even when no tone can clear the floor
+  // (a genuinely impossible context — e.g. a logo with both a very light and very dark colour,
+  // where no single background separates both), the three suggestions still stay DISTINCT and
+  // as legible as possible rather than collapsing to a duplicate.
+  let best: string | null = null;
+  let bestScore = -1;
+  const consider = (color: string) => {
+    if (taken.includes(color)) return false;
+    const score = minimumContrast(color, others);
+    if (score > bestScore) {
+      bestScore = score;
+      best = color;
+    }
+    return score >= minimum;
+  };
+  consider(start);
+  for (let delta = 0.03; delta <= 0.72; delta += 0.03) {
+    for (const direction of [1, -1]) {
+      const candidate = softenSuggestionColor(
+        oklchToHex({
+          mode: "oklch",
+          l: clamp(source.l + direction * delta, 0.16, 0.9),
+          c: source.c,
+          h: source.h ?? 0,
+        }),
+      );
+      if (consider(candidate)) return candidate;
+    }
+  }
+  // No untaken tone clears the floor: return the most-separated distinct tone we found.
+  return best ?? start;
+}
+
+// Turn three ordered strategy seeds into three guaranteed-distinct, guaranteed-passing
+// suggestions with the canonical labels. Each later role falls back off its own seed rather
+// than borrowing an earlier role's colour, so all three stay meaningfully different.
+function threeSuggestions(
+  seeds: [string, string, string],
+  others: string[],
+  minimum: number,
+  role: PaletteTargetRole,
+): ContrastSuggestion[] {
+  const taken: string[] = [];
+  return seeds.map((seed, index) => {
+    const color = distinctPassingTone(seed, others, minimum, taken);
+    taken.push(color);
+    return { color, role, label: SUGGESTION_LABELS[index] };
+  });
+}
+
 function foregroundSuggestions(
   foreground: string,
   backgrounds: string[],
@@ -237,48 +298,106 @@ function foregroundSuggestions(
   role: PaletteTargetRole,
   palette: string[],
 ) {
-  const nearest = nearestPaletteColor(
-    foreground,
-    palette,
-    (color) => minimumContrast(color, backgrounds) >= minimum,
-  );
-  const harmonious = harmoniousContrastColor(foreground, backgrounds, minimum);
-  const neutral = safeNeutralForBackgrounds(backgrounds);
-  const candidates = uniqueColors(
-    [nearest ?? harmonious, harmonious, neutral].map(softenSuggestionColor),
-  );
-
-  return candidates.slice(0, 3).map((color, index) => ({
-    color,
+  // 1. "Iz palete" — the closest palette colour that already clears the floor. When none
+  //    does, push the nearest palette hue until it clears, so the slot stays palette-rooted.
+  const fromPalette =
+    nearestPaletteColor(
+      foreground,
+      palette,
+      (color) => minimumContrast(color, backgrounds) >= minimum,
+    ) ??
+    harmoniousContrastColor(
+      nearestPaletteColor(foreground, palette, () => true) ?? foreground,
+      backgrounds,
+      minimum,
+    );
+  // 2. "Najmanja izmena" — keep the current colour's hue/chroma, move lightness only enough
+  //    to clear the floor: the smallest visible change to what the user already chose.
+  const smallestChange = harmoniousContrastColor(foreground, backgrounds, minimum);
+  // 3. "Sigurna neutralna" — the brand off-black/off-white that separates best.
+  const safeNeutral = safeNeutralForBackgrounds(backgrounds);
+  return threeSuggestions(
+    [fromPalette, smallestChange, safeNeutral],
+    backgrounds,
+    minimum,
     role,
-    label:
-      index === 0 && nearest
-        ? "Iz palete"
-        : index === candidates.length - 1
-          ? "Sigurna neutralna"
-          : "Najmanja izmena",
-  }));
+  );
 }
 
+// Walk a near-neutral seed toward `pole` lightness, keeping its hue, until it separates
+// every foreground by `minimum`. Returns a softened, non-extreme background tone.
+function backgroundTone(
+  seed: string,
+  foregrounds: string[],
+  minimum: number,
+  pole: number,
+) {
+  const source = colorToOklch(seed);
+  for (let step = 0; step <= 40; step += 1) {
+    const l = clamp(source.l + (pole - source.l) * (step / 40), 0.08, 0.97);
+    const candidate = softenSuggestionColor(
+      oklchToHex({ mode: "oklch", l, c: source.c, h: source.h ?? 0 }),
+    );
+    if (minimumContrast(candidate, foregrounds) >= minimum) return candidate;
+  }
+  return softenSuggestionColor(
+    oklchToHex({
+      mode: "oklch",
+      l: clamp(pole, 0.08, 0.97),
+      c: source.c,
+      h: source.h ?? 0,
+    }),
+  );
+}
+
+// Background suggestions separate EVERY foreground given (e.g. all of a multi-colour logo's
+// colours), not just the dominant one — and use the SAME three roles/labels as foreground.
+// For a background the "smallest change" is the gentler of the two safe poles; the pole that
+// separates every foreground best becomes the "safe neutral".
 function backgroundSuggestions(
-  foreground: string,
+  foregrounds: string[],
   role: PaletteTargetRole,
   palette: string[],
-  media: boolean,
 ) {
-  const candidates = uniqueColors(
-    [
-      ...palette.filter((color) => contrastRatio(foreground, color) >= 3),
-      harmoniousContrastColor("#F7F1EA", foreground, 3),
-      harmoniousContrastColor("#171918", foreground, 3),
-    ].map(softenSuggestionColor),
-  ).slice(0, 3);
-  return candidates.map((color, index) => ({
-    color,
+  const minimum = 3;
+  const light = backgroundTone("#F7F1EA", foregrounds, minimum, 0.965);
+  const dark = backgroundTone("#171918", foregrounds, minimum, 0.12);
+  const fromPalette =
+    nearestPaletteColor(
+      foregrounds[0],
+      palette,
+      (color) => minimumContrast(color, foregrounds) >= minimum,
+    ) ?? light;
+  const [safeNeutral, smallestChange] =
+    minimumContrast(dark, foregrounds) >= minimumContrast(light, foregrounds)
+      ? [dark, light]
+      : [light, dark];
+  return threeSuggestions(
+    [fromPalette, smallestChange, safeNeutral],
+    foregrounds,
+    minimum,
     role,
-    label: index === 0 ? "Iz palete" : index === 1 ? "Mirna svetla" : "Mirna tamna",
-    ...(media ? { overlayOpacity: 0.78 } : {}),
-  }));
+  );
+}
+
+// Smallest overlay opacity that lifts `foreground` to `minimum` contrast over the worst
+// media frames — dims the photo only as much as legibility actually needs (no fixed value).
+function minOverlayOpacity(
+  foreground: string,
+  overlayColor: string,
+  frames: string[],
+  minimum: number,
+  range: { min: number; max: number } = { min: 0.4, max: 0.9 },
+) {
+  for (let opacity = range.min; opacity < range.max; opacity += 0.05) {
+    const worst = Math.min(
+      ...frames.map((frame) =>
+        contrastRatio(foreground, compositeColors(frame, overlayColor, opacity)),
+      ),
+    );
+    if (worst >= minimum) return Math.round(opacity * 100) / 100;
+  }
+  return range.max;
 }
 
 function issue(
@@ -368,21 +487,34 @@ export function analyzeScanMeContrast(
         ratio,
         required: MEDIA_OVERLAY_FLOOR,
         advisory: true,
+        // Each overlay suggestion carries the *minimum* opacity that makes the title legible
+        // over the worst media frames, so the photo stays as visible as possible.
         suggestions: backgroundSuggestions(
-          design.colors.title,
+          [design.colors.title],
           "background",
           palette,
-          true,
-        ),
+        ).map((suggestion) => ({
+          ...suggestion,
+          overlayOpacity: minOverlayOpacity(
+            design.colors.title,
+            suggestion.color,
+            context.mediaWorst!,
+            MEDIA_OVERLAY_FLOOR,
+          ),
+        })),
       });
     }
   }
 
-  // Logo visibility — advisory (logos often self-contrast or carry padding); judge only
-  // the dominant logo color, not every color it contains.
+  // Logo visibility — advisory (logos often self-contrast or carry padding). Judge every
+  // extracted logo colour against the background, and flag when the weakest one blends in.
   if (content.hasLogo && logoPalette.length) {
-    const logoContrast = minimumContrast(logoPalette[0], backgrounds);
+    const logoColors = uniqueColors(logoPalette);
+    const logoContrast = Math.min(
+      ...logoColors.map((color) => minimumContrast(color, backgrounds)),
+    );
     if (logoContrast < CONTRAST_FLOORS.logo) {
+      const suggestions = backgroundSuggestions(logoColors, "background", palette);
       issues.push({
         id: "logo-background",
         zone: "logo",
@@ -391,12 +523,18 @@ export function analyzeScanMeContrast(
         ratio: logoContrast,
         required: CONTRAST_FLOORS.logo,
         advisory: true,
-        suggestions: backgroundSuggestions(
-          logoPalette[0],
-          "background",
-          palette,
-          mediaPresent,
-        ),
+        suggestions:
+          mediaPresent && context.mediaWorst
+            ? suggestions.map((suggestion) => ({
+                ...suggestion,
+                overlayOpacity: minOverlayOpacity(
+                  logoColors[0],
+                  suggestion.color,
+                  context.mediaWorst!,
+                  CONTRAST_FLOORS.logo,
+                ),
+              }))
+            : suggestions,
       });
     }
   }

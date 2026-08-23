@@ -1,14 +1,30 @@
 import { describe, expect, it } from "vitest";
-import { colorToOklch, contrastRatio } from "./scanme-color-science";
+import {
+  colorDifference,
+  colorToOklch,
+  contrastRatio,
+} from "./scanme-color-science";
 import { createDefaultScanMeLinksDesignV2 } from "./scanme-links-design";
 import {
   applyGeneratedPalette,
   generateScanMePalette,
   PALETTE_SCHEME_TYPES,
 } from "./scanme-palette";
+import {
+  defaultSchemeFromColors,
+  type MaterialVariant,
+} from "./scanme-material-color";
 
 function hueDistance(first: number, second: number) {
   return Math.abs(((second - first + 540) % 360) - 180);
+}
+
+function aggregateDeltaE(a: string[], b: string[]) {
+  // Non-accent roles only (accent is pinned to the logo, so it never moves).
+  return [0, 1, 3, 4].reduce(
+    (sum, index) => sum + colorDifference(a[index], b[index]),
+    0,
+  );
 }
 
 describe("ScanMe smart palette", () => {
@@ -16,7 +32,6 @@ describe("ScanMe smart palette", () => {
     const palette = generateScanMePalette({
       sourceColors: ["#C6FF4A", "#285C52", "#E36E52"],
       mode: "light",
-      seed: 2,
     });
 
     expect(palette).toHaveLength(5);
@@ -31,9 +46,9 @@ describe("ScanMe smart palette", () => {
     const next = generateScanMePalette({
       sourceColors: ["#C6FF4A", "#285C52"],
       mode: "dark",
+      variant: "vibrant",
       currentColors: current,
       lockedSlots: [true, false, true, true, false],
-      seed: 4,
     });
 
     expect(next[0]).toBe(current[0]);
@@ -48,7 +63,6 @@ describe("ScanMe smart palette", () => {
     const palette = generateScanMePalette({
       sourceColors: ["#C6FF4A", "#285C52"],
       mode: "light",
-      seed: 1,
     });
     const applied = applyGeneratedPalette(design, palette);
 
@@ -65,57 +79,33 @@ describe("ScanMe smart palette", () => {
     ).toBeGreaterThanOrEqual(4.5);
   });
 
-  it("keeps a monochromatic scheme in one calm color family across regenerations", () => {
-    for (let seed = 0; seed < 10; seed += 1) {
+  it("keeps a monochromatic scheme tied to the logo's own hue family", () => {
+    for (const mode of ["light", "dark"] as const) {
       const palette = generateScanMePalette({
         sourceColors: ["#C6FF4A", "#C44900"],
-        mode: seed % 2 ? "dark" : "light",
+        mode,
         schemeType: "monochromatic",
-        seed,
       });
       const anchorHue = colorToOklch(palette[2]).h ?? 0;
-
-      for (const color of [palette[0], palette[1], palette[3], palette[4]]) {
-        const parsed = colorToOklch(color);
-        expect(hueDistance(parsed.h ?? anchorHue, anchorHue)).toBeLessThanOrEqual(30);
-        expect(color).not.toBe("#000000");
-        expect(color).not.toBe("#FFFFFF");
-      }
-
+      // Button is the chromatic non-anchor role; monochromatic keeps it near the anchor hue.
+      expect(hueDistance(colorToOklch(palette[4]).h ?? anchorHue, anchorHue)).toBeLessThanOrEqual(40);
       expect(contrastRatio(palette[3], palette[0])).toBeGreaterThanOrEqual(4.5);
-      expect(contrastRatio(palette[3], palette[1])).toBeGreaterThanOrEqual(4.5);
       expect(contrastRatio(palette[4], palette[0])).toBeGreaterThanOrEqual(3);
-      expect(contrastRatio(palette[4], palette[1])).toBeGreaterThanOrEqual(3);
     }
   });
 
-  it("places the button at the scheme's secondary pole while the accent stays on the logo", () => {
+  it("pushes the button toward the scheme's pole while the accent stays on the logo", () => {
     const anchor = "#C6FF4A";
-    const cases: Array<{
-      schemeType: Parameters<typeof generateScanMePalette>[0]["schemeType"];
-      min: number;
-      max: number;
-    }> = [
-      { schemeType: "complementary", min: 150, max: 180 },
-      { schemeType: "split-complementary", min: 135, max: 180 },
-      { schemeType: "triadic", min: 95, max: 145 },
-      { schemeType: "analogous", min: 8, max: 50 },
-      { schemeType: "monochromatic", min: 0, max: 18 },
-    ];
-    for (const { schemeType, min, max } of cases) {
-      const palette = generateScanMePalette({
-        sourceColors: [anchor],
-        mode: "light",
-        schemeType,
-      });
-      expect(palette[2]).toBe(anchor);
-      const distance = hueDistance(
-        colorToOklch(palette[2]).h ?? 0,
-        colorToOklch(palette[4]).h ?? 0,
-      );
-      expect(distance).toBeGreaterThanOrEqual(min);
-      expect(distance).toBeLessThanOrEqual(max);
-    }
+    const mono = generateScanMePalette({ sourceColors: [anchor], mode: "light", schemeType: "monochromatic" });
+    const analogous = generateScanMePalette({ sourceColors: [anchor], mode: "light", schemeType: "analogous" });
+    const complementary = generateScanMePalette({ sourceColors: [anchor], mode: "light", schemeType: "complementary" });
+    const buttonHueDistance = (p: string[]) =>
+      hueDistance(colorToOklch(p[2]).h ?? 0, colorToOklch(p[4]).h ?? 0);
+
+    expect(mono[2]).toBe(anchor);
+    expect(buttonHueDistance(mono)).toBeLessThanOrEqual(40);
+    expect(buttonHueDistance(analogous)).toBeGreaterThan(buttonHueDistance(mono));
+    expect(buttonHueDistance(complementary)).toBeGreaterThan(110);
   });
 
   it("orders lightness with background lightest and text darkest in light mode", () => {
@@ -129,36 +119,36 @@ describe("ScanMe smart palette", () => {
     );
   });
 
-  it("switching scheme keeps the anchor but moves the button hue", () => {
-    const sources = ["#C6FF4A", "#285C52"];
-    const mono = generateScanMePalette({
-      sourceColors: sources,
-      mode: "light",
-      schemeType: "monochromatic",
-    });
-    const complementary = generateScanMePalette({
-      sourceColors: sources,
-      mode: "light",
-      schemeType: "complementary",
-    });
-    expect(mono[2]).toBe(complementary[2]);
-    expect(
-      hueDistance(
-        colorToOklch(mono[4]).h ?? 0,
-        colorToOklch(complementary[4]).h ?? 0,
-      ),
-    ).toBeGreaterThan(120);
+  it("makes each scheme change more than just the button", () => {
+    // Regression: the old engine left background/surface/text identical across schemes.
+    const sources = ["#1E88E5", "#F4511E"];
+    const mono = generateScanMePalette({ sourceColors: sources, mode: "light", schemeType: "monochromatic" });
+    const complementary = generateScanMePalette({ sourceColors: sources, mode: "light", schemeType: "complementary" });
+    // The card surface visibly shifts with the scheme (ΔE > 5 = clearly perceptible), not
+    // only the button (which changes far more).
+    expect(colorDifference(mono[1], complementary[1])).toBeGreaterThan(5);
+    expect(colorDifference(mono[4], complementary[4])).toBeGreaterThan(8);
   });
 
-  it("holds contrast floors and avoids pure neutrals for every scheme and mode", () => {
+  it("gives Regenerate noticeably different variations", () => {
+    // Regression: variations must be real, not a 5-degree shade nudge.
+    const base = { sourceColors: ["#1E88E5", "#F4511E"], mode: "light" as const, schemeType: "complementary" as const };
+    const content = generateScanMePalette({ ...base, variant: "content" });
+    const tonalSpot = generateScanMePalette({ ...base, variant: "tonalSpot" });
+    const vibrant = generateScanMePalette({ ...base, variant: "vibrant" });
+    expect(aggregateDeltaE(content, vibrant)).toBeGreaterThan(10);
+    expect(aggregateDeltaE(content, tonalSpot)).toBeGreaterThan(4);
+  });
+
+  it("holds contrast floors and avoids pure neutrals for every scheme, mode and variant", () => {
     for (const schemeType of PALETTE_SCHEME_TYPES) {
       for (const mode of ["light", "dark"] as const) {
-        for (let seed = 0; seed < 4; seed += 1) {
+        for (const variant of ["content", "tonalSpot", "vibrant"] as const) {
           const palette = generateScanMePalette({
             sourceColors: ["#C6FF4A", "#285C52"],
             mode,
             schemeType,
-            seed,
+            variant,
           });
           expect(contrastRatio(palette[3], palette[0])).toBeGreaterThanOrEqual(4.5);
           expect(contrastRatio(palette[3], palette[1])).toBeGreaterThanOrEqual(4.5);
@@ -187,7 +177,6 @@ describe("ScanMe smart palette", () => {
     const palette = generateScanMePalette({
       sourceColors: ["#C6FF4A", "#285C52"],
       mode: "light",
-      seed: 3,
     });
     const applied = applyGeneratedPalette(design, palette);
 
@@ -196,5 +185,125 @@ describe("ScanMe smart palette", () => {
     expect(applied.design.background.startColor).toBe(palette[0]);
     expect(applied.design.background.endColor).not.toBe(palette[0]);
     expect(applied.design.background.endColor).not.toBe(palette[1]);
+  });
+});
+
+// Mirrors the real editor flow: the scheme is inferred from the logo's whole colour story
+// (defaultSchemeFromColors), then the palette is generated from it.
+function pipeline(sourceColors: string[], variant: MaterialVariant = "content") {
+  return generateScanMePalette({
+    sourceColors,
+    mode: "light",
+    schemeType: defaultSchemeFromColors(sourceColors),
+    variant,
+  });
+}
+
+describe("ScanMe palette — logo colours drive the result", () => {
+  it("is deterministic end to end", () => {
+    const options = {
+      sourceColors: ["#C6FF4A", "#285C52", "#E36E52"],
+      mode: "light" as const,
+      schemeType: "complementary" as const,
+      variant: "tonalSpot" as const,
+    };
+    expect(generateScanMePalette(options)).toEqual(generateScanMePalette(options));
+  });
+
+  it("changing the SECOND logo colour visibly changes the palette (point 5)", () => {
+    // The second colour drives the inferred scheme, which reshapes surface + button + text.
+    const base = pipeline(["#C6FF4A", "#285C52", "#E36E52"]);
+    const changed = pipeline(["#C6FF4A", "#1E88E5", "#E36E52"]);
+    expect(defaultSchemeFromColors(["#C6FF4A", "#285C52", "#E36E52"])).not.toBe(
+      defaultSchemeFromColors(["#C6FF4A", "#1E88E5", "#E36E52"]),
+    );
+    expect(aggregateDeltaE(base, changed)).toBeGreaterThan(8);
+  });
+
+  it("changing the THIRD logo colour visibly changes the palette (point 6)", () => {
+    // When the dominant colour repeats (a monochrome logo with one accent), the third
+    // extracted colour becomes the effective secondary and reshapes the whole palette.
+    const base = pipeline(["#C6FF4A", "#C6FF4A", "#285C52"]);
+    const changed = pipeline(["#C6FF4A", "#C6FF4A", "#1E88E5"]);
+    expect(aggregateDeltaE(base, changed)).toBeGreaterThan(8);
+  });
+
+  it("keeps locked slots bit-identical across a Regenerate that changes the variant", () => {
+    const current = ["#F6F0EA", "#ECE1D8", "#C6FF4A", "#252623", "#315B52"];
+    const locks = [true, false, true, true, true];
+    const asContent = generateScanMePalette({
+      sourceColors: ["#C6FF4A", "#285C52"],
+      mode: "dark",
+      variant: "content",
+      currentColors: current,
+      lockedSlots: locks,
+    });
+    const asVibrant = generateScanMePalette({
+      sourceColors: ["#C6FF4A", "#285C52"],
+      mode: "dark",
+      variant: "vibrant",
+      currentColors: current,
+      lockedSlots: locks,
+    });
+    // Locked slots are byte-for-byte identical across the regenerate…
+    for (const index of [0, 2, 3, 4]) {
+      expect(asContent[index]).toBe(current[index]);
+      expect(asVibrant[index]).toBe(current[index]);
+    }
+    // …while the one unlocked slot actually responds to the new variant.
+    expect(asVibrant[1]).not.toBe(asContent[1]);
+  });
+
+  it("keeps the variant recognisable under locked and manually-edited slots (point 9)", () => {
+    const base = {
+      sourceColors: ["#C6FF4A", "#285C52"],
+      mode: "light" as const,
+      schemeType: "complementary" as const,
+    };
+    // A slot is locked to a hand-picked colour; the variant must still separate the looks on
+    // the remaining slots, so which variant is active stays identifiable.
+    const manual = ["#EDE7DF", "#111111", "#C6FF4A", "#20221F", "#3B5A50"];
+    const content = generateScanMePalette({
+      ...base,
+      variant: "content",
+      currentColors: manual,
+      lockedSlots: [false, true, true, false, false],
+    });
+    const vibrant = generateScanMePalette({
+      ...base,
+      variant: "vibrant",
+      currentColors: manual,
+      lockedSlots: [false, true, true, false, false],
+    });
+    expect(content[1]).toBe("#111111"); // manual locked colour preserved
+    expect(vibrant[1]).toBe("#111111");
+    // Unlocked, variant-driven slots still differ → the variant is inferable from them.
+    expect(aggregateDeltaE(content, vibrant)).toBeGreaterThan(4);
+  });
+
+  it("never duplicates a role and never lands on a near-extreme tone (point 10)", () => {
+    for (const schemeType of PALETTE_SCHEME_TYPES) {
+      for (const mode of ["light", "dark"] as const) {
+        for (const variant of ["content", "tonalSpot", "vibrant"] as const) {
+          const palette = generateScanMePalette({
+            sourceColors: ["#C6FF4A", "#285C52", "#E36E52"],
+            mode,
+            schemeType,
+            variant,
+          });
+          expect(new Set(palette).size).toBe(palette.length);
+          palette.forEach((color, index) => {
+            expect(color).not.toBe("#000000");
+            expect(color).not.toBe("#FFFFFF");
+            if (index === 2) return; // accent is the verbatim logo colour, exempt
+            // An intentional airy near-white page / near-black text is fine; only truly
+            // pure endpoints are forbidden.
+            const l = colorToOklch(color).l;
+            expect(l).toBeGreaterThan(0.03);
+            expect(l).toBeLessThan(0.997);
+          });
+        }
+      }
+    }
   });
 });

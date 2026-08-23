@@ -79,6 +79,7 @@ import {
   inferPaletteMode,
   normalizePaletteLocks,
 } from "@/lib/scanme-palette";
+import { defaultSchemeFromColors } from "@/lib/scanme-material-color";
 import { cn } from "@/lib/utils";
 import styles from "./scanme-links-editor.module.css";
 import type {
@@ -555,7 +556,8 @@ export function EditorWorkspace({
       const previewUrl = rememberObjectUrl(file, objectUrlsRef.current);
       setDocument((current) => {
         const generationMode = inferPaletteMode(current.design.colors.page);
-        const schemeType = DEFAULT_PALETTE_SCHEME;
+        // Start on the scheme whose geometry matches the logo's own colour story.
+        const schemeType = defaultSchemeFromColors(palette);
         const adjusted = generateScanMePalette({
           sourceColors: palette,
           mode: generationMode,

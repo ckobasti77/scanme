@@ -35,6 +35,10 @@ import {
   type PaletteSchemeType,
   type PaletteTargetRole,
 } from "@/lib/scanme-palette";
+import {
+  type MaterialVariant,
+  nextMaterialVariant,
+} from "@/lib/scanme-material-color";
 import { cn } from "@/lib/utils";
 import styles from "./scanme-links-editor.module.css";
 import type {
@@ -142,48 +146,56 @@ export function ScanMeSmartPalette({
   setDocument: EditorDocumentSetter;
 }) {
   const reducedMotion = useReducedMotion();
-  const regenerationRef = useRef(0);
+  // The Regenerate axis. Held in a ref (not persisted): what survives a reload is the
+  // adjusted palette itself; Regenerate simply advances to the next look this session.
+  const variantRef = useRef<MaterialVariant>("content");
   const analysis = useMemo(() => currentAnalysis(document), [document]);
   const hasLogoPalette = analysis.original.length > 0;
 
-  function regenerate(
-    mode = analysis.generationMode,
-    schemeType = analysis.schemeType,
+  function rebuild(
+    mode: PaletteGenerationMode,
+    schemeType: PaletteSchemeType,
+    variant: MaterialVariant,
   ) {
     if (!hasLogoPalette) return;
-    regenerationRef.current += 1;
-    setDocument(
-      (current) => {
-        const currentValue = currentAnalysis(current);
-        return {
-          ...current,
-          paletteAnalysis: {
-            ...currentValue,
-            generationMode: mode,
+    setDocument((current) => {
+      const currentValue = currentAnalysis(current);
+      return {
+        ...current,
+        paletteAnalysis: {
+          ...currentValue,
+          generationMode: mode,
+          schemeType,
+          adjusted: generateScanMePalette({
+            sourceColors: currentValue.original,
+            mode,
             schemeType,
-            adjusted: generateScanMePalette({
-              sourceColors: currentValue.original,
-              mode,
-              schemeType,
-              currentColors: currentValue.adjusted,
-              lockedSlots: currentValue.lockedSlots,
-              seed: regenerationRef.current,
-            }),
-            correctedRoles: [],
-          },
-        };
-      },
-    );
+            variant,
+            currentColors: currentValue.adjusted,
+            lockedSlots: currentValue.lockedSlots,
+          }),
+          correctedRoles: [],
+        },
+      };
+    });
   }
 
+  // "Regeneriši" → advance to the next distinct look (Content → TonalSpot → Vibrant → …).
+  function regenerate() {
+    if (!hasLogoPalette) return;
+    variantRef.current = nextMaterialVariant(variantRef.current);
+    rebuild(analysis.generationMode, analysis.schemeType, variantRef.current);
+  }
+
+  // Light/Dark and scheme changes keep the current variant.
   function setMode(mode: PaletteGenerationMode) {
     if (mode === analysis.generationMode) return;
-    regenerate(mode);
+    rebuild(mode, analysis.schemeType, variantRef.current);
   }
 
   function setScheme(schemeType: PaletteSchemeType) {
     if (schemeType === analysis.schemeType) return;
-    regenerate(analysis.generationMode, schemeType);
+    rebuild(analysis.generationMode, schemeType, variantRef.current);
   }
 
   function toggleLock(index: number) {

@@ -6,7 +6,6 @@ import {
   useCallback,
   useEffect,
   useMemo,
-  useRef,
   useState,
   type RefObject,
 } from "react";
@@ -19,7 +18,6 @@ import type {
 import {
   contrastSeverity,
   contrastSeverityLabel,
-  mostCriticalPoorIssueId,
 } from "@/lib/scanme-contrast";
 import type { PreviewDevice } from "./scanme-links-editor-types";
 import styles from "./scanme-links-editor.module.css";
@@ -71,39 +69,18 @@ export function ScanMeContrastAssistant({
   compact?: boolean;
 }) {
   const reducedMotion = useReducedMotion();
-  const poorIssueSignature = useMemo(
-    () =>
-      issues
-        .filter((issue) => contrastSeverity(issue) === "poor")
-        .map((issue) => issue.id)
-        .sort()
-        .join("|"),
-    [issues],
-  );
-  // Na desktopu se najkritičniji "loš" problem otvara sam; na mobilnom sve
-  // ostaje minimizovano dok korisnik ne kucne čip.
-  const [activeId, setActiveId] = useState<string | null>(() =>
-    compact ? null : (mostCriticalPoorIssueId(issues) ?? null),
-  );
-  const previousPoorSignatureRef = useRef(poorIssueSignature);
+  // Kartice se nikad ne otvaraju same — ni na desktopu ni na mobilnom. Otvaraju se samo
+  // kad ih korisnik kucne. Zastareli aktivan id pokriva `resolvedActiveId` pri renderu.
+  const [activeId, setActiveId] = useState<string | null>(null);
   const [positions, setPositions] = useState<Record<string, CardPosition>>({});
-  const resolvedActiveId = issues.some((issue) => issue.id === activeId)
-    ? activeId
-    : null;
-
-  useEffect(() => {
-    // Mobilni: nema auto-otvaranja. Zastareli aktivan id (ako problem nestane)
-    // ionako pokriva resolvedActiveId pri renderu, pa efekat ovde ništa ne radi.
-    if (compact) return;
-    if (poorIssueSignature !== previousPoorSignatureRef.current) {
-      previousPoorSignatureRef.current = poorIssueSignature;
-      setActiveId(mostCriticalPoorIssueId(issues) ?? null);
-      return;
-    }
-    setActiveId((current) =>
-      current && issues.some((issue) => issue.id === current) ? current : null,
-    );
-  }, [issues, poorIssueSignature, compact]);
+  const activeStillPresent =
+    activeId !== null && issues.some((issue) => issue.id === activeId);
+  // Kad aktivni problem nestane, zaboravi otvoreni id (obrazac „prilagodi stanje
+  // pri renderu"). Inače bi ista kartica, kad se problem kasnije vrati (korisnik
+  // je razreši pa opet pokvari boju), iskočila već otvorena i prekršila pravilo
+  // „nijedna se ne otvara sama". `resolvedActiveId` drži ovaj render ispravnim.
+  if (activeId !== null && !activeStillPresent) setActiveId(null);
+  const resolvedActiveId = activeStillPresent ? activeId : null;
 
   const measure = useCallback(() => {
     // Mobilni raspored je čisto CSS (rail + kompaktna kartica); merenje pozicija
