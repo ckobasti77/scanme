@@ -14,6 +14,18 @@
       "runtimeArgs": ["run", "dev:web"],
       "port": 3000,
       "autoPort": true
+    },
+    {
+      "name": "scanme-web-3003",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev:web", "--", "-p", "3003"],
+      "port": 3003
+    },
+    {
+      "name": "scanme-web-3002",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev:web", "--", "-p", "3002"],
+      "port": 3002
     }
   ]
 }

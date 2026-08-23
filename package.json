@@ -6,8 +6,8 @@
     "node": ">=20.9"
   },
   "scripts": {
-    "dev": "convex dev --start \"next dev\"",
-    "dev:web": "next dev",
+    "dev": "next dev",
+    "dev:convex": "convex dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
