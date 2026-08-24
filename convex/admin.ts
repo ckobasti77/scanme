@@ -4,6 +4,7 @@ import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx } from "./_generated/server";
 import { isAdminEmail, requireAdmin } from "./lib/access";
+import { upsertManualEntitlement } from "./lib/entitlements";
 import { buildBusinessContactViews } from "./lib/contacts";
 import { aggregateMetricRowsForRange, getMetricRows, metricsRangeConfig } from "./lib/metrics";
 import { isSafePublicDestination, normalizeEmail, normalizePhone, requireSlug, requireText } from "./lib/validation";
@@ -1121,5 +1122,45 @@ export const replaceContact = mutation({
       }
     }
     return await createContactAndInvitation(ctx, args.businessId, args);
+  },
+});
+
+// Approve an activation request in ONE transaction (RFC-001 §2.3), closing the
+// audited gap (§1.e) where profile status and entitlement could drift: (1) flip
+// the service profile to "active" (what setServiceActive does), (2) upsert the
+// entitlement with source "manual", (3) close the request. An optional spaceId
+// grants a space-scoped entitlement instead of a business-scoped one.
+export const approveActivation = mutation({
+  args: {
+    requestId: v.id("serviceActivationRequests"),
+    planKey: v.string(),
+    spaceId: v.optional(v.id("memoriesSpaces")),
+  },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    const request = await ctx.db.get(args.requestId);
+    if (!request) throw new ConvexError("Upit nije pronađen.");
+    const profile = await ctx.db.get(request.serviceProfileId);
+    if (!profile) throw new ConvexError("Servisni profil nije pronađen.");
+    const business = await ctx.db.get(profile.businessId);
+    if (!business || business.archivedAt) {
+      throw new ConvexError("Arhivirani lokal ne može biti aktiviran.");
+    }
+
+    const now = Date.now();
+    // 1. profile → active
+    await ctx.db.patch(profile._id, { status: "active", updatedAt: now });
+    // 2. entitlement upsert (source: manual)
+    const entitlementId = await upsertManualEntitlement(ctx, {
+      businessId: profile.businessId,
+      product: request.requestedService,
+      planKey: args.planKey,
+      spaceId: args.spaceId,
+      now,
+    });
+    // 3. close the request
+    await ctx.db.patch(request._id, { status: "closed", updatedAt: now });
+
+    return { activated: true as const, entitlementId };
   },
 });

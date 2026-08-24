@@ -1,12 +1,10 @@
 import { ConvexError, v } from "convex/values";
 import { internal } from "./_generated/api";
 import { mutation, query } from "./_generated/server";
+import { serviceTypeValidator } from "./schema";
 import { requireAdmin, requireAuthUser } from "./lib/access";
 
-const requestedServiceValidator = v.union(
-  v.literal("scanme_links"),
-  v.literal("google_review"),
-);
+const requestedServiceValidator = serviceTypeValidator;
 
 export const create = mutation({
   args: {
@@ -89,7 +87,15 @@ export const list = query({
           id: request._id,
           businessName: business?.name ?? "Nepoznat lokal",
           businessId: request.businessId,
-          requestedService: request.requestedService,
+          // The stored `requestedService` is now the widened service union
+          // (RFC-001 §2.1). The legacy admin activation table renders only the
+          // two original services and is out of scope for this task (no new
+          // product UI). Narrow to that consumer's shape at the boundary so the
+          // untouched component keeps type-checking; the runtime value is
+          // unchanged, and no venue/memories request exists to mislabel yet.
+          requestedService: request.requestedService as
+            | "scanme_links"
+            | "google_review",
           status: request.status,
           requestedAt: request.requestedAt,
           emailStatus: request.emailStatus,

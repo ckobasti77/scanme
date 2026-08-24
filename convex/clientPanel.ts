@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { query } from "./_generated/server";
-import { BusinessAccessDeniedError, requireBusinessAccessBySlug } from "./lib/access";
+import { BusinessAccessDeniedError, requireGoogleReviewPanelBySlug } from "./lib/access";
 import { aggregateMetricRowsForRange, getMetricRows, metricsRangeConfig } from "./lib/metrics";
 import { getDestinationMetricRows, getServiceMetricRows } from "./lib/serviceMetrics";
 import { requireSlug } from "./lib/validation";
@@ -67,7 +67,7 @@ export const overview = query({
   handler: async (ctx, args) => {
     let access;
     try {
-      access = await requireBusinessAccessBySlug(ctx, args.slug);
+      access = await requireGoogleReviewPanelBySlug(ctx, args.slug);
     } catch (error) {
       if (error instanceof BusinessAccessDeniedError) {
         return { status: "forbidden" as const };
@@ -130,7 +130,7 @@ export const scanMeLinksMetrics = query({
   handler: async (ctx, args) => {
     let access;
     try {
-      access = await requireBusinessAccessBySlug(ctx, args.slug);
+      access = await requireGoogleReviewPanelBySlug(ctx, args.slug);
     } catch (error) {
       if (error instanceof BusinessAccessDeniedError) {
         return { status: "forbidden" as const };
@@ -223,7 +223,7 @@ export const metrics = query({
   handler: async (ctx, args) => {
     let access;
     try {
-      access = await requireBusinessAccessBySlug(ctx, args.slug);
+      access = await requireGoogleReviewPanelBySlug(ctx, args.slug);
     } catch (error) {
       if (error instanceof BusinessAccessDeniedError) {
         return { status: "forbidden" as const };

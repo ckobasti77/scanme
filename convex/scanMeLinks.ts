@@ -7,9 +7,8 @@ import {
   type QueryCtx,
 } from "./_generated/server";
 import {
-  isAdminEmail,
   requireAdmin,
-  requireAuthUser,
+  requireServiceEditorAccess,
 } from "./lib/access";
 import { buildBusinessContactViews } from "./lib/contacts";
 import {
@@ -381,30 +380,6 @@ async function profileForBusiness(
       q.eq("businessId", businessId).eq("type", type),
     )
     .unique();
-}
-
-async function requireEditorAccess(
-  ctx: QueryCtx | MutationCtx,
-  profile: Doc<"serviceProfiles">,
-) {
-  if (profile.type !== "scanme_links") {
-    throw new ConvexError("ScanMe Links profil nije pronađen.");
-  }
-  const user = await requireAuthUser(ctx);
-  if (isAdminEmail(user.email)) return { role: "admin" as const, user };
-  if (!profile.clientEditingEnabled) {
-    throw new ConvexError("Uređivanje ScanMe Links stranice nije omogućeno za klijenta.");
-  }
-  const membership = await ctx.db
-    .query("businessMemberships")
-    .withIndex("by_userId_and_businessId", (q) =>
-      q.eq("userId", user._id).eq("businessId", profile.businessId),
-    )
-    .unique();
-  if (!membership?.active) {
-    throw new ConvexError("Nemate pristup ovom lokalu.");
-  }
-  return { role: "client" as const, user };
 }
 
 async function publishedDestinations(
@@ -1064,7 +1039,7 @@ export const editor = query({
         templateRegistry: TEMPLATE_REGISTRY,
       };
     }
-    const access = await requireEditorAccess(ctx, profile);
+    const access = await requireServiceEditorAccess(ctx, profile, ["scanme_links"]);
     const summary = await businessView(ctx, business);
     const destinations = await editorDestinations(ctx, profile._id);
     const draftView = summary.config
@@ -1199,7 +1174,7 @@ export const editorBySlug = query({
     // umesto srušene stranice.
     let access;
     try {
-      access = await requireEditorAccess(ctx, profile);
+      access = await requireServiceEditorAccess(ctx, profile, ["scanme_links"]);
     } catch {
       return null;
     }
@@ -1221,7 +1196,7 @@ export const generateDisplayLogoUploadUrl = mutation({
   handler: async (ctx, args) => {
     const profile = await ctx.db.get(args.serviceProfileId);
     if (!profile) throw new ConvexError("ScanMe Links profil nije pronađen.");
-    await requireEditorAccess(ctx, profile);
+    await requireServiceEditorAccess(ctx, profile, ["scanme_links"]);
     return await ctx.storage.generateUploadUrl();
   },
 });
@@ -1231,7 +1206,7 @@ export const generateEditorUploadUrl = mutation({
   handler: async (ctx, args) => {
     const profile = await ctx.db.get(args.serviceProfileId);
     if (!profile) throw new ConvexError("ScanMe Links profil nije pronađen.");
-    await requireEditorAccess(ctx, profile);
+    await requireServiceEditorAccess(ctx, profile, ["scanme_links"]);
     return await ctx.storage.generateUploadUrl();
   },
 });
@@ -1279,7 +1254,7 @@ export const saveDraftAppearance = mutation({
     if (!profile) {
       throw new ConvexError("ScanMe Links profil nije pronađen.");
     }
-    await requireEditorAccess(ctx, profile);
+    await requireServiceEditorAccess(ctx, profile, ["scanme_links"]);
     const templateKey = args.templateKey as TemplateKey;
     if (!TEMPLATE_REGISTRY[templateKey]) throw new ConvexError("Template nije podržan.");
     if (!isTemplateBackgroundCompatible(templateKey, args.backgroundKey)) {
@@ -1328,7 +1303,7 @@ export const saveEditorDraft = mutation({
   handler: async (ctx, args) => {
     const profile = await ctx.db.get(args.serviceProfileId);
     if (!profile) throw new ConvexError("ScanMe Links profil nije pronađen.");
-    await requireEditorAccess(ctx, profile);
+    await requireServiceEditorAccess(ctx, profile, ["scanme_links"]);
     const config = await ctx.db
       .query("scanMeLinksConfigs")
       .withIndex("by_serviceProfileId", (q) =>
@@ -1442,7 +1417,7 @@ export const addDestination = mutation({
     if (!profile) {
       throw new ConvexError("ScanMe Links profil nije pronađen.");
     }
-    await requireEditorAccess(ctx, profile);
+    await requireServiceEditorAccess(ctx, profile, ["scanme_links"]);
     const activeRows = await ctx.db
       .query("serviceDestinations")
       .withIndex("by_serviceProfileId_and_draftState", (q) =>
@@ -1515,7 +1490,7 @@ export const updateDestination = mutation({
     if (!row) throw new ConvexError("Destinacija nije pronađena.");
     const profile = await ctx.db.get(row.serviceProfileId);
     if (!profile) throw new ConvexError("ScanMe Links profil nije pronađen.");
-    await requireEditorAccess(ctx, profile);
+    await requireServiceEditorAccess(ctx, profile, ["scanme_links"]);
     const url = args.url.trim();
     if (url && !isSafePublicDestination(url)) {
       throw new ConvexError("Destinacija mora biti bezbedan javni HTTPS link.");
@@ -1554,7 +1529,7 @@ export const reorderDestinations = mutation({
   handler: async (ctx, args) => {
     const profile = await ctx.db.get(args.serviceProfileId);
     if (!profile) throw new ConvexError("ScanMe Links profil nije pronađen.");
-    await requireEditorAccess(ctx, profile);
+    await requireServiceEditorAccess(ctx, profile, ["scanme_links"]);
     if (args.destinationIds.length > 100) throw new ConvexError("Redosled nije ispravan.");
     for (const [order, destinationId] of args.destinationIds.entries()) {
       const row = await ctx.db.get(destinationId);
@@ -1575,7 +1550,7 @@ export const markDestinationDeleted = mutation({
     if (!row) throw new ConvexError("Destinacija nije pronađena.");
     const profile = await ctx.db.get(row.serviceProfileId);
     if (!profile) throw new ConvexError("ScanMe Links profil nije pronađen.");
-    await requireEditorAccess(ctx, profile);
+    await requireServiceEditorAccess(ctx, profile, ["scanme_links"]);
     await ctx.db.patch(row._id, { draftState: "deleted", updatedAt: Date.now() });
     await markDraftChanged(ctx, row.serviceProfileId);
     return { marked: true };
@@ -1587,7 +1562,7 @@ export const discardDraft = mutation({
   handler: async (ctx, args) => {
     const profile = await ctx.db.get(args.serviceProfileId);
     if (!profile) throw new ConvexError("ScanMe Links profil nije pronađen.");
-    await requireEditorAccess(ctx, profile);
+    await requireServiceEditorAccess(ctx, profile, ["scanme_links"]);
     const config = await ctx.db
       .query("scanMeLinksConfigs")
       .withIndex("by_serviceProfileId", (q) =>
@@ -1650,7 +1625,7 @@ export const publishDraft = mutation({
     if (!profile) {
       throw new ConvexError("ScanMe Links profil nije pronađen.");
     }
-    await requireEditorAccess(ctx, profile);
+    await requireServiceEditorAccess(ctx, profile, ["scanme_links"]);
     const config = await ctx.db
       .query("scanMeLinksConfigs")
       .withIndex("by_serviceProfileId", (q) =>
@@ -1741,8 +1716,10 @@ export const setServiceActive = mutation({
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
     const profile = await ctx.db.get(args.serviceProfileId);
-    if (!profile || profile.type !== "scanme_links") {
-      throw new ConvexError("ScanMe Links profil nije pronađen.");
+    // Any service type may be activated now (RFC-001 §2.1) — Venue and Memories
+    // profiles could not be activated before. Every other guard is unchanged.
+    if (!profile) {
+      throw new ConvexError("Servisni profil nije pronađen.");
     }
     const business = await ctx.db.get(profile.businessId);
     if (!business || business.archivedAt) {
@@ -1764,8 +1741,9 @@ export const setClientEditingEnabled = mutation({
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
     const profile = await ctx.db.get(args.serviceProfileId);
-    if (!profile || profile.type !== "scanme_links") {
-      throw new ConvexError("ScanMe Links profil nije pronađen.");
+    // Any service type may toggle client editing now (RFC-001 §2.1).
+    if (!profile) {
+      throw new ConvexError("Servisni profil nije pronađen.");
     }
     await ctx.db.patch(profile._id, {
       clientEditingEnabled: args.enabled,
@@ -1788,8 +1766,8 @@ export const metrics = query({
       return null;
     }
     // Analitika je dostupna i klijentu sa uključenim uređivanjem (editor je
-    // otvoren za tu ulogu); requireEditorAccess pokriva admina i klijenta.
-    await requireEditorAccess(ctx, profile);
+    // otvoren za tu ulogu); requireServiceEditorAccess pokriva admina i klijenta.
+    await requireServiceEditorAccess(ctx, profile, ["scanme_links"]);
     if (args.destinationId) {
       const destination = await ctx.db.get(args.destinationId);
       if (destination?.serviceProfileId !== profile._id) {

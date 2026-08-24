@@ -7,6 +7,10 @@ import {
   scanMeDesignStateValidator,
   scanMeDesignValidator,
 } from "./lib/scanMeDesignValidators";
+import {
+  venueBlockValidator,
+  venueDesignValidator,
+} from "./lib/venueValidators";
 
 const businessStatus = v.union(
   v.literal("active"),
@@ -20,10 +24,18 @@ const leadStatus = v.union(
   v.literal("closed"),
 );
 
-const serviceType = v.union(
+// Shared service-type validator (RFC-001 §2.1). Widened with the two new
+// products so any table, arg, or return validator that keys on service type
+// stays in one place. Additive: existing "scanme_links"/"google_review" rows
+// validate unchanged and no index keys change.
+export const serviceTypeValidator = v.union(
   v.literal("scanme_links"),
   v.literal("google_review"),
+  v.literal("scanme_venue"),
+  v.literal("scanme_memories"),
 );
+
+const serviceType = serviceTypeValidator;
 
 const serviceStatus = v.union(
   v.literal("inactive"),
@@ -61,12 +73,38 @@ const accentTokens = v.object({
   onAccent: v.string(),
 });
 
+// Card retarget kinds (RFC-001 §2.4 C.9). Shared by `cardTargets.kind` and
+// `cardScanEvents.targetKind` so the two can never drift.
+const cardTargetKind = v.union(
+  v.literal("memories_space"),
+  v.literal("venue"),
+  v.literal("event"),
+  v.literal("service_page"),
+  v.literal("url"),
+);
+
+// Reduced device signal for the new scan/visit event tables (RFC-001 §2.4
+// C.10). No IP or full UA is stored (§2.10 GDPR minimization).
+const deviceCategory = v.union(
+  v.literal("mobile"),
+  v.literal("tablet"),
+  v.literal("desktop"),
+  v.literal("bot"),
+  v.literal("unknown"),
+);
+
 export default defineSchema({
   ...authTables,
 
   businesses: defineTable({
     name: v.string(),
     slug: v.string(),
+    // Tenant kind (RFC-001 §2.1.6). `businesses` is the tenant table; a
+    // celebration is a tenant too. Absent means "business" so existing rows
+    // validate unchanged; celebrations are never surfaced as "businesses" in
+    // any UI. The celebrations/partnerships product tables are specified in
+    // the RFC, not created here.
+    kind: v.optional(v.union(v.literal("business"), v.literal("celebration"))),
     logoStorageId: v.optional(v.id("_storage")),
     logoUrl: v.optional(v.string()),
     status: businessStatus,
@@ -377,4 +415,340 @@ export default defineSchema({
   })
     .index("by_submissionId", ["submissionId"])
     .index("by_status_and_createdAt", ["status", "createdAt"]),
+
+  // ==========================================================================
+  // Venue + Memories data model (RFC-001 §2.4). Shape only — no routes, UI,
+  // image pipeline, guest identity, block types, or rate limiter land here.
+  // Every index name is taken verbatim from the RFC's per-table catalog.
+  // C.15 `celebrations` and C.16 `partnerships` are SPECIFIED in the RFC
+  // (§2.4 C.15/C.16, §2.1.6) but deliberately NOT created here — they are added
+  // when Memories is built. New tables start empty, so no `staged:` indexes.
+  // ==========================================================================
+
+  // C.1 — the events backbone (§2.2).
+  events: defineTable({
+    businessId: v.id("businesses"),
+    slug: v.string(),
+    title: v.string(),
+    status: v.union(
+      v.literal("draft"),
+      v.literal("scheduled"),
+      v.literal("live"),
+      v.literal("ended"),
+      v.literal("archived"),
+    ),
+    startsAt: v.optional(v.number()),
+    endsAt: v.optional(v.number()),
+    lifecycleRevision: v.number(),
+    scheduledGoLiveId: v.optional(v.id("_scheduled_functions")),
+    scheduledEndId: v.optional(v.id("_scheduled_functions")),
+    duplicatedFromEventId: v.optional(v.id("events")),
+    archivedAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_businessId_and_slug", ["businessId", "slug"])
+    .index("by_businessId_and_status", ["businessId", "status"])
+    .index("by_businessId_and_startsAt", ["businessId", "startsAt"])
+    .index("by_status_and_startsAt", ["status", "startsAt"])
+    .index("by_status_and_endsAt", ["status", "endsAt"]),
+
+  // C.2 — venue event config (draft/publish contract; blocks embedded).
+  venueEventConfigs: defineTable({
+    eventId: v.id("events"),
+    venueProfileId: v.id("serviceProfiles"),
+    draftDisplayName: v.optional(v.string()),
+    draftDesign: v.optional(venueDesignValidator),
+    draftBlocks: v.optional(v.array(venueBlockValidator)),
+    draftLogoStorageId: v.optional(v.union(v.id("_storage"), v.null())),
+    draftBackgroundImageStorageId: v.optional(
+      v.union(v.id("_storage"), v.null()),
+    ),
+    draftBackgroundVideoStorageId: v.optional(
+      v.union(v.id("_storage"), v.null()),
+    ),
+    publishedDisplayName: v.optional(v.string()),
+    publishedDesign: v.optional(venueDesignValidator),
+    publishedBlocks: v.optional(v.array(venueBlockValidator)),
+    publishedLogoStorageId: v.optional(v.union(v.id("_storage"), v.null())),
+    publishedBackgroundImageStorageId: v.optional(
+      v.union(v.id("_storage"), v.null()),
+    ),
+    publishedBackgroundVideoStorageId: v.optional(
+      v.union(v.id("_storage"), v.null()),
+    ),
+    hasUnpublishedChanges: v.boolean(),
+    draftRevision: v.number(),
+    publishedRevision: v.number(),
+    publishedAt: v.optional(v.number()),
+    updatedAt: v.number(),
+  })
+    .index("by_eventId", ["eventId"])
+    .index("by_venueProfileId", ["venueProfileId"]),
+
+  // C.3 — archived-media picks for an event's archive gallery.
+  eventArchiveItems: defineTable({
+    eventId: v.id("events"),
+    mediaAssetId: v.id("mediaAssets"),
+    sourcePhotoId: v.optional(v.id("memoriesPhotos")),
+    order: v.number(),
+    createdAt: v.number(),
+  })
+    .index("by_eventId_and_order", ["eventId", "order"])
+    .index("by_mediaAssetId", ["mediaAssetId"]),
+
+  // C.4 — Memories spaces (one installation → /m/[code]).
+  memoriesSpaces: defineTable({
+    businessId: v.id("businesses"),
+    memoriesProfileId: v.id("serviceProfiles"),
+    code: v.string(),
+    name: v.string(),
+    mode: v.union(v.literal("recurring"), v.literal("one_off")),
+    eventId: v.optional(v.id("events")),
+    status: v.union(
+      v.literal("active"),
+      v.literal("paused"),
+      v.literal("closed"),
+      v.literal("archived"),
+    ),
+    windowStartAt: v.optional(v.number()),
+    windowEndAt: v.optional(v.number()),
+    nightCutoffHour: v.optional(v.number()),
+    defaultVisibility: v.union(
+      v.literal("everyone"),
+      v.literal("host_only"),
+    ),
+    guestVisibilityChoice: v.boolean(),
+    publicGalleryEnabled: v.boolean(),
+    wallEnabled: v.boolean(),
+    totalPhotos: v.number(),
+    totalGuests: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_code", ["code"])
+    .index("by_businessId_and_status", ["businessId", "status"])
+    .index("by_memoriesProfileId", ["memoriesProfileId"])
+    .index("by_eventId", ["eventId"]),
+
+  // C.5 — sessions (nights).
+  memoriesSessions: defineTable({
+    spaceId: v.id("memoriesSpaces"),
+    dateKey: v.string(),
+    status: v.union(v.literal("open"), v.literal("closed")),
+    openedAt: v.number(),
+    closedAt: v.optional(v.number()),
+    scheduledCloseId: v.optional(v.id("_scheduled_functions")),
+    photoCount: v.number(),
+    guestCount: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_spaceId_and_dateKey", ["spaceId", "dateKey"])
+    .index("by_status_and_openedAt", ["status", "openedAt"]),
+
+  // C.6 — guests (anonymous; cookie-bearer capability).
+  memoriesGuests: defineTable({
+    spaceId: v.id("memoriesSpaces"),
+    guestKey: v.string(),
+    cardId: v.optional(v.id("cards")),
+    nickname: v.optional(v.string()),
+    consentVersion: v.optional(v.string()),
+    consentAt: v.optional(v.number()),
+    photoCount: v.number(),
+    firstSeenAt: v.number(),
+    lastSeenAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_spaceId_and_guestKey", ["spaceId", "guestKey"])
+    .index("by_cardId", ["cardId"]),
+
+  // C.7 — guest photos.
+  memoriesPhotos: defineTable({
+    spaceId: v.id("memoriesSpaces"),
+    sessionId: v.id("memoriesSessions"),
+    guestId: v.id("memoriesGuests"),
+    cardId: v.optional(v.id("cards")),
+    mediaAssetId: v.optional(v.id("mediaAssets")),
+    visibility: v.union(v.literal("everyone"), v.literal("host_only")),
+    status: v.union(
+      v.literal("reserved"),
+      v.literal("processing"),
+      v.literal("ready"),
+      v.literal("hidden"),
+      v.literal("deleted"),
+    ),
+    originalStorageId: v.optional(v.id("_storage")),
+    deletedReason: v.optional(
+      v.union(
+        v.literal("guest"),
+        v.literal("host"),
+        v.literal("admin"),
+        v.literal("retention"),
+        v.literal("gdpr_wipe"),
+      ),
+    ),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_sessionId_and_status", ["sessionId", "status"])
+    .index("by_sessionId_and_guestId", ["sessionId", "guestId"])
+    .index("by_guestId", ["guestId"])
+    .index("by_spaceId_and_createdAt", ["spaceId", "createdAt"])
+    .index("by_status_and_updatedAt", ["status", "updatedAt"]),
+
+  // C.8 — processed media assets (Convex file storage is the storage, §0.6).
+  mediaAssets: defineTable({
+    businessId: v.id("businesses"),
+    kind: v.literal("image"),
+    provider: v.literal("convex"),
+    variants: v.object({
+      avif: v.object({
+        ref: v.string(),
+        width: v.number(),
+        height: v.number(),
+        bytes: v.number(),
+      }),
+      webp: v.object({
+        ref: v.string(),
+        width: v.number(),
+        height: v.number(),
+        bytes: v.number(),
+      }),
+      thumb: v.object({
+        ref: v.string(),
+        width: v.number(),
+        height: v.number(),
+        bytes: v.number(),
+      }),
+    }),
+    status: v.union(v.literal("ready"), v.literal("purged")),
+    createdAt: v.number(),
+  }).index("by_businessId_and_createdAt", ["businessId", "createdAt"]),
+
+  // C.9 — cards + immutable retarget history (the /r/[cardCode] resolver).
+  cards: defineTable({
+    businessId: v.id("businesses"),
+    cardCode: v.string(),
+    label: v.string(),
+    status: v.union(v.literal("active"), v.literal("disabled")),
+    currentTargetId: v.optional(v.id("cardTargets")),
+    totalScans: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_cardCode", ["cardCode"])
+    .index("by_businessId", ["businessId"]),
+
+  cardTargets: defineTable({
+    cardId: v.id("cards"),
+    kind: cardTargetKind,
+    spaceId: v.optional(v.id("memoriesSpaces")),
+    eventId: v.optional(v.id("events")),
+    serviceProfileId: v.optional(v.id("serviceProfiles")),
+    url: v.optional(v.string()),
+    createdByUserId: v.id("users"),
+    createdAt: v.number(),
+  }).index("by_cardId", ["cardId"]),
+
+  // C.10 — card scan events + daily rollup.
+  cardScanEvents: defineTable({
+    cardId: v.id("cards"),
+    requestId: v.string(),
+    occurredAt: v.number(),
+    targetKind: cardTargetKind,
+    deviceCategory: v.optional(deviceCategory),
+  })
+    .index("by_cardId_and_occurredAt", ["cardId", "occurredAt"])
+    .index("by_requestId", ["requestId"]),
+
+  dailyCardMetrics: defineTable({
+    cardId: v.id("cards"),
+    dateKey: v.string(),
+    scans: v.number(),
+    updatedAt: v.number(),
+  }).index("by_cardId_and_dateKey", ["cardId", "dateKey"]),
+
+  // C.11 — admin quota raise/reset (additive grants).
+  quotaAdjustments: defineTable({
+    spaceId: v.id("memoriesSpaces"),
+    sessionId: v.optional(v.id("memoriesSessions")),
+    guestId: v.optional(v.id("memoriesGuests")),
+    extraPhotos: v.number(),
+    reason: v.optional(v.string()),
+    createdByUserId: v.id("users"),
+    createdAt: v.number(),
+  })
+    .index("by_spaceId_and_createdAt", ["spaceId", "createdAt"])
+    .index("by_guestId", ["guestId"]),
+
+  // C.12 — moderation / takedown intake.
+  photoReports: defineTable({
+    photoId: v.id("memoriesPhotos"),
+    spaceId: v.id("memoriesSpaces"),
+    reporterKind: v.union(
+      v.literal("guest"),
+      v.literal("host"),
+      v.literal("admin"),
+      v.literal("public"),
+    ),
+    reporterGuestId: v.optional(v.id("memoriesGuests")),
+    reason: v.union(
+      v.literal("inappropriate"),
+      v.literal("privacy"),
+      v.literal("copyright"),
+      v.literal("other"),
+    ),
+    note: v.optional(v.string()),
+    status: v.union(
+      v.literal("open"),
+      v.literal("actioned"),
+      v.literal("dismissed"),
+    ),
+    resolvedByUserId: v.optional(v.id("users")),
+    resolvedAt: v.optional(v.number()),
+    createdAt: v.number(),
+  })
+    .index("by_photoId", ["photoId"])
+    .index("by_status_and_createdAt", ["status", "createdAt"]),
+
+  // C.13 — entitlements (billing port target; read via getEntitlement, §2.3).
+  entitlements: defineTable({
+    businessId: v.id("businesses"),
+    product: serviceType,
+    planKey: v.string(),
+    // Present = space-scoped; absent = business-scoped (§2.3 resolution order).
+    spaceId: v.optional(v.id("memoriesSpaces")),
+    status: v.union(v.literal("active"), v.literal("expired")),
+    // Per-row overrides spread over PLAN_LIMITS in getEntitlement. Optional
+    // subset of the known limit keys across both plan-bearing products.
+    overrides: v.optional(
+      v.object({
+        photosPerGuest: v.optional(v.number()),
+        maxImageDimension: v.optional(v.number()),
+        retentionDays: v.optional(v.number()),
+        allowedBlockKeys: v.optional(v.array(v.string())),
+      }),
+    ),
+    source: v.union(v.literal("manual"), v.literal("billing")),
+    externalRef: v.optional(v.string()),
+    // Absent = perpetual (manual grants); the expiry cron only sweeps rows that
+    // carry a numeric validUntil.
+    validUntil: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_businessId_and_product", ["businessId", "product"])
+    .index("by_spaceId_and_status", ["spaceId", "status"])
+    .index("by_status_and_validUntil", ["status", "validUntil"]),
+
+  // C.14 — reservation-block submissions (child table, unbounded).
+  venueReservations: defineTable({
+    eventId: v.id("events"),
+    // TODO(TASK-06): the reservation block's field config drives these fields;
+    // for now the minimal name/party-size/note shape satisfies the schema.
+    name: v.string(),
+    partySize: v.optional(v.number()),
+    note: v.optional(v.string()),
+    createdAt: v.number(),
+  }).index("by_eventId_and_createdAt", ["eventId", "createdAt"]),
 });
