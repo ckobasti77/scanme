@@ -25,8 +25,8 @@ const LARGE_TEXT_MIN = 3;
 const BODY_TEXT_MIN = 4.5;
 
 describe("ScanMe Links variations", () => {
-  it("covers each editorial preset with four variations", () => {
-    expect(PRESETS_WITH_VARIATIONS).toHaveLength(4);
+  it("covers each preset that has variations with four variations", () => {
+    expect(PRESETS_WITH_VARIATIONS).toHaveLength(9);
     for (const presetKey of PRESETS_WITH_VARIATIONS) {
       expect(SCANME_LINKS_VARIATIONS[presetKey]).toHaveLength(4);
     }
@@ -102,18 +102,19 @@ describe("ScanMe Links variations", () => {
             ? variation.background.startColor
             : colors.page;
 
-        // Urban Pop paints a 3px stroke in `accent` behind the title fill (see
-        // the [data-preset="urban-pop"] .title rule), so its titles have two
+        // Urban Pop and Chicken paint a 2.5-3px stroke in `border`/`accent` behind the title fill (see
+        // the [data-preset="urban-pop"] and [data-preset="chicken"] .title rules), so their titles have two
         // ways to stay legible: the fill separating from the page, or the
         // stroke outlining the glyphs against it. Whichever edge does the work
         // is the one worth measuring.
+        const strokeColor = colors.border || colors.accent;
         const titleContrast =
-          presetKey === "urban-pop"
+          presetKey === "urban-pop" || presetKey === "chicken"
             ? Math.max(
                 contrastRatio(colors.title, titleBackdrop),
                 Math.min(
-                  contrastRatio(colors.accent, titleBackdrop),
-                  contrastRatio(colors.title, colors.accent),
+                  contrastRatio(strokeColor, titleBackdrop),
+                  contrastRatio(colors.title, strokeColor),
                 ),
               )
             : contrastRatio(colors.title, titleBackdrop);

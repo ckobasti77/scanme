@@ -19,10 +19,13 @@ import {
   type ScanMeLinksFontKey,
   type ScanMeLinksIconPackage,
   type ScanMeLinksIconStyle,
+  type ScanMeLinksPresetKey,
   type ScanMeLinksShadowV2,
 } from "@/lib/scanme-links-design";
-import { safeNeutralForBackgrounds } from "@/lib/scanme-color-science";
-import { backgroundContrastSamples } from "@/lib/scanme-contrast";
+import {
+  backgroundContrastSamples,
+  safeNeutralForBackgrounds,
+} from "@/lib/scanme-color-science";
 import { cn } from "@/lib/utils";
 import styles from "./option-two-template.module.css";
 
@@ -61,6 +64,27 @@ const ICON_STYLE_CLASSES: Record<ScanMeLinksIconStyle, string> = {
   "pop-sticker": styles.iconPop,
   "craft-badge": styles.iconCraft,
   "glass-tile": styles.iconGlass,
+  "wanderlust-glow": styles.iconWanderlust,
+  "bistro-seal": styles.iconBistro,
+  "bloom-soft": styles.iconBloom,
+  "chicken-comic": styles.iconChicken,
+  "pulse-neon": styles.iconPulse,
+};
+
+const TEMPLATE_BACKGROUNDS: Partial<Record<ScanMeLinksPresetKey, string>> = {
+  wanderlust: "/scanme-links-template-backgrounds/wanderlust-background.avif",
+  bistro: "/scanme-links-template-backgrounds/bistro-background.avif",
+  bloom: "/scanme-links-template-backgrounds/bloom-background.avif",
+  chicken: "/scanme-links-template-backgrounds/chicken-background.avif",
+  pulse: "/scanme-links-template-backgrounds/pulse-background.avif",
+};
+
+const TEMPLATE_LOGOS: Partial<Record<ScanMeLinksPresetKey, string>> = {
+  wanderlust: "/scanme-links-template-backgrounds/wanderlust-logo.svg",
+  bistro: "/scanme-links-template-backgrounds/bistro-logo.svg",
+  bloom: "/scanme-links-template-backgrounds/bloom-logo.svg",
+  chicken: "/scanme-links-template-backgrounds/chicken-logo.svg",
+  pulse: "/scanme-links-template-backgrounds/pulse-logo.svg",
 };
 
 function duplicateNumbers(destinations: PublicDestination[]) {
@@ -231,15 +255,17 @@ function designStyle(
   const type = scaleTokens(design.typography.scale);
   const alignment = alignmentTokens(design.typography.alignment);
   const buttonShadow = shadowCss(design.buttons.shadow);
-  const textShadow = shadowCss(design.effects.textShadow);
+  const textShadow = design.effects.textShadow.enabled
+    ? shadowCss(design.effects.textShadow)
+    : undefined;
   // Per-element text shadows fall back to the global one when no override is set.
-  const titleShadow = design.effects.titleShadow
+  const titleShadow = design.effects.titleShadow?.enabled
     ? shadowCss(design.effects.titleShadow)
     : textShadow;
-  const descriptionShadow = design.effects.descriptionShadow
+  const descriptionShadow = design.effects.descriptionShadow?.enabled
     ? shadowCss(design.effects.descriptionShadow)
     : textShadow;
-  const buttonTextShadow = design.effects.buttonTextShadow
+  const buttonTextShadow = design.effects.buttonTextShadow?.enabled
     ? shadowCss(design.effects.buttonTextShadow)
     : textShadow;
   const logoShadow = logoShadowCss(design.effects.logoShadow);
@@ -567,7 +593,9 @@ function Background({
     background.category === "media"
       ? background.mediaType === "video"
         ? view.backgroundVideoUrl
-        : view.backgroundImageUrl
+        : (view.backgroundImageUrl ||
+           TEMPLATE_BACKGROUNDS[design.presetKey] ||
+           null)
       : null;
 
   return (
@@ -649,7 +677,8 @@ export function OptionTwoFrame({
   const design = resolveDesign(view);
   const title = view.displayName.trim().slice(0, 50);
   const description = view.description?.trim().slice(0, 50) ?? "";
-  const hasIdentity = Boolean(view.logoUrl || title || description);
+  const logoUrl = view.logoUrl || TEMPLATE_LOGOS[design.presetKey] || null;
+  const hasIdentity = Boolean(logoUrl || title || description);
 
   return (
     <div
@@ -664,11 +693,11 @@ export function OptionTwoFrame({
       <main className={styles.main}>
         {hasIdentity ? (
           <header className={styles.header}>
-            {view.logoUrl ? (
+            {logoUrl ? (
               // Customer logos include arbitrary raster formats and SVG.
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={view.logoUrl}
+                src={logoUrl}
                 alt={title ? `${title} logo` : "Logotip lokala"}
                 className={styles.logo}
                 data-contrast-anchor="logo"

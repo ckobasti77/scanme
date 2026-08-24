@@ -9,6 +9,11 @@ export const SCANME_LINKS_PRESET_KEYS = [
   "urban-pop",
   "artisan-craft",
   "glass-minimalist",
+  "wanderlust",
+  "bistro",
+  "bloom",
+  "chicken",
+  "pulse",
 ] as const;
 
 export type ScanMeLinksPresetKey = (typeof SCANME_LINKS_PRESET_KEYS)[number];
@@ -34,6 +39,11 @@ const PRESET_LAYOUTS: Record<ScanMeLinksPresetKey, ScanMeLinksLayout> = {
   "urban-pop": "inline-icon",
   "artisan-craft": "inline-icon",
   "glass-minimalist": "inline-icon",
+  wanderlust: "inline-icon",
+  bistro: "inline-icon",
+  bloom: "inline-icon",
+  chicken: "inline-icon",
+  pulse: "inline-icon",
 };
 
 export function layoutForPreset(
@@ -72,6 +82,11 @@ const PRESET_ICON_PACKAGES: Record<
   "urban-pop": "soft-3d",
   "artisan-craft": "line",
   "glass-minimalist": "soft-3d",
+  wanderlust: "line",
+  bistro: "line",
+  bloom: "line",
+  chicken: "solid",
+  pulse: "line",
 };
 
 export function iconPackageForPreset(
@@ -167,6 +182,11 @@ export const SCANME_LINKS_ICON_STYLES = [
   "pop-sticker",
   "craft-badge",
   "glass-tile",
+  "wanderlust-glow",
+  "bistro-seal",
+  "bloom-soft",
+  "chicken-comic",
+  "pulse-neon",
 ] as const;
 export type ScanMeLinksIconStyle =
   (typeof SCANME_LINKS_ICON_STYLES)[number];
@@ -302,6 +322,7 @@ export type ScanMeLinksPresetCapabilities = {
   key: ScanMeLinksPresetKey;
   label: string;
   description: string;
+  tier: "basic" | "premium";
   preview: {
     background: string;
     surface: string;
@@ -324,6 +345,7 @@ export const SCANME_LINKS_PRESET_CAPABILITIES: Record<
     key: "gentle",
     label: "Gentle",
     description: "Meke površine i miran, prijateljski ritam.",
+    tier: "basic",
     preview: {
       background: "#F7F1EA",
       surface: "#FFFDFC",
@@ -346,6 +368,7 @@ export const SCANME_LINKS_PRESET_CAPABILITIES: Record<
     key: "ios",
     label: "iOS",
     description: "Čiste sistemske forme i diskretne staklaste površine.",
+    tier: "basic",
     preview: {
       background: "#EAF1FF",
       surface: "#FFFFFFCC",
@@ -373,6 +396,7 @@ export const SCANME_LINKS_PRESET_CAPABILITIES: Record<
     key: "lux",
     label: "Lux",
     description: "Elegantna tipografija, duboki tonovi i precizni detalji.",
+    tier: "basic",
     preview: {
       background: "#171717",
       surface: "#292724",
@@ -395,6 +419,7 @@ export const SCANME_LINKS_PRESET_CAPABILITIES: Record<
     key: "rustic",
     label: "Rustic",
     description: "Topli prirodni materijali i taktilni detalji.",
+    tier: "basic",
     preview: {
       background: "#E7D2B8",
       surface: "#F8EEDF",
@@ -417,6 +442,7 @@ export const SCANME_LINKS_PRESET_CAPABILITIES: Record<
     key: "minimal",
     label: "Minimal",
     description: "Neutralan sistem sa jasnom hijerarhijom i više prostora.",
+    tier: "basic",
     preview: {
       background: "#F4F5F7",
       surface: "#FFFFFF",
@@ -439,6 +465,7 @@ export const SCANME_LINKS_PRESET_CAPABILITIES: Record<
     key: "bold",
     label: "Bold",
     description: "Snažan kontrast, krupne forme i izražena akcentna boja.",
+    tier: "basic",
     preview: {
       background: "#4B3EFF",
       surface: "#15111F",
@@ -468,6 +495,7 @@ export const SCANME_LINKS_PRESET_CAPABILITIES: Record<
     key: "nude-editorial",
     label: "Nude Editorial",
     description: "Mirni nude tonovi, serif naslov i tanke pill forme.",
+    tier: "basic",
     preview: {
       background: "#F5EFE7",
       surface: "#FFFFFF",
@@ -490,6 +518,7 @@ export const SCANME_LINKS_PRESET_CAPABILITIES: Record<
     key: "urban-pop",
     label: "Urban Pop",
     description: "Debeo crni okvir, tvrda senka i krupna verzalna tipografija.",
+    tier: "basic",
     preview: {
       background: "#E8402A",
       surface: "#FFFFFF",
@@ -519,6 +548,7 @@ export const SCANME_LINKS_PRESET_CAPABILITIES: Record<
     key: "artisan-craft",
     label: "Artisan Craft",
     description: "Papir i drvo, topli zanatski tonovi i serif naslov.",
+    tier: "basic",
     preview: {
       background: "#EFE3CC",
       surface: "#F7EEDD",
@@ -541,6 +571,7 @@ export const SCANME_LINKS_PRESET_CAPABILITIES: Record<
     key: "glass-minimalist",
     label: "Glass Minimalist",
     description: "Zamućeno staklo, tanak svetli rub i vazdušasti naslov.",
+    tier: "basic",
     preview: {
       background: "#123038",
       surface: "#FFFFFF",
@@ -565,6 +596,146 @@ export const SCANME_LINKS_PRESET_CAPABILITIES: Record<
     fonts: ["manrope", "inter", "cormorant-garamond"],
     iconStyle: "glass-tile",
     recommendedBackgroundCategory: "gradient",
+  },
+  wanderlust: {
+    key: "wanderlust",
+    label: "Wanderlust",
+    description: "Tamna aurora pozadina, tirkizni neonski sjaj i beli kružni bedževi.",
+    tier: "premium",
+    preview: {
+      background: "#081318",
+      surface: "rgba(16, 32, 40, 0.75)",
+      accent: "#4ED8C7",
+      text: "#FFFFFF",
+    },
+    allowedBackgroundCategories: [
+      "media",
+      "animation",
+      "gradient",
+      "flat",
+    ],
+    allowedBackgroundVariants: {
+      media: ["image", "video"],
+      animation: ["aurora", "soft-waves"],
+      gradient: ["linear", "radial"],
+      flat: ["flat"],
+    },
+    allowedButtonVariants: ["glass", "solid", "outline"],
+    fonts: ["dm-sans", "inter", "manrope", "nunito-sans"],
+    iconStyle: "wanderlust-glow",
+    recommendedBackgroundCategory: "media",
+  },
+  bistro: {
+    key: "bistro",
+    label: "Bistro",
+    description: "Rustično tamno drvo, ovalna dugmad boje terakote sa duplim zlatnim rubom.",
+    tier: "premium",
+    preview: {
+      background: "#1C0D08",
+      surface: "#522216",
+      accent: "#E0B27E",
+      text: "#F7E6D0",
+    },
+    allowedBackgroundCategories: [
+      "media",
+      "texture",
+      "flat",
+      "gradient",
+    ],
+    allowedBackgroundVariants: {
+      media: ["image", "video"],
+      texture: ["wood", "paper", "linen"],
+      flat: ["flat"],
+      gradient: ["linear", "radial"],
+    },
+    allowedButtonVariants: ["glass", "solid", "outline"],
+    fonts: ["cormorant-garamond", "playfair-display", "lora", "libre-baskerville"],
+    iconStyle: "bistro-seal",
+    recommendedBackgroundCategory: "media",
+  },
+  bloom: {
+    key: "bloom",
+    label: "Bloom",
+    description: "Pastelni prelaz zalaska sunca, lebdeće snežno-bele kartice sa mekom senkom.",
+    tier: "premium",
+    preview: {
+      background: "#DEC2DB",
+      surface: "#FFFFFF",
+      accent: "#B65E7D",
+      text: "#2D2430",
+    },
+    allowedBackgroundCategories: [
+      "media",
+      "gradient",
+      "flat",
+      "animation",
+    ],
+    allowedBackgroundVariants: {
+      media: ["image", "video"],
+      gradient: ["linear", "radial"],
+      flat: ["flat"],
+      animation: ["aurora", "soft-waves"],
+    },
+    allowedButtonVariants: ["solid", "glass", "outline"],
+    fonts: ["dm-sans", "nunito-sans", "inter", "manrope"],
+    iconStyle: "bloom-soft",
+    recommendedBackgroundCategory: "media",
+  },
+  chicken: {
+    key: "chicken",
+    label: "Chicken",
+    description: "Pop-art strip stil sa halftone tačkicama, nalepnice sa debelim 3D crnim rubom.",
+    tier: "premium",
+    preview: {
+      background: "#F6C928",
+      surface: "#FFFFFF",
+      accent: "#298BE8",
+      text: "#000000",
+    },
+    allowedBackgroundCategories: [
+      "media",
+      "pattern",
+      "flat",
+      "gradient",
+    ],
+    allowedBackgroundVariants: {
+      media: ["image", "video"],
+      pattern: ["dots", "checker", "waves"],
+      flat: ["flat"],
+      gradient: ["linear", "radial"],
+    },
+    allowedButtonVariants: ["solid", "outline"],
+    fonts: ["archivo", "space-grotesk", "inter"],
+    iconStyle: "chicken-comic",
+    recommendedBackgroundCategory: "media",
+  },
+  pulse: {
+    key: "pulse",
+    label: "Pulse",
+    description: "Cyberpunk noćni klub stil, kosi sci-fi uglovi i dvobojni neonski cijan-ciklama preliv.",
+    tier: "premium",
+    preview: {
+      background: "#080B10",
+      surface: "#101622",
+      accent: "#00F0FF",
+      text: "#FFFFFF",
+    },
+    allowedBackgroundCategories: [
+      "media",
+      "gradient",
+      "animation",
+      "flat",
+    ],
+    allowedBackgroundVariants: {
+      media: ["image", "video"],
+      gradient: ["linear", "radial"],
+      animation: ["aurora", "soft-waves"],
+      flat: ["flat"],
+    },
+    allowedButtonVariants: ["glass", "solid", "outline"],
+    fonts: ["space-grotesk", "manrope", "inter", "archivo"],
+    iconStyle: "pulse-neon",
+    recommendedBackgroundCategory: "media",
   },
 };
 
@@ -699,6 +870,71 @@ const PRESET_COLORS: Record<ScanMeLinksPresetKey, ScanMeLinksColorsV2> = {
     buttonText: "#FFFFFF",
     icon: "#FFFFFF",
   },
+  wanderlust: {
+    page: "#070D12",
+    surface: "#10222B",
+    title: "#FFFFFF",
+    body: "#4ED8C7",
+    accent: "#4ED8C7",
+    border: "#38C9B8",
+    focus: "#4ED8C7",
+    button: "rgba(14, 26, 33, 0.65)",
+    buttonHover: "rgba(22, 38, 48, 0.78)",
+    buttonText: "#FFFFFF",
+    icon: "#14968B",
+  },
+  bistro: {
+    page: "#140A06",
+    surface: "#522216",
+    title: "#F7E6D0",
+    body: "#D4B18C",
+    accent: "#E0B27E",
+    border: "#C48D5E",
+    focus: "#E0B27E",
+    button: "#522216",
+    buttonHover: "#662C1E",
+    buttonText: "#FFFFFF",
+    icon: "#E0B27E",
+  },
+  bloom: {
+    page: "#E6D3DF",
+    surface: "#FFFFFF",
+    title: "#2D2430",
+    body: "#6E6172",
+    accent: "#B65E7D",
+    border: "#F0E4EC",
+    focus: "#B65E7D",
+    button: "#FFFFFF",
+    buttonHover: "#FAF5F8",
+    buttonText: "#2D2430",
+    icon: "#B65E7D",
+  },
+  chicken: {
+    page: "#F6C928",
+    surface: "#FFFFFF",
+    title: "#FFFFFF",
+    body: "#000000",
+    accent: "#298BE8",
+    border: "#000000",
+    focus: "#298BE8",
+    button: "#FFFFFF",
+    buttonHover: "#F7F7F7",
+    buttonText: "#000000",
+    icon: "#000000",
+  },
+  pulse: {
+    page: "#070A0F",
+    surface: "#101622",
+    title: "#FFFFFF",
+    body: "#E040FB",
+    accent: "#00F0FF",
+    border: "#00F0FF",
+    focus: "#00F0FF",
+    button: "rgba(16, 22, 34, 0.85)",
+    buttonHover: "rgba(24, 33, 50, 0.95)",
+    buttonText: "#FFFFFF",
+    icon: "#00F0FF",
+  },
 };
 
 function defaultBackground(
@@ -826,6 +1062,61 @@ const PRESET_TUNING: Partial<
     lineHeight: 1.3,
     verticalSpacing: 14,
   },
+  wanderlust: {
+    borderWidth: 1.5,
+    paddingX: 18,
+    paddingY: 14,
+    shadow: { color: "#4ED8C7", x: 0, y: 0, blur: 20, opacity: 0.28 },
+    headingWeight: 700,
+    bodyWeight: 600,
+    scale: "large",
+    lineHeight: 1.3,
+    verticalSpacing: 15,
+  },
+  bistro: {
+    borderWidth: 1.5,
+    paddingX: 18,
+    paddingY: 14,
+    shadow: { color: "#000000", y: 6, blur: 16, opacity: 0.35 },
+    headingWeight: 600,
+    bodyWeight: 400,
+    scale: "large",
+    lineHeight: 1.25,
+    verticalSpacing: 15,
+  },
+  bloom: {
+    borderWidth: 1,
+    paddingX: 20,
+    paddingY: 15,
+    shadow: { color: "#8E5F7B", y: 12, blur: 28, opacity: 0.2 },
+    headingWeight: 700,
+    bodyWeight: 500,
+    scale: "large",
+    lineHeight: 1.25,
+    verticalSpacing: 16,
+  },
+  chicken: {
+    borderWidth: 3,
+    paddingX: 18,
+    paddingY: 14,
+    shadow: { color: "#000000", x: 4, y: 5, blur: 0, opacity: 1 },
+    headingWeight: 700,
+    bodyWeight: 700,
+    scale: "large",
+    lineHeight: 1.15,
+    verticalSpacing: 15,
+  },
+  pulse: {
+    borderWidth: 1.5,
+    paddingX: 18,
+    paddingY: 14,
+    shadow: { color: "#00F0FF", x: 0, y: 0, blur: 18, opacity: 0.35 },
+    headingWeight: 700,
+    bodyWeight: 700,
+    scale: "large",
+    lineHeight: 1.2,
+    verticalSpacing: 15,
+  },
 };
 
 function buildDefaultDesign(
@@ -844,6 +1135,11 @@ function buildDefaultDesign(
     "urban-pop": 12,
     "artisan-craft": 16,
     "glass-minimalist": 16,
+    wanderlust: 20,
+    bistro: 999,
+    bloom: 22,
+    chicken: 18,
+    pulse: 14,
   };
 
   return {

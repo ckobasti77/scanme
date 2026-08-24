@@ -26,6 +26,11 @@ export const scanMeDesignV2PresetKeyValidator = v.union(
   v.literal("urban-pop"),
   v.literal("artisan-craft"),
   v.literal("glass-minimalist"),
+  v.literal("wanderlust"),
+  v.literal("bistro"),
+  v.literal("bloom"),
+  v.literal("chicken"),
+  v.literal("pulse"),
 );
 
 export const scanMeDesignStateValidator = v.union(
@@ -330,6 +335,11 @@ export const scanMeDesignV2Validator = v.object({
     v.literal("pop-sticker"),
     v.literal("craft-badge"),
     v.literal("glass-tile"),
+    v.literal("wanderlust-glow"),
+    v.literal("bistro-seal"),
+    v.literal("bloom-soft"),
+    v.literal("chicken-comic"),
+    v.literal("pulse-neon"),
   ),
   // Identifies which colour variation of a preset is active. Purely an editor
   // affordance: the variation's tokens are already stored in `colors` and

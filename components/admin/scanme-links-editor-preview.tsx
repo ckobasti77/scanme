@@ -43,7 +43,6 @@ import {
   optionTwoDuplicateNumber,
 } from "@/components/scanme-links/templates/option-two/option-two-template";
 import { iconPackageForPreset } from "@/lib/scanme-links-design";
-import { ScanMeContrastAssistant } from "@/components/admin/scanme-contrast-assistant";
 import type { ScanMeLinksViewModel } from "@/components/scanme-links/templates/types";
 import {
   Select,
@@ -53,12 +52,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { DEFAULT_ACCENT_TOKENS } from "@/lib/scanme-links";
-import { safeNeutralForBackgrounds } from "@/lib/scanme-color-science";
 import {
-  analyzeScanMeContrast,
   backgroundContrastSamples,
-  type ContrastSuggestion,
-} from "@/lib/scanme-contrast";
+  safeNeutralForBackgrounds,
+} from "@/lib/scanme-color-science";
 import { cn } from "@/lib/utils";
 import styles from "./scanme-links-editor.module.css";
 import type {
@@ -112,37 +109,7 @@ export function useEditorPreviewModel(document: ScanMeLinksEditorDocument) {
     })),
   };
 
-  const contrastIssues = useMemo(
-    () =>
-      analyzeScanMeContrast({
-        design: document.design,
-        generatedPalette: document.paletteAnalysis?.adjusted ?? document.palette,
-        logoPalette: document.paletteAnalysis?.original ?? document.palette,
-        content: {
-          hasTitle: document.title.trim().length > 0,
-          hasDescription: document.description.trim().length > 0,
-          destinationCount: destinations.length,
-          hasLogo: Boolean(document.logoUrl),
-        },
-        media: {
-          hasImage: Boolean(document.backgroundImageUrl),
-          hasVideo: Boolean(document.backgroundVideoUrl),
-        },
-      }),
-    [
-      document.design,
-      document.palette,
-      document.paletteAnalysis,
-      document.title,
-      document.description,
-      document.logoUrl,
-      document.backgroundImageUrl,
-      document.backgroundVideoUrl,
-      destinations,
-    ],
-  );
-
-  return { view, destinations, contrastIssues };
+  return { view, destinations };
 }
 
 export function ScanMeLinksEditorPreview({
@@ -157,7 +124,6 @@ export function ScanMeLinksEditorPreview({
   setDevice,
   zoom,
   setZoom,
-  onApplyContrastSuggestion,
 }: {
   businessName: string;
   document: ScanMeLinksEditorDocument;
@@ -170,7 +136,6 @@ export function ScanMeLinksEditorPreview({
   setDevice: (device: PreviewDevice) => void;
   zoom: number;
   setZoom: (zoom: number) => void;
-  onApplyContrastSuggestion: (suggestion: ContrastSuggestion) => void;
 }) {
   const reducedMotion = useReducedMotion();
   const [localTime, setLocalTime] = useState("--:--");
@@ -229,8 +194,7 @@ export function ScanMeLinksEditorPreview({
     return () => resizeObserver.disconnect();
   }, [syncCanvasScroll]);
 
-  const { view, destinations, contrastIssues } =
-    useEditorPreviewModel(document);
+  const { view, destinations } = useEditorPreviewModel(document);
   const phoneStatusColor = useMemo(
     () =>
       safeNeutralForBackgrounds(
@@ -403,7 +367,6 @@ export function ScanMeLinksEditorPreview({
       <div
         ref={canvasShellRef}
         className={styles.deviceCanvasShell}
-        data-has-contrast-assistant={contrastIssues.length > 0}
       >
         <div
           id={canvasId}
@@ -486,12 +449,6 @@ export function ScanMeLinksEditorPreview({
             )}
           </AnimatePresence>
         </div>
-        <ScanMeContrastAssistant
-          issues={contrastIssues}
-          device={device}
-          containerRef={canvasShellRef}
-          onApply={onApplyContrastSuggestion}
-        />
         <div
           ref={canvasTrackRef}
           className={styles.deviceCanvasScrollTrack}

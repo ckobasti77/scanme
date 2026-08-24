@@ -808,6 +808,16 @@
   transform: translateY(-1px);
 }
 
+.uploadZone[data-drag-active="true"] {
+  border-color: #2a302c;
+  border-style: solid;
+  background: rgba(255, 255, 255, 0.85);
+  box-shadow:
+    0 0 0 3px rgba(42, 48, 44, 0.12),
+    0 10px 24px rgba(43, 35, 29, 0.1);
+  transform: translateY(-1px);
+}
+
 .mediaUploadZone {
   grid-template-columns: minmax(0, 1fr);
   gap: 10px;
@@ -1439,6 +1449,55 @@
   font-weight: 750;
 }
 
+.styleSection {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.styleSection + .styleSection {
+  margin-top: 20px;
+}
+
+.styleSectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-inline: 4px;
+}
+
+.styleSectionTitle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--editor-muted, rgba(0, 0, 0, 0.55));
+}
+
+.styleSectionTitlePremium {
+  color: #b45309;
+}
+
+.premiumBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #fef3c7, #fde68a);
+  color: #92400e;
+  border: 1px solid rgba(217, 119, 6, 0.25);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  box-shadow: 0 1px 4px rgba(217, 119, 6, 0.12);
+}
+
 .badge {
   display: inline-flex;
   min-height: 22px;
@@ -2024,292 +2083,6 @@
   background: #f8f5ef;
 }
 
-.contrastAssistantLayer {
-  position: absolute;
-  z-index: 70;
-  inset: 0 11px 0 0;
-  overflow: hidden;
-  pointer-events: none;
-}
-
-.contrastCard {
-  composes: glassSurface;
-  position: absolute;
-  pointer-events: auto;
-  border-color: rgba(255, 255, 255, 0.82);
-  border-radius: 23px;
-  box-shadow:
-    inset 0 1.5px 0 rgba(255, 255, 255, 0.94),
-    inset 1px 0 0 rgba(255, 255, 255, 0.48),
-    0 14px 34px rgba(43, 35, 29, 0.14);
-}
-
-.contrastCard[data-expanded="false"] {
-  border-radius: 18px;
-}
-
-.contrastCardHeader {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  width: 100%;
-  min-height: 55px;
-  align-items: center;
-  gap: 10px;
-  border-radius: inherit;
-  padding: 8px 10px;
-  text-align: left;
-}
-
-.contrastCardHeader:focus-visible {
-  outline: 2px solid rgba(44, 50, 46, 0.64);
-  outline-offset: -3px;
-}
-
-.contrastWarningIcon {
-  display: grid;
-  width: 35px;
-  height: 35px;
-  flex: none;
-  place-items: center;
-  border: 1px solid rgba(146, 95, 42, 0.14);
-  border-radius: 12px;
-  background: rgba(255, 240, 215, 0.78);
-  color: #8d5f2f;
-}
-
-.contrastWarningIcon[data-severity="poor"] {
-  border-color: rgba(172, 49, 49, 0.22);
-  background: rgba(255, 225, 222, 0.88);
-  color: #b52f2f;
-}
-
-.contrastWarningIcon[data-severity="excellent"] {
-  border-color: rgba(45, 116, 79, 0.18);
-  background: rgba(226, 246, 234, 0.84);
-  color: #39795a;
-}
-
-/* Advisory findings (e.g. text over an unknown photo) read as calm information,
-   never the amber/red warning treatment. */
-.contrastWarningIcon[data-severity="advisory"] {
-  border-color: rgba(64, 92, 120, 0.18);
-  background: rgba(226, 236, 246, 0.84);
-  color: #4a6a86;
-}
-
-.contrastWarningIcon svg {
-  width: 17px;
-  height: 17px;
-}
-
-.contrastCardHeading {
-  display: flex;
-  min-width: 0;
-  flex: 1;
-  align-items: center;
-  justify-content: space-between;
-  gap: 9px;
-}
-
-.contrastCardHeading strong {
-  overflow: hidden;
-  color: #2a302c;
-  font-size: 12px;
-  font-weight: 800;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.contrastCardHeading small {
-  flex: none;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.58);
-  color: rgba(52, 58, 54, 0.58);
-  padding: 4px 7px;
-  font-size: 9px;
-  font-weight: 800;
-}
-
-.contrastChevron {
-  width: 16px;
-  height: 16px;
-  flex: none;
-  color: rgba(45, 51, 47, 0.48);
-  transition: transform 170ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.contrastChevron[data-open="true"] {
-  transform: rotate(180deg);
-}
-
-.contrastCardBody {
-  position: relative;
-  z-index: 1;
-  overflow: hidden;
-  padding: 0 11px 12px;
-}
-
-.contrastCardBody > p {
-  border-top: 1px solid rgba(67, 58, 51, 0.08);
-  color: rgba(45, 50, 46, 0.56);
-  padding: 10px 2px 0;
-  font-size: 11px;
-  line-height: 1.5;
-}
-
-.contrastSuggestions {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 7px;
-  margin-top: 10px;
-}
-
-.contrastSuggestions > span {
-  min-width: 0;
-}
-
-.contrastSuggestion {
-  display: grid;
-  width: 100%;
-  min-width: 0;
-  min-height: 76px;
-  place-items: center;
-  gap: 5px;
-  border: 1px solid rgba(70, 62, 55, 0.1);
-  border-radius: 14px !important;
-  background: rgba(255, 255, 255, 0.52);
-  padding: 7px 4px;
-  color: #333934;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
-  transition:
-    background-color 150ms ease,
-    transform 150ms ease,
-    box-shadow 150ms ease;
-}
-
-.contrastSuggestion:hover {
-  background: rgba(255, 255, 255, 0.78);
-  transform: translateY(-1px);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.84),
-    0 5px 10px rgba(48, 39, 33, 0.08);
-}
-
-.contrastSuggestion:focus-visible {
-  outline: 2px solid rgba(44, 50, 46, 0.64);
-  outline-offset: 1px;
-}
-
-.contrastSuggestionSwatch {
-  width: 30px;
-  height: 30px;
-  border: 2px solid rgba(255, 255, 255, 0.78);
-  border-radius: 10px;
-  box-shadow: 0 0 0 1px rgba(54, 48, 43, 0.14);
-}
-
-.contrastSuggestion > span:last-child {
-  display: block;
-  min-width: 0;
-  max-width: 100%;
-  text-align: center;
-}
-
-.contrastSuggestion strong,
-.contrastSuggestion small {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.contrastSuggestion strong {
-  font-size: 9px;
-  font-weight: 800;
-}
-
-.contrastSuggestion small {
-  margin-top: 1px;
-  color: rgba(43, 48, 44, 0.48);
-  font-size: 8px;
-  font-weight: 700;
-}
-
-.contrastStandard {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  margin-top: 10px;
-  color: rgba(48, 54, 50, 0.43);
-  font-size: 9px;
-  font-weight: 750;
-}
-
-/* ------------------------------------------------------------------ */
-/* Mobilni asistent za kontrast: sve minimizovano po defaultu — čip je samo
-   ikonica upozorenja (! ). Prošireni oblik je kompaktna kartica koja se otvara
-   u istom rail-u uz desnu ivicu, a ne ploča preko celog pregleda. Desktop grana
-   (bez data-compact) zadržava apsolutno pozicioniranje iznad. */
-
-.contrastAssistantLayer[data-compact="true"] {
-  inset: 0;
-}
-
-.contrastRail {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  left: 12px;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 8px;
-  max-height: calc(100% - 24px);
-  pointer-events: none;
-}
-
-.contrastCard[data-compact="true"] {
-  position: relative;
-  left: auto;
-  top: auto;
-  overflow: hidden;
-  transition:
-    width 260ms cubic-bezier(0.22, 1, 0.36, 1),
-    border-radius 260ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-/* Minimizovano = okrugli čip; vidi se samo ikonica upozorenja. */
-.contrastCard[data-compact="true"][data-expanded="false"] {
-  width: 44px;
-  border-radius: 999px;
-}
-
-.contrastCard[data-compact="true"][data-expanded="false"] .contrastCardHeader {
-  width: 44px;
-  min-height: 44px;
-  height: 44px;
-  gap: 0;
-  padding: 0;
-  justify-content: center;
-}
-
-.contrastCard[data-compact="true"][data-expanded="false"] .contrastCardHeading,
-.contrastCard[data-compact="true"][data-expanded="false"] .contrastChevron {
-  display: none;
-}
-
-/* Prošireno = kompaktna kartica; uža od desktop 296px da stane na telefon i
-   ostavi pregled vidljivim uz levu ivicu. */
-.contrastCard[data-compact="true"][data-expanded="true"] {
-  width: min(280px, 100%);
-  border-radius: 22px;
-}
-
-.contrastCard[data-compact="true"] .contrastSuggestion {
-  min-height: 68px;
-}
-
 .previewDestinationSelected {
   outline: 2px solid
     color-mix(in srgb, var(--links-accent) 72%, #243028) !important;
@@ -2410,22 +2183,85 @@
   position: fixed;
   z-index: 80;
   inset: 72px 0 0;
+  display: flex;
+  background: rgba(244, 239, 231, 0.45);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  pointer-events: none;
+  transition: background 180ms ease;
+}
+
+.dropZoneHalf {
+  flex: 1;
   display: grid;
   place-items: center;
-  background: rgba(244, 239, 231, 0.56);
-  -webkit-backdrop-filter: blur(5px);
-  backdrop-filter: blur(5px);
+  padding: 32px;
+  position: relative;
+  transition: background 200ms cubic-bezier(0.16, 1, 0.3, 1), transform 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.dropZoneHalf[data-active="true"] {
+  background: rgba(255, 255, 255, 0.38);
+}
+
+.dropZoneDivider {
+  position: absolute;
+  top: 24px;
+  bottom: 24px;
+  left: 50%;
+  width: 1px;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    rgba(60, 53, 47, 0.15) 20%,
+    rgba(60, 53, 47, 0.15) 80%,
+    transparent
+  );
+  transform: translateX(-50%);
   pointer-events: none;
 }
 
 .dropMessage {
-  border: 1px solid rgba(255, 255, 255, 0.72);
-  border-radius: 30px;
-  background: rgba(255, 252, 248, 0.86);
-  padding: 28px 36px;
-  box-shadow: 0 24px 60px rgba(43, 35, 29, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  border-radius: 28px;
+  background: rgba(255, 252, 248, 0.92);
+  padding: 24px 36px;
+  box-shadow: 0 20px 50px rgba(43, 35, 29, 0.12);
   font-size: 15px;
   font-weight: 750;
+  color: var(--editor-ink);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  transition: transform 180ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 180ms cubic-bezier(0.16, 1, 0.3, 1), border-color 180ms ease;
+  transform: scale(0.95);
+  opacity: 0.72;
+}
+
+.dropZoneHalf[data-active="true"] .dropMessage {
+  transform: scale(1.04);
+  opacity: 1;
+  border-color: rgba(255, 140, 0, 0.4);
+  box-shadow: 0 24px 60px rgba(43, 35, 29, 0.18), 0 0 0 3px rgba(255, 140, 0, 0.15);
+}
+
+.dropMessageFull {
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  border-radius: 28px;
+  background: rgba(255, 252, 248, 0.94);
+  padding: 28px 42px;
+  box-shadow: 0 24px 60px rgba(43, 35, 29, 0.18), 0 0 0 3px rgba(255, 140, 0, 0.15);
+  font-size: 16px;
+  font-weight: 750;
+  color: var(--editor-ink);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  transform: scale(1.02);
 }
 
 /* ------------------------------------------------------------------ */
@@ -2780,8 +2616,7 @@
   .contextPanel,
   .backgroundTabs,
   .smartPalette,
-  .smartPaletteMenu,
-  .contrastCard {
+  .smartPaletteMenu {
     background: rgba(250, 246, 240, 0.94);
   }
 
@@ -2863,7 +2698,6 @@
   .backgroundTabs,
   .smartPalette,
   .smartPaletteMenu,
-  .contrastCard,
   .mobileSheet,
   .mobileTopBar {
     background: rgba(250, 246, 240, 0.96);
@@ -2930,6 +2764,115 @@
 /* Icon picker inside "Uredi link". Glyphs inherit the panel's text colour so
    they stay legible on the editor surface; the themed colour is previewed live
    on the phone. */
+.iconPickerContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.iconLibraryTabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  padding: 0.25rem;
+  border-radius: 0.65rem;
+  background: var(--editor-hairline, rgba(0, 0, 0, 0.05));
+}
+
+.iconLibraryTab {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-width: 4.8rem;
+  padding: 0.35rem 0.55rem;
+  border: 1px solid transparent;
+  border-radius: 0.45rem;
+  background: transparent;
+  color: var(--editor-muted, rgba(0, 0, 0, 0.6));
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 140ms ease;
+  white-space: nowrap;
+}
+
+.iconLibraryTab:hover {
+  color: inherit;
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.iconLibraryTabActive {
+  border-color: var(--editor-hairline, rgba(0, 0, 0, 0.12));
+  background: var(--editor-surface, #ffffff);
+  color: var(--editor-foreground, #1c1917);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.iconLibraryTabBadge {
+  display: inline-block;
+  padding: 0.08rem 0.25rem;
+  border-radius: 0.25rem;
+  background: var(--editor-hairline, rgba(0, 0, 0, 0.06));
+  font-size: 0.58rem;
+  font-weight: 500;
+  opacity: 0.75;
+}
+
+.iconSearchWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.iconSearchIcon {
+  position: absolute;
+  left: 0.65rem;
+  width: 0.85rem;
+  height: 0.85rem;
+  color: var(--editor-muted, rgba(0, 0, 0, 0.4));
+  pointer-events: none;
+}
+
+.iconSearchInput {
+  width: 100%;
+  height: 2.1rem;
+  padding: 0 2rem 0 1.85rem;
+  border: 1px solid var(--editor-hairline, rgb(0 0 0 / 0.1));
+  border-radius: 0.55rem;
+  background: var(--editor-surface, rgb(255 255 255 / 0.6));
+  color: inherit;
+  font-size: 0.75rem;
+  outline: none;
+  transition: border-color 140ms ease, background-color 140ms ease;
+}
+
+.iconSearchInput:focus {
+  border-color: var(--editor-focus, #3b82f6);
+  background: var(--editor-surface, #ffffff);
+}
+
+.iconSearchClear {
+  position: absolute;
+  right: 0.5rem;
+  display: grid;
+  place-items: center;
+  width: 1.2rem;
+  height: 1.2rem;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--editor-hairline, rgba(0, 0, 0, 0.1));
+  color: var(--editor-muted, rgba(0, 0, 0, 0.6));
+  cursor: pointer;
+  transition: background-color 120ms ease;
+}
+
+.iconSearchClear:hover {
+  background: var(--editor-hairline, rgba(0, 0, 0, 0.2));
+}
+
 .iconPicker {
   display: flex;
   flex-direction: column;
@@ -2948,12 +2891,25 @@
   gap: 0.4rem;
 }
 
+.iconPickerGroupHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
 .iconPickerGroupLabel {
   font-size: 0.62rem;
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   opacity: 0.55;
+}
+
+.iconPickerGroupCount {
+  font-size: 0.58rem;
+  font-weight: 500;
+  opacity: 0.4;
 }
 
 .iconPickerGrid {
@@ -2989,6 +2945,7 @@
 .iconPickerCellActive {
   border-color: currentColor;
   background: color-mix(in srgb, currentColor 12%, transparent);
+  box-shadow: inset 0 0 0 1px currentColor;
 }
 
 .iconPickerCellActive:hover {
@@ -2998,4 +2955,32 @@
 .iconPickerGlyph {
   width: 1.3rem;
   height: 1.3rem;
+}
+
+.iconPickerEmpty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem 0.5rem;
+  color: var(--editor-muted, rgba(0, 0, 0, 0.45));
+  font-size: 0.75rem;
+  text-align: center;
+  gap: 0.4rem;
+}
+
+.iconPickerEmptyReset {
+  padding: 0.2rem 0.6rem;
+  border: 1px solid var(--editor-hairline, rgba(0, 0, 0, 0.15));
+  border-radius: 0.4rem;
+  background: var(--editor-surface, #ffffff);
+  color: inherit;
+  font-size: 0.7rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 120ms ease;
+}
+
+.iconPickerEmptyReset:hover {
+  background: var(--editor-hairline, rgba(0, 0, 0, 0.05));
 }

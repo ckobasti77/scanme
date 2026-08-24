@@ -11,12 +11,15 @@ import {
 } from "convex/react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
+  Image as ImageIcon,
+  ImagePlus,
   LoaderCircle,
   PanelTop,
   Redo2,
   Save,
   Send,
   Undo2,
+  Video as VideoIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -60,8 +63,7 @@ import {
 } from "@/components/ui/dialog";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import { extractAccentCandidates } from "@/lib/accent-palette";
-import type { ContrastSuggestion } from "@/lib/scanme-contrast";
+import { extractLogoProfile } from "@/lib/accent-palette";
 import {
   DESTINATION_DEFAULTS,
   type DestinationKind,
@@ -74,9 +76,9 @@ import {
 import {
   DEFAULT_PALETTE_LOCKS,
   DEFAULT_PALETTE_SCHEME,
-  applyPaletteColorToRole,
   generateScanMePalette,
   inferPaletteMode,
+  inferPaletteModeFromProfile,
   normalizePaletteLocks,
 } from "@/lib/scanme-palette";
 import { defaultSchemeFromColors } from "@/lib/scanme-material-color";
@@ -248,6 +250,7 @@ export function EditorWorkspace({
   const [addBusy, setAddBusy] = useState(false);
   const [settingsBusy, setSettingsBusy] = useState(false);
   const [dragDepth, setDragDepth] = useState(0);
+  const [dragTargetSide, setDragTargetSide] = useState<"left" | "right">("left");
   const editorRootRef = useRef<HTMLDivElement>(null);
   const currentDocumentRef = useRef(document);
   const persistedHashRef = useRef(documentHash(initialDocument));
@@ -270,9 +273,6 @@ export function EditorWorkspace({
     document.destinations.find(
       (destination) => destination.id === selectedDestinationId,
     ) ?? null;
-  const mediaDropEnabled =
-    activePanel === "background" &&
-    document.design.background.category === "media";
 
   useEffect(() => {
     currentDocumentRef.current = document;
@@ -379,6 +379,9 @@ export function EditorWorkspace({
 
   useEffect(() => {
     function handleKeyboard(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setDragDepth(0);
+      }
       if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== "z") {
         return;
       }
@@ -388,8 +391,27 @@ export function EditorWorkspace({
       if (event.shiftKey) history.redo();
       else history.undo();
     }
+
+    function handleWindowDragOver(event: DragEvent) {
+      if (hasFiles(event.dataTransfer!)) {
+        event.preventDefault();
+      }
+    }
+
+    function handleWindowDrop(event: DragEvent) {
+      if (hasFiles(event.dataTransfer!)) {
+        event.preventDefault();
+      }
+    }
+
     window.addEventListener("keydown", handleKeyboard);
-    return () => window.removeEventListener("keydown", handleKeyboard);
+    window.addEventListener("dragover", handleWindowDragOver);
+    window.addEventListener("drop", handleWindowDrop);
+    return () => {
+      window.removeEventListener("keydown", handleKeyboard);
+      window.removeEventListener("dragover", handleWindowDragOver);
+      window.removeEventListener("drop", handleWindowDrop);
+    };
   }, [history]);
 
   async function handleExplicitSave() {
@@ -508,18 +530,6 @@ export function EditorWorkspace({
     history.redo();
   }
 
-  function handleApplyContrastSuggestion(suggestion: ContrastSuggestion) {
-    setDocument((current) => ({
-      ...current,
-      design: applyPaletteColorToRole(
-        current.design,
-        suggestion.color,
-        suggestion.role,
-        { overlayOpacity: suggestion.overlayOpacity },
-      ),
-    }));
-  }
-
   function confirmDeleteDestination() {
     if (!deleteTarget) return;
     const destinationId = deleteTarget.id;
@@ -549,20 +559,30 @@ export function EditorWorkspace({
     }
     setUploadBusy(true);
     try {
-      const [storageId, palette] = await Promise.all([
+      const [storageId, logoProfile] = await Promise.all([
         uploadFile(file, generateEditorUploadUrl, data.profile!.id),
-        extractAccentCandidates(file),
+        extractLogoProfile(file),
       ]);
+      const palette = logoProfile.accent
+        ? [
+            logoProfile.accent,
+            ...logoProfile.swatches
+              .map((s) => s.hex)
+              .filter((h) => h !== logoProfile.accent),
+          ]
+        : logoProfile.swatches.map((s) => s.hex);
       const previewUrl = rememberObjectUrl(file, objectUrlsRef.current);
       setDocument((current) => {
-        const generationMode = inferPaletteMode(current.design.colors.page);
+        const generationMode = inferPaletteModeFromProfile(logoProfile);
         // Start on the scheme whose geometry matches the logo's own colour story.
         const schemeType = defaultSchemeFromColors(palette);
         const adjusted = generateScanMePalette({
-          sourceColors: palette,
+          logoProfile,
           mode: generationMode,
           schemeType,
         });
+        const chosenAccent =
+          logoProfile.accent ?? palette[0] ?? current.design.colors.accent;
         return {
           ...current,
           logoStorageId: storageId,
@@ -581,8 +601,8 @@ export function EditorWorkspace({
             ...current.design,
             colors: {
               ...current.design.colors,
-              accent: palette[0] ?? current.design.colors.accent,
-              icon: palette[0] ?? current.design.colors.icon,
+              accent: chosenAccent,
+              icon: chosenAccent,
             },
           },
         };
@@ -632,7 +652,16 @@ export function EditorWorkspace({
           background:
             current.design.background.category === "media"
               ? { ...current.design.background, mediaType: kind }
-              : current.design.background,
+              : {
+                  category: "media" as const,
+                  mediaType: kind,
+                  fit: "cover" as const,
+                  zoom: 1,
+                  positionX: 50,
+                  positionY: 50,
+                  overlayColor: "#000000",
+                  overlayOpacity: 0.35,
+                },
         },
       }));
     } catch (error) {
@@ -744,32 +773,59 @@ export function EditorWorkspace({
   }
 
   function handleDragEnter(event: React.DragEvent<HTMLDivElement>) {
-    if (!mediaDropEnabled || !hasFiles(event.dataTransfer)) return;
+    if (!hasFiles(event.dataTransfer)) return;
     event.preventDefault();
     setDragDepth((value) => value + 1);
   }
 
   function handleDragLeave(event: React.DragEvent<HTMLDivElement>) {
-    if (!mediaDropEnabled || !hasFiles(event.dataTransfer)) return;
+    if (!hasFiles(event.dataTransfer)) return;
     event.preventDefault();
     setDragDepth((value) => Math.max(0, value - 1));
   }
 
   function handleDragOver(event: React.DragEvent<HTMLDivElement>) {
-    if (!mediaDropEnabled || !hasFiles(event.dataTransfer)) return;
+    if (!hasFiles(event.dataTransfer)) return;
     event.preventDefault();
     event.dataTransfer.dropEffect = "copy";
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const isRight = event.clientX >= bounds.left + bounds.width / 2;
+    setDragTargetSide(isRight ? "right" : "left");
   }
 
   function handleDrop(event: React.DragEvent<HTMLDivElement>) {
-    if (!mediaDropEnabled || !hasFiles(event.dataTransfer)) return;
+    if (!hasFiles(event.dataTransfer)) return;
     event.preventDefault();
     setDragDepth(0);
-    const file = event.dataTransfer.files[0];
-    if (!file) return;
-    const kind =
-      file.type.startsWith("video/") ? ("video" as const) : ("image" as const);
-    void uploadBackground(kind, file);
+    const files = Array.from(event.dataTransfer.files);
+    if (!files.length) return;
+
+    if (uploadBusy) {
+      toast.error("Otpremanje je već u toku. Sačekajte da se završi.");
+      return;
+    }
+
+    if (files.length > 1) {
+      toast.info("Prevučeno je više fajlova — otprema se samo prvi.");
+    }
+    const file = files[0];
+
+    const isVideo = file.type.startsWith("video/");
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const isRightSide = event.clientX >= bounds.left + bounds.width / 2;
+
+    // Video always targets phone background regardless of side (cannot be a logo)
+    if (isVideo) {
+      void uploadBackground("video", file);
+      return;
+    }
+
+    // For images: Left side -> Logo, Right side -> Background image
+    if (isRightSide) {
+      void uploadBackground("image", file);
+    } else {
+      void uploadLogo(file);
+    }
   }
 
   const activeEmptyCount = document.destinations.filter(
@@ -818,7 +874,6 @@ export function EditorWorkspace({
           settingsBusy={settingsBusy}
           saveBusinessIdentity={saveBusinessIdentity}
           togglePublic={togglePublic}
-          onApplyContrastSuggestion={handleApplyContrastSuggestion}
         />
       ) : (
       <div className={styles.desktopEditor}>
@@ -1006,14 +1061,46 @@ export function EditorWorkspace({
             setDevice={setDevice}
             zoom={zoom}
             setZoom={setZoom}
-            onApplyContrastSuggestion={handleApplyContrastSuggestion}
           />
         </div>
 
-        {dragDepth > 0 && mediaDropEnabled ? (
+        {dragDepth > 0 ? (
           <div className={styles.dropOverlay} aria-hidden="true">
-            <div className={styles.dropMessage}>
-              Pustite fajl da ga postavite kao pozadinu
+            <div
+              className={styles.dropZoneHalf}
+              data-active={dragTargetSide === "left"}
+            >
+              <div className={styles.dropMessage}>
+                <div className="flex size-12 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-700">
+                  <ImagePlus className="size-6" aria-hidden="true" />
+                </div>
+                <div>
+                  <div className="font-bold text-black/90">Postavi kao logotip</div>
+                  <div className="mt-0.5 text-xs font-normal text-black/55">
+                    Leva strana ekrana • PNG, JPEG, WebP, SVG
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className={styles.dropZoneDivider} />
+
+            <div
+              className={styles.dropZoneHalf}
+              data-active={dragTargetSide === "right"}
+            >
+              <div className={styles.dropMessage}>
+                <div className="flex items-center gap-1.5 rounded-2xl bg-orange-500/10 p-3 text-orange-700">
+                  <ImageIcon className="size-6" aria-hidden="true" />
+                  <VideoIcon className="size-6" aria-hidden="true" />
+                </div>
+                <div>
+                  <div className="font-bold text-black/90">Postavi kao pozadinu telefona</div>
+                  <div className="mt-0.5 text-xs font-normal text-black/55">
+                    Desna strana ekrana • Slika ili Video
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         ) : null}

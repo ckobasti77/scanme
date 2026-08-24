@@ -79,6 +79,86 @@ const SPECS: readonly GallerySpec[] = [
     ],
     names: ["Apex Solutions", "The Tech Lab", "Moda Boutique", "The Winery"],
   },
+  {
+    presetKey: "wanderlust",
+    title: "Wanderlust",
+    description: "Travel & Adventures",
+    destinations: [
+      { kind: "instagram", label: "Instagram", iconKey: "instagram" },
+      { kind: "youtube", label: "YouTube", iconKey: "youtube" },
+      { kind: "website", label: "Blog", iconKey: "globe" },
+    ],
+    names: [
+      "Wanderlust Co",
+      "Nordic Horizon",
+      "Alpine Escapes",
+      "Aurora Expeditions",
+    ],
+  },
+  {
+    presetKey: "bistro",
+    title: "The Iron Bistro",
+    description: "Rustic & Dining",
+    destinations: [
+      { kind: "reservations", label: "Book Now", iconKey: "coffee" },
+      { kind: "custom", label: "Events", iconKey: "calendar" },
+      { kind: "website", label: "Website", iconKey: "globe" },
+    ],
+    names: [
+      "The Iron Bistro",
+      "Copper Kettle",
+      "Old Oak Tavern",
+      "Vintage Cellar",
+    ],
+  },
+  {
+    presetKey: "bloom",
+    title: "Bloom Café",
+    description: "Coffee & Community",
+    destinations: [
+      { kind: "instagram", label: "Instagram", iconKey: "instagram" },
+      { kind: "facebook", label: "Facebook", iconKey: "facebook" },
+      { kind: "custom", label: "Twitter", iconKey: "link" },
+    ],
+    names: [
+      "Bloom Café",
+      "Lavender Lounge",
+      "Rose Petal Bake",
+      "Mint & Honey",
+    ],
+  },
+  {
+    presetKey: "chicken",
+    title: "Chicken Spot",
+    description: "Fast Food",
+    destinations: [
+      { kind: "tiktok", label: "TikTok", iconKey: "tiktok" },
+      { kind: "custom", label: "Order Online", iconKey: "utensils" },
+      { kind: "website", label: "Location", iconKey: "map-pin" },
+    ],
+    names: [
+      "Chicken Spot",
+      "Tangerine Wings",
+      "Cherry Chili",
+      "Neon Nugget",
+    ],
+  },
+  {
+    presetKey: "pulse",
+    title: "Pulse",
+    description: "Cocktails & Nightlife",
+    destinations: [
+      { kind: "instagram", label: "Instagram", iconKey: "instagram" },
+      { kind: "tiktok", label: "TikTok", iconKey: "tiktok" },
+      { kind: "custom", label: "Events", iconKey: "calendar" },
+    ],
+    names: [
+      "Pulse Nightlife",
+      "Violet Velocity",
+      "Matrix Lounge",
+      "Solar Rave",
+    ],
+  },
 ];
 
 function buildView(

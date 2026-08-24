@@ -1,4 +1,26 @@
-import type { AccentTokens } from "@/lib/scanme-links";
+import { hexFromArgb, QuantizerCelebi } from "@material/material-color-utilities";
+import {
+  colorDifference,
+  colorToOklch,
+  FALLBACK_COLOR,
+  normalizeColorHex,
+} from "./scanme-color-science";
+import type { AccentTokens } from "./scanme-links";
+
+export type LogoSwatch = {
+  hex: string;
+  share: number; // 0..1, udeo piksela
+  chroma: number; // OKLCH C
+  lightness: number; // OKLCH L
+};
+
+export type LogoProfile = {
+  swatches: LogoSwatch[]; // sve značajne boje, sortirane po udelu
+  mass: LogoSwatch[]; // boje sa udelom iznad praga — ono što se vidi
+  accent: string | null; // hromatska akcentna boja, ili null
+  isMixed: boolean; // ima i tamnu i svetlu masu
+  isAchromatic: boolean; // nijedna boja nema upotrebljiv hue
+};
 
 type Rgb = { r: number; g: number; b: number };
 type PaletteSource = HTMLCanvasElement | ImageBitmap;
@@ -173,6 +195,179 @@ export async function extractAccentCandidates(file: File) {
       colorSpace: "oklch",
     });
     return selectAccentCandidates((palette ?? []).map((color) => color.hex()));
+  } finally {
+    release();
+  }
+}
+
+export function buildLogoProfileFromColors(
+  rawColors: Array<{ hex: string; count?: number; share?: number }>,
+): LogoProfile {
+  if (!rawColors.length) {
+    return {
+      swatches: [
+        { hex: FALLBACK_COLOR, share: 1, chroma: 0.05, lightness: 0.45 },
+      ],
+      mass: [
+        { hex: FALLBACK_COLOR, share: 1, chroma: 0.05, lightness: 0.45 },
+      ],
+      accent: null,
+      isMixed: false,
+      isAchromatic: true,
+    };
+  }
+
+  // Normalize input colors to valid uppercase hex and counts
+  const entries = rawColors.map((item) => ({
+    hex: normalizeColorHex(item.hex),
+    count: item.count ?? Math.max(1, Math.round((item.share ?? 1) * 10000)),
+  }));
+
+  // Sort descending by raw count
+  entries.sort((a, b) => b.count - a.count);
+
+  // Perceptual clustering (CIEDE2000 < 7) to merge antialiasing variations
+  type Cluster = { hex: string; count: number };
+  const clusters: Cluster[] = [];
+
+  for (const entry of entries) {
+    const existing = clusters.find(
+      (cluster) => colorDifference(cluster.hex, entry.hex) < 7,
+    );
+    if (existing) {
+      existing.count += entry.count;
+    } else {
+      clusters.push({ hex: entry.hex, count: entry.count });
+    }
+  }
+
+  const totalCount = clusters.reduce((sum, c) => sum + c.count, 0) || 1;
+  const rawWithShare = clusters.map((c) => ({
+    hex: c.hex,
+    share: c.count / totalCount,
+  }));
+
+  // Filter noise below 3% share
+  let significant = rawWithShare.filter((c) => c.share >= 0.03);
+  if (!significant.length) {
+    significant = rawWithShare.slice(0, 1);
+  }
+
+  // Normalize shares of significant swatches so they sum to 1.0
+  const sumShare = significant.reduce((sum, c) => sum + c.share, 0) || 1;
+  const swatches: LogoSwatch[] = significant
+    .map((c) => {
+      const oklch = colorToOklch(c.hex);
+      return {
+        hex: c.hex,
+        share: c.share / sumShare,
+        chroma: oklch.c,
+        lightness: oklch.l,
+      };
+    })
+    .sort((a, b) => b.share - a.share);
+
+  // Mass: swatches with share >= 0.05 (the visually dominant mass)
+  let mass = swatches.filter((s) => s.share >= 0.05);
+  if (!mass.length) {
+    mass = swatches.slice(0, 1);
+  }
+
+  // isMixed: contains both dark mass (L < 0.45) and light mass (L > 0.55)
+  const hasDarkMass = mass.some((s) => s.lightness < 0.45);
+  const hasLightMass = mass.some((s) => s.lightness > 0.55);
+  const isMixed = hasDarkMass && hasLightMass;
+
+  // isAchromatic: no swatch has usable chroma (all < 0.025)
+  const isAchromatic = swatches.every((s) => s.chroma < 0.025);
+
+  // Accent: chromatic color with highest visual weight
+  const chromatic = swatches.filter((s) => s.chroma >= 0.025);
+  let accent: string | null = null;
+  if (chromatic.length > 0) {
+    const visualWeight = (s: LogoSwatch) =>
+      Math.pow(s.chroma, 1.2) * Math.pow(s.share, 0.35);
+    const sortedChromatic = [...chromatic].sort(
+      (a, b) => visualWeight(b) - visualWeight(a),
+    );
+    accent = sortedChromatic[0].hex;
+  }
+
+  return {
+    swatches,
+    mass,
+    accent,
+    isMixed,
+    isAchromatic,
+  };
+}
+
+export function buildLogoProfileFromPixels(
+  pixels: number[] | Uint32Array,
+): LogoProfile {
+  const pixelArray =
+    pixels instanceof Uint32Array ? Array.from(pixels) : pixels;
+  const countMap = QuantizerCelebi.quantize(pixelArray, 128);
+  const rawColors: Array<{ hex: string; count: number }> = [];
+
+  for (const [argb, count] of countMap.entries()) {
+    const hex = normalizeColorHex(hexFromArgb(argb));
+    rawColors.push({ hex, count });
+  }
+
+  return buildLogoProfileFromColors(rawColors);
+}
+
+export async function extractLogoProfile(file: File): Promise<LogoProfile> {
+  let canvas: HTMLCanvasElement;
+  let release: () => void;
+
+  if (file.type.toLowerCase() === "image/svg+xml") {
+    canvas = await rasterizeSvg(file);
+    release = () => {
+      canvas.width = 0;
+      canvas.height = 0;
+    };
+  } else {
+    const bitmap = await createImageBitmap(file);
+    canvas = document.createElement("canvas");
+    canvas.width = bitmap.width;
+    canvas.height = bitmap.height;
+    const ctx = canvas.getContext("2d");
+    if (ctx) {
+      ctx.drawImage(bitmap, 0, 0);
+    }
+    bitmap.close();
+    release = () => {
+      canvas.width = 0;
+      canvas.height = 0;
+    };
+  }
+
+  try {
+    const context = canvas.getContext("2d");
+    if (!context) {
+      throw new Error("Logotip nije moguće obraditi.");
+    }
+    const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+    const data = imageData.data;
+    const opaquePixels: number[] = [];
+
+    for (let i = 0; i < data.length; i += 4) {
+      const a = data[i + 3];
+      if (a < 16) continue; // Skip transparent pixels
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
+      const argb = ((a << 24) | (r << 16) | (g << 8) | b) >>> 0;
+      opaquePixels.push(argb);
+    }
+
+    if (opaquePixels.length === 0) {
+      return buildLogoProfileFromColors([{ hex: FALLBACK_COLOR, count: 1 }]);
+    }
+
+    return buildLogoProfileFromPixels(opaquePixels);
   } finally {
     release();
   }

@@ -22,8 +22,6 @@ import {
   useRef,
   type PointerEvent as ReactPointerEvent,
 } from "react";
-import { ScanMeContrastAssistant } from "@/components/admin/scanme-contrast-assistant";
-import type { ContrastSuggestion } from "@/lib/scanme-contrast";
 import { cn } from "@/lib/utils";
 import {
   EditorBackdrop,
@@ -76,7 +74,6 @@ export type MobileEditorShellProps = {
   settingsBusy: boolean;
   saveBusinessIdentity: (name: string, slug: string) => Promise<void>;
   togglePublic: (active: boolean) => Promise<void>;
-  onApplyContrastSuggestion: (suggestion: ContrastSuggestion) => void;
 };
 
 const saveStateLabels: Record<EditorSaveState, string> = {
@@ -114,13 +111,11 @@ export function MobileEditorShell({
   settingsBusy,
   saveBusinessIdentity,
   togglePublic,
-  onApplyContrastSuggestion,
 }: MobileEditorShellProps) {
   const reducedMotion = useReducedMotion();
   const canvasAreaRef = useRef<HTMLDivElement>(null);
   const dockScrollerRef = useRef<HTMLDivElement>(null);
-  const { view, destinations, contrastIssues } =
-    useEditorPreviewModel(document);
+  const { view, destinations } = useEditorPreviewModel(document);
 
   useEffect(() => {
     if (!activePanel) return;
@@ -238,18 +233,6 @@ export function MobileEditorShell({
             />
           </div>
         </div>
-        {/*
-          compact: mobilni prikaz — kartice su minimizovane u čipove (samo
-          ikonica upozorenja) uz desnu ivicu pregleda; ništa se ne otvara samo,
-          a prošireni oblik je kompaktna kartica, ne ploča preko celog ekrana.
-        */}
-        <ScanMeContrastAssistant
-          issues={contrastIssues}
-          device="phone"
-          compact
-          containerRef={canvasAreaRef}
-          onApply={onApplyContrastSuggestion}
-        />
       </div>
 
       <MobileDock

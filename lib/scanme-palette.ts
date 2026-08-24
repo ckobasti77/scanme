@@ -8,7 +8,9 @@ import {
   colorDifference,
   colorToOklch,
   contrastRatio,
+  deriveReadableTextVariant,
   ensureContrast,
+  FALLBACK_COLOR,
   mixColors,
   normalizeColorHex,
   oklchToHex,
@@ -20,6 +22,7 @@ import {
   generateMaterialRoles,
   type MaterialVariant,
 } from "./scanme-material-color";
+import type { LogoProfile } from "./accent-palette";
 
 export const GENERATED_PALETTE_ROLES = [
   "background",
@@ -56,8 +59,9 @@ export type PaletteSchemeType = (typeof PALETTE_SCHEME_TYPES)[number];
 export const DEFAULT_PALETTE_SCHEME: PaletteSchemeType = "complementary";
 
 type GeneratePaletteOptions = {
-  sourceColors: string[];
-  mode: PaletteGenerationMode;
+  sourceColors?: string[];
+  logoProfile?: LogoProfile;
+  mode?: PaletteGenerationMode;
   schemeType?: PaletteSchemeType;
   // The Regenerate axis — cycles a few noticeably different looks. Defaults to "content".
   variant?: MaterialVariant;
@@ -85,34 +89,69 @@ export function inferPaletteMode(color: string): PaletteGenerationMode {
   return colorToOklch(color).l >= 0.58 ? "light" : "dark";
 }
 
+export function inferPaletteModeFromProfile(
+  profile: LogoProfile,
+): PaletteGenerationMode {
+  const darkMassShare = profile.mass
+    .filter((s) => s.lightness < 0.5)
+    .reduce((sum, s) => sum + s.share, 0);
+  const lightMassShare = profile.mass
+    .filter((s) => s.lightness >= 0.5)
+    .reduce((sum, s) => sum + s.share, 0);
+  return darkMassShare >= lightMassShare ? "light" : "dark";
+}
+
 export function generateScanMePalette({
-  sourceColors,
+  sourceColors = [],
+  logoProfile,
   mode,
   schemeType = DEFAULT_PALETTE_SCHEME,
   variant = "content",
   currentColors = [],
   lockedSlots,
 }: GeneratePaletteOptions) {
-  const sources = sourceColors.length
-    ? sourceColors.map((color) => normalizeColorHex(color))
-    : [normalizeColorHex(currentColors[2] ?? "#7A5C43")];
+  let determinedMode: PaletteGenerationMode;
+  let sources: string[];
+
+  if (logoProfile) {
+    determinedMode = mode ?? inferPaletteModeFromProfile(logoProfile);
+    const anchor = logoProfile.accent ?? logoProfile.swatches[0]?.hex ?? FALLBACK_COLOR;
+    const rest = logoProfile.swatches
+      .map((s) => normalizeColorHex(s.hex))
+      .filter((hex) => hex !== anchor);
+    sources = [anchor, ...rest];
+  } else {
+    determinedMode = mode ?? "light";
+    sources = sourceColors.length
+      ? sourceColors.map((color) => normalizeColorHex(color))
+      : [normalizeColorHex(currentColors[2] ?? FALLBACK_COLOR)];
+  }
+
   const anchorHex = sources[0];
   const locks = normalizePaletteLocks(lockedSlots);
 
-  // Material Color Utilities builds the harmonious, contrast-aware palette. schemeType sets
-  // the secondary/tertiary hue geometry; variant sets the chroma / vibrancy (Regenerate).
+  // Material Color Utilities builds the harmonious, contrast-aware palette.
   const generated = generateMaterialRoles({
     sourceColors: sources,
-    mode,
+    mode: determinedMode,
     schemeType,
     variant,
   });
   // Accent is always the verbatim logo colour (identical hex, never toned).
   generated[2] = anchorHex;
 
-  // Final WCAG safety net only. MCU already pairs text/button against the surfaces, so this
-  // is a rare last resort rather than the design engine.
-  generated[3] = ensureContrast(generated[3], [generated[0], generated[1]], 4.5);
+  // Final WCAG safety net only. MCU and deriveReadableTextVariant already pair text/button
+  // against the surfaces.
+  if (
+    contrastRatio(generated[3], generated[0]) < 4.5 ||
+    contrastRatio(generated[3], generated[1]) < 4.5
+  ) {
+    generated[3] = deriveReadableTextVariant(
+      [generated[0], generated[1]],
+      colorToOklch(generated[0]).h,
+      4.5,
+    );
+  }
   if (
     Math.min(
       contrastRatio(generated[4], generated[0]),
@@ -213,14 +252,18 @@ function deriveColors(
   const [page, surface, accent, title, button] = palette.map((color) =>
     normalizeColorHex(color),
   );
-  const safeTitle = ensureContrast(title, [page, surface], 4.5);
+  const bgHue = colorToOklch(page).h;
+  const safeTitle =
+    contrastRatio(title, page) >= 4.5 && contrastRatio(title, surface) >= 4.5
+      ? title
+      : deriveReadableTextVariant([page, surface], bgHue, 4.5);
   const safeButton = ensureContrast(button, [page, surface], 3);
   const body = ensureContrast(
     mixColors(safeTitle, page, 0.16),
     [page, surface],
     4.5,
   );
-  const buttonText = readableTextColor(safeButton, safeTitle);
+  const buttonText = deriveReadableTextVariant(safeButton, bgHue, 4.5);
   const buttonHover = mixColors(safeButton, buttonText, 0.1);
   const border = mixColors(safeTitle, surface, 0.8);
   const focus = ensureContrast(accent, page, 3);

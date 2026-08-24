@@ -44,6 +44,8 @@ export const DEFAULT_ACCENT_TOKENS: AccentTokens = {
   onAccent: "#FFFFFF",
 };
 
+import { ALL_LIBRARY_ICON_KEYS } from "./scanme-icon-libraries";
+
 export const DESTINATION_DEFAULTS: Record<
   DestinationKind,
   { label: string; iconKey: string }
@@ -61,7 +63,7 @@ export const DESTINATION_DEFAULTS: Record<
   custom: { label: "Link", iconKey: "link" },
 };
 
-export const ICON_KEYS = [
+export const LEGACY_ICON_KEYS = [
   "instagram",
   "facebook",
   "tiktok",
@@ -103,7 +105,12 @@ export const ICON_KEYS = [
   "qr-code",
 ] as const;
 
-export type IconKey = (typeof ICON_KEYS)[number];
+export const ICON_KEYS = [
+  ...LEGACY_ICON_KEYS,
+  ...ALL_LIBRARY_ICON_KEYS,
+] as const;
+
+export type IconKey = string;
 
 /**
  * Which icons the editor's picker lists, and how they are grouped. The order

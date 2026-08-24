@@ -7,10 +7,12 @@ import {
   ImagePlus,
   Link2,
   Palette,
+  Search,
   Trash2,
   Upload,
   Video,
   Waves,
+  X,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useEffect, useRef, useState, type ReactNode } from "react";
@@ -18,6 +20,13 @@ import { EditorTooltip } from "@/components/admin/editor-tooltip";
 import { ScanMeColorField as ColorField } from "@/components/admin/scanme-color-picker";
 import { ScanMeSmartPalette } from "@/components/admin/scanme-smart-palette";
 import { EditorAnalyticsPanel } from "@/components/scanme-links/editor-analytics-panel";
+import {
+  ICON_CATEGORIES,
+  ICON_LIBRARIES,
+  getLibraryForIconKey,
+  searchIcons,
+  type IconLibraryId,
+} from "@/lib/scanme-icon-libraries";
 import {
   Select,
   SelectContent,
@@ -30,7 +39,6 @@ import { colorDisplayName } from "@/lib/color-display-name";
 import {
   DESTINATION_DEFAULTS,
   DESTINATION_KINDS,
-  ICON_LIBRARY,
   type DestinationKind,
 } from "@/lib/scanme-links";
 import {
@@ -114,6 +122,7 @@ export function ContentPanel({
   uploadBusy: boolean;
 }) {
   const linkEditorRef = useRef<HTMLDivElement>(null);
+  const [logoDragDepth, setLogoDragDepth] = useState(0);
   const selectedDestinationId = selectedDestination?.id ?? null;
 
   useEffect(() => {
@@ -197,6 +206,33 @@ export function ContentPanel({
         <h3 className={styles.subheading}>Logotip</h3>
         <label
           className={cn(styles.uploadZone, uploadBusy && "pointer-events-none opacity-60")}
+          data-drag-active={logoDragDepth > 0}
+          onDragEnter={(event) => {
+            if (!event.dataTransfer.types.includes("Files")) return;
+            event.preventDefault();
+            event.stopPropagation();
+            setLogoDragDepth((depth) => depth + 1);
+          }}
+          onDragLeave={(event) => {
+            if (!event.dataTransfer.types.includes("Files")) return;
+            event.preventDefault();
+            event.stopPropagation();
+            setLogoDragDepth((depth) => Math.max(0, depth - 1));
+          }}
+          onDragOver={(event) => {
+            if (!event.dataTransfer.types.includes("Files")) return;
+            event.preventDefault();
+            event.stopPropagation();
+            event.dataTransfer.dropEffect = "copy";
+          }}
+          onDrop={(event) => {
+            if (!event.dataTransfer.types.includes("Files")) return;
+            event.preventDefault();
+            event.stopPropagation();
+            setLogoDragDepth(0);
+            const file = event.dataTransfer.files[0];
+            if (file) onUploadLogo(file);
+          }}
         >
           <span className={styles.logoPreview}>
             {document.logoUrl ? (
@@ -212,9 +248,11 @@ export function ContentPanel({
               <Upload className="size-4" aria-hidden="true" />
               {uploadBusy
                 ? "Otpremanje…"
-                : document.logoUrl
-                  ? "Zameni logotip"
-                  : "Dodaj logotip"}
+                : logoDragDepth > 0
+                  ? "Pustite da otpremite"
+                  : document.logoUrl
+                    ? "Zameni logotip"
+                    : "Dodaj logotip"}
             </span>
             <span className="mt-1 block text-[11px] leading-5 text-black/50">
               PNG, JPEG, WebP ili SVG do 5 MB
@@ -443,10 +481,9 @@ export function ContentPanel({
   );
 }
 
-// Icon picker shown inside "Uredi link". It lists every icon in ICON_LIBRARY,
-// each rendered in the current template's icon package, so the choice a user
-// makes previews in the same style the public page will use. Choosing an icon
-// is available for every link, custom links included.
+// Icon picker shown inside "Uredi link". It provides 5 top icon libraries
+// (Lucide, Font Awesome 6, Tabler, Remix, Phosphor) with real-time search,
+// categorized sections, and live preview matching the template style.
 function IconPicker({
   packageStyle,
   value,
@@ -456,51 +493,131 @@ function IconPicker({
   value: string;
   onSelect: (iconKey: string) => void;
 }) {
-  const groups = [
-    {
-      label: "Brendovi",
-      items: ICON_LIBRARY.filter((entry) => entry.group === "brand"),
-    },
-    {
-      label: "Opšte",
-      items: ICON_LIBRARY.filter((entry) => entry.group === "general"),
-    },
-  ];
+  const [prevValue, setPrevValue] = useState(value);
+  const [selectedLibrary, setSelectedLibrary] = useState<IconLibraryId>(() => getLibraryForIconKey(value));
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Sync selected library if value changes externally (e.g. user selects a different destination link in editor)
+  if (value !== prevValue) {
+    setPrevValue(value);
+    setSelectedLibrary(getLibraryForIconKey(value));
+  }
+
+  const filteredIcons = searchIcons(selectedLibrary, searchQuery);
+
+  const groups = ICON_CATEGORIES.map((cat) => ({
+    label: cat.label,
+    items: filteredIcons.filter((entry) => entry.group === cat.key),
+  })).filter((group) => group.items.length > 0);
 
   return (
     <div className={styles.fieldLabel}>
       <span>Ikonica</span>
-      <div className={styles.iconPicker}>
-        {groups.map((group) => (
-          <div key={group.label} className={styles.iconPickerGroup}>
-            <span className={styles.iconPickerGroupLabel}>{group.label}</span>
-            <div className={styles.iconPickerGrid}>
-              {group.items.map((entry) => {
-                const selected = value === entry.key;
-                return (
-                  <button
-                    key={entry.key}
-                    type="button"
-                    aria-pressed={selected}
-                    aria-label={entry.label}
-                    title={entry.label}
-                    className={cn(
-                      styles.iconPickerCell,
-                      selected && styles.iconPickerCellActive,
-                    )}
-                    onClick={() => onSelect(entry.key)}
-                  >
-                    <TemplateIcon
-                      iconKey={entry.key}
-                      packageStyle={packageStyle}
-                      className={styles.iconPickerGlyph}
-                    />
-                  </button>
-                );
-              })}
+      <div className={styles.iconPickerContainer}>
+        {/* 5 Library Selector Tabs */}
+        <div
+          className={styles.iconLibraryTabs}
+          role="tablist"
+          aria-label="Biblioteke ikonica"
+        >
+          {ICON_LIBRARIES.map((lib) => {
+            const active = selectedLibrary === lib.id;
+            return (
+              <button
+                key={lib.id}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                title={lib.description}
+                className={cn(
+                  styles.iconLibraryTab,
+                  active && styles.iconLibraryTabActive,
+                )}
+                onClick={() => {
+                  setSelectedLibrary(lib.id);
+                }}
+              >
+                <span>{lib.name}</span>
+                <span className={styles.iconLibraryTabBadge}>{lib.badge}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Search Bar */}
+        <div className={styles.iconSearchWrapper}>
+          <Search className={styles.iconSearchIcon} aria-hidden="true" />
+          <input
+            type="text"
+            className={styles.iconSearchInput}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Pretraži ikonice (npr. kafa, instagram, telefon)..."
+          />
+          {searchQuery ? (
+            <button
+              type="button"
+              className={styles.iconSearchClear}
+              onClick={() => setSearchQuery("")}
+              title="Obriši pretragu"
+              aria-label="Obriši pretragu"
+            >
+              <X className="size-3" aria-hidden="true" />
+            </button>
+          ) : null}
+        </div>
+
+        {/* Icon Grid or Empty State */}
+        <div className={styles.iconPicker}>
+          {groups.length > 0 ? (
+            groups.map((group) => (
+              <div key={group.label} className={styles.iconPickerGroup}>
+                <div className={styles.iconPickerGroupHeader}>
+                  <span className={styles.iconPickerGroupLabel}>{group.label}</span>
+                  <span className={styles.iconPickerGroupCount}>
+                    {group.items.length}
+                  </span>
+                </div>
+                <div className={styles.iconPickerGrid}>
+                  {group.items.map((entry) => {
+                    const selected = value === entry.key;
+                    return (
+                      <button
+                        key={entry.key}
+                        type="button"
+                        aria-pressed={selected}
+                        aria-label={entry.label}
+                        title={`${entry.label} (${entry.key})`}
+                        className={cn(
+                          styles.iconPickerCell,
+                          selected && styles.iconPickerCellActive,
+                        )}
+                        onClick={() => onSelect(entry.key)}
+                      >
+                        <TemplateIcon
+                          iconKey={entry.key}
+                          packageStyle={packageStyle}
+                          className={styles.iconPickerGlyph}
+                        />
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className={styles.iconPickerEmpty}>
+              <span>Nema pronađenih ikonica za „{searchQuery}”.</span>
+              <button
+                type="button"
+                className={styles.iconPickerEmptyReset}
+                onClick={() => setSearchQuery("")}
+              >
+                Poništi pretragu
+              </button>
             </div>
-          </div>
-        ))}
+          )}
+        </div>
       </div>
     </div>
   );
@@ -514,103 +631,152 @@ export function StylePanel({
   setDocument: EditorDocumentSetter;
 }) {
   const variations = variationsForPreset(document.design.presetKey);
+  const premiumPresets = SCANME_LINKS_PRESET_KEYS.filter(
+    (presetKey) => SCANME_LINKS_PRESET_CAPABILITIES[presetKey].tier === "premium",
+  );
+  const basicPresets = SCANME_LINKS_PRESET_KEYS.filter(
+    (presetKey) => SCANME_LINKS_PRESET_CAPABILITIES[presetKey].tier !== "premium",
+  );
+
+  function selectPreset(presetKey: (typeof SCANME_LINKS_PRESET_KEYS)[number]) {
+    setDocument((current) => {
+      const base = createDefaultScanMeLinksDesignV2(presetKey);
+      const first = variationsForPreset(presetKey)[0];
+      return {
+        ...current,
+        backgroundImageStorageId: null,
+        backgroundImageUrl: null,
+        backgroundVideoStorageId: null,
+        backgroundVideoUrl: null,
+        design: first ? applyVariation(base, first) : base,
+      };
+    });
+  }
+
+  function renderPresetCard(presetKey: (typeof SCANME_LINKS_PRESET_KEYS)[number]) {
+    const capability = SCANME_LINKS_PRESET_CAPABILITIES[presetKey];
+    const selected = document.design.presetKey === presetKey;
+    const isPremium = capability.tier === "premium";
+
+    return (
+      <button
+        key={presetKey}
+        type="button"
+        className={cn(styles.styleCard, selected && styles.selectedCard)}
+        aria-pressed={selected}
+        onClick={() => selectPreset(presetKey)}
+      >
+        <span
+          className={styles.styleMiniPage}
+          style={{
+            background: capability.preview.background,
+            color: capability.preview.text,
+          }}
+        >
+          <span
+            className="mx-auto block size-7 rounded-full"
+            style={{ backgroundColor: capability.preview.accent }}
+          />
+          <span
+            className="mx-auto block h-2 w-16 rounded-full"
+            style={{ backgroundColor: capability.preview.text, opacity: 0.82 }}
+          />
+          <span
+            className={styles.styleMiniLine}
+            style={{ backgroundColor: capability.preview.surface }}
+          />
+          <span
+            className={styles.styleMiniLine}
+            style={{ backgroundColor: capability.preview.surface }}
+          />
+        </span>
+        <span className={styles.styleName}>
+          <span className="flex items-center gap-1.5 min-w-0">
+            <span className="truncate">{capability.label}</span>
+            {isPremium ? (
+              <span className={styles.premiumBadge}>
+                <Crown className="size-3" aria-hidden="true" />
+                Pro
+              </span>
+            ) : null}
+          </span>
+          {selected ? <Check className="size-4 shrink-0" aria-hidden="true" /> : null}
+        </span>
+      </button>
+    );
+  }
 
   return (
     <>
-    <div className={styles.styleGrid}>
-      {SCANME_LINKS_PRESET_KEYS.map((presetKey) => {
-        const capability = SCANME_LINKS_PRESET_CAPABILITIES[presetKey];
-        const selected = document.design.presetKey === presetKey;
-        return (
-          <button
-            key={presetKey}
-            type="button"
-            className={cn(styles.styleCard, selected && styles.selectedCard)}
-            aria-pressed={selected}
-            onClick={() =>
-              setDocument((current) => {
-                const base = createDefaultScanMeLinksDesignV2(presetKey);
-                const first = variationsForPreset(presetKey)[0];
-                return {
-                  ...current,
-                  design: first ? applyVariation(base, first) : base,
-                };
-              })
-            }
-          >
-            <span
-              className={styles.styleMiniPage}
-              style={{
-                background: capability.preview.background,
-                color: capability.preview.text,
-              }}
-            >
-              <span
-                className="mx-auto block size-7 rounded-full"
-                style={{ backgroundColor: capability.preview.accent }}
-              />
-              <span
-                className="mx-auto block h-2 w-16 rounded-full"
-                style={{ backgroundColor: capability.preview.text, opacity: 0.82 }}
-              />
-              <span
-                className={styles.styleMiniLine}
-                style={{ backgroundColor: capability.preview.surface }}
-              />
-              <span
-                className={styles.styleMiniLine}
-                style={{ backgroundColor: capability.preview.surface }}
-              />
-            </span>
-            <span className={styles.styleName}>
-              {capability.label}
-              {selected ? <Check className="size-4" aria-hidden="true" /> : null}
-            </span>
-          </button>
-        );
-      })}
-    </div>
+      {premiumPresets.length > 0 ? (
+        <section className={styles.styleSection}>
+          <div className={styles.styleSectionHeader}>
+            <h3 className={cn(styles.styleSectionTitle, styles.styleSectionTitlePremium)}>
+              <Crown className="size-3.5" aria-hidden="true" />
+              Premium predlošci
+            </h3>
+          </div>
+          <div className={styles.styleGrid}>
+            {premiumPresets.map((presetKey) => renderPresetCard(presetKey))}
+          </div>
+        </section>
+      ) : null}
 
-    {variations.length > 0 ? (
-      <section className={styles.variationSection}>
-        <h3 className={styles.variationTitle}>Varijacija boja</h3>
-        <div className={styles.variationRow}>
-          {variations.map((variation) => {
-            const selected = document.design.variationKey === variation.key;
-            return (
-              <button
-                key={variation.key}
-                type="button"
-                className={cn(
-                  styles.variationCard,
-                  selected && styles.selectedCard,
-                )}
-                aria-pressed={selected}
-                title={variation.label}
-                onClick={() =>
-                  setDocument((current) => ({
-                    ...current,
-                    design: applyVariation(current.design, variation),
-                  }))
-                }
-              >
-                <span className={styles.variationSwatch} aria-hidden="true">
-                  {variation.swatch.map((stop, index) => (
-                    <span key={index} style={{ backgroundColor: stop }} />
-                  ))}
-                </span>
-                <span className={styles.variationName}>
-                  {variation.label}
-                  {selected ? (
-                    <Check className="size-3.5" aria-hidden="true" />
-                  ) : null}
-                </span>
-              </button>
-            );
-          })}
+      <section className={styles.styleSection}>
+        <div className={styles.styleSectionHeader}>
+          <h3 className={styles.styleSectionTitle}>
+            Osnovni predlošci (Basic)
+          </h3>
+        </div>
+        <div className={styles.styleGrid}>
+          {basicPresets.map((presetKey) => renderPresetCard(presetKey))}
         </div>
       </section>
-    ) : null}
+
+      {variations.length > 0 ? (
+        <section className={styles.variationSection}>
+          <h3 className={styles.variationTitle}>Varijacija boja</h3>
+          <div className={styles.variationRow}>
+            {variations.map((variation) => {
+              const selected = document.design.variationKey === variation.key;
+              return (
+                <button
+                  key={variation.key}
+                  type="button"
+                  className={cn(
+                    styles.variationCard,
+                    selected && styles.selectedCard,
+                  )}
+                  aria-pressed={selected}
+                  title={variation.label}
+                  onClick={() =>
+                    setDocument((current) => ({
+                      ...current,
+                      backgroundImageStorageId: null,
+                      backgroundImageUrl: null,
+                      backgroundVideoStorageId: null,
+                      backgroundVideoUrl: null,
+                      design: applyVariation(current.design, variation),
+                    }))
+                  }
+                >
+                  <span className={styles.variationSwatch} aria-hidden="true">
+                    {variation.swatch.map((stop, index) => (
+                      <span key={index} style={{ backgroundColor: stop }} />
+                    ))}
+                  </span>
+                  <span className={styles.variationName}>
+                    {variation.label}
+                    {selected ? (
+                      <Check className="size-3.5" aria-hidden="true" />
+                    ) : null}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
     </>
   );
 }
