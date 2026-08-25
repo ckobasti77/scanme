@@ -27,7 +27,12 @@ describe("getDict", () => {
   });
 
   test("an empty-but-typed surface has no keys yet", () => {
-    expect(Object.keys(getDict("venue"))).toHaveLength(0);
+    // venue filled up in TASK-09; memories is still empty-but-typed.
+    expect(Object.keys(getDict("memories"))).toHaveLength(0);
+  });
+
+  test("the venue surface is filled (TASK-09)", () => {
+    expect(getDict("venue").liveBadge).toBe("Uživo");
   });
 });
 
@@ -40,13 +45,14 @@ describe("getDict", () => {
 // build break.
 describe("dictionary completeness is enforced at compile time", () => {
   test("an incomplete dictionary fails `satisfies` (type-level)", () => {
-    // @ts-expect-error missing `editorAccessDisabled`
+    // @ts-expect-error missing every VenueEditorDict key
     const incomplete = {} as const satisfies VenueEditorDict;
-    // A complete one type-checks and passes at runtime.
-    const complete = {
-      editorAccessDisabled: "x",
-    } as const satisfies VenueEditorDict;
+    // The real dictionary is the complete example — it type-checks via the
+    // same `satisfies` in its module.
+    const complete: VenueEditorDict = getDict("venue-editor");
     expect(incomplete).toEqual({});
-    expect(complete.editorAccessDisabled).toBe("x");
+    expect(complete.editorAccessDisabled).toBe(
+      "Uređivanje {product} stranice nije omogućeno za klijenta.",
+    );
   });
 });

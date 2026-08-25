@@ -742,12 +742,15 @@ export default defineSchema({
     .index("by_spaceId_and_status", ["spaceId", "status"])
     .index("by_status_and_validUntil", ["status", "validUntil"]),
 
-  // C.14 — reservation-block submissions (child table, unbounded).
+  // C.14 — reservation-block submissions (child table, unbounded). The
+  // reservation block's field config (name/phone/email/partySize/note) drives
+  // which of these submitReservation accepts; every column except name is
+  // optional so a block that disables a field simply never writes it.
   venueReservations: defineTable({
     eventId: v.id("events"),
-    // TODO(TASK-06): the reservation block's field config drives these fields;
-    // for now the minimal name/party-size/note shape satisfies the schema.
     name: v.string(),
+    phone: v.optional(v.string()),
+    email: v.optional(v.string()),
     partySize: v.optional(v.number()),
     note: v.optional(v.string()),
     createdAt: v.number(),

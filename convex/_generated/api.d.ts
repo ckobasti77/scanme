@@ -36,6 +36,8 @@ import type * as migrations from "../migrations.js";
 import type * as redirects from "../redirects.js";
 import type * as scanMeLinks from "../scanMeLinks.js";
 import type * as slugCollisionScan from "../slugCollisionScan.js";
+import type * as venue from "../venue.js";
+import type * as venueDevSeed from "../venueDevSeed.js";
 
 import type {
   ApiFromModules,
@@ -72,6 +74,8 @@ declare const fullApi: ApiFromModules<{
   redirects: typeof redirects;
   scanMeLinks: typeof scanMeLinks;
   slugCollisionScan: typeof slugCollisionScan;
+  venue: typeof venue;
+  venueDevSeed: typeof venueDevSeed;
 }>;
 
 /**

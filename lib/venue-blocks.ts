@@ -109,7 +109,7 @@ export type GalleryProps = {
   }>;
 };
 
-export type PerformerCardsProps = {
+export type ProfileCardsProps = {
   heading?: string;
   layout: "grid" | "list";
   columns: number;
@@ -122,7 +122,10 @@ export type PerformerCardsProps = {
   }>;
 };
 
-export type MenuProps = {
+// "priceList", deliberately not "menu": ScanMe Menu is a planned separate
+// product (RFC-001 §2.5) and Venue must not squat its name. This block is a
+// light convenience list of a few priced items on a campaign page.
+export type PriceListProps = {
   heading?: string;
   currency: string;
   sections: Array<{
@@ -177,8 +180,8 @@ export type VenueBlock =
   | { type: "programTimeline"; base: VenueBlockBase; props: ProgramTimelineProps }
   | { type: "map"; base: VenueBlockBase; props: MapProps }
   | { type: "gallery"; base: VenueBlockBase; props: GalleryProps }
-  | { type: "performerCards"; base: VenueBlockBase; props: PerformerCardsProps }
-  | { type: "menu"; base: VenueBlockBase; props: MenuProps }
+  | { type: "profileCards"; base: VenueBlockBase; props: ProfileCardsProps }
+  | { type: "priceList"; base: VenueBlockBase; props: PriceListProps }
   | { type: "reservation"; base: VenueBlockBase; props: ReservationProps }
   | { type: "share"; base: VenueBlockBase; props: ShareProps }
   | { type: "pastEvents"; base: VenueBlockBase; props: PastEventsProps }
@@ -193,8 +196,8 @@ export const VENUE_BLOCK_TYPES = [
   "programTimeline",
   "map",
   "gallery",
-  "performerCards",
-  "menu",
+  "profileCards",
+  "priceList",
   "reservation",
   "share",
   "pastEvents",
@@ -209,7 +212,7 @@ export const VENUE_BLOCK_TYPES = [
 export const MAX_BLOCKS = 30;
 export const GALLERY_MAX_ITEMS = 24;
 export const PROGRAM_MAX_ITEMS = 40;
-export const MENU_MAX_ITEMS = 60;
+export const PRICE_LIST_MAX_ITEMS = 60;
 
 // Inclusive numeric ranges for bounded properties. Chosen as the smallest
 // reasonable defaults where the RFC makes no decision (listed in the report).
@@ -218,7 +221,7 @@ const SPACING_RANGE = [0, 200] as const;
 const BORDER_WIDTH_RANGE = [0, 24] as const;
 const GALLERY_COLUMNS_RANGE = [1, 4] as const;
 const GALLERY_GAP_RANGE = [0, 64] as const;
-const PERFORMER_COLUMNS_RANGE = [1, 4] as const;
+const PROFILE_COLUMNS_RANGE = [1, 4] as const;
 const MAP_ZOOM_RANGE = [1, 21] as const;
 const PAST_EVENTS_LIMIT_RANGE = [1, 24] as const;
 const SPACER_HEIGHT_RANGE = [0, 400] as const;
@@ -289,13 +292,13 @@ export function defaults(type: VenueBlockType): VenueBlock {
           items: [],
         },
       };
-    case "performerCards":
+    case "profileCards":
       return {
         type,
         base,
         props: { layout: "grid", columns: 3, items: [] },
       };
-    case "menu":
+    case "priceList":
       return {
         type,
         base,
@@ -359,12 +362,13 @@ function clampBase(base: VenueBlockBase): VenueBlockBase {
   return next;
 }
 
-// Total menu items across sections capped at MENU_MAX_ITEMS, filling sections
-// in order. Idempotent — a second pass finds the total already within budget.
-function clampMenuSections(
-  sections: MenuProps["sections"],
-): MenuProps["sections"] {
-  let remaining = MENU_MAX_ITEMS;
+// Total price-list items across sections capped at PRICE_LIST_MAX_ITEMS,
+// filling sections in order. Idempotent — a second pass finds the total
+// already within budget.
+function clampPriceListSections(
+  sections: PriceListProps["sections"],
+): PriceListProps["sections"] {
+  let remaining = PRICE_LIST_MAX_ITEMS;
   return sections.map((section) => {
     const items = section.items.slice(0, Math.max(0, remaining));
     remaining -= items.length;
@@ -395,13 +399,13 @@ export function clamp(block: VenueBlock): VenueBlock {
           items: block.props.items.slice(0, PROGRAM_MAX_ITEMS),
         },
       };
-    case "menu":
+    case "priceList":
       return {
         ...block,
         base,
         props: {
           ...block.props,
-          sections: clampMenuSections(block.props.sections),
+          sections: clampPriceListSections(block.props.sections),
         },
       };
     case "map":
@@ -413,13 +417,13 @@ export function clamp(block: VenueBlock): VenueBlock {
           zoom: clampNum(block.props.zoom, ...MAP_ZOOM_RANGE),
         },
       };
-    case "performerCards":
+    case "profileCards":
       return {
         ...block,
         base,
         props: {
           ...block.props,
-          columns: clampNum(block.props.columns, ...PERFORMER_COLUMNS_RANGE),
+          columns: clampNum(block.props.columns, ...PROFILE_COLUMNS_RANGE),
         },
       };
     case "pastEvents":

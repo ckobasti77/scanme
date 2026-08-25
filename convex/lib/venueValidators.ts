@@ -191,8 +191,9 @@ const galleryProps = v.object({
   ), // ≤ 24
 });
 
-// name, role, image, link per performer
-const performerCardsProps = v.object({
+// name, role, image, link per person (a DJ, a stylist, a trainer, a workshop
+// leader — the structure is trade-neutral, hence "profile", not "performer")
+const profileCardsProps = v.object({
   heading: v.optional(v.string()),
   layout: v.union(v.literal("grid"), v.literal("list")),
   columns: v.number(), // clamped 1–4
@@ -207,8 +208,9 @@ const performerCardsProps = v.object({
   ),
 });
 
-// sections → items, currency
-const menuProps = v.object({
+// sections → items, currency. Named "priceList", not "menu": ScanMe Menu is a
+// planned separate product (RFC-001 §2.5) whose name Venue must not squat.
+const priceListProps = v.object({
   heading: v.optional(v.string()),
   currency: v.string(),
   sections: v.array(
@@ -283,8 +285,8 @@ export const venueBlockValidator = v.union(
   v.object({ type: v.literal("programTimeline"), base: blockBaseValidator, props: programTimelineProps }),
   v.object({ type: v.literal("map"), base: blockBaseValidator, props: mapProps }),
   v.object({ type: v.literal("gallery"), base: blockBaseValidator, props: galleryProps }),
-  v.object({ type: v.literal("performerCards"), base: blockBaseValidator, props: performerCardsProps }),
-  v.object({ type: v.literal("menu"), base: blockBaseValidator, props: menuProps }),
+  v.object({ type: v.literal("profileCards"), base: blockBaseValidator, props: profileCardsProps }),
+  v.object({ type: v.literal("priceList"), base: blockBaseValidator, props: priceListProps }),
   v.object({ type: v.literal("reservation"), base: blockBaseValidator, props: reservationProps }),
   v.object({ type: v.literal("share"), base: blockBaseValidator, props: shareProps }),
   v.object({ type: v.literal("pastEvents"), base: blockBaseValidator, props: pastEventsProps }),

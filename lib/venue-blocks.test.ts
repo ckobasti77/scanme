@@ -5,7 +5,7 @@ import {
   defaults,
   GALLERY_MAX_ITEMS,
   MAX_BLOCKS,
-  MENU_MAX_ITEMS,
+  PRICE_LIST_MAX_ITEMS,
   PROGRAM_MAX_ITEMS,
   VENUE_BLOCK_TYPES,
   type VenueBlock,
@@ -74,9 +74,9 @@ describe("clamp — per-block item caps", () => {
     expect(clamped.props.items).toHaveLength(PROGRAM_MAX_ITEMS);
   });
 
-  it("caps total menu items at 60 across sections", () => {
+  it("caps total priceList items at 60 across sections", () => {
     const block: VenueBlock = {
-      type: "menu",
+      type: "priceList",
       base: { id: "m", visible: true },
       props: {
         currency: "RSD",
@@ -91,12 +91,12 @@ describe("clamp — per-block item caps", () => {
       },
     };
     const clamped = clamp(block);
-    if (clamped.type !== "menu") throw new Error("type changed");
+    if (clamped.type !== "priceList") throw new Error("type changed");
     const total = clamped.props.sections.reduce(
       (sum, s) => sum + s.items.length,
       0,
     );
-    expect(total).toBe(MENU_MAX_ITEMS);
+    expect(total).toBe(PRICE_LIST_MAX_ITEMS);
   });
 });
 
@@ -164,7 +164,7 @@ describe("clamp — idempotency", () => {
         },
       },
       {
-        type: "menu",
+        type: "priceList",
         base: { id: "m", visible: true },
         props: {
           currency: "RSD",
@@ -181,7 +181,7 @@ describe("clamp — idempotency", () => {
         },
       },
       {
-        type: "performerCards",
+        type: "profileCards",
         base: { id: "pc", visible: true },
         props: { layout: "grid", columns: 42, items: [] },
       },
