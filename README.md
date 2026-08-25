@@ -97,3 +97,31 @@ Aktivan primer je `/primer-review`, a namerno isključen primer je
 `/primer-neaktivan`. Odredište koristi jasno označen `DEMO_PLACE_ID` i nije
 predstavljeno kao stvarni klijent. Pre produkcije postavite pravi Google Review
 link kroz zaštićen administrativni proces i uklonite lokalni demo ključ.
+
+## Zlatni harness (ScanMe Links regression net)
+
+Harness dokazuje da se objavljene ScanMe Links stranice ne menjaju ni za bajt
+(RFC-001 §2.11). Korpus je `/dev/template-gallery?harness=1`: svaki preset ×
+varijacija × dozvoljena kategorija pozadine, kroz pravi produkcioni template.
+Po slučaju se čuvaju normalizovani `outerHTML` i razrešene vrednosti
+`--links-*` tokena — bez screenshot-ova i bez punog `getComputedStyle`, da
+goldeni budu prenosivi između Windows-a i CI-ja.
+
+Jednokratna priprema (preuzima Chromium za Playwright):
+
+```powershell
+npx playwright install chromium
+```
+
+Komande:
+
+```powershell
+npm run harness:capture   # renderuje korpus i upisuje goldene u harness/goldens/
+npm run harness:check     # ponovo renderuje i poredi; izlazi sa greškom na svaku razliku
+npm run harness:namespace # zabrana ukrštanja --links-/--venue- imenskih prostora
+```
+
+`npm run check` pokreće i `harness:namespace` i `harness:check`. Skripte same
+podižu (i gase) `next dev` na portu 3199. Goldeni u `harness/goldens/` su
+komitovani; posle namerne promene dizajn-izlaza pokrenite `harness:capture`
+i komitujte novi snimak zajedno sa izmenom.

@@ -12,7 +12,10 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
-    "check": "npm run lint && npm run build"
+    "harness:capture": "node harness/run.mjs capture",
+    "harness:check": "node harness/run.mjs check",
+    "harness:namespace": "node harness/namespace-gate.mjs",
+    "check": "npm run lint && npm run build && npm run harness:namespace && npm run harness:check"
   },
   "dependencies": {
     "@auth/core": "^0.41.1",
@@ -71,6 +74,7 @@
     "eslint": "^10.8.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "globals": "^17.8.0",
+    "playwright": "^1.62.1",
     "tailwindcss": "^4",
     "typescript": "^5",
     "typescript-eslint": "^8.65.0",
