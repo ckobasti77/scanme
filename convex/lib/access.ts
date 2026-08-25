@@ -3,6 +3,11 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import type { Doc } from "../_generated/dataModel";
 import { env, type MutationCtx, type QueryCtx } from "../_generated/server";
 import { requireSlug } from "./validation";
+// Convex CAN import the typed i18n dictionary: it is pure data + a pure
+// formatter with no React/Next/Node dependency, so it bundles into the Convex
+// runtime exactly as `../lib/scanme-links-design` already does for
+// convex/scanMeLinks.ts. See TASK-04 report.
+import { fmt, getDict } from "../../lib/i18n";
 
 type DatabaseCtx = QueryCtx | MutationCtx;
 
@@ -129,10 +134,10 @@ export async function requireGoogleReviewPanelBySlug(
   return { user, business, link, membership, accessRole };
 }
 
-// TODO(i18n) TASK-04: these product display names are hardcoded Serbian and
-// belong in the typed dictionary layer TASK-04 builds. Until then this map at
-// least stops this now-shared function from hardcoding "ScanMe Links" in a
-// message that Venue and Memories editors will also raise.
+// Brand product names. These are proper nouns, not localizable prose, so they
+// stay as code constants; the localizable sentence they slot into now lives in
+// the typed dictionary (lib/i18n/sr/venue-editor.ts), resolving the TASK-03
+// TODO(i18n).
 const SERVICE_PRODUCT_NAMES: Record<Doc<"serviceProfiles">["type"], string> = {
   scanme_links: "ScanMe Links",
   google_review: "Google Review",
@@ -156,7 +161,9 @@ export async function requireServiceEditorAccess(
   if (!profile.clientEditingEnabled) {
     const productName = SERVICE_PRODUCT_NAMES[profile.type];
     throw new ConvexError(
-      `Uređivanje ${productName} stranice nije omogućeno za klijenta.`,
+      fmt(getDict("venue-editor").editorAccessDisabled, {
+        product: productName,
+      }),
     );
   }
   const membership = await ctx.db

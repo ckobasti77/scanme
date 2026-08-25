@@ -102,8 +102,9 @@ export default defineSchema({
     // Tenant kind (RFC-001 §2.1.6). `businesses` is the tenant table; a
     // celebration is a tenant too. Absent means "business" so existing rows
     // validate unchanged; celebrations are never surfaced as "businesses" in
-    // any UI. The celebrations/partnerships product tables are specified in
-    // the RFC, not created here.
+    // any UI. The celebrations/partnerships product tables (C.15/C.16) exist
+    // below; the mutation that provisions a celebration tenant is built with
+    // Memories.
     kind: v.optional(v.union(v.literal("business"), v.literal("celebration"))),
     logoStorageId: v.optional(v.id("_storage")),
     logoUrl: v.optional(v.string()),
@@ -751,4 +752,76 @@ export default defineSchema({
     note: v.optional(v.string()),
     createdAt: v.number(),
   }).index("by_eventId_and_createdAt", ["eventId", "createdAt"]),
+
+  // C.15 — celebrations (the product entity, §2.1.6). A celebration is a
+  // product instance, not a tenant: its tenant is a `businesses` row with
+  // kind: "celebration". `venueBusinessId` (held at) and `referredByBusinessId`
+  // (sold by) are deliberately distinct and must never be conflated.
+  celebrations: defineTable({
+    businessId: v.id("businesses"), // the tenant row, kind === "celebration"
+    kind: v.union(
+      v.literal("svadba"),
+      v.literal("rodjendan"),
+      v.literal("krstenje"),
+      v.literal("veridba"),
+      v.literal("ispracaj"),
+      v.literal("maturska"),
+      v.literal("godisnjica"),
+      v.literal("other"),
+    ),
+    title: v.string(), // e.g. "Jovana i Marko"
+    celebrantNames: v.optional(v.string()),
+    eventDate: v.number(),
+    venueName: v.optional(v.string()), // free text — where it happens, partner or not
+    venueBusinessId: v.optional(v.id("businesses")), // set only when that venue is on our platform
+    acquisitionChannel: v.union(
+      v.literal("direct"),
+      v.literal("partner"),
+      v.literal("ads"),
+      v.literal("other"),
+    ),
+    referredByBusinessId: v.optional(v.id("businesses")), // WHO SOLD IT
+    referralCommissionPercent: v.optional(v.number()), // snapshotted at sale time
+    contactName: v.string(),
+    contactPhone: v.optional(v.string()),
+    contactEmail: v.optional(v.string()),
+    status: v.union(
+      v.literal("lead"),
+      v.literal("booked"),
+      v.literal("active"),
+      v.literal("completed"),
+      v.literal("archived"),
+    ),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_businessId", ["businessId"])
+    .index("by_referredByBusinessId_and_status", [
+      "referredByBusinessId",
+      "status",
+    ])
+    .index("by_status_and_eventDate", ["status", "eventDate"])
+    .index("by_venueBusinessId_and_eventDate", [
+      "venueBusinessId",
+      "eventDate",
+    ]),
+
+  // C.16 — partnerships (referral terms, §2.1.6). The standing agreement with a
+  // partner; the commission percent is snapshotted onto each celebration row at
+  // sale time, so renegotiating terms never rewrites past commissions.
+  partnerships: defineTable({
+    partnerBusinessId: v.id("businesses"),
+    status: v.union(
+      v.literal("active"),
+      v.literal("paused"),
+      v.literal("ended"),
+    ),
+    commissionPercent: v.number(),
+    productScope: v.array(serviceType), // which products this partner may refer
+    startedAt: v.number(),
+    endedAt: v.optional(v.number()),
+    notes: v.optional(v.string()),
+  })
+    .index("by_partnerBusinessId_and_status", ["partnerBusinessId", "status"])
+    .index("by_status_and_startedAt", ["status", "startedAt"]),
 });

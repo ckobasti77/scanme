@@ -203,7 +203,7 @@ The backfill is optional (reads already default `undefined → "business"`); it 
 
 **`businesses` is a tenant table whose name is legacy.** It began life meaning "a paying local business" and now also carries celebration tenants; the name no longer describes the contents. Celebrations are **never surfaced as "businesses" in any UI** — the host/admin surfaces filter on `kind` and label a celebration row as an event, never a business. Renaming the table to `tenants` (or splitting the concepts) is **deliberate deferred debt**: the rename would touch every one of the ~15 tables and dozens of functions that reference `v.id("businesses")`, for zero user-visible gain, and would collide head-on with the frozen Links render path and the golden harness (§2.11). The debt is recorded here so the next person understands the name is intentional, not an oversight.
 
-The product entity `celebrations` and the `partnerships` table it depends on are **specified in §2.4 (C.15, C.16); they are not added to `schema.ts` in this task** — they are created when Memories is built. `venueBusinessId` (where the celebration is *held*) and `referredByBusinessId` (who *sold* it) are deliberately distinct fields and must never be conflated: a celebration can be held at a venue that is not a partner, and sold by a partner that is not the venue.
+The product entity `celebrations` and the `partnerships` table it depends on are **defined in §2.4 (C.15, C.16)**; the tables exist in `schema.ts`, and the celebration-provisioning mutation that writes them is built when Memories is built. `venueBusinessId` (where the celebration is *held*) and `referredByBusinessId` (who *sold* it) are deliberately distinct fields and must never be conflated: a celebration can be held at a venue that is not a partner, and sold by a partner that is not the venue.
 
 **Provisioning a celebration tenant** must **not** go through `admin.createBusiness` ([admin.ts:166–313](../../convex/admin.ts)), which provisions a Links profile, a `google_review` `dynamicLink`, and the derived-slug machinery — none of it applicable to a celebration. The minimal path (specified here, implemented when Memories is built) is a single mutation that, in one transaction, creates:
 
@@ -620,9 +620,9 @@ Indexes: `by_businessId_and_product` (business-scoped enforcement read, `.unique
 
 Child table keyed by `eventId` (`by_eventId_and_createdAt` — host list, newest first), storing name/party-size/note per the block's field config, rate-limited on write. Kept out of the config doc so submissions can grow unbounded.
 
-#### C.15 `celebrations` (the product entity — SPECIFIED, not created in this task)
+#### C.15 `celebrations`
 
-*See §2.1.6. A celebration is a product instance, not a tenant. Its tenant is a `businesses` row with `kind: "celebration"`; this row carries the celebration's product semantics. It is **not** added to `schema.ts` in this task — it is created when Memories is built.*
+*See §2.1.6. A celebration is a product instance, not a tenant. Its tenant is a `businesses` row with `kind: "celebration"`; this row carries the celebration's product semantics.*
 
 ```ts
 celebrations: defineTable({
@@ -663,7 +663,7 @@ celebrations: defineTable({
 | `by_status_and_eventDate` | **operations calendar** of upcoming celebrations across all channels (filter to booked/active, order by `eventDate`) |
 | `by_venueBusinessId_and_eventDate` | **a venue's view** of celebrations happening at its location, chronological |
 
-#### C.16 `partnerships` (referral terms — SPECIFIED, not created in this task)
+#### C.16 `partnerships`
 
 *The standing agreement with a partner (typically a hall that refers couples). The commission **percent is snapshotted onto each `celebrations` row at sale time** (`referralCommissionPercent`), so renegotiating a partnership's terms never rewrites the commission history of celebrations already sold — the partnership row is the current terms, the celebration row is the terms-as-sold.*
 
@@ -803,6 +803,8 @@ type EditorMode<TDoc, TPanelId extends string, TSelection> = {
 
 `ScanMeLinksEditorScreen` becomes a thin wrapper passing `linksMode` — literally the existing `EDITOR_PANEL_IDS`, `panelCopy`, `EditorPanelContent`, and the real preview bundled up. `useEditorHistory<T>` needs zero changes. Selection is a mode type parameter: Links instantiates `{ kind: "destination"; id } | null`; Venue instantiates `{ kind: "block"; id: string } | { kind: "page" } | null`. **The honest call on the 2,673-line panels file: it is not split.** It becomes `linksMode.PanelContent` verbatim; the four leaf widgets are copied into `components/design-editor/fields.tsx` (Links keeps its private copies — consolidation is deferred, deliberately). Venue panels are new and schema-driven from day one: block selection dispatches to `registry[block.type].EditorPanel`, composing the shared field widgets. Venue panel ids: `["blocks", "event", "style", "background", "text", "color", "settings", "analytics", "help"]` — "blocks" is the palette (add/reorder/duplicate/delete); the preview renders the real `VenueTemplate` in the same device frame with a dnd-kit sortable overlay per block, mirroring the destinations pattern. This is the "links mode vs venue mode block palettes" switch the task requires: the palette is the mode's `panelIds` + the block registry, selected by which `EditorMode` the shell is mounted with.
 
+**Amendment (TASK-06, 2026-08-25): editor-shell unification is deferred.** The `EditorMode` parameterization above is **not** built while the ScanMe Links freeze holds. The reason is honest and structural: the §2.11 golden harness covers the **public render path only**, so an "invisible" refactor of the live Links editor shell has no automated proof of being a no-op — exactly the gap risk #1 names. Until that proof exists, Venue gets a **standalone editor** with its own history, autosave loop, and panel shell, duplicating the Links editor chrome. This duplication is deliberate, recorded debt, not an oversight. Unifying the two shells becomes its own task later, gated on the editor E2E smoke test that risk #1 already prescribes (load → edit → undo → autosave settle → publish → public page unchanged) running before and after the mechanical shell commit. The "Lift, do not copy" plan above is unaffected: the lift concerns the public render path, which the harness does cover.
+
 ### 2.6 Guest identity
 
 Per the constraint: the card identifies the **table**, the cookie identifies the **person**; quota is per person, statistics per table; the quota is a soft limit, admin-adjustable, and explicitly not a security boundary; no SMS, email, accounts, or fingerprinting.
@@ -899,7 +901,7 @@ Complete change list against existing files (everything else is new files):
 
 | File | Change | Why it cannot alter Links output |
 |---|---|---|
-| [convex/schema.ts](../../convex/schema.ts) | new tables (C.1–C.14; **C.15 `celebrations` / C.16 `partnerships` are specified only, not added here**); `serviceType` union +2 literals; **`businesses` gains optional `kind`** (§2.1.6) | additive; existing rows validate unchanged (`kind` absent ⇒ `"business"`); no existing index keys touched; new tables start empty (no `staged:` needed — staged indexes matter only for indexes added to *large existing* tables, none here) |
+| [convex/schema.ts](../../convex/schema.ts) | new tables (C.1–C.16); `serviceType` union +2 literals; **`businesses` gains optional `kind`** (§2.1.6) | additive; existing rows validate unchanged (`kind` absent ⇒ `"business"`); no existing index keys touched; new tables start empty (no `staged:` needed — staged indexes matter only for indexes added to *large existing* tables, none here) |
 | [convex/activationRequests.ts](../../convex/activationRequests.ts) | `requestedServiceValidator` → shared `serviceTypeValidator` | widened arg validator; existing requests unchanged |
 | [convex/lib/access.ts](../../convex/lib/access.ts) | split `requireBusinessAccessBySlug`; add `requireServiceEditorAccess` | behavior-preserving refactor; the google-review variant preserves today's return shape; existing tests guard it |
 | [convex/lib/validation.ts](../../convex/lib/validation.ts) | `RESERVED_SLUGS` + `"m"`, `"r"` | affects only future slug creation; published slugs keep working; pre-flight scan first |
@@ -964,7 +966,7 @@ Each step has a success criterion a test or check can confirm. Steps 1–5 are p
 | 6 | Design engine modules (tokens/shadows/background/capabilities/typography/palette) + golden fixtures | Engine unit tests assert byte-exact CSS output against fixtures captured from the live Links template; harness (step 1) still green |
 | 7 | `events` + `venueEventConfigs` + lifecycle machinery | convex-test: full `draft→scheduled→live→ended→archived` walk; a stale-`lifecycleRevision` flip no-ops; `goLive` rejects a second live event; `duplicateEvent` copies published→draft |
 | 8 | Venue public routes + template + block renderers | `curl /[slug]/venue` of a live event returns the published blocks; unknown event slug → 404; page-source contains `--venue-` and not `--links-`; `npm run check` green |
-| 9 | Editor shell parameterization, then Venue editor mode | The mechanical-commit E2E smoke (risk #1) passes before and after; Venue editor: add/reorder/publish a block round-trips through `expectedDraftRevision`; harness still green |
+| 9 | Standalone Venue editor (own shell, history, autosave) — shell unification deferred (§2.5 amendment) | Venue editor: add/reorder/publish a block round-trips through `expectedDraftRevision`; harness still green. Editor-shell parameterization is its own later task, gated on the risk-#1 E2E smoke (load → edit → undo → autosave settle → publish → public page unchanged) running before and after the mechanical shell commit |
 | 10 | Cards + `/r/[cardCode]` resolver | `curl -i /r/<code>` → `302` with `Location` per target kind and, for memories targets, `Set-Cookie` containing `HttpOnly` and `Path=/m/<code>`; repeat with the same server requestId inserts one `cardScanEvents` row; unknown code → `302 /r/nevazeca` |
 | 11 | Memories tables + guest identity + quota | convex-test: `reserveUpload` rejects the (limit+1)th photo at each tier; a `quotaAdjustments` grant admits exactly `extraPhotos` more; concurrent reservations never exceed the limit; wrong `guestKey` → empty `myPhotos` |
 | 12 | Image pipeline route + `convex/lib/storage.ts` wrapper | Integration: HEIC upload → `ready` photo whose AVIF/WebP/thumb (a) contain no EXIF GPS, (b) carry the ScanMe watermark (plus the business watermark when the business has a logo — §2.8), (c) respect `maxImageDimension`; a stale `reserved` row is reaped by `purgeSweep`; gallery serves `<picture>` with AVIF first |

@@ -169,6 +169,49 @@ describe("getEntitlement resolution order (RFC-001 §2.3)", () => {
     );
     expect(resolved).toBeNull();
   });
+
+  test("limits are typed per product with no cast (§0.2 / DoD #5)", async () => {
+    const t = convexTest(schema, modules);
+    const { businessId } = await seedBusinessAndSpace(t);
+    await insertEntitlement(t, {
+      businessId,
+      planKey: "premium",
+      status: "active",
+    });
+    const resolved = await t.run((ctx) =>
+      getEntitlement(ctx, businessId, "scanme_memories"),
+    );
+    // Compile-time proof: `limits` is MemoriesLimits, so `photosPerGuest` is
+    // `number`. Assigning to a typed local only compiles because there is no
+    // `unknown` here — it would have failed against the old
+    // `Record<string, unknown>` return.
+    const photos: number = resolved!.limits.photosPerGuest;
+    const dimension: number = resolved!.limits.maxImageDimension;
+    expect(photos).toBe(10);
+    expect(dimension).toBe(4096);
+  });
+
+  test("throws when two active business-scoped entitlements exist (§0.3)", async () => {
+    const t = convexTest(schema, modules);
+    const { businessId } = await seedBusinessAndSpace(t);
+    // Two active business-scoped rows for the same (businessId, product) is an
+    // impossible state the billing path could otherwise create; the winner
+    // would be arbitrary, so getEntitlement must fail loud instead.
+    await insertEntitlement(t, {
+      businessId,
+      planKey: "basic",
+      status: "active",
+    });
+    await insertEntitlement(t, {
+      businessId,
+      planKey: "premium",
+      status: "active",
+    });
+
+    await expect(
+      t.run((ctx) => getEntitlement(ctx, businessId, "scanme_memories")),
+    ).rejects.toThrow(/Multiple active business-scoped entitlements/);
+  });
 });
 
 describe("admin.approveActivation (RFC-001 §2.3)", () => {

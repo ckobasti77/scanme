@@ -1,12 +1,13 @@
+import { ConvexError } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
-import { PLAN_LIMITS, type PlanProduct } from "./plans";
+import { PLAN_LIMITS, type LimitsFor, type PlanProduct } from "./plans";
 
 type DatabaseCtx = QueryCtx | MutationCtx;
 
-export interface ResolvedEntitlement {
+export interface ResolvedEntitlement<P extends PlanProduct> {
   planKey: string;
-  limits: Record<string, unknown>;
+  limits: LimitsFor<P>;
   status: Doc<"entitlements">["status"];
 }
 
@@ -16,12 +17,17 @@ export interface ResolvedEntitlement {
 //   2. otherwise the ACTIVE business-scoped entitlement (spaceId unset);
 //   3. otherwise null.
 // Only status === "active" ever resolves.
-export async function getEntitlement(
+//
+// Generic over `product` so `limits` is that product's typed limit shape
+// (MemoriesLimits for scanme_memories, VenueLimits for scanme_venue). A caller
+// with a literal product reads e.g. `limits.photosPerGuest` as `number` with no
+// cast.
+export async function getEntitlement<P extends PlanProduct>(
   ctx: DatabaseCtx,
   businessId: Id<"businesses">,
-  product: PlanProduct,
+  product: P,
   spaceId?: Id<"memoriesSpaces">,
-): Promise<ResolvedEntitlement | null> {
+): Promise<ResolvedEntitlement<P> | null> {
   let row: Doc<"entitlements"> | null = null;
 
   if (spaceId) {
@@ -44,23 +50,43 @@ export async function getEntitlement(
         q.eq("businessId", businessId).eq("product", product),
       )
       .take(50);
-    row =
-      candidates.find(
-        (entitlement) =>
-          entitlement.spaceId === undefined && entitlement.status === "active",
-      ) ?? null;
+    const active = candidates.filter(
+      (entitlement) =>
+        entitlement.spaceId === undefined && entitlement.status === "active",
+    );
+    // Two active business-scoped rows for one (businessId, product) make the
+    // resolved plan tier non-deterministic. upsertManualEntitlement prevents
+    // this on the manual path, but the billing path (§2.3) will not. Fail loud
+    // and name the rows rather than silently pick one — a wrong plan tier is a
+    // quota bug.
+    if (active.length > 1) {
+      throw new ConvexError(
+        `Multiple active business-scoped entitlements for business ${businessId} product ${product}: ${active
+          .map((entitlement) => entitlement._id)
+          .join(", ")}. Expected at most one.`,
+      );
+    }
+    row = active[0] ?? null;
   }
 
   if (!row) return null;
 
-  const tierLimits =
-    (PLAN_LIMITS[product] as Record<string, Record<string, unknown>>)[
-      row.planKey
-    ] ?? {};
+  // `planKey` is a DB string, so neither the catalog lookup nor the overrides
+  // merge can be statically proven to yield LimitsFor<P>. One assertion here —
+  // internal to the read path, never at a call site — bridges the runtime lookup
+  // to the typed return. Callers then read e.g. `limits.photosPerGuest` as
+  // `number` with no cast of their own.
+  const tierLimits = (PLAN_LIMITS[product] as Record<string, object>)[
+    row.planKey
+  ];
+  const limits = {
+    ...tierLimits,
+    ...(row.overrides ?? {}),
+  } as LimitsFor<P>;
 
   return {
     planKey: row.planKey,
-    limits: { ...tierLimits, ...(row.overrides ?? {}) },
+    limits,
     status: row.status,
   };
 }

@@ -44,3 +44,12 @@ export const PLAN_LIMITS = {
 // The products that carry a plan catalog. Links and Google Review have no plans
 // and never resolve an entitlement.
 export type PlanProduct = keyof typeof PLAN_LIMITS;
+
+// The typed limit shape for a given product. Every tier within a product shares
+// one shape (all scanme_memories tiers are MemoriesLimits, etc.), so indexing by
+// any tier key collapses to that single shape. This is what makes
+// `getEntitlement`'s `limits` typed per product instead of Record<string,
+// unknown>: LimitsFor<"scanme_memories"> is MemoriesLimits, so a caller reading
+// `limits.photosPerGuest` gets `number` with no cast.
+export type LimitsFor<P extends PlanProduct> =
+  (typeof PLAN_LIMITS)[P][keyof (typeof PLAN_LIMITS)[P]];

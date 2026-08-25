@@ -135,6 +135,13 @@ intentional direction based on its subject and audience.
   commit secrets.
 - Preserve user changes and keep the work narrowly scoped to the requested
   website.
+- Every **new** user-facing string goes through the typed dictionary layer in
+  `lib/i18n` (see RFC-001 §2.12): add a key to the surface's `Dict` interface and
+  its `sr/*` module, then read it with `getDict(surface)` / `fmt(...)`. The
+  existing inline Serbian in the frozen ScanMe Links render path
+  (`components/scanme-links/**`, the `scanMeLinks` config/render path) is
+  deliberately **not** migrated — moving it edits a byte-frozen path for zero
+  user value before the golden harness exists.
 
 ## Finish every task
 

@@ -14,44 +14,23 @@ import {
   iconPackageForPreset,
   layoutForPreset,
   normalizeDesignForPreset,
-  type ScanMeLinksBackgroundV2,
   type ScanMeLinksDesignV2,
-  type ScanMeLinksFontKey,
   type ScanMeLinksIconPackage,
   type ScanMeLinksIconStyle,
   type ScanMeLinksPresetKey,
-  type ScanMeLinksShadowV2,
 } from "@/lib/scanme-links-design";
 import {
   backgroundContrastSamples,
   safeNeutralForBackgrounds,
 } from "@/lib/scanme-color-science";
+import { backgroundPresentation } from "@/lib/design-engine/background";
+import { rgba } from "@/lib/design-engine/color";
+import { logoShadowCss, shadowCss } from "@/lib/design-engine/shadows";
+import { FONT_STACKS } from "@/lib/design-engine/typography";
 import { cn } from "@/lib/utils";
 import styles from "./option-two-template.module.css";
 
 export const optionTwoDestinationClassName = styles.destination;
-
-// Face names come from the Fontsource packages imported in app/layout.tsx. The
-// "… Variable" suffix is Fontsource's own naming for its variable builds, so it
-// has to be spelled exactly; the trailing stack only covers the swap window.
-const FONT_STACKS: Record<ScanMeLinksFontKey, string> = {
-  "dm-sans": '"DM Sans Variable", "Segoe UI", Arial, sans-serif',
-  "nunito-sans": '"Nunito Sans Variable", "Segoe UI", Arial, sans-serif',
-  "source-sans-3": '"Source Sans 3 Variable", "Segoe UI", Arial, sans-serif',
-  "system-ui": 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-  inter: '"Inter Variable", system-ui, -apple-system, "Segoe UI", sans-serif',
-  manrope: '"Manrope Variable", system-ui, -apple-system, "Segoe UI", sans-serif',
-  "cormorant-garamond":
-    '"Cormorant Garamond Variable", Georgia, "Times New Roman", serif',
-  "playfair-display":
-    '"Playfair Display Variable", Georgia, "Times New Roman", serif',
-  lora: '"Lora Variable", Georgia, "Times New Roman", serif',
-  "libre-baskerville":
-    '"Libre Baskerville", Georgia, "Times New Roman", serif',
-  "space-grotesk":
-    '"Space Grotesk Variable", "Arial Narrow", Arial, sans-serif',
-  archivo: '"Archivo Variable", "Arial Narrow", Arial, sans-serif',
-};
 
 const ICON_STYLE_CLASSES: Record<ScanMeLinksIconStyle, string> = {
   "soft-line": "",
@@ -130,93 +109,6 @@ function scaleTokens(scale: ScanMeLinksDesignV2["typography"]["scale"]) {
   return { heading: "2.25rem", body: "0.96rem" };
 }
 
-function rgba(hex: string, opacity: number) {
-  const normalized = hex.trim();
-  const match = normalized.match(/^#([\da-f]{6})$/i);
-  if (!match) return `color-mix(in srgb, ${hex} ${opacity * 100}%, transparent)`;
-  const value = Number.parseInt(match[1], 16);
-  return `rgba(${(value >> 16) & 255}, ${(value >> 8) & 255}, ${value & 255}, ${opacity})`;
-}
-
-function backgroundPresentation(background: ScanMeLinksBackgroundV2): {
-  baseImage: string;
-  detailImage: string;
-  detailSize: string;
-  detailOpacity: number;
-} {
-  switch (background.category) {
-    case "flat":
-      return {
-        baseImage: `linear-gradient(${background.color}, ${background.color})`,
-        detailImage: "none",
-        detailSize: "auto",
-        detailOpacity: 0,
-      };
-    case "gradient":
-      return {
-        baseImage:
-          background.variant === "radial"
-            ? `radial-gradient(circle at ${background.centerX}% ${background.centerY}%, ${background.startColor}, ${background.endColor})`
-            : `linear-gradient(${background.angle}deg, ${background.startColor}, ${background.endColor})`,
-        detailImage: "none",
-        detailSize: "auto",
-        detailOpacity: 0,
-      };
-    case "pattern": {
-      const size = Math.max(4, background.scale);
-      const color = rgba(background.patternColor, 1);
-      const base = background.backgroundColor;
-      const images: Record<typeof background.variant, string> = {
-        grid: `linear-gradient(${color} 1px, transparent 1px), linear-gradient(90deg, ${color} 1px, transparent 1px), linear-gradient(${base}, ${base})`,
-        checker: `conic-gradient(from 90deg at 1px 1px, transparent 90deg, ${color} 0)`,
-        dots: `radial-gradient(circle, ${color} 1.5px, transparent 1.7px), linear-gradient(${base}, ${base})`,
-        waves: `radial-gradient(ellipse at 50% 100%, transparent 65%, ${color} 66%, transparent 69%), linear-gradient(${base}, ${base})`,
-      };
-      return {
-        baseImage: `linear-gradient(${base}, ${base})`,
-        detailImage: images[background.variant],
-        detailSize:
-          background.variant === "waves"
-            ? `${size * 2}px ${size}px`
-            : `${size}px ${size}px`,
-        detailOpacity: background.opacity,
-      };
-    }
-    case "texture": {
-      const tint = rgba(background.tintColor, 0.85);
-      const base = background.backgroundColor;
-      const images: Record<typeof background.variant, string> = {
-        paper: `radial-gradient(circle at 20% 30%, ${tint} 0 .65px, transparent .8px), radial-gradient(circle at 75% 68%, ${tint} 0 .55px, transparent .75px), linear-gradient(${base}, ${base})`,
-        linen: `repeating-linear-gradient(0deg, ${tint} 0 1px, transparent 1px 4px), repeating-linear-gradient(90deg, ${tint} 0 1px, transparent 1px 5px), linear-gradient(${base}, ${base})`,
-        wood: `repeating-radial-gradient(ellipse at -20% 50%, transparent 0 15px, ${tint} 16px 17px, transparent 18px 29px), linear-gradient(${base}, ${base})`,
-        metal: `repeating-linear-gradient(105deg, transparent 0 3px, ${tint} 4px, transparent 5px 9px), linear-gradient(120deg, ${base}, color-mix(in srgb, ${base} 74%, white), ${base})`,
-      };
-      return {
-        baseImage: `linear-gradient(${base}, ${base})`,
-        detailImage: images[background.variant],
-        detailSize:
-          background.variant === "paper"
-            ? "17px 19px"
-            : background.variant === "wood"
-              ? "80px 46px"
-              : "auto",
-        detailOpacity: background.intensity,
-      };
-    }
-    case "media":
-    case "animation":
-      return {
-        baseImage:
-          background.category === "animation"
-            ? `linear-gradient(${background.baseColor}, ${background.baseColor})`
-            : `linear-gradient(var(--links-page), var(--links-page))`,
-        detailImage: "none",
-        detailSize: "auto",
-        detailOpacity: 0,
-      };
-  }
-}
-
 function alignmentTokens(
   alignment: ScanMeLinksDesignV2["typography"]["alignment"],
 ) {
@@ -227,24 +119,6 @@ function alignmentTokens(
     return { text: "right", cross: "flex-end" };
   }
   return { text: "center", cross: "center" };
-}
-
-function shadowCss(shadow: ScanMeLinksShadowV2) {
-  return shadow.enabled && shadow.opacity > 0
-    ? `${shadow.x}px ${shadow.y}px ${shadow.blur}px ${rgba(
-        shadow.color,
-        shadow.opacity,
-      )}`
-    : "0 0 0 transparent";
-}
-
-function logoShadowCss(shadow: ScanMeLinksShadowV2) {
-  return shadow.enabled && shadow.opacity > 0
-    ? `drop-shadow(${shadow.x}px ${shadow.y}px ${shadow.blur}px ${rgba(
-        shadow.color,
-        shadow.opacity,
-      )})`
-    : "none";
 }
 
 function designStyle(
