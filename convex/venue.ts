@@ -352,6 +352,27 @@ export const archiveEvent = mutation({
   },
 });
 
+// live → ended, on the owner's command (STEP 2 "End now"). This is the manual
+// counterpart to the scheduler-run endEvent: it reuses the SAME applyEndEvent
+// transition — no new lifecycle rule, no duplicated validation — and only adds
+// the editor-access gate and cancels the now-moot scheduled end so it cannot
+// fire a redundant flip later. Kept here in the lifecycle module (never in the
+// client-panel layer) so venue.ts stays the single owner of the state machine.
+export const endEventNow = mutation({
+  args: { eventId: v.id("events") },
+  handler: async (ctx, args) => {
+    const { event } = await loadEventForEditor(ctx, args.eventId);
+    if (event.status !== "live") {
+      throw new ConvexError(dict.endNotLive);
+    }
+    if (event.scheduledEndId) {
+      await ctx.scheduler.cancel(event.scheduledEndId);
+    }
+    const outcome = await applyEndEvent(ctx, event._id, event.lifecycleRevision);
+    return { ended: outcome.changed };
+  },
+});
+
 // --- Scheduler-run timed transitions (idempotent) ---------------------------
 //
 // Each no-ops unless `lifecycleRevision` matches what it was scheduled with AND
@@ -524,6 +545,18 @@ export const saveDraft = mutation({
   },
 });
 
+// Editor media uploads (TASK-12): gallery images, profile-card images,
+// programme images, the event logo and background media all POST to a URL
+// minted here. Gated through the same loadEventForEditor funnel as every
+// draft write, so an upload URL can never be minted without editor access.
+export const generateEditorUploadUrl = mutation({
+  args: { eventId: v.id("events") },
+  handler: async (ctx, args) => {
+    await loadEventForEditor(ctx, args.eventId);
+    return await ctx.storage.generateUploadUrl();
+  },
+});
+
 // The ONLY writer of published-content fields on venueEventConfigs. Because
 // blocks are an embedded array, publish is ONE OCC-guarded patch — no per-row
 // loop, no partial state (unlike the destinations copy in scanMeLinks). Takes
@@ -577,10 +610,47 @@ type VenuePageView = {
   displayName: string;
   design: Doc<"venueEventConfigs">["publishedDesign"] | null;
   blocks: NonNullable<Doc<"venueEventConfigs">["publishedBlocks"]>;
+  /** Signed URL per storage id embedded in block props (gallery/profile/
+   * programme items). Blocks store bare ids; a bare id has NO public URL —
+   * `/api/storage/{id}` without a signature is rejected — so the render layer
+   * substitutes these before the block renderers run (venue-view.ts). */
+  blockImageUrls: Record<string, string>;
   logoUrl: string | null;
   backgroundImageUrl: string | null;
   backgroundVideoUrl: string | null;
 };
+
+// The storage ids embedded in block props — the ones the renderers would
+// otherwise have to guess URLs for. Top-level media (logo, backgrounds) is
+// resolved separately by each view builder.
+function collectBlockStorageIds(blocks: VenueBlock[]): string[] {
+  const ids = new Set<string>();
+  for (const block of blocks) {
+    if (block.type === "gallery") {
+      for (const item of block.props.items) ids.add(item.storageId);
+    } else if (block.type === "profileCards" || block.type === "programTimeline") {
+      for (const item of block.props.items) {
+        if (item.imageStorageId) ids.add(item.imageStorageId);
+      }
+    }
+  }
+  return [...ids];
+}
+
+// storage-id → signed URL for every block-embedded image. Missing files are
+// simply omitted; the renderers drop an image they cannot resolve instead of
+// emitting a broken request. Bounded by the item caps (24 + 40 + profiles).
+async function resolveBlockImageUrls(
+  ctx: QueryCtx,
+  blocks: VenueBlock[],
+): Promise<Record<string, string>> {
+  const urls: Record<string, string> = {};
+  for (const id of collectBlockStorageIds(blocks)) {
+    const url = await ctx.storage.getUrl(id as Id<"_storage">);
+    if (url) urls[id] = url;
+  }
+  return urls;
+}
 
 // Build the render-ready view model from PUBLISHED state only. Returns null when
 // the event was never published. Top-level media (logo, background image/video)
@@ -630,6 +700,7 @@ async function publishedVenuePageView(
     displayName: config.publishedDisplayName ?? business.name,
     design: config.publishedDesign ?? null,
     blocks,
+    blockImageUrls: await resolveBlockImageUrls(ctx, asPureBlocks(blocks)),
     logoUrl,
     backgroundImageUrl,
     backgroundVideoUrl,
@@ -840,6 +911,27 @@ export const editorBySlug = query({
     const event = await editorTargetEvent(ctx, business._id);
     const config = event ? await configForEvent(ctx, event._id) : null;
 
+    // Brand source colours for the colour panel's palette derivation
+    // (TASK-12): the Links config's stored palette when this business also
+    // runs Links — the logo extraction already happened there. Empty
+    // otherwise; the generator's deterministic fallback covers that.
+    let brandColors: string[] = [];
+    const linksProfile = await ctx.db
+      .query("serviceProfiles")
+      .withIndex("by_businessId_and_type", (q) =>
+        q.eq("businessId", business._id).eq("type", "scanme_links"),
+      )
+      .unique();
+    if (linksProfile) {
+      const linksConfig = await ctx.db
+        .query("scanMeLinksConfigs")
+        .withIndex("by_serviceProfileId", (q) =>
+          q.eq("serviceProfileId", linksProfile._id),
+        )
+        .unique();
+      brandColors = linksConfig?.draftPalette ?? [];
+    }
+
     // Draft logo semantics mirror the published side: undefined ⇒ inherit the
     // business logo; explicit null ⇒ no logo; an id ⇒ the event's own logo.
     let draftLogoUrl: string | null = null;
@@ -869,6 +961,7 @@ export const editorBySlug = query({
       businessSlug: business.slug,
       editorRole: access.role,
       profileStatus: profile.status,
+      brandColors,
       event:
         event && config
           ? {
@@ -881,6 +974,12 @@ export const editorBySlug = query({
               draftDisplayName: config.draftDisplayName ?? null,
               draftDesign: config.draftDesign ?? null,
               draftBlocks: config.draftBlocks ?? [],
+              // Same contract as the public view: the editor preview renders
+              // the REAL template, so it needs the same id → signed-URL map.
+              blockImageUrls: await resolveBlockImageUrls(
+                ctx,
+                asPureBlocks(config.draftBlocks),
+              ),
               draftRevision: config.draftRevision,
               publishedRevision: config.publishedRevision,
               publishedAt: config.publishedAt ?? null,

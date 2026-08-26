@@ -26,13 +26,24 @@ describe("getDict", () => {
     );
   });
 
-  test("an empty-but-typed surface has no keys yet", () => {
-    // venue filled up in TASK-09; memories is still empty-but-typed.
-    expect(Object.keys(getDict("memories"))).toHaveLength(0);
+  test("the consent surface is filled and versioned (TASK-17)", () => {
+    // Empty-but-typed until the upload screen existed; TASK-17 built the
+    // screen and wrote the notice with it. The version constant lives beside
+    // the copy and is what reserveUpload stamps onto memoriesGuests.
+    const consent = getDict("consent");
+    expect(consent.inlineAct.length).toBeGreaterThan(0);
+    expect(consent.inlineRetention).toContain("{days}");
   });
 
   test("the venue surface is filled (TASK-09)", () => {
     expect(getDict("venue").liveBadge).toBe("Uživo");
+  });
+
+  test("the memories and resolver surfaces are filled (TASK-14)", () => {
+    expect(getDict("memories").quotaReached).toBe(
+      "Dostigli ste limit od {limit} fotografija.",
+    );
+    expect(getDict("resolver").title.length).toBeGreaterThan(0);
   });
 });
 

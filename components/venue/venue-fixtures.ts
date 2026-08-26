@@ -239,6 +239,9 @@ export function fixtureView(options: {
       ? DEFAULT_VENUE_DESIGN
       : options.design) as VenuePageView["design"],
     blocks: fixtureBlocks(options.startsAt) as unknown as VenuePageView["blocks"],
+    // Fixture media uses public /dev-venue paths, which pass through the
+    // resolver untouched — no signed URLs to map.
+    blockImageUrls: {},
     logoUrl: null,
     backgroundImageUrl: options.backgroundImageUrl ?? null,
     backgroundVideoUrl: null,

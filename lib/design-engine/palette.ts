@@ -24,6 +24,13 @@ import {
 
 export * from "../scanme-color-science";
 export * from "../scanme-material-color";
+// The scheme-type axis of generateMaterialRoles. Re-exported (not retyped) so
+// Venue editor controls enumerate the engine's own option set.
+export {
+  PALETTE_SCHEME_TYPES,
+  DEFAULT_PALETTE_SCHEME,
+  type PaletteSchemeType,
+} from "../scanme-palette";
 
 // The Venue colour role set — the Links 11 minus the three button-specific
 // roles (`button`/`buttonHover`/`buttonText`): Venue has no page-global button

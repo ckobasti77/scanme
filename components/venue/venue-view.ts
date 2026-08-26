@@ -32,24 +32,82 @@ export type VenueRenderContext = {
   pastEvents: ArchivedEventView[] | null;
 };
 
-// The view model stores blocks with Convex-branded storage ids; the pure block
-// model types them as strings. Runtime shape is identical — cast at the
-// boundary exactly as convex/venue.ts does.
-export function viewBlocks(view: VenuePageView): VenueBlock[] {
-  return view.blocks as unknown as VenueBlock[];
+// Substitute block-embedded storage ids with their resolved (signed) URLs —
+// the map the queries build with ctx.storage.getUrl(). Pure and shallow-safe:
+// blocks without media pass through untouched; an id the map misses is left
+// as-is (venueStorageUrl then drops it rather than guessing a URL). Used by
+// viewBlocks for the public page and by the editor preview for draft blocks.
+export function resolveVenueBlockMedia(
+  blocks: VenueBlock[],
+  urls: Record<string, string> | undefined,
+): VenueBlock[] {
+  if (!urls || Object.keys(urls).length === 0) return blocks;
+  return blocks.map((block) => {
+    if (block.type === "gallery") {
+      return {
+        ...block,
+        props: {
+          ...block.props,
+          items: block.props.items.map((item) => ({
+            ...item,
+            storageId: urls[item.storageId] ?? item.storageId,
+          })),
+        },
+      };
+    }
+    if (block.type === "profileCards") {
+      return {
+        ...block,
+        props: {
+          ...block.props,
+          items: block.props.items.map((item) => ({
+            ...item,
+            imageStorageId: item.imageStorageId
+              ? urls[item.imageStorageId] ?? item.imageStorageId
+              : item.imageStorageId,
+          })),
+        },
+      };
+    }
+    if (block.type === "programTimeline") {
+      return {
+        ...block,
+        props: {
+          ...block.props,
+          items: block.props.items.map((item) => ({
+            ...item,
+            imageStorageId: item.imageStorageId
+              ? urls[item.imageStorageId] ?? item.imageStorageId
+              : item.imageStorageId,
+          })),
+        },
+      };
+    }
+    return block;
+  });
 }
 
-// A stored storage id resolves to the deployment's public file URL. Convex
-// serves storage documents at {deployment}/api/storage/{id} — the same URLs
-// ctx.storage.getUrl() returns for top-level media in the view model.
+// The view model stores blocks with Convex-branded storage ids; the pure block
+// model types them as strings. Runtime shape is identical — cast at the
+// boundary exactly as convex/venue.ts does. Embedded media ids are swapped for
+// the query's signed URLs here, BEFORE any renderer runs.
+export function viewBlocks(view: VenuePageView): VenueBlock[] {
+  return resolveVenueBlockMedia(
+    view.blocks as unknown as VenueBlock[],
+    view.blockImageUrls,
+  );
+}
+
+// Media reference → displayable URL. After resolveVenueBlockMedia the value is
+// a URL (signed by the query) or a fixture path; a bare storage id can only
+// mean the file was deleted or the map missed it, and an unsigned
+// `/api/storage/{id}` guess is REJECTED by Convex (the Step-0 TASK-12 gap: six
+// invisible broken gallery images read as a ~300px void on the public page).
+// Render nothing instead of a broken image.
 export function venueStorageUrl(storageId: string | undefined): string | null {
   if (!storageId) return null;
-  // Fixture affordance: a real storage id is an opaque token, never a path or
-  // URL, so path-shaped values (dev preview, render smoke) pass through.
   if (storageId.startsWith("/") || storageId.startsWith("http")) {
     return storageId;
   }
-  const base = process.env.NEXT_PUBLIC_CONVEX_URL;
-  if (!base) return null;
-  return `${base.replace(/\/+$/, "")}/api/storage/${storageId}`;
+  return null;
 }

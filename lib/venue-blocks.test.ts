@@ -7,6 +7,7 @@ import {
   MAX_BLOCKS,
   PRICE_LIST_MAX_ITEMS,
   PROGRAM_MAX_ITEMS,
+  VENUE_BLOCK_BOUNDS,
   VENUE_BLOCK_TYPES,
   type VenueBlock,
 } from "./venue-blocks";
@@ -216,5 +217,52 @@ describe("clampBlockList — the 30-block config cap", () => {
     const once = clampBlockList(many);
     const twice = clampBlockList(once);
     expect(twice).toEqual(once);
+  });
+});
+
+// TASK-12: the exported bounds ARE the clamp behaviour. Every editor control
+// derives its min/max from VENUE_BLOCK_BOUNDS; this proves the same tuple
+// governs clamp(), so a drifted retype cannot exist.
+describe("VENUE_BLOCK_BOUNDS — the clamps enforce exactly the exported ranges", () => {
+  it("clamps base + prop numerics to the exported tuples", () => {
+    const probe: VenueBlock = {
+      type: "spacer",
+      base: {
+        id: "s",
+        visible: true,
+        radius: Number.MAX_SAFE_INTEGER,
+        spacing: { top: -1e9, bottom: 1e9 },
+        border: { width: 1e9, color: "#000000" },
+        shadow: {
+          enabled: true,
+          color: "#000000",
+          x: -1e9,
+          y: 1e9,
+          blur: 1e9,
+          opacity: 5,
+        },
+      },
+      props: { height: 1e9, divider: false },
+    };
+    const clamped = clamp(probe);
+    if (clamped.type !== "spacer") throw new Error("type changed");
+    expect(clamped.base.radius).toBe(VENUE_BLOCK_BOUNDS.radius[1]);
+    expect(clamped.base.spacing).toEqual({
+      top: VENUE_BLOCK_BOUNDS.spacing[0],
+      bottom: VENUE_BLOCK_BOUNDS.spacing[1],
+    });
+    expect(clamped.base.border?.width).toBe(VENUE_BLOCK_BOUNDS.borderWidth[1]);
+    expect(clamped.base.shadow).toMatchObject({
+      x: VENUE_BLOCK_BOUNDS.shadowOffset[0],
+      y: VENUE_BLOCK_BOUNDS.shadowOffset[1],
+      blur: VENUE_BLOCK_BOUNDS.shadowBlur[1],
+      opacity: VENUE_BLOCK_BOUNDS.shadowOpacity[1],
+    });
+    expect(clamped.props.height).toBe(VENUE_BLOCK_BOUNDS.spacerHeight[1]);
+
+    const gallery = clamp(galleryWith(1, 99, 1e9));
+    if (gallery.type !== "gallery") throw new Error("type changed");
+    expect(gallery.props.columns).toBe(VENUE_BLOCK_BOUNDS.galleryColumns[1]);
+    expect(gallery.props.gap).toBe(VENUE_BLOCK_BOUNDS.galleryGap[1]);
   });
 });

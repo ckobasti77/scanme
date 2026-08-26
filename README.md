@@ -98,6 +98,32 @@ Aktivan primer je `/primer-review`, a namerno isključen primer je
 predstavljeno kao stvarni klijent. Pre produkcije postavite pravi Google Review
 link kroz zaštićen administrativni proces i uklonite lokalni demo ključ.
 
+## Lokalni primer ScanMe Venue stranice
+
+Uz pokrenut Convex (`npx convex dev`) i postavljen ključ od najmanje 16
+karaktera, jedan `npx convex run` pravi demo lokal sa aktivnim Venue profilom i
+jednim događajem koji je **trenutno uživo**, sa reprezentativnim blokovima
+(odbrojavanje, datum i vreme, program, galerija, profili, cenovnik, mapa,
+rezervacije, deljenje). Tri komande od praznog checkout-a do editora:
+
+```powershell
+npx convex env set SCANME_VENUE_DEMO_SETUP_KEY <lokalni-kljuc>
+npx convex run venueDevSeed:seed '{"setupKey":"<lokalni-kljuc>"}'
+npm run dev
+```
+
+Zatim otvorite:
+
+- javna stranica (odmah prikazuje „uživo“ stanje): `/venue-primer/venue`
+- editor: `/venue-primer/venue/editor`
+
+Seed je bezbedan za ponovno pokretanje — vraća postojeći demo umesto da pravi
+duplikat. Lokal je jasno označen kao demo (`status: "demo"`, slug
+`venue-primer`). Pre produkcije uklonite lokalni demo ključ.
+
+Za pravi lokal Venue se dodeljuje kroz zaštićen admin ekran na `/admin/venue`
+(bira se lokal i plan; deaktivacija čuva sav sadržaj).
+
 ## Zlatni harness (ScanMe Links regression net)
 
 Harness dokazuje da se objavljene ScanMe Links stranice ne menjaju ni za bajt

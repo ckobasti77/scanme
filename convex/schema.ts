@@ -74,8 +74,9 @@ const accentTokens = v.object({
 });
 
 // Card retarget kinds (RFC-001 §2.4 C.9). Shared by `cardTargets.kind` and
-// `cardScanEvents.targetKind` so the two can never drift.
-const cardTargetKind = v.union(
+// `cardScanEvents.targetKind` so the two can never drift; exported for the
+// convex/cards.ts arg validators (TASK-14).
+export const cardTargetKind = v.union(
   v.literal("memories_space"),
   v.literal("venue"),
   v.literal("event"),
@@ -84,8 +85,9 @@ const cardTargetKind = v.union(
 );
 
 // Reduced device signal for the new scan/visit event tables (RFC-001 §2.4
-// C.10). No IP or full UA is stored (§2.10 GDPR minimization).
-const deviceCategory = v.union(
+// C.10). No IP or full UA is stored (§2.10 GDPR minimization). Exported for
+// the convex/cards.ts arg validators (TASK-14).
+export const deviceCategory = v.union(
   v.literal("mobile"),
   v.literal("tablet"),
   v.literal("desktop"),

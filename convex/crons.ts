@@ -7,15 +7,21 @@ import { internal } from "./_generated/api";
 //     a safety net that flips scheduled→live and live→ended events the scheduler
 //     missed. It sweeps events.by_status_and_startsAt / by_status_and_endsAt and
 //     no-ops on empty tables.
+//   • the 15-minute Memories stale-session sweep (TASK-14 / RFC-001 §2.4 C.5) —
+//     the backstop for lost scheduled closeSession calls: closes recurring
+//     sessions whose night has rolled over and one_off sessions past windowEndAt.
+//   • the hourly purge of stale `reserved` AND `processing` memoriesPhotos
+//     rows older than 24h (TASK-14/15 / RFC-001 §2.8–2.9) — quota slots whose
+//     client never uploaded, and pipeline runs that crashed between claim and
+//     commit, together with their pinned original blobs. This is the reaper
+//     half of the reserve→commit protocol: a crash costs storage for one day,
+//     not forever.
 //
 // DELIBERATELY ABSENT — do not add here:
-//   • retention / purge sweeps (RFC-001 §2.9) — they delete rows in tables that
-//     do not exist yet (memoriesPhotos content, mediaAssets blobs); adding them
-//     now is untestable dead code. They land with the image pipeline.
-//   • the Memories session-close reconcile (RFC-001 §2.2 C.5) — no sessions are
-//     written yet; it lands with the Memories lifecycle work.
-//   • @convex-dev/rate-limiter is NOT mounted (RFC-001 §2.9) — it has no consumer
-//     until the card resolver exists.
+//   • the retention sweep and the deleted-tombstone blob purge (RFC-001 §2.9
+//     retentionSweep / the tombstone half of purgeSweep) — they act on READY
+//     media and its mediaAssets variants, which galleries do not serve yet;
+//     they land with the remaining Memories tasks.
 // Each remaining sweep belongs with the feature that writes the rows it sweeps.
 const crons = cronJobs();
 
@@ -30,6 +36,20 @@ crons.interval(
   "reconcile event lifecycle",
   { minutes: 15 },
   internal.venue.reconcileEventLifecycle,
+  {},
+);
+
+crons.interval(
+  "close stale memories sessions",
+  { minutes: 15 },
+  internal.memories.sweepStaleSessions,
+  {},
+);
+
+crons.interval(
+  "purge stale upload reservations",
+  { hours: 1 },
+  internal.memories.purgeStaleReservations,
   {},
 );
 

@@ -3,6 +3,7 @@
 import { ConvexError } from "convex/values";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { Authenticated, AuthLoading, Unauthenticated, useMutation, useQuery } from "convex/react";
+import type { FunctionReturnType } from "convex/server";
 import { animate, motion, useMotionValue, useReducedMotion, useTransform } from "framer-motion";
 import { ArrowUpRight, Eye, EyeOff, LoaderCircle, LogOut, PencilLine, ShieldCheck } from "lucide-react";
 import Link from "next/link";
@@ -11,6 +12,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ClientWordmark } from "@/components/client-panel/client-wordmark";
+import { VenuePanelSection } from "@/components/client-panel/venue-panel-section";
+import { MemoriesPanelSection } from "@/components/client-panel/memories-panel-section";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { MetricsBarChart } from "@/components/metrics-bar-chart";
 import { MetricsPeriodSelect } from "@/components/metrics-period-select";
@@ -19,6 +22,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import type { MetricsRange } from "@/convex/lib/metrics";
+import { venuePanelSr } from "@/lib/i18n/sr/venue-panel";
+import { memoriesPanelSr } from "@/lib/i18n/sr/memories-panel";
 import { useRetainedQueryResult } from "@/lib/use-retained-query-result";
 
 const numberFormatter = new Intl.NumberFormat("sr-Latn-RS");
@@ -42,14 +47,44 @@ export function ClientPanel({ slug }: { slug: string }) {
   );
 }
 
-type ServiceTab = "scanme_links" | "google_review";
+type ServiceTab =
+  | "scanme_links"
+  | "google_review"
+  | "scanme_venue"
+  | "scanme_memories";
 
 function ServicesPanel({ slug }: { slug: string }) {
   const overview = useQuery(api.clientPanel.overview, { slug });
+  // TASK-13 — the Venue section is an additive read model beside `overview`; it
+  // gates itself (returns "none" for a business with no active Venue profile),
+  // so a Links/Google-Review-only business sees an unchanged panel.
+  const venue = useQuery(api.clientPanel.venuePanel, { slug });
+  // TASK-18 — same additive, self-gating shape for Memories (a celebration
+  // tenant reaches its panel through this query alone).
+  const memories = useQuery(api.clientPanel.memoriesPanel, { slug });
+  const { signOut } = useAuthActions();
   const [selectedTab, setSelectedTab] = useState<ServiceTab | null>(null);
 
   if (overview === undefined) return <PanelLoading />;
+
+  const venueSection = venue?.status === "available" ? venue : null;
+  const memoriesSection = memories?.status === "available" ? memories : null;
+
   if (overview.status === "forbidden") {
+    // A tenant that owns only Venue and/or Memories (no legacy Google Review
+    // link — including every celebration) still reaches its panel through the
+    // product-agnostic venuePanel/memoriesPanel queries. Render just those
+    // sections rather than the access-denied screen.
+    if (venueSection || memoriesSection) {
+      return (
+        <ExtraServicesOnly
+          slug={slug}
+          venueSection={venueSection}
+          memoriesSection={memoriesSection}
+          onSignOut={() => void signOut()}
+        />
+      );
+    }
     return (
       <section className="border border-border bg-card p-6 sm:p-10">
         <ShieldCheck className="size-8 text-destructive" />
@@ -72,13 +107,23 @@ function ServicesPanel({ slug }: { slug: string }) {
   return (
     <Tabs value={tab} onValueChange={(value) => setSelectedTab(value as ServiceTab)}>
       <div className="mb-7 flex justify-end border-b border-border pb-5">
-        <TabsList className="h-auto min-h-11 w-full sm:w-auto">
+        <TabsList className="h-auto min-h-11 w-full flex-wrap sm:w-auto">
           <TabsTrigger value="scanme_links" className="min-h-9 px-4">
             ScanMe Links
           </TabsTrigger>
           <TabsTrigger value="google_review" className="min-h-9 px-4">
             Google Review
           </TabsTrigger>
+          {venueSection ? (
+            <TabsTrigger value="scanme_venue" className="min-h-9 px-4">
+              {venuePanelSr.tabLabel}
+            </TabsTrigger>
+          ) : null}
+          {memoriesSection ? (
+            <TabsTrigger value="scanme_memories" className="min-h-9 px-4">
+              {memoriesPanelSr.tabLabel}
+            </TabsTrigger>
+          ) : null}
         </TabsList>
       </div>
       <TabsContent value="scanme_links">
@@ -108,6 +153,91 @@ function ServicesPanel({ slug }: { slug: string }) {
           />
         )}
       </TabsContent>
+      {venueSection ? (
+        <TabsContent value="scanme_venue">
+          <VenuePanelSection
+            slug={slug}
+            data={venueSection}
+            onSignOut={() => void signOut()}
+          />
+        </TabsContent>
+      ) : null}
+      {memoriesSection ? (
+        <TabsContent value="scanme_memories">
+          <MemoriesPanelSection
+            data={memoriesSection}
+            onSignOut={() => void signOut()}
+          />
+        </TabsContent>
+      ) : null}
+    </Tabs>
+  );
+}
+
+// A tenant reachable ONLY through the product-agnostic Venue/Memories queries
+// (no Links/Google-Review overview — every celebration, and any Venue/Memories-
+// only business). Renders whichever sections resolve; tabs only when both do.
+function ExtraServicesOnly({
+  slug,
+  venueSection,
+  memoriesSection,
+  onSignOut,
+}: {
+  slug: string;
+  venueSection: Extract<
+    FunctionReturnType<typeof api.clientPanel.venuePanel>,
+    { status: "available" }
+  > | null;
+  memoriesSection: Extract<
+    FunctionReturnType<typeof api.clientPanel.memoriesPanel>,
+    { status: "available" }
+  > | null;
+  onSignOut: () => void;
+}) {
+  const [tab, setTab] = useState<ServiceTab>(
+    venueSection ? "scanme_venue" : "scanme_memories",
+  );
+
+  if (venueSection && !memoriesSection) {
+    return (
+      <VenuePanelSection slug={slug} data={venueSection} onSignOut={onSignOut} />
+    );
+  }
+  if (memoriesSection && !venueSection) {
+    return (
+      <MemoriesPanelSection data={memoriesSection} onSignOut={onSignOut} />
+    );
+  }
+  return (
+    <Tabs value={tab} onValueChange={(value) => setTab(value as ServiceTab)}>
+      <div className="mb-7 flex justify-end border-b border-border pb-5">
+        <TabsList className="h-auto min-h-11 w-full flex-wrap sm:w-auto">
+          {venueSection ? (
+            <TabsTrigger value="scanme_venue" className="min-h-9 px-4">
+              {venuePanelSr.tabLabel}
+            </TabsTrigger>
+          ) : null}
+          {memoriesSection ? (
+            <TabsTrigger value="scanme_memories" className="min-h-9 px-4">
+              {memoriesPanelSr.tabLabel}
+            </TabsTrigger>
+          ) : null}
+        </TabsList>
+      </div>
+      {venueSection ? (
+        <TabsContent value="scanme_venue">
+          <VenuePanelSection
+            slug={slug}
+            data={venueSection}
+            onSignOut={onSignOut}
+          />
+        </TabsContent>
+      ) : null}
+      {memoriesSection ? (
+        <TabsContent value="scanme_memories">
+          <MemoriesPanelSection data={memoriesSection} onSignOut={onSignOut} />
+        </TabsContent>
+      ) : null}
     </Tabs>
   );
 }

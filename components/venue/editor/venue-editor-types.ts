@@ -4,6 +4,7 @@
 
 import type { FunctionReturnType } from "convex/server";
 import type { api } from "@/convex/_generated/api";
+import type { VenueDesign } from "@/lib/design-engine/venue-tokens";
 import type { VenueBlock } from "@/lib/venue-blocks";
 
 export type VenueEditorData = NonNullable<
@@ -33,11 +34,15 @@ export type VenueEditorSelection =
   | { kind: "page" }
   | null;
 
-// The editable document. TASK-10's palette edits only the block list; the
-// display name and page design ride along read-only from the editor query and
-// join the document when their panels arrive (TASK-11).
+// The editable document (TASK-12): the block list plus the page-level draft
+// content the page panels edit — display name and the design document. All of
+// it flows through one history (undo covers a palette change exactly like a
+// block edit) and one autosave payload. Top-level media storage ids are NOT
+// here: they save immediately via saveDraft's dedicated args, like Links.
 export type VenueEditorDocument = {
   blocks: VenueBlock[];
+  displayName: string | null;
+  design: VenueDesign | null;
 };
 
 export type VenueEditorSaveState = "saved" | "saving" | "error";

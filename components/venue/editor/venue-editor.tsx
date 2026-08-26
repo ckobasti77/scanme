@@ -43,6 +43,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
+import {
+  clampVenueDesign,
+  type VenueDesign,
+} from "@/lib/design-engine/venue-tokens";
 import { fmt } from "@/lib/i18n";
 import { venueEditorSr as dict } from "@/lib/i18n/sr/venue-editor";
 import {
@@ -53,6 +58,16 @@ import {
 } from "@/lib/venue-blocks";
 import { VENUE_BLOCK_REGISTRY } from "@/components/venue/blocks/registry";
 import { VenueEditorBlocksPanel } from "./venue-editor-blocks-panel";
+import {
+  paletteSwatches,
+  VenueEditorPanelProvider,
+  type VenueEditorPanelServices,
+} from "./venue-editor-panel-context";
+import {
+  VenuePagePanel,
+  type VenueTopMediaKind,
+} from "./venue-editor-page-panels";
+import { postFileWithProgress } from "./venue-editor-upload";
 import {
   panelCopy,
   primaryToolItems,
@@ -149,7 +164,9 @@ function VenueEditorLoader({ slug }: { slug: string }) {
 }
 
 function documentHash(document: VenueEditorDocument) {
-  return stableStringify(document.blocks);
+  // The whole editable document — blocks, display name, design — one hash, one
+  // autosave loop, one history.
+  return stableStringify(document);
 }
 
 // Content check for the delete confirmation: a block whose props still equal
@@ -176,7 +193,12 @@ export function VenueEditorWorkspace({ data }: { data: VenueEditorData }) {
   const compactEditor = useCompactVenueEditor();
 
   const initialDocument = useMemo<VenueEditorDocument>(
-    () => ({ blocks: draftBlocksToDocument(event.draftBlocks) }),
+    () => ({
+      blocks: draftBlocksToDocument(event.draftBlocks),
+      displayName: event.draftDisplayName,
+      // Stored (branded) design shape → pure model shape; runtime-identical.
+      design: event.draftDesign as VenueEditorDocument["design"],
+    }),
     // The workspace is keyed by event id; the initial document is read once.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
@@ -205,6 +227,20 @@ export function VenueEditorWorkspace({ data }: { data: VenueEditorData }) {
 
   const saveDraft = useMutation(api.venue.saveDraft);
   const publishDraft = useMutation(api.venue.publishDraft);
+  const generateUploadUrl = useMutation(api.venue.generateEditorUploadUrl);
+
+  // Fresh-upload object URLs, overlaid on the editor query's signed URLs so a
+  // just-uploaded image previews instantly (TASK-12 media loop).
+  const [localMediaUrls, setLocalMediaUrls] = useState<Record<string, string>>(
+    {},
+  );
+  const registerLocalMedia = useCallback((storageId: string, url: string) => {
+    setLocalMediaUrls((current) => ({ ...current, [storageId]: url }));
+  }, []);
+  const mediaUrls = useMemo(
+    () => ({ ...event.blockImageUrls, ...localMediaUrls }),
+    [event.blockImageUrls, localMediaUrls],
+  );
 
   const currentHash = useMemo(() => documentHash(document), [document]);
 
@@ -239,6 +275,13 @@ export function VenueEditorWorkspace({ data }: { data: VenueEditorData }) {
         const result = await saveDraft({
           eventId: event.id,
           blocks: documentBlocksToArg(target.blocks),
+          // Empty string clears the display name server-side (optionalText).
+          displayName: target.displayName ?? "",
+          // A never-designed page stays undesigned until a page panel edits
+          // it; sending nothing keeps the stored value untouched.
+          design: target.design
+            ? (target.design as Parameters<typeof saveDraft>[0]["design"])
+            : undefined,
         });
         persistedHashRef.current = hash;
         latestRevisionRef.current = result.draftRevision;
@@ -257,6 +300,63 @@ export function VenueEditorWorkspace({ data }: { data: VenueEditorData }) {
           setSaveError(message);
         }
         throw error;
+      }
+    },
+    [event.id, saveDraft],
+  );
+
+  // Panel services (TASK-12): the upload pipeline and the CURRENT page
+  // palette, provided once so every block/page panel stays prop-free.
+  const upload = useCallback(
+    async (file: File, onProgress: (percent: number) => void) => {
+      const uploadUrl = await generateUploadUrl({ eventId: event.id });
+      return postFileWithProgress(uploadUrl, file, onProgress);
+    },
+    [event.id, generateUploadUrl],
+  );
+  const panelServices = useMemo<VenueEditorPanelServices>(
+    () => ({
+      eventId: event.id,
+      swatches: paletteSwatches(
+        clampVenueDesign(
+          document.design ?? (event.draftDesign as VenueDesign | null),
+        ).colors,
+      ),
+      upload,
+      mediaUrls,
+      registerLocalMedia,
+    }),
+    [document.design, event.draftDesign, event.id, mediaUrls, registerLocalMedia, upload],
+  );
+
+  // Top-level media (logo, background image/video) saves immediately through
+  // saveDraft's dedicated args — outside the undo document, like Links — with
+  // the same honest save states.
+  const saveMedia = useCallback(
+    async (kind: VenueTopMediaKind, storageId: string | null) => {
+      const value = storageId as Id<"_storage"> | null;
+      setSaveState("saving");
+      setSaveError(null);
+      try {
+        const result = await saveDraft({
+          eventId: event.id,
+          ...(kind === "logo"
+            ? { logoStorageId: value }
+            : kind === "backgroundImage"
+              ? { backgroundImageStorageId: value }
+              : { backgroundVideoStorageId: value }),
+        });
+        latestRevisionRef.current = result.draftRevision;
+        setSaveState(
+          documentHash(currentDocumentRef.current) === persistedHashRef.current
+            ? "saved"
+            : "saving",
+        );
+      } catch (error) {
+        const message = errorMessage(error, dict.saveErrorFallback);
+        setSaveState("error");
+        setSaveError(message);
+        toast.error(message);
       }
     },
     [event.id, saveDraft],
@@ -355,8 +455,15 @@ export function VenueEditorWorkspace({ data }: { data: VenueEditorData }) {
     setActivePanel("blocks");
   }
 
+  // Selecting the page (template chrome in the preview) opens the page's own
+  // panels; an already-open page panel is kept, otherwise style leads.
   function handleSelectPage() {
     setSelection({ kind: "page" });
+    setActivePanel((current) =>
+      current && current !== "blocks" && current !== "analytics" && current !== "help"
+        ? current
+        : "style",
+    );
   }
 
   function handlePanelSelect(panel: VenueEditorPanelId) {
@@ -501,15 +608,28 @@ export function VenueEditorWorkspace({ data }: { data: VenueEditorData }) {
         />
       );
     }
-    return <VenueEditorStaticPanelContent panel={panel} data={data} />;
+    if (panel === "analytics" || panel === "help") {
+      return <VenueEditorStaticPanelContent panel={panel} />;
+    }
+    return (
+      <VenuePagePanel
+        panel={panel}
+        data={data}
+        document={document}
+        setDocument={setDocument}
+        saveMedia={(kind, storageId) => void saveMedia(kind, storageId)}
+      />
+    );
   }
 
   return (
+    <VenueEditorPanelProvider value={panelServices}>
     <div className={styles.editorRoot}>
       {compactEditor ? (
         <VenueEditorMobileShell
           data={data}
           document={document}
+          mediaUrls={mediaUrls}
           saveState={saveState}
           saveError={saveError}
           canUndo={history.canUndo}
@@ -696,6 +816,7 @@ export function VenueEditorWorkspace({ data }: { data: VenueEditorData }) {
             <VenueEditorPreview
               data={data}
               document={document}
+              mediaUrls={mediaUrls}
               selection={selection}
               onSelectBlock={handleSelectBlock}
               onSelectPage={handleSelectPage}
@@ -794,6 +915,7 @@ export function VenueEditorWorkspace({ data }: { data: VenueEditorData }) {
         </DialogContent>
       </Dialog>
     </div>
+    </VenueEditorPanelProvider>
   );
 }
 

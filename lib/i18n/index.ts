@@ -11,31 +11,53 @@
 // A second locale is mechanical: add lib/i18n/en/* implementing the same
 // interfaces and extend getDict.
 
-import { fmt } from "./format";
+import { fmt, srPluralCategory } from "./format";
 import type { DictBySurface, Surface } from "./types";
 import { venueSr } from "./sr/venue";
 import { venueEditorSr } from "./sr/venue-editor";
+import { venueAdminSr } from "./sr/venue-admin";
+import { venuePanelSr } from "./sr/venue-panel";
 import { memoriesSr } from "./sr/memories";
+import { memoriesAdminSr } from "./sr/memories-admin";
+import { memoriesPanelSr } from "./sr/memories-panel";
 import { resolverSr } from "./sr/resolver";
 import { consentSr } from "./sr/consent";
 
-export { fmt };
+export { fmt, srPluralCategory };
 export type {
   Locale,
   Surface,
   DictBySurface,
   VenueDict,
   VenueEditorDict,
+  VenueAdminDict,
+  VenuePanelDict,
   MemoriesDict,
+  MemoriesAdminDict,
+  MemoriesPanelDict,
   ResolverDict,
   ConsentDict,
 } from "./types";
-export { venueSr, venueEditorSr, memoriesSr, resolverSr, consentSr };
+export {
+  venueSr,
+  venueEditorSr,
+  venueAdminSr,
+  venuePanelSr,
+  memoriesSr,
+  memoriesAdminSr,
+  memoriesPanelSr,
+  resolverSr,
+  consentSr,
+};
 
 const SR: DictBySurface = {
   venue: venueSr,
   "venue-editor": venueEditorSr,
+  "venue-admin": venueAdminSr,
+  "venue-panel": venuePanelSr,
   memories: memoriesSr,
+  "memories-admin": memoriesAdminSr,
+  "memories-panel": memoriesPanelSr,
   resolver: resolverSr,
   consent: consentSr,
 };

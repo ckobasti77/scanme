@@ -216,16 +216,38 @@ export const PRICE_LIST_MAX_ITEMS = 60;
 
 // Inclusive numeric ranges for bounded properties. Chosen as the smallest
 // reasonable defaults where the RFC makes no decision (listed in the report).
-const RADIUS_RANGE = [0, 120] as const;
-const SPACING_RANGE = [0, 200] as const;
-const BORDER_WIDTH_RANGE = [0, 24] as const;
-const GALLERY_COLUMNS_RANGE = [1, 4] as const;
-const GALLERY_GAP_RANGE = [0, 64] as const;
-const PROFILE_COLUMNS_RANGE = [1, 4] as const;
-const MAP_ZOOM_RANGE = [1, 21] as const;
-const PAST_EVENTS_LIMIT_RANGE = [1, 24] as const;
-const SPACER_HEIGHT_RANGE = [0, 400] as const;
-const CAPACITY_RANGE = [0, 100000] as const;
+//
+// EXPORTED as the single source both `clamp()` below and every editor control
+// read (TASK-12 constrained freedom): a slider's min/max must be DERIVED from
+// the same constant the server clamps with — a retyped copy would drift.
+export const VENUE_BLOCK_BOUNDS = {
+  radius: [0, 120],
+  spacing: [0, 200],
+  borderWidth: [0, 24],
+  galleryColumns: [1, 4],
+  galleryGap: [0, 64],
+  profileColumns: [1, 4],
+  mapZoom: [1, 21],
+  pastEventsLimit: [1, 24],
+  spacerHeight: [0, 400],
+  capacity: [0, 100000],
+  // Per-block shadow geometry — clamped in clampBase so the editor's shadow
+  // sliders and the server agree on the reachable range.
+  shadowOffset: [-40, 40],
+  shadowBlur: [0, 80],
+  shadowOpacity: [0, 1],
+} as const satisfies Record<string, readonly [number, number]>;
+
+const RADIUS_RANGE = VENUE_BLOCK_BOUNDS.radius;
+const SPACING_RANGE = VENUE_BLOCK_BOUNDS.spacing;
+const BORDER_WIDTH_RANGE = VENUE_BLOCK_BOUNDS.borderWidth;
+const GALLERY_COLUMNS_RANGE = VENUE_BLOCK_BOUNDS.galleryColumns;
+const GALLERY_GAP_RANGE = VENUE_BLOCK_BOUNDS.galleryGap;
+const PROFILE_COLUMNS_RANGE = VENUE_BLOCK_BOUNDS.profileColumns;
+const MAP_ZOOM_RANGE = VENUE_BLOCK_BOUNDS.mapZoom;
+const PAST_EVENTS_LIMIT_RANGE = VENUE_BLOCK_BOUNDS.pastEventsLimit;
+const SPACER_HEIGHT_RANGE = VENUE_BLOCK_BOUNDS.spacerHeight;
+const CAPACITY_RANGE = VENUE_BLOCK_BOUNDS.capacity;
 
 const clampNum = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value));
@@ -357,6 +379,15 @@ function clampBase(base: VenueBlockBase): VenueBlockBase {
     next.border = {
       ...next.border,
       width: clampNum(next.border.width, ...BORDER_WIDTH_RANGE),
+    };
+  }
+  if (next.shadow) {
+    next.shadow = {
+      ...next.shadow,
+      x: clampNum(next.shadow.x, ...VENUE_BLOCK_BOUNDS.shadowOffset),
+      y: clampNum(next.shadow.y, ...VENUE_BLOCK_BOUNDS.shadowOffset),
+      blur: clampNum(next.shadow.blur, ...VENUE_BLOCK_BOUNDS.shadowBlur),
+      opacity: clampNum(next.shadow.opacity, ...VENUE_BLOCK_BOUNDS.shadowOpacity),
     };
   }
   return next;

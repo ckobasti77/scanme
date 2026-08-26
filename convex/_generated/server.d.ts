@@ -36,8 +36,12 @@ type Env = {
   readonly SCANME_ADMIN_EMAILS: string | undefined;
   readonly SCANME_ADMIN_SETUP_SECRET: string | undefined;
   readonly SCANME_DEMO_SETUP_KEY: string | undefined;
+  readonly SCANME_GUEST_SECRET: string | undefined;
   readonly SCANME_INVITE_SECRET: string | undefined;
+  readonly SCANME_MEMORIES_DEMO_SETUP_KEY: string | undefined;
+  readonly SCANME_PIPELINE_SECRET: string | undefined;
   readonly SCANME_SITE_URL: string | undefined;
+  readonly SCANME_VENUE_DEMO_SETUP_KEY: string | undefined;
 };
 
 /**

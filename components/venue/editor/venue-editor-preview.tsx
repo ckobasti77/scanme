@@ -42,10 +42,11 @@ import {
   VENUE_BLOCK_REGISTRY,
 } from "@/components/venue/blocks/registry";
 import { VenueTemplate } from "@/components/venue/venue-template";
-import type {
-  VenueLifecycle,
-  VenuePageView,
-  VenueRenderContext,
+import {
+  resolveVenueBlockMedia,
+  type VenueLifecycle,
+  type VenuePageView,
+  type VenueRenderContext,
 } from "@/components/venue/venue-view";
 import {
   Select,
@@ -75,11 +76,20 @@ function previewLifecycle(status: string): VenueLifecycle {
 
 // One shared model for both shells (desktop preview and mobile canvas): the
 // template view and the render context always derive from the same editor
-// data, so the two previews cannot drift. (Blocks render as children from the
-// live document, wrapped for selection — see InteractiveVenuePreviewPage.)
-export function useVenueEditorPreviewModel(data: VenueEditorData) {
+// data, so the two previews cannot drift. Display name and design come from
+// the LIVE document (TASK-12) so page-panel edits preview instantly; blocks
+// render as children from the same document — see InteractiveVenuePreviewPage.
+export function useVenueEditorPreviewModel(
+  data: VenueEditorData,
+  document: VenueEditorDocument,
+) {
   const event = data.event!;
   const lifecycle = previewLifecycle(event.status);
+  const displayName = document.displayName ?? data.businessName;
+  // The document's design is the pure model shape; the view type carries the
+  // stored (branded) shape. Runtime-identical — cast at the boundary.
+  const design = (document.design ??
+    event.draftDesign) as VenuePageView["design"];
 
   const view = useMemo<VenuePageView>(
     () => ({
@@ -90,16 +100,17 @@ export function useVenueEditorPreviewModel(data: VenueEditorData) {
         startsAt: event.startsAt,
         endsAt: event.endsAt,
       },
-      displayName: event.draftDisplayName ?? data.businessName,
-      design: event.draftDesign,
+      displayName,
+      design,
       // Blocks render as children (wrapped for selection); the template's own
-      // list stays empty.
+      // list stays empty, so its own media map is empty too.
       blocks: [],
+      blockImageUrls: {},
       logoUrl: event.draftLogoUrl,
       backgroundImageUrl: event.draftBackgroundImageUrl,
       backgroundVideoUrl: event.draftBackgroundVideoUrl,
     }),
-    [data.businessName, event],
+    [design, displayName, event],
   );
 
   const ctx = useMemo<VenueRenderContext>(
@@ -107,13 +118,13 @@ export function useVenueEditorPreviewModel(data: VenueEditorData) {
       businessSlug: data.businessSlug,
       eventSlug: event.slug,
       eventTitle: event.title,
-      displayName: event.draftDisplayName ?? data.businessName,
+      displayName,
       eventStartsAt: event.startsAt,
       eventEndsAt: event.endsAt,
       lifecycle,
       pastEvents: null,
     }),
-    [data.businessName, data.businessSlug, event, lifecycle],
+    [data.businessSlug, displayName, event, lifecycle],
   );
 
   return { view, ctx, lifecycle };
@@ -122,6 +133,7 @@ export function useVenueEditorPreviewModel(data: VenueEditorData) {
 export function InteractiveVenuePreviewPage({
   data,
   document,
+  mediaUrls,
   selection,
   onSelectBlock,
   onSelectPage,
@@ -129,12 +141,22 @@ export function InteractiveVenuePreviewPage({
 }: {
   data: VenueEditorData;
   document: VenueEditorDocument;
+  /** storageId → displayable URL (the editor query's signed URLs merged with
+   * this session's fresh-upload object URLs). */
+  mediaUrls: Record<string, string>;
   selection: VenueEditorSelection;
   onSelectBlock: (id: string) => void;
   onSelectPage: () => void;
   onReorder: (activeId: string, overId: string) => void;
 }) {
-  const { view, ctx, lifecycle } = useVenueEditorPreviewModel(data);
+  const { view, ctx, lifecycle } = useVenueEditorPreviewModel(data, document);
+
+  // The same substitution the public page performs (venue-view.ts): embedded
+  // storage ids become real URLs BEFORE the block renderers run.
+  const resolvedBlocks = useMemo(
+    () => resolveVenueBlockMedia(document.blocks, mediaUrls),
+    [document.blocks, mediaUrls],
+  );
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 7 } }),
@@ -163,10 +185,10 @@ export function InteractiveVenuePreviewPage({
           onDragEnd={handleDragEnd}
         >
           <SortableContext
-            items={document.blocks.map((block) => block.base.id)}
+            items={resolvedBlocks.map((block) => block.base.id)}
             strategy={verticalListSortingStrategy}
           >
-            {document.blocks.map((block) => (
+            {resolvedBlocks.map((block) => (
               <SortablePreviewBlock
                 key={block.base.id}
                 block={block}
@@ -250,6 +272,7 @@ const PHONE_HEIGHT = 720;
 export function VenueEditorPreview({
   data,
   document,
+  mediaUrls,
   selection,
   onSelectBlock,
   onSelectPage,
@@ -261,6 +284,7 @@ export function VenueEditorPreview({
 }: {
   data: VenueEditorData;
   document: VenueEditorDocument;
+  mediaUrls: Record<string, string>;
   selection: VenueEditorSelection;
   onSelectBlock: (id: string) => void;
   onSelectPage: () => void;
@@ -311,6 +335,7 @@ export function VenueEditorPreview({
     <InteractiveVenuePreviewPage
       data={data}
       document={document}
+      mediaUrls={mediaUrls}
       selection={selection}
       onSelectBlock={onSelectBlock}
       onSelectPage={onSelectPage}

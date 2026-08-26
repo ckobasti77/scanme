@@ -309,6 +309,57 @@ describe("lifecycle state machine (RFC-001 §2.2)", () => {
   });
 });
 
+describe("endEventNow (TASK-13 — the owner's manual end)", () => {
+  test("ends a live event immediately and cancels the pending scheduled end", async () => {
+    const t = convexTest(schema, modules);
+    const { adminId, venueProfileId } = await seed(t);
+    const as = admin(t, adminId);
+    const now = Date.now();
+    const { eventId } = await createSavePublish(
+      t,
+      adminId,
+      venueProfileId,
+      "petak-uzivo",
+      "Petak",
+    );
+    const { lifecycleRevision } = await as.mutation(api.venue.scheduleEvent, {
+      eventId,
+      startsAt: now + 3_600_000,
+      endsAt: now + 7_200_000,
+    });
+    await t.mutation(internal.venue.goLive, {
+      eventId,
+      expectedRevision: lifecycleRevision,
+    });
+    expect((await getEvent(t, eventId))?.status).toBe("live");
+    const scheduledEndId = (await getEvent(t, eventId))!.scheduledEndId!;
+
+    const result = await as.mutation(api.venue.endEventNow, { eventId });
+    expect(result.ended).toBe(true);
+    expect((await getEvent(t, eventId))?.status).toBe("ended");
+
+    // The now-moot scheduled end is cancelled so it cannot re-fire later.
+    const endState = await t.run((ctx) =>
+      ctx.db.system.get("_scheduled_functions", scheduledEndId),
+    );
+    expect(endState?.state.kind).toBe("canceled");
+  });
+
+  test("refuses when the event is not live", async () => {
+    const t = convexTest(schema, modules);
+    const { adminId, venueProfileId } = await seed(t);
+    const as = admin(t, adminId);
+    const { eventId } = await as.mutation(api.venue.createEvent, {
+      venueProfileId,
+      slug: "samo-nacrt",
+      title: "Samo nacrt",
+    });
+    await expect(
+      as.mutation(api.venue.endEventNow, { eventId }),
+    ).rejects.toThrow(/nije uživo/i);
+  });
+});
+
 describe("draft/publish contract (RFC-001 §1.d, §2.4)", () => {
   test("publishDraft throws on a mismatched expectedDraftRevision", async () => {
     const t = convexTest(schema, modules);

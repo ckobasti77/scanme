@@ -102,10 +102,118 @@ export const VENUE_PRESET_CAPABILITIES = {
   default: VENUE_CAPABILITIES,
 } as const;
 
+// Inclusive numeric ranges for the page-level design document (TASK-12).
+// The RFC leaves these unspecified; they are the one source BOTH
+// clampVenueDesign below and the editor's page-panel sliders read, so the UI
+// can never offer a value the render path would take away.
+export const VENUE_DESIGN_BOUNDS = {
+  verticalSpacing: [8, 40],
+  lineHeight: [1.2, 2],
+  gradientAngle: [0, 360],
+  gradientCenter: [0, 100],
+  patternScale: [4, 96],
+  patternOpacity: [0, 1],
+  textureIntensity: [0, 1],
+  mediaZoom: [1, 3],
+  mediaPosition: [0, 100],
+  overlayOpacity: [0, 1],
+  animationSpeed: [0.25, 3],
+  animationIntensity: [0, 1],
+  shadowOffset: [-40, 40],
+  shadowBlur: [0, 80],
+  shadowOpacity: [0, 1],
+} as const satisfies Record<string, readonly [number, number]>;
+
+const bound = (
+  value: number,
+  [min, max]: readonly [number, number],
+): number => Math.min(max, Math.max(min, value));
+
+function clampVenueShadow(shadow: DesignShadow): DesignShadow {
+  return {
+    ...shadow,
+    x: bound(shadow.x, VENUE_DESIGN_BOUNDS.shadowOffset),
+    y: bound(shadow.y, VENUE_DESIGN_BOUNDS.shadowOffset),
+    blur: bound(shadow.blur, VENUE_DESIGN_BOUNDS.shadowBlur),
+    opacity: bound(shadow.opacity, VENUE_DESIGN_BOUNDS.shadowOpacity),
+  };
+}
+
+function clampVenueBackground(
+  background: ScanMeLinksBackgroundV2,
+): ScanMeLinksBackgroundV2 {
+  switch (background.category) {
+    case "gradient":
+      return {
+        ...background,
+        angle: bound(background.angle, VENUE_DESIGN_BOUNDS.gradientAngle),
+        centerX: bound(background.centerX, VENUE_DESIGN_BOUNDS.gradientCenter),
+        centerY: bound(background.centerY, VENUE_DESIGN_BOUNDS.gradientCenter),
+      };
+    case "pattern":
+      return {
+        ...background,
+        scale: bound(background.scale, VENUE_DESIGN_BOUNDS.patternScale),
+        opacity: bound(background.opacity, VENUE_DESIGN_BOUNDS.patternOpacity),
+      };
+    case "texture":
+      return {
+        ...background,
+        intensity: bound(
+          background.intensity,
+          VENUE_DESIGN_BOUNDS.textureIntensity,
+        ),
+      };
+    case "media":
+      return {
+        ...background,
+        zoom: bound(background.zoom, VENUE_DESIGN_BOUNDS.mediaZoom),
+        positionX: bound(background.positionX, VENUE_DESIGN_BOUNDS.mediaPosition),
+        positionY: bound(background.positionY, VENUE_DESIGN_BOUNDS.mediaPosition),
+        overlayOpacity: bound(
+          background.overlayOpacity,
+          VENUE_DESIGN_BOUNDS.overlayOpacity,
+        ),
+      };
+    case "animation":
+      return {
+        ...background,
+        speed: bound(background.speed, VENUE_DESIGN_BOUNDS.animationSpeed),
+        intensity: bound(
+          background.intensity,
+          VENUE_DESIGN_BOUNDS.animationIntensity,
+        ),
+      };
+    case "flat":
+      return background;
+  }
+}
+
 export function clampVenueDesign(
   design: VenueDesign | null | undefined,
 ): VenueDesign {
-  return clampDesign(design, VENUE_CAPABILITIES);
+  const filled = clampDesign(design, VENUE_CAPABILITIES);
+  return {
+    ...filled,
+    typography: {
+      ...filled.typography,
+      verticalSpacing: bound(
+        filled.typography.verticalSpacing,
+        VENUE_DESIGN_BOUNDS.verticalSpacing,
+      ),
+      lineHeight: bound(
+        filled.typography.lineHeight,
+        VENUE_DESIGN_BOUNDS.lineHeight,
+      ),
+    },
+    background: clampVenueBackground(filled.background),
+    effects: filled.effects
+      ? {
+          textShadow: clampVenueShadow(filled.effects.textShadow),
+          logoShadow: clampVenueShadow(filled.effects.logoShadow),
+        }
+      : filled.effects,
+  };
 }
 
 const compile = createTokenCompiler("venue");

@@ -53,6 +53,7 @@ import type {
 export function VenueEditorMobileShell({
   data,
   document,
+  mediaUrls,
   saveState,
   saveError,
   canUndo,
@@ -73,6 +74,7 @@ export function VenueEditorMobileShell({
 }: {
   data: VenueEditorData;
   document: VenueEditorDocument;
+  mediaUrls: Record<string, string>;
   saveState: VenueEditorSaveState;
   saveError: string | null;
   canUndo: boolean;
@@ -187,6 +189,7 @@ export function VenueEditorMobileShell({
             <InteractiveVenuePreviewPage
               data={data}
               document={document}
+              mediaUrls={mediaUrls}
               selection={selection}
               onSelectBlock={onSelectBlock}
               onSelectPage={onSelectPage}

@@ -25,12 +25,9 @@ import { fmt } from "@/lib/i18n";
 import { venueEditorSr as dict } from "@/lib/i18n/sr/venue-editor";
 import { VENUE_BLOCK_REGISTRY } from "@/components/venue/blocks/registry";
 import type { VenueBlock } from "@/lib/venue-blocks";
+import { VENUE_BLOCK_EDITOR_PANELS } from "./venue-editor-block-panels";
 import styles from "./venue-editor.module.css";
-import type {
-  VenueEditorData,
-  VenueEditorEvent,
-  VenueEditorPanelId,
-} from "./venue-editor-types";
+import type { VenueEditorPanelId } from "./venue-editor-types";
 
 export type VenueEditorToolItem = {
   id: VenueEditorPanelId;
@@ -194,42 +191,6 @@ function ComingSoonPanel() {
   return <p className={styles.panelPlaceholder}>{dict.panelComingSoon}</p>;
 }
 
-const EVENT_STATUS_LABELS: Record<VenueEditorEvent["status"], string> = {
-  draft: dict.statusDraft,
-  scheduled: dict.statusScheduled,
-  live: dict.statusLive,
-  ended: dict.statusEnded,
-  archived: dict.statusArchived,
-};
-
-function EventPanel({ data }: { data: VenueEditorData }) {
-  const event = data.event;
-  if (!event) return <ComingSoonPanel />;
-  return (
-    <div className={styles.panelSection}>
-      <dl className={styles.factList}>
-        <div className={styles.factRow}>
-          <dt className={styles.factLabel}>{dict.eventTitleLabel}</dt>
-          <dd className={styles.factValue}>{event.title}</dd>
-        </div>
-        <div className={styles.factRow}>
-          <dt className={styles.factLabel}>{dict.eventPathLabel}</dt>
-          <dd className={styles.factValue}>
-            /{data.businessSlug}/venue/{event.slug}
-          </dd>
-        </div>
-        <div className={styles.factRow}>
-          <dt className={styles.factLabel}>{dict.eventStatusLabel}</dt>
-          <dd className={styles.factValue}>
-            {EVENT_STATUS_LABELS[event.status]}
-          </dd>
-        </div>
-      </dl>
-      <ComingSoonPanel />
-    </div>
-  );
-}
-
 function HelpPanel() {
   const items = [
     { title: dict.helpAddTitle, body: dict.helpAddBody },
@@ -249,11 +210,11 @@ function HelpPanel() {
   );
 }
 
-// The registry's EditorPanel seam, wired but not filled (TASK-10): a selected
-// block dispatches to registry[type].EditorPanel when one exists; until
-// TASK-11 lands them, the fallback names the block and points at what already
-// works. `onChange` is dead weight today by design — it is the exact contract
-// the twelve panels will receive.
+// The registry's EditorPanel seam, now FILLED (TASK-12): the editor-side
+// panel map extends the registry entries exactly as the registry's header
+// promised — the render path never imports a panel, this editor module does.
+// Dispatch order: the editor map, then any entry-level EditorPanel, then the
+// naming placeholder as a last resort.
 export function SelectedBlockPanel({
   block,
   onChange,
@@ -261,8 +222,9 @@ export function SelectedBlockPanel({
   block: VenueBlock;
   onChange: (next: VenueBlock, group?: string) => void;
 }) {
-  const entry = VENUE_BLOCK_REGISTRY[block.type];
-  const Panel = entry.EditorPanel;
+  const Panel =
+    VENUE_BLOCK_EDITOR_PANELS[block.type] ??
+    VENUE_BLOCK_REGISTRY[block.type].EditorPanel;
   if (Panel) return <>{Panel({ block, onChange })}</>;
   return <p className={styles.panelPlaceholder}>{dict.blockPanelPlaceholder}</p>;
 }
@@ -273,26 +235,17 @@ export function selectedBlockTitle(block: VenueBlock) {
   });
 }
 
-// Panels other than "blocks" (which owns real interaction and lives in
-// venue-editor-blocks-panel.tsx): event shows its read-only summary; help is
-// real; the rest are honest placeholders until their tasks land.
+// The two panels with no document to edit: help is real; analytics stays an
+// honest placeholder until its task lands. Every other panel now edits the
+// document and lives in venue-editor-block-panels / venue-editor-page-panels.
 export function VenueEditorStaticPanelContent({
   panel,
-  data,
 }: {
-  panel: Exclude<VenueEditorPanelId, "blocks">;
-  data: VenueEditorData;
+  panel: "analytics" | "help";
 }) {
   switch (panel) {
-    case "event":
-      return <EventPanel data={data} />;
     case "help":
       return <HelpPanel />;
-    case "style":
-    case "background":
-    case "text":
-    case "color":
-    case "settings":
     case "analytics":
       return <ComingSoonPanel />;
   }
