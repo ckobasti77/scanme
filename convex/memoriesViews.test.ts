@@ -177,6 +177,7 @@ describe("guestSpaceView", () => {
       limit: 3,
       remaining: 3,
       consentVersion: null,
+      needsConsent: true,
     });
   });
 
@@ -226,6 +227,7 @@ describe("guestSpaceView", () => {
       limit: 0,
       remaining: 0,
       consentVersion: null,
+      needsConsent: true,
     });
   });
 
@@ -295,15 +297,24 @@ describe("myPhotosView", () => {
   });
 });
 
-describe("publicGalleryView", () => {
-  test("null unless the host opted the space in", async () => {
+const FIRST_PAGE = { numItems: 50, cursor: null };
+
+describe("publicGalleryMeta + publicGalleryPage", () => {
+  test("meta is null unless the host opted the space in", async () => {
     const t = newT();
     await seedSpace(t, { publicGalleryEnabled: false });
     const { photoId } = await reserve(t);
     await commitPhoto(t, photoId);
     expect(
-      await t.query(api.memories.publicGalleryView, { code: SPACE_CODE }),
+      await t.query(api.memories.publicGalleryMeta, { code: SPACE_CODE }),
     ).toBeNull();
+    // The data path also refuses to serve photos for an un-opted space.
+    const page = await t.query(api.memories.publicGalleryPage, {
+      code: SPACE_CODE,
+      paginationOpts: FIRST_PAGE,
+    });
+    expect(page.page).toEqual([]);
+    expect(page.isDone).toBe(true);
   });
 
   test("serves only ready photos everyone may see — host_only never leaves", async () => {
@@ -322,12 +333,113 @@ describe("publicGalleryView", () => {
     const { photoId: pending } = await reserve(t);
     void pending;
 
-    const gallery = await t.query(api.memories.publicGalleryView, {
+    const meta = await t.query(api.memories.publicGalleryMeta, {
       code: SPACE_CODE,
     });
-    expect(gallery).not.toBeNull();
-    expect(gallery!.photos).toHaveLength(1);
-    expect(gallery!.photos[0].photoId).toBe(shown);
+    expect(meta).not.toBeNull();
+    const page = await t.query(api.memories.publicGalleryPage, {
+      code: SPACE_CODE,
+      paginationOpts: FIRST_PAGE,
+    });
+    expect(page.page).toHaveLength(1);
+    expect(page.page[0].photoId).toBe(shown);
+  });
+
+  // STEP 0 regression: more `everyone` photos than one page fit returns EVERY
+  // one across pages (no silent truncation), and a `host_only`-heavy newest
+  // tail never crowds them out (visibility resolved by index, not post-cap).
+  test("paginates every everyone photo across pages, never a host_only one", async () => {
+    const t = newT();
+    const { spaceId, guestId } = await seedSpace(t, {
+      publicGalleryEnabled: true,
+    });
+
+    // Seed directly for volume: one session, 25 everyone + 10 host_only ready
+    // photos each with a real stored asset. The host_only photos are committed
+    // LAST (newest), so the old .take(N)-then-filter shape with a small page
+    // would have surfaced the host_only tail and hidden everyone photos behind
+    // it. With visibility in the index, the cursor walks only public rows.
+    const { sessionId, everyone } = await t.run(async (ctx) => {
+      const now = Date.now();
+      const sessionId = await ctx.db.insert("memoriesSessions", {
+        spaceId,
+        dateKey: "2026-08-26",
+        status: "open",
+        openedAt: now,
+        photoCount: 0,
+        guestCount: 0,
+        updatedAt: now,
+      });
+      const space = await ctx.db.get(spaceId);
+      const mkAsset = async () => {
+        const v = async (bytes: number) => ({
+          ref: await ctx.storage.store(new Blob([new Uint8Array(bytes).fill(3)])),
+          width: 80,
+          height: 60,
+          bytes,
+        });
+        return ctx.db.insert("mediaAssets", {
+          businessId: space!.businessId,
+          kind: "image" as const,
+          provider: "convex" as const,
+          variants: { avif: await v(11), webp: await v(22), thumb: await v(7) },
+          status: "ready" as const,
+          createdAt: now,
+        });
+      };
+      const everyone: string[] = [];
+      for (let i = 0; i < 25; i += 1) {
+        const mediaAssetId = await mkAsset();
+        const id = await ctx.db.insert("memoriesPhotos", {
+          spaceId,
+          sessionId,
+          guestId,
+          mediaAssetId,
+          visibility: "everyone" as const,
+          status: "ready" as const,
+          createdAt: now + i,
+          updatedAt: now + i,
+        });
+        everyone.push(id);
+      }
+      // host_only photos committed LAST → the newest rows.
+      for (let i = 0; i < 10; i += 1) {
+        const mediaAssetId = await mkAsset();
+        await ctx.db.insert("memoriesPhotos", {
+          spaceId,
+          sessionId,
+          guestId,
+          mediaAssetId,
+          visibility: "host_only" as const,
+          status: "ready" as const,
+          createdAt: now + 100 + i,
+          updatedAt: now + 100 + i,
+        });
+      }
+      return { sessionId, everyone };
+    });
+    void sessionId;
+
+    // Walk every page with a page size (10) smaller than the everyone count.
+    const seen = new Set<string>();
+    let cursor: string | null = null;
+    for (let guard = 0; guard < 20; guard += 1) {
+      const res: {
+        page: Array<{ photoId: string }>;
+        isDone: boolean;
+        continueCursor: string;
+      } = await t.query(api.memories.publicGalleryPage, {
+        code: SPACE_CODE,
+        paginationOpts: { numItems: 10, cursor },
+      });
+      for (const item of res.page) seen.add(item.photoId);
+      if (res.isDone) break;
+      cursor = res.continueCursor;
+    }
+
+    // Every everyone photo surfaced across pages; not one host_only leaked.
+    expect(seen.size).toBe(25);
+    for (const id of everyone) expect(seen.has(id)).toBe(true);
   });
 });
 

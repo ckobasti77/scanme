@@ -533,6 +533,10 @@ type MemoriesPanelResult =
       } | null;
       session: MemoriesSessionSummary | null;
       pastNights: MemoriesSessionSummary[];
+      // TASK-20 STEP 4 — the retention window, made concrete: the createdAt of
+      // the oldest live photo, so the panel can say WHEN it will be deleted
+      // (oldest + retentionDays). null when the space holds no live photos.
+      oldestPhotoAt: number | null;
       entitled: boolean;
       // Plan limits in words (STEP 5), present only while the plan is active;
       // null means the plan has expired — the panel says what stopped.
@@ -603,6 +607,19 @@ export const memoriesPanel = query({
     const session = sessions[0] ? sessionSummary(sessions[0]) : null;
     const pastNights = sessions.slice(1).map(sessionSummary);
 
+    // The oldest LIVE photo (ascending by createdAt) — the next one retention
+    // will remove. Skips tombstones so the panel shows a real, servable photo's
+    // deadline.
+    const oldestPhoto = space
+      ? await ctx.db
+          .query("memoriesPhotos")
+          .withIndex("by_spaceId_and_createdAt", (q) =>
+            q.eq("spaceId", space._id),
+          )
+          .filter((q) => q.neq(q.field("status"), "deleted"))
+          .first()
+      : null;
+
     const entitlement = space
       ? await getEntitlement(
           ctx,
@@ -637,6 +654,7 @@ export const memoriesPanel = query({
         : null,
       session,
       pastNights,
+      oldestPhotoAt: oldestPhoto?.createdAt ?? null,
       entitled: entitlement !== null,
       plan: entitlement
         ? {

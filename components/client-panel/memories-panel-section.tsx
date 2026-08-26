@@ -56,6 +56,9 @@ import {
   formatBelgrade,
   formatBelgradeDate,
 } from "@/lib/belgrade-time";
+import { MemoriesHostGallery } from "./memories-host-gallery";
+
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 type MemoriesPanelData = Extract<
   FunctionReturnType<typeof api.clientPanel.memoriesPanel>,
@@ -116,6 +119,9 @@ export function MemoriesPanelSection({
         <div className="mt-7 grid gap-6">
           <StatusBanner space={space} entitled={data.entitled} />
           <SessionCard data={data} space={space} />
+          {data.session ? (
+            <MemoriesHostGallery sessionId={data.session.id} />
+          ) : null}
           {space.mode === "one_off" ? (
             <WindowCard space={space} />
           ) : (
@@ -124,6 +130,7 @@ export function MemoriesPanelSection({
           <VisibilitySwitches space={space} />
           <PauseControl space={space} />
           <PlanCard data={data} />
+          <RetentionCard data={data} />
           <CardsManager space={space} />
         </div>
       )}
@@ -687,6 +694,44 @@ function PlanCard({ data }: { data: MemoriesPanelData }) {
           </ul>
           <p className="mt-3 text-xs text-muted-foreground">
             {dict.planActiveNote}
+          </p>
+        </>
+      ) : (
+        <p className="mt-3 text-sm leading-6 text-muted-foreground">
+          {dict.expiredBody}
+        </p>
+      )}
+    </section>
+  );
+}
+
+// --- retention window (TASK-20 STEP 4) --------------------------------------
+
+function RetentionCard({ data }: { data: MemoriesPanelData }) {
+  const days = data.plan?.retentionDays ?? null;
+  // The oldest live photo's deletion date = its createdAt + the plan window.
+  const oldestGoesAt =
+    days !== null && data.oldestPhotoAt !== null
+      ? data.oldestPhotoAt + days * DAY_MS
+      : null;
+
+  return (
+    <section className="border border-border bg-card p-5 sm:p-7">
+      <h2 className="flex items-center gap-2 font-semibold">
+        <CalendarClock className="size-4 text-primary" />
+        {dict.retentionHeading}
+      </h2>
+      {days !== null ? (
+        <>
+          <p className="mt-3 text-sm leading-6 text-muted-foreground">
+            {fmt(dict.retentionWindow, { days })}
+          </p>
+          <p className="mt-2 text-sm font-medium">
+            {oldestGoesAt !== null
+              ? fmt(dict.retentionOldest, {
+                  date: formatBelgradeDate(oldestGoesAt),
+                })
+              : dict.retentionNoPhotos}
           </p>
         </>
       ) : (

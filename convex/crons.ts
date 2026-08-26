@@ -16,13 +16,13 @@ import { internal } from "./_generated/api";
 //     commit, together with their pinned original blobs. This is the reaper
 //     half of the reserve→commit protocol: a crash costs storage for one day,
 //     not forever.
-//
-// DELIBERATELY ABSENT — do not add here:
-//   • the retention sweep and the deleted-tombstone blob purge (RFC-001 §2.9
-//     retentionSweep / the tombstone half of purgeSweep) — they act on READY
-//     media and its mediaAssets variants, which galleries do not serve yet;
-//     they land with the remaining Memories tasks.
-// Each remaining sweep belongs with the feature that writes the rows it sweeps.
+//   • the daily retention sweep (TASK-20 / RFC-001 §2.9) — per space,
+//     tombstones photos older than the plan's retentionDays (30/90/365), in
+//     batches with scheduler continuations.
+//   • the daily purge sweep (TASK-20 / RFC-001 §2.9–2.10) — walks `deleted`
+//     tombstones (from retention AND every deletion request) and removes the
+//     processed variants, any pinned original, the asset doc, and the archive
+//     pins referencing it, THEN the row. This is where bytes actually die.
 const crons = cronJobs();
 
 crons.interval(
@@ -50,6 +50,20 @@ crons.interval(
   "purge stale upload reservations",
   { hours: 1 },
   internal.memories.purgeStaleReservations,
+  {},
+);
+
+crons.interval(
+  "memories retention sweep",
+  { hours: 24 },
+  internal.memories.retentionSweep,
+  {},
+);
+
+crons.interval(
+  "memories purge deleted photos",
+  { hours: 24 },
+  internal.memories.purgeSweep,
   {},
 );
 

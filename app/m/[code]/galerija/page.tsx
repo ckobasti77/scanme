@@ -21,7 +21,7 @@ export const viewport: Viewport = {
 };
 
 const getGallery = cache(async (code: string) =>
-  fetchQuery(api.memories.publicGalleryView, { code }),
+  fetchQuery(api.memories.publicGalleryMeta, { code }),
 );
 
 export async function generateMetadata({
@@ -45,8 +45,8 @@ export default async function MemoriesGalleryPage({
   const { code: rawCode } = await params;
   const code = normalizeCode(rawCode);
   if (!code) notFound();
-  const gallery = await getGallery(code);
-  if (!gallery) notFound();
+  const meta = await getGallery(code);
+  if (!meta) notFound();
 
-  return <MemoriesGallery code={code} initialGallery={gallery} />;
+  return <MemoriesGallery code={code} meta={meta} />;
 }

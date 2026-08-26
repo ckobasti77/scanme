@@ -104,6 +104,21 @@ export const memoriesSr = {
   galleryTitle: "Galerija večeri",
   galleryLink: "Pogledaj galeriju",
   galleryEmpty: "Još nema slika za večeras.",
+  galleryLoading: "Učitavanje galerije…",
+  galleryLoadMore: "Prikaži još",
   backToUploadLink: "Dodaj još slika",
   footerBrand: "ScanMe Uspomene",
+  // TASK-20 — retention window + guest erasure.
+  retentionNoteMy:
+    "Tvoje slike se čuvaju najviše {days} dana, a zatim se automatski brišu.",
+  privacyLink: "Politika privatnosti",
+  wipeAllAction: "Obriši sve moje slike",
+  wipeDialogTitle: "Obrisati sve tvoje slike?",
+  wipeDialogBody:
+    "Sve tvoje slike nestaju — iz svih prikaza, sa servera i iz uspomena događaja ako ih je domaćin tamo uvrstio. Ovo ne može da se opozove.",
+  wipeConfirm: "Obriši sve",
+  wipeCancel: "Odustani",
+  wipeSuccess: "Tvoje slike su obrisane.",
+  wipeError: "Brisanje nije uspelo. Pokušaj ponovo.",
+  consentUpdatedBadge: "Ažurirano obaveštenje",
 } as const satisfies MemoriesDict;

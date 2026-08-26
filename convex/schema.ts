@@ -594,6 +594,18 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_sessionId_and_status", ["sessionId", "status"])
+    // TASK-20 STEP 0 — the public gallery reads (sessionId, "ready", "everyone")
+    // and paginates. Folding visibility INTO the index makes it part of the
+    // indexed read rather than a post-cap filter: the old query took the newest
+    // 150 `ready` rows and dropped `host_only` ones AFTER, so a night whose
+    // newest rows were mostly host_only rendered nearly empty while everyone-
+    // photos sat further back. With visibility in the key, every row the scan
+    // yields is already public, and .paginate() walks all of them, not 150.
+    .index("by_sessionId_and_status_and_visibility", [
+      "sessionId",
+      "status",
+      "visibility",
+    ])
     .index("by_sessionId_and_guestId", ["sessionId", "guestId"])
     .index("by_guestId", ["guestId"])
     .index("by_spaceId_and_createdAt", ["spaceId", "createdAt"])

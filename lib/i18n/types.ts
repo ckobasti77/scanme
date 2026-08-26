@@ -842,9 +842,28 @@ export interface MemoriesDict {
   galleryTitle: string;
   galleryLink: string;
   galleryEmpty: string;
+  galleryLoading: string; // STEP 0: first page loading
+  galleryLoadMore: string; // STEP 0: cursor "load more"
   backToUploadLink: string;
   // Footer.
   footerBrand: string;
+  // --- TASK-20: retention window + the guest's own erasure (STEP 3/4) --------
+  // Retention window, in plain words, on /moje (STEP 4 — visible to the guest,
+  // not buried). "{days}" via fmt().
+  retentionNoteMy: string;
+  privacyLink: string; // link to the policy page (STEP 5)
+  // "Obriši sve moje slike" (STEP 3) — destructive, so a confirm dialog that
+  // spells out that it reaches the event archive too.
+  wipeAllAction: string;
+  wipeDialogTitle: string;
+  wipeDialogBody: string;
+  wipeConfirm: string;
+  wipeCancel: string;
+  wipeSuccess: string;
+  wipeError: string;
+  // STEP 1 — a small marker on the always-present consent notice when the
+  // guest has not yet accepted the CURRENT version (the notice is "re-shown").
+  consentUpdatedBadge: string;
 }
 
 // memories-admin — the admin Memories provisioning console
@@ -1082,6 +1101,24 @@ export interface MemoriesPanelDict {
   planRetention: string; // "Čuvanje {days} dana"
   planResolution: string; // "Rezolucija do {px} px"
   planActiveNote: string;
+  // TASK-20 STEP 4 — the retention window made concrete for the host.
+  retentionHeading: string;
+  retentionWindow: string; // "Slike se automatski brišu {days} dana od dodavanja."
+  retentionOldest: string; // "Najstarija slika se briše {date}."
+  retentionNoPhotos: string; // no live photos yet
+  // TASK-20 STEP 0 — the host night gallery grid (paginated).
+  galleryHeading: string;
+  galleryEmpty: string;
+  galleryLoadMore: string;
+  galleryPhotoAlt: string; // "… {index}"
+  galleryHostOnlyBadge: string; // a host_only photo, shown to the host
+  photoDeleteAction: string;
+  photoDeleteDialogTitle: string;
+  photoDeleteDialogBody: string;
+  photoDeleteConfirm: string;
+  photoDeleteCancel: string;
+  photoDeleteSuccess: string;
+  photoDeleteError: string;
   // The table cards (STEP 3).
   cardsHeading: string;
   cardsBody: string;
@@ -1151,6 +1188,37 @@ export interface ConsentDict {
   fullCookie: string;
 }
 
+// privacy — the Memories privacy policy page (/m/[code]/privatnost, TASK-20
+// STEP 5). Plain-Serbian PRODUCT COPY, linked from the consent notice: lawful
+// basis per data category, that guest photos are consent-based, that the cookie
+// is strictly necessary, retention per tier, how to delete, and that the host
+// is the controller while ScanMe is the processor. NOT legal advice — it needs
+// a lawyer's review before launch. `{...}` placeholders go through fmt().
+export interface PrivacyDict {
+  metaTitle: string; // "… {name}"
+  title: string;
+  intro: string; // host = controller, ScanMe = processor
+  lawfulHeading: string;
+  photosHeading: string;
+  photosBody: string; // consent, Art. 6(1)(a) — the act of uploading
+  visibilityBody: string; // per-photo visibility is the consent granularity
+  archiveBody: string; // the host may include shared photos in the event archive
+  cookieHeading: string;
+  cookieBody: string; // strictly necessary; only a random key
+  analyticsHeading: string;
+  analyticsBody: string; // legitimate interest; no IP, device category only
+  retentionHeading: string;
+  retentionBody: string; // "… {days} …"
+  retentionTiers: string; // the 30/90/365 tiers named
+  deleteHeading: string;
+  deleteBody: string;
+  deleteKeyNote: string; // key possession is the identity-verification story
+  controllerHeading: string;
+  controllerBody: string; // host controller, ScanMe processor, in plain words
+  updatedLabel: string; // "… {version}"
+  backLink: string;
+}
+
 export interface DictBySurface {
   venue: VenueDict;
   "venue-editor": VenueEditorDict;
@@ -1161,6 +1229,7 @@ export interface DictBySurface {
   "memories-panel": MemoriesPanelDict;
   resolver: ResolverDict;
   consent: ConsentDict;
+  privacy: PrivacyDict;
 }
 
 export type Surface = keyof DictBySurface;

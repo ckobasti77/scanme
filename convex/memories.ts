@@ -1,4 +1,5 @@
 import { ConvexError, v } from "convex/values";
+import { paginationOptsValidator } from "convex/server";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import {
@@ -72,6 +73,17 @@ const dict = getDict("memories");
 
 // Sweep batch sizes: bounded per run, self-healing on the next tick.
 const SWEEP_BATCH = 100;
+// One day in ms — the retention cutoff arithmetic (TASK-20 STEP 2).
+const DAY_MS = 24 * 60 * 60 * 1000;
+// A space with no active entitlement (never paid, or expired) still gets swept:
+// it keeps photos no longer than the shortest paid tier, never forever.
+const RETENTION_DEFAULT_DAYS = 30;
+// The purge does more work per row than a tombstone sweep (three storage
+// deletes + the asset doc + archive pins), so it walks smaller batches.
+const PURGE_BATCH = 25;
+// A processed asset pinned into more Venue archives than this is not a real
+// scenario; the wipe still deletes every pin it reads (RFC §2.10).
+const ARCHIVE_PIN_READ_CAP = 100;
 // A `reserved` row the client never followed up on is purged after 24 hours
 // (RFC §2.9); its quota slot frees automatically because quota is an index
 // count of live rows.
@@ -723,6 +735,13 @@ export const guestSpaceView = query({
       limit: number;
       remaining: number;
       consentVersion: string | null;
+      // STEP 1 — the re-prompt signal: true when the guest has not yet accepted
+      // the CURRENT consent version (never accepted, or accepted an older one
+      // whose meaning has since changed). The upload notice is always on screen
+      // (RFC §2.10), but the landing uses this to mark it as *updated* for a
+      // returning guest, so a bumped notice is visibly re-shown before the next
+      // upload. reserveUpload re-stamps the version in the same act.
+      needsConsent: boolean;
     } | null = null;
     if (args.guestKey) {
       const guestRow = await guestByKey(ctx, space._id, args.guestKey);
@@ -751,6 +770,7 @@ export const guestSpaceView = query({
           limit,
           remaining: Math.max(0, limit - used),
           consentVersion: guestRow.consentVersion ?? null,
+          needsConsent: guestRow.consentVersion !== CONSENT_VERSION,
         };
       }
     }
@@ -822,39 +842,19 @@ export const myPhotosView = query({
   },
 });
 
-// The shared gallery (/m/[code]/galerija): the latest night's `ready` photos
-// whose visibility is `everyone`, gated on the host's publicGalleryEnabled
-// opt-in (RFC §2.4 C.4 — null here renders as a 404). No guest attribution of
-// any kind leaves the server: photoId, timestamps, and image URLs only.
-const GALLERY_READ_CAP = 150;
-
-export const publicGalleryView = query({
+// The shared gallery (/m/[code]/galerija). TASK-20 STEP 0 split the old single
+// query in two: this one is the header + the host's publicGalleryEnabled gate
+// (null → the page 404s), and publicGalleryPage below is the paginated photo
+// grid. The split exists because the grid must be a real cursor-paginated read
+// — the whole night, not a capped 150-row slice — and usePaginatedQuery needs a
+// query that returns ONLY the pagination shape. No guest attribution of any
+// kind leaves the server: photoId, timestamps, and image URLs only.
+export const publicGalleryMeta = query({
   args: { code: v.string() },
   handler: async (ctx, args) => {
     const space = await spaceByCode(ctx, args.code);
     if (!space || !space.publicGalleryEnabled || space.status === "archived") {
       return null;
-    }
-    const session = await latestSession(ctx, space._id);
-    const photos: Array<{
-      photoId: Id<"memoriesPhotos">;
-      createdAt: number;
-      image: NonNullable<Awaited<ReturnType<typeof photoImage>>>;
-    }> = [];
-    if (session) {
-      const rows = await ctx.db
-        .query("memoriesPhotos")
-        .withIndex("by_sessionId_and_status", (q) =>
-          q.eq("sessionId", session._id).eq("status", "ready"),
-        )
-        .order("desc")
-        .take(GALLERY_READ_CAP);
-      for (const photo of rows) {
-        if (photo.visibility !== "everyone") continue;
-        const image = await photoImage(ctx, photo);
-        if (!image) continue;
-        photos.push({ photoId: photo._id, createdAt: photo.createdAt, image });
-      }
     }
     const business = await ctx.db.get(space.businessId);
     return {
@@ -863,8 +863,97 @@ export const publicGalleryView = query({
       businessLogoUrl: business?.logoStorageId
         ? await storageGetUrl(ctx, business.logoStorageId)
         : (business?.logoUrl ?? null),
-      photos,
     };
+  },
+});
+
+// STEP 0 — the paginated public grid. The FIX for the two defects of the old
+// `.take(150)` shape:
+//   1. No silent truncation. A night with 442 `everyone` photos returns all
+//      442 across pages via the documented Convex cursor pattern, not a
+//      capped 150 with no "load more".
+//   2. Visibility is resolved by the INDEX, not a post-cap filter. The read
+//      keys straight into (sessionId, "ready", "everyone") via
+//      by_sessionId_and_status_and_visibility, so a `host_only`-heavy tail can
+//      never crowd `everyone` photos out of the page — every row the cursor
+//      walks is already public. host_only bytes never leave the server.
+// The only remaining post-read skip is a NULL image (an asset purged between
+// the row read and hydration — a rare race), never a visibility decision.
+export const publicGalleryPage = query({
+  args: { code: v.string(), paginationOpts: paginationOptsValidator },
+  handler: async (ctx, args) => {
+    const space = await spaceByCode(ctx, args.code);
+    if (!space || !space.publicGalleryEnabled || space.status === "archived") {
+      return { page: [], isDone: true, continueCursor: "" };
+    }
+    const session = await latestSession(ctx, space._id);
+    if (!session) {
+      return { page: [], isDone: true, continueCursor: "" };
+    }
+    const result = await ctx.db
+      .query("memoriesPhotos")
+      .withIndex("by_sessionId_and_status_and_visibility", (q) =>
+        q
+          .eq("sessionId", session._id)
+          .eq("status", "ready")
+          .eq("visibility", "everyone"),
+      )
+      .order("desc")
+      .paginate(args.paginationOpts);
+    const page: Array<{
+      photoId: Id<"memoriesPhotos">;
+      createdAt: number;
+      image: NonNullable<Awaited<ReturnType<typeof photoImage>>>;
+    }> = [];
+    for (const photo of result.page) {
+      const image = await photoImage(ctx, photo);
+      if (!image) continue;
+      page.push({ photoId: photo._id, createdAt: photo.createdAt, image });
+    }
+    return { ...result, page };
+  },
+});
+
+// STEP 0 — the HOST night gallery grid. The host reviews a night's committed
+// photos (both visibilities — the host is allowed to see host_only ones), also
+// cursor-paginated so a 442-photo night is fully reachable rather than capped.
+// Gated by requireBusinessAccess (host membership OR admin), so it is the one
+// gallery read that carries attribution-free host access to the whole night.
+export const hostSessionGallery = query({
+  args: {
+    sessionId: v.id("memoriesSessions"),
+    paginationOpts: paginationOptsValidator,
+  },
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId);
+    if (!session) return { page: [], isDone: true, continueCursor: "" };
+    const space = await ctx.db.get(session.spaceId);
+    if (!space) return { page: [], isDone: true, continueCursor: "" };
+    await requireBusinessAccess(ctx, space.businessId);
+    const result = await ctx.db
+      .query("memoriesPhotos")
+      .withIndex("by_sessionId_and_status", (q) =>
+        q.eq("sessionId", session._id).eq("status", "ready"),
+      )
+      .order("desc")
+      .paginate(args.paginationOpts);
+    const page: Array<{
+      photoId: Id<"memoriesPhotos">;
+      visibility: Doc<"memoriesPhotos">["visibility"];
+      createdAt: number;
+      image: NonNullable<Awaited<ReturnType<typeof photoImage>>>;
+    }> = [];
+    for (const photo of result.page) {
+      const image = await photoImage(ctx, photo);
+      if (!image) continue;
+      page.push({
+        photoId: photo._id,
+        visibility: photo.visibility,
+        createdAt: photo.createdAt,
+        image,
+      });
+    }
+    return { ...result, page };
   },
 });
 
@@ -921,9 +1010,8 @@ export const grantQuota = mutation({
 // -----------------------------------------------------------------------------
 // STEP 5 — Cron sweeps (wired in convex/crons.ts). TASK-15 extended the
 // reservation purge to `processing` rows and their pinned originals — the
-// reaper half of the reserve→commit protocol (RFC §2.8, risk #2). The
-// retention sweep and the deleted-tombstone blob purge still arrive with the
-// later Memories tasks.
+// reaper half of the reserve→commit protocol (RFC §2.8, risk #2). TASK-20 adds
+// the retention sweep and the deleted-tombstone blob purge below.
 // -----------------------------------------------------------------------------
 
 // Backstop for scheduler loss: close any open session whose time has passed —
@@ -1009,5 +1097,313 @@ export const purgeStaleReservations = internalMutation({
     }
 
     return { purged, purgedProcessing };
+  },
+});
+
+// =============================================================================
+// TASK-20 — GDPR retention & deletion (RFC-001 §2.9 retention, §2.10 deletion).
+//
+// The whole design in one sentence: EVERY deletion path — a daily retention
+// sweep, a guest deleting one photo, a guest wiping everything, the host or
+// admin removing a photo, a space wipe — does nothing but mark a row `deleted`
+// (a tombstone); the purge sweep is the only code that removes bytes, and it
+// removes them the SAME way for every reason. Nothing is special-cased. So the
+// two hard rules of this task are structural, not conditional branches:
+//   1. A photo whose bytes still exist after purge is a failure. purgePhotoBytes
+//      deletes all three processed variants AND any pinned original THROUGH the
+//      storage wrapper, then the docs — a tombstone that never reaches here is
+//      the bug, and the purge cron guarantees it always does.
+//   2. The guest's wipe beats the host's archive pin. That is not a rule written
+//      into the wipe; it is purgePhotoBytes deleting the eventArchiveItems that
+//      reference the purged photo's asset. Retention, host delete, and admin
+//      delete beat the pin by the exact same line — uniformly.
+// =============================================================================
+
+// Idempotent storage delete: a purge that re-touches an already-gone blob (a
+// retried batch, a double-scheduled sweep resolved by OCC) must not abort the
+// whole batch and strand other tombstones. A genuine leak still shows up: the
+// tests assert the _storage table is empty, not that delete was called.
+async function safeStorageRemove(ctx: MutationCtx, ref: Id<"_storage">) {
+  try {
+    await storageRemove(ctx, ref);
+  } catch {
+    // Already deleted — the purge is meant to be idempotent.
+  }
+}
+
+// THE one place a photo's bytes die (see the block header). Called only by the
+// purge sweep, once per tombstone.
+async function purgePhotoBytes(ctx: MutationCtx, photo: Doc<"memoriesPhotos">) {
+  if (photo.mediaAssetId) {
+    // The archive pins referencing this photo's processed asset. Deleting them
+    // is what makes any wipe win over a host-curated Venue archive: a photo the
+    // host pinned into an event archive disappears from there too. archiveEvent
+    // pins by mediaAssetId (no sourcePhotoId), so we match on the asset id.
+    const assetId = photo.mediaAssetId;
+    const pins = await ctx.db
+      .query("eventArchiveItems")
+      .withIndex("by_mediaAssetId", (q) => q.eq("mediaAssetId", assetId))
+      .take(ARCHIVE_PIN_READ_CAP);
+    for (const pin of pins) await ctx.db.delete(pin._id);
+
+    const asset = await ctx.db.get(assetId);
+    if (asset) {
+      // The three variants ARE the photo. Delete every blob before the doc.
+      await safeStorageRemove(ctx, asset.variants.avif.ref as Id<"_storage">);
+      await safeStorageRemove(ctx, asset.variants.webp.ref as Id<"_storage">);
+      await safeStorageRemove(ctx, asset.variants.thumb.ref as Id<"_storage">);
+      await ctx.db.delete(asset._id);
+    }
+  }
+  // A row tombstoned while still reserved/processing pins an undeleted original.
+  if (photo.originalStorageId) {
+    await safeStorageRemove(ctx, photo.originalStorageId);
+  }
+  await ctx.db.delete(photo._id);
+}
+
+// The purge sweep (RFC §2.9): walk `deleted` tombstones and funnel each through
+// purgePhotoBytes. Batched with scheduler continuations — never one giant
+// transaction. Because purgePhotoBytes deletes each row, the next run's
+// identical query naturally advances to the next tombstones (no cursor needed);
+// concurrent sweeps (the daily cron plus an immediate one from a wipe) are
+// serialized by Convex's OCC, so a doubly-read tombstone retries rather than
+// double-deleting. Wired daily in convex/crons.ts and scheduled immediately by
+// the guest/host/space deletions below.
+export const purgeSweep = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const tombstones = await ctx.db
+      .query("memoriesPhotos")
+      .withIndex("by_status_and_updatedAt", (q) => q.eq("status", "deleted"))
+      .take(PURGE_BATCH);
+    for (const photo of tombstones) {
+      await purgePhotoBytes(ctx, photo);
+    }
+    if (tombstones.length === PURGE_BATCH) {
+      await ctx.scheduler.runAfter(0, internal.memories.purgeSweep, {});
+    }
+    return { purged: tombstones.length };
+  },
+});
+
+// STEP 2 — the daily retention entry point (cron). One continuation step per
+// batch of spaces: resolve each space's plan retentionDays (30/90/365; an
+// unentitled space falls back to the shortest tier), compute its cutoff, and
+// hand the space off to retentionSweepSpace. Reading the clock is legal here
+// (a mutation, not a query). Spaces are enumerated by the built-in creation
+// index via .paginate() so a large tenant base is walked, not capped.
+export const retentionSweep = internalMutation({
+  args: { cursor: v.optional(v.union(v.string(), v.null())) },
+  handler: async (ctx, args) => {
+    const spacesPage = await ctx.db
+      .query("memoriesSpaces")
+      .paginate({ numItems: SWEEP_BATCH, cursor: args.cursor ?? null });
+    const now = Date.now();
+    for (const space of spacesPage.page) {
+      const entitlement = await getEntitlement(
+        ctx,
+        space.businessId,
+        "scanme_memories",
+        space._id,
+      );
+      const retentionDays =
+        entitlement?.limits.retentionDays ?? RETENTION_DEFAULT_DAYS;
+      await ctx.scheduler.runAfter(0, internal.memories.retentionSweepSpace, {
+        spaceId: space._id,
+        cutoff: now - retentionDays * DAY_MS,
+        cursor: null,
+      });
+    }
+    if (!spacesPage.isDone) {
+      await ctx.scheduler.runAfter(0, internal.memories.retentionSweep, {
+        cursor: spacesPage.continueCursor,
+      });
+    }
+    return { spaces: spacesPage.page.length };
+  },
+});
+
+// STEP 2 — one space's retention pass. Range-scan by_spaceId_and_createdAt for
+// rows at/older than the cutoff and tombstone the live ones (reason
+// "retention"), feeding the purge. Batched via .paginate(): patching status
+// leaves createdAt unchanged, so the cursor position is stable and a run never
+// re-reads what it just marked. On the last page, hand the fresh tombstones to
+// an immediate purge rather than waiting up to a day for the purge cron.
+export const retentionSweepSpace = internalMutation({
+  args: {
+    spaceId: v.id("memoriesSpaces"),
+    cutoff: v.number(),
+    cursor: v.union(v.string(), v.null()),
+  },
+  handler: async (ctx, args) => {
+    const photosPage = await ctx.db
+      .query("memoriesPhotos")
+      .withIndex("by_spaceId_and_createdAt", (q) =>
+        q.eq("spaceId", args.spaceId).lte("createdAt", args.cutoff),
+      )
+      .paginate({ numItems: SWEEP_BATCH, cursor: args.cursor });
+    const now = Date.now();
+    let tombstoned = 0;
+    for (const photo of photosPage.page) {
+      if (photo.status === "deleted") continue;
+      await ctx.db.patch(photo._id, {
+        status: "deleted",
+        deletedReason: "retention",
+        updatedAt: now,
+      });
+      tombstoned += 1;
+    }
+    if (!photosPage.isDone) {
+      await ctx.scheduler.runAfter(0, internal.memories.retentionSweepSpace, {
+        spaceId: args.spaceId,
+        cutoff: args.cutoff,
+        cursor: photosPage.continueCursor,
+      });
+    } else if (tombstoned > 0) {
+      await ctx.scheduler.runAfter(0, internal.memories.purgeSweep, {});
+    }
+    return { tombstoned };
+  },
+});
+
+// -----------------------------------------------------------------------------
+// STEP 3 — deletion on request. Every mutation here TOMBSTONES and (for the
+// immediate paths) schedules the shared purge; none touches a blob directly.
+// -----------------------------------------------------------------------------
+
+// The guest's own erasure ("obriši sve moje slike" on /m/[code]/moje). Public,
+// guest-key gated with the same non-disclosure masking as every other guest
+// call. It kicks off a batched internal wipe and schedules an immediate purge —
+// so the guest's photos, quota grants, guest row, AND any archive pins are gone
+// promptly, not on the daily cron.
+export const wipeMyPhotos = mutation({
+  args: { code: v.string(), guestKey: v.string() },
+  handler: async (ctx, args) => {
+    const space = await spaceByCode(ctx, args.code);
+    if (!space) throw new ConvexError(dict.spaceNotFound);
+    const guest = await guestByKey(ctx, space._id, args.guestKey);
+    if (!guest) throw new ConvexError(dict.guestNotFound);
+    await ctx.scheduler.runAfter(0, internal.memories.wipeGuestBatch, {
+      guestId: guest._id,
+    });
+    return { started: true as const };
+  },
+});
+
+// The batched guest wipe. Tombstones the guest's live photos (reason
+// "gdpr_wipe") across all nights in bounded batches; on the terminal batch it
+// deletes the guest's quota grants and the guest row itself (a re-scanning
+// guest starting fresh is acceptable by design — RFC §2.10) and schedules the
+// purge. The archive-pin deletion is deliberately NOT here: it happens in
+// purgePhotoBytes, so the wipe beats the pin by the shared machinery.
+export const wipeGuestBatch = internalMutation({
+  args: { guestId: v.id("memoriesGuests") },
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    const photos = await ctx.db
+      .query("memoriesPhotos")
+      .withIndex("by_guestId", (q) => q.eq("guestId", args.guestId))
+      .filter((q) => q.neq(q.field("status"), "deleted"))
+      .take(SWEEP_BATCH);
+    for (const photo of photos) {
+      await ctx.db.patch(photo._id, {
+        status: "deleted",
+        deletedReason: "gdpr_wipe",
+        updatedAt: now,
+      });
+    }
+    if (photos.length === SWEEP_BATCH) {
+      // More live photos remain — finish tombstoning them before touching the
+      // grants and guest row, so a crash mid-wipe never half-erases identity.
+      await ctx.scheduler.runAfter(0, internal.memories.wipeGuestBatch, {
+        guestId: args.guestId,
+      });
+      return { tombstoned: photos.length, done: false as const };
+    }
+    const grants = await ctx.db
+      .query("quotaAdjustments")
+      .withIndex("by_guestId", (q) => q.eq("guestId", args.guestId))
+      .take(SWEEP_BATCH);
+    for (const grant of grants) await ctx.db.delete(grant._id);
+    const guest = await ctx.db.get(args.guestId);
+    if (guest) await ctx.db.delete(guest._id);
+    await ctx.scheduler.runAfter(0, internal.memories.purgeSweep, {});
+    return { tombstoned: photos.length, done: true as const };
+  },
+});
+
+// Host/admin per-photo delete (RFC §2.9 moderation, §2.10). requireBusinessAccess
+// admits an active member of the space's tenant OR an admin, so this one
+// mutation is both the host's and the admin's "delete any photo". Tombstone
+// (reason "host") + immediate purge — the same machinery as everything else.
+export const hostDeletePhoto = mutation({
+  args: { photoId: v.id("memoriesPhotos") },
+  handler: async (ctx, args) => {
+    const photo = await ctx.db.get(args.photoId);
+    if (!photo) throw new ConvexError(dict.photoNotFound);
+    const space = await ctx.db.get(photo.spaceId);
+    if (!space) throw new ConvexError(dict.spaceNotFound);
+    await requireBusinessAccess(ctx, space.businessId);
+    if (photo.status === "deleted") return { deleted: false };
+    await ctx.db.patch(photo._id, {
+      status: "deleted",
+      deletedReason: "host",
+      updatedAt: Date.now(),
+    });
+    await ctx.scheduler.runAfter(0, internal.memories.purgeSweep, {});
+    return { deleted: true };
+  },
+});
+
+// Space/event wipe (RFC §2.10). Host or admin erases an entire space's photos —
+// batched tombstone → shared purge, exactly like the guest wipe but scoped to a
+// space rather than a guest. Leaves sessions/guests intact (a wipe of the
+// PHOTOS, not the installation); business offboarding, which also removes those,
+// composes on top of this.
+export const wipeSpacePhotos = mutation({
+  args: { spaceId: v.id("memoriesSpaces") },
+  handler: async (ctx, args) => {
+    const space = await ctx.db.get(args.spaceId);
+    if (!space) throw new ConvexError(dict.spaceNotFound);
+    await requireBusinessAccess(ctx, space.businessId);
+    await ctx.scheduler.runAfter(0, internal.memories.wipeSpaceBatch, {
+      spaceId: args.spaceId,
+      cursor: null,
+    });
+    return { started: true as const };
+  },
+});
+
+export const wipeSpaceBatch = internalMutation({
+  args: {
+    spaceId: v.id("memoriesSpaces"),
+    cursor: v.union(v.string(), v.null()),
+  },
+  handler: async (ctx, args) => {
+    const photosPage = await ctx.db
+      .query("memoriesPhotos")
+      .withIndex("by_spaceId_and_createdAt", (q) =>
+        q.eq("spaceId", args.spaceId),
+      )
+      .paginate({ numItems: SWEEP_BATCH, cursor: args.cursor });
+    const now = Date.now();
+    for (const photo of photosPage.page) {
+      if (photo.status === "deleted") continue;
+      await ctx.db.patch(photo._id, {
+        status: "deleted",
+        deletedReason: "host",
+        updatedAt: now,
+      });
+    }
+    if (!photosPage.isDone) {
+      await ctx.scheduler.runAfter(0, internal.memories.wipeSpaceBatch, {
+        spaceId: args.spaceId,
+        cursor: photosPage.continueCursor,
+      });
+    } else {
+      await ctx.scheduler.runAfter(0, internal.memories.purgeSweep, {});
+    }
+    return { done: photosPage.isDone };
   },
 });

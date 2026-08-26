@@ -713,6 +713,154 @@
   margin: 24px 0 10px;
 }
 
+/* -------------------------------------------- TASK-20: load more + erasure */
+
+.galleryLoadMoreWrap {
+  display: flex;
+  justify-content: center;
+  margin-top: 22px;
+}
+
+.galleryLoadMore {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 0 22px;
+  border-radius: var(--mem-radius-small);
+  border: 1px solid var(--mem-line);
+  background: var(--mem-bg-raised);
+  color: var(--mem-ink);
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: transform 120ms ease-out;
+}
+
+.galleryLoadMore:active {
+  transform: scale(0.98);
+}
+
+.galleryLoadMore:focus-visible {
+  outline: 2px solid var(--mem-amber);
+  outline-offset: 2px;
+}
+
+.galleryLoadMore:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+
+.galleryLoadMoreSpinner {
+  animation: memSpin 900ms linear infinite;
+}
+
+@keyframes memSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Retention window + the guest's erasure control on /moje. */
+.retentionNote {
+  margin: 26px 0 0;
+  padding: 12px 14px;
+  border-radius: var(--mem-radius-small);
+  border: 1px solid var(--mem-line);
+  background: var(--mem-bg-raised);
+  color: var(--mem-ink-soft);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.retentionNote a {
+  color: var(--mem-amber-bright);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.wipeSection {
+  margin-top: 14px;
+}
+
+.wipeButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 0 18px;
+  border-radius: var(--mem-radius-small);
+  border: 1px solid rgba(226, 105, 91, 0.55);
+  background: transparent;
+  color: var(--mem-danger);
+  font-size: 0.92rem;
+  font-weight: 700;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.wipeButton:focus-visible {
+  outline: 2px solid var(--mem-danger);
+  outline-offset: 2px;
+}
+
+.consentUpdatedBadge {
+  display: inline-block;
+  margin-bottom: 8px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--mem-amber-deep);
+  background: rgba(232, 164, 79, 0.14);
+  color: var(--mem-amber-bright);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.consentPolicyLink {
+  color: var(--mem-amber-bright);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  font-weight: 650;
+}
+
+/* The privacy policy page (STEP 5). */
+.privacyLead {
+  margin: 8px 0 8px;
+  font-size: 1rem;
+  line-height: 1.6;
+  color: var(--mem-ink-soft);
+}
+
+.privacyHeading {
+  margin: 26px 0 6px;
+  font-size: 1.12rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--mem-ink);
+}
+
+.privacySubHeading {
+  margin: 16px 0 4px;
+  font-size: 0.95rem;
+  font-weight: 750;
+  color: var(--mem-amber-bright);
+}
+
+.privacyText {
+  margin: 6px 0;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: var(--mem-ink-soft);
+}
+
+.privacyMeta {
+  margin: 24px 0 0;
+  font-size: 0.78rem;
+  color: var(--mem-ink-faint);
+}
+
 /* --------------------------------------------------------- reduced motion */
 
 @media (prefers-reduced-motion: reduce) {
@@ -733,5 +881,8 @@
   }
   .itemProgressFill {
     transition: none;
+  }
+  .galleryLoadMoreSpinner {
+    animation: none;
   }
 }

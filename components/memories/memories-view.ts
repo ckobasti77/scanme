@@ -12,8 +12,14 @@ export type MyPhotosView = FunctionReturnType<typeof api.memories.myPhotosView>;
 
 export type MyPhotoView = MyPhotosView[number];
 
-export type PublicGalleryView = NonNullable<
-  FunctionReturnType<typeof api.memories.publicGalleryView>
+// TASK-20 STEP 0 — the public gallery split: meta (header + host gate) and a
+// cursor-paginated photo page. The old single PublicGalleryView is gone.
+export type PublicGalleryMeta = NonNullable<
+  FunctionReturnType<typeof api.memories.publicGalleryMeta>
 >;
+
+export type GalleryPhoto = FunctionReturnType<
+  typeof api.memories.publicGalleryPage
+>["page"][number];
 
 export type PhotoImage = MyPhotoView["image"];

@@ -69,6 +69,7 @@ export default async function MemoriesMyPhotosPage({
       businessName={view.businessName}
       logoUrl={view.businessLogoUrl}
       canChooseVisibility={view.guestVisibilityChoice}
+      retentionDays={view.retentionDays}
     />
   );
 }

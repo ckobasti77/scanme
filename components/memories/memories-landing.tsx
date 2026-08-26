@@ -206,9 +206,26 @@ function pluralLine(
 // first screen, always rendered — never a link, footer, or dismissable modal.
 // The full text is a disclosure directly underneath for whoever wants it.
 // -----------------------------------------------------------------------------
-function ConsentNotice({ retentionDays }: { retentionDays: number }) {
+function ConsentNotice({
+  code,
+  retentionDays,
+  updated,
+}: {
+  code: string;
+  retentionDays: number;
+  updated: boolean;
+}) {
   return (
     <section className={styles.consent}>
+      {/* STEP 1 — when the guest previously accepted an OLDER consent version,
+          the always-present notice is marked "updated" so the re-shown notice
+          is visible before the next upload; reserveUpload re-stamps the version
+          in the same act. */}
+      {updated ? (
+        <span className={styles.consentUpdatedBadge}>
+          {dict.consentUpdatedBadge}
+        </span>
+      ) : null}
       <p className={styles.consentText}>
         {consentSr.inlineWho} {consentSr.inlineArchive}{" "}
         {fmt(consentSr.inlineRetention, { days: retentionDays })}{" "}
@@ -223,6 +240,11 @@ function ConsentNotice({ retentionDays }: { retentionDays: number }) {
           <p>{fmt(consentSr.fullRetention, { days: retentionDays })}</p>
           <p>{consentSr.fullDelete}</p>
           <p>{consentSr.fullCookie}</p>
+          <p>
+            <Link className={styles.consentPolicyLink} href={`/m/${code}/privatnost`}>
+              {dict.privacyLink}
+            </Link>
+          </p>
         </div>
       </details>
     </section>
@@ -587,7 +609,15 @@ export function MemoriesLanding({
 
       {!quotaExhausted ? (
         <>
-          <ConsentNotice retentionDays={view.retentionDays ?? 30} />
+          <ConsentNotice
+            code={code}
+            retentionDays={view.retentionDays ?? 30}
+            updated={
+              view.guest !== null &&
+              view.guest.consentVersion !== null &&
+              view.guest.needsConsent
+            }
+          />
           <div className={styles.shutterWrap}>
             <span className={styles.shutterGlow} aria-hidden="true" />
             <button
