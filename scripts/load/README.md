@@ -52,8 +52,15 @@ npx convex run memoriesLoadSeed:reset '{}'
 | `--flood-total / --flood-concurrency` | 300 / 24 | flood pressure |
 | `--attack-guests / --attack-parallel` | 40 / 8 | quota attack shape |
 | `--pool / --long-edge` | 24 / 2560 | payload pool (client-prepared JPEG shape) |
+| `--guest-offset / --guest-count` | 0 / all | disjoint guest window, for multi-process floods |
 | `--no-wall` | wall on | drop the wall subscription |
 | `--label` | — | suffix for the result JSON |
+
+All protocol mutations run with `skipQueue: true` and a 60 s deadline —
+`ConvexHttpClient` otherwise serializes mutations per client instance, which
+turns a "flood" into a single-file queue (see docs/perf/memories-load.md,
+Run 2). `probe-cold.mjs [delayMs] [probes] [cold|hot]` measures mutation
+latency from a separate process during a flood.
 
 Results land in `scripts/load/out/<stamp>-<mode>.json`; the route engine also
 writes the Next server log (per-photo transform timings) next to it.
