@@ -18,13 +18,17 @@ import { getDict } from "../lib/i18n";
 
 const dict = getDict("memories");
 
-// The two host visibility switches (RFC-001 §2.4 C.4). Either or both may be
-// set in one call; an omitted flag is left unchanged.
+// The host visibility switches (RFC-001 §2.4 C.4; wall approval added in
+// TASK-22 §STEP 4). Any subset may be set in one call; an omitted flag is left
+// unchanged. `wallRequiresApproval` is the "nervous host" gate: with it on, a
+// photo waits for the host's per-photo approval (memoriesWall.setPhotoWallApproval)
+// before the wall query surfaces it.
 export const setSpaceVisibility = mutation({
   args: {
     spaceId: v.id("memoriesSpaces"),
     publicGalleryEnabled: v.optional(v.boolean()),
     wallEnabled: v.optional(v.boolean()),
+    wallRequiresApproval: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const space = await ctx.db.get(args.spaceId);
@@ -37,6 +41,9 @@ export const setSpaceVisibility = mutation({
     if (args.wallEnabled !== undefined) {
       patch.wallEnabled = args.wallEnabled;
     }
+    if (args.wallRequiresApproval !== undefined) {
+      patch.wallRequiresApproval = args.wallRequiresApproval;
+    }
     if (Object.keys(patch).length > 0) {
       await ctx.db.patch(space._id, { ...patch, updatedAt: Date.now() });
     }
@@ -44,6 +51,8 @@ export const setSpaceVisibility = mutation({
       publicGalleryEnabled:
         args.publicGalleryEnabled ?? space.publicGalleryEnabled,
       wallEnabled: args.wallEnabled ?? space.wallEnabled,
+      wallRequiresApproval:
+        args.wallRequiresApproval ?? space.wallRequiresApproval ?? false,
     };
   },
 });

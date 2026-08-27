@@ -10,7 +10,13 @@
 import { useState } from "react";
 import { ConvexError } from "convex/values";
 import { useMutation, usePaginatedQuery } from "convex/react";
-import { EyeOff, Images, LoaderCircle, Trash2 } from "lucide-react";
+import {
+  EyeOff,
+  Images,
+  LoaderCircle,
+  MonitorPlay,
+  Trash2,
+} from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -38,8 +44,13 @@ function errorMessage(error: unknown, fallback: string): string {
 
 export function MemoriesHostGallery({
   sessionId,
+  wallApprovalEnabled = false,
 }: {
   sessionId: Id<"memoriesSessions">;
+  // TASK-22 STEP 4 — true when the space runs approve-before-wall on an enabled
+  // wall. Only then does the per-photo wall toggle appear; without it the wall
+  // shows every everyone-visible photo and there is nothing to approve.
+  wallApprovalEnabled?: boolean;
 }) {
   const { results, status, loadMore } = usePaginatedQuery(
     api.memories.hostSessionGallery,
@@ -47,8 +58,10 @@ export function MemoriesHostGallery({
     { initialNumItems: PAGE_SIZE },
   );
   const deletePhoto = useMutation(api.memories.hostDeletePhoto);
+  const setWallApproval = useMutation(api.memoriesWall.setPhotoWallApproval);
   const [target, setTarget] = useState<Id<"memoriesPhotos"> | null>(null);
   const [pending, setPending] = useState(false);
+  const [approving, setApproving] = useState<Id<"memoriesPhotos"> | null>(null);
 
   async function runDelete(photoId: Id<"memoriesPhotos">) {
     setPending(true);
@@ -60,6 +73,20 @@ export function MemoriesHostGallery({
       toast.error(errorMessage(error, dict.photoDeleteError));
     } finally {
       setPending(false);
+    }
+  }
+
+  async function toggleWall(
+    photoId: Id<"memoriesPhotos">,
+    approved: boolean,
+  ) {
+    setApproving(photoId);
+    try {
+      await setWallApproval({ photoId, approved });
+    } catch (error) {
+      toast.error(errorMessage(error, dict.wallApproveError));
+    } finally {
+      setApproving(null);
     }
   }
 
@@ -96,6 +123,42 @@ export function MemoriesHostGallery({
                   >
                     <EyeOff className="size-3" />
                   </span>
+                ) : null}
+                {/* STEP 4 — the wall approval control, only when the space runs
+                    approve-before-wall and only for photos that could reach the
+                    wall (everyone-visible). host_only photos never can. */}
+                {wallApprovalEnabled && photo.visibility === "everyone" ? (
+                  photo.wallApproved ? (
+                    <button
+                      type="button"
+                      onClick={() => void toggleWall(photo.photoId, false)}
+                      disabled={approving === photo.photoId}
+                      className="absolute inset-x-1 bottom-1 inline-flex items-center justify-center gap-1 bg-primary/90 px-1.5 py-1 text-[10px] font-semibold text-primary-foreground"
+                      title={dict.wallUnapproveAction}
+                    >
+                      {approving === photo.photoId ? (
+                        <LoaderCircle className="size-3 animate-spin" />
+                      ) : (
+                        <MonitorPlay className="size-3" />
+                      )}
+                      {dict.wallOnBadge}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => void toggleWall(photo.photoId, true)}
+                      disabled={approving === photo.photoId}
+                      className="absolute inset-x-1 bottom-1 inline-flex items-center justify-center gap-1 bg-black/70 px-1.5 py-1 text-[10px] font-semibold text-white"
+                      title={dict.wallPendingBadge}
+                    >
+                      {approving === photo.photoId ? (
+                        <LoaderCircle className="size-3 animate-spin" />
+                      ) : (
+                        <MonitorPlay className="size-3" />
+                      )}
+                      {dict.wallApproveAction}
+                    </button>
+                  )
                 ) : null}
                 <button
                   type="button"

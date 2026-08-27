@@ -1081,7 +1081,13 @@ export interface MemoriesPanelDict {
   publicGalleryLinkLabel: string; // link to /m/{code}/galerija
   wallLabel: string;
   wallExplain: string;
-  wallComingSoon: string; // the /zid surface is planned, not built
+  wallOpenLink: string; // opens /zid/{code} on the room's screen
+  wallOpenHint: string; // one line on how to project it
+  // TASK-22 STEP 4 — the "nervous host" sub-switch, shown under the wall switch
+  // once the wall is on. When on, a photo waits for the host's approval before
+  // it can appear on the wall.
+  wallApprovalLabel: string;
+  wallApprovalExplain: string;
   visibilitySaveError: string;
   visibilityOn: string;
   visibilityOff: string;
@@ -1112,6 +1118,13 @@ export interface MemoriesPanelDict {
   galleryLoadMore: string;
   galleryPhotoAlt: string; // "… {index}"
   galleryHostOnlyBadge: string; // a host_only photo, shown to the host
+  // TASK-22 STEP 4 — per-photo wall approval in the host gallery, shown only
+  // when the space runs approve-before-wall on an enabled wall.
+  wallApproveAction: string; // release this photo to the wall
+  wallUnapproveAction: string; // take it back off the wall
+  wallPendingBadge: string; // committed but not yet approved for the wall
+  wallOnBadge: string; // currently showing on the wall
+  wallApproveError: string;
   photoDeleteAction: string;
   photoDeleteDialogTitle: string;
   photoDeleteDialogBody: string;
@@ -1155,6 +1168,28 @@ export interface MemoriesPanelDict {
   // Empty state — active profile but no space (shouldn't happen post-provision).
   noSpaceTitle: string;
   noSpaceBody: string;
+}
+
+// memories-wall — the live wall projected in the room (/zid/[code], TASK-22).
+// Deliberately tiny: the wall is furniture, not an app, so it carries almost no
+// text — only what must be read from across a room, all ti-form (a party). The
+// arrival label, the QR recruit line, the empty/waiting states, and one live
+// count. `{...}` placeholders go through fmt().
+export interface MemoriesWallDict {
+  metaTitle: string; // "Zid uspomena · {name}" (noindex)
+  liveLabel: string; // the live-dot label, e.g. "UŽIVO"
+  newMoment: string; // the arrival label a just-uploaded photo gets
+  // The persistent QR recruit — one short line beside the code.
+  joinLine: string;
+  // Empty/waiting states (nothing on the wall yet), shown large.
+  waitingTitle: string;
+  waitingBody: string; // default: the first photo appears here
+  waitingApprovalBody: string; // approve-before-wall: nothing released yet
+  // One live count line — Serbian plural via srPluralCategory.
+  countOne: string; // "{count} uspomena večeras"
+  countFew: string; // "{count} uspomene večeras"
+  countMany: string; // "{count} uspomena večeras"
+  photoAlt: string; // alt text for a wall photo
 }
 
 // resolver — the /r/nevazeca "card not active" page (TASK-14).
@@ -1227,6 +1262,7 @@ export interface DictBySurface {
   memories: MemoriesDict;
   "memories-admin": MemoriesAdminDict;
   "memories-panel": MemoriesPanelDict;
+  "memories-wall": MemoriesWallDict;
   resolver: ResolverDict;
   consent: ConsentDict;
   privacy: PrivacyDict;

@@ -41,6 +41,7 @@ import type * as memoriesAdmin from "../memoriesAdmin.js";
 import type * as memoriesDevSeed from "../memoriesDevSeed.js";
 import type * as memoriesHost from "../memoriesHost.js";
 import type * as memoriesPipeline from "../memoriesPipeline.js";
+import type * as memoriesWall from "../memoriesWall.js";
 import type * as migrations from "../migrations.js";
 import type * as redirects from "../redirects.js";
 import type * as scanMeLinks from "../scanMeLinks.js";
@@ -89,6 +90,7 @@ declare const fullApi: ApiFromModules<{
   memoriesDevSeed: typeof memoriesDevSeed;
   memoriesHost: typeof memoriesHost;
   memoriesPipeline: typeof memoriesPipeline;
+  memoriesWall: typeof memoriesWall;
   migrations: typeof migrations;
   redirects: typeof redirects;
   scanMeLinks: typeof scanMeLinks;

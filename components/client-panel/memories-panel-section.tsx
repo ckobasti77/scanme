@@ -120,7 +120,12 @@ export function MemoriesPanelSection({
           <StatusBanner space={space} entitled={data.entitled} />
           <SessionCard data={data} space={space} />
           {data.session ? (
-            <MemoriesHostGallery sessionId={data.session.id} />
+            <MemoriesHostGallery
+              sessionId={data.session.id}
+              wallApprovalEnabled={
+                space.wallEnabled && space.wallRequiresApproval
+              }
+            />
           ) : null}
           {space.mode === "one_off" ? (
             <WindowCard space={space} />
@@ -472,16 +477,23 @@ function PastNights({ data }: { data: MemoriesPanelData }) {
 
 function VisibilitySwitches({ space }: { space: SpaceData }) {
   const setVisibility = useMutation(api.memoriesHost.setSpaceVisibility);
-  const [pending, setPending] = useState<"gallery" | "wall" | null>(null);
+  const [pending, setPending] = useState<
+    "gallery" | "wall" | "approval" | null
+  >(null);
 
-  async function toggle(which: "gallery" | "wall", next: boolean) {
+  async function toggle(
+    which: "gallery" | "wall" | "approval",
+    next: boolean,
+  ) {
     setPending(which);
     try {
       await setVisibility({
         spaceId: space.id,
         ...(which === "gallery"
           ? { publicGalleryEnabled: next }
-          : { wallEnabled: next }),
+          : which === "wall"
+            ? { wallEnabled: next }
+            : { wallRequiresApproval: next }),
       });
     } catch (error) {
       toast.error(errorMessage(error, dict.visibilitySaveError));
@@ -521,7 +533,33 @@ function VisibilitySwitches({ space }: { space: SpaceData }) {
           on={space.wallEnabled}
           busy={pending === "wall"}
           onToggle={(next) => void toggle("wall", next)}
-          note={dict.wallComingSoon}
+          extra={
+            space.wallEnabled ? (
+              <div className="mt-2 grid gap-3">
+                <Button asChild variant="ghost" size="sm" className="w-fit">
+                  <Link
+                    href={`/zid/${space.code}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <ExternalLink className="size-4" />
+                    {dict.wallOpenLink}
+                  </Link>
+                </Button>
+                <p className="text-xs text-muted-foreground">
+                  {dict.wallOpenHint}
+                </p>
+                {/* STEP 4 — the "nervous host" gate, nested under the wall. */}
+                <SwitchRow
+                  label={dict.wallApprovalLabel}
+                  explain={dict.wallApprovalExplain}
+                  on={space.wallRequiresApproval}
+                  busy={pending === "approval"}
+                  onToggle={(next) => void toggle("approval", next)}
+                />
+              </div>
+            ) : null
+          }
         />
       </div>
       <p className="mt-4 border-l-2 border-border pl-3 text-xs leading-5 text-muted-foreground">

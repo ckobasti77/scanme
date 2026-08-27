@@ -524,6 +524,12 @@ export default defineSchema({
     guestVisibilityChoice: v.boolean(),
     publicGalleryEnabled: v.boolean(),
     wallEnabled: v.boolean(),
+    // TASK-22 STEP 4 — the "nervous host" switch. Off (or absent) → the wall
+    // shows every everyone/ready photo the moment it commits. On → a photo must
+    // be approved from the host gallery (memoriesPhotos.wallApproved) before the
+    // wall query will surface it. Optional so every pre-TASK-22 space row
+    // validates unchanged and reads as "approval not required".
+    wallRequiresApproval: v.optional(v.boolean()),
     totalPhotos: v.number(),
     totalGuests: v.number(),
     createdAt: v.number(),
@@ -580,6 +586,11 @@ export default defineSchema({
       v.literal("hidden"),
       v.literal("deleted"),
     ),
+    // TASK-22 STEP 4 — set true when a host approves a photo for the live wall
+    // in a space that runs approve-before-wall. Ignored entirely by spaces that
+    // do not require approval (the wall reads the 3-key index there). Optional
+    // so it is absent/false until a host explicitly approves.
+    wallApproved: v.optional(v.boolean()),
     originalStorageId: v.optional(v.id("_storage")),
     deletedReason: v.optional(
       v.union(
@@ -605,6 +616,20 @@ export default defineSchema({
       "sessionId",
       "status",
       "visibility",
+    ])
+    // TASK-22 STEP 4 — the approve-before-wall read. Folding wallApproved into
+    // the key keeps the wall query a pure indexed read even when a host requires
+    // approval: it scans straight into (sessionId,"ready","everyone",true), so
+    // an unapproved-photo tail can never crowd approved photos out of the wall's
+    // window, exactly as visibility is folded in for the public gallery. Spaces
+    // that do not require approval never touch this index (they read the 3-key
+    // one above); the worst-failure guarantee — host_only never on a projector —
+    // is enforced by the "everyone" key in BOTH paths.
+    .index("by_sessionId_and_status_and_visibility_and_wallApproved", [
+      "sessionId",
+      "status",
+      "visibility",
+      "wallApproved",
     ])
     .index("by_sessionId_and_guestId", ["sessionId", "guestId"])
     .index("by_guestId", ["guestId"])

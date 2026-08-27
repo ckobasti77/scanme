@@ -20,6 +20,7 @@ import { venuePanelSr } from "./sr/venue-panel";
 import { memoriesSr } from "./sr/memories";
 import { memoriesAdminSr } from "./sr/memories-admin";
 import { memoriesPanelSr } from "./sr/memories-panel";
+import { memoriesWallSr } from "./sr/memories-wall";
 import { resolverSr } from "./sr/resolver";
 import { consentSr } from "./sr/consent";
 import { privacySr } from "./sr/privacy";
@@ -36,6 +37,7 @@ export type {
   MemoriesDict,
   MemoriesAdminDict,
   MemoriesPanelDict,
+  MemoriesWallDict,
   ResolverDict,
   ConsentDict,
   PrivacyDict,
@@ -48,6 +50,7 @@ export {
   memoriesSr,
   memoriesAdminSr,
   memoriesPanelSr,
+  memoriesWallSr,
   resolverSr,
   consentSr,
   privacySr,
@@ -61,6 +64,7 @@ const SR: DictBySurface = {
   memories: memoriesSr,
   "memories-admin": memoriesAdminSr,
   "memories-panel": memoriesPanelSr,
+  "memories-wall": memoriesWallSr,
   resolver: resolverSr,
   consent: consentSr,
   privacy: privacySr,

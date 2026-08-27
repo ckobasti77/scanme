@@ -3,6 +3,7 @@ import { ConvexError } from "convex/values";
 // Slugs that must never be handed to a business, because a root static route
 // segment shadows the dynamic `/[slug]` route (RFC-001 §1.f, §2.7).
 // - "m", "r": reserved for /m/[code] and /r/[cardCode] (new products).
+// - "zid": the live wall /zid/[code] (TASK-22).
 // - "client-panel", "dev", "ponuda", "preview-login": pre-existing static
 //   routes that were shadowing potential business slugs without being reserved.
 // The pre-flight collision scan (slugCollisionScan) confirmed zero live slugs
@@ -13,6 +14,7 @@ const RESERVED_SLUGS = new Set([
   "icon",
   "m",
   "r",
+  "zid",
   "client-panel",
   "dev",
   "ponuda",

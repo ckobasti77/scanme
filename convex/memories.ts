@@ -138,7 +138,10 @@ function nextCutoffInstant(now: number, cutoffHour: number) {
 // Shared loaders
 // -----------------------------------------------------------------------------
 
-async function spaceByCode(ctx: QueryCtx, rawCode: string) {
+// Exported for convex/memoriesWall.ts (TASK-22) — the wall reuses the exact
+// space resolution, latest-session lookup, and signed-URL hydration the guest
+// surfaces use, so the two can never drift.
+export async function spaceByCode(ctx: QueryCtx, rawCode: string) {
   const code = normalizeCode(rawCode);
   if (!code) return null;
   return await ctx.db
@@ -665,7 +668,7 @@ export const myPhotos = query({
 // IS tonight (the scheduler/sweep closes stale ones); if closed, tonight has
 // not started — for a recurring active space that still means "open for the
 // first upload" (reserveUpload get-or-creates the night).
-async function latestSession(
+export async function latestSession(
   ctx: QueryCtx,
   spaceId: Id<"memoriesSpaces">,
 ) {
@@ -679,7 +682,7 @@ async function latestSession(
 // Signed variant URLs + intrinsic dimensions for a committed photo. Null while
 // no asset exists (reserved/processing) or a blob is gone (purge race) — the
 // UI renders those through the live queue, never as broken images.
-async function photoImage(ctx: QueryCtx, photo: Doc<"memoriesPhotos">) {
+export async function photoImage(ctx: QueryCtx, photo: Doc<"memoriesPhotos">) {
   if (!photo.mediaAssetId) return null;
   const asset = await ctx.db.get(photo.mediaAssetId);
   if (!asset || asset.status !== "ready") return null;
@@ -940,6 +943,11 @@ export const hostSessionGallery = query({
     const page: Array<{
       photoId: Id<"memoriesPhotos">;
       visibility: Doc<"memoriesPhotos">["visibility"];
+      // TASK-22 — whether this photo is approved for the live wall. Only
+      // meaningful for everyone-visible photos in an approve-before-wall space;
+      // the host gallery uses it to show a per-photo wall toggle and a
+      // pending-approval badge.
+      wallApproved: boolean;
       createdAt: number;
       image: NonNullable<Awaited<ReturnType<typeof photoImage>>>;
     }> = [];
@@ -949,6 +957,7 @@ export const hostSessionGallery = query({
       page.push({
         photoId: photo._id,
         visibility: photo.visibility,
+        wallApproved: photo.wallApproved === true,
         createdAt: photo.createdAt,
         image,
       });

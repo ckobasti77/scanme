@@ -78,7 +78,11 @@ export const memoriesPanelSr = {
   wallLabel: "Uživo zid",
   wallExplain:
     "Uključivanjem dozvoljavaš da se slike označene kao „vide svi“ prikazuju uživo na projekciji tokom večeri.",
-  wallComingSoon: "Zid uskoro stiže.",
+  wallOpenLink: "Otvori zid",
+  wallOpenHint: "Otvori na laptopu povezanom na TV i pređi u ceo ekran.",
+  wallApprovalLabel: "Odobri pre zida",
+  wallApprovalExplain:
+    "Uključivanjem svaka slika čeka tvoje odobrenje pre nego što se pojavi na zidu.",
   visibilitySaveError: "Promena nije sačuvana.",
   visibilityOn: "Uključeno",
   visibilityOff: "Isključeno",
@@ -104,6 +108,11 @@ export const memoriesPanelSr = {
   galleryLoadMore: "Prikaži još",
   galleryPhotoAlt: "Slika {index}",
   galleryHostOnlyBadge: "Samo domaćin",
+  wallApproveAction: "Pusti na zid",
+  wallUnapproveAction: "Skloni sa zida",
+  wallPendingBadge: "Čeka odobrenje",
+  wallOnBadge: "Na zidu",
+  wallApproveError: "Nije uspelo. Pokušaj ponovo.",
   photoDeleteAction: "Ukloni sliku",
   photoDeleteDialogTitle: "Ukloniti ovu sliku?",
   photoDeleteDialogBody:

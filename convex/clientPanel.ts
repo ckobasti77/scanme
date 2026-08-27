@@ -527,6 +527,7 @@ type MemoriesPanelResult =
         windowEndAt: number | null;
         publicGalleryEnabled: boolean;
         wallEnabled: boolean;
+        wallRequiresApproval: boolean;
         guestVisibilityChoice: boolean;
         totalPhotos: number;
         totalGuests: number;
@@ -647,6 +648,7 @@ export const memoriesPanel = query({
             windowEndAt: space.windowEndAt ?? null,
             publicGalleryEnabled: space.publicGalleryEnabled,
             wallEnabled: space.wallEnabled,
+            wallRequiresApproval: space.wallRequiresApproval === true,
             guestVisibilityChoice: space.guestVisibilityChoice,
             totalPhotos: space.totalPhotos,
             totalGuests: space.totalGuests,

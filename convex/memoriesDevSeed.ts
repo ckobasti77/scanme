@@ -164,6 +164,10 @@ export const configureSpace = internalMutation({
     windowStartAt: v.optional(v.number()),
     windowEndAt: v.optional(v.number()),
     publicGalleryEnabled: v.optional(v.boolean()),
+    // TASK-22 browser QA: flip the wall (and its approve-before-wall gate) on
+    // the seeded space without hand-editing the panel.
+    wallEnabled: v.optional(v.boolean()),
+    wallRequiresApproval: v.optional(v.boolean()),
     guestVisibilityChoice: v.optional(v.boolean()),
     entitled: v.optional(v.boolean()),
   },
