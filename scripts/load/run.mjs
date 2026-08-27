@@ -99,6 +99,10 @@ function parseFlags(argv) {
     else if (key === "--long-edge") flags.longEdge = Number(next());
     else if (key === "--label") flags.label = next();
     else if (key === "--no-wall") flags.wall = false;
+    // Multi-process flood: each process takes a disjoint rotated window of the
+    // seeded guests so several load generators never share a guest row.
+    else if (key === "--guest-offset") flags.guestOffset = Number(next());
+    else if (key === "--guest-count") flags.guestCount = Number(next());
     else throw new Error(`unknown flag: ${key}`);
   }
   if (!["full", "flood", "quota"].includes(flags.mode ?? "")) {
@@ -211,6 +215,18 @@ function withDeadline(promise, label) {
   return Promise.race([promise, gate]).finally(() => clearTimeout(timer));
 }
 
+// Every protocol mutation goes through here: `skipQueue` because
+// ConvexHttpClient SERIALIZES queued mutations per client instance (a 48-way
+// "flood" without it is a single-file line — the first ladder in
+// docs/perf/memories-load.md measured exactly that artefact), and the
+// deadline because a silently dead socket otherwise hangs the await forever.
+function mut(ctx, label, fnRef, args) {
+  return withDeadline(
+    ctx.convex.mutation(fnRef, args, { skipQueue: true }),
+    label,
+  );
+}
+
 async function timed(ctx, step, fn) {
   const start = Date.now();
   try {
@@ -276,7 +292,7 @@ async function postProcess(ctx, device, item) {
 async function attemptPhoto(ctx, device, item, payload) {
   if (!item.photoId) {
     const reservation = await timed(ctx, "reserve", () =>
-      ctx.convex.mutation(api.memories.reserveUpload, {
+      mut(ctx, "reserve", api.memories.reserveUpload, {
         code: device.code,
         guestKey: device.guestKey,
       }),
@@ -287,7 +303,7 @@ async function attemptPhoto(ctx, device, item, payload) {
   if (!item.storageId) {
     if (!item.uploadUrl) {
       const renewed = await timed(ctx, "renew", () =>
-        ctx.convex.mutation(api.memories.renewUploadUrl, {
+        mut(ctx, "renew", api.memories.renewUploadUrl, {
           code: device.code,
           guestKey: device.guestKey,
           photoId: item.photoId,
@@ -316,7 +332,7 @@ async function attemptPhoto(ctx, device, item, payload) {
 
   // Engine `direct` — the route's Convex half, inline.
   const context = await timed(ctx, "claim", () =>
-    ctx.convex.mutation(api.memoriesPipeline.uploadContext, {
+    mut(ctx, "claim", api.memoriesPipeline.uploadContext, {
       secret: ctx.pipelineSecret,
       code: device.code,
       guestKey: device.guestKey,
@@ -337,7 +353,7 @@ async function attemptPhoto(ctx, device, item, payload) {
     ]),
   );
   await timed(ctx, "commit", () =>
-    ctx.convex.mutation(api.memoriesPipeline.commitProcessed, {
+    mut(ctx, "commit", api.memoriesPipeline.commitProcessed, {
       secret: ctx.pipelineSecret,
       photoId: item.photoId,
       originalStorageId: item.storageId,
@@ -552,7 +568,10 @@ async function runFull(ctx, flags, seed) {
 }
 
 async function runFlood(ctx, flags, seed) {
-  const devices = makeDevices(ctx, seed.loadSpaceCode, seed.guestKeys, seed.guestKeys.length);
+  const offset = flags.guestOffset ?? 0;
+  const rotated = [...seed.guestKeys.slice(offset), ...seed.guestKeys.slice(0, offset)];
+  const keys = rotated.slice(0, flags.guestCount ?? rotated.length);
+  const devices = makeDevices(ctx, seed.loadSpaceCode, keys, keys.length);
   const outcomes = [];
   let nextIndex = 0;
   await Promise.all(
