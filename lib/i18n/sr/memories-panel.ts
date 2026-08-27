@@ -148,4 +148,30 @@ export const memoriesPanelSr = {
   noSpaceTitle: "Prostor za uspomene nije pronađen",
   noSpaceBody:
     "Memories je aktiviran, ali prostor još nije napravljen. Obrati se podršci.",
+  // TASK-21 — the ZIP export.
+  exportHeading: "Preuzmi sve slike",
+  exportBody:
+    "Napravi jednu arhivu (ZIP) sa svim slikama iz ovog prostora — JPEG, u punoj rezoluciji, spremne za štampu ili čuvanje. Slike su razvrstane u foldere po stolovima.",
+  exportButton: "Preuzmi sve (ZIP)",
+  exportEmpty: "Još nema slika za preuzimanje.",
+  exportQueued: "Priprema uskoro počinje…",
+  exportBuilding: "Priprema arhivu… {count} slika",
+  exportReady: "Arhiva je spremna.",
+  exportDownload: "Preuzmi arhivu",
+  exportRebuild: "Napravi novu arhivu",
+  exportRetry: "Pokušaj ponovo",
+  exportExpiresAt: "Link važi do {date}.",
+  exportExpired: "Link je istekao — napravi novu arhivu.",
+  exportPhotoCount: "{count} slika u arhivi",
+  exportSize: "{size}",
+  exportInProgressNote: "Priprema jedne arhive je u toku.",
+  exportLifetimeNote:
+    "Arhiva je snimak stanja u trenutku pravljenja. Link važi 14 dana, a zatim se arhiva briše sa servera — same slike u prostoru ostaju nepromenjene.",
+  exportPastHeading: "Ranija preuzimanja",
+  exportOtherFolder: "Ostalo",
+  exportStartError: "Priprema nije pokrenuta. Pokušaj ponovo.",
+  exportFailedPrefix: "Priprema nije uspela: {reason}",
+  exportErrorNoPhotos: "nema slika za arhiviranje",
+  exportErrorBuildFailed: "greška pri obradi slika",
+  exportErrorStorageFailed: "arhiva nije sačuvana",
 } as const satisfies MemoriesPanelDict;

@@ -1155,6 +1155,32 @@ export interface MemoriesPanelDict {
   // Empty state — active profile but no space (shouldn't happen post-provision).
   noSpaceTitle: string;
   noSpaceBody: string;
+  // TASK-21 — the ZIP export ("the couple's keepsake"). Trigger, live progress,
+  // the download link and its lifetime, past exports, and the error-code map.
+  exportHeading: string;
+  exportBody: string;
+  exportButton: string; // "Preuzmi sve (ZIP)"
+  exportEmpty: string; // no ready photos to export yet
+  exportQueued: string; // job accepted, work about to start
+  exportBuilding: string; // "Priprema… {count} slika" (encoded so far)
+  exportReady: string;
+  exportDownload: string; // download the finished archive
+  exportRebuild: string; // build a fresh archive
+  exportRetry: string; // retry a failed job
+  exportExpiresAt: string; // "Link važi do {date}"
+  exportExpired: string; // link lifetime elapsed, archive purged
+  exportPhotoCount: string; // "{count} slika u arhivi"
+  exportSize: string; // "{size}" already-formatted human size
+  exportInProgressNote: string; // only one export builds at a time
+  exportLifetimeNote: string; // how long the link lives + what happens after
+  exportPastHeading: string;
+  exportOtherFolder: string; // archive folder for cardless photos ("Ostalo")
+  exportStartError: string; // toast when the trigger mutation refuses
+  // Failed-job machine codes → Serbian sentences (stored code, localized here).
+  exportFailedPrefix: string; // "Priprema nije uspela: {reason}"
+  exportErrorNoPhotos: string;
+  exportErrorBuildFailed: string;
+  exportErrorStorageFailed: string;
 }
 
 // resolver — the /r/nevazeca "card not active" page (TASK-14).

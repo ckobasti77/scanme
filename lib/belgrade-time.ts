@@ -64,6 +64,41 @@ export function epochToBelgradeLocal(epoch: number): string {
   return `${map.year}-${map.month}-${map.day}T${map.hour}:${map.minute}`;
 }
 
+// epoch ms → Belgrade calendar parts as numbers. Used by the ZIP export
+// (TASK-21) for both the human filename stamp and the per-file DOS mod-time, so
+// a downloaded archive's dates read in the couple's own timezone.
+export function belgradeParts(epoch: number): {
+  year: number;
+  month: number;
+  day: number;
+  hour: number;
+  minute: number;
+  second: number;
+} {
+  const dtf = new Intl.DateTimeFormat("en-US", {
+    timeZone: BELGRADE,
+    hourCycle: "h23",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+  const map: Record<string, number> = {};
+  for (const part of dtf.formatToParts(new Date(epoch))) {
+    if (part.type !== "literal") map[part.type] = Number(part.value);
+  }
+  return {
+    year: map.year,
+    month: map.month,
+    day: map.day,
+    hour: map.hour,
+    minute: map.minute,
+    second: map.second,
+  };
+}
+
 const dateTimeFormat = new Intl.DateTimeFormat("sr-Latn-RS", {
   timeZone: BELGRADE,
   weekday: "short",

@@ -1327,7 +1327,19 @@ export const wipeGuestBatch = internalMutation({
       .take(SWEEP_BATCH);
     for (const grant of grants) await ctx.db.delete(grant._id);
     const guest = await ctx.db.get(args.guestId);
-    if (guest) await ctx.db.delete(guest._id);
+    if (guest) {
+      // TASK-21 STEP 4 — a guest's erasure reaches exports too: a built archive
+      // may still hold this guest's photo bytes, and guests are anonymous so we
+      // cannot excise one from a sealed ZIP. Invalidate the space's exports; the
+      // host can re-export without the now-deleted photos. The guest's wipe beats
+      // a kept snapshot, exactly as it beats the host's archive pin.
+      await ctx.scheduler.runAfter(
+        0,
+        internal.memoriesExport.invalidateSpaceExports,
+        { spaceId: guest.spaceId },
+      );
+      await ctx.db.delete(guest._id);
+    }
     await ctx.scheduler.runAfter(0, internal.memories.purgeSweep, {});
     return { tombstoned: photos.length, done: true as const };
   },
@@ -1402,6 +1414,13 @@ export const wipeSpaceBatch = internalMutation({
         cursor: photosPage.continueCursor,
       });
     } else {
+      // TASK-21 STEP 4 — a full space wipe also invalidates the space's built
+      // archives (same reasoning as the guest wipe above).
+      await ctx.scheduler.runAfter(
+        0,
+        internal.memoriesExport.invalidateSpaceExports,
+        { spaceId: args.spaceId },
+      );
       await ctx.scheduler.runAfter(0, internal.memories.purgeSweep, {});
     }
     return { done: photosPage.isDone };

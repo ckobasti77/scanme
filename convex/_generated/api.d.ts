@@ -39,6 +39,8 @@ import type * as lib_venueValidators from "../lib/venueValidators.js";
 import type * as memories from "../memories.js";
 import type * as memoriesAdmin from "../memoriesAdmin.js";
 import type * as memoriesDevSeed from "../memoriesDevSeed.js";
+import type * as memoriesExport from "../memoriesExport.js";
+import type * as memoriesExportWorker from "../memoriesExportWorker.js";
 import type * as memoriesHost from "../memoriesHost.js";
 import type * as memoriesPipeline from "../memoriesPipeline.js";
 import type * as migrations from "../migrations.js";
@@ -87,6 +89,8 @@ declare const fullApi: ApiFromModules<{
   memories: typeof memories;
   memoriesAdmin: typeof memoriesAdmin;
   memoriesDevSeed: typeof memoriesDevSeed;
+  memoriesExport: typeof memoriesExport;
+  memoriesExportWorker: typeof memoriesExportWorker;
   memoriesHost: typeof memoriesHost;
   memoriesPipeline: typeof memoriesPipeline;
   migrations: typeof migrations;

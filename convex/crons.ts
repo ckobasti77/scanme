@@ -67,4 +67,15 @@ crons.interval(
   {},
 );
 
+//   • the daily export-link expiry (TASK-21 / RFC-001 §2.10) — a ready archive
+//     whose 14-day link lifetime elapsed has its blob deleted (so even a leaked
+//     URL 404s) and its row flipped to `expired`. This is the ONLY thing that
+//     ends an export; a live-photo retention sweep never touches a built archive.
+crons.interval(
+  "memories purge expired exports",
+  { hours: 24 },
+  internal.memoriesExport.purgeExpiredExports,
+  {},
+);
+
 export default crons;
