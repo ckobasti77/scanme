@@ -9,6 +9,11 @@ import {
   remove as storageRemove,
 } from "./lib/storage";
 import {
+  bumpShardedCount,
+  sessionCountKey,
+  spaceCountKey,
+} from "./lib/countShards";
+import {
   ORIGINAL_MAX_BYTES,
   PIPELINE_ERROR,
 } from "../lib/memories-pipeline/protocol";
@@ -311,14 +316,14 @@ export const commitProcessed = mutation({
     await storageRemove(ctx, args.originalStorageId);
 
     // The photoCount rollups (§2.8 — stats only, never enforcement; quota is
-    // the index count in memories.reserveUpload).
-    const session = await ctx.db.get(photo.sessionId);
-    if (session) {
-      await ctx.db.patch(session._id, {
-        photoCount: session.photoCount + 1,
-        updatedAt: now,
-      });
-    }
+    // the index count in memories.reserveUpload). The session and space
+    // rollups go through SHARDED counters (TASK-24): patching them directly
+    // put one session row and one space row in the write set of every commit
+    // of the night, which serialized the whole protocol — measured in
+    // docs/perf/memories-load.md. The guest rollup stays a direct patch: a
+    // guest's commits are sequential by construction (the client queue).
+    await bumpShardedCount(ctx, sessionCountKey(photo.sessionId));
+    await bumpShardedCount(ctx, spaceCountKey(space._id));
     const guest = await ctx.db.get(photo.guestId);
     if (guest) {
       await ctx.db.patch(guest._id, {
@@ -326,10 +331,6 @@ export const commitProcessed = mutation({
         updatedAt: now,
       });
     }
-    await ctx.db.patch(space._id, {
-      totalPhotos: space.totalPhotos + 1,
-      updatedAt: now,
-    });
 
     return { alreadyReady: false as const, mediaAssetId };
   },

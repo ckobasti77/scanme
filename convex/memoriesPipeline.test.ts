@@ -308,9 +308,13 @@ describe("commitProcessed — idempotent, state-machine-validated", () => {
       // The original blob is gone.
       expect(await ctx.db.system.get("_storage", storageId)).toBeNull();
 
-      // photoCount rollups (§2.8) — stats, never enforcement.
+      // photoCount rollups (§2.8) — stats, never enforcement. Since TASK-24
+      // the session/space rollups are SHARDED (convex/lib/countShards.ts):
+      // the commit must NOT touch the session/space docs (that single-row
+      // write serialized the whole night — docs/perf/memories-load.md) and
+      // must instead land one +1 in the counter shards.
       const space = await ctx.db.get(spaceId);
-      expect(space?.totalPhotos).toBe(1);
+      expect(space?.totalPhotos).toBe(0);
       const guest = await ctx.db.get(guestId);
       expect(guest?.photoCount).toBe(1);
       // Known convex-test gotcha: ids read back through t.run lose their
@@ -318,7 +322,15 @@ describe("commitProcessed — idempotent, state-machine-validated", () => {
       const session = (await ctx.db.get(photo!.sessionId)) as
         | Doc<"memoriesSessions">
         | null;
-      expect(session?.photoCount).toBe(1);
+      expect(session?.photoCount).toBe(0);
+      // (withIndex in t.run loses schema index types — filter instead.)
+      const shards = await ctx.db.query("memoriesCountShards").collect();
+      const sumFor = (key: string) =>
+        shards
+          .filter((row) => row.key === key)
+          .reduce((total, row) => total + row.value, 0);
+      expect(sumFor(`session:${photo!.sessionId}`)).toBe(1);
+      expect(sumFor(`space:${spaceId}`)).toBe(1);
     });
   });
 

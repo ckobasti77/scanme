@@ -555,6 +555,17 @@ export default defineSchema({
     .index("by_spaceId_and_dateKey", ["spaceId", "dateKey"])
     .index("by_status_and_openedAt", ["status", "openedAt"]),
 
+  // TASK-24 — sharded counter rows for session.photoCount / space.totalPhotos
+  // (convex/lib/countShards.ts). The doc fields stay as the base value; these
+  // rows absorb the per-commit increments so two hundred concurrent commits
+  // stop serializing on one session row and one space row. `key` is
+  // "session:<id>" | "space:<id>".
+  memoriesCountShards: defineTable({
+    key: v.string(),
+    shard: v.number(),
+    value: v.number(),
+  }).index("by_key_and_shard", ["key", "shard"]),
+
   // C.6 — guests (anonymous; cookie-bearer capability).
   memoriesGuests: defineTable({
     spaceId: v.id("memoriesSpaces"),

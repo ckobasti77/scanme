@@ -8,6 +8,7 @@ import {
   photoImage,
   spaceByCode,
 } from "./memories";
+import { sessionPhotoCount } from "./lib/countShards";
 
 // =============================================================================
 // TASK-22 — the live wall (/zid/[code]). The screen in the room: a laptop wired
@@ -109,8 +110,13 @@ export const wallFeed = query({
     }
     // `count` is the night's true participation (the session rollup), NOT the
     // windowed photo array — the social-proof line reads "142 tonight" even
-    // though only the newest WALL_WINDOW are ever sent to the screen.
-    return { photos, sessionId: session._id, count: session.photoCount };
+    // though only the newest WALL_WINDOW are ever sent to the screen. Since
+    // TASK-24 the rollup is base + sharded increments.
+    return {
+      photos,
+      sessionId: session._id,
+      count: await sessionPhotoCount(ctx, session),
+    };
   },
 });
 

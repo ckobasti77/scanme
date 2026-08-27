@@ -11,6 +11,13 @@ import { getEntitlement, upsertManualEntitlement } from "./lib/entitlements";
 import { generateCode } from "./lib/codes";
 import { remove as storageRemove } from "./lib/storage";
 import { mintSpaceCards } from "./cards";
+import {
+  COUNT_SHARDS,
+  sessionCountKey,
+  sessionPhotoCount,
+  spaceCountKey,
+  spaceTotalPhotos,
+} from "./lib/countShards";
 
 // =============================================================================
 // TASK-24 — provisioning for the 200-phone load test (scripts/load/).
@@ -307,12 +314,20 @@ export const reset = internalMutation({
       return { done: false, deleted };
     }
 
-    // Clean: zero every rollup the load run inflated.
+    // Clean: zero every rollup the load run inflated, shard rows included.
     const now = Date.now();
+    const dropShards = async (key: string) => {
+      const rows = await ctx.db
+        .query("memoriesCountShards")
+        .withIndex("by_key_and_shard", (q) => q.eq("key", key))
+        .take(COUNT_SHARDS * 2);
+      for (const row of rows) await ctx.db.delete(row._id);
+    };
     for (const space of spaces) {
       if (space.totalPhotos !== 0) {
         await ctx.db.patch(space._id, { totalPhotos: 0, updatedAt: now });
       }
+      await dropShards(spaceCountKey(space._id));
       const sessions = await ctx.db
         .query("memoriesSessions")
         .withIndex("by_spaceId_and_dateKey", (q) => q.eq("spaceId", space._id))
@@ -321,6 +336,7 @@ export const reset = internalMutation({
         if (session.photoCount !== 0) {
           await ctx.db.patch(session._id, { photoCount: 0, updatedAt: now });
         }
+        await dropShards(sessionCountKey(session._id));
       }
       const guests = await ctx.db
         .query("memoriesGuests")
@@ -413,13 +429,13 @@ export const verify = internalQuery({
       space: {
         code: space.code,
         status: space.status,
-        totalPhotos: space.totalPhotos,
+        totalPhotos: await spaceTotalPhotos(ctx, space),
       },
       session: session
         ? {
             dateKey: session.dateKey,
             status: session.status,
-            photoCount: session.photoCount,
+            photoCount: await sessionPhotoCount(ctx, session),
             guestCount: session.guestCount,
           }
         : null,

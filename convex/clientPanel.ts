@@ -11,6 +11,7 @@ import { getEntitlement } from "./lib/entitlements";
 import { aggregateMetricRowsForRange, getMetricRows, metricsRangeConfig } from "./lib/metrics";
 import { getDestinationMetricRows, getServiceMetricRows } from "./lib/serviceMetrics";
 import { requireSlug } from "./lib/validation";
+import { sessionPhotoCount, spaceTotalPhotos } from "./lib/countShards";
 
 const BELGRADE_TIME_ZONE = "Europe/Belgrade";
 
@@ -549,14 +550,16 @@ type MemoriesPanelResult =
       } | null;
     };
 
-function sessionSummary(
+async function sessionSummary(
+  ctx: QueryCtx,
   session: Doc<"memoriesSessions">,
-): MemoriesSessionSummary {
+): Promise<MemoriesSessionSummary> {
   return {
     id: session._id,
     dateKey: session.dateKey,
     status: session.status,
-    photoCount: session.photoCount,
+    // Base + sharded increments (TASK-24, convex/lib/countShards.ts).
+    photoCount: await sessionPhotoCount(ctx, session),
     guestCount: session.guestCount,
     openedAt: session.openedAt,
   };
@@ -605,8 +608,11 @@ export const memoriesPanel = query({
           .order("desc")
           .take(24)
       : [];
-    const session = sessions[0] ? sessionSummary(sessions[0]) : null;
-    const pastNights = sessions.slice(1).map(sessionSummary);
+    const session = sessions[0] ? await sessionSummary(ctx, sessions[0]) : null;
+    const pastNights = [];
+    for (const past of sessions.slice(1)) {
+      pastNights.push(await sessionSummary(ctx, past));
+    }
 
     // The oldest LIVE photo (ascending by createdAt) — the next one retention
     // will remove. Skips tombstones so the panel shows a real, servable photo's
@@ -650,7 +656,7 @@ export const memoriesPanel = query({
             wallEnabled: space.wallEnabled,
             wallRequiresApproval: space.wallRequiresApproval === true,
             guestVisibilityChoice: space.guestVisibilityChoice,
-            totalPhotos: space.totalPhotos,
+            totalPhotos: await spaceTotalPhotos(ctx, space),
             totalGuests: space.totalGuests,
           }
         : null,

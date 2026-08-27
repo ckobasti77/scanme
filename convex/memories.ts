@@ -19,6 +19,7 @@ import {
   remove as storageRemove,
 } from "./lib/storage";
 import { serviceMetricDateKey } from "./lib/serviceMetrics";
+import { sessionPhotoCount } from "./lib/countShards";
 import { optionalText } from "./lib/validation";
 import { fmt, getDict } from "../lib/i18n";
 import { CONSENT_VERSION } from "../lib/i18n/sr/consent";
@@ -795,7 +796,7 @@ export const guestSpaceView = query({
         ? {
             id: session._id,
             status: session.status,
-            photoCount: session.photoCount,
+            photoCount: await sessionPhotoCount(ctx, session),
           }
         : null,
       guest,

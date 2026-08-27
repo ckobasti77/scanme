@@ -158,6 +158,11 @@ function classifyError(error) {
     if (data.startsWith("pipeline:")) return { cls: data, retryable: false };
     return { cls: `refusal:${data.slice(0, 48)}`, retryable: false };
   }
+  if (msg.startsWith("convex_client_timeout")) {
+    // A reserve retry could double-book a quota slot (reserve-once contract),
+    // so only the idempotent steps retry through a client-side timeout.
+    return { cls: msg, retryable: !msg.endsWith(":reserve") };
+  }
   if (/OptimisticConcurrencyControl|changed while this mutation|write conflict|conflicts with concurrent/i.test(msg)) {
     return { cls: "occ_exhausted", retryable: true };
   }
@@ -185,6 +190,26 @@ function backoffDelay(attempt) {
 // -----------------------------------------------------------------------------
 // Protocol steps
 // -----------------------------------------------------------------------------
+
+// ConvexHttpClient has no per-call timeout, and a silently dead socket (seen
+// on Windows with ~50 parallel keep-alive connections) hangs the await
+// forever. Race every mutation against a generous deadline — far above the
+// worst honest parking latency measured (~11 s at 96-way contention). The
+// caller decides retryability: claim/commit are idempotent per photoId so a
+// timed-out call is safely retried; a timed-out RESERVE is terminal for the
+// harness (retrying could double-book a quota slot — the contract's
+// reserve-once rule).
+const MUTATION_TIMEOUT_MS = 60_000;
+function withDeadline(promise, label) {
+  let timer;
+  const gate = new Promise((_, reject) => {
+    timer = setTimeout(
+      () => reject(new Error(`convex_client_timeout:${label}`)),
+      MUTATION_TIMEOUT_MS,
+    );
+  });
+  return Promise.race([promise, gate]).finally(() => clearTimeout(timer));
+}
 
 async function timed(ctx, step, fn) {
   const start = Date.now();
@@ -531,12 +556,17 @@ async function runFlood(ctx, flags, seed) {
   const outcomes = [];
   let nextIndex = 0;
   await Promise.all(
-    Array.from({ length: flags.floodConcurrency }, async () => {
-      for (;;) {
+    Array.from({ length: flags.floodConcurrency }, async (_, worker) => {
+      for (let step = 0; ; step += 1) {
         const i = nextIndex;
         nextIndex += 1;
         if (i >= flags.floodTotal) return;
-        const device = devices[i % devices.length];
+        // Each worker walks its own DISJOINT guest partition so no two
+        // in-flight photos share a guest row — the measured contention is the
+        // session/space rollup, never an artefact of two workers patching one
+        // guest. (Requires guests ≥ concurrency.)
+        const slice = Math.max(1, Math.floor(devices.length / flags.floodConcurrency));
+        const device = devices[(worker * slice + (step % slice)) % devices.length];
         outcomes.push(await uploadOnePhoto(ctx, device, ctx.floodKit.original));
       }
     }),

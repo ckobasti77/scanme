@@ -4,6 +4,7 @@ import { upsertManualEntitlement } from "./lib/entitlements";
 import { generateCode } from "./lib/codes";
 import { getUrl as storageGetUrl } from "./lib/storage";
 import { provisionCelebration } from "./memoriesAdmin";
+import { sessionPhotoCount, spaceTotalPhotos } from "./lib/countShards";
 import { mintSpaceCards } from "./cards";
 import type { Id } from "./_generated/dataModel";
 
@@ -311,12 +312,12 @@ export const celebrationSnapshot = internalQuery({
       .take(50);
     return {
       spaceStatus: space.status,
-      totalPhotos: space.totalPhotos,
+      totalPhotos: await spaceTotalPhotos(ctx, space),
       totalGuests: space.totalGuests,
       session: session
         ? {
             status: session.status,
-            photoCount: session.photoCount,
+            photoCount: await sessionPhotoCount(ctx, session),
             guestCount: session.guestCount,
           }
         : null,
