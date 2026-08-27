@@ -229,6 +229,79 @@ describe("retention sweep + purge", () => {
   });
 });
 
+// TASK-23 STEP 0 — the load-bearing amendment. Retention alone no longer beats
+// the host's archive pin: a photo pinned onto the venue's public page survives a
+// sweep whose cutoff is far past it. But the pin is not immortal — an EXPLICIT
+// guest deletion still removes the photo AND its archive row. Named for what it
+// protects: the venue page not silently emptying itself.
+describe("the archive pin outlives retention, but not an explicit deletion", () => {
+  test("a pinned photo survives a retention sweep, then a guest delete removes it from eventArchiveItems too", async () => {
+    const t = newT();
+    const { spaceId, sessionId, guestId, businessId } = await seed(t);
+
+    // A photo far past any retention cutoff — 400 days old.
+    const pinned = await readyPhoto(t, {
+      spaceId,
+      sessionId,
+      guestId,
+      businessId,
+      ageMs: 400 * DAY_MS,
+    });
+
+    // The host pins it onto an event archive (sourcePhotoId set — the TASK-23
+    // trace back to the night).
+    const { itemId } = await t.run(async (ctx) => {
+      const now = Date.now();
+      const eventId = await ctx.db.insert("events", {
+        businessId,
+        slug: "svadba",
+        title: "Svadba",
+        status: "archived",
+        lifecycleRevision: 1,
+        createdAt: now,
+        updatedAt: now,
+      });
+      const itemId = await ctx.db.insert("eventArchiveItems", {
+        eventId,
+        mediaAssetId: pinned.mediaAssetId,
+        sourcePhotoId: pinned.photoId,
+        order: 0,
+        createdAt: now,
+      });
+      return { itemId };
+    });
+
+    // A retention sweep whose cutoff is in the FUTURE — every photo is "past" it.
+    // The pinned photo must NOT be tombstoned, and its bytes must remain.
+    await t.mutation(internal.memories.retentionSweepSpace, {
+      spaceId,
+      cutoff: Date.now() + DAY_MS,
+      cursor: null,
+    });
+    await t.mutation(internal.memories.purgeSweep, {});
+
+    expect(
+      (await t.run((ctx) => ctx.db.get(pinned.photoId)))?.status,
+    ).toBe("ready");
+    expect(await t.run((ctx) => ctx.db.get(itemId))).not.toBeNull();
+    expect(await storageCount(t)).toBe(3);
+
+    // Now the guest explicitly deletes the photo. The pin is not a shield
+    // against the guest's own erasure: the row AND the bytes go.
+    const deleted = await t.mutation(api.memories.deleteMyPhoto, {
+      code: SPACE_CODE,
+      guestKey: GUEST_KEY,
+      photoId: pinned.photoId,
+    });
+    expect(deleted.deleted).toBe(true);
+    await t.mutation(internal.memories.purgeSweep, {});
+
+    expect(await t.run((ctx) => ctx.db.get(pinned.photoId))).toBeNull();
+    expect(await t.run((ctx) => ctx.db.get(itemId))).toBeNull();
+    expect(await storageCount(t)).toBe(0);
+  });
+});
+
 describe("guest wipe", () => {
   test("wipes photos, grants, guest row, AND the host's archive pin — zero storage", async () => {
     const t = newT();

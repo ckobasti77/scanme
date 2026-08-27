@@ -213,6 +213,9 @@ export const MAX_BLOCKS = 30;
 export const GALLERY_MAX_ITEMS = 24;
 export const PROGRAM_MAX_ITEMS = 40;
 export const PRICE_LIST_MAX_ITEMS = 60;
+// The most Memories photos a host may pin into one event's archive (TASK-23).
+// One constant so the host picker's UI and the server mutation agree on the cap.
+export const ARCHIVE_MAX_ITEMS = 60;
 
 // Inclusive numeric ranges for bounded properties. Chosen as the smallest
 // reasonable defaults where the RFC makes no decision (listed in the report).

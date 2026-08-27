@@ -38,6 +38,7 @@ import type * as lib_validation from "../lib/validation.js";
 import type * as lib_venueValidators from "../lib/venueValidators.js";
 import type * as memories from "../memories.js";
 import type * as memoriesAdmin from "../memoriesAdmin.js";
+import type * as memoriesArchive from "../memoriesArchive.js";
 import type * as memoriesDevSeed from "../memoriesDevSeed.js";
 import type * as memoriesHost from "../memoriesHost.js";
 import type * as memoriesPipeline from "../memoriesPipeline.js";
@@ -87,6 +88,7 @@ declare const fullApi: ApiFromModules<{
   "lib/venueValidators": typeof lib_venueValidators;
   memories: typeof memories;
   memoriesAdmin: typeof memoriesAdmin;
+  memoriesArchive: typeof memoriesArchive;
   memoriesDevSeed: typeof memoriesDevSeed;
   memoriesHost: typeof memoriesHost;
   memoriesPipeline: typeof memoriesPipeline;

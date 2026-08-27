@@ -770,6 +770,11 @@ export interface MemoriesDict {
   spaceNotOneOff: string; // window controls on a recurring space
   spaceWindowInvalid: string; // new end not after the window start / now
   spaceStatusInvalid: string; // pause/resume on a closed/archived space
+  // TASK-23 archive pinning (convex/memoriesArchive.ts).
+  archiveEventNotFound: string; // the target event is missing
+  archiveCrossTenant: string; // a photo's space is a different business
+  archiveOverCap: string; // "… {max} …" — over ARCHIVE_MAX_ITEMS in one event
+  archiveReorderMismatch: string; // reorder list is not a permutation
   // --- TASK-17: the guest screens (/m/[code], /moje, /galerija) --------------
   // Route metadata.
   metaLandingTitle: string; // "… {name}"
@@ -1132,6 +1137,29 @@ export interface MemoriesPanelDict {
   photoDeleteCancel: string;
   photoDeleteSuccess: string;
   photoDeleteError: string;
+  // TASK-23 — the archive picker inside the host gallery: the host selects
+  // photos of a night and they become permanent picks on the venue's public
+  // page (the pastEvents block).
+  archiveHint: string; // what selecting does; the first photo is the cover
+  archiveSelectAction: string; // enter selection mode
+  archiveSelectCancel: string; // leave selection mode
+  archiveSelectedCount: string; // "{count} izabrano"
+  archivePinAction: string; // "Prikaži na stranici"
+  archiveEventLabel: string; // the target-event select label
+  archiveNoEvents: string; // no events exist for this business yet
+  archivePrivateReason: string; // why a host_only tile is not selectable
+  archivePinnedBadge: string; // this photo is already on the page
+  archiveUnpinAction: string; // remove it from the page
+  archiveUnpinError: string;
+  archiveCoverBadge: string; // "Naslovna" — the order-0 pick
+  archiveSetCoverAction: string; // make this the cover (reorder to front)
+  archiveReorderError: string;
+  archiveCapNote: string; // "{count}/{max} na stranici"
+  archivePinSuccess: string; // "{count} … «{event}»"
+  archivePinError: string;
+  archiveOpenPageLink: string; // open the event's public venue page
+  archiveStripHeading: string; // "Na stranici lokala"
+  archiveStripEmpty: string; // nothing pinned to this event yet
   // The table cards (STEP 3).
   cardsHeading: string;
   cardsBody: string;

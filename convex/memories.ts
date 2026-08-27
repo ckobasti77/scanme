@@ -1122,10 +1122,19 @@ export const purgeStaleReservations = internalMutation({
 //      deletes all three processed variants AND any pinned original THROUGH the
 //      storage wrapper, then the docs — a tombstone that never reaches here is
 //      the bug, and the purge cron guarantees it always does.
-//   2. The guest's wipe beats the host's archive pin. That is not a rule written
-//      into the wipe; it is purgePhotoBytes deleting the eventArchiveItems that
-//      reference the purged photo's asset. Retention, host delete, and admin
-//      delete beat the pin by the exact same line — uniformly.
+//   2. An EXPLICIT deletion beats the host's archive pin; the retention clock
+//      does NOT. A guest wiping their photos, a guest/host/admin deleting one,
+//      a space wipe — each tombstones the row, and purgePhotoBytes deletes the
+//      eventArchiveItems referencing the purged asset, so the pin dies by the
+//      same line, uniformly. Someone who wants their face off the internet gets
+//      it off the venue's public page too. But retention is a storage policy,
+//      not a promise made to the guest: a photo the host pinned onto the
+//      venue's public page is curated content — the host saying "this one is
+//      part of the venue, not just the night" — and a pastEvents block that
+//      silently empties itself thirty days later is worse than no block. So
+//      retentionSweepSpace SKIPS a photo that still has a live eventArchiveItems
+//      row (the TASK-23 amendment). The pin outlives the retention clock; only
+//      a deliberate deletion overrides it.
 // =============================================================================
 
 // Idempotent storage delete: a purge that re-touches an already-gone blob (a
@@ -1145,9 +1154,11 @@ async function safeStorageRemove(ctx: MutationCtx, ref: Id<"_storage">) {
 async function purgePhotoBytes(ctx: MutationCtx, photo: Doc<"memoriesPhotos">) {
   if (photo.mediaAssetId) {
     // The archive pins referencing this photo's processed asset. Deleting them
-    // is what makes any wipe win over a host-curated Venue archive: a photo the
-    // host pinned into an event archive disappears from there too. archiveEvent
-    // pins by mediaAssetId (no sourcePhotoId), so we match on the asset id.
+    // is what makes any EXPLICIT deletion win over a host-curated Venue archive:
+    // a photo the host pinned into an event archive disappears from there too.
+    // Both pin writers (venue.archiveEvent and memoriesArchive.pinPhotosToEvent)
+    // key the row by mediaAssetId, so we match on the asset id — a pin carrying
+    // sourcePhotoId is still found here.
     const assetId = photo.mediaAssetId;
     const pins = await ctx.db
       .query("eventArchiveItems")
@@ -1256,6 +1267,20 @@ export const retentionSweepSpace = internalMutation({
     let tombstoned = 0;
     for (const photo of photosPage.page) {
       if (photo.status === "deleted") continue;
+      // The archive pin outlives the retention clock (block header rule 2,
+      // RFC §2.9): a photo the host pinned onto the venue's public page is
+      // curated content, so retention alone must not silently delete it. A live
+      // eventArchiveItems row on this photo's committed asset is the pin; skip
+      // it. Only an EXPLICIT deletion (which reaches purgePhotoBytes) removes a
+      // pinned photo — that path is untouched.
+      if (photo.mediaAssetId) {
+        const assetId = photo.mediaAssetId;
+        const pin = await ctx.db
+          .query("eventArchiveItems")
+          .withIndex("by_mediaAssetId", (q) => q.eq("mediaAssetId", assetId))
+          .first();
+        if (pin) continue;
+      }
       await ctx.db.patch(photo._id, {
         status: "deleted",
         deletedReason: "retention",

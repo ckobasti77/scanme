@@ -38,6 +38,11 @@ export const memoriesSr = {
   spaceNotOneOff: "Ova radnja je moguća samo za jednokratni prostor.",
   spaceWindowInvalid: "Novo vreme zatvaranja mora biti u budućnosti.",
   spaceStatusInvalid: "Ovu radnju nije moguće izvršiti u trenutnom stanju.",
+  // TASK-23 — arhiviranje uspomena na Venue stranicu.
+  archiveEventNotFound: "Događaj nije pronađen.",
+  archiveCrossTenant: "Fotografija ne pripada ovom lokalu.",
+  archiveOverCap: "Najviše {max} fotografija može biti na stranici jednog događaja.",
+  archiveReorderMismatch: "Redosled nije ispravan. Osveži stranicu pa pokušaj ponovo.",
   // --- TASK-17: the guest screens. Ti-form on purpose — a guest at a party
   // (per the brief's own copy); the Vi-form refusals above stay as raised.
   metaLandingTitle: "Uspomene · {name}",
