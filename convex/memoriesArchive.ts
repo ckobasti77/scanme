@@ -231,6 +231,13 @@ type ArchiveEventTarget = {
   endsAt: number | null;
 };
 
+// The picker lists this many events, newest first. A weekly venue reaches it
+// after ~2 years; the pin target is almost always the latest night, so the
+// tail is genuinely irrelevant — but the cut must be VISIBLE, not silent
+// (the GALLERY_READ_CAP lesson): the query reads cap + 1 and reports
+// `truncated` so the picker can say the list is incomplete.
+export const ARCHIVE_TARGETS_CAP = 100;
+
 // archiveTargets — which event(s) a night's photos can be pinned to, resolved
 // from the session's space (Step 2 "Which event"):
 //  - one_off  → the space's linked event (space.eventId); no choice to make,
@@ -248,13 +255,15 @@ export const archiveTargets = query({
     const access = await requireBusinessAccess(ctx, space.businessId);
     const business = access.business;
 
-    const events = await ctx.db
+    const window = await ctx.db
       .query("events")
       .withIndex("by_businessId_and_startsAt", (q) =>
         q.eq("businessId", business._id),
       )
       .order("desc")
-      .take(100);
+      .take(ARCHIVE_TARGETS_CAP + 1);
+    const truncated = window.length > ARCHIVE_TARGETS_CAP;
+    const events = window.slice(0, ARCHIVE_TARGETS_CAP);
 
     const targets: ArchiveEventTarget[] = events.map((event) => ({
       id: event._id,
@@ -283,6 +292,7 @@ export const archiveTargets = query({
       mode: space.mode,
       defaultEventId,
       events: targets,
+      truncated,
     };
   },
 });

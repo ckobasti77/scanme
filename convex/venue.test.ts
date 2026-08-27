@@ -182,6 +182,86 @@ describe("lifecycle state machine (RFC-001 §2.2)", () => {
     expect(list[0].items[0].thumbUrl).toBeTruthy();
   });
 
+  // TASK-25 Step 0 item 3: archiveEvent enforces the same cap as the
+  // host-curated pin path — an over-cap event would break every bounded
+  // archive reader (currentItems reads cap + 1) and wedge reordering.
+  test("archiveEvent refuses to push an event past ARCHIVE_MAX_ITEMS", async () => {
+    const t = convexTest(schema, modules);
+    const { adminId, businessId, venueProfileId } = await seed(t);
+    const as = admin(t, adminId);
+    const now = Date.now();
+    const { eventId } = await createSavePublish(
+      t,
+      adminId,
+      venueProfileId,
+      "puna-arhiva",
+      "Puna arhiva",
+    );
+    const { lifecycleRevision } = await as.mutation(api.venue.scheduleEvent, {
+      eventId,
+      startsAt: now + 60 * 60 * 1000,
+      endsAt: now + 2 * 60 * 60 * 1000,
+    });
+    await t.mutation(internal.venue.goLive, {
+      eventId,
+      expectedRevision: lifecycleRevision,
+    });
+    await t.mutation(internal.venue.endEvent, {
+      eventId,
+      expectedRevision: lifecycleRevision,
+    });
+
+    const makeAsset = () =>
+      t.run(async (ctx) => {
+        const ref = await ctx.storage.store(
+          new Blob(["webp"], { type: "image/webp" }),
+        );
+        return ctx.db.insert("mediaAssets", {
+          businessId,
+          kind: "image",
+          provider: "convex",
+          variants: {
+            avif: { ref, width: 1200, height: 800, bytes: 100 },
+            webp: { ref, width: 1200, height: 800, bytes: 100 },
+            thumb: { ref, width: 300, height: 200, bytes: 20 },
+          },
+          status: "ready",
+          createdAt: Date.now(),
+        });
+      });
+
+    // Fill the event to the cap with pre-existing (host-pinned) rows.
+    const pinnedAssetId = await makeAsset();
+    await t.run(async (ctx) => {
+      const { ARCHIVE_MAX_ITEMS } = await import("../lib/venue-blocks");
+      for (let i = 0; i < ARCHIVE_MAX_ITEMS; i += 1) {
+        await ctx.db.insert("eventArchiveItems", {
+          eventId,
+          mediaAssetId: pinnedAssetId,
+          order: i,
+          createdAt: Date.now(),
+        });
+      }
+    });
+
+    // A fresh asset over the cap is a hard error, never a silent truncation.
+    const freshAssetId = await makeAsset();
+    await expect(
+      as.mutation(api.venue.archiveEvent, {
+        eventId,
+        mediaAssetIds: [freshAssetId],
+      }),
+    ).rejects.toThrow(/Najviše/);
+
+    // Re-archiving an already-pinned asset is a silent skip, not a new row.
+    const archived = await as.mutation(api.venue.archiveEvent, {
+      eventId,
+      mediaAssetIds: [pinnedAssetId],
+    });
+    const { ARCHIVE_MAX_ITEMS } = await import("../lib/venue-blocks");
+    expect(archived.itemCount).toBe(ARCHIVE_MAX_ITEMS);
+  });
+
   test("a stale lifecycleRevision goLive no-ops; the current one flips", async () => {
     const t = convexTest(schema, modules);
     const { adminId, venueProfileId } = await seed(t);

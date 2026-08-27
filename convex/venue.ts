@@ -12,7 +12,11 @@ import { getEntitlement } from "./lib/entitlements";
 import { requireServiceEditorAccess } from "./lib/access";
 import { optionalText, requireSlug, requireText } from "./lib/validation";
 import { venueBlockValidator, venueDesignValidator } from "./lib/venueValidators";
-import { clampBlockList, type VenueBlock } from "../lib/venue-blocks";
+import {
+  ARCHIVE_MAX_ITEMS,
+  clampBlockList,
+  type VenueBlock,
+} from "../lib/venue-blocks";
 import type { ReservationProps } from "../lib/venue-blocks";
 import { fmt, getDict } from "../lib/i18n";
 import { normalizeEmail, normalizePhone } from "./lib/validation";
@@ -329,11 +333,28 @@ export const archiveEvent = mutation({
     }
     const now = Date.now();
     const mediaAssetIds = args.mediaAssetIds ?? [];
-    let order = 0;
+    // Same cap and semantics as the host-curated pin path
+    // (memoriesArchive.pinPhotosToEvent): an ended event may already carry
+    // pinned rows, so count them, continue `order` after them, skip assets
+    // already pinned, and refuse over the cap with a hard error — an over-cap
+    // event breaks every bounded reader downstream (currentItems reads cap+1).
+    const existing = await ctx.db
+      .query("eventArchiveItems")
+      .withIndex("by_eventId_and_order", (q) => q.eq("eventId", event._id))
+      .take(ARCHIVE_MAX_ITEMS + 1);
+    const pinnedAssets = new Set(existing.map((row) => row.mediaAssetId));
+    let order = existing.reduce((max, row) => Math.max(max, row.order), -1) + 1;
+    let count = existing.length;
     for (const mediaAssetId of mediaAssetIds) {
       const asset = await ctx.db.get(mediaAssetId);
       if (!asset || asset.businessId !== event.businessId) {
         throw new ConvexError(dict.archiveAssetInvalid);
+      }
+      if (pinnedAssets.has(mediaAssetId)) continue;
+      if (count >= ARCHIVE_MAX_ITEMS) {
+        throw new ConvexError(
+          fmt(dict.archiveOverCap, { max: ARCHIVE_MAX_ITEMS }),
+        );
       }
       await ctx.db.insert("eventArchiveItems", {
         eventId: event._id,
@@ -341,14 +362,16 @@ export const archiveEvent = mutation({
         order,
         createdAt: now,
       });
+      pinnedAssets.add(mediaAssetId);
       order += 1;
+      count += 1;
     }
     await ctx.db.patch(event._id, {
       status: "archived",
       archivedAt: now,
       updatedAt: now,
     });
-    return { archivedAt: now, itemCount: mediaAssetIds.length };
+    return { archivedAt: now, itemCount: count };
   },
 });
 

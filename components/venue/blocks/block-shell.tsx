@@ -7,6 +7,10 @@
 import type { CSSProperties, ReactNode } from "react";
 import { rgba } from "@/lib/design-engine/color";
 import { FONT_STACKS } from "@/lib/design-engine/typography";
+import {
+  colorToOklch,
+  deriveReadableTextVariant,
+} from "@/lib/scanme-color-science";
 import type { VenueBlock, VenueBlockBase } from "@/lib/venue-blocks";
 import styles from "../venue-template.module.css";
 
@@ -76,8 +80,25 @@ export function BlockShell({
 
   const colors = base.colorOverride;
   if (colors?.title) style["--venue-title"] = colors.title;
-  if (colors?.body) style["--venue-body"] = colors.body;
-  if (colors?.accent) style["--venue-accent"] = colors.accent;
+  if (colors?.body) {
+    style["--venue-body"] = colors.body;
+    // The derived companion follows the override verbatim (the owner's
+    // explicit choice is not re-floored — same contract as title/body).
+    style["--venue-body-muted"] = colors.body;
+  }
+  if (colors?.accent) {
+    style["--venue-accent"] = colors.accent;
+    style["--venue-accent-text"] = colors.accent;
+    // on-accent is never an owner-chosen colour — it is a FUNCTION of the
+    // accent (text sitting ON it). Left stale, the root-derived value lands
+    // on the overridden background (a light override under a dark palette
+    // computed 1.42:1 on the reservation submit), so re-derive it here.
+    style["--venue-on-accent"] = deriveReadableTextVariant(
+      colors.accent,
+      colorToOklch(colors.accent).h,
+      4.5,
+    );
+  }
 
   const typo = base.typographyOverride;
   if (typo?.fontKey) style["--venue-font-family"] = FONT_STACKS[typo.fontKey];

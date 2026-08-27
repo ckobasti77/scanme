@@ -6,7 +6,7 @@
 // whatever state the space is in — this page has no upload window logic at all.
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronRight, LoaderCircle, Trash2 } from "lucide-react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -123,6 +123,13 @@ function WipeAllControl({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+  const confirmRef = useRef<HTMLButtonElement | null>(null);
+
+  // Arming the confirm unmounts the focused trigger; keep keyboard focus on
+  // the decision instead of letting it fall to <body>.
+  useEffect(() => {
+    if (confirming) confirmRef.current?.focus();
+  }, [confirming]);
 
   async function run() {
     setPending(true);
@@ -158,7 +165,11 @@ function WipeAllControl({
           {dict.wipeAllAction}
         </button>
       ) : (
-        <div className={styles.retentionNote} role="group">
+        <div
+          className={styles.retentionNote}
+          role="group"
+          aria-label={dict.wipeDialogTitle}
+        >
           <p style={{ marginBottom: 12 }}>
             <strong>{dict.wipeDialogTitle}</strong>
             <br />
@@ -172,6 +183,7 @@ function WipeAllControl({
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
             <button
               type="button"
+              ref={confirmRef}
               className={styles.wipeButton}
               onClick={() => void run()}
               disabled={pending}

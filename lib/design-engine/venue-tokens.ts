@@ -8,6 +8,12 @@
 // root is TASK-08. The TS `VenueDesign` shape mirrors `venueDesignValidator` in
 // convex/lib/venueValidators.ts.
 
+import {
+  colorToOklch,
+  deriveReadableTextVariant,
+  ensureContrast,
+  mixColors,
+} from "../scanme-color-science";
 import type { ScanMeLinksBackgroundV2 } from "../scanme-links-design";
 import { backgroundPresentation } from "./background";
 import { clampDesign, type Capabilities } from "./capabilities";
@@ -116,7 +122,12 @@ export const VENUE_DESIGN_BOUNDS = {
   textureIntensity: [0, 1],
   mediaZoom: [1, 3],
   mediaPosition: [0, 100],
-  overlayOpacity: [0, 1],
+  // Floored at 0.25 (TASK-25 a11y): with a photo/video background the
+  // masthead and every non-card block sit directly on arbitrary pixels — a
+  // zero overlay makes their contrast unverifiable. The floor buys a
+  // guaranteed minimum scrim; owners who want readable-on-photo text should
+  // still put text blocks on a card surface.
+  overlayOpacity: [0.25, 1],
   animationSpeed: [0.25, 3],
   animationIntensity: [0, 1],
   shadowOffset: [-40, 40],
@@ -231,12 +242,36 @@ const compile = createTokenCompiler("venue");
 export function compileVenueTokens(design: VenueDesign): Record<string, string> {
   const { colors, typography, background, effects } = design;
   const bg = backgroundPresentation(background);
+  // Derived, floored companions (TASK-25 a11y). The stored roles have no
+  // contrast guarantee where the template uses them as TEXT: `accent` is the
+  // verbatim logo colour, `page` sits on accent in primary actions, muting
+  // `body` via color-mix discards the palette's own 4.5 floor, and `border`
+  // is a deliberately faint hairline that cannot double as an input boundary.
+  // Each derived token starts from the stored role, so a palette that already
+  // passes comes through verbatim.
+  const pageHue = colorToOklch(colors.page).h;
+  const accentText = ensureContrast(
+    colors.accent,
+    [colors.page, colors.surface],
+    4.5,
+  );
+  const onAccent = deriveReadableTextVariant(colors.accent, pageHue, 4.5);
+  const bodyMuted = ensureContrast(
+    mixColors(colors.body, colors.page, 0.24),
+    [colors.page, colors.surface],
+    4.5,
+  );
+  const inputBorder = ensureContrast(colors.border, colors.surface, 3);
   const values: TokenValues = {
     page: colors.page,
     surface: colors.surface,
     title: colors.title,
     body: colors.body,
     accent: colors.accent,
+    "accent-text": accentText,
+    "on-accent": onAccent,
+    "body-muted": bodyMuted,
+    "input-border": inputBorder,
     border: colors.border,
     focus: colors.focus,
     icon: colors.icon,

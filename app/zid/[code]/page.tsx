@@ -19,12 +19,11 @@ export const dynamic = "force-dynamic";
 export const viewport: Viewport = {
   themeColor: "#0d0a08",
   viewportFit: "cover",
-  // A projected wall is a fixed display; block pinch-zoom so a stray touch on a
-  // touchscreen TV cannot scroll or zoom the furniture out of place.
+  // No zoom block: the host panel links this URL from a phone, and
+  // maximumScale/userScalable would fail WCAG 1.4.4 there. A projector is
+  // never pinch-zoomed, so the kiosk behavior is unchanged in practice.
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
 };
 
 export async function generateMetadata({

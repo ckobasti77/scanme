@@ -40,6 +40,7 @@ export const venueEditorSr = {
   blockNotAllowed: "Blok „{block}“ nije dostupan u vašem planu.",
   archiveNotEnded: "Događaj mora biti završen pre arhiviranja.",
   archiveAssetInvalid: "Izabrani medij ne pripada ovom lokalu.",
+  archiveOverCap: "Najviše {max} stavki može biti u arhivi jednog događaja.",
   endNotLive: "Događaj se ne može završiti jer trenutno nije uživo.",
   // --- TASK-10: the editor shell --------------------------------------------
   metaEditorTitle: "Uredi Venue stranicu | ScanMe",

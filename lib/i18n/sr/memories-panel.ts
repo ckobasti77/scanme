@@ -129,6 +129,8 @@ export const memoriesPanelSr = {
   archiveSelectedCount: "{count} izabrano",
   archivePinAction: "Prikaži na stranici",
   archiveEventLabel: "Događaj",
+  archiveEventsTruncated:
+    "Prikazano je poslednjih {max} događaja — stariji nisu na spisku.",
   archiveNoEvents:
     "Ovaj lokal još nema nijedan događaj. Napravi događaj u Venue delu pa se vrati.",
   archivePrivateReason: "Gost je izabrao da bude privatna",

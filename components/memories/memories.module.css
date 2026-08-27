@@ -123,6 +123,9 @@
 }
 
 .consentMore summary {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
   font-size: 0.88rem;
   font-weight: 700;
   color: var(--mem-amber);
@@ -780,6 +783,15 @@
   text-underline-offset: 2px;
 }
 
+/* The global a:focus-visible ring is --focus-ring, which is BLACK in the
+   app's light theme — invisible on this always-dark surface. The two plain
+   links here must carry their own visible ring (TASK-25 a11y). */
+.retentionNote a:focus-visible,
+.consentPolicyLink:focus-visible {
+  outline: 2px solid var(--mem-amber);
+  outline-offset: 2px;
+}
+
 .wipeSection {
   margin-top: 14px;
 }
@@ -876,7 +888,8 @@
   .shutter,
   .itemButton,
   .sheetButton,
-  .navLink {
+  .navLink,
+  .galleryLoadMore {
     transition: none;
   }
   .itemProgressFill {
