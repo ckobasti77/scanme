@@ -40,6 +40,8 @@ import type * as memories from "../memories.js";
 import type * as memoriesAdmin from "../memoriesAdmin.js";
 import type * as memoriesArchive from "../memoriesArchive.js";
 import type * as memoriesDevSeed from "../memoriesDevSeed.js";
+import type * as memoriesExport from "../memoriesExport.js";
+import type * as memoriesExportWorker from "../memoriesExportWorker.js";
 import type * as memoriesHost from "../memoriesHost.js";
 import type * as memoriesPipeline from "../memoriesPipeline.js";
 import type * as memoriesWall from "../memoriesWall.js";
@@ -90,6 +92,8 @@ declare const fullApi: ApiFromModules<{
   memoriesAdmin: typeof memoriesAdmin;
   memoriesArchive: typeof memoriesArchive;
   memoriesDevSeed: typeof memoriesDevSeed;
+  memoriesExport: typeof memoriesExport;
+  memoriesExportWorker: typeof memoriesExportWorker;
   memoriesHost: typeof memoriesHost;
   memoriesPipeline: typeof memoriesPipeline;
   memoriesWall: typeof memoriesWall;

@@ -17,9 +17,11 @@ import { ConvexError } from "convex/values";
 import { useMutation, useQuery } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
 import {
+  Archive,
   CalendarClock,
   Check,
   Copy,
+  Download,
   ExternalLink,
   Images,
   LoaderCircle,
@@ -136,6 +138,7 @@ export function MemoriesPanelSection({
           <PauseControl space={space} />
           <PlanCard data={data} />
           <RetentionCard data={data} />
+          <ExportCard space={space} />
           <CardsManager space={space} />
         </div>
       )}
@@ -778,6 +781,191 @@ function RetentionCard({ data }: { data: MemoriesPanelData }) {
         </p>
       )}
     </section>
+  );
+}
+
+// --- ZIP export (TASK-21) ---------------------------------------------------
+
+const EXPORT_ERROR_REASON: Record<string, string> = {
+  no_photos: dict.exportErrorNoPhotos,
+  build_failed: dict.exportErrorBuildFailed,
+  storage_failed: dict.exportErrorStorageFailed,
+};
+
+function humanSize(bytes: number | null): string {
+  if (bytes === null) return "";
+  if (bytes < 1024) return `${bytes} B`;
+  const units = ["KB", "MB", "GB"];
+  let value = bytes / 1024;
+  let unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit += 1;
+  }
+  return `${numberFormatter.format(Math.round(value * 10) / 10)} ${units[unit]}`;
+}
+
+type ExportData = NonNullable<
+  FunctionReturnType<typeof api.memoriesExport.exportsForSpace>
+>;
+type ExportSummary = Extract<ExportData, { status: "ok" }>["history"][number];
+
+function ExportCard({ space }: { space: SpaceData }) {
+  const data = useQuery(api.memoriesExport.exportsForSpace, {
+    spaceId: space.id,
+  });
+  const start = useMutation(api.memoriesExport.startExport);
+  const retry = useMutation(api.memoriesExport.retryExport);
+  const [pending, setPending] = useState(false);
+  // Sampled once at mount (not per render) to judge link expiry client-side.
+  const [now] = useState(() => Date.now());
+
+  const view = data && data.status === "ok" ? data : null;
+  const active = view?.active ?? null;
+  const isBuilding =
+    active?.status === "queued" || active?.status === "building";
+
+  async function onStart() {
+    setPending(true);
+    try {
+      await start({ spaceId: space.id });
+    } catch (error) {
+      toast.error(errorMessage(error, dict.exportStartError));
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function onRetry(jobId: ExportSummary["id"]) {
+    setPending(true);
+    try {
+      await retry({ jobId });
+    } catch (error) {
+      toast.error(errorMessage(error, dict.exportStartError));
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <section className="border border-border bg-card p-5 sm:p-7">
+      <h2 className="flex items-center gap-2 font-semibold">
+        <Archive className="size-4 text-primary" />
+        {dict.exportHeading}
+      </h2>
+      <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">
+        {dict.exportBody}
+      </p>
+
+      <div className="mt-5">
+        {isBuilding ? (
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <LoaderCircle className="size-4 animate-spin text-primary" />
+            {active?.status === "building"
+              ? fmt(dict.exportBuilding, { count: active.encodedCount })
+              : dict.exportQueued}
+          </div>
+        ) : view && !view.hasReadyPhotos ? (
+          <p className="text-sm text-muted-foreground">{dict.exportEmpty}</p>
+        ) : (
+          <Button onClick={onStart} disabled={pending || !view}>
+            <Download className="size-4" /> {dict.exportButton}
+          </Button>
+        )}
+      </div>
+
+      <p className="mt-4 text-xs leading-5 text-muted-foreground">
+        {dict.exportLifetimeNote}
+      </p>
+
+      {view && view.history.length > 0 ? (
+        <div className="mt-6 border-t border-border pt-5">
+          <h3 className="text-sm font-semibold">{dict.exportPastHeading}</h3>
+          <ul className="mt-3 grid gap-3">
+            {view.history.map((job) => (
+              <ExportRow
+                key={job.id}
+                job={job}
+                onRetry={onRetry}
+                pending={pending}
+                now={now}
+              />
+            ))}
+          </ul>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function ExportRow({
+  job,
+  onRetry,
+  pending,
+  now,
+}: {
+  job: ExportSummary;
+  onRetry: (jobId: ExportSummary["id"]) => void;
+  pending: boolean;
+  now: number;
+}) {
+  const expired =
+    job.status === "expired" ||
+    (job.expiresAt !== null && now >= job.expiresAt);
+  const created = formatBelgrade(job.createdAt);
+
+  if (job.status === "ready" && !expired && job.downloadUrl) {
+    return (
+      <li className="flex flex-wrap items-center justify-between gap-3 border border-border bg-secondary/30 p-3 text-sm">
+        <div>
+          <p className="font-medium">
+            {fmt(dict.exportPhotoCount, { count: job.photoCount ?? 0 })}
+            {job.archiveBytes !== null
+              ? ` · ${humanSize(job.archiveBytes)}`
+              : ""}
+          </p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {job.expiresAt !== null
+              ? fmt(dict.exportExpiresAt, {
+                  date: formatBelgradeDate(job.expiresAt),
+                })
+              : created}
+          </p>
+        </div>
+        <Button asChild size="sm" variant="outline">
+          <a href={job.downloadUrl} download>
+            <Download className="size-4" /> {dict.exportDownload}
+          </a>
+        </Button>
+      </li>
+    );
+  }
+
+  if (job.status === "failed") {
+    const reason = job.error
+      ? (EXPORT_ERROR_REASON[job.error] ?? dict.exportErrorBuildFailed)
+      : dict.exportErrorBuildFailed;
+    return (
+      <li className="flex flex-wrap items-center justify-between gap-3 border border-amber-500/50 bg-amber-500/10 p-3 text-sm">
+        <p className="font-medium">{fmt(dict.exportFailedPrefix, { reason })}</p>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => onRetry(job.id)}
+          disabled={pending}
+        >
+          {dict.exportRetry}
+        </Button>
+      </li>
+    );
+  }
+
+  // expired (or a ready row past its lifetime with the blob already purged)
+  return (
+    <li className="border border-border bg-secondary/20 p-3 text-sm text-muted-foreground">
+      <p>{created}</p>
+      <p className="mt-0.5 text-xs">{dict.exportExpired}</p>
+    </li>
   );
 }
 

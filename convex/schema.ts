@@ -866,4 +866,72 @@ export default defineSchema({
   })
     .index("by_partnerBusinessId_and_status", ["partnerBusinessId", "status"])
     .index("by_status_and_startedAt", ["status", "startedAt"]),
+
+  // TASK-21 — the host ZIP export (RFC-001 §2.10). One job row per export run.
+  // The build is asynchronous (hundreds of MB cannot happen in a request), so
+  // this row is the durable state a chain of scheduler continuations advances:
+  // queued → building (with a live count) → ready (a stored archive + an expiry)
+  // or failed (with a machine code the UI localizes). Dedupe lives on the row:
+  // at most one queued/building job per space at a time (by_spaceId_and_status).
+  memoriesExports: defineTable({
+    spaceId: v.id("memoriesSpaces"),
+    businessId: v.id("businesses"),
+    // Who triggered it — a host member or an admin (NEVER a guest). Recorded for
+    // the audit trail only; access is always re-checked at read/download time.
+    requestedByUserId: v.optional(v.id("users")),
+    status: v.union(
+      v.literal("queued"),
+      v.literal("building"),
+      v.literal("ready"),
+      v.literal("failed"),
+      v.literal("expired"),
+    ),
+    // Machine code (see MEMORIES_EXPORT_ERROR); the panel maps it to a Serbian
+    // sentence. Prose never lives here.
+    error: v.optional(v.string()),
+    // Live build bookkeeping, carried between continuations on the row itself so
+    // a continuation only needs the jobId.
+    cursor: v.optional(v.union(v.string(), v.null())),
+    runningOffset: v.number(), // total bytes of local records written so far
+    // Per-folder running counter for stable, gap-free "_01/_02" sequences.
+    // Bounded by the number of tables (small). Keys are ASCII folder slugs.
+    folderCounts: v.optional(v.record(v.string(), v.number())),
+    // Ordered chunk blobs (one per processed batch); concatenated at finalize,
+    // then deleted. Bounded by batchCount = ceil(photos / batch).
+    chunkRefs: v.array(v.id("_storage")),
+    encodedCount: v.number(), // photos encoded into chunks so far
+    // The finished archive and how long its link lives.
+    archiveStorageId: v.optional(v.id("_storage")),
+    archiveBytes: v.optional(v.number()),
+    photoCount: v.optional(v.number()), // survivors actually in the archive
+    expiresAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_spaceId_and_status", ["spaceId", "status"])
+    .index("by_spaceId_and_createdAt", ["spaceId", "createdAt"])
+    .index("by_status_and_expiresAt", ["status", "expiresAt"]),
+
+  // TASK-21 — one row per photo written into an export's chunks. Holds exactly
+  // the central-directory bookkeeping (offset/crc/size/name/dosDate/dosTime) plus
+  // the metadata.json facts (table/timestamp/visibility/dimensions) — NO guest
+  // identifier. `photoId` is kept ONLY so finalize can re-check the photo is
+  // still `ready` (deletions win); it never leaves the server. A child table,
+  // not an array on the job row, because the count is unbounded per §schema.
+  memoriesExportEntries: defineTable({
+    jobId: v.id("memoriesExports"),
+    photoId: v.id("memoriesPhotos"),
+    seq: v.number(), // global write order, for a stable central directory
+    name: v.string(), // in-archive path, e.g. "Sto 4/2026-…_01.jpg"
+    tableLabel: v.union(v.string(), v.null()),
+    crc: v.number(),
+    size: v.number(),
+    offset: v.number(),
+    dosDate: v.number(),
+    dosTime: v.number(),
+    takenAt: v.number(), // photo createdAt (epoch ms)
+    visibility: v.union(v.literal("everyone"), v.literal("host_only")),
+    width: v.number(),
+    height: v.number(),
+  }).index("by_jobId_and_seq", ["jobId", "seq"]),
 });

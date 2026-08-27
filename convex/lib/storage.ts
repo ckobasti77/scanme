@@ -1,5 +1,5 @@
 import type { Id } from "../_generated/dataModel";
-import type { MutationCtx, QueryCtx } from "../_generated/server";
+import type { ActionCtx, MutationCtx, QueryCtx } from "../_generated/server";
 
 // The storage hygiene wrapper (RFC-001 §2.4 C.8, TASK-15). Every storage touch
 // of the Memories media pipeline goes through this module — the upload-URL
@@ -26,8 +26,27 @@ export async function getUrl(
 }
 
 export async function remove(
-  ctx: MutationCtx,
+  ctx: MutationCtx | ActionCtx,
   ref: Id<"_storage">,
 ): Promise<void> {
   await ctx.storage.delete(ref);
+}
+
+// Action-only server-side writes/reads. The comment above ("no `put` until an
+// action needs it") is now satisfied by the TASK-21 ZIP export: its Node worker
+// assembles the archive Blob and stores it, and reads back the per-batch chunk
+// blobs it wrote. Keeping these here holds the "one file owns storage" invariant
+// (§2.4 C.8) — the export does not call ctx.storage.* directly.
+export async function store(
+  ctx: ActionCtx,
+  blob: Blob,
+): Promise<Id<"_storage">> {
+  return await ctx.storage.store(blob);
+}
+
+export async function getBlob(
+  ctx: ActionCtx,
+  ref: Id<"_storage">,
+): Promise<Blob | null> {
+  return await ctx.storage.get(ref);
 }
