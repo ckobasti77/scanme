@@ -1,0 +1,1202 @@
+/* ==========================================================================
+   ScanMe Venue — the "afiša" (event-poster) system. One stylesheet for the
+   template and all twelve block renderers; every color, face, and weight is
+   read from the --venue-* custom properties the token compiler emits, so the
+   same composition holds under any business palette and any of the 12 fonts.
+   Only venue-namespaced tokens may appear here (harness:namespace polices it).
+   ========================================================================== */
+
+.root {
+  --venue-scale-factor: 1;
+  position: relative;
+  isolation: isolate;
+  min-height: 100dvh;
+  background-image: var(--venue-background-base-image);
+  background-size: cover;
+  background-position: center;
+  color: var(--venue-body);
+  font-family: var(--venue-font-family);
+  font-weight: var(--venue-body-weight);
+  line-height: var(--venue-line-height);
+  font-size: calc(1rem * var(--venue-scale-factor));
+  text-align: var(--venue-text-align);
+}
+
+.root[data-venue-scale="small"] {
+  --venue-scale-factor: 0.94;
+}
+.root[data-venue-scale="large"] {
+  --venue-scale-factor: 1.07;
+}
+
+.root :focus-visible {
+  outline: 2px solid var(--venue-focus);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* --- background layers ---------------------------------------------------- */
+
+.backgroundDetail,
+.backgroundMedia,
+.backgroundOverlay {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+
+.backgroundDetail {
+  background-image: var(--venue-background-detail-image);
+  background-size: var(--venue-background-detail-size);
+  opacity: var(--venue-background-detail-opacity);
+}
+
+.backgroundMedia {
+  overflow: hidden;
+}
+
+.backgroundMedia img,
+.backgroundMedia video {
+  width: 100%;
+  height: 100%;
+  object-fit: var(--venue-media-fit, cover);
+  object-position: var(--venue-media-position, 50% 50%);
+  transform: scale(var(--venue-media-zoom, 1));
+}
+
+.backgroundOverlay {
+  background: var(--venue-media-overlay, transparent);
+}
+
+/* --- page frame ------------------------------------------------------------ */
+
+.frame {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  width: 100%;
+  max-width: 46rem;
+  margin-inline: auto;
+  padding: clamp(1.25rem, 5vw, 2.5rem);
+  padding-top: clamp(2.25rem, 8vw, 4rem);
+}
+
+/* --- masthead --------------------------------------------------------------- */
+
+.masthead {
+  margin-bottom: calc(var(--venue-vertical-spacing) * 2.5);
+}
+
+.logo {
+  width: clamp(3.5rem, 12vw, 4.5rem);
+  height: clamp(3.5rem, 12vw, 4.5rem);
+  object-fit: cover;
+  border-radius: 22%;
+  filter: var(--venue-logo-shadow, none);
+  margin-bottom: calc(var(--venue-vertical-spacing) * 1);
+}
+
+.root[data-venue-align="center"] .logo {
+  margin-inline: auto;
+  display: block;
+}
+.root[data-venue-align="right"] .logo {
+  margin-left: auto;
+  display: block;
+}
+
+.eyebrow {
+  font-size: 0.78em;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--venue-accent);
+  margin-bottom: 0.5rem;
+}
+
+.title {
+  font-size: clamp(2.1rem, 9vw, 3.6rem);
+  font-weight: var(--venue-heading-weight);
+  color: var(--venue-title);
+  text-shadow: var(--venue-text-shadow, none);
+  line-height: 1.04;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+  margin: 0;
+}
+
+/* The lifecycle ribbon — the page's state made visible. */
+.ribbon {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem 0.9rem;
+  margin-top: calc(var(--venue-vertical-spacing) * 1.25);
+  font-size: 0.9em;
+}
+
+.root[data-venue-align="center"] .ribbon {
+  justify-content: center;
+}
+.root[data-venue-align="right"] .ribbon {
+  justify-content: flex-end;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 2rem;
+  padding: 0.25rem 0.85rem;
+  border: 1px solid var(--venue-border);
+  border-radius: 999px;
+  font-size: 0.76em;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--venue-title);
+  white-space: nowrap;
+}
+
+.badgeLive {
+  border-color: var(--venue-accent);
+  color: var(--venue-accent);
+}
+
+.liveDot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--venue-accent);
+}
+
+.ribbonDate {
+  color: var(--venue-body);
+}
+
+/* --- block column ----------------------------------------------------------- */
+
+.blocks {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: calc(var(--venue-vertical-spacing) * 2);
+}
+
+/* --- block shell (base properties) ------------------------------------------ */
+
+.block {
+  font-family: var(--venue-font-family);
+  border-radius: var(--venue-block-radius, 0);
+  box-shadow: var(--venue-block-shadow, none);
+  border: var(--venue-block-border, none);
+}
+
+.blockCard {
+  background: color-mix(in srgb, var(--venue-surface) 92%, transparent);
+  border: var(--venue-block-border, 1px solid var(--venue-border));
+  border-radius: var(--venue-block-radius, 18px);
+  padding: clamp(1rem, 4vw, 1.5rem);
+}
+
+.blockCustomSurface {
+  background: var(--venue-block-surface, transparent);
+  border-radius: var(--venue-block-radius, 18px);
+  padding: clamp(1rem, 4vw, 1.5rem);
+}
+
+.sizeWide {
+  width: min(100%, 36rem);
+}
+.sizeNarrow {
+  width: min(100%, 26rem);
+}
+.sizeWide,
+.sizeNarrow {
+  align-self: center;
+}
+.root[data-venue-align="left"] .sizeWide,
+.root[data-venue-align="left"] .sizeNarrow {
+  align-self: flex-start;
+}
+.root[data-venue-align="right"] .sizeWide,
+.root[data-venue-align="right"] .sizeNarrow {
+  align-self: flex-end;
+}
+
+.alignLeft {
+  text-align: left;
+}
+.alignCenter {
+  text-align: center;
+}
+.alignRight {
+  text-align: right;
+}
+
+@media (max-width: 47.9375rem) {
+  .hideMobile {
+    display: none;
+  }
+}
+@media (min-width: 48rem) {
+  .hideDesktop {
+    display: none;
+  }
+}
+
+/* Block heading — the poster section label with its hairline. */
+.blockHeading {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  margin: 0 0 calc(var(--venue-vertical-spacing) * 1) 0;
+  font-size: 0.8em;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: color-mix(in srgb, var(--venue-title) 78%, transparent);
+}
+
+.blockHeading::after {
+  content: "";
+  flex: 1;
+  border-top: 1px solid var(--venue-border);
+}
+
+.alignCenter .blockHeading::before,
+.root[data-venue-align="center"] .block:not(.alignLeft):not(.alignRight) .blockHeading::before {
+  content: "";
+  flex: 1;
+  border-top: 1px solid var(--venue-border);
+}
+
+/* --- shared action (buttons + links) ----------------------------------------- */
+
+.action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  padding: 0.55rem 1.15rem;
+  border: 1px solid var(--venue-border);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--venue-surface) 70%, transparent);
+  color: var(--venue-title);
+  font: inherit;
+  font-size: 0.92em;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition: border-color 200ms ease, background-color 200ms ease, color 200ms ease;
+}
+
+.action:hover {
+  border-color: var(--venue-accent);
+}
+
+.action:active {
+  transform: translateY(1px);
+}
+
+.actionPrimary {
+  background: var(--venue-accent);
+  border-color: var(--venue-accent);
+  color: var(--venue-page);
+}
+
+.actionPrimary:hover {
+  filter: brightness(1.06);
+}
+
+.actionIcon {
+  width: 1.05em;
+  height: 1.05em;
+  flex-shrink: 0;
+}
+
+/* --- countdown block ---------------------------------------------------------- */
+
+.countdown {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: stretch;
+}
+
+.root[data-venue-align="center"] .countdown,
+.alignCenter .countdown {
+  justify-content: center;
+}
+.root[data-venue-align="right"] .countdown,
+.alignRight .countdown {
+  justify-content: flex-end;
+}
+
+.countdownUnit {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 3.6rem;
+}
+
+.countdown[data-countdown-style="cards"] .countdownUnit {
+  background: color-mix(in srgb, var(--venue-surface) 88%, transparent);
+  border: 1px solid var(--venue-border);
+  border-radius: var(--venue-block-radius, 14px);
+  padding: 0.7rem 0.55rem;
+  min-width: 4.2rem;
+}
+
+.countdownValue {
+  font-variant-numeric: tabular-nums;
+  font-size: 2.1em;
+  font-weight: var(--venue-heading-weight);
+  color: var(--venue-title);
+  line-height: 1.1;
+}
+
+.countdown[data-countdown-style="minimal"] .countdownValue {
+  font-size: 1.5em;
+}
+
+.countdownLabel {
+  font-size: 0.66em;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: color-mix(in srgb, var(--venue-body) 82%, transparent);
+  margin-top: 0.2rem;
+}
+
+.countdownDone {
+  font-size: 1.15em;
+  font-weight: var(--venue-heading-weight);
+  color: var(--venue-title);
+  margin: 0;
+}
+
+/* --- eventDateTime block ------------------------------------------------------- */
+
+.dateTimeRows {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--venue-vertical-spacing) * 0.9);
+  margin: 0;
+}
+
+.dateTimeRow {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.dateTimeLabel {
+  font-size: 0.7em;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--venue-accent);
+  margin: 0;
+}
+
+.dateTimeValue {
+  font-size: 1.06em;
+  color: var(--venue-title);
+  font-weight: 500;
+  margin: 0;
+}
+
+.dateTimeSub {
+  font-size: 0.92em;
+  color: var(--venue-body);
+  margin: 0;
+}
+
+.calendarActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: calc(var(--venue-vertical-spacing) * 1);
+}
+
+.root[data-venue-align="center"] .calendarActions {
+  justify-content: center;
+}
+.root[data-venue-align="right"] .calendarActions {
+  justify-content: flex-end;
+}
+
+/* --- program block --------------------------------------------------------------- */
+
+.programList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.programRow {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 1rem;
+  align-items: baseline;
+  padding-block: 0.8rem;
+  border-top: 1px solid var(--venue-border);
+  text-align: left;
+}
+
+.programList[data-program-layout="grid"] {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.8rem;
+}
+
+@media (min-width: 34rem) {
+  .programList[data-program-layout="grid"] {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.programList[data-program-layout="grid"] .programRow {
+  grid-template-columns: 1fr;
+  gap: 0.3rem;
+  border: 1px solid var(--venue-border);
+  border-radius: var(--venue-block-radius, 14px);
+  padding: 0.9rem 1rem;
+}
+
+.programTime {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  font-size: 0.9em;
+  color: var(--venue-accent);
+  white-space: nowrap;
+}
+
+.programTitle {
+  font-weight: 600;
+  color: var(--venue-title);
+  margin: 0;
+}
+
+.programSubtitle {
+  font-size: 0.88em;
+  color: var(--venue-body);
+  margin: 0.1rem 0 0 0;
+}
+
+/* --- map block -------------------------------------------------------------------- */
+
+.mapCard {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  border: 1px solid var(--venue-border);
+  border-radius: var(--venue-block-radius, 16px);
+  padding: 1rem 1.1rem;
+  background: color-mix(in srgb, var(--venue-surface) 80%, transparent);
+  text-align: left;
+}
+
+.mapPinRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  color: var(--venue-title);
+  font-weight: 500;
+}
+
+.mapPinRow svg {
+  width: 1.1em;
+  height: 1.1em;
+  flex-shrink: 0;
+  margin-top: 0.16em;
+  color: var(--venue-icon);
+}
+
+.mapActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 0.25rem;
+}
+
+/* The embed facade reserves the exact box the iframe will occupy — zero CLS. */
+.mapEmbedFrame {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  border-radius: var(--venue-block-radius, 16px);
+  overflow: hidden;
+  border: 1px solid var(--venue-border);
+  background: color-mix(in srgb, var(--venue-surface) 80%, transparent);
+}
+
+.mapEmbedFacade {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.7rem;
+  padding: 1rem;
+  text-align: center;
+}
+
+.mapPrivacyNote {
+  font-size: 0.8em;
+  color: color-mix(in srgb, var(--venue-body) 85%, transparent);
+  margin: 0;
+  max-width: 26rem;
+}
+
+.mapEmbedFrame iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+/* --- gallery block ------------------------------------------------------------------ */
+
+.galleryGrid {
+  display: grid;
+  grid-template-columns: repeat(var(--venue-gallery-columns, 3), 1fr);
+  gap: var(--venue-gallery-gap, 8px);
+}
+
+.galleryMasonry {
+  column-count: var(--venue-gallery-columns, 3);
+  column-gap: var(--venue-gallery-gap, 8px);
+}
+
+.galleryMasonry .galleryItem {
+  margin-bottom: var(--venue-gallery-gap, 8px);
+  break-inside: avoid;
+}
+
+.galleryCarousel {
+  display: flex;
+  gap: var(--venue-gallery-gap, 8px);
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 0.4rem;
+}
+
+.galleryCarousel .galleryItem {
+  flex: 0 0 78%;
+  scroll-snap-align: center;
+}
+
+.galleryItem {
+  position: relative;
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  overflow: hidden;
+  border-radius: calc(var(--venue-block-radius, 12px) * 0.75);
+  aspect-ratio: var(--venue-gallery-aspect, 1 / 1);
+}
+
+.galleryItem img {
+  object-fit: cover;
+  transition: transform 300ms ease;
+}
+
+@media (hover: hover) {
+  .galleryItem:hover img {
+    transform: scale(1.03);
+  }
+}
+
+/* Lightbox (Radix dialog). */
+.lightboxOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(8, 8, 10, 0.86);
+  backdrop-filter: blur(6px);
+}
+
+.lightboxContent {
+  position: fixed;
+  inset: 0;
+  z-index: 61;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  outline: none;
+}
+
+.lightboxStage {
+  position: relative;
+  width: min(100%, 60rem);
+  height: min(76dvh, 46rem);
+}
+
+.lightboxStage img {
+  object-fit: contain;
+}
+
+.lightboxCaption {
+  margin-top: 0.8rem;
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 0.95em;
+  text-align: center;
+  max-width: 44rem;
+}
+
+.lightboxCount {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.8em;
+  font-variant-numeric: tabular-nums;
+  margin-top: 0.3rem;
+}
+
+.lightboxClose,
+.lightboxNav {
+  position: fixed;
+  z-index: 62;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  background: rgba(20, 20, 24, 0.6);
+  color: #fff;
+  cursor: pointer;
+  transition: background-color 200ms ease;
+}
+
+.lightboxClose:hover,
+.lightboxNav:hover {
+  background: rgba(50, 50, 58, 0.8);
+}
+
+.lightboxClose {
+  top: max(0.9rem, env(safe-area-inset-top));
+  right: max(0.9rem, env(safe-area-inset-right));
+}
+
+.lightboxPrev {
+  left: max(0.6rem, env(safe-area-inset-left));
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.lightboxNext {
+  right: max(0.6rem, env(safe-area-inset-right));
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.lightboxClose svg,
+.lightboxNav svg {
+  width: 1.2rem;
+  height: 1.2rem;
+}
+
+/* --- profileCards block ------------------------------------------------------------- */
+
+.profileGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.8rem;
+}
+
+@media (min-width: 34rem) {
+  .profileGrid {
+    grid-template-columns: repeat(var(--venue-profile-columns, 3), 1fr);
+  }
+}
+
+.profileGrid[data-profile-layout="list"] {
+  grid-template-columns: 1fr;
+}
+
+.profileCard {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  border: 1px solid var(--venue-border);
+  border-radius: var(--venue-block-radius, 16px);
+  padding: 0.8rem;
+  background: color-mix(in srgb, var(--venue-surface) 80%, transparent);
+  text-align: left;
+  text-decoration: none;
+  color: inherit;
+}
+
+.profileGrid[data-profile-layout="list"] .profileCard {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.9rem;
+}
+
+.profilePhoto {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  border-radius: calc(var(--venue-block-radius, 12px) * 0.7);
+  overflow: hidden;
+  background: color-mix(in srgb, var(--venue-border) 40%, transparent);
+}
+
+.profileGrid[data-profile-layout="list"] .profilePhoto {
+  width: 3.5rem;
+  flex-shrink: 0;
+}
+
+.profilePhoto img {
+  object-fit: cover;
+}
+
+.profileName {
+  font-weight: 600;
+  color: var(--venue-title);
+  margin: 0;
+}
+
+.profileRole {
+  font-size: 0.84em;
+  color: var(--venue-body);
+  margin: 0;
+}
+
+/* --- priceList block ------------------------------------------------------------------------ */
+
+.priceListSection {
+  margin: 0;
+}
+
+.priceListSection + .priceListSection {
+  margin-top: calc(var(--venue-vertical-spacing) * 1.4);
+}
+
+.priceListSectionTitle {
+  font-size: 0.76em;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--venue-accent);
+  margin: 0 0 0.6rem 0;
+  text-align: left;
+}
+
+.priceList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.priceListRow {
+  text-align: left;
+}
+
+.priceListLine {
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+}
+
+.priceListName {
+  font-weight: 500;
+  color: var(--venue-title);
+}
+
+/* The printed-price-list leader — a dotted rule running to the price. */
+.priceListDots {
+  flex: 1;
+  min-width: 1.5rem;
+  border-bottom: 1px dotted color-mix(in srgb, var(--venue-border) 90%, transparent);
+  transform: translateY(-0.28em);
+}
+
+.priceListPrice {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--venue-title);
+  white-space: nowrap;
+}
+
+.priceListDescription {
+  font-size: 0.84em;
+  color: color-mix(in srgb, var(--venue-body) 88%, transparent);
+  margin: 0.15rem 0 0 0;
+  max-width: 34rem;
+}
+
+/* --- reservation block ---------------------------------------------------------------------- */
+
+.reservationForm {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  text-align: left;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.fieldLabel {
+  font-size: 0.82em;
+  font-weight: 600;
+  color: var(--venue-title);
+}
+
+.fieldOptional {
+  font-weight: 400;
+  color: color-mix(in srgb, var(--venue-body) 75%, transparent);
+}
+
+.input {
+  width: 100%;
+  min-height: 3rem;
+  padding: 0.65rem 0.9rem;
+  border: 1px solid var(--venue-border);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--venue-surface) 70%, transparent);
+  color: var(--venue-title);
+  font: inherit;
+  font-size: max(1rem, 1em);
+}
+
+.input::placeholder {
+  color: color-mix(in srgb, var(--venue-body) 55%, transparent);
+}
+
+textarea.input {
+  resize: vertical;
+  min-height: 5rem;
+}
+
+.deadlineNote {
+  font-size: 0.84em;
+  color: color-mix(in srgb, var(--venue-body) 85%, transparent);
+  margin: 0 0 0.6rem 0;
+}
+
+.formNote {
+  display: flex;
+  gap: 0.55rem;
+  align-items: flex-start;
+  border: 1px solid var(--venue-border);
+  border-left: 3px solid var(--venue-accent);
+  border-radius: 10px;
+  padding: 0.7rem 0.9rem;
+  font-size: 0.92em;
+  color: var(--venue-title);
+  margin: 0;
+}
+
+.formNote svg {
+  width: 1.1em;
+  height: 1.1em;
+  flex-shrink: 0;
+  margin-top: 0.12em;
+  color: var(--venue-accent);
+}
+
+.reservationSuccess {
+  display: flex;
+  gap: 0.7rem;
+  align-items: flex-start;
+  border: 1px solid var(--venue-accent);
+  border-radius: var(--venue-block-radius, 14px);
+  padding: 1rem 1.1rem;
+  color: var(--venue-title);
+  font-weight: 500;
+  text-align: left;
+}
+
+.reservationSuccess svg {
+  width: 1.4em;
+  height: 1.4em;
+  flex-shrink: 0;
+  color: var(--venue-accent);
+}
+
+/* --- share block ------------------------------------------------------------------------------ */
+
+.shareRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.root[data-venue-align="center"] .shareRow,
+.alignCenter .shareRow {
+  justify-content: center;
+}
+.root[data-venue-align="right"] .shareRow,
+.alignRight .shareRow {
+  justify-content: flex-end;
+}
+
+/* --- pastEvents block + archive ---------------------------------------------------------------- */
+
+.pastGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.9rem;
+}
+
+@media (min-width: 34rem) {
+  .pastGrid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.pastGrid[data-past-layout="list"] {
+  grid-template-columns: 1fr;
+}
+
+.pastCard {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  border: 1px solid var(--venue-border);
+  border-radius: var(--venue-block-radius, 16px);
+  overflow: hidden;
+  background: color-mix(in srgb, var(--venue-surface) 82%, transparent);
+  color: inherit;
+  text-decoration: none;
+  text-align: left;
+  transition: border-color 200ms ease;
+}
+
+.pastCard:hover {
+  border-color: var(--venue-accent);
+}
+
+.pastGrid[data-past-layout="list"] .pastCard {
+  flex-direction: row;
+  align-items: center;
+}
+
+.pastCover {
+  position: relative;
+  aspect-ratio: 3 / 2;
+  background: color-mix(in srgb, var(--venue-border) 40%, transparent);
+}
+
+.pastGrid[data-past-layout="list"] .pastCover {
+  width: 6.5rem;
+  aspect-ratio: 1 / 1;
+  flex-shrink: 0;
+}
+
+.pastCover img {
+  object-fit: cover;
+}
+
+.pastMeta {
+  padding: 0.2rem 0.9rem 0.8rem;
+}
+
+.pastGrid[data-past-layout="list"] .pastMeta {
+  padding: 0.6rem 0.9rem;
+}
+
+.pastTitle {
+  font-weight: 600;
+  color: var(--venue-title);
+  margin: 0.4rem 0 0.15rem 0;
+}
+
+.pastDate {
+  font-size: 0.82em;
+  color: var(--venue-body);
+  margin: 0;
+}
+
+.emptyNote {
+  font-size: 0.95em;
+  color: color-mix(in srgb, var(--venue-body) 85%, transparent);
+  margin: 0;
+}
+
+/* --- richText + spacer -------------------------------------------------------------------------- */
+
+.richText {
+  max-width: 40rem;
+  color: var(--venue-body);
+}
+
+.richText p {
+  margin: 0;
+}
+
+.richText p + p {
+  margin-top: 0.8em;
+}
+
+.root[data-venue-align="center"] .richText {
+  margin-inline: auto;
+}
+
+.spacer {
+  height: var(--venue-spacer-height, 32px);
+  display: flex;
+  align-items: center;
+}
+
+.spacerDivider {
+  width: 100%;
+  border: 0;
+  border-top: 1px solid var(--venue-border);
+  margin: 0;
+}
+
+/* --- state screens (before-empty / after / inactive) --------------------------------------------- */
+
+.stateBody {
+  font-size: 1.05em;
+  color: var(--venue-body);
+  max-width: 34rem;
+  margin: 0;
+}
+
+.root[data-venue-align="center"] .stateBody {
+  margin-inline: auto;
+}
+
+.stateActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: calc(var(--venue-vertical-spacing) * 1.5);
+}
+
+.root[data-venue-align="center"] .stateActions {
+  justify-content: center;
+}
+
+/* --- archive page -------------------------------------------------------------------------------- */
+
+.archiveEvent {
+  margin-top: calc(var(--venue-vertical-spacing) * 2);
+}
+
+.archiveEventTitle {
+  font-size: 1.15em;
+  font-weight: var(--venue-heading-weight);
+  color: var(--venue-title);
+  margin: 0 0 0.2rem 0;
+}
+
+.archiveEventMeta {
+  font-size: 0.85em;
+  color: var(--venue-body);
+  margin: 0 0 0.8rem 0;
+}
+
+/* --- footer -------------------------------------------------------------------------------------- */
+
+.footer {
+  margin-top: calc(var(--venue-vertical-spacing) * 3);
+  padding-top: calc(var(--venue-vertical-spacing) * 1.25);
+  border-top: 1px solid var(--venue-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.footerBrand {
+  font-size: 0.72em;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: color-mix(in srgb, var(--venue-body) 70%, transparent);
+  margin: 0;
+}
+
+.footerLink {
+  font-size: 0.85em;
+  font-weight: 600;
+  color: var(--venue-title);
+  text-decoration: none;
+  border-bottom: 1px solid var(--venue-border);
+  padding-bottom: 0.1rem;
+  transition: border-color 200ms ease;
+}
+
+.footerLink:hover {
+  border-color: var(--venue-accent);
+}
+
+/* --- utilities ---------------------------------------------------------------------------------- */
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* --- motion ------------------------------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: no-preference) {
+  .animFadeUp {
+    animation: venueFadeUp 640ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  @supports (animation-timeline: view()) {
+    .animReveal {
+      animation: venueFadeUp both cubic-bezier(0.16, 1, 0.3, 1);
+      animation-timeline: view();
+      animation-range: entry 0% entry 42%;
+    }
+  }
+
+  .liveDot {
+    animation: venuePulse 2.2s ease-in-out infinite;
+  }
+}
+
+@keyframes venueFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes venuePulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.45;
+    transform: scale(0.8);
+  }
+}

@@ -1,4 +1,4 @@
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import {
   mutation,
@@ -7,10 +7,10 @@ import {
   type QueryCtx,
 } from "./_generated/server";
 import {
-  isAdminEmail,
   requireAdmin,
-  requireAuthUser,
+  requireServiceEditorAccess,
 } from "./lib/access";
+import { buildBusinessContactViews } from "./lib/contacts";
 import {
   aggregateMetricRowsForRange,
   metricsRangeConfig,
@@ -120,7 +120,7 @@ const editorDestinationValidator = v.object({
 function normalizeHex(value: string) {
   const normalized = value.trim().toUpperCase();
   if (!/^#[0-9A-F]{6}$/.test(normalized)) {
-    throw new Error("Boja mora biti HEX vrednost u formatu #RRGGBB.");
+    throw new ConvexError("Boja mora biti HEX vrednost u formatu #RRGGBB.");
   }
   return normalized;
 }
@@ -128,7 +128,7 @@ function normalizeHex(value: string) {
 function normalizeDesignHex(value: string) {
   const normalized = value.trim().toUpperCase();
   if (!/^#[0-9A-F]{6}(?:[0-9A-F]{2})?$/.test(normalized)) {
-    throw new Error("Boja u dizajnu mora biti HEX vrednost u formatu #RRGGBB ili #RRGGBBAA.");
+    throw new ConvexError("Boja u dizajnu mora biti HEX vrednost u formatu #RRGGBB ili #RRGGBBAA.");
   }
   return normalized;
 }
@@ -146,7 +146,7 @@ function normalizeAccentTokens(tokens: AccentTokens) {
 
 function normalizeIconKey(value: string): IconKey {
   if (!ICON_KEYS.includes(value as IconKey)) {
-    throw new Error("Izabrana ikonica nije podržana.");
+    throw new ConvexError("Izabrana ikonica nije podržana.");
   }
   return value as IconKey;
 }
@@ -243,7 +243,7 @@ function normalizeEditorText(
 ) {
   const normalized = (value ?? "").trim().replace(/\s+/g, " ");
   if (normalized.length > maxLength) {
-    throw new Error(`${label} može imati najviše ${maxLength} karaktera.`);
+    throw new ConvexError(`${label} može imati najviše ${maxLength} karaktera.`);
   }
   return normalized;
 }
@@ -256,6 +256,12 @@ function normalizePaletteAnalysis(
         correctedRoles: string[];
         generationMode?: "light" | "dark";
         lockedSlots?: boolean[];
+        schemeType?:
+          | "complementary"
+          | "analogous"
+          | "monochromatic"
+          | "triadic"
+          | "split-complementary";
       }
     | null
     | undefined,
@@ -267,7 +273,7 @@ function normalizePaletteAnalysis(
     value.correctedRoles.length > 8 ||
     (value.lockedSlots?.length ?? 0) > 5
   ) {
-    throw new Error("Analiza palete može imati najviše osam vrednosti po grupi.");
+    throw new ConvexError("Analiza palete može imati najviše osam vrednosti po grupi.");
   }
   return {
     original: value.original.map(normalizeHex),
@@ -281,6 +287,7 @@ function normalizePaletteAnalysis(
     ...(value.lockedSlots
       ? { lockedSlots: value.lockedSlots.slice(0, 5) }
       : {}),
+    ...(value.schemeType ? { schemeType: value.schemeType } : {}),
   };
 }
 
@@ -295,9 +302,9 @@ async function validateStoredFile(
 ) {
   if (!storageId) return;
   const metadata = await ctx.db.system.get("_storage", storageId);
-  if (!metadata) throw new Error(`${options.label} nije pronađen.`);
+  if (!metadata) throw new ConvexError(`${options.label} nije pronađen.`);
   if (metadata.size > options.maxBytes) {
-    throw new Error(
+    throw new ConvexError(
       `${options.label} može imati najviše ${Math.floor(options.maxBytes / 1024 / 1024)} MB.`,
     );
   }
@@ -306,7 +313,7 @@ async function validateStoredFile(
     .trim()
     .toLowerCase();
   if (!contentType || !options.contentTypes.includes(contentType)) {
-    throw new Error(`${options.label} nema podržan format.`);
+    throw new ConvexError(`${options.label} nema podržan format.`);
   }
 }
 
@@ -373,30 +380,6 @@ async function profileForBusiness(
       q.eq("businessId", businessId).eq("type", type),
     )
     .unique();
-}
-
-async function requireEditorAccess(
-  ctx: QueryCtx | MutationCtx,
-  profile: Doc<"serviceProfiles">,
-) {
-  if (profile.type !== "scanme_links") {
-    throw new Error("ScanMe Links profil nije pronađen.");
-  }
-  const user = await requireAuthUser(ctx);
-  if (isAdminEmail(user.email)) return { role: "admin" as const, user };
-  if (!profile.clientEditingEnabled) {
-    throw new Error("Uređivanje ScanMe Links stranice nije omogućeno za klijenta.");
-  }
-  const membership = await ctx.db
-    .query("businessMemberships")
-    .withIndex("by_userId_and_businessId", (q) =>
-      q.eq("userId", user._id).eq("businessId", profile.businessId),
-    )
-    .unique();
-  if (!membership?.active) {
-    throw new Error("Nemate pristup ovom lokalu.");
-  }
-  return { role: "client" as const, user };
 }
 
 async function publishedDestinations(
@@ -665,6 +648,14 @@ async function draftLinksView(
   };
 }
 
+function selectPrimaryLink(links: Doc<"dynamicLinks">[]) {
+  return links.reduce<Doc<"dynamicLinks"> | null>((selected, link) => {
+    if (!selected) return link;
+    if (link.active !== selected.active) return link.active ? link : selected;
+    return link.updatedAt > selected.updatedAt ? link : selected;
+  }, null);
+}
+
 async function currentResolution(
   ctx: QueryCtx | MutationCtx,
   profile: Doc<"serviceProfiles">,
@@ -719,7 +710,7 @@ export const resolveAndRecord = mutation({
   handler: async (ctx, args) => {
     const requestId = args.requestId.trim();
     if (!/^[0-9a-f-]{36}$/i.test(requestId)) {
-      throw new Error("Zahtev skeniranja nije ispravan.");
+      throw new ConvexError("Zahtev skeniranja nije ispravan.");
     }
     const profile = await serviceBySlug(ctx, args.slug);
     if (!profile) return { status: "missing" as const };
@@ -733,9 +724,12 @@ export const resolveAndRecord = mutation({
       .unique();
     if (existing) {
       if (existing.serviceProfileId !== profile._id) {
-        throw new Error("Zahtev skeniranja nije ispravan.");
+        throw new ConvexError("Zahtev skeniranja nije ispravan.");
       }
       const resolution = await currentResolution(ctx, profile, existing);
+      if (resolution.status === "unavailable") {
+        return { status: "invalid_destination" as const };
+      }
       return resolution.status === "links"
         ? { ...resolution, scanSessionId: existing._id }
         : resolution;
@@ -768,6 +762,58 @@ export const resolveAndRecord = mutation({
       ...(args.deviceCategory ? { deviceCategory: args.deviceCategory } : {}),
       ...(referrerHost ? { referrerHost } : {}),
     });
+
+    // Google Review dashboardi (admin.getBusinessMetrics, clientPanel.metrics)
+    // i dalje čitaju legacy tabele, pa se sken ogleda i u njima.
+    if (profile.type === "google_review") {
+      const legacyLinks = await ctx.db
+        .query("dynamicLinks")
+        .withIndex("by_businessId_and_type", (q) =>
+          q.eq("businessId", profile.businessId).eq("type", "google_review"),
+        )
+        .order("desc")
+        .take(20);
+      const legacyLink = selectPrimaryLink(legacyLinks);
+      if (legacyLink) {
+        await ctx.db.insert("scanEvents", {
+          dynamicLinkId: legacyLink._id,
+          requestId,
+          scannedAt: now,
+          ...(args.deviceCategory
+            ? { deviceCategory: args.deviceCategory }
+            : {}),
+          ...(referrerHost ? { referrerHost } : {}),
+        });
+        if (!isBot) {
+          await ctx.db.patch(legacyLink._id, {
+            scanCount: legacyLink.scanCount + 1,
+            updatedAt: now,
+          });
+          const legacyDateKey = serviceMetricDateKey(now);
+          const daily = await ctx.db
+            .query("dailyScanCounts")
+            .withIndex("by_dynamicLinkId_and_dateKey", (q) =>
+              q
+                .eq("dynamicLinkId", legacyLink._id)
+                .eq("dateKey", legacyDateKey),
+            )
+            .unique();
+          if (daily) {
+            await ctx.db.patch(daily._id, {
+              count: daily.count + 1,
+              updatedAt: now,
+            });
+          } else {
+            await ctx.db.insert("dailyScanCounts", {
+              dynamicLinkId: legacyLink._id,
+              dateKey: legacyDateKey,
+              count: 1,
+              updatedAt: now,
+            });
+          }
+        }
+      }
+    }
 
     if (!isBot) {
       await ctx.db.patch(profile._id, {
@@ -821,13 +867,13 @@ export const recordClick = mutation({
   },
   handler: async (ctx, args) => {
     if (!/^[0-9a-f-]{36}$/i.test(args.clickId.trim())) {
-      throw new Error("Klik nije ispravan.");
+      throw new ConvexError("Klik nije ispravan.");
     }
     const scan = await ctx.db
       .query("serviceScanEvents")
       .withIndex("by_requestId", (q) => q.eq("requestId", args.requestId.trim()))
       .unique();
-    if (!scan || scan.mode !== "links") throw new Error("ScanMe sesija nije dostupna.");
+    if (!scan || scan.mode !== "links") throw new ConvexError("ScanMe sesija nije dostupna.");
     const destination = await ctx.db.get(args.destinationId);
     if (
       !destination ||
@@ -836,7 +882,7 @@ export const recordClick = mutation({
       !destination.publishedUrl ||
       !isSafePublicDestination(destination.publishedUrl)
     ) {
-      throw new Error("Destinacija nije dostupna.");
+      throw new ConvexError("Destinacija nije dostupna.");
     }
     const existing = await ctx.db
       .query("destinationVisitEvents")
@@ -881,11 +927,7 @@ export const recordClick = mutation({
 
 async function businessView(ctx: QueryCtx, business: Doc<"businesses">) {
   const profile = await profileForBusiness(ctx, business._id, "scanme_links");
-  const contacts = await ctx.db
-    .query("businessContacts")
-    .withIndex("by_businessId", (q) => q.eq("businessId", business._id))
-    .take(50);
-  const contact = contacts.find((row) => row.status !== "inactive") ?? null;
+  const contactView = await buildBusinessContactViews(ctx, business._id);
   const config = profile
     ? await ctx.db
         .query("scanMeLinksConfigs")
@@ -959,16 +1001,9 @@ async function businessView(ctx: QueryCtx, business: Doc<"businesses">) {
     destinationCount: destinations.filter(
       (row) => row.draftState !== "deleted" && row.draftState !== "archived",
     ).length,
-    contact: contact
-      ? {
-          id: contact._id,
-          firstName: contact.firstName,
-          lastName: contact.lastName,
-          email: contact.normalizedEmail,
-          phone: contact.phone,
-          positionTitle: contact.positionTitle,
-        }
-      : null,
+    contact: contactView.contact,
+    contacts: contactView.contacts,
+    invitation: contactView.invitation,
   };
 }
 
@@ -982,9 +1017,14 @@ export const listBusinesses = query({
 });
 
 export const editor = query({
-  args: { businessId: v.id("businesses") },
+  // v.string() + normalizeId umesto v.id(): stari bookmark sa slugom u URL-u
+  // treba da dobije "nije pronađeno" umesto srušene stranice zbog
+  // ArgumentValidationError.
+  args: { businessId: v.string() },
   handler: async (ctx, args) => {
-    const business = await ctx.db.get(args.businessId);
+    const businessId = ctx.db.normalizeId("businesses", args.businessId);
+    if (!businessId) return null;
+    const business = await ctx.db.get(businessId);
     if (!business) return null;
     const profile = await profileForBusiness(ctx, business._id, "scanme_links");
     if (!profile) {
@@ -999,7 +1039,7 @@ export const editor = query({
         templateRegistry: TEMPLATE_REGISTRY,
       };
     }
-    const access = await requireEditorAccess(ctx, profile);
+    const access = await requireServiceEditorAccess(ctx, profile, ["scanme_links"]);
     const summary = await businessView(ctx, business);
     const destinations = await editorDestinations(ctx, profile._id);
     const draftView = summary.config
@@ -1013,7 +1053,7 @@ export const editor = query({
             )
             .unique()
             .then((config) => {
-              if (!config) throw new Error("Konfiguracija nije pronađena.");
+              if (!config) throw new ConvexError("Konfiguracija nije pronađena.");
               return config;
             }),
           destinations,
@@ -1109,7 +1149,6 @@ async function adminEditorPayload(
 export const editorBySlug = query({
   args: { slug: v.string() },
   handler: async (ctx, args) => {
-    await requireAdmin(ctx);
     const slug = requireSlug(args.slug);
     const resolvedProfile = await serviceBySlug(ctx, slug);
     let profile =
@@ -1126,7 +1165,21 @@ export const editorBySlug = query({
         : null;
     }
     if (!business) return null;
-    return await adminEditorPayload(ctx, business, profile);
+    if (!profile) {
+      await requireAdmin(ctx);
+      return await adminEditorPayload(ctx, business, null);
+    }
+    // Editor je dostupan adminu i klijentu sa uključenim uređivanjem; bez
+    // pristupa vraćamo null da EditorLoader prikaže prijateljski ekran
+    // umesto srušene stranice.
+    let access;
+    try {
+      access = await requireServiceEditorAccess(ctx, profile, ["scanme_links"]);
+    } catch {
+      return null;
+    }
+    const payload = await adminEditorPayload(ctx, business, profile);
+    return { ...payload, editorRole: access.role };
   },
 });
 
@@ -1142,8 +1195,8 @@ export const generateDisplayLogoUploadUrl = mutation({
   args: { serviceProfileId: v.id("serviceProfiles") },
   handler: async (ctx, args) => {
     const profile = await ctx.db.get(args.serviceProfileId);
-    if (!profile) throw new Error("ScanMe Links profil nije pronađen.");
-    await requireEditorAccess(ctx, profile);
+    if (!profile) throw new ConvexError("ScanMe Links profil nije pronađen.");
+    await requireServiceEditorAccess(ctx, profile, ["scanme_links"]);
     return await ctx.storage.generateUploadUrl();
   },
 });
@@ -1152,8 +1205,8 @@ export const generateEditorUploadUrl = mutation({
   args: { serviceProfileId: v.id("serviceProfiles") },
   handler: async (ctx, args) => {
     const profile = await ctx.db.get(args.serviceProfileId);
-    if (!profile) throw new Error("ScanMe Links profil nije pronađen.");
-    await requireEditorAccess(ctx, profile);
+    if (!profile) throw new ConvexError("ScanMe Links profil nije pronađen.");
+    await requireServiceEditorAccess(ctx, profile, ["scanme_links"]);
     return await ctx.storage.generateUploadUrl();
   },
 });
@@ -1166,17 +1219,17 @@ export const updateBusinessLogo = mutation({
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
     const business = await ctx.db.get(args.businessId);
-    if (!business) throw new Error("Lokal nije pronađen.");
+    if (!business) throw new ConvexError("Lokal nije pronađen.");
     const metadata = await ctx.db.system.get("_storage", args.logoStorageId);
-    if (!metadata) throw new Error("Logotip nije pronađen.");
+    if (!metadata) throw new ConvexError("Logotip nije pronađen.");
     if (metadata.size > 5 * 1024 * 1024) {
-      throw new Error("Logotip može imati najviše 5 MB.");
+      throw new ConvexError("Logotip može imati najviše 5 MB.");
     }
     if (
       !metadata.contentType ||
       !["image/png", "image/jpeg", "image/webp"].includes(metadata.contentType)
     ) {
-      throw new Error("Dozvoljeni su PNG, JPEG i WebP logotipi.");
+      throw new ConvexError("Dozvoljeni su PNG, JPEG i WebP logotipi.");
     }
     await ctx.db.patch(args.businessId, {
       logoStorageId: args.logoStorageId,
@@ -1199,15 +1252,15 @@ export const saveDraftAppearance = mutation({
   handler: async (ctx, args) => {
     const profile = await ctx.db.get(args.serviceProfileId);
     if (!profile) {
-      throw new Error("ScanMe Links profil nije pronađen.");
+      throw new ConvexError("ScanMe Links profil nije pronađen.");
     }
-    await requireEditorAccess(ctx, profile);
+    await requireServiceEditorAccess(ctx, profile, ["scanme_links"]);
     const templateKey = args.templateKey as TemplateKey;
-    if (!TEMPLATE_REGISTRY[templateKey]) throw new Error("Template nije podržan.");
+    if (!TEMPLATE_REGISTRY[templateKey]) throw new ConvexError("Template nije podržan.");
     if (!isTemplateBackgroundCompatible(templateKey, args.backgroundKey)) {
-      throw new Error("Pozadina ne pripada izabranom template-u.");
+      throw new ConvexError("Pozadina ne pripada izabranom template-u.");
     }
-    if (args.palette.length > 3) throw new Error("Paleta može imati najviše tri boje.");
+    if (args.palette.length > 3) throw new ConvexError("Paleta može imati najviše tri boje.");
     const palette = args.palette.map(normalizeHex);
     const config = await ctx.db
       .query("scanMeLinksConfigs")
@@ -1215,7 +1268,7 @@ export const saveDraftAppearance = mutation({
         q.eq("serviceProfileId", profile._id),
       )
       .unique();
-    if (!config) throw new Error("Konfiguracija nije pronađena.");
+    if (!config) throw new ConvexError("Konfiguracija nije pronađena.");
     await ctx.db.patch(config._id, {
       draftDisplayName: requireText(args.displayName, "Naziv za prikaz", 2, 120),
       ...(args.logoStorageId ? { draftLogoStorageId: args.logoStorageId } : {}),
@@ -1249,20 +1302,20 @@ export const saveEditorDraft = mutation({
   },
   handler: async (ctx, args) => {
     const profile = await ctx.db.get(args.serviceProfileId);
-    if (!profile) throw new Error("ScanMe Links profil nije pronađen.");
-    await requireEditorAccess(ctx, profile);
+    if (!profile) throw new ConvexError("ScanMe Links profil nije pronađen.");
+    await requireServiceEditorAccess(ctx, profile, ["scanme_links"]);
     const config = await ctx.db
       .query("scanMeLinksConfigs")
       .withIndex("by_serviceProfileId", (q) =>
         q.eq("serviceProfileId", profile._id),
       )
       .unique();
-    if (!config) throw new Error("Konfiguracija nije pronađena.");
+    if (!config) throw new ConvexError("Konfiguracija nije pronađena.");
     if (args.palette.length > 8) {
-      throw new Error("Paleta može imati najviše osam boja.");
+      throw new ConvexError("Paleta može imati najviše osam boja.");
     }
     if (args.destinations.length > 100) {
-      throw new Error("Nacrt može imati najviše 100 destinacija.");
+      throw new ConvexError("Nacrt može imati najviše 100 destinacija.");
     }
 
     const displayName = normalizeEditorText(
@@ -1289,23 +1342,23 @@ export const saveEditorDraft = mutation({
 
     for (const destination of args.destinations) {
       if (submittedIds.has(destination.id)) {
-        throw new Error("Ista destinacija je poslata više puta.");
+        throw new ConvexError("Ista destinacija je poslata više puta.");
       }
       submittedIds.add(destination.id);
       const row = await ctx.db.get(destination.id);
       if (!row || row.serviceProfileId !== profile._id) {
-        throw new Error("Destinacija ne pripada ovom ScanMe Links profilu.");
+        throw new ConvexError("Destinacija ne pripada ovom ScanMe Links profilu.");
       }
       if (
         !Number.isInteger(destination.order) ||
         destination.order < 0 ||
         destination.order >= 100
       ) {
-        throw new Error("Redosled destinacije nije ispravan.");
+        throw new ConvexError("Redosled destinacije nije ispravan.");
       }
       const url = destination.url.trim();
       if (url && !isSafePublicDestination(url)) {
-        throw new Error("Destinacija mora biti bezbedan javni HTTPS link.");
+        throw new ConvexError("Destinacija mora biti bezbedan javni HTTPS link.");
       }
       if (destination.state === "active") activeCount += 1;
       const defaults =
@@ -1326,7 +1379,7 @@ export const saveEditorDraft = mutation({
       });
     }
     if (activeCount > 10) {
-      throw new Error("ScanMe Links može imati najviše 10 aktivnih destinacija.");
+      throw new ConvexError("ScanMe Links može imati najviše 10 aktivnih destinacija.");
     }
     const now = Date.now();
     const draftRevision = config.draftRevision + 1;
@@ -1362,9 +1415,9 @@ export const addDestination = mutation({
   handler: async (ctx, args) => {
     const profile = await ctx.db.get(args.serviceProfileId);
     if (!profile) {
-      throw new Error("ScanMe Links profil nije pronađen.");
+      throw new ConvexError("ScanMe Links profil nije pronađen.");
     }
-    await requireEditorAccess(ctx, profile);
+    await requireServiceEditorAccess(ctx, profile, ["scanme_links"]);
     const activeRows = await ctx.db
       .query("serviceDestinations")
       .withIndex("by_serviceProfileId_and_draftState", (q) =>
@@ -1374,11 +1427,11 @@ export const addDestination = mutation({
       )
       .take(10);
     if (activeRows.length >= 10) {
-      throw new Error("ScanMe Links može imati najviše 10 aktivnih destinacija.");
+      throw new ConvexError("ScanMe Links može imati najviše 10 aktivnih destinacija.");
     }
     const visible = await editorDestinations(ctx, profile._id);
     if (visible.length >= 100) {
-      throw new Error("ScanMe Links nacrt moÅ¾e imati najviÅ¡e 100 destinacija.");
+      throw new ConvexError("ScanMe Links nacrt može imati najviše 100 destinacija.");
     }
     const defaults = DESTINATION_DEFAULTS[args.kind as DestinationKind];
     const now = Date.now();
@@ -1420,7 +1473,7 @@ async function markDraftChanged(
     });
     return draftRevision;
   }
-  throw new Error("Konfiguracija nije pronađena.");
+  throw new ConvexError("Konfiguracija nije pronađena.");
 }
 
 export const updateDestination = mutation({
@@ -1434,13 +1487,13 @@ export const updateDestination = mutation({
   },
   handler: async (ctx, args) => {
     const row = await ctx.db.get(args.destinationId);
-    if (!row) throw new Error("Destinacija nije pronađena.");
+    if (!row) throw new ConvexError("Destinacija nije pronađena.");
     const profile = await ctx.db.get(row.serviceProfileId);
-    if (!profile) throw new Error("ScanMe Links profil nije pronađen.");
-    await requireEditorAccess(ctx, profile);
+    if (!profile) throw new ConvexError("ScanMe Links profil nije pronađen.");
+    await requireServiceEditorAccess(ctx, profile, ["scanme_links"]);
     const url = args.url.trim();
     if (url && !isSafePublicDestination(url)) {
-      throw new Error("Destinacija mora biti bezbedan javni HTTPS link.");
+      throw new ConvexError("Destinacija mora biti bezbedan javni HTTPS link.");
     }
     if (args.state === "active" && row.draftState !== "active") {
       const activeRows = await ctx.db
@@ -1452,7 +1505,7 @@ export const updateDestination = mutation({
         )
         .take(10);
       if (activeRows.length >= 10) {
-        throw new Error("ScanMe Links može imati najviše 10 aktivnih destinacija.");
+        throw new ConvexError("ScanMe Links može imati najviše 10 aktivnih destinacija.");
       }
     }
     await ctx.db.patch(row._id, {
@@ -1475,13 +1528,13 @@ export const reorderDestinations = mutation({
   },
   handler: async (ctx, args) => {
     const profile = await ctx.db.get(args.serviceProfileId);
-    if (!profile) throw new Error("ScanMe Links profil nije pronađen.");
-    await requireEditorAccess(ctx, profile);
-    if (args.destinationIds.length > 100) throw new Error("Redosled nije ispravan.");
+    if (!profile) throw new ConvexError("ScanMe Links profil nije pronađen.");
+    await requireServiceEditorAccess(ctx, profile, ["scanme_links"]);
+    if (args.destinationIds.length > 100) throw new ConvexError("Redosled nije ispravan.");
     for (const [order, destinationId] of args.destinationIds.entries()) {
       const row = await ctx.db.get(destinationId);
       if (!row || row.serviceProfileId !== args.serviceProfileId) {
-        throw new Error("Destinacija nije pronađena.");
+        throw new ConvexError("Destinacija nije pronađena.");
       }
       await ctx.db.patch(row._id, { draftOrder: order, updatedAt: Date.now() });
     }
@@ -1494,10 +1547,10 @@ export const markDestinationDeleted = mutation({
   args: { destinationId: v.id("serviceDestinations") },
   handler: async (ctx, args) => {
     const row = await ctx.db.get(args.destinationId);
-    if (!row) throw new Error("Destinacija nije pronađena.");
+    if (!row) throw new ConvexError("Destinacija nije pronađena.");
     const profile = await ctx.db.get(row.serviceProfileId);
-    if (!profile) throw new Error("ScanMe Links profil nije pronađen.");
-    await requireEditorAccess(ctx, profile);
+    if (!profile) throw new ConvexError("ScanMe Links profil nije pronađen.");
+    await requireServiceEditorAccess(ctx, profile, ["scanme_links"]);
     await ctx.db.patch(row._id, { draftState: "deleted", updatedAt: Date.now() });
     await markDraftChanged(ctx, row.serviceProfileId);
     return { marked: true };
@@ -1508,15 +1561,15 @@ export const discardDraft = mutation({
   args: { serviceProfileId: v.id("serviceProfiles") },
   handler: async (ctx, args) => {
     const profile = await ctx.db.get(args.serviceProfileId);
-    if (!profile) throw new Error("ScanMe Links profil nije pronađen.");
-    await requireEditorAccess(ctx, profile);
+    if (!profile) throw new ConvexError("ScanMe Links profil nije pronađen.");
+    await requireServiceEditorAccess(ctx, profile, ["scanme_links"]);
     const config = await ctx.db
       .query("scanMeLinksConfigs")
       .withIndex("by_serviceProfileId", (q) =>
         q.eq("serviceProfileId", args.serviceProfileId),
       )
       .unique();
-    if (!config) throw new Error("Konfiguracija nije pronađena.");
+    if (!config) throw new ConvexError("Konfiguracija nije pronađena.");
     const rows = await draftRowsForCommit(ctx, args.serviceProfileId);
     for (const row of rows) {
       if (!row.publishedState) {
@@ -1570,18 +1623,18 @@ export const publishDraft = mutation({
   handler: async (ctx, args) => {
     const profile = await ctx.db.get(args.serviceProfileId);
     if (!profile) {
-      throw new Error("ScanMe Links profil nije pronađen.");
+      throw new ConvexError("ScanMe Links profil nije pronađen.");
     }
-    await requireEditorAccess(ctx, profile);
+    await requireServiceEditorAccess(ctx, profile, ["scanme_links"]);
     const config = await ctx.db
       .query("scanMeLinksConfigs")
       .withIndex("by_serviceProfileId", (q) =>
         q.eq("serviceProfileId", profile._id),
       )
       .unique();
-    if (!config) throw new Error("Konfiguracija nije pronađena.");
+    if (!config) throw new ConvexError("Konfiguracija nije pronađena.");
     if (config.draftRevision !== args.expectedDraftRevision) {
-      throw new Error("Nacrt je u međuvremenu izmenjen. Osvežite editor i pokušajte ponovo.");
+      throw new ConvexError("Nacrt je u međuvremenu izmenjen. Osvežite editor i pokušajte ponovo.");
     }
     if (
       !isTemplateBackgroundCompatible(
@@ -1589,7 +1642,7 @@ export const publishDraft = mutation({
         config.draftBackgroundKey,
       )
     ) {
-      throw new Error("Pozadina ne pripada izabranom template-u.");
+      throw new ConvexError("Pozadina ne pripada izabranom template-u.");
     }
     await validateEditorMedia(ctx, {
       logoStorageId: config.draftLogoStorageId ?? null,
@@ -1600,10 +1653,10 @@ export const publishDraft = mutation({
     });
     const rows = await draftRowsForCommit(ctx, profile._id);
     const active = rows.filter((row) => row.draftState === "active");
-    if (active.length > 10) throw new Error("Možete objaviti najviše 10 aktivnih destinacija.");
+    if (active.length > 10) throw new ConvexError("Možete objaviti najviše 10 aktivnih destinacija.");
     for (const row of active) {
       if (row.draftUrl && !isSafePublicDestination(row.draftUrl)) {
-        throw new Error(`Destinacija „${row.draftLabel}“ nema bezbedan HTTPS URL.`);
+        throw new ConvexError(`Destinacija „${row.draftLabel}“ nema bezbedan HTTPS URL.`);
       }
     }
     const now = Date.now();
@@ -1663,12 +1716,14 @@ export const setServiceActive = mutation({
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
     const profile = await ctx.db.get(args.serviceProfileId);
-    if (!profile || profile.type !== "scanme_links") {
-      throw new Error("ScanMe Links profil nije pronađen.");
+    // Any service type may be activated now (RFC-001 §2.1) — Venue and Memories
+    // profiles could not be activated before. Every other guard is unchanged.
+    if (!profile) {
+      throw new ConvexError("Servisni profil nije pronađen.");
     }
     const business = await ctx.db.get(profile.businessId);
     if (!business || business.archivedAt) {
-      throw new Error("Arhivirani lokal ne može biti aktiviran.");
+      throw new ConvexError("Arhivirani lokal ne može biti aktiviran.");
     }
     await ctx.db.patch(profile._id, {
       status: args.active ? "active" : "inactive",
@@ -1686,8 +1741,9 @@ export const setClientEditingEnabled = mutation({
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
     const profile = await ctx.db.get(args.serviceProfileId);
-    if (!profile || profile.type !== "scanme_links") {
-      throw new Error("ScanMe Links profil nije pronađen.");
+    // Any service type may toggle client editing now (RFC-001 §2.1).
+    if (!profile) {
+      throw new ConvexError("Servisni profil nije pronađen.");
     }
     await ctx.db.patch(profile._id, {
       clientEditingEnabled: args.enabled,
@@ -1704,9 +1760,20 @@ export const metrics = query({
     destinationId: v.optional(v.id("serviceDestinations")),
   },
   handler: async (ctx, args) => {
-    await requireAdmin(ctx);
     const profile = await profileForBusiness(ctx, args.businessId, "scanme_links");
-    if (!profile) return null;
+    if (!profile) {
+      await requireAdmin(ctx);
+      return null;
+    }
+    // Analitika je dostupna i klijentu sa uključenim uređivanjem (editor je
+    // otvoren za tu ulogu); requireServiceEditorAccess pokriva admina i klijenta.
+    await requireServiceEditorAccess(ctx, profile, ["scanme_links"]);
+    if (args.destinationId) {
+      const destination = await ctx.db.get(args.destinationId);
+      if (destination?.serviceProfileId !== profile._id) {
+        throw new ConvexError("Destinacija ne pripada ovom lokalu.");
+      }
+    }
     const range = (args.range ?? "7d") as MetricsRange;
     const rows = args.destinationId
       ? await getDestinationMetricRows(ctx, args.destinationId, range, "clicks")

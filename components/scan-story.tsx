@@ -371,7 +371,7 @@ function StoryPanel({ id, index, reducedMotion, mobile = false }: { id: string; 
   const step = steps[index];
 
   return (
-    <div id={id} className={mobile ? "min-h-36" : "relative min-h-56"} aria-live="polite">
+    <div id={id} data-reveal="off" className={mobile ? "min-h-36" : "relative min-h-56"} aria-live="polite">
       <AnimatePresence mode="wait" initial={false}>
         <motion.article
           key={step.title}

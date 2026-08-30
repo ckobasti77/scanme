@@ -3,6 +3,7 @@
 import { motion, useReducedMotion } from "framer-motion";
 import {
   Check,
+  ChevronDown,
   Lock,
   Moon,
   Palette,
@@ -25,13 +26,19 @@ import { colorDisplayName } from "@/lib/color-display-name";
 import {
   applyGeneratedPalette,
   applyPaletteColorToRole,
+  DEFAULT_PALETTE_SCHEME,
   generateScanMePalette,
   GENERATED_PALETTE_ROLES,
   inferPaletteMode,
   normalizePaletteLocks,
   type PaletteGenerationMode,
+  type PaletteSchemeType,
   type PaletteTargetRole,
 } from "@/lib/scanme-palette";
+import {
+  type MaterialVariant,
+  nextMaterialVariant,
+} from "@/lib/scanme-material-color";
 import { cn } from "@/lib/utils";
 import styles from "./scanme-links-editor.module.css";
 import type {
@@ -61,6 +68,44 @@ const targetRoles: Array<{ value: PaletteTargetRole; label: string }> = [
   { value: "focus", label: "Fokus" },
 ];
 
+// Plain-Serbian explanations so users who don't know color theory can choose confidently.
+const schemeOptions: Array<{
+  value: PaletteSchemeType;
+  label: string;
+  description: string;
+}> = [
+  {
+    value: "complementary",
+    label: "Komplementarna",
+    description:
+      "Logo i dugme dobijaju boje sa suprotnih strana kruga boja — najjači kontrast i najupečatljiviji, energičan izgled.",
+  },
+  {
+    value: "analogous",
+    label: "Analogna",
+    description:
+      "Boje koje su na krugu boja jedna do druge — mirno, prirodno i skladno, bez oštrih prelaza.",
+  },
+  {
+    value: "monochromatic",
+    label: "Monohromatska",
+    description:
+      "Jedna boja u više svetlijih i tamnijih nijansi — najčistiji, najelegantniji i najmirniji izbor.",
+  },
+  {
+    value: "triadic",
+    label: "Trijadna",
+    description:
+      "Tri boje ravnomerno raspoređene po krugu boja — živ i razigran spoj koji ipak ostaje uravnotežen.",
+  },
+  {
+    value: "split-complementary",
+    label: "Podeljeno-komplementarna",
+    description:
+      "Kao komplementarna, ali blaža — dugme uzima boju blizu suprotne. Upečatljivo, a prijatnije za oko.",
+  },
+];
+
 function currentAnalysis(document: ScanMeLinksEditorDocument): EditorPaletteAnalysis {
   const original = document.paletteAnalysis?.original.length
     ? document.paletteAnalysis.original
@@ -68,6 +113,8 @@ function currentAnalysis(document: ScanMeLinksEditorDocument): EditorPaletteAnal
   const generationMode =
     document.paletteAnalysis?.generationMode ??
     inferPaletteMode(document.design.colors.page);
+  const schemeType =
+    document.paletteAnalysis?.schemeType ?? DEFAULT_PALETTE_SCHEME;
   const lockedSlots = normalizePaletteLocks(
     document.paletteAnalysis?.lockedSlots,
   );
@@ -77,6 +124,7 @@ function currentAnalysis(document: ScanMeLinksEditorDocument): EditorPaletteAnal
       : generateScanMePalette({
           sourceColors: original,
           mode: generationMode,
+          schemeType,
           lockedSlots,
         });
 
@@ -86,6 +134,7 @@ function currentAnalysis(document: ScanMeLinksEditorDocument): EditorPaletteAnal
     correctedRoles: document.paletteAnalysis?.correctedRoles ?? [],
     generationMode,
     lockedSlots,
+    schemeType,
   };
 }
 
@@ -97,38 +146,56 @@ export function ScanMeSmartPalette({
   setDocument: EditorDocumentSetter;
 }) {
   const reducedMotion = useReducedMotion();
-  const regenerationRef = useRef(0);
+  // The Regenerate axis. Held in a ref (not persisted): what survives a reload is the
+  // adjusted palette itself; Regenerate simply advances to the next look this session.
+  const variantRef = useRef<MaterialVariant>("content");
   const analysis = useMemo(() => currentAnalysis(document), [document]);
   const hasLogoPalette = analysis.original.length > 0;
 
-  function regenerate(mode = analysis.generationMode) {
+  function rebuild(
+    mode: PaletteGenerationMode,
+    schemeType: PaletteSchemeType,
+    variant: MaterialVariant,
+  ) {
     if (!hasLogoPalette) return;
-    regenerationRef.current += 1;
-    setDocument(
-      (current) => {
-        const currentValue = currentAnalysis(current);
-        return {
-          ...current,
-          paletteAnalysis: {
-            ...currentValue,
-            generationMode: mode,
-            adjusted: generateScanMePalette({
-              sourceColors: currentValue.original,
-              mode,
-              currentColors: currentValue.adjusted,
-              lockedSlots: currentValue.lockedSlots,
-              seed: regenerationRef.current,
-            }),
-            correctedRoles: [],
-          },
-        };
-      },
-    );
+    setDocument((current) => {
+      const currentValue = currentAnalysis(current);
+      return {
+        ...current,
+        paletteAnalysis: {
+          ...currentValue,
+          generationMode: mode,
+          schemeType,
+          adjusted: generateScanMePalette({
+            sourceColors: currentValue.original,
+            mode,
+            schemeType,
+            variant,
+            currentColors: currentValue.adjusted,
+            lockedSlots: currentValue.lockedSlots,
+          }),
+          correctedRoles: [],
+        },
+      };
+    });
   }
 
+  // "Regeneriši" → advance to the next distinct look (Content → TonalSpot → Vibrant → …).
+  function regenerate() {
+    if (!hasLogoPalette) return;
+    variantRef.current = nextMaterialVariant(variantRef.current);
+    rebuild(analysis.generationMode, analysis.schemeType, variantRef.current);
+  }
+
+  // Light/Dark and scheme changes keep the current variant.
   function setMode(mode: PaletteGenerationMode) {
     if (mode === analysis.generationMode) return;
-    regenerate(mode);
+    rebuild(mode, analysis.schemeType, variantRef.current);
+  }
+
+  function setScheme(schemeType: PaletteSchemeType) {
+    if (schemeType === analysis.schemeType) return;
+    rebuild(analysis.generationMode, schemeType, variantRef.current);
   }
 
   function toggleLock(index: number) {
@@ -197,6 +264,53 @@ export function ScanMeSmartPalette({
 
       {hasLogoPalette ? (
         <>
+          <div className={styles.paletteSchemeRow}>
+            <span className={styles.paletteModeLabel}>Tip palete</span>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className={styles.paletteSchemeTrigger}
+                  aria-label="Tip palete"
+                >
+                  {schemeOptions.find(
+                    (option) => option.value === analysis.schemeType,
+                  )?.label ?? "Komplementarna"}
+                  <ChevronDown className="size-3.5" aria-hidden="true" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="end"
+                sideOffset={8}
+                className={styles.smartPaletteMenu}
+              >
+                <DropdownMenuLabel className={styles.smartPaletteMenuLabel}>
+                  Tip palete
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator
+                  className={styles.smartPaletteMenuSeparator}
+                />
+                {schemeOptions.map((option) => (
+                  <DropdownMenuItem
+                    key={option.value}
+                    className={styles.schemeMenuItem}
+                    onSelect={() => setScheme(option.value)}
+                  >
+                    <span className={styles.schemeMenuItemTitle}>
+                      {option.label}
+                      {option.value === analysis.schemeType ? (
+                        <Check className="size-3.5" aria-hidden="true" />
+                      ) : null}
+                    </span>
+                    <span className={styles.schemeMenuItemDesc}>
+                      {option.description}
+                    </span>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+
           <div className={styles.paletteModeRow}>
             <span className={styles.paletteModeLabel}>Režim generatora</span>
             <div className={styles.paletteModeControl}>

@@ -1,26 +1,25 @@
 "use client";
 
+import { ConvexError } from "convex/values";
 import { arrayMove } from "@dnd-kit/sortable";
-import { useMutation, useQuery } from "convex/react";
-import type { FunctionReturnType } from "convex/server";
+import {
+  Authenticated,
+  AuthLoading,
+  Unauthenticated,
+  useMutation,
+  useQuery,
+} from "convex/react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
-  BarChart3,
-  Check,
-  CircleHelp,
-  Crown,
-  Image,
+  Image as ImageIcon,
+  ImagePlus,
   LoaderCircle,
-  Palette,
   PanelTop,
-  Paintbrush,
   Redo2,
   Save,
   Send,
-  Settings,
-  SlidersHorizontal,
-  Type,
   Undo2,
+  Video as VideoIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -40,17 +39,17 @@ import { toast } from "sonner";
 import { AdminGuard } from "@/components/admin/admin-guard";
 import { EditorTooltip } from "@/components/admin/editor-tooltip";
 import {
-  AnalyticsPanel,
-  BackgroundPanel,
-  ButtonPanel,
-  ColorPanel,
-  ContentPanel,
-  HelpPanel,
-  ProPanel,
-  SettingsPanel,
-  StylePanel,
-  TextPanel,
-} from "@/components/admin/scanme-links-editor-panels";
+  EditorBackdrop,
+  EditorPanelContent,
+  panelCopy,
+  primaryToolItems,
+  SaveStatus,
+  secondaryToolItems,
+  visibleSecondaryToolItems,
+  useCompactEditor,
+  type EditorToolItem,
+} from "@/components/admin/scanme-links-editor-common";
+import { MobileEditorShell } from "@/components/admin/scanme-links-editor-mobile";
 import { ScanMeLinksEditorPreview } from "@/components/admin/scanme-links-editor-preview";
 import { BrandLogo } from "@/components/brand-logo";
 import {
@@ -64,8 +63,7 @@ import {
 } from "@/components/ui/dialog";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import { extractAccentCandidates } from "@/lib/accent-palette";
-import type { ContrastSuggestion } from "@/lib/scanme-contrast";
+import { extractLogoProfile } from "@/lib/accent-palette";
 import {
   DESTINATION_DEFAULTS,
   type DestinationKind,
@@ -77,14 +75,17 @@ import {
 } from "@/lib/scanme-links-design";
 import {
   DEFAULT_PALETTE_LOCKS,
-  applyPaletteColorToRole,
+  DEFAULT_PALETTE_SCHEME,
   generateScanMePalette,
   inferPaletteMode,
+  inferPaletteModeFromProfile,
   normalizePaletteLocks,
 } from "@/lib/scanme-palette";
+import { defaultSchemeFromColors } from "@/lib/scanme-material-color";
 import { cn } from "@/lib/utils";
 import styles from "./scanme-links-editor.module.css";
 import type {
+  EditorData,
   EditorDestination,
   EditorPanelId,
   EditorSaveState,
@@ -93,76 +94,6 @@ import type {
 } from "./scanme-links-editor-types";
 import { useEditorHistory } from "./use-editor-history";
 
-type EditorData = NonNullable<
-  FunctionReturnType<typeof api.scanMeLinks.editorBySlug>
->;
-
-const primaryRailItems = [
-  { id: "content", label: "Sadržaj", icon: PanelTop },
-  { id: "style", label: "Stil", icon: Paintbrush },
-  { id: "background", label: "Pozadina", icon: Image },
-  { id: "button", label: "Dugme", icon: SlidersHorizontal },
-  { id: "text", label: "Tekst", icon: Type },
-  { id: "color", label: "Boja", icon: Palette },
-] as const;
-
-const secondaryRailItems = [
-  { id: "analytics", label: "Analitika", icon: BarChart3 },
-  { id: "settings", label: "Podešavanja", icon: Settings },
-  { id: "pro", label: "Pro", icon: Crown },
-  { id: "help", label: "Pomoć", icon: CircleHelp },
-] as const;
-
-const panelCopy: Record<
-  EditorPanelId,
-  { title: string; description: string }
-> = {
-  content: {
-    title: "Sadržaj",
-    description:
-      "Uredite identitet stranice i kliknite na dugme u previewu da promenite njegov link.",
-  },
-  style: {
-    title: "Stilovi",
-    description:
-      "Stil određuje skladne pozadine, dugmad, fontove i izgled ikonica.",
-  },
-  background: {
-    title: "Pozadina",
-    description:
-      "Izaberite tip, a zatim fino podesite boje, medij ili efekat.",
-  },
-  button: {
-    title: "Dugmad",
-    description:
-      "Podesite formu, boju i senku u granicama izabranog stila.",
-  },
-  text: {
-    title: "Tekst",
-    description: "Dostupni fontovi su odabrani da odgovaraju aktivnom stilu.",
-  },
-  color: {
-    title: "Boje",
-    description: "Ključne boje cele stranice dostupne su na jednom mestu.",
-  },
-  analytics: {
-    title: "Analitika",
-    description: "Metrika objavljene stranice i pojedinačnih linkova.",
-  },
-  settings: {
-    title: "Podešavanja",
-    description: "Javna adresa, status stranice i budući pristup klijenta.",
-  },
-  pro: {
-    title: "Pro",
-    description: "Napredne opcije za bogatije ScanMe Links iskustvo.",
-  },
-  help: {
-    title: "Pomoć",
-    description: "Kratak vodič kroz najvažnije tokove u editoru.",
-  },
-};
-
 export function ScanMeLinksEditorScreen({
   slug,
   businessId,
@@ -170,9 +101,48 @@ export function ScanMeLinksEditorScreen({
   slug?: string;
   businessId?: string;
 }) {
+  if (slug) {
+    // Ruta /[slug]/editor je dostupna i klijentima sa uključenim uređivanjem;
+    // autorizaciju po lokalu sprovodi editorBySlug (admin ili klijent sa
+    // clientEditingEnabled), pa je ovde dovoljna samo provera prijave.
+    return (
+      <>
+        <AuthLoading>
+          <main className="grid min-h-[100dvh] place-items-center bg-[#f4efe7]">
+            <div className="grid justify-items-center gap-4 text-sm font-semibold text-black/55">
+              <LoaderCircle className="size-7 animate-spin" aria-hidden="true" />
+              Učitavanje editora…
+            </div>
+          </main>
+        </AuthLoading>
+        <Unauthenticated>
+          <main className="grid min-h-[100dvh] place-items-center bg-[#f4efe7] p-5">
+            <section className="w-full max-w-lg rounded-[2rem] border border-white/65 bg-white/70 p-8 text-center shadow-xl backdrop-blur-xl">
+              <h1 className="text-2xl font-bold tracking-[-0.04em]">
+                Prijava je potrebna
+              </h1>
+              <p className="mt-3 text-sm leading-6 text-black/55">
+                Prijavite se nalogom koji ima pristup ovom lokalu da biste
+                uređivali ScanMe Links stranicu.
+              </p>
+              <Link
+                href={`/${encodeURIComponent(slug)}/client-panel`}
+                className="button-primary mt-6 inline-flex"
+              >
+                Otvori prijavu
+              </Link>
+            </section>
+          </main>
+        </Unauthenticated>
+        <Authenticated>
+          <EditorLoader slug={slug} />
+        </Authenticated>
+      </>
+    );
+  }
   return (
     <AdminGuard>
-      <EditorLoader slug={slug} businessId={businessId} />
+      <EditorLoader businessId={businessId} />
     </AdminGuard>
   );
 }
@@ -233,7 +203,10 @@ function EditorLoader({
   );
 }
 
-function EditorWorkspace({
+// Eksportovan zbog dev harness rute (app/dev/mobile-editor) koja ubacuje
+// fixture podatke bez prijave; produkcione rute i dalje ulaze kroz
+// ScanMeLinksEditorScreen.
+export function EditorWorkspace({
   data,
   enteredThroughLegacyRoute,
   requestedSlug,
@@ -244,6 +217,7 @@ function EditorWorkspace({
 }) {
   const router = useRouter();
   const reducedMotion = useReducedMotion();
+  const compactEditor = useCompactEditor();
   const initialDocument = useMemo(() => documentFromData(data), [data]);
   const history = useEditorHistory(initialDocument);
   const document = history.value;
@@ -276,6 +250,7 @@ function EditorWorkspace({
   const [addBusy, setAddBusy] = useState(false);
   const [settingsBusy, setSettingsBusy] = useState(false);
   const [dragDepth, setDragDepth] = useState(0);
+  const [dragTargetSide, setDragTargetSide] = useState<"left" | "right">("left");
   const editorRootRef = useRef<HTMLDivElement>(null);
   const currentDocumentRef = useRef(document);
   const persistedHashRef = useRef(documentHash(initialDocument));
@@ -298,9 +273,6 @@ function EditorWorkspace({
     document.destinations.find(
       (destination) => destination.id === selectedDestinationId,
     ) ?? null;
-  const mediaDropEnabled =
-    activePanel === "background" &&
-    document.design.background.category === "media";
 
   useEffect(() => {
     currentDocumentRef.current = document;
@@ -407,6 +379,9 @@ function EditorWorkspace({
 
   useEffect(() => {
     function handleKeyboard(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setDragDepth(0);
+      }
       if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== "z") {
         return;
       }
@@ -416,8 +391,27 @@ function EditorWorkspace({
       if (event.shiftKey) history.redo();
       else history.undo();
     }
+
+    function handleWindowDragOver(event: DragEvent) {
+      if (hasFiles(event.dataTransfer!)) {
+        event.preventDefault();
+      }
+    }
+
+    function handleWindowDrop(event: DragEvent) {
+      if (hasFiles(event.dataTransfer!)) {
+        event.preventDefault();
+      }
+    }
+
     window.addEventListener("keydown", handleKeyboard);
-    return () => window.removeEventListener("keydown", handleKeyboard);
+    window.addEventListener("dragover", handleWindowDragOver);
+    window.addEventListener("drop", handleWindowDrop);
+    return () => {
+      window.removeEventListener("keydown", handleKeyboard);
+      window.removeEventListener("dragover", handleWindowDragOver);
+      window.removeEventListener("drop", handleWindowDrop);
+    };
   }, [history]);
 
   async function handleExplicitSave() {
@@ -521,16 +515,19 @@ function EditorWorkspace({
     setActivePanel(nextPanel);
   }
 
-  function handleApplyContrastSuggestion(suggestion: ContrastSuggestion) {
-    setDocument((current) => ({
-      ...current,
-      design: applyPaletteColorToRole(
-        current.design,
-        suggestion.color,
-        suggestion.role,
-        { overlayOpacity: suggestion.overlayOpacity },
-      ),
-    }));
+  function closeActivePanel() {
+    setSelectedDestinationId(null);
+    setActivePanel(null);
+  }
+
+  function handleUndo() {
+    setSaveState("saving");
+    history.undo();
+  }
+
+  function handleRedo() {
+    setSaveState("saving");
+    history.redo();
   }
 
   function confirmDeleteDestination() {
@@ -562,17 +559,30 @@ function EditorWorkspace({
     }
     setUploadBusy(true);
     try {
-      const [storageId, palette] = await Promise.all([
+      const [storageId, logoProfile] = await Promise.all([
         uploadFile(file, generateEditorUploadUrl, data.profile!.id),
-        extractAccentCandidates(file),
+        extractLogoProfile(file),
       ]);
+      const palette = logoProfile.accent
+        ? [
+            logoProfile.accent,
+            ...logoProfile.swatches
+              .map((s) => s.hex)
+              .filter((h) => h !== logoProfile.accent),
+          ]
+        : logoProfile.swatches.map((s) => s.hex);
       const previewUrl = rememberObjectUrl(file, objectUrlsRef.current);
       setDocument((current) => {
-        const generationMode = inferPaletteMode(current.design.colors.page);
+        const generationMode = inferPaletteModeFromProfile(logoProfile);
+        // Start on the scheme whose geometry matches the logo's own colour story.
+        const schemeType = defaultSchemeFromColors(palette);
         const adjusted = generateScanMePalette({
-          sourceColors: palette,
+          logoProfile,
           mode: generationMode,
+          schemeType,
         });
+        const chosenAccent =
+          logoProfile.accent ?? palette[0] ?? current.design.colors.accent;
         return {
           ...current,
           logoStorageId: storageId,
@@ -585,13 +595,14 @@ function EditorWorkspace({
             correctedRoles: [],
             generationMode,
             lockedSlots: [...DEFAULT_PALETTE_LOCKS],
+            schemeType,
           },
           design: {
             ...current.design,
             colors: {
               ...current.design.colors,
-              accent: palette[0] ?? current.design.colors.accent,
-              icon: palette[0] ?? current.design.colors.icon,
+              accent: chosenAccent,
+              icon: chosenAccent,
             },
           },
         };
@@ -641,7 +652,16 @@ function EditorWorkspace({
           background:
             current.design.background.category === "media"
               ? { ...current.design.background, mediaType: kind }
-              : current.design.background,
+              : {
+                  category: "media" as const,
+                  mediaType: kind,
+                  fit: "cover" as const,
+                  zoom: 1,
+                  positionX: 50,
+                  positionY: 50,
+                  overlayColor: "#000000",
+                  overlayOpacity: 0.35,
+                },
         },
       }));
     } catch (error) {
@@ -655,18 +675,29 @@ function EditorWorkspace({
   async function saveBusinessIdentity(name: string, nextSlug: string) {
     setSettingsBusy(true);
     try {
-      if (name.trim() !== data.name) {
-        await updateBusinessName({
-          businessId: data.id,
-          name: name.trim(),
-        });
-      }
+      const trimmedName = name.trim();
+      const trimmedSlug = nextSlug.trim().toLowerCase();
       let resolvedSlug = data.clientPanelSlug;
-      if (nextSlug.trim().toLowerCase() !== data.clientPanelSlug) {
+      if (trimmedName !== data.name) {
+        // Renaming now re-slugs everything automatically; use the slug it resolved to.
+        const result = await updateBusinessName({
+          businessId: data.id,
+          name: trimmedName,
+        });
+        resolvedSlug = result.clientPanelSlug;
+      }
+      // Manual slug override: only when the typed slug genuinely differs from both the
+      // current and the name-derived slug (so leaving the field on the old value after a
+      // rename doesn't revert the automatic sync).
+      if (
+        trimmedSlug &&
+        trimmedSlug !== resolvedSlug &&
+        trimmedSlug !== data.clientPanelSlug
+      ) {
         const result = await updateBusinessSlug({
           businessId: data.id,
           kind: "clientPanel",
-          slug: nextSlug.trim().toLowerCase(),
+          slug: trimmedSlug,
         });
         resolvedSlug = result.clientPanelSlug;
       }
@@ -742,32 +773,59 @@ function EditorWorkspace({
   }
 
   function handleDragEnter(event: React.DragEvent<HTMLDivElement>) {
-    if (!mediaDropEnabled || !hasFiles(event.dataTransfer)) return;
+    if (!hasFiles(event.dataTransfer)) return;
     event.preventDefault();
     setDragDepth((value) => value + 1);
   }
 
   function handleDragLeave(event: React.DragEvent<HTMLDivElement>) {
-    if (!mediaDropEnabled || !hasFiles(event.dataTransfer)) return;
+    if (!hasFiles(event.dataTransfer)) return;
     event.preventDefault();
     setDragDepth((value) => Math.max(0, value - 1));
   }
 
   function handleDragOver(event: React.DragEvent<HTMLDivElement>) {
-    if (!mediaDropEnabled || !hasFiles(event.dataTransfer)) return;
+    if (!hasFiles(event.dataTransfer)) return;
     event.preventDefault();
     event.dataTransfer.dropEffect = "copy";
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const isRight = event.clientX >= bounds.left + bounds.width / 2;
+    setDragTargetSide(isRight ? "right" : "left");
   }
 
   function handleDrop(event: React.DragEvent<HTMLDivElement>) {
-    if (!mediaDropEnabled || !hasFiles(event.dataTransfer)) return;
+    if (!hasFiles(event.dataTransfer)) return;
     event.preventDefault();
     setDragDepth(0);
-    const file = event.dataTransfer.files[0];
-    if (!file) return;
-    const kind =
-      file.type.startsWith("video/") ? ("video" as const) : ("image" as const);
-    void uploadBackground(kind, file);
+    const files = Array.from(event.dataTransfer.files);
+    if (!files.length) return;
+
+    if (uploadBusy) {
+      toast.error("Otpremanje je već u toku. Sačekajte da se završi.");
+      return;
+    }
+
+    if (files.length > 1) {
+      toast.info("Prevučeno je više fajlova — otprema se samo prvi.");
+    }
+    const file = files[0];
+
+    const isVideo = file.type.startsWith("video/");
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const isRightSide = event.clientX >= bounds.left + bounds.width / 2;
+
+    // Video always targets phone background regardless of side (cannot be a logo)
+    if (isVideo) {
+      void uploadBackground("video", file);
+      return;
+    }
+
+    // For images: Left side -> Logo, Right side -> Background image
+    if (isRightSide) {
+      void uploadBackground("image", file);
+    } else {
+      void uploadLogo(file);
+    }
   }
 
   const activeEmptyCount = document.destinations.filter(
@@ -786,6 +844,38 @@ function EditorWorkspace({
       onDrop={handleDrop}
     >
       <span data-theme-toggle="local" hidden />
+      {compactEditor ? (
+        <MobileEditorShell
+          data={data}
+          document={document}
+          setDocument={setDocument}
+          saveState={saveState}
+          saveError={saveError}
+          canUndo={history.canUndo}
+          canRedo={history.canRedo}
+          onUndo={handleUndo}
+          onRedo={handleRedo}
+          onExplicitSave={() => void handleExplicitSave()}
+          onOpenPublish={() => setPublishOpen(true)}
+          activePanel={activePanel}
+          onPanelSelect={handlePanelSelect}
+          onClosePanel={closeActivePanel}
+          selectedDestination={selectedDestination}
+          selectedDestinationId={selectedDestinationId}
+          onSelectDestination={handleSelectDestination}
+          onClearSelection={() => setSelectedDestinationId(null)}
+          onReorder={handleReorder}
+          onAddDestination={() => void handleAddDestination()}
+          addBusy={addBusy}
+          uploadLogo={uploadLogo}
+          uploadBackground={uploadBackground}
+          uploadBusy={uploadBusy}
+          setDeleteTarget={setDeleteTarget}
+          settingsBusy={settingsBusy}
+          saveBusinessIdentity={saveBusinessIdentity}
+          togglePublic={togglePublic}
+        />
+      ) : (
       <div className={styles.desktopEditor}>
         <EditorBackdrop />
 
@@ -855,6 +945,7 @@ function EditorWorkspace({
           <EditorRail
             activePanel={activePanel}
             onSelect={handlePanelSelect}
+            editorRole={data.editorRole}
           />
 
           <div className={styles.contextSlot}>
@@ -889,48 +980,69 @@ function EditorWorkspace({
                     ease: [0.22, 1, 0.36, 1],
                   }}
                 >
-                  <div className={styles.panelHeader}>
-                    <div>
-                      <h2 className={styles.panelTitle}>
-                        {panelCopy[activePanel].title}
-                      </h2>
-                      <p className={styles.panelDescription}>
-                        {panelCopy[activePanel].description}
-                      </p>
-                    </div>
-                  </div>
                   <PanelScrollArea key={activePanel}>
-                    <AnimatePresence mode="wait" initial={false}>
-                      <motion.div
-                        key={activePanel}
-                        initial={
-                          reducedMotion ? false : { opacity: 0, y: 5, scale: 0.99 }
-                        }
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={
-                          reducedMotion ? undefined : { opacity: 0, y: -3 }
-                        }
-                        transition={{
-                          duration: reducedMotion ? 0.01 : 0.2,
-                          ease: [0.22, 1, 0.36, 1],
-                        }}
-                      >
-                        <EditorPanelContent
-                          panel={activePanel}
-                          data={data}
-                          document={document}
-                          setDocument={setDocument}
-                          selectedDestination={selectedDestination}
-                          uploadLogo={uploadLogo}
-                          uploadBackground={uploadBackground}
-                          uploadBusy={uploadBusy}
-                          setDeleteTarget={setDeleteTarget}
-                          settingsBusy={settingsBusy}
-                          saveBusinessIdentity={saveBusinessIdentity}
-                          togglePublic={togglePublic}
-                        />
-                      </motion.div>
-                    </AnimatePresence>
+                    {(() => {
+                      const item =
+                        primaryToolItems.find((i) => i.id === activePanel) ??
+                        secondaryToolItems.find((i) => i.id === activePanel);
+                      const Icon = item?.icon ?? PanelTop;
+                      const copy = panelCopy[activePanel];
+                      return (
+                        <>
+                          <header className={styles.panelSectionHeader}>
+                            <span
+                              className={styles.panelSectionBadge}
+                              aria-hidden="true"
+                            >
+                              <Icon className="size-[18px]" strokeWidth={1.7} />
+                            </span>
+                            <div className={styles.panelSectionHeading}>
+                              <h2 className={styles.panelSectionTitle}>
+                                {copy.title}
+                              </h2>
+                              <p className={styles.panelSectionDescription}>
+                                {copy.description}
+                              </p>
+                            </div>
+                          </header>
+                          <AnimatePresence mode="wait" initial={false}>
+                            <motion.div
+                              key={activePanel}
+                              initial={
+                                reducedMotion
+                                  ? false
+                                  : { opacity: 0, y: 5, scale: 0.99 }
+                              }
+                              animate={{ opacity: 1, y: 0, scale: 1 }}
+                              exit={
+                                reducedMotion
+                                  ? undefined
+                                  : { opacity: 0, y: -3 }
+                              }
+                              transition={{
+                                duration: reducedMotion ? 0.01 : 0.2,
+                                ease: [0.22, 1, 0.36, 1],
+                              }}
+                            >
+                              <EditorPanelContent
+                                panel={activePanel}
+                                data={data}
+                                document={document}
+                                setDocument={setDocument}
+                                selectedDestination={selectedDestination}
+                                uploadLogo={uploadLogo}
+                                uploadBackground={uploadBackground}
+                                uploadBusy={uploadBusy}
+                                setDeleteTarget={setDeleteTarget}
+                                settingsBusy={settingsBusy}
+                                saveBusinessIdentity={saveBusinessIdentity}
+                                togglePublic={togglePublic}
+                              />
+                            </motion.div>
+                          </AnimatePresence>
+                        </>
+                      );
+                    })()}
                   </PanelScrollArea>
                 </motion.aside>
               ) : null}
@@ -949,31 +1061,51 @@ function EditorWorkspace({
             setDevice={setDevice}
             zoom={zoom}
             setZoom={setZoom}
-            onApplyContrastSuggestion={handleApplyContrastSuggestion}
           />
         </div>
 
-        {dragDepth > 0 && mediaDropEnabled ? (
+        {dragDepth > 0 ? (
           <div className={styles.dropOverlay} aria-hidden="true">
-            <div className={styles.dropMessage}>
-              Pustite fajl da ga postavite kao pozadinu
+            <div
+              className={styles.dropZoneHalf}
+              data-active={dragTargetSide === "left"}
+            >
+              <div className={styles.dropMessage}>
+                <div className="flex size-12 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-700">
+                  <ImagePlus className="size-6" aria-hidden="true" />
+                </div>
+                <div>
+                  <div className="font-bold text-black/90">Postavi kao logotip</div>
+                  <div className="mt-0.5 text-xs font-normal text-black/55">
+                    Leva strana ekrana • PNG, JPEG, WebP, SVG
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className={styles.dropZoneDivider} />
+
+            <div
+              className={styles.dropZoneHalf}
+              data-active={dragTargetSide === "right"}
+            >
+              <div className={styles.dropMessage}>
+                <div className="flex items-center gap-1.5 rounded-2xl bg-orange-500/10 p-3 text-orange-700">
+                  <ImageIcon className="size-6" aria-hidden="true" />
+                  <VideoIcon className="size-6" aria-hidden="true" />
+                </div>
+                <div>
+                  <div className="font-bold text-black/90">Postavi kao pozadinu telefona</div>
+                  <div className="mt-0.5 text-xs font-normal text-black/55">
+                    Desna strana ekrana • Slika ili Video
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         ) : null}
       </div>
-
-      <div className={styles.desktopNotice}>
-        <section className={styles.noticeCard}>
-          <BrandLogo className="mx-auto" width="7rem" />
-          <h1 className="mt-7 text-2xl font-bold tracking-[-0.04em]">
-            Editor je trenutno dostupan na desktopu
-          </h1>
-          <p className="mt-3 text-sm leading-6 text-black/55">
-            Mobilna verzija imaće poseban raspored prilagođen radu dodirom.
-            Otvorite ovu stranicu na većem ekranu da nastavite uređivanje.
-          </p>
-        </section>
-      </div>
+      )}
 
       <Dialog open={Boolean(deleteTarget)} onOpenChange={(open) => !open && setDeleteTarget(null)}>
         <DialogContent className="rounded-[1.75rem] border-white/60 bg-[#fffaf4] shadow-2xl">
@@ -1045,9 +1177,11 @@ function EditorWorkspace({
 function EditorRail({
   activePanel,
   onSelect,
+  editorRole,
 }: {
   activePanel: EditorPanelId | null;
   onSelect: (panel: EditorPanelId) => void;
+  editorRole: EditorData["editorRole"];
 }) {
   return (
     <nav
@@ -1056,7 +1190,7 @@ function EditorRail({
       aria-label="Alati editora"
     >
       <div className={styles.rail}>
-        {primaryRailItems.map((item) => (
+        {primaryToolItems.map((item) => (
           <RailButton
             key={item.id}
             item={item}
@@ -1067,7 +1201,7 @@ function EditorRail({
         ))}
       </div>
       <div className={styles.railBottom}>
-        {secondaryRailItems.map((item) => (
+        {visibleSecondaryToolItems(editorRole).map((item) => (
           <RailButton
             key={item.id}
             item={item}
@@ -1254,11 +1388,7 @@ function RailButton({
   activeSurfaceId,
   onClick,
 }: {
-  item: {
-    id: EditorPanelId;
-    label: string;
-    icon: typeof PanelTop;
-  };
+  item: EditorToolItem;
   active: boolean;
   activeSurfaceId: string;
   onClick: () => void;
@@ -1287,134 +1417,6 @@ function RailButton({
   );
 }
 
-function SaveStatus({
-  state,
-  error,
-}: {
-  state: EditorSaveState;
-  error: string | null;
-}) {
-  const status = (
-    <span
-      className={styles.saveState}
-      role="status"
-    >
-      <span className={styles.saveStateDot}>
-        {state === "saving" ? (
-          <LoaderCircle className="size-3 animate-spin" aria-hidden="true" />
-        ) : state === "error" ? (
-          <span aria-hidden="true">!</span>
-        ) : (
-          <Check className="size-3" aria-hidden="true" />
-        )}
-      </span>
-      {state === "saving"
-        ? "Čuvanje…"
-        : state === "error"
-          ? "Nije sačuvano"
-          : "Sačuvano"}
-    </span>
-  );
-
-  return state === "error" ? (
-    <EditorTooltip label={error ?? "Greška pri čuvanju"} align="start">
-      {status}
-    </EditorTooltip>
-  ) : (
-    status
-  );
-}
-
-function EditorBackdrop() {
-  return (
-    <div className={styles.backdrop} aria-hidden="true">
-      <span className={styles.paperIndigo} />
-      <span className={styles.paperSage} />
-      <span className={styles.paperCoral} />
-      <span className={styles.paperMauve} />
-      <span className={styles.paperOchre} />
-    </div>
-  );
-}
-
-function EditorPanelContent({
-  panel,
-  data,
-  document,
-  setDocument,
-  selectedDestination,
-  uploadLogo,
-  uploadBackground,
-  uploadBusy,
-  setDeleteTarget,
-  settingsBusy,
-  saveBusinessIdentity,
-  togglePublic,
-}: {
-  panel: EditorPanelId;
-  data: EditorData;
-  document: ScanMeLinksEditorDocument;
-  setDocument: ReturnType<typeof useEditorHistory<ScanMeLinksEditorDocument>>["set"];
-  selectedDestination: EditorDestination | null;
-  uploadLogo: (file: File) => Promise<void>;
-  uploadBackground: (kind: "image" | "video", file: File) => Promise<void>;
-  uploadBusy: boolean;
-  setDeleteTarget: (destination: EditorDestination) => void;
-  settingsBusy: boolean;
-  saveBusinessIdentity: (name: string, slug: string) => Promise<void>;
-  togglePublic: (active: boolean) => Promise<void>;
-}) {
-  switch (panel) {
-    case "content":
-      return (
-        <ContentPanel
-          document={document}
-          setDocument={setDocument}
-          selectedDestination={selectedDestination}
-          onUploadLogo={(file) => void uploadLogo(file)}
-          onDeleteDestination={setDeleteTarget}
-          uploadBusy={uploadBusy}
-        />
-      );
-    case "style":
-      return <StylePanel document={document} setDocument={setDocument} />;
-    case "background":
-      return (
-        <BackgroundPanel
-          document={document}
-          setDocument={setDocument}
-          onUploadBackground={(kind, file) =>
-            void uploadBackground(kind, file)
-          }
-          uploadBusy={uploadBusy}
-        />
-      );
-    case "button":
-      return <ButtonPanel document={document} setDocument={setDocument} />;
-    case "text":
-      return <TextPanel document={document} setDocument={setDocument} />;
-    case "color":
-      return <ColorPanel document={document} setDocument={setDocument} />;
-    case "analytics":
-      return <AnalyticsPanel businessId={data.id} />;
-    case "settings":
-      return (
-        <SettingsPanel
-          businessName={data.name}
-          slug={data.clientPanelSlug}
-          publicActive={data.profile?.status === "active"}
-          onSaveIdentity={saveBusinessIdentity}
-          onTogglePublic={togglePublic}
-          busy={settingsBusy}
-        />
-      );
-    case "pro":
-      return <ProPanel />;
-    case "help":
-      return <HelpPanel />;
-  }
-}
-
 function documentFromData(data: EditorData): ScanMeLinksEditorDocument {
   const config = data.config!;
   const design = createSafeScanMeLinksDesignV2(
@@ -1436,6 +1438,8 @@ function documentFromData(data: EditorData): ScanMeLinksEditorDocument {
           lockedSlots: normalizePaletteLocks(
             config.paletteAnalysis.lockedSlots,
           ),
+          schemeType:
+            config.paletteAnalysis.schemeType ?? DEFAULT_PALETTE_SCHEME,
         }
       : null,
     design,
@@ -1532,6 +1536,9 @@ function hasFiles(dataTransfer: DataTransfer) {
 }
 
 function errorMessage(error: unknown, fallback: string) {
+  if (error instanceof ConvexError && typeof error.data === "string") {
+    return error.data;
+  }
   if (error instanceof Error && error.message.trim()) return error.message;
   return fallback;
 }

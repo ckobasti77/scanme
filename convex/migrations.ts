@@ -103,6 +103,39 @@ export const migrateLegacyServices = internalMutation({
       }
       if (!reviewProfile) continue;
 
+      // Stare odštampane QR adrese (slug legacy linka i raniji alias-i)
+      // moraju da se razrešavaju i kroz novu putanju skeniranja
+      // (serviceBySlug čita samo serviceProfiles + serviceSlugAliases).
+      const aliasSlugs = new Set<string>();
+      for (const legacyLink of legacyLinks) {
+        aliasSlugs.add(legacyLink.slug);
+        const linkAliases = await ctx.db
+          .query("dynamicLinkAliases")
+          .withIndex("by_dynamicLinkId", (q) =>
+            q.eq("dynamicLinkId", legacyLink._id),
+          )
+          .take(100);
+        for (const alias of linkAliases) aliasSlugs.add(alias.slug);
+      }
+      for (const aliasSlug of aliasSlugs) {
+        if (aliasSlug === reviewProfile.slug) continue;
+        const profileCollision = await ctx.db
+          .query("serviceProfiles")
+          .withIndex("by_slug", (q) => q.eq("slug", aliasSlug))
+          .unique();
+        if (profileCollision) continue;
+        const existingAlias = await ctx.db
+          .query("serviceSlugAliases")
+          .withIndex("by_slug", (q) => q.eq("slug", aliasSlug))
+          .unique();
+        if (existingAlias) continue;
+        await ctx.db.insert("serviceSlugAliases", {
+          slug: aliasSlug,
+          serviceProfileId: reviewProfile._id,
+          createdAt: Date.now(),
+        });
+      }
+
       let destination: Doc<"serviceDestinations"> | null = (
         await ctx.db
           .query("serviceDestinations")

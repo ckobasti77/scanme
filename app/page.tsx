@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
 import Image from "next/image";
+import Link from "next/link";
 import {
   ArrowUpRight,
   BarChart3,
@@ -19,6 +20,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { HeroIntro } from "@/components/hero-intro";
 import { HeroMedia } from "@/components/hero-media";
 import { LeadForm } from "@/components/lead-form";
+import { PricingPlans } from "@/components/pricing-plans";
 import { Reveal } from "@/components/reveal";
 import { ScanStory } from "@/components/scan-story";
 import { SiteNav, Wordmark } from "@/components/site-nav";
@@ -27,6 +29,8 @@ import { ComingSoon } from "@/components/coming-soon";
 import { EcosystemProductDeck } from "@/components/ecosystem-product-deck";
 import { BackToTop } from "@/components/back-to-top";
 import { hasPreviewAccess } from "@/lib/preview-access";
+import { readContactMessage, readContactSelection } from "@/lib/offer-contact";
+import { encodeSelection } from "@/lib/offer-url";
 
 const reviewBenefits = [
   { icon: Palette, title: "Dizajn", body: "Izaberi dizajn ili to prepusti nama" },
@@ -68,7 +72,8 @@ const footerLinks = [
   // { href: "#trajni-qr", label: "Trajan QR" },
   { href: "#za-koga", label: "Za koga" },
   { href: "#faq", label: "FAQ" },
-  { href: "#ponuda", label: "Kontakt" },
+  { href: "#cenovnik", label: "Cenovnik" },
+  { href: "/#ponuda", label: "Kontakt" },
   // { href: "#ekosistem", label: "Ekosistem" },
 ] as const;
 
@@ -80,8 +85,22 @@ const footerProducts = [
   { name: "ScanMe Loyalty", status: "Uskoro" },
 ] as const;
 
-export default async function Home() {
+export default async function Home({ searchParams }: PageProps<"/">) {
   if (!(await hasPreviewAccess())) return <ComingSoon />;
+
+  // Ako je korisnik došao iz toka ponude (Enterprise CTA ili /ponuda/pregled), query
+  // nosi kontekst; ovde ga čitamo u čitljiv predlog poruke za kontakt formu.
+  const resolvedParams = await searchParams;
+  const contactParams = new URLSearchParams();
+  for (const [key, value] of Object.entries(resolvedParams)) {
+    if (typeof value === "string") contactParams.set(key, value);
+    else if (Array.isArray(value) && value[0] !== undefined) contactParams.set(key, value[0]);
+  }
+  const initialMessage = readContactMessage(contactParams) ?? "";
+  const initialSelection = readContactSelection(contactParams);
+  const initialOfferSelection = initialSelection
+    ? encodeSelection(initialSelection).toString()
+    : undefined;
 
   const hasVideo = existsSync(path.join(process.cwd(), "public", "videos", "scanme-hero.mp4"));
   const hasPoster = existsSync(
@@ -94,9 +113,9 @@ export default async function Home() {
       <SiteNav />
       <div className="landing-scan-layer" aria-hidden="true" />
       <SiteScrollMotion>
-        <div className="landing-atmosphere">
+        <div className="landing-atmosphere" data-text-reveal-root>
         <main id="glavni-sadrzaj">
-        <section id="pocetak" className="hero-scan-depth relative min-h-[100dvh] overflow-hidden border-b border-foreground/10">
+        <section id="pocetak" data-reveal="off" className="hero-scan-depth relative min-h-[100dvh] overflow-hidden border-b border-foreground/10">
           <HeroMedia hasVideo={hasVideo} hasPoster={hasPoster} />
           <HeroIntro />
         </section>
@@ -112,7 +131,7 @@ export default async function Home() {
               <p className="mt-6 max-w-[52ch] leading-7 text-foreground/64">
                 Pripremamo, izrađujemo i održavamo kompletan ScanMe sistem. Vi dobijate gotov proizvod i jasan uvid u rezultate.
               </p>
-              <a href="#ponuda" className="button-primary focus-signal mt-8">Zatraži ponudu</a>
+              <Link href="/#ponuda" className="button-primary focus-signal mt-8">Zatraži ponudu</Link>
             </div>
 
             <Reveal>
@@ -212,6 +231,10 @@ export default async function Home() {
           </Accordion>
         </section>
 
+        <section id="cenovnik" className="section-shell py-24 sm:py-32 lg:py-40">
+          <PricingPlans />
+        </section>
+
         <section id="ponuda" className="landing-soft-section border-y border-foreground/10 py-24 sm:py-32 lg:py-40">
           <div className="section-shell grid gap-14 lg:grid-cols-[0.82fr_1.18fr] lg:gap-24">
             <div data-reveal-group>
@@ -220,7 +243,11 @@ export default async function Home() {
               <p className="mt-6 max-w-[48ch] leading-7 text-foreground/62">Pošaljite osnovne podatke. Zatim dogovaramo format, dizajn, količinu i realan rok izrade.</p>
             </div>
             <div data-reveal-item>
-              <LeadForm />
+              <LeadForm
+                initialMessage={initialMessage}
+                initialOfferSelection={initialOfferSelection}
+                initialLogoUploadId={initialSelection?.logoUploadId}
+              />
             </div>
           </div>
         </section>
@@ -240,7 +267,7 @@ export default async function Home() {
 
           <div data-reveal-group className="mt-9 sm:flex sm:items-center sm:justify-between sm:gap-8">
             <p className="font-medium tracking-[-0.02em]">Prepoznajete rešenje za svoj biznis?</p>
-            <a href="#ponuda" className="button-primary focus-signal mt-4 sm:mt-0">Javite nam se</a>
+            <Link href="/#ponuda" className="button-primary focus-signal mt-4 sm:mt-0">Javite nam se</Link>
           </div>
         </section>
 
@@ -265,10 +292,10 @@ export default async function Home() {
                 <p className="mt-7 max-w-[36ch] text-base leading-7 text-foreground/58">
                   Fizički predmet postaje jasan digitalni put, bez dodatne aplikacije i bez tehničkog tereta za vaš tim.
                 </p>
-                <a href="#ponuda" className="button-secondary focus-signal mt-8">
+                <Link href="/#ponuda" className="button-secondary focus-signal mt-8">
                   Zatraži ponudu
                   <ArrowUpRight aria-hidden="true" className="size-4" strokeWidth={1.7} />
-                </a>
+                </Link>
               </div>
 
               <nav aria-label="Sadržaj footera">

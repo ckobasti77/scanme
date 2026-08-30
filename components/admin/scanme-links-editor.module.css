@@ -59,27 +59,6 @@
   isolation: isolate;
 }
 
-.desktopNotice {
-  display: none;
-  min-height: 100dvh;
-  place-items: center;
-  padding: 24px;
-  background:
-    radial-gradient(circle at 12% 18%, rgba(110, 116, 158, 0.22), transparent 30%),
-    radial-gradient(circle at 88% 80%, rgba(218, 148, 115, 0.2), transparent 32%),
-    #f5f0e8;
-}
-
-.noticeCard {
-  max-width: 520px;
-  border: 1px solid rgba(255, 255, 255, 0.7);
-  border-radius: 32px;
-  background: rgba(255, 252, 248, 0.86);
-  padding: 32px;
-  text-align: center;
-  box-shadow: 0 24px 70px rgba(47, 39, 31, 0.12);
-}
-
 .backdrop {
   position: fixed;
   z-index: -3;
@@ -445,36 +424,13 @@
 
 .contextPanel {
   composes: glassSurface;
+  position: relative;
   display: flex;
   width: 100%;
   height: 100%;
   min-height: 0;
   flex-direction: column;
   border-radius: 44px;
-}
-
-.panelHeader {
-  display: flex;
-  flex: none;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 14px;
-  padding: 26px 26px 18px;
-}
-
-.panelTitle {
-  font-size: 25px;
-  font-weight: 750;
-  letter-spacing: -0.04em;
-  line-height: 1.15;
-}
-
-.panelDescription {
-  margin-top: 5px;
-  max-width: 38ch;
-  color: var(--editor-muted);
-  font-size: 12px;
-  line-height: 1.55;
 }
 
 .panelScrollShell {
@@ -491,7 +447,7 @@
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 0 28px 26px 22px;
+  padding: 20px 28px 26px 22px;
   scrollbar-width: none;
 }
 
@@ -555,6 +511,89 @@
 
 .panelScrollThumb:active {
   cursor: grabbing;
+}
+
+/*
+  Stek panela jedne grupe (gornji: Sadržaj → Boja; donji: Analitika → Pomoć).
+  Apsolutno preko cele kutije da bi prelaz između grupa mogao da bude crossfade
+  bez skoka u layoutu; PanelScrollArea unutra nosi skrol i prilagođeni skrolbar.
+*/
+.panelGroupBox {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+}
+
+.panelSection {
+  scroll-margin-top: 18px;
+}
+
+.panelSection + .panelSection {
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid rgba(80, 69, 58, 0.12);
+}
+
+.panelSectionHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  /* Negativni bočni margin pušta „doček" blesak do ivica panela. */
+  margin: 0 -10px 16px;
+  padding: 8px 10px;
+  border-radius: 18px;
+}
+
+.panelSectionBadge {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  color: #3a332c;
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  border-radius: 13px;
+  background:
+    radial-gradient(
+      circle at 22% 8%,
+      rgba(255, 255, 255, 0.8),
+      transparent 44%
+    ),
+    linear-gradient(
+      150deg,
+      rgba(255, 239, 224, 0.95),
+      rgba(247, 205, 193, 0.8)
+    );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 7px 16px rgba(78, 48, 35, 0.1);
+}
+
+.panelSectionHeading {
+  min-width: 0;
+}
+
+.panelSectionTitle {
+  font-size: 19px;
+  font-weight: 750;
+  letter-spacing: -0.035em;
+  line-height: 1.15;
+}
+
+.panelSectionDescription {
+  margin-top: 3px;
+  max-width: 40ch;
+  color: var(--editor-muted);
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panelSectionHeader {
+    background-color: transparent !important;
+  }
 }
 
 .editorAnalytics {
@@ -766,6 +805,16 @@
 .uploadZone:hover {
   border-color: rgba(34, 40, 36, 0.42);
   background: rgba(255, 255, 255, 0.64);
+  transform: translateY(-1px);
+}
+
+.uploadZone[data-drag-active="true"] {
+  border-color: #2a302c;
+  border-style: solid;
+  background: rgba(255, 255, 255, 0.85);
+  box-shadow:
+    0 0 0 3px rgba(42, 48, 44, 0.12),
+    0 10px 24px rgba(43, 35, 29, 0.1);
   transform: translateY(-1px);
 }
 
@@ -990,6 +1039,75 @@
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.9),
     0 4px 10px rgba(52, 42, 34, 0.08);
+}
+
+.paletteSchemeRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.paletteSchemeTrigger {
+  display: inline-flex;
+  min-height: 32px;
+  max-width: 62%;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid rgba(71, 63, 55, 0.16);
+  border-radius: 10px !important;
+  background: rgba(255, 255, 255, 0.55);
+  padding-inline: 11px;
+  color: #262b28;
+  font-size: 10px;
+  font-weight: 750;
+  transition:
+    color 160ms ease,
+    background-color 160ms ease,
+    border-color 160ms ease;
+}
+
+.paletteSchemeTrigger:hover {
+  border-color: rgba(71, 63, 55, 0.28);
+  background: rgba(255, 246, 238, 0.9);
+}
+
+.paletteSchemeTrigger:focus-visible {
+  outline: 2px solid rgba(42, 48, 44, 0.62);
+  outline-offset: 2px;
+}
+
+.schemeMenuItem {
+  display: flex;
+  min-height: 38px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 3px;
+  border-radius: 11px !important;
+  padding: 8px 10px !important;
+}
+
+.schemeMenuItem:focus {
+  background: rgba(255, 255, 255, 0.68) !important;
+  color: #1d211e !important;
+}
+
+.schemeMenuItemTitle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.schemeMenuItemDesc {
+  color: rgba(35, 40, 36, 0.62);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.35;
+  white-space: normal;
 }
 
 .generatedPaletteGrid {
@@ -1329,6 +1447,55 @@
   margin-top: 10px;
   font-size: 12px;
   font-weight: 750;
+}
+
+.styleSection {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.styleSection + .styleSection {
+  margin-top: 20px;
+}
+
+.styleSectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-inline: 4px;
+}
+
+.styleSectionTitle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--editor-muted, rgba(0, 0, 0, 0.55));
+}
+
+.styleSectionTitlePremium {
+  color: #b45309;
+}
+
+.premiumBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #fef3c7, #fde68a);
+  color: #92400e;
+  border: 1px solid rgba(217, 119, 6, 0.25);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  box-shadow: 0 1px 4px rgba(217, 119, 6, 0.12);
 }
 
 .badge {
@@ -1814,7 +1981,6 @@
 .phoneFit {
   width: 350px;
   height: 720px;
-  transform-origin: center;
 }
 
 .phoneShell {
@@ -1828,7 +1994,7 @@
   box-shadow:
     0 30px 58px rgba(29, 25, 22, 0.2),
     0 7px 16px rgba(29, 25, 22, 0.1);
-  transform-origin: center center;
+  transform-origin: top left;
 }
 
 .phoneShell::after {
@@ -1917,220 +2083,6 @@
   background: #f8f5ef;
 }
 
-.contrastAssistantLayer {
-  position: absolute;
-  z-index: 70;
-  inset: 0 11px 0 0;
-  overflow: hidden;
-  pointer-events: none;
-}
-
-.contrastCard {
-  composes: glassSurface;
-  position: absolute;
-  pointer-events: auto;
-  border-color: rgba(255, 255, 255, 0.82);
-  border-radius: 23px;
-  box-shadow:
-    inset 0 1.5px 0 rgba(255, 255, 255, 0.94),
-    inset 1px 0 0 rgba(255, 255, 255, 0.48),
-    0 14px 34px rgba(43, 35, 29, 0.14);
-}
-
-.contrastCard[data-expanded="false"] {
-  border-radius: 18px;
-}
-
-.contrastCardHeader {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  width: 100%;
-  min-height: 55px;
-  align-items: center;
-  gap: 10px;
-  border-radius: inherit;
-  padding: 8px 10px;
-  text-align: left;
-}
-
-.contrastCardHeader:focus-visible {
-  outline: 2px solid rgba(44, 50, 46, 0.64);
-  outline-offset: -3px;
-}
-
-.contrastWarningIcon {
-  display: grid;
-  width: 35px;
-  height: 35px;
-  flex: none;
-  place-items: center;
-  border: 1px solid rgba(146, 95, 42, 0.14);
-  border-radius: 12px;
-  background: rgba(255, 240, 215, 0.78);
-  color: #8d5f2f;
-}
-
-.contrastWarningIcon[data-severity="poor"] {
-  border-color: rgba(172, 49, 49, 0.22);
-  background: rgba(255, 225, 222, 0.88);
-  color: #b52f2f;
-}
-
-.contrastWarningIcon[data-severity="excellent"] {
-  border-color: rgba(45, 116, 79, 0.18);
-  background: rgba(226, 246, 234, 0.84);
-  color: #39795a;
-}
-
-.contrastWarningIcon svg {
-  width: 17px;
-  height: 17px;
-}
-
-.contrastCardHeading {
-  display: flex;
-  min-width: 0;
-  flex: 1;
-  align-items: center;
-  justify-content: space-between;
-  gap: 9px;
-}
-
-.contrastCardHeading strong {
-  overflow: hidden;
-  color: #2a302c;
-  font-size: 12px;
-  font-weight: 800;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.contrastCardHeading small {
-  flex: none;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.58);
-  color: rgba(52, 58, 54, 0.58);
-  padding: 4px 7px;
-  font-size: 9px;
-  font-weight: 800;
-}
-
-.contrastChevron {
-  width: 16px;
-  height: 16px;
-  flex: none;
-  color: rgba(45, 51, 47, 0.48);
-  transition: transform 170ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.contrastChevron[data-open="true"] {
-  transform: rotate(180deg);
-}
-
-.contrastCardBody {
-  position: relative;
-  z-index: 1;
-  overflow: hidden;
-  padding: 0 11px 12px;
-}
-
-.contrastCardBody > p {
-  border-top: 1px solid rgba(67, 58, 51, 0.08);
-  color: rgba(45, 50, 46, 0.56);
-  padding: 10px 2px 0;
-  font-size: 11px;
-  line-height: 1.5;
-}
-
-.contrastSuggestions {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 7px;
-  margin-top: 10px;
-}
-
-.contrastSuggestions > span {
-  min-width: 0;
-}
-
-.contrastSuggestion {
-  display: grid;
-  width: 100%;
-  min-width: 0;
-  min-height: 76px;
-  place-items: center;
-  gap: 5px;
-  border: 1px solid rgba(70, 62, 55, 0.1);
-  border-radius: 14px !important;
-  background: rgba(255, 255, 255, 0.52);
-  padding: 7px 4px;
-  color: #333934;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
-  transition:
-    background-color 150ms ease,
-    transform 150ms ease,
-    box-shadow 150ms ease;
-}
-
-.contrastSuggestion:hover {
-  background: rgba(255, 255, 255, 0.78);
-  transform: translateY(-1px);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.84),
-    0 5px 10px rgba(48, 39, 33, 0.08);
-}
-
-.contrastSuggestion:focus-visible {
-  outline: 2px solid rgba(44, 50, 46, 0.64);
-  outline-offset: 1px;
-}
-
-.contrastSuggestionSwatch {
-  width: 30px;
-  height: 30px;
-  border: 2px solid rgba(255, 255, 255, 0.78);
-  border-radius: 10px;
-  box-shadow: 0 0 0 1px rgba(54, 48, 43, 0.14);
-}
-
-.contrastSuggestion > span:last-child {
-  display: block;
-  min-width: 0;
-  max-width: 100%;
-  text-align: center;
-}
-
-.contrastSuggestion strong,
-.contrastSuggestion small {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.contrastSuggestion strong {
-  font-size: 9px;
-  font-weight: 800;
-}
-
-.contrastSuggestion small {
-  margin-top: 1px;
-  color: rgba(43, 48, 44, 0.48);
-  font-size: 8px;
-  font-weight: 700;
-}
-
-.contrastStandard {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  margin-top: 10px;
-  color: rgba(48, 54, 50, 0.43);
-  font-size: 9px;
-  font-weight: 750;
-}
-
 .previewDestinationSelected {
   outline: 2px solid
     color-mix(in srgb, var(--links-accent) 72%, #243028) !important;
@@ -2157,14 +2109,36 @@
   min-width: 0;
 }
 
-.tooltipBubble {
-  position: absolute;
-  z-index: 140;
-  left: 50%;
-  bottom: calc(100% + 10px);
+.tooltipPortal {
+  position: fixed;
+  z-index: 200;
+  transform: translate(-50%, -100%);
+  pointer-events: none;
+  /* Portal živi na document.body, van .editorRoot scope-a, pa varijable
+     tooltipa moraju da budu definisane i ovde. */
+  --ui-tooltip-border: rgba(255, 255, 255, 0.82);
+  --ui-tooltip-radius: 12px;
+  --ui-tooltip-background:
+    radial-gradient(circle at 16% 0%, rgba(255, 255, 255, 0.84), transparent 42%),
+    linear-gradient(145deg, rgba(255, 249, 243, 0.98), rgba(238, 220, 213, 0.97));
+  --ui-tooltip-color: #222724;
+  --ui-tooltip-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.94),
+    0 12px 30px rgba(51, 39, 32, 0.16);
+}
+
+.tooltipPortal[data-align="start"] {
+  transform: translate(0, -100%);
+}
+
+.tooltipPortal[data-align="end"] {
+  transform: translate(-100%, -100%);
+}
+
+.tooltipPortalBubble {
+  display: block;
   width: max-content;
   max-width: min(250px, 70vw);
-  transform: translate(-50%, 5px) scale(0.98);
   border: 1px solid var(--ui-tooltip-border);
   border-radius: var(--ui-tooltip-radius);
   background: var(--ui-tooltip-background);
@@ -2174,62 +2148,465 @@
   font-weight: 700;
   line-height: 1.35;
   text-align: center;
-  opacity: 0;
   box-shadow: var(--ui-tooltip-shadow);
   -webkit-backdrop-filter: blur(12px) saturate(130%);
   backdrop-filter: blur(12px) saturate(130%);
-  pointer-events: none;
-  transition:
-    opacity 150ms ease,
-    transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
+  animation: tooltipBubbleIn 180ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.tooltipAnchor[data-align="start"] .tooltipBubble {
-  left: 0;
-  transform: translate(0, 5px) scale(0.98);
+.tooltipPortal[data-align="start"] .tooltipPortalBubble {
   text-align: left;
 }
 
-.tooltipAnchor[data-align="end"] .tooltipBubble {
-  right: 0;
-  left: auto;
-  transform: translate(0, 5px) scale(0.98);
+.tooltipPortal[data-align="end"] .tooltipPortalBubble {
   text-align: right;
 }
 
-.tooltipAnchor:hover .tooltipBubble,
-.tooltipAnchor:focus-within .tooltipBubble {
-  transform: translate(-50%, 0) scale(1);
-  opacity: 1;
+@keyframes tooltipBubbleIn {
+  from {
+    opacity: 0;
+    transform: translateY(5px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
-.tooltipAnchor[data-align="start"]:hover .tooltipBubble,
-.tooltipAnchor[data-align="start"]:focus-within .tooltipBubble,
-.tooltipAnchor[data-align="end"]:hover .tooltipBubble,
-.tooltipAnchor[data-align="end"]:focus-within .tooltipBubble {
-  transform: translate(0, 0) scale(1);
+@media (prefers-reduced-motion: reduce) {
+  .tooltipPortalBubble {
+    animation: none;
+  }
 }
 
 .dropOverlay {
   position: fixed;
   z-index: 80;
   inset: 72px 0 0;
+  display: flex;
+  background: rgba(244, 239, 231, 0.45);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  pointer-events: none;
+  transition: background 180ms ease;
+}
+
+.dropZoneHalf {
+  flex: 1;
   display: grid;
   place-items: center;
-  background: rgba(244, 239, 231, 0.56);
-  -webkit-backdrop-filter: blur(5px);
-  backdrop-filter: blur(5px);
+  padding: 32px;
+  position: relative;
+  transition: background 200ms cubic-bezier(0.16, 1, 0.3, 1), transform 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.dropZoneHalf[data-active="true"] {
+  background: rgba(255, 255, 255, 0.38);
+}
+
+.dropZoneDivider {
+  position: absolute;
+  top: 24px;
+  bottom: 24px;
+  left: 50%;
+  width: 1px;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    rgba(60, 53, 47, 0.15) 20%,
+    rgba(60, 53, 47, 0.15) 80%,
+    transparent
+  );
+  transform: translateX(-50%);
   pointer-events: none;
 }
 
 .dropMessage {
-  border: 1px solid rgba(255, 255, 255, 0.72);
-  border-radius: 30px;
-  background: rgba(255, 252, 248, 0.86);
-  padding: 28px 36px;
-  box-shadow: 0 24px 60px rgba(43, 35, 29, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  border-radius: 28px;
+  background: rgba(255, 252, 248, 0.92);
+  padding: 24px 36px;
+  box-shadow: 0 20px 50px rgba(43, 35, 29, 0.12);
   font-size: 15px;
   font-weight: 750;
+  color: var(--editor-ink);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  transition: transform 180ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 180ms cubic-bezier(0.16, 1, 0.3, 1), border-color 180ms ease;
+  transform: scale(0.95);
+  opacity: 0.72;
+}
+
+.dropZoneHalf[data-active="true"] .dropMessage {
+  transform: scale(1.04);
+  opacity: 1;
+  border-color: rgba(255, 140, 0, 0.4);
+  box-shadow: 0 24px 60px rgba(43, 35, 29, 0.18), 0 0 0 3px rgba(255, 140, 0, 0.15);
+}
+
+.dropMessageFull {
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  border-radius: 28px;
+  background: rgba(255, 252, 248, 0.94);
+  padding: 28px 42px;
+  box-shadow: 0 24px 60px rgba(43, 35, 29, 0.18), 0 0 0 3px rgba(255, 140, 0, 0.15);
+  font-size: 16px;
+  font-weight: 750;
+  color: var(--editor-ink);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  transform: scale(1.02);
+}
+
+/* ------------------------------------------------------------------ */
+/* Mobilni editor (ispod 1100px): Linktree raspored — puni živi pregled
+   kao kartica, traka alata na dnu, paneli kao staklene ploče koje se
+   izvlače preko pregleda (iOS staklo: jači blur od desktop panela jer
+   iza njih stoji živ, šaren sadržaj stranice, a ne mirna radna površina). */
+
+.mobileEditor {
+  --mobile-dock-clearance: calc(100px + env(safe-area-inset-bottom, 0px));
+  position: relative;
+  z-index: 0;
+  display: flex;
+  height: 100dvh;
+  min-height: 0;
+  flex-direction: column;
+  isolation: isolate;
+}
+
+.mobileTopBar {
+  position: relative;
+  z-index: 50;
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 7px;
+  min-height: 58px;
+  border-bottom: 1px solid rgba(63, 54, 45, 0.1);
+  background: rgba(250, 247, 241, 0.86);
+  padding: calc(6px + env(safe-area-inset-top, 0px)) 12px 6px;
+  box-shadow: 0 6px 22px rgba(47, 38, 30, 0.035);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  backdrop-filter: blur(18px) saturate(140%);
+}
+
+.mobileIconButton {
+  composes: iconButton;
+  width: 38px;
+  height: 38px;
+  flex: none;
+}
+
+.mobileHistoryGroup {
+  composes: utilityGroup;
+  flex: none;
+  gap: 2px;
+  padding: 2px;
+}
+
+.mobileSavePill {
+  position: relative;
+  display: inline-flex;
+  min-height: 38px;
+  flex: none;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid rgba(73, 64, 55, 0.1);
+  border-radius: 14px !important;
+  background: rgba(255, 255, 255, 0.5);
+  padding-inline: 10px;
+  color: #555a55;
+  font-size: 11.5px;
+  font-weight: 650;
+  white-space: nowrap;
+  transition: background-color 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.mobileSavePill:active {
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.mobilePublishButton {
+  min-height: 40px;
+  flex: none;
+  border-radius: 14px !important;
+  padding-inline: 14px;
+  font-size: 12px;
+}
+
+.mobileCanvas {
+  position: relative;
+  z-index: 10;
+  min-height: 0;
+  flex: 1;
+  padding: 10px 10px 0;
+}
+
+.mobileCanvasCard {
+  position: relative;
+  height: 100%;
+  max-width: 680px;
+  margin-inline: auto;
+  overflow: hidden;
+  border-radius: 30px;
+  background: #141615;
+  box-shadow:
+    0 24px 48px rgba(29, 25, 22, 0.18),
+    0 6px 14px rgba(29, 25, 22, 0.09);
+}
+
+.mobileCanvasScroll {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-radius: inherit;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.mobileCanvasScroll::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.mobileDock {
+  position: relative;
+  z-index: 60;
+  flex: none;
+  padding: 10px 10px calc(10px + env(safe-area-inset-bottom, 0px));
+}
+
+.mobileDockScroller {
+  composes: glassSurface;
+  display: flex;
+  max-width: 680px;
+  align-items: stretch;
+  gap: 3px;
+  margin-inline: auto;
+  overflow-x: auto;
+  overflow-y: hidden;
+  border-radius: 28px;
+  padding: 7px;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.mobileDockScroller::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.mobileDockButton {
+  position: relative;
+  z-index: 0;
+  display: flex;
+  min-width: 66px;
+  min-height: 58px;
+  flex: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  border-radius: 19px !important;
+  color: #303532;
+  font-size: 10px;
+  font-weight: 650;
+  line-height: 1.1;
+  outline: none;
+  transition:
+    color 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.mobileDockButton:active {
+  transform: scale(0.95);
+}
+
+.mobileDockButton:focus-visible {
+  outline: none !important;
+  box-shadow: inset 0 0 0 2px rgba(35, 40, 37, 0.58);
+}
+
+.mobileDockButton[aria-pressed="true"] {
+  color: #111412;
+}
+
+.mobileDockActiveSurface {
+  composes: railActiveSurface;
+  border-radius: 16px;
+}
+
+.mobileDockDivider {
+  width: 1px;
+  flex: none;
+  margin: 10px 5px;
+  border-radius: 999px;
+  background: rgba(63, 54, 45, 0.14);
+}
+
+.mobileSheet {
+  position: fixed;
+  z-index: 40;
+  right: max(8px, calc(50% - 330px));
+  bottom: var(--mobile-dock-clearance);
+  left: max(8px, calc(50% - 330px));
+  display: flex;
+  /* iOS ponašanje: ploča se privija uz sadržaj i raste naviše samo koliko treba,
+     do gornje granice — kratki paneli više ne zauzimaju 58% ekrana. Skrol se
+     pali tek kada sadržaj probije kap (vidi .mobileSheetBody / .mobileSheetScroll). */
+  height: auto;
+  max-height: min(56dvh, 480px);
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.92);
+  border-radius: 30px;
+  /* Pravo iOS staklo: providniji sloj (živi šareni preview se probija), jak blur
+     + zasićenje da staklo pokupi boju iza sebe, i oštra svetla ivica. Ranije je
+     bilo previše mlečno (bela ~0.66) pa je izgledalo kao pun, neproziran panel. */
+  background:
+    radial-gradient(
+      ellipse at 18% -6%,
+      rgba(255, 255, 255, 0.52),
+      transparent 48%
+    ),
+    linear-gradient(
+      152deg,
+      rgba(255, 253, 250, 0.5),
+      rgba(246, 240, 234, 0.34) 60%,
+      rgba(238, 231, 226, 0.4)
+    );
+  -webkit-backdrop-filter: blur(32px) saturate(185%);
+  backdrop-filter: blur(32px) saturate(185%);
+  box-shadow:
+    inset 0 1.5px 0 rgba(255, 255, 255, 0.98),
+    inset 1px 0 0 rgba(255, 255, 255, 0.5),
+    inset 0 -1px 0 rgba(120, 100, 132, 0.08),
+    0 -8px 34px rgba(36, 29, 24, 0.09),
+    0 26px 64px rgba(36, 29, 24, 0.22);
+}
+
+.mobileSheetHandleZone {
+  display: grid;
+  flex: none;
+  place-items: center;
+  padding: 11px 0 5px;
+  touch-action: none;
+  cursor: grab;
+}
+
+.mobileSheetHandleZone:active {
+  cursor: grabbing;
+}
+
+.mobileSheetGrabber {
+  width: 44px;
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(60, 53, 47, 0.26);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+
+.mobileSheetHeader {
+  display: flex;
+  flex: none;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 18px 10px;
+  touch-action: none;
+}
+
+.mobileSheetHeading {
+  min-width: 0;
+}
+
+.mobileSheetTitle {
+  font-size: 20px;
+  font-weight: 750;
+  letter-spacing: -0.04em;
+  line-height: 1.15;
+}
+
+.mobileSheetDescription {
+  margin-top: 3px;
+  color: var(--editor-muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.mobileSheetClose {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  flex: none;
+  place-items: center;
+  border: 1px solid rgba(73, 64, 55, 0.12);
+  border-radius: 999px !important;
+  background: rgba(255, 255, 255, 0.55);
+  color: #444945;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  transition:
+    background-color 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.mobileSheetClose:active {
+  background: rgba(255, 255, 255, 0.8);
+  transform: scale(0.94);
+}
+
+.mobileSheetBody {
+  display: flex;
+  min-height: 0;
+  /* Ne rasti preko sadržaja — ploča se privija; kod visokih panela flex-shrink
+     (uz max-height ploče) ustupa prostor skrolu umesto da razvuče ploču. */
+  flex: 0 1 auto;
+  flex-direction: column;
+}
+
+.mobileSheetScroll {
+  min-height: 0;
+  flex: 0 1 auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 2px 16px 22px;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.mobileSheetScroll::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+@media (max-width: 479px) {
+  .mobileSavePill {
+    padding-inline: 9px;
+  }
+
+  /* Ispod 480px status ostaje u a11y stablu, ali vizuelno je samo tačka. */
+  .mobileSaveLabel {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    border: 0;
+    white-space: nowrap;
+  }
 }
 
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
@@ -2239,9 +2616,13 @@
   .contextPanel,
   .backgroundTabs,
   .smartPalette,
-  .smartPaletteMenu,
-  .contrastCard {
+  .smartPaletteMenu {
     background: rgba(250, 246, 240, 0.94);
+  }
+
+  .mobileSheet,
+  .mobileTopBar {
+    background: rgba(250, 246, 240, 0.97);
   }
 }
 
@@ -2298,34 +2679,6 @@
   }
 }
 
-@media (max-height: 850px) and (min-width: 1100px) {
-  .phoneFit {
-    transform: scale(0.92);
-  }
-}
-
-@media (max-height: 800px) and (min-width: 1100px) {
-  .phoneFit {
-    transform: scale(0.84);
-  }
-}
-
-@media (max-height: 750px) and (min-width: 1100px) {
-  .phoneFit {
-    transform: scale(0.75);
-  }
-}
-
-@media (max-width: 1099px) {
-  .desktopEditor {
-    display: none;
-  }
-
-  .desktopNotice {
-    display: grid;
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .editorRoot *,
   .editorRoot *::before,
@@ -2345,9 +2698,289 @@
   .backgroundTabs,
   .smartPalette,
   .smartPaletteMenu,
-  .contrastCard {
+  .mobileSheet,
+  .mobileTopBar {
     background: rgba(250, 246, 240, 0.96);
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
   }
+}
+/* Varijacije boja unutar izabranog stila. */
+.variationSection {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin-top: 1.1rem;
+}
+
+.variationTitle {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+
+.variationRow {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.variationCard {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.4rem;
+  border: 1px solid var(--editor-hairline, rgb(0 0 0 / 0.1));
+  border-radius: 0.6rem;
+  background: var(--editor-surface, rgb(255 255 255 / 0.6));
+  cursor: pointer;
+  text-align: left;
+}
+
+.variationSwatch {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  height: 1.65rem;
+  overflow: hidden;
+  border-radius: 0.35rem;
+}
+
+.variationSwatch > span {
+  display: block;
+  height: 100%;
+}
+
+.variationName {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.2rem;
+  font-size: 0.66rem;
+  line-height: 1.2;
+}
+
+/* Icon picker inside "Uredi link". Glyphs inherit the panel's text colour so
+   they stay legible on the editor surface; the themed colour is previewed live
+   on the phone. */
+.iconPickerContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.iconLibraryTabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  padding: 0.25rem;
+  border-radius: 0.65rem;
+  background: var(--editor-hairline, rgba(0, 0, 0, 0.05));
+}
+
+.iconLibraryTab {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-width: 4.8rem;
+  padding: 0.35rem 0.55rem;
+  border: 1px solid transparent;
+  border-radius: 0.45rem;
+  background: transparent;
+  color: var(--editor-muted, rgba(0, 0, 0, 0.6));
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 140ms ease;
+  white-space: nowrap;
+}
+
+.iconLibraryTab:hover {
+  color: inherit;
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.iconLibraryTabActive {
+  border-color: var(--editor-hairline, rgba(0, 0, 0, 0.12));
+  background: var(--editor-surface, #ffffff);
+  color: var(--editor-foreground, #1c1917);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.iconLibraryTabBadge {
+  display: inline-block;
+  padding: 0.08rem 0.25rem;
+  border-radius: 0.25rem;
+  background: var(--editor-hairline, rgba(0, 0, 0, 0.06));
+  font-size: 0.58rem;
+  font-weight: 500;
+  opacity: 0.75;
+}
+
+.iconSearchWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.iconSearchIcon {
+  position: absolute;
+  left: 0.65rem;
+  width: 0.85rem;
+  height: 0.85rem;
+  color: var(--editor-muted, rgba(0, 0, 0, 0.4));
+  pointer-events: none;
+}
+
+.iconSearchInput {
+  width: 100%;
+  height: 2.1rem;
+  padding: 0 2rem 0 1.85rem;
+  border: 1px solid var(--editor-hairline, rgb(0 0 0 / 0.1));
+  border-radius: 0.55rem;
+  background: var(--editor-surface, rgb(255 255 255 / 0.6));
+  color: inherit;
+  font-size: 0.75rem;
+  outline: none;
+  transition: border-color 140ms ease, background-color 140ms ease;
+}
+
+.iconSearchInput:focus {
+  border-color: var(--editor-focus, #3b82f6);
+  background: var(--editor-surface, #ffffff);
+}
+
+.iconSearchClear {
+  position: absolute;
+  right: 0.5rem;
+  display: grid;
+  place-items: center;
+  width: 1.2rem;
+  height: 1.2rem;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--editor-hairline, rgba(0, 0, 0, 0.1));
+  color: var(--editor-muted, rgba(0, 0, 0, 0.6));
+  cursor: pointer;
+  transition: background-color 120ms ease;
+}
+
+.iconSearchClear:hover {
+  background: var(--editor-hairline, rgba(0, 0, 0, 0.2));
+}
+
+.iconPicker {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-height: 15rem;
+  overflow-y: auto;
+  padding: 0.5rem;
+  border: 1px solid var(--editor-hairline, rgb(0 0 0 / 0.1));
+  border-radius: 0.7rem;
+  background: var(--editor-surface, rgb(255 255 255 / 0.6));
+}
+
+.iconPickerGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.iconPickerGroupHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.iconPickerGroupLabel {
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.55;
+}
+
+.iconPickerGroupCount {
+  font-size: 0.58rem;
+  font-weight: 500;
+  opacity: 0.4;
+}
+
+.iconPickerGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(2.5rem, 1fr));
+  gap: 0.4rem;
+}
+
+.iconPickerCell {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  border: 1px solid var(--editor-hairline, rgb(0 0 0 / 0.12));
+  border-radius: 0.55rem;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  transition:
+    border-color 140ms ease,
+    background-color 140ms ease,
+    transform 140ms ease;
+}
+
+.iconPickerCell:hover {
+  border-color: color-mix(in srgb, currentColor 40%, transparent);
+  background: color-mix(in srgb, currentColor 6%, transparent);
+}
+
+.iconPickerCell:active {
+  transform: scale(0.94);
+}
+
+.iconPickerCellActive {
+  border-color: currentColor;
+  background: color-mix(in srgb, currentColor 12%, transparent);
+  box-shadow: inset 0 0 0 1px currentColor;
+}
+
+.iconPickerCellActive:hover {
+  border-color: currentColor;
+}
+
+.iconPickerGlyph {
+  width: 1.3rem;
+  height: 1.3rem;
+}
+
+.iconPickerEmpty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem 0.5rem;
+  color: var(--editor-muted, rgba(0, 0, 0, 0.45));
+  font-size: 0.75rem;
+  text-align: center;
+  gap: 0.4rem;
+}
+
+.iconPickerEmptyReset {
+  padding: 0.2rem 0.6rem;
+  border: 1px solid var(--editor-hairline, rgba(0, 0, 0, 0.15));
+  border-radius: 0.4rem;
+  background: var(--editor-surface, #ffffff);
+  color: inherit;
+  font-size: 0.7rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 120ms ease;
+}
+
+.iconPickerEmptyReset:hover {
+  background: var(--editor-hairline, rgba(0, 0, 0, 0.05));
 }

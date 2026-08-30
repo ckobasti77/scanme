@@ -1,5 +1,6 @@
 "use client";
 
+import { ConvexError } from "convex/values";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { Authenticated, AuthLoading, Unauthenticated, useMutation, useQuery } from "convex/react";
 import { Check, Eye, EyeOff, LoaderCircle, LogOut, ShieldAlert } from "lucide-react";
@@ -101,6 +102,10 @@ function ActivationForms({ slug, token, email }: { slug: string; token: string; 
       data.set("scanSlug", slug);
     } else {
       data.set("flow", "signIn");
+      // Token i slug idu i uz prijavu: postojeći nalog bez aktivnog članstva
+      // prihvata pozivnicu tokom sign-in-a (inače bi prijava bila odbijena).
+      data.set("invitationToken", token);
+      data.set("scanSlug", slug);
     }
     try {
       await signIn("password", data);
@@ -121,7 +126,7 @@ function ClaimInvitation({ slug, token }: { slug: string; token: string }) {
   useEffect(() => {
     if (started.current) return;
     started.current = true;
-    void claim({ slug, token }).then(() => router.replace(`/${slug}/client-panel`)).catch((reason: unknown) => setError(reason instanceof Error ? reason.message : "Pozivnica nije prihvaćena."));
+    void claim({ slug, token }).then(() => router.replace(`/${slug}/client-panel`)).catch((reason: unknown) => setError(reason instanceof ConvexError && typeof reason.data === "string" ? reason.data : reason instanceof Error ? reason.message : "Pozivnica nije prihvaćena."));
   }, [claim, router, slug, token]);
   return error ? <p role="alert" className="mt-8 text-sm leading-6 text-destructive">{error}</p> : <div className="mt-8 flex items-center gap-3 text-sm text-muted-foreground"><LoaderCircle className="size-4 animate-spin text-primary" /> Povezujemo nalog sa lokalom...</div>;
 }

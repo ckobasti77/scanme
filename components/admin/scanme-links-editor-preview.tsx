@@ -42,7 +42,7 @@ import {
   optionTwoDestinationClassName,
   optionTwoDuplicateNumber,
 } from "@/components/scanme-links/templates/option-two/option-two-template";
-import { ScanMeContrastAssistant } from "@/components/admin/scanme-contrast-assistant";
+import { iconPackageForPreset } from "@/lib/scanme-links-design";
 import type { ScanMeLinksViewModel } from "@/components/scanme-links/templates/types";
 import {
   Select,
@@ -52,12 +52,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { DEFAULT_ACCENT_TOKENS } from "@/lib/scanme-links";
-import { safeNeutralForBackgrounds } from "@/lib/scanme-color-science";
 import {
-  analyzeScanMeContrast,
   backgroundContrastSamples,
-  type ContrastSuggestion,
-} from "@/lib/scanme-contrast";
+  safeNeutralForBackgrounds,
+} from "@/lib/scanme-color-science";
 import { cn } from "@/lib/utils";
 import styles from "./scanme-links-editor.module.css";
 import type {
@@ -66,88 +64,10 @@ import type {
   ScanMeLinksEditorDocument,
 } from "./scanme-links-editor-types";
 
-export function ScanMeLinksEditorPreview({
-  businessName,
-  document,
-  selectedDestinationId,
-  onSelectDestination,
-  onReorder,
-  onAddDestination,
-  addBusy,
-  device,
-  setDevice,
-  zoom,
-  setZoom,
-  onApplyContrastSuggestion,
-}: {
-  businessName: string;
-  document: ScanMeLinksEditorDocument;
-  selectedDestinationId: string | null;
-  onSelectDestination: (destinationId: EditorDestination["id"]) => void;
-  onReorder: (activeId: string, overId: string) => void;
-  onAddDestination: () => void;
-  addBusy: boolean;
-  device: PreviewDevice;
-  setDevice: (device: PreviewDevice) => void;
-  zoom: number;
-  setZoom: (zoom: number) => void;
-  onApplyContrastSuggestion: (suggestion: ContrastSuggestion) => void;
-}) {
-  const reducedMotion = useReducedMotion();
-  const [localTime, setLocalTime] = useState("--:--");
-  const canvasRef = useRef<HTMLDivElement>(null);
-  const canvasShellRef = useRef<HTMLDivElement>(null);
-  const canvasTrackRef = useRef<HTMLDivElement>(null);
-  const canvasId = useId();
-  const canvasDragRef = useRef<{
-    pointerId: number;
-    startY: number;
-    startScrollTop: number;
-  } | null>(null);
-  const [canvasScroll, setCanvasScroll] = useState({
-    clientHeight: 0,
-    scrollHeight: 0,
-    scrollTop: 0,
-    trackHeight: 0,
-  });
-
-  const syncCanvasScroll = useCallback(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    setCanvasScroll({
-      clientHeight: canvas.clientHeight,
-      scrollHeight: canvas.scrollHeight,
-      scrollTop: canvas.scrollTop,
-      trackHeight: canvasTrackRef.current?.clientHeight ?? 0,
-    });
-  }, []);
-
-  useEffect(() => {
-    const update = () => setLocalTime(currentTime());
-    update();
-    const interval = window.setInterval(update, 1_000);
-    return () => window.clearInterval(interval);
-  }, []);
-
-  useLayoutEffect(() => {
-    syncCanvasScroll();
-  }, [device, syncCanvasScroll, zoom]);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    const track = canvasTrackRef.current;
-    if (!canvas) return;
-
-    const resizeObserver = new ResizeObserver(syncCanvasScroll);
-    resizeObserver.observe(canvas);
-    if (canvas.firstElementChild) {
-      resizeObserver.observe(canvas.firstElementChild);
-    }
-    if (track) resizeObserver.observe(track);
-
-    return () => resizeObserver.disconnect();
-  }, [syncCanvasScroll]);
-
+// Deljeni model za obe ljuske editora (desktop preview i mobilni canvas):
+// view-model šablona, vidljive destinacije i analiza kontrasta uvek nastaju
+// iz istog dokumenta, pa ne mogu da se raziđu.
+export function useEditorPreviewModel(document: ScanMeLinksEditorDocument) {
   const destinations = useMemo(
     () =>
       document.destinations
@@ -188,21 +108,103 @@ export function ScanMeLinksEditorPreview({
       state: destination.state,
     })),
   };
-  const contrastIssues = useMemo(
-    () =>
-      analyzeScanMeContrast(
-        document.design,
-        document.paletteAnalysis?.adjusted ?? document.palette,
-        document.paletteAnalysis?.original ?? document.palette,
-      ),
-    [document.design, document.palette, document.paletteAnalysis],
-  );
+
+  return { view, destinations };
+}
+
+export function ScanMeLinksEditorPreview({
+  businessName,
+  document,
+  selectedDestinationId,
+  onSelectDestination,
+  onReorder,
+  onAddDestination,
+  addBusy,
+  device,
+  setDevice,
+  zoom,
+  setZoom,
+}: {
+  businessName: string;
+  document: ScanMeLinksEditorDocument;
+  selectedDestinationId: string | null;
+  onSelectDestination: (destinationId: EditorDestination["id"]) => void;
+  onReorder: (activeId: string, overId: string) => void;
+  onAddDestination: () => void;
+  addBusy: boolean;
+  device: PreviewDevice;
+  setDevice: (device: PreviewDevice) => void;
+  zoom: number;
+  setZoom: (zoom: number) => void;
+}) {
+  const reducedMotion = useReducedMotion();
+  const [localTime, setLocalTime] = useState("--:--");
+  const canvasRef = useRef<HTMLDivElement>(null);
+  const canvasShellRef = useRef<HTMLDivElement>(null);
+  const canvasTrackRef = useRef<HTMLDivElement>(null);
+  const canvasId = useId();
+  const canvasDragRef = useRef<{
+    pointerId: number;
+    startY: number;
+    startScrollTop: number;
+  } | null>(null);
+  const [canvasScroll, setCanvasScroll] = useState({
+    clientHeight: 0,
+    clientWidth: 0,
+    scrollHeight: 0,
+    scrollTop: 0,
+    trackHeight: 0,
+  });
+
+  const syncCanvasScroll = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    setCanvasScroll({
+      clientHeight: canvas.clientHeight,
+      clientWidth: canvas.clientWidth,
+      scrollHeight: canvas.scrollHeight,
+      scrollTop: canvas.scrollTop,
+      trackHeight: canvasTrackRef.current?.clientHeight ?? 0,
+    });
+  }, []);
+
+  useEffect(() => {
+    const update = () => setLocalTime(currentTime());
+    update();
+    const interval = window.setInterval(update, 1_000);
+    return () => window.clearInterval(interval);
+  }, []);
+
+  useLayoutEffect(() => {
+    syncCanvasScroll();
+  }, [device, syncCanvasScroll, zoom]);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const track = canvasTrackRef.current;
+    if (!canvas) return;
+
+    const resizeObserver = new ResizeObserver(syncCanvasScroll);
+    resizeObserver.observe(canvas);
+    if (canvas.firstElementChild) {
+      resizeObserver.observe(canvas.firstElementChild);
+    }
+    if (track) resizeObserver.observe(track);
+
+    return () => resizeObserver.disconnect();
+  }, [syncCanvasScroll]);
+
+  const { view, destinations } = useEditorPreviewModel(document);
   const phoneStatusColor = useMemo(
     () =>
       safeNeutralForBackgrounds(
-        backgroundContrastSamples(document.design),
+        backgroundContrastSamples(document.design, {
+          mediaPresent:
+            Boolean(document.backgroundImageUrl) ||
+            Boolean(document.backgroundVideoUrl),
+        }),
       ),
-    [document.design],
+    [document.design, document.backgroundImageUrl, document.backgroundVideoUrl],
   );
 
   const canvasMaxScroll = Math.max(
@@ -223,6 +225,23 @@ export function ScanMeLinksEditorPreview({
   const canvasScrollProgress = canvasMaxScroll
     ? Math.min(1, Math.max(0, canvasScroll.scrollTop / canvasMaxScroll))
     : 0;
+
+  // Skala koja garantuje da ceo telefon (350×720) uvek stane u vidljivi deo
+  // canvasa, bez obzira na visinu ekrana. Zum korisnika se množi preko nje, pa
+  // 100% uvek znači „ceo telefon", a veći zum namerno prelazi u skrol.
+  const PHONE_WIDTH = 350;
+  const PHONE_HEIGHT = 720;
+  const phoneAvailableHeight = Math.max(0, canvasScroll.clientHeight - 14);
+  const phoneAvailableWidth = Math.max(0, canvasScroll.clientWidth - 16);
+  const phoneFitScale =
+    phoneAvailableHeight && phoneAvailableWidth
+      ? Math.min(
+          1,
+          phoneAvailableHeight / PHONE_HEIGHT,
+          phoneAvailableWidth / PHONE_WIDTH,
+        )
+      : 1;
+  const phoneScale = phoneFitScale * (zoom / 100);
 
   function moveCanvasTo(scrollTop: number) {
     const canvas = canvasRef.current;
@@ -332,7 +351,7 @@ export function ScanMeLinksEditorPreview({
             <SelectValue>{zoom}%</SelectValue>
           </SelectTrigger>
           <SelectContent className={styles.editorSelectContent}>
-            {[75, 90, 100, 110].map((value) => (
+            {[50, 75, 100, 125, 150].map((value) => (
               <SelectItem
                 key={value}
                 value={String(value)}
@@ -348,7 +367,6 @@ export function ScanMeLinksEditorPreview({
       <div
         ref={canvasShellRef}
         className={styles.deviceCanvasShell}
-        data-has-contrast-assistant={contrastIssues.length > 0}
       >
         <div
           id={canvasId}
@@ -363,6 +381,10 @@ export function ScanMeLinksEditorPreview({
             <motion.div
               key="phone"
               className={styles.phoneFit}
+              style={{
+                width: `${PHONE_WIDTH * phoneScale}px`,
+                height: `${PHONE_HEIGHT * phoneScale}px`,
+              }}
               initial={reducedMotion ? false : { opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={reducedMotion ? undefined : { opacity: 0 }}
@@ -371,7 +393,7 @@ export function ScanMeLinksEditorPreview({
               <div
                 className={styles.phoneShell}
                 data-editor-preview="true"
-                style={{ transform: `scale(${zoom / 100})` }}
+                style={{ transform: `scale(${phoneScale})` }}
               >
                 <div className={styles.phoneScreen}>
                   <div className={styles.dynamicIsland} aria-hidden="true" />
@@ -427,12 +449,6 @@ export function ScanMeLinksEditorPreview({
             )}
           </AnimatePresence>
         </div>
-        <ScanMeContrastAssistant
-          issues={contrastIssues}
-          device={device}
-          containerRef={canvasShellRef}
-          onApply={onApplyContrastSuggestion}
-        />
         <div
           ref={canvasTrackRef}
           className={styles.deviceCanvasScrollTrack}
@@ -467,7 +483,7 @@ export function ScanMeLinksEditorPreview({
   );
 }
 
-function InteractivePreviewPage({
+export function InteractivePreviewPage({
   view,
   destinations,
   selectedDestinationId,
@@ -517,6 +533,11 @@ function InteractivePreviewPage({
                 duplicate={optionTwoDuplicateNumber(destinations, index)}
                 selected={selectedDestinationId === destination.id}
                 iconStyle={view.design?.iconStyle}
+                packageStyle={
+                  view.design
+                    ? iconPackageForPreset(view.design.presetKey)
+                    : "line"
+                }
                 onSelect={() => onSelectDestination(destination.id)}
               />
             ))}
@@ -542,12 +563,14 @@ function SortablePreviewDestination({
   duplicate,
   selected,
   iconStyle,
+  packageStyle,
   onSelect,
 }: {
   destination: EditorDestination;
   duplicate: number | null;
   selected: boolean;
   iconStyle?: NonNullable<ScanMeLinksViewModel["design"]>["iconStyle"];
+  packageStyle?: ReturnType<typeof iconPackageForPreset>;
   onSelect: () => void;
 }) {
   const {
@@ -593,6 +616,7 @@ function SortablePreviewDestination({
           duplicate={duplicate}
           preview
           iconStyle={iconStyle}
+          packageStyle={packageStyle}
         />
       </button>
     </li>

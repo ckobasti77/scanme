@@ -11,36 +11,26 @@ import type {
 } from "@/components/scanme-links/templates/types";
 import {
   createDefaultScanMeLinksDesignV2,
+  iconPackageForPreset,
+  layoutForPreset,
   normalizeDesignForPreset,
-  type ScanMeLinksBackgroundV2,
   type ScanMeLinksDesignV2,
-  type ScanMeLinksFontKey,
+  type ScanMeLinksIconPackage,
   type ScanMeLinksIconStyle,
-  type ScanMeLinksShadowV2,
+  type ScanMeLinksPresetKey,
 } from "@/lib/scanme-links-design";
-import { safeNeutralForBackgrounds } from "@/lib/scanme-color-science";
-import { backgroundContrastSamples } from "@/lib/scanme-contrast";
+import {
+  backgroundContrastSamples,
+  safeNeutralForBackgrounds,
+} from "@/lib/scanme-color-science";
+import { backgroundPresentation } from "@/lib/design-engine/background";
+import { rgba } from "@/lib/design-engine/color";
+import { logoShadowCss, shadowCss } from "@/lib/design-engine/shadows";
+import { FONT_STACKS } from "@/lib/design-engine/typography";
 import { cn } from "@/lib/utils";
 import styles from "./option-two-template.module.css";
 
 export const optionTwoDestinationClassName = styles.destination;
-
-const FONT_STACKS: Record<ScanMeLinksFontKey, string> = {
-  "dm-sans": '"DM Sans", "Segoe UI", Arial, sans-serif',
-  "nunito-sans": '"Nunito Sans", "Segoe UI", Arial, sans-serif',
-  "source-sans-3": '"Source Sans 3", "Segoe UI", Arial, sans-serif',
-  "system-ui": 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-  inter: 'Inter, system-ui, -apple-system, "Segoe UI", sans-serif',
-  manrope: 'Manrope, system-ui, -apple-system, "Segoe UI", sans-serif',
-  "cormorant-garamond":
-    '"Cormorant Garamond", Georgia, "Times New Roman", serif',
-  "playfair-display": '"Playfair Display", Georgia, "Times New Roman", serif',
-  lora: 'Lora, Georgia, "Times New Roman", serif',
-  "libre-baskerville":
-    '"Libre Baskerville", Georgia, "Times New Roman", serif',
-  "space-grotesk": '"Space Grotesk", "Arial Narrow", Arial, sans-serif',
-  archivo: 'Archivo, "Arial Narrow", Arial, sans-serif',
-};
 
 const ICON_STYLE_CLASSES: Record<ScanMeLinksIconStyle, string> = {
   "soft-line": "",
@@ -49,6 +39,31 @@ const ICON_STYLE_CLASSES: Record<ScanMeLinksIconStyle, string> = {
   "rustic-stamp": styles.iconRustic,
   "minimal-line": styles.iconMinimal,
   "bold-fill": styles.iconBold,
+  "editorial-outline": styles.iconEditorial,
+  "pop-sticker": styles.iconPop,
+  "craft-badge": styles.iconCraft,
+  "glass-tile": styles.iconGlass,
+  "wanderlust-glow": styles.iconWanderlust,
+  "bistro-seal": styles.iconBistro,
+  "bloom-soft": styles.iconBloom,
+  "chicken-comic": styles.iconChicken,
+  "pulse-neon": styles.iconPulse,
+};
+
+const TEMPLATE_BACKGROUNDS: Partial<Record<ScanMeLinksPresetKey, string>> = {
+  wanderlust: "/scanme-links-template-backgrounds/wanderlust-background.avif",
+  bistro: "/scanme-links-template-backgrounds/bistro-background.avif",
+  bloom: "/scanme-links-template-backgrounds/bloom-background.avif",
+  chicken: "/scanme-links-template-backgrounds/chicken-background.avif",
+  pulse: "/scanme-links-template-backgrounds/pulse-background.avif",
+};
+
+const TEMPLATE_LOGOS: Partial<Record<ScanMeLinksPresetKey, string>> = {
+  wanderlust: "/scanme-links-template-backgrounds/wanderlust-logo.svg",
+  bistro: "/scanme-links-template-backgrounds/bistro-logo.svg",
+  bloom: "/scanme-links-template-backgrounds/bloom-logo.svg",
+  chicken: "/scanme-links-template-backgrounds/chicken-logo.svg",
+  pulse: "/scanme-links-template-backgrounds/pulse-logo.svg",
 };
 
 function duplicateNumbers(destinations: PublicDestination[]) {
@@ -94,93 +109,6 @@ function scaleTokens(scale: ScanMeLinksDesignV2["typography"]["scale"]) {
   return { heading: "2.25rem", body: "0.96rem" };
 }
 
-function rgba(hex: string, opacity: number) {
-  const normalized = hex.trim();
-  const match = normalized.match(/^#([\da-f]{6})$/i);
-  if (!match) return `color-mix(in srgb, ${hex} ${opacity * 100}%, transparent)`;
-  const value = Number.parseInt(match[1], 16);
-  return `rgba(${(value >> 16) & 255}, ${(value >> 8) & 255}, ${value & 255}, ${opacity})`;
-}
-
-function backgroundPresentation(background: ScanMeLinksBackgroundV2): {
-  baseImage: string;
-  detailImage: string;
-  detailSize: string;
-  detailOpacity: number;
-} {
-  switch (background.category) {
-    case "flat":
-      return {
-        baseImage: `linear-gradient(${background.color}, ${background.color})`,
-        detailImage: "none",
-        detailSize: "auto",
-        detailOpacity: 0,
-      };
-    case "gradient":
-      return {
-        baseImage:
-          background.variant === "radial"
-            ? `radial-gradient(circle at ${background.centerX}% ${background.centerY}%, ${background.startColor}, ${background.endColor})`
-            : `linear-gradient(${background.angle}deg, ${background.startColor}, ${background.endColor})`,
-        detailImage: "none",
-        detailSize: "auto",
-        detailOpacity: 0,
-      };
-    case "pattern": {
-      const size = Math.max(4, background.scale);
-      const color = rgba(background.patternColor, 1);
-      const base = background.backgroundColor;
-      const images: Record<typeof background.variant, string> = {
-        grid: `linear-gradient(${color} 1px, transparent 1px), linear-gradient(90deg, ${color} 1px, transparent 1px), linear-gradient(${base}, ${base})`,
-        checker: `conic-gradient(from 90deg at 1px 1px, transparent 90deg, ${color} 0)`,
-        dots: `radial-gradient(circle, ${color} 1.5px, transparent 1.7px), linear-gradient(${base}, ${base})`,
-        waves: `radial-gradient(ellipse at 50% 100%, transparent 65%, ${color} 66%, transparent 69%), linear-gradient(${base}, ${base})`,
-      };
-      return {
-        baseImage: `linear-gradient(${base}, ${base})`,
-        detailImage: images[background.variant],
-        detailSize:
-          background.variant === "waves"
-            ? `${size * 2}px ${size}px`
-            : `${size}px ${size}px`,
-        detailOpacity: background.opacity,
-      };
-    }
-    case "texture": {
-      const tint = rgba(background.tintColor, 0.85);
-      const base = background.backgroundColor;
-      const images: Record<typeof background.variant, string> = {
-        paper: `radial-gradient(circle at 20% 30%, ${tint} 0 .65px, transparent .8px), radial-gradient(circle at 75% 68%, ${tint} 0 .55px, transparent .75px), linear-gradient(${base}, ${base})`,
-        linen: `repeating-linear-gradient(0deg, ${tint} 0 1px, transparent 1px 4px), repeating-linear-gradient(90deg, ${tint} 0 1px, transparent 1px 5px), linear-gradient(${base}, ${base})`,
-        wood: `repeating-radial-gradient(ellipse at -20% 50%, transparent 0 15px, ${tint} 16px 17px, transparent 18px 29px), linear-gradient(${base}, ${base})`,
-        metal: `repeating-linear-gradient(105deg, transparent 0 3px, ${tint} 4px, transparent 5px 9px), linear-gradient(120deg, ${base}, color-mix(in srgb, ${base} 74%, white), ${base})`,
-      };
-      return {
-        baseImage: `linear-gradient(${base}, ${base})`,
-        detailImage: images[background.variant],
-        detailSize:
-          background.variant === "paper"
-            ? "17px 19px"
-            : background.variant === "wood"
-              ? "80px 46px"
-              : "auto",
-        detailOpacity: background.intensity,
-      };
-    }
-    case "media":
-    case "animation":
-      return {
-        baseImage:
-          background.category === "animation"
-            ? `linear-gradient(${background.baseColor}, ${background.baseColor})`
-            : `linear-gradient(var(--links-page), var(--links-page))`,
-        detailImage: "none",
-        detailSize: "auto",
-        detailOpacity: 0,
-      };
-  }
-}
-
 function alignmentTokens(
   alignment: ScanMeLinksDesignV2["typography"]["alignment"],
 ) {
@@ -193,24 +121,6 @@ function alignmentTokens(
   return { text: "center", cross: "center" };
 }
 
-function shadowCss(shadow: ScanMeLinksShadowV2) {
-  return shadow.enabled && shadow.opacity > 0
-    ? `${shadow.x}px ${shadow.y}px ${shadow.blur}px ${rgba(
-        shadow.color,
-        shadow.opacity,
-      )}`
-    : "0 0 0 transparent";
-}
-
-function logoShadowCss(shadow: ScanMeLinksShadowV2) {
-  return shadow.enabled && shadow.opacity > 0
-    ? `drop-shadow(${shadow.x}px ${shadow.y}px ${shadow.blur}px ${rgba(
-        shadow.color,
-        shadow.opacity,
-      )})`
-    : "none";
-}
-
 function designStyle(
   view: ScanMeLinksViewModel,
   design: ScanMeLinksDesignV2,
@@ -219,10 +129,29 @@ function designStyle(
   const type = scaleTokens(design.typography.scale);
   const alignment = alignmentTokens(design.typography.alignment);
   const buttonShadow = shadowCss(design.buttons.shadow);
-  const textShadow = shadowCss(design.effects.textShadow);
+  const textShadow = design.effects.textShadow.enabled
+    ? shadowCss(design.effects.textShadow)
+    : undefined;
+  // Per-element text shadows fall back to the global one when no override is set.
+  const titleShadow = design.effects.titleShadow?.enabled
+    ? shadowCss(design.effects.titleShadow)
+    : textShadow;
+  const descriptionShadow = design.effects.descriptionShadow?.enabled
+    ? shadowCss(design.effects.descriptionShadow)
+    : textShadow;
+  const buttonTextShadow = design.effects.buttonTextShadow?.enabled
+    ? shadowCss(design.effects.buttonTextShadow)
+    : textShadow;
   const logoShadow = logoShadowCss(design.effects.logoShadow);
+  const mediaPresent =
+    design.background.category === "media" &&
+    Boolean(
+      design.background.mediaType === "video"
+        ? view.backgroundVideoUrl
+        : view.backgroundImageUrl,
+    );
   const poweredColor = safeNeutralForBackgrounds(
-    backgroundContrastSamples(design),
+    backgroundContrastSamples(design, { mediaPresent }),
   );
   const animationSpeed =
     design.background.category === "animation"
@@ -259,6 +188,9 @@ function designStyle(
     "--links-button-padding-y": `${design.buttons.paddingY}px`,
     "--links-button-shadow": buttonShadow,
     "--links-text-shadow": textShadow,
+    "--links-title-shadow": titleShadow,
+    "--links-description-shadow": descriptionShadow,
+    "--links-button-text-shadow": buttonTextShadow,
     "--links-logo-shadow": logoShadow,
     "--links-powered-color": poweredColor,
     "--links-flow-gap": `${design.typography.verticalSpacing}px`,
@@ -467,11 +399,13 @@ export function OptionTwoDestinationContent({
   duplicate,
   preview = false,
   iconStyle = "soft-line",
+  packageStyle = "line",
 }: {
   destination: PublicDestination;
   duplicate: number | null;
   preview?: boolean;
   iconStyle?: ScanMeLinksIconStyle;
+  packageStyle?: ScanMeLinksIconPackage;
 }) {
   const href = safeDestinationHref(destination.url);
   const isInactive = destination.state === "inactive";
@@ -491,7 +425,11 @@ export function OptionTwoDestinationContent({
           ICON_STYLE_CLASSES[iconStyle],
         )}
       >
-        <TemplateIcon iconKey={destination.iconKey} className={styles.icon} />
+        <TemplateIcon
+          iconKey={destination.iconKey}
+          className={styles.icon}
+          packageStyle={packageStyle}
+        />
         {duplicate ? (
           <span className={styles.duplicate}>{duplicate}</span>
         ) : null}
@@ -529,7 +467,9 @@ function Background({
     background.category === "media"
       ? background.mediaType === "video"
         ? view.backgroundVideoUrl
-        : view.backgroundImageUrl
+        : (view.backgroundImageUrl ||
+           TEMPLATE_BACKGROUNDS[design.presetKey] ||
+           null)
       : null;
 
   return (
@@ -611,24 +551,27 @@ export function OptionTwoFrame({
   const design = resolveDesign(view);
   const title = view.displayName.trim().slice(0, 50);
   const description = view.description?.trim().slice(0, 50) ?? "";
-  const hasIdentity = Boolean(view.logoUrl || title || description);
+  const logoUrl = view.logoUrl || TEMPLATE_LOGOS[design.presetKey] || null;
+  const hasIdentity = Boolean(logoUrl || title || description);
 
   return (
     <div
       style={designStyle(view, design)}
       data-button-variant={design.buttons.variant}
       data-icon-style={design.iconStyle}
+      data-layout={layoutForPreset(design.presetKey)}
+      data-preset={design.presetKey}
       className={cn(styles.frame, preview && styles.preview)}
     >
       <Background view={view} design={design} />
       <main className={styles.main}>
         {hasIdentity ? (
           <header className={styles.header}>
-            {view.logoUrl ? (
+            {logoUrl ? (
               // Customer logos include arbitrary raster formats and SVG.
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={view.logoUrl}
+                src={logoUrl}
                 alt={title ? `${title} logo` : "Logotip lokala"}
                 className={styles.logo}
                 data-contrast-anchor="logo"
@@ -688,6 +631,7 @@ export function OptionTwoTemplate({
     );
   });
   const duplicates = duplicateNumbers(destinations);
+  const packageStyle = iconPackageForPreset(design.presetKey);
 
   return (
     <OptionTwoFrame view={view} preview={preview}>
@@ -709,6 +653,7 @@ export function OptionTwoTemplate({
               duplicate={duplicates[index]}
               preview={preview}
               iconStyle={design.iconStyle}
+              packageStyle={packageStyle}
             />
           );
 

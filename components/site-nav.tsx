@@ -27,11 +27,11 @@ import { BrandLogo } from "@/components/brand-logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 const links = [
-  { href: "#kako-radi", label: "Kako radi" },
-  { href: "#scanme-review", label: "ScanMe Review" },
-  { href: "#za-koga", label: "Za koga" },
-  { href: "#faq", label: "FAQ" },
-  { href: "#ponuda", label: "Kontakt" },
+  { href: "/#kako-radi", label: "Kako radi" },
+  { href: "/#scanme-review", label: "ScanMe Review" },
+  { href: "/#za-koga", label: "Za koga" },
+  { href: "/#faq", label: "FAQ" },
+  { href: "/#ponuda", label: "Kontakt" },
 ];
 
 export function Wordmark() {
@@ -107,7 +107,7 @@ export function SiteNav() {
         >
           <div className="section-shell flex h-full items-center justify-between xl:grid xl:grid-cols-[auto_minmax(0,1fr)_auto] xl:gap-5">
           <Link
-            href="#pocetak"
+            href="/#pocetak"
             className="focus-signal inline-flex min-h-11 items-center xl:justify-self-start"
             aria-label="ScanMe, početak"
           >
@@ -129,7 +129,7 @@ export function SiteNav() {
           <div className="hidden items-center gap-2 xl:flex xl:justify-self-end 2xl:gap-3">
             <ThemeToggle />
             <ClientAccessAction isAuthenticated={isAuthenticated} isLoading={isLoading} onOpen={openClientLogin} />
-            <Link href="#ponuda" className="button-primary focus-signal">
+            <Link href="/#ponuda" className="button-primary focus-signal">
               Zatraži ponudu
               <ArrowUpRight aria-hidden="true" className="size-4" strokeWidth={1.75} />
             </Link>
@@ -182,7 +182,7 @@ export function SiteNav() {
                   ) : null}
                 </div>
                 <SheetClose asChild>
-                  <Link href="#ponuda" className="button-primary focus-signal mt-auto w-full">
+                  <Link href="/#ponuda" className="button-primary focus-signal mt-auto w-full">
                     Zatraži ponudu
                     <ArrowUpRight aria-hidden="true" className="size-4" strokeWidth={1.75} />
                   </Link>

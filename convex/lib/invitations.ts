@@ -1,3 +1,4 @@
+import { ConvexError } from "convex/values";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 import { normalizeEmail, requireSlug } from "./validation";
@@ -37,20 +38,20 @@ export async function acceptInvitationForUser(
 ) {
   const invitation = await ctx.db.get(invitationId);
   const user = await ctx.db.get(userId);
-  if (!invitation || !user?.email) throw new Error("Pozivnica nije dostupna.");
+  if (!invitation || !user?.email) throw new ConvexError("Pozivnica nije dostupna.");
   if (
     invitation.status !== "sent" &&
     invitation.status !== "queued" &&
     invitation.status !== "failed"
   ) {
-    throw new Error("Pozivnica više nije aktivna.");
+    throw new ConvexError("Pozivnica više nije aktivna.");
   }
   if (invitation.expiresAt <= Date.now()) {
     await ctx.db.patch(invitation._id, { status: "expired", updatedAt: Date.now() });
-    throw new Error("Pozivnica je istekla. Zatražite novu od ScanMe administratora.");
+    throw new ConvexError("Pozivnica je istekla. Zatražite novu od ScanMe administratora.");
   }
   if (normalizeEmail(user.email) !== invitation.normalizedEmail) {
-    throw new Error("Pozivnica pripada drugoj email adresi.");
+    throw new ConvexError("Pozivnica pripada drugoj email adresi.");
   }
 
   const now = Date.now();

@@ -273,10 +273,11 @@ describe("admin kreiranje lokala", () => {
     delete process.env.SCANME_ADMIN_EMAILS;
   });
 
-  test("admin menja naziv lokala bez promene sluga i QR linka", async () => {
+  test("admin menja naziv lokala i slug se automatski usklađuje, stara QR adresa i dalje radi", async () => {
     process.env.SCANME_ADMIN_EMAILS = "admin@scanme.test";
     const t = convexTest(schema, modules);
-    const seeded = await seedLink(t, "scanme-primer", "https://reviews.example.com/scanme-primer");
+    const destinationUrl = "https://reviews.example.com/scanme-primer";
+    const seeded = await seedLink(t, "scanme-primer", destinationUrl);
     const adminId = await t.run(async (ctx) =>
       await ctx.db.insert("users", {
         email: "admin@scanme.test",
@@ -288,15 +289,28 @@ describe("admin kreiranje lokala", () => {
     await expect(asAdmin.mutation(api.admin.updateBusinessName, {
       businessId: seeded.businessId,
       name: "Novi naziv lokala",
-    })).resolves.toEqual({ name: "Novi naziv lokala" });
+    })).resolves.toEqual({
+      name: "Novi naziv lokala",
+      clientPanelSlug: "novi-naziv-lokala",
+      qrSlug: "novi-naziv-lokala-google-review",
+    });
 
     const state = await t.run(async (ctx) => ({
       business: await ctx.db.get(seeded.businessId),
       link: await ctx.db.get(seeded.linkId),
     }));
     expect(state.business?.name).toBe("Novi naziv lokala");
-    expect(state.business?.slug).toBe("scanme-primer");
-    expect(state.link?.slug).toBe("scanme-primer");
+    expect(state.business?.slug).toBe("novi-naziv-lokala");
+    expect(state.link?.slug).toBe("novi-naziv-lokala-google-review");
+
+    // The previously printed QR address keeps resolving through its alias.
+    await expect(
+      t.mutation(api.redirects.resolveAndRecord, {
+        slug: "scanme-primer",
+        requestId: "22222222-2222-4222-8222-222222222222",
+        deviceCategory: "mobile" as const,
+      }),
+    ).resolves.toEqual({ status: "available", destinationUrl });
     delete process.env.SCANME_ADMIN_EMAILS;
   });
 

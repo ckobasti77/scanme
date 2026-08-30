@@ -1,15 +1,19 @@
 "use client";
 
+import { ConvexError } from "convex/values";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { Authenticated, AuthLoading, Unauthenticated, useMutation, useQuery } from "convex/react";
+import type { FunctionReturnType } from "convex/server";
 import { animate, motion, useMotionValue, useReducedMotion, useTransform } from "framer-motion";
-import { ArrowUpRight, Eye, EyeOff, LoaderCircle, LogOut, ShieldCheck } from "lucide-react";
+import { ArrowUpRight, Eye, EyeOff, LoaderCircle, LogOut, PencilLine, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ClientWordmark } from "@/components/client-panel/client-wordmark";
+import { VenuePanelSection } from "@/components/client-panel/venue-panel-section";
+import { MemoriesPanelSection } from "@/components/client-panel/memories-panel-section";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { MetricsBarChart } from "@/components/metrics-bar-chart";
 import { MetricsPeriodSelect } from "@/components/metrics-period-select";
@@ -18,6 +22,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import type { MetricsRange } from "@/convex/lib/metrics";
+import { venuePanelSr } from "@/lib/i18n/sr/venue-panel";
+import { memoriesPanelSr } from "@/lib/i18n/sr/memories-panel";
 import { useRetainedQueryResult } from "@/lib/use-retained-query-result";
 
 const numberFormatter = new Intl.NumberFormat("sr-Latn-RS");
@@ -41,14 +47,44 @@ export function ClientPanel({ slug }: { slug: string }) {
   );
 }
 
-type ServiceTab = "scanme_links" | "google_review";
+type ServiceTab =
+  | "scanme_links"
+  | "google_review"
+  | "scanme_venue"
+  | "scanme_memories";
 
 function ServicesPanel({ slug }: { slug: string }) {
   const overview = useQuery(api.clientPanel.overview, { slug });
+  // TASK-13 — the Venue section is an additive read model beside `overview`; it
+  // gates itself (returns "none" for a business with no active Venue profile),
+  // so a Links/Google-Review-only business sees an unchanged panel.
+  const venue = useQuery(api.clientPanel.venuePanel, { slug });
+  // TASK-18 — same additive, self-gating shape for Memories (a celebration
+  // tenant reaches its panel through this query alone).
+  const memories = useQuery(api.clientPanel.memoriesPanel, { slug });
+  const { signOut } = useAuthActions();
   const [selectedTab, setSelectedTab] = useState<ServiceTab | null>(null);
 
   if (overview === undefined) return <PanelLoading />;
+
+  const venueSection = venue?.status === "available" ? venue : null;
+  const memoriesSection = memories?.status === "available" ? memories : null;
+
   if (overview.status === "forbidden") {
+    // A tenant that owns only Venue and/or Memories (no legacy Google Review
+    // link — including every celebration) still reaches its panel through the
+    // product-agnostic venuePanel/memoriesPanel queries. Render just those
+    // sections rather than the access-denied screen.
+    if (venueSection || memoriesSection) {
+      return (
+        <ExtraServicesOnly
+          slug={slug}
+          venueSection={venueSection}
+          memoriesSection={memoriesSection}
+          onSignOut={() => void signOut()}
+        />
+      );
+    }
     return (
       <section className="border border-border bg-card p-6 sm:p-10">
         <ShieldCheck className="size-8 text-destructive" />
@@ -71,18 +107,33 @@ function ServicesPanel({ slug }: { slug: string }) {
   return (
     <Tabs value={tab} onValueChange={(value) => setSelectedTab(value as ServiceTab)}>
       <div className="mb-7 flex justify-end border-b border-border pb-5">
-        <TabsList className="h-auto min-h-11 w-full sm:w-auto">
+        <TabsList className="h-auto min-h-11 w-full flex-wrap sm:w-auto">
           <TabsTrigger value="scanme_links" className="min-h-9 px-4">
             ScanMe Links
           </TabsTrigger>
           <TabsTrigger value="google_review" className="min-h-9 px-4">
             Google Review
           </TabsTrigger>
+          {venueSection ? (
+            <TabsTrigger value="scanme_venue" className="min-h-9 px-4">
+              {venuePanelSr.tabLabel}
+            </TabsTrigger>
+          ) : null}
+          {memoriesSection ? (
+            <TabsTrigger value="scanme_memories" className="min-h-9 px-4">
+              {memoriesPanelSr.tabLabel}
+            </TabsTrigger>
+          ) : null}
         </TabsList>
       </div>
       <TabsContent value="scanme_links">
-        {overview.services.scanMeLinks.active ? (
-          <ScanMeLinksMetricsPanel slug={slug} />
+        {overview.services.scanMeLinks.active ||
+        overview.services.scanMeLinks.clientEditingEnabled ? (
+          <ScanMeLinksMetricsPanel
+            slug={slug}
+            canEdit={overview.services.scanMeLinks.clientEditingEnabled}
+            serviceActive={overview.services.scanMeLinks.active}
+          />
         ) : (
           <LockedService
             businessId={overview.businessId}
@@ -102,6 +153,91 @@ function ServicesPanel({ slug }: { slug: string }) {
           />
         )}
       </TabsContent>
+      {venueSection ? (
+        <TabsContent value="scanme_venue">
+          <VenuePanelSection
+            slug={slug}
+            data={venueSection}
+            onSignOut={() => void signOut()}
+          />
+        </TabsContent>
+      ) : null}
+      {memoriesSection ? (
+        <TabsContent value="scanme_memories">
+          <MemoriesPanelSection
+            data={memoriesSection}
+            onSignOut={() => void signOut()}
+          />
+        </TabsContent>
+      ) : null}
+    </Tabs>
+  );
+}
+
+// A tenant reachable ONLY through the product-agnostic Venue/Memories queries
+// (no Links/Google-Review overview — every celebration, and any Venue/Memories-
+// only business). Renders whichever sections resolve; tabs only when both do.
+function ExtraServicesOnly({
+  slug,
+  venueSection,
+  memoriesSection,
+  onSignOut,
+}: {
+  slug: string;
+  venueSection: Extract<
+    FunctionReturnType<typeof api.clientPanel.venuePanel>,
+    { status: "available" }
+  > | null;
+  memoriesSection: Extract<
+    FunctionReturnType<typeof api.clientPanel.memoriesPanel>,
+    { status: "available" }
+  > | null;
+  onSignOut: () => void;
+}) {
+  const [tab, setTab] = useState<ServiceTab>(
+    venueSection ? "scanme_venue" : "scanme_memories",
+  );
+
+  if (venueSection && !memoriesSection) {
+    return (
+      <VenuePanelSection slug={slug} data={venueSection} onSignOut={onSignOut} />
+    );
+  }
+  if (memoriesSection && !venueSection) {
+    return (
+      <MemoriesPanelSection data={memoriesSection} onSignOut={onSignOut} />
+    );
+  }
+  return (
+    <Tabs value={tab} onValueChange={(value) => setTab(value as ServiceTab)}>
+      <div className="mb-7 flex justify-end border-b border-border pb-5">
+        <TabsList className="h-auto min-h-11 w-full flex-wrap sm:w-auto">
+          {venueSection ? (
+            <TabsTrigger value="scanme_venue" className="min-h-9 px-4">
+              {venuePanelSr.tabLabel}
+            </TabsTrigger>
+          ) : null}
+          {memoriesSection ? (
+            <TabsTrigger value="scanme_memories" className="min-h-9 px-4">
+              {memoriesPanelSr.tabLabel}
+            </TabsTrigger>
+          ) : null}
+        </TabsList>
+      </div>
+      {venueSection ? (
+        <TabsContent value="scanme_venue">
+          <VenuePanelSection
+            slug={slug}
+            data={venueSection}
+            onSignOut={onSignOut}
+          />
+        </TabsContent>
+      ) : null}
+      {memoriesSection ? (
+        <TabsContent value="scanme_memories">
+          <MemoriesPanelSection data={memoriesSection} onSignOut={onSignOut} />
+        </TabsContent>
+      ) : null}
     </Tabs>
   );
 }
@@ -129,9 +265,11 @@ function LockedService({
       setSent(true);
     } catch (reason) {
       setError(
-        reason instanceof Error
-          ? reason.message
-          : "Upit trenutno nije moguće poslati. Pokušajte ponovo.",
+        reason instanceof ConvexError && typeof reason.data === "string"
+          ? reason.data
+          : reason instanceof Error
+            ? reason.message
+            : "Upit trenutno nije moguće poslati. Pokušajte ponovo.",
       );
     } finally {
       setPending(false);
@@ -168,7 +306,15 @@ function LockedService({
   );
 }
 
-function ScanMeLinksMetricsPanel({ slug }: { slug: string }) {
+function ScanMeLinksMetricsPanel({
+  slug,
+  canEdit,
+  serviceActive,
+}: {
+  slug: string;
+  canEdit: boolean;
+  serviceActive: boolean;
+}) {
   const [range, setRange] = useState<MetricsRange>("7d");
   const [destinationId, setDestinationId] =
     useState<Id<"serviceDestinations"> | null>(null);
@@ -184,6 +330,15 @@ function ScanMeLinksMetricsPanel({ slug }: { slug: string }) {
 
   return (
     <div aria-busy={metricsQuery === undefined}>
+      {!serviceActive && canEdit ? (
+        <div
+          className="mb-6 border-l-2 border-primary bg-primary/5 px-4 py-3 text-sm leading-6 text-muted-foreground"
+          role="status"
+        >
+          Stranica još nije aktivna. Možete pripremiti i objaviti sadržaj u
+          editoru; administrator uključuje javni servis.
+        </div>
+      ) : null}
       <div className="flex flex-col gap-5 border-b border-border pb-7 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">
@@ -193,9 +348,19 @@ function ScanMeLinksMetricsPanel({ slug }: { slug: string }) {
             {metrics.businessName}
           </h1>
         </div>
-        <Button variant="outline" onClick={() => void signOut()}>
-          <LogOut className="size-4" /> Odjava
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          {canEdit ? (
+            <Button asChild>
+              <Link href={`/${encodeURIComponent(slug)}/editor`}>
+                <PencilLine className="size-4" />
+                Uredi stranicu
+              </Link>
+            </Button>
+          ) : null}
+          <Button variant="outline" onClick={() => void signOut()}>
+            <LogOut className="size-4" /> Odjava
+          </Button>
+        </div>
       </div>
       <dl className="mt-7 grid grid-cols-1 border border-border bg-card sm:grid-cols-3">
         <div className="flex min-h-40 flex-col items-center justify-center border-b border-border p-5 text-center sm:border-b-0 sm:border-r">
@@ -346,17 +511,17 @@ function MetricsPanel({ slug }: { slug: string }) {
         <Button variant="outline" onClick={() => void signOut()}><LogOut className="size-4" /> Odjava</Button>
       </div>
       <dl className="mt-7 grid grid-cols-1 border border-border bg-card sm:grid-cols-2 lg:grid-cols-[1.55fr_1fr_1fr]">
-        <div className="relative col-span-1 flex min-h-36 flex-col items-center justify-center overflow-hidden border-b border-border p-5 text-center sm:col-span-2 sm:min-h-52 sm:p-7 lg:col-span-1 lg:border-b-0">
-          <dt className="text-xs text-muted-foreground">Ukupno skeniranja</dt>
+        <div className="relative col-span-1 flex min-h-36 flex-col overflow-hidden border-b border-border p-5 text-center sm:col-span-2 sm:min-h-52 sm:p-7 lg:col-span-1 lg:border-b-0">
+          <dt className="flex min-h-9 items-center justify-center text-xs text-muted-foreground">Ukupno skeniranja</dt>
           <AnimatedTotal value={metrics.total} />
         </div>
-        <div className="flex min-h-36 flex-col items-center justify-center border-b border-border p-5 text-center sm:min-h-52 sm:border-b-0 sm:border-r sm:p-7 lg:border-l">
-          <dt className="text-xs text-muted-foreground">Danas</dt>
-          <dd className="mt-5 text-3xl font-semibold tabular-nums text-primary sm:text-4xl">{numberFormatter.format(metrics.today)}</dd>
+        <div className="flex min-h-36 flex-col border-b border-border p-5 text-center sm:min-h-52 sm:border-b-0 sm:border-r sm:p-7 lg:border-l">
+          <dt className="flex min-h-9 items-center justify-center text-xs text-muted-foreground">Danas</dt>
+          <dd className="flex flex-1 items-center justify-center text-3xl font-semibold tabular-nums text-primary sm:text-4xl">{numberFormatter.format(metrics.today)}</dd>
         </div>
-        <div className="flex min-h-36 flex-col items-center justify-center p-5 text-center sm:min-h-52 sm:p-7">
-          <dt className="w-full"><MetricsPeriodSelect value={summaryRange} onChange={setSummaryRange} ariaLabel="Period prikazane metrike" /></dt>
-          <dd className="mt-5 text-3xl font-semibold tabular-nums text-primary sm:text-4xl">{numberFormatter.format(metrics.summaryPeriodTotal)}</dd>
+        <div className="flex min-h-36 flex-col p-5 text-center sm:min-h-52 sm:p-7">
+          <dt className="flex min-h-9 items-center justify-center"><MetricsPeriodSelect value={summaryRange} onChange={setSummaryRange} ariaLabel="Period prikazane metrike" triggerClassName="min-h-9" /></dt>
+          <dd className="flex flex-1 items-center justify-center text-3xl font-semibold tabular-nums text-primary sm:text-4xl">{numberFormatter.format(metrics.summaryPeriodTotal)}</dd>
         </div>
       </dl>
       <section className="mt-5 border border-border bg-card p-5 sm:mt-7 sm:p-7">
@@ -401,7 +566,7 @@ function AnimatedTotal({ value }: { value: number }) {
   }, [count, reducedMotion, value]);
 
   return (
-    <dd className="mt-5 text-center" aria-live="polite" aria-atomic="true">
+    <dd className="flex flex-1 flex-col items-center justify-center text-center" aria-live="polite" aria-atomic="true">
       <span className="sr-only">{numberFormatter.format(value)} ukupno skeniranja</span>
       <motion.span aria-hidden="true" className="block text-6xl font-semibold leading-none tabular-nums tracking-[-0.07em] text-primary sm:text-7xl">
         {displayedCount}

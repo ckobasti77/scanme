@@ -1,10 +1,19 @@
+import type { FunctionReturnType } from "convex/server";
+import type { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import type {
   DestinationKind,
   DestinationLifecycle,
 } from "@/lib/scanme-links";
 import type { ScanMeLinksDesignV2 } from "@/lib/scanme-links-design";
-import type { PaletteGenerationMode } from "@/lib/scanme-palette";
+import type {
+  PaletteGenerationMode,
+  PaletteSchemeType,
+} from "@/lib/scanme-palette";
+
+export type EditorData = NonNullable<
+  FunctionReturnType<typeof api.scanMeLinks.editorBySlug>
+>;
 
 export const EDITOR_PANEL_IDS = [
   "content",
@@ -40,6 +49,7 @@ export type EditorPaletteAnalysis = {
   correctedRoles: string[];
   generationMode: PaletteGenerationMode;
   lockedSlots: boolean[];
+  schemeType: PaletteSchemeType;
 };
 
 export type ScanMeLinksEditorDocument = {

@@ -1,2 +1,11 @@
-import { AdminPlaceholder } from "@/components/admin/admin-placeholder";
-export default function ScanMeMemoriesAdmin() { return <AdminPlaceholder title="ScanMe Memories" />; }
+import type { Metadata } from "next";
+import { ScanMeMemoriesAdmin } from "@/components/admin/memories-admin";
+
+export const metadata: Metadata = {
+  title: "ScanMe Memories | ScanMe Admin",
+  robots: { index: false, follow: false },
+};
+
+export default function ScanMeMemoriesAdminPage() {
+  return <ScanMeMemoriesAdmin />;
+}

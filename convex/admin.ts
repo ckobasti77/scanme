@@ -1,15 +1,19 @@
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx } from "./_generated/server";
 import { isAdminEmail, requireAdmin } from "./lib/access";
+import { upsertManualEntitlement } from "./lib/entitlements";
+import { buildBusinessContactViews } from "./lib/contacts";
 import { aggregateMetricRowsForRange, getMetricRows, metricsRangeConfig } from "./lib/metrics";
 import { isSafePublicDestination, normalizeEmail, normalizePhone, requireSlug, requireText } from "./lib/validation";
 import {
   DEFAULT_ACCENT,
   DEFAULT_ACCENT_TOKENS,
   googleReviewSlug,
+  slugify,
+  SLUG_MAX_LENGTH,
 } from "../lib/scanme-links";
 
 const INVITATION_LIFETIME = 7 * 24 * 60 * 60 * 1000;
@@ -124,46 +128,10 @@ export const listBusinesses = query({
           .order("desc")
           .take(20);
         const link = selectPrimaryLink(links);
-        const contactRows = await ctx.db
-          .query("businessContacts")
-          .withIndex("by_businessId", (q) => q.eq("businessId", business._id))
-          .order("asc")
-          .take(50);
-        const activeContactRows = contactRows.filter((contact) => contact.status !== "inactive");
-        const orderedContactRows = activeContactRows.length
-          ? activeContactRows
-          : contactRows.length
-            ? [contactRows[contactRows.length - 1]]
-            : [];
-        const contactViews = await Promise.all(
-          orderedContactRows.map(async (contact) => {
-            const invitations = await ctx.db
-              .query("businessInvitations")
-              .withIndex("by_contactId", (q) => q.eq("contactId", contact._id))
-              .order("desc")
-              .take(1);
-            const invitation = invitations[0] ?? null;
-            return {
-              id: contact._id,
-              firstName: contact.firstName,
-              lastName: contact.lastName,
-              email: contact.normalizedEmail,
-              phone: contact.phone,
-              positionTitle: contact.positionTitle,
-              status: contact.status,
-              invitation: invitation
-                ? {
-                    id: invitation._id,
-                    status: invitation.status,
-                    expiresAt: invitation.expiresAt,
-                    failureReason: invitation.failureReason ?? null,
-                    sentAt: invitation.sentAt ?? null,
-                  }
-                : null,
-            };
-          }),
+        const { contact, contacts, invitation } = await buildBusinessContactViews(
+          ctx,
+          business._id,
         );
-        const contact = contactViews[0] ?? null;
         const reviewProfile = await ctx.db
           .query("serviceProfiles")
           .withIndex("by_businessId_and_type", (q) =>
@@ -188,8 +156,8 @@ export const listBusinesses = query({
               }
             : null,
           contact,
-          contacts: contactViews,
-          invitation: contact?.invitation ?? null,
+          contacts,
+          invitation,
         };
       }),
     );
@@ -212,26 +180,31 @@ export const createBusiness = mutation({
     await requireAdmin(ctx);
     const name = requireText(args.name, "Naziv lokala", 2, 120);
     const slug = requireSlug(args.slug);
+    if (slug.length > 66) {
+      throw new ConvexError(
+        "Osnovni slug može imati najviše 66 karaktera da bi izvedena Google Review adresa ostala važeća.",
+      );
+    }
     const reviewSlug = googleReviewSlug(slug);
     const destinationUrl = args.destinationUrl.trim();
     if (destinationUrl && !isSafePublicDestination(destinationUrl)) {
-      throw new Error("Destinacija mora biti bezbedan javni HTTPS link.");
+      throw new ConvexError("Destinacija mora biti bezbedan javni HTTPS link.");
     }
     const existingLink = await ctx.db
       .query("dynamicLinks")
       .withIndex("by_slug", (q) => q.eq("slug", reviewSlug))
       .unique();
-    if (existingLink) throw new Error("Ovaj QR slug se već koristi.");
+    if (existingLink) throw new ConvexError("Ovaj QR slug se već koristi.");
     const existingAlias = await ctx.db
       .query("dynamicLinkAliases")
       .withIndex("by_slug", (q) => q.eq("slug", reviewSlug))
       .unique();
-    if (existingAlias) throw new Error("Ovaj QR slug je sačuvan za ranije odštampanu adresu.");
+    if (existingAlias) throw new ConvexError("Ovaj QR slug je sačuvan za ranije odštampanu adresu.");
     const existingBusiness = await ctx.db
       .query("businesses")
       .withIndex("by_slug", (q) => q.eq("slug", slug))
       .unique();
-    if (existingBusiness) throw new Error("Oznaka lokala se već koristi.");
+    if (existingBusiness) throw new ConvexError("Oznaka lokala se već koristi.");
 
     const existingLinksProfile = await ctx.db
       .query("serviceProfiles")
@@ -242,7 +215,7 @@ export const createBusiness = mutation({
       .withIndex("by_slug", (q) => q.eq("slug", reviewSlug))
       .unique();
     if (existingLinksProfile || existingReviewProfile) {
-      throw new Error("Ovaj servisni slug se već koristi.");
+      throw new ConvexError("Ovaj servisni slug se već koristi.");
     }
 
     const now = Date.now();
@@ -403,9 +376,9 @@ export const updateDestination = mutation({
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
     const legacyLink = await ctx.db.get(args.linkId);
-    if (!legacyLink) throw new Error("QR link nije pronađen.");
+    if (!legacyLink) throw new ConvexError("QR link nije pronađen.");
     if (!isSafePublicDestination(args.destinationUrl)) {
-      throw new Error("Destinacija mora biti bezbedan javni HTTPS link.");
+      throw new ConvexError("Destinacija mora biti bezbedan javni HTTPS link.");
     }
     await ctx.db.patch(args.linkId, {
       destinationUrl: args.destinationUrl.trim(),
@@ -440,15 +413,251 @@ export const updateDestination = mutation({
   },
 });
 
+// Re-slug a business's base slug and keep every derived slug in sync:
+// businesses.slug, both serviceProfiles.slug (scanme_links = base, google_review =
+// base-google-review), dynamicLinks.slug, plus alias rows for the vacated slugs so
+// previously printed QR codes and saved service URLs keep resolving. This is the exact
+// logic the `clientPanel` branch of `updateBusinessSlug` used inline; it is shared so a
+// rename can perform the same sync.
+async function applyBaseSlugSync(
+  ctx: MutationCtx,
+  params: {
+    business: Doc<"businesses">;
+    link: Doc<"dynamicLinks"> | null;
+    linksProfile: Doc<"serviceProfiles"> | null;
+    reviewProfile: Doc<"serviceProfiles"> | null;
+    base: string;
+  },
+) {
+  const { business, link, linksProfile, reviewProfile, base } = params;
+  const reviewSlug = googleReviewSlug(base);
+  const desiredSlugSet = new Set([base, reviewSlug]);
+  const ownProfileIds = new Set(
+    [linksProfile?._id, reviewProfile?._id].filter(
+      (id): id is Id<"serviceProfiles"> => id !== undefined,
+    ),
+  );
+  const now = Date.now();
+
+  if (link && link.slug !== reviewSlug) {
+    const oldAlias = await ctx.db
+      .query("dynamicLinkAliases")
+      .withIndex("by_slug", (q) => q.eq("slug", link.slug))
+      .unique();
+    if (!desiredSlugSet.has(link.slug) && !oldAlias) {
+      await ctx.db.insert("dynamicLinkAliases", {
+        slug: link.slug,
+        dynamicLinkId: link._id,
+        createdAt: now,
+      });
+    }
+    const promotedAlias = await ctx.db
+      .query("dynamicLinkAliases")
+      .withIndex("by_slug", (q) => q.eq("slug", reviewSlug))
+      .unique();
+    if (promotedAlias?.dynamicLinkId === link._id) {
+      await ctx.db.delete(promotedAlias._id);
+    }
+    await ctx.db.patch(link._id, { slug: reviewSlug, updatedAt: now });
+  }
+
+  for (const [profile, nextSlug] of [
+    [linksProfile, base],
+    [reviewProfile, reviewSlug],
+  ] as const) {
+    if (!profile || profile.slug === nextSlug) continue;
+    const oldAlias = await ctx.db
+      .query("serviceSlugAliases")
+      .withIndex("by_slug", (q) => q.eq("slug", profile.slug))
+      .unique();
+    if (!desiredSlugSet.has(profile.slug) && !oldAlias) {
+      await ctx.db.insert("serviceSlugAliases", {
+        slug: profile.slug,
+        serviceProfileId: profile._id,
+        createdAt: now,
+      });
+    }
+    const promotedAlias = await ctx.db
+      .query("serviceSlugAliases")
+      .withIndex("by_slug", (q) => q.eq("slug", nextSlug))
+      .unique();
+    if (promotedAlias && ownProfileIds.has(promotedAlias.serviceProfileId)) {
+      await ctx.db.delete(promotedAlias._id);
+    }
+    await ctx.db.patch(profile._id, { slug: nextSlug, updatedAt: now });
+  }
+
+  await ctx.db.patch(business._id, { slug: base });
+  return { qrSlug: reviewSlug, clientPanelSlug: base };
+}
+
+// Non-throwing collision check used by the rename auto-suffix path. Confirms both the
+// base slug and its derived google_review slug are free across every table (ignoring the
+// business's own rows).
+async function isBaseSlugAvailable(
+  ctx: MutationCtx,
+  base: string,
+  own: {
+    businessId: Id<"businesses">;
+    linkId: Id<"dynamicLinks"> | null;
+    profileIds: Set<Id<"serviceProfiles">>;
+  },
+) {
+  for (const slug of [base, googleReviewSlug(base)]) {
+    const links = await ctx.db
+      .query("dynamicLinks")
+      .withIndex("by_slug", (q) => q.eq("slug", slug))
+      .take(2);
+    if (links.some((candidate) => candidate._id !== own.linkId)) return false;
+    const businesses = await ctx.db
+      .query("businesses")
+      .withIndex("by_slug", (q) => q.eq("slug", slug))
+      .take(2);
+    if (businesses.some((candidate) => candidate._id !== own.businessId)) return false;
+    const profiles = await ctx.db
+      .query("serviceProfiles")
+      .withIndex("by_slug", (q) => q.eq("slug", slug))
+      .take(2);
+    if (profiles.some((candidate) => !own.profileIds.has(candidate._id))) return false;
+    const linkAliases = await ctx.db
+      .query("dynamicLinkAliases")
+      .withIndex("by_slug", (q) => q.eq("slug", slug))
+      .take(2);
+    if (linkAliases.some((candidate) => candidate.dynamicLinkId !== own.linkId)) return false;
+    const serviceAliases = await ctx.db
+      .query("serviceSlugAliases")
+      .withIndex("by_slug", (q) => q.eq("slug", slug))
+      .take(2);
+    if (serviceAliases.some((candidate) => !own.profileIds.has(candidate.serviceProfileId)))
+      return false;
+  }
+  return true;
+}
+
+// Derive an available base slug from the desired one, appending -2, -3, … on collision so
+// a rename always succeeds (unlike manual slug edits, which surface the collision).
+async function resolveAvailableBaseSlug(
+  ctx: MutationCtx,
+  desired: string,
+  own: {
+    businessId: Id<"businesses">;
+    linkId: Id<"dynamicLinks"> | null;
+    profileIds: Set<Id<"serviceProfiles">>;
+  },
+) {
+  const trimBase = (value: string, max: number) =>
+    value.slice(0, max).replace(/-+$/g, "");
+  const primary = trimBase(desired, SLUG_MAX_LENGTH);
+  if (primary && (await isBaseSlugAvailable(ctx, primary, own))) return primary;
+  for (let counter = 2; counter < 1000; counter += 1) {
+    const suffix = `-${counter}`;
+    const candidate = `${trimBase(desired, SLUG_MAX_LENGTH - suffix.length)}${suffix}`;
+    if (await isBaseSlugAvailable(ctx, candidate, own)) return candidate;
+  }
+  throw new ConvexError("Ne mogu da napravim jedinstven slug za ovaj naziv.");
+}
+
+// When the ScanMe Links page title still mirrors the old business name (i.e. it was never
+// customized in the editor), follow the rename. A client's intentionally customized title
+// is left untouched.
+async function syncLinksDisplayName(
+  ctx: MutationCtx,
+  businessId: Id<"businesses">,
+  previousName: string,
+  nextName: string,
+) {
+  const profile = await ctx.db
+    .query("serviceProfiles")
+    .withIndex("by_businessId_and_type", (q) =>
+      q.eq("businessId", businessId).eq("type", "scanme_links"),
+    )
+    .unique();
+  if (!profile) return;
+  const config = await ctx.db
+    .query("scanMeLinksConfigs")
+    .withIndex("by_serviceProfileId", (q) => q.eq("serviceProfileId", profile._id))
+    .unique();
+  if (!config) return;
+  const patch: {
+    draftDisplayName?: string;
+    publishedDisplayName?: string;
+    hasUnpublishedChanges?: boolean;
+  } = {};
+  if (config.draftDisplayName === previousName) patch.draftDisplayName = nextName;
+  if (config.publishedDisplayName === previousName) patch.publishedDisplayName = nextName;
+  if (patch.draftDisplayName === undefined && patch.publishedDisplayName === undefined) return;
+  const resolvedDraft = patch.draftDisplayName ?? config.draftDisplayName;
+  const resolvedPublished = patch.publishedDisplayName ?? config.publishedDisplayName;
+  if (patch.draftDisplayName !== undefined && resolvedDraft !== resolvedPublished) {
+    patch.hasUnpublishedChanges = true;
+  }
+  await ctx.db.patch(config._id, { ...patch, updatedAt: Date.now() });
+}
+
 export const updateBusinessName = mutation({
   args: { businessId: v.id("businesses"), name: v.string() },
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
     const business = await ctx.db.get(args.businessId);
-    if (!business) throw new Error("Lokal nije pronađen.");
+    if (!business) throw new ConvexError("Lokal nije pronađen.");
     const name = requireText(args.name, "Naziv lokala", 2, 120);
+    const previousName = business.name;
+
     await ctx.db.patch(args.businessId, { name });
-    return { name };
+
+    // Re-slug so the address follows the name. Old QR prints keep working via aliases;
+    // the client-panel URL changes (accepted product decision — no businesses alias table).
+    let synced: { qrSlug: string; clientPanelSlug: string } | null = null;
+    const desiredBase = slugify(name);
+    if (desiredBase && desiredBase !== business.slug) {
+      const links = await ctx.db
+        .query("dynamicLinks")
+        .withIndex("by_businessId_and_type", (q) =>
+          q.eq("businessId", args.businessId).eq("type", "google_review"),
+        )
+        .order("desc")
+        .take(20);
+      const link = selectPrimaryLink(links);
+      const linksProfile = await ctx.db
+        .query("serviceProfiles")
+        .withIndex("by_businessId_and_type", (q) =>
+          q.eq("businessId", args.businessId).eq("type", "scanme_links"),
+        )
+        .unique();
+      const reviewProfile = await ctx.db
+        .query("serviceProfiles")
+        .withIndex("by_businessId_and_type", (q) =>
+          q.eq("businessId", args.businessId).eq("type", "google_review"),
+        )
+        .unique();
+      const profileIds = new Set(
+        [linksProfile?._id, reviewProfile?._id].filter(
+          (id): id is Id<"serviceProfiles"> => id !== undefined,
+        ),
+      );
+      const base = await resolveAvailableBaseSlug(ctx, desiredBase, {
+        businessId: args.businessId,
+        linkId: link?._id ?? null,
+        profileIds,
+      });
+      synced = await applyBaseSlugSync(ctx, {
+        business,
+        link,
+        linksProfile,
+        reviewProfile,
+        base,
+      });
+    }
+
+    if (previousName !== name) {
+      await syncLinksDisplayName(ctx, args.businessId, previousName, name);
+    }
+
+    return {
+      name,
+      qrSlug: synced?.qrSlug ?? null,
+      clientPanelSlug: synced?.clientPanelSlug ?? business.slug,
+    };
   },
 });
 
@@ -462,7 +671,7 @@ export const updateBusinessSlug = mutation({
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
     const business = await ctx.db.get(args.businessId);
-    if (!business) throw new Error("Lokal nije pronađen.");
+    if (!business) throw new ConvexError("Lokal nije pronađen.");
     const slug = requireSlug(args.slug);
     const selectedLink = args.linkId ? await ctx.db.get(args.linkId) : null;
     const links = await ctx.db
@@ -477,7 +686,7 @@ export const updateBusinessSlug = mutation({
       selectedLink.type === "google_review"
         ? selectedLink
         : selectPrimaryLink(links);
-    if (!link) throw new Error("QR link nije pronađen.");
+    if (!link) throw new ConvexError("QR link nije pronađen.");
     const linksProfile = await ctx.db
       .query("serviceProfiles")
       .withIndex("by_businessId_and_type", (q) =>
@@ -492,6 +701,11 @@ export const updateBusinessSlug = mutation({
       .unique();
 
     if (args.kind === "clientPanel") {
+      if (slug.length > 66) {
+        throw new ConvexError(
+          "Osnovni slug može imati najviše 66 karaktera da bi izvedena Google Review adresa ostala važeća.",
+        );
+      }
       const reviewSlug = googleReviewSlug(slug);
       const ownProfileIds = new Set(
         [linksProfile?._id, reviewProfile?._id].filter(
@@ -506,13 +720,9 @@ export const updateBusinessSlug = mutation({
           .withIndex("by_slug", (q) => q.eq("slug", desiredSlug))
           .take(2);
         if (
-          matchingLinks.some(
-            (candidate) =>
-              candidate._id !== link._id &&
-              candidate.businessId !== business._id,
-          )
+          matchingLinks.some((candidate) => candidate._id !== link._id)
         ) {
-          throw new Error("Ovaj slug se već koristi za drugu QR adresu.");
+          throw new ConvexError("Ovaj slug se već koristi za drugu QR adresu.");
         }
         const matchingBusinesses = await ctx.db
           .query("businesses")
@@ -521,7 +731,7 @@ export const updateBusinessSlug = mutation({
         if (
           matchingBusinesses.some((candidate) => candidate._id !== business._id)
         ) {
-          throw new Error("Ovaj slug se već koristi za drugi lokal.");
+          throw new ConvexError("Ovaj slug se već koristi za drugi lokal.");
         }
         const matchingProfiles = await ctx.db
           .query("serviceProfiles")
@@ -532,7 +742,7 @@ export const updateBusinessSlug = mutation({
             (candidate) => !ownProfileIds.has(candidate._id),
           )
         ) {
-          throw new Error("Ovaj servisni slug se već koristi.");
+          throw new ConvexError("Ovaj servisni slug se već koristi.");
         }
         const matchingLinkAliases = await ctx.db
           .query("dynamicLinkAliases")
@@ -543,7 +753,7 @@ export const updateBusinessSlug = mutation({
             (candidate) => candidate.dynamicLinkId !== link._id,
           )
         ) {
-          throw new Error("Ovaj slug je sačuvan za ranije odštampanu QR adresu.");
+          throw new ConvexError("Ovaj slug je sačuvan za ranije odštampanu QR adresu.");
         }
         const matchingServiceAliases = await ctx.db
           .query("serviceSlugAliases")
@@ -554,65 +764,17 @@ export const updateBusinessSlug = mutation({
             (candidate) => !ownProfileIds.has(candidate.serviceProfileId),
           )
         ) {
-          throw new Error("Ovaj servisni slug je sačuvan kao ranija adresa.");
+          throw new ConvexError("Ovaj servisni slug je sačuvan kao ranija adresa.");
         }
       }
 
-      const now = Date.now();
-      const desiredSlugSet = new Set(desiredSlugs);
-      if (link.slug !== reviewSlug) {
-        const oldAlias = await ctx.db
-          .query("dynamicLinkAliases")
-          .withIndex("by_slug", (q) => q.eq("slug", link.slug))
-          .unique();
-        if (!desiredSlugSet.has(link.slug) && !oldAlias) {
-          await ctx.db.insert("dynamicLinkAliases", {
-            slug: link.slug,
-            dynamicLinkId: link._id,
-            createdAt: now,
-          });
-        }
-        const promotedAlias = await ctx.db
-          .query("dynamicLinkAliases")
-          .withIndex("by_slug", (q) => q.eq("slug", reviewSlug))
-          .unique();
-        if (promotedAlias?.dynamicLinkId === link._id) {
-          await ctx.db.delete(promotedAlias._id);
-        }
-        await ctx.db.patch(link._id, { slug: reviewSlug, updatedAt: now });
-      }
-
-      for (const [profile, nextSlug] of [
-        [linksProfile, slug],
-        [reviewProfile, reviewSlug],
-      ] as const) {
-        if (!profile || profile.slug === nextSlug) continue;
-        const oldAlias = await ctx.db
-          .query("serviceSlugAliases")
-          .withIndex("by_slug", (q) => q.eq("slug", profile.slug))
-          .unique();
-        if (!desiredSlugSet.has(profile.slug) && !oldAlias) {
-          await ctx.db.insert("serviceSlugAliases", {
-            slug: profile.slug,
-            serviceProfileId: profile._id,
-            createdAt: now,
-          });
-        }
-        const promotedAlias = await ctx.db
-          .query("serviceSlugAliases")
-          .withIndex("by_slug", (q) => q.eq("slug", nextSlug))
-          .unique();
-        if (
-          promotedAlias &&
-          ownProfileIds.has(promotedAlias.serviceProfileId)
-        ) {
-          await ctx.db.delete(promotedAlias._id);
-        }
-        await ctx.db.patch(profile._id, { slug: nextSlug, updatedAt: now });
-      }
-
-      await ctx.db.patch(business._id, { slug });
-      return { qrSlug: reviewSlug, clientPanelSlug: slug };
+      return await applyBaseSlugSync(ctx, {
+        business,
+        link,
+        linksProfile,
+        reviewProfile,
+        base: slug,
+      });
     }
 
     const targetProfile = reviewProfile;
@@ -621,28 +783,28 @@ export const updateBusinessSlug = mutation({
       .withIndex("by_slug", (q) => q.eq("slug", slug))
       .take(2);
     if (matchingLinks.some((candidate) => candidate._id !== link._id)) {
-      throw new Error("Ovaj slug se već koristi za drugu QR adresu.");
+      throw new ConvexError("Ovaj slug se već koristi za drugu QR adresu.");
     }
     const matchingBusinesses = await ctx.db
       .query("businesses")
       .withIndex("by_slug", (q) => q.eq("slug", slug))
       .take(2);
     if (matchingBusinesses.some((candidate) => candidate._id !== business._id)) {
-      throw new Error("Ovaj slug se već koristi za drugi klijentski panel.");
+      throw new ConvexError("Ovaj slug se već koristi za drugi klijentski panel.");
     }
     const matchingAliases = await ctx.db
       .query("dynamicLinkAliases")
       .withIndex("by_slug", (q) => q.eq("slug", slug))
       .take(2);
     if (matchingAliases.some((candidate) => candidate.dynamicLinkId !== link._id)) {
-      throw new Error("Ovaj slug je sačuvan za ranije odštampanu QR adresu.");
+      throw new ConvexError("Ovaj slug je sačuvan za ranije odštampanu QR adresu.");
     }
     const matchingProfiles = await ctx.db
       .query("serviceProfiles")
       .withIndex("by_slug", (q) => q.eq("slug", slug))
       .take(2);
     if (matchingProfiles.some((candidate) => candidate._id !== targetProfile?._id)) {
-      throw new Error("Ovaj servisni slug se već koristi.");
+      throw new ConvexError("Ovaj servisni slug se već koristi.");
     }
     const matchingServiceAliases = await ctx.db
       .query("serviceSlugAliases")
@@ -653,7 +815,7 @@ export const updateBusinessSlug = mutation({
         (candidate) => candidate.serviceProfileId !== targetProfile?._id,
       )
     ) {
-      throw new Error("Ovaj servisni slug je sačuvan kao ranija adresa.");
+      throw new ConvexError("Ovaj servisni slug je sačuvan kao ranija adresa.");
     }
 
     const now = Date.now();
@@ -712,8 +874,8 @@ export const setBusinessActive = mutation({
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
     const business = await ctx.db.get(args.businessId);
-    if (!business) throw new Error("Lokal nije pronađen.");
-    if (business.archivedAt) throw new Error("Arhivirani lokal ne može biti aktiviran.");
+    if (!business) throw new ConvexError("Lokal nije pronađen.");
+    if (business.archivedAt) throw new ConvexError("Arhivirani lokal ne može biti aktiviran.");
     const links = await ctx.db
       .query("dynamicLinks")
       .withIndex("by_businessId_and_type", (q) =>
@@ -741,7 +903,7 @@ export const setBusinessActive = mutation({
         (!destinations[0]?.publishedUrl ||
           !isSafePublicDestination(destinations[0].publishedUrl))
       ) {
-        throw new Error("Google Review servis mora imati bezbednu destinaciju.");
+        throw new ConvexError("Google Review servis mora imati bezbednu destinaciju.");
       }
       await ctx.db.patch(profile._id, {
         status: args.active ? "active" : "inactive",
@@ -762,8 +924,8 @@ export const archiveBusiness = mutation({
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
     const business = await ctx.db.get(args.businessId);
-    if (!business) throw new Error("Lokal nije pronađen.");
-    if (business.archivedAt) throw new Error("Lokal je već arhiviran.");
+    if (!business) throw new ConvexError("Lokal nije pronađen.");
+    if (business.archivedAt) throw new ConvexError("Lokal je već arhiviran.");
     const serviceProfiles = await ctx.db
       .query("serviceProfiles")
       .withIndex("by_businessId", (q) => q.eq("businessId", args.businessId))
@@ -776,7 +938,7 @@ export const archiveBusiness = mutation({
       serviceProfiles.some((profile) => profile.status === "active") ||
       (serviceProfiles.length === 0 && business.status !== "inactive")
     ) {
-      throw new Error("Svi servisi lokala moraju biti deaktivirani pre arhiviranja.");
+      throw new ConvexError("Svi servisi lokala moraju biti deaktivirani pre arhiviranja.");
     }
 
     const now = Date.now();
@@ -800,10 +962,10 @@ export const resendInvitation = mutation({
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
     const previous = await ctx.db.get(args.invitationId);
-    if (!previous) throw new Error("Pozivnica nije pronađena.");
-    if (previous.status === "accepted") throw new Error("Prihvaćena pozivnica se ne šalje ponovo. Zamenite POC kontakt ako je potrebno.");
+    if (!previous) throw new ConvexError("Pozivnica nije pronađena.");
+    if (previous.status === "accepted") throw new ConvexError("Prihvaćena pozivnica se ne šalje ponovo. Zamenite POC kontakt ako je potrebno.");
     const contact = await ctx.db.get(previous.contactId);
-    if (!contact || contact.status === "inactive") throw new Error("POC više nije aktivan.");
+    if (!contact || contact.status === "inactive") throw new ConvexError("POC više nije aktivan.");
     if (previous.status !== "revoked") {
       await ctx.db.patch(previous._id, { status: "revoked", updatedAt: Date.now() });
     }
@@ -829,7 +991,7 @@ export const revokeInvitation = mutation({
     await requireAdmin(ctx);
     const invitation = await ctx.db.get(args.invitationId);
     if (!invitation || invitation.status === "accepted") {
-      throw new Error("Pozivnica ne može biti opozvana.");
+      throw new ConvexError("Pozivnica ne može biti opozvana.");
     }
     await ctx.db.patch(invitation._id, { status: "revoked", updatedAt: Date.now() });
     return { revoked: true };
@@ -841,7 +1003,7 @@ export const addContact = mutation({
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
     const business = await ctx.db.get(args.businessId);
-    if (!business) throw new Error("Lokal nije pronađen.");
+    if (!business) throw new ConvexError("Lokal nije pronađen.");
     return await createContactAndInvitation(ctx, args.businessId, args, { sendInvitation: false });
   },
 });
@@ -852,7 +1014,7 @@ export const updateContact = mutation({
     await requireAdmin(ctx);
     const contact = await ctx.db.get(args.contactId);
     if (!contact || contact.businessId !== args.businessId || contact.status === "inactive") {
-      throw new Error("POC kontakt nije pronađen.");
+      throw new ConvexError("POC kontakt nije pronađen.");
     }
     const normalizedEmail = normalizeOptionalEmail(args.email);
     await ctx.db.patch(contact._id, {
@@ -892,7 +1054,7 @@ export const deleteContact = mutation({
     await requireAdmin(ctx);
     const contact = await ctx.db.get(args.contactId);
     if (!contact || contact.businessId !== args.businessId) {
-      throw new Error("POC kontakt nije pronađen.");
+      throw new ConvexError("POC kontakt nije pronađen.");
     }
     const contacts = await ctx.db
       .query("businessContacts")
@@ -901,7 +1063,7 @@ export const deleteContact = mutation({
       .take(50);
     const primary = contacts.find((candidate) => candidate.status !== "inactive");
     if (!primary || primary._id === contact._id) {
-      throw new Error("Glavni POC kontakt ne može da se obriše. Dodajte drugi kontakt pa obrišite njega.");
+      throw new ConvexError("Glavni POC kontakt ne može da se obriše. Dodajte drugi kontakt pa obrišite njega.");
     }
     const now = Date.now();
     await ctx.db.patch(contact._id, { status: "inactive", updatedAt: now });
@@ -932,7 +1094,7 @@ export const replaceContact = mutation({
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
     const business = await ctx.db.get(args.businessId);
-    if (!business) throw new Error("Lokal nije pronađen.");
+    if (!business) throw new ConvexError("Lokal nije pronađen.");
     const contacts = await ctx.db
       .query("businessContacts")
       .withIndex("by_businessId", (q) => q.eq("businessId", args.businessId))
@@ -960,5 +1122,45 @@ export const replaceContact = mutation({
       }
     }
     return await createContactAndInvitation(ctx, args.businessId, args);
+  },
+});
+
+// Approve an activation request in ONE transaction (RFC-001 §2.3), closing the
+// audited gap (§1.e) where profile status and entitlement could drift: (1) flip
+// the service profile to "active" (what setServiceActive does), (2) upsert the
+// entitlement with source "manual", (3) close the request. An optional spaceId
+// grants a space-scoped entitlement instead of a business-scoped one.
+export const approveActivation = mutation({
+  args: {
+    requestId: v.id("serviceActivationRequests"),
+    planKey: v.string(),
+    spaceId: v.optional(v.id("memoriesSpaces")),
+  },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    const request = await ctx.db.get(args.requestId);
+    if (!request) throw new ConvexError("Upit nije pronađen.");
+    const profile = await ctx.db.get(request.serviceProfileId);
+    if (!profile) throw new ConvexError("Servisni profil nije pronađen.");
+    const business = await ctx.db.get(profile.businessId);
+    if (!business || business.archivedAt) {
+      throw new ConvexError("Arhivirani lokal ne može biti aktiviran.");
+    }
+
+    const now = Date.now();
+    // 1. profile → active
+    await ctx.db.patch(profile._id, { status: "active", updatedAt: now });
+    // 2. entitlement upsert (source: manual)
+    const entitlementId = await upsertManualEntitlement(ctx, {
+      businessId: profile.businessId,
+      product: request.requestedService,
+      planKey: args.planKey,
+      spaceId: args.spaceId,
+      now,
+    });
+    // 3. close the request
+    await ctx.db.patch(request._id, { status: "closed", updatedAt: now });
+
+    return { activated: true as const, entitlementId };
   },
 });

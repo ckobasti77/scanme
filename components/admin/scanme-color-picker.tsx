@@ -53,6 +53,7 @@ export function ScanMeColorField({
 }) {
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const hexInputRef = useRef<HTMLInputElement>(null);
   const currentHex = normalizeHexColor(value);
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<PickerMode>("Picker");
@@ -75,6 +76,13 @@ export function ScanMeColorField({
     setCopied(false);
     if (restoreFocus) triggerRef.current?.focus();
   }, []);
+
+  // Spoljna promena boje (picker, undo, kontrast-asistent) osvežava polje,
+  // ali ne dok korisnik kuca u njemu — remount/rewrite bi mu oteo fokus.
+  useEffect(() => {
+    const input = hexInputRef.current;
+    if (input && document.activeElement !== input) input.value = value;
+  }, [value]);
 
   const openPicker = useCallback(() => {
     const openingHex = normalizeHexColor(value);
@@ -282,10 +290,20 @@ export function ScanMeColorField({
             {colorDisplayName(value)}
           </span>
           <input
+            ref={hexInputRef}
             className={editorStyles.colorHexInput}
-            value={value}
+            defaultValue={value}
             maxLength={9}
-            onChange={(event) => onChange(event.target.value.toUpperCase())}
+            spellCheck={false}
+            onChange={(event) => {
+              const draft = event.target.value.startsWith("#")
+                ? event.target.value.toUpperCase()
+                : `#${event.target.value.toUpperCase()}`;
+              if (isCompleteHexColor(draft)) onChange(draft);
+            }}
+            onBlur={(event) => {
+              event.currentTarget.value = value;
+            }}
             aria-label={`${label} heksadecimalna vrednost`}
           />
         </span>

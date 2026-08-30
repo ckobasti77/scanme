@@ -9,5 +9,10 @@ out/
 .playwright-cli/
 output/playwright/
 
+# Lokalni scratch prostor (staging kopije, tarball-ovi, PDF-ovi, logovi).
+tmp/
+
 npm-debug.log*
 *.tsbuildinfo
+
+.playwright-mcp/

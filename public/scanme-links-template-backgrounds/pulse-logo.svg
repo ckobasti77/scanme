@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <filter id="neonPulseGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="5" result="blur1"/>
+      <feGaussianBlur stdDeviation="12" result="blur2"/>
+      <feMerge>
+        <feMergeNode in="blur2"/>
+        <feMergeNode in="blur1"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Outer Neon Glowing Ring -->
+  <circle cx="100" cy="100" r="90" fill="#040608" stroke="#00F0FF" stroke-width="4.5" filter="url(#neonPulseGlow)"/>
+  <circle cx="100" cy="100" r="84" fill="#05080C" stroke="rgba(255, 0, 153, 0.4)" stroke-width="1.5"/>
+
+  <!-- Stylized Geometric PULSE Wordmark -->
+  <g transform="translate(100, 100)" filter="url(#neonPulseGlow)" fill="#FFFFFF">
+    <!-- P -->
+    <path d="M -72,-24 L -46,-24 C -37,-24 -32,-18 -32,-9 C -32,0 -37,6 -46,6 L -58,6 L -58,24 L -72,24 Z M -58,-11 L -46,-11 C -42,-11 -39,-13 -39,-9 C -39,-5 -42,-3 -46,-3 L -58,-3 Z"/>
+    <!-- U -->
+    <path d="M -26,-24 L -12,-24 L -12,10 C -12,18 -6,22 1,22 C 8,22 14,18 14,10 L 14,-24 L 28,-24 L 28,10 C 28,26 16,36 1,36 C -14,36 -26,26 -26,10 Z" transform="scale(0.85) translate(-10, -5)"/>
+    <!-- L -->
+    <path d="M 0,-24 L 14,-24 L 14,11 L 34,11 L 34,24 L 0,24 Z" transform="translate(0, 0)"/>
+    <!-- S -->
+    <path d="M 38,15 C 39,21 44,24 52,24 C 60,24 65,20 65,15 C 65,9 60,7 50,4 C 38,1 32,-4 32,-13 C 32,-21 39,-26 51,-26 C 63,-26 69,-20 70,-12 L 56,-12 C 55,-16 52,-18 48,-18 C 44,-18 40,-16 40,-13 C 40,-9 44,-7 54,-4 C 66,-1 73,4 73,14 C 73,23 65,28 52,28 C 38,28 30,22 29,15 Z" transform="translate(3, -2) scale(0.92)"/>
+    <!-- E -->
+    <path d="M 52,-24 L 78,-24 L 78,-12 L 66,-12 L 66,-5 L 76,-5 L 76,6 L 66,6 L 66,13 L 78,13 L 78,24 L 52,24 Z" transform="translate(18, 0) scale(0.95)"/>
+  </g>
+</svg>

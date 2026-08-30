@@ -1,0 +1,888 @@
+/* TASK-17 — the guest surfaces (/m/[code], /moje, /galerija).
+ *
+ * Visual direction: "toplo svetlo u mraku" — the room's darkness continued
+ * onto the screen. Warm near-black ground (never pure black), warm off-white
+ * ink, ONE candle-amber accent that lives almost exclusively on the single
+ * primary control. In a dark hall the brightest warm object on the screen is
+ * the thing to press; nothing else competes with it.
+ *
+ * Own namespace (--mem-*), own module — no shared stylesheet with Links or
+ * Venue, ever (RFC-001 §2.11 namespace gate).
+ */
+
+.root {
+  /* Ground + ink. */
+  --mem-bg: #171310;
+  --mem-bg-raised: #221b15;
+  --mem-bg-sunken: #100d0a;
+  --mem-ink: #f6efe4;
+  --mem-ink-soft: #cdc1ae;
+  --mem-ink-faint: #a2937d;
+  --mem-line: rgba(246, 239, 228, 0.14);
+  /* The one accent: candle amber. */
+  --mem-amber: #e8a44f;
+  --mem-amber-bright: #f2b565;
+  --mem-amber-deep: #d3892e;
+  --mem-amber-ink: #241503;
+  /* Semantic. */
+  --mem-danger: #e2695b;
+  --mem-ok: #a3c585;
+  /* Rhythm. */
+  --mem-radius: 18px;
+  --mem-radius-small: 12px;
+
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--mem-bg);
+  color: var(--mem-ink);
+  font-family: "Manrope Variable", "Manrope", system-ui, sans-serif;
+  line-height: 1.45;
+  padding: max(16px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right))
+    max(28px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
+  -webkit-tap-highlight-color: transparent;
+}
+
+.column {
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+/* ---------------------------------------------------------------- masthead */
+
+.masthead {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 0 20px;
+}
+
+.mastheadLogo {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+  border-radius: 10px;
+  background: var(--mem-bg-raised);
+  padding: 4px;
+}
+
+.mastheadName {
+  font-size: 1.02rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: var(--mem-ink);
+  margin: 0;
+}
+
+.mastheadBusiness {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--mem-ink-faint);
+  margin: 0;
+}
+
+/* -------------------------------------------------------------- open state */
+
+.tagline {
+  font-size: clamp(1.7rem, 7.5vw, 2.1rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.08;
+  margin: 4px 0 10px;
+}
+
+.socialProof {
+  font-size: 1.02rem;
+  font-weight: 600;
+  color: var(--mem-ink-soft);
+  margin: 0 0 22px;
+  min-height: 1.4em;
+}
+
+/* Consent: above the control, on the first screen, always. A quiet warm
+ * block — read before the act, never a modal, never a footer. */
+.consent {
+  border-left: 3px solid var(--mem-amber);
+  padding: 2px 0 2px 14px;
+  margin: 0 0 18px;
+}
+
+.consentText {
+  font-size: 0.94rem;
+  font-weight: 550;
+  color: var(--mem-ink-soft);
+  margin: 0;
+}
+
+.consentMore {
+  margin-top: 6px;
+}
+
+.consentMore summary {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--mem-amber);
+  cursor: pointer;
+  list-style: none;
+  padding: 6px 0;
+  width: fit-content;
+}
+
+.consentMore summary::-webkit-details-marker {
+  display: none;
+}
+
+.consentMore summary:focus-visible {
+  outline: 2px solid var(--mem-amber);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+.consentFull {
+  display: grid;
+  gap: 8px;
+  padding: 8px 0 4px;
+  font-size: 0.88rem;
+  color: var(--mem-ink-soft);
+}
+
+.consentFull p {
+  margin: 0;
+}
+
+/* The one big control: a warm light in the dark, pinned in the thumb zone by
+ * layout (it sits right after the consent block, above the fold on a small
+ * phone). Breathing glow — disabled under reduced motion. */
+.shutterWrap {
+  position: relative;
+  margin: 0 0 12px;
+}
+
+.shutterGlow {
+  position: absolute;
+  inset: -14px;
+  border-radius: 34px;
+  background: radial-gradient(
+    60% 90% at 50% 50%,
+    rgba(232, 164, 79, 0.38),
+    rgba(232, 164, 79, 0)
+  );
+  pointer-events: none;
+  animation: memBreathe 3.4s ease-in-out infinite alternate;
+}
+
+@keyframes memBreathe {
+  from {
+    opacity: 0.55;
+    transform: scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1.02);
+  }
+}
+
+.shutter {
+  position: relative;
+  width: 100%;
+  min-height: 68px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  border: none;
+  border-radius: 22px;
+  background: linear-gradient(180deg, var(--mem-amber-bright), var(--mem-amber-deep));
+  color: var(--mem-amber-ink);
+  font-family: inherit;
+  font-size: 1.28rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    0 10px 30px rgba(0, 0, 0, 0.45);
+  transition: transform 120ms ease-out;
+  touch-action: manipulation;
+}
+
+.shutter:active {
+  transform: scale(0.97);
+}
+
+.shutter:focus-visible {
+  outline: 3px solid var(--mem-ink);
+  outline-offset: 3px;
+}
+
+.shutter:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.shutterIcon {
+  width: 26px;
+  height: 26px;
+}
+
+.quotaLine {
+  font-size: 1rem;
+  font-weight: 650;
+  color: var(--mem-ink-soft);
+  text-align: center;
+  margin: 12px 0 0;
+}
+
+.hiddenInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* ------------------------------------------------------------ state heroes */
+
+.stateHero {
+  padding: 28px 0 8px;
+}
+
+.stateTitle {
+  font-size: clamp(1.55rem, 6.5vw, 1.9rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.12;
+  margin: 0 0 10px;
+}
+
+.stateBody {
+  font-size: 1.05rem;
+  font-weight: 550;
+  color: var(--mem-ink-soft);
+  margin: 0;
+  max-width: 40ch;
+}
+
+/* ----------------------------------------------------------- offline strip */
+
+.offlineBanner {
+  position: sticky;
+  top: max(8px, env(safe-area-inset-top));
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-radius: var(--mem-radius-small);
+  background: var(--mem-bg-raised);
+  border: 1px solid var(--mem-line);
+  color: var(--mem-ink);
+  font-size: 0.92rem;
+  font-weight: 650;
+  padding: 10px 14px;
+  margin: 0 0 14px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.offlineDot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--mem-amber);
+  flex-shrink: 0;
+  animation: memPulse 1.6s ease-in-out infinite;
+}
+
+@keyframes memPulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+/* ------------------------------------------------------------- queue items */
+
+.sectionHeading {
+  font-size: 0.86rem;
+  font-weight: 750;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--mem-ink-faint);
+  margin: 26px 0 10px;
+}
+
+.itemList {
+  list-style: none;
+  display: grid;
+  gap: 10px;
+  padding: 0;
+  margin: 0;
+}
+
+.itemListSpaced {
+  margin-top: 18px;
+}
+
+.item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--mem-bg-raised);
+  border-radius: var(--mem-radius-small);
+  padding: 10px;
+  overflow: hidden;
+  animation: memRise 260ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+@keyframes memRise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.itemThumb {
+  width: 60px;
+  height: 60px;
+  border-radius: 9px;
+  object-fit: cover;
+  background: var(--mem-bg-sunken);
+  flex-shrink: 0;
+}
+
+.itemThumbFallback {
+  width: 60px;
+  height: 60px;
+  border-radius: 9px;
+  background: var(--mem-bg-sunken);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--mem-ink-faint);
+}
+
+.itemBody {
+  flex: 1;
+  min-width: 0;
+}
+
+.itemState {
+  font-size: 0.98rem;
+  font-weight: 700;
+  margin: 0;
+  color: var(--mem-ink);
+}
+
+.itemStateSaved {
+  color: var(--mem-ok);
+}
+
+.itemStateError {
+  color: var(--mem-danger);
+}
+
+.itemDetail {
+  font-size: 0.85rem;
+  font-weight: 550;
+  color: var(--mem-ink-soft);
+  margin: 2px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.itemActions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.itemButton {
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 10px;
+  border: 1px solid var(--mem-line);
+  background: transparent;
+  color: var(--mem-ink);
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 120ms ease-out;
+  touch-action: manipulation;
+}
+
+.itemButton:active {
+  transform: scale(0.96);
+}
+
+.itemButton:focus-visible {
+  outline: 2px solid var(--mem-amber);
+  outline-offset: 2px;
+}
+
+.itemButtonPrimary {
+  border-color: transparent;
+  background: var(--mem-amber);
+  color: var(--mem-amber-ink);
+}
+
+.itemProgressTrack {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 4px;
+  background: rgba(246, 239, 228, 0.08);
+}
+
+.itemProgressFill {
+  height: 100%;
+  background: var(--mem-amber);
+  transition: width 200ms linear;
+}
+
+.savedTick {
+  display: inline-block;
+  vertical-align: -2px;
+  margin-right: 5px;
+  animation: memTick 300ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+@keyframes memTick {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* -------------------------------------------------------------- photo grid */
+
+.photoGrid {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  padding: 0;
+  margin: 0;
+}
+
+.photoCell {
+  position: relative;
+}
+
+.photoButton {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: var(--mem-bg-raised);
+  border-radius: 10px;
+  overflow: hidden;
+  cursor: pointer;
+  aspect-ratio: 1 / 1;
+}
+
+.photoButton:focus-visible {
+  outline: 3px solid var(--mem-amber);
+  outline-offset: 2px;
+}
+
+.photoThumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.photoBadge {
+  position: absolute;
+  left: 6px;
+  bottom: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+  background: rgba(16, 13, 10, 0.78);
+  color: var(--mem-ink);
+  pointer-events: none;
+}
+
+.gridEmpty {
+  font-size: 0.95rem;
+  font-weight: 550;
+  color: var(--mem-ink-faint);
+  margin: 4px 0 0;
+}
+
+/* ------------------------------------------------------------- photo sheet */
+
+.sheetBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(12, 9, 7, 0.88);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: max(16px, env(safe-area-inset-top)) 16px max(20px, env(safe-area-inset-bottom));
+  animation: memFade 200ms ease-out;
+}
+
+@keyframes memFade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.sheetImageWrap {
+  width: 100%;
+  max-width: 440px;
+  display: flex;
+  justify-content: center;
+}
+
+.sheetPicture {
+  max-width: 100%;
+  max-height: 56dvh;
+  border-radius: var(--mem-radius-small);
+  object-fit: contain;
+}
+
+.sheetActions {
+  width: 100%;
+  max-width: 440px;
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.segment {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  background: var(--mem-bg-raised);
+  border-radius: 14px;
+  padding: 5px;
+}
+
+.segmentButton {
+  min-height: 48px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--mem-ink-soft);
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.segmentButton[aria-pressed="true"] {
+  background: var(--mem-amber);
+  color: var(--mem-amber-ink);
+}
+
+.segmentButton:focus-visible {
+  outline: 2px solid var(--mem-amber);
+  outline-offset: 2px;
+}
+
+.sheetButton {
+  min-height: 52px;
+  border-radius: 14px;
+  border: 1px solid var(--mem-line);
+  background: var(--mem-bg-raised);
+  color: var(--mem-ink);
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 750;
+  cursor: pointer;
+  transition: transform 120ms ease-out;
+  touch-action: manipulation;
+}
+
+.sheetButton:active {
+  transform: scale(0.98);
+}
+
+.sheetButton:focus-visible {
+  outline: 2px solid var(--mem-amber);
+  outline-offset: 2px;
+}
+
+.sheetButtonDanger {
+  border-color: rgba(226, 105, 91, 0.5);
+  color: var(--mem-danger);
+}
+
+.sheetError {
+  font-size: 0.9rem;
+  font-weight: 650;
+  color: var(--mem-danger);
+  margin: 0;
+  text-align: center;
+}
+
+/* ------------------------------------------------------------------ footer */
+
+.footerNav {
+  display: grid;
+  gap: 10px;
+  margin-top: 30px;
+}
+
+.navLink {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 54px;
+  padding: 0 16px;
+  border-radius: var(--mem-radius-small);
+  border: 1px solid var(--mem-line);
+  color: var(--mem-ink);
+  font-size: 1rem;
+  font-weight: 700;
+  text-decoration: none;
+  transition: transform 120ms ease-out;
+  touch-action: manipulation;
+}
+
+.navLink:active {
+  transform: scale(0.98);
+}
+
+.navLink:focus-visible {
+  outline: 2px solid var(--mem-amber);
+  outline-offset: 2px;
+}
+
+.navLinkArrow {
+  color: var(--mem-ink-faint);
+}
+
+.footerBrand {
+  margin: 34px 0 0;
+  text-align: center;
+  font-size: 0.8rem;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  color: var(--mem-ink-faint);
+}
+
+/* --------------------------------------------------------------- galleries */
+
+.pageTitle {
+  font-size: clamp(1.5rem, 6vw, 1.8rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin: 8px 0 18px;
+}
+
+.dateHeading {
+  font-size: 0.86rem;
+  font-weight: 750;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--mem-ink-faint);
+  margin: 24px 0 10px;
+}
+
+/* -------------------------------------------- TASK-20: load more + erasure */
+
+.galleryLoadMoreWrap {
+  display: flex;
+  justify-content: center;
+  margin-top: 22px;
+}
+
+.galleryLoadMore {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 0 22px;
+  border-radius: var(--mem-radius-small);
+  border: 1px solid var(--mem-line);
+  background: var(--mem-bg-raised);
+  color: var(--mem-ink);
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: transform 120ms ease-out;
+}
+
+.galleryLoadMore:active {
+  transform: scale(0.98);
+}
+
+.galleryLoadMore:focus-visible {
+  outline: 2px solid var(--mem-amber);
+  outline-offset: 2px;
+}
+
+.galleryLoadMore:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+
+.galleryLoadMoreSpinner {
+  animation: memSpin 900ms linear infinite;
+}
+
+@keyframes memSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Retention window + the guest's erasure control on /moje. */
+.retentionNote {
+  margin: 26px 0 0;
+  padding: 12px 14px;
+  border-radius: var(--mem-radius-small);
+  border: 1px solid var(--mem-line);
+  background: var(--mem-bg-raised);
+  color: var(--mem-ink-soft);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.retentionNote a {
+  color: var(--mem-amber-bright);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.wipeSection {
+  margin-top: 14px;
+}
+
+.wipeButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 0 18px;
+  border-radius: var(--mem-radius-small);
+  border: 1px solid rgba(226, 105, 91, 0.55);
+  background: transparent;
+  color: var(--mem-danger);
+  font-size: 0.92rem;
+  font-weight: 700;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.wipeButton:focus-visible {
+  outline: 2px solid var(--mem-danger);
+  outline-offset: 2px;
+}
+
+.consentUpdatedBadge {
+  display: inline-block;
+  margin-bottom: 8px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--mem-amber-deep);
+  background: rgba(232, 164, 79, 0.14);
+  color: var(--mem-amber-bright);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.consentPolicyLink {
+  color: var(--mem-amber-bright);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  font-weight: 650;
+}
+
+/* The privacy policy page (STEP 5). */
+.privacyLead {
+  margin: 8px 0 8px;
+  font-size: 1rem;
+  line-height: 1.6;
+  color: var(--mem-ink-soft);
+}
+
+.privacyHeading {
+  margin: 26px 0 6px;
+  font-size: 1.12rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--mem-ink);
+}
+
+.privacySubHeading {
+  margin: 16px 0 4px;
+  font-size: 0.95rem;
+  font-weight: 750;
+  color: var(--mem-amber-bright);
+}
+
+.privacyText {
+  margin: 6px 0;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: var(--mem-ink-soft);
+}
+
+.privacyMeta {
+  margin: 24px 0 0;
+  font-size: 0.78rem;
+  color: var(--mem-ink-faint);
+}
+
+/* --------------------------------------------------------- reduced motion */
+
+@media (prefers-reduced-motion: reduce) {
+  .shutterGlow,
+  .offlineDot {
+    animation: none;
+  }
+  .item,
+  .savedTick,
+  .sheetBackdrop {
+    animation: none;
+  }
+  .shutter,
+  .itemButton,
+  .sheetButton,
+  .navLink {
+    transition: none;
+  }
+  .itemProgressFill {
+    transition: none;
+  }
+  .galleryLoadMoreSpinner {
+    animation: none;
+  }
+}

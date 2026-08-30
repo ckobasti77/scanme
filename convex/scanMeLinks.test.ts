@@ -480,7 +480,7 @@ test("novi editor validira tekst i normalizuje opcije koje stil ne podržava", a
   delete process.env.SCANME_ADMIN_EMAILS;
 });
 
-test("editor po slugu je samo za admine i prati stari servisni alias", async () => {
+test("editor po slugu prati stari servisni alias i vraća null bez pristupa", async () => {
   const setup = await seedScanMeLinks();
   await setup.t.run(async (ctx) => {
     await ctx.db.insert("serviceSlugAliases", {
@@ -502,7 +502,7 @@ test("editor po slugu je samo za admine i prati stari servisni alias", async () 
     setup.t.query(api.scanMeLinks.editorBySlug, {
       slug: "mera-cafe",
     }),
-  ).rejects.toThrow();
+  ).resolves.toBeNull();
   delete process.env.SCANME_ADMIN_EMAILS;
 });
 
@@ -598,7 +598,7 @@ test("klijentski editor je zatvoren po defaultu i radi tek posle admin dozvole",
   delete process.env.SCANME_ADMIN_EMAILS;
 });
 
-test("legacy objava zadrÅ¾ava stare accent tokene dok nema v2 dizajn", async () => {
+test("legacy objava zadržava stare accent tokene dok nema v2 dizajn", async () => {
   const setup = await seedScanMeLinks();
   const legacyTokens = {
     accent: "#A23B72",
@@ -646,7 +646,7 @@ test("legacy objava zadrÅ¾ava stare accent tokene dok nema v2 dizajn", async (
   delete process.env.SCANME_ADMIN_EMAILS;
 });
 
-test("editor Äuva nasleÄ‘eni legacy logo kada se saÄuva drugo polje", async () => {
+test("editor čuva nasleđeni legacy logo kada se sačuva drugo polje", async () => {
   const setup = await seedScanMeLinks();
   const logoUrl = "https://cdn.example.com/legacy-logo.svg";
   await setup.t.run(async (ctx) => {

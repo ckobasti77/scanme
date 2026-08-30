@@ -25,6 +25,9 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
   --color-accent-readable: var(--accent-readable);
+  /* Face name comes from @fontsource/ibm-plex-mono, imported in app/layout.tsx. */
+  --font-plex-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo,
+    monospace;
   --font-sans: var(--font-plex-mono);
   --font-mono: var(--font-plex-mono);
   --radius-sm: 2px;
@@ -253,6 +256,10 @@ body {
 .site-nav-glass > * {
   position: relative;
   z-index: 1;
+}
+
+.offer-page {
+  font-family: "Inter Variable", Inter, ui-sans-serif, system-ui, sans-serif;
 }
 
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {

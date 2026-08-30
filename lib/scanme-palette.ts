@@ -8,7 +8,9 @@ import {
   colorDifference,
   colorToOklch,
   contrastRatio,
+  deriveReadableTextVariant,
   ensureContrast,
+  FALLBACK_COLOR,
   mixColors,
   normalizeColorHex,
   oklchToHex,
@@ -16,6 +18,11 @@ import {
   SCANME_OFF_BLACK,
   SCANME_OFF_WHITE,
 } from "./scanme-color-science";
+import {
+  generateMaterialRoles,
+  type MaterialVariant,
+} from "./scanme-material-color";
+import type { LogoProfile } from "./accent-palette";
 
 export const GENERATED_PALETTE_ROLES = [
   "background",
@@ -41,101 +48,35 @@ export type PaletteTargetRole =
 
 export const DEFAULT_PALETTE_LOCKS = [false, false, true, false, false] as const;
 
-const HARMONY_RECIPES = [
-  { surface: 0, text: 0, button: 0 },
-  { surface: -7, text: 3, button: 14 },
-  { surface: 8, text: -3, button: -16 },
-  { surface: -12, text: 5, button: 24 },
-  { surface: 12, text: -5, button: -24 },
+export const PALETTE_SCHEME_TYPES = [
+  "complementary",
+  "analogous",
+  "monochromatic",
+  "triadic",
+  "split-complementary",
 ] as const;
+export type PaletteSchemeType = (typeof PALETTE_SCHEME_TYPES)[number];
+export const DEFAULT_PALETTE_SCHEME: PaletteSchemeType = "complementary";
 
 type GeneratePaletteOptions = {
-  sourceColors: string[];
-  mode: PaletteGenerationMode;
+  sourceColors?: string[];
+  logoProfile?: LogoProfile;
+  mode?: PaletteGenerationMode;
+  schemeType?: PaletteSchemeType;
+  // The Regenerate axis — cycles a few noticeably different looks. Defaults to "content".
+  variant?: MaterialVariant;
   currentColors?: string[];
   lockedSlots?: boolean[];
-  seed?: number;
 };
-
-function seededNoise(seed: number, offset: number) {
-  const value = Math.sin(seed * 12.9898 + offset * 78.233) * 43758.5453;
-  return (value - Math.floor(value)) * 2 - 1;
-}
 
 function hue(value: number) {
   return (value + 360) % 360;
-}
-
-function hueDistance(first: number, second: number) {
-  return Math.abs(((second - first + 540) % 360) - 180);
-}
-
-function harmoniousSourceHue(
-  anchor: ReturnType<typeof colorToOklch>,
-  secondary: ReturnType<typeof colorToOklch> | null,
-) {
-  const anchorHue = anchor.h ?? secondary?.h ?? 80;
-  if (
-    secondary?.h === undefined ||
-    secondary.c < 0.025 ||
-    hueDistance(anchorHue, secondary.h) > 48
-  ) {
-    return anchorHue;
-  }
-  const delta = ((secondary.h - anchorHue + 540) % 360) - 180;
-  return hue(anchorHue + delta * 0.3);
 }
 
 function avoidPureNeutral(color: string) {
   if (color === "#000000") return SCANME_OFF_BLACK;
   if (color === "#FFFFFF") return SCANME_OFF_WHITE;
   return color;
-}
-
-function createRoleColor(
-  anchor: ReturnType<typeof colorToOklch>,
-  role: Exclude<GeneratedPaletteRole, "accent">,
-  mode: PaletteGenerationMode,
-  hueOffset: number,
-  seed: number,
-) {
-  const light = mode === "light";
-  const targets = light
-    ? {
-        background: [0.96, 0.014],
-        surface: [0.895, 0.024],
-        text: [0.225, 0.022],
-        button: [0.52, 0.105],
-      }
-    : {
-        background: [0.165, 0.022],
-        surface: [0.245, 0.03],
-        text: [0.925, 0.016],
-        button: [0.67, 0.11],
-      };
-  const [targetLightness, targetChroma] = targets[role];
-  const chromaInfluence = role === "text" ? 0.07 : role === "button" ? 0.46 : 0.1;
-  const lightnessJitter = role === "button" ? 0.018 : 0.008;
-
-  return avoidPureNeutral(oklchToHex({
-    mode: "oklch",
-    l: clamp(targetLightness + seededNoise(seed, role.length) * lightnessJitter),
-    c: clamp(
-      targetChroma + anchor.c * chromaInfluence + seededNoise(seed, role.length + 9) * 0.005,
-      0,
-      role === "button" ? 0.16 : role === "text" ? 0.04 : 0.05,
-    ),
-    h: hue((anchor.h ?? 80) + hueOffset + seededNoise(seed, role.length + 17) * 2.5),
-  }));
-}
-
-function preventSourceDuplicate(color: string, sourceColors: string[], index: number) {
-  if (!sourceColors.some((source) => normalizeColorHex(source) === color)) return color;
-  const parsed = colorToOklch(color);
-  return oklchToHex({
-    ...parsed,
-    l: clamp(parsed.l + (index % 2 ? 0.018 : -0.018), 0.03, 0.98),
-  });
 }
 
 export function normalizePaletteLocks(locks?: boolean[]) {
@@ -148,47 +89,85 @@ export function inferPaletteMode(color: string): PaletteGenerationMode {
   return colorToOklch(color).l >= 0.58 ? "light" : "dark";
 }
 
+export function inferPaletteModeFromProfile(
+  profile: LogoProfile,
+): PaletteGenerationMode {
+  const darkMassShare = profile.mass
+    .filter((s) => s.lightness < 0.5)
+    .reduce((sum, s) => sum + s.share, 0);
+  const lightMassShare = profile.mass
+    .filter((s) => s.lightness >= 0.5)
+    .reduce((sum, s) => sum + s.share, 0);
+  return darkMassShare >= lightMassShare ? "light" : "dark";
+}
+
 export function generateScanMePalette({
-  sourceColors,
+  sourceColors = [],
+  logoProfile,
   mode,
+  schemeType = DEFAULT_PALETTE_SCHEME,
+  variant = "content",
   currentColors = [],
   lockedSlots,
-  seed = 0,
 }: GeneratePaletteOptions) {
-  const sources = sourceColors.length
-    ? sourceColors.map((color) => normalizeColorHex(color))
-    : [normalizeColorHex(currentColors[2] ?? "#7A5C43")];
+  let determinedMode: PaletteGenerationMode;
+  let sources: string[];
+
+  if (logoProfile) {
+    determinedMode = mode ?? inferPaletteModeFromProfile(logoProfile);
+    const anchor = logoProfile.accent ?? logoProfile.swatches[0]?.hex ?? FALLBACK_COLOR;
+    const rest = logoProfile.swatches
+      .map((s) => normalizeColorHex(s.hex))
+      .filter((hex) => hex !== anchor);
+    sources = [anchor, ...rest];
+  } else {
+    determinedMode = mode ?? "light";
+    sources = sourceColors.length
+      ? sourceColors.map((color) => normalizeColorHex(color))
+      : [normalizeColorHex(currentColors[2] ?? FALLBACK_COLOR)];
+  }
+
   const anchorHex = sources[0];
-  const anchor = colorToOklch(anchorHex);
   const locks = normalizePaletteLocks(lockedSlots);
-  const recipe = HARMONY_RECIPES[Math.abs(seed) % HARMONY_RECIPES.length];
-  const secondarySource = sources[1] ? colorToOklch(sources[1]) : null;
-  const baseHue = harmoniousSourceHue(anchor, secondarySource);
-  const familyAnchor = { ...anchor, h: baseHue };
 
-  const generated = [
-    createRoleColor(familyAnchor, "background", mode, recipe.surface * 0.35, seed + 1),
-    createRoleColor(familyAnchor, "surface", mode, recipe.surface, seed + 2),
-    anchorHex,
-    createRoleColor(familyAnchor, "text", mode, recipe.text, seed + 3),
-    createRoleColor(familyAnchor, "button", mode, recipe.button, seed + 4),
-  ].map((color, index) =>
-    index === 2 ? anchorHex : preventSourceDuplicate(color, sources, index),
-  );
+  // Material Color Utilities builds the harmonious, contrast-aware palette.
+  const generated = generateMaterialRoles({
+    sourceColors: sources,
+    mode: determinedMode,
+    schemeType,
+    variant,
+  });
+  // Accent is always the verbatim logo colour (identical hex, never toned).
+  generated[2] = anchorHex;
 
-  generated[3] = ensureContrast(generated[3], [generated[0], generated[1]], 4.5);
-  if (Math.min(
-    contrastRatio(generated[4], generated[0]),
-    contrastRatio(generated[4], generated[1]),
-  ) < 3) {
+  // Final WCAG safety net only. MCU and deriveReadableTextVariant already pair text/button
+  // against the surfaces.
+  if (
+    contrastRatio(generated[3], generated[0]) < 4.5 ||
+    contrastRatio(generated[3], generated[1]) < 4.5
+  ) {
+    generated[3] = deriveReadableTextVariant(
+      [generated[0], generated[1]],
+      colorToOklch(generated[0]).h,
+      4.5,
+    );
+  }
+  if (
+    Math.min(
+      contrastRatio(generated[4], generated[0]),
+      contrastRatio(generated[4], generated[1]),
+    ) < 3
+  ) {
     generated[4] = ensureContrast(generated[4], [generated[0], generated[1]], 3);
   }
 
-  return generated.map((color, index) =>
-    locks[index] && currentColors[index]
-      ? normalizeColorHex(currentColors[index])
-      : color,
-  );
+  return generated.map((color, index) => {
+    if (locks[index] && currentColors[index]) {
+      return normalizeColorHex(currentColors[index]);
+    }
+    // Accent stays exactly as the logo colour; other roles never read as pure black/white.
+    return index === 2 ? color : avoidPureNeutral(color);
+  });
 }
 
 export function deriveBackgroundCompanionColor(
@@ -273,14 +252,18 @@ function deriveColors(
   const [page, surface, accent, title, button] = palette.map((color) =>
     normalizeColorHex(color),
   );
-  const safeTitle = ensureContrast(title, [page, surface], 4.5);
+  const bgHue = colorToOklch(page).h;
+  const safeTitle =
+    contrastRatio(title, page) >= 4.5 && contrastRatio(title, surface) >= 4.5
+      ? title
+      : deriveReadableTextVariant([page, surface], bgHue, 4.5);
   const safeButton = ensureContrast(button, [page, surface], 3);
   const body = ensureContrast(
     mixColors(safeTitle, page, 0.16),
     [page, surface],
     4.5,
   );
-  const buttonText = readableTextColor(safeButton, safeTitle);
+  const buttonText = deriveReadableTextVariant(safeButton, bgHue, 4.5);
   const buttonHover = mixColors(safeButton, buttonText, 0.1);
   const border = mixColors(safeTitle, surface, 0.8);
   const focus = ensureContrast(accent, page, 3);
