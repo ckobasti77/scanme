@@ -598,6 +598,7 @@ export function VenueEditorWorkspace({ data }: { data: VenueEditorData }) {
         <VenueEditorBlocksPanel
           document={document}
           selection={selection}
+          allowedBlockKeys={data.allowedBlockKeys}
           onSelectBlock={handleSelectBlock}
           onClearSelection={() => setSelection(null)}
           onReorder={handleReorder}

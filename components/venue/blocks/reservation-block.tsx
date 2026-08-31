@@ -45,6 +45,8 @@ export function ReservationBlock({
           businessSlug={ctx.businessSlug}
           eventSlug={ctx.eventSlug}
           fields={fields}
+          zones={(props.zones ?? []).filter((zone) => zone.capacity > 0)}
+          defaultDesiredAt={ctx.eventStartsAt}
           confirmationMessage={
             props.confirmationMessage || dict.reservationSuccessDefault
           }
@@ -54,7 +56,12 @@ export function ReservationBlock({
             email: dict.fieldEmail,
             partySize: dict.fieldPartySize,
             note: dict.fieldNote,
+            zone: dict.fieldZone,
+            time: dict.fieldDesiredAt,
             optional: dict.optionalSuffix,
+            zoneFullSuffix: dict.reservationZoneFullSuffix,
+            allFull: dict.reservationAllFull,
+            disclaimer: dict.reservationDisclaimer,
             submit: dict.reservationSubmit,
             submitting: dict.reservationSubmitting,
             errorGeneric: dict.reservationErrorGeneric,

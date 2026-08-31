@@ -264,7 +264,7 @@ describe("getEntitlement step 3 — account-plan fallback (RFC-002 §2.2.3)", ()
     expect(resolved?.limits.maxImageDimension).toBe(4096);
   });
 
-  test("venue maps every plan to the placeholder basic tier", async () => {
+  test("venue: account premium resolves the premium tier (TASK-43)", async () => {
     const t = convexTest(schema, modules);
     const { businessId } = await seedBusinessAndSpace(t);
     await insertAccount(t, { businessId, plan: "premium" });
@@ -272,8 +272,27 @@ describe("getEntitlement step 3 — account-plan fallback (RFC-002 §2.2.3)", ()
     const resolved = await t.run((ctx) =>
       getEntitlement(ctx, businessId, "scanme_venue"),
     );
+    expect(resolved?.planKey).toBe("premium");
+    // Premium carries the full block set, unlimited scheduling, analytics.
+    expect(resolved?.limits.allowedBlockKeys).toContain("reservation");
+    expect(resolved?.limits.allowedBlockKeys).toContain("gallery");
+    expect(resolved?.limits.maxActiveEvents).toBeNull();
+    expect(resolved?.limits.analytics).toBe(true);
+  });
+
+  test("venue: account basic resolves the core block set", async () => {
+    const t = convexTest(schema, modules);
+    const { businessId } = await seedBusinessAndSpace(t);
+    await insertAccount(t, { businessId, plan: "basic" });
+
+    const resolved = await t.run((ctx) =>
+      getEntitlement(ctx, businessId, "scanme_venue"),
+    );
     expect(resolved?.planKey).toBe("basic");
-    expect(resolved?.limits.allowedBlockKeys).toEqual([]);
+    expect(resolved?.limits.allowedBlockKeys).toContain("countdown");
+    expect(resolved?.limits.allowedBlockKeys).not.toContain("reservation");
+    expect(resolved?.limits.maxActiveEvents).toBe(1);
+    expect(resolved?.limits.analytics).toBe(false);
   });
 
   test("the ambiguous-row throw survives with an account present", async () => {

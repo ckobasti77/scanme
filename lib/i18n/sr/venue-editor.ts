@@ -36,8 +36,14 @@ export const venueEditorSr = {
     "Već postoji zakazan ili aktivan događaj u tom terminu.",
   scheduleWrongStatus:
     "Ovaj događaj se ne može zakazati u trenutnom stanju.",
+  scheduleLimitReached:
+    "Vaš paket dozvoljava najviše {max} zakazan događaj. Za više zakazanih događaja unapred potreban je Premium.",
   liveConflict: "Već postoji aktivan događaj za ovaj lokal.",
-  blockNotAllowed: "Blok „{block}“ nije dostupan u vašem planu.",
+  blockNotAllowed:
+    "Blok „{block}“ je dostupan uz Premium. Uklonite ga ili unapredite paket.",
+  resRequestNotFound: "Zahtev za rezervaciju nije pronađen.",
+  resConfirmFull:
+    "Zona je u međuvremenu popunjena — zahtev ne može da se potvrdi.",
   archiveNotEnded: "Događaj mora biti završen pre arhiviranja.",
   archiveAssetInvalid: "Izabrani medij ne pripada ovom lokalu.",
   archiveOverCap: "Najviše {max} stavki može biti u arhivi jednog događaja.",
@@ -109,6 +115,9 @@ export const venueEditorSr = {
   blocksCapReached:
     "Dostigli ste najveći broj blokova ({max}). Uklonite neki blok da biste dodali novi.",
   blocksEmpty: "Stranica još nema blokova. Dodajte prvi iz liste ispod.",
+  blocksPremiumNote:
+    "Rezervacije, galerija, cenovnik, profili i prošli događaji dostupni su uz Premium.",
+  blockPremiumChip: "Premium",
   addBlockAria: "Dodaj blok „{block}“",
   blockItemAria: "Blok „{block}“. Kliknite za izbor.",
   dragHandleAria: "Promeni redosled bloka „{block}“",
@@ -310,6 +319,16 @@ export const venueEditorSr = {
   resFieldEmail: "Imejl",
   resFieldPartySize: "Broj gostiju",
   resFieldNote: "Napomena",
+  // TASK-43 — zones: areas with a unit count, never numbered tables with a
+  // floor plan the owner would have to maintain.
+  resZonesHeading: "Zone",
+  resZonesNote:
+    "Definišite zone i broj jedinica („Sto za dvoje — 8 komada“). Zahtev drži jedno mesto 2 sata dok ga ne potvrdite ili odbijete.",
+  resZoneNameLabel: "Naziv zone",
+  resZoneCapacityLabel: "Broj jedinica",
+  resZoneAdd: "Dodaj zonu",
+  resZoneRemoveAria: "Ukloni zonu „{name}“",
+  resZoneNamePlaceholder: "npr. Sto za dvoje",
   resCapacityToggle: "Ograniči broj mesta",
   resCapacityLabel: "Broj mesta",
   resDeadlineToggle: "Postavi rok za rezervacije",

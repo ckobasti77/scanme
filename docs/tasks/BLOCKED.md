@@ -380,3 +380,30 @@ porudžbine („3 usluge · Basic · godišnje"), bez strelice, i klik otvara ko
 (read-only); ukupan iznos i dalje razdvaja dve vrste novca
 („… RSD godišnje  + … RSD jednokratno"). Matrice cena fizičkih proizvoda
 netaknute. Mobilni se slaže vertikalno bez bočnog prelivanja.
+
+## TASK-43 — Venue Premium: rezervacije sa zonama, blokovi, više događaja, analitika
+
+### 1. Jedan zahtev = jedna jedinica zone (za potvrdu)
+
+Zona ima `capacity` u JEDINICAMA („Sto za dvoje — 8 komada", „Separe — 3",
+„Bar — 10 mesta") i jedan zahtev drži tačno JEDNU jedinicu dok je na čekanju
+(2h meko) ili potvrđen. `partySize` je informacija za vlasnika, ne broj
+sedišta — grupa od 4 za barom troši 1 „mesto", ne 4. Ovo je najjednostavnije
+odbranjivo pravilo (sto za dvoje zauzima jedan sto bez obzira da li dođu 1 ili
+2 osobe); ako vlasnik želi da bar broji po osobi, to je izmena u
+`convex/venueReservations.ts` (zoneUnitsUsed) + kopiji editora.
+
+### 2. Pretpostavka +381 za WhatsApp/Viber linkove
+
+Pripremljena poruka otvara `wa.me`/`viber://chat` sa brojem gosta; lokalni
+broj koji počinje nulom dobija prefiks 381 (proizvod je sr-only). Ako se
+pojave gosti sa stranim lokalnim brojevima, treba pravi telefonski parser.
+
+### 3. Ponašanje pri padu plana (downgrade)
+
+Objavljena stranica se degradira NA ČITANJU: premium blokovi prestaju da se
+renderuju čim entitlement padne na basic (bez ponovnog objavljivanja, bajtovi
+ne napuštaju server). Draft koji sadrži premium blokove ostaje sačuvan, ali
+svaki save/publish odbija dok se blok ne ukloni ili plan ne vrati — podaci se
+ne brišu tiho. Ako vlasnik želi „tihi filter" umesto odbijanja na save,
+izmena je u assertBlocksAllowedByPlan (convex/venue.ts).

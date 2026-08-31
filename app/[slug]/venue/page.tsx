@@ -186,6 +186,7 @@ export default async function VenuePage({
       businessSlug={slug}
       pastEvents={pastEvents}
       footerLink={archiveFooter}
+      analytics
     />
   );
 }

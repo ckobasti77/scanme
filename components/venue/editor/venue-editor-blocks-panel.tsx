@@ -48,6 +48,7 @@ import type {
 export function VenueEditorBlocksPanel({
   document,
   selection,
+  allowedBlockKeys,
   onSelectBlock,
   onClearSelection,
   onReorder,
@@ -58,6 +59,9 @@ export function VenueEditorBlocksPanel({
 }: {
   document: VenueEditorDocument;
   selection: VenueEditorSelection;
+  // The plan's allow-list (TASK-43): blocks outside it are NOT offered — this
+  // is UX only; convex/venue.ts enforces the same list at save/publish.
+  allowedBlockKeys: string[];
   onSelectBlock: (id: string) => void;
   onClearSelection: () => void;
   onReorder: (activeId: string, overId: string) => void;
@@ -67,6 +71,8 @@ export function VenueEditorBlocksPanel({
   onChangeBlock: (next: VenueBlock, group?: string) => void;
 }) {
   const blocks = document.blocks;
+  const allowedSet = new Set(allowedBlockKeys);
+  const offeredTypes = VENUE_BLOCK_TYPES.filter((type) => allowedSet.has(type));
   const selectedBlock =
     selection?.kind === "block"
       ? blocks.find((block) => block.base.id === selection.id) ?? null
@@ -121,6 +127,7 @@ export function VenueEditorBlocksPanel({
           <SortableBlockList
             blocks={blocks}
             selection={selection}
+            allowedSet={allowedSet}
             onSelectBlock={onSelectBlock}
             onReorder={onReorder}
             onDuplicateBlock={onDuplicateBlock}
@@ -140,7 +147,7 @@ export function VenueEditorBlocksPanel({
           </p>
         ) : null}
         <div className={styles.addGrid}>
-          {VENUE_BLOCK_TYPES.map((type) => {
+          {offeredTypes.map((type) => {
             const entry = VENUE_BLOCK_REGISTRY[type];
             const Icon = entry.icon;
             return (
@@ -160,6 +167,9 @@ export function VenueEditorBlocksPanel({
             );
           })}
         </div>
+        {offeredTypes.length < VENUE_BLOCK_TYPES.length ? (
+          <p className={styles.capNotice}>{dict.blocksPremiumNote}</p>
+        ) : null}
       </div>
     </>
   );
@@ -168,6 +178,7 @@ export function VenueEditorBlocksPanel({
 function SortableBlockList({
   blocks,
   selection,
+  allowedSet,
   onSelectBlock,
   onReorder,
   onDuplicateBlock,
@@ -176,6 +187,7 @@ function SortableBlockList({
 }: {
   blocks: VenueBlock[];
   selection: VenueEditorSelection;
+  allowedSet: Set<string>;
   onSelectBlock: (id: string) => void;
   onReorder: (activeId: string, overId: string) => void;
   onDuplicateBlock: (id: string) => void;
@@ -212,6 +224,7 @@ function SortableBlockList({
               selected={
                 selection?.kind === "block" && selection.id === block.base.id
               }
+              premiumLocked={!allowedSet.has(block.type)}
               onSelect={() => onSelectBlock(block.base.id)}
               onDuplicate={() => onDuplicateBlock(block.base.id)}
               onRequestDelete={() => onRequestDeleteBlock(block)}
@@ -227,6 +240,7 @@ function SortableBlockList({
 function SortableBlockRow({
   block,
   selected,
+  premiumLocked,
   onSelect,
   onDuplicate,
   onRequestDelete,
@@ -234,6 +248,9 @@ function SortableBlockRow({
 }: {
   block: VenueBlock;
   selected: boolean;
+  // An existing block the plan no longer allows (downgrade): kept in the
+  // draft, marked so the owner knows why the server will refuse a save.
+  premiumLocked: boolean;
   onSelect: () => void;
   onDuplicate: () => void;
   onRequestDelete: () => void;
@@ -284,6 +301,9 @@ function SortableBlockRow({
           <Icon className="size-4" strokeWidth={1.8} />
         </span>
         <span className={styles.blockRowLabel}>{entry.label}</span>
+        {premiumLocked ? (
+          <span className={styles.premiumChip}>{dict.blockPremiumChip}</span>
+        ) : null}
       </button>
       <span className={styles.blockRowActions}>
         <button

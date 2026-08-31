@@ -78,6 +78,17 @@ crons.interval(
   {},
 );
 
+//   • the 15-minute venue reservation-hold sweep (TASK-43) — the backstop for
+//     lost per-row scheduled flips: frees pending requests whose 2h soft hold
+//     (heldUntil) elapsed by marking them expired, so fullness queries stay
+//     clock-free. No-ops when nothing is due.
+crons.interval(
+  "expire venue reservation holds",
+  { minutes: 15 },
+  internal.venueReservations.sweepExpiredHolds,
+  {},
+);
+
 //   • the daily billing-cycle sweep (TASK-32 / RFC-002 §2.5–§2.6) — flips
 //     ACTIVE accounts whose paid-through date (accounts.planValidUntil) plus
 //     grace has elapsed to "expired", which cuts getEntitlement's account-plan

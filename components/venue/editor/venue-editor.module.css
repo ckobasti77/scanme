@@ -560,6 +560,26 @@
   text-overflow: ellipsis;
 }
 
+/* TASK-43 — one reservation-zone row: name, unit count, remove. */
+.zoneRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 6.5rem auto;
+  gap: 0.5rem;
+  align-items: end;
+}
+
+/* TASK-43 — an existing block the plan no longer allows (downgrade). */
+.premiumChip {
+  flex-shrink: 0;
+  padding: 0.1rem 0.4rem;
+  border: 1px solid color-mix(in oklab, var(--primary) 45%, transparent);
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--primary);
+}
+
 .blockRowActions {
   display: inline-flex;
   gap: 2px;

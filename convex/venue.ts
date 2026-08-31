@@ -9,6 +9,7 @@ import {
   type QueryCtx,
 } from "./_generated/server";
 import { getEntitlement } from "./lib/entitlements";
+import { venueAllowedBlockKeys, venueMaxActiveEvents } from "./lib/plans";
 import { requireServiceEditorAccess } from "./lib/access";
 import { optionalText, requireSlug, requireText } from "./lib/validation";
 import { venueBlockValidator, venueDesignValidator } from "./lib/venueValidators";
@@ -17,9 +18,7 @@ import {
   clampBlockList,
   type VenueBlock,
 } from "../lib/venue-blocks";
-import type { ReservationProps } from "../lib/venue-blocks";
 import { fmt, getDict } from "../lib/i18n";
-import { normalizeEmail, normalizePhone } from "./lib/validation";
 
 // =============================================================================
 // TASK-08 — Venue backend: event lifecycle, draft/publish, public queries.
@@ -45,9 +44,6 @@ import { normalizeEmail, normalizePhone } from "./lib/validation";
 // =============================================================================
 
 const dict = getDict("venue-editor");
-// Guest-facing copy (the public page surface) — used by submitReservation,
-// whose errors render on the public reservation form, not in the editor.
-const venueDict = getDict("venue");
 
 // "arhiva" is the reserved archive-listing segment of /[business]/venue/arhiva
 // (RFC §2.7); an event may never claim it as its own slug.
@@ -71,8 +67,12 @@ const asStoredBlocks = (blocks: VenueBlock[]): StoredBlocks =>
 
 // Load an event + its 1:1 config + the venue profile, enforcing editor access.
 // Every editor mutation funnels through here so the access check can never be
-// forgotten (RFC §2.9).
-async function loadEventForEditor(ctx: MutationCtx, eventId: Id<"events">) {
+// forgotten (RFC §2.9). Exported for the owner-facing reservation surface
+// (convex/venueReservations.ts) and analytics reads — one access funnel.
+export async function loadEventForEditor(
+  ctx: QueryCtx | MutationCtx,
+  eventId: Id<"events">,
+) {
   const event = await ctx.db.get(eventId);
   if (!event) throw new ConvexError(dict.eventNotFound);
   const config = await ctx.db
@@ -90,21 +90,18 @@ async function loadEventForEditor(ctx: MutationCtx, eventId: Id<"events">) {
 // is enforced server-side, in the same transaction as the gated write, at both
 // saveDraft and publishDraft. The client never transmits its own limits.
 //
-// Venue tiers are an open question (RFC §5 Q1). Until they are decided the plan
-// catalog leaves `allowedBlockKeys` empty, so this gate is intentionally
-// PERMISSIVE: an unset or empty allow-list — and the no-entitlement case — mean
-// "all blocks allowed", because forbidding every block before tiers exist would
-// make the product unusable. It only restricts once a non-empty allow-list
-// resolves (e.g. via an entitlement `overrides.allowedBlockKeys`).
+// TASK-43 settled the tiers (RFC §5 Q1): Basic carries the core blocks,
+// Premium everything. `venueAllowedBlockKeys` resolves the allow-list — the
+// no-entitlement, unknown-planKey, and empty-override cases all fall back to
+// the FREE (basic) set, never to "everything": a venue that never bought
+// Premium gets the core.
 async function assertBlocksAllowedByPlan(
   ctx: MutationCtx,
   businessId: Id<"businesses">,
   blocks: VenueBlock[],
 ) {
   const entitlement = await getEntitlement(ctx, businessId, "scanme_venue");
-  const allowed = entitlement?.limits.allowedBlockKeys;
-  if (!allowed || allowed.length === 0) return; // unset/empty ⇒ all allowed
-  const allowedSet = new Set(allowed);
+  const allowedSet = new Set(venueAllowedBlockKeys(entitlement?.limits));
   for (const block of blocks) {
     if (!allowedSet.has(block.type)) {
       throw new ConvexError(fmt(dict.blockNotAllowed, { block: block.type }));
@@ -261,6 +258,29 @@ export const scheduleEvent = mutation({
       throw new ConvexError(dict.schedulePublishRequired);
     }
     await assertNoOverlap(ctx, event, args.startsAt, args.endsAt);
+    // TASK-43 — the plan's active-event ceiling (Basic: 1 in {scheduled, live};
+    // Premium: unlimited). Checked HERE, in the same transaction as the status
+    // write, so two concurrent schedules cannot both observe n−1 (Convex
+    // mutations are serializable). Rescheduling the already-scheduled event
+    // does not count itself.
+    const maxActive = venueMaxActiveEvents(
+      (await getEntitlement(ctx, event.businessId, "scanme_venue"))?.limits,
+    );
+    if (maxActive !== null) {
+      let active = 0;
+      for (const status of ["scheduled", "live"] as const) {
+        const rows = await ctx.db
+          .query("events")
+          .withIndex("by_businessId_and_status", (q) =>
+            q.eq("businessId", event.businessId).eq("status", status),
+          )
+          .take(maxActive + 2);
+        active += rows.filter((row) => row._id !== event._id).length;
+      }
+      if (active >= maxActive) {
+        throw new ConvexError(fmt(dict.scheduleLimitReached, { max: maxActive }));
+      }
+    }
 
     // Cancel any functions from a prior schedule so a stale flip can never fire.
     if (event.scheduledGoLiveId) {
@@ -708,8 +728,18 @@ async function publishedVenuePageView(
     ? await ctx.storage.getUrl(config.publishedBackgroundVideoStorageId)
     : null;
 
+  // Soft-hidden blocks never leave the server; neither does a block the
+  // CURRENT plan does not allow (TASK-43) — publish gated it once, but a
+  // Premium page whose plan later lapsed must degrade to the core set here,
+  // at read time, where the client has no say.
+  const entitlement = await getEntitlement(
+    ctx,
+    event.businessId,
+    "scanme_venue",
+  );
+  const allowedBlocks = new Set(venueAllowedBlockKeys(entitlement?.limits));
   const blocks = (config.publishedBlocks ?? []).filter(
-    (block) => block.base.visible !== false,
+    (block) => block.base.visible !== false && allowedBlocks.has(block.type),
   );
 
   return {
@@ -978,12 +1008,19 @@ export const editorBySlug = query({
         : null;
     }
 
+    // The plan's block allow-list (TASK-43): the palette offers ONLY these —
+    // client UX; the server gate above stays authoritative.
+    const entitlement = await getEntitlement(ctx, business._id, "scanme_venue");
+    const allowedBlockKeys = [...venueAllowedBlockKeys(entitlement?.limits)];
+
     return {
       businessId: business._id,
       businessName: business.name,
       businessSlug: business.slug,
       editorRole: access.role,
       profileStatus: profile.status,
+      planKey: entitlement?.planKey ?? "basic",
+      allowedBlockKeys,
       brandColors,
       event:
         event && config
@@ -1147,129 +1184,7 @@ export const publicVenuePageState = query({
   },
 });
 
-// -----------------------------------------------------------------------------
-// submitReservation — the reservation block's backend (RFC §2.4 C.14), the one
-// write on the public surface. Validated against the PUBLISHED block's field
-// config, capacity-capped, deadline-checked, and rate-limited — all inside one
-// serializable transaction, so two concurrent submissions can never both pass
-// the capacity check (same OCC argument as the Memories quota, RFC §2.9).
-// -----------------------------------------------------------------------------
-
-// In-transaction rate limit: at most this many submissions per event per
-// minute. An index-range count inside the mutation's own transaction — not a
-// cross-transaction window scan, so it admits no races (RFC §2.9).
-const RESERVATION_RATE_LIMIT_PER_MINUTE = 15;
-const RESERVATION_RATE_WINDOW_MS = 60_000;
-// Capacity reads are bounded: past this many rows the event is treated as full.
-const RESERVATION_READ_CAP = 2000;
-const RESERVATION_MAX_PARTY_SIZE = 500;
-
-export const submitReservation = mutation({
-  args: {
-    businessSlug: v.string(),
-    eventSlug: v.string(),
-    name: v.optional(v.string()),
-    phone: v.optional(v.string()),
-    email: v.optional(v.string()),
-    partySize: v.optional(v.number()),
-    note: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
-    const business = await businessBySlug(ctx, args.businessSlug);
-    if (!business) throw new ConvexError(venueDict.reservationUnavailable);
-    const event = await ctx.db
-      .query("events")
-      .withIndex("by_businessId_and_slug", (q) =>
-        q.eq("businessId", business._id).eq("slug", args.eventSlug),
-      )
-      .unique();
-    if (!event) throw new ConvexError(venueDict.reservationUnavailable);
-    if (event.status === "ended" || event.status === "archived") {
-      throw new ConvexError(venueDict.reservationClosed);
-    }
-    const config = await configForEvent(ctx, event._id);
-    // Only a PUBLISHED, visible reservation block accepts submissions — the
-    // client never gets to pick its own field config.
-    const reservationBlock = (config?.publishedBlocks ?? []).find(
-      (block) => block.type === "reservation" && block.base.visible !== false,
-    );
-    if (!reservationBlock || reservationBlock.type !== "reservation") {
-      throw new ConvexError(venueDict.reservationUnavailable);
-    }
-    const props = reservationBlock.props as ReservationProps;
-
-    const now = Date.now();
-    if (props.deadline !== undefined && now > props.deadline) {
-      throw new ConvexError(venueDict.reservationDeadlinePassed);
-    }
-
-    // Rate limit: recent submissions for this event, counted in-transaction.
-    const recent = await ctx.db
-      .query("venueReservations")
-      .withIndex("by_eventId_and_createdAt", (q) =>
-        q
-          .eq("eventId", event._id)
-          .gte("createdAt", now - RESERVATION_RATE_WINDOW_MS),
-      )
-      .take(RESERVATION_RATE_LIMIT_PER_MINUTE);
-    if (recent.length >= RESERVATION_RATE_LIMIT_PER_MINUTE) {
-      throw new ConvexError(venueDict.reservationRateLimited);
-    }
-
-    // Honour the block's field config: enabled fields are validated, disabled
-    // fields are dropped and never stored.
-    const fields = props.fields;
-    let name = "";
-    if (fields.name) {
-      name = (args.name ?? "").trim().replace(/\s+/g, " ");
-      if (name.length === 0 || name.length > 120) {
-        throw new ConvexError(venueDict.reservationNameRequired);
-      }
-    }
-    const phone =
-      fields.phone && args.phone?.trim() ? normalizePhone(args.phone) : undefined;
-    const email =
-      fields.email && args.email?.trim() ? normalizeEmail(args.email) : undefined;
-    let partySize: number | undefined;
-    if (fields.partySize && args.partySize !== undefined) {
-      if (
-        !Number.isInteger(args.partySize) ||
-        args.partySize < 1 ||
-        args.partySize > RESERVATION_MAX_PARTY_SIZE
-      ) {
-        throw new ConvexError(venueDict.reservationPartySizeInvalid);
-      }
-      partySize = args.partySize;
-    }
-    const note =
-      fields.note && args.note ? optionalText(args.note, 500) : undefined;
-
-    // Capacity: total seats (each reservation counts partySize, or 1 when the
-    // field is off/absent). Counted and inserted in the same transaction.
-    if (props.capacity !== undefined) {
-      const existing = await ctx.db
-        .query("venueReservations")
-        .withIndex("by_eventId_and_createdAt", (q) => q.eq("eventId", event._id))
-        .take(RESERVATION_READ_CAP);
-      const used = existing.reduce((sum, row) => sum + (row.partySize ?? 1), 0);
-      const requested = partySize ?? 1;
-      if (
-        existing.length >= RESERVATION_READ_CAP ||
-        used + requested > props.capacity
-      ) {
-        throw new ConvexError(venueDict.reservationFull);
-      }
-    }
-
-    await ctx.db.insert("venueReservations", {
-      eventId: event._id,
-      name,
-      phone,
-      email,
-      partySize,
-      note,
-      createdAt: now,
-    });
-    return { ok: true as const };
-  },
-});
+// The reservation surface (submit / availability / owner workflow) lives in
+// convex/venueReservations.ts (TASK-43); event analytics in
+// convex/venueAnalytics.ts. This module stays the single owner of the event
+// lifecycle and the draft/publish contract.

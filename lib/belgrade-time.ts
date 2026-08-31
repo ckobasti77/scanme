@@ -1,8 +1,8 @@
 // Belgrade wall-clock ⇄ epoch helpers, DST-correct (CET/CEST). Extracted for
 // the TASK-18 Memories surfaces (admin console + host panel), which both take
-// datetime-local input and render Belgrade times. The venue-panel-section
-// (TASK-13) keeps its own private copies — that byte-stable file is not touched
-// here; new code shares this module.
+// datetime-local input and render Belgrade times. Since TASK-43 the
+// venue-panel-section and the public reservation form import from here too —
+// one implementation, no private copies left.
 
 const BELGRADE = "Europe/Belgrade";
 

@@ -63,6 +63,7 @@ const EVENT_STATUS_LABEL: Record<EventStatus, string> = {
 
 function planLabel(planKey: string | null) {
   if (planKey === "basic") return dict.planBasic;
+  if (planKey === "premium") return dict.planPremium;
   return planKey ?? "—";
 }
 

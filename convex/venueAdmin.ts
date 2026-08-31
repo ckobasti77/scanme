@@ -29,8 +29,8 @@ import { PLAN_LIMITS, type VenuePlanKey } from "./lib/plans";
 // can never trip over it.
 // =============================================================================
 
-// The plan keys the venue catalog actually defines (today only "basic";
-// RFC §5 Q1 leaves the tier list open). Validated at the boundary so a bogus
+// The plan keys the venue catalog actually defines ("basic" and "premium"
+// since TASK-43 settled RFC §5 Q1). Validated at the boundary so a bogus
 // planKey can never land in an entitlement row.
 const VENUE_PLAN_KEYS = Object.keys(
   PLAN_LIMITS.scanme_venue,

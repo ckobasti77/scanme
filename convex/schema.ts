@@ -981,8 +981,16 @@ export default defineSchema({
 
   // C.14 — reservation-block submissions (child table, unbounded). The
   // reservation block's field config (name/phone/email/partySize/note) drives
-  // which of these submitReservation accepts; every column except name is
+  // which of these the submit mutation accepts; every column except name is
   // optional so a block that disables a field simply never writes it.
+  //
+  // TASK-43 — the request workflow. THIS IS NOT A RESERVATION SYSTEM: no
+  // payment, no guarantee, no automatic confirmation — the OWNER decides. A
+  // request starts `pending` and holds ONE unit of its zone softly until
+  // `heldUntil` (2h), when a scheduled flip (+ cron backstop) marks it
+  // `expired` and frees the unit. `confirmed` holds the unit for good;
+  // `declined`/`expired` free it. Legacy rows (status absent) predate the
+  // workflow and are read as still holding (their old semantics).
   venueReservations: defineTable({
     eventId: v.id("events"),
     name: v.string(),
@@ -990,8 +998,40 @@ export default defineSchema({
     email: v.optional(v.string()),
     partySize: v.optional(v.number()),
     note: v.optional(v.string()),
+    // Zone reference (block-embedded zone id) + a name snapshot so the owner
+    // list stays readable after the block's zones are edited.
+    zoneId: v.optional(v.string()),
+    zoneName: v.optional(v.string()),
+    // The time the guest asked for — informational for the owner.
+    desiredAt: v.optional(v.number()),
+    status: v.optional(
+      v.union(
+        v.literal("pending"),
+        v.literal("confirmed"),
+        v.literal("declined"),
+        v.literal("expired"),
+      ),
+    ),
+    // Soft-hold expiry instant for pending rows (reserve→commit, RFC §2.9).
+    heldUntil: v.optional(v.number()),
+    decidedAt: v.optional(v.number()),
     createdAt: v.number(),
-  }).index("by_eventId_and_createdAt", ["eventId", "createdAt"]),
+  })
+    .index("by_eventId_and_createdAt", ["eventId", "createdAt"])
+    .index("by_eventId_and_status", ["eventId", "status"])
+    .index("by_status_and_heldUntil", ["status", "heldUntil"]),
+
+  // TASK-43 — per-event daily analytics rollup. AGGREGATE ONLY, by design
+  // (RFC-001 §2.10): counts and a per-block-type view record — never an IP, a
+  // user agent, a guest id, or any per-visitor row.
+  dailyEventMetrics: defineTable({
+    eventId: v.id("events"),
+    dateKey: v.string(),
+    pageViews: v.number(),
+    reservationSubmits: v.number(),
+    blockViews: v.optional(v.record(v.string(), v.number())),
+    updatedAt: v.number(),
+  }).index("by_eventId_and_dateKey", ["eventId", "dateKey"]),
 
   // C.15 — celebrations (the product entity, §2.1.6). A celebration is a
   // product instance, not a tenant: its tenant is a `businesses` row with

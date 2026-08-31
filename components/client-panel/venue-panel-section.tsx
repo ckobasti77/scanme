@@ -51,8 +51,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
+import { belgradeLocalToEpoch, epochToBelgradeLocal } from "@/lib/belgrade-time";
 import { fmt } from "@/lib/i18n";
 import { venuePanelSr as dict } from "@/lib/i18n/sr/venue-panel";
+import { VenueAnalyticsCard } from "./venue-analytics-card";
+import { VenueReservationsCard } from "./venue-reservations-card";
 
 type VenuePanelData = Extract<
   FunctionReturnType<typeof api.clientPanel.venuePanel>,
@@ -94,63 +97,8 @@ function formatBelgradeDate(epoch: number | null): string {
   return epoch === null ? "" : dateOnlyFormat.format(new Date(epoch));
 }
 
-// Europe/Belgrade offset (ms) at a given instant — DST-correct (CET/CEST).
-function belgradeOffsetMs(instant: number): number {
-  const dtf = new Intl.DateTimeFormat("en-US", {
-    timeZone: BELGRADE,
-    hourCycle: "h23",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  });
-  const map: Record<string, number> = {};
-  for (const part of dtf.formatToParts(new Date(instant))) {
-    if (part.type !== "literal") map[part.type] = Number(part.value);
-  }
-  const asUTC = Date.UTC(
-    map.year,
-    map.month - 1,
-    map.day,
-    map.hour,
-    map.minute,
-    map.second,
-  );
-  return asUTC - instant;
-}
-
-// A Belgrade wall-clock "YYYY-MM-DDTHH:mm" (from <input type="datetime-local">)
-// → epoch ms, correct across the DST boundary (two-pass offset refinement).
-function belgradeLocalToEpoch(local: string): number | null {
-  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(local);
-  if (!m) return null;
-  const utcGuess = Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]);
-  const offset = belgradeOffsetMs(utcGuess);
-  let epoch = utcGuess - offset;
-  const refined = belgradeOffsetMs(epoch);
-  if (refined !== offset) epoch = utcGuess - refined;
-  return epoch;
-}
-
-// epoch ms → Belgrade wall-clock string for prefilling <input datetime-local>.
-function epochToBelgradeLocal(epoch: number): string {
-  const dtf = new Intl.DateTimeFormat("en-CA", {
-    timeZone: BELGRADE,
-    hourCycle: "h23",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-  const map: Record<string, string> = {};
-  for (const part of dtf.formatToParts(new Date(epoch))) {
-    if (part.type !== "literal") map[part.type] = part.value;
-  }
-  return `${map.year}-${map.month}-${map.day}T${map.hour}:${map.minute}`;
-}
+// Belgrade wall-clock ⇄ epoch for the datetime-local inputs — shared with the
+// public reservation form since TASK-43 (lib/belgrade-time.ts).
 
 // Presentation-only: derive a URL-safe slug from a human title. The server is
 // the sole authority (requireSlug) — this only saves the owner from typing one.
@@ -660,6 +608,16 @@ export function VenuePanelSection({
             onSchedule={() => setDialog("schedule")}
             onEnd={() => setDialog("end")}
             onArchive={() => setDialog("archive")}
+          />
+
+          {/* TASK-43 — the request inbox + analytics for the current event.
+              Reservations only ever arrive through a published (Premium)
+              reservation block, so the card self-empties on Basic; analytics
+              upsells on Basic (the read is server-gated either way). */}
+          <VenueReservationsCard eventId={activeEvent.id} />
+          <VenueAnalyticsCard
+            eventId={activeEvent.id}
+            analyticsEnabled={data.analyticsEnabled}
           />
 
           {needsArchive ? (

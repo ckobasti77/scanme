@@ -57,7 +57,18 @@ async function seed(t: ReturnType<typeof convexTest>) {
       createdAt: now,
       updatedAt: now,
     });
-    return { adminId, businessId, venueProfileId };
+    // Premium by default (TASK-43): the block catalog under test spans the
+    // full set; plan-gate tests downgrade or delete this row explicitly.
+    const entitlementId = await ctx.db.insert("entitlements", {
+      businessId,
+      product: "scanme_venue",
+      planKey: "premium",
+      status: "active",
+      source: "manual",
+      createdAt: now,
+      updatedAt: now,
+    });
+    return { adminId, businessId, venueProfileId, entitlementId };
   });
 }
 
@@ -510,25 +521,16 @@ describe("draft/publish contract (RFC-001 §1.d, §2.4)", () => {
   });
 });
 
-describe("access + entitlement gate (RFC-001 §2.9)", () => {
-  test("the entitlement gate rejects a block key outside the plan's allow-list", async () => {
+describe("access + entitlement gate (RFC-001 §2.9, TASK-43 tiers)", () => {
+  test("an override allow-list wins over the plan tier", async () => {
     const t = convexTest(schema, modules);
-    const { adminId, businessId, venueProfileId } = await seed(t);
+    const { adminId, entitlementId, venueProfileId } = await seed(t);
     const as = admin(t, adminId);
 
-    // Grant an active venue entitlement whose overrides restrict blocks to
-    // countdown only (the code catalog leaves allowedBlockKeys empty).
+    // Restrict the seeded entitlement to countdown only via overrides.
     await t.run(async (ctx) => {
-      const now = Date.now();
-      await ctx.db.insert("entitlements", {
-        businessId,
-        product: "scanme_venue",
-        planKey: "basic",
-        status: "active",
-        source: "manual",
+      await ctx.db.patch(entitlementId, {
         overrides: { allowedBlockKeys: ["countdown"] },
-        createdAt: now,
-        updatedAt: now,
       });
     });
 
@@ -550,14 +552,18 @@ describe("access + entitlement gate (RFC-001 §2.9)", () => {
         eventId,
         blocks: asArgBlocks([block("gallery", "g1")]),
       }),
-    ).rejects.toThrow(/nije dostupan/);
+    ).rejects.toThrow(/Premium/);
   });
 
-  test("an empty/unset allow-list is permissive (all blocks allowed)", async () => {
+  test("no entitlement resolves the FREE basic set — core allowed, premium blocks refused", async () => {
     const t = convexTest(schema, modules);
-    const { adminId, venueProfileId } = await seed(t);
+    const { adminId, entitlementId, venueProfileId } = await seed(t);
     const as = admin(t, adminId);
-    // No entitlement row at all → gate is permissive.
+    // Delete the seeded premium row: the gate must fall back to Basic,
+    // never to "everything" (TASK-43 — Premium is otherwise unsellable).
+    await t.run(async (ctx) => {
+      await ctx.db.delete(entitlementId);
+    });
     const { eventId } = await as.mutation(api.venue.createEvent, {
       venueProfileId,
       slug: "bazar",
@@ -566,9 +572,111 @@ describe("access + entitlement gate (RFC-001 §2.9)", () => {
     await expect(
       as.mutation(api.venue.saveDraft, {
         eventId,
-        blocks: asArgBlocks([block("gallery", "g1"), block("priceList", "m1")]),
+        blocks: asArgBlocks([
+          block("countdown", "c1"),
+          block("map", "m0"),
+          block("share", "s1"),
+        ]),
       }),
     ).resolves.toBeDefined();
+    for (const premiumType of [
+      "gallery",
+      "priceList",
+      "reservation",
+      "profileCards",
+      "pastEvents",
+    ] as const) {
+      await expect(
+        as.mutation(api.venue.saveDraft, {
+          eventId,
+          blocks: asArgBlocks([block(premiumType, `x-${premiumType}`)]),
+        }),
+      ).rejects.toThrow(/Premium/);
+    }
+  });
+
+  test("Basic caps active events at one; Premium schedules ahead freely", async () => {
+    const t = convexTest(schema, modules);
+    const { adminId, entitlementId, venueProfileId } = await seed(t);
+    const as = admin(t, adminId);
+    const now = Date.now();
+    const hour = 3_600_000;
+
+    const first = await createSavePublish(t, adminId, venueProfileId, "petak", "A");
+    const second = await createSavePublish(t, adminId, venueProfileId, "subota", "B");
+
+    await as.mutation(api.venue.scheduleEvent, {
+      eventId: first.eventId,
+      startsAt: now + hour,
+      endsAt: now + 2 * hour,
+    });
+
+    // Basic: one active event is the ceiling — a second schedule is refused,
+    // in the same transaction as the write.
+    await t.run(async (ctx) => {
+      await ctx.db.patch(entitlementId, { planKey: "basic" });
+    });
+    await expect(
+      as.mutation(api.venue.scheduleEvent, {
+        eventId: second.eventId,
+        startsAt: now + 3 * hour,
+        endsAt: now + 4 * hour,
+      }),
+    ).rejects.toThrow(/najviše/);
+    // RESCHEDULING the one scheduled event never counts itself.
+    await as.mutation(api.venue.scheduleEvent, {
+      eventId: first.eventId,
+      startsAt: now + hour,
+      endsAt: now + 3 * hour,
+    });
+
+    // Premium: unlimited scheduled ahead — the same second schedule passes.
+    await t.run(async (ctx) => {
+      await ctx.db.patch(entitlementId, { planKey: "premium" });
+    });
+    await as.mutation(api.venue.scheduleEvent, {
+      eventId: second.eventId,
+      startsAt: now + 4 * hour,
+      endsAt: now + 5 * hour,
+    });
+  });
+
+  test("the public view filters premium blocks after a downgrade", async () => {
+    const t = convexTest(schema, modules);
+    const { adminId, entitlementId, venueProfileId } = await seed(t);
+    const as = admin(t, adminId);
+
+    const { eventId } = await as.mutation(api.venue.createEvent, {
+      venueProfileId,
+      slug: "smotra",
+      title: "Smotra",
+    });
+    await as.mutation(api.venue.saveDraft, {
+      eventId,
+      blocks: asArgBlocks([block("countdown", "c1"), block("gallery", "g1")]),
+    });
+    const config = await getConfig(t, eventId);
+    await as.mutation(api.venue.publishDraft, {
+      eventId,
+      expectedDraftRevision: config!.draftRevision,
+    });
+
+    let view = await t.query(api.venue.publicEventView, {
+      businessSlug: "klub-barok",
+      eventSlug: "smotra",
+    });
+    expect(view!.blocks.map((b) => b.type)).toEqual(["countdown", "gallery"]);
+
+    // The plan lapses to basic: the published gallery bytes stop leaving the
+    // server — no republish involved (TASK-43 read-time gate).
+    await t.run(async (ctx) => {
+      await ctx.db.patch(entitlementId, { planKey: "basic" });
+    });
+    view = await t.query(api.venue.publicEventView, {
+      businessSlug: "klub-barok",
+      eventSlug: "smotra",
+    });
+    expect(view!.blocks.map((b) => b.type)).toEqual(["countdown"]);
   });
 
   test("an event slugged 'arhiva' is rejected", async () => {
@@ -721,183 +829,10 @@ describe("reconcile cron (RFC-001 §2.2)", () => {
 });
 
 // -----------------------------------------------------------------------------
-// TASK-09 — submitReservation (the reservation block backend) and the
-// publicVenuePageState lifecycle read the routes hang off.
+// TASK-09 — publicVenuePageState, the lifecycle read the routes hang off.
+// (The reservation surface moved to convex/venueReservations.test.ts in
+// TASK-43, together with the zone/hold workflow it now carries.)
 // -----------------------------------------------------------------------------
-
-describe("submitReservation (RFC-001 §2.4 C.14)", () => {
-  // Create → save a reservation block with the given props → publish.
-  async function publishReservationEvent(
-    t: ReturnType<typeof convexTest>,
-    adminId: Id<"users">,
-    venueProfileId: Id<"serviceProfiles">,
-    slug: string,
-    props: Partial<Extract<VenueBlock, { type: "reservation" }>["props"]>,
-  ) {
-    const as = admin(t, adminId);
-    const { eventId } = await as.mutation(api.venue.createEvent, {
-      venueProfileId,
-      slug,
-      title: `Naslov ${slug}`,
-    });
-    const reservation = defaults("reservation") as Extract<
-      VenueBlock,
-      { type: "reservation" }
-    >;
-    reservation.base.id = "res-1";
-    reservation.props = { ...reservation.props, ...props };
-    await as.mutation(api.venue.saveDraft, {
-      eventId,
-      blocks: asArgBlocks([reservation]),
-    });
-    const config = await getConfig(t, eventId);
-    await as.mutation(api.venue.publishDraft, {
-      eventId,
-      expectedDraftRevision: config!.draftRevision,
-    });
-    return { eventId };
-  }
-
-  const SUBMIT = {
-    businessSlug: "klub-barok",
-    name: "Milena Vidaković",
-  };
-
-  test("rejects when no published reservation block exists", async () => {
-    const t = convexTest(schema, modules);
-    const { adminId, venueProfileId } = await seed(t);
-    await createSavePublish(t, adminId, venueProfileId, "bez-rezervacija", "X");
-    await expect(
-      t.mutation(api.venue.submitReservation, {
-        ...SUBMIT,
-        eventSlug: "bez-rezervacija",
-      }),
-    ).rejects.toThrow(/nisu dostupne/);
-  });
-
-  test("honours the field config: disabled fields dropped, enabled name required", async () => {
-    const t = convexTest(schema, modules);
-    const { adminId, venueProfileId } = await seed(t);
-    await publishReservationEvent(t, adminId, venueProfileId, "polja", {
-      fields: {
-        name: true,
-        phone: false,
-        email: false,
-        partySize: true,
-        note: false,
-      },
-    });
-
-    // Missing name → the dictionary error.
-    await expect(
-      t.mutation(api.venue.submitReservation, {
-        businessSlug: "klub-barok",
-        eventSlug: "polja",
-        partySize: 2,
-      }),
-    ).rejects.toThrow(/ime i prezime/i);
-
-    // Disabled phone/note are silently dropped; enabled fields persist.
-    await t.mutation(api.venue.submitReservation, {
-      ...SUBMIT,
-      eventSlug: "polja",
-      phone: "+381 60 123 4567",
-      note: "ugao do bine",
-      partySize: 3,
-    });
-    const rows = await t.run((ctx) =>
-      ctx.db.query("venueReservations").collect(),
-    );
-    expect(rows).toHaveLength(1);
-    expect(rows[0].name).toBe("Milena Vidaković");
-    expect(rows[0].partySize).toBe(3);
-    expect(rows[0].phone).toBeUndefined();
-    expect(rows[0].note).toBeUndefined();
-  });
-
-  test("enforces the capacity cap by total seats", async () => {
-    const t = convexTest(schema, modules);
-    const { adminId, venueProfileId } = await seed(t);
-    await publishReservationEvent(t, adminId, venueProfileId, "kapacitet", {
-      capacity: 4,
-    });
-    const submit = (name: string, partySize: number) =>
-      t.mutation(api.venue.submitReservation, {
-        businessSlug: "klub-barok",
-        eventSlug: "kapacitet",
-        name,
-        partySize,
-      });
-
-    await submit("Prva grupa", 3);
-    await expect(submit("Druga grupa", 2)).rejects.toThrow(/popunjena/);
-    await submit("Solo gost", 1); // 3 + 1 = 4 exactly fits
-    await expect(submit("Zakasneli", 1)).rejects.toThrow(/popunjena/);
-  });
-
-  test("enforces the deadline", async () => {
-    const t = convexTest(schema, modules);
-    const { adminId, venueProfileId } = await seed(t);
-    await publishReservationEvent(t, adminId, venueProfileId, "rok", {
-      deadline: Date.now() - 60_000,
-    });
-    await expect(
-      t.mutation(api.venue.submitReservation, { ...SUBMIT, eventSlug: "rok" }),
-    ).rejects.toThrow(/rok/i);
-  });
-
-  test("rate-limits a burst per event", async () => {
-    const t = convexTest(schema, modules);
-    const { adminId, venueProfileId } = await seed(t);
-    await publishReservationEvent(t, adminId, venueProfileId, "navala", {});
-    for (let i = 0; i < 15; i += 1) {
-      await t.mutation(api.venue.submitReservation, {
-        businessSlug: "klub-barok",
-        eventSlug: "navala",
-        name: `Gost ${i}`,
-      });
-    }
-    await expect(
-      t.mutation(api.venue.submitReservation, {
-        ...SUBMIT,
-        eventSlug: "navala",
-      }),
-    ).rejects.toThrow(/mnogo zahteva/i);
-  });
-
-  test("rejects once the event has ended", async () => {
-    const t = convexTest(schema, modules);
-    const { adminId, venueProfileId } = await seed(t);
-    const as = admin(t, adminId);
-    const { eventId } = await publishReservationEvent(
-      t,
-      adminId,
-      venueProfileId,
-      "zavrsen",
-      {},
-    );
-    const now = Date.now();
-    const { lifecycleRevision } = await as.mutation(api.venue.scheduleEvent, {
-      eventId,
-      startsAt: now + 3_600_000,
-      endsAt: now + 7_200_000,
-    });
-    await t.mutation(internal.venue.goLive, {
-      eventId,
-      expectedRevision: lifecycleRevision,
-    });
-    await t.mutation(internal.venue.endEvent, {
-      eventId,
-      expectedRevision: lifecycleRevision,
-    });
-    await expect(
-      t.mutation(api.venue.submitReservation, {
-        ...SUBMIT,
-        eventSlug: "zavrsen",
-      }),
-    ).rejects.toThrow(/zatvorene/i);
-  });
-});
 
 describe("publicVenuePageState (TASK-09 lifecycle read)", () => {
   test("null for a missing business or a business without a Venue profile", async () => {

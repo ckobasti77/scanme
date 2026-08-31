@@ -89,11 +89,22 @@ export interface VenueDict {
   reservationSuccessDefault: string;
   reservationErrorGeneric: string;
   reservationDeadlineNote: string; // "… {date}"
+  // reservation zones + request semantics (TASK-43). The disclaimer keeps the
+  // hard rule visible to the guest: a submission is a REQUEST the owner
+  // confirms, never a booking the software promises.
+  fieldZone: string;
+  fieldDesiredAt: string;
+  reservationZoneFullSuffix: string; // appended to a full zone's option label
+  reservationAllFull: string; // replaces the form when every zone is full
+  reservationDisclaimer: string;
   // reservation backend errors (ConvexError data shown on the public form).
   reservationUnavailable: string;
   reservationClosed: string;
   reservationDeadlinePassed: string;
   reservationFull: string;
+  reservationZoneRequired: string;
+  reservationZoneInvalid: string;
+  reservationZoneFull: string;
   reservationRateLimited: string;
   reservationNameRequired: string;
   reservationPartySizeInvalid: string;
@@ -148,8 +159,12 @@ export interface VenueEditorDict {
   schedulePublishRequired: string;
   scheduleOverlap: string;
   scheduleWrongStatus: string;
+  scheduleLimitReached: string; // "… {max} …" — the Basic active-event ceiling
   liveConflict: string;
   blockNotAllowed: string;
+  // TASK-43 — owner-side reservation-workflow errors (venueReservations.ts).
+  resRequestNotFound: string;
+  resConfirmFull: string;
   archiveNotEnded: string;
   archiveAssetInvalid: string;
   archiveOverCap: string; // "… {max} …" — same cap as memories.archiveOverCap
@@ -220,6 +235,10 @@ export interface VenueEditorDict {
   blockCount: string; // "{count} / {max}"
   blocksCapReached: string; // "… ({max}) …"
   blocksEmpty: string;
+  // TASK-43 — plan gating in the palette: blocks outside the plan's allow-list
+  // are NOT offered; this one-liner says why the palette is shorter.
+  blocksPremiumNote: string;
+  blockPremiumChip: string; // chip on an existing block the plan no longer allows
   addBlockAria: string; // "… „{block}“"
   blockItemAria: string; // "… „{block}“ …"
   dragHandleAria: string; // "… „{block}“"
@@ -430,6 +449,14 @@ export interface VenueEditorDict {
   resFieldEmail: string;
   resFieldPartySize: string;
   resFieldNote: string;
+  // TASK-43 — zones editor: areas with a unit count, never numbered tables.
+  resZonesHeading: string;
+  resZonesNote: string; // explains zones + the 2h soft hold to the owner
+  resZoneNameLabel: string;
+  resZoneCapacityLabel: string;
+  resZoneAdd: string;
+  resZoneRemoveAria: string; // "… „{name}“"
+  resZoneNamePlaceholder: string;
   resCapacityToggle: string;
   resCapacityLabel: string;
   resDeadlineToggle: string;
@@ -578,6 +605,7 @@ export interface VenueAdminDict {
   planLabel: string;
   planPickerLabel: string;
   planBasic: string;
+  planPremium: string;
   // Current event summary.
   currentEventLabel: string;
   noEventYet: string;
@@ -727,6 +755,41 @@ export interface VenuePanelDict {
   archiveCancel: string;
   archiveSuccess: string;
   archiveError: string;
+  // --- TASK-43: the reservations card ---------------------------------------
+  // The owner decides — the card's copy must read as a request inbox, never as
+  // a booking system's admin. Confirm opens a PREPARED WhatsApp/Viber message.
+  resCardHeading: string;
+  resCardEmpty: string;
+  resCardNote: string; // the 2h-hold + owner-decides explainer
+  resZoneUsage: string; // "{name}: {used}/{capacity}"
+  resStatusPending: string;
+  resStatusConfirmed: string;
+  resStatusDeclined: string;
+  resStatusExpired: string;
+  resPartyLabel: string; // "{count} os."
+  resReceivedAt: string; // "… {date}"
+  resDesiredAt: string; // "… {date}"
+  resConfirmAction: string;
+  resDeclineAction: string;
+  resWhatsappAction: string;
+  resViberAction: string;
+  // The prepared message the owner sends after confirming — never sent by the
+  // software itself. Placeholders: {name}, {event}, {details} (zone/party/time
+  // joined client-side, empty parts dropped).
+  resMessageTemplate: string;
+  resMessageNoZone: string; // {details} fallback when the request carries none
+  resActionError: string;
+  // --- TASK-43: the analytics card ------------------------------------------
+  anaCardHeading: string;
+  anaLockedNote: string; // Basic upsell — the read is Premium-gated on the server
+  anaPageViews: string;
+  anaReservationSubmits: string;
+  anaRangeLabel7d: string;
+  anaRangeLabel30d: string;
+  anaBlocksHeading: string;
+  anaBlocksEmpty: string;
+  anaReservationsHeading: string;
+  anaEmptyNote: string;
 }
 
 // memories — the Memories backend + guest surfaces (/m/[code]*). TASK-14 adds

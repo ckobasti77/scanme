@@ -294,8 +294,15 @@ function venueDemoBlocks(
       props: {
         heading: "Rezerviši sto",
         fields: { name: true, phone: true, email: false, partySize: true, note: true },
-        capacity: 120,
-        confirmationMessage: "Sto je rezervisan — potvrda stiže porukom.",
+        // TASK-43 — the zone model the QA flow exercises: areas with a unit
+        // count, one request holds one unit softly for 2h.
+        zones: [
+          { id: "seed-zone-table", name: "Sto za dvoje", capacity: 8 },
+          { id: "seed-zone-booth", name: "Separe", capacity: 3 },
+          { id: "seed-zone-bar", name: "Bar", capacity: 10 },
+        ],
+        confirmationMessage:
+          "Zahtev je primljen — potvrda rezervacije stiže porukom.",
       },
     },
     {
@@ -364,10 +371,12 @@ export const applyVenueSeed = internalMutation({
       createdAt: now,
       updatedAt: now,
     });
+    // Premium (TASK-43): the demo shows the full block set — gallery,
+    // reservation, priceList and pastEvents are Premium-gated now.
     await upsertManualEntitlement(ctx, {
       businessId,
       product: "scanme_venue",
-      planKey: "basic",
+      planKey: "premium",
       now,
     });
 

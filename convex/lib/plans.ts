@@ -7,13 +7,17 @@
 // photos-per-guest quota tiers plus retention 30/90/365 days and per-tier max
 // image dimension 2048/2560/4096 px.
 //
-// scanme_venue is a PLACEHOLDER shape only — its tiers (which blocks per tier,
-// event/archive limits) are open question §5 Q1. `allowedBlockKeys` is present
-// so the read path and the entitlements `overrides` shape are exercised, but the
-// key list is intentionally empty until the tiers are decided.
+// scanme_venue tiers (TASK-43, closing RFC-001 §5 Q1): Basic carries the core
+// blocks; Premium unlocks the interactive/content-heavy blocks (reservation,
+// pastEvents, profileCards, priceList, gallery), unlimited scheduled events,
+// and event analytics. `allowedBlockKeys` is the same shape the entitlement
+// and account `overrides` already carry, so an Enterprise deviation composes
+// with zero new machinery.
+
+import { VENUE_BLOCK_TYPES } from "../../lib/venue-blocks";
 
 export type MemoriesPlanKey = "basic" | "standard" | "premium";
-export type VenuePlanKey = "basic";
+export type VenuePlanKey = "basic" | "premium";
 
 export interface MemoriesLimits {
   photosPerGuest: number;
@@ -23,7 +27,24 @@ export interface MemoriesLimits {
 
 export interface VenueLimits {
   allowedBlockKeys: readonly string[];
+  /** Max events in {scheduled, live} at once; null = unlimited. */
+  maxActiveEvents: number | null;
+  /** Whether the owner may read event analytics (collection always runs). */
+  analytics: boolean;
 }
+
+// The Basic core (TASK-43): informational blocks every venue gets for free.
+// Premium is everything — derived from VENUE_BLOCK_TYPES so a future block
+// type is Premium by default until this list deliberately adds it.
+export const VENUE_BASIC_BLOCK_KEYS = [
+  "countdown",
+  "eventDateTime",
+  "programTimeline",
+  "map",
+  "richText",
+  "share",
+  "spacer",
+] as const;
 
 export const PLAN_LIMITS = {
   scanme_memories: {
@@ -32,9 +53,16 @@ export const PLAN_LIMITS = {
     premium: { photosPerGuest: 10, maxImageDimension: 4096, retentionDays: 365 },
   },
   scanme_venue: {
-    // TODO(RFC-001 §5 Q1): fill per-tier allowedBlockKeys once Venue tiers are
-    // decided. Placeholder shape only.
-    basic: { allowedBlockKeys: [] as readonly string[] },
+    basic: {
+      allowedBlockKeys: VENUE_BASIC_BLOCK_KEYS as readonly string[],
+      maxActiveEvents: 1,
+      analytics: false,
+    },
+    premium: {
+      allowedBlockKeys: VENUE_BLOCK_TYPES as readonly string[],
+      maxActiveEvents: null,
+      analytics: true,
+    },
   },
 } satisfies {
   scanme_memories: Record<MemoriesPlanKey, MemoriesLimits>;
@@ -67,8 +95,9 @@ export type AccountPlan = "basic" | "premium" | "enterprise";
 // override (an admin grant, or the per-event premium purchase, RFC-001 §2.3).
 // Enterprise is "on request": it maps to the same tier as premium, and
 // negotiated deviations live in account.overrides (merged in step 3), never
-// in new tier constants. Venue: every plan maps to the placeholder basic
-// tier until Venue tiers are decided (RFC-001 §5 Q1).
+// in new tier constants. Venue (TASK-43): premium/enterprise resolve the
+// premium tier — the mapping that makes the account-plan purchase actually
+// mean something for Venue.
 export const ACCOUNT_PLAN_TIER: {
   [P in PlanProduct]: Record<
     AccountPlan,
@@ -82,7 +111,39 @@ export const ACCOUNT_PLAN_TIER: {
   },
   scanme_venue: {
     basic: "basic",
-    premium: "basic",
-    enterprise: "basic",
+    premium: "premium",
+    enterprise: "premium",
   },
 };
+
+// ---------------------------------------------------------------------------
+// Venue limit readers (TASK-43). Every enforcement point funnels through these
+// so "no entitlement", "unknown planKey", and "override without a value" all
+// resolve to the FREE (basic) tier — the honest default: a venue that never
+// bought anything gets the core, never everything.
+// ---------------------------------------------------------------------------
+
+export function venueAllowedBlockKeys(
+  limits: Partial<VenueLimits> | null | undefined,
+): readonly string[] {
+  const list = limits?.allowedBlockKeys;
+  if (!list || list.length === 0) {
+    return PLAN_LIMITS.scanme_venue.basic.allowedBlockKeys;
+  }
+  return list;
+}
+
+export function venueMaxActiveEvents(
+  limits: Partial<VenueLimits> | null | undefined,
+): number | null {
+  const value = limits?.maxActiveEvents;
+  return value === undefined
+    ? PLAN_LIMITS.scanme_venue.basic.maxActiveEvents
+    : value;
+}
+
+export function venueAnalyticsEnabled(
+  limits: Partial<VenueLimits> | null | undefined,
+): boolean {
+  return limits?.analytics === true;
+}

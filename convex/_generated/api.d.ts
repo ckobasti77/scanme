@@ -61,7 +61,9 @@ import type * as scanMeLinks from "../scanMeLinks.js";
 import type * as slugCollisionScan from "../slugCollisionScan.js";
 import type * as venue from "../venue.js";
 import type * as venueAdmin from "../venueAdmin.js";
+import type * as venueAnalytics from "../venueAnalytics.js";
 import type * as venueDevSeed from "../venueDevSeed.js";
+import type * as venueReservations from "../venueReservations.js";
 
 import type {
   ApiFromModules,
@@ -123,7 +125,9 @@ declare const fullApi: ApiFromModules<{
   slugCollisionScan: typeof slugCollisionScan;
   venue: typeof venue;
   venueAdmin: typeof venueAdmin;
+  venueAnalytics: typeof venueAnalytics;
   venueDevSeed: typeof venueDevSeed;
+  venueReservations: typeof venueReservations;
 }>;
 
 /**

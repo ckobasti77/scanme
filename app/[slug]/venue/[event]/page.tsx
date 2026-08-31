@@ -93,6 +93,7 @@ export default async function VenueEventPage({
       businessSlug={slug}
       pastEvents={archive}
       footerLink={{ href: `/${slug}/venue`, label: dict.currentEventLink }}
+      analytics
     >
       {ownArchive && ownArchive.items.length > 0 ? (
         <div>

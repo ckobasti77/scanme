@@ -46,4 +46,11 @@ export const rateLimiter = new RateLimiter(components.rateLimiter, {
   // Public offer-logo reservations. The opaque per-tab token scopes the bucket;
   // three immediate attempts leave room for a correction without enabling floods.
   offerLogoUpload: { kind: "token bucket", rate: 5, period: MINUTE, capacity: 3 },
+  // Venue reservation requests (TASK-43): keyed by the ipHash the Next route
+  // handler computes (the cardResolve pattern). One person legitimately sends
+  // a request, maybe corrects it once — capacity 5 covers a family arguing
+  // over the zone; rate 10/min stops a script hollowing out an event through
+  // 2h soft holds. The per-event in-transaction window (15/min) backstops
+  // distributed floods.
+  venueReservation: { kind: "token bucket", rate: 10, period: MINUTE, capacity: 5 },
 });
