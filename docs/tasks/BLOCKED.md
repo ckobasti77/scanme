@@ -149,13 +149,15 @@ vlasnika iste kao gore.
 
 ## TASK-32 — naplata: uplate, ciklusi, statusi, ručni upis
 
-### 1. Grace period = 7 dana (konstanta u kodu, za potvrdu)
+### 1. Grace period = 14 dana (REŠENO u TASK-35)
 
-Posle datuma sledeće naplate klijent ima **7 dana** (`GRACE_DAYS`,
+Posle datuma sledeće naplate klijent ima grace period (`GRACE_DAYS`,
 `convex/lib/billingCycle.ts`) pre nego što dnevni cron prevede nalog u
 `expired` (i time mu `getEntitlement` korak 3 prestane da rešava plan-tir).
 Pokriva kašnjenje naloga za prenos. Broj je konstanta u kodu — promena je
-deploy, ne migracija. **Vlasnik potvrđuje dužinu** (7 / 14 / drugo).
+deploy, ne migracija. **Vlasnik potvrdio: 14 dana** (TASK-35, bilo 7 od
+TASK-32). Testovi u `convex/billing.test.ts` referenciraju `GRACE_DAYS`
+simbolički pa nisu zahtevali izmenu.
 
 ### 2. `accounts.planValidUntil` = datum sledeće naplate CELOG računa
 
@@ -244,3 +246,50 @@ padne na prvom odlaznom TLS pozivu. **Nije pad koda ovog taska.** Zeleno:
 proveren u produkcijskom `next start` (dev server zaklanja `/kupovina`, vidi
 [[dev-server-slug-shadow]]): prekidač preliva svaku cenu, korpa = motor,
 prikaz je inertan (pointer-events:none), mobilni se slaže bez bočnog prelivanja.
+
+---
+
+## TASK-35 — korak 2 toka kupovine (Basic vs Premium + Enterprise upit)
+
+### 1. `harness:check` i dalje sredinski blokiran (isti Node v24.8.0 bag)
+
+Isti `NewRootCertStore` pad kao u TASK-28 §4 / TASK-32 §5 / TASK-34 §3 (ovaj put
+tek pošto je u ovom worktree-u napravljen `node_modules/next` junction +
+kopiran `.env.local` po uputstvu iz [[harness-check-in-worktree]] — pre toga
+`harness:check` nije mogao ni da podigne dev server u ovom worktree-u). **Nije
+pad koda ovog taska.** Zeleno: `lint` (0 grešaka), `build`, `harness:namespace`,
+ceo `vitest` (632 prošlo / 1 preskočen, uključujući 10 novih testova ovog
+taska: `step-plan-model.test.ts`).
+
+### 2. Korak 2 ručno proveren u produkcijskom `next start` — jedan nalaz, ispravljen
+
+Isti razlog kao TASK-34 §3 ([[dev-server-slug-shadow]]): `/kupovina` proveren
+kroz `next start` (dodat `scanme-start` unos u `.claude/launch.json`, port
+3010), ne kroz `next dev`. Dodatno, u ovom headless browser pane-u
+`requestAnimationFrame` je potpuno ugašen dok je pane sakriven (izmereno: 0
+otkucaja u 2s) — Framer Motion-ov `AnimatePresence` prelaz između koraka
+(rAF-pogonjen) se zato nikad ne završava kad se ide klikom kroz tok, pa je
+korak 2 proveravan direktnim (hard) navigacijama na URL sa `step=2` već u
+upitu, gde nema prethodnog koraka za "exit" animaciju. Ovo je artefakt test
+okruženja, ne bag proizvoda (transition traje 0.2s, u pravom vidljivom
+tabu radi normalno).
+
+Jedan STVARAN nalaz iz te provere, **ispravljen u ovom tasku**: Premium
+kolona je na mobilnoj širini (375px) prelivala stranicu za ~52px — cena-razlika
+(`+990 RSD mesečno na trenutnih 2.390 RSD`) je flex dete bez `min-width: 0`
+u `.columnHead`, pa je podrazumevano flex ponašanje sprečavalo prelamanje
+teksta (isti obrazac kao [[client-panel-grid-track-gotcha]]). Popravljeno
+dodavanjem `min-width: 0` na `.delta` u `step-plan.module.css`; provereno
+ponovo na 375px — nema više bočnog prelivanja, ni na `<html>` ni na fiksnom
+headeru (koji je prelivanje "nasledio" preko 100vw računanja).
+
+Provereno na 1280px i 375px: Basic/Premium kolone preko cele širine iste
+ljuske (ne nova stranica), Basic prikazuje spisak sa "Uključeno, ne plaćaš
+ništa.", Premium prikazuje "Sve iz Basic-a" pa grupe PO USLUZI (VENUE,
+MEMORIES — samo za usluge iz korpe, prazne grupe se ne prikazuju, npr. sam
+Links ne prikazuje nijednu grupu), pa uvek poslednju, negrupisanu stavku "Sve
+buduće usluge automatski na Premium-u." Cena Premium-a je uvek razlika
+("+990 RSD mesečno na trenutnih X RSD"), nikad podeljena po broju usluga.
+Prebacivanje Basic↔Premium (isti korak, bez animacije) menja dugme i ukupan
+iznos u traci odmah. Enterprise red vodi na `/?upit=enterprise#ponuda`
+(postojeći kontakt cilj), nikad u korak 3.

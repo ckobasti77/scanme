@@ -17,8 +17,8 @@ export const EXPIRING_SOON_DAYS = 14;
 // Grace after the due date before an account counts as expired. Covers the
 // nalog-za-prenos lag (the client paid; the money and the admin entry arrive
 // days later). A code constant like PLAN_LIMITS: tuning it is a deploy, never
-// a migration. Owner may adjust — flagged in docs/tasks/BLOCKED.md.
-export const GRACE_DAYS = 7;
+// a migration. Owner confirmed 14 days (TASK-35, was 7 — see docs/tasks/BLOCKED.md).
+export const GRACE_DAYS = 14;
 
 export type BillingPeriod = "monthly" | "annual";
 

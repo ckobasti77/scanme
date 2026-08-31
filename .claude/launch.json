@@ -26,6 +26,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev:web", "--", "-p", "3002"],
       "port": 3002
+    },
+    {
+      "name": "scanme-start",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "start", "--", "-p", "3010"],
+      "port": 3010
     }
   ]
 }

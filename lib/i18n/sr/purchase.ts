@@ -63,6 +63,33 @@ export interface PurchaseStep1Copy {
   cartPackageTag: string; // "{name} paket"
 }
 
+/** Copy for one owned-service group inside the Premium column (step 2). The
+ *  service's own name (step1.services[service].name) is the small
+ *  superheading — this only carries the bullet items, and an EMPTY list means
+ *  the service contributes nothing beyond the universal future-services line,
+ *  so its group is not rendered at all ("ništa što nije kupio se ne
+ *  prikazuje" cuts both ways: nothing invented either). */
+export interface PurchaseStep2Copy {
+  basicTitle: string;
+  basicIncludedLabel: string; // "Uključeno, ne plaćaš ništa."
+  basicItems: readonly string[];
+  basicCta: string; // "Izaberi Basic"
+  basicSelected: string; // "Izabrano"
+  premiumTitle: string;
+  premiumFirstItem: string; // "Sve iz Basic-a"
+  /** Per-service bullet items, keyed by ServiceId. Only rendered for a service
+   *  the buyer actually owns AND whose list is non-empty. */
+  premiumGroups: Record<ServiceId, readonly string[]>;
+  premiumFutureLine: string; // "Sve buduće usluge automatski na Premium-u." (last, ungrouped)
+  premiumCta: string; // "Nadogradi na Premium"
+  premiumSelected: string; // "Izabrano"
+  // The Premium price is shown as a DELTA on the buyer's current total — never
+  // divided by the number of services (RFC-002 §2.3 hard rule).
+  premiumDeltaWithCurrent: string; // "+{amount} {currency} {period} na trenutnih {current} {currency}"
+  premiumDeltaOnly: string; // "+{amount} {currency} {period}"
+  enterpriseRow: string; // "Imate 10+ lokala? Napravićemo ponudu po meri"
+}
+
 export interface PurchaseDict {
   metaTitle: string;
   metaDescription: string;
@@ -90,6 +117,7 @@ export interface PurchaseDict {
   planEnterprise: string;
   soonTag: string;
   step1: PurchaseStep1Copy;
+  step2: PurchaseStep2Copy;
 }
 
 export const purchaseSr = {
@@ -205,5 +233,39 @@ export const purchaseSr = {
     cartSavings: "Ušteda {amount} RSD",
     cartNudge: "Dodaj {service} i uštedi još {amount} RSD.",
     cartPackageTag: "{name} paket",
+  },
+  step2: {
+    basicTitle: "Basic",
+    basicIncludedLabel: "Uključeno, ne plaćaš ništa.",
+    basicItems: [
+      "Sve usluge koje kupite rade odmah — nalog sam po sebi ništa ne naplaćuje.",
+      "Standardne granice svake usluge (npr. broj fotografija po gostu na Memories).",
+      "Dodajete ili menjate usluge kad god poželite, bez menjanja plana.",
+    ],
+    basicCta: "Izaberi Basic",
+    basicSelected: "Izabrano",
+    premiumTitle: "Premium",
+    premiumFirstItem: "Sve iz Basic-a",
+    premiumGroups: {
+      links: [],
+      venue: [
+        "Rezervacije sa kapacitetom — gost šalje upit za sto, a kad se zona popuni piše „popunjeno“.",
+        "Svi blokovi: rezervacije, prošli događaji, kartice ljudi, cenovnik, galerija.",
+        "Više događaja zakazanih unapred.",
+        "Analitika događaja.",
+      ],
+      memories: [
+        "Do 10 fotografija po gostu umesto 3.",
+        "Uspomene se čuvaju godinu dana umesto 30 dana.",
+      ],
+      menu: [],
+      review: [],
+    },
+    premiumFutureLine: "Sve buduće usluge automatski na Premium-u.",
+    premiumCta: "Nadogradi na Premium",
+    premiumSelected: "Izabrano",
+    premiumDeltaWithCurrent: "+{amount} {currency} {period} na trenutnih {current} {currency}",
+    premiumDeltaOnly: "+{amount} {currency} {period}",
+    enterpriseRow: "Imate 10+ lokala? Napravićemo ponudu po meri",
   },
 } as const satisfies PurchaseDict;
