@@ -32,6 +32,15 @@ export const rateLimiter = new RateLimiter(components.rateLimiter, {
   // a tighter guestCreate would just move the refusal one step later (the
   // guest reaches /m/[code] with no key and cannot upload).
   guestCreate: { kind: "token bucket", rate: 300, period: MINUTE, capacity: 300 },
+  // TASK-37: the bare splitter's card-aware Memories hop
+  // (cards.resolveSplitterMemories, /r/[cardCode]/m). Same shape and keying
+  // as cardResolve, but its OWN bucket: a splitter room's memories entry
+  // spends cardResolve at the scan and this at the button tap — sharing the
+  // bucket would double-spend cardResolve and halve the 300-guest room burst
+  // TASK-25 sized it for. The hop also spends guestCreate (the mint happens
+  // here, not at scan time), keeping guestCreate at exactly one token per
+  // guest on both the direct and the splitter path.
+  splitterMemoriesHop: { kind: "token bucket", rate: 300, period: MINUTE, capacity: 300 },
   // Per-guest reservation bursts (memories.reserveUpload). Capacity must
   // comfortably exceed the largest quota tier (premium = 10): a guest
   // legitimately reserves their whole allowance in one sequential burst, and

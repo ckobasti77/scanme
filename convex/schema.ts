@@ -76,14 +76,36 @@ const accentTokens = v.object({
 
 // Card retarget kinds (RFC-001 §2.4 C.9). Shared by `cardTargets.kind` and
 // `cardScanEvents.targetKind` so the two can never drift; exported for the
-// convex/cards.ts arg validators (TASK-14).
+// convex/cards.ts arg validators (TASK-14). "splitter" (TASK-37, RFC-002 §2.4)
+// is the bare splitter: one card serving several services resolves to a
+// button page under /r/[cardCode]/izbor instead of a single destination.
 export const cardTargetKind = v.union(
   v.literal("memories_space"),
   v.literal("venue"),
   v.literal("event"),
   v.literal("service_page"),
   v.literal("url"),
+  v.literal("splitter"),
 );
+
+// One button on a bare splitter (RFC-002 §2.4, TASK-37): the same per-kind
+// reference shape as a direct card target, minus "splitter" itself (no
+// nesting, by construction) plus the button label. The exact block model was
+// RFC-002 §5 Q8's open question — this is the deliberately minimal answer.
+export const cardSplitterItem = v.object({
+  kind: v.union(
+    v.literal("memories_space"),
+    v.literal("venue"),
+    v.literal("event"),
+    v.literal("service_page"),
+    v.literal("url"),
+  ),
+  label: v.string(),
+  spaceId: v.optional(v.id("memoriesSpaces")),
+  eventId: v.optional(v.id("events")),
+  serviceProfileId: v.optional(v.id("serviceProfiles")),
+  url: v.optional(v.string()),
+});
 
 // Reduced device signal for the new scan/visit event tables (RFC-001 §2.4
 // C.10). No IP or full UA is stored (§2.10 GDPR minimization). Exported for
@@ -777,6 +799,8 @@ export default defineSchema({
     eventId: v.optional(v.id("events")),
     serviceProfileId: v.optional(v.id("serviceProfiles")),
     url: v.optional(v.string()),
+    // kind === "splitter" only (TASK-37): the bare splitter's button list.
+    splitterItems: v.optional(v.array(cardSplitterItem)),
     createdByUserId: v.id("users"),
     createdAt: v.number(),
   }).index("by_cardId", ["cardId"]),

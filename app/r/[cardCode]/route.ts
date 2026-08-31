@@ -1,6 +1,9 @@
-import { createHash } from "node:crypto";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
+import {
+  resolverIpHash,
+  resolverRedirect,
+} from "@/lib/card-resolver-http";
 import {
   buildGuestCookieValue,
   guestCookieHeader,
@@ -16,19 +19,9 @@ import {
 // referrers; (c) a printed-card tap must not depend on JS.
 export const dynamic = "force-dynamic";
 
-// GET handlers are otherwise cacheable; a cached redirect would send every
-// guest to one target (and replay one Set-Cookie), so every response — every
-// branch — carries no-store.
-const BASE_HEADERS: Record<string, string> = {
-  "Cache-Control": "no-store",
-  "Referrer-Policy": "no-referrer",
-};
-
-function redirect(location: string, setCookie?: string) {
-  const headers = new Headers({ ...BASE_HEADERS, Location: location });
-  if (setCookie) headers.set("Set-Cookie", setCookie);
-  return new Response(null, { status: 302, headers });
-}
+// The no-store redirect and the salted IP hash live in
+// lib/card-resolver-http.ts, shared with the splitter's /m hop (TASK-37).
+const redirect = resolverRedirect;
 
 function deviceCategory(userAgent: string) {
   const value = userAgent.toLowerCase();
@@ -37,16 +30,6 @@ function deviceCategory(userAgent: string) {
   if (/mobile|iphone|android/.test(value)) return "mobile" as const;
   if (value) return "desktop" as const;
   return "unknown" as const;
-}
-
-// Rate-limit key only: a salted one-way hash of the caller IP. The raw IP is
-// never sent to or stored in Convex (GDPR, RFC §2.10); the salt (the guest
-// secret) keeps the hash non-reversible by dictionary.
-function ipHash(request: Request) {
-  const forwarded = request.headers.get("x-forwarded-for");
-  const ip = forwarded?.split(",")[0]?.trim() || "local";
-  const salt = process.env.SCANME_GUEST_SECRET ?? "";
-  return createHash("sha256").update(`${salt}:${ip}`).digest("hex").slice(0, 32);
 }
 
 export async function GET(
@@ -70,7 +53,7 @@ export async function GET(
       cardCode,
       requestId,
       deviceCategory: deviceCategory(request.headers.get("user-agent") ?? ""),
-      ipHash: ipHash(request),
+      ipHash: resolverIpHash(request),
     });
 
     switch (outcome.kind) {
@@ -87,6 +70,12 @@ export async function GET(
         );
       case "service_page":
         return redirect(new URL(`/${outcome.slug}`, request.url).toString());
+      case "splitter":
+        // TASK-37: the bare splitter page. cardCode comes back normalized
+        // from the resolver, so the URL is canonical.
+        return redirect(
+          new URL(`/r/${outcome.cardCode}/izbor`, request.url).toString(),
+        );
       case "url":
         // External target, already validated by isSafePublicDestination.
         return redirect(outcome.url);

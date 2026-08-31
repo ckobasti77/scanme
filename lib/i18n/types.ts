@@ -831,6 +831,9 @@ export interface MemoriesDict {
   cardCodeGenerationFailed: string;
   cardBusinessMismatch: string;
   cardMintCountInvalid: string; // TASK-18 batch mint: count outside 1–50
+  // TASK-37 bare splitter (convex/cards.ts, RFC-002 §2.4).
+  cardSplitterItemsInvalid: string; // "… {min} … {max} …" — button count out of range
+  cardLinksMemoriesBlocked: string; // Memories behind a Links-page splitter: the two-pattern refusal
   // TASK-18 host space controls (convex/memoriesHost.ts).
   spaceNotOneOff: string; // window controls on a recurring space
   spaceWindowInvalid: string; // new end not after the window start / now
@@ -1313,12 +1316,15 @@ export interface MemoriesWallDict {
   photoAlt: string; // alt text for a wall photo
 }
 
-// resolver — the /r/nevazeca "card not active" page (TASK-14).
+// resolver — the /r/nevazeca "card not active" page (TASK-14) and the bare
+// splitter page /r/[cardCode]/izbor (TASK-37).
 export interface ResolverDict {
   metaTitle: string;
   title: string;
   body: string;
   hint: string;
+  splitterMetaTitle: string; // "… {name}" — the business name
+  splitterHint: string; // the one line above the buttons
 }
 
 // consent — the versioned upload-consent notice (§2.10, TASK-17). Rendered

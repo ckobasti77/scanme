@@ -407,3 +407,26 @@ ne napuštaju server). Draft koji sadrži premium blokove ostaje sačuvan, ali
 svaki save/publish odbija dok se blok ne ukloni ili plan ne vrati — podaci se
 ne brišu tiho. Ako vlasnik želi „tihi filter" umesto odbijanja na save,
 izmena je u assertBlocksAllowedByPlan (convex/venue.ts).
+
+## TASK-37 — razdelnik: jedna kartica, više usluga
+
+### 1. Rupa POSLE kreiranja kartice: Links editor može naknadno da doda /m/ link (odluka vlasnika)
+
+Kartica ka Links stranici BEZ Memories linka legitimno prolazi pri kreiranju
+(provera u `assertLinksPageCannotReachMemories`, convex/cards.ts, gleda draft
+I published odredišta). Ali Links EDITOR je deo zamrznutog proizvoda: vlasnik
+Links naloga može SUTRA da doda `/m/…` odredište na tu istu stranicu i ništa
+ga ne proverava — gost koji tako stigne u Memories nastaje bez `cardId` i
+kvota po stolu tiho curi. Zatvaranje rupe znači dodati simetričnu proveru u
+mutacije Links odredišta („da li neka aktivna kartica pokazuje na ovaj
+profil?"), što DIRA zamrznuti ScanMe Links (§6 ledger) — **na vlasnikovoj
+odluci**. Do tada: provera pri kreiranju kartice je glasna i pokriva trenutak
+prodaje (checkout, TASK-38); naknadna izmena Links stranice je poznata,
+zabeležena rupa.
+
+### 2. `harness:check` i dalje sredinski blokiran (isti Node v24.8.0 bag)
+
+Isti `NewRootCertStore` pad kao u TASK-28 §4 / TASK-32 §5 / TASK-34 §3 /
+TASK-35 §1 / TASK-36 §5. **Nije pad koda ovog taska.** Zeleno: `lint`,
+`build`, `harness:namespace`, ceo `vitest` (uključujući 5 novih testova
+razdelnika u `convex/cards.test.ts`).
