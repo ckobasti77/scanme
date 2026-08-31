@@ -113,7 +113,16 @@ export default defineSchema({
     ),
     // Absent for basic — the free plan has no billing period.
     planPeriod: v.optional(v.union(v.literal("monthly"), v.literal("annual"))),
-    status: v.union(v.literal("active"), v.literal("suspended")),
+    // "expired" (TASK-32) is flipped by the daily billing-cycle sweep once
+    // planValidUntil + grace has elapsed, and flipped back to "active" by a
+    // recorded payment. "suspended" is an ADMIN decision and only an admin
+    // lifts it. getEntitlement step 3 requires "active", so both cut the
+    // account-plan tier with zero change to the read path.
+    status: v.union(
+      v.literal("active"),
+      v.literal("suspended"),
+      v.literal("expired"),
+    ),
     // Enterprise-negotiated capability deviations, merged by getEntitlement
     // (step 3); the same optional-subset shape as entitlements.overrides.
     // Empty/absent for Basic/Premium.
@@ -129,11 +138,20 @@ export default defineSchema({
     // orders, §2.5).
     planSource: v.optional(v.union(v.literal("manual"), v.literal("billing"))),
     planExternalRef: v.optional(v.string()),
-    // Absent = perpetual (manual); a daily expiry cron sweeps numeric values.
+    // The account's paid-through / next-billing date (TASK-32). In the
+    // manual-first world the account gets ONE recurring bill (plan + services
+    // together), and this is the date the next payment is due. Absent =
+    // perpetual (no cycle tracked). Advanced by every recorded payment
+    // (convex/billing.ts); the daily billing-cycle sweep flips status to
+    // "expired" once this date + GRACE_DAYS has elapsed.
     planValidUntil: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
-  }).index("by_status", ["status"]),
+  })
+    .index("by_status", ["status"])
+    // The billing-cycle sweep's range: active accounts whose paid-through date
+    // (+ grace) has passed.
+    .index("by_status_and_planValidUntil", ["status", "planValidUntil"]),
 
   businesses: defineTable({
     name: v.string(),
@@ -910,6 +928,56 @@ export default defineSchema({
     lineTotalRsd: v.number(),
     createdAt: v.number(),
   }).index("by_orderId", ["orderId"]),
+
+  // TASK-32 — the payment HISTORY (RFC-002 §2.5/§2.6): one row per payment,
+  // never just a "last paid" field. Manual entry is the MAIN flow (the first
+  // fifty clients pay by bank transfer or cash); a provider webhook later
+  // writes the same rows through the same billing port (convex/lib/
+  // billingPort.ts). The history is append-only: a wrong entry is VOIDED
+  // (compensating flags below), never deleted — the first dispute turns on
+  // exactly this trail.
+  payments: defineTable({
+    accountId: v.id("accounts"),
+    // Present when the payment settles a specific order (the initial sale via
+    // markOrderPaid). Renewals have no order — just the account.
+    orderId: v.optional(v.id("orders")),
+    amountRsd: v.number(),
+    // "manual" = admin-entered; "provider" = a billing-port webhook.
+    method: v.union(v.literal("manual"), v.literal("provider")),
+    // Nalog-za-prenos reference / provider transaction id / "na ruke" note.
+    reference: v.optional(v.string()),
+    // When the money moved — admin-entered, may be backdated.
+    paidAt: v.number(),
+    // The paid-through date this payment produced (the new
+    // accounts.planValidUntil). Absent when the payment did not move the
+    // cycle (e.g. an order with no derivable period).
+    coversUntil: v.optional(v.number()),
+    // Manual entries: the admin who typed it (who/what/when for disputes).
+    recordedByUserId: v.optional(v.id("users")),
+    // Void = the compensating correction. Voiding never auto-rewinds the
+    // cycle; the admin re-sets the next billing date explicitly (audited).
+    voidedAt: v.optional(v.number()),
+    voidedByUserId: v.optional(v.id("users")),
+    createdAt: v.number(),
+  })
+    .index("by_accountId_and_paidAt", ["accountId", "paidAt"])
+    .index("by_orderId", ["orderId"]),
+
+  // RFC-002 §2.6 (A.5) — who/what/when for every manual plan / payment /
+  // entitlement / activation change. Written in the same transaction as the
+  // change itself (convex/lib/adminAudit.ts). `detail` is machine-parseable
+  // JSON; prose is localized in the UI.
+  adminAuditLog: defineTable({
+    actorUserId: v.id("users"),
+    accountId: v.optional(v.id("accounts")),
+    businessId: v.optional(v.id("businesses")),
+    action: v.string(),
+    detail: v.optional(v.string()),
+    createdAt: v.number(),
+  })
+    .index("by_accountId_and_createdAt", ["accountId", "createdAt"])
+    .index("by_businessId_and_createdAt", ["businessId", "createdAt"])
+    .index("by_createdAt", ["createdAt"]),
 
   // C.14 — reservation-block submissions (child table, unbounded). The
   // reservation block's field config (name/phone/email/partySize/note) drives

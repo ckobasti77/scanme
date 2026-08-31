@@ -144,3 +144,52 @@ TASK-29 §1. **Nije pad koda ovog taska.** Sve ostale provere zelene: `lint`
 (0 grešaka), `build` (prolazi), `harness:namespace` (prolazi), ceo `vitest`
 (559 prošlo / 1 preskočen, uključujući 11 novih testova ovog taska). Opcije za
 vlasnika iste kao gore.
+
+---
+
+## TASK-32 — naplata: uplate, ciklusi, statusi, ručni upis
+
+### 1. Grace period = 7 dana (konstanta u kodu, za potvrdu)
+
+Posle datuma sledeće naplate klijent ima **7 dana** (`GRACE_DAYS`,
+`convex/lib/billingCycle.ts`) pre nego što dnevni cron prevede nalog u
+`expired` (i time mu `getEntitlement` korak 3 prestane da rešava plan-tir).
+Pokriva kašnjenje naloga za prenos. Broj je konstanta u kodu — promena je
+deploy, ne migracija. **Vlasnik potvrđuje dužinu** (7 / 14 / drugo).
+
+### 2. `accounts.planValidUntil` = datum sledeće naplate CELOG računa
+
+RFC-002 A.1 je taj datum vezao za „PLAN pretplatu" (usluge idu kroz orders).
+U ručnom svetu prvih pedeset klijenata nalog dobija **jedan zbirni račun**
+(plan + usluge zajedno), pa je `planValidUntil` prenamenjen u „plaćeno do /
+sledeća naplata" za ceo nalog — jedan datum koji admin održava uplatama
+(komentar u schema.ts ažuriran). Odvojeni ciklusi po usluzi ili mešoviti
+periodi u istom nalogu (mesečno + godišnje) se NE prate automatski: tada
+admin unosi `coversUntil` eksplicitno pri uplati, ili `setNextBillingAt`.
+**Vlasnik potvrđuje** da je jedan datum po nalogu dovoljan za prvih 50.
+
+### 3. Definicija „plaćeno ali nikad podešeno" (za potvrdu)
+
+Status se izvodi kad nalog ima bar jednu **aktivnu** uslugu a **nijedna**
+od aktivnih usluga nema sadržaj (Links: nema objavljene konfiguracije;
+Review: nema odredišnog linka; Venue: nijedan događaj; Memories: nijedan
+prostor). Klijent koji je podesio jednu od dve usluge NIJE u ovom statusu
+(angažovan je) — rupe po usluzi se ipak vraćaju u `unconfiguredServices`
+za bedževe u tabeli. **Vlasnik potvrđuje** ovo tumačenje („ništa podešeno"
+naspram „bar jedna nepodešena").
+
+### 4. Storno uplate NE pomera ciklus automatski
+
+`billing.voidPayment` obeležava pogrešan unos (istorija je append-only,
+brisanja nema), ali namerno ne prepočinjava `planValidUntil` — ponovno
+izvođenje datuma iz istorije je mesto gde nastaju greške ispravki. Admin
+posle storna postavlja datum eksplicitno (`billing.setNextBillingAt`); obe
+radnje pišu audit trag.
+
+### 5. `harness:check` i dalje sredinski blokiran (isti Node v24.8.0 bag)
+
+Dev server harnessa se nativno ruši pri prvom odlaznom TLS pozivu (isti
+`NewRootCertStore` bag; Playwright zato vidi `ERR_CONNECTION_REFUSED` na
+3199). **Nije pad koda ovog taska.** Zeleno: `lint` (0 grešaka), `build`,
+`harness:namespace`, ceo `vitest` (588 prošlo / 1 preskočen, uključujući
+23 nova testa ovog taska). Opcije za vlasnika iste kao u TASK-28 §4.

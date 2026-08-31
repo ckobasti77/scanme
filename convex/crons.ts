@@ -78,4 +78,17 @@ crons.interval(
   {},
 );
 
+//   • the daily billing-cycle sweep (TASK-32 / RFC-002 §2.5–§2.6) — flips
+//     ACTIVE accounts whose paid-through date (accounts.planValidUntil) plus
+//     grace has elapsed to "expired", which cuts getEntitlement's account-plan
+//     fallback (step 3 requires status "active"). Batched with a
+//     self-reschedule; flipped rows leave the index range, so it is resumable
+//     and idempotent with no cursor. A recorded payment flips the account back.
+crons.interval(
+  "billing cycle sweep",
+  { hours: 24 },
+  internal.billing.sweepBillingCycles,
+  {},
+);
+
 export default crons;

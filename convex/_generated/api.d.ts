@@ -13,6 +13,7 @@ import type * as activationRequestEmailsData from "../activationRequestEmailsDat
 import type * as activationRequests from "../activationRequests.js";
 import type * as admin from "../admin.js";
 import type * as auth from "../auth.js";
+import type * as billing from "../billing.js";
 import type * as cards from "../cards.js";
 import type * as clientPanel from "../clientPanel.js";
 import type * as crons from "../crons.js";
@@ -24,6 +25,9 @@ import type * as invitationEmails from "../invitationEmails.js";
 import type * as invitations from "../invitations.js";
 import type * as leads from "../leads.js";
 import type * as lib_access from "../lib/access.js";
+import type * as lib_adminAudit from "../lib/adminAudit.js";
+import type * as lib_billingCycle from "../lib/billingCycle.js";
+import type * as lib_billingPort from "../lib/billingPort.js";
 import type * as lib_codes from "../lib/codes.js";
 import type * as lib_contacts from "../lib/contacts.js";
 import type * as lib_countShards from "../lib/countShards.js";
@@ -71,6 +75,7 @@ declare const fullApi: ApiFromModules<{
   activationRequests: typeof activationRequests;
   admin: typeof admin;
   auth: typeof auth;
+  billing: typeof billing;
   cards: typeof cards;
   clientPanel: typeof clientPanel;
   crons: typeof crons;
@@ -82,6 +87,9 @@ declare const fullApi: ApiFromModules<{
   invitations: typeof invitations;
   leads: typeof leads;
   "lib/access": typeof lib_access;
+  "lib/adminAudit": typeof lib_adminAudit;
+  "lib/billingCycle": typeof lib_billingCycle;
+  "lib/billingPort": typeof lib_billingPort;
   "lib/codes": typeof lib_codes;
   "lib/contacts": typeof lib_contacts;
   "lib/countShards": typeof lib_countShards;

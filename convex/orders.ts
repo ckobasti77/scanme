@@ -1,7 +1,10 @@
 import { ConvexError, v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx } from "./_generated/server";
+import { applyPayment } from "./billing";
 import { requireAdmin } from "./lib/access";
+import { writeAdminAudit } from "./lib/adminAudit";
+import { manualBillingPort } from "./lib/billingPort";
 import { requireText } from "./lib/validation";
 import {
   buildPriceSnapshot,
@@ -204,7 +207,7 @@ export const createOrder = mutation({
     externalRef: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    await requireAdmin(ctx);
+    const admin = await requireAdmin(ctx);
 
     if (args.serviceLines.length === 0) {
       // The engine prices a non-empty set, and every order carries a plan line;
@@ -253,7 +256,9 @@ export const createOrder = mutation({
       plan,
       ...(planPeriod ? { planPeriod } : {}),
       priceSnapshot,
-      billingSource: "manual",
+      // TASK-32: the seam value comes from the billing-port adapter, no longer
+      // a literal (convex/lib/billingPort.ts).
+      billingSource: manualBillingPort.source,
       ...(args.externalRef ? { externalRef: args.externalRef } : {}),
       createdAt: now,
       updatedAt: now,
@@ -286,6 +291,21 @@ export const createOrder = mutation({
         createdAt: now,
       });
     }
+
+    // TASK-32: creating an order is a manual back-office act — trail it.
+    await writeAdminAudit(ctx, {
+      actorUserId: admin._id,
+      accountId,
+      action: "create_order",
+      detail: {
+        orderId,
+        plan,
+        ...(planPeriod ? { planPeriod } : {}),
+        recurringTotalRsd: priceSnapshot.recurringTotalRsd,
+        oneTimeTotalRsd: priceSnapshot.oneTimeTotalRsd,
+      },
+      now,
+    });
 
     return { orderId, accountId, priceSnapshot };
   },
@@ -343,13 +363,9 @@ async function ensureActiveServiceProfile(
 // double-provisions. Shared by the manual path and, later, the billing webhook.
 async function provisionPaidOrder(
   ctx: MutationCtx,
-  order: Doc<"orders">,
+  items: readonly Doc<"orderItems">[],
   now: number,
 ): Promise<number> {
-  const items = await ctx.db
-    .query("orderItems")
-    .withIndex("by_orderId", (q) => q.eq("orderId", order._id))
-    .collect();
   let provisioned = 0;
   for (const item of items) {
     if (item.kind !== "service" || !item.service) continue;
@@ -359,17 +375,42 @@ async function provisionPaidOrder(
   return provisioned;
 }
 
-// The billing-port stub: the MANUAL admin action that a real provider webhook
-// will one day stand in for. Moves the order pending → paid, provisions, then
-// marks it provisioned. Idempotent from `pending` or a half-done `paid`; refuses
-// a cancelled/refunded order.
+// The cadence an order payment advances the account's cycle by: the plan's
+// period when the plan is billed, else the one period every service line
+// shares. Mixed-period orders (rare) return undefined — the payment is still
+// recorded, the cycle is set by the admin explicitly (billing.setNextBillingAt).
+function orderCyclePeriod(
+  order: Doc<"orders">,
+  items: readonly Doc<"orderItems">[],
+): "monthly" | "annual" | undefined {
+  if (order.planPeriod) return order.planPeriod;
+  const periods = new Set<"monthly" | "annual">();
+  for (const item of items) {
+    if (item.kind === "service" && item.period) periods.add(item.period);
+  }
+  return periods.size === 1 ? [...periods][0] : undefined;
+}
+
+// The manual admin action that a real provider webhook will one day stand in
+// for — both now speak through the billing port (convex/lib/billingPort.ts).
+// Moves the order pending → paid, RECORDS THE PAYMENT into the history
+// (TASK-32: one payments row, amount defaulting to the snapshot's recurring +
+// one-time total, backdatable via paidAt), advances the account's billing
+// cycle when the order has a derivable period, provisions, then marks the
+// order provisioned. Idempotent from `pending` or a half-done `paid` — the
+// payment insert is guarded by the order's existing payments row, so a resumed
+// run never double-records. Refuses a cancelled/refunded order.
 export const markOrderPaid = mutation({
   args: {
     orderId: v.id("orders"),
     externalRef: v.optional(v.string()),
+    // TASK-32 (additive): the real banked amount and date when they differ
+    // from the snapshot/now — bank transfers land late and sometimes short.
+    amountRsd: v.optional(v.number()),
+    paidAt: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    await requireAdmin(ctx);
+    const admin = await requireAdmin(ctx);
     const order = await ctx.db.get(args.orderId);
     if (!order) throw new ConvexError("Porudžbina nije pronađena.");
     if (order.status === "provisioned") {
@@ -384,13 +425,52 @@ export const markOrderPaid = mutation({
     const now = Date.now();
     await ctx.db.patch(order._id, {
       status: "paid",
-      billingSource: "manual",
+      billingSource: manualBillingPort.source,
       ...(args.externalRef ? { externalRef: args.externalRef } : {}),
       updatedAt: now,
     });
 
-    const refreshed = (await ctx.db.get(order._id))!;
-    const provisioned = await provisionPaidOrder(ctx, refreshed, now);
+    const items = await ctx.db
+      .query("orderItems")
+      .withIndex("by_orderId", (q) => q.eq("orderId", order._id))
+      .collect();
+
+    // One payments row per order (idempotent on re-run). A zero-amount order
+    // (free basic plan, nothing physical) records no payment — nothing moved.
+    const existingPayment = await ctx.db
+      .query("payments")
+      .withIndex("by_orderId", (q) => q.eq("orderId", order._id))
+      .first();
+    if (!existingPayment) {
+      const amountRsd =
+        args.amountRsd ??
+        order.priceSnapshot.recurringTotalRsd + order.priceSnapshot.oneTimeTotalRsd;
+      if (amountRsd > 0) {
+        const notice = manualBillingPort.normalizeNotice({
+          amountRsd,
+          paidAt: args.paidAt ?? now,
+          reference: args.externalRef,
+        });
+        if (!notice) {
+          throw new ConvexError(
+            "Neispravna uplata: iznos mora biti pozitivan broj, datum obavezan.",
+          );
+        }
+        const period = orderCyclePeriod(order, items);
+        await applyPayment(ctx, {
+          port: manualBillingPort,
+          accountId: order.accountId,
+          orderId: order._id,
+          notice,
+          ...(period ? { period } : {}),
+          requireCycleAdvance: false,
+          actorUserId: admin._id,
+          now,
+        });
+      }
+    }
+
+    const provisioned = await provisionPaidOrder(ctx, items, now);
 
     await ctx.db.patch(order._id, { status: "provisioned", updatedAt: now });
     return { status: "provisioned" as const, provisioned, alreadyDone: false };
