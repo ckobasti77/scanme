@@ -15,7 +15,8 @@
     "harness:capture": "node harness/run.mjs capture",
     "harness:check": "node harness/run.mjs check",
     "harness:namespace": "node harness/namespace-gate.mjs",
-    "check": "npm run lint && npm run build && npm run harness:namespace && npm run harness:check"
+    "check": "npm run lint && npm run build && npm run harness:namespace && npm run harness:check",
+    "pricing:golden": "node scripts/pricing/capture-golden.mjs"
   },
   "dependencies": {
     "@auth/core": "^0.41.1",

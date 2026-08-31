@@ -25,6 +25,10 @@ const eslintConfig = defineConfig([
   },
   globalIgnores([
     ".next/**",
+    // Claude Code worktrees are full copies of this repo; linting them makes
+    // every file appear twice and gives typescript-eslint two candidate
+    // tsconfig roots, which is a hard parse error.
+    ".claude/worktrees/**",
     "out/**",
     "build/**",
     "tmp/**",
