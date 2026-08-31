@@ -1308,6 +1308,133 @@ export interface PrivacyDict {
   backLink: string;
 }
 
+export interface OfferDict {
+  metaTitle: string;
+  metaDescription: string;
+  reviewMetaTitle: string;
+  reviewMetaDescription: string;
+  skipConfigurator: string;
+  skipReview: string;
+  eyebrow: string;
+  title: string;
+  intro: string;
+  productsHeading: string;
+  productsIntro: string;
+  activeProduct: string;
+  addProduct: string;
+  selectedProduct: string;
+  removeProduct: string;
+  useCase: string;
+  priceFrom: string;
+  quantity: string;
+  quantityMinusFive: string;
+  quantityMinusOne: string;
+  quantityPlusOne: string;
+  quantityPlusFive: string;
+  quantityInput: string;
+  previewHeading: string;
+  previewProduct: string;
+  previewAlt: string;
+  previewCustom: string;
+  previewCustomBody: string;
+  previewLogoNote: string;
+  saasPickerLabel: string;
+  saasService: string;
+  saasTier: string;
+  saasPeriod: string;
+  orientationHeading: string;
+  shapeHeading: string;
+  backgroundHeading: string;
+  finishHeading: string;
+  materialHeading: string;
+  woodTypeHeading: string;
+  dimensionsHeading: string;
+  designHeading: string;
+  logoHeading: string;
+  collapseControls: string;
+  expandControls: string;
+  portrait: string;
+  landscape: string;
+  compactBlackExtra: string;
+  compactBlackReason: string;
+  exactDimension: string;
+  priceVatIncluded: string;
+  basicReviewEyebrow: string;
+  basicReviewTitle: string;
+  basicReviewInstruction: string;
+  templateIncluded: string;
+  customDesign: string;
+  customPrice: string;
+  customBody: string;
+  customBriefLabel: string;
+  customBriefHint: string;
+  logoFree: string;
+  logoBody: string;
+  logoChoose: string;
+  logoReplace: string;
+  logoRemove: string;
+  logoFileHint: string;
+  logoUploading: string;
+  logoReady: string;
+  logoError: string;
+  calculation: string;
+  summary: string;
+  oneTime: string;
+  subscription: string;
+  productsSubtotal: string;
+  saasSubscription: string;
+  firstMonth: string;
+  annual: string;
+  totalNow: string;
+  subtotalWithoutCustom: string;
+  renewal: string;
+  renewalAnnual: string;
+  renewalMonthly: string;
+  renewalNote: string;
+  discount: string;
+  confirm: string;
+  sendInquiry: string;
+  mobileCalculation: string;
+  reviewTitle: string;
+  reviewIntro: string;
+  yourSelection: string;
+  physicalProducts: string;
+  service: string;
+  tier: string;
+  billingPeriod: string;
+  design: string;
+  logo: string;
+  logoAdded: string;
+  logoNotAdded: string;
+  nextStep: string;
+  nextStepBody: string;
+  backToEdit: string;
+  continueToContact: string;
+  temporaryPrices: string;
+  templateNames: Record<
+    "basic" | "template-1" | "template-2" | "template-3" | "template-4" | "template-5",
+    string
+  >;
+  serviceNames: Record<"review" | "links", string>;
+  tierNames: Record<"starter" | "premium", string>;
+  periodNames: Record<"monthly" | "annual", string>;
+  dimensionNames: Record<"a4" | "a5" | "a6" | "small" | "medium" | "large", string>;
+  shapeNames: Record<"square" | "rectangle" | "circle", string>;
+  backgroundNames: Record<"white" | "black" | "transparent", string>;
+  finishNames: Record<"matte" | "gloss", string>;
+  materialNames: Record<"plastic" | "acrylic" | "metal", string>;
+  materialDescriptions: Record<"plastic" | "acrylic" | "metal", string>;
+  woodTypeNames: Record<"oak" | "walnut" | "beech", string>;
+  products: Record<
+    | "stickers"
+    | "window-film"
+    | "two-piece-stand"
+    | "compact-stand"
+    | "premium-engraved-stand",
+    { name: string; subtitle: string; useCase: string }
+  >;
+}
+
 export interface DictBySurface {
   venue: VenueDict;
   "venue-editor": VenueEditorDict;
@@ -1320,6 +1447,7 @@ export interface DictBySurface {
   resolver: ResolverDict;
   consent: ConsentDict;
   privacy: PrivacyDict;
+  offer: OfferDict;
 }
 
 export type Surface = keyof DictBySurface;

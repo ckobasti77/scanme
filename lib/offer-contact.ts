@@ -1,96 +1,111 @@
-/**
- * Prenos izbora iz toka ponude u kontakt formu.
- *
- * `/ponuda/pregled` i Enterprise CTA nose kontekst kroz query do `/#ponuda`, a
- * `components/lead-form.tsx` ga čita i predpopunjava poruku čitljivim rezimeom.
- * Rezime je PREDLOG — korisnik ga slobodno menja ili briše. Sve prolazi kao običan
- * tekst kroz postojeće `message` polje `api.leads.create`; nema izmena u `convex/**`.
- */
-
+import { offerSr as dict } from "./i18n/sr/offer";
+import { fmt } from "./i18n/format";
+import { encodeSelection, parseSelection } from "./offer-url";
 import {
   computeOrderBreakdown,
   formatRsd,
-  type BillingPeriod,
+  getProduct,
   type OrderSelection,
-  type PublicTierId,
-  type ServiceId,
+  type ProductLineItem,
 } from "./scanme-pricing";
-import { encodeSelection, parseSelection } from "./offer-url";
 
-const SERVICE_LABEL: Record<ServiceId, string> = {
-  review: "ScanMe Review",
-  links: "ScanMe Links",
-};
-const TIER_LABEL: Record<PublicTierId, string> = {
-  starter: "Starter",
-  premium: "Premium",
-};
-const PERIOD_LABEL: Record<BillingPeriod, string> = {
-  monthly: "Mesečno",
-  annual: "Godišnje",
-};
-
-// Ključevi query-ja kojima kontakt link nosi kontekst. Deljeni između pisca (href)
-// i čitača (readContactMessage) da nema drifta.
 const SELECTION_PARAM = "ponuda";
 const ENTERPRISE_PARAM = "upit";
 const ENTERPRISE_VALUE = "enterprise";
 
-// Enterprise dolazak nema konfigurator iza sebe — kratka poruka bez izmišljenih detalja.
 export const ENTERPRISE_OFFER_MESSAGE =
   "Zdravo, zanima me ScanMe Enterprise ponuda. Molim vas da me kontaktirate radi uslova po meri.";
-
 export const ENTERPRISE_CONTACT_HREF = `/?${ENTERPRISE_PARAM}=${ENTERPRISE_VALUE}#ponuda`;
 
-/** Čitljiv rezime izbora za predpopunu poruke. Predlog, ne zaključan tekst. */
+function configurationSummary(item: ProductLineItem): string[] {
+  const product = getProduct(item.productId);
+  if (!product) return [];
+
+  return product.controlIds.map((controlId) => {
+    if (controlId === "orientation") {
+      return item.orientation === "landscape" ? dict.landscape : dict.portrait;
+    }
+    if (controlId === "shape") {
+      return item.shape ? dict.shapeNames[item.shape] : "";
+    }
+    if (controlId === "background") {
+      return item.background ? dict.backgroundNames[item.background] : "";
+    }
+    if (controlId === "finish") {
+      return item.finish ? dict.finishNames[item.finish] : "";
+    }
+    if (controlId === "woodType") {
+      return item.woodType ? dict.woodTypeNames[item.woodType] : "";
+    }
+    if (controlId === "material") {
+      return item.material ? dict.materialNames[item.material] : "";
+    }
+    return dict.dimensionNames[item.dimension];
+  });
+}
+
 export function buildOfferMessage(selection: OrderSelection): string {
   const breakdown = computeOrderBreakdown(selection);
   const annual = selection.period === "annual";
-  const designName =
-    selection.design.kind === "custom" ? "Custom dizajn" : "Gotov dizajn (ScanMe šablon)";
-
   const lines: string[] = [
     "Zdravo, evo izbora koji sam sastavio kroz ScanMe konfigurator:",
     "",
-    `Usluga: ${SERVICE_LABEL[selection.service]}`,
-    `Paket: ${TIER_LABEL[selection.tier]}`,
-    `Naplata: ${PERIOD_LABEL[selection.period]}`,
+    `${dict.service}: ${dict.serviceNames[selection.service]}`,
+    `${dict.tier}: ${dict.tierNames[selection.tier]}`,
+    `${dict.billingPeriod}: ${dict.periodNames[selection.period]}`,
     "",
-    "Proizvodi:",
-    ...breakdown.productItems.map(
-      (item) =>
-        `- ${item.productName} · ${item.materialName} × ${item.quantity} — ${formatRsd(item.lineTotal)} RSD`,
-    ),
-    "",
-    `Dizajn: ${designName}${selection.design.addOwnLogo ? " + sopstveni logo" : ""}`,
-    "",
-    `Za plaćanje sada: ${formatRsd(breakdown.totalDueNow)} RSD`,
-    `Obnova: ${formatRsd(breakdown.renewal.amount)} RSD${annual ? "/god" : "/mes"}`,
-    "",
-    "(Cene su privremene radne vrednosti.)",
+    `${dict.physicalProducts}:`,
   ];
+
+  for (const item of breakdown.productItems) {
+    const product = dict.products[item.productId];
+    const design =
+      item.design.kind === "template"
+        ? dict.templateNames[item.design.templateId]
+        : dict.customDesign;
+    const configuration = configurationSummary(item);
+    lines.push(
+      `- ${product.name}, ${item.quantity} kom, ${configuration.join(", ")}, ${design}: ${formatRsd(item.lineTotal)} RSD`,
+    );
+    if (item.optionSurcharge > 0) {
+      lines.push(
+        `  ${fmt(dict.compactBlackReason, { price: formatRsd(item.optionSurcharge) })}`,
+      );
+    }
+    if (item.design.kind === "custom" && item.design.brief.trim()) {
+      lines.push(`  Opis: ${item.design.brief.trim()}`);
+    }
+  }
+
+  lines.push(
+    "",
+    `${dict.logo}: ${selection.logoUploadId ? dict.logoAdded : dict.logoNotAdded}`,
+    "",
+    `${breakdown.requiresCustomDesignQuote ? dict.subtotalWithoutCustom : dict.totalNow}: ${formatRsd(breakdown.totalDueNow)} RSD`,
+    `${dict.renewal}: ${formatRsd(breakdown.renewal.amount)} ${annual ? dict.renewalAnnual : dict.renewalMonthly}`,
+    "",
+    `(${dict.temporaryPrices})`,
+  );
 
   return lines.join("\n");
 }
 
-/** Link ka kontakt formi koji nosi ceo izbor kroz jedan kompaktan parametar. */
 export function buildSelectionContactHref(selection: OrderSelection): string {
   const encoded = encodeSelection(selection).toString();
   return `/?${SELECTION_PARAM}=${encodeURIComponent(encoded)}#ponuda`;
 }
 
-/**
- * Iz query-ja kontakt strane vadi predlog poruke, ili `null` kad konteksta nema
- * ili je nevalidan — tada se forma ponaša tačno kao bez konteksta.
- */
+export function readContactSelection(params: URLSearchParams): OrderSelection | null {
+  const raw = params.get(SELECTION_PARAM);
+  if (!raw) return null;
+  const selection = parseSelection(new URLSearchParams(raw));
+  return selection?.products.length ? selection : null;
+}
+
 export function readContactMessage(params: URLSearchParams): string | null {
   if (params.get(ENTERPRISE_PARAM) === ENTERPRISE_VALUE) {
     return ENTERPRISE_OFFER_MESSAGE;
   }
-  const raw = params.get(SELECTION_PARAM);
-  if (!raw) return null;
-
-  const selection = parseSelection(new URLSearchParams(raw));
-  if (!selection || selection.products.length === 0) return null;
-  return buildOfferMessage(selection);
+  const selection = readContactSelection(params);
+  return selection ? buildOfferMessage(selection) : null;
 }

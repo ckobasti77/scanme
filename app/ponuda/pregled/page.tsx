@@ -1,44 +1,29 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowUpRight } from "lucide-react";
-import { SiteNav } from "@/components/site-nav";
+import { ArrowLeft, ArrowUpRight, Check, FileText, ImageIcon } from "lucide-react";
 import { OfferFooter } from "@/components/offer-footer";
-import { encodeSelection, parseSelection } from "@/lib/offer-url";
+import { SiteNav } from "@/components/site-nav";
+import { fmt } from "@/lib/i18n/format";
+import { offerSr as dict } from "@/lib/i18n/sr/offer";
 import { buildSelectionContactHref } from "@/lib/offer-contact";
+import { encodeSelection, parseSelection } from "@/lib/offer-url";
 import {
   computeOrderBreakdown,
   formatRsd,
-  type BillingPeriod,
-  type OrderSelection,
-  type PublicTierId,
-  type ServiceId,
+  getProduct,
+  type ProductLineItem,
 } from "@/lib/scanme-pricing";
 
 export const metadata: Metadata = {
-  title: "Pregled ponude | ScanMe",
-  description:
-    "Kompletan obračun pre plaćanja: fizički proizvodi, dizajn, ScanMe pretplata za prvi period, iznos za plaćanje sada i cena naredne obnove.",
+  title: dict.reviewMetaTitle,
+  description: dict.reviewMetaDescription,
 };
 
-const SERVICE_LABEL: Record<ServiceId, string> = {
-  review: "ScanMe Review",
-  links: "ScanMe Links",
-};
-const TIER_LABEL: Record<PublicTierId, string> = {
-  starter: "Starter",
-  premium: "Premium",
-};
-const PERIOD_LABEL: Record<BillingPeriod, string> = {
-  monthly: "Mesečno",
-  annual: "Godišnje",
-};
-
-/** Jedan red zbira — ista tipografija kao obračun u konfiguratoru. */
 function SummaryRow({
   label,
   value,
-  muted,
+  muted = false,
 }: {
   label: string;
   value: string;
@@ -46,21 +31,57 @@ function SummaryRow({
 }) {
   return (
     <div className="flex items-baseline justify-between gap-4 text-sm">
-      <span className={muted ? "text-foreground/54" : "text-foreground/72"}>{label}</span>
-      <span
-        className={`tabular-nums ${muted ? "text-foreground/54" : "font-medium"}`}
-      >
+      <span className={muted ? "text-foreground/50" : "text-foreground/68"}>{label}</span>
+      <span className={`font-mono tabular-nums ${muted ? "text-foreground/50" : "font-medium"}`}>
         {value}
       </span>
     </div>
   );
 }
 
-export default async function PregledPage({
-  searchParams,
-}: {
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
-}) {
+function configurationEntries(item: ProductLineItem): { label: string; value: string }[] {
+  const product = getProduct(item.productId);
+  if (!product) return [];
+
+  return product.controlIds.map((controlId) => {
+    if (controlId === "orientation") {
+      return {
+        label: dict.orientationHeading,
+        value: item.orientation === "landscape" ? dict.landscape : dict.portrait,
+      };
+    }
+    if (controlId === "shape") {
+      return { label: dict.shapeHeading, value: item.shape ? dict.shapeNames[item.shape] : "" };
+    }
+    if (controlId === "background") {
+      return {
+        label: dict.backgroundHeading,
+        value: item.background ? dict.backgroundNames[item.background] : "",
+      };
+    }
+    if (controlId === "finish") {
+      return {
+        label: dict.finishHeading,
+        value: item.finish ? dict.finishNames[item.finish] : "",
+      };
+    }
+    if (controlId === "woodType") {
+      return {
+        label: dict.woodTypeHeading,
+        value: item.woodType ? dict.woodTypeNames[item.woodType] : "",
+      };
+    }
+    if (controlId === "material") {
+      return {
+        label: dict.materialHeading,
+        value: item.material ? dict.materialNames[item.material] : "",
+      };
+    }
+    return { label: dict.dimensionsHeading, value: dict.dimensionNames[item.dimension] };
+  });
+}
+
+export default async function PregledPage({ searchParams }: PageProps<"/ponuda/pregled">) {
   const resolved = await searchParams;
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(resolved)) {
@@ -68,220 +89,161 @@ export default async function PregledPage({
     else if (Array.isArray(value) && value[0] !== undefined) params.set(key, value[0]);
   }
 
-  const selection: OrderSelection | null = parseSelection(params);
-  // Nevalidan izbor ili nijedan fizički proizvod -> ne renderuj prazan obračun.
-  if (!selection || selection.products.length === 0) {
-    redirect("/ponuda");
-  }
+  const selection = parseSelection(params);
+  if (!selection?.products.length) redirect("/ponuda");
 
   const breakdown = computeOrderBreakdown(selection);
-  const annual = selection.period === "annual";
-  const backHref = `/ponuda?${encodeSelection(selection).toString()}`;
+  const encoded = encodeSelection(selection).toString();
+  const backHref = `/ponuda?${encoded}`;
   const contactHref = buildSelectionContactHref(selection);
-  const isCustomDesign = selection.design.kind === "custom";
+  const annual = selection.period === "annual";
 
   return (
     <>
-      <a href="#pregled" className="skip-link">
-        Pređi na pregled
-      </a>
+      <a href="#pregled" className="skip-link">{dict.skipReview}</a>
       <SiteNav />
-      <main id="pregled">
-        <section className="section-shell pt-28 pb-20 sm:pt-32 sm:pb-24 lg:pt-36">
-          <div className="max-w-[54ch]">
-            <p className="accent-label text-sm font-medium">ScanMe ponuda</p>
-            <h1 className="mt-5 text-4xl font-semibold leading-[0.98] tracking-[-0.055em] sm:text-5xl lg:text-6xl">
-              Pregled pre plaćanja.
-            </h1>
-            <p className="mt-6 leading-7 text-foreground/62">
-              Proverite izbor i pun obračun. Jednokratne stavke se naplaćuju jednom, a
-              pretplata se obnavlja — sve je razdvojeno ispod. Cene su privremene radne
-              vrednosti.
+      <main id="pregled" className="offer-page">
+        <section className="section-shell pb-24 pt-28 sm:pt-32 lg:pb-32 lg:pt-36">
+          <div className="max-w-[58ch]">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-foreground/52">
+              {dict.eyebrow}
             </p>
+            <h1 className="mt-4 text-4xl font-semibold leading-[0.98] tracking-[-0.055em] sm:text-5xl lg:text-6xl">
+              {dict.reviewTitle}
+            </h1>
+            <p className="mt-5 max-w-[52ch] leading-7 text-foreground/62">{dict.reviewIntro}</p>
           </div>
 
-          <div className="mt-12 grid gap-8 lg:mt-16 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)] lg:items-start lg:gap-12">
-            {/* Leva kolona: izbor + stavke */}
-            <div className="grid gap-8">
-              {/* Izabrano */}
-              <section
-                aria-labelledby="izbor-naslov"
-                className="border border-foreground/14 bg-card p-6"
-              >
-                <h2
-                  id="izbor-naslov"
-                  className="text-lg font-semibold tracking-[-0.03em]"
-                >
-                  Vaš izbor
-                </h2>
-                <dl className="mt-5 grid gap-4 sm:grid-cols-2">
-                  <div className="grid gap-1">
-                    <dt className="text-xs font-medium text-foreground/54">Usluga</dt>
-                    <dd className="text-sm font-medium">
-                      {SERVICE_LABEL[selection.service]}
-                    </dd>
+          <div className="mt-10 grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start">
+            <div className="grid gap-5">
+              <section aria-labelledby="izbor-naslov" className="border border-foreground/12 bg-card/54 p-5 sm:p-6">
+                <h2 id="izbor-naslov" className="text-lg font-semibold tracking-[-0.025em]">{dict.yourSelection}</h2>
+                <dl className="mt-5 grid gap-4 sm:grid-cols-3">
+                  <div>
+                    <dt className="text-xs font-medium text-foreground/48">{dict.service}</dt>
+                    <dd className="mt-1 text-sm font-semibold">{dict.serviceNames[selection.service]}</dd>
                   </div>
-                  <div className="grid gap-1">
-                    <dt className="text-xs font-medium text-foreground/54">Paket</dt>
-                    <dd className="text-sm font-medium">{TIER_LABEL[selection.tier]}</dd>
+                  <div>
+                    <dt className="text-xs font-medium text-foreground/48">{dict.tier}</dt>
+                    <dd className="mt-1 text-sm font-semibold">{dict.tierNames[selection.tier]}</dd>
                   </div>
-                  <div className="grid gap-1">
-                    <dt className="text-xs font-medium text-foreground/54">
-                      Period naplate
-                    </dt>
-                    <dd className="text-sm font-medium">
-                      {PERIOD_LABEL[selection.period]}
-                    </dd>
-                  </div>
-                  <div className="grid gap-1">
-                    <dt className="text-xs font-medium text-foreground/54">Dizajn</dt>
-                    <dd className="text-sm font-medium">
-                      {isCustomDesign ? "Custom dizajn" : "Gotov dizajn (ScanMe šablon)"}
-                      <span className="block text-xs font-normal text-foreground/54">
-                        {selection.design.addOwnLogo
-                          ? "Sopstveni logo dodat (besplatno)"
-                          : "Bez sopstvenog logoa"}
-                      </span>
-                    </dd>
+                  <div>
+                    <dt className="text-xs font-medium text-foreground/48">{dict.billingPeriod}</dt>
+                    <dd className="mt-1 text-sm font-semibold">{dict.periodNames[selection.period]}</dd>
                   </div>
                 </dl>
               </section>
 
-              {/* Fizički proizvodi */}
-              <section
-                aria-labelledby="stavke-naslov"
-                className="border border-foreground/14 bg-card p-6"
-              >
-                <h2
-                  id="stavke-naslov"
-                  className="text-lg font-semibold tracking-[-0.03em]"
-                >
-                  Fizički proizvodi
-                </h2>
-                <div className="mt-5 grid gap-4">
-                  {breakdown.productItems.map((item, index) => (
-                    <div
-                      key={`${item.productId}-${index}`}
-                      className="grid gap-1 border-b border-foreground/10 pb-4 last:border-b-0 last:pb-0"
-                    >
-                      <div className="flex items-baseline justify-between gap-4 text-sm">
-                        <span className="font-medium">
-                          {item.productName}
-                          <span className="text-foreground/54"> · {item.materialName}</span>
-                        </span>
-                        <span className="tabular-nums font-medium">
-                          {formatRsd(item.lineTotal)} RSD
-                        </span>
-                      </div>
-                      <div className="flex items-baseline justify-between gap-4 text-xs text-foreground/54">
-                        <span>
-                          {item.quantity} × {formatRsd(item.unitPrice)} RSD
-                          {item.discountRate > 0
-                            ? ` · popust −${Math.round(item.discountRate * 100)}%`
-                            : ""}
-                        </span>
-                        {item.discountRate > 0 ? (
-                          <span className="tabular-nums">−{formatRsd(item.lineDiscount)} RSD</span>
+              <section aria-labelledby="stavke-naslov" className="border border-foreground/12 bg-card/54 p-5 sm:p-6">
+                <h2 id="stavke-naslov" className="text-lg font-semibold tracking-[-0.025em]">{dict.physicalProducts}</h2>
+                <div className="mt-5 grid gap-3">
+                  {breakdown.productItems.map((item) => {
+                    const product = dict.products[item.productId];
+                    const designName = item.design.kind === "template" ? dict.templateNames[item.design.templateId] : dict.customDesign;
+                    const configuration = configurationEntries(item);
+                    return (
+                      <article key={item.productId} className="border border-foreground/10 bg-background/38 p-4 sm:p-5">
+                        <div className="flex items-start justify-between gap-5">
+                          <div>
+                            <h3 className="font-semibold tracking-[-0.015em]">{product.name}</h3>
+                            <p className="mt-1 text-xs leading-5 text-foreground/50">{product.subtitle}</p>
+                          </div>
+                          <span className="shrink-0 font-mono text-sm font-semibold tabular-nums">{formatRsd(item.lineTotal)} RSD</span>
+                        </div>
+                        <dl className="mt-4 grid grid-cols-2 gap-x-5 gap-y-3 border-t border-foreground/10 pt-4 text-sm sm:grid-cols-4">
+                          <div>
+                            <dt className="text-xs text-foreground/46">{dict.quantity}</dt>
+                            <dd className="mt-1 font-mono font-medium">{item.quantity}</dd>
+                          </div>
+                          {configuration.map((entry) => (
+                            <div key={entry.label}>
+                              <dt className="text-xs text-foreground/46">{entry.label}</dt>
+                              <dd className="mt-1 font-medium">{entry.value}</dd>
+                            </div>
+                          ))}
+                          <div>
+                            <dt className="text-xs text-foreground/46">{dict.design}</dt>
+                            <dd className="mt-1 font-medium">{designName}</dd>
+                          </div>
+                        </dl>
+                        {item.design.kind === "custom" && item.design.brief.trim() ? (
+                          <div className="mt-4 flex gap-3 border-t border-foreground/10 pt-4 text-sm leading-6 text-foreground/64">
+                            <FileText aria-hidden="true" className="mt-1 size-4 shrink-0" strokeWidth={1.5} />
+                            <p>{item.design.brief.trim()}</p>
+                          </div>
                         ) : null}
-                      </div>
-                    </div>
-                  ))}
+                        {item.discountRate > 0 ? (
+                          <p className="mt-3 text-xs text-foreground/46">
+                            {item.quantity} × {formatRsd(item.unitPrice)} RSD · {fmt(dict.discount, { percent: Math.round(item.discountRate * 100) })}
+                          </p>
+                        ) : null}
+                        {item.optionSurcharge > 0 ? (
+                          <p className="mt-3 text-xs leading-5 text-foreground/52">
+                            {fmt(dict.compactBlackReason, {
+                              price: formatRsd(item.optionSurcharge),
+                            })}
+                          </p>
+                        ) : null}
+                      </article>
+                    );
+                  })}
+                </div>
+              </section>
+
+              <section className="border border-foreground/12 bg-card/54 p-5 sm:p-6">
+                <div className="flex items-center gap-3">
+                  <span className="flex size-10 items-center justify-center border border-foreground/12 bg-background/48">
+                    {selection.logoUploadId ? <Check aria-hidden="true" className="size-4" /> : <ImageIcon aria-hidden="true" className="size-4" />}
+                  </span>
+                  <div>
+                    <h2 className="text-sm font-semibold">{dict.logo}</h2>
+                    <p className="mt-0.5 text-xs text-foreground/50">{selection.logoUploadId ? dict.logoAdded : dict.logoNotAdded}</p>
+                  </div>
                 </div>
               </section>
             </div>
 
-            {/* Desna kolona: zbir */}
-            <aside className="border border-foreground/14 bg-card p-6 lg:sticky lg:top-24">
-              <h2 className="text-lg font-semibold tracking-[-0.03em]">Zbir</h2>
-
-              {/* Jednokratno: proizvodi + dizajn */}
-              <div className="mt-5 grid gap-2">
-                <p className="accent-label text-xs font-semibold">Jednokratno</p>
-                <SummaryRow
-                  label="Fizički proizvodi"
-                  value={`${formatRsd(breakdown.productsTotal)} RSD`}
-                />
-                <SummaryRow
-                  label={isCustomDesign ? "Custom dizajn" : "Gotov dizajn"}
-                  value={
-                    breakdown.designFee > 0
-                      ? `${formatRsd(breakdown.designFee)} RSD`
-                      : "Uključeno"
-                  }
-                  muted={breakdown.designFee === 0}
-                />
-                {selection.design.addOwnLogo ? (
-                  <SummaryRow label="Sopstveni logo" value="Besplatno" muted />
-                ) : null}
-                <div className="mt-1 border-t border-foreground/12 pt-3">
-                  <SummaryRow
-                    label="Jednokratno ukupno"
-                    value={`${formatRsd(breakdown.oneTimeTotal)} RSD`}
-                  />
-                </div>
+            <aside className="offer-configurator-glass p-5 sm:p-6 lg:sticky lg:top-24">
+              <h2 className="text-lg font-semibold tracking-[-0.025em]">{dict.summary}</h2>
+              <div className="mt-5 grid gap-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-foreground/46">{dict.oneTime}</p>
+                <SummaryRow label={dict.productsSubtotal} value={`${formatRsd(breakdown.productsTotal)} RSD`} />
+                <SummaryRow label={dict.logo} value={dict.logoFree} muted />
+                {breakdown.requiresCustomDesignQuote ? <SummaryRow label={dict.customDesign} value={dict.customPrice} muted /> : <SummaryRow label={dict.design} value={dict.templateIncluded} muted />}
               </div>
-
-              {/* SaaS sada */}
-              <div className="mt-5 grid gap-2 border-t border-foreground/12 pt-4">
-                <p className="accent-label text-xs font-semibold">Pretplata</p>
+              <div className="mt-5 grid gap-3 border-t border-foreground/12 pt-5">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-foreground/46">{dict.subscription}</p>
                 <SummaryRow
-                  label={`ScanMe pretplata (${annual ? "godišnje" : "prvi mesec"})`}
+                  label={`${dict.saasSubscription} (${annual ? dict.annual : dict.firstMonth})`}
                   value={`${formatRsd(breakdown.saasFirstTerm)} RSD`}
                 />
               </div>
-
-              {/* Ukupno sada */}
-              <div className="mt-4 flex items-baseline justify-between gap-4 border-t border-foreground/12 pt-4">
-                <span className="text-sm font-semibold tracking-[-0.02em]">
-                  Za plaćanje sada
-                </span>
-                <span className="text-2xl font-semibold tracking-[-0.04em] tabular-nums">
-                  {formatRsd(breakdown.totalDueNow)}{" "}
-                  <span className="text-sm font-medium text-foreground/58">RSD</span>
+              <div className="mt-5 flex items-baseline justify-between gap-4 border-t border-foreground/14 pt-5">
+                <span className="text-sm font-semibold">{breakdown.requiresCustomDesignQuote ? dict.subtotalWithoutCustom : dict.totalNow}</span>
+                <span className="font-mono text-2xl font-semibold tracking-[-0.04em] tabular-nums">
+                  {formatRsd(breakdown.totalDueNow)} <span className="text-xs">RSD</span>
                 </span>
               </div>
-
-              {/* Obnova — samo SaaS */}
-              <div className="mt-5 border-t border-foreground/12 pt-4">
-                <p className="accent-label text-xs font-semibold">Naredna obnova</p>
-                <div className="mt-2 flex items-baseline justify-between gap-4">
-                  <span className="text-sm text-foreground/72">
-                    Pretplata ({annual ? "godišnje" : "mesečno"})
-                  </span>
-                  <span className="tabular-nums text-sm font-medium">
-                    {formatRsd(breakdown.renewal.amount)} RSD
-                    {annual ? "/god" : "/mes"}
-                  </span>
-                </div>
-                <p className="mt-2 text-xs leading-5 text-foreground/54">
-                  {annual
-                    ? `≈ ${formatRsd(breakdown.renewal.monthlyEquivalent)} RSD/mes. `
-                    : ""}
-                  Obnova sadrži <strong className="font-semibold text-foreground/72">samo ScanMe pretplatu</strong> — fizički proizvodi i
-                  dizajn se ne naplaćuju ponovo.
-                </p>
-              </div>
+              <p className="mt-4 text-xs leading-5 text-foreground/50">
+                {dict.renewal}: {formatRsd(breakdown.renewal.amount)} {annual ? dict.renewalAnnual : dict.renewalMonthly}. {dict.renewalNote}
+              </p>
             </aside>
           </div>
 
-          {/* Kraj toka — plaćanje još nije online */}
-          <div className="mt-12 max-w-[62ch] border border-foreground/14 bg-foreground/[0.02] p-6 sm:p-7">
-            <h2 className="text-lg font-semibold tracking-[-0.03em]">Sledeći korak</h2>
-            <p className="mt-3 text-sm leading-6 text-foreground/64">
-              Online plaćanje još nije uključeno. Da bismo potvrdili porudžbinu, dogovorili
-              rok izrade i način plaćanja, javite se preko kontakta — poslaćemo vam potvrdu sa
-              istim ovim obračunom.
-            </p>
-            <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
+          <section className="mt-8 max-w-[700px] border border-foreground/12 bg-foreground/[0.025] p-5 sm:p-6">
+            <h2 className="text-lg font-semibold tracking-[-0.025em]">{dict.nextStep}</h2>
+            <p className="mt-3 text-sm leading-6 text-foreground/62">{dict.nextStepBody}</p>
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row">
               <Link href={contactHref} className="button-primary focus-signal">
-                Nastavi ka kontaktu
+                {dict.continueToContact}
                 <ArrowUpRight aria-hidden="true" className="size-4" strokeWidth={1.7} />
               </Link>
               <Link href={backHref} className="button-secondary focus-signal">
-                Nazad na izmenu
+                <ArrowLeft aria-hidden="true" className="size-4" strokeWidth={1.7} />
+                {dict.backToEdit}
               </Link>
             </div>
-          </div>
+          </section>
         </section>
       </main>
       <OfferFooter contactHref={contactHref} />

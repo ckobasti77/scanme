@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { useMutation } from "convex/react";
 import { Check, LoaderCircle } from "lucide-react";
 import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -15,6 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { readOfferLogoSession } from "@/lib/offer-logo-session";
 
 type FormValues = {
   contactName: string;
@@ -65,7 +67,15 @@ function validate(values: FormValues): FieldErrors {
   return errors;
 }
 
-export function LeadForm({ initialMessage = "" }: { initialMessage?: string } = {}) {
+export function LeadForm({
+  initialMessage = "",
+  initialOfferSelection,
+  initialLogoUploadId,
+}: {
+  initialMessage?: string;
+  initialOfferSelection?: string;
+  initialLogoUploadId?: string;
+} = {}) {
   const createLead = useMutation(api.leads.create);
   // `initialMessage` je predlog rezimea iz toka ponude (server-side); prazan bez konteksta.
   // Kontrolisano polje — korisnik ga slobodno menja ili briše.
@@ -120,6 +130,7 @@ export function LeadForm({ initialMessage = "" }: { initialMessage?: string } = 
     submissionId.current ??= crypto.randomUUID();
 
     try {
+      const logoSessionToken = initialLogoUploadId ? readOfferLogoSession() : null;
       const request = createLead({
         contactName: values.contactName,
         businessName: values.businessName,
@@ -129,6 +140,13 @@ export function LeadForm({ initialMessage = "" }: { initialMessage?: string } = 
         ...(values.phone.trim() ? { phone: values.phone } : {}),
         interest: values.interest,
         ...(values.message.trim() ? { message: values.message } : {}),
+        ...(initialOfferSelection ? { offerSelection: initialOfferSelection } : {}),
+        ...(initialLogoUploadId && logoSessionToken
+          ? {
+              logoUploadId: initialLogoUploadId as Id<"offerLogoUploads">,
+              logoSessionToken,
+            }
+          : {}),
         submissionId: submissionId.current,
         formStartedAt: formStartedAt.current,
         website: values.website,
@@ -367,7 +385,7 @@ export function LeadForm({ initialMessage = "" }: { initialMessage?: string } = 
           id="message"
           name="message"
           rows={5}
-          maxLength={1000}
+          maxLength={5000}
           value={values.message}
           onChange={(event) => update("message", event.target.value)}
           className="form-control min-h-32 resize-y"

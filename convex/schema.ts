@@ -412,12 +412,31 @@ export default defineSchema({
       v.literal("not_sure"),
     ),
     message: v.optional(v.string()),
+    offerSelection: v.optional(v.string()),
+    logoStorageId: v.optional(v.id("_storage")),
     submissionId: v.string(),
     status: leadStatus,
     createdAt: v.number(),
   })
     .index("by_submissionId", ["submissionId"])
     .index("by_status_and_createdAt", ["status", "createdAt"]),
+
+  offerLogoUploads: defineTable({
+    sessionToken: v.string(),
+    fileName: v.string(),
+    storageId: v.optional(v.id("_storage")),
+    contentType: v.optional(v.string()),
+    size: v.optional(v.number()),
+    status: v.union(
+      v.literal("reserved"),
+      v.literal("ready"),
+      v.literal("attached"),
+    ),
+    leadId: v.optional(v.id("leads")),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    expiresAt: v.number(),
+  }),
 
   // ==========================================================================
   // Venue + Memories data model (RFC-001 §2.4). Shape only — no routes, UI,

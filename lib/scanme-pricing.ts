@@ -1,55 +1,87 @@
 /**
- * Centralizovan domenski model cena za ScanMe.
+ * Centralizovan domenski model ScanMe ponude.
  *
- * Čista matematika, bez React i bez Convex zavisnosti — testabilno pod Vitest
- * (edge-runtime). Sve monetarne vrednosti su CELI RSD dinari (integer `number`);
- * valutni sufiks ("RSD", "RSD/mes") dodaju komponente, model vraća samo broj.
- *
- * SVE CENE SU PRIVREMENE RADNE VREDNOSTI (PLACEHOLDER). Ovo nije konačan cenovnik.
- *
- * Pravilo zaokruživanja: računaj u float, `roundRsd` na SVAKOJ izlaznoj granici
- * (lineTotal, designFee, saasFirstTerm, mesečni ekvivalenti); zbirovi koriste već
- * zaokružene linije da nema drifta.
+ * Sve monetarne vrednosti su celi RSD dinari i javne cene fizičkih proizvoda
+ * uključuju PDV.
  */
 
-export type Rsd = number; // celi dinari
+export type Rsd = number;
 
 export type ServiceId = "review" | "links";
 export type TierId = "starter" | "premium" | "enterprise";
-export type PublicTierId = "starter" | "premium"; // Enterprise NE ulazi u self-service obračun
+export type PublicTierId = "starter" | "premium";
 export type BillingPeriod = "monthly" | "annual";
-export type PhysicalTier = "standard" | "premium"; // za vizuelno razdvajanje proizvoda
+export type ProductId =
+  | "stickers"
+  | "window-film"
+  | "two-piece-stand"
+  | "compact-stand"
+  | "premium-engraved-stand";
+export type Orientation = "portrait" | "landscape";
+export type ProductShape = "square" | "rectangle" | "circle";
+export type ProductBackground = "white" | "black" | "transparent";
+export type ProductFinish = "matte" | "gloss";
+export type ProductMaterial = "plastic" | "acrylic" | "metal";
+export type WoodType = "oak" | "walnut" | "beech";
+export type ProductDimension = "a4" | "a5" | "a6" | "small" | "medium" | "large";
+export type ProductControlId =
+  | "orientation"
+  | "shape"
+  | "background"
+  | "finish"
+  | "material"
+  | "woodType"
+  | "dimension";
+export type TemplateId =
+  | "basic"
+  | "template-1"
+  | "template-2"
+  | "template-3"
+  | "template-4"
+  | "template-5";
 
-/** Zaokruživanje na ceo dinar (pola naviše). Primenjuje se na svaki monetarni izlaz. */
+export const ORIENTATIONS: readonly Orientation[] = ["portrait", "landscape"];
+export const PRODUCT_SHAPES: readonly ProductShape[] = ["square", "rectangle", "circle"];
+export const PRODUCT_BACKGROUNDS: readonly ProductBackground[] = [
+  "white",
+  "black",
+  "transparent",
+];
+export const PRODUCT_FINISHES: readonly ProductFinish[] = ["matte", "gloss"];
+export const PRODUCT_MATERIALS: readonly ProductMaterial[] = ["plastic", "acrylic", "metal"];
+export const WOOD_TYPES: readonly WoodType[] = ["oak", "walnut", "beech"];
+export const PAPER_DIMENSIONS: readonly ProductDimension[] = ["a4", "a5", "a6"];
+export const SIZE_DIMENSIONS: readonly ProductDimension[] = ["small", "medium", "large"];
+export const TEMPLATE_IDS: readonly TemplateId[] = [
+  "basic",
+  "template-1",
+  "template-2",
+  "template-3",
+  "template-4",
+  "template-5",
+];
+
 export function roundRsd(value: number): Rsd {
   return Math.round(value);
 }
 
-/**
- * Srpski format grupisan tačkom: 990 -> "990", 1000 -> "1.000", 11990 -> "11.990".
- * Ručno, deterministički — NE `Intl.NumberFormat` (različiti Node ICU buildovi daju
- * različit separator i test puca na CI-ju). Bez sufiksa valute.
- */
 export function formatRsd(value: Rsd): string {
   const rounded = roundRsd(value);
   const negative = rounded < 0;
   const digits = Math.abs(rounded).toString();
   let out = "";
-  for (let i = 0; i < digits.length; i += 1) {
-    if (i > 0 && (digits.length - i) % 3 === 0) out += ".";
-    out += digits[i];
+  for (let index = 0; index < digits.length; index += 1) {
+    if (index > 0 && (digits.length - index) % 3 === 0) out += ".";
+    out += digits[index];
   }
   return negative ? `-${out}` : out;
 }
 
-// --- SaaS cenovnik (PLACEHOLDER) -------------------------------------------
-
 export interface SaasPrice {
   monthly: Rsd;
-  annual: Rsd; // ukupno, naplaćeno jednom godišnje
+  annual: Rsd;
 }
 
-// PLACEHOLDER: privremene radne cene SaaS pretplate po usluzi i paketu.
 export const SAAS_PRICING: Record<ServiceId, Record<PublicTierId, SaasPrice>> = {
   review: {
     starter: { monthly: 490, annual: 4990 },
@@ -65,132 +97,168 @@ export function getSaasPrice(service: ServiceId, tier: PublicTierId): SaasPrice 
   return SAAS_PRICING[service][tier];
 }
 
-// --- Katalog fizičkih proizvoda (PLACEHOLDER) ------------------------------
-
-export interface Material {
-  id: string;
-  name: string;
-  unitPrice: Rsd; // jednokratna cena po komadu (PLACEHOLDER)
+export interface PreviewPlane {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
 }
 
 export interface PhysicalProduct {
-  id: string;
-  name: string;
-  tier: PhysicalTier;
-  imagePlaceholder: string; // TODO: prava fotografija
-  materials: Material[]; // svaki proizvod nosi svoje materijale
+  id: ProductId;
+  baseUnitPrice: Rsd;
+  previewAsset: string;
+  previewPlane: PreviewPlane;
+  controlIds: readonly ProductControlId[];
+  allowedOrientations?: readonly Orientation[];
+  allowedShapes?: readonly ProductShape[];
+  allowedBackgrounds?: readonly ProductBackground[];
+  allowedFinishes?: readonly ProductFinish[];
+  allowedMaterials?: readonly ProductMaterial[];
+  allowedWoodTypes?: readonly WoodType[];
+  allowedDimensions: readonly ProductDimension[];
+  allowedTemplateIds: readonly TemplateId[];
 }
 
-// PLACEHOLDER: TAČNO 3 standardna + 2 premium proizvoda, svaki sa TAČNO 3 materijala.
-// Fiksan broj drži layout stabilnim dok se ne zaključi pravi katalog.
+const SHARED_DESIGN_OPTIONS = {
+  allowedTemplateIds: TEMPLATE_IDS,
+} as const;
+
 export const PHYSICAL_PRODUCTS: readonly PhysicalProduct[] = [
   {
-    id: "nalepnica",
-    name: "Nalepnica",
-    tier: "standard",
-    imagePlaceholder: "placeholder", // PLACEHOLDER
-    materials: [
-      { id: "pvc", name: "PVC", unitPrice: 290 },
-      { id: "vinil", name: "Vinil", unitPrice: 390 },
-      { id: "laminat", name: "Laminat", unitPrice: 490 },
-    ],
+    id: "stickers",
+    baseUnitPrice: 300,
+    previewAsset: "/offer/products/stickers.png",
+    previewPlane: { left: 18, top: 18, width: 46, height: 66 },
+    controlIds: ["shape", "dimension"],
+    allowedShapes: PRODUCT_SHAPES,
+    allowedDimensions: SIZE_DIMENSIONS,
+    ...SHARED_DESIGN_OPTIONS,
   },
   {
-    id: "stona-kartica",
-    name: "Stona kartica",
-    tier: "standard",
-    imagePlaceholder: "placeholder", // PLACEHOLDER
-    materials: [
-      { id: "karton", name: "Karton", unitPrice: 350 },
-      { id: "plastika", name: "Plastika", unitPrice: 550 },
-      { id: "aluminijum", name: "Aluminijum", unitPrice: 850 },
-    ],
+    id: "window-film",
+    baseUnitPrice: 348,
+    previewAsset: "/offer/products/window-film.png",
+    previewPlane: { left: 27, top: 17, width: 47, height: 66 },
+    controlIds: ["background", "finish", "dimension"],
+    allowedBackgrounds: ["white", "transparent"],
+    allowedFinishes: PRODUCT_FINISHES,
+    allowedDimensions: SIZE_DIMENSIONS,
+    ...SHARED_DESIGN_OPTIONS,
   },
   {
-    id: "privezak",
-    name: "Privezak",
-    tier: "standard",
-    imagePlaceholder: "placeholder", // PLACEHOLDER
-    materials: [
-      { id: "pvc", name: "PVC", unitPrice: 300 },
-      { id: "drvo", name: "Drvo", unitPrice: 500 },
-      { id: "metal", name: "Metal", unitPrice: 700 },
-    ],
+    id: "two-piece-stand",
+    baseUnitPrice: 1200,
+    previewAsset: "/offer/products/two-piece-stand.png",
+    previewPlane: { left: 27, top: 16, width: 46, height: 62 },
+    controlIds: ["orientation", "dimension"],
+    allowedOrientations: ORIENTATIONS,
+    allowedDimensions: PAPER_DIMENSIONS,
+    ...SHARED_DESIGN_OPTIONS,
   },
   {
-    id: "metalna-plocica",
-    name: "Metalna pločica",
-    tier: "premium",
-    imagePlaceholder: "placeholder", // PLACEHOLDER
-    materials: [
-      { id: "celik", name: "Čelik", unitPrice: 1500 },
-      { id: "mesing", name: "Mesing", unitPrice: 1900 },
-      { id: "bakar", name: "Bakar", unitPrice: 2300 },
-    ],
+    id: "compact-stand",
+    baseUnitPrice: 660,
+    previewAsset: "/offer/products/compact-stand.png",
+    previewPlane: { left: 29, top: 18, width: 43, height: 61 },
+    controlIds: ["material", "background", "dimension"],
+    allowedBackgrounds: PRODUCT_BACKGROUNDS,
+    allowedMaterials: PRODUCT_MATERIALS,
+    allowedDimensions: PAPER_DIMENSIONS,
+    ...SHARED_DESIGN_OPTIONS,
   },
   {
-    id: "stalak",
-    name: "Stalak",
-    tier: "premium",
-    imagePlaceholder: "placeholder", // PLACEHOLDER
-    materials: [
-      { id: "akril", name: "Akril", unitPrice: 1200 },
-      { id: "drvo", name: "Drvo", unitPrice: 1600 },
-      { id: "metal", name: "Metal", unitPrice: 2200 },
-    ],
+    id: "premium-engraved-stand",
+    baseUnitPrice: 1500,
+    previewAsset: "/offer/products/premium-engraved-stand.png",
+    previewPlane: { left: 29, top: 19, width: 43, height: 59 },
+    controlIds: ["shape", "woodType", "dimension"],
+    allowedShapes: PRODUCT_SHAPES,
+    allowedWoodTypes: WOOD_TYPES,
+    allowedDimensions: SIZE_DIMENSIONS,
+    ...SHARED_DESIGN_OPTIONS,
   },
 ];
+
+export const COMPACT_BACKGROUNDS_BY_MATERIAL: Record<
+  ProductMaterial,
+  readonly ProductBackground[]
+> = {
+  plastic: ["white", "black"],
+  acrylic: ["white", "transparent"],
+  metal: ["white", "black"],
+};
+
+export function compactBackgroundsForMaterial(
+  material: ProductMaterial | undefined,
+): readonly ProductBackground[] {
+  return COMPACT_BACKGROUNDS_BY_MATERIAL[material ?? "plastic"];
+}
+
+const STICKER_GROSS_PRICES: Record<
+  ProductShape,
+  Record<"small" | "medium" | "large", Rsd>
+> = {
+  rectangle: { small: 300, medium: 540, large: 660 },
+  square: { small: 300, medium: 480, large: 720 },
+  circle: { small: 360, medium: 540, large: 840 },
+};
+
+const WINDOW_FILM_GROSS_PRICES: Record<
+  "white" | "transparent",
+  Record<"small" | "medium" | "large", Rsd>
+> = {
+  white: { small: 348, medium: 780, large: 1548 },
+  transparent: { small: 420, medium: 900, large: 1788 },
+};
+
+const COMPACT_STAND_GROSS_PRICES: Record<
+  "a4" | "a5" | "a6",
+  Record<ProductMaterial, Partial<Record<ProductBackground, Rsd>>>
+> = {
+  a6: {
+    plastic: { white: 660, black: 828 },
+    acrylic: { white: 948, transparent: 1020 },
+    metal: { white: 1188, black: 1308 },
+  },
+  a5: {
+    plastic: { white: 900, black: 1140 },
+    acrylic: { white: 1308, transparent: 1428 },
+    metal: { white: 1668, black: 1788 },
+  },
+  a4: {
+    plastic: { white: 1428, black: 1788 },
+    acrylic: { white: 2028, transparent: 2268 },
+    metal: { white: 2628, black: 2868 },
+  },
+};
 
 export function getProduct(id: string): PhysicalProduct | undefined {
   return PHYSICAL_PRODUCTS.find((product) => product.id === id);
 }
 
-export function getMaterial(
-  product: PhysicalProduct,
-  materialId: string,
-): Material | undefined {
-  return product.materials.find((material) => material.id === materialId);
-}
-
-/** Najjeftiniji pojedinačni komad u celom katalogu — ulaz za "Od" cenu. */
 export interface CheapestUnit {
   unitPrice: Rsd;
-  productId: string;
-  productName: string;
-  materialId: string;
-  materialName: string;
+  productId: ProductId;
 }
 
 export function cheapestUnitPrice(): CheapestUnit {
-  let cheapest: CheapestUnit | null = null;
-  for (const product of PHYSICAL_PRODUCTS) {
-    for (const material of product.materials) {
-      if (cheapest === null || material.unitPrice < cheapest.unitPrice) {
-        cheapest = {
-          unitPrice: material.unitPrice,
-          productId: product.id,
-          productName: product.name,
-          materialId: material.id,
-          materialName: material.name,
-        };
-      }
-    }
-  }
-  // Katalog nikad nije prazan (fiksan PLACEHOLDER broj), ali čuvamo tip.
-  if (cheapest === null) {
-    return { unitPrice: 0, productId: "", productName: "", materialId: "", materialName: "" };
-  }
-  return cheapest;
+  const first = PHYSICAL_PRODUCTS[0];
+  if (!first) return { unitPrice: 0, productId: "stickers" };
+  return PHYSICAL_PRODUCTS.reduce<CheapestUnit>(
+    (cheapest, product) =>
+      product.baseUnitPrice < cheapest.unitPrice
+        ? { unitPrice: product.baseUnitPrice, productId: product.id }
+        : cheapest,
+    { unitPrice: first.baseUnitPrice, productId: first.id },
+  );
 }
-
-// --- Količinski popust (po VRSTI proizvoda, egzaktno) ----------------------
 
 export interface QuantityDiscountTier {
   minQty: number;
-  rate: number; // 0..1
+  rate: number;
 }
 
-// Privremene vrednosti: 0 / 8 / 17 / 25 / 30 %.
 export const QUANTITY_DISCOUNT_TIERS: readonly QuantityDiscountTier[] = [
   { minQty: 1, rate: 0 },
   { minQty: 2, rate: 0.08 },
@@ -199,47 +267,100 @@ export const QUANTITY_DISCOUNT_TIERS: readonly QuantityDiscountTier[] = [
   { minQty: 20, rate: 0.3 },
 ];
 
-/** Bira popust prema tiražu jedne vrste proizvoda. */
-export function quantityDiscountRate(qty: number): number {
+export function normalizeQuantity(value: number): number {
+  return Number.isFinite(value) ? Math.max(1, Math.floor(value)) : 1;
+}
+
+export function applyQuantityDelta(quantity: number, delta: -5 | -1 | 1 | 5): number {
+  return normalizeQuantity(quantity + delta);
+}
+
+export function quantityFromInput(raw: string): number {
+  const digits = raw.replace(/\D/g, "");
+  return digits ? normalizeQuantity(Number.parseInt(digits, 10)) : 1;
+}
+
+export function quantityDiscountRate(quantity: number): number {
   let rate = 0;
   for (const tier of QUANTITY_DISCOUNT_TIERS) {
-    if (qty >= tier.minQty) rate = tier.rate;
+    if (normalizeQuantity(quantity) >= tier.minQty) rate = tier.rate;
   }
   return rate;
 }
 
-// --- Dizajn ----------------------------------------------------------------
-
-export type DesignChoice =
-  | { kind: "template"; templateId: string; addOwnLogo: boolean }
-  | { kind: "custom"; addOwnLogo: boolean };
-
-// PLACEHOLDER: jednokratna naknada za custom dizajn (naplaćuje se TAČNO jednom po
-// porudžbini i primenjuje na sve stavke). Sopstveni logo je BESPLATAN.
-export const CUSTOM_DESIGN_FEE: Rsd = 3900;
-
-// --- Izbor (ulaz) i obračun (izlaz) ----------------------------------------
+export type ProductDesignChoice =
+  | { kind: "template"; templateId: TemplateId }
+  | { kind: "custom"; brief: string };
 
 export interface ProductSelection {
-  productId: string;
-  materialId: string;
-  quantity: number; // >= 1
+  productId: ProductId;
+  quantity: number;
+  orientation?: Orientation;
+  shape?: ProductShape;
+  background?: ProductBackground;
+  finish?: ProductFinish;
+  material?: ProductMaterial;
+  woodType?: WoodType;
+  dimension: ProductDimension;
+  design: ProductDesignChoice;
 }
 
 export interface OrderSelection {
   service: ServiceId;
   tier: PublicTierId;
   period: BillingPeriod;
-  products: ProductSelection[]; // više vrsta; svaka svoj materijal i tiraž
-  design: DesignChoice;
+  products: ProductSelection[];
+  logoUploadId?: string;
 }
 
-export interface ProductLineItem {
-  productId: string;
-  productName: string;
-  materialId: string;
-  materialName: string;
-  quantity: number;
+export function createDefaultProductSelection(
+  productId: ProductId = "two-piece-stand",
+): ProductSelection {
+  const shared = {
+    productId,
+    quantity: 1,
+    design: { kind: "template", templateId: "template-1" },
+  } as const;
+
+  if (productId === "stickers") {
+    return { ...shared, shape: "square", dimension: "medium" };
+  }
+  if (productId === "window-film") {
+    return {
+      ...shared,
+      background: "transparent",
+      finish: "matte",
+      dimension: "medium",
+    };
+  }
+  if (productId === "compact-stand") {
+    return { ...shared, background: "white", material: "plastic", dimension: "a5" };
+  }
+  if (productId === "premium-engraved-stand") {
+    return {
+      ...shared,
+      shape: "rectangle",
+      woodType: "oak",
+      dimension: "medium",
+    };
+  }
+  return {
+    ...shared,
+    orientation: "portrait",
+    dimension: "a5",
+  };
+}
+
+export const DEFAULT_ORDER_SELECTION: OrderSelection = {
+  service: "review",
+  tier: "starter",
+  period: "annual",
+  products: [createDefaultProductSelection()],
+};
+
+export interface ProductLineItem extends ProductSelection {
+  baseUnitPrice: Rsd;
+  optionSurcharge: Rsd;
   unitPrice: Rsd;
   discountRate: number;
   lineSubtotal: Rsd;
@@ -249,76 +370,110 @@ export interface ProductLineItem {
 
 export interface OrderBreakdown {
   productItems: ProductLineItem[];
-  productsTotal: Rsd; // Σ lineTotal
-  designFee: Rsd; // 0 za template, CUSTOM_DESIGN_FEE za custom (jednom)
-  oneTimeTotal: Rsd; // productsTotal + designFee (fizičko se NE naplaćuje ponovo)
-  saasFirstTerm: Rsd; // annual: SaasPrice.annual; monthly: SaasPrice.monthly
-  totalDueNow: Rsd; // oneTimeTotal + saasFirstTerm
-  renewal: { amount: Rsd; period: BillingPeriod; monthlyEquivalent: Rsd }; // SAMO SaaS
+  productsTotal: Rsd;
+  oneTimeTotal: Rsd;
+  saasFirstTerm: Rsd;
+  totalDueNow: Rsd;
+  requiresCustomDesignQuote: boolean;
+  renewal: { amount: Rsd; period: BillingPeriod; monthlyEquivalent: Rsd };
 }
 
-/** Pun obračun iz kompletnog izbora, sa odvojenim stavkama. */
+export function productUnitPrice(selection: ProductSelection): Rsd {
+  const product = getProduct(selection.productId);
+  if (!product) return 0;
+
+  if (
+    selection.productId === "stickers" &&
+    selection.shape &&
+    (selection.dimension === "small" ||
+      selection.dimension === "medium" ||
+      selection.dimension === "large")
+  ) {
+    return STICKER_GROSS_PRICES[selection.shape][selection.dimension];
+  }
+
+  if (
+    selection.productId === "window-film" &&
+    (selection.background === "white" || selection.background === "transparent") &&
+    (selection.dimension === "small" ||
+      selection.dimension === "medium" ||
+      selection.dimension === "large")
+  ) {
+    return WINDOW_FILM_GROSS_PRICES[selection.background][selection.dimension];
+  }
+
+  if (
+    selection.productId === "compact-stand" &&
+    selection.material &&
+    selection.background &&
+    (selection.dimension === "a4" ||
+      selection.dimension === "a5" ||
+      selection.dimension === "a6")
+  ) {
+    return (
+      COMPACT_STAND_GROSS_PRICES[selection.dimension][selection.material][
+        selection.background
+      ] ?? product.baseUnitPrice
+    );
+  }
+
+  return product.baseUnitPrice;
+}
+
+export function productOptionSurcharge(selection: ProductSelection): Rsd {
+  void selection;
+  return 0;
+}
+
 export function computeOrderBreakdown(selection: OrderSelection): OrderBreakdown {
-  const productItems: ProductLineItem[] = selection.products.map((selected) => {
+  const productItems = selection.products.map<ProductLineItem>((selected) => {
     const product = getProduct(selected.productId);
-    const material = product ? getMaterial(product, selected.materialId) : undefined;
-    const unitPrice = material?.unitPrice ?? 0;
-    const quantity = Math.max(1, Math.floor(selected.quantity));
+    const baseUnitPrice = product?.baseUnitPrice ?? 0;
+    const unitPrice = productUnitPrice(selected);
+    const optionSurcharge = 0;
+    const quantity = normalizeQuantity(selected.quantity);
     const discountRate = quantityDiscountRate(quantity);
     const lineSubtotal = roundRsd(unitPrice * quantity);
-    const lineDiscount = roundRsd(unitPrice * quantity * discountRate);
-    const lineTotal = lineSubtotal - lineDiscount;
+    const lineDiscount = roundRsd(lineSubtotal * discountRate);
     return {
-      productId: selected.productId,
-      productName: product?.name ?? "",
-      materialId: selected.materialId,
-      materialName: material?.name ?? "",
+      ...selected,
       quantity,
+      baseUnitPrice,
+      optionSurcharge,
       unitPrice,
       discountRate,
       lineSubtotal,
       lineDiscount,
-      lineTotal,
+      lineTotal: lineSubtotal - lineDiscount,
     };
   });
 
   const productsTotal = productItems.reduce((sum, item) => sum + item.lineTotal, 0);
-  const designFee = selection.design.kind === "custom" ? CUSTOM_DESIGN_FEE : 0;
-  const oneTimeTotal = productsTotal + designFee;
-
   const saas = getSaasPrice(selection.service, selection.tier);
   const saasFirstTerm = selection.period === "annual" ? saas.annual : saas.monthly;
-  const totalDueNow = oneTimeTotal + saasFirstTerm;
-
   const renewalAmount = selection.period === "annual" ? saas.annual : saas.monthly;
-  const monthlyEquivalent =
-    selection.period === "annual" ? roundRsd(saas.annual / 12) : saas.monthly;
 
   return {
     productItems,
     productsTotal,
-    designFee,
-    oneTimeTotal,
+    oneTimeTotal: productsTotal,
     saasFirstTerm,
-    totalDueNow,
-    renewal: { amount: renewalAmount, period: selection.period, monthlyEquivalent },
+    totalDueNow: productsTotal + saasFirstTerm,
+    requiresCustomDesignQuote: selection.products.some(
+      (product) => product.design.kind === "custom",
+    ),
+    renewal: {
+      amount: renewalAmount,
+      period: selection.period,
+      monthlyEquivalent:
+        selection.period === "annual" ? roundRsd(saas.annual / 12) : saas.monthly,
+    },
   };
 }
 
-// --- "Od" cena za karticu paketa -------------------------------------------
-
 export interface CardPrice {
   period: BillingPeriod;
-  /**
-   * Headline "Od" iznos.
-   * annual: mesečni ekvivalent 1. godine = round((cheapestUnit + SaaS.annual)/12)
-   * monthly: cheapestUnit + SaaS.monthly (prvi mesec).
-   */
   fromAmount: Rsd;
-  /**
-   * Obnova, SAMO SaaS.
-   * annual: round(SaaS.annual/12) (mesečni ekvivalent); monthly: SaaS.monthly.
-   */
   renewalAmount: Rsd;
 }
 
@@ -329,7 +484,6 @@ export function computeCardPrice(
 ): CardPrice {
   const saas = getSaasPrice(service, tier);
   const cheapest = cheapestUnitPrice().unitPrice;
-
   if (period === "annual") {
     return {
       period,
@@ -337,7 +491,6 @@ export function computeCardPrice(
       renewalAmount: roundRsd(saas.annual / 12),
     };
   }
-
   return {
     period,
     fromAmount: cheapest + saas.monthly,

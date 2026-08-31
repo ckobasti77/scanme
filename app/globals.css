@@ -258,6 +258,10 @@ body {
   z-index: 1;
 }
 
+.offer-page {
+  font-family: "Inter Variable", Inter, ui-sans-serif, system-ui, sans-serif;
+}
+
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .site-nav-glass,
   .landing-soft-section,

@@ -5,18 +5,28 @@ import {
   buildOfferMessage,
   buildSelectionContactHref,
   readContactMessage,
+  readContactSelection,
 } from "./offer-contact";
-import type { OrderSelection } from "./scanme-pricing";
+import { createDefaultProductSelection, type OrderSelection } from "./scanme-pricing";
 
 const selection: OrderSelection = {
   service: "review",
   tier: "premium",
   period: "annual",
   products: [
-    { productId: "nalepnica", materialId: "pvc", quantity: 3 },
-    { productId: "stalak", materialId: "metal", quantity: 1 },
+    { ...createDefaultProductSelection("stickers"), quantity: 3 },
+    {
+      ...createDefaultProductSelection("compact-stand"),
+      background: "black",
+    },
+    {
+      ...createDefaultProductSelection("two-piece-stand"),
+      orientation: "landscape",
+      dimension: "a4",
+      design: { kind: "custom", brief: "Veći naziv lokala i tamna pozadina." },
+    },
   ],
-  design: { kind: "custom", addOwnLogo: true },
+  logoUploadId: "logo-upload-id",
 };
 
 function queryOf(href: string): string {
@@ -24,49 +34,34 @@ function queryOf(href: string): string {
 }
 
 describe("buildOfferMessage", () => {
-  test("nosi uslugu, paket, period, stavke, dizajn i iznose", () => {
-    const msg = buildOfferMessage(selection);
-    expect(msg).toContain("Usluga: ScanMe Review");
-    expect(msg).toContain("Paket: Premium");
-    expect(msg).toContain("Naplata: Godišnje");
-    expect(msg).toContain("Nalepnica · PVC × 3");
-    expect(msg).toContain("Stalak · Metal × 1");
-    expect(msg).toContain("Dizajn: Custom dizajn + sopstveni logo");
-    expect(msg).toContain("Za plaćanje sada:");
-    expect(msg).toContain("Obnova:");
-    expect(msg).toContain("/god");
-  });
-
-  test("template + bez logoa ne izmišlja naziv šablona", () => {
-    const msg = buildOfferMessage({
-      ...selection,
-      design: { kind: "template", templateId: "editorial-1", addOwnLogo: false },
-    });
-    expect(msg).toContain("Dizajn: Gotov dizajn (ScanMe šablon)");
-    expect(msg).not.toContain("editorial-1");
-    expect(msg).not.toContain("sopstveni logo");
+  test("prenosi istu strukturiranu konfiguraciju", () => {
+    const message = buildOfferMessage(selection);
+    expect(message).toContain("Usluga: ScanMe Review");
+    expect(message).toContain("Nalepnice i stikeri, 3 kom, Kvadrat, Srednja, Šablon 1");
+    expect(message).toContain("Kompaktni stalci, 1 kom, Plastični, Crna, A5, Šablon 1");
+    expect(message).not.toContain("Crna pozadina zahteva posebnu izradu");
+    expect(message).toContain("Dvodelni stalci, 1 kom, Landscape, A4, Custom dizajn");
+    expect(message).toContain("Opis: Veći naziv lokala i tamna pozadina.");
+    expect(message).toContain("Logo: Dodat za celu ponudu");
+    expect(message).toContain("Subtotal bez custom dizajna:");
   });
 });
 
-describe("readContactMessage", () => {
-  test("round-trip iz kontakt href-a daje istu poruku", () => {
-    const parsed = readContactMessage(
-      new URLSearchParams(queryOf(buildSelectionContactHref(selection))),
-    );
-    expect(parsed).toBe(buildOfferMessage(selection));
+describe("kontakt round-trip", () => {
+  test("href vraća isti izbor i poruku", () => {
+    const params = new URLSearchParams(queryOf(buildSelectionContactHref(selection)));
+    expect(readContactSelection(params)).toEqual(selection);
+    expect(readContactMessage(params)).toBe(buildOfferMessage(selection));
   });
 
-  test("enterprise upit vraća Enterprise poruku", () => {
+  test("enterprise upit vraća postojeću poruku", () => {
     expect(readContactMessage(new URLSearchParams(queryOf(ENTERPRISE_CONTACT_HREF)))).toBe(
       ENTERPRISE_OFFER_MESSAGE,
     );
   });
 
-  test("bez konteksta vraća null", () => {
+  test("nevalidan ili prazan kontekst vraća null", () => {
     expect(readContactMessage(new URLSearchParams(""))).toBeNull();
-  });
-
-  test("nevalidan ponuda query vraća null", () => {
     expect(readContactMessage(new URLSearchParams("ponuda=service%3Dfoo"))).toBeNull();
   });
 });

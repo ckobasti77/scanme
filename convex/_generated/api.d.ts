@@ -48,6 +48,7 @@ import type * as memoriesLoadSeed from "../memoriesLoadSeed.js";
 import type * as memoriesPipeline from "../memoriesPipeline.js";
 import type * as memoriesWall from "../memoriesWall.js";
 import type * as migrations from "../migrations.js";
+import type * as offerLogoUploads from "../offerLogoUploads.js";
 import type * as redirects from "../redirects.js";
 import type * as scanMeLinks from "../scanMeLinks.js";
 import type * as slugCollisionScan from "../slugCollisionScan.js";
@@ -102,6 +103,7 @@ declare const fullApi: ApiFromModules<{
   memoriesPipeline: typeof memoriesPipeline;
   memoriesWall: typeof memoriesWall;
   migrations: typeof migrations;
+  offerLogoUploads: typeof offerLogoUploads;
   redirects: typeof redirects;
   scanMeLinks: typeof scanMeLinks;
   slugCollisionScan: typeof slugCollisionScan;

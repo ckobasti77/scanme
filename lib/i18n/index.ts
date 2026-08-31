@@ -24,6 +24,7 @@ import { memoriesWallSr } from "./sr/memories-wall";
 import { resolverSr } from "./sr/resolver";
 import { consentSr } from "./sr/consent";
 import { privacySr } from "./sr/privacy";
+import { offerSr } from "./sr/offer";
 
 export { fmt, srPluralCategory };
 export type {
@@ -41,6 +42,7 @@ export type {
   ResolverDict,
   ConsentDict,
   PrivacyDict,
+  OfferDict,
 } from "./types";
 export {
   venueSr,
@@ -54,6 +56,7 @@ export {
   resolverSr,
   consentSr,
   privacySr,
+  offerSr,
 };
 
 const SR: DictBySurface = {
@@ -68,6 +71,7 @@ const SR: DictBySurface = {
   resolver: resolverSr,
   consent: consentSr,
   privacy: privacySr,
+  offer: offerSr,
 };
 
 export function getDict<S extends Surface>(surface: S): DictBySurface[S] {

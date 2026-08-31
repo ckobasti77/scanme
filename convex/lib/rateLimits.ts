@@ -33,4 +33,7 @@ export const rateLimiter = new RateLimiter(components.rateLimiter, {
   // fresh reservations, and vice versa. What it stops: a hostile guest minting
   // unbounded upload URLs (each accepts one blob nothing references).
   renewUploadUrl: { kind: "token bucket", rate: 30, period: MINUTE, capacity: 15 },
+  // Public offer-logo reservations. The opaque per-tab token scopes the bucket;
+  // three immediate attempts leave room for a correction without enabling floods.
+  offerLogoUpload: { kind: "token bucket", rate: 5, period: MINUTE, capacity: 3 },
 });

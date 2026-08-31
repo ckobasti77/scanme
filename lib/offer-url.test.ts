@@ -1,65 +1,160 @@
 import { describe, expect, test } from "vitest";
 import { encodeSelection, parseSelection } from "./offer-url";
-import type { OrderSelection } from "./scanme-pricing";
+import { createDefaultProductSelection, type OrderSelection } from "./scanme-pricing";
 
-describe("encode/parse round-trip", () => {
-  const cases: Array<[string, OrderSelection]> = [
-    [
-      "custom dizajn, više stavki",
-      {
-        service: "review",
-        tier: "premium",
-        period: "annual",
-        products: [
-          { productId: "nalepnica", materialId: "pvc", quantity: 3 },
-          { productId: "stalak", materialId: "metal", quantity: 1 },
-        ],
-        design: { kind: "custom", addOwnLogo: true },
-      },
-    ],
-    [
-      "template dizajn, bez logoa",
-      {
-        service: "links",
-        tier: "starter",
-        period: "monthly",
-        products: [{ productId: "privezak", materialId: "drvo", quantity: 10 }],
-        design: { kind: "template", templateId: "editorial-1", addOwnLogo: false },
-      },
-    ],
-    [
-      "bez proizvoda",
-      {
-        service: "links",
-        tier: "premium",
-        period: "annual",
-        products: [],
-        design: { kind: "template", templateId: "minimal", addOwnLogo: true },
-      },
-    ],
-  ];
+describe("v2 URL round-trip", () => {
+  test("nosi više proizvoda, template/custom, SaaS i logo upload", () => {
+    const selection: OrderSelection = {
+      service: "links",
+      tier: "premium",
+      period: "monthly",
+      products: [
+        {
+          ...createDefaultProductSelection("stickers"),
+          quantity: 8,
+          shape: "circle",
+          dimension: "large",
+          design: { kind: "template", templateId: "template-4" },
+        },
+        {
+          ...createDefaultProductSelection("two-piece-stand"),
+          quantity: 2,
+          design: { kind: "custom", brief: "Tamna varijanta sa većim naslovom." },
+        },
+      ],
+      logoUploadId: "j57examplelogo",
+    };
+    expect(parseSelection(encodeSelection(selection))).toEqual(selection);
+  });
 
-  test.each(cases)("%s", (_label, selection) => {
-    const parsed = parseSelection(encodeSelection(selection));
-    expect(parsed).toEqual(selection);
+  test("nosi PVC završnicu, kompaktnu pozadinu i materijal i premium tip drveta", () => {
+    const selection: OrderSelection = {
+      service: "review",
+      tier: "starter",
+      period: "annual",
+      products: [
+        {
+          ...createDefaultProductSelection("window-film"),
+          background: "white",
+          finish: "gloss",
+          dimension: "small",
+        },
+        {
+          ...createDefaultProductSelection("compact-stand"),
+          background: "black",
+          material: "metal",
+        },
+        {
+          ...createDefaultProductSelection("premium-engraved-stand"),
+          shape: "circle",
+          woodType: "walnut",
+          dimension: "large",
+        },
+      ],
+    };
+    expect(parseSelection(encodeSelection(selection))).toEqual(selection);
+  });
+
+  test("radi bez logoa i bez proizvoda", () => {
+    const selection: OrderSelection = {
+      service: "review",
+      tier: "starter",
+      period: "annual",
+      products: [],
+    };
+    expect(parseSelection(encodeSelection(selection))).toEqual(selection);
   });
 });
 
-describe("parseSelection odbija nevalidan query", () => {
+describe("v1 kompatibilnost", () => {
+  test("stari URL se parsira u bezbedne nove default opcije", () => {
+    const parsed = parseSelection(
+      new URLSearchParams(
+        "service=review&tier=starter&period=annual&items=nalepnica:pvc:3,stalak:metal:1&design=custom&logo=1",
+      ),
+    );
+    expect(parsed?.products).toEqual([
+      {
+        ...createDefaultProductSelection("stickers"),
+        quantity: 3,
+        design: { kind: "custom", brief: "" },
+      },
+      {
+        ...createDefaultProductSelection("premium-engraved-stand"),
+        design: { kind: "custom", brief: "" },
+      },
+    ]);
+  });
+
+  test("v2 URL se bezbedno prevodi na nove opcije po proizvodu", () => {
+    const legacyV2 = new URLSearchParams({
+      v: "2",
+      service: "review",
+      tier: "starter",
+      period: "annual",
+      items: JSON.stringify([
+        {
+          productId: "stickers",
+          quantity: 2,
+          orientation: "landscape",
+          dimension: "a4",
+          design: { kind: "template", templateId: "template-1" },
+        },
+        {
+          productId: "two-piece-stand",
+          quantity: 1,
+          orientation: "landscape",
+          dimension: "a4",
+          design: { kind: "template", templateId: "template-2" },
+        },
+      ]),
+    });
+    expect(parseSelection(legacyV2)?.products).toEqual([
+      { ...createDefaultProductSelection("stickers"), quantity: 2 },
+      {
+        ...createDefaultProductSelection("two-piece-stand"),
+        orientation: "landscape",
+        dimension: "a4",
+        design: { kind: "template", templateId: "template-2" },
+      },
+    ]);
+  });
+
+  test("postojeći v3 kompaktni stalak bez materijala dobija plastiku", () => {
+    const compact = createDefaultProductSelection("compact-stand");
+    const legacyCompact = { ...compact, material: undefined };
+    const legacyV3 = new URLSearchParams({
+      v: "3",
+      service: "review",
+      tier: "starter",
+      period: "annual",
+      items: JSON.stringify([legacyCompact]),
+    });
+    expect(parseSelection(legacyV3)?.products[0]).toMatchObject({
+      productId: "compact-stand",
+      material: "plastic",
+    });
+  });
+});
+
+describe("nevalidni parametri", () => {
   test.each([
-    ["nepoznata usluga", "service=foo&tier=starter&period=annual&design=custom&logo=0"],
-    ["enterprise nije public tier", "service=review&tier=enterprise&period=annual&design=custom&logo=0"],
-    ["nepoznat period", "service=review&tier=starter&period=weekly&design=custom&logo=0"],
-    ["nepostojeći proizvod", "service=review&tier=starter&period=annual&items=nema:pvc:1&design=custom&logo=0"],
-    ["nepostojeći materijal", "service=review&tier=starter&period=annual&items=nalepnica:zlato:1&design=custom&logo=0"],
-    ["tiraž nula", "service=review&tier=starter&period=annual&items=nalepnica:pvc:0&design=custom&logo=0"],
-    ["tiraž nije ceo broj", "service=review&tier=starter&period=annual&items=nalepnica:pvc:1.5&design=custom&logo=0"],
-    ["prazan template id", "service=review&tier=starter&period=annual&design=template:&logo=0"],
-    ["nepoznat design", "service=review&tier=starter&period=annual&design=nesto&logo=0"],
-    ["logo van 0/1", "service=review&tier=starter&period=annual&design=custom&logo=2"],
-    ["nedostaje design", "service=review&tier=starter&period=annual&logo=0"],
-    ["nedostaje logo", "service=review&tier=starter&period=annual&design=custom"],
-  ])("%s -> null", (_label, query) => {
+    "service=foo&tier=starter&period=annual&design=custom&logo=0",
+    "service=review&tier=enterprise&period=annual&design=custom&logo=0",
+    "v=2&service=review&tier=starter&period=annual&items=not-json",
+    `v=2&service=review&tier=starter&period=annual&items=${encodeURIComponent(
+      JSON.stringify([
+        {
+          productId: "stickers",
+          quantity: 0,
+          orientation: "portrait",
+          dimension: "a5",
+          design: { kind: "template", templateId: "template-1" },
+        },
+      ]),
+    )}`,
+    "service=review&tier=starter&period=annual&items=nema:pvc:1&design=custom&logo=0",
+  ])("%s -> null", (query) => {
     expect(parseSelection(new URLSearchParams(query))).toBeNull();
   });
 });

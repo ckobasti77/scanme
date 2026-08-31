@@ -1,6 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import { mutation } from "./_generated/server";
 import { optionalText, requireText } from "./lib/validation";
+import { readyStorageForLead } from "./offerLogoUploads";
 
 const interestValidator = v.union(
   v.literal("review"),
@@ -21,6 +22,9 @@ export const create = mutation({
     phone: v.optional(v.string()),
     interest: interestValidator,
     message: v.optional(v.string()),
+    offerSelection: v.optional(v.string()),
+    logoUploadId: v.optional(v.id("offerLogoUploads")),
+    logoSessionToken: v.optional(v.string()),
     submissionId: v.string(),
     formStartedAt: v.number(),
     website: v.string(),
@@ -52,7 +56,16 @@ export const create = mutation({
     const city = optionalText(args.city, 80);
     const email = optionalText(args.email, 160)?.toLowerCase();
     const phone = optionalText(args.phone, 40);
-    const message = optionalText(args.message, 1_000);
+    const message = optionalText(args.message, 5_000);
+    const offerSelection = optionalText(args.offerSelection, 10_000);
+
+    if ((args.logoUploadId === undefined) !== (args.logoSessionToken === undefined)) {
+      throw new ConvexError("Logo upload nije potpun. Dodajte logo ponovo.");
+    }
+    const logoStorageId =
+      args.logoUploadId && args.logoSessionToken
+        ? await readyStorageForLead(ctx, args.logoUploadId, args.logoSessionToken)
+        : undefined;
 
     if (!email && !phone) {
       throw new ConvexError("Unesite telefon ili imejl kako bismo mogli da vam odgovorimo.");
@@ -64,7 +77,7 @@ export const create = mutation({
       throw new ConvexError("Unesite ispravan broj telefona.");
     }
 
-    await ctx.db.insert("leads", {
+    const leadId = await ctx.db.insert("leads", {
       contactName,
       businessName,
       businessType,
@@ -73,10 +86,20 @@ export const create = mutation({
       ...(phone ? { phone } : {}),
       interest: args.interest,
       ...(message ? { message } : {}),
+      ...(offerSelection ? { offerSelection } : {}),
+      ...(logoStorageId ? { logoStorageId } : {}),
       submissionId,
       status: "new",
       createdAt: now,
     });
+
+    if (args.logoUploadId && logoStorageId) {
+      await ctx.db.patch("offerLogoUploads", args.logoUploadId, {
+        status: "attached",
+        leadId,
+        updatedAt: now,
+      });
+    }
 
     return { status: "accepted" as const };
   },

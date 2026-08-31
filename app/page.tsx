@@ -29,7 +29,8 @@ import { ComingSoon } from "@/components/coming-soon";
 import { EcosystemProductDeck } from "@/components/ecosystem-product-deck";
 import { BackToTop } from "@/components/back-to-top";
 import { hasPreviewAccess } from "@/lib/preview-access";
-import { readContactMessage } from "@/lib/offer-contact";
+import { readContactMessage, readContactSelection } from "@/lib/offer-contact";
+import { encodeSelection } from "@/lib/offer-url";
 
 const reviewBenefits = [
   { icon: Palette, title: "Dizajn", body: "Izaberi dizajn ili to prepusti nama" },
@@ -96,6 +97,10 @@ export default async function Home({ searchParams }: PageProps<"/">) {
     else if (Array.isArray(value) && value[0] !== undefined) contactParams.set(key, value[0]);
   }
   const initialMessage = readContactMessage(contactParams) ?? "";
+  const initialSelection = readContactSelection(contactParams);
+  const initialOfferSelection = initialSelection
+    ? encodeSelection(initialSelection).toString()
+    : undefined;
 
   const hasVideo = existsSync(path.join(process.cwd(), "public", "videos", "scanme-hero.mp4"));
   const hasPoster = existsSync(
@@ -238,7 +243,11 @@ export default async function Home({ searchParams }: PageProps<"/">) {
               <p className="mt-6 max-w-[48ch] leading-7 text-foreground/62">Pošaljite osnovne podatke. Zatim dogovaramo format, dizajn, količinu i realan rok izrade.</p>
             </div>
             <div data-reveal-item>
-              <LeadForm initialMessage={initialMessage} />
+              <LeadForm
+                initialMessage={initialMessage}
+                initialOfferSelection={initialOfferSelection}
+                initialLogoUploadId={initialSelection?.logoUploadId}
+              />
             </div>
           </div>
         </section>

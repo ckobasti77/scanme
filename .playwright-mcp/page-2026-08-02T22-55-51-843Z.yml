@@ -1,3 +1,0 @@
-- generic [active] [ref=e1]:
-  - generic [ref=e2]: old
-  - generic [ref=e4]: RO entry target=container size=600x400 RO entry target=old-preview size=300x200 measure fired; preview found = old-preview
