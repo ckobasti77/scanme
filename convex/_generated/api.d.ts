@@ -31,6 +31,7 @@ import type * as lib_designEngineValidators from "../lib/designEngineValidators.
 import type * as lib_entitlements from "../lib/entitlements.js";
 import type * as lib_invitations from "../lib/invitations.js";
 import type * as lib_metrics from "../lib/metrics.js";
+import type * as lib_orderSnapshot from "../lib/orderSnapshot.js";
 import type * as lib_plans from "../lib/plans.js";
 import type * as lib_rateLimits from "../lib/rateLimits.js";
 import type * as lib_scanMeDesignValidators from "../lib/scanMeDesignValidators.js";
@@ -50,6 +51,7 @@ import type * as memoriesPipeline from "../memoriesPipeline.js";
 import type * as memoriesWall from "../memoriesWall.js";
 import type * as migrations from "../migrations.js";
 import type * as offerLogoUploads from "../offerLogoUploads.js";
+import type * as orders from "../orders.js";
 import type * as redirects from "../redirects.js";
 import type * as scanMeLinks from "../scanMeLinks.js";
 import type * as slugCollisionScan from "../slugCollisionScan.js";
@@ -87,6 +89,7 @@ declare const fullApi: ApiFromModules<{
   "lib/entitlements": typeof lib_entitlements;
   "lib/invitations": typeof lib_invitations;
   "lib/metrics": typeof lib_metrics;
+  "lib/orderSnapshot": typeof lib_orderSnapshot;
   "lib/plans": typeof lib_plans;
   "lib/rateLimits": typeof lib_rateLimits;
   "lib/scanMeDesignValidators": typeof lib_scanMeDesignValidators;
@@ -106,6 +109,7 @@ declare const fullApi: ApiFromModules<{
   memoriesWall: typeof memoriesWall;
   migrations: typeof migrations;
   offerLogoUploads: typeof offerLogoUploads;
+  orders: typeof orders;
   redirects: typeof redirects;
   scanMeLinks: typeof scanMeLinks;
   slugCollisionScan: typeof slugCollisionScan;

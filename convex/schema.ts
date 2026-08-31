@@ -11,6 +11,7 @@ import {
   venueBlockValidator,
   venueDesignValidator,
 } from "./lib/venueValidators";
+import { priceSnapshotValidator } from "./lib/orderSnapshot";
 
 const businessStatus = v.union(
   v.literal("active"),
@@ -852,6 +853,63 @@ export default defineSchema({
     .index("by_businessId_and_product", ["businessId", "product"])
     .index("by_spaceId_and_status", ["spaceId", "status"])
     .index("by_status_and_validUntil", ["status", "validUntil"]),
+
+  // RFC-002 §2.5 — the order: the IMMUTABLE record-as-sold, above the account.
+  // The account plan is the live permission; this row is what was bought at the
+  // price it was bought. `priceSnapshot` is the pricing engine's breakdown
+  // frozen at sale time (convex/lib/orderSnapshot.ts) — a later constants edit
+  // never touches it. Payment is a stub against the billing port: `status` moves
+  // pending → paid by a manual admin action (or, later, a billing webhook), and
+  // no field here waits on the provider choice.
+  orders: defineTable({
+    accountId: v.id("accounts"),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("paid"),
+      v.literal("provisioned"),
+      v.literal("cancelled"),
+      v.literal("refunded"),
+    ),
+    plan: v.union(
+      v.literal("basic"),
+      v.literal("premium"),
+      v.literal("enterprise"),
+    ),
+    // Absent for basic (free) and enterprise (on request) — neither is billed a
+    // period; required for premium. Mirrors accounts.planPeriod / the engine.
+    planPeriod: v.optional(v.union(v.literal("monthly"), v.literal("annual"))),
+    priceSnapshot: priceSnapshotValidator,
+    // The billing-port seam (same shape as entitlements.source): a manual admin
+    // action or a later webhook advances the order; the field never names a
+    // provider.
+    billingSource: v.optional(
+      v.union(v.literal("manual"), v.literal("billing")),
+    ),
+    externalRef: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_accountId_and_createdAt", ["accountId", "createdAt"])
+    .index("by_status_and_createdAt", ["status", "createdAt"]),
+
+  // RFC-002 §2.5 — one row per purchased service AND one per physical-product
+  // line. `businessId` says which location this line provisions (Enterprise:
+  // per location). A physical line carries `boundService` (the service its card
+  // is bound to, §2.3) and a frozen snapshot of the product configurator choice.
+  orderItems: defineTable({
+    orderId: v.id("orders"),
+    businessId: v.id("businesses"),
+    kind: v.union(v.literal("service"), v.literal("physical")),
+    // Service lines only.
+    service: v.optional(serviceType),
+    period: v.optional(v.union(v.literal("monthly"), v.literal("annual"))),
+    // Physical lines only: the service the printed item is bound to, and the
+    // ProductSelection snapshot (shape from lib/scanme-pricing.ts, stored opaque).
+    boundService: v.optional(serviceType),
+    physicalSelection: v.optional(v.any()),
+    lineTotalRsd: v.number(),
+    createdAt: v.number(),
+  }).index("by_orderId", ["orderId"]),
 
   // C.14 — reservation-block submissions (child table, unbounded). The
   // reservation block's field config (name/phone/email/partySize/note) drives
