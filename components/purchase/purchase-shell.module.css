@@ -1,0 +1,330 @@
+/* Purchase-flow shell (RFC-002 §2.3, TASK-33). The frame and the rail; the step
+   panels are laid inside it and are not part of it. Warm cream palette matched
+   to the existing offer surface (components/offer-configurator.module.css). */
+
+.shell {
+  --purchase-radius: clamp(1.5rem, 2.4vw, 2.25rem);
+  --purchase-ink: #2c2622;
+  --purchase-muted: #7a7166;
+  --purchase-line: rgb(120 96 72 / 0.22);
+  --purchase-accent: #444c43;
+  --purchase-surface: #efe9df;
+  --purchase-panel: rgb(255 255 255 / 0.5);
+
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(1.25rem, 2.4vw, 1.75rem);
+  min-width: 0;
+  padding: clamp(1.25rem, 3vw, 2.25rem);
+  border: 1px solid rgb(255 255 255 / 0.55);
+  border-radius: var(--purchase-radius);
+  background: #d8d0c4;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.7),
+    0 30px 80px rgb(65 46 36 / 0.18);
+  color: var(--purchase-ink);
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.eyebrow {
+  margin: 0 0 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--purchase-muted);
+}
+
+.title {
+  margin: 0;
+  font-size: clamp(1.35rem, 2.6vw, 1.85rem);
+  font-weight: 650;
+  line-height: 1.1;
+}
+
+.indicator {
+  margin: 0;
+  flex-shrink: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--purchase-muted);
+}
+
+/* --- Timeline --------------------------------------------------------------*/
+
+.timeline {
+  overflow-x: auto;
+}
+
+.steps {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.stepItem {
+  display: flex;
+  align-items: center;
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.stepButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.6rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--purchase-muted);
+  font: inherit;
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.stepButton:hover {
+  color: var(--purchase-ink);
+}
+
+.stepButton:focus-visible {
+  outline: 2px solid var(--purchase-accent);
+  outline-offset: 2px;
+}
+
+.stepNumber {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 999px;
+  border: 1.5px solid var(--purchase-line);
+  font-size: 0.85rem;
+  font-weight: 700;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.stepLabel {
+  font-size: 0.9rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.stepButton[data-state="current"] {
+  color: var(--purchase-ink);
+}
+
+.stepButton[data-state="current"] .stepNumber {
+  border-color: var(--purchase-accent);
+  background: var(--purchase-accent);
+  color: #fff;
+}
+
+.stepButton[data-state="done"] {
+  color: var(--purchase-ink);
+}
+
+.stepButton[data-state="done"] .stepNumber {
+  border-color: var(--purchase-accent);
+  color: var(--purchase-accent);
+}
+
+.stepConnector {
+  flex: 1 1 auto;
+  height: 2px;
+  margin: 0 0.35rem;
+  border-radius: 2px;
+  background: var(--purchase-line);
+}
+
+.stepConnector[data-done="true"] {
+  background: var(--purchase-accent);
+}
+
+/* --- Content region --------------------------------------------------------*/
+
+.content {
+  min-height: clamp(280px, 42vh, 460px);
+}
+
+.stepPanels {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: 1rem;
+  height: 100%;
+  min-height: inherit;
+}
+
+.stepFull {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+  height: 100%;
+  min-height: inherit;
+}
+
+.stepCheckout {
+  display: grid;
+  place-items: stretch;
+  max-width: 640px;
+  margin: 0 auto;
+  height: 100%;
+  min-height: inherit;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 1rem;
+  border: 1px dashed var(--purchase-line);
+  border-radius: 1.1rem;
+  background: var(--purchase-panel);
+  color: var(--purchase-muted);
+  font-size: 0.9rem;
+}
+
+.panel[data-slot="center"],
+.panel[data-slot="right"] {
+  min-height: 8rem;
+}
+
+.soon {
+  align-self: flex-start;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  background: rgb(68 76 67 / 0.12);
+  color: var(--purchase-accent);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* --- Sticky split-total bar ------------------------------------------------*/
+
+.bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid rgb(255 255 255 / 0.6);
+  border-radius: 1.25rem;
+  background: rgb(239 233 223 / 0.94);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 12px 30px rgb(65 46 36 / 0.16);
+}
+
+.total {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
+  text-align: center;
+  min-width: 0;
+}
+
+.totalLabel {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--purchase-muted);
+}
+
+.money {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.15rem 0.6rem;
+}
+
+/* Two kinds of money, deliberately two spans — never summed (RFC-002 §2.3). */
+.recurring {
+  font-size: clamp(0.95rem, 2vw, 1.15rem);
+  font-weight: 700;
+  color: var(--purchase-ink);
+}
+
+.onetime {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--purchase-muted);
+}
+
+.back,
+.next {
+  flex-shrink: 0;
+}
+
+.backIcon,
+.nextIcon {
+  width: 1rem;
+  height: 1rem;
+}
+
+.backIcon {
+  margin-right: 0.35rem;
+}
+
+.nextIcon {
+  margin-left: 0.35rem;
+}
+
+/* --- Responsive ------------------------------------------------------------*/
+
+@media (max-width: 768px) {
+  .stepPanels {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .stepLabel {
+    display: none;
+  }
+
+  .header {
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  /* Stack the rail on narrow screens: the split total gets its own row above a
+     row of the two controls, so the money never collides with the buttons. */
+  .bar {
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    padding: 0.75rem;
+  }
+
+  .total {
+    order: -1;
+    flex-basis: 100%;
+  }
+
+  .back {
+    order: 0;
+    flex: 1 1 0;
+    justify-content: flex-start;
+  }
+
+  .next {
+    order: 1;
+    flex: 1 1 0;
+    justify-content: flex-end;
+  }
+}

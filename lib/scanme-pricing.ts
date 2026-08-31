@@ -489,6 +489,18 @@ export function computeOrderBreakdown(selection: OrderSelection): OrderBreakdown
   };
 }
 
+/**
+ * One-time (jednokratno) total for a set of physical products, reusing the
+ * exact line math of `computeOrderBreakdown`. The purchase flow's split-total
+ * bar (RFC-002 §2.3) shows this separately from recurring money and never sums
+ * the two; keeping the arithmetic here (not in the component) is the same "no
+ * number in the component" discipline as the pricing engine.
+ */
+export function computeProductsOneTime(products: readonly ProductSelection[]): Rsd {
+  return computeOrderBreakdown({ ...DEFAULT_ORDER_SELECTION, products: [...products] })
+    .productsTotal;
+}
+
 export interface CardPrice {
   period: BillingPeriod;
   fromAmount: Rsd;

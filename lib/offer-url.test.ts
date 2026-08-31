@@ -1,5 +1,11 @@
 import { describe, expect, test } from "vitest";
-import { encodeSelection, parseSelection } from "./offer-url";
+import {
+  encodePurchaseSelection,
+  encodeSelection,
+  parsePurchaseSelection,
+  parseSelection,
+  type PurchaseSelection,
+} from "./offer-url";
 import { createDefaultProductSelection, type OrderSelection } from "./scanme-pricing";
 
 describe("v2 URL round-trip", () => {
@@ -156,5 +162,166 @@ describe("nevalidni parametri", () => {
     "service=review&tier=starter&period=annual&items=nema:pvc:1&design=custom&logo=0",
   ])("%s -> null", (query) => {
     expect(parseSelection(new URLSearchParams(query))).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// V5 purchase codec (RFC-002 §2.3, TASK-33). The four-step flow's state is a
+// DIFFERENT shape — a set of the five services + an account plan — carried by
+// its own encode/parse pair. The V1–V4 discipline above must stay intact: a
+// link someone already shared keeps parsing through `parseSelection`.
+// ---------------------------------------------------------------------------
+
+describe("v1–v4 links still parse after v5 lands (frozen wire, RFC-002 §2.8)", () => {
+  const FROZEN: ReadonlyArray<{ version: string; query: string }> = [
+    {
+      version: "1",
+      query:
+        "?v=1&service=review&tier=starter&period=annual&design=custom&logo=1&items=nalepnica%3A%3A5",
+    },
+    {
+      version: "2",
+      query:
+        "?v=2&service=links&tier=premium&period=annual&items=%5B%7B%22productId%22%3A%22two-piece-stand%22%2C%22quantity%22%3A3%2C%22design%22%3A%7B%22kind%22%3A%22custom%22%2C%22brief%22%3A%22%22%7D%2C%22orientation%22%3A%22landscape%22%2C%22dimension%22%3A%22a4%22%7D%5D",
+    },
+    {
+      version: "3",
+      query:
+        "?v=3&service=review&tier=starter&period=monthly&items=%5B%7B%22productId%22%3A%22two-piece-stand%22%2C%22quantity%22%3A2%2C%22design%22%3A%7B%22kind%22%3A%22template%22%2C%22templateId%22%3A%22template-1%22%7D%2C%22orientation%22%3A%22portrait%22%2C%22dimension%22%3A%22a5%22%7D%5D",
+    },
+    {
+      version: "4",
+      query:
+        "?v=4&service=links&tier=premium&period=annual&items=%5B%7B%22productId%22%3A%22two-piece-stand%22%2C%22quantity%22%3A2%2C%22design%22%3A%7B%22kind%22%3A%22template%22%2C%22templateId%22%3A%22template-1%22%7D%2C%22orientation%22%3A%22portrait%22%2C%22dimension%22%3A%22a5%22%7D%5D",
+    },
+  ];
+
+  for (const { version, query } of FROZEN) {
+    test(`a frozen v${version} link parses to a valid OrderSelection`, () => {
+      const parsed = parseSelection(new URLSearchParams(query));
+      expect(parsed, `v${version} must not fail to parse`).not.toBeNull();
+      expect(parsed!.products.length).toBeGreaterThan(0);
+    });
+  }
+
+  test("the v5 parser rejects every old version, and parseSelection rejects v5", () => {
+    for (const { query } of FROZEN) {
+      expect(parsePurchaseSelection(new URLSearchParams(query))).toBeNull();
+    }
+    const v5 = encodePurchaseSelection({
+      services: [{ service: "venue", period: "annual" }],
+      plan: "basic",
+      products: [],
+      step: 1,
+    });
+    expect(parseSelection(new URLSearchParams(v5.toString()))).toBeNull();
+  });
+});
+
+describe("v5 purchase codec round-trips", () => {
+  const SELECTIONS: ReadonlyArray<{ name: string; selection: PurchaseSelection }> = [
+    {
+      name: "empty cart on step 1, basic plan",
+      selection: { services: [], plan: "basic", products: [], step: 1 },
+    },
+    {
+      name: "two services, premium annual, one product",
+      selection: {
+        services: [
+          { service: "venue", period: "annual" },
+          { service: "memories", period: "annual" },
+        ],
+        plan: "premium",
+        planPeriod: "annual",
+        products: [createDefaultProductSelection("two-piece-stand")],
+        step: 3,
+      },
+    },
+    {
+      name: "mixed periods, enterprise plan, logo, step 2",
+      selection: {
+        services: [
+          { service: "links", period: "monthly" },
+          { service: "review", period: "annual" },
+          { service: "menu", period: "monthly" },
+        ],
+        plan: "enterprise",
+        products: [],
+        logoUploadId: "logo-session-abc123",
+        step: 2,
+      },
+    },
+    {
+      name: "all five services, premium monthly, step 4, two products",
+      selection: {
+        services: [
+          { service: "links", period: "monthly" },
+          { service: "venue", period: "monthly" },
+          { service: "memories", period: "monthly" },
+          { service: "menu", period: "monthly" },
+          { service: "review", period: "monthly" },
+        ],
+        plan: "premium",
+        planPeriod: "monthly",
+        products: [
+          createDefaultProductSelection("stickers"),
+          createDefaultProductSelection("compact-stand"),
+        ],
+        step: 4,
+      },
+    },
+  ];
+
+  for (const { name, selection } of SELECTIONS) {
+    test(name, () => {
+      const encoded = encodePurchaseSelection(selection);
+      expect(encoded.get("v")).toBe("5");
+      const reparsed = parsePurchaseSelection(new URLSearchParams(encoded.toString()));
+      expect(reparsed).toEqual(selection);
+    });
+  }
+});
+
+describe("v5 strict validation rejects malformed state", () => {
+  const base: PurchaseSelection = {
+    services: [{ service: "venue", period: "annual" }],
+    plan: "premium",
+    planPeriod: "annual",
+    products: [createDefaultProductSelection("two-piece-stand")],
+    step: 3,
+  };
+
+  function withParam(mutate: (p: URLSearchParams) => void): URLSearchParams {
+    const p = encodePurchaseSelection(base);
+    mutate(p);
+    return p;
+  }
+
+  test.each<[string, (p: URLSearchParams) => void]>([
+    ["unknown service", (p) => p.set("services", "venue:annual,ghost:annual")],
+    ["unknown period", (p) => p.set("services", "venue:weekly")],
+    ["duplicate service", (p) => p.set("services", "venue:annual,venue:monthly")],
+    ["malformed chunk (missing period)", (p) => p.set("services", "venue")],
+    ["unknown plan", (p) => p.set("plan", "gold")],
+    [
+      "premium without planPeriod",
+      (p) => {
+        p.set("plan", "premium");
+        p.delete("planPeriod");
+      },
+    ],
+    [
+      "basic with forbidden planPeriod",
+      (p) => {
+        p.set("plan", "basic");
+        p.set("planPeriod", "annual");
+      },
+    ],
+    ["step out of range", (p) => p.set("step", "5")],
+    ["non-integer step", (p) => p.set("step", "2.5")],
+    ["malformed product line", (p) => p.set("items", '[{"productId":"ghost"}]')],
+    ["missing items param", (p) => p.delete("items")],
+  ])("%s -> null", (_name, mutate) => {
+    expect(parsePurchaseSelection(withParam(mutate))).toBeNull();
   });
 });

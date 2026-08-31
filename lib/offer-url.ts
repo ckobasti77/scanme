@@ -1,4 +1,6 @@
-/** Serijalizacija ponude kroz URL. V4 nosi novu matricu materijala kompaktnih stalaka. */
+/** Serijalizacija ponude kroz URL. V4 nosi novu matricu materijala kompaktnih
+ *  stalaka; V5 nosi stanje četvorokoračnog toka kupovine — SKUP usluga + plan
+ *  (RFC-002 §2.3). V1–V4 se i dalje parsiraju netaknuti (`parseSelection`). */
 
 import {
   createDefaultProductSelection,
@@ -21,11 +23,48 @@ import {
   type TemplateId,
   type WoodType,
 } from "./scanme-pricing";
+import {
+  SERVICE_IDS,
+  type PlanId,
+  type ServiceId as PurchaseServiceId,
+} from "./pricing/engine";
 
 const SERVICES: readonly ServiceId[] = ["review", "links"];
 const TIERS: readonly PublicTierId[] = ["starter", "premium"];
 const PERIODS: readonly BillingPeriod[] = ["monthly", "annual"];
 const VERSION = "4";
+
+// --- V5: state of the four-step purchase flow (RFC-002 §2.3) ----------------
+// The V5 model is a DIFFERENT shape from V1–V4: not "one service + one tier"
+// but "a set of the five services (each with a period) + an account plan". It
+// gets its own encode/parse pair; `parseSelection` (V1–V4) is left untouched so
+// a link someone already shared keeps parsing.
+
+const PURCHASE_VERSION = "5";
+const PURCHASE_SERVICES: readonly PurchaseServiceId[] = SERVICE_IDS;
+const PURCHASE_PLANS: readonly PlanId[] = ["basic", "premium", "enterprise"];
+export const PURCHASE_STEPS = [1, 2, 3, 4] as const;
+export type PurchaseStep = (typeof PURCHASE_STEPS)[number];
+
+export interface PurchaseServiceSelection {
+  service: PurchaseServiceId;
+  period: BillingPeriod;
+}
+
+/** The whole V5 flow state — shareable by link (RFC-002 §2.3). */
+export interface PurchaseSelection {
+  /** The chosen services; a service appears at most once. May be empty while
+   *  the buyer is still on step 1. */
+  services: PurchaseServiceSelection[];
+  plan: PlanId;
+  /** Present only for `premium` (its monthly/annual price differ) — the same
+   *  rule the engine enforces (`lib/pricing`). */
+  planPeriod?: BillingPeriod;
+  /** Physical products (step 3) — same shape and validation as V4. */
+  products: ProductSelection[];
+  logoUploadId?: string;
+  step: PurchaseStep;
+}
 
 const LEGACY_PRODUCT_MAP: Record<string, ProductId> = {
   nalepnica: "stickers",
@@ -278,4 +317,92 @@ export function parseSelection(params: URLSearchParams): OrderSelection | null {
   if (!custom && !design.startsWith("template:")) return null;
   const products = parseLegacyItems(params.get("items") ?? "", custom);
   return products ? { ...base, products } : null;
+}
+
+// --- V5 codec ---------------------------------------------------------------
+
+function isPurchaseStep(value: number): value is PurchaseStep {
+  return (PURCHASE_STEPS as readonly number[]).includes(value);
+}
+
+export function encodePurchaseSelection(selection: PurchaseSelection): URLSearchParams {
+  const params = new URLSearchParams();
+  params.set("v", PURCHASE_VERSION);
+  params.set(
+    "services",
+    selection.services.map((entry) => `${entry.service}:${entry.period}`).join(","),
+  );
+  params.set("plan", selection.plan);
+  if (selection.planPeriod) params.set("planPeriod", selection.planPeriod);
+  params.set("items", JSON.stringify(selection.products));
+  if (selection.logoUploadId) params.set("logoUpload", selection.logoUploadId);
+  params.set("step", String(selection.step));
+  return params;
+}
+
+function parsePurchaseServices(raw: string): PurchaseServiceSelection[] | null {
+  if (raw === "") return [];
+  const services: PurchaseServiceSelection[] = [];
+  const seen = new Set<PurchaseServiceId>();
+  for (const chunk of raw.split(",")) {
+    const parts = chunk.split(":");
+    if (parts.length !== 2) return null;
+    const [service, period] = parts;
+    if (!service || !PURCHASE_SERVICES.includes(service as PurchaseServiceId)) return null;
+    if (!period || !PERIODS.includes(period as BillingPeriod)) return null;
+    if (seen.has(service as PurchaseServiceId)) return null; // a service is owned once
+    seen.add(service as PurchaseServiceId);
+    services.push({ service: service as PurchaseServiceId, period: period as BillingPeriod });
+  }
+  if (services.length > PURCHASE_SERVICES.length) return null;
+  return services;
+}
+
+/** Parse the V5 flow state. Strict, like `parseSelection`: any malformed field
+ *  yields `null` rather than a silently-coerced value. Returns `null` for every
+ *  non-V5 version — V1–V4 links are the job of `parseSelection`. */
+export function parsePurchaseSelection(params: URLSearchParams): PurchaseSelection | null {
+  if (params.get("v") !== PURCHASE_VERSION) return null;
+
+  const plan = params.get("plan");
+  if (!plan || !PURCHASE_PLANS.includes(plan as PlanId)) return null;
+
+  // planPeriod: required for premium, forbidden otherwise — the engine's rule.
+  const planPeriodRaw = params.get("planPeriod");
+  let planPeriod: BillingPeriod | undefined;
+  if (plan === "premium") {
+    if (!planPeriodRaw || !PERIODS.includes(planPeriodRaw as BillingPeriod)) return null;
+    planPeriod = planPeriodRaw as BillingPeriod;
+  } else if (planPeriodRaw !== null) {
+    return null;
+  }
+
+  const servicesRaw = params.get("services");
+  if (servicesRaw === null) return null;
+  const services = parsePurchaseServices(servicesRaw);
+  if (!services) return null;
+
+  const itemsRaw = params.get("items");
+  if (itemsRaw === null) return null;
+  const products = parseV3Items(itemsRaw);
+  if (!products) return null;
+
+  const logoUploadId = params.get("logoUpload") ?? undefined;
+  if (logoUploadId !== undefined && (logoUploadId.length < 1 || logoUploadId.length > 200)) {
+    return null;
+  }
+
+  const stepRaw = params.get("step");
+  if (stepRaw === null) return null;
+  const step = Number(stepRaw);
+  if (!Number.isInteger(step) || !isPurchaseStep(step)) return null;
+
+  return {
+    services,
+    plan: plan as PlanId,
+    ...(planPeriod ? { planPeriod } : {}),
+    products,
+    ...(logoUploadId ? { logoUploadId } : {}),
+    step,
+  };
 }
