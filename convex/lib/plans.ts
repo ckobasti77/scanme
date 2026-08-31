@@ -53,3 +53,36 @@ export type PlanProduct = keyof typeof PLAN_LIMITS;
 // `limits.photosPerGuest` gets `number` with no cast.
 export type LimitsFor<P extends PlanProduct> =
   (typeof PLAN_LIMITS)[P][keyof (typeof PLAN_LIMITS)[P]];
+
+// Account plan (Axis B, RFC-002 §2.2.1) — mirrors accounts.plan in the schema.
+export type AccountPlan = "basic" | "premium" | "enterprise";
+
+// Account plan → per-product tier (planKey) for getEntitlement step 3
+// (RFC-002 §2.2.3). Lives in code, so tuning is a deploy, never a migration.
+// The value type is `keyof PLAN_LIMITS[product]`, so the map can never name a
+// tier that does not exist.
+//
+// Memories: account basic → basic (3), premium → premium (10); the standard
+// (5) mid-tier stays reachable only through an explicit space/business
+// override (an admin grant, or the per-event premium purchase, RFC-001 §2.3).
+// Enterprise is "on request": it maps to the same tier as premium, and
+// negotiated deviations live in account.overrides (merged in step 3), never
+// in new tier constants. Venue: every plan maps to the placeholder basic
+// tier until Venue tiers are decided (RFC-001 §5 Q1).
+export const ACCOUNT_PLAN_TIER: {
+  [P in PlanProduct]: Record<
+    AccountPlan,
+    keyof (typeof PLAN_LIMITS)[P] & string
+  >;
+} = {
+  scanme_memories: {
+    basic: "basic",
+    premium: "premium",
+    enterprise: "premium",
+  },
+  scanme_venue: {
+    basic: "basic",
+    premium: "basic",
+    enterprise: "basic",
+  },
+};

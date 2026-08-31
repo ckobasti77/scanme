@@ -98,6 +98,42 @@ export const deviceCategory = v.union(
 export default defineSchema({
   ...authTables,
 
+  // RFC-002 §2.2.1 — the account: the plan/billing/grouping layer ABOVE
+  // businesses (Axis B). Access stays per-business (§2.2.2): an Enterprise
+  // login reaches its locations through N businessMemberships rows, and
+  // requireBusinessAccess never reads this table. getEntitlement reads it as
+  // its least-specific fallback (step 3, §2.2.3).
+  accounts: defineTable({
+    name: v.string(), // "Kafanski lanac d.o.o." or a solo local's own name
+    plan: v.union(
+      v.literal("basic"),
+      v.literal("premium"),
+      v.literal("enterprise"),
+    ),
+    // Absent for basic — the free plan has no billing period.
+    planPeriod: v.optional(v.union(v.literal("monthly"), v.literal("annual"))),
+    status: v.union(v.literal("active"), v.literal("suspended")),
+    // Enterprise-negotiated capability deviations, merged by getEntitlement
+    // (step 3); the same optional-subset shape as entitlements.overrides.
+    // Empty/absent for Basic/Premium.
+    overrides: v.optional(
+      v.object({
+        photosPerGuest: v.optional(v.number()),
+        maxImageDimension: v.optional(v.number()),
+        retentionDays: v.optional(v.number()),
+        allowedBlockKeys: v.optional(v.array(v.string())),
+      }),
+    ),
+    // Billing-port target for the PLAN subscription (services bill through
+    // orders, §2.5).
+    planSource: v.optional(v.union(v.literal("manual"), v.literal("billing"))),
+    planExternalRef: v.optional(v.string()),
+    // Absent = perpetual (manual); a daily expiry cron sweeps numeric values.
+    planValidUntil: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_status", ["status"]),
+
   businesses: defineTable({
     name: v.string(),
     slug: v.string(),
@@ -108,6 +144,11 @@ export default defineSchema({
     // below; the mutation that provisions a celebration tenant is built with
     // Memories.
     kind: v.optional(v.union(v.literal("business"), v.literal("celebration"))),
+    // RFC-002 §2.2.1 — the account this location belongs to. Optional and
+    // additive: absent degrades cleanly (getEntitlement step 3 simply never
+    // fires), so the solo-account backfill (§2.2.4) is not a correctness
+    // prerequisite.
+    accountId: v.optional(v.id("accounts")),
     logoStorageId: v.optional(v.id("_storage")),
     logoUrl: v.optional(v.string()),
     status: businessStatus,
@@ -115,7 +156,8 @@ export default defineSchema({
     createdAt: v.number(),
   })
     .index("by_slug", ["slug"])
-    .index("by_status", ["status"]),
+    .index("by_status", ["status"])
+    .index("by_account", ["accountId"]),
 
   dynamicLinks: defineTable({
     businessId: v.id("businesses"),

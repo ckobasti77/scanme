@@ -85,3 +85,24 @@ proveru sertifikata na Windows-u (bezbednosna izmena — nisam je radio).
 
 Do te odluke, `harness:check` (a time i `npm run check` u celini) ostaje crven
 iz čisto sredinskih razloga; sve ostalo u lancu provere je zeleno.
+
+---
+
+## TASK-29 — accounts + getEntitlement korak 3
+
+### 1. KORAK 0: `nvm` ne postoji na mašini — harness ostaje sredinski blokiran
+
+`node -v` = **v24.8.0** (ista verzija kao u TASK-28 §4). Pokušano `nvm use 22`
+/ `nvm install 22`: komanda `nvm` **ne postoji** na ovoj mašini (nema je na
+PATH-u), pa prebacivanje na Node 22 nije izvodljivo bez instalacije novog
+alata — što je odluka vlasnika, ne ovog taska.
+
+Posledica: `harness:check` se i dalje deterministički ruši u
+`NewRootCertStore` (vidi TASK-28 §4) i prijavljuje se kao **sredinski
+blokiran, ne kao pad koda**. Sve ostale provere (lint, build,
+`harness:namespace`, ceo vitest) moraju biti — i jesu — zelene; stanje po
+pokretanju zabeleženo u izveštaju taska.
+
+Opcije za vlasnika ostaju iste kao u TASK-28 §4 (Node LTS, zakrpljeni v24.x,
+ili goldeni u CI-ju); dodatna najjeftinija: instalirati nvm-windows pa
+`nvm install 22`.

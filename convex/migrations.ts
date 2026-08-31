@@ -1,3 +1,5 @@
+import { v } from "convex/values";
+import { internal } from "./_generated/api";
 import { internalMutation, internalQuery } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
 import { DEFAULT_ACCENT, DEFAULT_ACCENT_TOKENS, googleReviewSlug } from "../lib/scanme-links";
@@ -235,6 +237,59 @@ export const migrateLegacyServices = internalMutation({
     }
 
     return { businesses: businesses.length, createdProfiles, migratedEvents };
+  },
+});
+
+// RFC-002 §2.2.4 — SPECIFIED, not executed (the exact shape of RFC-001
+// §2.1.6's backfillBusinessKind). Nothing schedules or calls this; it is run
+// manually (npx convex run) when the purchase flow ships. Every existing
+// business gets its own solo account (1:1): name copied from the business,
+// plan derived from its active business-scoped entitlements (any
+// premium-grade planKey → "premium", else "basic"). Because getEntitlement
+// step 3 fires only where steps 1–2 resolve nothing, and every
+// currently-active service already carries a business-scoped row from
+// approveActivation, day-one behavior is identical — the backfill makes
+// grouping and reporting explicit, it is not a correctness prerequisite.
+export const backfillSoloAccounts = internalMutation({
+  args: { cursor: v.optional(v.string()) },
+  handler: async (ctx, args) => {
+    const page = await ctx.db
+      .query("businesses")
+      .paginate({ cursor: args.cursor ?? null, numItems: 200 });
+    for (const business of page.page) {
+      if (business.accountId !== undefined) continue;
+      // Bounded: a business holds few entitlement rows (one per product/scope).
+      const entitlements = await ctx.db
+        .query("entitlements")
+        .withIndex("by_businessId_and_product", (q) =>
+          q.eq("businessId", business._id),
+        )
+        .take(50);
+      const hasPremium = entitlements.some(
+        (row) =>
+          row.spaceId === undefined &&
+          row.status === "active" &&
+          row.planKey === "premium",
+      );
+      const now = Date.now();
+      const accountId = await ctx.db.insert("accounts", {
+        name: business.name,
+        plan: hasPremium ? "premium" : "basic",
+        status: "active",
+        planSource: "manual",
+        createdAt: now,
+        updatedAt: now,
+      });
+      await ctx.db.patch(business._id, { accountId });
+    }
+    if (!page.isDone) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.migrations.backfillSoloAccounts,
+        { cursor: page.continueCursor },
+      );
+    }
+    return { done: page.isDone, processed: page.page.length };
   },
 });
 
