@@ -108,10 +108,8 @@ describe("algoritam: nabrajanje, ne heuristika", () => {
   });
 
   test("paket se bira kad je najjeftiniji, i pokriva sve svoje usluge", () => {
-    // Deliberately priced to win: Kompletan below every alternative, with the
-    // free-Review rule switched off so the five-service cart is honestly paid.
+    // Deliberately priced to win: Kompletan below every alternative.
     const winning = edit({
-      reviewFreeFromServiceCount: 99,
       packages: cs.packages.map((pkg) =>
         pkg.id === "kompletan" ? { ...pkg, price: { monthly: 3900, annual: 39000 } } : pkg,
       ),
@@ -123,6 +121,26 @@ describe("algoritam: nabrajanje, ne heuristika", () => {
     expect(result.packages.map((entry) => entry.packageId)).toEqual(["kompletan"]);
     expect(result.servicesChargedRsd).toBe(3900);
     expect(result.lines.every((line) => line.packageId === "kompletan")).toBe(true);
+  });
+
+  test("Kompletan je najjeftinije razlaganje za skup od pet (podrazumevane cene)", () => {
+    // The owner vetoed the "Review free from the fourth service" rule (TASK-28).
+    // Kompletan must therefore earn the five-service cart on price alone: with
+    // the SHIPPED constants it is the cheapest decomposition of all five, so a
+    // buyer who reaches the full set à la carte still lands on the package price
+    // — there is no way to pay more for the same set (RFC-002 §2.1).
+    for (const period of ["monthly", "annual"] as const) {
+      const result = price({
+        items: (["links", "venue", "memories", "menu", "review"] as const).map((service) => ({
+          service,
+          period,
+        })),
+        plan: "basic",
+      });
+      expect(result.packages.map((entry) => entry.packageId)).toEqual(["kompletan"]);
+      expect(result.servicesChargedRsd).toBe(cs.packages[2].price[period]);
+      expect(result.lines.every((line) => line.packageId === "kompletan")).toBe(true);
+    }
   });
 
   test("paket ne važi kad su usluge u različitim periodima", () => {
@@ -142,7 +160,7 @@ describe("algoritam: nabrajanje, ne heuristika", () => {
       const result = price({ items: cart, plan: "basic" });
       for (const group of result.groups) {
         const lines = result.lines.filter(
-          (line) => line.period === group.period && line.packageId === null && line.grant === null,
+          (line) => line.period === group.period && line.packageId === null,
         );
         if (lines.length === 0) continue;
         const top = lines.reduce((max, line) => (line.listRsd > max.listRsd ? line : max));
@@ -175,46 +193,6 @@ describe("algoritam: nabrajanje, ne heuristika", () => {
   });
 });
 
-describe("Review je besplatan od četvrte usluge (RFC-002 §2.1)", () => {
-  test("tri usluge sa Review-om — Review se plaća", () => {
-    const result = price({ items: monthly("links", "menu", "review"), plan: "basic" });
-    const review = result.lines.find((line) => line.service === "review")!;
-    expect(review.grant).toBeNull();
-    expect(review.chargedRsd).toBeGreaterThan(0);
-  });
-
-  test("četvrta usluga oslobađa Review, bez obzira na period", () => {
-    const result = price({
-      items: [
-        { service: "review", period: "annual" },
-        ...monthly("links", "menu", "memories"),
-      ],
-      plan: "basic",
-    });
-    const review = result.lines.find((line) => line.service === "review")!;
-    expect(review.grant).toBe("review_fourth_service");
-    expect(review.chargedRsd).toBe(0);
-    expect(review.discountRsd).toBe(cs.service.review.annual);
-  });
-
-  test("Review unutar paketa ostaje u paketu — pravilo se primenjuje posle pakovanja", () => {
-    const winning = edit({
-      packages: cs.packages.map((pkg) =>
-        pkg.id === "kompletan" ? { ...pkg, price: { monthly: 3749, annual: 37769 } } : pkg,
-      ),
-    });
-    const result = priceWith(winning, {
-      items: monthly("links", "venue", "memories", "menu", "review"),
-      plan: "basic",
-    });
-    const review = result.lines.find((line) => line.service === "review")!;
-    if (review.packageId !== null) {
-      expect(review.grant).toBeNull();
-      expect(review.chargedRsd).toBeGreaterThan(0);
-    }
-  });
-});
-
 describe("četiri tvrde invarijante bacaju grešku (RFC-002 §2.1)", () => {
   const fullMonthly: PriceInput = {
     items: monthly("links", "venue", "memories", "menu", "review"),
@@ -224,7 +202,6 @@ describe("četiri tvrde invarijante bacaju grešku (RFC-002 §2.1)", () => {
   test("1 — linija ispod 50% liste", () => {
     const broken = edit({
       packages: [],
-      reviewFreeFromServiceCount: 99,
       ladderBps: [0, 2000, 3000, 4000, 6000],
     });
     expect(() => priceWith(broken, fullMonthly)).toThrow(PricingInvariantError);

@@ -214,8 +214,6 @@ function allocatePackage(price: Rsd, members: readonly ResolvedItem[]): Map<Serv
 }
 
 interface GroupOptions {
-  /** Services the cart grants for free (the fourth-service Review rule). */
-  granted: ReadonlySet<ServiceId>;
   /** Package price to use. Normally the group's own period; the invariant-4
    *  lower bound passes a cheaper resolver on purpose. */
   packagePrice: (pkg: PackageDefinition, period: BillingPeriod) => Rsd;
@@ -254,12 +252,8 @@ function priceGroup(
     if (!disjoint) continue;
 
     let total = chosen.reduce((sum, pkg) => sum + options.packagePrice(pkg, period), 0);
-    // The grant is evaluated AFTER packaging and BEFORE the ladder (RFC-002
-    // §2.1): a granted service inside a package stays inside it — the package
-    // price already covers it — and a granted service outside every package is
-    // free and leaves the ladder entirely.
     const remainder = items
-      .filter((item) => !covered.has(item.service) && !options.granted.has(item.service))
+      .filter((item) => !covered.has(item.service))
       .sort(byLadderPosition);
     remainder.forEach((item, position) => {
       total += item.listRsd - discountRsd(item.listRsd, ladderRateBps(cs, position));
@@ -303,25 +297,12 @@ function priceGroup(
         discountRsd: member.listRsd - charged,
         chargedRsd: charged,
         packageId: pkg.id,
-        grant: null,
       });
     }
   }
 
-  const remainder = items.filter((item) => !lines.has(item.service));
-  for (const item of remainder.filter((entry) => options.granted.has(entry.service))) {
-    lines.set(item.service, {
-      service: item.service,
-      period,
-      listRsd: item.listRsd,
-      discountRsd: item.listRsd,
-      chargedRsd: 0,
-      packageId: null,
-      grant: "review_fourth_service",
-    });
-  }
-  remainder
-    .filter((entry) => !options.granted.has(entry.service))
+  items
+    .filter((item) => !lines.has(item.service))
     .sort(byLadderPosition)
     .forEach((item, position) => {
       const discount = discountRsd(item.listRsd, ladderRateBps(cs, position));
@@ -332,7 +313,6 @@ function priceGroup(
         discountRsd: discount,
         chargedRsd: item.listRsd - discount,
         packageId: null,
-        grant: null,
       });
     });
 
@@ -344,24 +324,7 @@ function priceGroup(
   };
 }
 
-function grantedServices(
-  cs: PricingConstants,
-  items: readonly PriceItem[],
-  enabled: boolean,
-): ReadonlySet<ServiceId> {
-  if (!enabled) return new Set();
-  const services = new Set(items.map((item) => item.service));
-  if (!services.has("review")) return new Set();
-  if (services.size < cs.reviewFreeFromServiceCount) return new Set();
-  return new Set<ServiceId>(["review"]);
-}
-
-function computeCore(
-  cs: PricingConstants,
-  sortedItems: readonly PriceItem[],
-  grantEnabled: boolean,
-): CoreResult {
-  const granted = grantedServices(cs, sortedItems, grantEnabled);
+function computeCore(cs: PricingConstants, sortedItems: readonly PriceItem[]): CoreResult {
   const resolved = resolve(cs, sortedItems);
   const lines: PriceLine[] = [];
   const packages: PackageAttribution[] = [];
@@ -371,7 +334,6 @@ function computeCore(
     const groupItems = resolved.filter((item) => item.period === period);
     if (groupItems.length === 0) continue;
     const result = priceGroup(cs, period, groupItems, {
-      granted,
       packagePrice: (pkg, forPeriod) => pkg.price[forPeriod],
     });
     lines.push(...result.lines);
@@ -415,22 +377,10 @@ function planLineFor(cs: PricingConstants, input: PriceInput): PlanLine {
 // mispriced sale, and it removes the "the check was off in production" failure
 // mode entirely. `price()` therefore either returns a sellable price or throws.
 //
-// TWO DELIBERATE, NAMED EXEMPTIONS, both forced by the "Review is free from the
-// fourth service up" rule (RFC-002 §2.1, DECIDED, owner may veto):
-//
-//   * A GRANTED line is exempt from invariants 1, 2 and 3. A 100% concession is
-//     by definition below a 50% floor, and a cart cannot be required to charge
-//     at least the list price of the very line it gave away. The exemption is
-//     keyed on `line.grant`, never on "chargedRsd happened to be 0".
-//   * Invariant 4's monotonicity is measured with the grant DISABLED. Making
-//     the fourth service nearly free is exactly a non-monotone step — it is the
-//     rule's purpose — so monotonicity is asserted on the ungranted base price,
-//     where it is a real property of the packages and the ladder.
-//
-// Invariants 1-2 are also measured PER PERIOD GROUP rather than across the
-// whole cart: a ratio that adds a monthly dinar to an annual dinar is not a
-// discount rate, and enforcing 45% on such a sum would reject legitimate mixed
-// carts while permitting real over-discounting inside a single basket.
+// Invariants 1-2 are measured PER PERIOD GROUP rather than across the whole
+// cart: a ratio that adds a monthly dinar to an annual dinar is not a discount
+// rate, and enforcing 45% on such a sum would reject legitimate mixed carts
+// while permitting real over-discounting inside a single basket.
 // ---------------------------------------------------------------------------
 
 /** Monthly and annual money are only comparable on a yearly horizon. Used by
@@ -451,7 +401,6 @@ function assertInvariants(
 ): void {
   // 1 — no priced line below `minLineChargeBps` of its list price.
   for (const line of result.lines) {
-    if (line.grant !== null) continue;
     if (line.chargedRsd * 10000 < line.listRsd * cs.minLineChargeBps) {
       throw new PricingInvariantError(
         1,
@@ -463,9 +412,7 @@ function assertInvariants(
 
   // 2 — total discount within a period group never exceeds `maxGroupDiscountBps`.
   for (const group of result.groups) {
-    const priced = result.lines.filter(
-      (line) => line.period === group.period && line.grant === null,
-    );
+    const priced = result.lines.filter((line) => line.period === group.period);
     const listRsd = priced.reduce((sum, line) => sum + line.listRsd, 0);
     const discount = priced.reduce((sum, line) => sum + line.discountRsd, 0);
     if (listRsd > 0 && discount * 10000 > listRsd * cs.maxGroupDiscountBps) {
@@ -478,9 +425,7 @@ function assertInvariants(
   }
 
   // 3 — the cart total is never less than the most expensive single service.
-  const mostExpensive = result.lines
-    .filter((line) => line.grant === null)
-    .reduce((max, line) => Math.max(max, line.listRsd), 0);
+  const mostExpensive = result.lines.reduce((max, line) => Math.max(max, line.listRsd), 0);
   if (result.servicesChargedRsd < mostExpensive) {
     throw new PricingInvariantError(
       3,
@@ -489,11 +434,11 @@ function assertInvariants(
     );
   }
 
-  // 4a — adding a service never lowers the total (grant disabled, see above).
-  const base = computeCore(cs, sortedItems, false).servicesChargedRsd;
+  // 4a — adding a service never lowers the total.
+  const base = computeCore(cs, sortedItems).servicesChargedRsd;
   for (let mask = 1; mask < (1 << sortedItems.length) - 1; mask += 1) {
     const subset = sortedItems.filter((_, index) => (mask & (1 << index)) !== 0);
-    const subsetTotal = computeCore(cs, subset, false).servicesChargedRsd;
+    const subsetTotal = computeCore(cs, subset).servicesChargedRsd;
     if (subsetTotal > base) {
       throw new PricingInvariantError(
         4,
@@ -506,8 +451,8 @@ function assertInvariants(
   // 4b — splitting a set across periods is never cheaper than combining it in
   // one. Comparable only when annualized: a monthly dinar is twelve dinars a
   // year. The bound is the cheaper of the two uniform baskets (everything
-  // monthly, everything annual), each priced by the same engine with the same
-  // grant. This is the check that catches the cherry-pick — a buyer taking one
+  // monthly, everything annual), each priced by the same engine. This is the
+  // check that catches the cherry-pick — a buyer taking one
   // service monthly and another annually because the constants happen to make
   // that mix beat both honest baskets.
   const periods = new Set(sortedItems.map((item) => item.period));
@@ -519,7 +464,6 @@ function assertInvariants(
           computeCore(
             cs,
             sortedItems.map((item) => ({ service: item.service, period })),
-            true,
           ).lines,
         ),
       ),
@@ -558,7 +502,7 @@ export function price(input: PriceInput): PriceBreakdown {
  */
 export function priceWith(cs: PricingConstants, input: PriceInput): PriceBreakdown {
   const sortedItems = validateInput(input);
-  const core = computeCore(cs, sortedItems, true);
+  const core = computeCore(cs, sortedItems);
   assertInvariants(cs, sortedItems, core);
 
   const planLine = planLineFor(cs, input);

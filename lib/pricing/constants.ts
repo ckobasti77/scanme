@@ -60,9 +60,6 @@ export interface PricingConstants {
    *  always 0 bps: "the most expensive item is never discounted" (RFC-002
    *  §2.1 step 3). Positions past the end reuse the last rung. */
   ladderBps: readonly number[];
-  /** Review is free once the cart holds this many services and includes Review
-   *  (RFC-002 §2.1, "Review is free from the fourth service up"). */
-  reviewFreeFromServiceCount: number;
   /** Invariant 1 — no priced line is ever billed below this share of list. */
   minLineChargeBps: number;
   /** Invariant 2 — total discount within one period group never exceeds this. */
@@ -84,17 +81,25 @@ export const DEFAULT_PRICING_CONSTANTS: PricingConstants = {
   packages: [
     { id: "dogadjaj", services: ["venue", "memories"], price: { monthly: 2390, annual: 23990 } },
     { id: "lokal", services: ["links", "menu"], price: { monthly: 1590, annual: 15990 } },
-    // NOTE FOR THE OWNER (found by invariant 4 while filling these in, not by
-    // reading the RFC): with the "Review is free from the fourth service up"
-    // rule DECIDED (RFC-002 §2.1, §5 Q6), the five-service cart is already
-    // "the four paid + Review at 0". A Kompletan price BELOW that four-service
-    // ladder total makes the fifth service lower the bill, which invariant 4
-    // rejects; a price at or above it is never the cheapest decomposition, so
-    // the package is never selected. Kompletan is therefore currently a name
-    // with no effect. Two ways out, both the owner's call: veto the free-Review
-    // rule (§5 Q6) and price Kompletan freely, or drop the package and let the
-    // free Review BE the Kompletan offer. Nothing in the engine needs changing
-    // for either.
+    // REJECTED RULE — DO NOT REINTRODUCE (owner veto, TASK-28, 2026-08-31).
+    // RFC-002 §2.1 shipped a "Review is free from the fourth service up" grant
+    // (flagged for possible veto in §5 Q6). The owner exercised that veto: the
+    // grant is removed from the engine and from this file. Do NOT re-add a
+    // `reviewFreeFromServiceCount` field or any free-Review concession — it
+    // repriced Review to 0 in every four+ service cart, and while it was in
+    // force the five-service cart was always "four paid + Review at 0", which
+    // (a) made Kompletan a name with no effect, and (b) left money on the table
+    // for the many single-Review locals who are the current base.
+    //
+    // Kompletan now stands on its own. With the grant gone, the cheapest
+    // non-package decomposition of all five services is the pure ladder
+    // (40.264 RSD annual / 3.994 RSD monthly with these placeholders). Kompletan
+    // is priced just under that so it is genuinely the cheapest decomposition
+    // for the five-set (the marketing promise: no way to pay more for the same
+    // set), and still at or above the four-service floor so invariant 4 holds
+    // (adding the fifth service never lowers the bill). See the "Kompletan je
+    // najjeftinije razlaganje za skup od pet" test in engine.test.ts. If these
+    // placeholders change, keep it in that band or the invariant will throw.
     {
       id: "kompletan",
       services: ["links", "venue", "memories", "menu", "review"],
@@ -102,7 +107,6 @@ export const DEFAULT_PRICING_CONSTANTS: PricingConstants = {
     },
   ],
   ladderBps: [0, 2000, 3000, 4000, 5000],
-  reviewFreeFromServiceCount: 4,
   minLineChargeBps: 5000,
   maxGroupDiscountBps: 4500,
 };

@@ -13,7 +13,7 @@
 
 $Script:Tasks = @(
 
-@{ Id=27; Name='Cenovni motor + goldeni'; Model='Opus 5'; Effort='high'; Mode='GOAL'; Goal=@'
+@{ Id=27; Name='Cenovni motor + goldeni'; Model='Opus 4.8'; Effort='high'; Mode='GOAL'; Sesija='nova'; Goal=@'
 Procitaj docs/architecture/RFC-002-pricing-and-purchase.md u celini, pa uradi
 zadatak 1 iz tabele u §4 (Implementation sequence).
 
@@ -46,7 +46,7 @@ ScanMe Links je zamrznut. npm run check cist, ukljucujuci harness:check i
 harness:namespace.
 '@ }
 
-@{ Id=28; Name='Motor u marketing stranicu i ponudu, gasenje SAAS_PRICING'; Model='Opus 5'; Effort='high'; Mode='GOAL'; Goal=@'
+@{ Id=28; Name='Motor u marketing stranicu i ponudu, gasenje SAAS_PRICING'; Model='Opus 4.8'; Effort='high'; Mode='GOAL'; Sesija='nova'; Goal=@'
 Procitaj docs/architecture/RFC-002-pricing-and-purchase.md, pa uradi zadatak 2
 iz §4.
 
@@ -64,7 +64,7 @@ ScanMe Links je zamrznut — proveri §6 RFC-a (freeze ledger) pre nego sto dota
 ijedan fajl. npm run check cist, ukljucujuci harness.
 '@ }
 
-@{ Id=29; Name='accounts + getEntitlement korak 3'; Model='Fable'; Effort='xhigh'; Mode='GOAL'; Goal=@'
+@{ Id=29; Name='accounts + getEntitlement korak 3'; Model='Fable'; Effort='xhigh'; Mode='GOAL'; Sesija='nova'; Goal=@'
 Procitaj docs/architecture/RFC-002-pricing-and-purchase.md, posebno §2.2 u
 celini, pa uradi zadatak 3 iz §4.
 
@@ -87,7 +87,7 @@ RFC-001 §2.1.6.
 ScanMe Links je zamrznut. npm run check cist.
 '@ }
 
-@{ Id=30; Name='Enterprise provizioniranje + grupisanje u adminu'; Model='Opus 5'; Effort='high'; Mode='GOAL'; Goal=@'
+@{ Id=30; Name='Enterprise provizioniranje + grupisanje u adminu'; Model='Opus 4.8'; Effort='high'; Mode='GOAL'; Sesija='nova'; Goal=@'
 Procitaj docs/architecture/RFC-002-pricing-and-purchase.md §2.2 i §2.6, pa uradi
 zadatak 4 iz §4.
 
@@ -104,7 +104,7 @@ redova. Solo korisnici ostaju pune sirine, bez sidebara.
 ScanMe Links je zamrznut. npm run check cist.
 '@ }
 
-@{ Id=31; Name='orders + orderItems + snimak cene + billing port'; Model='Opus 5'; Effort='high'; Mode='GOAL'; Goal=@'
+@{ Id=31; Name='orders + orderItems + snimak cene + billing port'; Model='Opus 4.8'; Effort='high'; Mode='GOAL'; Sesija='nova'; Goal=@'
 Procitaj docs/architecture/RFC-002-pricing-and-purchase.md §2.5, pa uradi
 zadatak 5 iz §4.
 
@@ -125,7 +125,7 @@ izbor provajdera.
 ScanMe Links je zamrznut. npm run check cist.
 '@ }
 
-@{ Id=32; Name='Naplata: uplate, ciklusi, statusi, rucni upis'; Model='Fable'; Effort='xhigh'; Mode='GOAL'; Goal=@'
+@{ Id=32; Name='Naplata: uplate, ciklusi, statusi, rucni upis'; Model='Fable'; Effort='xhigh'; Mode='GOAL'; Sesija='nova'; Goal=@'
 Procitaj docs/architecture/RFC-002-pricing-and-purchase.md §2.5 i §2.6. Ovaj
 zadatak nije u tabeli §4 — dodaje se izmedju zadataka 5 i 6, i pravi zivotni
 ciklus naplate koji admin tabela kasnije samo prikazuje.
@@ -153,7 +153,7 @@ stvari — bez loga je prvi spor neresiv.
 ScanMe Links je zamrznut. npm run check cist.
 '@ }
 
-@{ Id=33; Name='Ljuska kupovine + v5 URL kodek'; Model='Opus 5'; Effort='high'; Mode='GOAL'; Goal=@'
+@{ Id=33; Name='Ljuska kupovine + v5 URL kodek'; Model='Opus 4.8'; Effort='high'; Mode='GOAL'; Sesija='nova'; Goal=@'
 Procitaj docs/architecture/RFC-002-pricing-and-purchase.md §2.3, pa uradi
 zadatak 6 iz §4.
 
@@ -174,7 +174,7 @@ strogu validaciju. Stari v1-v4 linkovi moraju i dalje da se parsiraju.
 ScanMe Links je zamrznut. npm run check cist.
 '@ }
 
-@{ Id=34; Name='Korak 1 — izbor usluga, zivi prikaz, korpa'; Model='Opus 5'; Effort='xhigh'; Mode='AUTO'; Goal=@'
+@{ Id=34; Name='Korak 1 — izbor usluga, zivi prikaz, korpa'; Model='Opus 4.8'; Effort='xhigh'; Mode='AUTO'; Sesija='nova'; Goal=@'
 Procitaj docs/architecture/RFC-002-pricing-and-purchase.md §2.3, pa uradi
 zadatak 7 iz §4.
 
@@ -199,7 +199,7 @@ Ukupno u korpi mora da bude jednako onome sto motor iz TASK-27 vraca.
 ScanMe Links je zamrznut. npm run check cist.
 '@ }
 
-@{ Id=35; Name='Korak 2 — Basic vs Premium + Enterprise upit'; Model='Sonnet 5'; Effort='high'; Mode='GOAL'; Goal=@'
+@{ Id=35; Name='Korak 2 — Basic vs Premium + Enterprise upit'; Model='Sonnet 5'; Effort='high'; Mode='GOAL'; Sesija='nova'; Goal=@'
 Procitaj docs/architecture/RFC-002-pricing-and-purchase.md §2.3, pa uradi
 zadatak 8 iz §4.
 
@@ -224,7 +224,7 @@ Srednji izbor unapred selektovan. Srpski, ekavica, kroz tipizirani recnik.
 ScanMe Links je zamrznut. npm run check cist.
 '@ }
 
-@{ Id=36; Name='Korak 3 — fizicki proizvodi + vezivanje po stavci'; Model='Opus 5'; Effort='high'; Mode='AUTO'; Goal=@'
+@{ Id=36; Name='Korak 3 — fizicki proizvodi + vezivanje po stavci'; Model='Opus 4.8'; Effort='high'; Mode='AUTO'; Sesija='nova'; Goal=@'
 Procitaj docs/architecture/RFC-002-pricing-and-purchase.md §2.3, pa uradi
 zadatak 9 iz §4.
 
@@ -249,7 +249,7 @@ i obe izgledaju promenljivo su greska koja se dobija tiho, bez ijedne poruke.
 ScanMe Links je zamrznut. npm run check cist.
 '@ }
 
-@{ Id=37; Name='Razdelnik — jedna kartica, vise usluga'; Model='Fable'; Effort='xhigh'; Mode='GOAL'; Goal=@'
+@{ Id=37; Name='Razdelnik — jedna kartica, vise usluga'; Model='Fable'; Effort='xhigh'; Mode='GOAL'; Sesija='nova'; Goal=@'
 Procitaj docs/architecture/RFC-002-pricing-and-purchase.md §2.4 u celini, pa
 uradi zadatak 11 iz §4. Namerno ide PRE checkout-a: checkout mora da ume da
 provizionira karticu vezanu za vise usluga, a to ne moze dok razdelnik ne
@@ -280,7 +280,7 @@ da je gost nastao SA cardId.
 npm run check cist.
 '@ }
 
-@{ Id=38; Name='Korak 4 — checkout i provizioniranje'; Model='Opus 5'; Effort='high'; Mode='GOAL'; Goal=@'
+@{ Id=38; Name='Korak 4 — checkout i provizioniranje'; Model='Opus 4.8'; Effort='high'; Mode='GOAL'; Sesija='nova'; Goal=@'
 Procitaj docs/architecture/RFC-002-pricing-and-purchase.md §2.5, pa uradi
 zadatak 10 iz §4.
 
@@ -304,7 +304,7 @@ i mora da bude nastavljivo, bez duplikata.
 ScanMe Links je zamrznut. npm run check cist.
 '@ }
 
-@{ Id=39; Name='Landing i pricing stranica — tri paketa, brza traka'; Model='Sonnet 5'; Effort='medium'; Mode='AUTO'; Goal=@'
+@{ Id=39; Name='Landing i pricing stranica — tri paketa, brza traka'; Model='Sonnet 5'; Effort='medium'; Mode='AUTO'; Sesija='nova'; Goal=@'
 Procitaj docs/architecture/RFC-002-pricing-and-purchase.md §2.1 i §2.3.
 
 Landing ostaje marketing, ne aplikacija. Nikakav konfigurator na landingu.
@@ -326,7 +326,7 @@ Sve cene dolaze iz motora iz TASK-27. Nijedan broj se ne kuca rucno u JSX.
 Srpski, ekavica. ScanMe Links je zamrznut. npm run check cist.
 '@ }
 
-@{ Id=40; Name='Admin: tabela svih korisnika sa naplatom'; Model='Opus 5'; Effort='high'; Mode='AUTO'; Goal=@'
+@{ Id=40; Name='Admin: tabela svih korisnika sa naplatom'; Model='Opus 4.8'; Effort='high'; Mode='AUTO'; Sesija='nova'; Goal=@'
 Procitaj docs/architecture/RFC-002-pricing-and-purchase.md §2.6, pa uradi
 zadatak 12 iz §4.
 
@@ -351,7 +351,7 @@ Svaka aktivacija ili promena plana pise TACNO JEDAN audit red: ko, sta, kada.
 ScanMe Links je zamrznut. npm run check cist.
 '@ }
 
-@{ Id=41; Name='Admin: podstranice po uslugama, sidebar lokala, Page->Menu'; Model='Opus 5'; Effort='high'; Mode='GOAL'; Goal=@'
+@{ Id=41; Name='Admin: podstranice po uslugama, sidebar lokala, Page->Menu'; Model='Opus 4.8'; Effort='high'; Mode='GOAL'; Sesija='nova'; Goal=@'
 Procitaj docs/architecture/RFC-002-pricing-and-purchase.md §2.6, pa uradi
 zadatak 13 iz §4.
 
@@ -367,7 +367,7 @@ proizvod bude postojao. Ne pravi Meni proizvod ovde — samo kuku za preimenovan
 ScanMe Links je zamrznut. npm run check cist.
 '@ }
 
-@{ Id=42; Name='QA: goldeni cena, pristupacnost, e2e od landinga do isteka'; Model='Fable'; Effort='ultracode'; Mode='AUTO'; Goal=@'
+@{ Id=42; Name='QA: goldeni cena, pristupacnost, e2e od landinga do isteka'; Model='Fable'; Effort='ultracode'; Mode='AUTO'; Sesija='nova'; Goal=@'
 Poslednji task ovog niza. Procitaj docs/architecture/RFC-002-pricing-and-purchase.md
 u celini, plus docs/qa/RELEASE-READINESS.md iz prethodnog kruga.
 
@@ -404,6 +404,7 @@ function Show-Plan {
             Model  = $_.Model
             Effort = $_.Effort
             Mode   = $_.Mode
+            Sesija = $_.Sesija
             Chars  = $_.Goal.Length
         }
     } | Format-Table -AutoSize
@@ -419,19 +420,21 @@ function Show-Task([int]$Id) {
     $t = Get-TaskById $Id; if (-not $t) { return }
     Write-Host ""
     Write-Host "TASK-$($t.Id) — $($t.Name)" -ForegroundColor Green
-    Write-Host "Model: $($t.Model)  |  Effort: $($t.Effort)  |  Mode: $($t.Mode)  |  Nova sesija" -ForegroundColor DarkGray
+    Write-Host "Model: $($t.Model)  |  Effort: $($t.Effort)  |  Mode: $($t.Mode)  |  Sesija: $($t.Sesija)" -ForegroundColor DarkGray
     Write-Host ("-" * 72) -ForegroundColor DarkGray
-    Write-Host $t.Goal
+    $full = $t.Goal + $Script:Preamble
+    Write-Host $full
     Write-Host ("-" * 72) -ForegroundColor DarkGray
-    Write-Host "$($t.Goal.Length) karaktera" -ForegroundColor DarkGray
+    Write-Host "$($full.Length) karaktera" -ForegroundColor DarkGray
     Write-Host ""
 }
 
 function Copy-Task([int]$Id) {
     $t = Get-TaskById $Id; if (-not $t) { return }
-    $t.Goal | Set-Clipboard
-    Write-Host "TASK-$($t.Id) u clipboardu ($($t.Goal.Length) karaktera)." -ForegroundColor Green
-    Write-Host "Model: $($t.Model)  |  Effort: $($t.Effort)  |  Mode: $($t.Mode)  |  Nova sesija" -ForegroundColor Yellow
+    $full = $t.Goal + $Script:Preamble
+    $full | Set-Clipboard
+    Write-Host "TASK-$($t.Id) u clipboardu ($($full.Length) karaktera, sa komandama)." -ForegroundColor Green
+    Write-Host "Model: $($t.Model)  |  Effort: $($t.Effort)  |  Mode: $($t.Mode)  |  Sesija: $($t.Sesija)" -ForegroundColor Yellow
 }
 
 function Test-Goals {
@@ -467,13 +470,26 @@ $Script:RepoRoot   = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 
 $Script:Preamble = @'
 
---- NACIN RADA (dodato automatski, vazi bez izuzetka) ---
-Radi u tekucem direktorijumu. NE pravi git worktree i NE commituj nista —
-skripta koja te je pokrenula commituje posle tebe.
-Ako naidjes na nesto sto trazi odluku vlasnika, NE pogadjaj: zapisi pitanje u
-docs/tasks/BLOCKED.md (dopisi na kraj, sa brojem taska) i nastavi sa ostatkom
-zadatka.
-Na kraju obavezno pokreni "npm run check" i popravi sve sto padne.
+--- KOMANDE KOJE RADIS SAM, NE OSTAVLJAS IH VLASNIKU ---
+1. Radi u tekucem direktorijumu. NE pravi git worktree i ne radi ni u jednom.
+2. Ako neka provera trazi port a "next dev" vec radi (harness dize svoj server
+   na 3199 i puca ako Next odbije drugi), ugasi ga:
+   netstat -ano | findstr :3001    pa    taskkill /PID <pid> /F
+   i pokreni ponovo. To nije greska u kodu.
+3. Pre rada proveri da si na grani feat/venue-memories i da je radno stablo
+   cisto. Ako zatекnes nespojenu granu koja je preduslov za tvoj zadatak,
+   spoji je (git merge <grana>) i reci to u izvestaju.
+4. Na kraju "npm run check" MORA da prodje u celini, ukljucujuci harness:check
+   i harness:namespace. Ako padne, popravi pa ponovi. Ne prijavljuj gotovo dok
+   nije zeleno.
+5. Kad je cisto, commituj i gurni sam:
+   git add -A
+   git commit -m "TASK-<broj>: <kratak naziv>"
+   git push aleksadjor3 feat/venue-memories
+6. Ako naidjes na nesto sto trazi odluku vlasnika, NE pogadjaj: dopisi pitanje
+   na kraj docs/tasks/BLOCKED.md (sa brojem taska) i nastavi sa ostatkom.
+7. Na kraju napisi kratak izvestaj: sta je uradjeno, sta je NAMERNO izostavljeno
+   i zasto, i sta sledeci task mora da pokupi za tobom.
 '@
 
 function Get-ModelId([string]$Name) {

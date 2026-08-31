@@ -20,11 +20,6 @@ export type PlanId = "basic" | "premium" | "enterprise";
 
 export type PackageId = "dogadjaj" | "lokal" | "kompletan";
 
-/** The one named concession the engine grants. Recorded on the line it applies
- *  to so the invoice can print WHY a line is zero, and so the invariant checks
- *  can exempt it by name rather than by "the number happened to be 0". */
-export type PriceGrant = "review_fourth_service";
-
 export interface PriceItem {
   service: ServiceId;
   period: BillingPeriod;
@@ -55,8 +50,6 @@ export interface PriceLine {
   /** Set when the line is covered by a named package; `chargedRsd` is then this
    *  line's share of the package price (allocated pro-rata by list price). */
   packageId: PackageId | null;
-  /** Set when the line is zero because of a named concession, not a discount. */
-  grant: PriceGrant | null;
 }
 
 export interface PackageAttribution {

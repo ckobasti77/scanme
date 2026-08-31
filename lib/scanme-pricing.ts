@@ -3,12 +3,19 @@
  *
  * Sve monetarne vrednosti su celi RSD dinari i javne cene fizičkih proizvoda
  * uključuju PDV.
+ *
+ * Cena pretplate (recurring) dolazi ISKLJUČIVO iz motora u `lib/pricing`
+ * (RFC-002 §2.1) — jedan izvor cene za marketing stranicu, konfigurator i
+ * budući checkout. Ovaj fajl zadržava katalog fizičkih proizvoda i njihove
+ * matrice; stari `SAAS_PRICING` tier model je ugašen (TASK-28).
  */
+
+import { price as enginePrice } from "./pricing/engine";
+import type { PlanId } from "./pricing/types";
 
 export type Rsd = number;
 
 export type ServiceId = "review" | "links";
-export type TierId = "starter" | "premium" | "enterprise";
 export type PublicTierId = "starter" | "premium";
 export type BillingPeriod = "monthly" | "annual";
 export type ProductId =
@@ -77,24 +84,37 @@ export function formatRsd(value: Rsd): string {
   return negative ? `-${out}` : out;
 }
 
-export interface SaasPrice {
-  monthly: Rsd;
-  annual: Rsd;
-}
-
-export const SAAS_PRICING: Record<ServiceId, Record<PublicTierId, SaasPrice>> = {
-  review: {
-    starter: { monthly: 490, annual: 4990 },
-    premium: { monthly: 990, annual: 9990 },
-  },
-  links: {
-    starter: { monthly: 790, annual: 7990 },
-    premium: { monthly: 1190, annual: 11990 },
-  },
+/**
+ * The offer surface's two paid tiers map onto the account-plan axis (RFC-002
+ * §2.0/§2.2): the retired per-service SaaS tier model is gone, and
+ * "starter"/"premium" now select the free Basic plan vs. the paid Premium plan.
+ * The plan is orthogonal to the service — Axis B, not a per-service price.
+ */
+const TIER_PLAN: Record<PublicTierId, Exclude<PlanId, "enterprise">> = {
+  starter: "basic",
+  premium: "premium",
 };
 
-export function getSaasPrice(service: ServiceId, tier: PublicTierId): SaasPrice {
-  return SAAS_PRICING[service][tier];
+/**
+ * Recurring first-term price (RSD) of ONE service under one tier and period,
+ * sourced entirely from the pricing engine (`lib/pricing`) — the single source
+ * of price (RFC-002 §2.1). The offer surface prices one service at a time, so
+ * the engine applies neither a package nor the position ladder here: the result
+ * is the service's Axis-A list price plus (for Premium) the Axis-B plan line.
+ * The renewal term equals the first term.
+ */
+export function saasFirstTermPrice(
+  service: ServiceId,
+  tier: PublicTierId,
+  period: BillingPeriod,
+): Rsd {
+  const plan = TIER_PLAN[tier];
+  const breakdown = enginePrice({
+    items: [{ service, period }],
+    plan,
+    ...(plan === "premium" ? { planPeriod: period } : {}),
+  });
+  return breakdown.totalRsd;
 }
 
 export interface PreviewPlane {
@@ -449,9 +469,7 @@ export function computeOrderBreakdown(selection: OrderSelection): OrderBreakdown
   });
 
   const productsTotal = productItems.reduce((sum, item) => sum + item.lineTotal, 0);
-  const saas = getSaasPrice(selection.service, selection.tier);
-  const saasFirstTerm = selection.period === "annual" ? saas.annual : saas.monthly;
-  const renewalAmount = selection.period === "annual" ? saas.annual : saas.monthly;
+  const saasFirstTerm = saasFirstTermPrice(selection.service, selection.tier, selection.period);
 
   return {
     productItems,
@@ -463,10 +481,10 @@ export function computeOrderBreakdown(selection: OrderSelection): OrderBreakdown
       (product) => product.design.kind === "custom",
     ),
     renewal: {
-      amount: renewalAmount,
+      amount: saasFirstTerm,
       period: selection.period,
       monthlyEquivalent:
-        selection.period === "annual" ? roundRsd(saas.annual / 12) : saas.monthly,
+        selection.period === "annual" ? roundRsd(saasFirstTerm / 12) : saasFirstTerm,
     },
   };
 }
@@ -482,18 +500,18 @@ export function computeCardPrice(
   tier: PublicTierId,
   period: BillingPeriod,
 ): CardPrice {
-  const saas = getSaasPrice(service, tier);
+  const recurring = saasFirstTermPrice(service, tier, period);
   const cheapest = cheapestUnitPrice().unitPrice;
   if (period === "annual") {
     return {
       period,
-      fromAmount: roundRsd((cheapest + saas.annual) / 12),
-      renewalAmount: roundRsd(saas.annual / 12),
+      fromAmount: roundRsd((cheapest + recurring) / 12),
+      renewalAmount: roundRsd(recurring / 12),
     };
   }
   return {
     period,
-    fromAmount: cheapest + saas.monthly,
-    renewalAmount: saas.monthly,
+    fromAmount: cheapest + recurring,
+    renewalAmount: recurring,
   };
 }
