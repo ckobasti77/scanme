@@ -18,6 +18,7 @@ export default defineConfig({
       "convex/**/*.test.ts",
       "lib/**/*.test.ts",
       "components/venue/**/*.test.tsx",
+      "components/purchase/**/*.test.ts",
     ],
   },
 });

@@ -6,11 +6,61 @@
 // switch for a scaffold. The `as const satisfies PurchaseDict` below still makes
 // a missing key a compile error, exactly like every other surface.
 
+import type { PackageId, ServiceId } from "@/lib/pricing/engine";
+
 export interface PurchaseStepCopy {
   /** Timeline label. */
   label: string;
   /** One-line placeholder body — the real panel lands in TASK-07..10. */
   placeholder: string;
+}
+
+/** Copy for one service card (step 1). */
+export interface PurchaseServiceCopy {
+  name: string;
+  tagline: string;
+  /** "Šta se dobija" — a short, honest list. */
+  benefits: readonly string[];
+  /** The "…" of "Sa Premium nalogom još i: …", or `null` when Premium changes
+   *  nothing this service surfaces (then the card shows no Premium line). */
+  premiumExtra: string | null;
+}
+
+export interface PurchasePackageCopy {
+  name: string;
+  note: string;
+}
+
+/** All copy the step-1 panels need beyond the shell chrome. */
+export interface PurchaseStep1Copy {
+  toggleLabel: string;
+  periodMonthly: string;
+  periodAnnual: string;
+  fromPrice: string; // "od {price} RSD {period}"
+  perMonth: string; // "mesečno"
+  perYear: string; // "godišnje"
+  add: string;
+  inCart: string;
+  soon: string;
+  soonNote: string;
+  comboBadge: string;
+  comboSoonNote: string;
+  previewLabel: string; // aria: "Živi prikaz stranice usluge {name}"
+  previewReadOnly: string;
+  previewMenuTitle: string;
+  previewMenuBody: string;
+  previewReviewTitle: string;
+  previewReviewBody: string;
+  premiumPrefix: string; // "Sa Premium nalogom još i:"
+  services: Record<ServiceId, PurchaseServiceCopy>;
+  packages: Record<PackageId, PurchasePackageCopy>;
+  cartTitle: string;
+  cartEmpty: string;
+  cartHint: string;
+  cartWas: string; // aria label for a struck list price
+  cartSavings: string; // "Ušteda {amount} RSD"
+  cartNudge: string; // "Dodaj {service} i uštedi još {amount} RSD."
+  cartPackageTag: string; // "{name} paket"
 }
 
 export interface PurchaseDict {
@@ -39,6 +89,7 @@ export interface PurchaseDict {
   planPremium: string;
   planEnterprise: string;
   soonTag: string;
+  step1: PurchaseStep1Copy;
 }
 
 export const purchaseSr = {
@@ -71,4 +122,88 @@ export const purchaseSr = {
   planPremium: "Premium",
   planEnterprise: "Enterprise",
   soonTag: "uskoro",
+  step1: {
+    toggleLabel: "Način plaćanja",
+    periodMonthly: "Mesečno",
+    periodAnnual: "Godišnje",
+    fromPrice: "od {price} RSD {period}",
+    perMonth: "mesečno",
+    perYear: "godišnje",
+    add: "Dodaj",
+    inCart: "U korpi",
+    soon: "uskoro",
+    soonNote: "Meni uskoro stiže — biće deo iste kupovine.",
+    comboBadge: "Paket",
+    comboSoonNote: "Dostupno čim Meni krene.",
+    previewLabel: "Živi prikaz stranice usluge {name}",
+    previewReadOnly: "Živi prikaz — samo za pregled",
+    previewMenuTitle: "Meni uskoro",
+    previewMenuBody: "Digitalni jelovnik sa slikama i cenama, bez ponovne štampe.",
+    previewReviewTitle: "Google recenzije",
+    previewReviewBody: "Gost skenira i otvara se vaša Google stranica za ocenu — jedan dodir do recenzije.",
+    premiumPrefix: "Sa Premium nalogom još i:",
+    services: {
+      links: {
+        name: "ScanMe Links",
+        tagline: "Jedna stranica sa svim vašim linkovima.",
+        benefits: [
+          "Meni, rezervacije i društvene mreže na jednom mestu",
+          "Izaberite temu koja liči na vaš lokal",
+          "Radi sa QR nalepnicom ili stalkom na stolu",
+        ],
+        premiumExtra: "sve buduće usluge automatski na Premium-u, bez doplate",
+      },
+      venue: {
+        name: "Venue",
+        tagline: "Živa stranica događaja za vaše goste.",
+        benefits: [
+          "Odbrojavanje, raspored, mapa i galerija",
+          "Sama prelazi iz najave u događaj pa u arhivu",
+          "Gosti sve vide skeniranjem jednog koda",
+        ],
+        premiumExtra: "sve buduće usluge automatski na Premium-u, bez doplate",
+      },
+      memories: {
+        name: "Memories",
+        tagline: "Uspomene cele proslave na jednom mestu.",
+        benefits: [
+          "Gosti šalju fotografije skeniranjem koda",
+          "Zajednička galerija koju svi vide",
+          "Zid uživo za projekciju na proslavi",
+        ],
+        premiumExtra: "do 10 fotografija po gostu i duže čuvanje uspomena",
+      },
+      menu: {
+        name: "Meni",
+        tagline: "Digitalni jelovnik bez ponovne štampe.",
+        benefits: [
+          "Slike, cene i opisi na telefonu gosta",
+          "Izmene se vide odmah, bez novog štampanja",
+        ],
+        premiumExtra: null,
+      },
+      review: {
+        name: "Google recenzije",
+        tagline: "Gost stigne pravo na Google ocenu.",
+        benefits: [
+          "Jedan dodir do recenzije, bez traženja",
+          "Više ocena za vaš lokal",
+          "Nalepnica ili stalak na svakom stolu",
+        ],
+        premiumExtra: "sve buduće usluge automatski na Premium-u, bez doplate",
+      },
+    },
+    packages: {
+      dogadjaj: { name: "Događaj", note: "Venue + Memories za jednu proslavu" },
+      lokal: { name: "Lokal", note: "Links + Meni za svakodnevni sto" },
+      kompletan: { name: "Kompletan ScanMe", note: "Svih pet usluga na jednom mestu" },
+    },
+    cartTitle: "Korpa",
+    cartEmpty: "Izaberite uslugu sa leve strane da vidite cenu.",
+    cartHint: "Cene se računaju uživo dok birate.",
+    cartWas: "puna cena {price} RSD",
+    cartSavings: "Ušteda {amount} RSD",
+    cartNudge: "Dodaj {service} i uštedi još {amount} RSD.",
+    cartPackageTag: "{name} paket",
+  },
 } as const satisfies PurchaseDict;

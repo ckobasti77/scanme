@@ -193,3 +193,54 @@ Dev server harnessa se nativno ruši pri prvom odlaznom TLS pozivu (isti
 3199). **Nije pad koda ovog taska.** Zeleno: `lint` (0 grešaka), `build`,
 `harness:namespace`, ceo `vitest` (588 prošlo / 1 preskočen, uključujući
 23 nova testa ovog taska). Opcije za vlasnika iste kao u TASK-28 §4.
+
+---
+
+## TASK-34 — korak 1 toka kupovine (izbor usluga, živi prikaz, korpa)
+
+### 1. Meni: kada i kako se prodaje? (RFC-002 §5 Q4 — potvrda semantike)
+
+Meni je u motoru prvorazredna usluga (Osa A) ali **proizvod još ne postoji**
+(RFC-002 §2.0 uslov 7). U koraku 1 sam ga po najkonzervativnijoj varijanti
+prikazao ali **onemogućio za dodavanje**:
+
+- kartica „Meni" nosi bedž **USKORO** i dugme „Dodaj" je disabled;
+- živi prikaz za Meni je iskren „uskoro" panel (nema lažne stranice);
+- kombo kartice koje sadrže Meni — **Lokal** (Links + Meni) i **Kompletan
+  ScanMe** (svih pet) — prikazane su u istoj listi ali su takođe **USKORO**
+  (ne mogu se dodati dok Meni ne krene). **Događaj** (Venue + Memories) je
+  potpuno živ.
+
+Ovo je namerno „ne prodaj vazduh" ponašanje (RFC-002 rizik #8). **Vlasnik
+odlučuje** (RFC-002 §5 Q4): da li Meni ostaje skriven iz prodajnog skupa dok
+se ne izgradi, ili se prodaje kao izričita **pretprodaja**. Ako je pretprodaja,
+`UNAVAILABLE_SERVICES` u `components/purchase/service-catalog.ts` se isprazni i
+Lokal/Kompletan automatski postaju živi (motor ih već ceni). Nijedan broj se ne
+menja — samo kapija dostupnosti.
+
+Posledica za „štediš još": nudge namerno **preskače** Meni (`bestNudge(..., {
+exclude })`), pa RFC-ov primer „Dodaj Meni i štediš još 900" trenutno predlaže
+sledeću *dostupnu* uslugu umesto Menija. Kada Meni postane dostupan, ukloniti ga
+iz `exclude` i primer iz RFC-a se vraća doslovno.
+
+### 2. Freeze ScanMe Links — potvrda da NIJE dirnut
+
+Živi prikaz prave javne stranice svake usluge (uključujući ScanMe Links) je
+**strogo read-only**: renderuje se postojeći javni šablon kroz svoj postojeći
+`view` prop sa fixture podacima (isti obrazac kao `app/dev/template-gallery` i
+`app/dev/venue-preview`). **Nijedan postojeći šablon nije izmenjen i nijedan nije
+dobio nov prop.** Ovo je tačno slučaj iz RFC-002 §6 reda 1 („čitanje nije dodir")
+i §2.3 („No service template gains a new prop for the preview"). Ništa za
+vlasnika ovde — beleži se da je granica poštovana. Splitter kroz Links stranicu
+(§2.4, jedini *željeni* dodir) i dalje čeka vlasnika (postojeći §3 RFC-a), nije
+deo ovog taska.
+
+### 3. `harness:check` i dalje sredinski blokiran (isti Node v24.8.0 bag)
+
+Isti `NewRootCertStore` pad kao u TASK-28 §4 / TASK-32 §5 — dev server harnessa
+padne na prvom odlaznom TLS pozivu. **Nije pad koda ovog taska.** Zeleno:
+`lint` (0 grešaka), `build`, `harness:namespace`, ceo `vitest` (622 prošlo /
+1 preskočen, uključujući 10 novih testova ovog taska). Korak 1 dodatno ručno
+proveren u produkcijskom `next start` (dev server zaklanja `/kupovina`, vidi
+[[dev-server-slug-shadow]]): prekidač preliva svaku cenu, korpa = motor,
+prikaz je inertan (pointer-events:none), mobilni se slaže bez bočnog prelivanja.

@@ -30,9 +30,11 @@ import {
   type PurchaseSelection,
   type PurchaseStep,
 } from "@/lib/offer-url";
-import { price, type PriceBreakdown, type PriceItem } from "@/lib/pricing/engine";
+import { type PriceBreakdown } from "@/lib/pricing/engine";
 import { recurringByPeriod } from "@/lib/pricing/summary";
 import { computeProductsOneTime, formatRsd } from "@/lib/scanme-pricing";
+import { StepServices } from "./step-services";
+import { priceSelection } from "./step-services-model";
 
 interface PurchaseShellProps {
   initialSelection: PurchaseSelection;
@@ -65,20 +67,12 @@ export function PurchaseShell({ initialSelection }: PurchaseShellProps) {
     router.replace(`${pathname}?${query}`, { scroll: false });
   }, [selection, pathname, router]);
 
-  const breakdown: PriceBreakdown | null = useMemo(() => {
-    if (selection.services.length === 0) return null;
-    const items: PriceItem[] = selection.services.map((entry) => ({
-      service: entry.service,
-      period: entry.period,
-    }));
-    return price({
-      items,
-      plan: selection.plan,
-      ...(selection.plan === "premium" && selection.planPeriod
-        ? { planPeriod: selection.planPeriod }
-        : {}),
-    });
-  }, [selection.services, selection.plan, selection.planPeriod]);
+  // One breakdown, shared by the split-total bar and the step-1 cart, so they
+  // can never disagree (RFC-002 §2.1). The engine is the only source.
+  const breakdown: PriceBreakdown | null = useMemo(
+    () => priceSelection(selection),
+    [selection],
+  );
 
   const recurring = useMemo(
     () => (breakdown ? recurringByPeriod(breakdown) : { monthly: 0, annual: 0 }),
@@ -168,11 +162,12 @@ export function PurchaseShell({ initialSelection }: PurchaseShellProps) {
             exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -8 }}
             transition={{ duration: reduceMotion ? 0.12 : 0.2, ease: "easeOut" }}
           >
-            {/* Placeholder panels — the real content lands in TASK-07..10. They
-                exist here only to prove the layout contract: steps 1 and 3 are
-                three panels inside the shell, step 2 is full width, step 4 is
-                centered — and the shell around them never re-mounts. */}
-            {selection.step === 1 || selection.step === 3 ? (
+            {/* Step 1 is live (TASK-34). Steps 2–4 are still placeholders that
+                prove the layout contract: step 3 is three panels, steps 2 and 4
+                are full/centered — and the shell never re-mounts around them. */}
+            {selection.step === 1 ? (
+              <StepServices selection={selection} onChange={setSelection} />
+            ) : selection.step === 3 ? (
               <>
                 <div className={styles.panel} data-slot="left">
                   <span className={styles.soon}>{dict.soonTag}</span>

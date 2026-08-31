@@ -1,0 +1,151 @@
+/* The phone-frame that holds a READ-ONLY live preview of a service's real
+   public page (RFC-002 §2.3, TASK-34). The frame and its scaling are new
+   commerce chrome; what renders INSIDE it is the existing public template,
+   rendered through its existing view with fixture data — no template is edited
+   and no template gains a prop for the preview. The stage is inert
+   (pointer-events:none, aria-hidden) so the buyer looks, never clicks. */
+
+.wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  min-width: 0;
+}
+
+.frame {
+  position: relative;
+  width: 300px;
+  max-width: 100%;
+  padding: 10px;
+  border-radius: 2.4rem;
+  background: linear-gradient(160deg, #2b2622, #171412);
+  box-shadow:
+    0 22px 50px rgb(23 20 18 / 0.35),
+    inset 0 1px 0 rgb(255 255 255 / 0.12);
+}
+
+/* The clipped viewport. Fixed size so the scaled page below always lands in a
+   stable box; the real page's top (masthead + first blocks) is what shows. */
+.screen {
+  position: relative;
+  width: 281px;
+  height: 600px;
+  overflow: hidden;
+  border-radius: 1.7rem;
+  background: #efe9df;
+}
+
+.notch {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  z-index: 3;
+  width: 42%;
+  height: 22px;
+  transform: translateX(-50%);
+  border-bottom-left-radius: 12px;
+  border-bottom-right-radius: 12px;
+  background: #171412;
+}
+
+/* The real template at its natural phone width, scaled to fit the screen.
+   transform-origin top-center keeps the masthead pinned to the top edge. */
+.stage {
+  width: 390px;
+  transform: scale(0.7205);
+  transform-origin: top center;
+  pointer-events: none;
+}
+
+/* A soft veil so the clipped bottom edge fades instead of cutting hard. */
+.screen::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  height: 64px;
+  background: linear-gradient(to top, rgb(23 20 18 / 0.28), transparent);
+  pointer-events: none;
+}
+
+.caption {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--purchase-muted, #7a7166);
+}
+
+.captionDot {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: #58a463;
+  box-shadow: 0 0 0 3px rgb(88 164 99 / 0.18);
+}
+
+/* --- "uskoro" / explainer previews (Menu, Review) --------------------------*/
+
+.placeholder {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 0.9rem;
+  height: 100%;
+  padding: 2rem 1.4rem;
+  text-align: center;
+  background: radial-gradient(120% 90% at 50% 0%, #f6f1e8, #e7ded1);
+  color: #6c6357;
+}
+
+.placeholderIcon {
+  display: grid;
+  place-items: center;
+  width: 3.4rem;
+  height: 3.4rem;
+  border-radius: 999px;
+  background: rgb(68 76 67 / 0.1);
+  color: #444c43;
+}
+
+.placeholderTitle {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #2c2622;
+}
+
+.placeholderBody {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: #6c6357;
+}
+
+.placeholderImage {
+  width: 78%;
+  max-width: 190px;
+  height: auto;
+  border-radius: 0.9rem;
+  box-shadow: 0 10px 24px rgb(23 20 18 / 0.16);
+}
+
+/* --- Memories gallery preview (composed from the real chrome) ---------------
+   These only position the existing gallery pieces inside the stage; the grid
+   itself uses the memories module's own classes so it looks like the real
+   gallery, not a re-skin. */
+
+.galleryScroll {
+  height: 100%;
+  overflow: hidden;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .stage {
+    transition: opacity 0.2s ease;
+  }
+}
