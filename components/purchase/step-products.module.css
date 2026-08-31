@@ -1,0 +1,561 @@
+/* Step 3 — physical products + per-line service binding (RFC-002 §2.3, TASK-36).
+   Inherits the shell's warm cream palette (purchase-shell.module.css); the three
+   panels sit in the shell's stepPanels grid. */
+
+.panel {
+  border-style: solid;
+  gap: 0.85rem;
+  color: var(--purchase-ink);
+  overflow: visible;
+}
+
+/* --- LEFT: product rail ----------------------------------------------------*/
+
+.rail {
+  min-width: 0;
+}
+
+.railHeading {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 650;
+}
+
+.railHint {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--purchase-muted);
+}
+
+.railList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.railCard {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  border: 1px solid var(--purchase-line);
+  border-radius: 0.9rem;
+  background: rgb(255 255 255 / 0.55);
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.railCard[data-active="true"] {
+  border-color: var(--purchase-accent);
+  background: rgb(255 255 255 / 0.78);
+}
+
+.railButton {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.railThumb {
+  position: relative;
+  flex-shrink: 0;
+  width: 2.9rem;
+  height: 2.9rem;
+  border-radius: 0.6rem;
+  overflow: hidden;
+  background: rgb(255 255 255 / 0.6);
+}
+
+.railThumb :global(img) {
+  object-fit: contain;
+}
+
+.railCopy {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.railName {
+  font-size: 0.85rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.railPrice {
+  font-size: 0.72rem;
+  color: var(--purchase-muted);
+}
+
+.railActions {
+  flex-shrink: 0;
+}
+
+.addButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.35rem 0.6rem;
+  border: 1px solid var(--purchase-accent);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--purchase-accent);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.addButton:hover {
+  background: var(--purchase-accent);
+  color: #fff;
+}
+
+.stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.15rem;
+  border: 1px solid var(--purchase-line);
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.6);
+}
+
+.stepperButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--purchase-ink);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.stepperButton:hover {
+  background: rgb(68 76 67 / 0.12);
+}
+
+.stepperCount {
+  min-width: 1.5rem;
+  text-align: center;
+  font-size: 0.85rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- CENTER: preview + summary badge ---------------------------------------*/
+
+.center {
+  position: relative;
+  align-items: stretch;
+}
+
+.centerTop {
+  position: relative;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.summaryBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  max-width: 100%;
+  padding: 0.4rem 0.75rem;
+  border: 1px solid var(--purchase-line);
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.65);
+  color: var(--purchase-ink);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.summaryBadge:hover {
+  border-color: var(--purchase-accent);
+  background: rgb(255 255 255 / 0.85);
+}
+
+.summaryText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cart {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  z-index: 5;
+  width: min(20rem, 80vw);
+  padding: 0.85rem;
+  border: 1px solid rgb(255 255 255 / 0.7);
+  border-radius: 1rem;
+  background: rgb(247 243 236 / 0.98);
+  box-shadow: 0 18px 40px rgb(65 46 36 / 0.22);
+  backdrop-filter: blur(8px);
+}
+
+.cartHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.cartTitle {
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.cartClose {
+  display: inline-flex;
+  padding: 0.25rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--purchase-muted);
+  cursor: pointer;
+}
+
+.cartClose:hover {
+  color: var(--purchase-ink);
+}
+
+.cartBody {
+  margin-top: 0.5rem;
+}
+
+.cartHeading {
+  margin: 0.6rem 0 0.25rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--purchase-muted);
+}
+
+.cartHeading:first-child {
+  margin-top: 0;
+}
+
+.cartList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cartRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.15rem 0;
+  font-size: 0.82rem;
+}
+
+.cartRow span:last-child {
+  color: var(--purchase-muted);
+  flex-shrink: 0;
+}
+
+.cartPlan {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.cartEmpty {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--purchase-muted);
+}
+
+.previewStage {
+  display: grid;
+  place-items: center;
+  flex: 1 1 auto;
+  min-height: 12rem;
+  margin-top: 0.5rem;
+}
+
+.previewInner {
+  width: 100%;
+  max-width: 22rem;
+}
+
+.previewEmpty {
+  margin: 0;
+  color: var(--purchase-muted);
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+/* --- RIGHT: controls -------------------------------------------------------*/
+
+.controls {
+  min-width: 0;
+  gap: 0.75rem;
+}
+
+.controlsEmpty {
+  margin: auto;
+  color: var(--purchase-muted);
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+/* The binding control is deliberately set apart: a tinted, accented card that
+   reads as the first, required decision — service before design (RFC-002 §2.3). */
+.binding {
+  padding: 0.75rem;
+  border: 1.5px solid var(--purchase-accent);
+  border-radius: 0.9rem;
+  background: rgb(68 76 67 / 0.08);
+}
+
+.bindingHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.bindingHeading {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.bindingRequired {
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  background: var(--purchase-accent);
+  color: #fff;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.bindingHint {
+  margin: 0.35rem 0 0.5rem;
+  font-size: 0.74rem;
+  color: var(--purchase-muted);
+}
+
+.bindingChoices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.bindingChoice {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.35rem 0.6rem;
+  border: 1px solid var(--purchase-line);
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.7);
+  color: var(--purchase-ink);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.bindingChoice[data-active="true"] {
+  border-color: var(--purchase-accent);
+  background: var(--purchase-accent);
+  color: #fff;
+}
+
+.splitterNote {
+  margin: 0.5rem 0 0;
+  padding: 0.4rem 0.55rem;
+  border-radius: 0.6rem;
+  background: rgb(255 255 255 / 0.7);
+  font-size: 0.74rem;
+  line-height: 1.35;
+  color: var(--purchase-ink);
+}
+
+.resetNote {
+  margin: 0.4rem 0 0;
+  font-size: 0.74rem;
+  line-height: 1.35;
+  color: #8a4b2c;
+}
+
+.controlGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.controlLabel {
+  margin: 0;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--purchase-muted);
+}
+
+.choiceRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.choice {
+  padding: 0.35rem 0.6rem;
+  border: 1px solid var(--purchase-line);
+  border-radius: 0.6rem;
+  background: rgb(255 255 255 / 0.65);
+  color: var(--purchase-ink);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.choice[data-active="true"] {
+  border-color: var(--purchase-accent);
+  background: rgb(68 76 67 / 0.14);
+}
+
+.templateGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.4rem;
+}
+
+.templateOption {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  border: 1px solid var(--purchase-line);
+  border-radius: 0.7rem;
+  background: rgb(255 255 255 / 0.6);
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+
+.templateOption[data-active="true"] {
+  border-color: var(--purchase-accent);
+  box-shadow: 0 0 0 1px var(--purchase-accent) inset;
+}
+
+.templateThumb {
+  position: relative;
+  aspect-ratio: 3 / 4;
+  border-radius: 0.45rem;
+  overflow: hidden;
+  background: rgb(255 255 255 / 0.7);
+}
+
+.templateCheck {
+  position: absolute;
+  top: 0.2rem;
+  right: 0.2rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: 999px;
+  background: var(--purchase-accent);
+  color: #fff;
+}
+
+.templateName {
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-align: center;
+  color: var(--purchase-ink);
+}
+
+.customOption {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.15rem;
+  padding: 0.4rem 0.25rem;
+  border: 1px dashed var(--purchase-line);
+  border-radius: 0.7rem;
+  background: rgb(255 255 255 / 0.5);
+  color: var(--purchase-ink);
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+
+.customOption[data-active="true"] {
+  border-style: solid;
+  border-color: var(--purchase-accent);
+}
+
+.customPrice {
+  font-size: 0.62rem;
+  font-weight: 500;
+  color: var(--purchase-muted);
+}
+
+.customBrief {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-top: 0.4rem;
+}
+
+.customBriefLabel {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--purchase-muted);
+}
+
+.customBriefInput {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid var(--purchase-line);
+  border-radius: 0.6rem;
+  background: rgb(255 255 255 / 0.75);
+  color: var(--purchase-ink);
+  font: inherit;
+  font-size: 0.8rem;
+  resize: vertical;
+}
+
+.customBriefInput:focus-visible {
+  outline: 2px solid var(--purchase-accent);
+  outline-offset: 1px;
+}
+
+/* --- Responsive: stack the three panels on narrow screens ------------------*/
+
+@media (max-width: 768px) {
+  .templateGrid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}

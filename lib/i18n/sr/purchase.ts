@@ -90,6 +90,39 @@ export interface PurchaseStep2Copy {
   enterpriseRow: string; // "Imate 10+ lokala? Napravićemo ponudu po meri"
 }
 
+/** Step 3 (physical products + per-line service binding, RFC-002 §2.3 / TASK-36).
+ *  Physical-product chrome (control headings, template names, dimensions…) is
+ *  reused from `offerSr` — this only carries what step 3 adds on top: the
+ *  service-binding control, the splitter line, the design-reset reason, and the
+ *  read-only order-summary badge that replaced the old editable chip. */
+export interface PurchaseStep3Copy {
+  productsHeading: string;
+  productsHint: string;
+  quantity: string;
+  add: string;
+  inCart: string;
+  remove: string; // "Ukloni {product}"
+  empty: string; // shown when no products are in the cart yet
+  // The service-binding control — the FIRST sidebar item, above Orientation.
+  bindingHeading: string; // "Za koju uslugu?"
+  bindingRequired: string; // "obavezno"
+  bindingHint: string; // "Kartica vodi na izabranu uslugu."
+  splitterNote: string; // shown when a line is bound to 2+ services (§2.4)
+  designResetNote: string; // "Prethodni dizajn ne postoji za novu uslugu — vraćen na „{template}“."
+  // The read-only order summary that opens the cart (NOT a control anymore).
+  summaryBadgeLabel: string; // aria: "Pregled porudžbine — otvori korpu"
+  serviceCountOne: string; // "{count} usluga"
+  serviceCountFew: string; // "{count} usluge"
+  serviceCountMany: string; // "{count} usluga"
+  cartTitle: string;
+  cartServicesHeading: string;
+  cartPlanHeading: string;
+  cartProductsHeading: string;
+  cartProductsEmpty: string;
+  cartClose: string;
+  designHeading: string; // "Dizajn"
+}
+
 export interface PurchaseDict {
   metaTitle: string;
   metaDescription: string;
@@ -118,6 +151,7 @@ export interface PurchaseDict {
   soonTag: string;
   step1: PurchaseStep1Copy;
   step2: PurchaseStep2Copy;
+  step3: PurchaseStep3Copy;
 }
 
 export const purchaseSr = {
@@ -267,5 +301,31 @@ export const purchaseSr = {
     premiumDeltaWithCurrent: "+{amount} {currency} {period} na trenutnih {current} {currency}",
     premiumDeltaOnly: "+{amount} {currency} {period}",
     enterpriseRow: "Imate 10+ lokala? Napravićemo ponudu po meri",
+  },
+  step3: {
+    productsHeading: "Fizički proizvodi",
+    productsHint: "Kombinujte tipove — svaki pamti svoj tiraž, dizajn i uslugu.",
+    quantity: "Tiraž",
+    add: "Dodaj",
+    inCart: "U korpi",
+    remove: "Ukloni {product}",
+    empty: "Dodajte proizvod sa leve strane da ga podesite.",
+    bindingHeading: "Za koju uslugu?",
+    bindingRequired: "obavezno",
+    bindingHint: "Kartica vodi na izabranu uslugu — ona određuje i dostupne dizajne.",
+    splitterNote:
+      "Vezano za više usluga: kartica vodi na razdelnik, gde gost bira uslugu na jednom ekranu.",
+    designResetNote: "Prethodni dizajn ne postoji za novu uslugu — vraćen na „{template}“.",
+    summaryBadgeLabel: "Pregled porudžbine — otvori korpu",
+    serviceCountOne: "{count} usluga",
+    serviceCountFew: "{count} usluge",
+    serviceCountMany: "{count} usluga",
+    cartTitle: "Korpa",
+    cartServicesHeading: "Usluge",
+    cartPlanHeading: "Plan",
+    cartProductsHeading: "Fizički proizvodi",
+    cartProductsEmpty: "Još nema fizičkih proizvoda.",
+    cartClose: "Zatvori korpu",
+    designHeading: "Dizajn",
   },
 } as const satisfies PurchaseDict;

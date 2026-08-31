@@ -293,3 +293,90 @@ buduće usluge automatski na Premium-u." Cena Premium-a je uvek razlika
 Prebacivanje Basic↔Premium (isti korak, bez animacije) menja dugme i ukupan
 iznos u traci odmah. Enterprise red vodi na `/?upit=enterprise#ponuda`
 (postojeći kontakt cilj), nikad u korak 3.
+
+---
+
+## TASK-36 — korak 3 toka kupovine (fizički proizvodi + vezivanje po stavci)
+
+### 1. Kuriranje šablona kartice po usluzi (za potvrdu vlasnika)
+
+RFC-002 §2.3 fiksira **pravilo** — „usluga određuje koji su šabloni dostupni,
+pa dolazi pre dizajna" — ali **ne** i tačan skup šablona po usluzi; to je
+proizvodna odluka koje nema ni u §5 (otvorena pitanja). Da bi ponašanje
+„vrati na podrazumevani šablon nove usluge" bilo stvarno i proverivo, uveo sam
+**privremenu, vlasniku-podesivu** mapu `SERVICE_CARD_TEMPLATES` u
+`components/purchase/step-products-model.ts`:
+
+```
+links:    Šablon 1–5
+venue:    Šablon 2–4
+memories: Šablon 3–5
+menu:     Šablon 1–2   (usluga se još ne prodaje)
+review:   Basic, Šablon 1, Šablon 5
+```
+
+Jedina **činjenica iz koda** koju mapa poštuje: „basic" kartica pripada samo
+Review-u (postojeći `components/offer-configurator.tsx`, red ~1092). Ostali
+skupovi su smišljeni tako da se preklapaju (pa rebind ume i da **sačuva**
+kompatibilan dizajn i da **resetuje** nekompatibilan), ali koje tačno od pet
+generičkih šablona ide uz koju uslugu — **vlasnik potvrđuje ili menja**. Motor
+cena se ne dira; ovo je čisto kuriranje izgleda. Kada vlasnik da konačne
+skupove, izmena je jedan objekat u tom fajlu (deploy, ne migracija).
+
+Podrazumevani šablon usluge = prvi u njenom nizu. Sveže dodata stavka se rađa
+sa validnim dizajnom za svoje (tiho) vezivanje, pa nikad ne krene sa šablonom
+koji njena usluga ne nudi.
+
+### 2. Jedna stavka = jedan `productId` (nasleđeno iz postojećeg modela)
+
+Vezivanje je osobina **stavke** (RFC §2.3), a stavka u postojećem modelu korpe
+je jedinstvena po `productId` (`parseV3Items` deduplikuje). Zato je vezivanje
+mapirano po `productId` (`PurchaseSelection.bindings`), a jedna vrsta proizvoda
+vezana za **više** usluga vodi na razdelnik (tekst je tu; razdelnik je TASK-37).
+Ako vlasnik želi „10 Review nalepnica + 10 Memories nalepnica" kao **dve
+zasebne stavke iste vrste**, to je promena modela korpe (stavka po ključu, ne
+po `productId`) izvan opsega ovog taska — javljam da odluka postoji.
+
+### 3. Logo upload namerno izostavljen iz koraka 3
+
+Legacy konfigurator (`/ponuda`) ima Convex-vezan logo upload. Korak 3 novog
+toka ga **ne** uključuje: task ga ne traži, a uvlačenje Convex mutacija
+(`offerLogoUploads`) u novu ljusku širi opseg i spregu bez potrebe. Split-total
+i sve cene i dalje rade bez njega. Ako logo treba i u novom toku, to je zaseban,
+mali dodatak (isti `offerLogoUploads` reserve/commit obrazac).
+
+### 4. Rani reset dizajna pri uklanjanju usluge u koraku 1 (rubni slučaj)
+
+Reset dizajna + vidljiv razlog se okida na **eksplicitnu** promenu vezivanja u
+kontroli (glavni put iz taska). Ako korisnik u koraku 1 ukloni uslugu za koju je
+neka kartica bila vezana, `boundServicesOf` pri čitanju tiho prevezuje na prvu
+kupljenu uslugu; ako je time zatečeni šablon postao nevažeći, birač dizajna ga
+prosto ne označava (bez tihe izmene sačuvane vrednosti). Konačnu rekonsilijaciju
+takvog zatečenog dizajna radi checkout (TASK-38/korak 4). Nije rupa u naplati —
+cena i dalje dolazi iz motora; samo dizajn stavke može biti „neoznačen" dok ga
+korisnik ne dodirne.
+
+### 5. `harness:check` i dalje sredinski blokiran (isti Node v24.8.0 bag)
+
+Isti `NewRootCertStore` pad kao u TASK-28 §4 / TASK-32 §5 / TASK-34 §3 /
+TASK-35 §1. **Nije pad koda ovog taska.** Zeleno: `lint` (0 grešaka), `build`
+(prolazi, `/kupovina` se kompajlira), `harness:namespace`, ceo `vitest`
+(653 prošlo / 1 preskočen, uključujući 13 novih testova modela
+`step-products-model.test.ts` + 6 novih slučajeva codeca za `bind`). Opcije za
+vlasnika iste kao gore.
+
+### 6. Korak 3 ručno proveren u produkcijskom `next start`
+
+Isti razlog kao TASK-34 §3 / TASK-35 §2 ([[dev-server-slug-shadow]]):
+`/kupovina?…&step=3` proveren kroz `next start` (port 3010), ne kroz `next dev`.
+Potvrđeno na desktopu i 375px: kontrola „Za koju uslugu?" je **prva** u desnom
+sidebaru, iznad Orijentacije, izdvojena i sa bedžom „obavezno"; kod **jedne**
+kupljene usluge kontrola se **ne prikazuje** a stavka je tiho vezana (birač
+dizajna tada nudi samo šablone te usluge — npr. za Review: Basic, Šablon 1,
+Šablon 5); rebind na uslugu čiji dizajn ne postoji **resetuje na podrazumevani
+šablon i ispisuje jedan red zašto** (preview se odmah menja); vezivanje za više
+usluga ispisuje red o razdelniku; oznaka gore desno je **sažetak** cele
+porudžbine („3 usluge · Basic · godišnje"), bez strelice, i klik otvara korpu
+(read-only); ukupan iznos i dalje razdvaja dve vrste novca
+(„… RSD godišnje  + … RSD jednokratno"). Matrice cena fizičkih proizvoda
+netaknute. Mobilni se slaže vertikalno bez bočnog prelivanja.

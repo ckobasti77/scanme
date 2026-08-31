@@ -34,6 +34,7 @@ import { type PriceBreakdown } from "@/lib/pricing/engine";
 import { recurringByPeriod } from "@/lib/pricing/summary";
 import { computeProductsOneTime, formatRsd } from "@/lib/scanme-pricing";
 import { StepPlan } from "./step-plan";
+import { StepProducts } from "./step-products";
 import { StepServices } from "./step-services";
 import { priceSelection } from "./step-services-model";
 
@@ -163,23 +164,15 @@ export function PurchaseShell({ initialSelection }: PurchaseShellProps) {
             exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -8 }}
             transition={{ duration: reduceMotion ? 0.12 : 0.2, ease: "easeOut" }}
           >
-            {/* Steps 1 and 2 are live (TASK-34, TASK-35). Steps 3–4 are still
-                placeholders that prove the layout contract: step 3 is three
-                panels, step 4 is centered — and the shell never re-mounts
-                around them. */}
+            {/* Steps 1–3 are live (TASK-34, TASK-35, TASK-36). Step 4 is still a
+                placeholder that proves the layout contract: it is centered, and
+                the shell never re-mounts around it. */}
             {selection.step === 1 ? (
               <StepServices selection={selection} onChange={setSelection} />
             ) : selection.step === 2 ? (
               <StepPlan selection={selection} onChange={setSelection} />
             ) : selection.step === 3 ? (
-              <>
-                <div className={styles.panel} data-slot="left">
-                  <span className={styles.soon}>{dict.soonTag}</span>
-                  <p>{currentCopy.placeholder}</p>
-                </div>
-                <div className={styles.panel} data-slot="center" />
-                <div className={styles.panel} data-slot="right" />
-              </>
+              <StepProducts selection={selection} onChange={setSelection} />
             ) : (
               <div className={styles.panel} data-slot="full">
                 <span className={styles.soon}>{dict.soonTag}</span>

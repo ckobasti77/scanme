@@ -270,6 +270,26 @@ describe("v5 purchase codec round-trips", () => {
         step: 4,
       },
     },
+    {
+      name: "per-line service bindings, one single and one splitter (TASK-36)",
+      selection: {
+        services: [
+          { service: "links", period: "annual" },
+          { service: "venue", period: "annual" },
+          { service: "memories", period: "annual" },
+        ],
+        plan: "basic",
+        products: [
+          createDefaultProductSelection("stickers"),
+          createDefaultProductSelection("two-piece-stand"),
+        ],
+        bindings: {
+          stickers: ["venue", "memories"], // splitter card
+          "two-piece-stand": ["links"], // single-service card
+        },
+        step: 3,
+      },
+    },
   ];
 
   for (const { name, selection } of SELECTIONS) {
@@ -321,6 +341,13 @@ describe("v5 strict validation rejects malformed state", () => {
     ["non-integer step", (p) => p.set("step", "2.5")],
     ["malformed product line", (p) => p.set("items", '[{"productId":"ghost"}]')],
     ["missing items param", (p) => p.delete("items")],
+    ["binding to unknown product", (p) => p.set("bind", "ghost:venue")],
+    ["binding to unknown service", (p) => p.set("bind", "stickers:ghost")],
+    ["binding chunk missing services", (p) => p.set("bind", "stickers")],
+    ["binding with empty service list", (p) => p.set("bind", "stickers:")],
+    ["binding repeats a service", (p) => p.set("bind", "stickers:venue|venue")],
+    ["binding repeats a product", (p) => p.set("bind", "stickers:venue,stickers:links")],
+    ["empty bind param", (p) => p.set("bind", "")],
   ])("%s -> null", (_name, mutate) => {
     expect(parsePurchaseSelection(withParam(mutate))).toBeNull();
   });

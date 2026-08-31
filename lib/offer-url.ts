@@ -62,6 +62,16 @@ export interface PurchaseSelection {
   planPeriod?: BillingPeriod;
   /** Physical products (step 3) — same shape and validation as V4. */
   products: ProductSelection[];
+  /** Per physical-product line: the purchased service(s) that line's card leads
+   *  to (RFC-002 §2.3, step 3). Keyed by `productId` (a product appears at most
+   *  once in `products`). A line bound to two or more services routes to a
+   *  splitter (razdelnik, §2.4). Absent/empty for a product means "bind to the
+   *  sole/first purchased service silently" — the model reconciles it on read
+   *  (components/purchase/step-products-model.ts), so a stale entry pointing at a
+   *  service the buyer later dropped never survives. Only lines the buyer bound
+   *  by hand are stored; a single-service order stores nothing (the bind is
+   *  silent). */
+  bindings?: Partial<Record<ProductId, PurchaseServiceId[]>>;
   logoUploadId?: string;
   step: PurchaseStep;
 }
@@ -335,9 +345,55 @@ export function encodePurchaseSelection(selection: PurchaseSelection): URLSearch
   params.set("plan", selection.plan);
   if (selection.planPeriod) params.set("planPeriod", selection.planPeriod);
   params.set("items", JSON.stringify(selection.products));
+  const bind = encodeBindings(selection.bindings);
+  if (bind) params.set("bind", bind);
   if (selection.logoUploadId) params.set("logoUpload", selection.logoUploadId);
   params.set("step", String(selection.step));
   return params;
+}
+
+// Bindings ride the URL as `bind=<productId>:<svc>|<svc>,<productId>:<svc>` so a
+// configuration stays shareable by link (RFC-002 §2.3). Only products the buyer
+// bound by hand appear; the model fills the silent default for the rest.
+function encodeBindings(
+  bindings: PurchaseSelection["bindings"],
+): string | null {
+  if (!bindings) return null;
+  const chunks: string[] = [];
+  for (const productId of Object.keys(bindings) as ProductId[]) {
+    const services = bindings[productId];
+    if (!services || services.length === 0) continue;
+    chunks.push(`${productId}:${services.join("|")}`);
+  }
+  return chunks.length > 0 ? chunks.join(",") : null;
+}
+
+function parseBindings(
+  raw: string | null,
+): PurchaseSelection["bindings"] | null | "invalid" {
+  if (raw === null) return null; // absent — the common single-service case
+  if (raw === "") return "invalid";
+  const bindings: Partial<Record<ProductId, PurchaseServiceId[]>> = {};
+  const seenProducts = new Set<ProductId>();
+  for (const chunk of raw.split(",")) {
+    const parts = chunk.split(":");
+    if (parts.length !== 2) return "invalid";
+    const [productId, servicesRaw] = parts;
+    if (!productId || !getProduct(productId)) return "invalid";
+    if (seenProducts.has(productId as ProductId)) return "invalid"; // one entry per line
+    const services: PurchaseServiceId[] = [];
+    const seenServices = new Set<PurchaseServiceId>();
+    for (const service of servicesRaw.split("|")) {
+      if (!service || !PURCHASE_SERVICES.includes(service as PurchaseServiceId)) return "invalid";
+      if (seenServices.has(service as PurchaseServiceId)) return "invalid";
+      seenServices.add(service as PurchaseServiceId);
+      services.push(service as PurchaseServiceId);
+    }
+    if (services.length === 0) return "invalid";
+    seenProducts.add(productId as ProductId);
+    bindings[productId as ProductId] = services;
+  }
+  return bindings;
 }
 
 function parsePurchaseServices(raw: string): PurchaseServiceSelection[] | null {
@@ -387,6 +443,9 @@ export function parsePurchaseSelection(params: URLSearchParams): PurchaseSelecti
   const products = parseV3Items(itemsRaw);
   if (!products) return null;
 
+  const bindings = parseBindings(params.get("bind"));
+  if (bindings === "invalid") return null;
+
   const logoUploadId = params.get("logoUpload") ?? undefined;
   if (logoUploadId !== undefined && (logoUploadId.length < 1 || logoUploadId.length > 200)) {
     return null;
@@ -402,6 +461,7 @@ export function parsePurchaseSelection(params: URLSearchParams): PurchaseSelecti
     plan: plan as PlanId,
     ...(planPeriod ? { planPeriod } : {}),
     products,
+    ...(bindings ? { bindings } : {}),
     ...(logoUploadId ? { logoUploadId } : {}),
     step,
   };
