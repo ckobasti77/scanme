@@ -83,6 +83,8 @@ export function EventDateTimeBlock({
       {calendar && (calendar.google || calendar.ics) ? (
         <div
           className={styles.calendarActions}
+          // aria-label is ignored on role=generic; group makes it land.
+          role="group"
           aria-label={dict.addToCalendarLabel}
         >
           {calendar.google ? (

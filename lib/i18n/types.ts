@@ -63,6 +63,7 @@ export interface VenueDict {
   mapIframeTitle: string;
   // gallery block.
   galleryImageAlt: string; // "… {index}"
+  galleryCarouselAria: string; // the keyboard-scrollable carousel region
   lightboxOpenAria: string; // "… {index} …"
   lightboxLabel: string; // "{index} / {count}"
   lightboxClose: string;
@@ -151,6 +152,7 @@ export interface VenueEditorDict {
   blockNotAllowed: string;
   archiveNotEnded: string;
   archiveAssetInvalid: string;
+  archiveOverCap: string; // "… {max} …" — same cap as memories.archiveOverCap
   endNotLive: string;
   // --- TASK-10: the editor shell (components/venue/editor/**) ---------------
   // Route metadata.
@@ -799,6 +801,7 @@ export interface MemoriesDict {
   itemQueued: string;
   itemPreparing: string;
   itemUploading: string; // "… {percent}%"
+  itemUploadingAnnounce: string; // live-region variant, no percent stream
   itemProcessing: string;
   itemSaved: string; // shown ONLY when the server commit confirmed (state "ready")
   itemWaitingNetwork: string;
@@ -1146,6 +1149,7 @@ export interface MemoriesPanelDict {
   archiveSelectedCount: string; // "{count} izabrano"
   archivePinAction: string; // "Prikaži na stranici"
   archiveEventLabel: string; // the target-event select label
+  archiveEventsTruncated: string; // "… {max} …" — older events cut from the picker
   archiveNoEvents: string; // no events exist for this business yet
   archivePrivateReason: string; // why a host_only tile is not selectable
   archivePinnedBadge: string; // this photo is already on the page

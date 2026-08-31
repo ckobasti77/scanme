@@ -222,10 +222,11 @@ export function VenueTemplate({
           lifecycle={lifecycle}
           startsAt={view.event.startsAt}
         />
-        {lifecycle === "after" ? (
-          <p className={styles.stateBody}>{dict.eventPageEndedNote}</p>
-        ) : null}
         <main className={styles.blocks}>
+          {/* Inside <main> so the note is not orphaned between landmarks. */}
+          {lifecycle === "after" ? (
+            <p className={styles.stateBody}>{dict.eventPageEndedNote}</p>
+          ) : null}
           {viewBlocks(view).map((block) => (
             <VenueBlockRender key={block.base.id} block={block} ctx={ctx} />
           ))}
@@ -279,9 +280,13 @@ export function VenueStateScreen({
           lifecycle={badge}
           startsAt={null}
         />
-        {body ? <p className={styles.stateBody}>{body}</p> : null}
-        {actions ? <div className={styles.stateActions}>{actions}</div> : null}
         <main className={styles.blocks} style={{ marginTop: "1.5rem" }}>
+          {/* Inside <main>: on the archive route this intro/empty text was
+              the page's entire content yet sat outside every landmark. */}
+          {body ? <p className={styles.stateBody}>{body}</p> : null}
+          {actions ? (
+            <div className={styles.stateActions}>{actions}</div>
+          ) : null}
           {children}
         </main>
         <Footer link={footerLink} />

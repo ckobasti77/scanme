@@ -1128,7 +1128,10 @@ function CardsManager({ space }: { space: SpaceData }) {
                         type="button"
                         onClick={() => copyLink(card.cardCode)}
                         className="inline-flex items-center gap-1 font-mono text-xs text-primary hover:underline"
-                        aria-label={dict.copyAria}
+                        // Include the code: a bare "Kopiraj" makes every row
+                        // read identically and drops the visible label from
+                        // the accessible name (Label in Name).
+                        aria-label={`${dict.copyAria} ${card.cardCode}`}
                       >
                         {card.cardCode}
                         {copied === card.cardCode ? (
@@ -1151,6 +1154,7 @@ function CardsManager({ space }: { space: SpaceData }) {
                             href={`/r/${card.cardCode}`}
                             target="_blank"
                             rel="noopener noreferrer"
+                            aria-label={`${dict.openCardLink} — ${card.cardCode}`}
                           >
                             <ExternalLink className="size-4" />
                           </Link>

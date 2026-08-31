@@ -50,6 +50,7 @@ export const venueSr = {
   mapIframeTitle: "Mapa lokacije",
   // gallery block.
   galleryImageAlt: "Fotografija {index}",
+  galleryCarouselAria: "Galerija fotografija — pomerajte strelicama",
   lightboxOpenAria: "Uvećaj fotografiju {index}",
   lightboxLabel: "{index} / {count}",
   lightboxClose: "Zatvori pregled",

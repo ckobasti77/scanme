@@ -43,11 +43,11 @@ export function PastEventsBlock({
                 </span>
               ) : null}
               <span className={styles.pastMeta}>
-                <p className={styles.pastTitle}>{event.title}</p>
+                <span className={styles.pastTitle}>{event.title}</span>
                 {when !== null ? (
-                  <p className={styles.pastDate}>
+                  <span className={styles.pastDate}>
                     {formatBelgradeDateShort(when)}
-                  </p>
+                  </span>
                 ) : null}
               </span>
             </Link>

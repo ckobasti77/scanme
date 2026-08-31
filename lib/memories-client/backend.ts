@@ -28,6 +28,16 @@ import type {
 // transfer never errors on its own). Generous enough for a saturated hall
 // network to deliver SOME bytes; the queue retries with a fresh URL.
 export const PUT_STALL_TIMEOUT_MS = 45_000;
+// ConvexHttpClient has no per-call timeout or abort: a mutation await on a
+// silently dead socket (a locked phone, a dying hall AP) hangs until the OS
+// kills the socket — the guest stares at "reserving" forever (TASK-24 Run 2).
+// Race every mutation against this deadline instead. The payload is a few
+// hundred bytes: a socket that delivers nothing for 20 s is dead, not slow, so
+// abandoning a mutation whose commit would still land (an orphan quota slot
+// until the 24 h reaper) is a ~never case, while the guest's worst wait per
+// attempt becomes bounded. The timeout is thrown as a plain retryable error —
+// the queue's existing classify() → backoff/offline-hold path handles it.
+export const MUTATION_TIMEOUT_MS = 20_000;
 // The process route decodes + encodes three variants; production p95 is a few
 // seconds. Past this, assume the function died and let the queue retry — the
 // commit is idempotent per photoId, so a retry of a run that actually
@@ -43,26 +53,67 @@ export interface UploadBackendOptions {
   convexUrl: string;
 }
 
+// Race a hung mutation against the deadline. The abandoned promise is
+// swallowed (its eventual settle is nobody's business — the retry path owns
+// the item from here); the thrown error's name is the queue's event detail.
+function withDeadline<T>(promise: Promise<T>, leg: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      const error = new Error(`convex_client_timeout:${leg}`);
+      error.name = "mutation_timeout";
+      reject(error);
+    }, MUTATION_TIMEOUT_MS);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (cause) => {
+        clearTimeout(timer);
+        reject(cause);
+      },
+    );
+    // If the deadline won, the original promise still settles later — absorb
+    // it so an abandoned rejection never surfaces as unhandled.
+    promise.catch(() => undefined);
+  });
+}
+
 export function createUploadBackend(
   options: UploadBackendOptions,
 ): UploadBackend {
   const convex = new ConvexHttpClient(options.convexUrl);
   const { code, guestKey } = options;
 
+  // skipQueue on every mutation is part of the timeout fix, not a tuning
+  // knob: ConvexHttpClient serializes queued mutations per instance, so one
+  // hung call (release is fire-and-forget and shares the client) would pin
+  // the FIFO and every timed-out retry would re-enqueue behind the same dead
+  // socket forever. The queue is strictly sequential by construction, so the
+  // client-side FIFO adds no ordering we need.
+  const skip = { skipQueue: true };
+
   return {
     async reserve(): Promise<ReserveResult> {
-      return await convex.mutation(api.memories.reserveUpload, {
-        code,
-        guestKey,
-      });
+      return await withDeadline(
+        convex.mutation(api.memories.reserveUpload, { code, guestKey }, skip),
+        "reserve",
+      );
     },
 
     async renewUploadUrl(photoId: string): Promise<RenewResult> {
-      return await convex.mutation(api.memories.renewUploadUrl, {
-        code,
-        guestKey,
-        photoId: photoId as Id<"memoriesPhotos">,
-      });
+      return await withDeadline(
+        convex.mutation(
+          api.memories.renewUploadUrl,
+          {
+            code,
+            guestKey,
+            photoId: photoId as Id<"memoriesPhotos">,
+          },
+          skip,
+        ),
+        "renew",
+      );
     },
 
     putOriginal(
@@ -169,11 +220,18 @@ export function createUploadBackend(
     },
 
     async release(photoId: string): Promise<void> {
-      await convex.mutation(api.memories.releaseReservation, {
-        code,
-        guestKey,
-        photoId: photoId as Id<"memoriesPhotos">,
-      });
+      await withDeadline(
+        convex.mutation(
+          api.memories.releaseReservation,
+          {
+            code,
+            guestKey,
+            photoId: photoId as Id<"memoriesPhotos">,
+          },
+          skip,
+        ),
+        "release",
+      );
     },
   };
 }

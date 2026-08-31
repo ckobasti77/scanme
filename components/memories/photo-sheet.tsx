@@ -38,15 +38,49 @@ export function PhotoSheet({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const closeRef = useRef<HTMLButtonElement | null>(null);
+  const sheetRef = useRef<HTMLDivElement | null>(null);
+  const confirmRef = useRef<HTMLButtonElement | null>(null);
 
-  // Focus in on open, restore on close, lock the page scroll, close on Escape.
+  // Focus in on open, restore on close, lock the page scroll, close on
+  // Escape, and confine Tab to the sheet — aria-modal tells AT the page
+  // behind is gone, so the keyboard must not be able to reach it either.
   useEffect(() => {
     const previous = document.activeElement;
     closeRef.current?.focus();
     const overflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape") {
+        onClose();
+        return;
+      }
+      if (event.key !== "Tab" || !sheetRef.current) return;
+      const focusables = Array.from(
+        sheetRef.current.querySelectorAll<HTMLElement>("button:not(:disabled)"),
+      );
+      if (focusables.length === 0) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const active = document.activeElement;
+      // Focus can legally sit OUTSIDE the sheet's focusables (a button was
+      // disabled mid-mutation, a confirm pair unmounted, a tap on the photo
+      // parked it on <body>). From there default tabbing would reach the page
+      // behind the aria-modal dialog — pull it back in instead.
+      if (
+        !(active instanceof HTMLElement) ||
+        !focusables.includes(active)
+      ) {
+        event.preventDefault();
+        (event.shiftKey ? last : first).focus();
+        return;
+      }
+      if (event.shiftKey && active === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && active === last) {
+        event.preventDefault();
+        first.focus();
+      }
     };
     document.addEventListener("keydown", onKey);
     return () => {
@@ -55,6 +89,12 @@ export function PhotoSheet({
       if (previous instanceof HTMLElement) previous.focus();
     };
   }, [onClose]);
+
+  // Arming delete unmounts the focused "Obriši" button; without this, focus
+  // falls to <body> and a keyboard user loses their place mid-decision.
+  useEffect(() => {
+    if (deleteArmed) confirmRef.current?.focus();
+  }, [deleteArmed]);
 
   const setVisibility = async (next: PhotoVisibility) => {
     if (!onSetVisibility || busy || next === visibility) return;
@@ -84,6 +124,7 @@ export function PhotoSheet({
 
   return (
     <div
+      ref={sheetRef}
       className={styles.sheetBackdrop}
       role="dialog"
       aria-modal="true"
@@ -139,6 +180,7 @@ export function PhotoSheet({
             </p>
             <button
               type="button"
+              ref={confirmRef}
               className={`${styles.sheetButton} ${styles.sheetButtonDanger}`}
               disabled={busy}
               onClick={() => void confirmDelete()}
@@ -155,7 +197,11 @@ export function PhotoSheet({
             </button>
           </>
         ) : null}
-        {error ? <p className={styles.sheetError}>{error}</p> : null}
+        {error ? (
+          <p className={styles.sheetError} role="alert">
+            {error}
+          </p>
+        ) : null}
         <button
           type="button"
           ref={closeRef}

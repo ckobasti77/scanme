@@ -228,6 +228,20 @@ export function WallCanvas({
       </div>
       <div className={styles.vignette} aria-hidden="true" />
 
+      {/* Masthead: the space name + a live count, readable across the room.
+          Rendered before the stage so the document's first heading is the h1
+          (it is absolutely positioned — the visual layout is unchanged). */}
+      <header className={styles.masthead}>
+        <h1 className={styles.spaceName}>{meta.spaceName}</h1>
+        <div>
+          <span className={styles.live}>
+            <span className={styles.liveDot} aria-hidden="true" />
+            {dict.liveLabel}
+          </span>
+          {count > 0 ? <div className={styles.count}>{countLine}</div> : null}
+        </div>
+      </header>
+
       {/* The stage: one photo at a time. Both layers share the centered grid
           cell (grid-area 1/1) so the incoming fades in over the outgoing. */}
       {hasContent ? (
@@ -251,18 +265,6 @@ export function WallCanvas({
           </p>
         </div>
       )}
-
-      {/* Masthead: the space name + a live count, readable across the room. */}
-      <header className={styles.masthead}>
-        <h1 className={styles.spaceName}>{meta.spaceName}</h1>
-        <div>
-          <span className={styles.live}>
-            <span className={styles.liveDot} aria-hidden="true" />
-            {dict.liveLabel}
-          </span>
-          {count > 0 ? <div className={styles.count}>{countLine}</div> : null}
-        </div>
-      </header>
 
       {/* The recruit: the space's QR, small and persistent, so anyone watching
           can join without asking. The URL is resolved server-side, so the code

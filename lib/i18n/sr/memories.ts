@@ -61,6 +61,7 @@ export const memoriesSr = {
   itemQueued: "Čeka u redu",
   itemPreparing: "Priprema se…",
   itemUploading: "Šalje se… {percent}%",
+  itemUploadingAnnounce: "Šalje se…",
   itemProcessing: "Obrađuje se…",
   itemSaved: "Sačuvano",
   itemWaitingNetwork: "Čeka vezu…",

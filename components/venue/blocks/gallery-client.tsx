@@ -23,6 +23,7 @@ export type GalleryItem = {
 
 type Labels = {
   openAria: string;
+  carouselAria: string;
   countLabel: string;
   close: string;
   prev: string;
@@ -76,9 +77,25 @@ export function GalleryClient({
 
   const active = openIndex === null ? null : items[openIndex];
 
+  // A no-lightbox carousel is an overflow-x scroller with nothing focusable
+  // inside — without a tabbable, labelled region a keyboard user cannot
+  // scroll it at all (WCAG 2.1.1).
+  const scrollRegionProps =
+    layout === "carousel" && !lightbox
+      ? ({
+          tabIndex: 0,
+          role: "region",
+          "aria-label": labels.carouselAria,
+        } as const)
+      : {};
+
   return (
     <div>
-      <div className={containerClass} style={containerStyle}>
+      <div
+        className={containerClass}
+        style={containerStyle}
+        {...scrollRegionProps}
+      >
         {items.map((item, index) => {
           const image = (
             <Image

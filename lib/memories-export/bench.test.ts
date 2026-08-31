@@ -10,8 +10,10 @@
 // the same batched shape (per-batch chunk buffers, then a finalize concat), over
 // 400 photos derived from real pipeline WebP variants. It measures wall-clock,
 // peak RSS, archive size, and per-photo cost; verifies a file opens as a real
-// JPEG and that Windows can extract the archive; and writes the numbers to
-// docs/perf/memories-export.md so they survive this session.
+// JPEG and that Windows can extract the archive; and writes the raw numbers to
+// docs/perf/memories-export-<tier>-run.md (the canonical
+// docs/perf/memories-export.md merges both tiers by hand) so they survive
+// this session.
 
 import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
@@ -38,7 +40,15 @@ import { EXPORT_BATCH_SIZE } from "./protocol";
 
 const RUN = process.env.RUN_EXPORT_BENCH === "1";
 const PHOTO_COUNT = 400;
-const TIER = { name: "basic", maxDimension: 2048 };
+// TASK-25 Step 0 item 6: the premium tier is selected with
+// EXPORT_BENCH_TIER=premium. Sources must out-size the tier clamp
+// (transformMemoryPhoto uses withoutEnlargement), so premium synthesizes
+// 6000×4000 originals; its raw report goes to a separate file and the
+// canonical docs/perf/memories-export.md carries both tiers' numbers.
+const TIER =
+  process.env.EXPORT_BENCH_TIER === "premium"
+    ? { name: "premium", maxDimension: 4096, sourceWidth: 6000, sourceHeight: 4000 }
+    : { name: "basic", maxDimension: 2048, sourceWidth: 3000, sourceHeight: 2000 };
 const DISTINCT_SOURCES = 16; // distinct real photos, cycled to 400
 const TABLES = 20;
 
@@ -60,8 +70,8 @@ describe.skipIf(!RUN)("memories export bench (400 photos)", () => {
       for (let i = 0; i < DISTINCT_SOURCES; i += 1) {
         const source = await sharp({
           create: {
-            width: 3000,
-            height: 2000,
+            width: TIER.sourceWidth,
+            height: TIER.sourceHeight,
             channels: 3,
             noise: { type: "gaussian", mean: 128, sigma: 40 + i },
           },
@@ -323,7 +333,13 @@ ${metaPreview}
 
       const perfDir = path.join(repoRoot, "docs", "perf");
       mkdirSync(perfDir, { recursive: true });
-      writeFileSync(path.join(perfDir, "memories-export.md"), report);
+      // Since TASK-25 the canonical memories-export.md carries BOTH tiers'
+      // numbers plus the deployed-ceiling analysis and is merged by hand; a
+      // bench run must not clobber it, so raw reports land beside it.
+      writeFileSync(
+        path.join(perfDir, `memories-export-${TIER.name}-run.md`),
+        report,
+      );
 
       // Sanity: the archive holds 400 photos + metadata.json.
       expect(centralEntries.length).toBe(PHOTO_COUNT + 1);
@@ -333,6 +349,8 @@ ${metaPreview}
         `\n[bench] ${PHOTO_COUNT} photos → ${mib(archiveBytes)} MiB in ${(wallMs / 1000).toFixed(1)}s, peak RSS ${mib(peakRss)} MiB\n`,
       );
     },
-    600_000,
+    // Premium at 4096px multiplies the per-photo encode ~4×; give the run an
+    // hour so the measurement finishes instead of timing out mid-answer.
+    3_600_000,
   );
 });
