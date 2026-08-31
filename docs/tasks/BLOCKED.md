@@ -106,3 +106,41 @@ pokretanju zabeleženo u izveštaju taska.
 Opcije za vlasnika ostaju iste kao u TASK-28 §4 (Node LTS, zakrpljeni v24.x,
 ili goldeni u CI-ju); dodatna najjeftinija: instalirati nvm-windows pa
 `nvm install 22`.
+
+---
+
+## TASK-30 — Enterprise provizioniranje + grupisanje u adminu
+
+### 1. TASK-29 (accounts spine) uvučen u `feat/venue-memories` fast-forward-om
+
+Zadatak 4 iz §4 (ovaj task) direktno stoji na zadatku 3 (`accounts` tabela,
+`businesses.accountId`, `getEntitlement` korak 3, `ACCOUNT_PLAN_TIER`) koji je
+isporučen kao **TASK-29**. TASK-29 je bio komitovan na grani
+`claude/accounts-getentitlement-step3-cd95cf` (`6b59b25`), čiji je roditelj
+tačno vrh `feat/venue-memories` (`21878c2`) — dakle čist fast-forward, bez
+mogućnosti konflikta. Da bi ovaj task landirao na jednoj grani (a ne opet u
+worktree-u koji vlasnik ručno spaja), **fast-forward-ovao sam
+`feat/venue-memories` na `6b59b25` pre početka rada**, pa TASK-30 komit sedi na
+vrhu. Ništa nije prepisano; branch pointer je samo pomeren da uključi već
+komitovan TASK-29. Ako vlasnik ima drugačiju nameru za redosled spajanja
+TASK-29, javiti — ali bez TASK-29 ovaj task nema na čemu da stoji.
+
+### 2. Admin tabela/sidebar UI je zadatak 12/13, namerno izostavljen ovde
+
+Isporučen je **upit** `admin.customers` (novi, `convex/admin.ts`) koji grupiše
+lokale po `accountId`: Enterprise nalog sa >1 lokala vraća se kao JEDAN red
+(`kind:"enterprise"`, `locations[]`), solo nalog i legacy biznis bez naloga kao
+pun-širina red (`kind:"solo"`). To je tačno oblik koji „jedan red koji se širi u
+lokale / bez sidebara za solo" traži. Sama React tabela sa kolonama, sortiranje
+po obnovi, četiri izvedena statusa (uklj. „plaćeno ali nikad podešeno") i
+`adminAuditLog` su **zadatak 12**, a per-lokal sidebar **zadatak 13** (§4). Ovaj
+task ih ne dira; `admin.listBusinesses` (Google Review ekran) ostaje netaknut.
+
+### 3. `harness:check` i dalje sredinski blokiran (isti Node v24.8.0 bag)
+
+Potvrđeno pri pokretanju ovog taska: `harness:check` se deterministički ruši u
+`NewRootCertStore` (`X509_STORE_add_cert` assertion), identično TASK-28 §4 i
+TASK-29 §1. **Nije pad koda ovog taska.** Sve ostale provere zelene: `lint`
+(0 grešaka), `build` (prolazi), `harness:namespace` (prolazi), ceo `vitest`
+(559 prošlo / 1 preskočen, uključujući 11 novih testova ovog taska). Opcije za
+vlasnika iste kao gore.

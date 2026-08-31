@@ -2,7 +2,12 @@ import { ConvexError, v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
-import { mutation, query, type MutationCtx } from "./_generated/server";
+import {
+  mutation,
+  query,
+  type MutationCtx,
+  type QueryCtx,
+} from "./_generated/server";
 import { isAdminEmail, requireAdmin } from "./lib/access";
 import { upsertManualEntitlement } from "./lib/entitlements";
 import { buildBusinessContactViews } from "./lib/contacts";
@@ -1162,5 +1167,128 @@ export const approveActivation = mutation({
     await ctx.db.patch(request._id, { status: "closed", updatedAt: now });
 
     return { activated: true as const, entitlementId };
+  },
+});
+
+// =============================================================================
+// TASK-30 — the admin customers grouping read (RFC-002 §2.6, §4 task 4).
+//
+// A NEW query, deliberately separate from `listBusinesses` above: that one is
+// welded to the Google-Review screen (it hard-codes the `dynamicLinks` link and
+// its `status` is `reviewProfile.status`) and stays UNTOUCHED. This one groups
+// `businesses` by `accountId` for the operational customers table: an account
+// with more than one location is ONE expandable Enterprise row carrying its
+// locations; a single-location account (and every account-less legacy business)
+// is a normal full-width solo row. The per-location sidebar the UI shows only
+// inside an Enterprise customer is exactly this "enterprise row has locations[]"
+// shape.
+//
+// Bounded reads, matching listBusinesses' 100-row bound. The four derived
+// statuses, sort-by-renewal, and the audit log are task 12; this task delivers
+// the grouping the Enterprise/solo layout turns on.
+// =============================================================================
+
+type CustomerLocation = {
+  id: Id<"businesses">;
+  name: string;
+  slug: string;
+  status: Doc<"businesses">["status"];
+  archivedAt: number | null;
+  activeServices: Doc<"serviceProfiles">["type"][];
+};
+
+type AccountView = {
+  id: Id<"accounts">;
+  name: string;
+  plan: Doc<"accounts">["plan"];
+  planPeriod: Doc<"accounts">["planPeriod"] | null;
+  status: Doc<"accounts">["status"];
+  planValidUntil: number | null;
+};
+
+type CustomerRow =
+  | { kind: "solo"; account: AccountView | null; location: CustomerLocation }
+  | { kind: "enterprise"; account: AccountView; locations: CustomerLocation[] };
+
+async function customerLocationView(
+  ctx: QueryCtx,
+  business: Doc<"businesses">,
+): Promise<CustomerLocation> {
+  const profiles = await ctx.db
+    .query("serviceProfiles")
+    .withIndex("by_businessId", (q) => q.eq("businessId", business._id))
+    .take(20);
+  const activeServices = profiles
+    .filter((profile) => profile.status === "active")
+    .map((profile) => profile.type);
+  return {
+    id: business._id,
+    name: business.name,
+    slug: business.slug,
+    status: business.status,
+    archivedAt: business.archivedAt ?? null,
+    activeServices,
+  };
+}
+
+function accountView(account: Doc<"accounts">): AccountView {
+  return {
+    id: account._id,
+    name: account.name,
+    plan: account.plan,
+    planPeriod: account.planPeriod ?? null,
+    status: account.status,
+    planValidUntil: account.planValidUntil ?? null,
+  };
+}
+
+export const customers = query({
+  args: {},
+  handler: async (ctx): Promise<CustomerRow[]> => {
+    await requireAdmin(ctx);
+    const rows: CustomerRow[] = [];
+
+    // Grouping path: every account, its non-archived locations via by_account.
+    const accounts = await ctx.db.query("accounts").order("desc").take(200);
+    for (const account of accounts) {
+      const grouped = await ctx.db
+        .query("businesses")
+        .withIndex("by_account", (q) => q.eq("accountId", account._id))
+        .take(100);
+      const locations = grouped.filter((business) => !business.archivedAt);
+      if (locations.length === 0) continue;
+      const view = accountView(account);
+      if (locations.length > 1) {
+        rows.push({
+          kind: "enterprise",
+          account: view,
+          locations: await Promise.all(
+            locations.map((business) => customerLocationView(ctx, business)),
+          ),
+        });
+      } else {
+        rows.push({
+          kind: "solo",
+          account: view,
+          location: await customerLocationView(ctx, locations[0]),
+        });
+      }
+    }
+
+    // Legacy path: account-less businesses (pre-backfill, §2.2.4) each render as
+    // their own full-width solo customer. Skipped once the solo-account backfill
+    // runs, because every business then carries an accountId.
+    const loose = await ctx.db.query("businesses").order("desc").take(200);
+    for (const business of loose) {
+      if (business.accountId !== undefined) continue;
+      if (business.archivedAt) continue;
+      rows.push({
+        kind: "solo",
+        account: null,
+        location: await customerLocationView(ctx, business),
+      });
+    }
+
+    return rows;
   },
 });

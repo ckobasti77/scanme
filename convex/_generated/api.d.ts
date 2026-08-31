@@ -17,6 +17,7 @@ import type * as cards from "../cards.js";
 import type * as clientPanel from "../clientPanel.js";
 import type * as crons from "../crons.js";
 import type * as demo from "../demo.js";
+import type * as enterpriseProvisioning from "../enterpriseProvisioning.js";
 import type * as entitlements from "../entitlements.js";
 import type * as http from "../http.js";
 import type * as invitationEmails from "../invitationEmails.js";
@@ -72,6 +73,7 @@ declare const fullApi: ApiFromModules<{
   clientPanel: typeof clientPanel;
   crons: typeof crons;
   demo: typeof demo;
+  enterpriseProvisioning: typeof enterpriseProvisioning;
   entitlements: typeof entitlements;
   http: typeof http;
   invitationEmails: typeof invitationEmails;
