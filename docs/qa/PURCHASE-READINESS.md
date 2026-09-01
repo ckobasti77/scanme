@@ -85,11 +85,16 @@ ispod, sa prvom pomoći.
    sama tastaturna AKTIVACIJA verifikovana analizom koda jer QA pane ne ume
    nativnu aktivaciju dugmeta (ograničenje okruženja, zapisano u nalazu) —
    jednominutna potvrda na pravom browseru je stavka smoke liste ispod.
-5. **Ceo lanac provere zelen**: vitest **710 prošlo / 1 preskočen** (uklj. 6
-   novih testova ovog taska), lint 0 grešaka, build prolazi,
-   harness:namespace prolazi. `harness:check` ostaje **sredinski blokiran**
-   (Node v24.8.0 `NewRootCertStore` pad, TASK-28 §4; `nvm` na mašini ne
-   postoji — TASK-29 §1; ništa novo).
+5. **Ceo lanac provere zelen — uključujući GOLDENE, prvi put u nizu**: vitest
+   **710 prošlo / 1 preskočen** (uklj. 6 novih testova ovog taska), lint 0
+   grešaka, build prolazi, harness:namespace prolazi, i **`harness:check`
+   prolazi: 177 slučajeva × 2 viewporta poklapaju se sa goldenima
+   bajt-za-bajt** — potvrda da je zamrznuti ScanMe Links render NETAKNUT kroz
+   ceo RFC-002 niz. Otključano zaobilaznicom za Node v24.8.0
+   `NewRootCertStore` bag: `NODE_OPTIONS="--use-openssl-ca"` +
+   `SSL_CERT_FILE=<Git ca-bundle.crt>` (verifikacija sertifikata ostaje
+   uključena; detalji u BLOCKED.md TASK-42 §1). Ista zaobilaznica je
+   omogućila i `npx convex deploy` sa ove mašine.
 
 ## Napravljeno ali NIKAD PROBANO u realnim uslovima
 

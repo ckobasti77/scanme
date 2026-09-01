@@ -587,16 +587,38 @@ odbijen).
 
 ## TASK-42 — QA toka kupovine, presuda i deploy
 
-### 1. Node 22 i dalje nedostupan — harness ostaje sredinski blokiran
+### 1. Node X509 bag ZAOBIĐEN — goldeni provereni PRVI PUT; Node LTS i dalje pravi fix
 
-Provereno pri pokretanju: `nvm`/`fnm`/`volta` ne postoje na mašini, jedini
-Node je v24.8.0. `npm run check` reprodukovao isti `NewRootCertStore` pad u
-`harness:check` (dev server umre na odlaznom TLS-u posle prvih uspešnih
-zahteva; Playwright vidi `ERR_CONNECTION_REFUSED` na 3199). **Goldeni tako ni
-ovaj put nisu provereni** — od početka niza nijednom. Zeleno: `lint` (0),
-`build`, `harness:namespace`, ceo `vitest` (710 prošlo / 1 preskočen, uklj. 6
-novih testova ovog taska). Opcije za vlasnika nepromenjene (TASK-28 §4 /
-TASK-29 §1): Node LTS, zakrpljeni v24.x, ili goldeni u CI-ju.
+`nvm`/`fnm`/`volta` ne postoje na mašini (Node 22 nedostupan bez instalacije
+novog alata — i dalje vlasnikova odluka). Ali nađena je bezbedna
+zaobilaznica za `NewRootCertStore` pad (TASK-28 §4):
+
+```
+NODE_OPTIONS="--use-openssl-ca"
+SSL_CERT_FILE="C:\Program Files\Git\mingw64\etc\ssl\certs\ca-bundle.crt"
+```
+
+Node tada NE gradi bundled root store (mesto assertion pada) nego verifikuje
+TLS prema Mozilla CA bundle-u koji Git for Windows već nosi — verifikacija
+sertifikata ostaje UKLJUČENA, nije bezbednosna degradacija (za razliku od
+golog `--use-openssl-ca` bez CA fajla, koji je TASK-28 s pravom odbio).
+
+Sa tim env varovima u ovom tasku je prošlo:
+- **`npm run check` CEO — uključujući `harness:check`: „177 cases × 2
+  viewports match the goldens byte-for-byte"** — goldeni provereni prvi put
+  otkad je RFC-002 niz počeo; zamrznuti ScanMe Links render je netaknut;
+- **`npx convex deploy`** (CLI se bez zaobilaznice ruši identično kao
+  harness — potvrđeno na `npx convex env list --prod`).
+
+Bez env varova pad je i dalje deterministički, pa `npm run dev` i običan
+`npm run check` ostaju crveni. Trajni fix ostaje Node LTS (v22/v20) —
+vlasnikova odluka; do tada zaobilaznicu koristiti za harness i deploy.
+
+Usput otkriveno i popravljeno: `npx convex deploy` typecheck-uje i
+`convex/**/*.test.ts` (nikada ranije nije stigao dotle zbog TLS pada) i pada
+na poznatoj convex-test typing gotchi u zdravim testovima — test fajlovi su
+izuzeti iz `convex/tsconfig.json` (funkcije zadržavaju pun typecheck; testove
+izvršava vitest).
 
 ### 2. Tastaturna potvrda toka na pravom browseru (1 minut, vlasnik/QA)
 
