@@ -1,23 +1,23 @@
 "use client";
 
-// The purchase-flow SHELL (RFC-002 §2.3, TASK-33).
+// The purchase-flow SHELL (RFC-002 §2.3, TASK-33, restyled TASK-44).
 //
-// The shell is a FRAME and a RAIL: a rounded panel, a header, a four-step
-// timeline on top, and a sticky bottom bar with the running total and the
-// advance button. It does not change or disappear in any step — only the inner
-// content swaps. That is the load-bearing property: the three configurator
-// panels of steps 1 and 3, the full-width plan columns of step 2, and the
-// checkout of step 4 are what the steps put INSIDE the shell; they are not the
-// shell. If moving to step 2 tore the frame or the bar off the screen, this
-// component would be wrong — so the frame and the bar live OUTSIDE the switch.
+// The shell is a FRAME and a RAIL: a warm glass panel (the same offer-surface
+// language as /ponuda), a header, a four-step timeline on top, and a sticky
+// bottom bar with the running total and the advance button. It does not change
+// or disappear in any step — only the inner content swaps. The frame chrome
+// (background, radius, shadow) and the sticky bar's glass come from the shared
+// primitives in app/offer-surface.css (.offer-frame / .offer-dock), so this and
+// /ponuda read one source of truth.
 //
 // The bottom bar splits two kinds of money and never sums them into one figure:
 // recurring plan/service money (from the pricing engine) and one-time physical
-// money (from the physical-product half of lib/scanme-pricing.ts). Every number
-// comes from those pure modules; nothing is computed here.
+// money (from lib/scanme-pricing.ts). Every number comes from those pure
+// modules; nothing is computed here. On step 1 "Nazad" is disabled; on the last
+// step "Dalje" becomes "Plati" and confirms the order.
 
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { ArrowLeft, ArrowRight } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, CreditCard } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import styles from "./purchase-shell.module.css";
@@ -43,19 +43,14 @@ interface PurchaseShellProps {
   initialSelection: PurchaseSelection;
 }
 
-/** Steps 1 and 3 lay three panels inside the shell; step 2 goes full width;
- *  step 4 is a centered checkout. Only the panels differ — the shell does not. */
-function stepLayoutClass(step: PurchaseStep): string {
-  if (step === 2) return styles.stepFull;
-  if (step === 4) return styles.stepCheckout;
-  return styles.stepPanels;
-}
-
 export function PurchaseShell({ initialSelection }: PurchaseShellProps) {
   const router = useRouter();
   const pathname = usePathname();
   const reduceMotion = useReducedMotion();
   const [selection, setSelection] = useState<PurchaseSelection>(initialSelection);
+  // Step 4 confirm lives in the shell so the sticky bar's "Plati" is the one
+  // primary action across the whole flow (the checkout panel only presents).
+  const [placed, setPlaced] = useState(false);
 
   // State lives in the URL so a configuration is shareable by link (RFC-002
   // §2.3). Replace (not push) so stepping back and forth is not history spam;
@@ -98,21 +93,33 @@ export function PurchaseShell({ initialSelection }: PurchaseShellProps) {
   }
 
   const goToStep = (step: PurchaseStep) => {
-    if (step !== selection.step) setSelection((prev) => ({ ...prev, step }));
+    if (step !== selection.step) {
+      if (placed) setPlaced(false);
+      setSelection((prev) => ({ ...prev, step }));
+    }
   };
 
   const stepIndex = PURCHASE_STEPS.indexOf(selection.step);
   const canGoBack = stepIndex > 0;
   const isLastStep = stepIndex === PURCHASE_STEPS.length - 1;
+  const hasServices = selection.services.length > 0;
   const goBack = () => {
     if (canGoBack) goToStep(PURCHASE_STEPS[stepIndex - 1]);
   };
-  const goNext = () => {
-    if (!isLastStep) goToStep(PURCHASE_STEPS[stepIndex + 1]);
+  const advance = () => {
+    if (isLastStep) {
+      if (hasServices) setPlaced(true);
+      return;
+    }
+    goToStep(PURCHASE_STEPS[stepIndex + 1]);
   };
 
+  // On the final step the forward button pays; once the order is placed the
+  // panel shows its summary and the forward button steps aside.
+  const showForward = !(isLastStep && placed);
+
   return (
-    <section className={styles.shell} aria-label={dict.title}>
+    <section className={`${styles.shell} offer-surface offer-frame`} aria-label={dict.title}>
       <header className={styles.header}>
         <div className={styles.heading}>
           <p className={styles.eyebrow}>{dict.eyebrow}</p>
@@ -140,7 +147,11 @@ export function PurchaseShell({ initialSelection }: PurchaseShellProps) {
                   onClick={() => goToStep(step)}
                 >
                   <span className={styles.stepNumber} aria-hidden="true">
-                    {step}
+                    {state === "done" ? (
+                      <Check className={styles.stepCheck} strokeWidth={2.4} />
+                    ) : (
+                      step
+                    )}
                   </span>
                   <span className={styles.stepLabel}>{copy.label}</span>
                 </button>
@@ -157,15 +168,14 @@ export function PurchaseShell({ initialSelection }: PurchaseShellProps) {
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key={selection.step}
-            className={stepLayoutClass(selection.step)}
+            className={styles.stepArea}
             initial={reduceMotion ? false : { opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -8 }}
             transition={{ duration: reduceMotion ? 0.12 : 0.2, ease: "easeOut" }}
           >
-            {/* All four steps are live (TASK-34..36, TASK-38). Each puts its own
-                content INSIDE the shell; the frame and the sticky bar never
-                re-mount around them. */}
+            {/* All four steps are live (TASK-34..38). Each puts its own content
+                INSIDE the shell; the frame and the sticky bar never re-mount. */}
             {selection.step === 1 ? (
               <StepServices selection={selection} onChange={setSelection} />
             ) : selection.step === 2 ? (
@@ -173,13 +183,13 @@ export function PurchaseShell({ initialSelection }: PurchaseShellProps) {
             ) : selection.step === 3 ? (
               <StepProducts selection={selection} onChange={setSelection} />
             ) : (
-              <StepCheckout selection={selection} onChange={setSelection} />
+              <StepCheckout selection={selection} onChange={setSelection} placed={placed} />
             )}
           </motion.div>
         </AnimatePresence>
       </div>
 
-      <div className={styles.bar}>
+      <div className={`${styles.bar} offer-dock`}>
         <Button
           type="button"
           variant="ghost"
@@ -207,10 +217,26 @@ export function PurchaseShell({ initialSelection }: PurchaseShellProps) {
           </span>
         </div>
 
-        <Button type="button" className={styles.next} onClick={goNext} disabled={isLastStep}>
-          {isLastStep ? dict.finish : dict.next}
-          {!isLastStep ? <ArrowRight aria-hidden="true" className={styles.nextIcon} /> : null}
-        </Button>
+        {showForward ? (
+          <Button
+            type="button"
+            className={styles.next}
+            onClick={advance}
+            disabled={isLastStep && !hasServices}
+          >
+            {isLastStep ? (
+              <>
+                <CreditCard aria-hidden="true" className={styles.backIcon} />
+                {dict.pay}
+              </>
+            ) : (
+              <>
+                {dict.next}
+                <ArrowRight aria-hidden="true" className={styles.nextIcon} />
+              </>
+            )}
+          </Button>
+        ) : null}
       </div>
     </section>
   );

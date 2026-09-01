@@ -1,26 +1,17 @@
 "use client";
 
-// Step 4 of the purchase flow (RFC-002 §2.3 step 4 / §2.5, TASK-38): checkout.
-// It JOINS the flow into a purchase — the buyer REVIEWS the order the shell has
-// been pricing live (services, plan, the two kinds of money kept apart), then
-// confirms. Confirming shows the post-purchase SUMMARY: what was bought, WHERE
-// to set each service up, and WHEN the first billing lands. An empty "hvala"
-// screen is the missed opportunity this step exists to avoid — the buyer is most
-// engaged at exactly this moment.
-//
-// The backend that writes the order, ensures the account/plan, and activates
-// each service's ownership (leaving the tier to getEntitlement step 3, with zero
-// entitlement rows) is `convex/checkout.ts` — fully built and tested. Wiring this
-// button to call it live needs the buyer's AUTHENTICATED location, which the
-// onboarding seam creates (RFC-002 §2.2 / orders.ts); until that lands the
-// public flow presents the order and its next steps, and the ScanMe team
-// provisions it — the manual-first flow (TASK-32). See docs/tasks/BLOCKED.md.
+// Step 4 of the purchase flow (RFC-002 §2.3 step 4 / §2.5, TASK-38, restyled
+// TASK-44): checkout, in the same glass frame. The buyer REVIEWS the order the
+// shell has been pricing live (services, plan, the two kinds of money kept
+// apart); the sticky bar's "Plati" confirms. Once confirmed (`placed`), the
+// panel shows the post-purchase SUMMARY — what was bought, WHERE to set each
+// service up, WHEN the first billing lands. An empty "hvala" screen is the
+// missed opportunity this step exists to avoid.
 //
 // NOTHING here computes money: every figure comes from step-checkout-model.ts,
 // which reads the same engine call the shell's split-total bar makes.
 
-import { ArrowRight, ArrowLeft, Check, Package, Wallet } from "lucide-react";
-import { useState } from "react";
+import { ArrowLeft, ArrowRight, Check, Package, Wallet } from "lucide-react";
 import styles from "./step-checkout.module.css";
 import { fmt } from "@/lib/i18n/format";
 import { purchaseSr } from "@/lib/i18n/sr/purchase";
@@ -42,6 +33,8 @@ const serviceCopy = purchaseSr.step1.services;
 interface StepCheckoutProps {
   selection: PurchaseSelection;
   onChange: (next: PurchaseSelection) => void;
+  /** Lifted to the shell so the sticky bar's "Plati" is the one confirm. */
+  placed: boolean;
 }
 
 function periodLabel(period: BillingPeriod): string {
@@ -67,14 +60,13 @@ function recurringSegments(recurring: { monthly: number; annual: number }): stri
   return segments;
 }
 
-export function StepCheckout({ selection, onChange }: StepCheckoutProps) {
-  const [placed, setPlaced] = useState(false);
+export function StepCheckout({ selection, onChange, placed }: StepCheckoutProps) {
   const services = orderedServices(selection);
 
   if (services.length === 0) {
     return (
-      <div className={styles.root} data-slot="checkout">
-        <div className={styles.empty}>
+      <div className={styles.root}>
+        <div className={`${styles.empty} offer-glass offer-glass--panel`}>
           <h2 className={styles.emptyTitle}>{dict.emptyTitle}</h2>
           <p className={styles.emptyBody}>{dict.emptyBody}</p>
           <button
@@ -97,11 +89,11 @@ export function StepCheckout({ selection, onChange }: StepCheckoutProps) {
 
   if (placed) {
     return (
-      <div className={styles.root} data-slot="checkout">
+      <div className={styles.root}>
         <div className={styles.summary}>
           <div className={styles.summaryHead}>
             <span className={styles.check} aria-hidden="true">
-              <Check size={20} />
+              <Check size={22} strokeWidth={2.4} />
             </span>
             <div>
               <h2 className={styles.summaryTitle}>{dict.summaryTitle}</h2>
@@ -109,7 +101,7 @@ export function StepCheckout({ selection, onChange }: StepCheckoutProps) {
             </div>
           </div>
 
-          <section className={styles.card} aria-labelledby="summary-services">
+          <section className={`${styles.card} offer-glass offer-glass--panel`} aria-labelledby="summary-services">
             <h3 id="summary-services" className={styles.cardTitle}>
               {dict.summaryServicesHeading}
             </h3>
@@ -139,7 +131,7 @@ export function StepCheckout({ selection, onChange }: StepCheckoutProps) {
           </section>
 
           <div className={styles.cardRow}>
-            <section className={styles.card} aria-labelledby="summary-plan">
+            <section className={`${styles.card} offer-glass offer-glass--panel`} aria-labelledby="summary-plan">
               <h3 id="summary-plan" className={styles.cardTitle}>
                 {dict.summaryPlanHeading}
               </h3>
@@ -147,7 +139,7 @@ export function StepCheckout({ selection, onChange }: StepCheckoutProps) {
               {isPremium ? <p className={styles.planNote}>{dict.planPremiumNote}</p> : null}
             </section>
 
-            <section className={styles.card} aria-labelledby="summary-billing">
+            <section className={`${styles.card} offer-glass offer-glass--panel`} aria-labelledby="summary-billing">
               <h3 id="summary-billing" className={styles.cardTitle}>
                 {dict.summaryBillingHeading}
               </h3>
@@ -155,7 +147,7 @@ export function StepCheckout({ selection, onChange }: StepCheckoutProps) {
             </section>
           </div>
 
-          <section className={styles.card} aria-labelledby="summary-next">
+          <section className={`${styles.card} offer-glass offer-glass--panel`} aria-labelledby="summary-next">
             <h3 id="summary-next" className={styles.cardTitle}>
               {dict.summaryNextTitle}
             </h3>
@@ -173,14 +165,14 @@ export function StepCheckout({ selection, onChange }: StepCheckoutProps) {
   }
 
   return (
-    <div className={styles.root} data-slot="checkout">
+    <div className={styles.root}>
       <div className={styles.review}>
         <header className={styles.reviewHead}>
           <h2 className={styles.reviewTitle}>{dict.reviewHeading}</h2>
           <p className={styles.reviewIntro}>{dict.reviewIntro}</p>
         </header>
 
-        <section className={styles.card} aria-labelledby="review-services">
+        <section className={`${styles.card} offer-glass offer-glass--panel`} aria-labelledby="review-services">
           <h3 id="review-services" className={styles.cardTitle}>
             {dict.servicesHeading}
           </h3>
@@ -200,7 +192,7 @@ export function StepCheckout({ selection, onChange }: StepCheckoutProps) {
         </section>
 
         <div className={styles.cardRow}>
-          <section className={styles.card} aria-labelledby="review-plan">
+          <section className={`${styles.card} offer-glass offer-glass--panel`} aria-labelledby="review-plan">
             <h3 id="review-plan" className={styles.cardTitle}>
               {dict.planHeading}
             </h3>
@@ -208,7 +200,7 @@ export function StepCheckout({ selection, onChange }: StepCheckoutProps) {
             {isPremium ? <p className={styles.planNote}>{dict.planPremiumNote}</p> : null}
           </section>
 
-          <section className={styles.card} aria-labelledby="review-products">
+          <section className={`${styles.card} offer-glass offer-glass--panel`} aria-labelledby="review-products">
             <h3 id="review-products" className={styles.cardTitle}>
               <Package size={15} aria-hidden="true" className={styles.cardIcon} />
               {dict.productsHeading}
@@ -224,7 +216,7 @@ export function StepCheckout({ selection, onChange }: StepCheckoutProps) {
           </section>
         </div>
 
-        <section className={styles.card} aria-labelledby="review-money">
+        <section className={`${styles.card} ${styles.moneyCard} offer-glass offer-glass--panel`} aria-labelledby="review-money">
           <h3 id="review-money" className={styles.cardTitle}>
             <Wallet size={15} aria-hidden="true" className={styles.cardIcon} />
             {dict.billingHeading}
@@ -247,11 +239,6 @@ export function StepCheckout({ selection, onChange }: StepCheckoutProps) {
           </dl>
           <div className={styles.billingLine}>{renderBilling(selection.plan, recurring, period)}</div>
         </section>
-
-        <button type="button" className={styles.confirmCta} onClick={() => setPlaced(true)}>
-          {dict.confirmCta}
-          <ArrowRight size={16} aria-hidden="true" />
-        </button>
       </div>
     </div>
   );

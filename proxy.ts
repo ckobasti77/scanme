@@ -46,6 +46,10 @@ export default convexAuthNextjsMiddleware(async (request, { convexAuth }) => {
   }
 });
 
+// `kupovina` i `ponuda` su javne prodajne stranice bez server-side kapije, pa su
+// izuzete iz matchera (nema promene ponašanja — obe rade preko client-side
+// `useConvexAuth`). Time se u `npm run dev` na Node v24.8.0 izbegava pad iz
+// TASK-34 §3 ([[dev-server-slug-shadow]]); vidi docs/tasks/BLOCKED.md.
 export const config = {
-  matcher: ["/((?!.*\\..*|_next).*)", "/", "/(api)(.*)"],
+  matcher: ["/((?!.*\\..*|_next|kupovina|ponuda).*)", "/", "/(api)(.*)"],
 };

@@ -47,15 +47,23 @@ export interface PurchaseStep1Copy {
   comboSoonNote: string;
   previewLabel: string; // aria: "Živi prikaz stranice usluge {name}"
   previewReadOnly: string;
+  previewUnavailable: string; // preview error-state fallback line
   previewMenuTitle: string;
   previewMenuBody: string;
   previewReviewTitle: string;
   previewReviewBody: string;
   premiumPrefix: string; // "Sa Premium nalogom još i:"
+  // Center-stage value lists around the mockup (TASK-44): what Basic gives and
+  // what Premium adds for the focused service.
+  basicSideHeading: string; // "Na Basic-u"
+  premiumSideHeading: string; // "Uz Premium"
+  premiumFutureShort: string; // "Sve buduće usluge automatski na Premium-u."
   services: Record<ServiceId, PurchaseServiceCopy>;
   packages: Record<PackageId, PurchasePackageCopy>;
   cartTitle: string;
   cartEmpty: string;
+  cartEmptyTitle: string; // engaging empty-cart headline
+  cartEmptyBody: string;
   cartHint: string;
   cartWas: string; // aria label for a struck list price
   cartSavings: string; // "Ušteda {amount} RSD"
@@ -72,10 +80,14 @@ export interface PurchaseStep1Copy {
 export interface PurchaseStep2Copy {
   basicTitle: string;
   basicIncludedLabel: string; // "Uključeno, ne plaćaš ništa."
+  basicLead: string; // one descriptive sentence under the Basic title
   basicItems: readonly string[];
   basicCta: string; // "Izaberi Basic"
   basicSelected: string; // "Izabrano"
   premiumTitle: string;
+  premiumLead: string; // one descriptive sentence — the Premium value prop
+  premiumRecommended: string; // badge, e.g. "Najviše vrednosti"
+  premiumOnCurrent: string; // "na trenutnih {current} {currency}"
   premiumFirstItem: string; // "Sve iz Basic-a"
   /** Per-service bullet items, keyed by ServiceId. Only rendered for a service
    *  the buyer actually owns AND whose list is non-empty. */
@@ -177,6 +189,7 @@ export interface PurchaseDict {
   back: string;
   next: string;
   finish: string;
+  pay: string; // last-step primary action in the sticky bar ("Plati")
   // Split-total bar (money never summed — RFC-002 §2.3).
   currency: string;
   perMonth: string;
@@ -215,6 +228,7 @@ export const purchaseSr = {
   back: "Nazad",
   next: "Dalje",
   finish: "Zaključi",
+  pay: "Plati",
   currency: "RSD",
   perMonth: "mesečno",
   perYear: "godišnje",
@@ -242,11 +256,15 @@ export const purchaseSr = {
     comboSoonNote: "Dostupno čim Meni krene.",
     previewLabel: "Živi prikaz stranice usluge {name}",
     previewReadOnly: "Živi prikaz — samo za pregled",
+    previewUnavailable: "Živi prikaz trenutno nije dostupan — usluga se svejedno dodaje u korpu.",
     previewMenuTitle: "Meni uskoro",
     previewMenuBody: "Digitalni jelovnik sa slikama i cenama, bez ponovne štampe.",
     previewReviewTitle: "Google recenzije",
     previewReviewBody: "Gost skenira i otvara se vaša Google stranica za ocenu — jedan dodir do recenzije.",
     premiumPrefix: "Sa Premium nalogom još i:",
+    basicSideHeading: "Na Basic-u",
+    premiumSideHeading: "Uz Premium",
+    premiumFutureShort: "Sve buduće usluge automatski na Premium-u.",
     services: {
       links: {
         name: "ScanMe Links",
@@ -305,6 +323,8 @@ export const purchaseSr = {
     },
     cartTitle: "Korpa",
     cartEmpty: "Izaberite uslugu sa leve strane da vidite cenu.",
+    cartEmptyTitle: "Počnite od prve usluge",
+    cartEmptyBody: "Kliknite uslugu — cena se pojavljuje odmah, a ušteda čim dodate drugu.",
     cartHint: "Cene se računaju uživo dok birate.",
     cartWas: "puna cena {price} RSD",
     cartSavings: "Ušteda {amount} RSD",
@@ -314,26 +334,32 @@ export const purchaseSr = {
   step2: {
     basicTitle: "Basic",
     basicIncludedLabel: "Uključeno, ne plaćaš ništa.",
+    basicLead:
+      "Nalog koji ništa ne košta. Plaćaš samo usluge koje izabereš — plan im ne dodaje ni dinar odozgo.",
     basicItems: [
-      "Sve usluge koje kupite rade odmah — nalog sam po sebi ništa ne naplaćuje.",
-      "Standardne granice svake usluge (npr. broj fotografija po gostu na Memories).",
-      "Dodajete ili menjate usluge kad god poželite, bez menjanja plana.",
+      "Svaka kupljena usluga radi odmah, u punom osnovnom obimu — sam nalog se ne naplaćuje.",
+      "Standardne granice po usluzi: na Memories do 3 fotografije po gostu i 30 dana čuvanja, na Venue osnovni blokovi stranice.",
+      "Dodaješ, menjaš ili uklanjaš usluge kad god poželiš — plan ostaje isti i besplatan.",
     ],
     basicCta: "Izaberi Basic",
     basicSelected: "Izabrano",
     premiumTitle: "Premium",
+    premiumLead:
+      "Jedan plan podiže svaku uslugu na najviši nivo — i onu koju uzmeš danas, i svaku koju dodaš sutra, bez ponovne odluke.",
+    premiumRecommended: "Najviše vrednosti",
+    premiumOnCurrent: "na trenutnih {current} {currency}",
     premiumFirstItem: "Sve iz Basic-a",
     premiumGroups: {
       links: [],
       venue: [
-        "Rezervacije sa kapacitetom — gost šalje upit za sto, a kad se zona popuni piše „popunjeno“.",
-        "Svi blokovi: rezervacije, prošli događaji, kartice ljudi, cenovnik, galerija.",
-        "Više događaja zakazanih unapred.",
-        "Analitika događaja.",
+        "Rezervacije sa kapacitetom — gost bira sto ili zonu, a kad se popuni stranica sama piše „popunjeno“.",
+        "Svi blokovi stranice: rezervacije, prošli događaji, kartice performera, cenovnik i galerija.",
+        "Više događaja zakazanih unapred, svaki sa svojim odbrojavanjem.",
+        "Analitika događaja — koliko je gostiju skeniralo kod i kada.",
       ],
       memories: [
-        "Do 10 fotografija po gostu umesto 3.",
-        "Uspomene se čuvaju godinu dana umesto 30 dana.",
+        "Do 10 fotografija po gostu umesto 3 — gosti stignu da podele celu proslavu, ne samo tri kadra.",
+        "Uspomene se čuvaju godinu dana umesto 30 dana, pa galerija ostaje živa i dugo posle proslave.",
       ],
       menu: [],
       review: [],

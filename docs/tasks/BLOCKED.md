@@ -481,3 +481,49 @@ Isti `NewRootCertStore` pad kao TASK-28 §4 / TASK-32 §5 / TASK-34 §3 / TASK-3
 `build` (typecheck celog app-a), `harness:namespace`, ceo `vitest` (696
 prošlo, uključujući 10 novih testova u `convex/checkout.test.ts` i 5 u
 `components/purchase/step-checkout-model.test.ts`).
+
+## TASK-44 — tok kupovine: izgled offer konfiguratora
+
+### 1. KORAK 0 — „shadow" /kupovina u `next dev` je zapravo Node X509 pad (REŠENO delimično)
+
+Provereno na licu mesta: **nema prave rute-shadow.** Statička ruta `/kupovina`
+uvek pobeđuje dinamičku `app/[slug]` (i u dev i u prod), i `GET /kupovina` vraća
+`200`. Ono što je TASK-34 §3 zabeležio kao „dev zaklanja /kupovina" je u stvari
+isti Node v24.8.0 `NewRootCertStore` pad (TASK-28 §4): convex-auth middleware
+(`proxy.ts`) na SVAKI *matched* zahtev zove `handleAuthenticationInRequest`
+(osvežavanje tokena → odlazni TLS ka Convex-u), a Node se tu deterministički
+ruši pri prvom TLS-u na hladnom serveru — pa dev server padne dok obrađuje prvi
+zahtev.
+
+**Ispravka u ovom tasku:** `/kupovina` i `/ponuda` su izuzete iz middleware
+matchera (`proxy.ts`). To su čisto javne prodajne stranice bez ijedne
+server-side auth kapije (prijava klijenta je client-side, `useConvexAuth`), pa
+middleware na njima ništa i ne radi — samo je pravio TLS koji ruši Node. Posle
+izmene `GET /kupovina` vraća `200` bez pada iz middleware-a (potvrđeno u logu:
+`GET /kupovina 200`). **Ovo je jedina KORAK 0 izmena van CSS/UI-ja.**
+
+**Ostaje vlasniku:** rezidualni pad može doći sa DRUGE rute koju browser
+prefetch-uje posle učitavanja (npr. `/`), jer i dalje ide kroz middleware. To je
+isti sredinski Node bug — puna stabilnost `next dev` traži Node LTS (v22/v20),
+što je već zabeležena odluka (TASK-28 §4 / TASK-29 §1). Na Node LTS-u nema pada i
+`/kupovina` radi u običnom `npm run dev` bez ijedne dalje izmene.
+
+### 2. „Logo" stavka u koraku 3 — namerno izostavljena (za potvrdu vlasnika)
+
+Opis KORAKA 3 nabraja desni akordeon kao „(Orijentacija, Dimenzije, Dizajn,
+Logo)". Logo je **izostavljen**, u skladu sa postojećom odlukom TASK-36 §3:
+korak 3 ne uvlači Convex logo upload (`offerLogoUploads`) da ne bi širio spregu i
+opseg. Ovo je „ISKLJUČIVO vizuelni task, ponašanje se ne menja" — dodavanje
+funkcionalnog logoa je NOVO ponašanje + backend sprega. Akordeon vizuelno i dalje
+liči na /ponuda (iste lens-ikonice, isto staklo, iste kontrole izbora — bukvalno
+iste `ConfigurationOptions`/`AccordionLabel` komponente sa /ponuda). **Vlasnik
+odlučuje:** dodati funkcionalni Logo i u korak 3 (isti reserve/commit obrazac kao
+/ponuda) ili ga ostaviti samo u /ponuda toku.
+
+### 3. `harness:check` i dalje sredinski blokiran (isti Node v24.8.0 bag)
+
+Isti `NewRootCertStore` pad kao gore. **Nije pad koda ovog taska.** Zeleno:
+`lint`, `build` (typecheck celog app-a, `/kupovina` i `/ponuda` se kompajliraju),
+`harness:namespace`, ceo `vitest`. Ovaj task ne dira nijedan pure model
+(`*-model.ts`, `lib/pricing`, `lib/offer-url`) niti ijedan test — samo TSX/CSS
+izgled + deljene primitive (`app/offer-surface.css`) + kopiju (`purchase.ts`).
