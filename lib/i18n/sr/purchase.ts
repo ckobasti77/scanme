@@ -123,6 +123,48 @@ export interface PurchaseStep3Copy {
   designHeading: string; // "Dizajn"
 }
 
+/** Step 4 (checkout + provisioning, RFC-002 §2.3 step 4 / §2.5 / TASK-38). Two
+ *  faces inside the same shell: the ORDER REVIEW (before the buyer confirms) and,
+ *  after confirming, the POST-PURCHASE SUMMARY — what was bought, where to set
+ *  each service up, and when the first billing lands. An empty "hvala" screen is
+ *  the missed opportunity this copy exists to avoid. */
+export interface PurchaseStep4Copy {
+  // Empty-cart guard (no services chosen yet).
+  emptyTitle: string;
+  emptyBody: string;
+  backToServices: string; // "Nazad na usluge"
+  // Review.
+  reviewHeading: string;
+  reviewIntro: string;
+  servicesHeading: string;
+  planHeading: string;
+  planPremiumNote: string; // "Premium važi na svaku uslugu — i one koje kasnije dodaš, bez doplate."
+  productsHeading: string;
+  productsCount: string; // "{count} fizičkih stavki"
+  productsNone: string; // "Bez fizičkih proizvoda."
+  splitterNote: string; // a bound-to-many line becomes a razdelnik card
+  recurringLabel: string; // "Pretplata"
+  oneTimeLabel: string; // "Jednokratno"
+  billingHeading: string; // "Prva naplata"
+  billingNow: string; // "Sada — {amount} {currency} {period}."
+  billingRenews: string; // "Obnavlja se {period}." (period already localized to "mesečno"/"godišnje")
+  billingFreePlan: string; // "Basic plan se ne naplaćuje — plaćaš samo usluge koje si izabrao."
+  confirmCta: string; // "Zaključi kupovinu"
+  // Post-purchase summary.
+  summaryTitle: string; // "Porudžbina je primljena."
+  summaryLead: string; // "Evo šta si kupio i gde da nastaviš."
+  summaryServicesHeading: string; // "Tvoje usluge"
+  summaryConfigureCta: string; // "Uđi u panel"
+  summaryConfigureHint: string; // "Podesi svaku uslugu u klijentskom panelu."
+  summaryComingSoon: string; // "uskoro" — for Menu
+  summaryPlanHeading: string; // "Plan"
+  summaryBillingHeading: string; // "Naplata"
+  summaryNextTitle: string; // "Šta dalje"
+  summaryNextSteps: readonly string[];
+  summaryConfigureAllHref: string; // "/client-panel"
+  serviceConfigure: Record<ServiceId, string>; // one line per service: what you set up there
+}
+
 export interface PurchaseDict {
   metaTitle: string;
   metaDescription: string;
@@ -152,6 +194,7 @@ export interface PurchaseDict {
   step1: PurchaseStep1Copy;
   step2: PurchaseStep2Copy;
   step3: PurchaseStep3Copy;
+  step4: PurchaseStep4Copy;
 }
 
 export const purchaseSr = {
@@ -327,5 +370,51 @@ export const purchaseSr = {
     cartProductsEmpty: "Još nema fizičkih proizvoda.",
     cartClose: "Zatvori korpu",
     designHeading: "Dizajn",
+  },
+  step4: {
+    emptyTitle: "Korpa je prazna",
+    emptyBody: "Vrati se na prvi korak i izaberi bar jednu uslugu.",
+    backToServices: "Nazad na usluge",
+    reviewHeading: "Pregled porudžbine",
+    reviewIntro: "Proveri šta kupuješ pre nego što zaključiš.",
+    servicesHeading: "Usluge",
+    planHeading: "Plan",
+    planPremiumNote:
+      "Premium važi na svaku uslugu — i one koje kasnije dodaš, bez doplate.",
+    productsHeading: "Fizički proizvodi",
+    productsCount: "{count} fizičkih stavki",
+    productsNone: "Bez fizičkih proizvoda.",
+    splitterNote:
+      "Stavka vezana za više usluga dobija karticu-razdelnik: gost bira uslugu na jednom ekranu.",
+    recurringLabel: "Pretplata",
+    oneTimeLabel: "Jednokratno",
+    billingHeading: "Prva naplata",
+    billingNow: "Sada — {amount}.",
+    billingRenews: "Obnavlja se {period}.",
+    billingFreePlan:
+      "Basic plan se ne naplaćuje — plaćaš samo usluge koje si izabrao.",
+    confirmCta: "Zaključi kupovinu",
+    summaryTitle: "Porudžbina je primljena.",
+    summaryLead: "Evo šta si kupio i gde da nastaviš.",
+    summaryServicesHeading: "Tvoje usluge",
+    summaryConfigureCta: "Uđi u panel",
+    summaryConfigureHint: "Podesi svaku uslugu u klijentskom panelu.",
+    summaryComingSoon: "uskoro",
+    summaryPlanHeading: "Plan",
+    summaryBillingHeading: "Naplata",
+    summaryNextTitle: "Šta dalje",
+    summaryNextSteps: [
+      "Javljamo se da potvrdimo detalje i aktiviramo naloge.",
+      "Uđi u klijentski panel i podesi svaku uslugu koju si izabrao.",
+      "Prvu uplatu evidentiramo ručno — dobićeš instrukcije za plaćanje.",
+    ],
+    summaryConfigureAllHref: "/client-panel",
+    serviceConfigure: {
+      links: "Podesi svoju Links stranicu i linkove.",
+      venue: "Napravi stranicu događaja i blokove.",
+      memories: "Otvori prostor za uspomene i kartice za stolove.",
+      menu: "Digitalni jelovnik stiže uskoro.",
+      review: "Poveži svoju Google stranicu za recenzije.",
+    },
   },
 } as const satisfies PurchaseDict;

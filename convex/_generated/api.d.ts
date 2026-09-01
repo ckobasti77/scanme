@@ -15,6 +15,7 @@ import type * as admin from "../admin.js";
 import type * as auth from "../auth.js";
 import type * as billing from "../billing.js";
 import type * as cards from "../cards.js";
+import type * as checkout from "../checkout.js";
 import type * as clientPanel from "../clientPanel.js";
 import type * as crons from "../crons.js";
 import type * as demo from "../demo.js";
@@ -79,6 +80,7 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   billing: typeof billing;
   cards: typeof cards;
+  checkout: typeof checkout;
   clientPanel: typeof clientPanel;
   crons: typeof crons;
   demo: typeof demo;

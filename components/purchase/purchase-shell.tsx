@@ -33,6 +33,7 @@ import {
 import { type PriceBreakdown } from "@/lib/pricing/engine";
 import { recurringByPeriod } from "@/lib/pricing/summary";
 import { computeProductsOneTime, formatRsd } from "@/lib/scanme-pricing";
+import { StepCheckout } from "./step-checkout";
 import { StepPlan } from "./step-plan";
 import { StepProducts } from "./step-products";
 import { StepServices } from "./step-services";
@@ -110,8 +111,6 @@ export function PurchaseShell({ initialSelection }: PurchaseShellProps) {
     if (!isLastStep) goToStep(PURCHASE_STEPS[stepIndex + 1]);
   };
 
-  const currentCopy = dict.steps[stepIndex];
-
   return (
     <section className={styles.shell} aria-label={dict.title}>
       <header className={styles.header}>
@@ -164,9 +163,9 @@ export function PurchaseShell({ initialSelection }: PurchaseShellProps) {
             exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -8 }}
             transition={{ duration: reduceMotion ? 0.12 : 0.2, ease: "easeOut" }}
           >
-            {/* Steps 1–3 are live (TASK-34, TASK-35, TASK-36). Step 4 is still a
-                placeholder that proves the layout contract: it is centered, and
-                the shell never re-mounts around it. */}
+            {/* All four steps are live (TASK-34..36, TASK-38). Each puts its own
+                content INSIDE the shell; the frame and the sticky bar never
+                re-mount around them. */}
             {selection.step === 1 ? (
               <StepServices selection={selection} onChange={setSelection} />
             ) : selection.step === 2 ? (
@@ -174,10 +173,7 @@ export function PurchaseShell({ initialSelection }: PurchaseShellProps) {
             ) : selection.step === 3 ? (
               <StepProducts selection={selection} onChange={setSelection} />
             ) : (
-              <div className={styles.panel} data-slot="full">
-                <span className={styles.soon}>{dict.soonTag}</span>
-                <p>{currentCopy.placeholder}</p>
-              </div>
+              <StepCheckout selection={selection} onChange={setSelection} />
             )}
           </motion.div>
         </AnimatePresence>

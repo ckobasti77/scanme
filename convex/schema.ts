@@ -947,7 +947,17 @@ export default defineSchema({
     period: v.optional(v.union(v.literal("monthly"), v.literal("annual"))),
     // Physical lines only: the service the printed item is bound to, and the
     // ProductSelection snapshot (shape from lib/scanme-pricing.ts, stored opaque).
+    // `boundService` is the primary (first) service; `boundServices` (TASK-38,
+    // §2.4) carries the FULL binding — a line bound to 2+ services is a splitter
+    // (razdelnik). Both are written for a physical line so a single-service
+    // reader keeps working while the splitter provisioner reads the array.
     boundService: v.optional(serviceType),
+    boundServices: v.optional(v.array(serviceType)),
+    // TASK-38: the splitter card this physical line provisioned (§2.4). Set once
+    // the card-aware splitter is minted; its presence makes provisioning
+    // idempotent per orderItem, so a resumed/retried fan-out never mints a
+    // second card for the same line.
+    provisionedCardId: v.optional(v.id("cards")),
     physicalSelection: v.optional(v.any()),
     lineTotalRsd: v.number(),
     createdAt: v.number(),

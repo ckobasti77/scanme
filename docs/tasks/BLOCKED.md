@@ -430,3 +430,54 @@ Isti `NewRootCertStore` pad kao u TASK-28 §4 / TASK-32 §5 / TASK-34 §3 /
 TASK-35 §1 / TASK-36 §5. **Nije pad koda ovog taska.** Zeleno: `lint`,
 `build`, `harness:namespace`, ceo `vitest` (uključujući 5 novih testova
 razdelnika u `convex/cards.test.ts`).
+
+## TASK-38 — korak 4: checkout i provizioniranje
+
+### 1. Self-serve onboarding (auth + izbor lokala) — nije u obimu ovog taska
+
+Backend `convex/checkout.ts` je gotov i testiran: `checkout` piše porudžbinu +
+snimak cene, obezbeđuje nalog i plan, aktivira `serviceProfiles` po lokalu i
+provizionira razdelnike — a nivo se izvodi iz plana naloga (getEntitlement
+korak 3), bez ijednog entitlement reda. Ali `checkout` traži `businessId`
+lokala i prijavljenog korisnika sa pristupom (`requireBusinessAccess`,
+netaknut). Javna `/kupovina` stranica NEMA ni prijavu ni izabran lokal —
+onboarding koji novom kupcu pravi prvi lokal i članstvo je zaseban sloj koji
+RFC-002 svesno odlaže („once onboarding creates the buyer's membership",
+convex/orders.ts). Zato je **korak-4 UI prezentacioni**: pregled porudžbine +
+ekran „šta si kupio / gde da podesiš / prva naplata"; dugme „Zaključi" ne zove
+`checkout` uživo. Kad onboarding/izbor lokala legne, dugme zove `api.checkout.
+checkout` bez promene na backendu. **Na vlasnikovoj/produktovoj odluci:** da li
+je javni tok samonaplativ (kupac se prijavi i bira lokal u toku) ili ostaje
+„pošalji upit → tim ručno aktivira" (ručni tok je i inače glavni, TASK-32).
+
+### 2. Razdelnik sa Memories na checkout-u — namerno suženo
+
+Fizička stavka vezana za više usluga provizionira karticu-razdelnik (TASK-37).
+Suženje na checkout-u:
+- **Links + Memories** u istom vezivanju se **odbija glasno, ovde** (poruka
+  `cardLinksMemoriesBlocked`) — to je Memories kroz Links-stranicu-razdelnik,
+  trajno blokiran put (§2.4/§6).
+- **Memories bez Links-a** (npr. Događaj = Venue + Memories): dugme za Memories
+  na razdelniku traži pravi `memoriesSpaces` prostor, koji na checkout-u još ne
+  postoji (pravi se u Memories host toku). Zato se takva kartica **ne pravi na
+  checkout-u** — vezivanje se zabeleži (`orderItems.boundServices`), a vlasnik
+  dodaje Memories dugme kasnije preko `cards.createCard` kad prostor postoji.
+  Model razdelnika sa Memories dugmetom je i dalje otvoreno pitanje (§5 Q8,
+  „Next implementer of task 11"). Razdelnik BEZ Memories-a (Links+Venue,
+  Review+Venue, …) se pravi odmah.
+
+### 3. Nadogradnja plana na postojećem nalogu (ponovljena kupovina)
+
+Ako lokal već pripada nalogu, `checkout` koristi TAJ nalog kao izvor istine za
+plan (Axis B) i ne menja mu plan iz koraka 2. Prva kupovina (nov lokal → nov
+solo nalog) uzima izabrani plan i radi ispravno. Nadogradnja plana kroz
+checkout na već postojećem nalogu (basic → premium) je zaseban tok — nije u
+obimu ovog taska.
+
+### 4. `harness:check` i dalje sredinski blokiran (isti Node v24.8.0 bag)
+
+Isti `NewRootCertStore` pad kao TASK-28 §4 / TASK-32 §5 / TASK-34 §3 / TASK-35
+§1 / TASK-36 §5 / TASK-37 §2. **Nije pad koda ovog taska.** Zeleno: `lint`,
+`build` (typecheck celog app-a), `harness:namespace`, ceo `vitest` (696
+prošlo, uključujući 10 novih testova u `convex/checkout.test.ts` i 5 u
+`components/purchase/step-checkout-model.test.ts`).

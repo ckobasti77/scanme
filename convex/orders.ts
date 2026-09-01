@@ -89,7 +89,7 @@ const SLUG_SUFFIX: Record<Exclude<ServiceType, "scanme_links">, string> = {
 // One physical line's total, computed exactly as computeOrderBreakdown does
 // per line (lib/scanme-pricing.ts): unit price × quantity, less the quantity
 // ladder. Recomputed server-side for price integrity.
-function physicalLineTotalRsd(selection: ProductSelection): number {
+export function physicalLineTotalRsd(selection: ProductSelection): number {
   const unitPrice = productUnitPrice(selection);
   const quantity = normalizeQuantity(selection.quantity);
   const lineSubtotal = roundRsd(unitPrice * quantity);
@@ -101,7 +101,7 @@ function physicalLineTotalRsd(selection: ProductSelection): number {
 // engine: premium is billed a period, basic (free) and enterprise (on request)
 // are not. The engine throws on the same mismatch; validating here yields a
 // clean message and a correct account row.
-function assertPlanPeriod(plan: PlanId, planPeriod: BillingPeriod | undefined) {
+export function assertPlanPeriod(plan: PlanId, planPeriod: BillingPeriod | undefined) {
   if (plan === "premium" && !planPeriod) {
     throw new ConvexError("Premium plan zahteva period naplate (planPeriod).");
   }
@@ -114,7 +114,7 @@ function assertPlanPeriod(plan: PlanId, planPeriod: BillingPeriod | undefined) {
 // an already-provisioned solo), or a fresh solo account created from the plan.
 // Either way the plan/period the order snapshots come from the ACCOUNT (Axis B
 // is account-level), never from a separate client field.
-async function resolveOrderAccount(
+export async function resolveOrderAccount(
   ctx: MutationCtx,
   args: {
     accountId?: Id<"accounts">;
@@ -156,7 +156,7 @@ async function resolveOrderAccount(
 // business) is linked here (§2.2.4 backfill, done inline at sale time); a
 // location owned by a DIFFERENT account is a genuine conflict and throws, loud —
 // an order never silently reparents someone else's location.
-async function linkBusinessesToAccount(
+export async function linkBusinessesToAccount(
   ctx: MutationCtx,
   accountId: Id<"accounts">,
   businessIds: readonly Id<"businesses">[],
@@ -178,7 +178,7 @@ async function linkBusinessesToAccount(
 // per DISTINCT service. A service a location owns is priced once for the account
 // (Axis A is per service, not per location); the same service on two locations
 // must share a period, or the account would be subscribing to it twice at once.
-function buildEngineItems(
+export function buildEngineItems(
   serviceLines: readonly { service: ServiceType; period: BillingPeriod }[],
 ): { service: ServiceId; period: BillingPeriod }[] {
   const byService = new Map<ServiceId, BillingPeriod>();
@@ -315,7 +315,7 @@ export const createOrder = mutation({
 // existing profile, or birth a bare active ownership profile if none exists.
 // Product-specific config (the Links config, the Review destination, …) is
 // provisioned by each product's own flow — this only flips ownership on.
-async function ensureActiveServiceProfile(
+export async function ensureActiveServiceProfile(
   ctx: MutationCtx,
   businessId: Id<"businesses">,
   type: ServiceType,
