@@ -21,5 +21,9 @@
     "noEmit": true
   },
   "include": ["./**/*"],
-  "exclude": ["./_generated"]
+  /* Test files run under vitest (convex-test), not on the deployment; inside
+   * t.run withIndex loses schema index types (poznata convex-test typing
+   * gotcha), so deploy-time tsc would fail on healthy tests. Functions keep
+   * the full typecheck. */
+  "exclude": ["./_generated", "./**/*.test.ts"]
 }
