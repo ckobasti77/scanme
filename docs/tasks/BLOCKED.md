@@ -527,3 +527,58 @@ Isti `NewRootCertStore` pad kao gore. **Nije pad koda ovog taska.** Zeleno:
 `harness:namespace`, ceo `vitest`. Ovaj task ne dira nijedan pure model
 (`*-model.ts`, `lib/pricing`, `lib/offer-url`) niti ijedan test — samo TSX/CSS
 izgled + deljene primitive (`app/offer-surface.css`) + kopiju (`purchase.ts`).
+
+---
+
+## TASK-41 — admin podstranice po lokalu, sidebar lokala, Page→Meni (§2.6, §4 z.13)
+
+### 1. „Provera na serveru" u okruženju gde autentifikovan SSR Convex pada
+
+Zahtev: podstranica neaktivne usluge se ponaša „kao da ne postoji", i provera
+je na **serveru, ne u UI**. U ovom kodu admin autorizacija je **dvoslojna**:
+`proxy.ts` middleware traži samo *prijavljen* nalog (redirect na `/admin/login`),
+a admin **ulogu** proverava client-side `AdminGuard` preko `api.admin.me`. Nijedan
+SSR poziv ka Convex-u ne nosi auth token (`convexAuthNextjsToken` se nigde ne
+koristi) — a baš taj put (autentifikovan odlazni TLS tokom SSR-a) je ono što ruši
+Node v24.8.0 (`NewRootCertStore`).
+
+**Odluka (implementirano):** kapija je **server-autoritativna** kroz Convex upit
+`admin.location` koji ide kroz `requireAdmin` i **ne vraća sadržaj** za lokal koji
+ne postoji/arhiviran je, niti dozvoljava podstranicu za uslugu koja nije `active`.
+Klijentski ekran na tu presudu poziva `notFound()` (Next not-found granica).
+Suština: **server odlučuje o postojanju i uskraćuje podatke**; klijent ne može da
+otkrije ono što server nije poslao — nema bool-a u UI-ju koji „otključava"
+neaktivnu uslugu. Ovo je jedini način bez pada na ovom Node-u i poštuje postojeći
+(client-gated) admin obrazac.
+
+**Ostaje vlasniku/infra:** kad se Node podigne na LTS (v22/v20) — već zabeležena
+odluka (TASK-28 §4) — tanka server strana (`app/admin/customers/[businessId]/...`)
+može dodatno da uradi `fetchQuery(admin.location, …, { token })` + `notFound()`
+čisto u SSR-u, bez ijedne izmene upita. Do tada je gornji obrazac ispravan i
+bezbedan.
+
+### 2. Podstranice su Links / Review / Venue / Meni — Memories namerno izostavljen
+
+Cilj eksplicitno nabraja četiri podstranice po lokalu: **Links, Review, Venue,
+Meni**. `scanme_memories` je usluga po **proslavi/događaju** (svojom `/admin/memories`
+konzolom i host panelom), ne standardna podstranica lokala, pa **nema** svoju
+podstranicu ovde čak i kad je aktivna na lokalu. Njen status i dalje vidi tabela
+korisnika (TASK-40). **Vlasnik potvrđuje** da Memories ostaje van ovog seta
+podstranica.
+
+### 3. Meni zastavica (`lib/flags.ts: MENU_EXISTS`) — jedan prekidač
+
+Meni još **ne postoji** kao proizvod (nema `scanme_menu` u `serviceTypeValidator`,
+nema stranice/editora). Napravljena je samo **kuka za preimenovanje**: `MENU_EXISTS`
+(sada `false`) u `lib/flags.ts`. Dok je `false`, oznaka u admin navigaciji ostaje
+„ScanMe Page", a Meni podstranica po lokalu se ne prikazuje (i onako ne bi bila
+`active` jer nema `scanme_menu` profila). Kad Meni bude proizvod: (a) flipni
+`MENU_EXISTS = true` i (b) dodaj `scanme_menu` u `serviceTypeValidator`. Prodajni
+tok (`/kupovina`, `/ponuda`) i njegov „Meni USKORO" se **ne diraju** ovim taskom.
+
+### 4. `harness:check` i dalje sredinski blokiran (Node v24.8.0)
+
+Isti `NewRootCertStore` pad. **Nije pad koda ovog taska.** Zeleno: `lint`,
+`build`, `harness:namespace`, ceo `vitest` (uklj. novi convex-test za
+`admin.location`: gating neaktivne usluge, enterprise grupisanje, non-admin
+odbijen).

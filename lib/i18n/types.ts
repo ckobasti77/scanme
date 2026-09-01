@@ -1641,6 +1641,57 @@ export interface AdminCustomersDict {
   auditGeneric: string; // "{action}" — unknown future action slug
 }
 
+// Per-location admin subpages + location sidebar (components/admin/location-admin.tsx,
+// TASK-41, RFC-002 §2.6). Sits BELOW the customers table (TASK-40): drill into one
+// location, see only the subpages for its ACTIVE services, and (for a multi-location
+// account) a sidebar to jump between the account's locations. `{...}` via fmt().
+export interface AdminLocationDict {
+  // Chrome / header.
+  eyebrow: string; // "Lokal"
+  backToCustomers: string; // link back to the customers table
+  backToCustomersAria: string;
+  notFoundTitle: string; // the location / subpage 404 card
+  notFoundBody: string;
+  loadError: string;
+  // Plan + status (reuse the customers vocabulary).
+  planBasic: string;
+  planPremium: string;
+  planEnterprise: string;
+  planNone: string; // account-less location ("—")
+  periodMonthly: string;
+  periodAnnual: string;
+  periodNone: string;
+  statusActive: string;
+  statusInactive: string;
+  // Location sidebar (Enterprise only).
+  sidebarHeading: string; // "Lokali u lancu"
+  sidebarServiceCount: string; // "{count} usluga"
+  sidebarCurrentAria: string; // "{name} — trenutni lokal"
+  // Subpage tab nav + bodies. The four per-location subpages.
+  subpagesHeading: string; // "Podstranice"
+  subpageLinks: string; // "ScanMe Links"
+  subpageReview: string; // "Google Review"
+  subpageVenue: string; // "ScanMe Venue"
+  subpageMenuComing: string; // Page→Menu rename hook, false state: "ScanMe Page"
+  subpageMenuLive: string; // Page→Menu rename hook, true state: "Meni"
+  noActiveSubpages: string; // location owns no subpage-bearing service
+  noActiveSubpagesBody: string;
+  overviewHeading: string; // "Aktivne podstranice"
+  overviewIntro: string;
+  openSubpage: string; // "Otvori"
+  // Per-service body: what this subpage is + links out to the real surfaces.
+  bodyLinksIntro: string;
+  bodyReviewIntro: string;
+  bodyVenueIntro: string;
+  openPublic: string; // "Otvori javnu stranicu"
+  openEditor: string; // "Otvori editor"
+  openClientPanel: string; // "Otvori klijentski panel"
+  serviceStatusLabel: string; // "Status usluge"
+  // A subpage reached for a service that is not active on this location.
+  inactiveNoticeTitle: string; // "Usluga nije aktivna"
+  inactiveNoticeBody: string;
+}
+
 export interface DictBySurface {
   venue: VenueDict;
   "venue-editor": VenueEditorDict;
@@ -1655,6 +1706,7 @@ export interface DictBySurface {
   privacy: PrivacyDict;
   offer: OfferDict;
   "admin-customers": AdminCustomersDict;
+  "admin-location": AdminLocationDict;
 }
 
 export type Surface = keyof DictBySurface;

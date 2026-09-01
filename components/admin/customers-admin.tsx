@@ -428,7 +428,17 @@ function CustomerRows({
                 {row.isEnterprise ? (
                   <Building2 className="size-4 shrink-0 text-primary" aria-hidden="true" />
                 ) : null}
-                <span className="truncate">{row.name}</span>
+                {soloLocation ? (
+                  // Drill into the per-location admin (subpages + sidebar, TASK-41).
+                  <Link
+                    href={`/admin/customers/${soloLocation.id}`}
+                    className="truncate underline-offset-2 hover:text-primary hover:underline"
+                  >
+                    {row.name}
+                  </Link>
+                ) : (
+                  <span className="truncate">{row.name}</span>
+                )}
               </span>
               {row.isEnterprise ? (
                 <span className="mt-1 inline-flex items-center gap-1 text-xs text-muted-foreground">
@@ -512,7 +522,12 @@ function CustomerRows({
             <tr key={location.id} className="border-b border-border/40 bg-secondary/30">
               <td className="px-4 py-3 pl-12" colSpan={3}>
                 <div className="flex flex-col gap-1">
-                  <span className="font-medium">{location.name}</span>
+                  <Link
+                    href={`/admin/customers/${location.id}`}
+                    className="w-fit font-medium underline-offset-2 hover:text-primary hover:underline"
+                  >
+                    {location.name}
+                  </Link>
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                     {location.phone ? (
                       <a

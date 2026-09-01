@@ -26,6 +26,7 @@ import { consentSr } from "./sr/consent";
 import { privacySr } from "./sr/privacy";
 import { offerSr } from "./sr/offer";
 import { adminCustomersSr } from "./sr/admin-customers";
+import { adminLocationSr } from "./sr/admin-location";
 
 export { fmt, srPluralCategory };
 export type {
@@ -45,6 +46,7 @@ export type {
   PrivacyDict,
   OfferDict,
   AdminCustomersDict,
+  AdminLocationDict,
 } from "./types";
 export {
   venueSr,
@@ -60,6 +62,7 @@ export {
   privacySr,
   offerSr,
   adminCustomersSr,
+  adminLocationSr,
 };
 
 const SR: DictBySurface = {
@@ -76,6 +79,7 @@ const SR: DictBySurface = {
   privacy: privacySr,
   offer: offerSr,
   "admin-customers": adminCustomersSr,
+  "admin-location": adminLocationSr,
 };
 
 export function getDict<S extends Surface>(surface: S): DictBySurface[S] {

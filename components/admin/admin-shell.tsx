@@ -8,13 +8,22 @@ import { usePathname } from "next/navigation";
 import { useRef, useState, type ReactNode } from "react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { BrandLogo } from "@/components/brand-logo";
+import { MENU_EXISTS } from "@/lib/flags";
+import { adminLocationSr } from "@/lib/i18n/sr/admin-location";
 import { cn } from "@/lib/utils";
 
 const navigation = [
   { href: "/admin/customers", label: "Korisnici" },
   { href: "/admin/scanme-links", label: "ScanMe Links" },
   { href: "/admin/google-reviews", label: "Google Review kartice" },
-  { href: "/admin/page", label: "ScanMe Page" },
+  // Page → Menu rename HOOK (TASK-41, RFC-002 §2.6): one flag flips the label the
+  // day Menu becomes a product. Until then it stays "ScanMe Page".
+  {
+    href: "/admin/page",
+    label: MENU_EXISTS
+      ? adminLocationSr.subpageMenuLive
+      : adminLocationSr.subpageMenuComing,
+  },
   { href: "/admin/venue", label: "ScanMe Venue" },
   { href: "/admin/memories", label: "ScanMe Memories" },
 ];

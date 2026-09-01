@@ -1380,3 +1380,125 @@ export const setServiceProfileActive = mutation({
     return { status: nextStatus, changed: true as const };
   },
 });
+
+// TASK-41 (RFC-002 §2.6, §4 task 13) — the per-location admin read that the
+// per-location subpages (Links / Review / Venue / Meni) and the location
+// sidebar sit on. This is the SERVER-AUTHORITATIVE gate: it is `requireAdmin`-d,
+// and it returns `null` for a location that does not exist or is archived — the
+// caller renders that as `notFound()`, so a typed URL behaves "as if it does not
+// exist". Per-subpage gating is the caller checking a service's `active` flag
+// from `services` below (an inactive service simply is not in the active set, so
+// its subpage 404s). No content for a non-existent location is ever returned.
+//
+// `siblings` are the account's OTHER locations (plus this one); the UI shows the
+// location sidebar ONLY when `isEnterprise` (an account with more than one
+// location). A solo/legacy location gets `siblings = [self]` and full width.
+type LocationSubpageService = {
+  id: Id<"serviceProfiles">;
+  type: Doc<"serviceProfiles">["type"];
+  active: boolean;
+};
+
+type LocationSibling = {
+  id: Id<"businesses">;
+  name: string;
+  slug: string;
+  activeServiceCount: number;
+};
+
+type LocationAdminView = {
+  location: {
+    id: Id<"businesses">;
+    name: string;
+    slug: string;
+    status: Doc<"businesses">["status"];
+    contactName: string | null;
+    phone: string | null;
+  };
+  account: AccountView | null;
+  isEnterprise: boolean;
+  siblings: LocationSibling[];
+  services: LocationSubpageService[];
+};
+
+async function activeServiceCount(
+  ctx: QueryCtx,
+  businessId: Id<"businesses">,
+): Promise<number> {
+  const profiles = await ctx.db
+    .query("serviceProfiles")
+    .withIndex("by_businessId", (q) => q.eq("businessId", businessId))
+    .take(20);
+  return profiles.filter((profile) => profile.status === "active").length;
+}
+
+export const location = query({
+  args: { businessId: v.id("businesses") },
+  handler: async (ctx, args): Promise<LocationAdminView | null> => {
+    await requireAdmin(ctx);
+
+    const business = await ctx.db.get(args.businessId);
+    // "Kao da ne postoji": a missing or archived location returns no view.
+    if (!business || business.archivedAt) return null;
+
+    const account = business.accountId
+      ? await ctx.db.get(business.accountId)
+      : null;
+
+    // Siblings = the account's non-archived locations (this one included), so the
+    // sidebar can jump between them. Legacy account-less location is its own sole
+    // sibling. Bounded to the same 100 rows as the customers grouping read.
+    let siblingBusinesses: Doc<"businesses">[] = [business];
+    if (business.accountId) {
+      const grouped = await ctx.db
+        .query("businesses")
+        .withIndex("by_account", (q) => q.eq("accountId", business.accountId))
+        .take(100);
+      siblingBusinesses = grouped.filter((row) => !row.archivedAt);
+      if (!siblingBusinesses.some((row) => row._id === business._id)) {
+        siblingBusinesses.push(business);
+      }
+    }
+    siblingBusinesses.sort((a, b) =>
+      a.name.localeCompare(b.name, "sr-Latn", { sensitivity: "base" }),
+    );
+
+    const siblings: LocationSibling[] = await Promise.all(
+      siblingBusinesses.map(async (row) => ({
+        id: row._id,
+        name: row.name,
+        slug: row.slug,
+        activeServiceCount: await activeServiceCount(ctx, row._id),
+      })),
+    );
+
+    const profiles = await ctx.db
+      .query("serviceProfiles")
+      .withIndex("by_businessId", (q) => q.eq("businessId", business._id))
+      .take(20);
+    const services: LocationSubpageService[] = profiles
+      .filter((profile) => profile.status !== "archived")
+      .map((profile) => ({
+        id: profile._id,
+        type: profile.type,
+        active: profile.status === "active",
+      }));
+
+    const { contactName, phone } = await primaryContactView(ctx, business._id);
+
+    return {
+      location: {
+        id: business._id,
+        name: business.name,
+        slug: business.slug,
+        status: business.status,
+        contactName,
+        phone,
+      },
+      account: account ? accountView(account) : null,
+      isEnterprise: siblingBusinesses.length > 1,
+      siblings,
+      services,
+    };
+  },
+});
