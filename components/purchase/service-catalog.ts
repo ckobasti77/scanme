@@ -5,10 +5,38 @@
 // table so the cards and the price can never name different service sets.
 
 import {
+  Boxes,
+  Images,
+  Link2,
+  PartyPopper,
+  Sparkles,
+  Star,
+  Store,
+  UtensilsCrossed,
+  type LucideIcon,
+} from "lucide-react";
+import {
   DEFAULT_PRICING_CONSTANTS,
   type PackageId,
   type ServiceId,
 } from "@/lib/pricing/engine";
+
+// One symbolic lucide icon per service/package — the SAME icon on the step-1
+// card, in the cart, and (TASK-39) on the landing page's packages/services
+// section, so a buyer recognizes a service by its icon across every surface.
+export const SERVICE_ICONS: Record<ServiceId, LucideIcon> = {
+  links: Link2,
+  venue: PartyPopper,
+  memories: Images,
+  menu: UtensilsCrossed,
+  review: Star,
+};
+
+export const PACKAGE_ICONS: Record<PackageId, LucideIcon> = {
+  dogadjaj: Sparkles,
+  lokal: Store,
+  kompletan: Boxes,
+};
 
 /** Left-list order of the five service cards (matches the engine's canonical
  *  service order so the cart and the list read in the same sequence). */

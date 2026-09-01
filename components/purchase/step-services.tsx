@@ -15,30 +15,18 @@
 // step-services-model.ts; the component only chooses which field to show.
 
 import { motion, useReducedMotion } from "framer-motion";
-import {
-  Boxes,
-  Check,
-  Images,
-  Link2,
-  PartyPopper,
-  Plus,
-  ScanLine,
-  Sparkles,
-  Star,
-  Store,
-  TrendingUp,
-  UtensilsCrossed,
-  type LucideIcon,
-} from "lucide-react";
+import { Check, Plus, ScanLine, Sparkles, TrendingUp } from "lucide-react";
 import { Component, useMemo, useState, type ReactNode } from "react";
 import { fmt } from "@/lib/i18n/format";
 import { purchaseSr } from "@/lib/i18n/sr/purchase";
-import type { BillingPeriod, PackageId, ServiceId } from "@/lib/pricing/engine";
+import type { BillingPeriod, ServiceId } from "@/lib/pricing/engine";
 import type { PurchaseSelection } from "@/lib/offer-url";
 import { formatRsd } from "@/lib/scanme-pricing";
 import {
+  PACKAGE_ICONS,
   PURCHASE_COMBOS,
   PURCHASE_SERVICE_ORDER,
+  SERVICE_ICONS,
   UNAVAILABLE_SERVICES,
   isServiceAvailable,
 } from "./service-catalog";
@@ -59,22 +47,6 @@ import {
 import styles from "./step-services.module.css";
 
 const dict = purchaseSr.step1;
-
-// One symbolic lucide icon per service — the SAME icon on the card and in the
-// cart, rendered in the accent color (RFC-002 §2.3 / TASK-44).
-const SERVICE_ICONS: Record<ServiceId, LucideIcon> = {
-  links: Link2,
-  venue: PartyPopper,
-  memories: Images,
-  menu: UtensilsCrossed,
-  review: Star,
-};
-
-const PACKAGE_ICONS: Record<PackageId, LucideIcon> = {
-  dogadjaj: Sparkles,
-  lokal: Store,
-  kompletan: Boxes,
-};
 
 /** The centre shows the REAL public page of a service; some (Venue) reach for
  *  Convex data a fixture cannot satisfy. Rather than let that take the whole
