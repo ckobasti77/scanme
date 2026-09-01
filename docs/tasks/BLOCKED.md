@@ -582,3 +582,36 @@ Isti `NewRootCertStore` pad. **Nije pad koda ovog taska.** Zeleno: `lint`,
 `build`, `harness:namespace`, ceo `vitest` (uklj. novi convex-test za
 `admin.location`: gating neaktivne usluge, enterprise grupisanje, non-admin
 odbijen).
+
+---
+
+## TASK-42 — QA toka kupovine, presuda i deploy
+
+### 1. Node 22 i dalje nedostupan — harness ostaje sredinski blokiran
+
+Provereno pri pokretanju: `nvm`/`fnm`/`volta` ne postoje na mašini, jedini
+Node je v24.8.0. `npm run check` reprodukovao isti `NewRootCertStore` pad u
+`harness:check` (dev server umre na odlaznom TLS-u posle prvih uspešnih
+zahteva; Playwright vidi `ERR_CONNECTION_REFUSED` na 3199). **Goldeni tako ni
+ovaj put nisu provereni** — od početka niza nijednom. Zeleno: `lint` (0),
+`build`, `harness:namespace`, ceo `vitest` (710 prošlo / 1 preskočen, uklj. 6
+novih testova ovog taska). Opcije za vlasnika nepromenjene (TASK-28 §4 /
+TASK-29 §1): Node LTS, zakrpljeni v24.x, ili goldeni u CI-ju.
+
+### 2. Tastaturna potvrda toka na pravom browseru (1 minut, vlasnik/QA)
+
+QA browser pane ne ume NATIVNU tastaturnu aktivaciju dugmeta (Enter/Space na
+fokusiranom `<button>` ne klikće — provereno na theme switchu), pa je
+end-to-end tastaturni prolaz kroz `/kupovina` verifikovan analizom koda + je
+jedini nađeni blokator popravljen (`step-services.tsx`, guard na
+`event.target`). Ručna potvrda: Tab do „Dodaj: Venue" → Enter → … → „Plati" →
+Enter, na pravom browseru — stavka 3 smoke liste u
+`docs/qa/PURCHASE-READINESS.md`.
+
+### 3. Nalazi koji NE blokiraju deploy — zapisani i rangirani
+
+Pristupačnost: `docs/qa/purchase-accessibility.md` (5 kontrastnih padova
+svetle teme, fokus na karticama, `inert` na preview, dialog korpe, fokus
+posle „Plati"). Rizici prve prave naplate: rang-lista u
+`docs/qa/PURCHASE-READINESS.md` — vrh liste je ljudski korak (neupisana
+uplata → grace → sweep tiho gasi premium), ne kod.

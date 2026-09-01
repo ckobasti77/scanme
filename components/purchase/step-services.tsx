@@ -210,6 +210,11 @@ export function StepServices({ selection, onChange }: StepServicesProps) {
                   aria-pressed={active === service}
                   onClick={() => focus(service)}
                   onKeyDown={(event) => {
+                    // Samo Enter/Space na SAMOJ kartici; isti taster koji je
+                    // babljao sa unutrašnjeg "Dodaj" dugmeta bi preventDefault-om
+                    // otkazao njegovu nativnu aktivaciju (tastatura ne bi mogla
+                    // da doda uslugu).
+                    if (event.target !== event.currentTarget) return;
                     if (event.key === "Enter" || event.key === " ") {
                       event.preventDefault();
                       focus(service);
@@ -278,6 +283,7 @@ export function StepServices({ selection, onChange }: StepServicesProps) {
                   data-selected={complete}
                   onClick={() => focus(previewService)}
                   onKeyDown={(event) => {
+                    if (event.target !== event.currentTarget) return;
                     if (event.key === "Enter" || event.key === " ") {
                       event.preventDefault();
                       focus(previewService);
