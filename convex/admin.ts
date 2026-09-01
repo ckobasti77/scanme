@@ -9,6 +9,7 @@ import {
   type QueryCtx,
 } from "./_generated/server";
 import { isAdminEmail, requireAdmin } from "./lib/access";
+import { writeAdminAudit } from "./lib/adminAudit";
 import { upsertManualEntitlement } from "./lib/entitlements";
 import { buildBusinessContactViews } from "./lib/contacts";
 import { aggregateMetricRowsForRange, getMetricRows, metricsRangeConfig } from "./lib/metrics";
@@ -1188,14 +1189,50 @@ export const approveActivation = mutation({
 // the grouping the Enterprise/solo layout turns on.
 // =============================================================================
 
+type CustomerService = {
+  id: Id<"serviceProfiles">;
+  type: Doc<"serviceProfiles">["type"];
+  status: Doc<"serviceProfiles">["status"];
+};
+
 type CustomerLocation = {
   id: Id<"businesses">;
   name: string;
   slug: string;
   status: Doc<"businesses">["status"];
   archivedAt: number | null;
-  activeServices: Doc<"serviceProfiles">["type"][];
+  // Who to call: the location's primary POC (first active/invited, else the
+  // most recent). The operational table is a call list, so the phone rides
+  // beside the name.
+  contactName: string | null;
+  phone: string | null;
+  // EVERY service profile (not just active) so the table can both list the
+  // active ones and offer an activate/deactivate toggle for the inactive ones.
+  services: CustomerService[];
 };
+
+// The primary POC phone for the call-list column — the same "first active,
+// else most recent inactive" selection buildBusinessContactViews uses, kept
+// cheap (no invitation fan-out).
+async function primaryContactView(
+  ctx: QueryCtx,
+  businessId: Id<"businesses">,
+): Promise<{ contactName: string | null; phone: string | null }> {
+  const contacts = await ctx.db
+    .query("businessContacts")
+    .withIndex("by_businessId", (q) => q.eq("businessId", businessId))
+    .order("asc")
+    .take(50);
+  const active = contacts.filter((contact) => contact.status !== "inactive");
+  const primary =
+    active[0] ?? (contacts.length ? contacts[contacts.length - 1] : null);
+  if (!primary) return { contactName: null, phone: null };
+  const name = `${primary.firstName} ${primary.lastName}`.trim();
+  return {
+    contactName: name || null,
+    phone: primary.phone.trim() || null,
+  };
+}
 
 type AccountView = {
   id: Id<"accounts">;
@@ -1218,16 +1255,22 @@ async function customerLocationView(
     .query("serviceProfiles")
     .withIndex("by_businessId", (q) => q.eq("businessId", business._id))
     .take(20);
-  const activeServices = profiles
-    .filter((profile) => profile.status === "active")
-    .map((profile) => profile.type);
+  const { contactName, phone } = await primaryContactView(ctx, business._id);
   return {
     id: business._id,
     name: business.name,
     slug: business.slug,
     status: business.status,
     archivedAt: business.archivedAt ?? null,
-    activeServices,
+    contactName,
+    phone,
+    services: profiles
+      .filter((profile) => profile.status !== "archived")
+      .map((profile) => ({
+        id: profile._id,
+        type: profile.type,
+        status: profile.status,
+      })),
   };
 }
 
@@ -1290,5 +1333,50 @@ export const customers = query({
     }
 
     return rows;
+  },
+});
+
+// TASK-40 (RFC-002 §2.6, §4 task 12) — activate/deactivate ONE service on ONE
+// location straight from the customers table. This is the ownership gate
+// (§1.b: ownership is `serviceProfiles.status === "active"`); the tier the
+// account plan grants resolves live in getEntitlement step 3, so flipping
+// ownership needs no entitlement write. EVERY such change writes EXACTLY ONE
+// adminAuditLog row in the same transaction (who/what/when) — paid things are
+// granted by hand and the first dispute turns on this trail. A no-op (the
+// service is already in the requested state) writes nothing and reports it.
+//
+// Deliberately NOT setBusinessActive: that one is welded to the Google-Review
+// dynamicLink + its published destination and stays untouched. This flips a
+// single serviceProfile of any type.
+export const setServiceProfileActive = mutation({
+  args: { serviceProfileId: v.id("serviceProfiles"), active: v.boolean() },
+  handler: async (ctx, args) => {
+    const admin = await requireAdmin(ctx);
+    const profile = await ctx.db.get(args.serviceProfileId);
+    if (!profile) throw new ConvexError("Servis nije pronađen.");
+    const business = await ctx.db.get(profile.businessId);
+    if (!business) throw new ConvexError("Lokal nije pronađen.");
+    if (business.archivedAt) {
+      throw new ConvexError("Arhivirani lokal ne može da menja usluge.");
+    }
+    if (profile.status === "archived") {
+      throw new ConvexError("Arhivirani servis ne može da se menja.");
+    }
+    const nextStatus = args.active ? "active" : "inactive";
+    if (profile.status === nextStatus) {
+      return { status: profile.status, changed: false as const };
+    }
+
+    const now = Date.now();
+    await ctx.db.patch(profile._id, { status: nextStatus, updatedAt: now });
+    await writeAdminAudit(ctx, {
+      actorUserId: admin._id,
+      ...(business.accountId ? { accountId: business.accountId } : {}),
+      businessId: business._id,
+      action: args.active ? "activate_service" : "deactivate_service",
+      detail: { service: profile.type, serviceProfileId: profile._id },
+      now,
+    });
+    return { status: nextStatus, changed: true as const };
   },
 });

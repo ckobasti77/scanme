@@ -11,6 +11,7 @@ import { BrandLogo } from "@/components/brand-logo";
 import { cn } from "@/lib/utils";
 
 const navigation = [
+  { href: "/admin/customers", label: "Korisnici" },
   { href: "/admin/scanme-links", label: "ScanMe Links" },
   { href: "/admin/google-reviews", label: "Google Review kartice" },
   { href: "/admin/page", label: "ScanMe Page" },

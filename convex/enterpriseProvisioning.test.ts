@@ -380,4 +380,137 @@ describe("admin.customers grouping read (RFC-002 §2.6)", () => {
       "administratorski",
     );
   });
+
+  test("a solo customer carries the call-list phone + all its services", async () => {
+    const t = convexTest(schema, modules);
+    const { adminUserId } = await seedUsers(t);
+    const asAdmin = t.withIdentity({ subject: adminUserId, issuer: ISSUER });
+
+    await asAdmin.mutation(api.admin.createBusiness, {
+      name: "Kafić Ćira",
+      slug: "kafic-cira",
+      destinationUrl: "https://maps.google.com/cira",
+      contacts: [
+        {
+          firstName: "Mika",
+          lastName: "Mikić",
+          email: "mika@cira.test",
+          phone: "0641234567",
+          positionTitle: "Vlasnik",
+        },
+      ],
+    });
+
+    const rows = await asAdmin.query(api.admin.customers, {});
+    const row = rows.find(
+      (r) => r.kind === "solo" && r.location.slug === "kafic-cira",
+    );
+    expect(row && row.kind === "solo").toBe(true);
+    if (!row || row.kind !== "solo") throw new Error("solo row missing");
+    expect(row.location.phone).toBe("0641234567");
+    expect(row.location.contactName).toBe("Mika Mikić");
+    // createBusiness seeds scanme_links + google_review profiles (both inactive).
+    const types = row.location.services.map((s) => s.type).sort();
+    expect(types).toEqual(["google_review", "scanme_links"]);
+    expect(row.location.services.every((s) => s.status === "inactive")).toBe(true);
+  });
+});
+
+describe("admin.setServiceProfileActive (RFC-002 §2.6, TASK-40)", () => {
+  test("toggling a service writes EXACTLY ONE audit row (who/what/when)", async () => {
+    const t = convexTest(schema, modules);
+    const { adminUserId } = await seedUsers(t);
+    const asAdmin = t.withIdentity({ subject: adminUserId, issuer: ISSUER });
+
+    const created = await asAdmin.mutation(api.admin.createBusiness, {
+      name: "Bar Brut",
+      slug: "bar-brut",
+      destinationUrl: "https://maps.google.com/brut",
+      contacts: [
+        {
+          firstName: "Ana",
+          lastName: "Anić",
+          email: "ana@brut.test",
+          phone: "0607654321",
+          positionTitle: "Vlasnik",
+        },
+      ],
+    });
+    const profileId = created.scanMeLinksProfileId;
+    const businessId = created.businessId;
+
+    // Activate → status flips, one audit row.
+    const activated = await asAdmin.mutation(api.admin.setServiceProfileActive, {
+      serviceProfileId: profileId,
+      active: true,
+    });
+    expect(activated.changed).toBe(true);
+    expect(activated.status).toBe("active");
+
+    let audit = await t.run((ctx) =>
+      ctx.db
+        .query("adminAuditLog")
+        .withIndex("by_businessId_and_createdAt", (q) =>
+          q.eq("businessId", businessId),
+        )
+        .collect(),
+    );
+    expect(audit).toHaveLength(1);
+    expect(audit[0].action).toBe("activate_service");
+    expect(audit[0].actorUserId).toBe(adminUserId);
+    expect(JSON.parse(audit[0].detail ?? "{}").service).toBe("scanme_links");
+
+    // A no-op (already active) writes NOTHING.
+    const noop = await asAdmin.mutation(api.admin.setServiceProfileActive, {
+      serviceProfileId: profileId,
+      active: true,
+    });
+    expect(noop.changed).toBe(false);
+    audit = await t.run((ctx) =>
+      ctx.db
+        .query("adminAuditLog")
+        .withIndex("by_businessId_and_createdAt", (q) =>
+          q.eq("businessId", businessId),
+        )
+        .collect(),
+    );
+    expect(audit).toHaveLength(1);
+
+    // Deactivate → one more audit row.
+    const deactivated = await asAdmin.mutation(
+      api.admin.setServiceProfileActive,
+      { serviceProfileId: profileId, active: false },
+    );
+    expect(deactivated.changed).toBe(true);
+    expect(deactivated.status).toBe("inactive");
+    audit = await t.run((ctx) =>
+      ctx.db
+        .query("adminAuditLog")
+        .withIndex("by_businessId_and_createdAt", (q) =>
+          q.eq("businessId", businessId),
+        )
+        .order("desc")
+        .collect(),
+    );
+    expect(audit).toHaveLength(2);
+    expect(audit[0].action).toBe("deactivate_service");
+  });
+
+  test("setServiceProfileActive requires admin", async () => {
+    const t = convexTest(schema, modules);
+    const { adminUserId, ownerUserId } = await seedUsers(t);
+    const asAdmin = t.withIdentity({ subject: adminUserId, issuer: ISSUER });
+    const created = await asAdmin.mutation(api.admin.createBusiness, {
+      name: "Klub Kula",
+      slug: "klub-kula",
+      destinationUrl: "https://maps.google.com/kula",
+    });
+    const asOwner = t.withIdentity({ subject: ownerUserId, issuer: ISSUER });
+    await expect(
+      asOwner.mutation(api.admin.setServiceProfileActive, {
+        serviceProfileId: created.scanMeLinksProfileId,
+        active: true,
+      }),
+    ).rejects.toThrow("administratorski");
+  });
 });

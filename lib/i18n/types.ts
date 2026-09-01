@@ -1508,6 +1508,139 @@ export interface OfferDict {
   >;
 }
 
+// admin-customers — the operational customers table (components/admin/
+// customers-admin.tsx, app/admin/customers, TASK-40, RFC-002 §2.6). NOT a
+// directory of who exists — a work list of WHO TO CALL TODAY: name, phone,
+// active services, plan, period, the four billing statuses, next renewal, and
+// the per-location activate/deactivate + manual-payment actions. The four
+// statuses are DERIVED by the TASK-32 billing module (deriveBillingStatus);
+// this surface only labels them. `{...}` placeholders go through fmt().
+export interface AdminCustomersDict {
+  navLabel: string;
+  eyebrow: string;
+  title: string;
+  subtitle: string;
+  loadError: string;
+  empty: string;
+  count: string; // "Korisnici ({count})"
+  refreshedAt: string; // "Osveženo u {time}"
+  // Column headers.
+  colName: string;
+  colPhone: string;
+  colServices: string;
+  colPlan: string;
+  colPeriod: string;
+  colStatus: string;
+  colNextBilling: string;
+  colActions: string;
+  // Plan labels.
+  planBasic: string;
+  planPremium: string;
+  planEnterprise: string;
+  // Period labels.
+  periodMonthly: string;
+  periodAnnual: string;
+  periodNone: string; // basic / no tracked period ("—")
+  // The four derived statuses (§2.6) + the raw-state distinctions the read model
+  // carries alongside them.
+  statusActive: string;
+  statusExpiringSoon: string;
+  statusExpired: string;
+  statusPaidNeverConfigured: string;
+  statusSuspended: string; // accountStatus "suspended" (an admin decision, not a lapse)
+  statusNoAccount: string; // a legacy account-less location (no billing row)
+  // Next-billing cell.
+  billingNone: string; // no tracked cycle ("—")
+  billingDueToday: string;
+  billingDueInDays: string; // "za {count} dana"
+  billingOverdueDays: string; // "kasni {count} dana"
+  // Service-type labels (serviceProfiles.type → Serbian).
+  serviceScanmeLinks: string;
+  serviceGoogleReview: string;
+  serviceVenue: string;
+  serviceMemories: string;
+  servicesNoneActive: string; // no active service ("nema aktivnih")
+  unconfiguredNote: string; // "Nije podešeno: {services}" — the churn detail
+  // Enterprise grouping.
+  enterpriseBadge: string; // "Lanac"
+  enterpriseLocations: string; // "{count} lokala"
+  expandAria: string; // "Prikaži lokale — {name}"
+  collapseAria: string; // "Sakrij lokale — {name}"
+  locationsHeading: string;
+  // Row / location actions.
+  openLocation: string; // opens the location's existing page
+  openLocationAria: string; // "Otvori lokal {name}"
+  detailsAction: string; // open the customer detail drawer
+  phoneNone: string; // "—"
+  contactNone: string;
+  // Activate / deactivate a service.
+  activateService: string; // "Aktiviraj"
+  deactivateService: string; // "Deaktiviraj"
+  activateAria: string; // "Aktiviraj {service} — {location}"
+  deactivateAria: string; // "Deaktiviraj {service} — {location}"
+  activateSuccess: string; // "{service} je aktiviran za {location}."
+  deactivateSuccess: string; // "{service} je deaktiviran za {location}."
+  serviceToggleError: string;
+  deactivateDialogTitle: string; // "Deaktivirati {service}?"
+  deactivateDialogBody: string;
+  deactivateConfirm: string;
+  deactivateCancel: string;
+  // Customer detail drawer.
+  detailHeading: string; // "{name}"
+  detailClose: string;
+  detailServicesHeading: string;
+  detailNoAccountNote: string; // legacy location with no account — billing unavailable
+  // Payment history (TASK-32).
+  paymentsHeading: string;
+  paymentsEmpty: string;
+  paymentColDate: string;
+  paymentColAmount: string;
+  paymentColMethod: string;
+  paymentColCovers: string;
+  paymentColReference: string;
+  paymentMethodManual: string;
+  paymentMethodProvider: string;
+  paymentVoidedTag: string; // "Stornirano"
+  paymentCoversUntil: string; // "važi do {date}"
+  lastPaymentLabel: string; // "Poslednja uplata: {date} · {amount}"
+  lastPaymentNone: string;
+  // Manual payment entry — the MAIN billing flow.
+  recordPaymentAction: string; // "Upiši uplatu"
+  paymentDialogTitle: string; // "Nova uplata — {name}"
+  paymentDialogBody: string;
+  paymentAmountLabel: string;
+  paymentDateLabel: string;
+  paymentReferenceLabel: string;
+  paymentReferenceHint: string;
+  paymentCoversLabel: string;
+  paymentCoversHint: string; // when the account has no period on file
+  paymentSubmit: string;
+  paymentCancel: string;
+  paymentSuccess: string; // "Uplata je upisana. Sledeća naplata: {date}."
+  paymentSuccessNoCycle: string; // recorded, cycle unchanged
+  paymentError: string;
+  // Void a payment (append-only correction).
+  voidAction: string;
+  voidDialogTitle: string;
+  voidDialogBody: string;
+  voidReasonLabel: string;
+  voidConfirm: string;
+  voidCancel: string;
+  voidSuccess: string;
+  voidError: string;
+  // Audit trail (who/what/when).
+  auditHeading: string;
+  auditEmpty: string;
+  auditRecordPayment: string;
+  auditVoidPayment: string;
+  auditSetNextBilling: string;
+  auditActivateService: string;
+  auditDeactivateService: string;
+  auditCreateOrder: string;
+  auditSetPlan: string;
+  auditGeneric: string; // "{action}" — unknown future action slug
+}
+
 export interface DictBySurface {
   venue: VenueDict;
   "venue-editor": VenueEditorDict;
@@ -1521,6 +1654,7 @@ export interface DictBySurface {
   consent: ConsentDict;
   privacy: PrivacyDict;
   offer: OfferDict;
+  "admin-customers": AdminCustomersDict;
 }
 
 export type Surface = keyof DictBySurface;
