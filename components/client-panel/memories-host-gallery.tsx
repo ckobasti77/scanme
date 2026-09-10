@@ -309,6 +309,9 @@ export function MemoriesHostGallery({
                       title={dict.galleryHostOnlyBadge}
                     >
                       <EyeOff className="size-3" />
+                      <span className="sr-only">
+                        {dict.galleryHostOnlyBadge}
+                      </span>
                     </span>
                   ) : null}
 
@@ -329,6 +332,12 @@ export function MemoriesHostGallery({
                         onClick={() => toggleSelect(photo.photoId)}
                         disabled={!isSelected && atCap}
                         aria-pressed={isSelected}
+                        // The tile is otherwise nameless — a SR hears only
+                        // "toggle button" with no way to tell WHICH photo is
+                        // being put on the public page (TASK-25 a11y).
+                        aria-label={fmt(dict.galleryPhotoAlt, {
+                          index: index + 1,
+                        })}
                         className={`absolute inset-0 flex items-center justify-center transition-colors disabled:cursor-not-allowed ${
                           isSelected
                             ? "bg-primary/30 ring-2 ring-inset ring-primary"
@@ -336,7 +345,10 @@ export function MemoriesHostGallery({
                         }`}
                       >
                         {isSelected ? (
-                          <CheckCircle2 className="size-7 text-primary-foreground drop-shadow" />
+                          // On a solid primary disc so the check survives any
+                          // photo underneath (30% tint alone can drop under
+                          // 3:1 on a dark photo).
+                          <CheckCircle2 className="size-7 rounded-full bg-primary text-primary-foreground" />
                         ) : null}
                       </button>
                     ) : isHostOnly ? (
@@ -403,11 +415,14 @@ export function MemoriesHostGallery({
                   ) : null}
 
                   {!selecting ? (
+                    // Hover-reveal only where hover exists: on touch the
+                    // control was an invisible-but-tappable corner — visible
+                    // by default there, hidden-until-hover on pointers.
                     <button
                       type="button"
                       onClick={() => setTarget(photo.photoId)}
                       aria-label={dict.photoDeleteAction}
-                      className="absolute right-1 top-1 inline-flex size-7 items-center justify-center bg-black/60 text-white opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100"
+                      className="absolute right-1 top-1 inline-flex size-7 items-center justify-center bg-black/60 text-white transition-opacity focus-visible:opacity-100 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100"
                     >
                       <Trash2 className="size-3.5" />
                     </button>
@@ -515,6 +530,7 @@ function ArchiveToolbar({
           startsAt: number | null;
           endsAt: number | null;
         }>;
+        truncated: boolean;
       }
     | null
     | undefined;
@@ -562,6 +578,14 @@ function ArchiveToolbar({
               {activeEvent?.title ?? "—"}
             </p>
           )}
+          {targets?.truncated ? (
+            // The picker window is capped server-side (ARCHIVE_TARGETS_CAP);
+            // when the business has more events, say so instead of silently
+            // hiding the tail. events.length === the cap exactly then.
+            <p className="mt-1 text-xs text-muted-foreground">
+              {fmt(dict.archiveEventsTruncated, { max: events.length })}
+            </p>
+          ) : null}
         </div>
         <div className="flex items-center gap-3">
           <span className="text-sm tabular-nums text-muted-foreground">
@@ -641,7 +665,7 @@ function ArchiveStrip({
                 type="button"
                 onClick={() => onMakeCover(item.itemId)}
                 disabled={busyCover === item.itemId}
-                className="absolute inset-x-1 bottom-1 inline-flex items-center justify-center gap-1 bg-black/70 px-1 py-1 text-[10px] font-medium text-white opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100"
+                className="absolute inset-x-1 bottom-1 inline-flex items-center justify-center gap-1 bg-black/70 px-1 py-1 text-[10px] font-medium text-white transition-opacity focus-visible:opacity-100 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100"
                 title={dict.archiveSetCoverAction}
               >
                 {busyCover === item.itemId ? (

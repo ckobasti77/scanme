@@ -229,7 +229,9 @@ const priceListProps = v.object({
   ), // ≤ 60 items total across sections
 });
 
-// field config, capacity, deadline (submissions land in a future table)
+// field config, zones (TASK-43), capacity, deadline (submissions in
+// venueReservations). Zones are areas with a unit count, never numbered
+// tables; empty/absent zones fall back to the legacy whole-event capacity.
 const reservationProps = v.object({
   heading: v.optional(v.string()),
   fields: v.object({
@@ -239,6 +241,15 @@ const reservationProps = v.object({
     partySize: v.boolean(),
     note: v.boolean(),
   }),
+  zones: v.optional(
+    v.array(
+      v.object({
+        id: v.string(),
+        name: v.string(),
+        capacity: v.number(),
+      }),
+    ),
+  ),
   capacity: v.optional(v.number()),
   deadline: v.optional(v.number()),
   confirmationMessage: v.optional(v.string()),

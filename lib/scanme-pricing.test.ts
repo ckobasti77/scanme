@@ -7,7 +7,7 @@ import {
   computeOrderBreakdown,
   createDefaultProductSelection,
   formatRsd,
-  getSaasPrice,
+  saasFirstTermPrice,
   productUnitPrice,
   quantityDiscountRate,
   quantityFromInput,
@@ -206,20 +206,26 @@ describe("katalog i obračun", () => {
     expect(products[1]).toEqual(createDefaultProductSelection("compact-stand"));
   });
 
-  test("annual i monthly zadržavaju postojeće SaaS cene", () => {
+  test("pretplata dolazi iz motora — jedan izvor cene (RFC-002 §2.1)", () => {
     const base: OrderSelection = {
       service: "review",
       tier: "premium",
       period: "annual",
       products: [createDefaultProductSelection()],
     };
-    const saas = getSaasPrice("review", "premium");
-    expect(computeOrderBreakdown(base).saasFirstTerm).toBe(saas.annual);
+    const annual = saasFirstTermPrice("review", "premium", "annual");
+    expect(computeOrderBreakdown(base).saasFirstTerm).toBe(annual);
     expect(computeOrderBreakdown({ ...base, period: "monthly" }).saasFirstTerm).toBe(
-      saas.monthly,
+      saasFirstTermPrice("review", "premium", "monthly"),
     );
     expect(computeCardPrice("review", "premium", "annual").renewalAmount).toBe(
-      roundRsd(saas.annual / 12),
+      roundRsd(annual / 12),
+    );
+    // The two paid tiers are the account-plan axis now (RFC-002 §2.2): Premium
+    // adds the plan line over the same per-service price, so it is strictly
+    // dearer than Starter (the free Basic plan).
+    expect(saasFirstTermPrice("review", "premium", "monthly")).toBeGreaterThan(
+      saasFirstTermPrice("review", "starter", "monthly"),
     );
   });
 });

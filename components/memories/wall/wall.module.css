@@ -210,6 +210,11 @@
   letter-spacing: 0.18em;
   color: var(--wall-muted);
   white-space: nowrap;
+  /* A solid pill, not just the masthead's fading scrim: over a bright photo
+     the muted ink on the 62% gradient lands near 3:1 (TASK-25 a11y). */
+  background: rgba(13, 10, 8, 0.78);
+  border-radius: 999px;
+  padding: 0.3rem 0.85rem;
 }
 
 .liveDot {
@@ -222,11 +227,17 @@
 
 .count {
   margin-top: 0.4rem;
+  margin-left: auto;
+  width: fit-content;
   text-align: right;
   font-size: clamp(1.1rem, 2vw, 2rem);
   font-weight: 600;
   color: var(--wall-ink);
   font-variant-numeric: tabular-nums;
+  /* Same reason as .live: it sits below the scrim's strongest band. */
+  background: rgba(13, 10, 8, 0.78);
+  border-radius: 999px;
+  padding: 0.2rem 0.8rem;
 }
 
 /* --- QR recruit (persistent, small, always scannable) --------------------- */

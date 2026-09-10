@@ -112,6 +112,9 @@ export function ShareActionsClient({
           type="button"
           className={styles.action}
           onClick={() => handleClick(channel)}
+          // "copy" flips its own label to "Kopirano"; aria-live announces the
+          // flip to a screen reader that would otherwise hear nothing.
+          aria-live={channel === "copy" ? "polite" : undefined}
         >
           {icon(channel)}
           {label(channel)}

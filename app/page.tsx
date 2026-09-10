@@ -27,6 +27,7 @@ import { SiteNav, Wordmark } from "@/components/site-nav";
 import { SiteScrollMotion } from "@/components/site-scroll-motion";
 import { ComingSoon } from "@/components/coming-soon";
 import { EcosystemProductDeck } from "@/components/ecosystem-product-deck";
+import { LandingPackages } from "@/components/landing-packages";
 import { BackToTop } from "@/components/back-to-top";
 import { hasPreviewAccess } from "@/lib/preview-access";
 import { readContactMessage, readContactSelection } from "@/lib/offer-contact";
@@ -68,6 +69,7 @@ const faqItems = [
 
 const footerLinks = [
   { href: "#kako-radi", label: "Kako radi" },
+  { href: "#paketi", label: "Paketi" },
   { href: "#scanme-review", label: "ScanMe Review" },
   // { href: "#trajni-qr", label: "Trajan QR" },
   { href: "#za-koga", label: "Za koga" },
@@ -121,6 +123,10 @@ export default async function Home({ searchParams }: PageProps<"/">) {
         </section>
 
         <ScanStory />
+
+        <section id="paketi" className="section-shell py-24 sm:py-32 lg:py-40">
+          <LandingPackages />
+        </section>
 
         <section id="scanme-review" className="section-shell py-24 sm:py-32 lg:py-40">
           <div className="grid gap-12 lg:grid-cols-[0.82fr_1.18fr] lg:items-center lg:gap-16">

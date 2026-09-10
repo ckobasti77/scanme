@@ -143,6 +143,7 @@ const SERVICE_PRODUCT_NAMES: Record<Doc<"serviceProfiles">["type"], string> = {
   google_review: "Google Review",
   scanme_venue: "ScanMe Venue",
   scanme_memories: "ScanMe Memories",
+  scanme_menu: "ScanMe Meni",
 };
 
 // Editor access, lifted from convex/scanMeLinks.ts and parameterized by the

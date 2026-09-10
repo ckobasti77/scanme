@@ -140,6 +140,17 @@ export type PriceListProps = {
   }>;
 };
 
+// A reservation ZONE (TASK-43): the owner defines zones, never numbered tables
+// with a floor plan ("Sto za dvoje — 8 komada", "Separe — 3", "Bar — 10
+// mesta"). `capacity` counts UNITS of the zone, and one request holds exactly
+// ONE unit while pending/confirmed — a party takes one table/separe/spot;
+// partySize is information for the owner, not a seat count.
+export type ReservationZone = {
+  id: string;
+  name: string;
+  capacity: number;
+};
+
 export type ReservationProps = {
   heading?: string;
   fields: {
@@ -149,6 +160,9 @@ export type ReservationProps = {
     partySize: boolean;
     note: boolean;
   };
+  /** Zones (TASK-43). Empty/absent falls back to the legacy whole-event
+   * `capacity` model (sum of partySize vs capacity). */
+  zones?: ReservationZone[];
   capacity?: number;
   deadline?: number;
   confirmationMessage?: string;
@@ -216,6 +230,9 @@ export const PRICE_LIST_MAX_ITEMS = 60;
 // The most Memories photos a host may pin into one event's archive (TASK-23).
 // One constant so the host picker's UI and the server mutation agree on the cap.
 export const ARCHIVE_MAX_ITEMS = 60;
+// Reservation zones per block (TASK-43) — zones, not tables: a venue defines
+// a handful of areas, never a floor plan.
+export const RESERVATION_MAX_ZONES = 20;
 
 // Inclusive numeric ranges for bounded properties. Chosen as the smallest
 // reasonable defaults where the RFC makes no decision (listed in the report).
@@ -234,6 +251,9 @@ export const VENUE_BLOCK_BOUNDS = {
   pastEventsLimit: [1, 24],
   spacerHeight: [0, 400],
   capacity: [0, 100000],
+  // Reservation zones (TASK-43): a page lists at most this many zones, and a
+  // zone holds at most this many units — sliders and the server clamp agree.
+  zoneCapacity: [1, 1000],
   // Per-block shadow geometry — clamped in clampBase so the editor's shadow
   // sliders and the server agree on the reachable range.
   shadowOffset: [-40, 40],
@@ -484,6 +504,16 @@ export function clamp(block: VenueBlock): VenueBlock {
         base,
         props: {
           ...block.props,
+          zones:
+            block.props.zones === undefined
+              ? undefined
+              : block.props.zones.slice(0, RESERVATION_MAX_ZONES).map((zone) => ({
+                  ...zone,
+                  capacity: clampNum(
+                    zone.capacity,
+                    ...VENUE_BLOCK_BOUNDS.zoneCapacity,
+                  ),
+                })),
           capacity:
             block.props.capacity === undefined
               ? undefined

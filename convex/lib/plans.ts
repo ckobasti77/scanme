@@ -7,13 +7,18 @@
 // photos-per-guest quota tiers plus retention 30/90/365 days and per-tier max
 // image dimension 2048/2560/4096 px.
 //
-// scanme_venue is a PLACEHOLDER shape only — its tiers (which blocks per tier,
-// event/archive limits) are open question §5 Q1. `allowedBlockKeys` is present
-// so the read path and the entitlements `overrides` shape are exercised, but the
-// key list is intentionally empty until the tiers are decided.
+// scanme_venue tiers (TASK-43, closing RFC-001 §5 Q1): Basic carries the core
+// blocks; Premium unlocks the interactive/content-heavy blocks (reservation,
+// pastEvents, profileCards, priceList, gallery), unlimited scheduled events,
+// and event analytics. `allowedBlockKeys` is the same shape the entitlement
+// and account `overrides` already carry, so an Enterprise deviation composes
+// with zero new machinery.
+
+import { VENUE_BLOCK_TYPES } from "../../lib/venue-blocks";
 
 export type MemoriesPlanKey = "basic" | "standard" | "premium";
-export type VenuePlanKey = "basic";
+export type VenuePlanKey = "basic" | "premium";
+export type MenuPlanKey = "basic" | "premium";
 
 export interface MemoriesLimits {
   photosPerGuest: number;
@@ -23,7 +28,69 @@ export interface MemoriesLimits {
 
 export interface VenueLimits {
   allowedBlockKeys: readonly string[];
+  /** Max events in {scheduled, live} at once; null = unlimited. */
+  maxActiveEvents: number | null;
+  /** Whether the owner may read event analytics (collection always runs). */
+  analytics: boolean;
+  /**
+   * Whether table ordering is enabled for this venue (RFC-004 §2.12).
+   * Gated by venueOrderingEnabled. Missing / undefined falls back to false.
+   */
+  ordering: boolean;
 }
+
+export interface MenuLimits {
+  /** Whether item photos are displayed (Premium only). On Basic, tiles are shown. */
+  photos: boolean;
+  /** Whether item short video plays in the opened sheet (Premium only). */
+  videoInSheet: boolean;
+  /** Whether menu animations are enabled (Premium only). */
+  animations: boolean;
+  /** Whether the "Istaknuto" (featured) group shape is available (Premium only). */
+  featuredGroup: boolean;
+  /** Max groups; null = unlimited. */
+  maxGroups: number | null;
+  /** Max items per group; null = unlimited. */
+  maxItemsPerGroup: number | null;
+}
+
+export const MENU_BASIC_LIMITS: MenuLimits = {
+  photos: false,
+  videoInSheet: false,
+  animations: false,
+  featuredGroup: false,
+  maxGroups: null,
+  maxItemsPerGroup: null,
+};
+
+export const MENU_PREMIUM_LIMITS: MenuLimits = {
+  photos: true,
+  videoInSheet: true,
+  animations: true,
+  featuredGroup: true,
+  maxGroups: null,
+  maxItemsPerGroup: null,
+};
+
+// The Menu limits catalog, wired into PLAN_LIMITS.scanme_menu below (TASK-61).
+// Defined here (above PLAN_LIMITS) so the reference is initialized in order.
+export const MENU_PLAN_LIMITS: Record<MenuPlanKey, MenuLimits> = {
+  basic: MENU_BASIC_LIMITS,
+  premium: MENU_PREMIUM_LIMITS,
+};
+
+// The Basic core (TASK-43): informational blocks every venue gets for free.
+// Premium is everything — derived from VENUE_BLOCK_TYPES so a future block
+// type is Premium by default until this list deliberately adds it.
+export const VENUE_BASIC_BLOCK_KEYS = [
+  "countdown",
+  "eventDateTime",
+  "programTimeline",
+  "map",
+  "richText",
+  "share",
+  "spacer",
+] as const;
 
 export const PLAN_LIMITS = {
   scanme_memories: {
@@ -32,13 +99,28 @@ export const PLAN_LIMITS = {
     premium: { photosPerGuest: 10, maxImageDimension: 4096, retentionDays: 365 },
   },
   scanme_venue: {
-    // TODO(RFC-001 §5 Q1): fill per-tier allowedBlockKeys once Venue tiers are
-    // decided. Placeholder shape only.
-    basic: { allowedBlockKeys: [] as readonly string[] },
+    basic: {
+      allowedBlockKeys: VENUE_BASIC_BLOCK_KEYS as readonly string[],
+      maxActiveEvents: 1,
+      analytics: false,
+      ordering: false,
+    },
+    premium: {
+      allowedBlockKeys: VENUE_BLOCK_TYPES as readonly string[],
+      maxActiveEvents: null,
+      analytics: true,
+      // Placeholder tier per RFC-004 §5 Q1 / TASK-64: Premium has ordering: true, awaiting owner confirmation.
+      ordering: true,
+    },
   },
+  // TASK-61: Menu joins the plan catalog. Basic/Premium map straight to the
+  // MENU_PLAN_LIMITS defined above; getEntitlement now resolves "scanme_menu"
+  // through the generic chain (RFC-003 §2.7).
+  scanme_menu: MENU_PLAN_LIMITS,
 } satisfies {
   scanme_memories: Record<MemoriesPlanKey, MemoriesLimits>;
   scanme_venue: Record<VenuePlanKey, VenueLimits>;
+  scanme_menu: Record<MenuPlanKey, MenuLimits>;
 };
 
 // The products that carry a plan catalog. Links and Google Review have no plans
@@ -53,3 +135,111 @@ export type PlanProduct = keyof typeof PLAN_LIMITS;
 // `limits.photosPerGuest` gets `number` with no cast.
 export type LimitsFor<P extends PlanProduct> =
   (typeof PLAN_LIMITS)[P][keyof (typeof PLAN_LIMITS)[P]];
+
+// Account plan (Axis B, RFC-002 §2.2.1) — mirrors accounts.plan in the schema.
+export type AccountPlan = "basic" | "premium" | "enterprise";
+
+// Menu's account-plan → tier map, wired into ACCOUNT_PLAN_TIER.scanme_menu below
+// (TASK-61). Defined here (above ACCOUNT_PLAN_TIER) so the reference initializes
+// in order. Enterprise resolves the Premium tier (RFC-003 §2.7).
+export const MENU_ACCOUNT_PLAN_TIER: Record<AccountPlan, MenuPlanKey> = {
+  basic: "basic",
+  premium: "premium",
+  enterprise: "premium",
+};
+
+// Account plan → per-product tier (planKey) for getEntitlement step 3
+// (RFC-002 §2.2.3). Lives in code, so tuning is a deploy, never a migration.
+// The value type is `keyof PLAN_LIMITS[product]`, so the map can never name a
+// tier that does not exist.
+//
+// Memories: account basic → basic (3), premium → premium (10); the standard
+// (5) mid-tier stays reachable only through an explicit space/business
+// override (an admin grant, or the per-event premium purchase, RFC-001 §2.3).
+// Enterprise is "on request": it maps to the same tier as premium, and
+// negotiated deviations live in account.overrides (merged in step 3), never
+// in new tier constants. Venue (TASK-43): premium/enterprise resolve the
+// premium tier — the mapping that makes the account-plan purchase actually
+// mean something for Venue.
+export const ACCOUNT_PLAN_TIER: {
+  [P in PlanProduct]: Record<
+    AccountPlan,
+    keyof (typeof PLAN_LIMITS)[P] & string
+  >;
+} = {
+  scanme_memories: {
+    basic: "basic",
+    premium: "premium",
+    enterprise: "premium",
+  },
+  scanme_venue: {
+    basic: "basic",
+    premium: "premium",
+    enterprise: "premium",
+  },
+  scanme_menu: MENU_ACCOUNT_PLAN_TIER,
+};
+
+// ---------------------------------------------------------------------------
+// Venue limit readers (TASK-43). Every enforcement point funnels through these
+// so "no entitlement", "unknown planKey", and "override without a value" all
+// resolve to the FREE (basic) tier — the honest default: a venue that never
+// bought anything gets the core, never everything.
+// ---------------------------------------------------------------------------
+
+export function venueAllowedBlockKeys(
+  limits: Partial<VenueLimits> | null | undefined,
+): readonly string[] {
+  const list = limits?.allowedBlockKeys;
+  if (!list || list.length === 0) {
+    return PLAN_LIMITS.scanme_venue.basic.allowedBlockKeys;
+  }
+  return list;
+}
+
+export function venueMaxActiveEvents(
+  limits: Partial<VenueLimits> | null | undefined,
+): number | null {
+  const value = limits?.maxActiveEvents;
+  return value === undefined
+    ? PLAN_LIMITS.scanme_venue.basic.maxActiveEvents
+    : value;
+}
+
+export function venueAnalyticsEnabled(
+  limits: Partial<VenueLimits> | null | undefined,
+): boolean {
+  return limits?.analytics === true;
+}
+
+export function venueOrderingEnabled(
+  limits: Partial<VenueLimits> | null | undefined,
+): boolean {
+  return limits?.ordering === true;
+}
+
+// ---------------------------------------------------------------------------
+// Menu limit readers (TASK-55, RFC-003 §2.7). Every enforcement point funnels
+// through these so "no entitlement", "unknown planKey", and "override without
+// a value" all resolve to the FREE (basic) tier — the honest default: an
+// untiered or Basic menu shows category icon tiles, never photos.
+// ---------------------------------------------------------------------------
+
+export function menuPhotosEnabled(
+  limits: Partial<MenuLimits> | null | undefined,
+): boolean {
+  return limits?.photos === true;
+}
+
+export function menuVideoEnabled(
+  limits: Partial<MenuLimits> | null | undefined,
+): boolean {
+  return limits?.videoInSheet === true;
+}
+
+export function menuFeaturedEnabled(
+  limits: Partial<MenuLimits> | null | undefined,
+): boolean {
+  return limits?.featuredGroup === true;
+}
+

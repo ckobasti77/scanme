@@ -27,6 +27,8 @@ import { TextRevealGlobal } from "@/components/text-reveal-global";
 import { Toaster } from "@/components/ui/sonner";
 import { REVEAL_HIDE_CSS } from "@/constants/textRevealConfig";
 import "./globals.css";
+// Deljeni vizuelni jezik staklene ponude (/ponuda + /kupovina), TASK-44.
+import "./offer-surface.css";
 
 const themeScript = `(function(){var t;try{t=localStorage.getItem("scanme-theme")}catch(e){}if(t!=="dark"&&t!=="light")t=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";var r=document.documentElement;r.setAttribute("data-theme",t);r.classList.toggle("dark",t==="dark")})()`;
 

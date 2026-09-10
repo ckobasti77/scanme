@@ -1,17 +1,20 @@
 "use client";
 
-// The reservation form leaf. Renders only the fields the block enables, posts
-// through api.venue.submitReservation, and mirrors the backend's ConvexError
-// copy inline (the backend is authoritative for every rule: field config,
-// capacity, deadline, rate limit). Success replaces the form so a double tap
-// cannot double-book.
+// The reservation-request form leaf (TASK-43). Renders only the fields the
+// block enables, shows the zone picker with live "popunjeno" state (the
+// availability query is reactive — a filled zone greys out without a reload),
+// and posts through POST /api/venue/reservations so the per-IP rate limit can
+// run (the backend is authoritative for every rule: field config, zones,
+// capacity, deadline, throttles). Success replaces the form so a double tap
+// cannot double-request — and the copy says REQUEST: the owner confirms,
+// software promises nothing.
 
 import { useState } from "react";
-import { useMutation } from "convex/react";
-import { ConvexError } from "convex/values";
+import { useQuery } from "convex/react";
 import { CircleCheck, TriangleAlert } from "lucide-react";
 import { api } from "@/convex/_generated/api";
-import type { ReservationProps } from "@/lib/venue-blocks";
+import { belgradeLocalToEpoch, epochToBelgradeLocal } from "@/lib/belgrade-time";
+import type { ReservationProps, ReservationZone } from "@/lib/venue-blocks";
 import styles from "../venue-template.module.css";
 
 type Labels = {
@@ -20,7 +23,12 @@ type Labels = {
   email: string;
   partySize: string;
   note: string;
+  zone: string;
+  time: string;
   optional: string;
+  zoneFullSuffix: string;
+  allFull: string;
+  disclaimer: string;
   submit: string;
   submitting: string;
   errorGeneric: string;
@@ -31,16 +39,23 @@ export function ReservationFormClient({
   businessSlug,
   eventSlug,
   fields,
+  zones,
+  defaultDesiredAt,
   confirmationMessage,
   labels,
 }: {
   businessSlug: string;
   eventSlug: string;
   fields: ReservationProps["fields"];
+  zones: ReservationZone[];
+  defaultDesiredAt: number | null;
   confirmationMessage: string;
   labels: Labels;
 }) {
-  const submitReservation = useMutation(api.venue.submitReservation);
+  const availability = useQuery(api.venueReservations.availability, {
+    businessSlug,
+    eventSlug,
+  });
   const [status, setStatus] = useState<"idle" | "submitting" | "done">("idle");
   const [error, setError] = useState<string | null>(null);
 
@@ -51,6 +66,21 @@ export function ReservationFormClient({
         <span>{confirmationMessage}</span>
       </div>
     );
+  }
+
+  // The live zone view: the query's counts win; the published props are the
+  // fallback while it loads (everything open — the server re-checks anyway).
+  const zoneViews =
+    availability?.kind === "zones"
+      ? availability.zones
+      : zones.map((zone) => ({ ...zone, used: 0, full: false }));
+  const hasZones = zoneViews.length > 0;
+  const everythingFull =
+    (availability?.kind === "zones" && availability.allFull) ||
+    (availability?.kind === "capacity" && availability.full);
+
+  if (everythingFull) {
+    return <p className={styles.emptyNote}>{labels.allFull}</p>;
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -70,32 +100,62 @@ export function ReservationFormClient({
     }
     const partySizeRaw = read("partySize");
     const partySize = partySizeRaw ? Number(partySizeRaw) : undefined;
+    const desiredRaw = read("desiredAt");
+    const desiredAt = desiredRaw
+      ? belgradeLocalToEpoch(desiredRaw) ?? undefined
+      : undefined;
 
     setStatus("submitting");
     setError(null);
     try {
-      await submitReservation({
-        businessSlug,
-        eventSlug,
-        name,
-        phone: read("phone"),
-        email: read("email"),
-        partySize,
-        note: read("note"),
+      const response = await fetch("/api/venue/reservations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          businessSlug,
+          eventSlug,
+          zoneId: read("zoneId"),
+          name,
+          phone: read("phone"),
+          email: read("email"),
+          partySize,
+          desiredAt,
+          note: read("note"),
+        }),
       });
-      setStatus("done");
-    } catch (err) {
+      if (response.ok) {
+        setStatus("done");
+        return;
+      }
+      const payload = (await response.json().catch(() => null)) as {
+        error?: unknown;
+      } | null;
       setStatus("idle");
       setError(
-        err instanceof ConvexError && typeof err.data === "string"
-          ? err.data
-          : labels.errorGeneric,
+        typeof payload?.error === "string" ? payload.error : labels.errorGeneric,
       );
+    } catch {
+      setStatus("idle");
+      setError(labels.errorGeneric);
     }
   }
 
   return (
     <form className={styles.reservationForm} onSubmit={handleSubmit} noValidate>
+      {hasZones ? (
+        <div className={styles.field}>
+          <label className={styles.fieldLabel} htmlFor="venue-res-zone">
+            {labels.zone}
+          </label>
+          <select id="venue-res-zone" name="zoneId" className={styles.input} required>
+            {zoneViews.map((zone) => (
+              <option key={zone.id} value={zone.id} disabled={zone.full}>
+                {zone.full ? `${zone.name} ${labels.zoneFullSuffix}` : zone.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      ) : null}
       {fields.name ? (
         <div className={styles.field}>
           <label className={styles.fieldLabel} htmlFor="venue-res-name">
@@ -161,6 +221,24 @@ export function ReservationFormClient({
           />
         </div>
       ) : null}
+      {hasZones ? (
+        <div className={styles.field}>
+          <label className={styles.fieldLabel} htmlFor="venue-res-time">
+            {labels.time}
+          </label>
+          <input
+            id="venue-res-time"
+            name="desiredAt"
+            type="datetime-local"
+            className={styles.input}
+            defaultValue={
+              defaultDesiredAt !== null
+                ? epochToBelgradeLocal(defaultDesiredAt)
+                : undefined
+            }
+          />
+        </div>
+      ) : null}
       {fields.note ? (
         <div className={styles.field}>
           <label className={styles.fieldLabel} htmlFor="venue-res-note">
@@ -188,6 +266,7 @@ export function ReservationFormClient({
       >
         {status === "submitting" ? labels.submitting : labels.submit}
       </button>
+      <p className={styles.deadlineNote}>{labels.disclaimer}</p>
     </form>
   );
 }

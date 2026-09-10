@@ -1,0 +1,154 @@
+/* Deljeni vizuelni jezik „staklene ponude" (RFC-002 §2.3, TASK-44).
+ *
+ * JEDAN izvor istine za topli stakleni panel koji nose i /ponuda
+ * (components/offer-configurator.module.css) i /kupovina
+ * (components/purchase/*). Ranije su obe strane imale svoje kopije iste
+ * palete i istog recepta za staklo — dve kopije se razilaze. Ovde su izvučeni
+ * TOKENI (cela vrednost pozadine/senke stoji u promenljivoj) i tri male
+ * komponente: .offer-frame (ram), .offer-glass (staklena ploča), .offer-dock
+ * (lepljiva traka). Obe strane čitaju iste tokene, pa promena boje na jednom
+ * mestu menja obe stranice.
+ *
+ * Uvozi se JEDNOM, u app/layout.tsx, posle globals.css. Element koji nosi klasu
+ * `offer-surface` otvara opseg tokena; potomci onda razrešavaju var(--os-*).
+ */
+
+.offer-surface {
+  /* geometrija */
+  --os-radius: clamp(1.75rem, 2.4vw, 2.25rem);
+
+  /* paleta (svetla) */
+  --os-frame: #d8d0c4;
+  --os-frame-border: rgb(255 255 255 / 0.52);
+  --os-ink: #171310;
+  --os-ink-rgb: 24 20 17;
+  --os-paper: 250 246 240;
+  --os-selected: #444c43;
+  --os-line-rgb: 42 31 25;
+
+  /* staklena ploča — cela vrednost stoji u tokenu, pa je struktura jednoznačna */
+  --os-glass-bg:
+    radial-gradient(ellipse at 14% -8%, rgb(255 255 255 / 0.34), transparent 38%),
+    linear-gradient(145deg, rgb(255 255 255 / 0.22), rgb(255 226 215 / 0.1) 44%, rgb(211 197 220 / 0.1)),
+    rgb(var(--os-paper) / 0.12);
+  --os-glass-border: rgb(255 255 255 / 0.48);
+  --os-glass-blur: blur(11px) saturate(117%);
+  /* ivична varijanta (bočni sidebar /ponuda) i plutajuća varijanta (ploče /kupovina) */
+  --os-glass-shadow-edge:
+    inset 1px 0 0 rgb(255 255 255 / 0.32),
+    inset 0 1px 0 rgb(255 255 255 / 0.52),
+    -16px 0 42px rgb(54 36 27 / 0.08);
+  --os-glass-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.52),
+    0 18px 42px rgb(54 36 27 / 0.1);
+  --os-glass-fallback: rgb(250 246 240 / 0.94);
+
+  /* lepljiva traka (cenovni dok) */
+  --os-dock-bg:
+    radial-gradient(circle at 12% -20%, rgb(255 255 255 / 0.46), transparent 42%),
+    linear-gradient(135deg, rgb(255 255 255 / 0.34), rgb(255 224 213 / 0.14)),
+    rgb(var(--os-paper) / 0.46);
+  --os-dock-border: rgb(255 255 255 / 0.58);
+  --os-dock-blur: blur(13px) saturate(118%);
+  --os-dock-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.72),
+    0 18px 48px rgb(49 31 24 / 0.2);
+
+  /* ram — velika meka senka ispod cele ploče */
+  --os-frame-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.7),
+    0 30px 80px rgb(65 46 36 / 0.18);
+
+  /* mono za cene (već globalno učitan IBM Plex Mono) */
+  --os-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+html[data-theme="dark"] .offer-surface {
+  --os-frame: #242621;
+  --os-frame-border: rgb(244 242 235 / 0.16);
+  --os-ink: #f1f3ed;
+  --os-ink-rgb: 241 243 237;
+  --os-paper: 20 23 21;
+  --os-selected: #444c43;
+  --os-line-rgb: 241 243 237;
+
+  --os-glass-bg:
+    radial-gradient(ellipse at 14% -8%, rgb(255 255 255 / 0.1), transparent 38%),
+    linear-gradient(145deg, rgb(255 255 255 / 0.06), rgb(89 59 53 / 0.07) 52%, rgb(84 74 104 / 0.06)),
+    rgb(18 21 19 / 0.22);
+  --os-glass-border: rgb(241 243 237 / 0.16);
+  --os-glass-shadow-edge:
+    inset 1px 0 0 rgb(255 255 255 / 0.08),
+    inset 0 1px 0 rgb(255 255 255 / 0.12),
+    -16px 0 42px rgb(0 0 0 / 0.18);
+  --os-glass-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.12),
+    0 18px 42px rgb(0 0 0 / 0.18);
+  --os-glass-fallback: rgb(18 21 19 / 0.94);
+
+  --os-dock-bg:
+    radial-gradient(ellipse at 14% -8%, rgb(255 255 255 / 0.1), transparent 38%),
+    linear-gradient(145deg, rgb(255 255 255 / 0.06), rgb(89 59 53 / 0.07) 52%, rgb(84 74 104 / 0.06)),
+    rgb(18 21 19 / 0.22);
+  --os-dock-border: rgb(241 243 237 / 0.16);
+  --os-dock-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.12),
+    0 18px 48px rgb(0 0 0 / 0.24);
+
+  --os-frame-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.12),
+    0 30px 80px rgb(0 0 0 / 0.34);
+}
+
+/* --- Ram: spoljna ploča (stage /ponuda, shell /kupovina) --------------------*/
+.offer-frame {
+  border: 1px solid var(--os-frame-border);
+  border-radius: var(--os-radius);
+  background: var(--os-frame);
+  box-shadow: var(--os-frame-shadow);
+}
+
+/* --- Staklena ploča ---------------------------------------------------------*/
+/* Osnova nosi samo „staklo" (pozadina + blur). Svaka upotreba dodaje svoju
+ * geometriju ivice/senke preko `.offer-glass--panel` (plutajuća) ili preko
+ * sopstvene klase (ivični sidebar /ponuda). */
+.offer-glass {
+  position: relative;
+  isolation: isolate;
+  background: var(--os-glass-bg);
+  -webkit-backdrop-filter: var(--os-glass-blur);
+  backdrop-filter: var(--os-glass-blur);
+}
+
+.offer-glass--panel {
+  border: 1px solid var(--os-glass-border);
+  box-shadow: var(--os-glass-shadow);
+}
+
+/* --- Lepljiva traka / cenovni dok ------------------------------------------*/
+.offer-dock {
+  position: relative;
+  isolation: isolate;
+  border: 1px solid var(--os-dock-border);
+  background: var(--os-dock-bg);
+  box-shadow: var(--os-dock-shadow);
+  -webkit-backdrop-filter: var(--os-dock-blur);
+  backdrop-filter: var(--os-dock-blur);
+}
+
+/* --- Rezerve za okruženja bez staklenog sloja -------------------------------*/
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .offer-glass,
+  .offer-dock {
+    background: var(--os-glass-fallback);
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .offer-glass,
+  .offer-dock {
+    background: var(--os-glass-fallback);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}

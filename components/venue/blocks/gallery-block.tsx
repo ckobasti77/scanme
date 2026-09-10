@@ -59,6 +59,7 @@ export function GalleryBlock({ props }: { props: GalleryProps }) {
       sizes={sizes}
       labels={{
         openAria: dict.lightboxOpenAria,
+        carouselAria: dict.galleryCarouselAria,
         countLabel: dict.lightboxLabel,
         close: dict.lightboxClose,
         prev: dict.lightboxPrev,

@@ -1,7 +1,9 @@
 .configurator {
-  --studio-radius: clamp(1.75rem, 2.4vw, 2.25rem);
+  /* radius + akcentna zelena sada dolaze iz deljenih tokena (app/offer-surface.css)
+     preko klase `offer-surface` na ovom elementu — ista vrednost, jedan izvor. */
+  --studio-radius: var(--os-radius);
   --offer-sidebar-width: 280px;
-  --offer-selected: #444c43;
+  --offer-selected: var(--os-selected);
   position: relative;
   min-width: 0;
   margin-top: 0;
@@ -16,12 +18,10 @@
   grid-template-columns: minmax(300px, 320px) minmax(0, 1fr) var(--offer-sidebar-width);
   overflow: hidden;
   overflow-anchor: none;
-  border: 1px solid rgb(255 255 255 / 0.52);
+  border: 1px solid var(--os-frame-border);
   border-radius: var(--studio-radius);
-  background: #d8d0c4;
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.7),
-    0 30px 80px rgb(65 46 36 / 0.18);
+  background: var(--os-frame);
+  box-shadow: var(--os-frame-shadow);
 }
 
 .sceneLayer,
@@ -646,17 +646,13 @@
 .glassSurface {
   position: relative;
   isolation: isolate;
-  border-left: 1px solid rgb(255 255 255 / 0.48);
-  background:
-    radial-gradient(ellipse at 14% -8%, rgb(255 255 255 / 0.34), transparent 38%),
-    linear-gradient(145deg, rgb(255 255 255 / 0.22), rgb(255 226 215 / 0.1) 44%, rgb(211 197 220 / 0.1)),
-    rgb(250 246 240 / 0.12);
-  -webkit-backdrop-filter: blur(11px) saturate(117%);
-  backdrop-filter: blur(11px) saturate(117%);
-  box-shadow:
-    inset 1px 0 0 rgb(255 255 255 / 0.32),
-    inset 0 1px 0 rgb(255 255 255 / 0.52),
-    -16px 0 42px rgb(54 36 27 / 0.08);
+  /* Staklo iz deljenih tokena (app/offer-surface.css) — ivična varijanta senke
+     jer je ovo bočni sidebar. Ista pozadina koju čita .offer-glass na /kupovina. */
+  border-left: 1px solid var(--os-glass-border);
+  background: var(--os-glass-bg);
+  -webkit-backdrop-filter: var(--os-glass-blur);
+  backdrop-filter: var(--os-glass-blur);
+  box-shadow: var(--os-glass-shadow-edge);
 }
 
 .controlSidebar {
@@ -1275,19 +1271,17 @@
   align-items: end;
   gap: 0.75rem;
   overflow: hidden;
-  border: 1px solid rgb(255 255 255 / 0.58);
+  /* Lepljiva traka iz deljenih tokena (app/offer-surface.css); istu vrednost
+     čita .offer-dock na /kupovina. Svetla senka ovde; tamna traka /ponuda
+     zadržava svoj (ivični) override niže. */
+  border: 1px solid var(--os-dock-border);
   border-radius: 1.3rem;
-  background:
-    radial-gradient(circle at 12% -20%, rgb(255 255 255 / 0.46), transparent 42%),
-    linear-gradient(135deg, rgb(255 255 255 / 0.34), rgb(255 224 213 / 0.14)),
-    rgb(250 246 240 / 0.46);
+  background: var(--os-dock-bg);
   padding: 0.68rem;
-  color: #171310;
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.72),
-    0 18px 48px rgb(49 31 24 / 0.2);
-  -webkit-backdrop-filter: blur(13px) saturate(118%);
-  backdrop-filter: blur(13px) saturate(118%);
+  color: var(--os-ink);
+  box-shadow: var(--os-dock-shadow);
+  -webkit-backdrop-filter: var(--os-dock-blur);
+  backdrop-filter: var(--os-dock-blur);
 }
 
 .priceDetails {
@@ -1417,13 +1411,7 @@
   display: none;
 }
 
-:global(html[data-theme="dark"]) .stage {
-  border-color: rgb(244 242 235 / 0.16);
-  background: #242621;
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.12),
-    0 30px 80px rgb(0 0 0 / 0.34);
-}
+/* Tamni ram (.stage) dolazi iz tamnih --os-frame* tokena (app/offer-surface.css). */
 
 :global(html[data-theme="dark"]) .sceneImage {
   filter: brightness(0.52) saturate(0.78) contrast(0.96);
@@ -1514,7 +1502,8 @@
   background: rgb(20 23 21 / 0.48);
 }
 
-:global(html[data-theme="dark"]) .glassSurface,
+/* Tamno staklo (.glassSurface) dolazi iz --os-glass* tokena. Traka (.priceDock)
+   zadržava svoj tamni izgled ovde. */
 :global(html[data-theme="dark"]) .priceDock {
   border-color: rgb(241 243 237 / 0.16);
   background:

@@ -8,6 +8,7 @@ import {
   requireGoogleReviewPanelBySlug,
 } from "./lib/access";
 import { getEntitlement } from "./lib/entitlements";
+import { venueAnalyticsEnabled, venueOrderingEnabled } from "./lib/plans";
 import { aggregateMetricRowsForRange, getMetricRows, metricsRangeConfig } from "./lib/metrics";
 import { getDestinationMetricRows, getServiceMetricRows } from "./lib/serviceMetrics";
 import { requireSlug } from "./lib/validation";
@@ -303,9 +304,16 @@ type VenuePanelResult =
   | { status: "none" }
   | {
       status: "available";
+      businessId: Id<"businesses">;
       businessSlug: string;
       businessName: string;
       venueProfileId: Id<"serviceProfiles">;
+      // TASK-43 — the resolved venue plan, for the panel's gated surfaces:
+      // the analytics card renders (or upsells) on `analyticsEnabled`; the
+      // server queries stay authoritative either way.
+      planKey: string;
+      analyticsEnabled: boolean;
+      orderingEnabled: boolean;
       // The event the owner is working on now: live → soonest scheduled →
       // newest draft (mirrors venue.editorBySlug's target, so "Uredi" opens the
       // same event this card describes).
@@ -473,11 +481,21 @@ export const venuePanel = query({
       }
     }
 
+    const venueEntitlement = await getEntitlement(
+      ctx,
+      business._id,
+      "scanme_venue",
+    );
+
     return {
       status: "available" as const,
+      businessId: business._id,
       businessSlug: business.slug,
       businessName: business.name,
       venueProfileId: profile._id,
+      planKey: venueEntitlement?.planKey ?? "basic",
+      analyticsEnabled: venueAnalyticsEnabled(venueEntitlement?.limits),
+      orderingEnabled: venueOrderingEnabled(venueEntitlement?.limits),
       activeEvent,
       needsArchive,
       pastEvents,

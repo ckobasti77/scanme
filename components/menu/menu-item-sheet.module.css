@@ -1,0 +1,353 @@
+/* ==========================================================================
+   ScanMe Meni — Item Bottom Sheet (RFC-003 §2.3, §2.5 — TASK-53)
+   Responsive bottom-sheet overlay with in-sheet video, variants, and pairings.
+   All colors, borders, and typography flow through the --menu-* tokens.
+   ========================================================================== */
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  animation: sheetFadeIn 180ms ease-out;
+}
+
+@keyframes sheetFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.sheet {
+  width: 100%;
+  max-width: 44rem;
+  max-height: 85dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--menu-surface, #ffffff);
+  color: var(--menu-body, #1a1a1a);
+  font-family: var(--menu-font-family);
+  border-top-left-radius: 24px;
+  border-top-right-radius: 24px;
+  border: 1px solid var(--menu-border, rgba(0, 0, 0, 0.12));
+  border-bottom: none;
+  box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.28);
+  padding: 1.25rem 1.5rem calc(1.5rem + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  flex-direction: column;
+  gap: 1.15rem;
+  animation: sheetSlideUp 240ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes sheetSlideUp {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .backdrop {
+    animation: none;
+  }
+  .sheet {
+    animation: none;
+  }
+}
+
+.handle {
+  width: 38px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--menu-border, rgba(0, 0, 0, 0.2));
+  margin: 0 auto 0.25rem auto;
+  flex-shrink: 0;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.titleGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.title {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--menu-title, #000);
+  margin: 0;
+  line-height: 1.25;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.price {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--menu-accent-text, var(--menu-accent, #000));
+  font-variant-numeric: tabular-nums;
+  margin: 0;
+}
+
+.closeButton {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.45rem;
+  border-radius: 999px;
+  color: var(--menu-body-muted, var(--menu-body, #666));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 150ms ease, color 150ms ease;
+}
+
+.closeButton:hover {
+  background: color-mix(in srgb, var(--menu-border) 40%, transparent);
+  color: var(--menu-title, #000);
+}
+
+.closeButton:focus-visible {
+  outline: 2px solid var(--menu-focus, var(--menu-accent));
+  outline-offset: 2px;
+}
+
+/* --- "Upit" (item inquiry, §2.10) ------------------------------------------ */
+
+.inquiryRow {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.inquiryButton {
+  align-self: flex-start;
+  padding: 0.6rem 1.1rem;
+  border-radius: 999px;
+  border: 1px solid var(--menu-accent, currentColor);
+  background: var(--menu-accent, transparent);
+  color: var(--menu-on-accent, var(--menu-title, #000));
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 150ms ease;
+}
+
+.inquiryButton:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.inquiryButton:focus-visible {
+  outline: 2px solid var(--menu-focus, var(--menu-accent));
+  outline-offset: 2px;
+}
+
+.inquiryStatus {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--menu-body-muted, var(--menu-body));
+  min-height: 1.1em;
+}
+
+/* --- Media (video, photo, or accent tile) --------------------------------- */
+
+.mediaContainer {
+  width: 100%;
+  border-radius: 16px;
+  overflow: hidden;
+  aspect-ratio: 16 / 10;
+  max-height: 45dvh;
+  background: color-mix(in srgb, var(--menu-surface) 90%, black);
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.videoElement {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.photoElement {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.tileFrame {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--menu-icon);
+}
+
+.description {
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: var(--menu-body, #333);
+  margin: 0;
+  white-space: pre-line;
+}
+
+/* --- Variants table -------------------------------------------------------- */
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.sectionHeading {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--menu-body-muted, var(--menu-body));
+  margin: 0;
+}
+
+.variantsTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+}
+
+.variantRow {
+  border-top: 1px solid var(--menu-border);
+}
+
+.variantRow:first-child {
+  border-top: none;
+}
+
+.variantLabel {
+  text-align: left;
+  padding: 0.55rem 0;
+  font-weight: 500;
+  color: var(--menu-body);
+}
+
+.variantPrice {
+  text-align: right;
+  padding: 0.55rem 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--menu-title);
+}
+
+/* --- "Ide uz" (pairings) --------------------------------------------------- */
+
+.pairingsList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.pairingCard {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.6rem 0.8rem;
+  border-radius: 14px;
+  border: 1px solid var(--menu-border);
+  background: color-mix(in srgb, var(--menu-surface) 85%, transparent);
+  cursor: pointer;
+  text-align: left;
+  transition: background 150ms ease, border-color 150ms ease;
+}
+
+.pairingCard:hover {
+  background: color-mix(in srgb, var(--menu-surface) 95%, var(--menu-accent));
+  border-color: color-mix(in srgb, var(--menu-border) 70%, var(--menu-accent));
+}
+
+.pairingCard:focus-visible {
+  outline: 2px solid var(--menu-focus, var(--menu-accent));
+  outline-offset: 2px;
+}
+
+.pairingMedia {
+  width: 3rem;
+  height: 3rem;
+  border-radius: 10px;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: var(--menu-icon);
+  position: relative;
+}
+
+.pairingImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.pairingBody {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.pairingName {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--menu-title);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pairingPrice {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--menu-accent-text, var(--menu-accent));
+  font-variant-numeric: tabular-nums;
+}
+
+.unavailableBadge {
+  display: inline-block;
+  padding: 0.1rem 0.45rem;
+  border: 1px solid var(--menu-border);
+  border-radius: 999px;
+  font-size: 0.68em;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--menu-body-muted, var(--menu-body));
+  vertical-align: middle;
+}

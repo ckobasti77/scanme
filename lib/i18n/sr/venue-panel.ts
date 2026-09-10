@@ -137,4 +137,40 @@ export const venuePanelSr = {
   archiveCancel: "Otkaži",
   archiveSuccess: "Događaj je arhiviran.",
   archiveError: "Arhiviranje nije uspelo.",
+
+  // TASK-43 — the reservations card (a request INBOX: the owner decides;
+  // potvrda otvara pripremljenu WhatsApp/Viber poruku, softver ništa ne šalje).
+  resCardHeading: "Zahtevi za rezervacije",
+  resCardEmpty: "Još nema zahteva za ovaj događaj.",
+  resCardNote:
+    "Zahtev drži mesto 2 sata dok ga ne potvrdite ili odbijete. Potvrda otvara pripremljenu poruku — vi je šaljete gostu.",
+  resZoneUsage: "{name}: {used}/{capacity}",
+  resStatusPending: "Na čekanju",
+  resStatusConfirmed: "Potvrđeno",
+  resStatusDeclined: "Odbijeno",
+  resStatusExpired: "Isteklo",
+  resPartyLabel: "{count} os.",
+  resReceivedAt: "primljeno {date}",
+  resDesiredAt: "dolazak {date}",
+  resConfirmAction: "Potvrdi",
+  resDeclineAction: "Odbij",
+  resWhatsappAction: "WhatsApp",
+  resViberAction: "Viber",
+  resMessageTemplate:
+    "Zdravo {name}, potvrđujemo vašu rezervaciju za {event} — {details}. Vidimo se!",
+  resMessageNoZone: "vaše mesto",
+  resActionError: "Radnja nije uspela. Pokušajte ponovo.",
+
+  // TASK-43 — the analytics card.
+  anaCardHeading: "Analitika događaja",
+  anaLockedNote:
+    "Analitika događaja (posete, blokovi, upiti za rezervacije) dostupna je uz Premium.",
+  anaPageViews: "Pregledi stranice",
+  anaReservationSubmits: "Upiti za rezervacije",
+  anaRangeLabel7d: "7 dana",
+  anaRangeLabel30d: "30 dana",
+  anaBlocksHeading: "Koji blokovi se gledaju",
+  anaBlocksEmpty: "Još nema podataka o blokovima.",
+  anaReservationsHeading: "Zahtevi po statusu",
+  anaEmptyNote: "Podaci se prikupljaju od objave stranice.",
 } as const satisfies VenuePanelDict;

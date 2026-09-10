@@ -11,6 +11,11 @@ import {
   venueBlockValidator,
   venueDesignValidator,
 } from "./lib/venueValidators";
+import {
+  menuDesignValidator,
+  menuModelValidator,
+} from "./lib/menuValidators";
+import { priceSnapshotValidator } from "./lib/orderSnapshot";
 
 const businessStatus = v.union(
   v.literal("active"),
@@ -33,6 +38,15 @@ export const serviceTypeValidator = v.union(
   v.literal("google_review"),
   v.literal("scanme_venue"),
   v.literal("scanme_memories"),
+  // TASK-61 (terminal): `scanme_menu` joins the union here. This is the one task
+  // that forces the six total `Record<ServiceType, …>` maps to gain a `menu`
+  // case (SERVICE_PRODUCT_NAMES in convex/lib/access.ts, SERVICE_LABEL in
+  // components/admin/customers-admin.tsx, SPLITTER_BUTTON_LABEL in checkout.ts,
+  // PRICING_SERVICE_BY_SERVICE_TYPE in orderSnapshot.ts, SLUG_SUFFIX in
+  // orders.ts, and PLAN_LIMITS/ACCOUNT_PLAN_TIER in lib/plans.ts) — expected and
+  // unavoidable per RFC-003 §2.14, not a freeze violation. Deferred by TASK-47
+  // until every prerequisite (schema, editor, entitlements, admin) was green.
+  v.literal("scanme_menu"),
 );
 
 const serviceType = serviceTypeValidator;
@@ -75,14 +89,53 @@ const accentTokens = v.object({
 
 // Card retarget kinds (RFC-001 §2.4 C.9). Shared by `cardTargets.kind` and
 // `cardScanEvents.targetKind` so the two can never drift; exported for the
-// convex/cards.ts arg validators (TASK-14).
+// convex/cards.ts arg validators (TASK-14). "splitter" (TASK-37, RFC-002 §2.4)
+// is the bare splitter: one card serving several services resolves to a
+// button page under /r/[cardCode]/izbor instead of a single destination.
 export const cardTargetKind = v.union(
   v.literal("memories_space"),
   v.literal("venue"),
   v.literal("event"),
   v.literal("service_page"),
   v.literal("url"),
+  v.literal("splitter"),
+  // RFC-003 §2.13 M.8 (TASK-47): a card resolves to /{slug}/meni. Shared with
+  // cardScanEvents.targetKind (they cannot drift). Storable but inert until
+  // TASK-56 (§2.8) wires the real 302: convex/cards.ts refuses menu at creation
+  // (validateTargetSpec guard) and resolves it as "invalid". NOT added to
+  // cardSplitterItem below — §2.13 lists only cardTargets.kind, so menu is not a
+  // valid splitter button (cards.ts SplitterItemSpec excludes it to match).
+  v.literal("menu"),
+  // RFC-004 §2.14, §2.16 O.8 (TASK-62): a card resolves through the card-aware
+  // hop to /o/[code]. Shared with cardScanEvents.targetKind. Wired live by
+  // TASK-63 (§2.2, §2.14): convex/cards.ts binds it at creation and
+  // resolveAndRecord 302s a direct card to the hop /r/[cardCode]/o.
+  v.literal("table_ordering"),
 );
+
+// One button on a bare splitter (RFC-002 §2.4, TASK-37): the same per-kind
+// reference shape as a direct card target, minus "splitter" itself (no
+// nesting, by construction) plus the button label. The exact block model was
+// RFC-002 §5 Q8's open question — this is the deliberately minimal answer.
+export const cardSplitterItem = v.object({
+  kind: v.union(
+    v.literal("memories_space"),
+    v.literal("venue"),
+    v.literal("event"),
+    v.literal("service_page"),
+    v.literal("url"),
+    // RFC-004 §2.14, §2.16 O.9 (TASK-62): an ordering button on a bare splitter.
+    // Unlike Menu (which is not a splitter button per RFC-003 §2.13 M.8), ordering
+    // IS a splitter button. Wired live by TASK-63: cards.ts binds it at creation
+    // and getSplitterView emits the card-aware hop href /r/[cardCode]/o.
+    v.literal("table_ordering"),
+  ),
+  label: v.string(),
+  spaceId: v.optional(v.id("memoriesSpaces")),
+  eventId: v.optional(v.id("events")),
+  serviceProfileId: v.optional(v.id("serviceProfiles")),
+  url: v.optional(v.string()),
+});
 
 // Reduced device signal for the new scan/visit event tables (RFC-001 §2.4
 // C.10). No IP or full UA is stored (§2.10 GDPR minimization). Exported for
@@ -98,6 +151,60 @@ export const deviceCategory = v.union(
 export default defineSchema({
   ...authTables,
 
+  // RFC-002 §2.2.1 — the account: the plan/billing/grouping layer ABOVE
+  // businesses (Axis B). Access stays per-business (§2.2.2): an Enterprise
+  // login reaches its locations through N businessMemberships rows, and
+  // requireBusinessAccess never reads this table. getEntitlement reads it as
+  // its least-specific fallback (step 3, §2.2.3).
+  accounts: defineTable({
+    name: v.string(), // "Kafanski lanac d.o.o." or a solo local's own name
+    plan: v.union(
+      v.literal("basic"),
+      v.literal("premium"),
+      v.literal("enterprise"),
+    ),
+    // Absent for basic — the free plan has no billing period.
+    planPeriod: v.optional(v.union(v.literal("monthly"), v.literal("annual"))),
+    // "expired" (TASK-32) is flipped by the daily billing-cycle sweep once
+    // planValidUntil + grace has elapsed, and flipped back to "active" by a
+    // recorded payment. "suspended" is an ADMIN decision and only an admin
+    // lifts it. getEntitlement step 3 requires "active", so both cut the
+    // account-plan tier with zero change to the read path.
+    status: v.union(
+      v.literal("active"),
+      v.literal("suspended"),
+      v.literal("expired"),
+    ),
+    // Enterprise-negotiated capability deviations, merged by getEntitlement
+    // (step 3); the same optional-subset shape as entitlements.overrides.
+    // Empty/absent for Basic/Premium.
+    overrides: v.optional(
+      v.object({
+        photosPerGuest: v.optional(v.number()),
+        maxImageDimension: v.optional(v.number()),
+        retentionDays: v.optional(v.number()),
+        allowedBlockKeys: v.optional(v.array(v.string())),
+      }),
+    ),
+    // Billing-port target for the PLAN subscription (services bill through
+    // orders, §2.5).
+    planSource: v.optional(v.union(v.literal("manual"), v.literal("billing"))),
+    planExternalRef: v.optional(v.string()),
+    // The account's paid-through / next-billing date (TASK-32). In the
+    // manual-first world the account gets ONE recurring bill (plan + services
+    // together), and this is the date the next payment is due. Absent =
+    // perpetual (no cycle tracked). Advanced by every recorded payment
+    // (convex/billing.ts); the daily billing-cycle sweep flips status to
+    // "expired" once this date + GRACE_DAYS has elapsed.
+    planValidUntil: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_status", ["status"])
+    // The billing-cycle sweep's range: active accounts whose paid-through date
+    // (+ grace) has passed.
+    .index("by_status_and_planValidUntil", ["status", "planValidUntil"]),
+
   businesses: defineTable({
     name: v.string(),
     slug: v.string(),
@@ -108,6 +215,11 @@ export default defineSchema({
     // below; the mutation that provisions a celebration tenant is built with
     // Memories.
     kind: v.optional(v.union(v.literal("business"), v.literal("celebration"))),
+    // RFC-002 §2.2.1 — the account this location belongs to. Optional and
+    // additive: absent degrades cleanly (getEntitlement step 3 simply never
+    // fires), so the solo-account backfill (§2.2.4) is not a correctness
+    // prerequisite.
+    accountId: v.optional(v.id("accounts")),
     logoStorageId: v.optional(v.id("_storage")),
     logoUrl: v.optional(v.string()),
     status: businessStatus,
@@ -115,7 +227,8 @@ export default defineSchema({
     createdAt: v.number(),
   })
     .index("by_slug", ["slug"])
-    .index("by_status", ["status"]),
+    .index("by_status", ["status"])
+    .index("by_account", ["accountId"]),
 
   dynamicLinks: defineTable({
     businessId: v.id("businesses"),
@@ -716,6 +829,8 @@ export default defineSchema({
     eventId: v.optional(v.id("events")),
     serviceProfileId: v.optional(v.id("serviceProfiles")),
     url: v.optional(v.string()),
+    // kind === "splitter" only (TASK-37): the bare splitter's button list.
+    splitterItems: v.optional(v.array(cardSplitterItem)),
     createdByUserId: v.id("users"),
     createdAt: v.number(),
   }).index("by_cardId", ["cardId"]),
@@ -811,10 +926,135 @@ export default defineSchema({
     .index("by_spaceId_and_status", ["spaceId", "status"])
     .index("by_status_and_validUntil", ["status", "validUntil"]),
 
+  // RFC-002 §2.5 — the order: the IMMUTABLE record-as-sold, above the account.
+  // The account plan is the live permission; this row is what was bought at the
+  // price it was bought. `priceSnapshot` is the pricing engine's breakdown
+  // frozen at sale time (convex/lib/orderSnapshot.ts) — a later constants edit
+  // never touches it. Payment is a stub against the billing port: `status` moves
+  // pending → paid by a manual admin action (or, later, a billing webhook), and
+  // no field here waits on the provider choice.
+  orders: defineTable({
+    accountId: v.id("accounts"),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("paid"),
+      v.literal("provisioned"),
+      v.literal("cancelled"),
+      v.literal("refunded"),
+    ),
+    plan: v.union(
+      v.literal("basic"),
+      v.literal("premium"),
+      v.literal("enterprise"),
+    ),
+    // Absent for basic (free) and enterprise (on request) — neither is billed a
+    // period; required for premium. Mirrors accounts.planPeriod / the engine.
+    planPeriod: v.optional(v.union(v.literal("monthly"), v.literal("annual"))),
+    priceSnapshot: priceSnapshotValidator,
+    // The billing-port seam (same shape as entitlements.source): a manual admin
+    // action or a later webhook advances the order; the field never names a
+    // provider.
+    billingSource: v.optional(
+      v.union(v.literal("manual"), v.literal("billing")),
+    ),
+    externalRef: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_accountId_and_createdAt", ["accountId", "createdAt"])
+    .index("by_status_and_createdAt", ["status", "createdAt"]),
+
+  // RFC-002 §2.5 — one row per purchased service AND one per physical-product
+  // line. `businessId` says which location this line provisions (Enterprise:
+  // per location). A physical line carries `boundService` (the service its card
+  // is bound to, §2.3) and a frozen snapshot of the product configurator choice.
+  orderItems: defineTable({
+    orderId: v.id("orders"),
+    businessId: v.id("businesses"),
+    kind: v.union(v.literal("service"), v.literal("physical")),
+    // Service lines only.
+    service: v.optional(serviceType),
+    period: v.optional(v.union(v.literal("monthly"), v.literal("annual"))),
+    // Physical lines only: the service the printed item is bound to, and the
+    // ProductSelection snapshot (shape from lib/scanme-pricing.ts, stored opaque).
+    // `boundService` is the primary (first) service; `boundServices` (TASK-38,
+    // §2.4) carries the FULL binding — a line bound to 2+ services is a splitter
+    // (razdelnik). Both are written for a physical line so a single-service
+    // reader keeps working while the splitter provisioner reads the array.
+    boundService: v.optional(serviceType),
+    boundServices: v.optional(v.array(serviceType)),
+    // TASK-38: the splitter card this physical line provisioned (§2.4). Set once
+    // the card-aware splitter is minted; its presence makes provisioning
+    // idempotent per orderItem, so a resumed/retried fan-out never mints a
+    // second card for the same line.
+    provisionedCardId: v.optional(v.id("cards")),
+    physicalSelection: v.optional(v.any()),
+    lineTotalRsd: v.number(),
+    createdAt: v.number(),
+  }).index("by_orderId", ["orderId"]),
+
+  // TASK-32 — the payment HISTORY (RFC-002 §2.5/§2.6): one row per payment,
+  // never just a "last paid" field. Manual entry is the MAIN flow (the first
+  // fifty clients pay by bank transfer or cash); a provider webhook later
+  // writes the same rows through the same billing port (convex/lib/
+  // billingPort.ts). The history is append-only: a wrong entry is VOIDED
+  // (compensating flags below), never deleted — the first dispute turns on
+  // exactly this trail.
+  payments: defineTable({
+    accountId: v.id("accounts"),
+    // Present when the payment settles a specific order (the initial sale via
+    // markOrderPaid). Renewals have no order — just the account.
+    orderId: v.optional(v.id("orders")),
+    amountRsd: v.number(),
+    // "manual" = admin-entered; "provider" = a billing-port webhook.
+    method: v.union(v.literal("manual"), v.literal("provider")),
+    // Nalog-za-prenos reference / provider transaction id / "na ruke" note.
+    reference: v.optional(v.string()),
+    // When the money moved — admin-entered, may be backdated.
+    paidAt: v.number(),
+    // The paid-through date this payment produced (the new
+    // accounts.planValidUntil). Absent when the payment did not move the
+    // cycle (e.g. an order with no derivable period).
+    coversUntil: v.optional(v.number()),
+    // Manual entries: the admin who typed it (who/what/when for disputes).
+    recordedByUserId: v.optional(v.id("users")),
+    // Void = the compensating correction. Voiding never auto-rewinds the
+    // cycle; the admin re-sets the next billing date explicitly (audited).
+    voidedAt: v.optional(v.number()),
+    voidedByUserId: v.optional(v.id("users")),
+    createdAt: v.number(),
+  })
+    .index("by_accountId_and_paidAt", ["accountId", "paidAt"])
+    .index("by_orderId", ["orderId"]),
+
+  // RFC-002 §2.6 (A.5) — who/what/when for every manual plan / payment /
+  // entitlement / activation change. Written in the same transaction as the
+  // change itself (convex/lib/adminAudit.ts). `detail` is machine-parseable
+  // JSON; prose is localized in the UI.
+  adminAuditLog: defineTable({
+    actorUserId: v.id("users"),
+    accountId: v.optional(v.id("accounts")),
+    businessId: v.optional(v.id("businesses")),
+    action: v.string(),
+    detail: v.optional(v.string()),
+    createdAt: v.number(),
+  })
+    .index("by_accountId_and_createdAt", ["accountId", "createdAt"])
+    .index("by_businessId_and_createdAt", ["businessId", "createdAt"])
+    .index("by_createdAt", ["createdAt"]),
+
   // C.14 — reservation-block submissions (child table, unbounded). The
   // reservation block's field config (name/phone/email/partySize/note) drives
-  // which of these submitReservation accepts; every column except name is
+  // which of these the submit mutation accepts; every column except name is
   // optional so a block that disables a field simply never writes it.
+  //
+  // TASK-43 — the request workflow. THIS IS NOT A RESERVATION SYSTEM: no
+  // payment, no guarantee, no automatic confirmation — the OWNER decides. A
+  // request starts `pending` and holds ONE unit of its zone softly until
+  // `heldUntil` (2h), when a scheduled flip (+ cron backstop) marks it
+  // `expired` and frees the unit. `confirmed` holds the unit for good;
+  // `declined`/`expired` free it. Legacy rows (status absent) predate the
+  // workflow and are read as still holding (their old semantics).
   venueReservations: defineTable({
     eventId: v.id("events"),
     name: v.string(),
@@ -822,8 +1062,40 @@ export default defineSchema({
     email: v.optional(v.string()),
     partySize: v.optional(v.number()),
     note: v.optional(v.string()),
+    // Zone reference (block-embedded zone id) + a name snapshot so the owner
+    // list stays readable after the block's zones are edited.
+    zoneId: v.optional(v.string()),
+    zoneName: v.optional(v.string()),
+    // The time the guest asked for — informational for the owner.
+    desiredAt: v.optional(v.number()),
+    status: v.optional(
+      v.union(
+        v.literal("pending"),
+        v.literal("confirmed"),
+        v.literal("declined"),
+        v.literal("expired"),
+      ),
+    ),
+    // Soft-hold expiry instant for pending rows (reserve→commit, RFC §2.9).
+    heldUntil: v.optional(v.number()),
+    decidedAt: v.optional(v.number()),
     createdAt: v.number(),
-  }).index("by_eventId_and_createdAt", ["eventId", "createdAt"]),
+  })
+    .index("by_eventId_and_createdAt", ["eventId", "createdAt"])
+    .index("by_eventId_and_status", ["eventId", "status"])
+    .index("by_status_and_heldUntil", ["status", "heldUntil"]),
+
+  // TASK-43 — per-event daily analytics rollup. AGGREGATE ONLY, by design
+  // (RFC-001 §2.10): counts and a per-block-type view record — never an IP, a
+  // user agent, a guest id, or any per-visitor row.
+  dailyEventMetrics: defineTable({
+    eventId: v.id("events"),
+    dateKey: v.string(),
+    pageViews: v.number(),
+    reservationSubmits: v.number(),
+    blockViews: v.optional(v.record(v.string(), v.number())),
+    updatedAt: v.number(),
+  }).index("by_eventId_and_dateKey", ["eventId", "dateKey"]),
 
   // C.15 — celebrations (the product entity, §2.1.6). A celebration is a
   // product instance, not a tenant: its tenant is a `businesses` row with
@@ -964,4 +1236,287 @@ export default defineSchema({
     width: v.number(),
     height: v.number(),
   }).index("by_jobId_and_seq", ["jobId", "seq"]),
+
+  // ===========================================================================
+  // RFC-003 §2.13 — ScanMe Menu (TASK-47). Six new, empty, additive tables for
+  // the Menu product. Conventions follow this file: literal-union statuses,
+  // createdAt/updatedAt as v.number(), child tables over unbounded arrays, index
+  // names listing all fields, Convex storage ids for media (no R2). New tables
+  // start empty → no staged indexes. serviceTypeValidator +"scanme_menu" and
+  // cardTargetKind +"menu" (above) complete the catalog.
+  // ===========================================================================
+
+  // M.1 — the per-location Menu doc (design + draft/published + daypart override).
+  menus: defineTable({
+    businessId: v.id("businesses"),
+    // TASK-51: optional until TASK-61. No `scanme_menu` serviceProfile can
+    // exist before the service-type union gains the member (BLOCKED TASK-47),
+    // so the editor creates the menu keyed by business alone; TASK-61 attaches
+    // the profile. Additive loosening on an empty table — BLOCKED TASK-51 §1.
+    serviceProfileId: v.optional(v.id("serviceProfiles")),
+    status: v.union(v.literal("draft"), v.literal("published")),
+    design: v.any(), // the PUBLISHED Menu design doc compiled by menu-tokens.ts (§1.b)
+    daypartOverride: v.optional(v.string()), // pins a daypart key, beats the clock (§2.5)
+    publishedAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    // TASK-51 — the DRAFT side the editor autosaves (the venueEventConfigs
+    // mirror): the inline model (lib/menu-blocks.ts) + design, and the
+    // draft/published revision pair publishDraft guards with
+    // expectedDraftRevision. The PUBLISHED content is the six tables below,
+    // written by publishDraft through lib/menu-rows.ts. All optional so the
+    // RFC-003 §2.13 shape (and the TASK-47 fixtures) still validate; code
+    // reads `draftRevision ?? 0`.
+    draftModel: v.optional(menuModelValidator),
+    draftDesign: v.optional(menuDesignValidator),
+    draftRevision: v.optional(v.number()),
+    publishedRevision: v.optional(v.number()),
+    hasUnpublishedChanges: v.optional(v.boolean()),
+    // TASK-60c — generation-based publish (docs/perf/menu-publish-ceiling.md).
+    // publishDraft writes generation N+1 WITHOUT deleting the old rows and flips
+    // this pointer atomically; the public query reads only rows whose
+    // publishGeneration === publishedGeneration, so a republish never pays
+    // deletePublishedRows' per-item query cost (the 4096-databaseQueries ceiling
+    // that crashed republish at ~850 items). Cleanup of generations below the
+    // pointer runs in scheduler continuations (cleanupOldGenerations), guarded
+    // by pendingCleanup/pendingCleanupSince + the sweepStuckMenuCleanups cron
+    // reserve (TASK-65 shape). All optional so existing (perf-seed) rows validate.
+    publishedGeneration: v.optional(v.number()),
+    pendingCleanup: v.optional(v.boolean()),
+    pendingCleanupSince: v.optional(v.number()),
+    // TASK-58 — the concierge migration state (RFC-003 §2.9): primljeno → u
+    // izradi → na potvrdi → objavljeno, shown on the admin Menu subpage with
+    // the two-working-day deadline computed from `migrationReceivedAt`
+    // (lib/menu-migration.ts). Written only by the requireAdmin-gated
+    // convex/menuAdmin.ts mutations. Optional: owner-created menus have none.
+    migrationStage: v.optional(
+      v.union(
+        v.literal("received"),
+        v.literal("in_progress"),
+        v.literal("review"),
+        v.literal("published"),
+      ),
+    ),
+    migrationReceivedAt: v.optional(v.number()),
+    migrationStageAt: v.optional(v.number()),
+  })
+    .index("by_businessId", ["businessId"])
+    .index("by_serviceProfileId", ["serviceProfileId"])
+    .index("by_pendingCleanup_and_pendingCleanupSince", [
+      "pendingCleanup",
+      "pendingCleanupSince",
+    ]),
+
+  // M.2 — the unit of layout; exactly one shape per group (§2.1).
+  menuGroups: defineTable({
+    menuId: v.id("menus"),
+    title: v.string(),
+    shape: v.union(
+      v.literal("lista"),
+      v.literal("galerija"),
+      v.literal("traka"),
+      v.literal("istaknuto"),
+      v.literal("tabela_varijanti"),
+    ),
+    iconKey: v.optional(v.string()), // category icon for the group's tiles (§2.4)
+    daypartKey: v.optional(v.string()), // bind to a daypart, else always shown (§2.5)
+    order: v.number(),
+    // TASK-60c — which published generation this row belongs to (see menus).
+    publishGeneration: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_menuId_and_order", ["menuId", "order"])
+    .index("by_menuId_and_publishGeneration", ["menuId", "publishGeneration"]),
+
+  // M.3 — the item; carries the live `available` flag and media ids (§2.3, §2.6).
+  menuItems: defineTable({
+    menuId: v.id("menus"),
+    groupId: v.id("menuGroups"),
+    name: v.string(),
+    description: v.optional(v.string()),
+    productType: v.string(), // drives default icon + variant axes (§2.3)
+    priceRsd: v.optional(v.number()), // absent when variant-priced (§2.3)
+    iconKey: v.optional(v.string()), // per-item override; else productType's default (§2.4)
+    photoStorageId: v.optional(v.id("_storage")), // Premium only; opaque Convex storage id (§2.7)
+    videoStorageId: v.optional(v.id("_storage")), // Premium only; plays in the sheet (§2.5)
+    available: v.boolean(), // the live "nema više" flag (§2.6)
+    order: v.number(),
+    // TASK-60c — which published generation this row belongs to (see menus).
+    publishGeneration: v.optional(v.number()),
+    // TASK-58 — the inline draft item id this row was published from: the
+    // STABLE key RFC-003 §3 Risk 9 asks for (`_id` churns on every publish).
+    // publishDraft matches draft items to live rows by it to detect a live
+    // "nema više" the draft would resurrect (§3 Risk 10). Optional: rows
+    // published before TASK-58 carry none and fall back to group+name.
+    key: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_groupId_and_order", ["groupId", "order"])
+    .index("by_menuId", ["menuId"])
+    .index("by_menuId_and_publishGeneration", ["menuId", "publishGeneration"]),
+
+  // M.4 — size/quantity/extra as priced rows, not prose (§2.3).
+  itemVariants: defineTable({
+    itemId: v.id("menuItems"),
+    label: v.string(), // "0.3 l" | "flaša" | "velika"
+    priceRsd: v.number(),
+    order: v.number(),
+  }).index("by_itemId_and_order", ["itemId", "order"]),
+
+  // M.5 — manual "Ide uz" relation (§2.3).
+  itemPairings: defineTable({
+    itemId: v.id("menuItems"),
+    pairedItemId: v.id("menuItems"),
+    order: v.number(),
+  }).index("by_itemId", ["itemId"]),
+
+  // M.6 — doručak/ručak/večera windows; venue-local time (§2.5).
+  menuDayparts: defineTable({
+    menuId: v.id("menus"),
+    key: v.string(), // "dorucak" | "rucak" | "vecera"
+    label: v.string(),
+    startMinute: v.number(), // minutes from midnight, venue timezone
+    endMinute: v.number(),
+    order: v.number(),
+    // TASK-60c — which published generation this row belongs to (see menus).
+    publishGeneration: v.optional(v.number()),
+  })
+    .index("by_menuId_and_order", ["menuId", "order"])
+    .index("by_menuId_and_publishGeneration", ["menuId", "publishGeneration"]),
+
+  // ==========================================================================
+  // Ordering + Waiter Panel data model (RFC-004 §2.16). Shape only — no routes,
+  // UI, waiter panel, guest page, or rate limiters land here (TASK-62).
+  // Every index name is taken verbatim from RFC-004 §2.16. New tables start
+  // empty. The orders/orderItems names belong to the RFC-002 purchase layer, so
+  // this product deliberately uses serviceRequests / serviceRequestItems.
+  // ==========================================================================
+
+  // O.1 — per-venue ordering settings (§2.12, §2.13, §2.16).
+  orderingConfig: defineTable({
+    businessId: v.id("businesses"),
+    code: v.string(), // the /o/[code] short code (twin of memoriesSpaces.code)
+    enabled: v.boolean(), // this venue turns ordering on (config gate)
+    callWaiterEnabled: v.boolean(), // the optional call button (constraint 7)
+    overdueMinutes: v.number(), // acceptance deadline; default 7 (§2.8, §5)
+    reasons: v.array(v.string()), // call-waiter reason chips (§5)
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_businessId", ["businessId"])
+    .index("by_code", ["code"]),
+
+  // O.2 — the orderable list, DECOUPLED from Menu (§2.13, §2.16).
+  orderingItems: defineTable({
+    businessId: v.id("businesses"),
+    name: v.string(),
+    priceRsd: v.optional(v.number()), // informational only; never totaled (§2.3)
+    available: v.boolean(), // the live "nema više" flag (§2.13, RFC-003 §2.6)
+    order: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_businessId_and_order", ["businessId", "order"]),
+
+  // O.3 — anonymous per-scan bearer, twin of memoriesGuests (§2.2, §2.16).
+  orderingGuests: defineTable({
+    businessId: v.id("businesses"),
+    code: v.string(), // the venue ordering code
+    guestKey: v.string(), // 256-bit bearer (hashed cookie value verifies via HMAC)
+    cardId: v.optional(v.id("cards")), // the TABLE — minted through the card-aware hop
+    firstSeenAt: v.number(),
+    lastSeenAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_code_and_guestKey", ["code", "guestKey"])
+    .index("by_cardId", ["cardId"]),
+
+  // O.4 — owner-set PINs; NOT a users account (§2.7, §2.16).
+  staffPins: defineTable({
+    businessId: v.id("businesses"),
+    label: v.string(), // "Šef sale", "Konobar 1"
+    pinHash: v.string(), // constant-time compared; PIN is convenience, not a boundary
+    active: v.boolean(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_businessId", ["businessId"]),
+
+  // O.5 — a manned panel session (§2.7, §2.16).
+  orderingShifts: defineTable({
+    businessId: v.id("businesses"),
+    status: v.union(v.literal("open"), v.literal("closed")),
+    staffLabel: v.string(), // from the PIN used
+    bearerHash: v.string(), // the shift bearer (Path=/panel/[venueCode] cookie)
+    paused: v.boolean(), // manual ordering off-switch (§2.6 cause B)
+    lastHeartbeatAt: v.number(), // heartbeat presence (§2.6)
+    stale: v.boolean(), // materialized by markShiftStale; never a clock read
+    openedAt: v.number(),
+    closedAt: v.optional(v.number()),
+    updatedAt: v.number(),
+  })
+    .index("by_businessId_and_status", ["businessId", "status"])
+    // TASK-65 — the markShiftStale cron backstop ranges open shifts by heartbeat
+    // age across all venues, exactly like venueReservations.by_status_and_heldUntil.
+    .index("by_status_and_lastHeartbeatAt", ["status", "lastHeartbeatAt"]),
+
+  // O.6 — one row per call OR order (§2.1, §2.4, §2.5, §2.16).
+  serviceRequests: defineTable({
+    businessId: v.id("businesses"),
+    cardId: v.id("cards"), // the TABLE — the whole point (§2.2)
+    guestId: v.id("orderingGuests"), // the person (bearer-scoped view, §2.5)
+    shiftId: v.id("orderingShifts"), // routed to the open shift (§2.7)
+    kind: v.union(v.literal("call"), v.literal("order")),
+    status: v.union(
+      v.literal("sent"),
+      v.literal("accepted"),
+      v.literal("enroute"),
+      v.literal("completed"),
+      v.literal("withdrawn"),
+    ), // Poslato / Prihvaćeno / Stiže / done / withdrawn
+    reason: v.optional(v.string()), // call kind: the chip
+    note: v.optional(v.string()), // order kind: optional free text
+    overdue: v.boolean(), // materialized by markOverdue (§2.8); never a clock read
+    // TASK-67 — the acceptance deadline, FROZEN at creation from the venue's
+    // orderingConfig.overdueMinutes. The twin of venueReservations.heldUntil:
+    // the instant the per-row runAt flip is scheduled for, and the key the cron
+    // backstop ranges on when that flip is lost. Stored rather than derived so
+    // an owner editing overdueMinutes mid-service cannot move the deadline of a
+    // request already in flight. Optional only so rows written before TASK-67
+    // (dev QA) still validate; every new row has it.
+    overdueAt: v.optional(v.number()),
+    createdAt: v.number(),
+    acceptedAt: v.optional(v.number()),
+    updatedAt: v.number(),
+  })
+    .index("by_shiftId_and_status", ["shiftId", "status"])
+    .index("by_cardId_and_createdAt", ["cardId", "createdAt"])
+    .index("by_businessId_and_createdAt", ["businessId", "createdAt"])
+    // TASK-67 — the guest's own live status list (§2.5: bearer-scoped, a guest
+    // sees only their own requests). Newest-first and bounded, the wall pattern.
+    .index("by_guestId_and_createdAt", ["guestId", "createdAt"])
+    // TASK-67 — the overdue cron backstop ranges still-`sent` requests by their
+    // frozen deadline across all venues, exactly like
+    // orderingShifts.by_status_and_lastHeartbeatAt.
+    .index("by_status_and_overdueAt", ["status", "overdueAt"])
+    // TASK-68 — the waiter panel's live queue reads ONLY the active statuses
+    // (sent / accepted / enroute), each newest-first and bounded by a take
+    // (the WALL_WINDOW pattern), authorized per business (TASK-67 §5). With the
+    // plain by_businessId_and_createdAt index, sixty fresh `completed` rows
+    // would push an older still-`sent` request — precisely the overdue one —
+    // out of the window silently.
+    .index("by_businessId_and_status_and_createdAt", [
+      "businessId",
+      "status",
+      "createdAt",
+    ]),
+
+  // O.7 — order lines (child over array; §2.13, §2.16).
+  serviceRequestItems: defineTable({
+    requestId: v.id("serviceRequests"),
+    name: v.string(), // snapshot of orderingItems.name at send time
+    priceRsd: v.optional(v.number()), // informational snapshot (§2.3)
+    qty: v.number(),
+    order: v.number(),
+  }).index("by_requestId", ["requestId"]),
 });

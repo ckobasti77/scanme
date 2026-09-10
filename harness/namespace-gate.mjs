@@ -1,7 +1,8 @@
-// CI namespace gate from RFC-001 §2.11: the two products' CSS custom-property
+// CI namespace gate from RFC-001 §2.11 & RFC-003: the products' CSS custom-property
 // namespaces must never cross. Fails if `--links-` appears anywhere under
-// components/venue/**, or `--venue-` anywhere under components/scanme-links/**.
-// A missing directory is a pass (components/venue does not exist yet).
+// components/venue/**, `--venue-` anywhere under components/scanme-links/**,
+// or either `--venue-` or `--links-` anywhere under components/menu/**.
+// A missing directory is a pass.
 
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
@@ -13,6 +14,8 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const CHECKS = [
   { dir: "components/venue", forbidden: "--links-" },
   { dir: "components/scanme-links", forbidden: "--venue-" },
+  { dir: "components/menu", forbidden: "--venue-" },
+  { dir: "components/menu", forbidden: "--links-" },
 ];
 
 async function collectFiles(dir) {

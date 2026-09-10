@@ -93,6 +93,7 @@ export default async function VenueEventPage({
       businessSlug={slug}
       pastEvents={archive}
       footerLink={{ href: `/${slug}/venue`, label: dict.currentEventLink }}
+      analytics
     >
       {ownArchive && ownArchive.items.length > 0 ? (
         <div>
@@ -117,6 +118,7 @@ export default async function VenueEventPage({
             )}
             labels={{
               openAria: dict.lightboxOpenAria,
+              carouselAria: dict.galleryCarouselAria,
               countLabel: dict.lightboxLabel,
               close: dict.lightboxClose,
               prev: dict.lightboxPrev,

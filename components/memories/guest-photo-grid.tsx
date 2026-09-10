@@ -50,7 +50,16 @@ export function GuestPhotoGrid({
               type="button"
               className={styles.photoButton}
               onClick={() => setOpenId(photo.photoId)}
-              aria-label={fmt(dict.photoAlt, { index: index + 1 })}
+              // The EyeOff badge is visual-only (aria-hidden), so the
+              // host_only state must live in the button's own name — a screen
+              // reader browsing the grid has no other way to tell which
+              // photos are private (TASK-25 a11y).
+              aria-label={
+                fmt(dict.photoAlt, { index: index + 1 }) +
+                (photo.visibility === "host_only"
+                  ? ` — ${dict.visibilityHostOnly}`
+                  : "")
+              }
             >
               <PhotoThumb
                 image={photo.image}

@@ -45,6 +45,21 @@ describe("getDict", () => {
     );
     expect(getDict("resolver").title.length).toBeGreaterThan(0);
   });
+
+  test("the menu and menu-admin surfaces are filled (TASK-57)", () => {
+    const menu = getDict("menu");
+    expect(menu.unavailableBadge).toBe("Nema više");
+    expect(menu.poweredBy).toBe("ScanMe Meni");
+    expect(menu.moreItems).toBe("Još {count}");
+    expect(menu.metaTitle).toBe("{name} · Meni");
+
+    const menuAdmin = getDict("menu-admin");
+    expect(menuAdmin.eyebrow).toBe("ScanMe Meni");
+    expect(menuAdmin.stageReceived).toBe("Primljeno");
+    expect(menuAdmin.stagePublished).toBe("Objavljeno");
+    expect(menuAdmin.exportPdfAction).toBe("Preuzmi PDF");
+    expect(menuAdmin.exportExcelAction).toBe("Preuzmi Excel");
+  });
 });
 
 // Type-level proof that the `as const satisfies XDict` pattern makes a MISSING

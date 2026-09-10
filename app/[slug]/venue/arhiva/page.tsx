@@ -83,6 +83,7 @@ export default async function VenueArchivePage({
                 )}
                 labels={{
                   openAria: dict.lightboxOpenAria,
+                  carouselAria: dict.galleryCarouselAria,
                   countLabel: dict.lightboxLabel,
                   close: dict.lightboxClose,
                   prev: dict.lightboxPrev,

@@ -63,6 +63,7 @@ export interface VenueDict {
   mapIframeTitle: string;
   // gallery block.
   galleryImageAlt: string; // "… {index}"
+  galleryCarouselAria: string; // the keyboard-scrollable carousel region
   lightboxOpenAria: string; // "… {index} …"
   lightboxLabel: string; // "{index} / {count}"
   lightboxClose: string;
@@ -88,11 +89,22 @@ export interface VenueDict {
   reservationSuccessDefault: string;
   reservationErrorGeneric: string;
   reservationDeadlineNote: string; // "… {date}"
+  // reservation zones + request semantics (TASK-43). The disclaimer keeps the
+  // hard rule visible to the guest: a submission is a REQUEST the owner
+  // confirms, never a booking the software promises.
+  fieldZone: string;
+  fieldDesiredAt: string;
+  reservationZoneFullSuffix: string; // appended to a full zone's option label
+  reservationAllFull: string; // replaces the form when every zone is full
+  reservationDisclaimer: string;
   // reservation backend errors (ConvexError data shown on the public form).
   reservationUnavailable: string;
   reservationClosed: string;
   reservationDeadlinePassed: string;
   reservationFull: string;
+  reservationZoneRequired: string;
+  reservationZoneInvalid: string;
+  reservationZoneFull: string;
   reservationRateLimited: string;
   reservationNameRequired: string;
   reservationPartySizeInvalid: string;
@@ -147,10 +159,15 @@ export interface VenueEditorDict {
   schedulePublishRequired: string;
   scheduleOverlap: string;
   scheduleWrongStatus: string;
+  scheduleLimitReached: string; // "… {max} …" — the Basic active-event ceiling
   liveConflict: string;
   blockNotAllowed: string;
+  // TASK-43 — owner-side reservation-workflow errors (venueReservations.ts).
+  resRequestNotFound: string;
+  resConfirmFull: string;
   archiveNotEnded: string;
   archiveAssetInvalid: string;
+  archiveOverCap: string; // "… {max} …" — same cap as memories.archiveOverCap
   endNotLive: string;
   // --- TASK-10: the editor shell (components/venue/editor/**) ---------------
   // Route metadata.
@@ -218,6 +235,10 @@ export interface VenueEditorDict {
   blockCount: string; // "{count} / {max}"
   blocksCapReached: string; // "… ({max}) …"
   blocksEmpty: string;
+  // TASK-43 — plan gating in the palette: blocks outside the plan's allow-list
+  // are NOT offered; this one-liner says why the palette is shorter.
+  blocksPremiumNote: string;
+  blockPremiumChip: string; // chip on an existing block the plan no longer allows
   addBlockAria: string; // "… „{block}“"
   blockItemAria: string; // "… „{block}“ …"
   dragHandleAria: string; // "… „{block}“"
@@ -428,6 +449,14 @@ export interface VenueEditorDict {
   resFieldEmail: string;
   resFieldPartySize: string;
   resFieldNote: string;
+  // TASK-43 — zones editor: areas with a unit count, never numbered tables.
+  resZonesHeading: string;
+  resZonesNote: string; // explains zones + the 2h soft hold to the owner
+  resZoneNameLabel: string;
+  resZoneCapacityLabel: string;
+  resZoneAdd: string;
+  resZoneRemoveAria: string; // "… „{name}“"
+  resZoneNamePlaceholder: string;
   resCapacityToggle: string;
   resCapacityLabel: string;
   resDeadlineToggle: string;
@@ -576,6 +605,7 @@ export interface VenueAdminDict {
   planLabel: string;
   planPickerLabel: string;
   planBasic: string;
+  planPremium: string;
   // Current event summary.
   currentEventLabel: string;
   noEventYet: string;
@@ -725,6 +755,41 @@ export interface VenuePanelDict {
   archiveCancel: string;
   archiveSuccess: string;
   archiveError: string;
+  // --- TASK-43: the reservations card ---------------------------------------
+  // The owner decides — the card's copy must read as a request inbox, never as
+  // a booking system's admin. Confirm opens a PREPARED WhatsApp/Viber message.
+  resCardHeading: string;
+  resCardEmpty: string;
+  resCardNote: string; // the 2h-hold + owner-decides explainer
+  resZoneUsage: string; // "{name}: {used}/{capacity}"
+  resStatusPending: string;
+  resStatusConfirmed: string;
+  resStatusDeclined: string;
+  resStatusExpired: string;
+  resPartyLabel: string; // "{count} os."
+  resReceivedAt: string; // "… {date}"
+  resDesiredAt: string; // "… {date}"
+  resConfirmAction: string;
+  resDeclineAction: string;
+  resWhatsappAction: string;
+  resViberAction: string;
+  // The prepared message the owner sends after confirming — never sent by the
+  // software itself. Placeholders: {name}, {event}, {details} (zone/party/time
+  // joined client-side, empty parts dropped).
+  resMessageTemplate: string;
+  resMessageNoZone: string; // {details} fallback when the request carries none
+  resActionError: string;
+  // --- TASK-43: the analytics card ------------------------------------------
+  anaCardHeading: string;
+  anaLockedNote: string; // Basic upsell — the read is Premium-gated on the server
+  anaPageViews: string;
+  anaReservationSubmits: string;
+  anaRangeLabel7d: string;
+  anaRangeLabel30d: string;
+  anaBlocksHeading: string;
+  anaBlocksEmpty: string;
+  anaReservationsHeading: string;
+  anaEmptyNote: string;
 }
 
 // memories — the Memories backend + guest surfaces (/m/[code]*). TASK-14 adds
@@ -766,6 +831,10 @@ export interface MemoriesDict {
   cardCodeGenerationFailed: string;
   cardBusinessMismatch: string;
   cardMintCountInvalid: string; // TASK-18 batch mint: count outside 1–50
+  // TASK-37 bare splitter (convex/cards.ts, RFC-002 §2.4).
+  cardSplitterItemsInvalid: string; // "… {min} … {max} …" — button count out of range
+  cardLinksMemoriesBlocked: string; // Memories behind a Links-page splitter: the two-pattern refusal
+  cardLinksOrderingBlocked: string; // TASK-63: ordering behind a Links-page splitter: the two-pattern refusal (RFC-004 §2.2, §6)
   // TASK-18 host space controls (convex/memoriesHost.ts).
   spaceNotOneOff: string; // window controls on a recurring space
   spaceWindowInvalid: string; // new end not after the window start / now
@@ -799,6 +868,7 @@ export interface MemoriesDict {
   itemQueued: string;
   itemPreparing: string;
   itemUploading: string; // "… {percent}%"
+  itemUploadingAnnounce: string; // live-region variant, no percent stream
   itemProcessing: string;
   itemSaved: string; // shown ONLY when the server commit confirmed (state "ready")
   itemWaitingNetwork: string;
@@ -1146,6 +1216,7 @@ export interface MemoriesPanelDict {
   archiveSelectedCount: string; // "{count} izabrano"
   archivePinAction: string; // "Prikaži na stranici"
   archiveEventLabel: string; // the target-event select label
+  archiveEventsTruncated: string; // "… {max} …" — older events cut from the picker
   archiveNoEvents: string; // no events exist for this business yet
   archivePrivateReason: string; // why a host_only tile is not selectable
   archivePinnedBadge: string; // this photo is already on the page
@@ -1246,12 +1317,15 @@ export interface MemoriesWallDict {
   photoAlt: string; // alt text for a wall photo
 }
 
-// resolver — the /r/nevazeca "card not active" page (TASK-14).
+// resolver — the /r/nevazeca "card not active" page (TASK-14) and the bare
+// splitter page /r/[cardCode]/izbor (TASK-37).
 export interface ResolverDict {
   metaTitle: string;
   title: string;
   body: string;
   hint: string;
+  splitterMetaTitle: string; // "… {name}" — the business name
+  splitterHint: string; // the one line above the buttons
 }
 
 // consent — the versioned upload-consent notice (§2.10, TASK-17). Rendered
@@ -1435,6 +1509,880 @@ export interface OfferDict {
   >;
 }
 
+// admin-customers — the operational customers table (components/admin/
+// customers-admin.tsx, app/admin/customers, TASK-40, RFC-002 §2.6). NOT a
+// directory of who exists — a work list of WHO TO CALL TODAY: name, phone,
+// active services, plan, period, the four billing statuses, next renewal, and
+// the per-location activate/deactivate + manual-payment actions. The four
+// statuses are DERIVED by the TASK-32 billing module (deriveBillingStatus);
+// this surface only labels them. `{...}` placeholders go through fmt().
+export interface AdminCustomersDict {
+  navLabel: string;
+  eyebrow: string;
+  title: string;
+  subtitle: string;
+  loadError: string;
+  empty: string;
+  count: string; // "Korisnici ({count})"
+  refreshedAt: string; // "Osveženo u {time}"
+  // Column headers.
+  colName: string;
+  colPhone: string;
+  colServices: string;
+  colPlan: string;
+  colPeriod: string;
+  colStatus: string;
+  colNextBilling: string;
+  colActions: string;
+  // Plan labels.
+  planBasic: string;
+  planPremium: string;
+  planEnterprise: string;
+  // Period labels.
+  periodMonthly: string;
+  periodAnnual: string;
+  periodNone: string; // basic / no tracked period ("—")
+  // The four derived statuses (§2.6) + the raw-state distinctions the read model
+  // carries alongside them.
+  statusActive: string;
+  statusExpiringSoon: string;
+  statusExpired: string;
+  statusPaidNeverConfigured: string;
+  statusSuspended: string; // accountStatus "suspended" (an admin decision, not a lapse)
+  statusNoAccount: string; // a legacy account-less location (no billing row)
+  // Next-billing cell.
+  billingNone: string; // no tracked cycle ("—")
+  billingDueToday: string;
+  billingDueInDays: string; // "za {count} dana"
+  billingOverdueDays: string; // "kasni {count} dana"
+  // Service-type labels (serviceProfiles.type → Serbian).
+  serviceScanmeLinks: string;
+  serviceGoogleReview: string;
+  serviceVenue: string;
+  serviceMemories: string;
+  serviceMenu: string;
+  servicesNoneActive: string; // no active service ("nema aktivnih")
+  unconfiguredNote: string; // "Nije podešeno: {services}" — the churn detail
+  // Enterprise grouping.
+  enterpriseBadge: string; // "Lanac"
+  enterpriseLocations: string; // "{count} lokala"
+  expandAria: string; // "Prikaži lokale — {name}"
+  collapseAria: string; // "Sakrij lokale — {name}"
+  locationsHeading: string;
+  // Row / location actions.
+  openLocation: string; // opens the location's existing page
+  openLocationAria: string; // "Otvori lokal {name}"
+  detailsAction: string; // open the customer detail drawer
+  phoneNone: string; // "—"
+  contactNone: string;
+  // Activate / deactivate a service.
+  activateService: string; // "Aktiviraj"
+  deactivateService: string; // "Deaktiviraj"
+  activateAria: string; // "Aktiviraj {service} — {location}"
+  deactivateAria: string; // "Deaktiviraj {service} — {location}"
+  activateSuccess: string; // "{service} je aktiviran za {location}."
+  deactivateSuccess: string; // "{service} je deaktiviran za {location}."
+  serviceToggleError: string;
+  deactivateDialogTitle: string; // "Deaktivirati {service}?"
+  deactivateDialogBody: string;
+  deactivateConfirm: string;
+  deactivateCancel: string;
+  // Customer detail drawer.
+  detailHeading: string; // "{name}"
+  detailClose: string;
+  detailServicesHeading: string;
+  detailNoAccountNote: string; // legacy location with no account — billing unavailable
+  // Payment history (TASK-32).
+  paymentsHeading: string;
+  paymentsEmpty: string;
+  paymentColDate: string;
+  paymentColAmount: string;
+  paymentColMethod: string;
+  paymentColCovers: string;
+  paymentColReference: string;
+  paymentMethodManual: string;
+  paymentMethodProvider: string;
+  paymentVoidedTag: string; // "Stornirano"
+  paymentCoversUntil: string; // "važi do {date}"
+  lastPaymentLabel: string; // "Poslednja uplata: {date} · {amount}"
+  lastPaymentNone: string;
+  // Manual payment entry — the MAIN billing flow.
+  recordPaymentAction: string; // "Upiši uplatu"
+  paymentDialogTitle: string; // "Nova uplata — {name}"
+  paymentDialogBody: string;
+  paymentAmountLabel: string;
+  paymentDateLabel: string;
+  paymentReferenceLabel: string;
+  paymentReferenceHint: string;
+  paymentCoversLabel: string;
+  paymentCoversHint: string; // when the account has no period on file
+  paymentSubmit: string;
+  paymentCancel: string;
+  paymentSuccess: string; // "Uplata je upisana. Sledeća naplata: {date}."
+  paymentSuccessNoCycle: string; // recorded, cycle unchanged
+  paymentError: string;
+  // Void a payment (append-only correction).
+  voidAction: string;
+  voidDialogTitle: string;
+  voidDialogBody: string;
+  voidReasonLabel: string;
+  voidConfirm: string;
+  voidCancel: string;
+  voidSuccess: string;
+  voidError: string;
+  // Audit trail (who/what/when).
+  auditHeading: string;
+  auditEmpty: string;
+  auditRecordPayment: string;
+  auditVoidPayment: string;
+  auditSetNextBilling: string;
+  auditActivateService: string;
+  auditDeactivateService: string;
+  auditCreateOrder: string;
+  auditSetPlan: string;
+  auditGeneric: string; // "{action}" — unknown future action slug
+}
+
+// Per-location admin subpages + location sidebar (components/admin/location-admin.tsx,
+// TASK-41, RFC-002 §2.6). Sits BELOW the customers table (TASK-40): drill into one
+// location, see only the subpages for its ACTIVE services, and (for a multi-location
+// account) a sidebar to jump between the account's locations. `{...}` via fmt().
+export interface AdminLocationDict {
+  // Chrome / header.
+  eyebrow: string; // "Lokal"
+  backToCustomers: string; // link back to the customers table
+  backToCustomersAria: string;
+  notFoundTitle: string; // the location / subpage 404 card
+  notFoundBody: string;
+  loadError: string;
+  // Plan + status (reuse the customers vocabulary).
+  planBasic: string;
+  planPremium: string;
+  planEnterprise: string;
+  planNone: string; // account-less location ("—")
+  periodMonthly: string;
+  periodAnnual: string;
+  periodNone: string;
+  statusActive: string;
+  statusInactive: string;
+  // Location sidebar (Enterprise only).
+  sidebarHeading: string; // "Lokali u lancu"
+  sidebarServiceCount: string; // "{count} usluga"
+  sidebarCurrentAria: string; // "{name} — trenutni lokal"
+  // Subpage tab nav + bodies. The four per-location subpages.
+  subpagesHeading: string; // "Podstranice"
+  subpageLinks: string; // "ScanMe Links"
+  subpageReview: string; // "Google Review"
+  subpageVenue: string; // "ScanMe Venue"
+  subpageMenuComing: string; // Page→Menu rename hook, false state: "ScanMe Page"
+  subpageMenuLive: string; // Page→Menu rename hook, true state: "Meni"
+  noActiveSubpages: string; // location owns no subpage-bearing service
+  noActiveSubpagesBody: string;
+  overviewHeading: string; // "Aktivne podstranice"
+  overviewIntro: string;
+  openSubpage: string; // "Otvori"
+  // Per-service body: what this subpage is + links out to the real surfaces.
+  bodyLinksIntro: string;
+  bodyReviewIntro: string;
+  bodyVenueIntro: string;
+  openPublic: string; // "Otvori javnu stranicu"
+  openEditor: string; // "Otvori editor"
+  openClientPanel: string; // "Otvori klijentski panel"
+  serviceStatusLabel: string; // "Status usluge"
+  // A subpage reached for a service that is not active on this location.
+  inactiveNoticeTitle: string; // "Usluga nije aktivna"
+  inactiveNoticeBody: string;
+}
+
+// menu — the public ScanMe Menu page (RFC-003 §2.11; TASK-57). Everything a guest
+// can read on the public menu page: route metadata, not-found state, navigation,
+// the five group shapes' chrome, item detail bottom-sheet, pricing, and inquiry.
+export interface MenuDict {
+  // Route metadata (§2.11).
+  metaTitle: string; // "{name} · Meni"
+  metaDescription: string; // "Pogledajte meni i ponudu lokala {name}."
+  // 404 / empty state.
+  notFoundTitle: string; // "Meni nije pronađen"
+  notFoundBody: string; // "Ovaj lokal još uvek nema objavljen meni ili link nije ispravan."
+  emptyMenu: string; // "Meni se priprema."
+  emptyGroup: string; // "U ovoj grupi trenutno nema stavki."
+  // Navigation & accordion chrome (§2.1, §2.2).
+  navAria: string; // the sticky scroll-spy nav's aria-label (§2.2, TASK-52)
+  moreItems: string; // "Još {count}" — the caret label for collapsed items (§2.1)
+  showLess: string; // the caret label when a group is expanded (§2.1, TASK-52)
+  // Item badges & pricing (§2.3, §2.6).
+  unavailableBadge: string; // the live "nema više" badge (§2.6)
+  priceRsd: string; // "{price} RSD"
+  poweredBy: string;
+  // Variants & item details (§2.3, §2.5).
+  variantsTitle: string; // "Varijante"
+  variantsAria: string; // "… {name}"
+  itemDetailsAria: string; // "Detalji o stavci {name}" (TASK-53)
+  videoAria: string; // "Video za {name}" (TASK-53)
+  sheetClose: string; // "Zatvori" (TASK-53)
+  // Pairings "Ide uz" (§2.3, §2.5).
+  pairingsTitle: string; // "Ide uz" (TASK-53)
+  pairItemAria: string; // "Pogledaj stavku {name}" (TASK-53)
+  // In-sheet inquiry action (§2.10, TASK-59 readiness).
+  inquiryAction: string; // "Pošaljite upit"
+  inquiryAria: string; // "Pošaljite upit za stavku {name}"
+  inquirySuccess: string; // "Upit je poslat."
+  inquiryError: string; // "Slanje upita nije uspelo."
+}
+
+// menu-admin — the admin Menu management and migration surface (RFC-003 §2.9, §2.11).
+// Concierge onboarding / migration tracking (primljeno → u izradi → na potvrdi → objavljeno),
+// PDF & Excel export actions, manual entitlement grant/deactivation, and
+// unsaved-changes publish warning. `{...}` placeholders go through fmt().
+export interface MenuAdminDict {
+  // Screen chrome & navigation.
+  eyebrow: string;
+  title: string;
+  description: string;
+  loadError: string;
+  backAction: string;
+
+  // Activation states.
+  menuActive: string;
+  menuInactive: string;
+  menuNone: string;
+  menuDraft: string;
+  menuPublished: string;
+
+  // Actions.
+  grantAction: string;
+  grantActionExisting: string;
+  deactivateAction: string;
+  openEditor: string;
+  openPublic: string;
+
+  // Plans & Tiers (§2.7).
+  planLabel: string;
+  planPickerLabel: string;
+  planBasic: string;
+  planPremium: string;
+  planEnterprise: string;
+
+  // Migration SLA & stages (§2.9).
+  migrationHeading: string;
+  migrationSlaNote: string;
+  stageLabel: string;
+  stageReceived: string;
+  stageInProgress: string;
+  stageReview: string;
+  stagePublished: string;
+  stageChangeAction: string;
+  stageChangeSuccess: string;
+  stageChangeError: string;
+
+  // Stats and metrics.
+  groupsCount: string;
+  itemsCount: string;
+  lastPublished: string;
+  neverPublished: string;
+
+  // Export action (§2.9 PDF & Excel).
+  exportHeading: string;
+  exportPdfAction: string;
+  exportExcelAction: string;
+  exportPdfLoading: string;
+  exportExcelLoading: string;
+  exportSuccess: string;
+  exportError: string;
+
+  // Warnings (TASK-58: waiter "nema više" overwrite risk, §3 Risk 10).
+  unsavedChangesWarning: string;
+  overwriteAvailabilityConfirm: string;
+
+  // TASK-58 — status block.
+  statusLabel: string;
+  draftDirtyNote: string;
+  receivedLabel: string;
+  deadlineLabel: string;
+  deadlineOverdue: string;
+  stageChangedAt: string;
+
+  // TASK-58 — data entry on the client's behalf (the line import).
+  importHeading: string;
+  importHelp: string;
+  importPlaceholder: string;
+  importPreview: string;
+  importWarnings: string;
+  importAction: string;
+  importReplaceConfirm: string;
+  importSuccess: string;
+  importError: string;
+  importTooLarge: string;
+  importEmpty: string;
+
+  // TASK-58 — publish on the client's behalf.
+  publishForClientAction: string;
+  publishForClientSuccess: string;
+  publishForClientKept: string;
+  publishForClientError: string;
+
+  // TASK-58 — export labels the writers stamp into the files (lib/menu-export).
+  exportInternalNote: string;
+  exportSubtitle: string;
+  exportUnavailable: string;
+  exportPageOf: string;
+  exportColGroup: string;
+  exportColShape: string;
+  exportColName: string;
+  exportColDescription: string;
+  exportColProductType: string;
+  exportColPrice: string;
+  exportColVariants: string;
+  exportColAvailable: string;
+  exportColDaypart: string;
+  exportYes: string;
+  exportNo: string;
+  exportSheetName: string;
+
+  // Dialogs & toasts.
+  grantSuccess: string;
+  grantSuccessExisting: string;
+  grantError: string;
+  grantSlugConflict: string;
+  deactivateSuccess: string;
+  deactivateError: string;
+  deactivateDialogTitle: string;
+  deactivateDialogBody: string;
+  deactivateConfirm: string;
+  deactivateCancel: string;
+}
+
+// menu-editor — the Menu editor shell (components/menu/editor/**, TASK-51),
+// FORKED from VenueEditorDict (RFC-003 §1.a). The first keys are the
+// ConvexError messages of the Menu write backend (convex/menu.ts); the rest is
+// the editor chrome: panels, the groups palette, the group/item/variant/pairing
+// editor, dayparts, fields, uploads, preview, and the page-design panels.
+// `{group}`, `{shape}`, `{name}`, `{count}`, `{max}`, `{state}`, `{percent}`,
+// `{value}` are interpolated via fmt().
+export interface MenuEditorDict {
+  // convex/menu.ts
+  menuNotFound: string;
+  businessNotFound: string;
+  serviceNotProvisioned: string;
+  menuAlreadyExists: string;
+  draftChanged: string;
+  itemNotFound: string;
+  // The five group shapes (components/menu/blocks/registry.tsx).
+  shapeLabelLista: string;
+  shapeLabelGalerija: string;
+  shapeLabelTraka: string;
+  shapeLabelIstaknuto: string;
+  shapeLabelTabelaVarijanti: string;
+  // Route metadata + loader / access screens.
+  metaEditorTitle: string;
+  editorLoading: string;
+  signInTitle: string;
+  signInBody: string;
+  signInAction: string;
+  unavailableTitle: string;
+  unavailableBody: string;
+  noMenuTitle: string;
+  noMenuBody: string;
+  createMenuAction: string;
+  createMenuErrorFallback: string;
+  // Top bar + history + save state.
+  backAria: string;
+  historyGroupAria: string;
+  undoAria: string;
+  redoAria: string;
+  undoTooltip: string;
+  redoTooltip: string;
+  saveDraftAction: string;
+  saveActionAria: string; // "… (trenutno: {state})"
+  publishAction: string;
+  saveStateSaved: string;
+  saveStateSaving: string;
+  saveStateError: string;
+  saveRetryHint: string;
+  saveErrorFallback: string;
+  savedToast: string;
+  // Publish dialog + revision conflict.
+  publishDialogTitle: string;
+  publishDialogBody: string;
+  publishConfirm: string;
+  publishCancel: string;
+  publishSuccess: string;
+  publishErrorFallback: string;
+  publishConflictTitle: string;
+  publishConflictBody: string;
+  publishConflictReload: string;
+  // TASK-58 — the live "nema više" vs draft conflict dialog (RFC-003 §3 Risk 10).
+  availabilityConflictTitle: string;
+  availabilityConflictBody: string;
+  availabilityKeepLive: string;
+  availabilityOverwrite: string;
+  toolsAria: string;
+  closePanelAria: string;
+  // Panel chrome.
+  panelGroupsTitle: string;
+  panelGroupsDescription: string;
+  panelStyleTitle: string;
+  panelStyleDescription: string;
+  panelBackgroundTitle: string;
+  panelBackgroundDescription: string;
+  panelTextTitle: string;
+  panelTextDescription: string;
+  panelColorTitle: string;
+  panelColorDescription: string;
+  panelDaypartsTitle: string;
+  panelDaypartsDescription: string;
+  panelHelpTitle: string;
+  panelHelpDescription: string;
+  // The groups panel (palette).
+  groupsListHeading: string;
+  groupsAddHeading: string;
+  groupCount: string; // "{count}"
+  groupItemCount: string; // "{count} st."
+  groupsEmpty: string;
+  addGroupAria: string; // "… „{shape}“"
+  groupItemAria: string; // "… „{group}“ …"
+  dragHandleAria: string; // "… „{group}“"
+  duplicateAria: string; // "… „{group}“"
+  deleteAria: string; // "… „{group}“"
+  deleteDialogTitle: string; // "… „{group}“?"
+  deleteDialogBody: string;
+  deleteConfirm: string;
+  deleteCancel: string;
+  groupDeletedToast: string;
+  groupPanelTitle: string; // "… {group}"
+  groupPanelPlaceholder: string;
+  groupPanelBack: string;
+  groupUntitled: string;
+  // The group panel: base fields, shape hints, items, variants, pairings.
+  groupTitleLabel: string;
+  groupShapeLabel: string;
+  groupIconLabel: string;
+  groupIconInherit: string;
+  groupDaypartLabel: string;
+  daypartAlways: string;
+  visibleCountHint: string; // "… {count} …"
+  istaknutoHint: string;
+  tabelaHint: string;
+  itemsHeading: string;
+  itemsAdd: string;
+  itemNameLabel: string;
+  itemDescriptionLabel: string;
+  itemProductTypeLabel: string;
+  itemProductTypeHint: string;
+  itemProductTypePlaceholder: string;
+  itemPriceLabel: string;
+  itemPriceHint: string;
+  itemIconLabel: string;
+  itemIconInherit: string;
+  itemAvailableLabel: string;
+  itemAvailableHint: string;
+  itemPhotoHeading: string;
+  itemPhotoHint: string;
+  variantsHeading: string;
+  variantAdd: string;
+  variantLabelLabel: string;
+  variantLabelPlaceholder: string;
+  variantPriceLabel: string;
+  pairingsHeading: string;
+  pairingAdd: string;
+  pairingPickLabel: string;
+  pairingPickPlaceholder: string;
+  pairingNone: string;
+  pairingRemoveAria: string; // "… „{name}“"
+  pairingUnknown: string;
+  itemUntitled: string;
+  itemCapCount: string; // "{count} / {max}"
+  itemCapReached: string; // "… ({max}) …"
+  itemRemoveAria: string; // "… {name}"
+  itemDragAria: string; // "… {name}"
+  requiredFieldError: string;
+  contentSectionHeading: string;
+  // The dayparts panel.
+  daypartsHeading: string;
+  daypartsEmptyHint: string;
+  daypartAdd: string;
+  daypartKeyLabel: string;
+  daypartKeyHint: string;
+  daypartKeyPlaceholder: string;
+  daypartLabelLabel: string;
+  daypartLabelPlaceholder: string;
+  daypartStartLabel: string;
+  daypartEndLabel: string;
+  daypartOverrideLabel: string;
+  daypartOverrideNone: string;
+  daypartOverrideHint: string;
+  daypartUntitled: string;
+  // Shared field chrome.
+  pxValue: string; // "{value} px"
+  inheritOption: string;
+  // Media upload.
+  uploadImageAction: string;
+  uploadReplaceAction: string;
+  uploadRemoveAction: string;
+  uploadVideoAction: string;
+  uploadProgress: string; // "… {percent}%"
+  uploadFailed: string;
+  uploadRetryAction: string;
+  uploadInvalidImage: string;
+  uploadInvalidVideo: string;
+  uploadTooLarge: string; // "… {max} MB"
+  // The help panel.
+  helpAddTitle: string;
+  helpAddBody: string;
+  helpReorderTitle: string;
+  helpReorderBody: string;
+  helpUndoTitle: string;
+  helpUndoBody: string;
+  helpPublishTitle: string;
+  helpPublishBody: string;
+  // The preview.
+  previewAria: string; // "… {name}"
+  deviceGroupAria: string;
+  devicePhoneAria: string;
+  deviceDesktopAria: string;
+  zoomAria: string;
+  previewGroupAria: string; // "{group}. …"
+  previewEmptyGroup: string; // "… „{group}“ …"
+  // Style page panel.
+  styleSpacingLabel: string;
+  styleLineHeightLabel: string;
+  styleEffectsHeading: string;
+  styleTextShadow: string;
+  styleLogoShadow: string;
+  shadowYLabel: string;
+  shadowBlurLabel: string;
+  shadowOpacityLabel: string;
+  shadowColorLabel: string;
+  // Background page panel (no media category: the Menu doc stores no page
+  // media id — the category is not offered rather than half-built).
+  bgCategoryLabel: string;
+  bgCatFlat: string;
+  bgCatGradient: string;
+  bgCatPattern: string;
+  bgCatTexture: string;
+  bgCatAnimation: string;
+  bgFlatColor: string;
+  bgGradientVariant: string;
+  gradientLinear: string;
+  gradientRadial: string;
+  bgGradientStart: string;
+  bgGradientEnd: string;
+  bgGradientAngle: string;
+  bgGradientCenterX: string;
+  bgGradientCenterY: string;
+  bgPatternVariant: string;
+  patternGrid: string;
+  patternChecker: string;
+  patternDots: string;
+  patternWaves: string;
+  bgPatternBase: string;
+  bgPatternColor: string;
+  bgPatternScale: string;
+  bgPatternOpacity: string;
+  bgTextureVariant: string;
+  texturePaper: string;
+  textureLinen: string;
+  textureWood: string;
+  textureMetal: string;
+  bgTextureBase: string;
+  bgTextureTint: string;
+  bgTextureIntensity: string;
+  bgAnimationVariant: string;
+  bgAnimationAurora: string;
+  bgAnimationSoftWaves: string;
+  bgAnimationBase: string;
+  bgAnimationAccent: string;
+  bgAnimationSpeed: string;
+  bgAnimationIntensity: string;
+  bgAnimationRenderNote: string;
+  // Text page panel.
+  textFontLabel: string;
+  textHeadingWeight: string;
+  textBodyWeight: string;
+  textScaleLabel: string;
+  textAlignmentLabel: string;
+  scaleSmall: string;
+  scaleMedium: string;
+  scaleLarge: string;
+  alignLeft: string;
+  alignCenter: string;
+  alignRight: string;
+  weight400: string;
+  weight500: string;
+  weight600: string;
+  weight700: string;
+  // Colour page panel.
+  colorBrandNote: string;
+  colorModeLabel: string;
+  modeLight: string;
+  modeDark: string;
+  colorSchemeLabel: string;
+  schemeComplementary: string;
+  schemeAnalogous: string;
+  schemeMonochromatic: string;
+  schemeTriadic: string;
+  schemeSplitComplementary: string;
+  colorVariantLabel: string;
+  variantContent: string;
+  variantTonalSpot: string;
+  variantVibrant: string;
+  colorApplyAction: string;
+  colorResetAction: string;
+  colorPreviewHeading: string;
+  rolePage: string;
+  roleSurface: string;
+  roleTitle: string;
+  roleBody: string;
+  roleAccent: string;
+  roleBorder: string;
+  roleFocus: string;
+  roleIcon: string;
+}
+
+// ordering-admin — owner ordering configuration & items surface (RFC-004 §2.12, §2.15, TASK-64).
+export interface OrderingAdminDict {
+  cardHeading: string;
+  cardDescription: string;
+  lockedHeading: string;
+  lockedNote: string;
+  enabledLabel: string;
+  enabledDescription: string;
+  callWaiterLabel: string;
+  callWaiterDescription: string;
+  codeLabel: string;
+  codeDescription: string;
+  copyLink: string;
+  linkCopied: string;
+  itemsHeading: string;
+  itemsDescription: string;
+  emptyItems: string;
+  addItemAction: string;
+  editItemAction: string;
+  deleteItemAction: string;
+  itemNameLabel: string;
+  itemNamePlaceholder: string;
+  itemPriceLabel: string;
+  itemPricePlaceholder: string;
+  itemPriceNote: string;
+  availableLabel: string;
+  unavailableLabel: string;
+  toggleAvailableSuccess: string;
+  saveAction: string;
+  cancelAction: string;
+  dialogAddTitle: string;
+  dialogEditTitle: string;
+  confirmDeleteTitle: string;
+  confirmDeleteDescription: string;
+  errorNotEntitled: string;
+  itemNotFound: string;
+  itemNameRequired: string;
+  configSaveSuccess: string;
+  configSaveError: string;
+  itemAvailabilityError: string;
+  itemSaveSuccess: string;
+  itemSaveError: string;
+  itemDeleteSuccess: string;
+  itemDeleteError: string;
+}
+
+// ordering — the GUEST ordering surface at /o/[code] (RFC-004 §2.1, §2.6,
+// §2.15, TASK-66). Contains the two guest actions' copy and the SINGLE
+// unavailable state that both causes of §2.6 render.
+export interface OrderingDict {
+  metaTitle: string;
+  heading: string;
+  intro: string;
+  unavailableTitle: string;
+  unavailableBody: string;
+  callHeading: string;
+  callAction: string;
+  callSending: string;
+  callReasonLegend: string;
+  callSent: string;
+  orderHeading: string;
+  orderEmptyItems: string;
+  orderNoteLabel: string;
+  orderNotePlaceholder: string;
+  orderAction: string;
+  orderSending: string;
+  orderSent: string;
+  orderNothingSelected: string;
+  itemPrice: string;
+  qtyIncrease: string;
+  qtyDecrease: string;
+  qtyValue: string;
+  selectedSummary: string;
+  errorNotFound: string;
+  errorInvalidGuest: string;
+  errorNoTable: string;
+  errorRateLimited: string;
+  errorInvalidItems: string;
+  errorInvalidReason: string;
+  errorNoteTooLong: string;
+  errorUnknown: string;
+  // TASK-67 (RFC-004 §2.6, §2.8) — the live status and the deadline's action.
+  statusHeading: string;
+  statusKindOrder: string;
+  statusKindCall: string;
+  statusSent: string;
+  statusAccepted: string;
+  statusEnroute: string;
+  statusCompleted: string;
+  statusWithdrawn: string;
+  statusLine: string;
+  statusReason: string;
+  statusNote: string;
+  overdueTitle: string;
+  overdueBody: string;
+  withdrawAction: string;
+  withdrawing: string;
+  withdrawnNotice: string;
+  errorRequestNotFound: string;
+  errorNotWithdrawable: string;
+}
+
+// ordering-panel — the WAITER panel at /panel/[venueCode] (RFC-004 §2.7,
+// §2.10, §2.15, TASK-68): PIN login, shift header, the live queue and the three
+// transitions. The stale badge is the only cause-A wording in the product.
+export interface OrderingPanelDict {
+  metaTitle: string;
+  pinHeading: string;
+  pinIntro: string;
+  pinLabel: string;
+  pinSubmit: string;
+  pinSubmitting: string;
+  errorInvalidPin: string;
+  errorLocked: string;
+  errorNotFound: string;
+  errorUnknown: string;
+  signedOutClosed: string;
+  signedOutAdopted: string;
+  staffLine: string;
+  staleBadge: string;
+  pausedBadge: string;
+  pauseAction: string;
+  resumeAction: string;
+  closeAction: string;
+  closeConfirm: string;
+  closeCancel: string;
+  closing: string;
+  soundBannerBody: string;
+  soundBannerAction: string;
+  newRequestAnnouncement: string;
+  queueHeading: string;
+  queueEmpty: string;
+  kindCall: string;
+  kindOrder: string;
+  reasonLine: string;
+  noteLine: string;
+  line: string;
+  statusSent: string;
+  statusAccepted: string;
+  statusEnroute: string;
+  overdueBadge: string;
+  acceptAction: string;
+  enrouteAction: string;
+  completeAction: string;
+  working: string;
+  errorInvalidTransition: string;
+  errorRequestNotFound: string;
+}
+
+// TASK-72 — admin console for printed cards (create / batch / retarget / list).
+// Chrome strings only; the card refusal sentences (Links→Memories, unsafe URL,
+// splitter bounds, …) already live on the `memories` surface and surface verbatim.
+export interface CardsAdminDict {
+  navLabel: string;
+  pageTitle: string;
+  pageIntro: string;
+  businessLabel: string;
+  businessPlaceholder: string;
+  businessLoading: string;
+  selectBusinessPrompt: string;
+  cardsHeading: string;
+  cardsCount: string;
+  colLabel: string;
+  colCode: string;
+  colTarget: string;
+  colScans: string;
+  colStatus: string;
+  colActions: string;
+  emptyCards: string;
+  statusActive: string;
+  statusDisabled: string;
+  kindMemoriesSpace: string;
+  kindVenue: string;
+  kindEvent: string;
+  kindServicePage: string;
+  kindUrl: string;
+  kindSplitter: string;
+  kindMenu: string;
+  kindTableOrdering: string;
+  targetBusinessPage: string;
+  targetUnset: string;
+  splitterButtonsLabel: string;
+  createAction: string;
+  createTitle: string;
+  createDescription: string;
+  labelLabel: string;
+  labelPlaceholder: string;
+  kindLabel: string;
+  referenceLabel: string;
+  chooseReferencePlaceholder: string;
+  urlLabel: string;
+  urlPlaceholder: string;
+  spacePlaceholder: string;
+  eventPlaceholder: string;
+  profilePlaceholder: string;
+  noReferenceNeeded: string;
+  submitCreate: string;
+  working: string;
+  splitterHeading: string;
+  splitterButtonKindLabel: string;
+  splitterButtonTextLabel: string;
+  splitterButtonTextPlaceholder: string;
+  addButton: string;
+  removeButton: string;
+  splitterHint: string;
+  batchAction: string;
+  batchTitle: string;
+  batchDescription: string;
+  batchPrefixLabel: string;
+  batchPrefixPlaceholder: string;
+  batchCountLabel: string;
+  batchStartLabel: string;
+  batchKindLabel: string;
+  batchPreview: string;
+  submitBatch: string;
+  batchDefaultPrefix: string;
+  retargetAction: string;
+  retargetTitle: string;
+  retargetDescription: string;
+  retargetWarning: string;
+  submitRetarget: string;
+  disableAction: string;
+  disableConfirm: string;
+  disabledBadge: string;
+  printAction: string;
+  printTitle: string;
+  urlHeading: string;
+  copyLink: string;
+  copied: string;
+  copyAria: string;
+  qrAlt: string;
+  orderingMissingHint: string;
+  noSpacesHint: string;
+  noEventsHint: string;
+  noProfilesHint: string;
+  createSuccess: string;
+  batchSuccess: string;
+  retargetSuccess: string;
+  disableSuccess: string;
+  genericError: string;
+  businessNotFound: string;
+  batchCountInvalid: string;
+}
+
 export interface DictBySurface {
   venue: VenueDict;
   "venue-editor": VenueEditorDict;
@@ -1448,6 +2396,15 @@ export interface DictBySurface {
   consent: ConsentDict;
   privacy: PrivacyDict;
   offer: OfferDict;
+  "admin-customers": AdminCustomersDict;
+  "admin-location": AdminLocationDict;
+  menu: MenuDict;
+  "menu-editor": MenuEditorDict;
+  "menu-admin": MenuAdminDict;
+  "ordering-admin": OrderingAdminDict;
+  ordering: OrderingDict;
+  "ordering-panel": OrderingPanelDict;
+  "cards-admin": CardsAdminDict;
 }
 
 export type Surface = keyof DictBySurface;

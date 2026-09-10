@@ -6,13 +6,13 @@ import {
   type MutationCtx,
   type QueryCtx,
 } from "./_generated/server";
-import { cardTargetKind, deviceCategory } from "./schema";
+import { cardSplitterItem, cardTargetKind, deviceCategory } from "./schema";
 import { requireBusinessAccess } from "./lib/access";
 import { rateLimiter } from "./lib/rateLimits";
 import { generateCode, normalizeCode } from "./lib/codes";
 import { serviceMetricDateKey } from "./lib/serviceMetrics";
 import { isSafePublicDestination, requireText } from "./lib/validation";
-import { getDict } from "../lib/i18n";
+import { fmt, getDict } from "../lib/i18n";
 
 // =============================================================================
 // TASK-14 — Cards: the printed /r/[cardCode] resolver and its management.
@@ -75,13 +75,42 @@ function generateGuestKey(): string {
 
 // The desired-target argument shape shared by createCard and retargetCard. The
 // per-kind reference requirements are enforced by validateTargetSpec below.
-const cardTargetSpecValidator = v.object({
+// splitterItems is meaningful only for kind === "splitter" (TASK-37).
+//
+// TASK-72: exported (export-only, no logic change — the `mintSpaceCards`
+// precedent) so the admin console convex/cardsAdmin.ts can validate its own
+// mutation args against the identical shape instead of redeclaring it.
+export const cardTargetSpecValidator = v.object({
   kind: cardTargetKind,
   spaceId: v.optional(v.id("memoriesSpaces")),
   eventId: v.optional(v.id("events")),
   serviceProfileId: v.optional(v.id("serviceProfiles")),
   url: v.optional(v.string()),
+  splitterItems: v.optional(v.array(cardSplitterItem)),
 });
+
+type SplitterItemSpec = {
+  // Excludes "splitter" (no nesting) and "menu": §2.13 M.8 adds menu to
+  // cardTargets.kind but NOT to cardSplitterItem, so a menu is not a splitter
+  // button. "table_ordering" IS in cardSplitterItem (RFC-004 §2.14, §2.16 O.9)
+  // and is wired live by TASK-63 (the card-aware hop /r/[cardCode]/o).
+  kind: Exclude<Doc<"cardTargets">["kind"], "splitter" | "menu">;
+  label: string;
+  spaceId?: Id<"memoriesSpaces">;
+  eventId?: Id<"events">;
+  serviceProfileId?: Id<"serviceProfiles">;
+  url?: string;
+};
+
+type BaseTargetKind = Exclude<Doc<"cardTargets">["kind"], "splitter">;
+
+type BaseTargetSpec = {
+  kind: BaseTargetKind;
+  spaceId?: Id<"memoriesSpaces">;
+  eventId?: Id<"events">;
+  serviceProfileId?: Id<"serviceProfiles">;
+  url?: string;
+};
 
 type CardTargetSpec = {
   kind: Doc<"cardTargets">["kind"];
@@ -89,17 +118,112 @@ type CardTargetSpec = {
   eventId?: Id<"events">;
   serviceProfileId?: Id<"serviceProfiles">;
   url?: string;
+  splitterItems?: SplitterItemSpec[];
 };
 
-// Validate a target against the card's business: the referenced space/event/
-// profile must belong to it (a host must never point their card into another
-// tenant), and external URLs must pass the shared safe-destination gate.
-// Returns exactly the fields the cardTargets row stores for that kind.
-async function validateTargetSpec(
+// TASK-37 (RFC-002 §2.4): the bare splitter's button count bounds. Two is the
+// point of a splitter; eight keeps the page one thumb-length of buttons.
+const SPLITTER_ITEMS_MIN = 2;
+const SPLITTER_ITEMS_MAX = 8;
+
+// Does a stored Links destination URL lead into Memories (/m/[code])? Any
+// host counts on purpose: the deployment cannot enumerate its own domains
+// here, and a false refusal at card creation is loud and explainable, while a
+// missed one is a silent per-table quota leak (RFC-002 §2.4). Destination
+// URLs are absolute https by the write gate, so `new URL` always parses the
+// stored value.
+function isMemoriesDestinationUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.pathname === "/m" || url.pathname.startsWith("/m/");
+  } catch {
+    return false;
+  }
+}
+
+// TASK-63 (RFC-004 §2.2, §6): the ordering twin of isMemoriesDestinationUrl.
+// Does a stored Links destination URL lead into ordering (/o/[code])? Same
+// reasoning: any host counts, a false refusal is loud and explainable, a missed
+// one is a silent loss of table identity (an order with no table).
+function isOrderingDestinationUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.pathname === "/o" || url.pathname.startsWith("/o/");
+  } catch {
+    return false;
+  }
+}
+
+// RFC-002 §2.4, the hard condition: Memories behind a Links-page splitter is
+// BLOCKED (the frozen Links render cannot emit a card-aware Memories link, so
+// a guest arriving that way would mint with no cardId and the per-table quota
+// would silently die). A card pointing at a scanme_links profile whose
+// destinations contain ANY /m/… link — draft or published, in any state,
+// because a draft is one click from published and states flip after the card
+// exists — is refused at creation with the two-pattern message. Loud at mint
+// time, never a silent quota leak at scan time.
+async function assertLinksPageCannotReachMemories(
+  ctx: MutationCtx | QueryCtx,
+  profile: Doc<"serviceProfiles">,
+) {
+  if (profile.type !== "scanme_links") return;
+  const destinations = await ctx.db
+    .query("serviceDestinations")
+    .withIndex("by_serviceProfileId", (q) =>
+      q.eq("serviceProfileId", profile._id),
+    )
+    .take(500);
+  for (const destination of destinations) {
+    if (
+      isMemoriesDestinationUrl(destination.draftUrl) ||
+      (destination.publishedUrl &&
+        isMemoriesDestinationUrl(destination.publishedUrl))
+    ) {
+      throw new ConvexError(dict.cardLinksMemoriesBlocked);
+    }
+  }
+}
+
+// TASK-63 (RFC-004 §2.2, §6), the ordering twin of the hard condition above:
+// ordering behind a Links-page splitter is BLOCKED (the frozen Links render
+// cannot emit a card-aware /r/[cardCode]/o link, so a guest arriving through it
+// would reach /o/[code] with no cardId and the order would have no table). A
+// card pointing at a scanme_links profile whose destinations contain ANY /o/…
+// link — draft or published, in any state — is refused at creation with the
+// two-pattern message. Loud at mint time, never a silent identity leak at scan.
+async function assertLinksPageCannotReachOrdering(
+  ctx: MutationCtx | QueryCtx,
+  profile: Doc<"serviceProfiles">,
+) {
+  if (profile.type !== "scanme_links") return;
+  const destinations = await ctx.db
+    .query("serviceDestinations")
+    .withIndex("by_serviceProfileId", (q) =>
+      q.eq("serviceProfileId", profile._id),
+    )
+    .take(500);
+  for (const destination of destinations) {
+    if (
+      isOrderingDestinationUrl(destination.draftUrl) ||
+      (destination.publishedUrl &&
+        isOrderingDestinationUrl(destination.publishedUrl))
+    ) {
+      throw new ConvexError(dict.cardLinksOrderingBlocked);
+    }
+  }
+}
+
+// Validate one non-splitter target against the card's business: the referenced
+// space/event/profile must belong to it (a host must never point their card
+// into another tenant), and external URLs must pass the shared safe-
+// destination gate. Returns exactly the fields the cardTargets row stores for
+// that kind. Shared verbatim between a direct card target and each bare-
+// splitter button (TASK-37), so the two can never drift.
+async function validateBaseTargetSpec<T extends BaseTargetSpec>(
   ctx: MutationCtx | QueryCtx,
   businessId: Id<"businesses">,
-  spec: CardTargetSpec,
-): Promise<Pick<Doc<"cardTargets">, "kind" | "spaceId" | "eventId" | "serviceProfileId" | "url">> {
+  spec: T,
+): Promise<Pick<Doc<"cardTargets">, "spaceId" | "eventId" | "serviceProfileId" | "url"> & { kind: T["kind"] }> {
   switch (spec.kind) {
     case "memories_space": {
       if (!spec.spaceId) throw new ConvexError(dict.cardTargetInvalid);
@@ -112,6 +236,9 @@ async function validateTargetSpec(
     }
     case "venue":
       // Resolves to the business's own /venue page at scan time; no reference.
+      return { kind: spec.kind };
+    case "menu":
+      // Resolves to the business's own /meni page at scan time; no reference (RFC-003 §2.8).
       return { kind: spec.kind };
     case "event": {
       if (!spec.eventId) throw new ConvexError(dict.cardTargetInvalid);
@@ -129,6 +256,8 @@ async function validateTargetSpec(
       if (profile.businessId !== businessId) {
         throw new ConvexError(dict.cardBusinessMismatch);
       }
+      await assertLinksPageCannotReachMemories(ctx, profile);
+      await assertLinksPageCannotReachOrdering(ctx, profile);
       return { kind: spec.kind, serviceProfileId: profile._id };
     }
     case "url": {
@@ -137,7 +266,55 @@ async function validateTargetSpec(
       }
       return { kind: spec.kind, url: spec.url };
     }
+    case "table_ordering":
+      // TASK-63 (RFC-004 §2.2, §2.14): a table_ordering target — direct or a
+      // splitter button — carries no stored reference; it binds to the card's
+      // own business ordering config, resolved at scan time by the card-aware
+      // hop /r/[cardCode]/o (like "venue"/"menu", which also store no ref).
+      return { kind: spec.kind };
   }
+}
+
+// Validate a desired card target. Non-splitter kinds go straight through
+// validateBaseTargetSpec; a splitter validates each button the same way (the
+// validator's item union has no "splitter", so nesting is impossible by
+// construction) plus its label.
+//
+// TASK-72: exported (export-only, no logic change — the `mintSpaceCards`
+// precedent) so the admin console convex/cardsAdmin.ts runs the SAME validation
+// — including the Links→Memories / Links→ordering refusal gates — instead of
+// duplicating it. The admin surface writes an adminAuditLog row on top; this
+// function is unchanged.
+export async function validateTargetSpec(
+  ctx: MutationCtx | QueryCtx,
+  businessId: Id<"businesses">,
+  spec: CardTargetSpec,
+): Promise<Pick<Doc<"cardTargets">, "kind" | "spaceId" | "eventId" | "serviceProfileId" | "url" | "splitterItems">> {
+  if (spec.kind !== "splitter") {
+    return await validateBaseTargetSpec(ctx, businessId, {
+      kind: spec.kind,
+      spaceId: spec.spaceId,
+      eventId: spec.eventId,
+      serviceProfileId: spec.serviceProfileId,
+      url: spec.url,
+    });
+  }
+  const items = spec.splitterItems ?? [];
+  if (items.length < SPLITTER_ITEMS_MIN || items.length > SPLITTER_ITEMS_MAX) {
+    throw new ConvexError(
+      fmt(dict.cardSplitterItemsInvalid, {
+        min: SPLITTER_ITEMS_MIN,
+        max: SPLITTER_ITEMS_MAX,
+      }),
+    );
+  }
+  const splitterItems: NonNullable<Doc<"cardTargets">["splitterItems"]> = [];
+  for (const item of items) {
+    const label = requireText(item.label, "Naziv dugmeta", 1, 40);
+    const fields = await validateBaseTargetSpec(ctx, businessId, item);
+    splitterItems.push({ ...fields, label });
+  }
+  return { kind: "splitter", splitterItems };
 }
 
 // Mint a card for a business, optionally with its initial target. The cardCode
@@ -390,6 +567,7 @@ type ResolveOutcome =
   | { kind: "invalid" }
   | { kind: "rate_limited" }
   | { kind: "venue"; businessSlug: string }
+  | { kind: "menu"; businessSlug: string }
   | { kind: "event"; businessSlug: string; eventSlug: string }
   | { kind: "service_page"; slug: string }
   | { kind: "url"; url: string }
@@ -399,7 +577,86 @@ type ResolveOutcome =
       // null when guest creation was rate-limited: the guest still reaches
       // /m/[code], just without a minted identity (no Set-Cookie).
       guestKey: string | null;
-    };
+    }
+  // TASK-37: the handler 302s to the bare splitter page /r/[cardCode]/izbor;
+  // cardCode is returned normalized so the redirect URL is canonical.
+  | { kind: "splitter"; cardCode: string }
+  // TASK-63 (RFC-004 §2.2, §2.14): a direct table_ordering card does NOT mint
+  // here — it 302s to the card-aware hop /r/[cardCode]/o?venue=<venueCode>,
+  // which is the single place that mints an ordering guest (with cardId).
+  // Both cardCode and venueCode are returned normalized so the hop URL is
+  // canonical.
+  | { kind: "table_ordering"; cardCode: string; venueCode: string };
+
+// THE guest-minting path (RFC-001 §2.6 / RFC-002 §2.4): rate-limit, then
+// insert a memoriesGuests row attributed to the TABLE (guest.cardId). Shared
+// by the direct memories_space resolve and the splitter's card-aware /m hop
+// (resolveSplitterMemories) so "the same minting path" is literal — every
+// route from a printed card into Memories runs THIS function or none.
+// Returns null when guest creation was rate-limited: the guest still reaches
+// /m/[code], just without a minted identity.
+async function mintSpaceGuest(
+  ctx: MutationCtx,
+  params: {
+    spaceId: Id<"memoriesSpaces">;
+    cardId: Id<"cards">;
+    ipKey: string;
+    now: number;
+  },
+): Promise<string | null> {
+  const minting = await rateLimiter.limit(ctx, "guestCreate", {
+    key: params.ipKey,
+  });
+  if (!minting.ok) return null;
+  // The person: a fresh 256-bit bearer key. The card is attributed as the
+  // TABLE (guest.cardId) so per-card stats survive re-cookieing; quota is per
+  // guest, statistics per card (RFC §2.6).
+  const guestKey = generateGuestKey();
+  await ctx.db.insert("memoriesGuests", {
+    spaceId: params.spaceId,
+    guestKey,
+    cardId: params.cardId,
+    photoCount: 0,
+    firstSeenAt: params.now,
+    lastSeenAt: params.now,
+    updatedAt: params.now,
+  });
+  return guestKey;
+}
+
+// TASK-63 (RFC-004 §2.2): THE ordering guest-minting path, twin of
+// mintSpaceGuest. Rate-limit, then insert an orderingGuests row attributed to
+// the TABLE (guest.cardId). Its SOLE caller is resolveTableOrdering, so "every
+// ordering guest carries a cardId" is provable by that one call site — a bare
+// /o/[code] link reaches no mint at all. Returns null when guest creation was
+// rate-limited: the guest still reaches /o/[code], just without a minted
+// identity (no Set-Cookie).
+async function mintOrderingGuest(
+  ctx: MutationCtx,
+  params: {
+    businessId: Id<"businesses">;
+    code: string;
+    cardId: Id<"cards">;
+    ipKey: string;
+    now: number;
+  },
+): Promise<string | null> {
+  const minting = await rateLimiter.limit(ctx, "orderGuestCreate", {
+    key: params.ipKey,
+  });
+  if (!minting.ok) return null;
+  const guestKey = generateGuestKey();
+  await ctx.db.insert("orderingGuests", {
+    businessId: params.businessId,
+    code: params.code,
+    guestKey,
+    cardId: params.cardId,
+    firstSeenAt: params.now,
+    lastSeenAt: params.now,
+    updatedAt: params.now,
+  });
+  return guestKey;
+}
 
 // Resolve a printed card to its redirect target and record the scan. One
 // mutation, one transaction: the scan event, the daily rollup, the card total
@@ -519,27 +776,321 @@ export const resolveAndRecord = mutation({
         if (!target.spaceId) return { kind: "invalid" };
         const space = await ctx.db.get(target.spaceId);
         if (!space) return { kind: "invalid" };
-        const minting = await rateLimiter.limit(ctx, "guestCreate", {
-          key: ipKey,
-        });
-        if (!minting.ok) {
-          return { kind: "memories_space", code: space.code, guestKey: null };
-        }
-        // The person: a fresh 256-bit bearer key. The card is attributed as
-        // the TABLE (guest.cardId) so per-card stats survive re-cookieing;
-        // quota is per guest, statistics per card (RFC §2.6).
-        const guestKey = generateGuestKey();
-        await ctx.db.insert("memoriesGuests", {
+        const guestKey = await mintSpaceGuest(ctx, {
           spaceId: space._id,
-          guestKey,
           cardId: card._id,
-          photoCount: 0,
-          firstSeenAt: now,
-          lastSeenAt: now,
-          updatedAt: now,
+          ipKey,
+          now,
         });
         return { kind: "memories_space", code: space.code, guestKey };
       }
+      case "splitter":
+        // The scan is recorded above (one physical scan, targetKind
+        // "splitter"); choosing a button is NOT another scan. The Memories
+        // button goes through resolveSplitterMemories — never a client link
+        // to /m/[code] (RFC-002 §2.4).
+        return { kind: "splitter", cardCode: card.cardCode };
+      case "menu": {
+        const business = await ctx.db.get(card.businessId);
+        if (!business) return { kind: "invalid" };
+        return { kind: "menu", businessSlug: business.slug };
+      }
+      case "table_ordering": {
+        // TASK-63 (RFC-004 §2.2, §2.14): a direct table_ordering card binds to
+        // its own business's ordering config. This entry records the scan
+        // (above) but does NOT mint — it hands the venue code to the card-aware
+        // hop /r/[cardCode]/o, the single place that mints the ordering guest
+        // (with cardId). No config (until TASK-64 provisions one) reads the same
+        // as a dead card: invalid.
+        const config = await ctx.db
+          .query("orderingConfig")
+          .withIndex("by_businessId", (q) =>
+            q.eq("businessId", card.businessId),
+          )
+          .unique();
+        if (!config) return { kind: "invalid" };
+        return {
+          kind: "table_ordering",
+          cardCode: card.cardCode,
+          venueCode: config.code,
+        };
+      }
     }
+  },
+});
+
+// -----------------------------------------------------------------------------
+// TASK-37 — the bare splitter (RFC-002 §2.4): one card, several services.
+// -----------------------------------------------------------------------------
+
+type SplitterButton = {
+  label: string;
+  // Relative for internal destinations, absolute https for kind "url". The
+  // Memories button's href is the card-aware server hop /r/[cardCode]/m —
+  // NEVER a client link to /m/[code], which would mint a guest with no cardId
+  // and silently kill the per-table quota (RFC-002 §2.4).
+  href: string;
+  external: boolean;
+};
+
+type SplitterView =
+  | { status: "invalid" }
+  | { status: "ok"; businessName: string; buttons: SplitterButton[] };
+
+// The bare splitter page's read model (app/r/[cardCode]/izbor). Public and
+// read-only: it exposes the labels and slugs the printed card already leads
+// to, and the abusable surfaces around it are rate-limited mutations (the
+// /r/ resolve before it, the /m hop after it) — a query cannot consume
+// limiter tokens, and there is nothing here worth flooding for.
+export const getSplitterView = query({
+  args: { cardCode: v.string() },
+  handler: async (ctx, args): Promise<SplitterView> => {
+    const cardCode = normalizeCode(args.cardCode);
+    if (!cardCode) return { status: "invalid" };
+    const card = await ctx.db
+      .query("cards")
+      .withIndex("by_cardCode", (q) => q.eq("cardCode", cardCode))
+      .unique();
+    if (!card || card.status !== "active" || !card.currentTargetId) {
+      return { status: "invalid" };
+    }
+    const target = await ctx.db.get(card.currentTargetId);
+    if (target?.kind !== "splitter" || !target.splitterItems) {
+      return { status: "invalid" };
+    }
+    const business = await ctx.db.get(card.businessId);
+    if (!business) return { status: "invalid" };
+
+    const buttons: SplitterButton[] = [];
+    for (const item of target.splitterItems) {
+      switch (item.kind) {
+        case "memories_space": {
+          if (!item.spaceId) continue;
+          const space = await ctx.db.get(item.spaceId);
+          if (!space) continue;
+          buttons.push({
+            label: item.label,
+            href: `/r/${cardCode}/m?space=${space.code}`,
+            external: false,
+          });
+          break;
+        }
+        case "venue":
+          buttons.push({
+            label: item.label,
+            href: `/${business.slug}/venue`,
+            external: false,
+          });
+          break;
+        case "event": {
+          if (!item.eventId) continue;
+          const event = await ctx.db.get(item.eventId);
+          if (!event) continue;
+          buttons.push({
+            label: item.label,
+            href: `/${business.slug}/venue/${event.slug}`,
+            external: false,
+          });
+          break;
+        }
+        case "service_page": {
+          if (!item.serviceProfileId) continue;
+          const profile = await ctx.db.get(item.serviceProfileId);
+          if (!profile) continue;
+          buttons.push({
+            label: item.label,
+            href: `/${profile.slug}`,
+            external: false,
+          });
+          break;
+        }
+        case "url": {
+          // Re-validated at read time (defence in depth over the write gate),
+          // exactly as the direct url resolve does.
+          if (!item.url || !isSafePublicDestination(item.url)) continue;
+          buttons.push({ label: item.label, href: item.url, external: true });
+          break;
+        }
+        case "table_ordering": {
+          // TASK-63 (RFC-004 §2.2, §2.14): the ordering button points at the
+          // card-aware hop, NEVER a client link to /o/[code] (which would mint
+          // no cardId and lose the table). The venue is the card's own business
+          // ordering config; without one (until TASK-64) the button is dropped.
+          const config = await ctx.db
+            .query("orderingConfig")
+            .withIndex("by_businessId", (q) =>
+              q.eq("businessId", card.businessId),
+            )
+            .unique();
+          if (!config) continue;
+          buttons.push({
+            label: item.label,
+            href: `/r/${cardCode}/o?venue=${config.code}`,
+            external: false,
+          });
+          break;
+        }
+      }
+    }
+    if (buttons.length === 0) return { status: "invalid" };
+    return { status: "ok", businessName: business.name, buttons };
+  },
+});
+
+type SplitterMemoriesOutcome =
+  | { kind: "invalid" }
+  | { kind: "rate_limited" }
+  | { kind: "memories_space"; code: string; guestKey: string | null };
+
+// The card-aware second hop (RFC-002 §2.4): the splitter's Memories button
+// lands on app/r/[cardCode]/m, whose handler calls THIS mutation — the same
+// guest-minting path as the direct memories_space resolve (mintSpaceGuest),
+// so the guest is created WITH the card's cardId and the table survives.
+//
+// Rate limiting mirrors cardResolve (ip-hash-keyed token bucket, same size)
+// but on its OWN bucket: a room's memories entry now spends one cardResolve
+// token at scan and one splitterMemoriesHop token at the button tap, so
+// sharing cardResolve's bucket would double-spend it and halve the room burst
+// TASK-25 sized it for. guestCreate is still spent exactly once per guest —
+// here, not at scan time (the splitter scan mints nothing; §2.4's rejected
+// pre-minting alternative explains why).
+//
+// No scan-statistics recording on purpose: the physical scan was recorded by
+// resolveAndRecord; a button tap is not a second scan, and requestId-style
+// idempotency exists only to protect statistics.
+export const resolveSplitterMemories = mutation({
+  args: {
+    cardCode: v.string(),
+    spaceCode: v.string(),
+    // Same contract as resolveAndRecord: a salted hash computed by the Next
+    // handler purely as a rate-limit key; the raw IP never reaches Convex.
+    ipHash: v.optional(v.string()),
+  },
+  handler: async (ctx, args): Promise<SplitterMemoriesOutcome> => {
+    const ipKey = args.ipHash ?? "shared";
+    const allowed = await rateLimiter.limit(ctx, "splitterMemoriesHop", {
+      key: ipKey,
+    });
+    if (!allowed.ok) return { kind: "rate_limited" };
+
+    const cardCode = normalizeCode(args.cardCode);
+    const spaceCode = normalizeCode(args.spaceCode);
+    if (!cardCode || !spaceCode) return { kind: "invalid" };
+    const card = await ctx.db
+      .query("cards")
+      .withIndex("by_cardCode", (q) => q.eq("cardCode", cardCode))
+      .unique();
+    if (!card || card.status !== "active" || !card.currentTargetId) {
+      return { kind: "invalid" };
+    }
+    const target = await ctx.db.get(card.currentTargetId);
+    if (target?.kind !== "splitter" || !target.splitterItems) {
+      return { kind: "invalid" };
+    }
+
+    // The hop mints ONLY for a space this splitter actually offers — without
+    // this, any splitter card would be an open minting oracle attributing
+    // foreign spaces' guests to its own table.
+    let space: Doc<"memoriesSpaces"> | null = null;
+    for (const item of target.splitterItems) {
+      if (item.kind !== "memories_space" || !item.spaceId) continue;
+      const candidate = await ctx.db.get(item.spaceId);
+      if (candidate?.code === spaceCode) {
+        space = candidate;
+        break;
+      }
+    }
+    if (!space) return { kind: "invalid" };
+
+    const guestKey = await mintSpaceGuest(ctx, {
+      spaceId: space._id,
+      cardId: card._id,
+      ipKey,
+      now: Date.now(),
+    });
+    return { kind: "memories_space", code: space.code, guestKey };
+  },
+});
+
+// -----------------------------------------------------------------------------
+// TASK-63 — the card-aware ordering hop (RFC-004 §2.2, §2.14).
+// -----------------------------------------------------------------------------
+
+type TableOrderingOutcome =
+  | { kind: "invalid" }
+  | { kind: "rate_limited" }
+  | { kind: "table_ordering"; code: string; guestKey: string | null };
+
+// The card-aware ordering hop, twin of resolveSplitterMemories. The handler
+// app/r/[cardCode]/o?venue=<venueCode> calls THIS mutation for BOTH entry
+// paths (RFC-004 §2.14): a direct table_ordering card (302'd here from
+// resolveAndRecord) and a bare-splitter ordering button (its href points here).
+// It mints the ordering guest WITH the card's cardId — the single mint site,
+// so a bare client link to /o/[code] reaches no identity and the table survives.
+//
+// Rate limiting mirrors resolveSplitterMemories: ip-hash-keyed token bucket on
+// its OWN bucket (tableOrderingHop), and the mint spends orderGuestCreate once.
+//
+// No scan-statistics recording on purpose: the physical scan was recorded by
+// resolveAndRecord (the direct card) or is the splitter scan; a hop is not a
+// second scan.
+export const resolveTableOrdering = mutation({
+  args: {
+    cardCode: v.string(),
+    // The venue's ordering code (orderingConfig.code). Untrusted input,
+    // validated below against the card's own business config (the anti-oracle).
+    venueCode: v.string(),
+    // Same contract as resolveAndRecord: a salted hash the Next handler computes
+    // purely as a rate-limit key; the raw IP never reaches Convex.
+    ipHash: v.optional(v.string()),
+  },
+  handler: async (ctx, args): Promise<TableOrderingOutcome> => {
+    const ipKey = args.ipHash ?? "shared";
+    const allowed = await rateLimiter.limit(ctx, "tableOrderingHop", {
+      key: ipKey,
+    });
+    if (!allowed.ok) return { kind: "rate_limited" };
+
+    const cardCode = normalizeCode(args.cardCode);
+    const venueCode = normalizeCode(args.venueCode);
+    if (!cardCode || !venueCode) return { kind: "invalid" };
+    const card = await ctx.db
+      .query("cards")
+      .withIndex("by_cardCode", (q) => q.eq("cardCode", cardCode))
+      .unique();
+    if (!card || card.status !== "active" || !card.currentTargetId) {
+      return { kind: "invalid" };
+    }
+    const target = await ctx.db.get(card.currentTargetId);
+    if (!target) return { kind: "invalid" };
+
+    // Anti-oracle facet 1: the card must ACTUALLY route ordering — a direct
+    // table_ordering target, or a splitter that offers a table_ordering button.
+    // Without this, any card would be an open minting oracle.
+    const offersOrdering =
+      target.kind === "table_ordering" ||
+      (target.kind === "splitter" &&
+        (target.splitterItems ?? []).some(
+          (item) => item.kind === "table_ordering",
+        ));
+    if (!offersOrdering) return { kind: "invalid" };
+
+    // Anti-oracle facet 2: mint only for the card's OWN business ordering
+    // config, and only if the passed venueCode matches it — a foreign venue
+    // code (another business's code) is refused, never attributed to this table.
+    const config = await ctx.db
+      .query("orderingConfig")
+      .withIndex("by_businessId", (q) => q.eq("businessId", card.businessId))
+      .unique();
+    if (!config || config.code !== venueCode) return { kind: "invalid" };
+
+    const guestKey = await mintOrderingGuest(ctx, {
+      businessId: card.businessId,
+      code: config.code,
+      cardId: card._id,
+      ipKey,
+      now: Date.now(),
+    });
+    return { kind: "table_ordering", code: config.code, guestKey };
   },
 });

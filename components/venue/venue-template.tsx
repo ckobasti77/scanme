@@ -17,6 +17,7 @@ import {
 import { venueSr as dict } from "@/lib/i18n/sr/venue";
 import { formatBelgradeDate, formatBelgradeTime } from "@/lib/venue-calendar";
 import { VenueBlockRender } from "./blocks/registry";
+import { VenueAnalyticsClient } from "./venue-analytics-client";
 import type {
   ArchivedEventView,
   VenueLifecycle,
@@ -178,6 +179,7 @@ export function VenueTemplate({
   businessSlug,
   pastEvents = null,
   footerLink = null,
+  analytics = false,
   children,
 }: {
   view: VenuePageView;
@@ -185,6 +187,9 @@ export function VenueTemplate({
   businessSlug: string;
   pastEvents?: ArchivedEventView[] | null;
   footerLink?: { href: string; label: string } | null;
+  /** Mount the aggregate analytics beacon (TASK-43). Public routes pass true;
+   * the editor preview and fixtures never do. */
+  analytics?: boolean;
   children?: ReactNode;
 }) {
   const design = clampVenueDesign(view.design as VenueDesign | null);
@@ -222,10 +227,11 @@ export function VenueTemplate({
           lifecycle={lifecycle}
           startsAt={view.event.startsAt}
         />
-        {lifecycle === "after" ? (
-          <p className={styles.stateBody}>{dict.eventPageEndedNote}</p>
-        ) : null}
         <main className={styles.blocks}>
+          {/* Inside <main> so the note is not orphaned between landmarks. */}
+          {lifecycle === "after" ? (
+            <p className={styles.stateBody}>{dict.eventPageEndedNote}</p>
+          ) : null}
           {viewBlocks(view).map((block) => (
             <VenueBlockRender key={block.base.id} block={block} ctx={ctx} />
           ))}
@@ -233,6 +239,12 @@ export function VenueTemplate({
         </main>
         <Footer link={footerLink} />
       </div>
+      {analytics ? (
+        <VenueAnalyticsClient
+          businessSlug={businessSlug}
+          eventSlug={view.event.slug}
+        />
+      ) : null}
     </div>
   );
 }
@@ -279,9 +291,13 @@ export function VenueStateScreen({
           lifecycle={badge}
           startsAt={null}
         />
-        {body ? <p className={styles.stateBody}>{body}</p> : null}
-        {actions ? <div className={styles.stateActions}>{actions}</div> : null}
         <main className={styles.blocks} style={{ marginTop: "1.5rem" }}>
+          {/* Inside <main>: on the archive route this intro/empty text was
+              the page's entire content yet sat outside every landmark. */}
+          {body ? <p className={styles.stateBody}>{body}</p> : null}
+          {actions ? (
+            <div className={styles.stateActions}>{actions}</div>
+          ) : null}
           {children}
         </main>
         <Footer link={footerLink} />

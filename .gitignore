@@ -16,3 +16,6 @@ npm-debug.log*
 *.tsbuildinfo
 
 .playwright-mcp/
+
+# Logovi nocnog lanca (NightRun.ps1)
+scripts/tasks/logs/

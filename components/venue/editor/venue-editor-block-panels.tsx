@@ -22,6 +22,7 @@ import {
   GALLERY_MAX_ITEMS,
   PRICE_LIST_MAX_ITEMS,
   PROGRAM_MAX_ITEMS,
+  RESERVATION_MAX_ZONES,
   VENUE_BLOCK_BOUNDS,
   type GalleryProps,
   type PriceListProps,
@@ -809,6 +810,7 @@ function ReservationPanel({ block, onChange }: VenueBlockEditorPanelProps) {
   if (block.type !== "reservation") return null;
   const patch = makeBlockPatch(block, onChange);
   const props = block.props;
+  const zones = props.zones ?? [];
 
   return (
     <div className={styles.panelForm}>
@@ -837,21 +839,101 @@ function ReservationPanel({ block, onChange }: VenueBlockEditorPanelProps) {
           }
         />
       ))}
-      <ToggleRow
-        label={dict.resCapacityToggle}
-        checked={props.capacity !== undefined}
-        onChange={(on) => patch({ capacity: on ? 100 : undefined })}
-      />
-      {props.capacity !== undefined ? (
-        <NumberField
-          label={dict.resCapacityLabel}
-          value={props.capacity}
-          min={VENUE_BLOCK_BOUNDS.capacity[0]}
-          max={VENUE_BLOCK_BOUNDS.capacity[1]}
-          onChange={(capacity) =>
-            capacity !== "" && patch({ capacity }, "res-capacity")
+      {/* TASK-43 — zones: areas with a unit count ("Sto za dvoje — 8 komada"),
+          never numbered tables. With zones present the legacy whole-event
+          capacity is ignored, so its toggle hides to keep one editable place
+          per fact. */}
+      <SubHeading>{dict.resZonesHeading}</SubHeading>
+      <p className={styles.fieldHint}>{dict.resZonesNote}</p>
+      {zones.map((zone) => (
+        <div key={zone.id} className={styles.zoneRow}>
+          <TextField
+            label={dict.resZoneNameLabel}
+            value={zone.name}
+            placeholder={dict.resZoneNamePlaceholder}
+            maxLength={60}
+            onChange={(name) =>
+              patch(
+                {
+                  zones: zones.map((candidate) =>
+                    candidate.id === zone.id ? { ...candidate, name } : candidate,
+                  ),
+                },
+                `zone-name-${zone.id}`,
+              )
+            }
+          />
+          <NumberField
+            label={dict.resZoneCapacityLabel}
+            value={zone.capacity}
+            min={VENUE_BLOCK_BOUNDS.zoneCapacity[0]}
+            max={VENUE_BLOCK_BOUNDS.zoneCapacity[1]}
+            onChange={(capacity) =>
+              capacity !== "" &&
+              patch(
+                {
+                  zones: zones.map((candidate) =>
+                    candidate.id === zone.id
+                      ? { ...candidate, capacity }
+                      : candidate,
+                  ),
+                },
+                `zone-capacity-${zone.id}`,
+              )
+            }
+          />
+          <button
+            type="button"
+            className={styles.blockRowAction}
+            data-tone="danger"
+            aria-label={fmt(dict.resZoneRemoveAria, {
+              name: zone.name || dict.resZoneNamePlaceholder,
+            })}
+            onClick={() =>
+              patch({
+                zones: zones.filter((candidate) => candidate.id !== zone.id),
+              })
+            }
+          >
+            ×
+          </button>
+        </div>
+      ))}
+      {zones.length < RESERVATION_MAX_ZONES ? (
+        <button
+          type="button"
+          className={styles.itemAddButton}
+          onClick={() =>
+            patch({
+              zones: [
+                ...zones,
+                { id: crypto.randomUUID(), name: "", capacity: 8 },
+              ],
+            })
           }
-        />
+        >
+          {dict.resZoneAdd}
+        </button>
+      ) : null}
+      {zones.length === 0 ? (
+        <>
+          <ToggleRow
+            label={dict.resCapacityToggle}
+            checked={props.capacity !== undefined}
+            onChange={(on) => patch({ capacity: on ? 100 : undefined })}
+          />
+          {props.capacity !== undefined ? (
+            <NumberField
+              label={dict.resCapacityLabel}
+              value={props.capacity}
+              min={VENUE_BLOCK_BOUNDS.capacity[0]}
+              max={VENUE_BLOCK_BOUNDS.capacity[1]}
+              onChange={(capacity) =>
+                capacity !== "" && patch({ capacity }, "res-capacity")
+              }
+            />
+          ) : null}
+        </>
       ) : null}
       <ToggleRow
         label={dict.resDeadlineToggle}

@@ -153,6 +153,16 @@ intentional direction based on its subject and audience.
 4. Report the result in plain language: what changed, which commands passed,
    and any assumption or next manual step.
 
+## Never claim owner sign-off you don't have
+
+Never write "confirmed with the owner" (or any phrasing that asserts the
+owner's agreement) in a commit message or a report unless that agreement was
+actually given in the prompt driving the task. When a task hits a
+contradiction it cannot resolve on its own, do exactly what TASK-47 did:
+pick the more conservative option, write the open question into
+`docs/tasks/BLOCKED.md`, and say in the commit "deferred, awaiting owner
+decision" — never invent consent.
+
 <!-- convex-ai-start -->
 
 This project uses [Convex](https://convex.dev) as its backend.

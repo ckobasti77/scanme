@@ -102,6 +102,7 @@ function AfterRecap({
         )}
         labels={{
           openAria: dict.lightboxOpenAria,
+          carouselAria: dict.galleryCarouselAria,
           countLabel: dict.lightboxLabel,
           close: dict.lightboxClose,
           prev: dict.lightboxPrev,
@@ -185,6 +186,7 @@ export default async function VenuePage({
       businessSlug={slug}
       pastEvents={pastEvents}
       footerLink={archiveFooter}
+      analytics
     />
   );
 }

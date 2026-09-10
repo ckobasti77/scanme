@@ -1,7 +1,12 @@
 import { ConvexError } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
-import { PLAN_LIMITS, type LimitsFor, type PlanProduct } from "./plans";
+import {
+  ACCOUNT_PLAN_TIER,
+  PLAN_LIMITS,
+  type LimitsFor,
+  type PlanProduct,
+} from "./plans";
 
 type DatabaseCtx = QueryCtx | MutationCtx;
 
@@ -11,11 +16,14 @@ export interface ResolvedEntitlement<P extends PlanProduct> {
   status: Doc<"entitlements">["status"];
 }
 
-// The single entitlement read path (RFC-001 §2.3). No caller may read the
-// `entitlements` table directly. Resolution order:
+// The single entitlement read path (RFC-001 §2.3, RFC-002 §2.2.3). No caller
+// may read the `entitlements` table directly. Resolution order:
 //   1. if spaceId is given, an ACTIVE space-scoped entitlement for that space wins;
 //   2. otherwise the ACTIVE business-scoped entitlement (spaceId unset);
-//   3. otherwise null.
+//   3. otherwise the account plan: business.accountId → ACTIVE account →
+//      ACCOUNT_PLAN_TIER[product][account.plan], limits spread with
+//      account.overrides;
+//   4. otherwise null.
 // Only status === "active" ever resolves.
 //
 // Generic over `product` so `limits` is that product's typed limit shape
@@ -69,7 +77,24 @@ export async function getEntitlement<P extends PlanProduct>(
     row = active[0] ?? null;
   }
 
-  if (!row) return null;
+  if (!row) {
+    // Step 3 (RFC-002 §2.2.3) — the account-plan fallback. Fires only where
+    // steps 1–2 resolved nothing, so every answer that existed before this
+    // step is unchanged: a space- or business-scoped row still wins. The
+    // account is the least-specific baseline — one plan resolving for every
+    // location under it, and for every service the account later adds.
+    const business = await ctx.db.get(businessId);
+    if (!business?.accountId) return null;
+    const account = await ctx.db.get(business.accountId);
+    if (!account || account.status !== "active") return null;
+    const tier = ACCOUNT_PLAN_TIER[product][account.plan];
+    const tierLimits = (PLAN_LIMITS[product] as Record<string, object>)[tier];
+    const limits = {
+      ...tierLimits,
+      ...(account.overrides ?? {}),
+    } as LimitsFor<P>;
+    return { planKey: tier, limits, status: "active" };
+  }
 
   // `planKey` is a DB string, so neither the catalog lookup nor the overrides
   // merge can be statically proven to yield LimitsFor<P>. One assertion here —

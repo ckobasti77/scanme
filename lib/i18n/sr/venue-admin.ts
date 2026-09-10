@@ -19,6 +19,7 @@ export const venueAdminSr = {
   planLabel: "Plan",
   planPickerLabel: "Plan za Venue",
   planBasic: "Basic",
+  planPremium: "Premium",
   currentEventLabel: "Trenutni događaj",
   noEventYet: "Još nema događaja.",
   statusDraft: "Nacrt",

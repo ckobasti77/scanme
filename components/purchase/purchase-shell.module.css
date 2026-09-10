@@ -1,0 +1,372 @@
+/* Purchase-flow shell (RFC-002 §2.3, TASK-33 / TASK-44).
+ *
+ * Isti stakleni jezik kao /ponuda: topli krem ram (klasa .offer-frame), stakleni
+ * paneli (--os-glass*) i lepljiva traka (klasa .offer-dock). Sve boje, radijusi,
+ * staklo i senke dolaze iz app/offer-surface.css preko klase `offer-surface` na
+ * .shell — nema kopije offer CSS-a; obe strane čitaju iste tokene.
+ *
+ * Ram je RAM i TRAKA: zaglavlje + timeline gore, sadržaj koraka u sredini,
+ * lepljiva traka sa iznosom i dugmadima dole. Ništa od toga se ne menja kroz
+ * korake — menja se samo unutrašnji sadržaj. */
+
+.shell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(1rem, 2.2vw, 1.6rem);
+  min-width: 0;
+  padding: clamp(1.15rem, 2.6vw, 1.9rem);
+  color: var(--os-ink);
+  /* ram (background/border/radius/shadow) dolazi iz globalne klase .offer-frame */
+}
+
+/* --- Header ----------------------------------------------------------------*/
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.eyebrow {
+  margin: 0 0 0.4rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgb(var(--os-ink-rgb) / 0.5);
+}
+
+.title {
+  margin: 0;
+  font-size: clamp(1.5rem, 2.7vw, 2.1rem);
+  font-weight: 680;
+  letter-spacing: -0.045em;
+  line-height: 0.98;
+}
+
+.indicator {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  margin: 0;
+  padding: 0.32rem 0.7rem;
+  border: 1px solid rgb(var(--os-ink-rgb) / 0.14);
+  border-radius: 999px;
+  background: rgb(var(--os-paper) / 0.4);
+  color: rgb(var(--os-ink-rgb) / 0.66);
+  font-family: var(--os-mono);
+  font-size: 0.66rem;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+/* --- Timeline --------------------------------------------------------------*/
+
+.timeline {
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-width: none;
+}
+
+.timeline::-webkit-scrollbar {
+  display: none;
+}
+
+.steps {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin: 0;
+  padding: 0.1rem 0.1rem;
+  list-style: none;
+}
+
+.stepItem {
+  display: flex;
+  align-items: center;
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.stepButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.4rem 0.55rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: rgb(var(--os-ink-rgb) / 0.55);
+  font: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    color 180ms cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.stepButton:hover {
+  color: var(--os-ink);
+}
+
+.stepNumber {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.85rem;
+  height: 1.85rem;
+  flex: 0 0 auto;
+  border: 1px solid rgb(var(--os-ink-rgb) / 0.2);
+  border-radius: 999px;
+  background:
+    linear-gradient(145deg, rgb(255 255 255 / 0.4), rgb(var(--os-paper) / 0.16));
+  color: rgb(var(--os-ink-rgb) / 0.6);
+  font-family: var(--os-mono);
+  font-size: 0.82rem;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.5);
+  transition:
+    border-color 180ms cubic-bezier(0.16, 1, 0.3, 1),
+    background 180ms cubic-bezier(0.16, 1, 0.3, 1),
+    color 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.stepCheck {
+  width: 0.95rem;
+  height: 0.95rem;
+}
+
+.stepLabel {
+  font-size: 0.82rem;
+  font-weight: 640;
+  letter-spacing: -0.01em;
+}
+
+.stepButton[data-state="current"] {
+  color: var(--os-ink);
+}
+
+.stepButton[data-state="current"] .stepNumber {
+  border-color: var(--os-selected);
+  background: var(--os-selected);
+  color: #f7f2eb;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.24),
+    0 6px 16px rgb(48 54 46 / 0.28);
+}
+
+.stepButton[data-state="done"] {
+  color: var(--os-ink);
+}
+
+.stepButton[data-state="done"] .stepNumber {
+  border-color: var(--os-selected);
+  background: rgb(68 76 67 / 0.12);
+  color: var(--os-selected);
+}
+
+.stepConnector {
+  flex: 1 1 auto;
+  min-width: 0.75rem;
+  height: 1.5px;
+  margin: 0 0.35rem;
+  border-radius: 2px;
+  background: rgb(var(--os-ink-rgb) / 0.16);
+  transition: background 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.stepConnector[data-done="true"] {
+  background: var(--os-selected);
+}
+
+/* --- Content region --------------------------------------------------------*/
+
+.content {
+  position: relative;
+  display: flex;
+  min-height: clamp(440px, 62vh, 620px);
+}
+
+/* Each step lays its own panels inside this full-size area. */
+.stepArea {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+}
+
+/* --- Sticky split-total bar (the "price dock", offer language) -------------*/
+
+.bar {
+  position: sticky;
+  bottom: clamp(0.6rem, 1.6vw, 1rem);
+  z-index: 8;
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  margin-top: 0.35rem;
+  padding: 0.6rem 0.7rem 0.6rem 0.5rem;
+  border-radius: 1.25rem;
+  color: var(--os-ink);
+  /* glass chrome (bg/border/shadow/blur) dolazi iz globalne klase .offer-dock */
+}
+
+/* "Nazad" — tiho ghost dugme levo; gura ostatak trake udesno. */
+.back {
+  flex-shrink: 0;
+  margin-right: auto;
+  min-height: 2.6rem;
+  border-radius: 0.85rem !important;
+  padding-inline: 0.85rem !important;
+  color: rgb(var(--os-ink-rgb) / 0.66) !important;
+  font-weight: 600;
+}
+
+.back:hover:not(:disabled) {
+  background: rgb(var(--os-ink-rgb) / 0.06) !important;
+  color: var(--os-ink) !important;
+}
+
+.back:disabled {
+  opacity: 0.34;
+}
+
+.total {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.08rem;
+  min-width: 0;
+  text-align: right;
+}
+
+.totalLabel {
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: rgb(var(--os-ink-rgb) / 0.5);
+}
+
+.money {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 0.05rem 0.5rem;
+  font-family: var(--os-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Two kinds of money, deliberately two spans — never summed (RFC-002 §2.3). */
+.recurring {
+  font-size: clamp(0.98rem, 1.9vw, 1.2rem);
+  font-weight: 640;
+  letter-spacing: -0.03em;
+  color: var(--os-ink);
+  white-space: nowrap;
+}
+
+.onetime {
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: rgb(var(--os-ink-rgb) / 0.56);
+  white-space: nowrap;
+}
+
+.next {
+  flex-shrink: 0;
+  min-height: 2.85rem;
+  border-radius: 0.9rem !important;
+  padding-inline: 1.35rem !important;
+  background: var(--primary) !important;
+  color: var(--primary-foreground) !important;
+  font-weight: 700;
+  white-space: nowrap;
+  box-shadow: none !important;
+}
+
+.next:hover:not(:disabled) {
+  background: var(--primary-hover) !important;
+}
+
+.next:disabled {
+  opacity: 0.5;
+}
+
+.backIcon,
+.nextIcon {
+  width: 1rem;
+  height: 1rem;
+}
+
+.backIcon {
+  margin-right: 0.35rem;
+}
+
+.nextIcon {
+  margin-left: 0.4rem;
+}
+
+/* --- Responsive ------------------------------------------------------------*/
+
+@media (max-width: 900px) {
+  .content {
+    min-height: 0;
+  }
+}
+
+@media (max-width: 768px) {
+  .header {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .stepLabel {
+    display: none;
+  }
+
+  /* Stack the rail: split total on its own row above the two controls, so the
+     money never collides with the buttons. */
+  .bar {
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    padding: 0.7rem;
+  }
+
+  .total {
+    order: -1;
+    flex-basis: 100%;
+    align-items: center;
+    text-align: center;
+  }
+
+  .money {
+    justify-content: center;
+  }
+
+  .back {
+    order: 0;
+    margin-right: 0;
+    flex: 1 1 0;
+    justify-content: center;
+  }
+
+  .next {
+    order: 1;
+    flex: 1 1 0;
+    justify-content: center;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stepButton,
+  .stepNumber,
+  .stepConnector {
+    transition: none !important;
+  }
+}

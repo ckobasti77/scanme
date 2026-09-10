@@ -65,6 +65,15 @@
   transform: scale(var(--venue-media-zoom, 1));
 }
 
+/* An autoplaying, looping background video is >5s of motion with no pause
+   control (WCAG 2.2.2); at minimum the OS-level preference must stop it.
+   The --venue-page base underneath keeps the page's contrast ground. */
+@media (prefers-reduced-motion: reduce) {
+  .backgroundMedia video {
+    display: none;
+  }
+}
+
 .backgroundOverlay {
   background: var(--venue-media-overlay, transparent);
 }
@@ -111,7 +120,9 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.16em;
-  color: var(--venue-accent);
+  /* accent-as-TEXT goes through the floored companion: the raw accent is the
+     verbatim logo colour with no contrast guarantee (TASK-25 a11y). */
+  color: var(--venue-accent-text, var(--venue-accent));
   margin-bottom: 0.5rem;
 }
 
@@ -162,7 +173,7 @@
 
 .badgeLive {
   border-color: var(--venue-accent);
-  color: var(--venue-accent);
+  color: var(--venue-accent-text, var(--venue-accent));
 }
 
 .liveDot {
@@ -257,7 +268,10 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.18em;
-  color: color-mix(in srgb, var(--venue-title) 78%, transparent);
+  /* Muted roles point at the compiled, contrast-floored companion token —
+     a color-mix toward transparent silently discarded the palette's 4.5:1
+     guarantee on at-floor palettes (TASK-25 a11y). */
+  color: var(--venue-body-muted, var(--venue-body));
 }
 
 .blockHeading::after {
@@ -305,7 +319,9 @@
 .actionPrimary {
   background: var(--venue-accent);
   border-color: var(--venue-accent);
-  color: var(--venue-page);
+  /* Text ON accent needs its own derived readable colour — page-on-accent
+     has no engine guarantee (a mid-tone logo accent fails 4.5:1). */
+  color: var(--venue-on-accent, var(--venue-page));
 }
 
 .actionPrimary:hover {
@@ -368,7 +384,7 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.14em;
-  color: color-mix(in srgb, var(--venue-body) 82%, transparent);
+  color: var(--venue-body-muted, var(--venue-body));
   margin-top: 0.2rem;
 }
 
@@ -399,7 +415,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.16em;
-  color: var(--venue-accent);
+  color: var(--venue-accent-text, var(--venue-accent));
   margin: 0;
 }
 
@@ -472,7 +488,7 @@
   font-variant-numeric: tabular-nums;
   font-weight: 700;
   font-size: 0.9em;
-  color: var(--venue-accent);
+  color: var(--venue-accent-text, var(--venue-accent));
   white-space: nowrap;
 }
 
@@ -548,7 +564,7 @@
 
 .mapPrivacyNote {
   font-size: 0.8em;
-  color: color-mix(in srgb, var(--venue-body) 85%, transparent);
+  color: var(--venue-body-muted, var(--venue-body));
   margin: 0;
   max-width: 26rem;
 }
@@ -685,6 +701,16 @@
   background: rgba(50, 50, 58, 0.8);
 }
 
+/* The lightbox portals to document.body — OUTSIDE .root — so the venue focus
+   ring never applies and the app-global one is black in the light theme:
+   invisible on this dark chrome. The controls carry their own ring. */
+.lightboxClose:focus-visible,
+.lightboxNav:focus-visible,
+.lightboxContent:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
 .lightboxClose {
   top: max(0.9rem, env(safe-area-inset-top));
   right: max(0.9rem, env(safe-area-inset-right));
@@ -762,13 +788,18 @@
   object-fit: cover;
 }
 
+/* Rendered as <span>, not <p>: a <p> may not sit inside the card's <a>/<span>
+   phrasing content (invalid HTML the parser re-writes). display:block keeps
+   the stacked layout. */
 .profileName {
+  display: block;
   font-weight: 600;
   color: var(--venue-title);
   margin: 0;
 }
 
 .profileRole {
+  display: block;
   font-size: 0.84em;
   color: var(--venue-body);
   margin: 0;
@@ -789,7 +820,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.16em;
-  color: var(--venue-accent);
+  color: var(--venue-accent-text, var(--venue-accent));
   margin: 0 0 0.6rem 0;
   text-align: left;
 }
@@ -835,7 +866,7 @@
 
 .priceListDescription {
   font-size: 0.84em;
-  color: color-mix(in srgb, var(--venue-body) 88%, transparent);
+  color: var(--venue-body-muted, var(--venue-body));
   margin: 0.15rem 0 0 0;
   max-width: 34rem;
 }
@@ -863,14 +894,17 @@
 
 .fieldOptional {
   font-weight: 400;
-  color: color-mix(in srgb, var(--venue-body) 75%, transparent);
+  color: var(--venue-body-muted, var(--venue-body));
 }
 
 .input {
   width: 100%;
   min-height: 3rem;
   padding: 0.65rem 0.9rem;
-  border: 1px solid var(--venue-border);
+  /* The engine border is a deliberate faint hairline (~1.4:1) — too weak to
+     be a field's ONLY boundary (WCAG 1.4.11 needs 3:1), so inputs use the
+     floored companion token. */
+  border: 1px solid var(--venue-input-border, var(--venue-border));
   border-radius: 12px;
   background: color-mix(in srgb, var(--venue-surface) 70%, transparent);
   color: var(--venue-title);
@@ -879,7 +913,7 @@
 }
 
 .input::placeholder {
-  color: color-mix(in srgb, var(--venue-body) 55%, transparent);
+  color: var(--venue-body-muted, var(--venue-body));
 }
 
 textarea.input {
@@ -889,7 +923,7 @@ textarea.input {
 
 .deadlineNote {
   font-size: 0.84em;
-  color: color-mix(in srgb, var(--venue-body) 85%, transparent);
+  color: var(--venue-body-muted, var(--venue-body));
   margin: 0 0 0.6rem 0;
 }
 
@@ -1008,6 +1042,7 @@ textarea.input {
 }
 
 .pastMeta {
+  display: block;
   padding: 0.2rem 0.9rem 0.8rem;
 }
 
@@ -1015,13 +1050,17 @@ textarea.input {
   padding: 0.6rem 0.9rem;
 }
 
+/* <span> + display:block for the same phrasing-content reason as
+   .profileName above. */
 .pastTitle {
+  display: block;
   font-weight: 600;
   color: var(--venue-title);
   margin: 0.4rem 0 0.15rem 0;
 }
 
 .pastDate {
+  display: block;
   font-size: 0.82em;
   color: var(--venue-body);
   margin: 0;
@@ -1029,7 +1068,7 @@ textarea.input {
 
 .emptyNote {
   font-size: 0.95em;
-  color: color-mix(in srgb, var(--venue-body) 85%, transparent);
+  color: var(--venue-body-muted, var(--venue-body));
   margin: 0;
 }
 
@@ -1126,7 +1165,7 @@ textarea.input {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.16em;
-  color: color-mix(in srgb, var(--venue-body) 70%, transparent);
+  color: var(--venue-body-muted, var(--venue-body));
   margin: 0;
 }
 

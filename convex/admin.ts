@@ -2,8 +2,14 @@ import { ConvexError, v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
-import { mutation, query, type MutationCtx } from "./_generated/server";
+import {
+  mutation,
+  query,
+  type MutationCtx,
+  type QueryCtx,
+} from "./_generated/server";
 import { isAdminEmail, requireAdmin } from "./lib/access";
+import { writeAdminAudit } from "./lib/adminAudit";
 import { upsertManualEntitlement } from "./lib/entitlements";
 import { buildBusinessContactViews } from "./lib/contacts";
 import { aggregateMetricRowsForRange, getMetricRows, metricsRangeConfig } from "./lib/metrics";
@@ -1162,5 +1168,337 @@ export const approveActivation = mutation({
     await ctx.db.patch(request._id, { status: "closed", updatedAt: now });
 
     return { activated: true as const, entitlementId };
+  },
+});
+
+// =============================================================================
+// TASK-30 — the admin customers grouping read (RFC-002 §2.6, §4 task 4).
+//
+// A NEW query, deliberately separate from `listBusinesses` above: that one is
+// welded to the Google-Review screen (it hard-codes the `dynamicLinks` link and
+// its `status` is `reviewProfile.status`) and stays UNTOUCHED. This one groups
+// `businesses` by `accountId` for the operational customers table: an account
+// with more than one location is ONE expandable Enterprise row carrying its
+// locations; a single-location account (and every account-less legacy business)
+// is a normal full-width solo row. The per-location sidebar the UI shows only
+// inside an Enterprise customer is exactly this "enterprise row has locations[]"
+// shape.
+//
+// Bounded reads, matching listBusinesses' 100-row bound. The four derived
+// statuses, sort-by-renewal, and the audit log are task 12; this task delivers
+// the grouping the Enterprise/solo layout turns on.
+// =============================================================================
+
+type CustomerService = {
+  id: Id<"serviceProfiles">;
+  type: Doc<"serviceProfiles">["type"];
+  status: Doc<"serviceProfiles">["status"];
+};
+
+type CustomerLocation = {
+  id: Id<"businesses">;
+  name: string;
+  slug: string;
+  status: Doc<"businesses">["status"];
+  archivedAt: number | null;
+  // Who to call: the location's primary POC (first active/invited, else the
+  // most recent). The operational table is a call list, so the phone rides
+  // beside the name.
+  contactName: string | null;
+  phone: string | null;
+  // EVERY service profile (not just active) so the table can both list the
+  // active ones and offer an activate/deactivate toggle for the inactive ones.
+  services: CustomerService[];
+};
+
+// The primary POC phone for the call-list column — the same "first active,
+// else most recent inactive" selection buildBusinessContactViews uses, kept
+// cheap (no invitation fan-out).
+async function primaryContactView(
+  ctx: QueryCtx,
+  businessId: Id<"businesses">,
+): Promise<{ contactName: string | null; phone: string | null }> {
+  const contacts = await ctx.db
+    .query("businessContacts")
+    .withIndex("by_businessId", (q) => q.eq("businessId", businessId))
+    .order("asc")
+    .take(50);
+  const active = contacts.filter((contact) => contact.status !== "inactive");
+  const primary =
+    active[0] ?? (contacts.length ? contacts[contacts.length - 1] : null);
+  if (!primary) return { contactName: null, phone: null };
+  const name = `${primary.firstName} ${primary.lastName}`.trim();
+  return {
+    contactName: name || null,
+    phone: primary.phone.trim() || null,
+  };
+}
+
+type AccountView = {
+  id: Id<"accounts">;
+  name: string;
+  plan: Doc<"accounts">["plan"];
+  planPeriod: Doc<"accounts">["planPeriod"] | null;
+  status: Doc<"accounts">["status"];
+  planValidUntil: number | null;
+};
+
+type CustomerRow =
+  | { kind: "solo"; account: AccountView | null; location: CustomerLocation }
+  | { kind: "enterprise"; account: AccountView; locations: CustomerLocation[] };
+
+async function customerLocationView(
+  ctx: QueryCtx,
+  business: Doc<"businesses">,
+): Promise<CustomerLocation> {
+  const profiles = await ctx.db
+    .query("serviceProfiles")
+    .withIndex("by_businessId", (q) => q.eq("businessId", business._id))
+    .take(20);
+  const { contactName, phone } = await primaryContactView(ctx, business._id);
+  return {
+    id: business._id,
+    name: business.name,
+    slug: business.slug,
+    status: business.status,
+    archivedAt: business.archivedAt ?? null,
+    contactName,
+    phone,
+    services: profiles
+      .filter((profile) => profile.status !== "archived")
+      .map((profile) => ({
+        id: profile._id,
+        type: profile.type,
+        status: profile.status,
+      })),
+  };
+}
+
+function accountView(account: Doc<"accounts">): AccountView {
+  return {
+    id: account._id,
+    name: account.name,
+    plan: account.plan,
+    planPeriod: account.planPeriod ?? null,
+    status: account.status,
+    planValidUntil: account.planValidUntil ?? null,
+  };
+}
+
+export const customers = query({
+  args: {},
+  handler: async (ctx): Promise<CustomerRow[]> => {
+    await requireAdmin(ctx);
+    const rows: CustomerRow[] = [];
+
+    // Grouping path: every account, its non-archived locations via by_account.
+    const accounts = await ctx.db.query("accounts").order("desc").take(200);
+    for (const account of accounts) {
+      const grouped = await ctx.db
+        .query("businesses")
+        .withIndex("by_account", (q) => q.eq("accountId", account._id))
+        .take(100);
+      const locations = grouped.filter((business) => !business.archivedAt);
+      if (locations.length === 0) continue;
+      const view = accountView(account);
+      if (locations.length > 1) {
+        rows.push({
+          kind: "enterprise",
+          account: view,
+          locations: await Promise.all(
+            locations.map((business) => customerLocationView(ctx, business)),
+          ),
+        });
+      } else {
+        rows.push({
+          kind: "solo",
+          account: view,
+          location: await customerLocationView(ctx, locations[0]),
+        });
+      }
+    }
+
+    // Legacy path: account-less businesses (pre-backfill, §2.2.4) each render as
+    // their own full-width solo customer. Skipped once the solo-account backfill
+    // runs, because every business then carries an accountId.
+    const loose = await ctx.db.query("businesses").order("desc").take(200);
+    for (const business of loose) {
+      if (business.accountId !== undefined) continue;
+      if (business.archivedAt) continue;
+      rows.push({
+        kind: "solo",
+        account: null,
+        location: await customerLocationView(ctx, business),
+      });
+    }
+
+    return rows;
+  },
+});
+
+// TASK-40 (RFC-002 §2.6, §4 task 12) — activate/deactivate ONE service on ONE
+// location straight from the customers table. This is the ownership gate
+// (§1.b: ownership is `serviceProfiles.status === "active"`); the tier the
+// account plan grants resolves live in getEntitlement step 3, so flipping
+// ownership needs no entitlement write. EVERY such change writes EXACTLY ONE
+// adminAuditLog row in the same transaction (who/what/when) — paid things are
+// granted by hand and the first dispute turns on this trail. A no-op (the
+// service is already in the requested state) writes nothing and reports it.
+//
+// Deliberately NOT setBusinessActive: that one is welded to the Google-Review
+// dynamicLink + its published destination and stays untouched. This flips a
+// single serviceProfile of any type.
+export const setServiceProfileActive = mutation({
+  args: { serviceProfileId: v.id("serviceProfiles"), active: v.boolean() },
+  handler: async (ctx, args) => {
+    const admin = await requireAdmin(ctx);
+    const profile = await ctx.db.get(args.serviceProfileId);
+    if (!profile) throw new ConvexError("Servis nije pronađen.");
+    const business = await ctx.db.get(profile.businessId);
+    if (!business) throw new ConvexError("Lokal nije pronađen.");
+    if (business.archivedAt) {
+      throw new ConvexError("Arhivirani lokal ne može da menja usluge.");
+    }
+    if (profile.status === "archived") {
+      throw new ConvexError("Arhivirani servis ne može da se menja.");
+    }
+    const nextStatus = args.active ? "active" : "inactive";
+    if (profile.status === nextStatus) {
+      return { status: profile.status, changed: false as const };
+    }
+
+    const now = Date.now();
+    await ctx.db.patch(profile._id, { status: nextStatus, updatedAt: now });
+    await writeAdminAudit(ctx, {
+      actorUserId: admin._id,
+      ...(business.accountId ? { accountId: business.accountId } : {}),
+      businessId: business._id,
+      action: args.active ? "activate_service" : "deactivate_service",
+      detail: { service: profile.type, serviceProfileId: profile._id },
+      now,
+    });
+    return { status: nextStatus, changed: true as const };
+  },
+});
+
+// TASK-41 (RFC-002 §2.6, §4 task 13) — the per-location admin read that the
+// per-location subpages (Links / Review / Venue / Meni) and the location
+// sidebar sit on. This is the SERVER-AUTHORITATIVE gate: it is `requireAdmin`-d,
+// and it returns `null` for a location that does not exist or is archived — the
+// caller renders that as `notFound()`, so a typed URL behaves "as if it does not
+// exist". Per-subpage gating is the caller checking a service's `active` flag
+// from `services` below (an inactive service simply is not in the active set, so
+// its subpage 404s). No content for a non-existent location is ever returned.
+//
+// `siblings` are the account's OTHER locations (plus this one); the UI shows the
+// location sidebar ONLY when `isEnterprise` (an account with more than one
+// location). A solo/legacy location gets `siblings = [self]` and full width.
+type LocationSubpageService = {
+  id: Id<"serviceProfiles">;
+  type: Doc<"serviceProfiles">["type"];
+  active: boolean;
+};
+
+type LocationSibling = {
+  id: Id<"businesses">;
+  name: string;
+  slug: string;
+  activeServiceCount: number;
+};
+
+type LocationAdminView = {
+  location: {
+    id: Id<"businesses">;
+    name: string;
+    slug: string;
+    status: Doc<"businesses">["status"];
+    contactName: string | null;
+    phone: string | null;
+  };
+  account: AccountView | null;
+  isEnterprise: boolean;
+  siblings: LocationSibling[];
+  services: LocationSubpageService[];
+};
+
+async function activeServiceCount(
+  ctx: QueryCtx,
+  businessId: Id<"businesses">,
+): Promise<number> {
+  const profiles = await ctx.db
+    .query("serviceProfiles")
+    .withIndex("by_businessId", (q) => q.eq("businessId", businessId))
+    .take(20);
+  return profiles.filter((profile) => profile.status === "active").length;
+}
+
+export const location = query({
+  args: { businessId: v.id("businesses") },
+  handler: async (ctx, args): Promise<LocationAdminView | null> => {
+    await requireAdmin(ctx);
+
+    const business = await ctx.db.get(args.businessId);
+    // "Kao da ne postoji": a missing or archived location returns no view.
+    if (!business || business.archivedAt) return null;
+
+    const account = business.accountId
+      ? await ctx.db.get(business.accountId)
+      : null;
+
+    // Siblings = the account's non-archived locations (this one included), so the
+    // sidebar can jump between them. Legacy account-less location is its own sole
+    // sibling. Bounded to the same 100 rows as the customers grouping read.
+    let siblingBusinesses: Doc<"businesses">[] = [business];
+    if (business.accountId) {
+      const grouped = await ctx.db
+        .query("businesses")
+        .withIndex("by_account", (q) => q.eq("accountId", business.accountId))
+        .take(100);
+      siblingBusinesses = grouped.filter((row) => !row.archivedAt);
+      if (!siblingBusinesses.some((row) => row._id === business._id)) {
+        siblingBusinesses.push(business);
+      }
+    }
+    siblingBusinesses.sort((a, b) =>
+      a.name.localeCompare(b.name, "sr-Latn", { sensitivity: "base" }),
+    );
+
+    const siblings: LocationSibling[] = await Promise.all(
+      siblingBusinesses.map(async (row) => ({
+        id: row._id,
+        name: row.name,
+        slug: row.slug,
+        activeServiceCount: await activeServiceCount(ctx, row._id),
+      })),
+    );
+
+    const profiles = await ctx.db
+      .query("serviceProfiles")
+      .withIndex("by_businessId", (q) => q.eq("businessId", business._id))
+      .take(20);
+    const services: LocationSubpageService[] = profiles
+      .filter((profile) => profile.status !== "archived")
+      .map((profile) => ({
+        id: profile._id,
+        type: profile.type,
+        active: profile.status === "active",
+      }));
+
+    const { contactName, phone } = await primaryContactView(ctx, business._id);
+
+    return {
+      location: {
+        id: business._id,
+        name: business.name,
+        slug: business.slug,
+        status: business.status,
+        contactName,
+        phone,
+      },
+      account: account ? accountView(account) : null,
+      isEnterprise: siblingBusinesses.length > 1,
+      siblings,
+      services,
+    };
   },
 });

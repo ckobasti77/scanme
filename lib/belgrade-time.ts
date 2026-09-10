@@ -1,8 +1,8 @@
 // Belgrade wall-clock ⇄ epoch helpers, DST-correct (CET/CEST). Extracted for
 // the TASK-18 Memories surfaces (admin console + host panel), which both take
-// datetime-local input and render Belgrade times. The venue-panel-section
-// (TASK-13) keeps its own private copies — that byte-stable file is not touched
-// here; new code shares this module.
+// datetime-local input and render Belgrade times. Since TASK-43 the
+// venue-panel-section and the public reservation form import from here too —
+// one implementation, no private copies left.
 
 const BELGRADE = "Europe/Belgrade";
 
@@ -97,6 +97,16 @@ export function belgradeParts(epoch: number): {
     minute: map.minute,
     second: map.second,
   };
+}
+
+// Minutes from midnight in Belgrade wall-clock (0..1439) — the unit
+// menuDayparts windows use (RFC-003 §2.5). The public Menu calls this on BOTH
+// the SSR server and the client, always on the fixed venue zone (never the
+// device zone), so a daypart resolved on either side agrees and the first
+// hydration render matches SSR (§4 TASK-54).
+export function belgradeMinuteOfDay(epoch: number): number {
+  const parts = belgradeParts(epoch);
+  return parts.hour * 60 + parts.minute;
 }
 
 const dateTimeFormat = new Intl.DateTimeFormat("sr-Latn-RS", {

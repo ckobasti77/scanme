@@ -38,9 +38,9 @@ export function ProfileCardsBlock({ props }: { props: ProfileCardsProps }) {
                 </span>
               ) : null}
               <span>
-                <p className={styles.profileName}>{item.name}</p>
+                <span className={styles.profileName}>{item.name}</span>
                 {item.role ? (
-                  <p className={styles.profileRole}>{item.role}</p>
+                  <span className={styles.profileRole}>{item.role}</span>
                 ) : null}
               </span>
             </>

@@ -317,13 +317,27 @@ function QueueItemRow({
         </span>
       )}
       <div className={styles.itemBody}>
-        <p className={stateClass}>
+        {/* role="status": "Sačuvano" / "Otpremanje nije uspelo" transitions
+            are otherwise visual-only for a screen-reader user. The streaming
+            percent must stay OUT of the live region (an unthrottled
+            onprogress tick per announcement would drown the terminal
+            transitions this exists for), so while putting, the visible
+            percent line is aria-hidden and the region announces one stable
+            "Šalje se…" instead. */}
+        <p className={stateClass} role="status">
           {item.state === "ready" ? (
             <span className={styles.savedTick} aria-hidden="true">
               <Check size={16} strokeWidth={3} />
             </span>
           ) : null}
-          {itemStateLine(item, online)}
+          {item.state === "uploading" && item.phase === "putting" ? (
+            <>
+              <span aria-hidden="true">{itemStateLine(item, online)}</span>
+              <span className="sr-only">{dict.itemUploadingAnnounce}</span>
+            </>
+          ) : (
+            itemStateLine(item, online)
+          )}
         </p>
       </div>
       <div className={styles.itemActions}>

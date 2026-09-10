@@ -172,7 +172,7 @@ function ChoiceButton({
   );
 }
 
-function AccordionLabel({
+export function AccordionLabel({
   icon: Icon,
   title,
   value,
@@ -194,7 +194,7 @@ function AccordionLabel({
   );
 }
 
-const CONTROL_ICONS: Record<ProductControlId, typeof RotateCw> = {
+export const CONTROL_ICONS: Record<ProductControlId, typeof RotateCw> = {
   orientation: RotateCw,
   shape: Shapes,
   background: PanelTop,
@@ -204,7 +204,7 @@ const CONTROL_ICONS: Record<ProductControlId, typeof RotateCw> = {
   dimension: Ruler,
 };
 
-function controlTitle(controlId: ProductControlId): string {
+export function controlTitle(controlId: ProductControlId): string {
   if (controlId === "orientation") return dict.orientationHeading;
   if (controlId === "shape") return dict.shapeHeading;
   if (controlId === "background") return dict.backgroundHeading;
@@ -214,7 +214,7 @@ function controlTitle(controlId: ProductControlId): string {
   return dict.dimensionsHeading;
 }
 
-function controlValue(selected: ProductSelection, controlId: ProductControlId): string {
+export function controlValue(selected: ProductSelection, controlId: ProductControlId): string {
   if (controlId === "orientation") {
     return selected.orientation === "landscape" ? dict.landscape : dict.portrait;
   }
@@ -286,7 +286,7 @@ function exactDimension(selected: ProductSelection): string | null {
   return null;
 }
 
-function ConfigurationOptions({
+export function ConfigurationOptions({
   controlId,
   selected,
   product,
@@ -691,7 +691,7 @@ export function OfferConfigurator({ initialSelection }: { initialSelection: Orde
   const sceneId = active ? PRODUCT_SCENES[active.productId] : "counter";
 
   return (
-    <div id="konfigurator" data-reveal="off" className={styles.configurator}>
+    <div id="konfigurator" data-reveal="off" className={`${styles.configurator} offer-surface`}>
       <div
         className={styles.stage}
         data-scene={sceneId}

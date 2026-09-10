@@ -35,6 +35,13 @@ export const memoriesSr = {
     "Generisanje koda kartice nije uspelo. Pokušajte ponovo.",
   cardBusinessMismatch: "Odredište ne pripada ovom lokalu.",
   cardMintCountInvalid: "Broj kartica mora biti ceo broj između 1 i 50.",
+  // TASK-37 — the bare splitter (RFC-002 §2.4).
+  cardSplitterItemsInvalid:
+    "Razdelnik mora imati između {min} i {max} dugmadi.",
+  cardLinksMemoriesBlocked:
+    "Memories iza Links razdelnika nije podržan: Links stranica ne prenosi identitet stola, pa bi se kvota po kartici izgubila. Podržana su dva obrasca: (1) kartica direktno na Memories prostor, ili (2) goli razdelnik sa Memories dugmetom.",
+  cardLinksOrderingBlocked:
+    "Poručivanje iza Links razdelnika nije podržano: Links stranica ne prenosi identitet stola, pa porudžbina ne bi imala sto. Podržana su dva obrasca: (1) kartica direktno na poručivanje, ili (2) goli razdelnik sa dugmetom za poručivanje.",
   spaceNotOneOff: "Ova radnja je moguća samo za jednokratni prostor.",
   spaceWindowInvalid: "Novo vreme zatvaranja mora biti u budućnosti.",
   spaceStatusInvalid: "Ovu radnju nije moguće izvršiti u trenutnom stanju.",
@@ -61,6 +68,7 @@ export const memoriesSr = {
   itemQueued: "Čeka u redu",
   itemPreparing: "Priprema se…",
   itemUploading: "Šalje se… {percent}%",
+  itemUploadingAnnounce: "Šalje se…",
   itemProcessing: "Obrađuje se…",
   itemSaved: "Sačuvano",
   itemWaitingNetwork: "Čeka vezu…",
