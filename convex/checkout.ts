@@ -6,13 +6,14 @@ import {
   mutation,
   type MutationCtx,
 } from "./_generated/server";
-import { requireBusinessAccess } from "./lib/access";
+import { requireBusinessPurchaseAccess } from "./lib/clientAccountAccess";
 import { writeAdminAudit } from "./lib/adminAudit";
 import { manualBillingPort } from "./lib/billingPort";
 import { generateCode } from "./lib/codes";
 import {
   buildPriceSnapshot,
   PRICING_SERVICE_BY_SERVICE_TYPE,
+  priceSnapshotValidator,
   type ServiceType,
 } from "./lib/orderSnapshot";
 import { getDict } from "../lib/i18n";
@@ -255,6 +256,11 @@ export const provisionCheckoutOrder = internalMutation({
     ownerUserId: v.id("users"),
     index: v.number(),
   },
+  returns: v.object({
+    done: v.boolean(),
+    provisioned: v.number(),
+    nextIndex: v.number(),
+  }),
   handler: async (ctx, args) => {
     const order = await ctx.db.get(args.orderId);
     if (!order) throw new ConvexError("Porudžbina nije pronađena.");
@@ -338,6 +344,14 @@ export const checkout = mutation({
     physicalLines: v.optional(v.array(physicalLineValidator)),
     externalRef: v.optional(v.string()),
   },
+  returns: v.object({
+    orderId: v.id("orders"),
+    accountId: v.id("accounts"),
+    plan: accountPlanValidator,
+    planPeriod: v.optional(planPeriodValidator),
+    priceSnapshot: priceSnapshotValidator,
+    provisioning: v.union(v.literal("complete"), v.literal("fanned")),
+  }),
   handler: async (ctx, args) => {
     if (args.serviceLines.length === 0) {
       throw new ConvexError("Kupovina mora imati bar jednu uslugu.");
@@ -361,13 +375,12 @@ export const checkout = mutation({
       ]),
     ];
 
-    // Access is the ownership boundary the whole platform uses (§2.2.2): the
-    // buyer must reach every location this checkout provisions. Admin bypasses
-    // membership inside requireBusinessAccess; the code path is otherwise
-    // byte-identical to every host write. This never changes requireBusinessAccess.
+    // The buyer must own every location this checkout provisions. ADMIN-02
+    // accounts additionally need the explicit service-purchase/payment grant;
+    // the adapter preserves the legacy rule only for not-yet-migrated rows.
     let ownerUserId: Id<"users"> | null = null;
     for (const businessId of businessIds) {
-      const { user } = await requireBusinessAccess(ctx, businessId);
+      const { user } = await requireBusinessPurchaseAccess(ctx, businessId);
       ownerUserId = user._id;
     }
     if (!ownerUserId) throw new ConvexError("Kupovina zahteva prijavu.");
