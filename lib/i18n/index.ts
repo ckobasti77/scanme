@@ -27,6 +27,7 @@ import { privacySr } from "./sr/privacy";
 import { offerSr } from "./sr/offer";
 import { adminCustomersSr } from "./sr/admin-customers";
 import { adminLocationSr } from "./sr/admin-location";
+import { adminDomainSr } from "./sr/admin-domain";
 
 export { fmt, srPluralCategory };
 export type {
@@ -47,6 +48,7 @@ export type {
   OfferDict,
   AdminCustomersDict,
   AdminLocationDict,
+  AdminDomainDict,
 } from "./types";
 export {
   venueSr,
@@ -63,9 +65,11 @@ export {
   offerSr,
   adminCustomersSr,
   adminLocationSr,
+  adminDomainSr,
 };
 
 const SR: DictBySurface = {
+  "admin-domain": adminDomainSr,
   venue: venueSr,
   "venue-editor": venueEditorSr,
   "venue-admin": venueAdminSr,

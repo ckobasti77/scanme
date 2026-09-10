@@ -1,4 +1,5 @@
 import type { OfferDict } from "../types";
+import { adminDomainSr } from "./admin-domain";
 
 export const offerSr: OfferDict = {
   metaTitle: "Sastavite ponudu | ScanMe",
@@ -117,7 +118,7 @@ export const offerSr: OfferDict = {
     "template-4": "Šablon 4",
     "template-5": "Šablon 5",
   },
-  serviceNames: { review: "ScanMe Review", links: "ScanMe Links" },
+  serviceNames: { review: adminDomainSr.services.scanme_review, links: adminDomainSr.services.scanme_links },
   tierNames: { starter: "Starter", premium: "Premium" },
   periodNames: { monthly: "Mesečno", annual: "Godišnje" },
   dimensionNames: {
@@ -140,28 +141,28 @@ export const offerSr: OfferDict = {
   woodTypeNames: { oak: "Hrast", walnut: "Orah", beech: "Bukva" },
   products: {
     stickers: {
-      name: "Nalepnice i stikeri",
+      name: adminDomainSr.products.stickers,
       subtitle: "Plastificirani samolepljivi muflon papir u malim, srednjim i velikim formatima.",
       useCase:
         "Stolove, pultove i suve unutrašnje površine. Nisu za često kvašenje i agresivno brisanje.",
     },
     "window-film": {
-      name: "PVC folija za izloge i staklo",
+      name: adminDomainSr.products["window-film"],
       subtitle: "Bela ili providna PVC folija za izloge i staklo, u mat ili sjajnoj završnici.",
       useCase: "Izloge izložene kiši, kondenzaciji i redovnom čišćenju.",
     },
     "two-piece-stand": {
-      name: "Dvodelni stalci",
+      name: adminDomainSr.products["two-piece-stand"],
       subtitle: "Postolje i dva zaštitna stakla za A4, A5 i A6 umetke.",
       useCase: "Stolove, pultove i recepcije gde se zaštićeni umetak povremeno menja.",
     },
     "compact-stand": {
-      name: "Kompaktni stalci",
+      name: adminDomainSr.products["compact-stand"],
       subtitle: "Jednodelni L stalak od FOREX plastike, klirita ili alubonda.",
       useCase: "Stabilan i jednostavan prikaz tamo gde se izgled ne menja često.",
     },
     "premium-engraved-stand": {
-      name: "Premium gravirani stalci",
+      name: adminDomainSr.products["premium-engraved-stand"],
       subtitle: "Puno drvo, staklo ili metal iz jednog dela sa gravurom.",
       useCase: "Reprezentativne lokale, hotele, restorane i salone.",
     },
