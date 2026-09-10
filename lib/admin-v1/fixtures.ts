@@ -10,6 +10,7 @@ import type {
   PriceAgreement, PriceSnapshot, PrintJob, Referral, ServiceInstance, Subscription, Venue, VenueGroup,
 } from "./contracts";
 import { DAY_MS } from "./rules";
+import { stableActionCauseId } from "./operational";
 
 // The only unchecked conversion is the explicit fixture-ID boundary, not business data.
 export const fixtureId = <K extends EntityKind>(kind: K, suffix: string): EntityId<K> => `fixture:${kind}:${suffix}` as EntityId<K>;
@@ -185,7 +186,24 @@ export const messages: readonly Message[] = [
   { id: fixtureId("message", "out"), conversationId: conversation.id, channel: "panel_chat", author: adminActor, rawBody: "Test: odgovor", preview: "Test: odgovor", attachments: [], providerMessageId: null, createdAt: AS_OF, direction: "outbound", receipt: { visibility: "admin_only", status: "delivered" } },
 ];
 export const task: ClientTask = { ...base("task", "one"), accountId, contactId: contacts[0].id, venueId: venues[3].id, subject: { kind: "delivery", id: deliveries[0].id }, title: "Test: proveri isporuku", description: "Sintetički klijentski zadatak", assigneeId: fixtureId("user", "admin"), participantIds: [], priority: "high", due: { kind: "date", date: "2026-09-12", timeZone: "Europe/Belgrade" }, status: "deferred", deferral: { change: change("Test: dogovoreno sa klijentom"), until: at("2026-09-12") } };
-export const actionItem: ActionItem = { id: fixtureId("actionItem", "subscription"), accountId, cause: { kind: "subscription", subscriptionId: subscriptions[1].id, condition: "grace" }, severity: "warning", assigneeId: fixtureId("user", "admin"), resolutionTarget: { kind: "subscription", id: subscriptions[1].id }, resolutionRule: "source_fact_changed", state: "open", deferral: null };
+export const actionItem: ActionItem = {
+  ...base("actionItem", "subscription"),
+  stableCauseId: stableActionCauseId("subscription", subscriptions[1].id, "grace"),
+  source: { domain: "subscription", recordId: subscriptions[1].id, causeKind: "grace" },
+  accountId,
+  venueId: venues[1].id,
+  serviceId: services[1].id,
+  productRef: null,
+  severity: "warning",
+  state: "open",
+  assigneeId: fixtureId("user", "admin"),
+  due: { kind: "instant", at: at("2026-09-14") },
+  priority: { class: "grace_or_warning", relevantAt: AS_OF },
+  snooze: null,
+  resolutionContext: { kind: "source_record", href: "/admin/subscriptions/fixture" },
+  resolutionRule: "source_fact_changed",
+  resolution: null,
+};
 export const auditEvents: readonly AuditEvent[] = [
   { id: fixtureId("audit", "void"), accountId, venueId: null, subject: { kind: "payment", id: partialPayment.id }, action: "payment.voided", detail: { paymentId: partialPayment.id }, change: adjustments[0].change },
   { id: fixtureId("audit", "defer"), accountId, venueId: venues[3].id, subject: { kind: "task", id: task.id }, action: "item.deferred", detail: { until: at("2026-09-12") }, change: change("Test: dogovoreno sa klijentom") },

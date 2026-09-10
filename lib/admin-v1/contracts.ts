@@ -13,6 +13,12 @@ import type {
   Orientation, ProductBackground, ProductDimension, ProductFinish, ProductMaterial,
   ProductShape, WoodType,
 } from "../scanme-pricing";
+import type {
+  ActionPriorityClass,
+  ActionSeverity,
+  ActionSourceDomain,
+  ActionState,
+} from "./operational";
 
 export type EntityKind =
   | "account" | "venue" | "contact" | "member" | "user" | "legalEntity" | "brand" | "venueGroup" | "tag"
@@ -379,22 +385,40 @@ export interface ClientTask extends RecordBase<"task"> {
   readonly status: TaskStatus;
   readonly deferral: Deferral | null;
 }
-export type ActionCause =
-  | { readonly kind: "subscription"; readonly subscriptionId: EntityId<"subscription">; readonly condition: "warning" | "grace" | "suspended" | "paid_not_configured" }
-  | { readonly kind: "conversation"; readonly conversationId: EntityId<"conversation">; readonly condition: "new" | "needs_reply" }
-  | { readonly kind: "task"; readonly taskId: EntityId<"task">; readonly condition: "overdue" | "due_today" }
-  | { readonly kind: "order"; readonly orderId: EntityId<"order">; readonly condition: "payment" | "approval" | "receipt" | "qc" | "delivery" }
-  | { readonly kind: "channel"; readonly channelId: EntityId<"channel">; readonly condition: "problem" };
-export interface ActionItem {
-  readonly id: EntityId<"actionItem">;
+export interface ActionItem extends RecordBase<"actionItem"> {
+  readonly stableCauseId: string;
+  readonly source: {
+    readonly domain: ActionSourceDomain;
+    readonly recordId: string;
+    readonly causeKind: string;
+  };
   readonly accountId: EntityId<"account">;
-  readonly cause: ActionCause;
-  readonly severity: "blocking" | "warning" | "information";
+  readonly venueId: EntityId<"venue"> | null;
+  readonly serviceId: EntityId<"service"> | null;
+  readonly productRef: string | null;
+  readonly severity: ActionSeverity;
+  readonly state: ActionState;
   readonly assigneeId: EntityId<"user"> | null;
-  readonly resolutionTarget: EntityRef;
+  readonly due: DueDate | null;
+  readonly priority: {
+    readonly class: ActionPriorityClass;
+    readonly relevantAt: Timestamp;
+  };
+  readonly snooze: {
+    readonly until: Timestamp;
+    readonly reason: string;
+    readonly changedBy: EntityId<"user">;
+  } | null;
+  readonly resolutionContext: {
+    readonly kind: "source_record";
+    readonly href: string | null;
+  };
   readonly resolutionRule: "source_fact_changed" | "manual_problem_resolution";
-  readonly state: "open" | "deferred" | "resolved";
-  readonly deferral: Deferral | null;
+  readonly resolution: {
+    readonly at: Timestamp;
+    readonly actor: Actor;
+    readonly note: string | null;
+  } | null;
 }
 
 /** Operation-specific details, never opaque JSON, full messages or auth/session data. */

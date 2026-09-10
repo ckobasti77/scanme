@@ -23,6 +23,23 @@ import {
   clientRoleValidator,
   membershipVenueAccessValidator,
 } from "./lib/adminV1Validators";
+import {
+  actionActorValidator,
+  actionDuePrecisionValidator,
+  actionEventKindValidator,
+  actionPriorityClassValidator,
+  actionResolutionRuleValidator,
+  actionSeverityValidator,
+  actionSignalValidator,
+  actionSourceDomainValidator,
+  actionStateValidator,
+  adminV1ServiceTypeValidator,
+  productOperationalStatusValidator,
+  productTypeValidator,
+  serviceAggregateValidator,
+  serviceOperationalStateValidator,
+  serviceSummariesValidator,
+} from "./lib/adminActionValidators";
 
 const businessStatus = v.union(
   v.literal("active"),
@@ -285,6 +302,172 @@ export default defineSchema({
     .index("by_businessId", ["businessId"])
     .index("by_businessId_and_type", ["businessId", "type"])
     .index("by_type_and_status", ["type", "status"]),
+
+  // ADMIN-04: one server-authoritative operational cause. The causeId is a
+  // stable domain + source-record + cause-kind key, so every surface refers to
+  // the same row and a repeated adapter run is an upsert rather than a clone.
+  actionItems: defineTable({
+    causeId: v.string(),
+    sourceDomain: actionSourceDomainValidator,
+    sourceRecordId: v.string(),
+    causeKind: v.string(),
+    sourceVersion: v.string(),
+    sourceFingerprint: v.string(),
+    accountId: v.optional(v.id("accounts")),
+    businessId: v.optional(v.id("businesses")),
+    serviceProfileId: v.optional(v.id("serviceProfiles")),
+    productRef: v.optional(v.string()),
+    severity: actionSeverityValidator,
+    severityRank: v.number(),
+    state: actionStateValidator,
+    assigneeId: v.optional(v.id("users")),
+    dueAt: v.optional(v.number()),
+    duePrecision: v.optional(actionDuePrecisionValidator),
+    priorityClass: actionPriorityClassValidator,
+    priorityRank: v.number(),
+    priorityAt: v.number(),
+    relevantAt: v.number(),
+    snoozedUntil: v.optional(v.number()),
+    snoozeReason: v.optional(v.string()),
+    snoozedByUserId: v.optional(v.id("users")),
+    contextHref: v.optional(v.string()),
+    description: v.optional(v.string()),
+    resolutionRule: actionResolutionRuleValidator,
+    resolvedAt: v.optional(v.number()),
+    resolvedByKind: v.optional(v.union(v.literal("admin"), v.literal("system"))),
+    resolvedByUserId: v.optional(v.id("users")),
+    resolutionNote: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_causeId", ["causeId"])
+    .index("by_state_and_priorityRank_and_priorityAt_and_causeId", ["state", "priorityRank", "priorityAt", "causeId"])
+    .index("by_assigneeId_and_state_and_priorityRank_and_priorityAt_and_causeId", ["assigneeId", "state", "priorityRank", "priorityAt", "causeId"])
+    .index("by_state_and_snoozedUntil", ["state", "snoozedUntil"])
+    .index("by_assigneeId_and_state_and_snoozedUntil", ["assigneeId", "state", "snoozedUntil"])
+    .index("by_accountId_and_state_and_severityRank_and_priorityRank_and_priorityAt_and_causeId", ["accountId", "state", "severityRank", "priorityRank", "priorityAt", "causeId"])
+    .index("by_businessId_and_state_and_severityRank_and_priorityRank_and_priorityAt_and_causeId", ["businessId", "state", "severityRank", "priorityRank", "priorityAt", "causeId"])
+    .index("by_productRef_and_state_and_severityRank_and_priorityRank_and_priorityAt_and_causeId", ["productRef", "state", "severityRank", "priorityRank", "priorityAt", "causeId"])
+    .index("by_sourceDomain_and_sourceRecordId_and_state_and_priorityRank_and_priorityAt_and_causeId", ["sourceDomain", "sourceRecordId", "state", "priorityRank", "priorityAt", "causeId"]),
+
+  // Append-only audit of every lifecycle transition. Opening a record is not
+  // an event because ADMIN-04 explicitly separates reading from resolution.
+  actionItemEvents: defineTable({
+    actionItemId: v.id("actionItems"),
+    causeId: v.string(),
+    event: actionEventKindValidator,
+    actor: actionActorValidator,
+    fromState: v.optional(actionStateValidator),
+    toState: v.optional(actionStateValidator),
+    reason: v.optional(v.string()),
+    until: v.optional(v.number()),
+    createdAt: v.number(),
+  })
+    .index("by_actionItemId_and_createdAt", ["actionItemId", "createdAt"])
+    .index("by_causeId_and_createdAt", ["causeId", "createdAt"]),
+
+  // Materialized one-row-per-entity directory. This is the bounded server read
+  // path for 500 venues / 10k products; source joins happen only while syncing.
+  adminClientReadModels: defineTable({
+    accountId: v.id("accounts"),
+    smkCode: v.string(),
+    accountName: v.string(),
+    ownerDisplayName: v.string(),
+    normalizedOwnerDisplayName: v.string(),
+    defaultContactEmail: v.union(v.string(), v.null()),
+    defaultContactPhone: v.union(v.string(), v.null()),
+    firstVenueName: v.union(v.string(), v.null()),
+    venueCount: v.number(),
+    clientStatus: clientLifecycleStatusValidator,
+    signal: actionSignalValidator,
+    urgencyRank: v.number(),
+    serviceSummaries: serviceSummariesValidator,
+    searchText: v.string(),
+    updatedAt: v.number(),
+  })
+    .index("by_accountId", ["accountId"])
+    .index("by_urgencyRank_and_normalizedOwnerDisplayName", ["urgencyRank", "normalizedOwnerDisplayName"])
+    .index("by_normalizedOwnerDisplayName", ["normalizedOwnerDisplayName"])
+    .index("by_updatedAt", ["updatedAt"])
+    .index("by_clientStatus_and_urgencyRank_and_normalizedOwnerDisplayName", ["clientStatus", "urgencyRank", "normalizedOwnerDisplayName"])
+    .index("by_clientStatus_and_normalizedOwnerDisplayName", ["clientStatus", "normalizedOwnerDisplayName"])
+    .index("by_clientStatus_and_updatedAt", ["clientStatus", "updatedAt"])
+    .searchIndex("search_searchText", { searchField: "searchText", filterFields: ["clientStatus"] }),
+
+  adminVenueReadModels: defineTable({
+    accountId: v.id("accounts"),
+    businessId: v.id("businesses"),
+    smkCode: v.string(),
+    smlCode: v.string(),
+    ownerDisplayName: v.string(),
+    venueName: v.string(),
+    normalizedVenueName: v.string(),
+    city: v.union(v.string(), v.null()),
+    effectiveContactEmail: v.union(v.string(), v.null()),
+    effectiveContactPhone: v.union(v.string(), v.null()),
+    productCount: v.number(),
+    channelCount: v.number(),
+    serviceTypes: v.array(adminV1ServiceTypeValidator),
+    clientStatus: clientLifecycleStatusValidator,
+    signal: actionSignalValidator,
+    urgencyRank: v.number(),
+    searchText: v.string(),
+    updatedAt: v.number(),
+  })
+    .index("by_businessId", ["businessId"])
+    .index("by_urgencyRank_and_normalizedVenueName", ["urgencyRank", "normalizedVenueName"])
+    .index("by_normalizedVenueName", ["normalizedVenueName"])
+    .index("by_updatedAt", ["updatedAt"])
+    .index("by_clientStatus_and_urgencyRank_and_normalizedVenueName", ["clientStatus", "urgencyRank", "normalizedVenueName"])
+    .index("by_clientStatus_and_normalizedVenueName", ["clientStatus", "normalizedVenueName"])
+    .index("by_clientStatus_and_updatedAt", ["clientStatus", "updatedAt"])
+    .searchIndex("search_searchText", { searchField: "searchText", filterFields: ["clientStatus"] }),
+
+  adminProductReadModels: defineTable({
+    accountId: v.id("accounts"),
+    businessId: v.id("businesses"),
+    sourceRecordId: v.string(),
+    smkCode: v.string(),
+    smlCode: v.string(),
+    smfCode: v.string(),
+    smqCodes: v.array(v.string()),
+    ownerDisplayName: v.string(),
+    venueName: v.string(),
+    productType: productTypeValidator,
+    displayName: v.string(),
+    normalizedDisplayName: v.string(),
+    operationalStatus: productOperationalStatusValidator,
+    signal: actionSignalValidator,
+    urgencyRank: v.number(),
+    searchText: v.string(),
+    updatedAt: v.number(),
+  })
+    .index("by_sourceRecordId", ["sourceRecordId"])
+    .index("by_urgencyRank_and_normalizedDisplayName", ["urgencyRank", "normalizedDisplayName"])
+    .index("by_normalizedDisplayName", ["normalizedDisplayName"])
+    .index("by_updatedAt", ["updatedAt"])
+    .index("by_operationalStatus_and_urgencyRank_and_normalizedDisplayName", ["operationalStatus", "urgencyRank", "normalizedDisplayName"])
+    .index("by_operationalStatus_and_normalizedDisplayName", ["operationalStatus", "normalizedDisplayName"])
+    .index("by_operationalStatus_and_updatedAt", ["operationalStatus", "updatedAt"])
+    .searchIndex("search_searchText", { searchField: "searchText", filterFields: ["operationalStatus"] }),
+
+  adminServiceStates: defineTable({
+    accountId: v.id("accounts"),
+    businessId: v.id("businesses"),
+    serviceProfileId: v.id("serviceProfiles"),
+    serviceType: adminV1ServiceTypeValidator,
+    state: serviceOperationalStateValidator,
+    updatedAt: v.number(),
+  })
+    .index("by_serviceProfileId", ["serviceProfileId"])
+    .index("by_accountId_and_serviceType", ["accountId", "serviceType"]),
+
+  adminServiceAggregates: defineTable({
+    accountId: v.id("accounts"),
+    serviceType: adminV1ServiceTypeValidator,
+    summary: serviceAggregateValidator,
+    updatedAt: v.number(),
+  }).index("by_accountId_and_serviceType", ["accountId", "serviceType"]),
 
   serviceSlugAliases: defineTable({
     slug: v.string(),

@@ -291,7 +291,10 @@ describe("ADMIN-01 / C06 communication, tasks, audit and type exclusions", () =>
     const timed: ClientTask = { ...f.task, due: { kind: "instant", at: f.AS_OF } };
     expect(timed.due).toEqual({ kind: "instant", at: f.AS_OF });
     expect(f.task.deferral?.change.reason.length).toBeGreaterThan(0);
-    expect(f.actionItem.cause).toEqual({ kind: "subscription", subscriptionId: f.subscriptions[1].id, condition: "grace" });
+    expect(f.actionItem.source).toEqual({ domain: "subscription", recordId: f.subscriptions[1].id, causeKind: "grace" });
+    expect(f.actionItem.stableCauseId).toContain("cause:v1:");
+    expect(f.actionItem.priority.class).toBe("grace_or_warning");
+    expect(f.actionItem.resolutionContext.kind).toBe("source_record");
     expect(f.actionItem.resolutionRule).toBe("source_fact_changed");
   });
   test("inbound chat exposes no receipts; outbound receipt is explicitly admin-only", () => {

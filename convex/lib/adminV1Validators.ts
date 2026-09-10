@@ -46,9 +46,31 @@ export function normalizeAdminSearchText(value: string): string {
     .toLowerCase();
 }
 
+export function normalizeAdminEmail(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+export function normalizeAdminPhone(value: string): string {
+  return value.replace(/\D/g, "");
+}
+
+export function normalizeAdminSearchToken(value: string): string {
+  return normalizeAdminSearchText(value).replace(/[^a-z0-9]/g, "");
+}
+
+export function normalizeAdminDirectoryQuery(value: string): string {
+  const normalized = normalizeAdminSearchText(value);
+  if (!normalized) return "";
+  const compact = normalizeAdminSearchToken(value);
+  if (/^sm[kqfl]/.test(compact) || value.includes("@")) return compact;
+  const phone = normalizeAdminPhone(value);
+  if (phone.length >= 3 && /^[\d+()\s./-]+$/.test(value.trim())) return phone;
+  return normalized;
+}
+
 export function normalizeAdminHumanCode(
   value: string,
-  prefix: "SMK" | "SML",
+  prefix: "SMK" | "SML" | "SMF" | "SMQ",
 ): string {
   const code = value.trim().toUpperCase();
   const pattern = new RegExp(`^${prefix}-[A-Z0-9]+(?:-[A-Z0-9]+)*$`);
