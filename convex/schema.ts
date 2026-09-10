@@ -12,6 +12,13 @@ import {
   venueDesignValidator,
 } from "./lib/venueValidators";
 import { priceSnapshotValidator } from "./lib/orderSnapshot";
+import {
+  accountContactStatusValidator,
+  accountTagKindValidator,
+  clientLifecycleStatusValidator,
+  clientRoleValidator,
+  membershipVenueAccessValidator,
+} from "./lib/adminV1Validators";
 
 const businessStatus = v.union(
   v.literal("active"),
@@ -167,13 +174,26 @@ export default defineSchema({
     // (convex/billing.ts); the daily billing-cycle sweep flips status to
     // "expired" once this date + GRACE_DAYS has elapsed.
     planValidUntil: v.optional(v.number()),
+    // ADMIN-02 widen phase. These fields are optional until the explicit,
+    // fixture-proven legacy migration has completed for every client account.
+    smkCode: v.optional(v.string()),
+    ownerDisplayName: v.optional(v.string()),
+    normalizedOwnerDisplayName: v.optional(v.string()),
+    clientStatus: v.optional(clientLifecycleStatusValidator),
+    primaryOwnerMembershipId: v.optional(v.id("accountMemberships")),
+    defaultContactId: v.optional(v.id("accountContacts")),
+    adminV1MigrationVersion: v.optional(v.number()),
+    adminV1MigratedAt: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
     .index("by_status", ["status"])
     // The billing-cycle sweep's range: active accounts whose paid-through date
     // (+ grace) has passed.
-    .index("by_status_and_planValidUntil", ["status", "planValidUntil"]),
+    .index("by_status_and_planValidUntil", ["status", "planValidUntil"])
+    .index("by_smkCode", ["smkCode"])
+    .index("by_clientStatus_and_updatedAt", ["clientStatus", "updatedAt"])
+    .index("by_normalizedOwnerDisplayName", ["normalizedOwnerDisplayName"]),
 
   businesses: defineTable({
     name: v.string(),
@@ -190,6 +210,20 @@ export default defineSchema({
     // fires), so the solo-account backfill (§2.2.4) is not a correctness
     // prerequisite.
     accountId: v.optional(v.id("accounts")),
+    // ADMIN-02 widen fields. `status` remains the legacy runtime status until
+    // its later owner is migrated; clientStatus is the active/archived axis.
+    smlCode: v.optional(v.string()),
+    clientStatus: v.optional(clientLifecycleStatusValidator),
+    normalizedName: v.optional(v.string()),
+    city: v.optional(v.string()),
+    normalizedCity: v.optional(v.string()),
+    address: v.optional(v.string()),
+    legalEntityId: v.optional(v.id("legalEntities")),
+    brandId: v.optional(v.id("brands")),
+    venueGroupId: v.optional(v.id("venueGroups")),
+    defaultContactOverrideId: v.optional(v.id("accountContacts")),
+    adminV1MigrationVersion: v.optional(v.number()),
+    updatedAt: v.optional(v.number()),
     logoStorageId: v.optional(v.id("_storage")),
     logoUrl: v.optional(v.string()),
     status: businessStatus,
@@ -198,7 +232,11 @@ export default defineSchema({
   })
     .index("by_slug", ["slug"])
     .index("by_status", ["status"])
-    .index("by_account", ["accountId"]),
+    .index("by_account", ["accountId"])
+    .index("by_smlCode", ["smlCode"])
+    .index("by_accountId_and_clientStatus", ["accountId", "clientStatus"])
+    .index("by_accountId_and_normalizedName", ["accountId", "normalizedName"])
+    .index("by_normalizedName_and_normalizedCity", ["normalizedName", "normalizedCity"]),
 
   dynamicLinks: defineTable({
     businessId: v.id("businesses"),
@@ -406,6 +444,8 @@ export default defineSchema({
 
   businessContacts: defineTable({
     businessId: v.id("businesses"),
+    // Transitional source link used by the idempotent ADMIN-02 migration.
+    accountContactId: v.optional(v.id("accountContacts")),
     firstName: v.string(),
     lastName: v.string(),
     normalizedEmail: v.string(),
@@ -459,6 +499,128 @@ export default defineSchema({
     .index("by_businessId_and_status", ["businessId", "status"])
     .index("by_contactId", ["contactId"])
     .index("by_normalizedEmail", ["normalizedEmail"]),
+
+  // ADMIN-02 — account-scoped organization and access model. All tables are
+  // new and therefore start empty; existing rows stay valid during widen.
+  legalEntities: defineTable({
+    accountId: v.id("accounts"),
+    name: v.string(),
+    normalizedName: v.string(),
+    taxId: v.optional(v.string()),
+    registrationNumber: v.optional(v.string()),
+    address: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_accountId", ["accountId"])
+    .index("by_accountId_and_normalizedName", ["accountId", "normalizedName"])
+    .index("by_taxId", ["taxId"]),
+
+  accountContacts: defineTable({
+    accountId: v.id("accounts"),
+    firstName: v.string(),
+    lastName: v.string(),
+    normalizedName: v.string(),
+    normalizedEmail: v.optional(v.string()),
+    normalizedPhone: v.optional(v.string()),
+    positionTitle: v.string(),
+    isOwner: v.boolean(),
+    status: accountContactStatusValidator,
+    authUserId: v.optional(v.id("users")),
+    legacyBusinessContactId: v.optional(v.id("businessContacts")),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_accountId", ["accountId"])
+    .index("by_accountId_and_status", ["accountId", "status"])
+    .index("by_accountId_and_normalizedEmail", ["accountId", "normalizedEmail"])
+    .index("by_accountId_and_normalizedPhone", ["accountId", "normalizedPhone"])
+    .index("by_normalizedEmail", ["normalizedEmail"])
+    .index("by_normalizedPhone", ["normalizedPhone"])
+    .index("by_legacyBusinessContactId", ["legacyBusinessContactId"]),
+
+  accountMemberships: defineTable({
+    accountId: v.id("accounts"),
+    userId: v.id("users"),
+    contactId: v.optional(v.id("accountContacts")),
+    role: clientRoleValidator,
+    active: v.boolean(),
+    venueAccess: membershipVenueAccessValidator,
+    canBuyServices: v.boolean(),
+    canBuyPremium: v.boolean(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_accountId_and_userId", ["accountId", "userId"])
+    .index("by_userId_and_active", ["userId", "active"])
+    .index("by_accountId_and_active", ["accountId", "active"])
+    .index("by_accountId_and_role", ["accountId", "role"]),
+
+  accountMembershipVenueScopes: defineTable({
+    membershipId: v.id("accountMemberships"),
+    accountId: v.id("accounts"),
+    businessId: v.id("businesses"),
+    createdAt: v.number(),
+  })
+    .index("by_membershipId_and_businessId", ["membershipId", "businessId"])
+    .index("by_membershipId", ["membershipId"])
+    .index("by_businessId", ["businessId"]),
+
+  brands: defineTable({
+    accountId: v.id("accounts"),
+    name: v.string(),
+    normalizedName: v.string(),
+    revision: v.string(),
+    logoStorageId: v.optional(v.id("_storage")),
+    colors: v.array(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_accountId", ["accountId"])
+    .index("by_accountId_and_normalizedName", ["accountId", "normalizedName"]),
+
+  venueGroups: defineTable({
+    accountId: v.id("accounts"),
+    name: v.string(),
+    normalizedName: v.string(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_accountId", ["accountId"])
+    .index("by_accountId_and_normalizedName", ["accountId", "normalizedName"]),
+
+  accountTags: defineTable({
+    accountId: v.id("accounts"),
+    kind: accountTagKindValidator,
+    label: v.optional(v.string()),
+    normalizedLabel: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_accountId", ["accountId"])
+    .index("by_accountId_and_kind", ["accountId", "kind"])
+    .index("by_accountId_and_normalizedLabel", ["accountId", "normalizedLabel"]),
+
+  adminV1MigrationMappings: defineTable({
+    version: v.number(),
+    sourceKind: v.union(
+      v.literal("business_contact"),
+      v.literal("business_membership"),
+    ),
+    sourceId: v.string(),
+    targetKind: v.union(
+      v.literal("account_contact"),
+      v.literal("account_membership"),
+    ),
+    targetId: v.string(),
+    createdAt: v.number(),
+  })
+    .index("by_version_and_sourceKind_and_sourceId", [
+      "version",
+      "sourceKind",
+      "sourceId",
+    ])
+    .index("by_targetKind_and_targetId", ["targetKind", "targetId"]),
 
   serviceActivationRequests: defineTable({
     businessId: v.id("businesses"),

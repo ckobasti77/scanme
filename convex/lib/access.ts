@@ -85,7 +85,49 @@ async function requireAdminOrActiveMembership(
   business: Doc<"businesses">,
 ) {
   if (isAdminEmail(user.email)) {
-    return { membership: null, accessRole: "admin" as const };
+    return {
+      membership: null,
+      accountMembership: null,
+      accessRole: "admin" as const,
+      clientRole: null,
+    };
+  }
+  // ADMIN-02 compatibility boundary: migrated client accounts authorize from
+  // accountMemberships + an optional venue-scope row. businessMemberships is
+  // consulted only for pre-migration/account-less rows and can be removed after
+  // reconciliation/narrow; it is not a second authority for migrated accounts.
+  if (business.accountId) {
+    const account = await ctx.db.get(business.accountId);
+    if (account?.adminV1MigrationVersion === 1) {
+      const accountMembership = await ctx.db
+        .query("accountMemberships")
+        .withIndex("by_accountId_and_userId", (q) =>
+          q.eq("accountId", account._id).eq("userId", user._id),
+        )
+        .unique();
+      if (!accountMembership?.active) {
+        denyBusinessAccess("Nemate pristup ovom lokalu.");
+      }
+      if (accountMembership.venueAccess === "selected") {
+        const scope = await ctx.db
+          .query("accountMembershipVenueScopes")
+          .withIndex("by_membershipId_and_businessId", (q) =>
+            q
+              .eq("membershipId", accountMembership._id)
+              .eq("businessId", business._id),
+          )
+          .unique();
+        if (!scope || scope.accountId !== account._id) {
+          denyBusinessAccess("Nemate pristup ovom lokalu.");
+        }
+      }
+      return {
+        membership: accountMembership,
+        accountMembership,
+        accessRole: "viewer" as const,
+        clientRole: accountMembership.role,
+      };
+    }
   }
   const membership = await ctx.db
     .query("businessMemberships")
@@ -94,19 +136,24 @@ async function requireAdminOrActiveMembership(
     )
     .unique();
   if (!membership?.active) denyBusinessAccess("Nemate pristup ovom lokalu.");
-  return { membership, accessRole: "viewer" as const };
+  return {
+    membership,
+    accountMembership: null,
+    accessRole: "viewer" as const,
+    clientRole: null,
+  };
 }
 
 // Product-agnostic panel access: a business owning any service (or none yet)
 // can reach its own panel. No `dynamicLinks` requirement (RFC-001 §2.1).
 export async function requireBusinessAccess(ctx: DatabaseCtx, slugOrId: string) {
   const { user, business } = await resolveBusinessForAccess(ctx, slugOrId);
-  const { membership, accessRole } = await requireAdminOrActiveMembership(
+  const membershipAccess = await requireAdminOrActiveMembership(
     ctx,
     user,
     business,
   );
-  return { user, business, membership, accessRole };
+  return { user, business, ...membershipAccess };
 }
 
 // The legacy Google Review panel access, preserving today's exact return shape
@@ -126,12 +173,12 @@ export async function requireGoogleReviewPanelBySlug(
     .take(20);
   const link = selectPrimaryLink(links);
   if (!link) denyBusinessAccess("Panel nije pronađen.");
-  const { membership, accessRole } = await requireAdminOrActiveMembership(
+  const membershipAccess = await requireAdminOrActiveMembership(
     ctx,
     user,
     business,
   );
-  return { user, business, link, membership, accessRole };
+  return { user, business, link, ...membershipAccess };
 }
 
 // Brand product names. These are proper nouns, not localizable prose, so they
@@ -166,13 +213,12 @@ export async function requireServiceEditorAccess(
       }),
     );
   }
-  const membership = await ctx.db
-    .query("businessMemberships")
-    .withIndex("by_userId_and_businessId", (q) =>
-      q.eq("userId", user._id).eq("businessId", profile.businessId),
-    )
-    .unique();
-  if (!membership?.active) {
+  const access = await requireBusinessAccess(ctx, profile.businessId);
+  if (
+    access.clientRole !== null &&
+    access.clientRole !== "full_access" &&
+    access.clientRole !== "venue_management"
+  ) {
     throw new ConvexError("Nemate pristup ovom lokalu.");
   }
   return { role: "client" as const, user };

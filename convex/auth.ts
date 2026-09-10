@@ -95,6 +95,13 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
     async beforeSessionCreation(ctx: MutationCtx, { userId }) {
       const user = await ctx.db.get(userId);
       if (isAdminEmail(user?.email)) return;
+      const accountMembership = await ctx.db
+        .query("accountMemberships")
+        .withIndex("by_userId_and_active", (q) =>
+          q.eq("userId", userId).eq("active", true),
+        )
+        .take(1);
+      if (accountMembership.length) return;
       const membership = await ctx.db
         .query("businessMemberships")
         .withIndex("by_userId_and_active", (q) => q.eq("userId", userId).eq("active", true))
