@@ -10,7 +10,16 @@
 // output for a surface whose UI does not exist yet: no copy is invented; the
 // interface grows when the screen is built.
 
+import type { ProductType, ServiceType } from "../admin-v1/catalog";
+
 export type Locale = "sr";
+
+export interface AdminDomainDict {
+  services: Record<ServiceType, string>;
+  products: Record<ProductType, string>;
+  customDesign: string;
+  friendTag: string;
+}
 
 // venue — the public venue page (/[slug]/venue*, TASK-09). Everything a guest
 // can read: route metadata, the three lifecycle states, the twelve block
@@ -2384,6 +2393,7 @@ export interface CardsAdminDict {
 }
 
 export interface DictBySurface {
+  "admin-domain": AdminDomainDict;
   venue: VenueDict;
   "venue-editor": VenueEditorDict;
   "venue-admin": VenueAdminDict;

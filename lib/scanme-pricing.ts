@@ -12,18 +12,14 @@
 
 import { price as enginePrice } from "./pricing/engine";
 import type { PlanId } from "./pricing/types";
+import type { ProductType } from "./admin-v1/catalog";
 
 export type Rsd = number;
 
 export type ServiceId = "review" | "links";
 export type PublicTierId = "starter" | "premium";
 export type BillingPeriod = "monthly" | "annual";
-export type ProductId =
-  | "stickers"
-  | "window-film"
-  | "two-piece-stand"
-  | "compact-stand"
-  | "premium-engraved-stand";
+export type ProductId = ProductType;
 export type Orientation = "portrait" | "landscape";
 export type ProductShape = "square" | "rectangle" | "circle";
 export type ProductBackground = "white" | "black" | "transparent";
