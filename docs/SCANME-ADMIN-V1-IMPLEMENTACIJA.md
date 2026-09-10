@@ -1579,6 +1579,22 @@ Napraviti jedan server-authoritative izvor za hitnost, action items, globalni se
 - scale test nema neograničeno učitavanje i ne koristi N+1 po svakom redu;
 - `npm run check` prolazi.
 
+### Implementacioni zapis — 2026-09-11
+
+**ZAKLJUČANO (implementirano):**
+
+- `actionItems` je jedini operativni zapis uzroka. `causeId` je stabilan, verzionisan i sastavljen od length-prefixed `sourceDomain + sourceRecordId + causeKind`, pa isti uzrok ne može da se udvostruči zbog separatora niti površine sa koje je pročitan;
+- `actionItemEvents` je append-only istorija otvaranja, promene izvora, zaduženja, snooze-a, povratka i razrešenja. `resolutionContext` je read-only; automatski uzrok zatvara samo njegov source adapter, a ručni problem zahteva napomenu;
+- postoje indexed `Sve/Moje`, account/venue/product worst-open signal i subscription adapter vezan za postojeći `reconcileSubscription`. Inbox, task, order i QR/NFC imaju samo minimalan typed input ugovor bez izmišljenih zapisa ili statusa;
+- `adminClientReadModels`, `adminVenueReadModels` i `adminProductReadModels` su paginirani, serverski filtrirani/sortirani read modeli sa normalizovanim search tokenima za nazive, email, telefon i SMK/SML/SMF/SMQ;
+- status uslužne ikonice se održava inkrementalno u najviše tri account/service agregata i koristi redosled `problem → suspended → grace → warning → inactive → active`.
+
+**Dokumentovani bounded-read razlog:** direktorijumi namerno čuvaju po jedan sažeti dokument po klijentu, lokalu ili proizvodu. List/search query radi jedan paginirani index/search-index read i mapiranje rezultata bez per-row `get`, join-a ili `collect`. Source joinovi postoje samo u eksplicitnim sync mutacijama; broj service profila po lokalu je ograničen na 10, account service agregat na tri V1 usluge, a action liste na najviše 100 redova. Ovo je kontrolisana denormalizacija potrebna da 500 lokala i 10.000 proizvoda ne naprave read amplification.
+
+**Test-only scale dokaz:** fixture pravi tačno 500 venue i 10.000 product read-model zapisa. Svaka stranica radi pod convex-test limitom od 4 DB upita i 250 pročitanih dokumenata; cela kolekcija se broji isključivo prolaskom kroz stabilne cursore, a ne neograničenim produkcionim učitavanjem. Fixture nikada ne ide u deployment.
+
+**OTVORENO:** source adapteri za Inbox, zadatke, porudžbine i QR/NFC namerno ostaju za njihove domenske taskove. ADMIN-04 ne zaključava njihove buduće statuse, događaje ili storage model.
+
 ---
 
 ## ADMIN-05 — Nova admin školjka, design tokens i navigacija

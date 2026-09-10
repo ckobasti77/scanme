@@ -4,6 +4,8 @@ import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { BILLING_WINDOWS } from "../../lib/admin-v1/catalog";
 import { assertMoney, DAY_MS } from "../../lib/admin-v1/rules";
 import { requireClientAccountAccess, requireClientAccountCapability, requireClientVenueAccess, requireClientVenueCapability } from "./clientAccountAccess";
+import { syncSubscriptionActions } from "./adminActionEngine";
+import { syncSubscriptionServiceState } from "./adminReadModelEngine";
 import type { billingActor, lifecycleFacts, subscriptionTarget } from "./subscriptionValidators";
 
 export type Target = Infer<typeof subscriptionTarget>;
@@ -130,6 +132,10 @@ export async function reconcileSubscription(ctx: MutationCtx, subscriptionId: Id
   if (changed) {
     await ctx.db.insert("subscriptionEvents", { accountId: sub.accountId, subscriptionId, actor, action: "subscription.lifecycle", before: sub.facts, after: facts, createdAt: now });
   }
+  // ADMIN-04 consumes the already-reconciled lifecycle facts. No dashboard
+  // query re-derives billing state and repeat reconciliation stays idempotent.
+  await syncSubscriptionActions(ctx, sub, facts, changed ? now : sub.updatedAt, now);
+  await syncSubscriptionServiceState(ctx, sub, facts, now);
   return facts;
 }
 
