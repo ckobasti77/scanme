@@ -13,6 +13,10 @@ import type * as activationRequestEmailsData from "../activationRequestEmailsDat
 import type * as activationRequests from "../activationRequests.js";
 import type * as admin from "../admin.js";
 import type * as adminV1Migrations from "../adminV1Migrations.js";
+import type * as subscriptions from "../subscriptions.js";
+import type * as subscriptionPayments from "../subscriptionPayments.js";
+import type * as subscriptionPricing from "../subscriptionPricing.js";
+import type * as subscriptionMigrations from "../subscriptionMigrations.js";
 import type * as auth from "../auth.js";
 import type * as billing from "../billing.js";
 import type * as cards from "../cards.js";
@@ -82,6 +86,10 @@ declare const fullApi: ApiFromModules<{
   activationRequests: typeof activationRequests;
   admin: typeof admin;
   adminV1Migrations: typeof adminV1Migrations;
+  subscriptions: typeof subscriptions;
+  subscriptionPayments: typeof subscriptionPayments;
+  subscriptionPricing: typeof subscriptionPricing;
+  subscriptionMigrations: typeof subscriptionMigrations;
   auth: typeof auth;
   billing: typeof billing;
   cards: typeof cards;

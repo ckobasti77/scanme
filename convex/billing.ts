@@ -9,6 +9,8 @@ import {
   type QueryCtx,
 } from "./_generated/server";
 import { requireAdmin } from "./lib/access";
+import { assertLegacyBilling } from "./lib/subscriptions";
+import schema from "./schema";
 import { writeAdminAudit } from "./lib/adminAudit";
 import {
   addBillingPeriod,
@@ -81,6 +83,7 @@ export async function applyPayment(
 }> {
   const account = await ctx.db.get(params.accountId);
   if (!account) throw new ConvexError("Nalog nije pronađen.");
+  await assertLegacyBilling(ctx, account._id);
   const { notice } = params;
   // Backdating is the norm (bank transfers land days late); the future is not.
   // One day of skew tolerated for timezone edges.
@@ -168,6 +171,7 @@ export const recordManualPayment = mutation({
     reference: v.optional(v.string()),
     coversUntil: v.optional(v.number()),
   },
+  returns: v.object({ paymentId: v.id("payments"), coversUntil: v.union(v.number(), v.null()), reactivated: v.boolean() }),
   handler: async (ctx, args) => {
     const admin = await requireAdmin(ctx);
     const notice = manualBillingPort.normalizeNotice({
@@ -202,6 +206,7 @@ export const applyProviderPayment = internalMutation({
     orderId: v.optional(v.id("orders")),
     rawNotice: v.any(),
   },
+  returns: v.object({ paymentId: v.id("payments"), coversUntil: v.union(v.number(), v.null()), reactivated: v.boolean() }),
   handler: async (ctx, args) => {
     const port = getBillingPort(args.portId);
     const notice = port.normalizeNotice(args.rawNotice);
@@ -231,10 +236,12 @@ export const voidPayment = mutation({
     paymentId: v.id("payments"),
     reason: v.optional(v.string()),
   },
+  returns: v.object({ voided: v.literal(true) }),
   handler: async (ctx, args) => {
     const admin = await requireAdmin(ctx);
     const payment = await ctx.db.get(args.paymentId);
     if (!payment) throw new ConvexError("Uplata nije pronađena.");
+    await assertLegacyBilling(ctx, payment.accountId);
     if (payment.voidedAt !== undefined) {
       throw new ConvexError("Uplata je već stornirana.");
     }
@@ -265,10 +272,12 @@ export const setNextBillingAt = mutation({
     // null clears the cycle (perpetual — no tracked billing).
     nextBillingAt: v.union(v.number(), v.null()),
   },
+  returns: v.object({ nextBillingAt: v.union(v.number(), v.null()), reactivated: v.boolean() }),
   handler: async (ctx, args) => {
     const admin = await requireAdmin(ctx);
     const account = await ctx.db.get(args.accountId);
     if (!account) throw new ConvexError("Nalog nije pronađen.");
+    await assertLegacyBilling(ctx, account._id);
     const now = Date.now();
     // Extending a lapsed account into the future reactivates it; "suspended"
     // stays an admin decision and is untouched here too.
@@ -302,8 +311,10 @@ export const setNextBillingAt = mutation({
 
 export const listPayments = query({
   args: { accountId: v.id("accounts") },
+  returns: v.array(schema.doc("payments")),
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
+    await assertLegacyBilling(ctx, args.accountId);
     return await ctx.db
       .query("payments")
       .withIndex("by_accountId_and_paidAt", (q) =>
@@ -495,6 +506,7 @@ const SWEEP_BATCH = 100;
 
 export const sweepBillingCycles = internalMutation({
   args: {},
+  returns: v.object({ scanned: v.number(), expired: v.number() }),
   handler: async (ctx) => {
     const now = Date.now();
     const cutoff = now - GRACE_DAYS * DAY_MS;
@@ -503,8 +515,9 @@ export const sweepBillingCycles = internalMutation({
     // rows could fill every batch and starve the sweep of progress.
     const due = await ctx.db
       .query("accounts")
-      .withIndex("by_status_and_planValidUntil", (q) =>
+      .withIndex("by_billingModel_and_status_and_planValidUntil", (q) =>
         q
+          .eq("billingModel", undefined)
           .eq("status", "active")
           .gt("planValidUntil", 0)
           .lte("planValidUntil", cutoff),

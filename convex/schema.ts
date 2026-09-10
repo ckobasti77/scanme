@@ -13,6 +13,10 @@ import {
 } from "./lib/venueValidators";
 import { priceSnapshotValidator } from "./lib/orderSnapshot";
 import {
+  agreementKind, billingActor, billingChange, billingPeriod, discountValue,
+  lifecycleFacts, money, paymentLedger, subscriptionPrice, subscriptionTarget,
+} from "./lib/subscriptionValidators";
+import {
   accountContactStatusValidator,
   accountTagKindValidator,
   clientLifecycleStatusValidator,
@@ -174,6 +178,9 @@ export default defineSchema({
     // (convex/billing.ts); the daily billing-cycle sweep flips status to
     // "expired" once this date + GRACE_DAYS has elapsed.
     planValidUntil: v.optional(v.number()),
+    // ADMIN-03: one billing writer per account. Legacy dates remain evidence,
+    // never a reverse projection of independent subscription cycles.
+    billingModel: v.optional(v.literal("subscriptions_v1")),
     // ADMIN-02 widen phase. These fields are optional until the explicit,
     // fixture-proven legacy migration has completed for every client account.
     smkCode: v.optional(v.string()),
@@ -191,6 +198,7 @@ export default defineSchema({
     // The billing-cycle sweep's range: active accounts whose paid-through date
     // (+ grace) has passed.
     .index("by_status_and_planValidUntil", ["status", "planValidUntil"])
+    .index("by_billingModel_and_status_and_planValidUntil", ["billingModel", "status", "planValidUntil"])
     .index("by_smkCode", ["smkCode"])
     .index("by_clientStatus_and_updatedAt", ["clientStatus", "updatedAt"])
     .index("by_normalizedOwnerDisplayName", ["normalizedOwnerDisplayName"]),
@@ -1134,6 +1142,9 @@ export default defineSchema({
   // exactly this trail.
   payments: defineTable({
     accountId: v.id("accounts"),
+    // Additive envelope: new money arithmetic uses ONLY integer minor units.
+    // amountRsd/method below remain legacy display/ingestion mirrors.
+    ledger: v.optional(paymentLedger),
     // Present when the payment settles a specific order (the initial sale via
     // markOrderPaid). Renewals have no order — just the account.
     orderId: v.optional(v.id("orders")),
@@ -1157,7 +1168,110 @@ export default defineSchema({
     createdAt: v.number(),
   })
     .index("by_accountId_and_paidAt", ["accountId", "paidAt"])
-    .index("by_orderId", ["orderId"]),
+    .index("by_orderId", ["orderId"])
+    .index("by_accountId_and_ledger_key", ["accountId", "ledger.key"])
+    .index("by_ledger_provider_and_ledger_providerEventId", ["ledger.provider", "ledger.providerEventId"]),
+
+  // ADMIN-03. One stable subscription per target, with separate period rows.
+  // History grows in child tables; none of these arrays holds an unbounded log.
+  subscriptions: defineTable({
+    accountId: v.id("accounts"), target: subscriptionTarget, targetKey: v.string(),
+    businessId: v.optional(v.id("businesses")), period: billingPeriod,
+    startsAt: v.number(), anchorAt: v.number(),
+    renewal: v.union(v.object({ kind: v.literal("manual") }), v.object({ kind: v.literal("automatic"), setupReference: v.string() })),
+    cancelledAt: v.optional(v.number()), cancelAtPeriodEnd: v.boolean(),
+    suspended: v.optional(billingChange),
+    graceOverride: v.optional(v.object({ periodId: v.id("subscriptionPeriods"), endsAt: v.number() })),
+    lastOverride: v.optional(billingChange),
+    facts: lifecycleFacts, nextTransitionAt: v.optional(v.number()),
+    key: v.string(), fingerprint: v.string(), createdAt: v.number(), updatedAt: v.number(),
+  })
+    .index("by_accountId_and_targetKey", ["accountId", "targetKey"])
+    .index("by_businessId", ["businessId"])
+    .index("by_accountId_and_facts_status", ["accountId", "facts.status"])
+    .index("by_nextTransitionAt", ["nextTransitionAt"])
+    .index("by_accountId_and_key", ["accountId", "key"]),
+
+  subscriptionPeriods: defineTable({
+    accountId: v.id("accounts"), subscriptionId: v.id("subscriptions"),
+    start: v.number(), end: v.number(), price: subscriptionPrice,
+    // Incremental coverage; money events themselves are immutable.
+    paidMinor: v.number(), funded: v.boolean(),
+    migrationEvidence: v.optional(v.string()),
+    createdAt: v.number(),
+  })
+    .index("by_subscriptionId_and_start", ["subscriptionId", "start"])
+    .index("by_subscriptionId_and_funded_and_start", ["subscriptionId", "funded", "start"]),
+
+  paymentAllocations: defineTable({
+    accountId: v.id("accounts"), paymentId: v.id("payments"),
+    subscriptionId: v.id("subscriptions"), periodId: v.id("subscriptionPeriods"),
+    start: v.number(), end: v.number(), amount: money, price: subscriptionPrice,
+    createdAt: v.number(),
+  })
+    .index("by_paymentId", ["paymentId"])
+    .index("by_subscriptionId_and_start", ["subscriptionId", "start"])
+    .index("by_periodId", ["periodId"]),
+
+  paymentAdjustments: defineTable({
+    accountId: v.id("accounts"), paymentId: v.id("payments"),
+    kind: v.literal("reversal"), amount: money, change: billingChange,
+    key: v.string(), fingerprint: v.string(),
+  })
+    .index("by_paymentId", ["paymentId"])
+    .index("by_accountId_and_key", ["accountId", "key"]),
+
+  // Mutable read fact, separate from append-only payment/adjustment history.
+  paymentStates: defineTable({
+    accountId: v.id("accounts"), paymentId: v.id("payments"), paidAt: v.number(),
+    state: v.union(v.literal("settled"), v.literal("reversed")),
+  })
+    .index("by_paymentId", ["paymentId"])
+    .index("by_accountId_and_state_and_paidAt", ["accountId", "state", "paidAt"]),
+
+  priceAgreements: defineTable({
+    accountId: v.id("accounts"), target: subscriptionTarget, targetKey: v.string(),
+    period: billingPeriod, kind: agreementKind, reference: money, price: money,
+    validFrom: v.number(), validUntil: v.union(v.number(), v.null()),
+    change: billingChange, key: v.string(), fingerprint: v.string(),
+  })
+    .index("by_accountId_and_targetKey_and_period_and_validFrom", ["accountId", "targetKey", "period", "validFrom"])
+    .index("by_accountId_and_key", ["accountId", "key"]),
+
+  discountRules: defineTable({
+    accountId: v.id("accounts"), target: subscriptionTarget, targetKey: v.string(),
+    kind: v.union(v.literal("friend_waiver"), v.literal("manual"), v.literal("referral_discount")),
+    value: discountValue, validFrom: v.number(), validUntil: v.union(v.number(), v.null()),
+    tagId: v.optional(v.id("accountTags")), referralId: v.optional(v.id("referrals")),
+    change: billingChange, key: v.string(), fingerprint: v.string(),
+  })
+    .index("by_accountId_and_targetKey_and_validFrom", ["accountId", "targetKey", "validFrom"])
+    .index("by_referralId", ["referralId"])
+    .index("by_accountId_and_key", ["accountId", "key"]),
+
+  referrals: defineTable({
+    referrerAccountId: v.id("accounts"), referredAccountId: v.id("accounts"),
+    status: v.union(v.literal("pending"), v.literal("qualified"), v.literal("rewarded"), v.literal("cancelled")),
+    qualifyingPaymentId: v.optional(v.id("payments")),
+    // Campaign terms live on explicit reward discount rows; no wallet/default rate.
+    createdAt: v.number(), updatedAt: v.number(),
+  })
+    .index("by_referredAccountId", ["referredAccountId"])
+    .index("by_referrerAccountId_and_status", ["referrerAccountId", "status"])
+    .index("by_qualifyingPaymentId", ["qualifyingPaymentId"]),
+
+  subscriptionEvents: defineTable({
+    accountId: v.id("accounts"), subscriptionId: v.optional(v.id("subscriptions")),
+    actor: billingActor, action: v.string(), reason: v.optional(v.string()),
+    before: v.optional(lifecycleFacts), after: v.optional(lifecycleFacts),
+    paymentId: v.optional(v.id("payments")), adjustmentId: v.optional(v.id("paymentAdjustments")),
+    agreementId: v.optional(v.id("priceAgreements")), discountId: v.optional(v.id("discountRules")),
+    referralId: v.optional(v.id("referrals")), createdAt: v.number(),
+    key: v.optional(v.string()), fingerprint: v.optional(v.string()),
+  })
+    .index("by_accountId_and_createdAt", ["accountId", "createdAt"])
+    .index("by_accountId_and_key", ["accountId", "key"])
+    .index("by_subscriptionId_and_createdAt", ["subscriptionId", "createdAt"]),
 
   // RFC-002 §2.6 (A.5) — who/what/when for every manual plan / payment /
   // entitlement / activation change. Written in the same transaction as the

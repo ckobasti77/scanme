@@ -1,6 +1,7 @@
 import { ConvexError } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
+import { premiumFact } from "./subscriptions";
 import {
   ACCOUNT_PLAN_TIER,
   PLAN_LIMITS,
@@ -36,6 +37,15 @@ export async function getEntitlement<P extends PlanProduct>(
   product: P,
   spaceId?: Id<"memoriesSpaces">,
 ): Promise<ResolvedEntitlement<P> | null> {
+  // ADMIN-03 migrated accounts resolve their account-wide Premium before old
+  // business grants, which must neither mask an upgrade nor revive an expiry.
+  const venue = await ctx.db.get(businessId);
+  const migratedAccount = venue?.accountId && await ctx.db.get(venue.accountId);
+  if (migratedAccount && migratedAccount.billingModel === "subscriptions_v1") {
+    const premium = await premiumFact(ctx, migratedAccount._id);
+    const tier = ACCOUNT_PLAN_TIER[product][premium ? "premium" : "basic"];
+    return { planKey: tier, limits: (PLAN_LIMITS[product] as Record<string, object>)[tier] as LimitsFor<P>, status: "active" };
+  }
   let row: Doc<"entitlements"> | null = null;
 
   if (spaceId) {

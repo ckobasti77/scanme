@@ -9,6 +9,7 @@ import {
 import { requireBusinessPurchaseAccess } from "./lib/clientAccountAccess";
 import { writeAdminAudit } from "./lib/adminAudit";
 import { manualBillingPort } from "./lib/billingPort";
+import { assertLegacyBilling } from "./lib/subscriptions";
 import { generateCode } from "./lib/codes";
 import {
   buildPriceSnapshot,
@@ -261,6 +262,7 @@ export const provisionCheckoutOrder = internalMutation({
   handler: async (ctx, args) => {
     const order = await ctx.db.get(args.orderId);
     if (!order) throw new ConvexError("Porudžbina nije pronađena.");
+    await assertLegacyBilling(ctx, order.accountId);
 
     const items = await ctx.db
       .query("orderItems")
