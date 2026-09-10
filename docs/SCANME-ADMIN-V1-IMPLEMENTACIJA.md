@@ -1290,28 +1290,28 @@ Promena modela ili efforta važi tek za sledeći zaseban implementacioni task; z
 2. Nakon checkpoint-a koristiti jednu glavnu implementacionu granu, predlog `codex/admin-v1`.
 3. Schema i migracioni zadaci se rade strogo sekvencijalno na istoj grani.
 4. Jedan Codex task radi jedan ID iz §18 i završava se sopstvenim proverama i preglednim diff-om.
-5. Sledeći **zavisni** task počinje tek kada je njegov prethodnik integrisan u zajedničku granu i verification report je zelen. Dokazano nezavisan task može teći paralelno po pravilu 6.
-6. Dva dostupna GPT naloga ne tretiraju se kao dozvola za dve paralelne izmene iste grane. Paralelizacija je dozvoljena samo kroz odvojene worktree-e za dokazano nezavisne zadatke: tipično jedan backend task i jedan UI task koji ne menjaju iste fajlove. Ne paralelizovati promene `convex/schema.ts`, migracije, shared i18n tipove, navigaciju ili iste admin read modele.
+5. Sledeći task počinje tek kada je prethodni završen, lokalno commitovan i njegov verification report je zelen.
+6. Dva dostupna GPT naloga predstavljaju dva odvojena usage fonda, ali se na ovom računaru koriste sekvencijalno. Ne pokretati paralelne Codex taskove niti praviti worktree samo radi paralelizacije admin implementacije.
 7. Ne praviti privremeni drugi kompletan admin. Nova školjka može postepeno preuzimati rute, ali samo jedan tok je autoritativan za korisnika.
 8. Stare admin komponente se uklanjaju tek u završnom cutover zadatku, kada su klasifikovane funkcije provereno preseljene ili odbačene.
 
-### 16.4 Predloženi dvodnevni raspored sa dva GPT naloga
+### 16.4 Predloženi sekvencijalni tok preko dva GPT naloga
 
 Ovo je plan rada, ne obećanje da task mora biti završen u zadatom satu. Kvalitet i zelene provere imaju prednost nad veštačkim rokom.
 
-**Prvi dan — temelj i prvi vidljivi rezultat**
+Kada jedan nalog potroši raspoloživi usage, rad se nastavlja sledećim nezapočetim taskom na drugom nalogu. Promena naloga ne menja granu, redosled niti sadržaj prompta.
 
-1. Nalog A: ADMIN-00, zatim ADMIN-01. Dok ADMIN-01 nije integrisan, drugi nalog ne započinje implementaciju koja zavisi od njegovih ugovora.
-2. Nakon ADMIN-01, Nalog A nastavlja ADMIN-02 i ADMIN-03 sekvencijalno.
-3. Nalog B u odvojenom worktree-u radi ADMIN-05, jer tada ima zaključane izvršne ugovore i ne dira Convex schemu.
-4. Integrisati i proveriti zajedničko stanje pre nego što Nalog B pređe na UI koji zavisi od realnih read modela.
+**Prvi deo — temelj i prvi vidljivi rezultat**
 
-**Drugi dan — vertikalne celine, integracija i hardening**
+1. ADMIN-00, zatim ADMIN-01.
+2. ADMIN-02, ADMIN-03 i ADMIN-04 rade se redom, svaki kao zaseban task.
+3. ADMIN-05 počinje tek kada je ADMIN-04 završen i zajedničko stanje ponovo provereno.
 
-1. Nalog A radi backend lanac po zavisnostima: ADMIN-04, ADMIN-08/10/11, ADMIN-12 i ADMIN-14 prema realno završenim prethodnicima.
-2. Nalog B radi UI zadatke samo kada su njihovi ugovori i read modeli integrisani: ADMIN-06/07, ADMIN-13, ADMIN-15/16 i ADMIN-17.
-3. ADMIN-18, ADMIN-19 i ADMIN-20 se ne paralelizuju sa nedovršenim funkcionalnim zadacima. To su objedinjavanje, hardening i cutover, pa se rade nad jednim stabilnim stanjem.
-4. ADMIN-09 ostaje van kritične putanje dok se ne izabere email provider. Njegovo čekanje ne blokira panel-chat ni ostatak admina.
+**Drugi deo — vertikalne celine, integracija i hardening**
+
+1. Nastaviti po broju taska i njegovim deklarisanim zavisnostima, bez preplitanja izvršilaca.
+2. ADMIN-09 ostaje van kritične putanje dok se ne izabere email provider; ako je i dalje blokiran, evidentira se i prelazi na ADMIN-10.
+3. ADMIN-18, ADMIN-19 i ADMIN-20 rade se tek nad jednim stabilnim stanjem svih prethodnih završenih taskova.
 
 Ako dvodnevni prozor istekne pre ADMIN-20, ne preskaču se provere i ne radi se nasilni cutover. Zadržava se poslednji zeleni checkpoint i nastavlja sledećim taskom.
 
@@ -1372,7 +1372,7 @@ ADMIN-04 + 06 + 08/09 + 10 + 11/12/13 + 14 ─────────┘
           └─ ADMIN-20 Cutover i uklanjanje odbačenog legacy UI-ja
 ```
 
-ADMIN-05 može početi posle ADMIN-01 dok backend zadaci teku sekvencijalno, ali samo ako radi u odvojenom worktree-u i ne menja shared schema/i18n ugovore bez koordinacije. Posle toga redosled određuju stvarne zavisnosti iz grafa, a ne samo broj taska.
+Implementacija se na ovom računaru vodi sekvencijalno. Broj taska je podrazumevani redosled; deklarisane zavisnosti ostaju dodatna kontrola da nijedan task ne počne prerano. ADMIN-09 se može preskočiti samo dok je dokumentovano blokiran izborom email providera.
 
 ---
 
