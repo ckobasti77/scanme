@@ -2,6 +2,7 @@ import { ConvexError, v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx } from "./_generated/server";
 import { applyPayment } from "./billing";
+import { assertLegacyBilling } from "./lib/subscriptions";
 import { requireAdmin } from "./lib/access";
 import { writeAdminAudit } from "./lib/adminAudit";
 import { manualBillingPort } from "./lib/billingPort";
@@ -126,6 +127,7 @@ export async function resolveOrderAccount(
   now: number,
 ): Promise<{ accountId: Id<"accounts">; plan: PlanId; planPeriod?: BillingPeriod }> {
   if (args.accountId) {
+    await assertLegacyBilling(ctx, args.accountId);
     const account = await ctx.db.get(args.accountId);
     if (!account) throw new ConvexError("Nalog nije pronađen.");
     return {
@@ -410,10 +412,12 @@ export const markOrderPaid = mutation({
     amountRsd: v.optional(v.number()),
     paidAt: v.optional(v.number()),
   },
+  returns: v.object({ status: v.literal("provisioned"), provisioned: v.number(), alreadyDone: v.boolean() }),
   handler: async (ctx, args) => {
     const admin = await requireAdmin(ctx);
     const order = await ctx.db.get(args.orderId);
     if (!order) throw new ConvexError("Porudžbina nije pronađena.");
+    await assertLegacyBilling(ctx, order.accountId);
     if (order.status === "provisioned") {
       return { status: "provisioned" as const, provisioned: 0, alreadyDone: true };
     }

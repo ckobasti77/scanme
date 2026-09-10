@@ -25,6 +25,9 @@ import { internal } from "./_generated/api";
 //     pins referencing it, THEN the row. This is where bytes actually die.
 const crons = cronJobs();
 
+// ADMIN-03 independent cycles; no account-wide expiry writes.
+crons.interval("subscription lifecycle", { minutes: 15 }, internal.subscriptions.sweep, {});
+
 crons.interval(
   "expire entitlements",
   { hours: 24 },
