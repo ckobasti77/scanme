@@ -407,11 +407,17 @@ export default defineSchema({
     defaultContactEmail: v.union(v.string(), v.null()),
     defaultContactPhone: v.union(v.string(), v.null()),
     firstVenueName: v.union(v.string(), v.null()),
+    firstVenueSlug: v.optional(v.union(v.string(), v.null())),
     venueCount: v.number(),
     clientStatus: clientLifecycleStatusValidator,
     signal: actionSignalValidator,
     urgencyRank: v.number(),
     serviceSummaries: serviceSummariesValidator,
+    // ADMIN-06 widen field. Older materialized rows remain valid until their
+    // next normal sync; the public adapter maps absence to no badge.
+    premiumStatus: v.optional(
+      v.union(v.literal("active"), v.literal("grace"), v.null()),
+    ),
     searchText: v.string(),
     updatedAt: v.number(),
   })
@@ -445,6 +451,7 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_businessId", ["businessId"])
+    .index("by_accountId_and_normalizedVenueName", ["accountId", "normalizedVenueName"])
     .index("by_urgencyRank_and_normalizedVenueName", ["urgencyRank", "normalizedVenueName"])
     .index("by_normalizedVenueName", ["normalizedVenueName"])
     .index("by_updatedAt", ["updatedAt"])

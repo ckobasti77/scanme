@@ -2,7 +2,7 @@
 
 import { convexTest } from "convex-test";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { internal } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import schema from "./schema";
 import type { AutomaticActionAdapterInput } from "./lib/adminActionAdapters";
@@ -771,6 +771,219 @@ describe("ADMIN-04 service aggregates and searchable directories", () => {
     });
     expect(tail.page.map((row) => row.sourceRecordId)).toEqual(["scale-product-09999"]);
   }, 60_000);
+});
+
+describe("ADMIN-06 clients public directory", () => {
+  test("public list is admin-only and keeps search, sort and cursor pagination server-side", async () => {
+    const t = convexTest(schema, modules);
+    const ids = await seedOperationalAccount(t);
+    await ids.adminAClient.mutation(internal.adminReadModels.syncClient, {
+      accountId: ids.accountId,
+      venueCount: 1,
+      firstVenueName: "Kafe Žubor",
+      updatedAt: NOW,
+    });
+    const secondAccountId = await t.run(async (ctx) => {
+      const accountId = await ctx.db.insert("accounts", {
+        name: "Željko Ilić Drugi",
+        plan: "basic",
+        status: "active",
+        smkCode: "SMK-ZIS-002",
+        ownerDisplayName: "Željko Ilić",
+        normalizedOwnerDisplayName: "zeljko ilic",
+        clientStatus: "active",
+        adminV1MigrationVersion: 1,
+        createdAt: NOW,
+        updatedAt: NOW + 1,
+      });
+      const contactId = await ctx.db.insert("accountContacts", {
+        accountId,
+        firstName: "Željko",
+        lastName: "Ilić",
+        normalizedName: "zeljko ilic",
+        normalizedEmail: "drugi@example.invalid",
+        normalizedPhone: "38160111222",
+        positionTitle: "Vlasnik",
+        isOwner: true,
+        status: "active",
+        createdAt: NOW,
+        updatedAt: NOW,
+      });
+      await ctx.db.patch(accountId, { defaultContactId: contactId });
+      const businessId = await ctx.db.insert("businesses", {
+        accountId,
+        name: "Drugi Žubor",
+        normalizedName: "drugi zubor",
+        slug: "drugi-zubor-admin-06",
+        kind: "business",
+        smlCode: "SML-ZIS-002",
+        clientStatus: "active",
+        adminV1MigrationVersion: 1,
+        status: "active",
+        createdAt: NOW,
+        updatedAt: NOW,
+      });
+      await ctx.db.insert("businesses", {
+        accountId,
+        name: "Skriveni lokal",
+        normalizedName: "skriveni lokal",
+        slug: "skriveni-lokal-admin-06",
+        kind: "business",
+        smlCode: "SML-ZIS-003",
+        clientStatus: "active",
+        adminV1MigrationVersion: 1,
+        status: "active",
+        createdAt: NOW,
+        updatedAt: NOW,
+      });
+      return { accountId, businessId };
+    });
+    await ids.adminAClient.mutation(internal.adminReadModels.syncClient, {
+      accountId: secondAccountId.accountId,
+      venueCount: 2,
+      firstVenueName: "Drugi Žubor",
+      updatedAt: NOW + 1,
+    });
+
+    const args = { paginationOpts: page(1), status: "all" as const, sort: "name" as const };
+    await expect(t.query(api.adminReadModels.listClients, args)).rejects.toThrow("Niste prijavljeni");
+    await expect(ids.outsiderClient.query(api.adminReadModels.listClients, args)).rejects.toThrow("Nemate administratorski pristup");
+    const first = await ids.adminAClient.query(api.adminReadModels.listClients, args);
+    const second = await ids.adminAClient.query(api.adminReadModels.listClients, {
+      ...args,
+      paginationOpts: page(1, first.continueCursor),
+    });
+    expect(first.page).toHaveLength(1);
+    expect(second.page).toHaveLength(1);
+    expect(first.page[0].accountId).not.toBe(second.page[0].accountId);
+    const search = await ids.adminAClient.query(api.adminReadModels.listClients, {
+      paginationOpts: page(),
+      search: "drugi zubor",
+      status: "active",
+      sort: "recent",
+    });
+    expect(search.page.map((row) => row.accountId)).toContain(secondAccountId.accountId);
+    expect(search.page.find((row) => row.accountId === secondAccountId.accountId)).toMatchObject({
+      ownerDisplayName: "Željko Ilić",
+      smkCode: "SMK-ZIS-002",
+      firstVenueName: "Drugi Žubor",
+      firstVenueSlug: "drugi-zubor-admin-06",
+    });
+    const additionalVenueSearch = await ids.adminAClient.query(
+      api.adminReadModels.listClients,
+      {
+        paginationOpts: page(),
+        search: "skriveni lokal",
+        status: "all",
+        sort: "urgency",
+      },
+    );
+    expect(additionalVenueSearch.page.map((row) => row.accountId)).toContain(
+      secondAccountId.accountId,
+    );
+  });
+
+  test("default contact, Premium and on-demand venue service facts stay materialized", async () => {
+    const t = convexTest(schema, modules);
+    const ids = await seedOperationalAccount(t);
+    const fixture = await t.run(async (ctx) => {
+      const secondContactId = await ctx.db.insert("accountContacts", {
+        accountId: ids.accountId,
+        firstName: "Mila",
+        lastName: "Ilić",
+        normalizedName: "mila ilic",
+        normalizedEmail: "mila@example.invalid",
+        normalizedPhone: "381651111111",
+        positionTitle: "Menadžer",
+        isOwner: false,
+        status: "active",
+        createdAt: NOW,
+        updatedAt: NOW,
+      });
+      const ownerMembershipId = await ctx.db.insert("accountMemberships", {
+        accountId: ids.accountId,
+        userId: ids.adminA,
+        contactId: secondContactId,
+        role: "full_access",
+        active: true,
+        venueAccess: "all",
+        canBuyServices: true,
+        canBuyPremium: true,
+        createdAt: NOW,
+        updatedAt: NOW,
+      });
+      await ctx.db.patch(ids.accountId, { primaryOwnerMembershipId: ownerMembershipId });
+      const premiumId = await ctx.db.insert("subscriptions", {
+        accountId: ids.accountId,
+        target: { kind: "account_premium" },
+        targetKey: "premium",
+        period: "monthly",
+        startsAt: NOW - DAY,
+        anchorAt: NOW - DAY,
+        renewal: { kind: "manual" },
+        cancelAtPeriodEnd: false,
+        facts: { status: "grace", warning: false, currentPeriodStart: NOW - DAY, paidThrough: NOW - HOUR, graceEndsAt: NOW + DAY, nextTransitionAt: NOW + DAY },
+        key: "admin-06-premium",
+        fingerprint: "admin-06-premium",
+        createdAt: NOW - DAY,
+        updatedAt: NOW,
+      });
+      return { secondContactId, premiumId };
+    });
+    await ids.adminAClient.mutation(internal.adminReadModels.syncVenue, {
+      businessId: ids.businessId,
+      productCount: 0,
+      channelCount: 0,
+      updatedAt: NOW,
+    });
+    for (const [index, state] of ["active", "active", "grace"].entries()) {
+      await ids.adminAClient.mutation(internal.adminReadModels.syncServiceState, {
+        accountId: ids.accountId,
+        businessId: ids.businessId,
+        serviceProfileId: ids.profiles[index],
+        serviceType: "scanme_links",
+        state: state as "active" | "grace",
+        updatedAt: NOW + index,
+      });
+    }
+    await ids.adminAClient.mutation(internal.adminReadModels.syncClient, {
+      accountId: ids.accountId,
+      venueCount: 1,
+      firstVenueName: "Kafe Žubor",
+      updatedAt: NOW,
+    });
+    let clients = await ids.adminAClient.query(api.adminReadModels.listClients, {
+      paginationOpts: page(), status: "all", sort: "name",
+    });
+    expect(clients.page[0]).toMatchObject({
+      premiumStatus: "grace",
+      defaultContactEmail: "client@example.invalid",
+      serviceSummaries: { scanme_links: { active: 2, grace: 1, worst: "grace" } },
+    });
+    await ids.adminAClient.mutation(api.clientAccounts.setDefaultContact, {
+      accountId: ids.accountId,
+      contactId: fixture.secondContactId,
+    });
+    clients = await ids.adminAClient.query(api.adminReadModels.listClients, {
+      paginationOpts: page(), status: "all", sort: "name",
+    });
+    expect(clients.page[0]).toMatchObject({
+      defaultContactEmail: "mila@example.invalid",
+      defaultContactPhone: "381651111111",
+    });
+    const details = await ids.adminAClient.query(api.adminReadModels.clientVenueServices, {
+      accountId: ids.accountId,
+      paginationOpts: page(),
+    });
+    expect(details.page[0]).toMatchObject({
+      venueName: "Kafe Žubor",
+      services: { scanme_links: "grace" },
+    });
+    await expect(t.query(api.adminReadModels.clientVenueServices, {
+      accountId: ids.accountId,
+      paginationOpts: page(),
+    })).rejects.toThrow("Niste prijavljeni");
+  });
 });
 
 describe("ADMIN-04 authorization", () => {
