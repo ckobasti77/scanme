@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ClientWordmark } from "@/components/client-panel/client-wordmark";
+import { ClientPanelChat } from "@/components/client-panel/client-panel-chat";
 import { VenuePanelSection } from "@/components/client-panel/venue-panel-section";
 import { MemoriesPanelSection } from "@/components/client-panel/memories-panel-section";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -77,24 +78,30 @@ function ServicesPanel({ slug }: { slug: string }) {
     // sections rather than the access-denied screen.
     if (venueSection || memoriesSection) {
       return (
-        <ExtraServicesOnly
-          slug={slug}
-          venueSection={venueSection}
-          memoriesSection={memoriesSection}
-          onSignOut={() => void signOut()}
-        />
+        <div className="grid gap-8">
+          <ExtraServicesOnly
+            slug={slug}
+            venueSection={venueSection}
+            memoriesSection={memoriesSection}
+            onSignOut={() => void signOut()}
+          />
+          <ClientPanelChat slug={slug} />
+        </div>
       );
     }
     return (
-      <section className="border border-border bg-card p-6 sm:p-10">
-        <ShieldCheck className="size-8 text-destructive" />
-        <h1 className="mt-7 text-3xl font-semibold tracking-[-0.05em]">
-          Nemate pristup ovom lokalu.
-        </h1>
-        <p className="mt-4 max-w-xl text-sm leading-6 text-muted-foreground">
-          Prijavljeni nalog nije povezan sa lokalom iz ove adrese.
-        </p>
-      </section>
+      <div className="grid gap-8">
+        <section className="border border-border bg-card p-6 sm:p-10">
+          <ShieldCheck className="size-8 text-destructive" />
+          <h1 className="mt-7 text-3xl font-semibold tracking-[-0.05em]">
+            Nemate pristup ovom lokalu.
+          </h1>
+          <p className="mt-4 max-w-xl text-sm leading-6 text-muted-foreground">
+            Prijavljeni nalog nije povezan sa lokalom iz ove adrese.
+          </p>
+        </section>
+        <ClientPanelChat slug={slug} />
+      </div>
     );
   }
   const defaultTab: ServiceTab = overview.services.scanMeLinks.active
@@ -105,6 +112,7 @@ function ServicesPanel({ slug }: { slug: string }) {
   const tab = selectedTab ?? defaultTab;
 
   return (
+    <div className="grid gap-8">
     <Tabs value={tab} onValueChange={(value) => setSelectedTab(value as ServiceTab)}>
       <div className="mb-7 flex justify-end border-b border-border pb-5">
         <TabsList className="h-auto min-h-11 w-full flex-wrap sm:w-auto">
@@ -171,6 +179,8 @@ function ServicesPanel({ slug }: { slug: string }) {
         </TabsContent>
       ) : null}
     </Tabs>
+    <ClientPanelChat slug={slug} />
+    </div>
   );
 }
 

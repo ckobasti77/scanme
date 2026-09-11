@@ -1,6 +1,20 @@
-import { AdminPendingPage } from "@/components/admin/admin-pending-page";
-import { adminV1Sr } from "@/lib/i18n/sr/admin-v1";
+import type { Metadata } from "next";
+import { AdminGuard } from "@/components/admin/admin-guard";
+import { AdminInboxErrorBoundary, AdminInboxWorkspace } from "@/components/admin/admin-inbox";
+import { AdminShell } from "@/components/admin/admin-shell";
+import { communicationsSr } from "@/lib/i18n/sr/communications";
+
+export const metadata: Metadata = {
+  title: `${communicationsSr.inboxTitle} | ScanMe Admin`,
+  robots: { index: false, follow: false },
+};
 
 export default function InboxPage() {
-  return <AdminPendingPage title={adminV1Sr.navInbox} />;
+  return (
+    <AdminGuard>
+      <AdminShell>
+        <AdminInboxErrorBoundary><AdminInboxWorkspace /></AdminInboxErrorBoundary>
+      </AdminShell>
+    </AdminGuard>
+  );
 }
