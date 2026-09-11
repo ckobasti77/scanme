@@ -120,6 +120,7 @@ function Identity({ row }: { row: ClientRow }) {
     <div className="min-w-0">
       <Link
         href={`/admin/klijenti/${row.accountId}`}
+        title={row.ownerDisplayName}
         className="block w-fit max-w-full truncate font-semibold tracking-[-0.015em] underline-offset-4 hover:underline"
       >
         {row.ownerDisplayName}

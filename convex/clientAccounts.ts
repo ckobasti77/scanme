@@ -9,7 +9,7 @@ import {
   requireClientVenueCapability,
 } from "./lib/clientAccountAccess";
 import { writeAdminAudit } from "./lib/adminAudit";
-import { upsertClientReadModel } from "./lib/adminReadModelEngine";
+import { refreshClientReadModel } from "./lib/adminReadModelEngine";
 import {
   clientLifecycleStatusValidator,
   clientRoleValidator,
@@ -222,20 +222,7 @@ export const setDefaultContact = mutation({
       detail: { before, after: contact._id },
       now,
     });
-    const clientReadModel = await ctx.db
-      .query("adminClientReadModels")
-      .withIndex("by_accountId", (q) => q.eq("accountId", access.account._id))
-      .unique();
-    if (clientReadModel) {
-      await upsertClientReadModel(ctx, {
-        accountId: access.account._id,
-        venueCount: clientReadModel.venueCount,
-        ...(clientReadModel.firstVenueName
-          ? { firstVenueName: clientReadModel.firstVenueName }
-          : {}),
-        updatedAt: now,
-      });
-    }
+    await refreshClientReadModel(ctx, access.account._id, now);
     return { defaultContactId: contact._id };
   },
 });
