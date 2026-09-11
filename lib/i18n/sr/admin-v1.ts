@@ -1,0 +1,80 @@
+import type { AdminV1Dict } from "../types";
+
+export const adminV1Sr = {
+  skipToContent: "Pređi na sadržaj",
+  adminNavigationAria: "Glavna admin navigacija",
+  adminUtilitiesAria: "Admin alati",
+  mobileNavigationTitle: "Admin navigacija",
+  mobileNavigationDescription: "Izaberi radnu oblast ili admin alat.",
+  openMobileNavigation: "Otvori admin navigaciju",
+
+  navDashboard: "Dashboard",
+  navClients: "Klijenti",
+  navInbox: "Inbox",
+  navTasks: "Zadaci",
+  navOperations: "Operativa",
+  navServices: "Usluge",
+  navFinance: "Finansije",
+  navTeam: "Tim",
+  navProducts: "Proizvodi",
+  navQrCodes: "QR kodovi",
+  navOrders: "Porudžbine",
+  navLinks: "Links",
+  navReview: "Review",
+  navMenu: "Meni",
+
+  globalSearch: "Globalna pretraga",
+  globalSearchUnavailable: "Globalna pretraga još nije dostupna",
+  settings: "Podešavanja",
+  notifications: "Obaveštenja",
+  notificationsEmpty: "Nema novih obaveštenja.",
+  currentProfile: "Profil: {name}",
+  profileFallback: "Admin",
+  signOut: "Odjavi se",
+
+  dashboardTitle: "Dashboard",
+  dashboardEmptyTitle: "Dashboard podaci još nisu povezani",
+  dashboardEmptyBody:
+    "Navigacija i zajedničke komponente su spremne. Agregati će se prikazati tek kada budu povezani sa stvarnim podacima.",
+  moduleUnavailableTitle: "Modul još nije povezan",
+  moduleUnavailableBody:
+    "Ova ruta je spremna u novoj admin školjci, bez poslovnih funkcija koje pripadaju narednim zadacima.",
+
+  loadingLabel: "Učitavanje podataka",
+  emptyStateTitle: "Nema podataka za prikaz",
+  emptyStateBody: "Sadržaj će se pojaviti kada budu dostupni stvarni podaci.",
+  errorStateTitle: "Podaci nisu učitani",
+  errorStateBody: "Pokušaj ponovo. Ako problem ostane, proveri vezu i pristup.",
+  retryAction: "Pokušaj ponovo",
+  statusActive: "Aktivno",
+  statusWaiting: "Čeka",
+  statusProblem: "Problem",
+  statusNeutral: "Neutralno",
+
+  summaryProducts: "proizvoda",
+  summaryQr: "QR",
+  summaryNfc: "NFC",
+  summaryProblems: "problema",
+
+  accessLoading: "Provera admin pristupa",
+  signInRequiredTitle: "Prijava je potrebna",
+  signInRequiredBody: "Ovaj deo sajta je dostupan samo ScanMe administratorima.",
+  openSignIn: "Otvori prijavu",
+  accessDeniedTitle: "Nema administratorskog pristupa",
+  accessDeniedBody:
+    "Prijavljeni nalog može koristiti samo klijentske panele lokala koji su mu dodeljeni.",
+  signOutAccount: "Odjavi nalog",
+
+  fixtureBadge: "Demo prikaz",
+  fixtureTitle: "ADMIN-05 UI primitive",
+  fixtureDescription:
+    "Izdvojen pregled školjke i stanja. Brojevi ispod su fixture i nisu produkcijski podaci.",
+  fixturePanelStates: "Stanja sadržaja",
+  fixtureTableTitle: "Primer tabele",
+  fixtureTableColumnState: "Stanje",
+  fixtureTableColumnPurpose: "Namena",
+  fixtureTableActivePurpose: "Spremno za rad",
+  fixtureTableWaitingPurpose: "Čeka sledeći korak",
+  fixtureTableProblemPurpose: "Traži reakciju",
+  fixtureIdentity: "Demo admin",
+} as const satisfies AdminV1Dict;

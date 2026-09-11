@@ -1701,7 +1701,76 @@ export interface AdminLocationDict {
   inactiveNoticeBody: string;
 }
 
+export interface AdminV1Dict {
+  skipToContent: string;
+  adminNavigationAria: string;
+  adminUtilitiesAria: string;
+  mobileNavigationTitle: string;
+  mobileNavigationDescription: string;
+  openMobileNavigation: string;
+  navDashboard: string;
+  navClients: string;
+  navInbox: string;
+  navTasks: string;
+  navOperations: string;
+  navServices: string;
+  navFinance: string;
+  navTeam: string;
+  navProducts: string;
+  navQrCodes: string;
+  navOrders: string;
+  navLinks: string;
+  navReview: string;
+  navMenu: string;
+  globalSearch: string;
+  globalSearchUnavailable: string;
+  settings: string;
+  notifications: string;
+  notificationsEmpty: string;
+  currentProfile: string;
+  profileFallback: string;
+  signOut: string;
+  dashboardTitle: string;
+  dashboardEmptyTitle: string;
+  dashboardEmptyBody: string;
+  moduleUnavailableTitle: string;
+  moduleUnavailableBody: string;
+  loadingLabel: string;
+  emptyStateTitle: string;
+  emptyStateBody: string;
+  errorStateTitle: string;
+  errorStateBody: string;
+  retryAction: string;
+  statusActive: string;
+  statusWaiting: string;
+  statusProblem: string;
+  statusNeutral: string;
+  summaryProducts: string;
+  summaryQr: string;
+  summaryNfc: string;
+  summaryProblems: string;
+  accessLoading: string;
+  signInRequiredTitle: string;
+  signInRequiredBody: string;
+  openSignIn: string;
+  accessDeniedTitle: string;
+  accessDeniedBody: string;
+  signOutAccount: string;
+  fixtureBadge: string;
+  fixtureTitle: string;
+  fixtureDescription: string;
+  fixturePanelStates: string;
+  fixtureTableTitle: string;
+  fixtureTableColumnState: string;
+  fixtureTableColumnPurpose: string;
+  fixtureTableActivePurpose: string;
+  fixtureTableWaitingPurpose: string;
+  fixtureTableProblemPurpose: string;
+  fixtureIdentity: string;
+}
+
 export interface DictBySurface {
+  "admin-v1": AdminV1Dict;
   "admin-domain": AdminDomainDict;
   venue: VenueDict;
   "venue-editor": VenueEditorDict;
