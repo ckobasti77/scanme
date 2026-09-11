@@ -47,6 +47,16 @@ import {
   conversationEventKindValidator,
   conversationStatusValidator,
 } from "./lib/adminCommunicationValidators";
+import {
+  emailProviderAttachmentDownloadStateValidator,
+  emailProviderAttachmentStateValidator,
+  emailProviderAuditEventValidator,
+  emailProviderAuditOutcomeValidator,
+  emailProviderMappingStateValidator,
+  emailProviderOperationalStateValidator,
+  emailProviderOutboxStateValidator,
+  emailProviderValidator,
+} from "./lib/emailProviderValidators";
 
 const businessStatus = v.union(
   v.literal("active"),
@@ -847,6 +857,149 @@ export default defineSchema({
   })
     .index("by_conversationId_and_createdAt", ["conversationId", "createdAt"])
     .index("by_accountId_and_createdAt", ["accountId", "createdAt"]),
+
+  // ADMIN-09B: provider-specific operational state stays outside the
+  // provider-neutral ADMIN-08 conversation core. Credentials never belong in
+  // these tables; only server environment configuration may hold them.
+  emailProviderConnections: defineTable({
+    provider: emailProviderValidator,
+    operationalState: emailProviderOperationalStateValidator,
+    providerAccountId: v.optional(v.string()),
+    inboxFolderId: v.optional(v.string()),
+    sentFolderId: v.optional(v.string()),
+    fromAddress: v.optional(v.string()),
+    syncEnabled: v.boolean(),
+    outboundEnabled: v.boolean(),
+    groupSendAsVerified: v.boolean(),
+    accountVerifiedAt: v.optional(v.number()),
+    foldersVerifiedAt: v.optional(v.number()),
+    lastSuccessfulSyncAt: v.optional(v.number()),
+    lastErrorCode: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_provider", ["provider"])
+    .index("by_operationalState", ["operationalState"]),
+
+  emailProviderFolderCheckpoints: defineTable({
+    connectionId: v.id("emailProviderConnections"),
+    folderId: v.string(),
+    checkpointReceivedAt: v.optional(v.number()),
+    checkpointProviderMessageId: v.optional(v.string()),
+    continuationStart: v.optional(v.number()),
+    lastSuccessfulSyncAt: v.optional(v.number()),
+    retryAttempt: v.number(),
+    nextAttemptAt: v.optional(v.number()),
+    updatedAt: v.number(),
+  }).index("by_connectionId_and_folderId", ["connectionId", "folderId"]),
+
+  emailProviderSyncLeases: defineTable({
+    connectionId: v.id("emailProviderConnections"),
+    leaseToken: v.string(),
+    acquiredAt: v.number(),
+    expiresAt: v.number(),
+  }).index("by_connectionId", ["connectionId"]),
+
+  emailProviderMessages: defineTable({
+    connectionId: v.id("emailProviderConnections"),
+    provider: emailProviderValidator,
+    providerAccountId: v.string(),
+    providerMessageId: v.string(),
+    folderId: v.string(),
+    providerThreadId: v.optional(v.string()),
+    rfcMessageId: v.optional(v.string()),
+    inReplyTo: v.optional(v.string()),
+    references: v.array(v.string()),
+    senderAddress: v.string(),
+    subject: v.string(),
+    safePreview: v.string(),
+    plainTextContent: v.optional(v.string()),
+    receivedAt: v.number(),
+    providerReadState: v.optional(v.string()),
+    mappingState: emailProviderMappingStateValidator,
+    conversationId: v.optional(v.id("conversations")),
+    conversationMessageId: v.optional(v.id("conversationMessages")),
+    duplicateOfMessageId: v.optional(v.id("emailProviderMessages")),
+    attachmentState: emailProviderAttachmentStateValidator,
+    poisonCode: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_provider_and_providerAccountId_and_providerMessageId", [
+      "provider",
+      "providerAccountId",
+      "providerMessageId",
+    ])
+    .index("by_connectionId_and_providerMessageId", [
+      "connectionId",
+      "providerMessageId",
+    ])
+    .index("by_connectionId_and_providerThreadId", [
+      "connectionId",
+      "providerThreadId",
+    ])
+    .index("by_connectionId_and_rfcMessageId", [
+      "connectionId",
+      "rfcMessageId",
+    ])
+    .index("by_mappingState_and_receivedAt", ["mappingState", "receivedAt"])
+    .index("by_conversationId_and_receivedAt", ["conversationId", "receivedAt"]),
+
+  emailProviderAttachments: defineTable({
+    providerMessageId: v.id("emailProviderMessages"),
+    providerAttachmentId: v.string(),
+    fileName: v.string(),
+    size: v.number(),
+    mimeType: v.optional(v.string()),
+    inline: v.boolean(),
+    downloadState: emailProviderAttachmentDownloadStateValidator,
+    storageId: v.optional(v.id("_storage")),
+    failureCode: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_providerMessageId", ["providerMessageId"])
+    .index("by_providerMessageId_and_providerAttachmentId", [
+      "providerMessageId",
+      "providerAttachmentId",
+    ]),
+
+  emailProviderOutbox: defineTable({
+    connectionId: v.id("emailProviderConnections"),
+    conversationId: v.id("conversations"),
+    adminUserId: v.id("users"),
+    sendCommandId: v.string(),
+    replyToProviderMessageId: v.optional(v.string()),
+    fromAddress: v.string(),
+    toAddress: v.string(),
+    subject: v.string(),
+    plainTextContent: v.string(),
+    state: emailProviderOutboxStateValidator,
+    providerMessageId: v.optional(v.string()),
+    providerMailId: v.optional(v.string()),
+    reconciliationAttempt: v.number(),
+    lastErrorCode: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_connectionId_and_sendCommandId", ["connectionId", "sendCommandId"])
+    .index("by_state_and_updatedAt", ["state", "updatedAt"])
+    .index("by_conversationId_and_updatedAt", ["conversationId", "updatedAt"]),
+
+  emailProviderAudit: defineTable({
+    connectionId: v.optional(v.id("emailProviderConnections")),
+    provider: emailProviderValidator,
+    event: emailProviderAuditEventValidator,
+    outcome: emailProviderAuditOutcomeValidator,
+    safeCode: v.optional(v.string()),
+    providerMessageId: v.optional(v.string()),
+    sendCommandId: v.optional(v.string()),
+    runId: v.optional(v.string()),
+    count: v.optional(v.number()),
+    createdAt: v.number(),
+  })
+    .index("by_connectionId_and_createdAt", ["connectionId", "createdAt"])
+    .index("by_event_and_createdAt", ["event", "createdAt"]),
 
   brands: defineTable({
     accountId: v.id("accounts"),
