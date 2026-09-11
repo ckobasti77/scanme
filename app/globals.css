@@ -145,6 +145,109 @@ html[data-theme="dark"] {
   --wordmark-accent: #c6ff4a;
 }
 
+.admin-v1 {
+  --admin-canvas: #cbd1d8;
+  --admin-app: #f8f7ef;
+  --admin-surface: rgb(255 255 252 / 0.82);
+  --admin-surface-strong: #fffefa;
+  --admin-surface-muted: #eeeee8;
+  --admin-text: #171918;
+  --admin-text-muted: #656a68;
+  --admin-ink: #202221;
+  --admin-on-ink: #ffffff;
+  --admin-accent: #c6ff4a;
+  --admin-accent-ink: #385400;
+  --admin-border: rgb(23 25 24 / 0.1);
+  --admin-skeleton: rgb(23 25 24 / 0.09);
+  --admin-success: #477d12;
+  --admin-success-soft: #eef8df;
+  --admin-success-border: #c8dfa8;
+  --admin-warning: #9a5b00;
+  --admin-warning-soft: #fff3d6;
+  --admin-warning-border: #f2cf84;
+  --admin-danger: #c72b37;
+  --admin-danger-soft: #fff0f1;
+  --admin-danger-border: #efb4ba;
+  --admin-radius-control: 0.85rem;
+  --admin-radius-panel: 1.4rem;
+  --admin-shadow-xs: 0 1px 2px rgb(28 32 30 / 0.05);
+  --admin-shadow-sm: 0 8px 24px rgb(45 49 47 / 0.07);
+  --admin-shadow-md: 0 18px 48px rgb(38 42 40 / 0.16);
+  --admin-shadow-lg: 0 28px 80px rgb(35 40 46 / 0.2);
+  font-family: "DM Sans Variable", "DM Sans", ui-sans-serif, system-ui, sans-serif;
+}
+
+html[data-theme="dark"] .admin-v1 {
+  --admin-canvas: #141817;
+  --admin-app: #1d211f;
+  --admin-surface: rgb(39 44 41 / 0.9);
+  --admin-surface-strong: #292e2b;
+  --admin-surface-muted: #343a36;
+  --admin-text: #f2f4ee;
+  --admin-text-muted: #b0b6af;
+  --admin-ink: #f2f4ee;
+  --admin-on-ink: #171918;
+  --admin-accent-ink: #c6ff4a;
+  --admin-border: rgb(242 244 238 / 0.12);
+  --admin-skeleton: rgb(242 244 238 / 0.1);
+  --admin-success: #a9dc70;
+  --admin-success-soft: #26351f;
+  --admin-success-border: #4a6635;
+  --admin-warning: #ffc45f;
+  --admin-warning-soft: #3d3220;
+  --admin-warning-border: #6a542d;
+  --admin-danger: #ff8b92;
+  --admin-danger-soft: #40272a;
+  --admin-danger-border: #754047;
+  --admin-shadow-xs: 0 1px 2px rgb(0 0 0 / 0.18);
+  --admin-shadow-sm: 0 8px 24px rgb(0 0 0 / 0.2);
+  --admin-shadow-md: 0 18px 48px rgb(0 0 0 / 0.34);
+  --admin-shadow-lg: 0 28px 80px rgb(0 0 0 / 0.42);
+}
+
+.admin-v1-frame {
+  background-image:
+    radial-gradient(circle at 88% 8%, rgb(255 239 119 / 0.28), transparent 27rem),
+    radial-gradient(circle at 20% 100%, rgb(198 255 74 / 0.08), transparent 31rem);
+}
+
+.admin-v1 :is(button, a, input) {
+  touch-action: manipulation;
+}
+
+.admin-v1 .admin-v1-round,
+.admin-v1 button[data-theme-toggle="local"] {
+  border-radius: 9999px;
+}
+
+.admin-v1 :is(button, a, input):focus-visible {
+  outline-color: var(--admin-ink);
+}
+
+@media (max-width: 1279px) {
+  .admin-v1-frame {
+    background-image: radial-gradient(
+      circle at 92% 4%,
+      rgb(255 239 119 / 0.18),
+      transparent 19rem
+    );
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-v1 *,
+  .admin-v1 *::before,
+  .admin-v1 *::after,
+  [data-slot="sheet-overlay"],
+  [data-slot="sheet-content"],
+  [data-slot="dropdown-menu-content"] {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 * {
   border-color: var(--border);
   scrollbar-color: var(--ui-scrollbar-thumb-color) var(--ui-scrollbar-track);

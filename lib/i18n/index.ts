@@ -35,6 +35,7 @@ import { orderingSr } from "./sr/ordering";
 import { orderingPanelSr } from "./sr/ordering-panel";
 import { cardsAdminSr } from "./sr/cards-admin";
 import { adminDomainSr } from "./sr/admin-domain";
+import { adminV1Sr } from "./sr/admin-v1";
 
 export { fmt, srPluralCategory };
 export type {
@@ -63,6 +64,7 @@ export type {
   OrderingPanelDict,
   CardsAdminDict,
   AdminDomainDict,
+  AdminV1Dict,
 } from "./types";
 export {
   venueSr,
@@ -87,9 +89,11 @@ export {
   orderingPanelSr,
   cardsAdminSr,
   adminDomainSr,
+  adminV1Sr,
 };
 
 const SR: DictBySurface = {
+  "admin-v1": adminV1Sr,
   "admin-domain": adminDomainSr,
   venue: venueSr,
   "venue-editor": venueEditorSr,
