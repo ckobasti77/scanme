@@ -44,6 +44,13 @@ import {
   serviceOperationalStateValidator,
   serviceSummariesValidator,
 } from "./lib/adminActionValidators";
+import {
+  communicationActorKindValidator,
+  communicationChannelValidator,
+  communicationDirectionValidator,
+  conversationEventKindValidator,
+  conversationStatusValidator,
+} from "./lib/adminCommunicationValidators";
 
 const businessStatus = v.union(
   v.literal("active"),
@@ -793,6 +800,83 @@ export default defineSchema({
     .index("by_membershipId_and_businessId", ["membershipId", "businessId"])
     .index("by_membershipId", ["membershipId"])
     .index("by_businessId", ["businessId"]),
+
+  // ADMIN-08: provider-neutral communication core. List-facing labels and the
+  // latest-message snapshot are denormalized so Inbox pagination never needs
+  // a per-row join. Panel timestamps are authoritative receipt watermarks for
+  // admin outbound chat; they are never returned by the client-safe API.
+  conversations: defineTable({
+    accountId: v.id("accounts"),
+    accountName: v.string(),
+    smkCode: v.string(),
+    contactId: v.id("accountContacts"),
+    contactName: v.string(),
+    contactEmail: v.optional(v.string()),
+    contactPhone: v.optional(v.string()),
+    businessId: v.optional(v.id("businesses")),
+    businessName: v.optional(v.string()),
+    channel: communicationChannelValidator,
+    status: conversationStatusValidator,
+    assigneeAdminId: v.optional(v.id("users")),
+    assigneeName: v.optional(v.string()),
+    assigneeKey: v.string(),
+    latestMessagePreview: v.string(),
+    latestMessageAt: v.number(),
+    latestMessageDirection: communicationDirectionValidator,
+    latestMessageAuthorName: v.string(),
+    adminUnreadCount: v.number(),
+    searchText: v.string(),
+    clientOpenedPanelAt: v.optional(v.number()),
+    clientOpenedConversationAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_updatedAt", ["updatedAt"])
+    .index("by_status_and_updatedAt", ["status", "updatedAt"])
+    .index("by_channel_and_updatedAt", ["channel", "updatedAt"])
+    .index("by_assigneeKey_and_updatedAt", ["assigneeKey", "updatedAt"])
+    .index("by_accountId_and_updatedAt", ["accountId", "updatedAt"])
+    .index("by_accountId_and_contactId_and_updatedAt", ["accountId", "contactId", "updatedAt"])
+    .index("by_businessId_and_contactId_and_channel", ["businessId", "contactId", "channel"])
+    .searchIndex("search_inbox", {
+      searchField: "searchText",
+      filterFields: ["status", "channel", "assigneeKey", "accountId", "contactId"],
+    }),
+
+  conversationMessages: defineTable({
+    conversationId: v.id("conversations"),
+    accountId: v.id("accounts"),
+    contactId: v.id("accountContacts"),
+    businessId: v.optional(v.id("businesses")),
+    channel: communicationChannelValidator,
+    direction: communicationDirectionValidator,
+    authorKind: communicationActorKindValidator,
+    authorUserId: v.optional(v.id("users")),
+    authorContactId: v.optional(v.id("accountContacts")),
+    authorDisplayName: v.string(),
+    content: v.string(),
+    clientMessageId: v.optional(v.string()),
+    createdAt: v.number(),
+  })
+    .index("by_conversationId_and_createdAt", ["conversationId", "createdAt"])
+    .index("by_accountId_and_clientMessageId", ["accountId", "clientMessageId"]),
+
+  conversationEvents: defineTable({
+    conversationId: v.id("conversations"),
+    accountId: v.id("accounts"),
+    messageId: v.optional(v.id("conversationMessages")),
+    event: conversationEventKindValidator,
+    actorKind: communicationActorKindValidator,
+    actorUserId: v.optional(v.id("users")),
+    actorContactId: v.optional(v.id("accountContacts")),
+    fromStatus: v.optional(conversationStatusValidator),
+    toStatus: v.optional(conversationStatusValidator),
+    previousAssigneeAdminId: v.optional(v.id("users")),
+    nextAssigneeAdminId: v.optional(v.id("users")),
+    createdAt: v.number(),
+  })
+    .index("by_conversationId_and_createdAt", ["conversationId", "createdAt"])
+    .index("by_accountId_and_createdAt", ["accountId", "createdAt"]),
 
   brands: defineTable({
     accountId: v.id("accounts"),
