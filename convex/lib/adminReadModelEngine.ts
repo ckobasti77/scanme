@@ -28,6 +28,8 @@ export const ADMIN_V1_SERVICE_TYPES = [
   "scanme_menu",
 ] as const satisfies readonly ServiceType[];
 
+const ADMIN_CLIENT_VENUE_LIMIT = 500;
+
 export function emptyServiceAggregate(): ServiceAggregate {
   return {
     total: 0,
@@ -149,6 +151,20 @@ async function serviceSummariesForAccount(ctx: DatabaseCtx, accountId: Id<"accou
   return summaries;
 }
 
+async function premiumStatusForAccount(
+  ctx: DatabaseCtx,
+  accountId: Id<"accounts">,
+) {
+  const subscription = await ctx.db
+    .query("subscriptions")
+    .withIndex("by_accountId_and_targetKey", (q) =>
+      q.eq("accountId", accountId).eq("targetKey", "premium"),
+    )
+    .unique();
+  const status = subscription?.facts.status;
+  return status === "active" || status === "grace" ? status : null;
+}
+
 export async function upsertClientReadModel(
   ctx: MutationCtx,
   input: {
@@ -161,6 +177,20 @@ export async function upsertClientReadModel(
   nonNegativeInteger(input.venueCount, "admin_invalid_venue_count");
   const firstVenueName = input.firstVenueName?.trim();
   const { account, contact } = await requireCanonicalAccount(ctx, input.accountId);
+  const venues = await ctx.db
+    .query("businesses")
+    .withIndex("by_account", (q) => q.eq("accountId", account._id))
+    .take(ADMIN_CLIENT_VENUE_LIMIT + 1);
+  if (venues.length > ADMIN_CLIENT_VENUE_LIMIT) {
+    throw new ConvexError("admin_client_venue_limit");
+  }
+  const firstVenue = firstVenueName
+    ? venues.find(
+        (venue) =>
+          normalizeAdminSearchText(venue.name) ===
+          normalizeAdminSearchText(firstVenueName),
+      ) ?? null
+    : null;
   const signal = actionSignal(await worstOpenActionForAccount(ctx, account._id));
   const defaultContactEmail = contact.normalizedEmail
     ? normalizeAdminEmail(contact.normalizedEmail)
@@ -177,11 +207,13 @@ export async function upsertClientReadModel(
     defaultContactEmail,
     defaultContactPhone,
     firstVenueName: firstVenueName || null,
+    firstVenueSlug: firstVenue?.slug ?? null,
     venueCount: input.venueCount,
     clientStatus: account.clientStatus,
     signal,
     urgencyRank: signalUrgencyRank(signal),
     serviceSummaries: await serviceSummariesForAccount(ctx, account._id),
+    premiumStatus: await premiumStatusForAccount(ctx, account._id),
     searchText: searchText([
       account.name,
       account.ownerDisplayName,
@@ -189,6 +221,7 @@ export async function upsertClientReadModel(
       defaultContactEmail,
       defaultContactPhone,
       firstVenueName,
+      ...venues.map((venue) => venue.name),
     ]),
     updatedAt: input.updatedAt,
   };
@@ -461,6 +494,20 @@ export async function syncSubscriptionServiceState(
   facts: Doc<"subscriptions">["facts"],
   updatedAt: number,
 ) {
+  if (subscription.target.kind === "account_premium") {
+    const client = await ctx.db
+      .query("adminClientReadModels")
+      .withIndex("by_accountId", (q) => q.eq("accountId", subscription.accountId))
+      .unique();
+    if (client) {
+      const premiumStatus =
+        facts.status === "active" || facts.status === "grace"
+          ? facts.status
+          : null;
+      await ctx.db.patch(client._id, { premiumStatus, updatedAt });
+    }
+    return;
+  }
   if (subscription.target.kind !== "service_instance" || !subscription.businessId) return;
   const profile = await ctx.db.get(subscription.target.serviceProfileId);
   if (!profile || !ADMIN_V1_SERVICE_TYPES.includes(profile.type as ServiceType)) return;
