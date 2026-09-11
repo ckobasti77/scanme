@@ -13,6 +13,7 @@ import type * as activationRequestEmailsData from "../activationRequestEmailsDat
 import type * as activationRequests from "../activationRequests.js";
 import type * as admin from "../admin.js";
 import type * as adminActions from "../adminActions.js";
+import type * as adminClientProfiles from "../adminClientProfiles.js";
 import type * as adminReadModels from "../adminReadModels.js";
 import type * as adminV1Migrations from "../adminV1Migrations.js";
 import type * as subscriptions from "../subscriptions.js";
@@ -107,6 +108,7 @@ declare const fullApi: ApiFromModules<{
   activationRequests: typeof activationRequests;
   admin: typeof admin;
   adminActions: typeof adminActions;
+  adminClientProfiles: typeof adminClientProfiles;
   adminReadModels: typeof adminReadModels;
   adminV1Migrations: typeof adminV1Migrations;
   subscriptions: typeof subscriptions;

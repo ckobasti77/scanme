@@ -236,6 +236,24 @@ export async function upsertClientReadModel(
   return ctx.db.insert("adminClientReadModels", fields);
 }
 
+export async function refreshClientReadModel(
+  ctx: MutationCtx,
+  accountId: Id<"accounts">,
+  updatedAt: number,
+) {
+  const current = await ctx.db
+    .query("adminClientReadModels")
+    .withIndex("by_accountId", (q) => q.eq("accountId", accountId))
+    .unique();
+  if (!current) return null;
+  return upsertClientReadModel(ctx, {
+    accountId,
+    venueCount: current.venueCount,
+    ...(current.firstVenueName ? { firstVenueName: current.firstVenueName } : {}),
+    updatedAt,
+  });
+}
+
 export async function upsertVenueReadModel(
   ctx: MutationCtx,
   input: {
