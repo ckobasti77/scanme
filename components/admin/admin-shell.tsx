@@ -103,14 +103,14 @@ export function AdminShell({
   const identity = previewIdentity ?? me?.email ?? adminV1Sr.profileFallback;
 
   return (
-    <div className="admin-v1 min-h-[100dvh] overflow-x-clip bg-[var(--admin-canvas)] text-[var(--admin-text)]">
+    <div className="admin-v1 min-h-[100dvh] w-full overflow-x-clip bg-[var(--admin-app)] text-[var(--admin-text)]">
       <a href="#main-content" className="skip-link">
         {adminV1Sr.skipToContent}
       </a>
-      <div className="admin-v1-frame mx-auto min-h-[100dvh] w-full max-w-[1540px] bg-[var(--admin-app)] xl:my-3 xl:min-h-[calc(100dvh-1.5rem)] xl:rounded-[2rem] xl:border xl:border-white/55 xl:shadow-[var(--admin-shadow-lg)]">
+      <div className="admin-v1-frame min-h-[100dvh] w-full bg-[var(--admin-app)]">
         <header
           data-reveal="off"
-          className="sticky top-0 z-30 rounded-t-[inherit] bg-[var(--admin-app)]/95 px-3 py-3 backdrop-blur-md sm:px-5 xl:top-3 xl:px-7 xl:py-4"
+          className="sticky top-0 z-30 bg-[var(--admin-app)]/95 px-3 py-3 backdrop-blur-md sm:px-5 xl:px-7 xl:py-4"
         >
           <div className="flex min-h-12 items-center gap-3 xl:grid xl:grid-cols-[auto_minmax(0,1fr)_auto] xl:gap-5">
             <Link
