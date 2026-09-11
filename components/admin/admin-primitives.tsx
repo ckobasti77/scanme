@@ -29,20 +29,27 @@ export function AdminTable({
   caption,
   children,
   className,
+  tableClassName,
 }: {
   caption: string;
   children: ReactNode;
   className?: string;
+  tableClassName?: string;
 }) {
   return (
     <div
       data-admin-primitive="table"
       className={cn(
-        "max-w-full overflow-x-auto rounded-[var(--admin-radius-control)] border border-[var(--admin-border)] bg-[var(--admin-surface)]",
+        "max-w-full overflow-hidden rounded-[var(--admin-radius-control)] border border-[var(--admin-border)] bg-[var(--admin-surface)]",
         className,
       )}
     >
-      <table className="w-full min-w-[34rem] border-collapse text-left text-sm">
+      <table
+        className={cn(
+          "w-full border-collapse text-left text-sm break-words",
+          tableClassName,
+        )}
+      >
         <caption className="sr-only">{caption}</caption>
         {children}
       </table>
@@ -192,7 +199,7 @@ export function AdminSummaryPill({
     <div
       data-admin-primitive="summary-pill"
       className={cn(
-        "inline-flex max-w-full flex-wrap items-center rounded-full border border-[var(--admin-border)] bg-[var(--admin-surface)] px-1.5 py-1 shadow-[var(--admin-shadow-xs)]",
+        "inline-flex w-full max-w-full flex-nowrap items-center justify-between rounded-full border border-[var(--admin-border)] bg-[var(--admin-surface)] px-1 py-1 shadow-[var(--admin-shadow-xs)] sm:w-auto sm:justify-start sm:px-1.5",
         className,
       )}
     >
@@ -202,7 +209,7 @@ export function AdminSummaryPill({
           <div
             key={segment.label}
             className={cn(
-              "inline-flex min-h-8 items-center gap-1.5 px-2.5 text-xs font-medium",
+              "inline-flex min-h-8 min-w-0 items-center gap-1 px-1.5 text-[0.6875rem] font-medium whitespace-nowrap sm:gap-1.5 sm:px-2.5 sm:text-xs",
               index > 0 && "border-l border-[var(--admin-border)]",
               segment.problem
                 ? "text-[var(--admin-danger)]"
