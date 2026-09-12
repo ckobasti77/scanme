@@ -63,6 +63,7 @@ type Detail = NonNullable<FunctionReturnType<typeof api.adminCommunications.getC
 type ConversationStatus = InboxItem["status"];
 type Channel = InboxItem["channel"];
 type ManualChannel = "phone" | "in_person" | "copied_message";
+type AssigneeFilter = "all" | "mine" | "unassigned" | Id<"users">;
 
 const statusLabels: Record<ConversationStatus, string> = {
   new: dict.statusNew,
@@ -406,6 +407,8 @@ type WorkspaceScope = {
   accountName?: string;
   contactName?: string;
   embedded?: boolean;
+  initialConversationId?: Id<"conversations">;
+  initialAssigneeId?: Id<"users">;
 };
 
 export function AdminConversationWorkspace(scope: WorkspaceScope = {}) {
@@ -413,25 +416,29 @@ export function AdminConversationWorkspace(scope: WorkspaceScope = {}) {
   const [searchDraft, setSearchDraft] = useState("");
   const [status, setStatus] = useState<ConversationStatus | "all">("all");
   const [channel, setChannel] = useState<Channel | "all">("all");
-  const [assignee, setAssigneeFilter] = useState<"all" | "mine" | "unassigned">("all");
+  const [assignee, setAssigneeFilter] = useState<AssigneeFilter>(scope.initialAssigneeId ?? "all");
   const me = useQuery(api.adminCommunications.me);
+  const adminOptions = useQuery(api.adminTasks.listAdmins) ?? [];
   const inbox = usePaginatedQuery(
     api.adminCommunications.listInbox,
     {
       ...(search ? { search } : {}),
       ...(status !== "all" ? { status } : {}),
       ...(channel !== "all" ? { channel } : {}),
-      ...(assignee === "mine" && me ? { assignee: me.id } : {}),
-      ...(assignee === "unassigned" ? { assignee: "unassigned" as const } : {}),
+      ...(assignee === "mine" && me
+        ? { assignee: me.id }
+        : assignee === "unassigned"
+          ? { assignee: "unassigned" as const }
+          : assignee !== "all"
+            ? { assignee: assignee as Id<"users"> }
+            : {}),
       ...(scope.accountId ? { accountId: scope.accountId } : {}),
       ...(scope.contactId ? { contactId: scope.contactId } : {}),
     },
     { initialNumItems: 20 },
   );
-  const [selectedId, setSelectedId] = useState<Id<"conversations"> | null>(null);
-  const selected = selectedId && inbox.results.some((row) => row.id === selectedId)
-    ? selectedId
-    : inbox.results[0]?.id ?? null;
+  const [selectedId, setSelectedId] = useState<Id<"conversations"> | null>(scope.initialConversationId ?? null);
+  const selected = selectedId ?? inbox.results[0]?.id ?? null;
   const detail = useQuery(
     api.adminCommunications.getConversation,
     selected ? { conversationId: selected } : "skip",
@@ -540,7 +547,7 @@ export function AdminConversationWorkspace(scope: WorkspaceScope = {}) {
             <Label htmlFor="inbox-assignee">{dict.assigneeFilter}</Label>
             <Select value={assignee} onValueChange={(value) => setAssigneeFilter(value as typeof assignee)}>
               <SelectTrigger id="inbox-assignee"><SelectValue /></SelectTrigger>
-              <SelectContent><SelectItem value="all">{dict.filterAll}</SelectItem><SelectItem value="mine">{dict.assigneeMine}</SelectItem><SelectItem value="unassigned">{dict.assigneeUnassigned}</SelectItem></SelectContent>
+              <SelectContent><SelectItem value="all">{dict.filterAll}</SelectItem><SelectItem value="mine">{dict.assigneeMine}</SelectItem><SelectItem value="unassigned">{dict.assigneeUnassigned}</SelectItem>{adminOptions.map((admin) => <SelectItem key={admin.id} value={admin.id}>{admin.name}</SelectItem>)}</SelectContent>
             </Select>
           </div>
         </AdminPanel>
@@ -597,8 +604,8 @@ export function AdminConversationWorkspace(scope: WorkspaceScope = {}) {
   );
 }
 
-export function AdminInboxWorkspace() {
-  return <AdminConversationWorkspace />;
+export function AdminInboxWorkspace({ initialConversationId, initialAssigneeId }: { initialConversationId?: Id<"conversations">; initialAssigneeId?: Id<"users"> } = {}) {
+  return <AdminConversationWorkspace initialConversationId={initialConversationId} initialAssigneeId={initialAssigneeId} />;
 }
 
 export class AdminInboxErrorBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {

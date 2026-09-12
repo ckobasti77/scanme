@@ -2,6 +2,9 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
+@source "../components/admin/admin-tasks.tsx";
+@source "../components/admin/admin-team.tsx";
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {

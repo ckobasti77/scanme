@@ -184,7 +184,7 @@ export const list = internalQuery({
       ? await ctx.db
           .query("actionItems")
           .withIndex(
-            "by_assigneeId_and_state_and_priorityRank_and_priorityAt_and_causeId",
+            "by_assignee_state_priority",
             (q) => q.eq("assigneeId", admin._id).eq("state", "open"),
           )
           .take(args.limit)
@@ -255,7 +255,7 @@ export const listForSource = internalQuery({
     const rows = await ctx.db
       .query("actionItems")
       .withIndex(
-        "by_sourceDomain_and_sourceRecordId_and_state_and_priorityRank_and_priorityAt_and_causeId",
+        "by_source_record_state_priority",
         (q) =>
           q
             .eq("sourceDomain", args.domain)
@@ -604,7 +604,7 @@ export const clientSignal = internalQuery({
     const row = await ctx.db
       .query("actionItems")
       .withIndex(
-        "by_accountId_and_state_and_severityRank_and_priorityRank_and_priorityAt_and_causeId",
+        "by_account_state_severity_priority",
         (q) => q.eq("accountId", args.accountId).eq("state", "open"),
       )
       .first();

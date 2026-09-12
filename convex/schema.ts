@@ -57,6 +57,18 @@ import {
   emailProviderOutboxStateValidator,
   emailProviderValidator,
 } from "./lib/emailProviderValidators";
+import {
+  taskActiveStatusValidator,
+  taskDueValidator,
+  taskEventFieldValidator,
+  taskEventKindValidator,
+  taskPriorityValidator,
+  taskStatusValidator,
+  taskSubjectKindValidator,
+  taskSubjectValidator,
+  taskTimePhaseValidator,
+  taskViewValidator,
+} from "./lib/adminTaskValidators";
 
 const businessStatus = v.union(
   v.literal("active"),
@@ -359,13 +371,13 @@ export default defineSchema({
   })
     .index("by_causeId", ["causeId"])
     .index("by_state_and_priorityRank_and_priorityAt_and_causeId", ["state", "priorityRank", "priorityAt", "causeId"])
-    .index("by_assigneeId_and_state_and_priorityRank_and_priorityAt_and_causeId", ["assigneeId", "state", "priorityRank", "priorityAt", "causeId"])
+    .index("by_assignee_state_priority", ["assigneeId", "state", "priorityRank", "priorityAt", "causeId"])
     .index("by_state_and_snoozedUntil", ["state", "snoozedUntil"])
     .index("by_assigneeId_and_state_and_snoozedUntil", ["assigneeId", "state", "snoozedUntil"])
-    .index("by_accountId_and_state_and_severityRank_and_priorityRank_and_priorityAt_and_causeId", ["accountId", "state", "severityRank", "priorityRank", "priorityAt", "causeId"])
-    .index("by_businessId_and_state_and_severityRank_and_priorityRank_and_priorityAt_and_causeId", ["businessId", "state", "severityRank", "priorityRank", "priorityAt", "causeId"])
-    .index("by_productRef_and_state_and_severityRank_and_priorityRank_and_priorityAt_and_causeId", ["productRef", "state", "severityRank", "priorityRank", "priorityAt", "causeId"])
-    .index("by_sourceDomain_and_sourceRecordId_and_state_and_priorityRank_and_priorityAt_and_causeId", ["sourceDomain", "sourceRecordId", "state", "priorityRank", "priorityAt", "causeId"]),
+    .index("by_account_state_severity_priority", ["accountId", "state", "severityRank", "priorityRank", "priorityAt", "causeId"])
+    .index("by_business_state_severity_priority", ["businessId", "state", "severityRank", "priorityRank", "priorityAt", "causeId"])
+    .index("by_product_state_severity_priority", ["productRef", "state", "severityRank", "priorityRank", "priorityAt", "causeId"])
+    .index("by_source_record_state_priority", ["sourceDomain", "sourceRecordId", "state", "priorityRank", "priorityAt", "causeId"]),
 
   // Append-only audit of every lifecycle transition. Opening a record is not
   // an event because ADMIN-04 explicitly separates reading from resolution.
@@ -857,6 +869,93 @@ export default defineSchema({
   })
     .index("by_conversationId_and_createdAt", ["conversationId", "createdAt"])
     .index("by_accountId_and_createdAt", ["accountId", "createdAt"]),
+
+  // ADMIN-10: canonical client-linked work. Display fields are intentionally
+  // denormalized so list pagination never performs per-row joins.
+  clientTasks: defineTable({
+    accountId: v.id("accounts"),
+    accountName: v.string(),
+    smkCode: v.string(),
+    contactId: v.optional(v.id("accountContacts")),
+    contactName: v.optional(v.string()),
+    businessId: v.optional(v.id("businesses")),
+    businessName: v.optional(v.string()),
+    smlCode: v.optional(v.string()),
+    conversationId: v.optional(v.id("conversations")),
+    subject: v.optional(taskSubjectValidator),
+    subjectKind: taskSubjectKindValidator,
+    subjectLabel: v.optional(v.string()),
+    subjectHref: v.optional(v.string()),
+    title: v.string(),
+    description: v.string(),
+    assigneeId: v.id("users"),
+    assigneeName: v.string(),
+    priority: taskPriorityValidator,
+    priorityRank: v.number(),
+    due: v.optional(taskDueValidator),
+    dueAt: v.optional(v.number()),
+    dueSortAt: v.number(),
+    dueDay: v.optional(v.string()),
+    dueVersion: v.string(),
+    timePhase: taskTimePhaseValidator,
+    status: taskStatusValidator,
+    view: taskViewValidator,
+    resumeStatus: v.optional(taskActiveStatusValidator),
+    deferredUntil: v.optional(v.number()),
+    deferredReason: v.optional(v.string()),
+    searchText: v.string(),
+    participantCount: v.number(),
+    createCommandId: v.string(),
+    createdByUserId: v.id("users"),
+    updatedByUserId: v.id("users"),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_creator_and_command", ["createdByUserId", "createCommandId"])
+    .index("by_view_and_dueSortAt_and_priorityRank", ["view", "dueSortAt", "priorityRank"])
+    .index("by_view_and_timePhase_and_dueSortAt", ["view", "timePhase", "dueSortAt"])
+    .index("by_assignee_and_view_and_dueSortAt", ["assigneeId", "view", "dueSortAt"])
+    .index("by_assignee_view_phase_dueSortAt", ["assigneeId", "view", "timePhase", "dueSortAt"])
+    .index("by_account_and_view_and_dueSortAt", ["accountId", "view", "dueSortAt"])
+    .index("by_business_and_view_and_dueSortAt", ["businessId", "view", "dueSortAt"])
+    .index("by_subjectKind_and_view_and_dueSortAt", ["subjectKind", "view", "dueSortAt"])
+    .index("by_status_and_dueAt", ["status", "dueAt"])
+    .index("by_view_and_updatedAt", ["view", "updatedAt"])
+    .searchIndex("search_tasks", {
+      searchField: "searchText",
+      filterFields: ["view", "timePhase", "status", "assigneeId", "accountId", "businessId", "subjectKind"],
+    }),
+
+  clientTaskParticipants: defineTable({
+    taskId: v.id("clientTasks"),
+    userId: v.id("users"),
+    userName: v.string(),
+    addedByUserId: v.id("users"),
+    createdAt: v.number(),
+  })
+    .index("by_taskId_and_userId", ["taskId", "userId"])
+    .index("by_taskId", ["taskId"])
+    .index("by_userId_and_taskId", ["userId", "taskId"]),
+
+  // Append-only task history. commandId makes every write retry-safe without
+  // weakening the canonical action-item idempotency boundary.
+  clientTaskEvents: defineTable({
+    taskId: v.id("clientTasks"),
+    commandId: v.string(),
+    event: taskEventKindValidator,
+    field: taskEventFieldValidator,
+    actorKind: v.union(v.literal("admin"), v.literal("system")),
+    actorUserId: v.optional(v.id("users")),
+    actorName: v.string(),
+    before: v.optional(v.string()),
+    after: v.optional(v.string()),
+    reason: v.optional(v.string()),
+    until: v.optional(v.number()),
+    targetAdminId: v.optional(v.id("users")),
+    createdAt: v.number(),
+  })
+    .index("by_taskId_and_createdAt", ["taskId", "createdAt"])
+    .index("by_taskId_and_commandId", ["taskId", "commandId"]),
 
   // ADMIN-09B: provider-specific operational state stays outside the
   // provider-neutral ADMIN-08 conversation core. Credentials never belong in

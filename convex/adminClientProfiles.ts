@@ -287,7 +287,7 @@ export const getProfile = query({
       ctx.db.query("venueGroups").withIndex("by_accountId", (q) => q.eq("accountId", account._id)).take(MAX_ORGANIZATION_ROWS + 1),
       ctx.db.query("accountTags").withIndex("by_accountId", (q) => q.eq("accountId", account._id)).take(MAX_ORGANIZATION_ROWS + 1),
       ctx.db.query("actionItems").withIndex(
-        "by_accountId_and_state_and_severityRank_and_priorityRank_and_priorityAt_and_causeId",
+        "by_account_state_severity_priority",
         (q) => q.eq("accountId", account._id).eq("state", "open"),
       ).take(MAX_OPEN_ACTIONS + 1),
       ctx.db.query("adminServiceAggregates").withIndex("by_accountId_and_serviceType", (q) => q.eq("accountId", account._id)).take(4),
@@ -391,7 +391,7 @@ export const getVenueDetail = query({
       ctx.db.query("subscriptions").withIndex("by_businessId", (q) => q.eq("businessId", business._id)).take(MAX_VENUE_SERVICES * 2 + 1),
       ctx.db.query("adminVenueReadModels").withIndex("by_businessId", (q) => q.eq("businessId", business._id)).unique(),
       ctx.db.query("actionItems").withIndex(
-        "by_businessId_and_state_and_severityRank_and_priorityRank_and_priorityAt_and_causeId",
+        "by_business_state_severity_priority",
         (q) => q.eq("businessId", business._id).eq("state", "open"),
       ).take(MAX_OPEN_ACTIONS + 1),
     ]);
