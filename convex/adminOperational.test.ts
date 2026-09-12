@@ -369,7 +369,7 @@ describe("ADMIN-04 canonical causes and resolution", () => {
     })).toMatchObject([{ source: { domain: "subscription", causeKind: "suspended" } }]);
     const causes = await t.run((ctx) => ctx.db
       .query("actionItems")
-      .withIndex("by_sourceDomain_and_sourceRecordId_and_state_and_priorityRank_and_priorityAt_and_causeId", (q) =>
+      .withIndex("by_source_record_state_priority", (q) =>
         q.eq("sourceDomain", "subscription").eq("sourceRecordId", subscriptionId),
       )
       .collect());

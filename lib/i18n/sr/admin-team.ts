@@ -1,0 +1,28 @@
+import type { AdminTeamDict } from "../types";
+
+export const adminTeamSr: AdminTeamDict = {
+  pageTitle: "Tim",
+  pageSubtitle: "Raspodela rada sa klijentima",
+  tabOverview: "Pregled",
+  tabTasks: "Zadaci",
+  tabConversations: "Razgovori",
+  openTasks: "Otvoreni zadaci",
+  overdueTasks: "Kasni",
+  conversations: "Razgovori",
+  awaitingReaction: "Čeka reakciju",
+  countCapped: "Prikazan je najmanji potvrđeni broj.",
+  selectMember: "Član tima",
+  tasksTitle: "Zaduženi zadaci",
+  conversationsTitle: "Zaduženi razgovori",
+  openAllTasks: "Otvori sve zadatke",
+  openAllConversations: "Otvori Inbox",
+  reassign: "Preraspodeli",
+  claim: "Preuzmi",
+  noTasks: "Nema otvorenih zadataka za ovog člana.",
+  noConversations: "Nema zaduženih razgovora za ovog člana.",
+  loading: "Učitavanje timskog pregleda",
+  errorTitle: "Timski pregled nije dostupan",
+  errorBody: "Podaci trenutno ne mogu da se učitaju.",
+  previewBadge: "DEV pregled",
+  previewDescription: "Sintetički radni red samo za vizuelnu proveru ADMIN-10 interfejsa.",
+};

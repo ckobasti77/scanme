@@ -381,7 +381,7 @@ export async function upsertProductReadModel(
   const action = await ctx.db
     .query("actionItems")
     .withIndex(
-      "by_productRef_and_state_and_severityRank_and_priorityRank_and_priorityAt_and_causeId",
+      "by_product_state_severity_priority",
       (q) => q.eq("productRef", sourceRecordId).eq("state", "open"),
     )
     .first();

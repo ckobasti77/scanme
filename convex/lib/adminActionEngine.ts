@@ -66,7 +66,7 @@ export async function worstOpenActionForAccount(
   return ctx.db
     .query("actionItems")
     .withIndex(
-      "by_accountId_and_state_and_severityRank_and_priorityRank_and_priorityAt_and_causeId",
+      "by_account_state_severity_priority",
       (q) => q.eq("accountId", accountId).eq("state", "open"),
     )
     .first();
@@ -79,7 +79,7 @@ export async function worstOpenActionForBusiness(
   return ctx.db
     .query("actionItems")
     .withIndex(
-      "by_businessId_and_state_and_severityRank_and_priorityRank_and_priorityAt_and_causeId",
+      "by_business_state_severity_priority",
       (q) => q.eq("businessId", businessId).eq("state", "open"),
     )
     .first();
@@ -92,7 +92,7 @@ async function worstOpenActionForProduct(
   return ctx.db
     .query("actionItems")
     .withIndex(
-      "by_productRef_and_state_and_severityRank_and_priorityRank_and_priorityAt_and_causeId",
+      "by_product_state_severity_priority",
       (q) => q.eq("productRef", productRef).eq("state", "open"),
     )
     .first();
