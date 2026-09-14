@@ -73,6 +73,21 @@ import {
   taskTimePhaseValidator,
   taskViewValidator,
 } from "./lib/adminTaskValidators";
+import {
+  adminDeliveryMethodValidator,
+  adminDeliveryStateValidator,
+  adminOrderAxisValidator,
+  adminOrderDesignKindValidator,
+  adminOrderDesignStateValidator,
+  adminOrderEventKindValidator,
+  adminOrderFulfillmentStateValidator,
+  adminOrderPaymentStateValidator,
+  adminOrderPriorityValidator,
+  adminOrderProductConfigValidator,
+  adminOrderProductTypeValidator,
+  adminOrderViewValidator,
+  adminPrintJobStateValidator,
+} from "./lib/adminOrderValidators";
 
 const businessStatus = v.union(
   v.literal("active"),
@@ -916,6 +931,7 @@ export default defineSchema({
     subjectKind: taskSubjectKindValidator,
     subjectLabel: v.optional(v.string()),
     subjectHref: v.optional(v.string()),
+    orderOperationId: v.optional(v.id("orderOperations")),
     title: v.string(),
     description: v.string(),
     assigneeId: v.id("users"),
@@ -949,6 +965,7 @@ export default defineSchema({
     .index("by_account_and_view_and_dueSortAt", ["accountId", "view", "dueSortAt"])
     .index("by_business_and_view_and_dueSortAt", ["businessId", "view", "dueSortAt"])
     .index("by_subjectKind_and_view_and_dueSortAt", ["subjectKind", "view", "dueSortAt"])
+    .index("by_orderOperationId_and_view_and_updatedAt", ["orderOperationId", "view", "updatedAt"])
     .index("by_status_and_dueAt", ["status", "dueAt"])
     .index("by_view_and_updatedAt", ["view", "updatedAt"])
     .searchIndex("search_tasks", {
@@ -1631,6 +1648,12 @@ export default defineSchema({
   // no field here waits on the provider choice.
   orders: defineTable({
     accountId: v.id("accounts"),
+    // Additive provenance. Legacy rows may not have it; ADMIN-11 never invents
+    // a creator while new admin and authenticated checkout writes preserve one.
+    createdByUserId: v.optional(v.id("users")),
+    // ADMIN-11 identity. Optional keeps every legacy order valid until its
+    // bounded, explicit operational migration is run.
+    smpCode: v.optional(v.string()),
     status: v.union(
       v.literal("pending"),
       v.literal("paid"),
@@ -1658,7 +1681,8 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_accountId_and_createdAt", ["accountId", "createdAt"])
-    .index("by_status_and_createdAt", ["status", "createdAt"]),
+    .index("by_status_and_createdAt", ["status", "createdAt"])
+    .index("by_smpCode", ["smpCode"]),
 
   // RFC-002 §2.5 — one row per purchased service AND one per physical-product
   // line. `businessId` says which location this line provisions (Enterprise:
@@ -1688,6 +1712,300 @@ export default defineSchema({
     lineTotalRsd: v.number(),
     createdAt: v.number(),
   }).index("by_orderId", ["orderId"]),
+
+  // ADMIN-11 read model. Operational state is intentionally separate from the
+  // immutable commercial order and its priceSnapshot.
+  orderOperations: defineTable({
+    orderId: v.id("orders"),
+    accountId: v.id("accounts"),
+    createdByUserId: v.optional(v.id("users")),
+    createdByName: v.optional(v.string()),
+    accountName: v.string(),
+    smkCode: v.string(),
+    smpCode: v.string(),
+    primaryBusinessId: v.optional(v.id("businesses")),
+    primaryBusinessName: v.optional(v.string()),
+    primarySmlCode: v.optional(v.string()),
+    paymentState: adminOrderPaymentStateValidator,
+    designState: adminOrderDesignStateValidator,
+    fulfillmentState: adminOrderFulfillmentStateValidator,
+    view: adminOrderViewValidator,
+    priority: adminOrderPriorityValidator,
+    priorityRank: v.number(),
+    assigneeId: v.id("users"),
+    assigneeName: v.string(),
+    requiredMinor: v.number(),
+    settledMinor: v.number(),
+    reversedMinor: v.number(),
+    currency: v.literal("RSD"),
+    lineCount: v.number(),
+    unitCount: v.number(),
+    problemCount: v.number(),
+    migrationIssueCount: v.number(),
+    provisioningReady: v.boolean(),
+    note: v.optional(v.string()),
+    archivedAt: v.optional(v.number()),
+    cancelledAt: v.optional(v.number()),
+    searchText: v.string(),
+    migrationVersion: v.literal(1),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_orderId", ["orderId"])
+    .index("by_smpCode", ["smpCode"])
+    .index("by_view_and_updatedAt", ["view", "updatedAt"])
+    .index("by_view_and_paymentState_and_updatedAt", ["view", "paymentState", "updatedAt"])
+    .index("by_view_and_designState_and_updatedAt", ["view", "designState", "updatedAt"])
+    .index("by_view_and_fulfillmentState_and_updatedAt", ["view", "fulfillmentState", "updatedAt"])
+    .index("by_assigneeId_and_view_and_updatedAt", ["assigneeId", "view", "updatedAt"])
+    .searchIndex("search_orders", {
+      searchField: "searchText",
+      filterFields: ["view", "assigneeId", "paymentState", "designState", "fulfillmentState"],
+    }),
+
+  orderLines: defineTable({
+    operationId: v.id("orderOperations"),
+    orderId: v.id("orders"),
+    orderItemId: v.id("orderItems"),
+    accountId: v.id("accounts"),
+    businessId: v.id("businesses"),
+    businessName: v.string(),
+    smlCode: v.string(),
+    productType: adminOrderProductTypeValidator,
+    productLabel: v.string(),
+    quantity: v.number(),
+    lineTotalMinor: v.number(),
+    currency: v.literal("RSD"),
+    configSnapshot: adminOrderProductConfigValidator,
+    boundServices: v.array(serviceType),
+    designKind: adminOrderDesignKindValidator,
+    designState: adminOrderDesignStateValidator,
+    designRevision: v.number(),
+    approvedSnapshotId: v.optional(v.id("orderDesignApprovals")),
+    smfAssignedCount: v.number(),
+    sentToPrinterCount: v.number(),
+    receivedCount: v.number(),
+    qcPendingCount: v.number(),
+    qcPassedCount: v.number(),
+    qcProblemCount: v.number(),
+    deliveryReservedCount: v.number(),
+    inDeliveryCount: v.number(),
+    deliveredCount: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_operationId", ["operationId"])
+    .index("by_orderId", ["orderId"])
+    .index("by_orderItemId", ["orderItemId"])
+    .index("by_businessId_and_createdAt", ["businessId", "createdAt"]),
+
+  orderMigrationIssues: defineTable({
+    orderId: v.id("orders"),
+    orderItemId: v.optional(v.id("orderItems")),
+    code: v.string(),
+    detail: v.string(),
+    issueKey: v.string(),
+    resolvedAt: v.optional(v.number()),
+    createdAt: v.number(),
+  })
+    .index("by_orderId", ["orderId"])
+    .index("by_issueKey", ["issueKey"]),
+
+  orderDesignApprovals: defineTable({
+    operationId: v.id("orderOperations"),
+    orderLineId: v.id("orderLines"),
+    revision: v.number(),
+    snapshot: adminOrderProductConfigValidator,
+    approvedByUserId: v.id("users"),
+    approvedAt: v.number(),
+  })
+    .index("by_orderLineId_and_revision", ["orderLineId", "revision"])
+    .index("by_operationId_and_approvedAt", ["operationId", "approvedAt"]),
+
+  orderProvisioningRequests: defineTable({
+    operationId: v.id("orderOperations"),
+    orderLineId: v.id("orderLines"),
+    requestKey: v.string(),
+    quantity: v.number(),
+    state: v.literal("pending_admin_12"),
+    createdByUserId: v.id("users"),
+    createdAt: v.number(),
+  })
+    .index("by_orderLineId", ["orderLineId"])
+    .index("by_requestKey", ["requestKey"])
+    .index("by_operationId_and_createdAt", ["operationId", "createdAt"]),
+
+  orderSmfReferences: defineTable({
+    operationId: v.id("orderOperations"),
+    orderLineId: v.id("orderLines"),
+    reference: v.string(),
+    sourceRecordId: v.string(),
+    printJobId: v.optional(v.id("printJobs")),
+    assignedAt: v.number(),
+  })
+    .index("by_orderLineId", ["orderLineId"])
+    .index("by_orderLineId_and_printJobId", ["orderLineId", "printJobId"])
+    .index("by_reference", ["reference"])
+    .index("by_sourceRecordId", ["sourceRecordId"]),
+
+  orderPaymentAllocations: defineTable({
+    operationId: v.id("orderOperations"),
+    orderId: v.id("orders"),
+    accountId: v.id("accounts"),
+    paymentId: v.id("payments"),
+    amountMinor: v.number(),
+    currency: v.literal("RSD"),
+    state: v.union(v.literal("settled"), v.literal("reversed")),
+    key: v.string(),
+    recordedByUserId: v.id("users"),
+    createdAt: v.number(),
+    reversedAt: v.optional(v.number()),
+  })
+    .index("by_orderId", ["orderId"])
+    .index("by_paymentId", ["paymentId"])
+    .index("by_operationId_and_key", ["operationId", "key"]),
+
+  printers: defineTable({
+    name: v.string(),
+    contact: v.optional(v.string()),
+    active: v.boolean(),
+    createdByUserId: v.id("users"),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_active_and_name", ["active", "name"]),
+
+  printJobs: defineTable({
+    operationId: v.id("orderOperations"),
+    orderId: v.id("orders"),
+    printerId: v.id("printers"),
+    printerName: v.string(),
+    state: adminPrintJobStateValidator,
+    destination: v.literal("scanme"),
+    assigneeId: v.id("users"),
+    assigneeName: v.string(),
+    note: v.optional(v.string()),
+    commandId: v.string(),
+    remakeOfQualityCheckId: v.optional(v.id("qualityChecks")),
+    expectedAt: v.optional(v.number()),
+    sentAt: v.optional(v.number()),
+    receivedAt: v.optional(v.number()),
+    createdByUserId: v.id("users"),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_operationId_and_createdAt", ["operationId", "createdAt"])
+    .index("by_operationId_and_commandId", ["operationId", "commandId"])
+    .index("by_remakeOfQualityCheckId", ["remakeOfQualityCheckId"])
+    .index("by_state_and_expectedAt", ["state", "expectedAt"]),
+
+  printJobLines: defineTable({
+    printJobId: v.id("printJobs"),
+    operationId: v.id("orderOperations"),
+    orderLineId: v.id("orderLines"),
+    quantity: v.number(),
+    smfReferences: v.array(v.string()),
+    printSnapshot: adminOrderProductConfigValidator,
+    createdAt: v.number(),
+  })
+    .index("by_printJobId", ["printJobId"])
+    .index("by_operationId", ["operationId"])
+    .index("by_orderLineId", ["orderLineId"]),
+
+  printerReceipts: defineTable({
+    printJobId: v.id("printJobs"),
+    operationId: v.id("orderOperations"),
+    orderLineId: v.id("orderLines"),
+    quantity: v.number(),
+    receivedByUserId: v.id("users"),
+    receivedAt: v.number(),
+    commandId: v.string(),
+  })
+    .index("by_printJobId_and_createdAt", ["printJobId", "receivedAt"])
+    .index("by_operationId_and_receivedAt", ["operationId", "receivedAt"])
+    .index("by_orderLineId", ["orderLineId"])
+    .index("by_commandId", ["commandId"]),
+
+  qualityChecks: defineTable({
+    operationId: v.id("orderOperations"),
+    orderLineId: v.id("orderLines"),
+    printJobId: v.id("printJobs"),
+    result: v.union(v.literal("pass"), v.literal("problem")),
+    quantity: v.number(),
+    reason: v.optional(v.string()),
+    remakeRequested: v.boolean(),
+    checkedByUserId: v.id("users"),
+    checkedAt: v.number(),
+    commandId: v.string(),
+  })
+    .index("by_operationId_and_checkedAt", ["operationId", "checkedAt"])
+    .index("by_printJobId_and_checkedAt", ["printJobId", "checkedAt"])
+    .index("by_orderLineId", ["orderLineId"])
+    .index("by_commandId", ["commandId"]),
+
+  orderActivationSignals: defineTable({
+    operationId: v.id("orderOperations"),
+    orderLineId: v.id("orderLines"),
+    qualityCheckId: v.id("qualityChecks"),
+    state: v.literal("pending_admin_12"),
+    createdAt: v.number(),
+  })
+    .index("by_qualityCheckId", ["qualityCheckId"])
+    .index("by_operationId_and_createdAt", ["operationId", "createdAt"]),
+
+  deliveries: defineTable({
+    operationId: v.id("orderOperations"),
+    orderId: v.id("orders"),
+    businessId: v.id("businesses"),
+    businessName: v.string(),
+    recipientName: v.string(),
+    address: v.string(),
+    method: adminDeliveryMethodValidator,
+    state: adminDeliveryStateValidator,
+    courierService: v.optional(v.string()),
+    courierReference: v.optional(v.string()),
+    courierFeeMinor: v.optional(v.number()),
+    courierFeePayer: v.optional(v.literal("client_to_courier")),
+    personalFeeMinor: v.number(),
+    commandId: v.string(),
+    problemReason: v.optional(v.string()),
+    startedByUserId: v.optional(v.id("users")),
+    startedAt: v.optional(v.number()),
+    completedByUserId: v.optional(v.id("users")),
+    completedAt: v.optional(v.number()),
+    createdByUserId: v.id("users"),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_operationId_and_createdAt", ["operationId", "createdAt"])
+    .index("by_operationId_and_commandId", ["operationId", "commandId"])
+    .index("by_state_and_updatedAt", ["state", "updatedAt"]),
+
+  deliveryLines: defineTable({
+    deliveryId: v.id("deliveries"),
+    operationId: v.id("orderOperations"),
+    orderLineId: v.id("orderLines"),
+    quantity: v.number(),
+    createdAt: v.number(),
+  })
+    .index("by_deliveryId", ["deliveryId"])
+    .index("by_operationId", ["operationId"])
+    .index("by_orderLineId", ["orderLineId"]),
+
+  orderEvents: defineTable({
+    operationId: v.id("orderOperations"),
+    orderId: v.id("orders"),
+    kind: adminOrderEventKindValidator,
+    axis: adminOrderAxisValidator,
+    commandId: v.string(),
+    actorUserId: v.id("users"),
+    fromValue: v.optional(v.string()),
+    toValue: v.optional(v.string()),
+    reason: v.optional(v.string()),
+    relatedRecordId: v.optional(v.string()),
+    createdAt: v.number(),
+  })
+    .index("by_operationId_and_createdAt", ["operationId", "createdAt"])
+    .index("by_operationId_and_commandId", ["operationId", "commandId"]),
 
   // TASK-32 — the payment HISTORY (RFC-002 §2.5/§2.6): one row per payment,
   // never just a "last paid" field. Manual entry is the MAIN flow (the first

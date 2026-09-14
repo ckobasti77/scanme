@@ -255,6 +255,7 @@ export const createOrder = mutation({
 
     const orderId = await ctx.db.insert("orders", {
       accountId,
+      createdByUserId: admin._id,
       status: "pending",
       plan,
       ...(planPeriod ? { planPeriod } : {}),
