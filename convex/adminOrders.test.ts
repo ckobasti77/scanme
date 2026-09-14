@@ -156,6 +156,21 @@ async function fullyPay(seeded: Awaited<ReturnType<typeof seed>>, operationId: I
   });
 }
 
+// ADMIN-12 replaces the former pretend SMF seam with actual unit creation.
+async function provisionRealUnits(seeded: Awaited<ReturnType<typeof seed>>, orderLineId: Id<"orderLines">, key: string) {
+  const data = await seeded.t.run(async ctx => {
+    const line = (await ctx.db.get(orderLineId))!;
+    const request = (await ctx.db.query("orderProvisioningRequests").withIndex("by_orderLineId", q => q.eq("orderLineId", orderLineId)).unique())!;
+    let profile = await ctx.db.query("serviceProfiles").withIndex("by_businessId_and_type", q => q.eq("businessId", line.businessId).eq("type", "scanme_links")).unique();
+    if (!profile) {
+      const id = await ctx.db.insert("serviceProfiles", { businessId: line.businessId, type: "scanme_links", slug: `links-${line.businessId}`, status: "active", totalScans: 0, totalPageViews: 0, totalConvertedSessions: 0, createdAt: NOW, updatedAt: NOW });
+      profile = (await ctx.db.get(id))!;
+    }
+    return { line, request, profile };
+  });
+  return seeded.admin.mutation(api.adminProducts.provision, { accountId: data.line.accountId, businessId: data.line.businessId, requestId: data.request._id, expectedOffset: 0, channels: ["qr"], destination: { kind: "services", serviceProfileIds: [data.profile._id] }, key });
+}
+
 describe("ADMIN-11 independent gates and immutable adoption", () => {
   test("custom design and payment remain independent; only both create one idempotent provisioning request", async () => {
     const seeded = await seed();
@@ -354,15 +369,7 @@ describe("ADMIN-11 physical fulfillment", () => {
     const smfRowsBefore = await seeded.t.run((ctx) => ctx.db.query("orderSmfReferences").withIndex("by_orderLineId", (q) => q.eq("orderLineId", line._id)).take(10));
     expect(smfRowsBefore).toHaveLength(0);
 
-    await seeded.admin.mutation(internal.adminOrders.recordSmfAssignments, {
-      orderLineId: line._id,
-      assignments: [
-        { reference: "SMF-REAL-001", sourceRecordId: "physical-record-1" },
-        { reference: "SMF-REAL-002", sourceRecordId: "physical-record-2" },
-      ],
-      actorUserId: seeded.adminId,
-      commandId: "smf-return-1",
-    });
+    await provisionRealUnits(seeded, line._id, "smf-return-1");
     const jobId = await seeded.admin.mutation(api.adminOrders.createPrintJob, { operationId: order.operationId, printerId, lines: [{ orderLineId: line._id, quantity: 2 }], commandId: "job-1" });
     await seeded.admin.mutation(api.adminOrders.dispatchPrintJob, { printJobId: jobId, expectedAt: NOW + 86_400_000, commandId: "send-1" });
     await seeded.admin.mutation(api.adminOrders.receivePrintJob, { printJobId: jobId, orderLineId: line._id, quantity: 2, commandId: "receive-1" });
@@ -383,7 +390,7 @@ describe("ADMIN-11 physical fulfillment", () => {
     });
     await seeded.admin.mutation(api.adminOrders.dispatchPrintJob, { printJobId: remakeJobId, commandId: "remake-send-1" });
     await seeded.admin.mutation(api.adminOrders.receivePrintJob, { printJobId: remakeJobId, orderLineId: line._id, quantity: 2, commandId: "remake-receive-1" });
-    await seeded.admin.mutation(api.adminOrders.recordQualityCheck, { printJobId: remakeJobId, orderLineId: line._id, result: "pass", quantity: 2, remakeRequested: false, commandId: "remake-qc-pass-1" });
+    await seeded.admin.mutation(api.adminOrders.recordQualityCheck, { printJobId: remakeJobId, orderLineId: line._id, result: "pass", verifiedChannelKinds: ["qr"], quantity: 2, remakeRequested: false, commandId: "remake-qc-pass-1" });
     const remade = await seeded.admin.query(api.adminOrders.getDetail, { operationId: order.operationId });
     expect(remade?.lines[0]).toMatchObject({
       sentToPrinterCount: 2,
@@ -400,15 +407,7 @@ describe("ADMIN-11 physical fulfillment", () => {
     const order = await createOperationalOrder(seeded);
     await fullyPay(seeded, order.operationId, order.detail.operation.requiredMinor);
     const line = order.detail.lines[0];
-    await seeded.admin.mutation(internal.adminOrders.recordSmfAssignments, {
-      orderLineId: line._id,
-      assignments: [
-        { reference: "SMF-LATE-1", sourceRecordId: "late-source-1" },
-        { reference: "SMF-LATE-2", sourceRecordId: "late-source-2" },
-      ],
-      actorUserId: seeded.adminId,
-      commandId: "smf-late",
-    });
+    await provisionRealUnits(seeded, line._id, "smf-late");
     const printerId = await seeded.admin.mutation(api.adminOrders.savePrinter, { name: "Štampa Plus" });
     const printJobId = await seeded.admin.mutation(api.adminOrders.createPrintJob, {
       operationId: order.operationId,
@@ -441,12 +440,12 @@ describe("ADMIN-11 physical fulfillment", () => {
     expect(lateAction?.state).toBe("resolved");
   });
 
-  test("successful QC emits only a pending activation signal and supports multiple deliveries with honest fees", async () => {
+  test("successful QC activates verified channels and supports multiple deliveries with honest fees", async () => {
     const seeded = await seed();
     const order = await createOperationalOrder(seeded);
     await fullyPay(seeded, order.operationId, order.detail.operation.requiredMinor);
     const line = order.detail.lines[0];
-    await seeded.admin.mutation(internal.adminOrders.recordSmfAssignments, { orderLineId: line._id, assignments: [{ reference: "SMF-A", sourceRecordId: "source-a" }, { reference: "SMF-B", sourceRecordId: "source-b" }], actorUserId: seeded.adminId, commandId: "smf-good" });
+    await provisionRealUnits(seeded, line._id, "smf-good");
     const printerId = await seeded.admin.mutation(api.adminOrders.savePrinter, { name: "Štampa Plus" });
     const jobOne = await seeded.admin.mutation(api.adminOrders.createPrintJob, { operationId: order.operationId, printerId, lines: [{ orderLineId: line._id, quantity: 1 }], commandId: "job-good-1" });
     const jobTwo = await seeded.admin.mutation(api.adminOrders.createPrintJob, { operationId: order.operationId, printerId, lines: [{ orderLineId: line._id, quantity: 1 }], commandId: "job-good-2" });
@@ -454,14 +453,14 @@ describe("ADMIN-11 physical fulfillment", () => {
     for (const [jobId, suffix] of [[jobOne, "1"], [jobTwo, "2"]] as const) {
       await seeded.admin.mutation(api.adminOrders.dispatchPrintJob, { printJobId: jobId, commandId: `send-good-${suffix}` });
       await seeded.admin.mutation(api.adminOrders.receivePrintJob, { printJobId: jobId, orderLineId: line._id, quantity: 1, commandId: `receive-good-${suffix}` });
-      await seeded.admin.mutation(api.adminOrders.recordQualityCheck, { printJobId: jobId, orderLineId: line._id, result: "pass", quantity: 1, remakeRequested: false, commandId: `qc-good-${suffix}` });
+      await seeded.admin.mutation(api.adminOrders.recordQualityCheck, { printJobId: jobId, orderLineId: line._id, result: "pass", verifiedChannelKinds: ["qr"], quantity: 1, remakeRequested: false, commandId: `qc-good-${suffix}` });
     }
     let detail = await seeded.admin.query(api.adminOrders.getDetail, { operationId: order.operationId });
     expect(detail?.printJobs).toHaveLength(2);
     expect(detail?.printJobs.every((job) => job.assigneeId === seeded.adminId && job.destination === "scanme")).toBe(true);
     expect(detail?.printJobLines.every((jobLine) => JSON.stringify(jobLine.printSnapshot) === JSON.stringify(line.configSnapshot))).toBe(true);
     expect(detail?.activationSignals).toHaveLength(2);
-    expect(detail?.activationSignals[0].state).toBe("pending_admin_12");
+    expect(detail?.activationSignals[0].processedAt).toBe(NOW);
     expect(detail?.operation.fulfillmentState).toBe("ready_for_delivery");
 
     const firstDelivery = await seeded.admin.mutation(api.adminOrders.createDelivery, { operationId: order.operationId, method: "courier", lines: [{ orderLineId: line._id, quantity: 1 }], courierReference: "AKS-1", courierFeeMinor: 55000, commandId: "delivery-1" });
@@ -494,7 +493,7 @@ describe("ADMIN-11 physical fulfillment", () => {
     }));
     expect(evidence.events.length).toBeGreaterThan(10);
     expect(evidence.events.every((event) => event.actorUserId === seeded.adminId && event.createdAt === NOW)).toBe(true);
-    expect(evidence.cards).toHaveLength(0);
+    expect(evidence.cards).toHaveLength(2);
     expect(evidence.payments).toHaveLength(1);
   });
 
@@ -503,7 +502,7 @@ describe("ADMIN-11 physical fulfillment", () => {
     const order = await createOperationalOrder(seeded);
     const paymentId = await fullyPay(seeded, order.operationId, order.detail.operation.requiredMinor);
     const line = order.detail.lines[0];
-    await seeded.admin.mutation(internal.adminOrders.recordSmfAssignments, { orderLineId: line._id, assignments: [{ reference: "SMF-R1", sourceRecordId: "reversal-1" }, { reference: "SMF-R2", sourceRecordId: "reversal-2" }], actorUserId: seeded.adminId, commandId: "smf-reversal" });
+    await provisionRealUnits(seeded, line._id, "smf-reversal");
     const before = await seeded.admin.query(api.adminOrders.getDetail, { operationId: order.operationId });
     expect(before?.operation.fulfillmentState).toBe("ready_for_printer");
     await seeded.admin.mutation(api.adminOrders.reversePayment, { paymentId, reason: "Stvarni povraćaj uplate", key: "reverse-1" });
@@ -530,15 +529,7 @@ describe("ADMIN-11 physical fulfillment", () => {
 
     const printable = await createOperationalOrder(seeded);
     await fullyPay(seeded, printable.operationId, printable.detail.operation.requiredMinor, "pay-printable");
-    await seeded.admin.mutation(internal.adminOrders.recordSmfAssignments, {
-      orderLineId: printable.detail.lines[0]._id,
-      assignments: [
-        { reference: "SMF-CANCEL-1", sourceRecordId: "cancel-source-1" },
-        { reference: "SMF-CANCEL-2", sourceRecordId: "cancel-source-2" },
-      ],
-      actorUserId: seeded.adminId,
-      commandId: "smf-before-cancel",
-    });
+    await provisionRealUnits(seeded, printable.detail.lines[0]._id, "smf-before-cancel");
     const printerId = await seeded.admin.mutation(api.adminOrders.savePrinter, { name: "Štampa Plus" });
     const jobId = await seeded.admin.mutation(api.adminOrders.createPrintJob, {
       operationId: printable.operationId,

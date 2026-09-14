@@ -13,6 +13,9 @@ import { generateCode, normalizeCode } from "./lib/codes";
 import { serviceMetricDateKey } from "./lib/serviceMetrics";
 import { isSafePublicDestination, requireText } from "./lib/validation";
 import { fmt, getDict } from "../lib/i18n";
+import { cardResolution } from "./lib/accessResolution";
+import { refreshInventory, syncChannel } from "./lib/accessOperations";
+import { syncAutomaticAction } from "./lib/adminActionEngine";
 
 // =============================================================================
 // TASK-14 — Cards: the printed /r/[cardCode] resolver and its management.
@@ -308,6 +311,7 @@ export const retargetCard = mutation({
     const card = await ctx.db.get(args.cardId);
     if (!card) throw new ConvexError(dict.cardNotFound);
     const { user } = await requireBusinessAccess(ctx, card.businessId);
+    if (card.accessChannelId) throw new ConvexError("access_use_canonical_writer");
     const fields = await validateTargetSpec(ctx, card.businessId, args.target);
     const now = Date.now();
     const targetId = await ctx.db.insert("cardTargets", {
@@ -476,6 +480,7 @@ export const disableCard = mutation({
     const card = await ctx.db.get(args.cardId);
     if (!card) throw new ConvexError(dict.cardNotFound);
     await requireBusinessAccess(ctx, card.businessId);
+    if (card.accessChannelId) throw new ConvexError("access_use_canonical_writer");
     if (card.status !== "disabled") {
       await ctx.db.patch(card._id, { status: "disabled", updatedAt: Date.now() });
     }
@@ -574,10 +579,23 @@ export const resolveAndRecord = mutation({
       .query("cards")
       .withIndex("by_cardCode", (q) => q.eq("cardCode", cardCode))
       .unique();
-    if (!card || card.status !== "active" || !card.currentTargetId) {
+    if (!card || (!card.accessChannelId && card.status !== "active")) {
       return { kind: "invalid" };
     }
-    const target = await ctx.db.get(card.currentTargetId);
+    const resolution = await cardResolution(ctx, card);
+    const { target, channel, subject, problem } = resolution;
+    if (card.accessChannelId) await syncAutomaticAction(ctx, {
+      domain: "qr_nfc", sourceRecordId: card._id, causeKind: "resolver_mapping",
+      sourceVersion: problem?.startsWith("resolver_") ? problem : "valid",
+      isOpen: !!problem?.startsWith("resolver_"), businessId: card.businessId,
+      severity: "blocking", relevantAt: card.createdAt,
+      priority: { blocking: true, overdue: false, dueToday: false, needsReply: false, graceOrWarning: false, waitingOn: "scanme" },
+    }, Date.now());
+    if (channel && subject && problem) {
+      await syncChannel(ctx, channel, subject, { kind: "system", source: "resolver" }, problem, Date.now());
+      if (channel.problemReason !== problem || channel.state !== "problem") await refreshInventory(ctx, subject, Date.now());
+    }
+    if (problem || (channel && (!channel.redirectEnabled || channel.state !== "active"))) return { kind: "invalid" };
     if (!target) return { kind: "invalid" };
 
     const now = Date.now();
@@ -592,10 +610,22 @@ export const resolveAndRecord = mutation({
         occurredAt: now,
         targetKind: target.kind,
         deviceCategory: args.deviceCategory,
+        destinationId: target._id,
+        accessChannelId: channel?._id,
+        accessSubjectId: subject?._id,
+        physicalProductId: subject?.physicalProductId,
+        digitalQrId: channel?.digitalQrId,
+        placementId: subject?.currentPlacementId,
       });
       // Bots are recorded as events but never counted — the same suppression
       // the Links pipeline applies to its totals.
       if (args.deviceCategory !== "bot") {
+        if (channel && subject) {
+          await ctx.db.patch(channel._id, { totalScans: channel.totalScans + 1 });
+          const total = await ctx.db.query("accessMetricTotals").withIndex("by_subjectId_and_placementId_and_channelId", q => q.eq("subjectId", subject._id).eq("placementId", subject.currentPlacementId).eq("channelId", channel._id)).unique();
+          if (total) await ctx.db.patch(total._id, { scans: total.scans + 1 });
+          else await ctx.db.insert("accessMetricTotals", { subjectId: subject._id, channelId: channel._id, placementId: subject.currentPlacementId, scans: 1 });
+        }
         await ctx.db.patch(card._id, {
           totalScans: card.totalScans + 1,
           updatedAt: now,
@@ -709,10 +739,11 @@ export const getSplitterView = query({
       .query("cards")
       .withIndex("by_cardCode", (q) => q.eq("cardCode", cardCode))
       .unique();
-    if (!card || card.status !== "active" || !card.currentTargetId) {
+    if (!card || (!card.accessChannelId && card.status !== "active")) {
       return { status: "invalid" };
     }
-    const target = await ctx.db.get(card.currentTargetId);
+    const { target, channel, problem } = await cardResolution(ctx, card);
+    if (problem || (channel && (!channel.redirectEnabled || channel.state !== "active"))) return { status: "invalid" };
     if (target?.kind !== "splitter" || !target.splitterItems) {
       return { status: "invalid" };
     }
@@ -722,6 +753,9 @@ export const getSplitterView = query({
     const buttons: SplitterButton[] = [];
     for (const item of target.splitterItems) {
       switch (item.kind) {
+        case "menu":
+          buttons.push({ label: item.label, href: `/${business.slug}/meni`, external: false });
+          break;
         case "memories_space": {
           if (!item.spaceId) continue;
           const space = await ctx.db.get(item.spaceId);
@@ -819,10 +853,11 @@ export const resolveSplitterMemories = mutation({
       .query("cards")
       .withIndex("by_cardCode", (q) => q.eq("cardCode", cardCode))
       .unique();
-    if (!card || card.status !== "active" || !card.currentTargetId) {
+    if (!card || (!card.accessChannelId && card.status !== "active")) {
       return { kind: "invalid" };
     }
-    const target = await ctx.db.get(card.currentTargetId);
+    const { target, channel, problem } = await cardResolution(ctx, card);
+    if (problem || (channel && (!channel.redirectEnabled || channel.state !== "active"))) return { kind: "invalid" };
     if (target?.kind !== "splitter" || !target.splitterItems) {
       return { kind: "invalid" };
     }
