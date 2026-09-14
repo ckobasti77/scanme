@@ -96,6 +96,9 @@ const subjectLabels: Record<SubjectKind, string> = {
   service: dict.subjectService,
   subscription: dict.subjectSubscription,
   order: dict.subjectOrder,
+  order_line: dict.subjectOrderLine,
+  print_job: dict.subjectPrintJob,
+  delivery: dict.subjectDelivery,
   action_item: dict.subjectActionItem,
 };
 

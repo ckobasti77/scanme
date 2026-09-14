@@ -51,6 +51,12 @@ const PRIORITY_RANK = { urgent: 0, high: 1, normal: 2, low: 3 } as const;
 type TaskSubject = Infer<typeof taskSubjectValidator>;
 type TaskDue = Exclude<Infer<typeof taskDueValidator>, null>;
 type DatabaseCtx = QueryCtx | MutationCtx;
+type ResolvedSubject = {
+  kind: Infer<typeof taskSubjectKindValidator>;
+  label?: string;
+  href?: string;
+  orderOperationId?: Id<"orderOperations">;
+};
 
 const taskListItemValidator = v.object({
   id: v.id("clientTasks"),
@@ -254,7 +260,7 @@ async function resolveSubject(
   ctx: DatabaseCtx,
   accountId: Id<"accounts">,
   subject: TaskSubject | null,
-) {
+): Promise<ResolvedSubject> {
   if (!subject) return { kind: "none" as const };
   switch (subject.kind) {
     case "account": {
@@ -293,7 +299,35 @@ async function resolveSubject(
     case "order": {
       const row = await ctx.db.get(subject.id);
       if (!row || row.accountId !== accountId) throw new ConvexError("admin_task_subject_cross_account");
-      return { kind: subject.kind, label: String(row._id), href: "/admin/operativa/porudzbine" };
+      const operation = await ctx.db
+        .query("orderOperations")
+        .withIndex("by_orderId", (q) => q.eq("orderId", row._id))
+        .unique();
+      return {
+        kind: subject.kind,
+        label: row.smpCode ?? String(row._id),
+        href: `/admin/operativa/porudzbine?order=${row._id}`,
+        orderOperationId: operation?._id,
+      };
+    }
+    case "order_line": {
+      const row = await ctx.db.get(subject.id);
+      if (!row || row.accountId !== accountId) throw new ConvexError("admin_task_subject_cross_account");
+      return { kind: subject.kind, label: `${row.productLabel} · ${row.smlCode}`, href: `/admin/operativa/porudzbine?order=${row.orderId}`, orderOperationId: row.operationId };
+    }
+    case "print_job": {
+      const row = await ctx.db.get(subject.id);
+      if (!row) throw new ConvexError("admin_task_subject_not_found");
+      const operation = await ctx.db.get(row.operationId);
+      if (!operation || operation.accountId !== accountId) throw new ConvexError("admin_task_subject_cross_account");
+      return { kind: subject.kind, label: row.printerName, href: `/admin/operativa/porudzbine?order=${row.orderId}`, orderOperationId: row.operationId };
+    }
+    case "delivery": {
+      const row = await ctx.db.get(subject.id);
+      if (!row) throw new ConvexError("admin_task_subject_not_found");
+      const operation = await ctx.db.get(row.operationId);
+      if (!operation || operation.accountId !== accountId) throw new ConvexError("admin_task_subject_cross_account");
+      return { kind: subject.kind, label: row.method, href: `/admin/operativa/porudzbine?order=${row.orderId}`, orderOperationId: row.operationId };
     }
     case "action_item": {
       const row = await ctx.db.get(subject.id);
@@ -769,6 +803,7 @@ export const create = mutation({
       subjectKind: subjectInfo.kind,
       ...(subjectInfo.label ? { subjectLabel: subjectInfo.label } : {}),
       ...(subjectInfo.href ? { subjectHref: subjectInfo.href } : {}),
+      ...(subjectInfo.orderOperationId ? { orderOperationId: subjectInfo.orderOperationId } : {}),
       title,
       description,
       assigneeId: assignee._id,
@@ -1156,6 +1191,7 @@ export const setSubject = mutation({
       subjectKind: subjectInfo.kind,
       subjectLabel: subjectInfo.label,
       subjectHref: subjectInfo.href,
+      orderOperationId: subjectInfo.orderOperationId,
       searchText: searchText({
         accountName: task.accountName,
         smkCode: task.smkCode,

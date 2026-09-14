@@ -47,6 +47,9 @@ export const taskSubjectValidator = v.union(
   v.object({ kind: v.literal("service"), id: v.id("serviceProfiles") }),
   v.object({ kind: v.literal("subscription"), id: v.id("subscriptions") }),
   v.object({ kind: v.literal("order"), id: v.id("orders") }),
+  v.object({ kind: v.literal("order_line"), id: v.id("orderLines") }),
+  v.object({ kind: v.literal("print_job"), id: v.id("printJobs") }),
+  v.object({ kind: v.literal("delivery"), id: v.id("deliveries") }),
   v.object({ kind: v.literal("action_item"), id: v.id("actionItems") }),
 );
 
@@ -59,6 +62,9 @@ export const taskSubjectKindValidator = v.union(
   v.literal("service"),
   v.literal("subscription"),
   v.literal("order"),
+  v.literal("order_line"),
+  v.literal("print_job"),
+  v.literal("delivery"),
   v.literal("action_item"),
 );
 
