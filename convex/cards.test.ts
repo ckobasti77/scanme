@@ -294,7 +294,7 @@ test("menu target resolves to business clean menu URL and records scan once per 
   await t.run((ctx) => ctx.db.patch(menuCard.cardId, { status: "disabled" }));
   expect((await resolve(t, menuCard.cardCode, "req-menu-3")).kind).toBe("invalid");
 
-  // Menu cannot be a splitter button (§2.13 M.8 / TASK-56)
+  // ADMIN-12 extends the existing splitter to include Menu.
   await expect(
     admin.mutation(api.cards.createCard, {
       businessId,
@@ -302,13 +302,12 @@ test("menu target resolves to business clean menu URL and records scan once per 
       target: {
         kind: "splitter",
         splitterItems: [
-          // @ts-expect-error "menu" is deliberately excluded from cardSplitterItem
           { kind: "menu", label: "Meni" },
           { kind: "venue", label: "Ponuda" },
         ],
       },
     }),
-  ).rejects.toThrow();
+  ).resolves.toMatchObject({ cardId: expect.any(String) });
 });
 
 test("cross-business targets and unsafe URLs are rejected at write time", async () => {

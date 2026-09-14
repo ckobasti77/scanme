@@ -1,6 +1,7 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import { authTables } from "@convex-dev/auth/server";
+import { accessActor, accessAttribution, accessColor, accessDestinationInput, accessDestinationKind, accessHealth, accessKind, accessState } from "./lib/accessValidators";
 import {
   destinationPresentationValidator,
   paletteAnalysisValidator,
@@ -171,12 +172,8 @@ export const cardTargetKind = v.union(
   v.literal("service_page"),
   v.literal("url"),
   v.literal("splitter"),
-  // RFC-003 §2.13 M.8 (TASK-47): a card resolves to /{slug}/meni. Shared with
-  // cardScanEvents.targetKind (they cannot drift). Storable but inert until
-  // TASK-56 (§2.8) wires the real 302: convex/cards.ts refuses menu at creation
-  // (validateTargetSpec guard) and resolves it as "invalid". NOT added to
-  // cardSplitterItem below — §2.13 lists only cardTargets.kind, so menu is not a
-  // valid splitter button (cards.ts SplitterItemSpec excludes it to match).
+  // A card resolves to /{slug}/meni; shared with cardScanEvents.targetKind.
+  // ADMIN-12 also permits Menu in the generic splitter below.
   v.literal("menu"),
   // RFC-004 §2.14, §2.16 O.8 (TASK-62): a card resolves through the card-aware
   // hop to /o/[code]. Shared with cardScanEvents.targetKind. Wired live by
@@ -191,14 +188,14 @@ export const cardTargetKind = v.union(
 // RFC-002 §5 Q8's open question — this is the deliberately minimal answer.
 export const cardSplitterItem = v.object({
   kind: v.union(
+    v.literal("menu"), // ADMIN-12: Review + Menu uses the existing generic splitter.
     v.literal("memories_space"),
     v.literal("venue"),
     v.literal("event"),
     v.literal("service_page"),
     v.literal("url"),
     // RFC-004 §2.14, §2.16 O.9 (TASK-62): an ordering button on a bare splitter.
-    // Unlike Menu (which is not a splitter button per RFC-003 §2.13 M.8), ordering
-    // IS a splitter button. Wired live by TASK-63: cards.ts binds it at creation
+    // Wired live by TASK-63: cards.ts binds it at creation
     // and getSplitterView emits the card-aware hop href /r/[cardCode]/o.
     v.literal("table_ordering"),
   ),
@@ -502,7 +499,7 @@ export default defineSchema({
     .index("by_clientStatus_and_urgencyRank_and_normalizedVenueName", ["clientStatus", "urgencyRank", "normalizedVenueName"])
     .index("by_clientStatus_and_normalizedVenueName", ["clientStatus", "normalizedVenueName"])
     .index("by_clientStatus_and_updatedAt", ["clientStatus", "updatedAt"])
-    .searchIndex("search_searchText", { searchField: "searchText", filterFields: ["clientStatus"] }),
+    .searchIndex("search_searchText", { searchField: "searchText", filterFields: ["clientStatus", "accountId"] }),
 
   adminProductReadModels: defineTable({
     accountId: v.id("accounts"),
@@ -1523,6 +1520,7 @@ export default defineSchema({
 
   // C.9 — cards + immutable retarget history (the /r/[cardCode] resolver).
   cards: defineTable({
+    accessChannelId: v.optional(v.id("accessChannels")),
     businessId: v.id("businesses"),
     cardCode: v.string(),
     label: v.string(),
@@ -1550,6 +1548,7 @@ export default defineSchema({
 
   // C.10 — card scan events + daily rollup.
   cardScanEvents: defineTable({
+    ...accessAttribution,
     cardId: v.id("cards"),
     requestId: v.string(),
     occurredAt: v.number(),
@@ -1565,6 +1564,125 @@ export default defineSchema({
     scans: v.number(),
     updatedAt: v.number(),
   }).index("by_cardId_and_dateKey", ["cardId", "dateKey"]),
+
+  // ADMIN-12. A subject owns ONE current destination. cards remain the public
+  // token registry and immutable target/event store, including legacy rows.
+  accessSubjects: defineTable({
+    accountId: v.id("accounts"), businessId: v.id("businesses"),
+    physicalProductId: v.optional(v.id("physicalProducts")),
+    digitalQrId: v.optional(v.id("digitalQrCodes")),
+    anchorCardId: v.optional(v.id("cards")),
+    currentTargetId: v.optional(v.id("cardTargets")),
+    destinationKind: accessDestinationKind,
+    destinationInput: v.optional(accessDestinationInput),
+    currentPlacementId: v.optional(v.id("productPlacements")),
+    createdAt: v.number(), updatedAt: v.number(),
+  }).index("by_businessId", ["businessId"]),
+
+  physicalProducts: defineTable({
+    accountId: v.id("accounts"), businessId: v.id("businesses"),
+    subjectId: v.id("accessSubjects"), smfCode: v.string(), localSuffix: v.string(),
+    orderId: v.id("orders"), orderLineId: v.id("orderLines"),
+    provisioningRequestId: v.id("orderProvisioningRequests"), unitOrdinal: v.number(),
+    productType: adminOrderProductTypeValidator,
+    designSnapshot: adminOrderProductConfigValidator,
+    designApprovalId: v.optional(v.id("orderDesignApprovals")),
+    boundServices: v.array(serviceType),
+    printJobId: v.optional(v.id("printJobs")),
+    qualityCheckId: v.optional(v.id("qualityChecks")),
+    deliveryId: v.optional(v.id("deliveries")),
+    qc: v.union(v.literal("pending"), v.literal("passed"), v.literal("failed")),
+    createdByUserId: v.id("users"), createdAt: v.number(), updatedAt: v.number(),
+  })
+    .index("by_smfCode", ["smfCode"])
+    .index("by_businessId_and_localSuffix", ["businessId", "localSuffix"])
+    .index("by_provisioningRequestId_and_unitOrdinal", ["provisioningRequestId", "unitOrdinal"])
+    .index("by_orderLineId", ["orderLineId"])
+    .index("by_orderLineId_and_deliveryId_and_qc", ["orderLineId", "deliveryId", "qc"]),
+
+  accessChannels: defineTable({
+    resumeState: v.optional(v.union(v.literal("active"), v.literal("inactive"))),
+    accountId: v.id("accounts"), businessId: v.id("businesses"),
+    subjectId: v.id("accessSubjects"), cardId: v.id("cards"), resolverCode: v.string(),
+    kind: accessKind, state: accessState, redirectEnabled: v.boolean(), health: accessHealth,
+    manualProblem: v.optional(v.string()), problemReason: v.optional(v.string()),
+    digitalQrId: v.optional(v.id("digitalQrCodes")),
+    physicalProductId: v.optional(v.id("physicalProducts")),
+    smqCode: v.optional(v.string()), smfCode: v.optional(v.string()),
+    binding: v.union(v.literal("digital"), v.literal("physical")),
+    searchText: v.string(), totalScans: v.number(),
+    lastActor: accessActor, lastReason: v.string(), createdAt: v.number(), updatedAt: v.number(),
+  })
+    .index("by_subjectId", ["subjectId"])
+    .index("by_cardId", ["cardId"])
+    .index("by_resolverCode", ["resolverCode"])
+    .index("by_binding_and_state_and_updatedAt", ["binding", "state", "updatedAt"])
+    .index("by_binding_and_updatedAt", ["binding", "updatedAt"])
+    .index("by_state_and_updatedAt", ["state", "updatedAt"])
+    .index("by_updatedAt", ["updatedAt"])
+    .searchIndex("search_channels", { searchField: "searchText", filterFields: ["accountId", "businessId", "binding", "state", "kind"] }),
+
+  digitalQrCodes: defineTable({
+    accountId: v.id("accounts"), businessId: v.id("businesses"), smqCode: v.string(),
+    channelId: v.id("accessChannels"), originalSubjectId: v.id("accessSubjects"),
+    linkedProductId: v.optional(v.id("physicalProducts")), linkedAt: v.optional(v.number()),
+    linkedByUserId: v.optional(v.id("users")),
+    legacyCardId: v.optional(v.id("cards")),
+    createdByUserId: v.id("users"), createdAt: v.number(),
+  }).index("by_smqCode", ["smqCode"]).index("by_legacyCardId", ["legacyCardId"]),
+
+  accessDestinationHistory: defineTable({
+    subjectId: v.id("accessSubjects"), previousTargetId: v.optional(v.id("cardTargets")),
+    targetId: v.id("cardTargets"), actor: accessActor, reason: v.string(), createdAt: v.number(),
+  }).index("by_subjectId_and_createdAt", ["subjectId", "createdAt"]),
+
+  productPlacements: defineTable({
+    productId: v.id("physicalProducts"), businessId: v.id("businesses"), name: v.string(),
+    startedAt: v.number(), endedAt: v.optional(v.number()),
+    actor: accessActor, reason: v.string(),
+  }).index("by_productId_and_startedAt", ["productId", "startedAt"]),
+
+  accessChannelEvents: defineTable({
+    channelId: v.id("accessChannels"), fromState: v.optional(accessState), toState: accessState,
+    health: accessHealth, redirectEnabled: v.boolean(), problemReason: v.optional(v.string()),
+    actor: accessActor, reason: v.string(), createdAt: v.number(),
+  }).index("by_channelId_and_createdAt", ["channelId", "createdAt"]),
+
+  accessMetricTotals: defineTable({
+    subjectId: v.id("accessSubjects"), channelId: v.id("accessChannels"),
+    placementId: v.optional(v.id("productPlacements")), scans: v.number(),
+  }).index("by_subjectId_and_placementId_and_channelId", ["subjectId", "placementId", "channelId"]),
+
+  accessCommands: defineTable({
+    key: v.string(), fingerprint: v.string(),
+    failureReason: v.optional(v.string()),
+    productIds: v.array(v.id("physicalProducts")),
+    digitalQrId: v.optional(v.id("digitalQrCodes")), createdAt: v.number(),
+  }).index("by_key", ["key"]),
+
+  accessMigrationIssues: defineTable({
+    cardId: v.id("cards"), reason: v.string(), resolvedAt: v.optional(v.number()), updatedAt: v.number(),
+  }).index("by_cardId", ["cardId"]),
+
+  productInventory: defineTable({
+    productId: v.id("physicalProducts"), subjectId: v.id("accessSubjects"),
+    accountId: v.id("accounts"), businessId: v.id("businesses"),
+    smfCode: v.string(), localSuffix: v.string(), productType: adminOrderProductTypeValidator,
+    productLabel: v.string(), position: v.string(), qr: accessColor, nfc: accessColor,
+    state: accessState, destinationKind: accessDestinationKind,
+    currentTargetId: v.optional(v.id("cardTargets")),
+    searchText: v.string(), updatedAt: v.number(),
+  })
+    .index("by_productId", ["productId"])
+    .index("by_businessId_and_smfCode", ["businessId", "smfCode"])
+    .index("by_businessId_and_state_and_smfCode", ["businessId", "state", "smfCode"])
+    .index("by_business_state_type_smf", ["businessId", "state", "productType", "smfCode"])
+    .index("by_business_state_type_position_smf", ["businessId", "state", "productType", "position", "smfCode"])
+    .index("by_business_state_position_smf", ["businessId", "state", "position", "smfCode"])
+    .index("by_business_type_position_smf", ["businessId", "productType", "position", "smfCode"])
+    .index("by_businessId_and_productType_and_smfCode", ["businessId", "productType", "smfCode"])
+    .index("by_businessId_and_position_and_smfCode", ["businessId", "position", "smfCode"])
+    .searchIndex("search_inventory", { searchField: "searchText", filterFields: ["accountId", "businessId", "state", "productType"] }),
 
   // C.11 — admin quota raise/reset (additive grants).
   quotaAdjustments: defineTable({
@@ -1823,11 +1941,16 @@ export default defineSchema({
     .index("by_operationId_and_approvedAt", ["operationId", "approvedAt"]),
 
   orderProvisioningRequests: defineTable({
+    accessProblem: v.optional(v.string()),
+    accessProblemAt: v.optional(v.number()),
+    createdCount: v.optional(v.number()),
+    accessFingerprint: v.optional(v.string()),
+    completedAt: v.optional(v.number()),
     operationId: v.id("orderOperations"),
     orderLineId: v.id("orderLines"),
     requestKey: v.string(),
     quantity: v.number(),
-    state: v.literal("pending_admin_12"),
+    state: v.union(v.literal("pending_admin_12"), v.literal("in_progress"), v.literal("fulfilled")),
     createdByUserId: v.id("users"),
     createdAt: v.number(),
   })
@@ -1926,6 +2049,8 @@ export default defineSchema({
     .index("by_commandId", ["commandId"]),
 
   qualityChecks: defineTable({
+    verifiedChannelKinds: v.optional(v.array(accessKind)),
+    physicalProductIds: v.optional(v.array(v.id("physicalProducts"))),
     operationId: v.id("orderOperations"),
     orderLineId: v.id("orderLines"),
     printJobId: v.id("printJobs"),
@@ -1943,16 +2068,20 @@ export default defineSchema({
     .index("by_commandId", ["commandId"]),
 
   orderActivationSignals: defineTable({
+    processedAt: v.optional(v.number()),
+    activeChannelCount: v.optional(v.number()),
+    problemChannelCount: v.optional(v.number()),
     operationId: v.id("orderOperations"),
     orderLineId: v.id("orderLines"),
     qualityCheckId: v.id("qualityChecks"),
-    state: v.literal("pending_admin_12"),
+    state: v.union(v.literal("pending_admin_12"), v.literal("applied"), v.literal("problem")),
     createdAt: v.number(),
   })
     .index("by_qualityCheckId", ["qualityCheckId"])
     .index("by_operationId_and_createdAt", ["operationId", "createdAt"]),
 
   deliveries: defineTable({
+    accessFingerprint: v.optional(v.string()),
     operationId: v.id("orderOperations"),
     orderId: v.id("orders"),
     businessId: v.id("businesses"),
@@ -1981,6 +2110,7 @@ export default defineSchema({
     .index("by_state_and_updatedAt", ["state", "updatedAt"]),
 
   deliveryLines: defineTable({
+    physicalProductIds: v.optional(v.array(v.id("physicalProducts"))),
     deliveryId: v.id("deliveries"),
     operationId: v.id("orderOperations"),
     orderLineId: v.id("orderLines"),

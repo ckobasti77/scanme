@@ -220,6 +220,7 @@ export const retargetCard = mutation({
     const admin = await requireAdmin(ctx);
     const card = await ctx.db.get(args.cardId);
     if (!card) throw new ConvexError(cardDict.cardNotFound);
+    if (card.accessChannelId) throw new ConvexError("access_use_canonical_writer");
     const business = await loadBusiness(ctx, card.businessId);
     const fromKind = card.currentTargetId
       ? ((await ctx.db.get(card.currentTargetId))?.kind ?? null)
@@ -251,6 +252,7 @@ export const disableCard = mutation({
     const admin = await requireAdmin(ctx);
     const card = await ctx.db.get(args.cardId);
     if (!card) throw new ConvexError(cardDict.cardNotFound);
+    if (card.accessChannelId) throw new ConvexError("access_use_canonical_writer");
     if (card.status === "disabled") return { changed: false as const };
     const business = await loadBusiness(ctx, card.businessId);
     const now = Date.now();

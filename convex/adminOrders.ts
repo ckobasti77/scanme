@@ -4,6 +4,9 @@ import {
   paginationResultValidator,
 } from "convex/server";
 import { ConvexError, v } from "convex/values";
+import { applyQc, productForReference, requireDispatchReady, selectQcProducts } from "./lib/accessOrderBridge";
+import { accessKind } from "./lib/accessValidators";
+import { fingerprint as accessFingerprint } from "./lib/accessOperations";
 import type { DataModel, Doc, Id } from "./_generated/dataModel";
 import {
   internalMutation,
@@ -800,6 +803,8 @@ export const recordSmfAssignments = internalMutation({
       throw new ConvexError("admin_order_smf_reference_duplicate");
     }
     for (let index = 0; index < args.assignments.length; index += 1) {
+      const product = await productForReference(ctx, references[index], line._id);
+      if (product._id !== sourceIds[index]) throw new ConvexError("admin_order_real_smf_required");
       const duplicateRef = await ctx.db.query("orderSmfReferences").withIndex("by_reference", (q) => q.eq("reference", references[index])).unique();
       const duplicateSource = await ctx.db.query("orderSmfReferences").withIndex("by_sourceRecordId", (q) => q.eq("sourceRecordId", sourceIds[index])).unique();
       if (duplicateRef || duplicateSource) throw new ConvexError("admin_order_smf_reference_duplicate");
@@ -877,7 +882,14 @@ export const createPrintJob = mutation({
         if (remakeCheck.orderLineId !== line._id || count !== remakeCheck.quantity) throw new ConvexError("admin_order_remake_quantity_invalid");
         const sourceLine = remakeJobLines.find((row) => row.orderLineId === line._id);
         if (!sourceLine || sourceLine.smfReferences.length < count) throw new ConvexError("admin_order_real_smf_required");
-        prepared.push({ line, count, refs: sourceLine.smfReferences.slice(0, count), reservations: [], printSnapshot: sourceLine.printSnapshot });
+        if (!remakeCheck.physicalProductIds || remakeCheck.physicalProductIds.length !== count) throw new ConvexError("access_legacy_qc_mapping_required");
+        const refs: string[] = [];
+        for (const id of remakeCheck.physicalProductIds) {
+          const product = await ctx.db.get(id);
+          if (!product || product.orderLineId !== line._id || !sourceLine.smfReferences.includes(product.smfCode)) throw new ConvexError("admin_order_real_smf_required");
+          refs.push(product.smfCode);
+        }
+        prepared.push({ line, count, refs, reservations: [], printSnapshot: sourceLine.printSnapshot });
         continue;
       }
       let printSnapshot = line.configSnapshot;
@@ -921,6 +933,11 @@ export const createPrintJob = mutation({
     });
     for (const row of prepared) {
       await ctx.db.insert("printJobLines", { printJobId, operationId: operation._id, orderLineId: row.line._id, quantity: row.count, smfReferences: row.refs, printSnapshot: row.printSnapshot, createdAt: now });
+      for (const ref of row.refs) {
+        const product = await productForReference(ctx, ref, row.line._id);
+        if (accessFingerprint(product.designSnapshot) !== accessFingerprint(row.printSnapshot)) throw new ConvexError("access_immutable_print_snapshot_mismatch");
+        await ctx.db.patch(product._id, { printJobId, updatedAt: now });
+      }
       for (const reference of row.reservations) {
         await ctx.db.patch(reference._id, { printJobId });
       }
@@ -1010,6 +1027,8 @@ export const receivePrintJob = mutation({
 
 export const recordQualityCheck = mutation({
   args: {
+    verifiedChannelKinds: v.optional(v.array(accessKind)),
+    physicalProductIds: v.optional(v.array(v.id("physicalProducts"))),
     printJobId: v.id("printJobs"),
     orderLineId: v.id("orderLines"),
     result: v.union(v.literal("pass"), v.literal("problem")),
@@ -1023,7 +1042,11 @@ export const recordQualityCheck = mutation({
     const actor = await requireAdmin(ctx);
     const eventCommand = command(args.commandId);
     const previous = await ctx.db.query("qualityChecks").withIndex("by_commandId", (q) => q.eq("commandId", eventCommand)).unique();
-    if (previous) return previous._id;
+    if (previous) {
+      if (JSON.stringify(previous.verifiedChannelKinds) !== JSON.stringify(args.verifiedChannelKinds)) throw new ConvexError("access_idempotency_payload_mismatch");
+      if (previous.printJobId !== args.printJobId || previous.orderLineId !== args.orderLineId || previous.result !== args.result || previous.quantity !== args.quantity || previous.reason !== args.reason?.trim() || previous.remakeRequested !== args.remakeRequested || (args.physicalProductIds && JSON.stringify(previous.physicalProductIds) !== JSON.stringify(args.physicalProductIds))) throw new ConvexError("access_idempotency_payload_mismatch");
+      return previous._id;
+    }
     const job = await ctx.db.get(args.printJobId);
     if (!job || (job.state !== "received" && job.state !== "partially_received")) throw new ConvexError("admin_order_qc_before_receipt");
     const operation = await getOperation(ctx, job.operationId);
@@ -1055,8 +1078,11 @@ export const recordQualityCheck = mutation({
     const reason = args.reason?.trim();
     if (args.result === "problem" && !reason) throw new ConvexError("admin_order_qc_reason_required");
     if (args.result === "pass" && args.remakeRequested) throw new ConvexError("admin_order_qc_remake_invalid");
+    const physicalProductIds = await selectQcProducts(ctx, job, line, count, checks, args.physicalProductIds);
     const now = Date.now();
     const qualityCheckId = await ctx.db.insert("qualityChecks", {
+      verifiedChannelKinds: args.verifiedChannelKinds,
+      physicalProductIds,
       operationId: operation._id,
       orderLineId: line._id,
       printJobId: job._id,
@@ -1091,6 +1117,7 @@ export const recordQualityCheck = mutation({
       });
     }
     await appendOrderEvent(ctx, { operation, kind: "quality_control_recorded", axis: "fulfillment", commandId: eventCommand, actorUserId: actor._id, fromValue: String(line.qcPassedCount), toValue: args.result, reason, relatedRecordId: String(qualityCheckId), now });
+    await applyQc(ctx, (await ctx.db.get(qualityCheckId))!, now);
     await writeAdminAudit(ctx, { actorUserId: actor._id, accountId: operation.accountId, businessId: line.businessId, action: "admin_order_quality_control_recorded", detail: { orderId: operation.orderId, printJobId: job._id, orderLineId: line._id, qualityCheckId, result: args.result, quantity: count, remakeRequested: args.result === "problem" && args.remakeRequested }, now });
     await refreshOperation(ctx, operation._id, actor._id, now);
     return qualityCheckId;
@@ -1101,7 +1128,7 @@ export const createDelivery = mutation({
   args: {
     operationId: v.id("orderOperations"),
     method: adminDeliveryMethodValidator,
-    lines: v.array(v.object({ orderLineId: v.id("orderLines"), quantity: v.number() })),
+    lines: v.array(v.object({ orderLineId: v.id("orderLines"), quantity: v.number(), physicalProductIds: v.optional(v.array(v.id("physicalProducts"))) })),
     courierService: v.optional(v.string()),
     courierReference: v.optional(v.string()),
     courierFeeMinor: v.optional(v.number()),
@@ -1115,19 +1142,36 @@ export const createDelivery = mutation({
     const operation = await getOperation(ctx, args.operationId);
     const eventCommand = command(args.commandId);
     const existing = await ctx.db.query("deliveries").withIndex("by_operationId_and_commandId", (q) => q.eq("operationId", operation._id).eq("commandId", eventCommand)).unique();
-    if (existing) return existing._id;
+    if (existing) {
+      if (existing.accessFingerprint && existing.accessFingerprint !== accessFingerprint(args)) throw new ConvexError("access_idempotency_payload_mismatch");
+      return existing._id;
+    }
     if (args.lines.length === 0 || args.lines.length > ADMIN_ORDER_BATCH) throw new ConvexError("admin_order_delivery_lines_invalid");
     if (new Set(args.lines.map((line) => String(line.orderLineId))).size !== args.lines.length) throw new ConvexError("admin_order_delivery_line_duplicate");
     const courierFeeMinor = args.courierFeeMinor === undefined ? undefined : minor(args.courierFeeMinor);
     if (args.method === "personal" && courierFeeMinor !== undefined && courierFeeMinor !== 0) throw new ConvexError("admin_order_personal_delivery_fee_must_be_zero");
-    const prepared: { line: Doc<"orderLines">; count: number }[] = [];
+    const prepared: { line: Doc<"orderLines">; count: number; productIds: Id<"physicalProducts">[] }[] = [];
+    let totalUnits = 0;
     for (const requested of args.lines) {
       const line = await getOrderLine(ctx, requested.orderLineId);
       if (line.operationId !== operation._id) throw new ConvexError("admin_order_cross_order_line");
       const count = quantity(requested.quantity, line.quantity);
+      totalUnits += count;
+      if (totalUnits > ADMIN_ORDER_BATCH) throw new ConvexError("access_delivery_batch_invalid");
       const available = line.qcPassedCount - line.deliveredCount - line.inDeliveryCount - line.deliveryReservedCount;
       if (count > available) throw new ConvexError("admin_order_delivery_requires_passed_qc");
-      prepared.push({ line, count });
+      if (requested.physicalProductIds && (requested.physicalProductIds.length !== count || new Set(requested.physicalProductIds).size !== count)) throw new ConvexError("access_delivery_units_invalid");
+      const products = requested.physicalProductIds
+        ? await Promise.all(requested.physicalProductIds.map(id => ctx.db.get(id)))
+        : await ctx.db.query("physicalProducts").withIndex("by_orderLineId_and_deliveryId_and_qc", q => q.eq("orderLineId", line._id).eq("deliveryId", undefined).eq("qc", "passed")).take(count);
+      if (products.length !== count || new Set(products.map(p => p?._id)).size !== count) throw new ConvexError("access_delivery_units_invalid");
+      const productIds: Id<"physicalProducts">[] = [];
+      for (const product of products) {
+        if (!product || product.orderLineId !== line._id || product.deliveryId) throw new ConvexError("access_delivery_units_invalid");
+        await requireDispatchReady(ctx, product);
+        productIds.push(product._id);
+      }
+      prepared.push({ line, count, productIds });
     }
     const businessId = prepared[0].line.businessId;
     if (prepared.some(({ line }) => line.businessId !== businessId)) {
@@ -1146,6 +1190,7 @@ export const createDelivery = mutation({
     if (!storedAddress) throw new ConvexError("admin_order_delivery_address_required");
     const now = Date.now();
     const deliveryId = await ctx.db.insert("deliveries", {
+      accessFingerprint: accessFingerprint(args),
       operationId: operation._id,
       orderId: operation.orderId,
       businessId,
@@ -1165,7 +1210,8 @@ export const createDelivery = mutation({
       updatedAt: now,
     });
     for (const row of prepared) {
-      await ctx.db.insert("deliveryLines", { deliveryId, operationId: operation._id, orderLineId: row.line._id, quantity: row.count, createdAt: now });
+      await ctx.db.insert("deliveryLines", { deliveryId, operationId: operation._id, orderLineId: row.line._id, quantity: row.count, physicalProductIds: row.productIds, createdAt: now });
+      for (const id of row.productIds) await ctx.db.patch(id, { deliveryId, updatedAt: now });
       await ctx.db.patch(row.line._id, {
         deliveryReservedCount: row.line.deliveryReservedCount + row.count,
         updatedAt: now,
@@ -1195,6 +1241,12 @@ export const startDelivery = mutation({
     for (const deliveryLine of deliveryLines) {
       const line = await getOrderLine(ctx, deliveryLine.orderLineId);
       if (deliveryLine.quantity > line.deliveryReservedCount) throw new ConvexError("admin_order_delivery_reservation_invalid");
+      if (!deliveryLine.physicalProductIds || deliveryLine.physicalProductIds.length !== deliveryLine.quantity) throw new ConvexError("access_legacy_delivery_mapping_required");
+      for (const id of deliveryLine.physicalProductIds) {
+        const product = await ctx.db.get(id);
+        if (!product || product.deliveryId !== delivery._id || product.orderLineId !== line._id) throw new ConvexError("access_delivery_units_invalid");
+        await requireDispatchReady(ctx, product);
+      }
       await ctx.db.patch(line._id, {
         deliveryReservedCount: line.deliveryReservedCount - deliveryLine.quantity,
         inDeliveryCount: line.inDeliveryCount + deliveryLine.quantity,
