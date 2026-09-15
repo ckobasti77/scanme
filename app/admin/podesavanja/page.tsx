@@ -1,6 +1,7 @@
-import { AdminPendingPage } from "@/components/admin/admin-pending-page";
-import { adminV1Sr } from "@/lib/i18n/sr/admin-v1";
+import { AdminGuard } from "@/components/admin/admin-guard";
+import { AdminSettingsErrorBoundary, AdminSettingsWorkspace } from "@/components/admin/admin-settings";
+import { AdminShell } from "@/components/admin/admin-shell";
 
 export default function SettingsPage() {
-  return <AdminPendingPage title={adminV1Sr.settings} />;
+  return <AdminGuard><AdminShell><AdminSettingsErrorBoundary><AdminSettingsWorkspace /></AdminSettingsErrorBoundary></AdminShell></AdminGuard>;
 }

@@ -299,7 +299,9 @@ describe("ADMIN-03 agreements, selective waivers and referral", () => {
 
   test("referral qualifies on first receipt, requires terms, rewards once; reversal revokes future reward", async () => {
     const t = convexTest(schema, modules), a = await adopt(t), b = await adopt(t, "referrer");
-    const referralId = await a.adminClient.mutation(internal.subscriptionPricing.registerReferral, { referrerAccountId: b.accountId, referredAccountId: a.accountId });
+    const referralId = await a.adminClient.mutation(internal.subscriptionPricing.registerReferral, { referrerAccountId: b.accountId, referredAccountId: a.accountId, reason: "Test referral", key: "register-referral" });
+    expect(await a.adminClient.mutation(internal.subscriptionPricing.registerReferral, { referrerAccountId: b.accountId, referredAccountId: a.accountId, reason: "Test referral", key: "register-referral" })).toBe(referralId);
+    await expect(a.adminClient.mutation(internal.subscriptionPricing.registerReferral, { referrerAccountId: b.accountId, referredAccountId: a.accountId, reason: "Changed reason", key: "register-referral" })).rejects.toThrow("idempotency_conflict");
     const reward = { referralId, targets: [b.targets[6]], value: { kind: "fixed" as const, amount: rsd(100) }, validFrom: 0, validUntil: null, reason: "Test explicit referral terms", key: "reward" };
     await expect(a.adminClient.mutation(internal.subscriptionPricing.rewardReferral, reward)).rejects.toThrow("not_qualified");
     const periodId = await purchase(a, 1, date("2026-09-07"));
@@ -320,10 +322,10 @@ describe("ADMIN-03 agreements, selective waivers and referral", () => {
 
   test("unconfigured referral remains qualified, invalid/self/foreign/empty rewards refused", async () => {
     const t = convexTest(schema, modules), a = await adopt(t), b = await adopt(t, "referrer");
-    await expect(a.adminClient.mutation(internal.subscriptionPricing.registerReferral, { referrerAccountId: a.accountId, referredAccountId: a.accountId })).rejects.toThrow("self_referral");
+    await expect(a.adminClient.mutation(internal.subscriptionPricing.registerReferral, { referrerAccountId: a.accountId, referredAccountId: a.accountId, reason: "Test self referral", key: "self-referral" })).rejects.toThrow("self_referral");
     const periodId = await purchase(a, 1, date("2026-09-07"));
     await pay(a, "first", [{ periodId, amountMinor: 12_000 }]);
-    const referralId = await a.adminClient.mutation(internal.subscriptionPricing.registerReferral, { referrerAccountId: b.accountId, referredAccountId: a.accountId });
+    const referralId = await a.adminClient.mutation(internal.subscriptionPricing.registerReferral, { referrerAccountId: b.accountId, referredAccountId: a.accountId, reason: "Test reversal referral", key: "register-reversal-referral" });
     expect((await t.run((ctx) => ctx.db.get(referralId)))!.status).toBe("qualified");
     expect(await t.run((ctx) => ctx.db.query("discountRules").collect())).toHaveLength(0);
     const args = { referralId, targets: [a.targets[1]], value: { kind: "percentage" as const, basisPoints: 1_000 }, validFrom: 0, validUntil: null, reason: "Test bad target", key: "bad" };
