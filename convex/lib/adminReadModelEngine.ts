@@ -323,6 +323,7 @@ export async function upsertVenueReadModel(
     serviceTypes,
     clientStatus: business.clientStatus,
     signal,
+    hasOpenAction: signal.severity !== null,
     urgencyRank: signalUrgencyRank(signal),
     searchText: searchText([
       account.name,

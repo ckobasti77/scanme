@@ -372,6 +372,7 @@ export default defineSchema({
     .index("by_slug", ["slug"])
     .index("by_businessId", ["businessId"])
     .index("by_businessId_and_type", ["businessId", "type"])
+    .index("by_businessId_and_status_and_type", ["businessId", "status", "type"])
     .index("by_type_and_status", ["type", "status"]),
 
   // ADMIN-04: one server-authoritative operational cause. The causeId is a
@@ -487,6 +488,19 @@ export default defineSchema({
     serviceTypes: v.array(adminV1ServiceTypeValidator),
     clientStatus: clientLifecycleStatusValidator,
     signal: actionSignalValidator,
+    // Additive operational predicate for the ADMIN-13 venue-first problem
+    // filter. It is updated from the canonical action projection, not a UI
+    // guess about activity.
+    hasOpenAction: v.optional(v.boolean()),
+    // Canonical SMF/channel counters are maintained by the ADMIN-12 inventory
+    // projection. Legacy directory rows stay explicitly incomplete until a
+    // bounded reconciliation can prove every value.
+    productFactsComplete: v.optional(v.boolean()),
+    canonicalProductCount: v.optional(v.number()),
+    canonicalQrCount: v.optional(v.number()),
+    canonicalNfcCount: v.optional(v.number()),
+    canonicalActiveChannelCount: v.optional(v.number()),
+    canonicalProblemCount: v.optional(v.number()),
     urgencyRank: v.number(),
     searchText: v.string(),
     updatedAt: v.number(),
@@ -499,7 +513,14 @@ export default defineSchema({
     .index("by_clientStatus_and_urgencyRank_and_normalizedVenueName", ["clientStatus", "urgencyRank", "normalizedVenueName"])
     .index("by_clientStatus_and_normalizedVenueName", ["clientStatus", "normalizedVenueName"])
     .index("by_clientStatus_and_updatedAt", ["clientStatus", "updatedAt"])
-    .searchIndex("search_searchText", { searchField: "searchText", filterFields: ["clientStatus", "accountId"] }),
+    .index("by_account_status_urgency_name", ["accountId", "clientStatus", "urgencyRank", "normalizedVenueName"])
+    .index("by_accountId_and_clientStatus_and_normalizedVenueName", ["accountId", "clientStatus", "normalizedVenueName"])
+    .index("by_hasOpenAction_and_urgencyRank_and_normalizedVenueName", ["hasOpenAction", "urgencyRank", "normalizedVenueName"])
+    .index("by_hasOpenAction_and_normalizedVenueName", ["hasOpenAction", "normalizedVenueName"])
+    .index("by_account_action_urgency_name", ["accountId", "hasOpenAction", "urgencyRank", "normalizedVenueName"])
+    .index("by_accountId_and_hasOpenAction_and_normalizedVenueName", ["accountId", "hasOpenAction", "normalizedVenueName"])
+    .index("by_accountId_and_urgencyRank_and_normalizedVenueName", ["accountId", "urgencyRank", "normalizedVenueName"])
+    .searchIndex("search_searchText", { searchField: "searchText", filterFields: ["clientStatus", "accountId", "hasOpenAction"] }),
 
   adminProductReadModels: defineTable({
     accountId: v.id("accounts"),
@@ -1603,6 +1624,12 @@ export default defineSchema({
   accessChannels: defineTable({
     resumeState: v.optional(v.union(v.literal("active"), v.literal("inactive"))),
     accountId: v.id("accounts"), businessId: v.id("businesses"),
+    // ADMIN-13's global QR worklist must render the owning context without a
+    // per-row account/venue hydration. These are operational display copies;
+    // accountId/businessId remain the authorization authority.
+    accountName: v.optional(v.string()), smkCode: v.optional(v.string()),
+    smlCode: v.optional(v.string()), venueName: v.optional(v.string()),
+    city: v.optional(v.string()),
     subjectId: v.id("accessSubjects"), cardId: v.id("cards"), resolverCode: v.string(),
     kind: accessKind, state: accessState, redirectEnabled: v.boolean(), health: accessHealth,
     manualProblem: v.optional(v.string()), problemReason: v.optional(v.string()),
@@ -1619,6 +1646,10 @@ export default defineSchema({
     .index("by_binding_and_state_and_updatedAt", ["binding", "state", "updatedAt"])
     .index("by_binding_and_updatedAt", ["binding", "updatedAt"])
     .index("by_state_and_updatedAt", ["state", "updatedAt"])
+    .index("by_kind_and_updatedAt", ["kind", "updatedAt"])
+    .index("by_kind_and_state_and_updatedAt", ["kind", "state", "updatedAt"])
+    .index("by_kind_and_binding_and_updatedAt", ["kind", "binding", "updatedAt"])
+    .index("by_kind_and_binding_and_state_and_updatedAt", ["kind", "binding", "state", "updatedAt"])
     .index("by_updatedAt", ["updatedAt"])
     .searchIndex("search_channels", { searchField: "searchText", filterFields: ["accountId", "businessId", "binding", "state", "kind"] }),
 
@@ -1671,6 +1702,19 @@ export default defineSchema({
     productLabel: v.string(), position: v.string(), qr: accessColor, nfc: accessColor,
     state: accessState, destinationKind: accessDestinationKind,
     currentTargetId: v.optional(v.id("cardTargets")),
+    // The projection carries the compact, immutable facts needed by both the
+    // table and visual inventory without detail-query fan-out. Optional is
+    // deliberate: ADMIN-12 rows already persisted before this additive read
+    // model remain valid and are never presented as fabricated values.
+    designSnapshot: v.optional(adminOrderProductConfigValidator),
+    boundServices: v.optional(v.array(serviceType)),
+    destinationServiceTypes: v.optional(v.array(serviceType)),
+    qrChannelIds: v.optional(v.array(v.id("accessChannels"))),
+    nfcChannelIds: v.optional(v.array(v.id("accessChannels"))),
+    qrCount: v.optional(v.number()), nfcCount: v.optional(v.number()),
+    activeChannelCount: v.optional(v.number()), problemChannelCount: v.optional(v.number()),
+    qrProblemReason: v.optional(v.union(v.string(), v.null())),
+    nfcProblemReason: v.optional(v.union(v.string(), v.null())),
     searchText: v.string(), updatedAt: v.number(),
   })
     .index("by_productId", ["productId"])

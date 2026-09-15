@@ -423,3 +423,156 @@ test("500 venues and 10,000 physical products paginate under 4 queries/250 docum
   const filtered = await f.admin.query(api.adminProductReads.listInventory, { accountId: f.accountId, businessId: venues[0], state: "inactive", productType: "two-piece-stand", search: "dvodelni", paginationOpts: page(), sort: "smf", direction: "asc" });
   expect(filtered.page).toHaveLength(20);
 }, 60_000);
+
+test("ADMIN-13 reads expose canonical compact inventory facts and bounded technical channel context", async () => {
+  const f = await setup();
+  const p = await provision(f, 2);
+  await qc(f, p);
+  await f.admin.mutation(api.adminProducts.changePlacement, { ...f.scope, productId: p.productIds[0], name: "Terasa 4", reason: "Postavljeno", key: "admin13-position" });
+
+  const inventory = await f.admin.query(api.adminProductReads.listInventory, {
+    ...f.scope,
+    search: "terasa",
+    design: "template",
+    service: "scanme_links",
+    paginationOpts: page(),
+    sort: "position",
+    direction: "asc",
+  });
+  const terrace = inventory.page.find((row) => row.productId === p.productIds[0]);
+  expect(terrace).toMatchObject({
+    productId: p.productIds[0],
+    productLabel: "Dvodelni stalak",
+    position: "Terasa 4",
+    qr: "green",
+    nfc: "green",
+    qrCount: 1,
+    nfcCount: 1,
+    activeChannelCount: 2,
+    problemChannelCount: 0,
+    boundServices: ["scanme_links"],
+    destinationServiceTypes: ["scanme_links"],
+  });
+  expect(terrace?.designSnapshot).toMatchObject({ design: { kind: "template" } });
+  expect(terrace?.qrChannelIds).toHaveLength(1);
+  expect(terrace?.nfcChannelIds).toHaveLength(1);
+
+  const inactiveProfile = await f.t.run((ctx) => ctx.db.insert("serviceProfiles", {
+    businessId: f.businessId,
+    type: "scanme_links",
+    slug: "most12-links-inactive",
+    status: "inactive",
+    totalScans: 0,
+    totalPageViews: 0,
+    totalConvertedSessions: 0,
+    createdAt: NOW,
+    updatedAt: NOW,
+  }));
+  const destinations = await f.admin.query(api.adminProductReads.listDestinationProfiles, f.scope);
+  expect(destinations.isComplete).toBe(true);
+  expect(destinations.profiles).toEqual(expect.arrayContaining([
+    { profileId: f.profiles[0], type: "scanme_links" },
+    { profileId: f.profiles[1], type: "google_review" },
+    { profileId: f.profiles[2], type: "scanme_menu" },
+  ]));
+  expect(destinations.profiles.map((profile) => profile.profileId)).not.toContain(inactiveProfile);
+
+  const summary = await f.admin.query(api.adminProductReads.getVenueProductSummary, f.scope);
+  expect(summary).toMatchObject({ productCount: 2, qrCount: 2, nfcCount: 2, activeChannelCount: 4, problemChannelCount: 0, smfPrefix: "SMF-", isComplete: true });
+
+  const product = await f.admin.query(api.adminProductReads.getProductDetail, { ...f.scope, productId: p.productIds[0] });
+  expect(product.context).toMatchObject({ accountName: "Most", smkCode: "SMK-12", venueName: "Most", smlCode: "SML-12" });
+  const channel = product.channels.find((row) => row.kind === "qr")!;
+  const channels = await f.admin.query(api.adminProductReads.listChannels, { search: channel.resolverCode, kind: "qr", direction: "desc", paginationOpts: page() });
+  expect(channels.page).toMatchObject([{ _id: channel._id, accountName: "Most", smkCode: "SMK-12", venueName: "Most", smlCode: "SML-12", binding: "physical" }]);
+  const channelDetail = await f.admin.query(api.adminProductReads.getChannelDetail, { channelId: channel._id });
+  expect(channelDetail).toMatchObject({ channel: { _id: channel._id }, product: { _id: p.productIds[0] }, digitalQr: null, context: { accountName: "Most", venueName: "Most" } });
+});
+
+test("ADMIN-13 venue rows expose reconciled canonical QR, NFC, and problem counters", async () => {
+  const f = await setup();
+  await f.t.run((ctx) => ctx.db.insert("adminVenueReadModels", {
+    accountId: f.accountId,
+    businessId: f.businessId,
+    smkCode: "SMK-12",
+    smlCode: "SML-12",
+    ownerDisplayName: "Mina",
+    venueName: "Most",
+    normalizedVenueName: "most",
+    city: null,
+    effectiveContactEmail: null,
+    effectiveContactPhone: null,
+    productCount: 0,
+    channelCount: 0,
+    serviceTypes: ["scanme_links"],
+    clientStatus: "active",
+    signal: { severity: null, causeId: null },
+    urgencyRank: 3,
+    searchText: "most smk 12 sml 12",
+    updatedAt: NOW,
+  }));
+  const p = await provision(f, 2);
+  await qc(f, p);
+  let venues = await f.admin.query(api.adminProductReads.listVenues, { paginationOpts: page(), filter: "all", sort: "urgency" });
+  expect(venues.page).toMatchObject([{ businessId: f.businessId, productCount: 2, qrCount: 2, nfcCount: 2, channelCount: 4, activeChannelCount: 4, problemCount: 0, isProductProjectionComplete: true }]);
+
+  const physical = await detail(f, p.productIds[0]);
+  venues = await f.admin.query(api.adminProductReads.listVenues, { paginationOpts: page(), search: physical.product.smfCode, filter: "all", sort: "urgency" });
+  expect(venues.page).toMatchObject([{ businessId: f.businessId, productCount: 2, qrCount: 2, nfcCount: 2 }]);
+  const digitalQr = await digital(f, "admin13-venue-smq");
+  venues = await f.admin.query(api.adminProductReads.listVenues, { paginationOpts: page(), search: digitalQr.code.smqCode, filter: "active", sort: "urgency" });
+  expect(venues.page).toMatchObject([{ businessId: f.businessId, productCount: 2, qrCount: 2, nfcCount: 2 }]);
+
+  const qr = (await detail(f, p.productIds[0])).channels.find((channel) => channel.kind === "qr")!;
+  await f.admin.mutation(api.adminProducts.setChannelState, { ...f.scope, channelId: qr._id, state: "problem", health: "broken", reason: "Oštećen kod", key: "admin13-venue-problem" });
+  venues = await f.admin.query(api.adminProductReads.listVenues, { paginationOpts: page(), filter: "problem", sort: "urgency" });
+  expect(venues.page).toMatchObject([{ businessId: f.businessId, problemCount: 1, isProductProjectionComplete: true, hasOpenAction: true }]);
+});
+
+test("ADMIN-13 bulk channel state and placement affect only selected existing physical records", async () => {
+  const f = await setup();
+  const p = await provision(f, 2);
+  await qc(f, p);
+  const first = p.productIds[0];
+  const second = p.productIds[1];
+
+  await f.admin.mutation(api.adminProducts.bulkSetChannelState, {
+    ...f.scope,
+    productIds: [first],
+    kinds: ["qr"],
+    state: "inactive",
+    reason: "Privremena pauza",
+    key: "admin13-bulk-qr",
+  });
+  const firstAfterState = await detail(f, first);
+  const secondAfterState = await detail(f, second);
+  expect(firstAfterState.channels.find((row) => row.kind === "qr")?.state).toBe("inactive");
+  expect(firstAfterState.channels.find((row) => row.kind === "nfc")?.state).toBe("active");
+  expect(secondAfterState.channels.every((row) => row.state === "active")).toBe(true);
+  await expect(f.admin.mutation(api.adminProducts.bulkSetChannelState, {
+    ...f.scope,
+    productIds: [first],
+    kinds: ["qr"],
+    state: "active",
+    reason: "Pogrešan ponovni pokušaj",
+    key: "admin13-bulk-qr",
+  })).rejects.toThrow("payload_mismatch");
+
+  const move = { ...f.scope, productIds: [first], name: "Sto 7", reason: "Premešteno", key: "admin13-bulk-placement" };
+  await f.admin.mutation(api.adminProducts.bulkChangePlacement, move);
+  await f.admin.mutation(api.adminProducts.bulkChangePlacement, move);
+  expect((await detail(f, first)).subject.currentPlacementId).toBeTruthy();
+  expect((await detail(f, second)).subject.currentPlacementId).toBeUndefined();
+  expect((await f.admin.query(api.adminProductReads.placementHistory, { ...f.scope, productId: first, paginationOpts: page() })).page).toHaveLength(1);
+
+  const qrOnly = await provision(f, 1, ["qr"]);
+  await expect(f.admin.mutation(api.adminProducts.bulkSetChannelState, {
+    ...f.scope,
+    productIds: qrOnly.productIds,
+    kinds: ["nfc"],
+    state: "inactive",
+    reason: "Nema NFC kanala",
+    key: "admin13-no-nfc",
+  })).rejects.toThrow("access_bulk_channel_absent");
+  await expect(f.outsider.mutation(api.adminProducts.bulkChangePlacement, { ...f.scope, productIds: [first], name: "Sto 8", reason: "Nedozvoljeno", key: "admin13-outsider" })).rejects.toThrow();
+});

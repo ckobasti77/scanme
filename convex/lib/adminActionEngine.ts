@@ -128,6 +128,7 @@ export async function refreshActionSignals(
       const signal = actionSignal(await worstOpenActionForBusiness(ctx, scope.businessId));
       await ctx.db.patch(row._id, {
         signal,
+        hasOpenAction: signal.severity !== null,
         urgencyRank: signal.severity === "blocking" ? 0 : signal.severity === "warning" ? 1 : signal.severity === "information" ? 2 : 3,
       });
     }
