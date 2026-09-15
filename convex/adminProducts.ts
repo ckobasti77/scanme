@@ -2,18 +2,55 @@ import { ConvexError, v } from "convex/values";
 import { internalMutation, mutation } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
+import type { MutationCtx } from "./_generated/server";
 import { requireAdmin } from "./lib/access";
 import { accessDestinationInput, accessHealth, accessKind, accessState, ACCESS_BATCH, PROVISION_BATCH, SUBJECT_CHANNEL_LIMIT } from "./lib/accessValidators";
-import { applyDestination, assertDestinationHealthy, channelsFor, createChannel, fingerprint, prepareDestination, refreshInventory, remember, replay, requireScope, subjectInScope, syncChannel, textRequired, uniqueCode } from "./lib/accessOperations";
+import { accessDisplayContext, applyDestination, assertDestinationHealthy, channelProjectionPatch, channelsFor, createChannel, fingerprint, prepareDestination, refreshInventory, remember, replay, requireScope, subjectInScope, syncChannel, textRequired, uniqueCode } from "./lib/accessOperations";
 import { channelProblem } from "./lib/accessResolution";
 import { getOrderLine, refreshOperation } from "./lib/adminOrderOperations";
 import { isDesignReady } from "../lib/admin-v1/order-workflow";
 import { writeAdminAudit } from "./lib/adminAudit";
-import { normalizeAdminSearchText } from "./lib/adminV1Validators";
 import { syncAutomaticAction } from "./lib/adminActionEngine";
 
 const scope = { accountId: v.id("accounts"), businessId: v.id("businesses") };
 const provisionArgs = { ...scope, requestId: v.id("orderProvisioningRequests"), expectedOffset: v.number(), channels: v.array(accessKind), destination: v.optional(accessDestinationInput), key: v.string() };
+
+type ChannelStateChange = {
+  state: Doc<"accessChannels">["state"];
+  health?: Doc<"accessChannels">["health"];
+  reason: string;
+  resolutionNote?: string;
+};
+
+async function prepareChannelStateChange(
+  ctx: MutationCtx,
+  channel: Doc<"accessChannels">,
+  subject: Doc<"accessSubjects">,
+  input: ChannelStateChange,
+) {
+  if (channel.state === "problem" && input.state !== "problem" && !input.resolutionNote?.trim()) {
+    throw new ConvexError("access_resolution_note_required");
+  }
+  if (channel.state === "problem" && input.state !== "problem" && channel.resumeState && input.state !== channel.resumeState) {
+    throw new ConvexError("access_restore_previous_state_required");
+  }
+  const changed = {
+    ...channel,
+    health: input.health ?? channel.health,
+    redirectEnabled: input.state === "problem" ? channel.redirectEnabled : input.state === "active",
+    manualProblem: input.state === "problem" ? input.reason : undefined,
+  };
+  if (input.state !== "problem") {
+    const target = subject.currentTargetId ? await ctx.db.get(subject.currentTargetId) : null;
+    const problem = await channelProblem(ctx, changed, subject, target);
+    if (problem) throw new ConvexError(problem);
+  }
+  return changed;
+}
+
+function validSelectedProducts(productIds: Id<"physicalProducts">[]) {
+  return productIds.length >= 1 && productIds.length <= ACCESS_BATCH && new Set(productIds).size === productIds.length;
+}
 
 /** Keep operational failures outside the rolled-back unit creation transaction. */
 export const provision = mutation({
@@ -88,6 +125,7 @@ export const provisionUnits = internalMutation({
       designSnapshot = approval.snapshot;
     }
     const prepared = args.destination ? await prepareDestination(ctx, line.businessId, args.destination) : null;
+    const displayContext = await accessDisplayContext(ctx, args.accountId, args.businessId);
     const products: Id<"physicalProducts">[] = [];
     for (let ordinal = offset; ordinal < offset + count; ordinal++) {
       const existing = await ctx.db.query("physicalProducts").withIndex("by_provisioningRequestId_and_unitOrdinal", q => q.eq("provisioningRequestId", request._id).eq("unitOrdinal", ordinal)).unique();
@@ -103,8 +141,11 @@ export const provisionUnits = internalMutation({
       await ctx.db.patch(subjectId, { physicalProductId: productId });
       for (const kind of args.channels) {
         const subject = (await ctx.db.get(subjectId))!;
-        const created = await createChannel(ctx, subject, kind, actor._id, now);
-        await ctx.db.patch(created.channelId, { smfCode, searchText: normalizeAdminSearchText(`${smfCode} ${created.resolverCode}`) });
+        const created = await createChannel(ctx, subject, kind, actor._id, now, undefined, displayContext);
+        await ctx.db.patch(created.channelId, {
+          smfCode,
+          ...channelProjectionPatch({ resolverCode: created.resolverCode, smfCode, kind }, displayContext),
+        });
       }
       const subject = (await ctx.db.get(subjectId))!;
       if (prepared && args.destination) await applyDestination(ctx, subject, args.destination, prepared, actor._id, "provisioned", now);
@@ -137,10 +178,17 @@ export const createDigital = mutation({
     const now = Date.now();
     const smqCode = await uniqueCode(ctx, "SMQ");
     const subjectId = await ctx.db.insert("accessSubjects", { accountId: args.accountId, businessId: args.businessId, destinationKind: "legacy", createdAt: now, updatedAt: now });
-    const channel = await createChannel(ctx, (await ctx.db.get(subjectId))!, "qr", actor._id, now);
+    const displayContext = await accessDisplayContext(ctx, args.accountId, args.businessId);
+    const channel = await createChannel(ctx, (await ctx.db.get(subjectId))!, "qr", actor._id, now, undefined, displayContext);
     const digitalQrId = await ctx.db.insert("digitalQrCodes", { accountId: args.accountId, businessId: args.businessId, smqCode, channelId: channel.channelId, originalSubjectId: subjectId, createdByUserId: actor._id, createdAt: now });
     await ctx.db.patch(subjectId, { digitalQrId });
-    await ctx.db.patch(channel.channelId, { digitalQrId, smqCode, health: "healthy", redirectEnabled: true, searchText: normalizeAdminSearchText(`${smqCode} ${smqCode.replaceAll("-", "")} ${channel.resolverCode}`) });
+    await ctx.db.patch(channel.channelId, {
+      digitalQrId,
+      smqCode,
+      health: "healthy",
+      redirectEnabled: true,
+      ...channelProjectionPatch({ resolverCode: channel.resolverCode, smqCode, kind: "qr" }, displayContext),
+    });
     const subject = (await ctx.db.get(subjectId))!;
     if (args.destination) await applyDestination(ctx, subject, args.destination, await prepareDestination(ctx, args.businessId, args.destination), actor._id, "digital_created", now);
     else await syncChannel(ctx, (await ctx.db.get(channel.channelId))!, subject, { kind: "admin", userId: actor._id }, "digital_created", now);
@@ -225,20 +273,97 @@ export const setChannelState = mutation({
     const payload = { operation: "channel_state", ...args };
     if (await replay(ctx, args.key, payload)) return null;
     const reason = textRequired(args.reason);
-    if (channel.state === "problem" && args.state !== "problem" && !args.resolutionNote?.trim()) throw new ConvexError("access_resolution_note_required");
-    if (channel.state === "problem" && args.state !== "problem" && channel.resumeState && args.state !== channel.resumeState) throw new ConvexError("access_restore_previous_state_required");
-    const changed = { ...channel, health: args.health ?? channel.health,
-      redirectEnabled: args.state === "problem" ? channel.redirectEnabled : args.state === "active",
-      manualProblem: args.state === "problem" ? reason : undefined };
-    if (args.state !== "problem") {
-      const target = subject.currentTargetId ? await ctx.db.get(subject.currentTargetId) : null;
-      const problem = await channelProblem(ctx, changed, subject, target);
-      if (problem) throw new ConvexError(problem);
-    }
+    const changed = await prepareChannelStateChange(ctx, channel, subject, { state: args.state, health: args.health, reason, resolutionNote: args.resolutionNote });
     const now = Date.now();
     await syncChannel(ctx, changed, subject, { kind: "admin", userId: actor._id }, args.resolutionNote?.trim() || reason, now);
     await refreshInventory(ctx, subject, now);
     await writeAdminAudit(ctx, { actorUserId: actor._id, accountId: args.accountId, businessId: args.businessId, action: "access_channel_changed", detail: { channelId: channel._id, from: channel.state, to: args.state, reason, resolutionNote: args.resolutionNote }, now });
+    await remember(ctx, args.key, payload);
+    return null;
+  },
+});
+
+/**
+ * Applies one status command only to channels that already exist on the
+ * selected physical products. Missing QR/NFC hardware is never provisioned
+ * implicitly by a bulk status action.
+ */
+export const bulkSetChannelState = mutation({
+  args: { ...scope, productIds: v.array(v.id("physicalProducts")), kinds: v.array(accessKind), state: accessState, health: v.optional(accessHealth), reason: v.string(), resolutionNote: v.optional(v.string()), key: v.string() },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const actor = await requireAdmin(ctx);
+    await requireScope(ctx, args.accountId, args.businessId);
+    const payload = { operation: "bulk_channel_state", ...args };
+    if (await replay(ctx, args.key, payload)) return null;
+    if (!validSelectedProducts(args.productIds) || !args.kinds.length || args.kinds.length > 2 || new Set(args.kinds).size !== args.kinds.length) {
+      throw new ConvexError("access_bulk_size_invalid");
+    }
+    const reason = textRequired(args.reason);
+    const selected: { product: Doc<"physicalProducts">; subject: Doc<"accessSubjects"> }[] = [];
+    for (const productId of args.productIds) {
+      const product = await ctx.db.get(productId);
+      if (!product) throw new ConvexError("access_product_missing");
+      selected.push({ product, subject: await subjectInScope(ctx, product.subjectId, args.accountId, args.businessId) });
+    }
+    const targets: { channel: Doc<"accessChannels">; subject: Doc<"accessSubjects">; productId: Id<"physicalProducts"> }[] = [];
+    for (const { product, subject } of selected) {
+      for (const channel of await channelsFor(ctx, subject._id)) {
+        if (args.kinds.includes(channel.kind)) targets.push({ channel, subject, productId: product._id });
+      }
+    }
+    if (!targets.length) throw new ConvexError("access_bulk_channel_absent");
+    if (targets.length > ACCESS_BATCH) throw new ConvexError("access_bulk_channel_size_invalid");
+    const changes = [];
+    for (const target of targets) {
+      changes.push({ ...target, changed: await prepareChannelStateChange(ctx, target.channel, target.subject, { state: args.state, health: args.health, reason, resolutionNote: args.resolutionNote }) });
+    }
+    const now = Date.now();
+    const refreshed = new Map<Id<"accessSubjects">, Doc<"accessSubjects">>();
+    for (const change of changes) {
+      await syncChannel(ctx, change.changed, change.subject, { kind: "admin", userId: actor._id }, args.resolutionNote?.trim() || reason, now);
+      refreshed.set(change.subject._id, change.subject);
+    }
+    for (const subject of refreshed.values()) await refreshInventory(ctx, subject, now);
+    await writeAdminAudit(ctx, { actorUserId: actor._id, accountId: args.accountId, businessId: args.businessId, action: "access_channels_bulk_changed", detail: { productIds: args.productIds, kinds: args.kinds, state: args.state, health: args.health, reason, resolutionNote: args.resolutionNote, channelIds: targets.map((target) => target.channel._id) }, now });
+    await remember(ctx, args.key, payload);
+    return null;
+  },
+});
+
+/** One placement interval per selected real SMF unit; all ownership checks run before writes. */
+export const bulkChangePlacement = mutation({
+  args: { ...scope, productIds: v.array(v.id("physicalProducts")), name: v.string(), reason: v.string(), key: v.string() },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const actor = await requireAdmin(ctx);
+    await requireScope(ctx, args.accountId, args.businessId);
+    const payload = { operation: "bulk_placement", ...args };
+    if (await replay(ctx, args.key, payload)) return null;
+    if (!validSelectedProducts(args.productIds)) throw new ConvexError("access_bulk_size_invalid");
+    const name = textRequired(args.name, 80);
+    const reason = textRequired(args.reason);
+    const selected: { product: Doc<"physicalProducts">; subject: Doc<"accessSubjects">; previous: Doc<"productPlacements"> | null }[] = [];
+    for (const productId of args.productIds) {
+      const product = await ctx.db.get(productId);
+      if (!product) throw new ConvexError("access_product_missing");
+      const subject = await subjectInScope(ctx, product.subjectId, args.accountId, args.businessId);
+      const previous = subject.currentPlacementId ? await ctx.db.get(subject.currentPlacementId) : null;
+      if (subject.currentPlacementId && (!previous || previous.endedAt !== undefined || previous.productId !== product._id)) {
+        throw new ConvexError("access_placement_interval_invalid");
+      }
+      selected.push({ product, subject, previous });
+    }
+    const now = Date.now();
+    const placements: { productId: Id<"physicalProducts">; previousPlacementId: Id<"productPlacements"> | undefined; placementId: Id<"productPlacements"> }[] = [];
+    for (const { product, subject, previous } of selected) {
+      if (previous) await ctx.db.patch(previous._id, { endedAt: now });
+      const placementId = await ctx.db.insert("productPlacements", { productId: product._id, businessId: product.businessId, name, startedAt: now, actor: { kind: "admin", userId: actor._id }, reason });
+      await ctx.db.patch(subject._id, { currentPlacementId: placementId, updatedAt: now });
+      await refreshInventory(ctx, { ...subject, currentPlacementId: placementId }, now);
+      placements.push({ productId: product._id, previousPlacementId: previous?._id, placementId });
+    }
+    await writeAdminAudit(ctx, { actorUserId: actor._id, accountId: args.accountId, businessId: args.businessId, action: "product_placements_bulk_changed", detail: { placements, name, reason }, now });
     await remember(ctx, args.key, payload);
     return null;
   },
@@ -292,7 +417,15 @@ export const linkDigital = mutation({
       if (!channel || channel.subjectId !== digital.originalSubjectId) throw new ConvexError("access_link_mapping_invalid");
       // Retain the original subject/targets/events; only future resolution and
       // future attribution use the product's one current destination.
-      await ctx.db.patch(channel._id, { subjectId: subject._id, physicalProductId: product._id, smfCode: product.smfCode, binding: "physical", searchText: normalizeAdminSearchText(`${digital.smqCode} ${product.smfCode} ${channel.resolverCode}`), updatedAt: now });
+      const displayContext = await accessDisplayContext(ctx, args.accountId, args.businessId);
+      await ctx.db.patch(channel._id, {
+        subjectId: subject._id,
+        physicalProductId: product._id,
+        smfCode: product.smfCode,
+        binding: "physical",
+        ...channelProjectionPatch({ resolverCode: channel.resolverCode, smfCode: product.smfCode, smqCode: digital.smqCode, kind: channel.kind }, displayContext),
+        updatedAt: now,
+      });
       await ctx.db.patch(digital._id, { linkedProductId: product._id, linkedAt: now, linkedByUserId: actor._id });
       await syncChannel(ctx, (await ctx.db.get(channel._id))!, subject, { kind: "admin", userId: actor._id }, args.reason, now);
       await refreshInventory(ctx, subject, now);

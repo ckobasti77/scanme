@@ -13,6 +13,49 @@ import { validateTargetSpec } from "../cards";
 type Ctx = QueryCtx | MutationCtx;
 export type DestinationInput = Infer<typeof accessDestinationInput>;
 export type Actor = Doc<"accessChannels">["lastActor"];
+export type AccessDisplayContext = Pick<
+  Doc<"accessChannels">,
+  "accountName" | "smkCode" | "smlCode" | "venueName" | "city"
+>;
+
+export async function accessDisplayContext(
+  ctx: Ctx,
+  accountId: Id<"accounts">,
+  businessId: Id<"businesses">,
+): Promise<AccessDisplayContext> {
+  const { account, business } = await requireScope(ctx, accountId, businessId);
+  return {
+    accountName: account.name,
+    smkCode: account.smkCode,
+    smlCode: business.smlCode,
+    venueName: business.name,
+    city: business.city,
+  };
+}
+
+function channelSearchText(
+  context: AccessDisplayContext,
+  values: readonly (string | undefined)[],
+) {
+  return normalizeAdminSearchText([
+    context.accountName,
+    context.smkCode,
+    context.smlCode,
+    context.venueName,
+    context.city,
+    ...values,
+  ].filter(Boolean).join(" "));
+}
+
+export function channelProjectionPatch(
+  channel: Pick<Doc<"accessChannels">, "resolverCode" | "smfCode" | "smqCode" | "kind">,
+  context: AccessDisplayContext,
+) {
+  return {
+    ...context,
+    searchText: channelSearchText(context, [channel.kind, channel.smfCode, channel.smqCode, channel.resolverCode]),
+  };
+}
 export function textRequired(value: string, max = 500) {
   if (!value.trim() || value.trim().length > max) throw new ConvexError("access_text_required");
   return value.trim();
@@ -121,6 +164,108 @@ export function projectColor(channels: Doc<"accessChannels">[], kind: "qr" | "nf
   return selected.some(c => c.state === "active") ? "green" as const : "orange" as const;
 }
 
+type InventoryCounterRow = {
+  qrCount?: number;
+  nfcCount?: number;
+  activeChannelCount?: number;
+  problemChannelCount?: number;
+};
+type CompleteInventoryCounterRow = Required<InventoryCounterRow>;
+type VenueCounterRow = {
+  canonicalProductCount?: number;
+  canonicalQrCount?: number;
+  canonicalNfcCount?: number;
+  canonicalActiveChannelCount?: number;
+  canonicalProblemCount?: number;
+};
+type CompleteVenueCounterRow = Required<VenueCounterRow>;
+
+function counterValues(row: InventoryCounterRow): CompleteInventoryCounterRow | null {
+  if (row.qrCount === undefined || row.nfcCount === undefined || row.activeChannelCount === undefined || row.problemChannelCount === undefined) return null;
+  return {
+    qrCount: row.qrCount,
+    nfcCount: row.nfcCount,
+    activeChannelCount: row.activeChannelCount,
+    problemChannelCount: row.problemChannelCount,
+  };
+}
+
+function venueCounterValues(row: VenueCounterRow): CompleteVenueCounterRow | null {
+  if (row.canonicalProductCount === undefined || row.canonicalQrCount === undefined || row.canonicalNfcCount === undefined || row.canonicalActiveChannelCount === undefined || row.canonicalProblemCount === undefined) return null;
+  return {
+    canonicalProductCount: row.canonicalProductCount,
+    canonicalQrCount: row.canonicalQrCount,
+    canonicalNfcCount: row.canonicalNfcCount,
+    canonicalActiveChannelCount: row.canonicalActiveChannelCount,
+    canonicalProblemCount: row.canonicalProblemCount,
+  };
+}
+
+async function refreshVenueProductFacts(
+  ctx: MutationCtx,
+  businessId: Id<"businesses">,
+  previous: InventoryCounterRow | null,
+  next: InventoryCounterRow,
+) {
+  const venue = await ctx.db.query("adminVenueReadModels").withIndex("by_businessId", (q) => q.eq("businessId", businessId)).unique();
+  if (!venue) return;
+  const before = previous ? counterValues(previous) : { qrCount: 0, nfcCount: 0, activeChannelCount: 0, problemChannelCount: 0 };
+  const after = counterValues(next);
+  const venueCounters = venueCounterValues(venue);
+  if (venue.productFactsComplete === true && venueCounters && before && after) {
+    const canonicalProductCount = venueCounters.canonicalProductCount + (previous ? 0 : 1);
+    // `take(250)` cannot distinguish an exactly-250 venue from a larger one.
+    // Make that boundary explicitly incomplete before incremental math could
+    // turn it into a false all-products total.
+    if (canonicalProductCount >= 250) {
+      await ctx.db.patch(venue._id, {
+        productFactsComplete: false,
+        canonicalProductCount: undefined,
+        canonicalQrCount: undefined,
+        canonicalNfcCount: undefined,
+        canonicalActiveChannelCount: undefined,
+        canonicalProblemCount: undefined,
+      });
+      return;
+    }
+    const fields = {
+      canonicalProductCount,
+      canonicalQrCount: venueCounters.canonicalQrCount + after.qrCount - before.qrCount,
+      canonicalNfcCount: venueCounters.canonicalNfcCount + after.nfcCount - before.nfcCount,
+      canonicalActiveChannelCount: venueCounters.canonicalActiveChannelCount + after.activeChannelCount - before.activeChannelCount,
+      canonicalProblemCount: venueCounters.canonicalProblemCount + after.problemChannelCount - before.problemChannelCount,
+    };
+    if (Object.values(fields).some((value) => value < 0)) throw new ConvexError("access_venue_projection_drift");
+    await ctx.db.patch(venue._id, fields);
+    return;
+  }
+  if (venue.productFactsComplete === false) return;
+  // First ADMIN-13 projection refresh reconciles only a bounded venue. If the
+  // old materialized rows cannot prove all counters, retain an explicit
+  // unknown state rather than turning a partial sample into a false zero.
+  const rows = await ctx.db.query("productInventory").withIndex("by_businessId_and_smfCode", (q) => q.eq("businessId", businessId)).take(250);
+  const complete = rows.length < 250 && rows.every((row) => counterValues(row));
+  if (!complete) {
+    await ctx.db.patch(venue._id, {
+      productFactsComplete: false,
+      canonicalProductCount: undefined,
+      canonicalQrCount: undefined,
+      canonicalNfcCount: undefined,
+      canonicalActiveChannelCount: undefined,
+      canonicalProblemCount: undefined,
+    });
+    return;
+  }
+  await ctx.db.patch(venue._id, {
+    productFactsComplete: true,
+    canonicalProductCount: rows.length,
+    canonicalQrCount: rows.reduce((sum, row) => sum + row.qrCount!, 0),
+    canonicalNfcCount: rows.reduce((sum, row) => sum + row.nfcCount!, 0),
+    canonicalActiveChannelCount: rows.reduce((sum, row) => sum + row.activeChannelCount!, 0),
+    canonicalProblemCount: rows.reduce((sum, row) => sum + row.problemChannelCount!, 0),
+  });
+}
+
 export async function refreshInventory(ctx: MutationCtx, subject: Doc<"accessSubjects">, now: number) {
   if (!subject.physicalProductId) return;
   const product = await ctx.db.get(subject.physicalProductId);
@@ -128,6 +273,17 @@ export async function refreshInventory(ctx: MutationCtx, subject: Doc<"accessSub
   const channels = await channelsFor(ctx, subject._id);
   if (!channels.length) throw new ConvexError("access_channel_required");
   const placement = subject.currentPlacementId ? await ctx.db.get(subject.currentPlacementId) : null;
+  const destinationServiceTypes: Doc<"physicalProducts">["boundServices"] = [];
+  if (subject.destinationInput?.kind === "services") {
+    for (const serviceProfileId of subject.destinationInput.serviceProfileIds) {
+      const profile = await ctx.db.get(serviceProfileId);
+      if (profile?.businessId === subject.businessId && !destinationServiceTypes.includes(profile.type)) {
+        destinationServiceTypes.push(profile.type);
+      }
+    }
+  }
+  const qrChannels = channels.filter((channel) => channel.kind === "qr");
+  const nfcChannels = channels.filter((channel) => channel.kind === "nfc");
   const row = {
     productId: product._id, subjectId: subject._id, accountId: product.accountId, businessId: product.businessId,
     smfCode: product.smfCode, localSuffix: product.localSuffix, productType: product.productType,
@@ -135,11 +291,37 @@ export async function refreshInventory(ctx: MutationCtx, subject: Doc<"accessSub
     qr: projectColor(channels, "qr"), nfc: projectColor(channels, "nfc"),
     state: channels.some(c => c.state === "problem") ? "problem" as const : channels.some(c => c.state === "active") ? "active" as const : "inactive" as const,
     destinationKind: subject.destinationKind, currentTargetId: subject.currentTargetId,
-    searchText: normalizeAdminSearchText([product.smfCode, product.smfCode.replaceAll("-", ""), product.localSuffix, adminDomainSr.products[product.productType], placement?.name, ...channels.flatMap(c => [c.resolverCode, c.smqCode])].filter(Boolean).join(" ")),
+    designSnapshot: product.designSnapshot,
+    boundServices: product.boundServices,
+    destinationServiceTypes,
+    qrChannelIds: qrChannels.map((channel) => channel._id),
+    nfcChannelIds: nfcChannels.map((channel) => channel._id),
+    qrCount: qrChannels.length,
+    nfcCount: nfcChannels.length,
+    activeChannelCount: channels.filter((channel) => channel.state === "active").length,
+    problemChannelCount: channels.filter((channel) => channel.state === "problem").length,
+    qrProblemReason: qrChannels.find((channel) => channel.state === "problem")?.problemReason ?? null,
+    nfcProblemReason: nfcChannels.find((channel) => channel.state === "problem")?.problemReason ?? null,
+    searchText: normalizeAdminSearchText([
+      product.smfCode,
+      product.smfCode.replaceAll("-", ""),
+      product.localSuffix,
+      adminDomainSr.products[product.productType],
+      placement?.name,
+      "design",
+      product.designSnapshot.design.kind,
+      product.designSnapshot.design.kind === "template" ? product.designSnapshot.design.templateId : product.designSnapshot.design.brief,
+      product.designSnapshot.material,
+      product.designSnapshot.woodType,
+      ...product.boundServices,
+      ...destinationServiceTypes,
+      ...channels.flatMap(c => [c.resolverCode, c.smqCode]),
+    ].filter(Boolean).join(" ")),
     updatedAt: now,
   };
   const existing = await ctx.db.query("productInventory").withIndex("by_productId", q => q.eq("productId", product._id)).unique();
   if (existing) await ctx.db.patch(existing._id, row); else await ctx.db.insert("productInventory", row);
+  await refreshVenueProductFacts(ctx, product.businessId, existing, row);
 }
 
 export async function applyDestination(ctx: MutationCtx, subject: Doc<"accessSubjects">, input: DestinationInput, prepared: Awaited<ReturnType<typeof prepareDestination>>, actorUserId: Id<"users">, reason: string, now: number) {
@@ -157,14 +339,16 @@ export async function applyDestination(ctx: MutationCtx, subject: Doc<"accessSub
   return targetId;
 }
 
-export async function createChannel(ctx: MutationCtx, subject: Doc<"accessSubjects">, kind: "qr" | "nfc", actorUserId: Id<"users">, now: number, legacy?: Doc<"cards">) {
+export async function createChannel(ctx: MutationCtx, subject: Doc<"accessSubjects">, kind: "qr" | "nfc", actorUserId: Id<"users">, now: number, legacy?: Doc<"cards">, displayContext?: AccessDisplayContext) {
   const resolverCode = legacy?.cardCode ?? await uniqueCode(ctx, "resolver");
   const cardId = legacy?._id ?? await ctx.db.insert("cards", { businessId: subject.businessId, cardCode: resolverCode, label: resolverCode, status: "active", totalScans: 0, createdAt: now, updatedAt: now });
+  const context = displayContext ?? await accessDisplayContext(ctx, subject.accountId, subject.businessId);
   const channelId = await ctx.db.insert("accessChannels", {
     accountId: subject.accountId, businessId: subject.businessId, subjectId: subject._id, cardId, resolverCode, kind,
     state: "problem", redirectEnabled: legacy?.status === "active", health: legacy ? "healthy" : "unverified",
     problemReason: legacy ? "destination_missing" : "health_unverified", physicalProductId: subject.physicalProductId,
-    binding: subject.physicalProductId ? "physical" : "digital", searchText: resolverCode,
+    binding: subject.physicalProductId ? "physical" : "digital", ...context,
+    searchText: channelSearchText(context, [kind, resolverCode]),
     totalScans: legacy?.totalScans ?? 0, lastActor: { kind: "admin", userId: actorUserId }, lastReason: "created", createdAt: now, updatedAt: now,
   });
   await ctx.db.patch(cardId, { accessChannelId: channelId });

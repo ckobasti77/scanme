@@ -2,10 +2,9 @@ import { ConvexError, v } from "convex/values";
 import { paginationOptsValidator, paginationResultValidator } from "convex/server";
 import { internalMutation } from "./_generated/server";
 import { requireAdmin } from "./lib/access";
-import { createChannel, syncChannel, uniqueCode } from "./lib/accessOperations";
+import { accessDisplayContext, channelProjectionPatch, createChannel, syncChannel, uniqueCode } from "./lib/accessOperations";
 import { syncAutomaticAction } from "./lib/adminActionEngine";
 import { normalizeCode } from "./lib/codes";
-import { normalizeAdminSearchText } from "./lib/adminV1Validators";
 import { writeAdminAudit } from "./lib/adminAudit";
 
 const result = v.object({ sourceCardId: v.id("cards"), status: v.union(v.literal("ready"), v.literal("mapped"), v.literal("blocked")), reason: v.optional(v.string()), digitalQrId: v.optional(v.id("digitalQrCodes")), channelId: v.optional(v.id("accessChannels")) });
@@ -51,10 +50,15 @@ export const migrateLegacyCards = internalMutation({
       if (mapped) { page.push({ sourceCardId: card._id, status: "mapped" as const, digitalQrId: mapped.digitalQrId, channelId: mapped._id }); continue; }
       if (args.dryRun) { page.push({ sourceCardId: card._id, status: "ready" as const }); continue; }
       const subjectId = await ctx.db.insert("accessSubjects", { accountId: account!._id, businessId: card.businessId, anchorCardId: card._id, currentTargetId: card.currentTargetId, destinationKind: "legacy", createdAt: now, updatedAt: now });
-      const created = await createChannel(ctx, (await ctx.db.get(subjectId))!, "qr", actor._id, now, card);
+      const displayContext = await accessDisplayContext(ctx, account!._id, card.businessId);
+      const created = await createChannel(ctx, (await ctx.db.get(subjectId))!, "qr", actor._id, now, card, displayContext);
       const digitalQrId = await ctx.db.insert("digitalQrCodes", { accountId: account!._id, businessId: card.businessId, smqCode: smqCode!, channelId: created.channelId, originalSubjectId: subjectId, legacyCardId: card._id, createdByUserId: actor._id, createdAt: now });
       await ctx.db.patch(subjectId, { digitalQrId });
-      await ctx.db.patch(created.channelId, { digitalQrId, smqCode, searchText: normalizeAdminSearchText(`${smqCode} ${smqCode!.replaceAll("-", "")} ${card.cardCode} ${card.label}`) });
+      await ctx.db.patch(created.channelId, {
+        digitalQrId,
+        smqCode,
+        ...channelProjectionPatch({ resolverCode: card.cardCode, smqCode, kind: "qr" }, displayContext),
+      });
       await syncChannel(ctx, (await ctx.db.get(created.channelId))!, (await ctx.db.get(subjectId))!, { kind: "admin", userId: actor._id }, "legacy_adopted", now);
       await writeAdminAudit(ctx, { actorUserId: actor._id, accountId: account!._id, businessId: card.businessId, action: "legacy_card_mapped", detail: { sourceCardId: card._id, channelId: created.channelId, digitalQrId, sourceTargetId: card.currentTargetId, historyMode: "original_card_references" }, now });
       page.push({ sourceCardId: card._id, status: "mapped" as const, digitalQrId, channelId: created.channelId });

@@ -42,6 +42,19 @@ type Env = {
   readonly SCANME_PIPELINE_SECRET: string | undefined;
   readonly SCANME_SITE_URL: string | undefined;
   readonly SCANME_VENUE_DEMO_SETUP_KEY: string | undefined;
+  readonly ZOHO_ACCOUNTS_BASE_URL: string | undefined;
+  readonly ZOHO_MAIL_ACCOUNT_ID: string | undefined;
+  readonly ZOHO_MAIL_API_BASE_URL: string | undefined;
+  readonly ZOHO_MAIL_CLIENT_ID: string | undefined;
+  readonly ZOHO_MAIL_CLIENT_SECRET: string | undefined;
+  readonly ZOHO_MAIL_FROM_ADDRESS: string | undefined;
+  readonly ZOHO_MAIL_GROUP_SEND_AS_VERIFIED: string | undefined;
+  readonly ZOHO_MAIL_INBOX_FOLDER_ID: string | undefined;
+  readonly ZOHO_MAIL_OUTBOUND_ENABLED: string | undefined;
+  readonly ZOHO_MAIL_POLL_INTERVAL_SECONDS: string | undefined;
+  readonly ZOHO_MAIL_REFRESH_TOKEN: string | undefined;
+  readonly ZOHO_MAIL_SENT_FOLDER_ID: string | undefined;
+  readonly ZOHO_MAIL_SYNC_ENABLED: string | undefined;
 };
 
 /**
