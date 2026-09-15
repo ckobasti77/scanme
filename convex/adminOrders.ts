@@ -37,6 +37,7 @@ import {
 } from "./lib/adminOrderOperations";
 import { normalizeAdminSearchText } from "./lib/adminV1Validators";
 import { paymentMethod } from "./lib/subscriptionValidators";
+import { projectFinancePayment } from "./lib/financeProjection";
 import { syncAutomaticAction } from "./lib/adminActionEngine";
 import { adminOrdersSr } from "../lib/i18n/sr/admin-orders";
 
@@ -544,6 +545,7 @@ export const recordPayment = mutation({
     await writeAdminAudit(ctx, { actorUserId: actor._id, accountId: operation.accountId, action: "admin_order_payment_recorded", detail: { orderId: operation.orderId, paymentId, amountMinor, method: args.method }, now });
     const refreshed = await refreshOperation(ctx, operation._id, actor._id, now);
     if (refreshed.paymentState === "paid") await ctx.db.patch(operation.orderId, { status: "paid", updatedAt: now });
+    await projectFinancePayment(ctx, paymentId);
     return paymentId;
   },
 });
@@ -677,6 +679,7 @@ export const recordCombinedPayment = mutation({
       const refreshed = await refreshOperation(ctx, operation._id, actor._id, now);
       if (refreshed.paymentState === "paid") await ctx.db.patch(operation.orderId, { status: "paid", updatedAt: now });
     }
+    await projectFinancePayment(ctx, paymentId);
     return paymentId;
   },
 });
@@ -730,6 +733,7 @@ export const reversePayment = mutation({
       await writeAdminAudit(ctx, { actorUserId: actor._id, accountId: operation.accountId, action: "admin_order_payment_reversed", detail: { orderId: operation.orderId, paymentId: payment._id, adjustmentId, reason }, now });
       await refreshOperation(ctx, operation._id, actor._id, now);
     }
+    await projectFinancePayment(ctx, payment._id);
     return adjustmentId;
   },
 });

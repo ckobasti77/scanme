@@ -6,6 +6,8 @@ import { assertMoney, DAY_MS } from "../../lib/admin-v1/rules";
 import { requireClientAccountAccess, requireClientAccountCapability, requireClientVenueAccess, requireClientVenueCapability } from "./clientAccountAccess";
 import { syncSubscriptionActions } from "./adminActionEngine";
 import { syncSubscriptionServiceState } from "./adminReadModelEngine";
+import { addFinanceMonths, financeMonthBounds, financeMonthKey } from "../../lib/admin-v1/finance";
+import { replaceFinanceExpectedSource, type FinanceExpectedSourceRow } from "./financeProjection";
 import type { billingActor, lifecycleFacts, subscriptionTarget } from "./subscriptionValidators";
 
 export type Target = Infer<typeof subscriptionTarget>;
@@ -136,6 +138,7 @@ export async function reconcileSubscription(ctx: MutationCtx, subscriptionId: Id
   // query re-derives billing state and repeat reconciliation stays idempotent.
   await syncSubscriptionActions(ctx, sub, facts, changed ? now : sub.updatedAt, now);
   await syncSubscriptionServiceState(ctx, sub, facts, now);
+  await syncFinanceExpectedSubscription(ctx, subscriptionId, now, facts);
   return facts;
 }
 
@@ -165,6 +168,75 @@ export async function effectivePrice(ctx: DatabaseCtx, sub: Pick<Doc<"subscripti
     effective = { ...effective, amountMinor: Math.max(0, effective.amountMinor - reduction) };
   }
   return { reference: agreement.reference, effective, agreementId: agreement._id, basis: agreement.kind, ...(discount ? { discountId: discount._id } : {}), capturedAt: now };
+}
+
+export async function syncFinanceExpectedSubscription(
+  ctx: MutationCtx,
+  subscriptionId: Id<"subscriptions">,
+  now: number,
+  factsOverride?: Facts,
+) {
+  const subscription = await ctx.db.get(subscriptionId);
+  if (!subscription) fail("billing_subscription_missing");
+  const facts = factsOverride ?? subscription.facts;
+  const rows: FinanceExpectedSourceRow[] = [];
+  if (facts.status === "active" || facts.status === "grace") {
+    let serviceType: Doc<"serviceProfiles">["type"] | undefined;
+    const category = subscription.target.kind === "account_premium" ? "premium" as const : "saas" as const;
+    if (subscription.target.kind === "service_instance") {
+      const profile = await ctx.db.get(subscription.target.serviceProfileId);
+      const business = profile && await ctx.db.get(profile.businessId);
+      if (!profile || !business || business.accountId !== subscription.accountId) fail("admin_finance_expected_cross_account");
+      serviceType = profile.type;
+    }
+    const currentMonth = financeMonthKey(now);
+    const firstExpectedAt = financeMonthBounds(addFinanceMonths(currentMonth, 1)).start;
+    const projectionEnd = financeMonthBounds(addFinanceMonths(currentMonth, 13)).start;
+    let dueAt = facts.paidThrough ?? subscription.startsAt;
+    let guard = 0;
+    while (dueAt < projectionEnd && guard < 36) {
+      if (subscription.cancelledAt !== undefined && dueAt >= subscription.cancelledAt) break;
+      const isOverdue = dueAt <= now;
+      const isExpected = dueAt >= firstExpectedAt;
+      if (isOverdue || isExpected) {
+        try {
+          const price = await effectivePrice(ctx, subscription, dueAt, now);
+          if (price.effective.currency !== "RSD") fail("admin_finance_currency_not_supported");
+          rows.push({
+            sourceKeySuffix: `due:${dueAt}`,
+            monthKey: isOverdue ? "~overdue" : financeMonthKey(dueAt),
+            category,
+            ...(serviceType ? { serviceType } : {}),
+            amountMinor: price.effective.amountMinor,
+            availability: "known",
+            waived: price.effective.amountMinor === 0,
+            dueAt,
+          });
+        } catch (error) {
+          if (!(error instanceof ConvexError) || error.data !== "billing_price_agreement_required") throw error;
+          rows.push({
+            sourceKeySuffix: `due:${dueAt}`,
+            monthKey: isOverdue ? "~overdue" : financeMonthKey(dueAt),
+            category,
+            ...(serviceType ? { serviceType } : {}),
+            amountMinor: 0,
+            availability: "unavailable",
+            waived: false,
+            dueAt,
+          });
+        }
+      }
+      dueAt = periodEnd(dueAt, subscription.period, subscription.anchorAt);
+      guard += 1;
+    }
+    if (guard === 36 && dueAt < projectionEnd) fail("admin_finance_expected_source_limit");
+  }
+  await replaceFinanceExpectedSource(ctx, {
+    accountId: subscription.accountId,
+    source: { kind: "subscription", id: subscription._id },
+    rows,
+    now,
+  });
 }
 
 export async function premiumFact(ctx: DatabaseCtx, accountId: Id<"accounts">) {

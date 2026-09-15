@@ -7,6 +7,7 @@ import { formatHumanCode } from "../../lib/admin-v1/catalog";
 import { normalizeAdminSearchText } from "./adminV1Validators";
 import { isAdminEmail } from "./access";
 import { syncAutomaticAction } from "./adminActionEngine";
+import { syncFinanceExpectedOrder } from "./financeProjection";
 import {
   canRequestProvisioning,
   deriveFulfillment,
@@ -397,6 +398,7 @@ export async function refreshOperation(
   await ctx.db.patch(operationId, patch);
   const refreshed = { ...operation, ...patch } as Doc<"orderOperations">;
   await syncOrderActions(ctx, refreshed, now);
+  await syncFinanceExpectedOrder(ctx, refreshed, now);
   return refreshed;
 }
 

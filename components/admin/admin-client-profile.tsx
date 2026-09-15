@@ -37,6 +37,7 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { adminV1Sr as dict } from "@/lib/i18n/sr/admin-v1";
 import { cn } from "@/lib/utils";
 import { AdminConversationWorkspace } from "./admin-inbox";
+import { AdminClientFinanceSummary } from "./admin-finance";
 import { AdminErrorState, AdminLoadingState, AdminPanel, AdminStatus } from "./admin-primitives";
 
 type ProfileResult = FunctionReturnType<typeof api.adminClientProfiles.getProfile>;
@@ -368,7 +369,7 @@ function ProfileSurface(props: ProfileSurfaceProps) {
   async function run(work: () => Promise<void>, close?: () => void) { setPending(true); setMutationError(""); try { await work(); close?.(); } catch { setMutationError(dict.clientProfileMutationError); } finally { setPending(false); } }
   const content = section === "overview" ? <OverviewSection profile={props.profile} venues={props.venues} onProblem={openProblem} />
     : section === "venues" ? props.venuesStatus === "LoadingFirstPage" ? <AdminLoadingState /> : <VenueSection venues={props.venues} detail={props.venueDetail} selectedId={selectedVenueId} canLoadMore={props.venuesStatus === "CanLoadMore"} loadingMore={props.venuesStatus === "LoadingMore"} onSelect={(id) => updateUrl(router, pathname, params, "venue", id)} onLoadMore={props.loadVenues} onProblem={openProblem} />
-      : section === "finance" ? <HonestEmpty icon={CircleDollarSign} title={dict.clientProfileFinanceEmptyTitle} body={dict.clientProfileFinanceEmptyBody} href="/admin/finansije" linkLabel={dict.clientProfileOpenFinance} />
+      : section === "finance" ? <AdminClientFinanceSummary accountId={props.profile.accountId} preview={!props.live} />
         : section === "communication" ? <CommunicationSection contact={selectedContact} profile={props.profile} live={props.live} />
           : section === "products" ? <div><div className="flex flex-wrap items-center justify-between gap-3"><h2 className="text-lg font-semibold">{dict.clientProfileProductsSummary}</h2><Link href="/admin/operativa/proizvodi" className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold underline underline-offset-4">{dict.clientProfileOpenProducts}<ExternalLink className="size-4" aria-hidden="true" /></Link></div><p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--admin-text-muted)]">{dict.clientProfileProductsBody}</p><div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{props.venues.map((venue) => <div key={venue.businessId} className="rounded-xl border border-[var(--admin-border)] p-4"><strong className="block truncate">{venue.name}</strong><span className="mt-2 block text-2xl font-semibold">{venue.productCount}</span><span className="text-xs text-[var(--admin-text-muted)]">{dict.clientProfileProductsAtVenue}</span></div>)}</div></div>
             : props.activityStatus === "LoadingFirstPage" ? <AdminLoadingState /> : <ActivitySection rows={props.activity} canLoadMore={props.activityStatus === "CanLoadMore"} loadingMore={props.activityStatus === "LoadingMore"} onLoadMore={props.loadActivity} />;
