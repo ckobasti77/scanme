@@ -1,2 +1,5 @@
-import { AdminPlaceholder } from "@/components/admin/admin-placeholder";
-export default function ScanMePageAdmin() { return <AdminPlaceholder title="ScanMe Page" />; }
+import { redirect } from "next/navigation";
+
+export default function ScanMePageAdmin() {
+  redirect("/admin/usluge/meni");
+}

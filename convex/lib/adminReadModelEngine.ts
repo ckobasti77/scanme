@@ -463,7 +463,10 @@ export async function syncServiceOperationalState(
   ) {
     throw new ConvexError("admin_service_identity_changed");
   }
-  if (existing?.state === input.state) return existing._id;
+  if (existing?.state === input.state) {
+    await syncServiceOperationReadModel(ctx, input);
+    return existing._id;
+  }
   const aggregate = await ctx.db
     .query("adminServiceAggregates")
     .withIndex("by_accountId_and_serviceType", (q) =>
@@ -504,7 +507,152 @@ export async function syncServiceOperationalState(
       },
     });
   }
+  await syncServiceOperationReadModel(ctx, input);
   return stateId;
+}
+
+// This projection intentionally contains list-grade facts only. Deep actions
+// and history load separately after a venue is selected, which keeps the
+// primary three-service workspace cursor-paginated and N+1-free.
+export async function syncServiceOperationReadModel(
+  ctx: MutationCtx,
+  input: {
+    accountId: Id<"accounts">;
+    businessId: Id<"businesses">;
+    serviceProfileId: Id<"serviceProfiles">;
+    serviceType: ServiceType;
+    state: ServiceState;
+    updatedAt: number;
+  },
+) {
+  const [profile, venue, account] = await Promise.all([
+    ctx.db.get(input.serviceProfileId),
+    ctx.db
+      .query("adminVenueReadModels")
+      .withIndex("by_businessId", (q) => q.eq("businessId", input.businessId))
+      .unique(),
+    ctx.db.get(input.accountId),
+  ]);
+  if (
+    !profile ||
+    profile.businessId !== input.businessId ||
+    profile.type !== input.serviceType ||
+    !venue ||
+    venue.accountId !== input.accountId ||
+    !account
+  ) {
+    return null;
+  }
+
+  const [subscription, action] = await Promise.all([
+    ctx.db
+      .query("subscriptions")
+      .withIndex("by_accountId_and_targetKey", (q) =>
+        q
+          .eq("accountId", input.accountId)
+          .eq("targetKey", `service:${input.serviceProfileId}`),
+      )
+      .unique(),
+    ctx.db
+      .query("actionItems")
+      .withIndex(
+        "by_serviceProfileId_and_state_and_priority",
+        (q) =>
+          q.eq("serviceProfileId", input.serviceProfileId).eq("state", "open"),
+      )
+      .first(),
+  ]);
+
+  let configurationState: Doc<"adminServiceOperationReadModels">["configurationState"] =
+    "unconfigured";
+  if (profile.status !== "active") {
+    configurationState = "inactive";
+  } else if (input.serviceType === "scanme_links") {
+    const config = await ctx.db
+      .query("scanMeLinksConfigs")
+      .withIndex("by_serviceProfileId", (q) =>
+        q.eq("serviceProfileId", input.serviceProfileId),
+      )
+      .unique();
+    configurationState = config?.publishedAt
+      ? "published"
+      : config?.hasUnpublishedChanges
+        ? "draft"
+        : config
+          ? "configured"
+          : "unconfigured";
+  } else if (input.serviceType === "google_review") {
+    const destination = await ctx.db
+      .query("dynamicLinks")
+      .withIndex("by_businessId_and_type", (q) =>
+        q.eq("businessId", input.businessId).eq("type", "google_review"),
+      )
+      .first();
+    configurationState = destination?.active ? "configured" : "unconfigured";
+  } else {
+    const menu = await ctx.db
+      .query("menus")
+      .withIndex("by_businessId", (q) => q.eq("businessId", input.businessId))
+      .unique();
+    configurationState = menu?.status === "published"
+      ? "published"
+      : menu
+        ? "draft"
+        : "unconfigured";
+  }
+
+  const signal = actionSignal(action);
+  const subscriptionState = subscription?.facts.status ?? "inactive";
+  const filterState: ServiceState = signal.severity === "blocking"
+    ? "problem"
+    : subscriptionState === "active" && subscription?.facts.warning
+      ? "warning"
+      : subscriptionState;
+  const hasCanonicalProductFacts = venue.productFactsComplete === true;
+  const fields = {
+    accountId: input.accountId,
+    businessId: input.businessId,
+    serviceProfileId: input.serviceProfileId,
+    serviceType: input.serviceType,
+    ...(subscription ? { subscriptionId: subscription._id } : {}),
+    subscriptionState,
+    warning: subscription?.facts.warning ?? false,
+    paidThrough: subscription?.facts.paidThrough ?? null,
+    graceEndsAt: subscription?.facts.graceEndsAt ?? null,
+    configurationState,
+    filterState,
+    smkCode: venue.smkCode,
+    smlCode: venue.smlCode,
+    accountName: account.name,
+    ownerDisplayName: venue.ownerDisplayName,
+    venueName: venue.venueName,
+    normalizedVenueName: venue.normalizedVenueName,
+    publicSlug: profile.slug,
+    productCount: hasCanonicalProductFacts ? venue.canonicalProductCount ?? null : null,
+    qrCount: hasCanonicalProductFacts ? venue.canonicalQrCount ?? null : null,
+    nfcCount: hasCanonicalProductFacts ? venue.canonicalNfcCount ?? null : null,
+    problemCount: hasCanonicalProductFacts ? venue.canonicalProblemCount ?? null : null,
+    signal,
+    urgencyRank: signalUrgencyRank(signal),
+    searchText: searchText([
+      venue.ownerDisplayName,
+      venue.venueName,
+      venue.smkCode,
+      venue.smlCode,
+    ]),
+    updatedAt: input.updatedAt,
+  };
+  const existing = await ctx.db
+    .query("adminServiceOperationReadModels")
+    .withIndex("by_serviceProfileId", (q) =>
+      q.eq("serviceProfileId", input.serviceProfileId),
+    )
+    .unique();
+  if (existing) {
+    await ctx.db.patch(existing._id, fields);
+    return existing._id;
+  }
+  return ctx.db.insert("adminServiceOperationReadModels", fields);
 }
 
 export async function syncSubscriptionServiceState(

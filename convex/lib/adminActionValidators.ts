@@ -8,6 +8,7 @@ export const actionSourceDomainValidator = v.union(
   v.literal("physical_product"),
   v.literal("qr_nfc"),
   v.literal("manual_problem"),
+  v.literal("service_activation_request"),
 );
 
 export const actionSeverityValidator = v.union(

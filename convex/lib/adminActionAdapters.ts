@@ -8,7 +8,7 @@ import type {
  * Minimal seam for ADMIN-08/10/11/12. It describes an observed source fact,
  * but deliberately does not invent those future domains' statuses or events.
  */
-export type DeferredActionDomain = "inbox" | "task" | "order" | "qr_nfc";
+export type DeferredActionDomain = "inbox" | "task" | "order" | "qr_nfc" | "manual_problem" | "service_activation_request";
 
 export type AutomaticActionAdapterInput = {
   readonly domain: "subscription" | DeferredActionDomain | "physical_product";

@@ -803,5 +803,26 @@ test("klijent može imati samo jedan otvoren upit po servisu", async () => {
     status: "new",
     emailStatus: "queued",
   });
+  const actionBeforeClose = await setup.t.run((ctx) =>
+    ctx.db.query("actionItems").withIndex("by_source_record_state_priority", (q) =>
+      q
+        .eq("sourceDomain", "service_activation_request")
+        .eq("sourceRecordId", first.requestId)
+        .eq("state", "open"),
+    ).unique(),
+  );
+  expect(actionBeforeClose).toMatchObject({
+    businessId: setup.businessId,
+    serviceProfileId: setup.serviceProfileId,
+    severity: "information",
+  });
+  await setup.asAdmin.mutation(api.activationRequests.setStatus, {
+    requestId: first.requestId,
+    status: "closed",
+  });
+  const actionAfterClose = await setup.t.run((ctx) =>
+    ctx.db.query("actionItems").withIndex("by_causeId", (q) => q.eq("causeId", actionBeforeClose!.causeId)).unique(),
+  );
+  expect(actionAfterClose?.state).toBe("resolved");
   delete process.env.SCANME_ADMIN_EMAILS;
 });

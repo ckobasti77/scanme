@@ -8,6 +8,7 @@ export const ACTION_SOURCE_DOMAINS = [
   "physical_product",
   "qr_nfc",
   "manual_problem",
+  "service_activation_request",
 ] as const;
 export type ActionSourceDomain = (typeof ACTION_SOURCE_DOMAINS)[number];
 
