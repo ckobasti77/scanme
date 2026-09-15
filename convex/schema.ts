@@ -419,6 +419,7 @@ export default defineSchema({
     .index("by_assigneeId_and_state_and_snoozedUntil", ["assigneeId", "state", "snoozedUntil"])
     .index("by_account_state_severity_priority", ["accountId", "state", "severityRank", "priorityRank", "priorityAt", "causeId"])
     .index("by_business_state_severity_priority", ["businessId", "state", "severityRank", "priorityRank", "priorityAt", "causeId"])
+    .index("by_serviceProfileId_and_state_and_priority", ["serviceProfileId", "state", "severityRank", "priorityRank", "priorityAt", "causeId"])
     .index("by_product_state_severity_priority", ["productRef", "state", "severityRank", "priorityRank", "priorityAt", "causeId"])
     .index("by_source_record_state_priority", ["sourceDomain", "sourceRecordId", "state", "priorityRank", "priorityAt", "causeId"]),
 
@@ -567,6 +568,82 @@ export default defineSchema({
     summary: serviceAggregateValidator,
     updatedAt: v.number(),
   }).index("by_accountId_and_serviceType", ["accountId", "serviceType"]),
+
+  // ADMIN-15. One row per V1 service profile, maintained beside the existing
+  // subscription/read-model projection. The list route never joins an
+  // unbounded serviceProfiles set with subscriptions, access channels, or
+  // action items at request time.
+  adminServiceOperationReadModels: defineTable({
+    accountId: v.id("accounts"),
+    businessId: v.id("businesses"),
+    serviceProfileId: v.id("serviceProfiles"),
+    serviceType: adminV1ServiceTypeValidator,
+    subscriptionId: v.optional(v.id("subscriptions")),
+    subscriptionState: v.union(
+      v.literal("active"),
+      v.literal("grace"),
+      v.literal("suspended"),
+      v.literal("inactive"),
+    ),
+    warning: v.boolean(),
+    paidThrough: v.union(v.number(), v.null()),
+    graceEndsAt: v.union(v.number(), v.null()),
+    configurationState: v.union(
+      v.literal("published"),
+      v.literal("draft"),
+      v.literal("configured"),
+      v.literal("unconfigured"),
+      v.literal("inactive"),
+    ),
+    filterState: serviceOperationalStateValidator,
+    smkCode: v.string(),
+    smlCode: v.string(),
+    accountName: v.string(),
+    ownerDisplayName: v.string(),
+    venueName: v.string(),
+    normalizedVenueName: v.string(),
+    publicSlug: v.string(),
+    productCount: v.union(v.number(), v.null()),
+    qrCount: v.union(v.number(), v.null()),
+    nfcCount: v.union(v.number(), v.null()),
+    problemCount: v.union(v.number(), v.null()),
+    signal: actionSignalValidator,
+    urgencyRank: v.number(),
+    searchText: v.string(),
+    updatedAt: v.number(),
+  })
+    .index("by_serviceProfileId", ["serviceProfileId"])
+    .index("by_businessId", ["businessId"])
+    .index("by_type_urgency_name", [
+      "serviceType",
+      "urgencyRank",
+      "normalizedVenueName",
+    ])
+    .index("by_type_name", [
+      "serviceType",
+      "normalizedVenueName",
+    ])
+    .index("by_type_updated", ["serviceType", "updatedAt"])
+    .index("by_type_filter_urgency_name", [
+      "serviceType",
+      "filterState",
+      "urgencyRank",
+      "normalizedVenueName",
+    ])
+    .index("by_type_filter_name", [
+      "serviceType",
+      "filterState",
+      "normalizedVenueName",
+    ])
+    .index("by_type_filter_updated", [
+      "serviceType",
+      "filterState",
+      "updatedAt",
+    ])
+    .searchIndex("search_searchText", {
+      searchField: "searchText",
+      filterFields: ["serviceType", "filterState"],
+    }),
 
   serviceSlugAliases: defineTable({
     slug: v.string(),
