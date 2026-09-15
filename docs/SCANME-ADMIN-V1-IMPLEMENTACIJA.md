@@ -2020,6 +2020,16 @@ Implementirati operativni finansijski modul sa tačnim Naplaćeno/Očekivano/Pro
 - grafikon i sume se slažu kroz period/filter testove;
 - desktop browser QA i `npm run check` prolaze.
 
+### Implementacioni ugovor — 15.09.2026.
+
+- Kanonski server obračun je `adminFinance.overview`; globalna ruta i profil klijenta šalju isti period/filter ugovor, a profil obavezno dodaje `accountId`.
+- `financeLedgerEntries` čuva immutable allocation-level receipt/refund/reversal činjenice u globalnom i account scope-u. Mesečni i dnevni rollup-i daju bounded grafikone i `Oduvek` bez skeniranja uplata.
+- `financePaymentDigests` čuva jedan kanonski red po uplati/scope-u. `financePaymentListRows` denormalizuje isti red samo po stvarno primenljivim filterima radi indeksirane cursor paginacije bez filter-after-cap ili hydration upita po redu.
+- Očekivano se materijalizuje iz postojećih subscription lifecycle/price/waiver činjenica i potvrđenih order ostataka. Nedatirani order ostatak je odvojen; cancelled/inactive izvori ne projektuju budući prihod.
+- Direktni troškovi su append-only. Production zahteva stvarni order/account; Hosting i Backend zahtevaju pokriven period. Odsustvo troška ostaje `missing`, dok je eksplicitna nula auditovana poznata činjenica.
+- Istorijski projection/backfill seam je internal, cursor-bounded na 25 redova, idempotentan i ima dry-run. Nije zakazan niti izvršen nad deployment podacima; operativni postupak je u `docs/tasks/ADMIN-14-MIGRACIJA.md`.
+- Dev preview koristi iste React komponente, jasno je označen i u produkcionom buildu vraća not-found.
+
 ---
 
 ## ADMIN-15 — Links, Review i Meni operativni moduli

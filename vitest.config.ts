@@ -20,6 +20,7 @@ export default defineConfig({
       "components/venue/**/*.test.tsx",
       "components/purchase/**/*.test.ts",
       "components/menu/**/*.test.tsx",
+      "components/admin/**/*.test.tsx",
     ],
   },
 });

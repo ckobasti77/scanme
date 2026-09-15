@@ -7,6 +7,7 @@ import { requireAdmin } from "./lib/access";
 import { allocationInput, money, paymentMethod } from "./lib/subscriptionValidators";
 import { authorizeTarget, BILLING_BATCH, bounded, fail, fingerprint, minor, reconcileSubscription, requireBillingAccount, required, sameRequest, timestamp } from "./lib/subscriptions";
 import { qualifyReferral } from "./subscriptionPricing";
+import { projectFinancePayment } from "./lib/financeProjection";
 
 // This verifies intent/capability only. A client must never be able to claim
 // cash arrived. The provider-neutral admin receipt below is the settlement gate.
@@ -56,7 +57,9 @@ export const record = internalMutation({
       const duplicate = await ctx.db.query("payments").withIndex("by_ledger_provider_and_ledger_providerEventId", (q) => q.eq("ledger.provider", args.provider).eq("ledger.providerEventId", args.providerEventId)).unique();
       if (duplicate) fail("billing_duplicate_provider_event");
     }
-    const periods: Doc<"subscriptionPeriods">[] = [], seen = new Set<string>();
+    const periods: Doc<"subscriptionPeriods">[] = [];
+    const financeSnapshots: { category: "saas" | "premium"; serviceType?: Doc<"serviceProfiles">["type"]; period: Doc<"subscriptions">["period"] }[] = [];
+    const seen = new Set<string>();
     let total = args.unallocatedMinor;
     for (const allocation of args.allocations) {
       minor(allocation.amountMinor, args.amount.currency);
@@ -69,7 +72,16 @@ export const record = internalMutation({
       if (period.price.effective.currency !== args.amount.currency) fail("billing_currency_mismatch");
       if (period.funded) fail("billing_period_already_funded");
       if (period.paidMinor + allocation.amountMinor > period.price.effective.amountMinor) fail("billing_overallocation");
-      total += allocation.amountMinor; minor(total, args.amount.currency); periods.push(period);
+      let serviceType: Doc<"serviceProfiles">["type"] | undefined;
+      if (sub.target.kind === "service_instance") {
+        const profile = await ctx.db.get(sub.target.serviceProfileId);
+        if (!profile) fail("billing_target_not_in_account");
+        serviceType = profile.type;
+      }
+      total += allocation.amountMinor;
+      minor(total, args.amount.currency);
+      periods.push(period);
+      financeSnapshots.push({ category: sub.target.kind === "account_premium" ? "premium" : "saas", ...(serviceType ? { serviceType } : {}), period: sub.period });
     }
     if (total !== args.amount.amountMinor) fail("billing_unbalanced_payment");
     const now = Date.now(), actor = { kind: "admin" as const, userId: admin._id };
@@ -84,7 +96,9 @@ export const record = internalMutation({
     for (let i = 0; i < periods.length; i++) {
       const period = periods[i], amountMinor = args.allocations[i].amountMinor;
       await ctx.db.insert("paymentAllocations", { accountId: args.accountId, paymentId, subscriptionId: period.subscriptionId,
-        periodId: period._id, start: period.start, end: period.end, amount: { amountMinor, currency: args.amount.currency }, price: period.price, createdAt: now });
+        periodId: period._id, start: period.start, end: period.end, amount: { amountMinor, currency: args.amount.currency }, price: period.price,
+        financeCategory: financeSnapshots[i].category, ...(financeSnapshots[i].serviceType ? { financeServiceType: financeSnapshots[i].serviceType } : {}),
+        financePeriod: financeSnapshots[i].period, createdAt: now });
       const paidMinor = period.paidMinor + amountMinor;
       await ctx.db.patch(period._id, { paidMinor, funded: paidMinor === period.price.effective.amountMinor });
     }
@@ -92,6 +106,7 @@ export const record = internalMutation({
     await ctx.db.insert("paymentStates", { accountId: args.accountId, paymentId, paidAt: args.paidAt, state: "settled" });
     await ctx.db.insert("subscriptionEvents", { accountId: args.accountId, actor, action: "payment.recorded", paymentId, createdAt: now });
     await qualifyReferral(ctx, args.accountId, actor, now);
+    await projectFinancePayment(ctx, paymentId);
     return paymentId;
   },
 });
@@ -129,6 +144,7 @@ export const reverse = internalMutation({
       await ctx.db.insert("subscriptionEvents", { accountId: referral.referrerAccountId, actor, action: "referral.qualifying_payment_reversed", referralId: referral._id, paymentId: payment._id, reason, createdAt: now });
     }
     await ctx.db.insert("subscriptionEvents", { accountId: payment.accountId, actor, action: "payment.reversed", paymentId: payment._id, adjustmentId, reason, createdAt: now });
+    await projectFinancePayment(ctx, payment._id);
     return adjustmentId;
   },
 });

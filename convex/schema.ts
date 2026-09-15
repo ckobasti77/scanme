@@ -19,7 +19,7 @@ import {
 import { priceSnapshotValidator } from "./lib/orderSnapshot";
 import {
   agreementKind, billingActor, billingChange, billingPeriod, discountValue,
-  lifecycleFacts, money, paymentLedger, subscriptionPrice, subscriptionTarget,
+  lifecycleFacts, money, paymentLedger, paymentMethod, subscriptionPrice, subscriptionTarget,
 } from "./lib/subscriptionValidators";
 import {
   accountContactStatusValidator,
@@ -1916,6 +1916,7 @@ export default defineSchema({
     .index("by_orderId", ["orderId"])
     .index("by_smpCode", ["smpCode"])
     .index("by_view_and_updatedAt", ["view", "updatedAt"])
+    .index("by_view_and_accountId_and_updatedAt", ["view", "accountId", "updatedAt"])
     .index("by_view_and_paymentState_and_updatedAt", ["view", "paymentState", "updatedAt"])
     .index("by_view_and_designState_and_updatedAt", ["view", "designState", "updatedAt"])
     .index("by_view_and_fulfillmentState_and_updatedAt", ["view", "fulfillmentState", "updatedAt"])
@@ -2237,6 +2238,7 @@ export default defineSchema({
     .index("by_accountId_and_targetKey", ["accountId", "targetKey"])
     .index("by_businessId", ["businessId"])
     .index("by_accountId_and_facts_status", ["accountId", "facts.status"])
+    .index("by_facts_status_and_accountId", ["facts.status", "accountId"])
     .index("by_nextTransitionAt", ["nextTransitionAt"])
     .index("by_accountId_and_key", ["accountId", "key"]),
 
@@ -2255,6 +2257,9 @@ export default defineSchema({
     accountId: v.id("accounts"), paymentId: v.id("payments"),
     subscriptionId: v.id("subscriptions"), periodId: v.id("subscriptionPeriods"),
     start: v.number(), end: v.number(), amount: money, price: subscriptionPrice,
+    financeCategory: v.optional(v.union(v.literal("saas"), v.literal("premium"))),
+    financeServiceType: v.optional(serviceType),
+    financePeriod: v.optional(billingPeriod),
     createdAt: v.number(),
   })
     .index("by_paymentId", ["paymentId"])
@@ -2263,7 +2268,11 @@ export default defineSchema({
 
   paymentAdjustments: defineTable({
     accountId: v.id("accounts"), paymentId: v.id("payments"),
-    kind: v.literal("reversal"), amount: money, change: billingChange,
+    kind: v.union(v.literal("reversal"), v.literal("refund")), amount: money, change: billingChange,
+    occurredAt: v.optional(v.number()),
+    allocations: v.optional(v.array(v.object({
+      logicalKey: v.string(), amountMinor: v.number(),
+    }))),
     key: v.string(), fingerprint: v.string(),
   })
     .index("by_paymentId", ["paymentId"])
@@ -2276,6 +2285,166 @@ export default defineSchema({
   })
     .index("by_paymentId", ["paymentId"])
     .index("by_accountId_and_state_and_paidAt", ["accountId", "state", "paidAt"]),
+
+  // ADMIN-14: immutable, allocation-level finance projection. Every real
+  // payment fact is written twice (global + account scope) so both finance and
+  // client-profile reads remain indexed without cross-account post-filtering.
+  financeLedgerEntries: defineTable({
+    scopeKey: v.string(), sourceKey: v.string(), logicalKey: v.string(),
+    fingerprint: v.string(), accountId: v.id("accounts"),
+    paymentId: v.id("payments"), adjustmentId: v.optional(v.id("paymentAdjustments")),
+    entryKind: v.union(v.literal("receipt"), v.literal("refund"), v.literal("reversal")),
+    category: v.union(v.literal("physical"), v.literal("saas"), v.literal("premium"), v.literal("unallocated")),
+    serviceType: v.optional(serviceType),
+    amountMinor: v.number(), currency: v.string(), method: paymentMethod,
+    occurredAt: v.number(),
+    period: v.union(v.literal("monthly"), v.literal("annual"), v.literal("one_time"), v.literal("unallocated")),
+    coveredStart: v.optional(v.number()), coveredEnd: v.optional(v.number()),
+    subscriptionId: v.optional(v.id("subscriptions")), orderId: v.optional(v.id("orders")),
+    recordedByUserId: v.optional(v.id("users")), createdAt: v.number(),
+  })
+    .index("by_sourceKey", ["sourceKey"])
+    .index("by_scopeKey_and_occurredAt", ["scopeKey", "occurredAt"])
+    .index("by_scopeKey_and_paymentId_and_logicalKey", ["scopeKey", "paymentId", "logicalKey"])
+    .index("by_adjustmentId_and_scopeKey", ["adjustmentId", "scopeKey"]),
+
+  // Bounded all-time read path. Rows are leaf dimensions, not pre-labelled UI
+  // totals; every filter is derived from the same exact allocation categories.
+  financeMonthlyRollups: defineTable({
+    scopeKey: v.string(), monthKey: v.string(), dimensionKey: v.string(),
+    category: v.union(v.literal("physical"), v.literal("saas"), v.literal("premium"), v.literal("unallocated")),
+    serviceType: v.optional(serviceType), method: paymentMethod, currency: v.string(),
+    collectedMinor: v.number(), refundedMinor: v.number(), reversedMinor: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_scopeKey_and_monthKey", ["scopeKey", "monthKey"])
+    .index("by_scopeKey_and_monthKey_and_dimensionKey", ["scopeKey", "monthKey", "dimensionKey"]),
+
+  financeDailyRollups: defineTable({
+    scopeKey: v.string(), dateKey: v.string(), dimensionKey: v.string(),
+    category: v.union(v.literal("physical"), v.literal("saas"), v.literal("premium"), v.literal("unallocated")),
+    serviceType: v.optional(serviceType), method: paymentMethod, currency: v.string(),
+    collectedMinor: v.number(), refundedMinor: v.number(), reversedMinor: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_scopeKey_and_dateKey", ["scopeKey", "dateKey"])
+    .index("by_scopeKey_and_dateKey_and_dimensionKey", ["scopeKey", "dateKey", "dimensionKey"]),
+
+  // One row per payment and scope prevents mixed allocations from duplicating
+  // the payment list while retaining their exact allocation breakdown.
+  financePaymentDigests: defineTable({
+    scopeKey: v.string(), accountId: v.id("accounts"), accountName: v.string(),
+    paymentId: v.id("payments"), amountMinor: v.number(), currency: v.string(),
+    paidAt: v.number(), method: paymentMethod, reference: v.optional(v.string()),
+    recordedByUserId: v.optional(v.id("users")),
+    allocations: v.array(v.object({
+      logicalKey: v.string(),
+      category: v.union(v.literal("physical"), v.literal("saas"), v.literal("premium"), v.literal("unallocated")),
+      serviceType: v.optional(serviceType), amountMinor: v.number(),
+      period: v.union(v.literal("monthly"), v.literal("annual"), v.literal("one_time"), v.literal("unallocated")),
+      coveredStart: v.optional(v.number()), coveredEnd: v.optional(v.number()),
+      subscriptionId: v.optional(v.id("subscriptions")), orderId: v.optional(v.id("orders")),
+    })),
+    refundedMinor: v.number(), reversedMinor: v.number(), updatedAt: v.number(),
+  })
+    .index("by_scopeKey_and_paidAt", ["scopeKey", "paidAt"])
+    .index("by_scopeKey_and_paymentId", ["scopeKey", "paymentId"]),
+
+  // Denormalized once per applicable filter so filtered cursor pagination
+  // never scans or post-filters a capped page and never joins per result row.
+  financePaymentListRows: defineTable({
+    scopeKey: v.string(), filterKey: v.string(), accountId: v.id("accounts"), accountName: v.string(),
+    paymentId: v.id("payments"), amountMinor: v.number(), currency: v.string(),
+    paidAt: v.number(), method: paymentMethod, reference: v.optional(v.string()),
+    recordedByUserId: v.optional(v.id("users")),
+    allocations: v.array(v.object({
+      logicalKey: v.string(),
+      category: v.union(v.literal("physical"), v.literal("saas"), v.literal("premium"), v.literal("unallocated")),
+      serviceType: v.optional(serviceType), amountMinor: v.number(),
+      period: v.union(v.literal("monthly"), v.literal("annual"), v.literal("one_time"), v.literal("unallocated")),
+      coveredStart: v.optional(v.number()), coveredEnd: v.optional(v.number()),
+      subscriptionId: v.optional(v.id("subscriptions")), orderId: v.optional(v.id("orders")),
+    })),
+    refundedMinor: v.number(), reversedMinor: v.number(), updatedAt: v.number(),
+  })
+    .index("by_scopeKey_and_filterKey_and_paidAt", ["scopeKey", "filterKey", "paidAt"])
+    .index("by_scopeKey_and_paymentId_and_filterKey", ["scopeKey", "paymentId", "filterKey"]),
+
+  // Append-only direct-cost facts. Zero is a real confirmed fact; absence is
+  // represented only by an unresolved financeCostRequirements row.
+  financeDirectCosts: defineTable({
+    scopeKey: v.string(), accountId: v.optional(v.id("accounts")),
+    category: v.union(v.literal("production"), v.literal("hosting"), v.literal("backend")),
+    eventKind: v.union(v.literal("cost"), v.literal("correction"), v.literal("reversal")),
+    direction: v.union(v.literal("debit"), v.literal("credit")),
+    amountMinor: v.number(), currency: v.string(), occurredAt: v.number(),
+    coveredStart: v.optional(v.number()), coveredEnd: v.optional(v.number()),
+    orderId: v.optional(v.id("orders")), orderLineId: v.optional(v.id("orderLines")),
+    printJobId: v.optional(v.id("printJobs")), printerId: v.optional(v.id("printers")),
+    sourceReference: v.optional(v.string()), note: v.optional(v.string()),
+    relatedCostId: v.optional(v.id("financeDirectCosts")), reason: v.optional(v.string()),
+    actorUserId: v.id("users"), idempotencyKey: v.string(), fingerprint: v.string(), createdAt: v.number(),
+  })
+    .index("by_scopeKey_and_occurredAt", ["scopeKey", "occurredAt"])
+    .index("by_actorUserId_and_idempotencyKey", ["actorUserId", "idempotencyKey"])
+    .index("by_relatedCostId", ["relatedCostId"])
+    .index("by_orderId", ["orderId"]),
+
+  // Exact coverage evidence for recurring direct costs. This avoids scanning
+  // an arbitrarily capped cost list when a receipt creates its requirement.
+  financeCostCoverageFacts: defineTable({
+    scopeKey: v.string(), monthKey: v.string(),
+    category: v.union(v.literal("hosting"), v.literal("backend")),
+    evidenceCostId: v.id("financeDirectCosts"), updatedAt: v.number(),
+  })
+    .index("by_scopeKey_and_category_and_monthKey", ["scopeKey", "category", "monthKey"]),
+
+  financeMonthlyCostRollups: defineTable({
+    scopeKey: v.string(), monthKey: v.string(), dimensionKey: v.string(),
+    category: v.union(v.literal("production"), v.literal("hosting"), v.literal("backend")),
+    currency: v.string(), debitMinor: v.number(), creditMinor: v.number(), updatedAt: v.number(),
+  })
+    .index("by_scopeKey_and_monthKey", ["scopeKey", "monthKey"])
+    .index("by_scopeKey_and_monthKey_and_dimensionKey", ["scopeKey", "monthKey", "dimensionKey"]),
+
+  financeCostRequirements: defineTable({
+    scopeKey: v.string(), monthKey: v.string(), requirementKey: v.string(),
+    category: v.union(v.literal("production"), v.literal("hosting"), v.literal("backend"), v.literal("classification")),
+    accountId: v.optional(v.id("accounts")), sourceId: v.optional(v.string()),
+    state: v.union(v.literal("missing"), v.literal("known")),
+    evidenceCostId: v.optional(v.id("financeDirectCosts")), updatedAt: v.number(),
+  })
+    .index("by_scopeKey_and_monthKey", ["scopeKey", "monthKey"])
+    .index("by_scopeKey_and_requirementKey_and_monthKey", ["scopeKey", "requirementKey", "monthKey"]),
+
+  // Materialized future obligations. Source rows make replacement idempotent;
+  // aggregate rows keep the ADMIN-14 read path fixed-query and exact.
+  financeExpectedObligations: defineTable({
+    scopeKey: v.string(), sourceKey: v.string(), fingerprint: v.string(),
+    accountId: v.id("accounts"),
+    sourceKind: v.union(v.literal("subscription"), v.literal("order")),
+    monthKey: v.string(),
+    category: v.union(v.literal("physical"), v.literal("saas"), v.literal("premium")),
+    serviceType: v.optional(serviceType), amountMinor: v.number(), currency: v.literal("RSD"),
+    availability: v.union(v.literal("known"), v.literal("unavailable")),
+    waived: v.boolean(), dueAt: v.optional(v.number()),
+    subscriptionId: v.optional(v.id("subscriptions")),
+    orderOperationId: v.optional(v.id("orderOperations")),
+    updatedAt: v.number(),
+  })
+    .index("by_sourceKey", ["sourceKey"])
+    .index("by_subscriptionId_and_scopeKey", ["subscriptionId", "scopeKey"])
+    .index("by_orderOperationId_and_scopeKey", ["orderOperationId", "scopeKey"]),
+
+  financeExpectedRollups: defineTable({
+    scopeKey: v.string(), monthKey: v.string(), dimensionKey: v.string(),
+    category: v.union(v.literal("physical"), v.literal("saas"), v.literal("premium")),
+    serviceType: v.optional(serviceType), currency: v.literal("RSD"),
+    amountMinor: v.number(), waivedCount: v.number(), unavailablePriceCount: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_scopeKey_and_monthKey", ["scopeKey", "monthKey"])
+    .index("by_scopeKey_and_monthKey_and_dimensionKey", ["scopeKey", "monthKey", "dimensionKey"]),
 
   priceAgreements: defineTable({
     accountId: v.id("accounts"), target: subscriptionTarget, targetKey: v.string(),
