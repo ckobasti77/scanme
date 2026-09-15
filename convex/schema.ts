@@ -1275,6 +1275,7 @@ export default defineSchema({
   })
     .index("by_accountId", ["accountId"])
     .index("by_accountId_and_kind", ["accountId", "kind"])
+    .index("by_kind", ["kind"])
     .index("by_accountId_and_normalizedLabel", ["accountId", "normalizedLabel"]),
 
   adminV1MigrationMappings: defineTable({
@@ -2530,7 +2531,23 @@ export default defineSchema({
     change: billingChange, key: v.string(), fingerprint: v.string(),
   })
     .index("by_accountId_and_targetKey_and_period_and_validFrom", ["accountId", "targetKey", "period", "validFrom"])
-    .index("by_accountId_and_key", ["accountId", "key"]),
+    .index("by_accountId_and_key", ["accountId", "key"])
+    .index("by_validFrom", ["validFrom"]),
+
+  // ADMIN-16. This is intentionally a very small global rule surface: an
+  // immutable, future-effective Premium reference price. Account agreements
+  // still own every actual subscription price and its historical snapshot.
+  adminPremiumReferencePrices: defineTable({
+    scope: v.literal("global"), amountMinor: v.number(), currency: v.literal("RSD"),
+    validFrom: v.number(), validUntil: v.union(v.number(), v.null()), version: v.number(),
+    reason: v.string(), key: v.string(), fingerprint: v.string(), actorUserId: v.id("users"), createdAt: v.number(),
+  })
+    .index("by_scope_and_validFrom", ["scope", "validFrom"])
+    .index("by_scope_and_key", ["scope", "key"]),
+
+  adminBusinessRuleState: defineTable({
+    scope: v.literal("global"), version: v.number(), updatedAt: v.number(), updatedByUserId: v.id("users"),
+  }).index("by_scope", ["scope"]),
 
   discountRules: defineTable({
     accountId: v.id("accounts"), target: subscriptionTarget, targetKey: v.string(),
@@ -2547,12 +2564,16 @@ export default defineSchema({
     referrerAccountId: v.id("accounts"), referredAccountId: v.id("accounts"),
     status: v.union(v.literal("pending"), v.literal("qualified"), v.literal("rewarded"), v.literal("cancelled")),
     qualifyingPaymentId: v.optional(v.id("payments")),
+    change: v.optional(billingChange),
+    key: v.optional(v.string()),
+    fingerprint: v.optional(v.string()),
     // Campaign terms live on explicit reward discount rows; no wallet/default rate.
     createdAt: v.number(), updatedAt: v.number(),
   })
     .index("by_referredAccountId", ["referredAccountId"])
     .index("by_referrerAccountId_and_status", ["referrerAccountId", "status"])
-    .index("by_qualifyingPaymentId", ["qualifyingPaymentId"]),
+    .index("by_qualifyingPaymentId", ["qualifyingPaymentId"])
+    .index("by_updatedAt", ["updatedAt"]),
 
   subscriptionEvents: defineTable({
     accountId: v.id("accounts"), subscriptionId: v.optional(v.id("subscriptions")),

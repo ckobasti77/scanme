@@ -23,6 +23,7 @@ import type * as adminProductReads from "../adminProductReads.js";
 import type * as adminProducts from "../adminProducts.js";
 import type * as adminReadModels from "../adminReadModels.js";
 import type * as adminServiceOperations from "../adminServiceOperations.js";
+import type * as adminSettings from "../adminSettings.js";
 import type * as adminTasks from "../adminTasks.js";
 import type * as adminV1Migrations from "../adminV1Migrations.js";
 import type * as auth from "../auth.js";
@@ -144,6 +145,7 @@ declare const fullApi: ApiFromModules<{
   adminProducts: typeof adminProducts;
   adminReadModels: typeof adminReadModels;
   adminServiceOperations: typeof adminServiceOperations;
+  adminSettings: typeof adminSettings;
   adminTasks: typeof adminTasks;
   adminV1Migrations: typeof adminV1Migrations;
   auth: typeof auth;

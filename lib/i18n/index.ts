@@ -43,6 +43,7 @@ import { adminProductsSr } from "./sr/admin-products";
 import { adminTeamSr } from "./sr/admin-team";
 import { adminFinanceSr } from "./sr/admin-finance";
 import { adminServicesSr } from "./sr/admin-services";
+import { adminSettingsSr } from "./sr/admin-settings";
 
 export { fmt, srPluralCategory };
 export type {
@@ -72,6 +73,7 @@ export type {
   CardsAdminDict,
   AdminDomainDict,
   AdminV1Dict,
+  AdminSettingsDict,
   CommunicationsDict,
   AdminTasksDict,
   AdminOrdersDict,
@@ -111,10 +113,12 @@ export {
   adminTeamSr,
   adminFinanceSr,
   adminServicesSr,
+  adminSettingsSr,
 };
 
 const SR: DictBySurface = {
   "admin-v1": adminV1Sr,
+  "admin-settings": adminSettingsSr,
   communications: communicationsSr,
   "admin-tasks": adminTasksSr,
   "admin-orders": adminOrdersSr,

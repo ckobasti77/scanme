@@ -91,16 +91,23 @@ export async function qualifyReferral(ctx: MutationCtx, accountId: Id<"accounts"
 }
 
 export const registerReferral = internalMutation({
-  args: { referrerAccountId: v.id("accounts"), referredAccountId: v.id("accounts") }, returns: v.id("referrals"),
+  args: { referrerAccountId: v.id("accounts"), referredAccountId: v.id("accounts"), reason: v.string(), key: v.string() }, returns: v.id("referrals"),
   handler: async (ctx, args) => {
     const admin = await requireAdmin(ctx);
     await requireBillingAccount(ctx, args.referrerAccountId); await requireBillingAccount(ctx, args.referredAccountId);
+    required(args.reason); required(args.key);
     if (args.referrerAccountId === args.referredAccountId) fail("billing_self_referral");
+    const hash = fingerprint(args);
+    const duplicate = await ctx.db.query("subscriptionEvents").withIndex("by_accountId_and_key", (q) => q.eq("accountId", args.referredAccountId).eq("key", args.key)).unique();
+    if (duplicate) {
+      if (duplicate.fingerprint !== hash || !duplicate.referralId) fail("billing_idempotency_conflict");
+      return duplicate.referralId;
+    }
     const existing = await ctx.db.query("referrals").withIndex("by_referredAccountId", (q) => q.eq("referredAccountId", args.referredAccountId)).unique();
     if (existing) { if (existing.referrerAccountId !== args.referrerAccountId) fail("billing_referral_exists"); return existing._id; }
     const now = Date.now(), actor = { kind: "admin" as const, userId: admin._id };
-    const id = await ctx.db.insert("referrals", { ...args, status: "pending", createdAt: now, updatedAt: now });
-    await ctx.db.insert("subscriptionEvents", { accountId: args.referredAccountId, actor, action: "referral.registered", referralId: id, createdAt: now });
+    const id = await ctx.db.insert("referrals", { referrerAccountId: args.referrerAccountId, referredAccountId: args.referredAccountId, status: "pending", change: { actor, at: now, reason: args.reason }, key: args.key, fingerprint: hash, createdAt: now, updatedAt: now });
+    await ctx.db.insert("subscriptionEvents", { accountId: args.referredAccountId, actor, action: "referral.registered", reason: args.reason, referralId: id, key: args.key, fingerprint: hash, createdAt: now });
     await qualifyReferral(ctx, args.referredAccountId, actor, now);
     return id;
   },
