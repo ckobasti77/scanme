@@ -2,7 +2,7 @@ import { paginationOptsValidator, paginationResultValidator } from "convex/serve
 import { ConvexError, v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
-import { internalMutation, internalQuery, type MutationCtx } from "./_generated/server";
+import { internalMutation, internalQuery, mutation, type MutationCtx } from "./_generated/server";
 import schema from "./schema";
 import {
   ACTION_PRIORITY_RANK,
@@ -25,9 +25,11 @@ import {
   appendActionEvent,
   refreshActionSignals,
 } from "./lib/adminActionEngine";
+import { syncDashboardActionById } from "./lib/adminDashboardProjection";
 import { writeAdminAudit } from "./lib/adminAudit";
 
-const actionViewValidator = v.object({
+export const actionViewValidator = v.object({
+  actionItemId: v.id("actionItems"),
   causeId: v.string(),
   source: v.object({
     domain: actionSourceDomainValidator,
@@ -84,7 +86,7 @@ const prioritySignalsValidator = v.object({
 
 const SEVERITY_RANK = { blocking: 0, warning: 1, information: 2 } as const;
 
-function validTime(value: number) {
+export function validTime(value: number) {
   if (!Number.isSafeInteger(value) || value < 0 || !Number.isFinite(new Date(value).getTime())) {
     throw new ConvexError("action_invalid_time");
   }
@@ -96,13 +98,14 @@ function text(value: string, code: string, max = 2_000) {
   return normalized;
 }
 
-function actionView(item: Doc<"actionItems">, now: number) {
+export function actionView(item: Doc<"actionItems">, now: number) {
   const snoozeActive =
     item.state === "snoozed" &&
     item.snoozedUntil !== undefined &&
     item.snoozedUntil > now;
   const state = item.state === "snoozed" && !snoozeActive ? "open" : item.state;
   return {
+    actionItemId: item._id,
     causeId: item.causeId,
     source: {
       domain: item.sourceDomain,
@@ -413,6 +416,7 @@ export const reportManualProblem = internalMutation({
       detail: { causeId },
       now,
     });
+    await syncDashboardActionById(ctx, actionItemId, now);
     await refreshActionSignals(ctx, args);
     return actionItemId;
   },
@@ -446,14 +450,15 @@ export const assign = internalMutation({
       toState: item.state,
       createdAt: now,
     });
+    await syncDashboardActionById(ctx, item._id, now);
     return { assigneeId: args.assigneeId };
   },
 });
 
-export const snooze = internalMutation({
-  args: { actionItemId: v.id("actionItems"), reason: v.string(), until: v.number() },
-  returns: v.object({ state: v.literal("snoozed"), until: v.number() }),
-  handler: async (ctx, args) => {
+async function snoozeAction(
+  ctx: MutationCtx,
+  args: { actionItemId: Id<"actionItems">; reason: string; until: number },
+) {
     const admin = await requireAdmin(ctx);
     const reason = text(args.reason, "action_snooze_reason_required");
     validTime(args.until);
@@ -479,6 +484,7 @@ export const snooze = internalMutation({
       until: args.until,
       createdAt: now,
     });
+    await syncDashboardActionById(ctx, item._id, now);
     await writeAdminAudit(ctx, {
       actorUserId: admin._id,
       ...(item.accountId ? { accountId: item.accountId } : {}),
@@ -493,7 +499,21 @@ export const snooze = internalMutation({
       expectedUntil: args.until,
     });
     return { state: "snoozed" as const, until: args.until };
-  },
+}
+
+const snoozeArgs = { actionItemId: v.id("actionItems"), reason: v.string(), until: v.number() };
+const snoozeReturns = v.object({ state: v.literal("snoozed"), until: v.number() });
+
+export const snooze = internalMutation({
+  args: snoozeArgs,
+  returns: snoozeReturns,
+  handler: snoozeAction,
+});
+
+export const snoozeFromDashboard = mutation({
+  args: snoozeArgs,
+  returns: snoozeReturns,
+  handler: snoozeAction,
 });
 
 export const restoreSnoozed = internalMutation({
@@ -526,15 +546,16 @@ export const restoreSnoozed = internalMutation({
       toState: "open",
       createdAt: now,
     });
+    await syncDashboardActionById(ctx, item._id, now);
     await refreshActionSignals(ctx, item);
     return true;
   },
 });
 
-export const resolveManual = internalMutation({
-  args: { actionItemId: v.id("actionItems"), note: v.string() },
-  returns: v.object({ state: v.literal("resolved") }),
-  handler: async (ctx, args) => {
+async function resolveManualAction(
+  ctx: MutationCtx,
+  args: { actionItemId: Id<"actionItems">; note: string },
+) {
     const admin = await requireAdmin(ctx);
     const note = text(args.note, "action_resolution_note_required");
     const item = await ctx.db.get(args.actionItemId);
@@ -565,6 +586,7 @@ export const resolveManual = internalMutation({
       reason: note,
       createdAt: now,
     });
+    await syncDashboardActionById(ctx, item._id, now);
     await writeAdminAudit(ctx, {
       actorUserId: admin._id,
       ...(item.accountId ? { accountId: item.accountId } : {}),
@@ -575,7 +597,21 @@ export const resolveManual = internalMutation({
     });
     await refreshActionSignals(ctx, item);
     return { state: "resolved" as const };
-  },
+}
+
+const resolveManualArgs = { actionItemId: v.id("actionItems"), note: v.string() };
+const resolveManualReturns = v.object({ state: v.literal("resolved") });
+
+export const resolveManual = internalMutation({
+  args: resolveManualArgs,
+  returns: resolveManualReturns,
+  handler: resolveManualAction,
+});
+
+export const resolveManualFromDashboard = mutation({
+  args: resolveManualArgs,
+  returns: resolveManualReturns,
+  handler: resolveManualAction,
 });
 
 export const history = internalQuery({

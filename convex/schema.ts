@@ -414,6 +414,44 @@ export default defineSchema({
     .index("by_actionItemId_and_createdAt", ["actionItemId", "createdAt"])
     .index("by_causeId_and_createdAt", ["causeId", "createdAt"]),
 
+  // ADMIN-17: exact, bounded dashboard totals. Each canonical source writes
+  // its small set of metric contributions in the same transaction as the
+  // source fact; dashboard reads never count an unbounded source table.
+  adminDashboardContributions: defineTable({
+    sourceKind: v.union(
+      v.literal("action"),
+      v.literal("subscription"),
+      v.literal("product"),
+    ),
+    sourceId: v.string(),
+    scopeKey: v.string(),
+    metric: v.string(),
+    amount: v.number(),
+    fingerprint: v.string(),
+    updatedAt: v.number(),
+  })
+    .index("by_sourceKind_and_sourceId", ["sourceKind", "sourceId"])
+    .index("by_source_scope_metric", ["sourceKind", "sourceId", "scopeKey", "metric"]),
+
+  adminDashboardRollups: defineTable({
+    scopeKey: v.string(),
+    metric: v.string(),
+    count: v.number(),
+    updatedAt: v.number(),
+  }).index("by_scopeKey_and_metric", ["scopeKey", "metric"]),
+
+  // Absence/pending is deliberately different from a real zero. A bounded
+  // backfill marks a domain complete only after its final non-dry-run page.
+  adminDashboardProjectionStates: defineTable({
+    sourceKind: v.union(
+      v.literal("action"),
+      v.literal("subscription"),
+      v.literal("product"),
+    ),
+    state: v.union(v.literal("pending"), v.literal("complete")),
+    updatedAt: v.number(),
+  }).index("by_sourceKind", ["sourceKind"]),
+
   // Materialized one-row-per-entity directory. This is the bounded server read
   // path for 500 venues / 10k products; source joins happen only while syncing.
   adminClientReadModels: defineTable({
