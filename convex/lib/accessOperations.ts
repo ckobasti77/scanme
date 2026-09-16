@@ -5,6 +5,7 @@ import { generateCode } from "./codes";
 import { accessDestinationInput, SUBJECT_CHANNEL_LIMIT } from "./accessValidators";
 import { channelProblem, destinationProblem } from "./accessResolution";
 import { syncAutomaticAction } from "./adminActionEngine";
+import { syncDashboardProduct } from "./adminDashboardProjection";
 import { writeAdminAudit } from "./adminAudit";
 import { normalizeAdminSearchText } from "./adminV1Validators";
 import { adminDomainSr } from "../../lib/i18n/sr/admin-domain";
@@ -320,7 +321,12 @@ export async function refreshInventory(ctx: MutationCtx, subject: Doc<"accessSub
     updatedAt: now,
   };
   const existing = await ctx.db.query("productInventory").withIndex("by_productId", q => q.eq("productId", product._id)).unique();
-  if (existing) await ctx.db.patch(existing._id, row); else await ctx.db.insert("productInventory", row);
+  const inventoryId = existing
+    ? (await ctx.db.patch(existing._id, row), existing._id)
+    : await ctx.db.insert("productInventory", row);
+  const inventory = await ctx.db.get(inventoryId);
+  if (!inventory) throw new ConvexError("access_inventory_missing");
+  await syncDashboardProduct(ctx, inventory, now);
   await refreshVenueProductFacts(ctx, product.businessId, existing, row);
 }
 

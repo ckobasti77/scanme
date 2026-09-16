@@ -9,6 +9,7 @@ import {
   type ActionSeverity,
 } from "../../lib/admin-v1/operational";
 import type { AutomaticActionAdapterInput } from "./adminActionAdapters";
+import { syncDashboardActionById } from "./adminDashboardProjection";
 
 type DatabaseCtx = QueryCtx | MutationCtx;
 
@@ -211,6 +212,7 @@ export async function syncAutomaticAction(
       toState: "resolved",
       createdAt: now,
     });
+    await syncDashboardActionById(ctx, existing._id, now);
     await refreshActionSignals(ctx, existing);
     return existing._id;
   }
@@ -277,6 +279,7 @@ export async function syncAutomaticAction(
       toState: "open",
       createdAt: now,
     });
+    await syncDashboardActionById(ctx, actionItemId, now);
     await refreshActionSignals(ctx, raw);
     return actionItemId;
   }
@@ -319,6 +322,7 @@ export async function syncAutomaticAction(
     toState: nextState,
     createdAt: now,
   });
+  await syncDashboardActionById(ctx, existing._id, now);
   await refreshActionSignals(ctx, {
     accountId: raw.accountId ?? existing.accountId,
     businessId: raw.businessId ?? existing.businessId,

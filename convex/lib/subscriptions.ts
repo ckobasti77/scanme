@@ -5,6 +5,7 @@ import { BILLING_WINDOWS } from "../../lib/admin-v1/catalog";
 import { assertMoney, DAY_MS } from "../../lib/admin-v1/rules";
 import { requireClientAccountAccess, requireClientAccountCapability, requireClientVenueAccess, requireClientVenueCapability } from "./clientAccountAccess";
 import { syncSubscriptionActions } from "./adminActionEngine";
+import { syncDashboardSubscription } from "./adminDashboardProjection";
 import { syncSubscriptionServiceState } from "./adminReadModelEngine";
 import { addFinanceMonths, financeMonthBounds, financeMonthKey } from "../../lib/admin-v1/finance";
 import { replaceFinanceExpectedSource, type FinanceExpectedSourceRow } from "./financeProjection";
@@ -137,6 +138,7 @@ export async function reconcileSubscription(ctx: MutationCtx, subscriptionId: Id
   // ADMIN-04 consumes the already-reconciled lifecycle facts. No dashboard
   // query re-derives billing state and repeat reconciliation stays idempotent.
   await syncSubscriptionActions(ctx, sub, facts, changed ? now : sub.updatedAt, now);
+  await syncDashboardSubscription(ctx, sub, facts, now);
   await syncSubscriptionServiceState(ctx, sub, facts, now);
   await syncFinanceExpectedSubscription(ctx, subscriptionId, now, facts);
   return facts;
