@@ -46,7 +46,11 @@ import { cn } from "@/lib/utils";
 import { AdminGuard } from "./admin-guard";
 import { AdminShell } from "./admin-shell";
 import { MenuAdminSubpage } from "./menu-admin-subpage";
-import { SUBPAGE_ORDER, type SubpageKey } from "./subpage-keys";
+import {
+  activeSubpageProfile,
+  SUBPAGE_ORDER,
+  type SubpageKey,
+} from "./subpage-keys";
 
 // The four per-location subpage kinds (Links / Review / Venue / Meni) live in the
 // non-"use client" ./subpage-keys module so the server route can import the real
@@ -57,14 +61,6 @@ export { SUBPAGE_ORDER, type SubpageKey };
 
 type LocationView = NonNullable<FunctionReturnType<typeof api.admin.location>>;
 type ServiceRow = LocationView["services"][number];
-
-// kind → serviceProfiles.type.
-const SUBPAGE_SERVICE: Record<SubpageKey, ServiceRow["type"]> = {
-  links: "scanme_links",
-  review: "google_review",
-  venue: "scanme_venue",
-  menu: "scanme_menu",
-};
 
 function subpageLabel(kind: SubpageKey): string {
   switch (kind) {
@@ -84,8 +80,7 @@ function subpageLabel(kind: SubpageKey): string {
 // resolves through the same check now that `scanme_menu` is a real service
 // (TASK-61): a location with an active `scanme_menu` profile shows its subpage.
 function subpageActive(kind: SubpageKey, services: ServiceRow[]): boolean {
-  const type = SUBPAGE_SERVICE[kind];
-  return services.some((service) => service.type === type && service.active);
+  return Boolean(activeSubpageProfile(kind, services));
 }
 
 export function LocationAdmin({

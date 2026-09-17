@@ -33,7 +33,6 @@ export type AdminNavChild = {
   labelKey: AdminNavLabelKey;
   href: string;
   matchPaths: readonly string[];
-  legacyTarget?: string;
 };
 
 export type AdminNavItem = {
@@ -75,7 +74,7 @@ export const ADMIN_NAV_ITEMS: readonly AdminNavItem[] = [
     id: "operations",
     labelKey: "navOperations",
     href: "/admin/operativa/proizvodi",
-    matchPaths: ["/admin/operativa", "/admin/cards"],
+    matchPaths: ["/admin/operativa"],
     children: [
       {
         id: "products",
@@ -87,8 +86,7 @@ export const ADMIN_NAV_ITEMS: readonly AdminNavItem[] = [
         id: "qr",
         labelKey: "navQrCodes",
         href: "/admin/operativa/qr",
-        matchPaths: ["/admin/operativa/qr", "/admin/cards"],
-        legacyTarget: "/admin/cards",
+        matchPaths: ["/admin/operativa/qr"],
       },
       {
         id: "orders",
@@ -102,33 +100,25 @@ export const ADMIN_NAV_ITEMS: readonly AdminNavItem[] = [
     id: "services",
     labelKey: "navServices",
     href: "/admin/usluge/links",
-    matchPaths: [
-      "/admin/usluge",
-      "/admin/scanme-links",
-      "/admin/google-reviews",
-      "/admin/page",
-    ],
+    matchPaths: ["/admin/usluge"],
     children: [
       {
         id: "links",
         labelKey: "navLinks",
         href: "/admin/usluge/links",
-        matchPaths: ["/admin/usluge/links", "/admin/scanme-links"],
-        legacyTarget: "/admin/scanme-links",
+        matchPaths: ["/admin/usluge/links"],
       },
       {
         id: "review",
         labelKey: "navReview",
         href: "/admin/usluge/review",
-        matchPaths: ["/admin/usluge/review", "/admin/google-reviews"],
-        legacyTarget: "/admin/google-reviews",
+        matchPaths: ["/admin/usluge/review"],
       },
       {
         id: "menu",
         labelKey: "navMenu",
         href: "/admin/usluge/meni",
-        matchPaths: ["/admin/usluge/meni", "/admin/page"],
-        legacyTarget: "/admin/page",
+        matchPaths: ["/admin/usluge/meni"],
       },
     ],
   },

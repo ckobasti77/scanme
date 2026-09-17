@@ -1,11 +1,13 @@
-import type { Metadata } from "next";
-import { CardsAdmin } from "@/components/admin/cards-admin";
+import { redirect } from "next/navigation";
+import {
+  type AdminSearchParams,
+  withSearchParams,
+} from "@/lib/admin-v1/cutover";
 
-export const metadata: Metadata = {
-  title: "Kartice | ScanMe Admin",
-  robots: { index: false, follow: false },
-};
-
-export default function CardsAdminPage() {
-  return <CardsAdmin />;
+export default async function CardsAdminPage({
+  searchParams,
+}: {
+  searchParams: Promise<AdminSearchParams>;
+}) {
+  redirect(withSearchParams("/admin/operativa/qr", await searchParams));
 }

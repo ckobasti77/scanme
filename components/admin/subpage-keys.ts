@@ -15,3 +15,19 @@ export const SUBPAGE_ORDER: readonly SubpageKey[] = [
   "venue",
   "menu",
 ];
+
+export const SUBPAGE_SERVICE_TYPE = {
+  links: "scanme_links",
+  review: "google_review",
+  venue: "scanme_venue",
+  menu: "scanme_menu",
+} as const satisfies Record<SubpageKey, string>;
+
+export function activeSubpageProfile<
+  T extends { id: string; type: string; active: boolean },
+>(kind: SubpageKey, services: readonly T[]) {
+  return services.find(
+    (service) =>
+      service.type === SUBPAGE_SERVICE_TYPE[kind] && service.active,
+  );
+}

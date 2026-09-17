@@ -42,7 +42,11 @@ export default convexAuthNextjsMiddleware(async (request, { convexAuth }) => {
     !isAdminLogin(request) &&
     !(await convexAuth.isAuthenticated())
   ) {
-    return nextjsMiddlewareRedirect(request, "/admin/login");
+    const returnTo = `${request.nextUrl.pathname}${request.nextUrl.search}`;
+    return nextjsMiddlewareRedirect(
+      request,
+      `/admin/login?${new URLSearchParams({ returnTo })}`,
+    );
   }
 });
 
