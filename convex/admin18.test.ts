@@ -1,6 +1,7 @@
 /// <reference types="vite/client" />
 
 import { convexTest } from "convex-test";
+import type { FunctionReturnType } from "convex/server";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
@@ -155,6 +156,66 @@ describe("ADMIN-18 unified activity", () => {
     expect(projected?.sourceKey).toBe(`adminAuditLog:${auditId}`);
     expect(JSON.stringify(projected)).not.toMatch(/PRIVATNA PORUKA|SECRET|COOKIE|SESSION|DEVICE|emailBody|token|login|logout|lastSeen|ipAddress/i);
     expect(started.contextId).toBeTruthy();
+  });
+
+  test("large activity history keeps stable cursor pages without overlap", async () => {
+    const f = await seed();
+    for (let batch = 0; batch < 3; batch += 1) {
+      await f.t.run(async (ctx) => {
+        const end = Math.min((batch + 1) * 100, 275);
+        for (let index = batch * 100; index < end; index += 1) {
+          await ctx.db.insert("adminActivityRows", {
+            sourceKey: `scale-activity:${index}`,
+            fingerprint: `scale:${index}`,
+            sourceDomain: "test_scale",
+            sourceRecordId: String(index),
+            accountId: f.accountA,
+            businessId: index % 2 === 0 ? f.businessA1 : f.businessA2,
+            objectKind: "scale_event",
+            objectLabel: `Scale događaj ${index}`,
+            action: "scale_verified",
+            category: index % 2 === 0 ? "task" : "communication",
+            actorKind: "system",
+            actorKey: "kind:system",
+            actorDisplayName: "Sistem",
+            occurredAt: NOW + index,
+            summaryLabel: `Scale događaj ${index}`,
+            href: `/admin/klijenti/${f.accountA}`,
+            updatedAt: NOW + index,
+          });
+        }
+      });
+    }
+    await expect(f.outsiderClient.query(api.adminActivity.list, {
+      accountId: f.accountA,
+      paginationOpts: page(41),
+    })).rejects.toThrow("administratorski");
+
+    const first: FunctionReturnType<typeof api.adminActivity.list> = await f.adminAClient.query(
+      api.adminActivity.list,
+      { accountId: f.accountA, paginationOpts: page(41) },
+    );
+    const repeated: FunctionReturnType<typeof api.adminActivity.list> = await f.adminAClient.query(
+      api.adminActivity.list,
+      { accountId: f.accountA, paginationOpts: page(41) },
+    );
+    expect(repeated.page.map((row) => row.id)).toEqual(first.page.map((row) => row.id));
+    expect(repeated.continueCursor).toBe(first.continueCursor);
+
+    const seen = new Set(first.page.map((row) => row.id));
+    let cursor: string | null = first.isDone ? null : first.continueCursor;
+    while (cursor) {
+      const result: FunctionReturnType<typeof api.adminActivity.list> = await f.adminAClient.query(
+        api.adminActivity.list,
+        { accountId: f.accountA, paginationOpts: page(41, cursor) },
+      );
+      for (const row of result.page) {
+        expect(seen.has(row.id)).toBe(false);
+        seen.add(row.id);
+      }
+      cursor = result.isDone ? null : result.continueCursor;
+    }
+    expect(seen.size).toBe(275);
   });
 });
 

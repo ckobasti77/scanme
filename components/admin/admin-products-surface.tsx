@@ -48,6 +48,19 @@ import { cn } from "@/lib/utils";
 
 const dict = getDict("admin-products");
 
+function restoreFocusWhenGone(selector: string, target: () => HTMLElement | null) {
+  let frame = 0;
+  const restore = () => {
+    frame += 1;
+    if (document.querySelector(selector) && frame < 30) {
+      requestAnimationFrame(restore);
+      return;
+    }
+    target()?.focus();
+  };
+  requestAnimationFrame(restore);
+}
+
 export type VenueProductRow = {
   id: string;
   accountId: string;
@@ -224,7 +237,7 @@ function SummaryItem({ icon: Icon, value, label, danger = false }: { icon: typeo
 
 function InventoryControls({ filters, onChange, view, onView }: { filters: InventoryFilters; onChange: (filters: InventoryFilters) => void; view: "table" | "visual"; onView: (view: "table" | "visual") => void }) {
   const set = <K extends keyof InventoryFilters>(key: K, value: InventoryFilters[K]) => onChange({ ...filters, [key]: value });
-  return <div data-reveal="off" className="grid gap-3 xl:grid-cols-[minmax(16rem,1fr)_auto_auto_auto_auto_auto]"><label className="grid gap-1.5"><span className="sr-only">{dict.inventorySearchLabel}</span><Input value={filters.search} onChange={(event) => set("search", event.target.value)} placeholder={dict.inventorySearchPlaceholder} className="min-h-11 bg-[var(--admin-surface-strong)]" /></label><FilterSelect label={dict.filterType} value={filters.productType} onChange={(value) => set("productType", value as InventoryFilters["productType"])}><option value="all">{dict.filterTypeAll}</option><option value="two-piece-stand">{dict.productTypeTwoPiece}</option><option value="compact-stand">{dict.productTypeCompact}</option><option value="stickers">{dict.productTypeSticker}</option><option value="window-film">{dict.productTypeWindowFilm}</option><option value="premium-engraved-stand">{dict.productTypePremiumEngraved}</option></FilterSelect><FilterSelect label={dict.filterDesign} value={filters.design} onChange={(value) => set("design", value)}><option value="all">{dict.filterDesignAll}</option><option value="template">{dict.filterDesignTemplate}</option><option value="custom">{dict.filterDesignCustom}</option></FilterSelect><FilterSelect label={dict.filterService} value={filters.service} onChange={(value) => set("service", value)}><option value="all">{dict.filterServiceAll}</option><option value="scanme_links">{dict.serviceLinks}</option><option value="google_review">{dict.serviceReview}</option><option value="scanme_menu">{dict.serviceMenu}</option></FilterSelect><FilterSelect label={dict.filterStatus} value={filters.status} onChange={(value) => set("status", value as InventoryFilters["status"])}><option value="all">{dict.filterAll}</option><option value="active">{dict.stateActive}</option><option value="inactive">{dict.stateInactive}</option><option value="problem">{dict.stateProblem}</option></FilterSelect><div role="group" aria-label={dict.viewLabel} className="grid grid-cols-2 rounded-xl border border-[var(--admin-border)] bg-[var(--admin-surface-strong)] p-1"><button type="button" aria-pressed={view === "table"} onClick={() => onView("table")} className={cn("min-h-9 rounded-lg px-3 text-sm font-semibold", view === "table" ? "bg-[var(--admin-ink)] text-[var(--admin-on-ink)]" : "hover:bg-[var(--admin-surface-muted)]")}>{dict.viewTable}</button><button type="button" aria-pressed={view === "visual"} onClick={() => onView("visual")} className={cn("min-h-9 rounded-lg px-3 text-sm font-semibold", view === "visual" ? "bg-[var(--admin-ink)] text-[var(--admin-on-ink)]" : "hover:bg-[var(--admin-surface-muted)]")}>{dict.viewVisual}</button></div></div>;
+  return <div data-reveal="off" className="grid gap-3 xl:grid-cols-[minmax(16rem,1fr)_auto_auto_auto_auto_auto]"><label className="grid gap-1.5"><span className="sr-only">{dict.inventorySearchLabel}</span><Input value={filters.search} onChange={(event) => set("search", event.target.value)} placeholder={dict.inventorySearchPlaceholder} className="min-h-11 bg-[var(--admin-surface-strong)]" /></label><FilterSelect label={dict.filterType} value={filters.productType} onChange={(value) => set("productType", value as InventoryFilters["productType"])}><option value="all">{dict.filterTypeAll}</option><option value="two-piece-stand">{dict.productTypeTwoPiece}</option><option value="compact-stand">{dict.productTypeCompact}</option><option value="stickers">{dict.productTypeSticker}</option><option value="window-film">{dict.productTypeWindowFilm}</option><option value="premium-engraved-stand">{dict.productTypePremiumEngraved}</option></FilterSelect><FilterSelect label={dict.filterDesign} value={filters.design} onChange={(value) => set("design", value)}><option value="all">{dict.filterDesignAll}</option><option value="template">{dict.filterDesignTemplate}</option><option value="custom">{dict.filterDesignCustom}</option></FilterSelect><FilterSelect label={dict.filterService} value={filters.service} onChange={(value) => set("service", value)}><option value="all">{dict.filterServiceAll}</option><option value="scanme_links">{dict.serviceLinks}</option><option value="google_review">{dict.serviceReview}</option><option value="scanme_menu">{dict.serviceMenu}</option></FilterSelect><FilterSelect label={dict.filterStatus} value={filters.status} onChange={(value) => set("status", value as InventoryFilters["status"])}><option value="all">{dict.filterAll}</option><option value="active">{dict.stateActive}</option><option value="inactive">{dict.stateInactive}</option><option value="problem">{dict.stateProblem}</option></FilterSelect><div role="group" aria-label={dict.viewLabel} className="grid grid-cols-2 rounded-xl border border-[var(--admin-border)] bg-[var(--admin-surface-strong)] p-1"><button type="button" aria-pressed={view === "table"} onClick={() => onView("table")} className={cn("min-h-11 rounded-lg px-3 text-sm font-semibold", view === "table" ? "bg-[var(--admin-ink)] text-[var(--admin-on-ink)]" : "hover:bg-[var(--admin-surface-muted)]")}>{dict.viewTable}</button><button type="button" aria-pressed={view === "visual"} onClick={() => onView("visual")} className={cn("min-h-11 rounded-lg px-3 text-sm font-semibold", view === "visual" ? "bg-[var(--admin-ink)] text-[var(--admin-on-ink)]" : "hover:bg-[var(--admin-surface-muted)]")}>{dict.viewVisual}</button></div></div>;
 }
 
 function FilterSelect({ label, value, onChange, children }: { label: string; value: string; onChange: (value: string) => void; children: React.ReactNode }) { return <label className="grid gap-1.5"><span className="sr-only">{label}</span><select value={value} aria-label={label} onChange={(event) => onChange(event.target.value)} className="min-h-11 rounded-xl border border-[var(--admin-border)] bg-[var(--admin-surface-strong)] px-3 text-sm font-semibold">{children}</select></label>; }
@@ -249,6 +262,8 @@ function SelectionSheet({ selected, rows, open, onClose, onApply, destinationOpt
   const [reason, setReason] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
   const confirmTransition = useRef(false);
+  const confirmTrigger = useRef<HTMLButtonElement | null>(null);
+  const submitLocked = useRef(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -269,10 +284,12 @@ function SelectionSheet({ selected, rows, open, onClose, onApply, destinationOpt
   };
   const closeConfirmation = () => {
     setConfirmOpen(false);
+    restoreFocusWhenGone("[data-bulk-confirmation]", () => confirmTrigger.current);
     setTimeout(() => { confirmTransition.current = false; }, 200);
   };
   const submit = async () => {
-    if (!canSubmit || !onApply) return;
+    if (!canSubmit || !onApply || submitLocked.current) return;
+    submitLocked.current = true;
     setPending(true);
     setError(null);
     setSaved(false);
@@ -283,6 +300,7 @@ function SelectionSheet({ selected, rows, open, onClose, onApply, destinationOpt
     } catch {
       setError(dict.mutationError);
     } finally {
+      submitLocked.current = false;
       setPending(false);
     }
   };
@@ -309,13 +327,13 @@ function SelectionSheet({ selected, rows, open, onClose, onApply, destinationOpt
         {!applicable ? <p role="alert" className="text-sm text-[var(--admin-danger)]">{dict.noApplicableSelection}</p> : null}
         {error ? <p role="alert" className="text-sm text-[var(--admin-danger)]">{error}</p> : null}
         {saved ? <p role="status" className="text-sm text-[var(--admin-success)]">{dict.changeSaved}</p> : null}
-        <Button type="button" disabled={!canSubmit || pending} onClick={openConfirmation} className="min-h-11">{pending ? dict.saving : dict.saveChanges}</Button>
+        <Button ref={confirmTrigger} type="button" disabled={!canSubmit || pending} onClick={openConfirmation} className="min-h-11">{pending ? dict.saving : dict.saveChanges}</Button>
         <Button type="button" variant="outline" className="min-h-11" onClick={onClose}>{dict.cancel}</Button>
       </div>
     </SheetContent>
     </Sheet>
     <Dialog open={confirmOpen} onOpenChange={(next) => { if (next) openConfirmation(); else closeConfirmation(); }}>
-      <DialogContent data-reveal="off" onEscapeKeyDown={(event) => { event.preventDefault(); event.stopPropagation(); closeConfirmation(); }} className="admin-v1 border-[var(--admin-border)] bg-[var(--admin-surface-strong)]">
+      <DialogContent data-bulk-confirmation data-reveal="off" onEscapeKeyDown={(event) => { event.preventDefault(); event.stopPropagation(); closeConfirmation(); }} className="admin-v1 border-[var(--admin-border)] bg-[var(--admin-surface-strong)]">
         <DialogHeader><DialogTitle>{dict.confirmationTitle}</DialogTitle><DialogDescription>{dict.confirmationBody}</DialogDescription></DialogHeader>
         <DialogFooter><Button type="button" variant="outline" disabled={pending} onClick={closeConfirmation}>{dict.cancel}</Button><Button type="button" disabled={pending} onClick={() => void submit()}>{pending ? dict.saving : dict.saveChanges}</Button></DialogFooter>
       </DialogContent>
@@ -355,8 +373,10 @@ export function AdminProductsSurface(props: SurfaceProps) {
   const [view, setView] = useState<"table" | "visual">("visual");
   const [filters, setFilters] = useState<InventoryFilters>({ search: "", productType: "all", design: "all", service: "all", status: "all" });
   const [selection, setSelection] = useState<Set<string>>(new Set());
+  const [selectionOpen, setSelectionOpen] = useState(false);
   const [selectionLimit, setSelectionLimit] = useState(false);
   const [detailSelection, setDetail] = useState<ProductInventoryRow | null | undefined>(undefined);
+  const selectionTrigger = useRef<HTMLButtonElement | null>(null);
   const venue = venueSelection === undefined
     ? props.venues.find((row) => row.businessId === props.initialVenueId) ?? null
     : venueSelection;
@@ -366,6 +386,7 @@ export function AdminProductsSurface(props: SurfaceProps) {
   const selectVenue = (next: VenueProductRow) => {
     setVenue(next);
     setSelection(new Set());
+    setSelectionOpen(false);
     setSelectionLimit(false);
     setDetail(null);
     props.onProductSelected?.(null);
@@ -375,6 +396,7 @@ export function AdminProductsSurface(props: SurfaceProps) {
     const trigger = venue?.id;
     setVenue(null);
     setSelection(new Set());
+    setSelectionOpen(false);
     setSelectionLimit(false);
     setDetail(null);
     props.onProductSelected?.(null);
@@ -383,12 +405,16 @@ export function AdminProductsSurface(props: SurfaceProps) {
   };
   const updateFilters = (next: InventoryFilters) => {
     setFilters(next);
+    setSelection(new Set());
+    setSelectionOpen(false);
+    setSelectionLimit(false);
     props.onInventoryFiltersChange?.(next);
   };
   const toggle = (id: string) => setSelection((current) => {
     const next = new Set(current);
     if (next.has(id)) {
       next.delete(id);
+      if (next.size === 0) setSelectionOpen(false);
       setSelectionLimit(false);
       return next;
     }
@@ -407,9 +433,10 @@ export function AdminProductsSurface(props: SurfaceProps) {
     <Summary venue={props.summary?.id === venue.id ? props.summary : venue} inventory={props.inventory} />
     <InventoryControls filters={filters} onChange={updateFilters} view={view} onView={setView} />
     {selectionLimit ? <p role="alert" className="text-sm text-[var(--admin-danger)]">{dict.bulkLimit}</p> : null}
+    {selection.size ? <AdminPanel className="flex flex-wrap items-center justify-between gap-3 p-3 sm:p-4"><p className="text-sm font-semibold"><span className="font-mono tabular-nums">{selection.size}</span> {dict.selectedProducts}</p><div className="flex flex-wrap gap-2"><Button ref={selectionTrigger} type="button" className="min-h-11" onClick={() => setSelectionOpen(true)}>{dict.editSelection}</Button><Button type="button" variant="outline" className="min-h-11" onClick={() => { setSelection(new Set()); setSelectionOpen(false); }}>{dict.clearSelection}</Button></div></AdminPanel> : null}
     {props.inventoryStatus === "loading" ? <AdminPanel><AdminLoadingState label={dict.loading} /></AdminPanel> : props.inventoryStatus === "error" ? <AdminPanel><AdminErrorState title={dict.errorTitle} body={dict.errorBody} />{props.onRetry ? <div className="pb-6 text-center"><Button type="button" variant="outline" onClick={props.onRetry}>{dict.retry}</Button></div> : null}</AdminPanel> : props.inventory.length ? view === "table" ? <InventoryTable rows={props.inventory} selected={selection} onToggle={toggle} onOpen={(row) => { setDetail(row); props.onProductSelected?.(row); }} /> : <VisualInventory rows={props.inventory} selected={selection} onToggle={toggle} onOpen={(row) => { setDetail(row); props.onProductSelected?.(row); }} /> : <AdminPanel><AdminEmptyState title={hasFilter ? dict.noSearchProductsTitle : dict.noProductsTitle} body={hasFilter ? dict.noSearchProductsBody : dict.noProductsBody} /></AdminPanel>}
     {props.canLoadMoreInventory ? <Button type="button" variant="outline" className="min-h-11 justify-self-start" disabled={props.loadingMore} onClick={props.onLoadMoreInventory}>{props.loadingMore ? dict.loadingMore : dict.loadMore}</Button> : null}
-    <SelectionSheet selected={selection} rows={props.inventory} open={selection.size > 0} onClose={() => setSelection(new Set())} onApply={props.onBulkApply} destinationOptions={props.destinationOptions} />
+    <SelectionSheet selected={selection} rows={props.inventory} open={selectionOpen && selection.size > 0} onClose={() => { setSelectionOpen(false); restoreFocusWhenGone('[data-slot="sheet-content"]', () => selectionTrigger.current); }} onApply={props.onBulkApply} destinationOptions={props.destinationOptions} />
     <ProductDetailSheet row={detail} meta={props.detailMeta} onClose={() => { setDetail(null); props.onProductSelected?.(null); }} />
   </div>;
 }

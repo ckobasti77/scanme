@@ -16,6 +16,11 @@ const DAY = 24 * HOUR;
 const ADMIN_A_EMAIL = "admin-a@scanme.test";
 const ADMIN_B_EMAIL = "admin-b@scanme.test";
 type Backend = ReturnType<typeof convexTest>;
+const emptyServiceSummaries = {
+  scanme_links: { total: 0, active: 0, warning: 0, grace: 0, suspended: 0, inactive: 0, problem: 0, worst: null },
+  google_review: { total: 0, active: 0, warning: 0, grace: 0, suspended: 0, inactive: 0, problem: 0, worst: null },
+  scanme_menu: { total: 0, active: 0, warning: 0, grace: 0, suspended: 0, inactive: 0, problem: 0, worst: null },
+};
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -646,15 +651,56 @@ describe("ADMIN-04 service aggregates and searchable directories", () => {
       transactionLimits: { databaseQueries: 4, documentsRead: 250 },
     });
     const ids = await seedOperationalAccount(t);
-    const businesses: Id<"businesses">[] = [];
+    const scaleAccounts = await t.run(async (ctx) => {
+      const created: { accountId: Id<"accounts">; smkCode: string; ownerDisplayName: string }[] = [];
+      for (let index = 0; index < 50; index += 1) {
+        const suffix = String(index).padStart(3, "0");
+        const smkCode = `SMK-SCALE-${suffix}`;
+        const ownerDisplayName = `Scale vlasnik ${suffix}`;
+        const accountId = await ctx.db.insert("accounts", {
+          name: `Scale nalog ${suffix}`,
+          plan: index % 2 === 0 ? "premium" : "basic",
+          status: "active",
+          smkCode,
+          ownerDisplayName,
+          normalizedOwnerDisplayName: `scale vlasnik ${suffix}`,
+          clientStatus: "active",
+          adminV1MigrationVersion: 1,
+          createdAt: NOW,
+          updatedAt: NOW,
+        });
+        await ctx.db.insert("adminClientReadModels", {
+          accountId,
+          smkCode,
+          accountName: `Scale nalog ${suffix}`,
+          ownerDisplayName,
+          normalizedOwnerDisplayName: `scale vlasnik ${suffix}`,
+          defaultContactEmail: null,
+          defaultContactPhone: null,
+          firstVenueName: `Scale lokal ${suffix}0`,
+          venueCount: 10,
+          clientStatus: "active",
+          signal: { severity: null, causeId: null },
+          urgencyRank: 3,
+          serviceSummaries: emptyServiceSummaries,
+          premiumStatus: index % 2 === 0 ? "active" : null,
+          searchText: `scale nalog ${suffix} scale vlasnik ${suffix} ${smkCode.toLowerCase().replaceAll("-", "")}`,
+          updatedAt: NOW + index,
+        });
+        created.push({ accountId, smkCode, ownerDisplayName });
+      }
+      return created;
+    });
+    const businesses: { businessId: Id<"businesses">; accountId: Id<"accounts">; smkCode: string; ownerDisplayName: string }[] = [];
     for (let batch = 0; batch < 10; batch += 1) {
       businesses.push(...await t.run(async (ctx) => {
-        const created: Id<"businesses">[] = [];
+        const created: typeof businesses = [];
         for (let offset = 0; offset < 50; offset += 1) {
           const index = batch * 50 + offset;
           const suffix = String(index).padStart(4, "0");
+          const account = scaleAccounts[index % scaleAccounts.length];
           const businessId = await ctx.db.insert("businesses", {
-            accountId: ids.accountId,
+            accountId: account.accountId,
             name: `Scale lokal ${suffix}`,
             normalizedName: `scale lokal ${suffix}`,
             slug: `admin-04-scale-${suffix}`,
@@ -666,13 +712,13 @@ describe("ADMIN-04 service aggregates and searchable directories", () => {
             createdAt: NOW,
             updatedAt: NOW,
           });
-          created.push(businessId);
+          created.push({ businessId, ...account });
           await ctx.db.insert("adminVenueReadModels", {
-            accountId: ids.accountId,
+            accountId: account.accountId,
             businessId,
-            smkCode: "SMK-ZIS-001",
+            smkCode: account.smkCode,
             smlCode: `SML-SCALE-${suffix}`,
-            ownerDisplayName: "Željko Ilić",
+            ownerDisplayName: account.ownerDisplayName,
             venueName: `Scale lokal ${suffix}`,
             normalizedVenueName: `scale lokal ${suffix}`,
             city: "Beograd",
@@ -697,15 +743,16 @@ describe("ADMIN-04 service aggregates and searchable directories", () => {
           const index = batch * 500 + offset;
           const suffix = String(index).padStart(5, "0");
           const venueIndex = index % businesses.length;
+          const venue = businesses[venueIndex];
           await ctx.db.insert("adminProductReadModels", {
-            accountId: ids.accountId,
-            businessId: businesses[venueIndex],
+            accountId: venue.accountId,
+            businessId: venue.businessId,
             sourceRecordId: `scale-product-${suffix}`,
-            smkCode: "SMK-ZIS-001",
+            smkCode: venue.smkCode,
             smlCode: `SML-SCALE-${String(venueIndex).padStart(4, "0")}`,
             smfCode: `SMF-SCALE-${suffix}`,
             smqCodes: [`SMQ-SCALE-${suffix}`],
-            ownerDisplayName: "Željko Ilić",
+            ownerDisplayName: venue.ownerDisplayName,
             venueName: `Scale lokal ${String(venueIndex).padStart(4, "0")}`,
             productType: "two-piece-stand",
             displayName: `Scale proizvod ${suffix}`,
@@ -719,6 +766,18 @@ describe("ADMIN-04 service aggregates and searchable directories", () => {
         }
       });
     }
+    let clientCount = 0;
+    let clientCursor: string | null = null;
+    let clientsDone = false;
+    while (!clientsDone) {
+      const result = await ids.adminAClient.query(api.adminReadModels.listClients, {
+        paginationOpts: page(17, clientCursor), status: "active", sort: "name",
+      });
+      clientCount += result.page.length;
+      clientCursor = result.continueCursor;
+      clientsDone = result.isDone;
+    }
+    expect(clientCount).toBe(50);
     let venueCount = 0;
     let venueCursor: string | null = null;
     let venuesDone = false;

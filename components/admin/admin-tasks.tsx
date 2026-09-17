@@ -1047,7 +1047,7 @@ function TaskDetailSheet({
         {detail === undefined ? (
           <AdminLoadingState />
         ) : detail === null ? (
-          <AdminErrorState title={dict.errorTitle} body={dict.errorBody} />
+          <AdminErrorState title={dict.errorTitle} body={dict.errorBody} onRetry={() => window.location.reload()} />
         ) : (
           <TaskDetailContent
             key={detail.task.id}

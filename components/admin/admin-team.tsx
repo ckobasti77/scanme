@@ -765,7 +765,7 @@ export class AdminTeamErrorBoundary extends Component<
   render() {
     return this.state.failed ? (
       <AdminPanel>
-        <AdminErrorState title={dict.errorTitle} body={dict.errorBody} />
+        <AdminErrorState title={dict.errorTitle} body={dict.errorBody} onRetry={() => window.location.reload()} />
       </AdminPanel>
     ) : (
       this.props.children

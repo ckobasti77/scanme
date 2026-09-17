@@ -311,5 +311,5 @@ function ServiceDetail({ detail, selectedRow, onLifecycle }: { detail: ReturnTyp
 export class AdminServiceOperationsErrorBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
   state = { failed: false };
   static getDerivedStateFromError() { return { failed: true }; }
-  render() { return this.state.failed ? <AdminPanel><AdminErrorState title={dict.errorTitle} body={dict.errorBody} /></AdminPanel> : this.props.children; }
+  render() { return this.state.failed ? <AdminPanel><AdminErrorState title={dict.errorTitle} body={dict.errorBody} onRetry={() => window.location.reload()} /></AdminPanel> : this.props.children; }
 }

@@ -395,12 +395,13 @@ test("500 venues and 10,000 physical products paginate under 4 queries/250 docum
       const subjectId = await ctx.db.insert("accessSubjects", { accountId: f.accountId, businessId, destinationKind: "service", createdAt: NOW, updatedAt: NOW });
       const productId = await ctx.db.insert("physicalProducts", { accountId: f.accountId, businessId, subjectId, smfCode: `SMF-${suffix}`, localSuffix: suffix, orderId: template.orderId, orderLineId: template.orderLineId, provisioningRequestId: template.provisioningRequestId, unitOrdinal: ordinal, productType: template.productType, designSnapshot: template.designSnapshot, boundServices: template.boundServices, qc: "passed", createdByUserId: f.adminId, createdAt: NOW, updatedAt: NOW });
       const state = ordinal % 2 ? "active" as const : "inactive" as const;
+      const kind = ordinal % 2 ? "qr" as const : "nfc" as const;
       const cardId = await ctx.db.insert("cards", { businessId, cardCode: suffix, label: suffix, status: "active", totalScans: 0, createdAt: NOW, updatedAt: NOW });
       const targetId = await ctx.db.insert("cardTargets", { cardId, kind: "venue", createdByUserId: f.adminId, createdAt: NOW });
-      const channelId = await ctx.db.insert("accessChannels", { accountId: f.accountId, businessId, subjectId, cardId, resolverCode: suffix, kind: "qr", state, redirectEnabled: state === "active", health: "healthy", physicalProductId: productId, smfCode: `SMF-${suffix}`, binding: "physical", searchText: suffix, totalScans: 0, lastActor: { kind: "admin", userId: f.adminId }, lastReason: "scale_fixture", createdAt: NOW, updatedAt: NOW });
+      const channelId = await ctx.db.insert("accessChannels", { accountId: f.accountId, businessId, subjectId, cardId, resolverCode: suffix, kind, state, redirectEnabled: state === "active", health: "healthy", physicalProductId: productId, smfCode: `SMF-${suffix}`, binding: "physical", searchText: suffix, totalScans: 0, lastActor: { kind: "admin", userId: f.adminId }, lastReason: "scale_fixture", createdAt: NOW, updatedAt: NOW });
       await ctx.db.patch(cardId, { accessChannelId: channelId });
       await ctx.db.patch(subjectId, { physicalProductId: productId, anchorCardId: cardId, currentTargetId: targetId });
-      await ctx.db.insert("productInventory", { productId, subjectId, accountId: f.accountId, businessId, smfCode: `SMF-${suffix}`, localSuffix: suffix, productType: "two-piece-stand", productLabel: "Dvodelni stalak", position: `Sto ${ordinal % 20}`, qr: state === "active" ? "green" : "orange", nfc: "gray", state, destinationKind: "service", currentTargetId: targetId, searchText: `smf ${suffix} dvodelni stalak sto ${ordinal % 20}`, updatedAt: NOW });
+      await ctx.db.insert("productInventory", { productId, subjectId, accountId: f.accountId, businessId, smfCode: `SMF-${suffix}`, localSuffix: suffix, productType: "two-piece-stand", productLabel: "Dvodelni stalak", position: `Sto ${ordinal % 20}`, qr: kind === "qr" ? state === "active" ? "green" : "orange" : "gray", nfc: kind === "nfc" ? state === "active" ? "green" : "orange" : "gray", state, destinationKind: "service", currentTargetId: targetId, searchText: `smf ${suffix} dvodelni stalak sto ${ordinal % 20}`, updatedAt: NOW });
     }
   });
   let venueCursor: string | null = null; let venueCount = 0;
@@ -420,6 +421,17 @@ test("500 venues and 10,000 physical products paginate under 4 queries/250 docum
     expect(seen.size).toBe(20);
   }
   expect(productCount).toBe(10_000);
+  for (const kind of ["qr", "nfc"] as const) {
+    let channelCount = 0;
+    let cursor: string | null = null;
+    do {
+      const result = await f.admin.query(api.adminProductReads.listChannels, { kind, binding: "physical", direction: "asc", paginationOpts: page(50, cursor) });
+      channelCount += result.page.length;
+      expect(result.page.every((row) => row.kind === kind && row.binding === "physical")).toBe(true);
+      cursor = result.isDone ? null : result.continueCursor;
+    } while (cursor);
+    expect(channelCount).toBe(5_000);
+  }
   const filtered = await f.admin.query(api.adminProductReads.listInventory, { accountId: f.accountId, businessId: venues[0], state: "inactive", productType: "two-piece-stand", search: "dvodelni", paginationOpts: page(), sort: "smf", direction: "asc" });
   expect(filtered.page).toHaveLength(20);
 }, 60_000);

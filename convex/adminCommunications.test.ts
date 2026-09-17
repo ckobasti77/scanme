@@ -1,6 +1,7 @@
 /// <reference types="vite/client" />
 
 import { convexTest } from "convex-test";
+import type { FunctionReturnType } from "convex/server";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { api } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
@@ -232,28 +233,23 @@ describe("ADMIN-08 provider-neutral communication core", () => {
       conversationId: inbound.conversationId,
       content: "Stigla je, proveravamo.",
     });
-    let detail = await fixture.admin.query(api.adminCommunications.getConversation, {
-      conversationId: inbound.conversationId,
-    });
-    expect(detail?.messages.at(-1)?.deliveryState).toBe("sent");
+    const latestDelivery = async () => (await fixture.admin.query(
+      api.adminCommunications.listMessages,
+      { conversationId: inbound.conversationId, paginationOpts: { numItems: 1, cursor: null } },
+    )).page[0]?.deliveryState;
+    expect(await latestDelivery()).toBe("sent");
 
     vi.setSystemTime(NOW + 2_000);
     await fixture.client.mutation(api.clientCommunications.markPanelAvailable, {
       slug: "bistro-zelen-admin-08",
     });
-    detail = await fixture.admin.query(api.adminCommunications.getConversation, {
-      conversationId: inbound.conversationId,
-    });
-    expect(detail?.messages.at(-1)?.deliveryState).toBe("delivered");
+    expect(await latestDelivery()).toBe("delivered");
 
     vi.setSystemTime(NOW + 3_000);
     await fixture.client.mutation(api.clientCommunications.markConversationRead, {
       slug: "bistro-zelen-admin-08",
     });
-    detail = await fixture.admin.query(api.adminCommunications.getConversation, {
-      conversationId: inbound.conversationId,
-    });
-    expect(detail?.messages.at(-1)?.deliveryState).toBe("read");
+    expect(await latestDelivery()).toBe("read");
 
     const clientView = await fixture.client.query(api.clientCommunications.getPanelConversation, {
       slug: "bistro-zelen-admin-08",
@@ -423,5 +419,97 @@ describe("ADMIN-08 provider-neutral communication core", () => {
       contactId: fixture.secondContactId,
       channel: "in_person",
     });
+  });
+
+  test("large message history is admin-only, stable and cursor-paginated within read limits", async () => {
+    const t = convexTest({
+      schema,
+      modules,
+      transactionLimits: { databaseQueries: 4, documentsRead: 250 },
+    });
+    const ids = await t.run(async (ctx) => {
+      const adminId = await ctx.db.insert("users", { email: ADMIN_EMAIL, name: "Mina Admin" });
+      const outsiderId = await ctx.db.insert("users", { email: "history-outsider@example.invalid" });
+      const accountId = await ctx.db.insert("accounts", {
+        name: "Velika istorija", plan: "basic", status: "active",
+        createdAt: 1, updatedAt: 1,
+      });
+      const contactId = await ctx.db.insert("accountContacts", {
+        accountId, firstName: "Ana", lastName: "Istorija",
+        normalizedName: "ana istorija", positionTitle: "Vlasnica",
+        isOwner: true, status: "active", createdAt: 1, updatedAt: 1,
+      });
+      const conversationId = await ctx.db.insert("conversations", {
+        accountId, accountName: "Velika istorija", smkCode: "SMK-HIS-001",
+        contactId, contactName: "Ana Istorija", channel: "panel_chat",
+        status: "in_progress", assigneeKey: "unassigned",
+        latestMessagePreview: "Poruka 136", latestMessageAt: NOW + 136,
+        latestMessageDirection: "client_to_admin", latestMessageAuthorName: "Ana Istorija",
+        adminUnreadCount: 137, searchText: "velika istorija ana",
+        createdAt: NOW, updatedAt: NOW + 136,
+      });
+      for (let index = 0; index < 137; index += 1) {
+        await ctx.db.insert("conversationMessages", {
+          conversationId, accountId, contactId, channel: "panel_chat",
+          direction: "client_to_admin", authorKind: "client",
+          authorContactId: contactId, authorDisplayName: "Ana Istorija",
+          content: `Poruka ${index}`, createdAt: NOW + index,
+        });
+      }
+      return { adminId, outsiderId, conversationId };
+    });
+    const admin = t.withIdentity(identity(ids.adminId));
+    const outsider = t.withIdentity(identity(ids.outsiderId));
+    await expect(t.query(api.adminCommunications.listMessages, {
+      conversationId: ids.conversationId,
+      paginationOpts: { numItems: 37, cursor: null },
+    })).rejects.toThrow();
+    await expect(outsider.query(api.adminCommunications.listMessages, {
+      conversationId: ids.conversationId,
+      paginationOpts: { numItems: 37, cursor: null },
+    })).rejects.toThrow("administratorski");
+
+    const seen: string[] = [];
+    let cursor: string | null = null;
+    let firstPageIds: string[] | null = null;
+    do {
+      const result: FunctionReturnType<typeof api.adminCommunications.listMessages> = await admin.query(api.adminCommunications.listMessages, {
+        conversationId: ids.conversationId,
+        paginationOpts: { numItems: 37, cursor },
+      });
+      if (cursor === null) {
+        firstPageIds = result.page.map((row) => row.id);
+        const repeat = await admin.query(api.adminCommunications.listMessages, {
+          conversationId: ids.conversationId,
+          paginationOpts: { numItems: 37, cursor: null },
+        });
+        expect(repeat.page.map((row) => row.id)).toEqual(firstPageIds);
+      }
+      seen.push(...result.page.map((row) => row.id));
+      cursor = result.isDone ? null : result.continueCursor;
+      if (result.isDone) break;
+    } while (cursor);
+    expect(seen).toHaveLength(137);
+    expect(new Set(seen)).toHaveLength(137);
+    expect(firstPageIds).toHaveLength(37);
+
+    await expect(admin.query(api.adminCommunications.listMessages, {
+      conversationId: ids.conversationId,
+      paginationOpts: { numItems: 37, cursor: "invalid-cursor" },
+    })).rejects.toThrow();
+    const retry = await admin.query(api.adminCommunications.listMessages, {
+      conversationId: ids.conversationId,
+      paginationOpts: { numItems: 37, cursor: null },
+    });
+    expect(retry.page.map((row) => row.id)).toEqual(firstPageIds);
+
+    await t.run((ctx) => ctx.db.delete(ids.conversationId));
+    await expect(admin.query(api.adminCommunications.listMessages, {
+      conversationId: ids.conversationId,
+      paginationOpts: { numItems: 37, cursor: null },
+    })).rejects.toThrow("admin_communications_not_found");
+    expect(await admin.query(api.adminCommunications.getConversation, {
+      conversationId: ids.conversationId,
+    })).toBeNull();
   });
 });

@@ -5,7 +5,7 @@ import { compareActionPriority } from "../lib/admin-v1/operational";
 import { requireAdmin } from "./lib/access";
 import {
   dashboardProjectionComplete,
-  readDashboardMetric,
+  readDashboardMetrics,
 } from "./lib/adminDashboardProjection";
 
 const scope = v.union(v.literal("all"), v.literal("mine"));
@@ -71,21 +71,15 @@ export const reactions = query({
           )
           .take(args.limit + 1);
     const selected = rows.slice(0, args.limit).sort(compareActionPriority);
-    const items = await Promise.all(selected.map(async (item) => {
-      const client = item.accountId
-        ? await ctx.db
-            .query("adminClientReadModels")
-            .withIndex("by_accountId", (q) => q.eq("accountId", item.accountId!))
-            .unique()
-        : null;
+    const items = selected.map((item) => {
       const view = actionView(item, args.now);
       return {
         action: view,
-        contextLabel: client?.accountName ?? null,
-        contextCode: client?.smkCode ?? item.productRef ?? null,
+        contextLabel: null,
+        contextCode: item.productRef ?? null,
         href: defaultActionHref(view),
       };
-    }));
+    });
     const complete = await dashboardProjectionComplete(ctx, "action");
     const metrics = [
       "actions.total",
@@ -98,7 +92,7 @@ export const reactions = query({
       "actions.priority.other",
     ] as const;
     const values = complete
-      ? await Promise.all(metrics.map((metric) => readDashboardMetric(ctx, scopeKey, metric)))
+      ? await readDashboardMetrics(ctx, scopeKey, metrics)
       : null;
     return {
       scope: args.scope,
@@ -132,10 +126,10 @@ export const subscriptions = query({
     await requireAdmin(ctx);
     const complete = await dashboardProjectionComplete(ctx, "subscription");
     if (!complete) return { projection: "unavailable" as const, counts: null };
-    const values = await Promise.all([
+    const values = await readDashboardMetrics(ctx, "global", [
       "subscriptions.total", "subscriptions.status.active", "subscriptions.status.grace",
       "subscriptions.status.suspended", "subscriptions.status.inactive", "subscriptions.warning",
-    ].map((metric) => readDashboardMetric(ctx, "global", metric)));
+    ]);
     return { projection: "complete" as const, counts: {
       total: values[0], active: values[1], grace: values[2],
       suspended: values[3], inactive: values[4], warning: values[5],
@@ -156,10 +150,10 @@ export const products = query({
     await requireAdmin(ctx);
     const complete = await dashboardProjectionComplete(ctx, "product");
     if (!complete) return { projection: "unavailable" as const, counts: null };
-    const values = await Promise.all([
+    const values = await readDashboardMetrics(ctx, "global", [
       "products.total", "products.state.active", "products.state.inactive", "products.state.problem",
       "products.channels.qr", "products.channels.nfc", "products.channels.problem",
-    ].map((metric) => readDashboardMetric(ctx, "global", metric)));
+    ]);
     return { projection: "complete" as const, counts: {
       total: values[0], active: values[1], inactive: values[2], problem: values[3],
       qr: values[4], nfc: values[5], problemChannels: values[6],
