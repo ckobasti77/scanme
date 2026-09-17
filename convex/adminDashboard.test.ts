@@ -204,6 +204,57 @@ describe("ADMIN-17 dashboard contract", () => {
     await expect(seeded.outsiderClient.query(api.adminDashboard.inbox, { limit: 1 })).rejects.toThrow("administratorski");
   });
 
+  test("reaction first page stays within the four-query and 250-document budget", async () => {
+    const t = convexTest({
+      schema,
+      modules,
+      transactionLimits: { databaseQueries: 4, documentsRead: 250 },
+    });
+    const adminId = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", { email: ADMIN_A, name: "Admin A" });
+      for (let index = 0; index < 12; index += 1) {
+        await ctx.db.insert("actionItems", {
+          causeId: `task:bounded-${index}:client_task`,
+          sourceDomain: "task",
+          sourceRecordId: `bounded-${index}`,
+          causeKind: "client_task",
+          sourceVersion: "v1",
+          sourceFingerprint: `bounded:${index}`,
+          severity: "warning",
+          severityRank: 1,
+          state: "open",
+          priorityClass: "due_today",
+          priorityRank: 1,
+          priorityAt: NOW + index,
+          relevantAt: NOW + index,
+          description: `Ograničena stavka ${index}`,
+          resolutionRule: "source_fact_changed",
+          createdAt: NOW + index,
+          updatedAt: NOW + index,
+        });
+      }
+      await ctx.db.insert("adminDashboardProjectionStates", {
+        sourceKind: "action",
+        state: "complete",
+        updatedAt: NOW,
+      });
+      await ctx.db.insert("adminDashboardRollups", {
+        scopeKey: "all",
+        metric: "actions.total",
+        count: 12,
+        updatedAt: NOW,
+      });
+      return userId;
+    });
+
+    const result = await t.withIdentity(identity(adminId)).query(
+      api.adminDashboard.reactions,
+      { scope: "all", now: NOW, limit: 12 },
+    );
+    expect(result.items).toHaveLength(12);
+    expect(result.counts).toMatchObject({ total: 12, today: 0 });
+  });
+
   test("new Dashboard reads stay bounded and contain no unlimited collect", () => {
     const root = join(process.cwd(), "convex");
     for (const file of ["adminDashboard.ts", "adminDashboardBackfill.ts", join("lib", "adminDashboardProjection.ts")]) {

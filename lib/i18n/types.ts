@@ -2574,6 +2574,8 @@ export interface AdminProductsDict {
   productTypePremiumEngraved: string;
   selectionTitle: string;
   selectedProducts: string;
+  editSelection: string;
+  clearSelection: string;
   mixedValue: string;
   bulkStatus: string;
   bulkQrState: string;

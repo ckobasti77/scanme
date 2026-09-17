@@ -18,7 +18,7 @@ import { normalizeAdminSearchText } from "./lib/adminV1Validators";
 import { communicationsSr } from "../lib/i18n/sr/communications";
 
 const MAX_INBOX_PAGE = 50;
-const MAX_MESSAGES = 100;
+const MAX_MESSAGE_PAGE = 50;
 const MAX_CONTENT = 4_000;
 const UNASSIGNED = "unassigned";
 
@@ -79,8 +79,6 @@ const messageValidator = v.object({
 
 const detailValidator = v.object({
   conversation: inboxItemValidator,
-  messages: v.array(messageValidator),
-  messagesCapped: v.boolean(),
 });
 
 function cleanContent(value: string) {
@@ -261,28 +259,41 @@ export const getConversation = query({
     await requireAdmin(ctx);
     const conversation = await ctx.db.get(args.conversationId);
     if (!conversation) return null;
-    const rows = await ctx.db
+    return { conversation: inboxItem(conversation) };
+  },
+});
+
+export const listMessages = query({
+  args: {
+    conversationId: v.id("conversations"),
+    paginationOpts: paginationOptsValidator,
+  },
+  returns: paginationResultValidator(messageValidator),
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    if (args.paginationOpts.numItems > MAX_MESSAGE_PAGE) {
+      throw new ConvexError("admin_communications_message_page_limit");
+    }
+    const conversation = await ctx.db.get(args.conversationId);
+    if (!conversation) throw new ConvexError("admin_communications_not_found");
+    const result = await ctx.db
       .query("conversationMessages")
       .withIndex("by_conversationId_and_createdAt", (q) =>
         q.eq("conversationId", conversation._id),
       )
       .order("desc")
-      .take(MAX_MESSAGES + 1);
+      .paginate(args.paginationOpts);
     return {
-      conversation: inboxItem(conversation),
-      messages: rows
-        .slice(0, MAX_MESSAGES)
-        .reverse()
-        .map((message) => ({
-          id: message._id,
-          direction: message.direction,
-          authorKind: message.authorKind,
-          authorDisplayName: message.authorDisplayName,
-          content: message.content,
-          createdAt: message.createdAt,
-          deliveryState: effectiveDeliveryState(conversation, message),
-        })),
-      messagesCapped: rows.length > MAX_MESSAGES,
+      ...result,
+      page: result.page.map((message) => ({
+        id: message._id,
+        direction: message.direction,
+        authorKind: message.authorKind,
+        authorDisplayName: message.authorDisplayName,
+        content: message.content,
+        createdAt: message.createdAt,
+        deliveryState: effectiveDeliveryState(conversation, message),
+      })),
     };
   },
 });

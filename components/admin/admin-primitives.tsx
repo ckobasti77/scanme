@@ -4,6 +4,7 @@ import {
   Nfc,
   Package,
   QrCode,
+  RotateCcw,
 } from "lucide-react";
 import type { ComponentProps, ReactNode } from "react";
 import { adminV1Sr } from "@/lib/i18n/sr/admin-v1";
@@ -148,10 +149,14 @@ export function AdminErrorState({
   title = adminV1Sr.errorStateTitle,
   body = adminV1Sr.errorStateBody,
   className,
+  onRetry,
+  retryLabel = adminV1Sr.retryAction,
 }: {
   title?: string;
   body?: string;
   className?: string;
+  onRetry?: () => void;
+  retryLabel?: string;
 }) {
   return (
     <div
@@ -165,6 +170,7 @@ export function AdminErrorState({
         </span>
         <h2 className="mt-5 text-lg font-semibold tracking-[-0.02em]">{title}</h2>
         <p className="mt-2 text-sm leading-6 text-[var(--admin-text-muted)]">{body}</p>
+        {onRetry ? <button type="button" onClick={onRetry} className="mx-auto mt-5 inline-flex min-h-11 items-center gap-2 rounded-full border border-[var(--admin-border)] bg-[var(--admin-surface-strong)] px-5 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--admin-focus)]"><RotateCcw className="size-4" aria-hidden="true" />{retryLabel}</button> : null}
       </div>
     </div>
   );

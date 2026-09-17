@@ -93,4 +93,13 @@ describe("ADMIN-16 settings UI", () => {
     expect(previewRoute).toContain('process.env.NODE_ENV === "production"');
     expect(previewRoute).toContain("notFound()");
   });
+
+  test("guards draft navigation and duplicate settings submissions", () => {
+    const source = readFileSync(resolve(process.cwd(), "components/admin/admin-settings.tsx"), "utf8");
+    expect(source).toContain("if (locked.current) return");
+    expect(source).toContain("pendingTab");
+    expect(source).toContain("onDirtyChange={setRulesDirty}");
+    expect(source.match(/disabled=\{pending\}/g)?.length).toBeGreaterThanOrEqual(4);
+    expect(source).toContain("disabled={pending || !priceDraftValid}");
+  });
 });

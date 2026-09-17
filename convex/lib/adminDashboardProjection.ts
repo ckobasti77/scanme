@@ -183,17 +183,22 @@ export async function syncDashboardProduct(
   });
 }
 
-export async function readDashboardMetric(
+const MAX_SCOPE_METRICS = 32;
+
+export async function readDashboardMetrics(
   ctx: QueryCtx,
   scopeKey: string,
-  metric: string,
+  metrics: readonly string[],
 ) {
-  return (await ctx.db
+  const rows = await ctx.db
     .query("adminDashboardRollups")
-    .withIndex("by_scopeKey_and_metric", (q) =>
-      q.eq("scopeKey", scopeKey).eq("metric", metric),
-    )
-    .unique())?.count ?? 0;
+    .withIndex("by_scopeKey_and_metric", (q) => q.eq("scopeKey", scopeKey))
+    .take(MAX_SCOPE_METRICS + 1);
+  if (rows.length > MAX_SCOPE_METRICS) {
+    throw new ConvexError("admin_dashboard_metric_limit");
+  }
+  const counts = new Map(rows.map((row) => [row.metric, row.count]));
+  return metrics.map((metric) => counts.get(metric) ?? 0);
 }
 
 export async function dashboardProjectionComplete(

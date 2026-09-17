@@ -383,4 +383,46 @@ describe("ADMIN-10 bounded reads", () => {
     });
     expect(team.map((member) => member.name).sort()).toEqual(["Aleksa", "Jovan", "Teodora"]);
   });
+
+  test("Team aggregation avoids per-member domain reads and stays within 250 documents", async () => {
+    const t = convexTest({
+      schema,
+      modules,
+      transactionLimits: { databaseQueries: 5, documentsRead: 250 },
+    });
+    const ids = await t.run(async (ctx) => {
+      const adminA = await ctx.db.insert("users", { email: ADMIN_A, name: "Teodora" });
+      await ctx.db.insert("users", { email: ADMIN_B, name: "Jovan" });
+      await ctx.db.insert("users", { email: ADMIN_C, name: "Aleksa" });
+      const accountId = await ctx.db.insert("accounts", { name: "Scale", plan: "basic", status: "active", createdAt: NOW, updatedAt: NOW });
+      const contactId = await ctx.db.insert("accountContacts", { accountId, firstName: "Scale", lastName: "Kontakt", normalizedName: "scale kontakt", positionTitle: "Vlasnik", isOwner: true, status: "active", createdAt: NOW, updatedAt: NOW });
+      for (let index = 0; index < 121; index += 1) {
+        await ctx.db.insert("clientTasks", {
+          accountId, accountName: "Scale", smkCode: "SMK-SCALE", subjectKind: "none",
+          title: `Scale zadatak ${index}`, description: "", assigneeId: adminA, assigneeName: "Teodora",
+          priority: "normal", priorityRank: 2, dueSortAt: NOW + index, dueVersion: "v1",
+          timePhase: "overdue", status: "open", view: "active", searchText: `scale ${index}`,
+          participantCount: 0, createCommandId: `scale-${index}`, createdByUserId: adminA,
+          updatedByUserId: adminA, createdAt: NOW + index, updatedAt: NOW + index,
+        });
+        await ctx.db.insert("conversations", {
+          accountId, accountName: "Scale", smkCode: "SMK-SCALE", contactId, contactName: "Scale Kontakt",
+          channel: "panel_chat", status: "needs_reply", assigneeAdminId: adminA, assigneeName: "Teodora",
+          assigneeKey: String(adminA), latestMessagePreview: `Poruka ${index}`, latestMessageAt: NOW + index,
+          latestMessageDirection: "client_to_admin", latestMessageAuthorName: "Scale Kontakt",
+          adminUnreadCount: 1, searchText: `scale ${index}`, createdAt: NOW + index, updatedAt: NOW + index,
+        });
+      }
+      return { adminA };
+    });
+    const result = await t.withIdentity(identity(ids.adminA)).query(api.adminTasks.teamOverview, {});
+    expect(result).toHaveLength(3);
+    expect(result.find((member) => member.id === ids.adminA)).toMatchObject({
+      openTasks: 120,
+      overdueTasks: 120,
+      assignedConversations: 120,
+      awaitingReaction: 240,
+      countsCapped: true,
+    });
+  });
 });

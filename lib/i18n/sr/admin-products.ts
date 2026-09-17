@@ -90,6 +90,8 @@ export const adminProductsSr = {
   productTypePremiumEngraved: "Premium gravirani stalak",
   selectionTitle: "Izabrani proizvodi",
   selectedProducts: "izabrana proizvoda",
+  editSelection: "Izmeni izabrane",
+  clearSelection: "Poništi izbor",
   mixedValue: "Različite vrednosti",
   bulkStatus: "Status",
   bulkQrState: "QR status",

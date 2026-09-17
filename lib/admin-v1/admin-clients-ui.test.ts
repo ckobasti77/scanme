@@ -1,6 +1,14 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn() }),
+}));
+vi.mock("convex/react", () => ({
+  useMutation: () => vi.fn(),
+  usePaginatedQuery: () => ({ results: [], status: "Exhausted", loadMore: vi.fn() }),
+}));
 import { AdminClientsPreview } from "@/components/admin/admin-clients";
 
 describe("ADMIN-06 clients presentation", () => {

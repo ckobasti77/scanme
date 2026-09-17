@@ -60,6 +60,7 @@ import {
 type InboxResult = FunctionReturnType<typeof api.adminCommunications.listInbox>;
 type InboxItem = InboxResult["page"][number];
 type Detail = NonNullable<FunctionReturnType<typeof api.adminCommunications.getConversation>>;
+type Message = FunctionReturnType<typeof api.adminCommunications.listMessages>["page"][number];
 type ConversationStatus = InboxItem["status"];
 type Channel = InboxItem["channel"];
 type ManualChannel = "phone" | "in_person" | "copied_message";
@@ -192,13 +193,28 @@ function ConversationList({
   );
 }
 
-function MessageHistory({ detail }: { detail: Detail }) {
+function MessageHistory({
+  messages,
+  loading,
+  canLoadMore,
+  onLoadMore,
+}: {
+  messages: Message[];
+  loading: boolean;
+  canLoadMore: boolean;
+  onLoadMore?: () => void;
+}) {
+  if (loading && messages.length === 0) {
+    return <AdminLoadingState compact label={dict.conversationDetail} />;
+  }
   return (
     <div className="grid gap-3" aria-live="polite">
-      {detail.messagesCapped ? (
-        <p className="text-xs text-[var(--admin-text-muted)]">{dict.messagesCapped}</p>
-      ) : null}
-      {detail.messages.map((message) => {
+      {canLoadMore ? (
+        <Button type="button" variant="outline" className="min-h-11 justify-self-center" onClick={onLoadMore}>
+          {dict.loadMore}
+        </Button>
+      ) : loading ? <AdminLoadingState compact label={dict.loadingMore} /> : null}
+      {[...messages].reverse().map((message) => {
         const outgoing = message.direction === "admin_to_client";
         return (
           <article
@@ -268,7 +284,7 @@ function ReplyForm({
         required
       />
       {error ? <p role="alert" className="text-sm text-[var(--admin-danger)]">{error}</p> : null}
-      <Button type="submit" disabled={busy || !content.trim()} className="justify-self-start">
+      <Button type="submit" disabled={busy || !content.trim()} className="min-h-11 justify-self-start">
         {dict.sendReply}
       </Button>
     </form>
@@ -277,6 +293,10 @@ function ReplyForm({
 
 function ConversationDetail({
   detail,
+  messages,
+  messagesLoading,
+  canLoadMoreMessages,
+  onLoadMoreMessages,
   me,
   busy,
   error,
@@ -286,6 +306,10 @@ function ConversationDetail({
   onManual,
 }: {
   detail: Detail;
+  messages: Message[];
+  messagesLoading: boolean;
+  canLoadMoreMessages: boolean;
+  onLoadMoreMessages?: () => void;
   me: { id: Id<"users">; name: string };
   busy: boolean;
   error: string;
@@ -312,7 +336,7 @@ function ConversationDetail({
           <div className="grid gap-1.5">
             <Label htmlFor="conversation-status">{dict.statusLabel}</Label>
             <Select value={row.status} onValueChange={(value) => void onStatus(value as ConversationStatus)} disabled={busy}>
-              <SelectTrigger id="conversation-status" className="w-full"><SelectValue /></SelectTrigger>
+              <SelectTrigger id="conversation-status" className="min-h-11 w-full"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {(Object.keys(statusLabels) as ConversationStatus[]).map((status) => (
                   <SelectItem key={status} value={status}>{statusLabels[status]}</SelectItem>
@@ -329,21 +353,36 @@ function ConversationDetail({
           </div>
           <div className="flex flex-wrap gap-2 sm:col-span-2 xl:col-span-1">
             {row.assigneeAdminId === me.id ? (
-              <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => void onAssign(null)}>{dict.removeAssignee}</Button>
+              <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => void onAssign(null)} className="min-h-11">{dict.removeAssignee}</Button>
             ) : (
-              <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => void onAssign(me.id)}>{dict.assignToMe}</Button>
+              <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => void onAssign(me.id)} className="min-h-11">{dict.assignToMe}</Button>
             )}
-            <Button type="button" variant="outline" size="sm" onClick={onManual}><Plus className="size-4" aria-hidden="true" />{dict.manualOpen}</Button>
+            <Button type="button" variant="outline" size="sm" onClick={onManual} className="min-h-11"><Plus className="size-4" aria-hidden="true" />{dict.manualOpen}</Button>
           </div>
         </div>
         {error ? <p role="alert" className="mt-3 text-sm text-[var(--admin-danger)]">{error}</p> : null}
       </header>
-      <div className="min-w-0 overflow-y-auto p-4 sm:p-5"><MessageHistory detail={detail} /></div>
+      <div className="min-w-0 overflow-y-auto p-4 sm:p-5"><MessageHistory messages={messages} loading={messagesLoading} canLoadMore={canLoadMoreMessages} onLoadMore={onLoadMoreMessages} /></div>
       <div className="border-t border-[var(--admin-border)] p-4 sm:p-5">
         <ReplyForm disabled={row.channel !== "panel_chat"} busy={busy} error={error} onSubmit={onReply} />
       </div>
     </section>
   );
+}
+
+function PaginatedConversationDetail(props: Omit<Parameters<typeof ConversationDetail>[0], "messages" | "messagesLoading" | "canLoadMoreMessages" | "onLoadMoreMessages">) {
+  const history = usePaginatedQuery(
+    api.adminCommunications.listMessages,
+    { conversationId: props.detail.conversation.id },
+    { initialNumItems: 30 },
+  );
+  return <ConversationDetail
+    {...props}
+    messages={history.results}
+    messagesLoading={history.status === "LoadingFirstPage" || history.status === "LoadingMore"}
+    canLoadMoreMessages={history.status === "CanLoadMore"}
+    onLoadMoreMessages={() => history.loadMore(30)}
+  />;
 }
 
 function ManualDialog({
@@ -378,7 +417,7 @@ function ManualDialog({
           <div className="grid gap-2">
             <Label htmlFor="manual-channel">{dict.manualChannel}</Label>
             <Select value={channel} onValueChange={(value) => setChannel(value as ManualChannel)} disabled={busy}>
-              <SelectTrigger id="manual-channel"><SelectValue /></SelectTrigger>
+              <SelectTrigger id="manual-channel" className="min-h-11"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="phone">{dict.channelPhone}</SelectItem>
                 <SelectItem value="in_person">{dict.channelInPerson}</SelectItem>
@@ -392,8 +431,8 @@ function ManualDialog({
           </div>
           {error ? <p role="alert" className="text-sm text-[var(--admin-danger)]">{error}</p> : null}
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>{dict.cancel}</Button>
-            <Button type="submit" disabled={busy || !content.trim()}>{dict.manualSave}</Button>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="min-h-11">{dict.cancel}</Button>
+            <Button type="submit" disabled={busy || !content.trim()} className="min-h-11">{dict.manualSave}</Button>
           </DialogFooter>
         </form>
       </DialogContent>
@@ -511,8 +550,8 @@ export function AdminConversationWorkspace(scope: WorkspaceScope = {}) {
           <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--admin-text-muted)]">{scope.embedded ? dict.profileScope : dict.inboxSubtitle}</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          {scope.embedded ? <Button asChild variant="outline"><Link href="/admin/inbox">{dict.profileOpenInbox}</Link></Button> : null}
-          {manualContext ? <Button type="button" variant="outline" onClick={openManual}><Plus className="size-4" aria-hidden="true" />{dict.manualOpen}</Button> : null}
+          {scope.embedded ? <Button asChild variant="outline" className="min-h-11"><Link href="/admin/inbox">{dict.profileOpenInbox}</Link></Button> : null}
+          {manualContext ? <Button type="button" variant="outline" onClick={openManual} className="min-h-11"><Plus className="size-4" aria-hidden="true" />{dict.manualOpen}</Button> : null}
         </div>
       </header>
 
@@ -527,26 +566,26 @@ export function AdminConversationWorkspace(scope: WorkspaceScope = {}) {
           >
             <Label htmlFor="inbox-search" className="sr-only">{dict.searchLabel}</Label>
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--admin-text-muted)]" aria-hidden="true" />
-            <Input id="inbox-search" value={searchDraft} onChange={(event) => setSearchDraft(event.target.value)} placeholder={dict.searchPlaceholder} className="pl-9" />
+            <Input id="inbox-search" value={searchDraft} onChange={(event) => setSearchDraft(event.target.value)} placeholder={dict.searchPlaceholder} className="min-h-11 pl-9" />
           </form>
           <div className="grid gap-1.5">
             <Label htmlFor="inbox-status">{dict.statusFilter}</Label>
             <Select value={status} onValueChange={(value) => setStatus(value as ConversationStatus | "all")}>
-              <SelectTrigger id="inbox-status"><SelectValue /></SelectTrigger>
+              <SelectTrigger id="inbox-status" className="min-h-11"><SelectValue /></SelectTrigger>
               <SelectContent><SelectItem value="all">{dict.filterAll}</SelectItem>{(Object.keys(statusLabels) as ConversationStatus[]).map((value) => <SelectItem key={value} value={value}>{statusLabels[value]}</SelectItem>)}</SelectContent>
             </Select>
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="inbox-channel">{dict.channelFilter}</Label>
             <Select value={channel} onValueChange={(value) => setChannel(value as Channel | "all")}>
-              <SelectTrigger id="inbox-channel"><SelectValue /></SelectTrigger>
+              <SelectTrigger id="inbox-channel" className="min-h-11"><SelectValue /></SelectTrigger>
               <SelectContent><SelectItem value="all">{dict.filterAll}</SelectItem>{(Object.keys(channelLabels) as Channel[]).map((value) => <SelectItem key={value} value={value}>{channelLabels[value]}</SelectItem>)}</SelectContent>
             </Select>
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="inbox-assignee">{dict.assigneeFilter}</Label>
             <Select value={assignee} onValueChange={(value) => setAssigneeFilter(value as typeof assignee)}>
-              <SelectTrigger id="inbox-assignee"><SelectValue /></SelectTrigger>
+              <SelectTrigger id="inbox-assignee" className="min-h-11"><SelectValue /></SelectTrigger>
               <SelectContent><SelectItem value="all">{dict.filterAll}</SelectItem><SelectItem value="mine">{dict.assigneeMine}</SelectItem><SelectItem value="unassigned">{dict.assigneeUnassigned}</SelectItem>{adminOptions.map((admin) => <SelectItem key={admin.id} value={admin.id}>{admin.name}</SelectItem>)}</SelectContent>
             </Select>
           </div>
@@ -562,12 +601,12 @@ export function AdminConversationWorkspace(scope: WorkspaceScope = {}) {
           <AdminPanel className="min-w-0 overflow-hidden">
             <ConversationList rows={inbox.results} selectedId={selected} onSelect={setSelectedId} />
             {inbox.status === "CanLoadMore" ? (
-              <div className="border-t border-[var(--admin-border)] p-3"><Button type="button" variant="outline" className="w-full" onClick={() => inbox.loadMore(20)}>{dict.loadMore}</Button></div>
+              <div className="border-t border-[var(--admin-border)] p-3"><Button type="button" variant="outline" className="min-h-11 w-full" onClick={() => inbox.loadMore(20)}>{dict.loadMore}</Button></div>
             ) : inbox.status === "LoadingMore" ? <AdminLoadingState compact label={dict.loadingMore} /> : null}
           </AdminPanel>
           <AdminPanel className="min-w-0 overflow-hidden">
             {detail === undefined || me === undefined ? <AdminLoadingState label={dict.conversationDetail} /> : detail === null ? <AdminErrorState title={dict.errorTitle} body={dict.errorBody} /> : (
-              <ConversationDetail
+              <PaginatedConversationDetail
                 detail={detail}
                 me={me}
                 busy={busy}
@@ -613,7 +652,7 @@ export class AdminInboxErrorBoundary extends Component<{ children: ReactNode }, 
   static getDerivedStateFromError() { return { failed: true }; }
   render() {
     return this.state.failed
-      ? <AdminPanel><AdminErrorState title={dict.errorTitle} body={dict.errorBody} /></AdminPanel>
+      ? <AdminPanel><AdminErrorState title={dict.errorTitle} body={dict.errorBody} onRetry={() => window.location.reload()} retryLabel={dict.retry} /></AdminPanel>
       : this.props.children;
   }
 }
@@ -661,14 +700,11 @@ const fixtureRows = [
   },
 ] satisfies InboxItem[];
 
-const fixtureDetail = {
-  conversation: fixtureRows[0],
-  messages: [
-    { id: "fixture-message-1" as Id<"conversationMessages">, direction: "admin_to_client" as const, authorKind: "admin" as const, authorDisplayName: adminV1Sr.fixtureIdentity, content: "Naravno. Koju ste stavku poslednju objavili?", createdAt: Date.parse("2026-09-11T11:35:00Z"), deliveryState: "read" as const },
-    { id: "fixture-message-2" as Id<"conversationMessages">, direction: "client_to_admin" as const, authorKind: "client" as const, authorDisplayName: "Ana Petrović", content: "Možete li da proverite zašto nova stavka još nije vidljiva u meniju?", createdAt: Date.parse("2026-09-11T11:42:00Z"), deliveryState: null },
-  ],
-  messagesCapped: false,
-} satisfies Detail;
+const fixtureDetail = { conversation: fixtureRows[0] } satisfies Detail;
+const fixtureMessages = [
+  { id: "fixture-message-1" as Id<"conversationMessages">, direction: "admin_to_client" as const, authorKind: "admin" as const, authorDisplayName: adminV1Sr.fixtureIdentity, content: "Naravno. Koju ste stavku poslednju objavili?", createdAt: Date.parse("2026-09-11T11:35:00Z"), deliveryState: "read" as const },
+  { id: "fixture-message-2" as Id<"conversationMessages">, direction: "client_to_admin" as const, authorKind: "client" as const, authorDisplayName: "Ana Petrović", content: "Možete li da proverite zašto nova stavka još nije vidljiva u meniju?", createdAt: Date.parse("2026-09-11T11:42:00Z"), deliveryState: null },
+] satisfies Message[];
 
 export function AdminInboxPreview() {
   const [selected, setSelected] = useState<Id<"conversations">>(fixtureRows[0].id);
@@ -682,14 +718,15 @@ export function AdminInboxPreview() {
     setManualOpen(open);
     if (!open) requestAnimationFrame(() => manualReturnFocus.current?.focus());
   }
-  const detail = useMemo(() => selected === fixtureRows[0].id ? fixtureDetail : { ...fixtureDetail, conversation: fixtureRows[1], messages: [{ ...fixtureDetail.messages[0], id: "fixture-message-3" as Id<"conversationMessages">, direction: "manual" as const, content: fixtureRows[1].latestMessagePreview, deliveryState: null }] }, [selected]);
+  const detail = useMemo(() => selected === fixtureRows[0].id ? fixtureDetail : { ...fixtureDetail, conversation: fixtureRows[1] }, [selected]);
+  const messages = useMemo(() => selected === fixtureRows[0].id ? fixtureMessages : [{ ...fixtureMessages[0], id: "fixture-message-3" as Id<"conversationMessages">, direction: "manual" as const, content: fixtureRows[1].latestMessagePreview, deliveryState: null }], [selected]);
   return (
     <div className="grid gap-4">
       <header><span className="rounded-full bg-[var(--admin-accent)] px-2.5 py-1 text-[0.68rem] font-bold text-[var(--admin-accent-ink)]">{dict.previewBadge}</span><h1 className="mt-4 text-3xl font-semibold tracking-[-0.04em] sm:text-4xl">{dict.inboxTitle}</h1><p className="mt-2 text-sm text-[var(--admin-text-muted)]">{dict.inboxSubtitle}</p></header>
-      <AdminPanel className="grid gap-3 p-3 sm:grid-cols-2 sm:p-4 xl:grid-cols-[minmax(16rem,1.4fr)_repeat(3,minmax(10rem,0.7fr))]"><Input aria-label={dict.searchLabel} placeholder={dict.searchPlaceholder} /><Button variant="outline">{dict.statusFilter}: {dict.filterAll}</Button><Button variant="outline">{dict.channelFilter}: {dict.filterAll}</Button><Button variant="outline">{dict.assigneeFilter}: {dict.filterAll}</Button></AdminPanel>
+      <AdminPanel className="grid gap-3 p-3 sm:grid-cols-2 sm:p-4 xl:grid-cols-[minmax(16rem,1.4fr)_repeat(3,minmax(10rem,0.7fr))]"><Input aria-label={dict.searchLabel} placeholder={dict.searchPlaceholder} className="min-h-11" /><Button variant="outline" className="min-h-11">{dict.statusFilter}: {dict.filterAll}</Button><Button variant="outline" className="min-h-11">{dict.channelFilter}: {dict.filterAll}</Button><Button variant="outline" className="min-h-11">{dict.assigneeFilter}: {dict.filterAll}</Button></AdminPanel>
       <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(17rem,0.78fr)_minmax(0,1.45fr)]">
         <AdminPanel className="min-w-0 overflow-hidden"><ConversationList rows={fixtureRows} selectedId={selected} onSelect={setSelected} /></AdminPanel>
-        <AdminPanel className="min-w-0 overflow-hidden"><ConversationDetail detail={detail} me={{ id: "fixture-admin" as Id<"users">, name: adminV1Sr.fixtureIdentity }} busy={false} error="" onReply={async () => undefined} onStatus={async () => undefined} onAssign={async () => undefined} onManual={openManual} /></AdminPanel>
+        <AdminPanel className="min-w-0 overflow-hidden"><ConversationDetail detail={detail} messages={messages} messagesLoading={false} canLoadMoreMessages={false} me={{ id: "fixture-admin" as Id<"users">, name: adminV1Sr.fixtureIdentity }} busy={false} error="" onReply={async () => undefined} onStatus={async () => undefined} onAssign={async () => undefined} onManual={openManual} /></AdminPanel>
       </div>
       <ManualDialog open={manualOpen} busy={false} error="" onOpenChange={changeManualOpen} onSubmit={async () => changeManualOpen(false)} />
     </div>

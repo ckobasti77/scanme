@@ -45,7 +45,7 @@ import { adminTasksSr } from "../lib/i18n/sr/admin-tasks";
 const MAX_PAGE = 50;
 const MAX_HISTORY_PAGE = 50;
 const MAX_PARTICIPANTS = 20;
-const MAX_TEAM_COUNT = 500;
+const MAX_TEAM_SOURCE_ROWS = 120;
 const NO_DUE_SORT = 8_640_000_000_000_000;
 const PRIORITY_RANK = { urgent: 0, high: 1, normal: 2, low: 3 } as const;
 
@@ -229,10 +229,12 @@ async function requireAdminUser(ctx: DatabaseCtx, userId: Id<"users">) {
   return user;
 }
 
-async function loadAdminUsers(ctx: DatabaseCtx) {
+async function loadAdminUsers(ctx: DatabaseCtx, currentAdmin: Doc<"users">) {
   const emails = [...adminEmails()].slice(0, 20);
   const admins = await Promise.all(
-    emails.map((email) => ctx.db.query("users").withIndex("email", (q) => q.eq("email", email)).unique()),
+    emails.map((email) => currentAdmin.email?.toLowerCase() === email
+      ? Promise.resolve(currentAdmin)
+      : ctx.db.query("users").withIndex("email", (q) => q.eq("email", email)).unique()),
   );
   return admins.filter((admin): admin is Doc<"users"> => Boolean(admin?.email));
 }
@@ -683,8 +685,8 @@ export const listAdmins = query({
   args: {},
   returns: v.array(adminOptionValidator),
   handler: async (ctx) => {
-    await requireAdmin(ctx);
-    const admins = await loadAdminUsers(ctx);
+    const currentAdmin = await requireAdmin(ctx);
+    const admins = await loadAdminUsers(ctx, currentAdmin);
     return admins.map((admin) => ({ id: admin._id, name: adminName(admin), email: admin.email! }));
   },
 });
@@ -1459,44 +1461,39 @@ export const teamOverview = query({
   args: {},
   returns: v.array(teamMemberValidator),
   handler: async (ctx) => {
-    await requireAdmin(ctx);
-    const admins = await loadAdminUsers(ctx);
-    return Promise.all(admins.map(async (admin) => {
-      const [openTasks, overdueTasks, conversations] = await Promise.all([
-        ctx.db
-          .query("clientTasks")
-          .withIndex("by_assignee_and_view_and_dueSortAt", (q) =>
-            q.eq("assigneeId", admin._id).eq("view", "active"),
-          )
-          .take(MAX_TEAM_COUNT + 1),
-        ctx.db
-          .query("clientTasks")
-          .withIndex("by_assignee_view_phase_dueSortAt", (q) =>
-            q.eq("assigneeId", admin._id).eq("view", "active").eq("timePhase", "overdue"),
-          )
-          .take(MAX_TEAM_COUNT + 1),
-        ctx.db
-          .query("conversations")
-          .withIndex("by_assigneeKey_and_updatedAt", (q) => q.eq("assigneeKey", String(admin._id)))
-          .take(MAX_TEAM_COUNT + 1),
-      ]);
-      const visibleConversations = conversations.slice(0, MAX_TEAM_COUNT);
-      const awaitingConversationCount = visibleConversations.filter(
+    const currentAdmin = await requireAdmin(ctx);
+    const admins = await loadAdminUsers(ctx, currentAdmin);
+    const [tasks, conversations] = await Promise.all([
+      ctx.db
+        .query("clientTasks")
+        .withIndex("by_view_and_dueSortAt_and_priorityRank", (q) => q.eq("view", "active"))
+        .take(MAX_TEAM_SOURCE_ROWS + 1),
+      ctx.db
+        .query("conversations")
+        .withIndex("by_updatedAt")
+        .order("desc")
+        .take(MAX_TEAM_SOURCE_ROWS + 1),
+    ]);
+    const countsCapped = tasks.length > MAX_TEAM_SOURCE_ROWS || conversations.length > MAX_TEAM_SOURCE_ROWS;
+    const visibleTasks = tasks.slice(0, MAX_TEAM_SOURCE_ROWS);
+    const visibleConversations = conversations.slice(0, MAX_TEAM_SOURCE_ROWS);
+    return admins.map((admin) => {
+      const memberTasks = visibleTasks.filter((task) => task.assigneeId === admin._id);
+      const memberConversations = visibleConversations.filter((conversation) => conversation.assigneeAdminId === admin._id);
+      const overdueTasks = memberTasks.filter((task) => task.timePhase === "overdue").length;
+      const awaitingConversationCount = memberConversations.filter(
         (conversation) => conversation.status === "new" || conversation.status === "needs_reply",
       ).length;
       return {
         id: admin._id,
         name: adminName(admin),
         email: admin.email!,
-        openTasks: Math.min(openTasks.length, MAX_TEAM_COUNT),
-        overdueTasks: Math.min(overdueTasks.length, MAX_TEAM_COUNT),
-        assignedConversations: Math.min(conversations.length, MAX_TEAM_COUNT),
-        awaitingReaction: Math.min(overdueTasks.length, MAX_TEAM_COUNT) + awaitingConversationCount,
-        countsCapped:
-          openTasks.length > MAX_TEAM_COUNT ||
-          overdueTasks.length > MAX_TEAM_COUNT ||
-          conversations.length > MAX_TEAM_COUNT,
+        openTasks: memberTasks.length,
+        overdueTasks,
+        assignedConversations: memberConversations.length,
+        awaitingReaction: overdueTasks + awaitingConversationCount,
+        countsCapped,
       };
-    }));
+    });
   },
 });
