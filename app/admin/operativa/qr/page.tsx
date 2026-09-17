@@ -9,6 +9,7 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default function QrPage() {
-  return <AdminGuard><AdminShell><AdminQrErrorBoundary><AdminQrWorkspace /></AdminQrErrorBoundary></AdminShell></AdminGuard>;
+export default async function QrPage({ searchParams }: { searchParams: Promise<{ channel?: string; code?: string }> }) {
+  const { channel, code } = await searchParams;
+  return <AdminGuard><AdminShell><AdminQrErrorBoundary><AdminQrWorkspace initialChannelId={channel} initialCode={code} /></AdminQrErrorBoundary></AdminShell></AdminGuard>;
 }

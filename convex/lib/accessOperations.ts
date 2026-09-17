@@ -8,6 +8,7 @@ import { syncAutomaticAction } from "./adminActionEngine";
 import { syncDashboardProduct } from "./adminDashboardProjection";
 import { writeAdminAudit } from "./adminAudit";
 import { normalizeAdminSearchText } from "./adminV1Validators";
+import { projectAccessEvent } from "./adminActivity";
 import { adminDomainSr } from "../../lib/i18n/sr/admin-domain";
 import { validateTargetSpec } from "../cards";
 
@@ -148,7 +149,9 @@ export async function syncChannel(ctx: MutationCtx, channel: Doc<"accessChannels
   if (changed) {
     const resumeState = state === "problem" ? (old.state === "problem" ? old.resumeState : old.state) : undefined;
     await ctx.db.patch(channel._id, { state, resumeState, health: channel.health, redirectEnabled: channel.redirectEnabled, manualProblem: channel.manualProblem, problemReason, lastActor: actor, lastReason: reason, updatedAt: now });
-    await ctx.db.insert("accessChannelEvents", { channelId: channel._id, fromState: old.state, toState: state, health: channel.health, redirectEnabled: channel.redirectEnabled, problemReason, actor, reason, createdAt: now });
+    const eventId = await ctx.db.insert("accessChannelEvents", { channelId: channel._id, fromState: old.state, toState: state, health: channel.health, redirectEnabled: channel.redirectEnabled, problemReason, actor, reason, createdAt: now });
+    const event = await ctx.db.get(eventId);
+    if (event) await projectAccessEvent(ctx, event);
   }
   await syncAutomaticAction(ctx, {
     domain: "qr_nfc", sourceRecordId: channel._id, causeKind: "channel_problem", sourceVersion: problemReason ?? "healthy",
@@ -359,7 +362,9 @@ export async function createChannel(ctx: MutationCtx, subject: Doc<"accessSubjec
   });
   await ctx.db.patch(cardId, { accessChannelId: channelId });
   if (!subject.anchorCardId) await ctx.db.patch(subject._id, { anchorCardId: cardId });
-  await ctx.db.insert("accessChannelEvents", { channelId, toState: "problem", health: legacy ? "healthy" : "unverified", redirectEnabled: legacy?.status === "active", problemReason: legacy ? "destination_missing" : "health_unverified", actor: { kind: "admin", userId: actorUserId }, reason: "created", createdAt: now });
+  const eventId = await ctx.db.insert("accessChannelEvents", { channelId, toState: "problem", health: legacy ? "healthy" : "unverified", redirectEnabled: legacy?.status === "active", problemReason: legacy ? "destination_missing" : "health_unverified", actor: { kind: "admin", userId: actorUserId }, reason: "created", createdAt: now });
+  const event = await ctx.db.get(eventId);
+  if (event) await projectAccessEvent(ctx, event);
   return { channelId, cardId, resolverCode };
 }
 

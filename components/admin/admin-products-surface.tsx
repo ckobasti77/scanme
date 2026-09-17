@@ -133,6 +133,8 @@ type SurfaceProps = {
   destinationOptions?: DestinationOption[];
   detailMeta?: ProductDetailMeta;
   summary?: VenueProductRow;
+  initialVenueId?: string;
+  initialProductId?: string;
 };
 
 const productImage: Record<ProductType, string> = {
@@ -349,12 +351,18 @@ function ProductDetailSheet({ row, meta, onClose }: { row: ProductInventoryRow |
 function DetailRow({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) { return <section><h3 className="text-sm font-semibold">{label}</h3><p className={cn("mt-1 break-words text-sm text-[var(--admin-text-muted)]", mono && "font-mono text-xs")}>{value}</p></section>; }
 
 export function AdminProductsSurface(props: SurfaceProps) {
-  const [venue, setVenue] = useState<VenueProductRow | null>(null);
+  const [venueSelection, setVenue] = useState<VenueProductRow | null | undefined>(undefined);
   const [view, setView] = useState<"table" | "visual">("visual");
   const [filters, setFilters] = useState<InventoryFilters>({ search: "", productType: "all", design: "all", service: "all", status: "all" });
   const [selection, setSelection] = useState<Set<string>>(new Set());
   const [selectionLimit, setSelectionLimit] = useState(false);
-  const [detail, setDetail] = useState<ProductInventoryRow | null>(null);
+  const [detailSelection, setDetail] = useState<ProductInventoryRow | null | undefined>(undefined);
+  const venue = venueSelection === undefined
+    ? props.venues.find((row) => row.businessId === props.initialVenueId) ?? null
+    : venueSelection;
+  const detail = detailSelection === undefined
+    ? props.inventory.find((row) => row.id === props.initialProductId) ?? null
+    : detailSelection;
   const selectVenue = (next: VenueProductRow) => {
     setVenue(next);
     setSelection(new Set());

@@ -24,6 +24,7 @@ import {
   normalizeAdminSearchText,
 } from "./lib/adminV1Validators";
 import { writeAdminAudit } from "./lib/adminAudit";
+import { upsertContactReadModel } from "./lib/adminSearchProjection";
 
 const MAX_CONTACTS = 100;
 const MAX_ORGANIZATION_ROWS = 50;
@@ -540,6 +541,7 @@ export const createContact = mutation({
       createdAt: now,
       updatedAt: now,
     });
+    await upsertContactReadModel(ctx, contactId);
     await writeAdminAudit(ctx, {
       actorUserId: admin._id,
       accountId: args.accountId,
@@ -576,6 +578,7 @@ export const updateContact = mutation({
       positionTitle,
       updatedAt: now,
     });
+    await upsertContactReadModel(ctx, contact._id);
     await writeAdminAudit(ctx, {
       actorUserId: admin._id,
       accountId: account._id,
@@ -610,6 +613,7 @@ export const setContactStatus = mutation({
     if (contact.status === args.status) return { contactId: contact._id, status: args.status };
     const now = Date.now();
     await ctx.db.patch(contact._id, { status: args.status, updatedAt: now });
+    await upsertContactReadModel(ctx, contact._id);
     await writeAdminAudit(ctx, {
       actorUserId: admin._id,
       accountId: account._id,

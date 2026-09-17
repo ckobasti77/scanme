@@ -1,6 +1,6 @@
 "use client";
 
-import { usePaginatedQuery } from "convex/react";
+import { useMutation, usePaginatedQuery } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
 import {
   ExternalLink,
@@ -9,11 +9,14 @@ import {
   MoreHorizontal,
   Phone,
   Search,
+  ShieldAlert,
   Star,
   UserRound,
   UtensilsCrossed,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import {
   Component,
   useDeferredValue,
@@ -33,6 +36,7 @@ import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { fmt } from "@/lib/i18n";
 import { adminV1Sr as dict } from "@/lib/i18n/sr/admin-v1";
+import { adminSearchSr } from "@/lib/i18n/sr/admin-search";
 import { cn } from "@/lib/utils";
 import { AdminEmptyState, AdminErrorState, AdminLoadingState, AdminPanel, AdminTable } from "./admin-primitives";
 import { AdminTooltip } from "./admin-tooltip";
@@ -220,6 +224,9 @@ function Activity({ signal }: { signal: ClientRow["signal"] }) {
 }
 
 function Actions({ row }: { row: ClientRow }) {
+  const router = useRouter();
+  const startDebug = useMutation(api.adminSupport.start);
+  const [starting, setStarting] = useState(false);
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -233,6 +240,27 @@ function Actions({ row }: { row: ClientRow }) {
             <UserRound className="size-4" aria-hidden="true" />
             {dict.clientsOpenProfile}
           </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild className="min-h-11 rounded-lg p-0 focus:bg-[var(--admin-surface-muted)]">
+          <button
+            type="button"
+            disabled={starting}
+            onClick={async () => {
+              setStarting(true);
+              try {
+                const result = await startDebug({ accountId: row.accountId });
+                router.push(`/admin/debug/${result.contextId}`);
+              } catch {
+                toast.error(adminSearchSr.debugStartError);
+              } finally {
+                setStarting(false);
+              }
+            }}
+            className="flex w-full items-center gap-2 px-3 text-left disabled:opacity-60"
+          >
+            <ShieldAlert className="size-4" aria-hidden="true" />
+            {starting ? adminSearchSr.debugStarting : adminSearchSr.debugOpen}
+          </button>
         </DropdownMenuItem>
         {row.firstVenueSlug ? (
           <DropdownMenuItem asChild className="min-h-11 rounded-lg p-0 focus:bg-[var(--admin-surface-muted)]">

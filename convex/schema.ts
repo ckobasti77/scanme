@@ -543,6 +543,7 @@ export default defineSchema({
     smkCode: v.string(),
     smlCode: v.string(),
     smfCode: v.string(),
+    localSuffix: v.optional(v.string()),
     smqCodes: v.array(v.string()),
     ownerDisplayName: v.string(),
     venueName: v.string(),
@@ -556,6 +557,9 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_sourceRecordId", ["sourceRecordId"])
+    .index("by_smfCode", ["smfCode"])
+    .index("by_accountId_and_localSuffix", ["accountId", "localSuffix"])
+    .index("by_businessId_and_localSuffix", ["businessId", "localSuffix"])
     .index("by_urgencyRank_and_normalizedDisplayName", ["urgencyRank", "normalizedDisplayName"])
     .index("by_normalizedDisplayName", ["normalizedDisplayName"])
     .index("by_updatedAt", ["updatedAt"])
@@ -563,6 +567,31 @@ export default defineSchema({
     .index("by_operationalStatus_and_normalizedDisplayName", ["operationalStatus", "normalizedDisplayName"])
     .index("by_operationalStatus_and_updatedAt", ["operationalStatus", "updatedAt"])
     .searchIndex("search_searchText", { searchField: "searchText", filterFields: ["operationalStatus"] }),
+
+  // ADMIN-18. The canonical accountContact remains authoritative; this
+  // projection only carries the bounded identifying fields global search needs.
+  adminContactReadModels: defineTable({
+    contactId: v.id("accountContacts"),
+    accountId: v.id("accounts"),
+    accountName: v.string(),
+    smkCode: v.string(),
+    displayName: v.string(),
+    normalizedName: v.string(),
+    normalizedEmail: v.optional(v.string()),
+    normalizedPhone: v.optional(v.string()),
+    positionTitle: v.string(),
+    status: accountContactStatusValidator,
+    searchText: v.string(),
+    updatedAt: v.number(),
+  })
+    .index("by_contactId", ["contactId"])
+    .index("by_normalizedEmail", ["normalizedEmail"])
+    .index("by_normalizedPhone", ["normalizedPhone"])
+    .index("by_accountId_and_normalizedName", ["accountId", "normalizedName"])
+    .searchIndex("search_contacts", {
+      searchField: "searchText",
+      filterFields: ["accountId", "status"],
+    }),
 
   adminServiceStates: defineTable({
     accountId: v.id("accounts"),
@@ -2616,6 +2645,89 @@ export default defineSchema({
     .index("by_accountId_and_createdAt", ["accountId", "createdAt"])
     .index("by_businessId_and_createdAt", ["businessId", "createdAt"])
     .index("by_createdAt", ["createdAt"]),
+
+  // ADMIN-18. The source event tables remain historical truth. This one-row
+  // projection is the only production read path for the unified activity UI.
+  adminActivityRows: defineTable({
+    sourceKey: v.string(),
+    fingerprint: v.string(),
+    sourceDomain: v.string(),
+    sourceRecordId: v.string(),
+    accountId: v.optional(v.id("accounts")),
+    businessId: v.optional(v.id("businesses")),
+    objectKind: v.string(),
+    objectLabel: v.string(),
+    action: v.string(),
+    category: v.union(
+      v.literal("client"),
+      v.literal("communication"),
+      v.literal("task"),
+      v.literal("order"),
+      v.literal("finance"),
+      v.literal("subscription"),
+      v.literal("problem"),
+      v.literal("product"),
+      v.literal("service"),
+      v.literal("support"),
+    ),
+    actorKind: v.union(
+      v.literal("admin"),
+      v.literal("system"),
+      v.literal("shared_mailbox"),
+      v.literal("external"),
+      v.literal("unknown"),
+    ),
+    actorUserId: v.optional(v.id("users")),
+    actorKey: v.string(),
+    actorDisplayName: v.string(),
+    occurredAt: v.number(),
+    summaryLabel: v.string(),
+    reason: v.optional(v.string()),
+    href: v.string(),
+    updatedAt: v.number(),
+  })
+    .index("by_sourceKey", ["sourceKey"])
+    .index("by_occurredAt", ["occurredAt"])
+    .index("by_category_and_occurredAt", ["category", "occurredAt"])
+    .index("by_actorKey_and_occurredAt", ["actorKey", "occurredAt"])
+    .index("by_category_actor_occurredAt", ["category", "actorKey", "occurredAt"])
+    .index("by_account_occurredAt", ["accountId", "occurredAt"])
+    .index("by_account_category_occurredAt", ["accountId", "category", "occurredAt"])
+    .index("by_account_actor_occurredAt", ["accountId", "actorKey", "occurredAt"])
+    .index("by_account_category_actor_occurredAt", ["accountId", "category", "actorKey", "occurredAt"])
+    .index("by_business_occurredAt", ["businessId", "occurredAt"])
+    .index("by_business_category_occurredAt", ["businessId", "category", "occurredAt"])
+    .index("by_business_actor_occurredAt", ["businessId", "actorKey", "occurredAt"])
+    .index("by_business_category_actor_occurredAt", ["businessId", "category", "actorKey", "occurredAt"]),
+
+  adminActivityActors: defineTable({
+    actorKey: v.string(),
+    actorKind: v.union(
+      v.literal("admin"),
+      v.literal("system"),
+      v.literal("shared_mailbox"),
+      v.literal("external"),
+      v.literal("unknown"),
+    ),
+    actorUserId: v.optional(v.id("users")),
+    displayName: v.string(),
+    lastSeenAt: v.number(),
+  })
+    .index("by_actorKey", ["actorKey"])
+    .index("by_lastSeenAt", ["lastSeenAt"]),
+
+  // An opaque support session is scoped to the real authenticated admin. It
+  // never grants or mutates client membership, ownership, or role data.
+  adminDebugContexts: defineTable({
+    adminUserId: v.id("users"),
+    accountId: v.id("accounts"),
+    businessId: v.optional(v.id("businesses")),
+    state: v.union(v.literal("active"), v.literal("ended")),
+    createdAt: v.number(),
+    endedAt: v.optional(v.number()),
+  })
+    .index("by_adminUserId_and_state", ["adminUserId", "state"])
+    .index("by_accountId_and_createdAt", ["accountId", "createdAt"]),
 
   // C.14 — reservation-block submissions (child table, unbounded). The
   // reservation block's field config (name/phone/email/partySize/note) drives

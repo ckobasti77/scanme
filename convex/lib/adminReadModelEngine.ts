@@ -394,6 +394,7 @@ export async function upsertProductReadModel(
     smkCode: normalizeAdminHumanCode(account.smkCode, "SMK"),
     smlCode: normalizeAdminHumanCode(business.smlCode, "SML"),
     smfCode,
+    localSuffix: smfCode.split("-").at(-1),
     smqCodes,
     ownerDisplayName: account.ownerDisplayName,
     venueName: business.name,
