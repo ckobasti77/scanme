@@ -34,9 +34,9 @@ function listText<Row>(rows: readonly Row[] | undefined, line: (row: Row) => str
   return rows.slice(0, 5).map(line).join("\n");
 }
 
-export function AdminQrWorkspace() {
-  const [filters, setFilters] = useState<Filters>({ search: "", binding: "all", kind: "all", state: "all" });
-  const [selected, setSelected] = useState<TechnicalChannelRow | null>(null);
+export function AdminQrWorkspace({ initialChannelId, initialCode }: { initialChannelId?: string; initialCode?: string }) {
+  const [filters, setFilters] = useState<Filters>({ search: initialCode ?? "", binding: "all", kind: "all", state: "all" });
+  const [selectedOverride, setSelected] = useState<TechnicalChannelRow | null | undefined>(undefined);
   const search = useDeferredValue(filters.search);
   const channels = usePaginatedQuery(api.adminProductReads.listChannels, {
     ...(search.trim() ? { search } : {}),
@@ -45,22 +45,6 @@ export function AdminQrWorkspace() {
     ...(filters.state !== "all" ? { state: filters.state } : {}),
     direction: "desc",
   }, { initialNumItems: pageSize });
-  const detail = useQuery(api.adminProductReads.getChannelDetail, selected ? { channelId: selected.id as Id<"accessChannels"> } : "skip");
-  const destinations = usePaginatedQuery(api.adminProductReads.destinationHistory, detail ? {
-    accountId: detail.channel.accountId,
-    businessId: detail.channel.businessId,
-    subjectId: detail.subject._id,
-  } : "skip", { initialNumItems: 5 });
-  const history = usePaginatedQuery(api.adminProductReads.channelHistory, detail ? {
-    accountId: detail.channel.accountId,
-    businessId: detail.channel.businessId,
-    channelId: detail.channel._id,
-  } : "skip", { initialNumItems: 5 });
-  const scans = usePaginatedQuery(api.adminProductReads.dailyMetrics, detail ? {
-    accountId: detail.channel.accountId,
-    businessId: detail.channel.businessId,
-    channelId: detail.channel._id,
-  } : "skip", { initialNumItems: 5 });
   const rows: TechnicalChannelRow[] = channels.results.map((row) => ({
     id: row._id,
     accountId: row.accountId,
@@ -81,6 +65,25 @@ export function AdminQrWorkspace() {
     reason: row.problemReason ?? row.manualProblem ?? null,
     updatedAt: row.updatedAt,
   }));
+  const selected = selectedOverride === undefined
+    ? rows.find((row) => row.id === initialChannelId) ?? null
+    : selectedOverride;
+  const detail = useQuery(api.adminProductReads.getChannelDetail, selected ? { channelId: selected.id as Id<"accessChannels"> } : "skip");
+  const destinations = usePaginatedQuery(api.adminProductReads.destinationHistory, detail ? {
+    accountId: detail.channel.accountId,
+    businessId: detail.channel.businessId,
+    subjectId: detail.subject._id,
+  } : "skip", { initialNumItems: 5 });
+  const history = usePaginatedQuery(api.adminProductReads.channelHistory, detail ? {
+    accountId: detail.channel.accountId,
+    businessId: detail.channel.businessId,
+    channelId: detail.channel._id,
+  } : "skip", { initialNumItems: 5 });
+  const scans = usePaginatedQuery(api.adminProductReads.dailyMetrics, detail ? {
+    accountId: detail.channel.accountId,
+    businessId: detail.channel.businessId,
+    channelId: detail.channel._id,
+  } : "skip", { initialNumItems: 5 });
   const detailMeta: ChannelDetailMeta | undefined = detail === undefined ? undefined : {
     destinationHistory: listText(destinations.status === "LoadingFirstPage" ? undefined : destinations.results, (row) => new Intl.DateTimeFormat("sr-Latn-RS", { dateStyle: "short", timeStyle: "short" }).format(row.createdAt)),
     channelHistory: listText(history.status === "LoadingFirstPage" ? undefined : history.results, (row) => new Intl.DateTimeFormat("sr-Latn-RS", { dateStyle: "short", timeStyle: "short" }).format(row.createdAt)),
@@ -95,6 +98,7 @@ export function AdminQrWorkspace() {
     onChannelSelected={setSelected}
     onLoadMore={() => channels.loadMore(pageSize)}
     detailMeta={detailMeta}
+    initialChannelId={initialChannelId}
   />;
 }
 

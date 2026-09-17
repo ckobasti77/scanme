@@ -4,6 +4,7 @@ import { internalMutation, internalQuery } from "./_generated/server";
 import { requireAdmin } from "./lib/access";
 import { billingPeriod, money, subscriptionTarget } from "./lib/subscriptionValidators";
 import { BILLING_BATCH, fail, fingerprint, minor, periodEnd, reconcileSubscription, required, targetBusiness, targetKey, timestamp } from "./lib/subscriptions";
+import { appendSubscriptionActivityEvent } from "./lib/adminActivity";
 
 const migrationItem = v.object({
   target: subscriptionTarget, period: billingPeriod, start: v.number(),
@@ -76,7 +77,7 @@ export const adoptAccount = internalMutation({
         ...(item.coverage.kind === "paid" ? { migrationEvidence: item.coverage.evidence } : {}), createdAt: now });
       await reconcileSubscription(ctx, subscriptionId, now, actor);
     }
-    await ctx.db.insert("subscriptionEvents", { accountId: account._id, actor, action: "billing.migrated", reason: args.reason, key: "billing_migration_v1", fingerprint: hash, createdAt: now });
+    await appendSubscriptionActivityEvent(ctx, { accountId: account._id, actor, action: "billing.migrated", reason: args.reason, key: "billing_migration_v1", fingerprint: hash, createdAt: now });
     return { dryRun, subscriptions: args.subscriptions.length, alreadyDone: false };
   },
 });

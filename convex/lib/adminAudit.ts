@@ -7,6 +7,7 @@
 
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
+import { projectAdminAuditRow } from "./adminActivity";
 
 export async function writeAdminAudit(
   ctx: MutationCtx,
@@ -20,7 +21,7 @@ export async function writeAdminAudit(
     now: number;
   },
 ): Promise<Id<"adminAuditLog">> {
-  return ctx.db.insert("adminAuditLog", {
+  const auditId = await ctx.db.insert("adminAuditLog", {
     actorUserId: entry.actorUserId,
     ...(entry.accountId ? { accountId: entry.accountId } : {}),
     ...(entry.businessId ? { businessId: entry.businessId } : {}),
@@ -28,4 +29,7 @@ export async function writeAdminAudit(
     ...(entry.detail ? { detail: JSON.stringify(entry.detail) } : {}),
     createdAt: entry.now,
   });
+  const audit = await ctx.db.get(auditId);
+  if (audit) await projectAdminAuditRow(ctx, audit);
+  return auditId;
 }

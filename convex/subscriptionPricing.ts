@@ -4,6 +4,7 @@ import type { Id } from "./_generated/dataModel";
 import { requireAdmin } from "./lib/access";
 import { agreementKind, billingPeriod, discountValue, money, subscriptionTarget } from "./lib/subscriptionValidators";
 import { bounded, fail, fingerprint, minor, requireBillingAccount, required, sameRequest, syncFinanceExpectedSubscription, targetBusiness, targetKey, timestamp, type Actor, type Target } from "./lib/subscriptions";
+import { appendSubscriptionActivityEvent } from "./lib/adminActivity";
 
 async function syncTargetFinance(ctx: MutationCtx, accountId: Id<"accounts">, target: Target, now: number) {
   const subscription = await ctx.db.query("subscriptions")
@@ -40,7 +41,7 @@ export const agreePrice = internalMutation({
     const { reason, ...fields } = args;
     const now = Date.now(), actor = { kind: "admin" as const, userId: admin._id };
     const agreementId = await ctx.db.insert("priceAgreements", { ...fields, targetKey: targetKey(args.target), change: { actor, at: now, reason }, fingerprint: hash });
-    await ctx.db.insert("subscriptionEvents", { accountId: args.accountId, actor, action: "price.agreed", reason, agreementId, createdAt: now });
+    await appendSubscriptionActivityEvent(ctx, { accountId: args.accountId, actor, action: "price.agreed", reason, agreementId, createdAt: now });
     await syncTargetFinance(ctx, args.accountId, args.target, now);
     return agreementId;
   },
@@ -63,7 +64,7 @@ export async function insertDiscount(ctx: MutationCtx, args: {
   if (existing) { sameRequest(existing, hash); return existing._id; }
   const { reason, ...fields } = args;
   const discountId = await ctx.db.insert("discountRules", { ...fields, targetKey: targetKey(args.target), change: { actor, at: now, reason }, fingerprint: hash });
-  await ctx.db.insert("subscriptionEvents", { accountId: args.accountId, actor, action: "discount.agreed", reason, discountId, createdAt: now });
+  await appendSubscriptionActivityEvent(ctx, { accountId: args.accountId, actor, action: "discount.agreed", reason, discountId, createdAt: now });
   await syncTargetFinance(ctx, args.accountId, args.target, now);
   return discountId;
 }
@@ -87,7 +88,7 @@ export async function qualifyReferral(ctx: MutationCtx, accountId: Id<"accounts"
   const first = await ctx.db.query("paymentStates").withIndex("by_accountId_and_state_and_paidAt", (q) => q.eq("accountId", accountId).eq("state", "settled")).first();
   if (!first) return;
   await ctx.db.patch(referral._id, { status: "qualified", qualifyingPaymentId: first.paymentId, updatedAt: now });
-  await ctx.db.insert("subscriptionEvents", { accountId, actor, action: "referral.qualified", referralId: referral._id, paymentId: first.paymentId, createdAt: now });
+  await appendSubscriptionActivityEvent(ctx, { accountId, actor, action: "referral.qualified", referralId: referral._id, paymentId: first.paymentId, createdAt: now });
 }
 
 export const registerReferral = internalMutation({
@@ -107,7 +108,7 @@ export const registerReferral = internalMutation({
     if (existing) { if (existing.referrerAccountId !== args.referrerAccountId) fail("billing_referral_exists"); return existing._id; }
     const now = Date.now(), actor = { kind: "admin" as const, userId: admin._id };
     const id = await ctx.db.insert("referrals", { referrerAccountId: args.referrerAccountId, referredAccountId: args.referredAccountId, status: "pending", change: { actor, at: now, reason: args.reason }, key: args.key, fingerprint: hash, createdAt: now, updatedAt: now });
-    await ctx.db.insert("subscriptionEvents", { accountId: args.referredAccountId, actor, action: "referral.registered", reason: args.reason, referralId: id, key: args.key, fingerprint: hash, createdAt: now });
+    await appendSubscriptionActivityEvent(ctx, { accountId: args.referredAccountId, actor, action: "referral.registered", reason: args.reason, referralId: id, key: args.key, fingerprint: hash, createdAt: now });
     await qualifyReferral(ctx, args.referredAccountId, actor, now);
     return id;
   },
@@ -139,7 +140,7 @@ export const rewardReferral = internalMutation({
     }, actor, now));
     await ctx.db.patch(referral._id, { status: "rewarded", updatedAt: now });
     for (const target of args.targets) await syncTargetFinance(ctx, referral.referrerAccountId, target, now);
-    await ctx.db.insert("subscriptionEvents", { accountId: referral.referrerAccountId, actor, action: "referral.rewarded", referralId: referral._id, reason: args.reason, key: args.key, fingerprint: hash, createdAt: now });
+    await appendSubscriptionActivityEvent(ctx, { accountId: referral.referrerAccountId, actor, action: "referral.rewarded", referralId: referral._id, reason: args.reason, key: args.key, fingerprint: hash, createdAt: now });
     return ids;
   },
 });

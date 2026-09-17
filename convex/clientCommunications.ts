@@ -8,6 +8,7 @@ import {
 } from "./_generated/server";
 import { BusinessAccessDeniedError, requireBusinessAccess } from "./lib/access";
 import { normalizeAdminSearchText } from "./lib/adminV1Validators";
+import { projectConversationEvent } from "./lib/adminActivity";
 
 const MAX_MESSAGES = 100;
 const MAX_CONTENT = 4_000;
@@ -299,7 +300,7 @@ export const sendPanelMessage = mutation({
       clientOpenedConversationAt: now,
       updatedAt: now,
     });
-    await ctx.db.insert("conversationEvents", {
+    const receivedEventId = await ctx.db.insert("conversationEvents", {
       conversationId,
       accountId: context.account._id,
       messageId,
@@ -309,6 +310,8 @@ export const sendPanelMessage = mutation({
       actorContactId: context.contact._id,
       createdAt: now,
     });
+    const receivedEvent = await ctx.db.get(receivedEventId);
+    if (receivedEvent) await projectConversationEvent(ctx, receivedEvent);
     if (existing && existing.status !== nextStatus) {
       await ctx.db.insert("conversationEvents", {
         conversationId,

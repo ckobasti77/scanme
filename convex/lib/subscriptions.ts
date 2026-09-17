@@ -10,6 +10,7 @@ import { syncSubscriptionServiceState } from "./adminReadModelEngine";
 import { addFinanceMonths, financeMonthBounds, financeMonthKey } from "../../lib/admin-v1/finance";
 import { replaceFinanceExpectedSource, type FinanceExpectedSourceRow } from "./financeProjection";
 import type { billingActor, lifecycleFacts, subscriptionTarget } from "./subscriptionValidators";
+import { appendSubscriptionActivityEvent } from "./adminActivity";
 
 export type Target = Infer<typeof subscriptionTarget>;
 export type Actor = Infer<typeof billingActor>;
@@ -133,7 +134,7 @@ export async function reconcileSubscription(ctx: MutationCtx, subscriptionId: Id
     await ctx.db.patch(sub._id, { facts, nextTransitionAt: facts.nextTransitionAt ?? undefined, updatedAt: now });
   }
   if (changed) {
-    await ctx.db.insert("subscriptionEvents", { accountId: sub.accountId, subscriptionId, actor, action: "subscription.lifecycle", before: sub.facts, after: facts, createdAt: now });
+    await appendSubscriptionActivityEvent(ctx, { accountId: sub.accountId, subscriptionId, actor, action: "subscription.lifecycle", before: sub.facts, after: facts, createdAt: now });
   }
   // ADMIN-04 consumes the already-reconciled lifecycle facts. No dashboard
   // query re-derives billing state and repeat reconciliation stays idempotent.

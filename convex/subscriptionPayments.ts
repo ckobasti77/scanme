@@ -8,6 +8,7 @@ import { allocationInput, money, paymentMethod } from "./lib/subscriptionValidat
 import { authorizeTarget, BILLING_BATCH, bounded, fail, fingerprint, minor, reconcileSubscription, requireBillingAccount, required, sameRequest, timestamp } from "./lib/subscriptions";
 import { qualifyReferral } from "./subscriptionPricing";
 import { projectFinancePayment } from "./lib/financeProjection";
+import { appendSubscriptionActivityEvent } from "./lib/adminActivity";
 
 // This verifies intent/capability only. A client must never be able to claim
 // cash arrived. The provider-neutral admin receipt below is the settlement gate.
@@ -104,7 +105,7 @@ export const record = internalMutation({
     }
     for (const subscriptionId of new Set(periods.map((period) => period.subscriptionId))) await reconcileSubscription(ctx, subscriptionId, now, actor);
     await ctx.db.insert("paymentStates", { accountId: args.accountId, paymentId, paidAt: args.paidAt, state: "settled" });
-    await ctx.db.insert("subscriptionEvents", { accountId: args.accountId, actor, action: "payment.recorded", paymentId, createdAt: now });
+    await appendSubscriptionActivityEvent(ctx, { accountId: args.accountId, actor, action: "payment.recorded", paymentId, createdAt: now });
     await qualifyReferral(ctx, args.accountId, actor, now);
     await projectFinancePayment(ctx, paymentId);
     return paymentId;
@@ -141,9 +142,9 @@ export const reverse = internalMutation({
       // Past price snapshots stay intact; the qualifying evidence was reversed,
       // so no future reward is silently kept alive or issued a second time.
       await ctx.db.patch(referral._id, { status: "cancelled", updatedAt: now });
-      await ctx.db.insert("subscriptionEvents", { accountId: referral.referrerAccountId, actor, action: "referral.qualifying_payment_reversed", referralId: referral._id, paymentId: payment._id, reason, createdAt: now });
+      await appendSubscriptionActivityEvent(ctx, { accountId: referral.referrerAccountId, actor, action: "referral.qualifying_payment_reversed", referralId: referral._id, paymentId: payment._id, reason, createdAt: now });
     }
-    await ctx.db.insert("subscriptionEvents", { accountId: payment.accountId, actor, action: "payment.reversed", paymentId: payment._id, adjustmentId, reason, createdAt: now });
+    await appendSubscriptionActivityEvent(ctx, { accountId: payment.accountId, actor, action: "payment.reversed", paymentId: payment._id, adjustmentId, reason, createdAt: now });
     await projectFinancePayment(ctx, payment._id);
     return adjustmentId;
   },

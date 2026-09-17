@@ -12,6 +12,7 @@ import {
   fingerprint, periodEnd, premiumFact, reconcileSubscription, required,
   sameRequest, targetKey, timestamp, type Actor,
 } from "./lib/subscriptions";
+import { appendSubscriptionActivityEvent } from "./lib/adminActivity";
 
 // Internal until a real client screen calls these. Auth remains enforced here
 // so a later transport wrapper cannot accidentally widen account/venue access.
@@ -33,7 +34,7 @@ export const create = internalMutation({
       facts: { status: "inactive", warning: false, currentPeriodStart: null, paidThrough: null, graceEndsAt: null, nextTransitionAt: null },
       fingerprint: hash, createdAt: now, updatedAt: now,
     });
-    await ctx.db.insert("subscriptionEvents", { accountId: args.accountId, subscriptionId, actor, action: "subscription.created", createdAt: now });
+    await appendSubscriptionActivityEvent(ctx, { accountId: args.accountId, subscriptionId, actor, action: "subscription.created", createdAt: now });
     return subscriptionId;
   },
 });
@@ -51,7 +52,7 @@ export async function openPeriod(ctx: MutationCtx, sub: Doc<"subscriptions">, st
     end: periodEnd(start, sub.period, sub.anchorAt), price, paidMinor: 0,
     funded: price.effective.amountMinor === 0, createdAt: now,
   });
-  await ctx.db.insert("subscriptionEvents", { accountId: sub.accountId, subscriptionId: sub._id, actor, action: "subscription.period_opened", createdAt: now });
+  await appendSubscriptionActivityEvent(ctx, { accountId: sub.accountId, subscriptionId: sub._id, actor, action: "subscription.period_opened", createdAt: now });
   await reconcileSubscription(ctx, sub._id, now, actor);
   const end = periodEnd(start, sub.period, sub.anchorAt);
   if (price.effective.amountMinor === 0 && end <= now) await ctx.db.patch(sub._id, { nextTransitionAt: end });
@@ -128,7 +129,7 @@ export const control = internalMutation({
       }
     }
     const after = await reconcileSubscription(ctx, sub._id, now, actor);
-    await ctx.db.insert("subscriptionEvents", { accountId: sub.accountId, subscriptionId: sub._id, actor, action: `subscription.${args.operation}`, reason, before, after, key: args.key, fingerprint: hash, createdAt: now });
+    await appendSubscriptionActivityEvent(ctx, { accountId: sub.accountId, subscriptionId: sub._id, actor, action: `subscription.${args.operation}`, reason, before, after, key: args.key, fingerprint: hash, createdAt: now });
     return after;
   },
 });

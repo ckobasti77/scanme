@@ -58,6 +58,7 @@ import { fmt } from "@/lib/i18n/format";
 import { adminV1Sr } from "@/lib/i18n/sr/admin-v1";
 import { cn } from "@/lib/utils";
 import { AdminTooltip } from "./admin-tooltip";
+import { AdminSearchCommand, type AdminSearchCommandPreviewGroups } from "./admin-search-command";
 
 type NavIcon = ComponentType<{
   className?: string;
@@ -90,10 +91,12 @@ const utilityButtonClass =
 export function AdminShell({
   children,
   previewIdentity,
+  previewSearchGroups,
   activePathname,
 }: {
   children: ReactNode;
   previewIdentity?: string;
+  previewSearchGroups?: AdminSearchCommandPreviewGroups;
   activePathname?: string;
 }) {
   const currentPathname = usePathname();
@@ -130,10 +133,13 @@ export function AdminShell({
               aria-label={adminV1Sr.adminUtilitiesAria}
               className="ml-auto flex items-center gap-2 xl:ml-0"
             >
-              <AdminTooltip label={adminV1Sr.globalSearchUnavailable}>
+              <div className="hidden sm:block">
+                <AdminSearchCommand buttonClass={utilityButtonClass} previewGroups={previewSearchGroups} />
+              </div>
+              <AdminTooltip label={adminV1Sr.globalSearch}>
                 <Link
                   href="/admin/pretraga"
-                  className={utilityButtonClass}
+                  className={cn(utilityButtonClass, "sm:hidden")}
                   aria-label={adminV1Sr.globalSearch}
                 >
                   <Search className="size-[1.15rem]" aria-hidden="true" />

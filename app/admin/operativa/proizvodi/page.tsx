@@ -9,6 +9,7 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default function ProductsPage() {
-  return <AdminGuard><AdminShell><AdminProductsErrorBoundary><AdminProductsWorkspace /></AdminProductsErrorBoundary></AdminShell></AdminGuard>;
+export default async function ProductsPage({ searchParams }: { searchParams: Promise<{ venue?: string; product?: string; smf?: string }> }) {
+  const { venue, product, smf } = await searchParams;
+  return <AdminGuard><AdminShell><AdminProductsErrorBoundary><AdminProductsWorkspace initialVenueId={venue} initialProductId={product} initialSmfCode={smf} /></AdminProductsErrorBoundary></AdminShell></AdminGuard>;
 }

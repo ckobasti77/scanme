@@ -58,6 +58,7 @@ type Props = {
   onLoadMore?: () => void;
   onRetry?: () => void;
   detailMeta?: ChannelDetailMeta;
+  initialChannelId?: string;
 };
 
 function State({ row }: { row: TechnicalChannelRow }) {
@@ -82,7 +83,10 @@ function TechnicalField({ label, value }: { label: string; value: string }) { re
 
 export function AdminQrSurface(props: Props) {
   const [filters, setFilters] = useState<ChannelFilters>({ search: "", binding: "all", kind: "all", state: "all" });
-  const [detail, setDetail] = useState<TechnicalChannelRow | null>(null);
+  const [detailSelection, setDetail] = useState<TechnicalChannelRow | null | undefined>(undefined);
+  const detail = detailSelection === undefined
+    ? props.channels.find((row) => row.id === props.initialChannelId) ?? null
+    : detailSelection;
   const set = <K extends keyof ChannelFilters>(key: K, value: ChannelFilters[K]) => { const next = { ...filters, [key]: value }; setFilters(next); props.onFiltersChange?.(next); };
   const visible = useMemo(() => { if (props.onFiltersChange) return props.channels; const term = filters.search.trim().toLocaleLowerCase("sr-Latn-RS"); return props.channels.filter((row) => (!term || `${row.resolverCode} ${row.smqCode ?? ""} ${row.smfCode ?? ""} ${row.accountName} ${row.venueName} ${row.smkCode} ${row.smlCode}`.toLocaleLowerCase("sr-Latn-RS").includes(term)) && (filters.binding === "all" || row.binding === filters.binding) && (filters.kind === "all" || row.kind === filters.kind) && (filters.state === "all" || row.state === filters.state)); }, [filters, props.channels, props.onFiltersChange]);
   const openDetail = (row: TechnicalChannelRow) => { setDetail(row); props.onChannelSelected?.(row); };

@@ -49,12 +49,12 @@ function listText<Row>(rows: readonly Row[] | undefined, line: (row: Row) => str
   return rows.slice(0, 5).map(line).join("\n");
 }
 
-export function AdminProductsWorkspace() {
-  const [venueSearch, setVenueSearch] = useState("");
+export function AdminProductsWorkspace({ initialVenueId, initialProductId, initialSmfCode }: { initialVenueId?: string; initialProductId?: string; initialSmfCode?: string }) {
+  const [venueSearch, setVenueSearch] = useState(initialSmfCode ?? "");
   const [venueFilter, setVenueFilter] = useState<"all" | "problem" | "active">("all");
-  const [selectedVenue, setSelectedVenue] = useState<VenueProductRow | null>(null);
-  const [filters, setFilters] = useState<InventoryFilters>({ search: "", productType: "all", design: "all", service: "all", status: "all" });
-  const [selectedProduct, setSelectedProduct] = useState<ProductInventoryRow | null>(null);
+  const [selectedVenueOverride, setSelectedVenue] = useState<VenueProductRow | null | undefined>(undefined);
+  const [filters, setFilters] = useState<InventoryFilters>({ search: initialSmfCode ?? "", productType: "all", design: "all", service: "all", status: "all" });
+  const [selectedProductOverride, setSelectedProduct] = useState<ProductInventoryRow | null | undefined>(undefined);
   const deferredVenueSearch = useDeferredValue(venueSearch);
   const deferredInventorySearch = useDeferredValue(filters.search);
   const venues = usePaginatedQuery(api.adminProductReads.listVenues, {
@@ -62,6 +62,26 @@ export function AdminProductsWorkspace() {
     filter: venueFilter,
     sort: "urgency",
   }, { initialNumItems: pageSize });
+  const venueRows: VenueProductRow[] = venues.results.map((row) => ({
+    id: row.businessId,
+    accountId: row.accountId,
+    businessId: row.businessId,
+    accountName: row.ownerDisplayName,
+    smkCode: row.smkCode,
+    venueName: row.venueName,
+    smlCode: row.smlCode,
+    city: row.city,
+    productCount: row.productCount,
+    qrCount: row.qrCount,
+    nfcCount: row.nfcCount,
+    problemCount: row.problemCount,
+    services: row.serviceTypes.map(serviceLabel),
+    status: row.problemCount && row.problemCount > 0 ? "problem" : row.clientStatus === "active" ? "active" : "inactive",
+    statusReason: row.isProductProjectionComplete ? undefined : dict.unknownValue,
+  }));
+  const selectedVenue = selectedVenueOverride === undefined
+    ? venueRows.find((row) => row.businessId === initialVenueId) ?? null
+    : selectedVenueOverride;
   const inventory = usePaginatedQuery(api.adminProductReads.listInventory, selectedVenue ? {
     accountId: selectedVenue.accountId as Id<"accounts">,
     businessId: selectedVenue.businessId as Id<"businesses">,
@@ -73,6 +93,25 @@ export function AdminProductsWorkspace() {
     sort: "smf",
     direction: "asc",
   } : "skip", { initialNumItems: pageSize });
+  const inventoryRows: ProductInventoryRow[] = inventory.results.map((row) => ({
+    id: row.productId,
+    smfCode: row.smfCode,
+    localSuffix: row.localSuffix,
+    productType: row.productType,
+    designLabel: designLabel(row.designSnapshot),
+    position: row.position || null,
+    qr: row.qr,
+    nfc: row.nfc,
+    qrReason: row.qrProblemReason,
+    nfcReason: row.nfcProblemReason,
+    services: (row.destinationServiceTypes ?? row.boundServices ?? []).map(serviceLabel),
+    destination: destinationLabel(row.destinationKind, row.destinationServiceTypes),
+    status: row.state,
+    updatedAt: row.updatedAt,
+  }));
+  const selectedProduct = selectedProductOverride === undefined
+    ? inventoryRows.find((row) => row.id === initialProductId) ?? null
+    : selectedProductOverride;
   const summary = useQuery(api.adminProductReads.getVenueProductSummary, selectedVenue ? {
     accountId: selectedVenue.accountId as Id<"accounts">,
     businessId: selectedVenue.businessId as Id<"businesses">,
@@ -111,39 +150,6 @@ export function AdminProductsWorkspace() {
   const changePlacement = useMutation(api.adminProducts.bulkChangePlacement);
   const retarget = useMutation(api.adminProducts.bulkRetarget);
 
-  const venueRows: VenueProductRow[] = venues.results.map((row) => ({
-    id: row.businessId,
-    accountId: row.accountId,
-    businessId: row.businessId,
-    accountName: row.ownerDisplayName,
-    smkCode: row.smkCode,
-    venueName: row.venueName,
-    smlCode: row.smlCode,
-    city: row.city,
-    productCount: row.productCount,
-    qrCount: row.qrCount,
-    nfcCount: row.nfcCount,
-    problemCount: row.problemCount,
-    services: row.serviceTypes.map(serviceLabel),
-    status: row.problemCount && row.problemCount > 0 ? "problem" : row.clientStatus === "active" ? "active" : "inactive",
-    statusReason: row.isProductProjectionComplete ? undefined : dict.unknownValue,
-  }));
-  const inventoryRows: ProductInventoryRow[] = inventory.results.map((row) => ({
-    id: row.productId,
-    smfCode: row.smfCode,
-    localSuffix: row.localSuffix,
-    productType: row.productType,
-    designLabel: designLabel(row.designSnapshot),
-    position: row.position || null,
-    qr: row.qr,
-    nfc: row.nfc,
-    qrReason: row.qrProblemReason,
-    nfcReason: row.nfcProblemReason,
-    services: (row.destinationServiceTypes ?? row.boundServices ?? []).map(serviceLabel),
-    destination: destinationLabel(row.destinationKind, row.destinationServiceTypes),
-    status: row.state,
-    updatedAt: row.updatedAt,
-  }));
   const detailMeta: ProductDetailMeta | undefined = detail === undefined ? undefined : {
     destinationHistory: listText(destinations.status === "LoadingFirstPage" ? undefined : destinations.results, (row) => new Intl.DateTimeFormat("sr-Latn-RS", { dateStyle: "short", timeStyle: "short" }).format(row.createdAt)),
     placementHistory: listText(placements.status === "LoadingFirstPage" ? undefined : placements.results, (row) => `${row.name} · ${new Intl.DateTimeFormat("sr-Latn-RS", { dateStyle: "short" }).format(row.startedAt)}`),
@@ -191,6 +197,8 @@ export function AdminProductsWorkspace() {
     destinationOptions={(destinationProfiles?.profiles ?? []).map((profile) => ({ id: profile.profileId, label: serviceLabel(profile.type) }))}
     detailMeta={detailMeta}
     summary={selectedVenueWithSummary ?? undefined}
+    initialVenueId={initialVenueId}
+    initialProductId={initialProductId}
   />;
 }
 

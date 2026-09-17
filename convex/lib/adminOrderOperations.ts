@@ -8,6 +8,7 @@ import { normalizeAdminSearchText } from "./adminV1Validators";
 import { isAdminEmail } from "./access";
 import { syncAutomaticAction } from "./adminActionEngine";
 import { syncFinanceExpectedOrder } from "./financeProjection";
+import { projectOrderEvent } from "./adminActivity";
 import {
   canRequestProvisioning,
   deriveFulfillment,
@@ -191,7 +192,7 @@ async function appendEvent(
     )
     .unique();
   if (existing) return existing._id;
-  return ctx.db.insert("orderEvents", {
+  const eventId = await ctx.db.insert("orderEvents", {
     operationId: input.operation._id,
     orderId: input.operation.orderId,
     kind: input.kind,
@@ -204,6 +205,9 @@ async function appendEvent(
     ...(input.relatedRecordId ? { relatedRecordId: input.relatedRecordId } : {}),
     createdAt: input.now,
   });
+  const event = await ctx.db.get(eventId);
+  if (event) await projectOrderEvent(ctx, event);
+  return eventId;
 }
 
 export { appendEvent as appendOrderEvent };

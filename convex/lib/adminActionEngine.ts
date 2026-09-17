@@ -1,6 +1,7 @@
 import { ConvexError } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
+import { projectActionItemEvent } from "./adminActivity";
 import {
   ACTION_PRIORITY_RANK,
   actionPriorityAt,
@@ -165,7 +166,10 @@ export async function appendActionEvent(
     createdAt: number;
   },
 ) {
-  return ctx.db.insert("actionItemEvents", input);
+  const eventId = await ctx.db.insert("actionItemEvents", input);
+  const event = await ctx.db.get(eventId);
+  if (event) await projectActionItemEvent(ctx, event);
+  return eventId;
 }
 
 export async function syncAutomaticAction(

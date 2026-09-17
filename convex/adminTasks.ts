@@ -29,6 +29,7 @@ import {
 } from "./lib/adminTaskValidators";
 import { adminEmails, isAdminEmail, requireAdmin } from "./lib/access";
 import { writeAdminAudit } from "./lib/adminAudit";
+import { projectTaskEvent } from "./lib/adminActivity";
 import {
   appendActionEvent,
   refreshActionSignals,
@@ -253,7 +254,10 @@ async function appendTaskEvent(
   ctx: MutationCtx,
   input: Omit<Doc<"clientTaskEvents">, "_id" | "_creationTime">,
 ) {
-  return ctx.db.insert("clientTaskEvents", input);
+  const eventId = await ctx.db.insert("clientTaskEvents", input);
+  const event = await ctx.db.get(eventId);
+  if (event) await projectTaskEvent(ctx, event);
+  return eventId;
 }
 
 async function resolveSubject(
