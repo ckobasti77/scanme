@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { BrandLogo } from "@/components/brand-logo";
 
-export function AdminLogin() {
+export function AdminLogin({ returnTo = "/admin" }: { returnTo?: string }) {
   const [mode, setMode] = useState<"signIn" | "setup">("signIn");
   const [showPassword, setShowPassword] = useState(false);
   const [pending, setPending] = useState(false);
@@ -28,7 +28,7 @@ export function AdminLogin() {
     formData.set("flow", mode === "setup" ? "signUp" : "signIn");
     try {
       await signIn("password", formData);
-      router.replace("/admin/scanme-links");
+      router.replace(returnTo);
     } catch {
       setError(mode === "setup" ? "Admin nalog nije aktiviran. Proverite email, setup secret i pravila za šifru." : "Email ili šifra nisu ispravni.");
     } finally {
@@ -56,7 +56,7 @@ export function AdminLogin() {
             <div className="mt-8 border border-border bg-secondary p-4">
               <p className="text-sm text-muted-foreground">Jedan nalog je već prijavljen u ovom browseru.</p>
               <div className="mt-4 flex flex-wrap gap-3">
-                <Button onClick={() => router.replace("/admin/scanme-links")}>Nastavi</Button>
+                <Button onClick={() => router.replace(returnTo)}>Nastavi</Button>
                 <Button variant="outline" onClick={() => void signOut()}><LogOut className="size-4" /> Odjavi nalog</Button>
               </div>
             </div>

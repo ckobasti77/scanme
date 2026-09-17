@@ -25,7 +25,6 @@ import { resolverSr } from "./sr/resolver";
 import { consentSr } from "./sr/consent";
 import { privacySr } from "./sr/privacy";
 import { offerSr } from "./sr/offer";
-import { adminCustomersSr } from "./sr/admin-customers";
 import { adminLocationSr } from "./sr/admin-location";
 import { adminDomainSr } from "./sr/admin-domain";
 import { adminV1Sr } from "./sr/admin-v1";
@@ -56,7 +55,6 @@ export type {
   ConsentDict,
   PrivacyDict,
   OfferDict,
-  AdminCustomersDict,
   AdminLocationDict,
   AdminDomainDict,
   AdminV1Dict,
@@ -83,7 +81,6 @@ export {
   consentSr,
   privacySr,
   offerSr,
-  adminCustomersSr,
   adminLocationSr,
   adminDomainSr,
   adminV1Sr,
@@ -122,7 +119,6 @@ const SR: DictBySurface = {
   consent: consentSr,
   privacy: privacySr,
   offer: offerSr,
-  "admin-customers": adminCustomersSr,
   "admin-location": adminLocationSr,
 };
 

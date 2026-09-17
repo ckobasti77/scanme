@@ -4,10 +4,10 @@ import {
   withSearchParams,
 } from "@/lib/admin-v1/cutover";
 
-export default async function ScanMePageAdmin({
+export default async function CardsAdminPage({
   searchParams,
 }: {
   searchParams: Promise<AdminSearchParams>;
 }) {
-  redirect(withSearchParams("/admin/usluge/meni", await searchParams));
+  redirect(withSearchParams("/admin/operativa/qr", await searchParams));
 }

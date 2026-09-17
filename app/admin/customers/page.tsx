@@ -1,11 +1,13 @@
-import type { Metadata } from "next";
-import { CustomersAdmin } from "@/components/admin/customers-admin";
+import { redirect } from "next/navigation";
+import {
+  type AdminSearchParams,
+  withSearchParams,
+} from "@/lib/admin-v1/cutover";
 
-export const metadata: Metadata = {
-  title: "Korisnici | ScanMe Admin",
-  robots: { index: false, follow: false },
-};
-
-export default function CustomersAdminPage() {
-  return <CustomersAdmin />;
+export default async function CustomersAdminPage({
+  searchParams,
+}: {
+  searchParams: Promise<AdminSearchParams>;
+}) {
+  redirect(withSearchParams("/admin/klijenti", await searchParams));
 }

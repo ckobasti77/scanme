@@ -46,10 +46,8 @@ describe("ADMIN-05 navigation contract", () => {
     expect(getActiveAdminNavId("/admin")).toBe("dashboard");
     expect(getActiveAdminNavId("/admin/klijenti/SMK-1")).toBe("clients");
     expect(getActiveAdminNavId("/admin/customers/legacy-id")).toBe("clients");
-    expect(getActiveAdminNavId("/admin/cards")).toBe("operations");
-    expect(getActiveAdminNavId("/admin/scanme-links/example/editor")).toBe(
-      "services",
-    );
+    expect(getActiveAdminNavId("/admin/cards")).toBeNull();
+    expect(getActiveAdminNavId("/admin/scanme-links/example/editor")).toBeNull();
     expect(getActiveAdminNavId("/admin/venue")).toBeNull();
     expect(getActiveAdminNavId("/admin/memories")).toBeNull();
   });
@@ -58,7 +56,7 @@ describe("ADMIN-05 navigation contract", () => {
     const services = ADMIN_NAV_ITEMS.find((item) => item.id === "services");
     const links = services?.children?.find((item) => item.id === "links");
     expect(links && isAdminNavChildActive("/admin/scanme-links", links)).toBe(
-      true,
+      false,
     );
   });
 });
