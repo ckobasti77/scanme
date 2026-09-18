@@ -19,6 +19,7 @@ import type * as adminClientProfiles from "../adminClientProfiles.js";
 import type * as adminCommunications from "../adminCommunications.js";
 import type * as adminDashboard from "../adminDashboard.js";
 import type * as adminDashboardBackfill from "../adminDashboardBackfill.js";
+import type * as adminDevSeed from "../adminDevSeed.js";
 import type * as adminFinance from "../adminFinance.js";
 import type * as adminGlobalSearch from "../adminGlobalSearch.js";
 import type * as adminOrderMigrations from "../adminOrderMigrations.js";
@@ -149,6 +150,7 @@ declare const fullApi: ApiFromModules<{
   adminCommunications: typeof adminCommunications;
   adminDashboard: typeof adminDashboard;
   adminDashboardBackfill: typeof adminDashboardBackfill;
+  adminDevSeed: typeof adminDevSeed;
   adminFinance: typeof adminFinance;
   adminGlobalSearch: typeof adminGlobalSearch;
   adminOrderMigrations: typeof adminOrderMigrations;
