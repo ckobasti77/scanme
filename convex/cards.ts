@@ -212,7 +212,7 @@ async function validateBaseTargetSpec(
 // validateBaseTargetSpec; a splitter validates each button the same way (the
 // validator's item union has no "splitter", so nesting is impossible by
 // construction) plus its label.
-async function validateTargetSpec(
+export async function validateTargetSpec(
   ctx: MutationCtx | QueryCtx,
   businessId: Id<"businesses">,
   spec: CardTargetSpec,
@@ -753,9 +753,6 @@ export const getSplitterView = query({
     const buttons: SplitterButton[] = [];
     for (const item of target.splitterItems) {
       switch (item.kind) {
-        case "menu":
-          buttons.push({ label: item.label, href: `/${business.slug}/meni`, external: false });
-          break;
         case "memories_space": {
           if (!item.spaceId) continue;
           const space = await ctx.db.get(item.spaceId);

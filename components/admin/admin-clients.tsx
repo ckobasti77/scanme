@@ -280,9 +280,13 @@ function Actions({ row }: { row: ClientRow }) {
   );
 }
 
-function rowDoubleClick(event: MouseEvent<HTMLElement>, row: ClientRow) {
+function rowDoubleClick(
+  event: MouseEvent<HTMLElement>,
+  row: ClientRow,
+  navigate: (href: string) => void,
+) {
   if ((event.target as HTMLElement).closest("a,button,input,select,[role='menuitem']")) return;
-  window.location.assign(`/admin/klijenti/${row.accountId}`);
+  navigate(`/admin/klijenti/${row.accountId}`);
 }
 
 function StateBadge({ state }: { state: ServiceState | null }) {
@@ -335,9 +339,10 @@ function LiveServiceDetails({ accountId }: { accountId: Id<"accounts"> }) {
 
 function DesktopRow({ row, details }: { row: ClientRow; details?: VenueServiceRow[] }) {
   const [expanded, setExpanded] = useState(false);
+  const router = useRouter();
   return (
     <>
-      <tr onDoubleClick={(event) => rowDoubleClick(event, row)} className="border-b border-[var(--admin-border)] align-middle last:border-b-0 hover:bg-[var(--admin-surface-muted)]/45">
+      <tr onDoubleClick={(event) => rowDoubleClick(event, row, router.push)} className="border-b border-[var(--admin-border)] align-middle last:border-b-0 hover:bg-[var(--admin-surface-muted)]/45">
         <td className="w-10 px-3 py-3 text-center"><Signal signal={row.signal} /></td>
         <td className="min-w-40 px-3 py-3"><Identity row={row} /></td>
         <td className="min-w-44 max-w-56 px-3 py-3"><Contact row={row} /></td>
@@ -359,8 +364,9 @@ function DesktopRow({ row, details }: { row: ClientRow; details?: VenueServiceRo
 
 function MobileCard({ row, details }: { row: ClientRow; details?: VenueServiceRow[] }) {
   const [expanded, setExpanded] = useState(false);
+  const router = useRouter();
   return (
-    <article onDoubleClick={(event) => rowDoubleClick(event, row)} className="min-w-0 overflow-hidden rounded-[var(--admin-radius-panel)] border border-[var(--admin-border)] bg-[var(--admin-surface)] shadow-[var(--admin-shadow-xs)]">
+    <article onDoubleClick={(event) => rowDoubleClick(event, row, router.push)} className="min-w-0 overflow-hidden rounded-[var(--admin-radius-panel)] border border-[var(--admin-border)] bg-[var(--admin-surface)] shadow-[var(--admin-shadow-xs)]">
       <div className="grid min-w-0 gap-4 p-4">
         <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-3">
           <span className="pt-2"><Signal signal={row.signal} /></span>

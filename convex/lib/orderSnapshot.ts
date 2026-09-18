@@ -164,6 +164,13 @@ export type ServiceType =
   | "scanme_venue"
   | "scanme_memories";
 
+export function isOrderServiceType(value: string): value is ServiceType {
+  return value === "scanme_links"
+    || value === "google_review"
+    || value === "scanme_venue"
+    || value === "scanme_memories";
+}
+
 // serviceType (schema) → pricing ServiceId (engine). `menu` has no serviceType
 // yet (the product does not exist, §2.0 constraint 7), so it is absent here and
 // cannot be an order line — it is priceable in the engine but not sellable until

@@ -119,18 +119,18 @@ export async function prepareDestination(ctx: Ctx, businessId: Id<"businesses">,
   for (const id of input.serviceProfileIds) {
     const profile = await ctx.db.get(id);
     if (!profile || profile.businessId !== businessId) throw new ConvexError("access_destination_ownership");
-    if (!["scanme_links", "google_review", "scanme_menu"].includes(profile.type) || profiles.some(p => p.type === profile.type)) throw new ConvexError("access_services_invalid");
+    if (!["scanme_links", "google_review"].includes(profile.type) || profiles.some(p => p.type === profile.type)) throw new ConvexError("access_services_invalid");
     profiles.push(profile);
   }
   const links = profiles.find(p => p.type === "scanme_links");
   const selected = links ?? profiles[0];
-  if (profiles.length === 1 || links) {
-    return { fields: await validateTargetSpec(ctx, businessId, selected.type === "scanme_menu" ? { kind: "menu" } : { kind: "service_page", serviceProfileId: selected._id }), kind: profiles.length === 1 ? "service" as const : "links_splitter" as const };
-  }
-  const fields = await validateTargetSpec(ctx, businessId, { kind: "splitter", splitterItems: profiles.map(p => p.type === "scanme_menu"
-    ? { kind: "menu", label: adminDomainSr.services.scanme_menu }
-    : { kind: "service_page", serviceProfileId: p._id, label: adminDomainSr.services.scanme_review }) });
-  return { fields, kind: "generic_splitter" as const };
+  return {
+    fields: await validateTargetSpec(ctx, businessId, {
+      kind: "service_page",
+      serviceProfileId: selected._id,
+    }),
+    kind: profiles.length === 1 ? "service" as const : "links_splitter" as const,
+  };
 }
 
 export async function channelsFor(ctx: Ctx, subjectId: Id<"accessSubjects">) {

@@ -105,6 +105,7 @@ const leadStatus = v.union(
 export const serviceTypeValidator = v.union(
   v.literal("scanme_links"),
   v.literal("google_review"),
+  v.literal("scanme_menu"),
   v.literal("scanme_venue"),
   v.literal("scanme_memories"),
 );
@@ -167,7 +168,6 @@ export const cardTargetKind = v.union(
 // RFC-002 §5 Q8's open question — this is the deliberately minimal answer.
 export const cardSplitterItem = v.object({
   kind: v.union(
-    v.literal("menu"), // ADMIN-12: Review + Menu uses the existing generic splitter.
     v.literal("memories_space"),
     v.literal("venue"),
     v.literal("event"),

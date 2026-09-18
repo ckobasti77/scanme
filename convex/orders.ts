@@ -9,6 +9,7 @@ import { manualBillingPort } from "./lib/billingPort";
 import { requireText } from "./lib/validation";
 import {
   buildPriceSnapshot,
+  isOrderServiceType,
   PRICING_SERVICE_BY_SERVICE_TYPE,
   type ServiceType,
 } from "./lib/orderSnapshot";
@@ -371,7 +372,7 @@ async function provisionPaidOrder(
 ): Promise<number> {
   let provisioned = 0;
   for (const item of items) {
-    if (item.kind !== "service" || !item.service) continue;
+    if (item.kind !== "service" || !item.service || !isOrderServiceType(item.service)) continue;
     await ensureActiveServiceProfile(ctx, item.businessId, item.service, now);
     provisioned += 1;
   }

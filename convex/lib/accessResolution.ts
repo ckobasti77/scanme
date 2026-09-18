@@ -45,10 +45,6 @@ export async function destinationProblem(ctx: Ctx, subject: Doc<"accessSubjects"
       const event = item.eventId ? await ctx.db.get(item.eventId) : null;
       if (!event || event.businessId !== business._id) return "destination_event_ownership";
     }
-    if (item.kind === "table_ordering") {
-      const config = await ctx.db.query("orderingConfig").withIndex("by_businessId", q => q.eq("businessId", business._id)).unique();
-      if (!config?.enabled) return "destination_ordering_unavailable";
-    }
   }
   return undefined;
 }

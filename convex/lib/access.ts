@@ -188,6 +188,7 @@ export async function requireGoogleReviewPanelBySlug(
 const SERVICE_PRODUCT_NAMES: Record<Doc<"serviceProfiles">["type"], string> = {
   scanme_links: "ScanMe Links",
   google_review: "Google Review",
+  scanme_menu: "ScanMe Menu",
   scanme_venue: "ScanMe Venue",
   scanme_memories: "ScanMe Memories",
 };

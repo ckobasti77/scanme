@@ -591,15 +591,9 @@ export async function syncServiceOperationReadModel(
       .first();
     configurationState = destination?.active ? "configured" : "unconfigured";
   } else {
-    const menu = await ctx.db
-      .query("menus")
-      .withIndex("by_businessId", (q) => q.eq("businessId", input.businessId))
-      .unique();
-    configurationState = menu?.status === "published"
-      ? "published"
-      : menu
-        ? "draft"
-        : "unconfigured";
+    // ScanMe Menu is not a live product yet. Keep the ADMIN service row honest
+    // without reaching for a table that does not exist in the production schema.
+    configurationState = "unconfigured";
   }
 
   const signal = actionSignal(action);

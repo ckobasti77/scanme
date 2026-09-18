@@ -13,6 +13,7 @@ import { assertLegacyBilling } from "./lib/subscriptions";
 import { generateCode } from "./lib/codes";
 import {
   buildPriceSnapshot,
+  isOrderServiceType,
   PRICING_SERVICE_BY_SERVICE_TYPE,
   priceSnapshotValidator,
   type ServiceType,
@@ -138,9 +139,11 @@ function assertSplitterBindingLegal(boundServices: readonly ServiceType[]) {
 // owner to wire once the space exists (§2.4, §5 Q8; the direct memories_space
 // card and the host-built bare splitter remain the supported Memories paths).
 function splitterBuildableServices(
-  boundServices: readonly ServiceType[],
+  boundServices: readonly Doc<"serviceProfiles">["type"][],
 ): ServiceType[] {
-  return boundServices.filter((service) => service !== "scanme_memories");
+  return boundServices.filter(
+    (service): service is ServiceType => isOrderServiceType(service) && service !== "scanme_memories",
+  );
 }
 
 // Mint the splitter card for one physical line, idempotently. A line that
@@ -232,7 +235,7 @@ async function provisionOrderBatch(
   let provisioned = 0;
   for (let i = startIndex; i < end; i += 1) {
     const item = items[i];
-    if (item.kind === "service" && item.service) {
+    if (item.kind === "service" && item.service && isOrderServiceType(item.service)) {
       await ensureActiveServiceProfile(ctx, item.businessId, item.service, now);
       provisioned += 1;
     } else if (item.kind === "physical") {
