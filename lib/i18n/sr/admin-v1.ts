@@ -139,6 +139,13 @@ export const adminV1Sr = {
   signInRequiredTitle: "Prijava je potrebna",
   signInRequiredBody: "Ovaj deo sajta je dostupan samo ScanMe administratorima.",
   openSignIn: "Otvori prijavu",
+  adminResetTitle: "Promena admin šifre",
+  adminResetBody: "Postavi novu šifru za postojeći administratorski nalog pomoću setup secret-a.",
+  adminResetAction: "Promeni šifru i prijavi se",
+  adminResetOpen: "Ne mogu da se prijavim",
+  adminResetError: "Admin šifra nije promenjena. Proverite email, setup secret i pravila za novu šifru.",
+  adminSetupOpen: "Prvo podešavanje administratora",
+  adminExistingAccount: "Već imam admin nalog",
   accessDeniedTitle: "Nema administratorskog pristupa",
   accessDeniedBody:
     "Prijavljeni nalog može koristiti samo klijentske panele lokala koji su mu dodeljeni.",

@@ -2389,6 +2389,13 @@ export interface AdminV1Dict {
   signInRequiredTitle: string;
   signInRequiredBody: string;
   openSignIn: string;
+  adminResetTitle: string;
+  adminResetBody: string;
+  adminResetAction: string;
+  adminResetOpen: string;
+  adminResetError: string;
+  adminSetupOpen: string;
+  adminExistingAccount: string;
   accessDeniedTitle: string;
   accessDeniedBody: string;
   signOutAccount: string;
