@@ -98,7 +98,25 @@ function HeroAnimationPlayer({
   );
 }
 
-export function HeroIntro() {
+export function HeroIntro({
+  primaryLabel = "Zatraži ponudu",
+  secondaryLabel = "Pogledaj kako radi",
+  primaryHref = "/#ponuda",
+  compact = false,
+  singleCta = false,
+  showMenuSoon = false,
+  menuLabel = "ScanMe Meni",
+  soonLabel = "Uskoro",
+}: {
+  primaryLabel?: string;
+  secondaryLabel?: string;
+  primaryHref?: string;
+  compact?: boolean;
+  singleCta?: boolean;
+  showMenuSoon?: boolean;
+  menuLabel?: string;
+  soonLabel?: string;
+} = {}) {
   const reduce = useReducedMotion();
   const [activeService, setActiveService] = useState<HeroService>("links");
   const [selectorHovered, setSelectorHovered] = useState(false);
@@ -174,14 +192,22 @@ export function HeroIntro() {
   );
 
   return (
-    <div className="relative z-10 flex min-h-[100dvh] items-center py-24 sm:py-28 lg:py-24">
+    <div
+      className={`relative z-10 flex items-center ${
+        compact
+          ? "min-h-0 py-6 sm:py-8 lg:py-8"
+          : "min-h-[100dvh] py-24 sm:py-28 lg:py-24"
+      }`}
+    >
       <div className="section-shell">
         <div className="grid items-center gap-x-12 gap-y-9 lg:grid-cols-2 lg:grid-rows-[auto_1fr] lg:gap-x-12 lg:gap-y-5 xl:gap-x-16">
           <motion.div
             {...enter(0.12)}
             aria-label="Izaberite ScanMe uslugu"
             role="group"
-            className="order-1 flex w-full items-center gap-7 lg:col-start-2 lg:row-start-1 lg:justify-self-end"
+            className={`order-1 flex w-full flex-wrap items-center gap-x-3 gap-y-1 sm:gap-x-7 lg:col-start-2 lg:row-start-1 lg:justify-self-end ${
+              compact ? "lg:max-w-[min(38rem,calc(100dvh-26rem))]" : ""
+            }`}
             onBlurCapture={(event) => {
               if (!event.currentTarget.contains(event.relatedTarget)) {
                 setSelectorFocused(false);
@@ -228,6 +254,17 @@ export function HeroIntro() {
                 </button>
               );
             })}
+            {showMenuSoon ? (
+              <span
+                aria-disabled="true"
+                className="inline-flex min-h-11 cursor-not-allowed items-center gap-2 py-2 font-mono text-xs font-medium uppercase tracking-[0.14em] text-foreground/38 sm:text-sm"
+              >
+                <span>{menuLabel}</span>
+                <span className="rounded-full border border-foreground/14 bg-foreground/[0.045] px-2 py-1 text-[0.58rem] leading-none tracking-[0.1em] text-foreground/48">
+                  {soonLabel}
+                </span>
+              </span>
+            ) : null}
           </motion.div>
 
           <div className="order-2 max-w-4xl lg:col-start-1 lg:row-span-2 lg:row-start-1 lg:justify-self-start">
@@ -274,20 +311,30 @@ export function HeroIntro() {
             </div>
 
             <motion.div {...enter(0.27)} className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Link href="/#ponuda" className="button-primary focus-signal">
-                Zatraži ponudu
-                <ArrowUpRight aria-hidden="true" className="size-4" strokeWidth={1.75} />
+              <Link href={primaryHref} className="button-primary focus-signal">
+                {primaryLabel}
+                {singleCta ? (
+                  <ArrowDownRight aria-hidden="true" className="size-4" strokeWidth={1.75} />
+                ) : (
+                  <ArrowUpRight aria-hidden="true" className="size-4" strokeWidth={1.75} />
+                )}
               </Link>
-              <a href="#kako-radi" className="button-secondary focus-signal">
-                Pogledaj kako radi
-                <ArrowDownRight aria-hidden="true" className="size-4" strokeWidth={1.75} />
-              </a>
+              {!singleCta ? (
+                <a href="#kako-radi" className="button-secondary focus-signal">
+                  {secondaryLabel}
+                  <ArrowDownRight aria-hidden="true" className="size-4" strokeWidth={1.75} />
+                </a>
+              ) : null}
             </motion.div>
           </div>
 
           <motion.div
             {...enter(0.18)}
-            className="relative order-3 mx-auto aspect-square w-full max-w-[20rem] sm:max-w-[24rem] lg:col-start-2 lg:row-start-2 lg:mx-0 lg:max-w-[38rem] lg:justify-self-end"
+            className={`relative isolate order-3 mx-auto aspect-square w-full max-w-[20rem] overflow-hidden bg-card sm:max-w-[24rem] lg:col-start-2 lg:row-start-2 lg:mx-0 lg:justify-self-end ${
+              compact
+                ? "lg:max-w-[min(38rem,calc(100dvh-26rem))]"
+                : "lg:max-w-[38rem]"
+            }`}
           >
             <AnimatePresence initial={false}>
               <HeroAnimationPlayer
