@@ -1,10 +1,11 @@
 # Sajam automobila 2026 — paket za prikupljanje podataka
 
-**Status:** spremno za operativnu upotrebu  
-**Poslednje ažuriranje:** 1. oktobar 2026.  
-**Vlasnik odluka:** Aleksa  
-**Produktni kontekst:** [MASTER-KONTEKST.md](./MASTER-KONTEKST.md)  
-**Tehnički ugovor:** [BACKEND-HANDOFF.md](./BACKEND-HANDOFF.md)  
+> **Status:** spremno za operativnu upotrebu
+>
+> **Poslednje ažuriranje:** 1. oktobar 2026.
+> **Vlasnik odluka:** Aleksa
+> **Produktni kontekst:** [MASTER-KONTEKST.md](./MASTER-KONTEKST.md)
+> **Tehnički ugovor:** [BACKEND-HANDOFF.md](./BACKEND-HANDOFF.md)
 
 `MASTER-KONTEKST.md` definiše proizvod i poslovna pravila. `BACKEND-HANDOFF.md` definiše tehničku implementaciju. Ovaj dokument definiše kako ScanMe prikuplja, proverava i predaje stvarne podatke za unos. Kontradikcije se ne rešavaju pretpostavkom, već se vraćaju u komandni centar.
 
