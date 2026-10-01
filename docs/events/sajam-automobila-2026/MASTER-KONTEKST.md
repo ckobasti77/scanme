@@ -494,6 +494,11 @@ Dok taj artefakt nije zaključan, agenti mogu da rade model podataka, API ugovor
 - Ovaj razgovor/task je komandni centar: odluke, prioriteti, zavisnosti i prihvatanje rezultata.
 - Implementacija se deli na zasebne, ograničene taskove.
 - Kolega radi takođe preko AI agenta i može da preuzme tehnički zahtevne module i obimnije promptove.
+- Kolega radi na drugom računaru i polazi od zajedničke Git grane `codex/sajam-automobila-2026`.
+- Kolega je jedini vlasnik sajamske Convex šeme i backend implementacije: anonimni identitet, entitlement pravila, skeniranja, ocene, glasovi, ankete, leadovi, analitika, izveštaji i email funkcije.
+- Drugi agenti ne menjaju sajamske tabele, indekse ili Convex funkcije bez usaglašenog backend ugovora i koordinacije sa backend vlasnikom.
+- Ovaj komandni centar vodi proizvodne odluke, prioritete, dizajn-sistem, javne mobilne interfejse i integracionu kontrolu.
+- Backend vlasnik prvo objavljuje tipizirani ugovor podataka/funkcija; frontend taskovi se grade prema tom ugovoru umesto da izmišljaju paralelni model.
 - Nijedan agent ne sme sam da promeni paket, poslovno pravilo ili UX tok zato što mu je lakše za implementaciju.
 - Svaki task mora da navede ulaze, izlaze, zabranjene izmene, kriterijume prihvatanja i proveru.
 - Zajednički ugovori i tipovi se zaključavaju pre paralelnog rada da dva agenta ne naprave različite modele iste funkcije.
@@ -522,7 +527,6 @@ Dok taj artefakt nije zaključan, agenti mogu da rade model podataka, API ugovor
 
 ### OTVORENO pre konačne raspodele
 
-- Koje module radi kolega, a koje ovaj Codex tok.
 - Tačan redosled taskova i kritični put do 9. oktobra.
 - Ko je vlasnik finalnog dizajn-sistema i ko odobrava odstupanja.
 - Ko radi unos podataka pristiglih od izlagača i ko radi završnu proveru svakog QR-a.
@@ -598,7 +602,6 @@ Pre produkcije mora da bude dokazano najmanje sledeće:
 ### P0 — blokira bezbednu ili osnovnu implementaciju
 
 1. Pravna saglasnost, politika privatnosti i brisanje podataka.
-2. Konačna podela modula između kolege i ovog Codex toka.
 
 ### P1 — potrebno pre integracionog testa
 
@@ -632,6 +635,7 @@ Pre produkcije mora da bude dokazano najmanje sledeće:
 - Zaključan P0.2: paket pripada modelu na konkretnom sajmu; dozvoljena je samo nadogradnja, ranija skeniranja ostaju u analitici, a plaćene interakcije važe od aktivacije.
 - Precizirano lokalno čuvanje garaže: automatsko browser stanje bez instalacije ili preuzimanja; PDF i email postoje samo kao dobrovoljne akcije.
 - Zaključan P0.3: ScanMe normalizuje podatke izlagača; specifikacije su fleksibilni parovi naziv–vrednost, cena je očekivana uz fallback, fotografija nije obavezna za stranicu modela, a objava prolazi internu proveru.
+- Zaključan P0.4: kolega je vlasnik celog sajamskog Convex backenda i šeme, dok komandni centar vodi odluke, dizajn-sistem, javni frontend i integraciju preko zajedničke sajamske Git grane.
 
 ---
 
