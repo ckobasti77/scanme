@@ -38,6 +38,12 @@ Paket pripada jednom izloženom modelu na jednom događaju. Isti komercijalni mo
 
 U svim tabelama koristiti isključivo `yes` ili `no`. Prazno polje znači „nije još poznato”, ne „ne”.
 
+### Datumi i vreme
+
+- `event_day` koristi `YYYY-MM-DD`.
+- `package_active_from`, `assigned_at` i `verified_at` koriste ISO 8601 datum i vreme sa vremenskom zonom, na primer `2026-10-09T09:00:00+02:00`.
+- Tačno vreme aktivacije paketa je obavezno jer nadogradnja tokom sajma važi od trenutka aktivacije.
+
 ## 3. Fajlovi i vlasništvo
 
 | Fajl | Sadržaj | Primarno popunjava | Finalno proverava |

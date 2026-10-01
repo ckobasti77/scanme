@@ -24,4 +24,19 @@ Ovi fajlovi služe za interni unos i proveru. Nisu direktan produkcijski import.
 7. `07-follow-up-email.csv`
 8. `08-qr-assignments.csv`
 
+## Lokalna validacija
+
+Pre predaje backendu pokrenuti validator nad direktorijumom koji sadrži svih
+osam radnih kopija:
+
+```powershell
+node scripts/events/validate-csv-intake.mjs C:\putanja\do\radne-kopije
+```
+
+Ako se putanja izostavi, proveravaju se ovi prazni šabloni. Validator proverava
+zaglavlja, event kodove/datume, poznate enum-e i `yes/no` vrednosti, stabilne
+ključeve, veze između tabela, package limite za Glas publike/anketu/follow-up,
+duple ključeve i QR dodelu. Ovo je lokalna priprema za backend `dryRun`; ne
+upisuje niti menja produkciju.
+
 CSV fajlovi sadrže samo prikupljene/operativne podatke. Backend ih normalizuje u verzionisani JSON ugovor i povezuje sa postojećim account, business, contact, brand i QR zapisima.

@@ -21,6 +21,7 @@ export default defineConfig({
       "components/purchase/**/*.test.ts",
       "components/menu/**/*.test.tsx",
       "components/admin/**/*.test.tsx",
+      "scripts/events/**/*.test.ts",
     ],
   },
 });
