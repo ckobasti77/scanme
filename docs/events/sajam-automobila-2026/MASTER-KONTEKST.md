@@ -6,6 +6,7 @@
 > Vlasnik proizvodnih odluka i finalni go/no-go: **Aleksa**
 > Rok za operativnu spremnost prve faze: **9. oktobar 2026.**
 > Prateći tehnički dokument: [`BACKEND-HANDOFF.md`](./BACKEND-HANDOFF.md)
+> Operativni paket za unos podataka: [`DATA-INTAKE-SPEC.md`](./DATA-INTAKE-SPEC.md)
 
 ## 0. Kako se koristi ovaj dokument
 

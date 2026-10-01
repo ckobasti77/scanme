@@ -8,6 +8,7 @@
 > Rok za prvu produkcijski upotrebljivu verziju: **9. oktobar 2026.**
 > Polazna grana: `codex/sajam-automobila-2026`
 > Kanonski proizvodni dokument: [`MASTER-KONTEKST.md`](./MASTER-KONTEKST.md)
+> Operativni paket za unos podataka: [`DATA-INTAKE-SPEC.md`](./DATA-INTAKE-SPEC.md)
 
 `MASTER-KONTEKST.md` definiše proizvod i poslovna/UX pravila. Ovaj dokument definiše tehničku implementaciju tih pravila. Jovan i njegov AI agent moraju dobiti i pročitati oba dokumenta. Ako se dokumenti ili kod razilaze, ne biraj tumačenje i ne menjaj pravilo samostalno: zaustavi sporni deo i vrati konflikt komandnom centru.
 
