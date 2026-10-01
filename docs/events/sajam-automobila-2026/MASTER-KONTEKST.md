@@ -1,13 +1,17 @@
 # ScanMe × Sajam automobila 2026 — master kontekst
 
-> Kanonski operativni dokument za planiranje, dizajn, implementaciju i delegiranje rada.
+> Status: **ZAKLJUČAN ZA DELEGIRANJE**
 >
 > Poslednje ažuriranje: 1. oktobar 2026.
+> Vlasnik proizvodnih odluka i finalni go/no-go: **Aleksa**
 > Rok za operativnu spremnost prve faze: **9. oktobar 2026.**
+> Prateći tehnički dokument: [`BACKEND-HANDOFF.md`](./BACKEND-HANDOFF.md)
 
 ## 0. Kako se koristi ovaj dokument
 
 Ovaj dokument je početna tačka za svakog čoveka ili AI agenta koji radi na projektu Sajma automobila. Pre početka zadatka mora da se pročita ceo dokument, a zatim samo reference relevantne za konkretan zadatak.
+
+`MASTER-KONTEKST.md` definiše proizvod, poslovna pravila, korisnička iskustva i operativni način rada. `BACKEND-HANDOFF.md` ta pravila pretvara u tehnički ugovor za Jovanovog backend agenta. Dokumenti se kolegi uvek šalju zajedno. Ako postoji kontradikcija između njih, agent ne bira tumačenje i ne menja pravilo samostalno, već prijavljuje konflikt komandnom centru.
 
 Oznake odluka:
 
@@ -58,6 +62,7 @@ Poslovni cilj je da plaćeni paketi izlaganja donesu prihod, a uspešno izveden 
 ### ZAKLJUČANO
 
 - Sve funkcionalnosti potrebne za prvi događaj moraju da rade do **9. oktobra 2026.**
+- Integracioni test je planiran za **8. oktobar 2026.** i mora obuhvatiti oba događaja pomoću seedovanog budućeg drugog događaja.
 - Postoji mogućnost samo jednog dana testiranja u hali pre početka sajma.
 - Podaci i materijali od izlagača verovatno neće biti kompletni pre ponedeljka u nedelji pred sajam.
 - Svaki model postoji kao jedan fizički izloženi primerak i dobija svoj QR kod.
@@ -66,6 +71,9 @@ Poslovni cilj je da plaćeni paketi izlaganja donesu prihod, a uspešno izveden 
 - Sistem radi na postojećem ScanMe projektu i Convex backendu, uz ograničenja besplatnog plana.
 - Izlagači nemaju naloge, dashboard niti obavezu da rade u sistemu.
 - ScanMe tim unosi podatke, podešava pitanja, upravlja sadržajem i šalje izveštaje.
+- Potrebno je pripremiti 100 postojećih ScanMe dinamičkih QR identiteta i poslati ih u štampu do ponedeljka; krajnja destinacija modela može se dodeliti kasnije.
+- Minimalni integracioni seed: oba događaja, najmanje dva izlagača, deset modela i sva tri paketa.
+- Ciljni uređaji za proveru su Android, iPhone i sajamska display rezolucija.
 
 ### Posledica za planiranje
 
@@ -115,7 +123,7 @@ Paketi se obračunavaju **po automobilu/modelu**.
 - Digitalna stranica modela: naziv, cena i specifikacije; fotografija nije obavezna.
 - Čuvanje modela u garaži posetioca.
 - Poređenje sa drugim sačuvanim modelima u garaži.
-- Ukupan broj skeniranja štanda.
+- Ukupan i jedinstven broj skeniranja štanda.
 
 Ovo je osnovni nivo koji ScanMe daje kroz partnerstvo sa sajmom. Ne predstavlja se kao paket od `0 RSD`, već kao pogodnost **za sve izlagače**.
 
@@ -148,6 +156,8 @@ Napredni sadrži **sve iz Starter paketa**, plus:
 - automatizovani follow-up posle sajma;
 - sponzorisanu ravnopravnu rotaciju modela na sajamskoj mapi/displejima;
 - sponzorisanu ravnopravnu rotaciju modela u garaži posetioca.
+
+Napredni paket sadrži Starter pogodnosti, ali je režim ocenjivanja namerna zamena: Napredni nema dodatnu četvrtu „ukupnu” ocenu. Ima tačno tri opcione ocene — izgled, specifikacije i cena.
 
 ### ZAKLJUČANA prodajna hijerarhija
 
@@ -189,6 +199,14 @@ Najvažnije prodajne tačke su:
 - ScanMe radi internu proveru i objavljuje stranicu bez obaveznog formalnog odobrenja izlagača.
 - Naknadne ispravke izlagača unosimo kontrolisano, bez menjanja QR identiteta modela.
 
+### 4.6 Izlagači kao ScanMe klijenti — ZAKLJUČANO
+
+- Izlagač se tehnički vodi kroz postojeće `accounts`, `businesses` i kontakt zapise; ne pravi se paralelni duplikat klijenta u posebnoj `fairExhibitors` tabeli.
+- Novi klijent koji postoji samo zbog sajma dobija nezavisnu klasifikaciju `event_only` i pojavljuje se u admin sekciji `Događaji`, ne u redovnoj listi klijenata.
+- Postojeći ScanMe klijent koji učestvuje na sajmu ostaje `standard`.
+- Akcija `Prebaci u redovne klijente` menja klasifikaciju postojećeg zapisa. Ne kopira ID, kontakt, istoriju, QR ili event podatke.
+- Konkretno učešće izlagača na konkretnom događaju predstavlja zaseban event zapis povezan sa njegovim postojećim business/contact podacima.
+
 ### VAN OPSEGA ponude
 
 - Nema kupovine paketa kroz javni sajt.
@@ -206,21 +224,29 @@ Najvažnije prodajne tačke su:
 ### ZAKLJUČANO
 
 - Svaki automobil/model ima svoj jedinstveni QR.
-- Sken otvara javnu mobilnu stranicu baš tog modela.
+- Štampani kod koristi postojeći stabilni ScanMe resolver `/r/[cardCode]`; ne pravi se paralelni sajamski QR sistem.
+- Resolver beleži fizički scan i zatim otvara javnu mobilnu stranicu baš tog modela.
+- Javne čitljive rute su `/sajam/elektromobilnost-2026/...` i `/sajam/auto-moto-fest-2026/...`; promena sluga modela ne zahteva novu štampu jer štampani resolver kod ostaje isti.
 - Za osnovni nivo stranica prikazuje naziv, cenu i specifikacije. Fotografija je opciona.
 - Funkcije na stranici zavise od aktiviranog paketa tog modela.
 - Aktivacija paketa važi od trenutka aktivacije; nema retroaktivnog pripisivanja funkcija pre aktivacije.
+- Stranice modela mogu da se pregledaju pre početka sajma radi provere organizatora i izlagača.
+- Javne event stranice su `noindex` u V1.
 
 ### Brojanje skeniranja
 
 - `Ukupna skeniranja`: svaki validan scan događaj, uključujući ponovljene skenove istog uređaja.
 - `Jedinstvena skeniranja`: jedan uređaj koji skenira jedan konkretan QR računa se kao jedan jedinstveni scan, bez obzira na broj ponavljanja.
 - Deset skeniranja istog QR-a sa istog uređaja = 10 ukupnih i 1 jedinstveno skeniranje.
+- Prijavljeni ScanMe administratori Aleksa, Jovan i Teodora ne ulaze u sajamsku statistiku skeniranja.
+- Sva ostala skeniranja računaju se bez obzira na radno vreme sajma, uključujući kasniji povratak preko sačuvane browser stranice.
+- U V1 se ne uvodi poseban bot/preview filter za sajamske metrike.
+- Direktno otvaranje modela iz garaže ili sponzorisane kartice nije QR scan; vodi se kao poseban pregled/reklamna konverzija.
 
 ### Anonimni identitet — ZAKLJUČANO
 
-- Pri prvoj poseti generiše se kriptografski nasumičan `visitorToken`.
-- Token se čuva u first-party browser skladištu na uređaju, bez naloga ili prijave.
+- Pri prvom `/r/[cardCode]` ulasku ili direktnom event bootstrap-u server generiše kriptografski nasumičan `visitorToken`.
+- Raw token se čuva kao first-party `HttpOnly`, `Secure`, `SameSite=Lax` cookie na uređaju, bez naloga ili prijave; JavaScript ga ne čita.
 - Backend čuva samo hash tokena; token ne sadrži ime, email, telefon niti drugi lični podatak.
 - Brisanje browser podataka ili privatni režim mogu da naprave nov anonimni identitet. To je prihvaćeno ograničenje sistema bez naloga.
 - Isti token važi kao anonimni identitet kroz oba sajma, dok su garaža i napredak odvojeni po događaju.
@@ -233,11 +259,11 @@ Najvažnije prodajne tačke su:
 - Jedinstveni scan je prvi zapis kombinacije `posetilac + model`; svaki validan scan i dalje ulazi u ukupan broj skeniranja.
 - Uvodi se razumno ograničenje učestalosti po tokenu i akciji. Potpuna zaštita od osobe koja obriše browser podatke i dobije novi token nije cilj V1.
 - Fingerprinting, email/telefon kao identitet i obavezna registracija su odbačeni.
+- Cookie ističe najkasnije 16. novembra 2026; nakon server-side purge-a njegov nasumični sadržaj više nema poveziv zapis u bazi.
 
-### OTVORENO
+### Operativni zahtev
 
-- Vremenski prozor i pravila za filtriranje botova, preview skenova i operativnih testova.
-- Pravila za scan koji nastaje pre zvaničnog otvaranja ili posle zatvaranja dana.
+Postojeći `/r/[cardCode]` tok mora jednim server request ID-em da zabeleži generičku QR atribuciju i sajamski scan. Ne sme da preusmeri na drugi endpoint koji isti fizički scan ponovo broji.
 
 ---
 
@@ -259,10 +285,10 @@ Najvažnije prodajne tačke su:
 - Kartica/traka prikazuje sliku i naziv modela, akciju `Pogledaj` i akciju `Dodaj u garažu`.
 - `Pogledaj` otvara detalje modela, odakle model takođe može odmah da se doda u garažu.
 
-### OTVORENO
+### PRIVREMENO
 
-- Tačan format PDF izvoza i email poruke.
-- Učestalost i trajanje rotacije sponzorisanih modela.
+- Tačan vizuelni format PDF izvoza i email poruke zaključava se kroz dizajn task; ponašanje izvoza je već zaključano.
+- Sponzorisani slot u garaži traje 8 sekundi i pauzira se dok korisnik aktivno koristi karticu.
 
 ---
 
@@ -271,13 +297,12 @@ Najvažnije prodajne tačke su:
 ### ZAKLJUČANO
 
 - Starter: jedna ukupna ocena modela od 1 do 5.
-- Napredni: pored svega iz Startera, odvojene ocene izgleda, specifikacija i cene.
+- Napredni: umesto Starter ukupne ocene ima tačno tri odvojene opcione ocene — izgled, specifikacije i cena.
+- Napredni nema četvrtu ukupnu ocenu i backend ne računa izvedeni ukupni prosek iz tri dimenzije.
 - Isti anonimni posetilac može da izmeni svoju prethodnu ocenu.
 - Izmena ne sme da napravi novu nezavisnu ocenu istog posetioca za isti model.
-
-### OTVORENO
-
-- Da li se javnosti prikazuje prosečna ocena i broj glasova u realnom vremenu ili tek nakon minimalnog broja odgovora.
+- Javni zbirni rezultat prikazuje se od najmanje pet ocena. Posetilac i ispod praga vidi sopstvenu ocenu i neutralnu poruku da će rezultat biti dostupan nakon dovoljnog broja glasova.
+- Napredne trodimenzionalne ocene služe analitici izlagača; javni UI prikazuje samo dogovoreni relevantni agregat, bez izmišljene ukupne ocene.
 
 ---
 
@@ -291,8 +316,9 @@ Prijava za probnu vožnju pripada Naprednom paketu. To je jači, „hot lead” 
 
 Za oba toka:
 
-- posetilac ostavlja kontakt podatke;
-- postoji jedna jasna saglasnost `Prihvatam` / `Odbijam`;
+- posetilac unosi ime i najmanje jedan kontakt: telefon ili email;
+- izlagač za probnu vožnju može da zahteva telefon, email ili oba, odnosno da označi samo preferirani kanal bez pretvaranja preference u obavezno polje;
+- postoji jedna jasna saglasnost `Prihvatam` / `Odbijam` koja imenuje ScanMe i konkretnog izlagača kome se podaci prosleđuju;
 - ScanMe prima podatke i dostavlja ih izlagaču;
 - izlagač nema panel;
 - posetilac dobija samo jednu potvrdu neposredno nakon prijave.
@@ -307,14 +333,16 @@ Za Napredni paket:
 
 - postoji jedan automatizovani follow-up posle sajma;
 - izlagač može da dostavi tekst poruke;
-- slanje ide preko ScanMe email infrastrukture (postojeća Resend integracija treba da se proveri pre oslanjanja na nju).
+- follow-up se šalje jednom, 24–48 sati nakon relevantnog sajma;
+- neposredna potvrda objašnjava da posetilac odgovorom na ScanMe email može da otkaže taj jedini budući follow-up;
+- ScanMe admin može da postavi suppression, a slanje ga proverava neposredno pre isporuke;
+- slanje ide preko ScanMe email infrastrukture; postojeća Resend konfiguracija mora biti proverena u ciljnom deploymentu bez izlaganja tajni.
 
-### OTVORENO
+### Pravni tekst — PRIVREMENO do stručne provere
 
-- Koja su minimalna obavezna kontakt polja po toku.
-- Konačan tekst saglasnosti i politika privatnosti.
-- Trenutak slanja poslesajamskog follow-upa.
-- Pravila neuspešne isporuke, ponovnog slanja i odjave.
+- ScanMe priprema nacrt saglasnosti i politike privatnosti, ali konačan tekst mora proći stručnu pravnu proveru pre produkcijskog uključivanja lead tokova.
+- ScanMe prikuplja kontakt i prosleđuje ga imenovanom izlagaču; nakon predaje izlagač je odgovoran za svoje dalje korišćenje podataka.
+- Ne uvodi se newsletter pretplata niti ponavljajuća kampanja.
 
 ---
 
@@ -334,6 +362,8 @@ Za Napredni paket:
 - Kada postoji više pitanja, prikazuju se tačkice/progres, korisnik može da izađe, a završeni odgovori se pamte.
 - Posetilac može ponovo da vidi rezultat pitanja na koje je već odgovorio.
 - Novo pitanje kreće od nule; evidencija prethodnog pitanja ostaje sačuvana.
+- Javni rezultat se prikazuje od najmanje pet glasova. Ispod praga korisnik vidi svoj izbor i poruku da rezultat stiže nakon dovoljnog broja glasova.
+- ScanMe admin ručno bira koje objavljeno pitanje/rezultat prati model u sponzorisanoj rotaciji.
 
 ### 9.2 Anketa
 
@@ -343,6 +373,8 @@ Za Napredni paket:
 - Namenjena je direktnim, praktičnim pitanjima jednom posetiocu, na primer načinu kupovine ili nameri.
 - Pitanja su kratka: da/ne ili izbor između ponuđenih odgovora.
 - Izlagač odlučuje kako će koristiti anketu; ne ograničavamo je isključivo na jednu vrstu istraživanja tržišta.
+- Anketa ima najviše pet pitanja. Pitanja su opciona, ali je za konačno slanje potreban najmanje jedan odgovor.
+- Poslata anketa se ne menja naknadno i njeni rezultati nisu javni.
 
 ### Razlika koja se mora čuvati u komunikaciji
 
@@ -363,6 +395,8 @@ Za Napredni paket:
 - Prikazuje se samo rezultat već prikupljenih glasova.
 - Reveal animacija privlači pažnju, a zatim lokacija štanda zasija/animira se.
 - Prikaz ne zavisi od toga da li je posetilac otvorio mapu i kliknuo glasanje; rotacija radi automatski na sajamskim displejima.
+- Slot traje 12 sekundi.
+- Ako pitanje nema najmanje pet glasova, prikazuju se model/štand i neutralna poruka `Glasanje je u toku`, bez izmišljanja procenta.
 
 ### 10.2 U garaži
 
@@ -373,13 +407,16 @@ Za Napredni paket:
 - Dostupne su akcije `Pogledaj` i `Dodaj u garažu`.
 - Rotacija nije personalizovana prema srodnosti modela.
 - Sponzorisani model se ne dodaje automatski u garažu.
+- Slot traje 8 sekundi i pauzira se dok korisnik koristi karticu.
 
-### OTVORENO
+### Zajedničko pravilo rotacije — ZAKLJUČANO
 
-- Dužina slota i precizan algoritam ravnopravne rotacije.
-- Izbor pitanja/rezultata koji se prikazuje uz model na mapi.
-- Ponašanje kada Napredni model još nema dovoljno glasova.
-- Redosled, preload i fallback kada nedostaje slika modela.
+- Svi objavljeni Napredni modeli su ravnopravni: svaki se prikazuje jednom pre ponavljanja.
+- Redosled je stabilno izmešan za taj dan.
+- Mapa i svi sajamski displeji računaju aktivni model iz zajedničkog vremenskog slota/epohe, tako da prikazuju isto bez posebne display administracije.
+- Lista Naprednih modela objavljuje se/obnavlja ručnom admin akcijom nakon nadogradnje paketa.
+- Ako fotografija nedostaje, koristi se logo brenda i neutralni event placeholder; nikada fotografija drugog vozila.
+- Posebno se beleže impresija, `Pogledaj` i `Dodaj u garažu`.
 
 ---
 
@@ -394,11 +431,11 @@ Za Napredni paket:
 - Posetilac zatim bira omiljeni model brenda i vidi koliko posetilaca deli njegov izbor.
 - Izlagač dobija dodatni uvid u interesovanje za sve modele i u izbor favorita.
 - Funkcionalnost ima smisla samo kada su svi relevantni modeli brenda uključeni/validni za pasoš.
-
-### OTVORENO
-
-- Uslov paketa da bi brend pasoš bio aktivan za ceo brend.
-- Ponašanje ako se model doda ili ukloni nakon početka sajma.
+- Pasoš se aktivira samo kada brend ima najmanje dva izložena modela i svi imaju najmanje Starter paket.
+- Eligible skup modela zamrzava se pre otvaranja događaja.
+- Ako se model hitno povuče, admin može da ga ukloni iz potrebnog skupa bez poništavanja već stečenog napretka.
+- Rezultat izbora omiljenog modela prikazuje se od najmanje pet glasova.
+- Nema fizičke nagrade u V1.
 
 ---
 
@@ -412,6 +449,14 @@ Izlagači nemaju dashboard. ScanMe im šalje podatke kada je operativno prikladn
 
 Dnevni presek se šalje nakon završetka svakog sajamskog dana i treba da bude dovoljno kratak da izlagač može da reaguje sledećeg dana.
 
+- Dataset mora biti spreman najkasnije 60 minuta nakon zatvaranja dana.
+- Izveštaj se generiše automatski, ali se uvek ručno proverava i odobrava pre automatizovanog slanja.
+- Podržani izlazi su PDF i pregledan XLSX/CSV.
+- PII lead export je odvojen od agregatnog izveštaja.
+- Organizator dobija agregat bez PII i bez poverljivih pojedinačnih odgovora ankete.
+- Od drugog sajamskog dana izveštaj sadrži kratak uporedni presek prema prethodnom danu.
+- Admin može ponovo da pošalje izveštaj ili označi i pošalje korigovanu verziju.
+
 Zaključane metrike/segmenti:
 
 - ukupna skeniranja;
@@ -422,18 +467,16 @@ Zaključane metrike/segmenti:
 - odgovori Glasa publike;
 - odgovori ankete;
 - podaci po modelu;
-- podaci po danu.
+- podaci po danu;
+- raspodela skeniranja po satima.
 
 Starter dobija dnevni presek i analitiku modela. Napredni dobija sve to, plus detaljnije podatke iz dodatnih funkcionalnosti i automatizovani follow-up.
 
-Podaci se dostavljaju emailom kao PDF, tabela ili drugi format koji ScanMe tim pripremi.
+Podaci se dostavljaju emailom u terminu dogovorenom sa konkretnim izlagačem. Metrike za funkcionalnost koju paket nema ne prikazuju se kao lažne nule, već se izostavljaju.
 
-### OTVORENO
+### PRIVREMENO
 
-- Da li dnevni presek prikazuje i raspodelu po satima. Preporuka za odluku: prikazati bar skeniranja po satu jer omogućavaju korekciju osoblja i aktivnosti tokom narednog dana, ali ne obećavati metriku dok se ne potvrdi implementacioni trošak.
-- Tačan format dnevnog preseka i završnog izveštaja.
-- Minimalan broj odgovora pre prikaza procentualnih rezultata.
-- Da li se organizatoru dostavlja agregat svih izlagača i u kom formatu.
+- Tačan vizuelni template PDF-a i struktura XLSX/CSV-a zaključavaju se u zasebnom report dizajn tasku; dataset i rokovi su zaključani.
 
 ---
 
@@ -445,15 +488,19 @@ Podaci se dostavljaju emailom kao PDF, tabela ili drugi format koji ScanMe tim p
 - Lični podaci se prikupljaju samo u tokovima u kojima ih posetilac namerno ostavlja.
 - Saglasnost je jedna jasna odluka: prihvata ili odbija.
 - Kontakt podaci idu prvo ScanMe timu, koji ih zatim dostavlja odgovarajućem izlagaču.
-- Podaci se čuvaju do **15 dana nakon završetka drugog sajma**.
+- Pristup PII podacima imaju samo Aleksa, Jovan i Teodora.
+- Svi leadovi moraju biti isporučeni izlagačima najkasnije **15. novembra 2026.**
+- **16. novembra 2026.** trajno se brišu iz cloud baze i svih ScanMe lokalnih kopija: ime i prezime, telefon, email, odgovori povezivi sa osobom, visitor hash/identifikator, snapshot/dokaz saglasnosti, suppression i drugi podaci koji mogu identifikovati lice.
+- Ne postoji dodatni PII grace period nakon 16. novembra.
+- Posle brisanja ostaju samo nepovratno anonimizovani agregati i operativni zapis da je brisanje izvršeno, bez kontakta ili drugog PII u logu.
+- Ako izlagač izgubi prethodno isporučene podatke nakon roka, ScanMe ne može ponovo da ih dostavi.
+- Javni event sadržaj može 16. novembra da postane arhiviran/neinteraktivan, dok neosetljivi sadržaj i agregatna statistika mogu ostati sačuvani.
 
-### OTVORENO — blokira produkcijsku potvrdu lead tokova
+### Produkcijski gate
 
-- Pravna formulacija saglasnosti i ko je rukovalac/obrađivač podataka u svakom toku.
-- Precizan automatski postupak brisanja/anonymizacije nakon roka.
-- Da li se dokaz saglasnosti čuva duže od samih kontakt podataka i na kom pravnom osnovu.
-- Kontrola pristupa ScanMe tima ličnim podacima.
-- Bezbedan transport izveštaja izlagaču.
+- Finalni tekst saglasnosti i politike privatnosti mora biti stručno proveren pre produkcijskog uključivanja lead tokova.
+- Purge posao mora raditi u ograničenim batch-evima, imati ručni dry-run/preview i završni audit rezultat, ali nakon odobrenog pokretanja 16. novembra ne ostavlja PII.
+- Bezbedan kanal dostave PII i tačan primalac dogovaraju se sa svakim izlagačem pre prvog izvoza.
 
 ---
 
@@ -493,9 +540,13 @@ Dok taj artefakt nije zaključan, agenti mogu da rade model podataka, API ugovor
 
 - Ovaj razgovor/task je komandni centar: odluke, prioriteti, zavisnosti i prihvatanje rezultata.
 - Implementacija se deli na zasebne, ograničene taskove.
-- Kolega radi takođe preko AI agenta i može da preuzme tehnički zahtevne module i obimnije promptove.
-- Kolega radi na drugom računaru i polazi od zajedničke Git grane `codex/sajam-automobila-2026`.
-- Kolega je jedini vlasnik sajamske Convex šeme i backend implementacije: anonimni identitet, entitlement pravila, skeniranja, ocene, glasovi, ankete, leadovi, analitika, izveštaji i email funkcije.
+- **Jovan** radi preko svog AI agenta na drugom računaru i polazi od zajedničke Git grane `codex/sajam-automobila-2026`.
+- Jovan je jedini vlasnik sajamske Convex šeme i backend implementacije: anonimni identitet, entitlement pravila, skeniranja, ocene, glasovi, ankete, leadovi, analitika, izveštaji, email i retention funkcije.
+- Za Jovanov backend zadatak preporučeni su `gpt-6-astra` i `high`; `xhigh` se koristi za završnu proveru šeme, authz/PII granica i retention logike.
+- **Aleksa** je vlasnik proizvoda, javnog UX-a, QR štampe, produkcijskog deploya i konačnog go/no-go odobrenja.
+- **Teodora** je primarna osoba za kontakt sa izlagačima i prikupljanje podataka; Aleksa je rezerva.
+- Unos modela i QR mapiranje proveravaju dve osobe: jedna unosi, druga fizički skenira i potvrđuje model/destinaciju. Aleksa daje finalnu potvrdu.
+- Aleksa i Jovan su tehnički on-call tokom sajma.
 - Drugi agenti ne menjaju sajamske tabele, indekse ili Convex funkcije bez usaglašenog backend ugovora i koordinacije sa backend vlasnikom.
 - Ovaj komandni centar vodi proizvodne odluke, prioritete, dizajn-sistem, javne mobilne interfejse i integracionu kontrolu.
 - Backend vlasnik prvo objavljuje tipizirani ugovor podataka/funkcija; frontend taskovi se grade prema tom ugovoru umesto da izmišljaju paralelni model.
@@ -503,7 +554,7 @@ Dok taj artefakt nije zaključan, agenti mogu da rade model podataka, API ugovor
 - Svaki task mora da navede ulaze, izlaze, zabranjene izmene, kriterijume prihvatanja i proveru.
 - Zajednički ugovori i tipovi se zaključavaju pre paralelnog rada da dva agenta ne naprave različite modele iste funkcije.
 
-### Preporučena podela implementacionih tokova — PRIVREMENO
+### Redosled implementacionih tokova — ZAKLJUČANO
 
 1. **Osnova događaja i model podataka**
    - događaji, dani, izlagači, brendovi, modeli, štandovi, paketi i aktivacije;
@@ -525,11 +576,12 @@ Dok taj artefakt nije zaključan, agenti mogu da rade model podataka, API ugovor
 9. **Dizajn-sistem i integracioni QA**
    - jedinstven vizuelni ugovor, responsive/accessibility provera i end-to-end tokovi.
 
-### OTVORENO pre konačne raspodele
+### Admin sekcija `Događaji` — ZAKLJUČANO
 
-- Tačan redosled taskova i kritični put do 9. oktobra.
-- Ko je vlasnik finalnog dizajn-sistema i ko odobrava odstupanja.
-- Ko radi unos podataka pristiglih od izlagača i ko radi završnu proveru svakog QR-a.
+- Uvodi se zaseban glavni admin tab `Događaji`, ne pod `Usluge` ili `Operacije`.
+- Sadrži pregled događaja, event-only i standardnih izlagača, modele/pakete, QR inventar i dodelu, interakcije/leadove, izveštaje, sponsored snapshot i operativne akcije.
+- Izlagači nemaju pristup ovoj sekciji; sve radi ScanMe tim.
+- Aleksa i komandni centar zaključavaju `EVENT-DESIGN-SYSTEM.md`; agenti ne izmišljaju nezavisne vizuelne jezike.
 
 ---
 
@@ -562,6 +614,11 @@ Ako je detalj potreban za implementaciju, a nije zaključen, agent ga upisuje ka
 
 PDF je prodajni sažetak. Ovaj Markdown je kanonski dokument za detaljna pravila. Ako se razlikuju, razlika se ne rešava ćutke: prijavljuje se vlasniku i usklađuju se oba dokumenta.
 
+### Tehnički handoff
+
+- Jovanov obavezni prateći dokument: `docs/events/sajam-automobila-2026/BACKEND-HANDOFF.md`.
+- Master i handoff se uvek šalju zajedno. Master definiše šta proizvod radi; handoff definiše kako backend to bezbedno implementira.
+
 ### Postojeći sajam/mapa prototip
 
 - DEV ruta: `/dev/sajam-cair`
@@ -586,6 +643,8 @@ Pre produkcije mora da bude dokazano najmanje sledeće:
 - anonimno stanje garaže, ocene i glasovi ponaša se prema pravilima;
 - promena ocene/glasa menja prethodni zapis umesto dupliranja;
 - ukupna i jedinstvena skeniranja daju očekivane rezultate;
+- jedan fizički `/r/[cardCode]` zahtev ne pravi dva sajamska skena;
+- prijavljeni ScanMe admin skenovi su isključeni, dok se ostali skenovi računaju 24/7;
 - lead i probna vožnja čuvaju saglasnost i šalju tačnu potvrdu;
 - dnevni presek koristi stvarne podatke i ne meša izlagače/modele;
 - sponzorisane rotacije su ravnopravne i ne dodaju model automatski;
@@ -594,30 +653,30 @@ Pre produkcije mora da bude dokazano najmanje sledeće:
 - error/loading/empty stanja su razumljiva običnom posetiocu;
 - svetla tema radi na ciljanim telefonima i sajamskom displayu;
 - bar jedan pun prolaz se testira sa realnim QR kodovima pre otvaranja.
+- purge preview i test potvrđuju da 16. novembra mogu biti obrisani svi PII zapisi bez brisanja anonimnih agregata.
 
 ---
 
 ## 19. Otvorena pitanja — prioritet
 
-### P0 — blokira bezbednu ili osnovnu implementaciju
+### P0 — blokira produkcijsko uključivanje leadova
 
-1. Pravna saglasnost, politika privatnosti i brisanje podataka.
+1. Stručna potvrda konačnog teksta saglasnosti i politike privatnosti.
+2. Dogovor bezbednog kanala i tačnih primalaca PII izvoza za svakog izlagača.
 
 ### P1 — potrebno pre integracionog testa
 
-1. Slot/algoritam obe sponzorisane rotacije.
-2. Pravila pasoša kada nisu svi modeli uključeni.
-3. Format i vreme slanja dnevnog preseka.
-4. Minimalni broj glasova pre javnog procentualnog rezultata.
-5. Tekstovi email potvrda i poslesajamskog follow-upa.
-6. Koji rezultat Glasa publike se vezuje za model na mapi.
+1. Finalni tekstovi email potvrda i poslesajamskog follow-upa.
+2. Primalac i dogovoreno vreme isporuke leadova/izveštaja po izlagaču.
+3. Konačni vizuelni template PDF i XLSX/CSV izveštaja.
+4. Stvarni spisak izlagača, modela, pitanja, paketa i kontakt preferenci.
 
 ### P2 — može posle funkcionalne osnove
 
 1. Konačan izgled PDF izvoza garaže.
 2. Fina animacija kompletiranog pasoša.
 3. Vizuelno poliranje reveal animacije na displayu.
-4. Dodatna segmentacija dnevne analitike po satima.
+4. Fino poliranje event vizuala nakon funkcionalne osnove.
 
 ---
 
@@ -636,6 +695,10 @@ Pre produkcije mora da bude dokazano najmanje sledeće:
 - Precizirano lokalno čuvanje garaže: automatsko browser stanje bez instalacije ili preuzimanja; PDF i email postoje samo kao dobrovoljne akcije.
 - Zaključan P0.3: ScanMe normalizuje podatke izlagača; specifikacije su fleksibilni parovi naziv–vrednost, cena je očekivana uz fallback, fotografija nije obavezna za stranicu modela, a objava prolazi internu proveru.
 - Zaključan P0.4: kolega je vlasnik celog sajamskog Convex backenda i šeme, dok komandni centar vodi odluke, dizajn-sistem, javni frontend i integraciju preko zajedničke sajamske Git grane.
+- Dokument zaključan za delegiranje zajedno sa `BACKEND-HANDOFF.md`; dodati status, vlasnik odluka i pravilo rešavanja konflikta.
+- Zaključano korišćenje postojećeg `/r/[cardCode]` sistema, event-only segment postojećih klijenata i zabrana paralelnih izlagačkih/QR modela.
+- Zaključani pragovi od pet glasova, rotacije 12s/8s, pravila pasoša, dnevni/satni izveštaji i ručno odobravanje slanja.
+- Zaključano trajno brisanje svih PII podataka 16. novembra 2026. bez dodatnog perioda čuvanja.
 
 ---
 

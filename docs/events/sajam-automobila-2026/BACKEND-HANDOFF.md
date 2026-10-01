@@ -1,12 +1,15 @@
 # ScanMe × Sajam automobila 2026 — backend handoff za AI agenta
 
-> Operativni nalog za vlasnika sajamskog Convex backenda.
+> Status: **ZAKLJUČAN ZA DELEGIRANJE — B0 JE PRVI DOZVOLJENI KODNI KORAK**
 >
-> Datum: 1. oktobar 2026.
+> Poslednje ažuriranje: 1. oktobar 2026.
+> Vlasnik proizvodnih odluka i finalni go/no-go: **Aleksa**
+> Backend vlasnik: **Jovan**
 > Rok za prvu produkcijski upotrebljivu verziju: **9. oktobar 2026.**
 > Polazna grana: `codex/sajam-automobila-2026`
-> Polazni commit u trenutku pisanja: `3717f59`
-> Kanonski proizvodni dokument: `docs/events/sajam-automobila-2026/MASTER-KONTEKST.md`
+> Kanonski proizvodni dokument: [`MASTER-KONTEKST.md`](./MASTER-KONTEKST.md)
+
+`MASTER-KONTEKST.md` definiše proizvod i poslovna/UX pravila. Ovaj dokument definiše tehničku implementaciju tih pravila. Jovan i njegov AI agent moraju dobiti i pročitati oba dokumenta. Ako se dokumenti ili kod razilaze, ne biraj tumačenje i ne menjaj pravilo samostalno: zaustavi sporni deo i vrati konflikt komandnom centru.
 
 Preporučeni profil rada za ovaj nalog:
 
@@ -17,9 +20,9 @@ Preporučeni profil rada za ovaj nalog:
 
 ## 0. Tvoj zadatak
 
-Ti si jedini vlasnik sajamske Convex šeme i backend implementacije za:
+Jovan i njegov AI agent su jedini vlasnici sajamske Convex šeme i backend implementacije za:
 
-- događaje, izlagače, brendove, štandove i izložene modele;
+- događaje, učešća postojećih ScanMe klijenata, brendove, štandove i izložene modele;
 - anonimni identitet posetioca;
 - paket i entitlement pravila;
 - QR skeniranja i analitiku;
@@ -29,7 +32,7 @@ Ti si jedini vlasnik sajamske Convex šeme i backend implementacije za:
 - javne backend projekcije za model, mapu i garažu;
 - dnevne preseke, izvoz podataka i retention/purge poslove.
 
-Ne pravi izlagački nalog, dashboard ili self-service. ScanMe tim unosi sadržaj i šalje izveštaje. Javni frontend radi drugi tok rada i mora da koristi tvoj tipizirani ugovor umesto paralelnog modela.
+Ne pravi izlagački nalog, dashboard ili self-service. Ne pravi dupli `fairExhibitors` model klijenata i ne pravi paralelni QR sistem. ScanMe tim unosi sadržaj i šalje izveštaje. Javni frontend radi drugi tok rada i mora da koristi tvoj tipizirani ugovor umesto paralelnog modela.
 
 Prvo napravi i objavi backend ugovor i testiranu osnovu. Ne pokušavaj da u jednom ogromnom commitu završiš ceo sistem.
 
@@ -44,7 +47,8 @@ Pročitaj u celosti, ovim redom:
 5. `convex/convex.config.ts`
 6. `convex/lib/access.ts`
 7. `convex/lib/rateLimits.ts`
-8. postojeće Resend obrasce u `convex/activationRequestEmails.ts` i `convex/menuInquiryEmails.ts`
+8. postojeće QR/access tokove u `convex/cards.ts`, `convex/adminProducts.ts`, `convex/lib/accessValidators.ts`, `convex/lib/accessResolution.ts` i `/r/[cardCode]` Next ruti
+9. postojeće Resend obrasce u `convex/activationRequestEmails.ts` i `convex/menuInquiryEmails.ts`
 
 Važeća pravila:
 
@@ -82,7 +86,7 @@ Convex pravila:
 - Poveži se na postojeći team/project `aleksadjor3 / scanme`, ali koristi svoj razvojni deployment.
 - `dev:perfect-ant-98` je razvojni deployment ovog računara; ne prepisuj tuđi `.env.local` i ne vezuj se ručno za taj deployment.
 - `npx.cmd convex dev --once` je dozvoljen tek nakon lokalnog type/test prolaza i samo ka tvom DEV deploymentu.
-- `npx.cmd convex deploy`, produkcijska migracija, seed, reset ili brisanje produkcijskih podataka nisu dozvoljeni bez nove eksplicitne saglasnosti vlasnika.
+- `npx.cmd convex deploy`, produkcijska migracija, pravljenje stvarnih 100 QR kodova, seed, reset ili brisanje produkcijskih podataka nisu dozvoljeni bez nove eksplicitne saglasnosti vlasnika.
 - Ne commituj `.env.local`, ključeve, tokene ili export baze.
 
 Pre prve izmene zabeleži u komentaru/statusu:
@@ -111,12 +115,12 @@ Ne menjaj bez koordinacije:
 
 - javni event UI, mapu, garažu ili dizajn;
 - prelaunch stranicu;
-- postojeće generičke `events`, `leads`, `scanEvents` ili `cards` tabele da bi ih na silu prilagodio sajmu;
+- postojeće generičke tabele nevezanih proizvoda; minimalne aditivne izmene `accounts`, admin read modela i postojećeg QR/access resolvera jesu potrebne, ali ne smeju menjati ponašanje drugih ScanMe proizvoda;
 - postojeća poslovna pravila drugih ScanMe proizvoda;
 - prodajne PDF-ove;
 - untracked fajlove u `.tmp/` i `output/pdf/`.
 
-Sajamske tabele dobijaju prefiks `fair`. Razlog: postojeće `events`, `leads` i scan tabele već imaju drugačiji tenancy i semantiku; njihovo ponovno korišćenje bi spojilo nepovezane proizvode i povećalo rizik pred rok.
+Nove event-specifične tabele dobijaju prefiks `fair`. Postojeći `accounts`, `businesses`, `accountContacts`, `brands`, `cards`, `cardTargets`, `accessSubjects`, `accessChannels` i `digitalQrCodes` ostaju autoritet za klijente, brendove i QR identitete. Fair tabele ih povezuju sa event funkcionalnostima; ne kopiraju ih.
 
 ## 4. Zaključani poslovni ugovor
 
@@ -134,9 +138,9 @@ Prava moraju da budu definisana jednom u `lib/fair-entitlements.ts`. UI, mutacij
 |---|---:|---:|---:|
 | javna stranica modela | da | da | da |
 | čuvanje/poređenje u lokalnoj garaži | da | da | da |
-| zbirna skeniranja štanda za izlagača | da | da | da |
+| ukupna i jedinstvena skeniranja štanda | da | da | da |
 | analitika po modelu | ne | da | da |
-| ukupna ocena 1–5 | ne | da | da |
+| ukupna ocena 1–5 | ne | da | ne — zamenjena sa 3 dimenzije |
 | `Zainteresovan sam` | ne | da | da |
 | Glas publike po sajamskom danu | 0 | 1 pitanje | do 5 pitanja |
 | dnevni presek | ne | da | da |
@@ -149,21 +153,24 @@ Prava moraju da budu definisana jednom u `lib/fair-entitlements.ts`. UI, mutacij
 
 Nadogradnja je samo `included -> starter -> advanced`. Nema spuštanja tokom sajma. Promena važi od trenutka aktivacije. Plaćene interakcije se ne stvaraju retroaktivno, ali ranija skeniranja ostaju u analitici.
 
+Advanced nasleđuje Starter poslovne pogodnosti osim samog rating oblika: nema ukupnu četvrtu ocenu i ne računa se izvedeni overall. Prihvata samo opcione `appearance`, `specifications` i `price` ocene.
+
 Ako se Starter nadogradi na Advanced tokom dana, tog dana ukupno može imati pet pitanja Glasa publike, uključujući već iskorišćeno Starter pitanje.
 
 ### 4.2 Anonimni identitet
 
-- Browser pri prvoj event poseti generiše najmanje 256 bita kriptografski nasumičnog `visitorToken`-a.
-- Token se automatski čuva u first-party browser storage. Nema naloga, instalacije ni preuzimanja fajla.
+- Next `/r/[cardCode]` handler pri prvom scan-u, odnosno event bootstrap gateway pri direktnoj poseti, generiše najmanje 256 bita kriptografski nasumičnog `visitorToken`-a.
+- Raw token se čuva samo kao first-party `HttpOnly`, `Secure`, `SameSite=Lax` cookie. Nema naloga, instalacije ni preuzimanja fajla; frontend JavaScript ne čita token.
 - Raw token se nikada ne upisuje u Convex tabelu.
-- Next server gateway računa SHA-256 tokena i Convexu prosleđuje samo `visitorHash`.
+- Next server gateway računa domen-specifično saltovan/HMAC hash tokena i Convexu prosleđuje samo `visitorHash`.
 - Isti identitet važi kroz oba sajma; garaža i pasoš/progres se razdvajaju po događaju.
 - Email i telefon nisu identitet. Nema fingerprintinga.
 - Brisanje browser storage-a ili private mode stvaraju nov identitet; to je prihvaćeno ograničenje V1.
+- Cookie ističe najkasnije 16. novembra 2026. Server-side purge briše mapiranje/hash i sve visitor-linkable source redove.
 
 Javne Convex mutacije koje primaju `visitorHash` ne smeju da vraćaju PII niti da omogućavaju čitanje tuđeg stanja. Hash proveri kao lowercase 64-char hex. Raw token sme da prođe samo kroz Next server route i ne sme da se loguje.
 
-Token se šalje server gatewayu samo u `POST` telu, nikada u URL/query parametru. Route handler proverava same-origin zahtev, ograničava veličinu tela, postavlja `Cache-Control: no-store` i u greškama ne ispisuje token ili kontakt. Javni model/katalog readovi kojima identitet nije potreban mogu direktno da koriste Convex query.
+Raw token se ne šalje iz klijentskog JavaScript-a. Gateway ga čita iz HttpOnly cookie-ja, nikada iz URL/query parametra, računa hash i poziva Convex. Route handler proverava same-origin zahtev za write akcije, ograničava veličinu tela, postavlja `Cache-Control: no-store` i u greškama ne ispisuje token ili kontakt. Javni model/katalog readovi kojima identitet nije potreban mogu direktno da koriste Convex query.
 
 ### 4.3 Garaža
 
@@ -180,13 +187,17 @@ Nikada ne dodaj sponzorisani model automatski u garažu. `Pogledaj` i `Dodaj u g
 - `interest` je Starter+.
 - `test_drive` je samo Advanced.
 - Probna vožnja je zahtev; nema izbora termina.
+- Osnovno pravilo je ime i najmanje jedan od `email`/`phone`. Konfiguracija modela može za probnu vožnju zahtevati email, telefon ili oba; preferirani kanal bez oznake `required` nije obavezan.
 - Posetilac mora eksplicitno da prihvati jednu saglasnost. Ako odbije, kontakt se ne čuva i email se ne šalje.
+- Aktivna saglasnost imenuje ScanMe i konkretan business/izlagača kome se podaci prosleđuju.
 - Kontakt ide ScanMe timu; izlagač nema panel.
 - Posetilac dobija jednu neposrednu potvrdu.
-- Advanced može imati jedan poslesajamski follow-up.
-- Kontakt podaci se zadržavaju najduže do 15 dana posle završetka drugog sajma.
+- Advanced može imati jedan poslesajamski follow-up, zakazan 24–48 sati nakon relevantnog događaja.
+- Potvrda navodi da korisnik odgovorom na ScanMe email može otkazati taj follow-up. Admin suppression se proverava neposredno pre slanja.
+- Leadovi moraju biti isporučeni do 15. novembra 2026.
+- Svi PII i visitor-linkable source redovi trajno se brišu 16. novembra 2026. Nema dodatnog grace perioda niti lokalne PII arhive.
 
-Finalni pravni tekst, uloge rukovaoca/obrađivača, duže čuvanje dokaza saglasnosti i bezbedan transport izlagaču još nisu zaključani. Implementiraj polja i purge seam, ali ne izmišljaj pravni tekst niti puštaj lead tok u produkciju dok vlasnik ne odobri P0 legalne odluke.
+ScanMe priprema pravni nacrt, ali lead tok ne ide u produkciju dok finalna saglasnost/politika ne prođu stručnu proveru. Tehnički model je: ScanMe prikuplja i prosleđuje kontakt imenovanom izlagaču, koji je posle predaje odgovoran za svoje dalje korišćenje. Bezbedan kanal i primalac izvoza konfigurišu se po izlagaču.
 
 ## 5. Predloženi model podataka
 
@@ -201,9 +212,9 @@ Polja:
 - `code`, `slug`, `title`, `venueName`, `timezone` (`Europe/Belgrade`)
 - `startsAt`, `endsAt`, `status: draft | published | live | ended | archived`
 - `garagePriority`
-- opciono `scanWindowStartsAt`, `scanWindowEndsAt`
-- opciono `piiRetentionEndsAt`
-- opciono `minimumPublicVoteCount`; dok nije eksplicitno podešen, javni procenti ostaju potisnuti
+- `piiPurgeAt` sa zaključanom vrednošću 16. novembar 2026. za oba događaja
+- `minimumPublicVoteCount: 5`
+- `robotsIndexable: false` za V1
 - `createdAt`, `updatedAt`
 
 Indeksi:
@@ -217,29 +228,36 @@ Indeksi:
 - `eventId`, `dateKey` (`YYYY-MM-DD` u event zoni), `label`, `startsAt`, `endsAt`, `sortOrder`
 - indeks `by_eventId_and_dateKey`
 
-#### `fairExhibitors`
+#### Postojeći klijent i `fairParticipations`
 
-- `externalKey`, `displayName`, opciono interni kontakt i email za dostavu izveštaja
-- `status`, `createdAt`, `updatedAt`
-- indeksi `by_externalKey`, `by_status`
+Ne uvodi `fairExhibitors`. Izlagač je postojeći `account` + `business` + `accountContact`, a brend je postojeći `brands` zapis.
 
-#### `fairBrands`
+Aditivno proširi account/admin projekcije nezavisnim poljem:
 
-- `externalKey`, `name`, `slug`, opciono `logoStorageId`/`logoUrl`
-- `passportEnabled`, `createdAt`, `updatedAt`
-- indeksi `by_externalKey`, `by_slug`
+- `clientSegment: standard | event_only` — opciono u widen fazi; odsutno znači `standard` radi kompatibilnosti;
+- redovni Clients upiti isključuju `event_only`, dok ih `Događaji` čita kroz event projekciju;
+- admin akcija `convertEventClientToStandard` patchuje isti account/projekciju i ostavlja business, kontakt, QR i istoriju netaknute.
+
+`fairParticipations`:
+
+- `externalKey`, `eventId`, `accountId`, `businessId`;
+- opciono `primaryContactId`, `reportRecipientEmail`, `leadDeliveryNote`;
+- `status: draft | active | withdrawn`, `createdAt`, `updatedAt`;
+- indeksi `by_eventId_and_externalKey`, `by_eventId_and_businessId`, `by_accountId_and_eventId`.
+
+Jedan business može učestvovati na oba događaja kroz dva participation reda. Logo i identitet brenda dolaze iz postojeće `brands` tabele; event-specifična podešavanja pasoša pripadaju participation/event konfiguraciji, ne duplom globalnom brendu.
 
 #### `fairStands`
 
-- `eventId`, `exhibitorId`, `externalKey`, `code`, `displayName`, `mapLocationId`, `status`
+- `eventId`, `participationId`, `externalKey`, `code`, `displayName`, `mapLocationId`, `status`
 - `createdAt`, `updatedAt`
-- indeksi `by_eventId_and_externalKey`, `by_eventId_and_exhibitorId`, `by_eventId_and_mapLocationId`
+- indeksi `by_eventId_and_externalKey`, `by_eventId_and_participationId`, `by_eventId_and_mapLocationId`
 
 #### `fairEventModels`
 
 - `externalKey`
-- `eventId`, `exhibitorId`, `brandId`, `standId`
-- `slug`, stabilni `qrCode`
+- `eventId`, `participationId`, postojeći `brandId`, `standId`
+- `slug`
 - `displayName`, opciono `variant`
 - `priceText` sa fallbackom `Cena na upit`
 - `specifications: Array<{ label: string; value: string; order: number }>`
@@ -251,12 +269,22 @@ Indeksi:
 
 Indeksi:
 
-- `by_qrCode`
 - `by_eventId_and_slug`
 - `by_eventId_and_externalKey`
 - `by_eventId_and_standId`
 - `by_eventId_and_brandId`
 - `by_eventId_and_packageTier`
+
+#### `fairQrAssignments`
+
+Povezuje unapred napravljen postojeći QR identitet sa event modelom:
+
+- `eventId`, `eventModelId`, `accessChannelId`, `accessSubjectId`, `cardId`, `resolverCode`;
+- `status: assigned | released`, `assignedAt`, opciono `releasedAt`;
+- `assignedByUserId`, opciono `releasedByUserId`, `reason`;
+- indeksi `by_eventModelId_and_status`, `by_accessChannelId_and_status`, `by_eventId_and_status`.
+
+Dodela/oslobađanje i novi immutable target/history zapis nastaju atomski. Aktivni channel ili model mogu imati najviše jednu aktivnu dodelu.
 
 #### `fairPackageActivations`
 
@@ -264,7 +292,16 @@ Indeksi:
 - `actorUserId`, opciono `note`
 - indeks `by_eventModelId_and_activatedAt`
 
-Aktivacija i audit zapis moraju nastati u istoj mutaciji. `qrCode` i identitet modela se ne menjaju.
+Aktivacija i audit zapis moraju nastati u istoj mutaciji. QR identitet/dodela se ne menjaju pri package upgrade-u.
+
+#### Postojeći QR/access ugovor — aditivna izmena
+
+- Proširi `cardTargetKind` sa `fair_model` i `cardTargets` opcionim `fairEventModelId`; validator mora sprečiti target bez odgovarajućeg ID-a.
+- Access destination priprema/rezolucija dobija event-aware input koji vodi do tog targeta, bez zaobilaženja `accessDestinationHistory`.
+- `/r/[cardCode]` ostaje jedina štampana ulazna ruta i vraća čitljivu event-model destinaciju.
+- Dodela koristi postojeće `cards`, `accessSubjects`, `accessChannels` i `digitalQrCodes` napravljene pod internim account/business inventarom `Sajam automobila 2026 — QR inventar`.
+- Postojeći batch limit je 50: 100 kodova se kasnije, uz eksplicitnu produkcijsku saglasnost, prave u dve proverljive serije od 50.
+- Ne menjaj vlasništvo postojećeg QR asseta pri dodeli modelu. `fairQrAssignments` povezuje inventarski asset sa participation/model kontekstom.
 
 ### 5.2 Identitet i scan događaji
 
@@ -273,16 +310,20 @@ Aktivacija i audit zapis moraju nastati u istoj mutaciji. `qrCode` i identitet m
 - `visitorHash`, `firstSeenAt`, `lastSeenAt`
 - jedinstveni indeks `by_visitorHash`
 
+Ovo je privremeni pseudonimni izvor za unique/upsert ponašanje, ne trajni profil. Redovi se brišu u PII purge-u 16. novembra.
+
 #### `fairScanEvents`
 
 - `requestId`, `visitorId`, `eventId`, `eventModelId`, `standId`, `brandId`
 - `occurredAt`, `dateKey`, `hourKey`
-- `trafficClass: live | test | outside_window | unclassified`
+- `isAdminExcluded`, opciono server-derived `adminUserId`
 - indeksi `by_requestId`, `by_eventModelId_and_occurredAt`, `by_standId_and_occurredAt`, `by_eventId_and_occurredAt`
 
 `requestId` obezbeđuje idempotentnost jednog QR ulaska. Refresh ili novo fizičko skeniranje dobija nov `requestId` i računa se kao novo ukupno skeniranje. React render/retry sa istim `requestId` ne pravi duplikat.
 
-Dok vlasnik ne zaključa pravila scan prozora, dozvoljeno je zapisati događaj kao `unclassified`, ali ga dnevni izveštaj ne sme ćutke uključiti ili isključiti. Pre integracionog testa mora postojati eksplicitna odluka i test tog filtera.
+Sva skeniranja se računaju 24/7 osim kada server iz autentifikovane ScanMe sesije utvrdi da je skener admin. Ne prihvataj javni `isAdmin` boolean. U V1 ne filtriraj fair metrike po radnom vremenu, `deviceCategory`, bot/preview klasifikaciji ili lokaciji. Postojeće generičko ponašanje drugih card metrika ostaje nepromenjeno.
+
+Postojeći `/r/[cardCode]` resolver proširi `fair_model` targetom i event hook-om tako da isti `requestId` u istoj transakciji upiše generički card događaj i najviše jedan fair scan. Ne pravi drugi javni scan endpoint u redirect odredištu. Čitljiva stranica modela beleži `view`, ne scan.
 
 #### `fairUniqueScans`
 
@@ -290,7 +331,7 @@ Dok vlasnik ne zaključa pravila scan prozora, dozvoljeno je zapisati događaj k
 - indeks `by_visitorId_and_eventModelId` mora davati najviše jedan red
 - indeks `by_eventModelId_and_firstScannedAt`
 
-Prvi red za kombinaciju posetilac+model uvećava unique metriku. Svaki validan `fairScanEvents` red uvećava total.
+Prvi neadministratorski red za kombinaciju posetilac+model uvećava unique metriku. Svaki neadministratorski `fairScanEvents` red uvećava total. Admin-excluded događaj može ostati kratkoročni audit za testiranje, ali ne ulazi u metrike i briše se sa ostalim visitor-linkable izvorima.
 
 #### `fairMetricCountShards`
 
@@ -306,13 +347,15 @@ Raw događaji i odgovor/ocena redovi su izvor istine. Shards su čitalačka proj
 #### `fairRatings`
 
 - `visitorId`, `eventId`, `eventModelId`
-- `overall`
+- opciono `overall`
 - opciono `appearance`, `specifications`, `price`
 - `createdAt`, `updatedAt`
 - indeks `by_visitorId_and_eventModelId` (jedna ocena)
 - indeks `by_eventModelId_and_updatedAt`
 
-Starter prihvata samo `overall`. Advanced prihvata overall i odvojene ocene. Ponovni unos patchuje isti red.
+Starter prihvata tačno `overall`. Advanced ne prihvata `overall`, već bilo koju nepraznu kombinaciju `appearance`, `specifications`, `price`; sve tri dimenzije su pojedinačno opcione. Ne računaj izvedeni overall. Ponovni unos patchuje isti red i korektno ažurira agregate samo za poslate dimenzije.
+
+Javna projekcija rezultata ima prag 5. Ispod praga vraća korisnikovu ocenu i status `waiting_for_minimum`, ali ne otkriva zbirni prosek. Advanced detaljni agregati su analitika za izlagača, ne automatski javni trodimenzionalni dashboard.
 
 #### `fairAudienceQuestions`
 
@@ -325,6 +368,8 @@ Starter prihvata samo `overall`. Advanced prihvata overall i odvojene ocene. Pon
 - indeksi `by_eventModelId_and_eventDayId`, `by_eventDayId_and_status`
 
 Admin publish mutacija proverava dnevni entitlement: Starter najviše 1, Advanced najviše 5. Na dan nadogradnje već postojeće pitanje se računa u limit 5.
+
+Samo jedno pitanje po Advanced modelu može biti ručno označeno za map/display rezultat. Javni rezultat se otkriva od 5 glasova; ispod praga projekcija vraća `Glasanje je u toku` stanje bez procenta.
 
 Kada published pitanje dobije prvi glas, njegov prompt i opcije su nepromenljivi. Ispravka koja menja smisao pravi novo pitanje/ID i počinje od nule; stari rezultat ostaje u istoriji.
 
@@ -345,13 +390,15 @@ Promena glasa patchuje red i pomera brojače sa stare na novu opciju. Novo pitan
 - `createdAt`, `updatedAt`
 - indeks `by_eventModelId_and_status`
 
+Najviše pet pitanja. U V1 pitanja su opciona, ali submit zahteva najmanje jedan odgovor.
+
 #### `fairSurveyResponses`
 
 - `submissionId`, `visitorId`, `eventId`, `eventModelId`, `surveyId`
 - `answers`, `submittedAt`
 - indeksi `by_submissionId`, `by_surveyId_and_submittedAt`, `by_visitorId_and_surveyId`
 
-Ponašanje ponovnog popunjavanja ankete nije zaključano. Napravi idempotentnost po `submissionId`, ali pre finalne mutacije prijavi da vlasnik treba da odluči da li jedan posetilac može kasnije da menja kompletan odgovor.
+Napravi idempotentnost po `submissionId`. Jedan visitor može finalno poslati jednu verziju ankete za model; nakon uspešnog submit-a odgovor se ne menja. Rezultati nisu javni.
 
 Published verzija ankete koja već ima odgovore ne menja pitanja/opcije u mestu. Nova struktura dobija novu verziju kako stari odgovori ne bi promenili značenje.
 
@@ -366,18 +413,27 @@ Published verzija ankete koja već ima odgovore ne menja pitanja/opcije u mestu.
 
 Klijent šalje samo da je korisnik prihvatio i verziju koju je prikazao. Server učitava aktivnu konfiguraciju i sam upisuje tačan `consentTextSnapshot`; ne veruje proizvoljnom tekstu iz browsera. Dok pravni tekst nije odobren i jedna verzija aktivirana, lead mutacija mora vratiti kontrolisani `CONSENT_NOT_CONFIGURED` i ne sme čuvati PII.
 
+#### `fairLeadConfigs`
+
+- `eventModelId`, `leadKind: interest | test_drive`;
+- `contactRequirement: one_of | email | phone | both`;
+- opciono `preferredContact: email | phone`, bez uticaja na validaciju kada nije required;
+- `enabled`, `updatedByUserId`, `createdAt`, `updatedAt`;
+- jedinstveni indeks `by_eventModelId_and_leadKind`.
+
 #### `fairLeads`
 
 - `submissionId`
 - `kind: interest | test_drive`
-- `visitorId`, `eventId`, `eventModelId`, `exhibitorId`
-- opciono `contactName`, `email`, `phone`; konačna pravila koja kombinacija je obavezna donose se kasnije i sprovode u mutaciji, bez nove migracije šeme
+- `visitorId`, `eventId`, `eventModelId`, `participationId`
+- `contactName`, opciono `email`, `phone`; server proverava aktivni `fairLeadConfigs`
 - `consentAccepted: true`, `consentVersion`, `consentTextSnapshot`, `consentedAt`
-- `status: received | delivered | deleted`
-- `createdAt`, `purgeAt`, opciono `deletedAt`
-- indeksi `by_submissionId`, `by_eventModelId_and_createdAt`, `by_exhibitorId_and_createdAt`, `by_status_and_purgeAt`
+- `status: received | delivered`, opciono `deliveredAt`
+- `followUpSuppressed`, opciono `suppressedAt`, `suppressedByUserId`
+- `createdAt`, `purgeAt` postavljen na 16. novembar 2026.
+- indeksi `by_submissionId`, `by_eventModelId_and_createdAt`, `by_participationId_and_createdAt`, `by_status_and_purgeAt`
 
-`submissionId` je idempotency key. Mutacija u istoj transakciji proverava entitlement, upisuje lead i zakazuje potvrdu. Ne dozvoli `consentAccepted: false` kao sačuvan lead.
+`submissionId` je idempotency key. Mutacija u istoj transakciji proverava entitlement, contact requirement i aktivnu saglasnost, upisuje lead i zakazuje potvrdu. Ne dozvoli `consentAccepted: false` kao sačuvan lead.
 
 #### `fairMessageTemplates`
 
@@ -398,6 +454,8 @@ Izlagač može da dostavi follow-up tekst, ali ga unosi ScanMe admin. Nijedan pr
 
 Slanje radi Node `internalAction` preko postojećeg Resend seam-a. Svaka poruka ima stabilni Resend `Idempotency-Key`. Ne šalji direktno iz mutacije. Mutacija kreira outbox/delivery red i scheduler pokreće action.
 
+Follow-up se zakazuje jednom 24–48 sati nakon relevantnog događaja. Neposredno pre slanja ponovo učitaj lead i odbaci slanje ako je `followUpSuppressed`. Reply-based zahtev za otkazivanje ScanMe admin evidentira kroz authz-protected suppression mutaciju. Nema newsletter unsubscribe stanja jer nema narednih kampanja.
+
 Potrebno je pre oslanjanja na email dokazati u ciljnom DEV deploymentu da postoje `RESEND_API_KEY` i `RESEND_FROM_EMAIL`, bez ispisivanja njihovih vrednosti.
 
 ### 5.5 Pasoš brenda
@@ -408,7 +466,9 @@ Potrebno je pre oslanjanja na email dokazati u ciljnom DEV deploymentu da postoj
 - indeks `by_visitorId_and_eventId_and_brandId`
 - indeks `by_visitorId_and_eventModelId`
 
-Scan modela idempotentno dodaje pečat samo ako je model `passportEligible`. Ne oslanjaj se na broj scan događaja.
+Dodaj `fairPassportConfigs` i zasebne bounded `fairPassportEligibleModels` redove. Pasoš se može objaviti samo ako brend ima najmanje dva modela i svi tada izloženi modeli imaju Starter ili Advanced. Eligible skup se zamrzava pre otvaranja. Hitna admin mutacija sme da ukloni povučeni model bez brisanja postojećih pečata.
+
+Scan modela idempotentno dodaje pečat samo ako je model u objavljenom eligible skupu. Ne oslanjaj se na broj scan događaja.
 
 #### `fairBrandFavoriteVotes`
 
@@ -417,27 +477,48 @@ Scan modela idempotentno dodaje pečat samo ako je model `passportEligible`. Ne 
 - indeks `by_visitorId_and_eventId_and_brandId` (jedan promenljiv favorit)
 - indeks `by_eventId_and_brandId`
 
-Favorite se može postaviti tek kada backend utvrdi da je posetilac skenirao sve trenutno zaključane eligible modele brenda. Pravilo šta se dešava ako se lista eligible modela naknadno promeni još je otvoreno; zato ne menjaj eligible set usred live događaja bez vlasničke odluke.
+Favorite se može postaviti tek kada backend utvrdi da je posetilac skenirao sve zaključane eligible modele brenda. Javni zbirni favorite rezultat ima prag 5; ispod njega vrati korisnikov izbor i `waiting_for_minimum` bez procenta.
 
 ### 5.6 Izveštaji i retention
 
 #### `fairReportRuns`
 
-- `eventId`, `eventDayId`, `exhibitorId`
-- `status: queued | building | ready | sent | failed`
-- `dataThrough`, opciono `storageId`, `recipient`, `providerMessageId`, `error`
+- `eventId`, `eventDayId`, `participationId`
+- `status: queued | building | pending_review | approved | sent | failed`
+- `dataThrough`, `format: pdf | xlsx | csv`, opciono `storageId`, `recipient`, `providerMessageId`, `error`
+- opciono `reviewedByUserId`, `reviewedAt`, `approvedByUserId`, `approvedAt`, `correctionOfReportRunId`
 - `createdAt`, `updatedAt`
-- indeks `by_eventDayId_and_exhibitorId`, `by_status_and_createdAt`
+- indeks `by_eventDayId_and_participationId`, `by_status_and_createdAt`
 
-V1 obećava dnevni presek, ne novi „završni izveštaj”. Nije obavezno da backend dizajnira lep PDF. Mora da isporuči tačan, tipiziran dnevni dataset/CSV ili tabelu iz koje drugi tok može napraviti PDF. Izveštaj ne sme da meša izlagače.
+Dataset mora biti spreman do 60 minuta nakon kraja dana, sa dnevnim i satnim scanovima i od drugog dana kratkim poređenjem sa prethodnim. Generisanje je automatsko, ali slanje je zabranjeno pre ručnog pregleda i odobrenja. Podrži PDF i XLSX/CSV, resend i korigovanu verziju. PII lead export je zaseban artefakt; organizer export je agregatan bez PII i poverljivih survey redova. Izveštaj ne sme da meša participation/business podatke.
 
 Retention posao:
 
-- radi u ograničenim batch-evima preko `by_status_and_purgeAt`;
-- briše/anonymizuje PII prema finalnoj pravnoj odluci;
-- ne briše agregatne ne-PII metrike;
-- vodi minimalan operativni audit bez čuvanja kontakta u poruci greške;
-- za sada se ne aktivira u produkciji dok nije zaključano da li dokaz saglasnosti živi duže od kontakta.
+- automatski počinje 16. novembra 2026. i radi u ograničenim batch-evima;
+- pre produkcije mora imati DEV dry-run/preview i fixture-proven test, ali izvršenje na zaključani datum ne čeka naknadni grace period;
+- hard-deleteuje `fairLeads`, PII email delivery/outbox redove, consent snapshotove, suppression, `fairVisitors` i sve visitor-linkable raw scan/rating/vote/survey/passport/favorite redove;
+- redosled batch-eva mora sačuvati referencijalnu mogućnost brisanja i završiti bez orphan PII;
+- ne briše nepovratno anonimizovane count/sum agregate i report agregate bez PII;
+- vodi samo operativni audit: start, kraj, kategorija, broj obrisanih redova i status, bez identifikatora/contact vrednosti;
+- mora biti bezbedan za retry i nastaviti od poslednjeg završenog batch-a.
+
+### 5.7 Sponzorisani snapshot i konverzije
+
+#### `fairSponsoredSnapshots` i `fairSponsoredSnapshotItems`
+
+- snapshot: `eventId`, `version`, `dayKey`, `seed`, `status: draft | published | retired`, `publishedAt`, `publishedByUserId`;
+- item: `snapshotId`, `eventModelId`, `order`, opciono `audienceQuestionId`;
+- objavljivanje ručno formira novu immutable listu svih trenutno published Advanced modela, stabilno izmešanu po dayKey/seed-u;
+- indeksi moraju omogućiti jedan aktivni snapshot po eventu i bounded čitanje itema po redu.
+
+#### `fairSponsoredEvents`
+
+- `requestId`, `eventId`, `eventModelId`, `surface: map | display | garage`;
+- `kind: impression | view | garage_add`, `occurredAt`, `dateKey`, `hourKey`;
+- opciono `visitorId` za dedupe/upis pre purge-a;
+- indeksi po requestId, modelu/vremenu i eventu/vremenu.
+
+Impression, `Pogledaj` i `Dodaj u garažu` su odvojene konverzije i nikada ne pozivaju QR scan pipeline. Posle PII purge-a ostaju samo agregati.
 
 ## 6. Tipizirani ugovor koji frontend čeka
 
@@ -453,6 +534,8 @@ Pre frontend integracije napravi `lib/fair-contract.ts` kao čist TypeScript mod
 - `FairPassportState`
 - `FairSponsoredModelCard`
 - `FairLeadKind`
+- `FairClientSegment`
+- `FairReportStatus`
 - stabilne error code unije
 
 `FairPublicModel` najmanje sadrži:
@@ -462,13 +545,13 @@ type FairPublicModel = {
   id: string;
   eventId: string;
   eventSlug: string;
+  participationId: string;
   exhibitorName: string;
   brandId: string;
   brandName: string;
   standId: string;
   standMapLocationId: string;
   slug: string;
-  qrCode: string;
   displayName: string;
   variant?: string;
   priceText: string;
@@ -478,7 +561,7 @@ type FairPublicModel = {
 };
 ```
 
-Capabilities dolaze sa servera, npr. `canRate`, `canSubmitInterest`, `canRequestTestDrive`, `hasAudienceQuestions`, `hasSurvey`, `isSponsored`. Frontend ne poredi string paketa da bi sam zaključio prava.
+Capabilities dolaze sa servera, npr. `ratingMode: none | overall | dimensions`, `canSubmitInterest`, `canRequestTestDrive`, `hasAudienceQuestions`, `hasSurvey`, `isSponsored`. Frontend ne poredi string paketa da bi sam zaključio prava.
 
 Ne stavljaj korisnički tekst greške u ugovor. Vrati stabilan code (`FAIR_MODEL_NOT_FOUND`, `FEATURE_NOT_ENTITLED`, `CONSENT_REQUIRED`, `RATE_LIMITED`, `SUBMISSION_DUPLICATE`, `EVENT_NOT_ACTIVE`) i detalje koji nisu PII; frontend ih mapira kroz typed i18n sloj.
 
@@ -491,7 +574,6 @@ Tačna imena mogu minimalno da se prilagode postojećem stilu, ali odgovornosti 
 Public, read-only, bez PII:
 
 - `getEventBySlug`
-- `getModelByQrCode`
 - `getModelBySlug`
 - `getModelsByIds` — bounded, npr. maksimalno 50 ID-eva za lokalnu garažu
 - `listAudienceQuestionsForModel`
@@ -500,18 +582,20 @@ Public, read-only, bez PII:
 - `getSponsoredGarageRotation`
 - `getPassportCatalog`
 
-Sponzorisane projekcije vraćaju samo published Advanced modele. Redosled treba da bude stabilan i ravnopravan; frontend može animirati rotaciju. Slot trajanje je otvoreno i ne pripada backend poslovnoj logici.
+Sponzorisane projekcije vraćaju samo modele iz ručno objavljenog Advanced snapshot-a, sa seed/version/epoch vrednostima potrebnim za dnevno stabilan ravnopravan round-robin. Mapa koristi slot 12s, garaža 8s. Backend vraća fallback logo/event placeholder kada fotografija nedostaje i podatak za ručno izabrani audience rezultat ili `Glasanje je u toku` stanje.
 
 ### `convex/fairInteractions.ts`
 
 Public write površina bez PII čitanja:
 
-- `recordQrScan`
 - `getMyModelState` ili server-gateway ekvivalent
 - `upsertRating`
 - `upsertAudienceVote`
 - `submitSurvey`
 - `upsertBrandFavorite`
+- `recordSponsoredEvent`
+
+QR scan nije zasebna javna funkcija ove datoteke: postojeći `cards.resolveAndRecord` dobija minimalni fair hook i isti requestId. Time se fizički scan ne može slučajno duplirati sa model page load-om.
 
 Svaka mutacija:
 
@@ -532,6 +616,7 @@ Visitor-specifično čitanje (`getMyModelState`, moj glas, moja ocena, moj paso�
 - Node internal action za slanje potvrde
 - internal zakazivanje i slanje Advanced follow-upa
 - internal/admin export leadova po izlagaču i eventu, paginiran
+- admin suppression follow-upa pre zakazanog slanja
 
 Kontakt se nikad ne vraća javnoj query funkciji. Nemoj dozvoliti da anonimni visitor hash služi kao ključ za čitanje kontakta.
 
@@ -539,25 +624,30 @@ Kontakt se nikad ne vraća javnoj query funkciji. Nemoj dozvoliti da anonimni vi
 
 Sve funkcije zahtevaju `requireAdmin`:
 
-- upsert event/day/exhibitor/brand/stand/model
+- upsert event/day/participation/stand/model uz link ka postojećem account/business/contact/brand zapisu
+- create/list event-only klijenta i `convertEventClientToStandard` bez kopiranja podataka
+- list/manage QR inventory, atomski assign/release QR-a i resolve test
 - publish/withdraw model
 - upgrade package
 - upsert/publish/close audience question
 - upsert/publish survey
 - set sponsored-result question
+- publish sponsored snapshot nakon ručne izmene Advanced liste
 - dry-run i commit import
 - list validation issues
-- trigger/retry report i email poslove
+- build/review/approve/send/retry report i email poslove
+- preview retention obuhvata bez vraćanja PII u log
 
 Admin mutacije moraju biti idempotentne preko `externalKey`/stabilnih ključeva i ne smeju menjati QR kod postojećeg modela.
 
 ### `convex/fairAnalytics.ts` i `convex/fairReports.ts`
 
 - internal/admin bounded metric queries po eventu, izlagaču, štandu, modelu, danu i satu
-- daily dataset po izlagaču
+- daily dataset po participation/business-u
 - Advanced detalji za ratings/votes/survey/test-drive
 - Starter ne dobija Advanced kolone kao lažne nule; projekcija jasno označava koja prava postoje
-- report build/send orkestracija
+- report build/review/approve/send orkestracija; send odbija sve osim `approved`
+- organizer aggregate bez PII i poverljivih survey odgovora
 
 ## 8. Interni import format
 
@@ -569,10 +659,12 @@ Minimalna struktura:
 {
   "version": 1,
   "eventCode": "...",
-  "exhibitors": [
+  "participations": [
     {
       "externalKey": "...",
-      "displayName": "...",
+      "accountExternalKey": "...",
+      "businessExternalKey": "...",
+      "clientSegment": "event_only",
       "reportEmail": "...",
       "brands": [
         {
@@ -590,6 +682,7 @@ Minimalna struktura:
               "variant": "...",
               "priceText": "...",
               "packageTier": "included",
+              "assignedResolverCode": "...",
               "specifications": [
                 { "label": "Snaga", "value": "...", "order": 1 }
               ],
@@ -608,12 +701,12 @@ Import mora imati:
 
 - `dryRun` koji vraća greške i upozorenja bez upisa;
 - `commit` koji radi idempotentni upsert po event+externalKey;
-- hard error za dupli `qrCode`, slug ili externalKey u eventu;
+- hard error za nepostojeći/konfliktni account-business-brand link, dupli aktivni QR assignment, slug ili externalKey u eventu;
 - upozorenje/fallback kada cena ili fotografija nedostaju;
 - validaciju da stand mapLocationId postoji u ugovoru sa mapom pre finalnog publish-a;
 - nikada automatsko izmišljanje specifikacije, cene ili fotografije.
 
-QR kod generiši jednom pri prvom kreiranju modela iz nepredvidivog stabilnog koda. Import izmene ga ne menjaju.
+Import ne generiše novi paralelni QR kod. `assignedResolverCode` mora da referencira postojeći slobodan channel/card iz event QR inventara. Kasnija izmena modela ne menja resolver kod; eventualna reassignment akcija ostavlja audit istoriju.
 
 ## 9. Rate-limit i zaštita od duplikata
 
@@ -640,6 +733,8 @@ Zaštita od duplikata nije isto što i rate-limit:
 ## 10. Analitika — definicije koje testovi moraju da zaključaju
 
 - 10 scanova istog QR-a istog visitora = 10 total, 1 unique.
+- Autentifikovani scan Alekse/Jovana/Teodore = 0 total i 0 unique u fair metrici; javni boolean ne može da aktivira ovo izuzeće.
+- Svaki drugi scan se računa 24/7, bez event-hour ili bot filtera.
 - Isti visitor drugi model = novi unique za taj model.
 - Isti visitor isti model na drugom eventu = drugi event-model, dakle zaseban unique.
 - Identičan `requestId` retry = bez novog total ili unique.
@@ -648,11 +743,11 @@ Zaštita od duplikata nije isto što i rate-limit:
 - Promena audience glasa smanjuje staru i povećava novu opciju; total broj glasača ostaje isti.
 - Lead nastao pre upgrade-a se ne pretvara retroaktivno u Advanced lead.
 - Scan pre upgrade-a ostaje vidljiv u kasnijoj model analytics projekciji.
-- Besplatni nivo dobija samo zbir štanda, ne redove po modelu.
+- Besplatni nivo dobija zbir ukupnih i jedinstvenih skeniranja štanda, ne redove po modelu.
 - Starter dobija model analytics i dnevni presek.
 - Advanced dobija sve Starter podatke plus svoje dodatne interaction podatke.
 
-Preporuka: prikupljaj `dateKey` i `hourKey` od početka. Time je satna raspodela skoro besplatna za kasniju odluku, ali je ne obećavaj u javnom izveštaju dok vlasnik ne potvrdi.
+`dateKey` i `hourKey` se prikupljaju od početka. Dnevni izveštaj uključuje satnu raspodelu i od drugog dana kratko poređenje sa prethodnim danom.
 
 ## 11. Redosled implementacije i checkpoint-i
 
@@ -664,16 +759,18 @@ Isporuka:
 - `lib/fair-entitlements.ts`
 - fair validatori
 - tabele i indeksi
+- aditivni `clientSegment`, admin projection i `fair_model` QR target ugovori
 - schema/entitlement testovi
 - kratak `FAIR-BACKEND-CONTRACT.md` generisan/održavan iz stvarne funkcijske površine
 
 Checkpoint: commituj i pushuj pre business mutacija, da frontend može da krene prema stabilnim tipovima.
 
-### B1 — katalog, import i admin komande
+### B1 — postojeći klijenti, katalog, import i admin komande
 
-- event/day/exhibitor/brand/stand/model CRUD za admina
+- event/day/participation/stand/model CRUD povezan sa postojećim account/business/contact/brand zapisima
+- event-only filtriranje i konverzija u standard klijenta
 - dry-run/commit import
-- stabilni QR identitet
+- inventar, atomska QR dodela/release i stabilni `/r/[cardCode]` identitet
 - package upgrade + audit istorija
 - publish validation
 
@@ -681,7 +778,8 @@ Checkpoint: commituj i pushuj pre business mutacija, da frontend može da krene 
 
 - server hash gateway
 - visitor upsert
-- idempotent total/unique scan
+- minimalna izmena postojećeg resolvera: jedan requestId, generički + fair zapis bez dupliranja
+- server-derived admin exclusion i idempotent total/unique scan 24/7
 - passport stamp
 - scan metric projections
 - javni model resolver
@@ -707,7 +805,9 @@ Checkpoint: commituj i pushuj pre business mutacija, da frontend može da krene 
 - mapa/displej Advanced lista
 - rezultat iz eksplicitno izabranog pitanja
 - garaža Advanced lista
-- ravnopravni stabilni redosled; animacija i timing ostaju frontend
+- ručno objavljen immutable snapshot, dnevno stabilan ravnopravan redosled
+- 12s mapa/display i 8s garaža preko zajedničkog epoch ugovora; animacija ostaje frontend
+- impression/view/garage_add događaji odvojeni od QR skena
 
 ### B6 — analitika i dnevni dataset
 
@@ -715,10 +815,11 @@ Checkpoint: commituj i pushuj pre business mutacija, da frontend može da krene 
 - dnevni/satni segmenti
 - export po izlagaču
 - report run lifecycle
+- ručni review/approve gate pre slanja, correction/resend i odvojeni PII export
 
 ### B7 — retention, hardening i integracioni dokaz
 
-- bounded purge seam
+- bounded retry-safe purge svih PII i visitor-linkable source redova 16. novembra
 - authz pregled svih public funkcija
 - performance/read-limit pregled
 - end-to-end test sa realističnim seed-om oba eventa
@@ -745,15 +846,19 @@ Najmanje pokriti:
 - raw token se ne pojavljuje u tabelama;
 - visitor upsert po hash-u;
 - request retry je idempotentan;
+- postojeći `/r/[cardCode]` upisuje najviše jedan fair scan uz isti generički scan;
+- admin session je isključena bez javnog override-a;
+- non-admin scanovi se računaju van radnog vremena i bez bot filtera;
 - total/unique definicije;
 - dva event-modela istog komercijalnog modela su razdvojena;
 - passport stamp se ne duplira.
 
 ### Interakcije
 
-- rating upsert i detaljne ocene samo Advanced;
+- Starter rating prihvata samo overall; Advanced prihvata samo tri opcione dimenzije i nikad overall;
 - vote upsert i tačan counter delta;
-- survey samo Advanced;
+- javni rezultati ostaju skriveni do 5 glasova, uz očuvan sopstveni odgovor;
+- survey samo Advanced, najviše 5 pitanja, najmanje jedan odgovor i bez izmene posle submit-a;
 - favorite tek po kompletiranom pasošu;
 - pokušaj funkcije bez entitlementa vraća stabilan code, bez parcijalnog upisa.
 
@@ -764,15 +869,19 @@ Najmanje pokriti:
 - submission retry ne duplira lead ni email;
 - immediate potvrda tačno jednom;
 - follow-up samo za Advanced i tačno jednom;
+- suppressed lead ne dobija follow-up;
 - public funkcije ne vraćaju kontakte;
-- purge batch ne prelazi limit i ne dira ne-PII metrike.
+- purge batch ne prelazi limit, briše sve PII/visitor-linked izvore i ne dira ne-PII agregate.
 
 ### Izveštaji i izolacija
 
 - izlagač A nikada ne dobija model/lead/odgovor izlagača B;
-- included vidi samo stand total;
+- event-only klijent nije u standard Clients listi, a konverzija ne duplira nalog/business/kontakt/QR;
+- included vidi samo stand total i unique;
 - Starter/Advanced projekcije odgovaraju ugovoru;
 - day/event granice koriste `Europe/Belgrade`, ne lokalnu zonu servera;
+- report send odbija `pending_review`, a prihvata samo ručno `approved`;
+- sponzorisani snapshot prikazuje svaki Advanced model jednom pre ponavljanja i sve display instance računaju isti slot;
 - query pagination/cap ponašanje na većem seed-u.
 
 ## 13. Verifikacija pre svakog push-a
@@ -810,6 +919,7 @@ Za svaki checkpoint izvesti:
 Backend nije spreman za produkciju dok sve ispod nije dokazano:
 
 - realni QR svakog test modela otvara tačan published model;
+- `/r/[cardCode]` ne duplira fair scan i ostaje retargetable bez ponovne štampe;
 - package capabilities server vraća tačno;
 - total/unique scan test prolazi;
 - rating/vote izmene ne dupliraju podatke;
@@ -818,8 +928,11 @@ Backend nije spreman za produkciju dok sve ispod nije dokazano:
 - email retry ne šalje duplikate;
 - dnevni dataset ne meša izlagače;
 - Advanced sponsored projekcije sadrže samo validne published modele;
+- izveštaj ne može da se pošalje pre ručnog odobrenja;
+- purge dry-run/test dokazuje potpuno brisanje PII uz očuvanje anonimnih agregata;
 - javne funkcije ne otkrivaju PII ni admin podatke;
 - realan mobile scan tok testiran je bar jednom pre otvaranja hale;
+- seed za test 8. oktobra pokriva oba eventa, najmanje 2 izlagača, 10 modela i sva 3 paketa na Androidu, iPhoneu i display rezoluciji;
 - produkcijski deployment je posebno odobren.
 
 ## 15. Otvorene odluke koje agent ne sme da izmisli
@@ -827,28 +940,25 @@ Backend nije spreman za produkciju dok sve ispod nije dokazano:
 ### Blokiraju produkciju leadova
 
 1. Konačni tekst saglasnosti i privacy policy.
-2. Rukovalac/obrađivač po toku.
-3. Minimalna obavezna kontakt polja.
-4. Da li se dokaz saglasnosti zadržava duže od kontakta.
-5. Bezbedan način dostave PII izlagaču.
-6. Follow-up vreme, unsubscribe i retry pravila.
+2. Bezbedan kanal i tačni primaoci PII izvoza po izlagaču.
+3. Finalni tekst immediate potvrde i jednog follow-upa.
 
-### Blokiraju finalni javni rezultat, ne osnovnu šemu
+### Ne blokiraju B0–B3, ali moraju biti popunjene pre stvarnog sadržaja
 
-1. Minimalan broj glasova pre javnog procenta.
-2. Koje pitanje/rezultat se prikazuje uz Advanced model na mapi.
-3. Fallback kada nema dovoljno glasova ili slike.
-4. Pravilo scanova pre/posle zvaničnog prozora i operativnih testova.
-5. Da li survey odgovor može da se promeni.
-6. Passport uslov paketa i ponašanje pri promeni eligible modela.
-7. Tačan format/vreme dnevnog preseka i da li se javno obećava satna raspodela.
+1. Stvarni account/business/contact/brand linkovi izlagača.
+2. Modeli, specifikacije, cene, fotografije i paketi.
+3. Pitanja Glasa publike, ankete i ručno izabrani sponsored rezultat.
+4. Vizuelni template PDF/XLSX izveštaja.
 
-Za ove tačke pripremi konfigurabilna polja/seam gde je jeftino, ali nemoj birati vrednost niti javni tekst. Dodaj ih u status izveštaj vlasniku.
+Za sadržajne tačke pripremi validiran import/admin seam, ali ne izmišljaj podatke niti javni tekst. Dodaj nedostajuće stavke u status izveštaj vlasniku.
 
 ## 16. Zabranjeno
 
 - Nema visitor naloga, prijave, fingerprintinga ili identifikacije emailom/telefonom.
 - Nema exhibitor dashboarda ili naloga.
+- Nema `fairExhibitors` duplikata postojećih account/business/contact klijenata.
+- Nema novog paralelnog QR resolvera, sajamskog QR tokena ili scan endpointa koji zaobilazi `/r/[cardCode]`.
+- Nema duplog brojanja jednog fizičkog resolver requesta.
 - Nema izbora termina probne vožnje.
 - Nema glasanja na mapi.
 - Nema automatskog dodavanja modela u garažu.
@@ -866,11 +976,12 @@ Za ove tačke pripremi konfigurabilna polja/seam gde je jeftino, ali nemoj birat
 Pošto pročitaš sve reference, uradi samo B0:
 
 1. potvrdi postojeće stanje grane/deploymenta;
-2. napravi čist tipizirani ugovor i centralni entitlement katalog;
-3. dodaj fair tabele/indekse i validatore bez seeda/migracije live podataka;
-4. napiši schema/entitlement testove;
-5. pokreni verifikacije;
-6. commituj kao mali checkpoint i pushuj svoju backend granu;
-7. pošalji vlasniku funkcijsku/tabelarnu površinu i sve konflikte ili otvorene odluke.
+2. napravi čist tipizirani ugovor i centralni entitlement katalog, uključujući Advanced rating zamenu;
+3. dizajniraj aditivni `clientSegment`, fair participation model, QR assignment i `fair_model` target bez duplih klijenata ili QR sistema;
+4. dodaj fair tabele/indekse i validatore bez seeda/migracije live podataka;
+5. napiši schema/entitlement testove;
+6. pokreni verifikacije;
+7. commituj kao mali checkpoint i pushuj svoju backend granu;
+8. pošalji vlasniku funkcijsku/tabelarnu površinu i sve konflikte ili otvorene odluke.
 
 Ne prelazi na B1 dok vlasnik/integracioni tok ne pregleda B0 ugovor. Ovo je namerna kontrolna tačka: frontend i ostatak backenda zavise od istih tipova i prava.
