@@ -13,6 +13,7 @@
 
 import { fmt, srPluralCategory } from "./format";
 import type { DictBySurface, Surface } from "./types";
+import { eventMapSr } from "./sr/event-map";
 import { venueSr } from "./sr/venue";
 import { venueEditorSr } from "./sr/venue-editor";
 import { venueAdminSr } from "./sr/venue-admin";
@@ -50,6 +51,7 @@ export type {
   Locale,
   Surface,
   DictBySurface,
+  EventMapDict,
   VenueDict,
   VenueEditorDict,
   VenueAdminDict,
@@ -84,6 +86,7 @@ export type {
 } from "./types";
 export {
   venueSr,
+  eventMapSr,
   venueEditorSr,
   venueAdminSr,
   venuePanelSr,
@@ -117,6 +120,7 @@ export {
 };
 
 const SR: DictBySurface = {
+  "event-map": eventMapSr,
   "admin-v1": adminV1Sr,
   "admin-settings": adminSettingsSr,
   "admin-search": adminSearchSr,

@@ -60,7 +60,13 @@ function settleSignal(section: HTMLElement, index: number) {
   });
 }
 
-export function ScanStory() {
+export function ScanStory({
+  title = "Od fizičkog predmeta do korisne akcije.",
+  compact = false,
+}: {
+  title?: string;
+  compact?: boolean;
+} = {}) {
   const sectionRef = useRef<HTMLElement>(null);
   const hasPlayedIntroRef = useRef(false);
   const hasInteractedRef = useRef(false);
@@ -304,12 +310,25 @@ export function ScanStory() {
       id="kako-radi"
       className="landing-glass-section relative border-y border-foreground/10"
     >
-      <div data-reveal-group className="mx-auto max-w-[1440px] px-4 py-24 sm:px-6 lg:px-10 lg:py-28">
-        <h2 className="max-w-[14ch] text-4xl font-semibold leading-[0.98] tracking-[-0.055em] sm:text-5xl lg:text-6xl">
-          Od fizičkog predmeta do korisne akcije.
+      <div
+        data-reveal-group
+        className={
+          compact
+            ? "mx-auto max-w-[1440px] px-4 py-16 sm:px-6 lg:px-10 lg:py-16"
+            : "mx-auto max-w-[1440px] px-4 py-24 sm:px-6 lg:px-10 lg:py-28"
+        }
+      >
+        <h2
+          className={
+            compact
+              ? "max-w-[22ch] text-4xl font-semibold leading-[0.98] tracking-[-0.055em] sm:text-5xl lg:text-5xl"
+              : "max-w-[14ch] text-4xl font-semibold leading-[0.98] tracking-[-0.055em] sm:text-5xl lg:text-6xl"
+          }
+        >
+          {title}
         </h2>
 
-        <div className="mt-14 lg:hidden">
+        <div className={compact ? "mt-10 lg:hidden" : "mt-14 lg:hidden"}>
           <StoryPanel id="scan-story-panel-mobile" index={contentIndex} reducedMotion={reduce} mobile />
 
           <div className="mt-9" role="group" aria-label="Koraci ScanMe procesa">
@@ -337,7 +356,13 @@ export function ScanStory() {
           </div>
         </div>
 
-        <div className="mt-20 hidden grid-cols-[0.9fr_1.3fr] items-center gap-20 lg:grid">
+        <div
+          className={
+            compact
+              ? "mt-12 hidden grid-cols-[0.9fr_1.3fr] items-center gap-14 lg:grid"
+              : "mt-20 hidden grid-cols-[0.9fr_1.3fr] items-center gap-20 lg:grid"
+          }
+        >
           <StoryPanel id="scan-story-panel-desktop" index={contentIndex} reducedMotion={reduce} />
 
           <div className="flex w-full items-center" role="group" aria-label="Koraci ScanMe procesa">

@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { OfferFooter } from "@/components/offer-footer";
 import { PurchaseShell } from "@/components/purchase/purchase-shell";
 import { SiteNav } from "@/components/site-nav";
 import { purchaseSr as dict } from "@/lib/i18n/sr/purchase";
 import { parsePurchaseSelection, type PurchaseSelection } from "@/lib/offer-url";
+import { isProductionPrelaunchOnly } from "@/lib/prelaunch-mode";
 
 export const metadata: Metadata = {
   title: dict.metaTitle,
@@ -18,6 +20,8 @@ const EMPTY_SELECTION: PurchaseSelection = {
 };
 
 export default async function KupovinaPage({ searchParams }: PageProps<"/kupovina">) {
+  if (isProductionPrelaunchOnly()) redirect("/");
+
   const resolved = await searchParams;
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(resolved)) {

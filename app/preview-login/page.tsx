@@ -4,6 +4,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { hasPreviewAccess } from "@/lib/preview-access";
+import { isProductionPrelaunchOnly } from "@/lib/prelaunch-mode";
 import { unlockPreview } from "./actions";
 
 export const metadata: Metadata = {
@@ -16,6 +17,7 @@ export default async function PreviewLoginPage({
 }: {
   searchParams: Promise<{ error?: string }>;
 }) {
+  if (isProductionPrelaunchOnly()) redirect("/");
   if (await hasPreviewAccess()) redirect("/");
   const { error } = await searchParams;
 

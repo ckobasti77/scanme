@@ -1290,18 +1290,19 @@
 
 .priceSummary {
   display: flex;
+  width: 100%;
   min-height: 2.85rem;
   cursor: pointer;
-  list-style: none;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
+  border: 0;
   border-radius: 0.85rem;
+  background: none;
   padding: 0.2rem 0.35rem;
-}
-
-.priceSummary::-webkit-details-marker {
-  display: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
 }
 
 .priceSummaryLabel {
@@ -1334,8 +1335,27 @@
   font-weight: 620;
 }
 
-.priceDetails[open] .priceChevron {
+.priceDetails[data-open="true"] .priceChevron {
   transform: rotate(180deg);
+}
+
+/* Obračun se otvara klizanjem. <details> ovo ne može — visina mu nije
+   animabilna — pa je disclosure sada dugme + ovaj omotač: grid koji ide
+   0fr → 1fr, dok unutrašnji sloj drži overflow. Visinu i dalje diktira
+   sadržaj, bez pogađanja max-height. */
+.priceDrop {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 500ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.priceDetails[data-open="true"] .priceDrop {
+  grid-template-rows: 1fr;
+}
+
+.priceDropInner {
+  min-height: 0;
+  overflow: hidden;
 }
 
 .priceBreakdown {
@@ -2276,7 +2296,8 @@
   .templateOption,
   .customOption,
   .saasChevron,
-  .priceChevron {
+  .priceChevron,
+  .priceDrop {
     transition: none !important;
   }
 }

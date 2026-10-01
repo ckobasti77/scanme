@@ -33,8 +33,8 @@ import "./offer-surface.css";
 const themeScript = `(function(){var t;try{t=localStorage.getItem("scanme-theme")}catch(e){}if(t!=="dark"&&t!=="light")t=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";var r=document.documentElement;r.setAttribute("data-theme",t);r.classList.toggle("dark",t==="dark")})()`;
 
 export const metadata: Metadata = {
-  title: "ScanMe | Dinamički QR kodovi za lokalne biznise",
-  description: "ScanMe dizajnira, priprema i održava QR rešenja koja fizičke materijale pretvaraju u Google recenzije, ponude i rezervacije.",
+  title: "ScanMe | Digitalni partner Sajma automobila",
+  description: "ScanMe povezuje fizički prostor sa digitalnim uslugama, interakcijama i korisnim uvidima. Digitalni partner Sajma automobila u Nišu 2026.",
   keywords: [
     "Google recenzije",
     "dinamički QR kodovi",
@@ -43,8 +43,8 @@ export const metadata: Metadata = {
     "digitalne ponude",
   ],
   openGraph: {
-    title: "ScanMe | Jedan gost. Mnogo novih.",
-    description: "Kompletno QR rešenje za lokalne biznise, od dizajna i štampe do dinamičkog odredišta i statistike skeniranja.",
+    title: "ScanMe | Sajam automobila dobija novu digitalnu dimenziju",
+    description: "Upoznajte ScanMe digitalne usluge i fizičke proizvode na Sajmu automobila u Nišu 2026.",
     type: "website",
     locale: "sr_RS",
     siteName: "ScanMe",

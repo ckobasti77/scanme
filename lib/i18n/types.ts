@@ -14,6 +14,42 @@ import type { ProductType, ServiceType } from "../admin-v1/catalog";
 
 export type Locale = "sr";
 
+// Local interactive hall-map concept (/dev/sajam-cair). The surface is
+// deliberately small and static, but its visible copy still follows the same
+// typed-dictionary contract as production-facing ScanMe screens.
+export interface EventMapDict {
+  metaTitle: string;
+  metaDescription: string;
+  title: string;
+  subtitle: string;
+  findScanMe: string;
+  mapHint: string;
+  mapAria: string;
+  filterLabel: string;
+  filterAll: string;
+  filterCars: string;
+  filterMoto: string;
+  filterFood: string;
+  filterScanMe: string;
+  entranceLabel: string;
+  entranceNorth: string;
+  entranceSouth: string;
+  youAreHere: string;
+  zoomIn: string;
+  zoomOut: string;
+  fitMap: string;
+  boothAria: string;
+  standLabel: string;
+  selectedStand: string;
+  brandsLabel: string;
+  showRoute: string;
+  hideRoute: string;
+  scanMeStandBody: string;
+  brandListTitle: string;
+  brandListBody: string;
+  foodPoint: string;
+}
+
 export interface AdminDomainDict {
   services: Record<ServiceType, string>;
   products: Record<ProductType, string>;
@@ -3446,6 +3482,7 @@ export interface AdminServicesDict {
 }
 
 export interface DictBySurface {
+  "event-map": EventMapDict;
   "admin-v1": AdminV1Dict;
   "admin-settings": AdminSettingsDict;
   "admin-tasks": AdminTasksDict;
