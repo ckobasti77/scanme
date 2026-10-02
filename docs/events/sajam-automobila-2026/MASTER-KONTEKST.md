@@ -620,6 +620,11 @@ PDF je prodajni sažetak. Ovaj Markdown je kanonski dokument za detaljna pravila
 - Jovanov obavezni prateći dokument: `docs/events/sajam-automobila-2026/BACKEND-HANDOFF.md`.
 - Master i handoff se uvek šalju zajedno. Master definiše šta proizvod radi; handoff definiše kako backend to bezbedno implementira.
 
+### Event dizajn-sistem
+
+- Radni audit i predlog: `docs/events/sajam-automobila-2026/EVENT-DESIGN-SYSTEM.md`.
+- Dokument je trenutno draft i nije dozvola za paralelnu finalnu UI implementaciju dok ga Aleksa ne potvrdi i status ne postane `ZAKLJUČAN`.
+
 ### Postojeći sajam/mapa prototip
 
 - DEV ruta: `/dev/sajam-cair`
