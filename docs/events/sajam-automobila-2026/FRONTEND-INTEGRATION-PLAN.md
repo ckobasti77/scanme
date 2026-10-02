@@ -503,7 +503,7 @@ Aleksa jedini daje go/no-go nakon QR matrice, browser provere, PII pregleda, err
 1. Zaključavanje ili odbacivanje `Soft Atlas` pravca i tokena.
 2. Konačne javne rute za garažu, pasoš i display režim.
 3. Finalni model page wireframe bez fotografije i sa fotografijom.
-4. Da li `lastKnown` snapshot ulazi u browser garažu radi offline čitljivosti.
+4. Potvrditi ili ukloniti implementirani opcioni `lastKnown` snapshot za offline čitljivost; nije još proglašen zaključanom produktnom odlukom.
 5. Stvarna rezolucija i orijentacija sajamskih displaya.
 6. Finalni pravni tekst saglasnosti pre F6 produkcije.
 7. Precizan kriterijum za sponsored impression kada je browser tab skriven ili kartica van viewporta.
