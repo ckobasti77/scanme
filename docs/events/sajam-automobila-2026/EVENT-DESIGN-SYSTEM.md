@@ -1,9 +1,13 @@
 # ScanMe Sajam automobila 2026 - event dizajn-sistem
 
-> Status: **DRAFT ZA ALEKSIN PREGLED - NIJE ZAKLJUČAN ZA IMPLEMENTACIJU**  
-> Poslednje ažuriranje: **1. oktobar 2026.**  
-> Vlasnik odluka: **Aleksa**  
-> Produktni izvor: [`MASTER-KONTEKST.md`](./MASTER-KONTEKST.md)  
+> Status: **DRAFT ZA ALEKSIN PREGLED - NIJE ZAKLJUČAN ZA IMPLEMENTACIJU**
+>
+> Poslednje ažuriranje: **2. oktobar 2026.**
+>
+> Vlasnik odluka: **Aleksa**
+>
+> Produktni izvor: [`MASTER-KONTEKST.md`](./MASTER-KONTEKST.md)
+>
 > Backend ugovor: [`BACKEND-HANDOFF.md`](./BACKEND-HANDOFF.md)
 
 Ovaj dokument priprema jedinstven vizuelni i UX ugovor za javno sajamsko iskustvo. Dok Aleksa ne potvrdi stavke označene kao **PREDLOG**, dokument nije dozvola agentima da samostalno implementiraju finalni izgled.
