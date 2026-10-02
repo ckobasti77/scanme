@@ -371,6 +371,8 @@ Isporučuje:
 
 ### F8 - sponzorisane rotacije
 
+**Status 2. oktobra:** pure vremenski slot kalkulator je implementiran u `lib/fair-client/rotation-slot.ts` sa testovima za 12s/8s sinhronizaciju. Snapshot, UI, pause i analitika i dalje čekaju B5 i ostale frontend module.
+
 **Čeka:** F3/F4, browser garažu i Jovan B5.
 
 Isporučuje:
