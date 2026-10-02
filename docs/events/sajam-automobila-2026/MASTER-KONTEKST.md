@@ -624,6 +624,8 @@ PDF je prodajni sažetak. Ovaj Markdown je kanonski dokument za detaljna pravila
 
 - Radni audit i predlog: `docs/events/sajam-automobila-2026/EVENT-DESIGN-SYSTEM.md`.
 - Dokument je trenutno draft i nije dozvola za paralelnu finalnu UI implementaciju dok ga Aleksa ne potvrdi i status ne postane `ZAKLJUČAN`.
+- Frontend podela rada i integracione granice: `docs/events/sajam-automobila-2026/FRONTEND-INTEGRATION-PLAN.md`.
+- Frontend plan ne prenosi vlasništvo B0 ugovora sa Jovana i ne otključava finalni UI pre zaključenog dizajn-sistema.
 
 ### Postojeći sajam/mapa prototip
 
