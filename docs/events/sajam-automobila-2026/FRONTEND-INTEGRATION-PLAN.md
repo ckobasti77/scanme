@@ -266,6 +266,8 @@ Ne radi:
 
 ### F1 - browser garaža core
 
+**Status 2. oktobra:** core je implementiran u `lib/fair-client/garage-store.ts` sa unit testovima. Nema UI, backend hydration niti export.
+
 **Može početi posle:** potvrde tehničkog zapisa gore; ne čeka kompletan vizuelni stil.
 
 Isporučuje:
