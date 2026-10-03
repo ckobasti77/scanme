@@ -66,7 +66,7 @@ async function setup() {
       reportRecipientEmail: REPORT_EMAIL, leadDeliveryNote: "TEST napomena o isporuci",
     });
     const { standId } = await admin.mutation(api.fairAdmin.upsertStand, {
-      eventId, participationId, externalKey: `${code}-stand`, code: "TEST-A1", displayName: "TEST štand", mapLocationId: `${code}-loc-a1`,
+      eventId, participationId, externalKey: `${code}-stand`, code: "TEST-A1", displayName: "TEST štand", mapLocationId: "ispred-14",
     });
     return { eventId, participationId, standId };
   };
@@ -99,7 +99,7 @@ async function setup() {
   const advanced = await model(em, "test-volta-advanced", "advanced");
   const included = await model(em, "test-volta-included", "included");
   const draft = await model(em, "test-volta-draft", "starter", false);
-  const draftEvent = await fair("test-draft-fair-2026", "draft");
+  const draftEvent = await fair("test-auto-moto-fest-2026", "draft");
   return { t, admin, ...ids, em, draftEvent, starter, advanced, included, draft, model };
 }
 
@@ -118,7 +118,7 @@ describe("getEventBySlug", () => {
     expect(Object.keys(event!).sort()).toEqual(
       ["code", "days", "endsAt", "garagePriority", "id", "slug", "startsAt", "status", "timezone", "title", "venueName"],
     );
-    expect(await f.t.query(api.fairPublic.getEventBySlug, { slug: "test-draft-fair-2026" })).toBeNull();
+    expect(await f.t.query(api.fairPublic.getEventBySlug, { slug: "test-auto-moto-fest-2026" })).toBeNull();
     expect(await f.t.query(api.fairPublic.getEventBySlug, { slug: "nepostojeci" })).toBeNull();
     expect(await f.t.query(api.fairPublic.getEventBySlug, { slug: "x".repeat(500) })).toBeNull();
   });
@@ -133,7 +133,7 @@ describe("getModelBySlug", () => {
     expect(view).toMatchObject({
       id: f.starter.modelId, eventId: f.em.eventId, eventSlug: "test-elektromobilnost-2026", eventTitle: "TEST test-elektromobilnost-2026",
       participationId: f.em.participationId, exhibitorName: "TEST izlagač", brandId: f.brandId, brandName: "TEST Volta", standId: f.em.standId,
-      standMapLocationId: "test-elektromobilnost-2026-loc-a1", slug: f.starter.slug, priceText: "TEST cena",
+      standMapLocationId: "ispred-14", slug: f.starter.slug, priceText: "TEST cena",
     });
     expect(view!.specificationGroups.map((group) => [group.id, group.order, group.items.map((item) => item.order)])).toEqual([
       ["test-pogon", 1, [1, 2]],

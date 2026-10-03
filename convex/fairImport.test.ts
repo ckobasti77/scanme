@@ -78,7 +78,7 @@ function payload(codes: { x1?: string; z1?: string } = {}): FairImportPayload {
         reportEmail: "Izvestaji@Example.invalid", primaryContactEmail: "fa@example.invalid",
         brands: [{
           externalKey: "volta", name: "Volta",
-          stand: { externalKey: "em26-stand-a12", code: "A12", mapLocationId: "hala-1-a12" },
+          stand: { externalKey: "em26-stand-a12", code: "A12", mapLocationId: "hala-1a" },
           models: [
             {
               externalKey: "em26-volta-x1", displayName: "Volta X1", variant: "Premium", priceText: "4.990.000 RSD", packageTier: "starter",
@@ -97,7 +97,7 @@ function payload(codes: { x1?: string; z1?: string } = {}): FairImportPayload {
         externalKey: "em26-izlagac-b", accountExternalKey: "SMK-FB", businessExternalKey: "SML-FB",
         brands: [{
           externalKey: "om", name: "Om",
-          stand: { externalKey: "em26-stand-b3", code: "B3", displayName: "Om štand", mapLocationId: "hala-1-b3" },
+          stand: { externalKey: "em26-stand-b3", code: "B3", displayName: "Om štand", mapLocationId: "hala-1b" },
           models: [{
             externalKey: "em26-om-z1", displayName: "Om Z1", priceText: "Cena po dogovoru", packageTier: "advanced", passportEligible: true,
             ...(codes.z1 ? { assignedResolverCode: codes.z1 } : {}),
@@ -143,7 +143,7 @@ describe("dry run", () => {
     const [a, b] = bad.participations;
     bad.participations = [
       { ...a, businessExternalKey: "SML-FB", brands: [{ ...a.brands[0], models: [{ ...a.brands[0].models[0], packageTier: "included" }, a.brands[0].models[1]] }] },
-      { ...b, brands: [{ ...b.brands[0], name: "Nepostojeci", stand: { ...b.brands[0].stand, mapLocationId: "hala-1-a12" } }] },
+      { ...b, brands: [{ ...b.brands[0], name: "Nepostojeci", stand: { ...b.brands[0].stand, mapLocationId: "hala-1a" } }] },
       { ...b, externalKey: "em26-izlagac-c", accountExternalKey: "SMK-NEMA" },
       { ...b, externalKey: "em26-izlagac-d", clientSegment: "event_only", brands: [{ ...b.brands[0], stand: { ...b.brands[0].stand, externalKey: "em26-stand-d" }, models: [{ ...b.brands[0].models[0], externalKey: "em26-volta-x1", displayName: "Volta X1", variant: "Premium", assignedResolverCode: "NEPOSTOJI" }] }] },
     ];
@@ -164,7 +164,7 @@ describe("dry run", () => {
     const dup = payload({ x1, z1: x1 });
     dup.participations[0].brands[0].models[0].packageTier = "included";
     dup.participations[1].brands[0].models.push({ ...dup.participations[1].brands[0].models[0], externalKey: "em26-om-z1b", assignedResolverCode: undefined });
-    dup.participations[1].brands[0].stand.mapLocationId = "hala-1-a12";
+    dup.participations[1].brands[0].stand.mapLocationId = "hala-1a";
     const dupErrors = (await f.admin.query(api.fairImport.dryRun, { payload: dup })).issues.filter((i) => i.severity === "error").map((i) => `${i.code}:${i.path}`);
     expect(dupErrors).toEqual(expect.arrayContaining([
       "FAIR_PACKAGE_DOWNGRADE:participations[0].brands[0].models[0].packageTier",

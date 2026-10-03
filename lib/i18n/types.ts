@@ -19,6 +19,7 @@ import type {
   FairPackageTier,
   FairParticipationStatus,
 } from "../fair-contract";
+import type { FairMapKey, FairMapZoneId } from "../fair-map/types";
 
 export type Locale = "sr";
 
@@ -56,6 +57,19 @@ export interface EventMapDict {
   brandListTitle: string;
   brandListBody: string;
   foodPoint: string;
+}
+
+// Sajam 2026 map geometry (M0). Only the DEV overlay check on /dev/sajam-cair
+// for now; the public map (M1) grows this surface.
+export interface FairMapDict {
+  overlayTitle: string;
+  overlayIntro: string;
+  overlayDraft: string;
+  overlayAria: string;
+  overlayCaption: string;
+  overlayPlaceholder: string;
+  events: Record<FairMapKey, string>;
+  zones: Record<FairMapZoneId, string>;
 }
 
 export interface FairModelDict {
@@ -3732,6 +3746,7 @@ export interface AdminEventsDict {
 
 export interface DictBySurface {
   "event-map": EventMapDict;
+  "fair-map": FairMapDict;
   "fair-model": FairModelDict;
   "admin-v1": AdminV1Dict;
   "admin-settings": AdminSettingsDict;

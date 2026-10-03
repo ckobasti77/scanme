@@ -58,6 +58,8 @@ function model(prefix: string, spec: ModelSpec, activeFrom: string) {
   };
 }
 
+// TEST stands sit on stand locations that are free (gray) on the organizer
+// maps (M0 geometry, lib/fair-map), so validateMapLocationIds accepts them.
 const EVENTS = [
   {
     code: "test-elektromobilnost-2026",
@@ -68,8 +70,8 @@ const EVENTS = [
     days: ["2026-10-09", "2026-10-10", "2026-10-11"],
     activeFrom: "2026-10-09T09:00:00+02:00",
     exhibitorA: {
-      voltaStand: "test-loc-em-a1",
-      amperStand: "test-loc-em-a2",
+      voltaStand: "hala-12",
+      amperStand: "ispred-14",
       volta: [
         { key: "volta-x1", name: "TEST Volta X1", variant: "TEST Premium", tier: "advanced", price: "TEST cena", specs: 5, highlights: 4 },
         { key: "volta-x2", name: "TEST Volta X2", tier: "starter", price: "TEST cena", specs: 3, highlights: 2 },
@@ -80,7 +82,7 @@ const EVENTS = [
       ] as ModelSpec[],
     },
     exhibitorB: {
-      stand: "test-loc-em-b1",
+      stand: "ispred-18",
       models: [
         { key: "om-z1", name: "TEST Om Z1", tier: "advanced", specs: 5, highlights: 3 },
         { key: "om-z2", name: "TEST Om Z2", tier: "included", price: "TEST cena", specs: 2, highlights: 1 },
@@ -96,13 +98,13 @@ const EVENTS = [
     days: ["2026-10-30", "2026-10-31", "2026-11-01"],
     activeFrom: "2026-10-30T09:00:00+01:00",
     exhibitorA: {
-      voltaStand: "test-loc-amf-a1",
+      voltaStand: "ispred-14",
       amperStand: null,
       volta: [{ key: "volta-x1", name: "TEST Volta X1", variant: "TEST Premium", tier: "starter", price: "TEST cena", specs: 5, highlights: 2 }] as ModelSpec[],
       amper: [] as ModelSpec[],
     },
     exhibitorB: {
-      stand: "test-loc-amf-b1",
+      stand: "ispred-18",
       models: [
         { key: "om-z1", name: "TEST Om Z1", tier: "advanced", price: "TEST cena", specs: 4, highlights: 4 },
         { key: "om-z3", name: "TEST Om Z3", tier: "starter", specs: 3, highlights: 1 },

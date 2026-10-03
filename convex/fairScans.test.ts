@@ -72,7 +72,7 @@ async function setup() {
       eventId, externalKey: `${code}-izlagac-a`, accountId: ids.a.accountId, businessId: ids.a.businessId,
     });
     const { standId } = await admin.mutation(api.fairAdmin.upsertStand, {
-      eventId, participationId, externalKey: `${code}-stand-a1`, code: "TEST-A1", displayName: "TEST štand A1", mapLocationId: `${code}-loc-a1`,
+      eventId, participationId, externalKey: `${code}-stand-a1`, code: "TEST-A1", displayName: "TEST štand A1", mapLocationId: "ispred-14",
     });
     return { eventId, participationId, standId };
   };
