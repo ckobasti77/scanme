@@ -80,3 +80,31 @@ test("seedTestPassport publishes one TEST brand passport, idempotently, visible 
   await expect(t.mutation(internal.fairDevFixtures.seedTestPassport, { brandName: "TEST Amper" })).rejects.toThrow("fair_dev_fixture_passport_not_eligible");
   expect(await t.run((ctx) => ctx.db.query("fairPassportConfigs").collect())).toHaveLength(1);
 });
+
+test("seedTestSponsoredSnapshot publishes the TEST Advanced models with a no-vote TEST question, idempotently", async () => {
+  const t = convexTest(schema, modules);
+  rateLimiterTest.register(t);
+  await t.run((ctx) => ctx.db.insert("users", { email: ADMIN_EMAIL }));
+  await t.mutation(internal.fairDevFixtures.seedTestCatalog, {});
+  const first = await t.mutation(internal.fairDevFixtures.seedTestSponsoredSnapshot, {});
+  expect(first).toMatchObject({ created: true, version: 1, questionsCreated: 2 });
+  const rotation = await t.query(api.fairPublic.getSponsoredMapRotation, { eventSlug: "test-elektromobilnost-2026" });
+  expect(rotation).toMatchObject({ surface: "map", intervalMs: 12000, version: 1 });
+  expect(rotation!.items.map((item) => item.eventModelId)).toEqual(first.eventModelIds);
+  expect(rotation!.items.map((item) => item.displayName).sort()).toEqual(["TEST Om Z1", "TEST Volta X1"]);
+  for (const item of rotation!.items) {
+    expect(item.visual).toBe("event_placeholder");
+    expect(item.audienceResult?.result.state).toBe("waiting_for_minimum");
+    expect(["hala-12", "ispred-18"]).toContain(item.standMapLocationId);
+  }
+  expect(await t.mutation(internal.fairDevFixtures.seedTestSponsoredSnapshot, {})).toEqual({ ...first, created: false, questionsCreated: 0 });
+  await expect(t.mutation(internal.fairDevFixtures.seedTestSponsoredSnapshot, { eventCode: "elektromobilnost-2026" })).rejects.toThrow("fair_dev_fixture_not_test");
+  const rows = await t.run(async (ctx) => ({
+    snapshots: await ctx.db.query("fairSponsoredSnapshots").collect(),
+    votes: await ctx.db.query("fairAudienceVotes").collect(),
+    events: await ctx.db.query("fairSponsoredEvents").collect(),
+  }));
+  expect(rows.snapshots.filter((row) => row.status === "published")).toHaveLength(1);
+  expect(rows.votes).toEqual([]);
+  expect(rows.events).toEqual([]);
+});

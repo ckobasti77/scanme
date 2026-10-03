@@ -120,6 +120,14 @@ export interface FairMapDict {
   passportUnavailable: string;
   passportHint: string;
   scanmeStand: string;
+  // M2 12 s Advanced rotation on the map/display
+  rotationLabel: string;
+  rotationAria: string;
+  rotationWaiting: string;
+  rotationPercent: string;
+  rotationShowStand: string;
+  rotationOpenModel: string;
+  rotationStandPin: string;
 }
 
 export interface FairModelDict {

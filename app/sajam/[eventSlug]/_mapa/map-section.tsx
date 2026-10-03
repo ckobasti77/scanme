@@ -6,7 +6,11 @@ import { fairMapSr as dict } from "@/lib/i18n/sr/fair-map";
 import { MapUnavailable } from "./map-unavailable";
 import styles from "./map-states.module.css";
 
-/** Streams in under the shell: catalog (by mapLocationId) + passport catalog, joined with the M0 geometry. */
+/**
+ * Streams in under the shell: catalog (by mapLocationId) + passport catalog,
+ * joined with the M0 geometry, plus the B5 map rotation (read once; the client
+ * picks the active 12 s slot from its clock — no polling).
+ */
 export async function MapSection({ eventSlug, eventCode, display }: { eventSlug: string; eventCode: string; display: boolean }) {
   const geometry = fairMapForEventCode(eventCode);
   if (!geometry) {
@@ -22,11 +26,12 @@ export async function MapSection({ eventSlug, eventCode, display }: { eventSlug:
     data = await Promise.all([
       fetchQuery(api.fairPublic.getEventMap, { eventSlug }),
       fetchQuery(api.fairPublic.getPassportCatalog, { eventSlug }),
+      fetchQuery(api.fairPublic.getSponsoredMapRotation, { eventSlug }),
     ]);
   } catch {
     return <MapUnavailable eventSlug={eventSlug} />;
   }
-  const [map, passports] = data;
+  const [map, passports, rotation] = data;
   const view = buildFairMapView(geometry, map?.stands ?? [], passports?.catalog ?? []);
-  return <FairEventMap eventSlug={eventSlug} view={view} display={display} />;
+  return <FairEventMap eventSlug={eventSlug} view={view} rotation={rotation} display={display} />;
 }

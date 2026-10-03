@@ -5,6 +5,7 @@ import type { FairMapGeometry, FairMapKey } from "./types";
 export type * from "./types";
 export * from "./shape";
 export * from "./view";
+export * from "./rotation";
 
 export const FAIR_MAP_GEOMETRIES: Readonly<Record<FairMapKey, FairMapGeometry>> = {
   "elektromobilnost-2026": ELEKTROMOBILNOST_2026_MAP,

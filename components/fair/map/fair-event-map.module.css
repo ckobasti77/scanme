@@ -615,9 +615,280 @@
   cursor: default;
 }
 
+/* ---- M2: 12 s Advanced rotation (card + discrete stand highlight) ---- */
+
+.rotation {
+  min-height: 132px;
+}
+
+.rotationBody {
+  display: grid;
+  gap: 12px;
+  animation: fair-map-reveal-in 360ms ease-out both;
+}
+
+.rotationHead {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.rotationVisual {
+  position: relative;
+  display: grid;
+  width: 72px;
+  height: 72px;
+  flex: none;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 12px;
+  background: var(--fair-surface-muted);
+  color: var(--fair-ink-muted);
+}
+
+.rotationVisual > svg {
+  width: 32px;
+  height: 32px;
+}
+
+.rotationPhoto {
+  object-fit: cover;
+}
+
+.rotationLogo {
+  padding: 10px;
+  object-fit: contain;
+}
+
+.rotationIdentity {
+  min-width: 0;
+}
+
+.rotationEyebrow {
+  margin: 0;
+  color: var(--fair-ink-muted);
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.rotationTitle {
+  margin: 2px 0 0;
+  font-size: 22px;
+  font-weight: 760;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+.rotationMeta {
+  margin: 2px 0 0;
+  color: var(--fair-ink-muted);
+  font-size: 14px;
+}
+
+.rotationQuestion {
+  padding-top: 12px;
+  border-top: 1px solid var(--fair-line);
+}
+
+.rotationPrompt {
+  margin: 0 0 8px;
+  font-weight: 650;
+}
+
+.rotationWaiting {
+  display: inline-flex;
+  min-height: 32px;
+  margin: 0;
+  padding: 4px 12px;
+  align-items: center;
+  border: 1px solid var(--fair-line-strong);
+  border-radius: 999px;
+  color: var(--fair-ink-muted);
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.rotationOptions {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  gap: 6px;
+  list-style: none;
+}
+
+.rotationOption {
+  position: relative;
+  display: flex;
+  min-height: 40px;
+  padding: 8px 12px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  overflow: hidden;
+  border: 1px solid var(--fair-line);
+  border-radius: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.rotationOption > span:not(.rotationFill),
+.rotationOption > strong {
+  position: relative;
+}
+
+.rotationFill {
+  position: absolute;
+  inset: 0;
+  background: var(--fair-accent-soft);
+  transform: scaleX(var(--fair-map-share));
+  transform-origin: left center;
+  animation: fair-map-share-in 750ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.rotationStand {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.rotationStandText {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 650;
+}
+
+.rotationStandText svg {
+  width: 18px;
+  height: 18px;
+  color: var(--fair-accent);
+}
+
+.rotationActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.rotationActions .retry {
+  display: inline-flex;
+  margin-top: 0;
+  align-items: center;
+  text-decoration: none;
+}
+
+.rotationHighlight polygon {
+  fill: color-mix(in srgb, var(--fair-accent) 32%, transparent);
+  stroke: var(--fair-accent-strong);
+  stroke-width: 5px;
+  pointer-events: none;
+}
+
+.rotationHighlight .rotationGlow {
+  fill: none;
+  stroke: var(--fair-accent);
+  stroke-width: 18px;
+  opacity: 0;
+  animation: fair-map-stand-glow 1400ms ease-out 400ms 2;
+}
+
+.rotationPin {
+  position: absolute;
+  display: inline-flex;
+  min-height: 30px;
+  padding: 4px 10px 4px 6px;
+  align-items: center;
+  gap: 4px;
+  border-radius: 999px;
+  background: var(--fair-ink);
+  color: var(--fair-surface);
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  pointer-events: none;
+  transform-origin: 50% 100%;
+}
+
+.rotationPin svg {
+  width: 16px;
+  height: 16px;
+}
+
+@keyframes fair-map-reveal-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes fair-map-share-in {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+@keyframes fair-map-stand-glow {
+  0% {
+    opacity: 0;
+  }
+  35% {
+    opacity: 0.55;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* Large display: same card, readable from a distance. */
+@media (min-width: 1440px) {
+  .rotationVisual {
+    width: 112px;
+    height: 112px;
+  }
+
+  .rotationTitle {
+    font-size: 32px;
+  }
+
+  .rotationMeta,
+  .rotationPrompt {
+    font-size: 18px;
+  }
+
+  .rotationStandText {
+    font-size: 18px;
+  }
+}
+
+.root[data-display="on"] .rotationVisual {
+  width: 112px;
+  height: 112px;
+}
+
+.root[data-display="on"] .rotationTitle {
+  font-size: 32px;
+}
+
+.root[data-display="on"] :is(.rotationMeta, .rotationPrompt, .rotationStandText) {
+  font-size: 18px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .layer[data-animate="true"],
   .stand polygon {
     transition: none;
+  }
+
+  .rotationBody,
+  .rotationFill,
+  .rotationHighlight .rotationGlow {
+    animation: none;
   }
 }
