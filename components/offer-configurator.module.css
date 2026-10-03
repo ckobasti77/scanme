@@ -1303,6 +1303,8 @@
   color: inherit;
   font: inherit;
   text-align: left;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .priceSummaryLabel {
@@ -1336,7 +1338,7 @@
 }
 
 .priceDetails[data-open="true"] .priceChevron {
-  transform: rotate(180deg);
+  transform: rotate(-180deg);
 }
 
 /* Obračun se otvara klizanjem. <details> ovo ne može — visina mu nije

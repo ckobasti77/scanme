@@ -50,6 +50,82 @@ export interface EventMapDict {
   foodPoint: string;
 }
 
+export interface FairModelDict {
+  metaTitle: string;
+  metaDescription: string;
+  mapNav: string;
+  garageNav: string;
+  garageCountAria: string;
+  modelPhotoAlt: string;
+  allSpecifications: string;
+  audienceTitle: string;
+  audienceBody: string;
+  rateModel: string;
+  submitInterest: string;
+  requestTestDrive: string;
+  saveToGarage: string;
+  savedToGarage: string;
+  garageStorageError: string;
+  deferredFlowMessage: string;
+  poweredBy: string;
+  devLink: string;
+  devPanelTitle: string;
+  devModeLabel: string;
+  devPhotoLabel: string;
+  devAlignmentLabel: string;
+  fixtureFree: string;
+  fixtureStarter: string;
+  fixtureAdvanced: string;
+  fixtureWithPhoto: string;
+  fixtureWithoutPhoto: string;
+  alignmentLeft: string;
+  alignmentRight: string;
+  alignmentBottom: string;
+  audienceMetaTitle: string;
+  audienceMetaDescription: string;
+  audienceBack: string;
+  audienceEyebrow: string;
+  audienceProgressAria: string;
+  audienceQuestionOf: string;
+  audienceResultsSoon: string;
+  audienceSubmitting: string;
+  audienceVoteError: string;
+  audienceRetry: string;
+  audienceNextQuestion: string;
+  audienceBackToModel: string;
+  devThresholdLabel: string;
+  devResponseLabel: string;
+  devQuestionCountLabel: string;
+  fixtureBelowThreshold: string;
+  fixturePublicResults: string;
+  fixtureSuccess: string;
+  fixtureError: string;
+  fixtureOneQuestion: string;
+  fixtureFiveQuestions: string;
+  closeSheet: string;
+  ratingSheetTitle: string;
+  overallRatingLabel: string;
+  designRatingLabel: string;
+  specificationsRatingLabel: string;
+  priceRatingLabel: string;
+  saveRating: string;
+  saveRatings: string;
+  ratingNotSent: string;
+  interestSheetTitle: string;
+  testDriveSheetTitle: string;
+  fullNameLabel: string;
+  emailLabel: string;
+  phoneLabel: string;
+  preferredDateLabel: string;
+  sendInterest: string;
+  sendTestDrive: string;
+  leadFixtureNotice: string;
+  leadNotSent: string;
+  notFoundTitle: string;
+  notFoundBody: string;
+  backToScanMe: string;
+}
+
 export interface AdminDomainDict {
   services: Record<ServiceType, string>;
   products: Record<ProductType, string>;
@@ -3483,6 +3559,7 @@ export interface AdminServicesDict {
 
 export interface DictBySurface {
   "event-map": EventMapDict;
+  "fair-model": FairModelDict;
   "admin-v1": AdminV1Dict;
   "admin-settings": AdminSettingsDict;
   "admin-tasks": AdminTasksDict;

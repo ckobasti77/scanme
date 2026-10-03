@@ -14,6 +14,7 @@
 import { fmt, srPluralCategory } from "./format";
 import type { DictBySurface, Surface } from "./types";
 import { eventMapSr } from "./sr/event-map";
+import { fairModelSr } from "./sr/fair-model";
 import { venueSr } from "./sr/venue";
 import { venueEditorSr } from "./sr/venue-editor";
 import { venueAdminSr } from "./sr/venue-admin";
@@ -52,6 +53,7 @@ export type {
   Surface,
   DictBySurface,
   EventMapDict,
+  FairModelDict,
   VenueDict,
   VenueEditorDict,
   VenueAdminDict,
@@ -87,6 +89,7 @@ export type {
 export {
   venueSr,
   eventMapSr,
+  fairModelSr,
   venueEditorSr,
   venueAdminSr,
   venuePanelSr,
@@ -121,6 +124,7 @@ export {
 
 const SR: DictBySurface = {
   "event-map": eventMapSr,
+  "fair-model": fairModelSr,
   "admin-v1": adminV1Sr,
   "admin-settings": adminSettingsSr,
   "admin-search": adminSearchSr,
