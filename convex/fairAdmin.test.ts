@@ -69,7 +69,7 @@ async function setup() {
     eventId, externalKey: "em26-izlagac-a", accountId: ids.a.accountId, businessId: ids.a.businessId, primaryContactId: ids.a.contactId,
   });
   const { standId } = await admin.mutation(api.fairAdmin.upsertStand, {
-    eventId, participationId, externalKey: "em26-stand-a12", code: "A12", displayName: "Štand A12", mapLocationId: "hala-1-a12",
+    eventId, participationId, externalKey: "em26-stand-a12", code: "A12", displayName: "Štand A12", mapLocationId: "hala-1a",
   });
   const modelArgs = (overrides: Record<string, unknown> = {}) => ({
     eventId, participationId, standId, brandId: ids.a.brandIds[0], externalKey: "em26-volta-x1", displayName: "Volta X1", variant: "Premium",
@@ -151,7 +151,7 @@ describe("idempotent catalog upserts and hard errors", () => {
     })).result).toBe("unchanged");
     expect((await f.admin.mutation(api.fairAdmin.upsertEventDay, day)).result).toBe("unchanged");
     expect((await f.admin.mutation(api.fairAdmin.upsertParticipation, { eventId: f.eventId, externalKey: "em26-izlagac-a", accountId: f.a.accountId, businessId: f.a.businessId, primaryContactId: f.a.contactId })).result).toBe("unchanged");
-    expect((await f.admin.mutation(api.fairAdmin.upsertStand, { eventId: f.eventId, participationId: f.participationId, externalKey: "em26-stand-a12", code: "A12", displayName: "Štand A12", mapLocationId: "hala-1-a12" })).result).toBe("unchanged");
+    expect((await f.admin.mutation(api.fairAdmin.upsertStand, { eventId: f.eventId, participationId: f.participationId, externalKey: "em26-stand-a12", code: "A12", displayName: "Štand A12", mapLocationId: "hala-1a" })).result).toBe("unchanged");
     const again = await f.admin.mutation(api.fairAdmin.upsertModel, f.modelArgs());
     expect(again).toMatchObject({ modelId: first.modelId, result: "unchanged" });
     const after = await f.t.run(async (ctx) => ({
@@ -189,8 +189,12 @@ describe("idempotent catalog upserts and hard errors", () => {
     // Stand of another event/participation, duplicate slug, duplicate map location.
     await f.admin.mutation(api.fairAdmin.upsertModel, f.modelArgs());
     await expectCode(f.admin.mutation(api.fairAdmin.upsertModel, f.modelArgs({ externalKey: "em26-volta-x1-copy" })), "FAIR_SLUG_TAKEN");
-    await expectCode(f.admin.mutation(api.fairAdmin.upsertStand, { eventId: f.eventId, participationId: f.participationId, externalKey: "em26-stand-a13", code: "A13", displayName: "A13", mapLocationId: "hala-1-a12" }), "FAIR_MAP_LOCATION_TAKEN");
+    await expectCode(f.admin.mutation(api.fairAdmin.upsertStand, { eventId: f.eventId, participationId: f.participationId, externalKey: "em26-stand-a13", code: "A13", displayName: "A13", mapLocationId: "hala-1a" }), "FAIR_MAP_LOCATION_TAKEN");
     await expectCode(f.admin.mutation(api.fairAdmin.upsertStand, { eventId: f.eventId, participationId: f.participationId, externalKey: "em26-stand-a14", code: "A14", displayName: "A14", mapLocationId: "  " }), "FAIR_MAP_LOCATION_INVALID");
+    // M0 geometry: unknown id, another event's id and the ScanMe location are not stands of this map.
+    for (const mapLocationId of ["hala-99", "hala-6-7", "scanme"]) {
+      await expectCode(f.admin.mutation(api.fairAdmin.upsertStand, { eventId: f.eventId, participationId: f.participationId, externalKey: "em26-stand-a15", code: "A15", displayName: "A15", mapLocationId }), "FAIR_MAP_LOCATION_INVALID");
+    }
     await expectCode(f.admin.mutation(api.fairAdmin.upsertModel, f.modelArgs({ externalKey: "Neispravan Ključ" })), "INVALID_INPUT");
     expect(await rowCount(f, "fairParticipations")).toBe(1);
     expect(await rowCount(f, "fairEventModels")).toBe(1);

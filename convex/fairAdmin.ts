@@ -14,7 +14,7 @@ import {
   fairIssueValidator,
   fairPublishIssuesFromFacts,
   fairSpecificationInput,
-  isFairMapLocationId,
+  isFairEventMapLocationId,
   optionalText,
   requireFairEvent,
   requireText,
@@ -563,7 +563,7 @@ export const listValidationIssues = query({
       const stand = standById.get(model.standId) ?? null;
       const mapIssues: FairAdminIssue[] = [];
       if (stand) {
-        if (!isFairMapLocationId(stand.mapLocationId)) mapIssues.push({ severity: "error", code: "FAIR_MAP_LOCATION_INVALID", path: "stand.mapLocationId" });
+        if (!isFairEventMapLocationId(event.code, stand.mapLocationId)) mapIssues.push({ severity: "error", code: "FAIR_MAP_LOCATION_INVALID", path: "stand.mapLocationId" });
         else if (stands.some((other) => other._id !== stand._id && other.status !== "withdrawn" && other.mapLocationId === stand.mapLocationId)) {
           mapIssues.push({ severity: "error", code: "FAIR_MAP_LOCATION_TAKEN", path: "stand.mapLocationId", details: { mapLocationId: stand.mapLocationId } });
         }

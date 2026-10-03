@@ -8,6 +8,7 @@ import rateLimiterTest from "@convex-dev/rate-limiter/test";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { api, internal } from "./_generated/api";
 import schema from "./schema";
+import { isFairMapStandLocation } from "../lib/fair-map";
 
 const modules = import.meta.glob("./**/*.ts");
 const NOW = Date.parse("2026-10-03T10:00:00Z");
@@ -41,7 +42,9 @@ test("seedTestCatalog is idempotent and only writes TEST fixtures", async () => 
   expect(rows.models.every((m) => m.externalKey.startsWith("test-") && m.slug.startsWith("test-") && m.displayName.startsWith("TEST") && m.status === "published")).toBe(true);
   expect(new Set(rows.models.map((m) => m.packageTier))).toEqual(new Set(["included", "starter", "advanced"]));
   expect(rows.models.every((m) => m.specifications.every((s) => s.label.startsWith("TEST") && s.value.startsWith("TEST")) && m.photoUrl === undefined)).toBe(true);
-  expect(rows.stands.every((s) => s.mapLocationId.startsWith("test-loc-"))).toBe(true);
+  // M0: every TEST stand sits on a real stand location of its own event's map.
+  const eventCode = new Map(rows.events.map((e) => [e._id, e.code]));
+  expect(rows.stands.every((s) => s.externalKey.startsWith("test-") && isFairMapStandLocation(eventCode.get(s.eventId) ?? "", s.mapLocationId))).toBe(true);
   expect(rows.accounts.every((a) => a.name.startsWith("TEST") && a.clientSegment === "event_only")).toBe(true);
   expect(rows.cards).toEqual([]);
   expect(rows.assignments).toEqual([]);

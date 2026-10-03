@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { eventMapSr as dict } from "@/lib/i18n/sr/event-map";
 import { CairMap } from "./cair-map";
+import { MapOverlayPreview } from "./map-overlay-preview";
 
 export const metadata: Metadata = {
   title: dict.metaTitle,
@@ -21,5 +22,10 @@ export default async function SajamCairPage({
   const params = await searchParams;
   const entrance = params.ulaz === "sever" ? "north" : "south";
 
-  return <CairMap initialEntrance={entrance} />;
+  return (
+    <>
+      <CairMap initialEntrance={entrance} />
+      <MapOverlayPreview />
+    </>
+  );
 }
