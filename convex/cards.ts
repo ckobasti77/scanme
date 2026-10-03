@@ -16,6 +16,7 @@ import { fmt, getDict } from "../lib/i18n";
 import { cardResolution } from "./lib/accessResolution";
 import { refreshInventory, syncChannel } from "./lib/accessOperations";
 import { syncAutomaticAction } from "./lib/adminActionEngine";
+import { openableFairModel, recordFairScan, type FairScanRecordStatus } from "./lib/fairScans";
 
 // =============================================================================
 // TASK-14 — Cards: the printed /r/[cardCode] resolver and its management.
@@ -594,7 +595,11 @@ type ResolveOutcome =
   // which is the single place that mints an ordering guest (with cardId).
   // Both cardCode and venueCode are returned normalized so the hop URL is
   // canonical.
-  | { kind: "table_ordering"; cardCode: string; venueCode: string };
+  | { kind: "table_ordering"; cardCode: string; venueCode: string }
+  // Sajam 2026 B2: the readable /sajam/{eventSlug}/model/{modelSlug} path of
+  // an assigned, published fair model. `fairScan` reports what the fair hook
+  // did with this request (the redirect never depends on it).
+  | { kind: "fair_model"; path: string; fairScan: FairScanRecordStatus };
 
 // THE guest-minting path (RFC-001 §2.6 / RFC-002 §2.4): rate-limit, then
 // insert a memoriesGuests row attributed to the TABLE (guest.cardId). Shared
@@ -685,6 +690,11 @@ export const resolveAndRecord = mutation({
     // a rate-limit key. The raw IP never reaches Convex and nothing persists it
     // beyond the limiter's transient bucket state (GDPR §2.10).
     ipHash: v.optional(v.string()),
+    // Sajam 2026 B2: HMAC of the HttpOnly fair visitor cookie, computed by the
+    // Next handler (lowercase 64-hex). Read only by the fair_model branch; the
+    // raw token never reaches Convex. Admin exclusion is NOT an argument: it
+    // comes from the forwarded ScanMe session (lib/fairScans.ts).
+    fairVisitorHash: v.optional(v.string()),
   },
   handler: async (ctx, args): Promise<ResolveOutcome> => {
     // Absent ipHash (a direct API caller bypassing the handler) collapses into
@@ -848,11 +858,21 @@ export const resolveAndRecord = mutation({
           venueCode: config.code,
         };
       }
-      case "fair_model":
-        // Sajam 2026 B0: inert until B2 wires the fair hook (one requestId →
-        // the generic scan above + at most one fair scan) and the readable
-        // /sajam/{eventSlug}/model/{modelSlug} destination.
-        return { kind: "invalid" };
+      case "fair_model": {
+        // Sajam 2026 B2: the generic scan above is this request's one generic
+        // event; the fair hook adds at most one fairScanEvents row in the same
+        // transaction, keyed by the same requestId (HANDOFF §5.2).
+        const fair = await openableFairModel(ctx, card, target);
+        if (!fair) return { kind: "invalid" };
+        const fairScan = await recordFairScan(ctx, {
+          requestId: args.requestId,
+          visitorHash: args.fairVisitorHash,
+          model: fair.model,
+          now,
+          genericDuplicate: duplicate !== null,
+        });
+        return { kind: "fair_model", path: fair.path, fairScan };
+      }
     }
   },
 });

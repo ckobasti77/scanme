@@ -48,6 +48,8 @@ import type * as entitlements from "../entitlements.js";
 import type * as fairAdmin from "../fairAdmin.js";
 import type * as fairDevFixtures from "../fairDevFixtures.js";
 import type * as fairImport from "../fairImport.js";
+import type * as fairPublic from "../fairPublic.js";
+import type * as fairScans from "../fairScans.js";
 import type * as http from "../http.js";
 import type * as invitationEmails from "../invitationEmails.js";
 import type * as invitations from "../invitations.js";
@@ -82,7 +84,9 @@ import type * as lib_emailProviderValidators from "../lib/emailProviderValidator
 import type * as lib_emailSyncEngine from "../lib/emailSyncEngine.js";
 import type * as lib_entitlements from "../lib/entitlements.js";
 import type * as lib_fairCatalog from "../lib/fairCatalog.js";
+import type * as lib_fairCountShards from "../lib/fairCountShards.js";
 import type * as lib_fairQr from "../lib/fairQr.js";
+import type * as lib_fairScans from "../lib/fairScans.js";
 import type * as lib_fairValidators from "../lib/fairValidators.js";
 import type * as lib_financeProjection from "../lib/financeProjection.js";
 import type * as lib_invitations from "../lib/invitations.js";
@@ -185,6 +189,8 @@ declare const fullApi: ApiFromModules<{
   fairAdmin: typeof fairAdmin;
   fairDevFixtures: typeof fairDevFixtures;
   fairImport: typeof fairImport;
+  fairPublic: typeof fairPublic;
+  fairScans: typeof fairScans;
   http: typeof http;
   invitationEmails: typeof invitationEmails;
   invitations: typeof invitations;
@@ -219,7 +225,9 @@ declare const fullApi: ApiFromModules<{
   "lib/emailSyncEngine": typeof lib_emailSyncEngine;
   "lib/entitlements": typeof lib_entitlements;
   "lib/fairCatalog": typeof lib_fairCatalog;
+  "lib/fairCountShards": typeof lib_fairCountShards;
   "lib/fairQr": typeof lib_fairQr;
+  "lib/fairScans": typeof lib_fairScans;
   "lib/fairValidators": typeof lib_fairValidators;
   "lib/financeProjection": typeof lib_financeProjection;
   "lib/invitations": typeof lib_invitations;

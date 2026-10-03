@@ -4,10 +4,13 @@ import type { Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
 import { isAdminEmail } from "./lib/access";
 import { normalizeAdminSearchText } from "./lib/adminV1Validators";
-import { setFairModelStatus, upsertFairEvent, upsertFairEventDay } from "./lib/fairCatalog";
+import { activeAssignmentForModel, fairEventByCode, setFairModelStatus, upsertFairEvent, upsertFairEventDay } from "./lib/fairCatalog";
+import { accessDisplayContext, channelProjectionPatch, createChannel, syncChannel, uniqueCode } from "./lib/accessOperations";
+import { writeAdminAudit } from "./lib/adminAudit";
+import { assignFairQr } from "./lib/fairQr";
 import { createEventOnlyClient } from "./fairAdmin";
 import { commitFairImport, type FairImportPayload } from "./fairImport";
-import { FAIR_IMPORT_VERSION } from "../lib/fair-contract";
+import { FAIR_IMPORT_VERSION, fairModelPath } from "../lib/fair-contract";
 
 // Sajam automobila 2026 — B1 DEV TEST catalog. Run ONLY against a developer
 // deployment: `npx convex run fairDevFixtures:seedTestCatalog` (never --prod).
@@ -239,5 +242,56 @@ export const seedTestCatalog = internalMutation({
       }
     }
     return out;
+  },
+});
+
+// B2 — ONE TEST digital QR for the DEV scan proof (`npx convex run
+// fairDevFixtures:seedTestQr`, DEV only, never --prod). Same steps as
+// adminProducts.createDigital (subject → channel → digitalQrCodes, healthy,
+// redirect on), created in the TEST QR inventory business of the TEST event,
+// then assigned to one TEST model through the normal fairAdmin path
+// (assignFairQr). Idempotent: a model that already has an active assignment
+// gets no new code. Never the 100 real codes.
+export const seedTestQr = internalMutation({
+  args: { eventCode: v.optional(v.string()), modelExternalKey: v.optional(v.string()) },
+  returns: v.object({ created: v.boolean(), resolverCode: v.string(), eventModelId: v.id("fairEventModels"), path: v.string() }),
+  handler: async (ctx, args) => {
+    const eventCode = args.eventCode ?? "test-elektromobilnost-2026";
+    const modelKey = args.modelExternalKey ?? "test-em26-volta-x1";
+    if (!eventCode.startsWith("test-") || !modelKey.startsWith("test-")) throw new Error("fair_dev_fixture_not_test");
+    const event = await fairEventByCode(ctx, eventCode);
+    if (!event) throw new Error("fair_dev_fixture_event_missing");
+    const model = await ctx.db
+      .query("fairEventModels")
+      .withIndex("by_eventId_and_externalKey", (q) => q.eq("eventId", event._id).eq("externalKey", modelKey))
+      .first();
+    if (!model) throw new Error("fair_dev_fixture_model_missing");
+    const path = fairModelPath(event.slug, model.slug);
+    const existing = await activeAssignmentForModel(ctx, model._id);
+    if (existing) return { created: false, resolverCode: existing.resolverCode, eventModelId: model._id, path };
+
+    if (!event.qrInventoryBusinessId) throw new Error("fair_dev_fixture_inventory_missing");
+    const inventory = await ctx.db.get(event.qrInventoryBusinessId);
+    if (!inventory || !inventory.accountId || !inventory.smlCode?.startsWith("SML-TEST-")) throw new Error("fair_dev_fixture_inventory_not_test");
+    const accountId = inventory.accountId;
+    const actorUserId = await fixtureActor(ctx);
+    const now = Date.now();
+    const smqCode = await uniqueCode(ctx, "SMQ");
+    const subjectId = await ctx.db.insert("accessSubjects", { accountId, businessId: inventory._id, destinationKind: "legacy", createdAt: now, updatedAt: now });
+    const displayContext = await accessDisplayContext(ctx, accountId, inventory._id);
+    const channel = await createChannel(ctx, (await ctx.db.get(subjectId))!, "qr", actorUserId, now, undefined, displayContext);
+    const digitalQrId = await ctx.db.insert("digitalQrCodes", { accountId, businessId: inventory._id, smqCode, channelId: channel.channelId, originalSubjectId: subjectId, createdByUserId: actorUserId, createdAt: now });
+    await ctx.db.patch(subjectId, { digitalQrId });
+    await ctx.db.patch(channel.channelId, {
+      digitalQrId,
+      smqCode,
+      health: "healthy",
+      redirectEnabled: true,
+      ...channelProjectionPatch({ resolverCode: channel.resolverCode, smqCode, kind: "qr" }, displayContext),
+    });
+    await syncChannel(ctx, (await ctx.db.get(channel.channelId))!, (await ctx.db.get(subjectId))!, { kind: "admin", userId: actorUserId }, "digital_created", now);
+    await writeAdminAudit(ctx, { actorUserId, accountId, businessId: inventory._id, action: "digital_qr_created", detail: { digitalQrId, smqCode }, now });
+    await assignFairQr(ctx, { eventModelId: model._id, resolverCode: channel.resolverCode, reason: "TEST B2 dokaz skeniranja" }, actorUserId, now);
+    return { created: true, resolverCode: channel.resolverCode, eventModelId: model._id, path };
   },
 });
