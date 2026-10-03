@@ -1,6 +1,12 @@
 import { v, type Infer } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { isFairSubmissionId, type FairPassportState, type FairSurveySubmitResult } from "../lib/fair-contract";
+import {
+  isFairSubmissionId,
+  type FairPassportState,
+  type FairSponsoredActionKind,
+  type FairSponsoredActionResult,
+  type FairSurveySubmitResult,
+} from "../lib/fair-contract";
 import { fairRatingInputProblem, getFairEntitlements } from "../lib/fair-entitlements";
 import { bumpFairCount } from "./lib/fairCountShards";
 import {
@@ -27,13 +33,15 @@ import {
   requireVisitorHash,
   type FairRatingInputValues,
 } from "./lib/fairInteractions";
-import { upsertFairVisitor } from "./lib/fairScans";
+import { fairTimeKeys, upsertFairVisitor } from "./lib/fairScans";
+import { fairActiveSponsoredSnapshot, fairSponsoredCountKeys, fairSponsoredItems } from "./lib/fairSponsored";
 import {
   fairAudienceResultView,
   fairMyModelStateView,
   fairPassportProgressView,
   fairPassportStateView,
   fairRatingStateView,
+  fairSponsoredActionResultView,
   fairSurveyAnswer,
 } from "./lib/fairValidators";
 import { rateLimiter } from "./lib/rateLimits";
@@ -59,7 +67,7 @@ const ratingValue = v.optional(v.number());
 
 async function requireLimit(
   ctx: Parameters<typeof rateLimiter.limit>[0],
-  name: "fairRating" | "fairAudienceVote" | "fairSurveySubmit" | "fairBrandFavorite",
+  name: "fairRating" | "fairAudienceVote" | "fairSurveySubmit" | "fairBrandFavorite" | "fairSponsoredAction",
   key: string,
 ) {
   const status = await rateLimiter.limit(ctx, name, { key });
@@ -330,5 +338,68 @@ export const upsertBrandFavorite = mutation({
       await bumpFairCount(ctx, fairFavoriteKey(passport._id, choice.eventModelId), 1);
     }
     return fairPassportProgress(ctx, { passport, required, visitorId, threshold });
+  },
+});
+
+// -----------------------------------------------------------------------------
+// B5 — explicit garage sponsored actions (JOVAN-DELTA §2, HANDOFF §5.7)
+// -----------------------------------------------------------------------------
+
+const SPONSORED_KINDS: readonly string[] = ["open_model", "garage_add"] satisfies FairSponsoredActionKind[];
+
+/**
+ * `Pogledaj` (open_model) or `Dodaj u garažu` (garage_add) on a card of the
+ * garage sponsored strip — the ONLY sponsored write. Surface must be `garage`:
+ * the map and the displays never write, and a passive view is never an event.
+ * Idempotent by `requestId`. Not a QR scan (no scan row, counter or stamp) and
+ * it never adds the model to the garage — the garage lives in the browser and
+ * only the visitor adds to it. The model must be Advanced now and in the
+ * event's published snapshot.
+ */
+export const recordSponsoredAction = mutation({
+  args: { visitorHash: v.string(), eventModelId: v.string(), surface: v.string(), kind: v.string(), requestId: v.string() },
+  returns: fairSponsoredActionResultView,
+  handler: async (ctx, args): Promise<FairSponsoredActionResult> => {
+    const now = Date.now();
+    requireVisitorHash(args.visitorHash);
+    if (args.surface !== "garage") fairInteractionError("INVALID_INPUT", { field: "surface" });
+    if (!SPONSORED_KINDS.includes(args.kind)) fairInteractionError("INVALID_INPUT", { field: "kind" });
+    const kind = args.kind as FairSponsoredActionKind;
+    if (!isFairSubmissionId(args.requestId)) fairInteractionError("INVALID_INPUT", { field: "requestId" });
+
+    const prior = await ctx.db
+      .query("fairSponsoredEvents")
+      .withIndex("by_requestId", (q) => q.eq("requestId", args.requestId))
+      .unique();
+    if (prior) {
+      const visitor = await findFairVisitor(ctx, args.visitorHash);
+      if (!visitor || prior.visitorId !== visitor._id || prior.eventModelId !== args.eventModelId || prior.kind !== kind) {
+        fairInteractionError("SUBMISSION_DUPLICATE");
+      }
+      return { eventModelId: prior.eventModelId, kind: prior.kind, recordedAt: prior.occurredAt, duplicate: true };
+    }
+
+    const { model } = await requireInteractiveModel(ctx, args.eventModelId, now);
+    if (!getFairEntitlements(await fairModelTierAt(ctx, model, now)).sponsoredGarageRotation) fairInteractionError("FEATURE_NOT_ENTITLED");
+    const snapshot = await fairActiveSponsoredSnapshot(ctx, model.eventId);
+    const inSnapshot = snapshot ? (await fairSponsoredItems(ctx, snapshot._id)).some((item) => item.eventModelId === model._id) : false;
+    if (!inSnapshot) fairInteractionError("FEATURE_NOT_ENTITLED");
+
+    const visitorId = await upsertFairVisitor(ctx, args.visitorHash, now);
+    await requireLimit(ctx, "fairSponsoredAction", visitorId);
+    const time = fairTimeKeys(now);
+    await ctx.db.insert("fairSponsoredEvents", {
+      requestId: args.requestId,
+      eventId: model.eventId,
+      eventModelId: model._id,
+      surface: "garage",
+      kind,
+      occurredAt: now,
+      dateKey: time.dateKey,
+      hourKey: time.hourKey,
+      visitorId,
+    });
+    for (const key of fairSponsoredCountKeys(kind, model._id, time)) await bumpFairCount(ctx, key);
+    return { eventModelId: model._id, kind, recordedAt: now, duplicate: false };
   },
 });

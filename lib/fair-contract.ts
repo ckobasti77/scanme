@@ -555,6 +555,28 @@ export type FairSponsoredRotationView = {
   items: FairSponsoredModelCard[];
 };
 
+/**
+ * Body of `POST /api/fair/sponsored-action`: one explicit action in the garage
+ * sponsored strip (`Pogledaj` = open_model, `Dodaj u garažu` = garage_add).
+ * `requestId` is the client idempotency key (FAIR_SUBMISSION_ID_PATTERN). Never
+ * a QR scan; the garage itself stays in the browser.
+ */
+export type FairSponsoredActionInput = {
+  eventModelId: string;
+  surface: FairSponsoredActionSurface;
+  kind: FairSponsoredActionKind;
+  requestId: string;
+};
+
+/** `recordSponsoredAction` result: no metric, no visitor data. */
+export type FairSponsoredActionResult = {
+  eventModelId: string;
+  kind: FairSponsoredActionKind;
+  recordedAt: number;
+  /** The same requestId was already stored; nothing new was written. */
+  duplicate: boolean;
+};
+
 // -----------------------------------------------------------------------------
 // Errors
 // -----------------------------------------------------------------------------
@@ -668,6 +690,8 @@ export const FAIR_ADMIN_ISSUE_CODES = [
   "FAIR_LEAD_NOT_FOUND",
   "FAIR_EMAIL_DELIVERY_NOT_FOUND",
   "FAIR_EMAIL_DELIVERY_STATUS",
+  // B5 — sponsored snapshot (more Advanced models than one snapshot holds)
+  "FAIR_SPONSORED_LIMIT",
   // Warnings
   "FAIR_PRICE_MISSING",
   "FAIR_PHOTO_MISSING",

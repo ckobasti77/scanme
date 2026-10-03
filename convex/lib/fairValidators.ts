@@ -419,3 +419,44 @@ export const fairLeadSubmitResultView = v.object({
   confirmationEmail: v.boolean(),
   followUpScheduled: v.boolean(),
 });
+
+// B5 — sponsored rotation projections (read-only, no impression field) and
+// the result of an explicit garage strip action (lib/fair-contract.ts).
+export const fairSponsoredModelCardView = v.object({
+  eventModelId: v.string(),
+  eventId: v.string(),
+  eventSlug: v.string(),
+  slug: v.string(),
+  brandId: v.string(),
+  brandName: v.string(),
+  displayName: v.string(),
+  variant: v.optional(v.string()),
+  priceText: v.string(),
+  visual: v.union(v.literal("photo"), v.literal("brand_logo"), v.literal("event_placeholder")),
+  photoUrl: v.optional(v.string()),
+  brandLogoUrl: v.optional(v.string()),
+  standMapLocationId: v.string(),
+  order: v.number(),
+  audienceResult: v.optional(
+    v.object({ questionId: v.string(), prompt: v.string(), options: v.array(fairChoiceOption), result: fairAudienceResultView }),
+  ),
+});
+
+export const fairSponsoredRotationView = v.object({
+  surface: v.union(v.literal("map"), v.literal("garage")),
+  eventId: v.string(),
+  snapshotId: v.string(),
+  version: v.number(),
+  dayKey: v.string(),
+  seed: v.string(),
+  epochMs: v.number(),
+  intervalMs: v.number(),
+  items: v.array(fairSponsoredModelCardView),
+});
+
+export const fairSponsoredActionResultView = v.object({
+  eventModelId: v.string(),
+  kind: fairSponsoredActionKind,
+  recordedAt: v.number(),
+  duplicate: v.boolean(),
+});
