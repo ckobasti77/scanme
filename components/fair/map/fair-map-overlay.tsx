@@ -1,30 +1,8 @@
-import type { FairMapPoint, FairMapZone } from "@/lib/fair-map";
+import { fairMapLabelPoint as labelPoint, fairMapPointsAttr as pointsAttr, type FairMapZone } from "@/lib/fair-map";
 
 // M0 geometry check: the organizer image with every location polygon and its
 // mapLocationId on top, in the image's own pixel space (viewBox = image size).
 // Data/adapter layer only — not the public map's final style (MASTER §14).
-
-function pointsAttr(polygon: readonly FairMapPoint[]) {
-  return polygon.map(([x, y]) => `${x},${y}`).join(" ");
-}
-
-/** Area centroid, falling back to the vertex mean for a degenerate polygon. */
-function labelPoint(polygon: readonly FairMapPoint[]): FairMapPoint {
-  let area = 0;
-  let cx = 0;
-  let cy = 0;
-  polygon.forEach(([x1, y1], index) => {
-    const [x2, y2] = polygon[(index + 1) % polygon.length];
-    const cross = x1 * y2 - x2 * y1;
-    area += cross;
-    cx += (x1 + x2) * cross;
-    cy += (y1 + y2) * cross;
-  });
-  if (area === 0) {
-    return [polygon.reduce((sum, [x]) => sum + x, 0) / polygon.length, polygon.reduce((sum, [, y]) => sum + y, 0) / polygon.length];
-  }
-  return [cx / (3 * area), cy / (3 * area)];
-}
 
 export function FairMapOverlay({ zone, label }: { zone: FairMapZone; label: string }) {
   const { src, width, height } = zone.image;

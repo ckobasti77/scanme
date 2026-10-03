@@ -11,6 +11,7 @@ import { assignFairQr } from "./lib/fairQr";
 import { createEventOnlyClient } from "./fairAdmin";
 import { commitFairImport, type FairImportPayload } from "./fairImport";
 import { FAIR_IMPORT_VERSION, fairModelPath } from "../lib/fair-contract";
+import { fairBrandPassportEligible } from "../lib/fair-entitlements";
 
 // Sajam automobila 2026 — B1 DEV TEST catalog. Run ONLY against a developer
 // deployment: `npx convex run fairDevFixtures:seedTestCatalog` (never --prod).
@@ -295,5 +296,85 @@ export const seedTestQr = internalMutation({
     await writeAdminAudit(ctx, { actorUserId, accountId, businessId: inventory._id, action: "digital_qr_created", detail: { digitalQrId, smqCode }, now });
     await assignFairQr(ctx, { eventModelId: model._id, resolverCode: channel.resolverCode, reason: "TEST B2 dokaz skeniranja" }, actorUserId, now);
     return { created: true, resolverCode: channel.resolverCode, eventModelId: model._id, path };
+  },
+});
+
+// M1 — ONE TEST brand passport for the DEV map proof (`npx convex run
+// fairDevFixtures:seedTestPassport`, DEV only, never --prod). Same rules and
+// rows as fairInteractionsAdmin.publishPassport: ≥2 exhibited models, all
+// published, passport candidates and Starter+ (fairBrandPassportEligible),
+// frozen before the event opens. Only `test-` events and a `TEST` brand.
+// Idempotent: an existing passport of the brand is returned unchanged.
+export const seedTestPassport = internalMutation({
+  args: { eventCode: v.optional(v.string()), brandName: v.optional(v.string()) },
+  returns: v.object({ created: v.boolean(), passportId: v.id("fairPassportConfigs"), requiredModelIds: v.array(v.id("fairEventModels")) }),
+  handler: async (ctx, args) => {
+    const eventCode = args.eventCode ?? "test-elektromobilnost-2026";
+    const brandName = args.brandName ?? "TEST Volta";
+    if (!eventCode.startsWith("test-") || !brandName.startsWith("TEST")) throw new Error("fair_dev_fixture_not_test");
+    const event = await fairEventByCode(ctx, eventCode);
+    if (!event) throw new Error("fair_dev_fixture_event_missing");
+    const participations = await ctx.db
+      .query("fairParticipations")
+      .withIndex("by_eventId_and_externalKey", (q) => q.eq("eventId", event._id))
+      .take(20);
+    let brandId: Id<"brands"> | null = null;
+    for (const participation of participations) {
+      const brand = await ctx.db
+        .query("brands")
+        .withIndex("by_accountId_and_normalizedName", (q) => q.eq("accountId", participation.accountId).eq("normalizedName", normalizeAdminSearchText(brandName)))
+        .first();
+      if (brand) brandId = brand._id;
+    }
+    if (!brandId) throw new Error("fair_dev_fixture_brand_missing");
+    const foundBrandId = brandId;
+    const existing = await ctx.db
+      .query("fairPassportConfigs")
+      .withIndex("by_eventId_and_brandId", (q) => q.eq("eventId", event._id).eq("brandId", foundBrandId))
+      .first();
+    if (existing) {
+      const members = await ctx.db
+        .query("fairPassportEligibleModels")
+        .withIndex("by_passportConfigId_and_status", (q) => q.eq("passportConfigId", existing._id).eq("status", "required"))
+        .take(50);
+      return { created: false, passportId: existing._id, requiredModelIds: members.map((row) => row.eventModelId) };
+    }
+    const now = Date.now();
+    if (now >= event.startsAt) throw new Error("fair_dev_fixture_event_started");
+    const models = (
+      await ctx.db
+        .query("fairEventModels")
+        .withIndex("by_eventId_and_brandId", (q) => q.eq("eventId", event._id).eq("brandId", foundBrandId))
+        .take(50)
+    ).filter((model) => model.status !== "withdrawn");
+    const participationIds = new Set(models.map((model) => model.participationId));
+    if (
+      !models.every((model) => model.externalKey.startsWith("test-") && model.status === "published" && model.passportEligible) ||
+      !fairBrandPassportEligible(models) ||
+      participationIds.size !== 1
+    ) {
+      throw new Error("fair_dev_fixture_passport_not_eligible");
+    }
+    const passportId = await ctx.db.insert("fairPassportConfigs", {
+      eventId: event._id,
+      brandId: foundBrandId,
+      participationId: models[0].participationId,
+      status: "published",
+      frozenAt: now,
+      publishedAt: now,
+      createdAt: now,
+      updatedAt: now,
+    });
+    for (const model of models) {
+      await ctx.db.insert("fairPassportEligibleModels", {
+        passportConfigId: passportId,
+        eventId: event._id,
+        brandId: foundBrandId,
+        eventModelId: model._id,
+        status: "required",
+        createdAt: now,
+      });
+    }
+    return { created: true, passportId, requiredModelIds: models.map((model) => model._id) };
   },
 });

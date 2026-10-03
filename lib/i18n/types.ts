@@ -75,6 +75,44 @@ export interface FairMapDict {
   overlayPlaceholder: string;
   events: Record<FairMapKey, string>;
   zones: Record<FairMapZoneId, string>;
+  // M1 public map /sajam/[eventSlug]
+  umbrellaTitle: string;
+  metaTitle: string;
+  metaDescription: string;
+  notFoundTitle: string;
+  notFoundBody: string;
+  pageTitle: string;
+  loadingLabel: string;
+  errorTitle: string;
+  errorBody: string;
+  retry: string;
+  zoneSwitchLabel: string;
+  mapAria: string;
+  mapHint: string;
+  zoomIn: string;
+  zoomOut: string;
+  fitMap: string;
+  searchLabel: string;
+  searchPlaceholder: string;
+  searchClear: string;
+  searchEmpty: string;
+  searchResultsLabel: string;
+  standAria: string;
+  standLocation: string;
+  standUnplaced: string;
+  selectHint: string;
+  closeDetail: string;
+  modelsLabel: string;
+  listTitle: string;
+  listEmpty: string;
+  passportLabel: string;
+  passportProgress: string;
+  passportProgressAria: string;
+  passportComplete: string;
+  passportLoading: string;
+  passportUnavailable: string;
+  passportHint: string;
+  scanmeStand: string;
 }
 
 export interface FairModelDict {

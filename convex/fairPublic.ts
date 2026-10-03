@@ -4,6 +4,8 @@ import { query, type QueryCtx } from "./_generated/server";
 import {
   FAIR_MAX_MODEL_IDS_PER_READ,
   type FairPublicEvent,
+  type FairPublicEventMap,
+  type FairPublicMapStand,
   type FairPublicModel,
   type FairSpecificationGroup,
 } from "../lib/fair-contract";
@@ -13,6 +15,7 @@ import {
   fairAudienceQuestionView,
   fairAudienceResultView,
   fairPassportCatalogEntryView,
+  fairPublicEventMapView,
   fairPublicEventView,
   fairPublicModelView,
   fairSurveyView,
@@ -40,6 +43,7 @@ import {
 const EVENT_DAYS_CAP = 31;
 const QUESTIONS_PER_MODEL_CAP = 50;
 const SNAPSHOT_ITEMS_CAP = 500;
+const MAP_MODELS_CAP = 500;
 const SLUG_MAX = 120;
 
 type PublicEvent = Infer<typeof fairPublicEventView>;
@@ -244,6 +248,64 @@ export const getModelsByIds = query({
       if (view) out.push(view);
     }
     return out;
+  },
+});
+
+/**
+ * M1 — the event map: every non-withdrawn stand with at least one published
+ * model, its `mapLocationId` (lib/fair-map geometry) and safe exhibitor /
+ * brand / model names. One bounded read of the event's models plus one read
+ * per distinct stand, participation, business and brand. A query: showing
+ * the map can never write (no impression, no analytics).
+ */
+export const getEventMap = query({
+  args: { eventSlug: v.string() },
+  returns: v.union(fairPublicEventMapView, v.null()),
+  handler: async (ctx, args): Promise<FairPublicEventMap | null> => {
+    const event = await eventBySlug(ctx, args.eventSlug);
+    if (!event || event.status === "draft") return null;
+    const models = (
+      await ctx.db
+        .query("fairEventModels")
+        .withIndex("by_eventId_and_standId", (q) => q.eq("eventId", event._id))
+        .take(MAP_MODELS_CAP)
+    )
+      .filter((model) => model.status === "published")
+      .sort((a, b) => a.sortOrder - b.sortOrder || a.displayName.localeCompare(b.displayName, "sr"));
+    const stand = memo((id: Id<"fairStands">) => ctx.db.get(id));
+    const participation = memo((id: Id<"fairParticipations">) => ctx.db.get(id));
+    const business = memo((id: Id<"businesses">) => ctx.db.get(id));
+    const brand = memo((id: Id<"brands">) => ctx.db.get(id));
+
+    const stands = new Map<string, FairPublicMapStand>();
+    for (const model of models) {
+      const [standRow, participationRow, brandRow] = await Promise.all([stand(model.standId), participation(model.participationId), brand(model.brandId)]);
+      if (!standRow || standRow.status === "withdrawn" || !participationRow || !brandRow) continue;
+      const businessRow = await business(participationRow.businessId);
+      if (!businessRow) continue;
+      let entry = stands.get(standRow._id);
+      if (!entry) {
+        entry = {
+          standId: standRow._id,
+          mapLocationId: standRow.mapLocationId,
+          code: standRow.code,
+          displayName: standRow.displayName,
+          exhibitorName: businessRow.name,
+          brands: [],
+        };
+        stands.set(standRow._id, entry);
+      }
+      let brandEntry = entry.brands.find((row) => row.brandId === brandRow._id);
+      if (!brandEntry) {
+        brandEntry = { brandId: brandRow._id, brandName: brandRow.name, models: [] };
+        entry.brands.push(brandEntry);
+      }
+      brandEntry.models.push({ id: model._id, slug: model.slug, displayName: model.displayName, ...(model.variant ? { variant: model.variant } : {}) });
+    }
+    return {
+      eventId: event._id,
+      stands: [...stands.values()].sort((a, b) => a.code.localeCompare(b.code, "sr", { numeric: true })),
+    };
   },
 });
 

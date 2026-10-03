@@ -59,3 +59,24 @@ test("seedTestCatalog is idempotent and only writes TEST fixtures", async () => 
   const admin = t.withIdentity({ subject: adminId, issuer: "https://fair-fixture.test" });
   expect((await admin.query(api.adminReadModels.listClients, { paginationOpts: { numItems: 50, cursor: null }, status: "all", sort: "name" })).page).toEqual([]);
 });
+
+test("seedTestPassport publishes one TEST brand passport, idempotently, visible on the event map", async () => {
+  const t = convexTest(schema, modules);
+  rateLimiterTest.register(t);
+  await t.run((ctx) => ctx.db.insert("users", { email: ADMIN_EMAIL }));
+  await t.mutation(internal.fairDevFixtures.seedTestCatalog, {});
+  const first = await t.mutation(internal.fairDevFixtures.seedTestPassport, {});
+  expect(first.created).toBe(true);
+  expect(first.requiredModelIds).toHaveLength(2);
+  const second = await t.mutation(internal.fairDevFixtures.seedTestPassport, {});
+  expect(second).toEqual({ ...first, created: false });
+  const catalog = await t.query(api.fairPublic.getPassportCatalog, { eventSlug: "test-elektromobilnost-2026" });
+  expect(catalog?.catalog).toEqual([expect.objectContaining({ brandName: "TEST Volta", standMapLocationIds: ["hala-12"] })]);
+  // The passport brand's stand is on the public map, keyed by the same mapLocationId.
+  const map = await t.query(api.fairPublic.getEventMap, { eventSlug: "test-elektromobilnost-2026" });
+  expect(map?.stands.map((stand) => stand.mapLocationId).sort()).toEqual(["hala-12", "ispred-14", "ispred-18"]);
+  await expect(t.mutation(internal.fairDevFixtures.seedTestPassport, { eventCode: "elektromobilnost-2026" })).rejects.toThrow("fair_dev_fixture_not_test");
+  // TEST Amper has an included model: not eligible, nothing written.
+  await expect(t.mutation(internal.fairDevFixtures.seedTestPassport, { brandName: "TEST Amper" })).rejects.toThrow("fair_dev_fixture_passport_not_eligible");
+  expect(await t.run((ctx) => ctx.db.query("fairPassportConfigs").collect())).toHaveLength(1);
+});
