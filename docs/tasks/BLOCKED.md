@@ -1667,3 +1667,25 @@ Svako odstupanje ima zapisan razlog.
 ### 5. Za B1
 - `convex/lib/accessOperations.ts` (`applyDestination`, jedini pisac `accessDestinationHistory`) nije na B1 listi dozvoljenih fajlova.
 - Mapiranje `brand/account/business_external_key` na postojeće zapise je otvoreno, jer `brands`/`accounts`/`businesses` nemaju `externalKey`.
+
+---
+
+## SAJAM v2 — B1 (katalog, import, paketi i QR dodela)
+
+B1 je završen u granicama uputstva. Sporni delovi su rešeni najkonzervativnijim lako promenljivim seam-om i čekaju odluku vlasnika: odloženo, čeka odluku vlasnika. Detalji su u `FAIR-BACKEND-CONTRACT.md` §9 (tačke 16–21) i `jovan-status/B1.md`.
+
+### 1. HANDOFF §17
+B1 je rađen pre Aleksinog pregleda B0. To je Jovanova odluka u runneru, **nije Aleksino odobrenje**. Ako Aleksa promeni ugovor, to ide u zaseban korektivni korak.
+
+### 2. `mapLocationId` jedinstvenost: B1 uputstvo naspram R0 nalaza 1
+B1 uputstvo traži da seam `validateMapLocationIds` proverava „neprazno i jedinstveno po eventu“. R0 (nalaz 1) predlaže samo upozorenje, jer HANDOFF §5.1/§8 ne zabranjuje deljenu lokaciju. Primenjeno je uputstvo koraka (hard error `FAIR_MAP_LOCATION_TAKEN` među ne-povučenim štandovima). Ako Aleksa potvrdi da je deljeni štand legitiman, menja se samo provera u `convex/lib/fairCatalog.ts`.
+
+### 3. Pisac brendova
+Aplikacija nije imala mutaciju koja pravi red u `brands`. Bez nje `event_only` izlagač ne može dobiti brend, pa import pada sa `FAIR_LINK_NOT_FOUND`. Dodat je `fairAdmin.ensureBrand` (ista `brands` tabela, prazni logo/boje). Otvoreno: da li brend treba da nastaje u redovnom klijentskom toku.
+
+### 4. Release QR-a i `accessDestinationHistory`
+`accessDestinationHistory.targetId` je obavezan i ne postoji „prazna“ destinacija. Zato release ne piše novi target. Prekidač je `fairQrAssignments.status`: `destinationProblem` vraća `destination_fair_unassigned`, a kanal se u istoj transakciji prebacuje u `problem`. Ponovna dodela piše novi immutable target i red istorije.
+
+### 5. Fajlovi van B1 liste
+- `convex/lib/adminReadModelEngine.ts`: projekcija `clientSegment` u read modele (2 reda, samo kad je postavljen).
+- `convex/lib/accessOperations.ts` **nije menjan**. Fair dodela ponavlja njegov `applyDestination` tok preko izvezenih helpera (`channelsFor`, `syncChannel`, `refreshInventory`) u `convex/lib/fairQr.ts`.

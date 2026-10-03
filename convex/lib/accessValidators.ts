@@ -8,9 +8,14 @@ export const accessDestinationInput = v.union(
   v.object({ kind: v.literal("services"), serviceProfileIds: v.array(v.id("serviceProfiles")) }),
   v.object({ kind: v.literal("dynamic_link"), dynamicLinkId: v.id("dynamicLinks") }),
 );
+// Sajam 2026 B1 (HANDOFF §5.1): an event QR inventory subject resolves to one
+// fair event model. Only the fairAdmin QR assignment writes it, so the generic
+// access APIs keep accepting accessDestinationInput, which excludes it.
+export const fairModelDestinationInput = v.object({ kind: v.literal("fair_model"), eventModelId: v.id("fairEventModels") });
+export const accessSubjectDestinationInput = v.union(...accessDestinationInput.members, fairModelDestinationInput);
 export const accessDestinationKind = v.union(
   v.literal("service"), v.literal("links_splitter"), v.literal("generic_splitter"),
-  v.literal("dynamic_url"), v.literal("legacy"),
+  v.literal("dynamic_url"), v.literal("legacy"), v.literal("fair_model"),
 );
 export const accessActor = v.union(
   v.object({ kind: v.literal("admin"), userId: v.id("users") }),

@@ -396,3 +396,75 @@ export type FairErrorDetails = Record<string, string | number | boolean>;
 export type FairResult<T> =
   | { ok: true; value: T }
   | { ok: false; code: FairErrorCode; details?: FairErrorDetails };
+
+// -----------------------------------------------------------------------------
+// B1 — admin catalog, import and QR assignment
+// -----------------------------------------------------------------------------
+
+/** Stored `priceText` fallback when no confirmed price exists (HANDOFF §5.1, DATA-INTAKE §6.3). */
+export const FAIR_PRICE_ON_REQUEST_TEXT = "Cena na upit";
+
+/** The only import format version the backend accepts (HANDOFF §8). */
+export const FAIR_IMPORT_VERSION = 1;
+/** One import is one transaction; these caps keep it inside Convex limits. */
+export const FAIR_IMPORT_MAX_PARTICIPATIONS = 100;
+export const FAIR_IMPORT_MAX_MODELS = 200;
+/** Bounded admin catalog reads per event (two fairs × ~100 models fit easily). */
+export const FAIR_ADMIN_LIST_LIMIT = 500;
+
+/** Stable `externalKey`: lowercase ASCII, digits and single hyphens (DATA-INTAKE §4). */
+export const FAIR_EXTERNAL_KEY_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+/** Public model slug: same alphabet as the external key, at most 80 characters. */
+export const FAIR_SLUG_MAX_LENGTH = 80;
+
+/**
+ * Stable codes of admin/import validation issues. Errors block the write;
+ * warnings never invent data (missing price → fallback text, missing photo →
+ * frontend placeholder). Text is mapped by the admin UI through lib/i18n.
+ */
+export const FAIR_ADMIN_ISSUE_CODES = [
+  "INVALID_INPUT",
+  "FAIR_MODEL_NOT_FOUND",
+  "FAIR_EVENT_NOT_FOUND",
+  "FAIR_IMPORT_VERSION_UNSUPPORTED",
+  "FAIR_IMPORT_TOO_LARGE",
+  "FAIR_LINK_NOT_FOUND",
+  "FAIR_LINK_CONFLICT",
+  "FAIR_CLIENT_SEGMENT_MISMATCH",
+  "FAIR_CLIENT_CODE_TAKEN",
+  "FAIR_NOT_EVENT_ONLY",
+  "FAIR_DUPLICATE_KEY",
+  "FAIR_SLUG_TAKEN",
+  "FAIR_MAP_LOCATION_INVALID",
+  "FAIR_MAP_LOCATION_TAKEN",
+  "FAIR_SPECIFICATIONS_INVALID",
+  "FAIR_HIGHLIGHT_LIMIT",
+  "FAIR_PACKAGE_DOWNGRADE",
+  "FAIR_PACKAGE_SAME_TIER",
+  "FAIR_PACKAGE_CHANGE_REQUIRES_UPGRADE",
+  "FAIR_PUBLISH_INVALID",
+  "FAIR_QR_INVENTORY_NOT_CONFIGURED",
+  "FAIR_QR_NOT_IN_INVENTORY",
+  "FAIR_QR_ALREADY_ASSIGNED",
+  "FAIR_MODEL_ALREADY_ASSIGNED",
+  "FAIR_QR_SUBJECT_SHARED",
+  "FAIR_QR_NOT_ASSIGNED",
+  // Warnings
+  "FAIR_PRICE_MISSING",
+  "FAIR_PHOTO_MISSING",
+  "FAIR_QR_MISSING",
+] as const;
+export type FairAdminIssueCode = (typeof FAIR_ADMIN_ISSUE_CODES)[number];
+
+export type FairAdminIssue = {
+  severity: "error" | "warning";
+  code: FairAdminIssueCode;
+  /** Location in the import payload or entity, e.g. `participations[0].brands[1].models[2]`. */
+  path: string;
+  details?: FairErrorDetails;
+};
+
+/** Public model route opened by `/r/[cardCode]` for an assigned fair QR (B2 wires the resolver). */
+export function fairModelPath(eventSlug: string, modelSlug: string): string {
+  return `/sajam/${eventSlug}/model/${modelSlug}`;
+}
