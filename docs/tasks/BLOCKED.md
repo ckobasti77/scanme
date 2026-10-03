@@ -1633,3 +1633,37 @@ korisniku „Spoljašnja adresa mora biti javna https:// adresa." (dialog ostaje
 otvoren, kartica se NE pravi). Tačno Links→Memories odbijanje
 („Memories iza Links razdelnika nije podržan… dva obrasca") deterministički je
 dokazano testom `convex/cardsAdmin.test.ts` (assertuje i da audit red NIJE upisan).
+
+---
+
+## SAJAM v2 — B0 (ugovor i šema)
+
+B0 je završen u granicama ugovora. Sporni delovi nisu rešavani pretpostavkom: odloženo, čeka odluku vlasnika. Detalji su u `docs/events/sajam-automobila-2026/FAIR-BACKEND-CONTRACT.md` §9 i `jovan-status/C0.md` §4.
+
+### 1. HANDOFF §17 naspram runnera
+HANDOFF traži Aleksin pregled B0 pre B1, a lanac nastavlja bez čekanja (`cekajOdobrenjeB0: false`). To je Jovanova odluka kao vlasnika backend-a, **nije Aleksino odobrenje**. Aleksa B0 pregleda naknadno, preko patch-a.
+
+### 2. Odstupanja šeme od HANDOFF §5
+Svako odstupanje ima zapisan razlog.
+- **`fairSponsoredEvents.surface`** je samo `"garage"` (JOVAN-DELTA §2 zabranjuje map/display write).
+- **`fairEmailDeliveries.leadId`** je opciono, jer `daily_report` i `exhibitor_delivery` nemaju lead.
+- **`fairAudienceQuestions.externalKey?`** i indeks `by_eventId_and_externalKey` služe idempotentnom importu.
+- **`fairSurveys.title`** je opciono, jer CSV nema naslov.
+- **Placeholder vrednosti** za statuse `fairStands`/`fairSurveys` i dizajn `fairPassportConfigs`/`fairPassportEligibleModels`, jer HANDOFF ne zadaje vrednosti ni polja.
+
+### 3. Dokumenti međusobno (odloženo, čeka odluku vlasnika)
+- **Specifikacije**: CSV `04-specifications.csv` nema grupu ni `is_highlight`, a JOVAN-DELTA §3 ih traži.
+- **Opis modela, `shortLabel` i ikonica**: EDS §9 i Kodeksov fixture ih imaju; HANDOFF i CSV nemaju.
+- **„Završni izveštaj“ i agregat za organizatora iz PDF v10** nemaju model u `fairReportRuns` (`eventDayId` i `participationId` su obavezni).
+- **„View“ stranice modela** (HANDOFF §5.2) nema tabelu i nije metrika u MASTER §12.
+- **MASTER §17** kaže da je EVENT-DESIGN-SYSTEM „draft“, a dokument kaže „zaključan za prvi slice“. Važi li to i za mapu?
+- **Poddomen `sajam.scanme.rs`** (Jovan) naspram zaključanog glavnog domena (MASTER §5/§14).
+
+### 4. Kodeksov frontend (nije Jovanov opseg, prijavljeno)
+- **`components/fair/model-actions-checkpoint.tsx:225–228`**: probna vožnja traži datum, što zabranjuju MASTER §4, §8 i §16.
+- **Isti fajl**: `Zainteresovan sam` traži email **i** telefon, a MASTER §8 traži ime i bar jedan kontakt.
+- **`app/sajam/**`** nema zaštitu u produkciji i statički generiše fixture stranicu sa izmišljenim specifikacijama.
+
+### 5. Za B1
+- `convex/lib/accessOperations.ts` (`applyDestination`, jedini pisac `accessDestinationHistory`) nije na B1 listi dozvoljenih fajlova.
+- Mapiranje `brand/account/business_external_key` na postojeće zapise je otvoreno, jer `brands`/`accounts`/`businesses` nemaju `externalKey`.

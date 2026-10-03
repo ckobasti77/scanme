@@ -78,6 +78,7 @@ import type * as lib_emailProvider from "../lib/emailProvider.js";
 import type * as lib_emailProviderValidators from "../lib/emailProviderValidators.js";
 import type * as lib_emailSyncEngine from "../lib/emailSyncEngine.js";
 import type * as lib_entitlements from "../lib/entitlements.js";
+import type * as lib_fairValidators from "../lib/fairValidators.js";
 import type * as lib_financeProjection from "../lib/financeProjection.js";
 import type * as lib_invitations from "../lib/invitations.js";
 import type * as lib_menuValidators from "../lib/menuValidators.js";
@@ -209,6 +210,7 @@ declare const fullApi: ApiFromModules<{
   "lib/emailProviderValidators": typeof lib_emailProviderValidators;
   "lib/emailSyncEngine": typeof lib_emailSyncEngine;
   "lib/entitlements": typeof lib_entitlements;
+  "lib/fairValidators": typeof lib_fairValidators;
   "lib/financeProjection": typeof lib_financeProjection;
   "lib/invitations": typeof lib_invitations;
   "lib/menuValidators": typeof lib_menuValidators;

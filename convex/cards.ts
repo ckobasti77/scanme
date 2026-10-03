@@ -94,7 +94,8 @@ export const cardTargetSpecValidator = v.object({
 
 type SplitterItemSpec = {
   // No nested splitters. ADMIN-12 also supports Menu as a splitter button.
-  kind: Exclude<Doc<"cardTargets">["kind"], "splitter">;
+  // Sajam 2026 B0: "fair_model" is not a splitter button (cardSplitterItem).
+  kind: Exclude<Doc<"cardTargets">["kind"], "splitter" | "fair_model">;
   label: string;
   spaceId?: Id<"memoriesSpaces">;
   eventId?: Id<"events">;
@@ -272,6 +273,11 @@ async function validateBaseTargetSpec<T extends BaseTargetSpec>(
       // own business ordering config, resolved at scan time by the card-aware
       // hop /r/[cardCode]/o (like "venue"/"menu", which also store no ref).
       return { kind: spec.kind };
+    case "fair_model":
+      // Sajam 2026 B0 (BACKEND-HANDOFF §5.1): inert. A fair target is never
+      // created through the generic card APIs — B1's atomic fairQrAssignments
+      // flow writes it (with fairEventModelId and accessDestinationHistory).
+      throw new ConvexError(dict.cardTargetInvalid);
   }
 }
 
@@ -842,6 +848,11 @@ export const resolveAndRecord = mutation({
           venueCode: config.code,
         };
       }
+      case "fair_model":
+        // Sajam 2026 B0: inert until B2 wires the fair hook (one requestId →
+        // the generic scan above + at most one fair scan) and the readable
+        // /sajam/{eventSlug}/model/{modelSlug} destination.
+        return { kind: "invalid" };
     }
   },
 });
