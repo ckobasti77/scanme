@@ -205,3 +205,77 @@ export function fairCardTargetProblem(target: {
   }
   return hasModel ? "fair_event_model_on_other_kind" : undefined;
 }
+
+// -----------------------------------------------------------------------------
+// B2 — public read projections (convex/fairPublic.ts). Shapes equal
+// FairPublicEvent / FairPublicModel in lib/fair-contract.ts (type test in
+// convex/fairPublic.test.ts). Ids travel as plain strings; no PII field exists
+// here and no rating aggregate (JOVAN-DELTA §1).
+// -----------------------------------------------------------------------------
+
+export const fairPublicEventView = v.object({
+  id: v.string(),
+  code: v.string(),
+  slug: v.string(),
+  title: v.string(),
+  venueName: v.string(),
+  timezone: v.literal("Europe/Belgrade"),
+  startsAt: v.number(),
+  endsAt: v.number(),
+  status: fairEventStatus,
+  garagePriority: v.number(),
+  days: v.array(
+    v.object({
+      id: v.string(),
+      dateKey: v.string(),
+      label: v.string(),
+      startsAt: v.number(),
+      endsAt: v.number(),
+      sortOrder: v.number(),
+    }),
+  ),
+});
+
+export const fairModelCapabilitiesView = v.object({
+  ratingMode: v.union(v.literal("none"), v.literal("overall"), v.literal("dimensions")),
+  canSubmitInterest: v.boolean(),
+  canRequestTestDrive: v.boolean(),
+  hasAudienceQuestions: v.boolean(),
+  hasSurvey: v.boolean(),
+  isSponsored: v.boolean(),
+});
+
+export const fairPublicModelView = v.object({
+  id: v.string(),
+  eventId: v.string(),
+  eventSlug: v.string(),
+  eventTitle: v.string(),
+  participationId: v.string(),
+  exhibitorName: v.string(),
+  brandId: v.string(),
+  brandName: v.string(),
+  standId: v.string(),
+  standMapLocationId: v.string(),
+  slug: v.string(),
+  displayName: v.string(),
+  variant: v.optional(v.string()),
+  priceText: v.string(),
+  specificationGroups: v.array(
+    v.object({
+      id: v.string(),
+      label: v.string(),
+      order: v.number(),
+      items: v.array(
+        v.object({
+          id: v.string(),
+          label: v.string(),
+          value: v.string(),
+          order: v.number(),
+          isHighlight: v.boolean(),
+        }),
+      ),
+    }),
+  ),
+  photoUrl: v.optional(v.string()),
+  capabilities: fairModelCapabilitiesView,
+});

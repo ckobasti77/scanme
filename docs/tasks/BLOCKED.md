@@ -1701,3 +1701,25 @@ B1A traži da ostali tabovi rade isto kao pre. Deveti tab ne staje u desktop nav
 
 ### 2. Dev preview van liste fajlova
 Lanac nema admin sesiju i ne unosi lozinke, pa je za proveru očima dodata `app/dev/admin-events-preview/page.tsx`, po obrascu postojećih `app/dev/admin-*-preview` ruta. U produkciji vraća `notFound()`.
+
+## SAJAM v2 — B2 (anonimni identitet i skenovi)
+
+Kod, testovi, ugovor i DEV dokaz su urađeni (`docs/events/sajam-automobila-2026/jovan-status/B2.md`). Stavka o okruženju (§1) je rešena; ostale stavke su otvorena pitanja za vlasnika.
+
+### 1. Okruženje i vitest timeout — REŠENO (Jovan, 3. 10. 2026. 22:25)
+U pokušajima a1 i a2 mašina je radila na bateriji i bila je deljena sa noćnim lancem drugog projekta. Hladan start prvog testa u svakom Convex test fajlu tada je trajao 5,2–11 s, pa su obični `npx vitest run fair` i `npm test` padali samo na podrazumevanom timeout-u od 5 s. Nijedna asercija nije pala.
+
+Jovanova odluka (`scripts/tasks/logs/sajam-v2/B2-pad-a2.md`, `_ZAJEDNICKO.md` §5): runner pušta testove sa `--testTimeout=30000 --hookTimeout=60000`, ne čeka se struja. Sa tim komandama (pokušaj a3, 22:25):
+- `npx vitest run fair` → 12 fajlova, 113/113;
+- `npm test` → 2 pala / 1354 prošlo, i to samo postojeći `adminProducts` 10k perf i `memoriesHost` iz B1A polaznog stanja.
+
+Testovi, timeout-i u kodu i vitest konfiguracija nisu menjani. Nisu dirana sistemska podešavanja napajanja ni tuđi procesi.
+
+### 2. Tajna `FAIR_VISITOR_HASH_SECRET`
+Pravu vrednost (32+ nasumičnih znakova) postavljaju Jovan i Aleksa u Next okruženje (Vercel/`.env.local`); Convex je ne treba. Bez nje produkcija ne upisuje fair skenove, a QR preusmerenje radi. DEV koristi označen DEV-ONLY ključ.
+
+### 3. Domen cookie-ja
+`FAIR_COOKIE_DOMAIN` je samo seam i ostaje prazan (host-only, glavni domen). Poddomen `sajam.scanme.rs` nije implementiran: MASTER i V2 zaključavaju glavni domen; odluka je Aleksina (`FAIR-BACKEND-CONTRACT.md` §13.7).
+
+### 4. Definicije koje čekaju potvrdu (`FAIR-BACKEND-CONTRACT.md` §9.24–§9.28)
+Jedinstveni sken štanda = zbir jedinstvenih parova posetilac+model; unique po danu = dan prvog skena; admin sken ne daje pečat pasoša; objavljen model u `draft` događaju je dostupan preko `/r`; generički `cardResolve` (300/min po IP-u) ostaje ispred fair grane do testa opterećenja (B7). „View“ stranice modela se ne beleži (§9.8).

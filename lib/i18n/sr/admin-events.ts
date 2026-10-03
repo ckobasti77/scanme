@@ -97,7 +97,7 @@ export const adminEventsSr = {
   resolveOpens: "Otvara",
   resolveBlocked: "Ne otvara model",
   resolveOther: "Kod vodi na drugu ScanMe destinaciju.",
-  resolveLiveNote: "Javna /r ruta otvara sajamski model tek kada se poveže sledeći korak (B2).",
+  resolveLiveNote: "Ova provera ne beleži skeniranje. Javna /r ruta otvara isti model i beleži jedno skeniranje po zahtevu.",
   importTitle: "Import kataloga",
   importHelp: "Nalepi ili učitaj JSON v1. Prvo ide provera (dry run); upis je moguć tek posle uspešne provere istog sadržaja.",
   importTextLabel: "JSON sadržaj",

@@ -1,6 +1,6 @@
 # Sajam automobila 2026 — fair backend ugovor (B0)
 
-> Status: **B0 — ugovor i šema; B1 — katalog, import, paketi i QR dodela** (admin funkcije u §11, import u §12). Napisano iz stvarnog koda 3. oktobra 2026.
+> Status: **B0 — ugovor i šema; B1 — katalog, import, paketi i QR dodela** (admin funkcije u §11, import u §12); **B2 — anonimni identitet, scan pipeline i javni katalog** (§13–§14). Napisano iz stvarnog koda 3. oktobra 2026.
 >
 > Vlasnik backend-a: **Jovan**. Vlasnik proizvoda i go/no-go: **Aleksa**.
 > Izvori zahteva: `MASTER-KONTEKST.md`, `BACKEND-HANDOFF.md` (§4–§7, §11), `JOVAN-DELTA-2026-10-02.md`.
@@ -21,15 +21,15 @@ Ako se ovaj dokument i kod razilaze, važi kod, a razlika je greška dokumenta.
 
 ## 1. Funkcijska površina
 
-**B0 ne dodaje nijednu public, internal ni admin funkciju.** Nova je samo šema; tipovi i pravila su čiste funkcije. **B1** dodaje admin funkcije (`requireAdmin`) i jednu internal DEV funkciju; spisak je u §11. Public fair funkcija još nema.
+**B0 ne dodaje nijednu public, internal ni admin funkciju.** Nova je samo šema; tipovi i pravila su čiste funkcije. **B1** dodaje admin funkcije (`requireAdmin`) i jednu internal DEV funkciju; spisak je u §11. **B2** dodaje tri javna read-only upita (`fairPublic.*`), fair granu u postojećem `cards.resolveAndRecord`, dve internal funkcije i jedan Next gateway (§13–§14).
 
 Planirana površina (HANDOFF §7). Imena se mogu minimalno prilagoditi; odgovornosti ne.
 
 | Modul | Korak | Vrsta | Funkcije |
 |---|---|---|---|
 | `convex/fairAdmin.ts`, `convex/fairImport.ts` (**urađeno**, §11–§12) | B1 | admin (`requireAdmin`) | upsert event/dan/učešće/štand/model, event-only klijent i `convertEventClientToStandard`, QR inventar + atomski assign/release + resolve test, publish/withdraw, upgrade paketa, import dry-run/commit, validation issues |
-| `convex/cards.ts` (hook), `app/r/[cardCode]`, `app/api/fair/**` | B2 | postojeći public resolver + server gateway | fair scan u istom `requestId`, visitor hash, server-derived admin isključenje, pečat pasoša |
-| `convex/fairPublic.ts` | B2/B3/B5 | public, read-only, bez PII | `getEventBySlug`, `getModelBySlug`, `getModelsByIds` (≤50), `listAudienceQuestionsForModel`, `getAudienceQuestionResult`, `getSponsoredMapRotation`, `getSponsoredGarageRotation`, `getPassportCatalog`; `getMyPassportProgress` ide kroz POST gateway (HANDOFF §7) |
+| `convex/cards.ts` (hook), `app/r/[cardCode]`, `app/api/fair/**` (**urađeno**, §13) | B2 | postojeći public resolver + server gateway | fair scan u istom `requestId`, visitor hash, server-derived admin isključenje, pečat pasoša |
+| `convex/fairPublic.ts` (B2 deo **urađen**, §14) | B2/B3/B5 | public, read-only, bez PII | `getEventBySlug`, `getModelBySlug`, `getModelsByIds` (≤50) — B2; `listAudienceQuestionsForModel`, `getAudienceQuestionResult`, `getSponsoredMapRotation`, `getSponsoredGarageRotation`, `getPassportCatalog`; `getMyPassportProgress` ide kroz POST gateway (HANDOFF §7) |
 | `convex/fairInteractions.ts` | B3/B5 | public preko POST gateway-a | `getMyModelState`, `upsertRating`, `upsertAudienceVote`, `submitSurvey`, `upsertBrandFavorite`, `recordSponsoredAction` (samo garaža) |
 | `convex/fairLeads.ts`, `convex/fairEmails.ts` | B4 | gateway + internal + admin | `submitLead`, potvrda (Node `internalAction`), follow-up, suppression, paginiran izvoz |
 | `convex/fairAnalytics.ts`, `convex/fairReports.ts` | B6 | internal/admin | metrike, dnevni dataset, report lifecycle (send samo iz `approved`) |
@@ -45,7 +45,7 @@ Pravila za sve buduće funkcije:
 
 | Mesto | Izmena | Ponašanje u B0 |
 |---|---|---|
-| `cardTargetKind` (schema.ts) | `+ "fair_model"`. Deli ga `cardTargets.kind` i `cardScanEvents.targetKind`. | Inertno. Generički API (`cards.createCard/retargetCard`, `cardsAdmin.*`) ga odbija sa `cardTargetInvalid`; `resolveAndRecord` vraća `{ kind: "invalid" }` (generički scan se beleži kao i ranije). B1 i B2 zamenjuju inertne grane. |
+| `cardTargetKind` (schema.ts) | `+ "fair_model"`. Deli ga `cardTargets.kind` i `cardScanEvents.targetKind`. | Inertno. Generički API (`cards.createCard/retargetCard`, `cardsAdmin.*`) ga odbija sa `cardTargetInvalid`; `resolveAndRecord` vraća `{ kind: "invalid" }` (generički scan se beleži kao i ranije). B1 i B2 zamenjuju inertne grane (B2: resolver grana, §13). |
 | `cardTargets.fairEventModelId?` | `v.id("fairEventModels")` | Obavezno za `fair_model`, zabranjeno za druge kind-ove. Svaki pisac poziva `fairCardTargetProblem`. |
 | `cardSplitterItem` | bez izmene | `fair_model` nije dugme splitera. |
 | `accounts.clientSegment?` | `standard \| event_only` | Odsutno = `standard` (`fairClientSegmentOf`). |
@@ -57,6 +57,9 @@ Pravila za sve buduće funkcije:
 | B1: `fairEvents.qrInventoryBusinessId?` | `v.id("businesses")` | Interni business „Sajam automobila 2026 — QR inventar“ čiji se postojeći QR kanali smeju dodeliti modelima tog eventa. Bez njega dodela vraća `FAIR_QR_INVENTORY_NOT_CONFIGURED`. |
 | B1: `accounts` | indeks `by_clientSegment` | Bounded lista `event_only` klijenata za `Događaji`. |
 | B1: `convex/lib/adminReadModelEngine.ts` | `clientSegment` se projektuje u `adminClientReadModels`/`adminVenueReadModels` samo kad je postavljen | Odsutno ostaje odsutno; standardni klijenti se ne menjaju. |
+| B2: `cards.resolveAndRecord` | novi opcioni arg `fairVisitorHash` i ishod `{ kind: "fair_model", path, fairScan }` | Čita ih samo `fair_model` grana. Ostale grane (venue, menu, memories, splitter, ordering, url, event, service) su nepromenjene; hash im se ne upisuje (test). |
+| B2: `convex/lib/rateLimits.ts` | bucket `fairScan` | Po posetiocu, ne po IP-u (§13.5). Postojeći bucketi nisu menjani. |
+| B2: `app/r/[cardCode]/route.ts` | visitor hash, prosleđena ScanMe sesija, `case "fair_model"` | Ostali `case`-ovi su nepromenjeni. |
 | B1: `adminReadModels.clients/listClients/venues` | `.filter(clientSegment != "event_only")` | Redovni direktorijum klijenata i lokala ne prikazuje `event_only`. `adminProductReads.listVenues` namerno nije filtriran: QR inventar mora ostati dostupan za pravljenje kodova. |
 
 U B0 na postojećim tabelama nije dodat nijedan indeks; B1 dodaje samo `accounts.by_clientSegment`. Nijedno postojeće polje nije promenjeno.
@@ -230,17 +233,22 @@ B0 dodaci (traže ih testovi iz §12):
 - `SURVEY_ALREADY_SUBMITTED`
 - `PASSPORT_NOT_COMPLETE`
 
+B2 dodaci (POST gateway `app/api/fair/**`):
+- `ORIGIN_NOT_ALLOWED` (403, zahtev nije same-origin)
+- `PAYLOAD_TOO_LARGE` (413)
+- `VISITOR_UNAVAILABLE` (503, u produkciji nema `FAIR_VISITOR_HASH_SECRET`)
+
 Detalji greške su samo ne-PII vrednosti. Tekst greške mapira frontend kroz `lib/i18n`.
 
 ## 7. Formati i ključevi
 
 | Pojam | Format |
 |---|---|
-| `dateKey` | `YYYY-MM-DD`, kalendarski dan u `Europe/Belgrade`. B2 ponovo koristi `lib/admin-v1/task-time.ts` (`belgradeDateKey`, `belgradeDayBounds`). |
-| `hourKey` | `YYYY-MM-DDTHH` (24 h), `Europe/Belgrade`. Pomoćni moduli su `lib/belgrade-time.ts` i `belgradeParts`. |
+| `dateKey` | `YYYY-MM-DD`, kalendarski dan u `Europe/Belgrade`. B2: `fairTimeKeys(at)` u `convex/lib/fairScans.ts` (preko `belgradeParts` iz `lib/belgrade-time.ts`, ista vrednost kao `belgradeDateKey`). |
+| `hourKey` | `YYYY-MM-DDTHH` (24 h), `Europe/Belgrade`, isti `fairTimeKeys`. Na jesenji DST prelaz (25. 10.) ponovljeni sat 02 ima isti ključ. |
 | `visitorHash` | lowercase 64-char hex (HMAC na Next serveru). Raw token nikad ne ulazi u Convex, URL ni log. |
 | PII purge | `FAIR_PII_PURGE_AT_MS` = 16. 11. 2026. u 00:00 po Beogradu (2026-11-15T23:00Z). Isto važi za `fairEvents.piiPurgeAt`, `fairLeads.purgeAt` i istek cookie-ja. |
-| Shard ključ | definiše B2. Predlog: `<metrika>:<opseg>:<id>[:<dateKey>[:<hourKey>]]`, npr. `scan_total:model:<id>:<dateKey>`. |
+| Shard ključ | B2 (§13.4): `<metrika>:<opseg>:<id>[:<dateKey>|:<hourKey>]`, metrika `scan_total`/`scan_unique`, opseg `model`/`stand`; npr. `scan_total:model:<id>:2026-10-09T14`. |
 | Rotacija | `items` su poređane po `fairSponsoredSnapshotItems.order`. Klijent zove `getFairRotationSlot({ epochMs, nowMs, intervalMs, itemCount })` iz `lib/fair-client/rotation-slot.ts`. Predlog za B5: `epochMs` = `publishedAt` objavljenog snapshot-a. |
 
 ## 8. Za frontend (Kodeksov fixture → ovaj ugovor)
@@ -285,6 +293,13 @@ Konstante rotacije u `lib/fair-contract.ts` imaju ista imena i vrednosti kao u `
 19. **Oslobađanje QR-a**: `accessDestinationHistory.targetId` je obavezan i ne postoji „prazna“ destinacija, pa release ne piše novi target. Prekidač je aktivni `fairQrAssignments` red: posle release kanal prelazi u `problem` (`destination_fair_unassigned`), a ponovna dodela piše novi immutable target i red istorije.
 20. **Nadogradnja pre početka paketa**: ako je početni paket uvezen sa budućim `package_active_from`, nadogradnja uneta ranije važi od tog trenutka (`max(sada, packageActivatedAt)`), da istorija nikad ne izgleda kao spuštanje paketa.
 21. **Nalog QR inventara**: inventar se vezuje po eventu (`fairEvents.qrInventoryBusinessId`), pa oba sajma mogu deliti isti inventar. Dodeljuje se samo `kind: "qr"` kanal čiji subjekat ima tačno jedan kanal (fizička nalepnica sa QR+NFC na istom subjektu se odbija — vezano za §9.14).
+22. **Tajna `FAIR_VISITOR_HASH_SECRET`** (B2): pravu vrednost (32+ nasumičnih znakova) postavljaju Jovan i Aleksa u Next okruženje (Vercel/`.env.local`). Convex je ne treba. Bez nje produkcija ne upisuje fair skenove (redirect radi).
+23. **Domen cookie-ja / poddomen** (B2, nastavak §9.3): `FAIR_COOKIE_DOMAIN` je prazan, pa je cookie host-only na glavnom domenu. Poddomen se ne implementira (§13.7).
+24. **„Jedinstveno skeniranje štanda“** (B2): implementirano po MASTER §5 kao zbir jedinstvenih parova posetilac+QR modela tog štanda. Ako izveštaj treba „različiti posetioci štanda“, to je nova metrika (računa se iz sirovih redova pre purge-a).
+25. **Admin sken i pečat pasoša** (B2): admin sken ne daje pečat (konzervativno: admin je van svih metrika, a pečat vodi do javnog rezultata favorita). B3 može da promeni jednom proverom u `recordFairScan`.
+26. **Objavljen model u `draft` događaju** (B2): `/r` i `getModelBySlug` ga otvaraju (kapija je samo status modela, kao B1 `resolveTest`), a `getEventBySlug` za `draft` vraća `null`. Da li i `draft` događaj treba da sakrije modele?
+27. **Generički `cardResolve` po IP-u** (300/min, kapacitet 300) i dalje prethodi fair grani. Za halu iza jednog NAT-a to je granica celog sajma u minuti; procena je ispod nje, ali je treba potvrditi testom opterećenja (B7).
+28. **Jedinstveni sken po danu/satu** (B2): pripisuje se danu/satu PRVOG skena posetilac+model; zbir dana = ukupno jedinstvenih. „Jedinstveni posetioci po danu“ bi bila nova metrika.
 
 ## 10. Šta stiže posle B0
 
@@ -292,7 +307,7 @@ Konstante rotacije u `lib/fair-contract.ts` imaju ista imena i vrednosti kao u `
 |---|---|
 | **B1** (urađeno, §11–§12) | `fairAdmin`, import (dry-run/commit), QR assign/release kroz `fair_model` destinaciju (isti subject → target → istorija → sync kanala tok kao `applyDestination`), filtriranje `event_only` u admin upitima, upgrade sa auditom, DEV TEST katalog |
 | **B1A** | admin tab `Događaji` |
-| **B2** | gateway, cookie i HMAC; fair hook u `resolveAndRecord` sa istim `requestId`; admin isključenje preko Convex Auth tokena; shard helper; `fairScan` rate limit; pečat pasoša |
+| **B2** (urađeno, §13–§14) | gateway, cookie i HMAC; fair hook u `resolveAndRecord` sa istim `requestId`; admin isključenje preko Convex Auth tokena; shard helper; `fairScan` rate limit; pečat pasoša; `fairPublic` katalog |
 | **B3** | ocene, Glas publike, anketa, pasoš i favorit |
 | **B4** | leadovi, saglasnost i email outbox (produkcija čeka pravni tekst) |
 | **B5** | sponzorisani snapshot i rotacija (samo garažni `open_model`/`garage_add`) |
@@ -319,7 +334,7 @@ Sve funkcije osim DEV fixture-a su `query`/`mutation` sa `requireAdmin`: ne-admi
 | `fairAdmin.assignQr` | admin mutation | (kanal, model) | postojeći QR kanal inventara eventa → `fairQrAssignments` + novi `cardTargets` (`fair_model`) + `accessDestinationHistory` + sync kanala, atomski; najviše 1 aktivna dodela po kanalu i po modelu |
 | `fairAdmin.releaseQr` | admin mutation | aktivna dodela modela | `released` + sync kanala u `problem` (§9.19) |
 | `fairAdmin.listQrInventory` | admin query (paginirano, ≤100) | — | kartice inventara + stanje kanala + aktivna dodela |
-| `fairAdmin.resolveTest` | admin query | — | isti `cardResolution` i kapije kao `/r/[cardCode]`, bez upisa scan-a; vraća `path` = `/sajam/{eventSlug}/model/{modelSlug}` kada bi se model otvorio. Živa ruta i dalje vraća `invalid` za `fair_model` dok B2 ne poveže granu. |
+| `fairAdmin.resolveTest` | admin query | — | isti `cardResolution` i kapije kao `/r/[cardCode]`, bez upisa scan-a; vraća `path` = `/sajam/{eventSlug}/model/{modelSlug}` kada bi se model otvorio. Od B2 živa ruta otvara isti `path` i beleži jedan scan (§13). |
 | `fairAdmin.listEvents`, `getEventCatalog`, `listValidationIssues` | admin query | — | bounded (≤500 redova po tabeli po eventu); `listValidationIssues` računa publish nalaze iz jednog snimka, bez čitanja po modelu |
 | `fairImport.dryRun` | admin **query** | — | ne može da piše; vraća sve greške, upozorenja i rezime |
 | `fairImport.commit` | admin mutation | event + `externalKey` | isti plan; ako ima i jednu grešku, ne piše ništa; drugi identičan commit ne menja nijedan fair/QR red (piše samo audit red) |
@@ -445,3 +460,105 @@ Pravila:
 | `05`–`07` | pitanja, ankete, follow-up | B3/B4 |
 
 Normalizator CSV → JSON još ne postoji (§9.4); ovaj oblik je njegova meta. `scripts/events/validate-csv-intake.mjs` ostaje lokalna priprema pre `dryRun`.
+
+## 13. B2 — anonimni identitet i scan pipeline (stvarna površina)
+
+### 13.1 Tok podataka cookie → hash → Convex
+
+1. **Ulaz.** Štampani QR vodi samo na postojeći `GET /r/[cardCode]`. Direktna poseta (bez skena) može da pozove `POST /api/fair/visitor` (bootstrap) da uređaj dobije identitet.
+2. **Cookie** (`lib/fair-server/visitor.ts`, `import "server-only"`):
+   - ime `scanme_fair_visitor`; vrednost je `visitorToken` = 32 bajta (256 bita) iz CSPRNG-a (`crypto.randomBytes`), base64url, 43 znaka;
+   - atributi `Path=/; HttpOnly; Secure; SameSite=Lax`, `Expires`/`Max-Age` do `FAIR_PII_PURGE_AT_MS` (16. 11. 2026. 00:00 po Beogradu = `Sun, 15 Nov 2026 23:00:00 GMT`);
+   - `Domain` samo ako je postavljen `FAIR_COOKIE_DOMAIN` (validan domen); prazno = host-only na glavnom domenu;
+   - postojeći ispravan cookie se ponovo koristi (nema novog `Set-Cookie`); neispravan se zamenjuje novim tokenom; posle trenutka purge-a identitet se ne pravi.
+3. **Hash** (na Next serveru): `visitorHash = HMAC-SHA256(FAIR_VISITOR_HASH_SECRET, "scanme-fair-visitor-v1:" + token)` kao lowercase hex (64 znaka). Tajna je samo u Next okruženju, najmanje 32 znaka.
+4. **Convex** dobija samo `visitorHash`:
+   - `/r`: kao arg `fairVisitorHash` u `cards.resolveAndRecord`, uz isti serverski `requestId` (`crypto.randomUUID()`);
+   - B3 gateway mutacije: isto, iz istog cookie-ja.
+5. **Gde token NE ide:** URL, query, telo odgovora, Convex (argumenti i tabele), klijentski JavaScript (HttpOnly), log. Hash ne ide u URL ni u klijent; u Convex-u je samo u `fairVisitors.visitorHash`. Rate limiter je ključan po `fairVisitors._id`, ne po hash-u.
+6. **Bez tajne:**
+   - produkcija (`NODE_ENV=production`): nema identiteta ni cookie-ja; `/r` i dalje beleži generički scan i preusmerava na model (`fairScan: "no_visitor"`); bootstrap vraća `503 VISITOR_UNAVAILABLE`;
+   - development: jasno označen DEV-ONLY ključ.
+
+### 13.2 Šta se loguje
+
+| Gde | Šta | Bez |
+|---|---|---|
+| Next server (`console.warn`, jednom po procesu) | `[fair] FAIR_VISITOR_SECRET_MISSING` (produkcija bez tajne) ili `[fair] FAIR_VISITOR_SECRET_DEV_FALLBACK: …` (development) | tokena, hash-a, IP-a, kontakta |
+| Next dev request log | metoda, putanja, status, vreme (npr. `GET /r/0HENT03A 302`) | cookie-ja i tokena |
+| Convex | ništa novo (`lib/fairScans.ts` ne loguje) | — |
+| `fairScanEvents` | `requestId`, `visitorId` (ID reda, ne hash), model/štand/brend, vreme, `dateKey`, `hourKey`, `isAdminExcluded`, `adminUserId?` | tokena i hash-a |
+
+### 13.3 Fair grana u `cards.resolveAndRecord`
+
+Redosled u istoj transakciji, posle postojećeg generičkog upisa (`cardScanEvents`, brojači kartice i kanala — nepromenjeni):
+
+1. `openableFairModel`: target je `fair_model`, model je `published`, događaj postoji i kartica pripada **aktivnoj** `fairQrAssignments` dodeli tog modela. Inače `{ kind: "invalid" }` i nema fair upisa.
+2. `recordFairScan`:
+   - ako je generički red za ovaj `requestId` već postojao → `duplicate`, ništa se ne piše. Fair red nastaje samo u transakciji koja je upisala generički red, pa jedan resolver request daje jedan generički događaj i **najviše jedan** `fairScanEvents` red;
+   - nema ispravnog hash-a → `no_visitor`;
+   - `fairVisitors` upsert po hash-u (`lastSeenAt`);
+   - `fairScan` rate limit po posetiocu → `rate_limited` (preusmerenje i dalje radi);
+   - admin iz **sesije** (Convex Auth token koji `/r` prosleđuje; `getAuthUserId` + `isAdminEmail` iz `convex/lib/access.ts`, samo uvoz) → red sa `isAdminExcluded: true` i `adminUserId`, bez unique reda, brojača i pečata (`admin_excluded`). Javni arg za ovo ne postoji (validator odbija `isAdmin` i slična polja);
+   - inače `fairScanEvents` + `fairUniqueScans` upsert (`totalScanCount`) + brojači + pečat pasoša → `recorded`.
+3. Ishod `{ kind: "fair_model", path: "/sajam/{eventSlug}/model/{modelSlug}", fairScan }`; ruta šalje 302 (`Cache-Control: no-store`, `Referrer-Policy: no-referrer`) i `Set-Cookie` samo kad je token tek napravljen.
+
+Ne filtrira se po radnom vremenu, uređaju ni botu (MASTER §5). Generički brojači kartice zadržavaju postojeće ponašanje (bot se tamo ne broji).
+
+Ako `/r` ima prijavljenu sesiju čiji token Convex odbije, ruta ponavlja isti poziv bez tokena; mutacija je idempotentna po `requestId`.
+
+### 13.4 Brojači (`convex/lib/fairCountShards.ts`, tabela `fairMetricCountShards`)
+
+- 8 shardova po ključu, nasumičan shard po upisu, čitanje sabira najviše 16 redova (obrazac `countShards.ts`, nikad `memoriesCountShards`).
+- Jedan `recorded` sken uvećava `scan_total` za 6 ključeva: model i štand × (ukupno, `dateKey`, `hourKey`). Prvi sken para posetilac+model uvećava i istih 6 `scan_unique` ključeva.
+- Jedinstveni sken se pripisuje danu/satu prvog skena (§9.28); štand unique = zbir unique parova njegovih modela (§9.24).
+- Sirovi redovi ostaju izvor istine; brojači su anonimni agregat koji preživljava purge.
+
+### 13.5 Rate limit `fairScan`
+
+`{ kind: "token bucket", rate: 20, period: MINUTE, capacity: 20 }`, ključ `fairVisitors._id`. Aritmetika: jedan fizički sken (kamera, 302, učitavanje stranice) traje čoveku najmanje 3 s, pa je oko 20/min ljudski plafon; obilazak cele hale je oko 100 modela za više sati (≈2/min); štand sa 5 vozila plus nekoliko refresh-eva staje u kapacitet 20. Ključ po posetiocu znači da posetioci iza istog NAT-a ne dele tokene (test). Generički `cardResolve` (po IP-u, 300/min) ostaje ispred (§9.27).
+
+### 13.6 Funkcije i rute
+
+| Ime | Vrsta | Šta radi |
+|---|---|---|
+| `cards.resolveAndRecord` | postojeća public mutation (proširena) | + `fairVisitorHash?`; `fair_model` grana iz §13.3 |
+| `fairScans.modelScanCounts` | **internal** query | total/unique po modelu i štandu, opciono za `dateKey`/`hourKey`, plus kontrola iz sirovih redova; bez visitor ID-a i hash-a |
+| `fairDevFixtures.seedTestQr` | **internal** mutation (samo DEV) | jedan TEST digitalni QR u TEST inventaru (isti koraci kao `adminProducts.createDigital`), dodeljen TEST modelu kroz `assignFairQr`; idempotentno |
+| `GET /r/[cardCode]` | Next route (postojeća) | čita/pravi cookie, šalje hash i sesiju, 302 na model |
+| `POST /api/fair/visitor` | Next route (nova) | bootstrap identiteta: same-origin, telo najviše 1 KB, `no-store`; odgovor `{ ok: true }` (+ `Set-Cookie` samo za nov token); ne piše u Convex |
+
+Zajednički gateway (`lib/fair-server/gateway.ts`) za B3:
+- `fairGatewayRequest`: same-origin preko `Sec-Fetch-Site`, inače `Origin` = origin zahteva; telo najviše 8 KB po `Content-Length` i po stvarno pročitanim bajtovima; prazno telo = `{}`;
+- `fairGatewayJson` / `fairGatewayError`: `Cache-Control: no-store`; greška je samo `{ ok: false, code }`.
+
+Pečat pasoša (`stampFairPassportOnScan`): no-op dok model nije `required` član `published` pasoša svog događaja; najviše jedan pečat po posetilac+model; uklonjen član više ne daje pečat, a stečeni ostaju. B3 objavljuje pasoše.
+
+### 13.7 Domen
+
+Domen nije zaključan u kodu. `FAIR_COOKIE_DOMAIN` prazno = host-only cookie na glavnom domenu (MASTER i V2: glavni domen, bez poddomena). Vrednost `.scanme.rs` bi omogućila da `/r/[cardCode]` na glavnom domenu i stranice na poddomenu dele isti identitet. Poddomen bi još tražio (C0 §4g):
+- rewrite po hostu u `proxy.ts` (B2 ga ne dira);
+- DNS i TLS na Vercelu;
+- isti host za sve sajamske stranice zbog localStorage garaže;
+- prihvatanje `same-site` umesto `same-origin` u gateway-u;
+- fair base URL za email;
+- noindex i na poddomenu.
+
+To je Aleksina odluka (§9.3, §9.23).
+
+## 14. B2 — javni katalog `convex/fairPublic.ts`
+
+Javni, read-only upiti bez identiteta i bez PII. Ne vraćaju kontakte, email izveštaja, napomene, QR kodove, string paketa, brojače ni agregate ocena (DELTA §1). Pošto su upiti, čitanje stranice modela ili kartice iz garaže **ne može** da zabeleži sken.
+
+| Funkcija | Args | Vraća |
+|---|---|---|
+| `getEventBySlug` | `{ slug }` | `FairPublicEvent` sa danima po `sortOrder`; `null` za `draft`, nepostojeći ili predugačak slug |
+| `getModelBySlug` | `{ eventSlug, modelSlug }` | `FairPublicModel` za `published` model; inače `null` |
+| `getModelsByIds` | `{ ids: string[] }` (najviše 50) | modeli lokalne garaže (oba događaja) redom unosa; nepoznati, neispravni, neobjavljeni i ponovljeni ID-evi se preskaču; više od 50 → `ConvexError({ code: "INVALID_INPUT" })` |
+
+- `exhibitorName` je `businesses.name` učešća.
+- `specificationGroups` grupiše server po `groupId`, a grupe i stavke ređa po `groupOrder`/`order`.
+- `photoUrl` = odobreni `photoUrl` ili URL iz `photoStorageId`; bez fotografije polje izostaje.
+- `capabilities` = `deriveFairCapabilities(packageTier, kontekst)` iz `lib/fair-entitlements.ts`. Kontekst: objavljeno pitanje modela (B3 sužava na tekući dan), objavljena anketa, objavljeni sponzorisani snapshot, `fairLeadConfigs.enabled` za `interest`/`test_drive`. Bez tih redova sve je `false`.
+- Validatori `fairPublicEventView` i `fairPublicModelView` (`convex/lib/fairValidators.ts`) imaju test tipova protiv `FairPublicEvent`/`FairPublicModel`.
+- „View“ stranice modela se ne beleži: tabela ne postoji u ugovoru, a MASTER §12 ga nema kao metriku (§9.8).

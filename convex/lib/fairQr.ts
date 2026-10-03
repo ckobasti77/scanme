@@ -14,7 +14,7 @@ import { fairCardTargetProblem } from "./fairValidators";
 // Assignment = one fairQrAssignments row + a new immutable cardTargets row +
 // accessDestinationHistory, in one transaction, through the same subject →
 // target → channel sync the generic access flow uses. Asset ownership never
-// changes. /r/[cardCode] stays the only printed route (B2 wires its fair hook).
+// changes. /r/[cardCode] stays the only printed route (B2 fair hook in cards.ts).
 
 type Ctx = QueryCtx | MutationCtx;
 
@@ -170,8 +170,8 @@ export type FairResolveTest = {
 /**
  * What /r/[cardCode] would open for this code, using the resolver's own
  * resolution (cardResolution) and gates — read-only: no scan row, no counter,
- * no channel sync. Until B2 wires the fair branch the live route still answers
- * "invalid" for fair_model; this reports the destination B2 must open.
+ * no channel sync. The live route opens the same path through the B2 fair
+ * branch of cards.resolveAndRecord (convex/lib/fairScans.ts openableFairModel).
  */
 export async function fairResolveTest(ctx: Ctx, resolverCode: string): Promise<FairResolveTest> {
   const code = normalizeCode(resolverCode);

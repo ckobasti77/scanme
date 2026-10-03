@@ -1,9 +1,12 @@
+import { convexAuthNextjsToken } from "@convex-dev/auth/nextjs/server";
 import { ConvexHttpClient } from "convex/browser";
+import type { FunctionArgs } from "convex/server";
 import { api } from "@/convex/_generated/api";
 import {
   resolverIpHash,
   resolverRedirect,
 } from "@/lib/card-resolver-http";
+import { fairVisitorForRequest } from "@/lib/fair-server/visitor";
 import {
   buildGuestCookieValue,
   guestCookieHeader,
@@ -32,6 +35,25 @@ function deviceCategory(userAgent: string) {
   return "unknown" as const;
 }
 
+type ResolveArgs = FunctionArgs<typeof api.cards.resolveAndRecord>;
+
+// Sajam 2026 B2: a signed-in ScanMe session rides the call so the fair hook
+// can exclude admin scans from the SESSION (never a request flag). A stale
+// session token must not break a scan: on failure retry once anonymously —
+// the mutation is idempotent on requestId, so this cannot double-count.
+async function resolveWithSession(convex: ConvexHttpClient, args: ResolveArgs) {
+  const sessionToken = await convexAuthNextjsToken();
+  if (sessionToken) {
+    convex.setAuth(sessionToken);
+    try {
+      return await convex.mutation(api.cards.resolveAndRecord, args);
+    } catch {
+      convex.clearAuth();
+    }
+  }
+  return convex.mutation(api.cards.resolveAndRecord, args);
+}
+
 export async function GET(
   request: Request,
   { params }: RouteContext<"/r/[cardCode]">,
@@ -49,11 +71,17 @@ export async function GET(
     // inflate counters — every new endpoint closes that hole.
     const requestId = crypto.randomUUID();
     const convex = new ConvexHttpClient(convexUrl);
-    const outcome = await convex.mutation(api.cards.resolveAndRecord, {
+    // Sajam 2026 B2: only the HMAC of the HttpOnly fair visitor cookie goes
+    // to Convex (read solely by the fair_model branch); the token itself
+    // never leaves this handler. The cookie is set only when a fair model
+    // opens (lib/fair-server/visitor.ts).
+    const fairVisitor = fairVisitorForRequest(request, Date.now());
+    const outcome = await resolveWithSession(convex, {
       cardCode,
       requestId,
       deviceCategory: deviceCategory(request.headers.get("user-agent") ?? ""),
       ipHash: resolverIpHash(request),
+      ...(fairVisitor.visitorHash ? { fairVisitorHash: fairVisitor.visitorHash } : {}),
     });
 
     switch (outcome.kind) {
@@ -93,6 +121,13 @@ export async function GET(
       case "url":
         // External target, already validated by isSafePublicDestination.
         return redirect(outcome.url);
+      case "fair_model":
+        // Sajam 2026 B2: the readable model page. The scan was recorded in
+        // the mutation above; the page load itself never records one.
+        return redirect(
+          new URL(outcome.path, request.url).toString(),
+          fairVisitor.setCookie ?? undefined,
+        );
       case "memories_space": {
         // The guest lands on /m/[code] — the SPACE code, never the card code.
         const location = new URL(`/m/${outcome.code}`, request.url).toString();

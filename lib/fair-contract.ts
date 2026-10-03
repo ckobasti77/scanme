@@ -387,6 +387,10 @@ export const FAIR_ERROR_CODES = [
   "QUESTION_NOT_OPEN",
   "SURVEY_ALREADY_SUBMITTED",
   "PASSPORT_NOT_COMPLETE",
+  // B2 — the same-origin POST gateway (app/api/fair/**), HANDOFF §4.2.
+  "ORIGIN_NOT_ALLOWED",
+  "PAYLOAD_TOO_LARGE",
+  "VISITOR_UNAVAILABLE",
 ] as const;
 export type FairErrorCode = (typeof FAIR_ERROR_CODES)[number];
 
@@ -464,7 +468,7 @@ export type FairAdminIssue = {
   details?: FairErrorDetails;
 };
 
-/** Public model route opened by `/r/[cardCode]` for an assigned fair QR (B2 wires the resolver). */
+/** Public model route opened by `/r/[cardCode]` for an assigned fair QR (B2 resolver fair hook). */
 export function fairModelPath(eventSlug: string, modelSlug: string): string {
   return `/sajam/${eventSlug}/model/${modelSlug}`;
 }

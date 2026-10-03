@@ -95,4 +95,17 @@ export const rateLimiter = new RateLimiter(components.rateLimiter, {
   // 2h soft holds. The per-event in-transaction window (15/min) backstops
   // distributed floods.
   venueReservation: { kind: "token bucket", rate: 10, period: MINUTE, capacity: 5 },
+  // Sajam 2026 B2 (HANDOFF §9): the FAIR part of a /r scan, keyed per anonymous
+  // visitor (fairVisitors._id — one row per visitorHash), never per IP: the
+  // whole hall can sit behind one NAT, so an IP key would let visitors throttle
+  // each other. Keyed by the row id rather than the hash so that, once the
+  // 16 Nov purge deletes fairVisitors, nothing in the limiter's state still
+  // maps back to a cookie. The arithmetic: one physical scan (aim the camera,
+  // follow the 302, load the model page) takes a person ≥3 s, so ~20/min is a
+  // hard human ceiling; a full tour is ~100 models over hours (≈2/min). One
+  // stand with 5 cars plus a few refreshes back-to-back fits capacity 20.
+  // Refusal only skips the fair row — the generic scan and the redirect to the
+  // model still happen (cards.resolveAndRecord). NOTE: the generic per-IP
+  // `cardResolve` (300/min, capacity 300) still runs first for every scan.
+  fairScan: { kind: "token bucket", rate: 20, period: MINUTE, capacity: 20 },
 });
