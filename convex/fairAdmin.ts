@@ -28,6 +28,7 @@ import {
 } from "./lib/fairCatalog";
 import { activeAssignmentForChannel, assignFairQr, fairResolveTest, releaseFairQr } from "./lib/fairQr";
 import {
+  fairClientSegment,
   fairEventStatus,
   fairModelStatus,
   fairPackageTier,
@@ -35,7 +36,7 @@ import {
   fairStandStatus,
 } from "./lib/fairValidators";
 import { requireSlug } from "./lib/validation";
-import { FAIR_ADMIN_LIST_LIMIT, type FairAdminIssue } from "../lib/fair-contract";
+import { FAIR_ADMIN_LIST_LIMIT, fairClientSegmentOf, type FairAdminIssue } from "../lib/fair-contract";
 
 // Sajam automobila 2026 — B1 admin commands (BACKEND-HANDOFF §7 `fairAdmin`).
 // Every function requires requireAdmin; the ScanMe team enters all data (no
@@ -581,5 +582,38 @@ export const listValidationIssues = query({
         }),
       };
     });
+  },
+});
+
+/**
+ * B1A: display names for one event's catalog (the `Događaji` tab). Only names,
+ * human codes and the client segment — no contact or other PII. Each distinct
+ * account/business/brand is read once by id; the id sets are bounded by the
+ * catalog limit (FAIR_ADMIN_LIST_LIMIT).
+ */
+export const getEventDirectory = query({
+  args: { eventId: v.id("fairEvents") },
+  returns: v.object({
+    accounts: v.array(v.object({ accountId: v.id("accounts"), name: v.string(), smkCode: v.union(v.string(), v.null()), clientSegment: fairClientSegment })),
+    businesses: v.array(v.object({ businessId: v.id("businesses"), name: v.string(), smlCode: v.union(v.string(), v.null()) })),
+    brands: v.array(v.object({ brandId: v.id("brands"), name: v.string() })),
+  }),
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    const event = await requireFairEvent(ctx, args.eventId);
+    const { participations, models } = await loadEventCatalog(ctx, event._id);
+    const accountIds = [...new Set(participations.map((row) => row.accountId))];
+    const businessIds = [...new Set(participations.map((row) => row.businessId))];
+    const brandIds = [...new Set(models.map((row) => row.brandId))];
+    const [accounts, businesses, brands] = await Promise.all([
+      Promise.all(accountIds.map((id) => ctx.db.get(id))),
+      Promise.all(businessIds.map((id) => ctx.db.get(id))),
+      Promise.all(brandIds.map((id) => ctx.db.get(id))),
+    ]);
+    return {
+      accounts: accounts.flatMap((row) => row ? [{ accountId: row._id, name: row.name, smkCode: row.smkCode ?? null, clientSegment: fairClientSegmentOf(row.clientSegment) }] : []),
+      businesses: businesses.flatMap((row) => row ? [{ businessId: row._id, name: row.name, smlCode: row.smlCode ?? null }] : []),
+      brands: brands.flatMap((row) => row ? [{ brandId: row._id, name: row.name }] : []),
+    };
   },
 });

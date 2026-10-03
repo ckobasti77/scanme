@@ -11,6 +11,14 @@
 // interface grows when the screen is built.
 
 import type { ProductType, ServiceType } from "../admin-v1/catalog";
+import type {
+  FairAdminIssueCode,
+  FairClientSegment,
+  FairEventStatus,
+  FairModelStatus,
+  FairPackageTier,
+  FairParticipationStatus,
+} from "../fair-contract";
 
 export type Locale = "sr";
 
@@ -2384,6 +2392,7 @@ export interface AdminV1Dict {
   navTasks: string;
   navOperations: string;
   navServices: string;
+  navEvents: string;
   navFinance: string;
   navTeam: string;
   navProducts: string;
@@ -3558,6 +3567,169 @@ export interface AdminServicesDict {
   previewDescription: string;
 }
 
+// admin-events — the admin `Događaji` tab (Sajam 2026 B1A,
+// components/admin/admin-events*.tsx, app/admin/dogadjaji). Backend errors
+// arrive as stable codes (FAIR_ADMIN_ISSUE_CODES) and are mapped here.
+export type AdminEventsResolveProblem =
+  | "code_invalid"
+  | "code_unknown"
+  | "card_disabled"
+  | "redirect_disabled"
+  | "channel_inactive"
+  | "channel_problem"
+  | "destination_missing"
+  | "destination_fair_unassigned"
+  | "destination_fair_model_missing"
+  | "fair_model_not_published";
+
+export interface AdminEventsDict {
+  pageTitle: string;
+  pageSubtitle: string;
+  eventLabel: string;
+  eventOption: string;
+  noEventsTitle: string;
+  noEventsBody: string;
+  sectionsAria: string;
+  tabOverview: string;
+  tabModel: string;
+  tabQr: string;
+  tabImport: string;
+  tabClients: string;
+  daysTitle: string;
+  noDays: string;
+  participationsTitle: string;
+  standsTitle: string;
+  modelsTitle: string;
+  colExhibitor: string;
+  colSegment: string;
+  colStatus: string;
+  colStand: string;
+  colMapLocation: string;
+  colModel: string;
+  colBrand: string;
+  colPackage: string;
+  colQr: string;
+  colCheck: string;
+  colCode: string;
+  colChannelState: string;
+  colAssignment: string;
+  colActions: string;
+  openModel: string;
+  noQr: string;
+  checkSummary: string;
+  checkReady: string;
+  emptyCatalogTitle: string;
+  emptyCatalogBody: string;
+  modelPickLabel: string;
+  modelPickPlaceholder: string;
+  modelPickEmpty: string;
+  fieldExternalKey: string;
+  fieldSlug: string;
+  fieldPrice: string;
+  fieldSpecifications: string;
+  specCount: string;
+  fieldPhoto: string;
+  photoYes: string;
+  photoNo: string;
+  fieldStand: string;
+  fieldQr: string;
+  fieldPackageSince: string;
+  fieldPassport: string;
+  yes: string;
+  no: string;
+  validationTitle: string;
+  validationOk: string;
+  severityError: string;
+  severityWarning: string;
+  publish: string;
+  withdraw: string;
+  publishDone: string;
+  withdrawDone: string;
+  publishBlocked: string;
+  upgradeTitle: string;
+  upgradeHelp: string;
+  upgradeTarget: string;
+  upgradeNone: string;
+  upgradeStart: string;
+  upgradeConfirmTitle: string;
+  upgradeConfirmBody: string;
+  upgradeConfirm: string;
+  upgradeDone: string;
+  cancel: string;
+  qrSubtitle: string;
+  qrNotConfigured: string;
+  qrEmpty: string;
+  unassigned: string;
+  otherEvent: string;
+  assignTitle: string;
+  assignModel: string;
+  assignCode: string;
+  assignCodePlaceholder: string;
+  assignSubmit: string;
+  assignDone: string;
+  assignNoModels: string;
+  release: string;
+  releaseReason: string;
+  releaseConfirm: string;
+  releaseDone: string;
+  resolveTitle: string;
+  resolveHelp: string;
+  resolveCode: string;
+  resolveSubmit: string;
+  resolveOpens: string;
+  resolveBlocked: string;
+  resolveOther: string;
+  resolveLiveNote: string;
+  importTitle: string;
+  importHelp: string;
+  importTextLabel: string;
+  importFile: string;
+  importInvalidJson: string;
+  importShapeInvalid: string;
+  dryRun: string;
+  commit: string;
+  commitNeedsDryRun: string;
+  dryRunOk: string;
+  dryRunFailed: string;
+  summaryLine: string;
+  summaryUpgrades: string;
+  summaryQr: string;
+  entityParticipations: string;
+  entityStands: string;
+  entityModels: string;
+  commitDone: string;
+  commitLine: string;
+  commitRejected: string;
+  issuesTitle: string;
+  noIssues: string;
+  clientsSubtitle: string;
+  clientsEmpty: string;
+  convert: string;
+  convertConfirmBody: string;
+  convertConfirm: string;
+  convertDone: string;
+  loading: string;
+  loadMore: string;
+  loadingMore: string;
+  errorTitle: string;
+  errorBody: string;
+  retry: string;
+  actionFailed: string;
+  unknownIssue: string;
+  unknownProblem: string;
+  previewBadge: string;
+  previewDescription: string;
+  fixtureIdentity: string;
+  tiers: Record<FairPackageTier, string>;
+  modelStatus: Record<FairModelStatus, string>;
+  eventStatus: Record<FairEventStatus, string>;
+  entryStatus: Record<FairParticipationStatus, string>;
+  segments: Record<FairClientSegment, string>;
+  channelStates: Record<"active" | "inactive" | "problem", string>;
+  issues: Record<FairAdminIssueCode, string>;
+  resolveProblems: Record<AdminEventsResolveProblem, string>;
+}
+
 export interface DictBySurface {
   "event-map": EventMapDict;
   "fair-model": FairModelDict;
@@ -3570,6 +3742,7 @@ export interface DictBySurface {
   "admin-products": AdminProductsDict;
   "admin-search": AdminSearchDict;
   "admin-team": AdminTeamDict;
+  "admin-events": AdminEventsDict;
   communications: CommunicationsDict;
   "admin-domain": AdminDomainDict;
   venue: VenueDict;

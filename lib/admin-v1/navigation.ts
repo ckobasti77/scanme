@@ -8,6 +8,7 @@ type AdminNavLabelKey = keyof Pick<
   | "navTasks"
   | "navOperations"
   | "navServices"
+  | "navEvents"
   | "navFinance"
   | "navTeam"
   | "navProducts"
@@ -25,6 +26,7 @@ export type AdminNavId =
   | "tasks"
   | "operations"
   | "services"
+  | "events"
   | "finance"
   | "team";
 
@@ -121,6 +123,14 @@ export const ADMIN_NAV_ITEMS: readonly AdminNavItem[] = [
         matchPaths: ["/admin/usluge/meni"],
       },
     ],
+  },
+  // Sajam 2026 B1A (MASTER §15): a separate main tab, not under Services or
+  // Operations. Only the ScanMe team reaches it (AdminGuard + requireAdmin).
+  {
+    id: "events",
+    labelKey: "navEvents",
+    href: "/admin/dogadjaji",
+    matchPaths: ["/admin/dogadjaji"],
   },
   {
     id: "finance",

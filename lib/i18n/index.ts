@@ -42,6 +42,7 @@ import { adminTasksSr } from "./sr/admin-tasks";
 import { adminOrdersSr } from "./sr/admin-orders";
 import { adminProductsSr } from "./sr/admin-products";
 import { adminTeamSr } from "./sr/admin-team";
+import { adminEventsSr } from "./sr/admin-events";
 import { adminFinanceSr } from "./sr/admin-finance";
 import { adminServicesSr } from "./sr/admin-services";
 import { adminSettingsSr } from "./sr/admin-settings";
@@ -82,6 +83,7 @@ export type {
   AdminOrdersDict,
   AdminProductsDict,
   AdminTeamDict,
+  AdminEventsDict,
   AdminFinanceDict,
   AdminServicesDict,
   AdminSearchDict,
@@ -116,6 +118,7 @@ export {
   adminOrdersSr,
   adminProductsSr,
   adminTeamSr,
+  adminEventsSr,
   adminFinanceSr,
   adminServicesSr,
   adminSettingsSr,
@@ -133,6 +136,7 @@ const SR: DictBySurface = {
   "admin-orders": adminOrdersSr,
   "admin-products": adminProductsSr,
   "admin-team": adminTeamSr,
+  "admin-events": adminEventsSr,
   "admin-finance": adminFinanceSr,
   "admin-services": adminServicesSr,
   "admin-domain": adminDomainSr,

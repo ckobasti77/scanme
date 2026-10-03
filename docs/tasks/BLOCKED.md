@@ -1689,3 +1689,15 @@ Aplikacija nije imala mutaciju koja pravi red u `brands`. Bez nje `event_only` i
 ### 5. Fajlovi van B1 liste
 - `convex/lib/adminReadModelEngine.ts`: projekcija `clientSegment` u read modele (2 reda, samo kad je postavljen).
 - `convex/lib/accessOperations.ts` **nije menjan**. Fair dodela ponavlja njegov `applyDestination` tok preko izvezenih helpera (`channelsFor`, `syncChannel`, `refreshInventory`) u `convex/lib/fairQr.ts`.
+
+---
+
+## SAJAM v2 — B1A (admin tab „Događaji“)
+
+Tab je urađen. Sporni deo je rešen najkonzervativnijom vizuelnom izmenom i čeka odluku vlasnika: odloženo, čeka odluku vlasnika. Detalji su u `docs/events/sajam-automobila-2026/jovan-status/B1A.md` §6.
+
+### 1. Deveti glavni tab i desktop navigacija na 1280–1535 px
+B1A traži da ostali tabovi rade isto kao pre. Deveti tab ne staje u desktop navigaciju na 1280 px. Merenje pokazuje da ni postojećih 8 tabova nije stalo (645 px u ćeliji od 597 px). Zato je u `components/admin/admin-shell.tsx` navigacija kompaktnija samo u opsegu `xl`–`2xl` (manji padding i font stavki, manji razmak u zaglavlju). Od 1536 px izgled je identičan, a linkovi, redosled i ponašanje su nepromenjeni. Otvoreno: da li je ovo prihvatljivo i gde tab treba da stoji (sada posle „Usluge“).
+
+### 2. Dev preview van liste fajlova
+Lanac nema admin sesiju i ne unosi lozinke, pa je za proveru očima dodata `app/dev/admin-events-preview/page.tsx`, po obrascu postojećih `app/dev/admin-*-preview` ruta. U produkciji vraća `notFound()`.
