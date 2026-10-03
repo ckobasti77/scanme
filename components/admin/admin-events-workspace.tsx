@@ -2,6 +2,7 @@
 
 import { Component, useMemo, useState, type ReactNode } from "react";
 import { useConvex, useMutation, usePaginatedQuery, useQuery } from "convex/react";
+import type { FunctionReturnType } from "convex/server";
 import { ConvexError } from "convex/values";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -15,6 +16,7 @@ import {
   type Result,
 } from "@/components/admin/admin-events";
 import type { InteractionOutcome, InteractionsActions, InteractionsView } from "@/components/admin/admin-events-interactions";
+import { AdminEventsLeads, type LeadsActions, type LeadsDelivery, type LeadsOutcome, type LeadsView } from "@/components/admin/admin-events-leads";
 import { AdminErrorState, AdminPanel } from "@/components/admin/admin-primitives";
 import { adminEventsSr as dict } from "@/lib/i18n/sr/admin-events";
 
@@ -59,6 +61,7 @@ async function interactionOutcome(run: () => Promise<unknown>): Promise<Interact
 
 const INVENTORY_PAGE = 50;
 const CLIENT_PAGE = 25;
+const LEAD_PAGE = 25;
 
 export function AdminEventsWorkspace() {
   const convex = useConvex();
@@ -246,8 +249,115 @@ export function AdminEventsWorkspace() {
       }}
       actions={actions}
       interactions={{ view: interactionsView, actions: interactionActions }}
+      leads={eventId && catalog && directory ? <AdminEventsLeadsWorkspace eventId={eventId} catalog={catalog} directory={directory} /> : undefined}
     />
   );
+}
+
+// B4: the Leadovi section (convex/fairLeadsAdmin.ts). Mounted only while its
+// tab is open, so consent, settings and contact queries run only then.
+async function leadsOutcome(run: () => Promise<unknown>): Promise<LeadsOutcome> {
+  const result = await attempt(run);
+  return result.ok ? { ok: true } : { ok: false, code: result.code };
+}
+
+type ExportedDelivery = FunctionReturnType<typeof api.fairLeadsAdmin.exportLeads>["page"][number]["confirmation"];
+
+function deliveryView(row: ExportedDelivery): LeadsDelivery {
+  return row ? { id: row.deliveryId, status: row.status, scheduledFor: row.scheduledFor, ...(row.lastError ? { lastError: row.lastError } : {}) } : null;
+}
+
+const modelFullName = (model: { displayName: string; variant?: string }) => (model.variant ? `${model.displayName} ${model.variant}` : model.displayName);
+
+function AdminEventsLeadsWorkspace({ eventId, catalog, directory }: {
+  eventId: Id<"fairEvents">;
+  catalog: FunctionReturnType<typeof api.fairAdmin.getEventCatalog>;
+  directory: FunctionReturnType<typeof api.fairAdmin.getEventDirectory>;
+}) {
+  const [modelChoice, setModelChoice] = useState<string | null>(null);
+  const [participationChoice, setParticipationChoice] = useState<string | null>(null);
+  const consents = useQuery(api.fairLeadsAdmin.getEventConsents, { eventId });
+
+  const participations = useMemo(() => {
+    const businesses = new Map(directory.businesses.map((row) => [row.businessId, row.name]));
+    return catalog.participations
+      .map((row) => ({ id: row._id as string, exhibitorName: businesses.get(row.businessId) ?? row.externalKey }))
+      .sort((a, b) => a.exhibitorName.localeCompare(b.exhibitorName, "sr-Latn-RS"));
+  }, [catalog, directory]);
+  const modelNames = useMemo(() => new Map(catalog.models.map((model) => [model._id as string, modelFullName(model)])), [catalog]);
+  const models = useMemo(() => {
+    const exhibitors = new Map(participations.map((row) => [row.id, row.exhibitorName]));
+    return catalog.models
+      .filter((model) => model.status !== "withdrawn" && model.packageTier !== "included")
+      .map((model) => ({ id: model._id as string, name: modelFullName(model), exhibitorName: exhibitors.get(model.participationId) ?? "—", tier: model.packageTier }))
+      .sort((a, b) => a.exhibitorName.localeCompare(b.exhibitorName, "sr-Latn-RS") || a.name.localeCompare(b.name, "sr-Latn-RS"));
+  }, [catalog, participations]);
+  const modelId = models.find((model) => model.id === modelChoice)?.id ?? models[0]?.id ?? null;
+  const participationId = participations.find((row) => row.id === participationChoice)?.id ?? participations[0]?.id ?? null;
+  const settings = useQuery(api.fairLeadsAdmin.getModelLeadSettings, modelId ? { eventModelId: modelId as Id<"fairEventModels"> } : "skip");
+  const leads = usePaginatedQuery(
+    api.fairLeadsAdmin.exportLeads,
+    participationId ? { eventId, participationId: participationId as Id<"fairParticipations"> } : "skip",
+    { initialNumItems: LEAD_PAGE },
+  );
+
+  const saveConsentDraft = useMutation(api.fairLeadsAdmin.saveConsentDraft);
+  const activateConsent = useMutation(api.fairLeadsAdmin.activateConsent);
+  const retireConsent = useMutation(api.fairLeadsAdmin.retireConsent);
+  const upsertLeadConfig = useMutation(api.fairLeadsAdmin.upsertLeadConfig);
+  const upsertFollowUpTemplate = useMutation(api.fairLeadsAdmin.upsertFollowUpTemplate);
+  const setFollowUpSuppressed = useMutation(api.fairLeadsAdmin.setFollowUpSuppressed);
+  const retryEmailDelivery = useMutation(api.fairLeadsAdmin.retryEmailDelivery);
+
+  const view: LeadsView = {
+    models,
+    participations,
+    consents: consents?.map((row) => ({
+      id: row.consentId, kind: row.leadKind, version: row.version, status: row.status, text: row.text,
+      ...(row.activatedAt !== undefined ? { activatedAt: row.activatedAt } : {}),
+    })),
+    modelId,
+    onSelectModel: setModelChoice,
+    modelSettings: settings ? { tier: settings.packageTier, interest: settings.interest, testDrive: settings.testDrive, followUpTemplate: settings.followUpTemplate } : undefined,
+    participationId,
+    onSelectParticipation: setParticipationChoice,
+    leads: {
+      rows: leads.results.map((row) => ({
+        id: row.leadId,
+        createdAt: row.createdAt,
+        kind: row.kind,
+        modelName: modelNames.get(row.eventModelId) ?? "—",
+        contactName: row.contactName,
+        ...(row.email !== undefined ? { email: row.email } : {}),
+        ...(row.phone !== undefined ? { phone: row.phone } : {}),
+        consentVersion: row.consentVersion,
+        followUpSuppressed: row.followUpSuppressed,
+        confirmation: deliveryView(row.confirmation),
+        followUp: deliveryView(row.followUp),
+      })),
+      status: leads.status === "LoadingFirstPage" ? "loading" : "ready",
+      canLoadMore: leads.status === "CanLoadMore" || leads.status === "LoadingMore",
+      loadingMore: leads.status === "LoadingMore",
+      onLoadMore: () => leads.loadMore(LEAD_PAGE),
+    },
+  };
+
+  const actions: LeadsActions = {
+    saveConsentDraft: (kind, text, consentId) => leadsOutcome(() => saveConsentDraft({
+      eventId, leadKind: kind, text, ...(consentId ? { consentId: consentId as Id<"fairConsentConfigs"> } : {}),
+    })),
+    activateConsent: (consentId) => leadsOutcome(() => activateConsent({ consentId: consentId as Id<"fairConsentConfigs"> })),
+    retireConsent: (consentId) => leadsOutcome(() => retireConsent({ consentId: consentId as Id<"fairConsentConfigs"> })),
+    saveLeadConfig: (input) => leadsOutcome(() => upsertLeadConfig({
+      eventModelId: input.modelId as Id<"fairEventModels">, leadKind: input.kind, contactRequirement: input.contactRequirement,
+      ...(input.preferredContact ? { preferredContact: input.preferredContact } : {}), enabled: input.enabled,
+    })),
+    saveFollowUpTemplate: (modelId, subject, plainText) => leadsOutcome(() => upsertFollowUpTemplate({ eventModelId: modelId as Id<"fairEventModels">, subject, plainText })),
+    setSuppressed: (leadId, suppressed) => leadsOutcome(() => setFollowUpSuppressed({ leadId: leadId as Id<"fairLeads">, suppressed })),
+    retryDelivery: (deliveryId) => leadsOutcome(() => retryEmailDelivery({ deliveryId: deliveryId as Id<"fairEmailDeliveries"> })),
+  };
+
+  return <AdminEventsLeads view={view} actions={actions} />;
 }
 
 export class AdminEventsErrorBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {

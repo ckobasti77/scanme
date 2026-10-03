@@ -15,12 +15,18 @@ import type {
   FairAdminIssueCode,
   FairAudienceQuestionStatus,
   FairClientSegment,
+  FairConsentStatus,
+  FairContactRequirement,
+  FairEmailDeliveryError,
+  FairEmailDeliveryStatus,
   FairEventStatus,
+  FairLeadKind,
   FairModelStatus,
   FairPackageTier,
   FairParticipationStatus,
   FairPassportConfigStatus,
   FairPassportEligibleStatus,
+  FairPreferredContact,
   FairSurveyQuestionKind,
   FairSurveyStatus,
 } from "../fair-contract";
@@ -3844,9 +3850,91 @@ export interface AdminEventsDict {
   passportMemberStatus: Record<FairPassportEligibleStatus, string>;
   passportProblems: Record<AdminEventsPassportProblem, string>;
   confirm: string;
+  // B4 — Leadovi tab (saglasnost, podešavanje po modelu, follow-up tekst, leadovi)
+  tabLeads: string;
+  leadsSubtitle: string;
+  leadsUnavailable: string;
+  leadKinds: Record<FairLeadKind, string>;
+  consentTitle: string;
+  consentHelp: string;
+  consentActive: string;
+  consentInactive: string;
+  consentDraftLabel: string;
+  consentNewLabel: string;
+  consentSaveDraft: string;
+  consentSaved: string;
+  consentActivate: string;
+  consentActivateConfirm: string;
+  consentActivated: string;
+  consentRetire: string;
+  consentRetireConfirm: string;
+  consentRetired: string;
+  consentVersionLine: string;
+  consentStatus: Record<FairConsentStatus, string>;
+  settingsTitle: string;
+  settingsHelp: string;
+  settingsNoModels: string;
+  settingsLoading: string;
+  configEnabled: string;
+  configRequirement: string;
+  configPreferred: string;
+  configPreferredNone: string;
+  contactRequirements: Record<FairContactRequirement, string>;
+  preferredContacts: Record<FairPreferredContact, string>;
+  configSave: string;
+  configSaved: string;
+  testDriveAdvancedOnly: string;
+  followUpTitle: string;
+  followUpHelp: string;
+  followUpSubject: string;
+  followUpText: string;
+  followUpSave: string;
+  followUpSaved: string;
+  followUpActiveVersion: string;
+  followUpNone: string;
+  listTitle: string;
+  listHelp: string;
+  fieldExhibitor: string;
+  listEmpty: string;
+  listNoParticipations: string;
+  leadMeta: string;
+  leadConsent: string;
+  leadNoEmail: string;
+  leadNoPhone: string;
+  confirmationLabel: string;
+  followUpLabel: string;
+  followUpPlanned: string;
+  deliveryNone: string;
+  deliveryStatus: Record<FairEmailDeliveryStatus, string>;
+  deliveryErrors: Record<FairEmailDeliveryError, string>;
+  suppress: string;
+  suppressConfirm: string;
+  suppressDone: string;
+  unsuppress: string;
+  unsuppressDone: string;
+  followUpSuppressedBadge: string;
+  retryConfirmation: string;
+  retryFollowUp: string;
+  retryDone: string;
 }
 
 export type AdminEventsPassportProblem = "fewer_than_two_models" | "model_not_published" | "model_not_candidate" | "model_below_starter";
+
+// event-lead-email — visitor emails after a fair lead (Sajam 2026 B4,
+// convex/lib/fairEmails.ts). Placeholder copy until P1 is locked.
+export interface EventLeadEmailDict {
+  confirmationSubjectInterest: string;
+  confirmationSubjectTestDrive: string;
+  greeting: string;
+  confirmationBodyInterest: string;
+  confirmationBodyTestDrive: string;
+  confirmationFollowUpNote: string;
+  followUpFooter: string;
+  modelLink: string;
+  signature: string;
+  devTestSubject: string;
+  devTestBody: string;
+}
 
 export interface DictBySurface {
   "event-map": EventMapDict;
@@ -3862,6 +3950,7 @@ export interface DictBySurface {
   "admin-search": AdminSearchDict;
   "admin-team": AdminTeamDict;
   "admin-events": AdminEventsDict;
+  "event-lead-email": EventLeadEmailDict;
   communications: CommunicationsDict;
   "admin-domain": AdminDomainDict;
   venue: VenueDict;

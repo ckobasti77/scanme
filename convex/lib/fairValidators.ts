@@ -396,3 +396,26 @@ export const fairMyModelStateView = v.object({
   survey: fairMySurveyStateView,
   passport: v.union(fairPassportProgressView, v.null()),
 });
+
+// B4 — lead form (fairPublic.getLeadForm) and submitLead result; never a contact value.
+export const fairLeadFormView = v.union(
+  v.object({ eventModelId: v.string(), kind: fairLeadKind, state: v.literal("unavailable") }),
+  v.object({ eventModelId: v.string(), kind: fairLeadKind, state: v.literal("consent_not_configured") }),
+  v.object({
+    eventModelId: v.string(),
+    kind: fairLeadKind,
+    state: v.literal("open"),
+    contactRequirement: fairContactRequirement,
+    preferredContact: v.optional(fairPreferredContact),
+    consent: v.object({ version: v.number(), text: v.string() }),
+  }),
+);
+
+export const fairLeadSubmitResultView = v.object({
+  eventModelId: v.string(),
+  kind: fairLeadKind,
+  submittedAt: v.number(),
+  duplicate: v.boolean(),
+  confirmationEmail: v.boolean(),
+  followUpScheduled: v.boolean(),
+});

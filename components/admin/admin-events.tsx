@@ -3,6 +3,7 @@
 import { CheckCircle2, CircleAlert, FileJson, QrCode, TriangleAlert } from "lucide-react";
 import { useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { AdminEventsInteractions, type InteractionsActions, type InteractionsView } from "@/components/admin/admin-events-interactions";
+import { AdminEventsLeads } from "@/components/admin/admin-events-leads";
 import { AdminEmptyState, AdminLoadingState, AdminPanel, AdminStatus } from "@/components/admin/admin-primitives";
 import { FAIR_PACKAGE_TIERS, type FairClientSegment, type FairEventStatus, type FairModelStatus, type FairPackageTier, type FairParticipationStatus } from "@/lib/fair-contract";
 import { fmt } from "@/lib/i18n/format";
@@ -88,14 +89,21 @@ export type AdminEventsSurfaceProps = {
   actions: EventsActions;
   /** B3: questions, surveys and passports (absent in the static preview). */
   interactions?: { view: InteractionsView | undefined; actions: InteractionsActions };
+  /**
+   * B4: the connected Leadovi section (AdminEventsLeadsWorkspace). Rendered
+   * only while its tab is open, so contact data is never fetched in the
+   * background. Absent in the static preview.
+   */
+  leads?: ReactNode;
 };
 
-type Tab = "overview" | "model" | "qr" | "interactions" | "import" | "clients";
+type Tab = "overview" | "model" | "qr" | "interactions" | "leads" | "import" | "clients";
 const TABS: { id: Tab; label: string }[] = [
   { id: "overview", label: dict.tabOverview },
   { id: "model", label: dict.tabModel },
   { id: "qr", label: dict.tabQr },
   { id: "interactions", label: dict.tabInteractions },
+  { id: "leads", label: dict.tabLeads },
   { id: "import", label: dict.tabImport },
   { id: "clients", label: dict.tabClients },
 ];
@@ -662,6 +670,7 @@ export function AdminEventsSurface(props: AdminEventsSurfaceProps) {
             {tab === "import" ? <ImportPanel actions={props.actions} />
               : tab === "clients" ? <EventClients clients={props.eventClients} actions={props.actions} />
               : tab === "interactions" ? <AdminEventsInteractions view={props.interactions?.view} actions={props.interactions?.actions} />
+              : tab === "leads" ? props.leads ?? <AdminEventsLeads view={undefined} actions={undefined} />
               : props.catalog === undefined ? <AdminPanel><AdminLoadingState label={dict.loading} /></AdminPanel>
               : tab === "overview" ? <Overview catalog={props.catalog} onOpenModel={(id) => { setModelId(id); setTab("model"); }} />
               : tab === "model" ? <ModelDetail key={modelId ?? "none"} catalog={props.catalog} modelId={modelId} onSelect={(id) => setModelId(id || null)} actions={props.actions} />

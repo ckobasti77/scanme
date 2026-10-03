@@ -1,6 +1,6 @@
 # Sajam automobila 2026 — fair backend ugovor (B0)
 
-> Status: **B0 — ugovor i šema; B1 — katalog, import, paketi i QR dodela** (admin funkcije u §11, import u §12); **B2 — anonimni identitet, scan pipeline i javni katalog** (§13–§14); **B3 — ocene, Glas publike, anketa i pasoš** (§15–§16). Napisano iz stvarnog koda 3. oktobra 2026.
+> Status: **B0 — ugovor i šema; B1 — katalog, import, paketi i QR dodela** (admin funkcije u §11, import u §12); **B2 — anonimni identitet, scan pipeline i javni katalog** (§13–§14); **B3 — ocene, Glas publike, anketa i pasoš** (§15–§16); **B4 — leadovi, saglasnost i email outbox** (§17–§18). Napisano iz stvarnog koda 3. i 4. oktobra 2026.
 >
 > Vlasnik backend-a: **Jovan**. Vlasnik proizvoda i go/no-go: **Aleksa**.
 > Izvori zahteva: `MASTER-KONTEKST.md`, `BACKEND-HANDOFF.md` (§4–§7, §11), `JOVAN-DELTA-2026-10-02.md`.
@@ -21,7 +21,7 @@ Ako se ovaj dokument i kod razilaze, važi kod, a razlika je greška dokumenta.
 
 ## 1. Funkcijska površina
 
-**B0 ne dodaje nijednu public, internal ni admin funkciju.** Nova je samo šema; tipovi i pravila su čiste funkcije. **B1** dodaje admin funkcije (`requireAdmin`) i jednu internal DEV funkciju; spisak je u §11. **B2** dodaje tri javna read-only upita (`fairPublic.*`), fair granu u postojećem `cards.resolveAndRecord`, dve internal funkcije i jedan Next gateway (§13–§14). **B3** dodaje gateway-facing `fairInteractions.*`, četiri javna upita u `fairPublic`, admin `fairInteractionsAdmin.*` i šest POST ruta (§15–§16).
+**B0 ne dodaje nijednu public, internal ni admin funkciju.** Nova je samo šema; tipovi i pravila su čiste funkcije. **B1** dodaje admin funkcije (`requireAdmin`) i jednu internal DEV funkciju; spisak je u §11. **B2** dodaje tri javna read-only upita (`fairPublic.*`), fair granu u postojećem `cards.resolveAndRecord`, dve internal funkcije i jedan Next gateway (§13–§14). **B3** dodaje gateway-facing `fairInteractions.*`, četiri javna upita u `fairPublic`, admin `fairInteractionsAdmin.*` i šest POST ruta (§15–§16). **B4** dodaje gateway-facing `fairLeads.submitLead`, javni `fairPublic.getLeadForm`, internal outbox `fairEmails.*`, Node sender `fairEmailSender.*`, admin `fairLeadsAdmin.*` i rutu `POST /api/fair/lead` (§17–§18).
 
 Planirana površina (HANDOFF §7). Imena se mogu minimalno prilagoditi; odgovornosti ne.
 
@@ -31,7 +31,7 @@ Planirana površina (HANDOFF §7). Imena se mogu minimalno prilagoditi; odgovorn
 | `convex/cards.ts` (hook), `app/r/[cardCode]`, `app/api/fair/**` (**urađeno**, §13) | B2 | postojeći public resolver + server gateway | fair scan u istom `requestId`, visitor hash, server-derived admin isključenje, pečat pasoša |
 | `convex/fairPublic.ts` (B2 i B3 deo **urađen**, §14, §15.3) | B2/B3/B5 | public, read-only, bez PII | `getEventBySlug`, `getModelBySlug`, `getModelsByIds` (≤50) — B2; `listAudienceQuestionsForModel`, `getAudienceQuestionResult`, `getSponsoredMapRotation`, `getSponsoredGarageRotation`, `getPassportCatalog`; `getMyPassportProgress` ide kroz POST gateway (HANDOFF §7) |
 | `convex/fairInteractions.ts` (B3 deo **urađen**, §15) | B3/B5 | public preko POST gateway-a | `getMyModelState`, `upsertRating`, `upsertAudienceVote`, `submitSurvey`, `upsertBrandFavorite`, `recordSponsoredAction` (samo garaža) |
-| `convex/fairLeads.ts`, `convex/fairEmails.ts` | B4 | gateway + internal + admin | `submitLead`, potvrda (Node `internalAction`), follow-up, suppression, paginiran izvoz |
+| `convex/fairLeads.ts`, `convex/fairEmails.ts`, `convex/fairEmailSender.ts`, `convex/fairLeadsAdmin.ts` (**urađeno**, §17–§18) | B4 | gateway + internal + admin | `submitLead`, potvrda (Node `internalAction`), follow-up, suppression, paginiran izvoz |
 | `convex/fairAnalytics.ts`, `convex/fairReports.ts` | B6 | internal/admin | metrike, dnevni dataset, report lifecycle (send samo iz `approved`) |
 | purge | B7 | internal + admin preview | bounded, retry-safe brisanje PII |
 
@@ -245,6 +245,8 @@ B3 dodaci:
 
 B3 admin kodovi (`FAIR_ADMIN_ISSUE_CODES`): `FAIR_FEATURE_NOT_ENTITLED`, `FAIR_EVENT_DAY_NOT_FOUND`, `FAIR_QUESTION_NOT_FOUND`, `FAIR_QUESTION_LOCKED`, `FAIR_QUESTION_DAY_LIMIT`, `FAIR_QUESTION_STATUS`, `FAIR_SURVEY_NOT_FOUND`, `FAIR_SURVEY_INVALID`, `FAIR_SURVEY_LOCKED`, `FAIR_PASSPORT_NOT_FOUND`, `FAIR_PASSPORT_NOT_ELIGIBLE`, `FAIR_PASSPORT_FROZEN`, `FAIR_PASSPORT_EVENT_STARTED`.
 
+B4: lead tok koristi postojeće kodove (`CONSENT_NOT_CONFIGURED`, `CONSENT_REQUIRED`, `CONTACT_REQUIREMENT_NOT_MET`, `FEATURE_NOT_ENTITLED`, `SUBMISSION_DUPLICATE`, `RATE_LIMITED`, `EVENT_NOT_ACTIVE`, `FAIR_MODEL_NOT_FOUND`, `INVALID_INPUT`). Novi admin kodovi: `FAIR_CONSENT_NOT_FOUND`, `FAIR_CONSENT_STATUS`, `FAIR_CONSENT_EXHIBITOR_MISSING`, `FAIR_LEAD_NOT_FOUND`, `FAIR_EMAIL_DELIVERY_NOT_FOUND`, `FAIR_EMAIL_DELIVERY_STATUS`. Greška isporuke (`fairEmailDeliveries.lastError`) je stabilan prefiks iz `FAIR_EMAIL_DELIVERY_ERRORS` (`RESEND_NOT_CONFIGURED`, `FOLLOW_UP_TEMPLATE_MISSING`, `LEAD_MISSING`, `PROVIDER_REJECTED`, `PROVIDER_UNAVAILABLE`) + `:` + HTTP status ili `network`; nikad poruka provajdera ni adresa.
+
 Detalji greške su samo ne-PII vrednosti. Tekst greške mapira frontend kroz `lib/i18n`.
 
 ## 7. Formati i ključevi
@@ -315,6 +317,18 @@ Konstante rotacije u `lib/fair-contract.ts` imaju ista imena i vrednosti kao u `
 34. **Rate limit `fairBrandFavorite`** (B3): HANDOFF §9 ga ne imenuje. Dodat je zaseban bucket (kapacitet 5, 10/min), jer promena favorita pomera brojače.
 35. **Prikaz pre `package_active_from`** (B3): javne `capabilities` i `getMyModelState.rating.mode` čitaju sačuvani paket (upit ne sme da čita sat). Upis sudi po paketu na snazi u trenutku interakcije. Zato pre početka paketa UI može da prikaže ocenu, a upis vraća `FEATURE_NOT_ENTITLED`. DEV TEST paketi počinju 9. 10. 2026. u 09:00.
 36. **Obavezno pitanje ankete** (B3): u V1 su pitanja opciona. Ako admin ipak označi pitanje kao `required`, submit bez tog odgovora vraća `INVALID_INPUT`.
+37. **Pravni tekst saglasnosti (P0)** (B4): nije napisan ni aktiviran, ni na DEV-u. Dok aktivna verzija ne postoji, `submitLead` vraća `CONSENT_NOT_CONFIGURED` i ništa ne čuva, a `getLeadForm` vraća `consent_not_configured`. Tekst mora da sadrži oznaku `{izlagac}`, koju server zamenjuje nazivom izlagača (§9.15).
+38. **Tekst potvrde i podnožje follow-upa (P1)** (B4): placeholder u `lib/i18n/sr/event-lead-email.ts`. Zamenjuje se pre aktivacije saglasnosti u produkciji.
+39. **Adresa za odgovor** (B4): potvrda kaže da posetilac odgovorom otkazuje follow-up. `FAIR_EMAIL_REPLY_TO` nije postavljen ni na jednom deploymentu, pa odgovor ide na `RESEND_FROM_EMAIL`. Koja nadgledana ScanMe adresa prima te odgovore?
+40. **Trenutak follow-upa** (B4): prvi 10:00 po Beogradu najmanje 24 h posle `fairEvents.endsAt`, uvek u prozoru 24–48 h. Lead stigao posle tog trenutka, a pre 48 h, dobija follow-up odmah; posle 48 h ga ne dobija. Potvrditi sat i da je `endsAt` „kraj sajma“.
+41. **Jedan follow-up po leadu** (B4): posetilac koji na istom Naprednom modelu pošalje i `Zainteresovan sam` i `Probna vožnja` dobija dva follow-upa. Treba li jedan po posetiocu i modelu?
+42. **Follow-up bez teksta izlagača** (B4): ne šalje se (`failed: FOLLOW_UP_TEMPLATE_MISSING`); posle unosa teksta admin ga ponovo pokreće (DATA-INTAKE §6.7: „ne izmišljati ponudu“).
+43. **Lead samo sa telefonom** (B4): čuva se, ali nema email potvrdu ni follow-up. Potvrdu vidi samo u UI-ju posle uspešnog upisa.
+44. **Zloupotreba potvrda** (B4): `fairLeadSubmit` je po posetiocu i modelu. Nov cookie znači nov bucket, a `submitLead` je javna mutacija kao i B3 mutacije, pa neko može da pošalje mnogo potvrda na tuđu adresu. Predlog za B7: limit po primaocu (hash adrese) i/ili zajednička tajna gateway → Convex.
+45. **`capabilities` i saglasnost** (B4): `canSubmitInterest`/`canRequestTestDrive` i dalje znače „paket + uključen obrazac“ (B2). Aktivna saglasnost se vidi samo u `getLeadForm.state`; frontend ne prikazuje obrazac za `consent_not_configured`.
+46. **Predaja leadova izlagaču** (B4 → B6): `fairLeads.status: delivered`/`deliveredAt` i PII fajl (CSV/XLSX) još ne postoje. B4 daje paginiran admin `exportLeads`. Kanal i primaoci su P0.2.
+47. **Import `test_drive_*`** (B4): kolone iz `03-models.csv` još se ne uvoze u `fairLeadConfigs`; admin ih podešava u tabu `Leadovi`. DATA-INTAKE §6.3 piše `any`, a ugovor `one_of`.
+48. **Purge leadova** (B4 → B7): `fairEmails.purgeLeadPiiBatch` briše outbox i leadove u ograničenim serijama, i to tek od `FAIR_PII_PURGE_AT_MS` (pre toga samo `dryRun`). Zakazivanje 16. 11., audit i ostale visitor tabele su B7.
 
 ## 10. Šta stiže posle B0
 
@@ -324,7 +338,7 @@ Konstante rotacije u `lib/fair-contract.ts` imaju ista imena i vrednosti kao u `
 | **B1A** | admin tab `Događaji` |
 | **B2** (urađeno, §13–§14) | gateway, cookie i HMAC; fair hook u `resolveAndRecord` sa istim `requestId`; admin isključenje preko Convex Auth tokena; shard helper; `fairScan` rate limit; pečat pasoša; `fairPublic` katalog |
 | **B3** (urađeno, §15–§16) | ocene, Glas publike, anketa, pasoš i favorit |
-| **B4** | leadovi, saglasnost i email outbox (produkcija čeka pravni tekst) |
+| **B4** (urađeno, §17–§18) | leadovi, saglasnost i email outbox (produkcija čeka pravni tekst) |
 | **B5** | sponzorisani snapshot i rotacija (samo garažni `open_model`/`garage_add`) |
 | **B6** | analitika i izveštaji |
 | **B7** | purge, authz, performance i integracioni test |
@@ -679,3 +693,95 @@ Prvi unos polja: count +1 i sum + vrednost. Izmena: samo sum ± razlika. Brojač
 | `getModelInteractionSummary` | **Jedino mesto** gde se čitaju count, sum i prosek ocena; vraća i broj glasova po opciji. |
 
 Admin UI je tab `Događaji → Interakcije` (`components/admin/admin-events-interactions.tsx`); tekstovi su u `lib/i18n/sr/admin-events.ts`.
+
+## 17. B4 — leadovi i email (stvarna površina)
+
+`convex/leads.ts` je prelaunch lead i ne koristi se. Sajamski leadovi pišu samo B0 tabele iz §3.4; šema se u B4 ne menja.
+
+### 17.1 Tok `POST /api/fair/lead` → `fairLeads.submitLead`
+
+1. Gateway (`lib/fair-server/leads.ts`):
+   - same-origin, telo najviše 8 KB, striktna polja `{ eventModelId, kind, submissionId, contactName, email?, phone?, consentAccepted, consentVersion }`; nepoznat ključ (i `visitorHash` ili tekst saglasnosti) → 400;
+   - `consentAccepted: false` → 422 `CONSENT_REQUIRED`, a kontakt ne napušta Next proces;
+   - `visitorHash` je HMAC HttpOnly cookie-ja; odgovor je `{ ok: true, value: FairLeadSubmitResult }`, bez ijednog kontakta, uvek `no-store`.
+2. `submitLead`, u jednoj transakciji:
+   1. hash i `submissionId` (`FAIR_SUBMISSION_ID_PATTERN`);
+   2. **idempotentnost:** postojeći `submissionId` istog posetioca, modela i vrste vraća sačuvan ishod sa `duplicate: true` i ne piše i ne šalje ništa; tuđi → `SUBMISSION_DUPLICATE`;
+   3. objavljen model, event `published`/`live`, pre purge-a;
+   4. paket **na snazi u trenutku slanja**: `interest` Starter+, `test_drive` samo Advanced → inače `FEATURE_NOT_ENTITLED`;
+   5. `fairLeadConfigs` za model i vrstu mora postojati i biti `enabled` → inače `FEATURE_NOT_ENTITLED`;
+   6. **produkcijski gate:** aktivna `fairConsentConfigs` verzija za event i vrstu → inače `CONSENT_NOT_CONFIGURED`;
+   7. `consentAccepted: true` i `consentVersion` = aktivna verzija → inače `CONSENT_REQUIRED`;
+   8. ime (1–120 znakova) i kontakt po `contactRequirement` (`one_of` | `email` | `phone` | `both`); neispravan format → `INVALID_INPUT`, nedostaje kanal → `CONTACT_REQUIREMENT_NOT_MET`; `preferredContact` nikad ne pravi obavezno polje;
+   9. `fairVisitors` upsert i `fairLeadSubmit` limit → `RATE_LIMITED`;
+   10. `fairLeads` red: `consentTextSnapshot` = aktivni tekst sa `{izlagac}` zamenjenim nazivom izlagača (server, ne browser), `consentedAt`, `status: received`, `followUpSuppressed: false`, `purgeAt` = 16. 11. 2026 (`FAIR_PII_PURGE_AT_MS`);
+   11. ako postoji email: outbox red neposredne potvrde (`scheduledFor` = sada); ako paket na snazi ima `postEventFollowUp` (Advanced): i outbox red follow-upa (§17.3).
+
+   Svako odbijanje baca `ConvexError({ code })`, pa se ne upisuje ništa: ni lead, ni posetilac, ni outbox, ni token limitera.
+
+| HTTP | Kodovi |
+|---|---|
+| 400 | `INVALID_INPUT` |
+| 403 | `FEATURE_NOT_ENTITLED`, `ORIGIN_NOT_ALLOWED` |
+| 404 | `FAIR_MODEL_NOT_FOUND` |
+| 409 | `CONSENT_NOT_CONFIGURED`, `EVENT_NOT_ACTIVE`, `SUBMISSION_DUPLICATE` |
+| 422 | `CONSENT_REQUIRED`, `CONTACT_REQUIREMENT_NOT_MET` |
+| 429 | `RATE_LIMITED` |
+| 502/503 | `SERVICE_UNAVAILABLE`, `VISITOR_UNAVAILABLE` (poruka greške se ne prosleđuje) |
+
+### 17.2 Javni obrazac `fairPublic.getLeadForm({ eventModelId, kind })`
+
+Vraća `FairLeadFormView` (bez PII):
+- `unavailable`: model nije objavljen, sačuvani paket nema pravo ili obrazac nije uključen;
+- `consent_not_configured`: nema aktivne saglasnosti (obrazac se ne prikazuje);
+- `open`: `contactRequirement`, `preferredContact?` i `consent: { version, text }`; `text` je već renderovan sa nazivom izlagača. Browser prikazuje taj tekst i šalje nazad `version`.
+
+Kao i `capabilities`, upit čita sačuvani paket (upit ne čita sat); `submitLead` sudi po paketu na snazi.
+
+### 17.3 Outbox `fairEmailDeliveries` i slanje
+
+- `dedupeKey` = `fair-lead/<leadId>/<immediate_confirmation|post_event_follow_up>`; jedan red po ključu, nastaje samo u transakciji koja je upisala lead. Retry submit-a ga ne dodaje.
+- Mutacija samo pravi red i zakazuje `fairEmailSender.sendDelivery` (Node `internalAction`). Sender:
+  1. `fairEmails.claimDelivery` (internal mutation) uzima samo `queued` red čiji je trenutak došao, ponovo čita lead i za follow-up proverava `followUpSuppressed` (→ `suppressed`) i aktivni tekst izlagača (→ `failed: FOLLOW_UP_TEMPLATE_MISSING`); povećava `attemptCount`;
+  2. šalje kroz Resend seam (`convex/lib/fairEmails.ts`, isti obrazac kao `activationRequestEmails.ts`) sa `Idempotency-Key` = `dedupeKey`;
+  3. `markSent` (`providerMessageId`) ili `markFailed`.
+- Retry: 409/429/5xx/mreža se ponavljaju na istom redu i sa istim ključem posle 1 min i 10 min (`FAIR_EMAIL_MAX_ATTEMPTS = 3`); ostale 4xx i `RESEND_NOT_CONFIGURED` odmah prelaze u `failed`. Admin `retryEmailDelivery` vraća `failed` u `queued` sa istim ključem. `sent` je konačno.
+- **Neposredna potvrda:** tačno jedna po leadu sa emailom. Tekst je ScanMe placeholder (P1, `lib/i18n/sr/event-lead-email.ts`): imenuje model, događaj i izlagača; za probnu vožnju kaže da termin nije zakazan. Rečenicu da se odgovorom otkazuje follow-up sadrži samo kad je follow-up zaista zakazan.
+- **Advanced follow-up:** jedan po leadu, zakazan pri upisu za prvi 10:00 po Beogradu najmanje 24 h posle `fairEvents.endsAt` (uvek u prozoru 24–48 h; §9.40). Lead pre nadogradnje ga nikad ne dobija naknadno. Telo je aktivni tekst izlagača (`fairMessageTemplates`, `post_event_follow_up`) + ScanMe podnožje; bez teksta se ne šalje (§9.42).
+- Linkovi: `FAIR_PUBLIC_BASE_URL` (Convex env; https origin, za `localhost` i http), inače `https://scanme.rs`. `Reply-To`: `FAIR_EMAIL_REPLY_TO`, ako je postavljen (§9.39).
+- Resend env: `RESEND_API_KEY` (mora početi sa `re_`) i `RESEND_FROM_EMAIL`. Na DEV-u (`dev:expert-pelican-136`) oba imena postoje (`scripts/sajam/tools/env-imena.mjs`, 4. 10. 2026); vrednosti nisu čitane.
+- `lastError` je stabilan kod (§6), nikad poruka provajdera.
+
+### 17.4 Rate limit `fairLeadSubmit`
+
+`{ kind: "token bucket", rate: 2, period: MINUTE, capacity: 3 }`, ključ `fairVisitors._id` + `:` + `eventModelId`. Aritmetika: na jednom modelu čovek pošalje `Zainteresovan sam` jednom i (Advanced) probnu vožnju jednom, plus jednu ispravku = 3. Dopuna 1 na 30 s zadržava skriptu na 2 emaila u minuti po modelu. Retry istog `submissionId` vraća se pre limitera i ne troši token. Svaki model ima svoj ključ (§9.44).
+
+### 17.5 Purge seam
+
+`fairEmails.purgeLeadPiiBatch({ limit, dryRun })` (internal):
+- najviše `limit` (≤ 200) redova po pozivu;
+- prvo outbox (primaoci), a leadovi tek kad outbox ostane prazan, pa referenca ne ostaje bez para;
+- pre `FAIR_PII_PURGE_AT_MS` vraća `not_due`; `dryRun` samo broji;
+- ne dira `fairConsentConfigs`, `fairLeadConfigs`, `fairMessageTemplates` ni `fairMetricCountShards`;
+- bezbedan za ponavljanje (`hasMore`).
+
+Zakazivanje, audit i ostale visitor tabele su B7 (§9.48).
+
+## 18. B4 — admin (`convex/fairLeadsAdmin.ts`, sve sa `requireAdmin`)
+
+| Funkcija | Pravilo |
+|---|---|
+| `getEventConsents` | Verzije saglasnosti po vrsti, najnovije prve (≤20 po vrsti). |
+| `saveConsentDraft` | Nova verzija (sledeći broj) ili izmena postojećeg nacrta. `active` i `retired` se ne menjaju (`FAIR_CONSENT_STATUS`). |
+| `activateConsent` | **Produkcijski prekidač.** `draft → active`, prethodna aktivna → `retired`, u istoj transakciji. Tekst mora imati `{izlagac}` (`FAIR_CONSENT_EXHIBITOR_MISSING`). Upisuje `adminAuditLog` (`fair_consent_activated`). Aktivira se samo stručno proveren tekst (P0). |
+| `retireConsent` | `active → retired`; obrazac te vrste se zatvara (`CONSENT_NOT_CONFIGURED`). Audit `fair_consent_retired`. |
+| `getModelLeadSettings` | Paket, obrazac `interest` i `test_drive` i aktivni tekst follow-upa modela. |
+| `upsertLeadConfig` | Jedan red po modelu i vrsti; `enabled: true` traži pravo u paketu modela (`FAIR_FEATURE_NOT_ENTITLED`). `created`/`updated`/`unchanged`. |
+| `upsertFollowUpTemplate` | Samo Advanced. Tekst izlagača (naslov ≤150, tekst ≤5000, samo plain text) postaje nova aktivna verzija, a prethodna se povlači. |
+| `exportLeads` | Paginiran izvoz jednog učešća (izlagač na eventu), najnoviji prvi, najviše 100 po strani; uz svaki lead i stanje potvrde i follow-upa. Učešće drugog eventa → `FAIR_LINK_NOT_FOUND`. |
+| `setFollowUpSuppressed` | Otkazivanje follow-upa po odgovoru posetioca (`suppressedAt`, `suppressedByUserId`); povratno za grešku admina. Sender ga ponovo čita neposredno pre slanja. |
+| `retryEmailDelivery` | `failed → queued`, isti `dedupeKey`/`Idempotency-Key`; ostala stanja → `FAIR_EMAIL_DELIVERY_STATUS`. |
+
+Admin UI je tab `Događaji → Leadovi` (`components/admin/admin-events-leads.tsx`); tekstovi su u `lib/i18n/sr/admin-events.ts`. Sekcija se montira samo dok je tab otvoren, pa se kontakti ne učitavaju u pozadini.
+
+**Nijedna javna funkcija ne vraća kontakt.** `submitLead` vraća samo `FairLeadSubmitResult`, `getLeadForm` samo pravilo i tekst saglasnosti, a funkcija koja po visitor hash-u čita kontakt ne postoji. Test (`convex/fairLeads.test.ts`) prolazi kroz izlaze javnih i visitor funkcija i proverava da u njima nema imena, emaila, telefona, hash-a ni snapshot-a. Proverava i da je jedina javna lead funkcija `submitLead`, da su outbox, sender i purge `internal`, a da admin funkcije odbijaju anonimnog i ne-admin korisnika.

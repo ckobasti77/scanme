@@ -405,6 +405,109 @@ export function isFairSubmissionId(value: string): boolean {
   return FAIR_SUBMISSION_ID_PATTERN.test(value);
 }
 
+// -----------------------------------------------------------------------------
+// B4 — leads (`Zainteresovan sam`, `Probna vožnja`) and email (HANDOFF §4.4, §5.4)
+// -----------------------------------------------------------------------------
+
+/**
+ * `fairConsentConfigs` is per event and lead kind, but the consent must name
+ * the concrete exhibitor (MASTER §8). The admin-entered text carries this
+ * token; the server replaces it with the exhibitor's business name in the
+ * shown text and in the stored `consentTextSnapshot`. Activation requires it.
+ */
+export const FAIR_CONSENT_EXHIBITOR_PLACEHOLDER = "{izlagac}";
+
+/** Technical caps of the lead form fields. */
+export const FAIR_LEAD_NAME_MAX = 120;
+export const FAIR_LEAD_EMAIL_MAX = 254;
+export const FAIR_LEAD_PHONE_MAX = 32;
+
+const FAIR_LEAD_EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const FAIR_LEAD_PHONE_PATTERN = /^\+?[0-9 ()./-]+$/;
+
+export function isFairLeadEmail(value: string): boolean {
+  return value.length <= FAIR_LEAD_EMAIL_MAX && FAIR_LEAD_EMAIL_PATTERN.test(value);
+}
+
+/** Digits with the usual separators; 6–15 digits (E.164 maximum). */
+export function isFairLeadPhone(value: string): boolean {
+  if (value.length > FAIR_LEAD_PHONE_MAX || !FAIR_LEAD_PHONE_PATTERN.test(value)) return false;
+  const digits = value.replace(/\D/g, "").length;
+  return digits >= 6 && digits <= 15;
+}
+
+/**
+ * The missing part of a contact requirement, or null when it is met. Base
+ * rule (`one_of`): at least one of email/phone. `preferredContact` never makes
+ * a field mandatory (HANDOFF §4.4).
+ */
+export function fairContactRequirementProblem(
+  requirement: FairContactRequirement,
+  contact: { email?: string; phone?: string },
+): FairContactRequirement | null {
+  const email = Boolean(contact.email);
+  const phone = Boolean(contact.phone);
+  const met =
+    requirement === "one_of" ? email || phone
+    : requirement === "email" ? email
+    : requirement === "phone" ? phone
+    : email && phone;
+  return met ? null : requirement;
+}
+
+/** Public lead form of one model and kind. No PII; consent text is server-rendered. */
+export type FairLeadFormView =
+  | { eventModelId: string; kind: FairLeadKind; state: "unavailable" }
+  /** Production gate: no active consent version → the form must not collect contacts. */
+  | { eventModelId: string; kind: FairLeadKind; state: "consent_not_configured" }
+  | {
+      eventModelId: string;
+      kind: FairLeadKind;
+      state: "open";
+      contactRequirement: FairContactRequirement;
+      preferredContact?: FairPreferredContact;
+      /** The browser shows `text` and sends back `version` with `consentAccepted: true`. */
+      consent: { version: number; text: string };
+    };
+
+/** Body of `POST /api/fair/lead`. `submissionId` is the client idempotency key (FAIR_SUBMISSION_ID_PATTERN). */
+export type FairLeadSubmitInput = {
+  eventModelId: string;
+  kind: FairLeadKind;
+  submissionId: string;
+  contactName: string;
+  email?: string;
+  phone?: string;
+  consentAccepted: boolean;
+  consentVersion: number;
+};
+
+/** `submitLead` result. Never carries a contact value. */
+export type FairLeadSubmitResult = {
+  eventModelId: string;
+  kind: FairLeadKind;
+  submittedAt: number;
+  /** The same submissionId was already stored; nothing new was written or sent. */
+  duplicate: boolean;
+  /** One immediate confirmation email is queued (only when an email was given). */
+  confirmationEmail: boolean;
+  /** Advanced: the one post-fair follow-up is scheduled for this lead. */
+  followUpScheduled: boolean;
+};
+
+/**
+ * Stable `fairEmailDeliveries.lastError` prefixes (an HTTP status or `network`
+ * may follow after `:`). Never a provider message, address or secret.
+ */
+export const FAIR_EMAIL_DELIVERY_ERRORS = [
+  "RESEND_NOT_CONFIGURED",
+  "FOLLOW_UP_TEMPLATE_MISSING",
+  "LEAD_MISSING",
+  "PROVIDER_REJECTED",
+  "PROVIDER_UNAVAILABLE",
+] as const;
+export type FairEmailDeliveryError = (typeof FAIR_EMAIL_DELIVERY_ERRORS)[number];
+
 /** Photo first; otherwise brand logo, otherwise the neutral event placeholder (MASTER §10). */
 export type FairSponsoredVisual = "photo" | "brand_logo" | "event_placeholder";
 
@@ -558,6 +661,13 @@ export const FAIR_ADMIN_ISSUE_CODES = [
   "FAIR_PASSPORT_NOT_ELIGIBLE",
   "FAIR_PASSPORT_FROZEN",
   "FAIR_PASSPORT_EVENT_STARTED",
+  // B4 — consent, lead settings, follow-up text, leads and the email outbox
+  "FAIR_CONSENT_NOT_FOUND",
+  "FAIR_CONSENT_STATUS",
+  "FAIR_CONSENT_EXHIBITOR_MISSING",
+  "FAIR_LEAD_NOT_FOUND",
+  "FAIR_EMAIL_DELIVERY_NOT_FOUND",
+  "FAIR_EMAIL_DELIVERY_STATUS",
   // Warnings
   "FAIR_PRICE_MISSING",
   "FAIR_PHOTO_MISSING",
