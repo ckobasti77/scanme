@@ -1,6 +1,6 @@
 # Sajam automobila 2026 — fair backend ugovor (B0)
 
-> Status: **B0 — ugovor i šema**, bez business funkcija. Napisano iz stvarnog koda 3. oktobra 2026.
+> Status: **B0 — ugovor i šema; B1 — katalog, import, paketi i QR dodela** (admin funkcije u §11, import u §12). Napisano iz stvarnog koda 3. oktobra 2026.
 >
 > Vlasnik backend-a: **Jovan**. Vlasnik proizvoda i go/no-go: **Aleksa**.
 > Izvori zahteva: `MASTER-KONTEKST.md`, `BACKEND-HANDOFF.md` (§4–§7, §11), `JOVAN-DELTA-2026-10-02.md`.
@@ -21,15 +21,15 @@ Ako se ovaj dokument i kod razilaze, važi kod, a razlika je greška dokumenta.
 
 ## 1. Funkcijska površina
 
-**B0 ne dodaje nijednu public, internal ni admin funkciju.** Nova je samo šema; tipovi i pravila su čiste funkcije.
+**B0 ne dodaje nijednu public, internal ni admin funkciju.** Nova je samo šema; tipovi i pravila su čiste funkcije. **B1** dodaje admin funkcije (`requireAdmin`) i jednu internal DEV funkciju; spisak je u §11. Public fair funkcija još nema.
 
 Planirana površina (HANDOFF §7). Imena se mogu minimalno prilagoditi; odgovornosti ne.
 
 | Modul | Korak | Vrsta | Funkcije |
 |---|---|---|---|
-| `convex/fairAdmin.ts` (+ import) | B1 | admin (`requireAdmin`) | upsert event/dan/učešće/štand/model, event-only klijent i `convertEventClientToStandard`, QR inventar + atomski assign/release + resolve test, publish/withdraw, upgrade paketa, import dry-run/commit, validation issues |
+| `convex/fairAdmin.ts`, `convex/fairImport.ts` (**urađeno**, §11–§12) | B1 | admin (`requireAdmin`) | upsert event/dan/učešće/štand/model, event-only klijent i `convertEventClientToStandard`, QR inventar + atomski assign/release + resolve test, publish/withdraw, upgrade paketa, import dry-run/commit, validation issues |
 | `convex/cards.ts` (hook), `app/r/[cardCode]`, `app/api/fair/**` | B2 | postojeći public resolver + server gateway | fair scan u istom `requestId`, visitor hash, server-derived admin isključenje, pečat pasoša |
-| `convex/fairPublic.ts` | B2/B3/B5 | public, read-only, bez PII | `getEventBySlug`, `getModelBySlug`, `getModelsByIds` (≤50), `listAudienceQuestionsForModel`, `getAudienceQuestionResult`, `getSponsoredMapRotation`, `getSponsoredGarageRotation`, `getPassportCatalog` |
+| `convex/fairPublic.ts` | B2/B3/B5 | public, read-only, bez PII | `getEventBySlug`, `getModelBySlug`, `getModelsByIds` (≤50), `listAudienceQuestionsForModel`, `getAudienceQuestionResult`, `getSponsoredMapRotation`, `getSponsoredGarageRotation`, `getPassportCatalog`; `getMyPassportProgress` ide kroz POST gateway (HANDOFF §7) |
 | `convex/fairInteractions.ts` | B3/B5 | public preko POST gateway-a | `getMyModelState`, `upsertRating`, `upsertAudienceVote`, `submitSurvey`, `upsertBrandFavorite`, `recordSponsoredAction` (samo garaža) |
 | `convex/fairLeads.ts`, `convex/fairEmails.ts` | B4 | gateway + internal + admin | `submitLead`, potvrda (Node `internalAction`), follow-up, suppression, paginiran izvoz |
 | `convex/fairAnalytics.ts`, `convex/fairReports.ts` | B6 | internal/admin | metrike, dnevni dataset, report lifecycle (send samo iz `approved`) |
@@ -51,8 +51,15 @@ Pravila za sve buduće funkcije:
 | `accounts.clientSegment?` | `standard \| event_only` | Odsutno = `standard` (`fairClientSegmentOf`). |
 | `adminClientReadModels.clientSegment?`, `adminVenueReadModels.clientSegment?` | projekcija segmenta | B1 ga upisuje pri sync-u i isključuje `event_only` iz redovnih lista. |
 | `convex/cards.ts`, `convex/cardsAdmin.ts` | inertne `case "fair_model"` grane i `SplitterItemSpec` bez `fair_model` | Bez njih `tsc` pada (TS2366/TS2345). Presedan je TASK-62 (`table_ordering`). |
+| B1: `accessDestinationKind` (`convex/lib/accessValidators.ts`) | `+ "fair_model"` | Piše ga samo B1 QR dodela. Dele ga `accessSubjects.destinationKind` i `productInventory.destinationKind`. |
+| B1: `accessSubjects.destinationInput` | novi validator `accessSubjectDestinationInput` = postojeći `accessDestinationInput` + `{ kind: "fair_model", eventModelId }` | Generički access API (`adminProducts.*`) i dalje prima samo `accessDestinationInput`, pa ne može da napravi fair destinaciju (test). |
+| B1: `destinationProblem` (`convex/lib/accessResolution.ts`) | grana za `fair_model` target | Kod otvara model samo dok postoji aktivan `fairQrAssignments` red za taj subjekat; inače `destination_fair_unassigned` (ili `destination_fair_model_missing`). |
+| B1: `fairEvents.qrInventoryBusinessId?` | `v.id("businesses")` | Interni business „Sajam automobila 2026 — QR inventar“ čiji se postojeći QR kanali smeju dodeliti modelima tog eventa. Bez njega dodela vraća `FAIR_QR_INVENTORY_NOT_CONFIGURED`. |
+| B1: `accounts` | indeks `by_clientSegment` | Bounded lista `event_only` klijenata za `Događaji`. |
+| B1: `convex/lib/adminReadModelEngine.ts` | `clientSegment` se projektuje u `adminClientReadModels`/`adminVenueReadModels` samo kad je postavljen | Odsutno ostaje odsutno; standardni klijenti se ne menjaju. |
+| B1: `adminReadModels.clients/listClients/venues` | `.filter(clientSegment != "event_only")` | Redovni direktorijum klijenata i lokala ne prikazuje `event_only`. `adminProductReads.listVenues` namerno nije filtriran: QR inventar mora ostati dostupan za pravljenje kodova. |
 
-Na postojećim tabelama nije dodat nijedan indeks. Nijedno postojeće polje nije promenjeno.
+U B0 na postojećim tabelama nije dodat nijedan indeks; B1 dodaje samo `accounts.by_clientSegment`. Nijedno postojeće polje nije promenjeno.
 
 ## 3. Tabele
 
@@ -65,10 +72,10 @@ Napomene:
 
 | Tabela | Polja | Indeksi | Jedinstveno |
 |---|---|---|---|
-| `fairEvents` | `code`, `slug`, `title`, `venueName`, `timezone: "Europe/Belgrade"`, `startsAt`, `endsAt`, `status: draft\|published\|live\|ended\|archived`, `garagePriority`, `piiPurgeAt`, `minimumPublicVoteCount`, `robotsIndexable`, `createdAt`, `updatedAt` | `by_code`, `by_slug`, `by_status_and_startsAt` | `code` (upsert ključ), `slug` |
+| `fairEvents` | `code`, `slug`, `title`, `venueName`, `timezone: "Europe/Belgrade"`, `startsAt`, `endsAt`, `status: draft\|published\|live\|ended\|archived`, `garagePriority`, `piiPurgeAt`, `minimumPublicVoteCount`, `robotsIndexable`, `qrInventoryBusinessId?` (B1), `createdAt`, `updatedAt` | `by_code`, `by_slug`, `by_status_and_startsAt` | `code` (upsert ključ), `slug` |
 | `fairEventDays` | `eventId`, `dateKey`, `label`, `startsAt`, `endsAt`, `sortOrder` | `by_eventId_and_dateKey` | (event, dateKey) |
 | `fairParticipations` | `externalKey`, `eventId`, `accountId`, `businessId`, `primaryContactId?`, `reportRecipientEmail?`, `leadDeliveryNote?`, `status: draft\|active\|withdrawn`, `createdAt`, `updatedAt` | `by_eventId_and_externalKey`, `by_eventId_and_businessId`, `by_accountId_and_eventId` | (event, externalKey), (event, business) |
-| `fairStands` | `eventId`, `participationId`, `externalKey`, `code`, `displayName`, `mapLocationId`, `status: draft\|active\|withdrawn`¹, `createdAt`, `updatedAt` | `by_eventId_and_externalKey`, `by_eventId_and_participationId`, `by_eventId_and_mapLocationId` | (event, externalKey); (event, mapLocationId) među aktivnim |
+| `fairStands` | `eventId`, `participationId`, `externalKey`, `code`, `displayName`, `mapLocationId`, `status: draft\|active\|withdrawn`¹, `createdAt`, `updatedAt` | `by_eventId_and_externalKey`, `by_eventId_and_participationId`, `by_eventId_and_mapLocationId` | (event, externalKey); (event, mapLocationId) među ne-povučenim štandovima — privremeno pravilo seam-a `validateMapLocationIds` po B1 uputstvu (R0 nalaz 1, §9.17) |
 | `fairEventModels` | `externalKey`, `eventId`, `participationId`, `brandId`, `standId`, `slug`, `displayName`, `variant?`, `priceText`, `specifications[]`², `photoStorageId?`, `photoUrl?`, `packageTier`, `packageActivatedAt`, `passportEligible`, `status: draft\|published\|withdrawn`, `sortOrder`, `createdAt`, `updatedAt` | `by_eventId_and_slug`, `by_eventId_and_externalKey`, `by_eventId_and_standId`, `by_eventId_and_brandId`, `by_eventId_and_packageTier` | (event, slug), (event, externalKey) |
 | `fairQrAssignments` | `eventId`, `eventModelId`, `accessChannelId`, `accessSubjectId`, `cardId`, `resolverCode`, `status: assigned\|released`, `assignedAt`, `releasedAt?`, `assignedByUserId`, `releasedByUserId?`, `reason?` | `by_eventModelId_and_status`, `by_accessChannelId_and_status`, `by_eventId_and_status` | najviše jedan `assigned` po modelu i po kanalu |
 | `fairPackageActivations` | `eventModelId`, `eventId`, `fromTier`, `toTier`, `activatedAt`, `actorUserId`, `note?` | `by_eventModelId_and_activatedAt` | samo dodavanje (append-only) |
@@ -106,7 +113,7 @@ Napomene:
 
 | Tabela | Polja | Indeksi | Jedinstveno | PII |
 |---|---|---|---|---|
-| `fairConsentConfigs` | `eventId`, `leadKind`, `version`, `text`, `status: draft\|active\|retired`, `activatedAt?`, `createdAt`, `updatedAt` | `by_eventId_and_leadKind_and_status`, `by_eventId_and_leadKind_and_version` | (event, kind, version) | snapshot se briše |
+| `fairConsentConfigs` | `eventId`, `leadKind`, `version`, `text`, `status: draft\|active\|retired`, `activatedAt?`, `createdAt`, `updatedAt` | `by_eventId_and_leadKind_and_status`, `by_eventId_and_leadKind_and_version` | (event, kind, version) | ne (snapshot teksta je u `fairLeads` i briše se s njim) |
 | `fairLeadConfigs` | `eventModelId`, `leadKind`, `contactRequirement: one_of\|email\|phone\|both`, `preferredContact?`, `enabled`, `updatedByUserId`, `createdAt`, `updatedAt` | `by_eventModelId_and_leadKind` | (model, kind) | ne |
 | `fairLeads` | `submissionId`, `kind`, `visitorId`, `eventId`, `eventModelId`, `participationId`, `contactName`, `email?`, `phone?`, `consentAccepted: true` (literal), `consentVersion`, `consentTextSnapshot`, `consentedAt`, `status: received\|delivered`, `deliveredAt?`, `followUpSuppressed`, `suppressedAt?`, `suppressedByUserId?`, `createdAt`, `purgeAt` | `by_submissionId`, `by_eventModelId_and_createdAt`, `by_participationId_and_createdAt`, `by_status_and_purgeAt` | `submissionId` | da |
 | `fairMessageTemplates` | `eventModelId`, `kind: immediate_confirmation\|post_event_follow_up`, `subject`, `plainText`, `html?`, `status`, `version`, `createdAt`, `updatedAt` | `by_eventModelId_and_kind_and_status` | (model, kind, version) | ne |
@@ -272,13 +279,18 @@ Konstante rotacije u `lib/fair-contract.ts` imaju ista imena i vrednosti kao u `
 13. **PII primaoci izlagača** (`pii_recipient_*`, kanal): nova polja ili samo `leadDeliveryNote`?
 14. **Nalog „Sajam automobila 2026 — QR inventar“**: da li je `event_only`? Da li su nalepnice digitalni QR ili fizički proizvodi (QC gate)?
 15. **Saglasnost mora imenovati konkretnog izlagača**, a `fairConsentConfigs` je po eventu i vrsti. B4 renderuje snapshot sa imenom izlagača kad pravni tekst bude odobren.
-16. **Početni red u `fairPackageActivations`**: kad se model uvozi direktno kao Starter/Advanced, predlog za B1 je red `included → tier` u trenutku `package_active_from`.
+16. **Početni red u `fairPackageActivations`**: kad se model uvozi direktno kao Starter/Advanced, B1 piše red `included → tier` u trenutku `package_active_from` (`note: "initial_tier"`). Primenjeno kao lako promenljiv seam; čeka potvrdu.
+17. **Deljena lokacija na mapi (R0 nalaz 1)**: B1 seam `validateMapLocationIds` odbija dva ne-povučena štanda sa istim `mapLocationId` u istom eventu, kako traži B1 uputstvo. Ako Aleksa potvrdi da je deljena lokacija legitimna, menja se samo provera „taken“ u tom seam-u (`convex/lib/fairCatalog.ts`).
+18. **Pisac brendova**: aplikacija nije imala mutaciju koja pravi `brands` red. B1 dodaje `fairAdmin.ensureBrand` (ista `brands` tabela, bez logotipa i boja). Da li brend treba da nastaje ovde ili u redovnom klijentskom toku?
+19. **Oslobađanje QR-a**: `accessDestinationHistory.targetId` je obavezan i ne postoji „prazna“ destinacija, pa release ne piše novi target. Prekidač je aktivni `fairQrAssignments` red: posle release kanal prelazi u `problem` (`destination_fair_unassigned`), a ponovna dodela piše novi immutable target i red istorije.
+20. **Nadogradnja pre početka paketa**: ako je početni paket uvezen sa budućim `package_active_from`, nadogradnja uneta ranije važi od tog trenutka (`max(sada, packageActivatedAt)`), da istorija nikad ne izgleda kao spuštanje paketa.
+21. **Nalog QR inventara**: inventar se vezuje po eventu (`fairEvents.qrInventoryBusinessId`), pa oba sajma mogu deliti isti inventar. Dodeljuje se samo `kind: "qr"` kanal čiji subjekat ima tačno jedan kanal (fizička nalepnica sa QR+NFC na istom subjektu se odbija — vezano za §9.14).
 
 ## 10. Šta stiže posle B0
 
 | Korak | Sadržaj |
 |---|---|
-| **B1** | `fairAdmin`, import (dry-run/commit), QR assign/release kroz `accessValidators` (`fair_model` destinacija) i `applyDestination`, filtriranje `event_only` u admin upitima, upgrade sa auditom, DEV TEST katalog |
+| **B1** (urađeno, §11–§12) | `fairAdmin`, import (dry-run/commit), QR assign/release kroz `fair_model` destinaciju (isti subject → target → istorija → sync kanala tok kao `applyDestination`), filtriranje `event_only` u admin upitima, upgrade sa auditom, DEV TEST katalog |
 | **B1A** | admin tab `Događaji` |
 | **B2** | gateway, cookie i HMAC; fair hook u `resolveAndRecord` sa istim `requestId`; admin isključenje preko Convex Auth tokena; shard helper; `fairScan` rate limit; pečat pasoša |
 | **B3** | ocene, Glas publike, anketa, pasoš i favorit |
@@ -286,3 +298,150 @@ Konstante rotacije u `lib/fair-contract.ts` imaju ista imena i vrednosti kao u `
 | **B5** | sponzorisani snapshot i rotacija (samo garažni `open_model`/`garage_add`) |
 | **B6** | analitika i izveštaji |
 | **B7** | purge, authz, performance i integracioni test |
+
+## 11. B1 funkcije (stvarna površina)
+
+Sve funkcije osim DEV fixture-a su `query`/`mutation` sa `requireAdmin`: ne-admin i anonimni poziv se odbijaju (test). Greške su `ConvexError({ code, details? })` sa kodovima iz `FAIR_ADMIN_ISSUE_CODES` (`lib/fair-contract.ts`). Validacioni nalazi su `FairAdminIssue { severity: error|warning, code, path, details? }`. Tekst greške mapira admin UI (B1A) kroz `lib/i18n`.
+
+| Funkcija | Vrsta | Ključ idempotencije | Šta radi |
+|---|---|---|---|
+| `fairAdmin.upsertEvent` | admin mutation | `code` | event; konstante `timezone`, `piiPurgeAt`, prag 5, `robotsIndexable: false`; `slug` jedinstven; `qrInventoryBusinessId` mora postojati |
+| `fairAdmin.upsertEventDay` | admin mutation | (event, `dateKey`) | granice dana u `Europe/Belgrade` (`belgradeDayBounds`); dan mora seći prozor eventa |
+| `fairAdmin.upsertParticipation` | admin mutation | (event, `externalKey`) | account, business i kontakt moraju postojati i pripadati istom nalogu; drugi klijent pod istim ključem ili drugi ključ za isti business = hard error |
+| `fairAdmin.upsertStand` | admin mutation | (event, `externalKey`) | učešće iz istog eventa; `mapLocationId` kroz seam `validateMapLocationIds` |
+| `fairAdmin.ensureBrand` | admin mutation | (account, normalizovan naziv) | pravi brend u postojećoj `brands` tabeli ako ne postoji (§9.18) |
+| `fairAdmin.upsertModel` | admin mutation | (event, `externalKey`) | brend mora pripadati nalogu učešća, štand istom učešću; slug iz naziva + varijante pri kreiranju, posle je stabilan; specifikacije se normalizuju (≤100, ≤4 highlight, jedinstven `order`); bez cene → fallback + upozorenje; `photoUrl` samo https; paket se postavlja samo pri kreiranju (+ početna aktivacija), kasnije samo kroz `upgradePackage`; status se ovde ne menja |
+| `fairAdmin.publishModel`, `withdrawModel` | admin mutation | ciljni status | publish validacija (§11.1); vraća upozorenja |
+| `fairAdmin.upgradePackage` | admin mutation | — | samo naviše (`fairPackageChangeProblem`); `packageTier`, `packageActivatedAt` i `fairPackageActivations` red u istoj mutaciji; QR dodela i target se ne diraju |
+| `fairAdmin.createEventClient` | admin mutation | `smkCode` | isti kanonski `accounts` + `accountContacts` + `businesses` zapisi kao kod redovnog klijenta, sa `clientSegment: "event_only"`; zauzet SMK/SML = hard error |
+| `fairAdmin.listEventClients` | admin query (paginirano) | — | `accounts.by_clientSegment = "event_only"` |
+| `fairAdmin.convertEventClientToStandard` | admin mutation | — | patchuje isti account i njegove read-model redove u `standard`; ništa se ne kopira |
+| `fairAdmin.assignQr` | admin mutation | (kanal, model) | postojeći QR kanal inventara eventa → `fairQrAssignments` + novi `cardTargets` (`fair_model`) + `accessDestinationHistory` + sync kanala, atomski; najviše 1 aktivna dodela po kanalu i po modelu |
+| `fairAdmin.releaseQr` | admin mutation | aktivna dodela modela | `released` + sync kanala u `problem` (§9.19) |
+| `fairAdmin.listQrInventory` | admin query (paginirano, ≤100) | — | kartice inventara + stanje kanala + aktivna dodela |
+| `fairAdmin.resolveTest` | admin query | — | isti `cardResolution` i kapije kao `/r/[cardCode]`, bez upisa scan-a; vraća `path` = `/sajam/{eventSlug}/model/{modelSlug}` kada bi se model otvorio. Živa ruta i dalje vraća `invalid` za `fair_model` dok B2 ne poveže granu. |
+| `fairAdmin.listEvents`, `getEventCatalog`, `listValidationIssues` | admin query | — | bounded (≤500 redova po tabeli po eventu); `listValidationIssues` računa publish nalaze iz jednog snimka, bez čitanja po modelu |
+| `fairImport.dryRun` | admin **query** | — | ne može da piše; vraća sve greške, upozorenja i rezime |
+| `fairImport.commit` | admin mutation | event + `externalKey` | isti plan; ako ima i jednu grešku, ne piše ništa; drugi identičan commit ne menja nijedan fair/QR red (piše samo audit red) |
+| `fairDevFixtures.seedTestCatalog` | **internal** mutation | TEST ključevi | DEV TEST katalog (§11.2) |
+
+### 11.1 Publish validacija
+
+Greške:
+- event ne postoji;
+- učešće je povučeno;
+- štand ne postoji, povučen je ili `mapLocationId` ne prolazi seam;
+- broj specifikacija nije 1–100 (DATA-INTAKE §5.6);
+- više od 4 `isHighlight`;
+- slug nije ispravan ili nije jedinstven u eventu;
+- `priceText` je prazan.
+
+Upozorenja:
+- cena je fallback `Cena na upit`;
+- nema fotografije (fotografija je opciona);
+- nema aktivne QR dodele (fizička provera skeniranjem je poseban ljudski korak, DATA-INTAKE §7).
+
+### 11.2 DEV TEST katalog
+
+Komanda je `npx convex run fairDevFixtures:seedTestCatalog` (samo DEV). Upisuje se kroz isti `fairImport` commit tok:
+- dva TEST događaja (`test-elektromobilnost-2026`, `test-auto-moto-fest-2026`), po 3 dana u `Europe/Belgrade`, status `published`;
+- tri TEST `event_only` klijenta: izlagač A, izlagač B i „TEST Sajam automobila 2026 — QR inventar“ (postavljen kao `qrInventoryBusinessId`);
+- 3 TEST brenda, 4 učešća i 5 štandova sa privremenim `test-loc-*` lokacijama;
+- 10 objavljenih TEST modela kroz sva 3 paketa: TEST specifikacije, bez fotografija, cena „TEST cena“ ili fallback.
+
+QR kodovi se ne prave.
+
+## 12. Import JSON v1 i mapiranje CSV kolona
+
+Jedan dokument po eventu. Nepoznata polja odbija Convex validator. Datum i vreme su ISO 8601 sa zonom.
+
+```json
+{
+  "version": 1,
+  "eventCode": "elektromobilnost-2026",
+  "participations": [
+    {
+      "externalKey": "elektromobilnost-2026-enigma-motors",
+      "accountExternalKey": "SMK-…",
+      "businessExternalKey": "SML-…",
+      "clientSegment": "event_only",
+      "reportEmail": "izvestaji@…",
+      "primaryContactEmail": "kontakt@…",
+      "leadDeliveryNote": "…",
+      "brands": [
+        {
+          "externalKey": "volta",
+          "name": "Volta",
+          "stand": { "externalKey": "elektromobilnost-2026-stand-a12", "code": "A12", "displayName": "…", "mapLocationId": "…" },
+          "models": [
+            {
+              "externalKey": "elektromobilnost-2026-volta-x1-premium",
+              "displayName": "Volta X1",
+              "variant": "Premium",
+              "slug": "volta-x1-premium",
+              "priceText": "…",
+              "packageTier": "starter",
+              "packageActiveFrom": "2026-10-09T09:00:00+02:00",
+              "assignedResolverCode": "…",
+              "specifications": [
+                { "label": "Snaga", "value": "…", "order": 1, "id": "snaga", "groupId": "pogon", "groupLabel": "Pogon", "groupOrder": 1, "isHighlight": true }
+              ],
+              "photoUrl": "https://…",
+              "passportEligible": true,
+              "sortOrder": 1
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+```
+
+Obavezna polja:
+- `version`, `eventCode`;
+- `participations[]`: `externalKey`, `accountExternalKey`, `businessExternalKey`, `brands`;
+- `brands[]`: `externalKey`, `name`, `stand`, `models`; `stand`: `externalKey`, `code`, `mapLocationId`;
+- `models[]`: `externalKey`, `displayName`, `packageTier`, `specifications`, `passportEligible`;
+- `specifications[]`: `label`, `value`, `order`.
+
+Sve ostalo je opciono.
+
+Pravila:
+- Postojeći klijent se traži po `accounts.smkCode` i `businesses.smlCode` (§9.10), a brend po (nalog, normalizovan `name`). Sve mora postojati i biti povezano, inače je hard error.
+- Ako je `clientSegment` naveden, mora biti jednak sačuvanom; konverzija je posebna admin akcija.
+- Isti `stand.externalKey` sme da se ponovi samo sa istim podacima i istim učešćem. Bez `stand.displayName` štand dobija naziv brenda.
+- Bez `slug` se slug pravi iz `displayName` + `variant`, i to samo pri kreiranju.
+- Specifikacija bez `groupId` ide u grupu `general` sa praznim `groupLabel`; bez `isHighlight` je `false`; bez `id` je `spec-<order>`.
+- Viši `packageTier` od sačuvanog je nadogradnja sa audit redom; niži je hard error.
+- `assignedResolverCode` mora biti postojeći slobodan QR kanal inventara eventa (`fairEvents.qrInventoryBusinessId`). Kod koji je već dodeljen istom modelu ne menja ništa.
+- Hard error: nepostojeći ili konfliktan link; dupli ključ, slug, `mapLocationId` (§9.17) ili QR; zauzet QR; downgrade; neispravna specifikacija ili više od 4 highlight-a.
+- Upozorenje: nema cene (upisuje se `Cena na upit`), nema fotografije, nema QR-a.
+- Limit: najviše 100 učešća i 200 modela po importu.
+
+| CSV (`templates/`) | Kolona | JSON v1 |
+|---|---|---|
+| `01-exhibitors.csv` | `event_code` | `eventCode` |
+| | `participation_external_key` | `participations[].externalKey` |
+| | `account_external_key` / `business_external_key` | `accountExternalKey` (SMK kod) / `businessExternalKey` (SML kod) |
+| | `client_segment` | `clientSegment` |
+| | `report_email` | `reportEmail` |
+| | `primary_contact_email` | `primaryContactEmail` (kontakt mora već postojati na nalogu) |
+| | `pii_recipient_*`, `pii_delivery_channel`, `report_delivery_time_note` | nema polja (§9.13); po dogovoru u `leadDeliveryNote` |
+| | `exhibitor_name`, `primary_contact_name`, `primary_contact_phone`, `source_reference`, `internal_notes` | ne uvozi se (klijent i kontakt već postoje) |
+| `02-brands-stands.csv` | `brand_external_key`, `brand_name` | `brands[].externalKey`, `brands[].name` |
+| | `stand_external_key`, `stand_code`, `map_location_id` | `brands[].stand.externalKey`, `.code`, `.mapLocationId` |
+| | `logo_source` | ne uvozi se (logo ostaje u `brands`) |
+| `03-models.csv` | `model_external_key`, `display_name`, `variant` | `models[].externalKey`, `.displayName`, `.variant` |
+| | `price_text` (+ `price_confirmed=no`) | `models[].priceText`; prazno → fallback + upozorenje |
+| | `package_tier`, `package_active_from` | `.packageTier`, `.packageActiveFrom` |
+| | `passport_eligible` (`yes`/`no`) | `.passportEligible` (`true`/`false`; prazno se ne sme normalizovati u `false` — dopuniti pre importa) |
+| | `photo_source` | `.photoUrl`, samo kad je odobren https URL |
+| | `publication_status` | ne uvozi se; objava je `fairAdmin.publishModel` |
+| | `test_drive_*` | B4 (`fairLeadConfigs`), ne B1 |
+| `04-specifications.csv` | `display_order`, `label`, `value` | `models[].specifications[].order`, `.label`, `.value`; grupa i highlight nemaju kolonu (§9.5) |
+| `08-qr-assignments.csv` | `resolver_code` | `models[].assignedResolverCode` |
+| | `assignment_status`, `verification_*` | ne uvozi se (fizička provera je ljudski korak) |
+| `05`–`07` | pitanja, ankete, follow-up | B3/B4 |
+
+Normalizator CSV → JSON još ne postoji (§9.4); ovaj oblik je njegova meta. `scripts/events/validate-csv-intake.mjs` ostaje lokalna priprema pre `dryRun`.

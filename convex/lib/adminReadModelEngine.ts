@@ -210,6 +210,8 @@ export async function upsertClientReadModel(
     firstVenueSlug: firstVenue?.slug ?? null,
     venueCount: input.venueCount,
     clientStatus: account.clientStatus,
+    // Sajam 2026 B1: project the segment only when set (absent = standard).
+    ...(account.clientSegment ? { clientSegment: account.clientSegment } : {}),
     signal,
     urgencyRank: signalUrgencyRank(signal),
     serviceSummaries: await serviceSummariesForAccount(ctx, account._id),
@@ -322,6 +324,8 @@ export async function upsertVenueReadModel(
     channelCount: input.channelCount,
     serviceTypes,
     clientStatus: business.clientStatus,
+    // Sajam 2026 B1: project the owning account's segment only when set.
+    ...(account.clientSegment ? { clientSegment: account.clientSegment } : {}),
     signal,
     hasOpenAction: signal.severity !== null,
     urgencyRank: signalUrgencyRank(signal),

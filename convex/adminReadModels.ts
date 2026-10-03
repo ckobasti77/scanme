@@ -1,4 +1,4 @@
-import { paginationOptsValidator, paginationResultValidator } from "convex/server";
+import { paginationOptsValidator, paginationResultValidator, type FilterBuilder, type NamedTableInfo } from "convex/server";
 import { ConvexError, v } from "convex/values";
 import { internalMutation, internalQuery, query } from "./_generated/server";
 import { requireAdmin } from "./lib/access";
@@ -17,6 +17,14 @@ import {
   upsertVenueReadModel,
 } from "./lib/adminReadModelEngine";
 import { normalizeAdminDirectoryQuery } from "./lib/adminV1Validators";
+import type { DataModel } from "./_generated/dataModel";
+
+// Sajam 2026 B1 (MASTER §4.6): event_only clients live in admin `Događaji`,
+// not in the regular client/venue directory. Absent segment = standard.
+const regularClient = (q: FilterBuilder<NamedTableInfo<DataModel, "adminClientReadModels">>) =>
+  q.neq(q.field("clientSegment"), "event_only");
+const regularVenue = (q: FilterBuilder<NamedTableInfo<DataModel, "adminVenueReadModels">>) =>
+  q.neq(q.field("clientSegment"), "event_only");
 
 const clientViewValidator = v.object({
   accountId: v.id("accounts"),
@@ -226,23 +234,23 @@ export const clients = internalQuery({
           const match = q.search("searchText", search);
           return args.status === "all" ? match : match.eq("clientStatus", args.status);
         })
-        .paginate(args.paginationOpts);
+        .filter(regularClient).paginate(args.paginationOpts);
       return { ...result, page: result.page.map(toClientView) };
     }
     if (args.status === "all") {
       const result = args.sort === "urgency"
-        ? await ctx.db.query("adminClientReadModels").withIndex("by_urgencyRank_and_normalizedOwnerDisplayName").paginate(args.paginationOpts)
+        ? await ctx.db.query("adminClientReadModels").withIndex("by_urgencyRank_and_normalizedOwnerDisplayName").filter(regularClient).paginate(args.paginationOpts)
         : args.sort === "name"
-          ? await ctx.db.query("adminClientReadModels").withIndex("by_normalizedOwnerDisplayName").paginate(args.paginationOpts)
-          : await ctx.db.query("adminClientReadModels").withIndex("by_updatedAt").order("desc").paginate(args.paginationOpts);
+          ? await ctx.db.query("adminClientReadModels").withIndex("by_normalizedOwnerDisplayName").filter(regularClient).paginate(args.paginationOpts)
+          : await ctx.db.query("adminClientReadModels").withIndex("by_updatedAt").order("desc").filter(regularClient).paginate(args.paginationOpts);
       return { ...result, page: result.page.map(toClientView) };
     }
     const status: "active" | "archived" = args.status;
     const result = args.sort === "urgency"
-      ? await ctx.db.query("adminClientReadModels").withIndex("by_clientStatus_and_urgencyRank_and_normalizedOwnerDisplayName", (q) => q.eq("clientStatus", status)).paginate(args.paginationOpts)
+      ? await ctx.db.query("adminClientReadModels").withIndex("by_clientStatus_and_urgencyRank_and_normalizedOwnerDisplayName", (q) => q.eq("clientStatus", status)).filter(regularClient).paginate(args.paginationOpts)
       : args.sort === "name"
-        ? await ctx.db.query("adminClientReadModels").withIndex("by_clientStatus_and_normalizedOwnerDisplayName", (q) => q.eq("clientStatus", status)).paginate(args.paginationOpts)
-        : await ctx.db.query("adminClientReadModels").withIndex("by_clientStatus_and_updatedAt", (q) => q.eq("clientStatus", status)).order("desc").paginate(args.paginationOpts);
+        ? await ctx.db.query("adminClientReadModels").withIndex("by_clientStatus_and_normalizedOwnerDisplayName", (q) => q.eq("clientStatus", status)).filter(regularClient).paginate(args.paginationOpts)
+        : await ctx.db.query("adminClientReadModels").withIndex("by_clientStatus_and_updatedAt", (q) => q.eq("clientStatus", status)).order("desc").filter(regularClient).paginate(args.paginationOpts);
     return { ...result, page: result.page.map(toClientView) };
   },
 });
@@ -268,23 +276,23 @@ export const listClients = query({
           const match = q.search("searchText", search);
           return args.status === "all" ? match : match.eq("clientStatus", args.status);
         })
-        .paginate(args.paginationOpts);
+        .filter(regularClient).paginate(args.paginationOpts);
       return { ...result, page: result.page.map(toClientView) };
     }
     if (args.status === "all") {
       const result = args.sort === "urgency"
-        ? await ctx.db.query("adminClientReadModels").withIndex("by_urgencyRank_and_normalizedOwnerDisplayName").paginate(args.paginationOpts)
+        ? await ctx.db.query("adminClientReadModels").withIndex("by_urgencyRank_and_normalizedOwnerDisplayName").filter(regularClient).paginate(args.paginationOpts)
         : args.sort === "name"
-          ? await ctx.db.query("adminClientReadModels").withIndex("by_normalizedOwnerDisplayName").paginate(args.paginationOpts)
-          : await ctx.db.query("adminClientReadModels").withIndex("by_updatedAt").order("desc").paginate(args.paginationOpts);
+          ? await ctx.db.query("adminClientReadModels").withIndex("by_normalizedOwnerDisplayName").filter(regularClient).paginate(args.paginationOpts)
+          : await ctx.db.query("adminClientReadModels").withIndex("by_updatedAt").order("desc").filter(regularClient).paginate(args.paginationOpts);
       return { ...result, page: result.page.map(toClientView) };
     }
     const status: "active" | "archived" = args.status;
     const result = args.sort === "urgency"
-      ? await ctx.db.query("adminClientReadModels").withIndex("by_clientStatus_and_urgencyRank_and_normalizedOwnerDisplayName", (q) => q.eq("clientStatus", status)).paginate(args.paginationOpts)
+      ? await ctx.db.query("adminClientReadModels").withIndex("by_clientStatus_and_urgencyRank_and_normalizedOwnerDisplayName", (q) => q.eq("clientStatus", status)).filter(regularClient).paginate(args.paginationOpts)
       : args.sort === "name"
-        ? await ctx.db.query("adminClientReadModels").withIndex("by_clientStatus_and_normalizedOwnerDisplayName", (q) => q.eq("clientStatus", status)).paginate(args.paginationOpts)
-        : await ctx.db.query("adminClientReadModels").withIndex("by_clientStatus_and_updatedAt", (q) => q.eq("clientStatus", status)).order("desc").paginate(args.paginationOpts);
+        ? await ctx.db.query("adminClientReadModels").withIndex("by_clientStatus_and_normalizedOwnerDisplayName", (q) => q.eq("clientStatus", status)).filter(regularClient).paginate(args.paginationOpts)
+        : await ctx.db.query("adminClientReadModels").withIndex("by_clientStatus_and_updatedAt", (q) => q.eq("clientStatus", status)).order("desc").filter(regularClient).paginate(args.paginationOpts);
     return { ...result, page: result.page.map(toClientView) };
   },
 });
@@ -385,23 +393,23 @@ export const venues = internalQuery({
           const match = q.search("searchText", search);
           return args.status === "all" ? match : match.eq("clientStatus", args.status);
         })
-        .paginate(args.paginationOpts);
+        .filter(regularVenue).paginate(args.paginationOpts);
       return { ...result, page: result.page.map(toVenueView) };
     }
     if (args.status === "all") {
       const result = args.sort === "urgency"
-        ? await ctx.db.query("adminVenueReadModels").withIndex("by_urgencyRank_and_normalizedVenueName").paginate(args.paginationOpts)
+        ? await ctx.db.query("adminVenueReadModels").withIndex("by_urgencyRank_and_normalizedVenueName").filter(regularVenue).paginate(args.paginationOpts)
         : args.sort === "name"
-          ? await ctx.db.query("adminVenueReadModels").withIndex("by_normalizedVenueName").paginate(args.paginationOpts)
-          : await ctx.db.query("adminVenueReadModels").withIndex("by_updatedAt").order("desc").paginate(args.paginationOpts);
+          ? await ctx.db.query("adminVenueReadModels").withIndex("by_normalizedVenueName").filter(regularVenue).paginate(args.paginationOpts)
+          : await ctx.db.query("adminVenueReadModels").withIndex("by_updatedAt").order("desc").filter(regularVenue).paginate(args.paginationOpts);
       return { ...result, page: result.page.map(toVenueView) };
     }
     const status: "active" | "archived" = args.status;
     const result = args.sort === "urgency"
-      ? await ctx.db.query("adminVenueReadModels").withIndex("by_clientStatus_and_urgencyRank_and_normalizedVenueName", (q) => q.eq("clientStatus", status)).paginate(args.paginationOpts)
+      ? await ctx.db.query("adminVenueReadModels").withIndex("by_clientStatus_and_urgencyRank_and_normalizedVenueName", (q) => q.eq("clientStatus", status)).filter(regularVenue).paginate(args.paginationOpts)
       : args.sort === "name"
-        ? await ctx.db.query("adminVenueReadModels").withIndex("by_clientStatus_and_normalizedVenueName", (q) => q.eq("clientStatus", status)).paginate(args.paginationOpts)
-        : await ctx.db.query("adminVenueReadModels").withIndex("by_clientStatus_and_updatedAt", (q) => q.eq("clientStatus", status)).order("desc").paginate(args.paginationOpts);
+        ? await ctx.db.query("adminVenueReadModels").withIndex("by_clientStatus_and_normalizedVenueName", (q) => q.eq("clientStatus", status)).filter(regularVenue).paginate(args.paginationOpts)
+        : await ctx.db.query("adminVenueReadModels").withIndex("by_clientStatus_and_updatedAt", (q) => q.eq("clientStatus", status)).order("desc").filter(regularVenue).paginate(args.paginationOpts);
     return { ...result, page: result.page.map(toVenueView) };
   },
 });

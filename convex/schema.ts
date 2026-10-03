@@ -1,7 +1,7 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import { authTables } from "@convex-dev/auth/server";
-import { accessActor, accessAttribution, accessColor, accessDestinationInput, accessDestinationKind, accessHealth, accessKind, accessState } from "./lib/accessValidators";
+import { accessActor, accessAttribution, accessColor, accessDestinationKind, accessHealth, accessKind, accessState, accessSubjectDestinationInput } from "./lib/accessValidators";
 import {
   fairAudienceQuestionStatus,
   fairChoiceOption,
@@ -332,7 +332,9 @@ export default defineSchema({
     .index("by_billingModel_and_status_and_planValidUntil", ["billingModel", "status", "planValidUntil"])
     .index("by_smkCode", ["smkCode"])
     .index("by_clientStatus_and_updatedAt", ["clientStatus", "updatedAt"])
-    .index("by_normalizedOwnerDisplayName", ["normalizedOwnerDisplayName"]),
+    .index("by_normalizedOwnerDisplayName", ["normalizedOwnerDisplayName"])
+    // Sajam 2026 B1: admin `Događaji` lists event_only clients (bounded).
+    .index("by_clientSegment", ["clientSegment"]),
 
   businesses: defineTable({
     name: v.string(),
@@ -1793,7 +1795,7 @@ export default defineSchema({
     anchorCardId: v.optional(v.id("cards")),
     currentTargetId: v.optional(v.id("cardTargets")),
     destinationKind: accessDestinationKind,
-    destinationInput: v.optional(accessDestinationInput),
+    destinationInput: v.optional(accessSubjectDestinationInput),
     currentPlacementId: v.optional(v.id("productPlacements")),
     createdAt: v.number(), updatedAt: v.number(),
   }).index("by_businessId", ["businessId"]),
@@ -3313,6 +3315,10 @@ export default defineSchema({
     minimumPublicVoteCount: v.number(),
     // Always false in V1 (all public fair routes are noindex).
     robotsIndexable: v.boolean(),
+    // B1: the internal "Sajam automobila 2026 — QR inventar" business whose
+    // existing QR channels may be assigned to this event's models. Unset =
+    // no assignment possible (FAIR_QR_INVENTORY_NOT_CONFIGURED).
+    qrInventoryBusinessId: v.optional(v.id("businesses")),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
@@ -3363,7 +3369,8 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
   })
-    // unique: (eventId, externalKey); (eventId, mapLocationId) among active
+    // unique: (eventId, externalKey); (eventId, mapLocationId) among
+    // non-withdrawn stands — B1 seam validateMapLocationIds (open: R0 #1)
     .index("by_eventId_and_externalKey", ["eventId", "externalKey"])
     .index("by_eventId_and_participationId", ["eventId", "participationId"])
     .index("by_eventId_and_mapLocationId", ["eventId", "mapLocationId"]),

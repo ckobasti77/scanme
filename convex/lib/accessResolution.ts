@@ -3,7 +3,7 @@ import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { isSafePublicDestination } from "./validation";
 
 type Ctx = QueryCtx | MutationCtx;
-type Target = Pick<Doc<"cardTargets">, "kind" | "spaceId" | "eventId" | "serviceProfileId" | "url" | "splitterItems"> & { cardId?: Doc<"cardTargets">["cardId"] };
+type Target = Pick<Doc<"cardTargets">, "kind" | "spaceId" | "eventId" | "serviceProfileId" | "url" | "splitterItems" | "fairEventModelId"> & { cardId?: Doc<"cardTargets">["cardId"] };
 
 /** Live existence/ownership validation shared by activation and every /r hop. */
 export async function destinationProblem(ctx: Ctx, subject: Doc<"accessSubjects">, target: Target | null): Promise<string | undefined> {
@@ -13,6 +13,16 @@ export async function destinationProblem(ctx: Ctx, subject: Doc<"accessSubjects"
   if (business.status === "inactive" || business.clientStatus === "archived" || account.clientStatus === "archived") return "destination_archived";
   if (!target) return "destination_missing";
   if (target.cardId && target.cardId !== subject.anchorCardId) return "resolver_target_ownership";
+  if (target.kind === "fair_model") {
+    // Sajam 2026 B1: an inventory QR opens its fair model only while that
+    // model's fairQrAssignments row for this subject is active. Release keeps
+    // the immutable target, so the assignment row is the switch. Asset
+    // ownership (inventory business) intentionally differs from the model's.
+    const model = target.fairEventModelId ? await ctx.db.get(target.fairEventModelId) : null;
+    if (!model) return "destination_fair_model_missing";
+    const assignment = await ctx.db.query("fairQrAssignments").withIndex("by_eventModelId_and_status", q => q.eq("eventModelId", model._id).eq("status", "assigned")).first();
+    return assignment?.accessSubjectId === subject._id ? undefined : "destination_fair_unassigned";
+  }
   if (subject.destinationInput?.kind === "services") {
     for (const id of subject.destinationInput.serviceProfileIds) {
       const profile = await ctx.db.get(id);
