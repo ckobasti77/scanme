@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" role="img" aria-labelledby="title desc">
+  <title id="title">Liquid glass orientation fixture</title>
+  <desc id="desc">An asymmetric grid labeled on every side for detecting flipped glass effects.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2563eb"/>
+      <stop offset="0.5" stop-color="#7c3aed"/>
+      <stop offset="1" stop-color="#f97316"/>
+    </linearGradient>
+    <pattern id="grid" width="80" height="80" patternUnits="userSpaceOnUse">
+      <path d="M80 0H0V80" fill="none" stroke="#fff" stroke-opacity=".22" stroke-width="2"/>
+    </pattern>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M0 0L12 6L0 12Z" fill="#fff"/>
+    </marker>
+  </defs>
+  <rect width="1200" height="800" fill="url(#bg)"/>
+  <rect width="1200" height="800" fill="url(#grid)"/>
+  <g fill="#fff" font-family="Arial, sans-serif" font-weight="700" text-anchor="middle">
+    <text x="600" y="64" font-size="38">TOP ▲</text>
+    <text x="600" y="760" font-size="38">BOTTOM ▼</text>
+    <text x="95" y="410" font-size="34" transform="rotate(-90 95 410)">LEFT ◀</text>
+    <text x="1105" y="410" font-size="34" transform="rotate(90 1105 410)">RIGHT ▶</text>
+    <text x="600" y="430" font-size="92">GLASS</text>
+  </g>
+  <path d="M260 650L900 180" fill="none" stroke="#fff" stroke-width="18" marker-end="url(#arrow)"/>
+  <circle cx="260" cy="650" r="28" fill="#111827" stroke="#fff" stroke-width="8"/>
+</svg>

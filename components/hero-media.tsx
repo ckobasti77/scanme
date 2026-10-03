@@ -61,32 +61,27 @@ export function HeroMedia({
 
   return (
     <div ref={rootRef} className="absolute inset-0 overflow-hidden" aria-hidden="true">
-      <div className="hero-static absolute inset-0">
-        <div className="scan-frame scan-frame-hero" aria-hidden="true">
-          <i />
-          <i />
-          <i />
-          <i />
-        </div>
-      </div>
+      <div className="hero-static absolute inset-0" />
 
       {/* Replaceable production asset: /public/videos/scanme-hero.mp4.
           Optional static poster: /public/images/scanme-hero-poster.webp. */}
       {hasVideo && showVideo ? (
-        <video
-          ref={videoRef}
-          className="absolute inset-0 size-full object-cover"
-          muted
-          loop
-          playsInline
-          preload="none"
-          poster={hasPoster ? "/images/scanme-hero-poster.webp" : undefined}
-          onError={() => setVideoFailed(true)}
-        >
-          <source src="/videos/scanme-hero.mp4" type="video/mp4" />
-        </video>
+        <>
+          <video
+            ref={videoRef}
+            className="absolute inset-0 size-full object-cover"
+            muted
+            loop
+            playsInline
+            preload="none"
+            poster={hasPoster ? "/images/scanme-hero-poster.webp" : undefined}
+            onError={() => setVideoFailed(true)}
+          >
+            <source src="/videos/scanme-hero.mp4" type="video/mp4" />
+          </video>
+          <div className="hero-scrim absolute inset-0" />
+        </>
       ) : null}
-      <div className="hero-scrim absolute inset-0" />
     </div>
   );
 }

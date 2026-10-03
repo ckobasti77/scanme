@@ -1,17 +1,43 @@
 import { defineConfig, globalIgnores } from "eslint/config";
-import nextVitals from "eslint-config-next/core-web-vitals";
-import nextTs from "eslint-config-next/typescript";
+import nextPlugin from "@next/eslint-plugin-next";
+import reactHooks from "eslint-plugin-react-hooks";
+import globals from "globals";
+import tseslint from "typescript-eslint";
 
 const eslintConfig = defineConfig([
-  ...nextVitals,
-  ...nextTs,
-  // Override default ignores of eslint-config-next.
+  {
+    files: ["**/*.{js,jsx,mjs,ts,tsx,mts,cts}"],
+    languageOptions: {
+      globals: {
+        ...globals.browser,
+        ...globals.node,
+      },
+    },
+  },
+  ...tseslint.configs.recommended,
+  nextPlugin.configs["core-web-vitals"],
+  reactHooks.configs.flat["recommended-latest"],
+  {
+    rules: {
+      "@typescript-eslint/no-unused-vars": "warn",
+      "@typescript-eslint/no-unused-expressions": "warn",
+    },
+  },
   globalIgnores([
-    // Default ignores of eslint-config-next:
     ".next/**",
+    // Claude Code worktrees are full copies of this repo; linting them makes
+    // every file appear twice and gives typescript-eslint two candidate
+    // tsconfig roots, which is a hard parse error.
+    ".claude/worktrees/**",
     "out/**",
     "build/**",
+    "tmp/**",
     "next-env.d.ts",
+    "convex/_generated/**",
+    // Standalone business-card generators use Node CommonJS and Adobe ExtendScript.
+    "scripts/build-business-card-concept.js",
+    "scripts/build-business-card-reference-concept.js",
+    "scripts/create-scanme-business-card-template.jsx",
   ]),
 ]);
 

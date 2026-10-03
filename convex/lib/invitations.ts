@@ -1,3 +1,4 @@
+import { ConvexError } from "convex/values";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 import { normalizeEmail, requireSlug } from "./validation";
@@ -22,12 +23,12 @@ export async function findInvitationByToken(ctx: DatabaseCtx, token: string, raw
     .withIndex("by_tokenHash", (q) => q.eq("tokenHash", tokenHash))
     .unique();
   if (!invitation) return null;
-  const link = await ctx.db
-    .query("dynamicLinks")
+  const business = await ctx.db
+    .query("businesses")
     .withIndex("by_slug", (q) => q.eq("slug", slug))
     .unique();
-  if (!link || link.businessId !== invitation.businessId) return null;
-  return { invitation, link };
+  if (!business || business._id !== invitation.businessId) return null;
+  return { invitation, business };
 }
 
 export async function acceptInvitationForUser(
@@ -37,20 +38,20 @@ export async function acceptInvitationForUser(
 ) {
   const invitation = await ctx.db.get(invitationId);
   const user = await ctx.db.get(userId);
-  if (!invitation || !user?.email) throw new Error("Pozivnica nije dostupna.");
+  if (!invitation || !user?.email) throw new ConvexError("Pozivnica nije dostupna.");
   if (
     invitation.status !== "sent" &&
     invitation.status !== "queued" &&
     invitation.status !== "failed"
   ) {
-    throw new Error("Pozivnica više nije aktivna.");
+    throw new ConvexError("Pozivnica više nije aktivna.");
   }
   if (invitation.expiresAt <= Date.now()) {
     await ctx.db.patch(invitation._id, { status: "expired", updatedAt: Date.now() });
-    throw new Error("Pozivnica je istekla. Zatražite novu od ScanMe administratora.");
+    throw new ConvexError("Pozivnica je istekla. Zatražite novu od ScanMe administratora.");
   }
   if (normalizeEmail(user.email) !== invitation.normalizedEmail) {
-    throw new Error("Pozivnica pripada drugoj email adresi.");
+    throw new ConvexError("Pozivnica pripada drugoj email adresi.");
   }
 
   const now = Date.now();

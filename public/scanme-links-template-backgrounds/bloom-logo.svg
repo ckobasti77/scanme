@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <radialGradient id="bloomCircle" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#FFF5EC"/>
+      <stop offset="85%" stop-color="#FDE8D8"/>
+      <stop offset="100%" stop-color="#F5D7C2"/>
+    </radialGradient>
+    <filter id="bloomGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="6" stdDeviation="12" flood-color="#7B4E68" flood-opacity="0.15"/>
+    </filter>
+  </defs>
+
+  <!-- Base Circle with Border and Soft Shadow -->
+  <circle cx="100" cy="100" r="92" fill="url(#bloomCircle)" stroke="#FFFFFF" stroke-width="5" filter="url(#bloomGlow)"/>
+
+  <!-- Coffee Cup Icon -->
+  <g transform="translate(100, 106) scale(1.15)" stroke="#533324" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Steam Curves -->
+    <path d="M-6,-28 C-3,-34 -9,-40 -6,-46" stroke-width="3" stroke="#9A6B53"/>
+    <path d="M6,-30 C9,-36 3,-42 6,-48" stroke-width="3" stroke="#9A6B53"/>
+
+    <!-- Cup Body -->
+    <path d="M-26,-20 L26,-20 C26,3 18,16 0,16 C-18,16 -26,3 -26,-20 Z" fill="#FFFFFF" stroke-width="4.5"/>
+    <!-- Coffee Surface -->
+    <ellipse cx="0" cy="-14" rx="20" ry="7" fill="#7C4830" stroke="none"/>
+    <ellipse cx="0" cy="-14" rx="14" ry="4.5" fill="#58301E" stroke="none"/>
+
+    <!-- Cup Handle -->
+    <path d="M24,-14 C36,-14 36,4 20,6" stroke-width="4.5"/>
+
+    <!-- Saucer -->
+    <path d="M-32,22 C-18,26 18,26 32,22 C34,22 36,25 32,26 C18,30 -18,30 -32,26 C-36,25 -34,22 -32,22 Z" fill="#533324" stroke="none"/>
+  </g>
+</svg>

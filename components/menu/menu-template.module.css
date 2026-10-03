@@ -1,0 +1,534 @@
+/* ==========================================================================
+   ScanMe Meni — the "jelovnik" (printed-menu) system (TASK-51). One stylesheet
+   for the template and the five group-shape renderers; every colour, face and
+   weight is read from the --menu-* custom properties compileMenuTokens emits,
+   so the same composition holds under any business palette and any of the 12
+   fonts. Only menu-namespaced tokens appear here — forked from the Venue
+   template stylesheet, never shared with it or with the frozen Links CSS.
+   ========================================================================== */
+
+.root {
+  --menu-scale-factor: 1;
+  position: relative;
+  isolation: isolate;
+  min-height: 100dvh;
+  background-image: var(--menu-background-base-image);
+  background-size: cover;
+  background-position: center;
+  color: var(--menu-body);
+  font-family: var(--menu-font-family);
+  font-weight: var(--menu-body-weight);
+  line-height: var(--menu-line-height);
+  font-size: calc(1rem * var(--menu-scale-factor));
+  text-align: var(--menu-text-align);
+}
+
+.root[data-menu-scale="small"] {
+  --menu-scale-factor: 0.94;
+}
+.root[data-menu-scale="large"] {
+  --menu-scale-factor: 1.07;
+}
+
+.root :focus-visible {
+  outline: 2px solid var(--menu-focus);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* --- background ------------------------------------------------------------ */
+
+.backgroundDetail {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: var(--menu-background-detail-image);
+  background-size: var(--menu-background-detail-size);
+  opacity: var(--menu-background-detail-opacity);
+}
+
+/* --- page frame ------------------------------------------------------------ */
+
+.frame {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  width: 100%;
+  max-width: 44rem;
+  margin-inline: auto;
+  padding: clamp(1.1rem, 4.5vw, 2.25rem);
+  padding-top: clamp(1.75rem, 7vw, 3.25rem);
+}
+
+/* --- masthead --------------------------------------------------------------- */
+
+.masthead {
+  margin-bottom: calc(var(--menu-vertical-spacing) * 2);
+}
+
+.title {
+  font-size: clamp(1.9rem, 8vw, 3rem);
+  font-weight: var(--menu-heading-weight);
+  color: var(--menu-title);
+  text-shadow: var(--menu-text-shadow, none);
+  line-height: 1.06;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+  margin: 0;
+}
+
+/* --- group column ----------------------------------------------------------- */
+
+.groups {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: calc(var(--menu-vertical-spacing) * 2.25);
+}
+
+.emptyNote {
+  font-size: 1.05em;
+  color: var(--menu-body-muted, var(--menu-body));
+  margin: 0;
+}
+
+/* --- group section (the scroll-spy target) ---------------------------------- */
+
+.group {
+  scroll-margin-top: 4.5rem;
+  font-family: var(--menu-font-family);
+}
+
+/* The printed-menu section label with its hairline. */
+.groupTitle {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  margin: 0 0 calc(var(--menu-vertical-spacing) * 1) 0;
+  font-size: 0.82em;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  /* Muted roles point at the compiled, contrast-floored companion token. */
+  color: var(--menu-body-muted, var(--menu-body));
+}
+
+.groupTitle::after {
+  content: "";
+  flex: 1;
+  border-top: 1px solid var(--menu-border);
+}
+
+.root[data-menu-align="center"] .groupTitle::before {
+  content: "";
+  flex: 1;
+  border-top: 1px solid var(--menu-border);
+}
+
+/* --- item parts --------------------------------------------------------------- */
+
+/* The image slot: a photo, else the accent tile (§2.4) — the box owns the
+   size, the tile fills it. */
+.media {
+  position: relative;
+  flex-shrink: 0;
+  overflow: hidden;
+  border-radius: 14px;
+  background: var(--menu-icon);
+  aspect-ratio: 1 / 1;
+}
+
+.mediaImg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.itemName {
+  font-size: 1em;
+  font-weight: 600;
+  color: var(--menu-title);
+  margin: 0;
+  display: inline-flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.55rem;
+  overflow-wrap: anywhere;
+}
+
+.itemDescription {
+  font-size: 0.86em;
+  color: var(--menu-body-muted, var(--menu-body));
+  margin: 0.2rem 0 0 0;
+  max-width: 34rem;
+}
+
+.price {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--menu-title);
+  white-space: nowrap;
+}
+
+/* The live "nema više" state (§2.6): the row dims, the badge says why. */
+.unavailableBadge {
+  display: inline-block;
+  padding: 0.1rem 0.5rem;
+  border: 1px solid var(--menu-border);
+  border-radius: 999px;
+  font-size: 0.68em;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--menu-body-muted, var(--menu-body));
+  vertical-align: middle;
+}
+
+[data-unavailable="true"] .media,
+[data-unavailable="true"] .itemDescription,
+[data-unavailable="true"] .price,
+[data-unavailable="true"] .variantChips {
+  opacity: 0.55;
+}
+
+[data-unavailable="true"] .itemName {
+  text-decoration: line-through;
+  text-decoration-color: var(--menu-border);
+  text-decoration-thickness: 1px;
+}
+
+[data-unavailable="true"] .itemName .unavailableBadge {
+  text-decoration: none;
+}
+
+/* Variants as chips under the name (§2.3), outside the variant table. */
+.variantChips {
+  list-style: none;
+  margin: 0.45rem 0 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.variantChip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  padding: 0.2rem 0.6rem;
+  border: 1px solid var(--menu-border);
+  border-radius: 999px;
+  font-size: 0.8em;
+  color: var(--menu-title);
+  background: color-mix(in srgb, var(--menu-surface) 70%, transparent);
+}
+
+.variantChipPrice {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+/* The caret label for collapsed items (§2.1); TASK-52 makes it the control. */
+.moreCaret {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  margin: calc(var(--menu-vertical-spacing) * 0.75) 0 0 0;
+  padding: 0.55rem 0.9rem;
+  border: 1px dashed var(--menu-border);
+  border-radius: 999px;
+  font-size: 0.82em;
+  font-weight: 600;
+  color: var(--menu-accent-text, var(--menu-accent));
+}
+
+.moreCaretIcon {
+  width: 1em;
+  height: 1em;
+}
+
+/* The interactive caret (§4 TASK-52): the same pill as the static label, reset
+   from the button defaults and made a full-width tap target. */
+.moreCaretButton {
+  width: 100%;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.moreCaretButton:focus-visible {
+  outline: 2px solid var(--menu-accent-text, var(--menu-accent));
+  outline-offset: 2px;
+}
+
+/* Caret points up while the group is expanded. */
+.moreCaretIconOpen {
+  transform: rotate(180deg);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .moreCaretIcon {
+    transition: transform 160ms ease;
+  }
+}
+
+/* --- Lista ------------------------------------------------------------------- */
+
+.listaList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.listaRow {
+  display: grid;
+  grid-template-columns: 3.5rem 1fr;
+  gap: 0.9rem;
+  align-items: start;
+  padding-block: 0.8rem;
+  border-top: 1px solid var(--menu-border);
+  text-align: left;
+}
+
+.listaRow:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+/* Interactive items (TASK-53) — tap opens the item bottom-sheet. */
+.listaRow[role="button"],
+.card[role="button"],
+.istaknutoCard[role="button"],
+.tabelaItem[role="button"] {
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: opacity 120ms ease, background-color 120ms ease;
+}
+
+.listaRow[role="button"]:focus-visible,
+.card[role="button"]:focus-visible,
+.istaknutoCard[role="button"]:focus-visible,
+.tabelaItem[role="button"]:focus-visible {
+  outline: 2px solid var(--menu-focus, var(--menu-accent));
+  outline-offset: 3px;
+  border-radius: 8px;
+}
+
+@media (hover: hover) {
+  .listaRow[role="button"]:hover,
+  .tabelaItem[role="button"]:hover {
+    background-color: color-mix(in srgb, var(--menu-surface) 90%, var(--menu-accent));
+  }
+  .card[role="button"]:hover {
+    background: color-mix(in srgb, var(--menu-surface) 92%, var(--menu-accent));
+    border-color: color-mix(in srgb, var(--menu-border) 70%, var(--menu-accent));
+  }
+  .istaknutoCard[role="button"]:hover {
+    background: color-mix(in srgb, var(--menu-surface) 95%, var(--menu-accent));
+  }
+}
+
+.listaRow[role="button"]:active,
+.card[role="button"]:active,
+.istaknutoCard[role="button"]:active,
+.tabelaItem[role="button"]:active {
+  opacity: 0.88;
+}
+
+.listaMedia {
+  width: 3.5rem;
+}
+
+.listaBody {
+  min-width: 0;
+}
+
+.listaLine {
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+}
+
+/* The printed-price-list leader — a dotted rule running to the price. */
+.leader {
+  flex: 1;
+  min-width: 1.25rem;
+  border-bottom: 1px dotted color-mix(in srgb, var(--menu-border) 90%, transparent);
+  transform: translateY(-0.28em);
+}
+
+/* --- cards (Galerija + Traka) ------------------------------------------------- */
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  border: 1px solid var(--menu-border);
+  border-radius: 18px;
+  padding: 0.65rem;
+  background: color-mix(in srgb, var(--menu-surface) 84%, transparent);
+  text-align: left;
+}
+
+.cardMedia {
+  width: 100%;
+  border-radius: 12px;
+}
+
+.cardBody {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0 0.15rem 0.2rem;
+}
+
+.cardPrice {
+  margin-top: 0.35rem;
+}
+
+.galerijaGrid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.trakaScroller {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0.4rem 0;
+  display: flex;
+  gap: 0.75rem;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+
+.trakaCard {
+  flex: 0 0 68%;
+  max-width: 17rem;
+  scroll-snap-align: start;
+}
+
+/* --- Istaknuto ------------------------------------------------------------------ */
+
+.istaknutoList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.istaknutoCard {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  border: 1px solid var(--menu-accent);
+  border-radius: 22px;
+  padding: 0.75rem;
+  background: color-mix(in srgb, var(--menu-surface) 88%, transparent);
+  text-align: left;
+}
+
+.istaknutoMedia {
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  border-radius: 16px;
+}
+
+.istaknutoBody {
+  padding: 0 0.3rem 0.35rem;
+}
+
+.istaknutoBody .itemName {
+  font-size: 1.3em;
+  font-weight: var(--menu-heading-weight);
+}
+
+.istaknutoPrice {
+  display: inline-block;
+  margin-top: 0.55rem;
+  font-size: 1.1em;
+  color: var(--menu-accent-text, var(--menu-accent));
+}
+
+/* --- Tabela varijanti ------------------------------------------------------------- */
+
+.tabelaList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--menu-vertical-spacing) * 1.1);
+}
+
+.tabelaItem {
+  text-align: left;
+}
+
+.tabelaHead {
+  display: grid;
+  grid-template-columns: 2.75rem 1fr;
+  gap: 0.75rem;
+  align-items: center;
+  margin-bottom: 0.45rem;
+}
+
+.tabelaMedia {
+  width: 2.75rem;
+  border-radius: 10px;
+}
+
+.tabela {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.94em;
+}
+
+.tabelaRow {
+  border-top: 1px solid var(--menu-border);
+}
+
+.tabelaLabel {
+  text-align: left;
+  font-weight: 500;
+  color: var(--menu-body);
+  padding: 0.45rem 0.25rem 0.45rem 0;
+}
+
+.tabelaPrice {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--menu-title);
+  padding: 0.45rem 0 0.45rem 0.25rem;
+  white-space: nowrap;
+}
+
+/* --- footer ------------------------------------------------------------------------- */
+
+.footer {
+  margin-top: calc(var(--menu-vertical-spacing) * 3);
+  padding-top: calc(var(--menu-vertical-spacing) * 1.25);
+  border-top: 1px solid var(--menu-border);
+}
+
+.footerBrand {
+  font-size: 0.72em;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--menu-body-muted, var(--menu-body));
+  margin: 0;
+}

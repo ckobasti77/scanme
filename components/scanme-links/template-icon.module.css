@@ -1,0 +1,41 @@
+/* Icon package treatments. Every rule here is strictly monochrome: the glyph
+   colour comes from the inherited `currentColor` (the template sets it to
+   `--links-icon`), and the 3D depth is built only from lighter/darker shades of
+   that same colour — never a second hue. */
+
+.glyph {
+  display: block;
+}
+
+/* `line` / `solid` / `soft-3d` only change stroke weight on the outline (lucide)
+   glyphs; brand glyphs are filled paths and ignore stroke-width. */
+.generic.line {
+  stroke-width: 1.75;
+}
+
+.generic.solid {
+  stroke-width: 2.5;
+}
+
+.generic.soft3d {
+  stroke-width: 2;
+}
+
+/* Soft 3D: a lighter shade of the icon colour highlights the top edge, a darker
+   shade of the same colour is extruded ~1.5px below, and a soft cast shadow
+   grounds the glyph. The white/black mixes keep the effect legible whether the
+   icon colour is near-black (Urban Pop) or white (Glass Minimalist). */
+.soft3d {
+  filter:
+    drop-shadow(0 -0.5px 0 color-mix(in srgb, currentColor 34%, white))
+    drop-shadow(0 1.5px 0 color-mix(in srgb, currentColor 45%, black))
+    drop-shadow(0 3px 4px color-mix(in srgb, black 38%, transparent));
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .soft3d {
+    filter: drop-shadow(
+      0 1.5px 0 color-mix(in srgb, currentColor 45%, black)
+    );
+  }
+}

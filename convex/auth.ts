@@ -1,9 +1,27 @@
+import { ConvexError } from "convex/values";
+import { ConvexCredentials } from "@convex-dev/auth/providers/ConvexCredentials";
 import { Password } from "@convex-dev/auth/providers/Password";
-import { convexAuth } from "@convex-dev/auth/server";
+import {
+  convexAuth,
+  invalidateSessions,
+  modifyAccountCredentials,
+  retrieveAccount,
+} from "@convex-dev/auth/server";
 import { env, type MutationCtx } from "./_generated/server";
 import { isAdminEmail } from "./lib/access";
 import { acceptInvitationForUser, findInvitationByToken } from "./lib/invitations";
 import { normalizeEmail } from "./lib/validation";
+
+function validatePasswordRequirements(password: string) {
+  if (
+    password.length < 10 ||
+    !/[a-z]/.test(password) ||
+    !/[A-Z]/.test(password) ||
+    !/\d/.test(password)
+  ) {
+    throw new ConvexError("Šifra mora imati najmanje 10 karaktera, veliko i malo slovo i broj.");
+  }
+}
 
 const passwordProvider = Password({
   profile(params) {
@@ -16,23 +34,43 @@ const passwordProvider = Password({
     if (typeof params.adminSetupSecret === "string") profile.adminSetupSecret = params.adminSetupSecret;
     return profile;
   },
-  validatePasswordRequirements(password) {
+  validatePasswordRequirements,
+});
+
+const adminPasswordResetProvider = ConvexCredentials({
+  id: "admin-password-reset",
+  async authorize(params, ctx) {
+    const email = normalizeEmail(String(params.email ?? ""));
+    const newPassword = String(params.password ?? "");
+    const suppliedSetupSecret = String(params.adminSetupSecret ?? "");
+    const configuredSetupSecret = env.SCANME_ADMIN_SETUP_SECRET ?? "";
+
     if (
-      password.length < 10 ||
-      !/[a-z]/.test(password) ||
-      !/[A-Z]/.test(password) ||
-      !/\d/.test(password)
+      !isAdminEmail(email) ||
+      configuredSetupSecret.length < 16 ||
+      suppliedSetupSecret !== configuredSetupSecret
     ) {
-      throw new Error("Šifra mora imati najmanje 10 karaktera, veliko i malo slovo i broj.");
+      throw new ConvexError("Admin reset podaci nisu ispravni.");
     }
+    validatePasswordRequirements(newPassword);
+
+    const { user } = await retrieveAccount(ctx, {
+      provider: "password",
+      account: { id: email },
+    });
+    await modifyAccountCredentials(ctx, {
+      provider: "password",
+      account: { id: email, secret: newPassword },
+    });
+    await invalidateSessions(ctx, { userId: user._id });
+    return { userId: user._id };
   },
 });
 
 export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
-  providers: [passwordProvider],
+  providers: [passwordProvider, adminPasswordResetProvider],
   callbacks: {
     async createOrUpdateUser(ctx: MutationCtx, args) {
-      if (args.existingUserId) return args.existingUserId;
       const email = normalizeEmail(String(args.profile.email ?? ""));
       const invitationToken =
         typeof args.profile.invitationToken === "string" ? args.profile.invitationToken : "";
@@ -50,11 +88,37 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
           ? await findInvitationByToken(ctx, invitationToken, scanSlug)
           : null;
 
+      if (args.existingUserId) {
+        // Postojeći nalog bez aktivnog članstva mora da prihvati važeću
+        // pozivnicu pri prijavi, inače beforeSessionCreation trajno blokira
+        // ulazak (ponovo pozvani kontakt nikada ne bi mogao da se prijavi).
+        if (invitation) {
+          const user = await ctx.db.get(args.existingUserId);
+          const claimable =
+            invitation.invitation.status === "sent" ||
+            invitation.invitation.status === "queued" ||
+            invitation.invitation.status === "failed";
+          if (
+            claimable &&
+            user?.email &&
+            normalizeEmail(user.email) === invitation.invitation.normalizedEmail &&
+            invitation.invitation.expiresAt > Date.now()
+          ) {
+            await acceptInvitationForUser(
+              ctx,
+              invitation.invitation._id,
+              args.existingUserId,
+            );
+          }
+        }
+        return args.existingUserId;
+      }
+
       if (!isAdminSetup && !invitation) {
-        throw new Error("Registracija je moguća samo preko važeće ScanMe pozivnice.");
+        throw new ConvexError("Registracija je moguća samo preko važeće ScanMe pozivnice.");
       }
       if (invitation && invitation.invitation.normalizedEmail !== email) {
-        throw new Error("Email adresa ne odgovara pozivnici.");
+        throw new ConvexError("Email adresa ne odgovara pozivnici.");
       }
 
       const userId = await ctx.db.insert("users", {
@@ -69,11 +133,40 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
     async beforeSessionCreation(ctx: MutationCtx, { userId }) {
       const user = await ctx.db.get(userId);
       if (isAdminEmail(user?.email)) return;
+      const accountMembership = await ctx.db
+        .query("accountMemberships")
+        .withIndex("by_userId_and_active", (q) =>
+          q.eq("userId", userId).eq("active", true),
+        )
+        .take(1);
+      if (accountMembership.length) return;
       const membership = await ctx.db
         .query("businessMemberships")
         .withIndex("by_userId_and_active", (q) => q.eq("userId", userId).eq("active", true))
         .take(1);
-      if (!membership.length) throw new Error("Nalog nema pristup aktivnom lokalu.");
+      if (membership.length) return;
+      // Password signIn tok ne poziva createOrUpdateUser za postojeće naloge,
+      // pa se pozivnica ne može prihvatiti pre ove provere. Nalog sa važećom
+      // pozivnicom sme da se prijavi; prihvatanje završava stranica za
+      // aktivaciju (invitations.claim).
+      const email = normalizeEmail(user?.email ?? "");
+      if (email) {
+        const invitations = await ctx.db
+          .query("businessInvitations")
+          .withIndex("by_normalizedEmail", (q) => q.eq("normalizedEmail", email))
+          .order("desc")
+          .take(10);
+        const now = Date.now();
+        const hasClaimable = invitations.some(
+          (invitation) =>
+            (invitation.status === "sent" ||
+              invitation.status === "queued" ||
+              invitation.status === "failed") &&
+            invitation.expiresAt > now,
+        );
+        if (hasClaimable) return;
+      }
+      throw new ConvexError("Nalog nema pristup aktivnom lokalu.");
     },
   },
 });

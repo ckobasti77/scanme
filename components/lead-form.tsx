@@ -1,12 +1,22 @@
 "use client";
 
+import { ConvexError } from "convex/values";
 import { useEffect, useRef, useState } from "react";
 import { useMutation } from "convex/react";
 import { Check, LoaderCircle } from "lucide-react";
 import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { readOfferLogoSession } from "@/lib/offer-logo-session";
 
 type FormValues = {
   contactName: string;
@@ -15,7 +25,7 @@ type FormValues = {
   phone: string;
   email: string;
   city: string;
-  interest: "review" | "venue" | "memories" | "loyalty" | "not_sure";
+  interest: "review" | "page" | "venue" | "memories" | "loyalty" | "not_sure";
   message: string;
   website: string;
 };
@@ -29,7 +39,7 @@ const initialValues: FormValues = {
   businessType: "",
   phone: "",
   email: "",
-  city: "",
+  city: "Beograd",
   interest: "review",
   message: "",
   website: "",
@@ -57,9 +67,22 @@ function validate(values: FormValues): FieldErrors {
   return errors;
 }
 
-export function LeadForm() {
+export function LeadForm({
+  initialMessage = "",
+  initialOfferSelection,
+  initialLogoUploadId,
+}: {
+  initialMessage?: string;
+  initialOfferSelection?: string;
+  initialLogoUploadId?: string;
+} = {}) {
   const createLead = useMutation(api.leads.create);
-  const [values, setValues] = useState(initialValues);
+  // `initialMessage` je predlog rezimea iz toka ponude (server-side); prazan bez konteksta.
+  // Kontrolisano polje — korisnik ga slobodno menja ili briše.
+  const [values, setValues] = useState<FormValues>(() => ({
+    ...initialValues,
+    message: initialMessage,
+  }));
   const [errors, setErrors] = useState<FieldErrors>({});
   const [status, setStatus] = useState<"idle" | "pending" | "success" | "error">("idle");
   const [serverError, setServerError] = useState("");
@@ -107,6 +130,7 @@ export function LeadForm() {
     submissionId.current ??= crypto.randomUUID();
 
     try {
+      const logoSessionToken = initialLogoUploadId ? readOfferLogoSession() : null;
       const request = createLead({
         contactName: values.contactName,
         businessName: values.businessName,
@@ -116,6 +140,13 @@ export function LeadForm() {
         ...(values.phone.trim() ? { phone: values.phone } : {}),
         interest: values.interest,
         ...(values.message.trim() ? { message: values.message } : {}),
+        ...(initialOfferSelection ? { offerSelection: initialOfferSelection } : {}),
+        ...(initialLogoUploadId && logoSessionToken
+          ? {
+              logoUploadId: initialLogoUploadId as Id<"offerLogoUploads">,
+              logoSessionToken,
+            }
+          : {}),
         submissionId: submissionId.current,
         formStartedAt: formStartedAt.current,
         website: values.website,
@@ -130,9 +161,11 @@ export function LeadForm() {
       setStatus("success");
     } catch (error) {
       const message =
-        error instanceof Error
-          ? error.message.replace(/^.*?Uncaught Error:\s*/, "")
-          : "Zahtev trenutno nije moguće poslati.";
+        error instanceof ConvexError && typeof error.data === "string"
+          ? error.data
+          : error instanceof Error
+            ? error.message.replace(/^.*?Uncaught Error:\s*/, "")
+            : "Zahtev trenutno nije moguće poslati.";
       setServerError(`${message} Proverite vezu i pokušajte ponovo.`);
       setStatus("error");
     }
@@ -140,13 +173,11 @@ export function LeadForm() {
 
   if (status === "success") {
     return (
-      <div className="marketing-form-status flex min-h-[420px] flex-col justify-between rounded-[32px] border border-[#c6ff4a]/60 bg-[#c6ff4a]/[0.045] p-6 sm:p-8" aria-live="polite">
-        <span className="inline-flex size-14 items-center justify-center rounded-full border border-[#c6ff4a]/30 bg-[#c6ff4a]/10">
-          <Check aria-hidden="true" className="size-7 text-[#c6ff4a]" strokeWidth={1.5} />
-        </span>
+      <div className="flex min-h-[420px] flex-col justify-between border border-primary p-6 sm:p-8" aria-live="polite">
+        <Check aria-hidden="true" className="size-10 text-accent-readable" strokeWidth={1.5} />
         <div>
           <h3 className="text-2xl font-semibold tracking-[-0.04em]">Zahtev je sačuvan.</h3>
-          <p className="mt-3 max-w-[42ch] leading-7 text-white/66">
+          <p className="mt-3 max-w-[42ch] leading-7 text-foreground/66">
             Hvala. Javićemo se preko telefona ili imejla koji ste ostavili.
           </p>
         </div>
@@ -156,15 +187,15 @@ export function LeadForm() {
 
   const errorFor = (field: FieldName) =>
     errors[field] ? (
-      <p id={`${field}-error`} className="text-sm leading-5 text-[#ff8f86]" role="alert">
+      <p id={`${field}-error`} className="text-sm leading-5 text-destructive" role="alert">
         {errors[field]}
       </p>
     ) : null;
 
   return (
-    <form noValidate onSubmit={handleSubmit} className="marketing-lead-form grid gap-5" aria-label="Zahtev za ScanMe ponudu">
+    <form noValidate onSubmit={handleSubmit} className="grid gap-5" aria-label="Zahtev za ScanMe ponudu">
       {status === "error" ? (
-        <div className="rounded-[18px] border border-[#ff8f86]/70 bg-[#ff8f86]/[0.06] p-4 text-sm leading-6 text-[#ffd2ce]" role="alert">
+        <div className="border border-destructive bg-destructive/10 p-4 text-sm leading-6 text-destructive" role="alert">
           {serverError}
         </div>
       ) : null}
@@ -229,20 +260,22 @@ export function LeadForm() {
 
         <div className="form-field">
           <Label htmlFor="city">Grad</Label>
-          <Input
+          <select
             id="city"
             name="city"
             autoComplete="address-level2"
             value={values.city}
             onChange={(event) => update("city", event.target.value)}
-            className="form-control"
-          />
+            className="form-control h-12 w-full px-3 text-base"
+          >
+            <option value="Beograd">Beograd</option>
+          </select>
         </div>
       </div>
 
       <fieldset className="grid gap-3">
         <legend className="text-sm font-medium">Kontakt *</legend>
-        <p className="text-sm leading-5 text-white/56">Dovoljan je telefon ili imejl.</p>
+        <p className="text-sm leading-5 text-foreground/56">Dovoljan je telefon ili imejl.</p>
         <div className="grid gap-5 sm:grid-cols-2">
           <div className="form-field">
             <Label htmlFor="phone">Telefon</Label>
@@ -283,19 +316,67 @@ export function LeadForm() {
 
       <div className="form-field">
         <Label htmlFor="interest">Zanima me *</Label>
-        <select
-          id="interest"
+        <Select
           name="interest"
           value={values.interest}
-          onChange={(event) => update("interest", event.target.value)}
-          className="form-control h-12 w-full appearance-none px-3 text-base"
+          onValueChange={(value) => update("interest", value as FormValues["interest"])}
         >
-          <option value="review">ScanMe Reviews</option>
-          <option value="venue">ScanMe Venue</option>
-          <option value="memories">ScanMe Memories</option>
-          <option value="loyalty">ScanMe Loyalty</option>
-          <option value="not_sure">Nisam siguran</option>
-        </select>
+          <SelectTrigger
+            id="interest"
+            className="form-control h-12 w-full px-3 text-base"
+            aria-label="Zanima me"
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent className="rounded-[2px] border-border bg-popover p-0 shadow-none">
+            <SelectItem value="review" className="min-h-11 rounded-none pr-3 pl-9">
+              ScanMe Review
+            </SelectItem>
+            <SelectItem
+              value="page"
+              disabled
+              className="min-h-11 rounded-none pr-24 pl-9 text-muted-foreground"
+            >
+              ScanMe Page
+              <span className="absolute right-3 text-[0.68rem] font-semibold uppercase tracking-[0.14em]">
+                U planu
+              </span>
+            </SelectItem>
+            <SelectItem
+              value="venue"
+              disabled
+              className="min-h-11 rounded-none pr-24 pl-9 text-muted-foreground"
+            >
+              ScanMe Venue
+              <span className="absolute right-3 text-[0.68rem] font-semibold uppercase tracking-[0.14em]">
+                U planu
+              </span>
+            </SelectItem>
+            <SelectItem
+              value="memories"
+              disabled
+              className="min-h-11 rounded-none pr-24 pl-9 text-muted-foreground"
+            >
+              ScanMe Memories
+              <span className="absolute right-3 text-[0.68rem] font-semibold uppercase tracking-[0.14em]">
+                U planu
+              </span>
+            </SelectItem>
+            <SelectItem
+              value="loyalty"
+              disabled
+              className="min-h-11 rounded-none pr-24 pl-9 text-muted-foreground"
+            >
+              ScanMe Loyalty
+              <span className="absolute right-3 text-[0.68rem] font-semibold uppercase tracking-[0.14em]">
+                U planu
+              </span>
+            </SelectItem>
+            <SelectItem value="not_sure" className="min-h-11 rounded-none pr-3 pl-9">
+              Nisam siguran
+            </SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="form-field">
@@ -304,7 +385,7 @@ export function LeadForm() {
           id="message"
           name="message"
           rows={5}
-          maxLength={1000}
+          maxLength={5000}
           value={values.message}
           onChange={(event) => update("message", event.target.value)}
           className="form-control min-h-32 resize-y"

@@ -1,17 +1,33 @@
 "use client";
 
+import { ConvexError } from "convex/values";
 import { useAuthActions } from "@convex-dev/auth/react";
-import { Authenticated, AuthLoading, Unauthenticated, useQuery } from "convex/react";
-import { Eye, EyeOff, LoaderCircle, LogOut, ScanLine, ShieldCheck } from "lucide-react";
-import { useState, type FormEvent } from "react";
+import { Authenticated, AuthLoading, Unauthenticated, useMutation, useQuery } from "convex/react";
+import type { FunctionReturnType } from "convex/server";
+import { animate, motion, useMotionValue, useReducedMotion, useTransform } from "framer-motion";
+import { ArrowUpRight, Eye, EyeOff, LoaderCircle, LogOut, PencilLine, ShieldCheck } from "lucide-react";
+import Link from "next/link";
+import { useEffect, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ClientWordmark } from "@/components/client-panel/client-wordmark";
+import { ClientPanelChat } from "@/components/client-panel/client-panel-chat";
+import { VenuePanelSection } from "@/components/client-panel/venue-panel-section";
+import { MemoriesPanelSection } from "@/components/client-panel/memories-panel-section";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { MetricsBarChart } from "@/components/metrics-bar-chart";
+import { MetricsPeriodSelect } from "@/components/metrics-period-select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { api } from "@/convex/_generated/api";
-import { BrandMark } from "@/components/brand-mark";
+import type { Id } from "@/convex/_generated/dataModel";
+import type { MetricsRange } from "@/convex/lib/metrics";
+import { venuePanelSr } from "@/lib/i18n/sr/venue-panel";
+import { memoriesPanelSr } from "@/lib/i18n/sr/memories-panel";
+import { useRetainedQueryResult } from "@/lib/use-retained-query-result";
 
-const dateFormatter = new Intl.DateTimeFormat("sr-Latn-RS", { dateStyle: "medium", timeStyle: "short" });
-const shortDate = new Intl.DateTimeFormat("sr-Latn-RS", { day: "2-digit", month: "2-digit" });
+const numberFormatter = new Intl.NumberFormat("sr-Latn-RS");
 
 export function ClientPanel({ slug }: { slug: string }) {
   const location = useQuery(api.clientPanel.publicLocation, { slug });
@@ -19,16 +35,434 @@ export function ClientPanel({ slug }: { slug: string }) {
     <main className="min-h-[100dvh] bg-background">
       <header className="border-b border-border">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
-          <div className="flex min-h-11 items-center gap-3 font-semibold"><BrandMark /> SCANME</div>
-          <span className="text-xs text-muted-foreground">Klijentski panel</span>
+          <ClientWordmark />
+          <ThemeToggle />
         </div>
       </header>
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-12">
         <AuthLoading><PanelLoading /></AuthLoading>
         <Unauthenticated><ClientLogin slug={slug} businessName={location?.name ?? null} /></Unauthenticated>
-        <Authenticated><MetricsPanel slug={slug} /></Authenticated>
+        <Authenticated><ServicesPanel slug={slug} /></Authenticated>
       </div>
     </main>
+  );
+}
+
+type ServiceTab =
+  | "scanme_links"
+  | "google_review"
+  | "scanme_venue"
+  | "scanme_memories";
+
+function ServicesPanel({ slug }: { slug: string }) {
+  const overview = useQuery(api.clientPanel.overview, { slug });
+  // TASK-13 — the Venue section is an additive read model beside `overview`; it
+  // gates itself (returns "none" for a business with no active Venue profile),
+  // so a Links/Google-Review-only business sees an unchanged panel.
+  const venue = useQuery(api.clientPanel.venuePanel, { slug });
+  // TASK-18 — same additive, self-gating shape for Memories (a celebration
+  // tenant reaches its panel through this query alone).
+  const memories = useQuery(api.clientPanel.memoriesPanel, { slug });
+  const { signOut } = useAuthActions();
+  const [selectedTab, setSelectedTab] = useState<ServiceTab | null>(null);
+
+  if (overview === undefined) return <PanelLoading />;
+
+  const venueSection = venue?.status === "available" ? venue : null;
+  const memoriesSection = memories?.status === "available" ? memories : null;
+
+  if (overview.status === "forbidden") {
+    // A tenant that owns only Venue and/or Memories (no legacy Google Review
+    // link — including every celebration) still reaches its panel through the
+    // product-agnostic venuePanel/memoriesPanel queries. Render just those
+    // sections rather than the access-denied screen.
+    if (venueSection || memoriesSection) {
+      return (
+        <div className="grid gap-8">
+          <ExtraServicesOnly
+            slug={slug}
+            venueSection={venueSection}
+            memoriesSection={memoriesSection}
+            onSignOut={() => void signOut()}
+          />
+          <ClientPanelChat slug={slug} />
+        </div>
+      );
+    }
+    return (
+      <div className="grid gap-8">
+        <section className="border border-border bg-card p-6 sm:p-10">
+          <ShieldCheck className="size-8 text-destructive" />
+          <h1 className="mt-7 text-3xl font-semibold tracking-[-0.05em]">
+            Nemate pristup ovom lokalu.
+          </h1>
+          <p className="mt-4 max-w-xl text-sm leading-6 text-muted-foreground">
+            Prijavljeni nalog nije povezan sa lokalom iz ove adrese.
+          </p>
+        </section>
+        <ClientPanelChat slug={slug} />
+      </div>
+    );
+  }
+  const defaultTab: ServiceTab = overview.services.scanMeLinks.active
+    ? "scanme_links"
+    : overview.services.googleReview.active
+      ? "google_review"
+      : "scanme_links";
+  const tab = selectedTab ?? defaultTab;
+
+  return (
+    <div className="grid gap-8">
+    <Tabs value={tab} onValueChange={(value) => setSelectedTab(value as ServiceTab)}>
+      <div className="mb-7 flex justify-end border-b border-border pb-5">
+        <TabsList className="h-auto min-h-11 w-full flex-wrap sm:w-auto">
+          <TabsTrigger value="scanme_links" className="min-h-9 px-4">
+            ScanMe Links
+          </TabsTrigger>
+          <TabsTrigger value="google_review" className="min-h-9 px-4">
+            Google Review
+          </TabsTrigger>
+          {venueSection ? (
+            <TabsTrigger value="scanme_venue" className="min-h-9 px-4">
+              {venuePanelSr.tabLabel}
+            </TabsTrigger>
+          ) : null}
+          {memoriesSection ? (
+            <TabsTrigger value="scanme_memories" className="min-h-9 px-4">
+              {memoriesPanelSr.tabLabel}
+            </TabsTrigger>
+          ) : null}
+        </TabsList>
+      </div>
+      <TabsContent value="scanme_links">
+        {overview.services.scanMeLinks.active ||
+        overview.services.scanMeLinks.clientEditingEnabled ? (
+          <ScanMeLinksMetricsPanel
+            slug={slug}
+            canEdit={overview.services.scanMeLinks.clientEditingEnabled}
+            serviceActive={overview.services.scanMeLinks.active}
+          />
+        ) : (
+          <LockedService
+            businessId={overview.businessId}
+            service="scanme_links"
+            hasOpenRequest={overview.services.scanMeLinks.hasOpenRequest}
+          />
+        )}
+      </TabsContent>
+      <TabsContent value="google_review">
+        {overview.services.googleReview.active ? (
+          <MetricsPanel slug={slug} />
+        ) : (
+          <LockedService
+            businessId={overview.businessId}
+            service="google_review"
+            hasOpenRequest={overview.services.googleReview.hasOpenRequest}
+          />
+        )}
+      </TabsContent>
+      {venueSection ? (
+        <TabsContent value="scanme_venue">
+          <VenuePanelSection
+            slug={slug}
+            data={venueSection}
+            onSignOut={() => void signOut()}
+          />
+        </TabsContent>
+      ) : null}
+      {memoriesSection ? (
+        <TabsContent value="scanme_memories">
+          <MemoriesPanelSection
+            data={memoriesSection}
+            onSignOut={() => void signOut()}
+          />
+        </TabsContent>
+      ) : null}
+    </Tabs>
+    <ClientPanelChat slug={slug} />
+    </div>
+  );
+}
+
+// A tenant reachable ONLY through the product-agnostic Venue/Memories queries
+// (no Links/Google-Review overview — every celebration, and any Venue/Memories-
+// only business). Renders whichever sections resolve; tabs only when both do.
+function ExtraServicesOnly({
+  slug,
+  venueSection,
+  memoriesSection,
+  onSignOut,
+}: {
+  slug: string;
+  venueSection: Extract<
+    FunctionReturnType<typeof api.clientPanel.venuePanel>,
+    { status: "available" }
+  > | null;
+  memoriesSection: Extract<
+    FunctionReturnType<typeof api.clientPanel.memoriesPanel>,
+    { status: "available" }
+  > | null;
+  onSignOut: () => void;
+}) {
+  const [tab, setTab] = useState<ServiceTab>(
+    venueSection ? "scanme_venue" : "scanme_memories",
+  );
+
+  if (venueSection && !memoriesSection) {
+    return (
+      <VenuePanelSection slug={slug} data={venueSection} onSignOut={onSignOut} />
+    );
+  }
+  if (memoriesSection && !venueSection) {
+    return (
+      <MemoriesPanelSection data={memoriesSection} onSignOut={onSignOut} />
+    );
+  }
+  return (
+    <Tabs value={tab} onValueChange={(value) => setTab(value as ServiceTab)}>
+      <div className="mb-7 flex justify-end border-b border-border pb-5">
+        <TabsList className="h-auto min-h-11 w-full flex-wrap sm:w-auto">
+          {venueSection ? (
+            <TabsTrigger value="scanme_venue" className="min-h-9 px-4">
+              {venuePanelSr.tabLabel}
+            </TabsTrigger>
+          ) : null}
+          {memoriesSection ? (
+            <TabsTrigger value="scanme_memories" className="min-h-9 px-4">
+              {memoriesPanelSr.tabLabel}
+            </TabsTrigger>
+          ) : null}
+        </TabsList>
+      </div>
+      {venueSection ? (
+        <TabsContent value="scanme_venue">
+          <VenuePanelSection
+            slug={slug}
+            data={venueSection}
+            onSignOut={onSignOut}
+          />
+        </TabsContent>
+      ) : null}
+      {memoriesSection ? (
+        <TabsContent value="scanme_memories">
+          <MemoriesPanelSection data={memoriesSection} onSignOut={onSignOut} />
+        </TabsContent>
+      ) : null}
+    </Tabs>
+  );
+}
+
+function LockedService({
+  businessId,
+  service,
+  hasOpenRequest,
+}: {
+  businessId: Id<"businesses">;
+  service: ServiceTab;
+  hasOpenRequest: boolean;
+}) {
+  const createRequest = useMutation(api.activationRequests.create);
+  const [pending, setPending] = useState(false);
+  const [sent, setSent] = useState(hasOpenRequest);
+  const [error, setError] = useState<string | null>(null);
+  const label = service === "scanme_links" ? "ScanMe Links" : "Google Review";
+
+  async function submitRequest() {
+    setPending(true);
+    setError(null);
+    try {
+      await createRequest({ businessId, requestedService: service });
+      setSent(true);
+    } catch (reason) {
+      setError(
+        reason instanceof ConvexError && typeof reason.data === "string"
+          ? reason.data
+          : reason instanceof Error
+            ? reason.message
+            : "Upit trenutno nije moguće poslati. Pokušajte ponovo.",
+      );
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <section className="border border-border bg-card p-6 sm:p-10">
+      <p className="text-sm font-semibold text-destructive">Usluga nije aktivna</p>
+      <h2 className="mt-4 text-3xl font-semibold tracking-[-0.05em]">
+        Trenutno niste pretplaćeni na ovu uslugu.
+      </h2>
+      <p className="mt-4 max-w-2xl text-sm leading-6 text-muted-foreground">
+        {label} može biti dodat postojećem ScanMe nalogu bez otvaranja novog
+        klijentskog panela.
+      </p>
+      <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+        <Button onClick={submitRequest} disabled={pending || sent}>
+          {pending ? <LoaderCircle className="size-4 animate-spin" /> : null}
+          {sent ? "Upit je poslat" : "Pošalji upit za aktivaciju"}
+        </Button>
+        <Button asChild variant="outline">
+          <Link href="/#scanme-links">
+            Saznaj više <ArrowUpRight className="size-4" />
+          </Link>
+        </Button>
+      </div>
+      {error ? (
+        <p className="mt-4 text-sm text-destructive" role="alert">
+          {error}
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
+function ScanMeLinksMetricsPanel({
+  slug,
+  canEdit,
+  serviceActive,
+}: {
+  slug: string;
+  canEdit: boolean;
+  serviceActive: boolean;
+}) {
+  const [range, setRange] = useState<MetricsRange>("7d");
+  const [destinationId, setDestinationId] =
+    useState<Id<"serviceDestinations"> | null>(null);
+  const metricsQuery = useQuery(api.clientPanel.scanMeLinksMetrics, {
+    slug,
+    range,
+    ...(destinationId ? { destinationId } : {}),
+  });
+  const metrics = useRetainedQueryResult(metricsQuery, `${slug}-scanme-links`);
+  const { signOut } = useAuthActions();
+  if (metrics === undefined) return <PanelLoading />;
+  if (metrics.status !== "available") return null;
+
+  return (
+    <div aria-busy={metricsQuery === undefined}>
+      {!serviceActive && canEdit ? (
+        <div
+          className="mb-6 border-l-2 border-primary bg-primary/5 px-4 py-3 text-sm leading-6 text-muted-foreground"
+          role="status"
+        >
+          Stranica još nije aktivna. Možete pripremiti i objaviti sadržaj u
+          editoru; administrator uključuje javni servis.
+        </div>
+      ) : null}
+      <div className="flex flex-col gap-5 border-b border-border pb-7 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">
+            ScanMe Links
+          </p>
+          <h1 className="mt-3 text-3xl font-semibold tracking-[-0.05em] sm:text-4xl">
+            {metrics.businessName}
+          </h1>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {canEdit ? (
+            <Button asChild>
+              <Link href={`/${encodeURIComponent(slug)}/editor`}>
+                <PencilLine className="size-4" />
+                Uredi stranicu
+              </Link>
+            </Button>
+          ) : null}
+          <Button variant="outline" onClick={() => void signOut()}>
+            <LogOut className="size-4" /> Odjava
+          </Button>
+        </div>
+      </div>
+      <dl className="mt-7 grid grid-cols-1 border border-border bg-card sm:grid-cols-3">
+        <div className="flex min-h-40 flex-col items-center justify-center border-b border-border p-5 text-center sm:border-b-0 sm:border-r">
+          <dt className="text-xs text-muted-foreground">Ukupno skeniranja</dt>
+          <dd className="mt-5 text-5xl font-semibold tabular-nums text-primary">
+            {numberFormatter.format(metrics.totalScans)}
+          </dd>
+        </div>
+        <div className="flex min-h-40 flex-col items-center justify-center border-b border-border p-5 text-center sm:border-b-0 sm:border-r">
+          <dt className="text-xs text-muted-foreground">Prikazi stranice</dt>
+          <dd className="mt-5 text-4xl font-semibold tabular-nums text-primary">
+            {numberFormatter.format(metrics.totalPageViews)}
+          </dd>
+        </div>
+        <div className="flex min-h-40 flex-col items-center justify-center p-5 text-center">
+          <dt className="text-xs text-muted-foreground">CTR</dt>
+          <dd className="mt-5 text-4xl font-semibold tabular-nums text-primary">
+            {metrics.totalPageViews
+              ? new Intl.NumberFormat("sr-Latn-RS", {
+                  style: "percent",
+                  maximumFractionDigits: 1,
+                }).format(metrics.ctr)
+              : "—"}
+          </dd>
+        </div>
+      </dl>
+
+      <section className="mt-5 border border-border bg-card p-5 sm:mt-7 sm:p-7">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <h2 className="font-semibold">
+              {destinationId ? "Aktivnost izabrane destinacije" : "Skeniranja po periodu"}
+            </h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Izaberite destinaciju za njen broj klikova ili direktnih odlazaka.
+            </p>
+          </div>
+          <Select value={range} onValueChange={(value) => setRange(value as MetricsRange)}>
+            <SelectTrigger className="h-10 w-full sm:w-44" aria-label="Period metrike">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="7d">7 dana</SelectItem>
+              <SelectItem value="30d">30 dana</SelectItem>
+              <SelectItem value="90d">3 meseca</SelectItem>
+              <SelectItem value="1y">1 godina</SelectItem>
+              <SelectItem value="all">Oduvek</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="mt-5 flex gap-2 overflow-x-auto pb-2">
+          <Button
+            type="button"
+            variant={destinationId ? "outline" : "default"}
+            onClick={() => setDestinationId(null)}
+          >
+            Svi skenovi
+          </Button>
+          {metrics.destinations.map((destination) => (
+            <Button
+              key={destination.id}
+              type="button"
+              variant={destinationId === destination.id ? "default" : "outline"}
+              className={destination.state !== "active" ? "opacity-60" : ""}
+              onClick={() => setDestinationId(destination.id)}
+            >
+              {destination.label}
+              {destination.state === "deleted" ? (
+                <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-destructive">
+                  Obrisano
+                </span>
+              ) : null}
+              <span className="tabular-nums">
+                {numberFormatter.format(
+                  destination.totalClicks || destination.totalDirectVisits,
+                )}
+              </span>
+            </Button>
+          ))}
+        </div>
+
+        <MetricsBarChart
+          rows={metrics.daily}
+          rangeLabel={metrics.rangeLabel}
+          heightClassName="h-44 sm:h-64"
+          showCounts
+          barMinWidth={48}
+          variant={metrics.range === "all" ? "line" : "bars"}
+        />
+      </section>
+    </div>
   );
 }
 
@@ -71,35 +505,104 @@ function ClientLogin({ businessName }: { slug: string; businessName: string | nu
 }
 
 function MetricsPanel({ slug }: { slug: string }) {
-  const metrics = useQuery(api.clientPanel.metrics, { slug });
+  const [graphRange, setGraphRange] = useState<MetricsRange>("7d");
+  const [summaryRange, setSummaryRange] = useState<MetricsRange>("7d");
+  const metricsQuery = useQuery(api.clientPanel.metrics, { slug, range: graphRange, summaryRange });
+  const metrics = useRetainedQueryResult(metricsQuery, slug);
   const { signOut } = useAuthActions();
   if (metrics === undefined) return <PanelLoading />;
   if (metrics.status === "forbidden") {
     return <section className="border border-border bg-card p-6 sm:p-10"><ShieldCheck className="size-8 text-destructive" /><h1 className="mt-7 text-3xl font-semibold tracking-[-0.05em]">Nemate pristup ovom lokalu.</h1><p className="mt-4 max-w-xl text-sm leading-6 text-muted-foreground">Prijavljeni nalog nije povezan sa lokalom iz ove adrese. Promena sluga ne otkriva podatke drugih lokala.</p><Button variant="outline" className="mt-7" onClick={() => void signOut()}><LogOut className="size-4" /> Odjavi se</Button></section>;
   }
-  const maximum = Math.max(1, ...metrics.daily.map((row) => row.count));
-  const deviceRows = [
-    ["Mobilni", metrics.deviceCounts.mobile],
-    ["Tablet", metrics.deviceCounts.tablet],
-    ["Desktop", metrics.deviceCounts.desktop],
-    ["Nepoznato", metrics.deviceCounts.unknown],
-  ];
   return (
-    <div>
+    <div aria-busy={metricsQuery === undefined}>
       <div className="flex flex-col gap-5 border-b border-border pb-7 sm:flex-row sm:items-end sm:justify-between">
         <div><p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">Google Review kartice</p><h1 className="mt-3 text-3xl font-semibold tracking-[-0.05em] sm:text-4xl">{metrics.businessName}</h1></div>
         <Button variant="outline" onClick={() => void signOut()}><LogOut className="size-4" /> Odjava</Button>
       </div>
-      <dl className="mt-7 grid border border-border bg-card sm:grid-cols-3">
-        {[["Ukupno skeniranja", metrics.total], ["Danas", metrics.today], ["Poslednjih 7 dana", metrics.last7Days]].map(([label, value], index) => <div key={String(label)} className={`p-5 sm:p-7 ${index ? "border-t border-border sm:border-l sm:border-t-0" : ""}`}><dt className="text-xs text-muted-foreground">{label}</dt><dd className="mt-4 text-4xl font-semibold tabular-nums text-primary">{value}</dd></div>)}
+      <dl className="mt-7 grid grid-cols-1 border border-border bg-card sm:grid-cols-2 lg:grid-cols-[1.55fr_1fr_1fr]">
+        <div className="relative col-span-1 flex min-h-36 flex-col overflow-hidden border-b border-border p-5 text-center sm:col-span-2 sm:min-h-52 sm:p-7 lg:col-span-1 lg:border-b-0">
+          <dt className="flex min-h-9 items-center justify-center text-xs text-muted-foreground">Ukupno skeniranja</dt>
+          <AnimatedTotal value={metrics.total} />
+        </div>
+        <div className="flex min-h-36 flex-col border-b border-border p-5 text-center sm:min-h-52 sm:border-b-0 sm:border-r sm:p-7 lg:border-l">
+          <dt className="flex min-h-9 items-center justify-center text-xs text-muted-foreground">Danas</dt>
+          <dd className="flex flex-1 items-center justify-center text-3xl font-semibold tabular-nums text-primary sm:text-4xl">{numberFormatter.format(metrics.today)}</dd>
+        </div>
+        <div className="flex min-h-36 flex-col p-5 text-center sm:min-h-52 sm:p-7">
+          <dt className="flex min-h-9 items-center justify-center"><MetricsPeriodSelect value={summaryRange} onChange={setSummaryRange} ariaLabel="Period prikazane metrike" triggerClassName="min-h-9" /></dt>
+          <dd className="flex flex-1 items-center justify-center text-3xl font-semibold tabular-nums text-primary sm:text-4xl">{numberFormatter.format(metrics.summaryPeriodTotal)}</dd>
+        </div>
       </dl>
-      <div className="mt-7 grid gap-7 lg:grid-cols-[1.3fr_.7fr]">
-        <section className="border border-border bg-card p-5 sm:p-7"><h2 className="font-semibold">Skeniranja po danu</h2><div className="mt-7 grid h-52 grid-cols-7 items-end gap-2" role="img" aria-label="Broj skeniranja tokom poslednjih sedam dana">{metrics.daily.map((row) => <div key={row.dateKey} className="grid h-full grid-rows-[1fr_auto_auto] gap-2"><div className="flex items-end"><div className="w-full bg-primary" style={{ height: `${Math.max(3, row.count / maximum * 100)}%` }} /></div><strong className="text-center text-xs tabular-nums">{row.count}</strong><span className="text-center text-[10px] text-muted-foreground">{shortDate.format(new Date(`${row.dateKey}T12:00:00`))}</span></div>)}</div></section>
-        <section className="border border-border bg-card p-5 sm:p-7"><h2 className="font-semibold">Uređaji</h2><p className="mt-2 text-xs text-muted-foreground">Uzorak poslednjih {metrics.sampleSize} skeniranja</p><dl className="mt-5 grid gap-3">{deviceRows.map(([label, value]) => <div key={String(label)} className="flex items-center justify-between border-b border-border pb-3 text-sm"><dt>{label}</dt><dd className="tabular-nums text-primary">{value}</dd></div>)}</dl>{metrics.topReferrers.length ? <><h3 className="mt-7 text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Najčešći izvori</h3><ol className="mt-3 grid gap-2 text-xs">{metrics.topReferrers.map((row) => <li key={row.host} className="flex justify-between gap-3"><span className="truncate">{row.host}</span><span className="tabular-nums">{row.count}</span></li>)}</ol></> : null}</section>
-      </div>
-      <section className="mt-7 border border-border bg-card p-5 sm:p-7"><div className="flex items-center gap-3"><ScanLine className="size-5 text-primary" /><h2 className="font-semibold">Nedavna skeniranja</h2></div>{metrics.recent.length ? <ol className="mt-5 grid gap-2">{metrics.recent.map((scan) => <li key={scan.id} className="grid gap-1 border border-border px-3 py-3 text-xs sm:grid-cols-[1fr_auto] sm:items-center"><span>{scan.deviceCategory}{scan.referrerHost ? ` · ${scan.referrerHost}` : ""}</span><time className="text-muted-foreground">{dateFormatter.format(new Date(scan.scannedAt))}</time></li>)}</ol> : <p className="mt-5 text-sm text-muted-foreground">Još nema skeniranja. Prvi uspešan QR zahtev pojaviće se ovde.</p>}</section>
+      <section className="mt-5 border border-border bg-card p-5 sm:mt-7 sm:p-7">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <h2 className="font-semibold">Skeniranja po periodu</h2>
+          <Select value={graphRange} onValueChange={(value) => setGraphRange(value as MetricsRange)}>
+            <SelectTrigger className="h-10 w-full sm:w-44" aria-label="Period skenova"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="7d">7 dana</SelectItem>
+              <SelectItem value="30d">30 dana</SelectItem>
+              <SelectItem value="90d">3 meseca</SelectItem>
+              <SelectItem value="1y">1 godina</SelectItem>
+              <SelectItem value="all">Oduvek</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <MetricsBarChart
+          rows={metrics.daily}
+          rangeLabel={metrics.rangeLabel}
+          heightClassName="h-44 sm:h-64"
+          showCounts
+          barMinWidth={48}
+          variant={metrics.range === "all" ? "line" : "bars"}
+        />
+      </section>
     </div>
   );
 }
 
-function PanelLoading() { return <div className="grid gap-5"><div className="h-2 w-44 animate-pulse bg-primary" /><div className="h-36 animate-pulse border border-border bg-card" /><div className="h-72 animate-pulse border border-border bg-card" /></div>; }
+function AnimatedTotal({ value }: { value: number }) {
+  const reducedMotion = useReducedMotion();
+  const count = useMotionValue(value);
+  const displayedCount = useTransform(count, (latest) => numberFormatter.format(Math.round(latest)));
+
+  useEffect(() => {
+    if (reducedMotion) {
+      count.set(value);
+      return;
+    }
+    const controls = animate(count, value, { duration: 0.4, ease: [0.16, 1, 0.3, 1] });
+    return () => controls.stop();
+  }, [count, reducedMotion, value]);
+
+  return (
+    <dd className="flex flex-1 flex-col items-center justify-center text-center" aria-live="polite" aria-atomic="true">
+      <span className="sr-only">{numberFormatter.format(value)} ukupno skeniranja</span>
+      <motion.span aria-hidden="true" className="block text-6xl font-semibold leading-none tabular-nums tracking-[-0.07em] text-primary sm:text-7xl">
+        {displayedCount}
+      </motion.span>
+      <motion.span
+        key={value}
+        aria-hidden="true"
+        className="absolute inset-x-5 bottom-0 h-px origin-left bg-primary sm:inset-x-7"
+        initial={reducedMotion ? false : { opacity: 0.25, scaleX: 0.2 }}
+        animate={reducedMotion ? { opacity: 0.45, scaleX: 1 } : { opacity: [0.25, 1, 0.45], scaleX: 1 }}
+        transition={{ duration: reducedMotion ? 0 : 0.5, ease: [0.16, 1, 0.3, 1] }}
+      />
+    </dd>
+  );
+}
+
+function PanelLoading() {
+  return (
+    <div className="grid gap-5" aria-label="Učitavanje metrike">
+      <div className="h-2 w-44 animate-pulse bg-primary" />
+      <div className="grid grid-cols-1 border border-border bg-card sm:grid-cols-2 lg:grid-cols-[1.55fr_1fr_1fr]">
+        <div className="col-span-1 h-36 animate-pulse border-b border-border sm:col-span-2 sm:h-52 lg:col-span-1 lg:border-b-0" />
+        <div className="h-36 animate-pulse border-b border-border sm:h-52 sm:border-b-0 sm:border-r lg:border-l" />
+        <div className="h-36 animate-pulse sm:h-52" />
+      </div>
+      <div className="h-72 animate-pulse border border-border bg-card" />
+    </div>
+  );
+}

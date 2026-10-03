@@ -8,10 +8,14 @@ import { useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { BrandMark } from "@/components/brand-mark";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { BrandLogo } from "@/components/brand-logo";
+import { adminV1Sr } from "@/lib/i18n/sr/admin-v1";
 
-export function AdminLogin() {
-  const [mode, setMode] = useState<"signIn" | "setup">("signIn");
+type LoginMode = "signIn" | "setup" | "reset";
+
+export function AdminLogin({ returnTo = "/admin" }: { returnTo?: string }) {
+  const [mode, setMode] = useState<LoginMode>("signIn");
   const [showPassword, setShowPassword] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -24,21 +28,30 @@ export function AdminLogin() {
     setPending(true);
     setError(null);
     const formData = new FormData(event.currentTarget);
-    formData.set("flow", mode === "setup" ? "signUp" : "signIn");
+    if (mode !== "reset") {
+      formData.set("flow", mode === "setup" ? "signUp" : "signIn");
+    }
     try {
-      await signIn("password", formData);
-      router.replace("/admin/google-reviews");
+      await signIn(mode === "reset" ? "admin-password-reset" : "password", formData);
+      router.replace(returnTo);
     } catch {
-      setError(mode === "setup" ? "Admin nalog nije aktiviran. Proverite email, setup secret i pravila za šifru." : "Email ili šifra nisu ispravni.");
+      setError(
+        mode === "setup"
+          ? "Admin nalog nije aktiviran. Proverite email, setup secret i pravila za šifru."
+          : mode === "reset"
+            ? adminV1Sr.adminResetError
+            : "Email ili šifra nisu ispravni.",
+      );
     } finally {
       setPending(false);
     }
   }
 
   return (
-    <main className="grid min-h-[100dvh] bg-background lg:grid-cols-[1fr_1.1fr]">
+    <main className="relative grid min-h-[100dvh] bg-background lg:grid-cols-[1fr_1.1fr]">
+      <ThemeToggle className="absolute right-4 top-4 z-10" />
       <section className="hidden border-r border-border p-10 lg:flex lg:flex-col lg:justify-between">
-        <div className="flex items-center gap-3 font-semibold"><BrandMark /> SCANME ADMIN</div>
+        <div className="flex items-center gap-3" aria-label="ScanMe Admin"><BrandLogo width="7rem" /><span className="border-l border-foreground/20 pl-3 text-xs font-semibold tracking-[0.08em]">ADMIN</span></div>
         <div>
           <div className="mb-8 h-px w-full bg-primary" />
           <p className="max-w-xl text-4xl font-semibold leading-tight tracking-[-0.06em]">Kontrola QR odredišta, lokala i metrike sa jednog mesta.</p>
@@ -46,15 +59,15 @@ export function AdminLogin() {
       </section>
       <section className="grid place-items-center px-4 py-8 sm:px-8">
         <div className="w-full max-w-md border border-border bg-card p-6 sm:p-9">
-          <div className="mb-10 flex items-center gap-3 font-semibold lg:hidden"><BrandMark /> SCANME ADMIN</div>
-          <h1 className="text-3xl font-semibold tracking-[-0.05em]">{mode === "setup" ? "Aktivacija administratora" : "Admin prijava"}</h1>
-          <p className="mt-3 text-sm leading-6 text-muted-foreground">{mode === "setup" ? "Koristi dozvoljeni admin email i setup secret iz okruženja." : "Prijavite se administratorskim emailom i šifrom."}</p>
+          <div className="mb-10 flex items-center gap-3 lg:hidden" aria-label="ScanMe Admin"><BrandLogo width="7rem" /><span className="border-l border-foreground/20 pl-3 text-xs font-semibold tracking-[0.08em]">ADMIN</span></div>
+          <h1 className="text-3xl font-semibold tracking-[-0.05em]">{mode === "setup" ? "Aktivacija administratora" : mode === "reset" ? adminV1Sr.adminResetTitle : "Admin prijava"}</h1>
+          <p className="mt-3 text-sm leading-6 text-muted-foreground">{mode === "setup" ? "Koristi dozvoljeni admin email i setup secret iz okruženja." : mode === "reset" ? adminV1Sr.adminResetBody : "Prijavite se administratorskim emailom i šifrom."}</p>
 
           {isAuthenticated && !isLoading ? (
             <div className="mt-8 border border-border bg-secondary p-4">
               <p className="text-sm text-muted-foreground">Jedan nalog je već prijavljen u ovom browseru.</p>
               <div className="mt-4 flex flex-wrap gap-3">
-                <Button onClick={() => router.replace("/admin/google-reviews")}>Nastavi</Button>
+                <Button onClick={() => router.replace(returnTo)}>Nastavi</Button>
                 <Button variant="outline" onClick={() => void signOut()}><LogOut className="size-4" /> Odjavi nalog</Button>
               </div>
             </div>
@@ -67,13 +80,13 @@ export function AdminLogin() {
               <div className="form-field">
                 <Label htmlFor="admin-password">Šifra *</Label>
                 <div className="relative">
-                  <Input id="admin-password" name="password" type={showPassword ? "text" : "password"} autoComplete={mode === "setup" ? "new-password" : "current-password"} required minLength={10} className="form-control h-12 pr-12" />
+                  <Input id="admin-password" name="password" type={showPassword ? "text" : "password"} autoComplete={mode === "signIn" ? "current-password" : "new-password"} required minLength={10} className="form-control h-12 pr-12" />
                   <button type="button" onClick={() => setShowPassword((value) => !value)} className="absolute right-0 top-0 grid size-12 place-items-center text-muted-foreground hover:text-foreground" aria-label={showPassword ? "Sakrij šifru" : "Prikaži šifru"}>
                     {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
                   </button>
                 </div>
               </div>
-              {mode === "setup" ? (
+              {mode !== "signIn" ? (
                 <div className="form-field">
                   <Label htmlFor="admin-secret">Admin setup secret *</Label>
                   <Input id="admin-secret" name="adminSetupSecret" type="password" autoComplete="off" required className="form-control h-12" />
@@ -83,14 +96,27 @@ export function AdminLogin() {
               {error ? <p role="alert" className="text-sm leading-6 text-destructive">{error}</p> : null}
               <Button type="submit" disabled={pending} className="h-12">
                 {pending ? <LoaderCircle className="size-4 animate-spin" /> : null}
-                {mode === "setup" ? "Aktiviraj admin nalog" : "Prijavi se"}
+                {mode === "setup" ? "Aktiviraj admin nalog" : mode === "reset" ? adminV1Sr.adminResetAction : "Prijavi se"}
               </Button>
             </form>
           )}
           {!isAuthenticated ? (
-            <button type="button" onClick={() => { setMode((value) => value === "signIn" ? "setup" : "signIn"); setError(null); }} className="mt-6 min-h-11 text-left text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground">
-              {mode === "signIn" ? "Prvo podešavanje administratora" : "Već imam admin nalog"}
-            </button>
+            <div className="mt-6 flex flex-wrap gap-x-5 gap-y-2">
+              {mode === "signIn" ? (
+                <>
+                  <button type="button" onClick={() => { setMode("reset"); setError(null); }} className="min-h-11 text-left text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground">
+                    {adminV1Sr.adminResetOpen}
+                  </button>
+                  <button type="button" onClick={() => { setMode("setup"); setError(null); }} className="min-h-11 text-left text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground">
+                    {adminV1Sr.adminSetupOpen}
+                  </button>
+                </>
+              ) : (
+                <button type="button" onClick={() => { setMode("signIn"); setError(null); }} className="min-h-11 text-left text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground">
+                  {adminV1Sr.adminExistingAccount}
+                </button>
+              )}
+            </div>
           ) : null}
         </div>
       </section>

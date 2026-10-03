@@ -1,0 +1,104 @@
+.root {
+  --links-accent: #d98470;
+  --links-phone-bg: #f4eee7;
+  --links-phone-surface: rgba(255, 252, 247, 0.46);
+  --links-card-bg: rgba(255, 253, 249, 0.9);
+  --links-ink: #2d2925;
+  --links-muted: #746b64;
+  --links-icon: #403b36;
+  --links-card-border: color-mix(in srgb, var(--links-accent) 30%, transparent);
+  --links-card-border-active: color-mix(in srgb, var(--links-accent) 62%, transparent);
+  --links-card-shadow-idle:
+    0 8px 24px rgba(64, 45, 35, 0.07),
+    0 0 0 1px color-mix(in srgb, var(--links-accent) 7%, transparent);
+  --links-card-shadow-active:
+    0 9px 25px rgba(64, 45, 35, 0.08),
+    0 0 0 1px color-mix(in srgb, var(--links-accent) 42%, transparent),
+    0 0 13px color-mix(in srgb, var(--links-accent) 12%, transparent);
+}
+
+:global(html[data-theme="dark"]) .root {
+  --links-accent: #50b89c;
+  --links-phone-bg: #111a17;
+  --links-phone-surface: rgba(34, 56, 49, 0.34);
+  --links-card-bg: rgba(25, 41, 36, 0.9);
+  --links-ink: #eef4f1;
+  --links-muted: #9eaaa5;
+  --links-icon: #50b89c;
+  --links-card-border: color-mix(in srgb, var(--links-accent) 25%, transparent);
+  --links-card-border-active: color-mix(in srgb, var(--links-accent) 58%, transparent);
+  --links-card-shadow-idle:
+    0 10px 26px rgba(0, 0, 0, 0.22),
+    0 0 0 1px color-mix(in srgb, var(--links-accent) 5%, transparent);
+  --links-card-shadow-active:
+    0 10px 27px rgba(0, 0, 0, 0.24),
+    0 0 0 1px color-mix(in srgb, var(--links-accent) 38%, transparent),
+    0 0 17px color-mix(in srgb, var(--links-accent) 18%, transparent);
+}
+
+.phone {
+  background: var(--links-phone-bg);
+  color: var(--links-ink);
+}
+
+.phoneSurface {
+  background: var(--links-phone-surface);
+}
+
+.identityMark {
+  border-color: color-mix(in srgb, var(--links-accent) 32%, transparent);
+  background: color-mix(in srgb, var(--links-card-bg) 90%, transparent);
+  color: var(--links-accent);
+}
+
+.card {
+  border-color: var(--links-card-border);
+  background: var(--links-card-bg);
+  box-shadow: var(--links-card-shadow-idle);
+  color: var(--links-ink);
+}
+
+.hitSignal {
+  position: absolute;
+  inset: -1px;
+  z-index: 2;
+  pointer-events: none;
+  border: 1px solid var(--links-accent);
+  border-radius: inherit;
+  box-shadow: var(--links-card-shadow-active);
+  opacity: 0;
+  transform: translateZ(0);
+  will-change: opacity;
+}
+
+.icon {
+  border-color: color-mix(in srgb, var(--links-accent) 22%, transparent);
+  background: color-mix(in srgb, var(--links-card-bg) 82%, transparent);
+  color: var(--links-icon);
+}
+
+.accent {
+  color: var(--links-accent);
+}
+
+.accentBackground {
+  background: var(--links-accent);
+}
+
+.muted {
+  color: var(--links-muted);
+}
+
+.addButton {
+  border-color: color-mix(in srgb, var(--links-accent) 38%, transparent);
+  background: color-mix(in srgb, var(--links-card-bg) 54%, transparent);
+  color: var(--links-muted);
+}
+
+.cursor {
+  color: var(--links-ink);
+}
+
+.cursor svg {
+  fill: var(--links-phone-bg);
+}
