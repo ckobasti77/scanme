@@ -12,6 +12,8 @@ import { createEventOnlyClient } from "./fairAdmin";
 import { commitFairImport, type FairImportPayload } from "./fairImport";
 import { FAIR_IMPORT_VERSION, fairModelPath } from "../lib/fair-contract";
 import { fairBrandPassportEligible } from "../lib/fair-entitlements";
+import { fairTimeKeys } from "./lib/fairScans";
+import { fairActiveSponsoredSnapshot, fairPublishedSponsoredSnapshots, fairSponsoredItems, fairSponsoredOrder, fairSponsoredSeed } from "./lib/fairSponsored";
 
 // Sajam automobila 2026 — B1 DEV TEST catalog. Run ONLY against a developer
 // deployment: `npx convex run fairDevFixtures:seedTestCatalog` (never --prod).
@@ -376,5 +378,114 @@ export const seedTestPassport = internalMutation({
       });
     }
     return { created: true, passportId, requiredModelIds: models.map((model) => model._id) };
+  },
+});
+
+// M2 — DEV TEST sponsored snapshot for the map/display rotation proof
+// (`npx convex run fairDevFixtures:seedTestSponsoredSnapshot`, DEV only, never
+// --prod). Same rows and order as fairSponsoredAdmin.publishSponsoredSnapshot
+// (fairSponsoredSeed + fairSponsoredOrder by Belgrade dayKey, previous
+// `published` → `retired`, items never edited) with ONE documented DEV
+// difference: the TEST Advanced packages start on the fair day (9/30 Oct), so
+// the fixture takes every published `test-` model whose PURCHASED tier is
+// Advanced instead of waiting for the activation. Each one gets one TEST
+// rotation question with no votes (the map shows "Glasanje je u toku"); no
+// vote and no result is invented. Idempotent: an equal active snapshot of the
+// same day is returned unchanged.
+export const seedTestSponsoredSnapshot = internalMutation({
+  args: { eventCode: v.optional(v.string()) },
+  returns: v.object({
+    created: v.boolean(),
+    snapshotId: v.id("fairSponsoredSnapshots"),
+    version: v.number(),
+    eventModelIds: v.array(v.id("fairEventModels")),
+    questionsCreated: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    const eventCode = args.eventCode ?? "test-elektromobilnost-2026";
+    if (!eventCode.startsWith("test-")) throw new Error("fair_dev_fixture_not_test");
+    const event = await fairEventByCode(ctx, eventCode);
+    if (!event) throw new Error("fair_dev_fixture_event_missing");
+    const now = Date.now();
+    const models = (
+      await ctx.db
+        .query("fairEventModels")
+        .withIndex("by_eventId_and_packageTier", (q) => q.eq("eventId", event._id).eq("packageTier", "advanced"))
+        .take(50)
+    ).filter((model) => model.status === "published" && model.externalKey.startsWith("test-") && model.displayName.startsWith("TEST"));
+    if (!models.length) throw new Error("fair_dev_fixture_no_advanced_model");
+    const firstDay = await ctx.db
+      .query("fairEventDays")
+      .withIndex("by_eventId_and_dateKey", (q) => q.eq("eventId", event._id))
+      .first();
+    if (!firstDay) throw new Error("fair_dev_fixture_day_missing");
+
+    let questionsCreated = 0;
+    for (const model of models) {
+      const externalKey = `${model.externalKey}-q-rotacija`;
+      const existing = await ctx.db
+        .query("fairAudienceQuestions")
+        .withIndex("by_eventId_and_externalKey", (q) => q.eq("eventId", event._id).eq("externalKey", externalKey))
+        .first();
+      if (existing) continue;
+      await ctx.db.insert("fairAudienceQuestions", {
+        eventId: event._id,
+        eventDayId: firstDay._id,
+        eventModelId: model._id,
+        externalKey,
+        prompt: "TEST pitanje za rotaciju?",
+        options: [
+          { id: "test-da", label: "TEST da", order: 1 },
+          { id: "test-ne", label: "TEST ne", order: 2 },
+        ],
+        status: "published",
+        sortOrder: 1,
+        startsAt: firstDay.startsAt,
+        endsAt: firstDay.endsAt,
+        showOnSponsoredRotation: true,
+        createdAt: now,
+        updatedAt: now,
+      });
+      questionsCreated += 1;
+    }
+
+    const dayKey = fairTimeKeys(now).dateKey;
+    const seed = fairSponsoredSeed(event._id);
+    const order = fairSponsoredOrder(models.map((model) => model._id), seed, dayKey);
+    const active = await fairActiveSponsoredSnapshot(ctx, event._id);
+    if (active && active.dayKey === dayKey && questionsCreated === 0) {
+      const items = await fairSponsoredItems(ctx, active._id);
+      if (items.map((item) => item.eventModelId).join() === order.join()) {
+        return { created: false, snapshotId: active._id, version: active.version, eventModelIds: order, questionsCreated };
+      }
+    }
+    const actorUserId = await fixtureActor(ctx);
+    const latest = await ctx.db
+      .query("fairSponsoredSnapshots")
+      .withIndex("by_eventId_and_version", (q) => q.eq("eventId", event._id))
+      .order("desc")
+      .first();
+    const version = (latest?.version ?? 0) + 1;
+    for (const previous of await fairPublishedSponsoredSnapshots(ctx, event._id)) {
+      await ctx.db.patch(previous._id, { status: "retired" });
+    }
+    const snapshotId = await ctx.db.insert("fairSponsoredSnapshots", {
+      eventId: event._id,
+      version,
+      dayKey,
+      seed,
+      status: "published",
+      publishedAt: now,
+      publishedByUserId: actorUserId,
+    });
+    for (const [index, eventModelId] of order.entries()) {
+      const question = await ctx.db
+        .query("fairAudienceQuestions")
+        .withIndex("by_eventModelId_and_eventDayId", (q) => q.eq("eventModelId", eventModelId))
+        .take(50);
+      const chosen = question.find((row) => row.showOnSponsoredRotation && row.status !== "draft");
+      await ctx.db.insert("fairSponsoredSnapshotItems", { snapshotId, eventModelId, order: index, ...(chosen ? { audienceQuestionId: chosen._id } : {}) });
+    }
+    return { created: true, snapshotId, version, eventModelIds: order, questionsCreated };
   },
 });

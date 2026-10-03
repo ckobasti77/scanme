@@ -1,15 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronRight, Maximize2, Minus, Plus, Search, Stamp, X } from "lucide-react";
+import { ChevronRight, MapPin, Maximize2, Minus, Plus, Search, Stamp, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
-import type { FairPassportCatalogEntry, FairPassportProgress, FairPassportState, FairPublicMapStand } from "@/lib/fair-contract";
+import type { FairPassportCatalogEntry, FairPassportProgress, FairPassportState, FairPublicMapStand, FairSponsoredRotationView } from "@/lib/fair-contract";
 import {
   fairMapBounds,
   fairMapLabelPoint,
   fairMapPointsAttr,
   fairPassportProgressFor,
+  locateFairMapStand,
   searchFairMapStands,
+  type FairMapLocation,
   type FairMapPlacedStand,
   type FairMapView,
   type FairMapZoneId,
@@ -17,6 +19,7 @@ import {
 } from "@/lib/fair-map";
 import { fmt } from "@/lib/i18n/format";
 import { fairMapSr as dict } from "@/lib/i18n/sr/fair-map";
+import { FairMapRotationCard, useFairMapRotation } from "./fair-map-rotation";
 import styles from "./fair-event-map.module.css";
 
 // M1 — public event map (/sajam/[eventSlug]). Geometry from lib/fair-map (M0),
@@ -25,6 +28,8 @@ import styles from "./fair-event-map.module.css";
 // the same-origin POST gateway /api/fair/passport. Not a game: no voting, no
 // points, no guidance, no "visited" colouring, and showing the map writes
 // nothing (the passport read is a query behind the gateway).
+// M2 adds the 12 s Advanced rotation (fair-map-rotation.tsx): the active
+// model's stand gets a discrete, animated highlight; still no write.
 
 const MAX_ZOOM = 4;
 const FOCUS_ZOOM = 3;
@@ -107,6 +112,7 @@ function ZoneMap({
   selectedStandId,
   matchIds,
   passportLabel,
+  highlight,
   onSelect,
 }: {
   zoneView: FairMapZoneView;
@@ -114,6 +120,8 @@ function ZoneMap({
   selectedStandId: string | null;
   matchIds: Set<string> | null;
   passportLabel: (entry: FairPassportCatalogEntry) => string;
+  /** M2: the rotation's active stand in this zone; `key` restarts the reveal each slot. */
+  highlight: { location: FairMapLocation; key: number } | null;
   onSelect: (standId: string) => void;
 }) {
   const { zone } = zoneView;
@@ -295,7 +303,29 @@ function ZoneMap({
                 <polygon points={fairMapPointsAttr(location.polygon)} vectorEffect="non-scaling-stroke" />
               </g>
             ))}
+            {highlight ? (
+              <g key={highlight.key} className={styles.rotationHighlight} aria-hidden="true">
+                <polygon className={styles.rotationGlow} points={fairMapPointsAttr(highlight.location.polygon)} vectorEffect="non-scaling-stroke" />
+                <polygon points={fairMapPointsAttr(highlight.location.polygon)} vectorEffect="non-scaling-stroke" />
+              </g>
+            ) : null}
           </svg>
+          {highlight
+            ? (() => {
+                const [x, y] = fairMapLabelPoint(highlight.location.polygon);
+                return (
+                  <span
+                    key={highlight.key}
+                    className={styles.rotationPin}
+                    aria-hidden="true"
+                    style={{ left: x, top: y, transform: `translate(-50%, -100%) scale(${1 / scale})` }}
+                  >
+                    <MapPin />
+                    {dict.rotationStandPin}
+                  </span>
+                );
+              })()
+            : null}
           {zoneView.stands
             .filter((row) => row.passports.length > 0)
             .map(({ stand, location, passports }) => {
@@ -341,7 +371,19 @@ function ZoneMap({
 // Whole map: search, zone switch, zones, stand detail and exhibitor list.
 // -----------------------------------------------------------------------------
 
-export function FairEventMap({ eventSlug, view, display }: { eventSlug: string; view: FairMapView; display: boolean }) {
+export function FairEventMap({
+  eventSlug,
+  view,
+  rotation,
+  display,
+}: {
+  eventSlug: string;
+  view: FairMapView;
+  rotation: FairSponsoredRotationView | null;
+  display: boolean;
+}) {
+  const rotationState = useFairMapRotation(rotation);
+  const rotationStand = rotationState ? locateFairMapStand(view, rotationState.item.standMapLocationId) : null;
   const placed = useMemo(() => view.zones.flatMap((zone) => zone.stands), [view]);
   const hasPassports = placed.some((row) => row.passports.length > 0);
   const passport = usePassportProgress(eventSlug, hasPassports);
@@ -465,12 +507,28 @@ export function FairEventMap({ eventSlug, view, display }: { eventSlug: string; 
             selectedStandId={selectedId}
             matchIds={matchIds}
             passportLabel={passportLabel}
+            highlight={rotationStand && rotationState && rotationStand.zoneId === zoneView.zone.id ? { location: rotationStand.location, key: rotationState.slotNumber } : null}
             onSelect={(standId) => select(standId)}
           />
         ))}
       </div>
 
       <div className={styles.panel}>
+        {rotation?.items.length ? (
+          <FairMapRotationCard
+            state={rotationState}
+            display={display}
+            locationText={rotationStand ? fmt(dict.standLocation, { label: rotationStand.location.label, zone: dict.zones[rotationStand.zoneId] }) : dict.standUnplaced}
+            onShowStand={
+              rotationStand
+                ? () => {
+                    if (rotationStand.standId) select(rotationStand.standId, true);
+                    else setZoneId(rotationStand.zoneId);
+                  }
+                : null
+            }
+          />
+        ) : null}
         <section className={styles.card} aria-live="polite">
           {detailStand ? (
             <>

@@ -54,4 +54,11 @@ export const fairMapSr = {
   passportUnavailable: "Napredak pasoša trenutno nije dostupan.",
   passportHint: "Skenirajte QR kodove modela ovog brenda da sakupite pečate.",
   scanmeStand: "ScanMe",
+  rotationLabel: "Sponzorisano",
+  rotationAria: "Izdvojeni model u rotaciji",
+  rotationWaiting: "Glasanje je u toku",
+  rotationPercent: "{percent} %",
+  rotationShowStand: "Prikaži štand na mapi",
+  rotationOpenModel: "Otvori model",
+  rotationStandPin: "Izdvojeni štand",
 } as const satisfies FairMapDict;
