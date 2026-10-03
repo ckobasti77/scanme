@@ -12,8 +12,8 @@ import { afterEach, beforeEach, describe, expect, expectTypeOf, test, vi } from 
 import { api } from "./_generated/api";
 import type { TableNames } from "./_generated/dataModel";
 import schema from "./schema";
-import { fairPublicEventView, fairPublicModelView } from "./lib/fairValidators";
-import type { FairPublicEvent, FairPublicModel } from "../lib/fair-contract";
+import { fairPublicEventMapView, fairPublicEventView, fairPublicModelView } from "./lib/fairValidators";
+import type { FairPublicEvent, FairPublicEventMap, FairPublicModel } from "../lib/fair-contract";
 
 const modules = import.meta.glob("./**/*.ts");
 const NOW = Date.parse("2026-10-03T10:00:00Z");
@@ -224,9 +224,43 @@ describe("a model read is not a scan (HANDOFF §10)", () => {
   });
 });
 
+describe("getEventMap (M1)", () => {
+  test("lists stands with mapLocationId and only published models; no PII, no writes", async () => {
+    const f = await setup();
+    const map = await f.t.query(api.fairPublic.getEventMap, { eventSlug: "test-elektromobilnost-2026" });
+    expect(map).not.toBeNull();
+    expect(map!.eventId).toBe(f.em.eventId);
+    expect(map!.stands).toHaveLength(1);
+    const [stand] = map!.stands;
+    expect(Object.keys(stand).sort()).toEqual(["brands", "code", "displayName", "exhibitorName", "mapLocationId", "standId"]);
+    expect(stand).toMatchObject({ standId: f.em.standId, mapLocationId: "ispred-14", code: "TEST-A1", exhibitorName: "TEST izlagač" });
+    expect(stand.brands).toHaveLength(1);
+    expect(stand.brands[0]).toMatchObject({ brandId: f.brandId, brandName: "TEST Volta" });
+    const ids = stand.brands[0].models.map((model) => model.id).sort();
+    expect(ids).toEqual([f.starter.modelId, f.advanced.modelId, f.included.modelId].sort());
+    expect(ids).not.toContain(f.draft.modelId);
+    for (const model of stand.brands[0].models) expect(Object.keys(model).every((key) => ["id", "slug", "displayName", "variant"].includes(key))).toBe(true);
+    const json = JSON.stringify(map);
+    for (const secret of [REPORT_EMAIL, CONTACT_EMAIL, "TEST napomena", "packageTier", "priceText", "capabilities"]) expect(json).not.toContain(secret);
+    for (const table of ["fairScanEvents", "fairUniqueScans", "fairVisitors", "fairMetricCountShards", "cardScanEvents", "fairSponsoredEvents"] as const) {
+      expect(await rows(f.t, table), table).toEqual([]);
+    }
+  });
+
+  test("a withdrawn model leaves the map; draft and unknown events have no map", async () => {
+    const f = await setup();
+    await f.admin.mutation(api.fairAdmin.withdrawModel, { eventModelId: f.included.modelId });
+    const map = await f.t.query(api.fairPublic.getEventMap, { eventSlug: "test-elektromobilnost-2026" });
+    expect(map!.stands[0].brands[0].models.map((model) => model.id)).not.toContain(f.included.modelId);
+    expect(await f.t.query(api.fairPublic.getEventMap, { eventSlug: "test-auto-moto-fest-2026" })).toBeNull();
+    expect(await f.t.query(api.fairPublic.getEventMap, { eventSlug: "nepostojeci" })).toBeNull();
+  });
+});
+
 describe("contract types and validators never drift", () => {
   test("the public view validators equal FairPublicEvent / FairPublicModel", () => {
     expectTypeOf<Infer<typeof fairPublicEventView>>().toEqualTypeOf<FairPublicEvent>();
     expectTypeOf<Infer<typeof fairPublicModelView>>().toEqualTypeOf<FairPublicModel>();
+    expectTypeOf<Infer<typeof fairPublicEventMapView>>().toEqualTypeOf<FairPublicEventMap>();
   });
 });

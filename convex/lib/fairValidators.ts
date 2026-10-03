@@ -340,6 +340,27 @@ export const fairPassportFavoriteResultView = v.union(
   v.object({ state: v.literal("public"), options: v.array(v.object({ eventModelId: v.string(), percentage: v.number() })) }),
 );
 
+// M1 — public event map (fairPublic.getEventMap)
+export const fairPublicEventMapView = v.object({
+  eventId: v.string(),
+  stands: v.array(
+    v.object({
+      standId: v.string(),
+      mapLocationId: v.string(),
+      code: v.string(),
+      displayName: v.string(),
+      exhibitorName: v.string(),
+      brands: v.array(
+        v.object({
+          brandId: v.string(),
+          brandName: v.string(),
+          models: v.array(v.object({ id: v.string(), slug: v.string(), displayName: v.string(), variant: v.optional(v.string()) })),
+        }),
+      ),
+    }),
+  ),
+});
+
 export const fairPassportProgressView = v.object({
   passportId: v.string(),
   stampedModelIds: v.array(v.string()),

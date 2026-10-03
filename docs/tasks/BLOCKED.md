@@ -1723,3 +1723,16 @@ Pravu vrednost (32+ nasumičnih znakova) postavljaju Jovan i Aleksa u Next okru�
 
 ### 4. Definicije koje čekaju potvrdu (`FAIR-BACKEND-CONTRACT.md` §9.24–§9.28)
 Jedinstveni sken štanda = zbir jedinstvenih parova posetilac+model; unique po danu = dan prvog skena; admin sken ne daje pečat pasoša; objavljen model u `draft` događaju je dostupan preko `/r`; generički `cardResolve` (300/min po IP-u) ostaje ispred fair grane do testa opterećenja (B7). „View“ stranice modela se ne beleži (§9.8).
+
+## SAJAM v2 — M1 (javna mapa)
+
+Mapa je urađena (`docs/events/sajam-automobila-2026/jovan-status/M1.md`). Ništa nije zaustavljeno; ovo su konflikti i odluke za komandni centar.
+
+### 1. Token `event.scanmeStand` ne postoji u `app/sajam/fair-event.css`
+EDS §5.1 definiše `event.scanmeStand` (`#C6FF4A`), ali Kodeksov `fair-event.css` nema `--fair-*` pandan. Mapa koristi vrednost iz EDS-a kao lokalnu promenljivu `--fair-map-scanme`, postavljenu isključivo na ScanMe lokaciju. Predlog: Kodeks dodaje `--fair-scanme-stand` u token sloj, pa mapa prelazi na njega.
+
+### 2. ScanMe štand se još ne prikazuje
+Položaj ScanMe štanda nije na mapama organizatora (M0, otvoreno pitanje 1), pa mapa prikazuje samo lokaciju potvrđenu kod organizatora. Placeholder iz M0 se javno ne crta. Kada Aleksa potvrdi položaj, menja se samo `placement` u `lib/fair-map/*.ts`.
+
+### 3. Stranica modela još radi nad fixture-om
+`app/sajam/[eventSlug]/model/[modelSlug]` (Kodeks, F3) čita samo Audi fixture. Linkovi sa mape na prave/TEST modele zato trenutno vode na „Model nije pronađen“ dok F3 ne pređe na `fairPublic.getModelBySlug`.

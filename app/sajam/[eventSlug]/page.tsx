@@ -1,0 +1,85 @@
+import type { Metadata } from "next";
+import { notFound } from "next/navigation";
+import { Suspense, cache } from "react";
+import { fetchQuery } from "convex/nextjs";
+import { api } from "@/convex/_generated/api";
+import { FairEventShell } from "@/components/fair/event-shell";
+import { fairMapEventSlugCandidates } from "@/lib/fair-map";
+import { fmt } from "@/lib/i18n/format";
+import { fairMapSr as dict } from "@/lib/i18n/sr/fair-map";
+import { fairModelSr } from "@/lib/i18n/sr/fair-model";
+import { MapSection } from "./_mapa/map-section";
+import { MapSkeleton } from "./_mapa/map-skeleton";
+import { MapUnavailable } from "./_mapa/map-unavailable";
+
+// M1 — map / event home. Kodeks's shell and tokens are used as-is; the map
+// content streams under the shell. `?prikaz=ekran` forces the large-display
+// composition (same data, no touch controls) on any width.
+
+type RouteParams = { eventSlug: string };
+type RouteSearchParams = Record<string, string | string[] | undefined>;
+
+export const dynamic = "force-dynamic";
+
+// `next dev` only: a real slug without a real event falls back to the DEV TEST
+// event `test-<slug>` (lib/fair-map fairMapEventSlugCandidates). The page then
+// reads everything (catalog, passport, links) by the resolved event's own slug.
+const DEV_TEST_FALLBACK = process.env.NODE_ENV === "development";
+
+const getEvent = cache(async (slug: string) => {
+  for (const candidate of fairMapEventSlugCandidates(slug, DEV_TEST_FALLBACK)) {
+    const event = await fetchQuery(api.fairPublic.getEventBySlug, { slug: candidate });
+    if (event) return event;
+  }
+  return null;
+});
+
+export async function generateMetadata({ params }: { params: Promise<RouteParams> }): Promise<Metadata> {
+  const { eventSlug } = await params;
+  const robots = { index: false, follow: false };
+  const event = await getEvent(eventSlug).catch(() => null);
+  if (!event) return { title: dict.notFoundTitle, robots };
+  return {
+    title: fmt(dict.metaTitle, { event: event.title }),
+    description: fmt(dict.metaDescription, { event: event.title }),
+    robots,
+  };
+}
+
+export default async function FairEventMapPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<RouteParams>;
+  searchParams: Promise<RouteSearchParams>;
+}) {
+  const [{ eventSlug }, query] = await Promise.all([params, searchParams]);
+  let event;
+  try {
+    event = await getEvent(eventSlug);
+  } catch {
+    return (
+      <div className="fair-event" data-reveal="off">
+        <main>
+          <MapUnavailable eventSlug={eventSlug} />
+        </main>
+      </div>
+    );
+  }
+  if (!event) notFound();
+  const display = (Array.isArray(query.prikaz) ? query.prikaz[0] : query.prikaz) === "ekran";
+
+  return (
+    <div className="fair-event" data-reveal="off">
+      <FairEventShell eventId={event.id} eventSlug={event.slug} eventTitle={dict.umbrellaTitle} eventName={event.title} dict={fairModelSr} />
+      <main>
+        <h1 style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)", whiteSpace: "nowrap" }}>
+          {fmt(dict.metaTitle, { event: event.title })}
+        </h1>
+        <Suspense fallback={<MapSkeleton />}>
+          <MapSection eventSlug={event.slug} eventCode={event.code} display={display} />
+        </Suspense>
+      </main>
+    </div>
+  );
+}

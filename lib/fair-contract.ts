@@ -234,6 +234,32 @@ export type FairPublicModel = {
   capabilities: FairModelCapabilities;
 };
 
+/** M1 map card of one published model (no price, specs or capabilities: the model page has them). */
+export type FairPublicMapModel = {
+  id: string;
+  slug: string;
+  displayName: string;
+  variant?: string;
+};
+
+/**
+ * M1 — one non-withdrawn stand with at least one published model, keyed to
+ * the map geometry by `mapLocationId` (lib/fair-map). No contacts or package tiers.
+ */
+export type FairPublicMapStand = {
+  standId: string;
+  mapLocationId: string;
+  code: string;
+  displayName: string;
+  exhibitorName: string;
+  brands: Array<{ brandId: string; brandName: string; models: FairPublicMapModel[] }>;
+};
+
+export type FairPublicEventMap = {
+  eventId: string;
+  stands: FairPublicMapStand[];
+};
+
 export type FairChoiceOptionView = {
   id: string;
   label: string;

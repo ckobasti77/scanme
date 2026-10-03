@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { FAIR_MAP_GEOMETRIES, fairMapForEventCode, isFairMapStandLocation } from "./index";
+import { FAIR_MAP_GEOMETRIES, fairMapEventSlugCandidates, fairMapForEventCode, isFairMapStandLocation } from "./index";
 import type { FairMapPoint } from "./types";
 
 const geometries = Object.values(FAIR_MAP_GEOMETRIES);
@@ -77,5 +77,13 @@ describe("event code → geometry", () => {
     expect(isFairMapStandLocation("test-auto-moto-fest-2026", "ispred-s1-s2")).toBe(true);
     expect(isFairMapStandLocation("elektromobilnost-2026", "hala-1-a12")).toBe(false);
     expect(isFairMapStandLocation("unknown-2026", "hala-2")).toBe(false);
+  });
+});
+
+describe("public map event slug (M1)", () => {
+  test("only next dev falls back from a real slug to its DEV TEST event; production never does", () => {
+    expect(fairMapEventSlugCandidates("elektromobilnost-2026", false)).toEqual(["elektromobilnost-2026"]);
+    expect(fairMapEventSlugCandidates("elektromobilnost-2026", true)).toEqual(["elektromobilnost-2026", "test-elektromobilnost-2026"]);
+    expect(fairMapEventSlugCandidates("test-auto-moto-fest-2026", true)).toEqual(["test-auto-moto-fest-2026"]);
   });
 });
