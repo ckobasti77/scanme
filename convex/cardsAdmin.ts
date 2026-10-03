@@ -317,6 +317,9 @@ async function summarizeTarget(
     case "menu":
     case "table_ordering":
       return { kind: target.kind, detail: null };
+    case "fair_model":
+      // Sajam 2026 B0: inert summary; B1 may name the assigned fair model.
+      return { kind: target.kind, detail: null };
   }
 }
 

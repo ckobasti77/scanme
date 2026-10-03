@@ -3,6 +3,39 @@ import { v } from "convex/values";
 import { authTables } from "@convex-dev/auth/server";
 import { accessActor, accessAttribution, accessColor, accessDestinationInput, accessDestinationKind, accessHealth, accessKind, accessState } from "./lib/accessValidators";
 import {
+  fairAudienceQuestionStatus,
+  fairChoiceOption,
+  fairClientSegment,
+  fairConsentStatus,
+  fairContactRequirement,
+  fairEmailDeliveryKind,
+  fairEmailDeliveryStatus,
+  fairEventStatus,
+  fairLeadKind,
+  fairLeadStatus,
+  fairMessageTemplateKind,
+  fairMessageTemplateStatus,
+  fairModelStatus,
+  fairPackageTier,
+  fairParticipationStatus,
+  fairPassportConfigStatus,
+  fairPassportEligibleStatus,
+  fairPreferredContact,
+  fairQrAssignmentStatus,
+  fairRatingValue,
+  fairReportFormat,
+  fairReportStatus,
+  fairSpecification,
+  fairSponsoredActionKind,
+  fairSponsoredActionSurface,
+  fairSponsoredSnapshotStatus,
+  fairStandStatus,
+  fairSurveyAnswer,
+  fairSurveyQuestion,
+  fairSurveyStatus,
+  fairVisitorHash,
+} from "./lib/fairValidators";
+import {
   destinationPresentationValidator,
   paletteAnalysisValidator,
   scanMeDesignStateValidator,
@@ -180,6 +213,12 @@ export const cardTargetKind = v.union(
   // TASK-63 (§2.2, §2.14): convex/cards.ts binds it at creation and
   // resolveAndRecord 302s a direct card to the hop /r/[cardCode]/o.
   v.literal("table_ordering"),
+  // Sajam 2026 B0 (BACKEND-HANDOFF §5.1): a card resolves to one fair event
+  // model (cardTargets.fairEventModelId). Shared with cardScanEvents.targetKind.
+  // Inert until B1 (atomic QR assignment) / B2 (resolver hook): the generic
+  // card APIs refuse it and resolveAndRecord answers "invalid". Not a
+  // cardSplitterItem kind.
+  v.literal("fair_model"),
 );
 
 // One button on a bare splitter (RFC-002 §2.4, TASK-37): the same per-kind
@@ -279,6 +318,10 @@ export default defineSchema({
     defaultContactId: v.optional(v.id("accountContacts")),
     adminV1MigrationVersion: v.optional(v.number()),
     adminV1MigratedAt: v.optional(v.number()),
+    // Sajam 2026 B0 (MASTER §4.6, HANDOFF §5.1): independent client segment.
+    // Absent = "standard" (widen phase). An "event_only" client lives in admin
+    // `Događaji`, not the regular client list; conversion patches this field.
+    clientSegment: v.optional(fairClientSegment),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
@@ -499,6 +542,9 @@ export default defineSchema({
     premiumStatus: v.optional(
       v.union(v.literal("active"), v.literal("grace"), v.null()),
     ),
+    // Sajam 2026 B0: projection of accounts.clientSegment (absent = "standard").
+    // B1 writes it on sync and excludes "event_only" from regular client reads.
+    clientSegment: v.optional(fairClientSegment),
     searchText: v.string(),
     updatedAt: v.number(),
   })
@@ -540,6 +586,9 @@ export default defineSchema({
     canonicalNfcCount: v.optional(v.number()),
     canonicalActiveChannelCount: v.optional(v.number()),
     canonicalProblemCount: v.optional(v.number()),
+    // Sajam 2026 B0: projection of the owning accounts.clientSegment (absent =
+    // "standard"); B1 writes it on sync.
+    clientSegment: v.optional(fairClientSegment),
     urgencyRank: v.number(),
     searchText: v.string(),
     updatedAt: v.number(),
@@ -1708,6 +1757,10 @@ export default defineSchema({
     url: v.optional(v.string()),
     // kind === "splitter" only (TASK-37): the bare splitter's button list.
     splitterItems: v.optional(v.array(cardSplitterItem)),
+    // kind === "fair_model" only (Sajam 2026 B0, HANDOFF §5.1). Required for
+    // that kind and forbidden on every other kind: writers call
+    // fairCardTargetProblem (convex/lib/fairValidators.ts).
+    fairEventModelId: v.optional(v.id("fairEventModels")),
     createdByUserId: v.id("users"),
     createdAt: v.number(),
   }).index("by_cardId", ["cardId"]),
@@ -3230,4 +3283,505 @@ export default defineSchema({
     qty: v.number(),
     order: v.number(),
   }).index("by_requestId", ["requestId"]),
+
+  // ===========================================================================
+  // Sajam automobila 2026 — fair tables (B0; BACKEND-HANDOFF §5,
+  // JOVAN-DELTA-2026-10-02). Contract: docs/events/sajam-automobila-2026/
+  // FAIR-BACKEND-CONTRACT.md; types: lib/fair-contract.ts; rights:
+  // lib/fair-entitlements.ts. Existing accounts/businesses/accountContacts/
+  // brands and cards/cardTargets/accessSubjects/accessChannels/digitalQrCodes
+  // stay the authority for clients, brands and QR identities — these tables
+  // link to them and never copy them (no fairExhibitors, no parallel QR).
+  // Convex indexes do not enforce uniqueness: every "unique" below is an
+  // upsert rule of the owning mutation. (PII) marks rows the 16 Nov 2026
+  // purge (B7) hard-deletes.
+  // ===========================================================================
+
+  // §5.1 — catalog
+  fairEvents: defineTable({
+    code: v.string(),
+    slug: v.string(),
+    title: v.string(),
+    venueName: v.string(),
+    timezone: v.literal("Europe/Belgrade"),
+    startsAt: v.number(),
+    endsAt: v.number(),
+    status: fairEventStatus,
+    garagePriority: v.number(),
+    // Locked to 16 Nov 2026 for both events (FAIR_PII_PURGE_AT_MS).
+    piiPurgeAt: v.number(),
+    minimumPublicVoteCount: v.number(),
+    // Always false in V1 (all public fair routes are noindex).
+    robotsIndexable: v.boolean(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    // unique: code (upsert key), slug
+    .index("by_code", ["code"])
+    .index("by_slug", ["slug"])
+    .index("by_status_and_startsAt", ["status", "startsAt"]),
+
+  fairEventDays: defineTable({
+    eventId: v.id("fairEvents"),
+    dateKey: v.string(), // YYYY-MM-DD in Europe/Belgrade
+    label: v.string(),
+    startsAt: v.number(),
+    endsAt: v.number(),
+    sortOrder: v.number(),
+  })
+    // unique: (eventId, dateKey)
+    .index("by_eventId_and_dateKey", ["eventId", "dateKey"]),
+
+  // One exhibitor's participation in one event, linked to its EXISTING
+  // account + business (+ contact). A business on both events = two rows.
+  fairParticipations: defineTable({
+    externalKey: v.string(),
+    eventId: v.id("fairEvents"),
+    accountId: v.id("accounts"),
+    businessId: v.id("businesses"),
+    primaryContactId: v.optional(v.id("accountContacts")),
+    reportRecipientEmail: v.optional(v.string()),
+    leadDeliveryNote: v.optional(v.string()),
+    status: fairParticipationStatus,
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    // unique: (eventId, externalKey); (eventId, businessId)
+    .index("by_eventId_and_externalKey", ["eventId", "externalKey"])
+    .index("by_eventId_and_businessId", ["eventId", "businessId"])
+    .index("by_accountId_and_eventId", ["accountId", "eventId"]),
+
+  fairStands: defineTable({
+    eventId: v.id("fairEvents"),
+    participationId: v.id("fairParticipations"),
+    externalKey: v.string(),
+    code: v.string(),
+    displayName: v.string(),
+    // Stable map geometry key (M0); validated against the map before publish.
+    mapLocationId: v.string(),
+    status: fairStandStatus,
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    // unique: (eventId, externalKey); (eventId, mapLocationId) among active
+    .index("by_eventId_and_externalKey", ["eventId", "externalKey"])
+    .index("by_eventId_and_participationId", ["eventId", "participationId"])
+    .index("by_eventId_and_mapLocationId", ["eventId", "mapLocationId"]),
+
+  // One physically exhibited car on one event; the package belongs to it.
+  fairEventModels: defineTable({
+    externalKey: v.string(),
+    eventId: v.id("fairEvents"),
+    participationId: v.id("fairParticipations"),
+    brandId: v.id("brands"),
+    standId: v.id("fairStands"),
+    slug: v.string(),
+    displayName: v.string(),
+    variant: v.optional(v.string()),
+    // Approved display text; the stored fallback is "Cena na upit".
+    priceText: v.string(),
+    // Bounded (FAIR_MAX_SPECIFICATIONS_PER_MODEL), ≤4 isHighlight.
+    specifications: v.array(fairSpecification),
+    photoStorageId: v.optional(v.id("_storage")),
+    photoUrl: v.optional(v.string()),
+    packageTier: fairPackageTier,
+    packageActivatedAt: v.number(),
+    passportEligible: v.boolean(),
+    status: fairModelStatus,
+    sortOrder: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    // unique: (eventId, slug); (eventId, externalKey)
+    .index("by_eventId_and_slug", ["eventId", "slug"])
+    .index("by_eventId_and_externalKey", ["eventId", "externalKey"])
+    .index("by_eventId_and_standId", ["eventId", "standId"])
+    .index("by_eventId_and_brandId", ["eventId", "brandId"])
+    .index("by_eventId_and_packageTier", ["eventId", "packageTier"]),
+
+  // Links a pre-made EXISTING QR identity (event QR inventory) to a model.
+  // Assign/release and the new immutable cardTargets + accessDestinationHistory
+  // rows are one transaction (B1). Asset ownership never changes.
+  fairQrAssignments: defineTable({
+    eventId: v.id("fairEvents"),
+    eventModelId: v.id("fairEventModels"),
+    accessChannelId: v.id("accessChannels"),
+    accessSubjectId: v.id("accessSubjects"),
+    cardId: v.id("cards"),
+    resolverCode: v.string(),
+    status: fairQrAssignmentStatus,
+    assignedAt: v.number(),
+    releasedAt: v.optional(v.number()),
+    assignedByUserId: v.id("users"),
+    releasedByUserId: v.optional(v.id("users")),
+    reason: v.optional(v.string()),
+  })
+    // unique: at most one "assigned" row per eventModelId and per accessChannelId
+    .index("by_eventModelId_and_status", ["eventModelId", "status"])
+    .index("by_accessChannelId_and_status", ["accessChannelId", "status"])
+    .index("by_eventId_and_status", ["eventId", "status"]),
+
+  // Append-only upgrade audit, written in the same mutation as the upgrade.
+  fairPackageActivations: defineTable({
+    eventModelId: v.id("fairEventModels"),
+    eventId: v.id("fairEvents"),
+    fromTier: fairPackageTier,
+    toTier: fairPackageTier,
+    activatedAt: v.number(),
+    actorUserId: v.id("users"),
+    note: v.optional(v.string()),
+  }).index("by_eventModelId_and_activatedAt", ["eventModelId", "activatedAt"]),
+
+  // §5.2 — anonymous identity and scans
+  // (PII) Pseudonymous upsert source, not a profile. Only the hash is stored.
+  fairVisitors: defineTable({
+    visitorHash: fairVisitorHash,
+    firstSeenAt: v.number(),
+    lastSeenAt: v.number(),
+  })
+    // unique: visitorHash
+    .index("by_visitorHash", ["visitorHash"]),
+
+  // (PII) One row per physical /r/[cardCode] request (same requestId as
+  // cardScanEvents). Admin-excluded rows never enter metrics.
+  fairScanEvents: defineTable({
+    requestId: v.string(),
+    visitorId: v.id("fairVisitors"),
+    eventId: v.id("fairEvents"),
+    eventModelId: v.id("fairEventModels"),
+    standId: v.id("fairStands"),
+    brandId: v.id("brands"),
+    occurredAt: v.number(),
+    dateKey: v.string(), // YYYY-MM-DD, Europe/Belgrade
+    hourKey: v.string(), // YYYY-MM-DDTHH, Europe/Belgrade
+    isAdminExcluded: v.boolean(),
+    adminUserId: v.optional(v.id("users")),
+  })
+    // unique: requestId
+    .index("by_requestId", ["requestId"])
+    .index("by_eventModelId_and_occurredAt", ["eventModelId", "occurredAt"])
+    .index("by_standId_and_occurredAt", ["standId", "occurredAt"])
+    .index("by_eventId_and_occurredAt", ["eventId", "occurredAt"]),
+
+  // (PII) First non-admin scan of visitor+model = one unique scan.
+  fairUniqueScans: defineTable({
+    visitorId: v.id("fairVisitors"),
+    eventId: v.id("fairEvents"),
+    eventModelId: v.id("fairEventModels"),
+    firstScannedAt: v.number(),
+    lastScannedAt: v.number(),
+    totalScanCount: v.number(),
+  })
+    // unique: (visitorId, eventModelId)
+    .index("by_visitorId_and_eventModelId", ["visitorId", "eventModelId"])
+    .index("by_eventModelId_and_firstScannedAt", ["eventModelId", "firstScannedAt"]),
+
+  // Read projection for hot counters (helper arrives in B2, modeled on
+  // convex/lib/countShards.ts; never memoriesCountShards). Raw rows stay the
+  // source of truth; anonymized aggregates survive the purge.
+  fairMetricCountShards: defineTable({
+    key: v.string(),
+    shard: v.number(),
+    value: v.number(),
+  }).index("by_key_and_shard", ["key", "shard"]),
+
+  // §5.3 — ratings, Glas publike, surveys
+  // (PII) Starter: exactly `overall`. Advanced: any non-empty subset of the
+  // three dimensions, never `overall`, no derived overall. Public projections
+  // never return counts/sums/averages (JOVAN-DELTA §1).
+  fairRatings: defineTable({
+    visitorId: v.id("fairVisitors"),
+    eventId: v.id("fairEvents"),
+    eventModelId: v.id("fairEventModels"),
+    overall: v.optional(fairRatingValue),
+    appearance: v.optional(fairRatingValue),
+    specifications: v.optional(fairRatingValue),
+    price: v.optional(fairRatingValue),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    // unique: (visitorId, eventModelId) — re-rating patches this row
+    .index("by_visitorId_and_eventModelId", ["visitorId", "eventModelId"])
+    .index("by_eventModelId_and_updatedAt", ["eventModelId", "updatedAt"]),
+
+  fairAudienceQuestions: defineTable({
+    eventId: v.id("fairEvents"),
+    eventDayId: v.id("fairEventDays"),
+    eventModelId: v.id("fairEventModels"),
+    // B0 addition (not in HANDOFF §5.3): import/admin upserts are idempotent
+    // per event + externalKey (HANDOFF §7, §8; DATA-INTAKE question_external_key).
+    externalKey: v.optional(v.string()),
+    prompt: v.string(),
+    // 2–5 options; prompt/options are immutable after the first vote.
+    options: v.array(fairChoiceOption),
+    status: fairAudienceQuestionStatus,
+    sortOrder: v.number(),
+    startsAt: v.number(),
+    endsAt: v.optional(v.number()),
+    // At most one per Advanced model is the map/display result.
+    showOnSponsoredRotation: v.boolean(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_eventModelId_and_eventDayId", ["eventModelId", "eventDayId"])
+    .index("by_eventDayId_and_status", ["eventDayId", "status"])
+    // unique: (eventId, externalKey) when present
+    .index("by_eventId_and_externalKey", ["eventId", "externalKey"]),
+
+  // (PII) One changeable vote per visitor+question.
+  fairAudienceVotes: defineTable({
+    visitorId: v.id("fairVisitors"),
+    eventId: v.id("fairEvents"),
+    eventModelId: v.id("fairEventModels"),
+    questionId: v.id("fairAudienceQuestions"),
+    optionId: v.string(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    // unique: (visitorId, questionId)
+    .index("by_visitorId_and_questionId", ["visitorId", "questionId"])
+    .index("by_questionId_and_updatedAt", ["questionId", "updatedAt"]),
+
+  // Advanced only; ≤5 questions; a version with responses is never edited.
+  fairSurveys: defineTable({
+    eventId: v.id("fairEvents"),
+    eventModelId: v.id("fairEventModels"),
+    // B0 deviation: optional (HANDOFF §5.3 lists it, DATA-INTAKE 06-surveys
+    // has no title column and a title must not be invented).
+    title: v.optional(v.string()),
+    status: fairSurveyStatus,
+    questions: v.array(fairSurveyQuestion),
+    version: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    // unique: (eventModelId, version)
+    .index("by_eventModelId_and_status", ["eventModelId", "status"]),
+
+  // (PII) Final, immutable; results never public.
+  fairSurveyResponses: defineTable({
+    submissionId: v.string(),
+    visitorId: v.id("fairVisitors"),
+    eventId: v.id("fairEvents"),
+    eventModelId: v.id("fairEventModels"),
+    surveyId: v.id("fairSurveys"),
+    answers: v.array(fairSurveyAnswer),
+    submittedAt: v.number(),
+  })
+    // unique: submissionId; (visitorId, surveyId)
+    .index("by_submissionId", ["submissionId"])
+    .index("by_surveyId_and_submittedAt", ["surveyId", "submittedAt"])
+    .index("by_visitorId_and_surveyId", ["visitorId", "surveyId"]),
+
+  // §5.4 — leads and email
+  fairConsentConfigs: defineTable({
+    eventId: v.id("fairEvents"),
+    leadKind: fairLeadKind,
+    version: v.number(),
+    text: v.string(),
+    status: fairConsentStatus,
+    activatedAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_eventId_and_leadKind_and_status", ["eventId", "leadKind", "status"])
+    .index("by_eventId_and_leadKind_and_version", ["eventId", "leadKind", "version"]),
+
+  fairLeadConfigs: defineTable({
+    eventModelId: v.id("fairEventModels"),
+    leadKind: fairLeadKind,
+    contactRequirement: fairContactRequirement,
+    // A preference, never a requirement unless contactRequirement says so.
+    preferredContact: v.optional(fairPreferredContact),
+    enabled: v.boolean(),
+    updatedByUserId: v.id("users"),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    // unique: (eventModelId, leadKind)
+    .index("by_eventModelId_and_leadKind", ["eventModelId", "leadKind"]),
+
+  // (PII) A declined consent is never stored (consentAccepted is literally true).
+  fairLeads: defineTable({
+    submissionId: v.string(),
+    kind: fairLeadKind,
+    visitorId: v.id("fairVisitors"),
+    eventId: v.id("fairEvents"),
+    eventModelId: v.id("fairEventModels"),
+    participationId: v.id("fairParticipations"),
+    contactName: v.string(),
+    email: v.optional(v.string()),
+    phone: v.optional(v.string()),
+    consentAccepted: v.literal(true),
+    consentVersion: v.number(),
+    consentTextSnapshot: v.string(),
+    consentedAt: v.number(),
+    status: fairLeadStatus,
+    deliveredAt: v.optional(v.number()),
+    followUpSuppressed: v.boolean(),
+    suppressedAt: v.optional(v.number()),
+    suppressedByUserId: v.optional(v.id("users")),
+    createdAt: v.number(),
+    purgeAt: v.number(), // 16 Nov 2026 (FAIR_PII_PURGE_AT_MS)
+  })
+    // unique: submissionId (idempotency key)
+    .index("by_submissionId", ["submissionId"])
+    .index("by_eventModelId_and_createdAt", ["eventModelId", "createdAt"])
+    .index("by_participationId_and_createdAt", ["participationId", "createdAt"])
+    .index("by_status_and_purgeAt", ["status", "purgeAt"]),
+
+  fairMessageTemplates: defineTable({
+    eventModelId: v.id("fairEventModels"),
+    kind: fairMessageTemplateKind,
+    subject: v.string(),
+    plainText: v.string(),
+    html: v.optional(v.string()),
+    status: fairMessageTemplateStatus,
+    version: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_eventModelId_and_kind_and_status", ["eventModelId", "kind", "status"]),
+
+  // (PII: recipient) Outbox; a Node internalAction sends via the Resend seam.
+  fairEmailDeliveries: defineTable({
+    dedupeKey: v.string(),
+    // B0 deviation: optional (HANDOFF §5.4 lists it as required, but the
+    // daily_report / exhibitor_delivery kinds have no lead).
+    leadId: v.optional(v.id("fairLeads")),
+    kind: fairEmailDeliveryKind,
+    recipient: v.string(),
+    status: fairEmailDeliveryStatus,
+    scheduledFor: v.number(),
+    attemptCount: v.number(),
+    providerMessageId: v.optional(v.string()),
+    lastError: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    // unique: dedupeKey
+    .index("by_dedupeKey", ["dedupeKey"])
+    .index("by_status_and_scheduledFor", ["status", "scheduledFor"])
+    .index("by_leadId_and_kind", ["leadId", "kind"]),
+
+  // §5.5 — brand passport (config/eligible-set fields are a B0 design;
+  // HANDOFF names the tables without fields)
+  fairPassportConfigs: defineTable({
+    eventId: v.id("fairEvents"),
+    brandId: v.id("brands"),
+    participationId: v.id("fairParticipations"),
+    status: fairPassportConfigStatus,
+    // The eligible set is frozen before the event opens.
+    frozenAt: v.optional(v.number()),
+    publishedAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    // unique: (eventId, brandId)
+    .index("by_eventId_and_brandId", ["eventId", "brandId"])
+    .index("by_eventId_and_status", ["eventId", "status"]),
+
+  // Bounded child rows of a passport. An emergency removal flips status to
+  // "removed" without deleting stamps already earned.
+  fairPassportEligibleModels: defineTable({
+    passportConfigId: v.id("fairPassportConfigs"),
+    eventId: v.id("fairEvents"),
+    brandId: v.id("brands"),
+    eventModelId: v.id("fairEventModels"),
+    status: fairPassportEligibleStatus,
+    removedAt: v.optional(v.number()),
+    removedByUserId: v.optional(v.id("users")),
+    createdAt: v.number(),
+  })
+    .index("by_passportConfigId_and_status", ["passportConfigId", "status"])
+    .index("by_eventModelId", ["eventModelId"]),
+
+  // (PII) One stamp per visitor+model, only for the published eligible set.
+  fairPassportStamps: defineTable({
+    visitorId: v.id("fairVisitors"),
+    eventId: v.id("fairEvents"),
+    brandId: v.id("brands"),
+    eventModelId: v.id("fairEventModels"),
+    scannedAt: v.number(),
+  })
+    .index("by_visitorId_and_eventId_and_brandId", ["visitorId", "eventId", "brandId"])
+    // unique: (visitorId, eventModelId)
+    .index("by_visitorId_and_eventModelId", ["visitorId", "eventModelId"]),
+
+  // (PII) One changeable favorite per visitor+event+brand, after completion.
+  fairBrandFavoriteVotes: defineTable({
+    visitorId: v.id("fairVisitors"),
+    eventId: v.id("fairEvents"),
+    brandId: v.id("brands"),
+    eventModelId: v.id("fairEventModels"),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    // unique: (visitorId, eventId, brandId)
+    .index("by_visitorId_and_eventId_and_brandId", ["visitorId", "eventId", "brandId"])
+    .index("by_eventId_and_brandId", ["eventId", "brandId"]),
+
+  // §5.6 — reports (send is refused unless status is "approved")
+  fairReportRuns: defineTable({
+    eventId: v.id("fairEvents"),
+    eventDayId: v.id("fairEventDays"),
+    participationId: v.id("fairParticipations"),
+    status: fairReportStatus,
+    dataThrough: v.number(),
+    format: fairReportFormat,
+    storageId: v.optional(v.id("_storage")),
+    recipient: v.optional(v.string()),
+    providerMessageId: v.optional(v.string()),
+    error: v.optional(v.string()),
+    reviewedByUserId: v.optional(v.id("users")),
+    reviewedAt: v.optional(v.number()),
+    approvedByUserId: v.optional(v.id("users")),
+    approvedAt: v.optional(v.number()),
+    correctionOfReportRunId: v.optional(v.id("fairReportRuns")),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_eventDayId_and_participationId", ["eventDayId", "participationId"])
+    .index("by_status_and_createdAt", ["status", "createdAt"]),
+
+  // §5.7 — sponsored snapshot (manually published, immutable list of all
+  // published Advanced models, stably shuffled per dayKey/seed)
+  fairSponsoredSnapshots: defineTable({
+    eventId: v.id("fairEvents"),
+    version: v.number(),
+    dayKey: v.string(),
+    seed: v.string(),
+    status: fairSponsoredSnapshotStatus,
+    publishedAt: v.optional(v.number()),
+    publishedByUserId: v.optional(v.id("users")),
+  })
+    // one "published" snapshot per event (checked by the publish mutation)
+    .index("by_eventId_and_status", ["eventId", "status"])
+    // unique: (eventId, version)
+    .index("by_eventId_and_version", ["eventId", "version"]),
+
+  fairSponsoredSnapshotItems: defineTable({
+    snapshotId: v.id("fairSponsoredSnapshots"),
+    eventModelId: v.id("fairEventModels"),
+    order: v.number(),
+    audienceQuestionId: v.optional(v.id("fairAudienceQuestions")),
+  }).index("by_snapshotId_and_order", ["snapshotId", "order"]),
+
+  // (PII: visitorId) Only the garage strip's explicit `Pogledaj` /
+  // `Dodaj u garažu`; never a QR scan, never a passive impression, never a
+  // map/display write (JOVAN-DELTA §2).
+  fairSponsoredEvents: defineTable({
+    requestId: v.string(),
+    eventId: v.id("fairEvents"),
+    eventModelId: v.id("fairEventModels"),
+    surface: fairSponsoredActionSurface,
+    kind: fairSponsoredActionKind,
+    occurredAt: v.number(),
+    dateKey: v.string(),
+    hourKey: v.string(),
+    visitorId: v.optional(v.id("fairVisitors")),
+  })
+    // unique: requestId
+    .index("by_requestId", ["requestId"])
+    .index("by_eventModelId_and_occurredAt", ["eventModelId", "occurredAt"])
+    .index("by_eventId_and_occurredAt", ["eventId", "occurredAt"]),
 });
