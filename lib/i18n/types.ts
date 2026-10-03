@@ -27,6 +27,7 @@ import type {
   FairPassportConfigStatus,
   FairPassportEligibleStatus,
   FairPreferredContact,
+  FairSponsoredSnapshotStatus,
   FairSurveyQuestionKind,
   FairSurveyStatus,
 } from "../fair-contract";
@@ -3916,6 +3917,39 @@ export interface AdminEventsDict {
   retryConfirmation: string;
   retryFollowUp: string;
   retryDone: string;
+  // B5 — Sponzorisano tab (ručna objava liste Naprednih modela, rezultat na mapi)
+  tabSponsored: string;
+  sponsoredSubtitle: string;
+  sponsoredUnavailable: string;
+  sponsoredTitle: string;
+  sponsoredHelp: string;
+  sponsoredNone: string;
+  sponsoredActiveLine: string;
+  sponsoredUpToDate: string;
+  sponsoredStale: string;
+  sponsoredMissing: string;
+  sponsoredExtra: string;
+  sponsoredQuestionChanged: string;
+  sponsoredPending: string;
+  sponsoredPublish: string;
+  sponsoredPublishConfirm: string;
+  sponsoredPublished: string;
+  sponsoredItemsTitle: string;
+  sponsoredItemsHelp: string;
+  sponsoredItemsEmpty: string;
+  sponsoredItemLine: string;
+  sponsoredItemResult: string;
+  sponsoredItemNoResult: string;
+  sponsoredResultTitle: string;
+  sponsoredResultHelp: string;
+  sponsoredResultNone: string;
+  sponsoredResultNoModels: string;
+  sponsoredResultNoQuestions: string;
+  sponsoredResultSaved: string;
+  sponsoredHistoryTitle: string;
+  sponsoredHistoryHelp: string;
+  sponsoredHistoryLine: string;
+  sponsoredStatus: Record<FairSponsoredSnapshotStatus, string>;
 }
 
 export type AdminEventsPassportProblem = "fewer_than_two_models" | "model_not_published" | "model_not_candidate" | "model_below_starter";

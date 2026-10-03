@@ -2,6 +2,8 @@ import { ConvexError, v, type Infer } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { query, type QueryCtx } from "./_generated/server";
 import {
+  FAIR_GARAGE_ROTATION_INTERVAL_MS,
+  FAIR_MAP_ROTATION_INTERVAL_MS,
   FAIR_MAX_MODEL_IDS_PER_READ,
   type FairLeadFormView,
   type FairPublicEvent,
@@ -9,10 +11,13 @@ import {
   type FairPublicMapStand,
   type FairPublicModel,
   type FairSpecificationGroup,
+  type FairSponsoredModelCard,
+  type FairSponsoredRotationView,
 } from "../lib/fair-contract";
 import { deriveFairCapabilities, getFairEntitlements } from "../lib/fair-entitlements";
 import { fairAudienceResult, fairModelQuestions, fairPassportState, fairVoteThreshold } from "./lib/fairInteractions";
 import { fairActiveConsent, fairExhibitorName, fairLeadConfig, fairRenderConsentText } from "./lib/fairLeads";
+import { fairActiveSponsoredSnapshot, fairSponsoredItems } from "./lib/fairSponsored";
 import {
   fairAudienceQuestionView,
   fairAudienceResultView,
@@ -22,6 +27,7 @@ import {
   fairPublicEventMapView,
   fairPublicEventView,
   fairPublicModelView,
+  fairSponsoredRotationView,
   fairSurveyView,
 } from "./lib/fairValidators";
 
@@ -38,7 +44,8 @@ import {
 // never through here. B3 adds the audience questions and their public
 // (≥5-vote) results, the published survey structure (never its results) and
 // the passport catalog. B4 adds the lead form (contact rule and the consent
-// text; never a lead or contact value).
+// text; never a lead or contact value). B5 adds the two sponsored rotation
+// projections (published Advanced snapshot; never an impression).
 //
 // Visibility: a model is public while it is `published` — the same gate the
 // /r resolver uses. A `draft` event is not public (getEventBySlug → null).
@@ -466,4 +473,94 @@ export const getLeadForm = query({
       consent: { version: consent.version, text: fairRenderConsentText(consent.text, exhibitorName) },
     };
   },
+});
+
+// -----------------------------------------------------------------------------
+// B5 — sponsored rotation (map/display 12 s, garage 8 s)
+// -----------------------------------------------------------------------------
+
+/**
+ * One read of the event's manually published Advanced snapshot (MASTER §10,
+ * HANDOFF §5.7, JOVAN-DELTA §2). Items keep snapshot order; the client picks
+ * the active one with
+ * `getFairRotationSlot({ epochMs, nowMs, intervalMs, itemCount: items.length })`
+ * (lib/fair-client/rotation-slot.ts), so every map and display shows the same
+ * model at the same moment. `epochMs` = the snapshot's `publishedAt`.
+ * A model withdrawn after the publish is skipped (never shown publicly).
+ * Photo fallback: brand logo, then the neutral event placeholder — never
+ * another vehicle's photo. A query: showing the rotation never writes (no
+ * impression, no analytics, no visitor).
+ */
+async function sponsoredRotation(ctx: QueryCtx, eventSlug: string, surface: "map" | "garage"): Promise<FairSponsoredRotationView | null> {
+  const event = await eventBySlug(ctx, eventSlug);
+  if (!event || event.status === "draft") return null;
+  const snapshot = await fairActiveSponsoredSnapshot(ctx, event._id);
+  if (!snapshot || snapshot.publishedAt === undefined) return null;
+  const brand = memo((id: Id<"brands">) => ctx.db.get(id));
+  const stand = memo((id: Id<"fairStands">) => ctx.db.get(id));
+  const threshold = fairVoteThreshold(event);
+
+  const items: FairSponsoredModelCard[] = [];
+  for (const item of await fairSponsoredItems(ctx, snapshot._id)) {
+    const model = await ctx.db.get(item.eventModelId);
+    if (!model || model.status !== "published") continue;
+    const [brandRow, standRow] = await Promise.all([brand(model.brandId), stand(model.standId)]);
+    if (!brandRow || !standRow) continue;
+    const photoUrl = model.photoUrl ?? (model.photoStorageId ? await ctx.storage.getUrl(model.photoStorageId) : null) ?? undefined;
+    const brandLogoUrl = !photoUrl && brandRow.logoStorageId ? (await ctx.storage.getUrl(brandRow.logoStorageId)) ?? undefined : undefined;
+    let audienceResult: FairSponsoredModelCard["audienceResult"];
+    if (surface === "map" && item.audienceQuestionId) {
+      const question = await ctx.db.get(item.audienceQuestionId);
+      if (question && question.status !== "draft" && question.eventModelId === model._id) {
+        audienceResult = {
+          questionId: question._id,
+          prompt: question.prompt,
+          options: [...question.options].sort((a, b) => a.order - b.order).map((option) => ({ id: option.id, label: option.label, order: option.order })),
+          result: await fairAudienceResult(ctx, question, threshold),
+        };
+      }
+    }
+    items.push({
+      eventModelId: model._id,
+      eventId: event._id,
+      eventSlug: event.slug,
+      slug: model.slug,
+      brandId: brandRow._id,
+      brandName: brandRow.name,
+      displayName: model.displayName,
+      ...(model.variant ? { variant: model.variant } : {}),
+      priceText: model.priceText,
+      visual: photoUrl ? "photo" : brandLogoUrl ? "brand_logo" : "event_placeholder",
+      ...(photoUrl ? { photoUrl } : {}),
+      ...(brandLogoUrl ? { brandLogoUrl } : {}),
+      standMapLocationId: standRow.mapLocationId,
+      order: item.order,
+      ...(audienceResult ? { audienceResult } : {}),
+    });
+  }
+  return {
+    surface,
+    eventId: event._id,
+    snapshotId: snapshot._id,
+    version: snapshot.version,
+    dayKey: snapshot.dayKey,
+    seed: snapshot.seed,
+    epochMs: snapshot.publishedAt,
+    intervalMs: surface === "map" ? FAIR_MAP_ROTATION_INTERVAL_MS : FAIR_GARAGE_ROTATION_INTERVAL_MS,
+    items,
+  };
+}
+
+/** Map and fair displays: 12 s slot, model + the admin-chosen question result (`waiting_for_minimum` below 5 votes) + stand. No voting here. */
+export const getSponsoredMapRotation = query({
+  args: { eventSlug: v.string() },
+  returns: v.union(fairSponsoredRotationView, v.null()),
+  handler: async (ctx, args) => sponsoredRotation(ctx, args.eventSlug, "map"),
+});
+
+/** Garage sponsored strip: 8 s slot, photo/fallback + name; `Pogledaj` / `Dodaj u garažu` go through POST /api/fair/sponsored-action. */
+export const getSponsoredGarageRotation = query({
+  args: { eventSlug: v.string() },
+  returns: v.union(fairSponsoredRotationView, v.null()),
+  handler: async (ctx, args) => sponsoredRotation(ctx, args.eventSlug, "garage"),
 });

@@ -143,4 +143,12 @@ export const rateLimiter = new RateLimiter(components.rateLimiter, {
   // limiter and costs nothing. Each model has its own key, so a visitor
   // leaving leads at ten stands never meets the cap.
   fairLeadSubmit: { kind: "token bucket", rate: 2, period: MINUTE, capacity: 3 },
+  // Sajam 2026 B5 (HANDOFF §7, §9): fairSponsoredAction — per visitor
+  // (fairVisitors._id), explicit garage strip taps only (`Pogledaj`,
+  // `Dodaj u garažu`; passive views never reach the limiter). The strip
+  // shows one card per 8 s slot, so a person taps at most both actions per
+  // card: 2 per 8 s = 15/min → refill 20/min leaves headroom; capacity 10
+  // covers a quick burst on a few cards. A same-requestId retry returns
+  // before the limiter and costs nothing.
+  fairSponsoredAction: { kind: "token bucket", rate: 20, period: MINUTE, capacity: 10 },
 });

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { AdminEventsSurface, type CatalogView, type EventsActions, type ModelView } from "@/components/admin/admin-events";
 import type { InteractionsActions, InteractionsView } from "@/components/admin/admin-events-interactions";
 import { AdminEventsLeads, type LeadsActions, type LeadsView } from "@/components/admin/admin-events-leads";
+import { AdminEventsSponsored, type SponsoredActions, type SponsoredView } from "@/components/admin/admin-events-sponsored";
 import { AdminShell } from "@/components/admin/admin-shell";
 import { adminEventsSr as dict } from "@/lib/i18n/sr/admin-events";
 
@@ -111,6 +112,31 @@ const leadActions: LeadsActions = {
   saveConsentDraft: ok, activateConsent: ok, retireConsent: ok, saveLeadConfig: ok, saveFollowUpTemplate: ok, setSuppressed: ok, retryDelivery: ok,
 };
 
+// B5 — Sponzorisano: a published TEST list that is out of date (a model was
+// upgraded after the publish and its map result changed). No real data.
+const sponsoredView: SponsoredView = {
+  models: [
+    { id: "volta-x1", name: "TEST Volta X1 TEST Premium", brandName: "TEST Volta" },
+    { id: "volta-x2", name: "TEST Volta X2", brandName: "TEST Volta" },
+    { id: "om-z2", name: "TEST Om Z2", brandName: "TEST Om" },
+  ],
+  active: { version: 2, publishedAt: opening - 3_600_000, items: [{ modelId: "volta-x1", order: 0, questionId: "q1" }] },
+  history: [
+    { id: "snap-2", version: 2, status: "published", publishedAt: opening - 3_600_000 },
+    { id: "snap-1", version: 1, status: "retired", publishedAt: opening - 86_400_000 },
+  ],
+  candidates: [
+    { modelId: "volta-x1", activatedAt: opening - 86_400_000 },
+    { modelId: "volta-x2", activatedAt: opening - 1_800_000, questionId: "q3" },
+  ],
+  questions: [
+    { id: "q1", modelId: "volta-x1", prompt: "TEST pitanje Glasa publike", status: "published" },
+    { id: "q3", modelId: "volta-x2", prompt: "TEST pitanje modela X2 sa dužim tekstom koji mora da se prelomi na telefonu", status: "published" },
+  ],
+  now: opening,
+};
+const sponsoredActions: SponsoredActions = { publish: ok, setResult: ok };
+
 export function AdminEventsPreview() {
   const [eventId, setEventId] = useState("e-em26");
   return (
@@ -129,6 +155,7 @@ export function AdminEventsPreview() {
         actions={actions}
         interactions={{ view: interactions, actions: interactionActions }}
         leads={<AdminEventsLeads view={leadsView} actions={leadActions} />}
+        sponsored={<AdminEventsSponsored view={sponsoredView} actions={sponsoredActions} />}
       />
     </AdminShell>
   );

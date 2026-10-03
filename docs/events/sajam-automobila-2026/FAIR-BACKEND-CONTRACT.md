@@ -1,6 +1,6 @@
 # Sajam automobila 2026 — fair backend ugovor (B0)
 
-> Status: **B0 — ugovor i šema; B1 — katalog, import, paketi i QR dodela** (admin funkcije u §11, import u §12); **B2 — anonimni identitet, scan pipeline i javni katalog** (§13–§14); **B3 — ocene, Glas publike, anketa i pasoš** (§15–§16); **B4 — leadovi, saglasnost i email outbox** (§17–§18). Napisano iz stvarnog koda 3. i 4. oktobra 2026.
+> Status: **B0 — ugovor i šema; B1 — katalog, import, paketi i QR dodela** (admin funkcije u §11, import u §12); **B2 — anonimni identitet, scan pipeline i javni katalog** (§13–§14); **B3 — ocene, Glas publike, anketa i pasoš** (§15–§16); **B4 — leadovi, saglasnost i email outbox** (§17–§18); **B5 — sponzorisani snapshot, projekcije rotacije i garažne akcije** (§19–§20). Napisano iz stvarnog koda 3. i 4. oktobra 2026.
 >
 > Vlasnik backend-a: **Jovan**. Vlasnik proizvoda i go/no-go: **Aleksa**.
 > Izvori zahteva: `MASTER-KONTEKST.md`, `BACKEND-HANDOFF.md` (§4–§7, §11), `JOVAN-DELTA-2026-10-02.md`.
@@ -21,7 +21,7 @@ Ako se ovaj dokument i kod razilaze, važi kod, a razlika je greška dokumenta.
 
 ## 1. Funkcijska površina
 
-**B0 ne dodaje nijednu public, internal ni admin funkciju.** Nova je samo šema; tipovi i pravila su čiste funkcije. **B1** dodaje admin funkcije (`requireAdmin`) i jednu internal DEV funkciju; spisak je u §11. **B2** dodaje tri javna read-only upita (`fairPublic.*`), fair granu u postojećem `cards.resolveAndRecord`, dve internal funkcije i jedan Next gateway (§13–§14). **B3** dodaje gateway-facing `fairInteractions.*`, četiri javna upita u `fairPublic`, admin `fairInteractionsAdmin.*` i šest POST ruta (§15–§16). **B4** dodaje gateway-facing `fairLeads.submitLead`, javni `fairPublic.getLeadForm`, internal outbox `fairEmails.*`, Node sender `fairEmailSender.*`, admin `fairLeadsAdmin.*` i rutu `POST /api/fair/lead` (§17–§18).
+**B0 ne dodaje nijednu public, internal ni admin funkciju.** Nova je samo šema; tipovi i pravila su čiste funkcije. **B1** dodaje admin funkcije (`requireAdmin`) i jednu internal DEV funkciju; spisak je u §11. **B2** dodaje tri javna read-only upita (`fairPublic.*`), fair granu u postojećem `cards.resolveAndRecord`, dve internal funkcije i jedan Next gateway (§13–§14). **B3** dodaje gateway-facing `fairInteractions.*`, četiri javna upita u `fairPublic`, admin `fairInteractionsAdmin.*` i šest POST ruta (§15–§16). **B4** dodaje gateway-facing `fairLeads.submitLead`, javni `fairPublic.getLeadForm`, internal outbox `fairEmails.*`, Node sender `fairEmailSender.*`, admin `fairLeadsAdmin.*` i rutu `POST /api/fair/lead` (§17–§18). **B5** dodaje javne `fairPublic.getSponsoredMapRotation` i `getSponsoredGarageRotation`, gateway-facing `fairInteractions.recordSponsoredAction`, admin `fairSponsoredAdmin.*` i rutu `POST /api/fair/sponsored-action` (§19–§20).
 
 Planirana površina (HANDOFF §7). Imena se mogu minimalno prilagoditi; odgovornosti ne.
 
@@ -29,9 +29,10 @@ Planirana površina (HANDOFF §7). Imena se mogu minimalno prilagoditi; odgovorn
 |---|---|---|---|
 | `convex/fairAdmin.ts`, `convex/fairImport.ts` (**urađeno**, §11–§12) | B1 | admin (`requireAdmin`) | upsert event/dan/učešće/štand/model, event-only klijent i `convertEventClientToStandard`, QR inventar + atomski assign/release + resolve test, publish/withdraw, upgrade paketa, import dry-run/commit, validation issues |
 | `convex/cards.ts` (hook), `app/r/[cardCode]`, `app/api/fair/**` (**urađeno**, §13) | B2 | postojeći public resolver + server gateway | fair scan u istom `requestId`, visitor hash, server-derived admin isključenje, pečat pasoša |
-| `convex/fairPublic.ts` (B2 i B3 deo **urađen**, §14, §15.3) | B2/B3/B5 | public, read-only, bez PII | `getEventBySlug`, `getModelBySlug`, `getModelsByIds` (≤50) — B2; `listAudienceQuestionsForModel`, `getAudienceQuestionResult`, `getSponsoredMapRotation`, `getSponsoredGarageRotation`, `getPassportCatalog`; `getMyPassportProgress` ide kroz POST gateway (HANDOFF §7) |
-| `convex/fairInteractions.ts` (B3 deo **urađen**, §15) | B3/B5 | public preko POST gateway-a | `getMyModelState`, `upsertRating`, `upsertAudienceVote`, `submitSurvey`, `upsertBrandFavorite`, `recordSponsoredAction` (samo garaža) |
+| `convex/fairPublic.ts` (B2, B3 i B5 deo **urađen**, §14, §15.3, §19.2) | B2/B3/B5 | public, read-only, bez PII | `getEventBySlug`, `getModelBySlug`, `getModelsByIds` (≤50) — B2; `listAudienceQuestionsForModel`, `getAudienceQuestionResult`, `getSponsoredMapRotation`, `getSponsoredGarageRotation`, `getPassportCatalog`; `getMyPassportProgress` ide kroz POST gateway (HANDOFF §7) |
+| `convex/fairInteractions.ts` (B3 i B5 deo **urađen**, §15, §19.4) | B3/B5 | public preko POST gateway-a | `getMyModelState`, `upsertRating`, `upsertAudienceVote`, `submitSurvey`, `upsertBrandFavorite`, `recordSponsoredAction` (samo garaža) |
 | `convex/fairLeads.ts`, `convex/fairEmails.ts`, `convex/fairEmailSender.ts`, `convex/fairLeadsAdmin.ts` (**urađeno**, §17–§18) | B4 | gateway + internal + admin | `submitLead`, potvrda (Node `internalAction`), follow-up, suppression, paginiran izvoz |
+| `convex/fairSponsoredAdmin.ts` (**urađeno**, §20) | B5 | admin (`requireAdmin`) | `publishSponsoredSnapshot`, `getSponsoredRotationAdmin`; izbor rezultata ostaje B3 `setSponsoredResultQuestion` |
 | `convex/fairAnalytics.ts`, `convex/fairReports.ts` | B6 | internal/admin | metrike, dnevni dataset, report lifecycle (send samo iz `approved`) |
 | purge | B7 | internal + admin preview | bounded, retry-safe brisanje PII |
 
@@ -247,6 +248,8 @@ B3 admin kodovi (`FAIR_ADMIN_ISSUE_CODES`): `FAIR_FEATURE_NOT_ENTITLED`, `FAIR_E
 
 B4: lead tok koristi postojeće kodove (`CONSENT_NOT_CONFIGURED`, `CONSENT_REQUIRED`, `CONTACT_REQUIREMENT_NOT_MET`, `FEATURE_NOT_ENTITLED`, `SUBMISSION_DUPLICATE`, `RATE_LIMITED`, `EVENT_NOT_ACTIVE`, `FAIR_MODEL_NOT_FOUND`, `INVALID_INPUT`). Novi admin kodovi: `FAIR_CONSENT_NOT_FOUND`, `FAIR_CONSENT_STATUS`, `FAIR_CONSENT_EXHIBITOR_MISSING`, `FAIR_LEAD_NOT_FOUND`, `FAIR_EMAIL_DELIVERY_NOT_FOUND`, `FAIR_EMAIL_DELIVERY_STATUS`. Greška isporuke (`fairEmailDeliveries.lastError`) je stabilan prefiks iz `FAIR_EMAIL_DELIVERY_ERRORS` (`RESEND_NOT_CONFIGURED`, `FOLLOW_UP_TEMPLATE_MISSING`, `LEAD_MISSING`, `PROVIDER_REJECTED`, `PROVIDER_UNAVAILABLE`) + `:` + HTTP status ili `network`; nikad poruka provajdera ni adresa.
 
+B5: `recordSponsoredAction` koristi postojeće kodove (`INVALID_INPUT` za `surface` ≠ `garage`, drugu vrstu ili loš `requestId`; `FEATURE_NOT_ENTITLED`, `FAIR_MODEL_NOT_FOUND`, `EVENT_NOT_ACTIVE`, `SUBMISSION_DUPLICATE`, `RATE_LIMITED`). Nov admin kod: `FAIR_SPONSORED_LIMIT` (više od 200 Advanced modela u jednom eventu).
+
 Detalji greške su samo ne-PII vrednosti. Tekst greške mapira frontend kroz `lib/i18n`.
 
 ## 7. Formati i ključevi
@@ -258,7 +261,8 @@ Detalji greške su samo ne-PII vrednosti. Tekst greške mapira frontend kroz `li
 | `visitorHash` | lowercase 64-char hex (HMAC na Next serveru). Raw token nikad ne ulazi u Convex, URL ni log. |
 | PII purge | `FAIR_PII_PURGE_AT_MS` = 16. 11. 2026. u 00:00 po Beogradu (2026-11-15T23:00Z). Isto važi za `fairEvents.piiPurgeAt`, `fairLeads.purgeAt` i istek cookie-ja. |
 | Shard ključ | B2 (§13.4): `<metrika>:<opseg>:<id>[:<dateKey>|:<hourKey>]`, metrika `scan_total`/`scan_unique`, opseg `model`/`stand`; npr. `scan_total:model:<id>:2026-10-09T14`. |
-| Rotacija | `items` su poređane po `fairSponsoredSnapshotItems.order`. Klijent zove `getFairRotationSlot({ epochMs, nowMs, intervalMs, itemCount })` iz `lib/fair-client/rotation-slot.ts`. Predlog za B5: `epochMs` = `publishedAt` objavljenog snapshot-a. |
+| Rotacija | `items` su poređane po `fairSponsoredSnapshotItems.order`. Klijent zove `getFairRotationSlot({ epochMs, nowMs, intervalMs, itemCount: items.length })` iz `lib/fair-client/rotation-slot.ts`. B5: `epochMs` = `publishedAt` objavljenog snapshot-a (§19.3). |
+| Sponzorisani brojači | B5: `sponsored_<kind>:model:<id>[:<dateKey>\|:<hourKey>]`, `kind` ∈ `open_model`, `garage_add`. Impression ključ ne postoji. |
 
 ## 8. Za frontend (Kodeksov fixture → ovaj ugovor)
 
@@ -329,6 +333,11 @@ Konstante rotacije u `lib/fair-contract.ts` imaju ista imena i vrednosti kao u `
 46. **Predaja leadova izlagaču** (B4 → B6): `fairLeads.status: delivered`/`deliveredAt` i PII fajl (CSV/XLSX) još ne postoje. B4 daje paginiran admin `exportLeads`. Kanal i primaoci su P0.2.
 47. **Import `test_drive_*`** (B4): kolone iz `03-models.csv` još se ne uvoze u `fairLeadConfigs`; admin ih podešava u tabu `Leadovi`. DATA-INTAKE §6.3 piše `any`, a ugovor `one_of`.
 48. **Purge leadova** (B4 → B7): `fairEmails.purgeLeadPiiBatch` briše outbox i leadove u ograničenim serijama, i to tek od `FAIR_PII_PURGE_AT_MS` (pre toga samo `dryRun`). Zakazivanje 16. 11., audit i ostale visitor tabele su B7.
+49. **Dnevno mešanje bez nove objave** (B5): MASTER §10 kaže „redosled je stabilno izmešan za taj dan“ i „lista se objavljuje/obnavlja ručnom admin akcijom“. Redosled se zato meša po danu **objave**. Ako admin sledećeg dana ne objavi novu listu, ostaje redosled prethodnog dana. Treba li jutarnja automatska objava (cron) ili admin objavljuje svakog jutra?
+50. **Epoha rotacije** (B5): `epochMs` = trenutak objave, kako je predloženo u §7. Svaka nova objava vraća rotaciju na prvi model nove liste. Alternativa je početak sajamskog dana.
+51. **Rezultat pitanja u snapshot-u** (B5): izbor pitanja se zamrzava pri objavi (HANDOFF §5.7: item ima `audienceQuestionId`). Promena izbora traži novu objavu; tab to prikazuje kao „Potrebna nova objava“.
+52. **Akcija za model koji je u međuvremenu ispao iz liste** (B5): `recordSponsoredAction` prima samo model iz trenutno objavljenog snapshot-a. Klik na karticu stare liste posle nove objave vraća `FEATURE_NOT_ENTITLED`.
+53. **Admin u garaži** (B5): akcije prijavljenih ScanMe admina se ne isključuju (gateway ne prosleđuje sesiju, a MASTER §5 izuzima samo skenove). Treba li i ovde izuzeće?
 
 ## 10. Šta stiže posle B0
 
@@ -339,7 +348,7 @@ Konstante rotacije u `lib/fair-contract.ts` imaju ista imena i vrednosti kao u `
 | **B2** (urađeno, §13–§14) | gateway, cookie i HMAC; fair hook u `resolveAndRecord` sa istim `requestId`; admin isključenje preko Convex Auth tokena; shard helper; `fairScan` rate limit; pečat pasoša; `fairPublic` katalog |
 | **B3** (urađeno, §15–§16) | ocene, Glas publike, anketa, pasoš i favorit |
 | **B4** (urađeno, §17–§18) | leadovi, saglasnost i email outbox (produkcija čeka pravni tekst) |
-| **B5** | sponzorisani snapshot i rotacija (samo garažni `open_model`/`garage_add`) |
+| **B5** (urađeno, §19–§20) | sponzorisani snapshot i rotacija (samo garažni `open_model`/`garage_add`) |
 | **B6** | analitika i izveštaji |
 | **B7** | purge, authz, performance i integracioni test |
 
@@ -785,3 +794,71 @@ Zakazivanje, audit i ostale visitor tabele su B7 (§9.48).
 Admin UI je tab `Događaji → Leadovi` (`components/admin/admin-events-leads.tsx`); tekstovi su u `lib/i18n/sr/admin-events.ts`. Sekcija se montira samo dok je tab otvoren, pa se kontakti ne učitavaju u pozadini.
 
 **Nijedna javna funkcija ne vraća kontakt.** `submitLead` vraća samo `FairLeadSubmitResult`, `getLeadForm` samo pravilo i tekst saglasnosti, a funkcija koja po visitor hash-u čita kontakt ne postoji. Test (`convex/fairLeads.test.ts`) prolazi kroz izlaze javnih i visitor funkcija i proverava da u njima nema imena, emaila, telefona, hash-a ni snapshot-a. Proverava i da je jedina javna lead funkcija `submitLead`, da su outbox, sender i purge `internal`, a da admin funkcije odbijaju anonimnog i ne-admin korisnika.
+
+## 19. B5 — sponzorisani snapshot i rotacija (stvarna površina)
+
+Izvori: HANDOFF §5.7, §7, §11 B5, §12; MASTER §6, §10; JOVAN-DELTA §2; V2 §6–§7. Šema se u B5 ne menja; B5 prvi put piše B0 tabele `fairSponsoredSnapshots`, `fairSponsoredSnapshotItems` i `fairSponsoredEvents`. Jezgro je `convex/lib/fairSponsored.ts`.
+
+### 19.1 Snapshot
+
+- Nastaje **samo** ručnom admin objavom (`fairSponsoredAdmin.publishSponsoredSnapshot`, §20). Nema crona ni automatske obnove (§9.49).
+- Sadrži svaki model eventa koji je u trenutku objave `published` i čiji je paket **na snazi** Advanced (`fairModelTierAt`; buduća aktivacija se ne primenjuje unapred). Starter, `included`, nacrt i povučen model nikad ne ulaze.
+- Redosled: stabilno mešanje po `seed` + `dayKey` (Beograd). Ključ modela je FNV-1a heš niza `seed|dayKey|eventModelId`, a jednakost rešava ID. Isti dan i seed daju isti redosled; model dodat istog dana se ubacuje bez pomeranja ostalih. `seed` = `fair-sponsored-v1:<eventId>` (čuva se na snapshot-u radi provere).
+- Immutable: objava nikad ne menja postojeći item. Pravi nov snapshot sa `version` + 1 i `status: published`, a prethodni `published` prelazi u `retired`. Po eventu je najviše jedan `published`.
+- `audienceQuestionId` itema = pitanje izabrano sa `setSponsoredResultQuestion` (ne nacrt) u trenutku objave. Promena izbora ulazi u rotaciju tek posle nove objave.
+- Prazna lista je dozvoljena: tako se rotacija skida kada nema Advanced modela.
+- Tehnički limit je 200 modela po snapshot-u (`FAIR_SPONSORED_LIMIT`).
+
+### 19.2 Javne projekcije (`convex/fairPublic.ts`, query, bez identiteta)
+
+| Funkcija | Args | Vraća |
+|---|---|---|
+| `getSponsoredMapRotation` | `{ eventSlug }` | `FairSponsoredRotationView` sa `surface: "map"`, `intervalMs: 12000`; stavka ima `audienceResult` ako je pitanje izabrano |
+| `getSponsoredGarageRotation` | `{ eventSlug }` | isto, `surface: "garage"`, `intervalMs: 8000`; nikad `audienceResult` |
+
+`null` znači da nema rotacije: nepostojeći ili `draft` event, ili još nije objavljen snapshot. Mapa i svi displeji koriste istu projekciju; poseban display endpoint ne postoji.
+
+`FairSponsoredModelCard`: `eventModelId`, `eventId`, `eventSlug`, `slug`, `brandId`, `brandName`, `displayName`, `variant?`, `priceText`, `visual`, `photoUrl?`, `brandLogoUrl?`, `standMapLocationId`, `order`, `audienceResult?`.
+
+- **Fotografija:** `visual: "photo"` sa `photoUrl` samo iz istog modela (`photoUrl` ili `photoStorageId`). Bez nje `brand_logo` sa `brandLogoUrl` (`brands.logoStorageId`). Bez oba `event_placeholder`, bez URL-a, a frontend crta neutralni event placeholder. Fotografija drugog vozila se nikad ne vraća.
+- **Rezultat na mapi:** `{ questionId, prompt, options, result }`. `result` je isti `FairAudienceResultView` kao u B3: ispod 5 glasova `waiting_for_minimum` bez procenta (UI: „Glasanje je u toku“), od 5 celobrojni procenti. Na mapi se ne glasa.
+- Model povučen posle objave se preskače, pa javno nikad ne prikazujemo povučen model. Svi klijenti dobijaju istu listu, pa i dalje računaju isti slot.
+- **Bez impression polja i bez metrike.** Upit ne može da piše, a test proverava da čitanje ne menja nijednu tabelu.
+
+### 19.3 Mapiranje na `lib/fair-client/rotation-slot.ts`
+
+| Polje projekcije | Ulaz u `getFairRotationSlot` / `getFairRotationItem` |
+|---|---|
+| `epochMs` (= `publishedAt` snapshot-a) | `epochMs` |
+| `intervalMs` (`FAIR_MAP_ROTATION_INTERVAL_MS` 12000 / `FAIR_GARAGE_ROTATION_INTERVAL_MS` 8000, iste vrednosti kao u `rotation-slot.ts`) | `intervalMs` |
+| `items.length` | `itemCount` (ili `getFairRotationItem(items, …)`) |
+| sat uređaja | `nowMs` |
+| `seed`, `version`, `dayKey`, `snapshotId` | ne ulaze u formulu. Redosled je već primenjen na serveru; promena `version`/`snapshotId` znači da je objavljena nova lista. |
+
+Formula je Kodeksova i ostaje jedina: `index = floor(max(0, now − epoch) / interval) mod itemCount`. Zato se svaki model prikaže jednom pre ponavljanja, a svi ekrani sa istim satom prikazuju isti model. Pauza garažne trake tokom interakcije (MASTER §6) je frontend ponašanje i ne menja epohu. HANDOFF §5.7 traži „seed/version/epoch vrednosti potrebne za dnevno stabilan ravnopravan round-robin“; ovde ih server primenjuje i vraća, pa konflikta sa `rotation-slot.ts` nema.
+
+### 19.4 `recordSponsoredAction` (`convex/fairInteractions.ts`) i `POST /api/fair/sponsored-action`
+
+Telo rute: `FairSponsoredActionInput` = `{ eventModelId, surface: "garage", kind: "open_model" | "garage_add", requestId }`. Gateway (`lib/fair-server/sponsored.ts`) je isti kao B3/B4: same-origin, strogo telo (bez `visitorHash`), hash iz HttpOnly cookie-ja, `no-store`. Map/display surface i druge vrste odbija već gateway (400), a Convex ponovo (`INVALID_INPUT`).
+
+Redosled u mutaciji: hash → `surface === "garage"` → vrsta → `requestId` (`FAIR_SUBMISSION_ID_PATTERN`) → dedupe po `requestId` (isti posetilac, model i vrsta → `duplicate: true`, ništa novo; inače `SUBMISSION_DUPLICATE`) → objavljen model i aktivan event → paket na snazi ima `sponsoredGarageRotation` → model je u objavljenom snapshot-u (inače `FEATURE_NOT_ENTITLED`) → `upsertFairVisitor` → `fairSponsoredAction` limit → red `fairSponsoredEvents` (`surface: "garage"`, `dateKey`, `hourKey`, `visitorId`) + tri brojača `sponsored_<kind>:model:<id>[:dan|:sat]`.
+
+Vraća `FairSponsoredActionResult` = `{ eventModelId, kind, recordedAt, duplicate }`.
+
+- Nije QR scan: ne piše `fairScanEvents`, `fairUniqueScans`, `cardScanEvents`, pečat pasoša ni `scan_*` brojač (test).
+- Ne dodaje model u garažu: garaža je u browseru, a model dodaje samo posetilac.
+- Mapa i displej nemaju sponzorisani upis.
+- Posle purge-a ostaju samo anonimni brojači (`visitorId` je PII, B7).
+
+Rate limit `fairSponsoredAction`: rate 20/min, kapacitet 10, ključ `fairVisitors._id`. Aritmetika: traka menja karticu na 8 s, pa čovek može najviše oba dugmeta po kartici, 2 na 8 s = 15/min. Retry istog `requestId` ne troši token.
+
+## 20. B5 — admin (`convex/fairSponsoredAdmin.ts`, sve sa `requireAdmin`)
+
+| Funkcija | Pravilo |
+|---|---|
+| `publishSponsoredSnapshot` | `{ eventId }` → `{ snapshotId, version, dayKey, seed, publishedAt, itemCount, retiredSnapshotIds }`. Nova immutable lista po §19.1; prethodna `published` → `retired`; audit `fair_sponsored_snapshot_published`. |
+| `getSponsoredRotationAdmin` | `{ eventId }` → aktivni snapshot sa itemima po redu, poslednjih 10 verzija i kandidati (objavljeni modeli sa sačuvanim paketom Advanced, `packageActivatedAt`, trenutno izabrano pitanje). Bez podataka posetilaca i bez metrike. |
+
+Izbor pitanja ostaje `fairInteractionsAdmin.setSponsoredResultQuestion` (B3, §16).
+
+Admin UI je tab `Događaji → Sponzorisano` (`components/admin/admin-events-sponsored.tsx`). Prikazuje redosled objavljene liste i rezultat uz svaki model, stanje „Ažurno / Potrebna nova objava“ (model nedostaje, više nije objavljen Advanced, promenjen rezultat, paket počinje kasnije), objavu nove liste uz potvrdu, izbor rezultata po Advanced modelu i verzije. Tekstovi su u `lib/i18n/sr/admin-events.ts`.
