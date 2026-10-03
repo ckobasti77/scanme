@@ -319,6 +319,66 @@ export type FairPassportState = {
   progress: FairPassportProgress[];
 };
 
+// -----------------------------------------------------------------------------
+// B3 — survey and the visitor's own model state (POST gateway only)
+// -----------------------------------------------------------------------------
+
+export type FairSurveyQuestionView = {
+  id: string;
+  prompt: string;
+  kind: FairSurveyQuestionKind;
+  /** Empty for `yes_no` (answers are "yes" / "no"). */
+  options: FairChoiceOptionView[];
+  order: number;
+};
+
+/** The published survey version of an Advanced model. Never carries results. */
+export type FairSurveyView = {
+  surveyId: string;
+  eventModelId: string;
+  version: number;
+  title?: string;
+  questions: FairSurveyQuestionView[];
+};
+
+/** `value` is "yes" | "no" for a `yes_no` question, else the chosen option id. */
+export type FairSurveyAnswerInput = { questionId: string; value: string };
+
+export type FairMySurveyState =
+  | { state: "none" }
+  | { state: "open"; surveyId: string; version: number }
+  | { state: "submitted"; surveyId: string; version: number; submittedAt: number };
+
+/**
+ * Everything visitor-specific about one model, read through the same-origin
+ * POST gateway (never a URL). Only the visitor's OWN rating and choices plus
+ * public (≥5-vote) results; no rating aggregate, no other visitor's state.
+ */
+export type FairMyModelState = {
+  eventModelId: string;
+  rating: FairRatingState;
+  /** Results of the questions this visitor voted on, with `myOptionId`. */
+  audience: FairAudienceResultView[];
+  survey: FairMySurveyState;
+  /** Progress in the model's brand passport, when it is a required member of a published one. */
+  passport: FairPassportProgress | null;
+};
+
+/** `submitSurvey` result; `duplicate` = the same submissionId was already stored. */
+export type FairSurveySubmitResult = {
+  surveyId: string;
+  version: number;
+  submittedAt: number;
+  duplicate: boolean;
+};
+
+/** Client-generated idempotency key of a survey submit (and later a lead). */
+export const FAIR_SUBMISSION_ID_PATTERN = /^[A-Za-z0-9_-]{8,80}$/;
+
+export function isFairSubmissionId(value: string): boolean {
+  return FAIR_SUBMISSION_ID_PATTERN.test(value);
+}
+
 /** Photo first; otherwise brand logo, otherwise the neutral event placeholder (MASTER §10). */
 export type FairSponsoredVisual = "photo" | "brand_logo" | "event_placeholder";
 
@@ -391,6 +451,11 @@ export const FAIR_ERROR_CODES = [
   "ORIGIN_NOT_ALLOWED",
   "PAYLOAD_TOO_LARGE",
   "VISITOR_UNAVAILABLE",
+  // B3 — interactions.
+  "PASSPORT_NOT_ACTIVE",
+  "SURVEY_NOT_OPEN",
+  // B3 gateway: Convex was unreachable or answered without a stable code.
+  "SERVICE_UNAVAILABLE",
 ] as const;
 export type FairErrorCode = (typeof FAIR_ERROR_CODES)[number];
 
@@ -453,6 +518,20 @@ export const FAIR_ADMIN_ISSUE_CODES = [
   "FAIR_MODEL_ALREADY_ASSIGNED",
   "FAIR_QR_SUBJECT_SHARED",
   "FAIR_QR_NOT_ASSIGNED",
+  // B3 — Glas publike, survey and passport admin commands
+  "FAIR_FEATURE_NOT_ENTITLED",
+  "FAIR_EVENT_DAY_NOT_FOUND",
+  "FAIR_QUESTION_NOT_FOUND",
+  "FAIR_QUESTION_LOCKED",
+  "FAIR_QUESTION_DAY_LIMIT",
+  "FAIR_QUESTION_STATUS",
+  "FAIR_SURVEY_NOT_FOUND",
+  "FAIR_SURVEY_INVALID",
+  "FAIR_SURVEY_LOCKED",
+  "FAIR_PASSPORT_NOT_FOUND",
+  "FAIR_PASSPORT_NOT_ELIGIBLE",
+  "FAIR_PASSPORT_FROZEN",
+  "FAIR_PASSPORT_EVENT_STARTED",
   // Warnings
   "FAIR_PRICE_MISSING",
   "FAIR_PHOTO_MISSING",

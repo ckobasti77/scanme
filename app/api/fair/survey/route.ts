@@ -1,0 +1,11 @@
+import { handleFairSurvey } from "@/lib/fair-server/interactions";
+
+// Sajam 2026 B3: POST /api/fair/survey — submit the Advanced survey once (idempotent by submissionId).
+// Same-origin only, bounded strict JSON body, no-store; the visitor is the
+// HMAC of the HttpOnly cookie, never a body field or URL parameter. Logic
+// lives in lib/fair-server/interactions.ts (tested).
+export const dynamic = "force-dynamic";
+
+export async function POST(request: Request) {
+  return handleFairSurvey(request);
+}

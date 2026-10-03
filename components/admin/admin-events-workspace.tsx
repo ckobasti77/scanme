@@ -14,6 +14,7 @@ import {
   type Outcome,
   type Result,
 } from "@/components/admin/admin-events";
+import type { InteractionOutcome, InteractionsActions, InteractionsView } from "@/components/admin/admin-events-interactions";
 import { AdminErrorState, AdminPanel } from "@/components/admin/admin-primitives";
 import { adminEventsSr as dict } from "@/lib/i18n/sr/admin-events";
 
@@ -49,6 +50,13 @@ async function outcome(run: () => Promise<{ warnings?: IssueView[] } | unknown>)
   return { ok: true, warnings: value && Array.isArray(value.warnings) ? value.warnings : undefined };
 }
 
+async function interactionOutcome(run: () => Promise<unknown>): Promise<InteractionOutcome> {
+  const result = await attempt(run);
+  if (!result.ok) return { ok: false, code: result.code };
+  const value = result.value as { problem?: unknown } | null;
+  return { ok: true, problem: value && typeof value.problem === "string" ? value.problem : null };
+}
+
 const INVENTORY_PAGE = 50;
 const CLIENT_PAGE = 25;
 
@@ -65,6 +73,7 @@ export function AdminEventsWorkspace() {
   const qrConfigured = Boolean(catalog?.event.qrInventoryBusinessId);
   const inventory = usePaginatedQuery(api.fairAdmin.listQrInventory, eventId && qrConfigured ? { eventId } : "skip", { initialNumItems: INVENTORY_PAGE });
   const clients = usePaginatedQuery(api.fairAdmin.listEventClients, {}, { initialNumItems: CLIENT_PAGE });
+  const interactionData = useQuery(api.fairInteractionsAdmin.getEventInteractions, args);
 
   const publish = useMutation(api.fairAdmin.publishModel);
   const withdraw = useMutation(api.fairAdmin.withdrawModel);
@@ -73,6 +82,17 @@ export function AdminEventsWorkspace() {
   const releaseQr = useMutation(api.fairAdmin.releaseQr);
   const commit = useMutation(api.fairImport.commit);
   const convert = useMutation(api.fairAdmin.convertEventClientToStandard);
+  const saveQuestion = useMutation(api.fairInteractionsAdmin.upsertAudienceQuestion);
+  const publishQuestion = useMutation(api.fairInteractionsAdmin.publishAudienceQuestion);
+  const closeQuestion = useMutation(api.fairInteractionsAdmin.closeAudienceQuestion);
+  const setSponsoredResult = useMutation(api.fairInteractionsAdmin.setSponsoredResultQuestion);
+  const saveSurveyDraft = useMutation(api.fairInteractionsAdmin.upsertSurveyDraft);
+  const publishSurvey = useMutation(api.fairInteractionsAdmin.publishSurvey);
+  const retireSurvey = useMutation(api.fairInteractionsAdmin.retireSurvey);
+  const openPassport = useMutation(api.fairInteractionsAdmin.upsertPassport);
+  const publishPassport = useMutation(api.fairInteractionsAdmin.publishPassport);
+  const withdrawPassport = useMutation(api.fairInteractionsAdmin.withdrawPassport);
+  const removePassportModel = useMutation(api.fairInteractionsAdmin.removePassportModel);
 
   const view: CatalogView | undefined = useMemo(() => {
     if (!catalog || !directory || !validation) return undefined;
@@ -132,6 +152,55 @@ export function AdminEventsWorkspace() {
 
   const modelNames = useMemo(() => new Map((view?.models ?? []).map((model) => [model.id, model.displayName])), [view]);
 
+  // B3: Glas publike, survey versions and passports (convex/fairInteractionsAdmin.ts).
+  const interactionsView: InteractionsView | undefined = useMemo(() => {
+    if (!catalog || !directory || !interactionData) return undefined;
+    const brandNames = new Map(directory.brands.map((row) => [row.brandId, row.name]));
+    const fullName = (model: { displayName: string; variant?: string }) => `${model.displayName}${model.variant ? ` ${model.variant}` : ""}`;
+    const names = new Map(catalog.models.map((model) => [model._id, fullName(model)]));
+    const days = [...catalog.days].sort((a, b) => a.sortOrder - b.sortOrder);
+    const dayLabels = new Map(days.map((day) => [day._id, day.label]));
+    const live = catalog.models.filter((model) => model.status !== "withdrawn");
+    const passportByBrand = new Map(interactionData.passports.map((row) => [row.brandId, row]));
+    const brandIds = [...new Set([...live.map((model) => model.brandId), ...interactionData.passports.map((row) => row.brandId)])];
+    return {
+      models: live.map((model) => ({ id: model._id, name: fullName(model), brandName: brandNames.get(model.brandId) ?? "—", tier: model.packageTier })),
+      days: days.map((day) => ({ id: day._id, label: day.label })),
+      questions: interactionData.questions.map((row) => ({
+        id: row._id, modelId: row.eventModelId, dayLabel: dayLabels.get(row.eventDayId) ?? "—", prompt: row.prompt, options: row.options,
+        status: row.status, sortOrder: row.sortOrder, showOnSponsoredRotation: row.showOnSponsoredRotation,
+      })),
+      surveys: interactionData.surveys.map((row) => ({ id: row._id, modelId: row.eventModelId, version: row.version, status: row.status, questionCount: row.questions.length })),
+      passports: brandIds.map((brandId) => {
+        const passport = passportByBrand.get(brandId);
+        return {
+          id: passport?._id ?? null,
+          brandId,
+          brandName: brandNames.get(brandId) ?? "—",
+          status: passport?.status ?? null,
+          ...(passport?.frozenAt !== undefined ? { frozenAt: passport.frozenAt } : {}),
+          members: (passport?.members ?? []).map((member) => ({ modelId: member.eventModelId, modelName: names.get(member.eventModelId) ?? "—", status: member.status })),
+        };
+      }).sort((a, b) => a.brandName.localeCompare(b.brandName, "sr-Latn-RS")),
+    };
+  }, [catalog, directory, interactionData]);
+
+  const interactionActions: InteractionsActions = {
+    saveQuestion: (input) => interactionOutcome(() => saveQuestion({
+      eventModelId: input.modelId as Id<"fairEventModels">, eventDayId: input.dayId as Id<"fairEventDays">, prompt: input.prompt, options: input.options, sortOrder: input.sortOrder,
+    })),
+    publishQuestion: (questionId) => interactionOutcome(() => publishQuestion({ questionId: questionId as Id<"fairAudienceQuestions"> })),
+    closeQuestion: (questionId) => interactionOutcome(() => closeQuestion({ questionId: questionId as Id<"fairAudienceQuestions"> })),
+    setSponsoredResult: (modelId, questionId) => interactionOutcome(() => setSponsoredResult({ eventModelId: modelId as Id<"fairEventModels">, questionId: questionId as Id<"fairAudienceQuestions"> | null })),
+    saveSurveyDraft: (modelId, questions) => interactionOutcome(() => saveSurveyDraft({ eventModelId: modelId as Id<"fairEventModels">, questions })),
+    publishSurvey: (surveyId) => interactionOutcome(() => publishSurvey({ surveyId: surveyId as Id<"fairSurveys"> })),
+    retireSurvey: (surveyId) => interactionOutcome(() => retireSurvey({ surveyId: surveyId as Id<"fairSurveys"> })),
+    openPassport: (brandId) => interactionOutcome(() => eventId ? openPassport({ eventId, brandId: brandId as Id<"brands"> }) : Promise.reject(new Error("no event"))),
+    publishPassport: (passportId) => interactionOutcome(() => publishPassport({ passportId: passportId as Id<"fairPassportConfigs"> })),
+    withdrawPassport: (passportId) => interactionOutcome(() => withdrawPassport({ passportId: passportId as Id<"fairPassportConfigs"> })),
+    removePassportModel: (passportId, modelId) => interactionOutcome(() => removePassportModel({ passportId: passportId as Id<"fairPassportConfigs">, eventModelId: modelId as Id<"fairEventModels"> })),
+  };
+
   const actions: EventsActions = {
     publish: (modelId) => outcome(() => publish({ eventModelId: modelId as Id<"fairEventModels"> })),
     withdraw: (modelId) => outcome(() => withdraw({ eventModelId: modelId as Id<"fairEventModels"> })),
@@ -176,6 +245,7 @@ export function AdminEventsWorkspace() {
         onLoadMore: () => clients.loadMore(CLIENT_PAGE),
       }}
       actions={actions}
+      interactions={{ view: interactionsView, actions: interactionActions }}
     />
   );
 }

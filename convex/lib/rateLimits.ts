@@ -108,4 +108,28 @@ export const rateLimiter = new RateLimiter(components.rateLimiter, {
   // model still happen (cards.resolveAndRecord). NOTE: the generic per-IP
   // `cardResolve` (300/min, capacity 300) still runs first for every scan.
   fairScan: { kind: "token bucket", rate: 20, period: MINUTE, capacity: 20 },
+  // Sajam 2026 B3 (HANDOFF §9): the interaction writes, each keyed per
+  // anonymous visitor (fairVisitors._id) for the same NAT and purge reasons as
+  // fairScan. A refusal throws RATE_LIMITED and commits nothing. Duplicate
+  // protection is NOT these buckets: rating = one row per visitor+model, vote
+  // = one row per visitor+question, survey = submissionId + one response per
+  // visitor+model, favorite = one row per visitor+event+brand.
+  //
+  // fairRating — a person taps stars: Advanced has 3 dimensions, a frontend
+  // may send each tap, plus a correction or two ≈ 5 writes per model; a stand
+  // with 4 cars rated back-to-back ≈ 20 → capacity 20. Rate 30/min (one write
+  // per 2 s sustained) is above any considered rating pace and far below a
+  // script.
+  fairRating: { kind: "token bucket", rate: 30, period: MINUTE, capacity: 20 },
+  // fairAudienceVote — an Advanced model has up to 5 questions a day, answered
+  // in one short mobile flow with 2–3 changed answers ≈ 8; two Advanced
+  // models at one stand ≈ 15 → capacity 15, refill 30/min as above.
+  fairAudienceVote: { kind: "token bucket", rate: 30, period: MINUTE, capacity: 15 },
+  // fairSurveySubmit — one final submit per Advanced model (a same-submissionId
+  // retry returns before the limiter, so it costs nothing). A stand with up
+  // to 5 Advanced models fits capacity 5; 5/min refill.
+  fairSurveySubmit: { kind: "token bucket", rate: 5, period: MINUTE, capacity: 5 },
+  // fairBrandFavorite — one favorite per completed brand passport, changeable:
+  // pick + a couple of changes per brand ≈ 3; capacity 5, 10/min refill.
+  fairBrandFavorite: { kind: "token bucket", rate: 10, period: MINUTE, capacity: 5 },
 });

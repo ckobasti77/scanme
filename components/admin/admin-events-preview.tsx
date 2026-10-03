@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { AdminEventsSurface, type CatalogView, type EventsActions, type ModelView } from "@/components/admin/admin-events";
+import type { InteractionsActions, InteractionsView } from "@/components/admin/admin-events-interactions";
 import { AdminShell } from "@/components/admin/admin-shell";
 import { adminEventsSr as dict } from "@/lib/i18n/sr/admin-events";
 
@@ -51,6 +52,27 @@ const actions: EventsActions = {
   convert: ok,
 };
 
+const interactions: InteractionsView = {
+  models: [
+    { id: "volta-x1", name: "TEST Volta X1 TEST Premium", brandName: "TEST Volta", tier: "advanced" },
+    { id: "volta-x2", name: "TEST Volta X2", brandName: "TEST Volta", tier: "starter" },
+  ],
+  days: catalog.days.map((day, index) => ({ id: `d${index + 1}`, label: day.label })),
+  questions: [
+    { id: "q1", modelId: "volta-x1", dayLabel: "TEST dan 1", prompt: "TEST pitanje Glasa publike", options: [{ id: "o1", label: "TEST opcija 1", order: 1 }, { id: "o2", label: "TEST opcija 2", order: 2 }], status: "published", sortOrder: 1, showOnSponsoredRotation: true },
+    { id: "q2", modelId: "volta-x2", dayLabel: "TEST dan 1", prompt: "TEST pitanje u nacrtu", options: [{ id: "o1", label: "TEST da", order: 1 }, { id: "o2", label: "TEST ne", order: 2 }], status: "draft", sortOrder: 1, showOnSponsoredRotation: false },
+  ],
+  surveys: [{ id: "s1", modelId: "volta-x1", version: 1, status: "published", questionCount: 2 }],
+  passports: [
+    { id: "p1", brandId: "b-volta", brandName: "TEST Volta", status: "draft", members: [] },
+    { id: null, brandId: "b-om", brandName: "TEST Om", status: null, members: [] },
+  ],
+};
+const interactionActions: InteractionsActions = {
+  saveQuestion: ok, publishQuestion: ok, closeQuestion: ok, setSponsoredResult: ok, saveSurveyDraft: ok, publishSurvey: ok,
+  retireSurvey: ok, openPassport: ok, publishPassport: ok, withdrawPassport: ok, removePassportModel: ok,
+};
+
 const noMore = { canLoadMore: false, loadingMore: false, onLoadMore: () => undefined, status: "ready" as const };
 
 export function AdminEventsPreview() {
@@ -69,6 +91,7 @@ export function AdminEventsPreview() {
         ] }}
         eventClients={{ ...noMore, rows: [{ accountId: "a-a", name: "TEST Izlagač A", smkCode: "SMK-TEST-FAIR-A" }] }}
         actions={actions}
+        interactions={{ view: interactions, actions: interactionActions }}
       />
     </AdminShell>
   );
