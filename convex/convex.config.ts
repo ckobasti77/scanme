@@ -26,6 +26,11 @@ const app = defineApp({
     RESEND_API_KEY: v.optional(v.string()),
     RESEND_FROM_EMAIL: v.optional(v.string()),
     SCANME_ACTIVATION_REQUEST_EMAIL: v.optional(v.string()),
+    // Sajam 2026 B4: public base URL for links in fair emails (default: the
+    // main ScanMe domain) and the monitored ScanMe address that receives
+    // replies to the lead confirmation (follow-up opt-out). Both optional.
+    FAIR_PUBLIC_BASE_URL: v.optional(v.string()),
+    FAIR_EMAIL_REPLY_TO: v.optional(v.string()),
     // ADMIN-09B Zoho Mail adapter. All values are server-only and optional so
     // the foundation remains inert until ADMIN-09C supplies and verifies them.
     ZOHO_MAIL_API_BASE_URL: v.optional(v.string()),

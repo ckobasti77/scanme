@@ -71,11 +71,11 @@ export type InteractionsActions = {
   removePassportModel: (passportId: string, modelId: string) => Promise<InteractionOutcome>;
 };
 
-const field = "min-h-11 w-full min-w-0 rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--admin-focus)]";
-const primaryButton = "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[var(--admin-ink)] px-4 text-sm font-semibold text-[var(--admin-on-ink)] disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--admin-focus)]";
-const secondaryButton = "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface-strong)] px-4 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--admin-focus)]";
+export const field = "min-h-11 w-full min-w-0 rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--admin-focus)]";
+export const primaryButton = "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[var(--admin-ink)] px-4 text-sm font-semibold text-[var(--admin-on-ink)] disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--admin-focus)]";
+export const secondaryButton = "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface-strong)] px-4 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--admin-focus)]";
 
-const dateTime = new Intl.DateTimeFormat("sr-Latn-RS", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Belgrade" });
+export const dateTime = new Intl.DateTimeFormat("sr-Latn-RS", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Belgrade" });
 
 type Message = { tone: "ok" | "error"; text: string } | null;
 
@@ -89,7 +89,7 @@ function linesToOptions(text: string) {
   return text.split("\n").map((line) => line.trim()).filter(Boolean).map((label, index) => ({ id: `o${index + 1}`, label, order: index + 1 }));
 }
 
-function useRunner() {
+export function useRunner() {
   const [message, setMessage] = useState<Message>(null);
   const [pending, setPending] = useState(false);
   async function run(action: () => Promise<InteractionOutcome>, success: string, after?: () => void) {
@@ -111,7 +111,7 @@ function useRunner() {
   return { message, pending, run };
 }
 
-function Feedback({ message }: { message: Message }) {
+export function Feedback({ message }: { message: Message }) {
   return (
     <div role="status" aria-live="polite">
       {message ? (
@@ -121,7 +121,7 @@ function Feedback({ message }: { message: Message }) {
   );
 }
 
-function Section({ title, help, children }: { title: string; help: string; children: ReactNode }) {
+export function Section({ title, help, children }: { title: string; help: string; children: ReactNode }) {
   return (
     <AdminPanel className="min-w-0 p-4 sm:p-5">
       <h2 className="text-lg font-semibold tracking-[-0.025em]">{title}</h2>
@@ -131,20 +131,20 @@ function Section({ title, help, children }: { title: string; help: string; child
   );
 }
 
-function RowList({ children }: { children: ReactNode }) {
+export function RowList({ children }: { children: ReactNode }) {
   return <ul className="mt-4 grid divide-y divide-[var(--admin-border)] overflow-hidden rounded-[var(--admin-radius-control)] border border-[var(--admin-border)]">{children}</ul>;
 }
 
-function Row({ children }: { children: ReactNode }) {
+export function Row({ children }: { children: ReactNode }) {
   return <li className="grid min-w-0 gap-2 bg-[var(--admin-surface)] px-4 py-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">{children}</li>;
 }
 
-function Meta({ children }: { children: ReactNode }) {
+export function Meta({ children }: { children: ReactNode }) {
   return <span className="block break-words text-xs text-[var(--admin-text-muted)]">{children}</span>;
 }
 
 /** A destructive button that needs a second, explicit confirmation. */
-function ConfirmAction({ label, body, disabled, onConfirm }: { label: string; body: string; disabled: boolean; onConfirm: () => void }) {
+export function ConfirmAction({ label, body, disabled, onConfirm }: { label: string; body: string; disabled: boolean; onConfirm: () => void }) {
   const [open, setOpen] = useState(false);
   if (!open) return <button type="button" className={secondaryButton} disabled={disabled} onClick={() => setOpen(true)}>{label}</button>;
   return (

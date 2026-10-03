@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { AdminEventsSurface, type CatalogView, type EventsActions, type ModelView } from "@/components/admin/admin-events";
 import type { InteractionsActions, InteractionsView } from "@/components/admin/admin-events-interactions";
+import { AdminEventsLeads, type LeadsActions, type LeadsView } from "@/components/admin/admin-events-leads";
 import { AdminShell } from "@/components/admin/admin-shell";
 import { adminEventsSr as dict } from "@/lib/i18n/sr/admin-events";
 
@@ -75,6 +76,41 @@ const interactionActions: InteractionsActions = {
 
 const noMore = { canLoadMore: false, loadingMore: false, onLoadMore: () => undefined, status: "ready" as const };
 
+// B4 — Leadovi: TEST consent drafts, settings and two TEST leads (no real contact data).
+const leadsView: LeadsView = {
+  models: [
+    { id: "volta-x2", name: "TEST Volta X2", exhibitorName: "TEST Izlagač A", tier: "advanced" },
+    { id: "volta-x1", name: "TEST Volta X1 TEST Premium", exhibitorName: "TEST Izlagač A", tier: "starter" },
+  ],
+  participations: [{ id: "p-a", exhibitorName: "TEST Izlagač A" }, { id: "p-b", exhibitorName: "TEST Izlagač B" }],
+  consents: [{ id: "consent-1", kind: "interest", version: 1, status: "draft", text: "TEST nacrt saglasnosti — ScanMe prosleđuje kontakt izlagaču {izlagac}." }],
+  modelId: "volta-x2",
+  onSelectModel: () => undefined,
+  modelSettings: {
+    tier: "advanced",
+    interest: { contactRequirement: "one_of", enabled: true },
+    testDrive: { contactRequirement: "both", preferredContact: "phone", enabled: true },
+    followUpTemplate: null,
+  },
+  participationId: "p-a",
+  onSelectParticipation: () => undefined,
+  leads: { ...noMore, rows: [
+    {
+      id: "lead-1", createdAt: opening + 3_600_000, kind: "test_drive", modelName: "TEST Volta X2", contactName: "TEST Posetilac Sa Veoma Dugim Imenom i Prezimenom",
+      email: "test.posetilac.sa.dugom.adresom@example.invalid", phone: "+381 60 000 0001", consentVersion: 1, followUpSuppressed: false,
+      confirmation: { id: "delivery-1", status: "sent", scheduledFor: opening + 3_600_000 },
+      followUp: { id: "delivery-2", status: "queued", scheduledFor: Date.parse("2026-10-13T10:00:00+02:00") },
+    },
+    {
+      id: "lead-2", createdAt: opening + 7_200_000, kind: "interest", modelName: "TEST Volta X1 TEST Premium", contactName: "TEST Posetilac Dva",
+      email: "test.dva@example.invalid", consentVersion: 1, followUpSuppressed: false, confirmation: { id: "delivery-3", status: "failed", scheduledFor: opening, lastError: "PROVIDER_UNAVAILABLE:503" }, followUp: null,
+    },
+  ] },
+};
+const leadActions: LeadsActions = {
+  saveConsentDraft: ok, activateConsent: ok, retireConsent: ok, saveLeadConfig: ok, saveFollowUpTemplate: ok, setSuppressed: ok, retryDelivery: ok,
+};
+
 export function AdminEventsPreview() {
   const [eventId, setEventId] = useState("e-em26");
   return (
@@ -92,6 +128,7 @@ export function AdminEventsPreview() {
         eventClients={{ ...noMore, rows: [{ accountId: "a-a", name: "TEST Izlagač A", smkCode: "SMK-TEST-FAIR-A" }] }}
         actions={actions}
         interactions={{ view: interactions, actions: interactionActions }}
+        leads={<AdminEventsLeads view={leadsView} actions={leadActions} />}
       />
     </AdminShell>
   );

@@ -132,4 +132,15 @@ export const rateLimiter = new RateLimiter(components.rateLimiter, {
   // fairBrandFavorite — one favorite per completed brand passport, changeable:
   // pick + a couple of changes per brand ≈ 3; capacity 5, 10/min refill.
   fairBrandFavorite: { kind: "token bucket", rate: 10, period: MINUTE, capacity: 5 },
+  // Sajam 2026 B4 (HANDOFF §9): fairLeadSubmit — keyed per visitor AND model
+  // (`${fairVisitors._id}:${eventModelId}`), stricter than the interaction
+  // buckets because every accepted lead stores contact data and queues an
+  // email. The arithmetic: on one model a person sends `Zainteresovan sam`
+  // once and (Advanced) a test-drive request once, plus one corrected
+  // resubmit (typo in the address) = 3 → capacity 3. Refill 2/min (one per
+  // 30 s): retyping a form takes a human longer; a script on one model is
+  // held at 2 emails/min. A same-submissionId retry returns before the
+  // limiter and costs nothing. Each model has its own key, so a visitor
+  // leaving leads at ten stands never meets the cap.
+  fairLeadSubmit: { kind: "token bucket", rate: 2, period: MINUTE, capacity: 3 },
 });

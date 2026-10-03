@@ -3,6 +3,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { query, type QueryCtx } from "./_generated/server";
 import {
   FAIR_MAX_MODEL_IDS_PER_READ,
+  type FairLeadFormView,
   type FairPublicEvent,
   type FairPublicEventMap,
   type FairPublicMapStand,
@@ -11,9 +12,12 @@ import {
 } from "../lib/fair-contract";
 import { deriveFairCapabilities, getFairEntitlements } from "../lib/fair-entitlements";
 import { fairAudienceResult, fairModelQuestions, fairPassportState, fairVoteThreshold } from "./lib/fairInteractions";
+import { fairActiveConsent, fairExhibitorName, fairLeadConfig, fairRenderConsentText } from "./lib/fairLeads";
 import {
   fairAudienceQuestionView,
   fairAudienceResultView,
+  fairLeadFormView,
+  fairLeadKind,
   fairPassportCatalogEntryView,
   fairPublicEventMapView,
   fairPublicEventView,
@@ -33,7 +37,8 @@ import {
 // same-origin POST gateway in app/api/fair/** (B3, convex/fairInteractions.ts),
 // never through here. B3 adds the audience questions and their public
 // (≥5-vote) results, the published survey structure (never its results) and
-// the passport catalog.
+// the passport catalog. B4 adds the lead form (contact rule and the consent
+// text; never a lead or contact value).
 //
 // Visibility: a model is public while it is `published` — the same gate the
 // /r resolver uses. A `draft` event is not public (getEventBySlug → null).
@@ -424,5 +429,41 @@ export const getPassportCatalog = query({
     if (!event || event.status === "draft") return null;
     const state = await fairPassportState(ctx, event, null);
     return { eventId: state.eventId, catalog: state.catalog };
+  },
+});
+
+// -----------------------------------------------------------------------------
+// B4 — lead form (`Zainteresovan sam` / `Probna vožnja`)
+// -----------------------------------------------------------------------------
+
+/**
+ * What the lead bottom sheet needs: whether the form is offered, the contact
+ * rule and the server-rendered consent text (exhibitor named) with its
+ * version. Without an ACTIVE consent the state is `consent_not_configured` —
+ * the form must not collect contacts (production gate, MASTER §8, §13). Like
+ * `capabilities`, it reads the stored package (a query never reads the
+ * clock); submitLead judges the package in force at the moment of the submit.
+ * No PII: no lead, contact or visitor data is read here.
+ */
+export const getLeadForm = query({
+  args: { eventModelId: v.string(), kind: fairLeadKind },
+  returns: fairLeadFormView,
+  handler: async (ctx, args): Promise<FairLeadFormView> => {
+    const base = { eventModelId: args.eventModelId, kind: args.kind };
+    const model = await publishedModel(ctx, args.eventModelId);
+    if (!model) return { ...base, state: "unavailable" };
+    const rights = getFairEntitlements(model.packageTier);
+    const config = await fairLeadConfig(ctx, model._id, args.kind);
+    if (!(args.kind === "interest" ? rights.interest : rights.testDrive) || !config?.enabled) return { ...base, state: "unavailable" };
+    const consent = await fairActiveConsent(ctx, model.eventId, args.kind);
+    const exhibitorName = await fairExhibitorName(ctx, model.participationId);
+    if (!consent || !exhibitorName) return { ...base, state: "consent_not_configured" };
+    return {
+      ...base,
+      state: "open",
+      contactRequirement: config.contactRequirement,
+      ...(config.preferredContact ? { preferredContact: config.preferredContact } : {}),
+      consent: { version: consent.version, text: fairRenderConsentText(consent.text, exhibitorName) },
+    };
   },
 });
