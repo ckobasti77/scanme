@@ -14,6 +14,7 @@ export const adminV1Sr = {
   navTasks: "Zadaci",
   navOperations: "Operativa",
   navServices: "Usluge",
+  navEvents: "Događaji",
   navFinance: "Finansije",
   navTeam: "Tim",
   navProducts: "Proizvodi",

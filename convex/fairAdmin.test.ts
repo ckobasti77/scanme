@@ -121,6 +121,7 @@ describe("authorization", () => {
       client.query(api.fairAdmin.listEvents, {}),
       client.query(api.fairAdmin.getEventCatalog, { eventId: f.eventId }),
       client.query(api.fairAdmin.listValidationIssues, { eventId: f.eventId }),
+      client.query(api.fairAdmin.getEventDirectory, { eventId: f.eventId }),
       client.query(api.fairImport.dryRun, { payload }),
       client.mutation(api.fairImport.commit, { payload }),
     ];
@@ -193,6 +194,20 @@ describe("idempotent catalog upserts and hard errors", () => {
     await expectCode(f.admin.mutation(api.fairAdmin.upsertModel, f.modelArgs({ externalKey: "Neispravan Ključ" })), "INVALID_INPUT");
     expect(await rowCount(f, "fairParticipations")).toBe(1);
     expect(await rowCount(f, "fairEventModels")).toBe(1);
+  });
+});
+
+describe("event directory (B1A)", () => {
+  test("returns only names, human codes and segment for the event's catalog", async () => {
+    const f = await setup();
+    await f.admin.mutation(api.fairAdmin.upsertModel, f.modelArgs());
+    const directory = await f.admin.query(api.fairAdmin.getEventDirectory, { eventId: f.eventId });
+    expect(directory).toEqual({
+      accounts: [{ accountId: f.a.accountId, name: "Klijent FA", smkCode: "SMK-FA", clientSegment: "standard" }],
+      businesses: [{ businessId: f.a.businessId, name: "Lokal FA", smlCode: "SML-FA" }],
+      brands: [{ brandId: f.a.brandIds[0], name: "Volta" }],
+    });
+    expect(JSON.stringify(directory)).not.toContain("@example.invalid");
   });
 });
 

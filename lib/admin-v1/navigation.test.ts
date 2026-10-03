@@ -7,7 +7,7 @@ import {
 } from "./navigation";
 
 describe("ADMIN-05 navigation contract", () => {
-  test("contains exactly the eight locked top-level items in order", () => {
+  test("contains exactly the nine locked top-level items in order", () => {
     expect(ADMIN_NAV_ITEMS.map((item) => adminV1Sr[item.labelKey])).toEqual([
       "Dashboard",
       "Klijenti",
@@ -15,6 +15,7 @@ describe("ADMIN-05 navigation contract", () => {
       "Zadaci",
       "Operativa",
       "Usluge",
+      "Događaji",
       "Finansije",
       "Tim",
     ]);
@@ -45,6 +46,7 @@ describe("ADMIN-05 navigation contract", () => {
   test("resolves canonical and retained legacy paths to one active item", () => {
     expect(getActiveAdminNavId("/admin")).toBe("dashboard");
     expect(getActiveAdminNavId("/admin/klijenti/SMK-1")).toBe("clients");
+    expect(getActiveAdminNavId("/admin/dogadjaji")).toBe("events");
     expect(getActiveAdminNavId("/admin/customers/legacy-id")).toBe("clients");
     expect(getActiveAdminNavId("/admin/cards")).toBeNull();
     expect(getActiveAdminNavId("/admin/scanme-links/example/editor")).toBeNull();

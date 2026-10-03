@@ -1,0 +1,75 @@
+"use client";
+
+import { useState } from "react";
+import { AdminEventsSurface, type CatalogView, type EventsActions, type ModelView } from "@/components/admin/admin-events";
+import { AdminShell } from "@/components/admin/admin-shell";
+import { adminEventsSr as dict } from "@/lib/i18n/sr/admin-events";
+
+// Static TEST fixture of the `Događaji` tab (mirrors the B1 DEV TEST catalog)
+// for visual checks without an admin session. Actions do not execute.
+
+const opening = Date.parse("2026-10-09T09:00:00+02:00");
+
+function model(id: string, displayName: string, brandName: string, exhibitorName: string, standLabel: string, tier: ModelView["tier"], extra: Partial<ModelView> = {}): ModelView {
+  return {
+    id, externalKey: `test-em26-${id}`, displayName, slug: `test-${id}`, brandName, exhibitorName, standLabel, tier, status: "published",
+    priceText: "TEST cena", specCount: 3, highlightCount: 1, hasPhoto: false, passportEligible: tier !== "included",
+    packageActivatedAt: opening, qrCode: null,
+    issues: [{ severity: "warning", code: "FAIR_PHOTO_MISSING", path: "photoUrl" }, { severity: "warning", code: "FAIR_QR_MISSING", path: "qr" }],
+    ...extra,
+  };
+}
+
+const catalog: CatalogView = {
+  days: [{ dateKey: "2026-10-09", label: "TEST dan 1" }, { dateKey: "2026-10-10", label: "TEST dan 2" }, { dateKey: "2026-10-11", label: "TEST dan 3" }],
+  participations: [
+    { id: "p-a", externalKey: "test-em26-izlagac-a", exhibitorName: "TEST Izlagač A", codes: "SMK-TEST-FAIR-A · SML-TEST-FAIR-A", segment: "event_only", status: "active" },
+    { id: "p-b", externalKey: "test-em26-izlagac-b", exhibitorName: "TEST Izlagač B", codes: "SMK-TEST-FAIR-B · SML-TEST-FAIR-B", segment: "standard", status: "active" },
+  ],
+  stands: [
+    { id: "s-a1", externalKey: "test-em26-stand-a1", code: "TEST-A1", displayName: "TEST štand A1", mapLocationId: "test-loc-em-a1", exhibitorName: "TEST Izlagač A", status: "active" },
+    { id: "s-b1", externalKey: "test-em26-stand-b1", code: "TEST-B1", displayName: "TEST štand B1", mapLocationId: "test-loc-em-b1", exhibitorName: "TEST Izlagač B", status: "active" },
+  ],
+  models: [
+    model("volta-x1", "TEST Volta X1", "TEST Volta", "TEST Izlagač A", "TEST štand A1 · TEST-A1", "advanced", { variant: "TEST Premium", highlightCount: 4, specCount: 5, qrCode: "7KQ2M9XA", issues: [{ severity: "warning", code: "FAIR_PHOTO_MISSING", path: "photoUrl" }] }),
+    model("volta-x2", "TEST Volta X2", "TEST Volta", "TEST Izlagač A", "TEST štand A1 · TEST-A1", "starter"),
+    model("om-z2", "TEST Om Z2", "TEST Om", "TEST Izlagač B", "TEST štand B1 · TEST-B1", "included", { status: "draft", priceText: "Cena na upit", issues: [{ severity: "error", code: "FAIR_SPECIFICATIONS_INVALID", path: "specifications" }, { severity: "warning", code: "FAIR_PRICE_MISSING", path: "priceText" }] }),
+  ],
+  qrConfigured: true,
+};
+
+const ok = async () => ({ ok: true as const });
+const actions: EventsActions = {
+  publish: ok,
+  withdraw: ok,
+  upgrade: ok,
+  assignQr: ok,
+  releaseQr: ok,
+  resolveTest: async () => ({ ok: true, value: { outcome: "fair_model", problem: null, path: "/sajam/test-elektromobilnost-2026/model/test-volta-x1-test-premium" } }),
+  dryRun: async () => ({ ok: true, value: { ok: true, issues: [{ severity: "warning", code: "FAIR_PRICE_MISSING", path: "participations[0].brands[0].models[1].priceText" }], summary: { participations: { new: 0, existing: 2 }, stands: { new: 0, existing: 2 }, models: { new: 1, existing: 2 }, upgrades: 0, qrAssignments: 0 } } }),
+  commit: async () => ({ ok: true, value: { committed: true, issues: [], results: { participations: { created: 0, updated: 0, unchanged: 2 }, stands: { created: 0, updated: 0, unchanged: 2 }, models: { created: 1, updated: 0, unchanged: 2 }, upgrades: 0, qrAssignments: 0 } } }),
+  convert: ok,
+};
+
+const noMore = { canLoadMore: false, loadingMore: false, onLoadMore: () => undefined, status: "ready" as const };
+
+export function AdminEventsPreview() {
+  const [eventId, setEventId] = useState("e-em26");
+  return (
+    <AdminShell previewIdentity={dict.fixtureIdentity} activePathname="/admin/dogadjaji">
+      <AdminEventsSurface
+        preview
+        events={[{ id: "e-em26", title: "TEST Sajam elektromobilnosti", status: "published" }, { id: "e-amf26", title: "TEST Auto Moto Fest", status: "published" }]}
+        selectedEventId={eventId}
+        onSelectEvent={setEventId}
+        catalog={catalog}
+        inventory={{ ...noMore, rows: [
+          { cardId: "c1", resolverCode: "7KQ2M9XA", smqCode: "SMQ-TEST-0001", state: "active", assignment: { modelId: "volta-x1", modelName: "TEST Volta X1", sameEvent: true } },
+          { cardId: "c2", resolverCode: "R4T8W2PQ", smqCode: "SMQ-TEST-0002", state: "problem", assignment: null },
+        ] }}
+        eventClients={{ ...noMore, rows: [{ accountId: "a-a", name: "TEST Izlagač A", smkCode: "SMK-TEST-FAIR-A" }] }}
+        actions={actions}
+      />
+    </AdminShell>
+  );
+}
