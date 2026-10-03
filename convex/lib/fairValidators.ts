@@ -279,3 +279,99 @@ export const fairPublicModelView = v.object({
   photoUrl: v.optional(v.string()),
   capabilities: fairModelCapabilitiesView,
 });
+
+// -----------------------------------------------------------------------------
+// B3 — interaction views (convex/fairPublic.ts, convex/fairInteractions.ts).
+// Shapes equal the lib/fair-contract.ts types (type test in
+// convex/fairInteractions.test.ts). No rating count/sum/average anywhere:
+// those live only in the admin projection (JOVAN-DELTA §1).
+// -----------------------------------------------------------------------------
+
+export const fairRatingValueView = v.union(v.literal(1), v.literal(2), v.literal(3), v.literal(4), v.literal(5));
+
+export const fairRatingStateView = v.union(
+  v.object({ mode: v.literal("none") }),
+  v.object({ mode: v.literal("overall"), overall: v.optional(fairRatingValueView) }),
+  v.object({
+    mode: v.literal("dimensions"),
+    appearance: v.optional(fairRatingValueView),
+    specifications: v.optional(fairRatingValueView),
+    price: v.optional(fairRatingValueView),
+  }),
+);
+
+export const fairAudienceQuestionView = v.object({
+  id: v.string(),
+  eventModelId: v.string(),
+  dateKey: v.string(),
+  prompt: v.string(),
+  options: v.array(fairChoiceOption),
+  order: v.number(),
+});
+
+export const fairAudienceResultView = v.union(
+  v.object({ questionId: v.string(), state: v.literal("waiting_for_minimum"), myOptionId: v.optional(v.string()) }),
+  v.object({
+    questionId: v.string(),
+    state: v.literal("public"),
+    options: v.array(v.object({ optionId: v.string(), percentage: v.number() })),
+    myOptionId: v.optional(v.string()),
+  }),
+);
+
+export const fairSurveyView = v.object({
+  surveyId: v.string(),
+  eventModelId: v.string(),
+  version: v.number(),
+  title: v.optional(v.string()),
+  questions: v.array(
+    v.object({ id: v.string(), prompt: v.string(), kind: fairSurveyQuestionKind, options: v.array(fairChoiceOption), order: v.number() }),
+  ),
+});
+
+export const fairMySurveyStateView = v.union(
+  v.object({ state: v.literal("none") }),
+  v.object({ state: v.literal("open"), surveyId: v.string(), version: v.number() }),
+  v.object({ state: v.literal("submitted"), surveyId: v.string(), version: v.number(), submittedAt: v.number() }),
+);
+
+export const fairPassportFavoriteResultView = v.union(
+  v.object({ state: v.literal("waiting_for_minimum") }),
+  v.object({ state: v.literal("public"), options: v.array(v.object({ eventModelId: v.string(), percentage: v.number() })) }),
+);
+
+export const fairPassportProgressView = v.object({
+  passportId: v.string(),
+  stampedModelIds: v.array(v.string()),
+  stampedCount: v.number(),
+  requiredCount: v.number(),
+  completed: v.boolean(),
+  favoriteModelId: v.optional(v.string()),
+  favoriteResult: v.optional(fairPassportFavoriteResultView),
+});
+
+export const fairPassportCatalogEntryView = v.object({
+  passportId: v.string(),
+  eventId: v.string(),
+  brandId: v.string(),
+  brandName: v.string(),
+  brandLogoUrl: v.optional(v.string()),
+  standMapLocationIds: v.array(v.string()),
+  models: v.array(
+    v.object({ eventModelId: v.string(), slug: v.string(), displayName: v.string(), variant: v.optional(v.string()) }),
+  ),
+});
+
+export const fairPassportStateView = v.object({
+  eventId: v.string(),
+  catalog: v.array(fairPassportCatalogEntryView),
+  progress: v.array(fairPassportProgressView),
+});
+
+export const fairMyModelStateView = v.object({
+  eventModelId: v.string(),
+  rating: fairRatingStateView,
+  audience: v.array(fairAudienceResultView),
+  survey: fairMySurveyStateView,
+  passport: v.union(fairPassportProgressView, v.null()),
+});

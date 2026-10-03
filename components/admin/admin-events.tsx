@@ -2,6 +2,7 @@
 
 import { CheckCircle2, CircleAlert, FileJson, QrCode, TriangleAlert } from "lucide-react";
 import { useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { AdminEventsInteractions, type InteractionsActions, type InteractionsView } from "@/components/admin/admin-events-interactions";
 import { AdminEmptyState, AdminLoadingState, AdminPanel, AdminStatus } from "@/components/admin/admin-primitives";
 import { FAIR_PACKAGE_TIERS, type FairClientSegment, type FairEventStatus, type FairModelStatus, type FairPackageTier, type FairParticipationStatus } from "@/lib/fair-contract";
 import { fmt } from "@/lib/i18n/format";
@@ -85,13 +86,16 @@ export type AdminEventsSurfaceProps = {
   inventory: Paged<InventoryRowView>;
   eventClients: Paged<EventClientView>;
   actions: EventsActions;
+  /** B3: questions, surveys and passports (absent in the static preview). */
+  interactions?: { view: InteractionsView | undefined; actions: InteractionsActions };
 };
 
-type Tab = "overview" | "model" | "qr" | "import" | "clients";
+type Tab = "overview" | "model" | "qr" | "interactions" | "import" | "clients";
 const TABS: { id: Tab; label: string }[] = [
   { id: "overview", label: dict.tabOverview },
   { id: "model", label: dict.tabModel },
   { id: "qr", label: dict.tabQr },
+  { id: "interactions", label: dict.tabInteractions },
   { id: "import", label: dict.tabImport },
   { id: "clients", label: dict.tabClients },
 ];
@@ -657,6 +661,7 @@ export function AdminEventsSurface(props: AdminEventsSurfaceProps) {
           <div id={`${baseId}-panel`} role="tabpanel" aria-labelledby={`${baseId}-tab-${tab}`} className="min-w-0">
             {tab === "import" ? <ImportPanel actions={props.actions} />
               : tab === "clients" ? <EventClients clients={props.eventClients} actions={props.actions} />
+              : tab === "interactions" ? <AdminEventsInteractions view={props.interactions?.view} actions={props.interactions?.actions} />
               : props.catalog === undefined ? <AdminPanel><AdminLoadingState label={dict.loading} /></AdminPanel>
               : tab === "overview" ? <Overview catalog={props.catalog} onOpenModel={(id) => { setModelId(id); setTab("model"); }} />
               : tab === "model" ? <ModelDetail key={modelId ?? "none"} catalog={props.catalog} modelId={modelId} onSelect={(id) => setModelId(id || null)} actions={props.actions} />

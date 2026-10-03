@@ -13,11 +13,16 @@
 import type { ProductType, ServiceType } from "../admin-v1/catalog";
 import type {
   FairAdminIssueCode,
+  FairAudienceQuestionStatus,
   FairClientSegment,
   FairEventStatus,
   FairModelStatus,
   FairPackageTier,
   FairParticipationStatus,
+  FairPassportConfigStatus,
+  FairPassportEligibleStatus,
+  FairSurveyQuestionKind,
+  FairSurveyStatus,
 } from "../fair-contract";
 import type { FairMapKey, FairMapZoneId } from "../fair-map/types";
 
@@ -3741,7 +3746,69 @@ export interface AdminEventsDict {
   channelStates: Record<"active" | "inactive" | "problem", string>;
   issues: Record<FairAdminIssueCode, string>;
   resolveProblems: Record<AdminEventsResolveProblem, string>;
+  // B3 — Interakcije tab (Glas publike, ankete, pasoši)
+  tabInteractions: string;
+  interactionsSubtitle: string;
+  interactionsUnavailable: string;
+  questionsTitle: string;
+  questionsHelp: string;
+  fieldModel: string;
+  fieldDay: string;
+  questionPrompt: string;
+  questionOptions: string;
+  questionSave: string;
+  questionSaved: string;
+  questionsEmpty: string;
+  questionsNoModels: string;
+  questionPublish: string;
+  questionPublished: string;
+  questionClose: string;
+  questionClosed: string;
+  questionRotationSet: string;
+  questionRotationOn: string;
+  questionRotationAdd: string;
+  questionRotationClear: string;
+  questionStatus: Record<FairAudienceQuestionStatus, string>;
+  surveysTitle: string;
+  surveysHelp: string;
+  surveyQuestionLabel: string;
+  surveyKind: string;
+  surveyKinds: Record<FairSurveyQuestionKind, string>;
+  surveyOptions: string;
+  surveyAddQuestion: string;
+  surveyRemoveQuestion: string;
+  surveySave: string;
+  surveySaved: string;
+  surveysEmpty: string;
+  surveysNoModels: string;
+  surveyVersion: string;
+  surveyPublish: string;
+  surveyPublished: string;
+  surveyRetire: string;
+  surveyRetired: string;
+  surveyStatus: Record<FairSurveyStatus, string>;
+  passportsTitle: string;
+  passportsHelp: string;
+  passportsEmpty: string;
+  passportNone: string;
+  passportOpen: string;
+  passportOpened: string;
+  passportPublish: string;
+  passportPublishedDone: string;
+  passportWithdraw: string;
+  passportWithdrawConfirm: string;
+  passportWithdrawn: string;
+  passportRemoveModel: string;
+  passportRemoveConfirm: string;
+  passportRemoved: string;
+  passportFrozenAt: string;
+  passportStatus: Record<FairPassportConfigStatus, string>;
+  passportMemberStatus: Record<FairPassportEligibleStatus, string>;
+  passportProblems: Record<AdminEventsPassportProblem, string>;
+  confirm: string;
 }
+
+export type AdminEventsPassportProblem = "fewer_than_two_models" | "model_not_published" | "model_not_candidate" | "model_below_starter";
 
 export interface DictBySurface {
   "event-map": EventMapDict;

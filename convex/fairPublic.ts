@@ -7,8 +7,16 @@ import {
   type FairPublicModel,
   type FairSpecificationGroup,
 } from "../lib/fair-contract";
-import { deriveFairCapabilities } from "../lib/fair-entitlements";
-import { fairPublicEventView, fairPublicModelView } from "./lib/fairValidators";
+import { deriveFairCapabilities, getFairEntitlements } from "../lib/fair-entitlements";
+import { fairAudienceResult, fairModelQuestions, fairPassportState, fairVoteThreshold } from "./lib/fairInteractions";
+import {
+  fairAudienceQuestionView,
+  fairAudienceResultView,
+  fairPassportCatalogEntryView,
+  fairPublicEventView,
+  fairPublicModelView,
+  fairSurveyView,
+} from "./lib/fairValidators";
 
 // =============================================================================
 // Sajam automobila 2026 — B2 public, read-only catalog resolver (BACKEND-HANDOFF
@@ -19,7 +27,10 @@ import { fairPublicEventView, fairPublicModelView } from "./lib/fairValidators";
 //    package tier strings or counters — the frontend renders the
 //    server-derived `capabilities` (lib/fair-entitlements.ts) only.
 // Visitor-specific state (my rating, my vote, my passport) goes through the
-// same-origin POST gateway in app/api/fair/** (B3), never through here.
+// same-origin POST gateway in app/api/fair/** (B3, convex/fairInteractions.ts),
+// never through here. B3 adds the audience questions and their public
+// (≥5-vote) results, the published survey structure (never its results) and
+// the passport catalog.
 //
 // Visibility: a model is public while it is `published` — the same gate the
 // /r resolver uses. A `draft` event is not public (getEventBySlug → null).
@@ -126,7 +137,9 @@ function projector(ctx: QueryCtx) {
     if (!businessRow) return null;
 
     // Capability facts (B3/B4/B5 own the writers; absent rows = not offered).
-    // B3 narrows audience questions to the current fair day.
+    // B3: a question counts while it is `published` (admin publish/close);
+    // a query cannot read the clock, so the per-day list is
+    // listAudienceQuestionsForModel({ dateKey }) and the vote checks the window.
     const [questions, survey, interest, testDrive, sponsoredIds] = await Promise.all([
       ctx.db
         .query("fairAudienceQuestions")
@@ -231,5 +244,123 @@ export const getModelsByIds = query({
       if (view) out.push(view);
     }
     return out;
+  },
+});
+
+// -----------------------------------------------------------------------------
+// B3 — Glas publike, survey structure and passport catalog
+// -----------------------------------------------------------------------------
+
+type AudienceQuestion = Infer<typeof fairAudienceQuestionView>;
+
+async function publishedModel(ctx: QueryCtx, rawId: string) {
+  const id = ctx.db.normalizeId("fairEventModels", rawId);
+  const model = id ? await ctx.db.get(id) : null;
+  return model && model.status === "published" ? model : null;
+}
+
+/**
+ * Published questions of a model, in day then `sortOrder` order. `dateKey`
+ * (Europe/Belgrade `YYYY-MM-DD`) narrows to one fair day — the frontend passes
+ * today. Votes are refused outside a question's own window anyway.
+ */
+export const listAudienceQuestionsForModel = query({
+  args: { eventModelId: v.string(), dateKey: v.optional(v.string()) },
+  returns: v.array(fairAudienceQuestionView),
+  handler: async (ctx, args): Promise<AudienceQuestion[]> => {
+    const model = await publishedModel(ctx, args.eventModelId);
+    if (!model || getFairEntitlements(model.packageTier).audienceQuestionsPerDay === 0) return [];
+    const days = new Map<string, { dateKey: string; sortOrder: number }>();
+    const out: Array<{ question: AudienceQuestion; daySort: number }> = [];
+    for (const question of await fairModelQuestions(ctx, model._id)) {
+      if (question.status !== "published") continue;
+      let day = days.get(question.eventDayId);
+      if (!day) {
+        const row = await ctx.db.get(question.eventDayId);
+        if (!row) continue;
+        day = { dateKey: row.dateKey, sortOrder: row.sortOrder };
+        days.set(question.eventDayId, day);
+      }
+      if (args.dateKey !== undefined && day.dateKey !== args.dateKey) continue;
+      out.push({
+        daySort: day.sortOrder,
+        question: {
+          id: question._id,
+          eventModelId: model._id,
+          dateKey: day.dateKey,
+          prompt: question.prompt,
+          options: [...question.options].sort((a, b) => a.order - b.order).map((option) => ({ id: option.id, label: option.label, order: option.order })),
+          order: question.sortOrder,
+        },
+      });
+    }
+    return out
+      .sort((a, b) => a.daySort - b.daySort || a.question.order - b.question.order)
+      .map((row) => row.question);
+  },
+});
+
+/**
+ * Public result of a published or closed question: `waiting_for_minimum`
+ * (no percentage) below five votes, whole-number percentages from five. The
+ * visitor's own choice comes only from the POST gateway.
+ */
+export const getAudienceQuestionResult = query({
+  args: { questionId: v.string() },
+  returns: v.union(fairAudienceResultView, v.null()),
+  handler: async (ctx, args) => {
+    const id = ctx.db.normalizeId("fairAudienceQuestions", args.questionId);
+    const question = id ? await ctx.db.get(id) : null;
+    if (!question || question.status === "draft") return null;
+    const model = await ctx.db.get(question.eventModelId);
+    const event = model && model.status === "published" ? await ctx.db.get(model.eventId) : null;
+    if (!event) return null;
+    return fairAudienceResult(ctx, question, fairVoteThreshold(event));
+  },
+});
+
+/** The published survey version of an Advanced model (structure only; results are never public). */
+export const getSurveyForModel = query({
+  args: { eventModelId: v.string() },
+  returns: v.union(fairSurveyView, v.null()),
+  handler: async (ctx, args) => {
+    const model = await publishedModel(ctx, args.eventModelId);
+    if (!model || !getFairEntitlements(model.packageTier).survey) return null;
+    const survey = await ctx.db
+      .query("fairSurveys")
+      .withIndex("by_eventModelId_and_status", (q) => q.eq("eventModelId", model._id).eq("status", "published"))
+      .first();
+    if (!survey) return null;
+    return {
+      surveyId: survey._id,
+      eventModelId: model._id,
+      version: survey.version,
+      ...(survey.title ? { title: survey.title } : {}),
+      questions: [...survey.questions]
+        .sort((a, b) => a.order - b.order)
+        .map((question) => ({
+          id: question.id,
+          prompt: question.prompt,
+          kind: question.kind,
+          options: [...question.options].sort((a, b) => a.order - b.order),
+          order: question.order,
+        })),
+    };
+  },
+});
+
+/**
+ * Every published brand passport of one event: brand, frozen eligible models
+ * and their stands' map locations (map marker). Personal N/M comes from the
+ * POST gateway (fairInteractions.getMyPassportProgress).
+ */
+export const getPassportCatalog = query({
+  args: { eventSlug: v.string() },
+  returns: v.union(v.object({ eventId: v.string(), catalog: v.array(fairPassportCatalogEntryView) }), v.null()),
+  handler: async (ctx, args) => {
+    const event = await eventBySlug(ctx, args.eventSlug);
+    if (!event || event.status === "draft") return null;
+    const state = await fairPassportState(ctx, event, null);
+    return { eventId: state.eventId, catalog: state.catalog };
   },
 });

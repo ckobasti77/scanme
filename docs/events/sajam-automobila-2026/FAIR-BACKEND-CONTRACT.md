@@ -1,6 +1,6 @@
 # Sajam automobila 2026 — fair backend ugovor (B0)
 
-> Status: **B0 — ugovor i šema; B1 — katalog, import, paketi i QR dodela** (admin funkcije u §11, import u §12); **B2 — anonimni identitet, scan pipeline i javni katalog** (§13–§14). Napisano iz stvarnog koda 3. oktobra 2026.
+> Status: **B0 — ugovor i šema; B1 — katalog, import, paketi i QR dodela** (admin funkcije u §11, import u §12); **B2 — anonimni identitet, scan pipeline i javni katalog** (§13–§14); **B3 — ocene, Glas publike, anketa i pasoš** (§15–§16). Napisano iz stvarnog koda 3. oktobra 2026.
 >
 > Vlasnik backend-a: **Jovan**. Vlasnik proizvoda i go/no-go: **Aleksa**.
 > Izvori zahteva: `MASTER-KONTEKST.md`, `BACKEND-HANDOFF.md` (§4–§7, §11), `JOVAN-DELTA-2026-10-02.md`.
@@ -21,7 +21,7 @@ Ako se ovaj dokument i kod razilaze, važi kod, a razlika je greška dokumenta.
 
 ## 1. Funkcijska površina
 
-**B0 ne dodaje nijednu public, internal ni admin funkciju.** Nova je samo šema; tipovi i pravila su čiste funkcije. **B1** dodaje admin funkcije (`requireAdmin`) i jednu internal DEV funkciju; spisak je u §11. **B2** dodaje tri javna read-only upita (`fairPublic.*`), fair granu u postojećem `cards.resolveAndRecord`, dve internal funkcije i jedan Next gateway (§13–§14).
+**B0 ne dodaje nijednu public, internal ni admin funkciju.** Nova je samo šema; tipovi i pravila su čiste funkcije. **B1** dodaje admin funkcije (`requireAdmin`) i jednu internal DEV funkciju; spisak je u §11. **B2** dodaje tri javna read-only upita (`fairPublic.*`), fair granu u postojećem `cards.resolveAndRecord`, dve internal funkcije i jedan Next gateway (§13–§14). **B3** dodaje gateway-facing `fairInteractions.*`, četiri javna upita u `fairPublic`, admin `fairInteractionsAdmin.*` i šest POST ruta (§15–§16).
 
 Planirana površina (HANDOFF §7). Imena se mogu minimalno prilagoditi; odgovornosti ne.
 
@@ -29,8 +29,8 @@ Planirana površina (HANDOFF §7). Imena se mogu minimalno prilagoditi; odgovorn
 |---|---|---|---|
 | `convex/fairAdmin.ts`, `convex/fairImport.ts` (**urađeno**, §11–§12) | B1 | admin (`requireAdmin`) | upsert event/dan/učešće/štand/model, event-only klijent i `convertEventClientToStandard`, QR inventar + atomski assign/release + resolve test, publish/withdraw, upgrade paketa, import dry-run/commit, validation issues |
 | `convex/cards.ts` (hook), `app/r/[cardCode]`, `app/api/fair/**` (**urađeno**, §13) | B2 | postojeći public resolver + server gateway | fair scan u istom `requestId`, visitor hash, server-derived admin isključenje, pečat pasoša |
-| `convex/fairPublic.ts` (B2 deo **urađen**, §14) | B2/B3/B5 | public, read-only, bez PII | `getEventBySlug`, `getModelBySlug`, `getModelsByIds` (≤50) — B2; `listAudienceQuestionsForModel`, `getAudienceQuestionResult`, `getSponsoredMapRotation`, `getSponsoredGarageRotation`, `getPassportCatalog`; `getMyPassportProgress` ide kroz POST gateway (HANDOFF §7) |
-| `convex/fairInteractions.ts` | B3/B5 | public preko POST gateway-a | `getMyModelState`, `upsertRating`, `upsertAudienceVote`, `submitSurvey`, `upsertBrandFavorite`, `recordSponsoredAction` (samo garaža) |
+| `convex/fairPublic.ts` (B2 i B3 deo **urađen**, §14, §15.3) | B2/B3/B5 | public, read-only, bez PII | `getEventBySlug`, `getModelBySlug`, `getModelsByIds` (≤50) — B2; `listAudienceQuestionsForModel`, `getAudienceQuestionResult`, `getSponsoredMapRotation`, `getSponsoredGarageRotation`, `getPassportCatalog`; `getMyPassportProgress` ide kroz POST gateway (HANDOFF §7) |
+| `convex/fairInteractions.ts` (B3 deo **urađen**, §15) | B3/B5 | public preko POST gateway-a | `getMyModelState`, `upsertRating`, `upsertAudienceVote`, `submitSurvey`, `upsertBrandFavorite`, `recordSponsoredAction` (samo garaža) |
 | `convex/fairLeads.ts`, `convex/fairEmails.ts` | B4 | gateway + internal + admin | `submitLead`, potvrda (Node `internalAction`), follow-up, suppression, paginiran izvoz |
 | `convex/fairAnalytics.ts`, `convex/fairReports.ts` | B6 | internal/admin | metrike, dnevni dataset, report lifecycle (send samo iz `approved`) |
 | purge | B7 | internal + admin preview | bounded, retry-safe brisanje PII |
@@ -238,6 +238,13 @@ B2 dodaci (POST gateway `app/api/fair/**`):
 - `PAYLOAD_TOO_LARGE` (413)
 - `VISITOR_UNAVAILABLE` (503, u produkciji nema `FAIR_VISITOR_HASH_SECRET`)
 
+B3 dodaci:
+- `PASSPORT_NOT_ACTIVE` (404, pasoš ne postoji ili nije `published`)
+- `SURVEY_NOT_OPEN` (409, verzija ankete nije `published`)
+- `SERVICE_UNAVAILABLE` (gateway: Convex nije podešen 503, ili greška bez stabilnog koda 502)
+
+B3 admin kodovi (`FAIR_ADMIN_ISSUE_CODES`): `FAIR_FEATURE_NOT_ENTITLED`, `FAIR_EVENT_DAY_NOT_FOUND`, `FAIR_QUESTION_NOT_FOUND`, `FAIR_QUESTION_LOCKED`, `FAIR_QUESTION_DAY_LIMIT`, `FAIR_QUESTION_STATUS`, `FAIR_SURVEY_NOT_FOUND`, `FAIR_SURVEY_INVALID`, `FAIR_SURVEY_LOCKED`, `FAIR_PASSPORT_NOT_FOUND`, `FAIR_PASSPORT_NOT_ELIGIBLE`, `FAIR_PASSPORT_FROZEN`, `FAIR_PASSPORT_EVENT_STARTED`.
+
 Detalji greške su samo ne-PII vrednosti. Tekst greške mapira frontend kroz `lib/i18n`.
 
 ## 7. Formati i ključevi
@@ -300,6 +307,14 @@ Konstante rotacije u `lib/fair-contract.ts` imaju ista imena i vrednosti kao u `
 26. **Objavljen model u `draft` događaju** (B2): `/r` i `getModelBySlug` ga otvaraju (kapija je samo status modela, kao B1 `resolveTest`), a `getEventBySlug` za `draft` vraća `null`. Da li i `draft` događaj treba da sakrije modele?
 27. **Generički `cardResolve` po IP-u** (300/min, kapacitet 300) i dalje prethodi fair grani. Za halu iza jednog NAT-a to je granica celog sajma u minuti; procena je ispod nje, ali je treba potvrditi testom opterećenja (B7).
 28. **Jedinstveni sken po danu/satu** (B2): pripisuje se danu/satu PRVOG skena posetilac+model; zbir dana = ukupno jedinstvenih. „Jedinstveni posetioci po danu“ bi bila nova metrika.
+29. **Prozor pitanja Glasa publike** (B3): bez eksplicitnog `endsAt` pitanje važi od početka do kraja svog sajamskog dana (`fairEventDays`), jer je pravo „po sajamskom danu“. Glas van prozora → `QUESTION_NOT_OPEN`. Treba li pitanje da ostane otvoreno i narednih dana?
+30. **Zatvoreno pitanje i dnevni limit** (B3): svako pitanje koje je tog dana bilo objavljeno (i kasnije zatvoreno) troši dnevni limit, pa Starter ne može istog dana da zameni pitanje. Ovo je konzervativno tumačenje „jedno pitanje po danu“.
+31. **Kandidatura za pasoš** (B3): objava traži da su SVI izloženi (ne-povučeni) modeli brenda objavljeni, `passportEligible` i Starter+. Model sa `passport_eligible=no` blokira pasoš celog brenda (DATA-INTAKE §6.3 + MASTER §11 „svi izloženi modeli“). Ili treba samo da ga isključi iz skupa?
+32. **Povlačenje modela iz zamrznutog pasoša** (B3): `fairAdmin.withdrawModel` ne uklanja model iz pasoša automatski; admin to radi hitnom mutacijom `removePassportModel` (MASTER §11 „admin može da ga ukloni“). Dok se model ne ukloni, pasoš ne može da se kompletira.
+33. **Pasoš posle otvaranja** (B3): objava i zamrzavanje su dozvoljeni samo pre `fairEvents.startsAt` (`FAIR_PASSPORT_EVENT_STARTED`). Ako Aleksa želi kasnu objavu, menja se samo ta provera.
+34. **Rate limit `fairBrandFavorite`** (B3): HANDOFF §9 ga ne imenuje. Dodat je zaseban bucket (kapacitet 5, 10/min), jer promena favorita pomera brojače.
+35. **Prikaz pre `package_active_from`** (B3): javne `capabilities` i `getMyModelState.rating.mode` čitaju sačuvani paket (upit ne sme da čita sat). Upis sudi po paketu na snazi u trenutku interakcije. Zato pre početka paketa UI može da prikaže ocenu, a upis vraća `FEATURE_NOT_ENTITLED`. DEV TEST paketi počinju 9. 10. 2026. u 09:00.
+36. **Obavezno pitanje ankete** (B3): u V1 su pitanja opciona. Ako admin ipak označi pitanje kao `required`, submit bez tog odgovora vraća `INVALID_INPUT`.
 
 ## 10. Šta stiže posle B0
 
@@ -308,7 +323,7 @@ Konstante rotacije u `lib/fair-contract.ts` imaju ista imena i vrednosti kao u `
 | **B1** (urađeno, §11–§12) | `fairAdmin`, import (dry-run/commit), QR assign/release kroz `fair_model` destinaciju (isti subject → target → istorija → sync kanala tok kao `applyDestination`), filtriranje `event_only` u admin upitima, upgrade sa auditom, DEV TEST katalog |
 | **B1A** | admin tab `Događaji` |
 | **B2** (urađeno, §13–§14) | gateway, cookie i HMAC; fair hook u `resolveAndRecord` sa istim `requestId`; admin isključenje preko Convex Auth tokena; shard helper; `fairScan` rate limit; pečat pasoša; `fairPublic` katalog |
-| **B3** | ocene, Glas publike, anketa, pasoš i favorit |
+| **B3** (urađeno, §15–§16) | ocene, Glas publike, anketa, pasoš i favorit |
 | **B4** | leadovi, saglasnost i email outbox (produkcija čeka pravni tekst) |
 | **B5** | sponzorisani snapshot i rotacija (samo garažni `open_model`/`garage_add`) |
 | **B6** | analitika i izveštaji |
@@ -559,6 +574,108 @@ Javni, read-only upiti bez identiteta i bez PII. Ne vraćaju kontakte, email izv
 - `exhibitorName` je `businesses.name` učešća.
 - `specificationGroups` grupiše server po `groupId`, a grupe i stavke ređa po `groupOrder`/`order`.
 - `photoUrl` = odobreni `photoUrl` ili URL iz `photoStorageId`; bez fotografije polje izostaje.
-- `capabilities` = `deriveFairCapabilities(packageTier, kontekst)` iz `lib/fair-entitlements.ts`. Kontekst: objavljeno pitanje modela (B3 sužava na tekući dan), objavljena anketa, objavljeni sponzorisani snapshot, `fairLeadConfigs.enabled` za `interest`/`test_drive`. Bez tih redova sve je `false`.
+- `capabilities` = `deriveFairCapabilities(packageTier, kontekst)` iz `lib/fair-entitlements.ts`. Kontekst: objavljeno (`published`) pitanje modela (B3: upit ne čita sat, dnevnu listu daje `listAudienceQuestionsForModel({ dateKey })`, §15.3), objavljena anketa, objavljeni sponzorisani snapshot, `fairLeadConfigs.enabled` za `interest`/`test_drive`. Bez tih redova sve je `false`.
 - Validatori `fairPublicEventView` i `fairPublicModelView` (`convex/lib/fairValidators.ts`) imaju test tipova protiv `FairPublicEvent`/`FairPublicModel`.
 - „View“ stranice modela se ne beleži: tabela ne postoji u ugovoru, a MASTER §12 ga nema kao metriku (§9.8).
+
+## 15. B3 — interakcije (stvarna površina)
+
+### 15.1 Tok
+
+1. Klijent šalje same-origin `POST /api/fair/<ruta>`.
+2. `lib/fair-server/interactions.ts` proverava telo striktno: nepoznat ključ (pa i `visitorHash`) → `INVALID_INPUT`.
+3. `visitorHash` dolazi iz HttpOnly cookie-ja; pri prvom korišćenju pravi se nov token.
+4. Jedan Convex poziv `fairInteractions.*`.
+5. Odgovor `{ ok: true, value }` ili `{ ok: false, code }`, uvek sa `Cache-Control: no-store`.
+
+Redosled u svakoj mutaciji:
+1. validacija ulaza;
+2. objavljen model, a event u stanju `published`/`live` i pre purge-a;
+3. paket **na snazi u trenutku interakcije** (`fairModelTierAt`, po istoriji aktivacija);
+4. rate limit po `fairVisitors._id`;
+5. izvorni red i projekcija u istoj transakciji.
+
+Svako odbijanje **baca** `ConvexError({ code })`. Zato se tada ništa ne upisuje: ni `fairVisitors` red, ni token limitera.
+
+| Ruta | Convex | Telo | Odgovor |
+|---|---|---|---|
+| `POST /api/fair/model-state` | query `getMyModelState` | `{ eventModelId }` | `FairMyModelState` |
+| `POST /api/fair/passport` | query `getMyPassportProgress` | `{ eventSlug }` | `FairPassportState` ili `null` |
+| `POST /api/fair/rating` | mutation `upsertRating` | `{ eventModelId, overall? }` ili `{ eventModelId, appearance?, specifications?, price? }` | `FairRatingState` (samo svoje) |
+| `POST /api/fair/audience-vote` | mutation `upsertAudienceVote` | `{ questionId, optionId }` | `FairAudienceResultView` sa `myOptionId` |
+| `POST /api/fair/survey` | mutation `submitSurvey` | `{ surveyId, submissionId, answers }` (najviše 5) | `FairSurveySubmitResult` |
+| `POST /api/fair/passport/favorite` | mutation `upsertBrandFavorite` | `{ passportId, eventModelId }` | `FairPassportProgress` |
+
+HTTP statusi grešaka:
+- 400: `INVALID_INPUT`;
+- 403: `FEATURE_NOT_ENTITLED`;
+- 404: `FAIR_MODEL_NOT_FOUND`, `PASSPORT_NOT_ACTIVE`;
+- 409: `EVENT_NOT_ACTIVE`, `QUESTION_NOT_OPEN`, `SURVEY_NOT_OPEN`, `SUBMISSION_DUPLICATE`, `SURVEY_ALREADY_SUBMITTED`, `PASSPORT_NOT_COMPLETE`;
+- 429: `RATE_LIMITED`;
+- greška bez stabilnog koda → 502 `SERVICE_UNAVAILABLE`; poruka greške se ne prosleđuje.
+
+### 15.2 Pravila
+
+| Tok | Pravilo | Zaštita od duplikata |
+|---|---|---|
+| Ocena | Starter: tačno `overall` 1–5. Advanced: neprazan podskup `appearance`/`specifications`/`price`, nikad `overall`, bez izvedene ocene (`fairRatingInputProblem`). `included` → `FEATURE_NOT_ENTITLED`. Posle nadogradnje stari `overall` ostaje, a novi unosi su dimenzije. | jedan red po posetilac+model; ponovni unos patchuje samo poslata polja |
+| Glas | pitanje je `published` i `startsAt ≤ sada < endsAt`; paket ima Glas publike; opcija postoji | jedan red po posetilac+pitanje; promena pomera brojač sa stare na novu opciju |
+| Anketa | samo Advanced; najmanje 1 odgovor; `yes_no` = `yes`/`no`, `single_choice` = ID opcije; bez ponovljenog pitanja; `required` pitanja moraju imati odgovor | `submissionId`: isti posetilac i ista anketa → `duplicate: true`, inače `SUBMISSION_DUPLICATE`. Jedan odgovor po posetilac+model za bilo koju verziju → `SURVEY_ALREADY_SUBMITTED` |
+| Favorit | pasoš je `published`; model je u `required` skupu; posetilac ima pečat za svaki `required` model | jedan red po posetilac+event+brend; promena pomera brojač |
+
+Pečat (B2 `stampFairPassportOnScan`) nastaje samo za `required` člana `published` pasoša, najviše jedan po posetilac+model.
+
+### 15.3 Javni upiti (`convex/fairPublic.ts`, bez identiteta)
+
+| Funkcija | Args | Vraća |
+|---|---|---|
+| `listAudienceQuestionsForModel` | `{ eventModelId, dateKey? }` | `FairAudienceQuestionView[]`: `published` pitanja, po danu pa po `sortOrder`; `dateKey` sužava na jedan dan |
+| `getAudienceQuestionResult` | `{ questionId }` | `FairAudienceResultView` bez `myOptionId` za `published`/`closed`, inače `null` |
+| `getSurveyForModel` | `{ eventModelId }` | `FairSurveyView` objavljene verzije Advanced modela, bez rezultata; inače `null` |
+| `getPassportCatalog` | `{ eventSlug }` | `{ eventId, catalog: FairPassportCatalogEntry[] }`: objavljeni pasoši, `required` modeli, `standMapLocationIds` i logo brenda ako postoji |
+
+Prag je `max(FAIR_PUBLIC_VOTE_THRESHOLD, fairEvents.minimumPublicVoteCount)` = 5:
+- ispod praga: `waiting_for_minimum`, bez procenta;
+- od praga: celobrojni procenti (metod najvećeg ostatka, zbir je 100).
+
+**Nijedna javna ni visitor funkcija ne vraća count, sum ni prosek ocena.** Test prolazi kroz izlaze svih javnih funkcija.
+
+`capabilities.hasAudienceQuestions` znači „postoji `published` pitanje modela“. Upit ne čita sat; listu za jedan dan daje `dateKey`.
+
+### 15.4 Brojači (`fairMetricCountShards`)
+
+| Ključ | Ko čita |
+|---|---|
+| `rating_count_<polje>:model:<id>`, `rating_sum_<polje>:model:<id>` (polje: `overall`, `appearance`, `specifications`, `price`) | samo admin i izveštaji (`getModelInteractionSummary`, B6) |
+| `audience_votes:question:<questionId>:<optionId>` | javni rezultat (od praga) i admin |
+| `brand_favorite:passport:<passportId>:<eventModelId>` | rezultat favorita (od praga) |
+
+Prvi unos polja: count +1 i sum + vrednost. Izmena: samo sum ± razlika. Brojači su anonimni i ostaju posle purge-a.
+
+### 15.5 Rate limit (`convex/lib/rateLimits.ts`, ključ `fairVisitors._id`)
+
+| Bucket | rate/min | kapacitet | Aritmetika |
+|---|---:|---:|---|
+| `fairRating` | 30 | 20 | Advanced: 3 dimenzije + 1–2 ispravke ≈ 5 upisa po modelu; 4 vozila na štandu ≈ 20 |
+| `fairAudienceVote` | 30 | 15 | do 5 pitanja + 2–3 promene ≈ 8 po Advanced modelu; dva modela ≈ 15 |
+| `fairSurveySubmit` | 5 | 5 | jedan konačan submit po Advanced modelu; retry istog `submissionId` ne troši token |
+| `fairBrandFavorite` | 10 | 5 | izbor + par promena po brendu (§9.34) |
+
+## 16. B3 — admin (`convex/fairInteractionsAdmin.ts`, sve sa `requireAdmin`)
+
+| Funkcija | Pravilo |
+|---|---|
+| `upsertAudienceQuestion` | Pravi nacrt. 2–5 opcija sa jedinstvenim ID-em; dan istog eventa; prozor je podrazumevano sajamski dan. Idempotentno po `questionId` ili event+`externalKey`. Posle prvog glasa prompt i opcije su zaključani (`FAIR_QUESTION_LOCKED`). Paket bez Glasa publike → `FAIR_FEATURE_NOT_ENTITLED`. |
+| `publishAudienceQuestion` | `draft → published`. Limit po danu prema paketu NA SNAZI (`fairAudienceQuestionsRemaining`). Broje se sva objavljena i zatvorena pitanja tog modela i dana, pa je na dan nadogradnje ukupno 5, uključujući Starter pitanje. |
+| `closeAudienceQuestion` | `published → closed`; rezultat ostaje čitljiv. |
+| `setSponsoredResultQuestion` | Samo Advanced. Tačno jedno pitanje po modelu koje nije nacrt; `null` briše izbor. |
+| `upsertSurveyDraft` | Samo Advanced. 1–5 pitanja; `yes_no` bez opcija; `single_choice` sa 2–5 opcija. Menja se samo nacrt; objavljena verzija → `FAIR_SURVEY_LOCKED`, izmena ide u novu verziju. |
+| `publishSurvey`, `retireSurvey` | Objava povlači prethodnu objavljenu verziju; odgovori ostaju. |
+| `upsertPassport` | Nacrt po event+brend. Vraća `problem`: `fewer_than_two_models`, `model_not_published`, `model_not_candidate` ili `model_below_starter`. |
+| `publishPassport` | Samo pre `startsAt` eventa. Traži ≥2 izložena modela, svi objavljeni, kandidati i Starter+. Upisuje `required` redove i `frozenAt`; skup se posle toga ne gradi ponovo. |
+| `removePassportModel` | Hitno: `required → removed` (`removedAt`, `removedByUserId`). Pečati se ne brišu, a M se smanjuje. |
+| `withdrawPassport` | `published → withdrawn`; pečati i favoriti ostaju. |
+| `getEventInteractions` | Pitanja, verzije anketa (Advanced modeli) i pasoši eventa za tab `Događaji → Interakcije`; bez podataka posetilaca. |
+| `getModelInteractionSummary` | **Jedino mesto** gde se čitaju count, sum i prosek ocena; vraća i broj glasova po opciji. |
+
+Admin UI je tab `Događaji → Interakcije` (`components/admin/admin-events-interactions.tsx`); tekstovi su u `lib/i18n/sr/admin-events.ts`.
