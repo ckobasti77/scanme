@@ -16,7 +16,7 @@ import {
 } from "../lib/fair-contract";
 import { deriveFairCapabilities, getFairEntitlements } from "../lib/fair-entitlements";
 import { fairAudienceResult, fairModelQuestions, fairPassportState, fairVoteThreshold } from "./lib/fairInteractions";
-import { fairActiveConsent, fairExhibitorName, fairLeadConfig, fairRenderConsentText } from "./lib/fairLeads";
+import { fairActiveConsent, fairExhibitorName, fairLeadConfig, fairLeadsEnabled, fairRenderConsentText } from "./lib/fairLeads";
 import { FAIR_SPONSORED_ITEMS_CAP, fairActiveSponsoredSnapshot, fairSponsoredItems } from "./lib/fairSponsored";
 import {
   fairAudienceQuestionView,
@@ -451,13 +451,16 @@ export const getPassportCatalog = query({
  * the form must not collect contacts (production gate, MASTER §8, §13). Like
  * `capabilities`, it reads the stored package (a query never reads the
  * clock); submitLead judges the package in force at the moment of the submit.
- * No PII: no lead, contact or visitor data is read here.
+ * K3: while FAIR_LEADS_ENABLED is not "true" every model and kind is
+ * `leads_disabled` (closed, nothing read). No PII: no lead, contact or
+ * visitor data is read here.
  */
 export const getLeadForm = query({
   args: { eventModelId: v.string(), kind: fairLeadKind },
   returns: fairLeadFormView,
   handler: async (ctx, args): Promise<FairLeadFormView> => {
     const base = { eventModelId: args.eventModelId, kind: args.kind };
+    if (!fairLeadsEnabled()) return { ...base, state: "leads_disabled" };
     const model = await publishedModel(ctx, args.eventModelId);
     if (!model) return { ...base, state: "unavailable" };
     const rights = getFairEntitlements(model.packageTier);

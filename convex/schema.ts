@@ -3596,6 +3596,10 @@ export default defineSchema({
     text: v.string(),
     status: fairConsentStatus,
     activatedAt: v.optional(v.number()),
+    // K3: the legal approval record entered at activation (who did the
+    // expert review, and when). Optional only for rows activated before K3.
+    legalApprovedBy: v.optional(v.string()),
+    legalApprovedAt: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })

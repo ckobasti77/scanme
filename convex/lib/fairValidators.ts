@@ -100,6 +100,8 @@ export const fairEmailDeliveryStatus = v.union(
   v.literal("sent"),
   v.literal("failed"),
   v.literal("suppressed"),
+  // K3: closed at claim time because a lead switch was off; never sent.
+  v.literal("skipped"),
 );
 
 // B0 design (HANDOFF §5.5 names fairPassportConfigs without fields).
@@ -443,6 +445,7 @@ export const fairMyModelStateView = v.object({
 // B4 — lead form (fairPublic.getLeadForm) and submitLead result; never a contact value.
 export const fairLeadFormView = v.union(
   v.object({ eventModelId: v.string(), kind: fairLeadKind, state: v.literal("unavailable") }),
+  v.object({ eventModelId: v.string(), kind: fairLeadKind, state: v.literal("leads_disabled") }),
   v.object({ eventModelId: v.string(), kind: fairLeadKind, state: v.literal("consent_not_configured") }),
   v.object({
     eventModelId: v.string(),

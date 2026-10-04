@@ -2,7 +2,7 @@ import { paginationOptsValidator, paginationResultValidator } from "convex/serve
 import { v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
-import { FAIR_CONSENT_EXHIBITOR_PLACEHOLDER, type FairLeadKind } from "../lib/fair-contract";
+import { FAIR_CONSENT_EXHIBITOR_PLACEHOLDER, FAIR_CONSENT_LEGAL_APPROVER_MAX, type FairLeadKind } from "../lib/fair-contract";
 import { getFairEntitlements } from "../lib/fair-entitlements";
 import { requireAdmin } from "./lib/access";
 import { writeAdminAudit } from "./lib/adminAudit";
@@ -26,8 +26,10 @@ import {
 // FAIR_ADMIN_ISSUE_CODES.
 //
 // Consent: versions are drafted here, but the legal text itself is open item
-// P0 — activation is the production switch of the lead flow and must wait for
-// the expert-reviewed text. Only drafts change; active/retired are immutable.
+// P0 — activation must wait for the expert-reviewed text and (K3) records who
+// approved it and when. Only drafts change; active/retired are immutable. K3:
+// activation is no longer the only switch — the lead flow and the follow-up
+// also need the Convex env switches FAIR_LEADS_ENABLED / FAIR_FOLLOWUP_ENABLED.
 // =============================================================================
 
 const CONSENT_VERSIONS_CAP = 20;
@@ -53,6 +55,8 @@ const consentRow = v.object({
   status: fairConsentStatus,
   text: v.string(),
   activatedAt: v.optional(v.number()),
+  legalApprovedBy: v.optional(v.string()),
+  legalApprovedAt: v.optional(v.number()),
   updatedAt: v.number(),
 });
 
@@ -77,6 +81,8 @@ export const getEventConsents = query({
           status: row.status,
           text: row.text,
           ...(row.activatedAt !== undefined ? { activatedAt: row.activatedAt } : {}),
+          ...(row.legalApprovedBy !== undefined ? { legalApprovedBy: row.legalApprovedBy } : {}),
+          ...(row.legalApprovedAt !== undefined ? { legalApprovedAt: row.legalApprovedAt } : {}),
           updatedAt: row.updatedAt,
         });
       }
@@ -121,12 +127,22 @@ export const saveConsentDraft = mutation({
 });
 
 /**
- * Production switch: draft → active, the previous active version → retired,
- * in one transaction. The text must name the exhibitor through
- * FAIR_CONSENT_EXHIBITOR_PLACEHOLDER (MASTER §8).
+ * draft → active, the previous active version → retired, in one transaction.
+ * The text must name the exhibitor through FAIR_CONSENT_EXHIBITOR_PLACEHOLDER
+ * (MASTER §8). K3: activation also needs the legal approval record the admin
+ * enters — who did the expert review (`legalApprovedBy`) and when
+ * (`legalApprovedAt`, not in the future) — stored on the version and in the
+ * audit; otherwise FAIR_CONSENT_LEGAL_APPROVAL_REQUIRED and nothing changes.
+ * Activation alone still opens nothing: the flow also needs the Convex env
+ * switch FAIR_LEADS_ENABLED (convex/lib/fairLeads.ts).
  */
 export const activateConsent = mutation({
-  args: { consentId: v.id("fairConsentConfigs") },
+  args: {
+    consentId: v.id("fairConsentConfigs"),
+    // Optional in the validator so a missing value is a stable code, not a validator error.
+    legalApprovedBy: v.optional(v.string()),
+    legalApprovedAt: v.optional(v.number()),
+  },
   returns: v.object({ consentId: v.id("fairConsentConfigs"), version: v.number(), retiredConsentId: v.union(v.id("fairConsentConfigs"), v.null()) }),
   handler: async (ctx, args) => {
     const admin = await requireAdmin(ctx);
@@ -134,14 +150,22 @@ export const activateConsent = mutation({
     const row = await ctx.db.get(args.consentId);
     if (!row) fairAdminError("FAIR_CONSENT_NOT_FOUND");
     if (row.status !== "draft") fairAdminError("FAIR_CONSENT_STATUS", { status: row.status });
+    const legalApprovedBy = (args.legalApprovedBy ?? "").trim().replace(/\s+/g, " ");
+    if (!legalApprovedBy || legalApprovedBy.length > FAIR_CONSENT_LEGAL_APPROVER_MAX) {
+      fairAdminError("FAIR_CONSENT_LEGAL_APPROVAL_REQUIRED", { field: "legalApprovedBy" });
+    }
+    const legalApprovedAt = args.legalApprovedAt;
+    if (legalApprovedAt === undefined || !Number.isFinite(legalApprovedAt) || legalApprovedAt <= 0 || legalApprovedAt > now) {
+      fairAdminError("FAIR_CONSENT_LEGAL_APPROVAL_REQUIRED", { field: "legalApprovedAt" });
+    }
     if (!row.text.includes(FAIR_CONSENT_EXHIBITOR_PLACEHOLDER)) fairAdminError("FAIR_CONSENT_EXHIBITOR_MISSING");
     const current = await fairActiveConsent(ctx, row.eventId, row.leadKind);
     if (current) await ctx.db.patch(current._id, { status: "retired", updatedAt: now });
-    await ctx.db.patch(row._id, { status: "active", activatedAt: now, updatedAt: now });
+    await ctx.db.patch(row._id, { status: "active", activatedAt: now, legalApprovedBy, legalApprovedAt, updatedAt: now });
     await writeAdminAudit(ctx, {
       actorUserId: admin._id,
       action: "fair_consent_activated",
-      detail: { eventId: row.eventId, leadKind: row.leadKind, version: row.version },
+      detail: { eventId: row.eventId, leadKind: row.leadKind, version: row.version, legalApprovedBy, legalApprovedAt },
       now,
     });
     return { consentId: row._id, version: row.version, retiredConsentId: current?._id ?? null };

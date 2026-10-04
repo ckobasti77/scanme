@@ -51,6 +51,8 @@ const STATUS: Partial<Record<FairErrorCode, number>> = {
   EVENT_NOT_ACTIVE: 409,
   SUBMISSION_DUPLICATE: 409,
   CONSENT_NOT_CONFIGURED: 409,
+  // K3: the Convex hard switch FAIR_LEADS_ENABLED is off — the flow is closed, nothing was stored.
+  LEADS_DISABLED: 409,
   CONSENT_REQUIRED: 422,
   CONTACT_REQUIREMENT_NOT_MET: 422,
   RATE_LIMITED: 429,

@@ -1,5 +1,5 @@
 import type { Doc, Id } from "../_generated/dataModel";
-import type { MutationCtx, QueryCtx } from "../_generated/server";
+import { env, type MutationCtx, type QueryCtx } from "../_generated/server";
 import { internal } from "../_generated/api";
 import {
   FAIR_CONSENT_EXHIBITOR_PLACEHOLDER,
@@ -22,9 +22,27 @@ import { fairInteractionError } from "./fairInteractions";
 // Production gate: a lead is stored only while an ACTIVE fairConsentConfigs
 // version exists for the event and lead kind; the server renders the consent
 // text itself (exhibitor name included) and stores that exact snapshot.
+//
+// K3 (RF nalaz 3): above that gate sit two hard switches in this deployment's
+// env, so no single admin click opens the flow. Each is on only when its value
+// is exactly "true"; missing or anything else = off.
+//   - FAIR_LEADS_ENABLED: submitLead and getLeadForm, and again in
+//     claimDelivery right before any lead email (confirmation or follow-up);
+//   - FAIR_FOLLOWUP_ENABLED: the post-fair follow-up is scheduled only while
+//     it is on, and claimDelivery checks it again right before sending.
 // =============================================================================
 
 type Ctx = QueryCtx | MutationCtx;
+
+/** K3: the lead flow (store, confirm, follow up) is open only when FAIR_LEADS_ENABLED is exactly "true". */
+export function fairLeadsEnabled(): boolean {
+  return env.FAIR_LEADS_ENABLED === "true";
+}
+
+/** K3: the one post-fair follow-up is scheduled/sent only when FAIR_FOLLOWUP_ENABLED is exactly "true". */
+export function fairFollowUpEnabled(): boolean {
+  return env.FAIR_FOLLOWUP_ENABLED === "true";
+}
 
 export type FairLeadEmailKind = "immediate_confirmation" | "post_event_follow_up";
 

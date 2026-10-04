@@ -31,7 +31,9 @@ type Env = {
   readonly CONVEX_CLOUD_URL: string;
   readonly CONVEX_SITE_URL: string;
   readonly FAIR_EMAIL_REPLY_TO: string | undefined;
+  readonly FAIR_FOLLOWUP_ENABLED: string | undefined;
   readonly FAIR_GATEWAY_SECRET: string | undefined;
+  readonly FAIR_LEADS_ENABLED: string | undefined;
   readonly FAIR_PUBLIC_BASE_URL: string | undefined;
   readonly RESEND_API_KEY: string | undefined;
   readonly RESEND_FROM_EMAIL: string | undefined;
