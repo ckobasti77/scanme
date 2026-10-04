@@ -28,6 +28,8 @@ import type {
   FairPassportEligibleStatus,
   FairPreferredContact,
   FairSponsoredSnapshotStatus,
+  FairReportStatus,
+  FairReportFormat,
   FairSurveyQuestionKind,
   FairSurveyStatus,
 } from "../fair-contract";
@@ -3959,6 +3961,58 @@ export interface AdminEventsDict {
   sponsoredHistoryHelp: string;
   sponsoredHistoryLine: string;
   sponsoredStatus: Record<FairSponsoredSnapshotStatus, string>;
+  tabReports: string;
+  reportsSubtitle: string;
+  reportsUnavailable: string;
+  reportsBuildTitle: string;
+  reportsBuildHelp: string;
+  reportsBuildEmpty: string;
+  reportsDay: string;
+  reportsExhibitor: string;
+  reportsFormat: string;
+  reportsBuild: string;
+  reportsBuildQueued: string;
+  reportsListTitle: string;
+  reportsListHelp: string;
+  reportsEmpty: string;
+  reportsRunLine: string;
+  reportsRunMeta: string;
+  reportsApprovedAt: string;
+  reportsCorrectionBadge: string;
+  reportsRecipient: string;
+  reportsNoRecipient: string;
+  reportsDelivery: string;
+  reportsError: string;
+  reportsReview: string;
+  reportsCloseReview: string;
+  reportsReviewLoading: string;
+  reportsReviewEmpty: string;
+  reportsApprove: string;
+  reportsApproveConfirm: string;
+  reportsApproved: string;
+  reportsSend: string;
+  reportsSendConfirm: string;
+  reportsSent: string;
+  reportsResend: string;
+  reportsResendConfirm: string;
+  reportsRetry: string;
+  reportsRetried: string;
+  reportsCorrect: string;
+  reportsCorrectConfirm: string;
+  reportsCorrected: string;
+  reportsDownload: string;
+  reportsDownloaded: string;
+  reportsRecipientLabel: string;
+  reportsExportsTitle: string;
+  reportsExportsHelp: string;
+  reportsLeadsLabel: string;
+  reportsLeadsWarning: string;
+  reportsLeadsDownload: string;
+  reportsOrganizerLabel: string;
+  reportsOrganizerDownload: string;
+  reportStatus: Record<FairReportStatus, string>;
+  reportsFormats: Record<FairReportFormat, string>;
+  reportBuildErrors: Record<"BUILD_FAILED" | "REPORT_CONTEXT_MISSING", string>;
 }
 
 export type AdminEventsPassportProblem = "fewer_than_two_models" | "model_not_published" | "model_not_candidate" | "model_below_starter";
@@ -3979,6 +4033,80 @@ export interface EventLeadEmailDict {
   devTestBody: string;
 }
 
+// event-report — B6 exhibitor daily report, organizer aggregate and PII lead
+// export files + the report email (convex/lib/fairReportFiles.ts). The visual
+// template is PRIVREMENO (MASTER §12); these are neutral placeholder labels.
+export interface EventReportDict {
+  reportTitle: string;
+  reportSubtitle: string;
+  builtAtLine: string;
+  windowLine: string;
+  provisionalNote: string;
+  truncatedNote: string;
+  cappedNote: string;
+  standsHeading: string;
+  standsNote: string;
+  modelsHeading: string;
+  hourlyHeading: string;
+  comparisonHeading: string;
+  ratingsHeading: string;
+  audienceHeading: string;
+  surveyHeading: string;
+  sponsoredHeading: string;
+  noModelAnalytics: string;
+  colStand: string;
+  colModel: string;
+  colPackage: string;
+  colTotal: string;
+  colUnique: string;
+  colHour: string;
+  colInterest: string;
+  colTestDrive: string;
+  colMetric: string;
+  colToday: string;
+  colPrevious: string;
+  colChange: string;
+  colField: string;
+  colCount: string;
+  colAverage: string;
+  colQuestion: string;
+  colAnswer: string;
+  colVotes: string;
+  colResponses: string;
+  colOpenModel: string;
+  colGarageAdd: string;
+  colDay: string;
+  colDate: string;
+  colKind: string;
+  colName: string;
+  colEmail: string;
+  colPhone: string;
+  colConsentVersion: string;
+  colConsentedAt: string;
+  colCreatedAt: string;
+  tiers: Record<"included" | "starter" | "advanced", string>;
+  ratingFields: Record<"overall" | "appearance" | "specifications" | "price", string>;
+  comparisonMetrics: Record<"scans_total" | "scans_unique" | "interest" | "test_drive" | "sponsored_open_model" | "sponsored_garage_add", string>;
+  questionStatus: Record<"draft" | "published" | "closed", string>;
+  leadKinds: Record<"interest" | "test_drive", string>;
+  yes: string;
+  no: string;
+  surveyVersion: string;
+  pageOf: string;
+  sheetName: string;
+  organizerTitle: string;
+  organizerSubtitle: string;
+  organizerHeading: string;
+  organizerNote: string;
+  leadsTitle: string;
+  leadsSubtitle: string;
+  leadsHeading: string;
+  emailSubject: string;
+  emailBody: string;
+  emailCorrectionNote: string;
+  emailSignature: string;
+}
+
 export interface DictBySurface {
   "event-map": EventMapDict;
   "fair-map": FairMapDict;
@@ -3994,6 +4122,7 @@ export interface DictBySurface {
   "admin-team": AdminTeamDict;
   "admin-events": AdminEventsDict;
   "event-lead-email": EventLeadEmailDict;
+  "event-report": EventReportDict;
   communications: CommunicationsDict;
   "admin-domain": AdminDomainDict;
   venue: VenueDict;

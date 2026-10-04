@@ -35,6 +35,7 @@ import {
   fairSurveyStatus,
   fairVisitorHash,
 } from "./lib/fairValidators";
+import { fairDailyDataset } from "./lib/fairReportDataset";
 import {
   destinationPresentationValidator,
   paletteAnalysisValidator,
@@ -3655,6 +3656,8 @@ export default defineSchema({
     // B0 deviation: optional (HANDOFF §5.4 lists it as required, but the
     // daily_report / exhibitor_delivery kinds have no lead).
     leadId: v.optional(v.id("fairLeads")),
+    // B6: set only for kind daily_report (the approved run whose file is attached).
+    reportRunId: v.optional(v.id("fairReportRuns")),
     kind: fairEmailDeliveryKind,
     recipient: v.string(),
     status: fairEmailDeliveryStatus,
@@ -3744,6 +3747,11 @@ export default defineSchema({
     approvedByUserId: v.optional(v.id("users")),
     approvedAt: v.optional(v.number()),
     correctionOfReportRunId: v.optional(v.id("fairReportRuns")),
+    // B6: the frozen daily dataset the admin reviews (bounded: ≤100 models,
+    // ≤25 hours) and the number of outbox deliveries queued for this run
+    // (dedupeKey fair-report/<runId>/<n>).
+    dataset: v.optional(fairDailyDataset),
+    sendCount: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })

@@ -10,6 +10,7 @@ import {
   type FairErrorCode,
   type FairModelCapabilities,
   type FairPackageTier,
+  type FairReportMetric,
 } from "./fair-contract";
 
 // -----------------------------------------------------------------------------
@@ -253,6 +254,31 @@ export type FairAnalyticsScope = "stand_totals" | "model";
 
 export function fairAnalyticsScope(tier: FairPackageTier): FairAnalyticsScope {
   return FAIR_ENTITLEMENT_CATALOG[tier].modelAnalytics ? "model" : "stand_totals";
+}
+
+/**
+ * B6 report projection (MASTER §12, HANDOFF §10): the metric groups one
+ * model contributes to its exhibitor's dataset, derived from the catalog
+ * above. `included` → only its stand's total/unique; Starter → model
+ * analytics, hourly split, day comparison, interest, overall rating, Glas
+ * publike; Advanced → Starter plus test drive, survey and garage sponsored
+ * conversions, with the three rating dimensions INSTEAD of overall. A group
+ * not listed is omitted from the dataset (never a fake zero).
+ */
+export function fairReportMetrics(tier: FairPackageTier): FairReportMetric[] {
+  const rights = FAIR_ENTITLEMENT_CATALOG[tier];
+  const metrics: FairReportMetric[] = [];
+  if (rights.standScanTotals) metrics.push("stand_scans");
+  if (rights.modelAnalytics) metrics.push("model_scans");
+  if (rights.dailyReport) metrics.push("hourly_scans", "day_comparison");
+  if (rights.interest) metrics.push("interest");
+  if (rights.testDrive) metrics.push("test_drive");
+  if (rights.ratingMode === "overall") metrics.push("rating_overall");
+  if (rights.ratingMode === "dimensions") metrics.push("rating_dimensions");
+  if (rights.audienceQuestionsPerDay > 0) metrics.push("audience");
+  if (rights.survey) metrics.push("survey");
+  if (rights.sponsoredGarageRotation) metrics.push("sponsored_garage");
+  return metrics;
 }
 
 /**

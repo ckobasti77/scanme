@@ -4,6 +4,7 @@ import { CheckCircle2, CircleAlert, FileJson, QrCode, TriangleAlert } from "luci
 import { useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { AdminEventsInteractions, type InteractionsActions, type InteractionsView } from "@/components/admin/admin-events-interactions";
 import { AdminEventsLeads } from "@/components/admin/admin-events-leads";
+import { AdminEventsReports } from "@/components/admin/admin-events-reports";
 import { AdminEventsSponsored } from "@/components/admin/admin-events-sponsored";
 import { AdminEmptyState, AdminLoadingState, AdminPanel, AdminStatus } from "@/components/admin/admin-primitives";
 import { FAIR_PACKAGE_TIERS, type FairClientSegment, type FairEventStatus, type FairModelStatus, type FairPackageTier, type FairParticipationStatus } from "@/lib/fair-contract";
@@ -98,9 +99,11 @@ export type AdminEventsSurfaceProps = {
   leads?: ReactNode;
   /** B5: the connected Sponzorisano section (AdminEventsSponsoredWorkspace); absent in the static preview. */
   sponsored?: ReactNode;
+  /** B6: the connected Izveštaji section (AdminEventsReportsWorkspace); absent in the static preview. */
+  reports?: ReactNode;
 };
 
-type Tab = "overview" | "model" | "qr" | "interactions" | "leads" | "sponsored" | "import" | "clients";
+type Tab = "overview" | "model" | "qr" | "interactions" | "leads" | "sponsored" | "reports" | "import" | "clients";
 const TABS: { id: Tab; label: string }[] = [
   { id: "overview", label: dict.tabOverview },
   { id: "model", label: dict.tabModel },
@@ -108,6 +111,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "interactions", label: dict.tabInteractions },
   { id: "leads", label: dict.tabLeads },
   { id: "sponsored", label: dict.tabSponsored },
+  { id: "reports", label: dict.tabReports },
   { id: "import", label: dict.tabImport },
   { id: "clients", label: dict.tabClients },
 ];
@@ -676,6 +680,7 @@ export function AdminEventsSurface(props: AdminEventsSurfaceProps) {
               : tab === "interactions" ? <AdminEventsInteractions view={props.interactions?.view} actions={props.interactions?.actions} />
               : tab === "leads" ? props.leads ?? <AdminEventsLeads view={undefined} actions={undefined} />
               : tab === "sponsored" ? props.sponsored ?? <AdminEventsSponsored view={undefined} actions={undefined} />
+              : tab === "reports" ? props.reports ?? <AdminEventsReports view={undefined} actions={undefined} />
               : props.catalog === undefined ? <AdminPanel><AdminLoadingState label={dict.loading} /></AdminPanel>
               : tab === "overview" ? <Overview catalog={props.catalog} onOpenModel={(id) => { setModelId(id); setTab("model"); }} />
               : tab === "model" ? <ModelDetail key={modelId ?? "none"} catalog={props.catalog} modelId={modelId} onSelect={(id) => setModelId(id || null)} actions={props.actions} />

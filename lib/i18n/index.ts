@@ -45,6 +45,7 @@ import { adminProductsSr } from "./sr/admin-products";
 import { adminTeamSr } from "./sr/admin-team";
 import { adminEventsSr } from "./sr/admin-events";
 import { eventLeadEmailSr } from "./sr/event-lead-email";
+import { eventReportSr } from "./sr/event-report";
 import { adminFinanceSr } from "./sr/admin-finance";
 import { adminServicesSr } from "./sr/admin-services";
 import { adminSettingsSr } from "./sr/admin-settings";
@@ -88,6 +89,7 @@ export type {
   AdminTeamDict,
   AdminEventsDict,
   EventLeadEmailDict,
+  EventReportDict,
   AdminFinanceDict,
   AdminServicesDict,
   AdminSearchDict,
@@ -125,6 +127,7 @@ export {
   adminTeamSr,
   adminEventsSr,
   eventLeadEmailSr,
+  eventReportSr,
   adminFinanceSr,
   adminServicesSr,
   adminSettingsSr,
@@ -145,6 +148,7 @@ const SR: DictBySurface = {
   "admin-team": adminTeamSr,
   "admin-events": adminEventsSr,
   "event-lead-email": eventLeadEmailSr,
+  "event-report": eventReportSr,
   "admin-finance": adminFinanceSr,
   "admin-services": adminServicesSr,
   "admin-domain": adminDomainSr,

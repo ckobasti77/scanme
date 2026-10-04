@@ -6,6 +6,7 @@ import { env, internalAction } from "./_generated/server";
 import {
   buildFairDevTestEmail,
   buildFairLeadEmail,
+  fairBytesToBase64,
   fairPublicBaseUrl,
   fairResendConfig,
   sendFairResendEmail,
@@ -28,6 +29,27 @@ export const sendDelivery = internalAction({
     const config = fairResendConfig(env);
     if (!config) {
       await ctx.runMutation(internal.fairEmails.markFailed, { deliveryId: args.deliveryId, error: "RESEND_NOT_CONFIGURED", retryable: false });
+      return null;
+    }
+    if (claim.action === "send_report") {
+      // B6: the approved run's stored file, attached as-is (what the admin reviewed).
+      const file = await ctx.storage.get(claim.report.storageId);
+      if (!file) {
+        await ctx.runMutation(internal.fairEmails.markFailed, { deliveryId: args.deliveryId, error: "REPORT_FILE_MISSING", retryable: false });
+        return null;
+      }
+      const content = fairBytesToBase64(new Uint8Array(await file.arrayBuffer()));
+      const { subject, text, html } = claim.report;
+      const reportOutcome = await sendFairResendEmail(
+        { subject, text, html },
+        { ...config, to: claim.report.recipient, idempotencyKey: claim.report.dedupeKey, attachments: [{ filename: claim.report.fileName, content }] },
+        fetch,
+      );
+      if (reportOutcome.ok) {
+        await ctx.runMutation(internal.fairEmails.markSent, { deliveryId: args.deliveryId, providerMessageId: reportOutcome.providerMessageId });
+      } else {
+        await ctx.runMutation(internal.fairEmails.markFailed, { deliveryId: args.deliveryId, error: reportOutcome.error, retryable: reportOutcome.retryable });
+      }
       return null;
     }
     const email = buildFairLeadEmail(claim.message, fairPublicBaseUrl(env.FAIR_PUBLIC_BASE_URL));

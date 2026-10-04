@@ -1,6 +1,6 @@
 # Sajam automobila 2026 — fair backend ugovor (B0)
 
-> Status: **B0 — ugovor i šema; B1 — katalog, import, paketi i QR dodela** (admin funkcije u §11, import u §12); **B2 — anonimni identitet, scan pipeline i javni katalog** (§13–§14); **B3 — ocene, Glas publike, anketa i pasoš** (§15–§16); **B4 — leadovi, saglasnost i email outbox** (§17–§18); **B5 — sponzorisani snapshot, projekcije rotacije i garažne akcije** (§19–§20). Napisano iz stvarnog koda 3. i 4. oktobra 2026.
+> Status: **B0 — ugovor i šema; B1 — katalog, import, paketi i QR dodela** (admin funkcije u §11, import u §12); **B2 — anonimni identitet, scan pipeline i javni katalog** (§13–§14); **B3 — ocene, Glas publike, anketa i pasoš** (§15–§16); **B4 — leadovi, saglasnost i email outbox** (§17–§18); **B5 — sponzorisani snapshot, projekcije rotacije i garažne akcije** (§19–§20); **B6 — analitika, dnevni dataset i izveštaji** (§21–§22). Napisano iz stvarnog koda 3. i 4. oktobra 2026.
 >
 > Vlasnik backend-a: **Jovan**. Vlasnik proizvoda i go/no-go: **Aleksa**.
 > Izvori zahteva: `MASTER-KONTEKST.md`, `BACKEND-HANDOFF.md` (§4–§7, §11), `JOVAN-DELTA-2026-10-02.md`.
@@ -21,7 +21,7 @@ Ako se ovaj dokument i kod razilaze, važi kod, a razlika je greška dokumenta.
 
 ## 1. Funkcijska površina
 
-**B0 ne dodaje nijednu public, internal ni admin funkciju.** Nova je samo šema; tipovi i pravila su čiste funkcije. **B1** dodaje admin funkcije (`requireAdmin`) i jednu internal DEV funkciju; spisak je u §11. **B2** dodaje tri javna read-only upita (`fairPublic.*`), fair granu u postojećem `cards.resolveAndRecord`, dve internal funkcije i jedan Next gateway (§13–§14). **B3** dodaje gateway-facing `fairInteractions.*`, četiri javna upita u `fairPublic`, admin `fairInteractionsAdmin.*` i šest POST ruta (§15–§16). **B4** dodaje gateway-facing `fairLeads.submitLead`, javni `fairPublic.getLeadForm`, internal outbox `fairEmails.*`, Node sender `fairEmailSender.*`, admin `fairLeadsAdmin.*` i rutu `POST /api/fair/lead` (§17–§18). **B5** dodaje javne `fairPublic.getSponsoredMapRotation` i `getSponsoredGarageRotation`, gateway-facing `fairInteractions.recordSponsoredAction`, admin `fairSponsoredAdmin.*` i rutu `POST /api/fair/sponsored-action` (§19–§20).
+**B0 ne dodaje nijednu public, internal ni admin funkciju.** Nova je samo šema; tipovi i pravila su čiste funkcije. **B1** dodaje admin funkcije (`requireAdmin`) i jednu internal DEV funkciju; spisak je u §11. **B2** dodaje tri javna read-only upita (`fairPublic.*`), fair granu u postojećem `cards.resolveAndRecord`, dve internal funkcije i jedan Next gateway (§13–§14). **B3** dodaje gateway-facing `fairInteractions.*`, četiri javna upita u `fairPublic`, admin `fairInteractionsAdmin.*` i šest POST ruta (§15–§16). **B4** dodaje gateway-facing `fairLeads.submitLead`, javni `fairPublic.getLeadForm`, internal outbox `fairEmails.*`, Node sender `fairEmailSender.*`, admin `fairLeadsAdmin.*` i rutu `POST /api/fair/lead` (§17–§18). **B5** dodaje javne `fairPublic.getSponsoredMapRotation` i `getSponsoredGarageRotation`, gateway-facing `fairInteractions.recordSponsoredAction`, admin `fairSponsoredAdmin.*` i rutu `POST /api/fair/sponsored-action` (§19–§20). **B6** dodaje internal `fairAnalytics.*`, admin `fairReports.*` (upiti, mutacije i akcije za preuzimanje), internal izradu i cron u `fairReports` i granu `daily_report` u B4 outbox-u (§21–§22).
 
 Planirana površina (HANDOFF §7). Imena se mogu minimalno prilagoditi; odgovornosti ne.
 
@@ -33,7 +33,7 @@ Planirana površina (HANDOFF §7). Imena se mogu minimalno prilagoditi; odgovorn
 | `convex/fairInteractions.ts` (B3 i B5 deo **urađen**, §15, §19.4) | B3/B5 | public preko POST gateway-a | `getMyModelState`, `upsertRating`, `upsertAudienceVote`, `submitSurvey`, `upsertBrandFavorite`, `recordSponsoredAction` (samo garaža) |
 | `convex/fairLeads.ts`, `convex/fairEmails.ts`, `convex/fairEmailSender.ts`, `convex/fairLeadsAdmin.ts` (**urađeno**, §17–§18) | B4 | gateway + internal + admin | `submitLead`, potvrda (Node `internalAction`), follow-up, suppression, paginiran izvoz |
 | `convex/fairSponsoredAdmin.ts` (**urađeno**, §20) | B5 | admin (`requireAdmin`) | `publishSponsoredSnapshot`, `getSponsoredRotationAdmin`; izbor rezultata ostaje B3 `setSponsoredResultQuestion` |
-| `convex/fairAnalytics.ts`, `convex/fairReports.ts` | B6 | internal/admin | metrike, dnevni dataset, report lifecycle (send samo iz `approved`) |
+| `convex/fairAnalytics.ts`, `convex/fairReports.ts` (**urađeno**, §21–§22) | B6 | internal/admin | metrike, dnevni dataset, report lifecycle (send samo iz `approved`), odvojeni PII izvoz i agregat za organizatora |
 | purge | B7 | internal + admin preview | bounded, retry-safe brisanje PII |
 
 Pravila za sve buduće funkcije:
@@ -121,7 +121,7 @@ Napomene:
 | `fairLeadConfigs` | `eventModelId`, `leadKind`, `contactRequirement: one_of\|email\|phone\|both`, `preferredContact?`, `enabled`, `updatedByUserId`, `createdAt`, `updatedAt` | `by_eventModelId_and_leadKind` | (model, kind) | ne |
 | `fairLeads` | `submissionId`, `kind`, `visitorId`, `eventId`, `eventModelId`, `participationId`, `contactName`, `email?`, `phone?`, `consentAccepted: true` (literal), `consentVersion`, `consentTextSnapshot`, `consentedAt`, `status: received\|delivered`, `deliveredAt?`, `followUpSuppressed`, `suppressedAt?`, `suppressedByUserId?`, `createdAt`, `purgeAt` | `by_submissionId`, `by_eventModelId_and_createdAt`, `by_participationId_and_createdAt`, `by_status_and_purgeAt` | `submissionId` | da |
 | `fairMessageTemplates` | `eventModelId`, `kind: immediate_confirmation\|post_event_follow_up`, `subject`, `plainText`, `html?`, `status`, `version`, `createdAt`, `updatedAt` | `by_eventModelId_and_kind_and_status` | (model, kind, version) | ne |
-| `fairEmailDeliveries` | `dedupeKey`, `leadId?`⁶, `kind`, `recipient`, `status: queued\|sent\|failed\|suppressed`, `scheduledFor`, `attemptCount`, `providerMessageId?`, `lastError?`, `createdAt`, `updatedAt` | `by_dedupeKey`, `by_status_and_scheduledFor`, `by_leadId_and_kind` | `dedupeKey` | da (`recipient`) |
+| `fairEmailDeliveries` | `dedupeKey`, `leadId?`⁶, `reportRunId?` (B6), `kind`, `recipient`, `status: queued\|sent\|failed\|suppressed`, `scheduledFor`, `attemptCount`, `providerMessageId?`, `lastError?`, `createdAt`, `updatedAt` | `by_dedupeKey`, `by_status_and_scheduledFor`, `by_leadId_and_kind` | `dedupeKey` | da (`recipient`) |
 
 ⁶ B0 odstupanje: opciono. `daily_report` i `exhibitor_delivery` nemaju lead.
 
@@ -140,7 +140,7 @@ Napomene:
 
 | Tabela | Polja | Indeksi | Napomena |
 |---|---|---|---|
-| `fairReportRuns` | `eventId`, `eventDayId`, `participationId`, `status`, `dataThrough`, `format: pdf\|xlsx\|csv`, opciono: `storageId`, `recipient`, `providerMessageId`, `error`, `reviewedByUserId`, `reviewedAt`, `approvedByUserId`, `approvedAt`, `correctionOfReportRunId`; `createdAt`, `updatedAt` | `by_eventDayId_and_participationId`, `by_status_and_createdAt` | send samo iz `approved` |
+| `fairReportRuns` | `eventId`, `eventDayId`, `participationId`, `status`, `dataThrough`, `format: pdf\|xlsx\|csv`, opciono: `storageId`, `recipient`, `providerMessageId`, `error`, `reviewedByUserId`, `reviewedAt`, `approvedByUserId`, `approvedAt`, `correctionOfReportRunId`, B6: `dataset` (zamrznut dnevni dataset, §21.2), `sendCount`; `createdAt`, `updatedAt` | `by_eventDayId_and_participationId`, `by_status_and_createdAt` | send samo iz `approved` |
 | `fairSponsoredSnapshots` | `eventId`, `version`, `dayKey`, `seed`, `status: draft\|published\|retired`, `publishedAt?`, `publishedByUserId?` | `by_eventId_and_status`, `by_eventId_and_version` | jedan `published` po eventu (proverava mutacija) |
 | `fairSponsoredSnapshotItems` | `snapshotId`, `eventModelId`, `order`, `audienceQuestionId?` | `by_snapshotId_and_order` | ograničena lista, poređana pri objavi |
 | `fairSponsoredEvents` | `requestId`, `eventId`, `eventModelId`, `surface: "garage"`⁷, `kind: open_model\|garage_add`, `occurredAt`, `dateKey`, `hourKey`, `visitorId?` | `by_requestId`, `by_eventModelId_and_occurredAt`, `by_eventId_and_occurredAt` | PII (`visitorId`) |
@@ -248,6 +248,8 @@ B3 admin kodovi (`FAIR_ADMIN_ISSUE_CODES`): `FAIR_FEATURE_NOT_ENTITLED`, `FAIR_E
 
 B4: lead tok koristi postojeće kodove (`CONSENT_NOT_CONFIGURED`, `CONSENT_REQUIRED`, `CONTACT_REQUIREMENT_NOT_MET`, `FEATURE_NOT_ENTITLED`, `SUBMISSION_DUPLICATE`, `RATE_LIMITED`, `EVENT_NOT_ACTIVE`, `FAIR_MODEL_NOT_FOUND`, `INVALID_INPUT`). Novi admin kodovi: `FAIR_CONSENT_NOT_FOUND`, `FAIR_CONSENT_STATUS`, `FAIR_CONSENT_EXHIBITOR_MISSING`, `FAIR_LEAD_NOT_FOUND`, `FAIR_EMAIL_DELIVERY_NOT_FOUND`, `FAIR_EMAIL_DELIVERY_STATUS`. Greška isporuke (`fairEmailDeliveries.lastError`) je stabilan prefiks iz `FAIR_EMAIL_DELIVERY_ERRORS` (`RESEND_NOT_CONFIGURED`, `FOLLOW_UP_TEMPLATE_MISSING`, `LEAD_MISSING`, `PROVIDER_REJECTED`, `PROVIDER_UNAVAILABLE`) + `:` + HTTP status ili `network`; nikad poruka provajdera ni adresa.
 
+B6 admin kodovi: `FAIR_REPORT_NOT_FOUND`, `FAIR_REPORT_STATUS`, `FAIR_REPORT_NOT_APPROVED` (slanje bilo čega osim `approved`), `FAIR_REPORT_RECIPIENT_MISSING`, `FAIR_REPORT_EXPORT_TOO_LARGE`. Novi kodovi isporuke (`FAIR_EMAIL_DELIVERY_ERRORS`): `REPORT_NOT_SENDABLE` (u trenutku slanja izveštaj više nije `approved`/`sent`) i `REPORT_FILE_MISSING`. Greške izrade (`fairReportRuns.error`): `BUILD_FAILED`, `REPORT_CONTEXT_MISSING`.
+
 B5: `recordSponsoredAction` koristi postojeće kodove (`INVALID_INPUT` za `surface` ≠ `garage`, drugu vrstu ili loš `requestId`; `FEATURE_NOT_ENTITLED`, `FAIR_MODEL_NOT_FOUND`, `EVENT_NOT_ACTIVE`, `SUBMISSION_DUPLICATE`, `RATE_LIMITED`). Nov admin kod: `FAIR_SPONSORED_LIMIT` (više od 200 Advanced modela u jednom eventu).
 
 Detalji greške su samo ne-PII vrednosti. Tekst greške mapira frontend kroz `lib/i18n`.
@@ -338,6 +340,13 @@ Konstante rotacije u `lib/fair-contract.ts` imaju ista imena i vrednosti kao u `
 51. **Rezultat pitanja u snapshot-u** (B5): izbor pitanja se zamrzava pri objavi (HANDOFF §5.7: item ima `audienceQuestionId`). Promena izbora traži novu objavu; tab to prikazuje kao „Potrebna nova objava“.
 52. **Akcija za model koji je u međuvremenu ispao iz liste** (B5): `recordSponsoredAction` prima samo model iz trenutno objavljenog snapshot-a. Klik na karticu stare liste posle nove objave vraća `FEATURE_NOT_ENTITLED`.
 53. **Admin u garaži** (B5): akcije prijavljenih ScanMe admina se ne isključuju (gateway ne prosleđuje sesiju, a MASTER §5 izuzima samo skenove). Treba li i ovde izuzeće?
+54. **„Zatvaranje dana“** (B6): `fairEventDays` nema radno vreme, pa je kraj dana `endsAt` = ponoć po Beogradu (ceo kalendarski dan, isti ključ kao `dateKey`). Dataset je spreman oko 00:15–00:20. Ako izlagač treba presek odmah posle zatvaranja hale (npr. 20:00), potrebno je novo polje `closesAt` na danu i odluka kome pripadaju večernji skenovi.
+55. **Format i šablon izveštaja (P1.3)** (B6): šablon PDF/XLSX/CSV je PRIVREMEN (neutralan raspored, tekstovi u `lib/i18n/sr/event-report.ts`). Automatski dnevni run je `pdf`. Admin može ručno da napravi `xlsx`/`csv` run i da preuzme svaki format istog dataseta. Šalje se jedan prilog po run-u. Da li izlagač dobija PDF i XLSX u istom emailu?
+56. **Ocene i Glas publike u dnevnom preseku** (B6): brojači nemaju dnevni ključ, pa izveštaj prikazuje ukupno stanje u trenutku izrade (to piše i u izveštaju). Dnevni presek ocena bi tražio nove dnevne brojače.
+57. **Ocene posle nadogradnje** (B6): projekcija prati paket na kraju dana. Model nadograđen sa Starter na Napredni prikazuje samo tri dimenzije. Ranije ukupne ocene ostaju u bazi, ali se ne prikazuju (nema „četvrte“ ocene). Treba li ih prikazati posebno?
+58. **Izveštaj za osnovni nivo** (B6): `included` nema dnevni presek, pa ga cron ne pravi. Admin može ručno da napravi izveštaj sa ukupnim i jedinstvenim skeniranjima štanda. Kada se on šalje (npr. kao „završni izveštaj“, §9.9)?
+59. **Agregat za organizatora** (B6): sadrži samo zbir po danu (skeniranja, jedinstvena, broj leadova po vrsti), bez podele po izlagaču. Preuzima ga admin; slanje organizatoru nije automatizovano. Šta tačno organizator dobija i kojim kanalom?
+60. **Predaja leadova** (B6, nastavak §9.46): PII izvoz je poseban CSV/XLSX fajl koji admin preuzima. `fairLeads.status: delivered` se ne menja automatski, jer kanal i primalac (P0.2) nisu dogovoreni.
 
 ## 10. Šta stiže posle B0
 
@@ -349,7 +358,7 @@ Konstante rotacije u `lib/fair-contract.ts` imaju ista imena i vrednosti kao u `
 | **B3** (urađeno, §15–§16) | ocene, Glas publike, anketa, pasoš i favorit |
 | **B4** (urađeno, §17–§18) | leadovi, saglasnost i email outbox (produkcija čeka pravni tekst) |
 | **B5** (urađeno, §19–§20) | sponzorisani snapshot i rotacija (samo garažni `open_model`/`garage_add`) |
-| **B6** | analitika i izveštaji |
+| **B6** (urađeno, §21–§22) | analitika, dnevni dataset, report lifecycle sa ručnim odobrenjem, PII izvoz i agregat za organizatora |
 | **B7** | purge, authz, performance i integracioni test |
 
 ## 11. B1 funkcije (stvarna površina)
@@ -862,3 +871,102 @@ Rate limit `fairSponsoredAction`: rate 20/min, kapacitet 10, ključ `fairVisitor
 Izbor pitanja ostaje `fairInteractionsAdmin.setSponsoredResultQuestion` (B3, §16).
 
 Admin UI je tab `Događaji → Sponzorisano` (`components/admin/admin-events-sponsored.tsx`). Prikazuje redosled objavljene liste i rezultat uz svaki model, stanje „Ažurno / Potrebna nova objava“ (model nedostaje, više nije objavljen Advanced, promenjen rezultat, paket počinje kasnije), objavu nove liste uz potvrdu, izbor rezultata po Advanced modelu i verzije. Tekstovi su u `lib/i18n/sr/admin-events.ts`.
+
+## 21. B6 — analitika i dnevni dataset (stvarna površina)
+
+Izvori: HANDOFF §5.6, §7 `fairAnalytics`/`fairReports`, §10, §11 B6, §12 „Izveštaji i izolacija“; MASTER §12, §13; V2 §9. Šema: `fairReportRuns` dobija opciona polja `dataset` i `sendCount`, a `fairEmailDeliveries` opciono `reportRunId`. Nijedan indeks nije dodat.
+
+### 21.1 Projekcija po paketu (`lib/fair-entitlements.ts` → `fairReportMetrics(tier)`)
+
+| Grupa | included | starter | advanced |
+|---|:-:|:-:|:-:|
+| `stand_scans` (ukupno/jedinstveno štanda) | da | da | da |
+| `model_scans` (dnevno po modelu) | — | da | da |
+| `hourly_scans`, `day_comparison` | — | da | da |
+| `interest` | — | da | da |
+| `test_drive` | — | — | da |
+| `rating_overall` | — | da | — |
+| `rating_dimensions` (izgled, specifikacije, cena) | — | — | da |
+| `audience` (Glas publike tog dana) | — | da | da |
+| `survey` (zbir odgovora, nikad pojedinačni) | — | — | da |
+| `sponsored_garage` (`open_model`, `garage_add`; bez impressions) | — | — | da |
+
+Grupa koju paket nema **ne postoji** u datasetu (nema ključa, nema 0). U tabeli izveštaja takav model ima „—“. Paket se čita za kraj dana (`fairModelTierAt(model, day.endsAt - 1)`). Skenovi pre nadogradnje ostaju (B2 brojači).
+
+### 21.2 Dataset (`convex/lib/fairReportDataset.ts`, validator `fairDailyDataset`)
+
+- Jedan dataset = jedno učešće × jedan sajamski dan. Prozor je `[fairEventDays.startsAt, endsAt)`, beogradski kalendarski dan (§9.54).
+- Izvori:
+  - `scan_*` dnevni i satni ključevi (B2);
+  - `rating_*` (B3, kumulativno);
+  - `audience_votes:*` za pitanja tog dana (B3);
+  - `fairSurveyResponses` u prozoru (zbir po pitanju i odgovoru);
+  - `fairLeads` u prozoru (**samo broj**);
+  - `sponsored_<kind>:model:<id>:<dateKey>` (B5).
+- `stands`: ukupno i jedinstveno štanda u trenutku izrade (svaki paket).
+- `hourly`: zbir modela sa `hourly_scans` (24 sata; 23 ili 24 na DST dan, ponovljeni sat jednom).
+- `comparison` od drugog dana: `scans_total`, `scans_unique`, `interest`, `test_drive`, `sponsored_open_model`, `sponsored_garage_add`. Red sabira samo modele koji su grupu imali na kraju **oba** dana.
+- Limiti: najviše 100 modela po učešću (`modelsTruncated`), najviše 1000 sirovih redova po brojanju (`capped` znači „najmanje“), 10 pitanja po modelu i danu.
+- Izolacija: `modelDayRaw` vraća `null` za model drugog učešća ili dan drugog eventa; `reportContext` vraća `null` kad dan i učešće nisu istog eventa.
+
+### 21.3 Internal funkcije (`convex/fairAnalytics.ts`)
+
+| Funkcija | Šta radi |
+|---|---|
+| `reportContext({ participationId, eventDayId })` | event, dan, prethodni dan (`sortOrder`), izlagač, `reportRecipientEmail`, štandovi sa ukupnim brojevima, ID-evi modela (bez `draft`) |
+| `modelDayRaw({ eventModelId, participationId, eventDayId, previousEventDayId? })` | brojevi jednog modela za grupe njegovog paketa i vrednosti prethodnog dana |
+| `organizerScope`, `organizerStandDays`, `organizerParticipationLeads` | agregat za organizatora; traže admina |
+
+### 21.4 Rok od 60 minuta (`convex/crons.ts`: „fair daily report sweep“, svakih 15 min)
+
+`fairReports.sweepDailyReports` (internal) radi za događaje `published`/`live`/`ended`. Za svaki dan zatvoren u poslednja 24 h i svako `active` učešće sa bar jednim modelom koji ima dnevni presek pravi po jedan run, koji odmah ide na izradu. Run nastaje najkasnije 15 min posle kraja dana, a izrada traje sekunde, pa je dataset spreman pre roka (`FAIR_REPORT_READY_WITHIN_MS`, test).
+
+Sweep:
+- je idempotentan (jedan run po dan × učešće);
+- pravi najviše 100 novih run-ova po pozivu (ostatak nastavlja preko scheduler-a);
+- **nikad ne šalje**.
+
+## 22. B6 — izveštaji, slanje i izvozi (`convex/fairReports.ts`)
+
+### 22.1 Lifecycle
+
+`queued → building → pending_review → approved → sent | failed`
+
+| Funkcija | Vrsta | Pravilo |
+|---|---|---|
+| `requestReportBuild({ eventDayId, participationId, format })` | admin mutation | nov `queued` run i izrada; dan i učešće moraju biti istog eventa (`FAIR_LINK_CONFLICT`) |
+| `buildReportRun` | internal action | `claimBuild` (`queued → building`) → `reportContext` + `modelDayRaw` po modelu → `assembleFairDailyDataset` → fajl u formatu run-a u storage → `completeBuild` (`pending_review`, `dataset`, `storageId`, primalac iz učešća). Greška → `failed` (`BUILD_FAILED`) |
+| `approveReportRun` | admin mutation | **jedini** put do `approved`: samo iz `pending_review` sa datasetom i fajlom; upisuje `reviewed*` i `approved*`; audit `fair_report_approved` |
+| `sendReportRun({ reportRunId, recipient? })` | admin mutation | odbija sve osim `approved` (`FAIR_REPORT_NOT_APPROVED`); primalac = argument, `run.recipient` ili `reportRecipientEmail` (inače `FAIR_REPORT_RECIPIENT_MISSING`); drugi klik dok isporuka čeka → `FAIR_REPORT_STATUS` |
+| `resendReportRun` | admin mutation | samo iz `sent`; isti odobreni fajl, nov ključ |
+| `retryReportRun` | admin mutation | samo iz `failed`: neuspela izrada → `queued` (ponovo na pregled); neuspelo slanje odobrenog run-a → `approved` i nova isporuka |
+| `createReportCorrection({ reportRunId, format? })` | admin mutation | nov run sa `correctionOfReportRunId` i svežim podacima; ponovo pregled i odobrenje |
+| `listReportRuns({ eventId })`, `getReportRun({ reportRunId })` | admin query | lista bez dataseta (najviše 500); jedan run sa datasetom za pregled |
+
+### 22.2 Slanje kroz B4 outbox
+
+- `sendReportRun` upisuje red u `fairEmailDeliveries` (`kind: daily_report`, `reportRunId`, `dedupeKey = fair-report/<runId>/<n>`, isto je Resend `Idempotency-Key`) i zakazuje `fairEmailSender.sendDelivery`.
+- `fairEmails.claimDelivery` **ponovo proverava** neposredno pre slanja: run postoji, ima `approvedAt`, status je `approved` ili `sent` (resend) i ima dataset i fajl. Inače isporuka postaje `failed` (`REPORT_NOT_SENDABLE`/`REPORT_FILE_MISSING`) i ništa se ne šalje. Test to proverava sa ručno ubačenim redom za neodobren run.
+- Sender prilaže sačuvani fajl run-a (base64). Tekst emaila je placeholder iz `event-report`; ispravka dobija rečenicu o ispravljenoj verziji.
+- `markSent` → run `sent` (`providerMessageId`). Konačna greška prvog slanja → run `failed`. Greška ponovnog slanja ostavlja `sent` i upisuje `error`.
+
+### 22.3 Fajlovi i izvozi (admin `action`, vraćaju `{ fileName, mimeType, chunks }` kao `menuExport`)
+
+| Funkcija | Sadržaj |
+|---|---|
+| `downloadReportRun({ reportRunId, format })` | pregledani dataset u PDF/XLSX/CSV; ne pravi nov storage |
+| `exportLeadsFile({ eventId, participationId, format: csv\|xlsx })` | **odvojen PII artefakt**: kontakti jednog izlagača (stranice po 200, najviše 5000, inače `FAIR_REPORT_EXPORT_TOO_LARGE`); nikad deo izveštaja ni emaila |
+| `exportOrganizerAggregate({ eventId, format })` | zbir po danu za ceo event: skeniranja, jedinstvena, broj leadova po vrsti; bez izlagača, PII i odgovora ankete |
+
+Pisci su u `convex/lib/fairReportFiles.ts`: jedan neutralan dokument se pretvara u CSV (BOM, zaštita od formula), XLSX (zip iz `lib/memories-export/zip.ts`) i PDF (tekstualni primitivi iz `lib/menu-export/pdf.ts`). Postojeći writeri su samo uvezeni, nisu menjani. Nema novog paketa.
+
+### 22.4 Admin UI
+
+Tab `Događaji → Izveštaji` (`components/admin/admin-events-reports.tsx`) ima:
+- novu izradu (dan, izlagač, format);
+- listu sa statusima i pregled istog dokumenta koji ide u fajl;
+- `Odobri` (sa potvrdom), `Pošalji` / `Pošalji ponovo` (opciono druga adresa), `Pokušaj ponovo`, `Napravi ispravku`;
+- preuzimanje PDF/XLSX/CSV;
+- posebne izvoze: kontakti (uz upozorenje o ličnim podacima) i zbirno za organizatora.
+
+Tekstovi taba su u `lib/i18n/sr/admin-events.ts`, a tekstovi fajlova i emaila u `lib/i18n/sr/event-report.ts`.

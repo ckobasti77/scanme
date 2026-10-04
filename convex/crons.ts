@@ -149,4 +149,18 @@ crons.interval(
   {},
 );
 
+//   • the 15-minute fair daily-report sweep (Sajam 2026 B6 / MASTER §12) —
+//     once a fair day has closed (fairEventDays.endsAt), queues and builds one
+//     report run per active participation that has a daily-report package, so
+//     the dataset is ready within 60 minutes. It never sends: a run waits in
+//     pending_review for a manual admin approval. Bounded and idempotent (one
+//     run per day × participation); no-ops when no fair day closed in the last
+//     24 h.
+crons.interval(
+  "fair daily report sweep",
+  { minutes: 15 },
+  internal.fairReports.sweepDailyReports,
+  {},
+);
+
 export default crons;
