@@ -19,6 +19,7 @@ import {
   fairFeatureSince,
   fairPackageChangeProblem,
   fairRatingInputProblem,
+  fairReportMetrics,
   fairScanCountsInAnalytics,
   fairTierAt,
   getFairEntitlements,
@@ -273,5 +274,39 @@ describe("server-projected capabilities", () => {
       hasSurvey: false,
       isSponsored: false,
     });
+  });
+});
+
+// B6 — report projection (MASTER §12, HANDOFF §10, §12 "Izveštaji i izolacija").
+describe("fairReportMetrics: the package decides which report groups exist", () => {
+  test("included gets ONLY the stand total/unique", () => {
+    expect(fairReportMetrics("included")).toEqual(["stand_scans"]);
+  });
+
+  test("Starter gets model analytics, the daily cut and its own interactions — nothing Advanced", () => {
+    expect(fairReportMetrics("starter")).toEqual(["stand_scans", "model_scans", "hourly_scans", "day_comparison", "interest", "rating_overall", "audience"]);
+  });
+
+  test("Advanced gets everything Starter has plus its extras, with three rating dimensions INSTEAD of overall", () => {
+    const advanced = fairReportMetrics("advanced");
+    expect(advanced).toEqual([
+      "stand_scans", "model_scans", "hourly_scans", "day_comparison", "interest", "test_drive", "rating_dimensions", "audience", "survey", "sponsored_garage",
+    ]);
+    expect(advanced).not.toContain("rating_overall");
+    for (const metric of fairReportMetrics("starter").filter((metric) => metric !== "rating_overall")) expect(advanced).toContain(metric);
+  });
+
+  test("the groups follow the entitlement catalog row by row (one authority)", () => {
+    for (const tier of FAIR_PACKAGE_TIERS) {
+      const rights = getFairEntitlements(tier);
+      const metrics = fairReportMetrics(tier);
+      expect(metrics.includes("model_scans")).toBe(rights.modelAnalytics);
+      expect(metrics.includes("day_comparison")).toBe(rights.dailyReport);
+      expect(metrics.includes("interest")).toBe(rights.interest);
+      expect(metrics.includes("test_drive")).toBe(rights.testDrive);
+      expect(metrics.includes("survey")).toBe(rights.survey);
+      expect(metrics.includes("sponsored_garage")).toBe(rights.sponsoredGarageRotation);
+      expect(metrics.includes("audience")).toBe(rights.audienceQuestionsPerDay > 0);
+    }
   });
 });

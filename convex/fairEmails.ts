@@ -1,7 +1,8 @@
 import { v } from "convex/values";
 import { internalMutation } from "./_generated/server";
 import { FAIR_PII_PURGE_AT_MS, fairModelPath } from "../lib/fair-contract";
-import { fairLeadEmailMessage, type FairLeadEmailMessage } from "./lib/fairEmails";
+import { buildFairReportEmail, fairLeadEmailMessage, fairReportEmailMessage, type FairLeadEmailMessage } from "./lib/fairEmails";
+import { fairDailyReportFileName, fairReportDateText } from "./lib/fairReportFiles";
 import {
   FAIR_EMAIL_MAX_ATTEMPTS,
   FAIR_EMAIL_RETRY_DELAYS_MS,
@@ -26,6 +27,11 @@ import {
 //     itself refuses a second delivery of the same message;
 //   - a follow-up re-reads its lead at claim time and becomes `suppressed`
 //     instead of being sent when an admin recorded the opt-out.
+//
+// B6 adds `daily_report` rows (one per send of an approved report run,
+// dedupeKey `fair-report/<runId>/<n>`). The claim re-checks the run right
+// before delivery: only a manually approved run (or an already sent one, for
+// a resend) with its stored file is ever handed to the sender.
 // =============================================================================
 
 const deliveryArgs = { deliveryId: v.id("fairEmailDeliveries") };
@@ -36,12 +42,46 @@ const deliveryArgs = { deliveryId: v.id("fairEmailDeliveries") };
  */
 export const claimDelivery = internalMutation({
   args: deliveryArgs,
-  returns: v.union(v.object({ action: v.literal("skip") }), v.object({ action: v.literal("send"), message: fairLeadEmailMessage })),
+  returns: v.union(
+    v.object({ action: v.literal("skip") }),
+    v.object({ action: v.literal("send"), message: fairLeadEmailMessage }),
+    v.object({ action: v.literal("send_report"), report: fairReportEmailMessage }),
+  ),
   handler: async (ctx, args) => {
     const now = Date.now();
     const skip = { action: "skip" as const };
     const delivery = await ctx.db.get(args.deliveryId);
     if (!delivery || delivery.status !== "queued" || delivery.scheduledFor > now) return skip;
+    if (delivery.kind === "daily_report") {
+      const run = delivery.reportRunId ? await ctx.db.get(delivery.reportRunId) : null;
+      // The approval gate, again, immediately before delivery (MASTER §12).
+      if (!run || run.approvedAt === undefined || (run.status !== "approved" && run.status !== "sent") || !run.dataset) {
+        await ctx.db.patch(delivery._id, { status: "failed", lastError: "REPORT_NOT_SENDABLE", updatedAt: now });
+        return skip;
+      }
+      if (!run.storageId) {
+        await ctx.db.patch(delivery._id, { status: "failed", lastError: "REPORT_FILE_MISSING", updatedAt: now });
+        return skip;
+      }
+      await ctx.db.patch(delivery._id, { attemptCount: delivery.attemptCount + 1, updatedAt: now });
+      const email = buildFairReportEmail({
+        eventTitle: run.dataset.eventTitle,
+        dayLabel: run.dataset.dayLabel,
+        dateText: fairReportDateText(run.dataset.windowStart),
+        exhibitorName: run.dataset.exhibitorName,
+        correction: run.correctionOfReportRunId !== undefined,
+      });
+      return {
+        action: "send_report" as const,
+        report: {
+          dedupeKey: delivery.dedupeKey,
+          recipient: delivery.recipient,
+          ...email,
+          storageId: run.storageId,
+          fileName: fairDailyReportFileName(run.dataset, run.format),
+        },
+      };
+    }
     if (delivery.kind !== "immediate_confirmation" && delivery.kind !== "post_event_follow_up") return skip;
     const lead = delivery.leadId ? await ctx.db.get(delivery.leadId) : null;
     const model = lead ? await ctx.db.get(lead.eventModelId) : null;
@@ -95,7 +135,10 @@ export const markSent = internalMutation({
   handler: async (ctx, args) => {
     const delivery = await ctx.db.get(args.deliveryId);
     if (!delivery || delivery.status === "sent") return null;
-    await ctx.db.patch(delivery._id, { status: "sent", providerMessageId: args.providerMessageId, lastError: undefined, updatedAt: Date.now() });
+    const now = Date.now();
+    await ctx.db.patch(delivery._id, { status: "sent", providerMessageId: args.providerMessageId, lastError: undefined, updatedAt: now });
+    const run = delivery.reportRunId ? await ctx.db.get(delivery.reportRunId) : null;
+    if (run) await ctx.db.patch(run._id, { status: "sent", providerMessageId: args.providerMessageId, error: undefined, updatedAt: now });
     return null;
   },
 });
@@ -120,6 +163,12 @@ export const markFailed = internalMutation({
       return null;
     }
     await ctx.db.patch(delivery._id, { status: "failed", lastError, updatedAt: now });
+    // B6: a first send that finally failed fails the run (admin retry); a
+    // failed RESEND keeps the run `sent` and only records the error.
+    const run = delivery.reportRunId ? await ctx.db.get(delivery.reportRunId) : null;
+    if (run && (run.status === "approved" || run.status === "sent")) {
+      await ctx.db.patch(run._id, { ...(run.status === "approved" ? { status: "failed" as const } : {}), error: lastError, updatedAt: now });
+    }
     return null;
   },
 });

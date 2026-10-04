@@ -53,6 +53,28 @@ export type FairReportStatus =
   | "sent"
   | "failed";
 export type FairReportFormat = "pdf" | "xlsx" | "csv";
+/**
+ * B6: metric groups of the exhibitor's daily dataset (MASTER §12, HANDOFF §10).
+ * Which groups a model gets comes ONLY from `fairReportMetrics(tier)` in
+ * lib/fair-entitlements.ts; a group the package lacks is omitted from the
+ * dataset, never reported as 0.
+ */
+export const FAIR_REPORT_METRICS = [
+  "stand_scans",
+  "model_scans",
+  "hourly_scans",
+  "day_comparison",
+  "interest",
+  "test_drive",
+  "rating_overall",
+  "rating_dimensions",
+  "audience",
+  "survey",
+  "sponsored_garage",
+] as const;
+export type FairReportMetric = (typeof FAIR_REPORT_METRICS)[number];
+/** MASTER §12: the daily dataset is ready at most 60 minutes after the day closes. */
+export const FAIR_REPORT_READY_WITHIN_MS = 60 * 60 * 1000;
 export type FairSponsoredSnapshotStatus = "draft" | "published" | "retired";
 /**
  * JOVAN-DELTA §2: only the garage sponsored strip writes events. The map and
@@ -505,6 +527,9 @@ export const FAIR_EMAIL_DELIVERY_ERRORS = [
   "LEAD_MISSING",
   "PROVIDER_REJECTED",
   "PROVIDER_UNAVAILABLE",
+  // B6 — daily report: the run was no longer approved/sent or its file was gone at claim time
+  "REPORT_NOT_SENDABLE",
+  "REPORT_FILE_MISSING",
 ] as const;
 export type FairEmailDeliveryError = (typeof FAIR_EMAIL_DELIVERY_ERRORS)[number];
 
@@ -692,6 +717,12 @@ export const FAIR_ADMIN_ISSUE_CODES = [
   "FAIR_EMAIL_DELIVERY_STATUS",
   // B5 — sponsored snapshot (more Advanced models than one snapshot holds)
   "FAIR_SPONSORED_LIMIT",
+  // B6 — report runs and exports
+  "FAIR_REPORT_NOT_FOUND",
+  "FAIR_REPORT_STATUS",
+  "FAIR_REPORT_NOT_APPROVED",
+  "FAIR_REPORT_RECIPIENT_MISSING",
+  "FAIR_REPORT_EXPORT_TOO_LARGE",
   // Warnings
   "FAIR_PRICE_MISSING",
   "FAIR_PHOTO_MISSING",

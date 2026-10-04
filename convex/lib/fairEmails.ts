@@ -2,6 +2,7 @@ import { v, type Infer } from "convex/values";
 import type { FairEmailDeliveryError } from "../../lib/fair-contract";
 import { fmt } from "../../lib/i18n/format";
 import { eventLeadEmailSr as dict } from "../../lib/i18n/sr/event-lead-email";
+import { eventReportSr as reportDict } from "../../lib/i18n/sr/event-report";
 import { fairLeadKind } from "./fairValidators";
 
 // =============================================================================
@@ -38,6 +39,34 @@ export const fairLeadEmailMessage = v.object({
 export type FairLeadEmailMessage = Infer<typeof fairLeadEmailMessage>;
 
 export type FairOutgoingEmail = { subject: string; text: string; html: string };
+
+/**
+ * B6: what claimDelivery hands to the sender for a `daily_report` row
+ * (internal only — it carries the exhibitor recipient). The attachment is the
+ * approved run's stored file; the sender reads it from storage.
+ */
+export const fairReportEmailMessage = v.object({
+  dedupeKey: v.string(),
+  recipient: v.string(),
+  subject: v.string(),
+  text: v.string(),
+  html: v.string(),
+  storageId: v.id("_storage"),
+  fileName: v.string(),
+});
+export type FairReportEmailMessage = Infer<typeof fairReportEmailMessage>;
+
+/** A Resend attachment: base64 file content. */
+export type FairEmailAttachment = { filename: string; content: string };
+
+/** Base64 without Buffer (works in the Node sender and the edge test runtime). */
+export function fairBytesToBase64(bytes: Uint8Array): string {
+  let binary = "";
+  for (let at = 0; at < bytes.length; at += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(at, at + 0x8000));
+  }
+  return btoa(binary);
+}
 
 export type FairResendConfig = { apiKey: string; from: string; replyTo?: string };
 
@@ -112,6 +141,18 @@ export function buildFairLeadEmail(message: FairLeadEmailMessage, baseUrl: strin
   return compose(fmt(testDrive ? dict.confirmationSubjectTestDrive : dict.confirmationSubjectInterest, names), paragraphs, url);
 }
 
+/** B6 report email (placeholder copy, MASTER §12 template PRIVREMENO). Same layout as the lead emails, without a link. */
+export function buildFairReportEmail(input: { eventTitle: string; dayLabel: string; dateText: string; exhibitorName: string; correction: boolean }): FairOutgoingEmail {
+  const names = { event: input.eventTitle, day: input.dayLabel, date: input.dateText, exhibitor: input.exhibitorName };
+  const paragraphs = [...fmt(reportDict.emailBody, names).split(/\n\s*\n/), ...(input.correction ? [reportDict.emailCorrectionNote] : []), reportDict.emailSignature];
+  const body = paragraphs.map((paragraph) => `<p>${escapeHtml(paragraph).replace(/\n/g, "<br>")}</p>`).join("");
+  return {
+    subject: oneLine(fmt(reportDict.emailSubject, names)),
+    text: paragraphs.join("\n\n"),
+    html: `<div style="font-family:Arial,sans-serif;color:#151713;line-height:1.5">${body}</div>`,
+  };
+}
+
 export function buildFairDevTestEmail(baseUrl: string): FairOutgoingEmail {
   return compose(dict.devTestSubject, [dict.devTestBody], `${baseUrl}/`);
 }
@@ -123,7 +164,7 @@ export function buildFairDevTestEmail(baseUrl: string): FairOutgoingEmail {
  */
 export async function sendFairResendEmail(
   email: FairOutgoingEmail,
-  options: FairResendConfig & { to: string; idempotencyKey: string },
+  options: FairResendConfig & { to: string; idempotencyKey: string; attachments?: FairEmailAttachment[] },
   fetchImpl: typeof fetch,
 ): Promise<FairResendOutcome> {
   let response: Response;
@@ -142,6 +183,7 @@ export async function sendFairResendEmail(
         text: email.text,
         html: email.html,
         ...(options.replyTo ? { reply_to: options.replyTo } : {}),
+        ...(options.attachments?.length ? { attachments: options.attachments } : {}),
       }),
     });
   } catch {
