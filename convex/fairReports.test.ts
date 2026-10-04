@@ -35,6 +35,8 @@ const DAY2_EARLY = Date.parse("2026-10-10T00:10:00+02:00"); // still 9 Oct in UT
 const DAY2 = Date.parse("2026-10-10T11:00:00+02:00");
 const DAY1_END = Date.parse("2026-10-10T00:00:00+02:00");
 const DAY2_END = Date.parse("2026-10-11T00:00:00+02:00");
+/** K4: a manual build is allowed only once the day has closed. */
+const DAY1_CLOSED = DAY1_END + 5 * 60_000;
 const ADMIN_EMAIL = "fair-admin@scanme.test";
 const ISSUER = "https://fair-b6.test";
 const RECIPIENT_A = "izvestaj.a@example.invalid";
@@ -268,6 +270,7 @@ describe("B6 package projections (HANDOFF §10, §12; MASTER §12)", () => {
   test("included sees only stand total/unique; Starter/Advanced get exactly their contract groups, absent groups are omitted", async () => {
     const f = await setup();
     await seedDay1(f);
+    vi.setSystemTime(DAY1_CLOSED);
     const { dataset } = await build(f, f.days.d1, f.a.participationId);
 
     // Stand total/unique (every package): all of exhibitor A's scans on its stand.
@@ -307,6 +310,7 @@ describe("B6 package projections (HANDOFF §10, §12; MASTER §12)", () => {
     const v = await newVisitor(f);
     await scan(f, f.models.c0, DAY1, v);
     await scan(f, f.models.c0, DAY1, v);
+    vi.setSystemTime(DAY1_CLOSED);
     const { dataset } = await build(f, f.days.d1, f.c.participationId);
     expect(dataset.stands).toEqual([expect.objectContaining({ total: 2, unique: 1 })]);
     expect(dataset.models).toEqual([expect.objectContaining({ eventModelId: f.models.c0, metrics: ["stand_scans"] })]);
@@ -352,6 +356,7 @@ describe("B6 isolation and Europe/Belgrade day boundaries (HANDOFF §12)", () =>
   test("exhibitor A never receives a model, lead or answer of exhibitor B", async () => {
     const f = await setup();
     await seedDay1(f);
+    vi.setSystemTime(DAY1_CLOSED);
     const { dataset } = await build(f, f.days.d1, f.a.participationId);
     expect(dataset.models.map((row) => row.eventModelId).sort()).toEqual([f.models.a0, f.models.a1, f.models.a2].sort());
     const serialized = JSON.stringify(dataset);
@@ -442,6 +447,7 @@ describe("B6 report lifecycle (HANDOFF §5.6, §12; MASTER §12)", () => {
   test("an outbox row for an UNAPPROVED run is never delivered (gate re-checked at claim time)", async () => {
     const f = await setup();
     await seedDay1(f);
+    vi.setSystemTime(DAY1_CLOSED);
     const { reportRunId } = await build(f, f.days.d1, f.a.participationId);
     const deliveryId = await f.t.run((ctx) => ctx.db.insert("fairEmailDeliveries", {
       dedupeKey: `fair-report/${reportRunId}/1`, reportRunId, kind: "daily_report", recipient: RECIPIENT_A, status: "queued",
@@ -456,6 +462,7 @@ describe("B6 report lifecycle (HANDOFF §5.6, §12; MASTER §12)", () => {
   test("a failed send fails the run; retry re-queues it without a new approval; a correction is a new run that needs its own approval", async () => {
     const f = await setup();
     await seedDay1(f);
+    vi.setSystemTime(DAY1_CLOSED);
     const { reportRunId } = await build(f, f.days.d1, f.a.participationId);
     await f.admin.mutation(api.fairReports.approveReportRun, { reportRunId });
     respond = () => new Response(JSON.stringify({ message: "rejected" }), { status: 422 });
@@ -484,6 +491,7 @@ describe("B6 report lifecycle (HANDOFF §5.6, §12; MASTER §12)", () => {
 
   test("a failed build is retried back into review; a run without a recipient cannot be sent", async () => {
     const f = await setup();
+    vi.setSystemTime(DAY1_CLOSED);
     const { reportRunId } = await f.admin.mutation(api.fairReports.requestReportBuild, { eventDayId: f.days.d1, participationId: f.b.participationId, format: "csv" });
     await f.t.run((ctx) => ctx.db.patch(reportRunId, { status: "failed", error: "BUILD_FAILED" }));
     await runEverything(f); // the scheduled build finds a non-queued run and does nothing
@@ -498,6 +506,7 @@ describe("B6 report lifecycle (HANDOFF §5.6, §12; MASTER §12)", () => {
 
   test("every report function is admin-only", async () => {
     const f = await setup();
+    vi.setSystemTime(DAY1_CLOSED);
     const { reportRunId } = await build(f, f.days.d1, f.a.participationId);
     const refused = [
       f.member.query(api.fairReports.listReportRuns, { eventId: f.eventId }),
@@ -559,6 +568,76 @@ describe("B6 daily dataset sweep (MASTER §12: ready ≤ 60 min after close)", (
 });
 
 // =============================================================================
+// K4 (RF finding 4): an early manual build never blocks the daily report
+// =============================================================================
+
+describe("K4 report build before the day closes (RF finding 4)", () => {
+  test("requestReportBuild refuses a day that has not closed with FAIR_DAY_NOT_CLOSED and stores nothing", async () => {
+    const f = await setup();
+    await seedDay1(f);
+    vi.setSystemTime(DAY1_LATE);
+    await expectCode(f.admin.mutation(api.fairReports.requestReportBuild, { eventDayId: f.days.d1, participationId: f.a.participationId, format: "pdf" }), "FAIR_DAY_NOT_CLOSED");
+    vi.setSystemTime(DAY1_END - 1);
+    await expectCode(f.admin.mutation(api.fairReports.requestReportBuild, { eventDayId: f.days.d1, participationId: f.a.participationId, format: "pdf" }), "FAIR_DAY_NOT_CLOSED");
+    // Day 1 has closed, day 2 has not.
+    vi.setSystemTime(DAY1_CLOSED);
+    await expectCode(f.admin.mutation(api.fairReports.requestReportBuild, { eventDayId: f.days.d2, participationId: f.a.participationId, format: "pdf" }), "FAIR_DAY_NOT_CLOSED");
+    await runEverything(f);
+    expect(await rows(f, "fairReportRuns")).toHaveLength(0);
+
+    // Exactly at the close the build is allowed.
+    vi.setSystemTime(DAY1_END);
+    const { run } = await build(f, f.days.d1, f.a.participationId);
+    expect(run).toMatchObject({ status: "pending_review", dateKey: "2026-10-09" });
+
+    // A correction of a run whose day is still open is refused the same way.
+    vi.setSystemTime(DAY2);
+    const earlyDay2 = await f.t.run((ctx) => ctx.db.insert("fairReportRuns", {
+      eventId: f.eventId, eventDayId: f.days.d2, participationId: f.a.participationId, status: "pending_review",
+      dataThrough: DAY2_END, format: "pdf", createdAt: DAY2, updatedAt: DAY2,
+    }));
+    await expectCode(f.admin.mutation(api.fairReports.createReportCorrection, { reportRunId: earlyDay2 }), "FAIR_DAY_NOT_CLOSED");
+    expect(await rows(f, "fairReportRuns")).toHaveLength(2);
+  });
+
+  test("the sweep still makes the daily report after the close when an earlier run of that day exists", async () => {
+    const f = await setup();
+    await seedDay1(f);
+    // An existing row from before K4: built by hand at 23:30, frozen with dataThrough = endsAt.
+    vi.setSystemTime(DAY1_LATE);
+    const early = await f.t.run((ctx) => ctx.db.insert("fairReportRuns", {
+      eventId: f.eventId, eventDayId: f.days.d1, participationId: f.a.participationId, status: "pending_review",
+      dataThrough: DAY1_END, format: "pdf", createdAt: DAY1_LATE, updatedAt: DAY1_LATE,
+    }));
+    // B already got a manual build after the close: that one still counts as the day's run.
+    vi.setSystemTime(DAY1_CLOSED);
+    const { reportRunId: manualB } = await build(f, f.days.d1, f.b.participationId);
+
+    vi.setSystemTime(DAY1_END + 15 * 60_000);
+    expect(await f.t.mutation(internal.fairReports.sweepDailyReports, {})).toEqual({ created: 1, more: false });
+    await runEverything(f);
+    const runs = await rows(f, "fairReportRuns");
+    expect(runs.filter((row) => row.participationId === f.b.participationId).map((row) => row._id)).toEqual([manualB]);
+    const forA = runs.filter((row) => row.participationId === f.a.participationId);
+    expect(forA).toHaveLength(2);
+    const daily = forA.find((row) => row._id !== early)!;
+    expect(daily).toMatchObject({ eventDayId: f.days.d1, status: "pending_review", format: "pdf", dataThrough: DAY1_END });
+    expect(daily.createdAt).toBeGreaterThanOrEqual(DAY1_END);
+    expect(daily.dataset!.builtAt).toBeGreaterThanOrEqual(DAY1_END);
+    expect(daily.dataset!.builtAt - DAY1_END).toBeLessThan(FAIR_REPORT_READY_WITHIN_MS);
+    // The 23:30 scan of A2 is in the real daily report.
+    expect(byModel(daily.dataset!, f.models.a2).scans).toMatchObject({ total: 1 });
+    // The early row is left as it was (it is never rebuilt or deleted).
+    expect(await f.t.run((ctx) => ctx.db.get(early))).toMatchObject({ status: "pending_review", createdAt: DAY1_LATE });
+
+    // Idempotent from here on; nothing is sent.
+    expect(await f.t.mutation(internal.fairReports.sweepDailyReports, {})).toEqual({ created: 0, more: false });
+    expect(await rows(f, "fairEmailDeliveries")).toHaveLength(0);
+    expect(calls).toHaveLength(0);
+  });
+});
+
+// =============================================================================
 // Larger seed: caps and pagination
 // =============================================================================
 
@@ -574,6 +653,7 @@ describe("B6 caps and pagination on a larger seed (HANDOFF §12)", () => {
         await ctx.db.insert("fairEventModels", { ...(fields as Omit<typeof template, "_id" | "_creationTime">), externalKey: `test-om-bulk-${i}`, slug: `test-om-bulk-${i}`, displayName: `TEST bulk ${i}`, sortOrder: i + 10 });
       }
     });
+    vi.setSystemTime(DAY1_CLOSED);
     const { dataset } = await build(f, f.days.d1, f.b.participationId);
     expect(dataset.models).toHaveLength(FAIR_REPORT_MODELS_CAP);
     expect(dataset.modelsTruncated).toBe(true);
@@ -592,6 +672,7 @@ describe("B6 caps and pagination on a larger seed (HANDOFF §12)", () => {
         });
       }
     });
+    vi.setSystemTime(DAY1_CLOSED);
     const { dataset } = await build(f, f.days.d1, f.b.participationId);
     expect(byModel(dataset, f.models.b1).interest).toEqual({ count: FAIR_REPORT_ROWS_CAP, capped: true });
   });
@@ -616,6 +697,7 @@ describe("B6 caps and pagination on a larger seed (HANDOFF §12)", () => {
     for (const i of [0, 199, 200, 449]) expect(text).toContain(`izvoz${i}@example.invalid`);
     expect(text).not.toContain(EMAIL_B);
     // The aggregate report of the same exhibitor never carries these contacts.
+    vi.setSystemTime(DAY1_CLOSED);
     const { dataset } = await build(f, f.days.d1, f.a.participationId);
     expect(JSON.stringify(dataset)).not.toContain("izvoz0@example.invalid");
     // A participation of another event is refused.
@@ -641,6 +723,7 @@ describe("B6 caps and pagination on a larger seed (HANDOFF §12)", () => {
   test("listing and download return the reviewed dataset in every format without new storage", async () => {
     const f = await setup();
     await seedDay1(f);
+    vi.setSystemTime(DAY1_CLOSED);
     const { reportRunId } = await build(f, f.days.d1, f.a.participationId, "csv");
     const list = await f.admin.query(api.fairReports.listReportRuns, { eventId: f.eventId });
     expect(list).toEqual([expect.objectContaining({ reportRunId, exhibitorName: "TEST izlagač TA", status: "pending_review", format: "csv", dateKey: "2026-10-09" })]);

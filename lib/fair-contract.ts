@@ -792,6 +792,8 @@ export const FAIR_ADMIN_ISSUE_CODES = [
   "FAIR_REPORT_NOT_APPROVED",
   "FAIR_REPORT_RECIPIENT_MISSING",
   "FAIR_REPORT_EXPORT_TOO_LARGE",
+  // K4 — a manual build before the day's close (fairEventDays.endsAt) is refused
+  "FAIR_DAY_NOT_CLOSED",
   // Warnings
   "FAIR_PRICE_MISSING",
   "FAIR_PHOTO_MISSING",

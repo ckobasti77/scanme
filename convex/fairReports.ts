@@ -43,6 +43,9 @@ import { chunkBytes } from "./menuExport";
 //     with a daily-report package once its day has closed (fairEventDays
 //     .endsAt), and the build runs at once → the dataset is ready well inside
 //     the 60 minutes MASTER §12 requires;
+//   - K4: a manual build or correction is refused until the day has closed
+//     (FAIR_DAY_NOT_CLOSED), and a run created before the close never stops
+//     the sweep from queueing the real daily report;
 //   - building freezes the dataset on the row and stores the rendered file;
 //   - NOTHING is sent automatically: `sendReportRun` refuses every status but
 //     `approved`, and only an admin's `approveReportRun` sets it;
@@ -202,11 +205,15 @@ export const sweepDailyReports = internalMutation({
             .take(PARTICIPATIONS_CAP);
           for (const participation of participations) {
             if (participation.status !== "active") continue;
-            const existing = await ctx.db
+            // K4: only a run created after the close counts. A run built before
+            // it (allowed until K4) holds partial data and must not block the
+            // real daily report; the newest run is enough to decide.
+            const latest = await ctx.db
               .query("fairReportRuns")
               .withIndex("by_eventDayId_and_participationId", (q) => q.eq("eventDayId", day._id).eq("participationId", participation._id))
+              .order("desc")
               .first();
-            if (existing) continue;
+            if (latest && latest.createdAt >= day.endsAt) continue;
             if (!(await participationHasDailyReport(ctx, participation, day.endsAt - 1))) continue;
             if (created >= SWEEP_CREATES_CAP) {
               more = true;
@@ -427,6 +434,11 @@ export const getReportRun = query({
 // Admin commands (requireAdmin)
 // -----------------------------------------------------------------------------
 
+/** K4: a day's dataset is frozen only after the day has closed (fairEventDays.endsAt). */
+function requireDayClosed(day: Doc<"fairEventDays">, now: number) {
+  if (day.endsAt > now) fairAdminError("FAIR_DAY_NOT_CLOSED", { endsAt: day.endsAt });
+}
+
 /** Manual build (any participation of the day's event; an `included`-only one gets stand totals only). */
 export const requestReportBuild = mutation({
   args: { eventDayId: v.id("fairEventDays"), participationId: v.id("fairParticipations"), format: fairReportFormat },
@@ -438,6 +450,7 @@ export const requestReportBuild = mutation({
     if (!participation) fairAdminError("FAIR_LINK_NOT_FOUND", { field: "participationId" });
     if (participation.eventId !== day.eventId) fairAdminError("FAIR_LINK_CONFLICT", { link: "participation" });
     const now = Date.now();
+    requireDayClosed(day, now);
     const reportRunId = await insertReportRun(ctx, { eventId: day.eventId, day, participationId: participation._id, format: args.format, now });
     await writeAdminAudit(ctx, { actorUserId: admin._id, action: "fair_report_build_requested", detail: { reportRunId, eventDayId: day._id, participationId: participation._id, format: args.format }, now });
     return { reportRunId };
@@ -526,6 +539,7 @@ export const createReportCorrection = mutation({
     const day = await ctx.db.get(original.eventDayId);
     if (!day) fairAdminError("FAIR_EVENT_DAY_NOT_FOUND");
     const now = Date.now();
+    requireDayClosed(day, now);
     const reportRunId = await insertReportRun(ctx, {
       eventId: original.eventId,
       day,
