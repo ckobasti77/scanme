@@ -19,6 +19,7 @@ import type { InteractionOutcome, InteractionsActions, InteractionsView } from "
 import { AdminEventsLeads, type LeadsActions, type LeadsDelivery, type LeadsOutcome, type LeadsView } from "@/components/admin/admin-events-leads";
 import { AdminEventsSponsored, type SponsoredActions, type SponsoredView } from "@/components/admin/admin-events-sponsored";
 import { AdminEventsReports, type ReportsActions, type ReportsView } from "@/components/admin/admin-events-reports";
+import { AdminEventsRetention, type RetentionActions, type RetentionView } from "@/components/admin/admin-events-retention";
 import { AdminErrorState, AdminPanel } from "@/components/admin/admin-primitives";
 import { adminEventsSr as dict } from "@/lib/i18n/sr/admin-events";
 
@@ -254,6 +255,7 @@ export function AdminEventsWorkspace() {
       leads={eventId && catalog && directory ? <AdminEventsLeadsWorkspace eventId={eventId} catalog={catalog} directory={directory} /> : undefined}
       sponsored={eventId && catalog && directory ? <AdminEventsSponsoredWorkspace eventId={eventId} catalog={catalog} directory={directory} /> : undefined}
       reports={eventId && catalog && directory ? <AdminEventsReportsWorkspace eventId={eventId} catalog={catalog} directory={directory} /> : undefined}
+      retention={<AdminEventsRetentionWorkspace />}
     />
   );
 }
@@ -485,6 +487,35 @@ function AdminEventsReportsWorkspace({ eventId, catalog, directory }: {
   };
 
   return <AdminEventsReports view={view} actions={actions} />;
+}
+
+// B7: the Brisanje podataka section (convex/fairRetention.ts). The purge is
+// global (both fairs share the 16 Nov date), so it does not depend on the
+// chosen event. Mounted only while its tab is open.
+function AdminEventsRetentionWorkspace() {
+  const overview = useQuery(api.fairRetention.getRetentionOverview, {});
+  const startDryRun = useMutation(api.fairRetention.startPurgeDryRun);
+  const view: RetentionView | undefined = useMemo(() => {
+    if (!overview) return undefined;
+    return {
+      purgeAt: overview.preview.purgeAt,
+      capPerCategory: overview.preview.capPerCategory,
+      preview: overview.preview.categories,
+      runs: overview.runs.map((run) => ({
+        id: run.runId,
+        mode: run.mode,
+        trigger: run.trigger,
+        status: run.status,
+        startedAt: run.startedAt,
+        ...(run.finishedAt !== undefined ? { finishedAt: run.finishedAt } : {}),
+        batches: run.batches,
+        totalRows: run.totalRows,
+        categories: run.categories.map((entry) => ({ category: entry.category, rows: entry.rows, status: entry.status })),
+      })),
+    };
+  }, [overview]);
+  const actions: RetentionActions = { startDryRun: () => interactionOutcome(() => startDryRun({})) };
+  return <AdminEventsRetention view={view} actions={actions} />;
 }
 
 export class AdminEventsErrorBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {

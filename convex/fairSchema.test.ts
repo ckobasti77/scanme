@@ -121,7 +121,12 @@ const FAIR_INDEXES: Record<string, string[]> = {
     "by_status_and_purgeAt",
   ],
   fairMessageTemplates: ["by_eventModelId_and_kind_and_status"],
-  fairEmailDeliveries: ["by_dedupeKey", "by_status_and_scheduledFor", "by_leadId_and_kind"],
+  fairEmailDeliveries: [
+    "by_dedupeKey",
+    "by_status_and_scheduledFor",
+    "by_leadId_and_kind",
+    "by_recipient_and_kind_and_createdAt", // B7 per-address confirmation cap
+  ],
   fairPassportConfigs: ["by_eventId_and_brandId", "by_eventId_and_status"], // B0 design
   fairPassportEligibleModels: ["by_passportConfigId_and_status", "by_eventModelId"], // B0 design
   fairPassportStamps: ["by_visitorId_and_eventId_and_brandId", "by_visitorId_and_eventModelId"],
@@ -134,6 +139,7 @@ const FAIR_INDEXES: Record<string, string[]> = {
     "by_eventModelId_and_occurredAt",
     "by_eventId_and_occurredAt",
   ],
+  fairPurgeRuns: ["by_mode_and_status"], // B7 purge audit (HANDOFF §5.6)
 };
 
 function fieldsFromIndexName(name: string) {
@@ -567,6 +573,16 @@ describe("fair schema contract (B0)", () => {
         hourKey: "2026-10-30T10",
         visitorId: s.visitorId,
       });
+      await ctx.db.insert("fairPurgeRuns", {
+        mode: "dry_run",
+        trigger: "cli",
+        status: "running",
+        startedAt: now,
+        updatedAt: now,
+        position: 0,
+        batches: 0,
+        categories: [{ category: "email_deliveries", rows: 0, status: "pending" }],
+      });
 
       const q = ctx.db;
       return {
@@ -599,6 +615,7 @@ describe("fair schema contract (B0)", () => {
         fairSponsoredSnapshots: await q.query("fairSponsoredSnapshots").withIndex("by_eventId_and_status", (x) => x.eq("eventId", s.eventId).eq("status", "published")).unique(),
         fairSponsoredSnapshotItems: await q.query("fairSponsoredSnapshotItems").withIndex("by_snapshotId_and_order", (x) => x.eq("snapshotId", snapshotId)).unique(),
         fairSponsoredEvents: await q.query("fairSponsoredEvents").withIndex("by_requestId", (x) => x.eq("requestId", "test-sponsored-1")).unique(),
+        fairPurgeRuns: await q.query("fairPurgeRuns").withIndex("by_mode_and_status", (x) => x.eq("mode", "dry_run").eq("status", "running")).unique(),
       };
     });
 

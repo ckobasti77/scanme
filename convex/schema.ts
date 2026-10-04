@@ -21,6 +21,10 @@ import {
   fairPassportConfigStatus,
   fairPassportEligibleStatus,
   fairPreferredContact,
+  fairPurgeCategoryProgress,
+  fairPurgeMode,
+  fairPurgeRunStatus,
+  fairPurgeTrigger,
   fairQrAssignmentStatus,
   fairRatingValue,
   fairReportFormat,
@@ -3671,7 +3675,9 @@ export default defineSchema({
     // unique: dedupeKey
     .index("by_dedupeKey", ["dedupeKey"])
     .index("by_status_and_scheduledFor", ["status", "scheduledFor"])
-    .index("by_leadId_and_kind", ["leadId", "kind"]),
+    .index("by_leadId_and_kind", ["leadId", "kind"])
+    // B7 (§9.44): bounded per-address confirmation limit in submitLead.
+    .index("by_recipient_and_kind_and_createdAt", ["recipient", "kind", "createdAt"]),
 
   // §5.5 — brand passport (config/eligible-set fields are a B0 design;
   // HANDOFF names the tables without fields)
@@ -3799,4 +3805,24 @@ export default defineSchema({
     .index("by_requestId", ["requestId"])
     .index("by_eventModelId_and_occurredAt", ["eventModelId", "occurredAt"])
     .index("by_eventId_and_occurredAt", ["eventId", "occurredAt"]),
+
+  // §5.6 — B7 operational audit of the 16 Nov PII purge and of its dry runs
+  // (convex/fairRetention.ts). Only start, end, category, row counts and
+  // status: never a visitor, lead, contact or any other row identifier.
+  // `position`/`cursorCreationTime` let a retried or stalled run continue
+  // from the last committed batch.
+  fairPurgeRuns: defineTable({
+    mode: fairPurgeMode,
+    trigger: fairPurgeTrigger,
+    status: fairPurgeRunStatus,
+    startedAt: v.number(),
+    updatedAt: v.number(),
+    finishedAt: v.optional(v.number()),
+    // Index into FAIR_PURGE_CATEGORIES of the category in progress.
+    position: v.number(),
+    // dry_run only: _creationTime of the last counted row of that category.
+    cursorCreationTime: v.optional(v.number()),
+    batches: v.number(),
+    categories: v.array(fairPurgeCategoryProgress), // fixed 11 entries
+  }).index("by_mode_and_status", ["mode", "status"]),
 });

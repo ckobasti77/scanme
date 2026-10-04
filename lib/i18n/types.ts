@@ -27,6 +27,11 @@ import type {
   FairPassportConfigStatus,
   FairPassportEligibleStatus,
   FairPreferredContact,
+  FairPurgeCategory,
+  FairPurgeCategoryStatus,
+  FairPurgeMode,
+  FairPurgeRunStatus,
+  FairPurgeTrigger,
   FairSponsoredSnapshotStatus,
   FairReportStatus,
   FairReportFormat,
@@ -4012,6 +4017,31 @@ export interface AdminEventsDict {
   reportStatus: Record<FairReportStatus, string>;
   reportsFormats: Record<FairReportFormat, string>;
   reportBuildErrors: Record<"BUILD_FAILED" | "REPORT_CONTEXT_MISSING", string>;
+  // B7 — Brisanje podataka (16 Nov 2026 purge: preview, dry run, audit)
+  tabRetention: string;
+  retentionSubtitle: string;
+  retentionUnavailable: string;
+  retentionScheduleTitle: string;
+  retentionScheduleHelp: string;
+  retentionScheduleLine: string;
+  retentionKeptNote: string;
+  retentionPreviewTitle: string;
+  retentionPreviewHelp: string;
+  retentionCountCapped: string;
+  retentionDryRun: string;
+  retentionDryRunStarted: string;
+  retentionRunsTitle: string;
+  retentionRunsHelp: string;
+  retentionRunsEmpty: string;
+  retentionRunLine: string;
+  retentionRunFinished: string;
+  retentionRunProgress: string;
+  retentionCategoryLine: string;
+  retentionModes: Record<FairPurgeMode, string>;
+  retentionTriggers: Record<FairPurgeTrigger, string>;
+  retentionRunStatus: Record<FairPurgeRunStatus, string>;
+  retentionCategoryStatus: Record<FairPurgeCategoryStatus, string>;
+  retentionCategories: Record<FairPurgeCategory, string>;
 }
 
 export type AdminEventsPassportProblem = "fewer_than_two_models" | "model_not_published" | "model_not_candidate" | "model_below_starter";

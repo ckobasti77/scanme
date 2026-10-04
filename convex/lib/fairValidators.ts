@@ -137,6 +137,34 @@ export const fairSponsoredActionKind = v.union(v.literal("open_model"), v.litera
 // MASTER §4.6 — optional on stored rows; absent means "standard".
 export const fairClientSegment = v.union(v.literal("standard"), v.literal("event_only"));
 
+// B7 — the 16 Nov PII purge (FAIR_PURGE_CATEGORIES in lib/fair-contract.ts,
+// same order). The audit row holds only these enums, times and row counts.
+export const fairPurgeCategory = v.union(
+  v.literal("email_deliveries"),
+  v.literal("leads"),
+  v.literal("survey_responses"),
+  v.literal("ratings"),
+  v.literal("audience_votes"),
+  v.literal("brand_favorites"),
+  v.literal("passport_stamps"),
+  v.literal("sponsored_actions"),
+  v.literal("unique_scans"),
+  v.literal("scan_events"),
+  v.literal("visitors"),
+);
+export const fairPurgeMode = v.union(v.literal("dry_run"), v.literal("execute"));
+export const fairPurgeTrigger = v.union(v.literal("cron"), v.literal("admin"), v.literal("cli"));
+export const fairPurgeRunStatus = v.union(v.literal("running"), v.literal("completed"));
+export const fairPurgeCategoryStatus = v.union(v.literal("pending"), v.literal("running"), v.literal("done"));
+export const fairPurgeCategoryProgress = v.object({
+  category: fairPurgeCategory,
+  // Deleted rows (execute) or counted rows (dry_run); never an identifier.
+  rows: v.number(),
+  status: fairPurgeCategoryStatus,
+  startedAt: v.optional(v.number()),
+  finishedAt: v.optional(v.number()),
+});
+
 // Server-computed HMAC of the visitor token: lowercase 64-char hex, checked
 // with isFairVisitorHash before any write. The raw token never reaches Convex.
 export const fairVisitorHash = v.string();

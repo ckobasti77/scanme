@@ -1,7 +1,13 @@
 import { v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
 import { mutation, type MutationCtx } from "./_generated/server";
-import { FAIR_PII_PURGE_AT_MS, isFairSubmissionId, type FairLeadSubmitResult } from "../lib/fair-contract";
+import {
+  FAIR_LEAD_CONFIRMATIONS_PER_RECIPIENT,
+  FAIR_LEAD_RECIPIENT_WINDOW_MS,
+  FAIR_PII_PURGE_AT_MS,
+  isFairSubmissionId,
+  type FairLeadSubmitResult,
+} from "../lib/fair-contract";
 import { getFairEntitlements } from "../lib/fair-entitlements";
 import {
   fairInteractionError,
@@ -98,6 +104,21 @@ export const submitLead = mutation({
     if (!exhibitorName) fairInteractionError("CONSENT_NOT_CONFIGURED");
 
     const contact = normalizeFairLeadContact(args, config.contactRequirement);
+    // B7 (§9.44): a per-address cap on confirmations, whatever visitor hash or
+    // model asked for them, so the public submit cannot be used to flood one
+    // inbox by cycling cookies. Bounded read (≤ the cap) on the outbox index.
+    const recipient = contact.email?.toLowerCase();
+    if (recipient !== undefined) {
+      const recent = await ctx.db
+        .query("fairEmailDeliveries")
+        .withIndex("by_recipient_and_kind_and_createdAt", (q) =>
+          q.eq("recipient", recipient).eq("kind", "immediate_confirmation").gt("createdAt", now - FAIR_LEAD_RECIPIENT_WINDOW_MS),
+        )
+        .take(FAIR_LEAD_CONFIRMATIONS_PER_RECIPIENT);
+      if (recent.length >= FAIR_LEAD_CONFIRMATIONS_PER_RECIPIENT) {
+        fairInteractionError("RATE_LIMITED", { retryAfterMs: Math.max(0, recent[0].createdAt + FAIR_LEAD_RECIPIENT_WINDOW_MS - now) });
+      }
+    }
 
     const visitorId = await upsertFairVisitor(ctx, args.visitorHash, now);
     const limit = await rateLimiter.limit(ctx, "fairLeadSubmit", { key: `${visitorId}:${model._id}` });
@@ -122,13 +143,13 @@ export const submitLead = mutation({
     });
 
     let followUpScheduled = false;
-    if (contact.email !== undefined) {
-      await queueFairLeadEmail(ctx, { leadId, kind: "immediate_confirmation", recipient: contact.email, scheduledFor: now, now });
+    if (recipient !== undefined) {
+      await queueFairLeadEmail(ctx, { leadId, kind: "immediate_confirmation", recipient, scheduledFor: now, now });
       // Advanced only, judged by the package in force NOW: a lead from before
       // an upgrade never gains a follow-up afterwards (no retroactivity).
       const followUpAt = rights.postEventFollowUp ? fairFollowUpScheduleFor(event.endsAt, now) : null;
       if (followUpAt !== null) {
-        await queueFairLeadEmail(ctx, { leadId, kind: "post_event_follow_up", recipient: contact.email, scheduledFor: followUpAt, now });
+        await queueFairLeadEmail(ctx, { leadId, kind: "post_event_follow_up", recipient, scheduledFor: followUpAt, now });
         followUpScheduled = true;
       }
     }
@@ -138,7 +159,7 @@ export const submitLead = mutation({
       kind: args.kind,
       submittedAt: now,
       duplicate: false,
-      confirmationEmail: contact.email !== undefined,
+      confirmationEmail: recipient !== undefined,
       followUpScheduled,
     };
   },

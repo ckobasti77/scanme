@@ -1,6 +1,6 @@
 # Sajam automobila 2026 — fair backend ugovor (B0)
 
-> Status: **B0 — ugovor i šema; B1 — katalog, import, paketi i QR dodela** (admin funkcije u §11, import u §12); **B2 — anonimni identitet, scan pipeline i javni katalog** (§13–§14); **B3 — ocene, Glas publike, anketa i pasoš** (§15–§16); **B4 — leadovi, saglasnost i email outbox** (§17–§18); **B5 — sponzorisani snapshot, projekcije rotacije i garažne akcije** (§19–§20); **B6 — analitika, dnevni dataset i izveštaji** (§21–§22). Napisano iz stvarnog koda 3. i 4. oktobra 2026.
+> Status: **B0 — ugovor i šema; B1 — katalog, import, paketi i QR dodela** (admin funkcije u §11, import u §12); **B2 — anonimni identitet, scan pipeline i javni katalog** (§13–§14); **B3 — ocene, Glas publike, anketa i pasoš** (§15–§16); **B4 — leadovi, saglasnost i email outbox** (§17–§18); **B5 — sponzorisani snapshot, projekcije rotacije i garažne akcije** (§19–§20); **B6 — analitika, dnevni dataset i izveštaji** (§21–§22); **B7 — brisanje PII 16. 11., authz, performanse i integracioni TEST seed** (§23–§26). Napisano iz stvarnog koda 3. i 4. oktobra 2026.
 >
 > Vlasnik backend-a: **Jovan**. Vlasnik proizvoda i go/no-go: **Aleksa**.
 > Izvori zahteva: `MASTER-KONTEKST.md`, `BACKEND-HANDOFF.md` (§4–§7, §11), `JOVAN-DELTA-2026-10-02.md`.
@@ -21,7 +21,7 @@ Ako se ovaj dokument i kod razilaze, važi kod, a razlika je greška dokumenta.
 
 ## 1. Funkcijska površina
 
-**B0 ne dodaje nijednu public, internal ni admin funkciju.** Nova je samo šema; tipovi i pravila su čiste funkcije. **B1** dodaje admin funkcije (`requireAdmin`) i jednu internal DEV funkciju; spisak je u §11. **B2** dodaje tri javna read-only upita (`fairPublic.*`), fair granu u postojećem `cards.resolveAndRecord`, dve internal funkcije i jedan Next gateway (§13–§14). **B3** dodaje gateway-facing `fairInteractions.*`, četiri javna upita u `fairPublic`, admin `fairInteractionsAdmin.*` i šest POST ruta (§15–§16). **B4** dodaje gateway-facing `fairLeads.submitLead`, javni `fairPublic.getLeadForm`, internal outbox `fairEmails.*`, Node sender `fairEmailSender.*`, admin `fairLeadsAdmin.*` i rutu `POST /api/fair/lead` (§17–§18). **B5** dodaje javne `fairPublic.getSponsoredMapRotation` i `getSponsoredGarageRotation`, gateway-facing `fairInteractions.recordSponsoredAction`, admin `fairSponsoredAdmin.*` i rutu `POST /api/fair/sponsored-action` (§19–§20). **B6** dodaje internal `fairAnalytics.*`, admin `fairReports.*` (upiti, mutacije i akcije za preuzimanje), internal izradu i cron u `fairReports` i granu `daily_report` u B4 outbox-u (§21–§22).
+**B0 ne dodaje nijednu public, internal ni admin funkciju.** Nova je samo šema; tipovi i pravila su čiste funkcije. **B1** dodaje admin funkcije (`requireAdmin`) i jednu internal DEV funkciju; spisak je u §11. **B2** dodaje tri javna read-only upita (`fairPublic.*`), fair granu u postojećem `cards.resolveAndRecord`, dve internal funkcije i jedan Next gateway (§13–§14). **B3** dodaje gateway-facing `fairInteractions.*`, četiri javna upita u `fairPublic`, admin `fairInteractionsAdmin.*` i šest POST ruta (§15–§16). **B4** dodaje gateway-facing `fairLeads.submitLead`, javni `fairPublic.getLeadForm`, internal outbox `fairEmails.*`, Node sender `fairEmailSender.*`, admin `fairLeadsAdmin.*` i rutu `POST /api/fair/lead` (§17–§18). **B5** dodaje javne `fairPublic.getSponsoredMapRotation` i `getSponsoredGarageRotation`, gateway-facing `fairInteractions.recordSponsoredAction`, admin `fairSponsoredAdmin.*` i rutu `POST /api/fair/sponsored-action` (§19–§20). **B6** dodaje internal `fairAnalytics.*`, admin `fairReports.*` (upiti, mutacije i akcije za preuzimanje), internal izradu i cron u `fairReports` i granu `daily_report` u B4 outbox-u (§21–§22). **B7** dodaje `convex/fairRetention.ts` (internal purge, cron i CLI preview/dry run; admin `getRetentionOverview`, `startPurgeDryRun`), tabelu `fairPurgeRuns`, internal `fairDevFixtures.seedIntegrationTest` i limit potvrda po adresi u `submitLead` (§23–§26). Nijedna nova javna funkcija bez admina.
 
 Planirana površina (HANDOFF §7). Imena se mogu minimalno prilagoditi; odgovornosti ne.
 
@@ -34,7 +34,7 @@ Planirana površina (HANDOFF §7). Imena se mogu minimalno prilagoditi; odgovorn
 | `convex/fairLeads.ts`, `convex/fairEmails.ts`, `convex/fairEmailSender.ts`, `convex/fairLeadsAdmin.ts` (**urađeno**, §17–§18) | B4 | gateway + internal + admin | `submitLead`, potvrda (Node `internalAction`), follow-up, suppression, paginiran izvoz |
 | `convex/fairSponsoredAdmin.ts` (**urađeno**, §20) | B5 | admin (`requireAdmin`) | `publishSponsoredSnapshot`, `getSponsoredRotationAdmin`; izbor rezultata ostaje B3 `setSponsoredResultQuestion` |
 | `convex/fairAnalytics.ts`, `convex/fairReports.ts` (**urađeno**, §21–§22) | B6 | internal/admin | metrike, dnevni dataset, report lifecycle (send samo iz `approved`), odvojeni PII izvoz i agregat za organizatora |
-| purge | B7 | internal + admin preview | bounded, retry-safe brisanje PII |
+| `convex/fairRetention.ts` (**urađeno**, §23) | B7 | internal + admin preview | bounded, retry-safe brisanje PII 16. 11., preview, dry run, audit bez PII |
 
 Pravila za sve buduće funkcije:
 - object form sa `args` i `returns` validatorima;
@@ -121,7 +121,7 @@ Napomene:
 | `fairLeadConfigs` | `eventModelId`, `leadKind`, `contactRequirement: one_of\|email\|phone\|both`, `preferredContact?`, `enabled`, `updatedByUserId`, `createdAt`, `updatedAt` | `by_eventModelId_and_leadKind` | (model, kind) | ne |
 | `fairLeads` | `submissionId`, `kind`, `visitorId`, `eventId`, `eventModelId`, `participationId`, `contactName`, `email?`, `phone?`, `consentAccepted: true` (literal), `consentVersion`, `consentTextSnapshot`, `consentedAt`, `status: received\|delivered`, `deliveredAt?`, `followUpSuppressed`, `suppressedAt?`, `suppressedByUserId?`, `createdAt`, `purgeAt` | `by_submissionId`, `by_eventModelId_and_createdAt`, `by_participationId_and_createdAt`, `by_status_and_purgeAt` | `submissionId` | da |
 | `fairMessageTemplates` | `eventModelId`, `kind: immediate_confirmation\|post_event_follow_up`, `subject`, `plainText`, `html?`, `status`, `version`, `createdAt`, `updatedAt` | `by_eventModelId_and_kind_and_status` | (model, kind, version) | ne |
-| `fairEmailDeliveries` | `dedupeKey`, `leadId?`⁶, `reportRunId?` (B6), `kind`, `recipient`, `status: queued\|sent\|failed\|suppressed`, `scheduledFor`, `attemptCount`, `providerMessageId?`, `lastError?`, `createdAt`, `updatedAt` | `by_dedupeKey`, `by_status_and_scheduledFor`, `by_leadId_and_kind` | `dedupeKey` | da (`recipient`) |
+| `fairEmailDeliveries` | `dedupeKey`, `leadId?`⁶, `reportRunId?` (B6), `kind`, `recipient`, `status: queued\|sent\|failed\|suppressed`, `scheduledFor`, `attemptCount`, `providerMessageId?`, `lastError?`, `createdAt`, `updatedAt` | `by_dedupeKey`, `by_status_and_scheduledFor`, `by_leadId_and_kind`, `by_recipient_and_kind_and_createdAt` (B7, §25.3) | `dedupeKey` | da (`recipient`) |
 
 ⁶ B0 odstupanje: opciono. `daily_report` i `exhibitor_delivery` nemaju lead.
 
@@ -149,7 +149,7 @@ Napomene:
 
 Šta ne postoji:
 - `fairExhibitors`, `sajam*` tabele, view tabela ni impression tabela;
-- tabela purge audita (HANDOFF §5.6, bez imena) dolazi u B7.
+- tabela purge audita (HANDOFF §5.6, bez imena) je od B7 `fairPurgeRuns` (§23.4); nije PII.
 
 ## 4. Tipovi ugovora (`lib/fair-contract.ts`)
 
@@ -347,6 +347,15 @@ Konstante rotacije u `lib/fair-contract.ts` imaju ista imena i vrednosti kao u `
 58. **Izveštaj za osnovni nivo** (B6): `included` nema dnevni presek, pa ga cron ne pravi. Admin može ručno da napravi izveštaj sa ukupnim i jedinstvenim skeniranjima štanda. Kada se on šalje (npr. kao „završni izveštaj“, §9.9)?
 59. **Agregat za organizatora** (B6): sadrži samo zbir po danu (skeniranja, jedinstvena, broj leadova po vrsti), bez podele po izlagaču. Preuzima ga admin; slanje organizatoru nije automatizovano. Šta tačno organizator dobija i kojim kanalom?
 60. **Predaja leadova** (B6, nastavak §9.46): PII izvoz je poseban CSV/XLSX fajl koji admin preuzima. `fairLeads.status: delivered` se ne menja automatski, jer kanal i primalac (P0.2) nisu dogovoreni.
+61. **Adrese izlagača i purge** (B7): `fairParticipations.reportRecipientEmail`, `leadDeliveryNote` i `fairReportRuns.recipient` su podaci klijenta (izlagača), a ne posetioca. Purge ih ne briše, jer MASTER §13 nabraja podatke posetilaca. Briše se ceo outbox, pa i `daily_report` redovi sa adresom izlagača. Ako i ova polja treba obrisati 16. 11., dodaje se jedna kategorija koja briše samo polja, ne redove (§23.2).
+62. **Lokalne kopije PII** (MASTER §13: „i svih ScanMe lokalnih kopija“): CSV/XLSX kontakata koje je tim preuzeo na svoje računare backend ne vidi. Potreban je ručni korak 16. 11. za Aleksu, Jovana i Teodoru (§26.4).
+63. **Trenutak purge-a** (B7, nastavak §9.11): brisanje kreće od 16. 11. 2026. u 00:00 po Beogradu. Cron proverava na 15 min, pa počinje najkasnije u 00:15.
+64. **Stanje limitera posle purge-a** (B7): komponenta `rateLimiter` čuva kratkotrajno stanje bucket-a pod ID-em obrisanog `fairVisitors` reda, ne pod hash-om. Posle purge-a taj ID ne vodi ni do čega; stanje komponente se ne briše posebno.
+65. **Poverenje gateway → Convex** (B7, authz nalaz): javne mutacije (`fairInteractions.*`, `fairLeads.submitLead`, `cards.resolveAndRecord`) prihvataju svaki ispravno formiran hash. Ko zaobiđe Next gateway i zove Convex direktno sa izmišljenim hash-evima, može da napumpa glasove, ocene, ankete, pečate i skenove, jer su limiti po posetiocu. PII time ne curi. Predlog: zajednička tajna (npr. `FAIR_GATEWAY_SECRET`) u Next i Convex okruženju, koju svaka visitor mutacija proverava. To traži postavljanje env promenljivih (agent to ne sme) i izmenu `cards.ts` i `app/r/[cardCode]` (van B7 opsega).
+66. **NAT hale i generički `cardResolve`** (§9.27, B7 test): jedna IP adresa (npr. zajednički Wi-Fi hale) dobija 300 skenova odjednom, pa 5 u sekundi. Iznad toga posetilac dobija stranicu nevažeće kartice. Treba odluka: da li hala ima javni Wi-Fi i da li fair QR treba viši limit (izmena generičkog bucket-a, van fair opsega).
+67. **Generalna proba 8. 10.** (B7 seed): TEST sajam elektromobilnosti počinje 8. 10. danom „TEST generalna proba“, a njegovi TEST paketi važe od 8. 10. u 00:00 (pre B7: 9. 10. u 09:00, §9.35). Drugi TEST sajam ostaje budući; paketi mu počinju 30. 10.
+68. **HTTPS za telefone 8. 10.**: cookie posetioca je `Secure`, pa telefon dobija identitet samo preko HTTPS-a. DEV TEST QR kodovi postoje samo na DEV Convex-u, pa `/r/<kod>` mora da se otvori na hostu vezanom za DEV. Potreban je HTTPS preview ili tunel vezan za DEV; deploy radi Aleksa ili Jovan.
+69. **Limit potvrda po adresi** (B7, nastavak §9.44): najviše 10 neposrednih potvrda na sat za jednu adresu (poređenje malim slovima). Varijante sa `+oznakom` se ne spajaju. Ovo je ublažavanje, ne potpuna zaštita (§9.65).
 
 ## 10. Šta stiže posle B0
 
@@ -359,7 +368,7 @@ Konstante rotacije u `lib/fair-contract.ts` imaju ista imena i vrednosti kao u `
 | **B4** (urađeno, §17–§18) | leadovi, saglasnost i email outbox (produkcija čeka pravni tekst) |
 | **B5** (urađeno, §19–§20) | sponzorisani snapshot i rotacija (samo garažni `open_model`/`garage_add`) |
 | **B6** (urađeno, §21–§22) | analitika, dnevni dataset, report lifecycle sa ručnim odobrenjem, PII izvoz i agregat za organizatora |
-| **B7** | purge, authz, performance i integracioni test |
+| **B7** (urađeno, §23–§26) | purge, authz, performance i integracioni test |
 
 ## 11. B1 funkcije (stvarna površina)
 
@@ -386,6 +395,9 @@ Sve funkcije osim DEV fixture-a su `query`/`mutation` sa `requireAdmin`: ne-admi
 | `fairImport.dryRun` | admin **query** | — | ne može da piše; vraća sve greške, upozorenja i rezime |
 | `fairImport.commit` | admin mutation | event + `externalKey` | isti plan; ako ima i jednu grešku, ne piše ništa; drugi identičan commit ne menja nijedan fair/QR red (piše samo audit red) |
 | `fairDevFixtures.seedTestCatalog` | **internal** mutation | TEST ključevi | DEV TEST katalog (§11.2) |
+| `fairDevFixtures.seedTestPassport` (M1) | **internal** mutation | event + brend | jedan TEST pasoš (`TEST Volta`), ista pravila kao `publishPassport` |
+| `fairDevFixtures.seedTestSponsoredSnapshot` (M2) | **internal** mutation | event + dan | TEST snapshot svih TEST modela sa KUPLJENIM paketom Advanced; B7: nova verzija i kad se promeni izabrano pitanje |
+| `fairDevFixtures.seedIntegrationTest` (B7) | **internal** mutation | sve gore + TEST ključevi | integracioni TEST seed za 8. 10. (§26) |
 
 ### 11.1 Publish validacija
 
@@ -544,6 +556,7 @@ Redosled u istoj transakciji, posle postojećeg generičkog upisa (`cardScanEven
 2. `recordFairScan`:
    - ako je generički red za ovaj `requestId` već postojao → `duplicate`, ništa se ne piše. Fair red nastaje samo u transakciji koja je upisala generički red, pa jedan resolver request daje jedan generički događaj i **najviše jedan** `fairScanEvents` red;
    - nema ispravnog hash-a → `no_visitor`;
+   - B7: od `FAIR_PII_PURGE_AT_MS` → `no_visitor` (posle purge-a ne nastaje nijedan red vezan za posetioca, ni kad uređaj sa pogrešnim satom pošalje cookie);
    - `fairVisitors` upsert po hash-u (`lastSeenAt`);
    - `fairScan` rate limit po posetiocu → `rate_limited` (preusmerenje i dalje radi);
    - admin iz **sesije** (Convex Auth token koji `/r` prosleđuje; `getAuthUserId` + `isAdminEmail` iz `convex/lib/access.ts`, samo uvoz) → red sa `isAdminExcluded: true` i `adminUserId`, bez unique reda, brojača i pečata (`admin_excluded`). Javni arg za ovo ne postoji (validator odbija `isAdmin` i slična polja);
@@ -602,6 +615,7 @@ Javni, read-only upiti bez identiteta i bez PII. Ne vraćaju kontakte, email izv
 | `getEventBySlug` | `{ slug }` | `FairPublicEvent` sa danima po `sortOrder`; `null` za `draft`, nepostojeći ili predugačak slug |
 | `getModelBySlug` | `{ eventSlug, modelSlug }` | `FairPublicModel` za `published` model; inače `null` |
 | `getModelsByIds` | `{ ids: string[] }` (najviše 50) | modeli lokalne garaže (oba događaja) redom unosa; nepoznati, neispravni, neobjavljeni i ponovljeni ID-evi se preskaču; više od 50 → `ConvexError({ code: "INVALID_INPUT" })` |
+| `getEventMap` (M1) | `{ eventSlug }` | `{ eventId, stands[] }`: ne-povučeni štandovi sa bar jednim objavljenim modelom; štand ima `standId`, `mapLocationId`, `code`, `displayName`, `exhibitorName`, `brands[{ brandId, brandName, models[{ id, slug, displayName, variant? }] }]`; `null` za `draft`/nepostojeći event |
 
 - `exhibitorName` je `businesses.name` učešća.
 - `specificationGroups` grupiše server po `groupId`, a grupe i stavke ređa po `groupOrder`/`order`.
@@ -730,7 +744,7 @@ Admin UI je tab `Događaji → Interakcije` (`components/admin/admin-events-inte
    5. `fairLeadConfigs` za model i vrstu mora postojati i biti `enabled` → inače `FEATURE_NOT_ENTITLED`;
    6. **produkcijski gate:** aktivna `fairConsentConfigs` verzija za event i vrstu → inače `CONSENT_NOT_CONFIGURED`;
    7. `consentAccepted: true` i `consentVersion` = aktivna verzija → inače `CONSENT_REQUIRED`;
-   8. ime (1–120 znakova) i kontakt po `contactRequirement` (`one_of` | `email` | `phone` | `both`); neispravan format → `INVALID_INPUT`, nedostaje kanal → `CONTACT_REQUIREMENT_NOT_MET`; `preferredContact` nikad ne pravi obavezno polje;
+   8. ime (1–120 znakova) i kontakt po `contactRequirement` (`one_of` | `email` | `phone` | `both`); neispravan format → `INVALID_INPUT`, nedostaje kanal → `CONTACT_REQUIREMENT_NOT_MET`; `preferredContact` nikad ne pravi obavezno polje; **B7:** ako postoji email, a ta adresa (malim slovima) je u poslednjih 60 min već dobila 10 neposrednih potvrda → `RATE_LIMITED` (§25.3); outbox `recipient` je adresa malim slovima;
    9. `fairVisitors` upsert i `fairLeadSubmit` limit → `RATE_LIMITED`;
    10. `fairLeads` red: `consentTextSnapshot` = aktivni tekst sa `{izlagac}` zamenjenim nazivom izlagača (server, ne browser), `consentedAt`, `status: received`, `followUpSuppressed: false`, `purgeAt` = 16. 11. 2026 (`FAIR_PII_PURGE_AT_MS`);
    11. ako postoji email: outbox red neposredne potvrde (`scheduledFor` = sada); ako paket na snazi ima `postEventFollowUp` (Advanced): i outbox red follow-upa (§17.3).
@@ -783,7 +797,7 @@ Kao i `capabilities`, upit čita sačuvani paket (upit ne čita sat); `submitLea
 - ne dira `fairConsentConfigs`, `fairLeadConfigs`, `fairMessageTemplates` ni `fairMetricCountShards`;
 - bezbedan za ponavljanje (`hasMore`).
 
-Zakazivanje, audit i ostale visitor tabele su B7 (§9.48).
+Zakazivanje, audit i ostale visitor tabele su B7 (§9.48). Od B7 brisanje vodi `convex/fairRetention.ts` (§23); `purgeLeadPiiBatch` ostaje kao B4 seam i cron ga ne poziva.
 
 ## 18. B4 — admin (`convex/fairLeadsAdmin.ts`, sve sa `requireAdmin`)
 
@@ -970,3 +984,117 @@ Tab `Događaji → Izveštaji` (`components/admin/admin-events-reports.tsx`) ima
 - posebne izvoze: kontakti (uz upozorenje o ličnim podacima) i zbirno za organizatora.
 
 Tekstovi taba su u `lib/i18n/sr/admin-events.ts`, a tekstovi fajlova i emaila u `lib/i18n/sr/event-report.ts`.
+
+## 23. B7 — brisanje PII 16. novembra (`convex/fairRetention.ts`)
+
+Izvori: HANDOFF §5.6, §12 („purge batch ne prelazi limit…“), §14; MASTER §13, §18; V2 §9 (Retention), §11.
+
+### 23.1 Kako radi
+
+- **Pokretanje.** Cron „fair pii purge“ (`convex/crons.ts`, svakih 15 min) zove `purgeTick`. Pre `FAIR_PII_PURGE_AT_MS` (16. 11. 2026. 00:00 po Beogradu) vraća `not_due` i ništa ne briše. Od tog trenutka pokreće `execute` run. Ručno brisanje (admin ili javno) ne postoji.
+- **Serije.** Jedna transakcija briše najviše `FAIR_PURGE_BATCH_SIZE` = 200 redova, pa zakazuje `purgeContinue` (`runAfter(0)`). Redovi se uvek uzimaju od početka tabele, pa je brisanje idempotentno.
+- **Redosled** (`FAIR_PURGE_CATEGORIES`): `email_deliveries` → `leads` → `survey_responses` → `ratings` → `audience_votes` → `brand_favorites` → `passport_stamps` → `sponsored_actions` → `unique_scans` → `scan_events` → `visitors`. Kategorija je gotova tek kad je njena tabela prazna. Zato nijedan red ne pokazuje na već obrisan red: outbox pre leadova, a svi redovi sa `visitorId` pre `fairVisitors`.
+- **Retry.** Napredak (pozicija kategorije i broj redova) upisuje se u istoj transakciji kao serija. Pala serija se vraća cela. Ako se izgubi nastavak, sledeći cron tick posle `FAIR_PURGE_STALL_MS` (10 min) nastavlja od poslednje završene serije (`resumed`).
+- **Posle kraja.** Svaki sledeći tick proverava da li je bilo koji PII red ponovo nastao (npr. ručno poslat izveštaj). Ako jeste, pokreće novi run; inače vraća `clean`.
+- **Zaštita od novih redova.** Interakcije, leadovi i garažne akcije posle purge trenutka vraćaju `EVENT_NOT_ACTIVE` (B3/B4). Od B7 i `/r` sken vraća `no_visitor` (§13.3), pa ne nastaje posetilac.
+
+### 23.2 Šta se briše, a šta ostaje
+
+| Kategorija | Tabela | Šta sadrži |
+|---|---|---|
+| `email_deliveries` | `fairEmailDeliveries` | primaoci potvrda, follow-upa i `daily_report` isporuka |
+| `leads` | `fairLeads` | ime, email, telefon, snapshot saglasnosti, suppression |
+| `survey_responses` | `fairSurveyResponses` | odgovori vezani za posetioca |
+| `ratings` | `fairRatings` | ocene posetioca |
+| `audience_votes` | `fairAudienceVotes` | glasovi posetioca |
+| `brand_favorites` | `fairBrandFavoriteVotes` | omiljeni model iz pasoša |
+| `passport_stamps` | `fairPassportStamps` | pečati |
+| `sponsored_actions` | `fairSponsoredEvents` | garažne akcije sa `visitorId` |
+| `unique_scans` | `fairUniqueScans` | par posetilac+model |
+| `scan_events` | `fairScanEvents` | pojedinačni skenovi (i admin audit redovi) |
+| `visitors` | `fairVisitors` | hash identiteta |
+
+Ostaje (anonimno ili nije podatak posetioca): `fairMetricCountShards` (svi brojači i zbirovi), `fairReportRuns` sa zamrznutim datasetom i fajlom, katalog (`fairEvents` … `fairPackageActivations`), pitanja, ankete, pasoši, saglasnosti (tekst bez osobe), lead konfiguracije i tekstovi follow-upa. Generički `cardScanEvents` nema vezu sa posetiocem. Adrese izlagača su otvoreno pitanje §9.61.
+
+### 23.3 Funkcije
+
+| Funkcija | Vrsta | Šta radi |
+|---|---|---|
+| `purgeTick` | internal mutation (cron) | `not_due` / `running` / `resumed` / `clean` / `started` (§23.1) |
+| `purgeContinue({ runId })` | internal mutation (scheduler) | jedna serija aktivnog run-a |
+| `previewPurge` | internal query (CLI) | broj redova po kategoriji, najviše `FAIR_PURGE_PREVIEW_CAP` = 200 (`capped`) |
+| `startDryRun` | internal mutation (CLI) | `dry_run` istim serijama: samo broji (kursor `_creationTime`), ništa ne briše; postojeći dry run se ne duplira |
+| `listPurgeRuns` | internal query (CLI) | poslednjih 10 run-ova (audit) |
+| `getRetentionOverview` | admin query | preview + poslednjih 10 run-ova |
+| `startPurgeDryRun` | admin mutation | isto kao `startDryRun`, okidač `admin` |
+
+DEV komande (samo `.env.local` DEV, nikad `--prod`): `npx convex run fairRetention:previewPurge`, `fairRetention:startDryRun`, `fairRetention:listPurgeRuns`.
+
+### 23.4 Audit `fairPurgeRuns`
+
+`mode: dry_run | execute`, `trigger: cron | admin | cli`, `status: running | completed`, `startedAt`, `updatedAt`, `finishedAt?`, `position`, `cursorCreationTime?` (samo dry run), `batches`, `categories[{ category, rows, status: pending | running | done, startedAt?, finishedAt? }]`. Indeks `by_mode_and_status`. Nema identifikatora posetioca, leada ni kontakta (test proverava serijalizovan red).
+
+### 23.5 Admin UI
+
+Tab `Događaji → Brisanje podataka` (`components/admin/admin-events-retention.tsx`): datum, šta ostaje, preview po kategoriji redom brisanja („200+“ iznad limita), dugme `Pokreni probno brojanje` i dnevnik run-ova. Dugme za brisanje ne postoji. Tekstovi su u `lib/i18n/sr/admin-events.ts`.
+
+## 24. B7 — authz
+
+Tabela svake fair funkcije (`visitor` / `admin` / `internal`, vraća li PII i koji test to dokazuje) je u `jovan-status/B7.md` §2.4. `convex/fairAuthz.test.ts` je zaključava:
+- registracija svakog fair modula mora tačno da odgovara tabeli (nova javna funkcija pada test dok se ne klasifikuje);
+- svaka admin funkcija B3–B7 modula odbija anonimnog („Niste prijavljeni.“) i ne-admin („Nemate administratorski pristup.“) poziv pre bilo kakvog upisa; `fairAdmin`/`fairImport` pokriva `fairAdmin.test.ts`;
+- izlazi svih 11 `fairPublic` upita, 7 `fairInteractions` funkcija, `submitLead` i fair grane `/r` posle punog toka posetioca ne sadrže ime, email, telefon, hash, ID posetioca ili leada, adresu ili napomenu izlagača, QR kodove, SMK/SML ni ključeve agregata ocena.
+
+Nalaz bez izmene koda (van opsega ili čeka odluku): §9.65 (poverenje gateway → Convex), §9.66 (NAT).
+
+## 25. B7 — performanse i limiti
+
+### 25.1 Upiti
+
+Nijedan fair upit ne koristi `.collect()`, a svi su indeksirani i ograničeni (`take`, `first`, `unique`, paginacija). Bez indeksa su samo serije purge-a (namerno, po redosledu nastanka) i DEV fixture-i. Najveći čitači i realna gornja granica (ceo QR inventar od 100 modela na jednom sajmu) su u `jovan-status/B7.md` §2.5. `convex/fairPerformance.test.ts` ih poziva na seed-u te veličine: mapa (25 štandova, 100 modela), rotacija (25 Advanced sa rezultatom), katalog pasoša i lični pasoš (10 × 4), `getMyModelState`, `getModelsByIds` (50 da, 51 `INVALID_INPUT`).
+
+B7 izmena: `fairPublic` čita najviše `FAIR_SPONSORED_ITEMS_CAP` = 200 itema snapshot-a (bilo 500), jer objava nikad ne pravi više.
+
+### 25.2 Rate limit (sve token bucket, period 1 min, ključ po posetiocu osim `cardResolve`)
+
+| Bucket | rate | kapacitet | Aritmetika |
+|---|---:|---:|---|
+| `cardResolve` (generički, po IP hash-u) | 300 | 300 | najveća prostorija iza jednog NAT-a skenira odjednom; 5/s posle toga (§9.66) |
+| `fairScan` | 20 | 20 | jedan fizički sken ≥ 3 s → ~20/min ljudski plafon; štand sa 5 vozila + refresh-evi |
+| `fairRating` | 30 | 20 | Advanced 3 dimenzije + ispravke ≈ 5 po modelu; 4 vozila ≈ 20 |
+| `fairAudienceVote` | 30 | 15 | do 5 pitanja + 2–3 promene ≈ 8 po modelu; dva modela ≈ 15 |
+| `fairSurveySubmit` | 5 | 5 | jedan konačan submit po Advanced modelu |
+| `fairBrandFavorite` | 10 | 5 | izbor + par promena po brendu |
+| `fairLeadSubmit` (posetilac+model) | 2 | 3 | interest + probna vožnja + jedna ispravka |
+| `fairSponsoredAction` | 20 | 10 | kartica na 8 s, najviše 2 dugmeta = 15/min |
+| B7: potvrde po adresi (DB provera) | — | 10 / 60 min | posetilac ostavi kontakt na par štandova ≈ 5/h; skripta sa novim hash-evima staje na 10/h po žrtvi |
+
+### 25.3 Limit potvrda po adresi
+
+`submitLead` pre upisa čita najviše 10 redova indeksa `fairEmailDeliveries.by_recipient_and_kind_and_createdAt` (adresa malim slovima, `immediate_confirmation`, poslednjih `FAIR_LEAD_RECIPIENT_WINDOW_MS`). Ako ih je 10 → `RATE_LIMITED` sa `retryAfterMs`, bez upisa leada, posetioca i outbox-a. Lead samo sa telefonom ne dira limit. Redovi indeksa se brišu sa outbox-om 16. 11.
+
+## 26. B7 — integracioni TEST seed za 8. oktobar
+
+### 26.1 Komanda
+
+`npx convex run fairDevFixtures:seedIntegrationTest` (samo DEV; idempotentno). Upisano na `dev:expert-pelican-136` 4. 10. 2026; drugi poziv vraća sve kao `unchanged`.
+
+### 26.2 Sadržaj (sve `test-`/`TEST`)
+
+- Oba TEST sajma: `test-elektromobilnost-2026` (8.–11. 10., uključujući dan „TEST generalna proba“ 8. 10.) i `test-auto-moto-fest-2026` (30. 10.–1. 11., budući).
+- 2 TEST izlagača (+ TEST QR inventar), 3 TEST brenda, 4 učešća, 5 štandova.
+- 10 TEST modela kroz sva 3 paketa; TEST paketi prvog sajma važe od 8. 10. 00:00 (§9.67).
+- TEST digitalni QR za svaki od 10 modela (TEST inventar, ne 100 pravih).
+- Pasoš `TEST Volta` (2 modela).
+- Pitanje generalne probe za svaki Starter+ model prvog sajma; kod Advanced modela je to rezultat na mapi.
+- TEST anketa (2 pitanja) za oba Advanced modela prvog sajma.
+- Uključeni lead obrasci (`one_of`), ali **bez saglasnosti**, pa lead vraća `CONSENT_NOT_CONFIGURED`.
+- Objavljen TEST snapshot oba sajma.
+
+### 26.3 Kraj-do-kraja
+
+`convex/fairIntegration.test.ts` na istom seed-u: QR → model, 10 skenova = 10 ukupno / 1 jedinstveno, retry bez duplikata, ocena i glas se menjaju na mestu, pasoš 2/2 i favorit, anketa, lead `CONSENT_NOT_CONFIGURED`, rotacija mape (12 s) i garaže (8 s) sa garažnom akcijom, budući sajam bez plaćenih upisa, dnevni dataset po izlagaču bez mešanja, purge preview pa brisanje svih redova TEST posetioca uz iste brojače i datasete.
+
+### 26.4 Ručni scenario
+
+Koraci za Teodoru, Aleksu i Jovana (Android, iPhone, displej 1920×1080, stvarni TEST QR) su u `jovan-status/B7.md` §8.1.

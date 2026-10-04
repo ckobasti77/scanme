@@ -2,7 +2,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { belgradeParts } from "../../lib/belgrade-time";
-import { fairModelPath, isFairVisitorHash } from "../../lib/fair-contract";
+import { FAIR_PII_PURGE_AT_MS, fairModelPath, isFairVisitorHash } from "../../lib/fair-contract";
 import { isAdminEmail } from "./access";
 import { activeAssignmentForModel } from "./fairCatalog";
 import { bumpFairCount, fairScanCountKeys } from "./fairCountShards";
@@ -167,6 +167,9 @@ export async function recordFairScan(
     .unique();
   if (prior) return "duplicate";
   if (!input.visitorHash || !isFairVisitorHash(input.visitorHash)) return "no_visitor";
+  // B7: from the purge moment no visitor-linkable row is created any more,
+  // even if a device with a wrong clock still sends its cookie (MASTER §13).
+  if (input.now >= FAIR_PII_PURGE_AT_MS) return "no_visitor";
 
   const { model, now } = input;
   const visitorId = await upsertFairVisitor(ctx, input.visitorHash, now);

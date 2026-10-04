@@ -163,4 +163,17 @@ crons.interval(
   {},
 );
 
+//   • the 15-minute fair PII purge tick (Sajam 2026 B7 / MASTER §13, HANDOFF
+//     §5.6) — a no-op before 16 Nov 2026 00:00 Europe/Belgrade
+//     (FAIR_PII_PURGE_AT_MS). From then on it starts the bounded, audited
+//     purge of every lead, outbox row and visitor-linkable row, resumes it from
+//     the last committed batch if a continuation was lost, and re-runs it if a
+//     PII row appears afterwards. Anonymous aggregates are never deleted.
+crons.interval(
+  "fair pii purge",
+  { minutes: 15 },
+  internal.fairRetention.purgeTick,
+  {},
+);
+
 export default crons;

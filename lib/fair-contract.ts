@@ -122,6 +122,39 @@ export const FAIR_RATING_MAX = 5;
  * FAIR-BACKEND-CONTRACT.md. Purge/cookie expiry use this one value.
  */
 export const FAIR_PII_PURGE_AT_MS = Date.UTC(2026, 10, 15, 23, 0, 0);
+/**
+ * B7: the 16 Nov purge deletes these categories IN THIS ORDER (HANDOFF §5.6,
+ * MASTER §13). A row is only deleted after every row that points at it is
+ * gone: outbox → leads (contact, consent snapshot, suppression) → the
+ * visitor-linkable raw rows → fairVisitors last. Anonymous aggregates
+ * (fairMetricCountShards, frozen report datasets) are never a category.
+ */
+export const FAIR_PURGE_CATEGORIES = [
+  "email_deliveries",
+  "leads",
+  "survey_responses",
+  "ratings",
+  "audience_votes",
+  "brand_favorites",
+  "passport_stamps",
+  "sponsored_actions",
+  "unique_scans",
+  "scan_events",
+  "visitors",
+] as const;
+export type FairPurgeCategory = (typeof FAIR_PURGE_CATEGORIES)[number];
+export type FairPurgeMode = "dry_run" | "execute";
+export type FairPurgeTrigger = "cron" | "admin" | "cli";
+export type FairPurgeRunStatus = "running" | "completed";
+export type FairPurgeCategoryStatus = "pending" | "running" | "done";
+/**
+ * B7 (§9.44): at most this many immediate confirmations to ONE address per
+ * window, whatever visitor or model asked for them. A visitor leaving leads
+ * at a stand or two in one hour sends ≤ 5; a script cycling fake visitor
+ * hashes is held at 10 emails/hour per victim address.
+ */
+export const FAIR_LEAD_CONFIRMATIONS_PER_RECIPIENT = 10;
+export const FAIR_LEAD_RECIPIENT_WINDOW_MS = 60 * 60 * 1000;
 
 /** `dateKey` is the event-local calendar day, `YYYY-MM-DD` in Europe/Belgrade. */
 export const FAIR_DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
