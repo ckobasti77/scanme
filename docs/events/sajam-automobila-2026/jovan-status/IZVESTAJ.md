@@ -11,6 +11,70 @@
 >
 > Ništa nije deployovano ni pushovano. Nijedan stvarni QR nije napravljen, nijedan email nije poslat. Go/no-go je Aleksin.
 
+## 0. Korekcije K1–K4 (4. 10.)
+
+Posle RF pregleda korektivni lanac je rešio RF nalaze 1–4. HEAD je sada `b0c83f2` (`scripts/tasks/logs/sajam-v2/IZK-snapshot.txt`). Izvori:
+- SHA: `scripts/tasks/logs/sajam-v2/SAJAM-IZVESTAJ.md` i `git log`;
+- ishodi i testovi: `jovan-status/K1.md`–`K4.md` i runnerovi gejt logovi `K*-gate-fairtest.log`;
+- presuda: `scripts/tasks/logs/sajam-v2/RK-IZVESTAJ.md`.
+
+| Korak | Ishod | Commit | RF nalaz | Testovi |
+|---|---|---|---|---|
+| K1 | urađen | `422224c` | 1: tajna gateway Next → Convex (`FAIR_GATEWAY_SECRET`, fail closed, timing-safe) i limit novih identiteta po IP HMAC-u (300 odjednom, 120/min) | `convex/fairGateway.test.ts`: 8 funkcija × 7 scenarija, `/r` bez tajne, IP limit. `lib/fair-server/*.test.ts`. `vitest run fair`: 30 fajlova, 290/290 |
+| K2 | urađen u 3. pokušaju (prva dva je prekinula mreža, K2 §1) | `3f549bf` | 2: mapa i displej čitaju rotaciju i rezultat glasanja reaktivno (`useQuery`), bez upisa; slot iz `rotation-slot.ts` | `lib/fair-map/live-rotation.test.ts` (5), novi guard u `map-guards.test.ts`. 31 fajl, 296/296 |
+| K3 | urađen | `638fd67` | 3: tvrdi prekidači `FAIR_LEADS_ENABLED` i `FAIR_FOLLOWUP_ENABLED` (podrazumevano isključeni, ponovna provera pre slanja) i zapis pravnog odobrenja pri aktivaciji saglasnosti | `convex/fairLeads.test.ts`, blok K3 (+8). `admin-events-leads.test.tsx`, `lib/fair-server/leads.test.ts`. 31 fajl, 304/304 |
+| K4 | urađen | `b0c83f2` | 4: ručna izrada i ispravka izveštaja pre zatvaranja dana se odbijaju (`FAIR_DAY_NOT_CLOSED`); sweep ne preskače dan zbog ranijeg run-a | `convex/fairReports.test.ts`, blok K4 (2), `admin-events-reports.test.tsx`. 31 fajl, 306/306 |
+
+**Presuda RK: SPREMNO ZA INTEGRACIONI TEST** (`RK-IZVESTAJ.md`). Važi samo za lanac.
+- **Runner posle K4:** build, lint (0 grešaka), harness i `convex dev --once` su zeleni. `tsc` ima istih 35 postojećih grešaka u test fajlovima van fair opsega.
+- **`npm test` (runner, K4):** 2 pada, nijedan od korekcija:
+  - postojeći `memoriesHost`;
+  - `adminProducts` „500 venues…“ je istekao na svom limitu od 60 s. Isti test je pao i u baseline-u lanca.
+- **Zabranjene putanje:** 0 izmena.
+
+Test 8. 10. i dalje blokiraju dve stvari van lanca:
+- Kodeks F3: stranica modela još čita fixture;
+- HTTPS host vezan za DEV.
+
+Novi niski nalazi RK:
+- `x-forwarded-for` iza proksija koji ga ne prepisuje;
+- displej bez error boundary-ja;
+- placeholder tekst potvrde nije blokiran;
+- stari run pre zatvaranja dana i dalje može da se odobri;
+- admin ne vidi stanje prekidača.
+
+RF nalazi 12 i 13 nisu rađeni. Zato 8. 10. displeje otvarati sa `?prikaz=ekran`, a test telefoni ne smeju biti prijavljeni kao admin.
+
+### Čeklista env promenljivih
+
+**DEV** (`expert-pelican-136` + HTTPS host vezan za DEV, za 8. 10.). DEV `FAIR_GATEWAY_SECRET` je **već postavio runner** na Convex DEV i u `.env.local`. Izvori: `pre-gateway-secret.log` i K1 §1; prihvat na :3100 potvrdio je da se vrednosti poklapaju (K1 §3). Stanje Convex DEV imena je provereno u RK (`env-imena.mjs`, samo imena).
+
+| Ime | Next ili Convex | Okruženje | Ko postavlja | Podrazumevano / stanje |
+|---|---|---|---|---|
+| `NEXT_PUBLIC_CONVEX_URL` → `expert-pelican-136` | Next | DEV host | Jovan | DEV host još ne postoji |
+| `FAIR_VISITOR_HASH_SECRET` (≥32) | Next | DEV host | Jovan | bez vrednosti nema fair identiteta u produkcijskom buildu |
+| `FAIR_GATEWAY_SECRET` (≥32, ista vrednost kao Convex DEV) | Next + Convex | DEV | runner (Convex DEV, `.env.local`); Jovan (DEV host) | Convex DEV: postavljen. DEV host: ne. Bez nje su fair skenovi i interakcije ugašeni, a redirect radi |
+| `SCANME_ADMIN_EMAILS` (Aleksa, Jovan, Teodora) | Convex | DEV | Jovan | postoji |
+| `RESEND_API_KEY`, `RESEND_FROM_EMAIL` | Convex | DEV | Jovan | postoje |
+| `FAIR_PUBLIC_BASE_URL` (URL DEV hosta) | Convex | DEV | Jovan | ne postoji; linkovi u mejlu tada vode na podrazumevani produkcijski URL |
+| `FAIR_LEADS_ENABLED=true` | Convex | DEV, samo za probu | Jovan | isključeno; posle probe ukloniti i povući TEST saglasnost (K3 §8) |
+| `FAIR_FOLLOWUP_ENABLED=true` | Convex | DEV, opciono za probu | Jovan | isključeno; posle probe ukloniti |
+| `FAIR_EMAIL_REPLY_TO` | Convex | DEV | Jovan | ne postoji; obavezan ako se proba follow-up |
+
+**Produkcija** (Convex prod + Vercel prod)
+
+| Ime | Next ili Convex | Okruženje | Ko postavlja | Podrazumevano / posledica |
+|---|---|---|---|---|
+| `FAIR_GATEWAY_SECRET` (nova, ≠ DEV, ista na obe strane) | Next (server, bez `NEXT_PUBLIC_`) + Convex | produkcija | Aleksa ili Jovan, **pre** deploya K1 koda (ugovor §27.6) | bez nje fail closed: fair ugašen, redirect radi |
+| `FAIR_VISITOR_HASH_SECRET` (≥32) | Next | produkcija | Aleksa ili Jovan | bez nje nema fair identiteta; promena vrednosti resetuje jedinstvene posetioce |
+| `SCANME_ADMIN_EMAILS` | Convex | produkcija | Aleksa | bez nje admin skenovi ulaze u statistiku i nema PII pristupa |
+| `RESEND_API_KEY`, `RESEND_FROM_EMAIL` | Convex | produkcija | Aleksa | bez njih nijedan mejl ne odlazi |
+| `FAIR_PUBLIC_BASE_URL` | Convex | produkcija | Aleksa | podrazumevani produkcijski URL |
+| `FAIR_EMAIL_REPLY_TO` | Convex | produkcija | Aleksa | prazno = bez Reply-To; obavezno pre follow-upa |
+| `FAIR_LEADS_ENABLED` | Convex | produkcija | Aleksa, tek posle P0 i aktivacije uz zapis odobrenja (ugovor §28.4) | **isključeno** |
+| `FAIR_FOLLOWUP_ENABLED` | Convex | produkcija | Aleksa, posle P1 i `FAIR_EMAIL_REPLY_TO`, pre otvaranja | **isključeno**; leadovi primljeni dok je isključen nikad ne dobijaju follow-up |
+| `FAIR_COOKIE_DOMAIN` | Next | produkcija | niko | prazno: cookie samo za host (trenutna odluka) |
+
 ## 1. Checkpoint-i
 
 Izvori:
@@ -45,14 +109,16 @@ Ponovljeni pokušaji:
 
 Izvor: `scripts/tasks/logs/sajam-v2/RF-IZVESTAJ.md`.
 
+> **Dopuna 4. 10. (IZK):** RF nalazi 1–4 su rešeni u K1–K4, a presuda RK je SPREMNO ZA INTEGRACIONI TEST (§0). Tabela ispod je stanje pre korekcija; kolona „Predlog“ za redove 1–4 je istorija.
+
 **PRESUDA: TREBA DORADA PRE INTEGRACIONOG TESTA.** Jezgro je tačno i pokriveno testovima: brojanje skenova, paketna prava, izolacija izlagača, odobrenje izveštaja i brisanje posetilačkih tabela. Pre 8. 10. treba mali korektivni korak u Jovanovom opsegu.
 
 | # | Ozbiljnost | Nalaz | Predlog |
 |---|---|---|---|
-| 1 | visoka | Javne visitor mutacije i `/r` veruju svakom ispravno formiranom hash-u (`convex/fairInteractions.ts`, `convex/fairLeads.ts:61`, `convex/cards.ts:697`). Direktan poziv Convex-a može da napumpa skenove, glasove (i na displeju), ocene i pečate, i da pošalje junk leadove. Isto piše u B7 §2.4 i ugovoru §9.65. | Zajednička tajna gateway → Convex i limit novih identiteta po IP hash-u |
-| 2 | visoka | Displej čita rotaciju i rezultat glasanja samo pri učitavanju (`app/sajam/[eventSlug]/_mapa/map-section.tsx:26-30`). Novi rezultat i nova objava se ne vide bez ponovnog učitavanja. | Reaktivni upit ili periodično osvežavanje |
-| 3 | visoka (produkcija) | Leadovi se uključuju jednim admin klikom (`convex/fairLeadsAdmin.ts:128-149`). Placeholder tekst emaila nije blokiran, a follow-up nema poseban prekidač. | Env prekidač ili zapis pravnog odobrenja; poseban prekidač za follow-up |
-| 4 | srednja | Ručna izrada izveštaja pre kraja dana (`convex/fairReports.ts:431-444`) blokira automatski dnevni izveštaj za taj dan (sweep, `:205-209`). | Odbiti izradu dok dan nije zatvoren. Do ispravke ne pokretati ručno pre ponoći. |
+| 1 | visoka | Javne visitor mutacije i `/r` veruju svakom ispravno formiranom hash-u (`convex/fairInteractions.ts`, `convex/fairLeads.ts:61`, `convex/cards.ts:697`). Direktan poziv Convex-a može da napumpa skenove, glasove (i na displeju), ocene i pečate, i da pošalje junk leadove. Isto piše u B7 §2.4 i ugovoru §9.65. | **Rešeno u K1** (`422224c`, `fairGateway.test.ts`) |
+| 2 | visoka | Displej čita rotaciju i rezultat glasanja samo pri učitavanju (`app/sajam/[eventSlug]/_mapa/map-section.tsx:26-30`). Novi rezultat i nova objava se ne vide bez ponovnog učitavanja. | **Rešeno u K2** (`3f549bf`, `live-rotation.test.ts`) |
+| 3 | visoka (produkcija) | Leadovi se uključuju jednim admin klikom (`convex/fairLeadsAdmin.ts:128-149`). Placeholder tekst emaila nije blokiran, a follow-up nema poseban prekidač. | **Rešeno u K3** (`638fd67`, `fairLeads.test.ts` blok K3). Blokada placeholder teksta ostaje uz P1 (RK novi nalaz 3) |
+| 4 | srednja | Ručna izrada izveštaja pre kraja dana (`convex/fairReports.ts:431-444`) blokira automatski dnevni izveštaj za taj dan (sweep, `:205-209`). | **Rešeno u K4** (`b0c83f2`, `fairReports.test.ts` blok K4). Backend sam odbija izradu pre zatvaranja dana. |
 | 5 | srednja | Broj leadova i odgovori ankete računaju se iz sirovih redova (`convex/fairAnalytics.ts:144-155,361-376`), pa su posle purge-a 0. | Brojači pri upisu, ili zabrana ponovne izrade posle purge-a |
 | 6 | srednja | Bez `FAIR_VISITOR_HASH_SECRET` produkcija tiho ne broji fair skenove (`lib/fair-server/visitor.ts:74-79`). | Stavka deploy čekliste i stanje vidljivo u adminu |
 | 7 | srednja (odluka) | Purge kreće automatski 16. 11. u 00:00 (`convex/fairRetention.ts:228-251`), a MASTER §13 kaže „nakon odobrenog pokretanja“. | Aleksa bira |
@@ -105,14 +171,10 @@ Brojevi `§9.x` su iz `FAIR-BACKEND-CONTRACT.md`.
 **P0 — blokira produkcijsko uključivanje leadova**
 1. Stručno proveren tekst saglasnosti i politike privatnosti. Mora da sadrži `{izlagac}` i ime ScanMe (§9.37).
 2. Bezbedan kanal i primalac PII izvoza po izlagaču; status `delivered` (§9.13, §9.46, §9.60).
-3. Tvrdi produkcijski prekidač za leadove i follow-up (RF nalaz 3).
+3. ~~Tvrdi produkcijski prekidač za leadove i follow-up (RF nalaz 3).~~ Rešeno u K3 (`638fd67`). Ostaje da Aleksa postavi prekidače po redosledu iz ugovora §28.4 (§0).
 
 **P1 — pre integracionog testa, odnosno pre otvaranja**
-1. Korektivni korak za RF nalaze 1–4:
-   - tajna gateway → Convex;
-   - osvežavanje displeja;
-   - prekidači za leadove i follow-up;
-   - izveštaj pre kraja dana.
+1. ~~Korektivni korak za RF nalaze 1–4~~: urađen u K1–K4 (`422224c`, `3f549bf`, `638fd67`, `b0c83f2`; §0). Ostaju env promenljive iz čekliste u §0.
 2. Emailovi:
    - tekst potvrde i follow-upa (placeholder u `lib/i18n/sr/event-lead-email.ts`);
    - `FAIR_EMAIL_REPLY_TO` (§9.38–§9.39);

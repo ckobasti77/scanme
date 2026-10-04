@@ -1764,12 +1764,12 @@ Presuda završnog pregleda je **TREBA DORADA PRE INTEGRACIONOG TESTA** (`scripts
 ### Stanje ranijih odeljaka
 - **B2 §1 (timeout):** rešeno.
 - **B0 §1, B1 §1, B1A** (rad pre Aleksinog pregleda B0 i navigacija): i dalje otvoreno. Čeka naknadno Aleksino odobrenje.
-- **B7 §4 (integritet metrika):** i dalje otvoreno. RF ga vodi kao nalaz 1 (visoka ozbiljnost).
+- **B7 §4 (integritet metrika):** rešeno u K1 (`422224c`, `jovan-status/K1.md`).
 - **B7 §3 (F3 i HTTPS host):** i dalje blokira ručni test 8. 10.
 - Ostale stavke B0–B7 važe kako su upisane.
 
-### 1. Korektivni korak pre 8. 10. (čeka Aleksinu odluku)
-U Jovanovom opsegu, prema RF nalazima:
+### 1. Korektivni korak pre 8. 10. — REŠENO u K1–K4 (dopuna IZK, 4. 10.)
+Urađeno: K1 `422224c`, K2 `3f549bf`, K3 `638fd67`, K4 `b0c83f2`. Presuda RK je SPREMNO ZA INTEGRACIONI TEST (`scripts/tasks/logs/sajam-v2/RK-IZVESTAJ.md`). Za istoriju, prvobitni opis:
 - **1:** tajna gateway → Convex i limit novih identiteta po IP hash-u;
 - **2:** displej osvežava rotaciju i rezultat glasanja (`app/sajam/[eventSlug]/_mapa/map-section.tsx` čita samo jednom);
 - **3:** tvrdi prekidač za leadove i poseban prekidač za follow-up;
@@ -1792,3 +1792,22 @@ Aleksa ili Jovan postavljaju novu vrednost (32+ nasumičnih znakova, različitu 
 
 ### 3. Ključ IP HMAC-a je `FAIR_VISITOR_HASH_SECRET`
 Rotacija te tajne menja i ključ IP bucket-a, pored već poznatog resetovanja jedinstvenih posetilaca (RF nalaz 6). To je prihvatljivo, jer stanje bucket-a traje samo minute.
+
+## SAJAM v2 — IZK (stanje posle korekcija K1–K4, 4. 10. 2026.)
+
+RF nalazi 1–4 su rešeni. Izvori: `jovan-status/K1.md`–`K4.md` i `scripts/tasks/logs/sajam-v2/RK-IZVESTAJ.md`; čeklista env promenljivih je u `jovan-status/IZVESTAJ.md` §0. Agent ne postavlja nijednu vrednost.
+
+### 1. I dalje blokira test 8. 10. (van lanca)
+- Kodeks F3: stranica modela još čita fixture, pa posle QR-a vraća 404 (B7 §3).
+- HTTPS host vezan za DEV mora imati `FAIR_VISITOR_HASH_SECRET` **i** `FAIR_GATEWAY_SECRET` (istu vrednost kao Convex DEV). Convex DEV tajnu je runner već postavio.
+
+### 2. Otvorena pitanja iz K koraka (čekaju Aleksu ili Jovana)
+- **K1:** veličina `fairVisitorCreate` (300 odjednom, 120/min po IP-u) uz Wi-Fi hale (§9.66). Produkcijski `FAIR_GATEWAY_SECRET` se postavlja pre deploya (ugovor §27.6).
+- **K2:** error boundary za displej ako upit rotacije baci grešku (K2 §7.1).
+- **K3:** ko i kada uključuje `FAIR_LEADS_ENABLED`/`FAIR_FOLLOWUP_ENABLED` (ugovor §28.4). Otvoreno je i:
+  - da li `skipped` posle gašenja treba da bude konačan;
+  - sadržaj zapisa pravnog odobrenja;
+  - provera da tekst imenuje ScanMe;
+  - vidljivost stanja prekidača u adminu (K3 §7).
+- **K4:** šta sa run-om napravljenim pre zatvaranja dana koji je postojao pre K4 (§9.70). Ponoć ili radno vreme hale (§9.54).
+- **RF nalazi 5–17:** neizmenjeni, uključujući 12 i 13. Do ispravke: displeji uvek sa `?prikaz=ekran`, a test telefoni ne smeju biti prijavljeni kao admin.
