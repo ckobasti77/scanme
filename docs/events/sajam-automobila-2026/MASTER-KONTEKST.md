@@ -2,10 +2,12 @@
 
 > Status: **ZAKLJUČAN ZA DELEGIRANJE**
 >
-> Poslednje ažuriranje: 1. oktobar 2026.
+> Poslednje ažuriranje: 2. oktobar 2026.
 > Vlasnik proizvodnih odluka i finalni go/no-go: **Aleksa**
 > Rok za operativnu spremnost prve faze: **9. oktobar 2026.**
 > Prateći tehnički dokument: [`BACKEND-HANDOFF.md`](./BACKEND-HANDOFF.md)
+> Frontend plan: [`FRONTEND-INTEGRATION-PLAN.md`](./FRONTEND-INTEGRATION-PLAN.md)
+> Javni UI/UX ugovor: [`EVENT-DESIGN-SYSTEM.md`](./EVENT-DESIGN-SYSTEM.md)
 > Operativni paket za unos podataka: [`DATA-INTAKE-SPEC.md`](./DATA-INTAKE-SPEC.md)
 
 ## 0. Kako se koristi ovaj dokument
@@ -302,8 +304,8 @@ Postojeći `/r/[cardCode]` tok mora jednim server request ID-em da zabeleži gen
 - Napredni nema četvrtu ukupnu ocenu i backend ne računa izvedeni ukupni prosek iz tri dimenzije.
 - Isti anonimni posetilac može da izmeni svoju prethodnu ocenu.
 - Izmena ne sme da napravi novu nezavisnu ocenu istog posetioca za isti model.
-- Javni zbirni rezultat prikazuje se od najmanje pet ocena. Posetilac i ispod praga vidi sopstvenu ocenu i neutralnu poruku da će rezultat biti dostupan nakon dovoljnog broja glasova.
-- Napredne trodimenzionalne ocene služe analitici izlagača; javni UI prikazuje samo dogovoreni relevantni agregat, bez izmišljene ukupne ocene.
+- Posetilac javno vidi samo sopstvenu ukupnu Starter ocenu ili svoje tri Napredne ocene. Javni prosek i broj ocena se ne prikazuju ni pre ni posle bilo kog praga.
+- Broj ocena i odvojeni proseci dostupni su samo ScanMe adminu i izlagaču kroz dnevni/završni izveštaj. Napredni nema izmišljenu četvrtu ukupnu ocenu.
 
 ---
 
@@ -417,7 +419,8 @@ Za Napredni paket:
 - Mapa i svi sajamski displeji računaju aktivni model iz zajedničkog vremenskog slota/epohe, tako da prikazuju isto bez posebne display administracije.
 - Lista Naprednih modela objavljuje se/obnavlja ručnom admin akcijom nakon nadogradnje paketa.
 - Ako fotografija nedostaje, koristi se logo brenda i neutralni event placeholder; nikada fotografija drugog vozila.
-- Posebno se beleže impresija, `Pogledaj` i `Dodaj u garažu`.
+- Pasivna prikazivanja na mapi, displeju i u garaži ne beleže se niti prikazuju kao impresije.
+- U garaži se kao sponzorisane konverzije beleže samo eksplicitne akcije `Pogledaj` i `Dodaj u garažu`. Mapa i displej ne proizvode metriku prikazivanja.
 
 ---
 
@@ -437,6 +440,10 @@ Za Napredni paket:
 - Ako se model hitno povuče, admin može da ga ukloni iz potrebnog skupa bez poništavanja već stečenog napretka.
 - Rezultat izbora omiljenog modela prikazuje se od najmanje pet glasova.
 - Nema fizičke nagrade u V1.
+- Pasoš se prikazuje na stranici modela, a svi aktivni pasoši prikazuju se u garaži i kada posetilac ima `0/N` pečata.
+- Mapa označava brendove koji imaju aktivan pasoš i lični napredak posetioca `N/M`.
+- Posetilac može da promeni omiljeni model nakon kompletiranja pasoša.
+- Nakon izbora favorita posetilac može eksplicitno da sačuva lokalni digitalni badge. Badge ostaje samo na uređaju i može koristiti zvanični logo brenda.
 
 ---
 
@@ -470,6 +477,8 @@ Zaključane metrike/segmenti:
 - podaci po modelu;
 - podaci po danu;
 - raspodela skeniranja po satima.
+- broj primljenih ocena i odvojene proseke dozvoljene paketom;
+- sponzorisane garažne konverzije `Pogledaj` i `Dodaj u garažu`, bez pasivnih impression brojeva.
 
 Starter dobija dnevni presek i analitiku modela. Napredni dobija sve to, plus detaljnije podatke iz dodatnih funkcionalnosti i automatizovani follow-up.
 
@@ -513,10 +522,29 @@ Podaci se dostavljaju emailom u terminu dogovorenom sa konkretnim izlagačem. Me
 - Javni interfejs događaja koristi samo svetlu temu.
 - Sajamsko iskustvo dobija poseban event vizuelni identitet.
 - Ne kopira se tehnički/industrijski stil ScanMe prelaunch landing stranice na sve korisničke ekrane.
+- ScanMe zelena koristi se isključivo za označavanje ScanMe štanda na sajamskoj mapi. Nije opšti akcenat javnih event ekrana.
+- Van ScanMe prelaunch stranice ne koriste se mono body tipografija, scan linije, neon, tehnički jezik niti dominantno staklo.
+- Sajam automobila je primarni identitet event shell-a; ScanMe je sekundarno označen kao digitalni partner.
+- Globalni theme toggle i globalni text-reveal ne prikazuju se na javnim sajamskim rutama.
 - Interfejsi za obične posetioce treba da budu prijatni, jasni i jednostavni.
 - Dizajn svih paralelno izrađenih modula mora da koristi isti sistem boja, tipografije, razmaka, komponenti, stanja i animacija.
 - Nikakva važna funkcija ne sme da zavisi samo od hovera.
 - Animacije ne smeju da uspore skeniranje, unos ili prikaz rezultata i moraju da poštuju reduced-motion.
+
+### Zaključana javna arhitektura
+
+- mapa/event home: `/sajam/[eventSlug]`;
+- model: `/sajam/[eventSlug]/model/[modelSlug]`;
+- Glas publike: `/sajam/[eventSlug]/model/[modelSlug]/glas-publike`;
+- anketa: `/sajam/[eventSlug]/model/[modelSlug]/anketa`;
+- zajednička garaža: `/sajam/garaza`;
+- poređenje najviše dva modela: `/sajam/garaza/poredjenje`.
+
+Sve javne sajamske rute su `noindex`. Event shell koristi kompaktan sticky header sa Sajmom automobila kao primarnim identitetom, ScanMe oznakom digitalnog partnera i stalnim akcijama `Mapa` i `Garaža` sa brojem sačuvanih modela. Lead forme se kasnije otvaraju kao bottom sheet.
+
+Zaključani redosled stranice modela je: event/brend kontekst, kompaktna opciona fotografija, naziv/varijanta/cena, najviše četiri ključne specifikacije, sticky čuvanje u garažu, Glas publike, grupisane pune specifikacije, ocenjivanje, lead akcije, anketa i pasoš brenda.
+
+Garaža koristi dva event taba, čuva poslednje poznate podatke za offline čitanje, poredi najviše dva modela i rezerviše bottom inset za fixed sponzorisanu traku visine približno 88-104 px plus safe-area. Lokalni garage dokument u sledećoj implementacionoj fazi dobija V2 migraciju koja čuva postojeću V1 listu modela i dodaje kolekciju sačuvanih passport badge-eva.
 
 ### Obavezan dizajn artefakt pre paralelnog kodiranja
 
@@ -550,6 +578,7 @@ Dok taj artefakt nije zaključan, agenti mogu da rade model podataka, API ugovor
 - Aleksa i Jovan su tehnički on-call tokom sajma.
 - Drugi agenti ne menjaju sajamske tabele, indekse ili Convex funkcije bez usaglašenog backend ugovora i koordinacije sa backend vlasnikom.
 - Ovaj komandni centar vodi proizvodne odluke, prioritete, dizajn-sistem, javne mobilne interfejse i integracionu kontrolu.
+- Produkcijsku mapu izrađuje kolega u svom toku. Komandni centar je ne preuzima, već kasnije radi audit, usaglašava integracioni ugovor i proverava stilsko uklapanje sa javnim event shell-om.
 - Backend vlasnik prvo objavljuje tipizirani ugovor podataka/funkcija; frontend taskovi se grade prema tom ugovoru umesto da izmišljaju paralelni model.
 - Nijedan agent ne sme sam da promeni paket, poslovno pravilo ili UX tok zato što mu je lakše za implementaciju.
 - Svaki task mora da navede ulaze, izlaze, zabranjene izmene, kriterijume prihvatanja i proveru.
@@ -568,8 +597,9 @@ Dok taj artefakt nije zaključan, agenti mogu da rade model podataka, API ugovor
    - promene odgovora, progres, rezultati i istorija pitanja.
 5. **Leadovi i email automatizacija**
    - zainteresovanost, probna vožnja, saglasnost, potvrde i follow-up.
-6. **Mapa i display rotacija**
-   - prikaz štandova, rezultat pitanja, reveal i animacija lokacije.
+6. **Mapa i display rotacija - kolegin implementacioni tok**
+   - prikaz štandova, rezultat pitanja, reveal i animacija lokacije;
+   - komandni centar isporučuje ugovor i radi kasniji audit, ne paralelnu implementaciju mape.
 7. **Pasoš brenda**
    - pečati, kompletiranje i glas za omiljeni model.
 8. **Analitika i izveštaji**
@@ -689,6 +719,16 @@ Pre produkcije mora da bude dokazano najmanje sledeće:
 ---
 
 ## 20. Dnevnik izmena
+
+### 2. oktobar 2026.
+
+- Zaključano je da ScanMe zelena pripada isključivo ScanMe štandu na mapi i da ostali javni event ekrani koriste zaseban, netehnički vizuelni jezik.
+- Zaključane su javne rute, event-first shell i redosled sadržaja stranice modela.
+- Ukinut je javni zbirni prikaz ocena: posetilac vidi samo svoje ocene, dok broj i proseci ostaju u izveštajima za izlagača.
+- Ukinute su pasivne sponsored impression metrike. Garaža beleži samo `Pogledaj` i `Dodaj u garažu`; mapa i displej ne mere prikazivanja.
+- Zaključani su svi aktivni pasoši u garaži, lični `N/M` napredak na mapi, promenljiv favorit i eksplicitno lokalno čuvanje digitalnog badge-a.
+- Produkcijska mapa ostaje kolegin zadatak; komandni centar radi ugovor, audit i stilsko usklađivanje.
+- Pokrenut je prvi high-fidelity krug sa tri vizuelna pravca stranice modela; do Aleksinog izbora nema produkcijskog frontend kodiranja.
 
 ### 1. oktobar 2026.
 

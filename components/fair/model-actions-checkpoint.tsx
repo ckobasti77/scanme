@@ -4,14 +4,14 @@ import Link from "next/link";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
   BarChart3,
-  CarFront,
   ChevronRight,
   Mail,
   Star,
   X,
 } from "lucide-react";
+import { TbSteeringWheel } from "react-icons/tb";
 import { useEffect, useRef, useState } from "react";
-import type { FairModelDict } from "@/lib/i18n";
+import { fmt, type FairModelDict } from "@/lib/i18n";
 
 type SheetKind = "rating" | "interest" | "testDrive";
 
@@ -23,34 +23,110 @@ type Action = {
 const icons = {
   rating: Star,
   interest: Mail,
-  testDrive: CarFront,
+  testDrive: TbSteeringWheel,
 };
 
 function RatingField({
   label,
   value,
   onChange,
+  valueAriaTemplate,
 }: {
   label: string;
   value?: number;
   onChange: (value: number) => void;
+  valueAriaTemplate: string;
 }) {
+  const controlRef = useRef<HTMLDivElement>(null);
+  const gestureRef = useRef<{
+    pointerId: number | null;
+    startX: number;
+    startY: number;
+    mode: "pending" | "rating" | "scroll";
+  }>({ pointerId: null, startX: 0, startY: 0, mode: "pending" });
+  const rating = value ?? 0;
+
+  function resetGesture() {
+    gestureRef.current = { pointerId: null, startX: 0, startY: 0, mode: "pending" };
+  }
+
+  function ratingFromPointer(clientX: number) {
+    const bounds = controlRef.current?.getBoundingClientRect();
+    if (!bounds?.width) return;
+    const position = Math.min(1, Math.max(0, (clientX - bounds.left) / bounds.width));
+    onChange(Math.min(5, Math.max(0.5, Math.round(position * 10) / 2)));
+  }
+
+  function handleKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+    event.preventDefault();
+    if (event.key === "Home") onChange(0.5);
+    else if (event.key === "End") onChange(5);
+    else if (event.key === "ArrowLeft") onChange(Math.max(0.5, rating - 0.5));
+    else onChange(Math.min(5, rating + 0.5));
+  }
+
   return (
     <fieldset className="fair-rating-field">
       <legend>{label}</legend>
-      <div>
-        {[1, 2, 3, 4, 5].map((score) => (
-          <button
-            key={score}
-            type="button"
-            aria-label={`${label}: ${score}`}
-            aria-pressed={value === score}
-            onClick={() => onChange(score)}
-          >
-            <Star aria-hidden="true" />
-            <span>{score}</span>
-          </button>
-        ))}
+      <div
+        ref={controlRef}
+        className="fair-star-slider"
+        role="slider"
+        tabIndex={0}
+        aria-label={label}
+        aria-valuemin={0}
+        aria-valuemax={5}
+        aria-valuenow={rating}
+        aria-valuetext={fmt(valueAriaTemplate, { value: rating.toLocaleString("sr-Latn-RS") })}
+        onKeyDown={handleKeyDown}
+        onPointerDown={(event) => {
+          gestureRef.current = {
+            pointerId: event.pointerId,
+            startX: event.clientX,
+            startY: event.clientY,
+            mode: "pending",
+          };
+        }}
+        onPointerMove={(event) => {
+          const gesture = gestureRef.current;
+          if (gesture.pointerId !== event.pointerId || gesture.mode === "scroll") return;
+          const deltaX = Math.abs(event.clientX - gesture.startX);
+          const deltaY = Math.abs(event.clientY - gesture.startY);
+
+          if (gesture.mode === "pending" && deltaY > 7 && deltaY > deltaX) {
+            gesture.mode = "scroll";
+            return;
+          }
+          if (gesture.mode === "pending" && deltaX > 7 && deltaX >= deltaY) {
+            gesture.mode = "rating";
+            event.currentTarget.setPointerCapture(event.pointerId);
+          }
+          if (gesture.mode === "rating") ratingFromPointer(event.clientX);
+        }}
+        onPointerUp={(event) => {
+          const gesture = gestureRef.current;
+          if (gesture.pointerId === event.pointerId && gesture.mode !== "scroll") {
+            ratingFromPointer(event.clientX);
+          }
+          if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+            event.currentTarget.releasePointerCapture(event.pointerId);
+          }
+          resetGesture();
+        }}
+        onPointerCancel={resetGesture}
+      >
+        {[0, 1, 2, 3, 4].map((index) => {
+          const fill = Math.min(1, Math.max(0, rating - index)) * 100;
+          return (
+            <span key={index} className="fair-star-slider__star" aria-hidden="true">
+              <Star className="fair-star-slider__outline" />
+              <span className="fair-star-slider__fill" style={{ width: `${fill}%` }}>
+                <Star />
+              </span>
+            </span>
+          );
+        })}
       </div>
     </fieldset>
   );
@@ -76,14 +152,8 @@ function ActionSheet({
 
   useEffect(() => {
     const previousFocus = document.activeElement as HTMLElement | null;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    document.documentElement.dataset.fairOverlayOpen = "true";
-    closeRef.current?.focus();
 
     return () => {
-      document.body.style.overflow = previousOverflow;
-      delete document.documentElement.dataset.fairOverlayOpen;
       previousFocus?.focus();
     };
   }, []);
@@ -126,7 +196,7 @@ function ActionSheet({
       initial={reduceMotion ? false : { opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={reduceMotion ? { opacity: 1 } : { opacity: 0 }}
-      transition={{ duration: reduceMotion ? 0 : 0.18, ease: "easeOut" }}
+      transition={{ duration: reduceMotion ? 0 : 0.24, ease: "easeOut" }}
       onPointerDown={(event) => {
         if (event.currentTarget === event.target) onRequestClose();
       }}
@@ -138,14 +208,15 @@ function ActionSheet({
         aria-modal="true"
         aria-labelledby="fair-sheet-title"
         onKeyDown={handleKeyDown}
-        initial={reduceMotion ? false : { y: 42, opacity: 0.92, scale: 0.985 }}
-        animate={{ y: 0, opacity: 1, scale: 1 }}
-        exit={reduceMotion ? { opacity: 1 } : { y: 34, opacity: 0, scale: 0.99 }}
+        initial={reduceMotion ? false : { y: "100%" }}
+        animate={{ y: 0 }}
+        exit={reduceMotion ? { y: 0 } : { y: "100%" }}
         transition={
           reduceMotion
             ? { duration: 0 }
-            : { duration: 0.34, ease: [0.22, 1, 0.36, 1] }
+            : { duration: 0.54, ease: [0.22, 1, 0.36, 1] }
         }
+        onAnimationComplete={() => closeRef.current?.focus({ preventScroll: true })}
       >
         <header>
           <h2 id="fair-sheet-title">{title}</h2>
@@ -168,6 +239,7 @@ function ActionSheet({
                 label={dict.overallRatingLabel}
                 value={ratings.overall}
                 onChange={(value) => setRatings({ overall: value })}
+                valueAriaTemplate={dict.ratingValueAria}
               />
             ) : (
               <>
@@ -175,6 +247,7 @@ function ActionSheet({
                   label={dict.designRatingLabel}
                   value={ratings.design}
                   onChange={(value) => setRatings((current) => ({ ...current, design: value }))}
+                  valueAriaTemplate={dict.ratingValueAria}
                 />
                 <RatingField
                   label={dict.specificationsRatingLabel}
@@ -182,11 +255,13 @@ function ActionSheet({
                   onChange={(value) =>
                     setRatings((current) => ({ ...current, specifications: value }))
                   }
+                  valueAriaTemplate={dict.ratingValueAria}
                 />
                 <RatingField
                   label={dict.priceRatingLabel}
                   value={ratings.price}
                   onChange={(value) => setRatings((current) => ({ ...current, price: value }))}
+                  valueAriaTemplate={dict.ratingValueAria}
                 />
               </>
             )}
@@ -251,6 +326,9 @@ export function ModelActionsCheckpoint({
   dict: FairModelDict;
 }) {
   const [openSheet, setOpenSheet] = useState<SheetKind | null>(null);
+  const [starterRating, setStarterRating] = useState<number>();
+  const sheetActions =
+    ratingMode === "overall" ? actions.filter((action) => action.kind !== "rating") : actions;
 
   useEffect(() => {
     if (!openSheet) return;
@@ -283,9 +361,20 @@ export function ModelActionsCheckpoint({
         </Link>
       ) : null}
 
-      {actions.length > 0 ? (
-        <div className="fair-action-grid">
-          {actions.map((action) => {
+      {ratingMode === "overall" ? (
+        <div className="fair-starter-rating">
+          <RatingField
+            label={dict.rateModel}
+            value={starterRating}
+            onChange={setStarterRating}
+            valueAriaTemplate={dict.ratingValueAria}
+          />
+        </div>
+      ) : null}
+
+      {sheetActions.length > 0 ? (
+        <div className="fair-action-grid" data-count={sheetActions.length}>
+          {sheetActions.map((action) => {
             const Icon = icons[action.kind];
             return (
               <button key={action.kind} type="button" onClick={() => setOpenSheet(action.kind)}>

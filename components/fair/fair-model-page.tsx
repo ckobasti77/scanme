@@ -180,7 +180,11 @@ export function FairModelPage({
   const audienceHref = `${routePath}/glas-publike?${audienceSearch.toString()}`;
 
   return (
-    <div className="fair-event" data-reveal="off">
+    <div
+      className="fair-event fair-model-page"
+      data-package={selection.mode}
+      data-reveal="off"
+    >
       <FairEventShell
         eventId={model.eventId}
         eventSlug={model.eventSlug}

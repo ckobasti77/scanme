@@ -1,6 +1,6 @@
 # ScanMe Sajam automobila 2026 - frontend integration plan
 
-> Status: **RADNI PLAN - NE OTKLJUČAVA FINALNI UI**
+> Status: **PRVI MODEL-PAGE VERTICAL SLICE OTKLJUČAN**
 >
 > Poslednje ažuriranje: **2. oktobar 2026.**
 >
@@ -34,7 +34,7 @@ Provereno 1-2. oktobra 2026.
 - DEV prototip mape postoji u `app/dev/sajam-cair/`.
 - Prototip mape već podržava pan, pinch zoom, izbor štanda, filter, izbor ulaza, putanju, tastaturu i reduced-motion.
 - Tekst prototipa je u typed i18n sloju `lib/i18n/sr/event-map.ts`.
-- Projekat već ima Framer Motion, Radix primitive, Lucide, Sonner i potrebne lokalno učitane fontove.
+- Projekat već ima GSAP, Framer Motion, Radix primitive, Lucide, Sonner i potrebne lokalno učitane fontove.
 - Produkcijski build, namespace gate i golden harness trenutno prolaze.
 
 ### Ne postoji
@@ -46,7 +46,7 @@ Provereno 1-2. oktobra 2026.
 - Frontend gateway za anonimni fair visitor token.
 - UI za ocene, Glas publike, anketu, leadove, pasos i sponzorisane rotacije.
 - Produkcijski data-driven prikaz mape; trenutni standovi i brendovi su hardkodovani u DEV komponenti.
-- Zakljucan event dizajn-sistem.
+- Produkcijski fino podešen event dizajn-sistem; V5 baseline jeste zaključan za prvi slice.
 - Jovanov B0 tipizirani fair ugovor na zajednickoj grani.
 
 ### Važna posledica
@@ -78,6 +78,7 @@ Komandni centar zaključava:
 - informacionu arhitekturu i rute;
 - sadržaj i typed i18n;
 - podelu frontend modula;
+- kasniji audit mape, integracioni ugovor i stilsko usklađivanje. Produkcijsku mapu implementira kolega i ovaj tok je ne preuzima.
 - integracionu proveru sa Jovanovim ugovorom;
 - finalni produkcijski go/no-go.
 
@@ -93,8 +94,13 @@ Ovo je tehnički predlog, ne odobren finalni raspored fajlova.
 app/sajam/
   [eventSlug]/
     page.tsx                 # mapa / event home
-    [modelSlug]/page.tsx     # javna stranica modela
+    model/
+      [modelSlug]/
+        page.tsx             # javna stranica modela
+        glas-publike/page.tsx
+        anketa/page.tsx
   garaza/page.tsx            # zajednička garaza sa dva event taba
+  garaza/poredjenje/page.tsx # poređenje najviše dva modela
 
 components/fair/
   shell/
@@ -140,20 +146,18 @@ Master je zaključao čitljive URL-ove pod:
 - `/sajam/elektromobilnost-2026/...`
 - `/sajam/auto-moto-fest-2026/...`
 
-### PREDLOG za zaključavanje
+### ZAKLJUČANO
 
 | Površina | Predložena ruta | Napomena |
 |---|---|---|
 | mapa / event home | `/sajam/[eventSlug]` | javna, mobile-first, display varijanta istih podataka |
-| model | `/sajam/[eventSlug]/[modelSlug]` | cilj postojećeg `/r/[cardCode]` resolvera |
+| model | `/sajam/[eventSlug]/model/[modelSlug]` | cilj postojećeg `/r/[cardCode]` resolvera |
+| Glas publike | `/sajam/[eventSlug]/model/[modelSlug]/glas-publike` | zaseban full-screen tok |
+| anketa | `/sajam/[eventSlug]/model/[modelSlug]/anketa` | zaseban kratki tok |
 | garaža | `/sajam/garaza` | jedna površina sa dva event taba |
-| pasoš brenda | u garaži ili event shell-u | finalna lokacija još nije zaključana |
+| poređenje | `/sajam/garaza/poredjenje` | eksplicitno poređenje najviše dva modela |
 
-Otvoreno pre implementacije route tree-a:
-
-1. da li je garaža globalna `/sajam/garaza` ili event-scoped ruta sa tabovima;
-2. da li pasoš dobija zasebnu rutu ili je deo garaže;
-3. format display moda: query param, zasebna ruta ili responsive režim prema eksplicitnom prop-u.
+Pasoš nema zasebnu javnu rutu u V1. Progres se prikazuje na modelu, svi aktivni pasoši u garaži, a eligibility i lični `N/M` na mapi. Format display moda ostaje tehnički detalj koleginog map toka.
 
 Sve javne event rute u V1 imaju `noindex`. Ne smeju biti slučajno preusmerene na prelaunch početnu stranu u produkciji.
 
@@ -194,8 +198,8 @@ Frontend ne uvodi `/api/fair/scan`, `recordScan` effect niti drugi mehanizam koj
 - Client iz tih podataka računa aktivni slot; ne poll-uje backend na svakih 8 ili 12 sekundi.
 - Mapa/display koristi slot od 12 sekundi.
 - Garaža koristi slot od 8 sekundi i pauzira lokalnu prezentaciju tokom interakcije.
-- Impression se beleži samo kada je kartica stvarno prikazana, prema konačnom ugovoru vidljivosti.
-- `Pogledaj` i `Dodaj u garažu` su odvojene konverzije i nikad nisu scan.
+- Pasivno prikazivanje se ne beleži ni na mapi/displeju ni u garaži.
+- U garaži su `Pogledaj` (`open_model`) i `Dodaj u garažu` (`garage_add`) jedine sponzorisane konverzije i nikad nisu scan. Mapa/displej nema sponsored write.
 
 ## 6. Lokalni model garaže
 
@@ -207,13 +211,13 @@ Frontend ne uvodi `/api/fair/scan`, `recordScan` effect niti drugi mehanizam koj
 - PDF/email postoje samo kao izričite akcije korisnika.
 - Brisanje browser podataka ili private mode mogu da uklone garažu.
 
-### PREDLOG tehničkog zapisa
+### ZAKLJUČAN ciljni V2 zapis za sledeću implementacionu fazu
 
 Sačuvati versioned, ne-PII dokument:
 
 ```ts
 type FairGarageDocument = {
-  version: 1;
+  version: 2;
   events: Record<
     string,
     Array<{
@@ -229,10 +233,18 @@ type FairGarageDocument = {
       };
     }>
   >;
+  passportBadges: Array<{
+    eventId: string;
+    brandId: string;
+    brandName: string;
+    brandLogoUrl?: string;
+    favoriteModelId: string;
+    savedAt: number;
+  }>;
 };
 ```
 
-Razlog za `lastKnown`: garaža ostaje čitljiva pri privremenom mrežnom problemu. Kada mreža radi, `getModelsByIds` je izvor istine i osvežava prikaz. Store ne sadrži visitor token, ocene, glasove, lead kontakt ili saglasnost.
+Razlog za `lastKnown`: garaža ostaje čitljiva pri privremenom mrežnom problemu i jasno označava da podaci možda nisu sveži. Kada mreža radi, `getModelsByIds` je izvor istine i osvežava prikaz. Store ne sadrži visitor token, ocene, glasove, lead kontakt ili saglasnost. V1 -> V2 migracija mora sačuvati sve postojeće modele i dodati praznu `passportBadges` kolekciju.
 
 Pravila implementacije:
 
@@ -248,7 +260,7 @@ Pravila implementacije:
 
 ### F0 - zajednički event shell i tokeni
 
-**Čeka:** Aleksino zaključavanje `EVENT-DESIGN-SYSTEM.md` i rute.
+**Status:** otključano 2. oktobra 2026. za prvi model-page vertical slice.
 
 Isporučuje:
 
@@ -303,7 +315,7 @@ Ne radi:
 
 ### F3 - javna stranica modela
 
-**Čeka:** F0, B0+B2 i zaključan model wireframe.
+**Status:** vizuelna implementacija može početi posle F0 preko tipiziranog fixture adaptera. Produkcijsko čitanje i visitor upisi i dalje čekaju B0+B2.
 
 Isporučuje:
 
@@ -314,35 +326,38 @@ Isporučuje:
 - view konverziju odvojenu od scan-a;
 - mobile loading/not-found/error stanja.
 
-### F4 - produkcijska mapa i display
+Prvi slice koristi pravi `/sajam/[eventSlug]/model/[modelSlug]` URL i nije deo javne navigacije. Ruta ostaje `noindex` i ne deployuje se u produkciju bez Aleksinog go/no-go.
+
+### F4 - audit i integracija produkcijske mape kolege
 
 **Čeka:** F0, B0/B1 public event podatke, potvrđenu geometriju i display rezoluciju.
 
-Polazi od gesture/geometrijske logike DEV prototipa, ali odvaja podatke od rendera.
+Kolega implementira mapu. Naš task ne preuzima njegov kodni opseg, već proverava da mapa poštuje zajednički contract i event stil.
 
 Isporučuje:
 
-- data-driven stand/brand prikaz;
-- search-first mobilnu kontrolu;
-- mapu u prvom mobilnom viewportu;
-- kompaktne sekundarne filtere;
-- fokus izabranog štanda i listu sa pretragom/grupisanjem;
-- display composition;
-- kasnije sponsored 12s reveal adapter.
+- zajedničke event tokene bez ScanMe zelene kao opšteg akcenta;
+- ScanMe zelenu isključivo za ScanMe štand;
+- passport eligibility i lični progres `N/M`;
+- display composition i Advanced 12s reveal bez impression metrike;
+- integracioni i stilski audit na telefonu i stvarnoj display rezoluciji.
 
 ### F5 - ocene, Glas publike i anketa
 
-**Čeka:** F0, F2 i Jovan B3.
+**Status:** vizuelni tok ocena i Glasa publike može da se implementira preko fixture adaptera posle F0. Pravi upisi, rezultati i promena glasa čekaju F2 i Jovan B3.
 
 Isporučuje odvojene tokove:
 
 - Starter overall ocena;
 - Advanced tri opcione dimenzije, bez četvrte ukupne ocene;
 - izmena postojeće ocene;
+- prikaz isključivo sopstvenih ocena posetiocu, bez javnog proseka i broja ocena;
 - Glas publike sa promenom glasa i threshold stanjem;
 - obična anketa sa finalnim submit-om koji se ne menja;
 - progress za najviše pet pitanja;
 - retry bez lažnog success-a.
+
+Za Glas publike je zaključano: tap odmah daje pressed/selected feedback; dozvoljeni rezultati se animiraju tek nakon uspešnog odgovora; GSAP timeline sinhronizuje ispunu elementa i rast celobrojnog procenta; promena glasa animira prelaz sa starih na nove vrednosti; reduced-motion odmah prikazuje kraj.
 
 ### F6 - `Zainteresovan sam` i probna vožnja
 
@@ -366,7 +381,7 @@ Isporučuje:
 - katalog zaključanih modela;
 - osvojene/nedostajuće pečate;
 - stanje kompletnog pasoša;
-- izbor omiljenog modela;
+- svi aktivni pasoši u garaži uključujući `0/N`, promenljiv izbor omiljenog modela i eksplicitno lokalno čuvanje badge-a;
 - bez fizičke nagrade i bez izmišljanja uslova na clientu.
 
 ### F8 - sponzorisane rotacije
@@ -382,7 +397,7 @@ Isporučuje:
 - garaža 8s karticu sa `Pogledaj` i `Dodaj u garažu`;
 - ravnopravan dnevno stabilan redosled;
 - fallback bez fotografije;
-- impression/view/garage_add instrumentaciju.
+- samo `open_model` i `garage_add` instrumentaciju iz garažne trake; bez pasivnih impression događaja.
 
 ### F9 - garaža UI, poređenje i export ulazi
 
@@ -392,7 +407,8 @@ Isporučuje:
 
 - dva event taba;
 - listu sačuvanih modela;
-- eksplicitno poređenje;
+- eksplicitno poređenje najviše dva modela;
+- sve aktivne pasoše i lokalno sačuvane passport badge-eve;
 - nenametljivu storage/private-mode napomenu;
 - PDF/email akcije povezane sa kasnijim server endpointom;
 - sponsored traku iz F8.
@@ -410,7 +426,7 @@ Obuhvata:
 - online, usporena mreža, retry i refresh;
 - reduced motion;
 - tačne capabilities nakon upgrade-a;
-- scan/view/sponsored konverzije bez dupliranja;
+- scan/view i dve garažne sponsored konverzije bez dupliranja i bez pasivnih impression događaja;
 - privatnost i odsustvo tokena/PII u URL-u, client logu i error tekstu.
 
 ## 8. Šta može da se radi paralelno
@@ -500,20 +516,16 @@ Aleksa jedini daje go/no-go nakon QR matrice, browser provere, PII pregleda, err
 
 ## 11. Otvorene odluke koje trenutno blokiraju određene module
 
-1. Zaključavanje ili odbacivanje `Soft Atlas` pravca i tokena.
-2. Konačne javne rute za garažu, pasoš i display režim.
-3. Finalni model page wireframe bez fotografije i sa fotografijom.
-4. Potvrditi ili ukloniti implementirani opcioni `lastKnown` snapshot za offline čitljivost; nije još proglašen zaključanom produktnom odlukom.
-5. Stvarna rezolucija i orijentacija sajamskih displaya.
-6. Finalni pravni tekst saglasnosti pre F6 produkcije.
-7. Precizan kriterijum za sponsored impression kada je browser tab skriven ili kartica van viewporta.
-8. Ko je jedini integracioni vlasnik shared fair shell/token fajlova tokom paralelnog rada.
+1. Stvarna rezolucija i orijentacija sajamskih displaya.
+2. Finalni pravni tekst saglasnosti pre F6 produkcije.
+3. Jovanov B0/B2/B3 ugovor na zajedničkoj grani za produkcijsko povezivanje.
 
 ## 12. Sledeći preporučeni potez
 
-Ne počinjati masovno frontend kodiranje dok B0 i dizajn nisu zaključani. Najbrži bezbedan put je:
+Ne počinjati masovno frontend kodiranje. Sledeći bezbedan potez je jedan kontrolisan model-page vertical slice:
 
-1. Aleksa pregleda deset otvorenih odluka u `EVENT-DESIGN-SYSTEM.md` i prve četiri relevantne odluke iz ovog dokumenta.
-2. Komandni centar pravi četiri mobile wireframea: model, mapa, garaža i Glas publike.
-3. Jovan završava B0 bez paralelnog frontend menjanja ugovora.
-4. Nakon C0+C1 prvo se implementira jedan vertical slice, pa tek onda paralelizuju feature moduli.
+1. Implementirati F0 event shell/tokene i jednu pravu `/sajam/.../model/...` rutu sa tipiziranim fixture adapterom.
+2. Pregledati prvi ekran u stvarnom browseru pre ostalih interakcija.
+3. Implementirati Glas publike, rating sheet, browser garažu i vizuelne lead sheetove bez lažnog backend uspeha.
+4. Proveriti sve fixture režime preko diskretnog DEV ulaza na dnu stranice.
+5. Tek posle Aleksinog browser odobrenja i Jovanovog B0/B2/B3 povezati produkcijske read/write adaptere.

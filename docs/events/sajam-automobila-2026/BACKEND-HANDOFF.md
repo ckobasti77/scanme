@@ -2,13 +2,14 @@
 
 > Status: **ZAKLJUČAN ZA DELEGIRANJE — B0 JE PRVI DOZVOLJENI KODNI KORAK**
 >
-> Poslednje ažuriranje: 1. oktobar 2026.
+> Poslednje ažuriranje: 2. oktobar 2026.
 > Vlasnik proizvodnih odluka i finalni go/no-go: **Aleksa**
 > Backend vlasnik: **Jovan**
 > Rok za prvu produkcijski upotrebljivu verziju: **9. oktobar 2026.**
 > Polazna grana: `codex/sajam-automobila-2026`
 > Kanonski proizvodni dokument: [`MASTER-KONTEKST.md`](./MASTER-KONTEKST.md)
 > Operativni paket za unos podataka: [`DATA-INTAKE-SPEC.md`](./DATA-INTAKE-SPEC.md)
+> Obavezna delta pre nastavka B0/B3/B5: [`JOVAN-DELTA-2026-10-02.md`](./JOVAN-DELTA-2026-10-02.md)
 
 `MASTER-KONTEKST.md` definiše proizvod i poslovna/UX pravila. Ovaj dokument definiše tehničku implementaciju tih pravila. Jovan i njegov AI agent moraju dobiti i pročitati oba dokumenta. Ako se dokumenti ili kod razilaze, ne biraj tumačenje i ne menjaj pravilo samostalno: zaustavi sporni deo i vrati konflikt komandnom centru.
 
@@ -261,7 +262,7 @@ Jedan business može učestvovati na oba događaja kroz dva participation reda. 
 - `slug`
 - `displayName`, opciono `variant`
 - `priceText` sa fallbackom `Cena na upit`
-- `specifications: Array<{ label: string; value: string; order: number }>`
+- `specifications: Array<{ id: string; groupId: string; groupLabel: string; groupOrder: number; label: string; value: string; order: number; isHighlight: boolean }>`; najviše četiri stavke po modelu mogu biti highlight
 - opciono `photoStorageId` ili odobreni `photoUrl`
 - `packageTier`, `packageActivatedAt`
 - `passportEligible`
@@ -356,7 +357,7 @@ Raw događaji i odgovor/ocena redovi su izvor istine. Shards su čitalačka proj
 
 Starter prihvata tačno `overall`. Advanced ne prihvata `overall`, već bilo koju nepraznu kombinaciju `appearance`, `specifications`, `price`; sve tri dimenzije su pojedinačno opcione. Ne računaj izvedeni overall. Ponovni unos patchuje isti red i korektno ažurira agregate samo za poslate dimenzije.
 
-Javna projekcija rezultata ima prag 5. Ispod praga vraća korisnikovu ocenu i status `waiting_for_minimum`, ali ne otkriva zbirni prosek. Advanced detaljni agregati su analitika za izlagača, ne automatski javni trodimenzionalni dashboard.
+Visitor projekcija vraća isključivo ocene tog posetioca za dati model. Javni endpoint nikada ne vraća zbirni prosek ili broj ocena. Count/sum/prosek ostaju admin/report projekcija za izlagača, odvojena od javnog modela i visitor state-a.
 
 #### `fairAudienceQuestions`
 
@@ -478,7 +479,7 @@ Scan modela idempotentno dodaje pečat samo ako je model u objavljenom eligible 
 - indeks `by_visitorId_and_eventId_and_brandId` (jedan promenljiv favorit)
 - indeks `by_eventId_and_brandId`
 
-Favorite se može postaviti tek kada backend utvrdi da je posetilac skenirao sve zaključane eligible modele brenda. Javni zbirni favorite rezultat ima prag 5; ispod njega vrati korisnikov izbor i `waiting_for_minimum` bez procenta.
+Favorite se može postaviti tek kada backend utvrdi da je posetilac skenirao sve zaključane eligible modele brenda. Favorit je promenljiv. Javni zbirni favorite rezultat ima prag 5; ispod njega vrati korisnikov izbor i `waiting_for_minimum` bez procenta. Visitor passport projekcija mora da podrži model stranicu, garažu i mapu: katalog svih aktivnih pasoša, eligible modele, lični `N/M` progres, kompletirano stanje i izabrani favorit.
 
 ### 5.6 Izveštaji i retention
 
@@ -515,11 +516,11 @@ Retention posao:
 #### `fairSponsoredEvents`
 
 - `requestId`, `eventId`, `eventModelId`, `surface: map | display | garage`;
-- `kind: impression | view | garage_add`, `occurredAt`, `dateKey`, `hourKey`;
+- `kind: open_model | garage_add`, `occurredAt`, `dateKey`, `hourKey`;
 - opciono `visitorId` za dedupe/upis pre purge-a;
 - indeksi po requestId, modelu/vremenu i eventu/vremenu.
 
-Impression, `Pogledaj` i `Dodaj u garažu` su odvojene konverzije i nikada ne pozivaju QR scan pipeline. Posle PII purge-a ostaju samo agregati.
+Pasivni prikaz nije događaj i ne upisuje se ni za mapu/displej ni za garažu. `open_model` i `garage_add` postoje samo za eksplicitne akcije u garažnoj sponzorisanoj traci, nikada ne pozivaju QR scan pipeline i posle PII purge-a ostaju samo agregati. Mapa/displej nema sponsored event write.
 
 ## 6. Tipizirani ugovor koji frontend čeka
 
@@ -556,13 +557,26 @@ type FairPublicModel = {
   displayName: string;
   variant?: string;
   priceText: string;
-  specifications: Array<{ label: string; value: string }>;
+  specificationGroups: Array<{
+    id: string;
+    label: string;
+    order: number;
+    items: Array<{
+      id: string;
+      label: string;
+      value: string;
+      order: number;
+      isHighlight: boolean;
+    }>;
+  }>;
   photoUrl?: string;
   capabilities: FairModelCapabilities;
 };
 ```
 
 Capabilities dolaze sa servera, npr. `ratingMode: none | overall | dimensions`, `canSubmitInterest`, `canRequestTestDrive`, `hasAudienceQuestions`, `hasSurvey`, `isSponsored`. Frontend ne poredi string paketa da bi sam zaključio prava.
+
+Publish validacija dozvoljava najviše četiri `isHighlight: true` specifikacije po modelu. Redosled grupa i stavki dolazi sa servera; frontend ih ne preslaguje po nazivu. Fotografija ostaje opciona.
 
 Ne stavljaj korisnički tekst greške u ugovor. Vrati stabilan code (`FAIR_MODEL_NOT_FOUND`, `FEATURE_NOT_ENTITLED`, `CONSENT_REQUIRED`, `RATE_LIMITED`, `SUBMISSION_DUPLICATE`, `EVENT_NOT_ACTIVE`) i detalje koji nisu PII; frontend ih mapira kroz typed i18n sloj.
 
@@ -582,8 +596,9 @@ Public, read-only, bez PII:
 - `getSponsoredMapRotation`
 - `getSponsoredGarageRotation`
 - `getPassportCatalog`
+- `getMyPassportProgress` ili server-gateway ekvivalent za bounded visitor state
 
-Sponzorisane projekcije vraćaju samo modele iz ručno objavljenog Advanced snapshot-a, sa seed/version/epoch vrednostima potrebnim za dnevno stabilan ravnopravan round-robin. Mapa koristi slot 12s, garaža 8s. Backend vraća fallback logo/event placeholder kada fotografija nedostaje i podatak za ručno izabrani audience rezultat ili `Glasanje je u toku` stanje.
+Sponzorisane projekcije vraćaju samo modele iz ručno objavljenog Advanced snapshot-a, sa seed/version/epoch vrednostima potrebnim za dnevno stabilan ravnopravan round-robin. Mapa koristi slot 12s, garaža 8s. Backend vraća fallback logo/event placeholder kada fotografija nedostaje i podatak za ručno izabrani audience rezultat ili `Glasanje je u toku` stanje. Projekcije ne vraćaju niti obećavaju impression metriku.
 
 ### `convex/fairInteractions.ts`
 
@@ -594,7 +609,7 @@ Public write površina bez PII čitanja:
 - `upsertAudienceVote`
 - `submitSurvey`
 - `upsertBrandFavorite`
-- `recordSponsoredEvent`
+- `recordSponsoredAction` (`open_model | garage_add`, samo eksplicitna garažna akcija)
 
 QR scan nije zasebna javna funkcija ove datoteke: postojeći `cards.resolveAndRecord` dobija minimalni fair hook i isti requestId. Time se fizički scan ne može slučajno duplirati sa model page load-om.
 
@@ -741,6 +756,7 @@ Zaštita od duplikata nije isto što i rate-limit:
 - Identičan `requestId` retry = bez novog total ili unique.
 - Direktno otvaranje modela iz garaže/sponzorisane kartice nije QR scan.
 - Promena ratinga ne povećava count; menja sum/prosek.
+- Javni model/visitor state nikada ne vraća count/sum/prosek ocena; ti agregati su dostupni samo admin/report čitanjima.
 - Promena audience glasa smanjuje staru i povećava novu opciju; total broj glasača ostaje isti.
 - Lead nastao pre upgrade-a se ne pretvara retroaktivno u Advanced lead.
 - Scan pre upgrade-a ostaje vidljiv u kasnijoj model analytics projekciji.
@@ -808,7 +824,7 @@ Checkpoint: commituj i pushuj pre business mutacija, da frontend može da krene 
 - garaža Advanced lista
 - ručno objavljen immutable snapshot, dnevno stabilan ravnopravan redosled
 - 12s mapa/display i 8s garaža preko zajedničkog epoch ugovora; animacija ostaje frontend
-- impression/view/garage_add događaji odvojeni od QR skena
+- samo `open_model` i `garage_add` događaji iz garaže, odvojeni od QR skena; nema pasivnog impression događaja ni map/display write-a
 
 ### B6 — analitika i dnevni dataset
 
@@ -857,6 +873,7 @@ Najmanje pokriti:
 ### Interakcije
 
 - Starter rating prihvata samo overall; Advanced prihvata samo tri opcione dimenzije i nikad overall;
+- visitor javno dobija samo svoj rating state; count i proseci dostupni su samo admin/report projekcijama;
 - vote upsert i tačan counter delta;
 - javni rezultati ostaju skriveni do 5 glasova, uz očuvan sopstveni odgovor;
 - survey samo Advanced, najviše 5 pitanja, najmanje jedan odgovor i bez izmene posle submit-a;
@@ -929,6 +946,7 @@ Backend nije spreman za produkciju dok sve ispod nije dokazano:
 - email retry ne šalje duplikate;
 - dnevni dataset ne meša izlagače;
 - Advanced sponsored projekcije sadrže samo validne published modele;
+- pasivno prikazivanje sponzorisanog modela ne pravi događaj; prihvataju se samo garažne akcije `open_model` i `garage_add`;
 - izveštaj ne može da se pošalje pre ručnog odobrenja;
 - purge dry-run/test dokazuje potpuno brisanje PII uz očuvanje anonimnih agregata;
 - javne funkcije ne otkrivaju PII ni admin podatke;
@@ -964,6 +982,7 @@ Za sadržajne tačke pripremi validiran import/admin seam, ali ne izmišljaj pod
 - Nema glasanja na mapi.
 - Nema automatskog dodavanja modela u garažu.
 - Nema personalizacije sponsored rotacije po srodnosti.
+- Nema pasivne sponsored impression metrike, čak ni kada je kartica ili mapa vidljiva.
 - Nema online kupovine paketa.
 - Nema retroaktivnog otključavanja interakcija.
 - Nema fotografije/specifikacije/cene koju je agent izmislio.

@@ -105,6 +105,7 @@ export interface FairModelDict {
   closeSheet: string;
   ratingSheetTitle: string;
   overallRatingLabel: string;
+  ratingValueAria: string;
   designRatingLabel: string;
   specificationsRatingLabel: string;
   priceRatingLabel: string;
