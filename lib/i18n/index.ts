@@ -13,6 +13,9 @@
 
 import { fmt, srPluralCategory } from "./format";
 import type { DictBySurface, Surface } from "./types";
+import { eventMapSr } from "./sr/event-map";
+import { fairMapSr } from "./sr/fair-map";
+import { fairModelSr } from "./sr/fair-model";
 import { venueSr } from "./sr/venue";
 import { venueEditorSr } from "./sr/venue-editor";
 import { venueAdminSr } from "./sr/venue-admin";
@@ -25,14 +28,37 @@ import { resolverSr } from "./sr/resolver";
 import { consentSr } from "./sr/consent";
 import { privacySr } from "./sr/privacy";
 import { offerSr } from "./sr/offer";
-import { adminCustomersSr } from "./sr/admin-customers";
 import { adminLocationSr } from "./sr/admin-location";
+import { menuSr } from "./sr/menu";
+import { menuEditorSr } from "./sr/menu-editor";
+import { menuAdminSr } from "./sr/menu-admin";
+import { orderingAdminSr } from "./sr/ordering-admin";
+import { orderingSr } from "./sr/ordering";
+import { orderingPanelSr } from "./sr/ordering-panel";
+import { cardsAdminSr } from "./sr/cards-admin";
+import { adminDomainSr } from "./sr/admin-domain";
+import { adminV1Sr } from "./sr/admin-v1";
+import { communicationsSr } from "./sr/communications";
+import { adminTasksSr } from "./sr/admin-tasks";
+import { adminOrdersSr } from "./sr/admin-orders";
+import { adminProductsSr } from "./sr/admin-products";
+import { adminTeamSr } from "./sr/admin-team";
+import { adminEventsSr } from "./sr/admin-events";
+import { eventLeadEmailSr } from "./sr/event-lead-email";
+import { eventReportSr } from "./sr/event-report";
+import { adminFinanceSr } from "./sr/admin-finance";
+import { adminServicesSr } from "./sr/admin-services";
+import { adminSettingsSr } from "./sr/admin-settings";
+import { adminSearchSr } from "./sr/admin-search";
 
 export { fmt, srPluralCategory };
 export type {
   Locale,
   Surface,
   DictBySurface,
+  EventMapDict,
+  FairMapDict,
+  FairModelDict,
   VenueDict,
   VenueEditorDict,
   VenueAdminDict,
@@ -45,11 +71,34 @@ export type {
   ConsentDict,
   PrivacyDict,
   OfferDict,
-  AdminCustomersDict,
   AdminLocationDict,
+  MenuDict,
+  MenuEditorDict,
+  MenuAdminDict,
+  OrderingAdminDict,
+  OrderingDict,
+  OrderingPanelDict,
+  CardsAdminDict,
+  AdminDomainDict,
+  AdminV1Dict,
+  AdminSettingsDict,
+  CommunicationsDict,
+  AdminTasksDict,
+  AdminOrdersDict,
+  AdminProductsDict,
+  AdminTeamDict,
+  AdminEventsDict,
+  EventLeadEmailDict,
+  EventReportDict,
+  AdminFinanceDict,
+  AdminServicesDict,
+  AdminSearchDict,
 } from "./types";
 export {
   venueSr,
+  eventMapSr,
+  fairMapSr,
+  fairModelSr,
   venueEditorSr,
   venueAdminSr,
   venuePanelSr,
@@ -61,11 +110,48 @@ export {
   consentSr,
   privacySr,
   offerSr,
-  adminCustomersSr,
   adminLocationSr,
+  menuSr,
+  menuEditorSr,
+  menuAdminSr,
+  orderingAdminSr,
+  orderingSr,
+  orderingPanelSr,
+  cardsAdminSr,
+  adminDomainSr,
+  adminV1Sr,
+  communicationsSr,
+  adminTasksSr,
+  adminOrdersSr,
+  adminProductsSr,
+  adminTeamSr,
+  adminEventsSr,
+  eventLeadEmailSr,
+  eventReportSr,
+  adminFinanceSr,
+  adminServicesSr,
+  adminSettingsSr,
+  adminSearchSr,
 };
 
 const SR: DictBySurface = {
+  "event-map": eventMapSr,
+  "fair-map": fairMapSr,
+  "fair-model": fairModelSr,
+  "admin-v1": adminV1Sr,
+  "admin-settings": adminSettingsSr,
+  "admin-search": adminSearchSr,
+  communications: communicationsSr,
+  "admin-tasks": adminTasksSr,
+  "admin-orders": adminOrdersSr,
+  "admin-products": adminProductsSr,
+  "admin-team": adminTeamSr,
+  "admin-events": adminEventsSr,
+  "event-lead-email": eventLeadEmailSr,
+  "event-report": eventReportSr,
+  "admin-finance": adminFinanceSr,
+  "admin-services": adminServicesSr,
+  "admin-domain": adminDomainSr,
   venue: venueSr,
   "venue-editor": venueEditorSr,
   "venue-admin": venueAdminSr,
@@ -78,8 +164,14 @@ const SR: DictBySurface = {
   consent: consentSr,
   privacy: privacySr,
   offer: offerSr,
-  "admin-customers": adminCustomersSr,
   "admin-location": adminLocationSr,
+  menu: menuSr,
+  "menu-editor": menuEditorSr,
+  "menu-admin": menuAdminSr,
+  "ordering-admin": orderingAdminSr,
+  ordering: orderingSr,
+  "ordering-panel": orderingPanelSr,
+  "cards-admin": cardsAdminSr,
 };
 
 export function getDict<S extends Surface>(surface: S): DictBySurface[S] {

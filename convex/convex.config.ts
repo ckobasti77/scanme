@@ -26,6 +26,26 @@ const app = defineApp({
     RESEND_API_KEY: v.optional(v.string()),
     RESEND_FROM_EMAIL: v.optional(v.string()),
     SCANME_ACTIVATION_REQUEST_EMAIL: v.optional(v.string()),
+    // Sajam 2026 B4: public base URL for links in fair emails (default: the
+    // main ScanMe domain) and the monitored ScanMe address that receives
+    // replies to the lead confirmation (follow-up opt-out). Both optional.
+    FAIR_PUBLIC_BASE_URL: v.optional(v.string()),
+    FAIR_EMAIL_REPLY_TO: v.optional(v.string()),
+    // ADMIN-09B Zoho Mail adapter. All values are server-only and optional so
+    // the foundation remains inert until ADMIN-09C supplies and verifies them.
+    ZOHO_MAIL_API_BASE_URL: v.optional(v.string()),
+    ZOHO_ACCOUNTS_BASE_URL: v.optional(v.string()),
+    ZOHO_MAIL_CLIENT_ID: v.optional(v.string()),
+    ZOHO_MAIL_CLIENT_SECRET: v.optional(v.string()),
+    ZOHO_MAIL_REFRESH_TOKEN: v.optional(v.string()),
+    ZOHO_MAIL_ACCOUNT_ID: v.optional(v.string()),
+    ZOHO_MAIL_FROM_ADDRESS: v.optional(v.string()),
+    ZOHO_MAIL_INBOX_FOLDER_ID: v.optional(v.string()),
+    ZOHO_MAIL_SENT_FOLDER_ID: v.optional(v.string()),
+    ZOHO_MAIL_SYNC_ENABLED: v.optional(v.string()),
+    ZOHO_MAIL_OUTBOUND_ENABLED: v.optional(v.string()),
+    ZOHO_MAIL_GROUP_SEND_AS_VERIFIED: v.optional(v.string()),
+    ZOHO_MAIL_POLL_INTERVAL_SECONDS: v.optional(v.string()),
   },
 });
 

@@ -77,7 +77,9 @@ export function ThemeToggle({
   const dark = theme === "dark";
 
   function toggleTheme() {
-    const nextTheme: Theme = dark ? "light" : "dark";
+    // Read the live DOM state so consecutive clicks always toggle, even when
+    // React has not committed the external-store update from the prior click.
+    const nextTheme: Theme = readTheme() === "dark" ? "light" : "dark";
 
     applyTheme(nextTheme);
     try {

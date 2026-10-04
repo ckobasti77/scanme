@@ -43,6 +43,7 @@ import { Label } from "@/components/ui/label";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { fmt } from "@/lib/i18n";
+import { adminDomainSr } from "@/lib/i18n/sr/admin-domain";
 import { adminCustomersSr as dict } from "@/lib/i18n/sr/admin-customers";
 import { formatRsd } from "@/lib/scanme-pricing";
 import { cn } from "@/lib/utils";
@@ -61,6 +62,7 @@ const SERVICE_LABEL: Record<ServiceType, string> = {
   google_review: dict.serviceGoogleReview,
   scanme_venue: dict.serviceVenue,
   scanme_memories: dict.serviceMemories,
+  scanme_menu: adminDomainSr.services.scanme_menu,
 };
 
 const PLAN_LABEL: Record<"basic" | "premium" | "enterprise", string> = {

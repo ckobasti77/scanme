@@ -37,10 +37,10 @@ describe("buildOfferMessage", () => {
   test("prenosi istu strukturiranu konfiguraciju", () => {
     const message = buildOfferMessage(selection);
     expect(message).toContain("Usluga: ScanMe Review");
-    expect(message).toContain("Nalepnice i stikeri, 3 kom, Kvadrat, Srednja, Šablon 1");
-    expect(message).toContain("Kompaktni stalci, 1 kom, Plastični, Crna, A5, Šablon 1");
+    expect(message).toContain("Nalepnica, 3 kom, Kvadrat, Srednja, Šablon 1");
+    expect(message).toContain("Jednodelni stalak, 1 kom, Plastični, Crna, A5, Šablon 1");
     expect(message).not.toContain("Crna pozadina zahteva posebnu izradu");
-    expect(message).toContain("Dvodelni stalci, 1 kom, Landscape, A4, Custom dizajn");
+    expect(message).toContain("Dvodelni stalak, 1 kom, Landscape, A4, Custom dizajn");
     expect(message).toContain("Opis: Veći naziv lokala i tamna pozadina.");
     expect(message).toContain("Logo: Dodat za celu ponudu");
     expect(message).toContain("Subtotal bez custom dizajna:");

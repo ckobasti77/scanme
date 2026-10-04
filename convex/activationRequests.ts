@@ -1,10 +1,70 @@
 import { ConvexError, v } from "convex/values";
+import type { Doc } from "./_generated/dataModel";
+import type { MutationCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { mutation, query } from "./_generated/server";
 import { serviceTypeValidator } from "./schema";
 import { requireAdmin, requireAuthUser } from "./lib/access";
+import { syncAutomaticAction } from "./lib/adminActionEngine";
+import { syncServiceOperationReadModel } from "./lib/adminReadModelEngine";
 
 const requestedServiceValidator = serviceTypeValidator;
+
+async function syncCanonicalRequestAction(
+  ctx: MutationCtx,
+  request: Doc<"serviceActivationRequests">,
+) {
+  const [business, profile] = await Promise.all([
+    ctx.db.get(request.businessId),
+    ctx.db.get(request.serviceProfileId),
+  ]);
+  if (!business || !profile) return;
+  const isOpen = request.status !== "closed";
+  await syncAutomaticAction(ctx, {
+    domain: "service_activation_request",
+    sourceRecordId: request._id,
+    causeKind: "activation_requested",
+    sourceVersion: `${request.status}:${request.updatedAt}`,
+    isOpen,
+    ...(business.accountId ? { accountId: business.accountId } : {}),
+    businessId: business._id,
+    serviceProfileId: profile._id,
+    severity: "information",
+    relevantAt: request.updatedAt,
+    priority: {
+      blocking: false,
+      overdue: false,
+      dueToday: false,
+      needsReply: false,
+      graceOrWarning: false,
+      waitingOn: "scanme",
+    },
+    contextHref: request.requestedService === "scanme_links"
+      ? "/admin/usluge/links"
+      : request.requestedService === "google_review"
+        ? "/admin/usluge/review"
+        : "/admin/usluge/meni",
+    description: "Zahtev za aktivaciju usluge čeka obradu.",
+  }, request.updatedAt);
+  if (!business.accountId || !(["scanme_links", "google_review", "scanme_menu"] as const).includes(profile.type as "scanme_links" | "google_review" | "scanme_menu")) return;
+  const subscription = await ctx.db
+    .query("subscriptions")
+    .withIndex("by_accountId_and_targetKey", (q) =>
+      q.eq("accountId", business.accountId!).eq("targetKey", `service:${profile._id}`),
+    )
+    .unique();
+  const state = subscription?.facts.status === "active" && subscription.facts.warning
+    ? "warning"
+    : subscription?.facts.status ?? "inactive";
+  await syncServiceOperationReadModel(ctx, {
+    accountId: business.accountId,
+    businessId: business._id,
+    serviceProfileId: profile._id,
+    serviceType: profile.type as "scanme_links" | "google_review" | "scanme_menu",
+    state,
+    updatedAt: request.updatedAt,
+  });
+}
 
 export const create = mutation({
   args: {
@@ -59,6 +119,8 @@ export const create = mutation({
       updatedAt: now,
       emailStatus: "queued",
     });
+    const request = await ctx.db.get(requestId);
+    if (request) await syncCanonicalRequestAction(ctx, request);
     await ctx.scheduler.runAfter(
       0,
       internal.activationRequestEmails.sendActivationRequest,
@@ -122,8 +184,9 @@ export const setStatus = mutation({
     await requireAdmin(ctx);
     const request = await ctx.db.get(args.requestId);
     if (!request) throw new ConvexError("Upit nije pronađen.");
-    await ctx.db.patch(request._id, { status: args.status, updatedAt: Date.now() });
+    const updatedAt = Date.now();
+    await ctx.db.patch(request._id, { status: args.status, updatedAt });
+    await syncCanonicalRequestAction(ctx, { ...request, status: args.status, updatedAt });
     return { updated: true };
   },
 });
-

@@ -1,0 +1,894 @@
+/* M1 public map. Uses only the shared --fair-* tokens (app/sajam/fair-event.css).
+   --fair-map-scanme (EVENT-DESIGN-SYSTEM §5.1 `event.scanmeStand`, not in
+   fair-event.css yet — reported in jovan-status/M1.md) is set inline on the
+   ScanMe location element only, so nothing else can resolve it. */
+
+.root {
+  --fair-map-gutter: 16px;
+  display: grid;
+  max-width: 1440px;
+  margin-inline: auto;
+  padding: 12px var(--fair-map-gutter) 32px;
+  gap: 12px;
+  grid-template-areas:
+    "toolbar"
+    "stage"
+    "panel";
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.toolbar {
+  grid-area: toolbar;
+  display: grid;
+  gap: 8px;
+}
+
+.search {
+  position: relative;
+}
+
+.searchLabel {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--fair-ink-muted);
+  font-size: 13px;
+  font-weight: 620;
+  line-height: 18px;
+}
+
+.searchField {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 14px;
+  width: 20px;
+  height: 20px;
+  color: var(--fair-ink-muted);
+  pointer-events: none;
+}
+
+.searchInput {
+  width: 100%;
+  min-height: 48px;
+  padding: 0 48px 0 44px;
+  border: 1px solid var(--fair-line-strong);
+  border-radius: 12px;
+  background: var(--fair-surface);
+  color: var(--fair-ink);
+  font: inherit;
+  font-size: 16px;
+}
+
+.searchInput::-webkit-search-cancel-button {
+  display: none;
+}
+
+.searchInput:focus-visible {
+  outline: 3px solid var(--fair-focus);
+  outline-offset: 2px;
+}
+
+.searchClear {
+  position: absolute;
+  right: 2px;
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--fair-ink);
+  cursor: pointer;
+}
+
+.results {
+  position: absolute;
+  z-index: 15;
+  top: calc(100% + 6px);
+  right: 0;
+  left: 0;
+  max-height: min(60dvh, 420px);
+  margin: 0;
+  padding: 6px;
+  overflow-y: auto;
+  border: 1px solid var(--fair-line);
+  border-radius: 20px;
+  background: var(--fair-surface);
+  box-shadow: 0 16px 40px var(--fair-shadow);
+  list-style: none;
+}
+
+.resultsEmpty {
+  margin: 0;
+  padding: 12px;
+  color: var(--fair-ink-muted);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.zoneSwitch {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding: 4px;
+  border: 1px solid var(--fair-line);
+  border-radius: 999px;
+  background: var(--fair-surface-muted);
+}
+
+.zoneButton {
+  min-height: 44px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--fair-ink-muted);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.zoneButton[aria-pressed="true"] {
+  background: var(--fair-surface);
+  color: var(--fair-ink);
+  box-shadow: 0 1px 3px var(--fair-shadow);
+}
+
+.stage {
+  grid-area: stage;
+  scroll-margin-top: calc(var(--fair-header-height) + env(safe-area-inset-top) + 12px);
+  display: grid;
+  min-width: 0;
+  gap: 12px;
+}
+
+.zone {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+}
+
+.zone[data-active="false"] {
+  display: none;
+}
+
+.zoneTitle {
+  display: none;
+  margin: 0;
+  font-size: 18px;
+  font-weight: 720;
+}
+
+.viewport {
+  position: relative;
+  height: clamp(320px, 46dvh, 460px);
+  overflow: hidden;
+  border: 1px solid var(--fair-line);
+  border-radius: 20px;
+  background: var(--fair-surface);
+  touch-action: none;
+  cursor: grab;
+}
+
+.viewport[data-dragging="true"] {
+  cursor: grabbing;
+}
+
+.layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+  will-change: transform;
+}
+
+.layer[data-animate="true"] {
+  transition: transform 240ms ease-out;
+}
+
+.layer svg {
+  display: block;
+  overflow: visible;
+}
+
+.stand {
+  cursor: pointer;
+  outline: none;
+}
+
+.stand polygon {
+  fill: color-mix(in srgb, var(--fair-accent) 22%, transparent);
+  stroke: var(--fair-accent);
+  stroke-width: 2.5px;
+  transition: fill 160ms ease-out;
+}
+
+.stand[data-dimmed="true"] polygon {
+  fill: color-mix(in srgb, var(--fair-accent) 8%, transparent);
+  stroke-opacity: 0.45;
+}
+
+.stand[aria-pressed="true"] polygon {
+  fill: color-mix(in srgb, var(--fair-accent) 46%, transparent);
+  stroke: var(--fair-focus);
+  stroke-width: 4px;
+}
+
+.stand:focus-visible polygon {
+  stroke: var(--fair-focus);
+  stroke-width: 5px;
+}
+
+/* The ONLY use of ScanMe green (EDS §3, §5.1). */
+.scanmeLocation polygon {
+  fill: var(--fair-map-scanme);
+  fill-opacity: 0.85;
+  stroke: var(--fair-ink);
+  stroke-width: 2px;
+}
+
+.marker {
+  position: absolute;
+  display: inline-flex;
+  min-height: 28px;
+  padding: 3px 9px 3px 6px;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--fair-ink);
+  border-radius: 999px;
+  background: var(--fair-surface);
+  color: var(--fair-ink);
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.marker svg {
+  width: 16px;
+  height: 16px;
+}
+
+.controls {
+  position: absolute;
+  z-index: 2;
+  top: 8px;
+  right: 8px;
+  display: grid;
+  gap: 6px;
+}
+
+.controlButton {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border: 1px solid var(--fair-line-strong);
+  border-radius: 12px;
+  background: var(--fair-surface);
+  color: var(--fair-ink);
+  cursor: pointer;
+}
+
+.controlButton svg,
+.searchClear svg {
+  width: 20px;
+  height: 20px;
+}
+
+.panel {
+  grid-area: panel;
+  display: grid;
+  min-width: 0;
+  align-content: start;
+  gap: 16px;
+}
+
+.card {
+  padding: 16px;
+  border: 1px solid var(--fair-line);
+  border-radius: 20px;
+  background: var(--fair-surface);
+}
+
+.hint {
+  margin: 0;
+  color: var(--fair-ink-muted);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.detailHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.detailTitle {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 760;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+.detailMeta {
+  margin: 4px 0 0;
+  color: var(--fair-ink-muted);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.iconButton {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  flex: none;
+  place-items: center;
+  border: 1px solid var(--fair-line);
+  border-radius: 12px;
+  background: var(--fair-surface);
+  color: var(--fair-ink);
+  cursor: pointer;
+}
+
+.iconButton svg {
+  width: 20px;
+  height: 20px;
+}
+
+.brand {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--fair-line);
+}
+
+.brandHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.brandName {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 720;
+}
+
+.passport {
+  display: inline-flex;
+  min-height: 32px;
+  padding: 4px 10px;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--fair-ink);
+  border-radius: 999px;
+  color: var(--fair-ink);
+  font-size: 14px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.passport svg {
+  width: 16px;
+  height: 16px;
+}
+
+.passportNote {
+  margin: 8px 0 0;
+  color: var(--fair-ink-muted);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.retry {
+  min-height: 44px;
+  margin-top: 8px;
+  padding-inline: 14px;
+  border: 1px solid var(--fair-line-strong);
+  border-radius: 12px;
+  background: var(--fair-surface);
+  color: var(--fair-ink);
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.modelsLabel {
+  margin: 12px 0 6px;
+  color: var(--fair-ink-muted);
+  font-size: 13px;
+  font-weight: 620;
+}
+
+.models {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  gap: 6px;
+  list-style: none;
+}
+
+.modelLink {
+  display: flex;
+  min-height: 48px;
+  padding: 8px 12px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border: 1px solid var(--fair-line);
+  border-radius: 12px;
+  color: var(--fair-ink);
+  text-decoration: none;
+}
+
+.modelLink span {
+  display: grid;
+}
+
+.modelLink small {
+  color: var(--fair-ink-muted);
+  font-size: 14px;
+}
+
+.modelLink svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+
+.listTitle {
+  margin: 0 0 8px;
+  font-size: 18px;
+  font-weight: 720;
+}
+
+.listZone {
+  margin: 12px 0 6px;
+  color: var(--fair-ink-muted);
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  gap: 6px;
+  list-style: none;
+}
+
+.listButton {
+  display: grid;
+  width: 100%;
+  min-height: 48px;
+  padding: 10px 12px;
+  gap: 2px;
+  border: 1px solid var(--fair-line);
+  border-radius: 12px;
+  background: var(--fair-surface);
+  color: var(--fair-ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.listButton[aria-pressed="true"] {
+  border-color: var(--fair-focus);
+  box-shadow: inset 0 0 0 1px var(--fair-focus);
+}
+
+.listName {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-weight: 680;
+}
+
+.listName svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+
+.listMeta {
+  color: var(--fair-ink-muted);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.root :is(button, a):focus-visible {
+  outline: 3px solid var(--fair-focus);
+  outline-offset: 2px;
+}
+
+/* Desktop: map and panel side by side (EDS §11 "kontrolisana dva panela"). */
+@media (min-width: 1024px) {
+  .root {
+    --fair-map-gutter: 32px;
+    padding-top: 24px;
+    gap: 16px 24px;
+    grid-template-areas:
+      "toolbar panel"
+      "stage panel";
+    grid-template-columns: minmax(0, 1fr) 380px;
+    grid-template-rows: auto 1fr;
+  }
+
+  .toolbar {
+    grid-template-columns: minmax(0, 1fr) 280px;
+    align-items: end;
+  }
+
+  .viewport {
+    height: calc(100dvh - var(--fair-header-height) - 180px);
+    min-height: 480px;
+  }
+}
+
+/* Large display (EDS §11 ≥1440, or ?prikaz=ekran): both zones at once, same data,
+   no touch controls; the stand list stays on the right. */
+@media (min-width: 1440px) {
+  .root {
+    max-width: none;
+    grid-template-columns: minmax(0, 1fr) 400px;
+  }
+
+  .zoneSwitch,
+  .controls {
+    display: none;
+  }
+
+  .toolbar {
+    grid-template-columns: minmax(0, 480px);
+  }
+
+  .stage {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+  }
+
+  .zone[data-active="false"] {
+    display: grid;
+  }
+
+  .zoneTitle {
+    display: block;
+  }
+
+  .viewport {
+    height: auto;
+    min-height: 0;
+    aspect-ratio: var(--fair-map-ratio);
+    max-height: calc(100dvh - var(--fair-header-height) - 170px);
+    cursor: default;
+  }
+}
+
+.root[data-display="on"] {
+  max-width: none;
+}
+
+.root[data-display="on"] .zoneSwitch,
+.root[data-display="on"] .controls {
+  display: none;
+}
+
+.root[data-display="on"] .stage {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+}
+
+.root[data-display="on"] .zone[data-active="false"] {
+  display: grid;
+}
+
+.root[data-display="on"] .zoneTitle {
+  display: block;
+}
+
+.root[data-display="on"] .viewport {
+  height: auto;
+  min-height: 0;
+  aspect-ratio: var(--fair-map-ratio);
+  cursor: default;
+}
+
+/* ---- M2: 12 s Advanced rotation (card + discrete stand highlight) ---- */
+
+.rotation {
+  min-height: 132px;
+}
+
+.rotationBody {
+  display: grid;
+  gap: 12px;
+  animation: fair-map-reveal-in 360ms ease-out both;
+}
+
+.rotationHead {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.rotationVisual {
+  position: relative;
+  display: grid;
+  width: 72px;
+  height: 72px;
+  flex: none;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 12px;
+  background: var(--fair-surface-muted);
+  color: var(--fair-ink-muted);
+}
+
+.rotationVisual > svg {
+  width: 32px;
+  height: 32px;
+}
+
+.rotationPhoto {
+  object-fit: cover;
+}
+
+.rotationLogo {
+  padding: 10px;
+  object-fit: contain;
+}
+
+.rotationIdentity {
+  min-width: 0;
+}
+
+.rotationEyebrow {
+  margin: 0;
+  color: var(--fair-ink-muted);
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.rotationTitle {
+  margin: 2px 0 0;
+  font-size: 22px;
+  font-weight: 760;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+.rotationMeta {
+  margin: 2px 0 0;
+  color: var(--fair-ink-muted);
+  font-size: 14px;
+}
+
+.rotationQuestion {
+  padding-top: 12px;
+  border-top: 1px solid var(--fair-line);
+}
+
+.rotationPrompt {
+  margin: 0 0 8px;
+  font-weight: 650;
+}
+
+.rotationWaiting {
+  display: inline-flex;
+  min-height: 32px;
+  margin: 0;
+  padding: 4px 12px;
+  align-items: center;
+  border: 1px solid var(--fair-line-strong);
+  border-radius: 999px;
+  color: var(--fair-ink-muted);
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.rotationOptions {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  gap: 6px;
+  list-style: none;
+}
+
+.rotationOption {
+  position: relative;
+  display: flex;
+  min-height: 40px;
+  padding: 8px 12px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  overflow: hidden;
+  border: 1px solid var(--fair-line);
+  border-radius: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.rotationOption > span:not(.rotationFill),
+.rotationOption > strong {
+  position: relative;
+}
+
+.rotationFill {
+  position: absolute;
+  inset: 0;
+  background: var(--fair-accent-soft);
+  transform: scaleX(var(--fair-map-share));
+  transform-origin: left center;
+  animation: fair-map-share-in 750ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.rotationStand {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.rotationStandText {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 650;
+}
+
+.rotationStandText svg {
+  width: 18px;
+  height: 18px;
+  color: var(--fair-accent);
+}
+
+.rotationActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.rotationActions .retry {
+  display: inline-flex;
+  margin-top: 0;
+  align-items: center;
+  text-decoration: none;
+}
+
+.rotationHighlight polygon {
+  fill: color-mix(in srgb, var(--fair-accent) 32%, transparent);
+  stroke: var(--fair-accent-strong);
+  stroke-width: 5px;
+  pointer-events: none;
+}
+
+.rotationHighlight .rotationGlow {
+  fill: none;
+  stroke: var(--fair-accent);
+  stroke-width: 18px;
+  opacity: 0;
+  animation: fair-map-stand-glow 1400ms ease-out 400ms 2;
+}
+
+.rotationPin {
+  position: absolute;
+  display: inline-flex;
+  min-height: 30px;
+  padding: 4px 10px 4px 6px;
+  align-items: center;
+  gap: 4px;
+  border-radius: 999px;
+  background: var(--fair-ink);
+  color: var(--fair-surface);
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  pointer-events: none;
+  transform-origin: 50% 100%;
+}
+
+.rotationPin svg {
+  width: 16px;
+  height: 16px;
+}
+
+@keyframes fair-map-reveal-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes fair-map-share-in {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+@keyframes fair-map-stand-glow {
+  0% {
+    opacity: 0;
+  }
+  35% {
+    opacity: 0.55;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* Large display: same card, readable from a distance. */
+@media (min-width: 1440px) {
+  .rotationVisual {
+    width: 112px;
+    height: 112px;
+  }
+
+  .rotationTitle {
+    font-size: 32px;
+  }
+
+  .rotationMeta,
+  .rotationPrompt {
+    font-size: 18px;
+  }
+
+  .rotationStandText {
+    font-size: 18px;
+  }
+}
+
+.root[data-display="on"] .rotationVisual {
+  width: 112px;
+  height: 112px;
+}
+
+.root[data-display="on"] .rotationTitle {
+  font-size: 32px;
+}
+
+.root[data-display="on"] :is(.rotationMeta, .rotationPrompt, .rotationStandText) {
+  font-size: 18px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .layer[data-animate="true"],
+  .stand polygon {
+    transition: none;
+  }
+
+  .rotationBody,
+  .rotationFill,
+  .rotationHighlight .rotationGlow {
+    animation: none;
+  }
+}

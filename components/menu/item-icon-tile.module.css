@@ -1,0 +1,26 @@
+/* The accent icon tile (RFC-003 §2.4 "pločica") — Menu's own CSS, forked in
+   spirit from the frozen Links `template-icon.module.css` pattern but not
+   reusing it (§6 freeze ledger: the frozen tile CSS is not touched).
+
+   The fill is `--menu-icon` — the accent role TASK-48 already floors to
+   ≥3:1 contrast against the surface (`lib/design-engine/palette.ts`
+   `expandPalette`'s `icon` derivation) — never a hand-picked colour. The
+   glyph sits on that fill in `--menu-on-accent`, the a11y-floored companion
+   `compileMenuTokens` derives for exactly this "text/icon on an
+   accent-filled surface" case. */
+
+.tile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  background: var(--menu-icon);
+}
+
+.glyph {
+  display: block;
+  width: 42%;
+  height: 42%;
+  color: var(--menu-on-accent);
+}

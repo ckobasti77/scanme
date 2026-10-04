@@ -51,9 +51,16 @@ const ISSUER = "https://test.local";
 
 const golden = generateGoldenTable();
 
-const SELLABLE_SERVICE_TYPES = Object.keys(
-  PRICING_SERVICE_BY_SERVICE_TYPE,
-) as ServiceType[];
+// checkout sells four services; `scanme_menu` is priceable in the engine but
+// not an order line (checkout.ts keeps its own 4-member serviceTypeValidator),
+// so it is excluded here even though PRICING_SERVICE_BY_SERVICE_TYPE now maps it
+// (TASK-61). This keeps the parity sweep over exactly the sellable set.
+const SELLABLE_SERVICE_TYPES = (
+  Object.keys(PRICING_SERVICE_BY_SERVICE_TYPE) as ServiceType[]
+).filter(
+  (service): service is Exclude<ServiceType, "scanme_menu"> =>
+    service !== "scanme_menu",
+);
 
 const PERIODS: readonly BillingPeriod[] = ["monthly", "annual"];
 

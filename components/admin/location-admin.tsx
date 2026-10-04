@@ -16,9 +16,9 @@
 //  2. LOCATION SIDEBAR appears ONLY inside a multi-location (Enterprise) account
 //     (`data.isEnterprise`). Every solo/legacy location is full width, no sidebar.
 //
-//  3. PAGE → MENU is a rename HOOK behind `MENU_EXISTS` (lib/flags.ts): while the
-//     flag is off the "ScanMe Page" label stays, and the Meni subpage never
-//     appears (there is no `scanme_menu` service yet). One switch flips it later.
+//  3. PAGE → MENU is a rename HOOK behind `MENU_EXISTS` (lib/flags.ts). TASK-61
+//     flipped it on: the label reads "Meni" and the Meni subpage appears for a
+//     location with an active `scanme_menu` service.
 //
 // Visual language is the shared glass of app/offer-surface.css (never a new glass
 // layer), exactly like customers-admin.tsx. Every string routes through the typed
@@ -45,28 +45,22 @@ import { adminLocationSr as dict } from "@/lib/i18n/sr/admin-location";
 import { cn } from "@/lib/utils";
 import { AdminGuard } from "./admin-guard";
 import { AdminShell } from "./admin-shell";
+import { MenuAdminSubpage } from "./menu-admin-subpage";
+import {
+  activeSubpageProfile,
+  SUBPAGE_ORDER,
+  type SubpageKey,
+} from "./subpage-keys";
 
-// The four per-location subpage kinds (goal: Links / Review / Venue / Meni).
+// The four per-location subpage kinds (Links / Review / Venue / Meni) live in the
+// non-"use client" ./subpage-keys module so the server route can import the real
+// SUBPAGE_ORDER array (see subpage-keys.ts). Re-exported for existing importers.
 // Memories is deliberately NOT a location subpage — it is a per-celebration
 // service with its own /admin/memories console (docs/tasks/BLOCKED.md TASK-41 §2).
-export type SubpageKey = "links" | "review" | "venue" | "menu";
-export const SUBPAGE_ORDER: readonly SubpageKey[] = [
-  "links",
-  "review",
-  "venue",
-  "menu",
-];
+export { SUBPAGE_ORDER, type SubpageKey };
 
 type LocationView = NonNullable<FunctionReturnType<typeof api.admin.location>>;
 type ServiceRow = LocationView["services"][number];
-
-// kind → serviceProfiles.type. "menu" has no service type until Menu ships.
-const SUBPAGE_SERVICE: Record<Exclude<SubpageKey, "menu">, ServiceRow["type"]> =
-  {
-    links: "scanme_links",
-    review: "google_review",
-    venue: "scanme_venue",
-  };
 
 function subpageLabel(kind: SubpageKey): string {
   switch (kind) {
@@ -82,13 +76,11 @@ function subpageLabel(kind: SubpageKey): string {
   }
 }
 
-// A subpage EXISTS only when its service is active on this location. Menu can
-// never be active yet (no scanme_menu service), so its subpage 404s until Menu
-// ships AND MENU_EXISTS flips.
+// A subpage EXISTS only when its service is active on this location. Menu
+// resolves through the same check now that `scanme_menu` is a real service
+// (TASK-61): a location with an active `scanme_menu` profile shows its subpage.
 function subpageActive(kind: SubpageKey, services: ServiceRow[]): boolean {
-  if (kind === "menu") return false;
-  const type = SUBPAGE_SERVICE[kind];
-  return services.some((service) => service.type === type && service.active);
+  return Boolean(activeSubpageProfile(kind, services));
 }
 
 export function LocationAdmin({
@@ -386,6 +378,14 @@ function SubpageOverview({
 // nor does it touch the frozen ScanMe Links product (it only links to it).
 function SubpageBody({ kind, data }: { kind: SubpageKey; data: LocationView }) {
   const { slug } = data.location;
+
+  // TASK-58: the Menu subpage is its own concierge surface (RFC-003 §2.9).
+  // TASK-61: subpageActive("menu") is now live, so this branch is reachable
+  // through the real route for a location with an active scanme_menu service;
+  // /dev/menu-admin-preview also still opens it (e.g. to grant the service).
+  if (kind === "menu") {
+    return <MenuAdminSubpage businessId={data.location.id} />;
+  }
 
   const intro =
     kind === "links"

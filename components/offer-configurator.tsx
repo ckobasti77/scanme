@@ -481,6 +481,7 @@ export function OfferConfigurator({ initialSelection }: { initialSelection: Orde
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [logoFileName, setLogoFileName] = useState("");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [breakdownOpen, setBreakdownOpen] = useState(false);
   const [openControlSection, setOpenControlSection] = useState<ControlSectionId | "">(
     () => getProduct(activeProductId)?.controlIds[0] ?? "design",
   );
@@ -1270,8 +1271,14 @@ export function OfferConfigurator({ initialSelection }: { initialSelection: Orde
         </aside>
 
         <div className={styles.priceDock}>
-          <details className={styles.priceDetails}>
-            <summary className={"focus-signal " + styles.priceSummary}>
+          <div className={styles.priceDetails} data-open={breakdownOpen}>
+            <button
+              type="button"
+              aria-expanded={breakdownOpen}
+              aria-controls="price-breakdown"
+              onClick={() => setBreakdownOpen((open) => !open)}
+              className={"focus-signal " + styles.priceSummary}
+            >
               <span>
                 <span className={styles.priceSummaryLabel}>
                   {breakdown.requiresCustomDesignQuote
@@ -1289,42 +1296,49 @@ export function OfferConfigurator({ initialSelection }: { initialSelection: Orde
                   className={"size-4 transition-transform " + styles.priceChevron}
                 />
               </span>
-            </summary>
-            <div className={styles.priceBreakdown}>
-              {breakdown.productItems.map((item) => (
-                <div key={item.productId} className={styles.priceLine}>
-                  <span className={styles.priceLineLabel}>
-                    {dict.products[item.productId].name} × {item.quantity}
-                    {item.discountRate ? (
-                      <span className={styles.discountLabel}>
-                        {fmt(dict.discount, {
-                          percent: Math.round(item.discountRate * 100),
-                        })}
+            </button>
+
+            {/* Visina obračuna klizi umesto da pukne: disclosure element se ne
+                može animirati, pa je ovo grid 0fr → 1fr sa overflow iznutra. */}
+            <div className={styles.priceDrop}>
+              <div className={styles.priceDropInner}>
+                <div className={styles.priceBreakdown} id="price-breakdown">
+                  {breakdown.productItems.map((item) => (
+                    <div key={item.productId} className={styles.priceLine}>
+                      <span className={styles.priceLineLabel}>
+                        {dict.products[item.productId].name} × {item.quantity}
+                        {item.discountRate ? (
+                          <span className={styles.discountLabel}>
+                            {fmt(dict.discount, {
+                              percent: Math.round(item.discountRate * 100),
+                            })}
+                          </span>
+                        ) : null}
                       </span>
-                    ) : null}
-                  </span>
-                  <span className={styles.priceNumber}>{formatRsd(item.lineTotal)} RSD</span>
+                      <span className={styles.priceNumber}>{formatRsd(item.lineTotal)} RSD</span>
+                    </div>
+                  ))}
+                  <div className={styles.priceLine}>
+                    <span className={styles.priceLineLabel}>
+                      {dict.saasSubscription} (
+                      {selection.period === "annual" ? dict.annual : dict.firstMonth})
+                    </span>
+                    <span className={styles.priceNumber}>
+                      {formatRsd(breakdown.saasFirstTerm)} RSD
+                    </span>
+                  </div>
+                  <p className={styles.renewalNote}>
+                    {dict.renewal}: {formatRsd(breakdown.renewal.amount)}{" "}
+                    {selection.period === "annual"
+                      ? dict.renewalAnnual
+                      : dict.renewalMonthly}
+                    . {dict.renewalNote}
+                  </p>
+                  <p className={styles.vatNote}>{dict.priceVatIncluded}</p>
                 </div>
-              ))}
-              <div className={styles.priceLine}>
-                <span className={styles.priceLineLabel}>
-                  {dict.saasSubscription} (
-                  {selection.period === "annual" ? dict.annual : dict.firstMonth})
-                </span>
-                <span className={styles.priceNumber}>
-                  {formatRsd(breakdown.saasFirstTerm)} RSD
-                </span>
               </div>
-              <p className={styles.renewalNote}>
-                {dict.renewal}: {formatRsd(breakdown.renewal.amount)}{" "}
-                {selection.period === "annual"
-                  ? dict.renewalAnnual
-                  : dict.renewalMonthly}
-                . {dict.renewalNote}
-              </p>
-              <p className={styles.vatNote}>{dict.priceVatIncluded}</p>
             </div>
-          </details>
+          </div>
 
           <Button
             type="button"

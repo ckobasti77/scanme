@@ -13,6 +13,10 @@ import { generateCode, normalizeCode } from "./lib/codes";
 import { serviceMetricDateKey } from "./lib/serviceMetrics";
 import { isSafePublicDestination, requireText } from "./lib/validation";
 import { fmt, getDict } from "../lib/i18n";
+import { cardResolution } from "./lib/accessResolution";
+import { refreshInventory, syncChannel } from "./lib/accessOperations";
+import { syncAutomaticAction } from "./lib/adminActionEngine";
+import { openableFairModel, recordFairScan, type FairScanRecordStatus } from "./lib/fairScans";
 
 // =============================================================================
 // TASK-14 — Cards: the printed /r/[cardCode] resolver and its management.
@@ -76,7 +80,11 @@ function generateGuestKey(): string {
 // The desired-target argument shape shared by createCard and retargetCard. The
 // per-kind reference requirements are enforced by validateTargetSpec below.
 // splitterItems is meaningful only for kind === "splitter" (TASK-37).
-const cardTargetSpecValidator = v.object({
+//
+// TASK-72: exported (export-only, no logic change — the `mintSpaceCards`
+// precedent) so the admin console convex/cardsAdmin.ts can validate its own
+// mutation args against the identical shape instead of redeclaring it.
+export const cardTargetSpecValidator = v.object({
   kind: cardTargetKind,
   spaceId: v.optional(v.id("memoriesSpaces")),
   eventId: v.optional(v.id("events")),
@@ -86,8 +94,20 @@ const cardTargetSpecValidator = v.object({
 });
 
 type SplitterItemSpec = {
-  kind: Exclude<Doc<"cardTargets">["kind"], "splitter">;
+  // No nested splitters. ADMIN-12 also supports Menu as a splitter button.
+  // Sajam 2026 B0: "fair_model" is not a splitter button (cardSplitterItem).
+  kind: Exclude<Doc<"cardTargets">["kind"], "splitter" | "fair_model">;
   label: string;
+  spaceId?: Id<"memoriesSpaces">;
+  eventId?: Id<"events">;
+  serviceProfileId?: Id<"serviceProfiles">;
+  url?: string;
+};
+
+type BaseTargetKind = Exclude<Doc<"cardTargets">["kind"], "splitter">;
+
+type BaseTargetSpec = {
+  kind: BaseTargetKind;
   spaceId?: Id<"memoriesSpaces">;
   eventId?: Id<"events">;
   serviceProfileId?: Id<"serviceProfiles">;
@@ -123,6 +143,19 @@ function isMemoriesDestinationUrl(value: string): boolean {
   }
 }
 
+// TASK-63 (RFC-004 §2.2, §6): the ordering twin of isMemoriesDestinationUrl.
+// Does a stored Links destination URL lead into ordering (/o/[code])? Same
+// reasoning: any host counts, a false refusal is loud and explainable, a missed
+// one is a silent loss of table identity (an order with no table).
+function isOrderingDestinationUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.pathname === "/o" || url.pathname.startsWith("/o/");
+  } catch {
+    return false;
+  }
+}
+
 // RFC-002 §2.4, the hard condition: Memories behind a Links-page splitter is
 // BLOCKED (the frozen Links render cannot emit a card-aware Memories link, so
 // a guest arriving that way would mint with no cardId and the per-table quota
@@ -153,17 +186,46 @@ async function assertLinksPageCannotReachMemories(
   }
 }
 
+// TASK-63 (RFC-004 §2.2, §6), the ordering twin of the hard condition above:
+// ordering behind a Links-page splitter is BLOCKED (the frozen Links render
+// cannot emit a card-aware /r/[cardCode]/o link, so a guest arriving through it
+// would reach /o/[code] with no cardId and the order would have no table). A
+// card pointing at a scanme_links profile whose destinations contain ANY /o/…
+// link — draft or published, in any state — is refused at creation with the
+// two-pattern message. Loud at mint time, never a silent identity leak at scan.
+async function assertLinksPageCannotReachOrdering(
+  ctx: MutationCtx | QueryCtx,
+  profile: Doc<"serviceProfiles">,
+) {
+  if (profile.type !== "scanme_links") return;
+  const destinations = await ctx.db
+    .query("serviceDestinations")
+    .withIndex("by_serviceProfileId", (q) =>
+      q.eq("serviceProfileId", profile._id),
+    )
+    .take(500);
+  for (const destination of destinations) {
+    if (
+      isOrderingDestinationUrl(destination.draftUrl) ||
+      (destination.publishedUrl &&
+        isOrderingDestinationUrl(destination.publishedUrl))
+    ) {
+      throw new ConvexError(dict.cardLinksOrderingBlocked);
+    }
+  }
+}
+
 // Validate one non-splitter target against the card's business: the referenced
 // space/event/profile must belong to it (a host must never point their card
 // into another tenant), and external URLs must pass the shared safe-
 // destination gate. Returns exactly the fields the cardTargets row stores for
 // that kind. Shared verbatim between a direct card target and each bare-
 // splitter button (TASK-37), so the two can never drift.
-async function validateBaseTargetSpec(
+async function validateBaseTargetSpec<T extends BaseTargetSpec>(
   ctx: MutationCtx | QueryCtx,
   businessId: Id<"businesses">,
-  spec: Omit<SplitterItemSpec, "label">,
-): Promise<Pick<Doc<"cardTargets">, "spaceId" | "eventId" | "serviceProfileId" | "url"> & { kind: SplitterItemSpec["kind"] }> {
+  spec: T,
+): Promise<Pick<Doc<"cardTargets">, "spaceId" | "eventId" | "serviceProfileId" | "url"> & { kind: T["kind"] }> {
   switch (spec.kind) {
     case "memories_space": {
       if (!spec.spaceId) throw new ConvexError(dict.cardTargetInvalid);
@@ -176,6 +238,9 @@ async function validateBaseTargetSpec(
     }
     case "venue":
       // Resolves to the business's own /venue page at scan time; no reference.
+      return { kind: spec.kind };
+    case "menu":
+      // Resolves to the business's own /meni page at scan time; no reference (RFC-003 §2.8).
       return { kind: spec.kind };
     case "event": {
       if (!spec.eventId) throw new ConvexError(dict.cardTargetInvalid);
@@ -194,6 +259,7 @@ async function validateBaseTargetSpec(
         throw new ConvexError(dict.cardBusinessMismatch);
       }
       await assertLinksPageCannotReachMemories(ctx, profile);
+      await assertLinksPageCannotReachOrdering(ctx, profile);
       return { kind: spec.kind, serviceProfileId: profile._id };
     }
     case "url": {
@@ -202,6 +268,17 @@ async function validateBaseTargetSpec(
       }
       return { kind: spec.kind, url: spec.url };
     }
+    case "table_ordering":
+      // TASK-63 (RFC-004 §2.2, §2.14): a table_ordering target — direct or a
+      // splitter button — carries no stored reference; it binds to the card's
+      // own business ordering config, resolved at scan time by the card-aware
+      // hop /r/[cardCode]/o (like "venue"/"menu", which also store no ref).
+      return { kind: spec.kind };
+    case "fair_model":
+      // Sajam 2026 B0 (BACKEND-HANDOFF §5.1): inert. A fair target is never
+      // created through the generic card APIs — B1's atomic fairQrAssignments
+      // flow writes it (with fairEventModelId and accessDestinationHistory).
+      throw new ConvexError(dict.cardTargetInvalid);
   }
 }
 
@@ -209,7 +286,13 @@ async function validateBaseTargetSpec(
 // validateBaseTargetSpec; a splitter validates each button the same way (the
 // validator's item union has no "splitter", so nesting is impossible by
 // construction) plus its label.
-async function validateTargetSpec(
+//
+// TASK-72: exported (export-only, no logic change — the `mintSpaceCards`
+// precedent) so the admin console convex/cardsAdmin.ts runs the SAME validation
+// — including the Links→Memories / Links→ordering refusal gates — instead of
+// duplicating it. The admin surface writes an adminAuditLog row on top; this
+// function is unchanged.
+export async function validateTargetSpec(
   ctx: MutationCtx | QueryCtx,
   businessId: Id<"businesses">,
   spec: CardTargetSpec,
@@ -308,6 +391,7 @@ export const retargetCard = mutation({
     const card = await ctx.db.get(args.cardId);
     if (!card) throw new ConvexError(dict.cardNotFound);
     const { user } = await requireBusinessAccess(ctx, card.businessId);
+    if (card.accessChannelId) throw new ConvexError("access_use_canonical_writer");
     const fields = await validateTargetSpec(ctx, card.businessId, args.target);
     const now = Date.now();
     const targetId = await ctx.db.insert("cardTargets", {
@@ -476,6 +560,7 @@ export const disableCard = mutation({
     const card = await ctx.db.get(args.cardId);
     if (!card) throw new ConvexError(dict.cardNotFound);
     await requireBusinessAccess(ctx, card.businessId);
+    if (card.accessChannelId) throw new ConvexError("access_use_canonical_writer");
     if (card.status !== "disabled") {
       await ctx.db.patch(card._id, { status: "disabled", updatedAt: Date.now() });
     }
@@ -491,6 +576,7 @@ type ResolveOutcome =
   | { kind: "invalid" }
   | { kind: "rate_limited" }
   | { kind: "venue"; businessSlug: string }
+  | { kind: "menu"; businessSlug: string }
   | { kind: "event"; businessSlug: string; eventSlug: string }
   | { kind: "service_page"; slug: string }
   | { kind: "url"; url: string }
@@ -503,7 +589,17 @@ type ResolveOutcome =
     }
   // TASK-37: the handler 302s to the bare splitter page /r/[cardCode]/izbor;
   // cardCode is returned normalized so the redirect URL is canonical.
-  | { kind: "splitter"; cardCode: string };
+  | { kind: "splitter"; cardCode: string }
+  // TASK-63 (RFC-004 §2.2, §2.14): a direct table_ordering card does NOT mint
+  // here — it 302s to the card-aware hop /r/[cardCode]/o?venue=<venueCode>,
+  // which is the single place that mints an ordering guest (with cardId).
+  // Both cardCode and venueCode are returned normalized so the hop URL is
+  // canonical.
+  | { kind: "table_ordering"; cardCode: string; venueCode: string }
+  // Sajam 2026 B2: the readable /sajam/{eventSlug}/model/{modelSlug} path of
+  // an assigned, published fair model. `fairScan` reports what the fair hook
+  // did with this request (the redirect never depends on it).
+  | { kind: "fair_model"; path: string; fairScan: FairScanRecordStatus };
 
 // THE guest-minting path (RFC-001 §2.6 / RFC-002 §2.4): rate-limit, then
 // insert a memoriesGuests row attributed to the TABLE (guest.cardId). Shared
@@ -541,6 +637,40 @@ async function mintSpaceGuest(
   return guestKey;
 }
 
+// TASK-63 (RFC-004 §2.2): THE ordering guest-minting path, twin of
+// mintSpaceGuest. Rate-limit, then insert an orderingGuests row attributed to
+// the TABLE (guest.cardId). Its SOLE caller is resolveTableOrdering, so "every
+// ordering guest carries a cardId" is provable by that one call site — a bare
+// /o/[code] link reaches no mint at all. Returns null when guest creation was
+// rate-limited: the guest still reaches /o/[code], just without a minted
+// identity (no Set-Cookie).
+async function mintOrderingGuest(
+  ctx: MutationCtx,
+  params: {
+    businessId: Id<"businesses">;
+    code: string;
+    cardId: Id<"cards">;
+    ipKey: string;
+    now: number;
+  },
+): Promise<string | null> {
+  const minting = await rateLimiter.limit(ctx, "orderGuestCreate", {
+    key: params.ipKey,
+  });
+  if (!minting.ok) return null;
+  const guestKey = generateGuestKey();
+  await ctx.db.insert("orderingGuests", {
+    businessId: params.businessId,
+    code: params.code,
+    guestKey,
+    cardId: params.cardId,
+    firstSeenAt: params.now,
+    lastSeenAt: params.now,
+    updatedAt: params.now,
+  });
+  return guestKey;
+}
+
 // Resolve a printed card to its redirect target and record the scan. One
 // mutation, one transaction: the scan event, the daily rollup, the card total
 // and (for memories targets) the guest row all commit or roll back together.
@@ -560,6 +690,11 @@ export const resolveAndRecord = mutation({
     // a rate-limit key. The raw IP never reaches Convex and nothing persists it
     // beyond the limiter's transient bucket state (GDPR §2.10).
     ipHash: v.optional(v.string()),
+    // Sajam 2026 B2: HMAC of the HttpOnly fair visitor cookie, computed by the
+    // Next handler (lowercase 64-hex). Read only by the fair_model branch; the
+    // raw token never reaches Convex. Admin exclusion is NOT an argument: it
+    // comes from the forwarded ScanMe session (lib/fairScans.ts).
+    fairVisitorHash: v.optional(v.string()),
   },
   handler: async (ctx, args): Promise<ResolveOutcome> => {
     // Absent ipHash (a direct API caller bypassing the handler) collapses into
@@ -574,10 +709,23 @@ export const resolveAndRecord = mutation({
       .query("cards")
       .withIndex("by_cardCode", (q) => q.eq("cardCode", cardCode))
       .unique();
-    if (!card || card.status !== "active" || !card.currentTargetId) {
+    if (!card || (!card.accessChannelId && card.status !== "active")) {
       return { kind: "invalid" };
     }
-    const target = await ctx.db.get(card.currentTargetId);
+    const resolution = await cardResolution(ctx, card);
+    const { target, channel, subject, problem } = resolution;
+    if (card.accessChannelId) await syncAutomaticAction(ctx, {
+      domain: "qr_nfc", sourceRecordId: card._id, causeKind: "resolver_mapping",
+      sourceVersion: problem?.startsWith("resolver_") ? problem : "valid",
+      isOpen: !!problem?.startsWith("resolver_"), businessId: card.businessId,
+      severity: "blocking", relevantAt: card.createdAt,
+      priority: { blocking: true, overdue: false, dueToday: false, needsReply: false, graceOrWarning: false, waitingOn: "scanme" },
+    }, Date.now());
+    if (channel && subject && problem) {
+      await syncChannel(ctx, channel, subject, { kind: "system", source: "resolver" }, problem, Date.now());
+      if (channel.problemReason !== problem || channel.state !== "problem") await refreshInventory(ctx, subject, Date.now());
+    }
+    if (problem || (channel && (!channel.redirectEnabled || channel.state !== "active"))) return { kind: "invalid" };
     if (!target) return { kind: "invalid" };
 
     const now = Date.now();
@@ -592,10 +740,22 @@ export const resolveAndRecord = mutation({
         occurredAt: now,
         targetKind: target.kind,
         deviceCategory: args.deviceCategory,
+        destinationId: target._id,
+        accessChannelId: channel?._id,
+        accessSubjectId: subject?._id,
+        physicalProductId: subject?.physicalProductId,
+        digitalQrId: channel?.digitalQrId,
+        placementId: subject?.currentPlacementId,
       });
       // Bots are recorded as events but never counted — the same suppression
       // the Links pipeline applies to its totals.
       if (args.deviceCategory !== "bot") {
+        if (channel && subject) {
+          await ctx.db.patch(channel._id, { totalScans: channel.totalScans + 1 });
+          const total = await ctx.db.query("accessMetricTotals").withIndex("by_subjectId_and_placementId_and_channelId", q => q.eq("subjectId", subject._id).eq("placementId", subject.currentPlacementId).eq("channelId", channel._id)).unique();
+          if (total) await ctx.db.patch(total._id, { scans: total.scans + 1 });
+          else await ctx.db.insert("accessMetricTotals", { subjectId: subject._id, channelId: channel._id, placementId: subject.currentPlacementId, scans: 1 });
+        }
         await ctx.db.patch(card._id, {
           totalScans: card.totalScans + 1,
           updatedAt: now,
@@ -673,6 +833,46 @@ export const resolveAndRecord = mutation({
         // button goes through resolveSplitterMemories — never a client link
         // to /m/[code] (RFC-002 §2.4).
         return { kind: "splitter", cardCode: card.cardCode };
+      case "menu": {
+        const business = await ctx.db.get(card.businessId);
+        if (!business) return { kind: "invalid" };
+        return { kind: "menu", businessSlug: business.slug };
+      }
+      case "table_ordering": {
+        // TASK-63 (RFC-004 §2.2, §2.14): a direct table_ordering card binds to
+        // its own business's ordering config. This entry records the scan
+        // (above) but does NOT mint — it hands the venue code to the card-aware
+        // hop /r/[cardCode]/o, the single place that mints the ordering guest
+        // (with cardId). No config (until TASK-64 provisions one) reads the same
+        // as a dead card: invalid.
+        const config = await ctx.db
+          .query("orderingConfig")
+          .withIndex("by_businessId", (q) =>
+            q.eq("businessId", card.businessId),
+          )
+          .unique();
+        if (!config) return { kind: "invalid" };
+        return {
+          kind: "table_ordering",
+          cardCode: card.cardCode,
+          venueCode: config.code,
+        };
+      }
+      case "fair_model": {
+        // Sajam 2026 B2: the generic scan above is this request's one generic
+        // event; the fair hook adds at most one fairScanEvents row in the same
+        // transaction, keyed by the same requestId (HANDOFF §5.2).
+        const fair = await openableFairModel(ctx, card, target);
+        if (!fair) return { kind: "invalid" };
+        const fairScan = await recordFairScan(ctx, {
+          requestId: args.requestId,
+          visitorHash: args.fairVisitorHash,
+          model: fair.model,
+          now,
+          genericDuplicate: duplicate !== null,
+        });
+        return { kind: "fair_model", path: fair.path, fairScan };
+      }
     }
   },
 });
@@ -709,10 +909,11 @@ export const getSplitterView = query({
       .query("cards")
       .withIndex("by_cardCode", (q) => q.eq("cardCode", cardCode))
       .unique();
-    if (!card || card.status !== "active" || !card.currentTargetId) {
+    if (!card || (!card.accessChannelId && card.status !== "active")) {
       return { status: "invalid" };
     }
-    const target = await ctx.db.get(card.currentTargetId);
+    const { target, channel, problem } = await cardResolution(ctx, card);
+    if (problem || (channel && (!channel.redirectEnabled || channel.state !== "active"))) return { status: "invalid" };
     if (target?.kind !== "splitter" || !target.splitterItems) {
       return { status: "invalid" };
     }
@@ -722,6 +923,9 @@ export const getSplitterView = query({
     const buttons: SplitterButton[] = [];
     for (const item of target.splitterItems) {
       switch (item.kind) {
+        case "menu":
+          buttons.push({ label: item.label, href: `/${business.slug}/meni`, external: false });
+          break;
         case "memories_space": {
           if (!item.spaceId) continue;
           const space = await ctx.db.get(item.spaceId);
@@ -767,6 +971,25 @@ export const getSplitterView = query({
           // exactly as the direct url resolve does.
           if (!item.url || !isSafePublicDestination(item.url)) continue;
           buttons.push({ label: item.label, href: item.url, external: true });
+          break;
+        }
+        case "table_ordering": {
+          // TASK-63 (RFC-004 §2.2, §2.14): the ordering button points at the
+          // card-aware hop, NEVER a client link to /o/[code] (which would mint
+          // no cardId and lose the table). The venue is the card's own business
+          // ordering config; without one (until TASK-64) the button is dropped.
+          const config = await ctx.db
+            .query("orderingConfig")
+            .withIndex("by_businessId", (q) =>
+              q.eq("businessId", card.businessId),
+            )
+            .unique();
+          if (!config) continue;
+          buttons.push({
+            label: item.label,
+            href: `/r/${cardCode}/o?venue=${config.code}`,
+            external: false,
+          });
           break;
         }
       }
@@ -819,10 +1042,11 @@ export const resolveSplitterMemories = mutation({
       .query("cards")
       .withIndex("by_cardCode", (q) => q.eq("cardCode", cardCode))
       .unique();
-    if (!card || card.status !== "active" || !card.currentTargetId) {
+    if (!card || (!card.accessChannelId && card.status !== "active")) {
       return { kind: "invalid" };
     }
-    const target = await ctx.db.get(card.currentTargetId);
+    const { target, channel, problem } = await cardResolution(ctx, card);
+    if (problem || (channel && (!channel.redirectEnabled || channel.state !== "active"))) return { kind: "invalid" };
     if (target?.kind !== "splitter" || !target.splitterItems) {
       return { kind: "invalid" };
     }
@@ -848,5 +1072,89 @@ export const resolveSplitterMemories = mutation({
       now: Date.now(),
     });
     return { kind: "memories_space", code: space.code, guestKey };
+  },
+});
+
+// -----------------------------------------------------------------------------
+// TASK-63 — the card-aware ordering hop (RFC-004 §2.2, §2.14).
+// -----------------------------------------------------------------------------
+
+type TableOrderingOutcome =
+  | { kind: "invalid" }
+  | { kind: "rate_limited" }
+  | { kind: "table_ordering"; code: string; guestKey: string | null };
+
+// The card-aware ordering hop, twin of resolveSplitterMemories. The handler
+// app/r/[cardCode]/o?venue=<venueCode> calls THIS mutation for BOTH entry
+// paths (RFC-004 §2.14): a direct table_ordering card (302'd here from
+// resolveAndRecord) and a bare-splitter ordering button (its href points here).
+// It mints the ordering guest WITH the card's cardId — the single mint site,
+// so a bare client link to /o/[code] reaches no identity and the table survives.
+//
+// Rate limiting mirrors resolveSplitterMemories: ip-hash-keyed token bucket on
+// its OWN bucket (tableOrderingHop), and the mint spends orderGuestCreate once.
+//
+// No scan-statistics recording on purpose: the physical scan was recorded by
+// resolveAndRecord (the direct card) or is the splitter scan; a hop is not a
+// second scan.
+export const resolveTableOrdering = mutation({
+  args: {
+    cardCode: v.string(),
+    // The venue's ordering code (orderingConfig.code). Untrusted input,
+    // validated below against the card's own business config (the anti-oracle).
+    venueCode: v.string(),
+    // Same contract as resolveAndRecord: a salted hash the Next handler computes
+    // purely as a rate-limit key; the raw IP never reaches Convex.
+    ipHash: v.optional(v.string()),
+  },
+  handler: async (ctx, args): Promise<TableOrderingOutcome> => {
+    const ipKey = args.ipHash ?? "shared";
+    const allowed = await rateLimiter.limit(ctx, "tableOrderingHop", {
+      key: ipKey,
+    });
+    if (!allowed.ok) return { kind: "rate_limited" };
+
+    const cardCode = normalizeCode(args.cardCode);
+    const venueCode = normalizeCode(args.venueCode);
+    if (!cardCode || !venueCode) return { kind: "invalid" };
+    const card = await ctx.db
+      .query("cards")
+      .withIndex("by_cardCode", (q) => q.eq("cardCode", cardCode))
+      .unique();
+    if (!card || (!card.accessChannelId && card.status !== "active")) {
+      return { kind: "invalid" };
+    }
+    const { target, channel, problem } = await cardResolution(ctx, card);
+    if (problem || (channel && (!channel.redirectEnabled || channel.state !== "active"))) return { kind: "invalid" };
+    if (!target) return { kind: "invalid" };
+
+    // Anti-oracle facet 1: the card must ACTUALLY route ordering — a direct
+    // table_ordering target, or a splitter that offers a table_ordering button.
+    // Without this, any card would be an open minting oracle.
+    const offersOrdering =
+      target.kind === "table_ordering" ||
+      (target.kind === "splitter" &&
+        (target.splitterItems ?? []).some(
+          (item) => item.kind === "table_ordering",
+        ));
+    if (!offersOrdering) return { kind: "invalid" };
+
+    // Anti-oracle facet 2: mint only for the card's OWN business ordering
+    // config, and only if the passed venueCode matches it — a foreign venue
+    // code (another business's code) is refused, never attributed to this table.
+    const config = await ctx.db
+      .query("orderingConfig")
+      .withIndex("by_businessId", (q) => q.eq("businessId", card.businessId))
+      .unique();
+    if (!config || config.code !== venueCode) return { kind: "invalid" };
+
+    const guestKey = await mintOrderingGuest(ctx, {
+      businessId: card.businessId,
+      code: config.code,
+      cardId: card._id,
+      ipKey,
+      now: Date.now(),
+    });
+    return { kind: "table_ordering", code: config.code, guestKey };
   },
 });

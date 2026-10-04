@@ -162,20 +162,23 @@ export type ServiceType =
   | "scanme_links"
   | "google_review"
   | "scanme_venue"
-  | "scanme_memories";
+  | "scanme_memories"
+  | "scanme_menu";
 
-// serviceType (schema) → pricing ServiceId (engine). `menu` has no serviceType
-// yet (the product does not exist, §2.0 constraint 7), so it is absent here and
-// cannot be an order line — it is priceable in the engine but not sellable until
-// Menu ships. This map is the one place the two vocabularies meet, so the server
-// derives the engine input from the order's own service lines rather than
-// trusting a separately-supplied price.
+// serviceType (schema) → pricing ServiceId (engine). This map is the one place
+// the two vocabularies meet, so the server derives the engine input from the
+// order's own service lines rather than trusting a separately-supplied price.
+// TASK-61: `scanme_menu` → "menu" — the engine already priced "menu" as a
+// first-class service (lib/pricing); the schema serviceType was the only missing
+// half. Whether Menu is offered in the /kupovina sellable set is a separate gate
+// (RFC-002 §5 Q4), unaffected by this mapping.
 export const PRICING_SERVICE_BY_SERVICE_TYPE = {
   scanme_links: "links",
   google_review: "review",
   scanme_venue: "venue",
   scanme_memories: "memories",
+  scanme_menu: "menu",
 } as const satisfies Record<
   ServiceType,
-  "links" | "venue" | "memories" | "review"
+  "links" | "venue" | "memories" | "review" | "menu"
 >;

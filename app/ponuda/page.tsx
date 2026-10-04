@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { OfferConfigurator } from "@/components/offer-configurator";
 import { OfferFooter } from "@/components/offer-footer";
 import { SiteNav } from "@/components/site-nav";
 import { offerSr as dict } from "@/lib/i18n/sr/offer";
 import { parseSelection } from "@/lib/offer-url";
+import { isProductionPrelaunchOnly } from "@/lib/prelaunch-mode";
 import {
   DEFAULT_ORDER_SELECTION,
   type BillingPeriod,
@@ -39,6 +41,8 @@ function resolveInitialSelection(params: URLSearchParams): OrderSelection {
 }
 
 export default async function PonudaPage({ searchParams }: PageProps<"/ponuda">) {
+  if (isProductionPrelaunchOnly()) redirect("/");
+
   const resolved = await searchParams;
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(resolved)) {

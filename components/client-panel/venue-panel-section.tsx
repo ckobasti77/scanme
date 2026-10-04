@@ -56,6 +56,7 @@ import { fmt } from "@/lib/i18n";
 import { venuePanelSr as dict } from "@/lib/i18n/sr/venue-panel";
 import { VenueAnalyticsCard } from "./venue-analytics-card";
 import { VenueReservationsCard } from "./venue-reservations-card";
+import { VenueOrderingCard } from "./venue-ordering-card";
 
 type VenuePanelData = Extract<
   FunctionReturnType<typeof api.clientPanel.venuePanel>,
@@ -597,7 +598,13 @@ export function VenuePanelSection({
       </div>
 
       {!hasAnyEvent || !activeEvent ? (
-        <EmptyState onCreate={() => setDialog("create")} />
+        <div className="grid gap-6">
+          <EmptyState onCreate={() => setDialog("create")} />
+          <VenueOrderingCard
+            businessId={data.businessId}
+            orderingEnabled={data.orderingEnabled}
+          />
+        </div>
       ) : (
         <div className="mt-7 grid gap-6">
           <CurrentEvent
@@ -618,6 +625,12 @@ export function VenuePanelSection({
           <VenueAnalyticsCard
             eventId={activeEvent.id}
             analyticsEnabled={data.analyticsEnabled}
+          />
+
+          {/* TASK-64 — Venue ordering & waiter configuration card */}
+          <VenueOrderingCard
+            businessId={data.businessId}
+            orderingEnabled={data.orderingEnabled}
           />
 
           {needsArchive ? (

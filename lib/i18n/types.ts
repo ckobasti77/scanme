@@ -10,7 +10,215 @@
 // output for a surface whose UI does not exist yet: no copy is invented; the
 // interface grows when the screen is built.
 
+import type { ProductType, ServiceType } from "../admin-v1/catalog";
+import type {
+  FairAdminIssueCode,
+  FairAudienceQuestionStatus,
+  FairClientSegment,
+  FairConsentStatus,
+  FairContactRequirement,
+  FairEmailDeliveryError,
+  FairEmailDeliveryStatus,
+  FairEventStatus,
+  FairLeadKind,
+  FairModelStatus,
+  FairPackageTier,
+  FairParticipationStatus,
+  FairPassportConfigStatus,
+  FairPassportEligibleStatus,
+  FairPreferredContact,
+  FairPurgeCategory,
+  FairPurgeCategoryStatus,
+  FairPurgeMode,
+  FairPurgeRunStatus,
+  FairPurgeTrigger,
+  FairSponsoredSnapshotStatus,
+  FairReportStatus,
+  FairReportFormat,
+  FairSurveyQuestionKind,
+  FairSurveyStatus,
+} from "../fair-contract";
+import type { FairMapKey, FairMapZoneId } from "../fair-map/types";
+
 export type Locale = "sr";
+
+// Local interactive hall-map concept (/dev/sajam-cair). The surface is
+// deliberately small and static, but its visible copy still follows the same
+// typed-dictionary contract as production-facing ScanMe screens.
+export interface EventMapDict {
+  metaTitle: string;
+  metaDescription: string;
+  title: string;
+  subtitle: string;
+  findScanMe: string;
+  mapHint: string;
+  mapAria: string;
+  filterLabel: string;
+  filterAll: string;
+  filterCars: string;
+  filterMoto: string;
+  filterFood: string;
+  filterScanMe: string;
+  entranceLabel: string;
+  entranceNorth: string;
+  entranceSouth: string;
+  youAreHere: string;
+  zoomIn: string;
+  zoomOut: string;
+  fitMap: string;
+  boothAria: string;
+  standLabel: string;
+  selectedStand: string;
+  brandsLabel: string;
+  showRoute: string;
+  hideRoute: string;
+  scanMeStandBody: string;
+  brandListTitle: string;
+  brandListBody: string;
+  foodPoint: string;
+}
+
+// Sajam 2026 map geometry (M0). Only the DEV overlay check on /dev/sajam-cair
+// for now; the public map (M1) grows this surface.
+export interface FairMapDict {
+  overlayTitle: string;
+  overlayIntro: string;
+  overlayDraft: string;
+  overlayAria: string;
+  overlayCaption: string;
+  overlayPlaceholder: string;
+  events: Record<FairMapKey, string>;
+  zones: Record<FairMapZoneId, string>;
+  // M1 public map /sajam/[eventSlug]
+  umbrellaTitle: string;
+  metaTitle: string;
+  metaDescription: string;
+  notFoundTitle: string;
+  notFoundBody: string;
+  pageTitle: string;
+  loadingLabel: string;
+  errorTitle: string;
+  errorBody: string;
+  retry: string;
+  zoneSwitchLabel: string;
+  mapAria: string;
+  mapHint: string;
+  zoomIn: string;
+  zoomOut: string;
+  fitMap: string;
+  searchLabel: string;
+  searchPlaceholder: string;
+  searchClear: string;
+  searchEmpty: string;
+  searchResultsLabel: string;
+  standAria: string;
+  standLocation: string;
+  standUnplaced: string;
+  selectHint: string;
+  closeDetail: string;
+  modelsLabel: string;
+  listTitle: string;
+  listEmpty: string;
+  passportLabel: string;
+  passportProgress: string;
+  passportProgressAria: string;
+  passportComplete: string;
+  passportLoading: string;
+  passportUnavailable: string;
+  passportHint: string;
+  scanmeStand: string;
+  // M2 12 s Advanced rotation on the map/display
+  rotationLabel: string;
+  rotationAria: string;
+  rotationWaiting: string;
+  rotationPercent: string;
+  rotationShowStand: string;
+  rotationOpenModel: string;
+  rotationStandPin: string;
+}
+
+export interface FairModelDict {
+  metaTitle: string;
+  metaDescription: string;
+  mapNav: string;
+  garageNav: string;
+  garageCountAria: string;
+  modelPhotoAlt: string;
+  allSpecifications: string;
+  audienceTitle: string;
+  audienceBody: string;
+  rateModel: string;
+  submitInterest: string;
+  requestTestDrive: string;
+  saveToGarage: string;
+  savedToGarage: string;
+  garageStorageError: string;
+  deferredFlowMessage: string;
+  poweredBy: string;
+  devLink: string;
+  devPanelTitle: string;
+  devModeLabel: string;
+  devPhotoLabel: string;
+  devAlignmentLabel: string;
+  fixtureFree: string;
+  fixtureStarter: string;
+  fixtureAdvanced: string;
+  fixtureWithPhoto: string;
+  fixtureWithoutPhoto: string;
+  alignmentLeft: string;
+  alignmentRight: string;
+  alignmentBottom: string;
+  audienceMetaTitle: string;
+  audienceMetaDescription: string;
+  audienceBack: string;
+  audienceEyebrow: string;
+  audienceProgressAria: string;
+  audienceQuestionOf: string;
+  audienceResultsSoon: string;
+  audienceSubmitting: string;
+  audienceVoteError: string;
+  audienceRetry: string;
+  audienceNextQuestion: string;
+  audienceBackToModel: string;
+  devThresholdLabel: string;
+  devResponseLabel: string;
+  devQuestionCountLabel: string;
+  fixtureBelowThreshold: string;
+  fixturePublicResults: string;
+  fixtureSuccess: string;
+  fixtureError: string;
+  fixtureOneQuestion: string;
+  fixtureFiveQuestions: string;
+  closeSheet: string;
+  ratingSheetTitle: string;
+  overallRatingLabel: string;
+  designRatingLabel: string;
+  specificationsRatingLabel: string;
+  priceRatingLabel: string;
+  saveRating: string;
+  saveRatings: string;
+  ratingNotSent: string;
+  interestSheetTitle: string;
+  testDriveSheetTitle: string;
+  fullNameLabel: string;
+  emailLabel: string;
+  phoneLabel: string;
+  preferredDateLabel: string;
+  sendInterest: string;
+  sendTestDrive: string;
+  leadFixtureNotice: string;
+  leadNotSent: string;
+  notFoundTitle: string;
+  notFoundBody: string;
+  backToScanMe: string;
+}
+
+export interface AdminDomainDict {
+  services: Record<ServiceType, string>;
+  products: Record<ProductType, string>;
+  customDesign: string;
+  friendTag: string;
+}
 
 // venue — the public venue page (/[slug]/venue*, TASK-09). Everything a guest
 // can read: route metadata, the three lifecycle states, the twelve block
@@ -834,6 +1042,7 @@ export interface MemoriesDict {
   // TASK-37 bare splitter (convex/cards.ts, RFC-002 §2.4).
   cardSplitterItemsInvalid: string; // "… {min} … {max} …" — button count out of range
   cardLinksMemoriesBlocked: string; // Memories behind a Links-page splitter: the two-pattern refusal
+  cardLinksOrderingBlocked: string; // TASK-63: ordering behind a Links-page splitter: the two-pattern refusal (RFC-004 §2.2, §6)
   // TASK-18 host space controls (convex/memoriesHost.ts).
   spaceNotOneOff: string; // window controls on a recurring space
   spaceWindowInvalid: string; // new end not after the window start / now
@@ -1508,141 +1717,8 @@ export interface OfferDict {
   >;
 }
 
-// admin-customers — the operational customers table (components/admin/
-// customers-admin.tsx, app/admin/customers, TASK-40, RFC-002 §2.6). NOT a
-// directory of who exists — a work list of WHO TO CALL TODAY: name, phone,
-// active services, plan, period, the four billing statuses, next renewal, and
-// the per-location activate/deactivate + manual-payment actions. The four
-// statuses are DERIVED by the TASK-32 billing module (deriveBillingStatus);
-// this surface only labels them. `{...}` placeholders go through fmt().
-export interface AdminCustomersDict {
-  navLabel: string;
-  eyebrow: string;
-  title: string;
-  subtitle: string;
-  loadError: string;
-  empty: string;
-  count: string; // "Korisnici ({count})"
-  refreshedAt: string; // "Osveženo u {time}"
-  // Column headers.
-  colName: string;
-  colPhone: string;
-  colServices: string;
-  colPlan: string;
-  colPeriod: string;
-  colStatus: string;
-  colNextBilling: string;
-  colActions: string;
-  // Plan labels.
-  planBasic: string;
-  planPremium: string;
-  planEnterprise: string;
-  // Period labels.
-  periodMonthly: string;
-  periodAnnual: string;
-  periodNone: string; // basic / no tracked period ("—")
-  // The four derived statuses (§2.6) + the raw-state distinctions the read model
-  // carries alongside them.
-  statusActive: string;
-  statusExpiringSoon: string;
-  statusExpired: string;
-  statusPaidNeverConfigured: string;
-  statusSuspended: string; // accountStatus "suspended" (an admin decision, not a lapse)
-  statusNoAccount: string; // a legacy account-less location (no billing row)
-  // Next-billing cell.
-  billingNone: string; // no tracked cycle ("—")
-  billingDueToday: string;
-  billingDueInDays: string; // "za {count} dana"
-  billingOverdueDays: string; // "kasni {count} dana"
-  // Service-type labels (serviceProfiles.type → Serbian).
-  serviceScanmeLinks: string;
-  serviceGoogleReview: string;
-  serviceVenue: string;
-  serviceMemories: string;
-  servicesNoneActive: string; // no active service ("nema aktivnih")
-  unconfiguredNote: string; // "Nije podešeno: {services}" — the churn detail
-  // Enterprise grouping.
-  enterpriseBadge: string; // "Lanac"
-  enterpriseLocations: string; // "{count} lokala"
-  expandAria: string; // "Prikaži lokale — {name}"
-  collapseAria: string; // "Sakrij lokale — {name}"
-  locationsHeading: string;
-  // Row / location actions.
-  openLocation: string; // opens the location's existing page
-  openLocationAria: string; // "Otvori lokal {name}"
-  detailsAction: string; // open the customer detail drawer
-  phoneNone: string; // "—"
-  contactNone: string;
-  // Activate / deactivate a service.
-  activateService: string; // "Aktiviraj"
-  deactivateService: string; // "Deaktiviraj"
-  activateAria: string; // "Aktiviraj {service} — {location}"
-  deactivateAria: string; // "Deaktiviraj {service} — {location}"
-  activateSuccess: string; // "{service} je aktiviran za {location}."
-  deactivateSuccess: string; // "{service} je deaktiviran za {location}."
-  serviceToggleError: string;
-  deactivateDialogTitle: string; // "Deaktivirati {service}?"
-  deactivateDialogBody: string;
-  deactivateConfirm: string;
-  deactivateCancel: string;
-  // Customer detail drawer.
-  detailHeading: string; // "{name}"
-  detailClose: string;
-  detailServicesHeading: string;
-  detailNoAccountNote: string; // legacy location with no account — billing unavailable
-  // Payment history (TASK-32).
-  paymentsHeading: string;
-  paymentsEmpty: string;
-  paymentColDate: string;
-  paymentColAmount: string;
-  paymentColMethod: string;
-  paymentColCovers: string;
-  paymentColReference: string;
-  paymentMethodManual: string;
-  paymentMethodProvider: string;
-  paymentVoidedTag: string; // "Stornirano"
-  paymentCoversUntil: string; // "važi do {date}"
-  lastPaymentLabel: string; // "Poslednja uplata: {date} · {amount}"
-  lastPaymentNone: string;
-  // Manual payment entry — the MAIN billing flow.
-  recordPaymentAction: string; // "Upiši uplatu"
-  paymentDialogTitle: string; // "Nova uplata — {name}"
-  paymentDialogBody: string;
-  paymentAmountLabel: string;
-  paymentDateLabel: string;
-  paymentReferenceLabel: string;
-  paymentReferenceHint: string;
-  paymentCoversLabel: string;
-  paymentCoversHint: string; // when the account has no period on file
-  paymentSubmit: string;
-  paymentCancel: string;
-  paymentSuccess: string; // "Uplata je upisana. Sledeća naplata: {date}."
-  paymentSuccessNoCycle: string; // recorded, cycle unchanged
-  paymentError: string;
-  // Void a payment (append-only correction).
-  voidAction: string;
-  voidDialogTitle: string;
-  voidDialogBody: string;
-  voidReasonLabel: string;
-  voidConfirm: string;
-  voidCancel: string;
-  voidSuccess: string;
-  voidError: string;
-  // Audit trail (who/what/when).
-  auditHeading: string;
-  auditEmpty: string;
-  auditRecordPayment: string;
-  auditVoidPayment: string;
-  auditSetNextBilling: string;
-  auditActivateService: string;
-  auditDeactivateService: string;
-  auditCreateOrder: string;
-  auditSetPlan: string;
-  auditGeneric: string; // "{action}" — unknown future action slug
-}
-
-// Per-location admin subpages + location sidebar (components/admin/location-admin.tsx,
-// TASK-41, RFC-002 §2.6). Sits BELOW the customers table (TASK-40): drill into one
+// Per-location compatibility subpages + location sidebar
+// (components/admin/location-admin.tsx, TASK-41, RFC-002 §2.6): drill into one
 // location, see only the subpages for its ACTIVE services, and (for a multi-location
 // account) a sidebar to jump between the account's locations. `{...}` via fmt().
 export interface AdminLocationDict {
@@ -1692,7 +1768,2392 @@ export interface AdminLocationDict {
   inactiveNoticeBody: string;
 }
 
+// menu — the public ScanMe Menu page (RFC-003 §2.11; TASK-57). Everything a guest
+// can read on the public menu page: route metadata, not-found state, navigation,
+// the five group shapes' chrome, item detail bottom-sheet, pricing, and inquiry.
+export interface MenuDict {
+  // Route metadata (§2.11).
+  metaTitle: string; // "{name} · Meni"
+  metaDescription: string; // "Pogledajte meni i ponudu lokala {name}."
+  // 404 / empty state.
+  notFoundTitle: string; // "Meni nije pronađen"
+  notFoundBody: string; // "Ovaj lokal još uvek nema objavljen meni ili link nije ispravan."
+  emptyMenu: string; // "Meni se priprema."
+  emptyGroup: string; // "U ovoj grupi trenutno nema stavki."
+  // Navigation & accordion chrome (§2.1, §2.2).
+  navAria: string; // the sticky scroll-spy nav's aria-label (§2.2, TASK-52)
+  moreItems: string; // "Još {count}" — the caret label for collapsed items (§2.1)
+  showLess: string; // the caret label when a group is expanded (§2.1, TASK-52)
+  // Item badges & pricing (§2.3, §2.6).
+  unavailableBadge: string; // the live "nema više" badge (§2.6)
+  priceRsd: string; // "{price} RSD"
+  poweredBy: string;
+  // Variants & item details (§2.3, §2.5).
+  variantsTitle: string; // "Varijante"
+  variantsAria: string; // "… {name}"
+  itemDetailsAria: string; // "Detalji o stavci {name}" (TASK-53)
+  videoAria: string; // "Video za {name}" (TASK-53)
+  sheetClose: string; // "Zatvori" (TASK-53)
+  // Pairings "Ide uz" (§2.3, §2.5).
+  pairingsTitle: string; // "Ide uz" (TASK-53)
+  pairItemAria: string; // "Pogledaj stavku {name}" (TASK-53)
+  // In-sheet inquiry action (§2.10, TASK-59 readiness).
+  inquiryAction: string; // "Pošaljite upit"
+  inquiryAria: string; // "Pošaljite upit za stavku {name}"
+  inquirySuccess: string; // "Upit je poslat."
+  inquiryError: string; // "Slanje upita nije uspelo."
+}
+
+// menu-admin — the admin Menu management and migration surface (RFC-003 §2.9, §2.11).
+// Concierge onboarding / migration tracking (primljeno → u izradi → na potvrdi → objavljeno),
+// PDF & Excel export actions, manual entitlement grant/deactivation, and
+// unsaved-changes publish warning. `{...}` placeholders go through fmt().
+export interface MenuAdminDict {
+  // Screen chrome & navigation.
+  eyebrow: string;
+  title: string;
+  description: string;
+  loadError: string;
+  backAction: string;
+
+  // Activation states.
+  menuActive: string;
+  menuInactive: string;
+  menuNone: string;
+  menuDraft: string;
+  menuPublished: string;
+
+  // Actions.
+  grantAction: string;
+  grantActionExisting: string;
+  deactivateAction: string;
+  openEditor: string;
+  openPublic: string;
+
+  // Plans & Tiers (§2.7).
+  planLabel: string;
+  planPickerLabel: string;
+  planBasic: string;
+  planPremium: string;
+  planEnterprise: string;
+
+  // Migration SLA & stages (§2.9).
+  migrationHeading: string;
+  migrationSlaNote: string;
+  stageLabel: string;
+  stageReceived: string;
+  stageInProgress: string;
+  stageReview: string;
+  stagePublished: string;
+  stageChangeAction: string;
+  stageChangeSuccess: string;
+  stageChangeError: string;
+
+  // Stats and metrics.
+  groupsCount: string;
+  itemsCount: string;
+  lastPublished: string;
+  neverPublished: string;
+
+  // Export action (§2.9 PDF & Excel).
+  exportHeading: string;
+  exportPdfAction: string;
+  exportExcelAction: string;
+  exportPdfLoading: string;
+  exportExcelLoading: string;
+  exportSuccess: string;
+  exportError: string;
+
+  // Warnings (TASK-58: waiter "nema više" overwrite risk, §3 Risk 10).
+  unsavedChangesWarning: string;
+  overwriteAvailabilityConfirm: string;
+
+  // TASK-58 — status block.
+  statusLabel: string;
+  draftDirtyNote: string;
+  receivedLabel: string;
+  deadlineLabel: string;
+  deadlineOverdue: string;
+  stageChangedAt: string;
+
+  // TASK-58 — data entry on the client's behalf (the line import).
+  importHeading: string;
+  importHelp: string;
+  importPlaceholder: string;
+  importPreview: string;
+  importWarnings: string;
+  importAction: string;
+  importReplaceConfirm: string;
+  importSuccess: string;
+  importError: string;
+  importTooLarge: string;
+  importEmpty: string;
+
+  // TASK-58 — publish on the client's behalf.
+  publishForClientAction: string;
+  publishForClientSuccess: string;
+  publishForClientKept: string;
+  publishForClientError: string;
+
+  // TASK-58 — export labels the writers stamp into the files (lib/menu-export).
+  exportInternalNote: string;
+  exportSubtitle: string;
+  exportUnavailable: string;
+  exportPageOf: string;
+  exportColGroup: string;
+  exportColShape: string;
+  exportColName: string;
+  exportColDescription: string;
+  exportColProductType: string;
+  exportColPrice: string;
+  exportColVariants: string;
+  exportColAvailable: string;
+  exportColDaypart: string;
+  exportYes: string;
+  exportNo: string;
+  exportSheetName: string;
+
+  // Dialogs & toasts.
+  grantSuccess: string;
+  grantSuccessExisting: string;
+  grantError: string;
+  grantSlugConflict: string;
+  deactivateSuccess: string;
+  deactivateError: string;
+  deactivateDialogTitle: string;
+  deactivateDialogBody: string;
+  deactivateConfirm: string;
+  deactivateCancel: string;
+}
+
+// menu-editor — the Menu editor shell (components/menu/editor/**, TASK-51),
+// FORKED from VenueEditorDict (RFC-003 §1.a). The first keys are the
+// ConvexError messages of the Menu write backend (convex/menu.ts); the rest is
+// the editor chrome: panels, the groups palette, the group/item/variant/pairing
+// editor, dayparts, fields, uploads, preview, and the page-design panels.
+// `{group}`, `{shape}`, `{name}`, `{count}`, `{max}`, `{state}`, `{percent}`,
+// `{value}` are interpolated via fmt().
+export interface MenuEditorDict {
+  // convex/menu.ts
+  menuNotFound: string;
+  businessNotFound: string;
+  serviceNotProvisioned: string;
+  menuAlreadyExists: string;
+  draftChanged: string;
+  itemNotFound: string;
+  // The five group shapes (components/menu/blocks/registry.tsx).
+  shapeLabelLista: string;
+  shapeLabelGalerija: string;
+  shapeLabelTraka: string;
+  shapeLabelIstaknuto: string;
+  shapeLabelTabelaVarijanti: string;
+  // Route metadata + loader / access screens.
+  metaEditorTitle: string;
+  editorLoading: string;
+  signInTitle: string;
+  signInBody: string;
+  signInAction: string;
+  unavailableTitle: string;
+  unavailableBody: string;
+  noMenuTitle: string;
+  noMenuBody: string;
+  createMenuAction: string;
+  createMenuErrorFallback: string;
+  // Top bar + history + save state.
+  backAria: string;
+  historyGroupAria: string;
+  undoAria: string;
+  redoAria: string;
+  undoTooltip: string;
+  redoTooltip: string;
+  saveDraftAction: string;
+  saveActionAria: string; // "… (trenutno: {state})"
+  publishAction: string;
+  saveStateSaved: string;
+  saveStateSaving: string;
+  saveStateError: string;
+  saveRetryHint: string;
+  saveErrorFallback: string;
+  savedToast: string;
+  // Publish dialog + revision conflict.
+  publishDialogTitle: string;
+  publishDialogBody: string;
+  publishConfirm: string;
+  publishCancel: string;
+  publishSuccess: string;
+  publishErrorFallback: string;
+  publishConflictTitle: string;
+  publishConflictBody: string;
+  publishConflictReload: string;
+  // TASK-58 — the live "nema više" vs draft conflict dialog (RFC-003 §3 Risk 10).
+  availabilityConflictTitle: string;
+  availabilityConflictBody: string;
+  availabilityKeepLive: string;
+  availabilityOverwrite: string;
+  toolsAria: string;
+  closePanelAria: string;
+  // Panel chrome.
+  panelGroupsTitle: string;
+  panelGroupsDescription: string;
+  panelStyleTitle: string;
+  panelStyleDescription: string;
+  panelBackgroundTitle: string;
+  panelBackgroundDescription: string;
+  panelTextTitle: string;
+  panelTextDescription: string;
+  panelColorTitle: string;
+  panelColorDescription: string;
+  panelDaypartsTitle: string;
+  panelDaypartsDescription: string;
+  panelHelpTitle: string;
+  panelHelpDescription: string;
+  // The groups panel (palette).
+  groupsListHeading: string;
+  groupsAddHeading: string;
+  groupCount: string; // "{count}"
+  groupItemCount: string; // "{count} st."
+  groupsEmpty: string;
+  addGroupAria: string; // "… „{shape}“"
+  groupItemAria: string; // "… „{group}“ …"
+  dragHandleAria: string; // "… „{group}“"
+  duplicateAria: string; // "… „{group}“"
+  deleteAria: string; // "… „{group}“"
+  deleteDialogTitle: string; // "… „{group}“?"
+  deleteDialogBody: string;
+  deleteConfirm: string;
+  deleteCancel: string;
+  groupDeletedToast: string;
+  groupPanelTitle: string; // "… {group}"
+  groupPanelPlaceholder: string;
+  groupPanelBack: string;
+  groupUntitled: string;
+  // The group panel: base fields, shape hints, items, variants, pairings.
+  groupTitleLabel: string;
+  groupShapeLabel: string;
+  groupIconLabel: string;
+  groupIconInherit: string;
+  groupDaypartLabel: string;
+  daypartAlways: string;
+  visibleCountHint: string; // "… {count} …"
+  istaknutoHint: string;
+  tabelaHint: string;
+  itemsHeading: string;
+  itemsAdd: string;
+  itemNameLabel: string;
+  itemDescriptionLabel: string;
+  itemProductTypeLabel: string;
+  itemProductTypeHint: string;
+  itemProductTypePlaceholder: string;
+  itemPriceLabel: string;
+  itemPriceHint: string;
+  itemIconLabel: string;
+  itemIconInherit: string;
+  itemAvailableLabel: string;
+  itemAvailableHint: string;
+  itemPhotoHeading: string;
+  itemPhotoHint: string;
+  variantsHeading: string;
+  variantAdd: string;
+  variantLabelLabel: string;
+  variantLabelPlaceholder: string;
+  variantPriceLabel: string;
+  pairingsHeading: string;
+  pairingAdd: string;
+  pairingPickLabel: string;
+  pairingPickPlaceholder: string;
+  pairingNone: string;
+  pairingRemoveAria: string; // "… „{name}“"
+  pairingUnknown: string;
+  itemUntitled: string;
+  itemCapCount: string; // "{count} / {max}"
+  itemCapReached: string; // "… ({max}) …"
+  itemRemoveAria: string; // "… {name}"
+  itemDragAria: string; // "… {name}"
+  requiredFieldError: string;
+  contentSectionHeading: string;
+  // The dayparts panel.
+  daypartsHeading: string;
+  daypartsEmptyHint: string;
+  daypartAdd: string;
+  daypartKeyLabel: string;
+  daypartKeyHint: string;
+  daypartKeyPlaceholder: string;
+  daypartLabelLabel: string;
+  daypartLabelPlaceholder: string;
+  daypartStartLabel: string;
+  daypartEndLabel: string;
+  daypartOverrideLabel: string;
+  daypartOverrideNone: string;
+  daypartOverrideHint: string;
+  daypartUntitled: string;
+  // Shared field chrome.
+  pxValue: string; // "{value} px"
+  inheritOption: string;
+  // Media upload.
+  uploadImageAction: string;
+  uploadReplaceAction: string;
+  uploadRemoveAction: string;
+  uploadVideoAction: string;
+  uploadProgress: string; // "… {percent}%"
+  uploadFailed: string;
+  uploadRetryAction: string;
+  uploadInvalidImage: string;
+  uploadInvalidVideo: string;
+  uploadTooLarge: string; // "… {max} MB"
+  // The help panel.
+  helpAddTitle: string;
+  helpAddBody: string;
+  helpReorderTitle: string;
+  helpReorderBody: string;
+  helpUndoTitle: string;
+  helpUndoBody: string;
+  helpPublishTitle: string;
+  helpPublishBody: string;
+  // The preview.
+  previewAria: string; // "… {name}"
+  deviceGroupAria: string;
+  devicePhoneAria: string;
+  deviceDesktopAria: string;
+  zoomAria: string;
+  previewGroupAria: string; // "{group}. …"
+  previewEmptyGroup: string; // "… „{group}“ …"
+  // Style page panel.
+  styleSpacingLabel: string;
+  styleLineHeightLabel: string;
+  styleEffectsHeading: string;
+  styleTextShadow: string;
+  styleLogoShadow: string;
+  shadowYLabel: string;
+  shadowBlurLabel: string;
+  shadowOpacityLabel: string;
+  shadowColorLabel: string;
+  // Background page panel (no media category: the Menu doc stores no page
+  // media id — the category is not offered rather than half-built).
+  bgCategoryLabel: string;
+  bgCatFlat: string;
+  bgCatGradient: string;
+  bgCatPattern: string;
+  bgCatTexture: string;
+  bgCatAnimation: string;
+  bgFlatColor: string;
+  bgGradientVariant: string;
+  gradientLinear: string;
+  gradientRadial: string;
+  bgGradientStart: string;
+  bgGradientEnd: string;
+  bgGradientAngle: string;
+  bgGradientCenterX: string;
+  bgGradientCenterY: string;
+  bgPatternVariant: string;
+  patternGrid: string;
+  patternChecker: string;
+  patternDots: string;
+  patternWaves: string;
+  bgPatternBase: string;
+  bgPatternColor: string;
+  bgPatternScale: string;
+  bgPatternOpacity: string;
+  bgTextureVariant: string;
+  texturePaper: string;
+  textureLinen: string;
+  textureWood: string;
+  textureMetal: string;
+  bgTextureBase: string;
+  bgTextureTint: string;
+  bgTextureIntensity: string;
+  bgAnimationVariant: string;
+  bgAnimationAurora: string;
+  bgAnimationSoftWaves: string;
+  bgAnimationBase: string;
+  bgAnimationAccent: string;
+  bgAnimationSpeed: string;
+  bgAnimationIntensity: string;
+  bgAnimationRenderNote: string;
+  // Text page panel.
+  textFontLabel: string;
+  textHeadingWeight: string;
+  textBodyWeight: string;
+  textScaleLabel: string;
+  textAlignmentLabel: string;
+  scaleSmall: string;
+  scaleMedium: string;
+  scaleLarge: string;
+  alignLeft: string;
+  alignCenter: string;
+  alignRight: string;
+  weight400: string;
+  weight500: string;
+  weight600: string;
+  weight700: string;
+  // Colour page panel.
+  colorBrandNote: string;
+  colorModeLabel: string;
+  modeLight: string;
+  modeDark: string;
+  colorSchemeLabel: string;
+  schemeComplementary: string;
+  schemeAnalogous: string;
+  schemeMonochromatic: string;
+  schemeTriadic: string;
+  schemeSplitComplementary: string;
+  colorVariantLabel: string;
+  variantContent: string;
+  variantTonalSpot: string;
+  variantVibrant: string;
+  colorApplyAction: string;
+  colorResetAction: string;
+  colorPreviewHeading: string;
+  rolePage: string;
+  roleSurface: string;
+  roleTitle: string;
+  roleBody: string;
+  roleAccent: string;
+  roleBorder: string;
+  roleFocus: string;
+  roleIcon: string;
+}
+
+// ordering-admin — owner ordering configuration & items surface (RFC-004 §2.12, §2.15, TASK-64).
+export interface OrderingAdminDict {
+  cardHeading: string;
+  cardDescription: string;
+  lockedHeading: string;
+  lockedNote: string;
+  enabledLabel: string;
+  enabledDescription: string;
+  callWaiterLabel: string;
+  callWaiterDescription: string;
+  codeLabel: string;
+  codeDescription: string;
+  copyLink: string;
+  linkCopied: string;
+  itemsHeading: string;
+  itemsDescription: string;
+  emptyItems: string;
+  addItemAction: string;
+  editItemAction: string;
+  deleteItemAction: string;
+  itemNameLabel: string;
+  itemNamePlaceholder: string;
+  itemPriceLabel: string;
+  itemPricePlaceholder: string;
+  itemPriceNote: string;
+  availableLabel: string;
+  unavailableLabel: string;
+  toggleAvailableSuccess: string;
+  saveAction: string;
+  cancelAction: string;
+  dialogAddTitle: string;
+  dialogEditTitle: string;
+  confirmDeleteTitle: string;
+  confirmDeleteDescription: string;
+  errorNotEntitled: string;
+  itemNotFound: string;
+  itemNameRequired: string;
+  configSaveSuccess: string;
+  configSaveError: string;
+  itemAvailabilityError: string;
+  itemSaveSuccess: string;
+  itemSaveError: string;
+  itemDeleteSuccess: string;
+  itemDeleteError: string;
+}
+
+// ordering — the GUEST ordering surface at /o/[code] (RFC-004 §2.1, §2.6,
+// §2.15, TASK-66). Contains the two guest actions' copy and the SINGLE
+// unavailable state that both causes of §2.6 render.
+export interface OrderingDict {
+  metaTitle: string;
+  heading: string;
+  intro: string;
+  unavailableTitle: string;
+  unavailableBody: string;
+  callHeading: string;
+  callAction: string;
+  callSending: string;
+  callReasonLegend: string;
+  callSent: string;
+  orderHeading: string;
+  orderEmptyItems: string;
+  orderNoteLabel: string;
+  orderNotePlaceholder: string;
+  orderAction: string;
+  orderSending: string;
+  orderSent: string;
+  orderNothingSelected: string;
+  itemPrice: string;
+  qtyIncrease: string;
+  qtyDecrease: string;
+  qtyValue: string;
+  selectedSummary: string;
+  errorNotFound: string;
+  errorInvalidGuest: string;
+  errorNoTable: string;
+  errorRateLimited: string;
+  errorInvalidItems: string;
+  errorInvalidReason: string;
+  errorNoteTooLong: string;
+  errorUnknown: string;
+  // TASK-67 (RFC-004 §2.6, §2.8) — the live status and the deadline's action.
+  statusHeading: string;
+  statusKindOrder: string;
+  statusKindCall: string;
+  statusSent: string;
+  statusAccepted: string;
+  statusEnroute: string;
+  statusCompleted: string;
+  statusWithdrawn: string;
+  statusLine: string;
+  statusReason: string;
+  statusNote: string;
+  overdueTitle: string;
+  overdueBody: string;
+  withdrawAction: string;
+  withdrawing: string;
+  withdrawnNotice: string;
+  errorRequestNotFound: string;
+  errorNotWithdrawable: string;
+}
+
+// ordering-panel — the WAITER panel at /panel/[venueCode] (RFC-004 §2.7,
+// §2.10, §2.15, TASK-68): PIN login, shift header, the live queue and the three
+// transitions. The stale badge is the only cause-A wording in the product.
+export interface OrderingPanelDict {
+  metaTitle: string;
+  pinHeading: string;
+  pinIntro: string;
+  pinLabel: string;
+  pinSubmit: string;
+  pinSubmitting: string;
+  errorInvalidPin: string;
+  errorLocked: string;
+  errorNotFound: string;
+  errorUnknown: string;
+  signedOutClosed: string;
+  signedOutAdopted: string;
+  staffLine: string;
+  staleBadge: string;
+  pausedBadge: string;
+  pauseAction: string;
+  resumeAction: string;
+  closeAction: string;
+  closeConfirm: string;
+  closeCancel: string;
+  closing: string;
+  soundBannerBody: string;
+  soundBannerAction: string;
+  newRequestAnnouncement: string;
+  queueHeading: string;
+  queueEmpty: string;
+  kindCall: string;
+  kindOrder: string;
+  reasonLine: string;
+  noteLine: string;
+  line: string;
+  statusSent: string;
+  statusAccepted: string;
+  statusEnroute: string;
+  overdueBadge: string;
+  acceptAction: string;
+  enrouteAction: string;
+  completeAction: string;
+  working: string;
+  errorInvalidTransition: string;
+  errorRequestNotFound: string;
+}
+
+// TASK-72 — admin console for printed cards (create / batch / retarget / list).
+// Chrome strings only; the card refusal sentences (Links→Memories, unsafe URL,
+// splitter bounds, …) already live on the `memories` surface and surface verbatim.
+export interface CardsAdminDict {
+  navLabel: string;
+  pageTitle: string;
+  pageIntro: string;
+  businessLabel: string;
+  businessPlaceholder: string;
+  businessLoading: string;
+  selectBusinessPrompt: string;
+  cardsHeading: string;
+  cardsCount: string;
+  colLabel: string;
+  colCode: string;
+  colTarget: string;
+  colScans: string;
+  colStatus: string;
+  colActions: string;
+  emptyCards: string;
+  statusActive: string;
+  statusDisabled: string;
+  kindMemoriesSpace: string;
+  kindVenue: string;
+  kindEvent: string;
+  kindServicePage: string;
+  kindUrl: string;
+  kindSplitter: string;
+  kindMenu: string;
+  kindTableOrdering: string;
+  targetBusinessPage: string;
+  targetUnset: string;
+  splitterButtonsLabel: string;
+  createAction: string;
+  createTitle: string;
+  createDescription: string;
+  labelLabel: string;
+  labelPlaceholder: string;
+  kindLabel: string;
+  referenceLabel: string;
+  chooseReferencePlaceholder: string;
+  urlLabel: string;
+  urlPlaceholder: string;
+  spacePlaceholder: string;
+  eventPlaceholder: string;
+  profilePlaceholder: string;
+  noReferenceNeeded: string;
+  submitCreate: string;
+  working: string;
+  splitterHeading: string;
+  splitterButtonKindLabel: string;
+  splitterButtonTextLabel: string;
+  splitterButtonTextPlaceholder: string;
+  addButton: string;
+  removeButton: string;
+  splitterHint: string;
+  batchAction: string;
+  batchTitle: string;
+  batchDescription: string;
+  batchPrefixLabel: string;
+  batchPrefixPlaceholder: string;
+  batchCountLabel: string;
+  batchStartLabel: string;
+  batchKindLabel: string;
+  batchPreview: string;
+  submitBatch: string;
+  batchDefaultPrefix: string;
+  retargetAction: string;
+  retargetTitle: string;
+  retargetDescription: string;
+  retargetWarning: string;
+  submitRetarget: string;
+  disableAction: string;
+  disableConfirm: string;
+  disabledBadge: string;
+  printAction: string;
+  printTitle: string;
+  urlHeading: string;
+  copyLink: string;
+  copied: string;
+  copyAria: string;
+  qrAlt: string;
+  orderingMissingHint: string;
+  noSpacesHint: string;
+  noEventsHint: string;
+  noProfilesHint: string;
+  createSuccess: string;
+  batchSuccess: string;
+  retargetSuccess: string;
+  disableSuccess: string;
+  genericError: string;
+  businessNotFound: string;
+  batchCountInvalid: string;
+}
+
+export interface AdminV1Dict {
+  skipToContent: string;
+  adminNavigationAria: string;
+  adminUtilitiesAria: string;
+  mobileNavigationTitle: string;
+  mobileNavigationDescription: string;
+  openMobileNavigation: string;
+  navDashboard: string;
+  navClients: string;
+  navInbox: string;
+  navTasks: string;
+  navOperations: string;
+  navServices: string;
+  navEvents: string;
+  navFinance: string;
+  navTeam: string;
+  navProducts: string;
+  navQrCodes: string;
+  navOrders: string;
+  navLinks: string;
+  navReview: string;
+  navMenu: string;
+  globalSearch: string;
+  globalSearchUnavailable: string;
+  settings: string;
+  notifications: string;
+  notificationsEmpty: string;
+  currentProfile: string;
+  profileFallback: string;
+  signOut: string;
+  dashboardTitle: string;
+  dashboardEmptyTitle: string;
+  dashboardEmptyBody: string;
+  dashboardCountZero: string;
+  dashboardCountOne: string;
+  dashboardCountMany: string;
+  dashboardCountUnavailable: string;
+  dashboardScopeLabel: string;
+  dashboardScopeAll: string;
+  dashboardScopeMine: string;
+  dashboardSignalUrgent: string;
+  dashboardSignalToday: string;
+  dashboardSignalWaitingClient: string;
+  dashboardSignalCalm: string;
+  dashboardSignalCalmHelp: string;
+  dashboardReactionTitle: string;
+  dashboardReactionHint: string;
+  dashboardReactionEmptyTitle: string;
+  dashboardReactionEmptyBody: string;
+  dashboardProjectionUnavailableTitle: string;
+  dashboardProjectionUnavailableBody: string;
+  dashboardOpenSource: string;
+  dashboardResolve: string;
+  dashboardSnooze: string;
+  dashboardSnoozeTitle: string;
+  dashboardSnoozeReason: string;
+  dashboardSnoozeReasonPlaceholder: string;
+  dashboardSnoozeUntil: string;
+  dashboardSnoozeConfirm: string;
+  dashboardResolveTitle: string;
+  dashboardResolveNote: string;
+  dashboardResolveNotePlaceholder: string;
+  dashboardResolveConfirm: string;
+  dashboardCancel: string;
+  dashboardMutationError: string;
+  dashboardMoreActions: string;
+  dashboardUnassigned: string;
+  dashboardCauseSubscription: string;
+  dashboardCauseTask: string;
+  dashboardCauseOrder: string;
+  dashboardCauseQrNfc: string;
+  dashboardCauseEmail: string;
+  dashboardCauseActivation: string;
+  dashboardCauseManual: string;
+  dashboardCauseOther: string;
+  dashboardSubscriptionsTitle: string;
+  dashboardSubscriptionsTotal: string;
+  dashboardSubscriptionsActive: string;
+  dashboardSubscriptionsGrace: string;
+  dashboardSubscriptionsSuspended: string;
+  dashboardSubscriptionsInactive: string;
+  dashboardSubscriptionsWarning: string;
+  dashboardProductsTitle: string;
+  dashboardProductsTotal: string;
+  dashboardProductsActive: string;
+  dashboardProductsInactive: string;
+  dashboardProductsProblem: string;
+  dashboardProductsQr: string;
+  dashboardProductsNfc: string;
+  dashboardProductsProblemChannels: string;
+  dashboardFinanceTitle: string;
+  dashboardFinanceCollected: string;
+  dashboardFinanceExpected: string;
+  dashboardFinanceProfit: string;
+  dashboardFinanceProfitUnavailable: string;
+  dashboardFinanceOpen: string;
+  dashboardTasksTitle: string;
+  dashboardTasksToday: string;
+  dashboardTasksOverdue: string;
+  dashboardTasksMine: string;
+  dashboardTasksEmpty: string;
+  dashboardTasksOpen: string;
+  dashboardInboxTitle: string;
+  dashboardInboxEmpty: string;
+  dashboardInboxOpen: string;
+  dashboardInboxProviderUnavailable: string;
+  dashboardInboxProviderState: string;
+  dashboardUnread: string;
+  dashboardWidgetErrorTitle: string;
+  dashboardWidgetErrorBody: string;
+  dashboardFixtureBadge: string;
+  dashboardFixtureDescription: string;
+  moduleUnavailableTitle: string;
+  moduleUnavailableBody: string;
+  loadingLabel: string;
+  emptyStateTitle: string;
+  emptyStateBody: string;
+  errorStateTitle: string;
+  errorStateBody: string;
+  retryAction: string;
+  statusActive: string;
+  statusWaiting: string;
+  statusProblem: string;
+  statusNeutral: string;
+  summaryProducts: string;
+  summaryQr: string;
+  summaryNfc: string;
+  summaryProblems: string;
+  accessLoading: string;
+  signInRequiredTitle: string;
+  signInRequiredBody: string;
+  openSignIn: string;
+  adminResetTitle: string;
+  adminResetBody: string;
+  adminResetAction: string;
+  adminResetOpen: string;
+  adminResetError: string;
+  adminSetupOpen: string;
+  adminExistingAccount: string;
+  accessDeniedTitle: string;
+  accessDeniedBody: string;
+  signOutAccount: string;
+  fixtureBadge: string;
+  fixtureTitle: string;
+  fixtureDescription: string;
+  fixturePanelStates: string;
+  fixtureTableTitle: string;
+  fixtureTableColumnState: string;
+  fixtureTableColumnPurpose: string;
+  fixtureTableActivePurpose: string;
+  fixtureTableWaitingPurpose: string;
+  fixtureTableProblemPurpose: string;
+  fixtureIdentity: string;
+  clientsTitle: string;
+  clientsSubtitle: string;
+  clientsSearchLabel: string;
+  clientsSearchPlaceholder: string;
+  clientsStatusLabel: string;
+  clientsStatusAll: string;
+  clientsStatusActive: string;
+  clientsStatusArchived: string;
+  clientsSortLabel: string;
+  clientsSortUrgency: string;
+  clientsSortName: string;
+  clientsSortRecent: string;
+  clientsTableCaption: string;
+  clientsColSignal: string;
+  clientsColClient: string;
+  clientsColContact: string;
+  clientsColVenues: string;
+  clientsColServices: string;
+  clientsColActivity: string;
+  clientsColActions: string;
+  clientsSignalNone: string;
+  clientsSignalBlocking: string;
+  clientsSignalWarning: string;
+  clientsSignalInformation: string;
+  clientsPremiumActive: string;
+  clientsPremiumGrace: string;
+  clientsEmailLabel: string;
+  clientsPhoneLabel: string;
+  clientsContactMissing: string;
+  clientsMoreVenues: string;
+  clientsServiceLinks: string;
+  clientsServiceReview: string;
+  clientsServiceMenu: string;
+  clientsServiceActive: string;
+  clientsServiceWarning: string;
+  clientsServiceGrace: string;
+  clientsServiceSuspended: string;
+  clientsServiceInactive: string;
+  clientsServiceProblem: string;
+  clientsServiceAbsent: string;
+  clientsServiceExpand: string;
+  clientsServiceCollapse: string;
+  clientsServiceDetailsTitle: string;
+  clientsActivityNone: string;
+  clientsActivityBlocking: string;
+  clientsActivityWarning: string;
+  clientsActivityInformation: string;
+  clientsActions: string;
+  clientsOpenPanel: string;
+  clientsPanelUnavailable: string;
+  clientsOpenProfile: string;
+  clientsLoadMore: string;
+  clientsLoadingMore: string;
+  clientsEmptyTitle: string;
+  clientsEmptyBody: string;
+  clientsNoResultsTitle: string;
+  clientsNoResultsBody: string;
+  clientsErrorTitle: string;
+  clientsErrorBody: string;
+  clientsRetry: string;
+  clientsProfilePendingTitle: string;
+  clientsProfilePendingBody: string;
+  clientsFixtureBadge: string;
+  clientsFixtureDescription: string;
+  clientProfileBack: string;
+  clientProfileSubtitle: string;
+  clientProfileVenues: string;
+  clientProfileProblems: string;
+  clientProfileProblemCountCapped: string;
+  clientProfileArchived: string;
+  clientProfilePremiumActive: string;
+  clientProfilePremiumGrace: string;
+  clientProfilePremiumSuspended: string;
+  clientProfilePremiumInactive: string;
+  clientProfileNoPremium: string;
+  clientProfileContacts: string;
+  clientProfileContactSelect: string;
+  clientProfileDefaultContact: string;
+  clientProfileOwnerContact: string;
+  clientProfileInactiveContact: string;
+  clientProfileSetDefault: string;
+  clientProfileAddContact: string;
+  clientProfileEditContact: string;
+  clientProfileDeactivateContact: string;
+  clientProfileReactivateContact: string;
+  clientProfileContactFirstName: string;
+  clientProfileContactLastName: string;
+  clientProfileContactPosition: string;
+  clientProfileContactEmail: string;
+  clientProfileContactPhone: string;
+  clientProfileSaveContact: string;
+  clientProfileCancel: string;
+  clientProfileConfirmDeactivate: string;
+  clientProfileContactRequired: string;
+  clientProfileContactInvalidEmail: string;
+  clientProfileContactInvalidPhone: string;
+  clientProfileMutationError: string;
+  clientProfileSectionOverview: string;
+  clientProfileSectionVenues: string;
+  clientProfileSectionFinance: string;
+  clientProfileSectionProducts: string;
+  clientProfileSectionCommunication: string;
+  clientProfileSectionActivity: string;
+  clientProfileUrgentWork: string;
+  clientProfileNoUrgentWork: string;
+  clientProfileOpenContext: string;
+  clientProfileResolve: string;
+  clientProfileOrganization: string;
+  clientProfileLegalEntities: string;
+  clientProfileBrands: string;
+  clientProfileVenueGroups: string;
+  clientProfileTags: string;
+  clientProfileFriendTag: string;
+  clientProfileNoOrganizationData: string;
+  clientProfileVenueSelect: string;
+  clientProfileLoadMoreVenues: string;
+  clientProfileVenueDetails: string;
+  clientProfileVenueStatus: string;
+  clientProfileVenueAddress: string;
+  clientProfileVenueContact: string;
+  clientProfileVenueContactAccount: string;
+  clientProfileVenueContactOverride: string;
+  clientProfileServices: string;
+  clientProfileSubscription: string;
+  clientProfileBillingMonthly: string;
+  clientProfileBillingAnnual: string;
+  clientProfilePaidThrough: string;
+  clientProfileGraceEnds: string;
+  clientProfileStartsAt: string;
+  clientProfileNoSubscription: string;
+  clientProfileProductsAtVenue: string;
+  clientProfileProductsSummary: string;
+  clientProfileProductsBody: string;
+  clientProfileFinanceEmptyTitle: string;
+  clientProfileFinanceEmptyBody: string;
+  clientProfileCommunicationEmptyTitle: string;
+  clientProfileCommunicationEmptyBody: string;
+  clientProfileActivityTitle: string;
+  clientProfileActivityEmpty: string;
+  clientProfileLoadMore: string;
+  clientProfileProblemTitle: string;
+  clientProfileProblemHistory: string;
+  clientProfileProblemAutomatic: string;
+  clientProfileResolutionNote: string;
+  clientProfileResolutionNotePlaceholder: string;
+  clientProfileResolutionNoteRequired: string;
+  clientProfileResolveProblem: string;
+  clientProfileNoProblemHistory: string;
+  clientProfileNotFoundTitle: string;
+  clientProfileNotFoundBody: string;
+  clientProfileErrorTitle: string;
+  clientProfileErrorBody: string;
+  clientProfileFixtureBadge: string;
+  clientProfileFixtureDescription: string;
+  clientProfileUnknown: string;
+  clientProfileOneProblem: string;
+  clientProfileTaxId: string;
+  clientProfileRegistrationNumber: string;
+  clientProfileOpenFinance: string;
+  clientProfileOpenProducts: string;
+  clientProfileOpenInbox: string;
+  clientProfileOpenService: string;
+}
+
+export interface AdminSettingsDict {
+  title: string; subtitle: string; general: string; subscriptions: string; payments: string; communication: string; pricing: string; referral: string;
+  timezone: string; currency: string; policyVersion: string; readOnly: string; monthlyWarning: string; annualWarning: string; monthlyGrace: string; annualGrace: string; days: string; lifecycleNote: string;
+  bankTransfer: string; supported: string; card: string; unavailable: string; cash: string; notConfigured: string; paymentNote: string;
+  foundation: string; configured: string; inbound: string; needsConfiguration: string; notConnected: string; communicationNote: string;
+  premiumReference: string; temporary: string; monthly: string; futurePrice: string; amount: string; validFrom: string; validUntil: string; reason: string; reasonPlaceholder: string; save: string; cancel: string; unsaved: string; saved: string; priceNote: string; agreementNote: string;
+  referralNote: string; agreements: string; agreementAccount: string; agreementTarget: string; agreementKind: string; agreementReference: string; agreementPrice: string; agreementCreate: string; agreementEmpty: string; referralRegister: string; referrer: string; referred: string; referralEmpty: string; chooseAccount: string; chooseTarget: string; founders: string; enterprise: string; individual: string; standard: string; pending: string; qualified: string; rewarded: string; cancelled: string; friendWaiver: string; friendTag: string; friendWaiverCreate: string; friendWaiverNote: string; leaveDraftTitle: string; leaveDraftBody: string; leaveDraftStay: string; leaveDraftLeave: string; loading: string; error: string; invalidAmount: string; invalidDate: string; invalidReason: string; conflict: string; saveFailed: string; annual: string; serviceSubscription: string; from: string; until: string; lifetime: string; foundersNote: string; chooseFriend: string; invalidAgreement: string; agreementSaved: string; invalidWaiver: string; waiverSaved: string; invalidReferral: string; referralSaved: string; rewardAgreement: string; rewardNote: string; chooseReferral: string; rewardType: string; percentage: string; fixedAmount: string; basisPoints: string; invalidReward: string; rewardCreate: string; rewardSaved: string; previewBadge: string; previewDescription: string;
+}
+
+export interface AdminTasksDict {
+  pageTitle: string;
+  pageSubtitle: string;
+  createAction: string;
+  searchLabel: string;
+  searchPlaceholder: string;
+  tabAll: string;
+  tabToday: string;
+  tabOverdue: string;
+  tabDeferred: string;
+  tabCompleted: string;
+  filterAssignee: string;
+  filterClient: string;
+  filterVenue: string;
+  filterSubject: string;
+  filterAll: string;
+  noVenue: string;
+  subjectNone: string;
+  subjectAccount: string;
+  subjectContact: string;
+  subjectVenue: string;
+  subjectConversation: string;
+  subjectService: string;
+  subjectSubscription: string;
+  subjectOrder: string;
+  subjectOrderLine: string;
+  subjectPrintJob: string;
+  subjectDelivery: string;
+  subjectActionItem: string;
+  tableCaption: string;
+  colClient: string;
+  colTask: string;
+  colDue: string;
+  colPriority: string;
+  colAssignee: string;
+  colStatus: string;
+  openDetail: string;
+  loadMore: string;
+  loadingMore: string;
+  emptyTitle: string;
+  emptyBody: string;
+  noResultsTitle: string;
+  noResultsBody: string;
+  errorTitle: string;
+  errorBody: string;
+  retry: string;
+  statusOpen: string;
+  statusInProgress: string;
+  statusDeferred: string;
+  statusCompleted: string;
+  statusCancelled: string;
+  priorityLow: string;
+  priorityNormal: string;
+  priorityHigh: string;
+  priorityUrgent: string;
+  dueNone: string;
+  dueToday: string;
+  dueOverdue: string;
+  dueDate: string;
+  dueInstant: string;
+  createTitle: string;
+  createDescription: string;
+  clientLabel: string;
+  contactLabel: string;
+  venueLabel: string;
+  conversationLabel: string;
+  subjectLabel: string;
+  titleLabel: string;
+  titlePlaceholder: string;
+  descriptionLabel: string;
+  descriptionPlaceholder: string;
+  assigneeLabel: string;
+  participantsLabel: string;
+  priorityLabel: string;
+  dueKindLabel: string;
+  dueDateLabel: string;
+  dueTimeLabel: string;
+  cancel: string;
+  save: string;
+  saving: string;
+  selectClient: string;
+  selectAssignee: string;
+  selectOptional: string;
+  detailTitle: string;
+  detailDescription: string;
+  claim: string;
+  saveContent: string;
+  saveDue: string;
+  addParticipant: string;
+  removeParticipant: string;
+  deferTitle: string;
+  deferUntil: string;
+  deferReason: string;
+  deferReasonPlaceholder: string;
+  deferAction: string;
+  resumeAction: string;
+  completeAction: string;
+  cancelTaskAction: string;
+  reopenAction: string;
+  reasonLabel: string;
+  reasonPlaceholder: string;
+  historyTitle: string;
+  historyEmpty: string;
+  historyLoadMore: string;
+  participantCount: string;
+  mutationError: string;
+  createdSuccess: string;
+  updatedSuccess: string;
+  previewBadge: string;
+  previewDescription: string;
+  systemActor: string;
+  adminActorFallback: string;
+}
+
+export interface AdminOrdersDict {
+  pageTitle: string;
+  pageSubtitle: string;
+  previewBadge: string;
+  previewDescription: string;
+  tabActive: string;
+  tabCompleted: string;
+  tabArchived: string;
+  searchLabel: string;
+  searchPlaceholder: string;
+  filterAll: string;
+  filterAssignee: string;
+  assigneeAll: string;
+  filterPayment: string;
+  filterDesign: string;
+  filterFulfillment: string;
+  filterProblems: string;
+  sortLabel: string;
+  sortNewest: string;
+  sortOldest: string;
+  sortSearchHint: string;
+  tableCaption: string;
+  colOrder: string;
+  colClient: string;
+  colState: string;
+  colNext: string;
+  colNoteProblem: string;
+  colAssignee: string;
+  colUpdated: string;
+  openDetail: string;
+  expandLines: string;
+  collapseLines: string;
+  linesTitle: string;
+  quantityShort: string;
+  multipleLocations: string;
+  emptyTitle: string;
+  emptyBody: string;
+  noResultsTitle: string;
+  noResultsBody: string;
+  errorTitle: string;
+  errorBody: string;
+  loading: string;
+  loadMore: string;
+  detailTitle: string;
+  detailDescription: string;
+  clientSection: string;
+  assigneeLabel: string;
+  createdByLabel: string;
+  axesSection: string;
+  paymentSection: string;
+  designSection: string;
+  productionSection: string;
+  qcSection: string;
+  deliverySection: string;
+  taskSection: string;
+  notesSection: string;
+  auditSection: string;
+  blockedAction: string;
+  nextPayment: string;
+  nextDesign: string;
+  nextProvisioning: string;
+  nextPrinter: string;
+  nextReceipt: string;
+  nextQc: string;
+  nextDelivery: string;
+  nextDone: string;
+  paymentAwaiting: string;
+  paymentPaid: string;
+  paymentReversed: string;
+  designTemplateSelected: string;
+  designInProgress: string;
+  designAwaitingApproval: string;
+  designApproved: string;
+  fulfillmentAwaitingConditions: string;
+  fulfillmentSmfAssigned: string;
+  fulfillmentReadyForPrinter: string;
+  fulfillmentAtPrinter: string;
+  fulfillmentReceived: string;
+  fulfillmentQualityControl: string;
+  fulfillmentReadyForDelivery: string;
+  fulfillmentInDelivery: string;
+  fulfillmentDelivered: string;
+  fulfillmentCancelled: string;
+  priorityNormal: string;
+  priorityHigh: string;
+  priorityUrgent: string;
+  problems: string;
+  noProblems: string;
+  lineProgress: string;
+  smfPendingAdmin12: string;
+  smfReady: string;
+  printSnapshot: string;
+  printerDestination: string;
+  expectedReturn: string;
+  printerMissing: string;
+  printerNameLabel: string;
+  printerNamePlaceholder: string;
+  printerContactLabel: string;
+  printerContactPlaceholder: string;
+  savePrinter: string;
+  printDraft: string;
+  printSent: string;
+  printPartiallyReceived: string;
+  printReceived: string;
+  printCancelled: string;
+  activationSignal: string;
+  activationNotPerformed: string;
+  courierFeeNote: string;
+  personalFeeNote: string;
+  deliveryCourier: string;
+  deliveryPersonal: string;
+  deliveryDraft: string;
+  deliveryInDelivery: string;
+  deliveryDelivered: string;
+  deliveryProblem: string;
+  deliveryCancelled: string;
+  taskOpen: string;
+  taskInProgress: string;
+  taskDeferred: string;
+  taskCompleted: string;
+  taskCancelled: string;
+  eventMigrated: string;
+  eventAssigned: string;
+  eventPaymentRecorded: string;
+  eventPaymentReversed: string;
+  eventDesignChanged: string;
+  eventDesignApproved: string;
+  eventProvisioningRequested: string;
+  eventSmfAssigned: string;
+  eventPrintJobCreated: string;
+  eventSentToPrinter: string;
+  eventPrinterReceiptRecorded: string;
+  eventQualityControlRecorded: string;
+  eventDeliveryCreated: string;
+  eventDeliveryStarted: string;
+  eventDeliveryCompleted: string;
+  eventDeliveryProblem: string;
+  eventCancelled: string;
+  eventArchived: string;
+  eventNoteChanged: string;
+  migrationVersion: string;
+  paymentOf: string;
+  paymentReversedAmount: string;
+  noRecords: string;
+  noNote: string;
+  payRemaining: string;
+  moveDesign: string;
+  approveDesign: string;
+  createPrintJob: string;
+  sendToPrinter: string;
+  receivePrint: string;
+  qcPass: string;
+  qcProblem: string;
+  qcReasonPlaceholder: string;
+  deliveryAddressLabel: string;
+  deliveryAddressPlaceholder: string;
+  deliveryMethodLabel: string;
+  courierServiceLabel: string;
+  courierServicePlaceholder: string;
+  courierReferenceLabel: string;
+  courierReferencePlaceholder: string;
+  courierFeeLabel: string;
+  createDelivery: string;
+  startDelivery: string;
+  completeDelivery: string;
+  saveNote: string;
+  saving: string;
+  mutationError: string;
+  previewApplyAction: string;
+  previewMultipleLocations: string;
+  previewProblemNote: string;
+  previewStandardNote: string;
+  previewQcReason: string;
+  actionPaymentRequired: string;
+  actionDesignRequired: string;
+  actionQualityProblem: string;
+  actionNextStep: string;
+  actionReadyDelivery: string;
+  actionPrinterLate: string;
+  actionDeliveryProblem: string;
+  actionDeliveryResolved: string;
+  migrationPaymentAllocationRequired: string;
+  migrationCancellationReviewRequired: string;
+  migrationVenueInvalid: string;
+  migrationBoundServiceMissing: string;
+  migrationPhysicalSelectionInvalid: string;
+}
+
+export interface AdminFinanceDict {
+  pageTitle: string;
+  pageSubtitle: string;
+  previewBadge: string;
+  previewDescription: string;
+  tabCollected: string;
+  tabExpected: string;
+  tabProfit: string;
+  actualBadge: string;
+  futureBadge: string;
+  incompleteBadge: string;
+  periodLabel: string;
+  periodMonth: string;
+  periodNextMonth: string;
+  periodThree: string;
+  periodSix: string;
+  periodYear: string;
+  periodAll: string;
+  filterLabel: string;
+  filterTotal: string;
+  filterPhysical: string;
+  filterSaas: string;
+  filterPremium: string;
+  filterLinks: string;
+  filterReview: string;
+  filterMenu: string;
+  summaryCollected: string;
+  summaryExpected: string;
+  summaryProfit: string;
+  summaryCurrentMonth: string;
+  summaryNextMonth: string;
+  grossReceived: string;
+  refunds: string;
+  reversals: string;
+  directCosts: string;
+  chartTitle: string;
+  chartDescription: string;
+  chartTableCaption: string;
+  chartPeriod: string;
+  chartAmount: string;
+  undated: string;
+  overdueKnown: string;
+  priceUnavailable: string;
+  methodsTitle: string;
+  methodsDenominator: string;
+  methodBank: string;
+  methodCard: string;
+  methodCash: string;
+  methodOther: string;
+  categoriesTitle: string;
+  category: string;
+  collected: string;
+  expected: string;
+  costs: string;
+  profit: string;
+  categoryPhysical: string;
+  categorySaas: string;
+  categoryPremium: string;
+  categoryUnallocated: string;
+  missingProduction: string;
+  missingHosting: string;
+  missingBackend: string;
+  missingClassification: string;
+  paymentsTitle: string;
+  paymentsCaption: string;
+  paymentClient: string;
+  paymentDate: string;
+  paymentMethod: string;
+  paymentAllocation: string;
+  paymentPeriod: string;
+  paymentState: string;
+  paymentOpen: string;
+  paymentMonthly: string;
+  paymentAnnual: string;
+  paymentOneTime: string;
+  paymentUnallocated: string;
+  paymentRefunded: string;
+  paymentReversed: string;
+  paymentSettled: string;
+  paymentReference: string;
+  paymentActor: string;
+  paymentAudit: string;
+  loadMore: string;
+  loadingMore: string;
+  emptyTitle: string;
+  emptyBody: string;
+  errorTitle: string;
+  errorBody: string;
+  retry: string;
+  costAction: string;
+  costTitle: string;
+  costDescription: string;
+  costCategory: string;
+  costProduction: string;
+  costHosting: string;
+  costBackend: string;
+  costAmount: string;
+  costOccurredAt: string;
+  costCoveredStart: string;
+  costCoveredEnd: string;
+  costAccountId: string;
+  costOrderId: string;
+  costOrderLineId: string;
+  costPrintJobId: string;
+  costPrinterId: string;
+  costSource: string;
+  costNote: string;
+  save: string;
+  saving: string;
+  cancel: string;
+  mutationSuccess: string;
+  mutationError: string;
+  detailTitle: string;
+  detailDescription: string;
+  detailAllocations: string;
+  detailAdjustments: string;
+  detailNoAdjustments: string;
+  refundAction: string;
+  refundTitle: string;
+  refundDescription: string;
+  refundAmount: string;
+  refundDate: string;
+  refundReason: string;
+  refundAllocationAmount: string;
+  refundUnbalanced: string;
+  profileTitle: string;
+  profileDescription: string;
+  profileOpenGlobal: string;
+  profileObligations: string;
+  profileDated: string;
+  profileUndated: string;
+  profileOverdue: string;
+  profileLastPayments: string;
+  profileNoPayments: string;
+}
+
+export interface AdminTeamDict {
+  pageTitle: string;
+  pageSubtitle: string;
+  tabOverview: string;
+  tabTasks: string;
+  tabConversations: string;
+  openTasks: string;
+  overdueTasks: string;
+  conversations: string;
+  awaitingReaction: string;
+  countCapped: string;
+  selectMember: string;
+  tasksTitle: string;
+  conversationsTitle: string;
+  openAllTasks: string;
+  openAllConversations: string;
+  reassign: string;
+  claim: string;
+  noTasks: string;
+  noConversations: string;
+  loading: string;
+  errorTitle: string;
+  errorBody: string;
+  previewBadge: string;
+  previewDescription: string;
+}
+
+export interface AdminProductsDict {
+  pageTitle: string;
+  pageSubtitle: string;
+  venueSearchLabel: string;
+  venueSearchPlaceholder: string;
+  venueFilterLabel: string;
+  venueFilterAll: string;
+  venueFilterProblem: string;
+  venueFilterActive: string;
+  venueSortLabel: string;
+  venueSortUrgency: string;
+  venueTableCaption: string;
+  colClient: string;
+  colVenue: string;
+  colCity: string;
+  colProducts: string;
+  colChannels: string;
+  colServices: string;
+  colStatus: string;
+  selectVenue: string;
+  premium: string;
+  noVenueResultsTitle: string;
+  noVenueResultsBody: string;
+  venueEmptyTitle: string;
+  venueEmptyBody: string;
+  loadMore: string;
+  loading: string;
+  loadingMore: string;
+  errorTitle: string;
+  errorBody: string;
+  retry: string;
+  backToVenues: string;
+  breadcrumb: string;
+  smfRoot: string;
+  productRange: string;
+  products: string;
+  qr: string;
+  nfc: string;
+  problems: string;
+  unknownValue: string;
+  healthHealthy: string;
+  healthUnverified: string;
+  healthBroken: string;
+  inventorySearchLabel: string;
+  inventorySearchPlaceholder: string;
+  filterType: string;
+  filterDesign: string;
+  filterService: string;
+  filterStatus: string;
+  filterAll: string;
+  filterTypeAll: string;
+  filterDesignAll: string;
+  filterDesignTemplate: string;
+  filterDesignCustom: string;
+  filterServiceAll: string;
+  viewLabel: string;
+  viewTable: string;
+  viewVisual: string;
+  inventoryTableCaption: string;
+  colSelect: string;
+  colId: string;
+  colProduct: string;
+  colPosition: string;
+  colQrNfc: string;
+  colDestination: string;
+  colUpdated: string;
+  colActions: string;
+  openProduct: string;
+  selectProduct: string;
+  noProductsTitle: string;
+  noProductsBody: string;
+  noSearchProductsTitle: string;
+  noSearchProductsBody: string;
+  productNoQr: string;
+  productNoNfc: string;
+  stateActive: string;
+  stateInactive: string;
+  stateProblem: string;
+  stateAbsent: string;
+  channelQr: string;
+  channelNfc: string;
+  channelState: string;
+  channelReason: string;
+  productTypeTwoPiece: string;
+  productTypeCompact: string;
+  productTypeSticker: string;
+  productTypeWindowFilm: string;
+  productTypePremiumEngraved: string;
+  selectionTitle: string;
+  selectedProducts: string;
+  editSelection: string;
+  clearSelection: string;
+  mixedValue: string;
+  bulkStatus: string;
+  bulkQrState: string;
+  bulkNfcState: string;
+  bulkDestination: string;
+  bulkServices: string;
+  bulkPosition: string;
+  change: string;
+  noApplicableSelection: string;
+  bulkLimit: string;
+  confirmationTitle: string;
+  confirmationBody: string;
+  reasonLabel: string;
+  reasonPlaceholder: string;
+  saveChanges: string;
+  saving: string;
+  cancel: string;
+  changeSaved: string;
+  mutationError: string;
+  detailTitle: string;
+  detailDescription: string;
+  productIdentity: string;
+  productDesign: string;
+  productServices: string;
+  productDestination: string;
+  serviceLinks: string;
+  serviceReview: string;
+  serviceMenu: string;
+  destinationService: string;
+  destinationLinksSplitter: string;
+  destinationGenericSplitter: string;
+  destinationDynamicUrl: string;
+  destinationLegacy: string;
+  destinationHistory: string;
+  channelHistory: string;
+  placementHistory: string;
+  scanAttribution: string;
+  auditUpdated: string;
+  noHistory: string;
+  qrModuleTitle: string;
+  qrModuleSubtitle: string;
+  channelSearchLabel: string;
+  channelSearchPlaceholder: string;
+  bindingFilter: string;
+  bindingAll: string;
+  bindingDigital: string;
+  bindingPhysical: string;
+  kindFilter: string;
+  kindAll: string;
+  healthFilter: string;
+  channelTableCaption: string;
+  colCode: string;
+  colKind: string;
+  colContext: string;
+  colHealth: string;
+  technicalDetail: string;
+  noChannelsTitle: string;
+  noChannelsBody: string;
+  previewBadge: string;
+  previewDescription: string;
+  fixtureIdentity: string;
+}
+
+export interface AdminSearchDict {
+  pageTitle: string;
+  pageSubtitle: string;
+  searchView: string;
+  activityView: string;
+  searchLabel: string;
+  searchPlaceholder: string;
+  commandTitle: string;
+  commandDescription: string;
+  commandEmpty: string;
+  commandOpenPage: string;
+  groupClients: string;
+  groupVenues: string;
+  groupContacts: string;
+  groupProducts: string;
+  groupChannels: string;
+  groupOrders: string;
+  statusActive: string;
+  statusArchived: string;
+  statusInactive: string;
+  statusCompleted: string;
+  statusProblem: string;
+  unknownAdmin: string;
+  sharedMailboxEvent: string;
+  subscriptionLabel: string;
+  channelQr: string;
+  channelNfc: string;
+  resultOpen: string;
+  emptyTitle: string;
+  emptyBody: string;
+  initialTitle: string;
+  initialBody: string;
+  errorTitle: string;
+  errorBody: string;
+  retry: string;
+  loadMore: string;
+  loadingMore: string;
+  loading: string;
+  scopeSuffixNote: string;
+  scopePlaceholder: string;
+  activityTitle: string;
+  activitySubtitle: string;
+  activityAllCategories: string;
+  activityAllActors: string;
+  activityClient: string;
+  activityCommunication: string;
+  activityTask: string;
+  activityOrder: string;
+  activityFinance: string;
+  activitySubscription: string;
+  activityProblem: string;
+  activityProduct: string;
+  activityService: string;
+  activitySupport: string;
+  actorAdmin: string;
+  actorSystem: string;
+  actorSharedMailbox: string;
+  actorExternal: string;
+  actorUnknown: string;
+  activityEmptyTitle: string;
+  activityEmptyBody: string;
+  activityReason: string;
+  activityOpenSource: string;
+  debugOpen: string;
+  debugStarting: string;
+  debugStartError: string;
+  debugMode: string;
+  debugBannerLabel: string;
+  debugExit: string;
+  debugExiting: string;
+  debugReadOnly: string;
+  debugOverviewTitle: string;
+  debugOwner: string;
+  debugContact: string;
+  debugVenues: string;
+  debugProducts: string;
+  debugChannels: string;
+  debugEndedTitle: string;
+  debugEndedBody: string;
+}
+
+export interface CommunicationsDict {
+  inboxTitle: string;
+  inboxSubtitle: string;
+  searchLabel: string;
+  searchPlaceholder: string;
+  statusFilter: string;
+  channelFilter: string;
+  assigneeFilter: string;
+  filterAll: string;
+  assigneeMine: string;
+  assigneeUnassigned: string;
+  conversationList: string;
+  conversationDetail: string;
+  noConversationsTitle: string;
+  noConversationsBody: string;
+  noFilteredTitle: string;
+  noFilteredBody: string;
+  selectConversationTitle: string;
+  selectConversationBody: string;
+  loadMore: string;
+  loadingMore: string;
+  retry: string;
+  errorTitle: string;
+  errorBody: string;
+  unreadLabel: string;
+  venueLabel: string;
+  contactLabel: string;
+  assigneeLabel: string;
+  noAssignee: string;
+  assignToMe: string;
+  removeAssignee: string;
+  statusLabel: string;
+  channelPanelChat: string;
+  channelEmail: string;
+  channelPhone: string;
+  channelInPerson: string;
+  channelCopiedMessage: string;
+  statusNew: string;
+  statusNeedsReply: string;
+  statusInProgress: string;
+  statusWaitingClient: string;
+  statusCompleted: string;
+  replyLabel: string;
+  replyPlaceholder: string;
+  sendReply: string;
+  replyUnavailable: string;
+  mutationError: string;
+  adminAuthorFallback: string;
+  messagesCapped: string;
+  sentReceipt: string;
+  deliveredReceipt: string;
+  readReceipt: string;
+  manualOpen: string;
+  manualTitle: string;
+  manualDescription: string;
+  manualChannel: string;
+  manualNote: string;
+  manualPlaceholder: string;
+  manualSave: string;
+  cancel: string;
+  profileScope: string;
+  profileOpenInbox: string;
+  clientTitle: string;
+  clientSubtitle: string;
+  clientOpen: string;
+  clientClose: string;
+  clientEmpty: string;
+  clientMessageLabel: string;
+  clientMessagePlaceholder: string;
+  clientSend: string;
+  clientSending: string;
+  clientError: string;
+  clientYou: string;
+  clientScanMe: string;
+  clientHistoryCapped: string;
+  previewBadge: string;
+  previewClientMessage: string;
+  previewAdminMessage: string;
+}
+
+export interface AdminServicesDict {
+  titleLinks: string;
+  titleReview: string;
+  titleMenu: string;
+  subtitle: string;
+  tabLinks: string;
+  tabReview: string;
+  tabMenu: string;
+  filterAll: string;
+  filterActive: string;
+  filterGrace: string;
+  filterPaused: string;
+  filterProblem: string;
+  searchLabel: string;
+  searchPlaceholder: string;
+  sortLabel: string;
+  sortUrgency: string;
+  sortName: string;
+  sortRecent: string;
+  tableCaption: string;
+  colVenue: string;
+  colStatus: string;
+  colSubscription: string;
+  colConfiguration: string;
+  colChannels: string;
+  colActivity: string;
+  colActions: string;
+  statusActive: string;
+  statusGrace: string;
+  statusSuspended: string;
+  statusInactive: string;
+  statusWarning: string;
+  statusProblem: string;
+  configurationPublished: string;
+  configurationDraft: string;
+  configurationConfigured: string;
+  configurationUnconfigured: string;
+  configurationInactive: string;
+  subscriptionPaidThrough: string;
+  subscriptionGraceEnds: string;
+  subscriptionMissing: string;
+  channelsUnavailable: string;
+  channelsSummary: string;
+  selectedVenue: string;
+  selectVenueTitle: string;
+  selectVenueBody: string;
+  openEditor: string;
+  openPublic: string;
+  openClient: string;
+  openProducts: string;
+  openQr: string;
+  googleDestination: string;
+  noGoogleDestination: string;
+  actionItems: string;
+  noActionItems: string;
+  actionsMenu: string;
+  suspend: string;
+  reactivate: string;
+  actionReason: string;
+  actionReasonPlaceholder: string;
+  actionConfirmSuspend: string;
+  actionConfirmReactivate: string;
+  cancel: string;
+  changeFailed: string;
+  sendUnavailable: string;
+  loadMore: string;
+  loadingMore: string;
+  emptyTitle: string;
+  emptyBody: string;
+  emptyFilteredTitle: string;
+  emptyFilteredBody: string;
+  errorTitle: string;
+  errorBody: string;
+  retry: string;
+  noData: string;
+  mobileDetails: string;
+  closeDetails: string;
+  previewBadge: string;
+  previewDescription: string;
+}
+
+// admin-events — the admin `Događaji` tab (Sajam 2026 B1A,
+// components/admin/admin-events*.tsx, app/admin/dogadjaji). Backend errors
+// arrive as stable codes (FAIR_ADMIN_ISSUE_CODES) and are mapped here.
+export type AdminEventsResolveProblem =
+  | "code_invalid"
+  | "code_unknown"
+  | "card_disabled"
+  | "redirect_disabled"
+  | "channel_inactive"
+  | "channel_problem"
+  | "destination_missing"
+  | "destination_fair_unassigned"
+  | "destination_fair_model_missing"
+  | "fair_model_not_published";
+
+export interface AdminEventsDict {
+  pageTitle: string;
+  pageSubtitle: string;
+  eventLabel: string;
+  eventOption: string;
+  noEventsTitle: string;
+  noEventsBody: string;
+  sectionsAria: string;
+  tabOverview: string;
+  tabModel: string;
+  tabQr: string;
+  tabImport: string;
+  tabClients: string;
+  daysTitle: string;
+  noDays: string;
+  participationsTitle: string;
+  standsTitle: string;
+  modelsTitle: string;
+  colExhibitor: string;
+  colSegment: string;
+  colStatus: string;
+  colStand: string;
+  colMapLocation: string;
+  colModel: string;
+  colBrand: string;
+  colPackage: string;
+  colQr: string;
+  colCheck: string;
+  colCode: string;
+  colChannelState: string;
+  colAssignment: string;
+  colActions: string;
+  openModel: string;
+  noQr: string;
+  checkSummary: string;
+  checkReady: string;
+  emptyCatalogTitle: string;
+  emptyCatalogBody: string;
+  modelPickLabel: string;
+  modelPickPlaceholder: string;
+  modelPickEmpty: string;
+  fieldExternalKey: string;
+  fieldSlug: string;
+  fieldPrice: string;
+  fieldSpecifications: string;
+  specCount: string;
+  fieldPhoto: string;
+  photoYes: string;
+  photoNo: string;
+  fieldStand: string;
+  fieldQr: string;
+  fieldPackageSince: string;
+  fieldPassport: string;
+  yes: string;
+  no: string;
+  validationTitle: string;
+  validationOk: string;
+  severityError: string;
+  severityWarning: string;
+  publish: string;
+  withdraw: string;
+  publishDone: string;
+  withdrawDone: string;
+  publishBlocked: string;
+  upgradeTitle: string;
+  upgradeHelp: string;
+  upgradeTarget: string;
+  upgradeNone: string;
+  upgradeStart: string;
+  upgradeConfirmTitle: string;
+  upgradeConfirmBody: string;
+  upgradeConfirm: string;
+  upgradeDone: string;
+  cancel: string;
+  qrSubtitle: string;
+  qrNotConfigured: string;
+  qrEmpty: string;
+  unassigned: string;
+  otherEvent: string;
+  assignTitle: string;
+  assignModel: string;
+  assignCode: string;
+  assignCodePlaceholder: string;
+  assignSubmit: string;
+  assignDone: string;
+  assignNoModels: string;
+  release: string;
+  releaseReason: string;
+  releaseConfirm: string;
+  releaseDone: string;
+  resolveTitle: string;
+  resolveHelp: string;
+  resolveCode: string;
+  resolveSubmit: string;
+  resolveOpens: string;
+  resolveBlocked: string;
+  resolveOther: string;
+  resolveLiveNote: string;
+  importTitle: string;
+  importHelp: string;
+  importTextLabel: string;
+  importFile: string;
+  importInvalidJson: string;
+  importShapeInvalid: string;
+  dryRun: string;
+  commit: string;
+  commitNeedsDryRun: string;
+  dryRunOk: string;
+  dryRunFailed: string;
+  summaryLine: string;
+  summaryUpgrades: string;
+  summaryQr: string;
+  entityParticipations: string;
+  entityStands: string;
+  entityModels: string;
+  commitDone: string;
+  commitLine: string;
+  commitRejected: string;
+  issuesTitle: string;
+  noIssues: string;
+  clientsSubtitle: string;
+  clientsEmpty: string;
+  convert: string;
+  convertConfirmBody: string;
+  convertConfirm: string;
+  convertDone: string;
+  loading: string;
+  loadMore: string;
+  loadingMore: string;
+  errorTitle: string;
+  errorBody: string;
+  retry: string;
+  actionFailed: string;
+  unknownIssue: string;
+  unknownProblem: string;
+  previewBadge: string;
+  previewDescription: string;
+  fixtureIdentity: string;
+  tiers: Record<FairPackageTier, string>;
+  modelStatus: Record<FairModelStatus, string>;
+  eventStatus: Record<FairEventStatus, string>;
+  entryStatus: Record<FairParticipationStatus, string>;
+  segments: Record<FairClientSegment, string>;
+  channelStates: Record<"active" | "inactive" | "problem", string>;
+  issues: Record<FairAdminIssueCode, string>;
+  resolveProblems: Record<AdminEventsResolveProblem, string>;
+  // B3 — Interakcije tab (Glas publike, ankete, pasoši)
+  tabInteractions: string;
+  interactionsSubtitle: string;
+  interactionsUnavailable: string;
+  questionsTitle: string;
+  questionsHelp: string;
+  fieldModel: string;
+  fieldDay: string;
+  questionPrompt: string;
+  questionOptions: string;
+  questionSave: string;
+  questionSaved: string;
+  questionsEmpty: string;
+  questionsNoModels: string;
+  questionPublish: string;
+  questionPublished: string;
+  questionClose: string;
+  questionClosed: string;
+  questionRotationSet: string;
+  questionRotationOn: string;
+  questionRotationAdd: string;
+  questionRotationClear: string;
+  questionStatus: Record<FairAudienceQuestionStatus, string>;
+  surveysTitle: string;
+  surveysHelp: string;
+  surveyQuestionLabel: string;
+  surveyKind: string;
+  surveyKinds: Record<FairSurveyQuestionKind, string>;
+  surveyOptions: string;
+  surveyAddQuestion: string;
+  surveyRemoveQuestion: string;
+  surveySave: string;
+  surveySaved: string;
+  surveysEmpty: string;
+  surveysNoModels: string;
+  surveyVersion: string;
+  surveyPublish: string;
+  surveyPublished: string;
+  surveyRetire: string;
+  surveyRetired: string;
+  surveyStatus: Record<FairSurveyStatus, string>;
+  passportsTitle: string;
+  passportsHelp: string;
+  passportsEmpty: string;
+  passportNone: string;
+  passportOpen: string;
+  passportOpened: string;
+  passportPublish: string;
+  passportPublishedDone: string;
+  passportWithdraw: string;
+  passportWithdrawConfirm: string;
+  passportWithdrawn: string;
+  passportRemoveModel: string;
+  passportRemoveConfirm: string;
+  passportRemoved: string;
+  passportFrozenAt: string;
+  passportStatus: Record<FairPassportConfigStatus, string>;
+  passportMemberStatus: Record<FairPassportEligibleStatus, string>;
+  passportProblems: Record<AdminEventsPassportProblem, string>;
+  confirm: string;
+  // B4 — Leadovi tab (saglasnost, podešavanje po modelu, follow-up tekst, leadovi)
+  tabLeads: string;
+  leadsSubtitle: string;
+  leadsUnavailable: string;
+  leadKinds: Record<FairLeadKind, string>;
+  consentTitle: string;
+  consentHelp: string;
+  consentActive: string;
+  consentInactive: string;
+  consentDraftLabel: string;
+  consentNewLabel: string;
+  consentSaveDraft: string;
+  consentSaved: string;
+  consentActivate: string;
+  consentActivateConfirm: string;
+  consentActivated: string;
+  consentRetire: string;
+  consentRetireConfirm: string;
+  consentRetired: string;
+  consentVersionLine: string;
+  consentStatus: Record<FairConsentStatus, string>;
+  settingsTitle: string;
+  settingsHelp: string;
+  settingsNoModels: string;
+  settingsLoading: string;
+  configEnabled: string;
+  configRequirement: string;
+  configPreferred: string;
+  configPreferredNone: string;
+  contactRequirements: Record<FairContactRequirement, string>;
+  preferredContacts: Record<FairPreferredContact, string>;
+  configSave: string;
+  configSaved: string;
+  testDriveAdvancedOnly: string;
+  followUpTitle: string;
+  followUpHelp: string;
+  followUpSubject: string;
+  followUpText: string;
+  followUpSave: string;
+  followUpSaved: string;
+  followUpActiveVersion: string;
+  followUpNone: string;
+  listTitle: string;
+  listHelp: string;
+  fieldExhibitor: string;
+  listEmpty: string;
+  listNoParticipations: string;
+  leadMeta: string;
+  leadConsent: string;
+  leadNoEmail: string;
+  leadNoPhone: string;
+  confirmationLabel: string;
+  followUpLabel: string;
+  followUpPlanned: string;
+  deliveryNone: string;
+  deliveryStatus: Record<FairEmailDeliveryStatus, string>;
+  deliveryErrors: Record<FairEmailDeliveryError, string>;
+  suppress: string;
+  suppressConfirm: string;
+  suppressDone: string;
+  unsuppress: string;
+  unsuppressDone: string;
+  followUpSuppressedBadge: string;
+  retryConfirmation: string;
+  retryFollowUp: string;
+  retryDone: string;
+  // B5 — Sponzorisano tab (ručna objava liste Naprednih modela, rezultat na mapi)
+  tabSponsored: string;
+  sponsoredSubtitle: string;
+  sponsoredUnavailable: string;
+  sponsoredTitle: string;
+  sponsoredHelp: string;
+  sponsoredNone: string;
+  sponsoredActiveLine: string;
+  sponsoredUpToDate: string;
+  sponsoredStale: string;
+  sponsoredMissing: string;
+  sponsoredExtra: string;
+  sponsoredQuestionChanged: string;
+  sponsoredPending: string;
+  sponsoredPublish: string;
+  sponsoredPublishConfirm: string;
+  sponsoredPublished: string;
+  sponsoredItemsTitle: string;
+  sponsoredItemsHelp: string;
+  sponsoredItemsEmpty: string;
+  sponsoredItemLine: string;
+  sponsoredItemResult: string;
+  sponsoredItemNoResult: string;
+  sponsoredResultTitle: string;
+  sponsoredResultHelp: string;
+  sponsoredResultNone: string;
+  sponsoredResultNoModels: string;
+  sponsoredResultNoQuestions: string;
+  sponsoredResultSaved: string;
+  sponsoredHistoryTitle: string;
+  sponsoredHistoryHelp: string;
+  sponsoredHistoryLine: string;
+  sponsoredStatus: Record<FairSponsoredSnapshotStatus, string>;
+  tabReports: string;
+  reportsSubtitle: string;
+  reportsUnavailable: string;
+  reportsBuildTitle: string;
+  reportsBuildHelp: string;
+  reportsBuildEmpty: string;
+  reportsDay: string;
+  reportsExhibitor: string;
+  reportsFormat: string;
+  reportsBuild: string;
+  reportsBuildQueued: string;
+  reportsListTitle: string;
+  reportsListHelp: string;
+  reportsEmpty: string;
+  reportsRunLine: string;
+  reportsRunMeta: string;
+  reportsApprovedAt: string;
+  reportsCorrectionBadge: string;
+  reportsRecipient: string;
+  reportsNoRecipient: string;
+  reportsDelivery: string;
+  reportsError: string;
+  reportsReview: string;
+  reportsCloseReview: string;
+  reportsReviewLoading: string;
+  reportsReviewEmpty: string;
+  reportsApprove: string;
+  reportsApproveConfirm: string;
+  reportsApproved: string;
+  reportsSend: string;
+  reportsSendConfirm: string;
+  reportsSent: string;
+  reportsResend: string;
+  reportsResendConfirm: string;
+  reportsRetry: string;
+  reportsRetried: string;
+  reportsCorrect: string;
+  reportsCorrectConfirm: string;
+  reportsCorrected: string;
+  reportsDownload: string;
+  reportsDownloaded: string;
+  reportsRecipientLabel: string;
+  reportsExportsTitle: string;
+  reportsExportsHelp: string;
+  reportsLeadsLabel: string;
+  reportsLeadsWarning: string;
+  reportsLeadsDownload: string;
+  reportsOrganizerLabel: string;
+  reportsOrganizerDownload: string;
+  reportStatus: Record<FairReportStatus, string>;
+  reportsFormats: Record<FairReportFormat, string>;
+  reportBuildErrors: Record<"BUILD_FAILED" | "REPORT_CONTEXT_MISSING", string>;
+  // B7 — Brisanje podataka (16 Nov 2026 purge: preview, dry run, audit)
+  tabRetention: string;
+  retentionSubtitle: string;
+  retentionUnavailable: string;
+  retentionScheduleTitle: string;
+  retentionScheduleHelp: string;
+  retentionScheduleLine: string;
+  retentionKeptNote: string;
+  retentionPreviewTitle: string;
+  retentionPreviewHelp: string;
+  retentionCountCapped: string;
+  retentionDryRun: string;
+  retentionDryRunStarted: string;
+  retentionRunsTitle: string;
+  retentionRunsHelp: string;
+  retentionRunsEmpty: string;
+  retentionRunLine: string;
+  retentionRunFinished: string;
+  retentionRunProgress: string;
+  retentionCategoryLine: string;
+  retentionModes: Record<FairPurgeMode, string>;
+  retentionTriggers: Record<FairPurgeTrigger, string>;
+  retentionRunStatus: Record<FairPurgeRunStatus, string>;
+  retentionCategoryStatus: Record<FairPurgeCategoryStatus, string>;
+  retentionCategories: Record<FairPurgeCategory, string>;
+}
+
+export type AdminEventsPassportProblem = "fewer_than_two_models" | "model_not_published" | "model_not_candidate" | "model_below_starter";
+
+// event-lead-email — visitor emails after a fair lead (Sajam 2026 B4,
+// convex/lib/fairEmails.ts). Placeholder copy until P1 is locked.
+export interface EventLeadEmailDict {
+  confirmationSubjectInterest: string;
+  confirmationSubjectTestDrive: string;
+  greeting: string;
+  confirmationBodyInterest: string;
+  confirmationBodyTestDrive: string;
+  confirmationFollowUpNote: string;
+  followUpFooter: string;
+  modelLink: string;
+  signature: string;
+  devTestSubject: string;
+  devTestBody: string;
+}
+
+// event-report — B6 exhibitor daily report, organizer aggregate and PII lead
+// export files + the report email (convex/lib/fairReportFiles.ts). The visual
+// template is PRIVREMENO (MASTER §12); these are neutral placeholder labels.
+export interface EventReportDict {
+  reportTitle: string;
+  reportSubtitle: string;
+  builtAtLine: string;
+  windowLine: string;
+  provisionalNote: string;
+  truncatedNote: string;
+  cappedNote: string;
+  standsHeading: string;
+  standsNote: string;
+  modelsHeading: string;
+  hourlyHeading: string;
+  comparisonHeading: string;
+  ratingsHeading: string;
+  audienceHeading: string;
+  surveyHeading: string;
+  sponsoredHeading: string;
+  noModelAnalytics: string;
+  colStand: string;
+  colModel: string;
+  colPackage: string;
+  colTotal: string;
+  colUnique: string;
+  colHour: string;
+  colInterest: string;
+  colTestDrive: string;
+  colMetric: string;
+  colToday: string;
+  colPrevious: string;
+  colChange: string;
+  colField: string;
+  colCount: string;
+  colAverage: string;
+  colQuestion: string;
+  colAnswer: string;
+  colVotes: string;
+  colResponses: string;
+  colOpenModel: string;
+  colGarageAdd: string;
+  colDay: string;
+  colDate: string;
+  colKind: string;
+  colName: string;
+  colEmail: string;
+  colPhone: string;
+  colConsentVersion: string;
+  colConsentedAt: string;
+  colCreatedAt: string;
+  tiers: Record<"included" | "starter" | "advanced", string>;
+  ratingFields: Record<"overall" | "appearance" | "specifications" | "price", string>;
+  comparisonMetrics: Record<"scans_total" | "scans_unique" | "interest" | "test_drive" | "sponsored_open_model" | "sponsored_garage_add", string>;
+  questionStatus: Record<"draft" | "published" | "closed", string>;
+  leadKinds: Record<"interest" | "test_drive", string>;
+  yes: string;
+  no: string;
+  surveyVersion: string;
+  pageOf: string;
+  sheetName: string;
+  organizerTitle: string;
+  organizerSubtitle: string;
+  organizerHeading: string;
+  organizerNote: string;
+  leadsTitle: string;
+  leadsSubtitle: string;
+  leadsHeading: string;
+  emailSubject: string;
+  emailBody: string;
+  emailCorrectionNote: string;
+  emailSignature: string;
+}
+
 export interface DictBySurface {
+  "event-map": EventMapDict;
+  "fair-map": FairMapDict;
+  "fair-model": FairModelDict;
+  "admin-v1": AdminV1Dict;
+  "admin-settings": AdminSettingsDict;
+  "admin-tasks": AdminTasksDict;
+  "admin-orders": AdminOrdersDict;
+  "admin-finance": AdminFinanceDict;
+  "admin-services": AdminServicesDict;
+  "admin-products": AdminProductsDict;
+  "admin-search": AdminSearchDict;
+  "admin-team": AdminTeamDict;
+  "admin-events": AdminEventsDict;
+  "event-lead-email": EventLeadEmailDict;
+  "event-report": EventReportDict;
+  communications: CommunicationsDict;
+  "admin-domain": AdminDomainDict;
   venue: VenueDict;
   "venue-editor": VenueEditorDict;
   "venue-admin": VenueAdminDict;
@@ -1705,8 +4166,14 @@ export interface DictBySurface {
   consent: ConsentDict;
   privacy: PrivacyDict;
   offer: OfferDict;
-  "admin-customers": AdminCustomersDict;
   "admin-location": AdminLocationDict;
+  menu: MenuDict;
+  "menu-editor": MenuEditorDict;
+  "menu-admin": MenuAdminDict;
+  "ordering-admin": OrderingAdminDict;
+  ordering: OrderingDict;
+  "ordering-panel": OrderingPanelDict;
+  "cards-admin": CardsAdminDict;
 }
 
 export type Surface = keyof DictBySurface;

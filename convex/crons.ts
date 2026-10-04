@@ -25,6 +25,9 @@ import { internal } from "./_generated/api";
 //     pins referencing it, THEN the row. This is where bytes actually die.
 const crons = cronJobs();
 
+// ADMIN-03 independent cycles; no account-wide expiry writes.
+crons.interval("subscription lifecycle", { minutes: 15 }, internal.subscriptions.sweep, {});
+
 crons.interval(
   "expire entitlements",
   { hours: 24 },
@@ -89,6 +92,33 @@ crons.interval(
   {},
 );
 
+//   • the 1-minute stale-shift sweep (TASK-65 / RFC-004 §2.6, §2.7) — the
+//     backstop for a lost per-heartbeat markShiftStale flip: flips open shifts
+//     whose last heartbeat is older than STALE_MS to stale, so the guest's
+//     availability boolean stays clock-free. Ranges orderingShifts
+//     by_status_and_lastHeartbeatAt; no-ops on empty tables. The interval is a
+//     PLACEHOLDER tied to STALE_MS (RFC-004 §5 Q5, docs/tasks/BLOCKED.md).
+crons.interval(
+  "sweep stale ordering shifts",
+  { minutes: 1 },
+  internal.orderingShifts.sweepStaleShifts,
+  {},
+);
+
+//   • the 1-minute overdue-request sweep (TASK-67 / RFC-004 §2.8) — the backstop
+//     for a lost per-request markOverdue flip: raises the `overdue` FLAG on
+//     still-`sent` requests past their frozen overdueAt, so the guest's action
+//     card appears without any query ever reading the clock. It NEVER cancels a
+//     request — the owner rejected auto-cancel outright; the row stays pending
+//     and the guest decides. Ranges serviceRequests by_status_and_overdueAt;
+//     no-ops on empty tables.
+crons.interval(
+  "sweep overdue ordering requests",
+  { minutes: 1 },
+  internal.orderingStatus.sweepOverdueRequests,
+  {},
+);
+
 //   • the daily billing-cycle sweep (TASK-32 / RFC-002 §2.5–§2.6) — flips
 //     ACTIVE accounts whose paid-through date (accounts.planValidUntil) plus
 //     grace has elapsed to "expired", which cuts getEntitlement's account-plan
@@ -99,6 +129,50 @@ crons.interval(
   "billing cycle sweep",
   { hours: 24 },
   internal.billing.sweepBillingCycles,
+  {},
+);
+
+//   • the 2-minute stuck-menu-cleanup sweep (TASK-60c / RFC-003 §4) — the
+//     backstop for a lost cleanupOldGenerations continuation. publishDraft
+//     writes a fresh published generation and flips menus.publishedGeneration,
+//     then schedules cleanup of the old generations OFF the critical path; if
+//     that scheduled continuation is dropped, old generation rows would linger.
+//     A healthy cleanup chain refreshes pendingCleanupSince each batch, so it
+//     stays out of this range; a menu stale past MENU_CLEANUP_STALE_MS is
+//     re-driven. Ranges menus by_pendingCleanup_and_pendingCleanupSince (led by
+//     eq(pendingCleanup,true), so absent/false rows can't leak in); no-ops on
+//     empty tables.
+crons.interval(
+  "sweep stuck menu cleanups",
+  { minutes: 2 },
+  internal.menu.sweepStuckMenuCleanups,
+  {},
+);
+
+//   • the 15-minute fair daily-report sweep (Sajam 2026 B6 / MASTER §12) —
+//     once a fair day has closed (fairEventDays.endsAt), queues and builds one
+//     report run per active participation that has a daily-report package, so
+//     the dataset is ready within 60 minutes. It never sends: a run waits in
+//     pending_review for a manual admin approval. Bounded and idempotent (one
+//     run per day × participation); no-ops when no fair day closed in the last
+//     24 h.
+crons.interval(
+  "fair daily report sweep",
+  { minutes: 15 },
+  internal.fairReports.sweepDailyReports,
+  {},
+);
+
+//   • the 15-minute fair PII purge tick (Sajam 2026 B7 / MASTER §13, HANDOFF
+//     §5.6) — a no-op before 16 Nov 2026 00:00 Europe/Belgrade
+//     (FAIR_PII_PURGE_AT_MS). From then on it starts the bounded, audited
+//     purge of every lead, outbox row and visitor-linkable row, resumes it from
+//     the last committed batch if a continuation was lost, and re-runs it if a
+//     PII row appears afterwards. Anonymous aggregates are never deleted.
+crons.interval(
+  "fair pii purge",
+  { minutes: 15 },
+  internal.fairRetention.purgeTick,
   {},
 );
 

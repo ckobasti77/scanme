@@ -18,6 +18,7 @@ import { VENUE_BLOCK_TYPES } from "../../lib/venue-blocks";
 
 export type MemoriesPlanKey = "basic" | "standard" | "premium";
 export type VenuePlanKey = "basic" | "premium";
+export type MenuPlanKey = "basic" | "premium";
 
 export interface MemoriesLimits {
   photosPerGuest: number;
@@ -31,7 +32,52 @@ export interface VenueLimits {
   maxActiveEvents: number | null;
   /** Whether the owner may read event analytics (collection always runs). */
   analytics: boolean;
+  /**
+   * Whether table ordering is enabled for this venue (RFC-004 §2.12).
+   * Gated by venueOrderingEnabled. Missing / undefined falls back to false.
+   */
+  ordering: boolean;
 }
+
+export interface MenuLimits {
+  /** Whether item photos are displayed (Premium only). On Basic, tiles are shown. */
+  photos: boolean;
+  /** Whether item short video plays in the opened sheet (Premium only). */
+  videoInSheet: boolean;
+  /** Whether menu animations are enabled (Premium only). */
+  animations: boolean;
+  /** Whether the "Istaknuto" (featured) group shape is available (Premium only). */
+  featuredGroup: boolean;
+  /** Max groups; null = unlimited. */
+  maxGroups: number | null;
+  /** Max items per group; null = unlimited. */
+  maxItemsPerGroup: number | null;
+}
+
+export const MENU_BASIC_LIMITS: MenuLimits = {
+  photos: false,
+  videoInSheet: false,
+  animations: false,
+  featuredGroup: false,
+  maxGroups: null,
+  maxItemsPerGroup: null,
+};
+
+export const MENU_PREMIUM_LIMITS: MenuLimits = {
+  photos: true,
+  videoInSheet: true,
+  animations: true,
+  featuredGroup: true,
+  maxGroups: null,
+  maxItemsPerGroup: null,
+};
+
+// The Menu limits catalog, wired into PLAN_LIMITS.scanme_menu below (TASK-61).
+// Defined here (above PLAN_LIMITS) so the reference is initialized in order.
+export const MENU_PLAN_LIMITS: Record<MenuPlanKey, MenuLimits> = {
+  basic: MENU_BASIC_LIMITS,
+  premium: MENU_PREMIUM_LIMITS,
+};
 
 // The Basic core (TASK-43): informational blocks every venue gets for free.
 // Premium is everything — derived from VENUE_BLOCK_TYPES so a future block
@@ -57,16 +103,24 @@ export const PLAN_LIMITS = {
       allowedBlockKeys: VENUE_BASIC_BLOCK_KEYS as readonly string[],
       maxActiveEvents: 1,
       analytics: false,
+      ordering: false,
     },
     premium: {
       allowedBlockKeys: VENUE_BLOCK_TYPES as readonly string[],
       maxActiveEvents: null,
       analytics: true,
+      // Placeholder tier per RFC-004 §5 Q1 / TASK-64: Premium has ordering: true, awaiting owner confirmation.
+      ordering: true,
     },
   },
+  // TASK-61: Menu joins the plan catalog. Basic/Premium map straight to the
+  // MENU_PLAN_LIMITS defined above; getEntitlement now resolves "scanme_menu"
+  // through the generic chain (RFC-003 §2.7).
+  scanme_menu: MENU_PLAN_LIMITS,
 } satisfies {
   scanme_memories: Record<MemoriesPlanKey, MemoriesLimits>;
   scanme_venue: Record<VenuePlanKey, VenueLimits>;
+  scanme_menu: Record<MenuPlanKey, MenuLimits>;
 };
 
 // The products that carry a plan catalog. Links and Google Review have no plans
@@ -84,6 +138,15 @@ export type LimitsFor<P extends PlanProduct> =
 
 // Account plan (Axis B, RFC-002 §2.2.1) — mirrors accounts.plan in the schema.
 export type AccountPlan = "basic" | "premium" | "enterprise";
+
+// Menu's account-plan → tier map, wired into ACCOUNT_PLAN_TIER.scanme_menu below
+// (TASK-61). Defined here (above ACCOUNT_PLAN_TIER) so the reference initializes
+// in order. Enterprise resolves the Premium tier (RFC-003 §2.7).
+export const MENU_ACCOUNT_PLAN_TIER: Record<AccountPlan, MenuPlanKey> = {
+  basic: "basic",
+  premium: "premium",
+  enterprise: "premium",
+};
 
 // Account plan → per-product tier (planKey) for getEntitlement step 3
 // (RFC-002 §2.2.3). Lives in code, so tuning is a deploy, never a migration.
@@ -114,6 +177,7 @@ export const ACCOUNT_PLAN_TIER: {
     premium: "premium",
     enterprise: "premium",
   },
+  scanme_menu: MENU_ACCOUNT_PLAN_TIER,
 };
 
 // ---------------------------------------------------------------------------
@@ -147,3 +211,35 @@ export function venueAnalyticsEnabled(
 ): boolean {
   return limits?.analytics === true;
 }
+
+export function venueOrderingEnabled(
+  limits: Partial<VenueLimits> | null | undefined,
+): boolean {
+  return limits?.ordering === true;
+}
+
+// ---------------------------------------------------------------------------
+// Menu limit readers (TASK-55, RFC-003 §2.7). Every enforcement point funnels
+// through these so "no entitlement", "unknown planKey", and "override without
+// a value" all resolve to the FREE (basic) tier — the honest default: an
+// untiered or Basic menu shows category icon tiles, never photos.
+// ---------------------------------------------------------------------------
+
+export function menuPhotosEnabled(
+  limits: Partial<MenuLimits> | null | undefined,
+): boolean {
+  return limits?.photos === true;
+}
+
+export function menuVideoEnabled(
+  limits: Partial<MenuLimits> | null | undefined,
+): boolean {
+  return limits?.videoInSheet === true;
+}
+
+export function menuFeaturedEnabled(
+  limits: Partial<MenuLimits> | null | undefined,
+): boolean {
+  return limits?.featuredGroup === true;
+}
+

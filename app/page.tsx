@@ -25,11 +25,12 @@ import { Reveal } from "@/components/reveal";
 import { ScanStory } from "@/components/scan-story";
 import { SiteNav, Wordmark } from "@/components/site-nav";
 import { SiteScrollMotion } from "@/components/site-scroll-motion";
-import { ComingSoon } from "@/components/coming-soon";
+import { PrelaunchLanding } from "@/components/prelaunch-landing";
 import { EcosystemProductDeck } from "@/components/ecosystem-product-deck";
 import { LandingPackages } from "@/components/landing-packages";
 import { BackToTop } from "@/components/back-to-top";
 import { hasPreviewAccess } from "@/lib/preview-access";
+import { isProductionPrelaunchOnly } from "@/lib/prelaunch-mode";
 import { readContactMessage, readContactSelection } from "@/lib/offer-contact";
 import { encodeSelection } from "@/lib/offer-url";
 
@@ -88,7 +89,9 @@ const footerProducts = [
 ] as const;
 
 export default async function Home({ searchParams }: PageProps<"/">) {
-  if (!(await hasPreviewAccess())) return <ComingSoon />;
+  if (isProductionPrelaunchOnly() || !(await hasPreviewAccess())) {
+    return <PrelaunchLanding />;
+  }
 
   // Ako je korisnik došao iz toka ponude (Enterprise CTA ili /ponuda/pregled), query
   // nosi kontekst; ovde ga čitamo u čitljiv predlog poruke za kontakt formu.

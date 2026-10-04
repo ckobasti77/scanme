@@ -1,12 +1,13 @@
-import type { Metadata } from "next";
-import { ScanMeLinksAdmin } from "@/components/admin/scanme-links-admin";
+import { redirect } from "next/navigation";
+import {
+  type AdminSearchParams,
+  withSearchParams,
+} from "@/lib/admin-v1/cutover";
 
-export const metadata: Metadata = {
-  title: "ScanMe Links | ScanMe Admin",
-  robots: { index: false, follow: false },
-};
-
-export default function ScanMeLinksAdminPage() {
-  return <ScanMeLinksAdmin />;
+export default async function ScanMeLinksAdminPage({
+  searchParams,
+}: {
+  searchParams: Promise<AdminSearchParams>;
+}) {
+  redirect(withSearchParams("/admin/usluge/links", await searchParams));
 }
-

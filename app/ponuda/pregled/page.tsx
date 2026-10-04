@@ -8,6 +8,7 @@ import { fmt } from "@/lib/i18n/format";
 import { offerSr as dict } from "@/lib/i18n/sr/offer";
 import { buildSelectionContactHref } from "@/lib/offer-contact";
 import { encodeSelection, parseSelection } from "@/lib/offer-url";
+import { isProductionPrelaunchOnly } from "@/lib/prelaunch-mode";
 import {
   computeOrderBreakdown,
   formatRsd,
@@ -82,6 +83,8 @@ function configurationEntries(item: ProductLineItem): { label: string; value: st
 }
 
 export default async function PregledPage({ searchParams }: PageProps<"/ponuda/pregled">) {
+  if (isProductionPrelaunchOnly()) redirect("/");
+
   const resolved = await searchParams;
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(resolved)) {

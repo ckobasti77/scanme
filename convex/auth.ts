@@ -1,10 +1,27 @@
 import { ConvexError } from "convex/values";
+import { ConvexCredentials } from "@convex-dev/auth/providers/ConvexCredentials";
 import { Password } from "@convex-dev/auth/providers/Password";
-import { convexAuth } from "@convex-dev/auth/server";
+import {
+  convexAuth,
+  invalidateSessions,
+  modifyAccountCredentials,
+  retrieveAccount,
+} from "@convex-dev/auth/server";
 import { env, type MutationCtx } from "./_generated/server";
 import { isAdminEmail } from "./lib/access";
 import { acceptInvitationForUser, findInvitationByToken } from "./lib/invitations";
 import { normalizeEmail } from "./lib/validation";
+
+function validatePasswordRequirements(password: string) {
+  if (
+    password.length < 10 ||
+    !/[a-z]/.test(password) ||
+    !/[A-Z]/.test(password) ||
+    !/\d/.test(password)
+  ) {
+    throw new ConvexError("Šifra mora imati najmanje 10 karaktera, veliko i malo slovo i broj.");
+  }
+}
 
 const passwordProvider = Password({
   profile(params) {
@@ -17,20 +34,41 @@ const passwordProvider = Password({
     if (typeof params.adminSetupSecret === "string") profile.adminSetupSecret = params.adminSetupSecret;
     return profile;
   },
-  validatePasswordRequirements(password) {
+  validatePasswordRequirements,
+});
+
+const adminPasswordResetProvider = ConvexCredentials({
+  id: "admin-password-reset",
+  async authorize(params, ctx) {
+    const email = normalizeEmail(String(params.email ?? ""));
+    const newPassword = String(params.password ?? "");
+    const suppliedSetupSecret = String(params.adminSetupSecret ?? "");
+    const configuredSetupSecret = env.SCANME_ADMIN_SETUP_SECRET ?? "";
+
     if (
-      password.length < 10 ||
-      !/[a-z]/.test(password) ||
-      !/[A-Z]/.test(password) ||
-      !/\d/.test(password)
+      !isAdminEmail(email) ||
+      configuredSetupSecret.length < 16 ||
+      suppliedSetupSecret !== configuredSetupSecret
     ) {
-      throw new ConvexError("Šifra mora imati najmanje 10 karaktera, veliko i malo slovo i broj.");
+      throw new ConvexError("Admin reset podaci nisu ispravni.");
     }
+    validatePasswordRequirements(newPassword);
+
+    const { user } = await retrieveAccount(ctx, {
+      provider: "password",
+      account: { id: email },
+    });
+    await modifyAccountCredentials(ctx, {
+      provider: "password",
+      account: { id: email, secret: newPassword },
+    });
+    await invalidateSessions(ctx, { userId: user._id });
+    return { userId: user._id };
   },
 });
 
 export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
-  providers: [passwordProvider],
+  providers: [passwordProvider, adminPasswordResetProvider],
   callbacks: {
     async createOrUpdateUser(ctx: MutationCtx, args) {
       const email = normalizeEmail(String(args.profile.email ?? ""));
@@ -95,6 +133,13 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
     async beforeSessionCreation(ctx: MutationCtx, { userId }) {
       const user = await ctx.db.get(userId);
       if (isAdminEmail(user?.email)) return;
+      const accountMembership = await ctx.db
+        .query("accountMemberships")
+        .withIndex("by_userId_and_active", (q) =>
+          q.eq("userId", userId).eq("active", true),
+        )
+        .take(1);
+      if (accountMembership.length) return;
       const membership = await ctx.db
         .query("businessMemberships")
         .withIndex("by_userId_and_active", (q) => q.eq("userId", userId).eq("active", true))

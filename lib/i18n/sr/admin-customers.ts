@@ -1,5 +1,3 @@
-import type { AdminCustomersDict } from "../types";
-
 // Operativna tabela korisnika (components/admin/customers-admin.tsx, TASK-40,
 // RFC-002 §2.6). Ovo NIJE spisak ko postoji — radna lista KOGA DA ZOVEŠ DANAS.
 // Četiri statusa se IZVODE u billing modulu iz TASK-32 (deriveBillingStatus);
@@ -133,4 +131,4 @@ export const adminCustomersSr = {
   auditCreateOrder: "Napravljena porudžbina",
   auditSetPlan: "Promenjen plan",
   auditGeneric: "{action}",
-} as const satisfies AdminCustomersDict;
+} as const;

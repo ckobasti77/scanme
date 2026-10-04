@@ -1,0 +1,65 @@
+/* The public Menu's sticky scroll-spy nav (RFC-003 §2.2, §4 TASK-52). Its own
+   module — never shared with the frozen Links template or with Venue. Kept
+   theme-neutral (system surface/border, light + dark) so it is legible above
+   any menu design without reaching for the --menu-* tokens, which are scoped to
+   MenuTemplate's own root below it. Height stays within the .group
+   scroll-margin-top (4.5rem) so a jumped-to heading is never hidden. */
+
+.nav {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: color-mix(in srgb, Canvas 88%, transparent);
+  backdrop-filter: saturate(1.4) blur(10px);
+  -webkit-backdrop-filter: saturate(1.4) blur(10px);
+  border-bottom: 1px solid color-mix(in srgb, CanvasText 14%, transparent);
+}
+
+.navList {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  list-style: none;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x proximity;
+}
+
+.navList::-webkit-scrollbar {
+  display: none;
+}
+
+.navItem {
+  flex: 0 0 auto;
+  scroll-snap-align: start;
+}
+
+.navChip {
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+  white-space: nowrap;
+  padding: 0.4rem 0.85rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, CanvasText 18%, transparent);
+  background: transparent;
+  color: color-mix(in srgb, CanvasText 78%, transparent);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.navChip:focus-visible {
+  outline: 2px solid CanvasText;
+  outline-offset: 2px;
+}
+
+.navChipActive {
+  background: CanvasText;
+  color: Canvas;
+  border-color: CanvasText;
+}

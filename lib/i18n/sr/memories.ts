@@ -40,6 +40,8 @@ export const memoriesSr = {
     "Razdelnik mora imati između {min} i {max} dugmadi.",
   cardLinksMemoriesBlocked:
     "Memories iza Links razdelnika nije podržan: Links stranica ne prenosi identitet stola, pa bi se kvota po kartici izgubila. Podržana su dva obrasca: (1) kartica direktno na Memories prostor, ili (2) goli razdelnik sa Memories dugmetom.",
+  cardLinksOrderingBlocked:
+    "Poručivanje iza Links razdelnika nije podržano: Links stranica ne prenosi identitet stola, pa porudžbina ne bi imala sto. Podržana su dva obrasca: (1) kartica direktno na poručivanje, ili (2) goli razdelnik sa dugmetom za poručivanje.",
   spaceNotOneOff: "Ova radnja je moguća samo za jednokratni prostor.",
   spaceWindowInvalid: "Novo vreme zatvaranja mora biti u budućnosti.",
   spaceStatusInvalid: "Ovu radnju nije moguće izvršiti u trenutnom stanju.",
