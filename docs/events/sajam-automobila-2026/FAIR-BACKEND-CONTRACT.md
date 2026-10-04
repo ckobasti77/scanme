@@ -1,6 +1,6 @@
 # Sajam automobila 2026 — fair backend ugovor (B0)
 
-> Status: **B0 — ugovor i šema; B1 — katalog, import, paketi i QR dodela** (admin funkcije u §11, import u §12); **B2 — anonimni identitet, scan pipeline i javni katalog** (§13–§14); **B3 — ocene, Glas publike, anketa i pasoš** (§15–§16); **B4 — leadovi, saglasnost i email outbox** (§17–§18); **B5 — sponzorisani snapshot, projekcije rotacije i garažne akcije** (§19–§20); **B6 — analitika, dnevni dataset i izveštaji** (§21–§22); **B7 — brisanje PII 16. 11., authz, performanse i integracioni TEST seed** (§23–§26); **K1 — zajednička tajna Next → Convex i limit novih identiteta po IP-u** (§27); **K3 — tvrdi prekidači leadova i follow-upa i zapis pravnog odobrenja** (§28). Napisano iz stvarnog koda 3. i 4. oktobra 2026.
+> Status: **B0 — ugovor i šema; B1 — katalog, import, paketi i QR dodela** (admin funkcije u §11, import u §12); **B2 — anonimni identitet, scan pipeline i javni katalog** (§13–§14); **B3 — ocene, Glas publike, anketa i pasoš** (§15–§16); **B4 — leadovi, saglasnost i email outbox** (§17–§18); **B5 — sponzorisani snapshot, projekcije rotacije i garažne akcije** (§19–§20); **B6 — analitika, dnevni dataset i izveštaji** (§21–§22); **B7 — brisanje PII 16. 11., authz, performanse i integracioni TEST seed** (§23–§26); **K1 — zajednička tajna Next → Convex i limit novih identiteta po IP-u** (§27); **K3 — tvrdi prekidači leadova i follow-upa i zapis pravnog odobrenja** (§28); **K4 — ručni izveštaj tek posle zatvaranja dana, sweep ne blokira raniji run** (§29). Napisano iz stvarnog koda 3. i 4. oktobra 2026.
 >
 > Vlasnik backend-a: **Jovan**. Vlasnik proizvoda i go/no-go: **Aleksa**.
 > Izvori zahteva: `MASTER-KONTEKST.md`, `BACKEND-HANDOFF.md` (§4–§7, §11), `JOVAN-DELTA-2026-10-02.md`.
@@ -21,7 +21,7 @@ Ako se ovaj dokument i kod razilaze, važi kod, a razlika je greška dokumenta.
 
 ## 1. Funkcijska površina
 
-**B0 ne dodaje nijednu public, internal ni admin funkciju.** Nova je samo šema; tipovi i pravila su čiste funkcije. **B1** dodaje admin funkcije (`requireAdmin`) i jednu internal DEV funkciju; spisak je u §11. **B2** dodaje tri javna read-only upita (`fairPublic.*`), fair granu u postojećem `cards.resolveAndRecord`, dve internal funkcije i jedan Next gateway (§13–§14). **B3** dodaje gateway-facing `fairInteractions.*`, četiri javna upita u `fairPublic`, admin `fairInteractionsAdmin.*` i šest POST ruta (§15–§16). **B4** dodaje gateway-facing `fairLeads.submitLead`, javni `fairPublic.getLeadForm`, internal outbox `fairEmails.*`, Node sender `fairEmailSender.*`, admin `fairLeadsAdmin.*` i rutu `POST /api/fair/lead` (§17–§18). **B5** dodaje javne `fairPublic.getSponsoredMapRotation` i `getSponsoredGarageRotation`, gateway-facing `fairInteractions.recordSponsoredAction`, admin `fairSponsoredAdmin.*` i rutu `POST /api/fair/sponsored-action` (§19–§20). **B6** dodaje internal `fairAnalytics.*`, admin `fairReports.*` (upiti, mutacije i akcije za preuzimanje), internal izradu i cron u `fairReports` i granu `daily_report` u B4 outbox-u (§21–§22). **B7** dodaje `convex/fairRetention.ts` (internal purge, cron i CLI preview/dry run; admin `getRetentionOverview`, `startPurgeDryRun`), tabelu `fairPurgeRuns`, internal `fairDevFixtures.seedIntegrationTest` i limit potvrda po adresi u `submitLead` (§23–§26). Nijedna nova javna funkcija bez admina. **K1** ne dodaje funkcije: svih 8 javnih funkcija sa `visitorHash` i fair grana `cards.resolveAndRecord` traže `FAIR_GATEWAY_SECRET`, a nov posetilac troši token po IP HMAC-u (§27). **K3** ne dodaje funkcije: `submitLead`, `getLeadForm` i `claimDelivery` proveravaju Convex env prekidače `FAIR_LEADS_ENABLED` i `FAIR_FOLLOWUP_ENABLED` (podrazumevano isključeni), a `activateConsent` traži zapis pravnog odobrenja (§28).
+**B0 ne dodaje nijednu public, internal ni admin funkciju.** Nova je samo šema; tipovi i pravila su čiste funkcije. **B1** dodaje admin funkcije (`requireAdmin`) i jednu internal DEV funkciju; spisak je u §11. **B2** dodaje tri javna read-only upita (`fairPublic.*`), fair granu u postojećem `cards.resolveAndRecord`, dve internal funkcije i jedan Next gateway (§13–§14). **B3** dodaje gateway-facing `fairInteractions.*`, četiri javna upita u `fairPublic`, admin `fairInteractionsAdmin.*` i šest POST ruta (§15–§16). **B4** dodaje gateway-facing `fairLeads.submitLead`, javni `fairPublic.getLeadForm`, internal outbox `fairEmails.*`, Node sender `fairEmailSender.*`, admin `fairLeadsAdmin.*` i rutu `POST /api/fair/lead` (§17–§18). **B5** dodaje javne `fairPublic.getSponsoredMapRotation` i `getSponsoredGarageRotation`, gateway-facing `fairInteractions.recordSponsoredAction`, admin `fairSponsoredAdmin.*` i rutu `POST /api/fair/sponsored-action` (§19–§20). **B6** dodaje internal `fairAnalytics.*`, admin `fairReports.*` (upiti, mutacije i akcije za preuzimanje), internal izradu i cron u `fairReports` i granu `daily_report` u B4 outbox-u (§21–§22). **B7** dodaje `convex/fairRetention.ts` (internal purge, cron i CLI preview/dry run; admin `getRetentionOverview`, `startPurgeDryRun`), tabelu `fairPurgeRuns`, internal `fairDevFixtures.seedIntegrationTest` i limit potvrda po adresi u `submitLead` (§23–§26). Nijedna nova javna funkcija bez admina. **K1** ne dodaje funkcije: svih 8 javnih funkcija sa `visitorHash` i fair grana `cards.resolveAndRecord` traže `FAIR_GATEWAY_SECRET`, a nov posetilac troši token po IP HMAC-u (§27). **K3** ne dodaje funkcije: `submitLead`, `getLeadForm` i `claimDelivery` proveravaju Convex env prekidače `FAIR_LEADS_ENABLED` i `FAIR_FOLLOWUP_ENABLED` (podrazumevano isključeni), a `activateConsent` traži zapis pravnog odobrenja (§28). **K4** ne dodaje funkcije: `requestReportBuild` i `createReportCorrection` odbijaju dan koji nije zatvoren, a `sweepDailyReports` ne preskače dan zbog run-a napravljenog pre zatvaranja (§29).
 
 Planirana površina (HANDOFF §7). Imena se mogu minimalno prilagoditi; odgovornosti ne.
 
@@ -257,6 +257,8 @@ B4: lead tok koristi postojeće kodove (`CONSENT_NOT_CONFIGURED`, `CONSENT_REQUI
 
 B6 admin kodovi: `FAIR_REPORT_NOT_FOUND`, `FAIR_REPORT_STATUS`, `FAIR_REPORT_NOT_APPROVED` (slanje bilo čega osim `approved`), `FAIR_REPORT_RECIPIENT_MISSING`, `FAIR_REPORT_EXPORT_TOO_LARGE`. Novi kodovi isporuke (`FAIR_EMAIL_DELIVERY_ERRORS`): `REPORT_NOT_SENDABLE` (u trenutku slanja izveštaj više nije `approved`/`sent`) i `REPORT_FILE_MISSING`. Greške izrade (`fairReportRuns.error`): `BUILD_FAILED`, `REPORT_CONTEXT_MISSING`.
 
+K4 admin kod (§29): `FAIR_DAY_NOT_CLOSED` (`details.endsAt`, epoch ms) — `requestReportBuild` ili `createReportCorrection` za dan čiji `fairEventDays.endsAt` još nije prošao.
+
 K1 dodaci (Convex, svih 8 posetilačkih funkcija; §27). Convex ih baca pre bilo kog čitanja ili upisa:
 - `FAIR_GATEWAY_NOT_CONFIGURED` — Convex deployment nema `FAIR_GATEWAY_SECRET` (ili je kraća od 32 znaka);
 - `FAIR_GATEWAY_UNAUTHORIZED` — tajna u pozivu nedostaje ili je pogrešna.
@@ -374,6 +376,7 @@ Konstante rotacije u `lib/fair-contract.ts` imaju ista imena i vrednosti kao u `
 67. **Generalna proba 8. 10.** (B7 seed): TEST sajam elektromobilnosti počinje 8. 10. danom „TEST generalna proba“, a njegovi TEST paketi važe od 8. 10. u 00:00 (pre B7: 9. 10. u 09:00, §9.35). Drugi TEST sajam ostaje budući; paketi mu počinju 30. 10.
 68. **HTTPS za telefone 8. 10.**: cookie posetioca je `Secure`, pa telefon dobija identitet samo preko HTTPS-a. DEV TEST QR kodovi postoje samo na DEV Convex-u, pa `/r/<kod>` mora da se otvori na hostu vezanom za DEV. Potreban je HTTPS preview ili tunel vezan za DEV; deploy radi Aleksa ili Jovan.
 69. **Limit potvrda po adresi** (B7, nastavak §9.44): najviše 10 neposrednih potvrda na sat za jednu adresu (poređenje malim slovima). Varijante sa `+oznakom` se ne spajaju. Ovo je ublažavanje, ne potpuna zaštita (§9.65).
+70. **Run napravljen pre zatvaranja dana** (K4, §29): od K4 novi takav run ne može da nastane. Red koji je već postojao ostaje u listi i i dalje može ručno da se odobri i pošalje, iako ima delimične podatke. Da li `approveReportRun` treba da ga odbije, ili da ga lista posebno označi? Sada ga ne dira ništa osim što ne blokira sweep.
 
 ## 10. Šta stiže posle B0
 
@@ -961,7 +964,7 @@ Grupa koju paket nema **ne postoji** u datasetu (nema ključa, nema 0). U tabeli
 `fairReports.sweepDailyReports` (internal) radi za događaje `published`/`live`/`ended`. Za svaki dan zatvoren u poslednja 24 h i svako `active` učešće sa bar jednim modelom koji ima dnevni presek pravi po jedan run, koji odmah ide na izradu. Run nastaje najkasnije 15 min posle kraja dana, a izrada traje sekunde, pa je dataset spreman pre roka (`FAIR_REPORT_READY_WITHIN_MS`, test).
 
 Sweep:
-- je idempotentan (jedan run po dan × učešće);
+- je idempotentan (jedan run po dan × učešće); K4: računa se samo run napravljen u trenutku zatvaranja dana ili posle njega (`createdAt >= endsAt`), pa raniji run ne blokira dnevni izveštaj (§29);
 - pravi najviše 100 novih run-ova po pozivu (ostatak nastavlja preko scheduler-a);
 - **nikad ne šalje**.
 
@@ -973,13 +976,13 @@ Sweep:
 
 | Funkcija | Vrsta | Pravilo |
 |---|---|---|
-| `requestReportBuild({ eventDayId, participationId, format })` | admin mutation | nov `queued` run i izrada; dan i učešće moraju biti istog eventa (`FAIR_LINK_CONFLICT`) |
+| `requestReportBuild({ eventDayId, participationId, format })` | admin mutation | nov `queued` run i izrada; dan i učešće moraju biti istog eventa (`FAIR_LINK_CONFLICT`); K4: dan mora biti zatvoren (`endsAt <= now`), inače `FAIR_DAY_NOT_CLOSED` i ništa se ne upisuje (§29) |
 | `buildReportRun` | internal action | `claimBuild` (`queued → building`) → `reportContext` + `modelDayRaw` po modelu → `assembleFairDailyDataset` → fajl u formatu run-a u storage → `completeBuild` (`pending_review`, `dataset`, `storageId`, primalac iz učešća). Greška → `failed` (`BUILD_FAILED`) |
 | `approveReportRun` | admin mutation | **jedini** put do `approved`: samo iz `pending_review` sa datasetom i fajlom; upisuje `reviewed*` i `approved*`; audit `fair_report_approved` |
 | `sendReportRun({ reportRunId, recipient? })` | admin mutation | odbija sve osim `approved` (`FAIR_REPORT_NOT_APPROVED`); primalac = argument, `run.recipient` ili `reportRecipientEmail` (inače `FAIR_REPORT_RECIPIENT_MISSING`); drugi klik dok isporuka čeka → `FAIR_REPORT_STATUS` |
 | `resendReportRun` | admin mutation | samo iz `sent`; isti odobreni fajl, nov ključ |
 | `retryReportRun` | admin mutation | samo iz `failed`: neuspela izrada → `queued` (ponovo na pregled); neuspelo slanje odobrenog run-a → `approved` i nova isporuka |
-| `createReportCorrection({ reportRunId, format? })` | admin mutation | nov run sa `correctionOfReportRunId` i svežim podacima; ponovo pregled i odobrenje |
+| `createReportCorrection({ reportRunId, format? })` | admin mutation | nov run sa `correctionOfReportRunId` i svežim podacima; ponovo pregled i odobrenje; K4: isto pravilo zatvorenog dana (`FAIR_DAY_NOT_CLOSED`) |
 | `listReportRuns({ eventId })`, `getReportRun({ reportRunId })` | admin query | lista bez dataseta (najviše 500); jedan run sa datasetom za pregled |
 
 ### 22.2 Slanje kroz B4 outbox
@@ -1295,3 +1298,29 @@ Gašenje: uklanjanje vrednosti (ili bilo koja vrednost osim `"true"`). Novi lead
 - Postojeći Convex testovi leadova (`fairLeads`, `fairAuthz`, `fairGateway`, `fairIntegration`, `fairPerformance`) postavljaju oba prekidača na `"true"` u TEST env-u (`beforeEach`, brišu se u `afterEach`) i aktiviraju saglasnost uz TEST zapis odobrenja; nijedno očekivanje nije promenjeno.
 - `lib/fair-server/leads.test.ts`: `LEADS_DISABLED` → 409 sa stabilnim kodom.
 - `components/admin/admin-events-leads.test.tsx`: polja pravnog odobrenja su uz dugme za aktivaciju; dugme je onemogućeno dok su prazna; aktivna verzija prikazuje zapis (ili da ga nema); `skipped` isporuka ima srpski razlog, bez sirovih kodova.
+
+## 29. K4 — izveštaj tek posle zatvaranja dana (RF nalaz 4)
+
+### 29.1 Problem i pravilo
+
+Do K4 je ručni `requestReportBuild` pre kraja dana pravio run sa delimičnim podacima i `dataThrough = endsAt`. Sweep je zatim video run za taj dan × učešće i preskakao ga, pa pravi dnevni izveštaj nikad nije nastao.
+
+Od K4 važe dva pravila, oba nad istim `fairEventDays.endsAt` (ponoć po Beogradu, §9.54):
+
+1. **Odbijanje pre zatvaranja.** `requestReportBuild` i `createReportCorrection` odbijaju dan čiji `endsAt` je posle trenutnog vremena: `FAIR_DAY_NOT_CLOSED` (`details.endsAt`). Ništa se ne upisuje i ništa se ne zakazuje. Tačno u trenutku `endsAt` izrada je dozvoljena. Redosled provera u `requestReportBuild`: admin → dan postoji → učešće postoji → isti event (`FAIR_LINK_CONFLICT`) → dan zatvoren.
+2. **Sweep ne blokira raniji run.** Za dan × učešće sweep čita samo najnoviji run (indeks `by_eventDayId_and_participationId`, `order("desc").first()`). Preskače ga samo ako je taj run napravljen u trenutku zatvaranja ili posle (`createdAt >= endsAt`). Run napravljen ranije (postojeći redovi iz vremena pre K4) ne sprečava automatski dnevni izveštaj. Raniji run ostaje netaknut: ne briše se, ne gradi ponovo i ne menja status (§9.70).
+
+Ručna izrada posle zatvaranja i dalje važi kao dnevni run, pa je sweep za to učešće ne duplira. Šema, indeksi i javna površina se ne menjaju.
+
+### 29.2 Admin UI
+
+- Pomoć uz „Nova izrada“: „… tek kad se taj dan zatvori.“
+- Odbijanje prikazuje tekst iz `adminEventsSr.issues.FAIR_DAY_NOT_CLOSED` („Sajamski dan još nije zatvoren. …“), kroz isti mehanizam kao ostali admin kodovi; sirovi kod se ne prikazuje.
+
+### 29.3 Testovi
+
+- `convex/fairReports.test.ts`, blok „K4 report build before the day closes“:
+  - `requestReportBuild` u 23:30, minut pre ponoći (`endsAt − 1`) i za drugi, još otvoren dan → `FAIR_DAY_NOT_CLOSED`, 0 run-ova i posle izvršenja svih zakazanih funkcija; tačno u `endsAt` izrada prolazi; ispravka run-a čiji dan je još otvoren → `FAIR_DAY_NOT_CLOSED`;
+  - sweep posle zatvaranja pravi dnevni run za izlagača koji ima raniji run iz 23:30. Novi run je izgrađen (`pending_review`, `builtAt − endsAt < 60 min`), sadrži sken iz 23:30, a raniji red ostaje netaknut. Ručni run posle zatvaranja (drugi izlagač) i dalje sprečava duplikat. Drugi sweep ne pravi ništa, i ništa se ne šalje.
+- Postojeći B6 testovi koji ručno grade izveštaj za dan 1 sada pre izrade pomeraju sat na 00:05 posle zatvaranja dana (`DAY1_CLOSED`); nijedno očekivanje nije promenjeno.
+- `components/admin/admin-events-reports.test.tsx`: pomoć uz izradu i srpski razlog odbijanja, bez sirovog koda.

@@ -5,6 +5,7 @@ import type { FairDailyDataset } from "@/convex/lib/fairReportDataset";
 import { adminEventsSr } from "@/lib/i18n/sr/admin-events";
 import { eventReportSr } from "@/lib/i18n/sr/event-report";
 import { fmt } from "@/lib/i18n/format";
+import { issueText } from "./admin-events";
 import { AdminEventsReports, reportErrorText, type ReportsActions, type ReportsView } from "./admin-events-reports";
 
 // Sajam 2026 B6 — the `Izveštaji` section of the admin `Događaji` tab.
@@ -80,5 +81,14 @@ describe("B6 admin Izveštaji", () => {
     expect(reportErrorText("BUILD_FAILED")).toBe(adminEventsSr.reportBuildErrors.BUILD_FAILED);
     expect(reportErrorText("PROVIDER_UNAVAILABLE:503")).toBe(adminEventsSr.deliveryErrors.PROVIDER_UNAVAILABLE);
     expect(reportErrorText("REPORT_NOT_SENDABLE")).toBe(adminEventsSr.deliveryErrors.REPORT_NOT_SENDABLE);
+  });
+
+  test("K4: the build form says it works only after the day closes, and the refusal has a Serbian reason", () => {
+    const html = renderToStaticMarkup(<AdminEventsReports view={{ ...view, review: null }} actions={actions} />);
+    expect(html).toContain(adminEventsSr.reportsBuildHelp);
+    expect(adminEventsSr.reportsBuildHelp).toContain("tek kad se taj dan zatvori");
+    expect(issueText("FAIR_DAY_NOT_CLOSED")).toBe(adminEventsSr.issues.FAIR_DAY_NOT_CLOSED);
+    expect(issueText("FAIR_DAY_NOT_CLOSED")).toContain("još nije zatvoren");
+    expect(issueText("FAIR_DAY_NOT_CLOSED")).not.toContain("FAIR_");
   });
 });
