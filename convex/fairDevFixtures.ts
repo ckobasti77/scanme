@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { internalMutation } from "./_generated/server";
-import type { Id } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
 import { isAdminEmail } from "./lib/access";
 import { normalizeAdminSearchText } from "./lib/adminV1Validators";
@@ -11,8 +11,11 @@ import { assignFairQr } from "./lib/fairQr";
 import { createEventOnlyClient } from "./fairAdmin";
 import { commitFairImport, type FairImportPayload } from "./fairImport";
 import { FAIR_IMPORT_VERSION, fairModelPath } from "../lib/fair-contract";
-import { fairBrandPassportEligible } from "../lib/fair-entitlements";
+import { fairBrandPassportEligible, getFairEntitlements } from "../lib/fair-entitlements";
+import { fairModelQuestions, fairModelSurveys } from "./lib/fairInteractions";
+import { fairLeadConfig } from "./lib/fairLeads";
 import { fairTimeKeys } from "./lib/fairScans";
+import { fairPackageTier } from "./lib/fairValidators";
 import { fairActiveSponsoredSnapshot, fairPublishedSponsoredSnapshots, fairSponsoredItems, fairSponsoredOrder, fairSponsoredSeed } from "./lib/fairSponsored";
 
 // Sajam automobila 2026 — B1 DEV TEST catalog. Run ONLY against a developer
@@ -123,6 +126,15 @@ const CLIENTS = {
   inventory: { smk: "SMK-TEST-FAIR-QR", sml: "SML-TEST-FAIR-QR", name: "TEST Sajam automobila 2026 — QR inventar", slug: "test-sajam-qr-inventar" },
 } as const;
 
+// B7: the 8 Oct 2026 integration test runs one day before the first fair.
+const TEST_REHEARSAL = {
+  eventCode: "test-elektromobilnost-2026",
+  dateKey: "2026-10-08",
+  label: "TEST generalna proba",
+  startsAt: Date.parse("2026-10-08T00:00:00+02:00"),
+  activeFrom: "2026-10-08T00:00:00+02:00",
+} as const;
+
 async function fixtureActor(ctx: MutationCtx) {
   const users = await ctx.db.query("users").take(100);
   const admin = users.find((user) => isAdminEmail(user.email));
@@ -142,21 +154,31 @@ async function ensureTestBrand(ctx: MutationCtx, accountId: Id<"accounts">, name
 }
 
 const counts = v.object({ created: v.number(), updated: v.number(), unchanged: v.number() });
+const catalogSummary = v.object({
+  events: counts,
+  days: counts,
+  clients: v.object({ created: v.number(), unchanged: v.number() }),
+  brands: v.object({ created: v.number(), unchanged: v.number() }),
+  participations: counts,
+  stands: counts,
+  models: counts,
+  activations: v.number(),
+  publishedNow: v.number(),
+});
 
 export const seedTestCatalog = internalMutation({
   args: {},
-  returns: v.object({
-    events: counts,
-    days: counts,
-    clients: v.object({ created: v.number(), unchanged: v.number() }),
-    brands: v.object({ created: v.number(), unchanged: v.number() }),
-    participations: counts,
-    stands: counts,
-    models: counts,
-    activations: v.number(),
-    publishedNow: v.number(),
-  }),
-  handler: async (ctx) => {
+  returns: catalogSummary,
+  handler: (ctx) => ensureTestCatalog(ctx, { rehearsal: false }),
+});
+
+/**
+ * `rehearsal: true` (B7 integration seed only) opens the TEST elektromobilnost
+ * fair one day early for the 8 Oct integration test: the window starts on
+ * 8 Oct, a `TEST generalna proba` day is added and newly created TEST
+ * packages start then (existing rows: alignTestRehearsalPackages).
+ */
+async function ensureTestCatalog(ctx: MutationCtx, options: { rehearsal: boolean }) {
     const actorUserId = await fixtureActor(ctx);
     const now = Date.now();
     const out = {
@@ -191,12 +213,14 @@ export const seedTestCatalog = internalMutation({
     }
 
     for (const event of EVENTS) {
+      const rehearsal = options.rehearsal && event.code === TEST_REHEARSAL.eventCode;
+      const activeFrom = rehearsal ? TEST_REHEARSAL.activeFrom : event.activeFrom;
       const { eventId, result } = await upsertFairEvent(ctx, {
         code: event.code,
         slug: event.code,
         title: event.title,
         venueName: "TEST Beogradski sajam",
-        startsAt: event.startsAt,
+        startsAt: rehearsal ? TEST_REHEARSAL.startsAt : event.startsAt,
         endsAt: event.endsAt,
         status: "published",
         garagePriority: event.code.includes("elektromobilnost") ? 1 : 2,
@@ -207,12 +231,16 @@ export const seedTestCatalog = internalMutation({
         const day = await upsertFairEventDay(ctx, { eventId, dateKey, label: `TEST dan ${index + 1}`, sortOrder: index + 1 });
         out.days[day.result] += 1;
       }
+      if (rehearsal) {
+        const day = await upsertFairEventDay(ctx, { eventId, dateKey: TEST_REHEARSAL.dateKey, label: TEST_REHEARSAL.label, sortOrder: 0 });
+        out.days[day.result] += 1;
+      }
 
       const a = event.exhibitorA;
       const brandsA = [
-        { externalKey: "test-volta", name: "TEST Volta", stand: { externalKey: `${event.prefix}-stand-a1`, code: "TEST-A1", displayName: "TEST štand A1", mapLocationId: a.voltaStand }, models: a.volta.map((m) => model(event.prefix, m, event.activeFrom)) },
+        { externalKey: "test-volta", name: "TEST Volta", stand: { externalKey: `${event.prefix}-stand-a1`, code: "TEST-A1", displayName: "TEST štand A1", mapLocationId: a.voltaStand }, models: a.volta.map((m) => model(event.prefix, m, activeFrom)) },
         ...(a.amperStand
-          ? [{ externalKey: "test-amper", name: "TEST Amper", stand: { externalKey: `${event.prefix}-stand-a2`, code: "TEST-A2", displayName: "TEST štand A2", mapLocationId: a.amperStand }, models: a.amper.map((m) => model(event.prefix, m, event.activeFrom)) }]
+          ? [{ externalKey: "test-amper", name: "TEST Amper", stand: { externalKey: `${event.prefix}-stand-a2`, code: "TEST-A2", displayName: "TEST štand A2", mapLocationId: a.amperStand }, models: a.amper.map((m) => model(event.prefix, m, activeFrom)) }]
           : []),
       ];
       const payload: FairImportPayload = {
@@ -225,7 +253,7 @@ export const seedTestCatalog = internalMutation({
             accountExternalKey: CLIENTS.b.smk,
             businessExternalKey: CLIENTS.b.sml,
             clientSegment: "event_only",
-            brands: [{ externalKey: "test-om", name: "TEST Om", stand: { externalKey: `${event.prefix}-stand-b1`, code: "TEST-B1", displayName: "TEST štand B1", mapLocationId: event.exhibitorB.stand }, models: event.exhibitorB.models.map((m) => model(event.prefix, m, event.activeFrom)) }],
+            brands: [{ externalKey: "test-om", name: "TEST Om", stand: { externalKey: `${event.prefix}-stand-b1`, code: "TEST-B1", displayName: "TEST štand B1", mapLocationId: event.exhibitorB.stand }, models: event.exhibitorB.models.map((m) => model(event.prefix, m, activeFrom)) }],
           },
         ],
       };
@@ -247,8 +275,7 @@ export const seedTestCatalog = internalMutation({
       }
     }
     return out;
-  },
-});
+}
 
 // B2 — ONE TEST digital QR for the DEV scan proof (`npx convex run
 // fairDevFixtures:seedTestQr`, DEV only, never --prod). Same steps as
@@ -260,9 +287,10 @@ export const seedTestCatalog = internalMutation({
 export const seedTestQr = internalMutation({
   args: { eventCode: v.optional(v.string()), modelExternalKey: v.optional(v.string()) },
   returns: v.object({ created: v.boolean(), resolverCode: v.string(), eventModelId: v.id("fairEventModels"), path: v.string() }),
-  handler: async (ctx, args) => {
-    const eventCode = args.eventCode ?? "test-elektromobilnost-2026";
-    const modelKey = args.modelExternalKey ?? "test-em26-volta-x1";
+  handler: (ctx, args) => ensureTestQr(ctx, args.eventCode ?? "test-elektromobilnost-2026", args.modelExternalKey ?? "test-em26-volta-x1"),
+});
+
+async function ensureTestQr(ctx: MutationCtx, eventCode: string, modelKey: string) {
     if (!eventCode.startsWith("test-") || !modelKey.startsWith("test-")) throw new Error("fair_dev_fixture_not_test");
     const event = await fairEventByCode(ctx, eventCode);
     if (!event) throw new Error("fair_dev_fixture_event_missing");
@@ -298,8 +326,7 @@ export const seedTestQr = internalMutation({
     await writeAdminAudit(ctx, { actorUserId, accountId, businessId: inventory._id, action: "digital_qr_created", detail: { digitalQrId, smqCode }, now });
     await assignFairQr(ctx, { eventModelId: model._id, resolverCode: channel.resolverCode, reason: "TEST B2 dokaz skeniranja" }, actorUserId, now);
     return { created: true, resolverCode: channel.resolverCode, eventModelId: model._id, path };
-  },
-});
+}
 
 // M1 — ONE TEST brand passport for the DEV map proof (`npx convex run
 // fairDevFixtures:seedTestPassport`, DEV only, never --prod). Same rules and
@@ -310,9 +337,10 @@ export const seedTestQr = internalMutation({
 export const seedTestPassport = internalMutation({
   args: { eventCode: v.optional(v.string()), brandName: v.optional(v.string()) },
   returns: v.object({ created: v.boolean(), passportId: v.id("fairPassportConfigs"), requiredModelIds: v.array(v.id("fairEventModels")) }),
-  handler: async (ctx, args) => {
-    const eventCode = args.eventCode ?? "test-elektromobilnost-2026";
-    const brandName = args.brandName ?? "TEST Volta";
+  handler: (ctx, args) => ensureTestPassport(ctx, args.eventCode ?? "test-elektromobilnost-2026", args.brandName ?? "TEST Volta"),
+});
+
+async function ensureTestPassport(ctx: MutationCtx, eventCode: string, brandName: string) {
     if (!eventCode.startsWith("test-") || !brandName.startsWith("TEST")) throw new Error("fair_dev_fixture_not_test");
     const event = await fairEventByCode(ctx, eventCode);
     if (!event) throw new Error("fair_dev_fixture_event_missing");
@@ -378,8 +406,7 @@ export const seedTestPassport = internalMutation({
       });
     }
     return { created: true, passportId, requiredModelIds: models.map((model) => model._id) };
-  },
-});
+}
 
 // M2 — DEV TEST sponsored snapshot for the map/display rotation proof
 // (`npx convex run fairDevFixtures:seedTestSponsoredSnapshot`, DEV only, never
@@ -401,8 +428,16 @@ export const seedTestSponsoredSnapshot = internalMutation({
     eventModelIds: v.array(v.id("fairEventModels")),
     questionsCreated: v.number(),
   }),
-  handler: async (ctx, args) => {
-    const eventCode = args.eventCode ?? "test-elektromobilnost-2026";
+  handler: (ctx, args) => publishTestSponsoredSnapshot(ctx, args.eventCode ?? "test-elektromobilnost-2026", { rotationQuestions: true }),
+});
+
+/**
+ * `rotationQuestions: false` (B7 integration seed) keeps the questions the
+ * caller already selected with showOnSponsoredRotation. Idempotent per day:
+ * a new version is published only when the order or a selected question
+ * differs from the active snapshot.
+ */
+async function publishTestSponsoredSnapshot(ctx: MutationCtx, eventCode: string, options: { rotationQuestions: boolean }) {
     if (!eventCode.startsWith("test-")) throw new Error("fair_dev_fixture_not_test");
     const event = await fairEventByCode(ctx, eventCode);
     if (!event) throw new Error("fair_dev_fixture_event_missing");
@@ -421,7 +456,7 @@ export const seedTestSponsoredSnapshot = internalMutation({
     if (!firstDay) throw new Error("fair_dev_fixture_day_missing");
 
     let questionsCreated = 0;
-    for (const model of models) {
+    for (const model of options.rotationQuestions ? models : []) {
       const externalKey = `${model.externalKey}-q-rotacija`;
       const existing = await ctx.db
         .query("fairAudienceQuestions")
@@ -452,10 +487,19 @@ export const seedTestSponsoredSnapshot = internalMutation({
     const dayKey = fairTimeKeys(now).dateKey;
     const seed = fairSponsoredSeed(event._id);
     const order = fairSponsoredOrder(models.map((model) => model._id), seed, dayKey);
+    const chosen = new Map<Id<"fairEventModels">, Id<"fairAudienceQuestions">>();
+    for (const eventModelId of order) {
+      const questions = await ctx.db
+        .query("fairAudienceQuestions")
+        .withIndex("by_eventModelId_and_eventDayId", (q) => q.eq("eventModelId", eventModelId))
+        .take(50);
+      const selected = questions.find((row) => row.showOnSponsoredRotation && row.status !== "draft");
+      if (selected) chosen.set(eventModelId, selected._id);
+    }
     const active = await fairActiveSponsoredSnapshot(ctx, event._id);
-    if (active && active.dayKey === dayKey && questionsCreated === 0) {
+    if (active && active.dayKey === dayKey) {
       const items = await fairSponsoredItems(ctx, active._id);
-      if (items.map((item) => item.eventModelId).join() === order.join()) {
+      if (items.length === order.length && items.every((item, index) => item.eventModelId === order[index] && item.audienceQuestionId === chosen.get(item.eventModelId))) {
         return { created: false, snapshotId: active._id, version: active.version, eventModelIds: order, questionsCreated };
       }
     }
@@ -479,13 +523,183 @@ export const seedTestSponsoredSnapshot = internalMutation({
       publishedByUserId: actorUserId,
     });
     for (const [index, eventModelId] of order.entries()) {
-      const question = await ctx.db
-        .query("fairAudienceQuestions")
-        .withIndex("by_eventModelId_and_eventDayId", (q) => q.eq("eventModelId", eventModelId))
-        .take(50);
-      const chosen = question.find((row) => row.showOnSponsoredRotation && row.status !== "draft");
-      await ctx.db.insert("fairSponsoredSnapshotItems", { snapshotId, eventModelId, order: index, ...(chosen ? { audienceQuestionId: chosen._id } : {}) });
+      const audienceQuestionId = chosen.get(eventModelId);
+      await ctx.db.insert("fairSponsoredSnapshotItems", { snapshotId, eventModelId, order: index, ...(audienceQuestionId ? { audienceQuestionId } : {}) });
     }
     return { created: true, snapshotId, version, eventModelIds: order, questionsCreated };
+}
+
+// =============================================================================
+// B7 — integration TEST seed for the 8 Oct 2026 test (`npx convex run
+// fairDevFixtures:seedIntegrationTest`, DEV only, never --prod). Builds on
+// the fixtures above and is idempotent (a re-run reports everything as
+// unchanged). Everything is `test-`/`TEST`; nothing real is invented:
+// - both TEST fairs, 2 TEST exhibitors, 10 TEST models over all 3 packages;
+// - the elektromobilnost TEST fair opens on 8 Oct with a `TEST generalna
+//   proba` day; its TEST packages start then (only the initial activation of
+//   a never-upgraded TEST model moves). The auto-moto-fest TEST fair stays
+//   the future second event (packages from 30 Oct);
+// - one TEST digital QR per TEST model (TEST inventory; never the 100 real);
+// - the TEST Volta passport; one TEST question per Starter+ model on the
+//   rehearsal day (the Advanced one is the map result); one TEST survey per
+//   Advanced model; enabled lead forms (one_of) — but NO consent text, so a
+//   lead ends in CONSENT_NOT_CONFIGURED until a real text is approved;
+// - a published TEST sponsored snapshot for both fairs.
+// =============================================================================
+
+const TEST_SURVEY_QUESTIONS = [
+  { id: "test-preporuka", prompt: "TEST da li biste preporučili ovaj model?", kind: "yes_no" as const, options: [], required: false, order: 1 },
+  {
+    id: "test-vaznije",
+    prompt: "TEST šta vam je najvažnije?",
+    kind: "single_choice" as const,
+    options: [
+      { id: "test-cena", label: "TEST cena", order: 1 },
+      { id: "test-domet", label: "TEST domet", order: 2 },
+    ],
+    required: false,
+    order: 2,
+  },
+];
+
+async function testModelsOf(ctx: MutationCtx, eventId: Id<"fairEvents">) {
+  return (
+    await ctx.db.query("fairEventModels").withIndex("by_eventId_and_externalKey", (q) => q.eq("eventId", eventId)).take(50)
+  ).filter((model) => model.externalKey.startsWith("test-") && model.displayName.startsWith("TEST") && model.status === "published");
+}
+
+/** Existing TEST rows: the initial activation of a never-upgraded TEST model moves to the rehearsal start. */
+async function alignTestRehearsalPackages(ctx: MutationCtx, models: readonly Doc<"fairEventModels">[], now: number) {
+  let moved = 0;
+  for (const model of models) {
+    if (model.packageTier === "included" || model.packageActivatedAt <= TEST_REHEARSAL.startsAt) continue;
+    const activations = await ctx.db
+      .query("fairPackageActivations")
+      .withIndex("by_eventModelId_and_activatedAt", (q) => q.eq("eventModelId", model._id))
+      .take(10);
+    const [initial] = activations;
+    if (activations.length !== 1 || initial.note !== "initial_tier" || initial.activatedAt !== model.packageActivatedAt) continue;
+    await ctx.db.patch(initial._id, { activatedAt: TEST_REHEARSAL.startsAt });
+    await ctx.db.patch(model._id, { packageActivatedAt: TEST_REHEARSAL.startsAt, updatedAt: now });
+    moved += 1;
+  }
+  return moved;
+}
+
+export const seedIntegrationTest = internalMutation({
+  args: {},
+  returns: v.object({
+    catalog: catalogSummary,
+    rehearsal: v.object({ eventStartsAt: v.number(), dayId: v.id("fairEventDays"), activationsMoved: v.number() }),
+    qr: v.array(v.object({ eventCode: v.string(), modelExternalKey: v.string(), tier: fairPackageTier, resolverCode: v.string(), path: v.string(), created: v.boolean() })),
+    passport: v.object({ created: v.boolean(), requiredModels: v.number() }),
+    leadConfigs: v.object({ created: v.number(), unchanged: v.number() }),
+    surveys: v.object({ created: v.number(), unchanged: v.number() }),
+    questions: v.object({ created: v.number(), unchanged: v.number() }),
+    snapshots: v.array(v.object({ eventCode: v.string(), created: v.boolean(), version: v.number(), items: v.number() })),
+  }),
+  handler: async (ctx) => {
+    const now = Date.now();
+    const catalog = await ensureTestCatalog(ctx, { rehearsal: true });
+    const actorUserId = await fixtureActor(ctx);
+    const em = await fairEventByCode(ctx, TEST_REHEARSAL.eventCode);
+    if (!em) throw new Error("fair_dev_fixture_event_missing");
+    const rehearsalDay = await ctx.db
+      .query("fairEventDays")
+      .withIndex("by_eventId_and_dateKey", (q) => q.eq("eventId", em._id).eq("dateKey", TEST_REHEARSAL.dateKey))
+      .unique();
+    if (!rehearsalDay) throw new Error("fair_dev_fixture_day_missing");
+    const activationsMoved = await alignTestRehearsalPackages(ctx, await testModelsOf(ctx, em._id), now);
+
+    const passport = await ensureTestPassport(ctx, TEST_REHEARSAL.eventCode, "TEST Volta");
+
+    const qr = [];
+    const leadConfigs = { created: 0, unchanged: 0 };
+    for (const event of EVENTS) {
+      const row = await fairEventByCode(ctx, event.code);
+      if (!row) throw new Error("fair_dev_fixture_event_missing");
+      for (const model of await testModelsOf(ctx, row._id)) {
+        const code = await ensureTestQr(ctx, event.code, model.externalKey);
+        qr.push({ eventCode: event.code, modelExternalKey: model.externalKey, tier: model.packageTier, resolverCode: code.resolverCode, path: code.path, created: code.created });
+        const rights = getFairEntitlements(model.packageTier);
+        for (const leadKind of [...(rights.interest ? ["interest" as const] : []), ...(rights.testDrive ? ["test_drive" as const] : [])]) {
+          if (await fairLeadConfig(ctx, model._id, leadKind)) {
+            leadConfigs.unchanged += 1;
+            continue;
+          }
+          await ctx.db.insert("fairLeadConfigs", { eventModelId: model._id, leadKind, contactRequirement: "one_of", enabled: true, updatedByUserId: actorUserId, createdAt: now, updatedAt: now });
+          leadConfigs.created += 1;
+        }
+      }
+    }
+
+    const surveys = { created: 0, unchanged: 0 };
+    const questions = { created: 0, unchanged: 0 };
+    for (const model of await testModelsOf(ctx, em._id)) {
+      const rights = getFairEntitlements(model.packageTier);
+      if (rights.survey) {
+        if ((await fairModelSurveys(ctx, model._id)).length) {
+          surveys.unchanged += 1;
+        } else {
+          await ctx.db.insert("fairSurveys", { eventId: em._id, eventModelId: model._id, title: "TEST anketa", status: "published", questions: TEST_SURVEY_QUESTIONS, version: 1, createdAt: now, updatedAt: now });
+          surveys.created += 1;
+        }
+      }
+      if (rights.audienceQuestionsPerDay === 0) continue;
+      const externalKey = `${model.externalKey}-q-proba`;
+      let question = await ctx.db
+        .query("fairAudienceQuestions")
+        .withIndex("by_eventId_and_externalKey", (q) => q.eq("eventId", em._id).eq("externalKey", externalKey))
+        .first();
+      if (question) {
+        questions.unchanged += 1;
+      } else {
+        const questionId = await ctx.db.insert("fairAudienceQuestions", {
+          eventId: em._id,
+          eventDayId: rehearsalDay._id,
+          eventModelId: model._id,
+          externalKey,
+          prompt: "TEST pitanje generalne probe?",
+          options: [
+            { id: "test-da", label: "TEST da", order: 1 },
+            { id: "test-ne", label: "TEST ne", order: 2 },
+          ],
+          status: "published",
+          sortOrder: 1,
+          startsAt: rehearsalDay.startsAt,
+          endsAt: rehearsalDay.endsAt,
+          showOnSponsoredRotation: false,
+          createdAt: now,
+          updatedAt: now,
+        });
+        question = await ctx.db.get(questionId);
+        questions.created += 1;
+      }
+      // The Advanced model's map/display result is the rehearsal question
+      // (same exclusivity as fairInteractionsAdmin.setSponsoredResultQuestion).
+      if (question && rights.sponsoredMapRotation) {
+        for (const row of await fairModelQuestions(ctx, model._id)) {
+          const want = row._id === question._id;
+          if (row.showOnSponsoredRotation !== want) await ctx.db.patch(row._id, { showOnSponsoredRotation: want, updatedAt: now });
+        }
+      }
+    }
+
+    const snapshots = [];
+    for (const event of EVENTS) {
+      const published = await publishTestSponsoredSnapshot(ctx, event.code, { rotationQuestions: event.code !== TEST_REHEARSAL.eventCode });
+      snapshots.push({ eventCode: event.code, created: published.created, version: published.version, items: published.eventModelIds.length });
+    }
+
+    return {
+      catalog,
+      rehearsal: { eventStartsAt: (await ctx.db.get(em._id))?.startsAt ?? em.startsAt, dayId: rehearsalDay._id, activationsMoved },
+      qr,
+      passport: { created: passport.created, requiredModels: passport.requiredModelIds.length },
+      leadConfigs,
+      surveys,
+      questions,
+      snapshots,
+    };
   },
 });

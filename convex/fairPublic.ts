@@ -17,7 +17,7 @@ import {
 import { deriveFairCapabilities, getFairEntitlements } from "../lib/fair-entitlements";
 import { fairAudienceResult, fairModelQuestions, fairPassportState, fairVoteThreshold } from "./lib/fairInteractions";
 import { fairActiveConsent, fairExhibitorName, fairLeadConfig, fairRenderConsentText } from "./lib/fairLeads";
-import { fairActiveSponsoredSnapshot, fairSponsoredItems } from "./lib/fairSponsored";
+import { FAIR_SPONSORED_ITEMS_CAP, fairActiveSponsoredSnapshot, fairSponsoredItems } from "./lib/fairSponsored";
 import {
   fairAudienceQuestionView,
   fairAudienceResultView,
@@ -54,7 +54,8 @@ import {
 // Bounded child reads (technical caps, not business rules).
 const EVENT_DAYS_CAP = 31;
 const QUESTIONS_PER_MODEL_CAP = 50;
-const SNAPSHOT_ITEMS_CAP = 500;
+// B7: the same cap publish enforces (a snapshot never holds more items).
+const SNAPSHOT_ITEMS_CAP = FAIR_SPONSORED_ITEMS_CAP;
 const MAP_MODELS_CAP = 500;
 const SLUG_MAX = 120;
 

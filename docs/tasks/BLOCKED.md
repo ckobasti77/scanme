@@ -1736,3 +1736,23 @@ Položaj ScanMe štanda nije na mapama organizatora (M0, otvoreno pitanje 1), pa
 
 ### 3. Stranica modela još radi nad fixture-om
 `app/sajam/[eventSlug]/model/[modelSlug]` (Kodeks, F3) čita samo Audi fixture. Linkovi sa mape na prave/TEST modele zato trenutno vode na „Model nije pronađen“ dok F3 ne pređe na `fairPublic.getModelBySlug`.
+
+## SAJAM v2 — B7 (brisanje PII, authz, performanse, integracioni seed)
+
+Kod, testovi, ugovor (§23–§26) i DEV dokaz su urađeni (`docs/events/sajam-automobila-2026/jovan-status/B7.md`). Ništa nije zaustavljeno. Ovo su odluke za Aleksu i Jovana, sve konzervativno ostavljene dok se ne odluči.
+
+### 1. Podaci izlagača i brisanje 16. 11. (MASTER §13 naspram klijentskih podataka)
+MASTER §13 traži brisanje „email … i drugih podataka koji mogu identifikovati lice“. Purge briše sve podatke posetilaca i ceo outbox (i `daily_report` isporuke). Ne briše adresu i napomenu izlagača (`fairParticipations.reportRecipientEmail`, `leadDeliveryNote`) ni `fairReportRuns.recipient`, jer su to podaci klijenta. Brisanje je nepovratno, pa je ostavljeno za odluku. Ako treba, dodaje se jedna kategorija koja briše samo ta polja (`FAIR-BACKEND-CONTRACT.md` §9.61).
+
+### 2. Lokalne kopije PII
+Preuzete CSV/XLSX kontakte na računarima tima backend ne vidi. Potrebna je ručna čeklista 16. 11. za Aleksu, Jovana i Teodoru (§9.62).
+
+### 3. Ručni test 8. 10. zavisi od frontenda i hosta
+- Stranica modela (Kodeks F3) za TEST modele vraća 404, iako `/r/<kod>` vodi na tačnu putanju (postojeći M1 konflikt 3).
+- Telefonima treba HTTPS host vezan za DEV Convex, sa `FAIR_VISITOR_HASH_SECRET`; deploy ne radi agent (§9.68).
+
+### 4. Integritet metrika (authz nalaz)
+Javne visitor mutacije prihvataju svaki ispravan hash, pa direktni pozivi Convex-a mimo gateway-a mogu da napumpaju glasove, ocene i skenove. PII ne curi. Predlog je zajednička tajna gateway → Convex; to traži env promenljive i izmenu `cards.ts`/`app/r`, što je van B7 opsega (§9.65).
+
+### 5. NAT hale
+Generički `cardResolve` je 300 skenova odjednom pa 5/s po IP adresi (testirano). Ako hala ima javni Wi-Fi, vrh preko toga dobija stranicu nevažeće kartice (§9.66).

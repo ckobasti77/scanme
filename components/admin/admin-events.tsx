@@ -6,6 +6,7 @@ import { AdminEventsInteractions, type InteractionsActions, type InteractionsVie
 import { AdminEventsLeads } from "@/components/admin/admin-events-leads";
 import { AdminEventsReports } from "@/components/admin/admin-events-reports";
 import { AdminEventsSponsored } from "@/components/admin/admin-events-sponsored";
+import { AdminEventsRetention } from "@/components/admin/admin-events-retention";
 import { AdminEmptyState, AdminLoadingState, AdminPanel, AdminStatus } from "@/components/admin/admin-primitives";
 import { FAIR_PACKAGE_TIERS, type FairClientSegment, type FairEventStatus, type FairModelStatus, type FairPackageTier, type FairParticipationStatus } from "@/lib/fair-contract";
 import { fmt } from "@/lib/i18n/format";
@@ -101,9 +102,11 @@ export type AdminEventsSurfaceProps = {
   sponsored?: ReactNode;
   /** B6: the connected Izveštaji section (AdminEventsReportsWorkspace); absent in the static preview. */
   reports?: ReactNode;
+  /** B7: the connected Brisanje podataka section (AdminEventsRetentionWorkspace); absent in the static preview. */
+  retention?: ReactNode;
 };
 
-type Tab = "overview" | "model" | "qr" | "interactions" | "leads" | "sponsored" | "reports" | "import" | "clients";
+type Tab = "overview" | "model" | "qr" | "interactions" | "leads" | "sponsored" | "reports" | "retention" | "import" | "clients";
 const TABS: { id: Tab; label: string }[] = [
   { id: "overview", label: dict.tabOverview },
   { id: "model", label: dict.tabModel },
@@ -112,6 +115,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "leads", label: dict.tabLeads },
   { id: "sponsored", label: dict.tabSponsored },
   { id: "reports", label: dict.tabReports },
+  { id: "retention", label: dict.tabRetention },
   { id: "import", label: dict.tabImport },
   { id: "clients", label: dict.tabClients },
 ];
@@ -681,6 +685,7 @@ export function AdminEventsSurface(props: AdminEventsSurfaceProps) {
               : tab === "leads" ? props.leads ?? <AdminEventsLeads view={undefined} actions={undefined} />
               : tab === "sponsored" ? props.sponsored ?? <AdminEventsSponsored view={undefined} actions={undefined} />
               : tab === "reports" ? props.reports ?? <AdminEventsReports view={undefined} actions={undefined} />
+              : tab === "retention" ? props.retention ?? <AdminEventsRetention view={undefined} actions={undefined} />
               : props.catalog === undefined ? <AdminPanel><AdminLoadingState label={dict.loading} /></AdminPanel>
               : tab === "overview" ? <Overview catalog={props.catalog} onOpenModel={(id) => { setModelId(id); setTab("model"); }} />
               : tab === "model" ? <ModelDetail key={modelId ?? "none"} catalog={props.catalog} modelId={modelId} onSelect={(id) => setModelId(id || null)} actions={props.actions} />
