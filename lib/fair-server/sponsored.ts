@@ -5,8 +5,8 @@ import type { FunctionArgs, FunctionReturnType } from "convex/server";
 import { api } from "@/convex/_generated/api";
 import type { FairErrorCode, FairSponsoredActionKind } from "@/lib/fair-contract";
 import { fairGatewayError, fairGatewayJson, fairGatewayRequest } from "./gateway";
-import { fairErrorCodeOf } from "./interactions";
-import { fairVisitorForRequest, type FairVisitorEnv } from "./visitor";
+import { fairBackendFailure } from "./interactions";
+import { fairConvexVisitorForRequest, type FairVisitorEnv } from "./visitor";
 
 // =============================================================================
 // Sajam automobila 2026 — B5 garage sponsored action gateway,
@@ -16,7 +16,8 @@ import { fairVisitorForRequest, type FairVisitorEnv } from "./visitor";
 //   2. strict body — only `garage` and `open_model | garage_add`; unknown keys
 //      (a `visitorHash` too) are refused. The map and displays have no write;
 //   3. visitor = HMAC of the HttpOnly cookie; one call to
-//      fairInteractions.recordSponsoredAction (never the QR scan pipeline);
+//      fairInteractions.recordSponsoredAction (never the QR scan pipeline)
+//      with FAIR_GATEWAY_SECRET and the caller-IP HMAC (K1; no secret → no call);
 //   4. `{ ok: true, value }` or `{ ok: false, code }`, always `no-store`.
 // =============================================================================
 
@@ -69,15 +70,15 @@ export async function handleFairSponsoredAction(request: Request, deps: FairSpon
   const value = body.value;
   const args = typeof value === "object" && value !== null && !Array.isArray(value) ? parseSponsoredAction(value as Record<string, unknown>) : null;
   if (args === null) return fairGatewayError("INVALID_INPUT", 400);
-  const visitor = fairVisitorForRequest(request, deps.now ?? Date.now(), deps.env);
+  const visitor = fairConvexVisitorForRequest(request, deps.now ?? Date.now(), deps.env);
   if (visitor.visitorHash === null) return fairGatewayError("VISITOR_UNAVAILABLE", 503);
   const backend = deps.backend === undefined ? defaultBackend() : deps.backend;
   if (!backend) return fairGatewayError("SERVICE_UNAVAILABLE", 503);
   try {
-    const result = await backend.recordSponsoredAction({ visitorHash: visitor.visitorHash, ...args });
+    const { visitorHash, gatewaySecret, ipHash } = visitor;
+    const result = await backend.recordSponsoredAction({ gatewaySecret, ipHash, visitorHash, ...args });
     return fairGatewayJson({ ok: true, value: result }, 200, visitor.setCookie);
   } catch (error) {
-    const code = fairErrorCodeOf(error);
-    return code ? fairGatewayError(code, STATUS[code] ?? 400) : fairGatewayError("SERVICE_UNAVAILABLE", 502);
+    return fairBackendFailure(error, STATUS);
   }
 }

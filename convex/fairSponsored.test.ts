@@ -43,8 +43,12 @@ const ADMIN_EMAIL = "fair-admin@scanme.test";
 const ISSUER = "https://fair-b5.test";
 const SECRET = "test-fair-visitor-secret-0123456789abcdef";
 
+// K1: a TEST gateway secret (not a real value), set as the Convex env in beforeEach.
+const GATEWAY_SECRET = "test-fair-gateway-secret-0123456789abcdef";
+
 beforeEach(() => {
   process.env.SCANME_ADMIN_EMAILS = ADMIN_EMAIL;
+  process.env.FAIR_GATEWAY_SECRET = GATEWAY_SECRET;
   vi.useFakeTimers();
   vi.setSystemTime(BEFORE_OPENING);
 });
@@ -138,6 +142,7 @@ const garageRotation = (f: Fixture) => f.t.query(api.fairPublic.getSponsoredGara
 const ids = (view: FairSponsoredRotationView | null) => (view?.items ?? []).map((item) => item.eventModelId);
 function action(f: Fixture, visitorHash: string, eventModelId: Id<"fairEventModels">, extra: Partial<{ surface: string; kind: string; requestId: string }> = {}) {
   return f.t.mutation(api.fairInteractions.recordSponsoredAction, {
+    gatewaySecret: GATEWAY_SECRET,
     visitorHash, eventModelId, surface: "garage", kind: "open_model", requestId: requestId(), ...extra,
   });
 }
@@ -342,10 +347,10 @@ describe("B5 sponsored projections (map 12 s, garage 8 s)", () => {
       result: { questionId, state: "waiting_for_minimum" },
     });
     for (const optionId of ["o1", "o1", "o2", "o1"]) {
-      await f.t.mutation(api.fairInteractions.upsertAudienceVote, { visitorHash: visitor(), questionId, optionId });
+      await f.t.mutation(api.fairInteractions.upsertAudienceVote, { gatewaySecret: GATEWAY_SECRET, visitorHash: visitor(), questionId, optionId });
       expect(cardOf(await mapRotation(f)).audienceResult?.result.state).toBe("waiting_for_minimum");
     }
-    await f.t.mutation(api.fairInteractions.upsertAudienceVote, { visitorHash: visitor(), questionId, optionId: "o2" });
+    await f.t.mutation(api.fairInteractions.upsertAudienceVote, { gatewaySecret: GATEWAY_SECRET, visitorHash: visitor(), questionId, optionId: "o2" });
     expect(cardOf(await mapRotation(f)).audienceResult?.result).toEqual({
       questionId, state: "public", options: [{ optionId: "o1", percentage: 60 }, { optionId: "o2", percentage: 40 }],
     });

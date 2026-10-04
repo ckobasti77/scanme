@@ -98,6 +98,7 @@ import type * as lib_entitlements from "../lib/entitlements.js";
 import type * as lib_fairCatalog from "../lib/fairCatalog.js";
 import type * as lib_fairCountShards from "../lib/fairCountShards.js";
 import type * as lib_fairEmails from "../lib/fairEmails.js";
+import type * as lib_fairGateway from "../lib/fairGateway.js";
 import type * as lib_fairInteractions from "../lib/fairInteractions.js";
 import type * as lib_fairLeads from "../lib/fairLeads.js";
 import type * as lib_fairQr from "../lib/fairQr.js";
@@ -257,6 +258,7 @@ declare const fullApi: ApiFromModules<{
   "lib/fairCatalog": typeof lib_fairCatalog;
   "lib/fairCountShards": typeof lib_fairCountShards;
   "lib/fairEmails": typeof lib_fairEmails;
+  "lib/fairGateway": typeof lib_fairGateway;
   "lib/fairInteractions": typeof lib_fairInteractions;
   "lib/fairLeads": typeof lib_fairLeads;
   "lib/fairQr": typeof lib_fairQr;

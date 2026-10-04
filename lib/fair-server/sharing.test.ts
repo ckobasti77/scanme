@@ -3,11 +3,13 @@ import { describe, expect, test, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 const { fairShareCode, fairShareCodeHash, handleCreateShareCollection, handleFairTraffic } = await import("./sharing");
-const { FAIR_VISITOR_COOKIE_NAME, fairVisitorHash, generateFairVisitorToken } = await import("./visitor");
+const { FAIR_VISITOR_COOKIE_NAME, fairIpHash, fairVisitorHash, generateFairVisitorToken } = await import("./visitor");
 
 const NOW = Date.parse("2026-10-09T10:00:00+02:00");
 const SECRET = "test-fair-visitor-secret-0123456789abcdef";
-const ENV = { secret: SECRET, nodeEnv: "production" };
+// K1: a TEST gateway secret (not a real value); the gateway sends it to Convex.
+const GATEWAY_SECRET = "test-fair-gateway-secret-0123456789abcdef";
+const ENV = { secret: SECRET, gatewaySecret: GATEWAY_SECRET, nodeEnv: "production" };
 const headers = { "content-type": "application/json", "sec-fetch-site": "same-origin" };
 
 function post(path: string, body: unknown, extraHeaders: Record<string, string> = {}) {
@@ -36,12 +38,15 @@ describe("fair share collection gateway", () => {
     const expectedCode = fairShareCode(fairVisitorHash(token, SECRET), "test-share-request-1");
     expect(body.value.shareCode).toBe(expectedCode);
     expect(backend.createShareCollection).toHaveBeenCalledWith({
+      gatewaySecret: GATEWAY_SECRET,
+      ipHash: fairIpHash(post("/api/fair/share-collection", {}), SECRET),
       visitorHash: fairVisitorHash(token, SECRET),
       eventModelIds: ["model-1", "model-2"],
       codeHash: fairShareCodeHash(expectedCode),
       requestId: "test-share-request-1",
     });
     expect(JSON.stringify(backend.createShareCollection.mock.calls)).not.toContain(expectedCode);
+    expect(JSON.stringify(body)).not.toContain(GATEWAY_SECRET);
   });
 
   test("rejects duplicate, oversized and caller-supplied identity input before Convex", async () => {
@@ -72,6 +77,8 @@ describe("fair traffic gateway", () => {
     );
     expect(response.status).toBe(200);
     expect(backend.recordTraffic).toHaveBeenCalledWith({
+      gatewaySecret: GATEWAY_SECRET,
+      ipHash: fairIpHash(post("/api/fair/traffic", {}), SECRET),
       visitorHash: fairVisitorHash(token, SECRET),
       kind: "share_action",
       requestId: "test-traffic-1",
@@ -103,5 +110,38 @@ describe("fair traffic gateway", () => {
     const response = await handleFairTraffic(post("/api/fair/traffic", { kind: "direct_view", requestId: "test-traffic-4", eventModelId: "m1" }, cookie), { now: NOW, env: ENV, backend: broken });
     expect(response.status).toBe(502);
     expect(await response.json()).toEqual({ ok: false, code: "SERVICE_UNAVAILABLE" });
+  });
+
+  test("K1: without FAIR_GATEWAY_SECRET nothing reaches Convex; a refused secret is 503 SERVICE_UNAVAILABLE", async () => {
+    const token = generateFairVisitorToken();
+    const cookie = { cookie: `${FAIR_VISITOR_COOKIE_NAME}=${token}` };
+    const traffic = { kind: "direct_view", requestId: "test-traffic-5", eventModelId: "m1" };
+    const share = { eventModelIds: ["model-1", "model-2"], requestId: "test-share-request-2" };
+    const backend = { createShareCollection: vi.fn(), recordTraffic: vi.fn() };
+    for (const env of [{ secret: SECRET, nodeEnv: "production" }, { secret: SECRET, gatewaySecret: "too-short", nodeEnv: "production" }]) {
+      for (const response of [
+        await handleFairTraffic(post("/api/fair/traffic", traffic, cookie), { now: NOW, env, backend }),
+        await handleCreateShareCollection(post("/api/fair/share-collection", share), { now: NOW, env, backend }),
+      ]) {
+        expect(response.status).toBe(503);
+        expect(response.headers.get("set-cookie")).toBeNull();
+        expect(await response.json()).toEqual({ ok: false, code: "VISITOR_UNAVAILABLE" });
+      }
+    }
+    expect(backend.recordTraffic).not.toHaveBeenCalled();
+    expect(backend.createShareCollection).not.toHaveBeenCalled();
+    for (const code of ["FAIR_GATEWAY_NOT_CONFIGURED", "FAIR_GATEWAY_UNAUTHORIZED"]) {
+      const refused = {
+        createShareCollection: vi.fn(async () => { throw new ConvexError({ code }); }),
+        recordTraffic: vi.fn(async () => { throw new ConvexError({ code }); }),
+      };
+      for (const response of [
+        await handleFairTraffic(post("/api/fair/traffic", traffic, cookie), { now: NOW, env: ENV, backend: refused }),
+        await handleCreateShareCollection(post("/api/fair/share-collection", share, cookie), { now: NOW, env: ENV, backend: refused }),
+      ]) {
+        expect(response.status).toBe(503);
+        expect(await response.json()).toEqual({ ok: false, code: "SERVICE_UNAVAILABLE" });
+      }
+    }
   });
 });

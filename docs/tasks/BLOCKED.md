@@ -1779,3 +1779,16 @@ Nalazi 1 i 3 traže nove env promenljive, koje agent ne postavlja.
 
 ### 2. Purge bez ručnog odobrenja (MASTER §13)
 Cron sam pokreće pravo brisanje 16. 11. u 00:00, a MASTER kaže „nakon odobrenog pokretanja“. Aleksa bira: automatski ili uz admin odobrenje. Posle purge-a broj leadova i odgovori ankete u novim izradama izveštaja su 0 (RF nalaz 5).
+
+## SAJAM v2 — K1 (tajna gateway Next → Convex, RF nalaz 1)
+
+Kod, testovi i ugovor (§27) su urađeni (`docs/events/sajam-automobila-2026/jovan-status/K1.md`). Ništa nije zaustavljeno. RF nalaz 1 i B7 §4 su rešeni u kodu. Ostaje jedan produkcijski preduslov i dve odluke; ništa od toga agent ne radi sam.
+
+### 1. Produkcijski preduslov: `FAIR_GATEWAY_SECRET` pre deploya
+Aleksa ili Jovan postavljaju novu vrednost (32+ nasumičnih znakova, različitu od DEV) u Convex prod env i u Vercel prod env, i to **pre** deploya ovog koda. Bez nje su svi fair skenovi i interakcije ugašeni (fail closed), a QR redirect radi. Čeklista je u ugovoru §27.6. DEV (`expert-pelican-136` i `.env.local`) je runner već podesio; sken na :3100 je potvrdio da se vrednosti poklapaju.
+
+### 2. Veličina limita novih identiteta po IP-u (odluka uz §9.66)
+`fairVisitorCreate` je 300 odjednom, pa 120/min po IP HMAC-u. Računica (oko 100 novih uređaja u minuti na vrhu, cela prostorija iza jednog NAT-a odjednom) je procena bez stvarnih brojeva posetilaca. Ako hala ima javni Wi-Fi ili očekivana poseta znatno premašuje 10.000 dnevno, broj treba potvrditi ili povećati. Menja se jedan red u `convex/lib/rateLimits.ts`.
+
+### 3. Ključ IP HMAC-a je `FAIR_VISITOR_HASH_SECRET`
+Rotacija te tajne menja i ključ IP bucket-a, pored već poznatog resetovanja jedinstvenih posetilaca (RF nalaz 6). To je prihvatljivo, jer stanje bucket-a traje samo minute.

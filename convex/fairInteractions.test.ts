@@ -43,8 +43,12 @@ const ADMIN_EMAIL = "fair-admin@scanme.test";
 const ISSUER = "https://fair-b3.test";
 const SECRET = "test-fair-visitor-secret-0123456789abcdef";
 
+// K1: a TEST gateway secret (not a real value), set as the Convex env in beforeEach.
+const GATEWAY_SECRET = "test-fair-gateway-secret-0123456789abcdef";
+
 beforeEach(() => {
   process.env.SCANME_ADMIN_EMAILS = ADMIN_EMAIL;
+  process.env.FAIR_GATEWAY_SECRET = GATEWAY_SECRET;
   vi.useFakeTimers();
   vi.setSystemTime(BEFORE_OPENING);
 });
@@ -134,12 +138,12 @@ async function rows<T extends TableNames>(f: Fixture, table: T): Promise<Doc<T>[
 let requestSequence = 0;
 async function scan(f: Fixture, code: string, visitorHash: string) {
   return f.t.mutation(api.cards.resolveAndRecord, {
-    cardCode: code, requestId: `test-b3-request-${++requestSequence}`, deviceCategory: "mobile", ipHash: "test-hall-nat", fairVisitorHash: visitorHash,
+    cardCode: code, requestId: `test-b3-request-${++requestSequence}`, deviceCategory: "mobile", ipHash: "test-hall-nat", fairGatewaySecret: GATEWAY_SECRET, fairVisitorHash: visitorHash,
   });
 }
 
 const rate = (f: Fixture, visitorHash: string, eventModelId: string, values: { overall?: number; appearance?: number; specifications?: number; price?: number }) =>
-  f.t.mutation(api.fairInteractions.upsertRating, { visitorHash, eventModelId, ...values });
+  f.t.mutation(api.fairInteractions.upsertRating, { gatewaySecret: GATEWAY_SECRET, visitorHash, eventModelId, ...values });
 
 const summary = (f: Fixture, eventModelId: Id<"fairEventModels">) => f.admin.query(api.fairInteractionsAdmin.getModelInteractionSummary, { eventModelId });
 
@@ -154,9 +158,9 @@ async function question(f: Fixture, eventModelId: Id<"fairEventModels">, day: Id
 }
 
 const vote = (f: Fixture, visitorHash: string, questionId: string, optionId: string) =>
-  f.t.mutation(api.fairInteractions.upsertAudienceVote, { visitorHash, questionId, optionId });
+  f.t.mutation(api.fairInteractions.upsertAudienceVote, { gatewaySecret: GATEWAY_SECRET, visitorHash, questionId, optionId });
 
-const myState = (f: Fixture, visitorHash: string, eventModelId: string) => f.t.query(api.fairInteractions.getMyModelState, { visitorHash, eventModelId });
+const myState = (f: Fixture, visitorHash: string, eventModelId: string) => f.t.query(api.fairInteractions.getMyModelState, { gatewaySecret: GATEWAY_SECRET, visitorHash, eventModelId });
 
 // -----------------------------------------------------------------------------
 
@@ -207,7 +211,7 @@ describe("ratings (HANDOFF §5.3, §10, §12; JOVAN-DELTA §1)", () => {
     for (let i = 0; i < 6; i++) await rate(f, visitor(), f.starter.id, { overall: 5 });
     expect((await myState(f, v1, f.starter.id)).rating).toEqual({ mode: "overall", overall: 1 });
     expect((await myState(f, v2, f.starter.id)).rating).toEqual({ mode: "overall" });
-    expect(await f.t.query(api.fairInteractions.getMyModelState, { visitorHash: v2, eventModelId: f.advanced.id })).toMatchObject({ rating: { mode: "dimensions" } });
+    expect(await f.t.query(api.fairInteractions.getMyModelState, { gatewaySecret: GATEWAY_SECRET, visitorHash: v2, eventModelId: f.advanced.id })).toMatchObject({ rating: { mode: "dimensions" } });
     await expect(f.member.query(api.fairInteractionsAdmin.getModelInteractionSummary, { eventModelId: f.starter.id })).rejects.toThrow();
     await expect(f.t.query(api.fairInteractionsAdmin.getModelInteractionSummary, { eventModelId: f.starter.id })).rejects.toThrow();
     expect(ratingField(await summary(f, f.starter.id), "overall")).toMatchObject({ count: 7, sum: 31 });
@@ -261,7 +265,7 @@ describe("feature without entitlement → stable code, no partial write (HANDOFF
       eventId: f.eventId, eventModelId: f.starter.id, status: "published", version: 1, createdAt: BEFORE_OPENING, updatedAt: BEFORE_OPENING,
       questions: [{ id: "q1", prompt: "TEST", kind: "yes_no", options: [], required: false, order: 1 }],
     }));
-    await expectCode(f.t.mutation(api.fairInteractions.submitSurvey, { visitorHash: v1, surveyId, submissionId: "test-submission-1", answers: [{ questionId: "q1", value: "yes" }] }), "FEATURE_NOT_ENTITLED");
+    await expectCode(f.t.mutation(api.fairInteractions.submitSurvey, { gatewaySecret: GATEWAY_SECRET, visitorHash: v1, surveyId, submissionId: "test-submission-1", answers: [{ questionId: "q1", value: "yes" }] }), "FEATURE_NOT_ENTITLED");
 
     for (const table of ["fairRatings", "fairAudienceQuestions", "fairSurveyResponses", "fairVisitors", "fairMetricCountShards"] as const) {
       expect(await rows(f, table)).toHaveLength(0);
@@ -408,7 +412,7 @@ describe("survey (HANDOFF §5.3; MASTER §9.2)", () => {
     return surveyId;
   }
   const submit = (f: Fixture, visitorHash: string, surveyId: string, submissionId: string, answers: Array<{ questionId: string; value: string }>) =>
-    f.t.mutation(api.fairInteractions.submitSurvey, { visitorHash, surveyId, submissionId, answers });
+    f.t.mutation(api.fairInteractions.submitSurvey, { gatewaySecret: GATEWAY_SECRET, visitorHash, surveyId, submissionId, answers });
 
   test("Advanced only, at most 5 yes_no/single_choice questions; yes_no carries no options", async () => {
     const f = await setup();
@@ -475,7 +479,7 @@ describe("brand passport (HANDOFF §5.5; MASTER §11; JOVAN-DELTA §3)", () => {
   const publish = (f: Fixture, passportId: Id<"fairPassportConfigs">) => f.admin.mutation(api.fairInteractionsAdmin.publishPassport, { passportId });
   const open = async (f: Fixture, brandId: Id<"brands">) => (await f.admin.mutation(api.fairInteractionsAdmin.upsertPassport, { eventId: f.eventId, brandId })).passportId;
   const favorite = (f: Fixture, visitorHash: string, passportId: string, eventModelId: string) =>
-    f.t.mutation(api.fairInteractions.upsertBrandFavorite, { visitorHash, passportId, eventModelId });
+    f.t.mutation(api.fairInteractions.upsertBrandFavorite, { gatewaySecret: GATEWAY_SECRET, visitorHash, passportId, eventModelId });
 
   test("publish needs ≥2 exhibited models, all published Starter+ candidates, and must happen before opening", async () => {
     const f = await setup();
@@ -517,7 +521,7 @@ describe("brand passport (HANDOFF §5.5; MASTER §11; JOVAN-DELTA §3)", () => {
         ],
       }],
     });
-    const progress = async (hash: string) => (await f.t.query(api.fairInteractions.getMyPassportProgress, { visitorHash: hash, eventSlug: "test-elektromobilnost-2026" }))!.progress[0];
+    const progress = async (hash: string) => (await f.t.query(api.fairInteractions.getMyPassportProgress, { gatewaySecret: GATEWAY_SECRET, visitorHash: hash, eventSlug: "test-elektromobilnost-2026" }))!.progress[0];
     expect(await progress(me)).toEqual({ passportId, stampedModelIds: [], stampedCount: 0, requiredCount: 2, completed: false });
 
     await scan(f, f.starter.code, me);
@@ -601,7 +605,7 @@ describe("no public function returns rating aggregates or another visitor's stat
       await f.t.query(api.fairPublic.getPassportCatalog, { eventSlug: slug }),
       await myState(f, me, f.starter.id),
       await myState(f, me, f.advanced.id),
-      await f.t.query(api.fairInteractions.getMyPassportProgress, { visitorHash: me, eventSlug: slug }),
+      await f.t.query(api.fairInteractions.getMyPassportProgress, { gatewaySecret: GATEWAY_SECRET, visitorHash: me, eventSlug: slug }),
     ];
     const keys = new Set<string>();
     const walk = (value: unknown) => {

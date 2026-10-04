@@ -27,6 +27,7 @@ import * as fairPublic from "./fairPublic";
 import * as fairReports from "./fairReports";
 import * as fairRetention from "./fairRetention";
 import * as fairScans from "./fairScans";
+import * as fairSharing from "./fairSharing";
 import * as fairSponsoredAdmin from "./fairSponsoredAdmin";
 
 vi.mock("server-only", () => ({}));
@@ -40,8 +41,12 @@ const ISSUER = "https://fair-b7-authz.test";
 const SECRET = "test-fair-visitor-secret-0123456789abcdef";
 const EM = "test-elektromobilnost-2026";
 
+// K1: a TEST gateway secret (not a real value), set as the Convex env in beforeEach.
+const GATEWAY_SECRET = "test-fair-gateway-secret-0123456789abcdef";
+
 beforeEach(() => {
   process.env.SCANME_ADMIN_EMAILS = ADMIN_EMAIL;
+  process.env.FAIR_GATEWAY_SECRET = GATEWAY_SECRET;
   vi.stubGlobal("fetch", vi.fn(async () => { throw new Error("no network in tests"); }));
   vi.useFakeTimers();
   vi.setSystemTime(SEED_AT);
@@ -70,6 +75,9 @@ const AUTHZ: Record<string, { module: Record<string, unknown>; functions: Record
     functions: { getMyModelState: V, getMyPassportProgress: V, upsertRating: V, upsertAudienceVote: V, submitSurvey: V, upsertBrandFavorite: V, recordSponsoredAction: V },
   },
   fairLeads: { module: fairLeads, functions: { submitLead: V } },
+  // 5 Oct traffic/share delta (8e72c10), classified at the 2026-10-05 sync;
+  // the two writes require FAIR_GATEWAY_SECRET (fairGateway.test.ts).
+  fairSharing: { module: fairSharing, functions: { createShareCollection: V, getShareCollectionByCodeHash: V, recordTraffic: V } },
   fairAdmin: {
     module: fairAdmin,
     functions: {
@@ -112,7 +120,7 @@ const AUTHZ: Record<string, { module: Record<string, unknown>; functions: Record
   fairEmailSender: { module: fairEmailSender, functions: { sendDelivery: I, sendDevTestEmail: I } },
   fairDevFixtures: {
     module: fairDevFixtures,
-    functions: { seedTestCatalog: I, seedTestQr: I, seedTestPassport: I, seedTestSponsoredSnapshot: I, seedIntegrationTest: I },
+    functions: { seedTestCatalog: I, seedTestQr: I, seedTestPassport: I, seedTestSponsoredSnapshot: I, seedIntegrationTest: I, seedShowcaseCatalog: I },
   },
 };
 
@@ -261,17 +269,21 @@ describe("B7 authz table of every fair function", () => {
     const name = "TEST Posetilac Authz", email = "posetilac.authz@example.invalid", phone = "+381 60 000 0077";
 
     const outputs: unknown[] = [];
-    outputs.push(await f.t.mutation(api.cards.resolveAndRecord, { cardCode: qr.resolverCode, requestId: "test-authz-scan-1", deviceCategory: "mobile", ipHash: "test-hall-nat", fairVisitorHash: me }));
-    outputs.push(await f.t.mutation(api.cards.resolveAndRecord, { cardCode: voltaX2.resolverCode, requestId: "test-authz-scan-2", deviceCategory: "mobile", ipHash: "test-hall-nat", fairVisitorHash: me }));
-    outputs.push(await f.t.mutation(api.fairLeads.submitLead, { visitorHash: me, eventModelId: f.modelId, kind: "interest", submissionId: "test-authz-lead-1", contactName: name, email, phone, consentAccepted: true, consentVersion: 1 }));
-    outputs.push(await f.t.mutation(api.fairLeads.submitLead, { visitorHash: me, eventModelId: f.modelId, kind: "interest", submissionId: "test-authz-lead-1", contactName: name, email, phone, consentAccepted: true, consentVersion: 1 }));
-    outputs.push(await f.t.mutation(api.fairInteractions.upsertRating, { visitorHash: me, eventModelId: f.modelId, appearance: 5 }));
-    outputs.push(await f.t.mutation(api.fairInteractions.upsertAudienceVote, { visitorHash: me, questionId: f.questionId, optionId: "test-da" }));
-    outputs.push(await f.t.mutation(api.fairInteractions.submitSurvey, { visitorHash: me, surveyId: f.surveyId, submissionId: "test-authz-survey", answers: [{ questionId: "test-preporuka", value: "no" }] }));
-    outputs.push(await f.t.mutation(api.fairInteractions.upsertBrandFavorite, { visitorHash: me, passportId: f.passportId, eventModelId: f.modelId }));
-    outputs.push(await f.t.mutation(api.fairInteractions.recordSponsoredAction, { visitorHash: me, eventModelId: f.modelId, surface: "garage", kind: "garage_add", requestId: "test-authz-sponsored" }));
-    outputs.push(await f.t.query(api.fairInteractions.getMyModelState, { visitorHash: me, eventModelId: f.modelId }));
-    outputs.push(await f.t.query(api.fairInteractions.getMyPassportProgress, { visitorHash: me, eventSlug: EM }));
+    outputs.push(await f.t.mutation(api.cards.resolveAndRecord, { cardCode: qr.resolverCode, requestId: "test-authz-scan-1", deviceCategory: "mobile", ipHash: "test-hall-nat", fairGatewaySecret: GATEWAY_SECRET, fairVisitorHash: me }));
+    outputs.push(await f.t.mutation(api.cards.resolveAndRecord, { cardCode: voltaX2.resolverCode, requestId: "test-authz-scan-2", deviceCategory: "mobile", ipHash: "test-hall-nat", fairGatewaySecret: GATEWAY_SECRET, fairVisitorHash: me }));
+    outputs.push(await f.t.mutation(api.fairLeads.submitLead, { gatewaySecret: GATEWAY_SECRET, visitorHash: me, eventModelId: f.modelId, kind: "interest", submissionId: "test-authz-lead-1", contactName: name, email, phone, consentAccepted: true, consentVersion: 1 }));
+    outputs.push(await f.t.mutation(api.fairLeads.submitLead, { gatewaySecret: GATEWAY_SECRET, visitorHash: me, eventModelId: f.modelId, kind: "interest", submissionId: "test-authz-lead-1", contactName: name, email, phone, consentAccepted: true, consentVersion: 1 }));
+    outputs.push(await f.t.mutation(api.fairInteractions.upsertRating, { gatewaySecret: GATEWAY_SECRET, visitorHash: me, eventModelId: f.modelId, appearance: 5 }));
+    outputs.push(await f.t.mutation(api.fairInteractions.upsertAudienceVote, { gatewaySecret: GATEWAY_SECRET, visitorHash: me, questionId: f.questionId, optionId: "test-da" }));
+    outputs.push(await f.t.mutation(api.fairInteractions.submitSurvey, { gatewaySecret: GATEWAY_SECRET, visitorHash: me, surveyId: f.surveyId, submissionId: "test-authz-survey", answers: [{ questionId: "test-preporuka", value: "no" }] }));
+    outputs.push(await f.t.mutation(api.fairInteractions.upsertBrandFavorite, { gatewaySecret: GATEWAY_SECRET, visitorHash: me, passportId: f.passportId, eventModelId: f.modelId }));
+    outputs.push(await f.t.mutation(api.fairInteractions.recordSponsoredAction, { gatewaySecret: GATEWAY_SECRET, visitorHash: me, eventModelId: f.modelId, surface: "garage", kind: "garage_add", requestId: "test-authz-sponsored" }));
+    outputs.push(await f.t.query(api.fairInteractions.getMyModelState, { gatewaySecret: GATEWAY_SECRET, visitorHash: me, eventModelId: f.modelId }));
+    outputs.push(await f.t.query(api.fairInteractions.getMyPassportProgress, { gatewaySecret: GATEWAY_SECRET, visitorHash: me, eventSlug: EM }));
+    const shareCodeHash = "5".repeat(64);
+    outputs.push(await f.t.mutation(api.fairSharing.createShareCollection, { gatewaySecret: GATEWAY_SECRET, visitorHash: me, eventModelIds: [f.modelId], codeHash: shareCodeHash, requestId: "test-authz-share" }));
+    outputs.push(await f.t.mutation(api.fairSharing.recordTraffic, { gatewaySecret: GATEWAY_SECRET, visitorHash: me, kind: "direct_view", requestId: "test-authz-traffic", eventModelId: f.modelId }));
+    outputs.push(await f.t.query(api.fairSharing.getShareCollectionByCodeHash, { codeHash: shareCodeHash, now: Date.now() }));
     const [, , eventSlug, , modelSlug] = qr.path.split("/");
     outputs.push(await f.t.query(api.fairPublic.getEventBySlug, { slug: EM }));
     outputs.push(await f.t.query(api.fairPublic.getModelBySlug, { eventSlug, modelSlug }));

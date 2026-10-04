@@ -49,8 +49,12 @@ type ResendCall = { url: string; key: string | null; auth: string | null; body: 
 let calls: ResendCall[] = [];
 let respond: (call: number) => Response = (call) => Response.json({ id: `re_test_message_${call}` });
 
+// K1: a TEST gateway secret (not a real value), set as the Convex env in beforeEach.
+const GATEWAY_SECRET = "test-fair-gateway-secret-0123456789abcdef";
+
 beforeEach(() => {
   process.env.SCANME_ADMIN_EMAILS = ADMIN_EMAIL;
+  process.env.FAIR_GATEWAY_SECRET = GATEWAY_SECRET;
   process.env.RESEND_API_KEY = "re_test_not_a_real_key";
   process.env.RESEND_FROM_EMAIL = "ScanMe TEST <test-sender@example.invalid>";
   delete process.env.FAIR_PUBLIC_BASE_URL;
@@ -166,6 +170,7 @@ type Fixture = Awaited<ReturnType<typeof setup>>;
 type LeadArgs = { kind?: "interest" | "test_drive"; submissionId?: string; contactName?: string; email?: string; phone?: string; consentAccepted?: boolean; consentVersion?: number };
 function submit(f: Fixture, visitorHash: string, eventModelId: Id<"fairEventModels">, args: LeadArgs = {}) {
   return f.t.mutation(api.fairLeads.submitLead, {
+    gatewaySecret: GATEWAY_SECRET,
     visitorHash, eventModelId, kind: "interest", submissionId: submissionId(), contactName: NAME, email: EMAIL,
     consentAccepted: true, consentVersion: 1, ...args,
   });
@@ -258,6 +263,7 @@ describe("B4 consent gate (MASTER §8, §13; HANDOFF §5.4)", () => {
     expect(lead).toMatchObject({ consentAccepted: true, consentVersion: 1, consentTextSnapshot: rendered, consentedAt: DAY1, purgeAt: PURGE_AT, status: "received", followUpSuppressed: false });
     // The browser cannot send consent text: the validator refuses the field.
     await expect(f.t.mutation(api.fairLeads.submitLead, {
+      gatewaySecret: GATEWAY_SECRET,
       visitorHash: visitor(), eventModelId: f.models.starter, kind: "interest", submissionId: submissionId(), contactName: NAME, email: EMAIL,
       consentAccepted: true, consentVersion: 1, consentText: "proizvoljan tekst",
     } as never)).rejects.toThrow();
@@ -544,8 +550,8 @@ describe("B4 PII boundary: public functions never return contacts (HANDOFF §7, 
     }
     outputs.push(await f.t.query(api.fairPublic.getModelsByIds, { ids: Object.values(f.models) }));
     outputs.push(await f.t.query(api.fairPublic.getEventBySlug, { slug: "test-elektromobilnost-2026" }));
-    for (const model of Object.values(f.models)) outputs.push(await f.t.query(api.fairInteractions.getMyModelState, { visitorHash: hash, eventModelId: model }));
-    outputs.push(await f.t.query(api.fairInteractions.getMyPassportProgress, { visitorHash: hash, eventSlug: "test-elektromobilnost-2026" }));
+    for (const model of Object.values(f.models)) outputs.push(await f.t.query(api.fairInteractions.getMyModelState, { gatewaySecret: GATEWAY_SECRET, visitorHash: hash, eventModelId: model }));
+    outputs.push(await f.t.query(api.fairInteractions.getMyPassportProgress, { gatewaySecret: GATEWAY_SECRET, visitorHash: hash, eventSlug: "test-elektromobilnost-2026" }));
     const text = JSON.stringify(outputs);
     for (const secret of [NAME, EMAIL, PHONE, hash, "consentTextSnapshot"]) expect(text).not.toContain(secret);
 

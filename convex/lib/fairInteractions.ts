@@ -19,6 +19,7 @@ import {
 } from "../../lib/fair-contract";
 import { fairTierAt, getFairEntitlements } from "../../lib/fair-entitlements";
 import { bumpFairCount, readFairCount } from "./fairCountShards";
+import { upsertFairVisitor } from "./fairScans";
 
 // =============================================================================
 // Sajam automobila 2026 — B3 interaction core (BACKEND-HANDOFF §5.3, §5.5, §7
@@ -55,6 +56,19 @@ export function fairInteractionError(code: FairErrorCode, details?: FairErrorDet
 export function requireVisitorHash(visitorHash: string): string {
   if (!isFairVisitorHash(visitorHash)) fairInteractionError("INVALID_INPUT", { field: "visitorHash" });
   return visitorHash;
+}
+
+/**
+ * The visitor row of a write (K1): an existing row, or a new one when the
+ * per-IP `fairVisitorCreate` bucket allows it — else RATE_LIMITED, nothing written.
+ */
+export async function requireFairVisitorRow(
+  ctx: MutationCtx,
+  input: { visitorHash: string; ipHash: string | undefined; now: number },
+): Promise<Id<"fairVisitors">> {
+  const visitor = await upsertFairVisitor(ctx, input);
+  if (!visitor.ok) fairInteractionError("RATE_LIMITED", { retryAfterMs: visitor.retryAfterMs });
+  return visitor.visitorId;
 }
 
 /** Read-only visitor lookup (queries never create a visitor). */

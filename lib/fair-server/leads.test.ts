@@ -8,11 +8,13 @@ import { describe, expect, test, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 const { handleFairLead } = await import("./leads");
-const { FAIR_VISITOR_COOKIE_NAME, fairVisitorHash, generateFairVisitorToken } = await import("./visitor");
+const { FAIR_VISITOR_COOKIE_NAME, fairIpHash, fairVisitorHash, generateFairVisitorToken } = await import("./visitor");
 
 const NOW = Date.parse("2026-10-09T10:00:00+02:00");
 const SECRET = "test-fair-visitor-secret-0123456789abcdef";
-const ENV = { secret: SECRET, nodeEnv: "production" };
+// K1: a TEST gateway secret (not a real value); the gateway sends it to Convex.
+const GATEWAY_SECRET = "test-fair-gateway-secret-0123456789abcdef";
+const ENV = { secret: SECRET, gatewaySecret: GATEWAY_SECRET, nodeEnv: "production" };
 const BODY = {
   eventModelId: "m1",
   kind: "test_drive",
@@ -43,7 +45,7 @@ describe("POST /api/fair/lead", () => {
     expect(JSON.parse(text)).toEqual({ ok: true, value: RESULT });
     for (const contact of [BODY.contactName, BODY.email, BODY.phone]) expect(text).not.toContain(contact);
     const token = response.headers.get("set-cookie")!.split(";")[0].split("=")[1];
-    expect(fake.submitLead).toHaveBeenCalledWith({ visitorHash: fairVisitorHash(token, SECRET), ...BODY });
+    expect(fake.submitLead).toHaveBeenCalledWith({ gatewaySecret: GATEWAY_SECRET, ipHash: fairIpHash(post(BODY), SECRET), visitorHash: fairVisitorHash(token, SECRET), ...BODY });
     expect(JSON.stringify(fake.submitLead.mock.calls)).not.toContain(token);
   });
 
@@ -55,6 +57,7 @@ describe("POST /api/fair/lead", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("set-cookie")).toBeNull();
     expect(fake.submitLead).toHaveBeenCalledWith({
+      gatewaySecret: GATEWAY_SECRET, ipHash: fairIpHash(post(BODY), SECRET),
       visitorHash: fairVisitorHash(token, SECRET), eventModelId: "m1", kind: "interest", submissionId: BODY.submissionId,
       contactName: BODY.contactName, phone: BODY.phone, consentAccepted: true, consentVersion: 1,
     });
@@ -88,6 +91,24 @@ describe("POST /api/fair/lead", () => {
     expect((await handleFairLead(post(BODY, { "sec-fetch-site": "cross-site" }), deps)).status).toBe(403);
     expect((await handleFairLead(post(BODY), { ...deps, env: { nodeEnv: "production" } })).status).toBe(503);
     expect(fake.submitLead).not.toHaveBeenCalled();
+  });
+
+  test("K1: without FAIR_GATEWAY_SECRET the contact never reaches Convex; a refused secret is 503 SERVICE_UNAVAILABLE", async () => {
+    const fake = backend();
+    for (const env of [{ secret: SECRET, nodeEnv: "production" }, { secret: SECRET, gatewaySecret: "too-short", nodeEnv: "production" }]) {
+      const response = await handleFairLead(post(BODY), { now: NOW, env, backend: fake });
+      expect(response.status).toBe(503);
+      expect(response.headers.get("set-cookie")).toBeNull();
+      expect(await response.json()).toEqual({ ok: false, code: "VISITOR_UNAVAILABLE" });
+    }
+    expect(fake.submitLead).not.toHaveBeenCalled();
+    for (const code of ["FAIR_GATEWAY_NOT_CONFIGURED", "FAIR_GATEWAY_UNAUTHORIZED"]) {
+      const refused = await handleFairLead(post(BODY), { now: NOW, env: ENV, backend: backend(async () => { throw new ConvexError({ code }); }) });
+      expect(refused.status).toBe(503);
+      const text = await refused.text();
+      expect(text).toBe(JSON.stringify({ ok: false, code: "SERVICE_UNAVAILABLE" }));
+      expect(text).not.toContain(GATEWAY_SECRET);
+    }
   });
 
   test("Convex codes map to HTTP statuses; an unknown failure is 502 without its message", async () => {

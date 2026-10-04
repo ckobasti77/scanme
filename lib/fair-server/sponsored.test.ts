@@ -8,11 +8,13 @@ import { describe, expect, test, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 const { handleFairSponsoredAction } = await import("./sponsored");
-const { FAIR_VISITOR_COOKIE_NAME, fairVisitorHash, generateFairVisitorToken } = await import("./visitor");
+const { FAIR_VISITOR_COOKIE_NAME, fairIpHash, fairVisitorHash, generateFairVisitorToken } = await import("./visitor");
 
 const NOW = Date.parse("2026-10-09T10:00:00+02:00");
 const SECRET = "test-fair-visitor-secret-0123456789abcdef";
-const ENV = { secret: SECRET, nodeEnv: "production" };
+// K1: a TEST gateway secret (not a real value); the gateway sends it to Convex.
+const GATEWAY_SECRET = "test-fair-gateway-secret-0123456789abcdef";
+const ENV = { secret: SECRET, gatewaySecret: GATEWAY_SECRET, nodeEnv: "production" };
 const BODY = { eventModelId: "m1", surface: "garage", kind: "open_model", requestId: "test-gateway-request-1" };
 const RESULT = { eventModelId: "m1", kind: "open_model" as const, recordedAt: NOW, duplicate: false };
 
@@ -32,7 +34,7 @@ describe("POST /api/fair/sponsored-action", () => {
     expect(response.headers.get("cache-control")).toBe("no-store");
     expect(await response.json()).toEqual({ ok: true, value: RESULT });
     const token = response.headers.get("set-cookie")!.split(";")[0].split("=")[1];
-    expect(fake.recordSponsoredAction).toHaveBeenCalledWith({ visitorHash: fairVisitorHash(token, SECRET), ...BODY });
+    expect(fake.recordSponsoredAction).toHaveBeenCalledWith({ gatewaySecret: GATEWAY_SECRET, ipHash: fairIpHash(post(BODY), SECRET), visitorHash: fairVisitorHash(token, SECRET), ...BODY });
     expect(JSON.stringify(fake.recordSponsoredAction.mock.calls)).not.toContain(token);
   });
 
@@ -43,7 +45,7 @@ describe("POST /api/fair/sponsored-action", () => {
     const response = await handleFairSponsoredAction(post({ ...BODY, kind: "garage_add" }, headers), { now: NOW, env: ENV, backend: fake });
     expect(response.status).toBe(200);
     expect(response.headers.get("set-cookie")).toBeNull();
-    expect(fake.recordSponsoredAction).toHaveBeenCalledWith({ visitorHash: fairVisitorHash(token, SECRET), ...BODY, kind: "garage_add" });
+    expect(fake.recordSponsoredAction).toHaveBeenCalledWith({ gatewaySecret: GATEWAY_SECRET, ipHash: fairIpHash(post(BODY), SECRET), visitorHash: fairVisitorHash(token, SECRET), ...BODY, kind: "garage_add" });
   });
 
   test("map/display surfaces, other kinds, a body visitorHash, cross-site calls and a missing secret never reach Convex", async () => {
@@ -67,6 +69,22 @@ describe("POST /api/fair/sponsored-action", () => {
     expect((await handleFairSponsoredAction(post(BODY, { "sec-fetch-site": "cross-site" }), deps)).status).toBe(403);
     expect((await handleFairSponsoredAction(post(BODY), { ...deps, env: { nodeEnv: "production" } })).status).toBe(503);
     expect(fake.recordSponsoredAction).not.toHaveBeenCalled();
+  });
+
+  test("K1: without FAIR_GATEWAY_SECRET nothing reaches Convex; a refused secret is 503 SERVICE_UNAVAILABLE", async () => {
+    const fake = backend();
+    for (const env of [{ secret: SECRET, nodeEnv: "production" }, { secret: SECRET, gatewaySecret: "too-short", nodeEnv: "production" }]) {
+      const response = await handleFairSponsoredAction(post(BODY), { now: NOW, env, backend: fake });
+      expect(response.status).toBe(503);
+      expect(response.headers.get("set-cookie")).toBeNull();
+      expect(await response.json()).toEqual({ ok: false, code: "VISITOR_UNAVAILABLE" });
+    }
+    expect(fake.recordSponsoredAction).not.toHaveBeenCalled();
+    for (const code of ["FAIR_GATEWAY_NOT_CONFIGURED", "FAIR_GATEWAY_UNAUTHORIZED"]) {
+      const refused = await handleFairSponsoredAction(post(BODY), { now: NOW, env: ENV, backend: backend(async () => { throw new ConvexError({ code }); }) });
+      expect(refused.status).toBe(503);
+      expect(await refused.json()).toEqual({ ok: false, code: "SERVICE_UNAVAILABLE" });
+    }
   });
 
   test("Convex codes map to HTTP statuses; an unknown failure is 502 without its message", async () => {

@@ -9,9 +9,17 @@ import {
   type FairShareChannel,
   type FairTrafficKind,
 } from "../lib/fair-contract";
-import { fairInteractionError } from "./lib/fairInteractions";
-import { fairTimeKeys, upsertFairVisitor } from "./lib/fairScans";
+import { requireFairGateway } from "./lib/fairGateway";
+import { fairInteractionError, requireFairVisitorRow } from "./lib/fairInteractions";
+import { fairTimeKeys } from "./lib/fairScans";
 import { rateLimiter } from "./lib/rateLimits";
+
+// K1 (FAIR-BACKEND-CONTRACT §27, sync 2026-10-05): createShareCollection and
+// recordTraffic take a `visitorHash`, so — like every visitor-specific fair
+// function — they first require FAIR_GATEWAY_SECRET (a direct call without it
+// reads and writes nothing) and a NEW visitor row spends the per-IP
+// `fairVisitorCreate` token. getShareCollectionByCodeHash has no visitor
+// identity and stays a plain public read.
 
 const CODE_HASH_PATTERN = /^[0-9a-f]{64}$/;
 const TRAFFIC_KINDS: readonly string[] = ["direct_view", "share_action", "share_open"] satisfies FairTrafficKind[];
@@ -56,6 +64,8 @@ async function requireTrafficLimit(
 
 export const createShareCollection = mutation({
   args: {
+    gatewaySecret: v.optional(v.string()),
+    ipHash: v.optional(v.string()),
     visitorHash: v.string(),
     eventModelIds: v.array(v.string()),
     codeHash: v.string(),
@@ -64,6 +74,7 @@ export const createShareCollection = mutation({
   returns: createShareCollectionResult,
   handler: async (ctx, args): Promise<CreateShareCollectionResult> => {
     const now = Date.now();
+    requireFairGateway(args.gatewaySecret);
     if (!isFairVisitorHash(args.visitorHash)) fairInteractionError("INVALID_INPUT", { field: "visitorHash" });
     if (!isFairSubmissionId(args.requestId)) fairInteractionError("INVALID_INPUT", { field: "requestId" });
     requireHash(args.codeHash);
@@ -105,7 +116,7 @@ export const createShareCollection = mutation({
       fairInteractionError("EVENT_NOT_ACTIVE");
     }
 
-    const visitorId = await upsertFairVisitor(ctx, args.visitorHash, now);
+    const visitorId = await requireFairVisitorRow(ctx, { visitorHash: args.visitorHash, ipHash: args.ipHash, now });
     await requireTrafficLimit(ctx, visitorId);
     const collectionId = await ctx.db.insert("fairShareCollections", {
       requestId: args.requestId,
@@ -142,6 +153,8 @@ export const getShareCollectionByCodeHash = query({
 
 export const recordTraffic = mutation({
   args: {
+    gatewaySecret: v.optional(v.string()),
+    ipHash: v.optional(v.string()),
     visitorHash: v.string(),
     kind: v.string(),
     requestId: v.string(),
@@ -153,6 +166,7 @@ export const recordTraffic = mutation({
   returns: trafficResult,
   handler: async (ctx, args): Promise<TrafficResult> => {
     const now = Date.now();
+    requireFairGateway(args.gatewaySecret);
     if (!isFairVisitorHash(args.visitorHash)) fairInteractionError("INVALID_INPUT", { field: "visitorHash" });
     if (!isFairSubmissionId(args.requestId)) fairInteractionError("INVALID_INPUT", { field: "requestId" });
     if (!TRAFFIC_KINDS.includes(args.kind)) fairInteractionError("INVALID_INPUT", { field: "kind" });
@@ -187,7 +201,7 @@ export const recordTraffic = mutation({
 
     const eventId = model?.eventId ?? collection?.eventId;
     if (!eventId) fairInteractionError("INVALID_INPUT");
-    const visitorId = await upsertFairVisitor(ctx, args.visitorHash, now);
+    const visitorId = await requireFairVisitorRow(ctx, { visitorHash: args.visitorHash, ipHash: args.ipHash, now });
     await requireTrafficLimit(ctx, visitorId);
     const time = fairTimeKeys(now);
     await ctx.db.insert("fairTrafficEvents", {

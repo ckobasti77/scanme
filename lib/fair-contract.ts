@@ -174,6 +174,14 @@ export function isFairVisitorHash(value: string): boolean {
   return FAIR_VISITOR_HASH_PATTERN.test(value);
 }
 
+/**
+ * K1: FAIR_GATEWAY_SECRET — the shared secret only the Next server and the
+ * Convex deployment of one environment know. Every visitor-specific fair
+ * function refuses a call without it. A shorter configured value counts as
+ * missing on both sides (fail closed).
+ */
+export const FAIR_GATEWAY_SECRET_MIN_LENGTH = 32;
+
 export function isFairRatingValue(value: number): value is FairRatingValue {
   return Number.isInteger(value) && value >= FAIR_RATING_MIN && value <= FAIR_RATING_MAX;
 }
@@ -672,6 +680,10 @@ export const FAIR_ERROR_CODES = [
   "SURVEY_NOT_OPEN",
   // B3 gateway: Convex was unreachable or answered without a stable code.
   "SERVICE_UNAVAILABLE",
+  // K1 — Next → Convex gateway secret. Convex throws these before reading or
+  // writing anything; the Next gateway shows the browser SERVICE_UNAVAILABLE.
+  "FAIR_GATEWAY_NOT_CONFIGURED",
+  "FAIR_GATEWAY_UNAUTHORIZED",
 ] as const;
 export type FairErrorCode = (typeof FAIR_ERROR_CODES)[number];
 
