@@ -19,6 +19,7 @@ import {
 } from "@/lib/fair-map";
 import { fmt } from "@/lib/i18n/format";
 import { fairMapSr as dict } from "@/lib/i18n/sr/fair-map";
+import { useLiveFairMapRotation } from "./fair-map-live-rotation";
 import { FairMapRotationCard, useFairMapRotation } from "./fair-map-rotation";
 import styles from "./fair-event-map.module.css";
 
@@ -30,6 +31,8 @@ import styles from "./fair-event-map.module.css";
 // nothing (the passport read is a query behind the gateway).
 // M2 adds the 12 s Advanced rotation (fair-map-rotation.tsx): the active
 // model's stand gets a discrete, animated highlight; still no write.
+// K2: the rotation is read live (fair-map-live-rotation.ts), starting from the
+// server-rendered projection.
 
 const MAX_ZOOM = 4;
 const FOCUS_ZOOM = 3;
@@ -374,14 +377,16 @@ function ZoneMap({
 export function FairEventMap({
   eventSlug,
   view,
-  rotation,
+  initialRotation,
   display,
 }: {
   eventSlug: string;
   view: FairMapView;
-  rotation: FairSponsoredRotationView | null;
+  /** Server-rendered B5 projection: the first state until the live read answers. */
+  initialRotation: FairSponsoredRotationView | null;
   display: boolean;
 }) {
+  const rotation = useLiveFairMapRotation(eventSlug, initialRotation);
   const rotationState = useFairMapRotation(rotation);
   const rotationStand = rotationState ? locateFairMapStand(view, rotationState.item.standMapLocationId) : null;
   const placed = useMemo(() => view.zones.flatMap((zone) => zone.stands), [view]);

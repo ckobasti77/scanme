@@ -1,6 +1,7 @@
 /// <reference types="vite/client" />
 import { describe, expect, test } from "vitest";
 import component from "../../components/fair/map/fair-event-map.tsx?raw";
+import liveRotation from "../../components/fair/map/fair-map-live-rotation.ts?raw";
 import rotation from "../../components/fair/map/fair-map-rotation.tsx?raw";
 
 // M1 guards (MASTER §10.1, §14; EDS §3): ScanMe green only on the ScanMe
@@ -28,5 +29,15 @@ describe("public map guards", () => {
     // The active slot comes only from Kodeks's rotation-slot.ts.
     expect(rotation).toContain('from "@/lib/fair-client/rotation-slot"');
     expect(rotation).not.toMatch(/Math.floor/);
+  });
+
+  test("K2: the live rotation is one reactive read of the map projection — no request, mutation or write", () => {
+    expect(liveRotation.match(/useQuery\(/g)).toHaveLength(1);
+    expect(liveRotation).toContain("useQuery(api.fairPublic.getSponsoredMapRotation, { eventSlug })");
+    for (const forbidden of ["fetch(", "/api/", "useMutation", "useAction", "audience-vote", "recordSponsoredAction", "impression", "analytics", "setInterval", "router.refresh"]) {
+      expect(liveRotation).not.toContain(forbidden);
+    }
+    // The map takes its rotation only through this hook.
+    expect(component).toContain("useLiveFairMapRotation(eventSlug, initialRotation)");
   });
 });
