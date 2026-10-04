@@ -36,6 +36,11 @@ const app = defineApp({
     // Same value in the Next env and on this deployment, never client-visible.
     // Optional on purpose: missing = those functions fail closed.
     FAIR_GATEWAY_SECRET: v.optional(v.string()),
+    // Sajam 2026 K3: hard switches of the lead flow and of the post-fair
+    // follow-up (convex/lib/fairLeads.ts). On only when exactly "true";
+    // missing = off, so nothing is stored or sent until they are set on purpose.
+    FAIR_LEADS_ENABLED: v.optional(v.string()),
+    FAIR_FOLLOWUP_ENABLED: v.optional(v.string()),
     // ADMIN-09B Zoho Mail adapter. All values are server-only and optional so
     // the foundation remains inert until ADMIN-09C supplies and verifies them.
     ZOHO_MAIL_API_BASE_URL: v.optional(v.string()),

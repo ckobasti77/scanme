@@ -16,13 +16,15 @@ import {
   useRunner,
 } from "@/components/admin/admin-events-interactions";
 import { AdminEmptyState, AdminLoadingState, AdminPanel, AdminStatus } from "@/components/admin/admin-primitives";
-import type {
-  FairConsentStatus,
-  FairContactRequirement,
-  FairEmailDeliveryStatus,
-  FairLeadKind,
-  FairPackageTier,
-  FairPreferredContact,
+import { belgradeLocalToEpoch, epochToBelgradeLocal, formatBelgradeDate } from "@/lib/belgrade-time";
+import {
+  FAIR_CONSENT_LEGAL_APPROVER_MAX,
+  type FairConsentStatus,
+  type FairContactRequirement,
+  type FairEmailDeliveryStatus,
+  type FairLeadKind,
+  type FairPackageTier,
+  type FairPreferredContact,
 } from "@/lib/fair-contract";
 import { fmt } from "@/lib/i18n/format";
 import { adminEventsSr as dict } from "@/lib/i18n/sr/admin-events";
@@ -37,7 +39,19 @@ import { cn } from "@/lib/utils";
 
 export type LeadsOutcome = { ok: true } | { ok: false; code: string };
 export type LeadsModel = { id: string; name: string; exhibitorName: string; tier: FairPackageTier };
-export type LeadsConsent = { id: string; kind: FairLeadKind; version: number; status: FairConsentStatus; text: string; activatedAt?: number };
+export type LeadsConsent = {
+  id: string;
+  kind: FairLeadKind;
+  version: number;
+  status: FairConsentStatus;
+  text: string;
+  activatedAt?: number;
+  /** K3: the legal approval record entered at activation (absent on versions activated before K3). */
+  legalApprovedBy?: string;
+  legalApprovedAt?: number;
+};
+/** K3: who did the expert legal review of the text and when (epoch ms, not in the future). */
+export type LeadsLegalApproval = { legalApprovedBy: string; legalApprovedAt: number };
 export type LeadsConfig = { contactRequirement: FairContactRequirement; preferredContact?: FairPreferredContact; enabled: boolean } | null;
 export type LeadsModelSettings = {
   tier: FairPackageTier;
@@ -75,7 +89,7 @@ export type LeadsView = {
 
 export type LeadsActions = {
   saveConsentDraft: (kind: FairLeadKind, text: string, consentId: string | null) => Promise<LeadsOutcome>;
-  activateConsent: (consentId: string) => Promise<LeadsOutcome>;
+  activateConsent: (consentId: string, approval: LeadsLegalApproval) => Promise<LeadsOutcome>;
   retireConsent: (consentId: string) => Promise<LeadsOutcome>;
   saveLeadConfig: (input: { modelId: string; kind: FairLeadKind; contactRequirement: FairContactRequirement; preferredContact?: FairPreferredContact; enabled: boolean }) => Promise<LeadsOutcome>;
   saveFollowUpTemplate: (modelId: string, subject: string, plainText: string) => Promise<LeadsOutcome>;
@@ -91,11 +105,21 @@ const PREFERRED: FairPreferredContact[] = ["email", "phone"];
 // Consent
 // -----------------------------------------------------------------------------
 
+/** K3: the admin enters the legal review date as a Belgrade calendar day (its 00:00). */
+function legalApprovalAt(day: string): number | null {
+  return /^\d{4}-\d{2}-\d{2}$/.test(day) ? belgradeLocalToEpoch(`${day}T00:00`) : null;
+}
+
 function ConsentKind({ kind, versions, actions }: { kind: FairLeadKind; versions: LeadsConsent[]; actions: LeadsActions }) {
   const { message, pending, run } = useRunner();
   const active = versions.find((row) => row.status === "active");
   const draft = versions.find((row) => row.status === "draft");
   const [text, setText] = useState(draft?.text ?? "");
+  const [approvedBy, setApprovedBy] = useState("");
+  const [approvedDay, setApprovedDay] = useState("");
+  const approvedAt = legalApprovalAt(approvedDay);
+  const canActivate = Boolean(approvedBy.trim()) && approvedAt !== null;
+  const [today] = useState(() => epochToBelgradeLocal(Date.now()).slice(0, 10));
 
   function save(event: FormEvent) {
     event.preventDefault();
@@ -112,6 +136,11 @@ function ConsentKind({ kind, versions, actions }: { kind: FairLeadKind; versions
             <AdminStatus label={dict.consentStatus.active} tone="active" />
             {fmt(dict.consentActive, { version: active.version, date: active.activatedAt ? dateTime.format(active.activatedAt) : "—" })}
           </p>
+          <Meta>
+            {active.legalApprovedBy && active.legalApprovedAt !== undefined
+              ? fmt(dict.consentLegalLine, { by: active.legalApprovedBy, date: formatBelgradeDate(active.legalApprovedAt) })
+              : dict.consentLegalNone}
+          </Meta>
           <p className="rounded-lg bg-[var(--admin-surface-muted)] p-3 text-sm break-words whitespace-pre-wrap">{active.text}</p>
           <ConfirmAction label={dict.consentRetire} body={dict.consentRetireConfirm} disabled={pending} onConfirm={() => void run(() => actions.retireConsent(active.id), dict.consentRetired)} />
         </>
@@ -124,11 +153,31 @@ function ConsentKind({ kind, versions, actions }: { kind: FairLeadKind; versions
         </label>
         <span className="flex flex-wrap gap-2">
           <button type="submit" className={secondaryButton} disabled={pending || !text.trim()}>{dict.consentSaveDraft}</button>
-          {draft ? (
-            <ConfirmAction label={fmt(dict.consentActivate, { version: draft.version })} body={dict.consentActivateConfirm} disabled={pending} onConfirm={() => void run(() => actions.activateConsent(draft.id), dict.consentActivated)} />
-          ) : null}
         </span>
       </form>
+      {draft ? (
+        <fieldset className="grid min-w-0 gap-2 rounded-lg border border-[var(--admin-border)] p-3">
+          <legend className="px-1 text-sm font-semibold">{dict.consentLegalTitle}</legend>
+          <p className="text-sm text-[var(--admin-text-muted)]">{dict.consentLegalHelp}</p>
+          <label className="grid gap-1.5 text-sm font-semibold">{dict.consentLegalApprovedBy}
+            <input type="text" value={approvedBy} onChange={(event) => setApprovedBy(event.target.value)} maxLength={FAIR_CONSENT_LEGAL_APPROVER_MAX} autoComplete="off" className={field} />
+          </label>
+          <label className="grid gap-1.5 text-sm font-semibold">{dict.consentLegalApprovedAt}
+            <input type="date" value={approvedDay} onChange={(event) => setApprovedDay(event.target.value)} max={today} className={field} />
+          </label>
+          <span className="flex flex-wrap gap-2">
+            <ConfirmAction
+              label={fmt(dict.consentActivate, { version: draft.version })}
+              body={dict.consentActivateConfirm}
+              disabled={pending || !canActivate}
+              onConfirm={() => {
+                if (approvedAt === null) return;
+                void run(() => actions.activateConsent(draft.id, { legalApprovedBy: approvedBy.trim(), legalApprovedAt: approvedAt }), dict.consentActivated);
+              }}
+            />
+          </span>
+        </fieldset>
+      ) : null}
       {versions.length ? (
         <ul className="grid gap-1">
           {versions.map((row) => <li key={row.id}><Meta>{fmt(dict.consentVersionLine, { version: row.version, status: dict.consentStatus[row.status] })}</Meta></li>)}
@@ -264,7 +313,7 @@ function deliveryErrorText(lastError: string | undefined) {
 function deliveryText(delivery: LeadsDelivery, label: string, followUp: boolean) {
   if (!delivery) return fmt(label, { status: dict.deliveryNone });
   if (followUp && delivery.status === "queued") return fmt(dict.followUpPlanned, { date: dateTime.format(delivery.scheduledFor) });
-  const error = delivery.status === "failed" ? deliveryErrorText(delivery.lastError) : null;
+  const error = delivery.status === "failed" || delivery.status === "skipped" ? deliveryErrorText(delivery.lastError) : null;
   const status = dict.deliveryStatus[delivery.status];
   return fmt(label, { status: error ? `${status} (${error})` : status });
 }

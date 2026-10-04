@@ -120,6 +120,8 @@ describe("POST /api/fair/lead", () => {
       ["SUBMISSION_DUPLICATE", 409],
       ["RATE_LIMITED", 429],
       ["FAIR_MODEL_NOT_FOUND", 404],
+      // K3: the Convex lead switch is off — the flow is closed (409), the browser gets the stable code.
+      ["LEADS_DISABLED", 409],
     ];
     for (const [code, status] of cases) {
       const fake = backend(async () => { throw new ConvexError({ code }); });

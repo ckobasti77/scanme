@@ -41,7 +41,8 @@ export type FairEmailDeliveryKind =
   | "post_event_follow_up"
   | "exhibitor_delivery"
   | "daily_report";
-export type FairEmailDeliveryStatus = "queued" | "sent" | "failed" | "suppressed";
+/** K3 `skipped`: a lead email whose hard switch was off at claim time; closed, never sent. */
+export type FairEmailDeliveryStatus = "queued" | "sent" | "failed" | "suppressed" | "skipped";
 /** B0 design: HANDOFF §5.5 names fairPassportConfigs without fields. */
 export type FairPassportConfigStatus = "draft" | "published" | "withdrawn";
 export type FairPassportEligibleStatus = "required" | "removed";
@@ -487,6 +488,13 @@ export function isFairSubmissionId(value: string): boolean {
  */
 export const FAIR_CONSENT_EXHIBITOR_PLACEHOLDER = "{izlagac}";
 
+/**
+ * K3: activation records who did the expert legal review of the text
+ * (`legalApprovedBy`, a person or firm, at most this many characters) and
+ * when (`legalApprovedAt`, not in the future). Both are entered by the admin.
+ */
+export const FAIR_CONSENT_LEGAL_APPROVER_MAX = 120;
+
 /** Technical caps of the lead form fields. */
 export const FAIR_LEAD_NAME_MAX = 120;
 export const FAIR_LEAD_EMAIL_MAX = 254;
@@ -528,6 +536,8 @@ export function fairContactRequirementProblem(
 /** Public lead form of one model and kind. No PII; consent text is server-rendered. */
 export type FairLeadFormView =
   | { eventModelId: string; kind: FairLeadKind; state: "unavailable" }
+  /** K3 hard switch: FAIR_LEADS_ENABLED is not "true" on Convex → no form, nothing is stored. */
+  | { eventModelId: string; kind: FairLeadKind; state: "leads_disabled" }
   /** Production gate: no active consent version → the form must not collect contacts. */
   | { eventModelId: string; kind: FairLeadKind; state: "consent_not_configured" }
   | {
@@ -578,6 +588,9 @@ export const FAIR_EMAIL_DELIVERY_ERRORS = [
   // B6 — daily report: the run was no longer approved/sent or its file was gone at claim time
   "REPORT_NOT_SENDABLE",
   "REPORT_FILE_MISSING",
+  // K3 — a hard switch was off at claim time: the row is closed as `skipped`, nothing is sent
+  "LEADS_DISABLED",
+  "FOLLOW_UP_DISABLED",
 ] as const;
 export type FairEmailDeliveryError = (typeof FAIR_EMAIL_DELIVERY_ERRORS)[number];
 
@@ -684,6 +697,8 @@ export const FAIR_ERROR_CODES = [
   // writing anything; the Next gateway shows the browser SERVICE_UNAVAILABLE.
   "FAIR_GATEWAY_NOT_CONFIGURED",
   "FAIR_GATEWAY_UNAUTHORIZED",
+  // K3 — FAIR_LEADS_ENABLED is not "true": submitLead stores nothing.
+  "LEADS_DISABLED",
 ] as const;
 export type FairErrorCode = (typeof FAIR_ERROR_CODES)[number];
 
@@ -764,6 +779,8 @@ export const FAIR_ADMIN_ISSUE_CODES = [
   "FAIR_CONSENT_NOT_FOUND",
   "FAIR_CONSENT_STATUS",
   "FAIR_CONSENT_EXHIBITOR_MISSING",
+  // K3 — activation needs the legal approval record (legalApprovedBy + legalApprovedAt)
+  "FAIR_CONSENT_LEGAL_APPROVAL_REQUIRED",
   "FAIR_LEAD_NOT_FOUND",
   "FAIR_EMAIL_DELIVERY_NOT_FOUND",
   "FAIR_EMAIL_DELIVERY_STATUS",

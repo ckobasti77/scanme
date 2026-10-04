@@ -3990,6 +3990,13 @@ export interface AdminEventsDict {
   consentRetired: string;
   consentVersionLine: string;
   consentStatus: Record<FairConsentStatus, string>;
+  // K3 — legal approval record at activation
+  consentLegalTitle: string;
+  consentLegalHelp: string;
+  consentLegalApprovedBy: string;
+  consentLegalApprovedAt: string;
+  consentLegalLine: string;
+  consentLegalNone: string;
   settingsTitle: string;
   settingsHelp: string;
   settingsNoModels: string;

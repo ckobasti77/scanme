@@ -25,6 +25,8 @@ const ADMIN_EMAIL = "fair-k1@scanme.test";
 const ISSUER = "https://fair-k1.test";
 const SECRET = "test-fair-visitor-secret-0123456789abcdef";
 const GATEWAY_SECRET = "test-fair-gateway-secret-0123456789abcdef";
+// K3: a TEST legal approval record (not a real review), required by every consent activation.
+const TEST_LEGAL_APPROVAL = { legalApprovedBy: "TEST pravna provera", legalApprovedAt: Date.parse("2026-10-01T12:00:00+02:00") };
 // Same length, last character differs — the constant-time compare must still refuse it.
 const WRONG_SECRET = "test-fair-gateway-secret-0123456789abcdeX";
 const EM = "test-elektromobilnost-2026";
@@ -32,11 +34,16 @@ const EM = "test-elektromobilnost-2026";
 beforeEach(() => {
   process.env.SCANME_ADMIN_EMAILS = ADMIN_EMAIL;
   process.env.FAIR_GATEWAY_SECRET = GATEWAY_SECRET;
+  // K3: the lead switches are on in this TEST env (see convex/fairLeads.test.ts for off).
+  process.env.FAIR_LEADS_ENABLED = "true";
+  process.env.FAIR_FOLLOWUP_ENABLED = "true";
   vi.stubGlobal("fetch", vi.fn(async () => { throw new Error("no network in tests"); }));
   vi.useFakeTimers();
   vi.setSystemTime(SEED_AT);
 });
 afterEach(() => {
+  delete process.env.FAIR_LEADS_ENABLED;
+  delete process.env.FAIR_FOLLOWUP_ENABLED;
   delete process.env.FAIR_GATEWAY_SECRET;
   vi.useRealTimers();
   vi.unstubAllGlobals();
@@ -80,7 +87,7 @@ async function setup() {
   const [question] = await t.query(api.fairPublic.listAudienceQuestionsForModel, { eventModelId: voltaX1._id, dateKey: "2026-10-08" });
   const survey = await t.query(api.fairPublic.getSurveyForModel, { eventModelId: voltaX1._id });
   const { consentId } = await admin.mutation(api.fairLeadsAdmin.saveConsentDraft, { eventId: voltaX2.eventId, leadKind: "interest", text: "TEST saglasnost: ScanMe i {izlagac}." });
-  await admin.mutation(api.fairLeadsAdmin.activateConsent, { consentId });
+  await admin.mutation(api.fairLeadsAdmin.activateConsent, { consentId, ...TEST_LEGAL_APPROVAL });
   return { t, qr, me, voltaX1, voltaX2, omZ1, passportId, questionId: question.id, surveyId: survey!.surveyId };
 }
 type Fixture = Awaited<ReturnType<typeof setup>>;

@@ -321,6 +321,8 @@ function AdminEventsLeadsWorkspace({ eventId, catalog, directory }: {
     consents: consents?.map((row) => ({
       id: row.consentId, kind: row.leadKind, version: row.version, status: row.status, text: row.text,
       ...(row.activatedAt !== undefined ? { activatedAt: row.activatedAt } : {}),
+      ...(row.legalApprovedBy !== undefined ? { legalApprovedBy: row.legalApprovedBy } : {}),
+      ...(row.legalApprovedAt !== undefined ? { legalApprovedAt: row.legalApprovedAt } : {}),
     })),
     modelId,
     onSelectModel: setModelChoice,
@@ -352,7 +354,7 @@ function AdminEventsLeadsWorkspace({ eventId, catalog, directory }: {
     saveConsentDraft: (kind, text, consentId) => leadsOutcome(() => saveConsentDraft({
       eventId, leadKind: kind, text, ...(consentId ? { consentId: consentId as Id<"fairConsentConfigs"> } : {}),
     })),
-    activateConsent: (consentId) => leadsOutcome(() => activateConsent({ consentId: consentId as Id<"fairConsentConfigs"> })),
+    activateConsent: (consentId, approval) => leadsOutcome(() => activateConsent({ consentId: consentId as Id<"fairConsentConfigs">, ...approval })),
     retireConsent: (consentId) => leadsOutcome(() => retireConsent({ consentId: consentId as Id<"fairConsentConfigs"> })),
     saveLeadConfig: (input) => leadsOutcome(() => upsertLeadConfig({
       eventModelId: input.modelId as Id<"fairEventModels">, leadKind: input.kind, contactRequirement: input.contactRequirement,

@@ -31,15 +31,22 @@ const SLUG = "test-perf-2026";
 
 // K1: a TEST gateway secret (not a real value), set as the Convex env in beforeEach.
 const GATEWAY_SECRET = "test-fair-gateway-secret-0123456789abcdef";
+// K3: a TEST legal approval record (not a real review), required by every consent activation.
+const TEST_LEGAL_APPROVAL = { legalApprovedBy: "TEST pravna provera", legalApprovedAt: Date.parse("2026-10-01T12:00:00+02:00") };
 
 beforeEach(() => {
   process.env.SCANME_ADMIN_EMAILS = ADMIN_EMAIL;
   process.env.FAIR_GATEWAY_SECRET = GATEWAY_SECRET;
+  // K3: the lead switches are on in this TEST env (see convex/fairLeads.test.ts for off).
+  process.env.FAIR_LEADS_ENABLED = "true";
+  process.env.FAIR_FOLLOWUP_ENABLED = "true";
   vi.stubGlobal("fetch", vi.fn(async () => { throw new Error("no network in tests"); }));
   vi.useFakeTimers();
   vi.setSystemTime(NOW);
 });
 afterEach(() => {
+  delete process.env.FAIR_LEADS_ENABLED;
+  delete process.env.FAIR_FOLLOWUP_ENABLED;
   vi.useRealTimers();
   vi.unstubAllGlobals();
 });
@@ -189,7 +196,7 @@ describe("B7 rate limits behind one hall NAT", () => {
       return { eventId: event._id, models: rows.filter((row) => row.packageTier !== "included").map((row) => row._id) };
     });
     const { consentId } = await admin.mutation(api.fairLeadsAdmin.saveConsentDraft, { eventId, leadKind: "interest", text: "TEST saglasnost: ScanMe i {izlagac}." });
-    await admin.mutation(api.fairLeadsAdmin.activateConsent, { consentId });
+    await admin.mutation(api.fairLeadsAdmin.activateConsent, { consentId, ...TEST_LEGAL_APPROVAL });
     let n = 0;
     const submit = (email: string | undefined, phone?: string) =>
       t.mutation(api.fairLeads.submitLead, {

@@ -8,7 +8,9 @@ import {
   FAIR_EMAIL_RETRY_DELAYS_MS,
   fairActiveFollowUpTemplate,
   fairExhibitorName,
+  fairFollowUpEnabled,
   fairLeadDelivery,
+  fairLeadsEnabled,
   fairModelFullName,
   scheduleFairEmailSend,
 } from "./lib/fairLeads";
@@ -26,7 +28,9 @@ import {
 //   - a retry reuses the same row and the same Idempotency-Key, so Resend
 //     itself refuses a second delivery of the same message;
 //   - a follow-up re-reads its lead at claim time and becomes `suppressed`
-//     instead of being sent when an admin recorded the opt-out.
+//     instead of being sent when an admin recorded the opt-out;
+//   - K3: a lead email becomes `skipped` (lastError LEADS_DISABLED or
+//     FOLLOW_UP_DISABLED) when its hard switch is off at claim time.
 //
 // B6 adds `daily_report` rows (one per send of an approved report run,
 // dedupeKey `fair-report/<runId>/<n>`). The claim re-checks the run right
@@ -38,7 +42,7 @@ const deliveryArgs = { deliveryId: v.id("fairEmailDeliveries") };
 
 /**
  * Called by the sender immediately before sending. Returns the message to
- * send or `skip` (not queued, not due yet, suppressed, missing data).
+ * send or `skip` (not queued, not due yet, switch off, suppressed, missing data).
  */
 export const claimDelivery = internalMutation({
   args: deliveryArgs,
@@ -83,6 +87,17 @@ export const claimDelivery = internalMutation({
       };
     }
     if (delivery.kind !== "immediate_confirmation" && delivery.kind !== "post_event_follow_up") return skip;
+    // K3: the hard switches, again, immediately before delivery. A switch that
+    // was turned off after the row was queued closes it as `skipped`; nothing
+    // is sent and the sender never sees the recipient.
+    const switchOff =
+      !fairLeadsEnabled() ? "LEADS_DISABLED"
+      : delivery.kind === "post_event_follow_up" && !fairFollowUpEnabled() ? "FOLLOW_UP_DISABLED"
+      : null;
+    if (switchOff) {
+      await ctx.db.patch(delivery._id, { status: "skipped", lastError: switchOff, updatedAt: now });
+      return skip;
+    }
     const lead = delivery.leadId ? await ctx.db.get(delivery.leadId) : null;
     const model = lead ? await ctx.db.get(lead.eventModelId) : null;
     const event = model ? await ctx.db.get(model.eventId) : null;
@@ -122,7 +137,8 @@ export const claimDelivery = internalMutation({
         exhibitorName,
         eventTitle: event.title,
         modelPath: fairModelPath(event.slug, model.slug),
-        followUpScheduled: followUp !== null,
+        // K3: announce the reply-to-cancel option only while the follow-up can still go out.
+        followUpScheduled: followUp !== null && fairFollowUpEnabled(),
         ...(template ? { template } : {}),
       },
     };
