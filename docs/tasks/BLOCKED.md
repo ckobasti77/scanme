@@ -1756,3 +1756,26 @@ Javne visitor mutacije prihvataju svaki ispravan hash, pa direktni pozivi Convex
 
 ### 5. NAT hale
 Generički `cardResolve` je 300 skenova odjednom pa 5/s po IP adresi (testirano). Ako hala ima javni Wi-Fi, vrh preko toga dobija stranicu nevažeće kartice (§9.66).
+
+## SAJAM v2 — RF i IZ (završni pregled i izveštaj, stanje 4. 10. 2026.)
+
+Presuda završnog pregleda je **TREBA DORADA PRE INTEGRACIONOG TESTA** (`scripts/tasks/logs/sajam-v2/RF-IZVESTAJ.md`). Sažetak za vlasnike je u `docs/events/sajam-automobila-2026/jovan-status/IZVESTAJ.md`. Ništa nije rešavano pretpostavkom; sve čeka odluku vlasnika.
+
+### Stanje ranijih odeljaka
+- **B2 §1 (timeout):** rešeno.
+- **B0 §1, B1 §1, B1A** (rad pre Aleksinog pregleda B0 i navigacija): i dalje otvoreno. Čeka naknadno Aleksino odobrenje.
+- **B7 §4 (integritet metrika):** i dalje otvoreno. RF ga vodi kao nalaz 1 (visoka ozbiljnost).
+- **B7 §3 (F3 i HTTPS host):** i dalje blokira ručni test 8. 10.
+- Ostale stavke B0–B7 važe kako su upisane.
+
+### 1. Korektivni korak pre 8. 10. (čeka Aleksinu odluku)
+U Jovanovom opsegu, prema RF nalazima:
+- **1:** tajna gateway → Convex i limit novih identiteta po IP hash-u;
+- **2:** displej osvežava rotaciju i rezultat glasanja (`app/sajam/[eventSlug]/_mapa/map-section.tsx` čita samo jednom);
+- **3:** tvrdi prekidač za leadove i poseban prekidač za follow-up;
+- **4:** ručna izrada izveštaja pre kraja dana blokira automatski dnevni izveštaj (`convex/fairReports.ts:431-444`).
+
+Nalazi 1 i 3 traže nove env promenljive, koje agent ne postavlja.
+
+### 2. Purge bez ručnog odobrenja (MASTER §13)
+Cron sam pokreće pravo brisanje 16. 11. u 00:00, a MASTER kaže „nakon odobrenog pokretanja“. Aleksa bira: automatski ili uz admin odobrenje. Posle purge-a broj leadova i odgovori ankete u novim izradama izveštaja su 0 (RF nalaz 5).
