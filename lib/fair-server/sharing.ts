@@ -12,8 +12,15 @@ import {
   type FairTrafficKind,
 } from "@/lib/fair-contract";
 import { fairGatewayError, fairGatewayJson, fairGatewayRequest } from "./gateway";
-import { fairErrorCodeOf } from "./interactions";
-import { fairVisitorForRequest, type FairVisitorEnv } from "./visitor";
+import { fairBackendFailure } from "./interactions";
+import { fairConvexVisitorForRequest, type FairVisitorEnv } from "./visitor";
+
+// K1 (sync 2026-10-05): both Convex calls carry FAIR_GATEWAY_SECRET and the
+// caller-IP HMAC next to the cookie HMAC, exactly like the other visitor
+// gateways (interactions, sponsored, leads). No secret → no Convex call
+// (503 VISITOR_UNAVAILABLE); a secret refused by Convex → 503
+// SERVICE_UNAVAILABLE. The share code is still derived from the visitor hash
+// and the request ID only, so links and idempotency are unchanged.
 
 type CreateShareCollection = typeof api.fairSharing.createShareCollection;
 type RecordTraffic = typeof api.fairSharing.recordTraffic;
@@ -117,7 +124,7 @@ export async function handleCreateShareCollection(request: Request, deps: FairSh
   if (!body.ok) return body.response;
   const args = parseCreate(body.value);
   if (!args) return fairGatewayError("INVALID_INPUT", 400);
-  const visitor = fairVisitorForRequest(request, deps.now ?? Date.now(), deps.env);
+  const visitor = fairConvexVisitorForRequest(request, deps.now ?? Date.now(), deps.env);
   if (visitor.visitorHash === null) return fairGatewayError("VISITOR_UNAVAILABLE", 503);
   const backend = deps.backend === undefined ? defaultBackend() : deps.backend;
   if (!backend) return fairGatewayError("SERVICE_UNAVAILABLE", 503);
@@ -125,6 +132,8 @@ export async function handleCreateShareCollection(request: Request, deps: FairSh
   if (!FAIR_SHARE_CODE_PATTERN.test(shareCode)) return fairGatewayError("SERVICE_UNAVAILABLE", 503);
   try {
     const value = await backend.createShareCollection({
+      gatewaySecret: visitor.gatewaySecret,
+      ipHash: visitor.ipHash,
       visitorHash: visitor.visitorHash,
       eventModelIds: args.eventModelIds,
       codeHash: fairShareCodeHash(shareCode),
@@ -132,8 +141,7 @@ export async function handleCreateShareCollection(request: Request, deps: FairSh
     });
     return fairGatewayJson({ ok: true, value: { ...value, shareCode, url: `${new URL(request.url).origin}/sajam/deli/${shareCode}` } }, 200, visitor.setCookie);
   } catch (error) {
-    const code = fairErrorCodeOf(error);
-    return code ? fairGatewayError(code, STATUS[code] ?? 400) : fairGatewayError("SERVICE_UNAVAILABLE", 502);
+    return fairBackendFailure(error, STATUS);
   }
 }
 
@@ -142,15 +150,14 @@ export async function handleFairTraffic(request: Request, deps: FairSharingDeps 
   if (!body.ok) return body.response;
   const args = parseTraffic(body.value);
   if (!args) return fairGatewayError("INVALID_INPUT", 400);
-  const visitor = fairVisitorForRequest(request, deps.now ?? Date.now(), deps.env);
+  const visitor = fairConvexVisitorForRequest(request, deps.now ?? Date.now(), deps.env);
   if (visitor.visitorHash === null) return fairGatewayError("VISITOR_UNAVAILABLE", 503);
   const backend = deps.backend === undefined ? defaultBackend() : deps.backend;
   if (!backend) return fairGatewayError("SERVICE_UNAVAILABLE", 503);
   try {
-    const value = await backend.recordTraffic({ visitorHash: visitor.visitorHash, ...args });
+    const value = await backend.recordTraffic({ gatewaySecret: visitor.gatewaySecret, ipHash: visitor.ipHash, visitorHash: visitor.visitorHash, ...args });
     return fairGatewayJson({ ok: true, value }, 200, visitor.setCookie);
   } catch (error) {
-    const code = fairErrorCodeOf(error);
-    return code ? fairGatewayError(code, STATUS[code] ?? 400) : fairGatewayError("SERVICE_UNAVAILABLE", 502);
+    return fairBackendFailure(error, STATUS);
   }
 }

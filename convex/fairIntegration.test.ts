@@ -37,8 +37,12 @@ const SECRET = "test-fair-visitor-secret-0123456789abcdef";
 const EM = "test-elektromobilnost-2026";
 const AMF = "test-auto-moto-fest-2026";
 
+// K1: a TEST gateway secret (not a real value), set as the Convex env in beforeEach.
+const GATEWAY_SECRET = "test-fair-gateway-secret-0123456789abcdef";
+
 beforeEach(() => {
   process.env.SCANME_ADMIN_EMAILS = ADMIN_EMAIL;
+  process.env.FAIR_GATEWAY_SECRET = GATEWAY_SECRET;
   vi.stubGlobal("fetch", vi.fn(async () => { throw new Error("no network in tests"); }));
   vi.useFakeTimers();
   vi.setSystemTime(SEED_AT);
@@ -69,7 +73,7 @@ type Fixture = Awaited<ReturnType<typeof setup>>;
 
 const rows = <T extends TableNames>(f: Fixture, table: T): Promise<Doc<T>[]> => f.t.run(async (ctx) => ctx.db.query(table).collect());
 const scan = (f: Fixture, code: string, visitorHash: string, id = requestId()) =>
-  f.t.mutation(api.cards.resolveAndRecord, { cardCode: code, requestId: id, deviceCategory: "mobile", ipHash: "test-hall-nat", fairVisitorHash: visitorHash });
+  f.t.mutation(api.cards.resolveAndRecord, { cardCode: code, requestId: id, deviceCategory: "mobile", ipHash: "test-hall-nat", fairGatewaySecret: GATEWAY_SECRET, fairVisitorHash: visitorHash });
 const drain = (f: Fixture) => f.t.finishAllScheduledFunctions(vi.runAllTimers);
 
 describe("B7 integration TEST seed (8 Oct 2026)", () => {
@@ -154,32 +158,33 @@ describe("B7 end to end on the TEST seed", () => {
     });
 
     // 3. Rating and vote change the visitor's row instead of adding one.
-    await f.t.mutation(api.fairInteractions.upsertRating, { visitorHash: me, eventModelId: voltaX1._id, appearance: 4 });
-    expect(await f.t.mutation(api.fairInteractions.upsertRating, { visitorHash: me, eventModelId: voltaX1._id, appearance: 5, price: 3 })).toMatchObject({ mode: "dimensions", appearance: 5, price: 3 });
-    await f.t.mutation(api.fairInteractions.upsertRating, { visitorHash: me, eventModelId: voltaX2._id, overall: 4 });
+    await f.t.mutation(api.fairInteractions.upsertRating, { gatewaySecret: GATEWAY_SECRET, visitorHash: me, eventModelId: voltaX1._id, appearance: 4 });
+    expect(await f.t.mutation(api.fairInteractions.upsertRating, { gatewaySecret: GATEWAY_SECRET, visitorHash: me, eventModelId: voltaX1._id, appearance: 5, price: 3 })).toMatchObject({ mode: "dimensions", appearance: 5, price: 3 });
+    await f.t.mutation(api.fairInteractions.upsertRating, { gatewaySecret: GATEWAY_SECRET, visitorHash: me, eventModelId: voltaX2._id, overall: 4 });
     expect(await rows(f, "fairRatings")).toHaveLength(2);
     const [question] = await f.t.query(api.fairPublic.listAudienceQuestionsForModel, { eventModelId: voltaX1._id, dateKey: "2026-10-08" });
     expect(question).toMatchObject({ prompt: "TEST pitanje generalne probe?" });
-    expect(await f.t.mutation(api.fairInteractions.upsertAudienceVote, { visitorHash: me, questionId: question.id, optionId: "test-ne" })).toMatchObject({ state: "waiting_for_minimum", myOptionId: "test-ne" });
-    for (let i = 0; i < 4; i += 1) await f.t.mutation(api.fairInteractions.upsertAudienceVote, { visitorHash: visitor(), questionId: question.id, optionId: "test-da" });
-    expect(await f.t.mutation(api.fairInteractions.upsertAudienceVote, { visitorHash: me, questionId: question.id, optionId: "test-da" })).toMatchObject({
+    expect(await f.t.mutation(api.fairInteractions.upsertAudienceVote, { gatewaySecret: GATEWAY_SECRET, visitorHash: me, questionId: question.id, optionId: "test-ne" })).toMatchObject({ state: "waiting_for_minimum", myOptionId: "test-ne" });
+    for (let i = 0; i < 4; i += 1) await f.t.mutation(api.fairInteractions.upsertAudienceVote, { gatewaySecret: GATEWAY_SECRET, visitorHash: visitor(), questionId: question.id, optionId: "test-da" });
+    expect(await f.t.mutation(api.fairInteractions.upsertAudienceVote, { gatewaySecret: GATEWAY_SECRET, visitorHash: me, questionId: question.id, optionId: "test-da" })).toMatchObject({
       state: "public", myOptionId: "test-da", options: [{ optionId: "test-da", percentage: 100 }, { optionId: "test-ne", percentage: 0 }],
     });
 
     // 4. Passport: both TEST Volta models scanned → completed → changeable favorite.
     await scan(f, f.qr("test-em26-volta-x2").resolverCode, me);
-    const progress = await f.t.query(api.fairInteractions.getMyPassportProgress, { visitorHash: me, eventSlug: EM });
+    const progress = await f.t.query(api.fairInteractions.getMyPassportProgress, { gatewaySecret: GATEWAY_SECRET, visitorHash: me, eventSlug: EM });
     const volta = progress!.catalog.find((entry) => entry.brandName === "TEST Volta")!;
     expect(progress!.progress.find((row) => row.passportId === volta.passportId)).toMatchObject({ stampedCount: 2, requiredCount: 2, completed: true });
-    expect(await f.t.mutation(api.fairInteractions.upsertBrandFavorite, { visitorHash: me, passportId: volta.passportId, eventModelId: voltaX1._id })).toMatchObject({ completed: true, favoriteModelId: voltaX1._id });
+    expect(await f.t.mutation(api.fairInteractions.upsertBrandFavorite, { gatewaySecret: GATEWAY_SECRET, visitorHash: me, passportId: volta.passportId, eventModelId: voltaX1._id })).toMatchObject({ completed: true, favoriteModelId: voltaX1._id });
 
     // 5. Advanced survey (one final submit).
     const survey = await f.t.query(api.fairPublic.getSurveyForModel, { eventModelId: voltaX1._id });
-    expect(await f.t.mutation(api.fairInteractions.submitSurvey, { visitorHash: me, surveyId: survey!.surveyId, submissionId: "test-e2e-survey-1", answers: [{ questionId: "test-preporuka", value: "yes" }] })).toMatchObject({ duplicate: false });
+    expect(await f.t.mutation(api.fairInteractions.submitSurvey, { gatewaySecret: GATEWAY_SECRET, visitorHash: me, surveyId: survey!.surveyId, submissionId: "test-e2e-survey-1", answers: [{ questionId: "test-preporuka", value: "yes" }] })).toMatchObject({ duplicate: false });
 
     // 6. Lead: the form is enabled but no consent text is approved → CONSENT_NOT_CONFIGURED, nothing stored.
     expect(await f.t.query(api.fairPublic.getLeadForm, { eventModelId: voltaX1._id, kind: "test_drive" })).toEqual({ eventModelId: voltaX1._id, kind: "test_drive", state: "consent_not_configured" });
     await expect(f.t.mutation(api.fairLeads.submitLead, {
+      gatewaySecret: GATEWAY_SECRET,
       visitorHash: me, eventModelId: voltaX1._id, kind: "test_drive", submissionId: "test-e2e-lead-1", contactName: "TEST Posetilac", email: "e2e@example.invalid", consentAccepted: true, consentVersion: 1,
     })).rejects.toMatchObject({ data: { code: "CONSENT_NOT_CONFIGURED" } });
     expect(await rows(f, "fairLeads")).toEqual([]);
@@ -187,6 +192,7 @@ describe("B7 end to end on the TEST seed", () => {
     const { consentId } = await f.admin.mutation(api.fairLeadsAdmin.saveConsentDraft, { eventId: voltaX1.eventId, leadKind: "test_drive", text: "TEST saglasnost: ScanMe i {izlagac}." });
     await f.admin.mutation(api.fairLeadsAdmin.activateConsent, { consentId });
     await f.t.mutation(api.fairLeads.submitLead, {
+      gatewaySecret: GATEWAY_SECRET,
       visitorHash: me, eventModelId: voltaX1._id, kind: "test_drive", submissionId: "test-e2e-lead-2", contactName: "TEST Posetilac", email: "e2e@example.invalid", consentAccepted: true, consentVersion: 1,
     });
     await f.admin.mutation(api.fairLeadsAdmin.retireConsent, { consentId });
@@ -197,11 +203,11 @@ describe("B7 end to end on the TEST seed", () => {
     expect(map!.items.map((item) => item.eventModelId).sort()).toEqual([voltaX1._id, omZ1._id].sort());
     expect(map!.items.find((item) => item.eventModelId === voltaX1._id)?.audienceResult).toMatchObject({ questionId: question.id, result: { state: "public" } });
     expect(await f.t.query(api.fairPublic.getSponsoredGarageRotation, { eventSlug: EM })).toMatchObject({ surface: "garage", intervalMs: 8000 });
-    expect(await f.t.mutation(api.fairInteractions.recordSponsoredAction, { visitorHash: me, eventModelId: omZ1._id, surface: "garage", kind: "open_model", requestId: requestId() })).toMatchObject({ duplicate: false });
+    expect(await f.t.mutation(api.fairInteractions.recordSponsoredAction, { gatewaySecret: GATEWAY_SECRET, visitorHash: me, eventModelId: omZ1._id, surface: "garage", kind: "open_model", requestId: requestId() })).toMatchObject({ duplicate: false });
 
     // The future second fair is seeded and readable; its paid features start with its package (30 Oct).
     expect(await f.t.query(api.fairPublic.getEventBySlug, { slug: AMF })).toMatchObject({ slug: AMF });
-    await expect(f.t.mutation(api.fairInteractions.upsertRating, { visitorHash: me, eventModelId: amfOm._id, appearance: 5 })).rejects.toMatchObject({ data: { code: "FEATURE_NOT_ENTITLED" } });
+    await expect(f.t.mutation(api.fairInteractions.upsertRating, { gatewaySecret: GATEWAY_SECRET, visitorHash: me, eventModelId: amfOm._id, appearance: 5 })).rejects.toMatchObject({ data: { code: "FEATURE_NOT_ENTITLED" } });
 
     // 8. Daily dataset of the rehearsal day, per exhibitor, without mixing them.
     vi.setSystemTime(REHEARSAL_END + 15 * 60_000);
@@ -249,7 +255,7 @@ describe("B7 end to end on the TEST seed", () => {
     });
     expect(await f.t.query(api.fairPublic.getAudienceQuestionResult, { questionId: question.id })).toMatchObject({ state: "public" });
     // The visitor's own state is gone with them.
-    expect(await f.t.query(api.fairInteractions.getMyModelState, { visitorHash: me, eventModelId: voltaX1._id })).toMatchObject({ rating: { mode: "dimensions" } });
-    expect(JSON.stringify(await f.t.query(api.fairInteractions.getMyModelState, { visitorHash: me, eventModelId: voltaX1._id }))).not.toContain('"appearance":5');
+    expect(await f.t.query(api.fairInteractions.getMyModelState, { gatewaySecret: GATEWAY_SECRET, visitorHash: me, eventModelId: voltaX1._id })).toMatchObject({ rating: { mode: "dimensions" } });
+    expect(JSON.stringify(await f.t.query(api.fairInteractions.getMyModelState, { gatewaySecret: GATEWAY_SECRET, visitorHash: me, eventModelId: voltaX1._id }))).not.toContain('"appearance":5');
   });
 });

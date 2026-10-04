@@ -13,9 +13,11 @@ import {
   fairInteractionError,
   fairModelTierAt,
   findFairVisitor,
+  requireFairVisitorRow,
   requireInteractiveModel,
   requireVisitorHash,
 } from "./lib/fairInteractions";
+import { requireFairGateway } from "./lib/fairGateway";
 import {
   fairActiveConsent,
   fairExhibitorName,
@@ -26,7 +28,6 @@ import {
   normalizeFairLeadContact,
   queueFairLeadEmail,
 } from "./lib/fairLeads";
-import { upsertFairVisitor } from "./lib/fairScans";
 import { fairLeadKind, fairLeadSubmitResultView } from "./lib/fairValidators";
 import { rateLimiter } from "./lib/rateLimits";
 
@@ -36,6 +37,8 @@ import { rateLimiter } from "./lib/rateLimits";
 // the Next same-origin POST gateway (app/api/fair/lead, lib/fair-server/
 // leads.ts): the visitor is the HMAC of the HttpOnly cookie, never a body
 // field. convex/leads.ts is the prelaunch lead and is not used here.
+// K1: FAIR_GATEWAY_SECRET is checked first (convex/lib/fairGateway.ts), so a
+// direct Convex call cannot store a lead or queue an email.
 //
 // One transaction: entitlement at the moment of the submit → enabled lead
 // config → ACTIVE consent (else CONSENT_NOT_CONFIGURED — the production gate)
@@ -60,6 +63,8 @@ async function submitResult(ctx: MutationCtx, lead: Doc<"fairLeads">, duplicate:
 
 export const submitLead = mutation({
   args: {
+    gatewaySecret: v.optional(v.string()),
+    ipHash: v.optional(v.string()),
     visitorHash: v.string(),
     eventModelId: v.string(),
     kind: fairLeadKind,
@@ -73,6 +78,7 @@ export const submitLead = mutation({
   returns: fairLeadSubmitResultView,
   handler: async (ctx, args): Promise<FairLeadSubmitResult> => {
     const now = Date.now();
+    requireFairGateway(args.gatewaySecret);
     requireVisitorHash(args.visitorHash);
     if (!isFairSubmissionId(args.submissionId)) fairInteractionError("INVALID_INPUT", { field: "submissionId" });
 
@@ -120,7 +126,7 @@ export const submitLead = mutation({
       }
     }
 
-    const visitorId = await upsertFairVisitor(ctx, args.visitorHash, now);
+    const visitorId = await requireFairVisitorRow(ctx, { visitorHash: args.visitorHash, ipHash: args.ipHash, now });
     const limit = await rateLimiter.limit(ctx, "fairLeadSubmit", { key: `${visitorId}:${model._id}` });
     if (!limit.ok) fairInteractionError("RATE_LIMITED", { retryAfterMs: Math.ceil(limit.retryAfter) });
 

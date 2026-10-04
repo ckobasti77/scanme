@@ -31,6 +31,11 @@ const app = defineApp({
     // replies to the lead confirmation (follow-up opt-out). Both optional.
     FAIR_PUBLIC_BASE_URL: v.optional(v.string()),
     FAIR_EMAIL_REPLY_TO: v.optional(v.string()),
+    // Sajam 2026 K1: shared secret of the Next fair gateway (lib/fair-server,
+    // app/r) → visitor-specific fair functions (convex/lib/fairGateway.ts).
+    // Same value in the Next env and on this deployment, never client-visible.
+    // Optional on purpose: missing = those functions fail closed.
+    FAIR_GATEWAY_SECRET: v.optional(v.string()),
     // ADMIN-09B Zoho Mail adapter. All values are server-only and optional so
     // the foundation remains inert until ADMIN-09C supplies and verifies them.
     ZOHO_MAIL_API_BASE_URL: v.optional(v.string()),

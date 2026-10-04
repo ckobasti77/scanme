@@ -23,8 +23,12 @@ const ADMIN_EMAIL = "fair-admin@scanme.test";
 const ISSUER = "https://fair-b2.test";
 const SECRET = "test-fair-visitor-secret-0123456789abcdef";
 
+// K1: a TEST gateway secret (not a real value), set as the Convex env in beforeEach.
+const GATEWAY_SECRET = "test-fair-gateway-secret-0123456789abcdef";
+
 beforeEach(() => {
   process.env.SCANME_ADMIN_EMAILS = ADMIN_EMAIL;
+  process.env.FAIR_GATEWAY_SECRET = GATEWAY_SECRET;
   vi.useFakeTimers();
   vi.setSystemTime(NOW);
 });
@@ -118,7 +122,7 @@ async function scan(
     deviceCategory: options.deviceCategory ?? "mobile",
     // One shared NAT for the whole hall.
     ipHash: "test-hall-nat",
-    ...(visitorHash ? { fairVisitorHash: visitorHash } : {}),
+    ...(visitorHash ? { fairGatewaySecret: GATEWAY_SECRET, fairVisitorHash: visitorHash } : {}),
   });
 }
 
@@ -237,7 +241,7 @@ describe("admin exclusion and 24/7 counting (HANDOFF §5.2, §12)", () => {
     for (const extra of [{ isAdmin: true }, { isAdminExcluded: true }, { adminUserId: f.adminId }]) {
       await expect(
         f.t.mutation(api.cards.resolveAndRecord, {
-          cardCode: f.emX1.code, requestId: `test-flag-${Object.keys(extra)[0]}`, ipHash: "test-hall-nat", fairVisitorHash: newVisitor().hash,
+          cardCode: f.emX1.code, requestId: `test-flag-${Object.keys(extra)[0]}`, ipHash: "test-hall-nat", fairGatewaySecret: GATEWAY_SECRET, fairVisitorHash: newVisitor().hash,
           ...extra,
         } as never),
       ).rejects.toThrow();

@@ -695,6 +695,12 @@ export const resolveAndRecord = mutation({
     // raw token never reaches Convex. Admin exclusion is NOT an argument: it
     // comes from the forwarded ScanMe session (lib/fairScans.ts).
     fairVisitorHash: v.optional(v.string()),
+    // Sajam 2026 K1: FAIR_GATEWAY_SECRET from the Next handler — without it
+    // the fair_model branch ignores fairVisitorHash (generic scan and redirect
+    // unchanged) — and the HMAC of the caller IP keying the new-identity
+    // bucket. Read only by the fair_model branch; never stored or returned.
+    fairGatewaySecret: v.optional(v.string()),
+    fairIpHash: v.optional(v.string()),
   },
   handler: async (ctx, args): Promise<ResolveOutcome> => {
     // Absent ipHash (a direct API caller bypassing the handler) collapses into
@@ -867,6 +873,8 @@ export const resolveAndRecord = mutation({
         const fairScan = await recordFairScan(ctx, {
           requestId: args.requestId,
           visitorHash: args.fairVisitorHash,
+          gatewaySecret: args.fairGatewaySecret,
+          ipHash: args.fairIpHash,
           model: fair.model,
           now,
           genericDuplicate: duplicate !== null,

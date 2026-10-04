@@ -15,11 +15,13 @@ const {
   handleFairRating,
   handleFairSurvey,
 } = await import("./interactions");
-const { FAIR_VISITOR_COOKIE_NAME, fairVisitorHash, generateFairVisitorToken } = await import("./visitor");
+const { FAIR_VISITOR_COOKIE_NAME, fairIpHash, fairVisitorHash, generateFairVisitorToken } = await import("./visitor");
 
 const NOW = Date.parse("2026-10-09T10:00:00+02:00");
 const SECRET = "test-fair-visitor-secret-0123456789abcdef";
-const ENV = { secret: SECRET, nodeEnv: "production" };
+// K1: a TEST gateway secret (not a real value); the gateway sends it to Convex.
+const GATEWAY_SECRET = "test-fair-gateway-secret-0123456789abcdef";
+const ENV = { secret: SECRET, gatewaySecret: GATEWAY_SECRET, nodeEnv: "production" };
 
 function post(path: string, body: unknown, headers: Record<string, string> = { "sec-fetch-site": "same-origin" }) {
   return new Request(`https://scanme.rs/api/fair/${path}`, { method: "POST", headers, body: JSON.stringify(body) });
@@ -47,7 +49,8 @@ describe("visitor identity comes only from the cookie", () => {
     const token = cookie.split(";")[0].split("=")[1];
     expect(cookie).toContain("HttpOnly");
     const args = fake.upsertRating.mock.calls[0] as unknown as [Record<string, unknown>];
-    expect(args[0]).toEqual({ visitorHash: fairVisitorHash(token, SECRET), eventModelId: "m1", overall: 4 });
+    const ipHash = fairIpHash(post("rating", {}), SECRET);
+    expect(args[0]).toEqual({ gatewaySecret: GATEWAY_SECRET, ipHash, visitorHash: fairVisitorHash(token, SECRET), eventModelId: "m1", overall: 4 });
     expect(JSON.stringify(args)).not.toContain(token);
   });
 
@@ -58,7 +61,7 @@ describe("visitor identity comes only from the cookie", () => {
     const ok = await handleFairModelState(post("model-state", { eventModelId: "m1" }, headers), { now: NOW, env: ENV, backend: fake });
     expect(ok.status).toBe(200);
     expect(ok.headers.get("set-cookie")).toBeNull();
-    expect(fake.getMyModelState).toHaveBeenCalledWith({ visitorHash: fairVisitorHash(token, SECRET), eventModelId: "m1" });
+    expect(fake.getMyModelState).toHaveBeenCalledWith({ gatewaySecret: GATEWAY_SECRET, visitorHash: fairVisitorHash(token, SECRET), eventModelId: "m1" });
 
     const injected = await handleFairModelState(post("model-state", { eventModelId: "m1", visitorHash: "f".repeat(64) }, headers), { now: NOW, env: ENV, backend: fake });
     expect(injected.status).toBe(400);
@@ -72,6 +75,66 @@ describe("visitor identity comes only from the cookie", () => {
     expect(response.status).toBe(503);
     expect(await response.json()).toEqual({ ok: false, code: "VISITOR_UNAVAILABLE" });
     expect(fake.getMyPassportProgress).not.toHaveBeenCalled();
+  });
+});
+
+describe("K1: FAIR_GATEWAY_SECRET (Next → Convex trust)", () => {
+  const calls = [
+    [handleFairModelState, "getMyModelState", { eventModelId: "m1" }],
+    [handleFairPassport, "getMyPassportProgress", { eventSlug: "test-elektromobilnost-2026" }],
+    [handleFairRating, "upsertRating", { eventModelId: "m1", overall: 4 }],
+    [handleFairAudienceVote, "upsertAudienceVote", { questionId: "q1", optionId: "a" }],
+    [handleFairSurvey, "submitSurvey", { surveyId: "s1", submissionId: "sub-00001", answers: [{ questionId: "q1", value: "yes" }] }],
+    [handleFairFavorite, "upsertBrandFavorite", { passportId: "p1", eventModelId: "m1" }],
+  ] as const;
+
+  test("without the secret (or a too short one) no handler calls Convex or mints a cookie: 503 VISITOR_UNAVAILABLE", async () => {
+    for (const env of [{ secret: SECRET, nodeEnv: "production" }, { secret: SECRET, gatewaySecret: "too-short", nodeEnv: "production" }, { nodeEnv: "development" }]) {
+      for (const [handler, , body] of calls) {
+        const fake = backend();
+        const response = await handler(post("x", body), { now: NOW, env, backend: fake });
+        expect(response.status).toBe(503);
+        expect(response.headers.get("set-cookie")).toBeNull();
+        expect(await response.json()).toEqual({ ok: false, code: "VISITOR_UNAVAILABLE" });
+        for (const fn of Object.values(fake)) expect(fn).not.toHaveBeenCalled();
+      }
+    }
+  });
+
+  test("every call carries the secret; writes also the caller-IP HMAC (never the raw IP); responses never echo either", async () => {
+    for (const [handler, method, body] of calls) {
+      const fake = backend();
+      const request = post("x", body, { "sec-fetch-site": "same-origin", "x-forwarded-for": "203.0.113.7, 10.0.0.1" });
+      const response = await handler(request, { now: NOW, env: ENV, backend: fake });
+      expect(response.status).toBe(200);
+      const sent = (fake[method].mock.calls[0] as unknown as [Record<string, unknown>])[0];
+      expect(sent.gatewaySecret).toBe(GATEWAY_SECRET);
+      const isRead = method === "getMyModelState" || method === "getMyPassportProgress";
+      expect(sent.ipHash).toBe(isRead ? undefined : fairIpHash(request, SECRET));
+      expect(JSON.stringify(sent)).not.toContain("203.0.113.7");
+      const text = await response.text();
+      expect(text).not.toContain(GATEWAY_SECRET);
+      expect(String(response.headers.get("set-cookie"))).not.toContain(GATEWAY_SECRET);
+    }
+  });
+
+  test("the IP key is a keyed HMAC of the first forwarded address: same IP same key, another IP another key", () => {
+    const at = (ip: string) => fairIpHash(post("x", {}, { "x-forwarded-for": ip }), SECRET);
+    expect(at("203.0.113.7")).toMatch(/^[0-9a-f]{64}$/);
+    expect(at("203.0.113.7, 10.0.0.1")).toBe(at("203.0.113.7"));
+    expect(at("198.51.100.9")).not.toBe(at("203.0.113.7"));
+    expect(fairIpHash(post("x", {}, { "x-forwarded-for": "203.0.113.7" }), "another-test-visitor-secret-0123456789ab")).not.toBe(at("203.0.113.7"));
+  });
+
+  test("Convex refusing the secret is a deploy problem: 503 SERVICE_UNAVAILABLE, the code never reaches the browser", async () => {
+    for (const code of ["FAIR_GATEWAY_NOT_CONFIGURED", "FAIR_GATEWAY_UNAUTHORIZED"]) {
+      const fake = backend();
+      fake.upsertRating.mockRejectedValueOnce(new ConvexError({ code }));
+      const response = await handleFairRating(post("rating", { eventModelId: "m1", overall: 4 }), { now: NOW, env: ENV, backend: fake });
+      expect(response.status).toBe(503);
+      expect(response.headers.get("set-cookie")).toBeNull();
+      expect(await response.json()).toEqual({ ok: false, code: "SERVICE_UNAVAILABLE" });
+    }
   });
 });
 

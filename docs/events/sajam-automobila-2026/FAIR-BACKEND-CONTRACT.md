@@ -1,6 +1,6 @@
 # Sajam automobila 2026 — fair backend ugovor (B0)
 
-> Status: **B0 — ugovor i šema; B1 — katalog, import, paketi i QR dodela** (admin funkcije u §11, import u §12); **B2 — anonimni identitet, scan pipeline i javni katalog** (§13–§14); **B3 — ocene, Glas publike, anketa i pasoš** (§15–§16); **B4 — leadovi, saglasnost i email outbox** (§17–§18); **B5 — sponzorisani snapshot, projekcije rotacije i garažne akcije** (§19–§20); **B6 — analitika, dnevni dataset i izveštaji** (§21–§22); **B7 — brisanje PII 16. 11., authz, performanse i integracioni TEST seed** (§23–§26). Napisano iz stvarnog koda 3. i 4. oktobra 2026.
+> Status: **B0 — ugovor i šema; B1 — katalog, import, paketi i QR dodela** (admin funkcije u §11, import u §12); **B2 — anonimni identitet, scan pipeline i javni katalog** (§13–§14); **B3 — ocene, Glas publike, anketa i pasoš** (§15–§16); **B4 — leadovi, saglasnost i email outbox** (§17–§18); **B5 — sponzorisani snapshot, projekcije rotacije i garažne akcije** (§19–§20); **B6 — analitika, dnevni dataset i izveštaji** (§21–§22); **B7 — brisanje PII 16. 11., authz, performanse i integracioni TEST seed** (§23–§26); **K1 — zajednička tajna Next → Convex i limit novih identiteta po IP-u** (§27). Napisano iz stvarnog koda 3. i 4. oktobra 2026.
 >
 > Vlasnik backend-a: **Jovan**. Vlasnik proizvoda i go/no-go: **Aleksa**.
 > Izvori zahteva: `MASTER-KONTEKST.md`, `BACKEND-HANDOFF.md` (§4–§7, §11), `JOVAN-DELTA-2026-10-02.md`.
@@ -21,7 +21,7 @@ Ako se ovaj dokument i kod razilaze, važi kod, a razlika je greška dokumenta.
 
 ## 1. Funkcijska površina
 
-**B0 ne dodaje nijednu public, internal ni admin funkciju.** Nova je samo šema; tipovi i pravila su čiste funkcije. **B1** dodaje admin funkcije (`requireAdmin`) i jednu internal DEV funkciju; spisak je u §11. **B2** dodaje tri javna read-only upita (`fairPublic.*`), fair granu u postojećem `cards.resolveAndRecord`, dve internal funkcije i jedan Next gateway (§13–§14). **B3** dodaje gateway-facing `fairInteractions.*`, četiri javna upita u `fairPublic`, admin `fairInteractionsAdmin.*` i šest POST ruta (§15–§16). **B4** dodaje gateway-facing `fairLeads.submitLead`, javni `fairPublic.getLeadForm`, internal outbox `fairEmails.*`, Node sender `fairEmailSender.*`, admin `fairLeadsAdmin.*` i rutu `POST /api/fair/lead` (§17–§18). **B5** dodaje javne `fairPublic.getSponsoredMapRotation` i `getSponsoredGarageRotation`, gateway-facing `fairInteractions.recordSponsoredAction`, admin `fairSponsoredAdmin.*` i rutu `POST /api/fair/sponsored-action` (§19–§20). **B6** dodaje internal `fairAnalytics.*`, admin `fairReports.*` (upiti, mutacije i akcije za preuzimanje), internal izradu i cron u `fairReports` i granu `daily_report` u B4 outbox-u (§21–§22). **B7** dodaje `convex/fairRetention.ts` (internal purge, cron i CLI preview/dry run; admin `getRetentionOverview`, `startPurgeDryRun`), tabelu `fairPurgeRuns`, internal `fairDevFixtures.seedIntegrationTest` i limit potvrda po adresi u `submitLead` (§23–§26). Nijedna nova javna funkcija bez admina.
+**B0 ne dodaje nijednu public, internal ni admin funkciju.** Nova je samo šema; tipovi i pravila su čiste funkcije. **B1** dodaje admin funkcije (`requireAdmin`) i jednu internal DEV funkciju; spisak je u §11. **B2** dodaje tri javna read-only upita (`fairPublic.*`), fair granu u postojećem `cards.resolveAndRecord`, dve internal funkcije i jedan Next gateway (§13–§14). **B3** dodaje gateway-facing `fairInteractions.*`, četiri javna upita u `fairPublic`, admin `fairInteractionsAdmin.*` i šest POST ruta (§15–§16). **B4** dodaje gateway-facing `fairLeads.submitLead`, javni `fairPublic.getLeadForm`, internal outbox `fairEmails.*`, Node sender `fairEmailSender.*`, admin `fairLeadsAdmin.*` i rutu `POST /api/fair/lead` (§17–§18). **B5** dodaje javne `fairPublic.getSponsoredMapRotation` i `getSponsoredGarageRotation`, gateway-facing `fairInteractions.recordSponsoredAction`, admin `fairSponsoredAdmin.*` i rutu `POST /api/fair/sponsored-action` (§19–§20). **B6** dodaje internal `fairAnalytics.*`, admin `fairReports.*` (upiti, mutacije i akcije za preuzimanje), internal izradu i cron u `fairReports` i granu `daily_report` u B4 outbox-u (§21–§22). **B7** dodaje `convex/fairRetention.ts` (internal purge, cron i CLI preview/dry run; admin `getRetentionOverview`, `startPurgeDryRun`), tabelu `fairPurgeRuns`, internal `fairDevFixtures.seedIntegrationTest` i limit potvrda po adresi u `submitLead` (§23–§26). Nijedna nova javna funkcija bez admina. **K1** ne dodaje funkcije: svih 8 javnih funkcija sa `visitorHash` i fair grana `cards.resolveAndRecord` traže `FAIR_GATEWAY_SECRET`, a nov posetilac troši token po IP HMAC-u (§27).
 
 Planirana površina (HANDOFF §7). Imena se mogu minimalno prilagoditi; odgovornosti ne.
 
@@ -61,6 +61,10 @@ Pravila za sve buduće funkcije:
 | B2: `cards.resolveAndRecord` | novi opcioni arg `fairVisitorHash` i ishod `{ kind: "fair_model", path, fairScan }` | Čita ih samo `fair_model` grana. Ostale grane (venue, menu, memories, splitter, ordering, url, event, service) su nepromenjene; hash im se ne upisuje (test). |
 | B2: `convex/lib/rateLimits.ts` | bucket `fairScan` | Po posetiocu, ne po IP-u (§13.5). Postojeći bucketi nisu menjani. |
 | B2: `app/r/[cardCode]/route.ts` | visitor hash, prosleđena ScanMe sesija, `case "fair_model"` | Ostali `case`-ovi su nepromenjeni. |
+| K1: `cards.resolveAndRecord` | novi opcioni argumenti `fairGatewaySecret`, `fairIpHash`; novi `fairScan` ishod `gateway_rejected` | Čita ih samo `fair_model` grana. Bez ispravne tajne nema fair upisa; generički scan i redirect su isti kao pre (§27). |
+| K1: `convex/convex.config.ts` | `FAIR_GATEWAY_SECRET: v.optional(v.string())` u `defineApp({ env })` | Opciono namerno: bez vrednosti posetilačke funkcije odbijaju svaki poziv (fail closed). |
+| K1: `convex/lib/rateLimits.ts` | bucket `fairVisitorCreate` | Po IP HMAC-u, troši se samo za nov `fairVisitors` red (§27.4). Postojeći bucketi nisu menjani. |
+| K1: `app/r/[cardCode]/route.ts` | šalje tajnu i IP HMAC uz hash | Bez tajne u Next env-u nema hash-a ni cookie-ja; ostali `case`-ovi su nepromenjeni. |
 | B1: `adminReadModels.clients/listClients/venues` | `.filter(clientSegment != "event_only")` | Redovni direktorijum klijenata i lokala ne prikazuje `event_only`. `adminProductReads.listVenues` namerno nije filtriran: QR inventar mora ostati dostupan za pravljenje kodova. |
 
 U B0 na postojećim tabelama nije dodat nijedan indeks; B1 dodaje samo `accounts.by_clientSegment`. Nijedno postojeće polje nije promenjeno.
@@ -250,6 +254,12 @@ B4: lead tok koristi postojeće kodove (`CONSENT_NOT_CONFIGURED`, `CONSENT_REQUI
 
 B6 admin kodovi: `FAIR_REPORT_NOT_FOUND`, `FAIR_REPORT_STATUS`, `FAIR_REPORT_NOT_APPROVED` (slanje bilo čega osim `approved`), `FAIR_REPORT_RECIPIENT_MISSING`, `FAIR_REPORT_EXPORT_TOO_LARGE`. Novi kodovi isporuke (`FAIR_EMAIL_DELIVERY_ERRORS`): `REPORT_NOT_SENDABLE` (u trenutku slanja izveštaj više nije `approved`/`sent`) i `REPORT_FILE_MISSING`. Greške izrade (`fairReportRuns.error`): `BUILD_FAILED`, `REPORT_CONTEXT_MISSING`.
 
+K1 dodaci (Convex, svih 8 posetilačkih funkcija; §27). Convex ih baca pre bilo kog čitanja ili upisa:
+- `FAIR_GATEWAY_NOT_CONFIGURED` — Convex deployment nema `FAIR_GATEWAY_SECRET` (ili je kraća od 32 znaka);
+- `FAIR_GATEWAY_UNAUTHORIZED` — tajna u pozivu nedostaje ili je pogrešna.
+
+Next gateway oba prikazuje browseru kao 503 `SERVICE_UNAVAILABLE` i jednom loguje kod. Kad Next nema tajnu, Convex se ne zove: 503 `VISITOR_UNAVAILABLE`.
+
 B5: `recordSponsoredAction` koristi postojeće kodove (`INVALID_INPUT` za `surface` ≠ `garage`, drugu vrstu ili loš `requestId`; `FEATURE_NOT_ENTITLED`, `FAIR_MODEL_NOT_FOUND`, `EVENT_NOT_ACTIVE`, `SUBMISSION_DUPLICATE`, `RATE_LIMITED`). Nov admin kod: `FAIR_SPONSORED_LIMIT` (više od 200 Advanced modela u jednom eventu).
 
 Detalji greške su samo ne-PII vrednosti. Tekst greške mapira frontend kroz `lib/i18n`.
@@ -351,7 +361,7 @@ Konstante rotacije u `lib/fair-contract.ts` imaju ista imena i vrednosti kao u `
 62. **Lokalne kopije PII** (MASTER §13: „i svih ScanMe lokalnih kopija“): CSV/XLSX kontakata koje je tim preuzeo na svoje računare backend ne vidi. Potreban je ručni korak 16. 11. za Aleksu, Jovana i Teodoru (§26.4).
 63. **Trenutak purge-a** (B7, nastavak §9.11): brisanje kreće od 16. 11. 2026. u 00:00 po Beogradu. Cron proverava na 15 min, pa počinje najkasnije u 00:15.
 64. **Stanje limitera posle purge-a** (B7): komponenta `rateLimiter` čuva kratkotrajno stanje bucket-a pod ID-em obrisanog `fairVisitors` reda, ne pod hash-om. Posle purge-a taj ID ne vodi ni do čega; stanje komponente se ne briše posebno.
-65. **Poverenje gateway → Convex** (B7, authz nalaz): javne mutacije (`fairInteractions.*`, `fairLeads.submitLead`, `cards.resolveAndRecord`) prihvataju svaki ispravno formiran hash. Ko zaobiđe Next gateway i zove Convex direktno sa izmišljenim hash-evima, može da napumpa glasove, ocene, ankete, pečate i skenove, jer su limiti po posetiocu. PII time ne curi. Predlog: zajednička tajna (npr. `FAIR_GATEWAY_SECRET`) u Next i Convex okruženju, koju svaka visitor mutacija proverava. To traži postavljanje env promenljivih (agent to ne sme) i izmenu `cards.ts` i `app/r/[cardCode]` (van B7 opsega).
+65. **Poverenje gateway → Convex** (B7, authz nalaz): javne mutacije (`fairInteractions.*`, `fairLeads.submitLead`, `cards.resolveAndRecord`) prihvataju svaki ispravno formiran hash. Ko zaobiđe Next gateway i zove Convex direktno sa izmišljenim hash-evima, može da napumpa glasove, ocene, ankete, pečate i skenove, jer su limiti po posetiocu. PII time ne curi. Predlog: zajednička tajna (npr. `FAIR_GATEWAY_SECRET`) u Next i Convex okruženju, koju svaka visitor mutacija proverava. To traži postavljanje env promenljivih (agent to ne sme) i izmenu `cards.ts` i `app/r/[cardCode]` (van B7 opsega). **Rešeno u K1 (§27):** tajna `FAIR_GATEWAY_SECRET` i limit novih identiteta po IP HMAC-u. Vrednost za produkciju postavljaju Aleksa ili Jovan pre deploya (§27.6).
 66. **NAT hale i generički `cardResolve`** (§9.27, B7 test): jedna IP adresa (npr. zajednički Wi-Fi hale) dobija 300 skenova odjednom, pa 5 u sekundi. Iznad toga posetilac dobija stranicu nevažeće kartice. Treba odluka: da li hala ima javni Wi-Fi i da li fair QR treba viši limit (izmena generičkog bucket-a, van fair opsega).
 67. **Generalna proba 8. 10.** (B7 seed): TEST sajam elektromobilnosti počinje 8. 10. danom „TEST generalna proba“, a njegovi TEST paketi važe od 8. 10. u 00:00 (pre B7: 9. 10. u 09:00, §9.35). Drugi TEST sajam ostaje budući; paketi mu počinju 30. 10.
 68. **HTTPS za telefone 8. 10.**: cookie posetioca je `Secure`, pa telefon dobija identitet samo preko HTTPS-a. DEV TEST QR kodovi postoje samo na DEV Convex-u, pa `/r/<kod>` mora da se otvori na hostu vezanom za DEV. Potreban je HTTPS preview ili tunel vezan za DEV; deploy radi Aleksa ili Jovan.
@@ -533,17 +543,20 @@ Normalizator CSV → JSON još ne postoji (§9.4); ovaj oblik je njegova meta. `
 3. **Hash** (na Next serveru): `visitorHash = HMAC-SHA256(FAIR_VISITOR_HASH_SECRET, "scanme-fair-visitor-v1:" + token)` kao lowercase hex (64 znaka). Tajna je samo u Next okruženju, najmanje 32 znaka.
 4. **Convex** dobija samo `visitorHash`:
    - `/r`: kao arg `fairVisitorHash` u `cards.resolveAndRecord`, uz isti serverski `requestId` (`crypto.randomUUID()`);
-   - B3 gateway mutacije: isto, iz istog cookie-ja.
+   - B3 gateway mutacije: isto, iz istog cookie-ja;
+   - K1: hash uvek ide zajedno sa `FAIR_GATEWAY_SECRET` i HMAC-om IP adrese (`fairGatewaySecret`/`fairIpHash` u `/r`, `gatewaySecret`/`ipHash` u gateway-u). Bez tajne Convex hash ne prihvata (§27).
 5. **Gde token NE ide:** URL, query, telo odgovora, Convex (argumenti i tabele), klijentski JavaScript (HttpOnly), log. Hash ne ide u URL ni u klijent; u Convex-u je samo u `fairVisitors.visitorHash`. Rate limiter je ključan po `fairVisitors._id`, ne po hash-u.
 6. **Bez tajne:**
    - produkcija (`NODE_ENV=production`): nema identiteta ni cookie-ja; `/r` i dalje beleži generički scan i preusmerava na model (`fairScan: "no_visitor"`); bootstrap vraća `503 VISITOR_UNAVAILABLE`;
    - development: jasno označen DEV-ONLY ključ.
+   - K1, bez `FAIR_GATEWAY_SECRET` u Next env-u (u **svakom** okruženju, bez DEV zamene): `/r` ne šalje hash i ne pravi cookie (`fairScan: "no_visitor"`), a interakcije vraćaju `503 VISITOR_UNAVAILABLE` bez poziva Convex-a. Bootstrap ne zove Convex, pa se ne menja.
 
 ### 13.2 Šta se loguje
 
 | Gde | Šta | Bez |
 |---|---|---|
 | Next server (`console.warn`, jednom po procesu) | `[fair] FAIR_VISITOR_SECRET_MISSING` (produkcija bez tajne) ili `[fair] FAIR_VISITOR_SECRET_DEV_FALLBACK: …` (development) | tokena, hash-a, IP-a, kontakta |
+| Next server, K1 (jednom po procesu, §27.5) | `[fair] FAIR_GATEWAY_SECRET_MISSING`, `[fair] FAIR_GATEWAY_NOT_CONFIGURED`, `[fair] FAIR_GATEWAY_UNAUTHORIZED`, `[fair] FAIR_GATEWAY_REJECTED` | vrednosti tajne, tokena, hash-a, IP-a |
 | Next dev request log | metoda, putanja, status, vreme (npr. `GET /r/0HENT03A 302`) | cookie-ja i tokena |
 | Convex | ništa novo (`lib/fairScans.ts` ne loguje) | — |
 | `fairScanEvents` | `requestId`, `visitorId` (ID reda, ne hash), model/štand/brend, vreme, `dateKey`, `hourKey`, `isAdminExcluded`, `adminUserId?` | tokena i hash-a |
@@ -556,8 +569,9 @@ Redosled u istoj transakciji, posle postojećeg generičkog upisa (`cardScanEven
 2. `recordFairScan`:
    - ako je generički red za ovaj `requestId` već postojao → `duplicate`, ništa se ne piše. Fair red nastaje samo u transakciji koja je upisala generički red, pa jedan resolver request daje jedan generički događaj i **najviše jedan** `fairScanEvents` red;
    - nema ispravnog hash-a → `no_visitor`;
+   - K1: hash bez ispravne `fairGatewaySecret` (ili Convex bez `FAIR_GATEWAY_SECRET`) → `gateway_rejected`; ništa se ne piše, a generički scan i redirect ostaju;
    - B7: od `FAIR_PII_PURGE_AT_MS` → `no_visitor` (posle purge-a ne nastaje nijedan red vezan za posetioca, ni kad uređaj sa pogrešnim satom pošalje cookie);
-   - `fairVisitors` upsert po hash-u (`lastSeenAt`);
+   - `fairVisitors` upsert po hash-u (`lastSeenAt`); K1: nov red prvo troši token `fairVisitorCreate` po `fairIpHash` → inače `rate_limited` (§27.4);
    - `fairScan` rate limit po posetiocu → `rate_limited` (preusmerenje i dalje radi);
    - admin iz **sesije** (Convex Auth token koji `/r` prosleđuje; `getAuthUserId` + `isAdminEmail` iz `convex/lib/access.ts`, samo uvoz) → red sa `isAdminExcluded: true` i `adminUserId`, bez unique reda, brojača i pečata (`admin_excluded`). Javni arg za ovo ne postoji (validator odbija `isAdmin` i slična polja);
    - inače `fairScanEvents` + `fairUniqueScans` upsert (`totalScanCount`) + brojači + pečat pasoša → `recorded`.
@@ -631,10 +645,11 @@ Javni, read-only upiti bez identiteta i bez PII. Ne vraćaju kontakte, email izv
 1. Klijent šalje same-origin `POST /api/fair/<ruta>`.
 2. `lib/fair-server/interactions.ts` proverava telo striktno: nepoznat ključ (pa i `visitorHash`) → `INVALID_INPUT`.
 3. `visitorHash` dolazi iz HttpOnly cookie-ja; pri prvom korišćenju pravi se nov token.
-4. Jedan Convex poziv `fairInteractions.*`.
+4. Jedan Convex poziv `fairInteractions.*`. K1: uz `gatewaySecret` (i `ipHash` kod mutacija); bez tajne u Next env-u nema poziva → 503 `VISITOR_UNAVAILABLE` (§27).
 5. Odgovor `{ ok: true, value }` ili `{ ok: false, code }`, uvek sa `Cache-Control: no-store`.
 
 Redosled u svakoj mutaciji:
+0. K1: `FAIR_GATEWAY_SECRET` (pre svega, i u upitima) → `FAIR_GATEWAY_NOT_CONFIGURED` / `FAIR_GATEWAY_UNAUTHORIZED`;
 1. validacija ulaza;
 2. objavljen model, a event u stanju `published`/`live` i pre purge-a;
 3. paket **na snazi u trenutku interakcije** (`fairModelTierAt`, po istoriji aktivacija);
@@ -737,6 +752,7 @@ Admin UI je tab `Događaji → Interakcije` (`components/admin/admin-events-inte
    - `consentAccepted: false` → 422 `CONSENT_REQUIRED`, a kontakt ne napušta Next proces;
    - `visitorHash` je HMAC HttpOnly cookie-ja; odgovor je `{ ok: true, value: FairLeadSubmitResult }`, bez ijednog kontakta, uvek `no-store`.
 2. `submitLead`, u jednoj transakciji:
+   0. K1: `FAIR_GATEWAY_SECRET` pre svega (§27), pa direktan poziv Convex-a ne može da upiše lead ni da pošalje potvrdu;
    1. hash i `submissionId` (`FAIR_SUBMISSION_ID_PATTERN`);
    2. **idempotentnost:** postojeći `submissionId` istog posetioca, modela i vrste vraća sačuvan ishod sa `duplicate: true` i ne piše i ne šalje ništa; tuđi → `SUBMISSION_DUPLICATE`;
    3. objavljen model, event `published`/`live`, pre purge-a;
@@ -1047,7 +1063,7 @@ Tabela svake fair funkcije (`visitor` / `admin` / `internal`, vraća li PII i ko
 - svaka admin funkcija B3–B7 modula odbija anonimnog („Niste prijavljeni.“) i ne-admin („Nemate administratorski pristup.“) poziv pre bilo kakvog upisa; `fairAdmin`/`fairImport` pokriva `fairAdmin.test.ts`;
 - izlazi svih 11 `fairPublic` upita, 7 `fairInteractions` funkcija, `submitLead` i fair grane `/r` posle punog toka posetioca ne sadrže ime, email, telefon, hash, ID posetioca ili leada, adresu ili napomenu izlagača, QR kodove, SMK/SML ni ključeve agregata ocena.
 
-Nalaz bez izmene koda (van opsega ili čeka odluku): §9.65 (poverenje gateway → Convex), §9.66 (NAT).
+Nalaz bez izmene koda (van opsega ili čeka odluku): §9.66 (NAT). §9.65 (poverenje gateway → Convex) je rešen u K1; tabela zaštićenih funkcija je u §27.3.
 
 ## 25. B7 — performanse i limiti
 
@@ -1069,6 +1085,7 @@ B7 izmena: `fairPublic` čita najviše `FAIR_SPONSORED_ITEMS_CAP` = 200 itema sn
 | `fairBrandFavorite` | 10 | 5 | izbor + par promena po brendu |
 | `fairLeadSubmit` (posetilac+model) | 2 | 3 | interest + probna vožnja + jedna ispravka |
 | `fairSponsoredAction` | 20 | 10 | kartica na 8 s, najviše 2 dugmeta = 15/min |
+| K1: `fairVisitorCreate` (po IP HMAC-u, samo nov `fairVisitors` red) | 120 | 300 | navala cele prostorije iza jednog NAT-a staje u 300, vrh ≈ 100 novih/min ispod 120/min; skripta sa jedne adrese ≤ 420 identiteta u prvom minutu, pa 120/min (§27.4) |
 | B7: potvrde po adresi (DB provera) | — | 10 / 60 min | posetilac ostavi kontakt na par štandova ≈ 5/h; skripta sa novim hash-evima staje na 10/h po žrtvi |
 
 ### 25.3 Limit potvrda po adresi
@@ -1100,3 +1117,107 @@ B7 izmena: `fairPublic` čita najviše `FAIR_SPONSORED_ITEMS_CAP` = 200 itema sn
 ### 26.4 Ručni scenario
 
 Koraci za Teodoru, Aleksu i Jovana (Android, iPhone, displej 1920×1080, stvarni TEST QR) su u `jovan-status/B7.md` §8.1.
+
+## 27. K1 — zajednička tajna Next → Convex i limit novih identiteta (RF nalaz 1, §9.65)
+
+### 27.1 Problem i pravilo
+
+Javnu Convex funkciju može da pozove svako ko zna URL deploymenta. Do K1 su posetilačke funkcije prihvatale svaki ispravno formiran `visitorHash`. Direktan poziv mimo Next gateway-a (ili gateway bez cookie-ja) mogao je da izmisli neograničen broj posetilaca i da napumpa skenove, jedinstvene skenove, ocene, Glas publike (vidi se na displejima), pečate i favorite, kao i da šalje junk leadove.
+
+Od K1 važi:
+- svaka javna funkcija koja prima `visitorHash` ili `fairVisitorHash` prihvata poziv samo uz `FAIR_GATEWAY_SECRET`, koju znaju samo Next server i Convex deployment istog okruženja;
+- nov `fairVisitors` red je ograničen po HMAC-u IP adrese pozivaoca;
+- generički QR sken i redirect rade kao pre.
+
+### 27.2 Tok tajne
+
+1. **Vrednost:** najmanje 32 nasumična znaka, posebna za svako okruženje, ista u Next env-u (Vercel/`.env.local`) i u Convex env-u tog okruženja. Postavljaju je Aleksa ili Jovan; agent je ne postavlja i ne čita. U `.env.example` je samo ime.
+2. **Next** (`lib/fair-server/visitor.ts` → `fairConvexVisitorForRequest`, `import "server-only"`):
+   - čita `process.env.FAIR_GATEWAY_SECRET` (bez `NEXT_PUBLIC_`, skraćuje razmake);
+   - šalje je samo kao argument Convex poziva iz route handlera (`/r/[cardCode]`, `app/api/fair/**`);
+   - tajna nikad ne ide u odgovor, URL, cookie, klijentski JS ni log.
+3. **Next bez tajne** (ili sa kraćom od 32 znaka), u svakom okruženju i bez DEV zamene: posetilačke funkcije se ne zovu.
+   - Gateway vraća postojeći 503 `VISITOR_UNAVAILABLE`, bez cookie-ja.
+   - `/r` beleži generički sken bez hash-a i preusmerava bez fair dela.
+4. **Convex** (`convex/lib/fairGateway.ts`):
+   - `env.FAIR_GATEWAY_SECRET` je opciono deklarisana u `convex/convex.config.ts`;
+   - `requireFairGateway` je **prva naredba** svake zaštićene funkcije, pre validacije i pre bilo kog čitanja;
+   - poređenje je konstantnog vremena: XOR preko svih znakova, po obrascu `memoriesPipeline.requirePipelineSecret` (dužina nije tajna).
+5. **Fail closed:**
+   - Convex bez vrednosti (ili sa kraćom od 32) → `FAIR_GATEWAY_NOT_CONFIGURED`;
+   - poziv bez vrednosti ili sa pogrešnom → `FAIR_GATEWAY_UNAUTHORIZED`;
+   - u oba slučaja ništa se ne čita i ne upisuje.
+6. **Rotacija:** nova vrednost na obe strane istovremeno. Dok se vrednosti razlikuju, posetilačke funkcije odbijaju pozive, a fair deo `/r` ćuti; QR redirect radi. Rotacija ne menja `visitorHash`, jer je on vezan za drugu tajnu (`FAIR_VISITOR_HASH_SECRET`).
+
+### 27.3 Zaštićene funkcije (authz)
+
+| Funkcija | Vrsta | Bez tajne, sa pogrešnom, Convex bez env-a | Sa ispravnom tajnom |
+|---|---|---|---|
+| `fairInteractions.getMyModelState` | query | `FAIR_GATEWAY_UNAUTHORIZED` / `FAIR_GATEWAY_UNAUTHORIZED` / `FAIR_GATEWAY_NOT_CONFIGURED` | kao B3 (§15) |
+| `fairInteractions.getMyPassportProgress` | query | isto | kao B3 |
+| `fairInteractions.upsertRating` | mutation | isto; ništa se ne upisuje | kao B3 |
+| `fairInteractions.upsertAudienceVote` | mutation | isto; ništa se ne upisuje | kao B3 |
+| `fairInteractions.submitSurvey` | mutation | isto; ništa se ne upisuje | kao B3 |
+| `fairInteractions.upsertBrandFavorite` | mutation | isto; ništa se ne upisuje | kao B3 |
+| `fairInteractions.recordSponsoredAction` | mutation | isto; ništa se ne upisuje | kao B5 (§19.4) |
+| `fairLeads.submitLead` | mutation | isto; nema leada, posetioca ni outbox reda | kao B4 (§17) |
+| `fairSharing.createShareCollection` | mutation | isto; nema kolekcije ni posetioca | kao share delta (`JOVAN-DELTA-2026-10-05.md` §3, §5) |
+| `fairSharing.recordTraffic` | mutation | isto; nema traffic reda ni posetioca | kao share delta (`JOVAN-DELTA-2026-10-05.md` §4, §5) |
+| `cards.resolveAndRecord`, fair grana | postojeća mutation | generički sken i redirect kao pre; `fairScan: "gateway_rejected"`; bez fair reda, posetioca, brojača i pečata | kao B2 (§13.3) |
+
+- Javni `fairPublic.*` upiti ne primaju identitet i ostaju bez tajne. Isto važi za `fairSharing.getShareCollectionByCodeHash`.
+- Sync 5. 10. 2026: dve `fairSharing` mutacije iz Aleksinog checkpointa `8e72c10` primaju `visitorHash`, pa su dobile isto pravilo. `lib/fair-server/sharing.ts` im šalje tajnu i `ipHash` kao i ostali gateway-i.
+- Admin i internal funkcije se ne menjaju (B7 §2.4).
+- Ova tabela zamenjuje kolonu „Pristup“ za redove `fairInteractions`, `fairLeads` i `cards (B2 grana)` u B7 §2.4: „visitor“ sada znači „samo Next server sa `FAIR_GATEWAY_SECRET`“.
+
+Novi argumenti su svi `v.optional(v.string())`, da poziv bez tajne dobije stabilan kod, a ne grešku validatora:
+- `gatewaySecret` — svih 10 funkcija;
+- `ipHash` — 8 mutacija (upit nikad ne pravi posetioca);
+- `cards.resolveAndRecord`: `fairGatewaySecret` i `fairIpHash`.
+
+### 27.4 Limit novih identiteta `fairVisitorCreate`
+
+- **Ključ:** `ipHash` = HMAC-SHA256(`FAIR_VISITOR_HASH_SECRET`, `"scanme-fair-ip-v1:"` + prva adresa iz `x-forwarded-for`), lowercase hex. Računa ga Next, pa sirov IP ne napušta Next proces. Ključ HMAC-a je tajna koju Convex nema, pa Convex ne može da vrati hash u IP.
+- **Kad se troši:** samo kad nastaje **nov** `fairVisitors` red (`upsertFairVisitor`), u `/r` i u svih 8 mutacija, iz istog bucket-a po istom ključu. Postojeći posetilac ne troši token.
+- **Veličina:** `{ kind: "token bucket", rate: 120, period: MINUTE, capacity: 300 }`.
+- **Aritmetika:**
+  - dan sajma ima oko 5–10 hiljada posetilaca za oko 8 h, što je oko 20 novih uređaja u minuti;
+  - navala na otvaranju je 3–5 puta više, oko 100 u minuti, a cela prostorija može da stigne odjednom;
+  - kapacitet 300 (isto kao generički `cardResolve` ispred `/r`) prima navalu iza jednog NAT-a, a dopuna od 120/min (2/s) je iznad vrha;
+  - skripta sa jedne adrese dobija najviše 300 + 120 = 420 identiteta u prvom minutu, pa 120/min. Hiljade u minuti nisu moguće.
+- **Odbijanje ne piše ništa:** `/r` i dalje beleži generički sken i preusmerava (`fairScan: "rate_limited"`), a interakcija baca `RATE_LIMITED`.
+- Bez `ipHash` (to može samo direktan poziv koji ionako zna tajnu) svi dele jedan bucket `shared`.
+- **Granica:** napadač sa mnogo IP adresa i dalje dobija više. Potpuna zaštita nije cilj V1 (MASTER §5).
+
+### 27.5 Šta se loguje
+
+| Gde | Šta | Bez |
+|---|---|---|
+| Next (`console.warn`, jednom po procesu) | `[fair] FAIR_GATEWAY_SECRET_MISSING` — Next nema tajnu | vrednosti tajne, tokena, hash-a, IP-a |
+| Next (`console.warn`, jednom po procesu) | `[fair] FAIR_GATEWAY_NOT_CONFIGURED` ili `[fair] FAIR_GATEWAY_UNAUTHORIZED` — Convex odbio gateway poziv | isto |
+| Next (`console.warn`, jednom po procesu) | `[fair] FAIR_GATEWAY_REJECTED` — Convex odbio tajnu u `/r` | isto |
+| Convex | ništa novo | — |
+| Tabele | tajna se nigde ne upisuje (test prolazi kroz sve tabele); `ipHash` je samo ključ u stanju komponente `rateLimiter` | — |
+
+### 27.6 Deploy čeklista (pre produkcije)
+
+1. Generisati novu vrednost za produkciju, različitu od DEV vrednosti.
+2. Postaviti je u Convex prod env i u Vercel prod env (server, bez `NEXT_PUBLIC_`), pa tek onda pustiti kod iz K1. Inače su svi fair skenovi i interakcije ugašeni, a redirect radi.
+3. Posle deploya: jedan sken TEST QR-a mora da poveća `fairScans:modelScanCounts` za 1, a u Next logu ne sme biti `FAIR_GATEWAY_*`.
+
+### 27.7 Testovi
+
+- `convex/fairGateway.test.ts` (na integracionom TEST seed-u):
+  - svih 10 funkcija bez tajne, sa pogrešnom (iste dužine), sa skraćenom, sa praznom, i kad Convex nema env ili ima prekratku: stabilan kod, nijedan red u bazi se ne menja; ista provera i za nov i za postojeći hash;
+  - istih 10 poziva sa ispravnom tajnom uspeva, a tajna nije ni u jednom izlazu ni u jednoj tabeli;
+  - tajna se proverava pre validacije: neispravan hash bez tajne daje `FAIR_GATEWAY_UNAUTHORIZED`, a sa tajnom `INVALID_INPUT`;
+  - `resolveAndRecord` bez tajne, sa pogrešnom i bez Convex env-a: postoji generički događaj i redirect, `fairScan: "gateway_rejected"`, nema fair reda, posetioca, brojača ni pečata; sa tajnom sken se broji;
+  - 300 novih identiteta sa jedne IP adrese prolazi, 301. dobija `rate_limited` (generički sken postoji), nov posetilac sa te adrese dobija `RATE_LIMITED` u oceni bez upisa, postojeći posetilac i druga adresa rade normalno, a posle 30 s prolazi tačno 60 novih.
+- `convex/fairSharing.test.ts`: bez tajne, sa pogrešnom i bez Convex env-a nema kolekcije, traffic reda ni posetioca.
+- `lib/fair-server/interactions.test.ts`, `leads.test.ts`, `sponsored.test.ts`, `sharing.test.ts`:
+  - bez tajne (ili sa kratkom, i u developmentu) nema Convex poziva ni cookie-ja: 503 `VISITOR_UNAVAILABLE`;
+  - svaki poziv nosi tajnu, a mutacije i `ipHash` (HMAC, ne sirov IP);
+  - odgovor ne sadrži tajnu;
+  - Convex kodovi `FAIR_GATEWAY_*` postaju 503 `SERVICE_UNAVAILABLE`.
+- Postojeći Convex fair testovi postavljaju TEST tajnu u env i šalju je; nijedno očekivanje nije promenjeno.
+- U postojećim Next gateway testovima tačna očekivanja argumenata (`toEqual`, `toHaveBeenCalledWith`) dopunjena su poljima `gatewaySecret` i `ipHash`, jer ih backend sada prima. Poređenje je ostalo tačno, nije oslabljeno.

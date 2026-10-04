@@ -29,11 +29,13 @@ import {
   fairVisitorSurveyResponse,
   fairVoteThreshold,
   findFairVisitor,
+  requireFairVisitorRow,
   requireInteractiveModel,
   requireVisitorHash,
   type FairRatingInputValues,
 } from "./lib/fairInteractions";
-import { fairTimeKeys, upsertFairVisitor } from "./lib/fairScans";
+import { requireFairGateway } from "./lib/fairGateway";
+import { fairTimeKeys } from "./lib/fairScans";
 import { fairActiveSponsoredSnapshot, fairSponsoredCountKeys, fairSponsoredItems } from "./lib/fairSponsored";
 import {
   fairAudienceResultView,
@@ -52,6 +54,9 @@ import { rateLimiter } from "./lib/rateLimits";
 // (app/api/fair/**, lib/fair-server/interactions.ts), which reads the HttpOnly
 // cookie and passes the HMAC `visitorHash` — so a hash never travels in a URL,
 // an analytics tool or a browser cache key. The raw token never reaches Convex.
+// K1: every function here first requires FAIR_GATEWAY_SECRET
+// (convex/lib/fairGateway.ts) — a direct call without it reads and writes
+// nothing — and a NEW visitor row spends the per-IP `fairVisitorCreate` token.
 //
 // Rules (HANDOFF §7): validate → published event-model → entitlement at the
 // moment of the interaction → per-visitor rate limit → source row + projection
@@ -80,9 +85,10 @@ async function requireLimit(
 
 /** The visitor's own state for one model page: own rating, own votes, survey state, passport N/M. */
 export const getMyModelState = query({
-  args: { visitorHash: v.string(), eventModelId: v.string() },
+  args: { gatewaySecret: v.optional(v.string()), visitorHash: v.string(), eventModelId: v.string() },
   returns: fairMyModelStateView,
   handler: async (ctx, args): Promise<MyModelState> => {
+    requireFairGateway(args.gatewaySecret);
     requireVisitorHash(args.visitorHash);
     const modelId = ctx.db.normalizeId("fairEventModels", args.eventModelId);
     const model = modelId ? await ctx.db.get(modelId) : null;
@@ -142,9 +148,10 @@ export const getMyModelState = query({
  * §3). A visitor with no scan yet gets 0/N for every passport.
  */
 export const getMyPassportProgress = query({
-  args: { visitorHash: v.string(), eventSlug: v.string() },
+  args: { gatewaySecret: v.optional(v.string()), visitorHash: v.string(), eventSlug: v.string() },
   returns: v.union(fairPassportStateView, v.null()),
   handler: async (ctx, args): Promise<FairPassportState | null> => {
+    requireFairGateway(args.gatewaySecret);
     requireVisitorHash(args.visitorHash);
     if (!args.eventSlug || args.eventSlug.length > 120) return null;
     const event = await ctx.db
@@ -167,6 +174,8 @@ export const getMyPassportProgress = query({
  */
 export const upsertRating = mutation({
   args: {
+    gatewaySecret: v.optional(v.string()),
+    ipHash: v.optional(v.string()),
     visitorHash: v.string(),
     eventModelId: v.string(),
     overall: ratingValue,
@@ -177,6 +186,7 @@ export const upsertRating = mutation({
   returns: fairRatingStateView,
   handler: async (ctx, args) => {
     const now = Date.now();
+    requireFairGateway(args.gatewaySecret);
     requireVisitorHash(args.visitorHash);
     const { model } = await requireInteractiveModel(ctx, args.eventModelId, now);
     const tier = await fairModelTierAt(ctx, model, now);
@@ -188,7 +198,7 @@ export const upsertRating = mutation({
     const problem = fairRatingInputProblem(tier, values);
     if (problem) fairInteractionError(problem);
 
-    const visitorId = await upsertFairVisitor(ctx, args.visitorHash, now);
+    const visitorId = await requireFairVisitorRow(ctx, { visitorHash: args.visitorHash, ipHash: args.ipHash, now });
     await requireLimit(ctx, "fairRating", visitorId);
     const row = await applyFairRating(ctx, { visitorId, model, values, now });
     return fairOwnRatingState(tier, row);
@@ -200,10 +210,11 @@ export const upsertRating = mutation({
  * from the old option to the new one, so the number of voters stays the same.
  */
 export const upsertAudienceVote = mutation({
-  args: { visitorHash: v.string(), questionId: v.string(), optionId: v.string() },
+  args: { gatewaySecret: v.optional(v.string()), ipHash: v.optional(v.string()), visitorHash: v.string(), questionId: v.string(), optionId: v.string() },
   returns: fairAudienceResultView,
   handler: async (ctx, args) => {
     const now = Date.now();
+    requireFairGateway(args.gatewaySecret);
     requireVisitorHash(args.visitorHash);
     const questionId = ctx.db.normalizeId("fairAudienceQuestions", args.questionId);
     const question = questionId ? await ctx.db.get(questionId) : null;
@@ -213,7 +224,7 @@ export const upsertAudienceVote = mutation({
     if (getFairEntitlements(tier).audienceQuestionsPerDay === 0) fairInteractionError("FEATURE_NOT_ENTITLED");
     if (!question.options.some((option) => option.id === args.optionId)) fairInteractionError("INVALID_INPUT", { field: "optionId" });
 
-    const visitorId = await upsertFairVisitor(ctx, args.visitorHash, now);
+    const visitorId = await requireFairVisitorRow(ctx, { visitorHash: args.visitorHash, ipHash: args.ipHash, now });
     await requireLimit(ctx, "fairAudienceVote", visitorId);
     const existing = await ctx.db
       .query("fairAudienceVotes")
@@ -245,10 +256,18 @@ export const upsertAudienceVote = mutation({
  * never edited afterwards. Results are never public.
  */
 export const submitSurvey = mutation({
-  args: { visitorHash: v.string(), surveyId: v.string(), submissionId: v.string(), answers: v.array(fairSurveyAnswer) },
+  args: {
+    gatewaySecret: v.optional(v.string()),
+    ipHash: v.optional(v.string()),
+    visitorHash: v.string(),
+    surveyId: v.string(),
+    submissionId: v.string(),
+    answers: v.array(fairSurveyAnswer),
+  },
   returns: v.object({ surveyId: v.string(), version: v.number(), submittedAt: v.number(), duplicate: v.boolean() }),
   handler: async (ctx, args): Promise<FairSurveySubmitResult> => {
     const now = Date.now();
+    requireFairGateway(args.gatewaySecret);
     requireVisitorHash(args.visitorHash);
     if (!isFairSubmissionId(args.submissionId)) fairInteractionError("INVALID_INPUT", { field: "submissionId" });
 
@@ -272,7 +291,7 @@ export const submitSurvey = mutation({
     const problem = fairSurveyAnswersProblem(survey, args.answers);
     if (problem) fairInteractionError(problem, { field: "answers" });
 
-    const visitorId = await upsertFairVisitor(ctx, args.visitorHash, now);
+    const visitorId = await requireFairVisitorRow(ctx, { visitorHash: args.visitorHash, ipHash: args.ipHash, now });
     if (await fairVisitorSurveyResponse(ctx, visitorId, await fairModelSurveys(ctx, model._id))) {
       fairInteractionError("SURVEY_ALREADY_SUBMITTED");
     }
@@ -295,10 +314,11 @@ export const submitSurvey = mutation({
  * the published passport. One changeable favorite per visitor+event+brand.
  */
 export const upsertBrandFavorite = mutation({
-  args: { visitorHash: v.string(), passportId: v.string(), eventModelId: v.string() },
+  args: { gatewaySecret: v.optional(v.string()), ipHash: v.optional(v.string()), visitorHash: v.string(), passportId: v.string(), eventModelId: v.string() },
   returns: fairPassportProgressView,
   handler: async (ctx, args) => {
     const now = Date.now();
+    requireFairGateway(args.gatewaySecret);
     requireVisitorHash(args.visitorHash);
     const passportId = ctx.db.normalizeId("fairPassportConfigs", args.passportId);
     const passport = passportId ? await ctx.db.get(passportId) : null;
@@ -314,7 +334,7 @@ export const upsertBrandFavorite = mutation({
     const before = await fairPassportProgress(ctx, { passport, required, visitorId: visitor?._id ?? null, threshold });
     if (!visitor || !before.completed) fairInteractionError("PASSPORT_NOT_COMPLETE");
 
-    const visitorId = await upsertFairVisitor(ctx, args.visitorHash, now);
+    const visitorId = await requireFairVisitorRow(ctx, { visitorHash: args.visitorHash, ipHash: args.ipHash, now });
     await requireLimit(ctx, "fairBrandFavorite", visitorId);
     const existing = await ctx.db
       .query("fairBrandFavoriteVotes")
@@ -357,10 +377,19 @@ const SPONSORED_KINDS: readonly string[] = ["open_model", "garage_add"] satisfie
  * event's published snapshot.
  */
 export const recordSponsoredAction = mutation({
-  args: { visitorHash: v.string(), eventModelId: v.string(), surface: v.string(), kind: v.string(), requestId: v.string() },
+  args: {
+    gatewaySecret: v.optional(v.string()),
+    ipHash: v.optional(v.string()),
+    visitorHash: v.string(),
+    eventModelId: v.string(),
+    surface: v.string(),
+    kind: v.string(),
+    requestId: v.string(),
+  },
   returns: fairSponsoredActionResultView,
   handler: async (ctx, args): Promise<FairSponsoredActionResult> => {
     const now = Date.now();
+    requireFairGateway(args.gatewaySecret);
     requireVisitorHash(args.visitorHash);
     if (args.surface !== "garage") fairInteractionError("INVALID_INPUT", { field: "surface" });
     if (!SPONSORED_KINDS.includes(args.kind)) fairInteractionError("INVALID_INPUT", { field: "kind" });
@@ -385,7 +414,7 @@ export const recordSponsoredAction = mutation({
     const inSnapshot = snapshot ? (await fairSponsoredItems(ctx, snapshot._id)).some((item) => item.eventModelId === model._id) : false;
     if (!inSnapshot) fairInteractionError("FEATURE_NOT_ENTITLED");
 
-    const visitorId = await upsertFairVisitor(ctx, args.visitorHash, now);
+    const visitorId = await requireFairVisitorRow(ctx, { visitorHash: args.visitorHash, ipHash: args.ipHash, now });
     await requireLimit(ctx, "fairSponsoredAction", visitorId);
     const time = fairTimeKeys(now);
     await ctx.db.insert("fairSponsoredEvents", {
