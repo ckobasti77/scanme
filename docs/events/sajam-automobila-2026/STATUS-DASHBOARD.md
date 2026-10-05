@@ -6,6 +6,7 @@
 > **Aktivna integraciona grana:** `codex/sajam-integracija-2026-10-04`  
 > **Završeni Garage checkpoint:** `8e72c10`
 > **Najnoviji zajednički kodni sync checkpoint:** `c37bd0e`
+> **Jovan sync (K1–K4 na deljenoj grani):** `codex/jovan-sync-2026-10-05` — [SYNC-2026-10-05](./jovan-status/SYNC-2026-10-05.md)
 > **Deljena grana za Aleksu i Jovana:** `origin/codex/sajam-integracija-2026-10-04`
 > **Rok produkcijske spremnosti:** 9. oktobar 2026.
 
@@ -30,10 +31,10 @@ Ne menja poslovni ili tehnički ugovor. Za proizvod važi [MASTER-KONTEKST](./MA
 | Oblast | Status | Šta to praktično znači |
 |---|---:|---|
 | Zajednička Git integracija | ✅ | Naš frontend, Garaža i Jovanov backend/mapa nalaze se na deljenoj Git grani koju obojica mogu da preuzmu |
-| Automatska tehnička provera | ⚠️ | Check, Garage testovi i browser matrica prolaze; puna fair grupa ima 286/287 zbog nevezane dirty `seedShowcaseCatalog` authz registracije |
+| Automatska tehnička provera | ⚠️ | Posle Jovan sync-a fair grupa prolazi 325/325 (authz i šema tabele dopunjene); puni `npm test` ima samo stari pad `memoriesHost`; browser provere su u SYNC izveštaju |
 | Model stranica | 🔧 | Vizuelno radi, ali još koristi Audi fixture umesto stvarnog Convex modela |
 | Backend jezgro | ✅ | Šema, paketi, QR, interakcije, analitika, izveštaji i retention postoje i imaju testove |
-| Backend hardening | 🔧 | Četiri RF korekcije moraju biti završene pre integracionog testa |
+| Backend hardening | 👀 | K1–K4 rešavaju četiri RF nalaza i testirani su (RK: spremno za integracioni test); čekaju ljudski pregled i env tajne po okruženju |
 | Mapa i displej | 👀 | Implementirani i testirani; čekaju pregled, stvarne podatke i osvežavanje uživo |
 | Garaža | 🔧 | Mobilna ruta, selection režim, poređenje, pasoši i sponsored tok su automatski provereni; native Samsung share još mora ručno da se potvrdi preko HTTPS origin-a |
 | Leadovi i email | ⛔ | Kod postoji, ali saglasnost, produkcijski prekidači i email podešavanja nisu zaključani |
@@ -82,13 +83,13 @@ Ovo je redosled kojim se projekat trenutno odblokira. Stavka niže ne smatra se 
    - [ ] Probna vožnja više ne traži datum.
    - [ ] `Zainteresovan sam` prihvata ime i najmanje jedan kontakt.
 
-2. **RF korektivni backend korak** `🔧` — vlasnik: Jovan
-   - [ ] Zajednička tajna gateway → Convex.
-   - [ ] Ograničenje stvaranja novih anonimnih identiteta po IP hash-u.
-   - [ ] Displej periodično ili reaktivno osvežava rotaciju i rezultat.
-   - [ ] Poseban produkcijski prekidač za leadove.
-   - [ ] Poseban produkcijski prekidač za follow-up.
-   - [ ] Ručna izrada izveštaja pre kraja dana se odbija.
+2. **RF korektivni backend korak** `👀` — vlasnik: Jovan; implementirano, čeka ljudski pregled
+   - [x] Zajednička tajna gateway → Convex — K1 `52d6c19`, uključujući `fairSharing` mutacije.
+   - [x] Ograničenje stvaranja novih anonimnih identiteta po IP hash-u — K1 `52d6c19`.
+   - [x] Displej periodično ili reaktivno osvežava rotaciju i rezultat — K2 `f9374b3`.
+   - [x] Poseban produkcijski prekidač za leadove — K3 `8fb5bff` (`FAIR_LEADS_ENABLED`, podrazumevano isključen).
+   - [x] Poseban produkcijski prekidač za follow-up — K3 `8fb5bff` (`FAIR_FOLLOWUP_ENABLED`, podrazumevano isključen).
+   - [x] Ručna izrada izveštaja pre kraja dana se odbija — K4 `13d4983` (`FAIR_DAY_NOT_CLOSED`).
 
 3. **Stvarni podaci i QR test tok** `⛔`
    - [ ] Prikupljeni izlagači, modeli, specifikacije, cene, paketi i pitanja.
@@ -149,11 +150,11 @@ Ovo je redosled kojim se projekat trenutno odblokira. Stavka niže ne smatra se 
 | B0 | Ugovor, entitlement-i i fair šema | ✅ | Testovi i `FAIR-BACKEND-CONTRACT.md` |
 | B1 | Katalog, import, paketi i atomska QR dodela | ✅ | 70/70 na checkpointu; realni import nije izvršen |
 | B1A | Admin tab `Događaji` | 👀 | Kod i testovi postoje; čeka pregled stvarnog UI-ja |
-| B2 | Visitor identitet, `/r`, total/unique scan | 🔧 | Testovi prolaze; direktne Convex mutacije nisu dovoljno zaštićene |
+| B2 | Visitor identitet, `/r`, total/unique scan | 👀 | K1: posetilačke Convex funkcije traže `FAIR_GATEWAY_SECRET`, novi identiteti ograničeni po IP hash-u |
 | B3 | Ocene, Glas publike, anketa i pasoš | ✅ | Backend i šest POST tokova postoje |
 | B4 | Leadovi, outbox, Resend seam, follow-up | ⛔ | Kod postoji; legalni i produkcijski gate nije spreman |
 | B5 | Objavljeni Advanced sponsored snapshot | ✅ | Bez lažnog impression upisa |
-| B6 | Analitika, PDF/XLSX/CSV i odobravanje | 🔧 | Preuranjen ručni report može blokirati automatski |
+| B6 | Analitika, PDF/XLSX/CSV i odobravanje | 👀 | K4: ručna izrada pre zatvaranja dana se odbija, sweep ignoriše raniji run |
 | B7 | Retention, authz, performanse i TEST seed | 👀 | Testirano; čeka odluku o automatskom purge-u |
 | B8 | Deljeni linkovi i odvojena traffic analitika | 🔧 | Kolekcije, `share_action` i `share_open` postoje i ne dodiruju scan tabele; aktiviranje `direct_view` čeka F3 i QR entry marker |
 
@@ -208,7 +209,7 @@ Ovo je redosled kojim se projekat trenutno odblokira. Stavka niže ne smatra se 
 - [x] ✅ M2 — Advanced rotacija na 12 sekundi i isticanje štanda.
 - [x] ✅ M3 — ScanMe zelena rezervisana samo za ScanMe lokaciju.
 - [x] ✅ M4 — Nema glasanja direktno na mapi i nema impression upisa.
-- [ ] 🔧 M5 — Displej mora da dobija nove rezultate/rotaciju bez reload-a.
+- [ ] 👀 M5 — Displej dobija nove rezultate/rotaciju bez reload-a (K2 `f9374b3`); čeka pregled na displeju.
 - [ ] ⛔ M6 — Potvrditi tačnu poziciju ScanMe štanda.
 - [ ] ⛔ M7 — Proveriti novije S1/S2 mape, deljene lokacije i dozvolu korišćenja logotipa.
 - [ ] 👀 M8 — Aleksin vizuelni audit mape na 390, 1280 i 1920 px.
@@ -242,10 +243,10 @@ Ovo je redosled kojim se projekat trenutno odblokira. Stavka niže ne smatra se 
 - [x] ✅ E4 — Idempotentni email retry sprečava duplikat.
 - [x] ✅ E5 — Purge kod i preview/dry-run postoje.
 - [ ] ⛔ E6 — Stručno odobren tekst saglasnosti i politike privatnosti.
-- [ ] ⛔ E7 — Tvrdi prekidači za leadove i follow-up.
+- [ ] 👀 E7 — Tvrdi prekidači za leadove i follow-up postoje (K3 `8fb5bff`), podrazumevano isključeni; uključivanje čeka E6 i E9.
 - [ ] ⛔ E8 — Finalni tekst potvrde i jednog follow-up emaila.
 - [ ] ⛔ E9 — `FAIR_EMAIL_REPLY_TO`, pošiljalac i ručni DEV email test.
-- [ ] 🔧 E10 — Blokirati ručni dnevni report pre zatvaranja dana.
+- [ ] 👀 E10 — Ručni dnevni report pre zatvaranja dana se odbija (K4 `13d4983`).
 - [ ] 🔧 E11 — Odlučiti kako agregati ostaju upotrebljivi posle PII purge-a.
 - [ ] ⛔ E12 — Potvrditi primalac i vreme isporuke po izlagaču.
 - [ ] ⛔ E13 — Odlučiti: automatski purge 16. novembra ili ručno odobrenje.
@@ -258,7 +259,7 @@ Ovo je redosled kojim se projekat trenutno odblokira. Stavka niže ne smatra se 
 - [x] ✅ Q1 — Lint bez grešaka; tri postojeća upozorenja.
 - [x] ✅ Q2 — Next produkcijski build i TypeScript.
 - [x] ✅ Q3 — Namespace i golden harness.
-- [ ] ⚠️ Q4 — 286/287 sajamskih testova; jedini pad je nevezani dirty `seedShowcaseCatalog` koji još nije dodat u `fairAuthz.test.ts` klasifikaciju.
+- [x] ✅ Q4 — Posle Jovan sync-a 325/325 sajamskih testova: `seedShowcaseCatalog` i `fairSharing` klasifikovani su u `fairAuthz.test.ts`, a nove tabele u `fairSchema.test.ts`.
 - [x] ✅ Q5 — Model mobile checkpoint na tri rezolucije.
 - [x] ✅ Q5A — Garaža: 375×667, 390×844, 412×915, 844×390 i 1440×900; touch/long-press preko fotografije, centrirana compare kontrola, pasoš, glass potvrda uklanjanja, offline, dva uzastopna sponsored dodavanja bez remounta i reduced-motion.
 - [x] ✅ Q5B — Selection/share tok: long-press, prvi sledeći dodir odmah menja izbor, vidljiv `X`, automatski izlaz kada nema izbora, Back zatvara lokalne slojeve, fixed toolbar pri skrolu, direktan native-share poziv uz aplikacijski fallback i zaseban `share_action` zahtev.
@@ -325,6 +326,13 @@ Vlasnik sledeće akcije:
 - Implementacija produkcijskog QR inventara preneta je u integracionu granu kao checkpoint `c37bd0e`.
 - Jovanov backend B0–B7 nije ponovo merge-ovan: iste izmene su već deo integracione istorije pod zajedničkim hash-evima.
 - Sledeći programski kritični korak ostaje F3: povezivanje javne model stranice sa stvarnim backend projekcijama i write tokovima.
+
+### 5. oktobar 2026. — Jovan sync (K1–K4)
+
+- Jovanovi jedinstveni commitovi K1, K2, K3, K4 i IZK preneti su na deljenu granu kao `codex/jovan-sync-2026-10-05`, na vrh `4301182`. B0–B7, M0–M2 i IZ su već bili ovde.
+- Semantičko spajanje: `fairSharing.createShareCollection` i `recordTraffic` traže `FAIR_GATEWAY_SECRET` kao i ostale posetilačke funkcije. `lib/fair-server/sharing.ts` tu tajnu šalje.
+- Posledica: Garaža deljenje i traffic na svakom okruženju rade tek kad su `FAIR_GATEWAY_SECRET` (Next i Convex) i `FAIR_VISITOR_HASH_SECRET` postavljeni. Bez njih vraćaju 503.
+- Fair testovi prolaze 325/325. Detalji su u [SYNC-2026-10-05](./jovan-status/SYNC-2026-10-05.md).
 
 ### 5. oktobar 2026. — javna Garaža
 
