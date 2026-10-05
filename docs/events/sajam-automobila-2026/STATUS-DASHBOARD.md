@@ -1,10 +1,10 @@
 # Sajam automobila 2026 — komandni status
 
 > **Status dokumenta:** živi operativni pregled  
-> **Poslednje ažuriranje:** 4. oktobar 2026.  
+> **Poslednje ažuriranje:** 5. oktobar 2026.
 > **Vlasnik odluka:** Aleksa  
 > **Aktivna integraciona grana:** `codex/sajam-integracija-2026-10-04`  
-> **Provereni HEAD:** `209ebf6`  
+> **Proverena osnova pre Garage radnog koraka:** `bab5c33`
 > **Rok produkcijske spremnosti:** 9. oktobar 2026.
 
 Ovaj dokument je komandni ekran za ljude: pokazuje **šta postoji, šta je provereno, šta nedostaje, šta je blokirano i ko je sledeći na potezu**.
@@ -28,12 +28,12 @@ Ne menja poslovni ili tehnički ugovor. Za proizvod važi [MASTER-KONTEKST](./MA
 | Oblast | Status | Šta to praktično znači |
 |---|---:|---|
 | Zajednička Git integracija | ✅ | Naš frontend i Jovanov backend/mapa su zajedno u čistoj lokalnoj grani |
-| Automatska tehnička provera | ✅ | Build, TypeScript, golden harness, mobilni checkpoint i 280 fair testova prolaze |
+| Automatska tehnička provera | ⚠️ | Check, Garage testovi i browser matrica prolaze; puna fair grupa ima 286/287 zbog nevezane dirty `seedShowcaseCatalog` authz registracije |
 | Model stranica | 🔧 | Vizuelno radi, ali još koristi Audi fixture umesto stvarnog Convex modela |
 | Backend jezgro | ✅ | Šema, paketi, QR, interakcije, analitika, izveštaji i retention postoje i imaju testove |
 | Backend hardening | 🔧 | Četiri RF korekcije moraju biti završene pre integracionog testa |
 | Mapa i displej | 👀 | Implementirani i testirani; čekaju pregled, stvarne podatke i osvežavanje uživo |
-| Garaža | 🔧 | Lokalno čuvanje postoji; puna ruta, dva taba i sponzorisana traka nisu završeni |
+| Garaža | 👀 | Puna ruta, dva taba, offline kartice, poređenje, pasoši i sponsored traka su implementirani i automatski provereni; čeka Aleksin pregled |
 | Leadovi i email | ⛔ | Kod postoji, ali saglasnost, produkcijski prekidači i email podešavanja nisu zaključani |
 | Stvarni izlagači i modeli | ⛔ | Čekaju se kompletni podaci i priprema stvarnog importa |
 | QR štampa | ⛔ | Sistem dodele postoji; stvarnih 100 kodova još nema niti su poslati u štampu |
@@ -171,18 +171,18 @@ Ovo je redosled kojim se projekat trenutno odblokira. Stavka niže ne smatra se 
 
 ## G — Garaža i pasoš
 
-**Trenutni status: 🔧 delimično.**
+**Trenutni status: 👀 implementirano i automatski provereno; čeka Aleksin pregled stvarnog sadržaja.**
 
 - [x] ✅ G1 — Lokalni browser storage bez naloga i obaveznog preuzimanja.
 - [x] ✅ G2 — Dodavanje/uklanjanje modela i badge brojač na model stranici.
-- [ ] ⏳ G3 — Javna ruta `/sajam/garaza`.
-- [ ] ⏳ G4 — Dva event taba sa aktivnim sajmom prvim.
-- [ ] ⏳ G5 — Poređenje najviše dva modela.
-- [ ] ⏳ G6 — Offline snapshot poslednjeg naziva, cene i fotografije.
-- [ ] ⏳ G7 — Svi aktivni pasoši, uključujući `0/N`.
-- [ ] ⏳ G8 — Čuvanje završenog digitalnog badge-a.
-- [ ] ⏳ G9 — Sponsored donja rotaciona traka sa `Pogledaj` i `Dodaj u garažu`.
-- [ ] ⏳ G10 — Merenje samo `open_model` i `garage_add` konverzija.
+- [x] ✅ G3 — Javna ruta `/sajam/garaza` sa event-first shell-om i `noindex` pravilom.
+- [x] ✅ G4 — Dva event taba; backend `garagePriority` određuje koji sajam je prvi.
+- [x] ✅ G5 — Izbor i poređenje najviše dva modela na `/sajam/garaza/poredjenje`.
+- [x] ✅ G6 — V2 lokalni dokument, V1 migracija i offline snapshot naziva, cene i fotografije.
+- [x] ✅ G7 — Svi objavljeni pasoši se prikazuju, uključujući `0/N`.
+- [ ] 👀 G8 — Čuvanje završenog digitalnog badge-a je implementirano i unit-testirano; čeka ručni test sa kompletiranim stvarnim pasošem.
+- [x] ✅ G9 — Fixed Advanced rotacija na 8 sekundi sa `Pogledaj` i `Dodaj u garažu`, pauzom tokom interakcije i safe-area insetom.
+- [x] ✅ G10 — Klijent šalje samo eksplicitne `open_model` i `garage_add`; nema impression upisa.
 
 ## M — Mapa i sajamski displeji
 
@@ -242,8 +242,9 @@ Ovo je redosled kojim se projekat trenutno odblokira. Stavka niže ne smatra se 
 - [x] ✅ Q1 — Lint bez grešaka; tri postojeća upozorenja.
 - [x] ✅ Q2 — Next produkcijski build i TypeScript.
 - [x] ✅ Q3 — Namespace i golden harness.
-- [x] ✅ Q4 — 280/280 sajamskih testova.
+- [ ] ⚠️ Q4 — 286/287 sajamskih testova; jedini pad je nevezani dirty `seedShowcaseCatalog` koji još nije dodat u `fairAuthz.test.ts` klasifikaciju.
 - [x] ✅ Q5 — Model mobile checkpoint na tri rezolucije.
+- [x] ✅ Q5A — Garaža: 375×667, 390×844, 412×915, 844×390 i 1440×900; touch, poređenje, uklanjanje, offline i reduced-motion.
 - [ ] ⏳ Q6 — Stvarni QR → stvarni model → stvarna interakcija.
 - [ ] ⏳ Q7 — Admin pregled leadova, interakcija i izveštaja sa stvarnim tokom.
 - [ ] ⏳ Q8 — Android, iPhone i displej ručni test.
@@ -297,6 +298,17 @@ Vlasnik sledeće akcije:
 ```
 
 ## Dnevnik statusa
+
+### 5. oktobar 2026. — javna Garaža
+
+- Implementirane su `/sajam/garaza` i `/sajam/garaza/poredjenje`.
+- Lokalni Garage dokument je migriran sa V1 na V2 bez promene storage ključa; dodat je lokalni passport badge katalog.
+- Dodati su dva event taba, last-known offline kartice, izbor najviše dva modela, pasoši i Advanced rotacija.
+- Sponsored tok beleži samo `open_model` i `garage_add` akcije.
+- `scripts/fair/check-garage.mjs` prolazi na tri mobilne širine, landscape i desktop prikazu, uz touch, offline i reduced-motion scenario.
+- Ciljani Garage testovi prolaze 20/20; Next build prolazi.
+- Cela fair grupa trenutno ima 286/287: nevezane postojeće izmene u `convex/fairDevFixtures*` dodaju `seedShowcaseCatalog`, ali dirty authz tabela još nije usaglašena. Garage fajlovi ne menjaju taj modul.
+- Čeka se Aleksin vizuelni pregled i ručna proba završenog pasoša sa stvarnim podacima.
 
 ### 4. oktobar 2026. — integracija
 

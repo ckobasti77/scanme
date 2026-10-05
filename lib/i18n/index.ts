@@ -16,6 +16,7 @@ import type { DictBySurface, Surface } from "./types";
 import { eventMapSr } from "./sr/event-map";
 import { fairMapSr } from "./sr/fair-map";
 import { fairModelSr } from "./sr/fair-model";
+import { fairGarageSr } from "./sr/fair-garage";
 import { venueSr } from "./sr/venue";
 import { venueEditorSr } from "./sr/venue-editor";
 import { venueAdminSr } from "./sr/venue-admin";
@@ -59,6 +60,7 @@ export type {
   EventMapDict,
   FairMapDict,
   FairModelDict,
+  FairGarageDict,
   VenueDict,
   VenueEditorDict,
   VenueAdminDict,
@@ -99,6 +101,7 @@ export {
   eventMapSr,
   fairMapSr,
   fairModelSr,
+  fairGarageSr,
   venueEditorSr,
   venueAdminSr,
   venuePanelSr,
@@ -138,6 +141,7 @@ const SR: DictBySurface = {
   "event-map": eventMapSr,
   "fair-map": fairMapSr,
   "fair-model": fairModelSr,
+  "fair-garage": fairGarageSr,
   "admin-v1": adminV1Sr,
   "admin-settings": adminSettingsSr,
   "admin-search": adminSearchSr,

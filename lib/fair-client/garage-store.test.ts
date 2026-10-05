@@ -4,11 +4,14 @@ import {
   addFairGarageModel,
   createEmptyFairGarageDocument,
   getFairGarageModels,
+  getFairGaragePassportBadges,
   hasFairGarageModel,
   parseFairGarageDocument,
   readFairGarage,
   removeFairGarageModel,
+  saveFairGaragePassportBadge,
   subscribeToFairGarage,
+  updateFairGarageModelSnapshot,
   writeFairGarage,
   type FairGarageStorageEvent,
 } from "./garage-store";
@@ -31,9 +34,27 @@ describe("fair garage store", () => {
       document: createEmptyFairGarageDocument(),
       status: "invalid",
     });
-    expect(parseFairGarageDocument('{"version":2,"events":{}}')).toEqual({
+    expect(parseFairGarageDocument('{"version":3,"events":{}}')).toEqual({
       document: createEmptyFairGarageDocument(),
       status: "invalid",
+    });
+  });
+
+  test("version 1 migrates models and starts with an empty badge collection", () => {
+    const result = parseFairGarageDocument(
+      JSON.stringify({
+        version: 1,
+        events: { event_a: [{ modelId: "model_a", savedAt: 10, lastKnown: SNAPSHOT }] },
+      }),
+    );
+
+    expect(result).toEqual({
+      status: "ok",
+      document: {
+        version: 2,
+        events: { event_a: [{ modelId: "model_a", savedAt: 10, lastKnown: SNAPSHOT }] },
+        passportBadges: [],
+      },
     });
   });
 
@@ -159,7 +180,7 @@ describe("fair garage store", () => {
 
     listener?.({
       key: FAIR_GARAGE_STORAGE_KEY,
-      newValue: JSON.stringify({ version: 1, events: {} }),
+      newValue: JSON.stringify({ version: 2, events: {}, passportBadges: [] }),
     });
     expect(onChange).toHaveBeenCalledWith({
       document: createEmptyFairGarageDocument(),
@@ -174,5 +195,50 @@ describe("fair garage store", () => {
 
     unsubscribe();
     expect(source.removeEventListener).toHaveBeenCalledWith("storage", listener);
+  });
+
+  test("passport badges are saved once per event and brand and can update the favorite", () => {
+    const first = saveFairGaragePassportBadge(createEmptyFairGarageDocument(), {
+      eventId: "event_a",
+      brandId: "brand_a",
+      brandName: "Brend",
+      favoriteModelId: "model_a",
+      savedAt: 100,
+    });
+    const changed = saveFairGaragePassportBadge(first, {
+      eventId: "event_a",
+      brandId: "brand_a",
+      brandName: "Brend",
+      favoriteModelId: "model_b",
+      savedAt: 200,
+    });
+
+    expect(getFairGaragePassportBadges(changed, "event_a")).toEqual([
+      {
+        eventId: "event_a",
+        brandId: "brand_a",
+        brandName: "Brend",
+        favoriteModelId: "model_b",
+        savedAt: 200,
+      },
+    ]);
+  });
+
+  test("live data can refresh an offline snapshot without changing saved order", () => {
+    const document = addFairGarageModel(createEmptyFairGarageDocument(), {
+      eventId: "event_a",
+      modelId: "model_a",
+      savedAt: 100,
+      lastKnown: SNAPSHOT,
+    });
+    const refreshed = updateFairGarageModelSnapshot(document, "model_a", {
+      ...SNAPSHOT,
+      priceText: "29.000 EUR",
+    });
+    expect(refreshed.events.event_a[0]).toEqual({
+      modelId: "model_a",
+      savedAt: 100,
+      lastKnown: { ...SNAPSHOT, priceText: "29.000 EUR" },
+    });
   });
 });

@@ -214,6 +214,73 @@ export interface FairModelDict {
   backToScanMe: string;
 }
 
+export interface FairGarageDict {
+  metaTitle: string;
+  metaDescription: string;
+  umbrellaTitle: string;
+  mapNav: string;
+  garageNav: string;
+  garageCountAria: string;
+  pageTitle: string;
+  pageBody: string;
+  eventTabsAria: string;
+  electromobilityTitle: string;
+  electromobilityDates: string;
+  autoMotoTitle: string;
+  autoMotoDates: string;
+  savedCount: string;
+  compareSelect: string;
+  compareSelected: string;
+  compareCount: string;
+  compareAction: string;
+  compareLimit: string;
+  viewModel: string;
+  removeModel: string;
+  removeModelAria: string;
+  emptyTitle: string;
+  emptyBody: string;
+  emptyAction: string;
+  refreshError: string;
+  offlineNotice: string;
+  retry: string;
+  savedSnapshot: string;
+  storageNotice: string;
+  storageUnavailable: string;
+  passportsTitle: string;
+  passportsBody: string;
+  passportProgress: string;
+  passportComplete: string;
+  passportMissing: string;
+  passportFavoriteTitle: string;
+  passportFavoriteSaved: string;
+  passportFavoriteError: string;
+  passportSaving: string;
+  passportSaveBadge: string;
+  passportBadgeSaved: string;
+  passportBadgeError: string;
+  savedBadgesTitle: string;
+  favoriteLabel: string;
+  sponsoredLabel: string;
+  sponsoredView: string;
+  sponsoredAdd: string;
+  sponsoredAdded: string;
+  sponsoredAddError: string;
+  sponsoredPhotoAlt: string;
+  comparisonMetaTitle: string;
+  comparisonTitle: string;
+  comparisonBack: string;
+  comparisonMissingTitle: string;
+  comparisonMissingBody: string;
+  comparisonPrice: string;
+  comparisonSpecifications: string;
+  comparisonLoadingSpecifications: string;
+  comparisonUnavailable: string;
+  noSpecification: string;
+  modelPhotoAlt: string;
+  poweredBy: string;
+  devLink: string;
+}
+
 export interface AdminDomainDict {
   services: Record<ServiceType, string>;
   products: Record<ProductType, string>;
@@ -4141,6 +4208,7 @@ export interface DictBySurface {
   "event-map": EventMapDict;
   "fair-map": FairMapDict;
   "fair-model": FairModelDict;
+  "fair-garage": FairGarageDict;
   "admin-v1": AdminV1Dict;
   "admin-settings": AdminSettingsDict;
   "admin-tasks": AdminTasksDict;

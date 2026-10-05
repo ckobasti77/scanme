@@ -1,7 +1,9 @@
 // The key stays stable across schema revisions so a future parser can migrate
 // the versioned document instead of silently abandoning the existing garage.
 export const FAIR_GARAGE_STORAGE_KEY = "scanme:fair-garage";
-export const FAIR_GARAGE_VERSION = 1 as const;
+export const FAIR_GARAGE_VERSION = 2 as const;
+export const FAIR_GARAGE_CHANGE_EVENT = "scanme:fair-garage-change";
+export const FAIR_GARAGE_MODEL_CHANGE_EVENT = "scanme:fair-garage-model-change";
 
 export type FairGarageLastKnownModel = {
   eventSlug: string;
@@ -18,9 +20,19 @@ export type FairGarageItem = {
   lastKnown?: FairGarageLastKnownModel;
 };
 
+export type FairGaragePassportBadge = {
+  eventId: string;
+  brandId: string;
+  brandName: string;
+  brandLogoUrl?: string;
+  favoriteModelId: string;
+  savedAt: number;
+};
+
 export type FairGarageDocument = {
   version: typeof FAIR_GARAGE_VERSION;
   events: Record<string, FairGarageItem[]>;
+  passportBadges: FairGaragePassportBadge[];
 };
 
 export type FairGarageReadResult = {
@@ -102,6 +114,30 @@ function parseItem(value: unknown): FairGarageItem | null {
   };
 }
 
+function parsePassportBadge(value: unknown): FairGaragePassportBadge | null {
+  if (!isRecord(value)) return null;
+  if (
+    !nonEmptyString(value.eventId) ||
+    !nonEmptyString(value.brandId) ||
+    !nonEmptyString(value.brandName) ||
+    !nonEmptyString(value.favoriteModelId) ||
+    typeof value.savedAt !== "number" ||
+    !Number.isFinite(value.savedAt) ||
+    value.savedAt < 0
+  ) {
+    return null;
+  }
+
+  return {
+    eventId: value.eventId,
+    brandId: value.brandId,
+    brandName: value.brandName,
+    favoriteModelId: value.favoriteModelId,
+    savedAt: value.savedAt,
+    ...(nonEmptyString(value.brandLogoUrl) ? { brandLogoUrl: value.brandLogoUrl } : {}),
+  };
+}
+
 function requireKey(value: string, label: string): string {
   const normalized = value.trim();
   if (!normalized) throw new Error(`${label} is required`);
@@ -109,7 +145,7 @@ function requireKey(value: string, label: string): string {
 }
 
 export function createEmptyFairGarageDocument(): FairGarageDocument {
-  return { version: FAIR_GARAGE_VERSION, events: {} };
+  return { version: FAIR_GARAGE_VERSION, events: {}, passportBadges: [] };
 }
 
 export function parseFairGarageDocument(raw: string | null): FairGarageReadResult {
@@ -119,7 +155,11 @@ export function parseFairGarageDocument(raw: string | null): FairGarageReadResul
 
   try {
     const value: unknown = JSON.parse(raw);
-    if (!isRecord(value) || value.version !== FAIR_GARAGE_VERSION || !isRecord(value.events)) {
+    if (
+      !isRecord(value) ||
+      (value.version !== 1 && value.version !== FAIR_GARAGE_VERSION) ||
+      !isRecord(value.events)
+    ) {
       return { document: createEmptyFairGarageDocument(), status: "invalid" };
     }
 
@@ -139,8 +179,21 @@ export function parseFairGarageDocument(raw: string | null): FairGarageReadResul
       if (parsedItems.length > 0) events[eventId] = parsedItems;
     }
 
+    const passportBadges: FairGaragePassportBadge[] = [];
+    const seenBadges = new Set<string>();
+    if (value.version === FAIR_GARAGE_VERSION && Array.isArray(value.passportBadges)) {
+      for (const candidate of value.passportBadges) {
+        const badge = parsePassportBadge(candidate);
+        if (!badge) continue;
+        const key = `${badge.eventId}:${badge.brandId}`;
+        if (seenBadges.has(key)) continue;
+        seenBadges.add(key);
+        passportBadges.push(badge);
+      }
+    }
+
     return {
-      document: { version: FAIR_GARAGE_VERSION, events },
+      document: { version: FAIR_GARAGE_VERSION, events, passportBadges },
       status: "ok",
     };
   } catch {
@@ -202,6 +255,7 @@ export function addFairGarageModel(
   return {
     version: FAIR_GARAGE_VERSION,
     events: { ...document.events, [eventId]: nextItems },
+    passportBadges: document.passportBadges,
   };
 }
 
@@ -220,7 +274,26 @@ export function removeFairGarageModel(
   if (nextItems.length === 0) delete events[eventId];
   else events[eventId] = nextItems;
 
-  return { version: FAIR_GARAGE_VERSION, events };
+  return { version: FAIR_GARAGE_VERSION, events, passportBadges: document.passportBadges };
+}
+
+export function updateFairGarageModelSnapshot(
+  document: FairGarageDocument,
+  modelIdInput: string,
+  lastKnown: FairGarageLastKnownModel,
+): FairGarageDocument {
+  const modelId = requireKey(modelIdInput, "modelId");
+  let changed = false;
+  const events: Record<string, FairGarageItem[]> = {};
+  for (const [eventId, items] of Object.entries(document.events)) {
+    events[eventId] = items.map((item) => {
+      if (item.modelId !== modelId) return item;
+      const next = { ...item, lastKnown };
+      if (JSON.stringify(item.lastKnown) !== JSON.stringify(lastKnown)) changed = true;
+      return next;
+    });
+  }
+  return changed ? { ...document, events } : document;
 }
 
 export function hasFairGarageModel(
@@ -236,6 +309,33 @@ export function getFairGarageModels(
   eventId: string,
 ): readonly FairGarageItem[] {
   return document.events[eventId] ?? [];
+}
+
+export function getFairGaragePassportBadges(
+  document: FairGarageDocument,
+  eventId?: string,
+): readonly FairGaragePassportBadge[] {
+  return eventId === undefined
+    ? document.passportBadges
+    : document.passportBadges.filter((badge) => badge.eventId === eventId);
+}
+
+export function saveFairGaragePassportBadge(
+  document: FairGarageDocument,
+  badgeInput: FairGaragePassportBadge,
+): FairGarageDocument {
+  const badge = parsePassportBadge(badgeInput);
+  if (!badge) throw new Error("passport badge is invalid");
+  const existingIndex = document.passportBadges.findIndex(
+    (item) => item.eventId === badge.eventId && item.brandId === badge.brandId,
+  );
+  const passportBadges =
+    existingIndex < 0
+      ? [...document.passportBadges, badge]
+      : document.passportBadges.map((item, index) =>
+          index === existingIndex ? badge : item,
+        );
+  return { ...document, passportBadges };
 }
 
 export function subscribeToFairGarage(

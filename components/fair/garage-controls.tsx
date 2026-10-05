@@ -4,6 +4,8 @@ import gsap from "gsap";
 import { CarFront } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
+  FAIR_GARAGE_CHANGE_EVENT,
+  FAIR_GARAGE_MODEL_CHANGE_EVENT,
   addFairGarageModel,
   getFairGarageModels,
   hasFairGarageModel,
@@ -13,9 +15,6 @@ import {
   type FairGarageLastKnownModel,
 } from "@/lib/fair-client/garage-store";
 import { fmt } from "@/lib/i18n";
-
-const FAIR_GARAGE_CHANGE_EVENT = "scanme:fair-garage-change";
-const FAIR_GARAGE_MODEL_CHANGE_EVENT = "scanme:fair-garage-model-change";
 
 function subscribeToGarageEvent(eventName: string, onStoreChange: () => void) {
   const handleStorage = (event: StorageEvent) => {
