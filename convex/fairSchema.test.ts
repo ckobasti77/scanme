@@ -140,6 +140,15 @@ const FAIR_INDEXES: Record<string, string[]> = {
     "by_eventId_and_occurredAt",
   ],
   fairPurgeRuns: ["by_mode_and_status"], // B7 purge audit (HANDOFF §5.6)
+  // 5 Oct traffic/share delta (JOVAN-DELTA-2026-10-05.md, Aleksa 8e72c10),
+  // added to the contract list at the 2026-10-05 sync.
+  fairShareCollections: ["by_requestId", "by_codeHash", "by_eventId_and_createdAt"],
+  fairTrafficEvents: [
+    "by_requestId",
+    "by_eventId_and_occurredAt",
+    "by_eventModelId_and_occurredAt",
+    "by_shareCollectionId_and_occurredAt",
+  ],
 };
 
 function fieldsFromIndexName(name: string) {
@@ -583,6 +592,27 @@ describe("fair schema contract (B0)", () => {
         batches: 0,
         categories: [{ category: "email_deliveries", rows: 0, status: "pending" }],
       });
+      // 5 Oct traffic/share delta (Aleksa 8e72c10), round-trip added at the 2026-10-05 sync.
+      const shareCollectionId = await ctx.db.insert("fairShareCollections", {
+        requestId: "test-share-1",
+        codeHash: "c".repeat(64),
+        eventId: s.eventId,
+        eventModelIds: [s.eventModelId],
+        status: "active",
+        createdAt: now,
+        expiresAt: now + 60_000,
+      });
+      await ctx.db.insert("fairTrafficEvents", {
+        requestId: "test-traffic-1",
+        eventId: s.eventId,
+        shareCollectionId,
+        kind: "share_action",
+        channel: "copy",
+        modelCount: 1,
+        occurredAt: now,
+        dateKey: "2026-10-30",
+        hourKey: "2026-10-30T10",
+      });
 
       const q = ctx.db;
       return {
@@ -616,6 +646,8 @@ describe("fair schema contract (B0)", () => {
         fairSponsoredSnapshotItems: await q.query("fairSponsoredSnapshotItems").withIndex("by_snapshotId_and_order", (x) => x.eq("snapshotId", snapshotId)).unique(),
         fairSponsoredEvents: await q.query("fairSponsoredEvents").withIndex("by_requestId", (x) => x.eq("requestId", "test-sponsored-1")).unique(),
         fairPurgeRuns: await q.query("fairPurgeRuns").withIndex("by_mode_and_status", (x) => x.eq("mode", "dry_run").eq("status", "running")).unique(),
+        fairShareCollections: await q.query("fairShareCollections").withIndex("by_codeHash", (x) => x.eq("codeHash", "c".repeat(64))).unique(),
+        fairTrafficEvents: await q.query("fairTrafficEvents").withIndex("by_requestId", (x) => x.eq("requestId", "test-traffic-1")).unique(),
       };
     });
 
@@ -627,6 +659,7 @@ describe("fair schema contract (B0)", () => {
     expect(found.fairEmailDeliveries?.leadId).toBeUndefined();
     expect(found.fairSponsoredEvents?.surface).toBe("garage");
     expect(found.fairLeads?.consentAccepted).toBe(true);
+    expect(found.fairTrafficEvents && "visitorId" in found.fairTrafficEvents).toBe(false);
   });
 });
 
