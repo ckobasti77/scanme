@@ -4,7 +4,8 @@
 > **Poslednje ažuriranje:** 5. oktobar 2026.
 > **Vlasnik odluka:** Aleksa  
 > **Aktivna integraciona grana:** `codex/sajam-integracija-2026-10-04`  
-> **Proverena osnova pre Garage radnog koraka:** `bab5c33`
+> **Završeni Garage checkpoint:** `7b6eddf`
+> **Deljena grana za Aleksu i Jovana:** `origin/codex/sajam-integracija-2026-10-04`
 > **Rok produkcijske spremnosti:** 9. oktobar 2026.
 
 Ovaj dokument je komandni ekran za ljude: pokazuje **šta postoji, šta je provereno, šta nedostaje, šta je blokirano i ko je sledeći na potezu**.
@@ -27,7 +28,7 @@ Ne menja poslovni ili tehnički ugovor. Za proizvod važi [MASTER-KONTEKST](./MA
 
 | Oblast | Status | Šta to praktično znači |
 |---|---:|---|
-| Zajednička Git integracija | ✅ | Naš frontend i Jovanov backend/mapa su zajedno u čistoj lokalnoj grani |
+| Zajednička Git integracija | ✅ | Naš frontend, Garaža i Jovanov backend/mapa nalaze se na deljenoj Git grani koju obojica mogu da preuzmu |
 | Automatska tehnička provera | ⚠️ | Check, Garage testovi i browser matrica prolaze; puna fair grupa ima 286/287 zbog nevezane dirty `seedShowcaseCatalog` authz registracije |
 | Model stranica | 🔧 | Vizuelno radi, ali još koristi Audi fixture umesto stvarnog Convex modela |
 | Backend jezgro | ✅ | Šema, paketi, QR, interakcije, analitika, izveštaji i retention postoje i imaju testove |
@@ -121,7 +122,7 @@ Ovo je redosled kojim se projekat trenutno odblokira. Stavka niže ne smatra se 
 
 ## I — Integracija i zajednički repozitorijum
 
-**Trenutni status: ✅ lokalno integrisano; čeka ljudski pregled i odluku o push-u.**
+**Trenutni status: ✅ integrisano i objavljeno na deljenoj grani; ljudski pregled je u toku.**
 
 - [x] ✅ I1 — Naš frontend sačuvan u checkpointu `70ef2a6`.
 - [x] ✅ I2 — Jovanovih 13 B/M commitova preneto redom, bez squash-a.
@@ -132,7 +133,7 @@ Ovo je redosled kojim se projekat trenutno odblokira. Stavka niže ne smatra se 
 - [x] ✅ I7 — Mobilni checkpoint: 375×667, 390×844 i 412×915.
 - [x] ✅ I8 — Golden harness: 177 slučajeva × 2 širine.
 - [ ] 👀 I9 — Aleksa i Jovan pregledaju ukupno stanje.
-- [ ] ⏳ I10 — Integraciona grana još nije pushovana na `aleksadjor3/scanme`.
+- [x] ✅ I10 — Integraciona grana objavljena je kao `origin/codex/sajam-integracija-2026-10-04`.
 - [ ] ⏳ I11 — Nije spojena u produkcijsku/ciljnu granu.
 
 **Poznata nesajamska stavka:** puni `npm test` ima 1537 prolaznih i jedan postojeći pad u `convex/memoriesHost.test.ts`. Nije nastao ovom integracijom.
@@ -301,6 +302,7 @@ Vlasnik sledeće akcije:
 
 ### 5. oktobar 2026. — javna Garaža
 
+- Garage implementacija je sačuvana u checkpointu `7b6eddf` i objavljena na deljenoj integracionoj grani.
 - Implementirane su `/sajam/garaza` i `/sajam/garaza/poredjenje`.
 - Lokalni Garage dokument je migriran sa V1 na V2 bez promene storage ključa; dodat je lokalni passport badge katalog.
 - Dodati su dva event taba, last-known offline kartice, izbor najviše dva modela, pasoši i Advanced rotacija.
