@@ -151,4 +151,7 @@ export const rateLimiter = new RateLimiter(components.rateLimiter, {
   // covers a quick burst on a few cards. A same-requestId retry returns
   // before the limiter and costs nothing.
   fairSponsoredAction: { kind: "token bucket", rate: 20, period: MINUTE, capacity: 10 },
+  // 5 Oct traffic/share delta: explicit share/direct actions only. Keyed by
+  // fairVisitors._id for NAT safety and erased association after visitor purge.
+  fairTraffic: { kind: "token bucket", rate: 30, period: MINUTE, capacity: 20 },
 });

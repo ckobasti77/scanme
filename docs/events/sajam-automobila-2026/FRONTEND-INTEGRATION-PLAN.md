@@ -2,7 +2,7 @@
 
 > Status: **PRVI MODEL-PAGE VERTICAL SLICE OTKLJUČAN**
 >
-> Poslednje ažuriranje: **2. oktobar 2026.**
+> Poslednje ažuriranje: **5. oktobar 2026.**
 >
 > Vlasnik odluka: **Aleksa**
 >
@@ -156,6 +156,7 @@ Master je zaključao čitljive URL-ove pod:
 | anketa | `/sajam/[eventSlug]/model/[modelSlug]/anketa` | zaseban kratki tok |
 | garaža | `/sajam/garaza` | jedna površina sa dva event taba |
 | poređenje | `/sajam/garaza/poredjenje` | eksplicitno poređenje najviše dva modela |
+| deljena kolekcija | `/sajam/deli/[shareCode]` | 1-5 modela istog događaja; read-only, noindex, ističe 16. novembra |
 
 Pasoš nema zasebnu javnu rutu u V1. Progres se prikazuje na modelu, svi aktivni pasoši u garaži, a eligibility i lični `N/M` na mapi. Format display moda ostaje tehnički detalj koleginog map toka.
 
@@ -175,6 +176,17 @@ fizički QR
 ```
 
 Frontend ne uvodi `/api/fair/scan`, `recordScan` effect niti drugi mehanizam koji scan beleži pri renderu.
+
+Resolver uz 302 postavlja kratkotrajni potpisani HttpOnly QR entry marker. Model-view gateway ga troši server-side da QR landing ne bi bio pogrešno označen kao `direct_view`. Frontend ne čita marker, ne dodaje `?src=qr` i ne pokušava da zaključi izvor iz `document.referrer`.
+
+### 5.2.1 Direktni i deljeni ulazi
+
+- Kanonsko otvaranje modela bez QR entry markera beleži `direct_view`, nikada scan.
+- Jedan model se deli kanonskim URL-om; podržan telefon direktno otvara sistemski share sheet, dok aplikacijski panel sa WhatsApp/Viber izlazima i eksplicitnim kopiranjem linka služi samo kao fallback.
+- Izbor 2-5 modela prvo kreira backend kolekciju, pa deli `/sajam/deli/[shareCode]`.
+- `share_action` se šalje tek posle uspešnog native share promise-a, izbora WhatsApp/Viber izlaza ili uspešnog kopiranja; otkazivanje nije uspeh.
+- Otvaranje deljene kolekcije beleži `share_open`. Modeli sa te stranice ostaju obični public modeli i nijedan klik nije scan.
+- Share analytics greška ne sme blokirati sistemski share/copy UX, ali kreiranje više-modelske kolekcije mora uspeti pre nego što se ponudi link.
 
 ### 5.2 Početno čitanje
 
@@ -210,6 +222,10 @@ Frontend ne uvodi `/api/fair/scan`, `recordScan` effect niti drugi mehanizam koj
 - Dva event taba; aktivni događaj ima prednost.
 - PDF/email postoje samo kao izričite akcije korisnika.
 - Brisanje browser podataka ili private mode mogu da uklone garažu.
+- Dugi dodir ulazi u selection mode i bira prvi model; običan dodir zatim bira/uklanja druge.
+- Selection mode podržava najviše pet modela, skriva sponzorisanu traku i prikazuje fixed action bar iznad safe-area.
+- Poređenje je omogućeno samo za tačno dva; deljenje za 1-5; grupno uklanjanje traži potvrdu.
+- Van selection moda svaka kartica ima zasebnu share akciju.
 
 ### ZAKLJUČAN ciljni V2 zapis za sledeću implementacionu fazu
 

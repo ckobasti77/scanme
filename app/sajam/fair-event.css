@@ -128,7 +128,8 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   gap: 4px;
 }
 
-.fair-shell__nav > a {
+.fair-shell__nav > a,
+.fair-shell__nav > .fair-shell__current {
   display: grid;
   min-width: 49px;
   min-height: 48px;
@@ -146,6 +147,10 @@ body:has(.fair-event) [data-theme-toggle="global"] {
     background-color 160ms ease-out,
     border-color 160ms ease-out,
     transform 160ms ease-out;
+}
+
+.fair-shell__nav > .fair-shell__current {
+  cursor: default;
 }
 
 .fair-shell__nav > a:hover {

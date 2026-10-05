@@ -2,7 +2,7 @@
 
 > Status: **ZAKLJUČAN ZA DELEGIRANJE**
 >
-> Poslednje ažuriranje: 2. oktobar 2026.
+> Poslednje ažuriranje: 5. oktobar 2026.
 > Vlasnik proizvodnih odluka i finalni go/no-go: **Aleksa**
 > Rok za operativnu spremnost prve faze: **9. oktobar 2026.**
 > Prateći tehnički dokument: [`BACKEND-HANDOFF.md`](./BACKEND-HANDOFF.md)
@@ -245,6 +245,10 @@ Najvažnije prodajne tačke su:
 - Sva ostala skeniranja računaju se bez obzira na radno vreme sajma, uključujući kasniji povratak preko sačuvane browser stranice.
 - U V1 se ne uvodi poseban bot/preview filter za sajamske metrike.
 - Direktno otvaranje modela iz garaže ili sponzorisane kartice nije QR scan; vodi se kao poseban pregled/reklamna konverzija.
+- QR, direktni i deljeni ulazi ne smeju se mešati: `/r/[cardCode]` jedini proizvodi scan; običan kanonski model URL je `direct_view`; otvaranje javne deljene kolekcije je `share_open`; korišćenje akcije za deljenje je `share_action`.
+- `share_action` označava uspešno predavanje sadržaja sistemskom share sheet-u, izbor WhatsApp/Viber izlaza ili uspešno kopiranje linka, ne garantuje da je poruka stvarno poslata.
+- QR resolver postavlja kratkotrajnu potpisanu HttpOnly oznaku izvora kako model-page view posle 302 ne bi bio pogrešno uračunat kao direktan ulaz. Oznaka ne ulazi u URL i ne menja scan metriku.
+- Deljene kolekcije i saobraćajni događaji imaju zaseban backend ugovor i nikada ne pozivaju scan pipeline.
 
 ### Anonimni identitet — ZAKLJUČANO
 
@@ -287,6 +291,13 @@ Postojeći `/r/[cardCode]` tok mora jednim server request ID-em da zabeleži gen
 - Svi modeli sa Naprednim paketom ravnopravno se rotiraju; srodnost sa sačuvanim modelima nije kriterijum.
 - Kartica/traka prikazuje sliku i naziv modela, akciju `Pogledaj` i akciju `Dodaj u garažu`.
 - `Pogledaj` otvara detalje modela, odakle model takođe može odmah da se doda u garažu.
+- Dugi dodir na karticu uključuje režim izbora i bira taj model. U režimu izbora običan dodir bira ili uklanja ostale modele.
+- Režim izbora podržava najviše pet modela i ima stalno dostupne akcije: poređenje, deljenje, uklanjanje i izlaz. Poređenje je moguće samo za tačno dva modela.
+- Sponzorisana traka se privremeno sklanja dok je režim izbora aktivan, kako se dve fiksne trake ne bi preklapale i izazivale pogrešne dodire.
+- Svaka kartica van režima izbora ima zasebnu akciju za deljenje jednog modela.
+- Deljenje jednog modela koristi kanonski URL modela i bogat preview sa fotografijom, brendom, nazivom i cenom. Na telefonu se prvenstveno koristi sistemski share sheet; fallback je kopiranje linka.
+- Deljenje dva do pet modela pravi javnu kolekciju na `/sajam/deli/[shareCode]`. Preview prikazuje do tri modela i oznaku `+N` za preostale. Kolekcija prestaje da bude javno dostupna 16. novembra 2026.
+- Izvoz izabranih modela „kod sebe” znači eksplicitni PDF ili email izvoz; nije drugo lokalno čuvanje, jer su modeli već u browser garaži.
 
 ### PRIVREMENO
 
@@ -719,6 +730,13 @@ Pre produkcije mora da bude dokazano najmanje sledeće:
 ---
 
 ## 20. Dnevnik izmena
+
+### 5. oktobar 2026.
+
+- Zaključan je mobilni režim izbora u Garaži: dugi dodir ulazi u režim, običan dodir bira naredne modele, poređenje zahteva tačno dva, a deljenje podržava najviše pet modela.
+- Zaključane su akcije deljenja jednog modela i javne kolekcije `/sajam/deli/[shareCode]`: podržan telefon direktno koristi native share sheet, a sopstveni panel sa WhatsApp/Viber izlazima i kopiranjem linka ostaje fallback.
+- Razdvojene su metrike `direct_view`, `share_action` i `share_open` od QR scan metrike; `/r/[cardCode]` ostaje jedini izvor scanova.
+- Zaključana je kratkotrajna server-side QR attribution oznaka bez query parametra i gašenje javnih deljenih kolekcija 16. novembra 2026.
 
 ### 2. oktobar 2026.
 

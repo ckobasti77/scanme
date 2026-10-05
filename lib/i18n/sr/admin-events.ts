@@ -560,6 +560,8 @@ export const adminEventsSr = {
     brand_favorites: "Omiljeni modeli iz pasoša",
     passport_stamps: "Pečati pasoša",
     sponsored_actions: "Akcije u garaži",
+    traffic_events: "Direktne posete i deljenje",
+    share_collections: "Deljene kolekcije modela",
     unique_scans: "Jedinstvena skeniranja po posetiocu",
     scan_events: "Pojedinačna skeniranja",
     visitors: "Anonimni identifikatori posetilaca",

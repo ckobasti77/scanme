@@ -1,6 +1,7 @@
 // The key stays stable across schema revisions so a future parser can migrate
 // the versioned document instead of silently abandoning the existing garage.
 export const FAIR_GARAGE_STORAGE_KEY = "scanme:fair-garage";
+export const FAIR_GARAGE_ACTIVE_EVENT_STORAGE_KEY = "scanme:fair-garage-active-event";
 export const FAIR_GARAGE_VERSION = 2 as const;
 export const FAIR_GARAGE_CHANGE_EVENT = "scanme:fair-garage-change";
 export const FAIR_GARAGE_MODEL_CHANGE_EVENT = "scanme:fair-garage-model-change";
@@ -218,6 +219,27 @@ export function writeFairGarage(
     return { ok: true };
   } catch {
     return { ok: false, reason: "storage_unavailable" };
+  }
+}
+
+export function readFairGarageActiveEvent(storage: Pick<Storage, "getItem">): string | null {
+  try {
+    const value = storage.getItem(FAIR_GARAGE_ACTIVE_EVENT_STORAGE_KEY)?.trim();
+    return value ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+export function writeFairGarageActiveEvent(
+  storage: Pick<Storage, "setItem">,
+  eventSlug: string,
+): boolean {
+  try {
+    storage.setItem(FAIR_GARAGE_ACTIVE_EVENT_STORAGE_KEY, requireKey(eventSlug, "eventSlug"));
+    return true;
+  } catch {
+    return false;
   }
 }
 

@@ -1,5 +1,6 @@
 import { describe, expect, test, vi } from "vitest";
 import {
+  FAIR_GARAGE_ACTIVE_EVENT_STORAGE_KEY,
   FAIR_GARAGE_STORAGE_KEY,
   addFairGarageModel,
   createEmptyFairGarageDocument,
@@ -8,11 +9,13 @@ import {
   hasFairGarageModel,
   parseFairGarageDocument,
   readFairGarage,
+  readFairGarageActiveEvent,
   removeFairGarageModel,
   saveFairGaragePassportBadge,
   subscribeToFairGarage,
   updateFairGarageModelSnapshot,
   writeFairGarage,
+  writeFairGarageActiveEvent,
   type FairGarageStorageEvent,
 } from "./garage-store";
 
@@ -160,6 +163,29 @@ describe("fair garage store", () => {
     expect(writeFairGarage(storage, document)).toEqual({ ok: true });
     expect(values.has(FAIR_GARAGE_STORAGE_KEY)).toBe(true);
     expect(readFairGarage(storage)).toEqual({ document, status: "ok" });
+  });
+
+  test("the last active event is remembered independently from garage contents", () => {
+    const values = new Map<string, string>();
+    const storage = {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => values.set(key, value),
+    };
+
+    expect(readFairGarageActiveEvent(storage)).toBeNull();
+    expect(writeFairGarageActiveEvent(storage, "auto-moto-fest-2026")).toBe(true);
+    expect(values.get(FAIR_GARAGE_ACTIVE_EVENT_STORAGE_KEY)).toBe("auto-moto-fest-2026");
+    expect(readFairGarageActiveEvent(storage)).toBe("auto-moto-fest-2026");
+  });
+
+  test("active event storage failures fall back safely", () => {
+    const unavailable = {
+      getItem: () => { throw new Error("blocked"); },
+      setItem: () => { throw new Error("blocked"); },
+    };
+
+    expect(readFairGarageActiveEvent(unavailable)).toBeNull();
+    expect(writeFairGarageActiveEvent(unavailable, "auto-moto-fest-2026")).toBe(false);
   });
 
   test("cross-tab subscription ignores unrelated keys and parses garage changes", () => {

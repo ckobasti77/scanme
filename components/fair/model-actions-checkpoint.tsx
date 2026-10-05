@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { TbSteeringWheel } from "react-icons/tb";
 import { useEffect, useRef, useState } from "react";
+import { useFairHistoryLayer } from "@/lib/fair-client/history-layer";
 import { fmt, type FairModelDict } from "@/lib/i18n";
 
 type SheetKind = "rating" | "interest" | "testDrive";
@@ -220,7 +221,7 @@ function ActionSheet({
       >
         <header>
           <h2 id="fair-sheet-title">{title}</h2>
-          <button ref={closeRef} type="button" onClick={onRequestClose}>
+          <button ref={closeRef} type="button" onClick={() => onRequestClose()}>
             <X aria-hidden="true" />
             <span className="sr-only">{dict.closeSheet}</span>
           </button>
@@ -329,19 +330,11 @@ export function ModelActionsCheckpoint({
   const [starterRating, setStarterRating] = useState<number>();
   const sheetActions =
     ratingMode === "overall" ? actions.filter((action) => action.kind !== "rating") : actions;
-
-  useEffect(() => {
-    if (!openSheet) return;
-    window.history.pushState({ fairSheet: openSheet }, "");
-    const handlePopState = () => setOpenSheet(null);
-    window.addEventListener("popstate", handlePopState);
-    return () => window.removeEventListener("popstate", handlePopState);
-  }, [openSheet]);
-
-  function requestClose() {
-    if (window.history.state?.fairSheet) window.history.back();
-    else setOpenSheet(null);
-  }
+  const requestClose = useFairHistoryLayer(
+    openSheet !== null,
+    () => setOpenSheet(null),
+    "model-action",
+  );
 
   return (
     <section className="fair-action-section">

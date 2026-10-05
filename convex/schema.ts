@@ -33,10 +33,13 @@ import {
   fairSponsoredActionKind,
   fairSponsoredActionSurface,
   fairSponsoredSnapshotStatus,
+  fairShareChannel,
+  fairShareCollectionStatus,
   fairStandStatus,
   fairSurveyAnswer,
   fairSurveyQuestion,
   fairSurveyStatus,
+  fairTrafficKind,
   fairVisitorHash,
 } from "./lib/fairValidators";
 import { fairDailyDataset } from "./lib/fairReportDataset";
@@ -3806,6 +3809,40 @@ export default defineSchema({
     .index("by_eventModelId_and_occurredAt", ["eventModelId", "occurredAt"])
     .index("by_eventId_and_occurredAt", ["eventId", "occurredAt"]),
 
+  // 5 Oct traffic/share delta: public, read-only collections of 1-5 models.
+  // The URL carries a 144-bit opaque code; only its SHA-256 hash is stored.
+  fairShareCollections: defineTable({
+    requestId: v.string(),
+    codeHash: v.string(),
+    eventId: v.id("fairEvents"),
+    eventModelIds: v.array(v.id("fairEventModels")),
+    status: fairShareCollectionStatus,
+    createdAt: v.number(),
+    expiresAt: v.number(),
+  })
+    .index("by_requestId", ["requestId"])
+    .index("by_codeHash", ["codeHash"])
+    .index("by_eventId_and_createdAt", ["eventId", "createdAt"]),
+
+  // Explicit traffic signals only. No visitorId is stored: these rows are
+  // anonymous per-request analytics and never participate in QR scan counts.
+  fairTrafficEvents: defineTable({
+    requestId: v.string(),
+    eventId: v.id("fairEvents"),
+    eventModelId: v.optional(v.id("fairEventModels")),
+    shareCollectionId: v.optional(v.id("fairShareCollections")),
+    kind: fairTrafficKind,
+    channel: v.optional(fairShareChannel),
+    modelCount: v.optional(v.number()),
+    occurredAt: v.number(),
+    dateKey: v.string(),
+    hourKey: v.string(),
+  })
+    .index("by_requestId", ["requestId"])
+    .index("by_eventId_and_occurredAt", ["eventId", "occurredAt"])
+    .index("by_eventModelId_and_occurredAt", ["eventModelId", "occurredAt"])
+    .index("by_shareCollectionId_and_occurredAt", ["shareCollectionId", "occurredAt"]),
+
   // §5.6 — B7 operational audit of the 16 Nov PII purge and of its dry runs
   // (convex/fairRetention.ts). Only start, end, category, row counts and
   // status: never a visitor, lead, contact or any other row identifier.
@@ -3823,6 +3860,6 @@ export default defineSchema({
     // dry_run only: _creationTime of the last counted row of that category.
     cursorCreationTime: v.optional(v.number()),
     batches: v.number(),
-    categories: v.array(fairPurgeCategoryProgress), // fixed 11 entries
+    categories: v.array(fairPurgeCategoryProgress), // fixed 13 entries
   }).index("by_mode_and_status", ["mode", "status"]),
 });

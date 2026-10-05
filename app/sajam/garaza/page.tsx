@@ -76,8 +76,11 @@ async function loadEventView(
 export default async function FairGaragePage() {
   const events = await Promise.all(EVENT_DEFINITIONS.map(loadEventView));
   events.sort((left, right) => {
-    const priority = (right.event?.garagePriority ?? 0) - (left.event?.garagePriority ?? 0);
-    if (priority !== 0) return priority;
+    const leftStart = left.event?.startsAt;
+    const rightStart = right.event?.startsAt;
+    if (leftStart !== undefined && rightStart !== undefined && leftStart !== rightStart) {
+      return leftStart - rightStart;
+    }
     return EVENT_DEFINITIONS.findIndex((item) => item.publicSlug === left.publicSlug) -
       EVENT_DEFINITIONS.findIndex((item) => item.publicSlug === right.publicSlug);
   });

@@ -993,7 +993,7 @@ Izvori: HANDOFF §5.6, §12 („purge batch ne prelazi limit…“), §14; MASTE
 
 - **Pokretanje.** Cron „fair pii purge“ (`convex/crons.ts`, svakih 15 min) zove `purgeTick`. Pre `FAIR_PII_PURGE_AT_MS` (16. 11. 2026. 00:00 po Beogradu) vraća `not_due` i ništa ne briše. Od tog trenutka pokreće `execute` run. Ručno brisanje (admin ili javno) ne postoji.
 - **Serije.** Jedna transakcija briše najviše `FAIR_PURGE_BATCH_SIZE` = 200 redova, pa zakazuje `purgeContinue` (`runAfter(0)`). Redovi se uvek uzimaju od početka tabele, pa je brisanje idempotentno.
-- **Redosled** (`FAIR_PURGE_CATEGORIES`): `email_deliveries` → `leads` → `survey_responses` → `ratings` → `audience_votes` → `brand_favorites` → `passport_stamps` → `sponsored_actions` → `unique_scans` → `scan_events` → `visitors`. Kategorija je gotova tek kad je njena tabela prazna. Zato nijedan red ne pokazuje na već obrisan red: outbox pre leadova, a svi redovi sa `visitorId` pre `fairVisitors`.
+- **Redosled** (`FAIR_PURGE_CATEGORIES`): `email_deliveries` → `leads` → `survey_responses` → `ratings` → `audience_votes` → `brand_favorites` → `passport_stamps` → `sponsored_actions` → `traffic_events` → `share_collections` → `unique_scans` → `scan_events` → `visitors`. Kategorija je gotova tek kad je njena tabela prazna. Zato nijedan red ne pokazuje na već obrisan red: traffic događaji se brišu pre kolekcija, outbox pre leadova, a svi redovi sa `visitorId` pre `fairVisitors`.
 - **Retry.** Napredak (pozicija kategorije i broj redova) upisuje se u istoj transakciji kao serija. Pala serija se vraća cela. Ako se izgubi nastavak, sledeći cron tick posle `FAIR_PURGE_STALL_MS` (10 min) nastavlja od poslednje završene serije (`resumed`).
 - **Posle kraja.** Svaki sledeći tick proverava da li je bilo koji PII red ponovo nastao (npr. ručno poslat izveštaj). Ako jeste, pokreće novi run; inače vraća `clean`.
 - **Zaštita od novih redova.** Interakcije, leadovi i garažne akcije posle purge trenutka vraćaju `EVENT_NOT_ACTIVE` (B3/B4). Od B7 i `/r` sken vraća `no_visitor` (§13.3), pa ne nastaje posetilac.
@@ -1010,6 +1010,8 @@ Izvori: HANDOFF §5.6, §12 („purge batch ne prelazi limit…“), §14; MASTE
 | `brand_favorites` | `fairBrandFavoriteVotes` | omiljeni model iz pasoša |
 | `passport_stamps` | `fairPassportStamps` | pečati |
 | `sponsored_actions` | `fairSponsoredEvents` | garažne akcije sa `visitorId` |
+| `traffic_events` | `fairTrafficEvents` | odvojene direct/share akcije bez visitor identiteta |
+| `share_collections` | `fairShareCollections` | javne kolekcije modela i hash deljenog koda |
 | `unique_scans` | `fairUniqueScans` | par posetilac+model |
 | `scan_events` | `fairScanEvents` | pojedinačni skenovi (i admin audit redovi) |
 | `visitors` | `fairVisitors` | hash identiteta |

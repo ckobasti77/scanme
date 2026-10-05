@@ -3,6 +3,7 @@
 import gsap from "gsap";
 import { ChevronDown, FileText } from "lucide-react";
 import { useLayoutEffect, useRef, useState } from "react";
+import { useFairHistoryLayer } from "@/lib/fair-client/history-layer";
 
 export function AnimatedModelDisclosure({
   label,
@@ -17,6 +18,11 @@ export function AnimatedModelDisclosure({
   const innerRef = useRef<HTMLDivElement | null>(null);
   const timelineRef = useRef<gsap.core.Timeline | null>(null);
   const initialRenderRef = useRef(true);
+  const requestClose = useFairHistoryLayer(
+    open,
+    () => setOpen(false),
+    "model-disclosure",
+  );
 
   useLayoutEffect(() => {
     const section = sectionRef.current;
@@ -113,7 +119,7 @@ export function AnimatedModelDisclosure({
         type="button"
         aria-expanded={open}
         aria-controls="fair-model-disclosure-content"
-        onClick={() => setOpen((current) => !current)}
+        onClick={() => open ? requestClose() : setOpen(true)}
       >
         <FileText aria-hidden="true" />
         <span>{label}</span>

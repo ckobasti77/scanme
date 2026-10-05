@@ -9,16 +9,14 @@ export default function FairGarageLoading() {
             <span className="fair-event-lockup__mark" aria-hidden="true" />
             <span>
               <strong>{dict.umbrellaTitle}</strong>
-              <small>{dict.garageNav}</small>
+              <small>{dict.pageTitle}</small>
             </span>
           </div>
         </div>
       </header>
-      <main style={{ width: "min(100%, 1040px)", marginInline: "auto", padding: "32px 20px" }}>
-        <h1 style={{ margin: 0, fontSize: "clamp(30px, 5vw, 52px)", letterSpacing: "-0.055em" }}>
-          {dict.pageTitle}
-        </h1>
-        <p style={{ color: "var(--fair-ink-muted)" }}>{dict.pageBody}</p>
+      <main style={{ width: "min(100%, 1080px)", marginInline: "auto", padding: "14px 18px" }}>
+        <div style={{ height: 52, border: "1px solid var(--fair-line)", borderRadius: 17, background: "var(--fair-surface)" }} />
+        <div style={{ height: 48, width: "min(100%, 430px)", marginTop: 12, borderRadius: 15, background: "color-mix(in srgb, var(--fair-warm) 48%, white)" }} />
       </main>
     </div>
   );

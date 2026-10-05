@@ -241,6 +241,15 @@ try {
   assert(Math.abs(disclosureClosing.heroHeight - heroHeightBeforeDisclosure) < 1, "disclosure: closing resized the hero image");
   assert(disclosureClosing.scrollY === 0, "disclosure: closing changed the viewport position");
   await sheetPage.waitForTimeout(420);
+  await sheetPage.locator(".fair-model-disclosure > button").tap();
+  await sheetPage.waitForTimeout(560);
+  await sheetPage.goBack();
+  await sheetPage.waitForTimeout(560);
+  assert(
+    (await sheetPage.locator(".fair-model-disclosure > button").getAttribute("aria-expanded")) === "false",
+    "disclosure: browser back did not close the expanded content",
+  );
+  assert(sheetPage.url().includes(modelPath), "disclosure: browser back left the model route");
   await sheetPage.locator(".fair-save-button").tap();
   assert((await sheetPage.locator(".fair-garage-flight").count()) === 1, "garage: image flight did not start");
   assert((await sheetPage.locator(".fair-save-button").innerText()).includes("Sačuvano"), "garage: saved label missing");

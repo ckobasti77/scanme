@@ -59,6 +59,7 @@ import type * as fairPublic from "../fairPublic.js";
 import type * as fairReports from "../fairReports.js";
 import type * as fairRetention from "../fairRetention.js";
 import type * as fairScans from "../fairScans.js";
+import type * as fairSharing from "../fairSharing.js";
 import type * as fairSponsoredAdmin from "../fairSponsoredAdmin.js";
 import type * as http from "../http.js";
 import type * as invitationEmails from "../invitationEmails.js";
@@ -216,6 +217,7 @@ declare const fullApi: ApiFromModules<{
   fairReports: typeof fairReports;
   fairRetention: typeof fairRetention;
   fairScans: typeof fairScans;
+  fairSharing: typeof fairSharing;
   fairSponsoredAdmin: typeof fairSponsoredAdmin;
   http: typeof http;
   invitationEmails: typeof invitationEmails;

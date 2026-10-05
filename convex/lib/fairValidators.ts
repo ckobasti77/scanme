@@ -134,6 +134,19 @@ export const fairSponsoredActionSurface = v.literal("garage");
 
 export const fairSponsoredActionKind = v.union(v.literal("open_model"), v.literal("garage_add"));
 
+export const fairShareCollectionStatus = v.union(v.literal("active"), v.literal("expired"));
+export const fairTrafficKind = v.union(
+  v.literal("direct_view"),
+  v.literal("share_action"),
+  v.literal("share_open"),
+);
+export const fairShareChannel = v.union(
+  v.literal("native"),
+  v.literal("whatsapp"),
+  v.literal("viber"),
+  v.literal("copy"),
+);
+
 // MASTER §4.6 — optional on stored rows; absent means "standard".
 export const fairClientSegment = v.union(v.literal("standard"), v.literal("event_only"));
 
@@ -148,6 +161,8 @@ export const fairPurgeCategory = v.union(
   v.literal("brand_favorites"),
   v.literal("passport_stamps"),
   v.literal("sponsored_actions"),
+  v.literal("traffic_events"),
+  v.literal("share_collections"),
   v.literal("unique_scans"),
   v.literal("scan_events"),
   v.literal("visitors"),

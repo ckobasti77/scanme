@@ -82,6 +82,9 @@ export type FairSponsoredSnapshotStatus = "draft" | "published" | "retired";
  */
 export type FairSponsoredActionSurface = "garage";
 export type FairSponsoredActionKind = "open_model" | "garage_add";
+export type FairShareCollectionStatus = "active" | "expired";
+export type FairTrafficKind = "direct_view" | "share_action" | "share_open";
+export type FairShareChannel = "native" | "whatsapp" | "viber" | "copy";
 /** MASTER §4.6: absent on a stored account means "standard". */
 export type FairClientSegment = "standard" | "event_only";
 
@@ -108,6 +111,8 @@ export const FAIR_MAX_MODEL_IDS_PER_READ = 50;
 /** Same names and values as lib/fair-client/rotation-slot.ts (MASTER §10). */
 export const FAIR_MAP_ROTATION_INTERVAL_MS = 12_000;
 export const FAIR_GARAGE_ROTATION_INTERVAL_MS = 8_000;
+export const FAIR_SHARE_COLLECTION_MAX_MODELS = 5;
+export const FAIR_SHARE_CODE_PATTERN = /^[A-Za-z0-9_-]{24}$/;
 /** Survey has at most five questions (MASTER §9.2). */
 export const FAIR_SURVEY_MAX_QUESTIONS = 5;
 /** Audience question options: at least 2 (HANDOFF §5.3), at most 5 (DATA-INTAKE §6.5). */
@@ -138,6 +143,8 @@ export const FAIR_PURGE_CATEGORIES = [
   "brand_favorites",
   "passport_stamps",
   "sponsored_actions",
+  "traffic_events",
+  "share_collections",
   "unique_scans",
   "scan_events",
   "visitors",
