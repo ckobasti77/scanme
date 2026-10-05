@@ -4,7 +4,7 @@
 > **Poslednje ažuriranje:** 5. oktobar 2026.
 > **Vlasnik odluka:** Aleksa  
 > **Aktivna integraciona grana:** `codex/sajam-integracija-2026-10-04`  
-> **Završeni Garage checkpoint:** `7b6eddf`
+> **Završeni Garage checkpoint:** `8e72c10`
 > **Deljena grana za Aleksu i Jovana:** `origin/codex/sajam-integracija-2026-10-04`
 > **Rok produkcijske spremnosti:** 9. oktobar 2026.
 
@@ -34,7 +34,7 @@ Ne menja poslovni ili tehnički ugovor. Za proizvod važi [MASTER-KONTEKST](./MA
 | Backend jezgro | ✅ | Šema, paketi, QR, interakcije, analitika, izveštaji i retention postoje i imaju testove |
 | Backend hardening | 🔧 | Četiri RF korekcije moraju biti završene pre integracionog testa |
 | Mapa i displej | 👀 | Implementirani i testirani; čekaju pregled, stvarne podatke i osvežavanje uživo |
-| Garaža | 👀 | Puna ruta, dva taba, offline kartice, poređenje, pasoši i sponsored traka su implementirani i automatski provereni; čeka Aleksin pregled |
+| Garaža | 🔧 | Mobilna ruta, selection režim, poređenje, pasoši i sponsored tok su automatski provereni; native Samsung share još mora ručno da se potvrdi preko HTTPS origin-a |
 | Leadovi i email | ⛔ | Kod postoji, ali saglasnost, produkcijski prekidači i email podešavanja nisu zaključani |
 | Stvarni izlagači i modeli | ⛔ | Čekaju se kompletni podaci i priprema stvarnog importa |
 | QR štampa | ⛔ | Sistem dodele postoji; stvarnih 100 kodova još nema niti su poslati u štampu |
@@ -153,6 +153,7 @@ Ovo je redosled kojim se projekat trenutno odblokira. Stavka niže ne smatra se 
 | B5 | Objavljeni Advanced sponsored snapshot | ✅ | Bez lažnog impression upisa |
 | B6 | Analitika, PDF/XLSX/CSV i odobravanje | 🔧 | Preuranjen ručni report može blokirati automatski |
 | B7 | Retention, authz, performanse i TEST seed | 👀 | Testirano; čeka odluku o automatskom purge-u |
+| B8 | Deljeni linkovi i odvojena traffic analitika | 🔧 | Kolekcije, `share_action` i `share_open` postoje i ne dodiruju scan tabele; aktiviranje `direct_view` čeka F3 i QR entry marker |
 
 ## F — Javni mobilni frontend
 
@@ -177,13 +178,24 @@ Ovo je redosled kojim se projekat trenutno odblokira. Stavka niže ne smatra se 
 - [x] ✅ G1 — Lokalni browser storage bez naloga i obaveznog preuzimanja.
 - [x] ✅ G2 — Dodavanje/uklanjanje modela i badge brojač na model stranici.
 - [x] ✅ G3 — Javna ruta `/sajam/garaza` sa event-first shell-om i `noindex` pravilom.
-- [x] ✅ G4 — Dva event taba; backend `garagePriority` određuje koji sajam je prvi.
-- [x] ✅ G5 — Izbor i poređenje najviše dva modela na `/sajam/garaza/poredjenje`.
+- [x] ✅ G4 — Dva kompaktna event taba; događaji su hronološki poređani, a budući sajam je zaključan u produkciji do završetka prvog.
+- [x] ✅ G5 — Dugi dodir ulazi u selection režim; običan dodir zatim bira do pet modela, dok poređenje zahteva tačno dva.
 - [x] ✅ G6 — V2 lokalni dokument, V1 migracija i offline snapshot naziva, cene i fotografije.
-- [x] ✅ G7 — Svi objavljeni pasoši se prikazuju, uključujući `0/N`.
+- [x] ✅ G7 — Svi objavljeni pasoši se prikazuju u kompaktnoj gornjoj traci, uključujući `0/N`, a detalji se otvaraju kao mobilni bottom sheet.
 - [ ] 👀 G8 — Čuvanje završenog digitalnog badge-a je implementirano i unit-testirano; čeka ručni test sa kompletiranim stvarnim pasošem.
-- [x] ✅ G9 — Fixed Advanced rotacija na 8 sekundi sa `Pogledaj` i `Dodaj u garažu`, pauzom tokom interakcije i safe-area insetom.
-- [x] ✅ G10 — Klijent šalje samo eksplicitne `open_model` i `garage_add`; nema impression upisa.
+- [x] ✅ G9 — Fixed Advanced rotacija najmanje na 12 sekundi, sa horizontalnim prelazom, border-trace detaljem, `Pogledaj` i `Dodaj u garažu`, pauzom tokom interakcije i safe-area insetom.
+- [x] ✅ G10 — Dodavanje iz sponsored trake ima animirani prenos modela do badge-a; broj se menja tek po završetku prenosa.
+- [x] ✅ G11 — Uklanjanje modela zahteva potvrdu i tek zatim izvodi izlaznu animaciju.
+- [x] ✅ G12 — Greška osvežavanja je svedena na kompaktno stanje i ne potiskuje sadržaj Garaže.
+- [x] ✅ G13 — Klijent šalje samo eksplicitne `open_model` i `garage_add`; nema impression upisa.
+- [x] ✅ G14 — Long-press na fotografiji, tekstu ili praznoj površini bira model za poređenje bez otvaranja slike i bez selekcije teksta.
+- [x] ✅ G15 — Sponsored dodavanje ume da obradi najmanje dva uzastopna modela; nova kartica ulazi FLIP animacijom bez remountovanja i ponovnog pojavljivanja postojeće liste.
+- [x] ✅ G16 — Pasoši imaju potpuno prazan `0/N` progres i zbijen, čitljiv summary; passport i remove sheet koriste jedan zajednički, čitljiv glass materijal.
+- [x] ✅ G17 — Sticky selection traka ostaje dostupna pri skrolu i nudi poređenje, deljenje, grupno uklanjanje i izlaz iz režima.
+- [x] ✅ G18 — Svaka kartica ima zasebno deljenje; 2–5 modela dobijaju javnu `noindex` kolekciju na `/sajam/deli/[shareCode]`.
+- [x] ✅ G19 — Podržan uređaj direktno poziva sistemski share sheet; aplikacijski WhatsApp/Viber/copy panel je fallback, a otkazivanje se ne broji kao uspeh.
+- [x] ✅ G20 — Ugovor, šema i API strogo odvajaju QR scan, direktnu posetu, akciju deljenja i otvaranje deljenog linka; model-ruta će aktivirati `direct_view` tek u F3 uz QR entry marker.
+- [ ] ⚠️ G21 — Na Aleksinom Samsung telefonu native share se nije otvorio tokom LAN HTTP probe. Ponoviti ručni test preko HTTPS origin-a; automatizovani `navigator.share` stub nije dovoljan dokaz kompatibilnosti.
 
 ## M — Mapa i sajamski displeji
 
@@ -245,7 +257,9 @@ Ovo je redosled kojim se projekat trenutno odblokira. Stavka niže ne smatra se 
 - [x] ✅ Q3 — Namespace i golden harness.
 - [ ] ⚠️ Q4 — 286/287 sajamskih testova; jedini pad je nevezani dirty `seedShowcaseCatalog` koji još nije dodat u `fairAuthz.test.ts` klasifikaciju.
 - [x] ✅ Q5 — Model mobile checkpoint na tri rezolucije.
-- [x] ✅ Q5A — Garaža: 375×667, 390×844, 412×915, 844×390 i 1440×900; touch, poređenje, uklanjanje, offline i reduced-motion.
+- [x] ✅ Q5A — Garaža: 375×667, 390×844, 412×915, 844×390 i 1440×900; touch/long-press preko fotografije, centrirana compare kontrola, pasoš, glass potvrda uklanjanja, offline, dva uzastopna sponsored dodavanja bez remounta i reduced-motion.
+- [x] ✅ Q5B — Selection/share tok: long-press, prvi sledeći dodir odmah menja izbor, vidljiv `X`, automatski izlaz kada nema izbora, Back zatvara lokalne slojeve, fixed toolbar pri skrolu, direktan native-share poziv uz aplikacijski fallback i zaseban `share_action` zahtev.
+- [x] ✅ Q5C — Garaža pamti poslednji aktivni sajam bez pogrešnog početnog highlight-a; Auto Moto Fest je zaključan u produkciji do početka, ali ostaje dostupan u DEV-u radi testiranja modela.
 - [ ] ⏳ Q6 — Stvarni QR → stvarni model → stvarna interakcija.
 - [ ] ⏳ Q7 — Admin pregled leadova, interakcija i izveštaja sa stvarnim tokom.
 - [ ] ⏳ Q8 — Android, iPhone i displej ručni test.
@@ -302,12 +316,17 @@ Vlasnik sledeće akcije:
 
 ### 5. oktobar 2026. — javna Garaža
 
+- Najnoviji Garage/share/history checkpoint je `8e72c10`.
+- Ispravljeni su prvi tap posle long-press-a, prekinuta sponsored entrance animacija koja je ostavljala sivu karticu i pogrešan početni event highlight pri reload-u.
+- Podržan browser sada direktno poziva platformski share sheet; aplikacijski WhatsApp/Viber/copy panel ostaje fallback.
+- Automatizovani Garage browser scenario prolazi, ali ručni Samsung native-share test preko LAN HTTP-a nije uspeo i ostaje otvoren za HTTPS probu.
 - Garage implementacija je sačuvana u checkpointu `7b6eddf` i objavljena na deljenoj integracionoj grani.
 - Implementirane su `/sajam/garaza` i `/sajam/garaza/poredjenje`.
 - Lokalni Garage dokument je migriran sa V1 na V2 bez promene storage ključa; dodat je lokalni passport badge katalog.
 - Dodati su dva event taba, last-known offline kartice, izbor najviše dva modela, pasoši i Advanced rotacija.
 - Sponsored tok beleži samo `open_model` i `garage_add` akcije.
 - `scripts/fair/check-garage.mjs` prolazi na tri mobilne širine, landscape i desktop prikazu, uz touch, offline i reduced-motion scenario.
+- Naknadni polish pokriva long-press preko fotografije/teksta, centriranu compare kontrolu, stabilan FLIP unos sponsored kartice, dva uzastopna dodavanja, sačuvanu review fotografiju, kraću refresh poruku, prazan `0/2` krug i zajednički čitljiv glass za passport/remove sheet.
 - Ciljani Garage testovi prolaze 20/20; Next build prolazi.
 - Cela fair grupa trenutno ima 286/287: nevezane postojeće izmene u `convex/fairDevFixtures*` dodaju `seedShowcaseCatalog`, ali dirty authz tabela još nije usaglašena. Garage fajlovi ne menjaju taj modul.
 - Čeka se Aleksin vizuelni pregled i ručna proba završenog pasoša sa stvarnim podacima.
