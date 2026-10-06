@@ -1337,3 +1337,42 @@ Samo čitanje, oba upita počinju sa `requireAdmin`, rezultat nema kontakt ni vi
 - `undelivered` = lead čiji status nije `delivered` (status `delivered` postavlja tek A8).
 - Koriste ih: lista i detalj modela (A3), Izlagači (A5), Pregled (A10).
 - Testovi: `convex/fairAdminStats.test.ts` (brojevi po modelu i učešću, izolacija između događaja, `capped`, SMQ samo za dodele događaja, anonimni i ne-admin odbijeni) i `convex/fairAuthz.test.ts` (klasifikacija `admin`, odbijanje pre čitanja podataka).
+
+## 31. A4 — QR inventar: detalj, promena odredišta i dodela u većem broju (`convex/fairAdminQr.ts`)
+
+Sve funkcije počinju sa `requireAdmin`. Upisi idu kroz `convex/lib/fairQr.ts`, istim tokom subject → target → kanal kao `assignQr` (novi nepromenljivi `cardTargets` red, `accessDestinationHistory`, sinhronizacija kanala). `/r/[cardCode]` ostaje jedina štampana ruta i jedino mesto koje beleži sken; nijedna funkcija ovde ne upisuje ni ne broji sken. Šema i indeksi se ne menjaju.
+
+Kod se zadaje kao resolver kod (8 znakova, ista normalizacija kao resolver: velika slova, I/L → 1, O → 0) ili kao SMQ (`SMQ-…`, preko `digitalQrCodes.by_smqCode`). Kod mora biti `qr` kanal QR inventara događaja (`fairEvents.qrInventoryBusinessId`).
+
+| Funkcija | Vrsta | Args → returns | Indeksi / granice |
+|---|---|---|---|
+| `getQrDetail` | admin query | `{ eventId, code }` → `null` (kod nije u inventaru događaja) ili `{ cardId, accessChannelId, resolverCode, smqCode, channelState, problemReason, redirectEnabled, totalScansAllTime, current \| null, history[], historyCapped, stats \| null, lastScanAt }` | kanal `accessChannels.by_resolverCode` ili `digitalQrCodes.by_smqCode`; istorija `fairQrAssignments.by_accessChannelId_and_status` (aktivna + do `FAIR_QR_HISTORY_LIMIT` = 50 zatvorenih, najnovije prvo); `stats` = `readFairCount(scan_total\|scan_unique:model:<id>)` modela na koji kod vodi u ovom događaju (bez admin skenova); `lastScanAt` = najnoviji `cardScanEvents.by_cardId_and_occurredAt` (generički sken koda, uključuje i probne skenove); `totalScansAllTime` = `cards.totalScans` |
+| `getQrScanStats` | admin query | `{ eventId, cardIds }` (≤ `FAIR_QR_SCAN_STATS_MAX` = 100) → `{ cardId, eventModelId \| null, total \| null, unique \| null, lastScanAt \| null }[]` | po kartici: kanal, aktivna dodela, dva `readFairCount` (≤ 16 redova svaki), jedan `cardScanEvents`; kartice van inventara se preskaču; slobodan kod ili kod drugog događaja nema brojeve |
+| `reassignQr` | admin mutation | `{ eventId, code, toEventModelId, reason }` → `{ fromAssignmentId, toAssignmentId, fromEventModelId, toEventModelId }` | jedna transakcija: stari red `released` (`releasedAt`, `releasedByUserId`, `reason`), novi `assigned` kroz `assignFairQr`; audit `fair_qr_reassigned`; kanal ne prolazi kroz `problem` |
+| `bulkAssignQrDryRun` | admin query | `{ eventId, rows: { code, model }[] }` (≤ `FAIR_QR_BULK_MAX_ROWS` = 100) → `{ rows: { index, code, model, status: ok\|unchanged\|error, issue?, resolverCode?, smqCode?, eventModelId?, assignedEventModelId? }[], summary: { ok, unchanged, errors } }` | `model` = `externalKey` (`fairEventModels.by_eventId_and_externalKey`) ili Convex ID modela; ništa se ne upisuje |
+| `bulkAssignQrCommit` | admin mutation | isti `{ eventId, rows }` + opcioni `reason` → `{ rows: { index, status: applied\|unchanged\|error, issue? }[], summary: { applied, unchanged, errors } }` | isti plan (`planBulkQrAssign`) ponovo u transakciji commit-a; primenjuje samo `ok` redove kroz `assignFairQr` (razlog `fair_qr_bulk_assigned` ako nije zadat); ponovni commit daje `unchanged`, bez duplikata; audit `fair_qr_bulk_assigned` sa brojevima |
+
+**Pravila `reassignQr`** (ništa se ne menja pri grešci):
+
+- razlog posle `trim` ima 3–300 znakova (`FAIR_QR_REASON_MIN_LENGTH` / `MAX_LENGTH`), inače `FAIR_REASON_REQUIRED`;
+- kod nepoznat → `FAIR_QR_NOT_FOUND`; postoji, ali nije u inventaru događaja → `FAIR_QR_NOT_IN_INVENTORY`; nije dodeljen → `FAIR_QR_NOT_ASSIGNED`; dodeljen modelu drugog događaja → `FAIR_QR_OTHER_EVENT`;
+- ciljni model ne postoji → `FAIR_MODEL_NOT_FOUND`; pripada drugom događaju → `FAIR_MODEL_OTHER_EVENT`; isti kao trenutni → `FAIR_QR_SAME_TARGET`; već ima aktivan QR → `FAIR_MODEL_ALREADY_ASSIGNED`;
+- dalje važe ista pravila kao `assignQr` (subject sa jednim kanalom, `FAIR_QR_SUBJECT_SHARED`).
+
+**Pravila plana dodele u većem broju** (redosled provere po redu):
+
+1. prazna ćelija ili predug unos → `FAIR_BULK_ROW_INVALID`;
+2. kod: `FAIR_QR_NOT_FOUND` / `FAIR_QR_NOT_IN_INVENTORY`; model: `FAIR_MODEL_NOT_FOUND` / `FAIR_MODEL_OTHER_EVENT`;
+3. isti kod u više redova → `FAIR_BULK_DUPLICATE_CODE` u **svakom** takvom redu; isti model u više redova → `FAIR_BULK_DUPLICATE_MODEL` u svakom (nije jasno koja nalepnica ide na koji auto);
+4. kod već vodi na isti model → `unchanged`; kod vodi na drugi model → `FAIR_QR_ALREADY_ASSIGNED` (`assignedEventModelId`); model već ima drugi QR → `FAIR_MODEL_ALREADY_ASSIGNED`; deljeni subject → `FAIR_QR_SUBJECT_SHARED`;
+5. inače `ok`.
+
+Više od 100 redova → `FAIR_BULK_TOO_LARGE` za ceo poziv (granica drži commit unutar Convex limita transakcije). Masovna dodela ne zamenjuje fizičku proveru (MASTER §15): rezime u adminu traži da druga osoba skenira svaki kod.
+
+**Uklanjanje veze** ostaje postojeći `fairAdmin.releaseQr` (razlog obavezan). U adminu se zove „Ukloni vezu“; dugme „Oslobodi“ ne postoji. Posle uklanjanja kod vodi na neutralnu stranu `/r/nevazeca` i ne beleži sajamske skenove.
+
+**Novi kodovi grešaka** (`FAIR_ADMIN_ISSUE_CODES`, tekst u `adminEventsSr.issues`): `FAIR_QR_NOT_FOUND`, `FAIR_QR_OTHER_EVENT`, `FAIR_QR_SAME_TARGET`, `FAIR_MODEL_OTHER_EVENT`, `FAIR_REASON_REQUIRED`, `FAIR_BULK_TOO_LARGE`, `FAIR_BULK_ROW_INVALID`, `FAIR_BULK_DUPLICATE_CODE`, `FAIR_BULK_DUPLICATE_MODEL`. Postojeći `FAIR_QR_NOT_ASSIGNED` sada koristi `reassignQr` (kod bez aktivne dodele).
+
+**Čitanje u adminu:** `getQrDetail` i `getQrScanStats` čitaju brojače koji se menjaju pri svakom skenu, pa ih admin čita jednokratno i osvežava na 60 s dok je tab vidljiv (`components/admin/admin-ui/use-polled-query.ts`), nikad reaktivnim `useQuery`. Lista inventara ostaje `fairAdmin.listQrInventory` (paginirano, ≤ 100 po stranici).
+
+**Testovi:** `convex/fairAdminQr.test.ts` (reassign: uspeh u jednoj transakciji sa razlogom i istorijom, novi resolver cilj, kanal bez prolaza kroz `problem`; zauzet ciljni model, model drugog događaja, bez razloga, isti model, slobodan kod, kod drugog događaja — ništa se ne menja; dry run svih grešaka bez upisa; commit samo ispravnih, ponovni commit bez duplikata; `getQrDetail` istorija, SMQ, brojevi posle 2 TEST skena istog posetioca = 2/1; `getQrScanStats`; authz) i `convex/fairAuthz.test.ts` (klasifikacija `admin`, odbijanje pre čitanja podataka).

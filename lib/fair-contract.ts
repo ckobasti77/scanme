@@ -724,6 +724,16 @@ export const FAIR_IMPORT_MAX_MODELS = 200;
 /** Bounded admin catalog reads per event (two fairs × ~100 models fit easily). */
 export const FAIR_ADMIN_LIST_LIMIT = 500;
 
+/** A4 — a change of a QR's destination (reassign) needs a reason of this length. */
+export const FAIR_QR_REASON_MIN_LENGTH = 3;
+export const FAIR_QR_REASON_MAX_LENGTH = 300;
+/** A4 — rows of one bulk QR assignment (dry run and commit); one commit stays inside the Convex transaction limits. */
+export const FAIR_QR_BULK_MAX_ROWS = 100;
+/** A4 — assignment history rows shown on the QR detail (newest first). */
+export const FAIR_QR_HISTORY_LIMIT = 50;
+/** A4 — cards per getQrScanStats call. */
+export const FAIR_QR_SCAN_STATS_MAX = 100;
+
 /** Stable `externalKey`: lowercase ASCII, digits and single hyphens (DATA-INTAKE §4). */
 export const FAIR_EXTERNAL_KEY_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 /** Public model slug: same alphabet as the external key, at most 80 characters. */
@@ -761,6 +771,16 @@ export const FAIR_ADMIN_ISSUE_CODES = [
   "FAIR_MODEL_ALREADY_ASSIGNED",
   "FAIR_QR_SUBJECT_SHARED",
   "FAIR_QR_NOT_ASSIGNED",
+  // A4 — QR detail, change of destination (reassign) and bulk assignment
+  "FAIR_QR_NOT_FOUND",
+  "FAIR_QR_OTHER_EVENT",
+  "FAIR_QR_SAME_TARGET",
+  "FAIR_MODEL_OTHER_EVENT",
+  "FAIR_REASON_REQUIRED",
+  "FAIR_BULK_TOO_LARGE",
+  "FAIR_BULK_ROW_INVALID",
+  "FAIR_BULK_DUPLICATE_CODE",
+  "FAIR_BULK_DUPLICATE_MODEL",
   // B3 — Glas publike, survey and passport admin commands
   "FAIR_FEATURE_NOT_ENTITLED",
   "FAIR_EVENT_DAY_NOT_FOUND",

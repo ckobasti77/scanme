@@ -14,6 +14,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { api, internal } from "./_generated/api";
 import schema from "./schema";
 import * as fairAdmin from "./fairAdmin";
+import * as fairAdminQr from "./fairAdminQr";
 import * as fairAdminStats from "./fairAdminStats";
 import * as fairAnalytics from "./fairAnalytics";
 import * as fairDevFixtures from "./fairDevFixtures";
@@ -96,6 +97,8 @@ const AUTHZ: Record<string, { module: Record<string, unknown>; functions: Record
   },
   // Admin UX A3 — read-only numbers of the Modeli list and model detail.
   fairAdminStats: { module: fairAdminStats, functions: { getLeadCounts: A, getModelQrCodes: A } },
+  // Admin UX A4 — QR detail, scan numbers, change of destination and bulk assignment.
+  fairAdminQr: { module: fairAdminQr, functions: { getQrDetail: A, getQrScanStats: A, reassignQr: A, bulkAssignQrDryRun: A, bulkAssignQrCommit: A } },
   fairImport: { module: fairImport, functions: { dryRun: A, commit: A } },
   fairInteractionsAdmin: {
     module: fairInteractionsAdmin,
@@ -239,8 +242,13 @@ describe("B7 authz table of every fair function", () => {
       ["startPurgeDryRun", (c) => c.mutation(api.fairRetention.startPurgeDryRun, {})],
       ["getLeadCounts", (c) => c.query(api.fairAdminStats.getLeadCounts, { eventId: f.eventId })],
       ["getModelQrCodes", (c) => c.query(api.fairAdminStats.getModelQrCodes, { eventId: f.eventId })],
+      ["getQrDetail", (c) => c.query(api.fairAdminQr.getQrDetail, { eventId: f.eventId, code: "ZZZZZZZZ" })],
+      ["getQrScanStats", (c) => c.query(api.fairAdminQr.getQrScanStats, { eventId: f.eventId, cardIds: [] })],
+      ["reassignQr", (c) => c.mutation(api.fairAdminQr.reassignQr, { eventId: f.eventId, code: "ZZZZZZZZ", toEventModelId: f.modelId, reason: "TEST razlog" })],
+      ["bulkAssignQrDryRun", (c) => c.query(api.fairAdminQr.bulkAssignQrDryRun, { eventId: f.eventId, rows: [{ code: "ZZZZZZZZ", model: "test-em26-volta-x1" }] })],
+      ["bulkAssignQrCommit", (c) => c.mutation(api.fairAdminQr.bulkAssignQrCommit, { eventId: f.eventId, rows: [{ code: "ZZZZZZZZ", model: "test-em26-volta-x1" }] })],
     ];
-    const adminFunctions = ["fairInteractionsAdmin", "fairLeadsAdmin", "fairSponsoredAdmin", "fairReports", "fairRetention", "fairAdminStats"].flatMap((name) =>
+    const adminFunctions = ["fairInteractionsAdmin", "fairLeadsAdmin", "fairSponsoredAdmin", "fairReports", "fairRetention", "fairAdminStats", "fairAdminQr"].flatMap((name) =>
       Object.entries(AUTHZ[name].functions).filter(([, access]) => access === "admin").map(([fn]) => fn),
     );
     expect(calls.map(([name]) => name).sort()).toEqual(adminFunctions.sort());
@@ -249,6 +257,7 @@ describe("B7 authz table of every fair function", () => {
       await ctx.db.query("fairAudienceQuestions").collect(), await ctx.db.query("fairSurveys").collect(), await ctx.db.query("fairPassportConfigs").collect(),
       await ctx.db.query("fairConsentConfigs").collect(), await ctx.db.query("fairLeads").collect(), await ctx.db.query("fairEmailDeliveries").collect(),
       await ctx.db.query("fairReportRuns").collect(), await ctx.db.query("fairSponsoredSnapshots").collect(), await ctx.db.query("fairPurgeRuns").collect(),
+      await ctx.db.query("fairQrAssignments").collect(),
     ]));
     for (const [name, call] of calls) {
       const callers: [Caller, string][] = [[f.t, "Niste prijavljeni."], [f.member, "Nemate administratorski pristup."]];
@@ -266,6 +275,7 @@ describe("B7 authz table of every fair function", () => {
       await ctx.db.query("fairAudienceQuestions").collect(), await ctx.db.query("fairSurveys").collect(), await ctx.db.query("fairPassportConfigs").collect(),
       await ctx.db.query("fairConsentConfigs").collect(), await ctx.db.query("fairLeads").collect(), await ctx.db.query("fairEmailDeliveries").collect(),
       await ctx.db.query("fairReportRuns").collect(), await ctx.db.query("fairSponsoredSnapshots").collect(), await ctx.db.query("fairPurgeRuns").collect(),
+      await ctx.db.query("fairQrAssignments").collect(),
     ]));
     expect(after).toBe(before);
   });

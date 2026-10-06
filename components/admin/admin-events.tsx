@@ -52,7 +52,78 @@ export type InventoryRowView = {
   resolverCode: string;
   smqCode: string | null;
   state: "active" | "inactive" | "problem" | null;
-  assignment: { modelId: string; modelName: string | null; sameEvent: boolean } | null;
+  /** A4 — why the channel is in `problem` (a free code: `destination_*`). */
+  problemReason: string | null;
+  assignment: { modelId: string; sameEvent: boolean } | null;
+};
+
+/** A4 — scan columns of one code (polled getQrScanStats); null numbers = the code leads to no model of this event. */
+export type QrScanStatsView = { total: number | null; unique: number | null; lastScanAt: number | null };
+
+/** A4 — fairAdminQr.getQrDetail as the QR detail sees it. */
+export type QrDetailView = {
+  cardId: string;
+  accessChannelId: string;
+  resolverCode: string;
+  smqCode: string | null;
+  channelState: "active" | "inactive" | "problem";
+  problemReason: string | null;
+  redirectEnabled: boolean;
+  totalScansAllTime: number;
+  current: {
+    assignmentId: string;
+    sameEvent: boolean;
+    eventTitle: string | null;
+    eventModelId: string;
+    modelLabel: string | null;
+    modelStatus: FairModelStatus | null;
+    path: string | null;
+    assignedAt: number;
+    reason: string | null;
+  } | null;
+  history: {
+    assignmentId: string;
+    status: "assigned" | "released";
+    sameEvent: boolean;
+    eventModelId: string;
+    modelLabel: string | null;
+    assignedAt: number;
+    releasedAt: number | null;
+    reason: string | null;
+  }[];
+  historyCapped: boolean;
+  stats: { total: number; unique: number } | null;
+  lastScanAt: number | null;
+};
+
+export type QrBulkInput = { code: string; model: string };
+export type QrBulkRowView = {
+  index: number;
+  code: string;
+  model: string;
+  status: "ok" | "unchanged" | "error";
+  issue?: string;
+  resolverCode?: string;
+  smqCode?: string;
+  eventModelId?: string;
+  assignedEventModelId?: string;
+};
+export type QrBulkDryRunView = { rows: QrBulkRowView[]; summary: { ok: number; unchanged: number; errors: number } };
+export type QrBulkCommitView = {
+  rows: { index: number; status: "applied" | "unchanged" | "error"; issue?: string }[];
+  summary: { applied: number; unchanged: number; errors: number };
+};
+export type QrBulkActions = {
+  dryRun: (rows: QrBulkInput[]) => Promise<Result<QrBulkDryRunView>>;
+  commit: (rows: QrBulkInput[]) => Promise<Result<QrBulkCommitView>>;
+};
+
+/** A4 — the commands of the QR detail (reassignQr, assignQr, releaseQr, resolveTest). */
+export type QrActions = {
+  reassign: (code: string, toModelId: string, reason: string) => Promise<Outcome>;
+  assign: (modelId: string, code: string, reason?: string) => Promise<Outcome>;
+  release: (modelId: string, reason: string) => Promise<Outcome>;
+  resolveTest: (resolverCode: string) => Promise<Result<ResolveView>>;
 };
 
 export type EventClientView = { accountId: string; name: string; smkCode: string | null };

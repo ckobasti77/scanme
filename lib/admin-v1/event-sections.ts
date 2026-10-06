@@ -42,7 +42,7 @@ export type EventSectionDef = {
 export const EVENT_SECTIONS: readonly EventSectionDef[] = [
   { path: "pregled", group: null, queryKeys: ["prikaz", "faza"] },
   { path: "modeli", group: "katalog", queryKeys: ["izlagac", "brend", "model", "q", "paket", "status", "problemi", "qr", "foto", "prikaz"], detail: "model" },
-  { path: "qr", group: "katalog", queryKeys: ["prikaz"], detail: "qr" },
+  { path: "qr", group: "katalog", queryKeys: ["izlagac", "brend", "model", "stanje", "q", "prikaz"], detail: "qr" },
   { path: "izlagaci", group: "katalog", queryKeys: ["prikaz"] },
   { path: "import", group: "katalog", queryKeys: [] },
   { path: "interakcije/glas-publike", group: "sajam", parent: "interakcije", queryKeys: ["prikaz"] },
