@@ -894,3 +894,90 @@ export type FairAdminIssue = {
 export function fairModelPath(eventSlug: string, modelSlug: string): string {
   return `/sajam/${eventSlug}/model/${modelSlug}`;
 }
+
+// -----------------------------------------------------------------------------
+// Admin UX A10 — the event dashboard (`Događaji → Pregled`,
+// convex/fairDashboard.ts getEventDashboard). The backend returns rules,
+// tones, numbers and links; the admin builds every sentence in lib/i18n.
+// -----------------------------------------------------------------------------
+
+/** pre = before the opening; sajam = opening → close; posle = close → 16 Nov purge; obrisano = after the purge moment. */
+export const FAIR_DASHBOARD_PHASES = ["pre", "sajam", "posle", "obrisano"] as const;
+export type FairDashboardPhase = (typeof FAIR_DASHBOARD_PHASES)[number];
+
+/** hitno (danger) > uskoro (warning) > info (neutral). */
+export const FAIR_DASHBOARD_TONES = ["hitno", "uskoro", "info"] as const;
+export type FairDashboardTone = (typeof FAIR_DASHBOARD_TONES)[number];
+
+/** The next deadline the header counts down to. */
+export const FAIR_DASHBOARD_DEADLINES = ["opening", "day_end", "day_start", "lead_delivery", "pii_purge"] as const;
+export type FairDashboardDeadline = (typeof FAIR_DASHBOARD_DEADLINES)[number];
+
+/** Rules of „Šta treba da uradim“ (A0-IZVESTAJ §6), in their display order within one tone. */
+export const FAIR_DASHBOARD_RULES = [
+  "qr_inventory_missing",
+  "published_without_qr",
+  "published_with_errors",
+  "drafts_with_errors",
+  "price_missing",
+  "qr_on_withdrawn",
+  "question_missing_today",
+  "question_missing_next_day",
+  "sponsored_question_missing",
+  "advanced_photo_missing",
+  "interest_form_without_consent",
+  "test_drive_form_without_consent",
+  "leads_switch_off",
+  "follow_up_switch_off",
+  "leads_undelivered",
+  "reports_pending_review",
+  "reports_failed",
+  "reports_missing",
+  "follow_up_text_missing",
+  "passport_hidden",
+  "passport_missing",
+  "passport_blocked",
+  "sponsored_out_of_date",
+  "pii_purge_countdown",
+] as const;
+export type FairDashboardRule = (typeof FAIR_DASHBOARD_RULES)[number];
+
+/** `Događaji` sections an action opens (`/admin/dogadjaji/<slug>/<section>?<query>`). */
+export const FAIR_DASHBOARD_SECTIONS = [
+  "modeli",
+  "qr",
+  "izlagaci",
+  "interakcije/glas-publike",
+  "interakcije/pasos",
+  "interakcije/forme",
+  "sponzorisano",
+  "leadovi",
+  "leadovi/follow-up",
+  "leadovi/podesavanja",
+  "izvestaji",
+  "brisanje",
+] as const;
+export type FairDashboardSection = (typeof FAIR_DASHBOARD_SECTIONS)[number];
+
+export type FairDashboardAction = {
+  rule: FairDashboardRule;
+  tone: FairDashboardTone;
+  /** Affected models / exhibitors / runs …; for `pii_purge_countdown` the days left. */
+  count: number;
+  section: FairDashboardSection;
+  /** Filters of the section (its query keys, e.g. `{ status: "objavljen", qr: "nema" }`). */
+  query: Record<string, string>;
+  /** A dated deadline the sentence names (leads: 15 Nov). */
+  deadlineAt?: number;
+};
+
+export const FAIR_DASHBOARD_TONE_RANK: Readonly<Record<FairDashboardTone, number>> = { hitno: 0, uskoro: 1, info: 2 };
+
+/** hitno → uskoro → info, then the larger count, then the rule order above (A0-IZVESTAJ §6 „Redosled liste“). */
+export function sortFairDashboardActions<T extends Pick<FairDashboardAction, "rule" | "tone" | "count">>(actions: readonly T[]): T[] {
+  const ruleIndex = (rule: FairDashboardRule) => FAIR_DASHBOARD_RULES.indexOf(rule);
+  return [...actions].sort((a, b) =>
+    FAIR_DASHBOARD_TONE_RANK[a.tone] - FAIR_DASHBOARD_TONE_RANK[b.tone]
+    || b.count - a.count
+    || ruleIndex(a.rule) - ruleIndex(b.rule));
+}

@@ -18,6 +18,10 @@ import type {
   FairClientSegment,
   FairConsentStatus,
   FairContactRequirement,
+  FairDashboardDeadline,
+  FairDashboardPhase,
+  FairDashboardRule,
+  FairDashboardSection,
   FairEmailDeliveryError,
   FairEmailDeliveryStatus,
   FairEventStatus,
@@ -4801,6 +4805,82 @@ export interface AdminEventsDict {
   sponsoredAuto: AdminEventsSponsoredAutoDict;
   reportQueue: AdminEventsReportQueueDict;
   retentionPlan: AdminEventsRetentionPlanDict;
+  // Admin UX A10 — Pregled: the event dashboard.
+  dashboard: AdminEventsDashboardDict;
+}
+
+/**
+ * Admin UX A10 — `pregled`: phase and countdown, „Šta treba da uradim“ (one
+ * title + one sentence per backend rule), KPI row and section cards. The
+ * backend (fairDashboard.getEventDashboard) returns rules and numbers only.
+ */
+export interface AdminEventsDashboardDict {
+  title: string;
+  /** sajam: {day} of {count}. */
+  phase: Record<FairDashboardPhase, string>;
+  /** Between two fair days: {day} = the next one, {count} = days. */
+  phaseNextDay: string;
+  /** {from} – {to} (dates). */
+  dates: string;
+  daysLabel: string;
+  todayTag: string;
+  deadline: Record<FairDashboardDeadline, string>;
+  left: { days: string; hours: string; minutes: string; now: string };
+  updated: string;
+  todoTitle: string;
+  todoHelp: string;
+  /** {hitno} / {uskoro} / {info} = items per tone. */
+  todoSummary: string;
+  readyTitle: string;
+  /** {published}/{total} models, {qr} assigned codes. */
+  readyBody: string;
+  /** Title (independent of the number) and one sentence; {day}, {date}, {days} where noted. */
+  rules: Record<FairDashboardRule, { title: string; body: string }>;
+  /** Count badge of the purge countdown: {count} = days. */
+  daysBadge: string;
+  /** Link of an item to its filtered section; {title} is read by screen readers only. */
+  open: Record<FairDashboardSection, string>;
+  openFor: string;
+  kpiTitle: string;
+  kpi: {
+    models: string;
+    /** {included} / {starter} / {advanced}. */
+    modelsHint: string;
+    qr: string;
+    qrHint: string;
+    qrNoInventory: string;
+    scans: string;
+    /** {total} all time, {unique} unique. */
+    scansHint: string;
+    /** After the fair the totals lead (today is empty). */
+    scansTotal: string;
+    scansTotalHint: string;
+    leads: string;
+    /** {undelivered} of {total}. */
+    leadsHint: string;
+    leadsUndelivered: string;
+    leadsUndeliveredHint: string;
+    questionsToday: string;
+    /** {day} = the next fair day. */
+    questionsDay: string;
+    questionsHint: string;
+    reports: string;
+    reportsHint: string;
+    capped: string;
+  };
+  cardsTitle: string;
+  cardOpen: string;
+  cards: {
+    modeli: { published: string; draft: string; withErrors: string; withdrawn: string };
+    qr: { assigned: string; withoutQr: string; onWithdrawn: string };
+    interakcije: { questions: string; passports: string; forms: string };
+    leadovi: { total: string; undelivered: string; followUp: string; none: string };
+    sponzorisano: { inList: string; withoutQuestion: string; autoOn: string; autoOff: string; none: string };
+    izvestaji: { pending: string; failed: string; sent: string; none: string };
+    izlagaci: { active: string; withAdvanced: string };
+  };
+  errorTitle: string;
+  errorBody: string;
 }
 
 /** Admin UX A9 — `sponzorisano`: automatic list, today's order, map question per model, warnings. */
@@ -5153,6 +5233,8 @@ export interface AdminUiDict {
   navCount: string;
   /** A2 — urgency badge in the section navigation (filled by A10). {count} = items. */
   urgency: { hitno: string; uskoro: string; info: string };
+  /** A10 — the tone word of AdminUrgencyBadge (text next to the color). */
+  urgencyLabel: { hitno: string; uskoro: string; info: string };
   /** A3 — AdminFilterBar. */
   filters: {
     /** Mobile toggle; {count} = active filters. */

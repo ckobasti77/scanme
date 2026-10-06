@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useMemo, type ReactNode } from "react";
 import type { Id } from "@/convex/_generated/dataModel";
+import type { EventDashboardData } from "@/components/admin/events/dashboard-logic";
 import { buildCatalogView, type EventCatalogData, type EventDirectoryData } from "@/components/admin/events/event-catalog";
 
 // Admin UX A2 — the open event, loaded once by AdminEventFrame (layout) and
@@ -13,6 +14,8 @@ export type AdminEventContextValue = {
   base: string;
   catalog: EventCatalogData;
   directory: EventDirectoryData;
+  /** A10 — fairDashboard.getEventDashboard, read once and refreshed on a 60 s poll (Pregled and the section badges). */
+  dashboard: { data: EventDashboardData | undefined; error: unknown; refresh: () => void };
 };
 
 const AdminEventContext = createContext<AdminEventContextValue | null>(null);

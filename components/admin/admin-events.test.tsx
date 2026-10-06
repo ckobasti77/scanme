@@ -9,10 +9,13 @@ import { AdminEventFrameView, AdminEventsEntryView } from "./events/event-frame-
 import { AdminEventsNotFound } from "./events/event-not-found";
 import { SectionLoading } from "./events/sections/loading";
 import { EventModelDetailView } from "./events/sections/modeli-view";
-import { EventOverviewView } from "./events/sections/pregled-view";
+import { previewDashboard } from "./events/preview-dashboard-fixtures";
+import { EventDashboardView } from "./events/sections/pregled-view";
 
 // B1A admin Događaji — since A2 the frame (event, section navigation) and the
-// Pregled section are separate views on their own route.
+// Pregled section are separate views on their own route. A10: Pregled is the
+// event dashboard; the catalog lists it showed moved to Izlagači and Modeli
+// (their checks are in sections/izlagaci-view.test.tsx and modeli-view.test.tsx).
 
 // The shared next/link stub drops every prop except href/className; these
 // checks need aria-current on the link, so the anchor keeps all its props.
@@ -54,19 +57,19 @@ function frame(children: ReactNode) {
 }
 
 describe("B1A admin Događaji surface", () => {
-  test("overview lists days, both client segments, stands and models with package and status; the frame names the sections", () => {
-    const html = frame(<EventOverviewView catalog={catalog} modelHref={(id) => `/admin/dogadjaji/test-sajam/modeli/${id}`} />);
+  test("the frame names the sections and Pregled shows the event's days, phase, the work list with filtered links and the numbers", () => {
+    const html = frame(<EventDashboardView dashboard={previewDashboard("sajam")} now={previewDashboard("sajam").at} base="/admin/dogadjaji/test-sajam" />);
     for (const text of [
       adminEventsSr.pageTitle, "TEST Sajam", adminEventsSr.sectionLabels.pregled, adminEventsSr.sectionLabels.modeli, adminEventsSr.sectionLabels.qr,
-      adminEventsSr.sectionLabels.import, adminEventsSr.sectionLabels.izlagaci, "TEST dan 1", adminEventsSr.segments.event_only, adminEventsSr.segments.standard,
-      "test-loc-a1", adminEventsSr.tiers.starter, adminEventsSr.modelStatus.draft,
+      adminEventsSr.sectionLabels.import, adminEventsSr.sectionLabels.izlagaci, "TEST dan 1", "TEST dan 2", "Sajamski dan 2 od 3",
+      adminEventsSr.dashboard.todoTitle, adminEventsSr.dashboard.kpiTitle, adminEventsSr.dashboard.cardsTitle,
     ]) {
       expect(html).toContain(text);
     }
     expect(html).toContain(`<nav aria-label="${adminEventsSr.sectionsAria}"`);
     expect(html).toMatch(/<a[^>]*href="\/admin\/dogadjaji\/test-sajam\/pregled"[^>]*aria-current="page"/);
-    // A model row opens the model's own route.
-    expect(html).toContain('href="/admin/dogadjaji/test-sajam/modeli/m1"');
+    // An item opens its section already filtered.
+    expect(html).toContain('href="/admin/dogadjaji/test-sajam/modeli?status=objavljen&amp;qr=nema"');
     expect(html).not.toMatch(/FAIR_[A-Z_]+/);
   });
 
@@ -74,7 +77,7 @@ describe("B1A admin Događaji surface", () => {
     const html = renderToStaticMarkup(
       <EventModelDetailView catalog={catalog} modelId="m1" actions={detailActions} {...detailLinks} listHref="/x/modeli" qrHref={(code) => `/x/qr/${code}`} />,
     );
-    for (const text of [adminEventsSr.validationTitle, adminEventsSr.publish, adminEventsSr.upgradeTitle, adminEventsSr.backToList, 'href="/x/modeli"', 'href="/x/qr/7KQ2M9XA"']) {
+    for (const text of [adminEventsSr.validationTitle, adminEventsSr.publish, adminEventsSr.upgradeTitle, adminEventsSr.backToList, 'href="/x/modeli"', 'href="/x/qr/7KQ2M9XA"', adminEventsSr.tiers.starter, adminEventsSr.modelStatus.draft]) {
       expect(html).toContain(text);
     }
     expect(html).not.toMatch(/FAIR_[A-Z_]+/);

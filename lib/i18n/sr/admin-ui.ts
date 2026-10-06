@@ -10,6 +10,7 @@ export const adminUiSr: AdminUiDict = {
   actionsColumn: "Akcije",
   navCount: "{count} stavki",
   urgency: { hitno: "Hitno: {count}", uskoro: "Uskoro: {count}", info: "Info: {count}" },
+  urgencyLabel: { hitno: "Hitno", uskoro: "Uskoro", info: "Info" },
   filters: {
     toggle: "Filteri",
     toggleCount: "Filteri ({count})",
