@@ -21,6 +21,8 @@ vi.mock("next/link", () => ({
 }));
 
 const ok = async () => ({ ok: true as const });
+const detailActions = { publish: ok, withdraw: ok, upgrade: ok, assignQr: ok, resolveTest: async () => ({ ok: true as const, value: { outcome: "fair_model" as const, problem: null, path: "/x" } }) };
+const detailLinks = { query: {}, modelHref: (id: string) => `/x/modeli/${id}`, sectionHref: (path: string) => `/x/${path}` };
 
 const catalog: CatalogView = {
   days: [{ dateKey: "2026-10-09", label: "TEST dan 1" }],
@@ -30,9 +32,9 @@ const catalog: CatalogView = {
   ],
   stands: [{ id: "s1", externalKey: "test-s1", code: "A1", displayName: "TEST štand", mapLocationId: "test-loc-a1", exhibitorName: "TEST Izlagač A", status: "active" }],
   models: [{
-    id: "m1", externalKey: "test-m1", displayName: "TEST Model", slug: "test-model", brandName: "TEST Brend", exhibitorName: "TEST Izlagač A",
-    standLabel: "TEST štand · A1", tier: "starter", status: "draft", priceText: "Cena na upit", specCount: 2, highlightCount: 1, hasPhoto: false,
-    passportEligible: true, packageActivatedAt: Date.parse("2026-10-09T09:00:00+02:00"), qrCode: "7KQ2M9XA",
+    id: "m1", externalKey: "test-m1", displayName: "TEST Model", slug: "test-model", participationId: "p1", brandId: "b1", brandName: "TEST Brend", exhibitorName: "TEST Izlagač A",
+    standLabel: "TEST štand · A1", tier: "starter", status: "draft", priceText: "Cena na upit", specCount: 2, highlightCount: 1, hasPhoto: false, photoUrl: null,
+    passportEligible: true, packageActivatedAt: Date.parse("2026-10-09T09:00:00+02:00"), qrCode: "7KQ2M9XA", qrSmq: "SMQ-TEST-0001",
     issues: [{ severity: "error", code: "FAIR_HIGHLIGHT_LIMIT", path: "specifications" }, { severity: "warning", code: "FAIR_PHOTO_MISSING", path: "photoUrl" }],
   }],
   qrConfigured: true,
@@ -70,13 +72,13 @@ describe("B1A admin Događaji surface", () => {
 
   test("the model detail shows checks, actions and links back to the list and to its QR route", () => {
     const html = renderToStaticMarkup(
-      <EventModelDetailView catalog={catalog} modelId="m1" actions={{ publish: ok, withdraw: ok, upgrade: ok }} listHref="/x/modeli" qrHref={(code) => `/x/qr/${code}`} />,
+      <EventModelDetailView catalog={catalog} modelId="m1" actions={detailActions} {...detailLinks} listHref="/x/modeli" qrHref={(code) => `/x/qr/${code}`} />,
     );
     for (const text of [adminEventsSr.validationTitle, adminEventsSr.publish, adminEventsSr.upgradeTitle, adminEventsSr.backToList, 'href="/x/modeli"', 'href="/x/qr/7KQ2M9XA"']) {
       expect(html).toContain(text);
     }
     expect(html).not.toMatch(/FAIR_[A-Z_]+/);
-    expect(renderToStaticMarkup(<EventModelDetailView catalog={catalog} modelId="nema" actions={{ publish: ok, withdraw: ok, upgrade: ok }} listHref="/x/modeli" qrHref={() => ""} />)).toContain(adminEventsSr.modelNotFoundBody);
+    expect(renderToStaticMarkup(<EventModelDetailView catalog={catalog} modelId="nema" actions={detailActions} {...detailLinks} listHref="/x/modeli" qrHref={() => ""} />)).toContain(adminEventsSr.modelNotFoundBody);
   });
 
   test("every backend issue code has Serbian text; unknown codes stay visible", () => {

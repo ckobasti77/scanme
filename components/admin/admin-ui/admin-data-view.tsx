@@ -34,7 +34,7 @@ export type AdminColumn<T> = {
   sortValue?: (row: T) => SortValue;
   align?: "start" | "center" | "end";
   /** Secondary column hidden in a narrow table. */
-  hideBelow?: "md" | "lg" | "xl";
+  hideBelow?: "md" | "lg" | "xl" | "2xl";
   /** `<th scope="row">` — the cell that names the row. */
   rowHeader?: boolean;
   /** Header cell width (e.g. `17%` with `table-fixed`). */
@@ -73,6 +73,12 @@ export type AdminDataViewProps<T> = {
   view?: AdminViewMode | null;
   onViewChange?: (mode: AdminViewMode) => void;
   defaultSort?: SortState;
+  /**
+   * A3 — groups of rows (e.g. izlagač · brend): a heading row in the table and
+   * a heading above each card group. Groups keep the order in which they first
+   * appear in the (sorted) rows.
+   */
+  groupBy?: { key: (row: T) => string; label: (key: string, rows: readonly T[]) => ReactNode };
   /** Extra classes for `<table>`; the default min width (40rem) keeps a chosen Tabela readable on a phone — the wrapper scrolls, never the page. */
   tableClassName?: string;
   /** Extra classes for the card grid. */
@@ -91,7 +97,7 @@ export function AdminViewModeOverride({ value, onChange, children }: { value: Ad
   return <ViewOverrideContext.Provider value={context}>{children}</ViewOverrideContext.Provider>;
 }
 
-const HIDE_BELOW = { md: "hidden md:table-cell", lg: "hidden lg:table-cell", xl: "hidden xl:table-cell" } as const;
+const HIDE_BELOW = { md: "hidden md:table-cell", lg: "hidden lg:table-cell", xl: "hidden xl:table-cell", "2xl": "hidden 2xl:table-cell" } as const;
 const AUTO_TABLE = { md: "hidden md:block", lg: "hidden lg:block" } as const;
 const AUTO_CARDS = { md: "md:hidden", lg: "lg:hidden" } as const;
 const ALIGN = { start: "text-left", center: "text-center", end: "text-right" } as const;
@@ -121,6 +127,7 @@ export function AdminDataView<T>(props: AdminDataViewProps<T>) {
     view,
     onViewChange,
     defaultSort = null,
+    groupBy,
     tableClassName,
     cardsClassName,
     className,
@@ -151,12 +158,29 @@ export function AdminDataView<T>(props: AdminDataViewProps<T>) {
   } else {
     const showTable = mode === "auto" || mode === "tabela";
     const showCards = mode === "auto" || mode === "kartice";
+    const groups = groupBy ? groupRows(sorted, groupBy) : [{ key: "", label: null, rows: sorted }];
+    const cardList = (list: readonly T[], label: string, extra?: string) => (
+      <ul aria-label={label} className={cn("grid gap-3 @xl:grid-cols-2 @5xl:grid-cols-3", extra, cardsClassName)}>
+        {list.map((row) => {
+          const context = { view: "kartice" } as const;
+          const actions = rowActions?.(row, context);
+          const detail = rowDetail?.(row, context);
+          return (
+            <li key={getRowId(row)} onDoubleClick={onRowDoubleClick ? (event) => onRowDoubleClick(row, event) : undefined} className={cn("flex min-w-0 flex-col gap-3 rounded-[var(--admin-radius-control)] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-4", rowClassName?.(row))}>
+              {renderCard(row, context)}
+              {actions ? <div className="mt-auto flex min-w-0 flex-wrap items-center gap-2 border-t border-[var(--admin-border)] pt-3">{actions}</div> : null}
+              {detail ? <div className="min-w-0">{detail}</div> : null}
+            </li>
+          );
+        })}
+      </ul>
+    );
     body = (
       <>
         {showTable ? (
           <DataTable
             caption={caption}
-            rows={sorted}
+            groups={groups}
             getRowId={getRowId}
             columns={columns}
             rowActions={rowActions}
@@ -171,20 +195,16 @@ export function AdminDataView<T>(props: AdminDataViewProps<T>) {
           />
         ) : null}
         {showCards ? (
-          <ul aria-label={caption} className={cn("grid gap-3 @xl:grid-cols-2 @5xl:grid-cols-3", mode === "auto" && AUTO_CARDS[autoBreakpoint], cardsClassName)}>
-            {sorted.map((row) => {
-              const context = { view: "kartice" } as const;
-              const actions = rowActions?.(row, context);
-              const detail = rowDetail?.(row, context);
-              return (
-                <li key={getRowId(row)} onDoubleClick={onRowDoubleClick ? (event) => onRowDoubleClick(row, event) : undefined} className={cn("flex min-w-0 flex-col gap-3 rounded-[var(--admin-radius-control)] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-4", rowClassName?.(row))}>
-                  {renderCard(row, context)}
-                  {actions ? <div className="mt-auto flex min-w-0 flex-wrap items-center gap-2 border-t border-[var(--admin-border)] pt-3">{actions}</div> : null}
-                  {detail ? <div className="min-w-0">{detail}</div> : null}
-                </li>
-              );
-            })}
-          </ul>
+          groupBy ? (
+            <div className={cn("grid min-w-0 gap-5", mode === "auto" && AUTO_CARDS[autoBreakpoint])}>
+              {groups.map((group) => (
+                <section key={group.key} className="grid min-w-0 gap-2">
+                  <h3 className="text-sm font-semibold text-[var(--admin-text-muted)]">{group.label}</h3>
+                  {cardList(group.rows, caption)}
+                </section>
+              ))}
+            </div>
+          ) : cardList(sorted, caption, mode === "auto" ? AUTO_CARDS[autoBreakpoint] : undefined)
         ) : null}
       </>
     );
@@ -202,9 +222,22 @@ export function AdminDataView<T>(props: AdminDataViewProps<T>) {
   );
 }
 
+type RowGroup<T> = { key: string; label: ReactNode; rows: readonly T[] };
+
+function groupRows<T>(rows: readonly T[], groupBy: NonNullable<AdminDataViewProps<T>["groupBy"]>): RowGroup<T>[] {
+  const byKey = new Map<string, T[]>();
+  for (const row of rows) {
+    const key = groupBy.key(row);
+    const list = byKey.get(key);
+    if (list) list.push(row);
+    else byKey.set(key, [row]);
+  }
+  return [...byKey].map(([key, list]) => ({ key, label: groupBy.label(key, list), rows: list }));
+}
+
 function DataTable<T>({
   caption,
-  rows,
+  groups,
   getRowId,
   columns,
   rowActions,
@@ -218,7 +251,8 @@ function DataTable<T>({
   tableClassName,
 }: {
   caption: string;
-  rows: readonly T[];
+  /** One unlabeled group when the list is not grouped. */
+  groups: readonly RowGroup<T>[];
   getRowId: (row: T) => string;
   columns: readonly AdminColumn<T>[];
   rowActions?: (row: T, context: AdminDataViewContext) => ReactNode;
@@ -284,8 +318,16 @@ function DataTable<T>({
             ) : null}
           </tr>
         </thead>
-        <tbody>
-          {rows.map((row) => {
+        {groups.map((group) => (
+        <tbody key={group.key}>
+          {group.label ? (
+            <tr className="border-t border-[var(--admin-border)] bg-[var(--admin-surface-muted)]">
+              <th colSpan={columnCount} scope="rowgroup" className="px-3 py-2 text-left text-xs font-semibold text-[var(--admin-text)]">
+                {group.label}
+              </th>
+            </tr>
+          ) : null}
+          {group.rows.map((row) => {
             const id = getRowId(row);
             const detail = rowDetail?.(row, context);
             return (
@@ -320,6 +362,7 @@ function DataTable<T>({
             );
           })}
         </tbody>
+        ))}
       </table>
     </div>
   );

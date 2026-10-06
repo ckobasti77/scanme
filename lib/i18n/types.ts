@@ -3815,6 +3815,100 @@ export interface AdminEventsDict {
   followUpSectionTitle: string;
   followUpSectionHelp: string;
   followUpAdvancedOnly: string;
+  /** Admin UX A3 — `modeli`: filters (lib/admin-v1/model-filters.ts), list and groups. */
+  modelList: {
+    searchLabel: string;
+    searchPlaceholder: string;
+    hierarchyLabel: string;
+    /** {shown} of {total} models. */
+    count: string;
+    facets: { paket: string; status: string; problemi: string; qr: string; foto: string };
+    values: {
+      paket: Record<"za-sve" | "starter" | "napredni", string>;
+      status: Record<"nacrt" | "objavljen" | "povucen", string>;
+      problemi: Record<"greske" | "upozorenja" | "bez", string>;
+      qr: Record<"ima" | "nema", string>;
+      foto: Record<"ima" | "nema", string>;
+    };
+    /** {q} = search text. */
+    searchChip: string;
+    noMatchTitle: string;
+    noMatchBody: string;
+    emptyTitle: string;
+    emptyBody: string;
+    emptyAction: string;
+    colExhibitor: string;
+    colStand: string;
+    colProblems: string;
+    colPhoto: string;
+    qrNone: string;
+    /** {errors}, {warnings}. */
+    problemsCount: string;
+    problemsNone: string;
+    photoYes: string;
+    photoNo: string;
+    photoFallback: string;
+    photoStored: string;
+    /** {exhibitor} · {brand}; {count} models in the group. */
+    groupLabel: string;
+    groupCount: string;
+    open: string;
+    /** {model} — accessible name of the open link. */
+    openAria: string;
+  };
+  /** Admin UX A3 — `modeli/[modelId]`: navigation, QR block and the linked summaries. */
+  modelDetail: {
+    /** {index} of {total} in the current filter. */
+    position: string;
+    notInFilter: string;
+    previous: string;
+    next: string;
+    /** {model}. */
+    previousAria: string;
+    nextAria: string;
+    validationExplain: string;
+    publishTitle: string;
+    publishHelp: string;
+    qrTitle: string;
+    qrOpen: string;
+    qrNone: string;
+    qrSmq: string;
+    resolveHelp: string;
+    summaryTitle: string;
+    summaryOpen: string;
+    /** {section} — accessible name of the summary link. */
+    summaryOpenAria: string;
+    questions: string;
+    /** {day}: {published}, {draft}, {closed}. */
+    questionsDay: string;
+    questionsNone: string;
+    survey: string;
+    /** {version}, {status}. */
+    surveyVersion: string;
+    surveyNone: string;
+    advancedOnly: string;
+    starterOnly: string;
+    passport: string;
+    passportNone: string;
+    /** {status}. */
+    passportMember: string;
+    passportNotMember: string;
+    forms: string;
+    formInterest: string;
+    formTestDrive: string;
+    formOn: string;
+    formOff: string;
+    formNotInPackage: string;
+    leads: string;
+    /** {interest}, {testDrive}, {undelivered}. */
+    leadsValue: string;
+    leadsCapped: string;
+    sponsored: string;
+    /** {order}. */
+    sponsoredActive: string;
+    sponsoredCandidate: string;
+    sponsoredNone: string;
+  };
   daysTitle: string;
   noDays: string;
   participationsTitle: string;
@@ -4315,6 +4409,38 @@ export interface AdminUiDict {
   navCount: string;
   /** A2 — urgency badge in the section navigation (filled by A10). {count} = items. */
   urgency: { hitno: string; uskoro: string; info: string };
+  /** A3 — AdminFilterBar. */
+  filters: {
+    /** Mobile toggle; {count} = active filters. */
+    toggle: string;
+    toggleCount: string;
+    clear: string;
+    activeLabel: string;
+    /** {label} = chip text. */
+    removeChip: string;
+    /** `<select>` option that turns a facet off. */
+    any: string;
+  };
+  /** A3 — AdminHierarchyPicker (Izlagač → Brend → Model). */
+  hierarchy: {
+    exhibitor: string;
+    brand: string;
+    model: string;
+    allExhibitors: string;
+    allBrands: string;
+    /** {label} ({count}). */
+    optionCount: string;
+    modelPlaceholder: string;
+    modelListLabel: string;
+    noMatches: string;
+    /** {shown}, {total}. */
+    moreMatches: string;
+    /** {count} matching models (screen reader). */
+    matchesAnnounce: string;
+    clearModel: string;
+    /** {model}. */
+    selected: string;
+  };
 }
 
 export interface DictBySurface {

@@ -14,6 +14,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { api, internal } from "./_generated/api";
 import schema from "./schema";
 import * as fairAdmin from "./fairAdmin";
+import * as fairAdminStats from "./fairAdminStats";
 import * as fairAnalytics from "./fairAnalytics";
 import * as fairDevFixtures from "./fairDevFixtures";
 import * as fairEmailSender from "./fairEmailSender";
@@ -93,6 +94,8 @@ const AUTHZ: Record<string, { module: Record<string, unknown>; functions: Record
       resolveTest: A, listEvents: A, getEventCatalog: A, listValidationIssues: A, getEventDirectory: A,
     },
   },
+  // Admin UX A3 — read-only numbers of the Modeli list and model detail.
+  fairAdminStats: { module: fairAdminStats, functions: { getLeadCounts: A, getModelQrCodes: A } },
   fairImport: { module: fairImport, functions: { dryRun: A, commit: A } },
   fairInteractionsAdmin: {
     module: fairInteractionsAdmin,
@@ -234,8 +237,10 @@ describe("B7 authz table of every fair function", () => {
       ["exportOrganizerAggregate", (c) => c.action(api.fairReports.exportOrganizerAggregate, { eventId: f.eventId, format: "csv" })],
       ["getRetentionOverview", (c) => c.query(api.fairRetention.getRetentionOverview, {})],
       ["startPurgeDryRun", (c) => c.mutation(api.fairRetention.startPurgeDryRun, {})],
+      ["getLeadCounts", (c) => c.query(api.fairAdminStats.getLeadCounts, { eventId: f.eventId })],
+      ["getModelQrCodes", (c) => c.query(api.fairAdminStats.getModelQrCodes, { eventId: f.eventId })],
     ];
-    const adminFunctions = ["fairInteractionsAdmin", "fairLeadsAdmin", "fairSponsoredAdmin", "fairReports", "fairRetention"].flatMap((name) =>
+    const adminFunctions = ["fairInteractionsAdmin", "fairLeadsAdmin", "fairSponsoredAdmin", "fairReports", "fairRetention", "fairAdminStats"].flatMap((name) =>
       Object.entries(AUTHZ[name].functions).filter(([, access]) => access === "admin").map(([fn]) => fn),
     );
     expect(calls.map(([name]) => name).sort()).toEqual(adminFunctions.sort());

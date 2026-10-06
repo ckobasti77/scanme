@@ -13,8 +13,7 @@ import {
   adminSecondaryButtonClass,
   type AdminColumn,
 } from "@/components/admin/admin-ui";
-import { Fact, Feedback, LoadMore, modelName, Section, type EventMessage } from "@/components/admin/events/event-ui";
-import { BackLink } from "@/components/admin/events/sections/modeli-view";
+import { BackLink, Fact, Feedback, LoadMore, modelName, Section, type EventMessage } from "@/components/admin/events/event-ui";
 import { fmt } from "@/lib/i18n/format";
 import { adminEventsSr as dict } from "@/lib/i18n/sr/admin-events";
 import type { AdminEventsResolveProblem } from "@/lib/i18n/types";
@@ -43,7 +42,7 @@ const inventoryColumns: AdminColumn<InventoryRowView>[] = [
   { id: "assignment", header: dict.colAssignment, sortValue: assignmentText, cell: assignmentText },
 ];
 
-function ResolvePanel({ actions, initialCode = "" }: { actions: Pick<EventsActions, "resolveTest">; initialCode?: string }) {
+export function ResolvePanel({ actions, initialCode = "", help = dict.resolveHelp }: { actions: Pick<EventsActions, "resolveTest">; initialCode?: string; help?: string }) {
   const [pending, setPending] = useState(false);
   const [resolveCode, setResolveCode] = useState(initialCode);
   const [resolved, setResolved] = useState<{ code: string; view: ResolveView } | null>(null);
@@ -65,7 +64,7 @@ function ResolvePanel({ actions, initialCode = "" }: { actions: Pick<EventsActio
 
   return (
     <Section title={dict.resolveTitle}>
-      <p className="text-sm text-[var(--admin-text-muted)]">{dict.resolveHelp}</p>
+      <p className="text-sm text-[var(--admin-text-muted)]">{help}</p>
       <form className="mt-3 grid gap-3 sm:grid-cols-[minmax(0,16rem)_auto] sm:items-end sm:justify-start" onSubmit={(event) => { event.preventDefault(); void resolve(); }}>
         <label className="grid gap-1.5 text-sm font-semibold">{dict.resolveCode}<input value={resolveCode} onChange={(event) => setResolveCode(event.target.value)} autoComplete="off" spellCheck={false} className={cn(adminFieldClass, "font-mono uppercase")} /></label>
         <button type="submit" className={adminSecondaryButtonClass} disabled={pending || !resolveCode.trim()}>{dict.resolveSubmit}</button>

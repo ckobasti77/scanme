@@ -1,4 +1,5 @@
 import { CircleAlert, TriangleAlert } from "lucide-react";
+import Link from "next/link";
 import type { ReactNode } from "react";
 import { issueText, type IssueView, type ModelView, type Paged } from "@/components/admin/admin-events";
 import { AdminPanel, AdminStatus } from "@/components/admin/admin-primitives";
@@ -91,4 +92,8 @@ export function SegmentStatus({ segment }: { segment: FairClientSegment }) {
 
 export function EntryStatus({ status }: { status: FairParticipationStatus }) {
   return <AdminStatus label={dict.entryStatus[status]} tone={status === "active" ? "active" : "neutral"} />;
+}
+
+export function BackLink({ href, label }: { href: string; label: string }) {
+  return <Link href={href} className="w-fit text-sm font-semibold underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--admin-focus,var(--admin-ink))]">← {label}</Link>;
 }

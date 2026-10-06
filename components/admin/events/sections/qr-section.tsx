@@ -35,7 +35,7 @@ function useInventory(): Paged<InventoryRowView> {
   };
 }
 
-function useResolveTest(): Pick<EventsActions, "resolveTest"> {
+export function useResolveTest(): Pick<EventsActions, "resolveTest"> {
   const convex = useConvex();
   return {
     resolveTest: (resolverCode) => attempt(async () => {
