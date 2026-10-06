@@ -40,6 +40,7 @@ import { cardsAdminSr } from "./sr/cards-admin";
 import { adminDomainSr } from "./sr/admin-domain";
 import { adminV1Sr } from "./sr/admin-v1";
 import { adminUiSr } from "./sr/admin-ui";
+import { postaSr } from "./sr/posta";
 import { communicationsSr } from "./sr/communications";
 import { adminTasksSr } from "./sr/admin-tasks";
 import { adminOrdersSr } from "./sr/admin-orders";
@@ -85,6 +86,7 @@ export type {
   AdminDomainDict,
   AdminV1Dict,
   AdminUiDict,
+  PostaDict,
   AdminSettingsDict,
   CommunicationsDict,
   AdminTasksDict,
@@ -126,6 +128,7 @@ export {
   adminDomainSr,
   adminV1Sr,
   adminUiSr,
+  postaSr,
   communicationsSr,
   adminTasksSr,
   adminOrdersSr,
@@ -147,6 +150,7 @@ const SR: DictBySurface = {
   "fair-garage": fairGarageSr,
   "admin-v1": adminV1Sr,
   "admin-ui": adminUiSr,
+  posta: postaSr,
   "admin-settings": adminSettingsSr,
   "admin-search": adminSearchSr,
   communications: communicationsSr,

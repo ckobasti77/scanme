@@ -3,6 +3,7 @@
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useQuery } from "convex/react";
 import {
+  AtSign,
   Bell,
   Building2,
   CalendarDays,
@@ -70,6 +71,7 @@ const navIcons: Record<AdminNavId, NavIcon> = {
   dashboard: LayoutDashboard,
   clients: Building2,
   inbox: Mail,
+  mail: AtSign,
   tasks: CheckSquare2,
   operations: PackageSearch,
   services: PanelsTopLeft,
@@ -208,7 +210,7 @@ function DesktopNavigation({ pathname }: { pathname: string }) {
                   type="button"
                   aria-current={active ? "page" : undefined}
                   className={cn(
-                    "admin-v1-round inline-flex min-h-10 items-center gap-1 rounded-full px-2 text-[0.78rem] font-semibold whitespace-nowrap transition-[background-color,color] duration-150 2xl:gap-1.5 2xl:px-3.5 2xl:text-[0.82rem]",
+                    "admin-v1-round inline-flex min-h-10 items-center gap-1 rounded-full px-1.5 text-[0.78rem] font-semibold whitespace-nowrap transition-[background-color,color] duration-150 2xl:gap-1.5 2xl:px-3.5 2xl:text-[0.82rem]",
                     active
                       ? "bg-[var(--admin-ink)] text-[var(--admin-on-ink)]"
                       : "text-[var(--admin-text)] hover:bg-[var(--admin-surface-muted)]",
@@ -260,7 +262,7 @@ function DesktopNavigation({ pathname }: { pathname: string }) {
             href={item.href}
             aria-current={active ? "page" : undefined}
             className={cn(
-              "inline-flex min-h-10 items-center rounded-full px-2 text-[0.78rem] font-semibold whitespace-nowrap transition-[background-color,color] duration-150 2xl:px-3.5 2xl:text-[0.82rem]",
+              "inline-flex min-h-10 items-center rounded-full px-1.5 text-[0.78rem] font-semibold whitespace-nowrap transition-[background-color,color] duration-150 2xl:px-3.5 2xl:text-[0.82rem]",
               active
                 ? "bg-[var(--admin-ink)] text-[var(--admin-on-ink)]"
                 : "text-[var(--admin-text)] hover:bg-[var(--admin-surface-muted)]",

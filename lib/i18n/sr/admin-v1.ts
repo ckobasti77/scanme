@@ -11,6 +11,7 @@ export const adminV1Sr = {
   navDashboard: "Dashboard",
   navClients: "Klijenti",
   navInbox: "Inbox",
+  navMail: "Pošta",
   navTasks: "Zadaci",
   navOperations: "Operativa",
   navServices: "Usluge",
