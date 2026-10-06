@@ -13,3 +13,4 @@ export { AdminSubnav } from "./admin-subnav";
 export { adminFieldClass, adminPrimaryButtonClass, adminSecondaryButtonClass } from "./admin-controls";
 export { AdminFilterBar, type AdminFilterBarProps, type AdminFilterChip, type AdminFilterFacet, type AdminFilterFacetOption } from "./admin-filter-bar";
 export { AdminHierarchyPicker, type AdminHierarchyPickerProps } from "./admin-hierarchy-picker";
+export { AdminOptionRows, optionRowsProblemText, type AdminOptionRowsProps } from "./admin-option-rows";

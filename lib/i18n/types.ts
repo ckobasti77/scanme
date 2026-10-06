@@ -4383,7 +4383,6 @@ export interface AdminEventsDict {
   fieldModel: string;
   fieldDay: string;
   questionPrompt: string;
-  questionOptions: string;
   questionSave: string;
   questionSaved: string;
   questionsEmpty: string;
@@ -4392,17 +4391,12 @@ export interface AdminEventsDict {
   questionPublished: string;
   questionClose: string;
   questionClosed: string;
-  questionRotationSet: string;
-  questionRotationOn: string;
-  questionRotationAdd: string;
-  questionRotationClear: string;
   questionStatus: Record<FairAudienceQuestionStatus, string>;
   surveysTitle: string;
   surveysHelp: string;
   surveyQuestionLabel: string;
   surveyKind: string;
   surveyKinds: Record<FairSurveyQuestionKind, string>;
-  surveyOptions: string;
   surveyAddQuestion: string;
   surveyRemoveQuestion: string;
   surveySave: string;
@@ -4415,6 +4409,94 @@ export interface AdminEventsDict {
   surveyRetire: string;
   surveyRetired: string;
   surveyStatus: Record<FairSurveyStatus, string>;
+  /** Admin UX A6 — Glas publike. Placeholders: {day} {model} {used} {limit} {count} {tier} {date} {brand} {exhibitor} {reason} {prompt}. */
+  audience: {
+    formTitle: string;
+    formEditTitle: string;
+    cancelEdit: string;
+    optionsLabel: string;
+    saveAndPublish: string;
+    savedAndPublished: string;
+    savedPublishFailed: string;
+    updated: string;
+    pickModelFirst: string;
+    promptEmpty: string;
+    noDays: string;
+    noModels: string;
+    pickSublabel: string;
+    pickNotEntitled: string;
+    pickPending: string;
+    quotaTitle: string;
+    quotaLine: string;
+    quotaRemaining: string;
+    quotaDrafts: string;
+    quotaStarterHint: string;
+    quotaAdvancedHint: string;
+    blocks: Record<"not_entitled" | "pending_package" | "day_limit", string>;
+    publishBlockedShort: string;
+    matrixTitle: string;
+    matrixHelp: string;
+    matrixGaps: string;
+    matrixNoGaps: string;
+    matrixModel: string;
+    matrixToday: string;
+    matrixCellAria: string;
+    matrixDrafts: string;
+    matrixNone: string;
+    legendEmpty: string;
+    legendPartial: string;
+    legendFull: string;
+    listTitle: string;
+    listCount: string;
+    groupLabel: string;
+    groupQuota: string;
+    filterLabel: string;
+    facetStatus: string;
+    facetExhibitor: string;
+    statuses: Record<"draft" | "published" | "sponsored" | "closed", string>;
+    noMatchTitle: string;
+    noMatchBody: string;
+    edit: string;
+    editAria: string;
+    closeConfirm: string;
+    setSponsored: string;
+    clearSponsored: string;
+    sponsoredSet: string;
+    sponsoredCleared: string;
+    sponsoredHelp: string;
+  };
+  /** Admin UX A6 — survey form. Placeholders: {n} {version} {from} {count} {max} {problem} {reason} {date} {model}. */
+  surveyForm: {
+    modelLabel: string;
+    pickNotAdvanced: string;
+    pickPending: string;
+    noAdvancedTitle: string;
+    noAdvancedBody: string;
+    pickPrompt: string;
+    editingDraft: string;
+    newFromPublished: string;
+    newFirst: string;
+    questionLabel: string;
+    promptLabel: string;
+    kindLabel: string;
+    optionsLabel: string;
+    moveUp: string;
+    moveDown: string;
+    remove: string;
+    add: string;
+    count: string;
+    maxReached: string;
+    promptEmpty: string;
+    optionsProblem: string;
+    saveAndPublish: string;
+    savedPublishFailed: string;
+    versionsTitle: string;
+    versionsCount: string;
+    versionLabel: string;
+    open: string;
+    openAria: string;
+    retireConfirm: string;
+  };
   passportsTitle: string;
   passportsHelp: string;
   passportsEmpty: string;
@@ -4753,6 +4835,24 @@ export interface AdminUiDict {
     clearModel: string;
     /** {model}. */
     selected: string;
+  };
+  /** A6 — AdminOptionRows (answer options as dynamic rows). {n} = row number. */
+  optionRows: {
+    option: string;
+    add: string;
+    remove: string;
+    moveUp: string;
+    moveDown: string;
+    /** {count}, {max}. */
+    count: string;
+    /** {min}. */
+    tooFew: string;
+    /** {max}. */
+    tooMany: string;
+    empty: string;
+    duplicate: string;
+    duplicateRow: string;
+    emptyRow: string;
   };
 }
 
