@@ -3967,6 +3967,8 @@ export default defineSchema({
     emailAddress: v.string(),
     displayName: v.optional(v.string()),
     isDefault: v.boolean(),
+    // Z2 — signature of this mailbox (plain text with [links](…)), kept on reconnect.
+    signatureText: v.optional(v.string()),
   })
     .index("by_connectionId", ["connectionId"])
     .index("by_ownerUserId", ["ownerUserId"]),
@@ -3982,4 +3984,40 @@ export default defineSchema({
   })
     .index("by_stateHash", ["stateHash"])
     .index("by_ownerUserId_and_createdAt", ["ownerUserId", "createdAt"]),
+
+  // Z2 — a file the admin attached in the compose window: Convex storage only
+  // until the send action hands it to Zoho, then deleted (or after 2 h).
+  adminMailUploads: defineTable({
+    ownerUserId: v.id("users"),
+    storageId: v.id("_storage"),
+    fileName: v.string(),
+    size: v.number(),
+    mimeType: v.string(),
+    createdAt: v.number(),
+    expiresAt: v.number(),
+  })
+    .index("by_ownerUserId_and_createdAt", ["ownerUserId", "createdAt"])
+    .index("by_storageId", ["storageId"]),
+
+  // Z2 — one send attempt (ADMIN-09B outbox pattern): a sendCommandId is used
+  // once; `needs_reconciliation` means the POST may have reached Zoho and is
+  // never repeated. No body, subject or recipients are stored.
+  adminMailSendCommands: defineTable({
+    ownerUserId: v.id("users"),
+    connectionId: v.id("adminMailConnections"),
+    zohoAccountId: v.string(),
+    sendCommandId: v.string(),
+    mode: v.union(v.literal("new"), v.literal("reply"), v.literal("reply_all"), v.literal("forward")),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("sending"),
+      v.literal("sent"),
+      v.literal("failed"),
+      v.literal("needs_reconciliation"),
+    ),
+    providerMessageId: v.optional(v.string()),
+    errorCode: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_ownerUserId_and_sendCommandId", ["ownerUserId", "sendCommandId"]),
 });

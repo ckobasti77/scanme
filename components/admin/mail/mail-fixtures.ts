@@ -6,6 +6,8 @@ import type {
   AdminMailMessage,
   AdminMailStatus,
 } from "@/convex/lib/adminMailContract";
+import type { MailComposeAttachment } from "./compose-logic";
+import type { MailComposeInitial } from "./use-mail-compose";
 import type { MailSource } from "./use-mail-workspace";
 
 // Admin UX Z1 — TEST data of /dev/admin-mail-preview (never a real mailbox,
@@ -13,7 +15,7 @@ import type { MailSource } from "./use-mail-workspace";
 // form, an inline handler, a javascript: link and a meta refresh: on screen
 // the script line must stay "Skripta nije pokrenuta." and the image blocked.
 
-export type MailPreviewState = "spremno" | "nije-podeseno" | "bez-naloga" | "greska";
+export type MailPreviewState = "spremno" | "nije-podeseno" | "bez-naloga" | "greska" | "pisanje" | "pregled-pisma" | "potpis";
 export type MailPreviewMessage = "html" | "tekst" | "nijedna";
 
 const CONNECTION_A = "test-posta-veza-a" as Id<"adminMailConnections">;
@@ -136,7 +138,13 @@ export function previewMailStatus(state: MailPreviewState): AdminMailStatus {
         status: "active",
         lastErrorCode: null,
         connectedAt: BASE - 48 * HOUR,
-        accounts: [{ accountId: ACCOUNT_A, emailAddress: "posta-test@example.invalid", displayName: "TEST Pošta", isDefault: true }],
+        accounts: [{
+          accountId: ACCOUNT_A,
+          emailAddress: "posta-test@example.invalid",
+          displayName: "TEST Pošta",
+          isDefault: true,
+          signatureText: "TEST Admin\nScanMe · [www.scanme.rs](https://www.scanme.rs)",
+        }],
       },
       {
         connectionId: CONNECTION_B,
@@ -144,7 +152,7 @@ export function previewMailStatus(state: MailPreviewState): AdminMailStatus {
         status: "active",
         lastErrorCode: null,
         connectedAt: BASE - 24 * HOUR,
-        accounts: [{ accountId: ACCOUNT_B, emailAddress: "prodaja-test@example.invalid", displayName: "TEST Prodaja", isDefault: true }],
+        accounts: [{ accountId: ACCOUNT_B, emailAddress: "prodaja-test@example.invalid", displayName: "TEST Prodaja", isDefault: true, signatureText: null }],
       },
       {
         connectionId: CONNECTION_C,
@@ -152,7 +160,7 @@ export function previewMailStatus(state: MailPreviewState): AdminMailStatus {
         status: "auth_required",
         lastErrorCode: "ZOHO_AUTH_REQUIRED",
         connectedAt: BASE - 96 * HOUR,
-        accounts: [{ accountId: "9000000000303", emailAddress: "stari-test@example.invalid", displayName: null, isDefault: true }],
+        accounts: [{ accountId: "9000000000303", emailAddress: "stari-test@example.invalid", displayName: null, isDefault: true, signatureText: null }],
       },
     ],
   };
@@ -186,6 +194,70 @@ export function previewMailSource(state: MailPreviewState): MailSource {
     },
     connect: async () => {},
     disconnect: async () => {},
+    // Z2 — the preview never sends: the upload is simulated, sending answers "not configured".
+    uploadAttachment: (file, onProgress) =>
+      new Promise((resolve) => {
+        let step = 0;
+        const timer = setInterval(() => {
+          step += 1;
+          onProgress(Math.min(1, step / 4));
+          if (step >= 4) {
+            clearInterval(timer);
+            resolve({ uploadId: `test-prilog-${file.name}` as Id<"adminMailUploads">, fileName: file.name, size: file.size });
+          }
+        }, 150);
+      }),
+    removeAttachment: async () => {},
+    send: async () => {
+      throw new ConvexError({ code: "ZOHO_NOT_CONFIGURED" });
+    },
+    checkSend: async () => null,
+    suggestRecipients: async (prefix) =>
+      [
+        { email: "kupac@example.invalid", name: "TEST Kupac" },
+        { email: "izlagac@example.invalid", name: "TEST Izlagač" },
+        { email: "kopija@example.invalid", name: "TEST Kopija" },
+      ].filter((item) => item.email.startsWith(prefix.toLowerCase())),
+    saveSignature: async () => {
+      throw new ConvexError({ code: "ZOHO_NOT_CONFIGURED" });
+    },
+  };
+}
+
+/** Compose open on the TEST HTML message: reply text with markup, one ready and one uploading attachment. */
+export function previewInitialCompose(state: MailPreviewState): MailComposeInitial | undefined {
+  if (state === "potpis") return { signatureOpen: true };
+  if (state !== "pisanje" && state !== "pregled-pisma") return undefined;
+  const original = inbox.find((item) => item.messageId === PREVIEW_HTML_MESSAGE_ID)!;
+  const attachments: MailComposeAttachment[] = [
+    { localId: "test-prilog-1", fileName: "TEST spisak modela.pdf", size: 184_320, progress: 1, status: "ready", uploadId: "test-prilog-1" as Id<"adminMailUploads">, errorCode: null },
+    { localId: "test-prilog-2", fileName: "TEST katalog.pdf", size: 2_621_440, progress: 0.62, status: "uploading", uploadId: null, errorCode: null },
+  ];
+  return {
+    compose: {
+      mode: "reply",
+      source: { folderId: INBOX, messageId: original.messageId, message: detail(original) },
+      draft: {
+        to: ["izlagac@example.invalid"],
+        cc: ["kopija@example.invalid"],
+        bcc: [],
+        subject: "Re: TEST ponuda za štand (HTML sa slikom i skriptom)",
+        body: [
+          "Zdravo,",
+          "",
+          "hvala na **TEST** ponudi. Detalji paketa su na [www.scanme.rs](https://www.scanme.rs).",
+          "",
+          "| Model | Paket |",
+          "| --- | --- |",
+          "| TEST X1 | Napredni |",
+          "| TEST X2 | Starter |",
+        ].join("\n"),
+        showCc: true,
+        showBcc: false,
+      },
+      attachments,
+      tab: state === "pregled-pisma" ? "preview" : "write",
+    },
   };
 }
 

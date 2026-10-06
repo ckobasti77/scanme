@@ -5365,6 +5365,97 @@ export interface PostaDict {
   retry: string;
   /** {seconds}. */
   retryAfter: string;
+  /** Z2 — the ScanMe email template (lib/email-template/scanme-email.ts). */
+  email: {
+    footer: string;
+    footerLink: string;
+    /** {date}, {sender}. */
+    replyHeader: string;
+    forwardHeader: string;
+    forwardFrom: string;
+    forwardDate: string;
+    forwardSubject: string;
+    forwardTo: string;
+    forwardCc: string;
+    replyPrefix: string;
+    forwardPrefix: string;
+  };
+  /** Z2 — writing, replying and forwarding. */
+  compose: {
+    newMessage: string;
+    titles: Record<"new" | "reply" | "reply_all" | "forward", string>;
+    reply: string;
+    replyAll: string;
+    forward: string;
+    messageActions: string;
+    tabsLabel: string;
+    tabWrite: string;
+    tabPreview: string;
+    from: string;
+    to: string;
+    cc: string;
+    bcc: string;
+    addCc: string;
+    addBcc: string;
+    recipientPlaceholder: string;
+    /** {address}. */
+    removeRecipient: string;
+    /** {address}. */
+    invalidRecipient: string;
+    missingRecipient: string;
+    subjectMissing: string;
+    waitForUploads: string;
+    suggestionsLabel: string;
+    subject: string;
+    body: string;
+    bodyPlaceholder: string;
+    toolbarLabel: string;
+    bold: string;
+    link: string;
+    linkPrompt: string;
+    formattingHint: string;
+    attachments: string;
+    dropzone: string;
+    chooseFiles: string;
+    /** {count}, {size}. */
+    attachmentLimits: string;
+    /** {name}, {percent}. */
+    uploading: string;
+    /** {name}. */
+    removeAttachment: string;
+    attachmentFailed: string;
+    forwardAttachments: string;
+    quoteNote: Record<"reply" | "forward", string>;
+    signatureNote: string;
+    noSignature: string;
+    send: string;
+    sending: string;
+    sendAgain: string;
+    resendConfirm: string;
+    discard: string;
+    discardConfirm: string;
+    draftSaved: string;
+    sent: string;
+    openSent: string;
+    uncertain: string;
+    /** {subject}. */
+    previewTitle: string;
+    textVersion: string;
+    close: string;
+  };
+  /** Z2 — signature per mailbox ("podešavanja Pošte"). */
+  settings: {
+    open: string;
+    title: string;
+    description: string;
+    /** {email}. */
+    signatureLabel: string;
+    signaturePlaceholder: string;
+    save: string;
+    saving: string;
+    saved: string;
+    preview: string;
+  };
   /** Stable backend codes (convex/lib/adminMailContract.ts) + the generic fallback. */
   errors: Record<
     | "ZOHO_NOT_CONFIGURED"
@@ -5377,6 +5468,9 @@ export interface PostaDict {
     | "ZOHO_REGION_UNSUPPORTED"
     | "ZOHO_ATTACHMENT_BLOCKED"
     | "ZOHO_REQUEST_REJECTED"
+    | "ZOHO_RECIPIENT_INVALID"
+    | "ZOHO_COMPOSE_INVALID"
+    | "ZOHO_SEND_UNCERTAIN"
     | "ACTION_FAILED",
     string
   >;

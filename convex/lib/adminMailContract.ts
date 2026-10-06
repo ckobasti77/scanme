@@ -16,6 +16,10 @@ export const ADMIN_MAIL_ERROR_CODES = [
   "ZOHO_REGION_UNSUPPORTED",
   "ZOHO_ATTACHMENT_BLOCKED",
   "ZOHO_REQUEST_REJECTED",
+  // Z2 — sending
+  "ZOHO_RECIPIENT_INVALID",
+  "ZOHO_COMPOSE_INVALID",
+  "ZOHO_SEND_UNCERTAIN",
 ] as const;
 
 export type AdminMailErrorCode = (typeof ADMIN_MAIL_ERROR_CODES)[number];
@@ -30,6 +34,38 @@ export const ADMIN_MAIL_PAGE_SIZE_MAX = 50;
 export const ADMIN_MAIL_ATTACHMENT_MAX_BYTES = 7 * 1024 * 1024;
 /** Longest search text sent to Zoho. */
 export const ADMIN_MAIL_SEARCH_MAX_LENGTH = 100;
+
+// Z2 — limits of one outgoing message.
+export const ADMIN_MAIL_SEND_MAX_ATTACHMENTS = 10;
+export const ADMIN_MAIL_SEND_FILE_MAX_BYTES = 10 * 1024 * 1024;
+export const ADMIN_MAIL_SEND_TOTAL_MAX_BYTES = 20 * 1024 * 1024;
+export const ADMIN_MAIL_MAX_RECIPIENTS = 50;
+export const ADMIN_MAIL_SUBJECT_MAX_LENGTH = 300;
+export const ADMIN_MAIL_BODY_MAX_LENGTH = 50_000;
+export const ADMIN_MAIL_SIGNATURE_MAX_LENGTH = 2_000;
+/** A registered upload that is not sent is deleted after this time. */
+export const ADMIN_MAIL_UPLOAD_TTL_MS = 2 * 60 * 60 * 1_000;
+
+export const ADMIN_MAIL_COMPOSE_MODES = ["new", "reply", "reply_all", "forward"] as const;
+export type AdminMailComposeMode = (typeof ADMIN_MAIL_COMPOSE_MODES)[number];
+export const adminMailComposeMode = v.union(v.literal("new"), v.literal("reply"), v.literal("reply_all"), v.literal("forward"));
+
+/** ADMIN-09B outbox states: `needs_reconciliation` = the POST may have been accepted; never resent blindly. */
+export const adminMailSendStatus = v.union(
+  v.literal("pending"),
+  v.literal("sending"),
+  v.literal("sent"),
+  v.literal("failed"),
+  v.literal("needs_reconciliation"),
+);
+
+export const adminMailSendResult = v.object({
+  sendCommandId: v.string(),
+  status: adminMailSendStatus,
+  errorCode: v.union(v.string(), v.null()),
+  /** The same sendCommandId was already used: nothing was sent again. */
+  duplicate: v.boolean(),
+});
 
 const nullableString = v.union(v.string(), v.null());
 
@@ -104,6 +140,8 @@ export const adminMailStatus = v.object({
       emailAddress: v.string(),
       displayName: nullableString,
       isDefault: v.boolean(),
+      /** Z2 — signature of this mailbox (text with links), null = none. */
+      signatureText: nullableString,
     })),
   })),
 });
@@ -116,3 +154,5 @@ export type AdminMailMessage = Infer<typeof adminMailMessage>;
 export type AdminMailMessagePage = Infer<typeof adminMailMessagePage>;
 export type AdminMailStatus = Infer<typeof adminMailStatus>;
 export type AdminMailConnectionView = AdminMailStatus["connections"][number];
+export type AdminMailSendStatus = Infer<typeof adminMailSendStatus>;
+export type AdminMailSendResult = Infer<typeof adminMailSendResult>;

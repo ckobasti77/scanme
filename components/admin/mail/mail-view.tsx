@@ -3,6 +3,10 @@ import {
   ArrowLeft,
   AtSign,
   ChevronLeft,
+  Forward,
+  PenLine,
+  Reply,
+  ReplyAll,
   ChevronRight,
   Download,
   FileText,
@@ -31,7 +35,7 @@ import { mailHasRemoteImages } from "./mail-srcdoc";
 import { mailErrorText, mailFolderLabel, mailFullTime, mailListTime, mailSize, type MailFailure } from "./mail-format";
 import type { MailFilter, MailNotice, MailViewActions, MailViewModel } from "./use-mail-workspace";
 
-// Admin UX Z1 — the Pošta screen (props only; the container and the preview
+// Admin UX Z1/Z2 — the Pošta screen (props only; the container and the preview
 // pass the same model). Desktop ≥1280: folders | list | message. 1024–1279:
 // folders as a row above list | message. Phone: a stack — folders and list,
 // and an opened message replaces them (with "Nazad na listu").
@@ -54,7 +58,22 @@ export function AdminMailView({ model, actions, badge }: { model: MailViewModel;
           <h1 className="text-3xl font-semibold tracking-[-0.04em] sm:text-4xl">{dict.pageTitle}</h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--admin-text-muted)]">{dict.pageSubtitle}</p>
         </div>
-        {model.mode !== "not_configured" ? (
+        {model.mode === "ready" ? (
+          <div className="flex flex-wrap gap-2">
+            <button type="button" className={adminSecondaryButtonClass} onClick={actions.openSignature}>
+              <PenLine className="size-4" aria-hidden="true" />
+              {dict.settings.open}
+            </button>
+            <button type="button" className={adminSecondaryButtonClass} onClick={actions.connect} disabled={model.busyConnect}>
+              <Plus className="size-4" aria-hidden="true" />
+              {model.busyConnect ? dict.connecting : dict.connect}
+            </button>
+            <button type="button" className={adminPrimaryButtonClass} onClick={() => actions.compose("new")}>
+              <PenLine className="size-4" aria-hidden="true" />
+              {dict.compose.newMessage}
+            </button>
+          </div>
+        ) : model.mode !== "not_configured" ? (
           <button type="button" className={adminPrimaryButtonClass} onClick={actions.connect} disabled={model.busyConnect}>
             <Plus className="size-4" aria-hidden="true" />
             {model.busyConnect ? dict.connecting : dict.connect}
@@ -62,7 +81,7 @@ export function AdminMailView({ model, actions, badge }: { model: MailViewModel;
         ) : null}
       </header>
 
-      {model.notice ? <NoticeBar notice={model.notice} onDismiss={actions.dismissNotice} /> : null}
+      {model.notice ? <NoticeBar notice={model.notice} onDismiss={actions.dismissNotice} onOpenSent={actions.openSentFolder} /> : null}
 
       {model.connections.length > 0 ? <ConnectionsBar model={model} actions={actions} className={cn(model.selected && "hidden lg:flex")} /> : null}
 
@@ -91,7 +110,7 @@ export function AdminMailView({ model, actions, badge }: { model: MailViewModel;
   );
 }
 
-function NoticeBar({ notice, onDismiss }: { notice: MailNotice; onDismiss: () => void }) {
+function NoticeBar({ notice, onDismiss, onOpenSent }: { notice: MailNotice; onDismiss: () => void; onOpenSent: () => void }) {
   const tone = {
     success: "border-[var(--admin-success-border)] bg-[var(--admin-success-soft)] text-[var(--admin-success)]",
     error: "border-[var(--admin-danger-border)] bg-[var(--admin-danger-soft)] text-[var(--admin-danger)]",
@@ -99,7 +118,14 @@ function NoticeBar({ notice, onDismiss }: { notice: MailNotice; onDismiss: () =>
   }[notice.tone];
   return (
     <div role={notice.tone === "error" ? "alert" : "status"} className={cn("flex items-start justify-between gap-3 rounded-[var(--admin-radius-control)] border px-4 py-3 text-sm font-medium", tone)}>
-      <p className="min-w-0 leading-6">{notice.text}</p>
+      <p className="min-w-0 leading-6">
+        {notice.text}
+        {notice.action === "openSent" ? (
+          <button type="button" onClick={onOpenSent} className={cn("ml-2 font-semibold underline underline-offset-2", focusRing)}>
+            {dict.compose.openSent}
+          </button>
+        ) : null}
+      </p>
       <button type="button" onClick={onDismiss} aria-label={dict.dismissNotice} className={cn("grid size-8 shrink-0 place-items-center rounded-full", focusRing)}>
         <X className="size-4" aria-hidden="true" />
       </button>
@@ -424,6 +450,20 @@ function MessageReader({ message, model, actions }: { message: AdminMailMessage;
           ) : null}
         </dl>
         <div className="flex flex-wrap items-center gap-2">
+          <div role="group" aria-label={dict.compose.messageActions} className="flex flex-wrap gap-2">
+            <button type="button" className={smallButton} onClick={() => actions.compose("reply")}>
+              <Reply className="size-3.5" aria-hidden="true" />
+              {dict.compose.reply}
+            </button>
+            <button type="button" className={smallButton} onClick={() => actions.compose("reply_all")}>
+              <ReplyAll className="size-3.5" aria-hidden="true" />
+              {dict.compose.replyAll}
+            </button>
+            <button type="button" className={smallButton} onClick={() => actions.compose("forward")}>
+              <Forward className="size-3.5" aria-hidden="true" />
+              {dict.compose.forward}
+            </button>
+          </div>
           {unread ? (
             <button type="button" className={smallButton} onClick={actions.markRead} disabled={model.markingRead}>
               {dict.markRead}

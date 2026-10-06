@@ -3,10 +3,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Id } from "@/convex/_generated/dataModel";
 import type {
+  AdminMailComposeMode,
   AdminMailConnectionView,
   AdminMailFolder,
   AdminMailMessage,
   AdminMailMessagePage,
+  AdminMailSendResult,
+  AdminMailSendStatus,
   AdminMailStatus,
 } from "@/convex/lib/adminMailContract";
 import { useMinuteNow } from "@/components/admin/admin-ui/use-minute-now";
@@ -27,6 +30,22 @@ export type MailAccountOption = {
   accountId: string;
   emailAddress: string;
   label: string;
+  /** Z2 — the mailbox signature (null = none). */
+  signatureText: string | null;
+};
+
+/** Z2 — one send attempt as the compose window hands it over. */
+export type MailSendInput = {
+  sendCommandId: string;
+  mode: AdminMailComposeMode;
+  to: string[];
+  cc: string[];
+  bcc: string[];
+  subject: string;
+  bodyText: string;
+  source: { folderId: string; messageId: string } | null;
+  uploadIds: Id<"adminMailUploads">[];
+  forwardAttachmentIds: string[];
 };
 
 /** What the screen needs from the backend (Convex actions or TEST fixtures). */
@@ -41,6 +60,14 @@ export type MailSource = {
   downloadAttachment(account: MailAccountOption, args: { folderId: string; messageId: string; attachmentId: string }): Promise<void>;
   connect(): Promise<void>;
   disconnect(connectionId: Id<"adminMailConnections">): Promise<void>;
+  // Z2 — writing
+  uploadAttachment(file: File, onProgress: (fraction: number) => void): Promise<{ uploadId: Id<"adminMailUploads">; fileName: string; size: number }>;
+  removeAttachment(uploadId: Id<"adminMailUploads">): Promise<void>;
+  send(account: MailAccountOption, input: MailSendInput): Promise<AdminMailSendResult>;
+  /** The stored outcome of an attempt (after a lost connection), or null. */
+  checkSend(sendCommandId: string): Promise<{ status: AdminMailSendStatus; errorCode: string | null } | null>;
+  suggestRecipients(prefix: string): Promise<{ email: string; name: string }[]>;
+  saveSignature(account: MailAccountOption, signatureText: string): Promise<void>;
 };
 
 export type Loadable<T> =
@@ -49,7 +76,7 @@ export type Loadable<T> =
   | { status: "error"; failure: MailFailure }
   | { status: "ready"; data: T };
 
-export type MailNotice = { tone: "success" | "error" | "info"; text: string };
+export type MailNotice = { tone: "success" | "error" | "info"; text: string; action?: "openSent" };
 export type MailFilter = "all" | "unread";
 
 export type MailViewModel = {
@@ -97,6 +124,10 @@ export type MailViewActions = {
   showImages(): void;
   markRead(): void;
   download(attachmentId: string): void;
+  // Z2
+  compose(mode: AdminMailComposeMode): void;
+  openSignature(): void;
+  openSentFolder(): void;
 };
 
 export function mailAccountOptions(connections: AdminMailConnectionView[]): MailAccountOption[] {
@@ -109,6 +140,7 @@ export function mailAccountOptions(connections: AdminMailConnectionView[]): Mail
         accountId: account.accountId,
         emailAddress: account.emailAddress,
         label: account.emailAddress,
+        signatureText: account.signatureText,
       })),
     );
 }
@@ -152,7 +184,12 @@ export function useMailWorkspace({
   source: MailSource;
   initialNotice?: MailNotice | null;
   initialMessage?: { folderId: string; messageId: string } | null;
-}): { model: MailViewModel; actions: MailViewActions } {
+}): {
+  model: MailViewModel;
+  actions: Omit<MailViewActions, "compose" | "openSignature">;
+  /** Z2 — for the compose window: the current mailbox and message, a notice, a list refresh. */
+  controls: { account: MailAccountOption | null; message: AdminMailMessage | null; selected: { folderId: string; messageId: string } | null; notify(notice: MailNotice): void; refreshList(): void };
+} {
   const now = useMinuteNow();
   const accounts = useMemo(() => mailAccountOptions(status.connections), [status.connections]);
   const [accountChoice, setAccountChoice] = useState<string | null>(null);
@@ -200,7 +237,7 @@ export function useMailWorkspace({
 
   const mode: MailViewModel["mode"] = !status.configured ? "not_configured" : accounts.length === 0 ? "no_connection" : "ready";
 
-  const actions: MailViewActions = {
+  const actions: Omit<MailViewActions, "compose" | "openSignature"> = {
     connect() {
       setBusyConnect(true);
       source.connect().then(
@@ -289,6 +326,17 @@ export function useMailWorkspace({
         },
       );
     },
+    openSentFolder() {
+      const sent = folderList.find((folder) => folder.type === "Sent");
+      setNotice(null);
+      if (!sent) return;
+      if (accountKey) setFolderChoice({ accountKey, folderId: sent.folderId });
+      setSearch("");
+      setSearchDraft("");
+      setStart(1);
+      setSelection(null);
+      retryList();
+    },
   };
 
   return {
@@ -318,5 +366,12 @@ export function useMailWorkspace({
       now,
     },
     actions,
+    controls: {
+      account,
+      message: message.status === "ready" ? message.data : null,
+      selected,
+      notify: setNotice,
+      refreshList: retryList,
+    },
   };
 }

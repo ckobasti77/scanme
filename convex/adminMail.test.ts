@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
 
-// Admin UX Z1 — Pošta (ADMIN-UX-ZAHTEVI §10, A0 §10 "Z1/Z2"): encryption,
+// Admin UX Z1/Z2 — Pošta (ADMIN-UX-ZAHTEVI §10, A0 §10 "Z1/Z2"): encryption,
 // the one-time OAuth state, owner isolation, Zoho response mapping,
 // 401 → one refresh → auth_required, 429/5xx, the inert switch and the authz
 // table of every adminMail function. `fetch` is a mock in every test: no
@@ -74,7 +74,7 @@ function enableMail() {
 // Zoho mock (EU accounts + EU mail API only)
 // -----------------------------------------------------------------------------
 
-type Call = { method: string; url: URL; headers: Headers; body: string };
+type Call = { method: string; url: URL; headers: Headers; body: string; bytes: Uint8Array | null };
 
 function zohoMock() {
   const calls: Call[] = [];
@@ -86,6 +86,8 @@ function zohoMock() {
     /** Forced HTTP statuses per mail API path, consumed in order. */
     failures: new Map<string, number[]>(),
     accounts: [{ accountId: ACC_A, email: ADMIN_A }],
+    /** Z2: outcome of each send/reply POST, consumed in order ("ok" when empty). */
+    sendBehavior: [] as ("ok" | "network" | "garbage" | number)[],
   };
   const raw = (text: string, status = 200, headers: Record<string, string> = {}) =>
     new Response(text, { status, headers: { "Content-Type": "application/json", ...headers } });
@@ -107,7 +109,8 @@ function zohoMock() {
     const method = init.method ?? "GET";
     const headers = new Headers(init.headers);
     const body = typeof init.body === "string" ? init.body : "";
-    calls.push({ method, url, headers, body });
+    const bytes = init.body instanceof ArrayBuffer ? new Uint8Array(init.body) : null;
+    calls.push({ method, url, headers, body, bytes });
 
     if (url.origin === "https://accounts.zoho.eu") {
       if (url.pathname === "/oauth/v2/token/revoke" && method === "POST") return json({ status: "success" });
@@ -170,6 +173,17 @@ function zohoMock() {
         `"receivedtime":1759737600000,"status":"unread","hasAttachment":0}]}`);
     }
     if (rest === "/updatemessage" && method === "PUT") return json({ status: { code: 200, description: "success" } });
+    if (rest === "/messages/attachments" && method === "POST") {
+      const name = url.searchParams.get("fileName") ?? "";
+      return ok({ storeName: "TEST-NN2", attachmentPath: `/test-upload_${name}`, attachmentName: name });
+    }
+    if ((rest === "/messages" || /^\/messages\/\d+$/.test(rest)) && method === "POST") {
+      const behavior = state.sendBehavior.shift() ?? "ok";
+      if (behavior === "network") throw new TypeError("TEST connection lost after the request");
+      if (behavior === "garbage") return raw("<html>TEST</html>");
+      if (typeof behavior === "number") return json({ status: { code: behavior, description: "TEST" } }, behavior);
+      return ok({ messageId: "1709887058769300001", mailId: "<TEST.message@zoho.eu>" });
+    }
     const message = rest.match(/^\/folders\/(\d+)\/messages\/(\d+)\/(details|content|attachmentinfo|attachments\/(\d+))$/);
     if (!message || message[1] !== INBOX || ![M_HTML, M_TEXT].includes(message[2])) return json({ status: { code: 404, description: "TEST" } }, 404);
     const isHtml = message[2] === M_HTML;
@@ -825,6 +839,359 @@ describe("Zoho response mapping", () => {
 // Authz table
 // -----------------------------------------------------------------------------
 
+// -----------------------------------------------------------------------------
+// Z2 — sending, replying, forwarding, attachments and signature
+// -----------------------------------------------------------------------------
+
+const z2Tables: TableNames[] = [...mailTables, "adminMailUploads", "adminMailSendCommands"];
+const dumpAll = (f: Fixture) => f.t.run(async (ctx) => {
+  const all: Record<string, unknown> = {};
+  for (const table of z2Tables) all[table] = await ctx.db.query(table).collect();
+  return JSON.stringify(all);
+});
+const sendCalls = () => mailCalls().filter((call) => call.method === "POST" && /\/messages(\/\d+)?$/.test(call.url.pathname));
+const uploadCalls = () => mailCalls().filter((call) => call.method === "POST" && call.url.pathname.endsWith("/messages/attachments"));
+let commandCounter = 0;
+const commandId = () => `test-send-command-${String(++commandCounter).padStart(4, "0")}`;
+const commands = (f: Fixture) => f.t.run((ctx) => ctx.db.query("adminMailSendCommands").collect());
+
+function newMail(connectionId: Id<"adminMailConnections">, overrides: Partial<{
+  sendCommandId: string; accountId: string; mode: "new" | "reply" | "reply_all" | "forward"; to: string[]; cc: string[]; bcc: string[];
+  subject: string; bodyText: string; source: { folderId: string; messageId: string }; uploadIds: Id<"adminMailUploads">[]; forwardAttachmentIds: string[];
+}> = {}) {
+  return {
+    sendCommandId: commandId(),
+    connectionId,
+    accountId: ACC_A,
+    mode: "new" as const,
+    to: ["Kupac <Kupac@Example.invalid>"],
+    cc: [] as string[],
+    bcc: [] as string[],
+    subject: "TEST ponuda",
+    bodyText: "Zdravo,\n\n**TEST** ponuda <script>alert(1)</script>: https://example.invalid/ponuda",
+    uploadIds: [] as Id<"adminMailUploads">[],
+    ...overrides,
+  };
+}
+
+async function storeUpload(f: Fixture, caller: Caller, fileName: string, content: string | Uint8Array = "%PDF-TEST-PRILOG") {
+  const storageId = await f.t.run((ctx) => ctx.storage.store(new Blob([content as BlobPart])));
+  const result = await caller.mutation(api.adminMail.registerMailUpload, { storageId, fileName });
+  return { storageId, result, uploadId: result.status === "ready" ? result.uploadId : (null as unknown as Id<"adminMailUploads">) };
+}
+
+describe("Z2 — sending, attachments and signature", () => {
+  test("a new message: own mailbox as fromAddress, validated recipients, the ScanMe template; nothing of it is stored", async () => {
+    enableMail();
+    const f = await setup();
+    const { connectionId } = await connect(f.a);
+    const result = await f.a.action(api.adminMail.sendMail, newMail(connectionId, {
+      cc: ["kopija@example.invalid", "KUPAC@example.invalid"],
+      bcc: ["tajno@example.invalid"],
+    }));
+    expect(result).toMatchObject({ status: "sent", errorCode: null, duplicate: false });
+    expect(sendCalls()).toHaveLength(1);
+    const call = sendCalls()[0];
+    expect(call.url.pathname).toBe(`/api/accounts/${ACC_A}/messages`);
+    expect(call.url.search).toBe("");
+    expect(call.headers.get("Authorization")).toMatch(/^Zoho-oauthtoken test-access-\d+$/);
+    const payload = JSON.parse(call.body);
+    expect(payload).toMatchObject({
+      fromAddress: ADMIN_A,
+      toAddress: "kupac@example.invalid",
+      ccAddress: "kopija@example.invalid",
+      bccAddress: "tajno@example.invalid",
+      subject: "TEST ponuda",
+      mailFormat: "html",
+      encoding: "UTF-8",
+      askReceipt: "no",
+    });
+    expect(payload).not.toHaveProperty("action");
+    expect(payload).not.toHaveProperty("attachments");
+    expect(payload.content).toContain('<span style="color:#273331;">Scan</span><span style="color:#668f00;">Me</span>');
+    expect(payload.content).toContain("<strong>TEST</strong> ponuda &lt;script&gt;alert(1)&lt;/script&gt;");
+    expect(payload.content).toContain('<a href="https://example.invalid/ponuda"');
+    expect(payload.content).not.toContain("<script");
+    const dump = await dumpAll(f);
+    for (const content of ["TEST ponuda", "kupac@example.invalid", "kopija@example.invalid", "tajno@example.invalid", "script"]) expect(dump).not.toContain(content);
+    expect(await commands(f)).toEqual([expect.objectContaining({ status: "sent", mode: "new", zohoAccountId: ACC_A, providerMessageId: "1709887058769300001" })]);
+  });
+
+  test("recipients: an invalid address, no To or more than 50 addresses are refused before any network call or record", async () => {
+    enableMail();
+    const f = await setup();
+    const { connectionId } = await connect(f.a);
+    const before = zoho.calls.length;
+    const cases: { to: string[]; cc: string[] }[] = [
+      { to: ["nije-adresa"], cc: [] },
+      { to: ["a@b"], cc: [] },
+      { to: ["ok@example.invalid"], cc: ["dva@@example.invalid"] },
+      { to: [], cc: ["kopija@example.invalid"] },
+      { to: Array.from({ length: 51 }, (_, index) => `primalac${index}@example.invalid`), cc: [] },
+    ];
+    for (const recipients of cases) {
+      expect(await codeOf(f.a.action(api.adminMail.sendMail, newMail(connectionId, recipients)))).toBe("ZOHO_RECIPIENT_INVALID");
+    }
+    expect(zoho.calls.length).toBe(before);
+    expect(await commands(f)).toEqual([]);
+  });
+
+  test("a reply goes to the Reply endpoint with Re: and the original quoted as escaped plain text", async () => {
+    enableMail();
+    const f = await setup();
+    const { connectionId } = await connect(f.a);
+    const result = await f.a.action(api.adminMail.sendMail, newMail(connectionId, {
+      mode: "reply",
+      subject: "",
+      to: ["posiljalac@example.invalid"],
+      bodyText: "Hvala na poruci.",
+      source: { folderId: INBOX, messageId: M_HTML },
+    }));
+    expect(result.status).toBe("sent");
+    const call = sendCalls()[0];
+    expect(call.url.pathname).toBe(`/api/accounts/${ACC_A}/messages/${M_HTML}`);
+    const payload = JSON.parse(call.body);
+    expect(payload).toMatchObject({ action: "Reply", subject: "Re: TEST HTML ponuda", fromAddress: ADMIN_A, toAddress: "posiljalac@example.invalid" });
+    expect(payload.content).toContain("TEST Pošiljalac &lt;posiljalac@example.invalid&gt; piše:");
+    expect(payload.content).toMatch(/<blockquote[^>]*>TEST ponuda<\/blockquote>/);
+    for (const unsafe of ["<script", "alert(1)", "tracker.example.invalid"]) expect(payload.content).not.toContain(unsafe);
+    // reply-all keeps its own explicit recipients; an already prefixed subject is not doubled
+    await f.a.action(api.adminMail.sendMail, newMail(connectionId, {
+      mode: "reply_all",
+      subject: "Re: TEST HTML ponuda",
+      to: ["posiljalac@example.invalid", "drugi@example.invalid"],
+      cc: ["kopija@example.invalid"],
+      source: { folderId: INBOX, messageId: M_HTML },
+    }));
+    expect(JSON.parse(sendCalls()[1].body)).toMatchObject({ action: "Reply", subject: "Re: TEST HTML ponuda", toAddress: "posiljalac@example.invalid,drugi@example.invalid", ccAddress: "kopija@example.invalid" });
+  });
+
+  test("forward: a new message with Fwd:, the forwarded block and an original attachment re-uploaded; a blocked type stops the send", async () => {
+    enableMail();
+    const f = await setup();
+    const { connectionId } = await connect(f.a);
+    const result = await f.a.action(api.adminMail.sendMail, newMail(connectionId, {
+      mode: "forward",
+      subject: "",
+      bodyText: "Prosleđujem.",
+      source: { folderId: INBOX, messageId: M_TEXT },
+      forwardAttachmentIds: [ATT_PDF],
+    }));
+    expect(result.status).toBe("sent");
+    const call = sendCalls()[0];
+    expect(call.url.pathname).toBe(`/api/accounts/${ACC_A}/messages`);
+    const payload = JSON.parse(call.body);
+    expect(payload.subject).toBe("Fwd: TEST tekst");
+    expect(payload).not.toHaveProperty("action");
+    expect(payload.content).toContain("---------- Prosleđena poruka ----------");
+    expect(payload.content).toContain("<strong>Od:</strong> TEST Pošiljalac &lt;posiljalac@example.invalid&gt;");
+    expect(payload.content).toContain("TEST obican tekst<br>Drugi red");
+    const download = mailCalls().find((item) => item.url.pathname.endsWith(`/attachments/${ATT_PDF}`));
+    expect(download?.method).toBe("GET");
+    expect(uploadCalls()).toHaveLength(1);
+    expect(uploadCalls()[0].url.searchParams.get("fileName")).toBe("TEST ponuda.pdf");
+    expect(new TextDecoder().decode(uploadCalls()[0].bytes!)).toBe("%PDF-TEST");
+    expect(payload.attachments).toEqual([{ storeName: "TEST-NN2", attachmentPath: "/test-upload_TEST ponuda.pdf", attachmentName: "TEST ponuda.pdf" }]);
+
+    const blocked = await f.a.action(api.adminMail.sendMail, newMail(connectionId, {
+      mode: "forward",
+      source: { folderId: INBOX, messageId: M_TEXT },
+      forwardAttachmentIds: [ATT_EXE],
+    }));
+    expect(blocked).toMatchObject({ status: "failed", errorCode: "ZOHO_ATTACHMENT_BLOCKED" });
+    expect(sendCalls()).toHaveLength(1);
+  });
+
+  test("an attachment goes browser → Convex storage → Zoho upload → send, and the temporary file is deleted", async () => {
+    enableMail();
+    const f = await setup();
+    const { connectionId } = await connect(f.a);
+    expect(await f.a.mutation(api.adminMail.generateMailUploadUrl, {})).toEqual(expect.any(String));
+    const { storageId, result: upload, uploadId } = await storeUpload(f, f.a, "C:\\fakepath\\TEST ponuda.pdf");
+    expect(upload).toMatchObject({ status: "ready", fileName: "TEST ponuda.pdf", mimeType: "application/pdf", size: 16 });
+    const result = await f.a.action(api.adminMail.sendMail, newMail(connectionId, { uploadIds: [uploadId] }));
+    expect(result.status).toBe("sent");
+    expect(uploadCalls()).toHaveLength(1);
+    const uploaded = uploadCalls()[0];
+    expect(uploaded.url.searchParams.get("fileName")).toBe("TEST ponuda.pdf");
+    expect(uploaded.headers.get("Content-Type")).toBe("application/octet-stream");
+    expect(new TextDecoder().decode(uploaded.bytes!)).toBe("%PDF-TEST-PRILOG");
+    expect(zoho.calls.indexOf(uploaded)).toBeLessThan(zoho.calls.indexOf(sendCalls()[0]));
+    expect(JSON.parse(sendCalls()[0].body).attachments).toEqual([{ storeName: "TEST-NN2", attachmentPath: "/test-upload_TEST ponuda.pdf", attachmentName: "TEST ponuda.pdf" }]);
+    expect(await f.t.run(async (ctx) => ({
+      rows: await ctx.db.query("adminMailUploads").collect(),
+      file: await ctx.db.system.get("_storage", storageId),
+    }))).toEqual({ rows: [], file: null });
+  });
+
+  test("uploads: a blocked type or a file over 10 MB is deleted at once; an accepted one expires after 2 h", async () => {
+    enableMail();
+    const f = await setup();
+    await connect(f.a);
+    const exe = await storeUpload(f, f.a, "TEST alat.exe");
+    const html = await storeUpload(f, f.a, "TEST stranica.html");
+    const big = await storeUpload(f, f.a, "TEST veliki.pdf", new Uint8Array(10 * 1024 * 1024 + 1));
+    for (const rejected of [exe, html, big]) {
+      expect(rejected.result).toEqual({ status: "rejected", code: "ZOHO_ATTACHMENT_BLOCKED" });
+      expect(await f.t.run((ctx) => ctx.db.system.get("_storage", rejected.storageId))).toBeNull();
+    }
+    const kept = await storeUpload(f, f.a, "TEST tabela.xlsx");
+    expect(kept.result).toMatchObject({ status: "ready", mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const scheduled = await f.t.run((ctx) => ctx.db.system.query("_scheduled_functions").collect());
+    expect(scheduled).toEqual([expect.objectContaining({ name: expect.stringContaining("expireMailUpload"), scheduledTime: NOW + 2 * 60 * 60 * 1_000, args: [{ uploadId: kept.uploadId }] })]);
+    await f.t.mutation(internal.adminMail.expireMailUpload, { uploadId: kept.uploadId });
+    expect(await f.t.run(async (ctx) => ({
+      rows: await ctx.db.query("adminMailUploads").collect(),
+      file: await ctx.db.system.get("_storage", kept.storageId),
+    }))).toEqual({ rows: [], file: null });
+    // the owner can remove a waiting file (chip removed)
+    const removed = await storeUpload(f, f.a, "TEST slika.png");
+    await f.a.mutation(api.adminMail.removeMailUpload, { uploadId: removed.uploadId });
+    expect(await f.t.run((ctx) => ctx.db.system.get("_storage", removed.storageId))).toBeNull();
+  });
+
+  test("a send that may have reached Zoho is never repeated: needs_reconciliation, and the same id only reads the outcome", async () => {
+    enableMail();
+    const f = await setup();
+    const { connectionId } = await connect(f.a);
+    for (const behavior of ["network", 500, 503, "garbage"] as const) {
+      const upload = await storeUpload(f, f.a, "TEST ponuda.pdf");
+      zoho.state.sendBehavior.push(behavior);
+      const args = newMail(connectionId, { uploadIds: [upload.uploadId] });
+      const before = sendCalls().length;
+      const first = await f.a.action(api.adminMail.sendMail, args);
+      expect({ behavior, first }).toEqual({ behavior, first: { sendCommandId: args.sendCommandId, status: "needs_reconciliation", errorCode: "ZOHO_SEND_UNCERTAIN", duplicate: false } });
+      const second = await f.a.action(api.adminMail.sendMail, args);
+      expect({ behavior, second }).toEqual({ behavior, second: { sendCommandId: args.sendCommandId, status: "needs_reconciliation", errorCode: "ZOHO_SEND_UNCERTAIN", duplicate: true } });
+      expect({ behavior, posts: sendCalls().length - before }).toEqual({ behavior, posts: 1 });
+      expect(await f.a.query(api.adminMail.getSendCommand, { sendCommandId: args.sendCommandId })).toEqual({ status: "needs_reconciliation", errorCode: "ZOHO_SEND_UNCERTAIN" });
+      expect(await f.t.run((ctx) => ctx.db.system.get("_storage", upload.storageId))).toBeNull();
+    }
+  });
+
+  test("a definite rejection is failed and keeps the files for a new attempt; a sent id never sends twice", async () => {
+    enableMail();
+    const f = await setup();
+    const { connectionId } = await connect(f.a);
+    const upload = await storeUpload(f, f.a, "TEST ponuda.pdf");
+    zoho.state.sendBehavior.push(400);
+    const failed = await f.a.action(api.adminMail.sendMail, newMail(connectionId, { uploadIds: [upload.uploadId] }));
+    expect(failed).toMatchObject({ status: "failed", errorCode: "ZOHO_REQUEST_REJECTED", duplicate: false });
+    expect(await f.t.run((ctx) => ctx.db.get(upload.uploadId))).not.toBeNull();
+    const retry = newMail(connectionId, { uploadIds: [upload.uploadId] });
+    expect(await f.a.action(api.adminMail.sendMail, retry)).toMatchObject({ status: "sent", duplicate: false });
+    const posts = sendCalls().length;
+    expect(await f.a.action(api.adminMail.sendMail, retry)).toMatchObject({ status: "sent", errorCode: null, duplicate: true });
+    expect(sendCalls().length).toBe(posts);
+  });
+
+  test("before the POST: a rate-limited upload or a missing send scope fails with no send request", async () => {
+    enableMail();
+    const f = await setup();
+    const { connectionId } = await connect(f.a);
+    const upload = await storeUpload(f, f.a, "TEST ponuda.pdf");
+    zoho.state.failures.set(`/api/accounts/${ACC_A}/messages/attachments`, [429]);
+    expect(await f.a.action(api.adminMail.sendMail, newMail(connectionId, { uploadIds: [upload.uploadId] }))).toMatchObject({ status: "failed", errorCode: "ZOHO_RATE_LIMITED" });
+    await f.t.run((ctx) => ctx.db.patch(connectionId, { scopes: ["ZohoMail.accounts.READ", "ZohoMail.folders.READ", "ZohoMail.messages.READ"] }));
+    expect(await f.a.action(api.adminMail.sendMail, newMail(connectionId))).toMatchObject({ status: "failed", errorCode: "ZOHO_AUTH_REQUIRED" });
+    expect(sendCalls()).toEqual([]);
+  });
+
+  test("another admin's connection, mailbox, attachment or send record is refused; nothing is sent", async () => {
+    enableMail();
+    const f = await setup();
+    const a = await connect(f.a);
+    const upload = await storeUpload(f, f.a, "TEST ponuda.pdf");
+    const own = newMail(a.connectionId);
+    await f.a.action(api.adminMail.sendMail, own);
+    zoho.state.accounts = [{ accountId: ACC_B, email: ADMIN_B }];
+    const b = await connect(f.b);
+    const posts = sendCalls().length;
+    const before = zoho.calls.length;
+    expect(await codeOf(f.b.action(api.adminMail.sendMail, newMail(a.connectionId)))).toBe("ZOHO_CONNECTION_NOT_FOUND");
+    expect(await codeOf(f.b.action(api.adminMail.sendMail, newMail(b.connectionId, { accountId: ACC_A })))).toBe("ZOHO_CONNECTION_NOT_FOUND");
+    expect(zoho.calls.length).toBe(before);
+    expect(await f.b.action(api.adminMail.sendMail, newMail(b.connectionId, { accountId: ACC_B, uploadIds: [upload.uploadId] }))).toMatchObject({ status: "failed", errorCode: "ZOHO_ATTACHMENT_BLOCKED" });
+    expect(sendCalls().length).toBe(posts);
+    expect(await f.t.run((ctx) => ctx.db.get(upload.uploadId))).not.toBeNull();
+    await f.b.mutation(api.adminMail.removeMailUpload, { uploadId: upload.uploadId });
+    expect(await f.t.run((ctx) => ctx.db.get(upload.uploadId))).not.toBeNull();
+    expect(await codeOf(f.b.mutation(api.adminMail.updateSignature, { connectionId: a.connectionId, accountId: ACC_A, signatureText: "TEST" }))).toBe("ZOHO_CONNECTION_NOT_FOUND");
+    expect(await f.b.query(api.adminMail.getSendCommand, { sendCommandId: own.sendCommandId })).toBeNull();
+    // A foreign storage file cannot be claimed either.
+    expect(await f.b.mutation(api.adminMail.registerMailUpload, { storageId: upload.storageId, fileName: "TEST ponuda.pdf" })).toEqual({ status: "rejected", code: "ZOHO_ATTACHMENT_BLOCKED" });
+    expect(await f.t.run((ctx) => ctx.db.system.get("_storage", upload.storageId))).not.toBeNull();
+  });
+
+  test("signature: saved per mailbox, shown in status, added to every message (links kept), kept on reconnect", async () => {
+    enableMail();
+    const f = await setup();
+    const { connectionId } = await connect(f.a);
+    await f.a.mutation(api.adminMail.updateSignature, { connectionId, accountId: ACC_A, signatureText: "  TEST Admin\r\n[www.scanme.rs](https://www.scanme.rs) <b>  " });
+    expect((await f.a.query(api.adminMail.getMailStatus, {})).connections[0].accounts[0].signatureText).toBe("TEST Admin\n[www.scanme.rs](https://www.scanme.rs) <b>");
+    await f.a.action(api.adminMail.sendMail, newMail(connectionId));
+    const content = JSON.parse(sendCalls()[0].body).content as string;
+    expect(content).toMatch(/border-top:1px solid #e3e6dc;[^>]*>TEST Admin<br><a href="https:\/\/www\.scanme\.rs"[^>]*>www\.scanme\.rs<\/a> &lt;b&gt;<\/div>/);
+    await connect(f.a);
+    expect((await f.a.query(api.adminMail.getMailStatus, {})).connections[0].accounts[0].signatureText).toBe("TEST Admin\n[www.scanme.rs](https://www.scanme.rs) <b>");
+    expect(await codeOf(f.a.mutation(api.adminMail.updateSignature, { connectionId, accountId: ACC_A, signatureText: "x".repeat(2_001) }))).toBe("ZOHO_COMPOSE_INVALID");
+    await f.a.mutation(api.adminMail.updateSignature, { connectionId, accountId: ACC_A, signatureText: "   " });
+    expect((await f.a.query(api.adminMail.getMailStatus, {})).connections[0].accounts[0].signatureText).toBeNull();
+  });
+
+  test("compose validation: reply without its source, new without subject, bad command id, too many attachments", async () => {
+    enableMail();
+    const f = await setup();
+    const { connectionId } = await connect(f.a);
+    const before = zoho.calls.length;
+    const invalid = [
+      newMail(connectionId, { mode: "reply" }),
+      newMail(connectionId, { source: { folderId: INBOX, messageId: M_HTML } }),
+      newMail(connectionId, { subject: "   " }),
+      newMail(connectionId, { sendCommandId: "kratak" }),
+      newMail(connectionId, { bodyText: "x".repeat(50_001) }),
+      newMail(connectionId, { mode: "forward", source: { folderId: INBOX, messageId: M_TEXT }, forwardAttachmentIds: Array.from({ length: 11 }, (_, index) => String(1000 + index)) }),
+    ];
+    for (const args of invalid) expect(await codeOf(f.a.action(api.adminMail.sendMail, args))).toBe("ZOHO_COMPOSE_INVALID");
+    expect(zoho.calls.length).toBe(before);
+    expect(await commands(f)).toEqual([]);
+  });
+
+  test("inert without the switch: sending and uploads answer ZOHO_NOT_CONFIGURED with no network call", async () => {
+    enableMail();
+    const f = await setup();
+    const { connectionId } = await connect(f.a);
+    const storageId = await f.t.run((ctx) => ctx.storage.store(new Blob(["TEST"])));
+    delete process.env.ZOHO_MAIL_CLIENT_ENABLED;
+    const before = zoho.calls.length;
+    expect(await codeOf(f.a.action(api.adminMail.sendMail, newMail(connectionId)))).toBe("ZOHO_NOT_CONFIGURED");
+    expect(await codeOf(f.a.mutation(api.adminMail.generateMailUploadUrl, {}))).toBe("ZOHO_NOT_CONFIGURED");
+    expect(await codeOf(f.a.mutation(api.adminMail.registerMailUpload, { storageId, fileName: "TEST.pdf" }))).toBe("ZOHO_NOT_CONFIGURED");
+    expect(zoho.calls.length).toBe(before);
+    expect(await commands(f)).toEqual([]);
+  });
+
+  test("recipient suggestions: only active client contacts by email prefix, only for admins", async () => {
+    const f = await setup();
+    await f.t.run(async (ctx) => {
+      const accountId = await ctx.db.insert("accounts", {
+        name: "TEST Klijent", plan: "basic", status: "active", smkCode: "SMK-TEST-POSTA", ownerDisplayName: "TEST Vlasnik",
+        normalizedOwnerDisplayName: "test vlasnik", clientStatus: "active", adminV1MigrationVersion: 1, createdAt: NOW, updatedAt: NOW,
+      });
+      const contact = (firstName: string, email: string, status: "active" | "inactive") => ctx.db.insert("accountContacts", {
+        accountId, firstName, lastName: "Kupac", normalizedName: `${firstName.toLowerCase()} kupac`, normalizedEmail: email,
+        positionTitle: "TEST", isOwner: false, status, createdAt: NOW, updatedAt: NOW,
+      });
+      await contact("TEST", "kupac@example.invalid", "active");
+      await contact("TEST Bivši", "kupac.stari@example.invalid", "inactive");
+      await contact("TEST Drugi", "drugi@example.invalid", "active");
+    });
+    expect(await f.a.query(api.adminMail.suggestRecipients, { prefix: "  KUP" })).toEqual([{ email: "kupac@example.invalid", name: "TEST Kupac" }]);
+    expect(await f.a.query(api.adminMail.suggestRecipients, { prefix: "k" })).toEqual([]);
+    expect(await codeOf(f.outsider.query(api.adminMail.suggestRecipients, { prefix: "kup" }))).toMatch(/^ERR:Nemate administratorski pristup/);
+  });
+});
+
 type Registered = { isPublic?: boolean; isInternal?: boolean };
 
 describe("authz of every adminMail function", () => {
@@ -844,12 +1211,26 @@ describe("authz of every adminMail function", () => {
       downloadAttachment: "public",
       markRead: "public",
       disconnect: "public",
+      // Z2
+      updateSignature: "public",
+      generateMailUploadUrl: "public",
+      registerMailUpload: "public",
+      removeMailUpload: "public",
+      suggestRecipients: "public",
+      getSendCommand: "public",
+      sendMail: "public",
       consumeOAuthState: "internal",
       saveConnection: "internal",
       connectionForAction: "internal",
       cacheAccessToken: "internal",
       markAuthRequired: "internal",
       deleteConnection: "internal",
+      // Z2
+      expireMailUpload: "internal",
+      claimSendCommand: "internal",
+      updateSendCommand: "internal",
+      uploadsForSend: "internal",
+      discardUploads: "internal",
     });
   });
 
@@ -858,7 +1239,8 @@ describe("authz of every adminMail function", () => {
     const f = await setup();
     const { connectionId } = await connect(f.a);
     const state = await startState(f.a);
-    const before = { calls: zoho.calls.length, dump: await dumpMail(f) };
+    const upload = await storeUpload(f, f.a, "TEST ponuda.pdf");
+    const before = { calls: zoho.calls.length, dump: await dumpAll(f) };
     for (const caller of [f.t, f.outsider] as const) {
       const attempts: [string, () => Promise<unknown>][] = [
         ["getMailStatus", () => caller.query(api.adminMail.getMailStatus, {})],
@@ -870,6 +1252,13 @@ describe("authz of every adminMail function", () => {
         ["downloadAttachment", () => caller.action(api.adminMail.downloadAttachment, { ...message(connectionId, M_TEXT), attachmentId: ATT_PDF })],
         ["markRead", () => caller.action(api.adminMail.markRead, { connectionId, accountId: ACC_A, messageId: M_HTML })],
         ["disconnect", () => caller.action(api.adminMail.disconnect, { connectionId })],
+        ["updateSignature", () => caller.mutation(api.adminMail.updateSignature, { connectionId, accountId: ACC_A, signatureText: "TEST" })],
+        ["generateMailUploadUrl", () => caller.mutation(api.adminMail.generateMailUploadUrl, {})],
+        ["registerMailUpload", () => caller.mutation(api.adminMail.registerMailUpload, { storageId: upload.storageId, fileName: "TEST.pdf" })],
+        ["removeMailUpload", () => caller.mutation(api.adminMail.removeMailUpload, { uploadId: upload.uploadId })],
+        ["suggestRecipients", () => caller.query(api.adminMail.suggestRecipients, { prefix: "kup" })],
+        ["getSendCommand", () => caller.query(api.adminMail.getSendCommand, { sendCommandId: "test-send-command-x" })],
+        ["sendMail", () => caller.action(api.adminMail.sendMail, newMail(connectionId, { uploadIds: [upload.uploadId] }))],
       ];
       for (const [name, attempt] of attempts) {
         const code = await codeOf(attempt());
@@ -877,7 +1266,7 @@ describe("authz of every adminMail function", () => {
       }
     }
     expect(zoho.calls.length).toBe(before.calls);
-    expect(await dumpMail(f)).toBe(before.dump);
+    expect(await dumpAll(f)).toBe(before.dump);
   });
 
   test("internal helpers also require the admin and the owner", async () => {
@@ -891,6 +1280,14 @@ describe("authz of every adminMail function", () => {
       () => f.b.mutation(internal.adminMail.markAuthRequired, { connectionId }),
       () => f.b.mutation(internal.adminMail.deleteConnection, { connectionId }),
     ]) expect(await codeOf(run())).toBe("ZOHO_CONNECTION_NOT_FOUND");
+    // Z2 internals
+    const upload = await storeUpload(f, f.a, "TEST ponuda.pdf");
+    expect(await codeOf(f.b.mutation(internal.adminMail.claimSendCommand, { sendCommandId: "test-send-command-b", connectionId, zohoAccountId: ACC_A, mode: "new" }))).toBe("ZOHO_CONNECTION_NOT_FOUND");
+    expect(await codeOf(f.b.query(internal.adminMail.uploadsForSend, { uploadIds: [upload.uploadId] }))).toBe("ZOHO_ATTACHMENT_BLOCKED");
+    await f.b.mutation(internal.adminMail.discardUploads, { uploadIds: [upload.uploadId] });
+    expect(await f.t.run((ctx) => ctx.db.get(upload.uploadId))).not.toBeNull();
+    expect(await codeOf(f.outsider.mutation(internal.adminMail.updateSendCommand, { sendCommandId: "test-send-command-b", status: "sent" }))).toMatch(/^ERR:Nemate administratorski pristup/);
+    expect(await codeOf(f.b.mutation(internal.adminMail.updateSendCommand, { sendCommandId: "test-send-command-b", status: "sent" }))).toBe("ZOHO_REQUEST_REJECTED");
     expect(await codeOf(f.b.mutation(internal.adminMail.saveConnection, {
       ownerUserId: f.adminA, primaryEmail: ADMIN_A, refreshTokenCiphertext: "x", refreshTokenIv: "y", accessTokenCiphertext: "x", accessTokenIv: "y",
       accessTokenExpiresAt: NOW, scopes: [], accounts: [{ accountId: ACC_A, emailAddress: ADMIN_A, displayName: null }],

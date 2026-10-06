@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { postaSr as dict } from "@/lib/i18n/sr/posta";
 import {
+  previewInitialCompose,
   previewInitialMessage,
   previewMailSource,
   previewMailStatus,
@@ -17,12 +18,14 @@ export function AdminMailPreview({ state, message }: { state: MailPreviewState; 
   const status = useMemo(() => previewMailStatus(state), [state]);
   const source = useMemo(() => previewMailSource(state), [state]);
   const initialMessage = useMemo(() => previewInitialMessage(message), [message]);
+  const initialCompose = useMemo(() => previewInitialCompose(state), [state]);
   return (
     <MailWorkspace
       status={status}
       source={source}
       initialNotice={{ tone: "info", text: dict.previewNotice }}
       initialMessage={initialMessage}
+      initialCompose={initialCompose}
       badge={dict.previewBadge}
     />
   );

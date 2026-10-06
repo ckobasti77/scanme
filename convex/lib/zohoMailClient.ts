@@ -20,7 +20,10 @@ import {
 // is; this client reuses its EU constants and the attachment/HTTP parsers.
 // Endpoints and scopes were checked against zoho.com/mail/help/api on
 // 2026-10-06: OAuth (using-oauth-2), Accounts, Folders, List/Search Emails,
-// Email Meta Data, Email Content, Attachment Info/Content, Mark as read.
+// Email Meta Data, Email Content, Attachment Info/Content, Mark as read; for
+// Z2 also Send Email (+ with attachments), Reply to an email (action "Reply";
+// reply-all is a reply with explicit recipients, forward is a new message —
+// the API documents no separate actions for them) and Upload Attachment.
 // Every call goes to the EU data centre only; the token is sent only in the
 // Authorization header and never appears in a URL, a log or an error.
 
@@ -462,27 +465,43 @@ export class ZohoMailClient {
     this.refreshed = options.refreshed;
   }
 
-  /** 401 → one refresh, then auth_required; 429 → rate limited; 5xx/network → one retry for idempotent calls. */
-  private async send(path: string, init: { method?: "GET" | "PUT"; body?: string; accept?: string } = {}) {
+  /**
+   * 401 → one refresh, then auth_required; 429 → rate limited; 5xx/network →
+   * one retry for idempotent calls (GET/PUT). A POST is never repeated after
+   * it may have reached Zoho: network error or 5xx → `failure` (Z2 send:
+   * ZOHO_SEND_UNCERTAIN). A 401 is safe to repeat (Zoho did not process it).
+   */
+  private async send(
+    path: string,
+    init: {
+      method?: "GET" | "PUT" | "POST";
+      body?: string | ArrayBuffer;
+      contentType?: string;
+      accept?: string;
+      failure?: AdminMailErrorCode;
+    } = {},
+  ) {
+    const method = init.method ?? "GET";
+    const idempotent = method !== "POST";
     let retried = false;
     for (;;) {
       let response: Response;
       try {
         response = await timedFetch(this.options.fetchImpl, `${ZOHO_MAIL_EU_API_BASE_URL}${path}`, {
-          method: init.method ?? "GET",
+          method,
           headers: {
             Accept: init.accept ?? "application/json",
-            ...(init.body ? { "Content-Type": "application/json" } : {}),
+            ...(init.body !== undefined ? { "Content-Type": init.contentType ?? "application/json" } : {}),
             Authorization: `Zoho-oauthtoken ${this.accessToken}`,
           },
           body: init.body,
         });
       } catch {
-        if (!retried) {
+        if (idempotent && !retried) {
           retried = true;
           continue;
         }
-        throw new AdminMailError("ZOHO_UNAVAILABLE");
+        throw new AdminMailError(init.failure ?? "ZOHO_UNAVAILABLE");
       }
       if (response.status === 401 || (response.status === 400 && (await this.isInvalidTokenBody(response)))) {
         if (this.refreshed) {
@@ -495,11 +514,11 @@ export class ZohoMailClient {
       }
       if (response.status === 429) throw new AdminMailError("ZOHO_RATE_LIMITED", retryAfterSeconds(response));
       if (response.status >= 500) {
-        if (!retried) {
+        if (idempotent && !retried) {
           retried = true;
           continue;
         }
-        throw new AdminMailError("ZOHO_UNAVAILABLE");
+        throw new AdminMailError(init.failure ?? "ZOHO_UNAVAILABLE");
       }
       if (!response.ok) throw new AdminMailError("ZOHO_REQUEST_REJECTED");
       return response;
@@ -583,4 +602,72 @@ export class ZohoMailClient {
     const body = `{"mode":"markAsRead","messageId":[${requireZohoId(args.messageId)}]}`;
     successData(await this.json(`/accounts/${requireZohoId(args.accountId)}/updatemessage`, { method: "PUT", body }));
   }
+
+  /** Z2 — Upload Attachment (raw binary). Nothing is sent yet, so a failure here is a definite "not sent". */
+  async uploadAttachment(args: { accountId: string; fileName: string; bytes: ArrayBuffer }): Promise<ZohoUploadedAttachment> {
+    const params = new URLSearchParams({ fileName: args.fileName });
+    const response = await this.send(`/accounts/${requireZohoId(args.accountId)}/messages/attachments?${params}`, {
+      method: "POST",
+      body: args.bytes,
+      contentType: "application/octet-stream",
+    });
+    let payload: unknown;
+    try {
+      payload = parseZohoJson(await response.text());
+    } catch {
+      throw new AdminMailError("ZOHO_UNAVAILABLE");
+    }
+    return parseZohoUploadResult(payload);
+  }
+
+  /**
+   * Z2 — Send Email (POST …/messages) or Reply (POST …/messages/{id},
+   * action "Reply"). Sent exactly once: anything after the request may have
+   * reached Zoho (network error, timeout, 5xx, unreadable 2xx) is
+   * ZOHO_SEND_UNCERTAIN and is never repeated here.
+   */
+  async sendMessage(args: { accountId: string; replyToMessageId?: string; message: ZohoOutgoingMessage }) {
+    const accountId = requireZohoId(args.accountId);
+    const path = args.replyToMessageId
+      ? `/accounts/${accountId}/messages/${requireZohoId(args.replyToMessageId)}`
+      : `/accounts/${accountId}/messages`;
+    const body = JSON.stringify(args.replyToMessageId ? { ...args.message, action: "Reply" } : args.message);
+    const response = await this.send(path, { method: "POST", body, failure: "ZOHO_SEND_UNCERTAIN" });
+    let root: Json | null;
+    try {
+      root = record(parseZohoJson(await response.text()));
+    } catch {
+      throw new AdminMailError("ZOHO_SEND_UNCERTAIN");
+    }
+    const status = record(root?.status);
+    if (!root || !status) throw new AdminMailError("ZOHO_SEND_UNCERTAIN");
+    if (Number(status.code) !== 200) throw new AdminMailError("ZOHO_REQUEST_REJECTED");
+    return { providerMessageId: zohoId(record(root.data)?.messageId) };
+  }
+}
+
+export type ZohoUploadedAttachment = { storeName: string; attachmentPath: string; attachmentName: string };
+
+export type ZohoOutgoingMessage = {
+  fromAddress: string;
+  toAddress: string;
+  ccAddress?: string;
+  bccAddress?: string;
+  subject: string;
+  content: string;
+  mailFormat: "html";
+  encoding: "UTF-8";
+  askReceipt: "no";
+  attachments?: ZohoUploadedAttachment[];
+};
+
+/** Upload Attachment answer: `data` is one object or a list with one object. */
+export function parseZohoUploadResult(payload: unknown): ZohoUploadedAttachment {
+  const data = successData(payload);
+  const item = record(Array.isArray(data) ? data[0] : data);
+  const storeName = text(item?.storeName)?.trim();
+  const attachmentPath = text(item?.attachmentPath)?.trim();
+  const attachmentName = text(item?.attachmentName)?.trim();
+  if (!storeName || !attachmentPath || !attachmentName) throw new AdminMailError("ZOHO_UNAVAILABLE");
+  return { storeName, attachmentPath, attachmentName };
 }

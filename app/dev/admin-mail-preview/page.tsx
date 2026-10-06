@@ -5,8 +5,9 @@ import type { MailPreviewMessage, MailPreviewState } from "@/components/admin/ma
 import { postaSr } from "@/lib/i18n/sr/posta";
 
 // Admin UX Z1 — dev preview of /admin/posta with TEST messages (no Convex, no
-// Zoho). ?stanje=nije-podeseno|bez-naloga|greska, ?poruka=tekst|nijedna.
-const STATES: readonly MailPreviewState[] = ["spremno", "nije-podeseno", "bez-naloga", "greska"];
+// Zoho). ?stanje=nije-podeseno|bez-naloga|greska|pisanje|pregled-pisma|potpis,
+// ?poruka=tekst|nijedna.
+const STATES: readonly MailPreviewState[] = ["spremno", "nije-podeseno", "bez-naloga", "greska", "pisanje", "pregled-pisma", "potpis"];
 const MESSAGES: readonly MailPreviewMessage[] = ["html", "tekst", "nijedna"];
 
 export default async function AdminMailPreviewPage({ searchParams }: { searchParams: Promise<{ stanje?: string; poruka?: string }> }) {

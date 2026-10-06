@@ -1,7 +1,6 @@
 import { ConvexError, v } from "convex/values";
-import type { FunctionReturnType } from "convex/server";
 import { internal } from "./_generated/api";
-import type { Id } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import {
   action,
   env,
@@ -15,14 +14,29 @@ import {
 import { requireAdmin } from "./lib/access";
 import {
   ADMIN_MAIL_ATTACHMENT_MAX_BYTES,
+  ADMIN_MAIL_BODY_MAX_LENGTH,
   ADMIN_MAIL_PAGE_SIZE_MAX,
+  ADMIN_MAIL_SEND_FILE_MAX_BYTES,
+  ADMIN_MAIL_SEND_MAX_ATTACHMENTS,
+  ADMIN_MAIL_SEND_TOTAL_MAX_BYTES,
+  ADMIN_MAIL_SIGNATURE_MAX_LENGTH,
+  ADMIN_MAIL_SUBJECT_MAX_LENGTH,
+  ADMIN_MAIL_UPLOAD_TTL_MS,
+  adminMailComposeMode,
   adminMailFile,
   adminMailFolder,
   adminMailMessage,
   adminMailMessagePage,
+  adminMailSendResult,
+  adminMailSendStatus,
   adminMailStatus,
+  isAdminMailErrorCode,
   type AdminMailErrorCode,
+  type AdminMailSendResult,
+  type AdminMailSendStatus,
 } from "./lib/adminMailContract";
+import { buildMailQuote, checkRecipients, composeSubject } from "./lib/adminMailCompose";
+import { renderScanMeEmail, type ScanMeEmailQuote } from "../lib/email-template/scanme-email";
 import {
   ADMIN_MAIL_KEY_VERSION,
   adminMailTokenAad,
@@ -45,6 +59,7 @@ import {
   requireZohoId,
   revokeZohoToken,
   zohoSearchKey,
+  type ZohoUploadedAttachment,
 } from "./lib/zohoMailClient";
 
 // Admin UX Z1 — Pošta: each admin connects their OWN Zoho EU mailbox and
@@ -64,6 +79,9 @@ import {
 //   return value, a log, an error or a URL.
 // - Storage: only the connection, its accounts and the one-time OAuth states.
 //   Folders, lists, messages and attachments are fetched live per call.
+// - Z2 (sending): the mailbox signature, compose attachments waiting in
+//   Convex storage (deleted after sending or 2 h) and one row per send
+//   attempt without body, subject or recipients. See sendMail.
 
 const STATE_TTL_MS = 10 * 60 * 1_000;
 const ACCESS_TOKEN_MARGIN_MS = 60 * 1_000;
@@ -191,6 +209,7 @@ export const getMailStatus = query({
             emailAddress: account.emailAddress,
             displayName: account.displayName ?? null,
             isDefault: account.isDefault,
+            signatureText: account.signatureText ?? null,
           })),
       })),
     };
@@ -283,9 +302,16 @@ export const saveConnection = internalMutation({
       .withIndex("by_ownerUserId_and_primaryEmail", (q) => q.eq("ownerUserId", admin._id).eq("primaryEmail", args.primaryEmail))
       .unique();
     let connectionId: Id<"adminMailConnections">;
+    // Z2: a reconnect keeps each mailbox's signature.
+    const signatures = new Map<string, string>();
     if (existing) {
       connectionId = existing._id;
       await ctx.db.patch(connectionId, tokens);
+      const previous = await ctx.db
+        .query("adminMailAccounts")
+        .withIndex("by_connectionId", (q) => q.eq("connectionId", existing._id))
+        .take(MAX_ACCOUNTS_PER_CONNECTION * 2);
+      for (const account of previous) if (account.signatureText) signatures.set(account.zohoAccountId, account.signatureText);
       await deleteAccounts(ctx, connectionId);
     } else {
       const owned = await ctx.db
@@ -302,6 +328,7 @@ export const saveConnection = internalMutation({
       });
     }
     for (const [index, account] of args.accounts.entries()) {
+      const signatureText = signatures.get(account.accountId);
       await ctx.db.insert("adminMailAccounts", {
         connectionId,
         ownerUserId: admin._id,
@@ -309,6 +336,7 @@ export const saveConnection = internalMutation({
         emailAddress: account.emailAddress,
         ...(account.displayName ? { displayName: account.displayName } : {}),
         isDefault: index === 0,
+        ...(signatureText ? { signatureText } : {}),
       });
     }
     return connectionId;
@@ -327,17 +355,24 @@ export const connectionForAction = internalQuery({
     accessTokenCiphertext: v.union(v.string(), v.null()),
     accessTokenIv: v.union(v.string(), v.null()),
     accessTokenExpiresAt: v.union(v.number(), v.null()),
+    // Z2: the granted scopes (send needs ZohoMail.messages.CREATE) and the
+    // requested mailbox (its address is the only allowed fromAddress).
+    scopes: v.array(v.string()),
+    account: v.union(v.object({ emailAddress: v.string(), signatureText: v.union(v.string(), v.null()) }), v.null()),
   }),
   handler: async (ctx, args) => {
     const admin = await requireAdmin(ctx);
     const connection = await ctx.db.get(args.connectionId);
     if (!connection || connection.ownerUserId !== admin._id) mailError("ZOHO_CONNECTION_NOT_FOUND");
+    let account: { emailAddress: string; signatureText: string | null } | null = null;
     if (args.zohoAccountId !== undefined) {
       const accounts = await ctx.db
         .query("adminMailAccounts")
         .withIndex("by_connectionId", (q) => q.eq("connectionId", connection._id))
         .take(MAX_ACCOUNTS_PER_CONNECTION * 2);
-      if (!accounts.some((account) => account.zohoAccountId === args.zohoAccountId)) mailError("ZOHO_CONNECTION_NOT_FOUND");
+      const found = accounts.find((item) => item.zohoAccountId === args.zohoAccountId);
+      if (!found) mailError("ZOHO_CONNECTION_NOT_FOUND");
+      account = { emailAddress: found.emailAddress, signatureText: found.signatureText ?? null };
     }
     return {
       ownerUserId: connection.ownerUserId,
@@ -348,6 +383,8 @@ export const connectionForAction = internalQuery({
       accessTokenCiphertext: connection.accessTokenCiphertext ?? null,
       accessTokenIv: connection.accessTokenIv ?? null,
       accessTokenExpiresAt: connection.accessTokenExpiresAt ?? null,
+      scopes: connection.scopes,
+      account,
     };
   },
 });
@@ -401,13 +438,33 @@ export const deleteConnection = internalMutation({
 // Actions (live Zoho calls)
 // -----------------------------------------------------------------------------
 
-type OwnedConnection = FunctionReturnType<typeof internal.adminMail.connectionForAction>;
+/** Return of connectionForAction (written out: the module's own api type cannot describe itself). */
+type OwnedConnection = {
+  ownerUserId: Id<"users">;
+  primaryEmail: string;
+  status: "active" | "auth_required";
+  refreshTokenCiphertext: string;
+  refreshTokenIv: string;
+  accessTokenCiphertext: string | null;
+  accessTokenIv: string | null;
+  accessTokenExpiresAt: number | null;
+  scopes: string[];
+  account: { emailAddress: string; signatureText: string | null } | null;
+};
 
 /** A client for the caller's own connection: cached access token, else one refresh. */
 async function openMailbox(
   ctx: ActionCtx,
   args: { connectionId: Id<"adminMailConnections">; accountId?: string },
-) {
+): Promise<ZohoMailClient> {
+  return (await openMailboxSession(ctx, args)).client;
+}
+
+/** The client plus the owner-checked connection (scopes, mailbox address and signature). */
+async function openMailboxSession(
+  ctx: ActionCtx,
+  args: { connectionId: Id<"adminMailConnections">; accountId?: string },
+): Promise<{ client: ZohoMailClient; connection: OwnedConnection }> {
   const config = requireMailConfig();
   const connection: OwnedConnection = await ctx.runQuery(internal.adminMail.connectionForAction, {
     connectionId: args.connectionId,
@@ -470,13 +527,14 @@ async function openMailbox(
     }
   }
   const refreshed = accessToken === null;
-  return new ZohoMailClient({
+  const client = new ZohoMailClient({
     fetchImpl: fetch,
     accessToken: accessToken ?? (await refresh()),
     refreshed,
     refreshAccessToken: refresh,
     onAuthRequired: markAuthRequired,
   });
+  return { client, connection };
 }
 
 /** Callback step: consume the state, exchange the code (EU), read the accounts, store the encrypted tokens. */
@@ -681,5 +739,404 @@ export const disconnect = action({
       }
       await ctx.runMutation(internal.adminMail.deleteConnection, { connectionId: args.connectionId });
       return null;
+    }),
+});
+
+// -----------------------------------------------------------------------------
+// Z2 — signature, attachments and sending
+// -----------------------------------------------------------------------------
+
+const UPLOADS_PER_OWNER = 30;
+const SEND_COMMAND_ID = /^[A-Za-z0-9_-]{16,80}$/;
+const SEND_SCOPE = "ZohoMail.messages.CREATE";
+
+/** Signature of one own mailbox (plain text with [links](…)); empty text removes it. Local data: no switch needed. */
+export const updateSignature = mutation({
+  args: { connectionId: v.id("adminMailConnections"), accountId: v.string(), signatureText: v.string() },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const connection = await requireOwnConnection(ctx, args.connectionId);
+    const signatureText = args.signatureText.replace(/\r\n?/g, "\n").trim();
+    if (signatureText.length > ADMIN_MAIL_SIGNATURE_MAX_LENGTH) mailError("ZOHO_COMPOSE_INVALID");
+    const accounts = await ctx.db
+      .query("adminMailAccounts")
+      .withIndex("by_connectionId", (q) => q.eq("connectionId", connection._id))
+      .take(MAX_ACCOUNTS_PER_CONNECTION * 2);
+    const account = accounts.find((item) => item.zohoAccountId === args.accountId);
+    if (!account) mailError("ZOHO_CONNECTION_NOT_FOUND");
+    await ctx.db.patch(account._id, { signatureText: signatureText || undefined });
+    return null;
+  },
+});
+
+async function deleteUpload(ctx: MutationCtx, upload: Doc<"adminMailUploads">) {
+  try {
+    await ctx.storage.delete(upload.storageId);
+  } catch {
+    // Already gone from storage: the row is still removed.
+  }
+  await ctx.db.delete(upload._id);
+}
+
+/** Upload URL for one compose attachment (Convex storage; registerMailUpload checks it next). */
+export const generateMailUploadUrl = mutation({
+  args: {},
+  returns: v.string(),
+  handler: async (ctx) => {
+    await requireAdmin(ctx);
+    requireMailConfig();
+    return await ctx.storage.generateUploadUrl();
+  },
+});
+
+function cleanFileName(raw: string) {
+  const base = raw.replace(/\\/g, "/").split("/").pop() ?? "";
+  // keep the end: the extension decides the type
+  return base.replace(/[\u0000-\u001f\u007f"<>]/g, "").trim().slice(-180);
+}
+
+/**
+ * Binds an uploaded file to the admin: allowed type (by extension), at most
+ * 10 MB, at most 30 waiting files. A rejected file is deleted at once; an
+ * accepted one is deleted after sending or after 2 h.
+ */
+export const registerMailUpload = mutation({
+  args: { storageId: v.id("_storage"), fileName: v.string() },
+  returns: v.union(
+    v.object({ status: v.literal("ready"), uploadId: v.id("adminMailUploads"), fileName: v.string(), size: v.number(), mimeType: v.string() }),
+    v.object({ status: v.literal("rejected"), code: v.string() }),
+  ),
+  handler: async (ctx, args) => {
+    const admin = await requireAdmin(ctx);
+    requireMailConfig();
+    const claimed = await ctx.db
+      .query("adminMailUploads")
+      .withIndex("by_storageId", (q) => q.eq("storageId", args.storageId))
+      .unique();
+    if (claimed) {
+      return claimed.ownerUserId === admin._id
+        ? { status: "ready" as const, uploadId: claimed._id, fileName: claimed.fileName, size: claimed.size, mimeType: claimed.mimeType }
+        : { status: "rejected" as const, code: "ZOHO_ATTACHMENT_BLOCKED" };
+    }
+    const metadata = await ctx.db.system.get("_storage", args.storageId);
+    if (!metadata) return { status: "rejected" as const, code: "ZOHO_ATTACHMENT_BLOCKED" };
+    const fileName = cleanFileName(args.fileName);
+    const mimeType = fileName ? adminMailAttachmentMimeType(fileName) : null;
+    const waiting = await ctx.db
+      .query("adminMailUploads")
+      .withIndex("by_ownerUserId_and_createdAt", (q) => q.eq("ownerUserId", admin._id))
+      .take(UPLOADS_PER_OWNER);
+    if (!mimeType || metadata.size <= 0 || metadata.size > ADMIN_MAIL_SEND_FILE_MAX_BYTES || waiting.length >= UPLOADS_PER_OWNER) {
+      await ctx.storage.delete(args.storageId);
+      return { status: "rejected" as const, code: "ZOHO_ATTACHMENT_BLOCKED" };
+    }
+    const now = Date.now();
+    const uploadId = await ctx.db.insert("adminMailUploads", {
+      ownerUserId: admin._id,
+      storageId: args.storageId,
+      fileName,
+      size: metadata.size,
+      mimeType,
+      createdAt: now,
+      expiresAt: now + ADMIN_MAIL_UPLOAD_TTL_MS,
+    });
+    await ctx.scheduler.runAfter(ADMIN_MAIL_UPLOAD_TTL_MS, internal.adminMail.expireMailUpload, { uploadId });
+    return { status: "ready" as const, uploadId, fileName, size: metadata.size, mimeType };
+  },
+});
+
+/** Removes an own waiting attachment (chip removed or compose discarded). */
+export const removeMailUpload = mutation({
+  args: { uploadId: v.id("adminMailUploads") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const admin = await requireAdmin(ctx);
+    const upload = await ctx.db.get(args.uploadId);
+    if (upload && upload.ownerUserId === admin._id) await deleteUpload(ctx, upload);
+    return null;
+  },
+});
+
+export const expireMailUpload = internalMutation({
+  args: { uploadId: v.id("adminMailUploads") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const upload = await ctx.db.get(args.uploadId);
+    if (upload) await deleteUpload(ctx, upload);
+    return null;
+  },
+});
+
+/** Recipient suggestions from the existing client contacts (read only; active contacts, email prefix, at most 8). */
+export const suggestRecipients = query({
+  args: { prefix: v.string() },
+  returns: v.array(v.object({ email: v.string(), name: v.string() })),
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    const prefix = args.prefix.trim().toLowerCase();
+    if (prefix.length < 2 || prefix.length > 64) return [];
+    const rows = await ctx.db
+      .query("accountContacts")
+      .withIndex("by_normalizedEmail", (q) => q.gte("normalizedEmail", prefix).lt("normalizedEmail", `${prefix}￿`))
+      .take(8);
+    return rows
+      .filter((row) => row.status === "active" && row.normalizedEmail)
+      .map((row) => ({ email: row.normalizedEmail!, name: `${row.firstName} ${row.lastName}`.trim() }));
+  },
+});
+
+/** The outcome of one own send attempt (for the UI after a lost connection: no blind resend). */
+export const getSendCommand = query({
+  args: { sendCommandId: v.string() },
+  returns: v.union(v.object({ status: adminMailSendStatus, errorCode: v.union(v.string(), v.null()) }), v.null()),
+  handler: async (ctx, args) => {
+    const admin = await requireAdmin(ctx);
+    const row = await ctx.db
+      .query("adminMailSendCommands")
+      .withIndex("by_ownerUserId_and_sendCommandId", (q) => q.eq("ownerUserId", admin._id).eq("sendCommandId", args.sendCommandId))
+      .unique();
+    return row ? { status: row.status, errorCode: row.errorCode ?? null } : null;
+  },
+});
+
+/** One sendCommandId = one attempt. A second call with it only reads the stored outcome. */
+export const claimSendCommand = internalMutation({
+  args: {
+    sendCommandId: v.string(),
+    connectionId: v.id("adminMailConnections"),
+    zohoAccountId: v.string(),
+    mode: adminMailComposeMode,
+  },
+  returns: v.union(
+    v.object({ claimed: v.literal(true) }),
+    v.object({ claimed: v.literal(false), status: adminMailSendStatus, errorCode: v.union(v.string(), v.null()) }),
+  ),
+  handler: async (ctx, args) => {
+    const connection = await requireOwnConnection(ctx, args.connectionId);
+    const accounts = await ctx.db
+      .query("adminMailAccounts")
+      .withIndex("by_connectionId", (q) => q.eq("connectionId", connection._id))
+      .take(MAX_ACCOUNTS_PER_CONNECTION * 2);
+    if (!accounts.some((account) => account.zohoAccountId === args.zohoAccountId)) mailError("ZOHO_CONNECTION_NOT_FOUND");
+    const existing = await ctx.db
+      .query("adminMailSendCommands")
+      .withIndex("by_ownerUserId_and_sendCommandId", (q) => q.eq("ownerUserId", connection.ownerUserId).eq("sendCommandId", args.sendCommandId))
+      .unique();
+    if (existing) return { claimed: false as const, status: existing.status, errorCode: existing.errorCode ?? null };
+    const now = Date.now();
+    await ctx.db.insert("adminMailSendCommands", {
+      ownerUserId: connection.ownerUserId,
+      connectionId: connection._id,
+      zohoAccountId: args.zohoAccountId,
+      sendCommandId: args.sendCommandId,
+      mode: args.mode,
+      status: "pending",
+      createdAt: now,
+      updatedAt: now,
+    });
+    return { claimed: true as const };
+  },
+});
+
+export const updateSendCommand = internalMutation({
+  args: {
+    sendCommandId: v.string(),
+    status: adminMailSendStatus,
+    errorCode: v.optional(v.string()),
+    providerMessageId: v.optional(v.string()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const admin = await requireAdmin(ctx);
+    const row = await ctx.db
+      .query("adminMailSendCommands")
+      .withIndex("by_ownerUserId_and_sendCommandId", (q) => q.eq("ownerUserId", admin._id).eq("sendCommandId", args.sendCommandId))
+      .unique();
+    if (!row) mailError("ZOHO_REQUEST_REJECTED");
+    await ctx.db.patch(row._id, {
+      status: args.status,
+      ...(args.errorCode ? { errorCode: args.errorCode } : {}),
+      ...(args.providerMessageId ? { providerMessageId: args.providerMessageId } : {}),
+      updatedAt: Date.now(),
+    });
+    return null;
+  },
+});
+
+/** The admin's own waiting attachments of this message (a foreign or expired id refuses the send). */
+export const uploadsForSend = internalQuery({
+  args: { uploadIds: v.array(v.id("adminMailUploads")) },
+  returns: v.array(v.object({ storageId: v.id("_storage"), fileName: v.string(), size: v.number() })),
+  handler: async (ctx, args) => {
+    const admin = await requireAdmin(ctx);
+    const uploads: { storageId: Id<"_storage">; fileName: string; size: number }[] = [];
+    for (const uploadId of args.uploadIds.slice(0, ADMIN_MAIL_SEND_MAX_ATTACHMENTS)) {
+      const upload = await ctx.db.get(uploadId);
+      if (!upload || upload.ownerUserId !== admin._id) mailError("ZOHO_ATTACHMENT_BLOCKED");
+      uploads.push({ storageId: upload.storageId, fileName: upload.fileName, size: upload.size });
+    }
+    return uploads;
+  },
+});
+
+export const discardUploads = internalMutation({
+  args: { uploadIds: v.array(v.id("adminMailUploads")) },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const admin = await requireAdmin(ctx);
+    for (const uploadId of args.uploadIds.slice(0, ADMIN_MAIL_SEND_MAX_ATTACHMENTS)) {
+      const upload = await ctx.db.get(uploadId);
+      if (upload && upload.ownerUserId === admin._id) await deleteUpload(ctx, upload);
+    }
+    return null;
+  },
+});
+
+/**
+ * New message, reply, reply-all or forward from the admin's own mailbox
+ * (fromAddress is always that mailbox). Every message is the ScanMe template
+ * (lib/email-template/scanme-email.ts) with the mailbox signature; a reply or
+ * forward quotes the original server-side, as escaped text.
+ *
+ * Idempotent (ADMIN-09B outbox pattern): the claim stores `pending`, the
+ * attachments go Convex storage → Zoho upload, `sending` is stored right
+ * before the one POST, and the outcome is `sent`, `failed` (Zoho did not take
+ * it) or `needs_reconciliation` (the POST may have been accepted: never
+ * repeated; the admin checks Sent). Temporary files are deleted after `sent`
+ * and `needs_reconciliation`; after `failed` they stay (2 h) for a new attempt.
+ */
+export const sendMail = action({
+  args: {
+    sendCommandId: v.string(),
+    connectionId: v.id("adminMailConnections"),
+    accountId: v.string(),
+    mode: adminMailComposeMode,
+    to: v.array(v.string()),
+    cc: v.array(v.string()),
+    bcc: v.array(v.string()),
+    subject: v.string(),
+    bodyText: v.string(),
+    source: v.optional(v.object({ folderId: v.string(), messageId: v.string() })),
+    uploadIds: v.array(v.id("adminMailUploads")),
+    forwardAttachmentIds: v.optional(v.array(v.string())),
+  },
+  returns: adminMailSendResult,
+  handler: (ctx, args): Promise<AdminMailSendResult> =>
+    withMailErrors(async () => {
+      requireMailConfig();
+      if (!SEND_COMMAND_ID.test(args.sendCommandId)) mailError("ZOHO_COMPOSE_INVALID");
+      zohoIdArg(args.accountId);
+      const recipients = checkRecipients({ to: args.to, cc: args.cc, bcc: args.bcc });
+      if (!recipients.ok) mailError("ZOHO_RECIPIENT_INVALID");
+      const forwardIds = args.mode === "forward" ? args.forwardAttachmentIds ?? [] : [];
+      for (const id of forwardIds) zohoIdArg(id);
+      if (args.source) {
+        zohoIdArg(args.source.folderId);
+        zohoIdArg(args.source.messageId);
+      }
+      if (
+        (args.mode === "new") !== (args.source === undefined) ||
+        (args.mode === "new" && !args.subject.trim()) ||
+        args.subject.length > ADMIN_MAIL_SUBJECT_MAX_LENGTH ||
+        args.bodyText.length > ADMIN_MAIL_BODY_MAX_LENGTH ||
+        new Set(args.uploadIds).size !== args.uploadIds.length ||
+        new Set(forwardIds).size !== forwardIds.length ||
+        args.uploadIds.length + forwardIds.length > ADMIN_MAIL_SEND_MAX_ATTACHMENTS
+      ) mailError("ZOHO_COMPOSE_INVALID");
+
+      const claim: { claimed: true } | { claimed: false; status: AdminMailSendStatus; errorCode: string | null } = await ctx.runMutation(internal.adminMail.claimSendCommand, {
+        sendCommandId: args.sendCommandId,
+        connectionId: args.connectionId,
+        zohoAccountId: args.accountId,
+        mode: args.mode,
+      });
+      if (!claim.claimed) {
+        return { sendCommandId: args.sendCommandId, status: claim.status, errorCode: claim.errorCode, duplicate: true };
+      }
+
+      let posted = false;
+      try {
+        const uploads: { storageId: Id<"_storage">; fileName: string; size: number }[] = await ctx.runQuery(internal.adminMail.uploadsForSend, { uploadIds: args.uploadIds });
+        const { client, connection } = await openMailboxSession(ctx, { connectionId: args.connectionId, accountId: args.accountId });
+        const account = connection.account ?? mailError("ZOHO_CONNECTION_NOT_FOUND");
+
+        let quote: ScanMeEmailQuote | null = null;
+        let sourceSubject = "";
+        const forwarded: { fileName: string; size: number; attachmentId: string }[] = [];
+        if (args.source) {
+          const sourceArgs = { accountId: args.accountId, folderId: args.source.folderId, messageId: args.source.messageId };
+          const details = await client.getDetails(sourceArgs);
+          const body = await client.getContent(sourceArgs);
+          quote = buildMailQuote(args.mode, { ...details, body });
+          sourceSubject = details.subject;
+          if (forwardIds.length > 0) {
+            const infos = await client.getAttachments(sourceArgs);
+            for (const attachmentId of forwardIds) {
+              const info = infos.find((item) => item.attachmentId === attachmentId);
+              if (!info || !adminMailAttachmentMimeType(info.fileName) || info.size > ADMIN_MAIL_SEND_FILE_MAX_BYTES) mailError("ZOHO_ATTACHMENT_BLOCKED");
+              forwarded.push({ fileName: info.fileName, size: info.size, attachmentId });
+            }
+          }
+        }
+        const totalBytes = [...uploads, ...forwarded].reduce((sum, item) => sum + item.size, 0);
+        if (totalBytes > ADMIN_MAIL_SEND_TOTAL_MAX_BYTES) mailError("ZOHO_ATTACHMENT_BLOCKED");
+
+        const subject = args.subject.replace(/\s+/g, " ").trim() || composeSubject(args.mode, sourceSubject);
+        const rendered = renderScanMeEmail({ bodyText: args.bodyText, signatureText: account.signatureText, quote, subject });
+
+        const attachments: ZohoUploadedAttachment[] = [];
+        for (const upload of uploads) {
+          const blob = await ctx.storage.get(upload.storageId);
+          if (!blob) mailError("ZOHO_ATTACHMENT_BLOCKED");
+          attachments.push(await client.uploadAttachment({ accountId: args.accountId, fileName: upload.fileName, bytes: await blob.arrayBuffer() }));
+        }
+        for (const item of forwarded) {
+          const bytes = await client.downloadAttachment({
+            accountId: args.accountId,
+            folderId: args.source!.folderId,
+            messageId: args.source!.messageId,
+            attachmentId: item.attachmentId,
+            maxBytes: ADMIN_MAIL_SEND_FILE_MAX_BYTES,
+          });
+          attachments.push(await client.uploadAttachment({ accountId: args.accountId, fileName: item.fileName, bytes }));
+        }
+
+        // Outbound is checked again immediately before the one POST.
+        if (!readMailConfig()) mailError("ZOHO_NOT_CONFIGURED");
+        if (!connection.scopes.includes(SEND_SCOPE)) mailError("ZOHO_AUTH_REQUIRED");
+        await ctx.runMutation(internal.adminMail.updateSendCommand, { sendCommandId: args.sendCommandId, status: "sending" });
+        posted = true;
+        const result = await client.sendMessage({
+          accountId: args.accountId,
+          replyToMessageId: args.mode === "reply" || args.mode === "reply_all" ? args.source!.messageId : undefined,
+          message: {
+            fromAddress: account.emailAddress,
+            toAddress: recipients.to.join(","),
+            ...(recipients.cc.length > 0 ? { ccAddress: recipients.cc.join(",") } : {}),
+            ...(recipients.bcc.length > 0 ? { bccAddress: recipients.bcc.join(",") } : {}),
+            subject,
+            content: rendered.html,
+            mailFormat: "html",
+            encoding: "UTF-8",
+            askReceipt: "no",
+            ...(attachments.length > 0 ? { attachments } : {}),
+          },
+        });
+        await ctx.runMutation(internal.adminMail.updateSendCommand, {
+          sendCommandId: args.sendCommandId,
+          status: "sent",
+          ...(result.providerMessageId ? { providerMessageId: result.providerMessageId } : {}),
+        });
+        await ctx.runMutation(internal.adminMail.discardUploads, { uploadIds: args.uploadIds });
+        return { sendCommandId: args.sendCommandId, status: "sent" as const, errorCode: null, duplicate: false };
+      } catch (error) {
+        const data = error instanceof ConvexError ? (error.data as { code?: unknown } | string) : null;
+        const known = data && typeof data === "object" && isAdminMailErrorCode(data.code) ? data.code : null;
+        const code: AdminMailErrorCode = error instanceof AdminMailError ? error.code : known ?? (posted ? "ZOHO_SEND_UNCERTAIN" : "ZOHO_UNAVAILABLE");
+        const status = posted && code === "ZOHO_SEND_UNCERTAIN" ? ("needs_reconciliation" as const) : ("failed" as const);
+        await ctx.runMutation(internal.adminMail.updateSendCommand, { sendCommandId: args.sendCommandId, status, errorCode: code });
+        if (status === "needs_reconciliation") await ctx.runMutation(internal.adminMail.discardUploads, { uploadIds: args.uploadIds });
+        return { sendCommandId: args.sendCommandId, status, errorCode: code, duplicate: false };
+      }
     }),
 });
