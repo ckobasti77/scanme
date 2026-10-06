@@ -1,10 +1,11 @@
 # Sajam automobila 2026 — komandni status
 
 > **Status dokumenta:** živi operativni pregled  
-> **Poslednje ažuriranje:** 5. oktobar 2026.
+> **Poslednje ažuriranje:** 6. oktobar 2026.
 > **Vlasnik odluka:** Aleksa  
 > **Aktivna integraciona grana:** `codex/sajam-integracija-2026-10-04`  
 > **Završeni Garage checkpoint:** `8e72c10`
+> **Najnoviji zajednički kodni sync checkpoint:** `c37bd0e`
 > **Jovan sync (K1–K4 na deljenoj grani):** `codex/jovan-sync-2026-10-05` — [SYNC-2026-10-05](./jovan-status/SYNC-2026-10-05.md)
 > **Deljena grana za Aleksu i Jovana:** `origin/codex/sajam-integracija-2026-10-04`
 > **Rok produkcijske spremnosti:** 9. oktobar 2026.
@@ -38,7 +39,7 @@ Ne menja poslovni ili tehnički ugovor. Za proizvod važi [MASTER-KONTEKST](./MA
 | Garaža | 🔧 | Mobilna ruta, selection režim, poređenje, pasoši i sponsored tok su automatski provereni; native Samsung share još mora ručno da se potvrdi preko HTTPS origin-a |
 | Leadovi i email | ⛔ | Kod postoji, ali saglasnost, produkcijski prekidači i email podešavanja nisu zaključani |
 | Stvarni izlagači i modeli | ⛔ | Čekaju se kompletni podaci i priprema stvarnog importa |
-| QR štampa | ⛔ | Sistem dodele postoji; stvarnih 100 kodova još nema niti su poslati u štampu |
+| QR štampa | ✅ | Kreirano je 100 trajnih dinamičkih modelskih kodova i 3 dinamička panel koda; završni materijal je poslat u štampu |
 | Integracioni test | ⏳ | Ne počinje dok model stranica, hardening, HTTPS DEV i test podaci nisu spremni |
 | Produkcija | ⏳ | Nema deploy-a; Aleksa je jedini go/no-go vlasnik |
 
@@ -94,7 +95,7 @@ Ovo je redosled kojim se projekat trenutno odblokira. Stavka niže ne smatra se 
    - [ ] Prikupljeni izlagači, modeli, specifikacije, cene, paketi i pitanja.
    - [ ] Podaci normalizovani i prošli import dry-run.
    - [ ] Definisani highlight-i i grupe specifikacija.
-   - [ ] Pripremljeno najmanje 10 TEST QR kodova.
+   - [x] Pripremljeno 100 produkcijskih dinamičkih QR kodova i 3 panel koda.
    - [ ] HTTPS DEV host koristi odgovarajući Convex DEV.
 
 4. **Pravni i email gate** `⛔`
@@ -136,6 +137,7 @@ Ovo je redosled kojim se projekat trenutno odblokira. Stavka niže ne smatra se 
 - [ ] 👀 I9 — Aleksa i Jovan pregledaju ukupno stanje.
 - [x] ✅ I10 — Integraciona grana objavljena je kao `origin/codex/sajam-integracija-2026-10-04`.
 - [ ] ⏳ I11 — Nije spojena u produkcijsku/ciljnu granu.
+- [x] ✅ I12 — Produkcijski QR inventar i panel provisioner sinhronizovani su u zajedničku granu (`c37bd0e`).
 
 **Poznata nesajamska stavka:** puni `npm test` ima 1537 prolaznih i jedan postojeći pad u `convex/memoriesHost.test.ts`. Nije nastao ovom integracijom.
 
@@ -225,8 +227,9 @@ Ovo je redosled kojim se projekat trenutno odblokira. Stavka niže ne smatra se 
 - [ ] ⛔ D6 — Report i PII primaoci po izlagaču.
 - [ ] ⏳ D7 — Normalizacija CSV → import JSON.
 - [ ] ⏳ D8 — Dry-run, pregled grešaka i odobren commit importa.
-- [ ] ⏳ D9 — Napraviti dve serije po 50 dinamičkih QR kodova.
-- [ ] ⏳ D10 — Poslati 100 kodova u štampu i voditi audit dodele.
+- [x] ✅ D9 — Kreirano 100 dinamičkih modelskih QR kodova sa oznakama `SA26-001`–`SA26-100`.
+- [x] ✅ D10 — Završni paket od 100 kodova i paneli poslati su u štampu.
+- [ ] ⏳ D11 — Dodeliti odštampane oznake stvarnim modelima i sačuvati audit dodele pre lepljenja.
 
 **Vlasništvo:** Teodora prikuplja podatke; ScanMe tim ih sređuje i unosi; Aleksa odobrava stvarni import i štampu.
 
@@ -314,6 +317,15 @@ Vlasnik sledeće akcije:
 ```
 
 ## Dnevnik statusa
+
+### 6. oktobar 2026. — QR štampa i novi zajednički checkpoint
+
+- Produkcijski je kreirano 100 trajnih dinamičkih modelskih QR kodova i tri odvojena dinamička panel koda.
+- Kodovi koriste postojeći `/r/[cardCode]` resolver; panel destinacije ostaju promenljive bez ponovne štampe.
+- Završni PDF materijali poslati su u štampu i ručno je provereno više QR uzoraka.
+- Implementacija produkcijskog QR inventara preneta je u integracionu granu kao checkpoint `c37bd0e`.
+- Jovanov backend B0–B7 nije ponovo merge-ovan: iste izmene su već deo integracione istorije pod zajedničkim hash-evima.
+- Sledeći programski kritični korak ostaje F3: povezivanje javne model stranice sa stvarnim backend projekcijama i write tokovima.
 
 ### 5. oktobar 2026. — Jovan sync (K1–K4)
 
