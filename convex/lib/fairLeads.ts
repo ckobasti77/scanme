@@ -1,5 +1,5 @@
 import type { Doc, Id } from "../_generated/dataModel";
-import type { MutationCtx, QueryCtx } from "../_generated/server";
+import { env, type MutationCtx, type QueryCtx } from "../_generated/server";
 import { internal } from "../_generated/api";
 import {
   FAIR_CONSENT_EXHIBITOR_PLACEHOLDER,
@@ -22,9 +22,27 @@ import { fairInteractionError } from "./fairInteractions";
 // Production gate: a lead is stored only while an ACTIVE fairConsentConfigs
 // version exists for the event and lead kind; the server renders the consent
 // text itself (exhibitor name included) and stores that exact snapshot.
+//
+// K3 (RF nalaz 3): above that gate sit two hard switches in this deployment's
+// env, so no single admin click opens the flow. Each is on only when its value
+// is exactly "true"; missing or anything else = off.
+//   - FAIR_LEADS_ENABLED: submitLead and getLeadForm, and again in
+//     claimDelivery right before any lead email (confirmation or follow-up);
+//   - FAIR_FOLLOWUP_ENABLED: the post-fair follow-up is scheduled only while
+//     it is on, and claimDelivery checks it again right before sending.
 // =============================================================================
 
 type Ctx = QueryCtx | MutationCtx;
+
+/** K3: the lead flow (store, confirm, follow up) is open only when FAIR_LEADS_ENABLED is exactly "true". */
+export function fairLeadsEnabled(): boolean {
+  return env.FAIR_LEADS_ENABLED === "true";
+}
+
+/** K3: the one post-fair follow-up is scheduled/sent only when FAIR_FOLLOWUP_ENABLED is exactly "true". */
+export function fairFollowUpEnabled(): boolean {
+  return env.FAIR_FOLLOWUP_ENABLED === "true";
+}
 
 export type FairLeadEmailKind = "immediate_confirmation" | "post_event_follow_up";
 
@@ -91,12 +109,28 @@ export async function fairLeadConfig(ctx: Ctx, eventModelId: Id<"fairEventModels
     .unique();
 }
 
+/** Admin UX A7: the exhibitor's default for one lead form (admin input; the public flow never reads it). */
+export async function fairParticipationLeadDefault(ctx: Ctx, participationId: Id<"fairParticipations">, kind: FairLeadKind) {
+  return ctx.db
+    .query("fairParticipationLeadDefaults")
+    .withIndex("by_participationId_and_leadKind", (q) => q.eq("participationId", participationId).eq("leadKind", kind))
+    .unique();
+}
+
 export async function fairActiveFollowUpTemplate(ctx: Ctx, eventModelId: Id<"fairEventModels">) {
   return ctx.db
     .query("fairMessageTemplates")
     .withIndex("by_eventModelId_and_kind_and_status", (q) =>
       q.eq("eventModelId", eventModelId).eq("kind", "post_event_follow_up").eq("status", "active"),
     )
+    .first();
+}
+
+/** Admin UX A8 — the exhibitor's active follow-up text (one per participation), or null. */
+export async function fairActiveExhibitorFollowUp(ctx: Ctx, participationId: Id<"fairParticipations">) {
+  return ctx.db
+    .query("fairExhibitorFollowUpTemplates")
+    .withIndex("by_participationId_and_status", (q) => q.eq("participationId", participationId).eq("status", "active"))
     .first();
 }
 

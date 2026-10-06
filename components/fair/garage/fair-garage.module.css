@@ -1,0 +1,3202 @@
+.page {
+  min-height: 100dvh;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.page :global(.fair-shell__inner) {
+  max-width: 1040px;
+}
+
+.pageWithDock {
+  padding-bottom: calc(126px + env(safe-area-inset-bottom));
+}
+
+.pageWithSelection {
+  padding-bottom: calc(104px + env(safe-area-inset-bottom));
+}
+
+.main {
+  width: min(100%, 1040px);
+  margin-inline: auto;
+  padding: 30px 20px 52px;
+}
+
+.intro {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.intro h1,
+.sectionHeading h2,
+.savedBadges h2 {
+  margin: 0;
+  color: var(--fair-ink);
+  font-size: clamp(30px, 5vw, 52px);
+  font-weight: 760;
+  letter-spacing: -0.055em;
+  line-height: 0.98;
+}
+
+.intro p,
+.sectionHeading p {
+  max-width: 600px;
+  margin: 10px 0 0;
+  color: var(--fair-ink-muted);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.savedCount {
+  display: inline-flex;
+  min-height: 44px;
+  flex: none;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 14px;
+  border: 1px solid var(--fair-line);
+  border-radius: 999px;
+  background: var(--fair-surface);
+  color: var(--fair-ink);
+  font-size: 13px;
+  font-weight: 680;
+}
+
+.savedCount svg {
+  width: 19px;
+  height: 19px;
+  color: var(--fair-accent);
+}
+
+.tabs {
+  display: grid;
+  margin-top: 26px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  overflow: hidden;
+  border: 1px solid var(--fair-line);
+  border-radius: 18px;
+  background: var(--fair-surface-muted);
+}
+
+.tabs button {
+  position: relative;
+  display: grid;
+  min-height: 74px;
+  padding: 13px 48px 12px 16px;
+  border: 0;
+  background: transparent;
+  color: var(--fair-ink-muted);
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 180ms ease, color 180ms ease;
+}
+
+.tabs button + button {
+  border-left: 1px solid var(--fair-line);
+}
+
+.tabs button:hover {
+  background: rgb(255 253 248 / 0.56);
+}
+
+.tabs .tabActive {
+  background: var(--fair-surface);
+  color: var(--fair-ink);
+  box-shadow: inset 0 -3px 0 var(--fair-accent);
+}
+
+.tabs span {
+  overflow: hidden;
+  font-size: 15px;
+  font-weight: 720;
+  letter-spacing: -0.02em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tabs small {
+  margin-top: 4px;
+  color: var(--fair-ink-muted);
+  font-size: 12px;
+}
+
+.tabs b {
+  position: absolute;
+  top: 50%;
+  right: 16px;
+  display: grid;
+  min-width: 28px;
+  height: 28px;
+  padding-inline: 7px;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--fair-surface-muted);
+  color: var(--fair-ink);
+  font-size: 12px;
+  transform: translateY(-50%);
+}
+
+.tabActive b {
+  background: var(--fair-accent-soft);
+  color: var(--fair-accent-strong);
+}
+
+.networkNotice,
+.storageError {
+  margin: 18px 0 0;
+  border: 1px solid var(--fair-line);
+  border-radius: 14px;
+  background: var(--fair-surface);
+  color: var(--fair-ink-muted);
+}
+
+.networkNotice {
+  display: flex;
+  min-height: 58px;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+}
+
+.networkNotice > svg {
+  width: 20px;
+  flex: none;
+}
+
+.networkNotice p {
+  flex: 1;
+  margin: 0;
+  font-size: 13px;
+}
+
+.networkNotice button {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 11px;
+  border: 1px solid var(--fair-line);
+  border-radius: 10px;
+  background: var(--fair-surface-muted);
+  color: var(--fair-ink);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 680;
+  cursor: pointer;
+}
+
+.networkNotice button svg {
+  width: 15px;
+}
+
+.storageError {
+  padding: 13px 15px;
+  border-color: color-mix(in srgb, var(--fair-danger) 30%, var(--fair-line));
+  color: var(--fair-danger);
+  font-size: 13px;
+}
+
+.models,
+.passports,
+.savedBadges {
+  margin-top: 28px;
+}
+
+.compareBar {
+  display: flex;
+  min-height: 54px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 8px 10px 8px 14px;
+  border: 1px solid var(--fair-line);
+  border-radius: 15px;
+  background: var(--fair-surface);
+}
+
+.compareBar > span:first-child,
+.compareBar a,
+.compareBar button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 720;
+}
+
+.compareBar svg {
+  width: 18px;
+  height: 18px;
+}
+
+.compareBar a,
+.compareBar button {
+  min-height: 38px;
+  padding: 8px 11px;
+  border-radius: 10px;
+  background: var(--fair-accent);
+  color: var(--fair-accent-ink);
+  text-decoration: none;
+  border: 0;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background-color 160ms ease, transform 160ms ease;
+}
+
+.compareBar a:hover,
+.compareBar button:hover {
+  background: var(--fair-accent-strong);
+}
+
+.compareBar a:active,
+.compareBar button:active {
+  transform: translateY(1px);
+}
+
+.compareHint {
+  color: var(--fair-ink-muted);
+  font-size: 12px;
+}
+
+.selectionMessage {
+  margin: 8px 2px 0;
+  color: var(--fair-accent-strong);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.modelList {
+  display: grid;
+  margin-top: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.modelCard {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 178px minmax(0, 1fr);
+  overflow: hidden;
+  border: 1px solid var(--fair-line);
+  border-radius: 20px;
+  background: var(--fair-surface);
+  box-shadow: 0 12px 30px -26px var(--fair-shadow);
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    opacity 220ms ease,
+    transform 220ms ease;
+}
+
+.modelCardSelectionMode {
+  cursor: pointer;
+}
+
+.modelCardSelectionMode .modelActions {
+  pointer-events: none;
+  opacity: 0.42;
+}
+
+.modelCardSelected {
+  border-color: var(--fair-accent);
+  box-shadow: 0 0 0 1px var(--fair-accent), 0 14px 30px -24px var(--fair-shadow);
+}
+
+.modelCardRemoving {
+  opacity: 0;
+  transform: scale(0.985) translateY(-4px);
+}
+
+.modelVisual {
+  position: relative;
+  min-height: 230px;
+  overflow: hidden;
+  background: var(--fair-surface-warm);
+}
+
+.modelImage {
+  object-fit: cover;
+}
+
+.modelPlaceholder {
+  display: grid;
+  height: 100%;
+  min-height: 230px;
+  place-items: center;
+  align-content: center;
+  gap: 10px;
+  color: var(--fair-ink-muted);
+}
+
+.modelPlaceholder span {
+  font-size: 42px;
+  font-weight: 760;
+  letter-spacing: -0.06em;
+}
+
+.modelPlaceholder svg {
+  width: 31px;
+  height: 31px;
+  stroke-width: 1.5;
+}
+
+.modelContent {
+  display: flex;
+  min-width: 0;
+  padding: 18px;
+  flex-direction: column;
+}
+
+.modelTopline {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--fair-accent-strong);
+  font-size: 12px;
+  font-weight: 730;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.modelTopline small {
+  overflow: hidden;
+  color: var(--fair-ink-muted);
+  font-size: 9px;
+  font-weight: 610;
+  letter-spacing: 0;
+  text-overflow: ellipsis;
+  text-transform: none;
+  white-space: nowrap;
+}
+
+.modelContent h2 {
+  margin: 5px 0 0;
+  color: var(--fair-ink);
+  font-size: 23px;
+  font-weight: 750;
+  letter-spacing: -0.045em;
+  line-height: 1.05;
+}
+
+.variant {
+  margin: 5px 0 0;
+  color: var(--fair-ink-muted);
+  font-size: 12px;
+}
+
+.price {
+  margin: 12px 0 0;
+  color: var(--fair-ink);
+  font-size: 14px;
+  font-weight: 720;
+}
+
+.modelActions {
+  display: grid;
+  margin-top: auto;
+  padding-top: 14px;
+  grid-template-columns: 1fr auto;
+  gap: 7px;
+}
+
+.compareToggle,
+.viewLink,
+.removeButton,
+.badgeButton {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border-radius: 11px;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 690;
+  line-height: 1.15;
+  cursor: pointer;
+}
+
+.compareToggle {
+  grid-column: 1 / -1;
+  justify-content: flex-start;
+  padding: 8px 10px;
+  border: 1px solid var(--fair-line);
+  background: transparent;
+  color: var(--fair-ink);
+}
+
+.compareToggle:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.compareMark {
+  display: grid;
+  width: 20px;
+  height: 20px;
+  flex: none;
+  place-items: center;
+  border: 1px solid var(--fair-line-strong);
+  border-radius: 7px;
+  background: var(--fair-surface);
+}
+
+.modelCardSelected .compareMark {
+  border-color: var(--fair-accent);
+  background: var(--fair-accent);
+  color: var(--fair-accent-ink);
+}
+
+.compareMark svg {
+  width: 13px;
+  height: 13px;
+  stroke-width: 2.5;
+}
+
+.viewLink {
+  padding: 8px 10px;
+  background: var(--fair-ink);
+  color: var(--fair-surface);
+  text-decoration: none;
+}
+
+.viewLink svg {
+  width: 15px;
+  height: 15px;
+}
+
+.removeButton {
+  padding: 8px 10px;
+  border: 1px solid var(--fair-line);
+  background: transparent;
+  color: var(--fair-ink-muted);
+}
+
+.removeButton svg {
+  width: 15px;
+  height: 15px;
+}
+
+.emptyState {
+  display: grid;
+  min-height: 340px;
+  margin-top: 28px;
+  padding: 40px 20px;
+  place-items: center;
+  align-content: center;
+  border: 1px solid var(--fair-line);
+  border-radius: 24px;
+  background: var(--fair-surface);
+  text-align: center;
+}
+
+.emptyVisual {
+  display: grid;
+  width: 76px;
+  height: 76px;
+  place-items: center;
+  border-radius: 24px;
+  background: var(--fair-accent-soft);
+  color: var(--fair-accent-strong);
+}
+
+.emptyVisual svg {
+  width: 34px;
+  height: 34px;
+}
+
+.emptyState h2 {
+  margin: 20px 0 0;
+  font-size: 23px;
+  letter-spacing: -0.04em;
+}
+
+.emptyState p {
+  max-width: 420px;
+  margin: 8px 0 0;
+  color: var(--fair-ink-muted);
+  font-size: 14px;
+}
+
+.emptyState a {
+  display: inline-flex;
+  min-height: 46px;
+  margin-top: 20px;
+  padding: 10px 15px;
+  align-items: center;
+  gap: 8px;
+  border-radius: 12px;
+  background: var(--fair-accent);
+  color: var(--fair-accent-ink);
+  font-size: 13px;
+  font-weight: 720;
+  text-decoration: none;
+}
+
+.emptyState a svg {
+  width: 18px;
+}
+
+.loadingState {
+  display: grid;
+  min-height: 300px;
+  margin-top: 28px;
+  padding: 24px;
+  align-content: center;
+  gap: 12px;
+  border: 1px solid var(--fair-line);
+  border-radius: 24px;
+  background: var(--fair-surface);
+}
+
+.loadingState span {
+  height: 18px;
+  border-radius: 8px;
+  background: var(--fair-surface-muted);
+  animation: garage-pulse 1.2s ease-in-out infinite alternate;
+}
+
+.loadingState span:nth-child(2) { width: 72%; }
+.loadingState span:nth-child(3) { width: 46%; }
+
+@keyframes garage-pulse {
+  to { opacity: 0.45; }
+}
+
+.sectionHeading {
+  padding-top: 10px;
+  border-top: 1px solid var(--fair-line);
+}
+
+.sectionHeading h2,
+.savedBadges h2 {
+  margin-top: 20px;
+  font-size: clamp(25px, 4vw, 36px);
+}
+
+.inlineNotice,
+.passportMessage,
+.errorText {
+  margin: 10px 0 0;
+  font-size: 12px;
+}
+
+.inlineNotice,
+.errorText {
+  color: var(--fair-danger);
+}
+
+.passportMessage {
+  color: var(--fair-ink-muted);
+}
+
+.passportGrid {
+  display: grid;
+  margin-top: 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.passportCard {
+  position: relative;
+  padding: 18px;
+  overflow: hidden;
+  border: 1px solid var(--fair-line);
+  border-radius: 20px;
+  background: var(--fair-surface);
+}
+
+.passportComplete {
+  border-color: color-mix(in srgb, var(--fair-accent) 62%, var(--fair-line));
+}
+
+.passportHeader {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 11px;
+}
+
+.brandMark {
+  position: relative;
+  display: grid;
+  width: 44px;
+  height: 44px;
+  overflow: hidden;
+  place-items: center;
+  border: 1px solid var(--fair-line);
+  border-radius: 13px;
+  background: var(--fair-surface-muted);
+  color: var(--fair-ink);
+  font-size: 20px;
+  font-weight: 760;
+}
+
+.brandMark img {
+  padding: 6px;
+  object-fit: contain;
+}
+
+.passportHeader h3 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 740;
+  letter-spacing: -0.03em;
+}
+
+.passportHeader p {
+  margin: 2px 0 0;
+  color: var(--fair-ink-muted);
+  font-size: 12px;
+}
+
+.passportHeader > svg {
+  width: 23px;
+  color: var(--fair-accent);
+}
+
+.stamps {
+  display: grid;
+  margin-top: 17px;
+  grid-template-columns: repeat(auto-fit, minmax(82px, 1fr));
+  gap: 7px;
+}
+
+.stamps > span {
+  display: grid;
+  min-width: 0;
+  min-height: 58px;
+  padding: 8px 6px;
+  place-items: center;
+  align-content: center;
+  gap: 4px;
+  border: 1px dashed var(--fair-line-strong);
+  border-radius: 12px;
+  color: var(--fair-ink-muted);
+  font-size: 9px;
+  text-align: center;
+}
+
+.stamps > span svg {
+  width: 19px;
+  height: 19px;
+}
+
+.stamps > span > span {
+  overflow: hidden;
+  max-width: 100%;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stamps .stampEarned {
+  border-style: solid;
+  border-color: var(--fair-accent);
+  background: var(--fair-accent-soft);
+  color: var(--fair-accent-strong);
+}
+
+.passportStatus {
+  margin: 12px 0 0;
+  color: var(--fair-ink-muted);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.favoriteFieldset {
+  margin: 16px 0 0;
+  padding: 0;
+  border: 0;
+}
+
+.favoriteFieldset legend {
+  margin-bottom: 8px;
+  color: var(--fair-ink);
+  font-size: 12px;
+  font-weight: 720;
+}
+
+.favoriteFieldset > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.favoriteFieldset button {
+  min-height: 44px;
+  padding: 7px 10px;
+  border: 1px solid var(--fair-line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--fair-ink);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.favoriteFieldset button[aria-pressed="true"] {
+  border-color: var(--fair-accent);
+  background: var(--fair-accent-soft);
+  color: var(--fair-accent-strong);
+  font-weight: 700;
+}
+
+.badgeButton {
+  width: 100%;
+  margin-top: 12px;
+  padding: 8px 12px;
+  border: 0;
+  background: var(--fair-ink);
+  color: var(--fair-surface);
+}
+
+.badgeButton:disabled {
+  background: var(--fair-surface-muted);
+  color: var(--fair-ink-muted);
+  cursor: default;
+}
+
+.badgeButton svg {
+  width: 17px;
+  height: 17px;
+}
+
+.savedBadges {
+  padding-top: 10px;
+  border-top: 1px solid var(--fair-line);
+}
+
+.savedBadges > div {
+  display: flex;
+  margin-top: 14px;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+
+.savedBadges article {
+  display: grid;
+  min-width: 190px;
+  padding: 14px;
+  grid-template-columns: 24px minmax(0, 1fr);
+  align-items: center;
+  gap: 2px 9px;
+  border: 1px solid var(--fair-line);
+  border-radius: 16px;
+  background: var(--fair-surface);
+}
+
+.savedBadges svg {
+  grid-row: 1 / 3;
+  width: 22px;
+  color: var(--fair-accent);
+}
+
+.savedBadges strong {
+  font-size: 13px;
+}
+
+.savedBadges span {
+  color: var(--fair-ink-muted);
+  font-size: 11px;
+}
+
+.storageNotice {
+  max-width: 680px;
+  margin: 40px auto 0;
+  color: var(--fair-ink-muted);
+  font-size: 11px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.sponsoredDock {
+  position: fixed;
+  z-index: 18;
+  right: 50%;
+  bottom: max(8px, env(safe-area-inset-bottom));
+  width: min(calc(100% - 20px), 760px);
+  padding: 5px;
+  border: 1px solid color-mix(in srgb, var(--fair-line-strong) 74%, transparent);
+  border-radius: 20px;
+  background: rgb(255 253 248 / 0.94);
+  box-shadow: 0 18px 48px rgb(48 36 30 / 0.2);
+  backdrop-filter: blur(14px);
+  transform: translateX(50%);
+}
+
+.sponsoredCard {
+  display: grid;
+  min-height: 88px;
+  grid-template-columns: 78px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 11px;
+}
+
+.sponsoredVisual {
+  position: relative;
+  display: grid;
+  width: 78px;
+  height: 78px;
+  overflow: hidden;
+  place-items: center;
+  border-radius: 15px;
+  background: var(--fair-surface-warm);
+  color: var(--fair-ink-muted);
+}
+
+.sponsoredVisual img {
+  object-fit: cover;
+}
+
+.sponsoredVisual .sponsoredLogo {
+  padding: 13px;
+  object-fit: contain;
+}
+
+.sponsoredVisual > svg {
+  width: 30px;
+  height: 30px;
+}
+
+.sponsoredCopy {
+  display: grid;
+  min-width: 0;
+}
+
+.sponsoredCopy span {
+  color: var(--fair-accent-strong);
+  font-size: 9px;
+  font-weight: 760;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.sponsoredCopy strong {
+  overflow: hidden;
+  color: var(--fair-ink);
+  font-size: 15px;
+  font-weight: 740;
+  letter-spacing: -0.03em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sponsoredCopy small {
+  margin-top: 2px;
+  color: var(--fair-ink-muted);
+  font-size: 11px;
+}
+
+.sponsoredActions {
+  display: flex;
+  gap: 6px;
+  padding-right: 5px;
+}
+
+.sponsoredActions a,
+.sponsoredActions button {
+  display: inline-flex;
+  min-height: 44px;
+  padding: 8px 11px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--fair-line);
+  border-radius: 11px;
+  background: transparent;
+  color: var(--fair-ink);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.sponsoredActions button {
+  border-color: var(--fair-accent);
+  background: var(--fair-accent);
+  color: var(--fair-accent-ink);
+}
+
+.sponsoredActions button:disabled {
+  border-color: var(--fair-line);
+  background: var(--fair-surface-muted);
+  color: var(--fair-ink-muted);
+  cursor: default;
+}
+
+.sponsoredDock > p {
+  margin: 0 8px 5px 90px;
+  color: var(--fair-danger);
+  font-size: 10px;
+}
+
+.comparisonPage { min-height: 100dvh; }
+
+.comparisonHeader {
+  position: sticky;
+  z-index: 20;
+  top: 0;
+  padding-top: env(safe-area-inset-top);
+  border-bottom: 1px solid var(--fair-line);
+  background: var(--fair-surface);
+}
+
+.comparisonHeader > div {
+  display: flex;
+  width: min(100%, 980px);
+  min-height: 64px;
+  margin-inline: auto;
+  padding: 8px 16px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.comparisonHeader a {
+  display: inline-flex;
+  min-height: 44px;
+  padding: 8px 10px;
+  align-items: center;
+  gap: 8px;
+  border-radius: 11px;
+  color: var(--fair-ink);
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.comparisonHeader a:hover { background: var(--fair-surface-muted); }
+.comparisonHeader svg { width: 19px; }
+
+.comparisonHeader span {
+  overflow: hidden;
+  color: var(--fair-ink-muted);
+  font-size: 12px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.comparisonMain {
+  width: min(100%, 980px);
+  margin-inline: auto;
+  padding: 30px 20px 60px;
+}
+
+.comparisonMain > h1 {
+  margin: 0;
+  font-size: clamp(31px, 5vw, 52px);
+  font-weight: 760;
+  letter-spacing: -0.055em;
+  line-height: 1;
+}
+
+.comparisonModels,
+.comparisonLoading {
+  display: grid;
+  margin-top: 22px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.comparisonModels article {
+  display: grid;
+  min-width: 0;
+  padding: 8px 8px 14px;
+  border: 1px solid var(--fair-line);
+  border-radius: 20px;
+  background: var(--fair-surface);
+}
+
+.comparisonPhoto {
+  position: relative;
+  display: grid;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  place-items: center;
+  border-radius: 14px;
+  background: var(--fair-surface-warm);
+  color: var(--fair-ink-muted);
+}
+
+.comparisonPhoto img { object-fit: cover; }
+.comparisonPhoto svg { width: 38px; height: 38px; }
+
+.comparisonModels article > span {
+  margin: 13px 8px 0;
+  color: var(--fair-accent-strong);
+  font-size: 10px;
+  font-weight: 740;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.comparisonModels h2 {
+  margin: 4px 8px 0;
+  font-size: clamp(20px, 3.2vw, 30px);
+  font-weight: 760;
+  letter-spacing: -0.05em;
+  line-height: 1.05;
+}
+
+.comparisonModels p {
+  margin: 5px 8px 0;
+  color: var(--fair-ink-muted);
+  font-size: 12px;
+}
+
+.comparisonModels strong { margin: 11px 8px 0; font-size: 14px; }
+
+.comparisonModels a {
+  display: inline-flex;
+  min-height: 44px;
+  margin: 14px 8px 0;
+  padding: 8px 12px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 11px;
+  background: var(--fair-ink);
+  color: var(--fair-surface);
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.comparisonOffline,
+.comparisonUnavailable {
+  display: flex;
+  margin: 18px 0 0;
+  padding: 12px 14px;
+  align-items: center;
+  gap: 9px;
+  border: 1px solid var(--fair-line);
+  border-radius: 13px;
+  background: var(--fair-surface);
+  color: var(--fair-ink-muted);
+  font-size: 12px;
+}
+
+.comparisonOffline svg { width: 18px; flex: none; }
+
+.comparisonMissing {
+  display: grid;
+  min-height: 380px;
+  margin-top: 24px;
+  padding: 40px 20px;
+  place-items: center;
+  align-content: center;
+  border: 1px solid var(--fair-line);
+  border-radius: 22px;
+  background: var(--fair-surface);
+  text-align: center;
+}
+
+.comparisonMissing > svg { width: 52px; height: 52px; color: var(--fair-accent); }
+.comparisonMissing h2 { margin: 18px 0 0; font-size: 25px; letter-spacing: -0.04em; }
+.comparisonMissing p { max-width: 450px; margin: 8px 0 0; color: var(--fair-ink-muted); font-size: 14px; }
+
+.comparisonMissing a {
+  display: inline-flex;
+  min-height: 44px;
+  margin-top: 18px;
+  padding: 9px 14px;
+  align-items: center;
+  border-radius: 11px;
+  background: var(--fair-accent);
+  color: var(--fair-accent-ink);
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.comparisonLoading span {
+  height: 310px;
+  border: 1px solid var(--fair-line);
+  border-radius: 20px;
+  background: var(--fair-surface-muted);
+  animation: garage-pulse 1.2s ease-in-out infinite alternate;
+}
+
+.specComparison { margin-top: 30px; }
+
+.specComparison > h2 {
+  margin: 0 0 14px;
+  font-size: 27px;
+  font-weight: 750;
+  letter-spacing: -0.045em;
+}
+
+.specHeader,
+.specRow {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.8fr) repeat(2, minmax(0, 1fr));
+}
+
+.specHeader {
+  position: sticky;
+  z-index: 5;
+  top: calc(64px + env(safe-area-inset-top));
+  border: 1px solid var(--fair-line);
+  border-radius: 14px 14px 0 0;
+  background: var(--fair-surface-muted);
+}
+
+.specHeader strong {
+  overflow: hidden;
+  padding: 12px 10px;
+  font-size: 11px;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.specHeader strong + strong { border-left: 1px solid var(--fair-line); }
+
+.specRow {
+  border-right: 1px solid var(--fair-line);
+  border-bottom: 1px solid var(--fair-line);
+  border-left: 1px solid var(--fair-line);
+  background: var(--fair-surface);
+}
+
+.specRow:last-child { overflow: hidden; border-radius: 0 0 14px 14px; }
+
+.specRow h3 {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 13px 12px 8px;
+  border-bottom: 1px solid var(--fair-line);
+  background: color-mix(in srgb, var(--fair-surface-muted) 55%, var(--fair-surface));
+  color: var(--fair-accent-strong);
+  font-size: 10px;
+  font-weight: 760;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.specRow > span,
+.specRow > strong {
+  min-width: 0;
+  padding: 12px;
+  align-content: center;
+  overflow-wrap: anywhere;
+}
+
+.specRow > span { color: var(--fair-ink-muted); font-size: 11px; }
+.specRow > strong { border-left: 1px solid var(--fair-line); font-size: 12px; font-weight: 680; text-align: center; }
+
+@media (max-width: 780px) {
+  .main {
+    padding: 22px 12px 40px;
+  }
+
+  .modelList,
+  .passportGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .modelCard {
+    grid-template-columns: 152px minmax(0, 1fr);
+  }
+
+  .modelVisual,
+  .modelPlaceholder {
+    min-height: 218px;
+  }
+}
+
+@media (max-width: 520px) {
+  .pageWithDock {
+    padding-bottom: calc(121px + env(safe-area-inset-bottom));
+  }
+
+  .main {
+    padding-top: 18px;
+  }
+
+  .intro {
+    align-items: center;
+    gap: 10px;
+  }
+
+  .intro h1 {
+    font-size: 33px;
+  }
+
+  .intro p {
+    max-width: 270px;
+    margin-top: 7px;
+    font-size: 12px;
+  }
+
+  .savedCount {
+    min-height: 40px;
+    padding: 8px 10px;
+    font-size: 0;
+  }
+
+  .savedCount span {
+    font-size: 12px;
+  }
+
+  .tabs {
+    margin-top: 18px;
+    border-radius: 15px;
+  }
+
+  .tabs button {
+    min-height: 68px;
+    padding: 11px 39px 10px 12px;
+  }
+
+  .tabs span {
+    font-size: 12px;
+  }
+
+  .tabs small {
+    font-size: 10px;
+  }
+
+  .tabs b {
+    right: 10px;
+    min-width: 24px;
+    height: 24px;
+    font-size: 11px;
+  }
+
+  .models,
+  .passports,
+  .savedBadges {
+    margin-top: 20px;
+  }
+
+  .compareBar {
+    min-height: 50px;
+    border-radius: 13px;
+  }
+
+  .compareHint {
+    max-width: 138px;
+    text-align: right;
+  }
+
+  .modelCard {
+    grid-template-columns: 124px minmax(0, 1fr);
+    border-radius: 18px;
+  }
+
+  .modelVisual,
+  .modelPlaceholder {
+    min-height: 211px;
+  }
+
+  .modelContent {
+    padding: 14px 12px;
+  }
+
+  .modelTopline {
+    font-size: 10px;
+  }
+
+  .modelContent h2 {
+    font-size: 20px;
+  }
+
+  .price {
+    margin-top: 9px;
+    font-size: 12px;
+  }
+
+  .modelActions {
+    gap: 5px;
+    padding-top: 10px;
+  }
+
+  .compareToggle,
+  .viewLink,
+  .removeButton {
+    min-height: 44px;
+    padding: 7px 8px;
+    font-size: 10px;
+  }
+
+  .removeButton span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  .removeButton {
+    width: 44px;
+    padding: 0;
+  }
+
+  .sectionHeading h2,
+  .savedBadges h2 {
+    font-size: 27px;
+  }
+
+  .sectionHeading p {
+    font-size: 12px;
+  }
+
+  .passportCard {
+    padding: 15px;
+  }
+
+  .stamps {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .sponsoredDock {
+    width: calc(100% - 12px);
+    bottom: max(6px, env(safe-area-inset-bottom));
+    border-radius: 18px;
+  }
+
+  .sponsoredCard {
+    min-height: 82px;
+    grid-template-columns: 68px minmax(0, 1fr) auto;
+    gap: 8px;
+  }
+
+  .sponsoredVisual {
+    width: 68px;
+    height: 68px;
+    border-radius: 13px;
+  }
+
+  .sponsoredCopy strong {
+    font-size: 13px;
+  }
+
+  .sponsoredActions {
+    display: grid;
+    gap: 4px;
+  }
+
+  .sponsoredActions a,
+  .sponsoredActions button {
+    min-width: 74px;
+    min-height: 44px;
+    padding: 5px 7px;
+    border-radius: 9px;
+    font-size: 9px;
+  }
+
+  .comparisonMain {
+    padding: 22px 10px 42px;
+  }
+
+  .comparisonHeader > div {
+    padding-inline: 8px 12px;
+  }
+
+  .comparisonMain > h1 {
+    padding-inline: 2px;
+    font-size: 34px;
+  }
+
+  .comparisonModels,
+  .comparisonLoading {
+    gap: 7px;
+  }
+
+  .comparisonModels article {
+    padding: 5px 5px 10px;
+    border-radius: 16px;
+  }
+
+  .comparisonPhoto {
+    border-radius: 12px;
+  }
+
+  .comparisonModels article > span,
+  .comparisonModels h2,
+  .comparisonModels p,
+  .comparisonModels strong,
+  .comparisonModels a {
+    margin-right: 5px;
+    margin-left: 5px;
+  }
+
+  .comparisonModels h2 { font-size: 19px; }
+  .comparisonModels strong { font-size: 12px; }
+  .specComparison > h2 { font-size: 25px; }
+
+  .specHeader,
+  .specRow {
+    grid-template-columns: minmax(92px, 0.8fr) repeat(2, minmax(0, 1fr));
+  }
+
+  .specRow > span,
+  .specRow > strong {
+    padding: 10px 7px;
+  }
+
+  .specHeader strong,
+  .specRow > span {
+    font-size: 9px;
+  }
+
+  .specRow > strong { font-size: 10px; }
+}
+
+@media (max-width: 365px) {
+  .modelCard {
+    grid-template-columns: 108px minmax(0, 1fr);
+  }
+
+  .modelContent h2 {
+    font-size: 18px;
+  }
+
+  .sponsoredCopy small {
+    display: none;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 520px) {
+  .pageWithDock {
+    padding-bottom: calc(105px + env(safe-area-inset-bottom));
+  }
+
+  .sponsoredDock {
+    width: min(calc(100% - 16px), 700px);
+  }
+
+  .sponsoredCard {
+    min-height: 72px;
+  }
+
+  .sponsoredVisual {
+    width: 64px;
+    height: 64px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page *,
+  .page *::before,
+  .page *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Garage V2: dense mobile showroom, October 2026. */
+@property --garage-trace-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+.page {
+  min-height: 100dvh;
+  overflow-x: clip;
+  background:
+    linear-gradient(180deg, rgba(255, 253, 248, 0.74), rgba(241, 238, 231, 0) 260px),
+    var(--fair-canvas);
+}
+
+.pageWithDock {
+  padding-bottom: calc(126px + env(safe-area-inset-bottom));
+}
+
+.main {
+  width: min(100%, 1080px);
+  margin-inline: auto;
+  padding: 14px 18px 30px;
+}
+
+.tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  min-height: 52px;
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--fair-line) 88%, transparent);
+  border-radius: 17px;
+  background: color-mix(in srgb, var(--fair-surface) 92%, transparent);
+  box-shadow: 0 9px 26px rgba(35, 30, 25, 0.045);
+}
+
+.tabs button {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  min-width: 0;
+  min-height: 52px;
+  padding: 7px 10px 7px 13px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--fair-ink-muted);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color 180ms ease,
+    color 180ms ease;
+}
+
+.tabs button + button {
+  border-left: 1px solid var(--fair-line);
+}
+
+.tabs button::after {
+  position: absolute;
+  right: 12px;
+  bottom: 0;
+  left: 12px;
+  height: 2px;
+  border-radius: 2px 2px 0 0;
+  background: var(--fair-accent);
+  content: "";
+  opacity: 0;
+  transform: scaleX(0.45);
+  transition:
+    opacity 180ms ease,
+    transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.tabs button:hover {
+  background: rgba(255, 255, 255, 0.52);
+}
+
+.tabs .tabActive {
+  background: var(--fair-surface);
+  color: var(--fair-ink);
+}
+
+.tabs .tabActive::after {
+  opacity: 1;
+  transform: scaleX(1);
+}
+
+.tabs button > span {
+  display: grid;
+  gap: 1px;
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 780;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.tabs small {
+  display: block;
+  overflow: hidden;
+  color: var(--fair-ink-muted);
+  font-size: 9px;
+  font-weight: 620;
+  letter-spacing: 0.015em;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+}
+
+.tabs b {
+  display: grid;
+  width: 27px;
+  height: 27px;
+  place-items: center;
+  border: 1px solid var(--fair-line);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--fair-canvas) 76%, white);
+  color: var(--fair-ink);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.tabs .tabLocked {
+  color: var(--fair-ink-muted);
+  cursor: not-allowed;
+  opacity: 0.48;
+  filter: grayscale(1);
+}
+
+.passportRail {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 11px;
+  margin-top: 12px;
+}
+
+.passportRailHeading {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: max-content;
+}
+
+.passportRailHeading h2 {
+  margin: 0;
+  color: var(--fair-ink);
+  font-size: 12px;
+  font-weight: 790;
+  letter-spacing: -0.02em;
+}
+
+.passportRailHeading > span {
+  display: grid;
+  width: 21px;
+  height: 21px;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--fair-warm);
+  color: var(--fair-ink);
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.passportRailList {
+  display: flex;
+  min-width: 0;
+  gap: 8px;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-width: none;
+  scroll-snap-type: x proximity;
+}
+
+.passportRailList::-webkit-scrollbar {
+  display: none;
+}
+
+.passportChip {
+  display: grid;
+  grid-template-columns: 38px minmax(72px, auto) 28px;
+  align-items: center;
+  gap: 10px;
+  min-width: 178px;
+  min-height: 54px;
+  padding: 7px 10px;
+  border: 1px solid var(--fair-line);
+  border-radius: 15px;
+  background: var(--fair-surface);
+  color: var(--fair-ink);
+  box-shadow: 0 7px 20px rgba(35, 30, 25, 0.04);
+  text-align: left;
+  scroll-snap-align: start;
+  cursor: pointer;
+  transition:
+    border-color 180ms ease,
+    transform 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.passportChip:hover {
+  border-color: color-mix(in srgb, var(--fair-accent) 38%, var(--fair-line));
+  box-shadow: 0 10px 24px rgba(35, 30, 25, 0.07);
+  transform: translateY(-1px);
+}
+
+.passportChip > span:nth-child(2) {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+.passportChip strong,
+.passportChip small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.passportChip strong {
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.passportChip small {
+  color: var(--fair-ink-muted);
+  font-size: 9px;
+  font-weight: 650;
+}
+
+.brandMark {
+  position: relative;
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid var(--fair-line);
+  border-radius: 11px;
+  background: #fff;
+  color: var(--fair-ink);
+  font-size: 9px;
+  font-weight: 850;
+}
+
+.brandMark img {
+  object-fit: contain;
+  padding: 7px;
+}
+
+.brandMark svg {
+  width: 21px;
+  height: 21px;
+}
+
+.brandMark .brandIcon {
+  width: 72% !important;
+  height: 72% !important;
+  padding: 0 !important;
+  object-fit: contain;
+}
+
+.passportProgressRing {
+  --passport-progress: 0deg;
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle, var(--fair-surface) 57%, transparent 59%),
+    conic-gradient(var(--fair-accent) var(--passport-progress), var(--fair-line) 0);
+}
+
+.passportProgressRingEmpty {
+  border: 3px solid var(--fair-line);
+  background: var(--fair-surface);
+}
+
+.passportProgressRing svg {
+  width: 12px;
+  height: 12px;
+}
+
+.passportChipComplete {
+  border-color: color-mix(in srgb, var(--fair-accent) 48%, var(--fair-line));
+  background: color-mix(in srgb, var(--fair-accent) 6%, var(--fair-surface));
+}
+
+.networkNotice {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) 40px;
+  align-items: center;
+  min-height: 42px;
+  margin-top: 10px;
+  padding: 5px 5px 5px 11px;
+  border: 1px solid color-mix(in srgb, #a56f39 34%, var(--fair-line));
+  border-radius: 13px;
+  background: color-mix(in srgb, #fff3de 52%, var(--fair-surface));
+  color: var(--fair-ink-muted);
+  animation: garage-notice-in 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes garage-notice-in {
+  from {
+    opacity: 0;
+    transform: translateY(-7px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.networkNotice > svg {
+  width: 15px;
+  height: 15px;
+}
+
+.networkNotice > span {
+  overflow: hidden;
+  font-size: 10px;
+  font-weight: 620;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.networkNotice button {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--fair-ink);
+  cursor: pointer;
+}
+
+.networkNotice button:hover {
+  background: rgba(255, 255, 255, 0.66);
+}
+
+.networkNotice button svg {
+  width: 17px;
+  height: 17px;
+}
+
+.models {
+  margin-top: 13px;
+  padding: 0;
+  border: 0;
+}
+
+.compareBar {
+  display: flex;
+  min-height: 34px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+  padding-inline: 4px;
+  border: 0;
+  background: transparent;
+}
+
+.compareBar > span:first-child {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 7px;
+  color: var(--fair-ink-muted);
+  font-size: 10px;
+  font-weight: 680;
+}
+
+.compareBar > span:first-child svg {
+  width: 15px;
+  height: 15px;
+}
+
+.compareBar > span:first-child span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.compareBarActive > span:first-child {
+  color: var(--fair-ink);
+}
+
+.compareBar button {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  gap: 5px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--fair-ink);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 780;
+  cursor: pointer;
+}
+
+.compareBar button svg {
+  width: 14px;
+  height: 14px;
+}
+
+.selectionMessage {
+  margin: -2px 4px 8px;
+  color: var(--fair-accent);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.modelList {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.modelCard {
+  display: grid;
+  grid-template-columns: 1fr;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--fair-line);
+  border-radius: 22px;
+  background: var(--fair-surface);
+  box-shadow: 0 14px 38px rgba(35, 30, 25, 0.07);
+  touch-action: pan-y;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  transition:
+    border-color 200ms ease,
+    box-shadow 240ms ease,
+    opacity 220ms ease;
+}
+
+@keyframes garage-card-remove {
+  from {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.975) translateY(7px);
+  }
+}
+
+.modelCardSelected {
+  border-color: color-mix(in srgb, var(--fair-accent) 72%, var(--fair-line));
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--fair-accent) 12%, transparent),
+    0 16px 42px rgba(35, 30, 25, 0.09);
+}
+
+.modelCardRemoving {
+  animation: garage-card-remove 250ms ease-in both;
+}
+
+.modelMedia {
+  position: relative;
+  min-width: 0;
+}
+
+.modelVisual {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  background: #ded9d0;
+}
+
+.modelImage {
+  pointer-events: none;
+  -webkit-user-drag: none;
+  -webkit-user-select: none;
+  user-select: none;
+  object-fit: cover;
+  object-position: center;
+  transform: scale(1.002);
+  transition: transform 700ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.modelCard:hover .modelImage {
+  transform: scale(1.025);
+}
+
+.modelPlaceholder {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  place-items: center;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.85), rgba(216, 199, 182, 0.42)),
+    var(--fair-canvas);
+  color: var(--fair-ink);
+}
+
+.modelPlaceholder > span,
+.modelPlaceholder > svg:first-child {
+  width: 66px;
+  height: 66px;
+  align-self: end;
+  margin-bottom: -14px;
+  font-size: 16px;
+  font-weight: 850;
+}
+
+.modelPlaceholder > svg:last-child {
+  width: 96px;
+  height: 96px;
+  opacity: 0.08;
+}
+
+.compareToggle {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: grid;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  place-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  border-radius: 14px;
+  background: rgba(22, 24, 23, 0.72);
+  color: #fff;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.14);
+  backdrop-filter: blur(10px);
+  cursor: pointer;
+  line-height: 0;
+  transition:
+    background-color 180ms ease,
+    transform 180ms ease;
+}
+
+.compareToggle:hover {
+  transform: translateY(-1px);
+}
+
+.compareToggle[aria-pressed="true"] {
+  background: var(--fair-accent);
+}
+
+.compareToggle:disabled {
+  cursor: not-allowed;
+  opacity: 0.38;
+}
+
+.compareToggle svg {
+  display: block;
+  width: 19px;
+  height: 19px;
+  align-self: center;
+  justify-self: center;
+}
+
+.modelContent {
+  display: grid;
+  min-width: 0;
+  padding: 14px;
+}
+
+.modelTopline {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 0 3px;
+}
+
+.modelTopline > span {
+  overflow: hidden;
+  color: var(--fair-accent);
+  font-size: 10px;
+  font-weight: 820;
+  letter-spacing: 0.075em;
+  text-transform: uppercase;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.modelTopline small {
+  color: var(--fair-ink-muted);
+  font-size: 9px;
+  font-weight: 650;
+}
+
+.modelContent h2 {
+  overflow: hidden;
+  margin: 0;
+  color: var(--fair-ink);
+  font-size: clamp(19px, 2.6vw, 25px);
+  font-weight: 790;
+  letter-spacing: -0.045em;
+  line-height: 1.05;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.modelMeta {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 5px;
+}
+
+.modelMeta p,
+.modelMeta strong {
+  overflow: hidden;
+  margin: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.modelMeta p {
+  color: var(--fair-ink-muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.modelMeta strong {
+  color: var(--fair-ink);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.modelActions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 44px 44px;
+  gap: 8px;
+  margin-top: 13px;
+}
+
+.viewLink,
+.shareButton,
+.removeButton {
+  min-height: 44px;
+  border-radius: 13px;
+}
+
+.viewLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  background: var(--fair-ink);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 780;
+  text-decoration: none;
+}
+
+.viewLink svg {
+  width: 15px;
+  height: 15px;
+}
+
+.removeButton {
+  display: grid;
+  width: 44px;
+  place-items: center;
+  border: 1px solid var(--fair-line);
+  background: transparent;
+  color: var(--fair-ink-muted);
+  cursor: pointer;
+}
+
+.shareButton {
+  display: grid;
+  width: 44px;
+  place-items: center;
+  border: 1px solid var(--fair-line);
+  background: transparent;
+  color: var(--fair-ink);
+  cursor: pointer;
+}
+
+.shareButton:hover {
+  border-color: color-mix(in srgb, var(--fair-accent) 48%, var(--fair-line));
+  color: var(--fair-accent);
+}
+
+.shareButton svg {
+  width: 17px;
+  height: 17px;
+}
+
+.selectionDock {
+  position: fixed;
+  z-index: 110;
+  right: 8px;
+  bottom: calc(8px + env(safe-area-inset-bottom));
+  left: 8px;
+  display: grid;
+  grid-template-columns: 30px repeat(3, minmax(0, 1fr)) 44px;
+  width: min(calc(100% - 16px), 590px);
+  min-height: 68px;
+  align-items: center;
+  gap: 4px;
+  margin-inline: auto;
+  padding: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 20px;
+  background: rgba(24, 25, 24, 0.96);
+  box-shadow: 0 20px 56px rgba(20, 18, 16, 0.3);
+  color: #fff;
+  animation: garage-selection-dock-in 300ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes garage-selection-dock-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.975);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.selectionDock > strong {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--fair-accent);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.selectionDock button {
+  display: grid;
+  min-width: 0;
+  min-height: 50px;
+  place-items: center;
+  align-content: center;
+  gap: 2px;
+  padding: 3px 4px;
+  border: 0;
+  border-radius: 13px;
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+  transition:
+    background-color 160ms ease,
+    opacity 160ms ease,
+    transform 160ms ease;
+}
+
+.selectionDock button:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.selectionDock button:active {
+  transform: scale(0.96);
+}
+
+.selectionDock button:disabled {
+  cursor: default;
+  opacity: 0.34;
+  transform: none;
+}
+
+.selectionDock button svg {
+  width: 18px;
+  height: 18px;
+}
+
+.selectionDock button span {
+  overflow: hidden;
+  max-width: 100%;
+  font-size: 8px;
+  font-weight: 720;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.selectionDock .selectionClose {
+  min-height: 50px;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.shareToast {
+  position: fixed;
+  z-index: 130;
+  right: 16px;
+  bottom: calc(90px + env(safe-area-inset-bottom));
+  left: 16px;
+  width: fit-content;
+  max-width: calc(100% - 32px);
+  margin-inline: auto;
+  padding: 10px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 999px;
+  background: rgba(24, 25, 24, 0.94);
+  color: #fff;
+  box-shadow: 0 14px 36px rgba(20, 18, 16, 0.22);
+  font-size: 11px;
+  font-weight: 720;
+  animation: garage-toast-in 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes garage-toast-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.removeButton:hover {
+  border-color: #b25c52;
+  color: #9d332d;
+}
+
+.removeButton svg {
+  width: 17px;
+  height: 17px;
+}
+
+.storageError,
+.storageNotice {
+  color: var(--fair-ink-muted);
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.storageError {
+  margin: 10px 0 0;
+  color: #9d332d;
+  font-weight: 700;
+}
+
+.storageNotice {
+  max-width: 620px;
+  margin: 22px auto 0;
+  text-align: center;
+}
+
+.dialogOverlay {
+  position: fixed;
+  z-index: 120;
+  inset: 0;
+  background: rgba(18, 18, 17, 0.38);
+  animation: garage-overlay-in 190ms ease-out both;
+}
+
+@keyframes garage-overlay-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.confirmDialog,
+.passportDialog,
+.shareDialog {
+  --fair-canvas: #f1eee7;
+  --fair-surface: #fffdf8;
+  --fair-ink: #171918;
+  --fair-ink-muted: #62615d;
+  --fair-line: #d8d1c7;
+  --fair-accent: #bd4f39;
+  position: fixed;
+  z-index: 121;
+  top: 50%;
+  left: 50%;
+  width: min(calc(100vw - 32px), 520px);
+  max-height: min(82dvh, 720px);
+  overflow-y: auto;
+  isolation: isolate;
+  border: 1px solid rgba(255, 255, 255, 0.74);
+  border-radius: 25px;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.96), rgba(250, 247, 241, 0.9)),
+    rgba(248, 245, 239, 0.94);
+  -webkit-backdrop-filter: blur(26px) saturate(122%);
+  backdrop-filter: blur(26px) saturate(122%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.92),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.32),
+    0 30px 90px rgba(24, 20, 17, 0.22);
+  transform: translate(-50%, -50%);
+  color: var(--fair-ink);
+  font-family: "Archivo Variable", "Archivo", "Segoe UI", Arial, sans-serif;
+  animation: garage-dialog-in 300ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.confirmDialog::before,
+.passportDialog::before,
+.shareDialog::before {
+  position: absolute;
+  z-index: -1;
+  inset: 1px;
+  border-radius: calc(25px - 1px);
+  background:
+    radial-gradient(circle at 16% 0%, rgba(255, 255, 255, 0.72), transparent 31%),
+    linear-gradient(115deg, rgba(255, 255, 255, 0.2), transparent 46%);
+  content: "";
+  pointer-events: none;
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .confirmDialog,
+  .passportDialog,
+  .shareDialog {
+    background: rgba(250, 248, 244, 0.98);
+  }
+}
+
+@keyframes garage-dialog-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, calc(-50% + 18px)) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+.dialogHandle {
+  display: none;
+}
+
+.confirmDialog {
+  padding: 25px;
+  text-align: center;
+}
+
+.confirmIcon {
+  width: 31px;
+  height: 31px;
+  margin-bottom: 13px;
+  color: var(--fair-accent);
+}
+
+.confirmDialog h2 {
+  margin: 0;
+  color: var(--fair-ink);
+  font-size: 24px;
+  letter-spacing: -0.04em;
+}
+
+.confirmDialog p {
+  margin: 8px auto 0;
+  color: var(--fair-ink-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.confirmActions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+  margin-top: 22px;
+}
+
+.confirmActions button {
+  min-height: 46px;
+  border: 1px solid var(--fair-line);
+  border-radius: 14px;
+  background: transparent;
+  color: var(--fair-ink);
+  font-size: 12px;
+  font-weight: 760;
+  cursor: pointer;
+}
+
+.confirmActions .confirmRemove {
+  border-color: #9d332d;
+  background: #9d332d;
+  color: #fff;
+}
+
+.passportDialog {
+  padding: 25px;
+}
+
+.shareDialog {
+  padding: 25px;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.99), rgba(250, 247, 241, 0.985)),
+    var(--fair-surface);
+}
+
+.shareDialog h2,
+.shareDialog p {
+  margin: 0;
+  padding-right: 52px;
+}
+
+.shareDialog h2 {
+  color: var(--fair-ink);
+  font-size: 24px;
+  letter-spacing: -0.04em;
+}
+
+.shareDialog p {
+  margin-top: 5px;
+  color: var(--fair-ink-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.shareOptions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+  margin-top: 22px;
+}
+
+.shareOptions a,
+.shareOptions button {
+  display: grid;
+  min-height: 72px;
+  place-items: center;
+  align-content: center;
+  gap: 7px;
+  padding: 10px;
+  border: 1px solid var(--fair-line);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--fair-canvas) 66%, white);
+  color: var(--fair-ink);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 760;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    border-color 180ms ease,
+    background-color 180ms ease,
+    transform 180ms ease;
+}
+
+.shareOptions a:hover,
+.shareOptions button:hover {
+  border-color: color-mix(in srgb, var(--fair-accent) 54%, var(--fair-line));
+  background: color-mix(in srgb, var(--fair-accent) 7%, var(--fair-surface));
+}
+
+.shareOptions a:active,
+.shareOptions button:active {
+  transform: scale(0.98);
+}
+
+.shareOptions svg {
+  width: 22px;
+  height: 22px;
+  color: var(--fair-accent);
+}
+
+.dialogClose {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border: 1px solid var(--fair-line);
+  border-radius: 14px;
+  background: var(--fair-surface);
+  color: var(--fair-ink);
+  cursor: pointer;
+}
+
+.dialogClose svg {
+  width: 18px;
+  height: 18px;
+}
+
+.passportDialogHeader {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr) 28px;
+  align-items: center;
+  gap: 12px;
+  padding-right: 44px;
+}
+
+.passportDialogHeader .brandMark {
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+}
+
+.passportDialogHeader .brandMark svg {
+  width: 31px;
+  height: 31px;
+}
+
+.passportDialogHeader h2,
+.passportDialogHeader p {
+  margin: 0;
+}
+
+.passportDialogHeader h2 {
+  color: var(--fair-ink);
+  font-size: 25px;
+  letter-spacing: -0.045em;
+}
+
+.passportDialogHeader p {
+  margin-top: 2px;
+  color: var(--fair-ink-muted);
+  font-size: 11px;
+}
+
+.passportDialogHeader > svg {
+  width: 25px;
+  height: 25px;
+  color: var(--fair-accent);
+}
+
+.stamps {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.stamps > span {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  min-height: 50px;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px dashed var(--fair-line);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--fair-canvas) 72%, white);
+  color: var(--fair-ink-muted);
+}
+
+.stamps > span svg {
+  width: 20px;
+  height: 20px;
+}
+
+.stamps > span span {
+  overflow: hidden;
+  font-size: 10px;
+  font-weight: 690;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stamps .stampEarned {
+  border-style: solid;
+  border-color: color-mix(in srgb, var(--fair-accent) 46%, var(--fair-line));
+  background: color-mix(in srgb, var(--fair-accent) 7%, var(--fair-surface));
+  color: var(--fair-ink);
+}
+
+.passportStatus {
+  margin: 12px 0 0;
+  color: var(--fair-ink-muted);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.favoriteFieldset {
+  margin: 18px 0 0;
+  padding: 0;
+  border: 0;
+}
+
+.favoriteFieldset legend {
+  color: var(--fair-ink);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.favoriteFieldset > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 9px;
+}
+
+.favoriteFieldset button {
+  min-height: 42px;
+  padding: 0 13px;
+  border: 1px solid var(--fair-line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--fair-ink);
+  font-size: 10px;
+  font-weight: 690;
+  cursor: pointer;
+}
+
+.favoriteFieldset button[aria-pressed="true"] {
+  border-color: var(--fair-accent);
+  background: var(--fair-accent);
+  color: #fff;
+}
+
+.badgeButton {
+  display: inline-flex;
+  min-height: 46px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  margin-top: 16px;
+  padding: 0 15px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--fair-ink);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 760;
+  cursor: pointer;
+}
+
+.badgeButton:disabled {
+  cursor: default;
+  opacity: 0.58;
+}
+
+.badgeButton svg {
+  width: 17px;
+  height: 17px;
+}
+
+.passportMessage,
+.errorText {
+  margin: 10px 0 0;
+  font-size: 10px;
+  font-weight: 680;
+}
+
+.passportMessage { color: var(--fair-ink-muted); }
+.errorText { color: #9d332d; }
+
+.emptyState {
+  min-height: 260px;
+  margin-top: 14px;
+  padding: 28px 18px;
+  border-radius: 22px;
+}
+
+.emptyState h2 {
+  margin-top: 15px;
+  font-size: clamp(21px, 5vw, 27px);
+}
+
+.emptyState p {
+  margin-top: 6px;
+  font-size: 12px;
+}
+
+.emptyState a {
+  margin-top: 16px;
+}
+
+.emptyVisual {
+  width: 64px;
+  height: 64px;
+  border-radius: 20px;
+}
+
+.sponsoredDock {
+  position: fixed;
+  z-index: 80;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  width: min(calc(100% - 28px), 820px);
+  margin: 0 auto calc(10px + env(safe-area-inset-bottom));
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  transform: none;
+}
+
+.sponsoredFrame {
+  position: relative;
+  padding: 1px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--fair-accent) 28%, var(--fair-line));
+  border-radius: 20px;
+  background: var(--fair-surface);
+  box-shadow: 0 18px 48px rgba(29, 25, 21, 0.18);
+  isolation: isolate;
+}
+
+.sponsoredFrame::before {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  padding: 1px;
+  border-radius: inherit;
+  background: conic-gradient(from var(--garage-trace-angle), transparent 0deg 238deg, color-mix(in srgb, var(--fair-accent) 84%, white) 285deg, transparent 332deg);
+  content: "";
+  pointer-events: none;
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: sponsored-trace 5.6s linear infinite;
+}
+
+@keyframes sponsored-trace {
+  to { --garage-trace-angle: 360deg; }
+}
+
+.sponsoredCard {
+  display: grid;
+  grid-template-columns: 94px minmax(0, 1fr) auto;
+  min-height: 92px;
+  align-items: center;
+  gap: 12px;
+  padding: 8px;
+  border: 0;
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--fair-surface) 96%, var(--fair-warm));
+}
+
+.sponsoredVisual {
+  position: relative;
+  display: grid;
+  width: 94px;
+  height: 74px;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 13px;
+  background: color-mix(in srgb, var(--fair-warm) 54%, white);
+  color: var(--fair-ink);
+}
+
+.sponsoredVisual img {
+  object-fit: cover;
+}
+
+.sponsoredVisual .sponsoredLogo {
+  object-fit: contain;
+  padding: 16px;
+}
+
+.sponsoredVisual > svg {
+  width: 46px;
+  height: 46px;
+}
+
+.sponsoredVisual .sponsoredBrandLogo {
+  width: 70%;
+  height: auto;
+  object-fit: contain;
+}
+
+.sponsoredCopy {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.sponsoredCopy span {
+  color: var(--fair-accent);
+  font-size: 8px;
+  font-weight: 830;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.sponsoredCopy strong,
+.sponsoredCopy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sponsoredCopy strong {
+  color: var(--fair-ink);
+  font-size: 14px;
+  font-weight: 780;
+  letter-spacing: -0.025em;
+}
+
+.sponsoredCopy small {
+  color: var(--fair-ink-muted);
+  font-size: 10px;
+  font-weight: 620;
+}
+
+.sponsoredActions {
+  display: flex;
+  gap: 7px;
+}
+
+.sponsoredActions a,
+.sponsoredActions button {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 13px;
+  border: 1px solid var(--fair-line);
+  border-radius: 13px;
+  background: transparent;
+  color: var(--fair-ink);
+  font-size: 10px;
+  font-weight: 760;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.sponsoredActions button {
+  border-color: var(--fair-accent);
+  background: var(--fair-accent);
+  color: #fff;
+}
+
+.sponsoredActions button:disabled {
+  border-color: var(--fair-line);
+  background: var(--fair-warm);
+  color: var(--fair-ink-muted);
+  cursor: default;
+}
+
+.sponsoredDock > p {
+  position: absolute;
+  right: 12px;
+  bottom: 100%;
+  margin: 0 0 5px;
+  padding: 5px 8px;
+  border-radius: 8px;
+  background: #9d332d;
+  color: #fff;
+  font-size: 9px;
+}
+
+.flyingCar {
+  position: fixed !important;
+  z-index: 200;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.78);
+  border-radius: 13px;
+  background: var(--fair-surface);
+  box-shadow: 0 18px 48px rgba(18, 18, 17, 0.28);
+  pointer-events: none;
+}
+
+.flyingCar img {
+  object-fit: cover;
+}
+
+.flyingCar > svg {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 50%;
+  height: 50%;
+  transform: translate(-50%, -50%);
+}
+
+@media (max-width: 720px) {
+  .main {
+    padding: 10px 12px 25px;
+  }
+
+  .modelList {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .modelCard {
+    border-radius: 20px;
+  }
+
+  .modelVisual {
+    aspect-ratio: 16 / 8.35;
+  }
+
+  .modelContent {
+    padding: 12px;
+  }
+
+  .sponsoredCard {
+    grid-template-columns: 78px minmax(0, 1fr) auto;
+    min-height: 82px;
+    gap: 9px;
+    padding: 7px;
+  }
+
+  .sponsoredVisual {
+    width: 78px;
+    height: 66px;
+  }
+
+  .sponsoredActions {
+    display: grid;
+    gap: 4px;
+  }
+
+  .sponsoredActions a,
+  .sponsoredActions button {
+    min-height: 34px;
+    padding: 0 9px;
+    border-radius: 10px;
+    font-size: 9px;
+  }
+}
+
+@media (max-width: 520px) {
+  .pageWithDock {
+    padding-bottom: calc(112px + env(safe-area-inset-bottom));
+  }
+
+  .tabs {
+    border-radius: 15px;
+  }
+
+  .tabs button {
+    min-height: 50px;
+    padding-inline: 10px 8px;
+  }
+
+  .tabs button > span {
+    font-size: 11px;
+  }
+
+  .tabs b {
+    width: 24px;
+    height: 24px;
+    font-size: 10px;
+  }
+
+  .passportRail {
+    grid-template-columns: 1fr;
+    gap: 6px;
+    margin-top: 9px;
+  }
+
+  .passportRailHeading h2 {
+    font-size: 11px;
+  }
+
+  .passportChip {
+    min-width: 176px;
+    min-height: 52px;
+  }
+
+  .models {
+    margin-top: 9px;
+  }
+
+  .compareBar {
+    min-height: 31px;
+    margin-bottom: 6px;
+  }
+
+  .modelContent h2 {
+    font-size: 21px;
+  }
+
+  .modelActions {
+    margin-top: 11px;
+  }
+
+  .confirmDialog,
+  .passportDialog,
+  .shareDialog {
+    top: auto;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    max-height: 88dvh;
+    padding-bottom: calc(22px + env(safe-area-inset-bottom));
+    border-right: 0;
+    border-bottom: 0;
+    border-left: 0;
+    border-radius: 24px 24px 0 0;
+    transform: none;
+    animation-name: garage-sheet-in;
+  }
+
+  @keyframes garage-sheet-in {
+    from {
+      opacity: 0;
+      transform: translateY(34px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .dialogHandle {
+    display: block;
+    width: 38px;
+    height: 4px;
+    margin: -11px auto 18px;
+    border-radius: 999px;
+    background: var(--fair-line);
+  }
+
+  .confirmDialog {
+    padding: 25px 20px calc(20px + env(safe-area-inset-bottom));
+  }
+
+  .passportDialog {
+    padding: 22px 18px calc(22px + env(safe-area-inset-bottom));
+  }
+
+  .shareDialog {
+    padding: 22px 18px calc(22px + env(safe-area-inset-bottom));
+  }
+
+  .sponsoredDock {
+    width: calc(100% - 16px);
+    margin-bottom: calc(7px + env(safe-area-inset-bottom));
+  }
+
+  .sponsoredFrame {
+    border-radius: 17px;
+  }
+
+  .sponsoredCard {
+    grid-template-columns: 66px minmax(0, 1fr) 74px;
+    min-height: 76px;
+    gap: 7px;
+    border-radius: 15px;
+  }
+
+  .sponsoredVisual {
+    width: 66px;
+    height: 60px;
+    border-radius: 11px;
+  }
+
+  .sponsoredCopy strong {
+    font-size: 12px;
+  }
+
+  .sponsoredCopy small {
+    font-size: 9px;
+  }
+
+  .sponsoredActions a,
+  .sponsoredActions button {
+    min-height: 44px;
+    padding-inline: 5px;
+    font-size: 8px;
+  }
+}
+
+@media (max-width: 370px) {
+  .tabs small {
+    display: none;
+  }
+
+  .passportChip {
+    min-width: 168px;
+  }
+
+  .sponsoredCard {
+    grid-template-columns: 58px minmax(0, 1fr) 70px;
+  }
+
+  .sponsoredVisual {
+    width: 58px;
+    height: 56px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sponsoredFrame::before,
+  .modelCard,
+  .networkNotice,
+  .selectionDock,
+  .shareToast {
+    animation: none !important;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .dialogOverlay {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  .confirmDialog,
+  .passportDialog,
+  .shareDialog {
+    background: var(--fair-surface);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}

@@ -31,6 +31,9 @@ type Env = {
   readonly CONVEX_CLOUD_URL: string;
   readonly CONVEX_SITE_URL: string;
   readonly FAIR_EMAIL_REPLY_TO: string | undefined;
+  readonly FAIR_FOLLOWUP_ENABLED: string | undefined;
+  readonly FAIR_GATEWAY_SECRET: string | undefined;
+  readonly FAIR_LEADS_ENABLED: string | undefined;
   readonly FAIR_PUBLIC_BASE_URL: string | undefined;
   readonly RESEND_API_KEY: string | undefined;
   readonly RESEND_FROM_EMAIL: string | undefined;
@@ -47,6 +50,7 @@ type Env = {
   readonly ZOHO_ACCOUNTS_BASE_URL: string | undefined;
   readonly ZOHO_MAIL_ACCOUNT_ID: string | undefined;
   readonly ZOHO_MAIL_API_BASE_URL: string | undefined;
+  readonly ZOHO_MAIL_CLIENT_ENABLED: string | undefined;
   readonly ZOHO_MAIL_CLIENT_ID: string | undefined;
   readonly ZOHO_MAIL_CLIENT_SECRET: string | undefined;
   readonly ZOHO_MAIL_FROM_ADDRESS: string | undefined;
@@ -54,9 +58,11 @@ type Env = {
   readonly ZOHO_MAIL_INBOX_FOLDER_ID: string | undefined;
   readonly ZOHO_MAIL_OUTBOUND_ENABLED: string | undefined;
   readonly ZOHO_MAIL_POLL_INTERVAL_SECONDS: string | undefined;
+  readonly ZOHO_MAIL_REDIRECT_URI: string | undefined;
   readonly ZOHO_MAIL_REFRESH_TOKEN: string | undefined;
   readonly ZOHO_MAIL_SENT_FOLDER_ID: string | undefined;
   readonly ZOHO_MAIL_SYNC_ENABLED: string | undefined;
+  readonly ZOHO_TOKEN_ENCRYPTION_KEY: string | undefined;
 };
 
 /**

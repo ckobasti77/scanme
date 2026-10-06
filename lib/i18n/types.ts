@@ -14,12 +14,20 @@ import type { ProductType, ServiceType } from "../admin-v1/catalog";
 import type {
   FairAdminIssueCode,
   FairAudienceQuestionStatus,
+  FairBrandPassportProblem,
   FairClientSegment,
   FairConsentStatus,
   FairContactRequirement,
+  FairDashboardDeadline,
+  FairDashboardPhase,
+  FairDashboardRule,
+  FairDashboardSection,
   FairEmailDeliveryError,
   FairEmailDeliveryStatus,
   FairEventStatus,
+  FairFollowUpField,
+  FairFollowUpTemplateStatus,
+  FairLeadActivityGroup,
   FairLeadKind,
   FairModelStatus,
   FairPackageTier,
@@ -33,6 +41,7 @@ import type {
   FairPurgeRunStatus,
   FairPurgeTrigger,
   FairSponsoredSnapshotStatus,
+  FairSponsoredSnapshotTrigger,
   FairReportStatus,
   FairReportFormat,
   FairSurveyQuestionKind,
@@ -192,6 +201,7 @@ export interface FairModelDict {
   closeSheet: string;
   ratingSheetTitle: string;
   overallRatingLabel: string;
+  ratingValueAria: string;
   designRatingLabel: string;
   specificationsRatingLabel: string;
   priceRatingLabel: string;
@@ -211,6 +221,108 @@ export interface FairModelDict {
   notFoundTitle: string;
   notFoundBody: string;
   backToScanMe: string;
+}
+
+export interface FairGarageDict {
+  metaTitle: string;
+  metaDescription: string;
+  umbrellaTitle: string;
+  mapNav: string;
+  garageNav: string;
+  garageCountAria: string;
+  pageTitle: string;
+  pageBody: string;
+  eventTabsAria: string;
+  electromobilityTitle: string;
+  electromobilityDates: string;
+  autoMotoTitle: string;
+  autoMotoDates: string;
+  eventUpcoming: string;
+  savedCount: string;
+  compareSelect: string;
+  compareSelected: string;
+  compareCount: string;
+  compareAction: string;
+  compareLimit: string;
+  compareHintLongPress: string;
+  selectionCount: string;
+  selectionClose: string;
+  selectionShare: string;
+  selectionRemove: string;
+  selectionRemoveTitle: string;
+  selectionRemoveBody: string;
+  selectionRemoveConfirm: string;
+  selectionLimit: string;
+  shareModelAria: string;
+  shareTitle: string;
+  shareText: string;
+  shareCollectionTitle: string;
+  shareCollectionText: string;
+  sharePreparing: string;
+  shareCopied: string;
+  shareFailed: string;
+  shareSheetTitle: string;
+  shareSystem: string;
+  shareWhatsApp: string;
+  shareViber: string;
+  shareCopy: string;
+  sharedCollectionTitle: string;
+  sharedCollectionBody: string;
+  sharedCollectionExpired: string;
+  sharedCollectionBack: string;
+  sharedCollectionMore: string;
+  sharedCollectionPartner: string;
+  viewModel: string;
+  removeModel: string;
+  removeModelAria: string;
+  removeConfirmTitle: string;
+  removeConfirmBody: string;
+  cancel: string;
+  confirmRemove: string;
+  emptyTitle: string;
+  emptyBody: string;
+  emptyAction: string;
+  refreshError: string;
+  offlineNotice: string;
+  retry: string;
+  savedSnapshot: string;
+  storageNotice: string;
+  storageUnavailable: string;
+  passportsTitle: string;
+  passportsBody: string;
+  passportsOpen: string;
+  passportProgress: string;
+  passportComplete: string;
+  passportMissing: string;
+  passportFavoriteTitle: string;
+  passportFavoriteSaved: string;
+  passportFavoriteError: string;
+  passportSaving: string;
+  passportSaveBadge: string;
+  passportBadgeSaved: string;
+  passportBadgeError: string;
+  savedBadgesTitle: string;
+  favoriteLabel: string;
+  sponsoredLabel: string;
+  sponsoredView: string;
+  sponsoredAdd: string;
+  sponsoredAdding: string;
+  sponsoredAdded: string;
+  sponsoredAddError: string;
+  sponsoredPhotoAlt: string;
+  comparisonMetaTitle: string;
+  comparisonTitle: string;
+  comparisonBack: string;
+  comparisonMissingTitle: string;
+  comparisonMissingBody: string;
+  comparisonPrice: string;
+  comparisonSpecifications: string;
+  comparisonLoadingSpecifications: string;
+  comparisonUnavailable: string;
+  noSpecification: string;
+  modelPhotoAlt: string;
+  poweredBy: string;
+  devLink: string;
 }
 
 export interface AdminDomainDict {
@@ -2467,6 +2579,8 @@ export interface AdminV1Dict {
   navDashboard: string;
   navClients: string;
   navInbox: string;
+  /** Admin UX Z1 — Pošta (each admin's own Zoho mailbox). */
+  navMail: string;
   navTasks: string;
   navOperations: string;
   navServices: string;
@@ -2741,6 +2855,8 @@ export interface AdminV1Dict {
   clientProfileStartsAt: string;
   clientProfileNoSubscription: string;
   clientProfileProductsAtVenue: string;
+  clientProfileColVenue: string;
+  clientProfileColProducts: string;
   clientProfileProductsSummary: string;
   clientProfileProductsBody: string;
   clientProfileFinanceEmptyTitle: string;
@@ -2780,7 +2896,7 @@ export interface AdminSettingsDict {
   bankTransfer: string; supported: string; card: string; unavailable: string; cash: string; notConfigured: string; paymentNote: string;
   foundation: string; configured: string; inbound: string; needsConfiguration: string; notConnected: string; communicationNote: string;
   premiumReference: string; temporary: string; monthly: string; futurePrice: string; amount: string; validFrom: string; validUntil: string; reason: string; reasonPlaceholder: string; save: string; cancel: string; unsaved: string; saved: string; priceNote: string; agreementNote: string;
-  referralNote: string; agreements: string; agreementAccount: string; agreementTarget: string; agreementKind: string; agreementReference: string; agreementPrice: string; agreementCreate: string; agreementEmpty: string; referralRegister: string; referrer: string; referred: string; referralEmpty: string; chooseAccount: string; chooseTarget: string; founders: string; enterprise: string; individual: string; standard: string; pending: string; qualified: string; rewarded: string; cancelled: string; friendWaiver: string; friendTag: string; friendWaiverCreate: string; friendWaiverNote: string; leaveDraftTitle: string; leaveDraftBody: string; leaveDraftStay: string; leaveDraftLeave: string; loading: string; error: string; invalidAmount: string; invalidDate: string; invalidReason: string; conflict: string; saveFailed: string; annual: string; serviceSubscription: string; from: string; until: string; lifetime: string; foundersNote: string; chooseFriend: string; invalidAgreement: string; agreementSaved: string; invalidWaiver: string; waiverSaved: string; invalidReferral: string; referralSaved: string; rewardAgreement: string; rewardNote: string; chooseReferral: string; rewardType: string; percentage: string; fixedAmount: string; basisPoints: string; invalidReward: string; rewardCreate: string; rewardSaved: string; previewBadge: string; previewDescription: string;
+  referralNote: string; agreements: string; agreementAccount: string; agreementTarget: string; agreementKind: string; agreementReference: string; agreementPrice: string; agreementCreate: string; agreementEmpty: string; referralRegister: string; referrer: string; referred: string; referralEmpty: string; chooseAccount: string; chooseTarget: string; founders: string; enterprise: string; individual: string; standard: string; pending: string; qualified: string; rewarded: string; cancelled: string; friendWaiver: string; friendTag: string; friendWaiverCreate: string; friendWaiverNote: string; leaveDraftTitle: string; leaveDraftBody: string; leaveDraftStay: string; leaveDraftLeave: string; loading: string; error: string; invalidAmount: string; invalidDate: string; invalidReason: string; conflict: string; saveFailed: string; annual: string; serviceSubscription: string; from: string; until: string; lifetime: string; foundersNote: string; chooseFriend: string; invalidAgreement: string; agreementSaved: string; invalidWaiver: string; waiverSaved: string; invalidReferral: string; referralSaved: string; rewardAgreement: string; rewardNote: string; chooseReferral: string; rewardType: string; percentage: string; fixedAmount: string; basisPoints: string; invalidReward: string; rewardCreate: string; rewardSaved: string; colValidity: string; colPeriod: string; colStatus: string; previewBadge: string; previewDescription: string;
 }
 
 export interface AdminTasksDict {
@@ -3237,6 +3353,7 @@ export interface AdminTeamDict {
   conversationsTitle: string;
   openAllTasks: string;
   openAllConversations: string;
+  colLatestMessage: string;
   reassign: string;
   claim: string;
   noTasks: string;
@@ -3303,9 +3420,6 @@ export interface AdminProductsDict {
   filterDesignTemplate: string;
   filterDesignCustom: string;
   filterServiceAll: string;
-  viewLabel: string;
-  viewTable: string;
-  viewVisual: string;
   inventoryTableCaption: string;
   colSelect: string;
   colId: string;
@@ -3431,6 +3545,11 @@ export interface AdminSearchDict {
   channelQr: string;
   channelNfc: string;
   resultOpen: string;
+  resultsCaption: string;
+  colResult: string;
+  colGroup: string;
+  colStatus: string;
+  colDetails: string;
   emptyTitle: string;
   emptyBody: string;
   initialTitle: string;
@@ -3662,17 +3781,291 @@ export type AdminEventsResolveProblem =
 
 export interface AdminEventsDict {
   pageTitle: string;
-  pageSubtitle: string;
   eventLabel: string;
   eventOption: string;
   noEventsTitle: string;
   noEventsBody: string;
   sectionsAria: string;
-  tabOverview: string;
-  tabModel: string;
-  tabQr: string;
-  tabImport: string;
-  tabClients: string;
+  /** Admin UX A2 — navigation label of every section route (lib/admin-v1/event-sections.ts). */
+  sectionLabels: {
+    pregled: string;
+    modeli: string;
+    qr: string;
+    izlagaci: string;
+    import: string;
+    "interakcije/glas-publike": string;
+    "interakcije/ankete": string;
+    "interakcije/pasos": string;
+    "interakcije/forme": string;
+    sponzorisano: string;
+    leadovi: string;
+    "leadovi/follow-up": string;
+    "leadovi/podesavanja": string;
+    izvestaji: string;
+    brisanje: string;
+  };
+  navGroups: { katalog: string; sajam: string; posle: string };
+  navInteractions: string;
+  navLeads: string;
+  detailModelTitle: string;
+  detailQrTitle: string;
+  eventNotFoundTitle: string;
+  eventNotFoundBody: string;
+  backToEvents: string;
+  sectionNotFoundTitle: string;
+  sectionNotFoundBody: string;
+  backToOverview: string;
+  backToList: string;
+  modelNotFoundBody: string;
+  openDetail: string;
+  /** Admin UX A4 — `qr`: filters (lib/admin-v1/qr-filters.ts), list columns and scan numbers. */
+  qrList: {
+    searchLabel: string;
+    searchPlaceholder: string;
+    hierarchyLabel: string;
+    facetState: string;
+    states: Record<"slobodan" | "ovaj" | "drugi" | "neaktivan", string>;
+    /** {shown} of {total} codes. */
+    count: string;
+    /** {loaded} codes loaded so far. */
+    partial: string;
+    /** {q} = search text. */
+    searchChip: string;
+    /** {code}. */
+    openCode: string;
+    openCodeHint: string;
+    noMatchTitle: string;
+    noMatchBody: string;
+    colCode: string;
+    colState: string;
+    colModel: string;
+    colScans: string;
+    colLastScan: string;
+    /** {count}. */
+    scansTotal: string;
+    scansUnique: string;
+    modelNone: string;
+    modelOtherEvent: string;
+    manage: string;
+    /** {code} — accessible name of „Upravljaj“. */
+    manageAria: string;
+    statsNote: string;
+  };
+  /** Admin UX A4 — `qr/[kod]`: where the code leads, change of destination, remove link, stats, history. */
+  qrDetail: {
+    factSmq: string;
+    factCode: string;
+    factChannel: string;
+    loading: string;
+    notFoundTitle: string;
+    /** {code}. */
+    notFoundBody: string;
+    errorTitle: string;
+    whereTitle: string;
+    whereModel: string;
+    wherePath: string;
+    whereSince: string;
+    whereReason: string;
+    whereModelStatus: string;
+    whereFree: string;
+    /** {event}. */
+    whereOtherEvent: string;
+    whereUnpublished: string;
+    openModel: string;
+    changeTitle: string;
+    changeHelp: string;
+    assignTitle: string;
+    assignHelp: string;
+    pickLabel: string;
+    pickCurrent: string;
+    /** {code} — the model already has this QR. */
+    pickHasQr: string;
+    reasonLabel: string;
+    reasonOptional: string;
+    /** {min}, {max}. */
+    reasonHelp: string;
+    continue: string;
+    back: string;
+    /** {reason}. */
+    reasonSummary: string;
+    confirmChangeTitle: string;
+    /** {code}, {from}, {to}. */
+    confirmChangeBody: string;
+    confirmChange: string;
+    changeDone: string;
+    confirmAssignTitle: string;
+    /** {code}, {to}. */
+    confirmAssignBody: string;
+    confirmAssign: string;
+    assignDone: string;
+    removeTitle: string;
+    removeHelp: string;
+    remove: string;
+    confirmRemoveTitle: string;
+    /** {code}, {model}. */
+    confirmRemoveBody: string;
+    confirmRemove: string;
+    removeDone: string;
+    /** lib/admin-v1/qr-flow.ts problems; {min}, {max}. */
+    problems: Record<"target_missing" | "target_same" | "reason_short" | "reason_long", string>;
+    statsTitle: string;
+    statsTotal: string;
+    statsUnique: string;
+    statsLast: string;
+    statsAllTime: string;
+    statsHelp: string;
+    statsNone: string;
+    statsNever: string;
+    historyTitle: string;
+    historyEmpty: string;
+    historyActive: string;
+    historyReleased: string;
+    /** {from}. */
+    historySince: string;
+    /** {from}, {to}. */
+    historyPeriod: string;
+    historyOtherEvent: string;
+    historyUnknownModel: string;
+    /** {count}. */
+    historyCapped: string;
+    generalAdmin: string;
+    generalAdminHelp: string;
+  };
+  /** Admin UX A4 — „Dodela u većem broju“ (lib/admin-v1/qr-bulk.ts + bulkAssignQr dry run / commit). */
+  qrBulk: {
+    title: string;
+    open: string;
+    close: string;
+    /** {max} rows. */
+    help: string;
+    textLabel: string;
+    placeholder: string;
+    check: string;
+    checking: string;
+    empty: string;
+    /** {max}. */
+    tooMany: string;
+    headerSkipped: string;
+    /** {line}. */
+    parseProblem: string;
+    resultTitle: string;
+    colLine: string;
+    colCode: string;
+    colModel: string;
+    colResult: string;
+    statusOk: string;
+    statusUnchanged: string;
+    statusError: string;
+    statusApplied: string;
+    /** {model}. */
+    heldBy: string;
+    /** {ok}, {unchanged}, {errors}. */
+    summary: string;
+    /** {count}. */
+    commit: string;
+    nothingToApply: string;
+    confirmTitle: string;
+    /** {count}. */
+    confirmBody: string;
+    confirm: string;
+    /** {applied}, {unchanged}, {errors}. */
+    done: string;
+    verifyReminder: string;
+  };
+  /** Admin UX A3 — `modeli`: filters (lib/admin-v1/model-filters.ts), list and groups. */
+  modelList: {
+    searchLabel: string;
+    searchPlaceholder: string;
+    hierarchyLabel: string;
+    /** {shown} of {total} models. */
+    count: string;
+    facets: { paket: string; status: string; problemi: string; qr: string; foto: string };
+    values: {
+      paket: Record<"za-sve" | "starter" | "napredni", string>;
+      status: Record<"nacrt" | "objavljen" | "povucen", string>;
+      problemi: Record<"greske" | "upozorenja" | "bez", string>;
+      qr: Record<"ima" | "nema", string>;
+      foto: Record<"ima" | "nema", string>;
+    };
+    /** {q} = search text. */
+    searchChip: string;
+    noMatchTitle: string;
+    noMatchBody: string;
+    emptyTitle: string;
+    emptyBody: string;
+    emptyAction: string;
+    colExhibitor: string;
+    colStand: string;
+    colProblems: string;
+    colPhoto: string;
+    qrNone: string;
+    /** {errors}, {warnings}. */
+    problemsCount: string;
+    problemsNone: string;
+    photoYes: string;
+    photoNo: string;
+    photoFallback: string;
+    photoStored: string;
+    /** {exhibitor} · {brand}; {count} models in the group. */
+    groupLabel: string;
+    groupCount: string;
+    open: string;
+    /** {model} — accessible name of the open link. */
+    openAria: string;
+  };
+  /** Admin UX A3 — `modeli/[modelId]`: navigation, QR block and the linked summaries. */
+  modelDetail: {
+    /** {index} of {total} in the current filter. */
+    position: string;
+    notInFilter: string;
+    previous: string;
+    next: string;
+    /** {model}. */
+    previousAria: string;
+    nextAria: string;
+    validationExplain: string;
+    publishTitle: string;
+    publishHelp: string;
+    qrTitle: string;
+    qrOpen: string;
+    qrNone: string;
+    qrSmq: string;
+    resolveHelp: string;
+    summaryTitle: string;
+    summaryOpen: string;
+    /** {section} — accessible name of the summary link. */
+    summaryOpenAria: string;
+    questions: string;
+    /** {day}: {published}, {draft}, {closed}. */
+    questionsDay: string;
+    questionsNone: string;
+    survey: string;
+    /** {version}, {status}. */
+    surveyVersion: string;
+    surveyNone: string;
+    advancedOnly: string;
+    starterOnly: string;
+    passport: string;
+    passportNone: string;
+    /** {status}. */
+    passportMember: string;
+    passportNotMember: string;
+    forms: string;
+    formInterest: string;
+    formTestDrive: string;
+    formOn: string;
+    formOff: string;
+    formNotInPackage: string;
+    leads: string;
+    /** {interest}, {testDrive}, {undelivered}. */
+    leadsValue: string;
+    leadsCapped: string;
+    sponsored: string;
+    /** {order}. */
+    sponsoredActive: string;
+    sponsoredCandidate: string;
+    sponsoredNone: string;
+  };
   daysTitle: string;
   noDays: string;
   participationsTitle: string;
@@ -3692,15 +4085,32 @@ export interface AdminEventsDict {
   colChannelState: string;
   colAssignment: string;
   colActions: string;
+  colCodes: string;
+  colName: string;
+  colSmq: string;
+  colQuestion: string;
+  colDay: string;
+  colOptions: string;
+  colVersion: string;
+  colMembers: string;
+  colContact: string;
+  colDate: string;
+  colOrder: string;
+  colResult: string;
+  colPublishedAt: string;
+  colReport: string;
+  colRecipient: string;
+  colRun: string;
+  colProgress: string;
+  colQuestions: string;
+  colCategory: string;
+  colCount: string;
   openModel: string;
   noQr: string;
   checkSummary: string;
   checkReady: string;
   emptyCatalogTitle: string;
   emptyCatalogBody: string;
-  modelPickLabel: string;
-  modelPickPlaceholder: string;
-  modelPickEmpty: string;
   fieldExternalKey: string;
   fieldSlug: string;
   fieldPrice: string;
@@ -3737,19 +4147,10 @@ export interface AdminEventsDict {
   qrSubtitle: string;
   qrNotConfigured: string;
   qrEmpty: string;
-  unassigned: string;
-  otherEvent: string;
-  assignTitle: string;
-  assignModel: string;
   assignCode: string;
   assignCodePlaceholder: string;
   assignSubmit: string;
   assignDone: string;
-  assignNoModels: string;
-  release: string;
-  releaseReason: string;
-  releaseConfirm: string;
-  releaseDone: string;
   resolveTitle: string;
   resolveHelp: string;
   resolveCode: string;
@@ -3758,6 +4159,181 @@ export interface AdminEventsDict {
   resolveBlocked: string;
   resolveOther: string;
   resolveLiveNote: string;
+  /** Admin UX A5 — `izlagaci`: every exhibitor of the event (lib/admin-v1/exhibitors.ts). */
+  exhibitorList: {
+    subtitle: string;
+    filterLabel: string;
+    searchLabel: string;
+    searchPlaceholder: string;
+    facetSegment: string;
+    segments: { "event-only": string; standard: string };
+    /** {shown}, {total}. */
+    count: string;
+    /** {q}. */
+    searchChip: string;
+    colExhibitor: string;
+    colCodes: string;
+    colSegment: string;
+    colBrands: string;
+    colModels: string;
+    colQr: string;
+    colLeads: string;
+    colFollowUp: string;
+    colStands: string;
+    /** {included}, {starter}, {advanced}. */
+    modelsByTier: string;
+    /** {assigned}, {total}. */
+    qrCoverageAria: string;
+    /** {count}. */
+    leadsUndelivered: string;
+    leadsCapped: string;
+    followUpPending: string;
+    followUpPendingHint: string;
+    /** A8 — the follow-up column: an exhibitor without an Advanced model needs no text. */
+    followUpNoAdvanced: string;
+    followUpOpenAria: string;
+    none: string;
+    openModels: string;
+    /** {name}. */
+    openModelsAria: string;
+    /** {name}. */
+    convertAria: string;
+    emptyTitle: string;
+    emptyBody: string;
+    emptyAction: string;
+    noMatchTitle: string;
+    noMatchBody: string;
+    otherClientsTitle: string;
+    otherClientsHelp: string;
+    otherClientsEmpty: string;
+  };
+  /** Admin UX A5 — the table import guide (lib/fair-import/*): source, column mapping, preview with dry run, commit. */
+  importGuide: {
+    stepsAria: string;
+    steps: { izvor: string; mapiranje: string; pregled: string; potvrda: string };
+    /** {n}, {total}. */
+    stepOf: string;
+    next: string;
+    back: string;
+    sourceTitle: string;
+    sourceHelp: string;
+    sourceKindsAria: string;
+    sourceKinds: { table: string; csv: string; json: string };
+    pasteLabel: string;
+    pastePlaceholder: string;
+    csvChoose: string;
+    /** {name}. */
+    csvLoaded: string;
+    template: string;
+    templateHelp: string;
+    formatTitle: string;
+    formatRow: string;
+    formatHeaders: string;
+    formatSpecs: string;
+    formatDefaults: string;
+    formatPrice: string;
+    /** {rows}, {columns}, {delimiter}. */
+    parsedSummary: string;
+    delimiters: { tab: string; semicolon: string; comma: string };
+    unclosedQuote: string;
+    noRows: string;
+    mappingTitle: string;
+    mappingHelp: string;
+    colSource: string;
+    colSample: string;
+    colTarget: string;
+    /** {column}. */
+    targetAria: string;
+    targetIgnore: string;
+    targetGroupFields: string;
+    targetGroupSpecs: string;
+    targetSpec: string;
+    /** {n}. */
+    targetSpecLabel: string;
+    /** {n}. */
+    targetSpecValue: string;
+    unnamedColumn: string;
+    autoDetected: string;
+    fields: {
+      exhibitor: string;
+      smk: string;
+      sml: string;
+      participationKey: string;
+      reportEmail: string;
+      contactEmail: string;
+      brand: string;
+      standCode: string;
+      standName: string;
+      mapLocationId: string;
+      model: string;
+      variant: string;
+      modelKey: string;
+      slug: string;
+      price: string;
+      package: string;
+      packageFrom: string;
+      qr: string;
+      photoUrl: string;
+      passport: string;
+      sortOrder: string;
+      specifications: string;
+    };
+    problemModelMissing: string;
+    /** {field}. */
+    problemDuplicate: string;
+    /** {n}. */
+    problemPair: string;
+    problemUnlabeled: string;
+    defaultsTitle: string;
+    defaultsHelp: string;
+    defaultNone: string;
+    defaultFromHelp: string;
+    passportYes: string;
+    passportNo: string;
+    previewTitle: string;
+    /** {count}. */
+    previewHelp: string;
+    /** {shown}, {total}. */
+    previewShown: string;
+    previewCaption: string;
+    colLine: string;
+    colExhibitor: string;
+    colModel: string;
+    colStand: string;
+    colPrice: string;
+    colPackage: string;
+    colSpecs: string;
+    colQr: string;
+    colRow: string;
+    /** {count}. */
+    specsCount: string;
+    priceFallback: string;
+    rowSkipped: string;
+    rowReady: string;
+    checking: string;
+    recheck: string;
+    countsTitle: string;
+    /** {new}, {existing}. */
+    countsModels: string;
+    /** {count}. */
+    countsSkipped: string;
+    issuesTitle: string;
+    issuesCaption: string;
+    colColumn: string;
+    colProblem: string;
+    wholeImport: string;
+    /** {field}. */
+    fromDefault: string;
+    rowIssues: Record<"IMPORT_MODEL_MISSING" | "IMPORT_EXHIBITOR_MISSING" | "IMPORT_EXHIBITOR_UNKNOWN" | "IMPORT_EXHIBITOR_CODES_MISSING" | "IMPORT_BRAND_MISSING" | "IMPORT_STAND_MISSING" | "IMPORT_STAND_LOCATION_MISSING" | "IMPORT_PACKAGE_MISSING" | "IMPORT_PACKAGE_INVALID" | "IMPORT_PACKAGE_FROM_INVALID" | "IMPORT_PASSPORT_MISSING" | "IMPORT_PASSPORT_INVALID" | "IMPORT_SORT_INVALID" | "IMPORT_KEY_INVALID" | "IMPORT_DUPLICATE_MODEL" | "IMPORT_SPEC_LABEL_MISSING", string>;
+    nothingToImport: string;
+    confirmTitle: string;
+    confirmHelp: string;
+    confirmBlocked: string;
+    confirmSubmit: string;
+    committing: string;
+    restart: string;
+    jsonTitle: string;
+  };
   importTitle: string;
   importHelp: string;
   importTextLabel: string;
@@ -3808,14 +4384,12 @@ export interface AdminEventsDict {
   resolveProblems: Record<AdminEventsResolveProblem, string>;
   // B3 — Interakcije tab (Glas publike, ankete, pasoši)
   tabInteractions: string;
-  interactionsSubtitle: string;
   interactionsUnavailable: string;
   questionsTitle: string;
   questionsHelp: string;
   fieldModel: string;
   fieldDay: string;
   questionPrompt: string;
-  questionOptions: string;
   questionSave: string;
   questionSaved: string;
   questionsEmpty: string;
@@ -3824,17 +4398,12 @@ export interface AdminEventsDict {
   questionPublished: string;
   questionClose: string;
   questionClosed: string;
-  questionRotationSet: string;
-  questionRotationOn: string;
-  questionRotationAdd: string;
-  questionRotationClear: string;
   questionStatus: Record<FairAudienceQuestionStatus, string>;
   surveysTitle: string;
   surveysHelp: string;
   surveyQuestionLabel: string;
   surveyKind: string;
   surveyKinds: Record<FairSurveyQuestionKind, string>;
-  surveyOptions: string;
   surveyAddQuestion: string;
   surveyRemoveQuestion: string;
   surveySave: string;
@@ -3847,28 +4416,163 @@ export interface AdminEventsDict {
   surveyRetire: string;
   surveyRetired: string;
   surveyStatus: Record<FairSurveyStatus, string>;
+  /** Admin UX A6 — Glas publike. Placeholders: {day} {model} {used} {limit} {count} {tier} {date} {brand} {exhibitor} {reason} {prompt}. */
+  audience: {
+    formTitle: string;
+    formEditTitle: string;
+    cancelEdit: string;
+    optionsLabel: string;
+    saveAndPublish: string;
+    savedAndPublished: string;
+    savedPublishFailed: string;
+    updated: string;
+    pickModelFirst: string;
+    promptEmpty: string;
+    noDays: string;
+    noModels: string;
+    pickSublabel: string;
+    pickNotEntitled: string;
+    pickPending: string;
+    quotaTitle: string;
+    quotaLine: string;
+    quotaRemaining: string;
+    quotaDrafts: string;
+    quotaStarterHint: string;
+    quotaAdvancedHint: string;
+    blocks: Record<"not_entitled" | "pending_package" | "day_limit", string>;
+    publishBlockedShort: string;
+    matrixTitle: string;
+    matrixHelp: string;
+    matrixGaps: string;
+    matrixNoGaps: string;
+    matrixModel: string;
+    matrixToday: string;
+    matrixCellAria: string;
+    matrixDrafts: string;
+    matrixNone: string;
+    legendEmpty: string;
+    legendPartial: string;
+    legendFull: string;
+    listTitle: string;
+    listCount: string;
+    groupLabel: string;
+    groupQuota: string;
+    filterLabel: string;
+    facetStatus: string;
+    facetExhibitor: string;
+    statuses: Record<"draft" | "published" | "sponsored" | "closed", string>;
+    noMatchTitle: string;
+    noMatchBody: string;
+    edit: string;
+    editAria: string;
+    closeConfirm: string;
+    setSponsored: string;
+    clearSponsored: string;
+    sponsoredSet: string;
+    sponsoredCleared: string;
+    sponsoredHelp: string;
+  };
+  /** Admin UX A6 — survey form. Placeholders: {n} {version} {from} {count} {max} {problem} {reason} {date} {model}. */
+  surveyForm: {
+    modelLabel: string;
+    pickNotAdvanced: string;
+    pickPending: string;
+    noAdvancedTitle: string;
+    noAdvancedBody: string;
+    pickPrompt: string;
+    editingDraft: string;
+    newFromPublished: string;
+    newFirst: string;
+    questionLabel: string;
+    promptLabel: string;
+    kindLabel: string;
+    optionsLabel: string;
+    moveUp: string;
+    moveDown: string;
+    remove: string;
+    add: string;
+    count: string;
+    maxReached: string;
+    promptEmpty: string;
+    optionsProblem: string;
+    saveAndPublish: string;
+    savedPublishFailed: string;
+    versionsTitle: string;
+    versionsCount: string;
+    versionLabel: string;
+    open: string;
+    openAria: string;
+    retireConfirm: string;
+  };
   passportsTitle: string;
-  passportsHelp: string;
   passportsEmpty: string;
-  passportNone: string;
-  passportOpen: string;
-  passportOpened: string;
-  passportPublish: string;
-  passportPublishedDone: string;
-  passportWithdraw: string;
-  passportWithdrawConfirm: string;
-  passportWithdrawn: string;
   passportRemoveModel: string;
   passportRemoveConfirm: string;
   passportRemoved: string;
-  passportFrozenAt: string;
   passportStatus: Record<FairPassportConfigStatus, string>;
   passportMemberStatus: Record<FairPassportEligibleStatus, string>;
   passportProblems: Record<AdminEventsPassportProblem, string>;
+  /** Admin UX A7 — `interakcije/pasos`: the automatic brand passport (lib/admin-v1/passport-overview.ts). */
+  passportAuto: {
+    help: string;
+    explainTitle: string;
+    /** {date} = the event opening. */
+    explainAuto: string;
+    explainFreeze: string;
+    explainHide: string;
+    refresh: string;
+    /** {created}, {updated}, {withdrawn}, {unchanged}, {frozen}. */
+    refreshDone: string;
+    filterLabel: string;
+    facetExhibitor: string;
+    facetState: string;
+    /** {brand}. */
+    brandChip: string;
+    /** {shown} of {total} brands. */
+    count: string;
+    noMatchTitle: string;
+    noMatchBody: string;
+    colBrand: string;
+    colCondition: string;
+    colState: string;
+    colMembers: string;
+    conditionMet: string;
+    conditionNotMet: string;
+    /** {count}, {total}. */
+    problems: Record<FairBrandPassportProblem, string>;
+    noExhibited: string;
+    /** {max}. */
+    tooManyModels: string;
+    states: Record<"active" | "frozen" | "hidden" | "not_eligible" | "missing", string>;
+    /** {date}. */
+    hintActive: string;
+    /** {date}. */
+    hintFrozen: string;
+    hintHidden: string;
+    hintWithdrawn: string;
+    hintMissingBefore: string;
+    hintMissingAfter: string;
+    /** {required}. */
+    membersCount: string;
+    noMembers: string;
+    memberRemovedByAdmin: string;
+    memberWithdrawn: string;
+    /** {count}. */
+    blocking: string;
+    hide: string;
+    /** {brand}. */
+    hideAria: string;
+    /** {brand}. */
+    hideConfirm: string;
+    hidden: string;
+    show: string;
+    /** {brand}. */
+    showAria: string;
+    shown: string;
+  };
   confirm: string;
   // B4 — Leadovi tab (saglasnost, podešavanje po modelu, follow-up tekst, leadovi)
   tabLeads: string;
-  leadsSubtitle: string;
   leadsUnavailable: string;
   leadKinds: Record<FairLeadKind, string>;
   consentTitle: string;
@@ -3887,34 +4591,89 @@ export interface AdminEventsDict {
   consentRetired: string;
   consentVersionLine: string;
   consentStatus: Record<FairConsentStatus, string>;
-  settingsTitle: string;
-  settingsHelp: string;
-  settingsNoModels: string;
-  settingsLoading: string;
+  // K3 — legal approval record at activation
+  consentLegalTitle: string;
+  consentLegalHelp: string;
+  consentLegalApprovedBy: string;
+  consentLegalApprovedAt: string;
+  consentLegalLine: string;
+  consentLegalNone: string;
   configEnabled: string;
   configRequirement: string;
   configPreferred: string;
   configPreferredNone: string;
   contactRequirements: Record<FairContactRequirement, string>;
   preferredContacts: Record<FairPreferredContact, string>;
-  configSave: string;
-  configSaved: string;
   testDriveAdvancedOnly: string;
-  followUpTitle: string;
-  followUpHelp: string;
-  followUpSubject: string;
-  followUpText: string;
-  followUpSave: string;
-  followUpSaved: string;
-  followUpActiveVersion: string;
-  followUpNone: string;
+  /** Admin UX A7 — `interakcije/forme`: the lead forms per exhibitor (lib/admin-v1/lead-forms.ts). */
+  leadForms: {
+    help: string;
+    statusLabel: string;
+    leadsOn: string;
+    leadsOff: string;
+    followUpOn: string;
+    followUpOff: string;
+    /** {kind}, {version}. */
+    consentOn: string;
+    /** {kind}. */
+    consentOff: string;
+    consentLink: string;
+    exhibitorLabel: string;
+    /** {name}, {count}. */
+    exhibitorOption: string;
+    noExhibitorsTitle: string;
+    noExhibitorsBody: string;
+    /** {exhibitor}. */
+    defaultsTitle: string;
+    defaultsHelp: string;
+    defaultNotSaved: string;
+    testDriveDefaultNote: string;
+    saveAndApply: string;
+    saveOnly: string;
+    apply: string;
+    saved: string;
+    /** {created}, {updated}, {unchanged}, {skipped}. */
+    applied: string;
+    notEntitledTitle: string;
+    /** {model}, {kind}, {reason}. */
+    notEntitledLine: string;
+    /** {kind}. */
+    missingDefault: string;
+    /** {count}. */
+    pending: string;
+    modelsTitle: string;
+    /** {shown} models. */
+    count: string;
+    noModelsTitle: string;
+    noModelsBody: string;
+    colModel: string;
+    colPackage: string;
+    states: Record<"on" | "off" | "not_entitled" | "not_set", string>;
+    sourceDefault: string;
+    sourceOverride: string;
+    pendingBadge: string;
+    /** {requirement}. */
+    contactLine: string;
+    /** {channel}. */
+    preferredLine: string;
+    notEntitledReasons: Record<FairLeadKind, string>;
+    editOverride: string;
+    /** {model}. */
+    editOverrideAria: string;
+    /** {model}. */
+    overrideTitle: string;
+    overrideHelp: string;
+    saveOverride: string;
+    overrideSaved: string;
+    clearOverride: string;
+    cleared: string;
+    closeOverride: string;
+    /** Leadovi: the forms moved to Interakcije. */
+    movedNote: string;
+    movedLink: string;
+  };
   listTitle: string;
-  listHelp: string;
-  fieldExhibitor: string;
   listEmpty: string;
-  listNoParticipations: string;
-  leadMeta: string;
-  leadConsent: string;
   leadNoEmail: string;
   leadNoPhone: string;
   confirmationLabel: string;
@@ -3932,6 +4691,10 @@ export interface AdminEventsDict {
   retryConfirmation: string;
   retryFollowUp: string;
   retryDone: string;
+  // Admin UX A8 — lead inbox, follow-up per exhibitor, consent settings
+  leadInbox: AdminEventsLeadInboxDict;
+  followUps: AdminEventsFollowUpsDict;
+  leadSettings: { help: string; activitySharingNote: string; summaryActive: string; summaryNone: string; summaryDraft: string };
   // B5 — Sponzorisano tab (ručna objava liste Naprednih modela, rezultat na mapi)
   tabSponsored: string;
   sponsoredSubtitle: string;
@@ -4009,9 +4772,7 @@ export interface AdminEventsDict {
   reportsRecipientLabel: string;
   reportsExportsTitle: string;
   reportsExportsHelp: string;
-  reportsLeadsLabel: string;
   reportsLeadsWarning: string;
-  reportsLeadsDownload: string;
   reportsOrganizerLabel: string;
   reportsOrganizerDownload: string;
   reportStatus: Record<FairReportStatus, string>;
@@ -4042,6 +4803,320 @@ export interface AdminEventsDict {
   retentionRunStatus: Record<FairPurgeRunStatus, string>;
   retentionCategoryStatus: Record<FairPurgeCategoryStatus, string>;
   retentionCategories: Record<FairPurgeCategory, string>;
+  // Admin UX A9 — automatic sponsored list, report queue, retention countdown.
+  sponsoredAuto: AdminEventsSponsoredAutoDict;
+  reportQueue: AdminEventsReportQueueDict;
+  retentionPlan: AdminEventsRetentionPlanDict;
+  // Admin UX A10 — Pregled: the event dashboard.
+  dashboard: AdminEventsDashboardDict;
+}
+
+/**
+ * Admin UX A10 — `pregled`: phase and countdown, „Šta treba da uradim“ (one
+ * title + one sentence per backend rule), KPI row and section cards. The
+ * backend (fairDashboard.getEventDashboard) returns rules and numbers only.
+ */
+export interface AdminEventsDashboardDict {
+  title: string;
+  /** sajam: {day} of {count}. */
+  phase: Record<FairDashboardPhase, string>;
+  /** Between two fair days: {day} = the next one, {count} = days. */
+  phaseNextDay: string;
+  /** {from} – {to} (dates). */
+  dates: string;
+  daysLabel: string;
+  todayTag: string;
+  deadline: Record<FairDashboardDeadline, string>;
+  left: { days: string; hours: string; minutes: string; now: string };
+  updated: string;
+  todoTitle: string;
+  todoHelp: string;
+  /** {hitno} / {uskoro} / {info} = items per tone. */
+  todoSummary: string;
+  readyTitle: string;
+  /** {published}/{total} models, {qr} assigned codes. */
+  readyBody: string;
+  /** Title (independent of the number) and one sentence; {day}, {date}, {days} where noted. */
+  rules: Record<FairDashboardRule, { title: string; body: string }>;
+  /** Count badge of the purge countdown: {count} = days. */
+  daysBadge: string;
+  /** Link of an item to its filtered section; {title} is read by screen readers only. */
+  open: Record<FairDashboardSection, string>;
+  openFor: string;
+  kpiTitle: string;
+  kpi: {
+    models: string;
+    /** {included} / {starter} / {advanced}. */
+    modelsHint: string;
+    qr: string;
+    qrHint: string;
+    qrNoInventory: string;
+    scans: string;
+    /** {total} all time, {unique} unique. */
+    scansHint: string;
+    /** After the fair the totals lead (today is empty). */
+    scansTotal: string;
+    scansTotalHint: string;
+    leads: string;
+    /** {undelivered} of {total}. */
+    leadsHint: string;
+    leadsUndelivered: string;
+    leadsUndeliveredHint: string;
+    questionsToday: string;
+    /** {day} = the next fair day. */
+    questionsDay: string;
+    questionsHint: string;
+    reports: string;
+    reportsHint: string;
+    capped: string;
+  };
+  cardsTitle: string;
+  cardOpen: string;
+  cards: {
+    modeli: { published: string; draft: string; withErrors: string; withdrawn: string };
+    qr: { assigned: string; withoutQr: string; onWithdrawn: string };
+    interakcije: { questions: string; passports: string; forms: string };
+    leadovi: { total: string; undelivered: string; followUp: string; none: string };
+    sponzorisano: { inList: string; withoutQuestion: string; autoOn: string; autoOff: string; none: string };
+    izvestaji: { pending: string; failed: string; sent: string; none: string };
+    izlagaci: { active: string; withAdvanced: string };
+  };
+  errorTitle: string;
+  errorBody: string;
+}
+
+/** Admin UX A9 — `sponzorisano`: automatic list, today's order, map question per model, warnings. */
+export interface AdminEventsSponsoredAutoDict {
+  autoOn: string;
+  autoOff: string;
+  autoOnHelp: string;
+  autoOffHelp: string;
+  lastUpdate: string;
+  sources: Record<FairSponsoredSnapshotTrigger, string>;
+  modelsInRotation: string;
+  turnOff: string;
+  turnOffConfirm: string;
+  turnOn: string;
+  turnOnConfirm: string;
+  turnedOff: string;
+  turnedOn: string;
+  pendingAuto: string;
+  warningsTitle: string;
+  warnTag: string;
+  infoTag: string;
+  warningsHelp: string;
+  warningsNone: string;
+  warnNoPhoto: string;
+  warnNoQuestion: string;
+  warnFewVotes: string;
+  orderTitle: string;
+  orderHelp: string;
+  orderCycle: string;
+  nowMap: string;
+  nowGarage: string;
+  colPicture: string;
+  colMapShows: string;
+  visual: Record<"photo" | "brand_logo" | "event_placeholder", string>;
+  mapShowsNone: string;
+  questionHelp: string;
+  questionNoneNote: string;
+  votesLine: string;
+  votesBelow: string;
+  votesLoading: string;
+  savedAuto: string;
+  technicalTitle: string;
+  technicalVersion: string;
+  colSource: string;
+}
+
+/** Admin UX A9 — `izvestaji`: one row per day × exhibitor with the state of its newest run. */
+export interface AdminEventsReportQueueDict {
+  title: string;
+  help: string;
+  filterLabel: string;
+  facetDay: string;
+  facetExhibitor: string;
+  facetStatus: string;
+  statuses: Record<"ceka-podatke" | "u-izradi" | "ceka-odobrenje" | "odobreno" | "poslato" | "greska", string>;
+  summary: string;
+  count: string;
+  colDay: string;
+  colExhibitor: string;
+  colState: string;
+  waitingClosed: string;
+  waitingOpen: string;
+  build: string;
+  version: string;
+  older: string;
+  noMatchTitle: string;
+  noMatchBody: string;
+}
+
+/** Admin UX A9 — `brisanje`: countdown, last dry run, what is deleted and what stays. */
+export interface AdminEventsRetentionPlanDict {
+  countdownTitle: string;
+  countdownHelp: string;
+  daysLeft: string;
+  dueToday: string;
+  started: string;
+  leadDeadline: string;
+  lastDryRunTitle: string;
+  lastDryRunNone: string;
+  lastDryRunLine: string;
+  keptTitle: string;
+  keptHelp: string;
+  kept: readonly string[];
+}
+
+/** Admin UX A8 — `leadovi` (inbox, detail with activity, delivery, export). */
+export interface AdminEventsLeadInboxDict {
+  help: string;
+  listTitle: string;
+  filtersLabel: string;
+  hierarchyLabel: string;
+  facetKind: string;
+  facetDelivery: string;
+  kindOptions: Record<"zainteresovan" | "probna-voznja", string>;
+  deliveryOptions: Record<"ne" | "da", string>;
+  fromLabel: string;
+  toLabel: string;
+  chipKind: string;
+  chipDelivery: string;
+  chipFrom: string;
+  chipTo: string;
+  count: string;
+  countMore: string;
+  undelivered: string;
+  undeliveredCapped: string;
+  deadlineDays: string;
+  deadlineToday: string;
+  deadlinePassed: string;
+  leadsOff: string;
+  linksLabel: string;
+  formsLink: string;
+  followUpLink: string;
+  settingsLink: string;
+  emptyTitle: string;
+  emptyBody: string;
+  emptyFilteredTitle: string;
+  emptyFilteredBody: string;
+  colLead: string;
+  colReceived: string;
+  colKindModel: string;
+  colExhibitor: string;
+  colDelivery: string;
+  colEmails: string;
+  delivered: string;
+  notDelivered: string;
+  deliveredOn: string;
+  open: string;
+  openAria: string;
+  markDelivered: string;
+  markDeliveredAria: string;
+  markDeliveredDone: string;
+  handOverTitle: string;
+  handOverHelp: string;
+  handOverPick: string;
+  handOverExhibitor: string;
+  exportDownload: string;
+  exportDone: string;
+  markExhibitor: string;
+  markExhibitorConfirm: string;
+  markExhibitorDone: string;
+  markExhibitorMore: string;
+  detailTitle: string;
+  detailDescription: string;
+  detailClose: string;
+  detailLoading: string;
+  detailMissing: string;
+  contactTitle: string;
+  contactName: string;
+  contactEmail: string;
+  contactPhone: string;
+  leadLine: string;
+  tierAtLead: string;
+  consentTitle: string;
+  consentLine: string;
+  deliveryTitle: string;
+  emailsTitle: string;
+  suppressedOn: string;
+  activityTitle: string;
+  activityHelp: string;
+  activityShared: string;
+  activityNotShared: string;
+  activityEmpty: string;
+  activityCapped: string;
+  activityGroups: Record<FairLeadActivityGroup, string>;
+  scanLine: string;
+  ratingFields: Record<"overall" | "appearance" | "specifications" | "price", string>;
+  passportLine: string;
+  passportLineNoTotal: string;
+  favoriteLine: string;
+  sponsoredKinds: Record<"open_model" | "garage_add", string>;
+  yes: string;
+  no: string;
+  unknownModel: string;
+  unknownBrand: string;
+  unknownExhibitor: string;
+}
+
+/** Admin UX A8 — `leadovi/follow-up` (one text per exhibitor, merge fields, preview, estimate). */
+export interface AdminEventsFollowUpsDict {
+  help: string;
+  statusLabel: string;
+  switchOn: string;
+  switchOff: string;
+  leadsOff: string;
+  listTitle: string;
+  colExhibitor: string;
+  colText: string;
+  colAdvanced: string;
+  colEstimate: string;
+  states: Record<Exclude<FairFollowUpTemplateStatus, "retired"> | "none", string>;
+  draftPending: string;
+  noAdvanced: string;
+  advancedCount: string;
+  modelTexts: string;
+  estimate: string;
+  estimateDetail: string;
+  estimateCapped: string;
+  estimateNoText: string;
+  estimateHelp: string;
+  edit: string;
+  editAria: string;
+  editorTitle: string;
+  editorHelp: string;
+  pickExhibitor: string;
+  versionActive: string;
+  versionDraft: string;
+  versionNone: string;
+  subject: string;
+  text: string;
+  fieldsTitle: string;
+  fieldsHelp: string;
+  insertAria: string;
+  fields: Record<FairFollowUpField, string>;
+  unknownField: string;
+  saveDraft: string;
+  saved: string;
+  unsaved: string;
+  activate: string;
+  activateConfirm: string;
+  activated: string;
+  retire: string;
+  retireConfirm: string;
+  retired: string;
+  previewTitle: string;
+  previewSource: string;
+  previewSample: string;
+  previewLeadOption: string;
+  previewSampleNote: string;
+  previewLoading: string;
+  previewSubject: string;
+  previewEmpty: string;
+  noExhibitorsTitle: string;
+  noExhibitorsBody: string;
+  loading: string;
 }
 
 export type AdminEventsPassportProblem = "fewer_than_two_models" | "model_not_published" | "model_not_candidate" | "model_below_starter";
@@ -4056,6 +5131,12 @@ export interface EventLeadEmailDict {
   confirmationBodyTestDrive: string;
   confirmationFollowUpNote: string;
   followUpFooter: string;
+  /** Admin UX A8 — what a merge field becomes when the lead has no value for it. */
+  followUpFallbacks: Record<FairFollowUpField, string>;
+  /** Admin UX A8 — the word before the last name of a list ("A, B i C"). */
+  listAnd: string;
+  /** Admin UX A8 — `{ime}` in the admin preview when no lead is chosen (clearly marked as an example). */
+  followUpSampleName: string;
   modelLink: string;
   signature: string;
   devTestSubject: string;
@@ -4130,17 +5211,279 @@ export interface EventReportDict {
   leadsTitle: string;
   leadsSubtitle: string;
   leadsHeading: string;
+  leadsActivityNote: string;
+  leadActivityColumns: Record<"scans" | "ratings" | "audienceVotes" | "surveyAnswers" | "sponsoredActions", string>;
+  /** {model}, {count}. */
+  leadActivityScan: string;
   emailSubject: string;
   emailBody: string;
   emailCorrectionNote: string;
   emailSignature: string;
 }
 
+/** Admin UX A1 — shared admin primitives (Tabela/Kartice prikaz, sortiranje). */
+export interface AdminUiDict {
+  viewToggleLabel: string;
+  viewTable: string;
+  viewCards: string;
+  /** {column} = column header. */
+  sortBy: string;
+  sortAscending: string;
+  sortDescending: string;
+  actionsColumn: string;
+  /** A2 — section navigation: {count} = number next to a section. */
+  navCount: string;
+  /** A2 — urgency badge in the section navigation (filled by A10). {count} = items. */
+  urgency: { hitno: string; uskoro: string; info: string };
+  /** A10 — the tone word of AdminUrgencyBadge (text next to the color). */
+  urgencyLabel: { hitno: string; uskoro: string; info: string };
+  /** A3 — AdminFilterBar. */
+  filters: {
+    /** Mobile toggle; {count} = active filters. */
+    toggle: string;
+    toggleCount: string;
+    clear: string;
+    activeLabel: string;
+    /** {label} = chip text. */
+    removeChip: string;
+    /** `<select>` option that turns a facet off. */
+    any: string;
+  };
+  /** A3 — AdminHierarchyPicker (Izlagač → Brend → Model). */
+  hierarchy: {
+    exhibitor: string;
+    brand: string;
+    model: string;
+    allExhibitors: string;
+    allBrands: string;
+    /** {label} ({count}). */
+    optionCount: string;
+    modelPlaceholder: string;
+    modelListLabel: string;
+    noMatches: string;
+    /** {shown}, {total}. */
+    moreMatches: string;
+    /** {count} matching models (screen reader). */
+    matchesAnnounce: string;
+    clearModel: string;
+    /** {model}. */
+    selected: string;
+  };
+  /** A6 — AdminOptionRows (answer options as dynamic rows). {n} = row number. */
+  optionRows: {
+    option: string;
+    add: string;
+    remove: string;
+    moveUp: string;
+    moveDown: string;
+    /** {count}, {max}. */
+    count: string;
+    /** {min}. */
+    tooFew: string;
+    /** {max}. */
+    tooMany: string;
+    empty: string;
+    duplicate: string;
+    duplicateRow: string;
+    emptyRow: string;
+  };
+}
+
+/** Admin UX Z1 — Pošta: each admin's own Zoho mailbox, read live (ADMIN-UX-ZAHTEVI §10). */
+export interface PostaDict {
+  pageTitle: string;
+  pageSubtitle: string;
+  previewBadge: string;
+  connect: string;
+  connecting: string;
+  reconnect: string;
+  disconnect: string;
+  /** {email}. */
+  disconnectConfirm: string;
+  connectionsLabel: string;
+  connectionActive: string;
+  connectionAuthRequired: string;
+  mailboxLabel: string;
+  notConfiguredTitle: string;
+  notConfiguredBody: string;
+  noConnectionTitle: string;
+  noConnectionBody: string;
+  privacyNote: string;
+  foldersLabel: string;
+  /** Names of the Zoho system folders by `folderType`. */
+  folderNames: Record<"Inbox" | "Sent" | "Drafts" | "Spam" | "Trash" | "Outbox" | "Templates" | "Snoozed", string>;
+  foldersEmpty: string;
+  loadingFolders: string;
+  listLabel: string;
+  filterLabel: string;
+  filterAll: string;
+  filterUnread: string;
+  searchLabel: string;
+  searchPlaceholder: string;
+  searchSubmit: string;
+  searchClear: string;
+  /** {query}. */
+  searchScope: string;
+  unread: string;
+  hasAttachment: string;
+  noSubject: string;
+  unknownSender: string;
+  listEmptyTitle: string;
+  listEmptyBody: string;
+  unreadEmptyBody: string;
+  searchEmptyTitle: string;
+  searchEmptyBody: string;
+  loadingList: string;
+  pagination: string;
+  pagePrevious: string;
+  pageNext: string;
+  /** {from}, {to}. */
+  pageRange: string;
+  readerLabel: string;
+  readerEmptyTitle: string;
+  readerEmptyBody: string;
+  loadingMessage: string;
+  back: string;
+  from: string;
+  to: string;
+  cc: string;
+  date: string;
+  markRead: string;
+  markedRead: string;
+  imagesBlocked: string;
+  showImages: string;
+  imagesShown: string;
+  /** {subject}. */
+  htmlFrameTitle: string;
+  attachmentsLabel: string;
+  /** {name}, {size}. */
+  download: string;
+  downloading: string;
+  connectedNotice: string;
+  previewNotice: string;
+  dismissNotice: string;
+  retry: string;
+  /** {seconds}. */
+  retryAfter: string;
+  /** Z2 — the ScanMe email template (lib/email-template/scanme-email.ts). */
+  email: {
+    footer: string;
+    footerLink: string;
+    /** {date}, {sender}. */
+    replyHeader: string;
+    forwardHeader: string;
+    forwardFrom: string;
+    forwardDate: string;
+    forwardSubject: string;
+    forwardTo: string;
+    forwardCc: string;
+    replyPrefix: string;
+    forwardPrefix: string;
+  };
+  /** Z2 — writing, replying and forwarding. */
+  compose: {
+    newMessage: string;
+    titles: Record<"new" | "reply" | "reply_all" | "forward", string>;
+    reply: string;
+    replyAll: string;
+    forward: string;
+    messageActions: string;
+    tabsLabel: string;
+    tabWrite: string;
+    tabPreview: string;
+    from: string;
+    to: string;
+    cc: string;
+    bcc: string;
+    addCc: string;
+    addBcc: string;
+    recipientPlaceholder: string;
+    /** {address}. */
+    removeRecipient: string;
+    /** {address}. */
+    invalidRecipient: string;
+    missingRecipient: string;
+    subjectMissing: string;
+    waitForUploads: string;
+    suggestionsLabel: string;
+    subject: string;
+    body: string;
+    bodyPlaceholder: string;
+    toolbarLabel: string;
+    bold: string;
+    link: string;
+    linkPrompt: string;
+    formattingHint: string;
+    attachments: string;
+    dropzone: string;
+    chooseFiles: string;
+    /** {count}, {size}. */
+    attachmentLimits: string;
+    /** {name}, {percent}. */
+    uploading: string;
+    /** {name}. */
+    removeAttachment: string;
+    attachmentFailed: string;
+    forwardAttachments: string;
+    quoteNote: Record<"reply" | "forward", string>;
+    signatureNote: string;
+    noSignature: string;
+    send: string;
+    sending: string;
+    sendAgain: string;
+    resendConfirm: string;
+    discard: string;
+    discardConfirm: string;
+    draftSaved: string;
+    sent: string;
+    openSent: string;
+    uncertain: string;
+    /** {subject}. */
+    previewTitle: string;
+    textVersion: string;
+    close: string;
+  };
+  /** Z2 — signature per mailbox ("podešavanja Pošte"). */
+  settings: {
+    open: string;
+    title: string;
+    description: string;
+    /** {email}. */
+    signatureLabel: string;
+    signaturePlaceholder: string;
+    save: string;
+    saving: string;
+    saved: string;
+    preview: string;
+  };
+  /** Stable backend codes (convex/lib/adminMailContract.ts) + the generic fallback. */
+  errors: Record<
+    | "ZOHO_NOT_CONFIGURED"
+    | "ZOHO_AUTH_REQUIRED"
+    | "ZOHO_RATE_LIMITED"
+    | "ZOHO_UNAVAILABLE"
+    | "ZOHO_STATE_INVALID"
+    | "ZOHO_CONNECTION_NOT_FOUND"
+    | "ZOHO_NO_MAILBOX"
+    | "ZOHO_REGION_UNSUPPORTED"
+    | "ZOHO_ATTACHMENT_BLOCKED"
+    | "ZOHO_REQUEST_REJECTED"
+    | "ZOHO_RECIPIENT_INVALID"
+    | "ZOHO_COMPOSE_INVALID"
+    | "ZOHO_SEND_UNCERTAIN"
+    | "ACTION_FAILED",
+    string
+  >;
+}
+
 export interface DictBySurface {
   "event-map": EventMapDict;
   "fair-map": FairMapDict;
   "fair-model": FairModelDict;
+  "fair-garage": FairGarageDict;
   "admin-v1": AdminV1Dict;
+  "admin-ui": AdminUiDict;
+  posta: PostaDict;
   "admin-settings": AdminSettingsDict;
   "admin-tasks": AdminTasksDict;
   "admin-orders": AdminOrdersDict;

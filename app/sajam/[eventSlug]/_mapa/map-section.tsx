@@ -8,8 +8,9 @@ import styles from "./map-states.module.css";
 
 /**
  * Streams in under the shell: catalog (by mapLocationId) + passport catalog,
- * joined with the M0 geometry, plus the B5 map rotation (read once; the client
- * picks the active 12 s slot from its clock — no polling).
+ * joined with the M0 geometry, plus the B5 map rotation. The rotation read here
+ * is only the first state: the client keeps it live over a Convex subscription
+ * (K2) and picks the active 12 s slot from its clock — no polling, no write.
  */
 export async function MapSection({ eventSlug, eventCode, display }: { eventSlug: string; eventCode: string; display: boolean }) {
   const geometry = fairMapForEventCode(eventCode);
@@ -33,5 +34,5 @@ export async function MapSection({ eventSlug, eventCode, display }: { eventSlug:
   }
   const [map, passports, rotation] = data;
   const view = buildFairMapView(geometry, map?.stands ?? [], passports?.catalog ?? []);
-  return <FairEventMap eventSlug={eventSlug} view={view} rotation={rotation} display={display} />;
+  return <FairEventMap eventSlug={eventSlug} view={view} initialRotation={rotation} display={display} />;
 }

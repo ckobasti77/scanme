@@ -16,8 +16,8 @@ import {
 } from "../lib/fair-contract";
 import { deriveFairCapabilities, getFairEntitlements } from "../lib/fair-entitlements";
 import { fairAudienceResult, fairModelQuestions, fairPassportState, fairVoteThreshold } from "./lib/fairInteractions";
-import { fairActiveConsent, fairExhibitorName, fairLeadConfig, fairRenderConsentText } from "./lib/fairLeads";
-import { FAIR_SPONSORED_ITEMS_CAP, fairActiveSponsoredSnapshot, fairSponsoredItems } from "./lib/fairSponsored";
+import { fairActiveConsent, fairExhibitorName, fairLeadConfig, fairLeadsEnabled, fairRenderConsentText } from "./lib/fairLeads";
+import { FAIR_SPONSORED_ITEMS_CAP, fairActiveSponsoredSnapshot, fairSponsoredItems, fairSponsoredVisual } from "./lib/fairSponsored";
 import {
   fairAudienceQuestionView,
   fairAudienceResultView,
@@ -451,13 +451,16 @@ export const getPassportCatalog = query({
  * the form must not collect contacts (production gate, MASTER §8, §13). Like
  * `capabilities`, it reads the stored package (a query never reads the
  * clock); submitLead judges the package in force at the moment of the submit.
- * No PII: no lead, contact or visitor data is read here.
+ * K3: while FAIR_LEADS_ENABLED is not "true" every model and kind is
+ * `leads_disabled` (closed, nothing read). No PII: no lead, contact or
+ * visitor data is read here.
  */
 export const getLeadForm = query({
   args: { eventModelId: v.string(), kind: fairLeadKind },
   returns: fairLeadFormView,
   handler: async (ctx, args): Promise<FairLeadFormView> => {
     const base = { eventModelId: args.eventModelId, kind: args.kind };
+    if (!fairLeadsEnabled()) return { ...base, state: "leads_disabled" };
     const model = await publishedModel(ctx, args.eventModelId);
     if (!model) return { ...base, state: "unavailable" };
     const rights = getFairEntitlements(model.packageTier);
@@ -481,7 +484,7 @@ export const getLeadForm = query({
 // -----------------------------------------------------------------------------
 
 /**
- * One read of the event's manually published Advanced snapshot (MASTER §10,
+ * One read of the event's published Advanced snapshot (manual or, A9, automatic; MASTER §10,
  * HANDOFF §5.7, JOVAN-DELTA §2). Items keep snapshot order; the client picks
  * the active one with
  * `getFairRotationSlot({ epochMs, nowMs, intervalMs, itemCount: items.length })`
@@ -507,8 +510,7 @@ async function sponsoredRotation(ctx: QueryCtx, eventSlug: string, surface: "map
     if (!model || model.status !== "published") continue;
     const [brandRow, standRow] = await Promise.all([brand(model.brandId), stand(model.standId)]);
     if (!brandRow || !standRow) continue;
-    const photoUrl = model.photoUrl ?? (model.photoStorageId ? await ctx.storage.getUrl(model.photoStorageId) : null) ?? undefined;
-    const brandLogoUrl = !photoUrl && brandRow.logoStorageId ? (await ctx.storage.getUrl(brandRow.logoStorageId)) ?? undefined : undefined;
+    const { visual, photoUrl, brandLogoUrl } = await fairSponsoredVisual(ctx, model, brandRow);
     let audienceResult: FairSponsoredModelCard["audienceResult"];
     if (surface === "map" && item.audienceQuestionId) {
       const question = await ctx.db.get(item.audienceQuestionId);
@@ -531,7 +533,7 @@ async function sponsoredRotation(ctx: QueryCtx, eventSlug: string, surface: "map
       displayName: model.displayName,
       ...(model.variant ? { variant: model.variant } : {}),
       priceText: model.priceText,
-      visual: photoUrl ? "photo" : brandLogoUrl ? "brand_logo" : "event_placeholder",
+      visual,
       ...(photoUrl ? { photoUrl } : {}),
       ...(brandLogoUrl ? { brandLogoUrl } : {}),
       standMapLocationId: standRow.mapLocationId,

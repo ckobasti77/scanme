@@ -114,13 +114,18 @@ const FAIR_INDEXES: Record<string, string[]> = {
     "by_eventId_and_leadKind_and_version",
   ],
   fairLeadConfigs: ["by_eventModelId_and_leadKind"],
+  // Admin UX A7 — the exhibitor default of each lead form.
+  fairParticipationLeadDefaults: ["by_participationId_and_leadKind", "by_eventId"],
   fairLeads: [
     "by_submissionId",
     "by_eventModelId_and_createdAt",
     "by_participationId_and_createdAt",
     "by_status_and_purgeAt",
+    "by_eventId_and_createdAt", // Admin UX A8 lead inbox
   ],
   fairMessageTemplates: ["by_eventModelId_and_kind_and_status"],
+  // Admin UX A8 — the exhibitor's follow-up text (one draft + one active per participation).
+  fairExhibitorFollowUpTemplates: ["by_participationId_and_status", "by_eventId_and_status"],
   fairEmailDeliveries: [
     "by_dedupeKey",
     "by_status_and_scheduledFor",
@@ -138,8 +143,18 @@ const FAIR_INDEXES: Record<string, string[]> = {
     "by_requestId",
     "by_eventModelId_and_occurredAt",
     "by_eventId_and_occurredAt",
+    "by_visitorId_and_occurredAt", // Admin UX A8 activity next to a lead
   ],
   fairPurgeRuns: ["by_mode_and_status"], // B7 purge audit (HANDOFF §5.6)
+  // 5 Oct traffic/share delta (JOVAN-DELTA-2026-10-05.md, Aleksa 8e72c10),
+  // added to the contract list at the 2026-10-05 sync.
+  fairShareCollections: ["by_requestId", "by_codeHash", "by_eventId_and_createdAt"],
+  fairTrafficEvents: [
+    "by_requestId",
+    "by_eventId_and_occurredAt",
+    "by_eventModelId_and_occurredAt",
+    "by_shareCollectionId_and_occurredAt",
+  ],
 };
 
 function fieldsFromIndexName(name: string) {
@@ -456,6 +471,16 @@ describe("fair schema contract (B0)", () => {
         createdAt: now,
         updatedAt: now,
       });
+      await ctx.db.insert("fairParticipationLeadDefaults", {
+        eventId: s.eventId,
+        participationId: s.participationId,
+        leadKind: "interest",
+        enabled: true,
+        contactRequirement: "one_of",
+        updatedByUserId: s.adminId,
+        createdAt: now,
+        updatedAt: now,
+      });
       const leadId = await ctx.db.insert("fairLeads", {
         submissionId: "test-lead-1",
         kind: "interest",
@@ -481,6 +506,17 @@ describe("fair schema contract (B0)", () => {
         plainText: "TEST tekst",
         status: "draft",
         version: 1,
+        createdAt: now,
+        updatedAt: now,
+      });
+      await ctx.db.insert("fairExhibitorFollowUpTemplates", {
+        eventId: s.eventId,
+        participationId: s.participationId,
+        subject: "TEST naslov {ime}",
+        plainText: "TEST tekst {modeli}",
+        status: "draft",
+        version: 1,
+        updatedByUserId: s.adminId,
         createdAt: now,
         updatedAt: now,
       });
@@ -583,6 +619,27 @@ describe("fair schema contract (B0)", () => {
         batches: 0,
         categories: [{ category: "email_deliveries", rows: 0, status: "pending" }],
       });
+      // 5 Oct traffic/share delta (Aleksa 8e72c10), round-trip added at the 2026-10-05 sync.
+      const shareCollectionId = await ctx.db.insert("fairShareCollections", {
+        requestId: "test-share-1",
+        codeHash: "c".repeat(64),
+        eventId: s.eventId,
+        eventModelIds: [s.eventModelId],
+        status: "active",
+        createdAt: now,
+        expiresAt: now + 60_000,
+      });
+      await ctx.db.insert("fairTrafficEvents", {
+        requestId: "test-traffic-1",
+        eventId: s.eventId,
+        shareCollectionId,
+        kind: "share_action",
+        channel: "copy",
+        modelCount: 1,
+        occurredAt: now,
+        dateKey: "2026-10-30",
+        hourKey: "2026-10-30T10",
+      });
 
       const q = ctx.db;
       return {
@@ -604,8 +661,10 @@ describe("fair schema contract (B0)", () => {
         fairSurveyResponses: await q.query("fairSurveyResponses").withIndex("by_submissionId", (x) => x.eq("submissionId", "test-sub-1")).unique(),
         fairConsentConfigs: await q.query("fairConsentConfigs").withIndex("by_eventId_and_leadKind_and_version", (x) => x.eq("eventId", s.eventId).eq("leadKind", "interest").eq("version", 1)).unique(),
         fairLeadConfigs: await q.query("fairLeadConfigs").withIndex("by_eventModelId_and_leadKind", (x) => x.eq("eventModelId", s.eventModelId).eq("leadKind", "test_drive")).unique(),
+        fairParticipationLeadDefaults: await q.query("fairParticipationLeadDefaults").withIndex("by_participationId_and_leadKind", (x) => x.eq("participationId", s.participationId).eq("leadKind", "interest")).unique(),
         fairLeads: await q.query("fairLeads").withIndex("by_submissionId", (x) => x.eq("submissionId", "test-lead-1")).unique(),
         fairMessageTemplates: await q.query("fairMessageTemplates").withIndex("by_eventModelId_and_kind_and_status", (x) => x.eq("eventModelId", s.eventModelId).eq("kind", "post_event_follow_up").eq("status", "draft")).unique(),
+        fairExhibitorFollowUpTemplates: await q.query("fairExhibitorFollowUpTemplates").withIndex("by_participationId_and_status", (x) => x.eq("participationId", s.participationId).eq("status", "draft")).unique(),
         fairEmailDeliveries: await q.query("fairEmailDeliveries").withIndex("by_dedupeKey", (x) => x.eq("dedupeKey", "test-dedupe-2")).unique(),
         fairPassportConfigs: await q.query("fairPassportConfigs").withIndex("by_eventId_and_brandId", (x) => x.eq("eventId", s.eventId).eq("brandId", s.brandId)).unique(),
         fairPassportEligibleModels: await q.query("fairPassportEligibleModels").withIndex("by_passportConfigId_and_status", (x) => x.eq("passportConfigId", passportConfigId).eq("status", "required")).unique(),
@@ -616,6 +675,8 @@ describe("fair schema contract (B0)", () => {
         fairSponsoredSnapshotItems: await q.query("fairSponsoredSnapshotItems").withIndex("by_snapshotId_and_order", (x) => x.eq("snapshotId", snapshotId)).unique(),
         fairSponsoredEvents: await q.query("fairSponsoredEvents").withIndex("by_requestId", (x) => x.eq("requestId", "test-sponsored-1")).unique(),
         fairPurgeRuns: await q.query("fairPurgeRuns").withIndex("by_mode_and_status", (x) => x.eq("mode", "dry_run").eq("status", "running")).unique(),
+        fairShareCollections: await q.query("fairShareCollections").withIndex("by_codeHash", (x) => x.eq("codeHash", "c".repeat(64))).unique(),
+        fairTrafficEvents: await q.query("fairTrafficEvents").withIndex("by_requestId", (x) => x.eq("requestId", "test-traffic-1")).unique(),
       };
     });
 
@@ -627,6 +688,7 @@ describe("fair schema contract (B0)", () => {
     expect(found.fairEmailDeliveries?.leadId).toBeUndefined();
     expect(found.fairSponsoredEvents?.surface).toBe("garage");
     expect(found.fairLeads?.consentAccepted).toBe(true);
+    expect(found.fairTrafficEvents && "visitorId" in found.fairTrafficEvents).toBe(false);
   });
 });
 

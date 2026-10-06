@@ -13,20 +13,23 @@ import {
   fairInteractionError,
   fairModelTierAt,
   findFairVisitor,
+  requireFairVisitorRow,
   requireInteractiveModel,
   requireVisitorHash,
 } from "./lib/fairInteractions";
+import { requireFairGateway } from "./lib/fairGateway";
 import {
   fairActiveConsent,
   fairExhibitorName,
+  fairFollowUpEnabled,
   fairFollowUpScheduleFor,
   fairLeadConfig,
   fairLeadDelivery,
+  fairLeadsEnabled,
   fairRenderConsentText,
   normalizeFairLeadContact,
   queueFairLeadEmail,
 } from "./lib/fairLeads";
-import { upsertFairVisitor } from "./lib/fairScans";
 import { fairLeadKind, fairLeadSubmitResultView } from "./lib/fairValidators";
 import { rateLimiter } from "./lib/rateLimits";
 
@@ -36,6 +39,12 @@ import { rateLimiter } from "./lib/rateLimits";
 // the Next same-origin POST gateway (app/api/fair/lead, lib/fair-server/
 // leads.ts): the visitor is the HMAC of the HttpOnly cookie, never a body
 // field. convex/leads.ts is the prelaunch lead and is not used here.
+// K1: FAIR_GATEWAY_SECRET is checked first (convex/lib/fairGateway.ts), so a
+// direct Convex call cannot store a lead or queue an email.
+// K3: right after it, the hard switch FAIR_LEADS_ENABLED (exactly "true",
+// default off) → otherwise LEADS_DISABLED before any read, so no PII is
+// stored and nothing is queued. The follow-up is queued only while
+// FAIR_FOLLOWUP_ENABLED is "true" too (convex/lib/fairLeads.ts).
 //
 // One transaction: entitlement at the moment of the submit → enabled lead
 // config → ACTIVE consent (else CONSENT_NOT_CONFIGURED — the production gate)
@@ -60,6 +69,8 @@ async function submitResult(ctx: MutationCtx, lead: Doc<"fairLeads">, duplicate:
 
 export const submitLead = mutation({
   args: {
+    gatewaySecret: v.optional(v.string()),
+    ipHash: v.optional(v.string()),
     visitorHash: v.string(),
     eventModelId: v.string(),
     kind: fairLeadKind,
@@ -73,6 +84,8 @@ export const submitLead = mutation({
   returns: fairLeadSubmitResultView,
   handler: async (ctx, args): Promise<FairLeadSubmitResult> => {
     const now = Date.now();
+    requireFairGateway(args.gatewaySecret);
+    if (!fairLeadsEnabled()) fairInteractionError("LEADS_DISABLED");
     requireVisitorHash(args.visitorHash);
     if (!isFairSubmissionId(args.submissionId)) fairInteractionError("INVALID_INPUT", { field: "submissionId" });
 
@@ -120,7 +133,7 @@ export const submitLead = mutation({
       }
     }
 
-    const visitorId = await upsertFairVisitor(ctx, args.visitorHash, now);
+    const visitorId = await requireFairVisitorRow(ctx, { visitorHash: args.visitorHash, ipHash: args.ipHash, now });
     const limit = await rateLimiter.limit(ctx, "fairLeadSubmit", { key: `${visitorId}:${model._id}` });
     if (!limit.ok) fairInteractionError("RATE_LIMITED", { retryAfterMs: Math.ceil(limit.retryAfter) });
 
@@ -147,7 +160,9 @@ export const submitLead = mutation({
       await queueFairLeadEmail(ctx, { leadId, kind: "immediate_confirmation", recipient, scheduledFor: now, now });
       // Advanced only, judged by the package in force NOW: a lead from before
       // an upgrade never gains a follow-up afterwards (no retroactivity).
-      const followUpAt = rights.postEventFollowUp ? fairFollowUpScheduleFor(event.endsAt, now) : null;
+      // K3: and only while FAIR_FOLLOWUP_ENABLED is on — a lead taken while it
+      // is off never gains one later (its confirmation did not announce one).
+      const followUpAt = rights.postEventFollowUp && fairFollowUpEnabled() ? fairFollowUpScheduleFor(event.endsAt, now) : null;
       if (followUpAt !== null) {
         await queueFairLeadEmail(ctx, { leadId, kind: "post_event_follow_up", recipient, scheduledFor: followUpAt, now });
         followUpScheduled = true;

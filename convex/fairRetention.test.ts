@@ -23,8 +23,12 @@ const ADMIN_EMAIL = "fair-b7@scanme.test";
 const ISSUER = "https://fair-b7.test";
 const VISITORS = 210;
 
+// K1: a TEST gateway secret (not a real value), set as the Convex env in beforeEach.
+const GATEWAY_SECRET = "test-fair-gateway-secret-0123456789abcdef";
+
 beforeEach(() => {
   process.env.SCANME_ADMIN_EMAILS = ADMIN_EMAIL;
+  process.env.FAIR_GATEWAY_SECRET = GATEWAY_SECRET;
   vi.useFakeTimers();
   vi.setSystemTime(SEED_AT);
 });
@@ -252,9 +256,9 @@ describe("B7 purge execution (16 Nov 2026)", () => {
 
     // A device whose clock is wrong still sends its cookie: no visitor row, no fair scan.
     const qr = f.seed.qr.find((row) => row.modelExternalKey === "test-em26-volta-x1")!;
-    const outcome = await f.t.mutation(api.cards.resolveAndRecord, { cardCode: qr.resolverCode, requestId: "test-after-purge-1", deviceCategory: "mobile", ipHash: "test-hall-nat", fairVisitorHash: hash(9999) });
+    const outcome = await f.t.mutation(api.cards.resolveAndRecord, { cardCode: qr.resolverCode, requestId: "test-after-purge-1", deviceCategory: "mobile", ipHash: "test-hall-nat", fairGatewaySecret: GATEWAY_SECRET, fairVisitorHash: hash(9999) });
     expect(outcome).toMatchObject({ kind: "fair_model", fairScan: "no_visitor" });
-    await expect(f.t.mutation(api.fairInteractions.upsertRating, { visitorHash: hash(9999), eventModelId: f.modelId, appearance: 5 })).rejects.toMatchObject({ data: { code: "EVENT_NOT_ACTIVE" } });
+    await expect(f.t.mutation(api.fairInteractions.upsertRating, { gatewaySecret: GATEWAY_SECRET, visitorHash: hash(9999), eventModelId: f.modelId, appearance: 5 })).rejects.toMatchObject({ data: { code: "EVENT_NOT_ACTIVE" } });
     expect(await rows(f, "fairVisitors")).toEqual([]);
     expect(await rows(f, "fairScanEvents")).toEqual([]);
   });

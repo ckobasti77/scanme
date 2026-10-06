@@ -12,12 +12,26 @@ export const eventLeadEmailSr = {
   greeting: "Zdravo, {name},",
   confirmationBodyInterest:
     "hvala na interesovanju za model {model} na događaju {event}. Vaše kontakt podatke prosleđujemo izlagaču {exhibitor}.",
+  // Admin UX A8 (ADMIN-UX §7): the test drive confirmation says the request
+  // was received and passed on to the exhibitor.
   confirmationBodyTestDrive:
-    "hvala na zahtevu za probnu vožnju modela {model} na događaju {event}. Ovo je zahtev, a ne zakazan termin: vaše kontakt podatke prosleđujemo izlagaču {exhibitor}, koji će vas kontaktirati radi dogovora o terminu.",
+    "hvala na zahtevu za probnu vožnju modela {model} na događaju {event}. Vaš zahtev je primljen i prosleđen izlagaču {exhibitor}, koji će vas kontaktirati radi dogovora o terminu. Ovo je zahtev, a ne zakazan termin.",
   confirmationFollowUpNote:
     "Posle sajma ćemo vam u ime izlagača poslati još jednu, poslednju poruku. Ako je ne želite, odgovorite na ovaj email i nećemo je poslati.",
+  // A8: one follow-up per exhibitor, so {model} can be a list of models.
   followUpFooter:
-    "Ovu poruku šalje ScanMe u ime izlagača {exhibitor}, jer ste na događaju {event} ostavili kontakt za model {model}. Ovo je jedina poruka posle sajma.",
+    "Ovu poruku šalje ScanMe u ime izlagača {exhibitor}, jer ste na događaju {event} ostavili kontakt za: {model}. Ovo je jedina poruka posle sajma.",
+  followUpFallbacks: {
+    ime: "poštovani",
+    izlagac: "izlagač",
+    dogadjaj: "sajam",
+    modeli: "naše modele",
+    modeli_zainteresovan: "naše modele",
+    modeli_probna_voznja: "naše modele",
+    modeli_ocenjeni: "naše modele",
+  },
+  listAnd: "i",
+  followUpSampleName: "Ime Prezime (primer)",
   modelLink: "Model: {url}",
   signature: "ScanMe, digitalni partner Sajma automobila",
   devTestSubject: "TEST: sajamski email sa DEV okruženja",

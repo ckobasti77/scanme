@@ -2,14 +2,13 @@
 
 > Status: **ZAKLJUČAN ZA DELEGIRANJE**
 >
-> Poslednje ažuriranje: 2. oktobar 2026.
+> Poslednje ažuriranje: 5. oktobar 2026.
 > Vlasnik proizvodnih odluka i finalni go/no-go: **Aleksa**
 > Rok za operativnu spremnost prve faze: **9. oktobar 2026.**
 > Prateći tehnički dokument: [`BACKEND-HANDOFF.md`](./BACKEND-HANDOFF.md)
 > Frontend plan: [`FRONTEND-INTEGRATION-PLAN.md`](./FRONTEND-INTEGRATION-PLAN.md)
 > Javni UI/UX ugovor: [`EVENT-DESIGN-SYSTEM.md`](./EVENT-DESIGN-SYSTEM.md)
 > Operativni paket za unos podataka: [`DATA-INTAKE-SPEC.md`](./DATA-INTAKE-SPEC.md)
-> Jovan/Claude mapa+backend kontekst: [`CLAUDE-MAPA-BACKEND-KONTEKST-V2.md`](./CLAUDE-MAPA-BACKEND-KONTEKST-V2.md)
 
 ## 0. Kako se koristi ovaj dokument
 
@@ -246,6 +245,10 @@ Najvažnije prodajne tačke su:
 - Sva ostala skeniranja računaju se bez obzira na radno vreme sajma, uključujući kasniji povratak preko sačuvane browser stranice.
 - U V1 se ne uvodi poseban bot/preview filter za sajamske metrike.
 - Direktno otvaranje modela iz garaže ili sponzorisane kartice nije QR scan; vodi se kao poseban pregled/reklamna konverzija.
+- QR, direktni i deljeni ulazi ne smeju se mešati: `/r/[cardCode]` jedini proizvodi scan; običan kanonski model URL je `direct_view`; otvaranje javne deljene kolekcije je `share_open`; korišćenje akcije za deljenje je `share_action`.
+- `share_action` označava uspešno predavanje sadržaja sistemskom share sheet-u, izbor WhatsApp/Viber izlaza ili uspešno kopiranje linka, ne garantuje da je poruka stvarno poslata.
+- QR resolver postavlja kratkotrajnu potpisanu HttpOnly oznaku izvora kako model-page view posle 302 ne bi bio pogrešno uračunat kao direktan ulaz. Oznaka ne ulazi u URL i ne menja scan metriku.
+- Deljene kolekcije i saobraćajni događaji imaju zaseban backend ugovor i nikada ne pozivaju scan pipeline.
 
 ### Anonimni identitet — ZAKLJUČANO
 
@@ -288,6 +291,13 @@ Postojeći `/r/[cardCode]` tok mora jednim server request ID-em da zabeleži gen
 - Svi modeli sa Naprednim paketom ravnopravno se rotiraju; srodnost sa sačuvanim modelima nije kriterijum.
 - Kartica/traka prikazuje sliku i naziv modela, akciju `Pogledaj` i akciju `Dodaj u garažu`.
 - `Pogledaj` otvara detalje modela, odakle model takođe može odmah da se doda u garažu.
+- Dugi dodir na karticu uključuje režim izbora i bira taj model. U režimu izbora običan dodir bira ili uklanja ostale modele.
+- Režim izbora podržava najviše pet modela i ima stalno dostupne akcije: poređenje, deljenje, uklanjanje i izlaz. Poređenje je moguće samo za tačno dva modela.
+- Sponzorisana traka se privremeno sklanja dok je režim izbora aktivan, kako se dve fiksne trake ne bi preklapale i izazivale pogrešne dodire.
+- Svaka kartica van režima izbora ima zasebnu akciju za deljenje jednog modela.
+- Deljenje jednog modela koristi kanonski URL modela i bogat preview sa fotografijom, brendom, nazivom i cenom. Na telefonu se prvenstveno koristi sistemski share sheet; fallback je kopiranje linka.
+- Deljenje dva do pet modela pravi javnu kolekciju na `/sajam/deli/[shareCode]`. Preview prikazuje do tri modela i oznaku `+N` za preostale. Kolekcija prestaje da bude javno dostupna 16. novembra 2026.
+- Izvoz izabranih modela „kod sebe” znači eksplicitni PDF ili email izvoz; nije drugo lokalno čuvanje, jer su modeli već u browser garaži.
 
 ### PRIVREMENO
 
@@ -571,7 +581,7 @@ Dok taj artefakt nije zaključan, agenti mogu da rade model podataka, API ugovor
 - Ovaj razgovor/task je komandni centar: odluke, prioriteti, zavisnosti i prihvatanje rezultata.
 - Implementacija se deli na zasebne, ograničene taskove.
 - **Jovan** radi preko svog AI agenta na drugom računaru i polazi od zajedničke Git grane `codex/sajam-automobila-2026`.
-- Jovan je jedini vlasnik sajamske Convex šeme i backend implementacije: anonimni identitet, entitlement pravila, skeniranja, ocene, glasovi, ankete, leadovi, analitika, izveštaji, email i retention funkcije. U zasebnom, koordinisanom frontend opsegu Jovan i njegov Claude agent implementiraju i produkcijsku mapu.
+- Jovan je jedini vlasnik sajamske Convex šeme i backend implementacije: anonimni identitet, entitlement pravila, skeniranja, ocene, glasovi, ankete, leadovi, analitika, izveštaji, email i retention funkcije.
 - Za Jovanov backend zadatak preporučeni su `gpt-6-astra` i `high`; `xhigh` se koristi za završnu proveru šeme, authz/PII granica i retention logike.
 - **Aleksa** je vlasnik proizvoda, javnog UX-a, QR štampe, produkcijskog deploya i konačnog go/no-go odobrenja.
 - **Teodora** je primarna osoba za kontakt sa izlagačima i prikupljanje podataka; Aleksa je rezerva.
@@ -579,7 +589,7 @@ Dok taj artefakt nije zaključan, agenti mogu da rade model podataka, API ugovor
 - Aleksa i Jovan su tehnički on-call tokom sajma.
 - Drugi agenti ne menjaju sajamske tabele, indekse ili Convex funkcije bez usaglašenog backend ugovora i koordinacije sa backend vlasnikom.
 - Ovaj komandni centar vodi proizvodne odluke, prioritete, dizajn-sistem, javne mobilne interfejse i integracionu kontrolu.
-- Produkcijsku mapu izrađuju Jovan i njegov Claude agent u svom toku. Komandni centar je ne preuzima, već isporučuje ugovor, kasnije radi audit i proverava stilsko uklapanje sa javnim event shell-om.
+- Produkcijsku mapu izrađuje kolega u svom toku. Komandni centar je ne preuzima, već kasnije radi audit, usaglašava integracioni ugovor i proverava stilsko uklapanje sa javnim event shell-om.
 - Backend vlasnik prvo objavljuje tipizirani ugovor podataka/funkcija; frontend taskovi se grade prema tom ugovoru umesto da izmišljaju paralelni model.
 - Nijedan agent ne sme sam da promeni paket, poslovno pravilo ili UX tok zato što mu je lakše za implementaciju.
 - Svaki task mora da navede ulaze, izlaze, zabranjene izmene, kriterijume prihvatanja i proveru.
@@ -720,6 +730,13 @@ Pre produkcije mora da bude dokazano najmanje sledeće:
 ---
 
 ## 20. Dnevnik izmena
+
+### 5. oktobar 2026.
+
+- Zaključan je mobilni režim izbora u Garaži: dugi dodir ulazi u režim, običan dodir bira naredne modele, poređenje zahteva tačno dva, a deljenje podržava najviše pet modela.
+- Zaključane su akcije deljenja jednog modela i javne kolekcije `/sajam/deli/[shareCode]`: podržan telefon direktno koristi native share sheet, a sopstveni panel sa WhatsApp/Viber izlazima i kopiranjem linka ostaje fallback.
+- Razdvojene su metrike `direct_view`, `share_action` i `share_open` od QR scan metrike; `/r/[cardCode]` ostaje jedini izvor scanova.
+- Zaključana je kratkotrajna server-side QR attribution oznaka bez query parametra i gašenje javnih deljenih kolekcija 16. novembra 2026.
 
 ### 2. oktobar 2026.
 

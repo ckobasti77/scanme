@@ -16,6 +16,7 @@ export const adminTeamSr: AdminTeamDict = {
   conversationsTitle: "Zaduženi razgovori",
   openAllTasks: "Otvori sve zadatke",
   openAllConversations: "Otvori Inbox",
+  colLatestMessage: "Poslednja poruka",
   reassign: "Preraspodeli",
   claim: "Preuzmi",
   noTasks: "Nema otvorenih zadataka za ovog člana.",

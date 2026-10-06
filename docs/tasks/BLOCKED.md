@@ -1764,12 +1764,12 @@ Presuda završnog pregleda je **TREBA DORADA PRE INTEGRACIONOG TESTA** (`scripts
 ### Stanje ranijih odeljaka
 - **B2 §1 (timeout):** rešeno.
 - **B0 §1, B1 §1, B1A** (rad pre Aleksinog pregleda B0 i navigacija): i dalje otvoreno. Čeka naknadno Aleksino odobrenje.
-- **B7 §4 (integritet metrika):** i dalje otvoreno. RF ga vodi kao nalaz 1 (visoka ozbiljnost).
+- **B7 §4 (integritet metrika):** rešeno u K1 (`422224c`, `jovan-status/K1.md`).
 - **B7 §3 (F3 i HTTPS host):** i dalje blokira ručni test 8. 10.
 - Ostale stavke B0–B7 važe kako su upisane.
 
-### 1. Korektivni korak pre 8. 10. (čeka Aleksinu odluku)
-U Jovanovom opsegu, prema RF nalazima:
+### 1. Korektivni korak pre 8. 10. — REŠENO u K1–K4 (dopuna IZK, 4. 10.)
+Urađeno: K1 `422224c`, K2 `3f549bf`, K3 `638fd67`, K4 `b0c83f2`. Presuda RK je SPREMNO ZA INTEGRACIONI TEST (`scripts/tasks/logs/sajam-v2/RK-IZVESTAJ.md`). Za istoriju, prvobitni opis:
 - **1:** tajna gateway → Convex i limit novih identiteta po IP hash-u;
 - **2:** displej osvežava rotaciju i rezultat glasanja (`app/sajam/[eventSlug]/_mapa/map-section.tsx` čita samo jednom);
 - **3:** tvrdi prekidač za leadove i poseban prekidač za follow-up;
@@ -1779,3 +1779,58 @@ Nalazi 1 i 3 traže nove env promenljive, koje agent ne postavlja.
 
 ### 2. Purge bez ručnog odobrenja (MASTER §13)
 Cron sam pokreće pravo brisanje 16. 11. u 00:00, a MASTER kaže „nakon odobrenog pokretanja“. Aleksa bira: automatski ili uz admin odobrenje. Posle purge-a broj leadova i odgovori ankete u novim izradama izveštaja su 0 (RF nalaz 5).
+
+## SAJAM v2 — K1 (tajna gateway Next → Convex, RF nalaz 1)
+
+Kod, testovi i ugovor (§27) su urađeni (`docs/events/sajam-automobila-2026/jovan-status/K1.md`). Ništa nije zaustavljeno. RF nalaz 1 i B7 §4 su rešeni u kodu. Ostaje jedan produkcijski preduslov i dve odluke; ništa od toga agent ne radi sam.
+
+### 1. Produkcijski preduslov: `FAIR_GATEWAY_SECRET` pre deploya
+Aleksa ili Jovan postavljaju novu vrednost (32+ nasumičnih znakova, različitu od DEV) u Convex prod env i u Vercel prod env, i to **pre** deploya ovog koda. Bez nje su svi fair skenovi i interakcije ugašeni (fail closed), a QR redirect radi. Čeklista je u ugovoru §27.6. DEV (`expert-pelican-136` i `.env.local`) je runner već podesio; sken na :3100 je potvrdio da se vrednosti poklapaju.
+
+### 2. Veličina limita novih identiteta po IP-u (odluka uz §9.66)
+`fairVisitorCreate` je 300 odjednom, pa 120/min po IP HMAC-u. Računica (oko 100 novih uređaja u minuti na vrhu, cela prostorija iza jednog NAT-a odjednom) je procena bez stvarnih brojeva posetilaca. Ako hala ima javni Wi-Fi ili očekivana poseta znatno premašuje 10.000 dnevno, broj treba potvrditi ili povećati. Menja se jedan red u `convex/lib/rateLimits.ts`.
+
+### 3. Ključ IP HMAC-a je `FAIR_VISITOR_HASH_SECRET`
+Rotacija te tajne menja i ključ IP bucket-a, pored već poznatog resetovanja jedinstvenih posetilaca (RF nalaz 6). To je prihvatljivo, jer stanje bucket-a traje samo minute.
+
+## SAJAM v2 — IZK (stanje posle korekcija K1–K4, 4. 10. 2026.)
+
+RF nalazi 1–4 su rešeni. Izvori: `jovan-status/K1.md`–`K4.md` i `scripts/tasks/logs/sajam-v2/RK-IZVESTAJ.md`; čeklista env promenljivih je u `jovan-status/IZVESTAJ.md` §0. Agent ne postavlja nijednu vrednost.
+
+### 1. I dalje blokira test 8. 10. (van lanca)
+- Kodeks F3: stranica modela još čita fixture, pa posle QR-a vraća 404 (B7 §3).
+- HTTPS host vezan za DEV mora imati `FAIR_VISITOR_HASH_SECRET` **i** `FAIR_GATEWAY_SECRET` (istu vrednost kao Convex DEV). Convex DEV tajnu je runner već postavio.
+
+### 2. Otvorena pitanja iz K koraka (čekaju Aleksu ili Jovana)
+- **K1:** veličina `fairVisitorCreate` (300 odjednom, 120/min po IP-u) uz Wi-Fi hale (§9.66). Produkcijski `FAIR_GATEWAY_SECRET` se postavlja pre deploya (ugovor §27.6).
+- **K2:** error boundary za displej ako upit rotacije baci grešku (K2 §7.1).
+- **K3:** ko i kada uključuje `FAIR_LEADS_ENABLED`/`FAIR_FOLLOWUP_ENABLED` (ugovor §28.4). Otvoreno je i:
+  - da li `skipped` posle gašenja treba da bude konačan;
+  - sadržaj zapisa pravnog odobrenja;
+  - provera da tekst imenuje ScanMe;
+  - vidljivost stanja prekidača u adminu (K3 §7).
+- **K4:** šta sa run-om napravljenim pre zatvaranja dana koji je postojao pre K4 (§9.70). Ponoć ili radno vreme hale (§9.54).
+- **RF nalazi 5–17:** neizmenjeni, uključujući 12 i 13. Do ispravke: displeji uvek sa `?prikaz=ekran`, a test telefoni ne smeju biti prijavljeni kao admin.
+
+## SAJAM v2 — A4 (QR inventar: dodela u većem broju)
+
+- **Konflikt:** `ADMIN-UX-ZAHTEVI.md` §5 kaže da se u dodeli u većem broju model zadaje kao „`externalKey` ili naziv“, a uputstvo koraka A4 kaže „`externalKey` ili ID“.
+- **Šta je urađeno:** implementirano je uže pravilo iz uputstva koraka (`externalKey` ili Convex ID modela). Prepoznavanje po nazivu nije urađeno: naziv nije jedinstven (isti model kod dva izlagača, varijante), a pogrešno poklapanje bi poslalo nalepnicu na pogrešan auto.
+- **Pitanje za Aleksu/Jovana:** da li treba i prepoznavanje po nazivu (npr. samo kad je naziv + varijanta jedinstven u događaju, a inače greška „naziv nije jednoznačan“)? Deferred, awaiting owner decision.
+
+## SAJAM v2 — A7 (automatski pasoš brenda)
+
+- **Konflikt (uslov):** `ADMIN-UX-ZAHTEVI.md` §6 i uputstvo A7 kažu „najmanje 2 objavljena modela, svi najmanje Starter“; MASTER §11 kaže „najmanje dva izložena modela i svi imaju najmanje Starter“ i „svi relevantni modeli brenda uključeni/validni za pasoš“; kod od B3 (ugovor §9.31) traži da su svi izloženi (ne-povučeni) modeli objavljeni, kandidati (`passport_eligible`) i Starter+.
+- **Šta je urađeno:** automatski pasoš koristi strože B3 pravilo (preporuka A0 R2a), sada u jednoj funkciji `fairBrandPassportProblems` sa razlogom u adminu. Primer razlike: brend sa 2 objavljena Starter modela i trećim modelom u nacrtu nema pasoš dok se i treći ne objavi („1 od 3 modela nije objavljeno.“).
+- **Odluka za Aleksin pregled:** automatski pasoš sa sakrivanjem je razlika prema dosadašnjem ručnom pravilu (ADMIN-UX §12.2); ugovor §33.1.
+- **Pitanje za Aleksu/Jovana:** da li model u nacrtu (ili model sa `passport_eligible=no`) treba da blokira pasoš celog brenda, ili samo da ostane van skupa (§9.31)? Promena je jedno pravilo u `lib/fair-entitlements.ts`. Deferred, awaiting owner decision.
+
+## ADMIN UX — stanje posle lanca A1–A10, Z1, Z2 i pregleda RA (6. 10. 2026.)
+
+Presuda RA: **TREBA DORADA**. Izvori: `scripts/tasks/logs/sajam-v2/RA-IZVESTAJ.md` i `docs/events/sajam-automobila-2026/jovan-status/IZVESTAJ-ADMIN-UX.md`. Kod nije menjan posle RA.
+
+- **Pre uključivanja Pošte (`ZOHO_MAIL_CLIENT_ENABLED`):** `registerMailUpload` (`convex/adminMail.ts:803-846`) prihvata bilo koji `_storage` id, pa admin može da obriše ili pošalje tuđe fajlove. Treba rezervacija uploada i provera svežine fajla. Do ispravke Pošta ostaje isključena.
+- **Follow-up:** par se traži među prvih 500 leadova izlagača (`convex/lib/fairLeadActivity.ts:40-46`); opt-out na novijem leadu para se tada ne vidi. Predlog: indeks po normalizovanom emailu.
+- **QR lista:** filteri samo nad učitanih 100 kodova (`components/admin/events/sections/qr-section.tsx:25-31`).
+- **Odluke za Aleksu** (ADMIN-UX §12): automatska sponzorisana lista, automatski pasoš sa sakrivanjem, follow-up po izlagaču, aktivnost uz lead, lična Zoho sanduča, PII izvoz u Leadovima; plus promene prikaza V1 ekrana (`A1.md` §7). Deferred, awaiting owner decision.
+- **Podešavanja koja runner ne radi:** Zoho EU klijent i Convex env Pošte; `FAIR_LEADS_ENABLED` i `FAIR_FOLLOWUP_ENABLED` pre otvaranja sajma; pravna provera saglasnosti pre aktivacije.

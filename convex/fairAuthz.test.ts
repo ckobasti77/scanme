@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
 
-// Sajam 2026 B7 — the authz table of every fair Convex function
+// Sajam 2026 B7 — the authz table of every fair Convex function (A8: + fairLeadsInbox, fairFollowUps; A10: + fairDashboard)
 // (BACKEND-HANDOFF §11 B7 "authz pregled svih public funkcija", §12, §14
 // "javne funkcije ne otkrivaju PII ni admin podatke"). The table below is the
 // one in jovan-status/B7.md: a new or re-registered fair function fails the
@@ -14,19 +14,26 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { api, internal } from "./_generated/api";
 import schema from "./schema";
 import * as fairAdmin from "./fairAdmin";
+import * as fairAdminQr from "./fairAdminQr";
+import * as fairAdminStats from "./fairAdminStats";
 import * as fairAnalytics from "./fairAnalytics";
+import * as fairDashboard from "./fairDashboard";
 import * as fairDevFixtures from "./fairDevFixtures";
 import * as fairEmailSender from "./fairEmailSender";
 import * as fairEmails from "./fairEmails";
+import * as fairFollowUps from "./fairFollowUps";
 import * as fairImport from "./fairImport";
 import * as fairInteractions from "./fairInteractions";
 import * as fairInteractionsAdmin from "./fairInteractionsAdmin";
 import * as fairLeads from "./fairLeads";
 import * as fairLeadsAdmin from "./fairLeadsAdmin";
+import * as fairLeadsInbox from "./fairLeadsInbox";
+import * as fairPassports from "./fairPassports";
 import * as fairPublic from "./fairPublic";
 import * as fairReports from "./fairReports";
 import * as fairRetention from "./fairRetention";
 import * as fairScans from "./fairScans";
+import * as fairSharing from "./fairSharing";
 import * as fairSponsoredAdmin from "./fairSponsoredAdmin";
 
 vi.mock("server-only", () => ({}));
@@ -40,13 +47,24 @@ const ISSUER = "https://fair-b7-authz.test";
 const SECRET = "test-fair-visitor-secret-0123456789abcdef";
 const EM = "test-elektromobilnost-2026";
 
+// K1: a TEST gateway secret (not a real value), set as the Convex env in beforeEach.
+const GATEWAY_SECRET = "test-fair-gateway-secret-0123456789abcdef";
+// K3: a TEST legal approval record (not a real review), required by every consent activation.
+const TEST_LEGAL_APPROVAL = { legalApprovedBy: "TEST pravna provera", legalApprovedAt: Date.parse("2026-10-01T12:00:00+02:00") };
+
 beforeEach(() => {
   process.env.SCANME_ADMIN_EMAILS = ADMIN_EMAIL;
+  process.env.FAIR_GATEWAY_SECRET = GATEWAY_SECRET;
+  // K3: the lead switches are on in this TEST env (see convex/fairLeads.test.ts for off).
+  process.env.FAIR_LEADS_ENABLED = "true";
+  process.env.FAIR_FOLLOWUP_ENABLED = "true";
   vi.stubGlobal("fetch", vi.fn(async () => { throw new Error("no network in tests"); }));
   vi.useFakeTimers();
   vi.setSystemTime(SEED_AT);
 });
 afterEach(() => {
+  delete process.env.FAIR_LEADS_ENABLED;
+  delete process.env.FAIR_FOLLOWUP_ENABLED;
   vi.useRealTimers();
   vi.unstubAllGlobals();
 });
@@ -70,6 +88,9 @@ const AUTHZ: Record<string, { module: Record<string, unknown>; functions: Record
     functions: { getMyModelState: V, getMyPassportProgress: V, upsertRating: V, upsertAudienceVote: V, submitSurvey: V, upsertBrandFavorite: V, recordSponsoredAction: V },
   },
   fairLeads: { module: fairLeads, functions: { submitLead: V } },
+  // 5 Oct traffic/share delta (8e72c10), classified at the 2026-10-05 sync;
+  // the two writes require FAIR_GATEWAY_SECRET (fairGateway.test.ts).
+  fairSharing: { module: fairSharing, functions: { createShareCollection: V, getShareCollectionByCodeHash: V, recordTraffic: V } },
   fairAdmin: {
     module: fairAdmin,
     functions: {
@@ -78,7 +99,13 @@ const AUTHZ: Record<string, { module: Record<string, unknown>; functions: Record
       resolveTest: A, listEvents: A, getEventCatalog: A, listValidationIssues: A, getEventDirectory: A,
     },
   },
+  // Admin UX A3 — read-only numbers of the Modeli list and model detail.
+  fairAdminStats: { module: fairAdminStats, functions: { getLeadCounts: A, getModelQrCodes: A } },
+  // Admin UX A4 — QR detail, scan numbers, change of destination and bulk assignment.
+  fairAdminQr: { module: fairAdminQr, functions: { getQrDetail: A, getQrScanStats: A, reassignQr: A, bulkAssignQrDryRun: A, bulkAssignQrCommit: A } },
   fairImport: { module: fairImport, functions: { dryRun: A, commit: A } },
+  // Admin UX A10 — the event dashboard (Pregled and the section badges): numbers and links only.
+  fairDashboard: { module: fairDashboard, functions: { getEventDashboard: A } },
   fairInteractionsAdmin: {
     module: fairInteractionsAdmin,
     functions: {
@@ -91,9 +118,28 @@ const AUTHZ: Record<string, { module: Record<string, unknown>; functions: Record
     functions: {
       getEventConsents: A, saveConsentDraft: A, activateConsent: A, retireConsent: A, getModelLeadSettings: A, upsertLeadConfig: A, upsertFollowUpTemplate: A,
       exportLeads: A, setFollowUpSuppressed: A, retryEmailDelivery: A,
+      // Admin UX A7 — lead forms per exhibitor and the K3 switch state.
+      getEventLeadForms: A, upsertParticipationLeadDefault: A, applyLeadDefaultsToModels: A, clearLeadOverride: A, getLeadSwitches: A,
     },
   },
-  fairSponsoredAdmin: { module: fairSponsoredAdmin, functions: { publishSponsoredSnapshot: A, getSponsoredRotationAdmin: A } },
+  // Admin UX A8 — the lead inbox (activity next to a lead, delivery) and the follow-up per exhibitor.
+  fairLeadsInbox: { module: fairLeadsInbox, functions: { listEventLeads: A, getLeadDetail: A, markLeadsDelivered: A } },
+  fairFollowUps: {
+    module: fairFollowUps,
+    functions: {
+      getExhibitorFollowUps: A, saveExhibitorFollowUpDraft: A, activateExhibitorFollowUp: A, retireExhibitorFollowUp: A, previewExhibitorFollowUp: A, estimateFollowUps: A,
+    },
+  },
+  // Admin UX A7 — the automatic brand passport (sync jobs are internal).
+  fairPassports: {
+    module: fairPassports,
+    functions: { getPassportOverview: A, refreshPassports: A, setPassportHidden: A, syncBrandPassport: I, syncEventPassports: I },
+  },
+  // Admin UX A9 — the automatic snapshot (the scheduled sync job is internal).
+  fairSponsoredAdmin: {
+    module: fairSponsoredAdmin,
+    functions: { publishSponsoredSnapshot: A, getSponsoredRotationAdmin: A, setSponsoredAutoPublish: A, getSponsoredQuestionVotes: A, syncSponsoredSnapshotJob: I },
+  },
   fairReports: {
     module: fairReports,
     functions: {
@@ -112,7 +158,7 @@ const AUTHZ: Record<string, { module: Record<string, unknown>; functions: Record
   fairEmailSender: { module: fairEmailSender, functions: { sendDelivery: I, sendDevTestEmail: I } },
   fairDevFixtures: {
     module: fairDevFixtures,
-    functions: { seedTestCatalog: I, seedTestQr: I, seedTestPassport: I, seedTestSponsoredSnapshot: I, seedIntegrationTest: I },
+    functions: { seedTestCatalog: I, seedTestQr: I, seedTestPassport: I, seedTestSponsoredSnapshot: I, seedIntegrationTest: I, seedShowcaseCatalog: I },
   },
 };
 
@@ -176,7 +222,10 @@ describe("B7 authz table of every fair function", () => {
       const deliveryId = await ctx.db.insert("fairEmailDeliveries", { dedupeKey: "test-authz", leadId, kind: "immediate_confirmation", recipient: "authz@example.invalid", status: "failed", scheduledFor: now, attemptCount: 3, createdAt: now, updatedAt: now });
       const consentId = await ctx.db.insert("fairConsentConfigs", { eventId: f.eventId, leadKind: "interest", version: 1, text: "TEST {izlagac}", status: "draft", createdAt: now, updatedAt: now });
       const reportRunId = await ctx.db.insert("fairReportRuns", { eventId: f.eventId, eventDayId: f.dayId, participationId: f.participationId, status: "pending_review", dataThrough: now, format: "pdf", createdAt: now, updatedAt: now });
-      return { leadId, deliveryId, consentId, reportRunId };
+      const adminId = (await ctx.db.query("users").collect()).find((row) => row.email === ADMIN_EMAIL)!._id;
+      const followUpDraftId = await ctx.db.insert("fairExhibitorFollowUpTemplates", { eventId: f.eventId, participationId: f.participationId, subject: "TEST {ime}", plainText: "TEST {modeli}", status: "draft", version: 1, updatedByUserId: adminId, createdAt: now, updatedAt: now });
+      const followUpActiveId = await ctx.db.insert("fairExhibitorFollowUpTemplates", { eventId: f.eventId, participationId: f.participationId, subject: "TEST", plainText: "TEST", status: "active", version: 2, updatedByUserId: adminId, createdAt: now, updatedAt: now });
+      return { leadId, deliveryId, consentId, reportRunId, followUpDraftId, followUpActiveId };
     });
     const question = { eventModelId: f.modelId, eventDayId: f.dayId, prompt: "TEST?", options: [{ id: "a", label: "A", order: 1 }, { id: "b", label: "B", order: 2 }], sortOrder: 9 };
     type Caller = Pick<typeof f.t, "query" | "mutation" | "action">;
@@ -206,6 +255,8 @@ describe("B7 authz table of every fair function", () => {
       ["retryEmailDelivery", (c) => c.mutation(api.fairLeadsAdmin.retryEmailDelivery, { deliveryId: extra.deliveryId })],
       ["publishSponsoredSnapshot", (c) => c.mutation(api.fairSponsoredAdmin.publishSponsoredSnapshot, { eventId: f.eventId })],
       ["getSponsoredRotationAdmin", (c) => c.query(api.fairSponsoredAdmin.getSponsoredRotationAdmin, { eventId: f.eventId })],
+      ["setSponsoredAutoPublish", (c) => c.mutation(api.fairSponsoredAdmin.setSponsoredAutoPublish, { eventId: f.eventId, enabled: false })],
+      ["getSponsoredQuestionVotes", (c) => c.query(api.fairSponsoredAdmin.getSponsoredQuestionVotes, { eventId: f.eventId })],
       ["listReportRuns", (c) => c.query(api.fairReports.listReportRuns, { eventId: f.eventId })],
       ["getReportRun", (c) => c.query(api.fairReports.getReportRun, { reportRunId: extra.reportRunId })],
       ["requestReportBuild", (c) => c.mutation(api.fairReports.requestReportBuild, { eventDayId: f.dayId, participationId: f.participationId, format: "csv" })],
@@ -219,8 +270,33 @@ describe("B7 authz table of every fair function", () => {
       ["exportOrganizerAggregate", (c) => c.action(api.fairReports.exportOrganizerAggregate, { eventId: f.eventId, format: "csv" })],
       ["getRetentionOverview", (c) => c.query(api.fairRetention.getRetentionOverview, {})],
       ["startPurgeDryRun", (c) => c.mutation(api.fairRetention.startPurgeDryRun, {})],
+      ["getLeadCounts", (c) => c.query(api.fairAdminStats.getLeadCounts, { eventId: f.eventId })],
+      ["getModelQrCodes", (c) => c.query(api.fairAdminStats.getModelQrCodes, { eventId: f.eventId })],
+      ["getQrDetail", (c) => c.query(api.fairAdminQr.getQrDetail, { eventId: f.eventId, code: "ZZZZZZZZ" })],
+      ["getQrScanStats", (c) => c.query(api.fairAdminQr.getQrScanStats, { eventId: f.eventId, cardIds: [] })],
+      ["reassignQr", (c) => c.mutation(api.fairAdminQr.reassignQr, { eventId: f.eventId, code: "ZZZZZZZZ", toEventModelId: f.modelId, reason: "TEST razlog" })],
+      ["bulkAssignQrDryRun", (c) => c.query(api.fairAdminQr.bulkAssignQrDryRun, { eventId: f.eventId, rows: [{ code: "ZZZZZZZZ", model: "test-em26-volta-x1" }] })],
+      ["bulkAssignQrCommit", (c) => c.mutation(api.fairAdminQr.bulkAssignQrCommit, { eventId: f.eventId, rows: [{ code: "ZZZZZZZZ", model: "test-em26-volta-x1" }] })],
+      ["getPassportOverview", (c) => c.query(api.fairPassports.getPassportOverview, { eventId: f.eventId })],
+      ["refreshPassports", (c) => c.mutation(api.fairPassports.refreshPassports, { eventId: f.eventId })],
+      ["setPassportHidden", (c) => c.mutation(api.fairPassports.setPassportHidden, { passportId: f.passportId, hidden: true })],
+      ["getEventLeadForms", (c) => c.query(api.fairLeadsAdmin.getEventLeadForms, { eventId: f.eventId })],
+      ["upsertParticipationLeadDefault", (c) => c.mutation(api.fairLeadsAdmin.upsertParticipationLeadDefault, { participationId: f.participationId, leadKind: "interest", enabled: true, contactRequirement: "one_of" })],
+      ["applyLeadDefaultsToModels", (c) => c.mutation(api.fairLeadsAdmin.applyLeadDefaultsToModels, { participationId: f.participationId })],
+      ["clearLeadOverride", (c) => c.mutation(api.fairLeadsAdmin.clearLeadOverride, { eventModelId: f.modelId, leadKind: "interest" })],
+      ["getLeadSwitches", (c) => c.query(api.fairLeadsAdmin.getLeadSwitches, {})],
+      ["listEventLeads", (c) => c.query(api.fairLeadsInbox.listEventLeads, { eventId: f.eventId, paginationOpts: { numItems: 10, cursor: null } })],
+      ["getLeadDetail", (c) => c.query(api.fairLeadsInbox.getLeadDetail, { leadId: extra.leadId })],
+      ["markLeadsDelivered", (c) => c.mutation(api.fairLeadsInbox.markLeadsDelivered, { eventId: f.eventId, leadIds: [extra.leadId] })],
+      ["getExhibitorFollowUps", (c) => c.query(api.fairFollowUps.getExhibitorFollowUps, { eventId: f.eventId })],
+      ["saveExhibitorFollowUpDraft", (c) => c.mutation(api.fairFollowUps.saveExhibitorFollowUpDraft, { participationId: f.participationId, subject: "TEST {ime}", plainText: "TEST" })],
+      ["activateExhibitorFollowUp", (c) => c.mutation(api.fairFollowUps.activateExhibitorFollowUp, { templateId: extra.followUpDraftId })],
+      ["retireExhibitorFollowUp", (c) => c.mutation(api.fairFollowUps.retireExhibitorFollowUp, { templateId: extra.followUpActiveId })],
+      ["previewExhibitorFollowUp", (c) => c.query(api.fairFollowUps.previewExhibitorFollowUp, { participationId: f.participationId, leadId: extra.leadId })],
+      ["estimateFollowUps", (c) => c.query(api.fairFollowUps.estimateFollowUps, { eventId: f.eventId })],
+      ["getEventDashboard", (c) => c.query(api.fairDashboard.getEventDashboard, { eventId: f.eventId, at: REHEARSAL })],
     ];
-    const adminFunctions = ["fairInteractionsAdmin", "fairLeadsAdmin", "fairSponsoredAdmin", "fairReports", "fairRetention"].flatMap((name) =>
+    const adminFunctions = ["fairInteractionsAdmin", "fairLeadsAdmin", "fairSponsoredAdmin", "fairReports", "fairRetention", "fairAdminStats", "fairAdminQr", "fairPassports", "fairLeadsInbox", "fairFollowUps", "fairDashboard"].flatMap((name) =>
       Object.entries(AUTHZ[name].functions).filter(([, access]) => access === "admin").map(([fn]) => fn),
     );
     expect(calls.map(([name]) => name).sort()).toEqual(adminFunctions.sort());
@@ -229,6 +305,8 @@ describe("B7 authz table of every fair function", () => {
       await ctx.db.query("fairAudienceQuestions").collect(), await ctx.db.query("fairSurveys").collect(), await ctx.db.query("fairPassportConfigs").collect(),
       await ctx.db.query("fairConsentConfigs").collect(), await ctx.db.query("fairLeads").collect(), await ctx.db.query("fairEmailDeliveries").collect(),
       await ctx.db.query("fairReportRuns").collect(), await ctx.db.query("fairSponsoredSnapshots").collect(), await ctx.db.query("fairPurgeRuns").collect(),
+      await ctx.db.query("fairQrAssignments").collect(), await ctx.db.query("fairPassportEligibleModels").collect(), await ctx.db.query("fairLeadConfigs").collect(),
+      await ctx.db.query("fairParticipationLeadDefaults").collect(), await ctx.db.query("fairExhibitorFollowUpTemplates").collect(),
     ]));
     for (const [name, call] of calls) {
       const callers: [Caller, string][] = [[f.t, "Niste prijavljeni."], [f.member, "Nemate administratorski pristup."]];
@@ -246,6 +324,8 @@ describe("B7 authz table of every fair function", () => {
       await ctx.db.query("fairAudienceQuestions").collect(), await ctx.db.query("fairSurveys").collect(), await ctx.db.query("fairPassportConfigs").collect(),
       await ctx.db.query("fairConsentConfigs").collect(), await ctx.db.query("fairLeads").collect(), await ctx.db.query("fairEmailDeliveries").collect(),
       await ctx.db.query("fairReportRuns").collect(), await ctx.db.query("fairSponsoredSnapshots").collect(), await ctx.db.query("fairPurgeRuns").collect(),
+      await ctx.db.query("fairQrAssignments").collect(), await ctx.db.query("fairPassportEligibleModels").collect(), await ctx.db.query("fairLeadConfigs").collect(),
+      await ctx.db.query("fairParticipationLeadDefaults").collect(), await ctx.db.query("fairExhibitorFollowUpTemplates").collect(),
     ]));
     expect(after).toBe(before);
   });
@@ -257,21 +337,25 @@ describe("B7 authz table of every fair function", () => {
     const qr = f.seed.qr.find((row) => row.modelExternalKey === "test-em26-volta-x1")!;
     const voltaX2 = f.seed.qr.find((row) => row.modelExternalKey === "test-em26-volta-x2")!;
     const { consentId } = await f.admin.mutation(api.fairLeadsAdmin.saveConsentDraft, { eventId: f.eventId, leadKind: "interest", text: "TEST saglasnost: ScanMe i {izlagac}." });
-    await f.admin.mutation(api.fairLeadsAdmin.activateConsent, { consentId });
+    await f.admin.mutation(api.fairLeadsAdmin.activateConsent, { consentId, ...TEST_LEGAL_APPROVAL });
     const name = "TEST Posetilac Authz", email = "posetilac.authz@example.invalid", phone = "+381 60 000 0077";
 
     const outputs: unknown[] = [];
-    outputs.push(await f.t.mutation(api.cards.resolveAndRecord, { cardCode: qr.resolverCode, requestId: "test-authz-scan-1", deviceCategory: "mobile", ipHash: "test-hall-nat", fairVisitorHash: me }));
-    outputs.push(await f.t.mutation(api.cards.resolveAndRecord, { cardCode: voltaX2.resolverCode, requestId: "test-authz-scan-2", deviceCategory: "mobile", ipHash: "test-hall-nat", fairVisitorHash: me }));
-    outputs.push(await f.t.mutation(api.fairLeads.submitLead, { visitorHash: me, eventModelId: f.modelId, kind: "interest", submissionId: "test-authz-lead-1", contactName: name, email, phone, consentAccepted: true, consentVersion: 1 }));
-    outputs.push(await f.t.mutation(api.fairLeads.submitLead, { visitorHash: me, eventModelId: f.modelId, kind: "interest", submissionId: "test-authz-lead-1", contactName: name, email, phone, consentAccepted: true, consentVersion: 1 }));
-    outputs.push(await f.t.mutation(api.fairInteractions.upsertRating, { visitorHash: me, eventModelId: f.modelId, appearance: 5 }));
-    outputs.push(await f.t.mutation(api.fairInteractions.upsertAudienceVote, { visitorHash: me, questionId: f.questionId, optionId: "test-da" }));
-    outputs.push(await f.t.mutation(api.fairInteractions.submitSurvey, { visitorHash: me, surveyId: f.surveyId, submissionId: "test-authz-survey", answers: [{ questionId: "test-preporuka", value: "no" }] }));
-    outputs.push(await f.t.mutation(api.fairInteractions.upsertBrandFavorite, { visitorHash: me, passportId: f.passportId, eventModelId: f.modelId }));
-    outputs.push(await f.t.mutation(api.fairInteractions.recordSponsoredAction, { visitorHash: me, eventModelId: f.modelId, surface: "garage", kind: "garage_add", requestId: "test-authz-sponsored" }));
-    outputs.push(await f.t.query(api.fairInteractions.getMyModelState, { visitorHash: me, eventModelId: f.modelId }));
-    outputs.push(await f.t.query(api.fairInteractions.getMyPassportProgress, { visitorHash: me, eventSlug: EM }));
+    outputs.push(await f.t.mutation(api.cards.resolveAndRecord, { cardCode: qr.resolverCode, requestId: "test-authz-scan-1", deviceCategory: "mobile", ipHash: "test-hall-nat", fairGatewaySecret: GATEWAY_SECRET, fairVisitorHash: me }));
+    outputs.push(await f.t.mutation(api.cards.resolveAndRecord, { cardCode: voltaX2.resolverCode, requestId: "test-authz-scan-2", deviceCategory: "mobile", ipHash: "test-hall-nat", fairGatewaySecret: GATEWAY_SECRET, fairVisitorHash: me }));
+    outputs.push(await f.t.mutation(api.fairLeads.submitLead, { gatewaySecret: GATEWAY_SECRET, visitorHash: me, eventModelId: f.modelId, kind: "interest", submissionId: "test-authz-lead-1", contactName: name, email, phone, consentAccepted: true, consentVersion: 1 }));
+    outputs.push(await f.t.mutation(api.fairLeads.submitLead, { gatewaySecret: GATEWAY_SECRET, visitorHash: me, eventModelId: f.modelId, kind: "interest", submissionId: "test-authz-lead-1", contactName: name, email, phone, consentAccepted: true, consentVersion: 1 }));
+    outputs.push(await f.t.mutation(api.fairInteractions.upsertRating, { gatewaySecret: GATEWAY_SECRET, visitorHash: me, eventModelId: f.modelId, appearance: 5 }));
+    outputs.push(await f.t.mutation(api.fairInteractions.upsertAudienceVote, { gatewaySecret: GATEWAY_SECRET, visitorHash: me, questionId: f.questionId, optionId: "test-da" }));
+    outputs.push(await f.t.mutation(api.fairInteractions.submitSurvey, { gatewaySecret: GATEWAY_SECRET, visitorHash: me, surveyId: f.surveyId, submissionId: "test-authz-survey", answers: [{ questionId: "test-preporuka", value: "no" }] }));
+    outputs.push(await f.t.mutation(api.fairInteractions.upsertBrandFavorite, { gatewaySecret: GATEWAY_SECRET, visitorHash: me, passportId: f.passportId, eventModelId: f.modelId }));
+    outputs.push(await f.t.mutation(api.fairInteractions.recordSponsoredAction, { gatewaySecret: GATEWAY_SECRET, visitorHash: me, eventModelId: f.modelId, surface: "garage", kind: "garage_add", requestId: "test-authz-sponsored" }));
+    outputs.push(await f.t.query(api.fairInteractions.getMyModelState, { gatewaySecret: GATEWAY_SECRET, visitorHash: me, eventModelId: f.modelId }));
+    outputs.push(await f.t.query(api.fairInteractions.getMyPassportProgress, { gatewaySecret: GATEWAY_SECRET, visitorHash: me, eventSlug: EM }));
+    const shareCodeHash = "5".repeat(64);
+    outputs.push(await f.t.mutation(api.fairSharing.createShareCollection, { gatewaySecret: GATEWAY_SECRET, visitorHash: me, eventModelIds: [f.modelId], codeHash: shareCodeHash, requestId: "test-authz-share" }));
+    outputs.push(await f.t.mutation(api.fairSharing.recordTraffic, { gatewaySecret: GATEWAY_SECRET, visitorHash: me, kind: "direct_view", requestId: "test-authz-traffic", eventModelId: f.modelId }));
+    outputs.push(await f.t.query(api.fairSharing.getShareCollectionByCodeHash, { codeHash: shareCodeHash, now: Date.now() }));
     const [, , eventSlug, , modelSlug] = qr.path.split("/");
     outputs.push(await f.t.query(api.fairPublic.getEventBySlug, { slug: EM }));
     outputs.push(await f.t.query(api.fairPublic.getModelBySlug, { eventSlug, modelSlug }));

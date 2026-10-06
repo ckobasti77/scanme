@@ -31,6 +31,16 @@ const app = defineApp({
     // replies to the lead confirmation (follow-up opt-out). Both optional.
     FAIR_PUBLIC_BASE_URL: v.optional(v.string()),
     FAIR_EMAIL_REPLY_TO: v.optional(v.string()),
+    // Sajam 2026 K1: shared secret of the Next fair gateway (lib/fair-server,
+    // app/r) → visitor-specific fair functions (convex/lib/fairGateway.ts).
+    // Same value in the Next env and on this deployment, never client-visible.
+    // Optional on purpose: missing = those functions fail closed.
+    FAIR_GATEWAY_SECRET: v.optional(v.string()),
+    // Sajam 2026 K3: hard switches of the lead flow and of the post-fair
+    // follow-up (convex/lib/fairLeads.ts). On only when exactly "true";
+    // missing = off, so nothing is stored or sent until they are set on purpose.
+    FAIR_LEADS_ENABLED: v.optional(v.string()),
+    FAIR_FOLLOWUP_ENABLED: v.optional(v.string()),
     // ADMIN-09B Zoho Mail adapter. All values are server-only and optional so
     // the foundation remains inert until ADMIN-09C supplies and verifies them.
     ZOHO_MAIL_API_BASE_URL: v.optional(v.string()),
@@ -46,6 +56,14 @@ const app = defineApp({
     ZOHO_MAIL_OUTBOUND_ENABLED: v.optional(v.string()),
     ZOHO_MAIL_GROUP_SEND_AS_VERIFIED: v.optional(v.string()),
     ZOHO_MAIL_POLL_INTERVAL_SECONDS: v.optional(v.string()),
+    // Admin UX Z1 — Pošta: each admin's own Zoho mailbox (convex/adminMail.ts).
+    // Reuses ZOHO_MAIL_CLIENT_ID / ZOHO_MAIL_CLIENT_SECRET above (EU
+    // server-based client). On only when the switch is exactly "true" AND the
+    // key is 32 bytes of base64 AND the redirect URI is set; otherwise every
+    // mail function is inert (ZOHO_NOT_CONFIGURED, no network call).
+    ZOHO_MAIL_CLIENT_ENABLED: v.optional(v.string()),
+    ZOHO_TOKEN_ENCRYPTION_KEY: v.optional(v.string()),
+    ZOHO_MAIL_REDIRECT_URI: v.optional(v.string()),
   },
 });
 

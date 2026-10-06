@@ -16,6 +16,7 @@ import type { DictBySurface, Surface } from "./types";
 import { eventMapSr } from "./sr/event-map";
 import { fairMapSr } from "./sr/fair-map";
 import { fairModelSr } from "./sr/fair-model";
+import { fairGarageSr } from "./sr/fair-garage";
 import { venueSr } from "./sr/venue";
 import { venueEditorSr } from "./sr/venue-editor";
 import { venueAdminSr } from "./sr/venue-admin";
@@ -38,6 +39,8 @@ import { orderingPanelSr } from "./sr/ordering-panel";
 import { cardsAdminSr } from "./sr/cards-admin";
 import { adminDomainSr } from "./sr/admin-domain";
 import { adminV1Sr } from "./sr/admin-v1";
+import { adminUiSr } from "./sr/admin-ui";
+import { postaSr } from "./sr/posta";
 import { communicationsSr } from "./sr/communications";
 import { adminTasksSr } from "./sr/admin-tasks";
 import { adminOrdersSr } from "./sr/admin-orders";
@@ -59,6 +62,7 @@ export type {
   EventMapDict,
   FairMapDict,
   FairModelDict,
+  FairGarageDict,
   VenueDict,
   VenueEditorDict,
   VenueAdminDict,
@@ -81,6 +85,8 @@ export type {
   CardsAdminDict,
   AdminDomainDict,
   AdminV1Dict,
+  AdminUiDict,
+  PostaDict,
   AdminSettingsDict,
   CommunicationsDict,
   AdminTasksDict,
@@ -99,6 +105,7 @@ export {
   eventMapSr,
   fairMapSr,
   fairModelSr,
+  fairGarageSr,
   venueEditorSr,
   venueAdminSr,
   venuePanelSr,
@@ -120,6 +127,8 @@ export {
   cardsAdminSr,
   adminDomainSr,
   adminV1Sr,
+  adminUiSr,
+  postaSr,
   communicationsSr,
   adminTasksSr,
   adminOrdersSr,
@@ -138,7 +147,10 @@ const SR: DictBySurface = {
   "event-map": eventMapSr,
   "fair-map": fairMapSr,
   "fair-model": fairModelSr,
+  "fair-garage": fairGarageSr,
   "admin-v1": adminV1Sr,
+  "admin-ui": adminUiSr,
+  posta: postaSr,
   "admin-settings": adminSettingsSr,
   "admin-search": adminSearchSr,
   communications: communicationsSr,

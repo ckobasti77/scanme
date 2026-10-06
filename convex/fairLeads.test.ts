@@ -6,6 +6,9 @@
 // gateway makes them. NOTHING IS SENT: global `fetch` is replaced by a mock
 // for every test, so the Node sender (convex/fairEmailSender.ts) talks only
 // to the mock; the Resend key below is a fake.
+// K3: the hard switches FAIR_LEADS_ENABLED / FAIR_FOLLOWUP_ENABLED are turned
+// on in beforeEach (TEST env only), so the B4 tests run against an open flow;
+// the "K3 hard switches" block turns them off on purpose.
 
 import { convexTest } from "convex-test";
 import rateLimiterTest from "@convex-dev/rate-limiter/test";
@@ -37,6 +40,8 @@ const ADMIN_EMAIL = "fair-admin@scanme.test";
 const ISSUER = "https://fair-b4.test";
 const SECRET = "test-fair-visitor-secret-0123456789abcdef";
 const CONSENT_TEXT = "TEST saglasnost: ScanMe prima podatke i prosleđuje ih izlagaču {izlagac}.";
+// K3: a TEST legal approval record (not a real review), required by every activation.
+const LEGAL = { legalApprovedBy: "TEST pravna provera", legalApprovedAt: Date.parse("2026-10-01T12:00:00+02:00") };
 const NAME = "TEST Posetilac Jedan";
 const EMAIL = "posetilac.b4@example.invalid";
 const PHONE = "+381 60 000 0004";
@@ -49,10 +54,16 @@ type ResendCall = { url: string; key: string | null; auth: string | null; body: 
 let calls: ResendCall[] = [];
 let respond: (call: number) => Response = (call) => Response.json({ id: `re_test_message_${call}` });
 
+// K1: a TEST gateway secret (not a real value), set as the Convex env in beforeEach.
+const GATEWAY_SECRET = "test-fair-gateway-secret-0123456789abcdef";
+
 beforeEach(() => {
   process.env.SCANME_ADMIN_EMAILS = ADMIN_EMAIL;
+  process.env.FAIR_GATEWAY_SECRET = GATEWAY_SECRET;
   process.env.RESEND_API_KEY = "re_test_not_a_real_key";
   process.env.RESEND_FROM_EMAIL = "ScanMe TEST <test-sender@example.invalid>";
+  process.env.FAIR_LEADS_ENABLED = "true";
+  process.env.FAIR_FOLLOWUP_ENABLED = "true";
   delete process.env.FAIR_PUBLIC_BASE_URL;
   delete process.env.FAIR_EMAIL_REPLY_TO;
   calls = [];
@@ -70,6 +81,8 @@ afterEach(() => {
   vi.unstubAllGlobals();
   delete process.env.RESEND_API_KEY;
   delete process.env.RESEND_FROM_EMAIL;
+  delete process.env.FAIR_LEADS_ENABLED;
+  delete process.env.FAIR_FOLLOWUP_ENABLED;
   delete process.env.FAIR_PUBLIC_BASE_URL;
   delete process.env.FAIR_EMAIL_REPLY_TO;
 });
@@ -154,7 +167,7 @@ async function setup(opts: { consent?: boolean } = {}) {
   if (opts.consent !== false) {
     for (const leadKind of ["interest", "test_drive"] as const) {
       const { consentId } = await admin.mutation(api.fairLeadsAdmin.saveConsentDraft, { eventId, leadKind, text: CONSENT_TEXT });
-      await admin.mutation(api.fairLeadsAdmin.activateConsent, { consentId });
+      await admin.mutation(api.fairLeadsAdmin.activateConsent, { consentId, ...LEGAL });
       consents[leadKind] = consentId;
     }
   }
@@ -166,6 +179,7 @@ type Fixture = Awaited<ReturnType<typeof setup>>;
 type LeadArgs = { kind?: "interest" | "test_drive"; submissionId?: string; contactName?: string; email?: string; phone?: string; consentAccepted?: boolean; consentVersion?: number };
 function submit(f: Fixture, visitorHash: string, eventModelId: Id<"fairEventModels">, args: LeadArgs = {}) {
   return f.t.mutation(api.fairLeads.submitLead, {
+    gatewaySecret: GATEWAY_SECRET,
     visitorHash, eventModelId, kind: "interest", submissionId: submissionId(), contactName: NAME, email: EMAIL,
     consentAccepted: true, consentVersion: 1, ...args,
   });
@@ -214,16 +228,16 @@ describe("B4 consent gate (MASTER §8, §13; HANDOFF §5.4)", () => {
   test("activation needs the exhibitor token, retires the previous version, and retiring closes the gate again", async () => {
     const f = await setup({ consent: false });
     const noToken = await f.admin.mutation(api.fairLeadsAdmin.saveConsentDraft, { eventId: f.eventId, leadKind: "interest", text: "TEST tekst bez izlagača." });
-    await expectCode(f.admin.mutation(api.fairLeadsAdmin.activateConsent, { consentId: noToken.consentId }), "FAIR_CONSENT_EXHIBITOR_MISSING");
+    await expectCode(f.admin.mutation(api.fairLeadsAdmin.activateConsent, { consentId: noToken.consentId, ...LEGAL }), "FAIR_CONSENT_EXHIBITOR_MISSING");
     await f.admin.mutation(api.fairLeadsAdmin.saveConsentDraft, { eventId: f.eventId, leadKind: "interest", text: CONSENT_TEXT, consentId: noToken.consentId });
-    const v1 = await f.admin.mutation(api.fairLeadsAdmin.activateConsent, { consentId: noToken.consentId });
+    const v1 = await f.admin.mutation(api.fairLeadsAdmin.activateConsent, { consentId: noToken.consentId, ...LEGAL });
     expect(v1).toMatchObject({ version: 1, retiredConsentId: null });
     // Active and retired versions are immutable.
     await expectCode(f.admin.mutation(api.fairLeadsAdmin.saveConsentDraft, { eventId: f.eventId, leadKind: "interest", text: "x", consentId: noToken.consentId }), "FAIR_CONSENT_STATUS");
 
     const v2 = await f.admin.mutation(api.fairLeadsAdmin.saveConsentDraft, { eventId: f.eventId, leadKind: "interest", text: `${CONSENT_TEXT} v2` });
     expect(v2.version).toBe(2);
-    expect(await f.admin.mutation(api.fairLeadsAdmin.activateConsent, { consentId: v2.consentId })).toMatchObject({ version: 2, retiredConsentId: noToken.consentId });
+    expect(await f.admin.mutation(api.fairLeadsAdmin.activateConsent, { consentId: v2.consentId, ...LEGAL })).toMatchObject({ version: 2, retiredConsentId: noToken.consentId });
     const consents = await f.admin.query(api.fairLeadsAdmin.getEventConsents, { eventId: f.eventId });
     expect(consents.filter((row) => row.leadKind === "interest").map((row) => [row.version, row.status])).toEqual([[2, "active"], [1, "retired"]]);
 
@@ -258,6 +272,7 @@ describe("B4 consent gate (MASTER §8, §13; HANDOFF §5.4)", () => {
     expect(lead).toMatchObject({ consentAccepted: true, consentVersion: 1, consentTextSnapshot: rendered, consentedAt: DAY1, purgeAt: PURGE_AT, status: "received", followUpSuppressed: false });
     // The browser cannot send consent text: the validator refuses the field.
     await expect(f.t.mutation(api.fairLeads.submitLead, {
+      gatewaySecret: GATEWAY_SECRET,
       visitorHash: visitor(), eventModelId: f.models.starter, kind: "interest", submissionId: submissionId(), contactName: NAME, email: EMAIL,
       consentAccepted: true, consentVersion: 1, consentText: "proizvoljan tekst",
     } as never)).rejects.toThrow();
@@ -527,6 +542,181 @@ describe("B4 Advanced follow-up (MASTER §8, DATA-INTAKE §6.7, HANDOFF §12)", 
 });
 
 // =============================================================================
+// K3 hard switches and the legal approval record (RF nalaz 3)
+// =============================================================================
+
+describe("K3 hard switches FAIR_LEADS_ENABLED / FAIR_FOLLOWUP_ENABLED and the legal approval record", () => {
+  const OFF_VALUES = [undefined, "", "false", "TRUE", " true", "true ", "1", "yes"] as const;
+  const setEnv = (name: "FAIR_LEADS_ENABLED" | "FAIR_FOLLOWUP_ENABLED", value: string | undefined) => {
+    if (value === undefined) delete process.env[name];
+    else process.env[name] = value;
+  };
+  const formStates = async (f: Fixture) => {
+    const states: string[] = [];
+    for (const kind of ["interest", "test_drive"] as const) {
+      for (const model of Object.values(f.models)) states.push((await f.t.query(api.fairPublic.getLeadForm, { eventModelId: model, kind })).state);
+    }
+    return states;
+  };
+
+  test("leads switch off (the default, or anything but exactly \"true\"): LEADS_DISABLED, the form is closed, no PII stored, nothing sent", async () => {
+    const f = await setup();
+    for (const value of OFF_VALUES) {
+      setEnv("FAIR_LEADS_ENABLED", value);
+      await expectCode(submit(f, visitor(), f.models.starter), "LEADS_DISABLED");
+      await expectCode(submit(f, visitor(), f.models.advanced, { kind: "test_drive", phone: PHONE }), "LEADS_DISABLED");
+      // Before every other check: an invalid hash or a model without the right is still LEADS_DISABLED…
+      await expectCode(submit(f, "not-a-hash", f.models.included), "LEADS_DISABLED");
+      // …but only after the K1 gateway secret.
+      await expectCode(f.t.mutation(api.fairLeads.submitLead, {
+        gatewaySecret: "wrong-secret", visitorHash: visitor(), eventModelId: f.models.starter, kind: "interest", submissionId: submissionId(),
+        contactName: NAME, email: EMAIL, consentAccepted: true, consentVersion: 1,
+      }), "FAIR_GATEWAY_UNAUTHORIZED");
+      expect(new Set(await formStates(f))).toEqual(new Set(["leads_disabled"]));
+    }
+    await expectNothingStored(f);
+    await runEverything(f);
+    expect(calls).toHaveLength(0);
+
+    // On only with exactly "true": the same submit is stored and confirmed (one mock call).
+    setEnv("FAIR_LEADS_ENABLED", "true");
+    expect(await f.t.query(api.fairPublic.getLeadForm, { eventModelId: f.models.starter, kind: "interest" })).toMatchObject({ state: "open" });
+    expect(await submit(f, visitor(), f.models.starter)).toMatchObject({ duplicate: false, confirmationEmail: true, followUpScheduled: false });
+    expect(await rows(f, "fairLeads")).toHaveLength(1);
+    await runEverything(f);
+    expect(calls).toHaveLength(1);
+    expect((await delivery(f, "immediate_confirmation"))[0]).toMatchObject({ status: "sent" });
+  });
+
+  test("an existing consent and lead config change nothing while the leads switch is off; CONSENT_NOT_CONFIGURED still applies once it is on", async () => {
+    const f = await setup({ consent: false });
+    setEnv("FAIR_LEADS_ENABLED", undefined);
+    await expectCode(submit(f, visitor(), f.models.starter), "LEADS_DISABLED");
+    setEnv("FAIR_LEADS_ENABLED", "true");
+    await expectCode(submit(f, visitor(), f.models.starter), "CONSENT_NOT_CONFIGURED");
+    expect(await f.t.query(api.fairPublic.getLeadForm, { eventModelId: f.models.starter, kind: "interest" })).toMatchObject({ state: "consent_not_configured" });
+    await expectNothingStored(f);
+  });
+
+  test("follow-up switch off: an Advanced lead gets its confirmation (without the cancel note) but no follow-up, not even when the switch is turned on later", async () => {
+    const f = await setup();
+    for (const value of OFF_VALUES) {
+      setEnv("FAIR_FOLLOWUP_ENABLED", value);
+      expect(await submit(f, visitor(), f.models.advanced, { kind: "test_drive", phone: PHONE })).toMatchObject({ confirmationEmail: true, followUpScheduled: false });
+    }
+    expect(await delivery(f, "post_event_follow_up")).toHaveLength(0);
+    expect(await delivery(f, "immediate_confirmation")).toHaveLength(OFF_VALUES.length);
+
+    setEnv("FAIR_FOLLOWUP_ENABLED", "true");
+    await runEverything(f);
+    expect(calls).toHaveLength(OFF_VALUES.length);
+    for (const call of calls) expect(call.body.text).not.toContain("odgovorite na ovaj email");
+    expect(await delivery(f, "post_event_follow_up")).toHaveLength(0);
+  });
+
+  test("checked again right before sending: leads switch turned off after queueing → confirmation and follow-up are skipped, nothing is sent", async () => {
+    const f = await setup();
+    await submit(f, visitor(), f.models.advanced, { kind: "test_drive", phone: PHONE });
+    const [confirmation] = await delivery(f, "immediate_confirmation");
+    const [followUp] = await delivery(f, "post_event_follow_up");
+    expect([confirmation.status, followUp.status]).toEqual(["queued", "queued"]);
+
+    setEnv("FAIR_LEADS_ENABLED", "false");
+    await runEverything(f);
+    expect(calls).toHaveLength(0);
+    expect((await delivery(f, "immediate_confirmation"))[0]).toMatchObject({ status: "skipped", lastError: "LEADS_DISABLED", attemptCount: 0 });
+    expect((await delivery(f, "post_event_follow_up"))[0]).toMatchObject({ status: "skipped", lastError: "LEADS_DISABLED", attemptCount: 0 });
+
+    // Closed for good: turning the switch back on does not send a skipped row, and an admin retry is only for `failed`.
+    setEnv("FAIR_LEADS_ENABLED", "true");
+    await f.t.action(internal.fairEmailSender.sendDelivery, { deliveryId: confirmation._id });
+    await expectCode(f.admin.mutation(api.fairLeadsAdmin.retryEmailDelivery, { deliveryId: confirmation._id }), "FAIR_EMAIL_DELIVERY_STATUS");
+    await runEverything(f);
+    expect(calls).toHaveLength(0);
+  });
+
+  test("checked again right before sending: follow-up switch turned off between scheduling and sending → the follow-up is skipped", async () => {
+    const f = await setup();
+    await submit(f, visitor(), f.models.advanced, { kind: "test_drive", phone: PHONE });
+    await runDueNow(f);
+    expect(calls).toHaveLength(1);
+    expect(calls[0].body.text).toContain("odgovorite na ovaj email");
+
+    setEnv("FAIR_FOLLOWUP_ENABLED", "false");
+    await runEverything(f);
+    expect(calls).toHaveLength(1);
+    expect((await delivery(f, "post_event_follow_up"))[0]).toMatchObject({ status: "skipped", lastError: "FOLLOW_UP_DISABLED", attemptCount: 0 });
+  });
+
+  test("follow-up switch off before the confirmation goes out: the confirmation does not announce a follow-up that cannot be sent", async () => {
+    const f = await setup();
+    await submit(f, visitor(), f.models.advanced, { kind: "test_drive", phone: PHONE });
+    setEnv("FAIR_FOLLOWUP_ENABLED", undefined);
+    await runEverything(f);
+    expect(calls).toHaveLength(1);
+    expect(calls[0].body.text).not.toContain("odgovorite na ovaj email");
+    expect((await delivery(f, "immediate_confirmation"))[0]).toMatchObject({ status: "sent" });
+    expect((await delivery(f, "post_event_follow_up"))[0]).toMatchObject({ status: "skipped", lastError: "FOLLOW_UP_DISABLED" });
+  });
+
+  test("the leads switch also guards the follow-up: leads off at follow-up time → skipped LEADS_DISABLED", async () => {
+    const f = await setup();
+    await submit(f, visitor(), f.models.advanced, { kind: "test_drive", phone: PHONE });
+    await runDueNow(f);
+    expect(calls).toHaveLength(1);
+    setEnv("FAIR_LEADS_ENABLED", undefined);
+    await runEverything(f);
+    expect(calls).toHaveLength(1);
+    expect((await delivery(f, "post_event_follow_up"))[0]).toMatchObject({ status: "skipped", lastError: "LEADS_DISABLED" });
+  });
+
+  test("activation without the legal approval record is refused and changes nothing; with it both values are stored and audited", async () => {
+    const f = await setup({ consent: false });
+    const { consentId } = await f.admin.mutation(api.fairLeadsAdmin.saveConsentDraft, { eventId: f.eventId, leadKind: "interest", text: CONSENT_TEXT });
+    const refusals: [{ legalApprovedBy?: string; legalApprovedAt?: number }, "legalApprovedBy" | "legalApprovedAt"][] = [
+      [{}, "legalApprovedBy"],
+      [{ legalApprovedAt: LEGAL.legalApprovedAt }, "legalApprovedBy"],
+      [{ legalApprovedBy: "   ", legalApprovedAt: LEGAL.legalApprovedAt }, "legalApprovedBy"],
+      [{ legalApprovedBy: "x".repeat(121), legalApprovedAt: LEGAL.legalApprovedAt }, "legalApprovedBy"],
+      [{ legalApprovedBy: LEGAL.legalApprovedBy }, "legalApprovedAt"],
+      [{ legalApprovedBy: LEGAL.legalApprovedBy, legalApprovedAt: 0 }, "legalApprovedAt"],
+      [{ legalApprovedBy: LEGAL.legalApprovedBy, legalApprovedAt: -1 }, "legalApprovedAt"],
+      // Not in the future (system time is DAY1).
+      [{ legalApprovedBy: LEGAL.legalApprovedBy, legalApprovedAt: DAY1 + 60_000 }, "legalApprovedAt"],
+    ];
+    for (const [approval, field] of refusals) {
+      await expect(f.admin.mutation(api.fairLeadsAdmin.activateConsent, { consentId, ...approval })).rejects.toMatchObject({
+        data: { code: "FAIR_CONSENT_LEGAL_APPROVAL_REQUIRED", details: { field } },
+      });
+    }
+    const [draft] = await rows(f, "fairConsentConfigs");
+    expect(draft).toMatchObject({ status: "draft" });
+    expect(draft.activatedAt).toBeUndefined();
+    expect(draft.legalApprovedBy).toBeUndefined();
+    expect((await rows(f, "adminAuditLog")).filter((row) => row.action === "fair_consent_activated")).toHaveLength(0);
+    await expectCode(submit(f, visitor(), f.models.starter), "CONSENT_NOT_CONFIGURED");
+    // Only an admin may activate, with or without the record.
+    await expect(f.member.mutation(api.fairLeadsAdmin.activateConsent, { consentId, ...LEGAL })).rejects.toThrow();
+    await expect(f.t.mutation(api.fairLeadsAdmin.activateConsent, { consentId, ...LEGAL })).rejects.toThrow();
+
+    // With the record (name trimmed and collapsed; approved earlier the same day is fine).
+    await f.admin.mutation(api.fairLeadsAdmin.activateConsent, { consentId, legalApprovedBy: "  TEST  pravna   provera ", legalApprovedAt: DAY1 });
+    expect((await rows(f, "fairConsentConfigs"))[0]).toMatchObject({ status: "active", activatedAt: DAY1, legalApprovedBy: "TEST pravna provera", legalApprovedAt: DAY1 });
+    const [version] = await f.admin.query(api.fairLeadsAdmin.getEventConsents, { eventId: f.eventId });
+    expect(version).toMatchObject({ status: "active", legalApprovedBy: "TEST pravna provera", legalApprovedAt: DAY1 });
+    const audit = (await rows(f, "adminAuditLog")).filter((row) => row.action === "fair_consent_activated");
+    expect(audit).toHaveLength(1);
+    expect(audit[0].actorUserId).toBe(f.adminId);
+    expect(JSON.parse(audit[0].detail!)).toEqual({ eventId: f.eventId, leadKind: "interest", version: 1, legalApprovedBy: "TEST pravna provera", legalApprovedAt: DAY1 });
+
+    // The public form shows only the rendered consent text, never the approval record.
+    const form = await f.t.query(api.fairPublic.getLeadForm, { eventModelId: f.models.starter, kind: "interest" });
+    expect(form).toMatchObject({ state: "open", consent: { version: 1 } });
+    expect(JSON.stringify(form)).not.toMatch(/legalApproved|TEST pravna provera/);
+  });
+});
+
+// =============================================================================
 // PII boundary
 // =============================================================================
 
@@ -544,8 +734,8 @@ describe("B4 PII boundary: public functions never return contacts (HANDOFF §7, 
     }
     outputs.push(await f.t.query(api.fairPublic.getModelsByIds, { ids: Object.values(f.models) }));
     outputs.push(await f.t.query(api.fairPublic.getEventBySlug, { slug: "test-elektromobilnost-2026" }));
-    for (const model of Object.values(f.models)) outputs.push(await f.t.query(api.fairInteractions.getMyModelState, { visitorHash: hash, eventModelId: model }));
-    outputs.push(await f.t.query(api.fairInteractions.getMyPassportProgress, { visitorHash: hash, eventSlug: "test-elektromobilnost-2026" }));
+    for (const model of Object.values(f.models)) outputs.push(await f.t.query(api.fairInteractions.getMyModelState, { gatewaySecret: GATEWAY_SECRET, visitorHash: hash, eventModelId: model }));
+    outputs.push(await f.t.query(api.fairInteractions.getMyPassportProgress, { gatewaySecret: GATEWAY_SECRET, visitorHash: hash, eventSlug: "test-elektromobilnost-2026" }));
     const text = JSON.stringify(outputs);
     for (const secret of [NAME, EMAIL, PHONE, hash, "consentTextSnapshot"]) expect(text).not.toContain(secret);
 

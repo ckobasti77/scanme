@@ -1,0 +1,53 @@
+
+  <svg xmlns="http://www.w3.org/2000/svg" width="850" height="550" viewBox="0 0 850 550">
+    
+    <defs>
+      <pattern id="backPattern" width="76" height="76" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+        <rect x="11" y="11" width="54" height="54" rx="15" fill="none" stroke="#1c2221" stroke-width="2" opacity="0.028"/>
+        <rect x="24" y="24" width="28" height="28" rx="8" fill="none" stroke="#1c2221" stroke-width="1.5" opacity="0.02"/>
+      </pattern>
+    </defs>
+    <rect width="850" height="550" rx="28" fill="#e9e5da"/>
+    <rect width="850" height="550" rx="28" fill="url(#backPattern)"/>
+    <rect x="1" y="1" width="848" height="548" rx="27" fill="none" stroke="#1c2221" stroke-opacity="0.13" stroke-width="2"/>
+
+    <path d="M 368 48 C 392 119 432 176 445 234 C 459 298 402 347 392 407 C 386 444 394 478 412 510"
+      fill="none" stroke="#1c2221" stroke-width="3.5" stroke-linecap="round"/>
+    <path d="M 374 48 C 398 117 438 174 451 232"
+      fill="none" stroke="#ffffff" stroke-opacity="0.4" stroke-width="1.2" stroke-linecap="round"/>
+    <polygon points="425,158 419,168.39230484541326 407,168.39230484541326 401,158 407,147.60769515458674 419,147.60769515458674" fill="#1c2221" stroke="#1c2221" stroke-width="3"/>
+    <circle cx="413" cy="158" r="3.6" fill="#e9e5da"/>
+    <polygon points="416,408 407,423.5884572681199 389,423.5884572681199 380,408 389,392.4115427318801 407,392.4115427318801" fill="#e9e5da" stroke="#1c2221" stroke-width="3"/>
+    <circle cx="398" cy="408" r="5.5" fill="#a8d83f"/>
+
+    
+    <g transform="translate(68 178)" fill="none" stroke="#1c2221" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="14" cy="14" r="13"/>
+      <path d="M 8 6 C 7 12 13 20 21 21 L 23 17 L 18 14 L 15 17 C 12 15 10 12 10 9 L 13 7 Z"/>
+    </g>
+    <text x="112" y="199" fill="#1c2221" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="500">+381 6X XXX XX XX</text>
+
+    
+    <g transform="translate(68 254)" fill="none" stroke="#1c2221" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="14" cy="14" r="13"/>
+      <rect x="7" y="9" width="14" height="11" rx="2"/>
+      <path d="M 8 11 L 14 16 L 20 11"/>
+    </g>
+    <text x="112" y="275" fill="#1c2221" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="500">aleksa@scanme.rs</text>
+
+    
+    <g transform="translate(68 330)" fill="none" stroke="#1c2221" stroke-width="2.1" stroke-linecap="round">
+      <circle cx="14" cy="14" r="13"/>
+      <ellipse cx="14" cy="14" rx="6" ry="13"/>
+      <path d="M 2 14 H 26 M 5 8 H 23 M 5 20 H 23"/>
+    </g>
+    <text x="112" y="351" fill="#1c2221" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="500">scanme.rs</text>
+
+    <line x1="70" y1="413" x2="310" y2="413" stroke="#1c2221" stroke-opacity="0.18" stroke-width="2"/>
+
+    <text x="500" y="246" fill="#1c2221" font-family="Arial, Helvetica, sans-serif" font-size="43" font-weight="700" letter-spacing="-1.4">Aleksa</text>
+    <text x="500" y="294" fill="#1c2221" font-family="Arial, Helvetica, sans-serif" font-size="43" font-weight="700" letter-spacing="-1.4">Đorđević</text>
+    <text x="503" y="336" fill="#69706b" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700" letter-spacing="3.2">OSNIVAČ</text>
+    <line x1="501" y1="373" x2="757" y2="373" stroke="#1c2221" stroke-width="3"/>
+    <line x1="757" y1="373" x2="782" y2="373" stroke="#a8d83f" stroke-width="3"/>
+  </svg>

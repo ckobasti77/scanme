@@ -6,6 +6,7 @@ import { FAIR_PII_PURGE_AT_MS, fairModelPath, isFairVisitorHash } from "../../li
 import { isAdminEmail } from "./access";
 import { activeAssignmentForModel } from "./fairCatalog";
 import { bumpFairCount, fairScanCountKeys } from "./fairCountShards";
+import { fairGatewayVerdict } from "./fairGateway";
 import { rateLimiter } from "./rateLimits";
 
 // =============================================================================
@@ -18,7 +19,9 @@ import { rateLimiter } from "./rateLimits";
 //
 // Identity: Convex only ever sees `visitorHash` (lowercase 64-hex HMAC that
 // the Next server computed from the HttpOnly cookie token). The raw token never
-// reaches Convex; nothing here logs.
+// reaches Convex; nothing here logs. K1: the hash is trusted only together
+// with FAIR_GATEWAY_SECRET (lib/fairGateway.ts); a new visitor row is capped
+// per caller-IP HMAC (`fairVisitorCreate`).
 // =============================================================================
 
 type Ctx = QueryCtx | MutationCtx;
@@ -71,21 +74,29 @@ export async function fairSessionAdminUserId(ctx: MutationCtx): Promise<Id<"user
   return user && isAdminEmail(user.email) ? user._id : null;
 }
 
-/** Pseudonymous upsert by hash (HANDOFF §5.2): one row per visitorHash. */
+export type FairVisitorUpsert = { ok: true; visitorId: Id<"fairVisitors"> } | { ok: false; retryAfterMs: number };
+
+/**
+ * Pseudonymous upsert by hash (HANDOFF §5.2): one row per visitorHash. K1: a
+ * NEW row first spends one `fairVisitorCreate` token keyed by the gateway's
+ * IP HMAC (absent → one shared bucket); a refusal writes nothing.
+ */
 export async function upsertFairVisitor(
   ctx: MutationCtx,
-  visitorHash: string,
-  now: number,
-): Promise<Id<"fairVisitors">> {
+  input: { visitorHash: string; ipHash: string | undefined; now: number },
+): Promise<FairVisitorUpsert> {
+  const { visitorHash, now } = input;
   const existing = await ctx.db
     .query("fairVisitors")
     .withIndex("by_visitorHash", (q) => q.eq("visitorHash", visitorHash))
     .unique();
   if (existing) {
     await ctx.db.patch(existing._id, { lastSeenAt: now });
-    return existing._id;
+    return { ok: true, visitorId: existing._id };
   }
-  return ctx.db.insert("fairVisitors", { visitorHash, firstSeenAt: now, lastSeenAt: now });
+  const allowed = await rateLimiter.limit(ctx, "fairVisitorCreate", { key: input.ipHash ?? "shared" });
+  if (!allowed.ok) return { ok: false, retryAfterMs: Math.ceil(allowed.retryAfter) };
+  return { ok: true, visitorId: await ctx.db.insert("fairVisitors", { visitorHash, firstSeenAt: now, lastSeenAt: now }) };
 }
 
 export type FairPassportStampResult = "stamped" | "already_stamped" | "not_in_published_passport";
@@ -133,13 +144,17 @@ export async function stampFairPassportOnScan(
  * - `admin_excluded`: short-term audit row only, outside every metric
  * - `duplicate`: this requestId was already handled — nothing written
  * - `no_visitor`: no valid visitorHash (e.g. secret missing in production)
- * - `rate_limited`: the per-visitor fairScan bucket refused the fair row
+ * - `gateway_rejected` (K1): a hash without the valid FAIR_GATEWAY_SECRET
+ *   (or none configured here) — not trusted, nothing written
+ * - `rate_limited`: the per-IP new-identity or the per-visitor fairScan
+ *   bucket refused the fair row
  */
 export type FairScanRecordStatus =
   | "recorded"
   | "admin_excluded"
   | "duplicate"
   | "no_visitor"
+  | "gateway_rejected"
   | "rate_limited";
 
 /**
@@ -155,6 +170,9 @@ export async function recordFairScan(
   input: {
     requestId: string;
     visitorHash: string | undefined;
+    // K1: FAIR_GATEWAY_SECRET and the gateway's IP HMAC, as sent by /r.
+    gatewaySecret: string | undefined;
+    ipHash: string | undefined;
     model: Doc<"fairEventModels">;
     now: number;
     genericDuplicate: boolean;
@@ -167,12 +185,17 @@ export async function recordFairScan(
     .unique();
   if (prior) return "duplicate";
   if (!input.visitorHash || !isFairVisitorHash(input.visitorHash)) return "no_visitor";
+  // K1: a hash is trusted only from the Next gateway. Without the secret the
+  // fair part is skipped silently; the generic scan and redirect stay.
+  if (fairGatewayVerdict(input.gatewaySecret) !== "trusted") return "gateway_rejected";
   // B7: from the purge moment no visitor-linkable row is created any more,
   // even if a device with a wrong clock still sends its cookie (MASTER §13).
   if (input.now >= FAIR_PII_PURGE_AT_MS) return "no_visitor";
 
   const { model, now } = input;
-  const visitorId = await upsertFairVisitor(ctx, input.visitorHash, now);
+  const visitor = await upsertFairVisitor(ctx, { visitorHash: input.visitorHash, ipHash: input.ipHash, now });
+  if (!visitor.ok) return "rate_limited";
+  const { visitorId } = visitor;
   const allowed = await rateLimiter.limit(ctx, "fairScan", { key: visitorId });
   if (!allowed.ok) return "rate_limited";
 

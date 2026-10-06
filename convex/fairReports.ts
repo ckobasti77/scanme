@@ -2,13 +2,15 @@ import { ConvexError, v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { action, internalAction, internalMutation, internalQuery, mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
-import { isFairLeadEmail, type FairPackageTier, type FairReportFormat } from "../lib/fair-contract";
+import { FAIR_LEAD_ACTIVITY_GROUPS, isFairLeadEmail, type FairPackageTier, type FairReportFormat } from "../lib/fair-contract";
+import { fairLeadActivityShared } from "../lib/fair-entitlements";
 import { requireAdmin } from "./lib/access";
 import { writeAdminAudit } from "./lib/adminAudit";
 import { fairAdminError } from "./lib/fairCatalog";
 import { fairModelTierAt } from "./lib/fairInteractions";
 import { fairExhibitorName, fairModelFullName, scheduleFairEmailSend } from "./lib/fairLeads";
-import { fairReportFormat, fairReportStatus } from "./lib/fairValidators";
+import { fairExhibitorModels, fairVisitorActivity } from "./lib/fairLeadActivity";
+import { fairPackageTier, fairReportFormat, fairReportStatus } from "./lib/fairValidators";
 import {
   assembleFairDailyDataset,
   fairDailyDataset,
@@ -21,11 +23,13 @@ import {
   FAIR_REPORT_MIME,
   fairDailyReportDocument,
   fairDailyReportFileName,
+  fairLeadActivityCells,
   fairLeadsDocument,
   fairOrganizerDocument,
   fairReportFileSlug,
   fairReportStamp,
   renderFairReport,
+  type FairLeadExportActivity,
   type FairLeadExportRow,
   type FairOrganizerDay,
 } from "./lib/fairReportFiles";
@@ -43,6 +47,9 @@ import { chunkBytes } from "./menuExport";
 //     with a daily-report package once its day has closed (fairEventDays
 //     .endsAt), and the build runs at once → the dataset is ready well inside
 //     the 60 minutes MASTER §12 requires;
+//   - K4: a manual build or correction is refused until the day has closed
+//     (FAIR_DAY_NOT_CLOSED), and a run created before the close never stops
+//     the sweep from queueing the real daily report;
 //   - building freezes the dataset on the row and stores the rendered file;
 //   - NOTHING is sent automatically: `sendReportRun` refuses every status but
 //     `approved`, and only an admin's `approveReportRun` sets it;
@@ -64,7 +71,10 @@ const DAYS_CAP = 60;
 const PARTICIPATIONS_CAP = 500;
 const RUNS_PER_DAY_CAP = 300;
 const LIST_CAP = 500;
-const LEAD_EXPORT_PAGE = 200;
+/** A8: 50 leads per page, because each new visitor on a page adds its (bounded) activity reads. */
+const LEAD_EXPORT_PAGE = 50;
+/** A8: rows read per visitor and raw table for the export's activity columns. */
+const LEAD_EXPORT_ACTIVITY_CAP = 50;
 const LEAD_EXPORT_CAP = 5000;
 
 type Ctx = QueryCtx | MutationCtx;
@@ -202,11 +212,15 @@ export const sweepDailyReports = internalMutation({
             .take(PARTICIPATIONS_CAP);
           for (const participation of participations) {
             if (participation.status !== "active") continue;
-            const existing = await ctx.db
+            // K4: only a run created after the close counts. A run built before
+            // it (allowed until K4) holds partial data and must not block the
+            // real daily report; the newest run is enough to decide.
+            const latest = await ctx.db
               .query("fairReportRuns")
               .withIndex("by_eventDayId_and_participationId", (q) => q.eq("eventDayId", day._id).eq("participationId", participation._id))
+              .order("desc")
               .first();
-            if (existing) continue;
+            if (latest && latest.createdAt >= day.endsAt) continue;
             if (!(await participationHasDailyReport(ctx, participation, day.endsAt - 1))) continue;
             if (created >= SWEEP_CREATES_CAP) {
               more = true;
@@ -427,6 +441,11 @@ export const getReportRun = query({
 // Admin commands (requireAdmin)
 // -----------------------------------------------------------------------------
 
+/** K4: a day's dataset is frozen only after the day has closed (fairEventDays.endsAt). */
+function requireDayClosed(day: Doc<"fairEventDays">, now: number) {
+  if (day.endsAt > now) fairAdminError("FAIR_DAY_NOT_CLOSED", { endsAt: day.endsAt });
+}
+
 /** Manual build (any participation of the day's event; an `included`-only one gets stand totals only). */
 export const requestReportBuild = mutation({
   args: { eventDayId: v.id("fairEventDays"), participationId: v.id("fairParticipations"), format: fairReportFormat },
@@ -438,6 +457,7 @@ export const requestReportBuild = mutation({
     if (!participation) fairAdminError("FAIR_LINK_NOT_FOUND", { field: "participationId" });
     if (participation.eventId !== day.eventId) fairAdminError("FAIR_LINK_CONFLICT", { link: "participation" });
     const now = Date.now();
+    requireDayClosed(day, now);
     const reportRunId = await insertReportRun(ctx, { eventId: day.eventId, day, participationId: participation._id, format: args.format, now });
     await writeAdminAudit(ctx, { actorUserId: admin._id, action: "fair_report_build_requested", detail: { reportRunId, eventDayId: day._id, participationId: participation._id, format: args.format }, now });
     return { reportRunId };
@@ -526,6 +546,7 @@ export const createReportCorrection = mutation({
     const day = await ctx.db.get(original.eventDayId);
     if (!day) fairAdminError("FAIR_EVENT_DAY_NOT_FOUND");
     const now = Date.now();
+    requireDayClosed(day, now);
     const reportRunId = await insertReportRun(ctx, {
       eventId: original.eventId,
       day,
@@ -569,6 +590,14 @@ export const downloadReportRun = action({
   },
 });
 
+const leadExportActivity = v.optional(v.object({
+  scans: v.optional(v.string()),
+  ratings: v.optional(v.string()),
+  audienceVotes: v.optional(v.string()),
+  surveyAnswers: v.optional(v.string()),
+  sponsoredActions: v.optional(v.string()),
+}));
+
 export const leadsExportPage = internalQuery({
   args: { eventId: v.id("fairEvents"), participationId: v.id("fairParticipations"), cursor: v.union(v.string(), v.null()) },
   returns: v.object({
@@ -584,6 +613,8 @@ export const leadsExportPage = internalQuery({
         phone: v.optional(v.string()),
         consentVersion: v.number(),
         consentedAt: v.number(),
+        tier: v.optional(fairPackageTier),
+        activity: leadExportActivity,
       }),
     ),
     isDone: v.boolean(),
@@ -598,22 +629,43 @@ export const leadsExportPage = internalQuery({
       .query("fairLeads")
       .withIndex("by_participationId_and_createdAt", (q) => q.eq("participationId", participation._id))
       .paginate({ numItems: LEAD_EXPORT_PAGE, cursor: args.cursor });
-    const modelNames = new Map<string, string>();
+    // A8 (ADMIN-UX §7, MASTER §4/§12): next to each contact, the visitor's
+    // activity on THIS exhibitor's models — only the groups the package of
+    // the lead's model sends to the exhibitor (fairLeadActivityShared).
+    const exhibitorModels = await fairExhibitorModels(ctx, participation._id);
+    const modelName = (id: string) => {
+      const model = exhibitorModels.get(id as Id<"fairEventModels">);
+      return model ? fairModelFullName(model) : "—";
+    };
+    const activities = new Map<string, Partial<Record<FairLeadExportActivity, string>>>();
     const rows: FairLeadExportRow[] = [];
     for (const lead of page.page) {
-      if (!modelNames.has(lead.eventModelId)) {
-        const model = await ctx.db.get(lead.eventModelId);
-        modelNames.set(lead.eventModelId, model ? fairModelFullName(model) : "—");
+      const model = exhibitorModels.get(lead.eventModelId) ?? (await ctx.db.get(lead.eventModelId));
+      const tier = model ? await fairModelTierAt(ctx, model, lead.createdAt) : null;
+      let activity: Partial<Record<FairLeadExportActivity, string>> | undefined;
+      if (tier) {
+        const groups = new Set(FAIR_LEAD_ACTIVITY_GROUPS.filter((group) => fairLeadActivityShared(tier, group)));
+        const key = `${lead.visitorId}|${tier}`;
+        activity = activities.get(key);
+        if (!activity) {
+          activity = fairLeadActivityCells(
+            await fairVisitorActivity(ctx, { visitorId: lead.visitorId, eventId: event._id, tierAtLead: tier, models: exhibitorModels, cap: LEAD_EXPORT_ACTIVITY_CAP, groups }),
+            modelName,
+          );
+          activities.set(key, activity);
+        }
       }
       rows.push({
         createdAt: lead.createdAt,
         kind: lead.kind,
-        modelName: modelNames.get(lead.eventModelId)!,
+        modelName: model ? fairModelFullName(model) : "—",
         contactName: lead.contactName,
         ...(lead.email !== undefined ? { email: lead.email } : {}),
         ...(lead.phone !== undefined ? { phone: lead.phone } : {}),
         consentVersion: lead.consentVersion,
         consentedAt: lead.consentedAt,
+        ...(tier ? { tier } : {}),
+        ...(activity ? { activity } : {}),
       });
     }
     return {

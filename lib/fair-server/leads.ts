@@ -11,8 +11,8 @@ import {
   type FairLeadKind,
 } from "@/lib/fair-contract";
 import { fairGatewayError, fairGatewayJson, fairGatewayRequest } from "./gateway";
-import { fairErrorCodeOf } from "./interactions";
-import { fairVisitorForRequest, type FairVisitorEnv } from "./visitor";
+import { fairBackendFailure } from "./interactions";
+import { fairConvexVisitorForRequest, type FairVisitorEnv } from "./visitor";
 
 // =============================================================================
 // Sajam automobila 2026 — B4 lead gateway, POST /api/fair/lead (BACKEND-HANDOFF
@@ -21,7 +21,8 @@ import { fairVisitorForRequest, type FairVisitorEnv } from "./visitor";
 //   2. strict body shape — unknown keys (a `visitorHash` too) are refused;
 //   3. a declined consent stops HERE: the contact never leaves this process
 //      (Convex refuses it again with CONSENT_REQUIRED, without storing);
-//   4. visitor = HMAC of the HttpOnly cookie; one call to fairLeads.submitLead;
+//   4. visitor = HMAC of the HttpOnly cookie; one call to fairLeads.submitLead
+//      with FAIR_GATEWAY_SECRET and the caller-IP HMAC (K1; no secret → no call);
 //   5. `{ ok: true, value }` (never a contact value) or `{ ok: false, code }`,
 //      always `no-store`. Contact values are never logged or echoed.
 // =============================================================================
@@ -50,6 +51,8 @@ const STATUS: Partial<Record<FairErrorCode, number>> = {
   EVENT_NOT_ACTIVE: 409,
   SUBMISSION_DUPLICATE: 409,
   CONSENT_NOT_CONFIGURED: 409,
+  // K3: the Convex hard switch FAIR_LEADS_ENABLED is off — the flow is closed, nothing was stored.
+  LEADS_DISABLED: 409,
   CONSENT_REQUIRED: 422,
   CONTACT_REQUIREMENT_NOT_MET: 422,
   RATE_LIMITED: 429,
@@ -94,15 +97,15 @@ export async function handleFairLead(request: Request, deps: FairLeadDeps = {}):
   const args = typeof value === "object" && value !== null && !Array.isArray(value) ? parseLead(value as Record<string, unknown>) : null;
   if (args === null) return fairGatewayError("INVALID_INPUT", 400);
   if (args.consentAccepted !== true) return fairGatewayError("CONSENT_REQUIRED", 422);
-  const visitor = fairVisitorForRequest(request, deps.now ?? Date.now(), deps.env);
+  const visitor = fairConvexVisitorForRequest(request, deps.now ?? Date.now(), deps.env);
   if (visitor.visitorHash === null) return fairGatewayError("VISITOR_UNAVAILABLE", 503);
   const backend = deps.backend === undefined ? defaultBackend() : deps.backend;
   if (!backend) return fairGatewayError("SERVICE_UNAVAILABLE", 503);
   try {
-    const result = await backend.submitLead({ visitorHash: visitor.visitorHash, ...args });
+    const { visitorHash, gatewaySecret, ipHash } = visitor;
+    const result = await backend.submitLead({ gatewaySecret, ipHash, visitorHash, ...args });
     return fairGatewayJson({ ok: true, value: result }, 200, visitor.setCookie);
   } catch (error) {
-    const code = fairErrorCodeOf(error);
-    return code ? fairGatewayError(code, STATUS[code] ?? 400) : fairGatewayError("SERVICE_UNAVAILABLE", 502);
+    return fairBackendFailure(error, STATUS);
   }
 }

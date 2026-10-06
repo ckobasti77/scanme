@@ -39,6 +39,7 @@ import { cn } from "@/lib/utils";
 import { AdminConversationWorkspace } from "./admin-inbox";
 import { AdminClientFinanceSummary } from "./admin-finance";
 import { AdminErrorState, AdminLoadingState, AdminPanel, AdminStatus } from "./admin-primitives";
+import { AdminDataCard, AdminDataView, type AdminColumn } from "./admin-ui";
 
 type ProfileResult = FunctionReturnType<typeof api.adminClientProfiles.getProfile>;
 type Profile = NonNullable<ProfileResult>;
@@ -276,9 +277,46 @@ function HonestEmpty({ icon: Icon, title, body, href, linkLabel }: { icon: typeo
   return <div className="grid min-h-56 place-items-center px-5 py-8 text-center"><div className="max-w-lg"><span className="mx-auto grid size-12 place-items-center rounded-2xl bg-[var(--admin-surface-muted)] text-[var(--admin-text-muted)]"><Icon className="size-5" aria-hidden="true" /></span><h2 className="mt-4 text-lg font-semibold">{title}</h2><p className="mt-2 text-sm leading-6 text-[var(--admin-text-muted)]">{body}</p>{href && linkLabel ? <Link href={href} className="mt-4 inline-flex min-h-11 items-center gap-2 font-semibold underline underline-offset-4">{linkLabel}<ExternalLink className="size-4" aria-hidden="true" /></Link> : null}</div></div>;
 }
 
+type VenueService = VenueDetail["services"][number];
+
+function serviceState(service: VenueService) {
+  return service.subscription?.status ?? service.profileStatus;
+}
+
+function ServiceLink({ service }: { service: VenueService }) {
+  const meta = serviceMeta[service.type];
+  const Icon = meta.icon;
+  const href = service.type === "scanme_links" ? "/admin/usluge/links" : service.type === "google_review" ? "/admin/usluge/review" : "/admin/usluge/meni";
+  return <Link href={href} aria-label={`${dict.clientProfileOpenService}: ${meta.label}`} className="flex min-h-11 items-center gap-2 font-semibold underline-offset-4 hover:underline"><Icon className="size-4" aria-hidden="true" />{meta.label}</Link>;
+}
+
+function ServiceState({ service }: { service: VenueService }) {
+  const state = serviceState(service);
+  return <AdminStatus label={stateLabel[state] ?? state} tone={state === "active" ? "active" : state === "suspended" ? "problem" : "waiting"} />;
+}
+
+function subscriptionText(service: VenueService) {
+  return service.subscription ? `${service.subscription.period === "monthly" ? dict.clientProfileBillingMonthly : dict.clientProfileBillingAnnual} · ${dict.clientProfilePaidThrough} ${dateLabel(service.subscription.paidThrough)}` : dict.clientProfileNoSubscription;
+}
+
+const serviceColumns: AdminColumn<VenueService>[] = [
+  { id: "service", header: dict.clientProfileServices, rowHeader: true, sortValue: (service) => serviceMeta[service.type].label, cell: (service) => <ServiceLink service={service} /> },
+  { id: "state", header: dict.clientProfileVenueStatus, sortValue: (service) => stateLabel[serviceState(service)] ?? serviceState(service), cell: (service) => <ServiceState service={service} /> },
+  { id: "subscription", header: dict.clientProfileSubscription, cell: (service) => <span className="text-xs text-[var(--admin-text-muted)]">{subscriptionText(service)}</span> },
+];
+
 function ServiceRows({ detail }: { detail: VenueDetail }) {
   if (!detail.services.length) return <p className="text-sm text-[var(--admin-text-muted)]">{dict.clientsServiceAbsent}</p>;
-  return <div className="grid gap-2">{detail.services.map((service) => { const meta = serviceMeta[service.type]; const Icon = meta.icon; const state = service.subscription?.status ?? service.profileStatus; const href = service.type === "scanme_links" ? "/admin/usluge/links" : service.type === "google_review" ? "/admin/usluge/review" : "/admin/usluge/meni"; return <div key={service.profileId} className="grid gap-2 rounded-xl border border-[var(--admin-border)] p-3 sm:grid-cols-[minmax(9rem,1fr)_auto_auto] sm:items-center"><Link href={href} aria-label={`${dict.clientProfileOpenService}: ${meta.label}`} className="flex min-h-11 items-center gap-2 font-semibold underline-offset-4 hover:underline"><Icon className="size-4" aria-hidden="true" />{meta.label}</Link><AdminStatus label={stateLabel[state] ?? state} tone={state === "active" ? "active" : state === "suspended" ? "problem" : "waiting"} /><span className="text-xs text-[var(--admin-text-muted)]">{service.subscription ? `${service.subscription.period === "monthly" ? dict.clientProfileBillingMonthly : dict.clientProfileBillingAnnual} · ${dict.clientProfilePaidThrough} ${dateLabel(service.subscription.paidThrough)}` : dict.clientProfileNoSubscription}</span></div>; })}</div>;
+  return (
+    <AdminDataView
+      listKey="klijent.usluge"
+      caption={dict.clientProfileServices}
+      rows={detail.services}
+      getRowId={(service) => service.profileId}
+      columns={serviceColumns}
+      renderCard={(service) => <AdminDataCard title={<ServiceLink service={service} />} badges={<ServiceState service={service} />} subtitle={subscriptionText(service)} />}
+    />
+  );
 }
 
 function VenueSection({ venues, detail, selectedId, canLoadMore, loadingMore, onSelect, onLoadMore, onProblem }: { venues: Venue[]; detail: VenueDetail | null | undefined; selectedId?: string; canLoadMore: boolean; loadingMore: boolean; onSelect: (id: string) => void; onLoadMore: () => void; onProblem: (action: Action) => void }) {
@@ -326,6 +364,11 @@ type ProfileSurfaceProps = {
   loadActivity: () => void;
 };
 
+const venueProductColumns: AdminColumn<Venue>[] = [
+  { id: "venue", header: dict.clientProfileColVenue, rowHeader: true, sortValue: (venue) => venue.name, cell: (venue) => <strong className="font-semibold">{venue.name}</strong> },
+  { id: "products", header: dict.clientProfileColProducts, align: "end", sortValue: (venue) => venue.productCount, cell: (venue) => <span className="font-semibold tabular-nums">{venue.productCount}</span> },
+];
+
 function ProfileSurface(props: ProfileSurfaceProps) {
   const router = useRouter(); const pathname = usePathname(); const params = useSearchParams();
   const requestedSection = params.get("section");
@@ -371,7 +414,15 @@ function ProfileSurface(props: ProfileSurfaceProps) {
     : section === "venues" ? props.venuesStatus === "LoadingFirstPage" ? <AdminLoadingState /> : <VenueSection venues={props.venues} detail={props.venueDetail} selectedId={selectedVenueId} canLoadMore={props.venuesStatus === "CanLoadMore"} loadingMore={props.venuesStatus === "LoadingMore"} onSelect={(id) => updateUrl(router, pathname, params, "venue", id)} onLoadMore={props.loadVenues} onProblem={openProblem} />
       : section === "finance" ? <AdminClientFinanceSummary accountId={props.profile.accountId} preview={!props.live} />
         : section === "communication" ? <CommunicationSection contact={selectedContact} profile={props.profile} live={props.live} />
-          : section === "products" ? <div><div className="flex flex-wrap items-center justify-between gap-3"><h2 className="text-lg font-semibold">{dict.clientProfileProductsSummary}</h2><Link href="/admin/operativa/proizvodi" className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold underline underline-offset-4">{dict.clientProfileOpenProducts}<ExternalLink className="size-4" aria-hidden="true" /></Link></div><p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--admin-text-muted)]">{dict.clientProfileProductsBody}</p><div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{props.venues.map((venue) => <div key={venue.businessId} className="rounded-xl border border-[var(--admin-border)] p-4"><strong className="block truncate">{venue.name}</strong><span className="mt-2 block text-2xl font-semibold">{venue.productCount}</span><span className="text-xs text-[var(--admin-text-muted)]">{dict.clientProfileProductsAtVenue}</span></div>)}</div></div>
+          : section === "products" ? <div><div className="flex flex-wrap items-center justify-between gap-3"><h2 className="text-lg font-semibold">{dict.clientProfileProductsSummary}</h2><Link href="/admin/operativa/proizvodi" className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold underline underline-offset-4">{dict.clientProfileOpenProducts}<ExternalLink className="size-4" aria-hidden="true" /></Link></div><p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--admin-text-muted)]">{dict.clientProfileProductsBody}</p><AdminDataView
+              className="mt-4"
+              listKey="klijent.proizvodi"
+              caption={dict.clientProfileProductsSummary}
+              rows={props.venues}
+              getRowId={(venue) => venue.businessId}
+              columns={venueProductColumns}
+              renderCard={(venue) => <><strong className="block truncate">{venue.name}</strong><span className="mt-2 block text-2xl font-semibold">{venue.productCount}</span><span className="text-xs text-[var(--admin-text-muted)]">{dict.clientProfileProductsAtVenue}</span></>}
+            /></div>
             : props.activityStatus === "LoadingFirstPage" ? <AdminLoadingState /> : <ActivitySection rows={props.activity} canLoadMore={props.activityStatus === "CanLoadMore"} loadingMore={props.activityStatus === "LoadingMore"} onLoadMore={props.loadActivity} />;
   return <div className="grid min-w-0 gap-5"><ProfileHeader profile={props.profile} /><div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_21rem]"><div className="min-w-0 xl:col-start-1 xl:row-start-1"><nav aria-label={dict.clientProfileSectionOverview} className="grid grid-cols-2 gap-1 rounded-2xl border border-[var(--admin-border)] bg-[var(--admin-surface)] p-1 sm:grid-cols-3 xl:grid-cols-6">{SECTIONS.map((item) => <button key={item.id} type="button" aria-current={section === item.id ? "page" : undefined} onClick={() => updateUrl(router, pathname, params, "section", item.id === "overview" ? undefined : item.id)} className={cn("min-h-11 rounded-xl px-2 text-xs font-semibold", section === item.id ? "bg-[var(--admin-ink)] text-[var(--admin-surface)]" : "hover:bg-[var(--admin-surface-muted)]")}>{item.label}</button>)}</nav>{section === "communication" ? <div className="mt-4 min-w-0">{content}</div> : <AdminPanel className="mt-4 min-w-0 overflow-hidden p-4 sm:p-5">{content}</AdminPanel>}</div><aside className="order-first min-w-0 xl:order-none xl:col-start-2 xl:row-start-1"><ContactCard profile={props.profile} selected={selectedContact} onSelect={(id) => updateUrl(router, pathname, params, "contact", id)} onAdd={() => openContactDialog("new")} onEdit={openContactDialog} onDefault={(contact) => run(() => props.onDefault(contact))} onStatus={openConfirmStatus} pending={pending} /></aside></div><ContactDialog key={`${contactDialog === "new" ? "new" : contactDialog?.id ?? "closed"}-${contactDialogVersion}`} open={contactDialogOpen} contact={contactDialog === "new" ? null : contactDialog} busy={pending} error={mutationError} onOpenChange={(open) => open ? setContactDialogOpen(true) : closeDialog(setContactDialogOpen)} onSubmit={(draft) => run(() => contactDialog && contactDialog !== "new" ? props.onUpdate(contactDialog, draft) : props.onCreate(draft), () => closeDialog(setContactDialogOpen))} /><Dialog open={Boolean(confirmStatus) && confirmStatusOpen} onOpenChange={(open) => open ? setConfirmStatusOpen(true) : closeDialog(setConfirmStatusOpen)}><DialogContent className="admin-v1 border-[var(--admin-border)] bg-[var(--admin-surface-strong)]"><DialogHeader><DialogTitle>{confirmStatus?.status === "active" ? dict.clientProfileDeactivateContact : dict.clientProfileReactivateContact}</DialogTitle><DialogDescription>{dict.clientProfileConfirmDeactivate}</DialogDescription></DialogHeader>{mutationError ? <p role="alert" className="text-sm text-[var(--admin-danger)]">{mutationError}</p> : null}<DialogFooter><Button variant="outline" onClick={() => closeDialog(setConfirmStatusOpen)}>{dict.clientProfileCancel}</Button><Button disabled={pending} onClick={() => confirmStatus && run(() => props.onStatus(confirmStatus), () => closeDialog(setConfirmStatusOpen))}>{confirmStatus?.status === "active" ? dict.clientProfileDeactivateContact : dict.clientProfileReactivateContact}</Button></DialogFooter></DialogContent></Dialog><ProblemDialog profile={props.profile} action={action} open={actionOpen} onClose={() => closeDialog(setActionOpen)} onResolve={props.onResolve} live={props.live} /></div>;
 }

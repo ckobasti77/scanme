@@ -69,6 +69,9 @@ export const fairContactRequirement = v.union(
 
 export const fairPreferredContact = v.union(v.literal("email"), v.literal("phone"));
 
+// Admin UX A7 — exhibitor default vs the model's own exception (lib/fair-contract FairLeadConfigSource).
+export const fairLeadConfigSource = v.union(v.literal("default"), v.literal("override"));
+
 export const fairConsentStatus = v.union(
   v.literal("draft"),
   v.literal("active"),
@@ -100,6 +103,8 @@ export const fairEmailDeliveryStatus = v.union(
   v.literal("sent"),
   v.literal("failed"),
   v.literal("suppressed"),
+  // K3: closed at claim time because a lead switch was off; never sent.
+  v.literal("skipped"),
 );
 
 // B0 design (HANDOFF §5.5 names fairPassportConfigs without fields).
@@ -110,6 +115,15 @@ export const fairPassportConfigStatus = v.union(
 );
 
 export const fairPassportEligibleStatus = v.union(v.literal("required"), v.literal("removed"));
+
+// Admin UX A7 — lib/fair-contract FairBrandPassportProblem (fairBrandPassportProblems).
+export const fairBrandPassportProblem = v.union(
+  v.literal("fewer_than_two_models"),
+  v.literal("model_not_published"),
+  v.literal("model_not_candidate"),
+  v.literal("model_below_starter"),
+  v.literal("multiple_exhibitors"),
+);
 
 export const fairReportStatus = v.union(
   v.literal("queued"),
@@ -128,11 +142,27 @@ export const fairSponsoredSnapshotStatus = v.union(
   v.literal("retired"),
 );
 
+// Admin UX A9: manual ("admin") or system ("auto") publish of a snapshot.
+export const fairSponsoredSnapshotTrigger = v.union(v.literal("admin"), v.literal("auto"));
+
 // JOVAN-DELTA §2 narrows HANDOFF §5.7 (`map | display | garage`): only the
 // garage strip's explicit actions are written. Map/display never write.
 export const fairSponsoredActionSurface = v.literal("garage");
 
 export const fairSponsoredActionKind = v.union(v.literal("open_model"), v.literal("garage_add"));
+
+export const fairShareCollectionStatus = v.union(v.literal("active"), v.literal("expired"));
+export const fairTrafficKind = v.union(
+  v.literal("direct_view"),
+  v.literal("share_action"),
+  v.literal("share_open"),
+);
+export const fairShareChannel = v.union(
+  v.literal("native"),
+  v.literal("whatsapp"),
+  v.literal("viber"),
+  v.literal("copy"),
+);
 
 // MASTER §4.6 — optional on stored rows; absent means "standard".
 export const fairClientSegment = v.union(v.literal("standard"), v.literal("event_only"));
@@ -148,6 +178,8 @@ export const fairPurgeCategory = v.union(
   v.literal("brand_favorites"),
   v.literal("passport_stamps"),
   v.literal("sponsored_actions"),
+  v.literal("traffic_events"),
+  v.literal("share_collections"),
   v.literal("unique_scans"),
   v.literal("scan_events"),
   v.literal("visitors"),
@@ -428,6 +460,7 @@ export const fairMyModelStateView = v.object({
 // B4 — lead form (fairPublic.getLeadForm) and submitLead result; never a contact value.
 export const fairLeadFormView = v.union(
   v.object({ eventModelId: v.string(), kind: fairLeadKind, state: v.literal("unavailable") }),
+  v.object({ eventModelId: v.string(), kind: fairLeadKind, state: v.literal("leads_disabled") }),
   v.object({ eventModelId: v.string(), kind: fairLeadKind, state: v.literal("consent_not_configured") }),
   v.object({
     eventModelId: v.string(),

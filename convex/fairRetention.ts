@@ -44,6 +44,8 @@ type PurgeTable =
   | "fairBrandFavoriteVotes"
   | "fairPassportStamps"
   | "fairSponsoredEvents"
+  | "fairTrafficEvents"
+  | "fairShareCollections"
   | "fairUniqueScans"
   | "fairScanEvents"
   | "fairVisitors";
@@ -58,6 +60,8 @@ export const FAIR_PURGE_TABLES: Record<FairPurgeCategory, PurgeTable> = {
   brand_favorites: "fairBrandFavoriteVotes",
   passport_stamps: "fairPassportStamps",
   sponsored_actions: "fairSponsoredEvents",
+  traffic_events: "fairTrafficEvents",
+  share_collections: "fairShareCollections",
   unique_scans: "fairUniqueScans",
   scan_events: "fairScanEvents",
   visitors: "fairVisitors",

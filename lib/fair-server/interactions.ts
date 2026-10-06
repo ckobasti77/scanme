@@ -5,7 +5,7 @@ import type { FunctionArgs, FunctionReturnType } from "convex/server";
 import { api } from "@/convex/_generated/api";
 import { FAIR_ERROR_CODES, FAIR_SURVEY_MAX_QUESTIONS, type FairErrorCode } from "@/lib/fair-contract";
 import { fairGatewayError, fairGatewayJson, fairGatewayRequest } from "./gateway";
-import { fairVisitorForRequest, type FairVisitorEnv } from "./visitor";
+import { fairConvexVisitorForRequest, warnOnce, type FairVisitorEnv } from "./visitor";
 
 // =============================================================================
 // Sajam automobila 2026 — B3 visitor interaction gateway (BACKEND-HANDOFF §4.2,
@@ -14,7 +14,9 @@ import { fairVisitorForRequest, type FairVisitorEnv } from "./visitor";
 //   2. strict body shape — unknown keys are refused, so a body can never
 //      carry its own `visitorHash`;
 //   3. visitor = HMAC of the HttpOnly cookie (minted here on first use);
-//   4. one Convex call (convex/fairInteractions.ts) with that hash;
+//   4. one Convex call (convex/fairInteractions.ts) with that hash plus, K1,
+//      FAIR_GATEWAY_SECRET and the caller-IP HMAC (no secret → no call,
+//      503 VISITOR_UNAVAILABLE);
 //   5. `{ ok: true, value }` or `{ ok: false, code }`, always `no-store`.
 // The token never leaves this process; the hash goes only to Convex.
 // =============================================================================
@@ -71,6 +73,21 @@ export function fairErrorCodeOf(error: unknown): FairErrorCode | null {
   if (typeof data !== "object" || data === null || !("code" in data)) return null;
   const code = (data as { code: unknown }).code;
   return typeof code === "string" && KNOWN_CODES.has(code) ? (code as FairErrorCode) : null;
+}
+
+/**
+ * The response for a failed Convex call: its stable code, or
+ * SERVICE_UNAVAILABLE. K1: a refused gateway secret is a deploy problem, not
+ * the visitor's — the browser sees SERVICE_UNAVAILABLE, the server log the
+ * code once (never the secret).
+ */
+export function fairBackendFailure(error: unknown, status: Partial<Record<FairErrorCode, number>>): Response {
+  const code = fairErrorCodeOf(error);
+  if (code === "FAIR_GATEWAY_NOT_CONFIGURED" || code === "FAIR_GATEWAY_UNAUTHORIZED") {
+    warnOnce(code);
+    return fairGatewayError("SERVICE_UNAVAILABLE", 503);
+  }
+  return code ? fairGatewayError(code, status[code] ?? 400) : fairGatewayError("SERVICE_UNAVAILABLE", 502);
 }
 
 // -----------------------------------------------------------------------------
@@ -139,50 +156,53 @@ export const parseFavorite = (body: Body) =>
 
 export type FairInteractionDeps = { now?: number; env?: FairVisitorEnv; backend?: FairInteractionsBackend | null };
 
+/** What every visitor-specific Convex call carries (server-side only). */
+export type FairConvexAuth = { visitorHash: string; gatewaySecret: string; ipHash: string };
+
 async function handle<T>(
   request: Request,
   deps: FairInteractionDeps,
   parse: (body: Body) => T | null,
-  run: (backend: FairInteractionsBackend, visitorHash: string, args: T) => Promise<unknown>,
+  run: (backend: FairInteractionsBackend, auth: FairConvexAuth, args: T) => Promise<unknown>,
 ): Promise<Response> {
   const body = await fairGatewayRequest(request);
   if (!body.ok) return body.response;
   const value = body.value;
   const args = typeof value === "object" && value !== null && !Array.isArray(value) ? parse(value as Body) : null;
   if (args === null) return fairGatewayError("INVALID_INPUT", 400);
-  const visitor = fairVisitorForRequest(request, deps.now ?? Date.now(), deps.env);
+  const visitor = fairConvexVisitorForRequest(request, deps.now ?? Date.now(), deps.env);
   if (visitor.visitorHash === null) return fairGatewayError("VISITOR_UNAVAILABLE", 503);
   const backend = deps.backend === undefined ? defaultBackend() : deps.backend;
   if (!backend) return fairGatewayError("SERVICE_UNAVAILABLE", 503);
   try {
-    const result = await run(backend, visitor.visitorHash, args);
+    const { visitorHash, gatewaySecret, ipHash } = visitor;
+    const result = await run(backend, { visitorHash, gatewaySecret, ipHash }, args);
     return fairGatewayJson({ ok: true, value: result }, 200, visitor.setCookie);
   } catch (error) {
-    const code = fairErrorCodeOf(error);
-    return code ? fairGatewayError(code, STATUS[code] ?? 400) : fairGatewayError("SERVICE_UNAVAILABLE", 502);
+    return fairBackendFailure(error, STATUS);
   }
 }
 
 /** POST /api/fair/model-state — own rating, own votes with results, survey state, passport N/M. */
 export const handleFairModelState = (request: Request, deps: FairInteractionDeps = {}) =>
-  handle(request, deps, parseModelState, (backend, visitorHash, args) => backend.getMyModelState({ visitorHash, ...args }));
+  handle(request, deps, parseModelState, (backend, { visitorHash, gatewaySecret }, args) => backend.getMyModelState({ gatewaySecret, visitorHash, ...args }));
 
 /** POST /api/fair/passport — every active passport of the event with the visitor's progress. */
 export const handleFairPassport = (request: Request, deps: FairInteractionDeps = {}) =>
-  handle(request, deps, parsePassport, (backend, visitorHash, args) => backend.getMyPassportProgress({ visitorHash, ...args }));
+  handle(request, deps, parsePassport, (backend, { visitorHash, gatewaySecret }, args) => backend.getMyPassportProgress({ gatewaySecret, visitorHash, ...args }));
 
 /** POST /api/fair/rating */
 export const handleFairRating = (request: Request, deps: FairInteractionDeps = {}) =>
-  handle(request, deps, parseRating, (backend, visitorHash, args) => backend.upsertRating({ visitorHash, ...args }));
+  handle(request, deps, parseRating, (backend, auth, args) => backend.upsertRating({ ...auth, ...args }));
 
 /** POST /api/fair/audience-vote */
 export const handleFairAudienceVote = (request: Request, deps: FairInteractionDeps = {}) =>
-  handle(request, deps, parseVote, (backend, visitorHash, args) => backend.upsertAudienceVote({ visitorHash, ...args }));
+  handle(request, deps, parseVote, (backend, auth, args) => backend.upsertAudienceVote({ ...auth, ...args }));
 
 /** POST /api/fair/survey */
 export const handleFairSurvey = (request: Request, deps: FairInteractionDeps = {}) =>
-  handle(request, deps, parseSurvey, (backend, visitorHash, args) => backend.submitSurvey({ visitorHash, ...args }));
+  handle(request, deps, parseSurvey, (backend, auth, args) => backend.submitSurvey({ ...auth, ...args }));
 
 /** POST /api/fair/passport/favorite */
 export const handleFairFavorite = (request: Request, deps: FairInteractionDeps = {}) =>
-  handle(request, deps, parseFavorite, (backend, visitorHash, args) => backend.upsertBrandFavorite({ visitorHash, ...args }));
+  handle(request, deps, parseFavorite, (backend, auth, args) => backend.upsertBrandFavorite({ ...auth, ...args }));

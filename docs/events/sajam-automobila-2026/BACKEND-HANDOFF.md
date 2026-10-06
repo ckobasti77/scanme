@@ -2,7 +2,7 @@
 
 > Status: **ZAKLJUČAN ZA DELEGIRANJE — B0 JE PRVI DOZVOLJENI KODNI KORAK**
 >
-> Poslednje ažuriranje: 2. oktobar 2026.
+> Poslednje ažuriranje: 5. oktobar 2026.
 > Vlasnik proizvodnih odluka i finalni go/no-go: **Aleksa**
 > Backend vlasnik: **Jovan**
 > Rok za prvu produkcijski upotrebljivu verziju: **9. oktobar 2026.**
@@ -10,7 +10,7 @@
 > Kanonski proizvodni dokument: [`MASTER-KONTEKST.md`](./MASTER-KONTEKST.md)
 > Operativni paket za unos podataka: [`DATA-INTAKE-SPEC.md`](./DATA-INTAKE-SPEC.md)
 > Obavezna delta pre nastavka B0/B3/B5: [`JOVAN-DELTA-2026-10-02.md`](./JOVAN-DELTA-2026-10-02.md)
-> Jovan/Claude mapa+backend kontekst: [`CLAUDE-MAPA-BACKEND-KONTEKST-V2.md`](./CLAUDE-MAPA-BACKEND-KONTEKST-V2.md)
+> Obavezna traffic/share delta: [`JOVAN-DELTA-2026-10-05.md`](./JOVAN-DELTA-2026-10-05.md)
 
 `MASTER-KONTEKST.md` definiše proizvod i poslovna/UX pravila. Ovaj dokument definiše tehničku implementaciju tih pravila. Jovan i njegov AI agent moraju dobiti i pročitati oba dokumenta. Ako se dokumenti ili kod razilaze, ne biraj tumačenje i ne menjaj pravilo samostalno: zaustavi sporni deo i vrati konflikt komandnom centru.
 
@@ -328,6 +328,8 @@ Sva skeniranja se računaju 24/7 osim kada server iz autentifikovane ScanMe sesi
 
 Postojeći `/r/[cardCode]` resolver proširi `fair_model` targetom i event hook-om tako da isti `requestId` u istoj transakciji upiše generički card događaj i najviše jedan fair scan. Ne pravi drugi javni scan endpoint u redirect odredištu. Čitljiva stranica modela beleži `view`, ne scan.
 
+Pre 302 odgovora resolver postavlja kratkotrajni, potpisani, HttpOnly `fair entry` marker vezan za `eventModelId`, `requestId`, vreme izdavanja i izvor `qr`. Marker ne sadrži visitor hash, ne ulazi u URL i važi najviše 120 sekundi na odgovarajućoj sajamskoj putanji. Model-view gateway marker verifikuje i troši idempotentno. Njegovo prisustvo sprečava da QR landing bude pogrešno upisan kao `direct_view`; ono ne proizvodi dodatni scan niti menja `fairScanEvents`.
+
 #### `fairUniqueScans`
 
 - `visitorId`, `eventId`, `eventModelId`, `firstScannedAt`, `lastScannedAt`, `totalScanCount`
@@ -344,6 +346,29 @@ Prvi neadministratorski red za kombinaciju posetilac+model uvećava unique metri
 Koristi zaseban sajamski sharded-counter helper, po uzoru na `convex/lib/countShards.ts`, za vruće brojače: scan total/unique po modelu, štandu, danu i satu; broj opcija glasanja; count/sum ocena. Ne koristi postojeću `memoriesCountShards` tabelu.
 
 Raw događaji i odgovor/ocena redovi su izvor istine. Shards su čitalačka projekcija. Svaka promena glasa/ocene primenjuje korektan negativni i pozitivni delta u istoj transakciji.
+
+#### `fairShareCollections`
+
+- `codeHash`, `eventId`, uređena lista od 1 do 5 `eventModelId` vrednosti, `createdAt`, `expiresAt`, `status`
+- javni URL koristi nepredvidiv opaque `shareCode`; baza čuva hash koda, ne sam kod
+- indeksi `by_codeHash` i `by_eventId_and_createdAt`
+- svi modeli moraju pripadati istom događaju i biti objavljeni u trenutku kreiranja
+- kolekcija je read-only; ne čuva kontakt, ime ili social destination
+- javno čitanje vraća samo postojeću public model projekciju; povučeni model se izostavlja
+- `expiresAt` je najkasnije 16. novembar 2026; posle toga javna ruta vraća isteklo/not-found stanje
+
+#### `fairTrafficEvents`
+
+- `requestId`, `eventId`, opciono `eventModelId`, opciono `shareCollectionId`
+- `kind: direct_view | share_action | share_open`
+- `occurredAt`, `dateKey`, `hourKey`; za `share_action` još `modelCount` i `channel: native | whatsapp | viber | copy`
+- jedinstveni indeks `by_requestId`; analitički indeksi `by_eventId_and_occurredAt`, `by_eventModelId_and_occurredAt`, `by_shareCollectionId_and_occurredAt`
+- nijedan traffic događaj ne poziva `cards.resolveAndRecord`, ne upisuje `fairScanEvents` i ne utiče na total/unique scan metrike
+- `direct_view` nastaje samo za kanonsko otvaranje modela bez važećeg QR entry markera i bez share kolekcijskog ulaza
+- `share_action` znači da je native share promise uspešno završen, izabran WhatsApp/Viber izlaz ili da je link uspešno kopiran; ne tvrdi da je primalac dobio poruku
+- `share_open` nastaje pri javnom otvaranju važeće `/sajam/deli/[shareCode]` kolekcije i idempotentan je po request ID-u
+- visitor identitet koristi se samo kao prolazni rate-limit ključ pre upisa; `fairTrafficEvents` ne čuva `visitorId`
+- raw traffic redovi brišu se 16. novembra; mogu ostati samo nepovratno anonimizovani agregati po modelu/događaju
 
 ### 5.3 Ocene, pitanja i ankete
 
@@ -756,6 +781,11 @@ Zaštita od duplikata nije isto što i rate-limit:
 - Isti visitor isti model na drugom eventu = drugi event-model, dakle zaseban unique.
 - Identičan `requestId` retry = bez novog total ili unique.
 - Direktno otvaranje modela iz garaže/sponzorisane kartice nije QR scan.
+- QR landing sa važećim entry markerom nije `direct_view`.
+- Običan model URL bez entry/share markera upisuje najviše jedan `direct_view` po navigation request ID-u.
+- Uspešan native share, izbor WhatsApp/Viber izlaza ili copy-link upisuje jedan `share_action`; otkazani native share ne upisuje uspeh.
+- Otvaranje važeće kolekcije upisuje `share_open`; klik na model unutar nje nikad nije scan.
+- `direct_view`, `share_action` i `share_open` se izveštavaju odvojeno od scan i sponsored konverzija.
 - Promena ratinga ne povećava count; menja sum/prosek.
 - Javni model/visitor state nikada ne vraća count/sum/prosek ocena; ti agregati su dostupni samo admin/report čitanjima.
 - Promena audience glasa smanjuje staru i povećava novu opciju; total broj glasača ostaje isti.
@@ -984,6 +1014,8 @@ Za sadržajne tačke pripremi validiran import/admin seam, ali ne izmišljaj pod
 - Nema automatskog dodavanja modela u garažu.
 - Nema personalizacije sponsored rotacije po srodnosti.
 - Nema pasivne sponsored impression metrike, čak ni kada je kartica ili mapa vidljiva.
+- Nema query-parametra `?src=qr` kao izvora istine, javnog visitor hash-a ili model-page scan efekta.
+- Nema mešanja `direct_view`, `share_action` ili `share_open` događaja sa `fairScanEvents` i `fairSponsoredActions`.
 - Nema online kupovine paketa.
 - Nema retroaktivnog otključavanja interakcija.
 - Nema fotografije/specifikacije/cene koju je agent izmislio.

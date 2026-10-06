@@ -1,0 +1,32 @@
+
+  <svg xmlns="http://www.w3.org/2000/svg" width="850" height="550" viewBox="0 0 850 550">
+    <rect width="850" height="550" rx="28" fill="#e9e5da"/>
+    <rect x="1" y="1" width="848" height="548" rx="27" fill="none" stroke="#1c2221" stroke-opacity="0.14" stroke-width="2"/>
+
+    
+    <g aria-label="ScanMe.">
+      <text x="66" y="105" fill="#1c2221" font-family="Arial, Helvetica, sans-serif" font-size="48" font-weight="700" letter-spacing="-2.64">Scan</text>
+      <text x="175.44" y="105" fill="#1c2221" font-family="Arial, Helvetica, sans-serif" font-size="48" font-weight="600" letter-spacing="-3.3600000000000003">M</text>
+      <text x="214.8" y="105" fill="#1c2221" font-family="Arial, Helvetica, sans-serif" font-size="48" font-weight="400" letter-spacing="-2.64">e</text>
+      <circle cx="240.72000000000003" cy="101.16" r="3.5039999999999996" fill="#a8d83f" />
+    </g>
+
+    <path d="M 249 101 H 724 V 150 H 778 V 208 H 748 V 264 H 778 V 332 H 714"
+      fill="none" stroke="#1c2221" stroke-width="9" stroke-linecap="square" stroke-linejoin="miter"/>
+    <rect x="249" y="97" width="18" height="9" fill="#a8d83f"/>
+    <rect x="774" y="174" width="9" height="27" fill="#a8d83f"/>
+    <rect x="687" y="328" width="18" height="9" fill="#a8d83f"/>
+    <rect x="660" y="328" width="15" height="9" fill="#1c2221" opacity="0.28"/>
+    <rect x="637" y="328" width="11" height="9" fill="#1c2221" opacity="0.12"/>
+
+    <text x="70" y="274" fill="#1c2221" font-family="Arial, Helvetica, sans-serif" font-size="58" font-weight="700" letter-spacing="-2.4">Aleksa Đorđević</text>
+    <text x="72" y="319" fill="#626964" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="700" letter-spacing="2.5">OSNIVAČ</text>
+
+    <line x1="70" y1="374" x2="610" y2="374" stroke="#1c2221" stroke-opacity="0.18" stroke-width="2"/>
+    <text x="70" y="438" fill="#1c2221" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="500">+381 6X XXX XX XX</text>
+    <line x1="352" y1="403" x2="352" y2="456" stroke="#1c2221" stroke-opacity="0.22" stroke-width="2"/>
+    <text x="392" y="438" fill="#1c2221" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="500">aleksa@scanme.rs</text>
+
+    <rect x="70" y="497" width="618" height="5" fill="#1c2221"/>
+    <rect x="688" y="497" width="38" height="5" fill="#a8d83f"/>
+  </svg>

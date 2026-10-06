@@ -12,8 +12,9 @@ import { fairMapSr as dict } from "@/lib/i18n/sr/fair-map";
 import styles from "./fair-event-map.module.css";
 
 // M2 — 12 s Advanced rotation on the map and fair displays (MASTER §10.1).
-// The active model comes only from Kodeks's rotation-slot.ts over the one B5
-// projection read on the server; the clock wakes up at the next slot boundary
+// The active model comes only from Kodeks's rotation-slot.ts over the B5
+// projection (server first state, kept live by fair-map-live-rotation.ts — K2);
+// the clock wakes up at the next slot boundary
 // (no backend polling). Nothing here votes or writes: a passive view is never
 // recorded (map/display have no sponsored write at all).
 

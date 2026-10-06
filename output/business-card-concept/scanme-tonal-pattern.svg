@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 91 61">
+  <defs>
+    <pattern id="scanme-pattern" width="10" height="10" patternUnits="userSpaceOnUse">
+      <path d="M5 1.8 8.2 5 5 8.2 1.8 5Z" fill="none" stroke="#1c2221" stroke-width="0.25" opacity="0.05"/>
+    </pattern>
+  </defs>
+  <rect width="91" height="61" fill="url(#scanme-pattern)"/>
+</svg>

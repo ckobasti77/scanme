@@ -1,9 +1,9 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test } from "vitest";
-import { FAIR_PII_PURGE_AT_MS, FAIR_PURGE_CATEGORIES } from "@/lib/fair-contract";
+import { FAIR_LEAD_DELIVERY_DEADLINE_MS, FAIR_PII_PURGE_AT_MS, FAIR_PURGE_CATEGORIES } from "@/lib/fair-contract";
 import { adminEventsSr } from "@/lib/i18n/sr/admin-events";
 import { fmt } from "@/lib/i18n/format";
-import { AdminEventsRetention, type RetentionActions, type RetentionView } from "./admin-events-retention";
+import { AdminEventsRetention, retentionDaysLeft, type RetentionActions, type RetentionView } from "./admin-events-retention";
 
 // Sajam 2026 B7 — the `Brisanje podataka` section of the admin `Događaji` tab.
 
@@ -24,6 +24,7 @@ const view: RetentionView = {
       categories: FAIR_PURGE_CATEGORIES.map((category) => ({ category, rows: 1, status: "done" as const })),
     },
   ],
+  now: NOW,
 };
 
 describe("B7 admin Brisanje podataka section", () => {
@@ -48,5 +49,33 @@ describe("B7 admin Brisanje podataka section", () => {
   test("an empty audit and a missing overview have understandable states", () => {
     expect(renderToStaticMarkup(<AdminEventsRetention view={{ ...view, runs: [] }} actions={actions} />)).toContain(adminEventsSr.retentionRunsEmpty);
     expect(renderToStaticMarkup(<AdminEventsRetention view={undefined} actions={undefined} />)).toContain(adminEventsSr.retentionUnavailable);
+  });
+});
+
+describe("A9 Brisanje podataka: countdown, last dry run, what stays", () => {
+  const plan = adminEventsSr.retentionPlan;
+  const DAY = 86_400_000;
+
+  test("the countdown to 16 Nov (Belgrade midnight) in whole days, the last day and after the date", () => {
+    expect(retentionDaysLeft(FAIR_PII_PURGE_AT_MS, FAIR_PII_PURGE_AT_MS - 38 * DAY - 1)).toBe(38);
+    expect(retentionDaysLeft(FAIR_PII_PURGE_AT_MS, FAIR_PII_PURGE_AT_MS - 1)).toBe(0);
+    expect(retentionDaysLeft(FAIR_PII_PURGE_AT_MS, FAIR_PII_PURGE_AT_MS)).toBeNull();
+    const days = retentionDaysLeft(FAIR_PII_PURGE_AT_MS, NOW)!;
+    expect(renderToStaticMarkup(<AdminEventsRetention view={view} actions={actions} />)).toContain(fmt(plan.daysLeft, { days }));
+    expect(renderToStaticMarkup(<AdminEventsRetention view={{ ...view, now: FAIR_PII_PURGE_AT_MS - 1 }} actions={actions} />)).toContain(plan.dueToday);
+    expect(renderToStaticMarkup(<AdminEventsRetention view={{ ...view, now: FAIR_PII_PURGE_AT_MS + 1 }} actions={actions} />)).toContain(plan.started);
+    expect(FAIR_LEAD_DELIVERY_DEADLINE_MS).toBeLessThan(FAIR_PII_PURGE_AT_MS);
+  });
+
+  test("the last dry run, the lead deadline and what stays; still no delete action and no raw codes", () => {
+    const markup = renderToStaticMarkup(<AdminEventsRetention view={view} actions={actions} />);
+    expect(markup).toContain(plan.lastDryRunTitle);
+    expect(markup).toContain(adminEventsSr.retentionRunStatus.running);
+    expect(markup).toContain(plan.keptTitle);
+    for (const line of plan.kept) expect(markup).toContain(line);
+    expect(markup).toContain(fmt(plan.leadDeadline, { date: "" }).split(" ")[0]);
+    expect(markup).not.toMatch(/\b(email_deliveries|dry_run|execute|FAIR_[A-Z_]+)\b/);
+    expect(markup).not.toMatch(/Obriši|Izbriši/);
+    expect(renderToStaticMarkup(<AdminEventsRetention view={{ ...view, runs: [] }} actions={actions} />)).toContain(plan.lastDryRunNone);
   });
 });

@@ -2,7 +2,7 @@
 
 > Status: **ZAKLJUČAN KONTEKST ZA JOVANOV CLAUDE TOK**
 >
-> Poslednje ažuriranje: **2. oktobar 2026.**
+> Poslednje ažuriranje: **5. oktobar 2026.**
 > Vlasnik proizvodnih odluka i finalni go/no-go: **Aleksa**
 > Tehnički vlasnik backend-a i produkcijske mape: **Jovan**
 > Rok za operativnu spremnost: **9. oktobar 2026.**
@@ -11,6 +11,7 @@
 > Kanonski backend ugovor: [`BACKEND-HANDOFF.md`](./BACKEND-HANDOFF.md)
 > Javni UI ugovor: [`EVENT-DESIGN-SYSTEM.md`](./EVENT-DESIGN-SYSTEM.md)
 > Frontend integracija: [`FRONTEND-INTEGRATION-PLAN.md`](./FRONTEND-INTEGRATION-PLAN.md)
+> Najnovija traffic/share delta: [`JOVAN-DELTA-2026-10-05.md`](./JOVAN-DELTA-2026-10-05.md)
 
 `MASTER-KONTEKST.md` definiše proizvod. `BACKEND-HANDOFF.md` definiše tehničku implementaciju. Ovaj dokument prevodi Jovanov raniji kontekst „Živa mapa” na trenutno zaključan ScanMe plan i određuje šta Claude sme da zadrži, promeni ili izbaci.
 

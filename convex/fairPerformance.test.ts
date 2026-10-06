@@ -29,13 +29,24 @@ const ISSUER = "https://fair-b7-perf.test";
 const SECRET = "test-fair-visitor-secret-0123456789abcdef";
 const SLUG = "test-perf-2026";
 
+// K1: a TEST gateway secret (not a real value), set as the Convex env in beforeEach.
+const GATEWAY_SECRET = "test-fair-gateway-secret-0123456789abcdef";
+// K3: a TEST legal approval record (not a real review), required by every consent activation.
+const TEST_LEGAL_APPROVAL = { legalApprovedBy: "TEST pravna provera", legalApprovedAt: Date.parse("2026-10-01T12:00:00+02:00") };
+
 beforeEach(() => {
   process.env.SCANME_ADMIN_EMAILS = ADMIN_EMAIL;
+  process.env.FAIR_GATEWAY_SECRET = GATEWAY_SECRET;
+  // K3: the lead switches are on in this TEST env (see convex/fairLeads.test.ts for off).
+  process.env.FAIR_LEADS_ENABLED = "true";
+  process.env.FAIR_FOLLOWUP_ENABLED = "true";
   vi.stubGlobal("fetch", vi.fn(async () => { throw new Error("no network in tests"); }));
   vi.useFakeTimers();
   vi.setSystemTime(NOW);
 });
 afterEach(() => {
+  delete process.env.FAIR_LEADS_ENABLED;
+  delete process.env.FAIR_FOLLOWUP_ENABLED;
   vi.useRealTimers();
   vi.unstubAllGlobals();
 });
@@ -131,11 +142,11 @@ describe("B7 hot public reads on the largest realistic fair (100 models)", () =>
     const catalog = await f.t.query(api.fairPublic.getPassportCatalog, { eventSlug: SLUG });
     expect(catalog!.catalog).toHaveLength(10);
     expect(catalog!.catalog.every((entry) => entry.models.length === 4)).toBe(true);
-    const mine = await f.t.query(api.fairInteractions.getMyPassportProgress, { visitorHash: f.me, eventSlug: SLUG });
+    const mine = await f.t.query(api.fairInteractions.getMyPassportProgress, { gatewaySecret: GATEWAY_SECRET, visitorHash: f.me, eventSlug: SLUG });
     expect(mine!.progress).toHaveLength(10);
     expect(mine!.progress.every((row) => row.completed && row.stampedCount === 4 && row.requiredCount === 4 && row.favoriteResult?.state === "public")).toBe(true);
 
-    const state = await f.t.query(api.fairInteractions.getMyModelState, { visitorHash: f.me, eventModelId: f.advanced[0] });
+    const state = await f.t.query(api.fairInteractions.getMyModelState, { gatewaySecret: GATEWAY_SECRET, visitorHash: f.me, eventModelId: f.advanced[0] });
     expect(state.audience).toHaveLength(1);
     expect(state.passport).toMatchObject({ completed: true });
     expect(await f.t.query(api.fairPublic.listAudienceQuestionsForModel, { eventModelId: f.advanced[0], dateKey: "2026-10-09" })).toHaveLength(5);
@@ -159,7 +170,7 @@ describe("B7 rate limits behind one hall NAT", () => {
     const seed = await t.mutation(internal.fairDevFixtures.seedIntegrationTest, {});
     vi.setSystemTime(Date.parse("2026-10-08T11:00:00+02:00"));
     const code = seed.qr.find((row) => row.modelExternalKey === "test-em26-volta-x1")!.resolverCode;
-    const scan = (n: number) => t.mutation(api.cards.resolveAndRecord, { cardCode: code, requestId: `test-nat-${n}`, deviceCategory: "mobile", ipHash: "test-hall-nat", fairVisitorHash: visitor() });
+    const scan = (n: number) => t.mutation(api.cards.resolveAndRecord, { cardCode: code, requestId: `test-nat-${n}`, deviceCategory: "mobile", ipHash: "test-hall-nat", fairGatewaySecret: GATEWAY_SECRET, fairIpHash: "test-hall-nat", fairVisitorHash: visitor() });
     const outcomes: string[] = [];
     for (let n = 0; n < 300; n += 1) outcomes.push((await scan(n)).kind);
     expect(outcomes.every((kind) => kind === "fair_model")).toBe(true);
@@ -168,7 +179,7 @@ describe("B7 rate limits behind one hall NAT", () => {
     for (let n = 301; n < 306; n += 1) expect((await scan(n)).kind).toBe("fair_model");
     expect(await scan(306)).toEqual({ kind: "rate_limited" });
     // Another NAT address (another phone network) is not affected.
-    expect((await t.mutation(api.cards.resolveAndRecord, { cardCode: code, requestId: "test-nat-other", deviceCategory: "mobile", ipHash: "test-mobile-nat", fairVisitorHash: visitor() })).kind).toBe("fair_model");
+    expect((await t.mutation(api.cards.resolveAndRecord, { cardCode: code, requestId: "test-nat-other", deviceCategory: "mobile", ipHash: "test-mobile-nat", fairGatewaySecret: GATEWAY_SECRET, fairIpHash: "test-mobile-nat", fairVisitorHash: visitor() })).kind).toBe("fair_model");
   }, 180_000);
 
   test("one address gets at most 10 lead confirmations an hour, however many visitor hashes ask; nothing is stored for a refused submit", async () => {
@@ -185,10 +196,11 @@ describe("B7 rate limits behind one hall NAT", () => {
       return { eventId: event._id, models: rows.filter((row) => row.packageTier !== "included").map((row) => row._id) };
     });
     const { consentId } = await admin.mutation(api.fairLeadsAdmin.saveConsentDraft, { eventId, leadKind: "interest", text: "TEST saglasnost: ScanMe i {izlagac}." });
-    await admin.mutation(api.fairLeadsAdmin.activateConsent, { consentId });
+    await admin.mutation(api.fairLeadsAdmin.activateConsent, { consentId, ...TEST_LEGAL_APPROVAL });
     let n = 0;
     const submit = (email: string | undefined, phone?: string) =>
       t.mutation(api.fairLeads.submitLead, {
+        gatewaySecret: GATEWAY_SECRET,
         visitorHash: visitor(), eventModelId: models[n % models.length], kind: "interest", submissionId: `test-cap-${++n}`, contactName: "TEST Žrtva",
         ...(email ? { email } : {}), ...(phone ? { phone } : {}), consentAccepted: true, consentVersion: 1,
       });

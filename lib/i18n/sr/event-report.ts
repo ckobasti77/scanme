@@ -93,6 +93,16 @@ export const eventReportSr = {
   leadsTitle: "Kontakti posetilaca · {exhibitor}",
   leadsSubtitle: "{event} · LIČNI PODACI — samo za izlagača kome su namenjeni",
   leadsHeading: "Kontakti",
+  // Admin UX A8 — activity next to each lead, only what the lead's package sends to the exhibitor.
+  leadsActivityNote: "Uz svaki kontakt je aktivnost posetioca na modelima ovog izlagača, samo ono što paket tog modela uključuje; prazno polje znači da paket to nema.",
+  leadActivityColumns: {
+    scans: "Skenirani modeli",
+    ratings: "Ocene",
+    audienceVotes: "Glas publike",
+    surveyAnswers: "Anketa",
+    sponsoredActions: "Sponzorisana traka",
+  },
+  leadActivityScan: "{model} ({count}×)",
   emailSubject: "Dnevni presek · {event} · {day}",
   emailBody: "Poštovani,\n\nu prilogu je dnevni presek za {exhibitor} na događaju {event} za {day} ({date}).",
   emailCorrectionNote: "Ovo je ispravljena verzija ranije poslatog izveštaja.",

@@ -6,7 +6,7 @@ import {
   resolverIpHash,
   resolverRedirect,
 } from "@/lib/card-resolver-http";
-import { fairVisitorForRequest } from "@/lib/fair-server/visitor";
+import { fairConvexVisitorForRequest, warnOnce } from "@/lib/fair-server/visitor";
 import {
   buildGuestCookieValue,
   guestCookieHeader,
@@ -74,14 +74,18 @@ export async function GET(
     // Sajam 2026 B2: only the HMAC of the HttpOnly fair visitor cookie goes
     // to Convex (read solely by the fair_model branch); the token itself
     // never leaves this handler. The cookie is set only when a fair model
-    // opens (lib/fair-server/visitor.ts).
-    const fairVisitor = fairVisitorForRequest(request, Date.now());
+    // opens (lib/fair-server/visitor.ts). K1: the hash rides only together
+    // with FAIR_GATEWAY_SECRET and the caller-IP HMAC (server env, never in
+    // the redirect); without the secret the fair part is simply absent.
+    const fairVisitor = fairConvexVisitorForRequest(request, Date.now());
     const outcome = await resolveWithSession(convex, {
       cardCode,
       requestId,
       deviceCategory: deviceCategory(request.headers.get("user-agent") ?? ""),
       ipHash: resolverIpHash(request),
-      ...(fairVisitor.visitorHash ? { fairVisitorHash: fairVisitor.visitorHash } : {}),
+      ...(fairVisitor.visitorHash
+        ? { fairVisitorHash: fairVisitor.visitorHash, fairGatewaySecret: fairVisitor.gatewaySecret, fairIpHash: fairVisitor.ipHash }
+        : {}),
     });
 
     switch (outcome.kind) {
@@ -124,6 +128,9 @@ export async function GET(
       case "fair_model":
         // Sajam 2026 B2: the readable model page. The scan was recorded in
         // the mutation above; the page load itself never records one.
+        // K1: Convex refused the gateway secret (Next and Convex values
+        // differ, or Convex has none) — a deploy problem, logged once by code.
+        if (outcome.fairScan === "gateway_rejected") warnOnce("FAIR_GATEWAY_REJECTED");
         return redirect(
           new URL(outcome.path, request.url).toString(),
           fairVisitor.setCookie ?? undefined,

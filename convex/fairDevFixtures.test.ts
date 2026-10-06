@@ -60,6 +60,56 @@ test("seedTestCatalog is idempotent and only writes TEST fixtures", async () => 
   expect((await admin.query(api.adminReadModels.listClients, { paginationOpts: { numItems: 50, cursor: null }, status: "all", sort: "name" })).page).toEqual([]);
 });
 
+test("seedShowcaseCatalog creates five source-based TEST exhibitors and complete review data idempotently", async () => {
+  const t = convexTest(schema, modules);
+  rateLimiterTest.register(t);
+  await t.run((ctx) => ctx.db.insert("users", { email: ADMIN_EMAIL }));
+
+  const first = await t.mutation(internal.fairDevFixtures.seedShowcaseCatalog, {});
+  expect(first).toMatchObject({
+    clients: { created: 6 },
+    brands: { created: 5 },
+    days: { created: 3 },
+    participations: { created: 5 },
+    stands: { created: 5 },
+    models: { created: 10 },
+    publishedNow: 10,
+    qr: { created: 10, unchanged: 0 },
+    passport: { created: true, requiredModels: 2 },
+    leadConfigs: { created: 10, unchanged: 0 },
+    surveys: { created: 3, unchanged: 0 },
+    questions: { created: 7, unchanged: 0 },
+    snapshot: { created: true, items: 3 },
+  });
+  const rows = await t.run(async (ctx) => ({
+    accounts: await ctx.db.query("accounts").collect(),
+    models: await ctx.db.query("fairEventModels").collect(),
+    stands: await ctx.db.query("fairStands").collect(),
+  }));
+  const names = rows.accounts.map((row) => row.name);
+  expect(names).toEqual(expect.arrayContaining(["TEST Toyota", "TEST Citroën", "TEST BYD", "TEST Geely", "TEST Ford"]));
+  expect(rows.models).toHaveLength(10);
+  expect(new Set(rows.models.map((row) => row.packageTier))).toEqual(new Set(["included", "starter", "advanced"]));
+  expect(new Set(rows.stands.map((row) => row.mapLocationId))).toEqual(new Set(["hala-1", "hala-2", "hala-3", "hala-5", "hala-6-7"]));
+
+  const second = await t.mutation(internal.fairDevFixtures.seedShowcaseCatalog, {});
+  expect(second).toMatchObject({
+    clients: { created: 0, unchanged: 6 },
+    brands: { created: 0, unchanged: 5 },
+    days: { created: 0, updated: 0, unchanged: 3 },
+    participations: { created: 0, updated: 0, unchanged: 5 },
+    stands: { created: 0, updated: 0, unchanged: 5 },
+    models: { created: 0, updated: 0, unchanged: 10 },
+    publishedNow: 0,
+    qr: { created: 0, unchanged: 10 },
+    passport: { created: false, requiredModels: 2 },
+    leadConfigs: { created: 0, unchanged: 10 },
+    surveys: { created: 0, unchanged: 3 },
+    questions: { created: 0, unchanged: 7 },
+    snapshot: { created: false, items: 3 },
+  });
+});
+
 test("seedTestPassport publishes one TEST brand passport, idempotently, visible on the event map", async () => {
   const t = convexTest(schema, modules);
   rateLimiterTest.register(t);

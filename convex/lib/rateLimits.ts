@@ -151,4 +151,26 @@ export const rateLimiter = new RateLimiter(components.rateLimiter, {
   // covers a quick burst on a few cards. A same-requestId retry returns
   // before the limiter and costs nothing.
   fairSponsoredAction: { kind: "token bucket", rate: 20, period: MINUTE, capacity: 10 },
+  // 5 Oct traffic/share delta: explicit share/direct actions only. Keyed by
+  // fairVisitors._id for NAT safety and erased association after visitor purge.
+  fairTraffic: { kind: "token bucket", rate: 30, period: MINUTE, capacity: 20 },
+  // Sajam 2026 K1 (RF nalaz 1): fairVisitorCreate — ONE token per NEW
+  // fairVisitors row (an existing visitor never spends it), keyed by the
+  // HMAC of the caller IP that the trusted Next gateway computes
+  // (lib/fair-server/visitor.ts `fairIpHash`; Convex cannot reverse it and
+  // never sees the raw IP). It is the only per-IP fair bucket: it caps how
+  // fast one address can mint identities (a gateway called without a cookie
+  // mints one per request), never what an existing visitor does.
+  // The arithmetic, both sides:
+  //  - a hall behind ONE public IP (shared Wi-Fi, or a carrier CGNAT that
+  //    puts many phones on one address) must not be blocked. A fair day is
+  //    ~5–10k visitors over ~8 h ≈ 20/min new devices on average; an opening
+  //    rush ≈ 3–5× that ≈ 100/min, and a whole room can arrive at once.
+  //    Capacity 300 absorbs the burst (same as the per-IP cardResolve in front
+  //    of /r), refill 120/min (2/s) stays above the peak rate;
+  //  - a script on one address gets at most 300 + 120 = 420 identities in
+  //    its first minute and 120/min after that — never thousands per minute.
+  // A refusal writes nothing: /r still records the generic scan and redirects
+  // (fairScan "rate_limited"); an interaction throws RATE_LIMITED.
+  fairVisitorCreate: { kind: "token bucket", rate: 120, period: MINUTE, capacity: 300 },
 });

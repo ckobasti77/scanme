@@ -11,6 +11,7 @@ import {
   fairEmailDeliveryKind,
   fairEmailDeliveryStatus,
   fairEventStatus,
+  fairLeadConfigSource,
   fairLeadKind,
   fairLeadStatus,
   fairMessageTemplateKind,
@@ -33,10 +34,14 @@ import {
   fairSponsoredActionKind,
   fairSponsoredActionSurface,
   fairSponsoredSnapshotStatus,
+  fairSponsoredSnapshotTrigger,
+  fairShareChannel,
+  fairShareCollectionStatus,
   fairStandStatus,
   fairSurveyAnswer,
   fairSurveyQuestion,
   fairSurveyStatus,
+  fairTrafficKind,
   fairVisitorHash,
 } from "./lib/fairValidators";
 import { fairDailyDataset } from "./lib/fairReportDataset";
@@ -3324,6 +3329,11 @@ export default defineSchema({
     // existing QR channels may be assigned to this event's models. Unset =
     // no assignment possible (FAIR_QR_INVENTORY_NOT_CONFIGURED).
     qrInventoryBusinessId: v.optional(v.id("businesses")),
+    // Admin UX A9: the sponsored snapshot follows the published Advanced
+    // models by itself unless this is false (unset = on). `sponsoredAutoCheckAt`
+    // is the scheduled re-check for a package that starts later (dedupe).
+    sponsoredAutoPublish: v.optional(v.boolean()),
+    sponsoredAutoCheckAt: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
@@ -3593,6 +3603,10 @@ export default defineSchema({
     text: v.string(),
     status: fairConsentStatus,
     activatedAt: v.optional(v.number()),
+    // K3: the legal approval record entered at activation (who did the
+    // expert review, and when). Optional only for rows activated before K3.
+    legalApprovedBy: v.optional(v.string()),
+    legalApprovedAt: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
@@ -3606,12 +3620,35 @@ export default defineSchema({
     // A preference, never a requirement unless contactRequirement says so.
     preferredContact: v.optional(fairPreferredContact),
     enabled: v.boolean(),
+    // Admin UX A7: "default" = written by "Primeni na sve modele" from the
+    // exhibitor default; "override" (or absent, rows before A7) = the model's
+    // own exception, which the exhibitor default never overwrites.
+    source: v.optional(fairLeadConfigSource),
     updatedByUserId: v.id("users"),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
     // unique: (eventModelId, leadKind)
     .index("by_eventModelId_and_leadKind", ["eventModelId", "leadKind"]),
+
+  // Admin UX A7 — the exhibitor's default for one lead form on one event
+  // (ADMIN-UX §6 Forme). Admin input only: the public flow (getLeadForm,
+  // submitLead) still reads fairLeadConfigs, which "Primeni na sve modele"
+  // writes from this row.
+  fairParticipationLeadDefaults: defineTable({
+    eventId: v.id("fairEvents"),
+    participationId: v.id("fairParticipations"),
+    leadKind: fairLeadKind,
+    enabled: v.boolean(),
+    contactRequirement: fairContactRequirement,
+    preferredContact: v.optional(fairPreferredContact),
+    updatedByUserId: v.id("users"),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    // unique: (participationId, leadKind)
+    .index("by_participationId_and_leadKind", ["participationId", "leadKind"])
+    .index("by_eventId", ["eventId"]),
 
   // (PII) A declined consent is never stored (consentAccepted is literally true).
   fairLeads: defineTable({
@@ -3640,7 +3677,9 @@ export default defineSchema({
     .index("by_submissionId", ["submissionId"])
     .index("by_eventModelId_and_createdAt", ["eventModelId", "createdAt"])
     .index("by_participationId_and_createdAt", ["participationId", "createdAt"])
-    .index("by_status_and_purgeAt", ["status", "purgeAt"]),
+    .index("by_status_and_purgeAt", ["status", "purgeAt"])
+    // Admin UX A8 — the event's lead inbox (newest first, date range).
+    .index("by_eventId_and_createdAt", ["eventId", "createdAt"]),
 
   fairMessageTemplates: defineTable({
     eventModelId: v.id("fairEventModels"),
@@ -3653,6 +3692,26 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index("by_eventModelId_and_kind_and_status", ["eventModelId", "kind", "status"]),
+
+  // Admin UX A8 — the exhibitor's one follow-up text per event (ADMIN-UX §7):
+  // a draft is edited, activation retires the previous active version. Plain
+  // text with merge fields (FAIR_FOLLOW_UP_FIELDS); the HTML comes from the
+  // ScanMe email template at send time. Not PII. The B4 per-model text
+  // (fairMessageTemplates) stays as the fallback for an exhibitor without one.
+  fairExhibitorFollowUpTemplates: defineTable({
+    eventId: v.id("fairEvents"),
+    participationId: v.id("fairParticipations"),
+    subject: v.string(),
+    plainText: v.string(),
+    status: fairMessageTemplateStatus,
+    version: v.number(),
+    updatedByUserId: v.id("users"),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    // at most one draft and one active row per participation (convex/fairFollowUps.ts)
+    .index("by_participationId_and_status", ["participationId", "status"])
+    .index("by_eventId_and_status", ["eventId", "status"]),
 
   // (PII: recipient) Outbox; a Node internalAction sends via the Resend seam.
   fairEmailDeliveries: defineTable({
@@ -3686,9 +3745,18 @@ export default defineSchema({
     brandId: v.id("brands"),
     participationId: v.id("fairParticipations"),
     status: fairPassportConfigStatus,
-    // The eligible set is frozen before the event opens.
+    // The eligible set is frozen before the event opens. Manual publish:
+    // the publish moment. Admin UX A7 automatic passport: the event's
+    // startsAt (until then the sync keeps the set in line with the catalog).
     frozenAt: v.optional(v.number()),
     publishedAt: v.optional(v.number()),
+    // Admin UX A7 — hidden from every public read (catalog, model page,
+    // garage, map, favorite); the passport keeps its set, stamps and
+    // favorites, and keeps stamping, so "Prikaži" loses no progress.
+    hiddenAt: v.optional(v.number()),
+    hiddenByUserId: v.optional(v.id("users")),
+    // Admin UX A7 — the last change written by the automatic sync.
+    autoSyncedAt: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
@@ -3764,7 +3832,7 @@ export default defineSchema({
     .index("by_eventDayId_and_participationId", ["eventDayId", "participationId"])
     .index("by_status_and_createdAt", ["status", "createdAt"]),
 
-  // §5.7 — sponsored snapshot (manually published, immutable list of all
+  // §5.7 — sponsored snapshot (published by an admin or, A9, automatically; immutable list of all
   // published Advanced models, stably shuffled per dayKey/seed)
   fairSponsoredSnapshots: defineTable({
     eventId: v.id("fairEvents"),
@@ -3774,6 +3842,8 @@ export default defineSchema({
     status: fairSponsoredSnapshotStatus,
     publishedAt: v.optional(v.number()),
     publishedByUserId: v.optional(v.id("users")),
+    // Admin UX A9: "auto" = published by the system (no publishedByUserId).
+    trigger: v.optional(fairSponsoredSnapshotTrigger),
   })
     // one "published" snapshot per event (checked by the publish mutation)
     .index("by_eventId_and_status", ["eventId", "status"])
@@ -3804,7 +3874,43 @@ export default defineSchema({
     // unique: requestId
     .index("by_requestId", ["requestId"])
     .index("by_eventModelId_and_occurredAt", ["eventModelId", "occurredAt"])
-    .index("by_eventId_and_occurredAt", ["eventId", "occurredAt"]),
+    .index("by_eventId_and_occurredAt", ["eventId", "occurredAt"])
+    // Admin UX A8 — one visitor's actions next to a lead (admin only).
+    .index("by_visitorId_and_occurredAt", ["visitorId", "occurredAt"]),
+
+  // 5 Oct traffic/share delta: public, read-only collections of 1-5 models.
+  // The URL carries a 144-bit opaque code; only its SHA-256 hash is stored.
+  fairShareCollections: defineTable({
+    requestId: v.string(),
+    codeHash: v.string(),
+    eventId: v.id("fairEvents"),
+    eventModelIds: v.array(v.id("fairEventModels")),
+    status: fairShareCollectionStatus,
+    createdAt: v.number(),
+    expiresAt: v.number(),
+  })
+    .index("by_requestId", ["requestId"])
+    .index("by_codeHash", ["codeHash"])
+    .index("by_eventId_and_createdAt", ["eventId", "createdAt"]),
+
+  // Explicit traffic signals only. No visitorId is stored: these rows are
+  // anonymous per-request analytics and never participate in QR scan counts.
+  fairTrafficEvents: defineTable({
+    requestId: v.string(),
+    eventId: v.id("fairEvents"),
+    eventModelId: v.optional(v.id("fairEventModels")),
+    shareCollectionId: v.optional(v.id("fairShareCollections")),
+    kind: fairTrafficKind,
+    channel: v.optional(fairShareChannel),
+    modelCount: v.optional(v.number()),
+    occurredAt: v.number(),
+    dateKey: v.string(),
+    hourKey: v.string(),
+  })
+    .index("by_requestId", ["requestId"])
+    .index("by_eventId_and_occurredAt", ["eventId", "occurredAt"])
+    .index("by_eventModelId_and_occurredAt", ["eventModelId", "occurredAt"])
+    .index("by_shareCollectionId_and_occurredAt", ["shareCollectionId", "occurredAt"]),
 
   // §5.6 — B7 operational audit of the 16 Nov PII purge and of its dry runs
   // (convex/fairRetention.ts). Only start, end, category, row counts and
@@ -3823,6 +3929,95 @@ export default defineSchema({
     // dry_run only: _creationTime of the last counted row of that category.
     cursorCreationTime: v.optional(v.number()),
     batches: v.number(),
-    categories: v.array(fairPurgeCategoryProgress), // fixed 11 entries
+    categories: v.array(fairPurgeCategoryProgress), // fixed 13 entries
   }).index("by_mode_and_status", ["mode", "status"]),
+
+  // Admin UX Z1 — Pošta: each admin's own Zoho mailboxes (ADMIN-UX-ZAHTEVI
+  // §10, §12.5). Separate from the ADMIN-09B ingest tables, which keep one
+  // integration connection (`emailProviderConnections.by_provider.unique()`).
+  // Only the connection, its accounts and the one-time OAuth states are
+  // stored; message bodies are read live and never copied. Tokens are
+  // AES-GCM ciphertext (convex/lib/adminMailCrypto.ts) and never leave
+  // convex/adminMail.ts.
+  adminMailConnections: defineTable({
+    ownerUserId: v.id("users"),
+    provider: v.literal("zoho"),
+    region: v.literal("eu"),
+    primaryEmail: v.string(),
+    status: v.union(v.literal("active"), v.literal("auth_required")),
+    refreshTokenCiphertext: v.string(),
+    refreshTokenIv: v.string(),
+    keyVersion: v.number(),
+    // Short-lived access token cache, also encrypted (until expiry − 60 s).
+    accessTokenCiphertext: v.optional(v.string()),
+    accessTokenIv: v.optional(v.string()),
+    accessTokenExpiresAt: v.optional(v.number()),
+    scopes: v.array(v.string()),
+    lastErrorCode: v.optional(v.string()),
+    connectedAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_ownerUserId", ["ownerUserId"])
+    .index("by_ownerUserId_and_primaryEmail", ["ownerUserId", "primaryEmail"]),
+
+  adminMailAccounts: defineTable({
+    connectionId: v.id("adminMailConnections"),
+    ownerUserId: v.id("users"),
+    zohoAccountId: v.string(),
+    emailAddress: v.string(),
+    displayName: v.optional(v.string()),
+    isDefault: v.boolean(),
+    // Z2 — signature of this mailbox (plain text with [links](…)), kept on reconnect.
+    signatureText: v.optional(v.string()),
+  })
+    .index("by_connectionId", ["connectionId"])
+    .index("by_ownerUserId", ["ownerUserId"]),
+
+  // One-time OAuth `state`: only the SHA-256 of the nonce, bound to the admin
+  // who started the connection, valid 10 minutes, consumed once.
+  adminMailOAuthStates: defineTable({
+    ownerUserId: v.id("users"),
+    stateHash: v.string(),
+    expiresAt: v.number(),
+    usedAt: v.optional(v.number()),
+    createdAt: v.number(),
+  })
+    .index("by_stateHash", ["stateHash"])
+    .index("by_ownerUserId_and_createdAt", ["ownerUserId", "createdAt"]),
+
+  // Z2 — a file the admin attached in the compose window: Convex storage only
+  // until the send action hands it to Zoho, then deleted (or after 2 h).
+  adminMailUploads: defineTable({
+    ownerUserId: v.id("users"),
+    storageId: v.id("_storage"),
+    fileName: v.string(),
+    size: v.number(),
+    mimeType: v.string(),
+    createdAt: v.number(),
+    expiresAt: v.number(),
+  })
+    .index("by_ownerUserId_and_createdAt", ["ownerUserId", "createdAt"])
+    .index("by_storageId", ["storageId"]),
+
+  // Z2 — one send attempt (ADMIN-09B outbox pattern): a sendCommandId is used
+  // once; `needs_reconciliation` means the POST may have reached Zoho and is
+  // never repeated. No body, subject or recipients are stored.
+  adminMailSendCommands: defineTable({
+    ownerUserId: v.id("users"),
+    connectionId: v.id("adminMailConnections"),
+    zohoAccountId: v.string(),
+    sendCommandId: v.string(),
+    mode: v.union(v.literal("new"), v.literal("reply"), v.literal("reply_all"), v.literal("forward")),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("sending"),
+      v.literal("sent"),
+      v.literal("failed"),
+      v.literal("needs_reconciliation"),
+    ),
+    providerMessageId: v.optional(v.string()),
+    errorCode: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_ownerUserId_and_sendCommandId", ["ownerUserId", "sendCommandId"]),
 });

@@ -3,12 +3,17 @@ import { internalMutation } from "./_generated/server";
 import { FAIR_PII_PURGE_AT_MS, fairModelPath } from "../lib/fair-contract";
 import { buildFairReportEmail, fairLeadEmailMessage, fairReportEmailMessage, type FairLeadEmailMessage } from "./lib/fairEmails";
 import { fairDailyReportFileName, fairReportDateText } from "./lib/fairReportFiles";
+import { fairFollowUpValues, renderFairFollowUp } from "./lib/fairFollowUp";
+import { fairPairFollowUpFacts, fairPairLeads } from "./lib/fairLeadActivity";
 import {
   FAIR_EMAIL_MAX_ATTEMPTS,
   FAIR_EMAIL_RETRY_DELAYS_MS,
+  fairActiveExhibitorFollowUp,
   fairActiveFollowUpTemplate,
   fairExhibitorName,
+  fairFollowUpEnabled,
   fairLeadDelivery,
+  fairLeadsEnabled,
   fairModelFullName,
   scheduleFairEmailSend,
 } from "./lib/fairLeads";
@@ -26,7 +31,13 @@ import {
 //   - a retry reuses the same row and the same Idempotency-Key, so Resend
 //     itself refuses a second delivery of the same message;
 //   - a follow-up re-reads its lead at claim time and becomes `suppressed`
-//     instead of being sent when an admin recorded the opt-out.
+//     instead of being sent when an admin recorded the opt-out;
+//   - K3: a lead email becomes `skipped` (lastError LEADS_DISABLED or
+//     FOLLOW_UP_DISABLED) when its hard switch is off at claim time;
+//   - Admin UX A8: one follow-up per (visitor email, exhibitor) pair — the
+//     first claimed row sends with the exhibitor's text and merge fields, the
+//     pair's other rows become `skipped` (FOLLOW_UP_MERGED); a suppression on
+//     any lead of the pair suppresses the pair.
 //
 // B6 adds `daily_report` rows (one per send of an approved report run,
 // dedupeKey `fair-report/<runId>/<n>`). The claim re-checks the run right
@@ -38,7 +49,7 @@ const deliveryArgs = { deliveryId: v.id("fairEmailDeliveries") };
 
 /**
  * Called by the sender immediately before sending. Returns the message to
- * send or `skip` (not queued, not due yet, suppressed, missing data).
+ * send or `skip` (not queued, not due yet, switch off, suppressed, missing data).
  */
 export const claimDelivery = internalMutation({
   args: deliveryArgs,
@@ -83,6 +94,17 @@ export const claimDelivery = internalMutation({
       };
     }
     if (delivery.kind !== "immediate_confirmation" && delivery.kind !== "post_event_follow_up") return skip;
+    // K3: the hard switches, again, immediately before delivery. A switch that
+    // was turned off after the row was queued closes it as `skipped`; nothing
+    // is sent and the sender never sees the recipient.
+    const switchOff =
+      !fairLeadsEnabled() ? "LEADS_DISABLED"
+      : delivery.kind === "post_event_follow_up" && !fairFollowUpEnabled() ? "FOLLOW_UP_DISABLED"
+      : null;
+    if (switchOff) {
+      await ctx.db.patch(delivery._id, { status: "skipped", lastError: switchOff, updatedAt: now });
+      return skip;
+    }
     const lead = delivery.leadId ? await ctx.db.get(delivery.leadId) : null;
     const model = lead ? await ctx.db.get(lead.eventModelId) : null;
     const event = model ? await ctx.db.get(model.eventId) : null;
@@ -93,19 +115,52 @@ export const claimDelivery = internalMutation({
     }
 
     let template: FairLeadEmailMessage["template"];
+    let pairContactName: string | null = null;
+    let pairModelNames: string | null = null;
     if (delivery.kind === "post_event_follow_up") {
       // MASTER §8: suppression is checked immediately before delivery.
       if (lead.followUpSuppressed) {
         await ctx.db.patch(delivery._id, { status: "suppressed", updatedAt: now });
         return skip;
       }
-      // DATA-INTAKE §6.7: the body is the exhibitor's text; none → nothing is invented.
-      const active = await fairActiveFollowUpTemplate(ctx, model._id);
+      // Admin UX A8 (ADMIN-UX §7): ONE follow-up per (visitor email, exhibitor).
+      // Every Advanced lead still queues its own row at submit; the first row
+      // of a pair that is claimed sends for the whole pair and closes its
+      // queued siblings as skipped/FOLLOW_UP_MERGED, in this transaction.
+      const pair = await fairPairLeads(ctx, lead.participationId, delivery.recipient);
+      if (!pair.some((row) => row._id === lead._id)) pair.push(lead);
+      if (pair.some((row) => row.followUpSuppressed)) {
+        await ctx.db.patch(delivery._id, { status: "suppressed", updatedAt: now });
+        return skip;
+      }
+      const queuedSiblings = [];
+      for (const row of pair) {
+        if (row._id === lead._id) continue;
+        const sibling = await fairLeadDelivery(ctx, row._id, "post_event_follow_up");
+        if (!sibling || sibling._id === delivery._id) continue;
+        // Already sent, being sent (claimed) or failed for the pair (admin retry): this row is not a second email.
+        if (sibling.status === "sent" || sibling.status === "failed" || (sibling.status === "queued" && sibling.attemptCount > 0)) {
+          await ctx.db.patch(delivery._id, { status: "skipped", lastError: "FOLLOW_UP_MERGED", updatedAt: now });
+          return skip;
+        }
+        if (sibling.status === "queued") queuedSiblings.push(sibling);
+      }
+      for (const sibling of queuedSiblings) {
+        await ctx.db.patch(sibling._id, { status: "skipped", lastError: "FOLLOW_UP_MERGED", updatedAt: now });
+      }
+      // DATA-INTAKE §6.7: the body is the exhibitor's text — A8 the active text
+      // of the exhibitor, else (B4 compatibility) the model's text; none →
+      // nothing is invented.
+      const active = (await fairActiveExhibitorFollowUp(ctx, lead.participationId)) ?? (await fairActiveFollowUpTemplate(ctx, model._id));
       if (!active) {
         await ctx.db.patch(delivery._id, { status: "failed", lastError: "FOLLOW_UP_TEMPLATE_MISSING", updatedAt: now });
         return skip;
       }
-      template = { subject: active.subject, plainText: active.plainText };
+      const facts = await fairPairFollowUpFacts(ctx, { participationId: lead.participationId, leads: pair, eventTitle: event.title });
+      const values = fairFollowUpValues(facts);
+      template = renderFairFollowUp({ subject: active.subject, plainText: active.plainText }, values);
+      pairContactName = values.ime;
+      pairModelNames = values.modeli;
     }
 
     await ctx.db.patch(delivery._id, { attemptCount: delivery.attemptCount + 1, updatedAt: now });
@@ -117,12 +172,14 @@ export const claimDelivery = internalMutation({
         dedupeKey: delivery.dedupeKey,
         recipient: delivery.recipient,
         leadKind: lead.kind,
-        contactName: lead.contactName,
-        modelName: fairModelFullName(model),
+        contactName: pairContactName ?? lead.contactName,
+        // A8: the follow-up footer names every model of the pair.
+        modelName: pairModelNames ?? fairModelFullName(model),
         exhibitorName,
         eventTitle: event.title,
         modelPath: fairModelPath(event.slug, model.slug),
-        followUpScheduled: followUp !== null,
+        // K3: announce the reply-to-cancel option only while the follow-up can still go out.
+        followUpScheduled: followUp !== null && fairFollowUpEnabled(),
         ...(template ? { template } : {}),
       },
     };

@@ -41,10 +41,27 @@ export type FairEmailDeliveryKind =
   | "post_event_follow_up"
   | "exhibitor_delivery"
   | "daily_report";
-export type FairEmailDeliveryStatus = "queued" | "sent" | "failed" | "suppressed";
+/** K3 `skipped`: a lead email whose hard switch was off at claim time; closed, never sent. */
+export type FairEmailDeliveryStatus = "queued" | "sent" | "failed" | "suppressed" | "skipped";
 /** B0 design: HANDOFF §5.5 names fairPassportConfigs without fields. */
 export type FairPassportConfigStatus = "draft" | "published" | "withdrawn";
 export type FairPassportEligibleStatus = "required" | "removed";
+/**
+ * Admin UX A7 — why a brand does not meet the passport condition (MASTER §11,
+ * `fairBrandPassportProblems` in lib/fair-entitlements.ts).
+ */
+export type FairBrandPassportProblem =
+  | "fewer_than_two_models"
+  | "model_not_published"
+  | "model_not_candidate"
+  | "model_below_starter"
+  | "multiple_exhibitors";
+/**
+ * Admin UX A7 — where a model's lead form setting comes from: the exhibitor's
+ * default (`fairParticipationLeadDefaults`, applied in one move) or the
+ * model's own exception. A row without the field predates A7 and is an exception.
+ */
+export type FairLeadConfigSource = "default" | "override";
 export type FairReportStatus =
   | "queued"
   | "building"
@@ -77,11 +94,20 @@ export type FairReportMetric = (typeof FAIR_REPORT_METRICS)[number];
 export const FAIR_REPORT_READY_WITHIN_MS = 60 * 60 * 1000;
 export type FairSponsoredSnapshotStatus = "draft" | "published" | "retired";
 /**
+ * Admin UX A9: who published a snapshot — `admin` (manual "Osveži") or `auto`
+ * (the system, after a change of the event's published Advanced models).
+ * A snapshot without the field predates A9 and was published by an admin.
+ */
+export type FairSponsoredSnapshotTrigger = "admin" | "auto";
+/**
  * JOVAN-DELTA §2: only the garage sponsored strip writes events. The map and
  * the fair displays never write a sponsored event (no impressions anywhere).
  */
 export type FairSponsoredActionSurface = "garage";
 export type FairSponsoredActionKind = "open_model" | "garage_add";
+export type FairShareCollectionStatus = "active" | "expired";
+export type FairTrafficKind = "direct_view" | "share_action" | "share_open";
+export type FairShareChannel = "native" | "whatsapp" | "viber" | "copy";
 /** MASTER §4.6: absent on a stored account means "standard". */
 export type FairClientSegment = "standard" | "event_only";
 
@@ -108,6 +134,8 @@ export const FAIR_MAX_MODEL_IDS_PER_READ = 50;
 /** Same names and values as lib/fair-client/rotation-slot.ts (MASTER §10). */
 export const FAIR_MAP_ROTATION_INTERVAL_MS = 12_000;
 export const FAIR_GARAGE_ROTATION_INTERVAL_MS = 8_000;
+export const FAIR_SHARE_COLLECTION_MAX_MODELS = 5;
+export const FAIR_SHARE_CODE_PATTERN = /^[A-Za-z0-9_-]{24}$/;
 /** Survey has at most five questions (MASTER §9.2). */
 export const FAIR_SURVEY_MAX_QUESTIONS = 5;
 /** Audience question options: at least 2 (HANDOFF §5.3), at most 5 (DATA-INTAKE §6.5). */
@@ -122,6 +150,12 @@ export const FAIR_RATING_MAX = 5;
  * FAIR-BACKEND-CONTRACT.md. Purge/cookie expiry use this one value.
  */
 export const FAIR_PII_PURGE_AT_MS = Date.UTC(2026, 10, 15, 23, 0, 0);
+/**
+ * Admin UX A8 — every lead is handed to its exhibitor by the end of
+ * 15 November 2026 Europe/Belgrade (MASTER §13): the last millisecond before
+ * the purge. Shown as the deadline next to the undelivered leads.
+ */
+export const FAIR_LEAD_DELIVERY_DEADLINE_MS = FAIR_PII_PURGE_AT_MS - 1;
 /**
  * B7: the 16 Nov purge deletes these categories IN THIS ORDER (HANDOFF §5.6,
  * MASTER §13). A row is only deleted after every row that points at it is
@@ -138,6 +172,8 @@ export const FAIR_PURGE_CATEGORIES = [
   "brand_favorites",
   "passport_stamps",
   "sponsored_actions",
+  "traffic_events",
+  "share_collections",
   "unique_scans",
   "scan_events",
   "visitors",
@@ -166,6 +202,14 @@ export const FAIR_VISITOR_HASH_PATTERN = /^[0-9a-f]{64}$/;
 export function isFairVisitorHash(value: string): boolean {
   return FAIR_VISITOR_HASH_PATTERN.test(value);
 }
+
+/**
+ * K1: FAIR_GATEWAY_SECRET — the shared secret only the Next server and the
+ * Convex deployment of one environment know. Every visitor-specific fair
+ * function refuses a call without it. A shorter configured value counts as
+ * missing on both sides (fail closed).
+ */
+export const FAIR_GATEWAY_SECRET_MIN_LENGTH = 32;
 
 export function isFairRatingValue(value: number): value is FairRatingValue {
   return Number.isInteger(value) && value >= FAIR_RATING_MIN && value <= FAIR_RATING_MAX;
@@ -472,6 +516,13 @@ export function isFairSubmissionId(value: string): boolean {
  */
 export const FAIR_CONSENT_EXHIBITOR_PLACEHOLDER = "{izlagac}";
 
+/**
+ * K3: activation records who did the expert legal review of the text
+ * (`legalApprovedBy`, a person or firm, at most this many characters) and
+ * when (`legalApprovedAt`, not in the future). Both are entered by the admin.
+ */
+export const FAIR_CONSENT_LEGAL_APPROVER_MAX = 120;
+
 /** Technical caps of the lead form fields. */
 export const FAIR_LEAD_NAME_MAX = 120;
 export const FAIR_LEAD_EMAIL_MAX = 254;
@@ -513,6 +564,8 @@ export function fairContactRequirementProblem(
 /** Public lead form of one model and kind. No PII; consent text is server-rendered. */
 export type FairLeadFormView =
   | { eventModelId: string; kind: FairLeadKind; state: "unavailable" }
+  /** K3 hard switch: FAIR_LEADS_ENABLED is not "true" on Convex → no form, nothing is stored. */
+  | { eventModelId: string; kind: FairLeadKind; state: "leads_disabled" }
   /** Production gate: no active consent version → the form must not collect contacts. */
   | { eventModelId: string; kind: FairLeadKind; state: "consent_not_configured" }
   | {
@@ -563,8 +616,38 @@ export const FAIR_EMAIL_DELIVERY_ERRORS = [
   // B6 — daily report: the run was no longer approved/sent or its file was gone at claim time
   "REPORT_NOT_SENDABLE",
   "REPORT_FILE_MISSING",
+  // K3 — a hard switch was off at claim time: the row is closed as `skipped`, nothing is sent
+  "LEADS_DISABLED",
+  "FOLLOW_UP_DISABLED",
+  // Admin UX A8 — one follow-up per (visitor email, exhibitor): this row's pair is sent by another row
+  "FOLLOW_UP_MERGED",
 ] as const;
 export type FairEmailDeliveryError = (typeof FAIR_EMAIL_DELIVERY_ERRORS)[number];
+
+/**
+ * Admin UX A8 — merge fields of the exhibitor's follow-up text (ADMIN-UX §7),
+ * written as `{ime}` in the subject or the text. Anything else in braces is
+ * refused when the text is saved (FAIR_FOLLOWUP_UNKNOWN_FIELD).
+ *   ime — the visitor's name from the lead; izlagac — the exhibitor;
+ *   dogadjaj — the event; modeli — the exhibitor's models the visitor left a
+ *   lead for; modeli_zainteresovan / modeli_probna_voznja — by lead kind;
+ *   modeli_ocenjeni — the exhibitor's models the visitor rated, only where
+ *   the model's package has ratings.
+ */
+export const FAIR_FOLLOW_UP_FIELDS = ["ime", "izlagac", "dogadjaj", "modeli", "modeli_zainteresovan", "modeli_probna_voznja", "modeli_ocenjeni"] as const;
+export type FairFollowUpField = (typeof FAIR_FOLLOW_UP_FIELDS)[number];
+/** Same limits as the B4 per-model text (plain text only; HTML comes from the ScanMe email template). */
+export const FAIR_FOLLOW_UP_SUBJECT_MAX = 150;
+export const FAIR_FOLLOW_UP_TEXT_MAX = 5000;
+export type FairFollowUpTemplateStatus = "draft" | "active" | "retired";
+
+/**
+ * Admin UX A8 — the groups of a visitor's activity on ONE exhibitor's models
+ * shown next to a lead (ADMIN-UX §7). Whether a group goes to the exhibitor
+ * is decided by lib/fair-entitlements.ts (fairLeadActivityShared).
+ */
+export const FAIR_LEAD_ACTIVITY_GROUPS = ["scans", "ratings", "audienceVotes", "surveyAnswers", "passport", "sponsoredActions"] as const;
+export type FairLeadActivityGroup = (typeof FAIR_LEAD_ACTIVITY_GROUPS)[number];
 
 /** Photo first; otherwise brand logo, otherwise the neutral event placeholder (MASTER §10). */
 export type FairSponsoredVisual = "photo" | "brand_logo" | "event_placeholder";
@@ -665,6 +748,12 @@ export const FAIR_ERROR_CODES = [
   "SURVEY_NOT_OPEN",
   // B3 gateway: Convex was unreachable or answered without a stable code.
   "SERVICE_UNAVAILABLE",
+  // K1 — Next → Convex gateway secret. Convex throws these before reading or
+  // writing anything; the Next gateway shows the browser SERVICE_UNAVAILABLE.
+  "FAIR_GATEWAY_NOT_CONFIGURED",
+  "FAIR_GATEWAY_UNAUTHORIZED",
+  // K3 — FAIR_LEADS_ENABLED is not "true": submitLead stores nothing.
+  "LEADS_DISABLED",
 ] as const;
 export type FairErrorCode = (typeof FAIR_ERROR_CODES)[number];
 
@@ -689,6 +778,16 @@ export const FAIR_IMPORT_MAX_PARTICIPATIONS = 100;
 export const FAIR_IMPORT_MAX_MODELS = 200;
 /** Bounded admin catalog reads per event (two fairs × ~100 models fit easily). */
 export const FAIR_ADMIN_LIST_LIMIT = 500;
+
+/** A4 — a change of a QR's destination (reassign) needs a reason of this length. */
+export const FAIR_QR_REASON_MIN_LENGTH = 3;
+export const FAIR_QR_REASON_MAX_LENGTH = 300;
+/** A4 — rows of one bulk QR assignment (dry run and commit); one commit stays inside the Convex transaction limits. */
+export const FAIR_QR_BULK_MAX_ROWS = 100;
+/** A4 — assignment history rows shown on the QR detail (newest first). */
+export const FAIR_QR_HISTORY_LIMIT = 50;
+/** A4 — cards per getQrScanStats call. */
+export const FAIR_QR_SCAN_STATS_MAX = 100;
 
 /** Stable `externalKey`: lowercase ASCII, digits and single hyphens (DATA-INTAKE §4). */
 export const FAIR_EXTERNAL_KEY_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -727,6 +826,16 @@ export const FAIR_ADMIN_ISSUE_CODES = [
   "FAIR_MODEL_ALREADY_ASSIGNED",
   "FAIR_QR_SUBJECT_SHARED",
   "FAIR_QR_NOT_ASSIGNED",
+  // A4 — QR detail, change of destination (reassign) and bulk assignment
+  "FAIR_QR_NOT_FOUND",
+  "FAIR_QR_OTHER_EVENT",
+  "FAIR_QR_SAME_TARGET",
+  "FAIR_MODEL_OTHER_EVENT",
+  "FAIR_REASON_REQUIRED",
+  "FAIR_BULK_TOO_LARGE",
+  "FAIR_BULK_ROW_INVALID",
+  "FAIR_BULK_DUPLICATE_CODE",
+  "FAIR_BULK_DUPLICATE_MODEL",
   // B3 — Glas publike, survey and passport admin commands
   "FAIR_FEATURE_NOT_ENTITLED",
   "FAIR_EVENT_DAY_NOT_FOUND",
@@ -745,9 +854,17 @@ export const FAIR_ADMIN_ISSUE_CODES = [
   "FAIR_CONSENT_NOT_FOUND",
   "FAIR_CONSENT_STATUS",
   "FAIR_CONSENT_EXHIBITOR_MISSING",
+  // K3 — activation needs the legal approval record (legalApprovedBy + legalApprovedAt)
+  "FAIR_CONSENT_LEGAL_APPROVAL_REQUIRED",
   "FAIR_LEAD_NOT_FOUND",
+  // Admin UX A7 — "vrati na podrazumevano" without an exhibitor default
+  "FAIR_LEAD_DEFAULT_MISSING",
   "FAIR_EMAIL_DELIVERY_NOT_FOUND",
   "FAIR_EMAIL_DELIVERY_STATUS",
+  // Admin UX A8 — the exhibitor's follow-up text (merge fields, draft → active → retired)
+  "FAIR_FOLLOWUP_UNKNOWN_FIELD",
+  "FAIR_FOLLOWUP_NOT_FOUND",
+  "FAIR_FOLLOWUP_STATUS",
   // B5 — sponsored snapshot (more Advanced models than one snapshot holds)
   "FAIR_SPONSORED_LIMIT",
   // B6 — report runs and exports
@@ -756,6 +873,8 @@ export const FAIR_ADMIN_ISSUE_CODES = [
   "FAIR_REPORT_NOT_APPROVED",
   "FAIR_REPORT_RECIPIENT_MISSING",
   "FAIR_REPORT_EXPORT_TOO_LARGE",
+  // K4 — a manual build before the day's close (fairEventDays.endsAt) is refused
+  "FAIR_DAY_NOT_CLOSED",
   // Warnings
   "FAIR_PRICE_MISSING",
   "FAIR_PHOTO_MISSING",
@@ -774,4 +893,91 @@ export type FairAdminIssue = {
 /** Public model route opened by `/r/[cardCode]` for an assigned fair QR (B2 resolver fair hook). */
 export function fairModelPath(eventSlug: string, modelSlug: string): string {
   return `/sajam/${eventSlug}/model/${modelSlug}`;
+}
+
+// -----------------------------------------------------------------------------
+// Admin UX A10 — the event dashboard (`Događaji → Pregled`,
+// convex/fairDashboard.ts getEventDashboard). The backend returns rules,
+// tones, numbers and links; the admin builds every sentence in lib/i18n.
+// -----------------------------------------------------------------------------
+
+/** pre = before the opening; sajam = opening → close; posle = close → 16 Nov purge; obrisano = after the purge moment. */
+export const FAIR_DASHBOARD_PHASES = ["pre", "sajam", "posle", "obrisano"] as const;
+export type FairDashboardPhase = (typeof FAIR_DASHBOARD_PHASES)[number];
+
+/** hitno (danger) > uskoro (warning) > info (neutral). */
+export const FAIR_DASHBOARD_TONES = ["hitno", "uskoro", "info"] as const;
+export type FairDashboardTone = (typeof FAIR_DASHBOARD_TONES)[number];
+
+/** The next deadline the header counts down to. */
+export const FAIR_DASHBOARD_DEADLINES = ["opening", "day_end", "day_start", "lead_delivery", "pii_purge"] as const;
+export type FairDashboardDeadline = (typeof FAIR_DASHBOARD_DEADLINES)[number];
+
+/** Rules of „Šta treba da uradim“ (A0-IZVESTAJ §6), in their display order within one tone. */
+export const FAIR_DASHBOARD_RULES = [
+  "qr_inventory_missing",
+  "published_without_qr",
+  "published_with_errors",
+  "drafts_with_errors",
+  "price_missing",
+  "qr_on_withdrawn",
+  "question_missing_today",
+  "question_missing_next_day",
+  "sponsored_question_missing",
+  "advanced_photo_missing",
+  "interest_form_without_consent",
+  "test_drive_form_without_consent",
+  "leads_switch_off",
+  "follow_up_switch_off",
+  "leads_undelivered",
+  "reports_pending_review",
+  "reports_failed",
+  "reports_missing",
+  "follow_up_text_missing",
+  "passport_hidden",
+  "passport_missing",
+  "passport_blocked",
+  "sponsored_out_of_date",
+  "pii_purge_countdown",
+] as const;
+export type FairDashboardRule = (typeof FAIR_DASHBOARD_RULES)[number];
+
+/** `Događaji` sections an action opens (`/admin/dogadjaji/<slug>/<section>?<query>`). */
+export const FAIR_DASHBOARD_SECTIONS = [
+  "modeli",
+  "qr",
+  "izlagaci",
+  "interakcije/glas-publike",
+  "interakcije/pasos",
+  "interakcije/forme",
+  "sponzorisano",
+  "leadovi",
+  "leadovi/follow-up",
+  "leadovi/podesavanja",
+  "izvestaji",
+  "brisanje",
+] as const;
+export type FairDashboardSection = (typeof FAIR_DASHBOARD_SECTIONS)[number];
+
+export type FairDashboardAction = {
+  rule: FairDashboardRule;
+  tone: FairDashboardTone;
+  /** Affected models / exhibitors / runs …; for `pii_purge_countdown` the days left. */
+  count: number;
+  section: FairDashboardSection;
+  /** Filters of the section (its query keys, e.g. `{ status: "objavljen", qr: "nema" }`). */
+  query: Record<string, string>;
+  /** A dated deadline the sentence names (leads: 15 Nov). */
+  deadlineAt?: number;
+};
+
+export const FAIR_DASHBOARD_TONE_RANK: Readonly<Record<FairDashboardTone, number>> = { hitno: 0, uskoro: 1, info: 2 };
+
+/** hitno → uskoro → info, then the larger count, then the rule order above (A0-IZVESTAJ §6 „Redosled liste“). */
+export function sortFairDashboardActions<T extends Pick<FairDashboardAction, "rule" | "tone" | "count">>(actions: readonly T[]): T[] {
+  const ruleIndex = (rule: FairDashboardRule) => FAIR_DASHBOARD_RULES.indexOf(rule);
+  return [...actions].sort((a, b) =>
+    FAIR_DASHBOARD_TONE_RANK[a.tone] - FAIR_DASHBOARD_TONE_RANK[b.tone]
+    || b.count - a.count
+    || ruleIndex(a.rule) - ruleIndex(b.rule));
 }
