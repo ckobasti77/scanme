@@ -55,6 +55,7 @@ import type * as fairInteractions from "../fairInteractions.js";
 import type * as fairInteractionsAdmin from "../fairInteractionsAdmin.js";
 import type * as fairLeads from "../fairLeads.js";
 import type * as fairLeadsAdmin from "../fairLeadsAdmin.js";
+import type * as fairPrintInventory from "../fairPrintInventory.js";
 import type * as fairPublic from "../fairPublic.js";
 import type * as fairReports from "../fairReports.js";
 import type * as fairRetention from "../fairRetention.js";
@@ -213,6 +214,7 @@ declare const fullApi: ApiFromModules<{
   fairInteractionsAdmin: typeof fairInteractionsAdmin;
   fairLeads: typeof fairLeads;
   fairLeadsAdmin: typeof fairLeadsAdmin;
+  fairPrintInventory: typeof fairPrintInventory;
   fairPublic: typeof fairPublic;
   fairReports: typeof fairReports;
   fairRetention: typeof fairRetention;
