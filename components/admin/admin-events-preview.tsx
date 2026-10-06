@@ -2,7 +2,20 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback } from "react";
-import type { CatalogView, EventClientView, EventsActions, InventoryRowView, ModelView } from "@/components/admin/admin-events";
+import type {
+  CatalogView,
+  EventClientView,
+  EventsActions,
+  InventoryRowView,
+  ModelView,
+  QrActions,
+  QrBulkActions,
+  QrBulkDryRunView,
+  QrBulkInput,
+  QrBulkRowView,
+  QrDetailView,
+  QrScanStatsView,
+} from "@/components/admin/admin-events";
 import { AdminEventsPassports, AdminEventsQuestions, AdminEventsSurveys, type InteractionsActions, type InteractionsView } from "@/components/admin/admin-events-interactions";
 import {
   AdminEventsConsent,
@@ -35,6 +48,7 @@ import {
   type ResolvedEventSection,
 } from "@/lib/admin-v1/event-sections";
 import { modelListQuery } from "@/lib/admin-v1/model-filters";
+import { qrListQuery } from "@/lib/admin-v1/qr-filters";
 import type { AdminQueryPatch, AdminQueryState } from "@/lib/admin-v1/query-state";
 import { parseViewModeParam, type AdminViewMode } from "@/lib/admin-v1/view-mode";
 import { FAIR_PII_PURGE_AT_MS, FAIR_PURGE_CATEGORIES } from "@/lib/fair-contract";
@@ -280,10 +294,115 @@ const PREVIEW_EVENTS: FrameEvent[] = [
   { slug: "test-auto-moto-fest-2026", title: "TEST Auto Moto Fest", status: "published" },
 ];
 
-const inventory = { ...noMore, rows: [
-  { cardId: "c1", resolverCode: "7KQ2M9XA", smqCode: "SMQ-TEST-0001", state: "active", assignment: { modelId: "volta-x1", modelName: "TEST Volta X1", sameEvent: true } },
-  { cardId: "c2", resolverCode: "R4T8W2PQ", smqCode: "SMQ-TEST-0002", state: "problem", assignment: null },
-] satisfies InventoryRowView[] };
+// A4 — the TEST QR inventory: one code per model that has a QR (this event),
+// plus free codes, codes of the other TEST event and codes out of service —
+// 105 TEST codes in every state. No real codes or scan numbers.
+const pad = (value: number, size: number) => String(value).padStart(size, "0");
+const inventoryRows: InventoryRowView[] = [
+  ...catalog.models.filter((row) => row.qrCode).map((row) => ({
+    cardId: `card-${row.id}`, resolverCode: row.qrCode!, smqCode: row.qrSmq, state: "active" as const, problemReason: null,
+    assignment: { modelId: row.id, sameEvent: true },
+  })),
+  ...Array.from({ length: 58 }, (_, index) => ({
+    cardId: `card-free-${index}`, resolverCode: `TF${pad(index, 3)}QRS`, smqCode: `SMQ-TEST-${pad(index + 300, 4)}`, state: "problem" as const,
+    problemReason: index % 7 === 3 ? "destination_fair_unassigned" : "destination_missing", assignment: null,
+  })),
+  ...Array.from({ length: 12 }, (_, index) => ({
+    cardId: `card-amf-${index}`, resolverCode: `TD${pad(index, 3)}QRS`, smqCode: `SMQ-TEST-${pad(index + 500, 4)}`, state: "active" as const, problemReason: null,
+    assignment: { modelId: `amf-m${index + 1}`, sameEvent: false },
+  })),
+  ...Array.from({ length: 6 }, (_, index) => ({
+    cardId: `card-off-${index}`, resolverCode: `TN${pad(index, 3)}QRS`, smqCode: `SMQ-TEST-${pad(index + 600, 4)}`, state: index % 2 ? "inactive" as const : "problem" as const,
+    problemReason: index % 2 ? null : "health_damaged", assignment: null,
+  })),
+];
+const inventory = { ...noMore, rows: inventoryRows };
+
+/** Deterministic TEST scan numbers of the codes that lead to a model of this event. */
+const qrStats = new Map<string, QrScanStatsView>(inventoryRows.map((row, index): [string, QrScanStatsView] => {
+  if (!row.assignment?.sameEvent) return [row.cardId, { total: null, unique: null, lastScanAt: row.state === "active" && row.assignment ? opening - 86_400_000 : null }];
+  const total = row.resolverCode === "7KQ2M9XA" ? 12 : (index * 7) % 41;
+  return [row.cardId, { total, unique: Math.round(total * 0.7), lastScanAt: total ? opening + ((index * 37) % 480) * 60_000 : null }];
+}));
+
+/** The QR detail of one TEST code (URL by resolver code or SMQ); null = not in the TEST inventory. */
+function qrDetailFixture(code: string): QrDetailView | null {
+  const text = code.toUpperCase();
+  const row = inventoryRows.find((entry) => entry.resolverCode === text || entry.smqCode === text);
+  if (!row) return null;
+  const rowModel = row.assignment?.sameEvent ? catalog.models.find((entry) => entry.id === row.assignment!.modelId) ?? null : null;
+  const assignedAt = opening - 2 * 86_400_000;
+  const stats = qrStats.get(row.cardId)!;
+  const history: QrDetailView["history"] = [];
+  if (row.assignment) {
+    history.push({
+      assignmentId: `as-${row.cardId}`, status: "assigned", sameEvent: row.assignment.sameEvent, eventModelId: row.assignment.modelId,
+      modelLabel: rowModel ? `${rowModel.displayName}${rowModel.variant ? ` ${rowModel.variant}` : ""}` : "TEST AMF model", assignedAt, releasedAt: null, reason: "TEST dodela iz tabele nalepnica",
+    });
+  }
+  if (row.resolverCode === "7KQ2M9XA" || row.problemReason === "destination_fair_unassigned") {
+    history.push({
+      assignmentId: `as-old-${row.cardId}`, status: "released", sameEvent: true, eventModelId: "volta-x2", modelLabel: "TEST Volta X2",
+      assignedAt: assignedAt - 86_400_000, releasedAt: assignedAt, reason: "TEST pogrešna nalepnica na štandu",
+    });
+  }
+  return {
+    cardId: row.cardId, accessChannelId: `channel-${row.cardId}`, resolverCode: row.resolverCode, smqCode: row.smqCode,
+    channelState: row.state ?? "problem", problemReason: row.problemReason, redirectEnabled: row.state !== "inactive",
+    totalScansAllTime: (stats.total ?? 0) + 3,
+    current: row.assignment ? {
+      assignmentId: `as-${row.cardId}`, sameEvent: row.assignment.sameEvent, eventTitle: row.assignment.sameEvent ? "TEST Sajam elektromobilnosti" : "TEST Auto Moto Fest",
+      eventModelId: row.assignment.modelId, modelLabel: history[0]?.modelLabel ?? null, modelStatus: rowModel?.status ?? "published",
+      path: rowModel ? `/sajam/test-elektromobilnost-2026/model/${rowModel.slug}` : "/sajam/test-auto-moto-fest-2026/model/test-amf-model",
+      assignedAt, reason: "TEST dodela iz tabele nalepnica",
+    } : null,
+    history,
+    historyCapped: false,
+    stats: rowModel && stats.total !== null ? { total: stats.total, unique: stats.unique ?? 0 } : null,
+    lastScanAt: stats.lastScanAt,
+  };
+}
+
+const qrActions: QrActions = { reassign: ok, assign: ok, release: ok, resolveTest: actions.resolveTest };
+
+/** TEST dry run with the backend's rules (unknown code, code taken, model has a QR, duplicates); writes nothing. */
+function previewBulkPlan(rows: QrBulkInput[]): QrBulkDryRunView {
+  const find = (code: string) => inventoryRows.find((entry) => entry.resolverCode === code.trim().toUpperCase() || entry.smqCode === code.trim().toUpperCase());
+  const findModel = (text: string) => catalog.models.find((entry) => entry.externalKey === text.trim().toLowerCase() || entry.id === text.trim());
+  const codeUses = new Map<string, number>();
+  const modelUses = new Map<string, number>();
+  for (const row of rows) {
+    const code = find(row.code);
+    const target = findModel(row.model);
+    if (code) codeUses.set(code.cardId, (codeUses.get(code.cardId) ?? 0) + 1);
+    if (target) modelUses.set(target.id, (modelUses.get(target.id) ?? 0) + 1);
+  }
+  const planned: QrBulkRowView[] = rows.map((row, index) => {
+    const code = find(row.code);
+    const target = findModel(row.model);
+    const base = { index, code: row.code, model: row.model, ...(code ? { resolverCode: code.resolverCode, smqCode: code.smqCode ?? undefined } : {}), ...(target ? { eventModelId: target.id } : {}) };
+    if (!code) return { ...base, status: "error", issue: "FAIR_QR_NOT_FOUND" };
+    if (!target) return { ...base, status: "error", issue: "FAIR_MODEL_NOT_FOUND" };
+    if ((codeUses.get(code.cardId) ?? 0) > 1) return { ...base, status: "error", issue: "FAIR_BULK_DUPLICATE_CODE" };
+    if ((modelUses.get(target.id) ?? 0) > 1) return { ...base, status: "error", issue: "FAIR_BULK_DUPLICATE_MODEL" };
+    if (code.assignment) {
+      return code.assignment.modelId === target.id ? { ...base, status: "unchanged" } : { ...base, status: "error", issue: "FAIR_QR_ALREADY_ASSIGNED", ...(code.assignment.sameEvent ? { assignedEventModelId: code.assignment.modelId } : {}) };
+    }
+    if (target.qrCode) return { ...base, status: "error", issue: "FAIR_MODEL_ALREADY_ASSIGNED" };
+    return { ...base, status: "ok" };
+  });
+  const count = (status: QrBulkRowView["status"]) => planned.filter((row) => row.status === status).length;
+  return { rows: planned, summary: { ok: count("ok"), unchanged: count("unchanged"), errors: count("error") } };
+}
+
+const qrBulk: QrBulkActions = {
+  dryRun: async (rows) => ({ ok: true, value: previewBulkPlan(rows) }),
+  commit: async (rows) => {
+    const plan = previewBulkPlan(rows);
+    const results = plan.rows.map((row) => ({ index: row.index, status: row.status === "ok" ? "applied" as const : row.status, ...(row.issue ? { issue: row.issue } : {}) }));
+    return { ok: true, value: { rows: results, summary: { applied: plan.summary.ok, unchanged: plan.summary.unchanged, errors: plan.summary.errors } } };
+  },
+};
 const eventClients = { ...noMore, rows: [{ accountId: "a-a", name: "TEST Izlagač A", smkCode: "SMK-TEST-FAIR-A" }] satisfies EventClientView[] };
 
 function PreviewSection({ path, detailId, query, setQuery, keep }: {
@@ -327,9 +446,35 @@ function PreviewSection({ path, detailId, query, setQuery, keep }: {
         />
       )
       : <EventModelsView catalog={catalog} query={query} onQueryChange={setQuery} modelHref={listModelHref} importHref={eventSectionHref(PREVIEW_BASE, "import", keep)} />;
-    case "qr": return detailId
-      ? <EventQrDetailView key={detailId} catalog={catalog} code={detailId} row={inventory.rows.find((row) => row.resolverCode === detailId) ?? null} actions={actions} listHref={eventSectionHref(PREVIEW_BASE, "qr", keep)} modelHref={modelHref} generalQrHref={`/admin/operativa/qr?code=${encodeURIComponent(detailId)}`} />
-      : <EventQrView catalog={catalog} inventory={inventory} actions={actions} qrHref={qrHref} />;
+    case "qr": {
+      const qrListKeep = { ...keep, ...qrListQuery(query) };
+      return detailId
+        ? (
+          <EventQrDetailView
+            key={detailId}
+            catalog={catalog}
+            code={detailId}
+            detail={qrDetailFixture(detailId)}
+            actions={qrActions}
+            listHref={eventSectionHref(PREVIEW_BASE, "qr", qrListKeep)}
+            modelHref={modelHref}
+            generalQrHref={(row) => `/admin/operativa/qr?code=${encodeURIComponent(row.resolverCode)}`}
+          />
+        )
+        : (
+          <EventQrView
+            catalog={catalog}
+            inventory={inventory}
+            stats={qrStats}
+            query={query}
+            onQueryChange={setQuery}
+            qrHref={(code) => eventDetailHref(PREVIEW_BASE, "qr", code, qrListKeep)}
+            modelHref={modelHref}
+            bulk={qrBulk}
+            actions={actions}
+          />
+        );
+    }
     case "izlagaci": return <EventExhibitorsView clients={eventClients} actions={actions} />;
     case "import": return <EventImportView actions={actions} />;
     case "interakcije/glas-publike": return <AdminEventsQuestions view={interactions} actions={interactionActions} />;

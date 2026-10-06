@@ -1811,3 +1811,9 @@ RF nalazi 1–4 su rešeni. Izvori: `jovan-status/K1.md`–`K4.md` i `scripts/ta
   - vidljivost stanja prekidača u adminu (K3 §7).
 - **K4:** šta sa run-om napravljenim pre zatvaranja dana koji je postojao pre K4 (§9.70). Ponoć ili radno vreme hale (§9.54).
 - **RF nalazi 5–17:** neizmenjeni, uključujući 12 i 13. Do ispravke: displeji uvek sa `?prikaz=ekran`, a test telefoni ne smeju biti prijavljeni kao admin.
+
+## SAJAM v2 — A4 (QR inventar: dodela u većem broju)
+
+- **Konflikt:** `ADMIN-UX-ZAHTEVI.md` §5 kaže da se u dodeli u većem broju model zadaje kao „`externalKey` ili naziv“, a uputstvo koraka A4 kaže „`externalKey` ili ID“.
+- **Šta je urađeno:** implementirano je uže pravilo iz uputstva koraka (`externalKey` ili Convex ID modela). Prepoznavanje po nazivu nije urađeno: naziv nije jedinstven (isti model kod dva izlagača, varijante), a pogrešno poklapanje bi poslalo nalepnicu na pogrešan auto.
+- **Pitanje za Aleksu/Jovana:** da li treba i prepoznavanje po nazivu (npr. samo kad je naziv + varijanta jedinstven u događaju, a inače greška „naziv nije jednoznačan“)? Deferred, awaiting owner decision.

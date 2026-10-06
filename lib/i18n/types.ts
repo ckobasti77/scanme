@@ -3807,9 +3807,160 @@ export interface AdminEventsDict {
   backToList: string;
   modelNotFoundBody: string;
   openDetail: string;
-  qrDetailModel: string;
-  qrDetailNotLoaded: string;
-  qrDetailGeneralAdmin: string;
+  /** Admin UX A4 — `qr`: filters (lib/admin-v1/qr-filters.ts), list columns and scan numbers. */
+  qrList: {
+    searchLabel: string;
+    searchPlaceholder: string;
+    hierarchyLabel: string;
+    facetState: string;
+    states: Record<"slobodan" | "ovaj" | "drugi" | "neaktivan", string>;
+    /** {shown} of {total} codes. */
+    count: string;
+    /** {loaded} codes loaded so far. */
+    partial: string;
+    /** {q} = search text. */
+    searchChip: string;
+    /** {code}. */
+    openCode: string;
+    openCodeHint: string;
+    noMatchTitle: string;
+    noMatchBody: string;
+    colCode: string;
+    colState: string;
+    colModel: string;
+    colScans: string;
+    colLastScan: string;
+    /** {count}. */
+    scansTotal: string;
+    scansUnique: string;
+    modelNone: string;
+    modelOtherEvent: string;
+    manage: string;
+    /** {code} — accessible name of „Upravljaj“. */
+    manageAria: string;
+    statsNote: string;
+  };
+  /** Admin UX A4 — `qr/[kod]`: where the code leads, change of destination, remove link, stats, history. */
+  qrDetail: {
+    factSmq: string;
+    factCode: string;
+    factChannel: string;
+    loading: string;
+    notFoundTitle: string;
+    /** {code}. */
+    notFoundBody: string;
+    errorTitle: string;
+    whereTitle: string;
+    whereModel: string;
+    wherePath: string;
+    whereSince: string;
+    whereReason: string;
+    whereModelStatus: string;
+    whereFree: string;
+    /** {event}. */
+    whereOtherEvent: string;
+    whereUnpublished: string;
+    openModel: string;
+    changeTitle: string;
+    changeHelp: string;
+    assignTitle: string;
+    assignHelp: string;
+    pickLabel: string;
+    pickCurrent: string;
+    /** {code} — the model already has this QR. */
+    pickHasQr: string;
+    reasonLabel: string;
+    reasonOptional: string;
+    /** {min}, {max}. */
+    reasonHelp: string;
+    continue: string;
+    back: string;
+    /** {reason}. */
+    reasonSummary: string;
+    confirmChangeTitle: string;
+    /** {code}, {from}, {to}. */
+    confirmChangeBody: string;
+    confirmChange: string;
+    changeDone: string;
+    confirmAssignTitle: string;
+    /** {code}, {to}. */
+    confirmAssignBody: string;
+    confirmAssign: string;
+    assignDone: string;
+    removeTitle: string;
+    removeHelp: string;
+    remove: string;
+    confirmRemoveTitle: string;
+    /** {code}, {model}. */
+    confirmRemoveBody: string;
+    confirmRemove: string;
+    removeDone: string;
+    /** lib/admin-v1/qr-flow.ts problems; {min}, {max}. */
+    problems: Record<"target_missing" | "target_same" | "reason_short" | "reason_long", string>;
+    statsTitle: string;
+    statsTotal: string;
+    statsUnique: string;
+    statsLast: string;
+    statsAllTime: string;
+    statsHelp: string;
+    statsNone: string;
+    statsNever: string;
+    historyTitle: string;
+    historyEmpty: string;
+    historyActive: string;
+    historyReleased: string;
+    /** {from}. */
+    historySince: string;
+    /** {from}, {to}. */
+    historyPeriod: string;
+    historyOtherEvent: string;
+    historyUnknownModel: string;
+    /** {count}. */
+    historyCapped: string;
+    generalAdmin: string;
+    generalAdminHelp: string;
+  };
+  /** Admin UX A4 — „Dodela u većem broju“ (lib/admin-v1/qr-bulk.ts + bulkAssignQr dry run / commit). */
+  qrBulk: {
+    title: string;
+    open: string;
+    close: string;
+    /** {max} rows. */
+    help: string;
+    textLabel: string;
+    placeholder: string;
+    check: string;
+    checking: string;
+    empty: string;
+    /** {max}. */
+    tooMany: string;
+    headerSkipped: string;
+    /** {line}. */
+    parseProblem: string;
+    resultTitle: string;
+    colLine: string;
+    colCode: string;
+    colModel: string;
+    colResult: string;
+    statusOk: string;
+    statusUnchanged: string;
+    statusError: string;
+    statusApplied: string;
+    /** {model}. */
+    heldBy: string;
+    /** {ok}, {unchanged}, {errors}. */
+    summary: string;
+    /** {count}. */
+    commit: string;
+    nothingToApply: string;
+    confirmTitle: string;
+    /** {count}. */
+    confirmBody: string;
+    confirm: string;
+    /** {applied}, {unchanged}, {errors}. */
+    done: string;
+    verifyReminder: string;
+  };
   formsSectionTitle: string;
   formsSectionHelp: string;
   followUpSectionTitle: string;
@@ -3956,7 +4107,6 @@ export interface AdminEventsDict {
   checkReady: string;
   emptyCatalogTitle: string;
   emptyCatalogBody: string;
-  modelPickPlaceholder: string;
   fieldExternalKey: string;
   fieldSlug: string;
   fieldPrice: string;
@@ -3993,19 +4143,10 @@ export interface AdminEventsDict {
   qrSubtitle: string;
   qrNotConfigured: string;
   qrEmpty: string;
-  unassigned: string;
-  otherEvent: string;
-  assignTitle: string;
-  assignModel: string;
   assignCode: string;
   assignCodePlaceholder: string;
   assignSubmit: string;
   assignDone: string;
-  assignNoModels: string;
-  release: string;
-  releaseReason: string;
-  releaseConfirm: string;
-  releaseDone: string;
   resolveTitle: string;
   resolveHelp: string;
   resolveCode: string;
