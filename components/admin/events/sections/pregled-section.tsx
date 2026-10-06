@@ -1,21 +1,23 @@
 "use client";
 
-import { useQuery } from "convex/react";
-import { useMemo } from "react";
-import { api } from "@/convex/_generated/api";
-import { buildCatalogView } from "@/components/admin/events/event-catalog";
+import { AdminErrorState, AdminPanel } from "@/components/admin/admin-primitives";
+import { useMinuteNow } from "@/components/admin/admin-ui/use-minute-now";
 import { useAdminEvent } from "@/components/admin/events/event-context";
 import { SectionLoading } from "@/components/admin/events/sections/loading";
-import { EventOverviewView } from "@/components/admin/events/sections/pregled-view";
-import { eventDetailHref } from "@/lib/admin-v1/event-sections";
+import { EventDashboardView } from "@/components/admin/events/sections/pregled-view";
+import { adminEventsSr as dict } from "@/lib/i18n/sr/admin-events";
 
-// Admin UX A2 — container of `pregled`: the shared catalog plus the
-// validation checks (A10 replaces it with the dashboard query).
+// Admin UX A10 — container of `pregled`: the event dashboard the frame reads
+// (one fairDashboard.getEventDashboard result, polled) and the browser minute
+// for the countdown.
 
 export function PregledSection() {
-  const { eventId, base, catalog, directory } = useAdminEvent();
-  const validation = useQuery(api.fairAdmin.listValidationIssues, { eventId });
-  const view = useMemo(() => (validation ? buildCatalogView(catalog, directory, validation) : undefined), [catalog, directory, validation]);
-  if (!view) return <SectionLoading />;
-  return <EventOverviewView catalog={view} modelHref={(id) => eventDetailHref(base, "modeli", id)} />;
+  const { base, dashboard } = useAdminEvent();
+  const now = useMinuteNow();
+  if (dashboard.data === undefined) {
+    return dashboard.error
+      ? <AdminPanel><AdminErrorState title={dict.dashboard.errorTitle} body={dict.dashboard.errorBody} retryLabel={dict.retry} onRetry={dashboard.refresh} /></AdminPanel>
+      : <SectionLoading />;
+  }
+  return <EventDashboardView dashboard={dashboard.data} now={now} base={base} />;
 }

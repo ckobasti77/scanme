@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
 
-// Sajam 2026 B7 — the authz table of every fair Convex function (A8: + fairLeadsInbox, fairFollowUps)
+// Sajam 2026 B7 — the authz table of every fair Convex function (A8: + fairLeadsInbox, fairFollowUps; A10: + fairDashboard)
 // (BACKEND-HANDOFF §11 B7 "authz pregled svih public funkcija", §12, §14
 // "javne funkcije ne otkrivaju PII ni admin podatke"). The table below is the
 // one in jovan-status/B7.md: a new or re-registered fair function fails the
@@ -17,6 +17,7 @@ import * as fairAdmin from "./fairAdmin";
 import * as fairAdminQr from "./fairAdminQr";
 import * as fairAdminStats from "./fairAdminStats";
 import * as fairAnalytics from "./fairAnalytics";
+import * as fairDashboard from "./fairDashboard";
 import * as fairDevFixtures from "./fairDevFixtures";
 import * as fairEmailSender from "./fairEmailSender";
 import * as fairEmails from "./fairEmails";
@@ -103,6 +104,8 @@ const AUTHZ: Record<string, { module: Record<string, unknown>; functions: Record
   // Admin UX A4 — QR detail, scan numbers, change of destination and bulk assignment.
   fairAdminQr: { module: fairAdminQr, functions: { getQrDetail: A, getQrScanStats: A, reassignQr: A, bulkAssignQrDryRun: A, bulkAssignQrCommit: A } },
   fairImport: { module: fairImport, functions: { dryRun: A, commit: A } },
+  // Admin UX A10 — the event dashboard (Pregled and the section badges): numbers and links only.
+  fairDashboard: { module: fairDashboard, functions: { getEventDashboard: A } },
   fairInteractionsAdmin: {
     module: fairInteractionsAdmin,
     functions: {
@@ -291,8 +294,9 @@ describe("B7 authz table of every fair function", () => {
       ["retireExhibitorFollowUp", (c) => c.mutation(api.fairFollowUps.retireExhibitorFollowUp, { templateId: extra.followUpActiveId })],
       ["previewExhibitorFollowUp", (c) => c.query(api.fairFollowUps.previewExhibitorFollowUp, { participationId: f.participationId, leadId: extra.leadId })],
       ["estimateFollowUps", (c) => c.query(api.fairFollowUps.estimateFollowUps, { eventId: f.eventId })],
+      ["getEventDashboard", (c) => c.query(api.fairDashboard.getEventDashboard, { eventId: f.eventId, at: REHEARSAL })],
     ];
-    const adminFunctions = ["fairInteractionsAdmin", "fairLeadsAdmin", "fairSponsoredAdmin", "fairReports", "fairRetention", "fairAdminStats", "fairAdminQr", "fairPassports", "fairLeadsInbox", "fairFollowUps"].flatMap((name) =>
+    const adminFunctions = ["fairInteractionsAdmin", "fairLeadsAdmin", "fairSponsoredAdmin", "fairReports", "fairRetention", "fairAdminStats", "fairAdminQr", "fairPassports", "fairLeadsInbox", "fairFollowUps", "fairDashboard"].flatMap((name) =>
       Object.entries(AUTHZ[name].functions).filter(([, access]) => access === "admin").map(([fn]) => fn),
     );
     expect(calls.map(([name]) => name).sort()).toEqual(adminFunctions.sort());

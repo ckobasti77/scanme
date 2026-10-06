@@ -1602,3 +1602,89 @@ Javne projekcije (`getSponsoredMapRotation`, `getSponsoredGarageRotation`, §19.
 - `convex/fairAuthz.test.ts`: tri nove funkcije klasifikovane; anonimni i ne-admin odbijeni.
 - `convex/fairPassports.test.ts` (import zakazuje i sponzorisani posao) i `convex/fairPublic.test.ts` (objavljen Advanced model je sada `isSponsored: true`) prate novo pravilo.
 - Komponente: `components/admin/admin-events-sponsored.test.tsx`, `admin-events-reports.test.tsx`, `admin-events-retention.test.tsx`.
+
+## 36. A10 — Pregled: glavni dashboard događaja (`convex/fairDashboard.ts`)
+
+Jedan admin upit daje sve što `Događaji → Pregled` prikazuje: fazu i sledeći rok, listu „Šta treba da uradim“, KPI red i kartice sekcija. Isti rezultat puni i bedževe hitnosti u navigaciji sekcija. Upit vraća samo pravila, tonove, brojeve i veze, a rečenice gradi `lib/i18n` (`adminEventsSr.dashboard`). Nema kontakta, posetioca, QR koda ni drugog PII.
+
+### 36.1 Funkcija
+
+| Funkcija | Vrsta | Args → returns |
+|---|---|---|
+| `getEventDashboard` | admin query (`requireAdmin`) | `{ eventId, at }` → `{ at, phase, event, days, actions, kpis, sections }` (validator `fairDashboardResult`, `convex/lib/fairDashboardRules.ts`); `at` nije konačan broj → `INVALID_INPUT`; nepostojeći događaj → `FAIR_EVENT_NOT_FOUND`; katalog preko limita → `INVALID_INPUT` (`catalog_limit`), kao `getEventCatalog` |
+
+- `at` je vreme browsera zaokruženo na minut. Upit ne čita sat.
+- Upit čita brojače skenova (`fairMetricCountShards`), koji se menjaju sa svakim skenom. Zato ga admin **ne čita reaktivno**: `AdminEventFrame` ga čita jednom (`usePolled`), osvežava na 60 s dok je tab vidljiv i ponovo kad se Pregled otvori posle više od 15 s. Pregled i bedževi navigacije koriste taj jedan rezultat.
+- Tipovi su u `lib/fair-contract.ts`: `FAIR_DASHBOARD_PHASES`, `FAIR_DASHBOARD_TONES`, `FAIR_DASHBOARD_DEADLINES`, `FAIR_DASHBOARD_RULES`, `FAIR_DASHBOARD_SECTIONS`, `FairDashboardAction`, `sortFairDashboardActions` (hitno → uskoro → info, pa veći broj, pa redosled pravila).
+
+### 36.2 Čitanja (sva indeksirana, po ovom događaju, ograničena; nema čitanja po modelu)
+
+| Šta | Indeks | Granica |
+|---|---|---|
+| katalog (dani, učešća, štandovi, modeli, aktivne QR dodele) + provera objave | `loadEventCatalog` iz `fairAdmin.ts` (isti kao `getEventCatalog`), `eventValidationIssues` (isti kao `listValidationIssues`) | `FAIR_ADMIN_LIST_LIMIT` po tabeli |
+| pitanja Glasa publike (`published`, `closed`) | `fairAudienceQuestions.by_eventDayId_and_status`, po danu | 60 dana × 1000 po statusu (`questionsCapped`) |
+| leadovi (samo brojevi) | `fairLeads.by_eventId_and_createdAt`, najnoviji prvi | 2000 (`leads.capped`) |
+| aktivne saglasnosti | `fairConsentConfigs.by_eventId_and_leadKind_and_status` | 2 |
+| podrazumevane forme izlagača | `fairParticipationLeadDefaults.by_eventId` | 1000 |
+| aktivni follow-up tekstovi | `fairExhibitorFollowUpTemplates.by_eventId_and_status` | 500 |
+| pasoši | `fairPassportConfigs.by_eventId_and_brandId` | 100 |
+| zamrznut pasoš sa povučenim modelom | `fairPassportEligibleModels.by_eventModelId`, samo za povučene modele | 25 povučenih modela |
+| aktivni sponzorisani snapshot i stavke | `by_eventId_and_status`, `by_snapshotId_and_order` | 200 |
+| run-ovi izveštaja zatvorenih dana | `fairReportRuns.by_eventDayId_and_participationId`, po danu | 60 dana × 300 |
+| skenovi (ukupno, danas, jedinstveni) | `fairMetricCountShards.by_key_and_shard`, ključevi `scan_total` / `scan_unique` po štandu | 100 štandova × 4 ključa (`scans.capped`) |
+| QR inventar (ukupno kodova) | `cards.by_businessId` | 1000 (`inventoryCapped`) |
+| prekidači K3 | `FAIR_LEADS_ENABLED`, `FAIR_FOLLOWUP_ENABLED` | samo `boolean`, nikad vrednost |
+
+Paket **na snazi** u trenutku `t` je sačuvani paket kad je `packageActivatedAt ≤ t`, inače `included` — isto kao A6 kvota (`audienceTierNow`). Nadogradnja nikad ne počinje pre trenutne aktivacije, pa dashboard ne čita istoriju aktivacija po modelu.
+
+### 36.3 Faza i sledeći rok
+
+| Faza | Uslov | Sledeći rok |
+|---|---|---|
+| `pre` | `at < startsAt` | `opening` (početak prvog sajamskog dana) |
+| `sajam` | `startsAt ≤ at < endsAt`; `dayIndex` = otvoren dan (`dayOpen`), inače sledeći; `dayCount` = broj dana | `day_end` (kraj otvorenog dana) ili `day_start` |
+| `posle` | `endsAt ≤ at < piiPurgeAt` | `lead_delivery` (`FAIR_LEAD_DELIVERY_DEADLINE_MS`), posle njega `pii_purge` |
+| `obrisano` | `at ≥ piiPurgeAt` | nema; lista je prazna |
+
+### 36.4 Pravila „Šta treba da uradim“
+
+Svako pravilo ulazi samo sa brojem većim od nule. „Veza“ je sekcija i njen query (A2–A9 filteri).
+
+| Pravilo | Izvor | Faza | Ton | Veza |
+|---|---|---|---|---|
+| `qr_inventory_missing` | `fairEvents.qrInventoryBusinessId` | pre, sajam | hitno | `qr` |
+| `published_without_qr` | objavljen model bez aktivne `fairQrAssignments` | pre (hitno kad je do otvaranja < 72 h), sajam | uskoro / hitno | `modeli?status=objavljen&qr=nema` |
+| `published_with_errors` | objavljen model sa nalazom `error` | pre, sajam | hitno | `modeli?status=objavljen&problemi=greske` |
+| `drafts_with_errors` | nacrt sa nalazom `error` | pre, sajam | uskoro | `modeli?status=nacrt&problemi=greske` |
+| `price_missing` | `FAIR_PRICE_MISSING` na modelu bez greške | pre, sajam | uskoro | `modeli?problemi=upozorenja` |
+| `qr_on_withdrawn` | aktivna dodela na povučenom modelu | sve osim obrisano | hitno | `modeli?status=povucen&qr=ima` |
+| `question_missing_today` | objavljen model sa Glasom publike na snazi bez objavljenog/zatvorenog pitanja za otvoren dan | sajam | hitno do 12:00, posle uskoro | `interakcije/glas-publike?dan=<dateKey>` |
+| `question_missing_next_day` | isto za sledeći dan koji počinje za < 48 h | pre; sajam između dana | uskoro | `interakcije/glas-publike?dan=<dateKey>` |
+| `sponsored_question_missing` | objavljen model sa Naprednim na snazi bez pitanja za mapu | pre, sajam | uskoro | `sponzorisano` |
+| `advanced_photo_missing` | Napredni (sačuvan paket), nepovučen, bez fotografije | pre / sajam | uskoro / info | `modeli?paket=napredni&foto=nema` |
+| `interest_form_without_consent`, `test_drive_form_without_consent` | izlagači sa uključenom podrazumevanom formom te vrste i objavljenim modelom koji je ima, a saglasnost te vrste nije aktivna | pre / sajam | uskoro / hitno | `leadovi/podesavanja` |
+| `leads_switch_off` | `FAIR_LEADS_ENABLED` isključen, postoji objavljen Starter+ model | pre (< 72 h) / sajam | uskoro / hitno | `leadovi/podesavanja` |
+| `follow_up_switch_off` | `FAIR_FOLLOWUP_ENABLED` isključen, postoji objavljen Napredni model | pre (< 72 h) / sajam, posle do trenutka slanja (`fairFollowUpAt`) | uskoro / hitno | `leadovi/podesavanja` |
+| `leads_undelivered` | lead `received`; `deadlineAt` = 15. 11. | sajam / posle | info / uskoro (hitno ≤ 3 dana do roka) | `leadovi?isporuka=ne` |
+| `reports_pending_review` | najnoviji run dan × izlagač je `pending_review` | sajam, posle | hitno | `izvestaji?status=ceka-odobrenje` |
+| `reports_failed` | najnoviji run je `failed` | sve osim obrisano | hitno | `izvestaji?status=greska` |
+| `reports_missing` | dan zatvoren pre > 60 min, izlagač ima dnevni presek po paketu na kraju dana, a run ne postoji | sajam, posle | uskoro | `izvestaji?status=ceka-podatke[&dan=<dateKey>]` |
+| `follow_up_text_missing` | aktivan izlagač sa Naprednim modelom bez aktivnog `fairExhibitorFollowUpTemplates`; posle sajma samo izlagači sa leadovima | pre / sajam / posle | info / uskoro / hitno | `leadovi/follow-up[?izlagac=<id>]` |
+| `passport_hidden` | brend ispunjava uslov (`fairBrandPassportProblems`), pasoš sakriven | pre, sajam | info | `interakcije/pasos?stanje=sakriven` |
+| `passport_missing` | brend ispunjava uslov, zamrzavanje je prošlo, a objavljen pasoš ne postoji | sajam | info | `interakcije/pasos?stanje=nije-napravljen` |
+| `passport_blocked` | objavljen zamrznut pasoš traži povučen model | pre, sajam | hitno | `interakcije/pasos?stanje=zamrznut` |
+| `sponsored_out_of_date` | aktivni snapshot ≠ objavljeni Napredni modeli na snazi i njihova pitanja (isto poređenje kao A9 `sponsoredDrift`) | pre, sajam | uskoro | `sponzorisano` |
+| `pii_purge_countdown` | `piiPurgeAt − at` u danima (broj = dani) | posle | info (uskoro ≤ 7 dana) | `brisanje` |
+
+### 36.5 KPI red i kartice
+
+- `kpis.models` (objavljeni / nepovučeni, po paketu), `kpis.qr` (aktivne dodele / kodovi inventara; `inventory: null` kad inventar nije podešen), `kpis.scans` (danas i ukupno, jedinstveni; admin skenovi nisu u brojačima).
+- `kpis.leads`, `kpis.questions` i `kpis.reports` su `null` kad nijedan model nema tu funkciju (bez lažnih nula); `questions` je dan koji je otvoren ili sledeći, sa brojem modela koji imaju pitanje od onih koji ga mogu imati.
+- `sections`: Modeli, QR, Interakcije, Leadovi (`null` bez prava na forme), Sponzorisano (`null` bez Naprednih), Izveštaji (`null` bez dnevnih preseka), Izlagači — po 2–3 broja. Posle sajma UI umesto „danas“ prikazuje ukupne skenove i neisporučene leadove.
+- Bedževi navigacije: najhitniji ton po sekciji i zbir brojeva tog tona; info se ne prikazuje u navigaciji; roditelj (Interakcije, Leadovi) nosi najhitniji bedž svojih stranica na telefonu (`components/admin/events/dashboard-logic.ts`).
+
+### 36.6 Testovi
+
+- `convex/fairDashboard.test.ts` (TEST seed `fairDevFixtures.seedTestCatalog`): faze i rokovi (pre, sajamski dan 1 i 3 od 3, posle, obrisano); pravila po fazi; katalog i QR (bez QR-a, greške na objavljenom i nacrtu, cena, QR na povučenom, inventar); Glas publike danas (hitno pre podne, uskoro posle) i sledeći dan; Napredni (pitanje za mapu, fotografija, zastarela lista posle ručne objave); leadovi (forme bez saglasnosti, prekidači, neisporučeni do 15. 11., follow-up tekst sa vezom na izlagača); izveštaji (najnoviji run odlučuje, kašnjenje posle 60 min); pasoš (nije napravljen, sakriven, zamrznut sa povučenim modelom); odbrojavanje brisanja; redosled; KPI i kartice (skenovi iz brojača štandova); izostavljanje funkcija bez paketa; granice (`capped`); authz i izlaz bez PII.
+- `convex/fairAuthz.test.ts`: `getEventDashboard` klasifikovan kao admin; anonimni i ne-admin odbijeni.
+- Komponente: `components/admin/events/sections/pregled-view.test.tsx` (redosled po tonu, veze na filtrirane sekcije, prazno stanje „Sve je spremno“, tri faze, KPI bez lažnih nula, kartice, bedževi navigacije), `components/admin/admin-events.test.tsx` (okvir + Pregled).

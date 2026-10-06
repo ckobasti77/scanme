@@ -38,7 +38,9 @@ import { previewLeadsFixture } from "@/components/admin/events/preview-leads-fix
 import { EventFollowUpView, type FollowUpActions } from "@/components/admin/events/sections/leadovi-follow-up-view";
 import { EventLeadsInboxView, type InboxLead, type LeadInboxActions } from "@/components/admin/events/sections/leadovi-view";
 import { EventModelDetailView, EventModelsView, type ModelDetailSummary } from "@/components/admin/events/sections/modeli-view";
-import { EventOverviewView } from "@/components/admin/events/sections/pregled-view";
+import { dashboardSectionUrgency, withNavUrgency } from "@/components/admin/events/dashboard-logic";
+import { previewDashboard } from "@/components/admin/events/preview-dashboard-fixtures";
+import { EventDashboardView } from "@/components/admin/events/sections/pregled-view";
 import { EventQrDetailView, EventQrView } from "@/components/admin/events/sections/qr-view";
 import {
   eventDetailHref,
@@ -613,7 +615,10 @@ function PreviewSection({ path, detailId, query, setQuery, keep }: {
   const inboxQuery: AdminQueryState = { ...keep, ...query };
   delete inboxQuery.lead;
   switch (path) {
-    case "pregled": return <EventOverviewView catalog={catalog} modelHref={modelHref} />;
+    case "pregled": {
+      const dashboard = previewDashboard(query.faza);
+      return <EventDashboardView dashboard={dashboard} now={dashboard.at} base={PREVIEW_BASE} keep={keep} />;
+    }
     case "modeli": return detailId
       ? (
         <EventModelDetailView
@@ -744,7 +749,7 @@ export function AdminEventsPreview({ section }: { section: ResolvedEventSection 
         events={PREVIEW_EVENTS}
         currentSlug={currentSlug}
         onSelectEvent={(slug) => router.push(switchEventHref(PREVIEW_BASE, section, query, keepFor(slug)))}
-        nav={eventNavGroups((path) => eventSectionHref(PREVIEW_BASE, path, keep), active)}
+        nav={withNavUrgency(eventNavGroups((path) => eventSectionHref(PREVIEW_BASE, path, keep), active), dashboardSectionUrgency(previewDashboard(query.faza).actions))}
       >
         <AdminViewModeOverride value={parseViewModeParam(query.prikaz)} onChange={onViewChange}>
           {section?.kind === "section"

@@ -523,7 +523,8 @@ export const listEvents = query({
   },
 });
 
-async function loadEventCatalog(ctx: QueryCtx, eventId: Id<"fairEvents">) {
+/** One event's catalog, ≤ FAIR_ADMIN_LIST_LIMIT rows per table (also read by fairDashboard, A10). */
+export async function loadEventCatalog(ctx: QueryCtx, eventId: Id<"fairEvents">) {
   const take = async <T>(rows: Promise<T[]>) => {
     const list = await rows;
     if (list.length > FAIR_ADMIN_LIST_LIMIT) fairAdminError("INVALID_INPUT", { reason: "catalog_limit" });
@@ -564,37 +565,44 @@ export const listValidationIssues = query({
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
     const event = await requireFairEvent(ctx, args.eventId);
-    const { participations, stands, models, assignments } = await loadEventCatalog(ctx, event._id);
-    const participationById = new Map<Id<"fairParticipations">, Doc<"fairParticipations">>(participations.map((row) => [row._id, row]));
-    const standById = new Map<Id<"fairStands">, Doc<"fairStands">>(stands.map((row) => [row._id, row]));
-    const assigned = new Set(assignments.map((row) => row.eventModelId));
-    const slugCount = new Map<string, number>();
-    for (const model of models) slugCount.set(model.slug, (slugCount.get(model.slug) ?? 0) + 1);
-    return models.map((model) => {
-      const stand = standById.get(model.standId) ?? null;
-      const mapIssues: FairAdminIssue[] = [];
-      if (stand) {
-        if (!isFairEventMapLocationId(event.code, stand.mapLocationId)) mapIssues.push({ severity: "error", code: "FAIR_MAP_LOCATION_INVALID", path: "stand.mapLocationId" });
-        else if (stands.some((other) => other._id !== stand._id && other.status !== "withdrawn" && other.mapLocationId === stand.mapLocationId)) {
-          mapIssues.push({ severity: "error", code: "FAIR_MAP_LOCATION_TAKEN", path: "stand.mapLocationId", details: { mapLocationId: stand.mapLocationId } });
-        }
-      }
-      return {
-        eventModelId: model._id,
-        externalKey: model.externalKey,
-        status: model.status,
-        issues: fairPublishIssuesFromFacts(model, {
-          eventExists: true,
-          participation: participationById.get(model.participationId) ?? null,
-          stand,
-          mapIssues,
-          slugTaken: (slugCount.get(model.slug) ?? 0) > 1,
-          hasActiveQr: assigned.has(model._id),
-        }),
-      };
-    });
+    return eventValidationIssues(event, await loadEventCatalog(ctx, event._id));
   },
 });
+
+/** Publish problems of every model from the preloaded catalog (shared with fairDashboard, A10). */
+export function eventValidationIssues(
+  event: Doc<"fairEvents">,
+  { participations, stands, models, assignments }: Pick<Awaited<ReturnType<typeof loadEventCatalog>>, "participations" | "stands" | "models" | "assignments">,
+) {
+  const participationById = new Map<Id<"fairParticipations">, Doc<"fairParticipations">>(participations.map((row) => [row._id, row]));
+  const standById = new Map<Id<"fairStands">, Doc<"fairStands">>(stands.map((row) => [row._id, row]));
+  const assigned = new Set(assignments.map((row) => row.eventModelId));
+  const slugCount = new Map<string, number>();
+  for (const model of models) slugCount.set(model.slug, (slugCount.get(model.slug) ?? 0) + 1);
+  return models.map((model) => {
+    const stand = standById.get(model.standId) ?? null;
+    const mapIssues: FairAdminIssue[] = [];
+    if (stand) {
+      if (!isFairEventMapLocationId(event.code, stand.mapLocationId)) mapIssues.push({ severity: "error", code: "FAIR_MAP_LOCATION_INVALID", path: "stand.mapLocationId" });
+      else if (stands.some((other) => other._id !== stand._id && other.status !== "withdrawn" && other.mapLocationId === stand.mapLocationId)) {
+        mapIssues.push({ severity: "error", code: "FAIR_MAP_LOCATION_TAKEN", path: "stand.mapLocationId", details: { mapLocationId: stand.mapLocationId } });
+      }
+    }
+    return {
+      eventModelId: model._id,
+      externalKey: model.externalKey,
+      status: model.status,
+      issues: fairPublishIssuesFromFacts(model, {
+        eventExists: true,
+        participation: participationById.get(model.participationId) ?? null,
+        stand,
+        mapIssues,
+        slugTaken: (slugCount.get(model.slug) ?? 0) > 1,
+        hasActiveQr: assigned.has(model._id),
+      }),
+    };
+  });
+}
 
 /**
  * B1A: display names for one event's catalog (the `Događaji` tab). Only names,
