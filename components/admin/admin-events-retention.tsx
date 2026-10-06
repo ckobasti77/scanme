@@ -1,6 +1,7 @@
 "use client";
 
 import { AdminEmptyState, AdminPanel, AdminStatus } from "@/components/admin/admin-primitives";
+import { AdminDataCard, AdminDataView } from "@/components/admin/admin-ui";
 import {
   Feedback,
   Meta,
@@ -44,6 +45,31 @@ export type RetentionActions = {
   startDryRun: () => Promise<InteractionOutcome>;
 };
 
+type RetentionRun = RetentionView["runs"][number];
+
+function runLine(run: RetentionRun) {
+  return fmt(dict.retentionRunLine, { mode: dict.retentionModes[run.mode], trigger: dict.retentionTriggers[run.trigger], date: dateTime.format(run.startedAt) });
+}
+
+function RunStatus({ run }: { run: RetentionRun }) {
+  return <AdminStatus label={dict.retentionRunStatus[run.status]} tone={run.status === "completed" ? "active" : "waiting"} />;
+}
+
+function RunProgress({ run }: { run: RetentionRun }) {
+  return (
+    <span className="grid min-w-0 gap-0.5">
+      <Meta>
+        {run.finishedAt !== undefined
+          ? fmt(dict.retentionRunFinished, { date: dateTime.format(run.finishedAt), rows: run.totalRows, batches: run.batches })
+          : fmt(dict.retentionRunProgress, { rows: run.totalRows, batches: run.batches })}
+      </Meta>
+      {run.categories.map((entry) => (
+        <Meta key={entry.category}>{fmt(dict.retentionCategoryLine, { category: dict.retentionCategories[entry.category], rows: entry.rows, status: dict.retentionCategoryStatus[entry.status] })}</Meta>
+      ))}
+    </span>
+  );
+}
+
 export function AdminEventsRetention({ view, actions }: { view: RetentionView | undefined; actions: RetentionActions | undefined }) {
   const dryRun = useRunner();
   if (!view || !actions) return <AdminPanel><AdminEmptyState title={dict.tabRetention} body={dict.retentionUnavailable} /></AdminPanel>;
@@ -82,28 +108,23 @@ export function AdminEventsRetention({ view, actions }: { view: RetentionView | 
       </Section>
 
       <Section title={dict.retentionRunsTitle} help={dict.retentionRunsHelp}>
-        {view.runs.length ? (
-          <RowList>
-            {view.runs.map((run) => (
-              <Row key={run.id}>
-                <span className="min-w-0">
-                  <strong className="block break-words text-sm">{fmt(dict.retentionRunLine, { mode: dict.retentionModes[run.mode], trigger: dict.retentionTriggers[run.trigger], date: dateTime.format(run.startedAt) })}</strong>
-                  <Meta>
-                    {run.finishedAt !== undefined
-                      ? fmt(dict.retentionRunFinished, { date: dateTime.format(run.finishedAt), rows: run.totalRows, batches: run.batches })
-                      : fmt(dict.retentionRunProgress, { rows: run.totalRows, batches: run.batches })}
-                  </Meta>
-                  {run.categories.map((entry) => (
-                    <Meta key={entry.category}>{fmt(dict.retentionCategoryLine, { category: dict.retentionCategories[entry.category], rows: entry.rows, status: dict.retentionCategoryStatus[entry.status] })}</Meta>
-                  ))}
-                </span>
-                <span className="flex flex-wrap items-center gap-2">
-                  <AdminStatus label={dict.retentionRunStatus[run.status]} tone={run.status === "completed" ? "active" : "waiting"} />
-                </span>
-              </Row>
-            ))}
-          </RowList>
-        ) : <p className="text-sm text-[var(--admin-text-muted)]">{dict.retentionRunsEmpty}</p>}
+        <AdminDataView
+          listKey="dogadjaji.brisanje.runovi"
+          caption={dict.retentionRunsTitle}
+          rows={view.runs}
+          empty={{ title: dict.retentionRunsTitle, body: dict.retentionRunsEmpty }}
+          getRowId={(run) => run.id}
+          columns={[
+            { id: "run", header: dict.colRun, rowHeader: true, sortValue: (run) => run.startedAt, cell: (run) => <strong className="font-semibold">{runLine(run)}</strong> },
+            { id: "progress", header: dict.colProgress, cell: (run) => <RunProgress run={run} /> },
+            { id: "status", header: dict.colStatus, sortValue: (run) => dict.retentionRunStatus[run.status], cell: (run) => <RunStatus run={run} /> },
+          ]}
+          renderCard={(run) => (
+            <AdminDataCard title={runLine(run)} badges={<RunStatus run={run} />}>
+              <RunProgress run={run} />
+            </AdminDataCard>
+          )}
+        />
       </Section>
     </div>
   );

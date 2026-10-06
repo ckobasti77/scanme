@@ -25,6 +25,7 @@ import {
   AdminPanel,
   AdminStatus,
 } from "./admin-primitives";
+import { AdminDataView, type AdminColumn } from "./admin-ui";
 
 type TeamMember = FunctionReturnType<
   typeof api.adminTasks.teamOverview
@@ -190,13 +191,58 @@ function TaskRows({
         className="min-h-44"
       />
     );
+  const taskStatus = (task: TeamTask) => (
+    <AdminStatus
+      label={statusLabels[task.status]}
+      tone={
+        task.timePhase === "overdue"
+          ? "problem"
+          : task.status === "in_progress"
+            ? "waiting"
+            : "active"
+      }
+    />
+  );
+  const columns: AdminColumn<TeamTask>[] = [
+    {
+      id: "task",
+      header: taskDict.colTask,
+      rowHeader: true,
+      sortValue: (task) => task.title,
+      cell: (task) => (
+        <>
+          <strong className="block break-words text-sm font-semibold">{task.title}</strong>
+          <span className="font-mono text-[0.68rem] text-[var(--admin-text-muted)]">
+            {task.smkCode}
+            {task.smlCode ? ` · ${task.smlCode}` : ""}
+          </span>
+        </>
+      ),
+    },
+    {
+      id: "client",
+      header: taskDict.colClient,
+      sortValue: (task) => task.accountName,
+      cell: (task) => (
+        <span className="text-xs text-[var(--admin-text-muted)]">
+          {task.accountName}
+          {task.businessName ? ` · ${task.businessName}` : ""}
+        </span>
+      ),
+    },
+    { id: "status", header: taskDict.colStatus, sortValue: (task) => statusLabels[task.status], cell: taskStatus },
+    { id: "assignee", header: taskDict.colAssignee, sortValue: (task) => task.assigneeName, cell: (task) => task.assigneeName },
+  ];
   return (
-    <div className="divide-y divide-[var(--admin-border)]">
-      {rows.map((task) => (
-        <article
-          key={task.id}
-          className="grid gap-3 p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:p-5"
-        >
+    <div className="p-4 sm:p-5">
+      <AdminDataView
+        listKey="tim.zadaci"
+        caption={dict.tasksTitle}
+        rows={rows}
+        getRowId={(task) => task.id}
+        columns={columns}
+        tableClassName="min-w-[52rem]"
+        renderCard={(task) => (
           <div className="min-w-0">
             <span className="font-mono text-[0.68rem] text-[var(--admin-text-muted)]">
               {task.smkCode}
@@ -210,22 +256,15 @@ function TaskRows({
               {task.businessName ? ` · ${task.businessName}` : ""}
             </p>
             <div className="mt-3 flex flex-wrap items-center gap-2">
-              <AdminStatus
-                label={statusLabels[task.status]}
-                tone={
-                  task.timePhase === "overdue"
-                    ? "problem"
-                    : task.status === "in_progress"
-                      ? "waiting"
-                      : "active"
-                }
-              />
+              {taskStatus(task)}
               <span className="text-xs text-[var(--admin-text-muted)]">
                 {task.assigneeName}
               </span>
             </div>
           </div>
-          <div className="flex flex-wrap gap-2 sm:justify-end">
+        )}
+        rowActions={(task) => (
+          <>
             {meId && task.assigneeId !== meId ? (
               <Button
                 type="button"
@@ -258,9 +297,9 @@ function TaskRows({
               <ArrowRight className="size-4" aria-hidden="true" />
               <span className="sr-only">{taskDict.openDetail}</span>
             </Link>
-          </div>
-        </article>
-      ))}
+          </>
+        )}
+      />
     </div>
   );
 }
@@ -284,13 +323,39 @@ function ConversationRows({
         className="min-h-44"
       />
     );
+  const columns: AdminColumn<TeamConversation>[] = [
+    {
+      id: "client",
+      header: taskDict.colClient,
+      rowHeader: true,
+      sortValue: (conversation) => conversation.accountName,
+      cell: (conversation) => (
+        <>
+          <strong className="block text-sm font-semibold">{conversation.accountName}</strong>
+          <span className="font-mono text-[0.68rem] text-[var(--admin-text-muted)]">{conversation.smkCode}</span>
+        </>
+      ),
+    },
+    {
+      id: "message",
+      header: dict.colLatestMessage,
+      cell: (conversation) => (
+        <span className="line-clamp-2 break-words text-sm text-[var(--admin-text-muted)]">
+          {conversation.latestMessagePreview}
+        </span>
+      ),
+    },
+  ];
   return (
-    <div className="divide-y divide-[var(--admin-border)]">
-      {rows.map((conversation) => (
-        <article
-          key={conversation.id}
-          className="grid gap-3 p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:p-5"
-        >
+    <div className="p-4 sm:p-5">
+      <AdminDataView
+        listKey="tim.razgovori"
+        caption={dict.conversationsTitle}
+        rows={rows}
+        getRowId={(conversation) => conversation.id}
+        columns={columns}
+        tableClassName="min-w-[48rem]"
+        renderCard={(conversation) => (
           <div className="min-w-0">
             <span className="font-mono text-[0.68rem] text-[var(--admin-text-muted)]">
               {conversation.smkCode}
@@ -302,7 +367,9 @@ function ConversationRows({
               {conversation.latestMessagePreview}
             </p>
           </div>
-          <div className="flex flex-wrap gap-2 sm:justify-end">
+        )}
+        rowActions={(conversation) => (
+          <>
             {meId && conversation.assigneeAdminId !== meId ? (
               <Button
                 type="button"
@@ -335,9 +402,9 @@ function ConversationRows({
               <ArrowRight className="size-4" aria-hidden="true" />
               <span className="sr-only">{dict.openAllConversations}</span>
             </Link>
-          </div>
-        </article>
-      ))}
+          </>
+        )}
+      />
     </div>
   );
 }
@@ -433,6 +500,7 @@ function TeamView({
   onAssignTask,
   onAssignConversation,
   preview = false,
+  initialTab = "overview",
 }: {
   members: TeamMember[];
   admins: AdminOption[];
@@ -450,6 +518,8 @@ function TeamView({
     adminId: Id<"users">,
   ) => void;
   preview?: boolean;
+  /** Dev preview `?tab=`: `tasks` or `conversations` shows that list first. */
+  initialTab?: "overview" | "tasks" | "conversations";
 }) {
   return (
     <div className="grid gap-5 sm:gap-6">
@@ -481,7 +551,7 @@ function TeamView({
               />
             ))}
           </div>
-          <Tabs defaultValue="overview" className="min-w-0">
+          <Tabs defaultValue={initialTab} className="min-w-0">
             <div className="flex flex-wrap items-end justify-between gap-3 border-b border-[var(--admin-border)] pb-3">
               <TabsList className="h-auto min-h-11 max-w-full rounded-full bg-[var(--admin-surface-muted)] p-1">
                 <TabsTrigger
@@ -587,7 +657,7 @@ function TeamView({
   );
 }
 
-export function AdminTeamPreview() {
+export function AdminTeamPreview({ tab }: { tab?: string } = {}) {
   const members = [
     {
       id: "preview-admin-teodora" as Id<"users">,
@@ -750,6 +820,7 @@ export function AdminTeamPreview() {
       onAssignTask={assignTask}
       onAssignConversation={assignConversation}
       preview
+      initialTab={tab === "tasks" || tab === "conversations" ? tab : "overview"}
     />
   );
 }

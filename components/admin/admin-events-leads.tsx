@@ -6,8 +6,6 @@ import {
   ConfirmAction,
   Feedback,
   Meta,
-  Row,
-  RowList,
   Section,
   dateTime,
   field,
@@ -16,6 +14,7 @@ import {
   useRunner,
 } from "@/components/admin/admin-events-interactions";
 import { AdminEmptyState, AdminLoadingState, AdminPanel, AdminStatus } from "@/components/admin/admin-primitives";
+import { AdminDataCard, AdminDataView, type AdminColumn } from "@/components/admin/admin-ui";
 import { belgradeLocalToEpoch, epochToBelgradeLocal, formatBelgradeDate } from "@/lib/belgrade-time";
 import {
   FAIR_CONSENT_LEGAL_APPROVER_MAX,
@@ -318,6 +317,22 @@ function deliveryText(delivery: LeadsDelivery, label: string, followUp: boolean)
   return fmt(label, { status: error ? `${status} (${error})` : status });
 }
 
+function contactText(row: LeadsRow) {
+  return `${row.email ?? dict.leadNoEmail} · ${row.phone ?? dict.leadNoPhone}`;
+}
+
+function deliverySummary(row: LeadsRow) {
+  return `${fmt(dict.leadConsent, { version: row.consentVersion })} · ${deliveryText(row.confirmation, dict.confirmationLabel, false)}${row.followUp ? ` · ${deliveryText(row.followUp, dict.followUpLabel, true)}` : ""}`;
+}
+
+const leadColumns: AdminColumn<LeadsRow>[] = [
+  { id: "name", header: dict.colName, rowHeader: true, sortValue: (row) => row.contactName, cell: (row) => <strong className="font-semibold">{row.contactName}</strong> },
+  { id: "date", header: dict.colDate, sortValue: (row) => row.createdAt, cell: (row) => <span className="whitespace-nowrap">{dateTime.format(row.createdAt)}</span> },
+  { id: "kind", header: dict.colKind, sortValue: (row) => dict.leadKinds[row.kind], cell: (row) => <><span className="block">{dict.leadKinds[row.kind]}</span><Meta>{row.modelName}</Meta></> },
+  { id: "contact", header: dict.colContact, cell: contactText },
+  { id: "delivery", header: dict.colDelivery, cell: (row) => <span className="flex flex-wrap items-center gap-1.5"><Meta>{deliverySummary(row)}</Meta>{row.followUpSuppressed ? <AdminStatus label={dict.followUpSuppressedBadge} tone="neutral" /> : null}</span> },
+];
+
 function LeadList({ view, actions }: { view: LeadsView; actions: LeadsActions }) {
   const { message, pending, run } = useRunner();
   const leads = view.leads;
@@ -330,43 +345,47 @@ function LeadList({ view, actions }: { view: LeadsView; actions: LeadsActions })
               {view.participations.map((row) => <option key={row.id} value={row.id}>{row.exhibitorName}</option>)}
             </select>
           </label>
-          {leads.status === "loading" ? <AdminLoadingState label={dict.loading} /> : !leads.rows.length ? (
-            <p className="mt-4 text-sm text-[var(--admin-text-muted)]">{dict.listEmpty}</p>
-          ) : (
-            <RowList>
-              {leads.rows.map((row) => (
-                <Row key={row.id}>
-                  <span className="grid min-w-0 gap-1">
-                    <span className="font-semibold [overflow-wrap:anywhere]">{row.contactName}</span>
-                    <Meta>{fmt(dict.leadMeta, { date: dateTime.format(row.createdAt), kind: dict.leadKinds[row.kind], model: row.modelName })}</Meta>
-                    <span className="text-sm [overflow-wrap:anywhere]">{row.email ?? dict.leadNoEmail} · {row.phone ?? dict.leadNoPhone}</span>
-                    <Meta>
-                      {fmt(dict.leadConsent, { version: row.consentVersion })} · {deliveryText(row.confirmation, dict.confirmationLabel, false)}
-                      {row.followUp ? ` · ${deliveryText(row.followUp, dict.followUpLabel, true)}` : ""}
-                    </Meta>
-                  </span>
-                  <span className="flex flex-wrap items-center gap-2">
-                    {row.followUpSuppressed ? <AdminStatus label={dict.followUpSuppressedBadge} tone="neutral" /> : null}
-                    {row.followUp?.status === "queued" && !row.followUpSuppressed ? (
-                      <ConfirmAction label={dict.suppress} body={dict.suppressConfirm} disabled={pending} onConfirm={() => void run(() => actions.setSuppressed(row.id, true), dict.suppressDone)} />
-                    ) : null}
-                    {row.followUp?.status === "queued" && row.followUpSuppressed ? (
-                      <button type="button" className={secondaryButton} disabled={pending} onClick={() => void run(() => actions.setSuppressed(row.id, false), dict.unsuppressDone)}>{dict.unsuppress}</button>
-                    ) : null}
-                    {row.confirmation?.status === "failed" ? (
-                      <button type="button" className={secondaryButton} disabled={pending} onClick={() => void run(() => actions.retryDelivery(row.confirmation!.id), dict.retryDone)}>{dict.retryConfirmation}</button>
-                    ) : null}
-                    {row.followUp?.status === "failed" ? (
-                      <button type="button" className={secondaryButton} disabled={pending} onClick={() => void run(() => actions.retryDelivery(row.followUp!.id), dict.retryDone)}>{dict.retryFollowUp}</button>
-                    ) : null}
-                  </span>
-                </Row>
-              ))}
-            </RowList>
-          )}
-          {leads.canLoadMore ? (
-            <button type="button" className={cn(secondaryButton, "mt-4")} disabled={leads.loadingMore} onClick={leads.onLoadMore}>{leads.loadingMore ? dict.loadingMore : dict.loadMore}</button>
-          ) : null}
+          <AdminDataView
+            className="mt-4"
+            listKey="dogadjaji.leadovi"
+            caption={dict.listTitle}
+            rows={leads.status === "loading" ? undefined : leads.rows}
+            loadingLabel={dict.loading}
+            empty={{ title: dict.listTitle, body: dict.listEmpty }}
+            getRowId={(row) => row.id}
+            columns={leadColumns}
+            tableClassName="min-w-[60rem]"
+            renderCard={(row) => (
+              <AdminDataCard
+                title={row.contactName}
+                subtitle={fmt(dict.leadMeta, { date: dateTime.format(row.createdAt), kind: dict.leadKinds[row.kind], model: row.modelName })}
+                badges={row.followUpSuppressed ? <AdminStatus label={dict.followUpSuppressedBadge} tone="neutral" /> : undefined}
+                fields={[
+                  { label: dict.colContact, value: contactText(row) },
+                  { label: dict.colDelivery, value: deliverySummary(row) },
+                ]}
+              />
+            )}
+            rowActions={(row) => (
+              <>
+                {row.followUp?.status === "queued" && !row.followUpSuppressed ? (
+                  <ConfirmAction label={dict.suppress} body={dict.suppressConfirm} disabled={pending} onConfirm={() => void run(() => actions.setSuppressed(row.id, true), dict.suppressDone)} />
+                ) : null}
+                {row.followUp?.status === "queued" && row.followUpSuppressed ? (
+                  <button type="button" className={secondaryButton} disabled={pending} onClick={() => void run(() => actions.setSuppressed(row.id, false), dict.unsuppressDone)}>{dict.unsuppress}</button>
+                ) : null}
+                {row.confirmation?.status === "failed" ? (
+                  <button type="button" className={secondaryButton} disabled={pending} onClick={() => void run(() => actions.retryDelivery(row.confirmation!.id), dict.retryDone)}>{dict.retryConfirmation}</button>
+                ) : null}
+                {row.followUp?.status === "failed" ? (
+                  <button type="button" className={secondaryButton} disabled={pending} onClick={() => void run(() => actions.retryDelivery(row.followUp!.id), dict.retryDone)}>{dict.retryFollowUp}</button>
+                ) : null}
+              </>
+            )}
+            footer={leads.canLoadMore ? (
+              <button type="button" className={cn(secondaryButton, "w-fit")} disabled={leads.loadingMore} onClick={leads.onLoadMore}>{leads.loadingMore ? dict.loadingMore : dict.loadMore}</button>
+            ) : null}
+          />
           <Feedback message={message} />
         </>
       )}

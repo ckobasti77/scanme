@@ -2,12 +2,11 @@
 
 import { useState } from "react";
 import { AdminEmptyState, AdminPanel, AdminStatus } from "@/components/admin/admin-primitives";
+import { AdminDataCard, AdminDataView, type AdminColumn } from "@/components/admin/admin-ui";
 import {
   ConfirmAction,
   Feedback,
   Meta,
-  Row,
-  RowList,
   Section,
   dateTime,
   field,
@@ -125,14 +124,45 @@ function ReviewPanel({ dataset }: { dataset: FairDailyDataset }) {
   );
 }
 
-function RunActions({ run, actions, reviewing }: { run: ReportRunView; actions: ReportsActions; reviewing: boolean }) {
+function runTitle(run: ReportRunView) {
+  return fmt(dict.reportsRunLine, { exhibitor: run.exhibitorName, day: run.dayLabel, format: dict.reportsFormats[run.format] });
+}
+
+function RunBadges({ run }: { run: ReportRunView }) {
+  return (
+    <>
+      <AdminStatus label={dict.reportStatus[run.status]} tone={statusTone(run.status)} />
+      {run.correctionOf ? <AdminStatus label={dict.reportsCorrectionBadge} tone="neutral" /> : null}
+    </>
+  );
+}
+
+function RunMeta({ run }: { run: ReportRunView }) {
+  return (
+    <span className="grid min-w-0 gap-0.5">
+      {run.approvedAt !== undefined ? <Meta>{fmt(dict.reportsApprovedAt, { date: dateTime.format(run.approvedAt) })}</Meta> : null}
+      <Meta>{run.recipient ? fmt(dict.reportsRecipient, { email: run.recipient }) : dict.reportsNoRecipient}</Meta>
+      {run.lastDelivery ? <Meta>{fmt(dict.reportsDelivery, { status: dict.deliveryStatus[run.lastDelivery.status as keyof typeof dict.deliveryStatus] ?? run.lastDelivery.status })}</Meta> : null}
+      {run.error ? <Meta>{fmt(dict.reportsError, { error: reportErrorText(run.error) })}</Meta> : null}
+    </span>
+  );
+}
+
+const runColumns: AdminColumn<ReportRunView>[] = [
+  { id: "report", header: dict.colReport, rowHeader: true, sortValue: runTitle, cell: (run) => <strong className="font-semibold">{runTitle(run)}</strong> },
+  { id: "status", header: dict.colStatus, className: "whitespace-nowrap", sortValue: (run) => dict.reportStatus[run.status], cell: (run) => <span className="flex flex-wrap gap-1.5"><RunBadges run={run} /></span> },
+  { id: "date", header: dict.colDate, sortValue: (run) => run.createdAt, cell: (run) => <span className="whitespace-nowrap">{dateTime.format(run.createdAt)}</span> },
+  { id: "delivery", header: dict.colRecipient, cell: (run) => <RunMeta run={run} /> },
+];
+
+function RunActions({ run, actions, reviewing, idSuffix }: { run: ReportRunView; actions: ReportsActions; reviewing: boolean; idSuffix: string }) {
   const runner = useRunner();
   const [recipient, setRecipient] = useState("");
   const recipientArg = recipient.trim() || undefined;
-  const recipientId = `report-recipient-${run.id}`;
+  const recipientId = `report-recipient-${run.id}-${idSuffix}`;
   const canDownload = run.status === "pending_review" || run.status === "approved" || run.status === "sent" || (run.status === "failed" && run.hasFile);
   return (
-    <div className="grid gap-2">
+    <div className="grid gap-2 text-left">
       <div className="flex flex-wrap gap-2">
         {canDownload ? (
           <button type="button" className={secondaryButton} onClick={() => actions.review(reviewing ? null : run.id)} aria-expanded={reviewing}>
@@ -222,35 +252,30 @@ export function AdminEventsReports({ view, actions }: { view: ReportsView | unde
       </Section>
 
       <Section title={dict.reportsListTitle} help={dict.reportsListHelp}>
-        {view.runs.length ? (
-          <RowList>
-            {view.runs.map((run) => {
-              const reviewing = view.review?.runId === run.id;
-              return (
-                <Row key={run.id}>
-                  <span className="grid min-w-0 gap-1">
-                    <strong className="block break-words text-sm">{fmt(dict.reportsRunLine, { exhibitor: run.exhibitorName, day: run.dayLabel, format: dict.reportsFormats[run.format] })}</strong>
-                    <span className="flex flex-wrap items-center gap-2">
-                      <AdminStatus label={dict.reportStatus[run.status]} tone={statusTone(run.status)} />
-                      {run.correctionOf ? <AdminStatus label={dict.reportsCorrectionBadge} tone="neutral" /> : null}
-                    </span>
-                    <Meta>{fmt(dict.reportsRunMeta, { date: dateTime.format(run.createdAt) })}</Meta>
-                    {run.approvedAt !== undefined ? <Meta>{fmt(dict.reportsApprovedAt, { date: dateTime.format(run.approvedAt) })}</Meta> : null}
-                    <Meta>{run.recipient ? fmt(dict.reportsRecipient, { email: run.recipient }) : dict.reportsNoRecipient}</Meta>
-                    {run.lastDelivery ? <Meta>{fmt(dict.reportsDelivery, { status: dict.deliveryStatus[run.lastDelivery.status as keyof typeof dict.deliveryStatus] ?? run.lastDelivery.status })}</Meta> : null}
-                    {run.error ? <Meta>{fmt(dict.reportsError, { error: reportErrorText(run.error) })}</Meta> : null}
-                    {reviewing ? (
-                      <div className="mt-3 min-w-0">
-                        {view.review?.dataset === undefined ? <Meta>{dict.reportsReviewLoading}</Meta> : view.review.dataset === null ? <Meta>{dict.reportsReviewEmpty}</Meta> : <ReviewPanel dataset={view.review.dataset} />}
-                      </div>
-                    ) : null}
-                  </span>
-                  <RunActions run={run} actions={actions} reviewing={reviewing} />
-                </Row>
-              );
-            })}
-          </RowList>
-        ) : <p className="text-sm text-[var(--admin-text-muted)]">{dict.reportsEmpty}</p>}
+        <AdminDataView
+          listKey="dogadjaji.izvestaji"
+          caption={dict.reportsListTitle}
+          rows={view.runs}
+          empty={{ title: dict.reportsListTitle, body: dict.reportsEmpty }}
+          getRowId={(run) => run.id}
+          columns={runColumns}
+          tableClassName="min-w-[64rem]"
+          renderCard={(run) => (
+            <AdminDataCard
+              title={runTitle(run)}
+              subtitle={fmt(dict.reportsRunMeta, { date: dateTime.format(run.createdAt) })}
+              badges={<RunBadges run={run} />}
+            >
+              <RunMeta run={run} />
+            </AdminDataCard>
+          )}
+          rowActions={(run, context) => <RunActions run={run} actions={actions} reviewing={view.review?.runId === run.id} idSuffix={context.view} />}
+          rowDetail={(run) => (view.review?.runId === run.id ? (
+            <div className="min-w-0">
+              {view.review.dataset === undefined ? <Meta>{dict.reportsReviewLoading}</Meta> : view.review.dataset === null ? <Meta>{dict.reportsReviewEmpty}</Meta> : <ReviewPanel dataset={view.review.dataset} />}
+            </div>
+          ) : null)}
+        />
       </Section>
 
       <Section title={dict.reportsExportsTitle} help={dict.reportsExportsHelp}>

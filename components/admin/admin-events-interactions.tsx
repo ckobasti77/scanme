@@ -3,6 +3,7 @@
 import { Plus, Trash2 } from "lucide-react";
 import { useState, type FormEvent, type ReactNode } from "react";
 import { AdminEmptyState, AdminPanel, AdminStatus } from "@/components/admin/admin-primitives";
+import { AdminDataCard, AdminDataView, type AdminColumn } from "@/components/admin/admin-ui";
 import {
   FAIR_SURVEY_MAX_QUESTIONS,
   type FairAudienceQuestionStatus,
@@ -158,6 +159,73 @@ export function ConfirmAction({ label, body, disabled, onConfirm }: { label: str
   );
 }
 
+type Runner = ReturnType<typeof useRunner>["run"];
+type ModelNames = Map<string, InteractionModel>;
+
+function modelLabel(names: ModelNames, modelId: string) {
+  const model = names.get(modelId);
+  return model ? `${model.name} · ${model.brandName}` : "—";
+}
+
+function QuestionBadges({ question }: { question: InteractionQuestion }) {
+  return (
+    <>
+      <AdminStatus label={dict.questionStatus[question.status]} tone={question.status === "published" ? "active" : question.status === "draft" ? "waiting" : "neutral"} />
+      {question.showOnSponsoredRotation ? <AdminStatus label={dict.questionRotationOn} tone="active" /> : null}
+    </>
+  );
+}
+
+function questionColumns(names: ModelNames): AdminColumn<InteractionQuestion>[] {
+  return [
+    { id: "prompt", header: dict.colQuestion, rowHeader: true, sortValue: (question) => question.prompt, cell: (question) => <><strong className="block font-semibold">{question.prompt}</strong><Meta>{question.options.map((option) => option.label).join(" · ")}</Meta></> },
+    { id: "model", header: dict.colModel, sortValue: (question) => modelLabel(names, question.modelId), cell: (question) => modelLabel(names, question.modelId) },
+    { id: "day", header: dict.colDay, sortValue: (question) => question.dayLabel, cell: (question) => question.dayLabel },
+    { id: "status", header: dict.colStatus, sortValue: (question) => dict.questionStatus[question.status], cell: (question) => <span className="flex flex-wrap gap-1.5"><QuestionBadges question={question} /></span> },
+  ];
+}
+
+function SurveyStatus({ status }: { status: FairSurveyStatus }) {
+  return <AdminStatus label={dict.surveyStatus[status]} tone={status === "published" ? "active" : status === "draft" ? "waiting" : "neutral"} />;
+}
+
+function surveyColumns(names: ModelNames): AdminColumn<InteractionSurvey>[] {
+  return [
+    { id: "model", header: dict.colModel, rowHeader: true, sortValue: (survey) => modelLabel(names, survey.modelId), cell: (survey) => <strong className="font-semibold">{modelLabel(names, survey.modelId)}</strong> },
+    { id: "version", header: dict.colVersion, sortValue: (survey) => survey.version, cell: (survey) => fmt(dict.surveyVersion, { version: survey.version, count: survey.questionCount }) },
+    { id: "status", header: dict.colStatus, sortValue: (survey) => dict.surveyStatus[survey.status], cell: (survey) => <SurveyStatus status={survey.status} /> },
+  ];
+}
+
+function PassportStatus({ passport }: { passport: InteractionPassport }) {
+  return <AdminStatus label={passport.status ? dict.passportStatus[passport.status] : dict.passportNone} tone={passport.status === "published" ? "active" : passport.status === "draft" ? "waiting" : "neutral"} />;
+}
+
+function PassportMembers({ passport, pending, run, actions }: { passport: InteractionPassport; pending: boolean; run: Runner; actions: InteractionsActions }) {
+  if (!passport.members.length) return null;
+  return (
+    <ul className="grid gap-2">
+      {passport.members.map((member) => (
+        <li key={member.modelId} className="flex flex-wrap items-center gap-2 text-sm">
+          <span className="min-w-0 break-words">{member.modelName}</span>
+          <AdminStatus label={dict.passportMemberStatus[member.status]} tone={member.status === "required" ? "active" : "neutral"} />
+          {passport.id && passport.status === "published" && member.status === "required" ? (
+            <ConfirmAction label={dict.passportRemoveModel} body={fmt(dict.passportRemoveConfirm, { model: member.modelName })} disabled={pending} onConfirm={() => void run(() => actions.removePassportModel(passport.id!, member.modelId), dict.passportRemoved)} />
+          ) : null}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function passportColumns(pending: boolean, run: Runner, actions: InteractionsActions): AdminColumn<InteractionPassport>[] {
+  return [
+    { id: "brand", header: dict.colBrand, rowHeader: true, sortValue: (passport) => passport.brandName, cell: (passport) => <><strong className="block font-semibold">{passport.brandName}</strong>{passport.frozenAt !== undefined ? <Meta>{fmt(dict.passportFrozenAt, { date: dateTime.format(passport.frozenAt) })}</Meta> : null}</> },
+    { id: "members", header: dict.colMembers, cell: (passport) => (passport.members.length ? <PassportMembers passport={passport} pending={pending} run={run} actions={actions} /> : "—") },
+    { id: "status", header: dict.colStatus, sortValue: (passport) => (passport.status ? dict.passportStatus[passport.status] : dict.passportNone), cell: (passport) => <PassportStatus passport={passport} /> },
+  ];
+}
+
 // -----------------------------------------------------------------------------
 // Glas publike
 // -----------------------------------------------------------------------------
@@ -206,34 +274,38 @@ function Questions({ view, actions }: { view: InteractionsView; actions: Interac
         </form>
       ) : <p className="text-sm text-[var(--admin-text-muted)]">{dict.questionsNoModels}</p>}
       <Feedback message={message} />
-      {view.questions.length ? (
-        <RowList>
-          {view.questions.map((question) => {
-            const model = names.get(question.modelId);
-            const advanced = model?.tier === "advanced";
-            return (
-              <Row key={question.id}>
-                <span className="min-w-0">
-                  <strong className="block break-words text-sm">{question.prompt}</strong>
-                  <Meta>{model ? `${model.name} · ${model.brandName}` : "—"} · {question.dayLabel}</Meta>
-                  <Meta>{question.options.map((option) => option.label).join(" · ")}</Meta>
-                </span>
-                <span className="flex flex-wrap items-center gap-2">
-                  <AdminStatus label={dict.questionStatus[question.status]} tone={question.status === "published" ? "active" : question.status === "draft" ? "waiting" : "neutral"} />
-                  {question.showOnSponsoredRotation ? <AdminStatus label={dict.questionRotationOn} tone="active" /> : null}
-                  {question.status === "draft" ? <button type="button" className={primaryButton} disabled={pending} onClick={() => void run(() => actions.publishQuestion(question.id), dict.questionPublished)}>{dict.questionPublish}</button> : null}
-                  {question.status === "published" ? <button type="button" className={secondaryButton} disabled={pending} onClick={() => void run(() => actions.closeQuestion(question.id), dict.questionClosed)}>{dict.questionClose}</button> : null}
-                  {advanced && question.status !== "draft" ? (
-                    <button type="button" className={secondaryButton} disabled={pending} onClick={() => void run(() => actions.setSponsoredResult(question.modelId, question.showOnSponsoredRotation ? null : question.id), dict.questionRotationSet)}>
-                      {question.showOnSponsoredRotation ? dict.questionRotationClear : dict.questionRotationAdd}
-                    </button>
-                  ) : null}
-                </span>
-              </Row>
-            );
-          })}
-        </RowList>
-      ) : <p className="mt-4 text-sm text-[var(--admin-text-muted)]">{dict.questionsEmpty}</p>}
+      <AdminDataView
+        className="mt-4"
+        listKey="dogadjaji.glas-publike"
+        caption={dict.questionsTitle}
+        rows={view.questions}
+        empty={{ title: dict.questionsTitle, body: dict.questionsEmpty }}
+        getRowId={(question) => question.id}
+        columns={questionColumns(names)}
+        tableClassName="min-w-[48rem]"
+        renderCard={(question) => (
+          <AdminDataCard
+            title={question.prompt}
+            subtitle={`${modelLabel(names, question.modelId)} · ${question.dayLabel}`}
+            badges={<QuestionBadges question={question} />}
+            fields={[{ label: dict.colOptions, value: question.options.map((option) => option.label).join(" · ") }]}
+          />
+        )}
+        rowActions={(question) => {
+          const advanced = names.get(question.modelId)?.tier === "advanced";
+          return (
+            <>
+              {question.status === "draft" ? <button type="button" className={primaryButton} disabled={pending} onClick={() => void run(() => actions.publishQuestion(question.id), dict.questionPublished)}>{dict.questionPublish}</button> : null}
+              {question.status === "published" ? <button type="button" className={secondaryButton} disabled={pending} onClick={() => void run(() => actions.closeQuestion(question.id), dict.questionClosed)}>{dict.questionClose}</button> : null}
+              {advanced && question.status !== "draft" ? (
+                <button type="button" className={secondaryButton} disabled={pending} onClick={() => void run(() => actions.setSponsoredResult(question.modelId, question.showOnSponsoredRotation ? null : question.id), dict.questionRotationSet)}>
+                  {question.showOnSponsoredRotation ? dict.questionRotationClear : dict.questionRotationAdd}
+                </button>
+              ) : null}
+            </>
+          );
+        }}
+      />
     </Section>
   );
 }
@@ -301,26 +373,22 @@ function Surveys({ view, actions }: { view: InteractionsView; actions: Interacti
         </form>
       ) : <p className="text-sm text-[var(--admin-text-muted)]">{dict.surveysNoModels}</p>}
       <Feedback message={message} />
-      {view.surveys.length ? (
-        <RowList>
-          {view.surveys.map((survey) => {
-            const model = names.get(survey.modelId);
-            return (
-              <Row key={survey.id}>
-                <span className="min-w-0">
-                  <strong className="block break-words text-sm">{model ? `${model.name} · ${model.brandName}` : "—"}</strong>
-                  <Meta>{fmt(dict.surveyVersion, { version: survey.version, count: survey.questionCount })}</Meta>
-                </span>
-                <span className="flex flex-wrap items-center gap-2">
-                  <AdminStatus label={dict.surveyStatus[survey.status]} tone={survey.status === "published" ? "active" : survey.status === "draft" ? "waiting" : "neutral"} />
-                  {survey.status === "draft" ? <button type="button" className={primaryButton} disabled={pending} onClick={() => void run(() => actions.publishSurvey(survey.id), dict.surveyPublished)}>{dict.surveyPublish}</button> : null}
-                  {survey.status === "published" ? <button type="button" className={secondaryButton} disabled={pending} onClick={() => void run(() => actions.retireSurvey(survey.id), dict.surveyRetired)}>{dict.surveyRetire}</button> : null}
-                </span>
-              </Row>
-            );
-          })}
-        </RowList>
-      ) : <p className="mt-4 text-sm text-[var(--admin-text-muted)]">{dict.surveysEmpty}</p>}
+      <AdminDataView
+        className="mt-4"
+        listKey="dogadjaji.ankete"
+        caption={dict.surveysTitle}
+        rows={view.surveys}
+        empty={{ title: dict.surveysTitle, body: dict.surveysEmpty }}
+        getRowId={(survey) => survey.id}
+        columns={surveyColumns(names)}
+        renderCard={(survey) => <AdminDataCard title={modelLabel(names, survey.modelId)} subtitle={fmt(dict.surveyVersion, { version: survey.version, count: survey.questionCount })} badges={<SurveyStatus status={survey.status} />} />}
+        rowActions={(survey) => (
+          <>
+            {survey.status === "draft" ? <button type="button" className={primaryButton} disabled={pending} onClick={() => void run(() => actions.publishSurvey(survey.id), dict.surveyPublished)}>{dict.surveyPublish}</button> : null}
+            {survey.status === "published" ? <button type="button" className={secondaryButton} disabled={pending} onClick={() => void run(() => actions.retireSurvey(survey.id), dict.surveyRetired)}>{dict.surveyRetire}</button> : null}
+          </>
+        )}
+      />
     </Section>
   );
 }
@@ -334,39 +402,33 @@ function Passports({ view, actions }: { view: InteractionsView; actions: Interac
   return (
     <Section title={dict.passportsTitle} help={dict.passportsHelp}>
       <Feedback message={message} />
-      {view.passports.length ? (
-        <RowList>
-          {view.passports.map((passport) => (
-            <Row key={passport.brandId}>
-              <span className="min-w-0">
-                <strong className="block break-words text-sm">{passport.brandName}</strong>
-                {passport.frozenAt !== undefined ? <Meta>{fmt(dict.passportFrozenAt, { date: dateTime.format(passport.frozenAt) })}</Meta> : null}
-                {passport.members.length ? (
-                  <ul className="mt-2 grid gap-2">
-                    {passport.members.map((member) => (
-                      <li key={member.modelId} className="flex flex-wrap items-center gap-2 text-sm">
-                        <span className="min-w-0 break-words">{member.modelName}</span>
-                        <AdminStatus label={dict.passportMemberStatus[member.status]} tone={member.status === "required" ? "active" : "neutral"} />
-                        {passport.id && passport.status === "published" && member.status === "required" ? (
-                          <ConfirmAction label={dict.passportRemoveModel} body={fmt(dict.passportRemoveConfirm, { model: member.modelName })} disabled={pending} onConfirm={() => void run(() => actions.removePassportModel(passport.id!, member.modelId), dict.passportRemoved)} />
-                        ) : null}
-                      </li>
-                    ))}
-                  </ul>
-                ) : null}
-              </span>
-              <span className="flex flex-wrap items-center gap-2">
-                <AdminStatus label={passport.status ? dict.passportStatus[passport.status] : dict.passportNone} tone={passport.status === "published" ? "active" : passport.status === "draft" ? "waiting" : "neutral"} />
-                {!passport.id ? <button type="button" className={secondaryButton} disabled={pending} onClick={() => void run(() => actions.openPassport(passport.brandId), dict.passportOpened)}>{dict.passportOpen}</button> : null}
-                {passport.id && passport.status === "draft" ? <button type="button" className={primaryButton} disabled={pending} onClick={() => void run(() => actions.publishPassport(passport.id!), dict.passportPublishedDone)}>{dict.passportPublish}</button> : null}
-                {passport.id && passport.status === "published" ? (
-                  <ConfirmAction label={dict.passportWithdraw} body={dict.passportWithdrawConfirm} disabled={pending} onConfirm={() => void run(() => actions.withdrawPassport(passport.id!), dict.passportWithdrawn)} />
-                ) : null}
-              </span>
-            </Row>
-          ))}
-        </RowList>
-      ) : <p className="text-sm text-[var(--admin-text-muted)]">{dict.passportsEmpty}</p>}
+      <AdminDataView
+        listKey="dogadjaji.pasos"
+        caption={dict.passportsTitle}
+        rows={view.passports}
+        empty={{ title: dict.passportsTitle, body: dict.passportsEmpty }}
+        getRowId={(passport) => passport.brandId}
+        columns={passportColumns(pending, run, actions)}
+        tableClassName="min-w-[44rem]"
+        renderCard={(passport) => (
+          <AdminDataCard
+            title={passport.brandName}
+            subtitle={passport.frozenAt !== undefined ? fmt(dict.passportFrozenAt, { date: dateTime.format(passport.frozenAt) }) : undefined}
+            badges={<PassportStatus passport={passport} />}
+          >
+            <PassportMembers passport={passport} pending={pending} run={run} actions={actions} />
+          </AdminDataCard>
+        )}
+        rowActions={(passport) => (
+          <>
+            {!passport.id ? <button type="button" className={secondaryButton} disabled={pending} onClick={() => void run(() => actions.openPassport(passport.brandId), dict.passportOpened)}>{dict.passportOpen}</button> : null}
+            {passport.id && passport.status === "draft" ? <button type="button" className={primaryButton} disabled={pending} onClick={() => void run(() => actions.publishPassport(passport.id!), dict.passportPublishedDone)}>{dict.passportPublish}</button> : null}
+            {passport.id && passport.status === "published" ? (
+              <ConfirmAction label={dict.passportWithdraw} body={dict.passportWithdrawConfirm} disabled={pending} onConfirm={() => void run(() => actions.withdrawPassport(passport.id!), dict.passportWithdrawn)} />
+            ) : null}
+          </>
+        )}
+      />
     </Section>
   );
 }
