@@ -66,6 +66,10 @@ const statusToneClasses = {
     "border-[var(--admin-danger-border)] bg-[var(--admin-danger-soft)] text-[var(--admin-danger)]",
   neutral:
     "border-[var(--admin-border)] bg-[var(--admin-surface-muted)] text-[var(--admin-text-muted)]",
+  // Admin UX A6 (A0 §2.5) — "Sponzorisano" has its own tone; "muted" = closed/withdrawn (dashed, no fill).
+  sponsored:
+    "border-[var(--admin-sponsored-border)] bg-[var(--admin-sponsored-soft)] text-[var(--admin-sponsored)]",
+  muted: "border-dashed border-[var(--admin-border)] bg-transparent text-[var(--admin-text-muted)]",
 } as const;
 
 export function AdminStatus({

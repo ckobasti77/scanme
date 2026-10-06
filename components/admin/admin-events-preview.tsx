@@ -17,7 +17,9 @@ import type {
   QrDetailView,
   QrScanStatsView,
 } from "@/components/admin/admin-events";
-import { AdminEventsPassports, AdminEventsQuestions, AdminEventsSurveys, type InteractionsActions, type InteractionsView } from "@/components/admin/admin-events-interactions";
+import { AdminEventsPassports, type InteractionsActions, type InteractionsView } from "@/components/admin/admin-events-interactions";
+import { EventSurveysView } from "@/components/admin/events/sections/interakcije-ankete-view";
+import { EventAudienceView } from "@/components/admin/events/sections/interakcije-glas-publike-view";
 import {
   AdminEventsConsent,
   AdminEventsFollowUp,
@@ -159,17 +161,46 @@ const actions: EventsActions = {
   convert: ok,
 };
 
+// A6 — Glas publike and Ankete on the TEST catalog: "now" is noon of TEST
+// dan 1; Starter and Napredni models, three days, every status (Nacrt,
+// Objavljeno, Sponzorisano, Zatvoreno), a Starter day that is full and one
+// TEST model whose package starts on day 2. No real questions or results.
+const PREVIEW_NOW = opening + 3 * 3_600_000;
+const DAY_MS = 86_400_000;
+const options2 = (a: string, b: string) => [{ id: "o1", label: a, order: 1 }, { id: "o2", label: b, order: 2 }];
+const question = (id: string, modelId: string, dayId: string, prompt: string, status: InteractionsView["questions"][number]["status"], sortOrder: number, extra: Partial<InteractionsView["questions"][number]> = {}) => ({
+  id, modelId, dayId, prompt, options: options2("TEST da", "TEST ne"), status, sortOrder, showOnSponsoredRotation: false, ...extra,
+});
 const interactions: InteractionsView = {
-  models: [
-    { id: "volta-x1", name: "TEST Volta X1 TEST Premium", brandName: "TEST Volta", tier: "advanced" },
-    { id: "volta-x2", name: "TEST Volta X2", brandName: "TEST Volta", tier: "starter" },
-  ],
-  days: catalog.days.map((day, index) => ({ id: `d${index + 1}`, label: day.label })),
+  models: catalog.models.filter((row) => row.status !== "withdrawn").map((row) => ({
+    id: row.id, name: `${row.displayName}${row.variant ? ` ${row.variant}` : ""}`, brandId: row.brandId, brandName: row.brandName,
+    exhibitorId: row.participationId, exhibitorName: row.exhibitorName, externalKey: row.externalKey, tier: row.tier,
+    packageActivatedAt: row.id === "faradej-m4" ? opening + DAY_MS : row.packageActivatedAt, status: row.status,
+  })),
+  days: catalog.days.map((day, index) => ({ id: `d${index + 1}`, dateKey: day.dateKey, label: day.label, startsAt: opening + index * DAY_MS, endsAt: opening + index * DAY_MS + 10 * 3_600_000 })),
   questions: [
-    { id: "q1", modelId: "volta-x1", dayLabel: "TEST dan 1", prompt: "TEST pitanje Glasa publike", options: [{ id: "o1", label: "TEST opcija 1", order: 1 }, { id: "o2", label: "TEST opcija 2", order: 2 }], status: "published", sortOrder: 1, showOnSponsoredRotation: true },
-    { id: "q2", modelId: "volta-x2", dayLabel: "TEST dan 1", prompt: "TEST pitanje u nacrtu", options: [{ id: "o1", label: "TEST da", order: 1 }, { id: "o2", label: "TEST ne", order: 2 }], status: "draft", sortOrder: 1, showOnSponsoredRotation: false },
+    question("q1", "volta-x1", "d1", "TEST pitanje Glasa publike", "published", 1, { options: options2("TEST opcija 1", "TEST opcija 2"), showOnSponsoredRotation: true }),
+    question("q4", "volta-x1", "d1", "TEST koja boja vam se najviše dopada?", "published", 2, { options: [{ id: "o1", label: "TEST bela", order: 1 }, { id: "o2", label: "TEST crna", order: 2 }, { id: "o3", label: "TEST plava", order: 3 }] }),
+    question("q5", "volta-x1", "d1", "TEST jutarnje pitanje", "closed", 3),
+    question("q6", "volta-x1", "d1", "TEST pitanje za popodne", "draft", 4),
+    question("q7", "volta-x1", "d2", "TEST pitanje za drugi dan", "draft", 5),
+    question("q2", "volta-x2", "d1", "TEST da li biste probali ovaj model?", "published", 1),
+    question("q3", "volta-x2", "d1", "TEST pitanje u nacrtu", "draft", 2),
+    question("q8", "volta-m2", "d1", "TEST domet ili cena?", "published", 1, { options: options2("TEST domet", "TEST cena") }),
+    question("q9", "volta-m1", "d1", "TEST pitanje Starter modela", "closed", 1),
   ],
-  surveys: [{ id: "s1", modelId: "volta-x1", version: 1, status: "published", questionCount: 2 }],
+  surveys: [
+    { id: "s3", modelId: "volta-x1", version: 3, status: "draft", questions: [
+      { id: "q1", prompt: "TEST da li planirate kupovinu u narednih 6 meseci?", kind: "yes_no", options: [], order: 1 },
+      { id: "q2", prompt: "TEST kako planirate da platite?", kind: "single_choice", options: [{ id: "o1", label: "TEST gotovina", order: 1 }, { id: "o2", label: "TEST kredit", order: 2 }, { id: "o3", label: "TEST lizing", order: 3 }], order: 2 },
+    ] },
+    { id: "s2", modelId: "volta-x1", version: 2, status: "published", questions: [
+      { id: "q1", prompt: "TEST da li planirate kupovinu?", kind: "yes_no", options: [], order: 1 },
+      { id: "q2", prompt: "TEST kako planirate da platite?", kind: "single_choice", options: [{ id: "o1", label: "TEST gotovina", order: 1 }, { id: "o2", label: "TEST kredit", order: 2 }], order: 2 },
+    ] },
+    { id: "s1", modelId: "volta-x1", version: 1, status: "retired", questions: [{ id: "q1", prompt: "TEST prvo pitanje ankete", kind: "yes_no", options: [], order: 1 }] },
+    { id: "s4", modelId: "volta-m2", version: 1, status: "published", questions: [{ id: "q1", prompt: "TEST da li vam treba probna vožnja?", kind: "yes_no", options: [], order: 1 }] },
+  ],
   passports: [
     { id: "p1", brandId: "b-volta", brandName: "TEST Volta", status: "draft", members: [] },
     { id: null, brandId: "b-om", brandName: "TEST Om", status: null, members: [] },
@@ -272,16 +303,17 @@ const retentionActions: RetentionActions = { startDryRun: ok };
 /** A3 — the detail's linked summaries from the TEST fixtures above (leads: fixed TEST numbers). */
 function modelSummary(modelId: string): ModelDetailSummary {
   const ofModel = interactions.questions.filter((question) => question.modelId === modelId);
-  const days = [...new Set(ofModel.map((question) => question.dayLabel))];
-  const survey = interactions.surveys.find((row) => row.modelId === modelId);
+  const dayLabelOf = (dayId: string) => interactions.days.find((day) => day.id === dayId)?.label ?? "—";
+  const days = [...new Set(ofModel.map((question) => dayLabelOf(question.dayId)))];
+  const survey = interactions.surveys.find((row) => row.modelId === modelId && row.status === "published") ?? interactions.surveys.find((row) => row.modelId === modelId);
   const brandId = catalog.models.find((row) => row.id === modelId)?.brandId;
   const passport = interactions.passports.find((row) => row.brandId === brandId && row.status);
   const settings = leadsView.models.find((row) => row.id === modelId)?.tier === "advanced" ? advancedSettings : starterSettings;
   const active = sponsoredView.active?.items.find((item) => item.modelId === modelId);
   return {
-    questions: days.map((dayLabel) => {
-      const count = (status: string) => ofModel.filter((question) => question.dayLabel === dayLabel && question.status === status).length;
-      return { dayLabel, published: count("published"), draft: count("draft"), closed: count("closed") };
+    questions: days.map((label) => {
+      const count = (status: string) => ofModel.filter((question) => dayLabelOf(question.dayId) === label && question.status === status).length;
+      return { dayLabel: label, published: count("published"), draft: count("draft"), closed: count("closed") };
     }),
     survey: survey ? { version: survey.version, status: survey.status } : null,
     passport: passport?.status ? { status: passport.status, member: passport.members.some((member) => member.modelId === modelId) } : null,
@@ -558,8 +590,8 @@ function PreviewSection({ path, detailId, query, setQuery, keep }: {
       />
     );
     case "import": return <EventImportView context={importContext} actions={importActions} initial={{ text: IMPORT_TEST_TABLE, step: "pregled" }} />;
-    case "interakcije/glas-publike": return <AdminEventsQuestions view={interactions} actions={interactionActions} />;
-    case "interakcije/ankete": return <AdminEventsSurveys view={interactions} actions={interactionActions} />;
+    case "interakcije/glas-publike": return <EventAudienceView view={interactions} actions={interactionActions} now={PREVIEW_NOW} query={query} onQueryChange={setQuery} />;
+    case "interakcije/ankete": return <EventSurveysView view={interactions} actions={interactionActions} now={PREVIEW_NOW} query={query} onQueryChange={setQuery} />;
     case "interakcije/pasos": return <AdminEventsPassports view={interactions} actions={interactionActions} />;
     case "interakcije/forme": return <AdminEventsLeadForms view={modelPart} actions={leadActions} />;
     case "sponzorisano": return <AdminEventsSponsored view={sponsoredView} actions={sponsoredActions} />;

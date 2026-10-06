@@ -37,8 +37,15 @@ export async function outcome(run: () => Promise<{ warnings?: IssueView[] } | un
 export async function interactionOutcome(run: () => Promise<unknown>): Promise<InteractionOutcome> {
   const result = await attempt(run);
   if (!result.ok) return { ok: false, code: result.code };
-  const value = result.value as { problem?: unknown } | null;
-  return { ok: true, problem: value && typeof value.problem === "string" ? value.problem : null };
+  const value = result.value as { problem?: unknown; questionId?: unknown; surveyId?: unknown; version?: unknown } | null;
+  // A6 — the saved question/survey id lets "Sačuvaj i objavi" publish it right away.
+  const id = value && typeof value.questionId === "string" ? value.questionId : value && typeof value.surveyId === "string" ? value.surveyId : undefined;
+  return {
+    ok: true,
+    problem: value && typeof value.problem === "string" ? value.problem : null,
+    ...(id ? { id } : {}),
+    ...(value && typeof value.version === "number" ? { version: value.version } : {}),
+  };
 }
 
 export async function leadsOutcome(run: () => Promise<unknown>): Promise<LeadsOutcome> {

@@ -33,4 +33,18 @@ export const adminUiSr: AdminUiDict = {
     clearModel: "Ukloni izbor modela",
     selected: "Izabran model: {model}",
   },
+  optionRows: {
+    option: "Opcija {n}",
+    add: "Dodaj opciju",
+    remove: "Ukloni opciju {n}",
+    moveUp: "Pomeri opciju {n} gore",
+    moveDown: "Pomeri opciju {n} dole",
+    count: "{count} od najviše {max}",
+    tooFew: "Potrebne su bar {min} opcije.",
+    tooMany: "Najviše {max} opcija.",
+    empty: "Popuni ili ukloni praznu opciju.",
+    duplicate: "Dve opcije imaju isti tekst.",
+    duplicateRow: "Isti tekst kao druga opcija",
+    emptyRow: "Prazna opcija",
+  },
 };

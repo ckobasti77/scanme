@@ -45,8 +45,9 @@ export const EVENT_SECTIONS: readonly EventSectionDef[] = [
   { path: "qr", group: "katalog", queryKeys: ["izlagac", "brend", "model", "stanje", "q", "prikaz"], detail: "qr" },
   { path: "izlagaci", group: "katalog", queryKeys: ["q", "segment", "prikaz"] },
   { path: "import", group: "katalog", queryKeys: [] },
-  { path: "interakcije/glas-publike", group: "sajam", parent: "interakcije", queryKeys: ["prikaz"] },
-  { path: "interakcije/ankete", group: "sajam", parent: "interakcije", queryKeys: ["prikaz"] },
+  // A6 — `model` + `dan` open the form on that model and day (the coverage matrix links there).
+  { path: "interakcije/glas-publike", group: "sajam", parent: "interakcije", queryKeys: ["model", "dan", "izlagac", "status", "prikaz"] },
+  { path: "interakcije/ankete", group: "sajam", parent: "interakcije", queryKeys: ["model", "prikaz"] },
   { path: "interakcije/pasos", group: "sajam", parent: "interakcije", queryKeys: ["prikaz"] },
   { path: "interakcije/forme", group: "sajam", parent: "interakcije", queryKeys: ["model"] },
   { path: "sponzorisano", group: "sajam", queryKeys: ["prikaz"] },

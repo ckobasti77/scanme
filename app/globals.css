@@ -173,6 +173,10 @@ html[data-theme="dark"] {
   --admin-danger: #c72b37;
   --admin-danger-soft: #fff0f1;
   --admin-danger-border: #efb4ba;
+  /* Admin UX A6 — "Sponzorisano" (A0 §2.5): its own tone, never success. */
+  --admin-sponsored: #6b3fa0;
+  --admin-sponsored-soft: #f3ecfb;
+  --admin-sponsored-border: #d6c3ef;
   --admin-radius-control: 0.85rem;
   --admin-radius-panel: 1.4rem;
   --admin-shadow-xs: 0 1px 2px rgb(28 32 30 / 0.05);
@@ -204,6 +208,9 @@ html[data-theme="dark"] .admin-v1 {
   --admin-danger: #ff8b92;
   --admin-danger-soft: #40272a;
   --admin-danger-border: #754047;
+  --admin-sponsored: #c9a8f5;
+  --admin-sponsored-soft: #2f2540;
+  --admin-sponsored-border: #5a4478;
   --admin-shadow-xs: 0 1px 2px rgb(0 0 0 / 0.18);
   --admin-shadow-sm: 0 8px 24px rgb(0 0 0 / 0.2);
   --admin-shadow-md: 0 18px 48px rgb(0 0 0 / 0.34);
