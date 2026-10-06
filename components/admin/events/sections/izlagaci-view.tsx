@@ -16,6 +16,7 @@ import {
   type AdminFilterFacet,
 } from "@/components/admin/admin-ui";
 import { Feedback, LoadMore, Meta, SegmentStatus, Section, type EventMessage } from "@/components/admin/events/event-ui";
+import type { FollowUpTextState } from "@/components/admin/events/leads-logic";
 import {
   applyExhibitorFilters,
   clearExhibitorFiltersPatch,
@@ -31,7 +32,8 @@ import { cn } from "@/lib/utils";
 
 // Admin UX A5 — `izlagaci` (formerly "Event-only klijenti"): every exhibitor
 // of the event, event_only and standard, with brands, models per package, QR
-// coverage, leads, follow-up and stands; filter by segment and search (query
+// coverage, leads, follow-up (A8: the state of the exhibitor's text) and
+// stands; filter by segment and search (query
 // string). A row opens Modeli filtered to the exhibitor. "Prebaci u redovne
 // klijente" stays for event_only exhibitors and, in a collapsed list, for
 // event_only clients without a participation in this event.
@@ -67,9 +69,15 @@ function LeadsCell({ row }: { row: ExhibitorRow }) {
   );
 }
 
-/** Filled by the per-exhibitor follow-up (A8); until then the state is unknown. */
-function FollowUpCell() {
-  return <span title={list.followUpPendingHint} className="text-[var(--admin-text-muted)]">{list.followUpPending}<span className="sr-only">{list.followUpPendingHint}</span></span>;
+/** A8 — the state of the exhibitor's follow-up text (fairFollowUps.getExhibitorFollowUps); unknown while it loads. */
+export type ExhibitorFollowUpState = { state: FollowUpTextState; advancedModels: number };
+
+function FollowUpCell({ row, followUps, followUpHref }: { row: ExhibitorRow; followUps?: ReadonlyMap<string, ExhibitorFollowUpState>; followUpHref?: (participationId: string) => string }) {
+  const value = followUps?.get(row.id);
+  if (!followUps || !value) return <span title={list.followUpPendingHint} className="text-[var(--admin-text-muted)]">{list.followUpPending}<span className="sr-only">{list.followUpPendingHint}</span></span>;
+  if (value.state === "none" && value.advancedModels === 0) return <AdminStatus label={list.followUpNoAdvanced} tone="muted" className="whitespace-nowrap" />;
+  const badge = <AdminStatus label={dict.followUps.states[value.state]} tone={value.state === "active" ? "active" : "waiting"} className="whitespace-nowrap" />;
+  return followUpHref ? <Link href={followUpHref(row.id)} aria-label={fmt(list.followUpOpenAria, { name: row.name })} className="inline-flex rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--admin-focus,var(--admin-ink))]">{badge}</Link> : badge;
 }
 
 /** SMK above SML, each on one line (the joined `codes` is "SMK · SML"). */
@@ -77,7 +85,9 @@ function CodesCell({ row }: { row: ExhibitorRow }) {
   return <span className="grid font-mono text-xs leading-5 whitespace-nowrap">{row.codes.split(" · ").map((code) => <span key={code}>{code}</span>)}</span>;
 }
 
-function exhibitorColumns(modelsHref: (participationId: string) => string, convertButton: (row: ExhibitorRow, compact: boolean) => ReactNode): AdminColumn<ExhibitorRow>[] {
+type FollowUpColumn = { followUps?: ReadonlyMap<string, ExhibitorFollowUpState>; followUpHref?: (participationId: string) => string };
+
+function exhibitorColumns(modelsHref: (participationId: string) => string, convertButton: (row: ExhibitorRow, compact: boolean) => ReactNode, followUp: FollowUpColumn): AdminColumn<ExhibitorRow>[] {
   return [
     {
       id: "name", header: list.colExhibitor, rowHeader: true, sortValue: (row) => row.name,
@@ -90,7 +100,7 @@ function exhibitorColumns(modelsHref: (participationId: string) => string, conve
     { id: "models", header: list.colModels, sortValue: (row) => row.models.total, cell: (row) => <ModelsCell row={row} /> },
     { id: "qr", header: list.colQr, sortValue: (row) => (row.qr.total ? row.qr.assigned / row.qr.total : -1), cell: (row) => <QrCell row={row} /> },
     { id: "leads", header: list.colLeads, sortValue: (row) => row.leads?.total ?? null, cell: (row) => <LeadsCell row={row} /> },
-    { id: "followUp", header: list.colFollowUp, hideBelow: "2xl", cell: () => <FollowUpCell /> },
+    { id: "followUp", header: list.colFollowUp, hideBelow: "2xl", cell: (row) => <FollowUpCell row={row} {...followUp} /> },
     { id: "stands", header: list.colStands, hideBelow: "2xl", sortValue: (row) => row.stands.join(", "), cell: (row) => <span className="text-xs">{row.stands.length ? row.stands.join(", ") : list.none}</span> },
   ];
 }
@@ -147,13 +157,17 @@ export type EventExhibitorsViewProps = {
   /** All event_only clients (paged); the ones with a participation here are shown above. */
   clients: Paged<EventClientView>;
   actions: Pick<EventsActions, "convert">;
+  /** A8 — follow-up text state per participation; undefined = not loaded (the column shows "—"). */
+  followUps?: ReadonlyMap<string, ExhibitorFollowUpState>;
+  /** A8 — `leadovi/follow-up?izlagac=<participationId>`. */
+  followUpHref?: (participationId: string) => string;
 };
 
-export function EventExhibitorsView({ exhibitors, leadsCapped, query, onQueryChange, modelsHref, importHref, clients, actions }: EventExhibitorsViewProps) {
+export function EventExhibitorsView({ exhibitors, leadsCapped, query, onQueryChange, modelsHref, importHref, clients, actions, followUps, followUpHref }: EventExhibitorsViewProps) {
   const filtered = applyExhibitorFilters(exhibitors, query);
   const counts = exhibitorSegmentCounts(exhibitors, query);
   const convert = useConvert(actions);
-  const columns = exhibitorColumns(modelsHref, (row, compact) => convert.button(row.accountId, row.name, compact));
+  const columns = exhibitorColumns(modelsHref, (row, compact) => convert.button(row.accountId, row.name, compact), { followUps, followUpHref });
   const participants = new Set(exhibitors.map((row) => row.accountId));
   const otherClients = clients.rows.filter((row) => !participants.has(row.accountId));
 
@@ -208,7 +222,7 @@ export function EventExhibitorsView({ exhibitors, leadsCapped, query, onQueryCha
                   { label: list.colBrands, value: row.brands.length ? row.brands.join(", ") : list.none },
                   { label: list.colModels, value: <ModelsCell row={row} /> },
                   { label: list.colLeads, value: <LeadsCell row={row} /> },
-                  { label: list.colFollowUp, value: <FollowUpCell /> },
+                  { label: list.colFollowUp, value: <FollowUpCell row={row} followUps={followUps} followUpHref={followUpHref} /> },
                   { label: list.colStands, value: row.stands.length ? row.stands.join(", ") : list.none },
                 ]}
               />

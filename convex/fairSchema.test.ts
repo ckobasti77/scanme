@@ -121,8 +121,11 @@ const FAIR_INDEXES: Record<string, string[]> = {
     "by_eventModelId_and_createdAt",
     "by_participationId_and_createdAt",
     "by_status_and_purgeAt",
+    "by_eventId_and_createdAt", // Admin UX A8 lead inbox
   ],
   fairMessageTemplates: ["by_eventModelId_and_kind_and_status"],
+  // Admin UX A8 — the exhibitor's follow-up text (one draft + one active per participation).
+  fairExhibitorFollowUpTemplates: ["by_participationId_and_status", "by_eventId_and_status"],
   fairEmailDeliveries: [
     "by_dedupeKey",
     "by_status_and_scheduledFor",
@@ -140,6 +143,7 @@ const FAIR_INDEXES: Record<string, string[]> = {
     "by_requestId",
     "by_eventModelId_and_occurredAt",
     "by_eventId_and_occurredAt",
+    "by_visitorId_and_occurredAt", // Admin UX A8 activity next to a lead
   ],
   fairPurgeRuns: ["by_mode_and_status"], // B7 purge audit (HANDOFF §5.6)
   // 5 Oct traffic/share delta (JOVAN-DELTA-2026-10-05.md, Aleksa 8e72c10),
@@ -505,6 +509,17 @@ describe("fair schema contract (B0)", () => {
         createdAt: now,
         updatedAt: now,
       });
+      await ctx.db.insert("fairExhibitorFollowUpTemplates", {
+        eventId: s.eventId,
+        participationId: s.participationId,
+        subject: "TEST naslov {ime}",
+        plainText: "TEST tekst {modeli}",
+        status: "draft",
+        version: 1,
+        updatedByUserId: s.adminId,
+        createdAt: now,
+        updatedAt: now,
+      });
       await ctx.db.insert("fairEmailDeliveries", {
         dedupeKey: "test-dedupe-1",
         leadId,
@@ -649,6 +664,7 @@ describe("fair schema contract (B0)", () => {
         fairParticipationLeadDefaults: await q.query("fairParticipationLeadDefaults").withIndex("by_participationId_and_leadKind", (x) => x.eq("participationId", s.participationId).eq("leadKind", "interest")).unique(),
         fairLeads: await q.query("fairLeads").withIndex("by_submissionId", (x) => x.eq("submissionId", "test-lead-1")).unique(),
         fairMessageTemplates: await q.query("fairMessageTemplates").withIndex("by_eventModelId_and_kind_and_status", (x) => x.eq("eventModelId", s.eventModelId).eq("kind", "post_event_follow_up").eq("status", "draft")).unique(),
+        fairExhibitorFollowUpTemplates: await q.query("fairExhibitorFollowUpTemplates").withIndex("by_participationId_and_status", (x) => x.eq("participationId", s.participationId).eq("status", "draft")).unique(),
         fairEmailDeliveries: await q.query("fairEmailDeliveries").withIndex("by_dedupeKey", (x) => x.eq("dedupeKey", "test-dedupe-2")).unique(),
         fairPassportConfigs: await q.query("fairPassportConfigs").withIndex("by_eventId_and_brandId", (x) => x.eq("eventId", s.eventId).eq("brandId", s.brandId)).unique(),
         fairPassportEligibleModels: await q.query("fairPassportEligibleModels").withIndex("by_passportConfigId_and_status", (x) => x.eq("passportConfigId", passportConfigId).eq("status", "required")).unique(),

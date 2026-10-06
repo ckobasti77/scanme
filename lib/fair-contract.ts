@@ -145,6 +145,12 @@ export const FAIR_RATING_MAX = 5;
  */
 export const FAIR_PII_PURGE_AT_MS = Date.UTC(2026, 10, 15, 23, 0, 0);
 /**
+ * Admin UX A8 — every lead is handed to its exhibitor by the end of
+ * 15 November 2026 Europe/Belgrade (MASTER §13): the last millisecond before
+ * the purge. Shown as the deadline next to the undelivered leads.
+ */
+export const FAIR_LEAD_DELIVERY_DEADLINE_MS = FAIR_PII_PURGE_AT_MS - 1;
+/**
  * B7: the 16 Nov purge deletes these categories IN THIS ORDER (HANDOFF §5.6,
  * MASTER §13). A row is only deleted after every row that points at it is
  * gone: outbox → leads (contact, consent snapshot, suppression) → the
@@ -607,8 +613,35 @@ export const FAIR_EMAIL_DELIVERY_ERRORS = [
   // K3 — a hard switch was off at claim time: the row is closed as `skipped`, nothing is sent
   "LEADS_DISABLED",
   "FOLLOW_UP_DISABLED",
+  // Admin UX A8 — one follow-up per (visitor email, exhibitor): this row's pair is sent by another row
+  "FOLLOW_UP_MERGED",
 ] as const;
 export type FairEmailDeliveryError = (typeof FAIR_EMAIL_DELIVERY_ERRORS)[number];
+
+/**
+ * Admin UX A8 — merge fields of the exhibitor's follow-up text (ADMIN-UX §7),
+ * written as `{ime}` in the subject or the text. Anything else in braces is
+ * refused when the text is saved (FAIR_FOLLOWUP_UNKNOWN_FIELD).
+ *   ime — the visitor's name from the lead; izlagac — the exhibitor;
+ *   dogadjaj — the event; modeli — the exhibitor's models the visitor left a
+ *   lead for; modeli_zainteresovan / modeli_probna_voznja — by lead kind;
+ *   modeli_ocenjeni — the exhibitor's models the visitor rated, only where
+ *   the model's package has ratings.
+ */
+export const FAIR_FOLLOW_UP_FIELDS = ["ime", "izlagac", "dogadjaj", "modeli", "modeli_zainteresovan", "modeli_probna_voznja", "modeli_ocenjeni"] as const;
+export type FairFollowUpField = (typeof FAIR_FOLLOW_UP_FIELDS)[number];
+/** Same limits as the B4 per-model text (plain text only; HTML comes from the ScanMe email template). */
+export const FAIR_FOLLOW_UP_SUBJECT_MAX = 150;
+export const FAIR_FOLLOW_UP_TEXT_MAX = 5000;
+export type FairFollowUpTemplateStatus = "draft" | "active" | "retired";
+
+/**
+ * Admin UX A8 — the groups of a visitor's activity on ONE exhibitor's models
+ * shown next to a lead (ADMIN-UX §7). Whether a group goes to the exhibitor
+ * is decided by lib/fair-entitlements.ts (fairLeadActivityShared).
+ */
+export const FAIR_LEAD_ACTIVITY_GROUPS = ["scans", "ratings", "audienceVotes", "surveyAnswers", "passport", "sponsoredActions"] as const;
+export type FairLeadActivityGroup = (typeof FAIR_LEAD_ACTIVITY_GROUPS)[number];
 
 /** Photo first; otherwise brand logo, otherwise the neutral event placeholder (MASTER §10). */
 export type FairSponsoredVisual = "photo" | "brand_logo" | "event_placeholder";
@@ -822,6 +855,10 @@ export const FAIR_ADMIN_ISSUE_CODES = [
   "FAIR_LEAD_DEFAULT_MISSING",
   "FAIR_EMAIL_DELIVERY_NOT_FOUND",
   "FAIR_EMAIL_DELIVERY_STATUS",
+  // Admin UX A8 — the exhibitor's follow-up text (merge fields, draft → active → retired)
+  "FAIR_FOLLOWUP_UNKNOWN_FIELD",
+  "FAIR_FOLLOWUP_NOT_FOUND",
+  "FAIR_FOLLOWUP_STATUS",
   // B5 — sponsored snapshot (more Advanced models than one snapshot holds)
   "FAIR_SPONSORED_LIMIT",
   // B6 — report runs and exports

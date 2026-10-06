@@ -7,6 +7,7 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { useAdminQueryState } from "@/components/admin/admin-ui/use-admin-query-state";
 import { useAdminEvent, useCatalogViewWithoutChecks } from "@/components/admin/events/event-context";
 import { outcome } from "@/components/admin/events/event-outcome";
+import { followUpTextState } from "@/components/admin/events/leads-logic";
 import { EventExhibitorsView } from "@/components/admin/events/sections/izlagaci-view";
 import { eventSectionHref } from "@/lib/admin-v1/event-sections";
 import { buildExhibitorRows } from "@/lib/admin-v1/exhibitors";
@@ -14,7 +15,8 @@ import { buildExhibitorRows } from "@/lib/admin-v1/exhibitors";
 // Admin UX A5 — container of `izlagaci`: the exhibitors come from the event
 // catalog the frame already loaded plus the A3 lead counts
 // (fairAdminStats.getLeadCounts, bounded); the event_only clients without a
-// participation from the existing paged listEventClients. No new query.
+// participation from the existing paged listEventClients. A8: the follow-up
+// column reads fairFollowUps.getExhibitorFollowUps (bounded).
 
 const CLIENT_PAGE = 25;
 
@@ -23,6 +25,11 @@ export function IzlagaciSection() {
   const [query, setQuery] = useAdminQueryState();
   const catalog = useCatalogViewWithoutChecks();
   const leadCounts = useQuery(api.fairAdminStats.getLeadCounts, { eventId });
+  const followUpRows = useQuery(api.fairFollowUps.getExhibitorFollowUps, { eventId });
+  const followUps = useMemo(
+    () => (followUpRows ? new Map(followUpRows.map((row) => [row.participationId as string, { state: followUpTextState(row), advancedModels: row.advancedModels }])) : undefined),
+    [followUpRows],
+  );
   const clients = usePaginatedQuery(api.fairAdmin.listEventClients, {}, { initialNumItems: CLIENT_PAGE });
   const convert = useMutation(api.fairAdmin.convertEventClientToStandard);
   const exhibitors = useMemo(() => buildExhibitorRows(catalog, leadCounts), [catalog, leadCounts]);
@@ -43,6 +50,8 @@ export function IzlagaciSection() {
         onLoadMore: () => clients.loadMore(CLIENT_PAGE),
       }}
       actions={{ convert: (accountId) => outcome(() => convert({ accountId: accountId as Id<"accounts"> })) }}
+      followUps={followUps}
+      followUpHref={(participationId) => eventSectionHref(base, "leadovi/follow-up", { izlagac: participationId })}
     />
   );
 }

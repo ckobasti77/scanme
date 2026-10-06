@@ -12,7 +12,7 @@ import { AdminEventsReports, reportErrorText, type ReportsActions, type ReportsV
 
 const ok = async () => ({ ok: true as const });
 const actions: ReportsActions = {
-  build: ok, approve: ok, send: ok, resend: ok, retry: ok, correct: ok, download: ok, exportLeads: ok, exportOrganizer: ok, review: () => {},
+  build: ok, approve: ok, send: ok, resend: ok, retry: ok, correct: ok, download: ok, exportOrganizer: ok, review: () => {},
 };
 const NOW = Date.parse("2026-10-10T00:10:00+02:00");
 const id = <T extends TableNames>(value: string) => value as Id<T>;
@@ -54,13 +54,15 @@ describe("B6 admin Izveštaji", () => {
       adminEventsSr.reportsRetry,
       adminEventsSr.reportsCorrectionBadge,
       adminEventsSr.deliveryErrors.PROVIDER_REJECTED,
-      adminEventsSr.reportsLeadsWarning,
-      fmt(adminEventsSr.reportsLeadsDownload, { format: "CSV" }),
+      fmt(adminEventsSr.reportsOrganizerDownload, { format: "CSV" }),
       // The review shows the very document that is rendered into the file.
       eventReportSr.standsHeading,
       "TEST Volta X1",
     ]) expect(html).toContain(text.replace(/&/g, "&amp;").replace(/"/g, "&quot;"));
     for (const raw of ["pending_review", "PROVIDER_REJECTED:422", "FAIR_REPORT"]) expect(html).not.toContain(raw);
+    // A8 (ADMIN-UX §7, §12.6): the PII lead file is no longer here; it is in Leadovi (leadovi-view.test.tsx).
+    expect(html).not.toContain(fmt(adminEventsSr.leadInbox.exportDownload, { format: "CSV" }));
+    expect(html).not.toContain(adminEventsSr.reportsLeadsWarning);
   });
 
   test("a run waiting for review offers Odobri but never Pošalji; an approved run offers Pošalji", () => {

@@ -807,7 +807,7 @@ Kao i `capabilities`, upit čita sačuvani paket (upit ne čita sat); `submitLea
   3. `markSent` (`providerMessageId`) ili `markFailed`.
 - Retry: 409/429/5xx/mreža se ponavljaju na istom redu i sa istim ključem posle 1 min i 10 min (`FAIR_EMAIL_MAX_ATTEMPTS = 3`); ostale 4xx i `RESEND_NOT_CONFIGURED` odmah prelaze u `failed`. Admin `retryEmailDelivery` vraća `failed` u `queued` sa istim ključem. `sent` je konačno.
 - **Neposredna potvrda:** tačno jedna po leadu sa emailom. Tekst je ScanMe placeholder (P1, `lib/i18n/sr/event-lead-email.ts`): imenuje model, događaj i izlagača; za probnu vožnju kaže da termin nije zakazan. Rečenicu da se odgovorom otkazuje follow-up sadrži samo kad je follow-up zaista zakazan.
-- **Advanced follow-up:** jedan po leadu, zakazan pri upisu za prvi 10:00 po Beogradu najmanje 24 h posle `fairEvents.endsAt` (uvek u prozoru 24–48 h; §9.40). Lead pre nadogradnje ga nikad ne dobija naknadno. Telo je aktivni tekst izlagača (`fairMessageTemplates`, `post_event_follow_up`) + ScanMe podnožje; bez teksta se ne šalje (§9.42).
+- **Advanced follow-up:** jedan po leadu, zakazan pri upisu za prvi 10:00 po Beogradu najmanje 24 h posle `fairEvents.endsAt` (uvek u prozoru 24–48 h; §9.40). Lead pre nadogradnje ga nikad ne dobija naknadno. Telo je aktivni tekst izlagača (`fairMessageTemplates`, `post_event_follow_up`) + ScanMe podnožje; bez teksta se ne šalje (§9.42). **Od A8 (§34.5):** jedan email po paru (email posetioca, izlagač), tekst po izlagaču sa merge poljima; red po leadu ostaje, a ostali redovi para postaju `skipped`/`FOLLOW_UP_MERGED`.
 - Linkovi: `FAIR_PUBLIC_BASE_URL` (Convex env; https origin, za `localhost` i http), inače `https://scanme.rs`. `Reply-To`: `FAIR_EMAIL_REPLY_TO`, ako je postavljen (§9.39).
 - Resend env: `RESEND_API_KEY` (mora početi sa `re_`) i `RESEND_FROM_EMAIL`. Na DEV-u (`dev:expert-pelican-136`) oba imena postoje (`scripts/sajam/tools/env-imena.mjs`, 4. 10. 2026); vrednosti nisu čitane.
 - `lastError` je stabilan kod (§6), nikad poruka provajdera.
@@ -1462,3 +1462,88 @@ Pravila:
 - `convex/fairPassports.test.ts`: uslov i razlozi (čista funkcija); brend sa 2 Starter modela dobija objavljen pasoš sam, bez posla za no-op; Starter koji fali i jedan model daju razlog; nadogradnja dovršava uslov; gubitak uslova povlači, ponovni uslov ponovo objavljuje uz zadržane pečate; povučen model izlazi iz skupa i vraća se; sakriven pasoš nije u katalogu, garaži, stranici modela ni favoritu, a pečati se beleže i „Prikaži“ ih vraća; ponovna sinhronizacija bez duplikata i bez prepisivanja; posle otvaranja skup se ne menja, hitno uklanjanje radi i ne vraća se; ručno povučen pasoš automatika ne objavljuje; import zakazuje sinhronizaciju događaja; authz.
 - `convex/fairLeadForms.test.ts`: primena podrazumevanog na izlagača (drugi izlagač netaknut, idempotentno, promena podrazumevanog); izuzetak pobeđuje dok se ne obriše; model bez paketa ne dobija probnu vožnju; `getLeadForm` stanje posle primene i K3 prekidač; `getLeadSwitches`; povučeni modeli i authz.
 - `convex/fairAuthz.test.ts` klasifikuje sve nove funkcije; `convex/fairSchema.test.ts` novu tabelu i indekse.
+
+## 34. A8 — leadovi: inbox, aktivnost uz lead, isporuka i follow-up po izlagaču
+
+### 34.1 Odluke za Aleksin pregled (ADMIN-UX-ZAHTEVI §12, tačke 3, 4 i 6)
+
+- **Follow-up je po izlagaču** (§12.3). MASTER §8 kaže samo da izlagač dostavlja tekst, a §9.41 je predvideo jedan follow-up po leadu. Od A8 posetilac dobija **jedan email po paru (email posetioca malim slovima, izlagač)**: zainteresovan za 5 modela kod 2 izlagača dobija 2 emaila. Uslov ostaje isti: među leadovima para postoji lead na Naprednom modelu (paket na snazi u trenutku leada, jer samo takav lead zakazuje red follow-upa) i izlagač ima aktivan tekst.
+- **Aktivnost posetioca uz lead** (§12.4). Admin vidi skenove, ocene, glasove, ankete, pasoš i sponzorisane akcije istog posetioca, ali samo na modelima izlagača tog leada. Pravni tekst saglasnosti je PRIVREMEN (MASTER §8, §13) i **mora da pokrije deljenje aktivnosti sa izlagačem**; to je otvoreno pitanje za stručnu pravnu proveru (§34.8). Lead u produkciji ne postoji bez aktivirane, stručno odobrene saglasnosti i uključenog `FAIR_LEADS_ENABLED` (K3, §28).
+- **PII izvoz prelazi iz Izveštaja u Leadove** (§12.6). Backend funkcija je ista (`fairReports.exportLeadsFile`); menja se samo mesto u adminu i kolone (§34.6).
+
+### 34.2 Šema (aditivno)
+
+- `fairLeads` dobija indeks `by_eventId_and_createdAt` (inbox po događaju, opseg datuma).
+- `fairSponsoredEvents` dobija indeks `by_visitorId_and_occurredAt` (aktivnost uz lead; samo admin čitanje).
+- Nova tabela `fairExhibitorFollowUpTemplates` `{ eventId, participationId, subject, plainText, status: draft|active|retired, version, updatedByUserId, createdAt, updatedAt }`, indeksi `by_participationId_and_status` i `by_eventId_and_status`. Po učešću najviše jedan nacrt i jedan aktivan tekst (pravilo mutacija). Nije PII; purge je ne dira (kao `fairMessageTemplates`).
+- `lib/fair-contract.ts`: `FAIR_LEAD_DELIVERY_DEADLINE_MS = FAIR_PII_PURGE_AT_MS − 1` (kraj 15. 11. 2026. po Beogradu), `FAIR_FOLLOW_UP_FIELDS`, `FAIR_FOLLOW_UP_SUBJECT_MAX` (150), `FAIR_FOLLOW_UP_TEXT_MAX` (5000), `FAIR_LEAD_ACTIVITY_GROUPS`; nova greška isporuke `FOLLOW_UP_MERGED`; admin kodovi `FAIR_FOLLOWUP_UNKNOWN_FIELD` (`details.field`), `FAIR_FOLLOWUP_NOT_FOUND`, `FAIR_FOLLOWUP_STATUS`.
+- `lib/fair-entitlements.ts`: `fairLeadActivityAvailable(tier, group)` i `fairLeadActivityShared(tier, group)` (§34.4).
+
+### 34.3 Funkcije
+
+Sve počinju sa `requireAdmin`; nijedna ne vraća visitor ID, hash ni `requestId`.
+
+| Funkcija | Vrsta | Args → returns | Indeksi / granice |
+|---|---|---|---|
+| `fairLeadsInbox.listEventLeads` | admin query | `{ eventId, participationId?, eventModelId?, kind?, delivered?, from?, to?, paginationOpts }` → strana `{ leadId, createdAt, kind, eventModelId, participationId, contactName, email?, phone?, status, deliveredAt?, followUpSuppressed, confirmation, followUp }` | najselektivniji indeks: `by_eventModelId_and_createdAt` › `by_participationId_and_createdAt` › `by_eventId_and_createdAt`; `from`/`to` (epoch ms, `to` isključen) su opseg indeksa; `kind`/`delivered` filter nad stranom; najviše 50 po strani (`INVALID_INPUT`); model ili učešće drugog događaja → `FAIR_LINK_NOT_FOUND`. Brend filtrira admin (brend → izlagač ovde, modeli na ekranu). Lista nema aktivnost. |
+| `fairLeadsInbox.getLeadDetail` | admin query | `{ leadId }` → `null` ili `{ lead: { …red liste, consentVersion, consentTextSnapshot, consentedAt, suppressedAt? }, activity }` | aktivnost §34.4 |
+| `fairLeadsInbox.markLeadsDelivered` | admin mutation | `{ eventId, leadIds? \| participationId? }` (tačno jedno) → `{ delivered, unchanged, hasMore }` | `received → delivered` + `deliveredAt`; najviše 200 po pozivu (`FAIR_BULK_TOO_LARGE` za veću listu, `hasMore` za izlagača); lead/učešće drugog događaja → `FAIR_LINK_NOT_FOUND`; audit `fair_leads_delivered` sa brojem. Sama predaja ide van sistema dogovorenim kanalom (P0.2). |
+| `fairFollowUps.getExhibitorFollowUps` | admin query | `{ eventId }` → po učešću `{ participationId, active, draft, advancedModels, modelTexts }` | učešća i tekstovi ≤ `FAIR_ADMIN_LIST_LIMIT`; Napredni modeli `by_eventId_and_packageTier`; `modelTexts` = Napredni modeli sa B4 tekstom po modelu (rezerva) |
+| `fairFollowUps.saveExhibitorFollowUpDraft` | admin mutation | `{ participationId, subject, plainText }` → `{ templateId, version, result }` | naslov u jednom redu ≤150, tekst ≤5000, samo plain text; nepoznato `{polje}` → `FAIR_FOLLOWUP_UNKNOWN_FIELD`; postojeći nacrt se menja, inače nova verzija (najveća + 1) |
+| `fairFollowUps.activateExhibitorFollowUp` | admin mutation | `{ templateId }` → `{ templateId, version, retiredTemplateId }` | samo nacrt (`FAIR_FOLLOWUP_STATUS`); prethodni aktivan → `retired` u istoj transakciji; audit `fair_followup_activated` |
+| `fairFollowUps.retireExhibitorFollowUp` | admin mutation | `{ templateId }` → `null` | samo aktivan; audit `fair_followup_retired` |
+| `fairFollowUps.previewExhibitorFollowUp` | admin query | `{ participationId, leadId? }` → `{ source: lead\|sample, values, leads[] }` | vrednosti polja para izabranog leada (samo lead tog izlagača sa emailom), inače označen primer („Ime Prezime (primer)“ + stvarni modeli i naziv izlagača); `leads` = do 20 skorijih leadova sa emailom (PII, admin). Tekst renderuje browser istom čistom funkcijom kao slanje. |
+| `fairFollowUps.estimateFollowUps` | admin query | `{ eventId }` → `{ byParticipation: { participationId, pairs, sent, suppressed }[], capped }` | najnovijih 1000 leadova događaja (`by_eventId_and_createdAt`), jedno čitanje outbox-a po leadu; par se broji ako je najavljen red follow-upa (queued/sent/failed/merged; ne red zatvoren K3 prekidačem); par sa obustavom posebno |
+
+### 34.4 Aktivnost uz lead (`convex/lib/fairLeadActivity.ts`)
+
+- Skup modela = izloženi modeli izlagača tog leada (`fairParticipationModels`, štandovi → modeli). Svaka sirova tabela se čita po prefiksu posetioca (`lead.visitorId`), ograničeno, pa se u memoriji zadrže samo modeli iz skupa; ostalo se odbacuje pre povratne vrednosti.
+
+  | Grupa | Izvor (granica) | Ide izlagaču kad paket modela leada (u trenutku leada) ima |
+  |---|---|---|
+  | `scans` | `fairUniqueScans.by_visitorId_and_eventModelId` (200) | `model_scans` (Starter+) |
+  | `ratings` | `fairRatings.by_visitorId_and_eventModelId` (200) | `rating_overall` / `rating_dimensions` |
+  | `audienceVotes` | `fairAudienceVotes.by_visitorId_and_questionId` (200) + pitanje | `audience` |
+  | `surveyAnswers` | `fairSurveyResponses.by_visitorId_and_surveyId` (50) + anketa | `survey` (Napredni) |
+  | `passport` | `fairPassportStamps` i `fairBrandFavoriteVotes` po brendu izlagača (≤20 brendova, ≤41) | nikad: pasoš nije metrika nijednog paketa (MASTER §12), vidi ga samo ScanMe tim |
+  | `sponsoredActions` | `fairSponsoredEvents.by_visitorId_and_occurredAt` (200) | `sponsored_garage` (Napredni) |
+
+- Grupa koju nijedan model izlagača nema u paketu se izostavlja (nikad lažna 0). `capped` kaže da je čitanje stalo na granici.
+- Izlaz nosi samo ID-eve modela i brendova tog izlagača; nema visitor ID-a, hash-a, `requestId`-a ni podataka drugih izlagača (test serijalizuje izlaz).
+
+### 34.5 Slanje: jedan follow-up po paru (`convex/fairEmails.ts` `claimDelivery`)
+
+`submitLead` se ne menja: svaki Advanced lead sa emailom i dalje pravi svoj red `post_event_follow_up` u 24–48 h prozoru, uz K3 proveru (§17.3, §28). Konsolidacija je u `claimDelivery`, u istoj transakciji, posle postojećih K3 provera (`LEADS_DISABLED`, `FOLLOW_UP_DISABLED` neposredno pre slanja) i obustave leada:
+
+1. par = leadovi istog učešća (`by_participationId_and_createdAt`, `take(500)`) sa istim emailom malim slovima;
+2. obustava na bilo kom leadu para → red `suppressed`;
+3. red para koji je već `sent`, `failed` ili preuzet (`queued` sa pokušajem) → ovaj red `skipped` sa `lastError: FOLLOW_UP_MERGED` (konačno; admin retry važi samo za `failed`);
+4. inače ovaj red šalje za par, a ostali `queued` redovi para postaju `skipped`/`FOLLOW_UP_MERGED`;
+5. tekst: aktivni `fairExhibitorFollowUpTemplates` izlagača, inače B4 tekst modela (kompatibilnost), inače `failed: FOLLOW_UP_TEMPLATE_MISSING` (admin retry posle aktivacije šalje taj jedan red);
+6. merge polja (§34.7), pa `buildFairLeadEmail`; podnožje imenuje sve modele para.
+
+OCC sprečava dva slanja za isti par. B4/K3 testovi (1 lead = 1 email) ostaju nepromenjeni i zeleni.
+
+### 34.6 PII izvoz po izlagaču
+
+`exportLeadsFile` (admin akcija) i dalje vraća jedan CSV/XLSX po izlagaču. Novo: kolona **Paket** (paket modela u trenutku leada) i kolone aktivnosti **samo za grupe koje paket tog leada šalje izlagaču** (§34.4; pasoš nikad). Kolona postoji kad je ima bar jedan lead; lead čiji paket nema grupu ima prazno polje. `leadsExportPage` čita 50 leadova po strani i najviše 50 redova po posetiocu i tabeli; aktivnost se računa jednom po posetiocu na strani. Fajl se ne čuva i ne šalje automatski.
+
+### 34.7 Merge polja (`convex/lib/fairFollowUp.ts`, čisto)
+
+`{ime}` (ime najnovijeg leada para), `{izlagac}`, `{dogadjaj}`, `{modeli}` (modeli izlagača sa leadom, redom), `{modeli_zainteresovan}`, `{modeli_probna_voznja}`, `{modeli_ocenjeni}` (modeli izlagača koje je posetilac ocenio, samo gde paket ima ocene). Zamena je u jednom prolazu (vrednost se ne razvija ponovo), prazna vrednost dobija i18n zamenu (`eventLeadEmailSr.followUpFallbacks`), nepoznato `{…}` je greška pri snimanju, a HTML escape radi postojeći email šablon. Admin pregled koristi iste funkcije.
+
+### 34.8 Otvorena pitanja (A8)
+
+1. **Pravni tekst** (P0, ADMIN-UX §12.4): saglasnost mora da pokrije i predaju aktivnosti posetioca izlagaču (po paketu). Stručna pravna provera to treba da potvrdi pre produkcijskog uključivanja.
+2. **Kanal predaje** (P0.2, §9 tačka 60): „Označi isporučeno“ samo beleži predaju; kanal i primalac po izlagaču i dalje nisu dogovoreni.
+3. **Pasoš izlagaču**: pasoš i omiljeni model nisu metrika paketa, pa ne idu izlagaču ni u izvozu. Ako Aleksa želi da idu (npr. Napredni), menja se samo `fairLeadActivityShared`.
+4. **Tekst potvrde probne vožnje** (P1): sada kaže „Vaš zahtev je primljen i prosleđen izlagaču …“ (ADMIN-UX §7). U trenutku potvrde kontakt je kod ScanMe-a, a izlagaču ide pri predaji; konačan tekst ostaje P1.
+5. **Rezerva B4 teksta po modelu**: važi dok izlagač nema aktivan tekst po izlagaču; na DEV-u postoje samo TEST tekstovi. Kad svi izlagači pređu na tekst po izlagaču, rezerva može da se ukloni.
+6. **Više od 500 leadova jednog izlagača**: par se traži među prvih 500 leadova izlagača; iznad toga noviji par može dobiti više od jednog emaila. Očekivani obim je daleko ispod granice.
+
+### 34.9 Testovi
+
+- `convex/fairFollowUps.test.ts`: 5 leadova kod 2 izlagača → 2 poslata + 3 `FOLLOW_UP_MERGED` (i email sa drugim velikim slovima je isti par), merge polja u stvarnom emailu (samo modeli tog izlagača, najnovije ime, zamena za prazno polje, podnožje), Idempotency-Key = `dedupeKey` reda koji šalje; ponovno pokretanje outbox-a i retry ne prave drugi email; izlagač bez Naprednog modela → 0; bez aktivnog teksta (nacrt nije dovoljan) → 1 `FOLLOW_UP_TEMPLATE_MISSING` + spojeni red; obustava jednog leada gasi par; K3 prekidač isključen pri slanju → svi `skipped`/`FOLLOW_UP_DISABLED`, pri prijemu → nema reda; procena broji parove; verzije teksta, audit, nepoznato polje (`details.field`); merge funkcije (escape u HTML-u, zamena, jedan prolaz); pregled na leadu i primer bez tuđih modela; `{modeli_ocenjeni}`; potvrda probne vožnje „primljen i prosleđen izlagaču“. Nijedan stvarni `fetch` (mock), Resend ključ je lažan.
+- `convex/fairLeadsInbox.test.ts`: lista (redosled, izlagač, model, tip, isporuka, datum, strane, granica 50, drugi događaj); detalj Naprednog leada sa svim grupama i oznakama, bez modela/brenda drugog izlagača, visitor ID-a, hash-a i `requestId`-a (serijalizovan izlaz); Starter lead i izlagač samo sa Starter modelima (grupe izostavljene); isporuka pojedinačno i za izlagača (idempotentno, audit, brojevi `getLeadCounts`, drugi događaj odbijen, `hasMore` posle 200); PII izvoz sa kolonama po paketu.
+- `convex/fairAuthz.test.ts` klasifikuje 9 novih funkcija (anonimni i ne-admin odbijeni pre čitanja/upisa); `convex/fairSchema.test.ts` novu tabelu i indekse.
+- Komponente: `components/admin/events/sections/leadovi-view.test.tsx`, `leadovi-follow-up-view.test.tsx`, `izlagaci-view.test.tsx` (kolona follow-up), `components/admin/admin-events-leads.test.tsx` (saglasnost sklopljena po vrsti; iste B4/K3 provere na novim prikazima), `components/admin/admin-events-reports.test.tsx` (PII izvoz više nije u Izveštajima).

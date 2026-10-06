@@ -3671,7 +3671,9 @@ export default defineSchema({
     .index("by_submissionId", ["submissionId"])
     .index("by_eventModelId_and_createdAt", ["eventModelId", "createdAt"])
     .index("by_participationId_and_createdAt", ["participationId", "createdAt"])
-    .index("by_status_and_purgeAt", ["status", "purgeAt"]),
+    .index("by_status_and_purgeAt", ["status", "purgeAt"])
+    // Admin UX A8 — the event's lead inbox (newest first, date range).
+    .index("by_eventId_and_createdAt", ["eventId", "createdAt"]),
 
   fairMessageTemplates: defineTable({
     eventModelId: v.id("fairEventModels"),
@@ -3684,6 +3686,26 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index("by_eventModelId_and_kind_and_status", ["eventModelId", "kind", "status"]),
+
+  // Admin UX A8 — the exhibitor's one follow-up text per event (ADMIN-UX §7):
+  // a draft is edited, activation retires the previous active version. Plain
+  // text with merge fields (FAIR_FOLLOW_UP_FIELDS); the HTML comes from the
+  // ScanMe email template at send time. Not PII. The B4 per-model text
+  // (fairMessageTemplates) stays as the fallback for an exhibitor without one.
+  fairExhibitorFollowUpTemplates: defineTable({
+    eventId: v.id("fairEvents"),
+    participationId: v.id("fairParticipations"),
+    subject: v.string(),
+    plainText: v.string(),
+    status: fairMessageTemplateStatus,
+    version: v.number(),
+    updatedByUserId: v.id("users"),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    // at most one draft and one active row per participation (convex/fairFollowUps.ts)
+    .index("by_participationId_and_status", ["participationId", "status"])
+    .index("by_eventId_and_status", ["eventId", "status"]),
 
   // (PII: recipient) Outbox; a Node internalAction sends via the Resend seam.
   fairEmailDeliveries: defineTable({
@@ -3844,7 +3866,9 @@ export default defineSchema({
     // unique: requestId
     .index("by_requestId", ["requestId"])
     .index("by_eventModelId_and_occurredAt", ["eventModelId", "occurredAt"])
-    .index("by_eventId_and_occurredAt", ["eventId", "occurredAt"]),
+    .index("by_eventId_and_occurredAt", ["eventId", "occurredAt"])
+    // Admin UX A8 — one visitor's actions next to a lead (admin only).
+    .index("by_visitorId_and_occurredAt", ["visitorId", "occurredAt"]),
 
   // 5 Oct traffic/share delta: public, read-only collections of 1-5 models.
   // The URL carries a 144-bit opaque code; only its SHA-256 hash is stored.

@@ -21,6 +21,9 @@ import type {
   FairEmailDeliveryError,
   FairEmailDeliveryStatus,
   FairEventStatus,
+  FairFollowUpField,
+  FairFollowUpTemplateStatus,
+  FairLeadActivityGroup,
   FairLeadKind,
   FairModelStatus,
   FairPackageTier,
@@ -3962,9 +3965,6 @@ export interface AdminEventsDict {
     done: string;
     verifyReminder: string;
   };
-  followUpSectionTitle: string;
-  followUpSectionHelp: string;
-  followUpAdvancedOnly: string;
   /** Admin UX A3 — `modeli`: filters (lib/admin-v1/model-filters.ts), list and groups. */
   modelList: {
     searchLabel: string;
@@ -4088,8 +4088,6 @@ export interface AdminEventsDict {
   colMembers: string;
   colContact: string;
   colDate: string;
-  colKind: string;
-  colDelivery: string;
   colOrder: string;
   colResult: string;
   colPublishedAt: string;
@@ -4184,6 +4182,9 @@ export interface AdminEventsDict {
     leadsCapped: string;
     followUpPending: string;
     followUpPendingHint: string;
+    /** A8 — the follow-up column: an exhibitor without an Advanced model needs no text. */
+    followUpNoAdvanced: string;
+    followUpOpenAria: string;
     none: string;
     openModels: string;
     /** {name}. */
@@ -4590,8 +4591,6 @@ export interface AdminEventsDict {
   consentLegalApprovedAt: string;
   consentLegalLine: string;
   consentLegalNone: string;
-  settingsNoModels: string;
-  settingsLoading: string;
   configEnabled: string;
   configRequirement: string;
   configPreferred: string;
@@ -4666,21 +4665,8 @@ export interface AdminEventsDict {
     movedNote: string;
     movedLink: string;
   };
-  followUpTitle: string;
-  followUpHelp: string;
-  followUpSubject: string;
-  followUpText: string;
-  followUpSave: string;
-  followUpSaved: string;
-  followUpActiveVersion: string;
-  followUpNone: string;
   listTitle: string;
-  listHelp: string;
-  fieldExhibitor: string;
   listEmpty: string;
-  listNoParticipations: string;
-  leadMeta: string;
-  leadConsent: string;
   leadNoEmail: string;
   leadNoPhone: string;
   confirmationLabel: string;
@@ -4698,6 +4684,10 @@ export interface AdminEventsDict {
   retryConfirmation: string;
   retryFollowUp: string;
   retryDone: string;
+  // Admin UX A8 — lead inbox, follow-up per exhibitor, consent settings
+  leadInbox: AdminEventsLeadInboxDict;
+  followUps: AdminEventsFollowUpsDict;
+  leadSettings: { help: string; activitySharingNote: string; summaryActive: string; summaryNone: string; summaryDraft: string };
   // B5 — Sponzorisano tab (ručna objava liste Naprednih modela, rezultat na mapi)
   tabSponsored: string;
   sponsoredSubtitle: string;
@@ -4775,9 +4765,7 @@ export interface AdminEventsDict {
   reportsRecipientLabel: string;
   reportsExportsTitle: string;
   reportsExportsHelp: string;
-  reportsLeadsLabel: string;
   reportsLeadsWarning: string;
-  reportsLeadsDownload: string;
   reportsOrganizerLabel: string;
   reportsOrganizerDownload: string;
   reportStatus: Record<FairReportStatus, string>;
@@ -4810,6 +4798,157 @@ export interface AdminEventsDict {
   retentionCategories: Record<FairPurgeCategory, string>;
 }
 
+/** Admin UX A8 — `leadovi` (inbox, detail with activity, delivery, export). */
+export interface AdminEventsLeadInboxDict {
+  help: string;
+  listTitle: string;
+  filtersLabel: string;
+  hierarchyLabel: string;
+  facetKind: string;
+  facetDelivery: string;
+  kindOptions: Record<"zainteresovan" | "probna-voznja", string>;
+  deliveryOptions: Record<"ne" | "da", string>;
+  fromLabel: string;
+  toLabel: string;
+  chipKind: string;
+  chipDelivery: string;
+  chipFrom: string;
+  chipTo: string;
+  count: string;
+  countMore: string;
+  undelivered: string;
+  undeliveredCapped: string;
+  deadlineDays: string;
+  deadlineToday: string;
+  deadlinePassed: string;
+  leadsOff: string;
+  linksLabel: string;
+  formsLink: string;
+  followUpLink: string;
+  settingsLink: string;
+  emptyTitle: string;
+  emptyBody: string;
+  emptyFilteredTitle: string;
+  emptyFilteredBody: string;
+  colLead: string;
+  colReceived: string;
+  colKindModel: string;
+  colExhibitor: string;
+  colDelivery: string;
+  colEmails: string;
+  delivered: string;
+  notDelivered: string;
+  deliveredOn: string;
+  open: string;
+  openAria: string;
+  markDelivered: string;
+  markDeliveredAria: string;
+  markDeliveredDone: string;
+  handOverTitle: string;
+  handOverHelp: string;
+  handOverPick: string;
+  handOverExhibitor: string;
+  exportDownload: string;
+  exportDone: string;
+  markExhibitor: string;
+  markExhibitorConfirm: string;
+  markExhibitorDone: string;
+  markExhibitorMore: string;
+  detailTitle: string;
+  detailDescription: string;
+  detailClose: string;
+  detailLoading: string;
+  detailMissing: string;
+  contactTitle: string;
+  contactName: string;
+  contactEmail: string;
+  contactPhone: string;
+  leadLine: string;
+  tierAtLead: string;
+  consentTitle: string;
+  consentLine: string;
+  deliveryTitle: string;
+  emailsTitle: string;
+  suppressedOn: string;
+  activityTitle: string;
+  activityHelp: string;
+  activityShared: string;
+  activityNotShared: string;
+  activityEmpty: string;
+  activityCapped: string;
+  activityGroups: Record<FairLeadActivityGroup, string>;
+  scanLine: string;
+  ratingFields: Record<"overall" | "appearance" | "specifications" | "price", string>;
+  passportLine: string;
+  passportLineNoTotal: string;
+  favoriteLine: string;
+  sponsoredKinds: Record<"open_model" | "garage_add", string>;
+  yes: string;
+  no: string;
+  unknownModel: string;
+  unknownBrand: string;
+  unknownExhibitor: string;
+}
+
+/** Admin UX A8 — `leadovi/follow-up` (one text per exhibitor, merge fields, preview, estimate). */
+export interface AdminEventsFollowUpsDict {
+  help: string;
+  statusLabel: string;
+  switchOn: string;
+  switchOff: string;
+  leadsOff: string;
+  listTitle: string;
+  colExhibitor: string;
+  colText: string;
+  colAdvanced: string;
+  colEstimate: string;
+  states: Record<Exclude<FairFollowUpTemplateStatus, "retired"> | "none", string>;
+  draftPending: string;
+  noAdvanced: string;
+  advancedCount: string;
+  modelTexts: string;
+  estimate: string;
+  estimateDetail: string;
+  estimateCapped: string;
+  estimateNoText: string;
+  estimateHelp: string;
+  edit: string;
+  editAria: string;
+  editorTitle: string;
+  editorHelp: string;
+  pickExhibitor: string;
+  versionActive: string;
+  versionDraft: string;
+  versionNone: string;
+  subject: string;
+  text: string;
+  fieldsTitle: string;
+  fieldsHelp: string;
+  insertAria: string;
+  fields: Record<FairFollowUpField, string>;
+  unknownField: string;
+  saveDraft: string;
+  saved: string;
+  unsaved: string;
+  activate: string;
+  activateConfirm: string;
+  activated: string;
+  retire: string;
+  retireConfirm: string;
+  retired: string;
+  previewTitle: string;
+  previewSource: string;
+  previewSample: string;
+  previewLeadOption: string;
+  previewSampleNote: string;
+  previewLoading: string;
+  previewSubject: string;
+  previewEmpty: string;
+  noExhibitorsTitle: string;
+  noExhibitorsBody: string;
+  loading: string;
+}
+
 export type AdminEventsPassportProblem = "fewer_than_two_models" | "model_not_published" | "model_not_candidate" | "model_below_starter";
 
 // event-lead-email — visitor emails after a fair lead (Sajam 2026 B4,
@@ -4822,6 +4961,12 @@ export interface EventLeadEmailDict {
   confirmationBodyTestDrive: string;
   confirmationFollowUpNote: string;
   followUpFooter: string;
+  /** Admin UX A8 — what a merge field becomes when the lead has no value for it. */
+  followUpFallbacks: Record<FairFollowUpField, string>;
+  /** Admin UX A8 — the word before the last name of a list ("A, B i C"). */
+  listAnd: string;
+  /** Admin UX A8 — `{ime}` in the admin preview when no lead is chosen (clearly marked as an example). */
+  followUpSampleName: string;
   modelLink: string;
   signature: string;
   devTestSubject: string;
@@ -4896,6 +5041,10 @@ export interface EventReportDict {
   leadsTitle: string;
   leadsSubtitle: string;
   leadsHeading: string;
+  leadsActivityNote: string;
+  leadActivityColumns: Record<"scans" | "ratings" | "audienceVotes" | "surveyAnswers" | "sponsoredActions", string>;
+  /** {model}, {count}. */
+  leadActivityScan: string;
   emailSubject: string;
   emailBody: string;
   emailCorrectionNote: string;

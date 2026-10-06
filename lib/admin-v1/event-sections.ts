@@ -52,8 +52,10 @@ export const EVENT_SECTIONS: readonly EventSectionDef[] = [
   { path: "interakcije/pasos", group: "sajam", parent: "interakcije", queryKeys: ["izlagac", "brend", "stanje", "prikaz"] },
   { path: "interakcije/forme", group: "sajam", parent: "interakcije", queryKeys: ["izlagac", "model", "prikaz"] },
   { path: "sponzorisano", group: "sajam", queryKeys: ["prikaz"] },
-  { path: "leadovi", group: "posle", parent: "leadovi", queryKeys: ["izlagac", "prikaz"] },
-  { path: "leadovi/follow-up", group: "posle", parent: "leadovi", queryKeys: ["model"] },
+  // A8 — the inbox filters; `lead` opens the lead's drawer.
+  { path: "leadovi", group: "posle", parent: "leadovi", queryKeys: ["izlagac", "brend", "model", "tip", "isporuka", "od", "do", "lead", "prikaz"] },
+  // A8 — `izlagac` opens that exhibitor's text, `lead` previews it on that lead.
+  { path: "leadovi/follow-up", group: "posle", parent: "leadovi", queryKeys: ["izlagac", "lead", "prikaz"] },
   { path: "leadovi/podesavanja", group: "posle", parent: "leadovi", queryKeys: [] },
   { path: "izvestaji", group: "posle", queryKeys: ["prikaz"] },
   { path: "brisanje", group: "posle", queryKeys: ["prikaz"] },
