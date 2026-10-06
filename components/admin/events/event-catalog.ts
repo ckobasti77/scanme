@@ -12,8 +12,10 @@ export type EventValidationData = FunctionReturnType<typeof api.fairAdmin.listVa
 
 export const modelFullName = (model: { displayName: string; variant?: string }) => (model.variant ? `${model.displayName} ${model.variant}` : model.displayName);
 
-/** Without `validation` (sections that do not show checks) every model has no issues. */
-export function buildCatalogView(catalog: EventCatalogData, directory: EventDirectoryData, validation?: EventValidationData): CatalogView {
+export type EventQrCodesData = FunctionReturnType<typeof api.fairAdminStats.getModelQrCodes>;
+
+/** Without `validation` (sections that do not show checks) every model has no issues; without `qrCodes` the SMQ is unknown. */
+export function buildCatalogView(catalog: EventCatalogData, directory: EventDirectoryData, validation?: EventValidationData, qrCodes?: EventQrCodesData): CatalogView {
   const accounts = new Map(directory.accounts.map((row) => [row.accountId, row]));
   const businesses = new Map(directory.businesses.map((row) => [row.businessId, row]));
   const brands = new Map(directory.brands.map((row) => [row.brandId, row.name]));
@@ -21,6 +23,7 @@ export function buildCatalogView(catalog: EventCatalogData, directory: EventDire
   const stands = new Map(catalog.stands.map((row) => [row._id, row]));
   const qr = new Map(catalog.activeAssignments.map((row) => [row.eventModelId, row.resolverCode]));
   const issues = new Map((validation ?? []).map((row) => [row.eventModelId, row.issues as IssueView[]]));
+  const smq = new Map((qrCodes ?? []).map((row) => [row.eventModelId, row.smqCode]));
   const exhibitor = (participationId: Id<"fairParticipations">) => {
     const participation = participations.get(participationId);
     return participation ? businesses.get(participation.businessId)?.name ?? accounts.get(participation.accountId)?.name ?? participation.externalKey : "—";
@@ -33,6 +36,8 @@ export function buildCatalogView(catalog: EventCatalogData, directory: EventDire
       displayName: model.displayName,
       variant: model.variant,
       slug: model.slug,
+      participationId: model.participationId,
+      brandId: model.brandId,
       brandName: brands.get(model.brandId) ?? "—",
       exhibitorName: exhibitor(model.participationId),
       standLabel: stand ? `${stand.displayName} · ${stand.code}` : "—",
@@ -42,9 +47,11 @@ export function buildCatalogView(catalog: EventCatalogData, directory: EventDire
       specCount: model.specifications.length,
       highlightCount: model.specifications.filter((spec) => spec.isHighlight).length,
       hasPhoto: Boolean(model.photoUrl || model.photoStorageId),
+      photoUrl: model.photoUrl ?? null,
       passportEligible: model.passportEligible,
       packageActivatedAt: model.packageActivatedAt,
       qrCode: qr.get(model._id) ?? null,
+      qrSmq: smq.get(model._id) ?? null,
       issues: issues.get(model._id) ?? [],
     };
   }).sort((a, b) => a.exhibitorName.localeCompare(b.exhibitorName, "sr-Latn-RS") || a.displayName.localeCompare(b.displayName, "sr-Latn-RS"));

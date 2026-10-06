@@ -17,6 +17,9 @@ export type ModelView = {
   displayName: string;
   variant?: string;
   slug: string;
+  /** A3 — hierarchy ids: exhibitor = the participation, brand = the model's brandId. */
+  participationId: string;
+  brandId: string;
   brandName: string;
   exhibitorName: string;
   standLabel: string;
@@ -26,9 +29,13 @@ export type ModelView = {
   specCount: number;
   highlightCount: number;
   hasPhoto: boolean;
+  /** A3 — external photo URL, if any (an uploaded photo has no URL in the admin catalog). */
+  photoUrl: string | null;
   passportEligible: boolean;
   packageActivatedAt: number;
   qrCode: string | null;
+  /** A3 — SMQ serial of the assigned code (null = unknown or no QR). */
+  qrSmq: string | null;
   issues: IssueView[];
 };
 

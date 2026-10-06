@@ -1324,3 +1324,16 @@ Ručna izrada posle zatvaranja i dalje važi kao dnevni run, pa je sweep za to u
   - sweep posle zatvaranja pravi dnevni run za izlagača koji ima raniji run iz 23:30. Novi run je izgrađen (`pending_review`, `builtAt − endsAt < 60 min`), sadrži sken iz 23:30, a raniji red ostaje netaknut. Ručni run posle zatvaranja (drugi izlagač) i dalje sprečava duplikat. Drugi sweep ne pravi ništa, i ništa se ne šalje.
 - Postojeći B6 testovi koji ručno grade izveštaj za dan 1 sada pre izrade pomeraju sat na 00:05 posle zatvaranja dana (`DAY1_CLOSED`); nijedno očekivanje nije promenjeno.
 - `components/admin/admin-events-reports.test.tsx`: pomoć uz izradu i srpski razlog odbijanja, bez sirovog koda.
+
+## 30. A3 — brojevi za admin listu modela (`convex/fairAdminStats.ts`)
+
+Samo čitanje, oba upita počinju sa `requireAdmin`, rezultat nema kontakt ni visitor podatke. Šema i indeksi se ne menjaju.
+
+| Funkcija | Vrsta | Args → returns | Indeksi / granice |
+|---|---|---|---|
+| `getLeadCounts` | admin query | `{ eventId }` → `{ byModel: { eventModelId, interest, testDrive, undelivered }[], byParticipation: { participationId, total, undelivered }[], capped }` | učešća `fairParticipations.by_eventId_and_externalKey` (≤ `FAIR_ADMIN_LIST_LIMIT`), leadovi `fairLeads.by_participationId_and_createdAt`; zajednički budžet `FAIR_LEAD_COUNT_LIMIT` = 4000 redova po pozivu, iznad njega `capped: true` (brojevi su delimični) |
+| `getModelQrCodes` | admin query | `{ eventId }` → `{ eventModelId, resolverCode, smqCode \| null }[]` | aktivne dodele `fairQrAssignments.by_eventId_and_status` (≤ `FAIR_ADMIN_LIST_LIMIT`), svaki kanal jednom po id-u (SMQ) |
+
+- `undelivered` = lead čiji status nije `delivered` (status `delivered` postavlja tek A8).
+- Koriste ih: lista i detalj modela (A3), Izlagači (A5), Pregled (A10).
+- Testovi: `convex/fairAdminStats.test.ts` (brojevi po modelu i učešću, izolacija između događaja, `capped`, SMQ samo za dodele događaja, anonimni i ne-admin odbijeni) i `convex/fairAuthz.test.ts` (klasifikacija `admin`, odbijanje pre čitanja podataka).

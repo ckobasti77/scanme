@@ -23,7 +23,7 @@ import { AdminEventFrameView, type FrameEvent } from "@/components/admin/events/
 import { AdminEventsNotFound } from "@/components/admin/events/event-not-found";
 import { EventExhibitorsView } from "@/components/admin/events/sections/izlagaci-view";
 import { EventImportView } from "@/components/admin/events/sections/import-view";
-import { EventModelDetailView, EventModelsView } from "@/components/admin/events/sections/modeli-view";
+import { EventModelDetailView, EventModelsView, type ModelDetailSummary } from "@/components/admin/events/sections/modeli-view";
 import { EventOverviewView } from "@/components/admin/events/sections/pregled-view";
 import { EventQrDetailView, EventQrView } from "@/components/admin/events/sections/qr-view";
 import {
@@ -34,6 +34,7 @@ import {
   type EventSectionPath,
   type ResolvedEventSection,
 } from "@/lib/admin-v1/event-sections";
+import { modelListQuery } from "@/lib/admin-v1/model-filters";
 import type { AdminQueryPatch, AdminQueryState } from "@/lib/admin-v1/query-state";
 import { parseViewModeParam, type AdminViewMode } from "@/lib/admin-v1/view-mode";
 import { FAIR_PII_PURGE_AT_MS, FAIR_PURGE_CATEGORIES } from "@/lib/fair-contract";
@@ -47,14 +48,55 @@ import { adminEventsSr as dict } from "@/lib/i18n/sr/admin-events";
 
 const opening = Date.parse("2026-10-09T09:00:00+02:00");
 
-function model(id: string, displayName: string, brandName: string, exhibitorName: string, standLabel: string, tier: ModelView["tier"], extra: Partial<ModelView> = {}): ModelView {
+// A3 — 4 TEST exhibitors with 2 TEST brands each (8 brands) and 40 TEST
+// models, so the Modeli filters, groups and counts can be checked at the
+// real catalog size. No real brands, prices, photos or codes.
+const EXHIBITORS = [
+  { id: "p-a", name: "TEST Izlagač A", stand: "TEST štand A1 · TEST-A1", brands: [["b-volta", "TEST Volta"], ["b-amper", "TEST Amper"]] },
+  { id: "p-b", name: "TEST Izlagač B", stand: "TEST štand B1 · TEST-B1", brands: [["b-om", "TEST Om"], ["b-kulon", "TEST Kulon"]] },
+  { id: "p-c", name: "TEST Izlagač C", stand: "TEST štand C1 · TEST-C1", brands: [["b-faradej", "TEST Faradej"], ["b-dzul", "TEST Džul"]] },
+  { id: "p-d", name: "TEST Izlagač D", stand: "TEST štand D1 · TEST-D1", brands: [["b-vat", "TEST Vat"], ["b-njutn", "TEST Njutn"]] },
+] as const;
+const brandOf = (brandId: string) => {
+  for (const exhibitor of EXHIBITORS) for (const [id, name] of exhibitor.brands) if (id === brandId) return { exhibitor, name };
+  throw new Error(`unknown TEST brand ${brandId}`);
+};
+
+function model(id: string, displayName: string, brandId: string, tier: ModelView["tier"], extra: Partial<ModelView> = {}): ModelView {
+  const { exhibitor, name } = brandOf(brandId);
   return {
-    id, externalKey: `test-em26-${id}`, displayName, slug: `test-${id}`, brandName, exhibitorName, standLabel, tier, status: "published",
-    priceText: "TEST cena", specCount: 3, highlightCount: 1, hasPhoto: false, passportEligible: tier !== "included",
-    packageActivatedAt: opening, qrCode: null,
+    id, externalKey: `test-em26-${id}`, displayName, slug: `test-${id}`, participationId: exhibitor.id, brandId, brandName: name, exhibitorName: exhibitor.name,
+    standLabel: exhibitor.stand, tier, status: "published", priceText: "TEST cena", specCount: 3, highlightCount: 1, hasPhoto: false, photoUrl: null,
+    passportEligible: tier !== "included", packageActivatedAt: opening, qrCode: null, qrSmq: null,
     issues: [{ severity: "warning", code: "FAIR_PHOTO_MISSING", path: "photoUrl" }, { severity: "warning", code: "FAIR_QR_MISSING", path: "qr" }],
     ...extra,
   };
+}
+
+/** Generated TEST models: a deterministic mix of packages, statuses, QR, uploaded photo and problems. */
+function generatedModels(brandId: string, count: number, offset: number): ModelView[] {
+  const { name } = brandOf(brandId);
+  const tiers: ModelView["tier"][] = ["starter", "advanced", "included", "starter"];
+  return Array.from({ length: count }, (_, step) => {
+    const n = offset + step;
+    const id = `${brandId.slice(2)}-m${step + 1}`;
+    const hasQr = n % 4 !== 1;
+    const hasPhoto = n % 5 === 0;
+    const broken = n % 9 === 4;
+    const issues: ModelView["issues"] = [
+      ...(broken ? [{ severity: "error" as const, code: "FAIR_SPECIFICATIONS_INVALID", path: "specifications" }] : []),
+      ...(hasPhoto ? [] : [{ severity: "warning" as const, code: "FAIR_PHOTO_MISSING", path: "photoUrl" }]),
+      ...(hasQr ? [] : [{ severity: "warning" as const, code: "FAIR_QR_MISSING", path: "qr" }]),
+    ];
+    return model(id, `${name} M${step + 1}`, brandId, tiers[n % tiers.length], {
+      ...(step % 3 === 1 ? { variant: "TEST Long Range" } : {}),
+      status: broken ? "draft" : n % 11 === 6 ? "withdrawn" : "published",
+      hasPhoto,
+      qrCode: hasQr ? `TQ${String(n).padStart(3, "0")}KXM` : null,
+      qrSmq: hasQr ? `SMQ-TEST-${String(n + 100).padStart(4, "0")}` : null,
+      issues,
+    });
+  });
 }
 
 const catalog: CatalogView = {
@@ -62,15 +104,27 @@ const catalog: CatalogView = {
   participations: [
     { id: "p-a", externalKey: "test-em26-izlagac-a", exhibitorName: "TEST Izlagač A", codes: "SMK-TEST-FAIR-A · SML-TEST-FAIR-A", segment: "event_only", status: "active" },
     { id: "p-b", externalKey: "test-em26-izlagac-b", exhibitorName: "TEST Izlagač B", codes: "SMK-TEST-FAIR-B · SML-TEST-FAIR-B", segment: "standard", status: "active" },
+    { id: "p-c", externalKey: "test-em26-izlagac-c", exhibitorName: "TEST Izlagač C", codes: "SMK-TEST-FAIR-C · SML-TEST-FAIR-C", segment: "event_only", status: "active" },
+    { id: "p-d", externalKey: "test-em26-izlagac-d", exhibitorName: "TEST Izlagač D", codes: "SMK-TEST-FAIR-D · SML-TEST-FAIR-D", segment: "standard", status: "active" },
   ],
   stands: [
     { id: "s-a1", externalKey: "test-em26-stand-a1", code: "TEST-A1", displayName: "TEST štand A1", mapLocationId: "test-loc-em-a1", exhibitorName: "TEST Izlagač A", status: "active" },
     { id: "s-b1", externalKey: "test-em26-stand-b1", code: "TEST-B1", displayName: "TEST štand B1", mapLocationId: "test-loc-em-b1", exhibitorName: "TEST Izlagač B", status: "active" },
+    { id: "s-c1", externalKey: "test-em26-stand-c1", code: "TEST-C1", displayName: "TEST štand C1", mapLocationId: "test-loc-em-c1", exhibitorName: "TEST Izlagač C", status: "active" },
+    { id: "s-d1", externalKey: "test-em26-stand-d1", code: "TEST-D1", displayName: "TEST štand D1", mapLocationId: "test-loc-em-d1", exhibitorName: "TEST Izlagač D", status: "active" },
   ],
   models: [
-    model("volta-x1", "TEST Volta X1", "TEST Volta", "TEST Izlagač A", "TEST štand A1 · TEST-A1", "advanced", { variant: "TEST Premium", highlightCount: 4, specCount: 5, qrCode: "7KQ2M9XA", issues: [{ severity: "warning", code: "FAIR_PHOTO_MISSING", path: "photoUrl" }] }),
-    model("volta-x2", "TEST Volta X2", "TEST Volta", "TEST Izlagač A", "TEST štand A1 · TEST-A1", "starter"),
-    model("om-z2", "TEST Om Z2", "TEST Om", "TEST Izlagač B", "TEST štand B1 · TEST-B1", "included", { status: "draft", priceText: "Cena na upit", issues: [{ severity: "error", code: "FAIR_SPECIFICATIONS_INVALID", path: "specifications" }, { severity: "warning", code: "FAIR_PRICE_MISSING", path: "priceText" }] }),
+    model("volta-x1", "TEST Volta X1", "b-volta", "advanced", { variant: "TEST Premium", highlightCount: 4, specCount: 5, qrCode: "7KQ2M9XA", qrSmq: "SMQ-TEST-0001", issues: [{ severity: "warning", code: "FAIR_PHOTO_MISSING", path: "photoUrl" }] }),
+    model("volta-x2", "TEST Volta X2", "b-volta", "starter"),
+    model("om-z2", "TEST Om Z2", "b-om", "included", { status: "draft", priceText: "Cena na upit", issues: [{ severity: "error", code: "FAIR_SPECIFICATIONS_INVALID", path: "specifications" }, { severity: "warning", code: "FAIR_PRICE_MISSING", path: "priceText" }] }),
+    ...generatedModels("b-volta", 3, 0),
+    ...generatedModels("b-amper", 5, 3),
+    ...generatedModels("b-om", 4, 8),
+    ...generatedModels("b-kulon", 5, 12),
+    ...generatedModels("b-faradej", 5, 17),
+    ...generatedModels("b-dzul", 5, 22),
+    ...generatedModels("b-vat", 5, 27),
+    ...generatedModels("b-njutn", 5, 32),
   ],
   qrConfigured: true,
 };
@@ -198,6 +252,28 @@ const retentionView: RetentionView = {
 };
 const retentionActions: RetentionActions = { startDryRun: ok };
 
+/** A3 — the detail's linked summaries from the TEST fixtures above (leads: fixed TEST numbers). */
+function modelSummary(modelId: string): ModelDetailSummary {
+  const ofModel = interactions.questions.filter((question) => question.modelId === modelId);
+  const days = [...new Set(ofModel.map((question) => question.dayLabel))];
+  const survey = interactions.surveys.find((row) => row.modelId === modelId);
+  const brandId = catalog.models.find((row) => row.id === modelId)?.brandId;
+  const passport = interactions.passports.find((row) => row.brandId === brandId && row.status);
+  const settings = leadsView.models.find((row) => row.id === modelId)?.tier === "advanced" ? advancedSettings : starterSettings;
+  const active = sponsoredView.active?.items.find((item) => item.modelId === modelId);
+  return {
+    questions: days.map((dayLabel) => {
+      const count = (status: string) => ofModel.filter((question) => question.dayLabel === dayLabel && question.status === status).length;
+      return { dayLabel, published: count("published"), draft: count("draft"), closed: count("closed") };
+    }),
+    survey: survey ? { version: survey.version, status: survey.status } : null,
+    passport: passport?.status ? { status: passport.status, member: passport.members.some((member) => member.modelId === modelId) } : null,
+    forms: { interest: Boolean(settings.interest?.enabled), testDrive: Boolean(settings.testDrive?.enabled) },
+    leads: modelId === "volta-x1" ? { interest: 1, testDrive: 0, undelivered: 1, capped: false } : { interest: 0, testDrive: 0, undelivered: 0, capped: false },
+    sponsored: active ? { state: "active", order: active.order + 1 } : sponsoredView.candidates.some((row) => row.modelId === modelId) ? { state: "candidate" } : { state: "none" },
+  };
+}
+
 const PREVIEW_BASE = "/dev/admin-events-preview";
 const PREVIEW_EVENTS: FrameEvent[] = [
   { slug: "test-elektromobilnost-2026", title: "TEST Sajam elektromobilnosti", status: "published" },
@@ -218,6 +294,8 @@ function PreviewSection({ path, detailId, query, setQuery, keep }: {
   keep: AdminQueryState;
 }) {
   const modelHref = (id: string) => eventDetailHref(PREVIEW_BASE, "modeli", id, keep);
+  const listQuery = { ...keep, ...modelListQuery(query) };
+  const listModelHref = (id: string) => eventDetailHref(PREVIEW_BASE, "modeli", id, listQuery);
   const qrHref = (code: string) => eventDetailHref(PREVIEW_BASE, "qr", code, keep);
   const modelId = leadsView.models.find((model) => model.id === query.model)?.id ?? leadsView.models[0].id;
   const modelPart = {
@@ -234,8 +312,21 @@ function PreviewSection({ path, detailId, query, setQuery, keep }: {
   switch (path) {
     case "pregled": return <EventOverviewView catalog={catalog} modelHref={modelHref} />;
     case "modeli": return detailId
-      ? <EventModelDetailView key={detailId} catalog={catalog} modelId={detailId} actions={actions} listHref={eventSectionHref(PREVIEW_BASE, "modeli", keep)} qrHref={qrHref} />
-      : <EventModelsView catalog={catalog} modelHref={modelHref} />;
+      ? (
+        <EventModelDetailView
+          key={detailId}
+          catalog={catalog}
+          modelId={detailId}
+          actions={actions}
+          query={query}
+          listHref={eventSectionHref(PREVIEW_BASE, "modeli", listQuery)}
+          modelHref={listModelHref}
+          qrHref={qrHref}
+          sectionHref={(path, extra) => eventSectionHref(PREVIEW_BASE, path, { ...keep, ...extra })}
+          summary={modelSummary(detailId)}
+        />
+      )
+      : <EventModelsView catalog={catalog} query={query} onQueryChange={setQuery} modelHref={listModelHref} importHref={eventSectionHref(PREVIEW_BASE, "import", keep)} />;
     case "qr": return detailId
       ? <EventQrDetailView key={detailId} catalog={catalog} code={detailId} row={inventory.rows.find((row) => row.resolverCode === detailId) ?? null} actions={actions} listHref={eventSectionHref(PREVIEW_BASE, "qr", keep)} modelHref={modelHref} generalQrHref={`/admin/operativa/qr?code=${encodeURIComponent(detailId)}`} />
       : <EventQrView catalog={catalog} inventory={inventory} actions={actions} qrHref={qrHref} />;

@@ -11,3 +11,5 @@ export { AdminViewToggle } from "./admin-view-toggle";
 export { useAdminViewMode } from "./use-admin-view-mode";
 export { AdminSubnav } from "./admin-subnav";
 export { adminFieldClass, adminPrimaryButtonClass, adminSecondaryButtonClass } from "./admin-controls";
+export { AdminFilterBar, type AdminFilterBarProps, type AdminFilterChip, type AdminFilterFacet, type AdminFilterFacetOption } from "./admin-filter-bar";
+export { AdminHierarchyPicker, type AdminHierarchyPickerProps } from "./admin-hierarchy-picker";
