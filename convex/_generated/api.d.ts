@@ -85,6 +85,7 @@ import type * as lib_adminActivity from "../lib/adminActivity.js";
 import type * as lib_adminAudit from "../lib/adminAudit.js";
 import type * as lib_adminCommunicationValidators from "../lib/adminCommunicationValidators.js";
 import type * as lib_adminDashboardProjection from "../lib/adminDashboardProjection.js";
+import type * as lib_adminMailCompose from "../lib/adminMailCompose.js";
 import type * as lib_adminMailContract from "../lib/adminMailContract.js";
 import type * as lib_adminMailCrypto from "../lib/adminMailCrypto.js";
 import type * as lib_adminOrderOperations from "../lib/adminOrderOperations.js";
@@ -259,6 +260,7 @@ declare const fullApi: ApiFromModules<{
   "lib/adminAudit": typeof lib_adminAudit;
   "lib/adminCommunicationValidators": typeof lib_adminCommunicationValidators;
   "lib/adminDashboardProjection": typeof lib_adminDashboardProjection;
+  "lib/adminMailCompose": typeof lib_adminMailCompose;
   "lib/adminMailContract": typeof lib_adminMailContract;
   "lib/adminMailCrypto": typeof lib_adminMailCrypto;
   "lib/adminOrderOperations": typeof lib_adminOrderOperations;

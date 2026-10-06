@@ -29,7 +29,7 @@ const noop = () => {};
 const actions: MailViewActions = {
   connect: noop, disconnect: noop, dismissNotice: noop, selectAccount: noop, selectFolder: noop, setFilter: noop, setSearchDraft: noop,
   submitSearch: noop, clearSearch: noop, goToStart: noop, retryFolders: noop, retryList: noop, selectMessage: noop, closeMessage: noop,
-  retryMessage: noop, showImages: noop, markRead: noop, download: noop,
+  retryMessage: noop, showImages: noop, markRead: noop, download: noop, compose: noop, openSignature: noop, openSentFolder: noop,
 };
 
 async function readyModel(overrides: Partial<MailViewModel> = {}): Promise<MailViewModel> {
@@ -210,8 +210,8 @@ describe("Pošta view", () => {
 
   test("only active connections give selectable mailboxes", () => {
     const connections: AdminMailConnectionView[] = [
-      { connectionId: "a" as Id<"adminMailConnections">, primaryEmail: "a@example.invalid", status: "active", lastErrorCode: null, connectedAt: 1, accounts: [{ accountId: "1", emailAddress: "a@example.invalid", displayName: null, isDefault: true }] },
-      { connectionId: "b" as Id<"adminMailConnections">, primaryEmail: "b@example.invalid", status: "auth_required", lastErrorCode: "ZOHO_AUTH_REQUIRED", connectedAt: 1, accounts: [{ accountId: "2", emailAddress: "b@example.invalid", displayName: null, isDefault: true }] },
+      { connectionId: "a" as Id<"adminMailConnections">, primaryEmail: "a@example.invalid", status: "active", lastErrorCode: null, connectedAt: 1, accounts: [{ accountId: "1", emailAddress: "a@example.invalid", displayName: null, isDefault: true, signatureText: null }] },
+      { connectionId: "b" as Id<"adminMailConnections">, primaryEmail: "b@example.invalid", status: "auth_required", lastErrorCode: "ZOHO_AUTH_REQUIRED", connectedAt: 1, accounts: [{ accountId: "2", emailAddress: "b@example.invalid", displayName: null, isDefault: true, signatureText: null }] },
     ];
     expect(mailAccountOptions(connections).map((option) => option.key)).toEqual(["a:1"]);
   });
