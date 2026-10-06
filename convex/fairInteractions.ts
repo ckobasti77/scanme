@@ -16,6 +16,7 @@ import {
   fairEventAcceptsInteractions,
   fairFavoriteKey,
   fairInteractionError,
+  fairIsPublicPassport,
   fairModelQuestions,
   fairModelSurveys,
   fairModelTierAt,
@@ -312,6 +313,7 @@ export const submitSurvey = mutation({
 /**
  * Allowed only once the backend sees a stamp on every still-required model of
  * the published passport. One changeable favorite per visitor+event+brand.
+ * A7: a passport the admin hid is not active (PASSPORT_NOT_ACTIVE).
  */
 export const upsertBrandFavorite = mutation({
   args: { gatewaySecret: v.optional(v.string()), ipHash: v.optional(v.string()), visitorHash: v.string(), passportId: v.string(), eventModelId: v.string() },
@@ -322,7 +324,7 @@ export const upsertBrandFavorite = mutation({
     requireVisitorHash(args.visitorHash);
     const passportId = ctx.db.normalizeId("fairPassportConfigs", args.passportId);
     const passport = passportId ? await ctx.db.get(passportId) : null;
-    if (!passport || passport.status !== "published") fairInteractionError("PASSPORT_NOT_ACTIVE");
+    if (!passport || !fairIsPublicPassport(passport)) fairInteractionError("PASSPORT_NOT_ACTIVE");
     const event = await ctx.db.get(passport.eventId);
     if (!event) fairInteractionError("PASSPORT_NOT_ACTIVE");
     if (!fairEventAcceptsInteractions(event, now)) fairInteractionError("EVENT_NOT_ACTIVE");

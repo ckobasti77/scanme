@@ -48,8 +48,9 @@ export const EVENT_SECTIONS: readonly EventSectionDef[] = [
   // A6 — `model` + `dan` open the form on that model and day (the coverage matrix links there).
   { path: "interakcije/glas-publike", group: "sajam", parent: "interakcije", queryKeys: ["model", "dan", "izlagac", "status", "prikaz"] },
   { path: "interakcije/ankete", group: "sajam", parent: "interakcije", queryKeys: ["model", "prikaz"] },
-  { path: "interakcije/pasos", group: "sajam", parent: "interakcije", queryKeys: ["prikaz"] },
-  { path: "interakcije/forme", group: "sajam", parent: "interakcije", queryKeys: ["model"] },
+  // A7 — `brend` comes from the model detail; `model` opens that model's exception.
+  { path: "interakcije/pasos", group: "sajam", parent: "interakcije", queryKeys: ["izlagac", "brend", "stanje", "prikaz"] },
+  { path: "interakcije/forme", group: "sajam", parent: "interakcije", queryKeys: ["izlagac", "model", "prikaz"] },
   { path: "sponzorisano", group: "sajam", queryKeys: ["prikaz"] },
   { path: "leadovi", group: "posle", parent: "leadovi", queryKeys: ["izlagac", "prikaz"] },
   { path: "leadovi/follow-up", group: "posle", parent: "leadovi", queryKeys: ["model"] },

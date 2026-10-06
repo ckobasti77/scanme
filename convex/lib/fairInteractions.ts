@@ -336,6 +336,15 @@ export function fairFavoriteKey(passportId: string, eventModelId: string) {
   return `brand_favorite:passport:${passportId}:${eventModelId}`;
 }
 
+/**
+ * Admin UX A7: what visitors see — a published passport that the admin has
+ * not hidden. A hidden one keeps stamping (stampFairPassportOnScan reads only
+ * the status), so showing it again loses no progress.
+ */
+export function fairIsPublicPassport(passport: Doc<"fairPassportConfigs">): boolean {
+  return passport.status === "published" && passport.hiddenAt === undefined;
+}
+
 /** The frozen set still required (emergency-removed members excluded). */
 export async function fairPassportRequiredMembers(ctx: Ctx, passportId: Id<"fairPassportConfigs">) {
   return ctx.db
@@ -428,7 +437,7 @@ export async function fairPassportCatalogEntry(
   };
 }
 
-/** The published passport whose required set contains this model, if any. */
+/** The published (and not hidden, A7) passport whose required set contains this model, if any. */
 export async function fairPublishedPassportForModel(ctx: Ctx, model: Doc<"fairEventModels">) {
   const memberships = await ctx.db
     .query("fairPassportEligibleModels")
@@ -437,12 +446,12 @@ export async function fairPublishedPassportForModel(ctx: Ctx, model: Doc<"fairEv
   for (const membership of memberships) {
     if (membership.status !== "required" || membership.eventId !== model.eventId) continue;
     const passport = await ctx.db.get(membership.passportConfigId);
-    if (passport && passport.status === "published") return passport;
+    if (passport && fairIsPublicPassport(passport)) return passport;
   }
   return null;
 }
 
-/** All published passports of one event + (when a visitor hash is given) the visitor's progress in each. */
+/** All published passports of one event (hidden ones skipped, A7) + (when a visitor hash is given) the visitor's progress in each. */
 export async function fairPassportState(ctx: Ctx, event: Doc<"fairEvents">, visitorHash: string | null): Promise<FairPassportState> {
   const visitor = visitorHash ? await findFairVisitor(ctx, visitorHash) : null;
   const passports = await ctx.db
@@ -452,6 +461,7 @@ export async function fairPassportState(ctx: Ctx, event: Doc<"fairEvents">, visi
   const threshold = fairVoteThreshold(event);
   const state: FairPassportState = { eventId: event._id, catalog: [], progress: [] };
   for (const passport of passports) {
+    if (!fairIsPublicPassport(passport)) continue;
     const required = await fairPassportRequiredMembers(ctx, passport._id);
     const entry = await fairPassportCatalogEntry(ctx, passport, required);
     if (!entry) continue;

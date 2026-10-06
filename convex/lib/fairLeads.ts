@@ -109,6 +109,14 @@ export async function fairLeadConfig(ctx: Ctx, eventModelId: Id<"fairEventModels
     .unique();
 }
 
+/** Admin UX A7: the exhibitor's default for one lead form (admin input; the public flow never reads it). */
+export async function fairParticipationLeadDefault(ctx: Ctx, participationId: Id<"fairParticipations">, kind: FairLeadKind) {
+  return ctx.db
+    .query("fairParticipationLeadDefaults")
+    .withIndex("by_participationId_and_leadKind", (q) => q.eq("participationId", participationId).eq("leadKind", kind))
+    .unique();
+}
+
 export async function fairActiveFollowUpTemplate(ctx: Ctx, eventModelId: Id<"fairEventModels">) {
   return ctx.db
     .query("fairMessageTemplates")

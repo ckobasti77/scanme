@@ -5,7 +5,8 @@ import { BrisanjeSection } from "@/components/admin/events/sections/brisanje-sec
 import { ImportSection } from "@/components/admin/events/sections/import-section";
 import { IzlagaciSection } from "@/components/admin/events/sections/izlagaci-section";
 import { IzvestajiSection } from "@/components/admin/events/sections/izvestaji-section";
-import { FollowUpSection, FormeSection, LeadoviSection, PodesavanjaSection } from "@/components/admin/events/sections/leadovi-section";
+import { FormeSection } from "@/components/admin/events/sections/interakcije-forme-section";
+import { FollowUpSection, LeadoviSection, PodesavanjaSection } from "@/components/admin/events/sections/leadovi-section";
 import { ModelDetailSection, ModeliSection } from "@/components/admin/events/sections/modeli-section";
 import { PregledSection } from "@/components/admin/events/sections/pregled-section";
 import { QrDetailSection, QrSection } from "@/components/admin/events/sections/qr-section";

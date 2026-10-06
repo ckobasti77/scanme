@@ -14,6 +14,7 @@ import type { ProductType, ServiceType } from "../admin-v1/catalog";
 import type {
   FairAdminIssueCode,
   FairAudienceQuestionStatus,
+  FairBrandPassportProblem,
   FairClientSegment,
   FairConsentStatus,
   FairContactRequirement,
@@ -3961,8 +3962,6 @@ export interface AdminEventsDict {
     done: string;
     verifyReminder: string;
   };
-  formsSectionTitle: string;
-  formsSectionHelp: string;
   followUpSectionTitle: string;
   followUpSectionHelp: string;
   followUpAdvancedOnly: string;
@@ -4498,23 +4497,71 @@ export interface AdminEventsDict {
     retireConfirm: string;
   };
   passportsTitle: string;
-  passportsHelp: string;
   passportsEmpty: string;
-  passportNone: string;
-  passportOpen: string;
-  passportOpened: string;
-  passportPublish: string;
-  passportPublishedDone: string;
-  passportWithdraw: string;
-  passportWithdrawConfirm: string;
-  passportWithdrawn: string;
   passportRemoveModel: string;
   passportRemoveConfirm: string;
   passportRemoved: string;
-  passportFrozenAt: string;
   passportStatus: Record<FairPassportConfigStatus, string>;
   passportMemberStatus: Record<FairPassportEligibleStatus, string>;
   passportProblems: Record<AdminEventsPassportProblem, string>;
+  /** Admin UX A7 — `interakcije/pasos`: the automatic brand passport (lib/admin-v1/passport-overview.ts). */
+  passportAuto: {
+    help: string;
+    explainTitle: string;
+    /** {date} = the event opening. */
+    explainAuto: string;
+    explainFreeze: string;
+    explainHide: string;
+    refresh: string;
+    /** {created}, {updated}, {withdrawn}, {unchanged}, {frozen}. */
+    refreshDone: string;
+    filterLabel: string;
+    facetExhibitor: string;
+    facetState: string;
+    /** {brand}. */
+    brandChip: string;
+    /** {shown} of {total} brands. */
+    count: string;
+    noMatchTitle: string;
+    noMatchBody: string;
+    colBrand: string;
+    colCondition: string;
+    colState: string;
+    colMembers: string;
+    conditionMet: string;
+    conditionNotMet: string;
+    /** {count}, {total}. */
+    problems: Record<FairBrandPassportProblem, string>;
+    noExhibited: string;
+    /** {max}. */
+    tooManyModels: string;
+    states: Record<"active" | "frozen" | "hidden" | "not_eligible" | "missing", string>;
+    /** {date}. */
+    hintActive: string;
+    /** {date}. */
+    hintFrozen: string;
+    hintHidden: string;
+    hintWithdrawn: string;
+    hintMissingBefore: string;
+    hintMissingAfter: string;
+    /** {required}. */
+    membersCount: string;
+    noMembers: string;
+    memberRemovedByAdmin: string;
+    memberWithdrawn: string;
+    /** {count}. */
+    blocking: string;
+    hide: string;
+    /** {brand}. */
+    hideAria: string;
+    /** {brand}. */
+    hideConfirm: string;
+    hidden: string;
+    show: string;
+    /** {brand}. */
+    showAria: string;
+    shown: string;
+  };
   confirm: string;
   // B4 — Leadovi tab (saglasnost, podešavanje po modelu, follow-up tekst, leadovi)
   tabLeads: string;
@@ -4551,9 +4598,74 @@ export interface AdminEventsDict {
   configPreferredNone: string;
   contactRequirements: Record<FairContactRequirement, string>;
   preferredContacts: Record<FairPreferredContact, string>;
-  configSave: string;
-  configSaved: string;
   testDriveAdvancedOnly: string;
+  /** Admin UX A7 — `interakcije/forme`: the lead forms per exhibitor (lib/admin-v1/lead-forms.ts). */
+  leadForms: {
+    help: string;
+    statusLabel: string;
+    leadsOn: string;
+    leadsOff: string;
+    followUpOn: string;
+    followUpOff: string;
+    /** {kind}, {version}. */
+    consentOn: string;
+    /** {kind}. */
+    consentOff: string;
+    consentLink: string;
+    exhibitorLabel: string;
+    /** {name}, {count}. */
+    exhibitorOption: string;
+    noExhibitorsTitle: string;
+    noExhibitorsBody: string;
+    /** {exhibitor}. */
+    defaultsTitle: string;
+    defaultsHelp: string;
+    defaultNotSaved: string;
+    testDriveDefaultNote: string;
+    saveAndApply: string;
+    saveOnly: string;
+    apply: string;
+    saved: string;
+    /** {created}, {updated}, {unchanged}, {skipped}. */
+    applied: string;
+    notEntitledTitle: string;
+    /** {model}, {kind}, {reason}. */
+    notEntitledLine: string;
+    /** {kind}. */
+    missingDefault: string;
+    /** {count}. */
+    pending: string;
+    modelsTitle: string;
+    /** {shown} models. */
+    count: string;
+    noModelsTitle: string;
+    noModelsBody: string;
+    colModel: string;
+    colPackage: string;
+    states: Record<"on" | "off" | "not_entitled" | "not_set", string>;
+    sourceDefault: string;
+    sourceOverride: string;
+    pendingBadge: string;
+    /** {requirement}. */
+    contactLine: string;
+    /** {channel}. */
+    preferredLine: string;
+    notEntitledReasons: Record<FairLeadKind, string>;
+    editOverride: string;
+    /** {model}. */
+    editOverrideAria: string;
+    /** {model}. */
+    overrideTitle: string;
+    overrideHelp: string;
+    saveOverride: string;
+    overrideSaved: string;
+    clearOverride: string;
+    cleared: string;
+    closeOverride: string;
+    /** Leadovi: the forms moved to Interakcije. */
+    movedNote: string;
+    movedLink: string;
+  };
   followUpTitle: string;
   followUpHelp: string;
   followUpSubject: string;

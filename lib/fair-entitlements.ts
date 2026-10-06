@@ -6,9 +6,11 @@
 import {
   FAIR_PACKAGE_TIERS,
   isFairRatingValue,
+  type FairBrandPassportProblem,
   type FairEntitlements,
   type FairErrorCode,
   type FairModelCapabilities,
+  type FairModelStatus,
   type FairPackageTier,
   type FairReportMetric,
 } from "./fair-contract";
@@ -293,6 +295,40 @@ export function fairBrandPassportEligible(
     models.length >= 2 &&
     models.every((model) => FAIR_ENTITLEMENT_CATALOG[model.packageTier].passportEligibleTier)
   );
+}
+
+export type FairBrandPassportCheck = {
+  eligible: boolean;
+  /** Exhibited (non-withdrawn) models of the brand on the event. */
+  exhibited: number;
+  /** Every rule the brand breaks; `count` = exhibited models that break it (for the first rule: how many are exhibited). */
+  problems: { code: FairBrandPassportProblem; count: number }[];
+};
+
+/**
+ * Admin UX A7 — the brand passport condition with every reason it fails, for
+ * the automatic passport and the admin overview (MASTER §11; the same rules
+ * fairInteractionsAdmin.publishPassport has used since B3, contract §9.31):
+ * at least two exhibited (non-withdrawn) models, every one of them
+ * published, a passport candidate (`passportEligible`) and Starter or
+ * Advanced, and all of one exhibitor. Pass every model of the brand on the
+ * event; withdrawn ones are ignored.
+ */
+export function fairBrandPassportProblems(
+  models: ReadonlyArray<{ status: FairModelStatus; passportEligible: boolean; packageTier: FairPackageTier; participationId?: string }>,
+): FairBrandPassportCheck {
+  const exhibited = models.filter((model) => model.status !== "withdrawn");
+  const problems: FairBrandPassportCheck["problems"] = [];
+  const add = (code: FairBrandPassportProblem, count: number) => {
+    if (count > 0) problems.push({ code, count });
+  };
+  if (exhibited.length < 2) problems.push({ code: "fewer_than_two_models", count: exhibited.length });
+  add("model_not_published", exhibited.filter((model) => model.status !== "published").length);
+  add("model_not_candidate", exhibited.filter((model) => !model.passportEligible).length);
+  add("model_below_starter", exhibited.filter((model) => !FAIR_ENTITLEMENT_CATALOG[model.packageTier].passportEligibleTier).length);
+  const exhibitors = new Set(exhibited.flatMap((model) => (model.participationId ? [model.participationId] : [])));
+  if (exhibitors.size > 1) problems.push({ code: "multiple_exhibitors", count: exhibitors.size });
+  return { eligible: problems.length === 0, exhibited: exhibited.length, problems };
 }
 
 /** Live facts the server combines with the tier into public capabilities. */

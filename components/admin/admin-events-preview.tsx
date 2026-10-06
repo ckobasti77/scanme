@@ -17,13 +17,14 @@ import type {
   QrDetailView,
   QrScanStatsView,
 } from "@/components/admin/admin-events";
-import { AdminEventsPassports, type InteractionsActions, type InteractionsView } from "@/components/admin/admin-events-interactions";
+import type { InteractionsActions, InteractionsView } from "@/components/admin/admin-events-interactions";
 import { EventSurveysView } from "@/components/admin/events/sections/interakcije-ankete-view";
+import { EventLeadFormsView, type LeadFormsActions } from "@/components/admin/events/sections/interakcije-forme-view";
 import { EventAudienceView } from "@/components/admin/events/sections/interakcije-glas-publike-view";
+import { EventPassportsView, type PassportsActions } from "@/components/admin/events/sections/interakcije-pasos-view";
 import {
   AdminEventsConsent,
   AdminEventsFollowUp,
-  AdminEventsLeadForms,
   AdminEventsLeadList,
   type LeadsActions,
   type LeadsModelSettings,
@@ -51,7 +52,9 @@ import {
   type ResolvedEventSection,
 } from "@/lib/admin-v1/event-sections";
 import { buildExhibitorRows } from "@/lib/admin-v1/exhibitors";
+import type { LeadFormsSource } from "@/lib/admin-v1/lead-forms";
 import { modelListQuery } from "@/lib/admin-v1/model-filters";
+import { buildPassportRows, type PassportOverviewSource } from "@/lib/admin-v1/passport-overview";
 import { qrListQuery } from "@/lib/admin-v1/qr-filters";
 import type { AdminQueryPatch, AdminQueryState } from "@/lib/admin-v1/query-state";
 import { parseViewModeParam, type AdminViewMode } from "@/lib/admin-v1/view-mode";
@@ -201,14 +204,91 @@ const interactions: InteractionsView = {
     { id: "s1", modelId: "volta-x1", version: 1, status: "retired", questions: [{ id: "q1", prompt: "TEST prvo pitanje ankete", kind: "yes_no", options: [], order: 1 }] },
     { id: "s4", modelId: "volta-m2", version: 1, status: "published", questions: [{ id: "q1", prompt: "TEST da li vam treba probna vožnja?", kind: "yes_no", options: [], order: 1 }] },
   ],
-  passports: [
-    { id: "p1", brandId: "b-volta", brandName: "TEST Volta", status: "draft", members: [] },
-    { id: null, brandId: "b-om", brandName: "TEST Om", status: null, members: [] },
-  ],
 };
 const interactionActions: InteractionsActions = {
-  saveQuestion: ok, publishQuestion: ok, closeQuestion: ok, setSponsoredResult: ok, saveSurveyDraft: ok, publishSurvey: ok,
-  retireSurvey: ok, openPassport: ok, publishPassport: ok, withdrawPassport: ok, removePassportModel: ok,
+  saveQuestion: ok, publishQuestion: ok, closeQuestion: ok, setSponsoredResult: ok, saveSurveyDraft: ok, publishSurvey: ok, retireSurvey: ok,
+};
+
+// A7 — Pasoš brenda: one TEST brand per state, shown the day before the
+// opening so Aktivan and Zamrznut (a manual freeze) appear together; TEST
+// Faradej keeps a car that was withdrawn after the freeze (emergency removal
+// offered). The conditions are TEST values, not computed from this catalog.
+const PASSPORT_PREVIEW_NOW = opening - 20 * 3_600_000;
+const required = (...ids: string[]) => ids.map((eventModelId) => ({ eventModelId, status: "required" as const, removedByAdmin: false }));
+const published = (passportId: string, extra: Partial<NonNullable<PassportOverviewSource["brands"][number]["passport"]>> = {}) => ({ passportId, status: "published" as const, frozenAt: opening, publishedAt: opening - 2 * DAY_MS, autoSyncedAt: opening - 2 * DAY_MS, ...extra });
+const passportOverview: PassportOverviewSource = {
+  eventStartsAt: opening,
+  brands: [
+    { brandId: "b-volta", participationId: "p-a", eligible: true, exhibited: 2, problems: [], tooManyModels: false, freezesAt: opening, passport: published("pass-volta"), members: required("volta-x1", "volta-x2") },
+    { brandId: "b-amper", participationId: "p-a", eligible: true, exhibited: 3, problems: [], tooManyModels: false, freezesAt: opening, passport: published("pass-amper", { hiddenAt: opening - DAY_MS }), members: required("amper-m1", "amper-m2", "amper-m5") },
+    { brandId: "b-om", participationId: "p-b", eligible: false, exhibited: 5, problems: [{ code: "model_not_published", count: 1 }, { code: "model_below_starter", count: 2 }], tooManyModels: false, freezesAt: opening, passport: null, members: [] },
+    { brandId: "b-kulon", participationId: "p-b", eligible: false, exhibited: 3, problems: [{ code: "model_below_starter", count: 1 }], tooManyModels: false, freezesAt: opening, passport: published("pass-kulon", { status: "withdrawn" }), members: required("kulon-m1", "kulon-m4") },
+    {
+      brandId: "b-faradej", participationId: "p-c", eligible: true, exhibited: 3, problems: [], tooManyModels: false, freezesAt: opening - 2 * DAY_MS,
+      passport: { passportId: "pass-faradej", status: "published", frozenAt: opening - 2 * DAY_MS, publishedAt: opening - 2 * DAY_MS },
+      members: [...required("faradej-m1", "faradej-m2", "faradej-m4"), { eventModelId: "faradej-m5", status: "removed", removedAt: opening - DAY_MS, removedByAdmin: true }],
+    },
+    { brandId: "b-dzul", participationId: "p-c", eligible: true, exhibited: 2, problems: [], tooManyModels: false, freezesAt: opening, passport: null, members: [] },
+    { brandId: "b-vat", participationId: "p-d", eligible: false, exhibited: 1, problems: [{ code: "fewer_than_two_models", count: 1 }], tooManyModels: false, freezesAt: opening, passport: null, members: [] },
+    { brandId: "b-njutn", participationId: "p-d", eligible: false, exhibited: 5, problems: [{ code: "model_not_candidate", count: 1 }], tooManyModels: false, freezesAt: opening, passport: null, members: [] },
+  ],
+};
+const previewExhibitors = EXHIBITORS.map((exhibitor) => ({ id: exhibitor.id, name: exhibitor.name }));
+const passportRows = buildPassportRows(passportOverview, {
+  brands: new Map(EXHIBITORS.flatMap((exhibitor) => exhibitor.brands.map(([id, name]) => [id, name] as [string, string]))),
+  exhibitors: new Map(previewExhibitors.map((row) => [row.id, row.name])),
+  models: new Map(catalog.models.map((row) => [row.id, { name: `${row.displayName}${row.variant ? ` ${row.variant}` : ""}`, status: row.status }])),
+}, PASSPORT_PREVIEW_NOW);
+const passportActions: PassportsActions = {
+  refresh: async () => ({ ok: true, summary: { created: 0, updated: 1, withdrawn: 0, unchanged: 5, frozen: 1, too_many_models: 0 } }),
+  setHidden: ok,
+  removeModel: ok,
+};
+
+// A7 — Forme: TEST Izlagač A has both defaults applied (one model keeps an
+// exception, one still waits for "Primeni"), TEST Izlagač B only the
+// interest default, C and D none yet. The lead switches are off and no
+// consent is active, as on a fresh deployment. No real data.
+const leadFormDefaultsFixture: LeadFormsSource["defaults"] = [
+  { participationId: "p-a", leadKind: "interest", enabled: true, contactRequirement: "one_of", updatedAt: opening - DAY_MS },
+  { participationId: "p-a", leadKind: "test_drive", enabled: true, contactRequirement: "both", preferredContact: "phone", updatedAt: opening - DAY_MS },
+  { participationId: "p-b", leadKind: "interest", enabled: true, contactRequirement: "email", updatedAt: opening - DAY_MS },
+];
+const leadFormsFixture: LeadFormsSource = {
+  defaults: leadFormDefaultsFixture,
+  models: catalog.models.filter((row) => row.status !== "withdrawn").map((row) => {
+    const cell = (kind: "interest" | "test_drive") => {
+      const entitled = kind === "interest" ? row.tier !== "included" : row.tier === "advanced";
+      const value = leadFormDefaultsFixture.find((entry) => entry.participationId === row.participationId && entry.leadKind === kind);
+      if (row.id === "volta-x1" && kind === "interest") return { entitled, config: { enabled: true, contactRequirement: "phone" as const, source: "override" as const, updatedAt: opening - DAY_MS } };
+      if (!value || row.id === "om-m4") return { entitled, config: null };
+      const stale = row.id === "amper-m1" && kind === "interest";
+      return {
+        entitled,
+        config: {
+          enabled: value.enabled && entitled,
+          contactRequirement: stale ? "email" as const : value.contactRequirement,
+          ...(value.preferredContact && !stale ? { preferredContact: value.preferredContact } : {}),
+          source: "default" as const,
+          updatedAt: opening - DAY_MS,
+        },
+      };
+    };
+    return { eventModelId: row.id, participationId: row.participationId, packageTier: row.tier, interest: cell("interest"), testDrive: cell("test_drive") };
+  }),
+};
+const leadFormNames = { models: new Map(catalog.models.map((row) => [row.id, { name: `${row.displayName}${row.variant ? ` ${row.variant}` : ""}`, brandName: row.brandName }])) };
+const leadFormsActions: LeadFormsActions = {
+  saveDefault: ok,
+  apply: async (participationId) => ({
+    ok: true,
+    applied: {
+      created: 0, updated: 1, unchanged: 8, skippedOverride: 1, missingDefault: [],
+      notEntitled: leadFormsFixture.models.filter((row) => row.participationId === participationId && row.packageTier === "included").map((row) => ({ modelId: row.eventModelId, kind: "interest" as const })),
+    },
+  }),
+  saveOverride: ok,
+  clearOverride: ok,
 };
 
 const noMore = { canLoadMore: false, loadingMore: false, onLoadMore: () => undefined, status: "ready" as const };
@@ -248,7 +328,7 @@ const leadsView: LeadsView = {
   ] },
 };
 const leadActions: LeadsActions = {
-  saveConsentDraft: ok, activateConsent: ok, retireConsent: ok, saveLeadConfig: ok, saveFollowUpTemplate: ok, setSuppressed: ok, retryDelivery: ok,
+  saveConsentDraft: ok, activateConsent: ok, retireConsent: ok, saveFollowUpTemplate: ok, setSuppressed: ok, retryDelivery: ok,
 };
 
 // B5 — Sponzorisano: a published TEST list that is out of date (a model was
@@ -307,7 +387,8 @@ function modelSummary(modelId: string): ModelDetailSummary {
   const days = [...new Set(ofModel.map((question) => dayLabelOf(question.dayId)))];
   const survey = interactions.surveys.find((row) => row.modelId === modelId && row.status === "published") ?? interactions.surveys.find((row) => row.modelId === modelId);
   const brandId = catalog.models.find((row) => row.id === modelId)?.brandId;
-  const passport = interactions.passports.find((row) => row.brandId === brandId && row.status);
+  const passport = passportOverview.brands.find((row) => row.brandId === brandId)?.passport ?? null;
+  const members = passportOverview.brands.find((row) => row.brandId === brandId)?.members ?? [];
   const settings = leadsView.models.find((row) => row.id === modelId)?.tier === "advanced" ? advancedSettings : starterSettings;
   const active = sponsoredView.active?.items.find((item) => item.modelId === modelId);
   return {
@@ -316,7 +397,7 @@ function modelSummary(modelId: string): ModelDetailSummary {
       return { dayLabel: label, published: count("published"), draft: count("draft"), closed: count("closed") };
     }),
     survey: survey ? { version: survey.version, status: survey.status } : null,
-    passport: passport?.status ? { status: passport.status, member: passport.members.some((member) => member.modelId === modelId) } : null,
+    passport: passport ? { status: passport.status, member: members.some((member) => member.eventModelId === modelId && member.status === "required"), hidden: passport.hiddenAt !== undefined } : null,
     forms: { interest: Boolean(settings.interest?.enabled), testDrive: Boolean(settings.testDrive?.enabled) },
     leads: modelId === "volta-x1" ? { interest: 1, testDrive: 0, undelivered: 1, capped: false } : { interest: 0, testDrive: 0, undelivered: 0, capped: false },
     sponsored: active ? { state: "active", order: active.order + 1 } : sponsoredView.candidates.some((row) => row.modelId === modelId) ? { state: "candidate" } : { state: "none" },
@@ -529,6 +610,7 @@ function PreviewSection({ path, detailId, query, setQuery, keep }: {
     ...leadsView,
     participationId: leadsView.participations.find((row) => row.id === query.izlagac)?.id ?? leadsView.participations[0].id,
     onSelectParticipation: (id: string) => setQuery({ izlagac: id }),
+    formsHref: eventSectionHref(PREVIEW_BASE, "interakcije/forme", keep),
   };
   switch (path) {
     case "pregled": return <EventOverviewView catalog={catalog} modelHref={modelHref} />;
@@ -592,8 +674,20 @@ function PreviewSection({ path, detailId, query, setQuery, keep }: {
     case "import": return <EventImportView context={importContext} actions={importActions} initial={{ text: IMPORT_TEST_TABLE, step: "pregled" }} />;
     case "interakcije/glas-publike": return <EventAudienceView view={interactions} actions={interactionActions} now={PREVIEW_NOW} query={query} onQueryChange={setQuery} />;
     case "interakcije/ankete": return <EventSurveysView view={interactions} actions={interactionActions} now={PREVIEW_NOW} query={query} onQueryChange={setQuery} />;
-    case "interakcije/pasos": return <AdminEventsPassports view={interactions} actions={interactionActions} />;
-    case "interakcije/forme": return <AdminEventsLeadForms view={modelPart} actions={leadActions} />;
+    case "interakcije/pasos": return <EventPassportsView rows={passportRows} eventStartsAt={opening} exhibitors={previewExhibitors} query={query} onQueryChange={setQuery} actions={passportActions} />;
+    case "interakcije/forme": return (
+      <EventLeadFormsView
+        source={leadFormsFixture}
+        names={leadFormNames}
+        exhibitors={previewExhibitors}
+        switches={{ leadsEnabled: false, followUpEnabled: false }}
+        consents={{ interest: null, test_drive: null }}
+        consentHref={eventSectionHref(PREVIEW_BASE, "leadovi/podesavanja", keep)}
+        query={query}
+        onQueryChange={setQuery}
+        actions={leadFormsActions}
+      />
+    );
     case "sponzorisano": return <AdminEventsSponsored view={sponsoredView} actions={sponsoredActions} />;
     case "leadovi": return <AdminEventsLeadList view={leadList} actions={leadActions} />;
     case "leadovi/follow-up": return <AdminEventsFollowUp view={modelPart} actions={leadActions} />;

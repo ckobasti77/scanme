@@ -8,7 +8,6 @@ import type { Id } from "@/convex/_generated/dataModel";
 import {
   AdminEventsConsent,
   AdminEventsFollowUp,
-  AdminEventsLeadForms,
   AdminEventsLeadList,
   type LeadsActions,
   type LeadsDelivery,
@@ -18,11 +17,13 @@ import { useAdminQueryState } from "@/components/admin/admin-ui/use-admin-query-
 import { modelFullName } from "@/components/admin/events/event-catalog";
 import { useAdminEvent } from "@/components/admin/events/event-context";
 import { leadsOutcome } from "@/components/admin/events/event-outcome";
+import { eventSectionHref } from "@/lib/admin-v1/event-sections";
 
 // Admin UX A2 — containers of `leadovi` (received leads of `?izlagac=`),
-// `leadovi/follow-up` and `interakcije/forme` (settings of `?model=`) and
-// `leadovi/podesavanja` (consent). Each route runs only its own queries; the
-// B4 functions are in convex/fairLeadsAdmin.ts.
+// `leadovi/follow-up` (text of `?model=`) and `leadovi/podesavanja`
+// (consent). Each route runs only its own queries; the B4 functions are in
+// convex/fairLeadsAdmin.ts. A7: `interakcije/forme` moved to
+// interakcije-forme-section.tsx; the lead list links there.
 
 const LEAD_PAGE = 25;
 
@@ -31,7 +32,6 @@ function useLeadsActions(): LeadsActions {
   const saveConsentDraft = useMutation(api.fairLeadsAdmin.saveConsentDraft);
   const activateConsent = useMutation(api.fairLeadsAdmin.activateConsent);
   const retireConsent = useMutation(api.fairLeadsAdmin.retireConsent);
-  const upsertLeadConfig = useMutation(api.fairLeadsAdmin.upsertLeadConfig);
   const upsertFollowUpTemplate = useMutation(api.fairLeadsAdmin.upsertFollowUpTemplate);
   const setFollowUpSuppressed = useMutation(api.fairLeadsAdmin.setFollowUpSuppressed);
   const retryEmailDelivery = useMutation(api.fairLeadsAdmin.retryEmailDelivery);
@@ -41,10 +41,6 @@ function useLeadsActions(): LeadsActions {
     })),
     activateConsent: (consentId, approval) => leadsOutcome(() => activateConsent({ consentId: consentId as Id<"fairConsentConfigs">, ...approval })),
     retireConsent: (consentId) => leadsOutcome(() => retireConsent({ consentId: consentId as Id<"fairConsentConfigs"> })),
-    saveLeadConfig: (input) => leadsOutcome(() => upsertLeadConfig({
-      eventModelId: input.modelId as Id<"fairEventModels">, leadKind: input.kind, contactRequirement: input.contactRequirement,
-      ...(input.preferredContact ? { preferredContact: input.preferredContact } : {}), enabled: input.enabled,
-    })),
     saveFollowUpTemplate: (modelId, subject, plainText) => leadsOutcome(() => upsertFollowUpTemplate({ eventModelId: modelId as Id<"fairEventModels">, subject, plainText })),
     setSuppressed: (leadId, suppressed) => leadsOutcome(() => setFollowUpSuppressed({ leadId: leadId as Id<"fairLeads">, suppressed })),
     retryDelivery: (deliveryId) => leadsOutcome(() => retryEmailDelivery({ deliveryId: deliveryId as Id<"fairEmailDeliveries"> })),
@@ -83,10 +79,6 @@ function useModelPart(): Pick<LeadsView, "models" | "modelId" | "onSelectModel" 
   };
 }
 
-export function FormeSection() {
-  return <AdminEventsLeadForms view={useModelPart()} actions={useLeadsActions()} />;
-}
-
 export function FollowUpSection() {
   return <AdminEventsFollowUp view={useModelPart()} actions={useLeadsActions()} />;
 }
@@ -113,7 +105,7 @@ function deliveryView(row: ExportedDelivery): LeadsDelivery {
 }
 
 export function LeadoviSection() {
-  const { eventId, catalog } = useAdminEvent();
+  const { eventId, base, catalog } = useAdminEvent();
   const participations = useParticipations();
   const [query, setQuery] = useAdminQueryState();
   const actions = useLeadsActions();
@@ -124,7 +116,8 @@ export function LeadoviSection() {
     participationId ? { eventId, participationId: participationId as Id<"fairParticipations"> } : "skip",
     { initialNumItems: LEAD_PAGE },
   );
-  const view: Pick<LeadsView, "participations" | "participationId" | "onSelectParticipation" | "leads"> = {
+  const view: Pick<LeadsView, "participations" | "participationId" | "onSelectParticipation" | "leads" | "formsHref"> = {
+    formsHref: eventSectionHref(base, "interakcije/forme"),
     participations,
     participationId,
     onSelectParticipation: (id) => setQuery({ izlagac: id }),
