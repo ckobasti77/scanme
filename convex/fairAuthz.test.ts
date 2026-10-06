@@ -132,7 +132,11 @@ const AUTHZ: Record<string, { module: Record<string, unknown>; functions: Record
     module: fairPassports,
     functions: { getPassportOverview: A, refreshPassports: A, setPassportHidden: A, syncBrandPassport: I, syncEventPassports: I },
   },
-  fairSponsoredAdmin: { module: fairSponsoredAdmin, functions: { publishSponsoredSnapshot: A, getSponsoredRotationAdmin: A } },
+  // Admin UX A9 — the automatic snapshot (the scheduled sync job is internal).
+  fairSponsoredAdmin: {
+    module: fairSponsoredAdmin,
+    functions: { publishSponsoredSnapshot: A, getSponsoredRotationAdmin: A, setSponsoredAutoPublish: A, getSponsoredQuestionVotes: A, syncSponsoredSnapshotJob: I },
+  },
   fairReports: {
     module: fairReports,
     functions: {
@@ -248,6 +252,8 @@ describe("B7 authz table of every fair function", () => {
       ["retryEmailDelivery", (c) => c.mutation(api.fairLeadsAdmin.retryEmailDelivery, { deliveryId: extra.deliveryId })],
       ["publishSponsoredSnapshot", (c) => c.mutation(api.fairSponsoredAdmin.publishSponsoredSnapshot, { eventId: f.eventId })],
       ["getSponsoredRotationAdmin", (c) => c.query(api.fairSponsoredAdmin.getSponsoredRotationAdmin, { eventId: f.eventId })],
+      ["setSponsoredAutoPublish", (c) => c.mutation(api.fairSponsoredAdmin.setSponsoredAutoPublish, { eventId: f.eventId, enabled: false })],
+      ["getSponsoredQuestionVotes", (c) => c.query(api.fairSponsoredAdmin.getSponsoredQuestionVotes, { eventId: f.eventId })],
       ["listReportRuns", (c) => c.query(api.fairReports.listReportRuns, { eventId: f.eventId })],
       ["getReportRun", (c) => c.query(api.fairReports.getReportRun, { reportRunId: extra.reportRunId })],
       ["requestReportBuild", (c) => c.mutation(api.fairReports.requestReportBuild, { eventDayId: f.dayId, participationId: f.participationId, format: "csv" })],

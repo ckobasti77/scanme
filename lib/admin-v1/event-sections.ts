@@ -57,7 +57,7 @@ export const EVENT_SECTIONS: readonly EventSectionDef[] = [
   // A8 — `izlagac` opens that exhibitor's text, `lead` previews it on that lead.
   { path: "leadovi/follow-up", group: "posle", parent: "leadovi", queryKeys: ["izlagac", "lead", "prikaz"] },
   { path: "leadovi/podesavanja", group: "posle", parent: "leadovi", queryKeys: [] },
-  { path: "izvestaji", group: "posle", queryKeys: ["prikaz"] },
+  { path: "izvestaji", group: "posle", queryKeys: ["dan", "izlagac", "status", "prikaz"] },
   { path: "brisanje", group: "posle", queryKeys: ["prikaz"] },
 ];
 

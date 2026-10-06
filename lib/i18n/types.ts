@@ -37,6 +37,7 @@ import type {
   FairPurgeRunStatus,
   FairPurgeTrigger,
   FairSponsoredSnapshotStatus,
+  FairSponsoredSnapshotTrigger,
   FairReportStatus,
   FairReportFormat,
   FairSurveyQuestionKind,
@@ -4796,6 +4797,93 @@ export interface AdminEventsDict {
   retentionRunStatus: Record<FairPurgeRunStatus, string>;
   retentionCategoryStatus: Record<FairPurgeCategoryStatus, string>;
   retentionCategories: Record<FairPurgeCategory, string>;
+  // Admin UX A9 — automatic sponsored list, report queue, retention countdown.
+  sponsoredAuto: AdminEventsSponsoredAutoDict;
+  reportQueue: AdminEventsReportQueueDict;
+  retentionPlan: AdminEventsRetentionPlanDict;
+}
+
+/** Admin UX A9 — `sponzorisano`: automatic list, today's order, map question per model, warnings. */
+export interface AdminEventsSponsoredAutoDict {
+  autoOn: string;
+  autoOff: string;
+  autoOnHelp: string;
+  autoOffHelp: string;
+  lastUpdate: string;
+  sources: Record<FairSponsoredSnapshotTrigger, string>;
+  modelsInRotation: string;
+  turnOff: string;
+  turnOffConfirm: string;
+  turnOn: string;
+  turnOnConfirm: string;
+  turnedOff: string;
+  turnedOn: string;
+  pendingAuto: string;
+  warningsTitle: string;
+  warnTag: string;
+  infoTag: string;
+  warningsHelp: string;
+  warningsNone: string;
+  warnNoPhoto: string;
+  warnNoQuestion: string;
+  warnFewVotes: string;
+  orderTitle: string;
+  orderHelp: string;
+  orderCycle: string;
+  nowMap: string;
+  nowGarage: string;
+  colPicture: string;
+  colMapShows: string;
+  visual: Record<"photo" | "brand_logo" | "event_placeholder", string>;
+  mapShowsNone: string;
+  questionHelp: string;
+  questionNoneNote: string;
+  votesLine: string;
+  votesBelow: string;
+  votesLoading: string;
+  savedAuto: string;
+  technicalTitle: string;
+  technicalVersion: string;
+  colSource: string;
+}
+
+/** Admin UX A9 — `izvestaji`: one row per day × exhibitor with the state of its newest run. */
+export interface AdminEventsReportQueueDict {
+  title: string;
+  help: string;
+  filterLabel: string;
+  facetDay: string;
+  facetExhibitor: string;
+  facetStatus: string;
+  statuses: Record<"ceka-podatke" | "u-izradi" | "ceka-odobrenje" | "odobreno" | "poslato" | "greska", string>;
+  summary: string;
+  count: string;
+  colDay: string;
+  colExhibitor: string;
+  colState: string;
+  waitingClosed: string;
+  waitingOpen: string;
+  build: string;
+  version: string;
+  older: string;
+  noMatchTitle: string;
+  noMatchBody: string;
+}
+
+/** Admin UX A9 — `brisanje`: countdown, last dry run, what is deleted and what stays. */
+export interface AdminEventsRetentionPlanDict {
+  countdownTitle: string;
+  countdownHelp: string;
+  daysLeft: string;
+  dueToday: string;
+  started: string;
+  leadDeadline: string;
+  lastDryRunTitle: string;
+  lastDryRunNone: string;
+  lastDryRunLine: string;
+  keptTitle: string;
+  keptHelp: string;
+  kept: readonly string[];
 }
 
 /** Admin UX A8 — `leadovi` (inbox, detail with activity, delivery, export). */

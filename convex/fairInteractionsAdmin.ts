@@ -21,6 +21,7 @@ import {
   fairModelTierAt,
   fairRatingSummary,
 } from "./lib/fairInteractions";
+import { syncFairSponsoredSnapshot } from "./lib/fairSponsored";
 import {
   fairAudienceQuestionStatus,
   fairChoiceOption,
@@ -218,7 +219,7 @@ export const setSponsoredResultQuestion = mutation({
   args: { eventModelId: v.id("fairEventModels"), questionId: v.union(v.id("fairAudienceQuestions"), v.null()) },
   returns: v.object({ questionId: v.union(v.id("fairAudienceQuestions"), v.null()) }),
   handler: async (ctx, args) => {
-    await requireAdmin(ctx);
+    const admin = await requireAdmin(ctx);
     const now = Date.now();
     const model = await requireModel(ctx, args.eventModelId);
     if (!getFairEntitlements(await fairModelTierAt(ctx, model, now)).sponsoredMapRotation) {
@@ -233,6 +234,8 @@ export const setSponsoredResultQuestion = mutation({
       const want = question._id === args.questionId;
       if (question.showOnSponsoredRotation !== want) await ctx.db.patch(question._id, { showOnSponsoredRotation: want, updatedAt: now });
     }
+    // Admin UX A9: the chosen result reaches the map without a manual publish.
+    await syncFairSponsoredSnapshot(ctx, model.eventId, now, admin._id);
     return { questionId: args.questionId };
   },
 });

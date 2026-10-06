@@ -121,7 +121,10 @@ async function submit(f: Fixture, visitorHash: string, eventModelId: Id<"fairEve
     gatewaySecret: GATEWAY_SECRET, visitorHash, eventModelId, kind, submissionId: submissionId(), contactName,
     email: "posetilac.inbox@example.invalid", phone: "+381 60 000 0088", consentAccepted: true, consentVersion: 1,
   });
-  vi.advanceTimersByTime(1000);
+  // A9: move the clock without firing the scheduled email sender. advanceTimersByTime
+  // started it, and whether it finished (→ failed, Resend is not configured here)
+  // before the inbox read depended on worker load; the inbox tests need the outbox untouched.
+  vi.setSystemTime(Date.now() + 1000);
 }
 
 async function rows<T extends TableNames>(f: Fixture, table: T): Promise<Doc<T>[]> {

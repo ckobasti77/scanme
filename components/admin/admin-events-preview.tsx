@@ -314,41 +314,68 @@ function previewInboxLeads(query: AdminQueryState): InboxLead[] {
     && (!filter.brandModelIds || filter.brandModelIds.has(row.modelId)));
 }
 
-// B5 — Sponzorisano: a published TEST list that is out of date (a model was
-// upgraded after the publish and its map result changed). No real data.
+// A9 — Sponzorisano: the automatic TEST list of every published TEST
+// Napredni model (one starts tomorrow), today's order with the neutral
+// placeholder (no real photos), two map questions (one under 5 votes) and the
+// versions. No real data.
+const sponsoredModels = catalog.models.filter((row) => row.tier === "advanced" && row.status === "published");
+const SPONSORED_LATER = sponsoredModels.at(-1)?.id;
+const sponsoredDue = sponsoredModels.filter((row) => row.id !== SPONSORED_LATER);
 const sponsoredView: SponsoredView = {
-  models: [
-    { id: "volta-x1", name: "TEST Volta X1 TEST Premium", brandName: "TEST Volta" },
-    { id: "volta-x2", name: "TEST Volta X2", brandName: "TEST Volta" },
-    { id: "om-z2", name: "TEST Om Z2", brandName: "TEST Om" },
-  ],
-  active: { version: 2, publishedAt: opening - 3_600_000, items: [{ modelId: "volta-x1", order: 0, questionId: "q1" }] },
+  models: catalog.models.map((row) => ({ id: row.id, name: `${row.displayName}${row.variant ? ` ${row.variant}` : ""}`, brandName: row.brandName, hasPhoto: row.hasPhoto })),
+  autoPublish: true,
+  active: {
+    version: 6,
+    publishedAt: opening - 3_600_000,
+    trigger: "auto",
+    dayKey: "2026-10-09",
+    // A fixed TEST order (the real one is the stable daily shuffle of convex/lib/fairSponsored.ts).
+    items: [...sponsoredDue.slice(3), ...sponsoredDue.slice(0, 3)].map((row, order) => ({
+      modelId: row.id,
+      order,
+      visual: "event_placeholder" as const,
+      ...(row.id === "volta-x1" ? { questionId: "q1" } : row.id === "volta-m2" ? { questionId: "q8" } : {}),
+    })),
+  },
   history: [
-    { id: "snap-2", version: 2, status: "published", publishedAt: opening - 3_600_000 },
-    { id: "snap-1", version: 1, status: "retired", publishedAt: opening - 86_400_000 },
+    { id: "snap-6", version: 6, status: "published", trigger: "auto", publishedAt: opening - 3_600_000 },
+    { id: "snap-5", version: 5, status: "retired", trigger: "auto", publishedAt: opening - 5_400_000 },
+    { id: "snap-4", version: 4, status: "retired", trigger: "admin", publishedAt: opening - DAY_MS },
   ],
-  candidates: [
-    { modelId: "volta-x1", activatedAt: opening - 86_400_000 },
-    { modelId: "volta-x2", activatedAt: opening - 1_800_000, questionId: "q3" },
-  ],
+  candidates: sponsoredModels.map((row) => ({
+    modelId: row.id,
+    activatedAt: row.id === SPONSORED_LATER ? opening + DAY_MS : row.packageActivatedAt,
+    ...(row.id === "volta-x1" ? { questionId: "q1" } : row.id === "volta-m2" ? { questionId: "q8" } : {}),
+  })),
   questions: [
     { id: "q1", modelId: "volta-x1", prompt: "TEST pitanje Glasa publike", status: "published" },
-    { id: "q3", modelId: "volta-x2", prompt: "TEST pitanje modela X2 sa dužim tekstom koji mora da se prelomi na telefonu", status: "published" },
+    { id: "q4", modelId: "volta-x1", prompt: "TEST koja boja vam se najviše dopada?", status: "published" },
+    { id: "q8", modelId: "volta-m2", prompt: "TEST domet ili cena?", status: "published" },
   ],
+  votes: { threshold: 5, byQuestion: { q1: 12, q8: 3 } },
   now: opening,
 };
-const sponsoredActions: SponsoredActions = { publish: ok, setResult: ok };
+const sponsoredActions: SponsoredActions = { publish: ok, setResult: ok, setAutoPublish: ok };
 
-// A1 — Izveštaji and Brisanje podataka (TEST runs, no dataset under review, no PII).
+// A9 — Izveštaji: the approval queue on TEST dan 2 at noon (dan 1 closed,
+// dan 2 and 3 still open): one exhibitor waits for approval (after a failed
+// first build), one is approved, one sent, one waits for data. No PII.
+const REPORTS_NOW = opening + DAY_MS + 3 * 3_600_000;
+const reportRun = (id: string, participationId: string, extra: Partial<ReportsView["runs"][number]>): ReportsView["runs"][number] => ({
+  id, dayLabel: "TEST dan 1", dateKey: "2026-10-09", participationId, exhibitorName: EXHIBITORS.find((row) => row.id === participationId)?.name ?? "—",
+  status: "pending_review", format: "pdf", createdAt: opening + 54_000_000, hasFile: true, sendCount: 0, lastDelivery: null, ...extra,
+});
 const reportsView: ReportsView = {
-  days: catalog.days.map((day, index) => ({ id: `d${index + 1}`, label: day.label, dateKey: day.dateKey })),
-  participations: [{ id: "p-a", name: "TEST Izlagač A" }, { id: "p-b", name: "TEST Izlagač B" }],
+  days: interactions.days.map((day) => ({ id: day.id, label: day.label, dateKey: day.dateKey, endsAt: day.endsAt })),
+  participations: EXHIBITORS.map((row) => ({ id: row.id, name: row.name, expectsDaily: true })),
   runs: [
-    { id: "run-1", dayLabel: "TEST dan 1", dateKey: "2026-10-09", participationId: "p-a", exhibitorName: "TEST Izlagač A", status: "pending_review", format: "pdf", createdAt: opening + 54_000_000, hasFile: true, sendCount: 0, lastDelivery: null },
-    { id: "run-2", dayLabel: "TEST dan 1", dateKey: "2026-10-09", participationId: "p-b", exhibitorName: "TEST Izlagač B", status: "approved", format: "xlsx", createdAt: opening + 54_100_000, hasFile: true, approvedAt: opening + 55_000_000, recipient: "test.izlagac@example.invalid", sendCount: 0, lastDelivery: null },
-    { id: "run-3", dayLabel: "TEST dan 1", dateKey: "2026-10-09", participationId: "p-a", exhibitorName: "TEST Izlagač A", status: "failed", format: "csv", createdAt: opening + 54_200_000, hasFile: true, error: "PROVIDER_UNAVAILABLE:503", sendCount: 1, lastDelivery: { status: "failed", lastError: "PROVIDER_UNAVAILABLE:503" } },
+    reportRun("run-1", "p-a", { createdAt: opening + 54_000_000, correctionOf: "run-0" }),
+    reportRun("run-0", "p-a", { status: "failed", format: "csv", createdAt: opening + 50_000_000, error: "BUILD_FAILED" }),
+    reportRun("run-2", "p-b", { status: "approved", format: "xlsx", createdAt: opening + 54_100_000, approvedAt: opening + 55_000_000, recipient: "test.izlagac@example.invalid" }),
+    reportRun("run-3", "p-c", { status: "sent", createdAt: opening + 54_200_000, approvedAt: opening + 56_000_000, recipient: "test.izlagac-c@example.invalid", sendCount: 1, lastDelivery: { status: "sent" } }),
   ],
   review: null,
+  now: REPORTS_NOW,
 };
 const reportsActions: ReportsActions = {
   build: ok, approve: ok, send: ok, resend: ok, retry: ok, correct: ok, download: ok, exportOrganizer: ok, review: () => undefined,
@@ -360,6 +387,7 @@ const retentionView: RetentionView = {
   runs: [
     { id: "purge-1", mode: "dry_run", trigger: "admin", status: "completed", startedAt: opening - 86_400_000, finishedAt: opening - 86_399_000, batches: 2, totalRows: 14, categories: FAIR_PURGE_CATEGORIES.slice(0, 2).map((category) => ({ category, rows: 7, status: "done" as const })) },
   ],
+  now: opening,
 };
 const retentionActions: RetentionActions = { startDryRun: ok };
 
@@ -695,7 +723,7 @@ function PreviewSection({ path, detailId, query, setQuery, keep }: {
       );
     }
     case "leadovi/podesavanja": return <AdminEventsConsent view={{ consents: leadsFixture.consents }} actions={leadActions} />;
-    case "izvestaji": return <AdminEventsReports view={reportsView} actions={reportsActions} />;
+    case "izvestaji": return <AdminEventsReports view={reportsView} actions={reportsActions} query={query} onQueryChange={setQuery} />;
     case "brisanje": return <AdminEventsRetention view={retentionView} actions={retentionActions} />;
   }
 }

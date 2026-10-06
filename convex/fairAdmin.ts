@@ -27,6 +27,7 @@ import {
   upsertFairStand,
 } from "./lib/fairCatalog";
 import { scheduleFairBrandPassportSync } from "./lib/fairPassportSync";
+import { syncFairSponsoredSnapshot } from "./lib/fairSponsored";
 import { activeAssignmentForChannel, assignFairQr, fairResolveTest, releaseFairQr } from "./lib/fairQr";
 import {
   fairClientSegment,
@@ -186,6 +187,8 @@ async function changeModelStatus(ctx: MutationCtx, eventModelId: Id<"fairEventMo
     });
     // Admin UX A7: the brand's automatic passport follows the catalog.
     await scheduleFairBrandPassportSync(ctx, model.eventId, model.brandId, now);
+    // Admin UX A9: so does the sponsored snapshot (same transaction, no-op without a difference).
+    await syncFairSponsoredSnapshot(ctx, model.eventId, now, admin._id);
   }
   return { status, changed, warnings };
 }
@@ -221,6 +224,9 @@ export const upgradePackage = mutation({
     });
     // Admin UX A7: an upgrade to Starter can complete the brand's passport condition.
     if (model) await scheduleFairBrandPassportSync(ctx, model.eventId, model.brandId, now);
+    // Admin UX A9: an upgrade to Napredni re-publishes the sponsored snapshot
+    // now, or (a package that starts later) at its activation moment.
+    if (model) await syncFairSponsoredSnapshot(ctx, model.eventId, now, admin._id);
     return result;
   },
 });

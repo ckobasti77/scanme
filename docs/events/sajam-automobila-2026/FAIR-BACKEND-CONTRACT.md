@@ -852,7 +852,7 @@ Izvori: HANDOFF §5.7, §7, §11 B5, §12; MASTER §6, §10; JOVAN-DELTA §2; V2
 
 ### 19.1 Snapshot
 
-- Nastaje **samo** ručnom admin objavom (`fairSponsoredAdmin.publishSponsoredSnapshot`, §20). Nema crona ni automatske obnove (§9.49).
+- ~~Nastaje **samo** ručnom admin objavom (`fairSponsoredAdmin.publishSponsoredSnapshot`, §20). Nema crona ni automatske obnove (§9.49).~~ **Od A9 (§35):** nastaje automatski kad se promeni skup objavljenih Naprednih modela događaja (ili njihovo pitanje za mapu), a ručna objava ostaje kao „Osveži“. Prekidač po događaju vraća ručni režim. Crona i dalje nema.
 - Sadrži svaki model eventa koji je u trenutku objave `published` i čiji je paket **na snazi** Advanced (`fairModelTierAt`; buduća aktivacija se ne primenjuje unapred). Starter, `included`, nacrt i povučen model nikad ne ulaze.
 - Redosled: stabilno mešanje po `seed` + `dayKey` (Beograd). Ključ modela je FNV-1a heš niza `seed|dayKey|eventModelId`, a jednakost rešava ID. Isti dan i seed daju isti redosled; model dodat istog dana se ubacuje bez pomeranja ostalih. `seed` = `fair-sponsored-v1:<eventId>` (čuva se na snapshot-u radi provere).
 - Immutable: objava nikad ne menja postojeći item. Pravi nov snapshot sa `version` + 1 i `status: published`, a prethodni `published` prelazi u `retired`. Po eventu je najviše jedan `published`.
@@ -1547,3 +1547,58 @@ OCC sprečava dva slanja za isti par. B4/K3 testovi (1 lead = 1 email) ostaju ne
 - `convex/fairLeadsInbox.test.ts`: lista (redosled, izlagač, model, tip, isporuka, datum, strane, granica 50, drugi događaj); detalj Naprednog leada sa svim grupama i oznakama, bez modela/brenda drugog izlagača, visitor ID-a, hash-a i `requestId`-a (serijalizovan izlaz); Starter lead i izlagač samo sa Starter modelima (grupe izostavljene); isporuka pojedinačno i za izlagača (idempotentno, audit, brojevi `getLeadCounts`, drugi događaj odbijen, `hasMore` posle 200); PII izvoz sa kolonama po paketu.
 - `convex/fairAuthz.test.ts` klasifikuje 9 novih funkcija (anonimni i ne-admin odbijeni pre čitanja/upisa); `convex/fairSchema.test.ts` novu tabelu i indekse.
 - Komponente: `components/admin/events/sections/leadovi-view.test.tsx`, `leadovi-follow-up-view.test.tsx`, `izlagaci-view.test.tsx` (kolona follow-up), `components/admin/admin-events-leads.test.tsx` (saglasnost sklopljena po vrsti; iste B4/K3 provere na novim prikazima), `components/admin/admin-events-reports.test.tsx` (PII izvoz više nije u Izveštajima).
+
+## 35. A9 — automatski sponzorisani snapshot, red izveštaja i brisanje
+
+### 35.1 Odluka za Aleksin pregled (ADMIN-UX-ZAHTEVI §12, tačka 1)
+
+MASTER §10 („Zajedničko pravilo rotacije — ZAKLJUČANO“) kaže: „Lista Naprednih modela objavljuje se/obnavlja ručnom admin akcijom nakon nadogradnje paketa.“ Po ADMIN-UX §8 i §12.1 lista se od A9 **ažurira automatski**. Ovo je razlika prema zaključanom pravilu i čeka Aleksin pregled. Vraćanje na ručni režim ne traži kod: prekidač po događaju `setSponsoredAutoPublish({ enabled: false })` (u adminu „Isključi automatsko ažuriranje“). Ostala pravila §10 se ne menjaju: ravnopravna rotacija, isto mešanje, slot 12 s / 8 s, bez personalizacije i bez impression metrike.
+
+### 35.2 Šema (aditivno)
+
+- `fairEvents.sponsoredAutoPublish?: boolean` — bez polja = uključeno; samo `false` drži ručni režim.
+- `fairEvents.sponsoredAutoCheckAt?: number` — trenutak već zakazane provere za paket koji počinje kasnije (dedupe zakazanog posla).
+- `fairSponsoredSnapshots.trigger?: "admin" | "auto"` — red bez polja je ručna objava od pre A9. Automatska objava nema `publishedByUserId`.
+- Indeksi se ne menjaju. Tip `FairSponsoredSnapshotTrigger` je u `lib/fair-contract.ts`.
+
+### 35.3 Pravilo (`convex/lib/fairSponsored.ts` → `syncFairSponsoredSnapshot(ctx, eventId, now, actorUserId?)`)
+
+1. Događaj ne postoji → `missing_event`; `sponsoredAutoPublish === false` → `disabled`.
+2. Skup = objavljeni modeli sa paketom **na snazi** Advanced u trenutku `now` (`fairModelTierAt`, ista funkcija kao ručna objava) + njihovo izabrano pitanje za mapu (ne nacrt). Više od 200 → `too_many_models`, bez upisa (ručna objava i dalje vraća `FAIR_SPONSORED_LIMIT`).
+3. Objavljen model sa sačuvanim Advanced paketom koji počinje kasnije: zakazuje se `internal.fairSponsoredAdmin.syncSponsoredSnapshotJob` u trenutku aktivacije (`scheduler.runAt`), jednom po trenutku (`sponsoredAutoCheckAt`). Paket se nikad ne primenjuje unapred.
+4. Nema aktivnog snapshot-a i skup je prazan → `unchanged`. Aktivni snapshot ima tačno iste modele sa tačno istim pitanjima (redosled se ne poredi) → `unchanged`, **bez nove verzije** (idempotentno).
+5. Inače nova immutable verzija po §19.1 (`trigger: "auto"`, isti `seed`, `dayKey` = beogradski dan objave, isto stabilno mešanje), prethodna `published` → `retired` → `published`. Audit `fair_sponsored_snapshot_auto_published` samo kad je izmenu napravio admin (njegov ID je samo u auditu).
+6. Problem sinhronizacije nikad ne baca grešku i ne blokira mutaciju koja ga je pokrenula.
+
+| Okidač | Kako |
+|---|---|
+| `fairAdmin.publishModel`, `withdrawModel` (kad se status stvarno promeni) | u istoj transakciji (OCC serijalizuje istovremene izmene, pa dve ne mogu da objave istu razliku) |
+| `fairAdmin.upgradePackage` | u istoj transakciji; buduća aktivacija → zakazana provera (tačka 3) |
+| `fairInteractionsAdmin.setSponsoredResultQuestion` | u istoj transakciji; izabran rezultat ide na mapu bez ručne objave |
+| `fairImport.commit` (posle `committed: true`) | `runAfter(0, internal.fairSponsoredAdmin.syncSponsoredSnapshotJob, { eventId })` |
+| `setSponsoredAutoPublish({ enabled: true })` | odmah usklađuje listu |
+| ručno „Osveži“ (`publishSponsoredSnapshot`) | uvek nova verzija, `trigger: "admin"`, `publishedByUserId` |
+
+Javne projekcije (`getSponsoredMapRotation`, `getSponsoredGarageRotation`, §19.2–§19.3) se ne menjaju: mapa i displeji čitaju isti objavljeni snapshot; nova verzija = nov `snapshotId` i nova epoha (`publishedAt`), pa rotacija kreće od prvog modela (prihvaćeno, jer se objavljuje samo pri stvarnoj promeni). Sliku kartice (`photo` → `brand_logo` → `event_placeholder`) od A9 računa jedna funkcija `fairSponsoredVisual`, koju koriste i javne projekcije i admin.
+
+### 35.4 Admin funkcije (`convex/fairSponsoredAdmin.ts`)
+
+| Funkcija | Vrsta | Args → returns |
+|---|---|---|
+| `setSponsoredAutoPublish` | admin mutation | `{ eventId, enabled }` → `{ enabled, changed, sync: null \| rezultat §35.3 }`; audit `fair_sponsored_auto_enabled` / `_disabled`; idempotentno |
+| `syncSponsoredSnapshotJob` | internal mutation | `{ eventId }` → rezultat §35.3 |
+| `getSponsoredRotationAdmin` | admin query (aditivno) | dodato `autoPublish`, `active.trigger`, `history[].trigger` i po stavci `visual`, `photoUrl?`, `brandLogoUrl?`; od A9 nepostojeći događaj → `FAIR_EVENT_NOT_FOUND` |
+| `getSponsoredQuestionVotes` | admin query | `{ eventId }` → `{ threshold, questions: { eventModelId, questionId, votes }[] }`; samo ukupan broj glasova izabranog pitanja (bez raspodele i bez posetioca); admin ga čita jednokratno uz osvežavanje na 60 s (`usePolledQuery`), jer se menja sa svakim glasom |
+
+### 35.5 Admin UI
+
+- **Sponzorisano:** stanje automatike i poslednje ažuriranje sa izvorom (automatski / ručno); „Osveži listu“ i prekidač, oba uz potvrdu; upozorenja (bez fotografije, bez pitanja za mapu, manje od 5 glasova kao info); današnji redosled sa slikom ili fallback-om i oznakama „Sada na mapi“ / „Sada u garaži“ iz `getFairRotationSlot` (`lib/fair-client/rotation-slot.ts`, samo uvoz); pitanje za mapu po Naprednom modelu sa bedžom Sponzorisano i brojem glasova, a bez izbora tekst „model i pozicija štanda, bez rezultata“ (MASTER §10); verzija liste i istorija u sklopljenim „Tehničkim detaljima“.
+- **Izveštaji:** red dan × izlagač (`components/admin/events/report-queue.ts`, čisto, na klijentu iz kataloga i `listReportRuns`) sa stanjem najnovijeg run-a: čeka podatke / u izradi / čeka odobrenje / odobreno / poslato / greška; filteri `?dan=<dateKey>&izlagac=<id>&status=<slug>`; akcije postojećih funkcija; „Napravi sada“ samo za zatvoren dan (K4); ranije verzije sklopljene ispod reda. Bez PII. Backend se ne menja.
+- **Brisanje:** odbrojavanje do `FAIR_PII_PURGE_AT_MS`, rok predaje leadova (`FAIR_LEAD_DELIVERY_DEADLINE_MS`), stanje poslednjeg probnog brojanja i spisak „šta ostaje“ (§23.2). Dugme za brisanje i dalje ne postoji. Backend se ne menja.
+
+### 35.6 Testovi
+
+- `convex/fairSponsored.test.ts`, blok „A9 automatic sponsored snapshot“: objava Naprednih modela i nadogradnja objavljuju snapshot sami (`trigger: "auto"`, bez `publishedByUserId`, isto mešanje za dan, audit sa adminom); povlačenje objavljuje ponovo; ponovljen poziv bez razlike (isto povlačenje, objava objavljenog, Starter nadogradnja, prazan izbor pitanja, sam posao) ne pravi verziju; izbor pitanja za mapu objavljuje i mapa prikazuje rezultat; paket koji počinje kasnije ulazi sam u trenutku aktivacije, sa jednom zakazanom proverom; isključen prekidač drži ručni režim, uključen odmah usklađuje; posao posle importa objavljuje izmenu napravljenu van admin komandi; admin pregled (izvor, slike, verzije, bez metrike); mapa i garaža čitaju objavljeni snapshot; čitanje ne upisuje ništa. B5 testovi ručnog toka rade sa isključenim prekidačem (`setup({ auto: false })`), sa nepromenjenim očekivanjima.
+- `convex/fairAuthz.test.ts`: tri nove funkcije klasifikovane; anonimni i ne-admin odbijeni.
+- `convex/fairPassports.test.ts` (import zakazuje i sponzorisani posao) i `convex/fairPublic.test.ts` (objavljen Advanced model je sada `isSponsored: true`) prate novo pravilo.
+- Komponente: `components/admin/admin-events-sponsored.test.tsx`, `admin-events-reports.test.tsx`, `admin-events-retention.test.tsx`.
