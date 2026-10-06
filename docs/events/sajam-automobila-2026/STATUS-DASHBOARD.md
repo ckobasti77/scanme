@@ -5,7 +5,7 @@
 > **Vlasnik odluka:** Aleksa  
 > **Aktivna integraciona grana:** `codex/sajam-integracija-2026-10-04`  
 > **Završeni Garage checkpoint:** `8e72c10`
-> **Najnoviji zajednički sync checkpoint:** `c37bd0e`
+> **Najnoviji zajednički kodni sync checkpoint:** `c37bd0e`
 > **Deljena grana za Aleksu i Jovana:** `origin/codex/sajam-integracija-2026-10-04`
 > **Rok produkcijske spremnosti:** 9. oktobar 2026.
 

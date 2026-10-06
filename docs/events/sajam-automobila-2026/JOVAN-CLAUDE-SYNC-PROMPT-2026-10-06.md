@@ -10,7 +10,7 @@ Radiš u Jovanovom lokalnom ScanMe repozitorijumu. Cilj ovog zadatka je samo bez
 
 - repozitorijum: `https://github.com/aleksadjor3/scanme.git`
 - zajednička grana: `codex/sajam-integracija-2026-10-04`
-- očekivani najnoviji checkpoint: `c37bd0e`
+- obavezni QR kodni checkpoint u istoriji: `c37bd0e`
 - Garage checkpoint koji mora ostati u istoriji: `8e72c10`
 
 Checkpoint `c37bd0e` sadrži Aleksin frontend, Garažu, Jovanov već preneti B0–B7 backend/mapu i sinhronizovan produkcijski QR inventar. Nemoj ponovo prenositi Jovanove B0–B7 commitove samo zato što na njegovom repozitorijumu imaju druge hash-eve.
