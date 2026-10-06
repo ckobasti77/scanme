@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowDown, ArrowUp, ChevronsUpDown } from "lucide-react";
-import { createContext, Fragment, useContext, useState, type MouseEvent, type ReactNode } from "react";
+import { createContext, Fragment, useContext, useMemo, useState, type MouseEvent, type ReactNode } from "react";
 import {
   AdminEmptyState,
   AdminErrorState,
@@ -80,11 +80,15 @@ export type AdminDataViewProps<T> = {
   className?: string;
 };
 
-/** Dev previews force one view for every list below (`?prikaz=`). */
-const ViewOverrideContext = createContext<AdminViewMode | null>(null);
+/**
+ * Dev previews force one view for every list below (`?prikaz=`). With
+ * `onChange` (A2, Događaji) the switch also writes the choice back to the URL.
+ */
+const ViewOverrideContext = createContext<{ value: AdminViewMode | null; onChange?: (mode: AdminViewMode) => void }>({ value: null });
 
-export function AdminViewModeOverride({ value, children }: { value: AdminViewMode | null; children: ReactNode }) {
-  return <ViewOverrideContext.Provider value={value}>{children}</ViewOverrideContext.Provider>;
+export function AdminViewModeOverride({ value, onChange, children }: { value: AdminViewMode | null; onChange?: (mode: AdminViewMode) => void; children: ReactNode }) {
+  const context = useMemo(() => ({ value, onChange }), [value, onChange]);
+  return <ViewOverrideContext.Provider value={context}>{children}</ViewOverrideContext.Provider>;
 }
 
 const HIDE_BELOW = { md: "hidden md:table-cell", lg: "hidden lg:table-cell", xl: "hidden xl:table-cell" } as const;
@@ -125,12 +129,13 @@ export function AdminDataView<T>(props: AdminDataViewProps<T>) {
   const [stored, setStored] = useAdminViewMode(listKey);
   const wide = useIsWideViewport(autoBreakpoint);
   const [sort, setSort] = useState<SortState>(defaultSort);
-  const mode = resolveViewMode(view ?? override, stored);
+  const mode = resolveViewMode(view ?? override.value, stored);
   const effective: AdminViewMode = mode === "auto" ? (wide ? "tabela" : "kartice") : mode;
 
   function changeView(next: AdminViewMode) {
     setStored(next);
     onViewChange?.(next);
+    override.onChange?.(next);
   }
 
   const sortColumn = sort ? columns.find((column) => column.id === sort.columnId && column.sortValue) : undefined;

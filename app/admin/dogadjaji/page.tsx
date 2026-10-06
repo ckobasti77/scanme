@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { AdminGuard } from "@/components/admin/admin-guard";
-import { AdminEventsErrorBoundary, AdminEventsWorkspace } from "@/components/admin/admin-events-workspace";
 import { AdminShell } from "@/components/admin/admin-shell";
+import { AdminEventsEntry } from "@/components/admin/events/event-entry";
 import { adminEventsSr } from "@/lib/i18n/sr/admin-events";
 
 export const metadata: Metadata = {
@@ -9,6 +9,7 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
+// Admin UX A2 — opens Pregled of the current event (AdminEventsEntry).
 export default function EventsPage() {
-  return <AdminGuard><AdminShell><AdminEventsErrorBoundary><AdminEventsWorkspace /></AdminEventsErrorBoundary></AdminShell></AdminGuard>;
+  return <AdminGuard><AdminShell><AdminEventsEntry /></AdminShell></AdminGuard>;
 }

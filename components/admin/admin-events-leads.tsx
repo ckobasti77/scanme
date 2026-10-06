@@ -29,11 +29,13 @@ import { fmt } from "@/lib/i18n/format";
 import { adminEventsSr as dict } from "@/lib/i18n/sr/admin-events";
 import { cn } from "@/lib/utils";
 
-// Sajam 2026 B4 — the `Leadovi` section of the admin `Događaji` tab: consent
-// versions (the production switch of the lead flow), per-model lead settings
-// and the exhibitor's follow-up text, and the received leads of one exhibitor
-// with follow-up suppression and email retry. Presentational only; data and
-// actions come from AdminEventsLeadsWorkspace (requireAdmin functions in
+// Sajam 2026 B4 — the lead sections of the admin `Događaji` area, each its
+// own route since A2: consent versions (`leadovi/podesavanja`, the production
+// switch of the lead flow), per-model form settings (`interakcije/forme`),
+// the exhibitor's follow-up text (`leadovi/follow-up`) and the received leads
+// of one exhibitor with follow-up suppression and email retry (`leadovi`).
+// Presentational only; data and actions come from the containers in
+// components/admin/events/sections/ (requireAdmin functions in
 // convex/fairLeadsAdmin.ts). Contacts are shown only here, to ScanMe admins.
 
 export type LeadsOutcome = { ok: true } | { ok: false; code: string };
@@ -187,7 +189,7 @@ function ConsentKind({ kind, versions, actions }: { kind: FairLeadKind; versions
   );
 }
 
-function Consent({ view, actions }: { view: LeadsView; actions: LeadsActions }) {
+function Consent({ view, actions }: { view: Pick<LeadsView, "consents">; actions: LeadsActions }) {
   const consents = view.consents;
   return (
     <Section title={dict.consentTitle} help={dict.consentHelp}>
@@ -271,11 +273,14 @@ function FollowUpForm({ modelId, template, actions }: { modelId: string; templat
   );
 }
 
-function ModelSettings({ view, actions }: { view: LeadsView; actions: LeadsActions }) {
+type ModelPart = Pick<LeadsView, "models" | "modelId" | "onSelectModel" | "modelSettings">;
+
+/** `forms`: the contact forms of one model; `follow-up`: its follow-up text (Napredni only). */
+function ModelSettings({ view, actions, part }: { view: ModelPart; actions: LeadsActions; part: "forms" | "follow-up" }) {
   const settings = view.modelSettings;
   const modelId = view.modelId;
   return (
-    <Section title={dict.settingsTitle} help={dict.settingsHelp}>
+    <Section title={part === "forms" ? dict.formsSectionTitle : dict.followUpSectionTitle} help={part === "forms" ? dict.formsSectionHelp : dict.followUpSectionHelp}>
       {!view.models.length || !modelId ? <p className="text-sm text-[var(--admin-text-muted)]">{dict.settingsNoModels}</p> : (
         <div className="grid gap-4">
           <label className="grid max-w-xl gap-1.5 text-sm font-semibold">{dict.fieldModel}
@@ -283,17 +288,16 @@ function ModelSettings({ view, actions }: { view: LeadsView; actions: LeadsActio
               {view.models.map((model) => <option key={model.id} value={model.id}>{model.name} · {model.exhibitorName} · {dict.tiers[model.tier]}</option>)}
             </select>
           </label>
-          {settings === undefined ? <AdminLoadingState label={dict.settingsLoading} /> : (
+          {settings === undefined ? <AdminLoadingState label={dict.settingsLoading} /> : part === "forms" ? (
             <div className="grid gap-4 lg:grid-cols-2">
               <ConfigForm key={`${modelId}-interest`} modelId={modelId} kind="interest" config={settings.interest} actions={actions} />
               {settings.tier === "advanced" ? (
-                <>
-                  <ConfigForm key={`${modelId}-test_drive`} modelId={modelId} kind="test_drive" config={settings.testDrive} actions={actions} />
-                  <FollowUpForm key={`${modelId}-follow-up-${settings.followUpTemplate?.version ?? 0}`} modelId={modelId} template={settings.followUpTemplate} actions={actions} />
-                </>
+                <ConfigForm key={`${modelId}-test_drive`} modelId={modelId} kind="test_drive" config={settings.testDrive} actions={actions} />
               ) : <p className="self-start rounded-xl border border-[var(--admin-border)] p-4 text-sm text-[var(--admin-text-muted)]">{dict.testDriveAdvancedOnly}</p>}
             </div>
-          )}
+          ) : settings.tier === "advanced" ? (
+            <FollowUpForm key={`${modelId}-follow-up-${settings.followUpTemplate?.version ?? 0}`} modelId={modelId} template={settings.followUpTemplate} actions={actions} />
+          ) : <p className="rounded-xl border border-[var(--admin-border)] p-4 text-sm text-[var(--admin-text-muted)]">{dict.followUpAdvancedOnly}</p>}
         </div>
       )}
     </Section>
@@ -333,7 +337,7 @@ const leadColumns: AdminColumn<LeadsRow>[] = [
   { id: "delivery", header: dict.colDelivery, cell: (row) => <span className="flex flex-wrap items-center gap-1.5"><Meta>{deliverySummary(row)}</Meta>{row.followUpSuppressed ? <AdminStatus label={dict.followUpSuppressedBadge} tone="neutral" /> : null}</span> },
 ];
 
-function LeadList({ view, actions }: { view: LeadsView; actions: LeadsActions }) {
+function LeadList({ view, actions }: { view: Pick<LeadsView, "participations" | "participationId" | "onSelectParticipation" | "leads">; actions: LeadsActions }) {
   const { message, pending, run } = useRunner();
   const leads = view.leads;
   return (
@@ -393,14 +397,22 @@ function LeadList({ view, actions }: { view: LeadsView; actions: LeadsActions })
   );
 }
 
-export function AdminEventsLeads({ view, actions }: { view: LeadsView | undefined; actions: LeadsActions | undefined }) {
-  if (!view || !actions) return <AdminPanel><AdminEmptyState title={dict.tabLeads} body={dict.leadsUnavailable} /></AdminPanel>;
-  return (
-    <div className="grid min-w-0 gap-5">
-      <p className="text-sm text-[var(--admin-text-muted)]">{dict.leadsSubtitle}</p>
-      <Consent view={view} actions={actions} />
-      <ModelSettings view={view} actions={actions} />
-      <LeadList view={view} actions={actions} />
-    </div>
-  );
+function Unavailable() {
+  return <AdminPanel><AdminEmptyState title={dict.tabLeads} body={dict.leadsUnavailable} /></AdminPanel>;
+}
+
+export function AdminEventsLeadList({ view, actions }: { view: Pick<LeadsView, "participations" | "participationId" | "onSelectParticipation" | "leads"> | undefined; actions: LeadsActions | undefined }) {
+  return view && actions ? <LeadList view={view} actions={actions} /> : <Unavailable />;
+}
+
+export function AdminEventsLeadForms({ view, actions }: { view: ModelPart | undefined; actions: LeadsActions | undefined }) {
+  return view && actions ? <ModelSettings view={view} actions={actions} part="forms" /> : <Unavailable />;
+}
+
+export function AdminEventsFollowUp({ view, actions }: { view: ModelPart | undefined; actions: LeadsActions | undefined }) {
+  return view && actions ? <ModelSettings view={view} actions={actions} part="follow-up" /> : <Unavailable />;
+}
+
+export function AdminEventsConsent({ view, actions }: { view: Pick<LeadsView, "consents"> | undefined; actions: LeadsActions | undefined }) {
+  return view && actions ? <Consent view={view} actions={actions} /> : <Unavailable />;
 }

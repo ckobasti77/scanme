@@ -8,4 +8,6 @@ export const adminUiSr: AdminUiDict = {
   sortAscending: "rastuće",
   sortDescending: "opadajuće",
   actionsColumn: "Akcije",
+  navCount: "{count} stavki",
+  urgency: { hitno: "Hitno: {count}", uskoro: "Uskoro: {count}", info: "Info: {count}" },
 };
