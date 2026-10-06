@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useCallback } from "react";
 import type {
   CatalogView,
+  DryRunView,
   EventClientView,
   EventsActions,
   InventoryRowView,
@@ -35,7 +36,7 @@ import { useAdminQueryState } from "@/components/admin/admin-ui/use-admin-query-
 import { AdminEventFrameView, type FrameEvent } from "@/components/admin/events/event-frame-view";
 import { AdminEventsNotFound } from "@/components/admin/events/event-not-found";
 import { EventExhibitorsView } from "@/components/admin/events/sections/izlagaci-view";
-import { EventImportView } from "@/components/admin/events/sections/import-view";
+import { EventImportView, importContextFromCatalog } from "@/components/admin/events/sections/import-view";
 import { EventModelDetailView, EventModelsView, type ModelDetailSummary } from "@/components/admin/events/sections/modeli-view";
 import { EventOverviewView } from "@/components/admin/events/sections/pregled-view";
 import { EventQrDetailView, EventQrView } from "@/components/admin/events/sections/qr-view";
@@ -47,10 +48,12 @@ import {
   type EventSectionPath,
   type ResolvedEventSection,
 } from "@/lib/admin-v1/event-sections";
+import { buildExhibitorRows } from "@/lib/admin-v1/exhibitors";
 import { modelListQuery } from "@/lib/admin-v1/model-filters";
 import { qrListQuery } from "@/lib/admin-v1/qr-filters";
 import type { AdminQueryPatch, AdminQueryState } from "@/lib/admin-v1/query-state";
 import { parseViewModeParam, type AdminViewMode } from "@/lib/admin-v1/view-mode";
+import type { FairImportPayload } from "@/lib/fair-import/to-payload";
 import { FAIR_PII_PURGE_AT_MS, FAIR_PURGE_CATEGORIES } from "@/lib/fair-contract";
 import { adminEventsSr as dict } from "@/lib/i18n/sr/admin-events";
 
@@ -116,16 +119,16 @@ function generatedModels(brandId: string, count: number, offset: number): ModelV
 const catalog: CatalogView = {
   days: [{ dateKey: "2026-10-09", label: "TEST dan 1" }, { dateKey: "2026-10-10", label: "TEST dan 2" }, { dateKey: "2026-10-11", label: "TEST dan 3" }],
   participations: [
-    { id: "p-a", externalKey: "test-em26-izlagac-a", exhibitorName: "TEST Izlagač A", codes: "SMK-TEST-FAIR-A · SML-TEST-FAIR-A", segment: "event_only", status: "active" },
-    { id: "p-b", externalKey: "test-em26-izlagac-b", exhibitorName: "TEST Izlagač B", codes: "SMK-TEST-FAIR-B · SML-TEST-FAIR-B", segment: "standard", status: "active" },
-    { id: "p-c", externalKey: "test-em26-izlagac-c", exhibitorName: "TEST Izlagač C", codes: "SMK-TEST-FAIR-C · SML-TEST-FAIR-C", segment: "event_only", status: "active" },
-    { id: "p-d", externalKey: "test-em26-izlagac-d", exhibitorName: "TEST Izlagač D", codes: "SMK-TEST-FAIR-D · SML-TEST-FAIR-D", segment: "standard", status: "active" },
+    { id: "p-a", externalKey: "test-em26-izlagac-a", accountId: "a-a", exhibitorName: "TEST Izlagač A", codes: "SMK-TEST-FAIR-A · SML-TEST-FAIR-A", smkCode: "SMK-TEST-FAIR-A", smlCode: "SML-TEST-FAIR-A", segment: "event_only", status: "active" },
+    { id: "p-b", externalKey: "test-em26-izlagac-b", accountId: "a-b", exhibitorName: "TEST Izlagač B", codes: "SMK-TEST-FAIR-B · SML-TEST-FAIR-B", smkCode: "SMK-TEST-FAIR-B", smlCode: "SML-TEST-FAIR-B", segment: "standard", status: "active" },
+    { id: "p-c", externalKey: "test-em26-izlagac-c", accountId: "a-c", exhibitorName: "TEST Izlagač C", codes: "SMK-TEST-FAIR-C · SML-TEST-FAIR-C", smkCode: "SMK-TEST-FAIR-C", smlCode: "SML-TEST-FAIR-C", segment: "event_only", status: "active" },
+    { id: "p-d", externalKey: "test-em26-izlagac-d", accountId: "a-d", exhibitorName: "TEST Izlagač D", codes: "SMK-TEST-FAIR-D · SML-TEST-FAIR-D", smkCode: "SMK-TEST-FAIR-D", smlCode: "SML-TEST-FAIR-D", segment: "standard", status: "active" },
   ],
   stands: [
-    { id: "s-a1", externalKey: "test-em26-stand-a1", code: "TEST-A1", displayName: "TEST štand A1", mapLocationId: "test-loc-em-a1", exhibitorName: "TEST Izlagač A", status: "active" },
-    { id: "s-b1", externalKey: "test-em26-stand-b1", code: "TEST-B1", displayName: "TEST štand B1", mapLocationId: "test-loc-em-b1", exhibitorName: "TEST Izlagač B", status: "active" },
-    { id: "s-c1", externalKey: "test-em26-stand-c1", code: "TEST-C1", displayName: "TEST štand C1", mapLocationId: "test-loc-em-c1", exhibitorName: "TEST Izlagač C", status: "active" },
-    { id: "s-d1", externalKey: "test-em26-stand-d1", code: "TEST-D1", displayName: "TEST štand D1", mapLocationId: "test-loc-em-d1", exhibitorName: "TEST Izlagač D", status: "active" },
+    { id: "s-a1", participationId: "p-a", externalKey: "test-em26-stand-a1", code: "TEST-A1", displayName: "TEST štand A1", mapLocationId: "test-loc-em-a1", exhibitorName: "TEST Izlagač A", status: "active" },
+    { id: "s-b1", participationId: "p-b", externalKey: "test-em26-stand-b1", code: "TEST-B1", displayName: "TEST štand B1", mapLocationId: "test-loc-em-b1", exhibitorName: "TEST Izlagač B", status: "active" },
+    { id: "s-c1", participationId: "p-c", externalKey: "test-em26-stand-c1", code: "TEST-C1", displayName: "TEST štand C1", mapLocationId: "test-loc-em-c1", exhibitorName: "TEST Izlagač C", status: "active" },
+    { id: "s-d1", participationId: "p-d", externalKey: "test-em26-stand-d1", code: "TEST-D1", displayName: "TEST štand D1", mapLocationId: "test-loc-em-d1", exhibitorName: "TEST Izlagač D", status: "active" },
   ],
   models: [
     model("volta-x1", "TEST Volta X1", "b-volta", "advanced", { variant: "TEST Premium", highlightCount: 4, specCount: 5, qrCode: "7KQ2M9XA", qrSmq: "SMQ-TEST-0001", issues: [{ severity: "warning", code: "FAIR_PHOTO_MISSING", path: "photoUrl" }] }),
@@ -403,7 +406,74 @@ const qrBulk: QrBulkActions = {
     return { ok: true, value: { rows: results, summary: { applied: plan.summary.ok, unchanged: plan.summary.unchanged, errors: plan.summary.errors } } };
   },
 };
-const eventClients = { ...noMore, rows: [{ accountId: "a-a", name: "TEST Izlagač A", smkCode: "SMK-TEST-FAIR-A" }] satisfies EventClientView[] };
+// A5 — every event_only client (paged); TEST Izlagač A/C take part in the
+// event and are listed above, the TEST client without a participation stays
+// in the collapsed list. Leads: fixed TEST numbers per exhibitor.
+const eventClients = {
+  ...noMore,
+  rows: [
+    { accountId: "a-a", name: "TEST Izlagač A", smkCode: "SMK-TEST-FAIR-A" },
+    { accountId: "a-c", name: "TEST Izlagač C", smkCode: "SMK-TEST-FAIR-C" },
+    { accountId: "a-x", name: "TEST Klijent bez učešća", smkCode: "SMK-TEST-FAIR-X" },
+  ] satisfies EventClientView[],
+};
+const exhibitors = buildExhibitorRows(catalog, {
+  capped: false,
+  byParticipation: [{ participationId: "p-a", total: 3, undelivered: 1 }, { participationId: "p-b", total: 1, undelivered: 0 }],
+});
+
+// A5 — the import guide on a pasted TEST table, opened in the Pregled step:
+// one existing model, a row without a price, two rows with table errors.
+const importContext = importContextFromCatalog(catalog, "test-em26");
+const IMPORT_TEST_TABLE = [
+  ["Izlagač", "Brend", "Štand", "Model", "Varijanta", "Cena", "Paket", "Pasoš", "Spec: Snaga", "Spec: Domet", "QR kod"],
+  ["TEST Izlagač A", "TEST Volta", "TEST-A1", "TEST Volta X1", "TEST Premium", "TEST cena", "Napredni", "da", "TEST 150 kW", "TEST 400 km", ""],
+  ["TEST Izlagač A", "TEST Volta", "TEST-A1", "TEST Volta X9", "", "", "Starter", "da", "TEST 110 kW", "TEST 350 km", ""],
+  ["TEST Izlagač B", "TEST Om", "TEST-B1", "TEST Om Z9", "TEST LR", "TEST cena", "Starter", "ne", "TEST 90 kW", "", ""],
+  ["TEST Izlagač C", "TEST Faradej", "TEST-C1", "TEST Faradej F9", "", "TEST cena", "Platinum", "da", "", "", ""],
+  ["TEST Nepoznat izlagač", "TEST Kulon", "TEST-B1", "TEST Kulon K9", "", "TEST cena", "Starter", "da", "", "", ""],
+  ["TEST Izlagač D", "TEST Vat", "TEST-D1", "TEST Vat V9", "", "TEST cena", "Napredni", "da", "TEST 200 kW", "TEST 500 km", ""],
+].map((row) => row.join("\t")).join("\n");
+
+/** A dry run of the TEST payload without Convex: existing keys of the fixture, the backend's warnings for price, photo and QR. */
+function previewImportPlan(payload: FairImportPayload) {
+  const issues: DryRunView["issues"] = [];
+  const known = { participations: new Set(catalog.participations.map((row) => row.externalKey)), stands: new Set(catalog.stands.map((row) => row.externalKey)), models: new Set(catalog.models.map((row) => row.externalKey)) };
+  const count = { participations: { new: 0, existing: 0 }, stands: { new: 0, existing: 0 }, models: { new: 0, existing: 0 } };
+  const stands = new Set<string>();
+  payload.participations.forEach((participation, p) => {
+    count.participations[known.participations.has(participation.externalKey) ? "existing" : "new"] += 1;
+    participation.brands.forEach((brand, b) => {
+      if (!stands.has(brand.stand.externalKey)) {
+        stands.add(brand.stand.externalKey);
+        count.stands[known.stands.has(brand.stand.externalKey) ? "existing" : "new"] += 1;
+      }
+      brand.models.forEach((model, m) => {
+        const path = `participations[${p}].brands[${b}].models[${m}]`;
+        const existing = known.models.has(model.externalKey);
+        count.models[existing ? "existing" : "new"] += 1;
+        if (!model.priceText) issues.push({ severity: "warning", code: "FAIR_PRICE_MISSING", path: `${path}.priceText` });
+        if (!model.photoUrl) issues.push({ severity: "warning", code: "FAIR_PHOTO_MISSING", path: `${path}.photoUrl` });
+        if (!model.assignedResolverCode && !(existing && catalog.models.find((row) => row.externalKey === model.externalKey)?.qrCode)) {
+          issues.push({ severity: "warning", code: "FAIR_QR_MISSING", path: `${path}.assignedResolverCode` });
+        }
+      });
+    });
+  });
+  return { issues, count };
+}
+
+const importActions: Pick<EventsActions, "dryRun" | "commit"> = {
+  dryRun: async (payload) => {
+    const { issues, count } = previewImportPlan(payload as FairImportPayload);
+    return { ok: true, value: { ok: true, issues, summary: { ...count, upgrades: 0, qrAssignments: 0 } } };
+  },
+  commit: async (payload) => {
+    const { issues, count } = previewImportPlan(payload as FairImportPayload);
+    const results = (entity: { new: number; existing: number }) => ({ created: entity.new, updated: 0, unchanged: entity.existing });
+    return { ok: true, value: { committed: true, issues, results: { participations: results(count.participations), stands: results(count.stands), models: results(count.models), upgrades: 0, qrAssignments: 0 } } };
+  },
+};
 
 function PreviewSection({ path, detailId, query, setQuery, keep }: {
   path: EventSectionPath;
@@ -475,8 +545,19 @@ function PreviewSection({ path, detailId, query, setQuery, keep }: {
           />
         );
     }
-    case "izlagaci": return <EventExhibitorsView clients={eventClients} actions={actions} />;
-    case "import": return <EventImportView actions={actions} />;
+    case "izlagaci": return (
+      <EventExhibitorsView
+        exhibitors={exhibitors}
+        leadsCapped={false}
+        query={query}
+        onQueryChange={setQuery}
+        modelsHref={(participationId) => eventSectionHref(PREVIEW_BASE, "modeli", { ...keep, izlagac: participationId })}
+        importHref={eventSectionHref(PREVIEW_BASE, "import", keep)}
+        clients={eventClients}
+        actions={actions}
+      />
+    );
+    case "import": return <EventImportView context={importContext} actions={importActions} initial={{ text: IMPORT_TEST_TABLE, step: "pregled" }} />;
     case "interakcije/glas-publike": return <AdminEventsQuestions view={interactions} actions={interactionActions} />;
     case "interakcije/ankete": return <AdminEventsSurveys view={interactions} actions={interactionActions} />;
     case "interakcije/pasos": return <AdminEventsPassports view={interactions} actions={interactionActions} />;

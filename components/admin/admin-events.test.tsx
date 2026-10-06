@@ -27,10 +27,10 @@ const detailLinks = { query: {}, modelHref: (id: string) => `/x/modeli/${id}`, s
 const catalog: CatalogView = {
   days: [{ dateKey: "2026-10-09", label: "TEST dan 1" }],
   participations: [
-    { id: "p1", externalKey: "test-p1", exhibitorName: "TEST Izlagač A", codes: "SMK-T-A · SML-T-A", segment: "event_only", status: "active" },
-    { id: "p2", externalKey: "test-p2", exhibitorName: "TEST Izlagač B", codes: "SMK-T-B · SML-T-B", segment: "standard", status: "active" },
+    { id: "p1", externalKey: "test-p1", accountId: "a1", exhibitorName: "TEST Izlagač A", codes: "SMK-T-A · SML-T-A", smkCode: "SMK-T-A", smlCode: "SML-T-A", segment: "event_only", status: "active" },
+    { id: "p2", externalKey: "test-p2", accountId: "a2", exhibitorName: "TEST Izlagač B", codes: "SMK-T-B · SML-T-B", smkCode: "SMK-T-B", smlCode: "SML-T-B", segment: "standard", status: "active" },
   ],
-  stands: [{ id: "s1", externalKey: "test-s1", code: "A1", displayName: "TEST štand", mapLocationId: "test-loc-a1", exhibitorName: "TEST Izlagač A", status: "active" }],
+  stands: [{ id: "s1", participationId: "p1", externalKey: "test-s1", code: "A1", displayName: "TEST štand", mapLocationId: "test-loc-a1", exhibitorName: "TEST Izlagač A", status: "active" }],
   models: [{
     id: "m1", externalKey: "test-m1", displayName: "TEST Model", slug: "test-model", participationId: "p1", brandId: "b1", brandName: "TEST Brend", exhibitorName: "TEST Izlagač A",
     standLabel: "TEST štand · A1", tier: "starter", status: "draft", priceText: "Cena na upit", specCount: 2, highlightCount: 1, hasPhoto: false, photoUrl: null,

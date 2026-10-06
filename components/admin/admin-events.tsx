@@ -41,8 +41,9 @@ export type ModelView = {
 
 export type CatalogView = {
   days: { dateKey: string; label: string }[];
-  participations: { id: string; externalKey: string; exhibitorName: string; codes: string; segment: FairClientSegment; status: FairParticipationStatus }[];
-  stands: { id: string; externalKey: string; code: string; displayName: string; mapLocationId: string; exhibitorName: string; status: FairParticipationStatus }[];
+  /** A5 — accountId (Prebaci u redovne klijente) and the SMK/SML codes (import) next to the joined `codes`. */
+  participations: { id: string; externalKey: string; accountId: string; exhibitorName: string; codes: string; smkCode: string | null; smlCode: string | null; segment: FairClientSegment; status: FairParticipationStatus }[];
+  stands: { id: string; participationId: string; externalKey: string; code: string; displayName: string; mapLocationId: string; exhibitorName: string; status: FairParticipationStatus }[];
   models: ModelView[];
   qrConfigured: boolean;
 };

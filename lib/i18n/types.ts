@@ -4155,6 +4155,178 @@ export interface AdminEventsDict {
   resolveBlocked: string;
   resolveOther: string;
   resolveLiveNote: string;
+  /** Admin UX A5 — `izlagaci`: every exhibitor of the event (lib/admin-v1/exhibitors.ts). */
+  exhibitorList: {
+    subtitle: string;
+    filterLabel: string;
+    searchLabel: string;
+    searchPlaceholder: string;
+    facetSegment: string;
+    segments: { "event-only": string; standard: string };
+    /** {shown}, {total}. */
+    count: string;
+    /** {q}. */
+    searchChip: string;
+    colExhibitor: string;
+    colCodes: string;
+    colSegment: string;
+    colBrands: string;
+    colModels: string;
+    colQr: string;
+    colLeads: string;
+    colFollowUp: string;
+    colStands: string;
+    /** {included}, {starter}, {advanced}. */
+    modelsByTier: string;
+    /** {assigned}, {total}. */
+    qrCoverageAria: string;
+    /** {count}. */
+    leadsUndelivered: string;
+    leadsCapped: string;
+    followUpPending: string;
+    followUpPendingHint: string;
+    none: string;
+    openModels: string;
+    /** {name}. */
+    openModelsAria: string;
+    /** {name}. */
+    convertAria: string;
+    emptyTitle: string;
+    emptyBody: string;
+    emptyAction: string;
+    noMatchTitle: string;
+    noMatchBody: string;
+    otherClientsTitle: string;
+    otherClientsHelp: string;
+    otherClientsEmpty: string;
+  };
+  /** Admin UX A5 — the table import guide (lib/fair-import/*): source, column mapping, preview with dry run, commit. */
+  importGuide: {
+    stepsAria: string;
+    steps: { izvor: string; mapiranje: string; pregled: string; potvrda: string };
+    /** {n}, {total}. */
+    stepOf: string;
+    next: string;
+    back: string;
+    sourceTitle: string;
+    sourceHelp: string;
+    sourceKindsAria: string;
+    sourceKinds: { table: string; csv: string; json: string };
+    pasteLabel: string;
+    pastePlaceholder: string;
+    csvChoose: string;
+    /** {name}. */
+    csvLoaded: string;
+    template: string;
+    templateHelp: string;
+    formatTitle: string;
+    formatRow: string;
+    formatHeaders: string;
+    formatSpecs: string;
+    formatDefaults: string;
+    formatPrice: string;
+    /** {rows}, {columns}, {delimiter}. */
+    parsedSummary: string;
+    delimiters: { tab: string; semicolon: string; comma: string };
+    unclosedQuote: string;
+    noRows: string;
+    mappingTitle: string;
+    mappingHelp: string;
+    colSource: string;
+    colSample: string;
+    colTarget: string;
+    /** {column}. */
+    targetAria: string;
+    targetIgnore: string;
+    targetGroupFields: string;
+    targetGroupSpecs: string;
+    targetSpec: string;
+    /** {n}. */
+    targetSpecLabel: string;
+    /** {n}. */
+    targetSpecValue: string;
+    unnamedColumn: string;
+    autoDetected: string;
+    fields: {
+      exhibitor: string;
+      smk: string;
+      sml: string;
+      participationKey: string;
+      reportEmail: string;
+      contactEmail: string;
+      brand: string;
+      standCode: string;
+      standName: string;
+      mapLocationId: string;
+      model: string;
+      variant: string;
+      modelKey: string;
+      slug: string;
+      price: string;
+      package: string;
+      packageFrom: string;
+      qr: string;
+      photoUrl: string;
+      passport: string;
+      sortOrder: string;
+      specifications: string;
+    };
+    problemModelMissing: string;
+    /** {field}. */
+    problemDuplicate: string;
+    /** {n}. */
+    problemPair: string;
+    problemUnlabeled: string;
+    defaultsTitle: string;
+    defaultsHelp: string;
+    defaultNone: string;
+    defaultFromHelp: string;
+    passportYes: string;
+    passportNo: string;
+    previewTitle: string;
+    /** {count}. */
+    previewHelp: string;
+    /** {shown}, {total}. */
+    previewShown: string;
+    previewCaption: string;
+    colLine: string;
+    colExhibitor: string;
+    colModel: string;
+    colStand: string;
+    colPrice: string;
+    colPackage: string;
+    colSpecs: string;
+    colQr: string;
+    colRow: string;
+    /** {count}. */
+    specsCount: string;
+    priceFallback: string;
+    rowSkipped: string;
+    rowReady: string;
+    checking: string;
+    recheck: string;
+    countsTitle: string;
+    /** {new}, {existing}. */
+    countsModels: string;
+    /** {count}. */
+    countsSkipped: string;
+    issuesTitle: string;
+    issuesCaption: string;
+    colColumn: string;
+    colProblem: string;
+    wholeImport: string;
+    /** {field}. */
+    fromDefault: string;
+    rowIssues: Record<"IMPORT_MODEL_MISSING" | "IMPORT_EXHIBITOR_MISSING" | "IMPORT_EXHIBITOR_UNKNOWN" | "IMPORT_EXHIBITOR_CODES_MISSING" | "IMPORT_BRAND_MISSING" | "IMPORT_STAND_MISSING" | "IMPORT_STAND_LOCATION_MISSING" | "IMPORT_PACKAGE_MISSING" | "IMPORT_PACKAGE_INVALID" | "IMPORT_PACKAGE_FROM_INVALID" | "IMPORT_PASSPORT_MISSING" | "IMPORT_PASSPORT_INVALID" | "IMPORT_SORT_INVALID" | "IMPORT_KEY_INVALID" | "IMPORT_DUPLICATE_MODEL" | "IMPORT_SPEC_LABEL_MISSING", string>;
+    nothingToImport: string;
+    confirmTitle: string;
+    confirmHelp: string;
+    confirmBlocked: string;
+    confirmSubmit: string;
+    committing: string;
+    restart: string;
+    jsonTitle: string;
+  };
   importTitle: string;
   importHelp: string;
   importTextLabel: string;

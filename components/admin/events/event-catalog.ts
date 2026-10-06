@@ -63,13 +63,16 @@ export function buildCatalogView(catalog: EventCatalogData, directory: EventDire
       return {
         id: row._id,
         externalKey: row.externalKey,
+        accountId: row.accountId,
         exhibitorName: business?.name ?? account?.name ?? row.externalKey,
         codes: [account?.smkCode, business?.smlCode].filter(Boolean).join(" · ") || "—",
+        smkCode: account?.smkCode ?? null,
+        smlCode: business?.smlCode ?? null,
         segment: account?.clientSegment ?? "standard",
         status: row.status,
       };
     }),
-    stands: catalog.stands.map((row) => ({ id: row._id, externalKey: row.externalKey, code: row.code, displayName: row.displayName, mapLocationId: row.mapLocationId, exhibitorName: exhibitor(row.participationId), status: row.status })),
+    stands: catalog.stands.map((row) => ({ id: row._id, participationId: row.participationId, externalKey: row.externalKey, code: row.code, displayName: row.displayName, mapLocationId: row.mapLocationId, exhibitorName: exhibitor(row.participationId), status: row.status })),
     models,
     qrConfigured: Boolean(catalog.event.qrInventoryBusinessId),
   };
