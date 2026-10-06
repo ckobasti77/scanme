@@ -202,16 +202,24 @@ describe("idempotent catalog upserts and hard errors", () => {
 });
 
 describe("event directory (B1A)", () => {
-  test("returns only names, human codes and segment for the event's catalog", async () => {
+  test("returns only names, human codes, segment, website and logo for the event's catalog", async () => {
     const f = await setup();
     await f.admin.mutation(api.fairAdmin.upsertModel, f.modelArgs());
     const directory = await f.admin.query(api.fairAdmin.getEventDirectory, { eventId: f.eventId });
     expect(directory).toEqual({
-      accounts: [{ accountId: f.a.accountId, name: "Klijent FA", smkCode: "SMK-FA", clientSegment: "standard" }],
-      businesses: [{ businessId: f.a.businessId, name: "Lokal FA", smlCode: "SML-FA" }],
+      accounts: [{ accountId: f.a.accountId, name: "Klijent FA", smkCode: "SMK-FA", clientSegment: "standard", websiteUrl: null }],
+      businesses: [{ businessId: f.a.businessId, name: "Lokal FA", smlCode: "SML-FA", logoUrl: null }],
       brands: [{ brandId: f.a.brandIds[0], name: "Volta" }],
     });
     expect(JSON.stringify(directory)).not.toContain("@example.invalid");
+    // Izlagači 2026: the public website and logo of the exhibitor (contacts stay out).
+    await f.t.run(async (ctx) => {
+      await ctx.db.patch(f.a.accountId, { websiteUrl: "https://primer.rs/" });
+      await ctx.db.patch(f.a.businessId, { logoUrl: "/fair/izlagaci/2026/primer.jpg" });
+    });
+    const withIdentity = await f.admin.query(api.fairAdmin.getEventDirectory, { eventId: f.eventId });
+    expect(withIdentity.accounts[0].websiteUrl).toBe("https://primer.rs/");
+    expect(withIdentity.businesses[0].logoUrl).toBe("/fair/izlagaci/2026/primer.jpg");
   });
 });
 

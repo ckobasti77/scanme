@@ -25,6 +25,7 @@ import {
 } from "./lib/adminV1Validators";
 import { writeAdminAudit } from "./lib/adminAudit";
 import { upsertContactReadModel } from "./lib/adminSearchProjection";
+import { normalizeWebsiteUrl } from "../lib/admin-v1/website";
 
 const MAX_CONTACTS = 100;
 const MAX_ORGANIZATION_ROWS = 50;
@@ -73,6 +74,8 @@ const profileValidator = v.object({
   accountName: v.string(),
   ownerDisplayName: v.string(),
   smkCode: v.string(),
+  /** Izlagači 2026: the client's public website (accounts.websiteUrl), null = unknown. */
+  websiteUrl: v.union(v.string(), v.null()),
   status: v.union(v.literal("active"), v.literal("archived")),
   premiumStatus: premiumStatusValidator,
   premiumWarning: v.boolean(),
@@ -242,7 +245,8 @@ async function resolveAccount(ctx: QueryCtx, rawAccountId: string) {
     !account.smkCode ||
     !account.ownerDisplayName ||
     !account.clientStatus ||
-    !account.primaryOwnerMembershipId ||
+    // Izlagači 2026: a fair-only client (no ScanMe login) has no owner membership.
+    (!account.primaryOwnerMembershipId && account.clientSegment !== "event_only") ||
     !account.defaultContactId
   ) return null;
   return account as Doc<"accounts"> & {
@@ -258,7 +262,7 @@ async function requireProfileAccount(ctx: QueryCtx, accountId: Id<"accounts">) {
   if (
     !account ||
     account.adminV1MigrationVersion !== 1 ||
-    !account.primaryOwnerMembershipId ||
+    (!account.primaryOwnerMembershipId && account.clientSegment !== "event_only") ||
     !account.defaultContactId
   ) throw new ConvexError("admin_profile_account_not_found");
   return account;
@@ -309,6 +313,7 @@ export const getProfile = query({
       accountName: account.name,
       ownerDisplayName: account.ownerDisplayName,
       smkCode: account.smkCode,
+      websiteUrl: account.websiteUrl ?? null,
       status: account.clientStatus,
       premiumStatus: premium?.facts.status ?? null,
       premiumWarning: premium?.facts.warning ?? false,
@@ -590,6 +595,33 @@ export const updateContact = mutation({
       await refreshClientReadModel(ctx, account._id, now);
     }
     return { contactId: contact._id };
+  },
+});
+
+/**
+ * Izlagači 2026: the client's website. An empty value clears it; anything
+ * else must be a public http(s) address (lib/admin-v1/website.ts).
+ */
+export const setWebsite = mutation({
+  args: { accountId: v.id("accounts"), websiteUrl: v.union(v.string(), v.null()) },
+  returns: v.object({ websiteUrl: v.union(v.string(), v.null()) }),
+  handler: async (ctx, args) => {
+    const admin = await requireAdmin(ctx);
+    const account = await requireProfileAccount(ctx, args.accountId);
+    const raw = args.websiteUrl?.trim() ?? "";
+    const websiteUrl = raw ? normalizeWebsiteUrl(raw) : null;
+    if (raw && !websiteUrl) throw new ConvexError("admin_profile_website_invalid");
+    if ((account.websiteUrl ?? null) === websiteUrl) return { websiteUrl };
+    const now = Date.now();
+    await ctx.db.patch(account._id, { websiteUrl: websiteUrl ?? undefined, updatedAt: now });
+    await writeAdminAudit(ctx, {
+      actorUserId: admin._id,
+      accountId: account._id,
+      action: "admin_v1_client_website_updated",
+      detail: { websiteUrl },
+      now,
+    });
+    return { websiteUrl };
   },
 });
 

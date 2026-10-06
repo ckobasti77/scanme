@@ -19,7 +19,7 @@ import {
 } from "@/components/admin/admin-ui";
 import { BackLink, checkLabel, eventDateTime, Fact, Feedback, IssueList, Meta, modelName, modelTone, Section, type EventMessage } from "@/components/admin/events/event-ui";
 import { ResolvePanel } from "@/components/admin/events/sections/qr-view";
-import type { EventSectionPath } from "@/lib/admin-v1/event-sections";
+import type { EventSectionPath, InteractionPart } from "@/lib/admin-v1/event-sections";
 import type { HierarchyValue } from "@/lib/admin-v1/hierarchy";
 import {
   adjacentModels,
@@ -306,10 +306,12 @@ export type EventModelDetailViewProps = {
   modelHref: (modelId: string) => string;
   qrHref: (code: string) => string;
   sectionHref: (path: EventSectionPath, query?: AdminQueryState) => string;
+  /** Izlagači 2026 — the exhibitor's Interakcije page at one part (`#glas-publike`…) with that part's keys. */
+  interactionHref: (participationId: string, part: InteractionPart, query?: AdminQueryState) => string;
   summary?: ModelDetailSummary;
 };
 
-export function EventModelDetailView({ catalog, modelId, actions, query, listHref, modelHref, qrHref, sectionHref, summary = {} }: EventModelDetailViewProps) {
+export function EventModelDetailView({ catalog, modelId, actions, query, listHref, modelHref, qrHref, sectionHref, interactionHref, summary = {} }: EventModelDetailViewProps) {
   const model = catalog.models.find((row) => row.id === modelId) ?? null;
   const [message, setMessage] = useState<EventMessage>(null);
   const [pending, setPending] = useState(false);
@@ -430,7 +432,7 @@ export function EventModelDetailView({ catalog, modelId, actions, query, listHre
           <Feedback message={message} />
           <ResolvePanel key={model.qrCode ?? ""} actions={actions} initialCode={model.qrCode ?? ""} help={detail.resolveHelp} />
         </div>
-        <ModelSummary model={model} summary={summary} sectionHref={sectionHref} />
+        <ModelSummary model={model} summary={summary} sectionHref={sectionHref} interactionHref={interactionHref} />
       </div>
     </div>
   );
@@ -450,32 +452,32 @@ function NeighbourLink({ model, href, label, aria, icon, after = false }: {
   return <Link href={href(model.id)} aria-label={fmt(aria, { model: modelName(model) })} className={className}>{content}</Link>;
 }
 
-function ModelSummary({ model, summary, sectionHref }: { model: ModelView; summary: ModelDetailSummary; sectionHref: EventModelDetailViewProps["sectionHref"] }) {
+function ModelSummary({ model, summary, sectionHref, interactionHref }: { model: ModelView; summary: ModelDetailSummary; sectionHref: EventModelDetailViewProps["sectionHref"]; interactionHref: EventModelDetailViewProps["interactionHref"] }) {
   const advanced = model.tier === "advanced";
   const loading = <p className="text-sm text-[var(--admin-text-muted)]">{dict.loading}</p>;
   const line = (text: string) => <p className="text-sm">{text}</p>;
   const muted = (text: string) => <p className="text-sm text-[var(--admin-text-muted)]">{text}</p>;
   const rows: { id: string; title: string; href: string; body: ReactNode }[] = [
     {
-      id: "questions", title: detail.questions, href: sectionHref("interakcije/glas-publike", { model: model.id }),
+      id: "questions", title: detail.questions, href: interactionHref(model.participationId, "glas-publike", { model: model.id }),
       body: model.tier === "included" ? muted(detail.starterOnly) : !summary.questions ? loading : summary.questions.length
         ? <ul className="grid gap-1 text-sm">{summary.questions.map((day) => <li key={day.dayLabel}>{fmt(detail.questionsDay, { day: day.dayLabel, published: day.published, draft: day.draft, closed: day.closed })}</li>)}</ul>
         : muted(detail.questionsNone),
     },
     {
-      id: "survey", title: detail.survey, href: sectionHref("interakcije/ankete", { model: model.id }),
+      id: "survey", title: detail.survey, href: interactionHref(model.participationId, "ankete", { anketa: model.id }),
       body: !advanced ? muted(detail.advancedOnly) : summary.survey === undefined ? loading : summary.survey
         ? line(fmt(detail.surveyVersion, { version: summary.survey.version, status: dict.surveyStatus[summary.survey.status] }))
         : muted(detail.surveyNone),
     },
     {
-      id: "passport", title: detail.passport, href: sectionHref("interakcije/pasos", { brend: model.brandId }),
+      id: "passport", title: detail.passport, href: interactionHref(model.participationId, "pasos", { brend: model.brandId }),
       body: summary.passport === undefined ? loading : summary.passport
         ? line(fmt(summary.passport.member ? detail.passportMember : detail.passportNotMember, { status: summary.passport.hidden ? dict.passportAuto.states.hidden : dict.passportStatus[summary.passport.status] }))
         : muted(detail.passportNone),
     },
     {
-      id: "forms", title: detail.forms, href: sectionHref("interakcije/forme", { model: model.id }),
+      id: "forms", title: detail.forms, href: interactionHref(model.participationId, "forme", { forma: model.id }),
       body: !summary.forms ? loading : (
         <ul className="grid gap-1 text-sm">
           <li>{detail.formInterest}: {model.tier === "included" ? detail.formNotInPackage : summary.forms.interest ? detail.formOn : detail.formOff}</li>

@@ -25,7 +25,7 @@ vi.mock("next/link", () => ({
 
 const ok = async () => ({ ok: true as const });
 const detailActions = { publish: ok, withdraw: ok, upgrade: ok, assignQr: ok, resolveTest: async () => ({ ok: true as const, value: { outcome: "fair_model" as const, problem: null, path: "/x" } }) };
-const detailLinks = { query: {}, modelHref: (id: string) => `/x/modeli/${id}`, sectionHref: (path: string) => `/x/${path}` };
+const detailLinks = { query: {}, modelHref: (id: string) => `/x/modeli/${id}`, sectionHref: (path: string) => `/x/${path}`, interactionHref: (participationId: string, part: string) => `/x/interakcije/${participationId}#${part}` };
 
 const catalog: CatalogView = {
   days: [{ dateKey: "2026-10-09", label: "TEST dan 1" }],

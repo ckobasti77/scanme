@@ -124,7 +124,7 @@ describe("B4 admin Leadovi", () => {
   test("consent, forms, the inbox, the lead detail and the follow-up text render in Serbian, with no raw codes", () => {
     const html = all(view) + forms();
     for (const text of [
-      adminEventsSr.consentTitle, adminEventsSr.sectionLabels["interakcije/forme"], adminEventsSr.sectionLabels["leadovi/follow-up"], adminEventsSr.listTitle, adminEventsSr.consentInactive,
+      adminEventsSr.consentTitle, adminEventsSr.interactionSections.forme, adminEventsSr.sectionLabels["leadovi/follow-up"], adminEventsSr.listTitle, adminEventsSr.consentInactive,
       adminEventsSr.leadInbox.formsLink,
       "TEST aktivna saglasnost {izlagac}", "TEST nacrt saglasnosti {izlagac}", adminEventsSr.consentRetire, "Aktiviraj verziju 2",
       adminEventsSr.contactRequirements.both, adminEventsSr.preferredContacts.phone, fmt(adminEventsSr.followUps.editorTitle, { exhibitor: "TEST izlagač A" }), "Aktivna verzija 3",

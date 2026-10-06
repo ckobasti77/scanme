@@ -21,6 +21,7 @@ import * as fairDashboard from "./fairDashboard";
 import * as fairDevFixtures from "./fairDevFixtures";
 import * as fairEmailSender from "./fairEmailSender";
 import * as fairEmails from "./fairEmails";
+import * as fairExhibitorImport from "./fairExhibitorImport";
 import * as fairFollowUps from "./fairFollowUps";
 import * as fairImport from "./fairImport";
 import * as fairInteractions from "./fairInteractions";
@@ -104,6 +105,8 @@ const AUTHZ: Record<string, { module: Record<string, unknown>; functions: Record
   // Admin UX A4 — QR detail, scan numbers, change of destination and bulk assignment.
   fairAdminQr: { module: fairAdminQr, functions: { getQrDetail: A, getQrScanStats: A, reassignQr: A, bulkAssignQrDryRun: A, bulkAssignQrCommit: A } },
   fairImport: { module: fairImport, functions: { dryRun: A, commit: A } },
+  // Izlagači 2026 — the organizer's exhibitor list and the event → printed inventory link: CLI only.
+  fairExhibitorImport: { module: fairExhibitorImport, functions: { importSiteExhibitors: I, linkEventQrInventory: I } },
   // Admin UX A10 — the event dashboard (Pregled and the section badges): numbers and links only.
   fairDashboard: { module: fairDashboard, functions: { getEventDashboard: A } },
   fairInteractionsAdmin: {

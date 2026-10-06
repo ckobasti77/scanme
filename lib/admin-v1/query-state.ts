@@ -8,6 +8,11 @@ export const ADMIN_QUERY_KEYS = [
   "izlagac",
   "brend",
   "model",
+  // Izlagači 2026 — the exhibitor's Interakcije page: the car whose survey
+  // (Ankete) and whose form exception (Forme) is open; `model` stays the
+  // Glas publike form's car, so one pick does not open the other two.
+  "anketa",
+  "forma",
   "q",
   "paket",
   "status",
@@ -34,7 +39,8 @@ export type AdminQueryPatch = Partial<Record<AdminQueryKey, string | null | unde
 const ID = /^[A-Za-z0-9_-]{1,64}$/;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const ENUMS: Partial<Record<AdminQueryKey, readonly string[]>> = {
-  paket: ["za-sve", "starter", "napredni"],
+  // "svi" = Interakcije: every exhibitor (absent there = only exhibitors with Starter/Napredni cars).
+  paket: ["za-sve", "starter", "napredni", "svi"],
   problemi: ["greske", "upozorenja", "bez"],
   qr: ["ima", "nema"],
   foto: ["ima", "nema"],
@@ -51,6 +57,8 @@ const PATTERNS: Partial<Record<AdminQueryKey, RegExp>> = {
   izlagac: ID,
   brend: ID,
   model: ID,
+  anketa: ID,
+  forma: ID,
   lead: ID,
   status: /^[a-z_-]{1,32}$/,
   od: DATE,

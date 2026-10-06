@@ -16,6 +16,7 @@ import {
   type AdminFilterFacet,
 } from "@/components/admin/admin-ui";
 import { Feedback, LoadMore, Meta, SegmentStatus, Section, type EventMessage } from "@/components/admin/events/event-ui";
+import { ExhibitorLogo, ExhibitorWebsiteLink } from "@/components/admin/events/exhibitor-identity";
 import type { FollowUpTextState } from "@/components/admin/events/leads-logic";
 import {
   applyExhibitorFilters,
@@ -87,11 +88,24 @@ function CodesCell({ row }: { row: ExhibitorRow }) {
 
 type FollowUpColumn = { followUps?: ReadonlyMap<string, ExhibitorFollowUpState>; followUpHref?: (participationId: string) => string };
 
+/** Izlagači 2026 — logo, name (to the exhibitor's cars) and website. */
+function NameCell({ row, href }: { row: ExhibitorRow; href: string }) {
+  return (
+    <span className="flex min-w-0 items-center gap-3">
+      <ExhibitorLogo name={row.name} logoUrl={row.logoUrl} size="sm" />
+      <span className="grid min-w-0">
+        <Link href={href} className="font-semibold underline-offset-4 [overflow-wrap:anywhere] hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--admin-focus,var(--admin-ink))]">{row.name}</Link>
+        {row.websiteUrl ? <ExhibitorWebsiteLink url={row.websiteUrl} ariaLabel={fmt(dict.interactionExhibitors.websiteAria, { name: row.name })} className="min-h-6 w-fit max-w-full" /> : null}
+      </span>
+    </span>
+  );
+}
+
 function exhibitorColumns(modelsHref: (participationId: string) => string, convertButton: (row: ExhibitorRow, compact: boolean) => ReactNode, followUp: FollowUpColumn): AdminColumn<ExhibitorRow>[] {
   return [
     {
       id: "name", header: list.colExhibitor, rowHeader: true, sortValue: (row) => row.name,
-      cell: (row) => <Link href={modelsHref(row.id)} className="font-semibold underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--admin-focus,var(--admin-ink))]">{row.name}</Link>,
+      cell: (row) => <NameCell row={row} href={modelsHref(row.id)} />,
     },
     { id: "codes", header: list.colCodes, sortValue: (row) => row.codes, cell: (row) => <CodesCell row={row} /> },
     // In the table the move to regular clients sits under the segment it changes (keeps the row narrow).
@@ -215,7 +229,15 @@ export function EventExhibitorsView({ exhibitors, leadsCapped, query, onQueryCha
             }
             renderCard={(row) => (
               <AdminDataCard
-                title={<Link href={modelsHref(row.id)} className="underline-offset-4 hover:underline">{row.name}</Link>}
+                title={
+                  <span className="flex min-w-0 items-center gap-3">
+                    <ExhibitorLogo name={row.name} logoUrl={row.logoUrl} size="md" />
+                    <span className="grid min-w-0">
+                      <Link href={modelsHref(row.id)} className="text-base underline-offset-4 [overflow-wrap:anywhere] hover:underline">{row.name}</Link>
+                      {row.websiteUrl ? <ExhibitorWebsiteLink url={row.websiteUrl} ariaLabel={fmt(dict.interactionExhibitors.websiteAria, { name: row.name })} className="min-h-6 w-fit font-normal" /> : null}
+                    </span>
+                  </span>
+                }
                 subtitle={<span className="font-mono">{row.codes}</span>}
                 badges={<><SegmentStatus segment={row.segment} /><QrCell row={row} /></>}
                 fields={[
@@ -230,6 +252,9 @@ export function EventExhibitorsView({ exhibitors, leadsCapped, query, onQueryCha
             rowActions={(row, context) => (
               <span className="flex flex-wrap justify-end gap-2">
                 {context.view === "kartice" && row.segment === "event_only" ? convert.button(row.accountId, row.name) : null}
+                <Link href={`/admin/klijenti/${encodeURIComponent(row.accountId)}`} aria-label={fmt(list.openProfileAria, { name: row.name })} className={cn(adminSecondaryButtonClass, "min-h-9 px-3 whitespace-nowrap")}>
+                  {list.openProfile}
+                </Link>
                 <Link href={modelsHref(row.id)} aria-label={fmt(list.openModelsAria, { name: row.name })} className={cn(adminSecondaryButtonClass, "min-h-9 px-3 whitespace-nowrap")}>
                   {list.openModels}<ChevronRight className="size-4" aria-hidden="true" />
                 </Link>

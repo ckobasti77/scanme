@@ -65,7 +65,7 @@ describe("A7 Forme view", () => {
   test("the lead flow state is read-only booleans and versions; the default form applies to all models in one move", () => {
     const html = render({ prikaz: "tabela" });
     for (const text of [
-      adminEventsSr.sectionLabels["interakcije/forme"], f.help, f.statusLabel, f.leadsOff, f.followUpOn,
+      adminEventsSr.interactionSections.forme, f.help, f.statusLabel, f.leadsOff, f.followUpOn,
       fmt(f.consentOn, { kind: adminEventsSr.leadKinds.interest, version: 2 }), fmt(f.consentOff, { kind: adminEventsSr.leadKinds.test_drive }), f.consentLink,
       fmt(f.defaultsTitle, { exhibitor: "TEST Izlagač A" }), f.saveAndApply, f.saveOnly, f.testDriveDefaultNote,
       adminEventsSr.configEnabled, adminEventsSr.configRequirement, adminEventsSr.configPreferred, fmt(f.exhibitorOption, { name: "TEST Izlagač A", count: 3 }),

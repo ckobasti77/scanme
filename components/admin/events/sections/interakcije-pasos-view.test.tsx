@@ -58,7 +58,7 @@ describe("A7 Pasoš brenda view", () => {
   test("every state, the condition and its reasons render in Serbian, with no raw codes and no manual publish", () => {
     const html = render({ prikaz: "tabela" });
     for (const text of [
-      adminEventsSr.sectionLabels["interakcije/pasos"], adminEventsSr.passportsTitle, p.help, p.explainTitle, p.explainFreeze, p.explainHide, p.refresh,
+      adminEventsSr.interactionSections.pasos, adminEventsSr.passportsTitle, p.help, p.explainTitle, p.explainFreeze, p.explainHide, p.refresh,
       p.states.active, p.states.hidden, p.states.not_eligible, p.states.missing, p.states.frozen, p.conditionMet, p.conditionNotMet,
       fmt(p.problems.model_below_starter, { count: 1, total: 3 }), fmt(p.problems.model_not_published, { count: 1, total: 3 }),
       fmt(p.problems.fewer_than_two_models, { count: 1, total: 1 }), p.hintMissingBefore, p.hintHidden,

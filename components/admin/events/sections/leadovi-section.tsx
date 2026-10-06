@@ -13,7 +13,7 @@ import { modelName } from "@/components/admin/events/event-ui";
 import { leadInboxFilter, pickFollowUpExhibitor } from "@/components/admin/events/leads-logic";
 import { EventFollowUpView, type FollowUpActions } from "@/components/admin/events/sections/leadovi-follow-up-view";
 import { EventLeadsInboxView, type InboxDelivery, type InboxLead, type LeadInboxActions } from "@/components/admin/events/sections/leadovi-view";
-import { eventSectionHref } from "@/lib/admin-v1/event-sections";
+import { eventSectionHref, interactionExhibitorHref } from "@/lib/admin-v1/event-sections";
 import { modelHierarchy } from "@/lib/admin-v1/model-filters";
 import type { AdminQueryState } from "@/lib/admin-v1/query-state";
 import type { FairEmailDeliveryStatus } from "@/lib/fair-contract";
@@ -137,7 +137,12 @@ export function LeadoviSection() {
         lead: { ...inboxLead(detail.lead as ListedLead), consentVersion: detail.lead.consentVersion, consentTextSnapshot: detail.lead.consentTextSnapshot, consentedAt: detail.lead.consentedAt, ...(detail.lead.suppressedAt !== undefined ? { suppressedAt: detail.lead.suppressedAt } : {}) },
         activity: detail.activity,
       }) : null}
-      links={{ forms: eventSectionHref(base, "interakcije/forme"), followUp: eventSectionHref(base, "leadovi/follow-up"), settings: eventSectionHref(base, "leadovi/podesavanja") }}
+      links={{
+        // Izlagači 2026: Forme are on the exhibitor's Interakcije page (the filtered exhibitor's, else the list).
+        forms: filter.participationId ? interactionExhibitorHref(base, filter.participationId, {}, "forme") : eventSectionHref(base, "interakcije"),
+        followUp: eventSectionHref(base, "leadovi/follow-up"),
+        settings: eventSectionHref(base, "leadovi/podesavanja"),
+      }}
       actions={actions}
     />
   );

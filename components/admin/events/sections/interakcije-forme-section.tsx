@@ -4,19 +4,19 @@ import { useMutation, useQuery } from "convex/react";
 import { useMemo } from "react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import { useAdminQueryState } from "@/components/admin/admin-ui/use-admin-query-state";
 import { modelFullName } from "@/components/admin/events/event-catalog";
 import { useAdminEvent } from "@/components/admin/events/event-context";
 import { attempt } from "@/components/admin/events/event-outcome";
 import { EventLeadFormsView, type LeadFormsActions } from "@/components/admin/events/sections/interakcije-forme-view";
-import { useExhibitorNames } from "@/components/admin/events/sections/interakcije-section";
 import { eventSectionHref } from "@/lib/admin-v1/event-sections";
+import type { AdminQueryPatch, AdminQueryState } from "@/lib/admin-v1/query-state";
 import type { FairLeadKind } from "@/lib/fair-contract";
 
-// Admin UX A7 — container of `interakcije/forme` (moved from Leadovi): the
-// exhibitor defaults, the real state of every model and the read-only state
-// of the K3 switch and the consent (convex/fairLeadsAdmin.ts). Each write is
-// one of the A7/B4 mutations; "Primeni na sve modele" is one transaction.
+// Admin UX A7 — Forme (moved from Leadovi): the exhibitor defaults, the real
+// state of every model and the read-only state of the K3 switch and the
+// consent (convex/fairLeadsAdmin.ts). Each write is one of the A7/B4
+// mutations; "Primeni na sve modele" is one transaction. Izlagači 2026: the
+// part `#forme` of the exhibitor's Interakcije page (no exhibitor select).
 
 export function useLeadFormsActions(): LeadFormsActions {
   const saveDefault = useMutation(api.fairLeadsAdmin.upsertParticipationLeadDefault);
@@ -57,10 +57,9 @@ export function useLeadFormsActions(): LeadFormsActions {
   };
 }
 
-export function FormeSection() {
+/** Izlagači 2026 — Forme of one exhibitor (`query.model` = the car whose exception is open). */
+export function ExhibitorFormsPart({ exhibitor, query, onQueryChange }: { exhibitor: { id: string; name: string }; query: AdminQueryState; onQueryChange: (patch: AdminQueryPatch) => void }) {
   const { eventId, base, catalog, directory } = useAdminEvent();
-  const [query, setQuery] = useAdminQueryState();
-  const exhibitors = useExhibitorNames();
   const forms = useQuery(api.fairLeadsAdmin.getEventLeadForms, { eventId });
   const switches = useQuery(api.fairLeadsAdmin.getLeadSwitches, {});
   const consentRows = useQuery(api.fairLeadsAdmin.getEventConsents, { eventId });
@@ -78,13 +77,14 @@ export function FormeSection() {
     <EventLeadFormsView
       source={forms}
       names={names}
-      exhibitors={exhibitors}
+      exhibitors={[exhibitor]}
       switches={switches}
       consents={consents}
       consentHref={eventSectionHref(base, "leadovi/podesavanja")}
       query={query}
-      onQueryChange={setQuery}
+      onQueryChange={onQueryChange}
       actions={actions}
+      scoped
     />
   );
 }

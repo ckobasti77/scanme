@@ -452,6 +452,8 @@ const QR_INVENTORY_PAGE_MAX = 100;
 const inventoryRow = v.object({
   cardId: v.id("cards"),
   resolverCode: v.string(),
+  /** Izlagači 2026: the printed label of the card (`SA26-001`, cards.label). */
+  label: v.string(),
   accessChannelId: v.union(v.id("accessChannels"), v.null()),
   smqCode: v.union(v.string(), v.null()),
   state: v.union(accessState, v.null()),
@@ -480,6 +482,7 @@ export const listQrInventory = query({
       page.push({
         cardId: card._id,
         resolverCode: card.cardCode,
+        label: card.label,
         accessChannelId: channel?._id ?? null,
         smqCode: channel?.smqCode ?? null,
         state: channel?.state ?? null,
@@ -613,8 +616,21 @@ export function eventValidationIssues(
 export const getEventDirectory = query({
   args: { eventId: v.id("fairEvents") },
   returns: v.object({
-    accounts: v.array(v.object({ accountId: v.id("accounts"), name: v.string(), smkCode: v.union(v.string(), v.null()), clientSegment: fairClientSegment })),
-    businesses: v.array(v.object({ businessId: v.id("businesses"), name: v.string(), smlCode: v.union(v.string(), v.null()) })),
+    accounts: v.array(v.object({
+      accountId: v.id("accounts"),
+      name: v.string(),
+      smkCode: v.union(v.string(), v.null()),
+      clientSegment: fairClientSegment,
+      // Izlagači 2026: the client's website (accounts.websiteUrl).
+      websiteUrl: v.union(v.string(), v.null()),
+    })),
+    businesses: v.array(v.object({
+      businessId: v.id("businesses"),
+      name: v.string(),
+      smlCode: v.union(v.string(), v.null()),
+      // Izlagači 2026: the exhibitor logo — the uploaded file, else the stored URL/path.
+      logoUrl: v.union(v.string(), v.null()),
+    })),
     brands: v.array(v.object({ brandId: v.id("brands"), name: v.string() })),
   }),
   handler: async (ctx, args) => {
@@ -629,9 +645,14 @@ export const getEventDirectory = query({
       Promise.all(businessIds.map((id) => ctx.db.get(id))),
       Promise.all(brandIds.map((id) => ctx.db.get(id))),
     ]);
+    const logoUrls = await Promise.all(businesses.map(async (row) => {
+      if (!row) return null;
+      if (row.logoStorageId) return (await ctx.storage.getUrl(row.logoStorageId)) ?? row.logoUrl ?? null;
+      return row.logoUrl ?? null;
+    }));
     return {
-      accounts: accounts.flatMap((row) => row ? [{ accountId: row._id, name: row.name, smkCode: row.smkCode ?? null, clientSegment: fairClientSegmentOf(row.clientSegment) }] : []),
-      businesses: businesses.flatMap((row) => row ? [{ businessId: row._id, name: row.name, smlCode: row.smlCode ?? null }] : []),
+      accounts: accounts.flatMap((row) => row ? [{ accountId: row._id, name: row.name, smkCode: row.smkCode ?? null, clientSegment: fairClientSegmentOf(row.clientSegment), websiteUrl: row.websiteUrl ?? null }] : []),
+      businesses: businesses.flatMap((row, index) => row ? [{ businessId: row._id, name: row.name, smlCode: row.smlCode ?? null, logoUrl: logoUrls[index] }] : []),
       brands: brands.flatMap((row) => row ? [{ brandId: row._id, name: row.name }] : []),
     };
   },

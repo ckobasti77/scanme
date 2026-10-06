@@ -332,6 +332,9 @@ export default defineSchema({
     // Absent = "standard" (widen phase). An "event_only" client lives in admin
     // `Događaji`, not the regular client list; conversion patches this field.
     clientSegment: v.optional(fairClientSegment),
+    // Izlagači 2026: the client's public website (http/https, shown and
+    // opened from the client profile and the exhibitor cards). Absent = unknown.
+    websiteUrl: v.optional(v.string()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })

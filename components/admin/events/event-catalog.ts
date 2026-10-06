@@ -70,6 +70,8 @@ export function buildCatalogView(catalog: EventCatalogData, directory: EventDire
         smlCode: business?.smlCode ?? null,
         segment: account?.clientSegment ?? "standard",
         status: row.status,
+        logoUrl: business?.logoUrl ?? null,
+        websiteUrl: account?.websiteUrl ?? null,
       };
     }),
     stands: catalog.stands.map((row) => ({ id: row._id, participationId: row.participationId, externalKey: row.externalKey, code: row.code, displayName: row.displayName, mapLocationId: row.mapLocationId, exhibitorName: exhibitor(row.participationId), status: row.status })),

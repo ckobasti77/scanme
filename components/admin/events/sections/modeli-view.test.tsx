@@ -4,7 +4,7 @@ import { describe, expect, test, vi } from "vitest";
 import type { CatalogView, ModelView } from "@/components/admin/admin-events";
 import { AdminHierarchyPicker, AdminViewModeOverride } from "@/components/admin/admin-ui";
 import { buildHierarchy } from "@/lib/admin-v1/hierarchy";
-import { eventDetailHref, eventSectionHref } from "@/lib/admin-v1/event-sections";
+import { eventDetailHref, eventSectionHref, interactionExhibitorHref } from "@/lib/admin-v1/event-sections";
 import { modelListQuery } from "@/lib/admin-v1/model-filters";
 import type { AdminQueryState } from "@/lib/admin-v1/query-state";
 import { adminEventsSr } from "@/lib/i18n/sr/admin-events";
@@ -163,6 +163,7 @@ function detailHtml(modelId: string, query: AdminQueryState, summary?: ModelDeta
       modelHref={(id) => eventDetailHref(BASE, "modeli", id, listQuery)}
       qrHref={(code) => eventDetailHref(BASE, "qr", code)}
       sectionHref={(path, extra) => eventSectionHref(BASE, path, extra)}
+      interactionHref={(participationId, part, extra) => interactionExhibitorHref(BASE, participationId, extra, part)}
       summary={summary}
     />,
   );
@@ -213,7 +214,8 @@ describe("A3 model detail", () => {
     expect(html).toContain(detail.passportMember.replace("{status}", adminEventsSr.passportStatus.published));
     expect(html).toContain(detail.leadsValue.replace("{interest}", "3").replace("{testDrive}", "1").replace("{undelivered}", "2"));
     expect(html).toContain(detail.sponsoredActive.replace("{order}", "2"));
-    for (const href of ["interakcije/glas-publike?model=m1", "interakcije/ankete?model=m1", "interakcije/pasos?brend=b1", "interakcije/forme?model=m1", "leadovi?izlagac=a", "sponzorisano"]) {
+    // Izlagači 2026: the four interaction rows open the exhibitor's Interakcije page at their part.
+    for (const href of ["interakcije/a?model=m1#glas-publike", "interakcije/a?anketa=m1#ankete", "interakcije/a?brend=b1#pasos", "interakcije/a?forma=m1#forme", "leadovi?izlagac=a", "sponzorisano"]) {
       expect(html).toContain(`href="${BASE}/${href}"`);
     }
     // Package rules: a Starter model has no survey and no test drive.

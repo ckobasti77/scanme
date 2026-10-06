@@ -198,7 +198,7 @@ describe("A10 dashboard rules (A0-IZVESTAJ §6)", () => {
     const f = await setup();
     // In force from the opening (seed): 4 models with questions (2 Starter, 2 Napredni).
     let d = await f.dash(at("2026-10-10T10:00:00+02:00"));
-    expect(action(d, "question_missing_today")).toEqual({ rule: "question_missing_today", tone: "hitno", count: 4, section: "interakcije/glas-publike", query: { dan: "2026-10-10" } });
+    expect(action(d, "question_missing_today")).toEqual({ rule: "question_missing_today", tone: "hitno", count: 4, section: "interakcije", query: { dan: "2026-10-10" } });
     expect(d.kpis.questions).toEqual({ dateKey: "2026-10-10", label: "TEST dan 2", today: true, covered: 0, required: 4, capped: false });
 
     await addQuestion(f, "volta-x2", f.day2);
@@ -213,7 +213,7 @@ describe("A10 dashboard rules (A0-IZVESTAJ §6)", () => {
     expect(rules(await f.dash(at("2026-10-08T10:00:00+02:00")))).not.toContain("question_missing_next_day");
     await activatePackagesAt(f, SEED_AT);
     d = await f.dash(at("2026-10-08T10:00:00+02:00"));
-    expect(action(d, "question_missing_next_day")).toEqual({ rule: "question_missing_next_day", tone: "uskoro", count: 3, section: "interakcije/glas-publike", query: { dan: "2026-10-09" } });
+    expect(action(d, "question_missing_next_day")).toEqual({ rule: "question_missing_next_day", tone: "uskoro", count: 3, section: "interakcije", query: { dan: "2026-10-09" } });
     expect(d.kpis.questions).toMatchObject({ dateKey: "2026-10-09", today: false, covered: 1, required: 4 });
     expect(rules(await f.dash(at("2026-10-06T10:00:00+02:00")))).not.toContain("question_missing_next_day");
   });
@@ -313,14 +313,14 @@ describe("A10 dashboard rules (A0-IZVESTAJ §6)", () => {
     const fairDay = at("2026-10-10T10:00:00+02:00");
     // TEST Volta (x1 Napredni, x2 Starter) meets the condition; TEST Amper and TEST Om have an `included` model.
     let d = await f.dash(fairDay);
-    expect(action(d, "passport_missing")).toEqual({ rule: "passport_missing", tone: "info", count: 1, section: "interakcije/pasos", query: { stanje: "nije-napravljen" } });
+    expect(action(d, "passport_missing")).toEqual({ rule: "passport_missing", tone: "info", count: 1, section: "interakcije", query: { stanje: "nije-napravljen" } });
     expect(rules(await f.dash(at("2026-10-07T10:00:00+02:00")))).not.toContain("passport_missing");
 
     const { passportId } = await f.t.mutation(internal.fairDevFixtures.seedTestPassport, { eventCode: EM, brandName: "TEST Volta" });
     await f.t.run(async (ctx) => ctx.db.patch(passportId, { hiddenAt: SEED_AT }));
     d = await f.dash(fairDay);
     expect(rules(d)).not.toContain("passport_missing");
-    expect(action(d, "passport_hidden")).toEqual({ rule: "passport_hidden", tone: "info", count: 1, section: "interakcije/pasos", query: { stanje: "sakriven" } });
+    expect(action(d, "passport_hidden")).toEqual({ rule: "passport_hidden", tone: "info", count: 1, section: "interakcije", query: { stanje: "sakriven" } });
     expect(d.sections.interakcije).toMatchObject({ passports: 0, passportsHidden: 1 });
 
     await f.t.run(async (ctx) => {
@@ -328,7 +328,7 @@ describe("A10 dashboard rules (A0-IZVESTAJ §6)", () => {
       await ctx.db.patch(f.models["volta-x2"], { status: "withdrawn" });
     });
     d = await f.dash(fairDay);
-    expect(action(d, "passport_blocked")).toEqual({ rule: "passport_blocked", tone: "hitno", count: 1, section: "interakcije/pasos", query: { stanje: "zamrznut" } });
+    expect(action(d, "passport_blocked")).toEqual({ rule: "passport_blocked", tone: "hitno", count: 1, section: "interakcije", query: { stanje: "zamrznut" } });
     expect(rules(d)).not.toContain("passport_hidden");
   });
 

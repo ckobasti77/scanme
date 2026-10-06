@@ -18,9 +18,12 @@ import type {
   QrScanStatsView,
 } from "@/components/admin/admin-events";
 import type { InteractionsActions, InteractionsView } from "@/components/admin/admin-events-interactions";
+import type { PackageModel } from "@/components/admin/events/exhibitor-packages";
 import { EventSurveysView } from "@/components/admin/events/sections/interakcije-ankete-view";
 import { EventLeadFormsView, type LeadFormsActions } from "@/components/admin/events/sections/interakcije-forme-view";
 import { EventAudienceView } from "@/components/admin/events/sections/interakcije-glas-publike-view";
+import { EventInteractionExhibitorView } from "@/components/admin/events/sections/interakcije-izlagac-view";
+import { EventInteractionExhibitorsView } from "@/components/admin/events/sections/interakcije-izlagaci-view";
 import { EventPassportsView, type PassportsActions } from "@/components/admin/events/sections/interakcije-pasos-view";
 import { AdminEventsConsent, type LeadsActions } from "@/components/admin/admin-events-leads";
 import { AdminEventsReports, type ReportsActions, type ReportsView } from "@/components/admin/admin-events-reports";
@@ -46,11 +49,21 @@ import {
   eventDetailHref,
   eventNavGroups,
   eventSectionHref,
+  interactionExhibitorHref,
   switchEventHref,
   type EventSectionPath,
+  type InteractionPart,
   type ResolvedEventSection,
 } from "@/lib/admin-v1/event-sections";
 import { buildExhibitorRows } from "@/lib/admin-v1/exhibitors";
+import {
+  buildInteractionExhibitorRows,
+  interactionListQuery,
+  interactionPartPatch,
+  interactionPartQuery,
+  interactionReportDay,
+  scopeToExhibitor,
+} from "@/lib/admin-v1/interaction-exhibitors";
 import type { LeadFormsSource } from "@/lib/admin-v1/lead-forms";
 import { modelHierarchy, modelListQuery } from "@/lib/admin-v1/model-filters";
 import { buildPassportRows, type PassportOverviewSource } from "@/lib/admin-v1/passport-overview";
@@ -290,6 +303,44 @@ const leadFormsActions: LeadFormsActions = {
   clearOverride: ok,
 };
 
+// Izlagači 2026 — `interakcije`: the four TEST exhibitors of the catalog plus
+// two TEST exhibitors from an organizer list without cars yet (E with a TEST
+// logo and website, F with neither), so "Sa interakcijama", "Svi izlagači",
+// the packages and an exhibitor without cars can be checked. The logos are
+// drawn TEST marks, not real ones; the websites are example.com.
+const testLogo = (letters: string, color: string) => `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96"><rect width="96" height="96" rx="18" fill="${color}"/><text x="48" y="60" font-family="Arial,sans-serif" font-size="34" font-weight="700" fill="#fff" text-anchor="middle">${letters}</text></svg>`)}`;
+const INTERACTION_EXTRA = [
+  { id: "p-e", accountId: "a-e", name: "TEST Izlagač E", websiteUrl: "https://example.com/test-izlagac-e", logoUrl: testLogo("TE", "#0f766e") },
+  { id: "p-f", accountId: "a-f", name: "TEST Izlagač F", websiteUrl: null, logoUrl: null },
+] as const;
+const IDENTITY: Record<string, { websiteUrl: string | null; logoUrl: string | null }> = {
+  "p-a": { websiteUrl: "https://example.com/test-izlagac-a", logoUrl: testLogo("TA", "#1d4ed8") },
+  "p-c": { websiteUrl: "https://example.com/test-izlagac-c", logoUrl: null },
+};
+const interactionRows = buildInteractionExhibitorRows({
+  participations: [
+    ...catalog.participations.map((row) => ({ id: row.id, accountId: row.accountId, businessId: `biz-${row.id}`, externalKey: row.externalKey, status: row.status })),
+    ...INTERACTION_EXTRA.map((row) => ({ id: row.id, accountId: row.accountId, businessId: `biz-${row.id}`, externalKey: `izl26-${row.id}`, status: "active" })),
+  ],
+  models: interactions.models.map((row) => ({ id: row.id, participationId: row.exhibitorId, brandId: row.brandId, tier: row.tier, packageActivatedAt: row.packageActivatedAt, status: row.status })),
+  accounts: new Map([
+    ...catalog.participations.map((row) => [row.accountId, { name: row.exhibitorName, websiteUrl: IDENTITY[row.id]?.websiteUrl ?? null }] as const),
+    ...INTERACTION_EXTRA.map((row) => [row.accountId, { name: row.name, websiteUrl: row.websiteUrl }] as const),
+  ]),
+  businesses: new Map([
+    ...catalog.participations.map((row) => [`biz-${row.id}`, { name: row.exhibitorName, logoUrl: IDENTITY[row.id]?.logoUrl ?? null }] as const),
+    ...INTERACTION_EXTRA.map((row) => [`biz-${row.id}`, { name: row.name, logoUrl: row.logoUrl }] as const),
+  ]),
+  brands: new Map(EXHIBITORS.flatMap((exhibitor) => exhibitor.brands.map(([id, name]) => [id, name] as [string, string]))),
+  days: interactions.days,
+  questions: interactions.questions,
+  surveys: interactions.surveys,
+  passports: passportRows.map((row) => ({ exhibitorId: row.exhibitorId, brandId: row.brandId, state: row.state })),
+}, PREVIEW_NOW);
+const previewPackages = (participationId: string): PackageModel[] => interactions.models
+  .filter((row) => row.exhibitorId === participationId)
+  .map((row) => ({ id: row.id, name: row.name, brandName: row.brandName, tier: row.tier, packageActivatedAt: row.packageActivatedAt, status: row.status }));
+
 const noMore = { canLoadMore: false, loadingMore: false, onLoadMore: () => undefined, status: "ready" as const };
 
 // A8 — Leadovi: TEST leads on the TEST catalog (inbox, drawer, delivery),
@@ -427,13 +478,17 @@ const PREVIEW_EVENTS: FrameEvent[] = [
 // plus free codes, codes of the other TEST event and codes out of service —
 // 105 TEST codes in every state. No real codes or scan numbers.
 const pad = (value: number, size: number) => String(value).padStart(size, "0");
+// Izlagači 2026 — the codes of this event carry a TEST sticker label
+// (`TS26-001`…, like the printed `SA26-…`), the free ones continue the series;
+// codes of the other event and the broken ones have only their resolver code.
+const assignedQr = catalog.models.filter((row) => row.qrCode);
 const inventoryRows: InventoryRowView[] = [
-  ...catalog.models.filter((row) => row.qrCode).map((row) => ({
-    cardId: `card-${row.id}`, resolverCode: row.qrCode!, smqCode: row.qrSmq, state: "active" as const, problemReason: null,
+  ...assignedQr.map((row, index) => ({
+    cardId: `card-${row.id}`, resolverCode: row.qrCode!, label: `TS26-${pad(index + 1, 3)}`, smqCode: row.qrSmq, state: "active" as const, problemReason: null,
     assignment: { modelId: row.id, sameEvent: true },
   })),
   ...Array.from({ length: 58 }, (_, index) => ({
-    cardId: `card-free-${index}`, resolverCode: `TF${pad(index, 3)}QRS`, smqCode: `SMQ-TEST-${pad(index + 300, 4)}`, state: "problem" as const,
+    cardId: `card-free-${index}`, resolverCode: `TF${pad(index, 3)}QRS`, label: `TS26-${pad(assignedQr.length + index + 1, 3)}`, smqCode: `SMQ-TEST-${pad(index + 300, 4)}`, state: "problem" as const,
     problemReason: index % 7 === 3 ? "destination_fair_unassigned" : "destination_missing", assignment: null,
   })),
   ...Array.from({ length: 12 }, (_, index) => ({
@@ -457,7 +512,7 @@ const qrStats = new Map<string, QrScanStatsView>(inventoryRows.map((row, index):
 /** The QR detail of one TEST code (URL by resolver code or SMQ); null = not in the TEST inventory. */
 function qrDetailFixture(code: string): QrDetailView | null {
   const text = code.toUpperCase();
-  const row = inventoryRows.find((entry) => entry.resolverCode === text || entry.smqCode === text);
+  const row = inventoryRows.find((entry) => entry.resolverCode === text || entry.smqCode === text || entry.label === text);
   if (!row) return null;
   const rowModel = row.assignment?.sameEvent ? catalog.models.find((entry) => entry.id === row.assignment!.modelId) ?? null : null;
   const assignedAt = opening - 2 * 86_400_000;
@@ -476,7 +531,7 @@ function qrDetailFixture(code: string): QrDetailView | null {
     });
   }
   return {
-    cardId: row.cardId, accessChannelId: `channel-${row.cardId}`, resolverCode: row.resolverCode, smqCode: row.smqCode,
+    cardId: row.cardId, accessChannelId: `channel-${row.cardId}`, resolverCode: row.resolverCode, label: row.label ?? row.resolverCode, smqCode: row.smqCode,
     channelState: row.state ?? "problem", problemReason: row.problemReason, redirectEnabled: row.state !== "inactive",
     totalScansAllTime: (stats.total ?? 0) + 3,
     current: row.assignment ? {
@@ -496,7 +551,7 @@ const qrActions: QrActions = { reassign: ok, assign: ok, release: ok, resolveTes
 
 /** TEST dry run with the backend's rules (unknown code, code taken, model has a QR, duplicates); writes nothing. */
 function previewBulkPlan(rows: QrBulkInput[]): QrBulkDryRunView {
-  const find = (code: string) => inventoryRows.find((entry) => entry.resolverCode === code.trim().toUpperCase() || entry.smqCode === code.trim().toUpperCase());
+  const find = (code: string) => inventoryRows.find((entry) => [entry.resolverCode, entry.smqCode, entry.label].includes(code.trim().toUpperCase()));
   const findModel = (text: string) => catalog.models.find((entry) => entry.externalKey === text.trim().toLowerCase() || entry.id === text.trim());
   const codeUses = new Map<string, number>();
   const modelUses = new Map<string, number>();
@@ -543,7 +598,8 @@ const eventClients = {
     { accountId: "a-x", name: "TEST Klijent bez učešća", smkCode: "SMK-TEST-FAIR-X" },
   ] satisfies EventClientView[],
 };
-const exhibitors = buildExhibitorRows(catalog, {
+// Izlagači 2026: TEST Izlagač A with a TEST logo and website, C with a website only.
+const exhibitors = buildExhibitorRows({ ...catalog, participations: catalog.participations.map((row) => ({ ...row, ...IDENTITY[row.id] })) }, {
   capped: false,
   byParticipation: [{ participationId: "p-a", total: 3, undelivered: 1 }, { participationId: "p-b", total: 1, undelivered: 0 }],
 });
@@ -631,6 +687,7 @@ function PreviewSection({ path, detailId, query, setQuery, keep }: {
           modelHref={listModelHref}
           qrHref={qrHref}
           sectionHref={(path, extra) => eventSectionHref(PREVIEW_BASE, path, { ...keep, ...extra })}
+          interactionHref={(participationId, part, extra) => interactionExhibitorHref(PREVIEW_BASE, participationId, { ...keep, ...extra }, part)}
           summary={modelSummary(detailId)}
         />
       )
@@ -679,22 +736,61 @@ function PreviewSection({ path, detailId, query, setQuery, keep }: {
       />
     );
     case "import": return <EventImportView context={importContext} actions={importActions} initial={{ text: IMPORT_TEST_TABLE, step: "pregled" }} />;
-    case "interakcije/glas-publike": return <EventAudienceView view={interactions} actions={interactionActions} now={PREVIEW_NOW} query={query} onQueryChange={setQuery} />;
-    case "interakcije/ankete": return <EventSurveysView view={interactions} actions={interactionActions} now={PREVIEW_NOW} query={query} onQueryChange={setQuery} />;
-    case "interakcije/pasos": return <EventPassportsView rows={passportRows} eventStartsAt={opening} exhibitors={previewExhibitors} query={query} onQueryChange={setQuery} actions={passportActions} />;
-    case "interakcije/forme": return (
-      <EventLeadFormsView
-        source={leadFormsFixture}
-        names={leadFormNames}
-        exhibitors={previewExhibitors}
-        switches={{ leadsEnabled: false, followUpEnabled: false }}
-        consents={{ interest: null, test_drive: null }}
-        consentHref={eventSectionHref(PREVIEW_BASE, "leadovi/podesavanja", keep)}
-        query={query}
-        onQueryChange={setQuery}
-        actions={leadFormsActions}
-      />
-    );
+    case "interakcije": {
+      const listKeep = { ...keep, ...interactionListQuery(query) };
+      if (!detailId) {
+        return (
+          <EventInteractionExhibitorsView
+            rows={interactionRows}
+            dayLabel={interactionReportDay(interactions.days, PREVIEW_NOW, query.dan)?.label ?? null}
+            query={query}
+            onQueryChange={setQuery}
+            exhibitorHref={(participationId) => interactionExhibitorHref(PREVIEW_BASE, participationId, listKeep)}
+            packagesOf={previewPackages}
+            onUpgrade={ok}
+            now={PREVIEW_NOW}
+            importHref={eventSectionHref(PREVIEW_BASE, "import", keep)}
+            modelHref={modelHref}
+          />
+        );
+      }
+      const exhibitor = interactionRows.find((row) => row.id === detailId) ?? null;
+      const view = scopeToExhibitor(interactions, detailId);
+      const own = exhibitor ? [{ id: exhibitor.id, name: exhibitor.name }] : [];
+      const part = (name: InteractionPart) => ({ query: interactionPartQuery(name, query), onQueryChange: (patch: AdminQueryPatch) => setQuery(interactionPartPatch(name, patch)) });
+      return (
+        <EventInteractionExhibitorView
+          key={detailId}
+          exhibitor={exhibitor}
+          models={previewPackages(detailId)}
+          now={PREVIEW_NOW}
+          listHref={eventSectionHref(PREVIEW_BASE, "interakcije", listKeep)}
+          profileHref={null}
+          modelsHref={eventSectionHref(PREVIEW_BASE, "modeli", { ...keep, izlagac: detailId })}
+          importHref={eventSectionHref(PREVIEW_BASE, "import", keep)}
+          modelHref={modelHref}
+          onUpgrade={ok}
+          parts={{
+            "glas-publike": <EventAudienceView view={view} actions={interactionActions} now={PREVIEW_NOW} {...part("glas-publike")} scoped />,
+            ankete: <EventSurveysView view={view} actions={interactionActions} now={PREVIEW_NOW} {...part("ankete")} />,
+            pasos: <EventPassportsView rows={passportRows.filter((row) => row.exhibitorId === detailId)} eventStartsAt={opening} exhibitors={own} {...part("pasos")} actions={passportActions} scoped />,
+            forme: (
+              <EventLeadFormsView
+                source={leadFormsFixture}
+                names={leadFormNames}
+                exhibitors={own}
+                switches={{ leadsEnabled: false, followUpEnabled: false }}
+                consents={{ interest: null, test_drive: null }}
+                consentHref={eventSectionHref(PREVIEW_BASE, "leadovi/podesavanja", keep)}
+                {...part("forme")}
+                actions={leadFormsActions}
+                scoped
+              />
+            ),
+          }}
+        />
+      );
+    }
     case "sponzorisano": return <AdminEventsSponsored view={sponsoredView} actions={sponsoredActions} />;
     case "leadovi": return (
       <EventLeadsInboxView
@@ -707,7 +803,7 @@ function PreviewSection({ path, detailId, query, setQuery, keep }: {
         now={PREVIEW_NOW}
         leadsEnabled={false}
         detail={query.lead ? leadsFixture.details.get(query.lead) ?? null : null}
-        links={{ forms: eventSectionHref(PREVIEW_BASE, "interakcije/forme", keep), followUp: eventSectionHref(PREVIEW_BASE, "leadovi/follow-up", keep), settings: eventSectionHref(PREVIEW_BASE, "leadovi/podesavanja", keep) }}
+        links={{ forms: eventSectionHref(PREVIEW_BASE, "interakcije", keep), followUp: eventSectionHref(PREVIEW_BASE, "leadovi/follow-up", keep), settings: eventSectionHref(PREVIEW_BASE, "leadovi/podesavanja", keep) }}
         actions={inboxActions}
       />
     );

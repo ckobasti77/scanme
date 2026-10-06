@@ -1,11 +1,10 @@
 "use client";
 
-import { AnketeSection, GlasPublikeSection, PasosSection } from "@/components/admin/events/sections/interakcije-section";
+import { InterakcijeIzlagacSection, InterakcijeSection } from "@/components/admin/events/sections/interakcije-section";
 import { BrisanjeSection } from "@/components/admin/events/sections/brisanje-section";
 import { ImportSection } from "@/components/admin/events/sections/import-section";
 import { IzlagaciSection } from "@/components/admin/events/sections/izlagaci-section";
 import { IzvestajiSection } from "@/components/admin/events/sections/izvestaji-section";
-import { FormeSection } from "@/components/admin/events/sections/interakcije-forme-section";
 import { FollowUpSection, LeadoviSection, PodesavanjaSection } from "@/components/admin/events/sections/leadovi-section";
 import { ModelDetailSection, ModeliSection } from "@/components/admin/events/sections/modeli-section";
 import { PregledSection } from "@/components/admin/events/sections/pregled-section";
@@ -23,10 +22,7 @@ export function AdminEventSection({ path, detailId }: { path: EventSectionPath; 
     case "qr": return detailId ? <QrDetailSection code={detailId} /> : <QrSection />;
     case "izlagaci": return <IzlagaciSection />;
     case "import": return <ImportSection />;
-    case "interakcije/glas-publike": return <GlasPublikeSection />;
-    case "interakcije/ankete": return <AnketeSection />;
-    case "interakcije/pasos": return <PasosSection />;
-    case "interakcije/forme": return <FormeSection />;
+    case "interakcije": return detailId ? <InterakcijeIzlagacSection key={detailId} participationId={detailId} /> : <InterakcijeSection />;
     case "sponzorisano": return <SponzorisanoSection />;
     case "leadovi": return <LeadoviSection />;
     case "leadovi/follow-up": return <FollowUpSection />;

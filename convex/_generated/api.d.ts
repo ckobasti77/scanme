@@ -55,6 +55,7 @@ import type * as fairDevFixtures from "../fairDevFixtures.js";
 import type * as fairEmailSender from "../fairEmailSender.js";
 import type * as fairEmails from "../fairEmails.js";
 import type * as fairFollowUps from "../fairFollowUps.js";
+import type * as fairExhibitorImport from "../fairExhibitorImport.js";
 import type * as fairImport from "../fairImport.js";
 import type * as fairInteractions from "../fairInteractions.js";
 import type * as fairInteractionsAdmin from "../fairInteractionsAdmin.js";
@@ -230,6 +231,7 @@ declare const fullApi: ApiFromModules<{
   fairEmailSender: typeof fairEmailSender;
   fairEmails: typeof fairEmails;
   fairFollowUps: typeof fairFollowUps;
+  fairExhibitorImport: typeof fairExhibitorImport;
   fairImport: typeof fairImport;
   fairInteractions: typeof fairInteractions;
   fairInteractionsAdmin: typeof fairInteractionsAdmin;

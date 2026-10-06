@@ -13,10 +13,7 @@ export const EVENT_SECTION_PATHS = [
   "qr",
   "izlagaci",
   "import",
-  "interakcije/glas-publike",
-  "interakcije/ankete",
-  "interakcije/pasos",
-  "interakcije/forme",
+  "interakcije",
   "sponzorisano",
   "leadovi",
   "leadovi/follow-up",
@@ -27,7 +24,7 @@ export const EVENT_SECTION_PATHS = [
 
 export type EventSectionPath = (typeof EVENT_SECTION_PATHS)[number];
 type EventSectionGroup = "katalog" | "sajam" | "posle";
-type EventSectionParent = "interakcije" | "leadovi";
+type EventSectionParent = "leadovi";
 
 export type EventSectionDef = {
   path: EventSectionPath;
@@ -36,7 +33,7 @@ export type EventSectionDef = {
   /** Query keys the section reads (filters and `prikaz`). */
   queryKeys: readonly AdminQueryKey[];
   /** `<path>/<id>` opens a detail page. */
-  detail?: "model" | "qr";
+  detail?: "model" | "qr" | "izlagac";
 };
 
 export const EVENT_SECTIONS: readonly EventSectionDef[] = [
@@ -45,12 +42,15 @@ export const EVENT_SECTIONS: readonly EventSectionDef[] = [
   { path: "qr", group: "katalog", queryKeys: ["izlagac", "brend", "model", "stanje", "q", "prikaz"], detail: "qr" },
   { path: "izlagaci", group: "katalog", queryKeys: ["q", "segment", "prikaz"] },
   { path: "import", group: "katalog", queryKeys: [] },
-  // A6 — `model` + `dan` open the form on that model and day (the coverage matrix links there).
-  { path: "interakcije/glas-publike", group: "sajam", parent: "interakcije", queryKeys: ["model", "dan", "izlagac", "status", "prikaz"] },
-  { path: "interakcije/ankete", group: "sajam", parent: "interakcije", queryKeys: ["model", "prikaz"] },
-  // A7 — `brend` comes from the model detail; `model` opens that model's exception.
-  { path: "interakcije/pasos", group: "sajam", parent: "interakcije", queryKeys: ["izlagac", "brend", "stanje", "prikaz"] },
-  { path: "interakcije/forme", group: "sajam", parent: "interakcije", queryKeys: ["izlagac", "model", "prikaz"] },
+  // Izlagači 2026 — one page of exhibitor cards (`paket`: default only exhibitors
+  // with Starter/Napredni cars, `svi` all; `stanje` = a brand passport in that
+  // state, `dan` = the day of the Glas publike numbers). `<participationId>` is
+  // the exhibitor's page with Glas publike, Ankete, Pasoš brenda and Forme
+  // (`model` + `dan` open the question form, `status` filters the questions,
+  // `anketa` opens a car's survey, `brend` + `stanje` filter the passports,
+  // `forma` opens a car's form exception). The list filters stay in the URL of
+  // the page, so "Svi izlagači" returns to the same list.
+  { path: "interakcije", group: "sajam", queryKeys: ["paket", "q", "stanje", "dan", "model", "status", "anketa", "brend", "forma", "prikaz"], detail: "izlagac" },
   { path: "sponzorisano", group: "sajam", queryKeys: ["prikaz"] },
   // A8 — the inbox filters; `lead` opens the lead's drawer.
   { path: "leadovi", group: "posle", parent: "leadovi", queryKeys: ["izlagac", "brend", "model", "tip", "isporuka", "od", "do", "lead", "prikaz"] },
@@ -63,8 +63,13 @@ export const EVENT_SECTIONS: readonly EventSectionDef[] = [
 
 export const DEFAULT_EVENT_SECTION: EventSectionPath = "pregled";
 
-/** Parent paths that have no page of their own and open their first child. */
-const PARENT_REDIRECTS: Record<string, EventSectionPath> = { interakcije: "interakcije/glas-publike" };
+/** Izlagači 2026 — the parts of an exhibitor's Interakcije page, in page order (also the `#` anchors). */
+export const INTERACTION_PARTS = ["glas-publike", "ankete", "pasos", "forme"] as const;
+export type InteractionPart = (typeof INTERACTION_PARTS)[number];
+
+export function isInteractionPart(value: string): value is InteractionPart {
+  return (INTERACTION_PARTS as readonly string[]).includes(value);
+}
 
 const DETAIL_ID = /^[A-Za-z0-9_-]{1,64}$/;
 
@@ -78,24 +83,25 @@ export function eventSectionDef(path: EventSectionPath): EventSectionDef {
 
 export type ResolvedEventSection =
   | { kind: "section"; path: EventSectionPath; detailId?: string }
-  | { kind: "redirect"; path: EventSectionPath };
+  /** `legacy` = a former `interakcije/<part>` page (Izlagači 2026: one page per exhibitor). */
+  | { kind: "redirect"; path: EventSectionPath; legacy?: InteractionPart };
 
 /**
  * Route segments under the event (`[[...section]]`) → the section, a detail
- * of it, or a redirect (no segments → Pregled; `interakcije` → its first
- * child). null = not a section: the page shows a "not found" state.
+ * of it, or a redirect (no segments → Pregled; a former Interakcije page →
+ * the exhibitor's page or the list, eventRedirectHref). null = not a section:
+ * the page shows a "not found" state.
  */
 export function resolveEventSection(segments: readonly string[] | undefined): ResolvedEventSection | null {
   const parts = segments ?? [];
   if (parts.length === 0) return { kind: "redirect", path: DEFAULT_EVENT_SECTION };
   if (parts.length === 1) {
     const [only] = parts;
-    if (isEventSectionPath(only)) return { kind: "section", path: only };
-    const target = PARENT_REDIRECTS[only];
-    return target ? { kind: "redirect", path: target } : null;
+    return isEventSectionPath(only) ? { kind: "section", path: only } : null;
   }
   if (parts.length !== 2) return null;
   const joined = `${parts[0]}/${parts[1]}`;
+  if (parts[0] === "interakcije" && isInteractionPart(parts[1])) return { kind: "redirect", path: "interakcije", legacy: parts[1] };
   if (isEventSectionPath(joined)) return { kind: "section", path: joined };
   if (isEventSectionPath(parts[0]) && eventSectionDef(parts[0]).detail && DETAIL_ID.test(parts[1])) {
     return { kind: "section", path: parts[0], detailId: parts[1] };
@@ -123,8 +129,38 @@ export function eventSectionHref(base: string, path: EventSectionPath, query: Ad
   return `${base}/${path}${serializeAdminQuery(query)}`;
 }
 
-export function eventDetailHref(base: string, path: "modeli" | "qr", id: string, query: AdminQueryState = {}) {
+export function eventDetailHref(base: string, path: "modeli" | "qr" | "interakcije", id: string, query: AdminQueryState = {}) {
   return `${base}/${path}/${encodeURIComponent(id)}${serializeAdminQuery(query)}`;
+}
+
+/** An exhibitor's Interakcije page, optionally at one part (`#glas-publike`…). */
+export function interactionExhibitorHref(base: string, participationId: string, query: AdminQueryState = {}, part?: InteractionPart) {
+  return `${eventDetailHref(base, "interakcije", participationId, query)}${part ? `#${part}` : ""}`;
+}
+
+/** What a former `interakcije/<part>?izlagac=…` link meant, in the keys of the exhibitor's page. */
+const LEGACY_PART_KEYS: Record<InteractionPart, readonly [from: AdminQueryKey, to: AdminQueryKey][]> = {
+  "glas-publike": [["model", "model"], ["dan", "dan"], ["status", "status"]],
+  ankete: [["model", "anketa"]],
+  pasos: [["brend", "brend"], ["stanje", "stanje"]],
+  forme: [["model", "forma"]],
+};
+
+/**
+ * Where a redirect goes, with the filters the target reads. A former
+ * Interakcije page with `?izlagac=` opens that exhibitor's page at the same
+ * part (its model, day and filters kept); without it, the exhibitor list.
+ * `extra` adds keys of the target (the preview keeps `?dogadjaj=`).
+ */
+export function eventRedirectHref(base: string, resolved: Extract<ResolvedEventSection, { kind: "redirect" }>, source: Parameters<typeof parseAdminQuery>[0], extra: AdminQueryState = {}) {
+  const query = parseAdminQuery(source);
+  if (resolved.legacy && query.izlagac) {
+    const target: AdminQueryState = {};
+    for (const [from, to] of LEGACY_PART_KEYS[resolved.legacy]) if (query[from]) target[to] = query[from];
+    if (query.prikaz) target.prikaz = query.prikaz;
+    return interactionExhibitorHref(base, query.izlagac, { ...target, ...extra }, resolved.legacy);
+  }
+  return eventSectionHref(base, resolved.path, { ...parseAdminQuery(query, eventSectionDef(resolved.path).queryKeys), ...extra });
 }
 
 /** Filters that mean the same in every event; ID filters (izlagac, model…) belong to one event. */
@@ -160,11 +196,13 @@ export function pickCurrentEvent<T extends EventForPick>(events: readonly T[], n
 /** Page title of a section or its detail (`generateMetadata`). */
 export function eventSectionTitle(section: ResolvedEventSection | null) {
   if (!section || section.kind !== "section") return dict.pageTitle;
-  const label = section.detailId ? (section.path === "modeli" ? dict.detailModelTitle : dict.detailQrTitle) : dict.sectionLabels[section.path];
+  const label = section.detailId
+    ? section.path === "modeli" ? dict.detailModelTitle : section.path === "interakcije" ? dict.detailExhibitorTitle : dict.detailQrTitle
+    : dict.sectionLabels[section.path];
   return `${label} · ${dict.pageTitle}`;
 }
 
-const PARENT_LABELS: Record<EventSectionParent, string> = { interakcije: dict.navInteractions, leadovi: dict.navLeads };
+const PARENT_LABELS: Record<EventSectionParent, string> = { leadovi: dict.navLeads };
 
 /**
  * Navigation of one event: groups → items → children. `hrefFor` builds the

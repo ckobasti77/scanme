@@ -33,6 +33,7 @@ function useInventory(): Paged<InventoryRowView> {
     rows: inventory.results.map((row) => ({
       cardId: row.cardId,
       resolverCode: row.resolverCode,
+      label: row.label,
       smqCode: row.smqCode,
       state: row.state,
       problemReason: row.problemReason,

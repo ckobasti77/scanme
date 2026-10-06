@@ -2,9 +2,11 @@ import { describe, expect, test } from "vitest";
 import {
   applyQrFilters,
   clearQrFiltersPatch,
+  compareQrRows,
   qrCodeFromSearch,
   qrHierarchyCountedIds,
   qrListQuery,
+  qrPrintedLabel,
   qrStateCounts,
   qrStateOf,
   type FilterableQrRow,
@@ -99,3 +101,36 @@ describe("query keys and a typed code", () => {
     for (const text of ["", undefined, "7KQ2", "7KQ2M9XAB", "volta", "SMQ-", "7KQ2M9U!"]) expect(qrCodeFromSearch(text)).toBeNull();
   });
 });
+
+describe("printed sticker labels (Izlagači 2026)", () => {
+  // TS26 = a TEST print series (the real one is SA26); a card without a label carries its resolver code.
+  const labelled = [
+    row("p1", "SMQ-TEST-0100", { label: "PANEL-2026-TEST" }),
+    row("s10", "SMQ-TEST-0090", { label: "TS26-010" }),
+    row("s2", "SMQ-TEST-0095", { label: "TS26-002" }),
+    row("s100", "SMQ-TEST-0001", { label: "TS26-100" }),
+    row("x1", "SMQ-TEST-0002", { label: "TX1000001" }),
+    row("x0", null),
+  ].map((entry) => (entry.cardId === "x1" ? { ...entry, resolverCode: "TX1000001" } : entry));
+
+  test("a label equal to the resolver code is no printed label", () => {
+    expect(qrPrintedLabel(labelled[1])).toBe("TS26-010");
+    expect(qrPrintedLabel(labelled[4])).toBeNull();
+    expect(qrPrintedLabel({ resolverCode: "7KQ2M9XA", label: " 7kq2m9xa " })).toBeNull();
+    expect(qrPrintedLabel({ resolverCode: "7KQ2M9XA" })).toBeNull();
+  });
+
+  test("print order: sticker serials numerically, then panels, then codes without a label by SMQ", () => {
+    expect([...labelled].sort(compareQrRows).map((entry) => entry.cardId)).toEqual(["s2", "s10", "s100", "p1", "x1", "x0"]);
+    expect(applyQrFilters(labelled, models, {}).map((entry) => entry.cardId)).toEqual(["s2", "s10", "s100", "p1", "x1", "x0"]);
+  });
+
+  test("search by the label; a typed sticker serial opens the detail", () => {
+    expect(applyQrFilters(labelled, models, { q: "ts26-010" }).map((entry) => entry.cardId)).toEqual(["s10"]);
+    expect(applyQrFilters(labelled, models, { q: "panel" }).map((entry) => entry.cardId)).toEqual(["p1"]);
+    expect(qrCodeFromSearch(" sa26-007 ")).toBe("SA26-007");
+    expect(qrCodeFromSearch("TS26-100")).toBe("TS26-100");
+    for (const text of ["PANEL-2026-EVENT", "TEST-A1", "SA26-", "-001"]) expect(qrCodeFromSearch(text)).toBeNull();
+  });
+});
+

@@ -165,13 +165,31 @@ export async function releaseFairQr(
 // A4 — QR detail, change of destination (reassign) and bulk assignment
 // -----------------------------------------------------------------------------
 
-/** A printed code as the admin types it: the 8-character resolver code or the SMQ serial (`SMQ-…`). */
+/** A printed label of an inventory card: "SA26-001", "PANEL-2026-EVENT" (letters/digits in dash-separated parts). */
+const FAIR_QR_LABEL_PATTERN = /^[A-Z0-9]+(?:-[A-Z0-9]+)+$/;
+const FAIR_QR_LABEL_MAX_LENGTH = 40;
+/** Bound of the label lookup: one inventory business holds ~100 print codes + panels. */
+export const FAIR_QR_LABEL_SCAN_LIMIT = 1000;
+
+/** True when the typed text has the shape of a printed label (not a resolver code or an SMQ serial). */
+export function isFairQrLabelText(code: string): boolean {
+  const text = code.trim().toUpperCase();
+  return text.length <= FAIR_QR_LABEL_MAX_LENGTH && !text.startsWith("SMQ-") && FAIR_QR_LABEL_PATTERN.test(text);
+}
+
+/**
+ * A printed code as the admin types it: the 8-character resolver code, the
+ * SMQ serial (`SMQ-…`) or, Izlagači 2026, the printed label of the
+ * inventory card (`SA26-001`, `cards.label`), matched inside the event's
+ * inventory only (bounded by FAIR_QR_LABEL_SCAN_LIMIT).
+ */
 export async function findInventoryCode(
   ctx: Ctx,
   event: Doc<"fairEvents">,
   code: string,
 ): Promise<{ channel: Doc<"accessChannels"> } | { problem: FairAdminIssueCode }> {
   if (!event.qrInventoryBusinessId) return { problem: "FAIR_QR_INVENTORY_NOT_CONFIGURED" };
+  const inventoryBusinessId = event.qrInventoryBusinessId;
   const text = code.trim().toUpperCase();
   let channel: Doc<"accessChannels"> | null = null;
   if (text.startsWith("SMQ-")) {
@@ -181,8 +199,22 @@ export async function findInventoryCode(
     const resolverCode = normalizeCode(text);
     channel = resolverCode ? await ctx.db.query("accessChannels").withIndex("by_resolverCode", (q) => q.eq("resolverCode", resolverCode)).first() : null;
   }
+  if (!channel && isFairQrLabelText(text)) {
+    const cards = await ctx.db.query("cards").withIndex("by_businessId", (q) => q.eq("businessId", inventoryBusinessId)).take(FAIR_QR_LABEL_SCAN_LIMIT);
+    const card = cards.find((row) => row.label.trim().toUpperCase() === text);
+    channel = card?.accessChannelId ? await ctx.db.get(card.accessChannelId) : null;
+  }
   if (!channel) return { problem: "FAIR_QR_NOT_FOUND" };
-  if (channel.businessId !== event.qrInventoryBusinessId || channel.kind !== "qr") return { problem: "FAIR_QR_NOT_IN_INVENTORY" };
+  if (channel.kind !== "qr") return { problem: "FAIR_QR_NOT_IN_INVENTORY" };
+  if (channel.businessId !== event.qrInventoryBusinessId) {
+    // Izlagači 2026: after the event moves to another inventory (the printed
+    // SA26 one, fairExhibitorImport.linkEventQrInventory), a code of the old
+    // inventory that still leads to one of its models stays reachable here:
+    // its detail opens and „Ukloni vezu“ frees the model. A new assignment
+    // still takes only codes of the current inventory (findInventoryChannel).
+    const assignment = await activeAssignmentForChannel(ctx, channel._id);
+    if (!assignment || assignment.eventId !== event._id) return { problem: "FAIR_QR_NOT_IN_INVENTORY" };
+  }
   return { channel };
 }
 

@@ -249,8 +249,8 @@ export function buildFairDashboard(facts: FairDashboardFacts) {
   const nextDay = phase.kind === "pre"
     ? days[0] ?? null
     : phase.kind === "sajam" && !phase.dayOpen && phase.dayIndex && phase.dayIndex <= days.length && days[phase.dayIndex - 1].startsAt > at ? days[phase.dayIndex - 1] : null;
-  if (openDay) add("question_missing_today", facts.belgradeHour < QUESTION_URGENT_UNTIL_HOUR ? "hitno" : "uskoro", missingOn(openDay.id), "interakcije/glas-publike", { dan: openDay.dateKey });
-  if (nextDay && nextDay.startsAt - at < FAIR_DASHBOARD_NEXT_DAY_MS) add("question_missing_next_day", "uskoro", missingOn(nextDay.id), "interakcije/glas-publike", { dan: nextDay.dateKey });
+  if (openDay) add("question_missing_today", facts.belgradeHour < QUESTION_URGENT_UNTIL_HOUR ? "hitno" : "uskoro", missingOn(openDay.id), "interakcije", { dan: openDay.dateKey });
+  if (nextDay && nextDay.startsAt - at < FAIR_DASHBOARD_NEXT_DAY_MS) add("question_missing_next_day", "uskoro", missingOn(nextDay.id), "interakcije", { dan: nextDay.dateKey });
 
   // Napredni (rules 7, 8, 19): the sponsored list holds the published models
   // whose Napredni package is in force now, each with its map question.
@@ -340,10 +340,10 @@ export function buildFairDashboard(facts: FairDashboardFacts) {
     return (passport?.freezesAt ?? event.startsAt) <= at && passport?.status !== "published";
   }).length;
   if (preOrFair) {
-    add("passport_hidden", "info", hiddenEligible, "interakcije/pasos", { stanje: "sakriven" });
-    add("passport_blocked", "hitno", facts.blockedPassports, "interakcije/pasos", { stanje: "zamrznut" });
+    add("passport_hidden", "info", hiddenEligible, "interakcije", { stanje: "sakriven" });
+    add("passport_blocked", "hitno", facts.blockedPassports, "interakcije", { stanje: "zamrznut" });
   }
-  if (P === "sajam") add("passport_missing", "info", missingPassport, "interakcije/pasos", { stanje: "nije-napravljen" });
+  if (P === "sajam") add("passport_missing", "info", missingPassport, "interakcije", { stanje: "nije-napravljen" });
 
   // Rule 20: days until the 16 Nov purge (count = days, shown also on its last day).
   if (P === "posle") {

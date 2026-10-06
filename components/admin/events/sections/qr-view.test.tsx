@@ -290,3 +290,57 @@ describe("No „Oslobodi“ anywhere in the admin", () => {
     expect(strings.filter((text) => /\boslobodi\b/i.test(text))).toEqual([]);
   });
 });
+
+describe("sticker labels and the real QR (Izlagači 2026)", () => {
+  // TS26 = a TEST print series (the printed one is SA26); SSR draws the production address.
+  const labelled: InventoryRowView[] = [
+    { ...rows[2], cardId: "s2", label: "TS26-002" },
+    { ...rows[0], label: "TS26-001" },
+  ];
+  const labelledHtml = (view: "tabela" | "kartice") => renderToStaticMarkup(
+    <AdminViewModeOverride value={view}>
+      <EventQrView
+        catalog={catalog}
+        inventory={{ rows: labelled, status: "ready", canLoadMore: false, loadingMore: false, onLoadMore: () => undefined }}
+        stats={stats}
+        query={{}}
+        onQueryChange={() => undefined}
+        qrHref={(code) => eventDetailHref(BASE, "qr", code)}
+        modelHref={(id) => eventDetailHref(BASE, "modeli", id)}
+        bulk={bulkActions}
+        actions={{ resolveTest }}
+      />
+    </AdminViewModeOverride>,
+  );
+
+  test("a card shows the sticker label with the codes under it and a scannable QR of the code instead of the icon", () => {
+    const html = labelledHtml("kartice");
+    expect(html.indexOf(">TS26-001<")).toBeGreaterThan(-1);
+    expect(html.indexOf(">TS26-001<")).toBeLessThan(html.indexOf(">TS26-002<"));
+    expect(html).toContain(">SMQ-TEST-0001 · 7KQ2M9XA<");
+    expect(html).toContain('data-qr-url="https://scanme.rs/r/7KQ2M9XA"');
+    expect(html).toContain('data-qr-url="https://scanme.rs/r/TF000QRS"');
+    expect(html).toContain(`aria-label="${fmt(list.qrAria, { code: "TS26-001" })}"`);
+    expect(html).toMatch(/<svg viewBox="0 0 \d+ \d+" role="img"/);
+    expect(html).toContain(`aria-label="${fmt(list.manageAria, { code: "TS26-001" })}"`);
+  });
+
+  test("Tabela: the label above SMQ and code; a code without a label keeps the SMQ as its name", () => {
+    const html = labelledHtml("tabela");
+    expect(html).toMatch(/<strong[^>]*>TS26-001<\/strong>/);
+    expect(listHtml({})).toMatch(/<span class="text-sm font-semibold">SMQ-TEST-0001<\/span>/);
+  });
+
+  test("the detail: the label as the title, the big QR with its address, copy and open", () => {
+    const html = detailHtml({ ...assigned, label: "TS26-001" });
+    expect(html).toMatch(/<h2[^>]*>TS26-001<\/h2>/);
+    expect(html).toContain(detail.factLabel);
+    expect(html).toContain('data-qr-url="https://scanme.rs/r/7KQ2M9XA"');
+    expect(html).toContain(">https://scanme.rs/r/7KQ2M9XA<");
+    expect(html).toContain(detail.copyAddress);
+    expect(html).toMatch(/<a href="https:\/\/scanme\.rs\/r\/7KQ2M9XA" target="_blank" rel="noopener noreferrer"/);
+    // A card whose label is its resolver code has no sticker label.
+    const plain = detailHtml({ ...assigned, label: "7KQ2M9XA" });
+    expect(plain).toMatch(/<h2[^>]*>SMQ-TEST-0001<\/h2>/);
+  });
+});

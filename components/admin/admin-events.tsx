@@ -41,8 +41,11 @@ export type ModelView = {
 
 export type CatalogView = {
   days: { dateKey: string; label: string }[];
-  /** A5 — accountId (Prebaci u redovne klijente) and the SMK/SML codes (import) next to the joined `codes`. */
-  participations: { id: string; externalKey: string; accountId: string; exhibitorName: string; codes: string; smkCode: string | null; smlCode: string | null; segment: FairClientSegment; status: FairParticipationStatus }[];
+  /**
+   * A5 — accountId (Prebaci u redovne klijente) and the SMK/SML codes (import) next to the joined `codes`.
+   * Izlagači 2026 — the exhibitor's logo (business) and website (account), when known.
+   */
+  participations: { id: string; externalKey: string; accountId: string; exhibitorName: string; codes: string; smkCode: string | null; smlCode: string | null; segment: FairClientSegment; status: FairParticipationStatus; logoUrl?: string | null; websiteUrl?: string | null }[];
   stands: { id: string; participationId: string; externalKey: string; code: string; displayName: string; mapLocationId: string; exhibitorName: string; status: FairParticipationStatus }[];
   models: ModelView[];
   qrConfigured: boolean;
@@ -51,6 +54,8 @@ export type CatalogView = {
 export type InventoryRowView = {
   cardId: string;
   resolverCode: string;
+  /** Izlagači 2026 — cards.label: the printed sticker label (`SA26-001`); a card without one carries its resolver code. */
+  label?: string | null;
   smqCode: string | null;
   state: "active" | "inactive" | "problem" | null;
   /** A4 — why the channel is in `problem` (a free code: `destination_*`). */
@@ -66,6 +71,8 @@ export type QrDetailView = {
   cardId: string;
   accessChannelId: string;
   resolverCode: string;
+  /** Izlagači 2026 — cards.label (`SA26-001`). */
+  label?: string | null;
   smqCode: string | null;
   channelState: "active" | "inactive" | "problem";
   problemReason: string | null;

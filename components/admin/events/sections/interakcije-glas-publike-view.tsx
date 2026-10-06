@@ -380,6 +380,8 @@ export type EventAudienceViewProps = {
   now: number;
   query: AdminQueryState;
   onQueryChange: (patch: AdminQueryPatch) => void;
+  /** Izlagači 2026: on one exhibitor's page (`view` holds only its cars) — no exhibitor filter. */
+  scoped?: boolean;
 };
 
 export function EventAudienceView({ view, actions, ...rest }: EventAudienceViewProps) {
@@ -387,7 +389,7 @@ export function EventAudienceView({ view, actions, ...rest }: EventAudienceViewP
   return <Audience view={view} actions={actions} {...rest} />;
 }
 
-function Audience({ view, actions, now, query, onQueryChange }: { view: InteractionsView; actions: InteractionsActions; now: number; query: AdminQueryState; onQueryChange: (patch: AdminQueryPatch) => void }) {
+function Audience({ view, actions, now, query, onQueryChange, scoped = false }: { view: InteractionsView; actions: InteractionsActions; now: number; query: AdminQueryState; onQueryChange: (patch: AdminQueryPatch) => void; scoped?: boolean }) {
   const [editing, setEditing] = useState<AudienceEditing | null>(null);
   const [formMessage, setFormMessage] = useState<EventMessage>(null);
   const [message, setMessage] = useState<EventMessage>(null);
@@ -441,14 +443,14 @@ function Audience({ view, actions, now, query, onQueryChange }: { view: Interact
   const exhibitors = [...new Map(view.models.map((model) => [model.exhibitorId, model.exhibitorName])).entries()].sort((x, y) => x[1].localeCompare(y[1], "sr-Latn-RS"));
   const facets: AdminFilterFacet[] = [
     { id: "status", label: a.facetStatus, options: AUDIENCE_STATUSES.map((status) => ({ value: AUDIENCE_STATUS_PARAMS[status], label: a.statuses[status], count: counts[status] })) },
-    { id: "izlagac", label: a.facetExhibitor, options: exhibitors.map(([id, name]) => ({ value: id, label: name })) },
+    ...(scoped ? [] : [{ id: "izlagac", label: a.facetExhibitor, options: exhibitors.map(([id, name]) => ({ value: id, label: name })) }]),
   ];
   const chips: AdminFilterChip[] = [];
   const statusFilter = audienceStatusFromParam(query.status);
   if (statusFilter) chips.push({ id: "status", label: `${a.facetStatus}: ${a.statuses[statusFilter]}`, onRemove: () => onQueryChange({ status: null }) });
-  const exhibitorName = exhibitors.find(([id]) => id === query.izlagac)?.[1];
+  const exhibitorName = scoped ? undefined : exhibitors.find(([id]) => id === query.izlagac)?.[1];
   if (exhibitorName) chips.push({ id: "izlagac", label: `${a.facetExhibitor}: ${exhibitorName}`, onRemove: () => onQueryChange({ izlagac: null }) });
-  const clear = () => onQueryChange({ status: null, izlagac: null });
+  const clear = () => onQueryChange(scoped ? { status: null } : { status: null, izlagac: null });
   const dayLabel = (id: string) => view.days.find((row) => row.id === id)?.label ?? "—";
 
   const columns: AdminColumn<InteractionQuestion>[] = [

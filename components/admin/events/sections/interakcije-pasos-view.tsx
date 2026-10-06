@@ -58,6 +58,8 @@ export type EventPassportsViewProps = {
   query: AdminQueryState;
   onQueryChange: (patch: AdminQueryPatch) => void;
   actions: PassportsActions;
+  /** Izlagači 2026: on one exhibitor's page (`rows` are its brands) — no exhibitor filter. */
+  scoped?: boolean;
 };
 
 type Tone = ComponentProps<typeof AdminStatus>["tone"];
@@ -201,7 +203,7 @@ function passportColumns(runner: Runner, actions: PassportsActions): AdminColumn
   ];
 }
 
-export function EventPassportsView({ rows, eventStartsAt, exhibitors, query, onQueryChange, actions }: EventPassportsViewProps) {
+export function EventPassportsView({ rows, eventStartsAt, exhibitors, query, onQueryChange, actions, scoped = false }: EventPassportsViewProps) {
   const runner = usePassportRunner();
   const all = rows ?? [];
   const filtered = rows ? applyPassportFilters(rows, query) : undefined;
@@ -209,11 +211,11 @@ export function EventPassportsView({ rows, eventStartsAt, exhibitors, query, onQ
   const brandName = query.brend ? all.find((row) => row.brandId === query.brend)?.brandName : undefined;
 
   const facets: AdminFilterFacet[] = [
-    { id: "izlagac", label: p.facetExhibitor, options: exhibitors.map((row) => ({ value: row.id, label: row.name })) },
+    ...(scoped ? [] : [{ id: "izlagac", label: p.facetExhibitor, options: exhibitors.map((row) => ({ value: row.id, label: row.name })) }]),
     { id: "stanje", label: p.facetState, options: PASSPORT_STATE_VALUES.map((value) => ({ value, label: p.states[PASSPORT_STATE_OF_PARAM[value]], count: counts[value] })) },
   ];
   const chips: AdminFilterChip[] = [];
-  const exhibitor = query.izlagac ? exhibitors.find((row) => row.id === query.izlagac) : undefined;
+  const exhibitor = query.izlagac && !scoped ? exhibitors.find((row) => row.id === query.izlagac) : undefined;
   if (exhibitor) chips.push({ id: "izlagac", label: `${p.facetExhibitor}: ${exhibitor.name}`, onRemove: () => onQueryChange({ izlagac: null }) });
   if (brandName) chips.push({ id: "brend", label: fmt(p.brandChip, { brand: brandName }), onRemove: () => onQueryChange({ brend: null }) });
   if (query.stanje && (PASSPORT_STATE_VALUES as readonly string[]).includes(query.stanje)) {
@@ -227,14 +229,14 @@ export function EventPassportsView({ rows, eventStartsAt, exhibitors, query, onQ
         <AdminFilterBar
           label={p.filterLabel}
           facets={facets}
-          values={{ izlagac: query.izlagac, stanje: query.stanje }}
+          values={scoped ? { stanje: query.stanje } : { izlagac: query.izlagac, stanje: query.stanje }}
           onFacetChange={(id, next) => onQueryChange({ [id]: next ?? null })}
           chips={chips}
           onClear={clear}
         />
       ) : null}
       <Section
-        title={dict.sectionLabels["interakcije/pasos"]}
+        title={dict.interactionSections.pasos}
         action={(
           <button
             type="button"

@@ -8,7 +8,7 @@ import { matchesSearch, normalizeSearch } from "./hierarchy";
 import type { AdminQueryPatch, AdminQueryState } from "./query-state";
 
 export type ExhibitorSource = {
-  participations: { id: string; accountId: string; exhibitorName: string; codes: string; segment: FairClientSegment; status: FairParticipationStatus }[];
+  participations: { id: string; accountId: string; exhibitorName: string; codes: string; segment: FairClientSegment; status: FairParticipationStatus; logoUrl?: string | null; websiteUrl?: string | null }[];
   stands: { participationId: string; code: string; displayName: string }[];
   models: { participationId: string; brandName: string; tier: FairPackageTier; qrCode: string | null }[];
 };
@@ -19,6 +19,9 @@ export type ExhibitorRow = {
   id: string;
   accountId: string;
   name: string;
+  /** Izlagači 2026 — the exhibitor's logo and website (null = not entered). */
+  logoUrl: string | null;
+  websiteUrl: string | null;
   codes: string;
   segment: FairClientSegment;
   status: FairParticipationStatus;
@@ -46,6 +49,8 @@ export function buildExhibitorRows(source: ExhibitorSource, leads?: ExhibitorLea
       id: participation.id,
       accountId: participation.accountId,
       name: participation.exhibitorName,
+      logoUrl: participation.logoUrl ?? null,
+      websiteUrl: participation.websiteUrl ?? null,
       codes: participation.codes,
       segment: participation.segment,
       status: participation.status,

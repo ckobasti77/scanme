@@ -79,6 +79,8 @@ export type EventLeadFormsViewProps = {
   query: AdminQueryState;
   onQueryChange: (patch: AdminQueryPatch) => void;
   actions: LeadFormsActions;
+  /** Izlagači 2026: on one exhibitor's page (`exhibitors` = that one) — no exhibitor select. */
+  scoped?: boolean;
 };
 
 type Tone = ComponentProps<typeof AdminStatus>["tone"];
@@ -365,7 +367,7 @@ const formColumns: AdminColumn<LeadFormRow>[] = [
   { id: "testDrive", header: dict.leadKinds.test_drive, sortValue: (row) => f.states[row.testDrive.state], cell: (row) => <FormCell cell={row.testDrive} /> },
 ];
 
-export function EventLeadFormsView({ source, names, exhibitors, switches, consents, consentHref, query, onQueryChange, actions }: EventLeadFormsViewProps) {
+export function EventLeadFormsView({ source, names, exhibitors, switches, consents, consentHref, query, onQueryChange, actions, scoped = false }: EventLeadFormsViewProps) {
   const exhibitorId = selectedLeadFormExhibitor(exhibitors, source, query);
   const exhibitor = exhibitors.find((row) => row.id === exhibitorId) ?? null;
   const rows = source && exhibitorId ? buildLeadFormRows(source, names, exhibitorId) : undefined;
@@ -376,18 +378,20 @@ export function EventLeadFormsView({ source, names, exhibitors, switches, consen
 
   return (
     <div className="grid min-w-0 gap-4">
-      <Section title={dict.sectionLabels["interakcije/forme"]}>
+      <Section title={dict.interactionSections.forme}>
         <p className="mb-4 max-w-3xl text-sm text-[var(--admin-text-muted)]">{f.help}</p>
         <FlowStatus switches={switches} consents={consents} consentHref={consentHref} />
         {!exhibitors.length ? (
           <AdminEmptyState title={f.noExhibitorsTitle} body={f.noExhibitorsBody} className="min-h-40" />
         ) : (
           <div className="mt-4 grid gap-4">
-            <label htmlFor={selectId} className="grid max-w-xl gap-1.5 text-sm font-semibold">{f.exhibitorLabel}
-              <select id={selectId} value={exhibitorId ?? ""} onChange={(event) => onQueryChange({ izlagac: event.target.value, model: null })} className={adminFieldClass}>
-                {exhibitors.map((row) => <option key={row.id} value={row.id}>{fmt(f.exhibitorOption, { name: row.name, count: counts.get(row.id) ?? 0 })}</option>)}
-              </select>
-            </label>
+            {scoped ? null : (
+              <label htmlFor={selectId} className="grid max-w-xl gap-1.5 text-sm font-semibold">{f.exhibitorLabel}
+                <select id={selectId} value={exhibitorId ?? ""} onChange={(event) => onQueryChange({ izlagac: event.target.value, model: null })} className={adminFieldClass}>
+                  {exhibitors.map((row) => <option key={row.id} value={row.id}>{fmt(f.exhibitorOption, { name: row.name, count: counts.get(row.id) ?? 0 })}</option>)}
+                </select>
+              </label>
+            )}
             {exhibitor && rows && saved ? (
               <DefaultsForm
                 key={exhibitor.id}

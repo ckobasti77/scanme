@@ -2816,6 +2816,15 @@ export interface AdminV1Dict {
   clientProfileContactPhone: string;
   clientProfileSaveContact: string;
   clientProfileCancel: string;
+  clientProfileWebsite: string;
+  clientProfileWebsiteEmpty: string;
+  clientProfileWebsiteAdd: string;
+  clientProfileWebsiteEdit: string;
+  clientProfileWebsiteSave: string;
+  clientProfileWebsiteOpen: string;
+  clientProfileWebsitePlaceholder: string;
+  clientProfileWebsiteInvalid: string;
+  clientProfileWebsiteError: string;
   clientProfileConfirmDeactivate: string;
   clientProfileContactRequired: string;
   clientProfileContactInvalidEmail: string;
@@ -3793,10 +3802,7 @@ export interface AdminEventsDict {
     qr: string;
     izlagaci: string;
     import: string;
-    "interakcije/glas-publike": string;
-    "interakcije/ankete": string;
-    "interakcije/pasos": string;
-    "interakcije/forme": string;
+    interakcije: string;
     sponzorisano: string;
     leadovi: string;
     "leadovi/follow-up": string;
@@ -3809,6 +3815,8 @@ export interface AdminEventsDict {
   navLeads: string;
   detailModelTitle: string;
   detailQrTitle: string;
+  detailExhibitorTitle: string;
+  interactionSections: { glasPublike: string; ankete: string; pasos: string; forme: string };
   eventNotFoundTitle: string;
   eventNotFoundBody: string;
   backToEvents: string;
@@ -3818,6 +3826,85 @@ export interface AdminEventsDict {
   backToList: string;
   modelNotFoundBody: string;
   openDetail: string;
+  interactionExhibitors: {
+    subtitle: string;
+    filterLabel: string;
+    searchLabel: string;
+    searchPlaceholder: string;
+    searchChip: string;
+    facetPackage: string;
+    packages: { interakcije: string; svi: string; napredni: string; starter: string; "za-sve": string };
+    passportChip: string;
+    count: string;
+    colExhibitor: string;
+    colModels: string;
+    colQuestions: string;
+    colSurveys: string;
+    colPassport: string;
+    modelsByTier: string;
+    noModels: string;
+    questionsValue: string;
+    questionsDay: string;
+    questionsNone: string;
+    surveysValue: string;
+    surveysNone: string;
+    passportNone: string;
+    loading: string;
+    open: string;
+    /** "Paketi" in the list: the exhibitor's cars open under its row. */
+    packagesOpen: string;
+    packagesClose: string;
+    /** {name} = exhibitor. */
+    packagesAria: string;
+    /** {name} = exhibitor. */
+    packagesFor: string;
+    openAria: string;
+    websiteAria: string;
+    emptyTitle: string;
+    emptyBody: string;
+    emptyShowAll: string;
+    noExhibitorsTitle: string;
+    noExhibitorsBody: string;
+    noMatchTitle: string;
+    noMatchBody: string;
+  };
+  exhibitorPage: {
+    back: string;
+    notFoundTitle: string;
+    notFoundBody: string;
+    profile: string;
+    noWebsite: string;
+    models: string;
+    jumpLabel: string;
+    packagesTitle: string;
+    packagesHelp: string;
+    packagesEmptyTitle: string;
+    packagesEmptyBody: string;
+    packagesEmptyAction: string;
+    colModel: string;
+    colBrand: string;
+    colPackage: string;
+    colStatus: string;
+    upgradeTo: string;
+    upgradeAria: string;
+    upgradeConfirm: string;
+    /** {count} = live cars of the exhibitor. */
+    carsShow: string;
+    carsHide: string;
+    bulkLabel: string;
+    bulkTo: string;
+    bulkAria: string;
+    bulkConfirm: string;
+    confirm: string;
+    cancel: string;
+    upgraded: string;
+    bulkDone: string;
+    bulkPartial: string;
+    highestTier: string;
+    pendingFrom: string;
+    noInteractionsTitle: string;
+    noInteractionsBody: string;
+  };
   /** Admin UX A4 — `qr`: filters (lib/admin-v1/qr-filters.ts), list columns and scan numbers. */
   qrList: {
     searchLabel: string;
@@ -3837,6 +3924,8 @@ export interface AdminEventsDict {
     noMatchTitle: string;
     noMatchBody: string;
     colCode: string;
+    /** {code} = label / SMQ of the drawn QR. */
+    qrAria: string;
     colState: string;
     colModel: string;
     colScans: string;
@@ -3853,6 +3942,12 @@ export interface AdminEventsDict {
   };
   /** Admin UX A4 — `qr/[kod]`: where the code leads, change of destination, remove link, stats, history. */
   qrDetail: {
+    /** Izlagači 2026 — the sticker label and the drawn QR of the code. */
+    factLabel: string;
+    copyAddress: string;
+    addressCopied: string;
+    openAddress: string;
+    scanHelp: string;
     factSmq: string;
     factCode: string;
     factChannel: string;
@@ -4196,6 +4291,10 @@ export interface AdminEventsDict {
     openModels: string;
     /** {name}. */
     openModelsAria: string;
+    /** Izlagači 2026 — the client's profile (logo, website, contacts). */
+    openProfile: string;
+    /** {name} = exhibitor. */
+    openProfileAria: string;
     /** {name}. */
     convertAria: string;
     emptyTitle: string;

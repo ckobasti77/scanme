@@ -947,9 +947,8 @@ export const FAIR_DASHBOARD_SECTIONS = [
   "modeli",
   "qr",
   "izlagaci",
-  "interakcije/glas-publike",
-  "interakcije/pasos",
-  "interakcije/forme",
+  // Izlagači 2026: one Interakcije page (exhibitor cards); `dan` / `stanje` mark the exhibitors to look at.
+  "interakcije",
   "sponzorisano",
   "leadovi",
   "leadovi/follow-up",

@@ -44,18 +44,18 @@ describe("A10 Pregled view", () => {
     expect(html.indexOf('data-rule="question_missing_today"')).toBeLessThan(html.indexOf('data-rule="reports_pending_review"'));
 
     for (const [rule, href] of [
-      ["question_missing_today", `${BASE}/interakcije/glas-publike?dan=2026-10-10`],
+      ["question_missing_today", `${BASE}/interakcije?dan=2026-10-10`],
       ["reports_pending_review", `${BASE}/izvestaji?status=ceka-odobrenje`],
       ["published_without_qr", `${BASE}/modeli?status=objavljen&amp;qr=nema`],
       ["leads_undelivered", `${BASE}/leadovi?isporuka=ne`],
       ["advanced_photo_missing", `${BASE}/modeli?paket=napredni&amp;foto=nema`],
-      ["passport_missing", `${BASE}/interakcije/pasos?stanje=nije-napravljen`],
+      ["passport_missing", `${BASE}/interakcije?stanje=nije-napravljen`],
     ] as const) {
       expect({ rule, linked: html.includes(`href="${href}"`) }).toEqual({ rule, linked: true });
     }
     for (const text of [
       d.rules.question_missing_today.title, "Starter i Napredni modeli nemaju objavljeno pitanje Glasa publike za TEST dan 2.",
-      d.open["interakcije/glas-publike"], `aria-label="${d.open.izvestaji}: ${d.rules.reports_pending_review.title}"`,
+      d.open.interakcije, `aria-label="${d.open.izvestaji}: ${d.rules.reports_pending_review.title}"`,
       "Rok za predaju izlagačima je 15. 11. 2026. (preostalo dana: 36).", "Hitno 4 · uskoro 2 · info 3",
     ]) {
       expect(html).toContain(text);
@@ -120,7 +120,7 @@ describe("A10 Pregled view", () => {
   test("seven section cards with 2–3 numbers, a link and the urgency of their items", () => {
     const html = render(previewDashboard("sajam"));
     expect([...html.matchAll(/data-card="([a-z]+)"/g)].map((match) => match[1])).toEqual(["modeli", "qr", "interakcije", "leadovi", "sponzorisano", "izvestaji", "izlagaci"]);
-    for (const path of ["modeli", "qr", "interakcije/glas-publike", "leadovi", "sponzorisano", "izvestaji", "izlagaci"]) expect(html).toContain(`href="${BASE}/${path}"`);
+    for (const path of ["modeli", "qr", "interakcije", "leadovi", "sponzorisano", "izvestaji", "izlagaci"]) expect(html).toContain(`href="${BASE}/${path}"`);
     // Izveštaji: 3 waiting for approval + 1 failed, both hitno.
     expect(html).toMatch(/data-card="izvestaji"[\s\S]*?Hitno: 4[\s\S]*?<\/article>/);
     expect(html).toContain(d.cards.sponzorisano.autoOn);
@@ -139,7 +139,7 @@ describe("A10 dashboard logic", () => {
       { rule: "published_with_errors", tone: "hitno", count: 1, section: "modeli", query: {} },
       { rule: "follow_up_text_missing", tone: "uskoro", count: 2, section: "leadovi/follow-up", query: {} },
       { rule: "leads_switch_off", tone: "hitno", count: 1, section: "leadovi/podesavanja", query: {} },
-      { rule: "passport_hidden", tone: "info", count: 1, section: "interakcije/pasos", query: {} },
+      { rule: "passport_hidden", tone: "info", count: 1, section: "interakcije", query: {} },
       { rule: "pii_purge_countdown", tone: "uskoro", count: 6, section: "brisanje", query: {} },
     ];
     const urgency = dashboardSectionUrgency(actions);

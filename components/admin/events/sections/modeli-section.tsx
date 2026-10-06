@@ -16,7 +16,7 @@ import {
   type ModelDetailSummary,
 } from "@/components/admin/events/sections/modeli-view";
 import { useResolveTest } from "@/components/admin/events/sections/qr-section";
-import { eventDetailHref, eventSectionHref } from "@/lib/admin-v1/event-sections";
+import { eventDetailHref, eventSectionHref, interactionExhibitorHref } from "@/lib/admin-v1/event-sections";
 import { modelListQuery } from "@/lib/admin-v1/model-filters";
 
 // Admin UX A3 — containers of `modeli` (filters in the query string) and
@@ -121,6 +121,7 @@ export function ModelDetailSection({ modelId }: { modelId: string }) {
       modelHref={(id) => eventDetailHref(base, "modeli", id, listQuery)}
       qrHref={(code) => eventDetailHref(base, "qr", code)}
       sectionHref={(path, extra) => eventSectionHref(base, path, extra)}
+      interactionHref={(participationId, part, extra) => interactionExhibitorHref(base, participationId, extra, part)}
       summary={summary}
     />
   );

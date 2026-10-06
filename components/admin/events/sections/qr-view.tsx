@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, ChevronDown, ChevronUp, ExternalLink, QrCode } from "lucide-react";
+import { ArrowRight, Check, ChevronDown, ChevronUp, Copy, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { useId, useMemo, useReducer, useState, type ReactNode } from "react";
 import {
@@ -33,6 +33,7 @@ import {
   type AdminFilterChip,
 } from "@/components/admin/admin-ui";
 import { BackLink, eventDateTime, Fact, Feedback, LoadMore, Meta, modelName, Section, type EventMessage } from "@/components/admin/events/event-ui";
+import { FairQrCodeImage, QrCodeImage, useFairQrUrl } from "@/components/admin/events/qr-code-image";
 import { buildHierarchy, type HierarchyData, type HierarchyValue } from "@/lib/admin-v1/hierarchy";
 import { modelHierarchy } from "@/lib/admin-v1/model-filters";
 import { parseQrBulkText } from "@/lib/admin-v1/qr-bulk";
@@ -41,6 +42,7 @@ import {
   clearQrFiltersPatch,
   qrCodeFromSearch,
   qrHierarchyCountedIds,
+  qrPrintedLabel,
   qrRowModel,
   qrStateCounts,
   qrStateOf,
@@ -61,7 +63,10 @@ import { cn } from "@/lib/utils";
 // run) and `qr/[kod]` (where the printed code leads, „Promeni odredište“,
 // „Ukloni vezu“, resolve test, scan numbers, assignment history). A printed
 // QR is dynamic, so there is no „free the code“ button: „Upravljaj“ opens the
-// detail. Presentational: containers pass Convex data and actions, the dev
+// detail. Izlagači 2026: every code shows its sticker label (`SA26-001`) and,
+// on the card and the detail, the real QR of `<origin>/r/<kod>` — the same
+// address as the printed sticker on production — to scan right from the
+// screen. Presentational: containers pass Convex data and actions, the dev
 // preview passes TEST fixtures.
 
 const list = dict.qrList;
@@ -78,11 +83,18 @@ export function QrStateBadge({ state }: { state: QrStateKey }) {
   return <AdminStatus label={list.states[state]} tone={STATE_TONE[state]} className="whitespace-nowrap" />;
 }
 
-function CodeCell({ resolverCode, smqCode }: { resolverCode: string; smqCode: string | null }) {
+/** The name of a code on screen: the sticker label, else the SMQ serial, else the resolver code. */
+function codeTitle(row: { label?: string | null; resolverCode: string; smqCode: string | null }) {
+  return qrPrintedLabel(row) ?? row.smqCode ?? row.resolverCode;
+}
+
+function CodeCell({ row }: { row: Pick<InventoryRowView, "label" | "resolverCode" | "smqCode"> }) {
+  const label = qrPrintedLabel(row);
   return (
     <span className="grid font-mono text-xs leading-5 whitespace-nowrap">
-      <strong className="text-sm font-semibold">{smqCode ?? resolverCode}</strong>
-      {smqCode ? <span className="text-[var(--admin-text-muted)]">{resolverCode}</span> : null}
+      {label ? <strong className="text-base font-semibold tracking-[-0.01em]">{label}</strong> : null}
+      <span className={label ? "text-[var(--admin-text-muted)]" : "text-sm font-semibold"}>{row.smqCode ?? row.resolverCode}</span>
+      {row.smqCode ? <span className="text-[var(--admin-text-muted)]">{row.resolverCode}</span> : null}
     </span>
   );
 }
@@ -206,11 +218,13 @@ export function EventQrView({ catalog, inventory, stats, query, onQueryChange, q
           renderCard={(row) => {
             const rowModel = qrRowModel(row, modelsById);
             const rowStats = stats ? stats.get(row.cardId) ?? null : undefined;
+            // Under the title: the codes the title does not show (SMQ and resolver code).
+            const codes = [qrPrintedLabel(row) ? row.smqCode : null, row.smqCode || qrPrintedLabel(row) ? row.resolverCode : null].filter(Boolean).join(" · ");
             return (
               <AdminDataCard
-                title={<span className="font-mono">{row.smqCode ?? row.resolverCode}</span>}
-                subtitle={row.smqCode ? <span className="font-mono">{row.resolverCode}</span> : undefined}
-                aside={<QrCode className="size-4" aria-hidden="true" />}
+                title={<span className="font-mono text-lg">{codeTitle(row)}</span>}
+                subtitle={codes ? <span className="font-mono">{codes}</span> : undefined}
+                aside={<FairQrCodeImage resolverCode={row.resolverCode} label={fmt(list.qrAria, { code: codeTitle(row) })} className="size-24 shrink-0" />}
                 badges={<QrStateBadge state={qrStateOf(row)} />}
                 fields={[
                   { label: list.colModel, value: <QrModelCell row={row} model={rowModel} modelHref={modelHref} /> },
@@ -221,7 +235,7 @@ export function EventQrView({ catalog, inventory, stats, query, onQueryChange, q
             );
           }}
           rowActions={(row) => (
-            <Link href={qrHref(row.resolverCode)} aria-label={fmt(list.manageAria, { code: row.smqCode ?? row.resolverCode })} className={cn(adminSecondaryButtonClass, "min-h-9 px-3")}>
+            <Link href={qrHref(row.resolverCode)} aria-label={fmt(list.manageAria, { code: codeTitle(row) })} className={cn(adminSecondaryButtonClass, "min-h-9 px-3")}>
               {list.manage}
             </Link>
           )}
@@ -250,7 +264,7 @@ function QrModelCell({ row, model, modelHref }: { row: InventoryRowView; model: 
 function qrColumns(modelsById: ReadonlyMap<string, ModelView>, modelHref: (modelId: string) => string, stats: ReadonlyMap<string, QrScanStatsView> | undefined): AdminColumn<InventoryRowView>[] {
   const statsOf = (row: InventoryRowView) => (stats ? stats.get(row.cardId) ?? null : undefined);
   return [
-    { id: "code", header: list.colCode, rowHeader: true, sortValue: (row) => row.smqCode ?? row.resolverCode, cell: (row) => <CodeCell resolverCode={row.resolverCode} smqCode={row.smqCode} /> },
+    { id: "code", header: list.colCode, rowHeader: true, sortValue: (row) => codeTitle(row), cell: (row) => <CodeCell row={row} /> },
     { id: "state", header: list.colState, sortValue: (row) => QR_STATES.indexOf(qrStateOf(row)), cell: (row) => <QrStateBadge state={qrStateOf(row)} /> },
     {
       id: "model", header: list.colModel,
@@ -588,7 +602,8 @@ export function EventQrDetailView({ catalog, code, detail, failed, actions, onCh
   const currentModel = own ? modelsById.get(own.eventModelId) ?? null : null;
   const currentLabel = currentModel ? modelName(currentModel) : own?.modelLabel ?? detailText.historyUnknownModel;
   const state = qrStateOf({ state: detail.channelState, problemReason: detail.problemReason, assignment: current ? { modelId: current.eventModelId, sameEvent: current.sameEvent } : null });
-  const title = detail.smqCode ?? detail.resolverCode;
+  const printedLabel = qrPrintedLabel(detail);
+  const title = codeTitle(detail);
   const pickData = qrTargetHierarchy(catalog.models, { modelId: own?.eventModelId ?? null, resolverCode: detail.resolverCode });
   const targetModel = flow.step !== "idle" && flow.targetModelId ? modelsById.get(flow.targetModelId) ?? null : null;
 
@@ -666,11 +681,15 @@ export function EventQrDetailView({ catalog, code, detail, failed, actions, onCh
       <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_22rem] xl:items-start">
         <div className="grid min-w-0 gap-5">
           <Section title={title} action={<QrStateBadge state={state} />}>
-            <dl className="grid gap-4 sm:grid-cols-3">
-              <Fact label={detailText.factSmq} value={<span className="font-mono">{detail.smqCode ?? "—"}</span>} />
-              <Fact label={detailText.factCode} value={<span className="font-mono">{detail.resolverCode}</span>} />
-              <Fact label={detailText.factChannel} value={<>{dict.channelStates[detail.channelState]}{detail.problemReason ? <Meta>{problemText(detail.problemReason)}</Meta> : null}</>} />
-            </dl>
+            <div className="grid min-w-0 gap-5 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-start">
+              <QrScanPanel resolverCode={detail.resolverCode} title={title} />
+              <dl className="grid gap-4 sm:grid-cols-2">
+                <Fact label={detailText.factLabel} value={<span className="font-mono text-base font-semibold">{printedLabel ?? "—"}</span>} />
+                <Fact label={detailText.factSmq} value={<span className="font-mono">{detail.smqCode ?? "—"}</span>} />
+                <Fact label={detailText.factCode} value={<span className="font-mono">{detail.resolverCode}</span>} />
+                <Fact label={detailText.factChannel} value={<>{dict.channelStates[detail.channelState]}{detail.problemReason ? <Meta>{problemText(detail.problemReason)}</Meta> : null}</>} />
+              </dl>
+            </div>
           </Section>
           <Section title={detailText.whereTitle}>
             {own ? (
@@ -731,6 +750,41 @@ export function EventQrDetailView({ catalog, code, detail, failed, actions, onCh
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * The real QR of the code with the address it encodes: a phone scan from the
+ * screen (or "Otvori adresu") tests where the printed sticker leads now.
+ */
+function QrScanPanel({ resolverCode, title }: { resolverCode: string; title: string }) {
+  const url = useFairQrUrl(resolverCode);
+  const [copied, setCopied] = useState(false);
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+    } catch {
+      setCopied(false);
+    }
+  }
+  return (
+    <figure className="grid w-full max-w-56 justify-items-start gap-2">
+      <QrCodeImage url={url} label={fmt(list.qrAria, { code: title })} className="w-full max-w-56" />
+      <figcaption className="grid w-full gap-2">
+        <span className="break-all font-mono text-xs text-[var(--admin-text-muted)]" data-qr-address>{url}</span>
+        <span className="flex flex-wrap gap-2">
+          <button type="button" className={cn(adminSecondaryButtonClass, "min-h-9 px-3")} onClick={() => void copy()} aria-live="polite">
+            {copied ? <Check className="size-4" aria-hidden="true" /> : <Copy className="size-4" aria-hidden="true" />}
+            {copied ? detailText.addressCopied : detailText.copyAddress}
+          </button>
+          <a href={url} target="_blank" rel="noopener noreferrer" className={cn(adminSecondaryButtonClass, "min-h-9 px-3")}>
+            {detailText.openAddress}<ExternalLink className="size-4" aria-hidden="true" />
+          </a>
+        </span>
+        <span className="text-xs text-[var(--admin-text-muted)]">{detailText.scanHelp}</span>
+      </figcaption>
+    </figure>
   );
 }
 

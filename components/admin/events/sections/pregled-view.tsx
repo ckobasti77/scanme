@@ -189,7 +189,7 @@ function kpiItems(dashboard: EventDashboardData, href: (path: EventSectionPath, 
           value: `${questions.covered}/${questions.required}`,
           hint: questions.capped ? `${d.kpi.questionsHint} · ${d.kpi.capped}` : d.kpi.questionsHint,
           tone: questions.covered < questions.required ? "warning" : "default",
-          href: href("interakcije/glas-publike", { dan: questions.dateKey }),
+          href: href("interakcije", { dan: questions.dateKey }),
         }
       : null,
     reports ? { id: "reports", label: d.kpi.reports, value: String(reports.pendingReview), hint: d.kpi.reportsHint, tone: reports.pendingReview > 0 ? "danger" : "default", href: href("izvestaji", { status: "ceka-odobrenje" }) } : null,
@@ -221,7 +221,7 @@ function cards(dashboard: EventDashboardData): CardDef[] {
       ],
     },
     {
-      id: "interakcije", title: dict.navInteractions, icon: MessagesSquare, path: "interakcije/glas-publike", covers: ["interakcije/glas-publike", "interakcije/pasos", "interakcije/forme"],
+      id: "interakcije", title: dict.sectionLabels.interakcije, icon: MessagesSquare, path: "interakcije", covers: ["interakcije"],
       rows: [
         { label: c.interakcije.questions, value: s.interakcije.questions },
         { label: c.interakcije.passports, value: s.interakcije.passports },

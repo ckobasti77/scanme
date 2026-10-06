@@ -76,6 +76,8 @@ export const getQrDetail = query({
       cardId: v.id("cards"),
       accessChannelId: v.id("accessChannels"),
       resolverCode: v.string(),
+      /** Izlagači 2026: the printed label of the card (`SA26-001`, cards.label). */
+      label: v.string(),
       smqCode: v.union(v.string(), v.null()),
       channelState: accessState,
       problemReason: v.union(v.string(), v.null()),
@@ -136,6 +138,7 @@ export const getQrDetail = query({
       cardId: card._id,
       accessChannelId: channel._id,
       resolverCode: channel.resolverCode,
+      label: card.label,
       smqCode: channel.smqCode ?? null,
       channelState: channel.state,
       problemReason: channel.problemReason ?? null,

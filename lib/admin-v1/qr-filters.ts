@@ -1,8 +1,9 @@
 // Admin UX A4 — filters of the `qr` section (query keys from A0 §2.3): the
 // Izlagač → Brend → Model hierarchy of the model a code leads to, the state of
 // the code (slobodan / ovaj događaj / drugi događaj / neaktivan) and a search
-// by SMQ, resolver code or model. Pure; shared by the admin container, the
-// dev preview and the tests.
+// by SMQ, resolver code or model. Izlagači 2026: also by the printed label of
+// the sticker (`SA26-001`), which orders the list. Pure; shared by the admin
+// container, the dev preview and the tests.
 
 import { matchesSearch, normalizeSearch } from "./hierarchy";
 import type { FilterableModel } from "./model-filters";
@@ -14,6 +15,8 @@ export type QrStateKey = (typeof QR_STATES)[number];
 export type FilterableQrRow = {
   cardId: string;
   resolverCode: string;
+  /** cards.label — the printed label (`SA26-001`); a card without one carries its resolver code. */
+  label?: string | null;
   smqCode: string | null;
   state: "active" | "inactive" | "problem" | null;
   problemReason: string | null;
@@ -38,8 +41,14 @@ export function qrRowModel<M extends { id: string }>(row: Pick<FilterableQrRow, 
   return row.assignment?.sameEvent ? modelsById.get(row.assignment.modelId) ?? null : null;
 }
 
+/** The printed label of a code (`SA26-001`, `PANEL-2026-EVENT`); null when the card has only its resolver code. */
+export function qrPrintedLabel(row: Pick<FilterableQrRow, "label" | "resolverCode">): string | null {
+  const label = row.label?.trim();
+  return label && label.toUpperCase() !== row.resolverCode.toUpperCase() ? label : null;
+}
+
 function qrSearchText(row: FilterableQrRow, model: Pick<FilterableModel, "displayName" | "variant" | "brandName" | "exhibitorName" | "externalKey"> | null) {
-  return normalizeSearch([row.smqCode, row.resolverCode, model?.displayName, model?.variant, model?.brandName, model?.exhibitorName, model?.externalKey].filter(Boolean).join(" "));
+  return normalizeSearch([qrPrintedLabel(row), row.smqCode, row.resolverCode, model?.displayName, model?.variant, model?.brandName, model?.exhibitorName, model?.externalKey].filter(Boolean).join(" "));
 }
 
 type Skip = "hierarchy" | "stanje";
@@ -61,9 +70,24 @@ export function matchesQrFilters(
 }
 
 const collator = new Intl.Collator("sr-Latn-RS", { numeric: true, sensitivity: "base" });
+/** A sticker serial: a prefix and a number (`SA26-001`), not a named panel (`PANEL-2026-EVENT`). */
+const SERIAL_LABEL = /^[A-Z][A-Z0-9]{1,9}-\d{1,4}$/i;
 
-/** SMQ serial order (the order of the printed sheets); codes without SMQ after, by resolver code. */
+function labelRank(label: string | null) {
+  return label === null ? 2 : SERIAL_LABEL.test(label) ? 0 : 1;
+}
+
+/**
+ * Print order: sticker serials (`SA26-001` … `SA26-100`, numeric), then the
+ * other labels (panels), then codes without a label in SMQ serial order
+ * (the order of the printed sheets) and, without SMQ, by resolver code.
+ */
 export function compareQrRows(a: FilterableQrRow, b: FilterableQrRow): number {
+  const labelA = qrPrintedLabel(a);
+  const labelB = qrPrintedLabel(b);
+  const rank = labelRank(labelA) - labelRank(labelB);
+  if (rank) return rank;
+  if (labelA && labelB) return collator.compare(labelA, labelB) || collator.compare(a.resolverCode, b.resolverCode);
   if (a.smqCode && !b.smqCode) return -1;
   if (!a.smqCode && b.smqCode) return 1;
   return collator.compare(a.smqCode ?? "", b.smqCode ?? "") || collator.compare(a.resolverCode, b.resolverCode);
@@ -109,13 +133,15 @@ const RESOLVER_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 
 /**
  * The search text as a printed code (same normalization as the resolver:
- * upper case, I/L → 1, O → 0, 8 characters) or an SMQ serial; null when it is
- * not a whole code. Such a search offers "Otvori detalj", which finds the code
- * in the whole inventory, also when it is not among the loaded rows.
+ * upper case, I/L → 1, O → 0, 8 characters), an SMQ serial or a sticker
+ * serial (`SA26-001`); null when it is not a whole code. Such a search offers
+ * "Otvori detalj", which finds the code in the whole inventory, also when it
+ * is not among the loaded rows.
  */
 export function qrCodeFromSearch(text: string | undefined): string | null {
   const value = (text ?? "").trim().toUpperCase();
   if (/^SMQ-[A-Z0-9]+(?:-[A-Z0-9]+)*$/.test(value)) return value;
+  if (SERIAL_LABEL.test(value)) return value;
   const mapped = value.replace(/[IL]/g, "1").replace(/O/g, "0");
   if (mapped.length !== 8 || [...mapped].some((char) => !RESOLVER_ALPHABET.includes(char))) return null;
   return mapped;
