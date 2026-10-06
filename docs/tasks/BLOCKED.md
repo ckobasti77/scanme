@@ -1824,3 +1824,13 @@ RF nalazi 1–4 su rešeni. Izvori: `jovan-status/K1.md`–`K4.md` i `scripts/ta
 - **Šta je urađeno:** automatski pasoš koristi strože B3 pravilo (preporuka A0 R2a), sada u jednoj funkciji `fairBrandPassportProblems` sa razlogom u adminu. Primer razlike: brend sa 2 objavljena Starter modela i trećim modelom u nacrtu nema pasoš dok se i treći ne objavi („1 od 3 modela nije objavljeno.“).
 - **Odluka za Aleksin pregled:** automatski pasoš sa sakrivanjem je razlika prema dosadašnjem ručnom pravilu (ADMIN-UX §12.2); ugovor §33.1.
 - **Pitanje za Aleksu/Jovana:** da li model u nacrtu (ili model sa `passport_eligible=no`) treba da blokira pasoš celog brenda, ili samo da ostane van skupa (§9.31)? Promena je jedno pravilo u `lib/fair-entitlements.ts`. Deferred, awaiting owner decision.
+
+## ADMIN UX — stanje posle lanca A1–A10, Z1, Z2 i pregleda RA (6. 10. 2026.)
+
+Presuda RA: **TREBA DORADA**. Izvori: `scripts/tasks/logs/sajam-v2/RA-IZVESTAJ.md` i `docs/events/sajam-automobila-2026/jovan-status/IZVESTAJ-ADMIN-UX.md`. Kod nije menjan posle RA.
+
+- **Pre uključivanja Pošte (`ZOHO_MAIL_CLIENT_ENABLED`):** `registerMailUpload` (`convex/adminMail.ts:803-846`) prihvata bilo koji `_storage` id, pa admin može da obriše ili pošalje tuđe fajlove. Treba rezervacija uploada i provera svežine fajla. Do ispravke Pošta ostaje isključena.
+- **Follow-up:** par se traži među prvih 500 leadova izlagača (`convex/lib/fairLeadActivity.ts:40-46`); opt-out na novijem leadu para se tada ne vidi. Predlog: indeks po normalizovanom emailu.
+- **QR lista:** filteri samo nad učitanih 100 kodova (`components/admin/events/sections/qr-section.tsx:25-31`).
+- **Odluke za Aleksu** (ADMIN-UX §12): automatska sponzorisana lista, automatski pasoš sa sakrivanjem, follow-up po izlagaču, aktivnost uz lead, lična Zoho sanduča, PII izvoz u Leadovima; plus promene prikaza V1 ekrana (`A1.md` §7). Deferred, awaiting owner decision.
+- **Podešavanja koja runner ne radi:** Zoho EU klijent i Convex env Pošte; `FAIR_LEADS_ENABLED` i `FAIR_FOLLOWUP_ENABLED` pre otvaranja sajma; pravna provera saglasnosti pre aktivacije.
