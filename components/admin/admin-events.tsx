@@ -8,6 +8,7 @@ import { AdminEventsReports } from "@/components/admin/admin-events-reports";
 import { AdminEventsSponsored } from "@/components/admin/admin-events-sponsored";
 import { AdminEventsRetention } from "@/components/admin/admin-events-retention";
 import { AdminEmptyState, AdminLoadingState, AdminPanel, AdminStatus } from "@/components/admin/admin-primitives";
+import { AdminDataCard, AdminDataView, type AdminColumn } from "@/components/admin/admin-ui";
 import { FAIR_PACKAGE_TIERS, type FairClientSegment, type FairEventStatus, type FairModelStatus, type FairPackageTier, type FairParticipationStatus } from "@/lib/fair-contract";
 import { fmt } from "@/lib/i18n/format";
 import { adminEventsSr as dict } from "@/lib/i18n/sr/admin-events";
@@ -104,9 +105,12 @@ export type AdminEventsSurfaceProps = {
   reports?: ReactNode;
   /** B7: the connected Brisanje podataka section (AdminEventsRetentionWorkspace); absent in the static preview. */
   retention?: ReactNode;
+  /** Dev preview only: open a given tab (`?tab=`). */
+  initialTab?: AdminEventsTab;
 };
 
-type Tab = "overview" | "model" | "qr" | "interactions" | "leads" | "sponsored" | "reports" | "retention" | "import" | "clients";
+export type AdminEventsTab = "overview" | "model" | "qr" | "interactions" | "leads" | "sponsored" | "reports" | "retention" | "import" | "clients";
+type Tab = AdminEventsTab;
 const TABS: { id: Tab; label: string }[] = [
   { id: "overview", label: dict.tabOverview },
   { id: "model", label: dict.tabModel },
@@ -119,6 +123,10 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "import", label: dict.tabImport },
   { id: "clients", label: dict.tabClients },
 ];
+
+export function isAdminEventsTab(value: unknown): value is AdminEventsTab {
+  return TABS.some((tab) => tab.id === value);
+}
 
 const field = "min-h-11 w-full min-w-0 rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--admin-focus)]";
 const primaryButton = "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[var(--admin-ink)] px-4 text-sm font-semibold text-[var(--admin-on-ink)] disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--admin-focus)]";
@@ -182,14 +190,6 @@ function Section({ title, children, action }: { title: string; children: ReactNo
   );
 }
 
-function RowList({ children }: { children: ReactNode }) {
-  return <ul className="grid divide-y divide-[var(--admin-border)] overflow-hidden rounded-[var(--admin-radius-control)] border border-[var(--admin-border)]">{children}</ul>;
-}
-
-function Row({ children }: { children: ReactNode }) {
-  return <li className="grid min-w-0 gap-2 bg-[var(--admin-surface)] px-4 py-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">{children}</li>;
-}
-
 function Meta({ children }: { children: ReactNode }) {
   return <span className="block break-words text-xs text-[var(--admin-text-muted)]">{children}</span>;
 }
@@ -204,6 +204,45 @@ function checkLabel(issues: IssueView[]) {
   const warnings = issues.length - errors;
   return issues.length ? fmt(dict.checkSummary, { errors, warnings }) : dict.checkReady;
 }
+
+function modelName(model: ModelView) {
+  return `${model.displayName}${model.variant ? ` ${model.variant}` : ""}`;
+}
+
+function SegmentStatus({ segment }: { segment: FairClientSegment }) {
+  return <AdminStatus label={dict.segments[segment]} tone={segment === "event_only" ? "waiting" : "neutral"} />;
+}
+
+function EntryStatus({ status }: { status: FairParticipationStatus }) {
+  return <AdminStatus label={dict.entryStatus[status]} tone={status === "active" ? "active" : "neutral"} />;
+}
+
+type ParticipationRow = CatalogView["participations"][number];
+type StandRow = CatalogView["stands"][number];
+
+const participationColumns: AdminColumn<ParticipationRow>[] = [
+  { id: "exhibitor", header: dict.colExhibitor, rowHeader: true, sortValue: (row) => row.exhibitorName, cell: (row) => <strong className="font-semibold">{row.exhibitorName}</strong> },
+  { id: "codes", header: dict.colCodes, cell: (row) => <span className="font-mono text-xs">{row.codes}</span> },
+  { id: "key", header: dict.fieldExternalKey, hideBelow: "xl", cell: (row) => <span className="font-mono text-xs">{row.externalKey}</span> },
+  { id: "segment", header: dict.colSegment, sortValue: (row) => dict.segments[row.segment], cell: (row) => <SegmentStatus segment={row.segment} /> },
+  { id: "status", header: dict.colStatus, sortValue: (row) => dict.entryStatus[row.status], cell: (row) => <EntryStatus status={row.status} /> },
+];
+
+const standColumns: AdminColumn<StandRow>[] = [
+  { id: "stand", header: dict.colStand, rowHeader: true, sortValue: (row) => row.code, cell: (row) => <strong className="font-semibold">{row.displayName} · {row.code}</strong> },
+  { id: "exhibitor", header: dict.colExhibitor, sortValue: (row) => row.exhibitorName, cell: (row) => row.exhibitorName },
+  { id: "location", header: dict.colMapLocation, cell: (row) => <span className="font-mono text-xs">{row.mapLocationId}</span> },
+  { id: "status", header: dict.colStatus, sortValue: (row) => dict.entryStatus[row.status], cell: (row) => <EntryStatus status={row.status} /> },
+];
+
+const modelColumns: AdminColumn<ModelView>[] = [
+  { id: "model", header: dict.colModel, rowHeader: true, sortValue: modelName, cell: (model) => <strong className="font-semibold">{modelName(model)}</strong> },
+  { id: "brand", header: dict.colBrand, sortValue: (model) => model.brandName, cell: (model) => <><span className="block">{model.brandName}</span><Meta>{model.exhibitorName} · {model.standLabel}</Meta></> },
+  { id: "qr", header: dict.colQr, sortValue: (model) => model.qrCode, cell: (model) => <span className="font-mono text-xs">{model.qrCode ?? dict.noQr}</span> },
+  { id: "check", header: dict.colCheck, sortValue: (model) => model.issues.length, cell: (model) => checkLabel(model.issues) },
+  { id: "package", header: dict.colPackage, sortValue: (model) => FAIR_PACKAGE_TIERS.indexOf(model.tier), cell: (model) => <AdminStatus label={dict.tiers[model.tier]} tone="neutral" /> },
+  { id: "status", header: dict.colStatus, sortValue: (model) => dict.modelStatus[model.status], cell: (model) => <AdminStatus label={dict.modelStatus[model.status]} tone={modelTone(model.status)} /> },
+];
 
 // -----------------------------------------------------------------------------
 // Overview
@@ -222,45 +261,43 @@ function Overview({ catalog, onOpenModel }: { catalog: CatalogView; onOpenModel:
       {catalog.participations.length || catalog.models.length ? (
         <>
           <Section title={dict.participationsTitle}>
-            <RowList>
-              {catalog.participations.map((row) => (
-                <Row key={row.id}>
-                  <span className="min-w-0"><strong className="block break-words text-sm">{row.exhibitorName}</strong><Meta>{row.codes} · <span className="font-mono">{row.externalKey}</span></Meta></span>
-                  <span className="flex flex-wrap gap-2">
-                    <AdminStatus label={dict.segments[row.segment]} tone={row.segment === "event_only" ? "waiting" : "neutral"} />
-                    <AdminStatus label={dict.entryStatus[row.status]} tone={row.status === "active" ? "active" : "neutral"} />
-                  </span>
-                </Row>
-              ))}
-            </RowList>
+            <AdminDataView
+              listKey="dogadjaji.pregled.ucesca"
+              caption={dict.participationsTitle}
+              rows={catalog.participations}
+              getRowId={(row) => row.id}
+              columns={participationColumns}
+              renderCard={(row) => <AdminDataCard title={row.exhibitorName} subtitle={<>{row.codes} · <span className="font-mono">{row.externalKey}</span></>} badges={<><SegmentStatus segment={row.segment} /><EntryStatus status={row.status} /></>} />}
+            />
           </Section>
           <Section title={dict.standsTitle}>
-            <RowList>
-              {catalog.stands.map((row) => (
-                <Row key={row.id}>
-                  <span className="min-w-0"><strong className="block text-sm">{row.displayName} · {row.code}</strong><Meta>{row.exhibitorName} · {dict.colMapLocation}: <span className="font-mono">{row.mapLocationId}</span></Meta></span>
-                  <AdminStatus label={dict.entryStatus[row.status]} tone={row.status === "active" ? "active" : "neutral"} />
-                </Row>
-              ))}
-            </RowList>
+            <AdminDataView
+              listKey="dogadjaji.pregled.standovi"
+              caption={dict.standsTitle}
+              rows={catalog.stands}
+              getRowId={(row) => row.id}
+              columns={standColumns}
+              renderCard={(row) => <AdminDataCard title={`${row.displayName} · ${row.code}`} subtitle={row.exhibitorName} badges={<EntryStatus status={row.status} />} fields={[{ label: dict.colMapLocation, value: <span className="font-mono">{row.mapLocationId}</span> }]} />}
+            />
           </Section>
           <Section title={dict.modelsTitle}>
-            <RowList>
-              {catalog.models.map((model) => (
-                <Row key={model.id}>
-                  <span className="min-w-0">
-                    <strong className="block break-words text-sm">{model.displayName}{model.variant ? ` ${model.variant}` : ""}</strong>
-                    <Meta>{model.brandName} · {model.exhibitorName} · {model.standLabel}</Meta>
-                    <Meta>{dict.colQr}: <span className="font-mono">{model.qrCode ?? dict.noQr}</span> · {dict.colCheck}: {checkLabel(model.issues)}</Meta>
-                  </span>
-                  <span className="flex flex-wrap items-center gap-2">
-                    <AdminStatus label={dict.tiers[model.tier]} tone="neutral" />
-                    <AdminStatus label={dict.modelStatus[model.status]} tone={modelTone(model.status)} />
-                    <button type="button" className={secondaryButton} onClick={() => onOpenModel(model.id)}>{dict.openModel}</button>
-                  </span>
-                </Row>
-              ))}
-            </RowList>
+            <AdminDataView
+              listKey="dogadjaji.pregled.modeli"
+              caption={dict.modelsTitle}
+              rows={catalog.models}
+              getRowId={(model) => model.id}
+              columns={modelColumns}
+              tableClassName="min-w-[56rem]"
+              renderCard={(model) => (
+                <AdminDataCard
+                  title={modelName(model)}
+                  subtitle={`${model.brandName} · ${model.exhibitorName} · ${model.standLabel}`}
+                  badges={<><AdminStatus label={dict.tiers[model.tier]} tone="neutral" /><AdminStatus label={dict.modelStatus[model.status]} tone={modelTone(model.status)} /></>}
+                  fields={[{ label: dict.colQr, value: <span className="font-mono">{model.qrCode ?? dict.noQr}</span> }, { label: dict.colCheck, value: checkLabel(model.issues) }]}
+                />
+              )}
+              rowActions={(model) => <button type="button" className={secondaryButton} onClick={() => onOpenModel(model.id)}>{dict.openModel}</button>}
+            />
           </Section>
         </>
       ) : <AdminPanel><AdminEmptyState title={dict.emptyCatalogTitle} body={dict.emptyCatalogBody} /></AdminPanel>}
@@ -366,6 +403,22 @@ function ModelDetail({ catalog, modelId, onSelect, actions }: { catalog: Catalog
 // QR inventory: list, assign, release, resolve test
 // -----------------------------------------------------------------------------
 
+function channelStateText(row: InventoryRowView) {
+  return row.state ? dict.channelStates[row.state] : dict.unassigned;
+}
+
+function assignmentText(row: InventoryRowView) {
+  return row.assignment ? (row.assignment.sameEvent ? row.assignment.modelName ?? row.assignment.modelId : dict.otherEvent) : dict.unassigned;
+}
+
+const inventoryColumns: AdminColumn<InventoryRowView>[] = [
+  { id: "code", header: dict.colCode, rowHeader: true, sortValue: (row) => row.resolverCode, cell: (row) => <strong className="font-mono font-semibold">{row.resolverCode}</strong> },
+  { id: "smq", header: dict.colSmq, sortValue: (row) => row.smqCode, cell: (row) => <span className="font-mono text-xs">{row.smqCode ?? "—"}</span> },
+  { id: "state", header: dict.colChannelState, sortValue: channelStateText, cell: channelStateText },
+  { id: "assignment", header: dict.colAssignment, sortValue: assignmentText, cell: assignmentText },
+];
+
+
 function QrInventory({ catalog, inventory, actions }: { catalog: CatalogView; inventory: Paged<InventoryRowView>; actions: EventsActions }) {
   const [message, setMessage] = useState<{ tone: "ok" | "error"; text: string; issues?: IssueView[] } | null>(null);
   const [pending, setPending] = useState(false);
@@ -424,33 +477,33 @@ function QrInventory({ catalog, inventory, actions }: { catalog: CatalogView; in
       </Section>
       <Feedback message={message} />
       <Section title={dict.tabQr}>
-        {inventory.status === "loading" ? <AdminLoadingState compact label={dict.loading} /> : inventory.rows.length ? (
-          <RowList>
-            {inventory.rows.map((row) => (
-              <Row key={row.cardId}>
-                <span className="flex min-w-0 items-start gap-3">
-                  <QrCode className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-                  <span className="min-w-0">
-                    <strong className="block font-mono text-sm">{row.resolverCode}</strong>
-                    <Meta>{row.smqCode ? <span className="font-mono">{row.smqCode} · </span> : null}{row.state ? dict.channelStates[row.state] : dict.unassigned}</Meta>
-                    <Meta>{dict.colAssignment}: {row.assignment ? (row.assignment.sameEvent ? row.assignment.modelName ?? row.assignment.modelId : dict.otherEvent) : dict.unassigned}</Meta>
-                  </span>
-                </span>
-                {row.assignment?.sameEvent ? (
-                  releasing === row.cardId ? (
-                    <form className="grid gap-2 sm:min-w-[18rem]" onSubmit={(event) => { event.preventDefault(); const modelId = row.assignment!.modelId; if (releaseReason.trim()) void run(() => actions.releaseQr(modelId, releaseReason.trim()), dict.releaseDone, () => { setReleasing(null); setReleaseReason(""); }); }}>
-                      <label className="grid gap-1 text-xs font-semibold">{dict.releaseReason}<input autoFocus value={releaseReason} onChange={(event) => setReleaseReason(event.target.value)} className={field} /></label>
-                      <span className="flex flex-wrap gap-2">
-                        <button type="submit" className={primaryButton} disabled={pending || !releaseReason.trim()}>{dict.releaseConfirm}</button>
-                        <button type="button" className={secondaryButton} onClick={() => { setReleasing(null); setReleaseReason(""); }}>{dict.cancel}</button>
-                      </span>
-                    </form>
-                  ) : <button type="button" className={secondaryButton} disabled={pending} onClick={() => { setReleasing(row.cardId); setReleaseReason(""); }}>{dict.release}</button>
-                ) : null}
-              </Row>
-            ))}
-          </RowList>
-        ) : <p className="text-sm text-[var(--admin-text-muted)]">{dict.qrEmpty}</p>}
+        <AdminDataView
+          listKey="dogadjaji.qr"
+          caption={dict.tabQr}
+          rows={inventory.status === "loading" ? undefined : inventory.rows}
+          loadingLabel={dict.loading}
+          empty={{ title: dict.tabQr, body: dict.qrEmpty }}
+          getRowId={(row) => row.cardId}
+          columns={inventoryColumns}
+          renderCard={(row) => (
+            <AdminDataCard
+              title={<span className="font-mono">{row.resolverCode}</span>}
+              subtitle={row.smqCode ? <span className="font-mono">{row.smqCode}</span> : undefined}
+              aside={<QrCode className="size-4" aria-hidden="true" />}
+              fields={[{ label: dict.colChannelState, value: channelStateText(row) }, { label: dict.colAssignment, value: assignmentText(row) }]}
+            />
+          )}
+          rowActions={(row) => (row.assignment?.sameEvent && releasing !== row.cardId ? <button type="button" className={secondaryButton} disabled={pending} onClick={() => { setReleasing(row.cardId); setReleaseReason(""); }}>{dict.release}</button> : null)}
+          rowDetail={(row) => (row.assignment?.sameEvent && releasing === row.cardId ? (
+            <form className="grid gap-2 sm:max-w-md" onSubmit={(event) => { event.preventDefault(); const modelId = row.assignment!.modelId; if (releaseReason.trim()) void run(() => actions.releaseQr(modelId, releaseReason.trim()), dict.releaseDone, () => { setReleasing(null); setReleaseReason(""); }); }}>
+              <label className="grid gap-1 text-xs font-semibold">{dict.releaseReason}<input autoFocus value={releaseReason} onChange={(event) => setReleaseReason(event.target.value)} className={field} /></label>
+              <span className="flex flex-wrap gap-2">
+                <button type="submit" className={primaryButton} disabled={pending || !releaseReason.trim()}>{dict.releaseConfirm}</button>
+                <button type="button" className={secondaryButton} onClick={() => { setReleasing(null); setReleaseReason(""); }}>{dict.cancel}</button>
+              </span>
+            </form>
+          ) : null)}
+        />
         <LoadMore list={inventory} />
       </Section>
       <Section title={dict.resolveTitle}>
@@ -577,6 +630,13 @@ function ImportPanel({ actions }: { actions: EventsActions }) {
 // Event-only clients → standard
 // -----------------------------------------------------------------------------
 
+const eventClientColumns: AdminColumn<EventClientView>[] = [
+  { id: "name", header: dict.colName, rowHeader: true, sortValue: (row) => row.name, cell: (row) => <strong className="font-semibold">{row.name}</strong> },
+  { id: "smk", header: dict.colCode, sortValue: (row) => row.smkCode, cell: (row) => <span className="font-mono text-xs">{row.smkCode ?? "—"}</span> },
+  { id: "segment", header: dict.colSegment, cell: () => <SegmentStatus segment="event_only" /> },
+];
+
+
 function EventClients({ clients, actions }: { clients: Paged<EventClientView>; actions: EventsActions }) {
   const [confirming, setConfirming] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -595,24 +655,26 @@ function EventClients({ clients, actions }: { clients: Paged<EventClientView>; a
     <div className="grid min-w-0 gap-5">
       <Section title={dict.tabClients}>
         <p className="mb-4 text-sm text-[var(--admin-text-muted)]">{dict.clientsSubtitle}</p>
-        {clients.status === "loading" ? <AdminLoadingState compact label={dict.loading} /> : clients.rows.length ? (
-          <RowList>
-            {clients.rows.map((row) => (
-              <Row key={row.accountId}>
-                <span className="min-w-0"><strong className="block break-words text-sm">{row.name}</strong><Meta><span className="font-mono">{row.smkCode ?? "—"}</span> · {dict.segments.event_only}</Meta></span>
-                {confirming === row.accountId ? (
-                  <span className="grid gap-2 sm:max-w-sm">
-                    <span className="text-sm">{fmt(dict.convertConfirmBody, { name: row.name })}</span>
-                    <span className="flex flex-wrap gap-2">
-                      <button type="button" autoFocus className={primaryButton} disabled={pending} onClick={() => void convert(row.accountId)}>{dict.convertConfirm}</button>
-                      <button type="button" className={secondaryButton} disabled={pending} onClick={() => setConfirming(null)}>{dict.cancel}</button>
-                    </span>
-                  </span>
-                ) : <button type="button" className={secondaryButton} disabled={pending} onClick={() => setConfirming(row.accountId)}>{dict.convert}</button>}
-              </Row>
-            ))}
-          </RowList>
-        ) : <p className="text-sm text-[var(--admin-text-muted)]">{dict.clientsEmpty}</p>}
+        <AdminDataView
+          listKey="dogadjaji.izlagaci"
+          caption={dict.tabClients}
+          rows={clients.status === "loading" ? undefined : clients.rows}
+          loadingLabel={dict.loading}
+          empty={{ title: dict.tabClients, body: dict.clientsEmpty }}
+          getRowId={(row) => row.accountId}
+          columns={eventClientColumns}
+          renderCard={(row) => <AdminDataCard title={row.name} subtitle={<span className="font-mono">{row.smkCode ?? "—"}</span>} badges={<SegmentStatus segment="event_only" />} />}
+          rowActions={(row) => (confirming === row.accountId ? null : <button type="button" className={secondaryButton} disabled={pending} onClick={() => setConfirming(row.accountId)}>{dict.convert}</button>)}
+          rowDetail={(row) => (confirming === row.accountId ? (
+            <span className="grid gap-2 sm:max-w-sm">
+              <span className="text-sm">{fmt(dict.convertConfirmBody, { name: row.name })}</span>
+              <span className="flex flex-wrap gap-2">
+                <button type="button" autoFocus className={primaryButton} disabled={pending} onClick={() => void convert(row.accountId)}>{dict.convertConfirm}</button>
+                <button type="button" className={secondaryButton} disabled={pending} onClick={() => setConfirming(null)}>{dict.cancel}</button>
+              </span>
+            </span>
+          ) : null)}
+        />
         <LoadMore list={clients} />
       </Section>
       <Feedback message={message} />
@@ -627,7 +689,7 @@ function EventClients({ clients, actions }: { clients: Paged<EventClientView>; a
 export function AdminEventsSurface(props: AdminEventsSurfaceProps) {
   const baseId = useId();
   const eventSelectId = useId();
-  const [tab, setTab] = useState<Tab>("overview");
+  const [tab, setTab] = useState<Tab>(props.initialTab ?? "overview");
   const [modelId, setModelId] = useState<string | null>(null);
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
 

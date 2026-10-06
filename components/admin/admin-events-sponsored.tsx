@@ -1,12 +1,11 @@
 "use client";
 
 import { AdminEmptyState, AdminPanel, AdminStatus } from "@/components/admin/admin-primitives";
+import { AdminDataCard, AdminDataView } from "@/components/admin/admin-ui";
 import {
   ConfirmAction,
   Feedback,
   Meta,
-  Row,
-  RowList,
   Section,
   dateTime,
   field,
@@ -63,10 +62,12 @@ export function AdminEventsSponsored({ view, actions }: { view: SponsoredView | 
 
   const models = new Map(view.models.map((model) => [model.id, model]));
   const name = (id: string) => models.get(id)?.name ?? "—";
+  const brand = (id: string) => models.get(id)?.brandName ?? "—";
   const names = (ids: string[]) => ids.map(name).join(", ");
   const prompts = new Map(view.questions.map((question) => [question.id, question.prompt]));
   const drift = sponsoredDrift(view);
   const items = [...(view.active?.items ?? [])].sort((a, b) => a.order - b.order);
+  const resultText = (questionId: string | undefined) => (questionId ? fmt(dict.sponsoredItemResult, { prompt: prompts.get(questionId) ?? "—" }) : dict.sponsoredItemNoResult);
 
   return (
     <div className="grid min-w-0 gap-5">
@@ -95,65 +96,71 @@ export function AdminEventsSponsored({ view, actions }: { view: SponsoredView | 
 
       {view.active ? (
         <Section title={dict.sponsoredItemsTitle} help={dict.sponsoredItemsHelp}>
-          {items.length ? (
-            <RowList>
-              {items.map((item) => (
-                <Row key={item.modelId}>
-                  <span className="min-w-0">
-                    <strong className="block break-words text-sm">{fmt(dict.sponsoredItemLine, { order: item.order + 1, model: name(item.modelId), brand: models.get(item.modelId)?.brandName ?? "—" })}</strong>
-                    <Meta>{item.questionId ? fmt(dict.sponsoredItemResult, { prompt: prompts.get(item.questionId) ?? "—" }) : dict.sponsoredItemNoResult}</Meta>
-                  </span>
-                </Row>
-              ))}
-            </RowList>
-          ) : <p className="text-sm text-[var(--admin-text-muted)]">{dict.sponsoredItemsEmpty}</p>}
+          <AdminDataView
+            listKey="dogadjaji.sponzorisano.redosled"
+            caption={dict.sponsoredItemsTitle}
+            rows={items}
+            empty={{ title: dict.sponsoredItemsTitle, body: dict.sponsoredItemsEmpty }}
+            getRowId={(item) => item.modelId}
+            columns={[
+              { id: "order", header: dict.colOrder, align: "end", sortValue: (item) => item.order, cell: (item) => <span className="tabular-nums">{item.order + 1}</span> },
+              { id: "model", header: dict.colModel, rowHeader: true, sortValue: (item) => name(item.modelId), cell: (item) => <strong className="font-semibold">{name(item.modelId)}</strong> },
+              { id: "brand", header: dict.colBrand, sortValue: (item) => brand(item.modelId), cell: (item) => brand(item.modelId) },
+              { id: "result", header: dict.colResult, cell: (item) => resultText(item.questionId) },
+            ]}
+            renderCard={(item) => <AdminDataCard title={fmt(dict.sponsoredItemLine, { order: item.order + 1, model: name(item.modelId), brand: brand(item.modelId) })} subtitle={resultText(item.questionId)} />}
+          />
         </Section>
       ) : null}
 
       <Section title={dict.sponsoredResultTitle} help={dict.sponsoredResultHelp}>
         <Feedback message={resultRun.message} />
-        {view.candidates.length ? (
-          <RowList>
-            {view.candidates.map((candidate) => {
-              const options = view.questions.filter((question) => question.modelId === candidate.modelId);
-              const selectId = `sponsored-result-${candidate.modelId}`;
-              return (
-                <Row key={candidate.modelId}>
-                  <label htmlFor={selectId} className="min-w-0">
-                    <strong className="block break-words text-sm">{name(candidate.modelId)}</strong>
-                    <Meta>{models.get(candidate.modelId)?.brandName ?? "—"}</Meta>
-                  </label>
-                  {options.length ? (
-                    <select
-                      id={selectId}
-                      value={candidate.questionId ?? ""}
-                      disabled={resultRun.pending}
-                      onChange={(event) => void resultRun.run(() => actions.setResult(candidate.modelId, event.target.value || null), dict.sponsoredResultSaved)}
-                      className={`${field} sm:w-72`}
-                    >
-                      <option value="">{dict.sponsoredResultNone}</option>
-                      {options.map((question) => <option key={question.id} value={question.id}>{question.prompt}</option>)}
-                    </select>
-                  ) : <Meta>{dict.sponsoredResultNoQuestions}</Meta>}
-                </Row>
-              );
-            })}
-          </RowList>
-        ) : <p className="text-sm text-[var(--admin-text-muted)]">{dict.sponsoredResultNoModels}</p>}
+        <AdminDataView
+          listKey="dogadjaji.sponzorisano.kandidati"
+          caption={dict.sponsoredResultTitle}
+          rows={view.candidates}
+          empty={{ title: dict.sponsoredResultTitle, body: dict.sponsoredResultNoModels }}
+          getRowId={(candidate) => candidate.modelId}
+          columns={[
+            { id: "model", header: dict.colModel, rowHeader: true, sortValue: (candidate) => name(candidate.modelId), cell: (candidate) => <strong className="font-semibold">{name(candidate.modelId)}</strong> },
+            { id: "brand", header: dict.colBrand, sortValue: (candidate) => brand(candidate.modelId), cell: (candidate) => brand(candidate.modelId) },
+          ]}
+          renderCard={(candidate) => <AdminDataCard title={name(candidate.modelId)} subtitle={brand(candidate.modelId)} />}
+          actionsHeader={dict.colResult}
+          rowActions={(candidate, context) => {
+            const options = view.questions.filter((question) => question.modelId === candidate.modelId);
+            if (!options.length) return <Meta>{dict.sponsoredResultNoQuestions}</Meta>;
+            return (
+              <select
+                aria-label={`${dict.colResult}: ${name(candidate.modelId)}`}
+                data-view={context.view}
+                value={candidate.questionId ?? ""}
+                disabled={resultRun.pending}
+                onChange={(event) => void resultRun.run(() => actions.setResult(candidate.modelId, event.target.value || null), dict.sponsoredResultSaved)}
+                className={`${field} sm:w-72`}
+              >
+                <option value="">{dict.sponsoredResultNone}</option>
+                {options.map((question) => <option key={question.id} value={question.id}>{question.prompt}</option>)}
+              </select>
+            );
+          }}
+        />
       </Section>
 
       {view.history.length ? (
         <Section title={dict.sponsoredHistoryTitle} help={dict.sponsoredHistoryHelp}>
-          <RowList>
-            {view.history.map((row) => (
-              <Row key={row.id}>
-                <span className="min-w-0 break-words text-sm">{fmt(dict.sponsoredHistoryLine, { version: row.version, date: row.publishedAt !== undefined ? dateTime.format(row.publishedAt) : "—" })}</span>
-                <span className="flex flex-wrap items-center gap-2">
-                  <AdminStatus label={dict.sponsoredStatus[row.status]} tone={row.status === "published" ? "active" : "neutral"} />
-                </span>
-              </Row>
-            ))}
-          </RowList>
+          <AdminDataView
+            listKey="dogadjaji.sponzorisano.verzije"
+            caption={dict.sponsoredHistoryTitle}
+            rows={view.history}
+            getRowId={(row) => row.id}
+            columns={[
+              { id: "version", header: dict.colVersion, rowHeader: true, sortValue: (row) => row.version, cell: (row) => <strong className="font-semibold tabular-nums">{row.version}</strong> },
+              { id: "published", header: dict.colPublishedAt, sortValue: (row) => row.publishedAt, cell: (row) => (row.publishedAt !== undefined ? dateTime.format(row.publishedAt) : "—") },
+              { id: "status", header: dict.colStatus, sortValue: (row) => dict.sponsoredStatus[row.status], cell: (row) => <AdminStatus label={dict.sponsoredStatus[row.status]} tone={row.status === "published" ? "active" : "neutral"} /> },
+            ]}
+            renderCard={(row) => <AdminDataCard title={fmt(dict.sponsoredHistoryLine, { version: row.version, date: row.publishedAt !== undefined ? dateTime.format(row.publishedAt) : "—" })} badges={<AdminStatus label={dict.sponsoredStatus[row.status]} tone={row.status === "published" ? "active" : "neutral"} />} />}
+          />
         </Section>
       ) : null}
     </div>

@@ -296,6 +296,8 @@ export const adminV1Sr = {
   clientProfileStartsAt: "Početak",
   clientProfileNoSubscription: "Nema povezane pretplate",
   clientProfileProductsAtVenue: "proizvoda na lokalu",
+  clientProfileColVenue: "Lokal",
+  clientProfileColProducts: "Proizvodi",
   clientProfileProductsSummary: "Proizvodi po lokalu",
   clientProfileProductsBody: "Brojevi dolaze iz operativnog read modela; detaljno upravljanje proizvodima pripada modulu Proizvodi.",
   clientProfileFinanceEmptyTitle: "Finansijski podaci još nisu povezani",

@@ -58,8 +58,8 @@ import {
   AdminLoadingState,
   AdminPanel,
   AdminStatus,
-  AdminTable,
 } from "./admin-primitives";
+import { AdminDataView, type AdminColumn } from "./admin-ui";
 
 type TaskResult = FunctionReturnType<typeof api.adminTasks.list>;
 type TaskItem = TaskResult["page"][number];
@@ -167,6 +167,96 @@ function PriorityLabel({ priority }: { priority: TaskPriority }) {
   );
 }
 
+const PRIORITY_RANK: Record<TaskPriority, number> = { urgent: 0, high: 1, normal: 2, low: 3 };
+
+function dueSortValue(task: TaskItem) {
+  if (!task.due) return null;
+  return task.due.kind === "date" ? Date.parse(`${task.due.date}T12:00:00Z`) : task.due.at;
+}
+
+const taskColumns = (onSelect: (id: Id<"clientTasks">) => void): AdminColumn<TaskItem>[] => [
+  {
+    id: "client",
+    header: dict.colClient,
+    sortValue: (task) => task.accountName,
+    cell: (task) => (
+      <>
+        <strong className="block text-sm">{task.accountName}</strong>
+        <span className="mt-1 block font-mono text-[0.68rem] text-[var(--admin-text-muted)]">
+          {task.smkCode}
+          {task.smlCode ? ` · ${task.smlCode}` : ""}
+        </span>
+      </>
+    ),
+  },
+  {
+    id: "task",
+    header: dict.colTask,
+    rowHeader: true,
+    sortValue: (task) => task.title,
+    className: "max-w-[26rem]",
+    cell: (task) => (
+      <>
+        <strong className="block text-sm">{task.title}</strong>
+        {task.businessName ? (
+          <span className="mt-1 block text-xs text-[var(--admin-text-muted)]">
+            {task.businessName}
+          </span>
+        ) : null}
+      </>
+    ),
+  },
+  {
+    id: "due",
+    header: dict.colDue,
+    sortValue: dueSortValue,
+    cell: (task) => (
+      <span className={cn(task.timePhase === "overdue" && "font-semibold text-[var(--admin-danger)]")}>
+        {dueLabel(task)}
+      </span>
+    ),
+  },
+  {
+    id: "priority",
+    header: dict.colPriority,
+    sortValue: (task) => PRIORITY_RANK[task.priority],
+    cell: (task) => <PriorityLabel priority={task.priority} />,
+  },
+  {
+    id: "assignee",
+    header: dict.colAssignee,
+    sortValue: (task) => task.assigneeName,
+    cell: (task) => task.assigneeName,
+  },
+  {
+    id: "status",
+    header: dict.colStatus,
+    sortValue: (task) => statusLabels[task.status],
+    cell: (task) => (
+      <AdminStatus
+        label={statusLabels[task.status]}
+        tone={statusTone(task.status, task.timePhase)}
+      />
+    ),
+  },
+  {
+    id: "open",
+    header: dict.openDetail,
+    headerHidden: true,
+    align: "end",
+    cell: (task) => (
+      <button
+        type="button"
+        onClick={() => onSelect(task.id)}
+        className="inline-grid size-11 place-items-center rounded-full hover:bg-[var(--admin-surface-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-focus)]"
+        aria-label={`${dict.openDetail}: ${task.title}`}
+      >
+        <ChevronRight className="size-4" aria-hidden="true" />
+      </button>
+    ),
+  },
+];
+
 function TaskList({
   rows,
   onSelect,
@@ -175,136 +265,63 @@ function TaskList({
   onSelect: (id: Id<"clientTasks">) => void;
 }) {
   return (
-    <>
-      <AdminTable caption={dict.tableCaption} className="hidden md:block">
-        <thead className="bg-[var(--admin-surface-muted)] text-xs text-[var(--admin-text-muted)]">
-          <tr>
-            {[
-              dict.colClient,
-              dict.colTask,
-              dict.colDue,
-              dict.colPriority,
-              dict.colAssignee,
-              dict.colStatus,
-              dict.openDetail,
-            ].map((label) => (
-              <th
-                key={label}
-                className="px-4 py-3 font-medium last:w-14 last:text-right"
-              >
-                {label}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-[var(--admin-border)]">
-          {rows.map((task) => (
-            <tr
-              key={task.id}
-              className="hover:bg-[var(--admin-surface-muted)]/60"
-            >
-              <td className="px-4 py-4 align-top">
-                <strong className="block text-sm">{task.accountName}</strong>
-                <span className="mt-1 block font-mono text-[0.68rem] text-[var(--admin-text-muted)]">
-                  {task.smkCode}
-                  {task.smlCode ? ` · ${task.smlCode}` : ""}
-                </span>
-              </td>
-              <td className="max-w-[26rem] px-4 py-4 align-top">
-                <strong className="block text-sm">{task.title}</strong>
-                {task.businessName ? (
-                  <span className="mt-1 block text-xs text-[var(--admin-text-muted)]">
-                    {task.businessName}
-                  </span>
-                ) : null}
-              </td>
-              <td
-                className={cn(
-                  "px-4 py-4 align-top text-sm",
-                  task.timePhase === "overdue" &&
-                    "font-semibold text-[var(--admin-danger)]",
-                )}
-              >
-                {dueLabel(task)}
-              </td>
-              <td className="px-4 py-4 align-top">
-                <PriorityLabel priority={task.priority} />
-              </td>
-              <td className="px-4 py-4 align-top text-sm">
-                {task.assigneeName}
-              </td>
-              <td className="px-4 py-4 align-top">
-                <AdminStatus
-                  label={statusLabels[task.status]}
-                  tone={statusTone(task.status, task.timePhase)}
-                />
-              </td>
-              <td className="px-2 py-2 text-right align-middle">
-                <button
-                  type="button"
-                  onClick={() => onSelect(task.id)}
-                  className="inline-grid size-11 place-items-center rounded-full hover:bg-[var(--admin-surface-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-focus)]"
-                  aria-label={`${dict.openDetail}: ${task.title}`}
-                >
-                  <ChevronRight className="size-4" aria-hidden="true" />
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </AdminTable>
-      <div className="grid gap-3 md:hidden">
-        {rows.map((task) => (
-          <button
-            key={task.id}
-            type="button"
-            onClick={() => onSelect(task.id)}
-            className="min-h-11 rounded-[var(--admin-radius-control)] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-4 text-left shadow-[var(--admin-shadow-xs)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-focus)]"
-          >
-            <span className="flex items-start justify-between gap-3">
-              <span className="min-w-0">
-                <span className="block font-mono text-[0.68rem] text-[var(--admin-text-muted)]">
-                  {task.smkCode}
-                  {task.smlCode ? ` · ${task.smlCode}` : ""}
-                </span>
-                <strong className="mt-1 block break-words text-sm">
-                  {task.title}
-                </strong>
-                <span className="mt-1 block text-xs text-[var(--admin-text-muted)]">
-                  {task.accountName}
-                  {task.businessName ? ` · ${task.businessName}` : ""}
-                </span>
+    <AdminDataView
+      listKey="zadaci.lista"
+      caption={dict.tableCaption}
+      rows={rows}
+      getRowId={(task) => task.id}
+      columns={taskColumns(onSelect)}
+      autoBreakpoint="md"
+      tableClassName="min-w-[48rem]"
+      renderCard={(task) => (
+        <button
+          type="button"
+          onClick={() => onSelect(task.id)}
+          className="min-h-11 w-full rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--admin-focus)]"
+        >
+          <span className="flex items-start justify-between gap-3">
+            <span className="min-w-0">
+              <span className="block font-mono text-[0.68rem] text-[var(--admin-text-muted)]">
+                {task.smkCode}
+                {task.smlCode ? ` · ${task.smlCode}` : ""}
               </span>
-              <ChevronRight
-                className="mt-1 size-4 shrink-0 text-[var(--admin-text-muted)]"
-                aria-hidden="true"
-              />
+              <strong className="mt-1 block break-words text-sm">
+                {task.title}
+              </strong>
+              <span className="mt-1 block text-xs text-[var(--admin-text-muted)]">
+                {task.accountName}
+                {task.businessName ? ` · ${task.businessName}` : ""}
+              </span>
             </span>
-            <span className="mt-4 flex flex-wrap items-center gap-2">
-              <AdminStatus
-                label={statusLabels[task.status]}
-                tone={statusTone(task.status, task.timePhase)}
-              />
-              <PriorityLabel priority={task.priority} />
-            </span>
-            <span
-              className={cn(
-                "mt-3 flex items-center gap-2 text-xs",
-                task.timePhase === "overdue"
-                  ? "font-semibold text-[var(--admin-danger)]"
-                  : "text-[var(--admin-text-muted)]",
-              )}
-            >
-              <CalendarClock className="size-4" aria-hidden="true" />
-              {dueLabel(task)}
-              <span aria-hidden="true">·</span>
-              <UserRound className="size-4" aria-hidden="true" />
-              {task.assigneeName}
-            </span>
-          </button>
-        ))}
-      </div>
-    </>
+            <ChevronRight
+              className="mt-1 size-4 shrink-0 text-[var(--admin-text-muted)]"
+              aria-hidden="true"
+            />
+          </span>
+          <span className="mt-4 flex flex-wrap items-center gap-2">
+            <AdminStatus
+              label={statusLabels[task.status]}
+              tone={statusTone(task.status, task.timePhase)}
+            />
+            <PriorityLabel priority={task.priority} />
+          </span>
+          <span
+            className={cn(
+              "mt-3 flex items-center gap-2 text-xs",
+              task.timePhase === "overdue"
+                ? "font-semibold text-[var(--admin-danger)]"
+                : "text-[var(--admin-text-muted)]",
+            )}
+          >
+            <CalendarClock className="size-4" aria-hidden="true" />
+            {dueLabel(task)}
+            <span aria-hidden="true">·</span>
+            <UserRound className="size-4" aria-hidden="true" />
+            {task.assigneeName}
+          </span>
+        </button>
+      )}
+    />
   );
 }
 

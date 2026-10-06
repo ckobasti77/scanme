@@ -1,11 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { AdminEventsSurface, type CatalogView, type EventsActions, type ModelView } from "@/components/admin/admin-events";
+import { AdminEventsSurface, isAdminEventsTab, type CatalogView, type EventsActions, type ModelView } from "@/components/admin/admin-events";
 import type { InteractionsActions, InteractionsView } from "@/components/admin/admin-events-interactions";
 import { AdminEventsLeads, type LeadsActions, type LeadsView } from "@/components/admin/admin-events-leads";
+import { AdminEventsReports, type ReportsActions, type ReportsView } from "@/components/admin/admin-events-reports";
+import { AdminEventsRetention, type RetentionActions, type RetentionView } from "@/components/admin/admin-events-retention";
 import { AdminEventsSponsored, type SponsoredActions, type SponsoredView } from "@/components/admin/admin-events-sponsored";
 import { AdminShell } from "@/components/admin/admin-shell";
+import { AdminViewModeOverride } from "@/components/admin/admin-ui";
+import type { AdminViewMode } from "@/lib/admin-v1/view-mode";
+import { FAIR_PII_PURGE_AT_MS, FAIR_PURGE_CATEGORIES } from "@/lib/fair-contract";
 import { adminEventsSr as dict } from "@/lib/i18n/sr/admin-events";
 
 // Static TEST fixture of the `Događaji` tab (mirrors the B1 DEV TEST catalog)
@@ -137,12 +142,39 @@ const sponsoredView: SponsoredView = {
 };
 const sponsoredActions: SponsoredActions = { publish: ok, setResult: ok };
 
-export function AdminEventsPreview() {
+// A1 — Izveštaji and Brisanje podataka (TEST runs, no dataset under review, no PII).
+const reportsView: ReportsView = {
+  days: catalog.days.map((day, index) => ({ id: `d${index + 1}`, label: day.label, dateKey: day.dateKey })),
+  participations: [{ id: "p-a", name: "TEST Izlagač A" }, { id: "p-b", name: "TEST Izlagač B" }],
+  runs: [
+    { id: "run-1", dayLabel: "TEST dan 1", dateKey: "2026-10-09", participationId: "p-a", exhibitorName: "TEST Izlagač A", status: "pending_review", format: "pdf", createdAt: opening + 54_000_000, hasFile: true, sendCount: 0, lastDelivery: null },
+    { id: "run-2", dayLabel: "TEST dan 1", dateKey: "2026-10-09", participationId: "p-b", exhibitorName: "TEST Izlagač B", status: "approved", format: "xlsx", createdAt: opening + 54_100_000, hasFile: true, approvedAt: opening + 55_000_000, recipient: "test.izlagac@example.invalid", sendCount: 0, lastDelivery: null },
+    { id: "run-3", dayLabel: "TEST dan 1", dateKey: "2026-10-09", participationId: "p-a", exhibitorName: "TEST Izlagač A", status: "failed", format: "csv", createdAt: opening + 54_200_000, hasFile: true, error: "PROVIDER_UNAVAILABLE:503", sendCount: 1, lastDelivery: { status: "failed", lastError: "PROVIDER_UNAVAILABLE:503" } },
+  ],
+  review: null,
+};
+const reportsActions: ReportsActions = {
+  build: ok, approve: ok, send: ok, resend: ok, retry: ok, correct: ok, download: ok, exportLeads: ok, exportOrganizer: ok, review: () => undefined,
+};
+const retentionView: RetentionView = {
+  purgeAt: FAIR_PII_PURGE_AT_MS,
+  capPerCategory: 200,
+  preview: FAIR_PURGE_CATEGORIES.map((category, index) => ({ category, count: index, capped: false })),
+  runs: [
+    { id: "purge-1", mode: "dry_run", trigger: "admin", status: "completed", startedAt: opening - 86_400_000, finishedAt: opening - 86_399_000, batches: 2, totalRows: 14, categories: FAIR_PURGE_CATEGORIES.slice(0, 2).map((category) => ({ category, rows: 7, status: "done" as const })) },
+  ],
+};
+const retentionActions: RetentionActions = { startDryRun: ok };
+
+/** `tab` = `?tab=` (e.g. `qr`, `reports`); `view` = `?prikaz=` for every list. */
+export function AdminEventsPreview({ tab, view = null }: { tab?: string; view?: AdminViewMode | null }) {
   const [eventId, setEventId] = useState("e-em26");
   return (
     <AdminShell previewIdentity={dict.fixtureIdentity} activePathname="/admin/dogadjaji">
+      <AdminViewModeOverride value={view}>
       <AdminEventsSurface
         preview
+        initialTab={isAdminEventsTab(tab) ? tab : undefined}
         events={[{ id: "e-em26", title: "TEST Sajam elektromobilnosti", status: "published" }, { id: "e-amf26", title: "TEST Auto Moto Fest", status: "published" }]}
         selectedEventId={eventId}
         onSelectEvent={setEventId}
@@ -156,7 +188,10 @@ export function AdminEventsPreview() {
         interactions={{ view: interactions, actions: interactionActions }}
         leads={<AdminEventsLeads view={leadsView} actions={leadActions} />}
         sponsored={<AdminEventsSponsored view={sponsoredView} actions={sponsoredActions} />}
+        reports={<AdminEventsReports view={reportsView} actions={reportsActions} />}
+        retention={<AdminEventsRetention view={retentionView} actions={retentionActions} />}
       />
+      </AdminViewModeOverride>
     </AdminShell>
   );
 }

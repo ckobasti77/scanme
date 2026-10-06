@@ -39,6 +39,7 @@ import { orderingPanelSr } from "./sr/ordering-panel";
 import { cardsAdminSr } from "./sr/cards-admin";
 import { adminDomainSr } from "./sr/admin-domain";
 import { adminV1Sr } from "./sr/admin-v1";
+import { adminUiSr } from "./sr/admin-ui";
 import { communicationsSr } from "./sr/communications";
 import { adminTasksSr } from "./sr/admin-tasks";
 import { adminOrdersSr } from "./sr/admin-orders";
@@ -83,6 +84,7 @@ export type {
   CardsAdminDict,
   AdminDomainDict,
   AdminV1Dict,
+  AdminUiDict,
   AdminSettingsDict,
   CommunicationsDict,
   AdminTasksDict,
@@ -123,6 +125,7 @@ export {
   cardsAdminSr,
   adminDomainSr,
   adminV1Sr,
+  adminUiSr,
   communicationsSr,
   adminTasksSr,
   adminOrdersSr,
@@ -143,6 +146,7 @@ const SR: DictBySurface = {
   "fair-model": fairModelSr,
   "fair-garage": fairGarageSr,
   "admin-v1": adminV1Sr,
+  "admin-ui": adminUiSr,
   "admin-settings": adminSettingsSr,
   "admin-search": adminSearchSr,
   communications: communicationsSr,
