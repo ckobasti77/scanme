@@ -114,6 +114,8 @@ const FAIR_INDEXES: Record<string, string[]> = {
     "by_eventId_and_leadKind_and_version",
   ],
   fairLeadConfigs: ["by_eventModelId_and_leadKind"],
+  // Admin UX A7 — the exhibitor default of each lead form.
+  fairParticipationLeadDefaults: ["by_participationId_and_leadKind", "by_eventId"],
   fairLeads: [
     "by_submissionId",
     "by_eventModelId_and_createdAt",
@@ -465,6 +467,16 @@ describe("fair schema contract (B0)", () => {
         createdAt: now,
         updatedAt: now,
       });
+      await ctx.db.insert("fairParticipationLeadDefaults", {
+        eventId: s.eventId,
+        participationId: s.participationId,
+        leadKind: "interest",
+        enabled: true,
+        contactRequirement: "one_of",
+        updatedByUserId: s.adminId,
+        createdAt: now,
+        updatedAt: now,
+      });
       const leadId = await ctx.db.insert("fairLeads", {
         submissionId: "test-lead-1",
         kind: "interest",
@@ -634,6 +646,7 @@ describe("fair schema contract (B0)", () => {
         fairSurveyResponses: await q.query("fairSurveyResponses").withIndex("by_submissionId", (x) => x.eq("submissionId", "test-sub-1")).unique(),
         fairConsentConfigs: await q.query("fairConsentConfigs").withIndex("by_eventId_and_leadKind_and_version", (x) => x.eq("eventId", s.eventId).eq("leadKind", "interest").eq("version", 1)).unique(),
         fairLeadConfigs: await q.query("fairLeadConfigs").withIndex("by_eventModelId_and_leadKind", (x) => x.eq("eventModelId", s.eventModelId).eq("leadKind", "test_drive")).unique(),
+        fairParticipationLeadDefaults: await q.query("fairParticipationLeadDefaults").withIndex("by_participationId_and_leadKind", (x) => x.eq("participationId", s.participationId).eq("leadKind", "interest")).unique(),
         fairLeads: await q.query("fairLeads").withIndex("by_submissionId", (x) => x.eq("submissionId", "test-lead-1")).unique(),
         fairMessageTemplates: await q.query("fairMessageTemplates").withIndex("by_eventModelId_and_kind_and_status", (x) => x.eq("eventModelId", s.eventModelId).eq("kind", "post_event_follow_up").eq("status", "draft")).unique(),
         fairEmailDeliveries: await q.query("fairEmailDeliveries").withIndex("by_dedupeKey", (x) => x.eq("dedupeKey", "test-dedupe-2")).unique(),

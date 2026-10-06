@@ -30,12 +30,11 @@ const view: InteractionsView = {
     { id: "s1", modelId: "m1", version: 1, status: "published", questions: [yesNo("q1", "TEST prva verzija", 1)] },
     { id: "s0", modelId: "m3", version: 1, status: "retired", questions: [yesNo("q1", "TEST povučena", 1)] },
   ],
-  passports: [],
 };
 const ok = async () => ({ ok: true as const });
 const actions: InteractionsActions = {
   saveQuestion: ok, publishQuestion: ok, closeQuestion: ok, setSponsoredResult: ok, saveSurveyDraft: ok, publishSurvey: ok,
-  retireSurvey: ok, openPassport: ok, publishPassport: ok, withdrawPassport: ok, removePassportModel: ok,
+  retireSurvey: ok,
 };
 const render = (query: AdminQueryState = {}, data: InteractionsView = view) => renderToStaticMarkup(<EventSurveysView view={data} actions={actions} now={NOW} query={query} onQueryChange={() => undefined} />);
 

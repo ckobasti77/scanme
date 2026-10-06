@@ -4,10 +4,11 @@ import { formatBelgradeDate } from "@/lib/belgrade-time";
 import { FAIR_EMAIL_DELIVERY_ERRORS } from "@/lib/fair-contract";
 import { fmt } from "@/lib/i18n/format";
 import { adminEventsSr } from "@/lib/i18n/sr/admin-events";
+import { EventLeadFormsView, type LeadFormsActions } from "@/components/admin/events/sections/interakcije-forme-view";
+import type { LeadFormsSource } from "@/lib/admin-v1/lead-forms";
 import {
   AdminEventsConsent,
   AdminEventsFollowUp,
-  AdminEventsLeadForms,
   AdminEventsLeadList,
   type LeadsActions,
   type LeadsView,
@@ -15,15 +16,45 @@ import {
 
 // Sajam 2026 B4 — the lead sections of the admin `Događaji` area. Since A2
 // each part is its own route: leadovi, interakcije/forme, leadovi/follow-up,
-// leadovi/podesavanja. `all` renders every part of one view.
+// leadovi/podesavanja. `all` renders every part of one view. A7: the forms
+// (`interakcije/forme`) are set per exhibitor in their own view; `forms`
+// renders it for the same TEST models (more in
+// components/admin/events/sections/interakcije-forme-view.test.tsx).
 
-const PARTS = [AdminEventsConsent, AdminEventsLeadForms, AdminEventsFollowUp, AdminEventsLeadList];
+const PARTS = [AdminEventsConsent, AdminEventsFollowUp, AdminEventsLeadList];
 const all = (view: LeadsView | undefined, actions: LeadsActions | undefined) => PARTS.map((Part) => renderToStaticMarkup(<Part view={view} actions={actions} />)).join("");
 
 const ok = async () => ({ ok: true as const });
 const actions: LeadsActions = {
-  saveConsentDraft: ok, activateConsent: ok, retireConsent: ok, saveLeadConfig: ok, saveFollowUpTemplate: ok, setSuppressed: ok, retryDelivery: ok,
+  saveConsentDraft: ok, activateConsent: ok, retireConsent: ok, saveFollowUpTemplate: ok, setSuppressed: ok, retryDelivery: ok,
 };
+
+const formsSource: LeadFormsSource = {
+  defaults: [{ participationId: "p1", leadKind: "test_drive", enabled: true, contactRequirement: "both", preferredContact: "phone", updatedAt: 1 }],
+  models: [
+    {
+      eventModelId: "m1", participationId: "p1", packageTier: "advanced",
+      interest: { entitled: true, config: { enabled: true, contactRequirement: "one_of", source: "override", updatedAt: 1 } },
+      testDrive: { entitled: true, config: { enabled: true, contactRequirement: "both", preferredContact: "phone", source: "default", updatedAt: 1 } },
+    },
+    { eventModelId: "m2", participationId: "p1", packageTier: "starter", interest: { entitled: true, config: null }, testDrive: { entitled: false, config: null } },
+  ],
+};
+const formsActions: LeadFormsActions = { saveDefault: ok, apply: ok, saveOverride: ok, clearOverride: ok };
+/** `model` opens that model's exception editor. */
+const forms = (model?: string) => renderToStaticMarkup(
+  <EventLeadFormsView
+    source={formsSource}
+    names={{ models: new Map([["m1", { name: "TEST Volta X2", brandName: "TEST Volta" }], ["m2", { name: "TEST Volta X1", brandName: "TEST Volta" }]]) }}
+    exhibitors={[{ id: "p1", name: "TEST izlagač A" }]}
+    switches={{ leadsEnabled: true, followUpEnabled: true }}
+    consents={{ interest: 1, test_drive: null }}
+    consentHref="/admin/dogadjaji/test/leadovi/podesavanja"
+    query={model ? { model } : {}}
+    onQueryChange={() => {}}
+    actions={formsActions}
+  />,
+);
 const AT = Date.parse("2026-10-09T10:00:00+02:00");
 
 const view: LeadsView = {
@@ -46,6 +77,7 @@ const view: LeadsView = {
   },
   participationId: "p1",
   onSelectParticipation: () => {},
+  formsHref: "/admin/dogadjaji/test/interakcije/forme",
   leads: {
     rows: [
       {
@@ -62,9 +94,10 @@ const view: LeadsView = {
 
 describe("B4 admin Leadovi", () => {
   test("consent, per-model settings and leads render in Serbian, with no raw codes", () => {
-    const html = all(view, actions);
+    const html = all(view, actions) + forms();
     for (const text of [
-      adminEventsSr.consentTitle, adminEventsSr.formsSectionTitle, adminEventsSr.followUpSectionTitle, adminEventsSr.listTitle, adminEventsSr.consentInactive,
+      adminEventsSr.consentTitle, adminEventsSr.sectionLabels["interakcije/forme"], adminEventsSr.followUpSectionTitle, adminEventsSr.listTitle, adminEventsSr.consentInactive,
+      adminEventsSr.leadForms.movedLink,
       "TEST aktivna saglasnost {izlagac}", "TEST nacrt saglasnosti {izlagac}", adminEventsSr.consentRetire, "Aktiviraj verziju 2",
       adminEventsSr.contactRequirements.both, adminEventsSr.preferredContacts.phone, adminEventsSr.followUpTitle, "Aktivna verzija teksta: 3.",
       "TEST Posetilac", "lead@example.invalid", "+381 60 000 0006", adminEventsSr.leadNoEmail, adminEventsSr.deliveryErrors.PROVIDER_REJECTED,
@@ -75,7 +108,7 @@ describe("B4 admin Leadovi", () => {
 
   test("a Starter model offers interest only; Advanced test drive and follow-up are not shown", () => {
     const starter: LeadsView = { ...view, modelId: "m2", modelSettings: { tier: "starter", interest: null, testDrive: null, followUpTemplate: null } };
-    const html = all(starter, actions);
+    const html = all(starter, actions) + forms("m2");
     expect(html).toContain(adminEventsSr.testDriveAdvancedOnly);
     expect(html).toContain(adminEventsSr.followUpAdvancedOnly);
     expect(html).not.toContain(adminEventsSr.followUpTitle);

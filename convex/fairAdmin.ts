@@ -26,6 +26,7 @@ import {
   upsertFairParticipation,
   upsertFairStand,
 } from "./lib/fairCatalog";
+import { scheduleFairBrandPassportSync } from "./lib/fairPassportSync";
 import { activeAssignmentForChannel, assignFairQr, fairResolveTest, releaseFairQr } from "./lib/fairQr";
 import {
   fairClientSegment,
@@ -183,6 +184,8 @@ async function changeModelStatus(ctx: MutationCtx, eventModelId: Id<"fairEventMo
       detail: { eventModelId: model._id, from: model.status, to: status },
       now,
     });
+    // Admin UX A7: the brand's automatic passport follows the catalog.
+    await scheduleFairBrandPassportSync(ctx, model.eventId, model.brandId, now);
   }
   return { status, changed, warnings };
 }
@@ -216,6 +219,8 @@ export const upgradePackage = mutation({
       detail: { eventModelId: args.eventModelId, activationId: result.activationId, from: result.fromTier, to: result.toTier },
       now,
     });
+    // Admin UX A7: an upgrade to Starter can complete the brand's passport condition.
+    if (model) await scheduleFairBrandPassportSync(ctx, model.eventId, model.brandId, now);
     return result;
   },
 });

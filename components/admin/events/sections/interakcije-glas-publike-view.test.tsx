@@ -40,12 +40,11 @@ const view: InteractionsView = {
     question("qe", "m2", "d1", "draft", 2),
   ],
   surveys: [],
-  passports: [],
 };
 const ok = async () => ({ ok: true as const });
 const actions: InteractionsActions = {
   saveQuestion: ok, publishQuestion: ok, closeQuestion: ok, setSponsoredResult: ok, saveSurveyDraft: ok, publishSurvey: ok,
-  retireSurvey: ok, openPassport: ok, publishPassport: ok, withdrawPassport: ok, removePassportModel: ok,
+  retireSurvey: ok,
 };
 const render = (query: AdminQueryState = {}) => renderToStaticMarkup(<EventAudienceView view={view} actions={actions} now={NOW} query={query} onQueryChange={() => undefined} />);
 const buttonWith = (html: string, text: string) => html.match(new RegExp(`<button[^>]*>(?:(?!</button>).)*${text}(?:(?!</button>).)*</button>`))?.[0] ?? "";

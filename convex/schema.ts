@@ -11,6 +11,7 @@ import {
   fairEmailDeliveryKind,
   fairEmailDeliveryStatus,
   fairEventStatus,
+  fairLeadConfigSource,
   fairLeadKind,
   fairLeadStatus,
   fairMessageTemplateKind,
@@ -3613,12 +3614,35 @@ export default defineSchema({
     // A preference, never a requirement unless contactRequirement says so.
     preferredContact: v.optional(fairPreferredContact),
     enabled: v.boolean(),
+    // Admin UX A7: "default" = written by "Primeni na sve modele" from the
+    // exhibitor default; "override" (or absent, rows before A7) = the model's
+    // own exception, which the exhibitor default never overwrites.
+    source: v.optional(fairLeadConfigSource),
     updatedByUserId: v.id("users"),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
     // unique: (eventModelId, leadKind)
     .index("by_eventModelId_and_leadKind", ["eventModelId", "leadKind"]),
+
+  // Admin UX A7 — the exhibitor's default for one lead form on one event
+  // (ADMIN-UX §6 Forme). Admin input only: the public flow (getLeadForm,
+  // submitLead) still reads fairLeadConfigs, which "Primeni na sve modele"
+  // writes from this row.
+  fairParticipationLeadDefaults: defineTable({
+    eventId: v.id("fairEvents"),
+    participationId: v.id("fairParticipations"),
+    leadKind: fairLeadKind,
+    enabled: v.boolean(),
+    contactRequirement: fairContactRequirement,
+    preferredContact: v.optional(fairPreferredContact),
+    updatedByUserId: v.id("users"),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    // unique: (participationId, leadKind)
+    .index("by_participationId_and_leadKind", ["participationId", "leadKind"])
+    .index("by_eventId", ["eventId"]),
 
   // (PII) A declined consent is never stored (consentAccepted is literally true).
   fairLeads: defineTable({
@@ -3693,9 +3717,18 @@ export default defineSchema({
     brandId: v.id("brands"),
     participationId: v.id("fairParticipations"),
     status: fairPassportConfigStatus,
-    // The eligible set is frozen before the event opens.
+    // The eligible set is frozen before the event opens. Manual publish:
+    // the publish moment. Admin UX A7 automatic passport: the event's
+    // startsAt (until then the sync keeps the set in line with the catalog).
     frozenAt: v.optional(v.number()),
     publishedAt: v.optional(v.number()),
+    // Admin UX A7 — hidden from every public read (catalog, model page,
+    // garage, map, favorite); the passport keeps its set, stamps and
+    // favorites, and keeps stamping, so "Prikaži" loses no progress.
+    hiddenAt: v.optional(v.number()),
+    hiddenByUserId: v.optional(v.id("users")),
+    // Admin UX A7 — the last change written by the automatic sync.
+    autoSyncedAt: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })

@@ -86,7 +86,7 @@ function useModelSummary(modelId: string): ModelDetailSummary {
       const survey = surveys.find((row) => row.status === "published") ?? surveys[0];
       summary.survey = survey ? { version: survey.version, status: survey.status } : null;
       const passport = interactions.passports.find((row) => row.brandId === model.brandId);
-      summary.passport = passport ? { status: passport.status, member: passport.members.some((member) => member.eventModelId === model._id && member.status === "required") } : null;
+      summary.passport = passport ? { status: passport.status, member: passport.members.some((member) => member.eventModelId === model._id && member.status === "required"), hidden: passport.hiddenAt !== undefined } : null;
     }
     if (settings) summary.forms = { interest: Boolean(settings.interest?.enabled), testDrive: Boolean(settings.testDrive?.enabled) };
     if (leadCounts) {

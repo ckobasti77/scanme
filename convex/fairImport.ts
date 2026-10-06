@@ -1,5 +1,6 @@
 import { v, type Infer } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { requireAdmin } from "./lib/access";
@@ -457,6 +458,11 @@ export const commit = mutation({
   returns: v.object({ committed: v.boolean(), issues: v.array(fairIssueValidator), results: commitResults }),
   handler: async (ctx, args) => {
     const admin = await requireAdmin(ctx);
-    return commitFairImport(ctx, args.payload, admin._id, Date.now());
+    const result = await commitFairImport(ctx, args.payload, admin._id, Date.now());
+    // Admin UX A7: imported models and packages can change the brands'
+    // automatic passports; the sync runs right after, in its own transaction.
+    const event = result.committed ? await fairEventByCode(ctx, args.payload.eventCode) : null;
+    if (event) await ctx.scheduler.runAfter(0, internal.fairPassports.syncEventPassports, { eventId: event._id });
+    return result;
   },
 });

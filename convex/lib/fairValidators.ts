@@ -69,6 +69,9 @@ export const fairContactRequirement = v.union(
 
 export const fairPreferredContact = v.union(v.literal("email"), v.literal("phone"));
 
+// Admin UX A7 — exhibitor default vs the model's own exception (lib/fair-contract FairLeadConfigSource).
+export const fairLeadConfigSource = v.union(v.literal("default"), v.literal("override"));
+
 export const fairConsentStatus = v.union(
   v.literal("draft"),
   v.literal("active"),
@@ -112,6 +115,15 @@ export const fairPassportConfigStatus = v.union(
 );
 
 export const fairPassportEligibleStatus = v.union(v.literal("required"), v.literal("removed"));
+
+// Admin UX A7 — lib/fair-contract FairBrandPassportProblem (fairBrandPassportProblems).
+export const fairBrandPassportProblem = v.union(
+  v.literal("fewer_than_two_models"),
+  v.literal("model_not_published"),
+  v.literal("model_not_candidate"),
+  v.literal("model_below_starter"),
+  v.literal("multiple_exhibitors"),
+);
 
 export const fairReportStatus = v.union(
   v.literal("queued"),

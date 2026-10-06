@@ -38,7 +38,8 @@ const ENUMS: Partial<Record<AdminQueryKey, readonly string[]>> = {
   problemi: ["greske", "upozorenja", "bez"],
   qr: ["ima", "nema"],
   foto: ["ima", "nema"],
-  stanje: ["slobodan", "ovaj", "drugi", "neaktivan"],
+  // QR (A4) and, A7, the brand passport (lib/admin-v1/passport-overview.ts).
+  stanje: ["slobodan", "ovaj", "drugi", "neaktivan", "aktivan", "zamrznut", "sakriven", "bez-uslova", "nije-napravljen"],
   segment: ["event-only", "standard"],
   tip: ["zainteresovan", "probna-voznja"],
   isporuka: ["da", "ne"],

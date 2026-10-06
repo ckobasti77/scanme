@@ -7,7 +7,7 @@ import {
   FAIR_AUDIENCE_OPTIONS_MIN,
   FAIR_SURVEY_MAX_QUESTIONS,
 } from "../lib/fair-contract";
-import { fairAudienceQuestionsRemaining, fairBrandPassportEligible, getFairEntitlements } from "../lib/fair-entitlements";
+import { fairAudienceQuestionsRemaining, fairBrandPassportProblems, getFairEntitlements } from "../lib/fair-entitlements";
 import { requireAdmin } from "./lib/access";
 import { fairAdminError, isFairExternalKey, optionalText, requireText } from "./lib/fairCatalog";
 import {
@@ -367,14 +367,13 @@ async function brandModels(ctx: MutationCtx, eventId: Id<"fairEvents">, brandId:
 /**
  * Publish rule: ≥2 exhibited models, every one published, marked as a
  * passport candidate (`passportEligible`, DATA-INTAKE §6.3) and Starter or
- * Advanced (fairBrandPassportEligible). Returns the reason or null.
+ * Advanced. Returns the first reason or null. A7: the rules live in
+ * fairBrandPassportProblems, shared with the automatic passport; one
+ * exhibitor per brand stays FAIR_LINK_CONFLICT here.
  */
 function passportProblem(models: readonly Doc<"fairEventModels">[]): string | null {
-  if (models.length < 2) return "fewer_than_two_models";
-  if (models.some((model) => model.status !== "published")) return "model_not_published";
-  if (models.some((model) => !model.passportEligible)) return "model_not_candidate";
-  if (!fairBrandPassportEligible(models)) return "model_below_starter";
-  return null;
+  const check = fairBrandPassportProblems(models.map((model) => ({ status: model.status, passportEligible: model.passportEligible, packageTier: model.packageTier })));
+  return check.problems[0]?.code ?? null;
 }
 
 /** Opens (or returns) the brand's draft passport on the event. Idempotent by event + brand. */
@@ -448,16 +447,27 @@ export const publishPassport = mutation({
   },
 });
 
-/** Published → withdrawn: no new stamps or favorites; earned stamps and favorites stay stored. */
+/**
+ * Published → withdrawn: no new stamps or favorites; earned stamps and
+ * favorites stay stored. A7: a manual withdrawal also freezes the passport
+ * (`frozenAt` = now when it was later), so the automatic sync never
+ * publishes it again — the admin's decision wins. Hiding (fairPassports
+ * .setPassportHidden) is the reversible way.
+ */
 export const withdrawPassport = mutation({
   args: { passportId: v.id("fairPassportConfigs") },
   returns: v.object({ status: fairPassportConfigStatus }),
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
+    const now = Date.now();
     const passport = await ctx.db.get(args.passportId);
     if (!passport) fairAdminError("FAIR_PASSPORT_NOT_FOUND");
     if (passport.status === "withdrawn") return { status: passport.status };
-    await ctx.db.patch(passport._id, { status: "withdrawn", updatedAt: Date.now() });
+    await ctx.db.patch(passport._id, {
+      status: "withdrawn",
+      ...(passport.frozenAt === undefined || passport.frozenAt > now ? { frozenAt: now } : {}),
+      updatedAt: now,
+    });
     return { status: "withdrawn" as const };
   },
 });
@@ -527,6 +537,8 @@ const passportRow = v.object({
   status: fairPassportConfigStatus,
   frozenAt: v.optional(v.number()),
   publishedAt: v.optional(v.number()),
+  // A7 — hidden from visitors (fairPassports.setPassportHidden).
+  hiddenAt: v.optional(v.number()),
   members: v.array(v.object({ eventModelId: v.id("fairEventModels"), status: fairPassportEligibleStatus, removedAt: v.optional(v.number()) })),
 });
 
@@ -563,6 +575,7 @@ export const getEventInteractions = query({
         status: config.status,
         ...(config.frozenAt !== undefined ? { frozenAt: config.frozenAt } : {}),
         ...(config.publishedAt !== undefined ? { publishedAt: config.publishedAt } : {}),
+        ...(config.hiddenAt !== undefined ? { hiddenAt: config.hiddenAt } : {}),
         members: members.map((row) => ({ eventModelId: row.eventModelId, status: row.status, ...(row.removedAt !== undefined ? { removedAt: row.removedAt } : {}) })),
       });
     }

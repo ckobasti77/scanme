@@ -1817,3 +1817,10 @@ RF nalazi 1–4 su rešeni. Izvori: `jovan-status/K1.md`–`K4.md` i `scripts/ta
 - **Konflikt:** `ADMIN-UX-ZAHTEVI.md` §5 kaže da se u dodeli u većem broju model zadaje kao „`externalKey` ili naziv“, a uputstvo koraka A4 kaže „`externalKey` ili ID“.
 - **Šta je urađeno:** implementirano je uže pravilo iz uputstva koraka (`externalKey` ili Convex ID modela). Prepoznavanje po nazivu nije urađeno: naziv nije jedinstven (isti model kod dva izlagača, varijante), a pogrešno poklapanje bi poslalo nalepnicu na pogrešan auto.
 - **Pitanje za Aleksu/Jovana:** da li treba i prepoznavanje po nazivu (npr. samo kad je naziv + varijanta jedinstven u događaju, a inače greška „naziv nije jednoznačan“)? Deferred, awaiting owner decision.
+
+## SAJAM v2 — A7 (automatski pasoš brenda)
+
+- **Konflikt (uslov):** `ADMIN-UX-ZAHTEVI.md` §6 i uputstvo A7 kažu „najmanje 2 objavljena modela, svi najmanje Starter“; MASTER §11 kaže „najmanje dva izložena modela i svi imaju najmanje Starter“ i „svi relevantni modeli brenda uključeni/validni za pasoš“; kod od B3 (ugovor §9.31) traži da su svi izloženi (ne-povučeni) modeli objavljeni, kandidati (`passport_eligible`) i Starter+.
+- **Šta je urađeno:** automatski pasoš koristi strože B3 pravilo (preporuka A0 R2a), sada u jednoj funkciji `fairBrandPassportProblems` sa razlogom u adminu. Primer razlike: brend sa 2 objavljena Starter modela i trećim modelom u nacrtu nema pasoš dok se i treći ne objavi („1 od 3 modela nije objavljeno.“).
+- **Odluka za Aleksin pregled:** automatski pasoš sa sakrivanjem je razlika prema dosadašnjem ručnom pravilu (ADMIN-UX §12.2); ugovor §33.1.
+- **Pitanje za Aleksu/Jovana:** da li model u nacrtu (ili model sa `passport_eligible=no`) treba da blokira pasoš celog brenda, ili samo da ostane van skupa (§9.31)? Promena je jedno pravilo u `lib/fair-entitlements.ts`. Deferred, awaiting owner decision.

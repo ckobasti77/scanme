@@ -1386,3 +1386,79 @@ Backend se ne menja: admin vodič za import koristi postojeći `fairImport.dryRu
 - `to-payload.ts`: red tabele = jedan model. Izlagač se nalazi po SMK/SML, pa po nazivu učešća ovog događaja, pa iz podrazumevane vrednosti; nov izlagač traži SMK i SML. Štand po oznaci postojećeg štanda događaja, inače nov sa `Lokacija na mapi`. `externalKey` modela: kolona, pa ključ istog modela koji događaj već ima (isti izlagač, brend, naziv, varijanta), pa deterministički `<eventCode>-<brend>-<model varijanta>`. Prazna cena se ne šalje (backend upisuje „Cena na upit“ uz `FAIR_PRICE_MISSING`); prazno „Pasoš“ bez podrazumevane vrednosti je greška reda (§12: ne normalizuje se u `false`). Redovi sa greškom tabele (`IMPORT_*`, samo klijent) se preskaču i broje.
 - Greške dry-run-a (`path`) se vraćaju na red i kolonu tabele (`locateImportIssue`).
 - `template.ts`: šablon CSV (`;`, BOM) sa svim podržanim kolonama i jednim TEST redom.
+
+## 33. A7 — automatski pasoš brenda i forme po izlagaču
+
+### 33.1 Odluka za Aleksin pregled (ADMIN-UX-ZAHTEVI §12, tačka 2)
+
+MASTER §11 zadaje uslov pasoša (najmanje dva izložena modela, svi najmanje Starter) i zamrzavanje skupa pre otvaranja, ali ne i mehanizam. B3 je pasoš pravio samo ručno (`upsertPassport` → `publishPassport`). Po ADMIN-UX §6 i §12.2 pasoš je sada **automatski**: brend koji ispunjava uslov dobija objavljen pasoš bez klika, a admin ga može **sakriti**. Ručne B3 funkcije ostaju kao rezerva. Ovo je razlika prema dosadašnjem pravilu i čeka Aleksin pregled; vraćanje na ručni režim je uklanjanje četiri okidača iz §33.3, bez promene šeme.
+
+### 33.2 Uslov (`fairBrandPassportProblems`, `lib/fair-entitlements.ts`)
+
+Ista pravila kao B3 `publishPassport` (§9.31), sada na jednom mestu i sa svim razlozima i brojevima:
+
+| Kod | Kada | Primer u adminu |
+|---|---|---|
+| `fewer_than_two_models` | manje od 2 izložena (ne-povučena) modela | „Samo 1 izložen model; potrebna su bar dva.“ |
+| `model_not_published` | izložen model u nacrtu | „1 od 3 modela nije objavljeno.“ |
+| `model_not_candidate` | `passportEligible = false` (DATA-INTAKE §6.3) | „1 od 3 modela nije kandidat za pasoš.“ |
+| `model_below_starter` | model sa paketom „Za sve izlagače“ | „1 od 3 modela nema Starter.“ |
+| `multiple_exhibitors` | modeli brenda kod više učešća | „Modeli brenda su kod 2 izlagača.“ |
+
+ADMIN-UX i uputstvo A7 kažu „najmanje 2 objavljena modela, svi Starter“. Kod zadržava strože B3 tumačenje (svi izloženi modeli moraju biti objavljeni kandidati), jer MASTER §11 traži da „svi relevantni modeli brenda“ budu u pasošu; §9.31 ostaje otvoreno. `fairInteractionsAdmin.passportProblem` sada zove ovu funkciju (prvi razlog), pa ručna i automatska objava ne mogu da se raziđu.
+
+### 33.3 Sinhronizacija (`convex/lib/fairPassportSync.ts`, `convex/fairPassports.ts`)
+
+`syncFairBrandPassport(ctx, { event, brandId, now })`, idempotentno (bez razlike nema upisa):
+
+- **zamrznut skup** (`now ≥ min(frozenAt, startsAt)`): ništa se ne menja → `frozen`. Automatski pasoš čuva `frozenAt = startsAt` (planirani trenutak zamrzavanja, usklađuje se dok skup nije zamrznut). Ručna objava (`publishPassport`) i ručno povlačenje (`withdrawPassport`, od A7 postavlja `frozenAt = now`) zamrzavaju odmah, pa automatika ne gazi ručnu odluku;
+- **uslov ispunjen**: pasoš postoji i `published` (`publishedAt` pri prvoj objavi, `autoSyncedAt` pri svakoj izmeni); `required` članovi = izloženi modeli brenda. Nov model se dodaje, povučen model prelazi u `removed` (red i pečati ostaju), vraćen model ponovo postaje `required`. Član koji je admin hitno uklonio (`removedByUserId`) se nikad ne vraća. Ručni nacrt (`draft`) se usvaja;
+- **uslov nije ispunjen**: objavljen pasoš → `withdrawn` (članovi, pečati i favoriti ostaju; kad brend ponovo ispuni uslov, isti pasoš se ponovo objavljuje). Brend bez pasoša ga ne dobija;
+- brend sa više od `PASSPORT_MODELS_CAP` (40) modela → `too_many_models`, bez upisa;
+- `hiddenAt` sinhronizacija nikad ne menja.
+
+| Okidač | Kako |
+|---|---|
+| `fairAdmin.publishModel`, `withdrawModel` (kad se status stvarno promeni), `upgradePackage` | u istoj transakciji se računa plan za brend modela; **samo ako bi se pasoš promenio**, zakazuje se `internal.fairPassports.syncBrandPassport` (`runAfter(0)`), koji radi u sopstvenoj transakciji. Problem sinhronizacije nikad ne blokira objavu modela, a no-op ne pravi posao. |
+| `fairImport.commit` (posle `committed: true`) | `runAfter(0, internal.fairPassports.syncEventPassports, { eventId })` za sve brendove događaja |
+| „Osveži pasoše“ | `refreshPassports` (admin) odmah, za sve brendove; audit `fair_passports_refreshed` sa brojevima |
+
+DEV fixture-i (`fairDevFixtures`) i lib helperi kataloga nemaju okidač; seed i postojeći B3 testovi ručnog toka zato rade kao pre A7.
+
+| Funkcija | Vrsta | Args → returns | Granice |
+|---|---|---|---|
+| `getPassportOverview` | admin query | `{ eventId }` → `{ eventStartsAt, brands: { brandId, participationId \| null, eligible, exhibited, problems[], tooManyModels, freezesAt, passport \| null, members[] }[] }` | brendovi iz `fairEventModels.by_eventId_and_brandId` (≤ `FAIR_ADMIN_LIST_LIMIT`) + `fairPassportConfigs` (≤ 100); po brendu ≤ 41 model i ≤ 80 članova. Ne čita sat: stanje (Aktivan / Zamrznut / Sakriven / Nema uslov / Nije napravljen) računa klijent iz `freezesAt` (`lib/admin-v1/passport-overview.ts`). |
+| `refreshPassports` | admin mutation | `{ eventId }` → `{ created, updated, withdrawn, unchanged, frozen, too_many_models }` | isti budžet |
+| `setPassportHidden` | admin mutation | `{ passportId, hidden }` → `{ passportId, hidden, changed }` | `hiddenAt`, `hiddenByUserId`; audit `fair_passport_hidden` / `fair_passport_shown`; idempotentno |
+| `syncBrandPassport` | internal mutation | `{ eventId, brandId }` → rezultat ili `null` | jedan brend |
+| `syncEventPassports` | internal mutation | `{ eventId }` → brojevi ili `null` | ceo događaj |
+
+### 33.4 Sakriven pasoš
+
+Javno je samo `status === "published" && hiddenAt === undefined` (`fairIsPublicPassport`, `convex/lib/fairInteractions.ts`): `getPassportCatalog` (mapa, garaža), `getMyPassportProgress`, `getMyModelState.passport` (stranica modela) i `upsertBrandFavorite` (`PASSPORT_NOT_ACTIVE`). Pečat pri skenu (`stampFairPassportOnScan`) se ne menja: sakriven pasoš i dalje beleži pečate, pa „Prikaži“ vraća sav napredak, uključujući pečate skupljene dok je bio sakriven. `getEventInteractions.passports` dobija `hiddenAt` (detalj modela).
+
+### 33.5 Forme „Zainteresovan sam“ i „Probna vožnja“ po izlagaču
+
+Šema (aditivno): `fairParticipationLeadDefaults` `{ eventId, participationId, leadKind, enabled, contactRequirement, preferredContact?, updatedByUserId, createdAt, updatedAt }`, indeksi `by_participationId_and_leadKind` (jedinstveno) i `by_eventId`; `fairLeadConfigs.source?: "default" | "override"` (red bez polja je izuzetak, kao pre A7).
+
+| Funkcija (`convex/fairLeadsAdmin.ts`) | Vrsta | Args → returns |
+|---|---|---|
+| `getEventLeadForms` | admin query | `{ eventId }` → `{ defaults[], models: { eventModelId, participationId, packageTier, interest, testDrive }[] }`; ćelija = `{ entitled, config: { enabled, contactRequirement, preferredContact?, source, updatedAt } \| null }`; izloženi modeli (≤ `FAIR_ADMIN_LIST_LIMIT`), dva indeksirana čitanja po modelu |
+| `upsertParticipationLeadDefault` | admin mutation | `{ participationId, leadKind, enabled, contactRequirement, preferredContact? }` → `{ defaultId, result }` |
+| `applyLeadDefaultsToModels` | admin mutation | `{ participationId, leadKind? }` → `{ created, updated, unchanged, skippedOverride, notEntitled: { eventModelId, leadKind }[], missingDefault: leadKind[] }` |
+| `clearLeadOverride` | admin mutation | `{ eventModelId, leadKind }` → `{ result, enabled, entitled }`; bez podrazumevanog `FAIR_LEAD_DEFAULT_MISSING` |
+| `getLeadSwitches` | admin query | `{}` → `{ leadsEnabled, followUpEnabled }` (samo boolean, nikad vrednost env-a) |
+
+Pravila:
+
+- „Primeni na sve modele izlagača“ je jedna transakcija, najviše 100 izloženih modela (`FAIR_BULK_TOO_LARGE`), idempotentna (drugi put sve `unchanged`). Piše `fairLeadConfigs` sa `source: "default"`; izuzetak (`override`) preskače i broji;
+- paket odlučuje kao i ranije (`getFairEntitlements`): „Zainteresovan sam“ od Starter-a, „Probna vožnja“ samo Napredni. Model bez prava dobija formu **isključenu** i nalazi se u `notEntitled` (jasan razlog, ne tiho preskakanje);
+- `upsertLeadConfig` je izuzetak modela (`source: "override"`), sa istom zabranom uključivanja bez prava (`FAIR_FEATURE_NOT_ENTITLED`); `clearLeadOverride` vraća model na podrazumevano izlagača;
+- `contactRequirement` ostaje `one_of | email | phone | both`; „any“ iz uputstva A7 je `one_of` („bar jedan“);
+- javni tok se ne menja: `getLeadForm` i `submitLead` čitaju samo `fairLeadConfigs`, uz K3 prekidač i aktivnu saglasnost (§17, §28). Audit `fair_lead_defaults_applied`.
+
+### 33.6 Testovi
+
+- `convex/fairPassports.test.ts`: uslov i razlozi (čista funkcija); brend sa 2 Starter modela dobija objavljen pasoš sam, bez posla za no-op; Starter koji fali i jedan model daju razlog; nadogradnja dovršava uslov; gubitak uslova povlači, ponovni uslov ponovo objavljuje uz zadržane pečate; povučen model izlazi iz skupa i vraća se; sakriven pasoš nije u katalogu, garaži, stranici modela ni favoritu, a pečati se beleže i „Prikaži“ ih vraća; ponovna sinhronizacija bez duplikata i bez prepisivanja; posle otvaranja skup se ne menja, hitno uklanjanje radi i ne vraća se; ručno povučen pasoš automatika ne objavljuje; import zakazuje sinhronizaciju događaja; authz.
+- `convex/fairLeadForms.test.ts`: primena podrazumevanog na izlagača (drugi izlagač netaknut, idempotentno, promena podrazumevanog); izuzetak pobeđuje dok se ne obriše; model bez paketa ne dobija probnu vožnju; `getLeadForm` stanje posle primene i K3 prekidač; `getLeadSwitches`; povučeni modeli i authz.
+- `convex/fairAuthz.test.ts` klasifikuje sve nove funkcije; `convex/fairSchema.test.ts` novu tabelu i indekse.

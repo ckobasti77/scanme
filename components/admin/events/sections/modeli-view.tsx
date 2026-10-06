@@ -285,7 +285,8 @@ function facetLabel(facet: ModelFacet, value: string): string {
 export type ModelDetailSummary = {
   questions?: { dayLabel: string; published: number; draft: number; closed: number }[];
   survey?: { version: number; status: FairSurveyStatus } | null;
-  passport?: { status: FairPassportConfigStatus; member: boolean } | null;
+  /** A7: `hidden` = the admin hid the brand passport from visitors. */
+  passport?: { status: FairPassportConfigStatus; member: boolean; hidden?: boolean } | null;
   forms?: { interest: boolean; testDrive: boolean };
   leads?: { interest: number; testDrive: number; undelivered: number; capped: boolean };
   sponsored?: { state: "active"; order: number } | { state: "candidate" } | { state: "none" };
@@ -470,7 +471,7 @@ function ModelSummary({ model, summary, sectionHref }: { model: ModelView; summa
     {
       id: "passport", title: detail.passport, href: sectionHref("interakcije/pasos", { brend: model.brandId }),
       body: summary.passport === undefined ? loading : summary.passport
-        ? line(fmt(summary.passport.member ? detail.passportMember : detail.passportNotMember, { status: dict.passportStatus[summary.passport.status] }))
+        ? line(fmt(summary.passport.member ? detail.passportMember : detail.passportNotMember, { status: summary.passport.hidden ? dict.passportAuto.states.hidden : dict.passportStatus[summary.passport.status] }))
         : muted(detail.passportNone),
     },
     {

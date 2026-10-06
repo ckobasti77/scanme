@@ -46,6 +46,22 @@ export type FairEmailDeliveryStatus = "queued" | "sent" | "failed" | "suppressed
 /** B0 design: HANDOFF §5.5 names fairPassportConfigs without fields. */
 export type FairPassportConfigStatus = "draft" | "published" | "withdrawn";
 export type FairPassportEligibleStatus = "required" | "removed";
+/**
+ * Admin UX A7 — why a brand does not meet the passport condition (MASTER §11,
+ * `fairBrandPassportProblems` in lib/fair-entitlements.ts).
+ */
+export type FairBrandPassportProblem =
+  | "fewer_than_two_models"
+  | "model_not_published"
+  | "model_not_candidate"
+  | "model_below_starter"
+  | "multiple_exhibitors";
+/**
+ * Admin UX A7 — where a model's lead form setting comes from: the exhibitor's
+ * default (`fairParticipationLeadDefaults`, applied in one move) or the
+ * model's own exception. A row without the field predates A7 and is an exception.
+ */
+export type FairLeadConfigSource = "default" | "override";
 export type FairReportStatus =
   | "queued"
   | "building"
@@ -802,6 +818,8 @@ export const FAIR_ADMIN_ISSUE_CODES = [
   // K3 — activation needs the legal approval record (legalApprovedBy + legalApprovedAt)
   "FAIR_CONSENT_LEGAL_APPROVAL_REQUIRED",
   "FAIR_LEAD_NOT_FOUND",
+  // Admin UX A7 — "vrati na podrazumevano" without an exhibitor default
+  "FAIR_LEAD_DEFAULT_MISSING",
   "FAIR_EMAIL_DELIVERY_NOT_FOUND",
   "FAIR_EMAIL_DELIVERY_STATUS",
   // B5 — sponsored snapshot (more Advanced models than one snapshot holds)

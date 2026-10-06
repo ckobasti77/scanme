@@ -1,15 +1,12 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { AdminEmptyState, AdminPanel, AdminStatus } from "@/components/admin/admin-primitives";
-import { AdminDataCard, AdminDataView, type AdminColumn } from "@/components/admin/admin-ui";
+import { AdminEmptyState, AdminPanel } from "@/components/admin/admin-primitives";
 import type { StoredSurveyQuestion } from "@/lib/admin-v1/survey-form";
 import type {
   FairAudienceQuestionStatus,
   FairModelStatus,
   FairPackageTier,
-  FairPassportConfigStatus,
-  FairPassportEligibleStatus,
   FairSurveyQuestionKind,
   FairSurveyStatus,
 } from "@/lib/fair-contract";
@@ -19,13 +16,12 @@ import type { AdminEventsPassportProblem } from "@/lib/i18n/types";
 import { cn } from "@/lib/utils";
 
 // Sajam 2026 B3 — the `Interakcije` sections of the admin `Događaji` area:
-// shared types and pieces, and brand passports (prepare → freeze/publish,
-// emergency removal, withdraw). Admin UX A6: Glas publike and Ankete are in
-// components/admin/events/sections/interakcije-{glas-publike,ankete}-view.tsx.
-// Presentational only; data and actions come from
-// components/admin/events/sections/interakcije-section.tsx (requireAdmin
-// functions in convex/fairInteractionsAdmin.ts). No visitor data and no
-// rating aggregate.
+// shared types and pieces. Admin UX A6: Glas publike and Ankete are in
+// components/admin/events/sections/interakcije-{glas-publike,ankete}-view.tsx;
+// A7: Pasoš (automatic) and Forme are interakcije-{pasos,forme}-view.tsx.
+// Presentational only; data and actions come from the containers in
+// components/admin/events/sections/ (requireAdmin functions in
+// convex/fairInteractionsAdmin.ts). No visitor data and no rating aggregate.
 
 /** `id` = the saved document (upsertAudienceQuestion questionId / upsertSurveyDraft surveyId). */
 export type InteractionOutcome = { ok: true; problem?: string | null; id?: string; version?: number } | { ok: false; code: string };
@@ -55,21 +51,11 @@ export type InteractionQuestion = {
   showOnSponsoredRotation: boolean;
 };
 export type InteractionSurvey = { id: string; modelId: string; version: number; status: FairSurveyStatus; title?: string; questions: StoredSurveyQuestion[] };
-export type InteractionPassport = {
-  id: string | null;
-  brandId: string;
-  brandName: string;
-  status: FairPassportConfigStatus | null;
-  frozenAt?: number;
-  members: { modelId: string; modelName: string; status: FairPassportEligibleStatus }[];
-};
-
 export type InteractionsView = {
   models: InteractionModel[];
   days: InteractionDay[];
   questions: InteractionQuestion[];
   surveys: InteractionSurvey[];
-  passports: InteractionPassport[];
 };
 
 export type SurveyQuestionInput = { id: string; prompt: string; kind: FairSurveyQuestionKind; options: { id: string; label: string; order: number }[]; required: boolean; order: number };
@@ -84,10 +70,6 @@ export type InteractionsActions = {
   saveSurveyDraft: (modelId: string, questions: SurveyQuestionInput[]) => Promise<InteractionOutcome>;
   publishSurvey: (surveyId: string) => Promise<InteractionOutcome>;
   retireSurvey: (surveyId: string) => Promise<InteractionOutcome>;
-  openPassport: (brandId: string) => Promise<InteractionOutcome>;
-  publishPassport: (passportId: string) => Promise<InteractionOutcome>;
-  withdrawPassport: (passportId: string) => Promise<InteractionOutcome>;
-  removePassportModel: (passportId: string, modelId: string) => Promise<InteractionOutcome>;
 };
 
 export const field = "min-h-11 w-full min-w-0 rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--admin-focus)]";
@@ -158,10 +140,10 @@ export function Meta({ children }: { children: ReactNode }) {
   return <span className="block break-words text-xs text-[var(--admin-text-muted)]">{children}</span>;
 }
 
-/** A destructive button that needs a second, explicit confirmation. */
-export function ConfirmAction({ label, body, disabled, onConfirm }: { label: string; body: string; disabled: boolean; onConfirm: () => void }) {
+/** A destructive button that needs a second, explicit confirmation. `ariaLabel` names the row (A7: several in one list). */
+export function ConfirmAction({ label, body, disabled, onConfirm, ariaLabel }: { label: string; body: string; disabled: boolean; onConfirm: () => void; ariaLabel?: string }) {
   const [open, setOpen] = useState(false);
-  if (!open) return <button type="button" className={secondaryButton} disabled={disabled} onClick={() => setOpen(true)}>{label}</button>;
+  if (!open) return <button type="button" className={secondaryButton} disabled={disabled} aria-label={ariaLabel} onClick={() => setOpen(true)}>{label}</button>;
   return (
     <span className="grid gap-2 rounded-xl border border-[var(--admin-warning-border)] bg-[var(--admin-warning-soft)] p-3 sm:max-w-sm">
       <span className="text-sm">{body}</span>
@@ -173,85 +155,9 @@ export function ConfirmAction({ label, body, disabled, onConfirm }: { label: str
   );
 }
 
-type Runner = ReturnType<typeof useRunner>["run"];
-
-function PassportStatus({ passport }: { passport: InteractionPassport }) {
-  return <AdminStatus label={passport.status ? dict.passportStatus[passport.status] : dict.passportNone} tone={passport.status === "published" ? "active" : passport.status === "draft" ? "waiting" : "neutral"} />;
-}
-
-function PassportMembers({ passport, pending, run, actions }: { passport: InteractionPassport; pending: boolean; run: Runner; actions: InteractionsActions }) {
-  if (!passport.members.length) return null;
-  return (
-    <ul className="grid gap-2">
-      {passport.members.map((member) => (
-        <li key={member.modelId} className="flex flex-wrap items-center gap-2 text-sm">
-          <span className="min-w-0 break-words">{member.modelName}</span>
-          <AdminStatus label={dict.passportMemberStatus[member.status]} tone={member.status === "required" ? "active" : "neutral"} />
-          {passport.id && passport.status === "published" && member.status === "required" ? (
-            <ConfirmAction label={dict.passportRemoveModel} body={fmt(dict.passportRemoveConfirm, { model: member.modelName })} disabled={pending} onConfirm={() => void run(() => actions.removePassportModel(passport.id!, member.modelId), dict.passportRemoved)} />
-          ) : null}
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-function passportColumns(pending: boolean, run: Runner, actions: InteractionsActions): AdminColumn<InteractionPassport>[] {
-  return [
-    { id: "brand", header: dict.colBrand, rowHeader: true, sortValue: (passport) => passport.brandName, cell: (passport) => <><strong className="block font-semibold">{passport.brandName}</strong>{passport.frozenAt !== undefined ? <Meta>{fmt(dict.passportFrozenAt, { date: dateTime.format(passport.frozenAt) })}</Meta> : null}</> },
-    { id: "members", header: dict.colMembers, cell: (passport) => (passport.members.length ? <PassportMembers passport={passport} pending={pending} run={run} actions={actions} /> : "—") },
-    { id: "status", header: dict.colStatus, sortValue: (passport) => (passport.status ? dict.passportStatus[passport.status] : dict.passportNone), cell: (passport) => <PassportStatus passport={passport} /> },
-  ];
-}
-
-// -----------------------------------------------------------------------------
-// Brand passports
-// -----------------------------------------------------------------------------
-
-function Passports({ view, actions }: { view: InteractionsView; actions: InteractionsActions }) {
-  const { message, pending, run } = useRunner();
-  return (
-    <Section title={dict.passportsTitle} help={dict.passportsHelp}>
-      <Feedback message={message} />
-      <AdminDataView
-        listKey="dogadjaji.pasos"
-        caption={dict.passportsTitle}
-        rows={view.passports}
-        empty={{ title: dict.passportsTitle, body: dict.passportsEmpty }}
-        getRowId={(passport) => passport.brandId}
-        columns={passportColumns(pending, run, actions)}
-        tableClassName="min-w-[44rem]"
-        renderCard={(passport) => (
-          <AdminDataCard
-            title={passport.brandName}
-            subtitle={passport.frozenAt !== undefined ? fmt(dict.passportFrozenAt, { date: dateTime.format(passport.frozenAt) }) : undefined}
-            badges={<PassportStatus passport={passport} />}
-          >
-            <PassportMembers passport={passport} pending={pending} run={run} actions={actions} />
-          </AdminDataCard>
-        )}
-        rowActions={(passport) => (
-          <>
-            {!passport.id ? <button type="button" className={secondaryButton} disabled={pending} onClick={() => void run(() => actions.openPassport(passport.brandId), dict.passportOpened)}>{dict.passportOpen}</button> : null}
-            {passport.id && passport.status === "draft" ? <button type="button" className={primaryButton} disabled={pending} onClick={() => void run(() => actions.publishPassport(passport.id!), dict.passportPublishedDone)}>{dict.passportPublish}</button> : null}
-            {passport.id && passport.status === "published" ? (
-              <ConfirmAction label={dict.passportWithdraw} body={dict.passportWithdrawConfirm} disabled={pending} onConfirm={() => void run(() => actions.withdrawPassport(passport.id!), dict.passportWithdrawn)} />
-            ) : null}
-          </>
-        )}
-      />
-    </Section>
-  );
-}
-
 // Admin UX A2 — every part is its own route (`interakcije/glas-publike`,
-// `interakcije/ankete`, `interakcije/pasos`).
-type PartProps = { view: InteractionsView | undefined; actions: InteractionsActions | undefined };
+// `interakcije/ankete`, `interakcije/pasos`, `interakcije/forme`).
 
 export function InteractionsUnavailable() {
   return <AdminPanel><AdminEmptyState title={dict.tabInteractions} body={dict.interactionsUnavailable} /></AdminPanel>;
-}
-
-export function AdminEventsPassports({ view, actions }: PartProps) {
-  return view && actions ? <Passports view={view} actions={actions} /> : <InteractionsUnavailable />;
 }
