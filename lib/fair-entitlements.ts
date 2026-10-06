@@ -9,6 +9,7 @@ import {
   type FairBrandPassportProblem,
   type FairEntitlements,
   type FairErrorCode,
+  type FairLeadActivityGroup,
   type FairModelCapabilities,
   type FairModelStatus,
   type FairPackageTier,
@@ -281,6 +282,42 @@ export function fairReportMetrics(tier: FairPackageTier): FairReportMetric[] {
   if (rights.survey) metrics.push("survey");
   if (rights.sponsoredGarageRotation) metrics.push("sponsored_garage");
   return metrics;
+}
+
+/**
+ * Admin UX A8 — does the feature behind an activity group exist in this
+ * package at all? A group no model of the exhibitor can have is omitted next
+ * to a lead (never shown as an empty 0, MASTER §12).
+ */
+export function fairLeadActivityAvailable(tier: FairPackageTier, group: FairLeadActivityGroup): boolean {
+  const rights = FAIR_ENTITLEMENT_CATALOG[tier];
+  switch (group) {
+    case "scans": return true;
+    case "ratings": return rights.ratingMode !== "none";
+    case "audienceVotes": return rights.audienceQuestionsPerDay > 0;
+    case "surveyAnswers": return rights.survey;
+    case "passport": return rights.passportEligibleTier;
+    case "sponsoredActions": return rights.sponsoredGarageRotation;
+  }
+}
+
+/**
+ * Admin UX A8 — whether an activity group goes to the exhibitor together with
+ * the lead (ADMIN-UX §7: "Starter manje, Napredni više"): exactly the metric
+ * groups of the package (fairReportMetrics, MASTER §4, §12) of the lead's
+ * model at the moment of the lead. The brand passport is no package metric,
+ * so it stays with the ScanMe team (open question in the contract §34).
+ */
+export function fairLeadActivityShared(tier: FairPackageTier, group: FairLeadActivityGroup): boolean {
+  const metrics = fairReportMetrics(tier);
+  switch (group) {
+    case "scans": return metrics.includes("model_scans");
+    case "ratings": return metrics.includes("rating_overall") || metrics.includes("rating_dimensions");
+    case "audienceVotes": return metrics.includes("audience");
+    case "surveyAnswers": return metrics.includes("survey");
+    case "passport": return false;
+    case "sponsoredActions": return metrics.includes("sponsored_garage");
+  }
 }
 
 /**

@@ -22,14 +22,7 @@ import { EventSurveysView } from "@/components/admin/events/sections/interakcije
 import { EventLeadFormsView, type LeadFormsActions } from "@/components/admin/events/sections/interakcije-forme-view";
 import { EventAudienceView } from "@/components/admin/events/sections/interakcije-glas-publike-view";
 import { EventPassportsView, type PassportsActions } from "@/components/admin/events/sections/interakcije-pasos-view";
-import {
-  AdminEventsConsent,
-  AdminEventsFollowUp,
-  AdminEventsLeadList,
-  type LeadsActions,
-  type LeadsModelSettings,
-  type LeadsView,
-} from "@/components/admin/admin-events-leads";
+import { AdminEventsConsent, type LeadsActions } from "@/components/admin/admin-events-leads";
 import { AdminEventsReports, type ReportsActions, type ReportsView } from "@/components/admin/admin-events-reports";
 import { AdminEventsRetention, type RetentionActions, type RetentionView } from "@/components/admin/admin-events-retention";
 import { AdminEventsSponsored, type SponsoredActions, type SponsoredView } from "@/components/admin/admin-events-sponsored";
@@ -40,6 +33,10 @@ import { AdminEventFrameView, type FrameEvent } from "@/components/admin/events/
 import { AdminEventsNotFound } from "@/components/admin/events/event-not-found";
 import { EventExhibitorsView } from "@/components/admin/events/sections/izlagaci-view";
 import { EventImportView, importContextFromCatalog } from "@/components/admin/events/sections/import-view";
+import { followUpTextState, leadInboxFilter, pickFollowUpExhibitor } from "@/components/admin/events/leads-logic";
+import { previewLeadsFixture } from "@/components/admin/events/preview-leads-fixtures";
+import { EventFollowUpView, type FollowUpActions } from "@/components/admin/events/sections/leadovi-follow-up-view";
+import { EventLeadsInboxView, type InboxLead, type LeadInboxActions } from "@/components/admin/events/sections/leadovi-view";
 import { EventModelDetailView, EventModelsView, type ModelDetailSummary } from "@/components/admin/events/sections/modeli-view";
 import { EventOverviewView } from "@/components/admin/events/sections/pregled-view";
 import { EventQrDetailView, EventQrView } from "@/components/admin/events/sections/qr-view";
@@ -53,7 +50,7 @@ import {
 } from "@/lib/admin-v1/event-sections";
 import { buildExhibitorRows } from "@/lib/admin-v1/exhibitors";
 import type { LeadFormsSource } from "@/lib/admin-v1/lead-forms";
-import { modelListQuery } from "@/lib/admin-v1/model-filters";
+import { modelHierarchy, modelListQuery } from "@/lib/admin-v1/model-filters";
 import { buildPassportRows, type PassportOverviewSource } from "@/lib/admin-v1/passport-overview";
 import { qrListQuery } from "@/lib/admin-v1/qr-filters";
 import type { AdminQueryPatch, AdminQueryState } from "@/lib/admin-v1/query-state";
@@ -293,43 +290,29 @@ const leadFormsActions: LeadFormsActions = {
 
 const noMore = { canLoadMore: false, loadingMore: false, onLoadMore: () => undefined, status: "ready" as const };
 
-const advancedSettings: LeadsModelSettings = {
-  tier: "advanced",
-  interest: { contactRequirement: "one_of", enabled: true },
-  testDrive: { contactRequirement: "both", preferredContact: "phone", enabled: true },
-  followUpTemplate: null,
+// A8 — Leadovi: TEST leads on the TEST catalog (inbox, drawer, delivery),
+// follow-up texts per exhibitor and the consent versions. The lead and
+// follow-up switches are off, as on a fresh deployment. No real person.
+const PREVIEW_EVENT_TITLE = "TEST Sajam elektromobilnosti";
+const leadsFixture = previewLeadsFixture(catalog, opening, PREVIEW_EVENT_TITLE);
+const leadActions: LeadsActions = { saveConsentDraft: ok, activateConsent: ok, retireConsent: ok };
+const inboxActions: LeadInboxActions = {
+  markDelivered: ok, markExhibitorDelivered: async () => ({ ok: true, delivered: 2, hasMore: false }), setSuppressed: ok, retryDelivery: ok, exportLeads: ok,
 };
-const starterSettings: LeadsModelSettings = { tier: "starter", interest: { contactRequirement: "one_of", enabled: true }, testDrive: null, followUpTemplate: null };
+const followUpActions: FollowUpActions = { saveDraft: ok, activate: ok, retire: ok };
 
-// B4 — Leadovi: TEST consent drafts, settings and two TEST leads (no real contact data).
-const leadsView: LeadsView = {
-  models: [
-    { id: "volta-x2", name: "TEST Volta X2", exhibitorName: "TEST Izlagač A", tier: "advanced" },
-    { id: "volta-x1", name: "TEST Volta X1 TEST Premium", exhibitorName: "TEST Izlagač A", tier: "starter" },
-  ],
-  participations: [{ id: "p-a", exhibitorName: "TEST Izlagač A" }, { id: "p-b", exhibitorName: "TEST Izlagač B" }],
-  consents: [{ id: "consent-1", kind: "interest", version: 1, status: "draft", text: "TEST nacrt saglasnosti — ScanMe prosleđuje kontakt izlagaču {izlagac}." }],
-  modelId: "volta-x2",
-  onSelectModel: () => undefined,
-  modelSettings: advancedSettings,
-  participationId: "p-a",
-  onSelectParticipation: () => undefined,
-  leads: { ...noMore, rows: [
-    {
-      id: "lead-1", createdAt: opening + 3_600_000, kind: "test_drive", modelName: "TEST Volta X2", contactName: "TEST Posetilac Sa Veoma Dugim Imenom i Prezimenom",
-      email: "test.posetilac.sa.dugom.adresom@example.invalid", phone: "+381 60 000 0001", consentVersion: 1, followUpSuppressed: false,
-      confirmation: { id: "delivery-1", status: "sent", scheduledFor: opening + 3_600_000 },
-      followUp: { id: "delivery-2", status: "queued", scheduledFor: Date.parse("2026-10-13T10:00:00+02:00") },
-    },
-    {
-      id: "lead-2", createdAt: opening + 7_200_000, kind: "interest", modelName: "TEST Volta X1 TEST Premium", contactName: "TEST Posetilac Dva",
-      email: "test.dva@example.invalid", consentVersion: 1, followUpSuppressed: false, confirmation: { id: "delivery-3", status: "failed", scheduledFor: opening, lastError: "PROVIDER_UNAVAILABLE:503" }, followUp: null,
-    },
-  ] },
-};
-const leadActions: LeadsActions = {
-  saveConsentDraft: ok, activateConsent: ok, retireConsent: ok, saveFollowUpTemplate: ok, setSuppressed: ok, retryDelivery: ok,
-};
+/** The inbox filters of the admin (convex/fairLeadsInbox.ts), applied to the TEST leads. */
+function previewInboxLeads(query: AdminQueryState): InboxLead[] {
+  const filter = leadInboxFilter(query, modelHierarchy(catalog.models, (model) => `${model.displayName}${model.variant ? ` ${model.variant}` : ""}`));
+  return leadsFixture.leads.filter((row) =>
+    (!filter.eventModelId || row.modelId === filter.eventModelId)
+    && (!filter.participationId || row.participationId === filter.participationId)
+    && (!filter.kind || row.kind === filter.kind)
+    && (filter.delivered === undefined || row.delivered === filter.delivered)
+    && (filter.from === undefined || row.createdAt >= filter.from)
+    && (filter.to === undefined || row.createdAt < filter.to)
+    && (!filter.brandModelIds || filter.brandModelIds.has(row.modelId)));
+}
 
 // B5 — Sponzorisano: a published TEST list that is out of date (a model was
 // upgraded after the publish and its map result changed). No real data.
@@ -368,7 +351,7 @@ const reportsView: ReportsView = {
   review: null,
 };
 const reportsActions: ReportsActions = {
-  build: ok, approve: ok, send: ok, resend: ok, retry: ok, correct: ok, download: ok, exportLeads: ok, exportOrganizer: ok, review: () => undefined,
+  build: ok, approve: ok, send: ok, resend: ok, retry: ok, correct: ok, download: ok, exportOrganizer: ok, review: () => undefined,
 };
 const retentionView: RetentionView = {
   purgeAt: FAIR_PII_PURGE_AT_MS,
@@ -389,7 +372,7 @@ function modelSummary(modelId: string): ModelDetailSummary {
   const brandId = catalog.models.find((row) => row.id === modelId)?.brandId;
   const passport = passportOverview.brands.find((row) => row.brandId === brandId)?.passport ?? null;
   const members = passportOverview.brands.find((row) => row.brandId === brandId)?.members ?? [];
-  const settings = leadsView.models.find((row) => row.id === modelId)?.tier === "advanced" ? advancedSettings : starterSettings;
+  const tier = catalog.models.find((row) => row.id === modelId)?.tier;
   const active = sponsoredView.active?.items.find((item) => item.modelId === modelId);
   return {
     questions: days.map((label) => {
@@ -398,7 +381,7 @@ function modelSummary(modelId: string): ModelDetailSummary {
     }),
     survey: survey ? { version: survey.version, status: survey.status } : null,
     passport: passport ? { status: passport.status, member: members.some((member) => member.eventModelId === modelId && member.status === "required"), hidden: passport.hiddenAt !== undefined } : null,
-    forms: { interest: Boolean(settings.interest?.enabled), testDrive: Boolean(settings.testDrive?.enabled) },
+    forms: { interest: tier === "starter" || tier === "advanced", testDrive: tier === "advanced" },
     leads: modelId === "volta-x1" ? { interest: 1, testDrive: 0, undelivered: 1, capped: false } : { interest: 0, testDrive: 0, undelivered: 0, capped: false },
     sponsored: active ? { state: "active", order: active.order + 1 } : sponsoredView.candidates.some((row) => row.modelId === modelId) ? { state: "candidate" } : { state: "none" },
   };
@@ -599,19 +582,8 @@ function PreviewSection({ path, detailId, query, setQuery, keep }: {
   const listQuery = { ...keep, ...modelListQuery(query) };
   const listModelHref = (id: string) => eventDetailHref(PREVIEW_BASE, "modeli", id, listQuery);
   const qrHref = (code: string) => eventDetailHref(PREVIEW_BASE, "qr", code, keep);
-  const modelId = leadsView.models.find((model) => model.id === query.model)?.id ?? leadsView.models[0].id;
-  const modelPart = {
-    ...leadsView,
-    modelId,
-    onSelectModel: (id: string) => setQuery({ model: id }),
-    modelSettings: leadsView.models.find((model) => model.id === modelId)?.tier === "advanced" ? advancedSettings : starterSettings,
-  };
-  const leadList = {
-    ...leadsView,
-    participationId: leadsView.participations.find((row) => row.id === query.izlagac)?.id ?? leadsView.participations[0].id,
-    onSelectParticipation: (id: string) => setQuery({ izlagac: id }),
-    formsHref: eventSectionHref(PREVIEW_BASE, "interakcije/forme", keep),
-  };
+  const inboxQuery: AdminQueryState = { ...keep, ...query };
+  delete inboxQuery.lead;
   switch (path) {
     case "pregled": return <EventOverviewView catalog={catalog} modelHref={modelHref} />;
     case "modeli": return detailId
@@ -669,6 +641,8 @@ function PreviewSection({ path, detailId, query, setQuery, keep }: {
         importHref={eventSectionHref(PREVIEW_BASE, "import", keep)}
         clients={eventClients}
         actions={actions}
+        followUps={new Map(leadsFixture.followUps.map((row) => [row.participationId, { state: followUpTextState(row), advancedModels: row.advancedModels }]))}
+        followUpHref={(participationId) => eventSectionHref(PREVIEW_BASE, "leadovi/follow-up", { ...keep, izlagac: participationId })}
       />
     );
     case "import": return <EventImportView context={importContext} actions={importActions} initial={{ text: IMPORT_TEST_TABLE, step: "pregled" }} />;
@@ -689,9 +663,38 @@ function PreviewSection({ path, detailId, query, setQuery, keep }: {
       />
     );
     case "sponzorisano": return <AdminEventsSponsored view={sponsoredView} actions={sponsoredActions} />;
-    case "leadovi": return <AdminEventsLeadList view={leadList} actions={leadActions} />;
-    case "leadovi/follow-up": return <AdminEventsFollowUp view={modelPart} actions={leadActions} />;
-    case "leadovi/podesavanja": return <AdminEventsConsent view={leadsView} actions={leadActions} />;
+    case "leadovi": return (
+      <EventLeadsInboxView
+        catalog={catalog}
+        leads={{ ...noMore, rows: previewInboxLeads(query) }}
+        query={query}
+        onQueryChange={setQuery}
+        leadHref={(leadId) => eventSectionHref(PREVIEW_BASE, "leadovi", { ...inboxQuery, lead: leadId })}
+        undelivered={{ count: leadsFixture.leads.filter((row) => !row.delivered).length, capped: false }}
+        now={PREVIEW_NOW}
+        leadsEnabled={false}
+        detail={query.lead ? leadsFixture.details.get(query.lead) ?? null : null}
+        links={{ forms: eventSectionHref(PREVIEW_BASE, "interakcije/forme", keep), followUp: eventSectionHref(PREVIEW_BASE, "leadovi/follow-up", keep), settings: eventSectionHref(PREVIEW_BASE, "leadovi/podesavanja", keep) }}
+        actions={inboxActions}
+      />
+    );
+    case "leadovi/follow-up": {
+      const selected = pickFollowUpExhibitor(leadsFixture.followUps, query.izlagac);
+      return (
+        <EventFollowUpView
+          exhibitors={previewExhibitors}
+          eventTitle={PREVIEW_EVENT_TITLE}
+          rows={leadsFixture.followUps}
+          estimate={leadsFixture.estimate}
+          switches={{ leadsEnabled: false, followUpEnabled: false }}
+          preview={selected ? leadsFixture.previewFor(selected.participationId, query.lead) : undefined}
+          query={query}
+          onQueryChange={setQuery}
+          actions={followUpActions}
+        />
+      );
+    }
+    case "leadovi/podesavanja": return <AdminEventsConsent view={{ consents: leadsFixture.consents }} actions={leadActions} />;
     case "izvestaji": return <AdminEventsReports view={reportsView} actions={reportsActions} />;
     case "brisanje": return <AdminEventsRetention view={retentionView} actions={retentionActions} />;
   }

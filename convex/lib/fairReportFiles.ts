@@ -1,4 +1,4 @@
-import type { FairReportFormat } from "../../lib/fair-contract";
+import type { FairPackageTier, FairReportFormat } from "../../lib/fair-contract";
 import { belgradeParts } from "../../lib/belgrade-time";
 import { fmt } from "../../lib/i18n/format";
 import { eventReportSr as dict } from "../../lib/i18n/sr/event-report";
@@ -7,6 +7,7 @@ import { PDF_DIFFERENCES, encodeText, textWidth, wrapText } from "../../lib/menu
 import { escapeXml } from "../../lib/menu-export/xlsx";
 import type { ExportStamp } from "../../lib/menu-export/rows";
 import { FAIR_REPORT_MODELS_CAP, FAIR_REPORT_ROWS_CAP, type FairDailyDataset } from "./fairReportDataset";
+import type { FairLeadActivity } from "./fairLeadActivity";
 
 // =============================================================================
 // Sajam automobila 2026 — B6 report files (MASTER §12, HANDOFF §5.6). Pure and
@@ -205,6 +206,10 @@ export function fairOrganizerDocument(input: { eventTitle: string; builtAt: numb
   };
 }
 
+/** Admin UX A8 — activity columns of the PII export (the passport is no package metric and is never exported). */
+export const FAIR_LEAD_EXPORT_ACTIVITY = ["scans", "ratings", "audienceVotes", "surveyAnswers", "sponsoredActions"] as const;
+export type FairLeadExportActivity = (typeof FAIR_LEAD_EXPORT_ACTIVITY)[number];
+
 export type FairLeadExportRow = {
   createdAt: number;
   kind: "interest" | "test_drive";
@@ -214,18 +219,67 @@ export type FairLeadExportRow = {
   phone?: string;
   consentVersion: number;
   consentedAt: number;
+  /** A8 — package of the lead's model at the moment of the lead. */
+  tier?: FairPackageTier;
+  /** A8 — summary per activity group that this package sends to the exhibitor; a group the package lacks is absent. */
+  activity?: Partial<Record<FairLeadExportActivity, string>>;
 };
 
-/** The SEPARATE PII artifact (MASTER §12): one exhibitor's leads, never mixed into a report. */
+const RATING_FIELDS = ["overall", "appearance", "specifications", "price"] as const;
+
+/**
+ * Admin UX A8 — one cell of text per activity group that goes to the
+ * exhibitor (`activity` holds only those groups). Empty group → "—", never 0;
+ * a read cut at its cap ends with "…".
+ */
+export function fairLeadActivityCells(activity: FairLeadActivity, modelName: (eventModelId: string) => string): Partial<Record<FairLeadExportActivity, string>> {
+  const cells: Partial<Record<FairLeadExportActivity, string>> = {};
+  const cell = (group: FairLeadExportActivity, items: string[], capped: boolean) => {
+    cells[group] = items.length ? `${items.join("; ")}${capped ? " …" : ""}` : DASH;
+  };
+  if (activity.scans?.shared) cell("scans", activity.scans.items.map((item) => fmt(dict.leadActivityScan, { model: modelName(item.eventModelId), count: item.count })), activity.scans.capped);
+  if (activity.ratings?.shared) {
+    cell("ratings", activity.ratings.items.map((item) => {
+      const values = RATING_FIELDS.flatMap((field) => (item[field] !== undefined ? [`${dict.ratingFields[field]} ${item[field]}`] : []));
+      return `${modelName(item.eventModelId)}: ${values.join(", ")}`;
+    }), activity.ratings.capped);
+  }
+  if (activity.audienceVotes?.shared) {
+    cell("audienceVotes", activity.audienceVotes.items.map((item) => `${modelName(item.eventModelId)} — ${item.prompt}: ${item.answer}`), activity.audienceVotes.capped);
+  }
+  if (activity.surveyAnswers?.shared) {
+    cell("surveyAnswers", activity.surveyAnswers.items.map((item) => {
+      const answers = item.answers.map((answer) => `${answer.prompt}: ${answer.kind === "yes_no" ? (answer.answer === "yes" ? dict.yes : answer.answer === "no" ? dict.no : answer.answer) : answer.answer}`);
+      return `${modelName(item.eventModelId)} — ${answers.join(", ")}`;
+    }), activity.surveyAnswers.capped);
+  }
+  if (activity.sponsoredActions?.shared) {
+    cell("sponsoredActions", activity.sponsoredActions.items.map((item) => `${modelName(item.eventModelId)}: ${item.kind === "open_model" ? dict.colOpenModel : dict.colGarageAdd}`), activity.sponsoredActions.capped);
+  }
+  return cells;
+}
+
+/**
+ * The SEPARATE PII artifact (MASTER §12): one exhibitor's leads, never mixed
+ * into a report. A8: the package of each lead and, per package, the
+ * visitor's activity on this exhibitor's models — a column appears only when
+ * some lead's package has it; a lead whose package lacks it has an empty cell.
+ */
 export function fairLeadsDocument(input: { eventTitle: string; exhibitorName: string; builtAt: number; rows: FairLeadExportRow[] }): FairReportDocument {
+  const withTier = input.rows.some((row) => row.tier !== undefined);
+  const groups = FAIR_LEAD_EXPORT_ACTIVITY.filter((group) => input.rows.some((row) => row.activity?.[group] !== undefined));
   return {
     title: fmt(dict.leadsTitle, { exhibitor: input.exhibitorName }),
     subtitle: fmt(dict.leadsSubtitle, { event: input.eventTitle }),
-    meta: [fmt(dict.builtAtLine, { date: fairReportDateTimeText(input.builtAt) })],
+    meta: [fmt(dict.builtAtLine, { date: fairReportDateTimeText(input.builtAt) }), ...(groups.length ? [dict.leadsActivityNote] : [])],
     sections: [
       {
         heading: dict.leadsHeading,
-        columns: [dict.colCreatedAt, dict.colKind, dict.colModel, dict.colName, dict.colEmail, dict.colPhone, dict.colConsentVersion, dict.colConsentedAt],
+        columns: [
+          dict.colCreatedAt, dict.colKind, dict.colModel, dict.colName, dict.colEmail, dict.colPhone, dict.colConsentVersion, dict.colConsentedAt,
+          ...(withTier ? [dict.colPackage] : []),
+          ...groups.map((group) => dict.leadActivityColumns[group]),
+        ],
         rows: input.rows.map((row) => [
           fairReportDateTimeText(row.createdAt),
           dict.leadKinds[row.kind],
@@ -235,6 +289,8 @@ export function fairLeadsDocument(input: { eventTitle: string; exhibitorName: st
           row.phone ?? "",
           row.consentVersion,
           fairReportDateTimeText(row.consentedAt),
+          ...(withTier ? [row.tier ? dict.tiers[row.tier] : ""] : []),
+          ...groups.map((group) => row.activity?.[group] ?? ""),
         ]),
       },
     ],

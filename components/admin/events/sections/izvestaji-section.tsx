@@ -6,25 +6,12 @@ import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { AdminEventsReports, type ReportsActions, type ReportsView } from "@/components/admin/admin-events-reports";
 import { useAdminEvent } from "@/components/admin/events/event-context";
+import { downloadAdminFile } from "@/components/admin/events/download-file";
 import { interactionOutcome } from "@/components/admin/events/event-outcome";
 
 // B6 — container of `izvestaji` (convex/fairReports.ts). Files are rendered
 // by admin-only actions and downloaded in the browser (nothing is parked
-// anywhere).
-
-type FileResult = { fileName: string; mimeType: string; chunks: ArrayBuffer[] };
-
-function downloadFile(result: FileResult) {
-  const blob = new Blob(result.chunks, { type: result.mimeType });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = result.fileName;
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
+// anywhere). A8: the PII lead file moved to `leadovi` (ADMIN-UX §7, §12.6).
 
 export function IzvestajiSection() {
   const { eventId, catalog, directory } = useAdminEvent();
@@ -38,7 +25,6 @@ export function IzvestajiSection() {
   const retry = useMutation(api.fairReports.retryReportRun);
   const correct = useMutation(api.fairReports.createReportCorrection);
   const download = useAction(api.fairReports.downloadReportRun);
-  const exportLeads = useAction(api.fairReports.exportLeadsFile);
   const exportOrganizer = useAction(api.fairReports.exportOrganizerAggregate);
 
   const view: ReportsView | undefined = useMemo(() => {
@@ -76,9 +62,8 @@ export function IzvestajiSection() {
     resend: (id, recipient) => interactionOutcome(() => resend({ reportRunId: runId(id), ...(recipient ? { recipient } : {}) })),
     retry: (id) => interactionOutcome(() => retry({ reportRunId: runId(id) })),
     correct: (id) => interactionOutcome(() => correct({ reportRunId: runId(id) })),
-    download: (id, format) => interactionOutcome(async () => downloadFile(await download({ reportRunId: runId(id), format }))),
-    exportLeads: (participationId, format) => interactionOutcome(async () => downloadFile(await exportLeads({ eventId, participationId: participationId as Id<"fairParticipations">, format }))),
-    exportOrganizer: (format) => interactionOutcome(async () => downloadFile(await exportOrganizer({ eventId, format }))),
+    download: (id, format) => interactionOutcome(async () => downloadAdminFile(await download({ reportRunId: runId(id), format }))),
+    exportOrganizer: (format) => interactionOutcome(async () => downloadAdminFile(await exportOrganizer({ eventId, format }))),
     review: (id) => setReviewId(id ? runId(id) : null),
   };
 

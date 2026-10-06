@@ -23,9 +23,10 @@ import { adminEventsSr as dict } from "@/lib/i18n/sr/admin-events";
 
 // Sajam 2026 B6 — the `Izveštaji` section of the admin `Događaji` tab:
 // build, review, manual approval, send/resend, retry and correction of the
-// exhibitor daily reports, plus the two separate exports (the PII lead file
-// and the organizer aggregate). Presentational only; data and actions come
-// from AdminEventsWorkspace (convex/fairReports.ts, all requireAdmin).
+// exhibitor daily reports, plus the organizer aggregate export. Admin UX A8:
+// the separate PII lead file moved to `leadovi` (ADMIN-UX §7, §12.6).
+// Presentational only; data and actions come from izvestaji-section.tsx
+// (convex/fairReports.ts, all requireAdmin).
 // Nothing is ever sent without the explicit `Odobri` step (MASTER §12).
 
 export type ReportRunView = {
@@ -62,7 +63,6 @@ export type ReportsActions = {
   retry: (runId: string) => Promise<InteractionOutcome>;
   correct: (runId: string) => Promise<InteractionOutcome>;
   download: (runId: string, format: FairReportFormat) => Promise<InteractionOutcome>;
-  exportLeads: (participationId: string, format: "csv" | "xlsx") => Promise<InteractionOutcome>;
   exportOrganizer: (format: FairReportFormat) => Promise<InteractionOutcome>;
   review: (runId: string | null) => void;
 };
@@ -211,12 +211,10 @@ export function AdminEventsReports({ view, actions }: { view: ReportsView | unde
   const [dayId, setDayId] = useState("");
   const [participationId, setParticipationId] = useState("");
   const [format, setFormat] = useState<FairReportFormat>("pdf");
-  const [leadsParticipationId, setLeadsParticipationId] = useState("");
   if (!view || !actions) return <AdminPanel><AdminEmptyState title={dict.tabReports} body={dict.reportsUnavailable} /></AdminPanel>;
 
   const chosenDay = dayId || view.days[0]?.id || "";
   const chosenParticipation = participationId || view.participations[0]?.id || "";
-  const chosenLeads = leadsParticipationId || view.participations[0]?.id || "";
 
   return (
     <div className="grid min-w-0 gap-5">
@@ -280,22 +278,6 @@ export function AdminEventsReports({ view, actions }: { view: ReportsView | unde
 
       <Section title={dict.reportsExportsTitle} help={dict.reportsExportsHelp}>
         <div className="grid gap-4">
-          <div className="grid gap-2">
-            <label className="grid gap-1 text-sm sm:max-w-sm" htmlFor="report-leads-exhibitor">
-              {dict.reportsLeadsLabel}
-              <select id="report-leads-exhibitor" className={field} value={chosenLeads} onChange={(event) => setLeadsParticipationId(event.target.value)}>
-                {view.participations.map((row) => <option key={row.id} value={row.id}>{row.name}</option>)}
-              </select>
-            </label>
-            <Meta>{dict.reportsLeadsWarning}</Meta>
-            <div className="flex flex-wrap gap-2">
-              {(["csv", "xlsx"] as const).map((value) => (
-                <button key={value} type="button" className={secondaryButton} disabled={exportRun.pending || !chosenLeads} onClick={() => void exportRun.run(() => actions.exportLeads(chosenLeads, value), dict.reportsDownloaded)}>
-                  {fmt(dict.reportsLeadsDownload, { format: dict.reportsFormats[value] })}
-                </button>
-              ))}
-            </div>
-          </div>
           <div className="grid gap-2">
             <span className="text-sm">{dict.reportsOrganizerLabel}</span>
             <div className="flex flex-wrap gap-2">

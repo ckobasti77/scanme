@@ -116,4 +116,28 @@ describe("A5 Izlagači", () => {
     expect(empty).toContain(list.emptyTitle);
     expect(empty).toContain(`href="${BASE}/import"`);
   });
+
+  test("A8: the follow-up column shows each exhibitor's text state and links to its editor", () => {
+    const markup = renderToStaticMarkup(
+      <AdminViewModeOverride value="tabela">
+        <EventExhibitorsView
+          exhibitors={exhibitors}
+          leadsCapped={false}
+          query={{}}
+          onQueryChange={() => undefined}
+          modelsHref={(id) => eventSectionHref(BASE, "modeli", { izlagac: id })}
+          importHref={eventSectionHref(BASE, "import")}
+          clients={clients}
+          actions={{ convert: ok }}
+          followUps={new Map([["p-a", { state: "draft" as const, advancedModels: 1 }], ["p-b", { state: "none" as const, advancedModels: 0 }]])}
+          followUpHref={(id) => eventSectionHref(BASE, "leadovi/follow-up", { izlagac: id })}
+        />
+      </AdminViewModeOverride>,
+    );
+    expect(markup).toContain(adminEventsSr.followUps.states.draft);
+    expect(markup).toContain(list.followUpNoAdvanced);
+    expect(markup).toContain(`href="${BASE}/leadovi/follow-up?izlagac=p-a"`);
+    expect(markup).toContain(`aria-label="Follow-up izlagača TEST Izlagač A"`);
+    expect(markup).not.toContain(list.followUpPendingHint);
+  });
 });

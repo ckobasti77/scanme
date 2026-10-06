@@ -126,6 +126,14 @@ export async function fairActiveFollowUpTemplate(ctx: Ctx, eventModelId: Id<"fai
     .first();
 }
 
+/** Admin UX A8 — the exhibitor's active follow-up text (one per participation), or null. */
+export async function fairActiveExhibitorFollowUp(ctx: Ctx, participationId: Id<"fairParticipations">) {
+  return ctx.db
+    .query("fairExhibitorFollowUpTemplates")
+    .withIndex("by_participationId_and_status", (q) => q.eq("participationId", participationId).eq("status", "active"))
+    .first();
+}
+
 /** The exhibitor named in the consent: the participation's business (same value as FairPublicModel.exhibitorName). */
 export async function fairExhibitorName(ctx: Ctx, participationId: Id<"fairParticipations">): Promise<string | null> {
   const participation = await ctx.db.get(participationId);
