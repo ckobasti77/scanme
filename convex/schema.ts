@@ -3931,4 +3931,55 @@ export default defineSchema({
     batches: v.number(),
     categories: v.array(fairPurgeCategoryProgress), // fixed 13 entries
   }).index("by_mode_and_status", ["mode", "status"]),
+
+  // Admin UX Z1 — Pošta: each admin's own Zoho mailboxes (ADMIN-UX-ZAHTEVI
+  // §10, §12.5). Separate from the ADMIN-09B ingest tables, which keep one
+  // integration connection (`emailProviderConnections.by_provider.unique()`).
+  // Only the connection, its accounts and the one-time OAuth states are
+  // stored; message bodies are read live and never copied. Tokens are
+  // AES-GCM ciphertext (convex/lib/adminMailCrypto.ts) and never leave
+  // convex/adminMail.ts.
+  adminMailConnections: defineTable({
+    ownerUserId: v.id("users"),
+    provider: v.literal("zoho"),
+    region: v.literal("eu"),
+    primaryEmail: v.string(),
+    status: v.union(v.literal("active"), v.literal("auth_required")),
+    refreshTokenCiphertext: v.string(),
+    refreshTokenIv: v.string(),
+    keyVersion: v.number(),
+    // Short-lived access token cache, also encrypted (until expiry − 60 s).
+    accessTokenCiphertext: v.optional(v.string()),
+    accessTokenIv: v.optional(v.string()),
+    accessTokenExpiresAt: v.optional(v.number()),
+    scopes: v.array(v.string()),
+    lastErrorCode: v.optional(v.string()),
+    connectedAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_ownerUserId", ["ownerUserId"])
+    .index("by_ownerUserId_and_primaryEmail", ["ownerUserId", "primaryEmail"]),
+
+  adminMailAccounts: defineTable({
+    connectionId: v.id("adminMailConnections"),
+    ownerUserId: v.id("users"),
+    zohoAccountId: v.string(),
+    emailAddress: v.string(),
+    displayName: v.optional(v.string()),
+    isDefault: v.boolean(),
+  })
+    .index("by_connectionId", ["connectionId"])
+    .index("by_ownerUserId", ["ownerUserId"]),
+
+  // One-time OAuth `state`: only the SHA-256 of the nonce, bound to the admin
+  // who started the connection, valid 10 minutes, consumed once.
+  adminMailOAuthStates: defineTable({
+    ownerUserId: v.id("users"),
+    stateHash: v.string(),
+    expiresAt: v.number(),
+    usedAt: v.optional(v.number()),
+    createdAt: v.number(),
+  })
+    .index("by_stateHash", ["stateHash"])
+    .index("by_ownerUserId_and_createdAt", ["ownerUserId", "createdAt"]),
 });

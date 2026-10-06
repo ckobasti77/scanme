@@ -56,6 +56,14 @@ const app = defineApp({
     ZOHO_MAIL_OUTBOUND_ENABLED: v.optional(v.string()),
     ZOHO_MAIL_GROUP_SEND_AS_VERIFIED: v.optional(v.string()),
     ZOHO_MAIL_POLL_INTERVAL_SECONDS: v.optional(v.string()),
+    // Admin UX Z1 — Pošta: each admin's own Zoho mailbox (convex/adminMail.ts).
+    // Reuses ZOHO_MAIL_CLIENT_ID / ZOHO_MAIL_CLIENT_SECRET above (EU
+    // server-based client). On only when the switch is exactly "true" AND the
+    // key is 32 bytes of base64 AND the redirect URI is set; otherwise every
+    // mail function is inert (ZOHO_NOT_CONFIGURED, no network call).
+    ZOHO_MAIL_CLIENT_ENABLED: v.optional(v.string()),
+    ZOHO_TOKEN_ENCRYPTION_KEY: v.optional(v.string()),
+    ZOHO_MAIL_REDIRECT_URI: v.optional(v.string()),
   },
 });
 

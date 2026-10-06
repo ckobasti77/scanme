@@ -7,11 +7,12 @@ import {
 } from "./navigation";
 
 describe("ADMIN-05 navigation contract", () => {
-  test("contains exactly the nine locked top-level items in order", () => {
+  test("contains exactly the locked top-level items in order (Z1 adds Pošta)", () => {
     expect(ADMIN_NAV_ITEMS.map((item) => adminV1Sr[item.labelKey])).toEqual([
       "Dashboard",
       "Klijenti",
       "Inbox",
+      "Pošta",
       "Zadaci",
       "Operativa",
       "Usluge",
@@ -47,6 +48,8 @@ describe("ADMIN-05 navigation contract", () => {
     expect(getActiveAdminNavId("/admin")).toBe("dashboard");
     expect(getActiveAdminNavId("/admin/klijenti/SMK-1")).toBe("clients");
     expect(getActiveAdminNavId("/admin/dogadjaji")).toBe("events");
+    expect(getActiveAdminNavId("/admin/posta")).toBe("mail");
+    expect(getActiveAdminNavId("/admin/inbox")).toBe("inbox");
     expect(getActiveAdminNavId("/admin/customers/legacy-id")).toBe("clients");
     expect(getActiveAdminNavId("/admin/cards")).toBeNull();
     expect(getActiveAdminNavId("/admin/scanme-links/example/editor")).toBeNull();

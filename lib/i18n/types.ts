@@ -2579,6 +2579,8 @@ export interface AdminV1Dict {
   navDashboard: string;
   navClients: string;
   navInbox: string;
+  /** Admin UX Z1 — Pošta (each admin's own Zoho mailbox). */
+  navMail: string;
   navTasks: string;
   navOperations: string;
   navServices: string;
@@ -5287,6 +5289,99 @@ export interface AdminUiDict {
   };
 }
 
+/** Admin UX Z1 — Pošta: each admin's own Zoho mailbox, read live (ADMIN-UX-ZAHTEVI §10). */
+export interface PostaDict {
+  pageTitle: string;
+  pageSubtitle: string;
+  previewBadge: string;
+  connect: string;
+  connecting: string;
+  reconnect: string;
+  disconnect: string;
+  /** {email}. */
+  disconnectConfirm: string;
+  connectionsLabel: string;
+  connectionActive: string;
+  connectionAuthRequired: string;
+  mailboxLabel: string;
+  notConfiguredTitle: string;
+  notConfiguredBody: string;
+  noConnectionTitle: string;
+  noConnectionBody: string;
+  privacyNote: string;
+  foldersLabel: string;
+  /** Names of the Zoho system folders by `folderType`. */
+  folderNames: Record<"Inbox" | "Sent" | "Drafts" | "Spam" | "Trash" | "Outbox" | "Templates" | "Snoozed", string>;
+  foldersEmpty: string;
+  loadingFolders: string;
+  listLabel: string;
+  filterLabel: string;
+  filterAll: string;
+  filterUnread: string;
+  searchLabel: string;
+  searchPlaceholder: string;
+  searchSubmit: string;
+  searchClear: string;
+  /** {query}. */
+  searchScope: string;
+  unread: string;
+  hasAttachment: string;
+  noSubject: string;
+  unknownSender: string;
+  listEmptyTitle: string;
+  listEmptyBody: string;
+  unreadEmptyBody: string;
+  searchEmptyTitle: string;
+  searchEmptyBody: string;
+  loadingList: string;
+  pagination: string;
+  pagePrevious: string;
+  pageNext: string;
+  /** {from}, {to}. */
+  pageRange: string;
+  readerLabel: string;
+  readerEmptyTitle: string;
+  readerEmptyBody: string;
+  loadingMessage: string;
+  back: string;
+  from: string;
+  to: string;
+  cc: string;
+  date: string;
+  markRead: string;
+  markedRead: string;
+  imagesBlocked: string;
+  showImages: string;
+  imagesShown: string;
+  /** {subject}. */
+  htmlFrameTitle: string;
+  attachmentsLabel: string;
+  /** {name}, {size}. */
+  download: string;
+  downloading: string;
+  connectedNotice: string;
+  previewNotice: string;
+  dismissNotice: string;
+  retry: string;
+  /** {seconds}. */
+  retryAfter: string;
+  /** Stable backend codes (convex/lib/adminMailContract.ts) + the generic fallback. */
+  errors: Record<
+    | "ZOHO_NOT_CONFIGURED"
+    | "ZOHO_AUTH_REQUIRED"
+    | "ZOHO_RATE_LIMITED"
+    | "ZOHO_UNAVAILABLE"
+    | "ZOHO_STATE_INVALID"
+    | "ZOHO_CONNECTION_NOT_FOUND"
+    | "ZOHO_NO_MAILBOX"
+    | "ZOHO_REGION_UNSUPPORTED"
+    | "ZOHO_ATTACHMENT_BLOCKED"
+    | "ZOHO_REQUEST_REJECTED"
+    | "ACTION_FAILED",
+    string
+  >;
+}
+
 export interface DictBySurface {
   "event-map": EventMapDict;
   "fair-map": FairMapDict;
@@ -5294,6 +5389,7 @@ export interface DictBySurface {
   "fair-garage": FairGarageDict;
   "admin-v1": AdminV1Dict;
   "admin-ui": AdminUiDict;
+  posta: PostaDict;
   "admin-settings": AdminSettingsDict;
   "admin-tasks": AdminTasksDict;
   "admin-orders": AdminOrdersDict;

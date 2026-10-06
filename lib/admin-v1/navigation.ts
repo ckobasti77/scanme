@@ -5,6 +5,7 @@ type AdminNavLabelKey = keyof Pick<
   | "navDashboard"
   | "navClients"
   | "navInbox"
+  | "navMail"
   | "navTasks"
   | "navOperations"
   | "navServices"
@@ -23,6 +24,7 @@ export type AdminNavId =
   | "dashboard"
   | "clients"
   | "inbox"
+  | "mail"
   | "tasks"
   | "operations"
   | "services"
@@ -65,6 +67,14 @@ export const ADMIN_NAV_ITEMS: readonly AdminNavItem[] = [
     labelKey: "navInbox",
     href: "/admin/inbox",
     matchPaths: ["/admin/inbox"],
+  },
+  // Admin UX Z1 (ADMIN-UX-ZAHTEVI §10): each admin's own Zoho mailbox,
+  // separate from the CRM Inbox above.
+  {
+    id: "mail",
+    labelKey: "navMail",
+    href: "/admin/posta",
+    matchPaths: ["/admin/posta"],
   },
   {
     id: "tasks",
