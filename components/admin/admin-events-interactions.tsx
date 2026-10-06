@@ -18,12 +18,13 @@ import { adminEventsSr as dict } from "@/lib/i18n/sr/admin-events";
 import type { AdminEventsPassportProblem } from "@/lib/i18n/types";
 import { cn } from "@/lib/utils";
 
-// Sajam 2026 B3 — the `Interakcije` section of the admin `Događaji` tab:
+// Sajam 2026 B3 — the `Interakcije` sections of the admin `Događaji` area:
 // Glas publike questions (draft → publish → close, the one sponsored result),
 // Advanced survey versions and brand passports (prepare → freeze/publish,
 // emergency removal, withdraw). Presentational only; data and actions come
-// from AdminEventsWorkspace (requireAdmin functions in
-// convex/fairInteractionsAdmin.ts). No visitor data and no rating aggregate.
+// from components/admin/events/sections/interakcije-section.tsx (requireAdmin
+// functions in convex/fairInteractionsAdmin.ts). No visitor data and no
+// rating aggregate.
 
 export type InteractionOutcome = { ok: true; problem?: string | null } | { ok: false; code: string };
 
@@ -433,14 +434,22 @@ function Passports({ view, actions }: { view: InteractionsView; actions: Interac
   );
 }
 
-export function AdminEventsInteractions({ view, actions }: { view: InteractionsView | undefined; actions: InteractionsActions | undefined }) {
-  if (!view || !actions) return <AdminPanel><AdminEmptyState title={dict.tabInteractions} body={dict.interactionsUnavailable} /></AdminPanel>;
-  return (
-    <div className="grid min-w-0 gap-5">
-      <p className="text-sm text-[var(--admin-text-muted)]">{dict.interactionsSubtitle}</p>
-      <Questions view={view} actions={actions} />
-      <Surveys view={view} actions={actions} />
-      <Passports view={view} actions={actions} />
-    </div>
-  );
+// Admin UX A2 — every part is its own route (`interakcije/glas-publike`,
+// `interakcije/ankete`, `interakcije/pasos`).
+type PartProps = { view: InteractionsView | undefined; actions: InteractionsActions | undefined };
+
+function Unavailable() {
+  return <AdminPanel><AdminEmptyState title={dict.tabInteractions} body={dict.interactionsUnavailable} /></AdminPanel>;
+}
+
+export function AdminEventsQuestions({ view, actions }: PartProps) {
+  return view && actions ? <Questions view={view} actions={actions} /> : <Unavailable />;
+}
+
+export function AdminEventsSurveys({ view, actions }: PartProps) {
+  return view && actions ? <Surveys view={view} actions={actions} /> : <Unavailable />;
+}
+
+export function AdminEventsPassports({ view, actions }: PartProps) {
+  return view && actions ? <Passports view={view} actions={actions} /> : <Unavailable />;
 }

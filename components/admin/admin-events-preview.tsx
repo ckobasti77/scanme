@@ -1,20 +1,49 @@
 "use client";
 
-import { useState } from "react";
-import { AdminEventsSurface, isAdminEventsTab, type CatalogView, type EventsActions, type ModelView } from "@/components/admin/admin-events";
-import type { InteractionsActions, InteractionsView } from "@/components/admin/admin-events-interactions";
-import { AdminEventsLeads, type LeadsActions, type LeadsView } from "@/components/admin/admin-events-leads";
+import { useRouter } from "next/navigation";
+import { useCallback } from "react";
+import type { CatalogView, EventClientView, EventsActions, InventoryRowView, ModelView } from "@/components/admin/admin-events";
+import { AdminEventsPassports, AdminEventsQuestions, AdminEventsSurveys, type InteractionsActions, type InteractionsView } from "@/components/admin/admin-events-interactions";
+import {
+  AdminEventsConsent,
+  AdminEventsFollowUp,
+  AdminEventsLeadForms,
+  AdminEventsLeadList,
+  type LeadsActions,
+  type LeadsModelSettings,
+  type LeadsView,
+} from "@/components/admin/admin-events-leads";
 import { AdminEventsReports, type ReportsActions, type ReportsView } from "@/components/admin/admin-events-reports";
 import { AdminEventsRetention, type RetentionActions, type RetentionView } from "@/components/admin/admin-events-retention";
 import { AdminEventsSponsored, type SponsoredActions, type SponsoredView } from "@/components/admin/admin-events-sponsored";
 import { AdminShell } from "@/components/admin/admin-shell";
 import { AdminViewModeOverride } from "@/components/admin/admin-ui";
-import type { AdminViewMode } from "@/lib/admin-v1/view-mode";
+import { useAdminQueryState } from "@/components/admin/admin-ui/use-admin-query-state";
+import { AdminEventFrameView, type FrameEvent } from "@/components/admin/events/event-frame-view";
+import { AdminEventsNotFound } from "@/components/admin/events/event-not-found";
+import { EventExhibitorsView } from "@/components/admin/events/sections/izlagaci-view";
+import { EventImportView } from "@/components/admin/events/sections/import-view";
+import { EventModelDetailView, EventModelsView } from "@/components/admin/events/sections/modeli-view";
+import { EventOverviewView } from "@/components/admin/events/sections/pregled-view";
+import { EventQrDetailView, EventQrView } from "@/components/admin/events/sections/qr-view";
+import {
+  eventDetailHref,
+  eventNavGroups,
+  eventSectionHref,
+  switchEventHref,
+  type EventSectionPath,
+  type ResolvedEventSection,
+} from "@/lib/admin-v1/event-sections";
+import type { AdminQueryPatch, AdminQueryState } from "@/lib/admin-v1/query-state";
+import { parseViewModeParam, type AdminViewMode } from "@/lib/admin-v1/view-mode";
 import { FAIR_PII_PURGE_AT_MS, FAIR_PURGE_CATEGORIES } from "@/lib/fair-contract";
 import { adminEventsSr as dict } from "@/lib/i18n/sr/admin-events";
 
-// Static TEST fixture of the `Događaji` tab (mirrors the B1 DEV TEST catalog)
-// for visual checks without an admin session. Actions do not execute.
+// Static TEST fixture of the `Događaji` sections (mirrors the B1 DEV TEST
+// catalog) for visual checks without an admin session or Convex. Admin UX
+// A2: every section is shown on the same path as in the admin —
+// `/dev/admin-events-preview/<sekcija>[/<id>]`; `?dogadjaj=` picks the TEST
+// event and `?prikaz=` the list view. Actions do not execute.
 
 const opening = Date.parse("2026-10-09T09:00:00+02:00");
 
@@ -82,6 +111,14 @@ const interactionActions: InteractionsActions = {
 
 const noMore = { canLoadMore: false, loadingMore: false, onLoadMore: () => undefined, status: "ready" as const };
 
+const advancedSettings: LeadsModelSettings = {
+  tier: "advanced",
+  interest: { contactRequirement: "one_of", enabled: true },
+  testDrive: { contactRequirement: "both", preferredContact: "phone", enabled: true },
+  followUpTemplate: null,
+};
+const starterSettings: LeadsModelSettings = { tier: "starter", interest: { contactRequirement: "one_of", enabled: true }, testDrive: null, followUpTemplate: null };
+
 // B4 — Leadovi: TEST consent drafts, settings and two TEST leads (no real contact data).
 const leadsView: LeadsView = {
   models: [
@@ -92,12 +129,7 @@ const leadsView: LeadsView = {
   consents: [{ id: "consent-1", kind: "interest", version: 1, status: "draft", text: "TEST nacrt saglasnosti — ScanMe prosleđuje kontakt izlagaču {izlagac}." }],
   modelId: "volta-x2",
   onSelectModel: () => undefined,
-  modelSettings: {
-    tier: "advanced",
-    interest: { contactRequirement: "one_of", enabled: true },
-    testDrive: { contactRequirement: "both", preferredContact: "phone", enabled: true },
-    followUpTemplate: null,
-  },
+  modelSettings: advancedSettings,
   participationId: "p-a",
   onSelectParticipation: () => undefined,
   leads: { ...noMore, rows: [
@@ -166,32 +198,86 @@ const retentionView: RetentionView = {
 };
 const retentionActions: RetentionActions = { startDryRun: ok };
 
-/** `tab` = `?tab=` (e.g. `qr`, `reports`); `view` = `?prikaz=` for every list. */
-export function AdminEventsPreview({ tab, view = null }: { tab?: string; view?: AdminViewMode | null }) {
-  const [eventId, setEventId] = useState("e-em26");
+const PREVIEW_BASE = "/dev/admin-events-preview";
+const PREVIEW_EVENTS: FrameEvent[] = [
+  { slug: "test-elektromobilnost-2026", title: "TEST Sajam elektromobilnosti", status: "published" },
+  { slug: "test-auto-moto-fest-2026", title: "TEST Auto Moto Fest", status: "published" },
+];
+
+const inventory = { ...noMore, rows: [
+  { cardId: "c1", resolverCode: "7KQ2M9XA", smqCode: "SMQ-TEST-0001", state: "active", assignment: { modelId: "volta-x1", modelName: "TEST Volta X1", sameEvent: true } },
+  { cardId: "c2", resolverCode: "R4T8W2PQ", smqCode: "SMQ-TEST-0002", state: "problem", assignment: null },
+] satisfies InventoryRowView[] };
+const eventClients = { ...noMore, rows: [{ accountId: "a-a", name: "TEST Izlagač A", smkCode: "SMK-TEST-FAIR-A" }] satisfies EventClientView[] };
+
+function PreviewSection({ path, detailId, query, setQuery, keep }: {
+  path: EventSectionPath;
+  detailId?: string;
+  query: AdminQueryState;
+  setQuery: (patch: AdminQueryPatch) => void;
+  keep: AdminQueryState;
+}) {
+  const modelHref = (id: string) => eventDetailHref(PREVIEW_BASE, "modeli", id, keep);
+  const qrHref = (code: string) => eventDetailHref(PREVIEW_BASE, "qr", code, keep);
+  const modelId = leadsView.models.find((model) => model.id === query.model)?.id ?? leadsView.models[0].id;
+  const modelPart = {
+    ...leadsView,
+    modelId,
+    onSelectModel: (id: string) => setQuery({ model: id }),
+    modelSettings: leadsView.models.find((model) => model.id === modelId)?.tier === "advanced" ? advancedSettings : starterSettings,
+  };
+  const leadList = {
+    ...leadsView,
+    participationId: leadsView.participations.find((row) => row.id === query.izlagac)?.id ?? leadsView.participations[0].id,
+    onSelectParticipation: (id: string) => setQuery({ izlagac: id }),
+  };
+  switch (path) {
+    case "pregled": return <EventOverviewView catalog={catalog} modelHref={modelHref} />;
+    case "modeli": return detailId
+      ? <EventModelDetailView key={detailId} catalog={catalog} modelId={detailId} actions={actions} listHref={eventSectionHref(PREVIEW_BASE, "modeli", keep)} qrHref={qrHref} />
+      : <EventModelsView catalog={catalog} modelHref={modelHref} />;
+    case "qr": return detailId
+      ? <EventQrDetailView key={detailId} catalog={catalog} code={detailId} row={inventory.rows.find((row) => row.resolverCode === detailId) ?? null} actions={actions} listHref={eventSectionHref(PREVIEW_BASE, "qr", keep)} modelHref={modelHref} generalQrHref={`/admin/operativa/qr?code=${encodeURIComponent(detailId)}`} />
+      : <EventQrView catalog={catalog} inventory={inventory} actions={actions} qrHref={qrHref} />;
+    case "izlagaci": return <EventExhibitorsView clients={eventClients} actions={actions} />;
+    case "import": return <EventImportView actions={actions} />;
+    case "interakcije/glas-publike": return <AdminEventsQuestions view={interactions} actions={interactionActions} />;
+    case "interakcije/ankete": return <AdminEventsSurveys view={interactions} actions={interactionActions} />;
+    case "interakcije/pasos": return <AdminEventsPassports view={interactions} actions={interactionActions} />;
+    case "interakcije/forme": return <AdminEventsLeadForms view={modelPart} actions={leadActions} />;
+    case "sponzorisano": return <AdminEventsSponsored view={sponsoredView} actions={sponsoredActions} />;
+    case "leadovi": return <AdminEventsLeadList view={leadList} actions={leadActions} />;
+    case "leadovi/follow-up": return <AdminEventsFollowUp view={modelPart} actions={leadActions} />;
+    case "leadovi/podesavanja": return <AdminEventsConsent view={leadsView} actions={leadActions} />;
+    case "izvestaji": return <AdminEventsReports view={reportsView} actions={reportsActions} />;
+    case "brisanje": return <AdminEventsRetention view={retentionView} actions={retentionActions} />;
+  }
+}
+
+/** `section` = the resolved route (null = unknown path → "not found" state). */
+export function AdminEventsPreview({ section }: { section: ResolvedEventSection | null }) {
+  const router = useRouter();
+  const [query, setQuery] = useAdminQueryState();
+  const currentSlug = PREVIEW_EVENTS.find((event) => event.slug === query.dogadjaj)?.slug ?? PREVIEW_EVENTS[0].slug;
+  const keepFor = (slug: string): AdminQueryState => (slug === PREVIEW_EVENTS[0].slug ? {} : { dogadjaj: slug });
+  const keep = keepFor(currentSlug);
+  const active = section?.kind === "section" ? section.path : null;
+  const onViewChange = useCallback((mode: AdminViewMode) => setQuery({ prikaz: mode }), [setQuery]);
   return (
     <AdminShell previewIdentity={dict.fixtureIdentity} activePathname="/admin/dogadjaji">
-      <AdminViewModeOverride value={view}>
-      <AdminEventsSurface
+      <AdminEventFrameView
         preview
-        initialTab={isAdminEventsTab(tab) ? tab : undefined}
-        events={[{ id: "e-em26", title: "TEST Sajam elektromobilnosti", status: "published" }, { id: "e-amf26", title: "TEST Auto Moto Fest", status: "published" }]}
-        selectedEventId={eventId}
-        onSelectEvent={setEventId}
-        catalog={catalog}
-        inventory={{ ...noMore, rows: [
-          { cardId: "c1", resolverCode: "7KQ2M9XA", smqCode: "SMQ-TEST-0001", state: "active", assignment: { modelId: "volta-x1", modelName: "TEST Volta X1", sameEvent: true } },
-          { cardId: "c2", resolverCode: "R4T8W2PQ", smqCode: "SMQ-TEST-0002", state: "problem", assignment: null },
-        ] }}
-        eventClients={{ ...noMore, rows: [{ accountId: "a-a", name: "TEST Izlagač A", smkCode: "SMK-TEST-FAIR-A" }] }}
-        actions={actions}
-        interactions={{ view: interactions, actions: interactionActions }}
-        leads={<AdminEventsLeads view={leadsView} actions={leadActions} />}
-        sponsored={<AdminEventsSponsored view={sponsoredView} actions={sponsoredActions} />}
-        reports={<AdminEventsReports view={reportsView} actions={reportsActions} />}
-        retention={<AdminEventsRetention view={retentionView} actions={retentionActions} />}
-      />
-      </AdminViewModeOverride>
+        events={PREVIEW_EVENTS}
+        currentSlug={currentSlug}
+        onSelectEvent={(slug) => router.push(switchEventHref(PREVIEW_BASE, section, query, keepFor(slug)))}
+        nav={eventNavGroups((path) => eventSectionHref(PREVIEW_BASE, path, keep), active)}
+      >
+        <AdminViewModeOverride value={parseViewModeParam(query.prikaz)} onChange={onViewChange}>
+          {section?.kind === "section"
+            ? <PreviewSection path={section.path} detailId={section.detailId} query={query} setQuery={setQuery} keep={keep} />
+            : <AdminEventsNotFound title={dict.sectionNotFoundTitle} body={dict.sectionNotFoundBody} href={eventSectionHref(PREVIEW_BASE, "pregled", keep)} linkLabel={dict.backToOverview} />}
+        </AdminViewModeOverride>
+      </AdminEventFrameView>
     </AdminShell>
   );
 }

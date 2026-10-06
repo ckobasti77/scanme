@@ -4,9 +4,21 @@ import { formatBelgradeDate } from "@/lib/belgrade-time";
 import { FAIR_EMAIL_DELIVERY_ERRORS } from "@/lib/fair-contract";
 import { fmt } from "@/lib/i18n/format";
 import { adminEventsSr } from "@/lib/i18n/sr/admin-events";
-import { AdminEventsLeads, type LeadsActions, type LeadsView } from "./admin-events-leads";
+import {
+  AdminEventsConsent,
+  AdminEventsFollowUp,
+  AdminEventsLeadForms,
+  AdminEventsLeadList,
+  type LeadsActions,
+  type LeadsView,
+} from "./admin-events-leads";
 
-// Sajam 2026 B4 — the `Leadovi` section of the admin `Događaji` tab.
+// Sajam 2026 B4 — the lead sections of the admin `Događaji` area. Since A2
+// each part is its own route: leadovi, interakcije/forme, leadovi/follow-up,
+// leadovi/podesavanja. `all` renders every part of one view.
+
+const PARTS = [AdminEventsConsent, AdminEventsLeadForms, AdminEventsFollowUp, AdminEventsLeadList];
+const all = (view: LeadsView | undefined, actions: LeadsActions | undefined) => PARTS.map((Part) => renderToStaticMarkup(<Part view={view} actions={actions} />)).join("");
 
 const ok = async () => ({ ok: true as const });
 const actions: LeadsActions = {
@@ -50,9 +62,9 @@ const view: LeadsView = {
 
 describe("B4 admin Leadovi", () => {
   test("consent, per-model settings and leads render in Serbian, with no raw codes", () => {
-    const html = renderToStaticMarkup(<AdminEventsLeads view={view} actions={actions} />);
+    const html = all(view, actions);
     for (const text of [
-      adminEventsSr.consentTitle, adminEventsSr.settingsTitle, adminEventsSr.listTitle, adminEventsSr.consentInactive,
+      adminEventsSr.consentTitle, adminEventsSr.formsSectionTitle, adminEventsSr.followUpSectionTitle, adminEventsSr.listTitle, adminEventsSr.consentInactive,
       "TEST aktivna saglasnost {izlagac}", "TEST nacrt saglasnosti {izlagac}", adminEventsSr.consentRetire, "Aktiviraj verziju 2",
       adminEventsSr.contactRequirements.both, adminEventsSr.preferredContacts.phone, adminEventsSr.followUpTitle, "Aktivna verzija teksta: 3.",
       "TEST Posetilac", "lead@example.invalid", "+381 60 000 0006", adminEventsSr.leadNoEmail, adminEventsSr.deliveryErrors.PROVIDER_REJECTED,
@@ -63,8 +75,9 @@ describe("B4 admin Leadovi", () => {
 
   test("a Starter model offers interest only; Advanced test drive and follow-up are not shown", () => {
     const starter: LeadsView = { ...view, modelId: "m2", modelSettings: { tier: "starter", interest: null, testDrive: null, followUpTemplate: null } };
-    const html = renderToStaticMarkup(<AdminEventsLeads view={starter} actions={actions} />);
+    const html = all(starter, actions);
     expect(html).toContain(adminEventsSr.testDriveAdvancedOnly);
+    expect(html).toContain(adminEventsSr.followUpAdvancedOnly);
     expect(html).not.toContain(adminEventsSr.followUpTitle);
   });
 
@@ -85,7 +98,7 @@ describe("B4 admin Leadovi", () => {
         }],
       },
     };
-    const html = renderToStaticMarkup(<AdminEventsLeads view={k3} actions={actions} />);
+    const html = all(k3, actions);
     for (const text of [
       adminEventsSr.consentLegalTitle, adminEventsSr.consentLegalHelp, adminEventsSr.consentLegalApprovedBy, adminEventsSr.consentLegalApprovedAt,
       fmt(adminEventsSr.consentLegalLine, { by: "TEST pravna provera", date: formatBelgradeDate(approvedAt) }),
@@ -96,11 +109,11 @@ describe("B4 admin Leadovi", () => {
     expect(html).not.toMatch(/FAIR_[A-Z_]+|LEADS_DISABLED|FOLLOW_UP_DISABLED|legalApproved/);
 
     // A version activated before K3 has no record; that is said plainly.
-    expect(renderToStaticMarkup(<AdminEventsLeads view={view} actions={actions} />)).toContain(adminEventsSr.consentLegalNone);
+    expect(all(view, actions)).toContain(adminEventsSr.consentLegalNone);
   });
 
   test("without data the section shows a neutral state; every delivery error has text", () => {
-    expect(renderToStaticMarkup(<AdminEventsLeads view={undefined} actions={undefined} />)).toContain(adminEventsSr.leadsUnavailable);
+    for (const Part of PARTS) expect(renderToStaticMarkup(<Part view={undefined} actions={undefined} />)).toContain(adminEventsSr.leadsUnavailable);
     for (const code of FAIR_EMAIL_DELIVERY_ERRORS) expect(adminEventsSr.deliveryErrors[code].length).toBeGreaterThan(0);
   });
 });

@@ -1,9 +1,12 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test } from "vitest";
 import { adminEventsSr } from "@/lib/i18n/sr/admin-events";
-import { AdminEventsInteractions, type InteractionsActions, type InteractionsView } from "./admin-events-interactions";
+import { AdminEventsPassports, AdminEventsQuestions, AdminEventsSurveys, type InteractionsActions, type InteractionsView } from "./admin-events-interactions";
 
-// Sajam 2026 B3 — the `Interakcije` section of the admin `Događaji` tab.
+// Sajam 2026 B3 — the `Interakcije` sections of the admin `Događaji` area
+// (A2: Glas publike, Ankete and Pasoš are separate routes).
+
+const PARTS = [AdminEventsQuestions, AdminEventsSurveys, AdminEventsPassports];
 
 const ok = async () => ({ ok: true as const });
 const actions: InteractionsActions = {
@@ -31,7 +34,7 @@ const view: InteractionsView = {
 
 describe("B3 admin Interakcije", () => {
   test("questions, survey versions and passports render with Serbian statuses and no raw codes", () => {
-    const html = renderToStaticMarkup(<AdminEventsInteractions view={view} actions={actions} />);
+    const html = PARTS.map((Part) => renderToStaticMarkup(<Part view={view} actions={actions} />)).join("");
     for (const text of [
       adminEventsSr.questionsTitle, adminEventsSr.surveysTitle, adminEventsSr.passportsTitle, "TEST pitanje A", "TEST pitanje B",
       adminEventsSr.questionStatus.published, adminEventsSr.questionStatus.draft, adminEventsSr.questionRotationOn, adminEventsSr.questionRotationClear,
@@ -44,7 +47,7 @@ describe("B3 admin Interakcije", () => {
   });
 
   test("without data the section shows a neutral state instead of failing", () => {
-    expect(renderToStaticMarkup(<AdminEventsInteractions view={undefined} actions={undefined} />)).toContain(adminEventsSr.interactionsUnavailable);
+    for (const Part of PARTS) expect(renderToStaticMarkup(<Part view={undefined} actions={undefined} />)).toContain(adminEventsSr.interactionsUnavailable);
   });
 
   test("every passport problem returned by upsertPassport has text", () => {

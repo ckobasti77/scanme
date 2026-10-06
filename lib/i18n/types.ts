@@ -3770,17 +3770,51 @@ export type AdminEventsResolveProblem =
 
 export interface AdminEventsDict {
   pageTitle: string;
-  pageSubtitle: string;
   eventLabel: string;
   eventOption: string;
   noEventsTitle: string;
   noEventsBody: string;
   sectionsAria: string;
-  tabOverview: string;
-  tabModel: string;
-  tabQr: string;
-  tabImport: string;
-  tabClients: string;
+  /** Admin UX A2 — navigation label of every section route (lib/admin-v1/event-sections.ts). */
+  sectionLabels: {
+    pregled: string;
+    modeli: string;
+    qr: string;
+    izlagaci: string;
+    import: string;
+    "interakcije/glas-publike": string;
+    "interakcije/ankete": string;
+    "interakcije/pasos": string;
+    "interakcije/forme": string;
+    sponzorisano: string;
+    leadovi: string;
+    "leadovi/follow-up": string;
+    "leadovi/podesavanja": string;
+    izvestaji: string;
+    brisanje: string;
+  };
+  navGroups: { katalog: string; sajam: string; posle: string };
+  navInteractions: string;
+  navLeads: string;
+  detailModelTitle: string;
+  detailQrTitle: string;
+  eventNotFoundTitle: string;
+  eventNotFoundBody: string;
+  backToEvents: string;
+  sectionNotFoundTitle: string;
+  sectionNotFoundBody: string;
+  backToOverview: string;
+  backToList: string;
+  modelNotFoundBody: string;
+  openDetail: string;
+  qrDetailModel: string;
+  qrDetailNotLoaded: string;
+  qrDetailGeneralAdmin: string;
+  formsSectionTitle: string;
+  formsSectionHelp: string;
+  followUpSectionTitle: string;
+  followUpSectionHelp: string;
+  followUpAdvancedOnly: string;
   daysTitle: string;
   noDays: string;
   participationsTitle: string;
@@ -3828,9 +3862,7 @@ export interface AdminEventsDict {
   checkReady: string;
   emptyCatalogTitle: string;
   emptyCatalogBody: string;
-  modelPickLabel: string;
   modelPickPlaceholder: string;
-  modelPickEmpty: string;
   fieldExternalKey: string;
   fieldSlug: string;
   fieldPrice: string;
@@ -3938,7 +3970,6 @@ export interface AdminEventsDict {
   resolveProblems: Record<AdminEventsResolveProblem, string>;
   // B3 — Interakcije tab (Glas publike, ankete, pasoši)
   tabInteractions: string;
-  interactionsSubtitle: string;
   interactionsUnavailable: string;
   questionsTitle: string;
   questionsHelp: string;
@@ -3998,7 +4029,6 @@ export interface AdminEventsDict {
   confirm: string;
   // B4 — Leadovi tab (saglasnost, podešavanje po modelu, follow-up tekst, leadovi)
   tabLeads: string;
-  leadsSubtitle: string;
   leadsUnavailable: string;
   leadKinds: Record<FairLeadKind, string>;
   consentTitle: string;
@@ -4024,8 +4054,6 @@ export interface AdminEventsDict {
   consentLegalApprovedAt: string;
   consentLegalLine: string;
   consentLegalNone: string;
-  settingsTitle: string;
-  settingsHelp: string;
   settingsNoModels: string;
   settingsLoading: string;
   configEnabled: string;
@@ -4283,6 +4311,10 @@ export interface AdminUiDict {
   sortAscending: string;
   sortDescending: string;
   actionsColumn: string;
+  /** A2 — section navigation: {count} = number next to a section. */
+  navCount: string;
+  /** A2 — urgency badge in the section navigation (filled by A10). {count} = items. */
+  urgency: { hitno: string; uskoro: string; info: string };
 }
 
 export interface DictBySurface {
