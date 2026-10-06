@@ -152,7 +152,8 @@ describe("getModelBySlug", () => {
     const none = { canSubmitInterest: false, canRequestTestDrive: false, hasAudienceQuestions: false, hasSurvey: false, isSponsored: false };
     expect((await read(f.included.slug))?.capabilities).toEqual({ ratingMode: "none", ...none });
     expect((await read(f.starter.slug))?.capabilities).toEqual({ ratingMode: "overall", ...none });
-    expect((await read(f.advanced.slug))?.capabilities).toEqual({ ratingMode: "dimensions", ...none });
+    // Admin UX A9: publishing an Advanced model puts it in the automatic sponsored snapshot (a live fact).
+    expect((await read(f.advanced.slug))?.capabilities).toEqual({ ratingMode: "dimensions", ...none, isSponsored: true });
 
     // Enabled lead configs: interest is Starter+, test drive only Advanced.
     await f.t.run(async (ctx) => {

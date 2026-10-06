@@ -13,15 +13,24 @@ import {
   useRunner,
   type InteractionOutcome,
 } from "@/components/admin/admin-events-interactions";
-import type { FairPurgeCategory, FairPurgeCategoryStatus, FairPurgeMode, FairPurgeRunStatus, FairPurgeTrigger } from "@/lib/fair-contract";
+import {
+  FAIR_LEAD_DELIVERY_DEADLINE_MS,
+  type FairPurgeCategory,
+  type FairPurgeCategoryStatus,
+  type FairPurgeMode,
+  type FairPurgeRunStatus,
+  type FairPurgeTrigger,
+} from "@/lib/fair-contract";
 import { fmt } from "@/lib/i18n/format";
 import { adminEventsSr as dict } from "@/lib/i18n/sr/admin-events";
 
 // Sajam 2026 B7 — the `Brisanje podataka` section of the admin `Događaji` tab
 // (V2 §11 "retention preview i audit bez PII u logu"). Presentational only;
-// data and the dry-run action come from AdminEventsWorkspace
+// data and the dry-run action come from brisanje-section.tsx
 // (convex/fairRetention.ts). There is deliberately no delete button: the
-// purge starts by itself on 16 Nov 2026 (MASTER §13).
+// purge starts by itself on 16 Nov 2026 (MASTER §13). Admin UX A9 adds the
+// countdown, the state of the last dry run and what stays after the purge
+// (FAIR-BACKEND-CONTRACT §23.2).
 
 export type RetentionView = {
   purgeAt: number;
@@ -38,7 +47,17 @@ export type RetentionView = {
     totalRows: number;
     categories: { category: FairPurgeCategory; rows: number; status: FairPurgeCategoryStatus }[];
   }[];
+  /** Browser time for the countdown. */
+  now: number;
 };
+
+const DAY_MS = 86_400_000;
+
+/** Whole days until the purge (0 on its last day), or null once it is due. Pure; shared with the test. */
+export function retentionDaysLeft(purgeAt: number, now: number): number | null {
+  if (now >= purgeAt) return null;
+  return Math.floor((purgeAt - now) / DAY_MS);
+}
 
 export type RetentionActions = {
   /** Starts a dry run, or keeps the one already in progress. */
@@ -75,14 +94,42 @@ export function AdminEventsRetention({ view, actions }: { view: RetentionView | 
   if (!view || !actions) return <AdminPanel><AdminEmptyState title={dict.tabRetention} body={dict.retentionUnavailable} /></AdminPanel>;
 
   const count = (row: RetentionView["preview"][number]) => (row.capped ? fmt(dict.retentionCountCapped, { count: row.count }) : String(row.count));
+  const plan = dict.retentionPlan;
+  const daysLeft = retentionDaysLeft(view.purgeAt, view.now);
+  const lastDryRun = view.runs.filter((run) => run.mode === "dry_run").sort((a, b) => b.startedAt - a.startedAt)[0];
 
   return (
     <div className="grid min-w-0 gap-5">
       <p className="text-sm text-[var(--admin-text-muted)]">{dict.retentionSubtitle}</p>
 
       <Section title={dict.retentionScheduleTitle} help={dict.retentionScheduleHelp}>
-        <p className="break-words text-sm font-semibold">{fmt(dict.retentionScheduleLine, { date: dateTime.format(view.purgeAt) })}</p>
-        <Meta>{dict.retentionKeptNote}</Meta>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid min-w-0 content-start gap-1">
+            <span className="text-xs font-semibold text-[var(--admin-text-muted)]">{plan.countdownTitle}</span>
+            <strong className="text-2xl font-semibold tabular-nums tracking-[-0.03em]">
+              {daysLeft === null ? plan.started : daysLeft === 0 ? plan.dueToday : fmt(plan.daysLeft, { days: daysLeft })}
+            </strong>
+            <p className="break-words text-sm font-semibold">{fmt(dict.retentionScheduleLine, { date: dateTime.format(view.purgeAt) })}</p>
+            <Meta>{fmt(plan.leadDeadline, { date: dateTime.format(FAIR_LEAD_DELIVERY_DEADLINE_MS) })}</Meta>
+            <Meta>{plan.countdownHelp}</Meta>
+          </div>
+          <div className="grid min-w-0 content-start gap-1">
+            <span className="text-xs font-semibold text-[var(--admin-text-muted)]">{plan.lastDryRunTitle}</span>
+            {lastDryRun ? (
+              <>
+                <span className="flex flex-wrap items-center gap-2">
+                  <RunStatus run={lastDryRun} />
+                </span>
+                <span className="break-words text-sm">
+                  {fmt(plan.lastDryRunLine, { date: dateTime.format(lastDryRun.finishedAt ?? lastDryRun.startedAt), status: dict.retentionRunStatus[lastDryRun.status], rows: lastDryRun.totalRows })}
+                </span>
+              </>
+            ) : <span className="text-sm">{plan.lastDryRunNone}</span>}
+          </div>
+        </div>
+        <div className="mt-3">
+          <Meta>{dict.retentionKeptNote}</Meta>
+        </div>
       </Section>
 
       <Section title={dict.retentionPreviewTitle} help={fmt(dict.retentionPreviewHelp, { cap: view.capPerCategory })}>
@@ -105,6 +152,12 @@ export function AdminEventsRetention({ view, actions }: { view: RetentionView | 
           </button>
         </div>
         <Feedback message={dryRun.message} />
+      </Section>
+
+      <Section title={plan.keptTitle} help={plan.keptHelp}>
+        <ul className="grid list-disc gap-1.5 pl-5 text-sm">
+          {plan.kept.map((line) => <li key={line} className="break-words">{line}</li>)}
+        </ul>
       </Section>
 
       <Section title={dict.retentionRunsTitle} help={dict.retentionRunsHelp}>

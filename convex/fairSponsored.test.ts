@@ -11,9 +11,12 @@ import { convexTest } from "convex-test";
 import rateLimiterTest from "@convex-dev/rate-limiter/test";
 import { afterEach, beforeEach, describe, expect, expectTypeOf, test, vi } from "vitest";
 import type { Infer } from "convex/values";
-import { api } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import type { Doc, Id, TableNames } from "./_generated/dataModel";
 import schema from "./schema";
+// A9: the scheduled sync job lives in this module; loaded once up front so finishAllScheduledFunctions
+// does not wait for its first (cold) module transform under a full-suite load.
+import "./fairSponsoredAdmin";
 import {
   FAIR_GARAGE_ROTATION_INTERVAL_MS,
   FAIR_MAP_ROTATION_INTERVAL_MS,
@@ -67,7 +70,12 @@ async function expectCode(promise: Promise<unknown>, code: string) {
 
 type Tier = "included" | "starter" | "advanced";
 
-async function setup() {
+/**
+ * `auto: false` (the B5 tests) turns the A9 automatic publish off right after
+ * the event is created, so the manual flow is tested exactly as before;
+ * `auto: true` (the A9 tests) keeps the default (on).
+ */
+async function setup({ auto = false }: { auto?: boolean } = {}) {
   const t = convexTest(schema, modules);
   rateLimiterTest.register(t);
   const ids = await t.run(async (ctx) => {
@@ -97,6 +105,7 @@ async function setup() {
     startsAt: Date.parse("2026-10-09T00:00:00+02:00"), endsAt: EVENT_ENDS, status: "published", garagePriority: 1,
     qrInventoryBusinessId: ids.inventory.businessId,
   });
+  if (!auto) await admin.mutation(api.fairSponsoredAdmin.setSponsoredAutoPublish, { eventId, enabled: false });
   const { dayId } = await admin.mutation(api.fairAdmin.upsertEventDay, { eventId, dateKey: "2026-10-09", label: "TEST dan 1", sortOrder: 1 });
   const exhibitor = async (key: string, client: typeof ids.a, location: string) => {
     const { participationId } = await admin.mutation(api.fairAdmin.upsertParticipation, {
@@ -475,6 +484,195 @@ describe("B5 recordSponsoredAction (JOVAN-DELTA §2)", () => {
     await publish(f);
     await f.t.run(async (ctx) => ctx.db.patch(f.eventId, { status: "ended" }));
     await expectCode(action(f, visitor(), f.models.advanced), "EVENT_NOT_ACTIVE");
+  });
+});
+
+// =============================================================================
+// Admin UX A9 — the automatic snapshot (ADMIN-UX §8, §12.1; a decision for
+// Aleksa's review against MASTER §10 "ručnom admin akcijom")
+// =============================================================================
+
+const snapshots = async (f: Fixture) => (await rows(f, "fairSponsoredSnapshots")).sort((x, y) => x.version - y.version);
+async function activeItems(f: Fixture) {
+  const active = (await snapshots(f)).find((row) => row.status === "published");
+  if (!active) return [];
+  return (await rows(f, "fairSponsoredSnapshotItems")).filter((row) => row.snapshotId === active._id).sort((x, y) => x.order - y.order);
+}
+const scheduledSyncs = async (f: Fixture) =>
+  (await f.t.run(async (ctx) => ctx.db.system.query("_scheduled_functions").collect())).filter((job) => job.name === "fairSponsoredAdmin:syncSponsoredSnapshotJob");
+const rotationAdmin = (f: Fixture) => f.admin.query(api.fairSponsoredAdmin.getSponsoredRotationAdmin, { eventId: f.eventId });
+const autoAudit = async (f: Fixture) => (await rows(f, "adminAuditLog")).filter((row) => row.action === "fair_sponsored_snapshot_auto_published");
+
+describe("A9 automatic sponsored snapshot (ADMIN-UX §8, §12.1)", () => {
+  test("publishing Advanced models and an upgrade to Napredni publish the snapshot by themselves, as the system, with the same mixing rules", async () => {
+    const f = await setup({ auto: true });
+    // Setup published three Advanced models one by one before the opening: one new version each.
+    const seed = fairSponsoredSeed(f.eventId);
+    const history = await snapshots(f);
+    expect(history.map((row) => [row.version, row.status, row.trigger, row.dayKey])).toEqual([
+      [1, "retired", "auto", "2026-10-08"], [2, "retired", "auto", "2026-10-08"], [3, "published", "auto", "2026-10-08"],
+    ]);
+    expect(history.every((row) => row.publishedByUserId === undefined)).toBe(true);
+    expect((await activeItems(f)).map((item) => item.eventModelId)).toEqual(fairSponsoredOrder([f.models.advanced, f.models.advanced2, f.models.advancedB], seed, "2026-10-08"));
+
+    // An upgrade during the fair day: a new version, shuffled for that day.
+    await f.admin.mutation(api.fairAdmin.upgradePackage, { eventModelId: f.models.starter, toTier: "advanced" });
+    const latest = (await snapshots(f)).at(-1)!;
+    expect(latest).toMatchObject({ version: 4, status: "published", trigger: "auto", dayKey: "2026-10-09", publishedAt: DAY1, seed });
+    expect(latest.publishedByUserId).toBeUndefined();
+    expect((await snapshots(f)).filter((row) => row.status === "published")).toHaveLength(1);
+    expect((await activeItems(f)).map((item) => item.eventModelId)).toEqual(
+      fairSponsoredOrder([f.models.advanced, f.models.advanced2, f.models.advancedB, f.models.starter], seed, "2026-10-09"),
+    );
+    // The admin whose change caused it is in the audit; the snapshot itself is the system's.
+    const audit = await autoAudit(f);
+    expect(audit).toHaveLength(4);
+    expect(audit.every((row) => row.actorUserId === f.adminId)).toBe(true);
+
+    // The map, the displays and the garage read the same published snapshot as before (a new version = a new snapshotId).
+    const map = await mapRotation(f);
+    const garage = await garageRotation(f);
+    expect(map).toMatchObject({ snapshotId: latest._id, version: 4, epochMs: DAY1, intervalMs: 12_000 });
+    expect(garage).toMatchObject({ snapshotId: latest._id, version: 4, epochMs: DAY1, intervalMs: 8_000 });
+    expect(ids(map)).toEqual((await activeItems(f)).map((item) => item.eventModelId));
+    expect(ids(garage)).toEqual(ids(map));
+  });
+
+  test("withdrawing a model publishes again; a call without a difference makes no version", async () => {
+    const f = await setup({ auto: true });
+    await f.admin.mutation(api.fairAdmin.withdrawModel, { eventModelId: f.models.advanced });
+    expect((await snapshots(f)).at(-1)).toMatchObject({ version: 4, status: "published", trigger: "auto" });
+    expect((await activeItems(f)).map((item) => item.eventModelId)).not.toContain(f.models.advanced);
+    expect(ids(await mapRotation(f))).toHaveLength(2);
+
+    // No difference, no version: the same withdraw again, publishing a published model, a Starter
+    // upgrade, clearing a question that was never chosen, and the scheduled job itself.
+    await f.admin.mutation(api.fairAdmin.withdrawModel, { eventModelId: f.models.advanced });
+    await f.admin.mutation(api.fairAdmin.publishModel, { eventModelId: f.models.advanced2 });
+    await f.admin.mutation(api.fairAdmin.upgradePackage, { eventModelId: f.models.included, toTier: "starter" });
+    await f.admin.mutation(api.fairInteractionsAdmin.setSponsoredResultQuestion, { eventModelId: f.models.advanced2, questionId: null });
+    expect(await f.t.mutation(internal.fairSponsoredAdmin.syncSponsoredSnapshotJob, { eventId: f.eventId })).toBe("unchanged");
+    expect(await snapshots(f)).toHaveLength(4);
+    expect(await autoAudit(f)).toHaveLength(4);
+
+    // Publishing it again brings it back, in a new version.
+    await f.admin.mutation(api.fairAdmin.publishModel, { eventModelId: f.models.advanced });
+    expect((await snapshots(f)).at(-1)).toMatchObject({ version: 5, status: "published", trigger: "auto" });
+    expect(ids(await mapRotation(f))).toContain(f.models.advanced);
+  });
+
+  test("choosing the map question publishes it without a manual step; the vote total is an admin-only number", async () => {
+    const f = await setup({ auto: true });
+    const { questionId } = await f.admin.mutation(api.fairInteractionsAdmin.upsertAudienceQuestion, {
+      eventModelId: f.models.advanced, eventDayId: f.dayId, prompt: "TEST pitanje za mapu",
+      options: [{ id: "o1", label: "TEST da", order: 1 }, { id: "o2", label: "TEST ne", order: 2 }], sortOrder: 1,
+    });
+    await f.admin.mutation(api.fairInteractionsAdmin.publishAudienceQuestion, { questionId });
+    expect(await snapshots(f)).toHaveLength(3); // a new question alone is not a difference
+    await f.admin.mutation(api.fairInteractionsAdmin.setSponsoredResultQuestion, { eventModelId: f.models.advanced, questionId });
+    expect((await snapshots(f)).at(-1)).toMatchObject({ version: 4, trigger: "auto" });
+    expect((await activeItems(f)).find((item) => item.eventModelId === f.models.advanced)?.audienceQuestionId).toBe(questionId);
+    const card = (await mapRotation(f))!.items.find((item) => item.eventModelId === f.models.advanced)!;
+    expect(card.audienceResult).toMatchObject({ questionId, prompt: "TEST pitanje za mapu", result: { state: "waiting_for_minimum" } });
+    // The same choice again is not a difference.
+    await f.admin.mutation(api.fairInteractionsAdmin.setSponsoredResultQuestion, { eventModelId: f.models.advanced, questionId });
+    expect(await snapshots(f)).toHaveLength(4);
+
+    for (const optionId of ["o1", "o2"]) {
+      await f.t.mutation(api.fairInteractions.upsertAudienceVote, { gatewaySecret: GATEWAY_SECRET, visitorHash: visitor(), questionId, optionId });
+    }
+    await expect(f.t.query(api.fairSponsoredAdmin.getSponsoredQuestionVotes, { eventId: f.eventId })).rejects.toThrow();
+    await expect(f.member.query(api.fairSponsoredAdmin.getSponsoredQuestionVotes, { eventId: f.eventId })).rejects.toThrow();
+    const votes = await f.admin.query(api.fairSponsoredAdmin.getSponsoredQuestionVotes, { eventId: f.eventId });
+    expect(votes).toEqual({ threshold: 5, questions: [{ eventModelId: f.models.advanced, questionId, votes: 2 }] });
+    expect(JSON.stringify(votes)).not.toMatch(/visitor|optionId/);
+    expect(await snapshots(f)).toHaveLength(4); // votes never publish
+  });
+
+  test("a package that starts later enters by itself at its activation: one scheduled check, never applied early", async () => {
+    const f = await setup({ auto: true });
+    expect(ids(await mapRotation(f))).not.toContain(f.models.laterAdvanced);
+    const [job, ...more] = await scheduledSyncs(f);
+    expect(more).toHaveLength(0);
+    expect(job).toMatchObject({ scheduledTime: DAY2, args: [{ eventId: f.eventId }] });
+    // Further catalog changes do not schedule the same check again.
+    await f.admin.mutation(api.fairAdmin.withdrawModel, { eventModelId: f.models.advanced2 });
+    await f.admin.mutation(api.fairAdmin.upgradePackage, { eventModelId: f.models.starter, toTier: "advanced" });
+    expect(await scheduledSyncs(f)).toHaveLength(1);
+    const versions = (await snapshots(f)).length;
+
+    await f.t.finishAllScheduledFunctions(vi.runAllTimers);
+    expect((await snapshots(f)).length).toBe(versions + 1);
+    const latest = (await snapshots(f)).at(-1)!;
+    expect(latest.trigger).toBe("auto");
+    expect(latest.publishedAt).toBeGreaterThanOrEqual(DAY2);
+    expect(ids(await mapRotation(f))).toContain(f.models.laterAdvanced);
+    expect(ids(await mapRotation(f))).not.toContain(f.models.advanced2);
+  });
+
+  test("turned off, the list stays manual (Osveži); turned on, it is brought up to date at once", async () => {
+    const f = await setup({ auto: true });
+    expect((await rotationAdmin(f)).autoPublish).toBe(true);
+    expect(await f.admin.mutation(api.fairSponsoredAdmin.setSponsoredAutoPublish, { eventId: f.eventId, enabled: false })).toEqual({ enabled: false, changed: true, sync: null });
+    expect((await rotationAdmin(f)).autoPublish).toBe(false);
+    await f.admin.mutation(api.fairAdmin.upgradePackage, { eventModelId: f.models.starter, toTier: "advanced" });
+    expect(await snapshots(f)).toHaveLength(3);
+    expect(ids(await mapRotation(f))).not.toContain(f.models.starter);
+
+    // The manual publish ("Osveži") still works and is marked as the admin's.
+    await publish(f);
+    expect((await snapshots(f)).at(-1)).toMatchObject({ version: 4, trigger: "admin", publishedByUserId: f.adminId });
+    expect((await rotationAdmin(f)).active).toMatchObject({ version: 4, trigger: "admin" });
+    await f.admin.mutation(api.fairAdmin.withdrawModel, { eventModelId: f.models.starter });
+    expect(await snapshots(f)).toHaveLength(4);
+
+    expect(await f.admin.mutation(api.fairSponsoredAdmin.setSponsoredAutoPublish, { eventId: f.eventId, enabled: true })).toEqual({ enabled: true, changed: true, sync: "published" });
+    expect((await snapshots(f)).at(-1)).toMatchObject({ version: 5, trigger: "auto" });
+    expect(ids(await mapRotation(f))).not.toContain(f.models.starter);
+    expect(await f.admin.mutation(api.fairSponsoredAdmin.setSponsoredAutoPublish, { eventId: f.eventId, enabled: true })).toEqual({ enabled: true, changed: false, sync: "unchanged" });
+    expect(await snapshots(f)).toHaveLength(5);
+    const actions = (await rows(f, "adminAuditLog")).map((row) => row.action);
+    expect(actions.filter((action) => action === "fair_sponsored_auto_disabled")).toHaveLength(1);
+    expect(actions.filter((action) => action === "fair_sponsored_auto_enabled")).toHaveLength(1);
+    await expect(f.member.mutation(api.fairSponsoredAdmin.setSponsoredAutoPublish, { eventId: f.eventId, enabled: false })).rejects.toThrow();
+    expect((await rotationAdmin(f)).autoPublish).toBe(true);
+  });
+
+  test("the scheduled job (after an import) publishes a change made outside the admin commands; the admin view shows source, pictures and versions", async () => {
+    const f = await setup({ auto: true });
+    const photo = "https://example.com/test-volta-x2.jpg";
+    // As an import commit leaves it: the catalog changed without an admin command in this transaction.
+    await f.t.run(async (ctx) => {
+      await ctx.db.patch(f.models.draftAdvanced, { status: "published" });
+      await ctx.db.patch(f.models.advanced, { photoUrl: photo });
+    });
+    expect(ids(await mapRotation(f))).not.toContain(f.models.draftAdvanced);
+    expect(await f.t.mutation(internal.fairSponsoredAdmin.syncSponsoredSnapshotJob, { eventId: f.eventId })).toBe("published");
+    expect(ids(await mapRotation(f))).toContain(f.models.draftAdvanced);
+    expect(await autoAudit(f)).toHaveLength(3); // the job has no admin: only the three setup publishes are audited
+
+    const view = await rotationAdmin(f);
+    expect(view.autoPublish).toBe(true);
+    expect(view.active).toMatchObject({ version: 4, trigger: "auto", dayKey: "2026-10-09" });
+    const item = (id: Id<"fairEventModels">) => view.active!.items.find((row) => row.eventModelId === id)!;
+    expect(item(f.models.advanced)).toMatchObject({ visual: "photo", photoUrl: photo });
+    expect(item(f.models.advanced2)).toMatchObject({ visual: "event_placeholder" });
+    expect(item(f.models.advanced2)).not.toHaveProperty("photoUrl");
+    expect(view.history.map((row) => [row.version, row.trigger])).toEqual([[4, "auto"], [3, "auto"], [2, "auto"], [1, "auto"]]);
+    expect(keysOf(view).filter((key) => /impression|visitor|count|metric/i.test(key))).toEqual([]);
+  });
+
+  test("reading the rotation and the admin views writes nothing and publishes nothing", async () => {
+    const f = await setup({ auto: true });
+    const state = async () => JSON.stringify([await tableSizes(f), await snapshots(f), await rows(f, "fairSponsoredSnapshotItems"), await rows(f, "fairEvents")]);
+    const before = await state();
+    for (let index = 0; index < 3; index += 1) {
+      await mapRotation(f);
+      await garageRotation(f);
+      await rotationAdmin(f);
+      await f.admin.query(api.fairSponsoredAdmin.getSponsoredQuestionVotes, { eventId: f.eventId });
+    }
+    expect(await state()).toBe(before);
   });
 });
 

@@ -34,6 +34,7 @@ import {
   fairSponsoredActionKind,
   fairSponsoredActionSurface,
   fairSponsoredSnapshotStatus,
+  fairSponsoredSnapshotTrigger,
   fairShareChannel,
   fairShareCollectionStatus,
   fairStandStatus,
@@ -3328,6 +3329,11 @@ export default defineSchema({
     // existing QR channels may be assigned to this event's models. Unset =
     // no assignment possible (FAIR_QR_INVENTORY_NOT_CONFIGURED).
     qrInventoryBusinessId: v.optional(v.id("businesses")),
+    // Admin UX A9: the sponsored snapshot follows the published Advanced
+    // models by itself unless this is false (unset = on). `sponsoredAutoCheckAt`
+    // is the scheduled re-check for a package that starts later (dedupe).
+    sponsoredAutoPublish: v.optional(v.boolean()),
+    sponsoredAutoCheckAt: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
@@ -3826,7 +3832,7 @@ export default defineSchema({
     .index("by_eventDayId_and_participationId", ["eventDayId", "participationId"])
     .index("by_status_and_createdAt", ["status", "createdAt"]),
 
-  // §5.7 — sponsored snapshot (manually published, immutable list of all
+  // §5.7 — sponsored snapshot (published by an admin or, A9, automatically; immutable list of all
   // published Advanced models, stably shuffled per dayKey/seed)
   fairSponsoredSnapshots: defineTable({
     eventId: v.id("fairEvents"),
@@ -3836,6 +3842,8 @@ export default defineSchema({
     status: fairSponsoredSnapshotStatus,
     publishedAt: v.optional(v.number()),
     publishedByUserId: v.optional(v.id("users")),
+    // Admin UX A9: "auto" = published by the system (no publishedByUserId).
+    trigger: v.optional(fairSponsoredSnapshotTrigger),
   })
     // one "published" snapshot per event (checked by the publish mutation)
     .index("by_eventId_and_status", ["eventId", "status"])

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { AdminEmptyState, AdminPanel, AdminStatus } from "@/components/admin/admin-primitives";
-import { AdminDataCard, AdminDataView, type AdminColumn } from "@/components/admin/admin-ui";
+import { AdminDataCard, AdminDataView, AdminFilterBar, type AdminFilterChip } from "@/components/admin/admin-ui";
 import {
   ConfirmAction,
   Feedback,
@@ -10,24 +10,35 @@ import {
   Section,
   dateTime,
   field,
-  primaryButton,
   secondaryButton,
   useRunner,
   type InteractionOutcome,
 } from "@/components/admin/admin-events-interactions";
+import {
+  REPORT_QUEUE_STATUSES,
+  buildReportQueue,
+  filterReportQueue,
+  type ReportQueueRow,
+  type ReportQueueStatus,
+} from "@/components/admin/events/report-queue";
 import { fairDailyReportDocument, fairReportNumberText, type FairReportCell } from "@/convex/lib/fairReportFiles";
 import type { FairDailyDataset } from "@/convex/lib/fairReportDataset";
+import type { AdminQueryPatch, AdminQueryState } from "@/lib/admin-v1/query-state";
 import type { FairReportFormat, FairReportStatus } from "@/lib/fair-contract";
 import { fmt } from "@/lib/i18n/format";
 import { adminEventsSr as dict } from "@/lib/i18n/sr/admin-events";
 
-// Sajam 2026 B6 — the `Izveštaji` section of the admin `Događaji` tab:
-// build, review, manual approval, send/resend, retry and correction of the
-// exhibitor daily reports, plus the organizer aggregate export. Admin UX A8:
-// the separate PII lead file moved to `leadovi` (ADMIN-UX §7, §12.6).
-// Presentational only; data and actions come from izvestaji-section.tsx
-// (convex/fairReports.ts, all requireAdmin).
-// Nothing is ever sent without the explicit `Odobri` step (MASTER §12).
+// Sajam 2026 B6 — the `Izveštaji` section of the admin `Događaji` tab.
+// Admin UX A9 (ADMIN-UX §9): an approval queue — one row per fair day ×
+// exhibitor with the state of its newest run (čeka podatke / u izradi /
+// čeka odobrenje / odobreno / poslato / greška), filters by day, exhibitor
+// and state in the URL, and the existing actions on that run: review,
+// approve, send, resend, retry and correction; earlier versions stay folded
+// under the row. Only daily aggregates, no PII (A8 moved the lead file to
+// `leadovi`). Presentational only; data and actions come from
+// izvestaji-section.tsx (convex/fairReports.ts, all requireAdmin).
+// Nothing is ever sent without the explicit `Odobri` step (MASTER §12), and a
+// build is offered only after the day closed (K4, FAIR_DAY_NOT_CLOSED).
 
 export type ReportRunView = {
   id: string;
@@ -48,11 +59,15 @@ export type ReportRunView = {
 };
 
 export type ReportsView = {
-  days: { id: string; label: string; dateKey: string }[];
-  participations: { id: string; name: string }[];
+  /** `endsAt` = close of the fair day (K4: a report exists only after it). */
+  days: { id: string; label: string; dateKey: string; endsAt: number }[];
+  /** `expectsDaily` = the exhibitor has a model whose package includes the daily report. */
+  participations: { id: string; name: string; expectsDaily: boolean }[];
   runs: ReportRunView[];
   /** The run under review and its frozen dataset (undefined while loading). */
   review: { runId: string; dataset: FairDailyDataset | null | undefined } | null;
+  /** Browser time: whether a day has closed. */
+  now: number;
 };
 
 export type ReportsActions = {
@@ -124,10 +139,6 @@ function ReviewPanel({ dataset }: { dataset: FairDailyDataset }) {
   );
 }
 
-function runTitle(run: ReportRunView) {
-  return fmt(dict.reportsRunLine, { exhibitor: run.exhibitorName, day: run.dayLabel, format: dict.reportsFormats[run.format] });
-}
-
 function RunBadges({ run }: { run: ReportRunView }) {
   return (
     <>
@@ -147,13 +158,6 @@ function RunMeta({ run }: { run: ReportRunView }) {
     </span>
   );
 }
-
-const runColumns: AdminColumn<ReportRunView>[] = [
-  { id: "report", header: dict.colReport, rowHeader: true, sortValue: runTitle, cell: (run) => <strong className="font-semibold">{runTitle(run)}</strong> },
-  { id: "status", header: dict.colStatus, className: "whitespace-nowrap", sortValue: (run) => dict.reportStatus[run.status], cell: (run) => <span className="flex flex-wrap gap-1.5"><RunBadges run={run} /></span> },
-  { id: "date", header: dict.colDate, sortValue: (run) => run.createdAt, cell: (run) => <span className="whitespace-nowrap">{dateTime.format(run.createdAt)}</span> },
-  { id: "delivery", header: dict.colRecipient, cell: (run) => <RunMeta run={run} /> },
-];
 
 function RunActions({ run, actions, reviewing, idSuffix }: { run: ReportRunView; actions: ReportsActions; reviewing: boolean; idSuffix: string }) {
   const runner = useRunner();
@@ -205,74 +209,158 @@ function RunActions({ run, actions, reviewing, idSuffix }: { run: ReportRunView;
   );
 }
 
-export function AdminEventsReports({ view, actions }: { view: ReportsView | undefined; actions: ReportsActions | undefined }) {
-  const buildRun = useRunner();
+type QueueRow = ReportQueueRow<ReportRunView>;
+// No "info" tone exists in AdminStatus (the token would live in app/globals.css): neutral/muted instead.
+const queueTone: Record<ReportQueueStatus, "active" | "waiting" | "problem" | "neutral" | "muted"> = {
+  "ceka-podatke": "muted",
+  "u-izradi": "neutral",
+  "ceka-odobrenje": "waiting",
+  odobreno: "neutral",
+  poslato: "active",
+  greska: "problem",
+};
+
+function QueueState({ row }: { row: QueueRow }) {
+  const latest = row.runs[0];
+  return (
+    <span className="grid min-w-0 gap-1">
+      <span className="flex flex-wrap gap-1.5">
+        <AdminStatus label={dict.reportQueue.statuses[row.status]} tone={queueTone[row.status]} />
+        {latest?.correctionOf ? <AdminStatus label={dict.reportsCorrectionBadge} tone="neutral" /> : null}
+      </span>
+      {latest ? (
+        <>
+          <Meta>{`${fmt(dict.reportQueue.version, { n: row.runs.length, total: row.runs.length })} · ${dict.reportsFormats[latest.format]} · ${fmt(dict.reportsRunMeta, { date: dateTime.format(latest.createdAt) })}`}</Meta>
+          <RunMeta run={latest} />
+        </>
+      ) : <Meta>{row.dayClosed ? dict.reportQueue.waitingClosed : fmt(dict.reportQueue.waitingOpen, { date: dateTime.format(row.day.endsAt) })}</Meta>}
+    </span>
+  );
+}
+
+function QueueActions({ row, actions, review, idSuffix }: { row: QueueRow; actions: ReportsActions; review: ReportsView["review"]; idSuffix: string }) {
+  const runner = useRunner();
+  const latest = row.runs[0];
+  if (latest) return <RunActions run={latest} actions={actions} reviewing={review?.runId === latest.id} idSuffix={idSuffix} />;
+  if (!row.dayClosed) return null;
+  return (
+    <div className="grid gap-2 text-left">
+      <button
+        type="button"
+        className={secondaryButton}
+        disabled={runner.pending}
+        aria-label={`${dict.reportQueue.build}: ${row.participation.name}, ${row.day.label}`}
+        onClick={() => void runner.run(() => actions.build(row.day.id, row.participation.id, "pdf"), dict.reportsBuildQueued)}
+      >
+        {dict.reportQueue.build}
+      </button>
+      <Feedback message={runner.message} />
+    </div>
+  );
+}
+
+function QueueDetail({ row, actions, review, idSuffix }: { row: QueueRow; actions: ReportsActions; review: ReportsView["review"]; idSuffix: string }) {
+  const reviewing = review && row.runs.some((run) => run.id === review.runId) ? review : null;
+  const older = row.runs.slice(1);
+  if (!reviewing && !older.length) return null;
+  return (
+    <div className="grid min-w-0 gap-3">
+      {reviewing ? (
+        <div className="min-w-0">
+          {reviewing.dataset === undefined ? <Meta>{dict.reportsReviewLoading}</Meta> : reviewing.dataset === null ? <Meta>{dict.reportsReviewEmpty}</Meta> : <ReviewPanel dataset={reviewing.dataset} />}
+        </div>
+      ) : null}
+      {older.length ? (
+        <details className="min-w-0">
+          <summary className="cursor-pointer text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--admin-focus)]">{fmt(dict.reportQueue.older, { count: older.length })}</summary>
+          <ul className="mt-2 grid gap-3">
+            {older.map((run, index) => (
+              <li key={run.id} className="grid min-w-0 gap-2 rounded-[var(--admin-radius-control)] border border-[var(--admin-border)] p-3">
+                <span className="flex flex-wrap items-center gap-1.5">
+                  <strong className="text-sm">{fmt(dict.reportQueue.version, { n: row.runs.length - 1 - index, total: row.runs.length })}</strong>
+                  <RunBadges run={run} />
+                </span>
+                <Meta>{fmt(dict.reportsRunMeta, { date: dateTime.format(run.createdAt) })}</Meta>
+                <RunMeta run={run} />
+                <RunActions run={run} actions={actions} reviewing={review?.runId === run.id} idSuffix={`${idSuffix}-old`} />
+              </li>
+            ))}
+          </ul>
+        </details>
+      ) : null}
+    </div>
+  );
+}
+
+export function AdminEventsReports({
+  view,
+  actions,
+  query = {},
+  onQueryChange = () => undefined,
+}: {
+  view: ReportsView | undefined;
+  actions: ReportsActions | undefined;
+  query?: AdminQueryState;
+  onQueryChange?: (patch: AdminQueryPatch) => void;
+}) {
   const exportRun = useRunner();
-  const [dayId, setDayId] = useState("");
-  const [participationId, setParticipationId] = useState("");
-  const [format, setFormat] = useState<FairReportFormat>("pdf");
   if (!view || !actions) return <AdminPanel><AdminEmptyState title={dict.tabReports} body={dict.reportsUnavailable} /></AdminPanel>;
 
-  const chosenDay = dayId || view.days[0]?.id || "";
-  const chosenParticipation = participationId || view.participations[0]?.id || "";
+  const q = dict.reportQueue;
+  const rows = buildReportQueue(view);
+  const shown = filterReportQueue(rows, query);
+  const countOf = (status: ReportQueueStatus) => rows.filter((row) => row.status === status).length;
+  const dayLabel = (dateKey: string) => view.days.find((day) => day.dateKey === dateKey)?.label ?? dateKey;
+  const exhibitorName = (id: string) => view.participations.find((row) => row.id === id)?.name ?? id;
+  const chips: AdminFilterChip[] = [];
+  if (query.dan) chips.push({ id: "dan", label: `${q.facetDay}: ${dayLabel(query.dan)}`, onRemove: () => onQueryChange({ dan: null }) });
+  if (query.izlagac) chips.push({ id: "izlagac", label: `${q.facetExhibitor}: ${exhibitorName(query.izlagac)}`, onRemove: () => onQueryChange({ izlagac: null }) });
+  if (query.status && query.status in q.statuses) chips.push({ id: "status", label: `${q.facetStatus}: ${q.statuses[query.status as ReportQueueStatus]}`, onRemove: () => onQueryChange({ status: null }) });
 
   return (
     <div className="grid min-w-0 gap-5">
       <p className="text-sm text-[var(--admin-text-muted)]">{dict.reportsSubtitle}</p>
 
-      <Section title={dict.reportsBuildTitle} help={dict.reportsBuildHelp}>
-        {view.days.length && view.participations.length ? (
-          <div className="grid gap-3 sm:grid-cols-[repeat(3,minmax(0,1fr))_auto] sm:items-end">
-            <label className="grid gap-1 text-sm" htmlFor="report-build-day">
-              {dict.reportsDay}
-              <select id="report-build-day" className={field} value={chosenDay} onChange={(event) => setDayId(event.target.value)}>
-                {view.days.map((day) => <option key={day.id} value={day.id}>{day.label}</option>)}
-              </select>
-            </label>
-            <label className="grid gap-1 text-sm" htmlFor="report-build-exhibitor">
-              {dict.reportsExhibitor}
-              <select id="report-build-exhibitor" className={field} value={chosenParticipation} onChange={(event) => setParticipationId(event.target.value)}>
-                {view.participations.map((row) => <option key={row.id} value={row.id}>{row.name}</option>)}
-              </select>
-            </label>
-            <label className="grid gap-1 text-sm" htmlFor="report-build-format">
-              {dict.reportsFormat}
-              <select id="report-build-format" className={field} value={format} onChange={(event) => setFormat(event.target.value as FairReportFormat)}>
-                {FORMATS.map((value) => <option key={value} value={value}>{dict.reportsFormats[value]}</option>)}
-              </select>
-            </label>
-            <button type="button" className={primaryButton} disabled={buildRun.pending || !chosenDay || !chosenParticipation} onClick={() => void buildRun.run(() => actions.build(chosenDay, chosenParticipation, format), dict.reportsBuildQueued)}>
-              {dict.reportsBuild}
-            </button>
-          </div>
-        ) : <p className="text-sm text-[var(--admin-text-muted)]">{dict.reportsBuildEmpty}</p>}
-        <Feedback message={buildRun.message} />
-      </Section>
-
-      <Section title={dict.reportsListTitle} help={dict.reportsListHelp}>
+      <Section title={q.title} help={q.help}>
+        <div className="mb-3 grid gap-1">
+          <p className="text-sm font-semibold">{fmt(q.summary, { review: countOf("ceka-odobrenje"), approved: countOf("odobreno"), failed: countOf("greska") })}</p>
+          <Meta>{dict.reportsBuildHelp}</Meta>
+          <Meta>{dict.reportsListHelp}</Meta>
+          {!view.runs.length ? <Meta>{dict.reportsEmpty}</Meta> : null}
+        </div>
+        <AdminFilterBar
+          label={q.filterLabel}
+          facets={[
+            { id: "dan", label: q.facetDay, options: [...view.days].sort((a, b) => a.endsAt - b.endsAt).map((day) => ({ value: day.dateKey, label: day.label, count: rows.filter((row) => row.day.dateKey === day.dateKey).length })) },
+            { id: "izlagac", label: q.facetExhibitor, options: view.participations.map((row) => ({ value: row.id, label: row.name, count: rows.filter((entry) => entry.participation.id === row.id).length })) },
+            { id: "status", label: q.facetStatus, options: REPORT_QUEUE_STATUSES.map((status) => ({ value: status, label: q.statuses[status], count: countOf(status) })) },
+          ]}
+          values={{ dan: query.dan, izlagac: query.izlagac, status: query.status }}
+          onFacetChange={(id, value) => onQueryChange({ [id]: value ?? null })}
+          chips={chips}
+          onClear={chips.length ? () => onQueryChange({ dan: null, izlagac: null, status: null }) : undefined}
+          className="mb-3"
+        />
         <AdminDataView
-          listKey="dogadjaji.izvestaji"
-          caption={dict.reportsListTitle}
-          rows={view.runs}
-          empty={{ title: dict.reportsListTitle, body: dict.reportsEmpty }}
-          getRowId={(run) => run.id}
-          columns={runColumns}
-          tableClassName="min-w-[64rem]"
-          renderCard={(run) => (
-            <AdminDataCard
-              title={runTitle(run)}
-              subtitle={fmt(dict.reportsRunMeta, { date: dateTime.format(run.createdAt) })}
-              badges={<RunBadges run={run} />}
-            >
-              <RunMeta run={run} />
+          listKey="dogadjaji.izvestaji.red"
+          caption={q.title}
+          rows={shown}
+          empty={rows.length ? { title: q.noMatchTitle, body: q.noMatchBody } : { title: q.title, body: dict.reportsBuildEmpty }}
+          getRowId={(row) => row.id}
+          toolbar={<Meta>{fmt(q.count, { shown: shown.length, total: rows.length })}</Meta>}
+          groupBy={{ key: (row) => row.day.id, label: (_key, group) => group[0]?.day.label ?? "" }}
+          columns={[
+            { id: "exhibitor", header: q.colExhibitor, rowHeader: true, sortValue: (row) => row.participation.name, cell: (row) => <strong className="font-semibold">{row.participation.name}</strong> },
+            { id: "state", header: q.colState, sortValue: (row) => REPORT_QUEUE_STATUSES.indexOf(row.status), cell: (row) => <QueueState row={row} /> },
+          ]}
+          tableClassName="min-w-[48rem]"
+          renderCard={(row) => (
+            <AdminDataCard title={row.participation.name} subtitle={row.day.label}>
+              <QueueState row={row} />
             </AdminDataCard>
           )}
-          rowActions={(run, context) => <RunActions run={run} actions={actions} reviewing={view.review?.runId === run.id} idSuffix={context.view} />}
-          rowDetail={(run) => (view.review?.runId === run.id ? (
-            <div className="min-w-0">
-              {view.review.dataset === undefined ? <Meta>{dict.reportsReviewLoading}</Meta> : view.review.dataset === null ? <Meta>{dict.reportsReviewEmpty}</Meta> : <ReviewPanel dataset={view.review.dataset} />}
-            </div>
-          ) : null)}
+          rowActions={(row, context) => <QueueActions row={row} actions={actions} review={view.review} idSuffix={context.view} />}
+          rowDetail={(row, context) => <QueueDetail row={row} actions={actions} review={view.review} idSuffix={context.view} />}
         />
       </Section>
 

@@ -463,6 +463,8 @@ export const commit = mutation({
     // automatic passports; the sync runs right after, in its own transaction.
     const event = result.committed ? await fairEventByCode(ctx, args.payload.eventCode) : null;
     if (event) await ctx.scheduler.runAfter(0, internal.fairPassports.syncEventPassports, { eventId: event._id });
+    // Admin UX A9: and the sponsored snapshot (published Advanced models may have changed).
+    if (event) await ctx.scheduler.runAfter(0, internal.fairSponsoredAdmin.syncSponsoredSnapshotJob, { eventId: event._id });
     return result;
   },
 });

@@ -94,6 +94,12 @@ export type FairReportMetric = (typeof FAIR_REPORT_METRICS)[number];
 export const FAIR_REPORT_READY_WITHIN_MS = 60 * 60 * 1000;
 export type FairSponsoredSnapshotStatus = "draft" | "published" | "retired";
 /**
+ * Admin UX A9: who published a snapshot — `admin` (manual "Osveži") or `auto`
+ * (the system, after a change of the event's published Advanced models).
+ * A snapshot without the field predates A9 and was published by an admin.
+ */
+export type FairSponsoredSnapshotTrigger = "admin" | "auto";
+/**
  * JOVAN-DELTA §2: only the garage sponsored strip writes events. The map and
  * the fair displays never write a sponsored event (no impressions anywhere).
  */

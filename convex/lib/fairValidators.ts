@@ -142,6 +142,9 @@ export const fairSponsoredSnapshotStatus = v.union(
   v.literal("retired"),
 );
 
+// Admin UX A9: manual ("admin") or system ("auto") publish of a snapshot.
+export const fairSponsoredSnapshotTrigger = v.union(v.literal("admin"), v.literal("auto"));
+
 // JOVAN-DELTA §2 narrows HANDOFF §5.7 (`map | display | garage`): only the
 // garage strip's explicit actions are written. Map/display never write.
 export const fairSponsoredActionSurface = v.literal("garage");

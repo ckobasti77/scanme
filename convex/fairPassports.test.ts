@@ -13,6 +13,9 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { api, internal } from "./_generated/api";
 import type { Doc, Id, TableNames } from "./_generated/dataModel";
 import schema from "./schema";
+// A9: the import commit also schedules fairSponsoredAdmin:syncSponsoredSnapshotJob. Loaded here once so
+// finishAllScheduledFunctions does not wait for its first (cold) module transform under a full-suite load.
+import "./fairSponsoredAdmin";
 import { fairBrandPassportProblems } from "../lib/fair-entitlements";
 import type { FairImportPayload } from "./fairImport";
 
@@ -375,7 +378,8 @@ describe("A7 sync after a catalog import", () => {
       }],
     };
     expect(await admin.mutation(api.fairImport.commit, { payload })).toMatchObject({ committed: true });
-    expect(await jobs({ t })).toEqual(["fairPassports:syncEventPassports"]);
+    // Admin UX A9: the same commit also schedules the automatic sponsored snapshot sync.
+    expect(await jobs({ t })).toEqual(["fairPassports:syncEventPassports", "fairSponsoredAdmin:syncSponsoredSnapshotJob"]);
     // The imported models are drafts; once they are published (here directly, as an import of a published
     // catalog would leave them) the scheduled job creates the passport.
     await t.run(async (ctx) => {
