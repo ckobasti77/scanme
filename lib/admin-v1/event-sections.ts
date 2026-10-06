@@ -43,7 +43,7 @@ export const EVENT_SECTIONS: readonly EventSectionDef[] = [
   { path: "pregled", group: null, queryKeys: ["prikaz", "faza"] },
   { path: "modeli", group: "katalog", queryKeys: ["izlagac", "brend", "model", "q", "paket", "status", "problemi", "qr", "foto", "prikaz"], detail: "model" },
   { path: "qr", group: "katalog", queryKeys: ["izlagac", "brend", "model", "stanje", "q", "prikaz"], detail: "qr" },
-  { path: "izlagaci", group: "katalog", queryKeys: ["prikaz"] },
+  { path: "izlagaci", group: "katalog", queryKeys: ["q", "segment", "prikaz"] },
   { path: "import", group: "katalog", queryKeys: [] },
   { path: "interakcije/glas-publike", group: "sajam", parent: "interakcije", queryKeys: ["prikaz"] },
   { path: "interakcije/ankete", group: "sajam", parent: "interakcije", queryKeys: ["prikaz"] },
@@ -124,7 +124,7 @@ export function eventDetailHref(base: string, path: "modeli" | "qr", id: string,
 }
 
 /** Filters that mean the same in every event; ID filters (izlagac, model…) belong to one event. */
-const KEPT_ON_EVENT_SWITCH: readonly AdminQueryKey[] = ["prikaz", "paket", "status", "problemi", "qr", "foto", "stanje", "tip", "isporuka", "q"];
+const KEPT_ON_EVENT_SWITCH: readonly AdminQueryKey[] = ["prikaz", "paket", "status", "problemi", "qr", "foto", "stanje", "segment", "tip", "isporuka", "q"];
 
 /**
  * Switching the event keeps the open section (a detail falls back to its

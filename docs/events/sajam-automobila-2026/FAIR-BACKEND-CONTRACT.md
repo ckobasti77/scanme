@@ -1376,3 +1376,13 @@ Više od 100 redova → `FAIR_BULK_TOO_LARGE` za ceo poziv (granica drži commit
 **Čitanje u adminu:** `getQrDetail` i `getQrScanStats` čitaju brojače koji se menjaju pri svakom skenu, pa ih admin čita jednokratno i osvežava na 60 s dok je tab vidljiv (`components/admin/admin-ui/use-polled-query.ts`), nikad reaktivnim `useQuery`. Lista inventara ostaje `fairAdmin.listQrInventory` (paginirano, ≤ 100 po stranici).
 
 **Testovi:** `convex/fairAdminQr.test.ts` (reassign: uspeh u jednoj transakciji sa razlogom i istorijom, novi resolver cilj, kanal bez prolaza kroz `problem`; zauzet ciljni model, model drugog događaja, bez razloga, isti model, slobodan kod, kod drugog događaja — ništa se ne menja; dry run svih grešaka bez upisa; commit samo ispravnih, ponovni commit bez duplikata; `getQrDetail` istorija, SMQ, brojevi posle 2 TEST skena istog posetioca = 2/1; `getQrScanStats`; authz) i `convex/fairAuthz.test.ts` (klasifikacija `admin`, odbijanje pre čitanja podataka).
+
+## 32. A5 — tabela → import JSON v1 (`lib/fair-import/*`, samo klijent)
+
+Backend se ne menja: admin vodič za import koristi postojeći `fairImport.dryRun` i `fairImport.commit`, a JSON v1 iz §12 ostaje isti (i dalje dostupan kao „JSON v1 (napredno)“). Ovo je normalizator iz §12 / §9.4, ali u adminu, ne kao skripta.
+
+- `parse.ts`: ručni TSV/CSV parser (tab iz Excela/Sheets, `;` iz srpskog Excela, `,`), navodnici sa separatorom, tabom, `""` i prelomom reda u ćeliji, BOM, `\r\n`, prazni redovi. Prvi neprazan red je zaglavlje; broj reda je stvarni red izvora.
+- `columns.ts`: zaglavlje → polje po srpskim i engleskim sinonimima, bez obzira na velika slova, dijakritike i interpunkciju. Specifikacije su uređeni parovi: kolona `Spec: <naziv>` ili par `Spec N naziv` + `Spec N vrednost`, redosled = redosled kolona. Svako mapiranje se ručno menja.
+- `to-payload.ts`: red tabele = jedan model. Izlagač se nalazi po SMK/SML, pa po nazivu učešća ovog događaja, pa iz podrazumevane vrednosti; nov izlagač traži SMK i SML. Štand po oznaci postojećeg štanda događaja, inače nov sa `Lokacija na mapi`. `externalKey` modela: kolona, pa ključ istog modela koji događaj već ima (isti izlagač, brend, naziv, varijanta), pa deterministički `<eventCode>-<brend>-<model varijanta>`. Prazna cena se ne šalje (backend upisuje „Cena na upit“ uz `FAIR_PRICE_MISSING`); prazno „Pasoš“ bez podrazumevane vrednosti je greška reda (§12: ne normalizuje se u `false`). Redovi sa greškom tabele (`IMPORT_*`, samo klijent) se preskaču i broje.
+- Greške dry-run-a (`path`) se vraćaju na red i kolonu tabele (`locateImportIssue`).
+- `template.ts`: šablon CSV (`;`, BOM) sa svim podržanim kolonama i jednim TEST redom.
