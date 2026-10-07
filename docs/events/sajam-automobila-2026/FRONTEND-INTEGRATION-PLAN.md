@@ -160,7 +160,7 @@ Master je zaključao čitljive URL-ove pod:
 | poređenje | `/sajam/[eventSlug]/garaza/poredjenje` | eksplicitno poređenje najviše dva modela (`?model=`) |
 | deljena kolekcija | `/sajam/[eventSlug]/deli/[shareCode]` | 1-5 modela istog događaja; read-only, noindex, ističe 16. novembra |
 
-Odluka vlasnika proizvoda (7. oktobar 2026.): sve javne sajamske rute žive pod slugom događaja i svi linkovi koriste javni slug, bez DEV prefiksa `test-`. Stare adrese `/sajam`, `/sajam/garaza`, `/sajam/garaza/poredjenje` i `/sajam/deli/[shareCode]` privremeno (307) preusmeravaju na odgovarajući sajam. Štampani QR kodovi nisu pogođeni jer `/r/[cardCode]` već vodi na `/sajam/[eventSlug]/model/[modelSlug]`.
+Odluka vlasnika proizvoda (7. oktobar 2026.): sve javne sajamske rute žive pod slugom događaja i svi linkovi koriste javni slug, bez DEV prefiksa `test-`. Kratka adresa `/sajam` (posteri i paneli) privremeno (307) preusmerava na aktivni sajam; adrese garaže, poređenja i deljene kolekcije bez sluga sajma ne postoje. Štampani QR kodovi nisu pogođeni jer `/r/[cardCode]` već vodi na `/sajam/[eventSlug]/model/[modelSlug]`.
 
 Mapa, pasoši, garaža, poređenje i deljena kolekcija koriste isti event shell (`Mapa`, `Pasoši`, `Garaža` sa brojem sačuvanih modela). Pasoš ima zasebnu javnu rutu i stalnu akciju `Pasoši` u event shell-u. Pregled prikazuje brendove i progres tačke, detalj prikazuje modele i reveal novih pečata, dok mapa zadržava eligibility i lični `N/M`. Garaža više ne duplira passport rail/modal. Format display moda ostaje tehnički detalj koleginog map toka.
 
@@ -187,7 +187,7 @@ Resolver uz 302 postavlja kratkotrajni potpisani HttpOnly QR entry marker. Model
 
 - Kanonsko otvaranje modela bez QR entry markera beleži `direct_view`, nikada scan.
 - Jedan model se deli kanonskim URL-om; podržan telefon direktno otvara sistemski share sheet, dok aplikacijski panel sa WhatsApp/Viber izlazima i eksplicitnim kopiranjem linka služi samo kao fallback.
-- Izbor 2-5 modela prvo kreira backend kolekciju, pa deli `/sajam/deli/[shareCode]`.
+- Izbor 2-5 modela prvo kreira backend kolekciju, pa deli `/sajam/[eventSlug]/deli/[shareCode]`.
 - `share_action` se šalje tek posle uspešnog native share promise-a, izbora WhatsApp/Viber izlaza ili uspešnog kopiranja; otkazivanje nije uspeh.
 - Otvaranje deljene kolekcije beleži `share_open`. Modeli sa te stranice ostaju obični public modeli i nijedan klik nije scan.
 - Share analytics greška ne sme blokirati sistemski share/copy UX, ali kreiranje više-modelske kolekcije mora uspeti pre nego što se ponudi link.

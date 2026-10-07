@@ -554,7 +554,7 @@ Podaci se dostavljaju emailom u terminu dogovorenom sa konkretnim izlagačem. Me
 - poređenje najviše dva modela: `/sajam/[eventSlug]/garaza/poredjenje`;
 - deljena kolekcija: `/sajam/[eventSlug]/deli/[shareCode]`.
 
-Odluka vlasnika proizvoda (7. oktobar 2026.): svaka javna sajamska ruta živi pod slugom događaja. Javni link uvek koristi javni slug (`elektromobilnost-2026`, `auto-moto-fest-2026`), nikada DEV slug sa prefiksom `test-`. Adrese bez sajma privremeno (307) preusmeravaju: `/sajam` i `/sajam/garaza` na aktivni sajam, `/sajam/garaza/poredjenje` na poređenje sajma iz `?event=` ili aktivnog sajma uz isti query string, a `/sajam/deli/[shareCode]` na sajam te kolekcije. Štampani QR kodovi se ne menjaju jer idu kroz `/r/[cardCode]`, koji već vodi na `/sajam/[eventSlug]/model/[modelSlug]`.
+Odluka vlasnika proizvoda (7. oktobar 2026.): svaka javna sajamska ruta živi pod slugom događaja. Javni link uvek koristi javni slug (`elektromobilnost-2026`, `auto-moto-fest-2026`), nikada DEV slug sa prefiksom `test-`. Kratka adresa `/sajam` (za postere i panele) privremeno (307) preusmerava na aktivni sajam. Stare adrese bez sajma (`/sajam/garaza`, `/sajam/garaza/poredjenje`, `/sajam/deli/[shareCode]`) ne postoje, jer nijedan link ka njima nije objavljen. Štampani QR kodovi se ne menjaju jer idu kroz `/r/[cardCode]`, koji već vodi na `/sajam/[eventSlug]/model/[modelSlug]`.
 
 Sve javne sajamske rute su `noindex`. Event shell koristi kompaktan sticky header sa Sajmom automobila kao primarnim identitetom, ScanMe oznakom digitalnog partnera i stalnim akcijama `Mapa`, `Pasoši` i `Garaža` sa brojem sačuvanih modela. Lead forme se kasnije otvaraju kao bottom sheet.
 
@@ -738,7 +738,7 @@ Pre produkcije mora da bude dokazano najmanje sledeće:
 
 ### 7. oktobar 2026.
 
-- Odluka vlasnika proizvoda: sve javne sajamske rute žive pod `/sajam/[eventSlug]`. Garaža, poređenje i deljena kolekcija su premešteni na `/sajam/[eventSlug]/garaza`, `/sajam/[eventSlug]/garaza/poredjenje` i `/sajam/[eventSlug]/deli/[shareCode]`; stare adrese privremeno (307) preusmeravaju, a štampani QR kodovi ostaju nepromenjeni kroz `/r/[cardCode]`.
+- Odluka vlasnika proizvoda: sve javne sajamske rute žive pod `/sajam/[eventSlug]`. Garaža, poređenje i deljena kolekcija su premešteni na `/sajam/[eventSlug]/garaza`, `/sajam/[eventSlug]/garaza/poredjenje` i `/sajam/[eventSlug]/deli/[shareCode]`; samo `/sajam` privremeno (307) preusmerava na aktivni sajam, stare adrese bez sajma su uklonjene jer ništa nije objavljeno, a štampani QR kodovi ostaju nepromenjeni kroz `/r/[cardCode]`. Link deljene kolekcije uvek sadrži slug sajma; ako se sajam ne može pročitati, deljenje vraća grešku umesto linka.
 - Garaža, poređenje i deljena kolekcija koriste isti event shell kao mapa i pasoši; tema se uvek uzima iz sluga u adresi.
 - Broj u `Garaža` akciji sada broji iste modele koje garaža prikazuje. Ranije je brojao samo modele sačuvane pod tačnim ID-jem događaja, pa je pokazivao 0 za modele sačuvane pod javnim slugom ili pod ranijim zapisom istog sajma.
 - Nazivi modela se prikazuju tačno kako su uneti (`eWind`, `eLight`, `EV3`); velika slova smeju samo nadnaslovi brenda.

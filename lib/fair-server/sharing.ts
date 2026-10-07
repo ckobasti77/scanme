@@ -114,19 +114,6 @@ function parseTraffic(value: unknown) {
   };
 }
 
-// Shared collections live under their event's public slug. The collection
-// mutation returns only the event id, so the slug comes from the first model;
-// when that read fails the legacy path still redirects to the right event.
-async function sharePath(backend: FairSharingBackend, eventModelId: string, shareCode: string) {
-  try {
-    const [model] = await backend.getModelsByIds({ ids: [eventModelId] });
-    if (model) return `/sajam/${fairPublicEventSlug(model.eventSlug)}/deli/${shareCode}`;
-  } catch {
-    // Fall through to the legacy redirecting path.
-  }
-  return `/sajam/deli/${shareCode}`;
-}
-
 export type FairSharingDeps = { now?: number; env?: FairVisitorEnv; backend?: FairSharingBackend | null };
 
 export async function handleCreateShareCollection(request: Request, deps: FairSharingDeps = {}): Promise<Response> {
@@ -141,13 +128,19 @@ export async function handleCreateShareCollection(request: Request, deps: FairSh
   const shareCode = fairShareCode(visitor.visitorHash, args.requestId);
   if (!FAIR_SHARE_CODE_PATTERN.test(shareCode)) return fairGatewayError("SERVICE_UNAVAILABLE", 503);
   try {
+    // Shared collections live under their event's public slug. The collection
+    // mutation returns only the event id, so the slug comes from the first
+    // model, read before the collection exists so a failed read leaves none.
+    const [firstModel] = await backend.getModelsByIds({ ids: [args.eventModelIds[0]] });
+    if (!firstModel) return fairGatewayError("FAIR_MODEL_NOT_FOUND", 404);
     const value = await backend.createShareCollection({
       visitorHash: visitor.visitorHash,
       eventModelIds: args.eventModelIds,
       codeHash: fairShareCodeHash(shareCode),
       requestId: args.requestId,
     });
-    return fairGatewayJson({ ok: true, value: { ...value, shareCode, url: `${new URL(request.url).origin}${await sharePath(backend, args.eventModelIds[0], shareCode)}` } }, 200, visitor.setCookie);
+    const url = `${new URL(request.url).origin}/sajam/${fairPublicEventSlug(firstModel.eventSlug)}/deli/${shareCode}`;
+    return fairGatewayJson({ ok: true, value: { ...value, shareCode, url } }, 200, visitor.setCookie);
   } catch (error) {
     const code = fairErrorCodeOf(error);
     return code ? fairGatewayError(code, STATUS[code] ?? 400) : fairGatewayError("SERVICE_UNAVAILABLE", 502);

@@ -46,19 +46,19 @@ describe("fair share collection gateway", () => {
     expect(JSON.stringify(backend.createShareCollection.mock.calls)).not.toContain(expectedCode);
   });
 
-  test("falls back to the legacy redirecting path when the event slug cannot be read", async () => {
-    const backend = {
-      createShareCollection: vi.fn(async () => ({ collectionId: "collection-1", eventId: "event-1", eventModelIds: ["model-1", "model-2"], expiresAt: NOW + 1_000, duplicate: false })),
-      recordTraffic: vi.fn(),
-      getModelsByIds: vi.fn(async () => { throw new Error("offline"); }),
-    };
-    const response = await handleCreateShareCollection(
-      post("/api/fair/share-collection", { eventModelIds: ["model-1", "model-2"], requestId: "test-share-request-2" }),
-      { now: NOW, env: ENV, backend },
-    );
-    expect(response.status).toBe(200);
-    const body = await response.json();
-    expect(body.value.url).toBe(`https://scanme.rs/sajam/deli/${body.value.shareCode}`);
+  test("fails without creating a collection when the event slug cannot be read", async () => {
+    const created = vi.fn(async () => ({ collectionId: "collection-1", eventId: "event-1", eventModelIds: ["model-1", "model-2"], expiresAt: NOW + 1_000, duplicate: false }));
+    const offline = { createShareCollection: created, recordTraffic: vi.fn(), getModelsByIds: vi.fn(async () => { throw new Error("offline"); }) };
+    const request = () => post("/api/fair/share-collection", { eventModelIds: ["model-1", "model-2"], requestId: "test-share-request-2" });
+    const failed = await handleCreateShareCollection(request(), { now: NOW, env: ENV, backend: offline });
+    expect(failed.status).toBe(502);
+    expect(await failed.json()).toEqual({ ok: false, code: "SERVICE_UNAVAILABLE" });
+
+    const missing = { createShareCollection: created, recordTraffic: vi.fn(), getModelsByIds: vi.fn(async () => []) };
+    const notFound = await handleCreateShareCollection(request(), { now: NOW, env: ENV, backend: missing });
+    expect(notFound.status).toBe(404);
+    expect(await notFound.json()).toEqual({ ok: false, code: "FAIR_MODEL_NOT_FOUND" });
+    expect(created).not.toHaveBeenCalled();
   });
 
   test("rejects duplicate, oversized and caller-supplied identity input before Convex", async () => {
