@@ -92,7 +92,8 @@ export type FairRatingMode = "none" | "overall" | "dimensions";
 /** Advanced replaces the Starter overall rating with these three (§4.1). */
 export const FAIR_RATING_DIMENSIONS = ["appearance", "specifications", "price"] as const;
 export type FairRatingDimension = (typeof FAIR_RATING_DIMENSIONS)[number];
-export type FairRatingValue = 1 | 2 | 3 | 4 | 5;
+/** Half-star scale 1–5 in steps of 0.5 (owner decision, 8 Oct 2026; MASTER §7). */
+export type FairRatingValue = 1 | 1.5 | 2 | 2.5 | 3 | 3.5 | 4 | 4.5 | 5;
 
 // -----------------------------------------------------------------------------
 // Constants (business values come from MASTER/HANDOFF; technical caps are
@@ -120,6 +121,7 @@ export const FAIR_AUDIENCE_OPTIONS_MIN = 2;
 export const FAIR_AUDIENCE_OPTIONS_MAX = 5;
 export const FAIR_RATING_MIN = 1;
 export const FAIR_RATING_MAX = 5;
+export const FAIR_RATING_STEP = 0.5;
 /**
  * PII purge moment for both events: 16 November 2026 at 00:00 Europe/Belgrade
  * (CET, UTC+1) = 2026-11-15T23:00:00Z. MASTER §13 says "16. novembra"; the
@@ -175,7 +177,7 @@ export function isFairVisitorHash(value: string): boolean {
 }
 
 export function isFairRatingValue(value: number): value is FairRatingValue {
-  return Number.isInteger(value) && value >= FAIR_RATING_MIN && value <= FAIR_RATING_MAX;
+  return Number.isInteger(value / FAIR_RATING_STEP) && value >= FAIR_RATING_MIN && value <= FAIR_RATING_MAX;
 }
 
 /** Absent segment is "standard" (widen phase, HANDOFF §5.1). */

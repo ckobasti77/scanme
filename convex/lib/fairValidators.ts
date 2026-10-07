@@ -184,7 +184,7 @@ export const fairPurgeCategoryProgress = v.object({
 // with isFairVisitorHash before any write. The raw token never reaches Convex.
 export const fairVisitorHash = v.string();
 
-// Integer 1–5, checked with isFairRatingValue / fairRatingInputProblem.
+// 1–5 in steps of 0.5, checked with isFairRatingValue / fairRatingInputProblem.
 export const fairRatingValue = v.number();
 
 // One ordered name–value pair, grouped (JOVAN-DELTA §3). At most
@@ -330,7 +330,10 @@ export const fairPublicModelView = v.object({
 // those live only in the admin projection (JOVAN-DELTA §1).
 // -----------------------------------------------------------------------------
 
-export const fairRatingValueView = v.union(v.literal(1), v.literal(2), v.literal(3), v.literal(4), v.literal(5));
+export const fairRatingValueView = v.union(
+  v.literal(1), v.literal(1.5), v.literal(2), v.literal(2.5), v.literal(3),
+  v.literal(3.5), v.literal(4), v.literal(4.5), v.literal(5),
+);
 
 export const fairRatingStateView = v.union(
   v.object({ mode: v.literal("none") }),

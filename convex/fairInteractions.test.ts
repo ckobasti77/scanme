@@ -165,9 +165,10 @@ describe("ratings (HANDOFF §5.3, §10, §12; JOVAN-DELTA §1)", () => {
     const f = await setup();
     const v1 = visitor();
     expect(await rate(f, v1, f.starter.id, { overall: 4 })).toEqual({ mode: "overall", overall: 4 });
-    for (const bad of [{ appearance: 4 }, { overall: 4, price: 3 }, { overall: 0 }, { overall: 6 }, { overall: 2.5 }, {}]) {
+    for (const bad of [{ appearance: 4 }, { overall: 4, price: 3 }, { overall: 0 }, { overall: 0.5 }, { overall: 6 }, { overall: 2.25 }, {}]) {
       await expectCode(rate(f, v1, f.starter.id, bad), "INVALID_INPUT");
     }
+    expect(await rate(f, v1, f.starter.id, { overall: 4.5 })).toEqual({ mode: "overall", overall: 4.5 });
     expect(await rate(f, v1, f.advanced.id, { price: 2 })).toEqual({ mode: "dimensions", price: 2 });
     expect(await rate(f, v1, f.advanced.id, { appearance: 5, specifications: 3 })).toEqual({ mode: "dimensions", appearance: 5, specifications: 3, price: 2 });
     for (const bad of [{ overall: 4 }, { overall: 4, appearance: 5 }, {}, { price: 9 }]) {
