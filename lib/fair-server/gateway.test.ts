@@ -29,7 +29,13 @@ describe("same-origin check", () => {
     expect(isSameOriginRequest(post({ "sec-fetch-site": "cross-site", origin: "https://scanme.rs" }))).toBe(false);
     expect(isSameOriginRequest(post({ "sec-fetch-site": "same-site" }))).toBe(false);
     expect(isSameOriginRequest(post({ origin: "https://scanme.rs" }))).toBe(true);
+    expect(isSameOriginRequest(post({ referer: "https://scanme.rs/sajam/elektromobilnost-2026" }))).toBe(true);
+    expect(isSameOriginRequest(new Request("http://localhost:3000/api/fair/visitor", {
+      method: "POST",
+      headers: { host: "192.168.1.10:3000", referer: "http://192.168.1.10:3000/sajam/elektromobilnost-2026/pasosi" },
+    }))).toBe(true);
     expect(isSameOriginRequest(post({ origin: "https://evil.example" }))).toBe(false);
+    expect(isSameOriginRequest(post({ referer: "https://evil.example/sajam" }))).toBe(false);
     expect(isSameOriginRequest(post({}))).toBe(false);
   });
 

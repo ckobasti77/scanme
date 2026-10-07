@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { AudienceFlow } from "@/components/fair/audience-flow";
 import {
+  fairPublicModelToFixture,
   readFairAudienceFixture,
   readFairModelFixture,
   type FairAudienceQuestionCountFixture,
@@ -10,6 +11,7 @@ import {
   type FairFixtureMode,
   type FairPhotoPresentation,
 } from "@/lib/fair-client/model-fixtures";
+import { loadFairModelPage } from "@/lib/fair-server/model-page";
 import { fmt } from "@/lib/i18n/format";
 import { fairModelSr } from "@/lib/i18n/sr/fair-model";
 
@@ -57,13 +59,22 @@ export async function generateMetadata({
   params: Promise<RouteParams>;
 }): Promise<Metadata> {
   const { eventSlug, modelSlug } = await params;
-  const model = readFairModelFixture({
-    eventSlug,
-    modelSlug,
-    mode: "advanced",
-    withPhoto: true,
-    photoPresentation: "left",
-  });
+  const live = await loadFairModelPage(eventSlug, modelSlug);
+  const model = live
+    ? fairPublicModelToFixture({
+        model: live.model,
+        publicEventSlug: eventSlug,
+        eventName: live.event.title,
+        withPhoto: true,
+        photoPresentation: "left",
+      }).model
+    : readFairModelFixture({
+        eventSlug,
+        modelSlug,
+        mode: "advanced",
+        withPhoto: true,
+        photoPresentation: "left",
+      });
   if (!model) return { title: fairModelSr.notFoundTitle };
   return {
     title: fmt(fairModelSr.audienceMetaTitle, { model: model.displayName }),
@@ -80,10 +91,21 @@ export default async function AudiencePage({
   searchParams: Promise<RouteSearchParams>;
 }) {
   const [{ eventSlug, modelSlug }, query] = await Promise.all([params, searchParams]);
-  const mode = fixtureMode(scalar(query.mode));
+  const requestedMode = fixtureMode(scalar(query.mode));
   const withPhoto = scalar(query.photo) !== "0";
   const alignment = photoPresentation(scalar(query.align));
-  const model = readFairModelFixture({
+  const live = await loadFairModelPage(eventSlug, modelSlug);
+  const adapted = live
+    ? fairPublicModelToFixture({
+        model: live.model,
+        publicEventSlug: eventSlug,
+        eventName: live.event.title,
+        withPhoto,
+        photoPresentation: alignment,
+      })
+    : null;
+  const mode = adapted?.mode ?? requestedMode;
+  const model = adapted?.model ?? readFairModelFixture({
     eventSlug,
     modelSlug,
     mode,

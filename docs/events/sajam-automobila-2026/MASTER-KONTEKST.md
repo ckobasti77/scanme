@@ -2,7 +2,7 @@
 
 > Status: **ZAKLJUČAN ZA DELEGIRANJE**
 >
-> Poslednje ažuriranje: 5. oktobar 2026.
+> Poslednje ažuriranje: 7. oktobar 2026.
 > Vlasnik proizvodnih odluka i finalni go/no-go: **Aleksa**
 > Rok za operativnu spremnost prve faze: **9. oktobar 2026.**
 > Prateći tehnički dokument: [`BACKEND-HANDOFF.md`](./BACKEND-HANDOFF.md)
@@ -451,7 +451,7 @@ Za Napredni paket:
 - Ako se model hitno povuče, admin može da ga ukloni iz potrebnog skupa bez poništavanja već stečenog napretka.
 - Rezultat izbora omiljenog modela prikazuje se od najmanje pet glasova.
 - Nema fizičke nagrade u V1.
-- Pasoš se prikazuje na stranici modela, a svi aktivni pasoši prikazuju se u garaži i kada posetilac ima `0/N` pečata.
+- Svi aktivni pasoši imaju zaseban pregled u event navigaciji i prikazuju se i kada posetilac nema nijedan pečat; detalj brenda prikazuje modele, nove pečate i izbor favorita.
 - Mapa označava brendove koji imaju aktivan pasoš i lični napredak posetioca `N/M`.
 - Posetilac može da promeni omiljeni model nakon kompletiranja pasoša.
 - Nakon izbora favorita posetilac može eksplicitno da sačuva lokalni digitalni badge. Badge ostaje samo na uređaju i može koristiti zvanični logo brenda.
@@ -548,14 +548,16 @@ Podaci se dostavljaju emailom u terminu dogovorenom sa konkretnim izlagačem. Me
 - model: `/sajam/[eventSlug]/model/[modelSlug]`;
 - Glas publike: `/sajam/[eventSlug]/model/[modelSlug]/glas-publike`;
 - anketa: `/sajam/[eventSlug]/model/[modelSlug]/anketa`;
+- pregled pasoša: `/sajam/[eventSlug]/pasosi`;
+- pasoš brenda: `/sajam/[eventSlug]/pasosi/[brandSlug]`;
 - zajednička garaža: `/sajam/garaza`;
 - poređenje najviše dva modela: `/sajam/garaza/poredjenje`.
 
-Sve javne sajamske rute su `noindex`. Event shell koristi kompaktan sticky header sa Sajmom automobila kao primarnim identitetom, ScanMe oznakom digitalnog partnera i stalnim akcijama `Mapa` i `Garaža` sa brojem sačuvanih modela. Lead forme se kasnije otvaraju kao bottom sheet.
+Sve javne sajamske rute su `noindex`. Event shell koristi kompaktan sticky header sa Sajmom automobila kao primarnim identitetom, ScanMe oznakom digitalnog partnera i stalnim akcijama `Mapa`, `Pasoši` i `Garaža` sa brojem sačuvanih modela. Lead forme se kasnije otvaraju kao bottom sheet.
 
 Zaključani redosled stranice modela je: event/brend kontekst, kompaktna opciona fotografija, naziv/varijanta/cena, najviše četiri ključne specifikacije, sticky čuvanje u garažu, Glas publike, grupisane pune specifikacije, ocenjivanje, lead akcije, anketa i pasoš brenda.
 
-Garaža koristi dva event taba, čuva poslednje poznate podatke za offline čitanje, poredi najviše dva modela i rezerviše bottom inset za fixed sponzorisanu traku visine približno 88-104 px plus safe-area. Lokalni garage dokument u sledećoj implementacionoj fazi dobija V2 migraciju koja čuva postojeću V1 listu modela i dodaje kolekciju sačuvanih passport badge-eva.
+Garaža koristi dva event taba, čuva poslednje poznate podatke za offline čitanje, poredi najviše dva modela i rezerviše bottom inset za fixed sponzorisanu traku visine približno 88-104 px plus safe-area. Pasoš nije dupliran u Garaži, već je dostupan kao ravnopravna event navigacija. Lokalni garage dokument čuva V1 modele kroz V2 migraciju i kolekciju lokalno sačuvanih passport badge-eva.
 
 ### Obavezan dizajn artefakt pre paralelnog kodiranja
 
@@ -730,6 +732,14 @@ Pre produkcije mora da bude dokazano najmanje sledeće:
 ---
 
 ## 20. Dnevnik izmena
+
+### 7. oktobar 2026.
+
+- Pasoš je izdvojen iz Garaže na zasebne javne rute pregleda i detalja brenda, uz stalnu akciju `Pasoši` u event shell-u.
+- Pregled prikazuje brend i progres tačke bez fotografija i brojčanog `N/M`; detalj zadržava velike model kartice i reveal novog pečata tek pri prvom otvaranju posle skena.
+- Zaključani model vodi do štanda izlagača na mapi; ne obećava preciznu poziciju vozila unutar štanda.
+- `Elektromobilnost` koristi plavi A/digitalni pravac, dok `Auto Moto Fest` zadržava narandžasti akcenat i kasnije dobija B/papirni pravac pasoša.
+- Event pečat se prikazuje jednom u vrhu detalja, bez ponavljanja preko model kartica; zvuk se ne koristi, a haptika je samo progressive enhancement.
 
 ### 5. oktobar 2026.
 

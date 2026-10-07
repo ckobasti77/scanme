@@ -84,8 +84,8 @@ export function fairCookieDomain(value: string | undefined): string | undefined 
   return domain && COOKIE_DOMAIN_PATTERN.test(domain) ? domain : undefined;
 }
 
-/** The Set-Cookie value, or null once the purge moment has passed. */
-export function fairVisitorCookieHeader(token: string, now: number, cookieDomain?: string): string | null {
+/** The Set-Cookie value, or null once the purge moment has passed. Secure is omitted only for explicit HTTP DEV/LAN testing. */
+export function fairVisitorCookieHeader(token: string, now: number, cookieDomain?: string, secure = true): string | null {
   const maxAge = Math.floor((FAIR_PII_PURGE_AT_MS - now) / 1000);
   if (maxAge <= 0) return null;
   const domain = fairCookieDomain(cookieDomain);
@@ -96,7 +96,7 @@ export function fairVisitorCookieHeader(token: string, now: number, cookieDomain
     `Max-Age=${maxAge}`,
     ...(domain ? [`Domain=${domain}`] : []),
     "HttpOnly",
-    "Secure",
+    ...(secure ? ["Secure"] : []),
     "SameSite=Lax",
   ].join("; ");
 }
@@ -143,8 +143,9 @@ export function fairVisitorForRequest(request: Request, now: number, env: FairVi
   if (now >= FAIR_PII_PURGE_AT_MS) return { visitorHash: null, setCookie: null, problem: "FAIR_VISITOR_EXPIRED" };
   const existing = readFairVisitorCookie(request.headers.get("cookie"));
   const token = existing ?? generateFairVisitorToken();
+  const secureCookie = env.nodeEnv === "production" || new URL(request.url).protocol === "https:";
   return {
     visitorHash: fairVisitorHash(token, resolved.secret),
-    setCookie: existing ? null : fairVisitorCookieHeader(token, now, env.cookieDomain),
+    setCookie: existing ? null : fairVisitorCookieHeader(token, now, env.cookieDomain, secureCookie),
   };
 }

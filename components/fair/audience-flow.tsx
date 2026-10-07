@@ -13,6 +13,7 @@ import type {
   FairPublicModelFixture,
 } from "@/lib/fair-client/model-fixtures";
 import { fmt, type FairModelDict } from "@/lib/i18n";
+import { fairEventThemeClass } from "@/lib/fair-theme";
 
 type SavedVote = {
   answerId: string;
@@ -277,7 +278,7 @@ export function AudienceFlow({
   }
 
   return (
-    <div className="fair-event fair-audience-page" data-reveal="off">
+    <div className={`fair-event fair-audience-page ${fairEventThemeClass(model.eventSlug)}`} data-reveal="off">
       <header className="fair-flow-header">
         <Link href={modelHref} aria-label={dict.audienceBack}>
           <ArrowLeft aria-hidden="true" />

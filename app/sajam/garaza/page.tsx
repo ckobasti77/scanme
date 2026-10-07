@@ -29,6 +29,10 @@ const EVENT_DEFINITIONS = [
   },
 ] as const;
 
+// Drugi sajam ostaje spreman u kodu, ali se u javnoj garaži uključuje tek
+// kada posetioci zaista mogu da koriste obe garaže.
+const GARAGE_EVENT_SWITCH_ENABLED = false;
+
 async function loadEventView(
   definition: (typeof EVENT_DEFINITIONS)[number],
 ): Promise<FairGarageEventView> {
@@ -74,7 +78,10 @@ async function loadEventView(
 }
 
 export default async function FairGaragePage() {
-  const events = await Promise.all(EVENT_DEFINITIONS.map(loadEventView));
+  const visibleDefinitions = GARAGE_EVENT_SWITCH_ENABLED
+    ? EVENT_DEFINITIONS
+    : EVENT_DEFINITIONS.filter((event) => event.publicSlug === "elektromobilnost-2026");
+  const events = await Promise.all(visibleDefinitions.map(loadEventView));
   events.sort((left, right) => {
     const leftStart = left.event?.startsAt;
     const rightStart = right.event?.startsAt;

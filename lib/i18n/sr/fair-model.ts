@@ -4,6 +4,7 @@ export const fairModelSr = {
   metaTitle: "{model} | {event}",
   metaDescription: "Ključne informacije i dostupne sajamske akcije za model {model}.",
   mapNav: "Mapa",
+  passportsNav: "Pasoši",
   garageNav: "Garaža",
   garageCountAria: "Garaža, broj sačuvanih modela: {count}",
   modelPhotoAlt: "{model} u toplom sajamskom salonu",

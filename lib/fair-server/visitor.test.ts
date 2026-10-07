@@ -79,6 +79,7 @@ describe("visitor cookie", () => {
 
   test("the domain comes only from FAIR_COOKIE_DOMAIN and must be a plain domain", () => {
     expect(fairVisitorCookieHeader("t".repeat(43), NOW, ".scanme.rs")).toContain("; Domain=.scanme.rs;");
+    expect(fairVisitorCookieHeader("t".repeat(43), NOW, undefined, false)).not.toContain("; Secure");
     expect(fairCookieDomain("")).toBeUndefined();
     expect(fairCookieDomain("scanme.rs; HttpOnly")).toBeUndefined();
     expect(fairCookieDomain("localhost")).toBeUndefined();

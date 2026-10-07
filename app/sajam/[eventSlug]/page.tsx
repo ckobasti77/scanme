@@ -5,6 +5,7 @@ import { fetchQuery } from "convex/nextjs";
 import { api } from "@/convex/_generated/api";
 import { FairEventShell } from "@/components/fair/event-shell";
 import { fairMapEventSlugCandidates } from "@/lib/fair-map";
+import { fairEventThemeClass } from "@/lib/fair-theme";
 import { fmt } from "@/lib/i18n/format";
 import { fairMapSr as dict } from "@/lib/i18n/sr/fair-map";
 import { fairModelSr } from "@/lib/i18n/sr/fair-model";
@@ -59,7 +60,7 @@ export default async function FairEventMapPage({
     event = await getEvent(eventSlug);
   } catch {
     return (
-      <div className="fair-event" data-reveal="off">
+      <div className={`fair-event ${fairEventThemeClass(eventSlug)}`} data-reveal="off">
         <main>
           <MapUnavailable eventSlug={eventSlug} />
         </main>
@@ -68,16 +69,17 @@ export default async function FairEventMapPage({
   }
   if (!event) notFound();
   const display = (Array.isArray(query.prikaz) ? query.prikaz[0] : query.prikaz) === "ekran";
+  const initialMapLocationId = Array.isArray(query.stand) ? query.stand[0] : query.stand;
 
   return (
-    <div className="fair-event" data-reveal="off">
-      <FairEventShell eventId={event.id} eventSlug={event.slug} eventTitle={dict.umbrellaTitle} eventName={event.title} dict={fairModelSr} />
+    <div className={`fair-event ${fairEventThemeClass(eventSlug)}`} data-reveal="off">
+      <FairEventShell eventId={event.id} eventSlug={eventSlug} eventTitle={dict.umbrellaTitle} eventName={event.title} dict={fairModelSr} current="map" />
       <main>
         <h1 style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)", whiteSpace: "nowrap" }}>
           {fmt(dict.metaTitle, { event: event.title })}
         </h1>
         <Suspense fallback={<MapSkeleton />}>
-          <MapSection eventSlug={event.slug} eventCode={event.code} display={display} />
+          <MapSection eventSlug={event.slug} eventCode={event.code} display={display} initialMapLocationId={initialMapLocationId} />
         </Suspense>
       </main>
     </div>

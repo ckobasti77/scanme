@@ -241,24 +241,12 @@ try {
   const activeEventTab = page.getByRole("tab", { selected: true });
   const activeEventName = await activeEventTab.textContent();
   await page.getByRole("tab", { name: /Auto Moto Fest/i }).tap();
-  const passportButton = page.getByRole("button", { name: /Otvori pasoš/i }).first();
-  assert(await passportButton.isVisible(), "passport summary is missing near the top of the garage");
-  await passportButton.tap();
-  const passportDialog = page.getByRole("dialog");
-  await passportDialog.waitFor();
-  await page.waitForTimeout(450);
-  const passportBounds = await passportDialog.boundingBox();
-  const passportText = await passportDialog.textContent();
-  assert(passportBounds, "passport details did not open");
+  const passportLink = page.getByRole("link", { name: "Pasoši" });
+  assert(await passportLink.isVisible(), "passport navigation is missing from the garage header");
   assert(
-    passportBounds.y >= -1 && passportBounds.y + passportBounds.height <= 845,
-    `passport sheet escaped the viewport: ${JSON.stringify(passportBounds)}`,
+    (await passportLink.getAttribute("href"))?.endsWith("/pasosi"),
+    "passport navigation does not point to the standalone passport route",
   );
-  assert(!passportText?.includes("TEST"), "passport details expose fixture prefixes");
-  await page.screenshot({ path: `${outputDir}/fair-garage-passport-sheet.png` });
-  await page.goBack();
-  await passportDialog.waitFor({ state: "hidden" });
-  assert(page.url().endsWith(garagePath), "phone Back from passport details left the garage route");
   if (activeEventName?.includes("Elektromobilnost")) {
     await page.getByRole("tab", { name: /Elektromobilnost/i }).tap();
   }

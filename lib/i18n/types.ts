@@ -141,6 +141,7 @@ export interface FairModelDict {
   metaTitle: string;
   metaDescription: string;
   mapNav: string;
+  passportsNav: string;
   garageNav: string;
   garageCountAria: string;
   modelPhotoAlt: string;
@@ -219,10 +220,12 @@ export interface FairGarageDict {
   metaDescription: string;
   umbrellaTitle: string;
   mapNav: string;
+  passportsNav: string;
   garageNav: string;
   garageCountAria: string;
   pageTitle: string;
   pageBody: string;
+  electromobilityShellTitle: string;
   eventTabsAria: string;
   electromobilityTitle: string;
   electromobilityDates: string;
@@ -314,6 +317,41 @@ export interface FairGarageDict {
   modelPhotoAlt: string;
   poweredBy: string;
   devLink: string;
+}
+
+export interface FairPassportDict {
+  metaTitle: string;
+  metaDescription: string;
+  umbrellaTitle: string;
+  overviewTitle: string;
+  overviewIntro: string;
+  passportsNav: string;
+  brandPassportTitle: string;
+  openPassport: string;
+  newStamp: string;
+  progressAria: string;
+  emptyTitle: string;
+  emptyBody: string;
+  loading: string;
+  loadError: string;
+  retry: string;
+  backToPassports: string;
+  modelUnlockedAria: string;
+  modelLockedAria: string;
+  findOnMap: string;
+  revealStatus: string;
+  completedTitle: string;
+  favoriteTitle: string;
+  favoriteIntro: string;
+  favoriteSelectAria: string;
+  favoriteSaved: string;
+  favoriteError: string;
+  poweredBy: string;
+  devLink: string;
+  devPanelTitle: string;
+  devStampGroup: string;
+  devAddStamp: string;
+  devRemoveStamp: string;
 }
 
 export interface AdminDomainDict {
@@ -1704,6 +1742,7 @@ export interface OfferDict {
   title: string;
   intro: string;
   productsHeading: string;
+  domesticProduction: string;
   productsIntro: string;
   activeProduct: string;
   addProduct: string;
@@ -4244,6 +4283,7 @@ export interface DictBySurface {
   "fair-map": FairMapDict;
   "fair-model": FairModelDict;
   "fair-garage": FairGarageDict;
+  "fair-passport": FairPassportDict;
   "admin-v1": AdminV1Dict;
   "admin-settings": AdminSettingsDict;
   "admin-tasks": AdminTasksDict;

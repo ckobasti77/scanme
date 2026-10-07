@@ -35,12 +35,32 @@ export function fairGatewayError(code: FairErrorCode, status: number): Response 
   return fairGatewayJson({ ok: false, code }, status);
 }
 
-/** Browsers send Sec-Fetch-Site on every fetch; Origin is the fallback. */
+function requestOrigins(request: Request): Set<string> {
+  const url = new URL(request.url);
+  const protocol = request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim() || url.protocol.replace(/:$/, "");
+  const forwardedHost = request.headers.get("x-forwarded-host")?.split(",")[0]?.trim();
+  const host = forwardedHost || request.headers.get("host");
+  return new Set([url.origin, ...(host ? [`${protocol}://${host}`] : [])]);
+}
+
+function headerOrigin(value: string | null): string | null {
+  if (!value) return null;
+  try {
+    return new URL(value).origin;
+  } catch {
+    return null;
+  }
+}
+
+/** Browsers prefer Sec-Fetch-Site, then Origin, then a same-host Referer. */
 export function isSameOriginRequest(request: Request): boolean {
   const site = request.headers.get("sec-fetch-site");
   if (site !== null) return site === "same-origin";
-  const origin = request.headers.get("origin");
-  return origin !== null && origin === new URL(request.url).origin;
+  const expected = requestOrigins(request);
+  const origin = headerOrigin(request.headers.get("origin"));
+  if (origin !== null) return expected.has(origin);
+  const referer = headerOrigin(request.headers.get("referer"));
+  return referer !== null && expected.has(referer);
 }
 
 export type FairGatewayBody = { ok: true; value: unknown } | { ok: false; response: Response };

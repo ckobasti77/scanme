@@ -376,20 +376,28 @@ export function FairEventMap({
   view,
   rotation,
   display,
+  initialMapLocationId,
 }: {
   eventSlug: string;
   view: FairMapView;
   rotation: FairSponsoredRotationView | null;
   display: boolean;
+  initialMapLocationId?: string;
 }) {
   const rotationState = useFairMapRotation(rotation);
   const rotationStand = rotationState ? locateFairMapStand(view, rotationState.item.standMapLocationId) : null;
   const placed = useMemo(() => view.zones.flatMap((zone) => zone.stands), [view]);
+  const initialStand = useMemo(
+    () => placed.find((row) => row.location.id === initialMapLocationId)?.stand
+      ?? view.unplaced.find((stand) => stand.mapLocationId === initialMapLocationId)
+      ?? null,
+    [initialMapLocationId, placed, view.unplaced],
+  );
   const hasPassports = placed.some((row) => row.passports.length > 0);
   const passport = usePassportProgress(eventSlug, hasPassports);
   const reducedMotion = useReducedMotion();
-  const [zoneId, setZoneId] = useState<FairMapZoneId>(() => view.zones.find((zone) => zone.stands.length > 0)?.zone.id ?? view.zones[0].zone.id);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [zoneId, setZoneId] = useState<FairMapZoneId>(() => placed.find((row) => row.stand.standId === initialStand?.standId)?.zoneId ?? view.zones.find((zone) => zone.stands.length > 0)?.zone.id ?? view.zones[0].zone.id);
+  const [selectedId, setSelectedId] = useState<string | null>(() => initialStand?.standId ?? null);
   const [query, setQuery] = useState("");
   const stageRef = useRef<HTMLDivElement>(null);
 

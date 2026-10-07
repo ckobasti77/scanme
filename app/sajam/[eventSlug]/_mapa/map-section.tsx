@@ -11,7 +11,17 @@ import styles from "./map-states.module.css";
  * joined with the M0 geometry, plus the B5 map rotation (read once; the client
  * picks the active 12 s slot from its clock — no polling).
  */
-export async function MapSection({ eventSlug, eventCode, display }: { eventSlug: string; eventCode: string; display: boolean }) {
+export async function MapSection({
+  eventSlug,
+  eventCode,
+  display,
+  initialMapLocationId,
+}: {
+  eventSlug: string;
+  eventCode: string;
+  display: boolean;
+  initialMapLocationId?: string;
+}) {
   const geometry = fairMapForEventCode(eventCode);
   if (!geometry) {
     return (
@@ -33,5 +43,5 @@ export async function MapSection({ eventSlug, eventCode, display }: { eventSlug:
   }
   const [map, passports, rotation] = data;
   const view = buildFairMapView(geometry, map?.stands ?? [], passports?.catalog ?? []);
-  return <FairEventMap eventSlug={eventSlug} view={view} rotation={rotation} display={display} />;
+  return <FairEventMap eventSlug={eventSlug} view={view} rotation={rotation} display={display} initialMapLocationId={initialMapLocationId} />;
 }

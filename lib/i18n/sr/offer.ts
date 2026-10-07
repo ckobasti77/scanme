@@ -15,6 +15,7 @@ export const offerSr: OfferDict = {
   intro:
     "Izaberite proizvode, tiraž i izgled. Preview i obračun se menjaju odmah, bez obaveze.",
   productsHeading: "Fizički proizvodi",
+  domesticProduction: "Domaća proizvodnja",
   productsIntro: "Možete kombinovati više tipova. Svaki pamti svoj tiraž i izgled.",
   activeProduct: "Aktivan proizvod",
   addProduct: "Dodaj",

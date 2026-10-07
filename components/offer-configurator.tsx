@@ -721,9 +721,12 @@ export function OfferConfigurator({ initialSelection }: { initialSelection: Orde
         <div aria-hidden="true" className={styles.sceneTone} />
 
         <section aria-labelledby="proizvodi-naslov" className={styles.productRail}>
-          <h2 id="proizvodi-naslov" className={styles.railHeading}>
-            {dict.productsHeading}
-          </h2>
+          <div className={styles.railHeader}>
+            <h2 id="proizvodi-naslov" className={styles.railHeading}>
+              {dict.productsHeading}
+            </h2>
+            <span className={styles.domesticProduction}>{dict.domesticProduction}</span>
+          </div>
 
           <div ref={productStrip} className={styles.productList}>
             {PHYSICAL_PRODUCTS.map((product) => {

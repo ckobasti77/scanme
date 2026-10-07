@@ -264,9 +264,9 @@
 }
 
 .fairMastheadWordmark {
-  color: #f2f0e8;
-  --wordmark-ink: #f2f0e8;
-  --wordmark-accent: var(--primary);
+  color: #f5f4ef;
+  --wordmark-ink: #f5f4ef;
+  --wordmark-accent: #6fc05d;
 }
 
 .fairMastheadDates {

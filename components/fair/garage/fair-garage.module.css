@@ -23,9 +23,8 @@
 
 .intro {
   display: flex;
-  align-items: end;
-  justify-content: space-between;
-  gap: 24px;
+  min-height: 112px;
+  align-items: center;
 }
 
 .intro h1,
@@ -39,6 +38,14 @@
   line-height: 0.98;
 }
 
+.intro h1 {
+  color: var(--fair-accent);
+  font-size: clamp(28px, 8vw, 38px);
+  font-weight: 790;
+  letter-spacing: -0.05em;
+  line-height: 0.98;
+}
+
 .intro p,
 .sectionHeading p {
   max-width: 600px;
@@ -46,6 +53,13 @@
   color: var(--fair-ink-muted);
   font-size: 15px;
   line-height: 1.5;
+}
+
+.intro p {
+  max-width: 310px;
+  margin-top: 8px;
+  font-size: 14px;
+  line-height: 1.35;
 }
 
 .savedCount {
@@ -1504,8 +1518,8 @@
   min-height: 100dvh;
   overflow-x: clip;
   background:
-    linear-gradient(180deg, rgba(255, 253, 248, 0.74), rgba(241, 238, 231, 0) 260px),
-    var(--fair-canvas);
+    radial-gradient(circle at 82% 5%, color-mix(in srgb, var(--fair-accent) 7%, transparent), transparent 28%),
+    #f7f8f8;
 }
 
 .pageWithDock {

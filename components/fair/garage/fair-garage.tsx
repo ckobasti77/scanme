@@ -14,6 +14,7 @@ import {
   Copy,
   GitCompareArrows,
   MapPin,
+  Stamp,
   MessageCircleMore,
   PhoneCall,
   RotateCcw,
@@ -65,9 +66,11 @@ import {
 } from "@/lib/fair-client/garage-view";
 import { useFairHistoryLayer } from "@/lib/fair-client/history-layer";
 import { getFairRotationItem } from "@/lib/fair-client/rotation-slot";
+import { fairEventThemeClass } from "@/lib/fair-theme";
 import { fmt } from "@/lib/i18n/format";
 import type { FairGarageDict } from "@/lib/i18n/types";
 import { FairBrandMark } from "./fair-brand-mark";
+import { GarageBadge } from "../garage-controls";
 import styles from "./fair-garage.module.css";
 
 type RefreshState = "idle" | "loading" | "ready" | "error";
@@ -85,6 +88,21 @@ const LONG_PRESS_MS = 430;
 const LONG_PRESS_DRIFT_PX = 9;
 const MAX_SELECTED_MODELS = 5;
 const AUTO_MOTO_FEST_STARTS_AT = Date.parse("2026-10-30T10:00:00+01:00");
+
+function navigationEventForDate(events: FairGarageEventView[], now: number) {
+  const withDates = events.filter(
+    (event): event is FairGarageEventView & { event: NonNullable<FairGarageEventView["event"]> } =>
+      event.event !== null,
+  );
+  const live = withDates.find((event) => event.event.startsAt <= now && now < event.event.endsAt);
+  if (live) return live;
+  const upcoming = withDates
+    .filter((event) => event.event.startsAt > now)
+    .sort((left, right) => left.event.startsAt - right.event.startsAt)[0];
+  if (upcoming) return upcoming;
+  const latest = [...withDates].sort((left, right) => right.event.endsAt - left.event.endsAt)[0];
+  return latest ?? events.find((event) => event.publicSlug === "elektromobilnost-2026") ?? events[0];
+}
 
 function eventIsLocked(event: FairGarageEventView, now: number) {
   // Future-event locking is a production rule. In development we must be able
@@ -131,8 +149,13 @@ const REVIEW_PHOTOS: Record<string, string> = {
   "toyota urban ev": "/fair/fixtures/toyota-urban-cruiser.webp",
   "toyota urban cruiser": "/fair/fixtures/toyota-urban-cruiser.webp",
   "byd dolphin": "/fair/fixtures/byd-dolphin.webp",
+  "byd dolphin surf": "/fair/elektromobilnost-2026/byd-dolphin-surf.png",
+  "byd sealion 7": "/fair/elektromobilnost-2026/byd-sealion-7.jpg",
   "byd dolphin demo": "/fair/fixtures/byd-dolphin.webp",
   "geely starray demo": "/fair/fixtures/geely-starray.webp",
+  "jmev ev3": "/fair/elektromobilnost-2026/jmev-ev3-event.jpg",
+  "jmev elight": "/fair/elektromobilnost-2026/jmev-elight-event.jpg",
+  "jmev ewind": "/fair/elektromobilnost-2026/jmev-ewind-event.jpg",
 };
 
 function cleanTestLabel(value: string) {
@@ -184,15 +207,18 @@ function subscribeBrowserCapability() {
   return () => undefined;
 }
 
-function GarageHeader({ event, count, dict }: { event: FairGarageEventView; count: number; dict: FairGarageDict }) {
+function GarageHeader({ event, dict }: { event: FairGarageEventView; dict: FairGarageDict }) {
+  const eventName = event.publicSlug === "elektromobilnost-2026"
+    ? dict.electromobilityShellTitle
+    : cleanTestLabel(fairGarageEventTitle(event)).replace(/\s+2026\s*$/i, "");
   return (
     <header className="fair-shell">
       <div className="fair-shell__inner">
-        <div className="fair-event-lockup" aria-label={`${dict.umbrellaTitle}, ${dict.pageTitle}`}>
+        <div className="fair-event-lockup" aria-label={`${dict.umbrellaTitle}, ${eventName}`}>
           <span className="fair-event-lockup__mark" aria-hidden="true" />
           <span>
             <strong>{dict.umbrellaTitle}</strong>
-            <small>{dict.pageTitle}</small>
+            <small>{eventName}</small>
           </span>
         </div>
         <nav className="fair-shell__nav" aria-label={dict.umbrellaTitle}>
@@ -200,12 +226,14 @@ function GarageHeader({ event, count, dict }: { event: FairGarageEventView; coun
             <MapPin aria-hidden="true" />
             <span>{dict.mapNav}</span>
           </Link>
+          <Link prefetch={false} href={`/sajam/${event.publicSlug}/pasosi`}>
+            <Stamp aria-hidden="true" />
+            <span>{dict.passportsNav}</span>
+          </Link>
           <span className="fair-garage-link fair-shell__current" aria-current="page">
             <span className="fair-garage-icon" data-garage-target>
               <CarFront aria-hidden="true" />
-              <span className="fair-garage-badge" aria-label={fmt(dict.garageCountAria, { count })}>
-                <span key={count} className="fair-garage-badge__value" aria-hidden="true">{count}</span>
-              </span>
+              <GarageBadge eventId={fairGarageEventId(event)} ariaTemplate={dict.garageCountAria} />
             </span>
             <span>{dict.garageNav}</span>
           </span>
@@ -510,7 +538,7 @@ function GarageModelCard({
   );
 }
 
-function PassportSection({
+export function LegacyGaragePassportSection({
   event,
   load,
   document,
@@ -801,17 +829,15 @@ export function FairGarage({ events, dict }: { events: FairGarageEventView[]; di
   const [shareBusy, setShareBusy] = useState(false);
   const [shareMessage, setShareMessage] = useState<string | null>(null);
   const [shareDraft, setShareDraft] = useState<ShareDraft | null>(null);
-  const [passports, setPassports] = useState<Record<string, PassportLoad>>({});
   const [clockNow] = useState(() => Date.now());
-  const requestedPassports = useRef(new Set<string>());
   const modelListRef = useRef<HTMLDivElement | null>(null);
   const previousModelLayout = useRef<{ eventSlug: string; rects: Map<string, DOMRect> }>({ eventSlug: "", rects: new Map() });
   const requestSelectionClose = useFairHistoryLayer(selectionMode, closeSelection, "garage-selection");
 
   const activeEvent = events.find((event) => event.publicSlug === activeSlug) ?? events[0];
+  const navigationEvent = navigationEventForDate(events, clockNow);
   const activeItems = useMemo(() => activeEvent ? fairGarageItemsForEvent(garageDocument, activeEvent) : [], [activeEvent, garageDocument]);
   const activeModels = useMemo(() => activeEvent ? activeItems.map((item) => fairGarageModelView(item, liveModels.get(item.modelId), activeEvent.publicSlug)).filter((item): item is FairGarageModelView => item !== null) : [], [activeEvent, activeItems, liveModels]);
-  const totalCount = useMemo(() => events.reduce((sum, event) => sum + fairGarageItemsForEvent(garageDocument, event).length, 0), [events, garageDocument]);
   const activeModelLayoutKey = activeModels.map((model) => model.id).join("|");
   const refreshNoticeVisible = !online || refreshState === "error";
 
@@ -940,23 +966,9 @@ export function FairGarage({ events, dict }: { events: FairGarageEventView[]; di
     return () => { cancelled = true; window.cancelAnimationFrame(loadingFrame); };
   }, [events, garageDocument, mounted, refreshNonce, writeDocument]);
 
-  useEffect(() => {
-    if (!mounted || !activeEvent || requestedPassports.current.has(activeEvent.publicSlug)) return;
-    const key = activeEvent.publicSlug;
-    requestedPassports.current.add(key);
-    fetch("/api/fair/passport", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ eventSlug: activeEvent.dataSlug }) })
-      .then(async (response) => {
-        const body = (await response.json()) as { ok: boolean; value?: FairPassportState | null };
-        if (!response.ok || !body.ok) throw new Error("passport_failed");
-        setPassports((current) => ({ ...current, [key]: { state: "ready", value: body.value ?? null } }));
-      })
-      .catch(() => setPassports((current) => ({ ...current, [key]: { state: "error", value: null } })));
-  }, [activeEvent, mounted]);
-
   if (!activeEvent) return null;
 
   const hasSponsored = Boolean(activeEvent.sponsoredRotation?.items.length);
-  const passportLoad = passports[activeEvent.publicSlug] ?? { state: "loading" as const, value: null };
   const compareHref = `/sajam/garaza/poredjenje?${new URLSearchParams([["event", activeEvent.publicSlug], ...selected.map((id) => ["model", id])]).toString()}`;
   function changeEvent(slug: string) {
     const nextEvent = events.find((event) => event.publicSlug === slug);
@@ -1105,25 +1117,29 @@ export function FairGarage({ events, dict }: { events: FairGarageEventView[]; di
   }
 
   return (
-    <div className={`fair-event ${styles.page}${hasSponsored && !selectionMode ? ` ${styles.pageWithDock}` : ""}${selectionMode ? ` ${styles.pageWithSelection}` : ""}`} data-reveal="off">
-      <GarageHeader event={activeEvent} count={totalCount} dict={dict} />
+    <div className={`fair-event ${fairEventThemeClass(navigationEvent?.publicSlug ?? "elektromobilnost-2026")} ${styles.page}${hasSponsored && !selectionMode ? ` ${styles.pageWithDock}` : ""}${selectionMode ? ` ${styles.pageWithSelection}` : ""}`} data-reveal="off">
+      <GarageHeader event={navigationEvent ?? activeEvent} dict={dict} />
       <main className={styles.main}>
-        <div className={styles.tabs} role="tablist" aria-label={dict.eventTabsAria}>
-          {events.map((event) => {
-            const count = fairGarageItemsForEvent(garageDocument, event).length;
-            const active = mounted && event.publicSlug === activeEvent.publicSlug;
-            const locked = eventIsLocked(event, clockNow);
-            const title = event.publicSlug === "auto-moto-fest-2026" ? dict.autoMotoTitle : event.publicSlug === "elektromobilnost-2026" ? dict.electromobilityTitle : fairGarageEventTitle(event);
-            return (
-              <button type="button" role="tab" aria-selected={active} disabled={locked} className={`${active ? styles.tabActive : ""}${locked ? ` ${styles.tabLocked}` : ""}`} onClick={() => changeEvent(event.publicSlug)} key={event.publicSlug}>
-                <span>{title}<small>{locked ? dict.eventUpcoming : event.fallbackDates}</small></span>
-                <b>{count}</b>
-              </button>
-            );
-          })}
-        </div>
-
-        <PassportSection event={activeEvent} load={passportLoad} document={garageDocument} dict={dict} onDocument={writeDocument} onPassport={(next) => setPassports((current) => ({ ...current, [activeEvent.publicSlug]: { state: "ready", value: next } }))} />
+        {events.length > 1 ? (
+          <div className={styles.tabs} role="tablist" aria-label={dict.eventTabsAria}>
+            {events.map((event) => {
+              const count = fairGarageItemsForEvent(garageDocument, event).length;
+              const active = mounted && event.publicSlug === activeEvent.publicSlug;
+              const locked = eventIsLocked(event, clockNow);
+              const title = event.publicSlug === "auto-moto-fest-2026" ? dict.autoMotoTitle : event.publicSlug === "elektromobilnost-2026" ? dict.electromobilityTitle : fairGarageEventTitle(event);
+              return (
+                <button type="button" role="tab" aria-selected={active} disabled={locked} className={`${active ? styles.tabActive : ""}${locked ? ` ${styles.tabLocked}` : ""}`} onClick={() => changeEvent(event.publicSlug)} key={event.publicSlug}>
+                  <span>{title}<small>{locked ? dict.eventUpcoming : event.fallbackDates}</small></span>
+                  <b>{count}</b>
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+          <section className={styles.intro}>
+            <div><h1>{dict.pageTitle}</h1><p>{dict.pageBody}</p></div>
+          </section>
+        )}
 
         {refreshNoticeVisible ? (
           <div className={styles.networkNotice} role="status">
@@ -1145,7 +1161,7 @@ export function FairGarage({ events, dict }: { events: FairGarageEventView[]; di
             </div>
           </section>
         ) : mounted ? (
-          <section className={styles.emptyState}><div className={styles.emptyVisual} aria-hidden="true"><CarFront /></div><h2>{dict.emptyTitle}</h2><p>{dict.emptyBody}</p><Link href={`/sajam/${activeEvent.publicSlug}`}><MapPin aria-hidden="true" />{dict.emptyAction}</Link></section>
+          <section className={styles.emptyState}><div className={styles.emptyVisual} aria-hidden="true"><CarFront /></div><h2>{dict.emptyTitle}</h2><p>{dict.emptyBody}</p><Link href={`/sajam/${(navigationEvent ?? activeEvent).publicSlug}`}><MapPin aria-hidden="true" />{dict.emptyAction}</Link></section>
         ) : <div className={styles.loadingState} aria-hidden="true"><span /><span /><span /></div>}
 
         <p className={styles.storageNotice}>{dict.storageNotice}</p>

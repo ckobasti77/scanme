@@ -13,6 +13,7 @@ import type {
   FairPublicModelFixture,
 } from "@/lib/fair-client/model-fixtures";
 import { fmt, type FairModelDict } from "@/lib/i18n";
+import { fairEventThemeClass } from "@/lib/fair-theme";
 import { AnimatedModelDisclosure } from "./animated-model-disclosure";
 import { FairEventShell } from "./event-shell";
 import { GarageSaveButton } from "./garage-controls";
@@ -181,7 +182,7 @@ export function FairModelPage({
 
   return (
     <div
-      className="fair-event fair-model-page"
+      className={`fair-event fair-model-page ${fairEventThemeClass(model.eventSlug)}`}
       data-package={selection.mode}
       data-reveal="off"
     >
@@ -249,7 +250,7 @@ export function FairModelPage({
                 </dl>
               </section>
             ))}
-            <p>{model.description}</p>
+            {model.description ? <p>{model.description}</p> : null}
         </AnimatedModelDisclosure>
 
         <ModelActionsCheckpoint

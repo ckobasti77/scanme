@@ -2,7 +2,7 @@
 
 > Status: **ZAKLJUČAN ZA PRVI FRONTEND VERTICAL SLICE**
 >
-> Poslednje ažuriranje: **2. oktobar 2026.**
+> Poslednje ažuriranje: **7. oktobar 2026.**
 >
 > Vlasnik odluka: **Aleksa**
 >
@@ -128,9 +128,18 @@ Pravila:
 - `event.scanmeStand` se ne koristi van ScanMe štanda na mapi;
 - brend boje automobila koriste se samo za identitet tog brenda, ne za sistemske akcije;
 - status nikada ne zavisi samo od boje;
-- ne koristiti plavu i narandžastu kao dodatne sistemske akcente;
+- ne mešati plavu i narandžastu unutar istog događaja niti ih koristiti kao sekundarne sistemske akcente;
 - ne koristiti čistu crnu za velike površine;
 - fotografija modela ne diktira boju interfejsa.
+
+**ZAKLJUČANO 7. OKTOBRA — IDENTITET PO DOGAĐAJU:**
+
+- `Elektromobilnost 2026` koristi plavi event akcenat i moderni digitalni pasoš u pravcu odabranog mockupa A;
+- `Auto Moto Fest 2026` koristi narandžasti event akcenat, a njegov budući pasoš razvija se iz mockupa B sa fizičkim pasoš/poštanska-marka karakterom;
+- semantičke uloge tokena ostaju zajedničke, ali se njihove vrednosti menjaju po `eventSlug`-u;
+- pečat događaja pojavljuje se jednom u zaglavlju detalja pasoša i ne ponavlja se preko kartica modela;
+- pregled pasoša prikazuje logo/naziv brenda, progres tačke i oznaku `Novo`, bez numeričkog `N/M` i bez fotografija modela;
+- detalj koristi velike kartice modela; zaključana kartica ima prigušenu fotografiju, gradijent iza teksta i put ka štandu na mapi.
 
 ### 5.2 Tipografija
 
@@ -348,10 +357,10 @@ Obavezne provere: 375 px telefon, 390 px telefon, iPhone Safari, Android Chrome,
 
 ## 12. Šta je odbačeno iz automatske preporuke dizajn alata
 
-Automatski UI alat je predložio App Store landing strukturu, narandžasto-plavu paletu, dominantni glassmorphism i Inter/Playfair kombinaciju. To se ne prihvata zato što:
+Automatski UI alat je predložio App Store landing strukturu, istovremenu narandžasto-plavu paletu, dominantni glassmorphism i Inter/Playfair kombinaciju. To se ne prihvata zato što:
 
 - ovo nije download landing stranica niti native app listing;
-- narandžasta i plava uvode dva nova akcenta bez veze sa ScanMe identitetom;
+- istovremena narandžasta i plava razvodnjavaju identitet jednog događaja; svaka se koristi samo kao sopstveni event akcenat prema zaključanom pravilu iz 5.1;
 - serif body smanjuje brzinu čitanja operativnog interfejsa;
 - staklo na svim površinama smanjuje kontrast u hali;
 - predlog ne uzima u obzir mapu, garažu, scan tok i event-only svetlu temu.

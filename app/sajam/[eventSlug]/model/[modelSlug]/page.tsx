@@ -2,10 +2,12 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { FairModelPage } from "@/components/fair/fair-model-page";
 import {
+  fairPublicModelToFixture,
   readFairModelFixture,
   type FairFixtureMode,
   type FairPhotoPresentation,
 } from "@/lib/fair-client/model-fixtures";
+import { loadFairModelPage } from "@/lib/fair-server/model-page";
 import { fairModelSr } from "@/lib/i18n/sr/fair-model";
 import { fmt } from "@/lib/i18n/format";
 
@@ -45,13 +47,22 @@ export async function generateMetadata({
   params: Promise<RouteParams>;
 }): Promise<Metadata> {
   const { eventSlug, modelSlug } = await params;
-  const model = readFairModelFixture({
-    eventSlug,
-    modelSlug,
-    mode: "advanced",
-    withPhoto: true,
-    photoPresentation: "left",
-  });
+  const live = await loadFairModelPage(eventSlug, modelSlug);
+  const model = live
+    ? fairPublicModelToFixture({
+        model: live.model,
+        publicEventSlug: eventSlug,
+        eventName: live.event.title,
+        withPhoto: true,
+        photoPresentation: "left",
+      }).model
+    : readFairModelFixture({
+        eventSlug,
+        modelSlug,
+        mode: "advanced",
+        withPhoto: true,
+        photoPresentation: "left",
+      });
 
   if (!model) return { title: fairModelSr.notFoundTitle };
   return {
@@ -72,12 +83,25 @@ export default async function ModelPage({
   searchParams: Promise<RouteSearchParams>;
 }) {
   const [{ eventSlug, modelSlug }, query] = await Promise.all([params, searchParams]);
-  const selection = {
+  const requestedSelection = {
     mode: fixtureMode(scalar(query.mode)),
     withPhoto: scalar(query.photo) !== "0",
     alignment: photoPresentation(scalar(query.align)),
   };
-  const model = readFairModelFixture({
+  const live = await loadFairModelPage(eventSlug, modelSlug);
+  const adapted = live
+    ? fairPublicModelToFixture({
+        model: live.model,
+        publicEventSlug: eventSlug,
+        eventName: live.event.title,
+        withPhoto: requestedSelection.withPhoto,
+        photoPresentation: requestedSelection.alignment,
+      })
+    : null;
+  const selection = adapted
+    ? { ...requestedSelection, mode: adapted.mode }
+    : requestedSelection;
+  const model = adapted?.model ?? readFairModelFixture({
     eventSlug,
     modelSlug,
     mode: selection.mode,

@@ -84,8 +84,8 @@
   --hero-scan-focus: rgb(102 143 0 / 0.09);
   --hero-scan-copy: rgb(255 255 255 / 0.22);
   --landing-footer-surface: rgb(251 246 248 / 0.84);
-  --wordmark-ink: #273331;
-  --wordmark-accent: #668f00;
+  --wordmark-ink: #231f20;
+  --wordmark-accent: #6fc05d;
   --ui-scrollbar-size: 10px;
   --ui-scrollbar-track: transparent;
   --ui-scrollbar-rail: rgb(0 0 0 / 0.18);
@@ -146,8 +146,8 @@ html[data-theme="dark"] {
   --hero-scan-focus: rgb(198 255 74 / 0.1);
   --hero-scan-copy: rgb(233 229 218 / 0.025);
   --landing-footer-surface: rgb(16 17 14 / 0.82);
-  --wordmark-ink: #f1f3ed;
-  --wordmark-accent: #c6ff4a;
+  --wordmark-ink: #f5f4ef;
+  --wordmark-accent: #6fc05d;
 }
 
 .admin-v1 {
@@ -410,13 +410,31 @@ section[id] {
 }
 
 .scanme-wordmark {
+  position: relative;
   display: inline-block;
   width: 7.25rem;
-  aspect-ratio: 2400 / 502;
+  aspect-ratio: 516.299 / 70.866;
   flex: 0 0 auto;
-  background: linear-gradient(90deg, var(--wordmark-ink) 0 63%, var(--wordmark-accent) 63% 100%);
-  -webkit-mask: url("/brand/scanme-wordmark-mask.png") center / contain no-repeat;
-  mask: url("/brand/scanme-wordmark-mask.png") center / contain no-repeat;
+  vertical-align: middle;
+}
+
+.scanme-wordmark::before,
+.scanme-wordmark::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+}
+
+.scanme-wordmark::before {
+  background: var(--wordmark-ink);
+  -webkit-mask: url("/brand/scanme-wordmark-base-mask.svg") center / contain no-repeat;
+  mask: url("/brand/scanme-wordmark-base-mask.svg") center / contain no-repeat;
+}
+
+.scanme-wordmark::after {
+  background: var(--wordmark-accent);
+  -webkit-mask: url("/brand/scanme-wordmark-accent-mask.svg") center / contain no-repeat;
+  mask: url("/brand/scanme-wordmark-accent-mask.svg") center / contain no-repeat;
 }
 
 .landing-atmosphere {
