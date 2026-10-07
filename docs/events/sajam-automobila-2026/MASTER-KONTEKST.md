@@ -285,7 +285,7 @@ Postojeći `/r/[cardCode]` tok mora jednim server request ID-em da zabeleži gen
 - PDF se preuzima samo kada posetilac izričito izabere izvoz.
 - Email se šalje samo kada posetilac izričito izabere slanje garaže sebi i unese adresu.
 - Posetilac može da izveze garažu u PDF i/ili da je pošalje sebi na email.
-- Postoje dva taba/garaže, po jedan za svaki sajam; trenutno aktivni sajam ima prvenstvo u prikazu.
+- Postoje dve garaže, po jedna za svaki sajam, svaka na svojoj adresi `/sajam/[eventSlug]/garaza`; trenutno aktivni sajam ima prvenstvo kada adresa ne navodi sajam.
 - Brisanje browser podataka ili privatni režim mogu da obrišu lokalno stanje. Posetiocu treba kratko i razumljivo upozorenje, bez nametljivosti.
 - U garaži postoji posebna sponzorisana traka Naprednih modela.
 - Svi modeli sa Naprednim paketom ravnopravno se rotiraju; srodnost sa sačuvanim modelima nije kriterijum.
@@ -296,7 +296,7 @@ Postojeći `/r/[cardCode]` tok mora jednim server request ID-em da zabeleži gen
 - Sponzorisana traka se privremeno sklanja dok je režim izbora aktivan, kako se dve fiksne trake ne bi preklapale i izazivale pogrešne dodire.
 - Svaka kartica van režima izbora ima zasebnu akciju za deljenje jednog modela.
 - Deljenje jednog modela koristi kanonski URL modela i bogat preview sa fotografijom, brendom, nazivom i cenom. Na telefonu se prvenstveno koristi sistemski share sheet; fallback je kopiranje linka.
-- Deljenje dva do pet modela pravi javnu kolekciju na `/sajam/deli/[shareCode]`. Preview prikazuje do tri modela i oznaku `+N` za preostale. Kolekcija prestaje da bude javno dostupna 16. novembra 2026.
+- Deljenje dva do pet modela pravi javnu kolekciju na `/sajam/[eventSlug]/deli/[shareCode]`. Preview prikazuje do tri modela i oznaku `+N` za preostale. Kolekcija prestaje da bude javno dostupna 16. novembra 2026.
 - Izvoz izabranih modela „kod sebe” znači eksplicitni PDF ili email izvoz; nije drugo lokalno čuvanje, jer su modeli već u browser garaži.
 
 ### PRIVREMENO
@@ -550,14 +550,17 @@ Podaci se dostavljaju emailom u terminu dogovorenom sa konkretnim izlagačem. Me
 - anketa: `/sajam/[eventSlug]/model/[modelSlug]/anketa`;
 - pregled pasoša: `/sajam/[eventSlug]/pasosi`;
 - pasoš brenda: `/sajam/[eventSlug]/pasosi/[brandSlug]`;
-- zajednička garaža: `/sajam/garaza`;
-- poređenje najviše dva modela: `/sajam/garaza/poredjenje`.
+- garaža sajma: `/sajam/[eventSlug]/garaza`;
+- poređenje najviše dva modela: `/sajam/[eventSlug]/garaza/poredjenje`;
+- deljena kolekcija: `/sajam/[eventSlug]/deli/[shareCode]`.
+
+Odluka vlasnika proizvoda (7. oktobar 2026.): svaka javna sajamska ruta živi pod slugom događaja. Javni link uvek koristi javni slug (`elektromobilnost-2026`, `auto-moto-fest-2026`), nikada DEV slug sa prefiksom `test-`. Adrese bez sajma privremeno (307) preusmeravaju: `/sajam` i `/sajam/garaza` na aktivni sajam, `/sajam/garaza/poredjenje` na poređenje sajma iz `?event=` ili aktivnog sajma uz isti query string, a `/sajam/deli/[shareCode]` na sajam te kolekcije. Štampani QR kodovi se ne menjaju jer idu kroz `/r/[cardCode]`, koji već vodi na `/sajam/[eventSlug]/model/[modelSlug]`.
 
 Sve javne sajamske rute su `noindex`. Event shell koristi kompaktan sticky header sa Sajmom automobila kao primarnim identitetom, ScanMe oznakom digitalnog partnera i stalnim akcijama `Mapa`, `Pasoši` i `Garaža` sa brojem sačuvanih modela. Lead forme se kasnije otvaraju kao bottom sheet.
 
 Zaključani redosled stranice modela je: event/brend kontekst, kompaktna opciona fotografija, naziv/varijanta/cena, najviše četiri ključne specifikacije, sticky čuvanje u garažu, Glas publike, grupisane pune specifikacije, ocenjivanje, lead akcije, anketa i pasoš brenda.
 
-Garaža koristi dva event taba, čuva poslednje poznate podatke za offline čitanje, poredi najviše dva modela i rezerviše bottom inset za fixed sponzorisanu traku visine približno 88-104 px plus safe-area. Pasoš nije dupliran u Garaži, već je dostupan kao ravnopravna event navigacija. Lokalni garage dokument čuva V1 modele kroz V2 migraciju i kolekciju lokalno sačuvanih passport badge-eva.
+Garaža prikazuje jedan sajam, onaj iz adrese, sa istim event shell-om kao mapa i pasoši (`Mapa`, `Pasoši`, `Garaža` i broj sačuvanih modela tog sajma); prebacivanje na drugi sajam, kada se uključi, vodi na njegovu adresu garaže. Garaža čuva poslednje poznate podatke za offline čitanje, poredi najviše dva modela i rezerviše bottom inset za fixed sponzorisanu traku visine približno 88-104 px plus safe-area. Pasoš nije dupliran u Garaži, već je dostupan kao ravnopravna event navigacija. Lokalni garage dokument čuva V1 modele kroz V2 migraciju i kolekciju lokalno sačuvanih passport badge-eva.
 
 ### Obavezan dizajn artefakt pre paralelnog kodiranja
 
@@ -735,6 +738,11 @@ Pre produkcije mora da bude dokazano najmanje sledeće:
 
 ### 7. oktobar 2026.
 
+- Odluka vlasnika proizvoda: sve javne sajamske rute žive pod `/sajam/[eventSlug]`. Garaža, poređenje i deljena kolekcija su premešteni na `/sajam/[eventSlug]/garaza`, `/sajam/[eventSlug]/garaza/poredjenje` i `/sajam/[eventSlug]/deli/[shareCode]`; stare adrese privremeno (307) preusmeravaju, a štampani QR kodovi ostaju nepromenjeni kroz `/r/[cardCode]`.
+- Garaža, poređenje i deljena kolekcija koriste isti event shell kao mapa i pasoši; tema se uvek uzima iz sluga u adresi.
+- Broj u `Garaža` akciji sada broji iste modele koje garaža prikazuje. Ranije je brojao samo modele sačuvane pod tačnim ID-jem događaja, pa je pokazivao 0 za modele sačuvane pod javnim slugom ili pod ranijim zapisom istog sajma.
+- Nazivi modela se prikazuju tačno kako su uneti (`eWind`, `eLight`, `EV3`); velika slova smeju samo nadnaslovi brenda.
+- U detalju pasoša brenda dugme za povratak je u gornjem levom uglu.
 - Pasoš je izdvojen iz Garaže na zasebne javne rute pregleda i detalja brenda, uz stalnu akciju `Pasoši` u event shell-u.
 - Pregled prikazuje brend i progres tačke bez fotografija i brojčanog `N/M`; detalj zadržava velike model kartice i reveal novog pečata tek pri prvom otvaranju posle skena.
 - Zaključani model vodi do štanda izlagača na mapi; ne obećava preciznu poziciju vozila unutar štanda.

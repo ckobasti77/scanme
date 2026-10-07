@@ -4,6 +4,7 @@ import type {
   FairPublicModel,
   FairSponsoredRotationView,
 } from "@/lib/fair-contract";
+import { fairPublicEventSlug } from "@/lib/fair-public-event";
 import type { FairGarageDocument, FairGarageItem } from "./garage-store";
 
 export type FairGarageEventView = {
@@ -30,10 +31,6 @@ export type FairGarageModelView = {
   savedAt: number;
 };
 
-function baseSlug(slug: string) {
-  return slug.startsWith("test-") ? slug.slice(5) : slug;
-}
-
 export function fairGarageEventId(event: FairGarageEventView): string {
   return event.event?.id ?? event.fallbackId;
 }
@@ -42,12 +39,17 @@ export function fairGarageEventTitle(event: FairGarageEventView): string {
   return event.event?.title.replace(/^TEST\s+/i, "") ?? event.fallbackTitle;
 }
 
-export function fairGarageItemsForEvent(
+// Models can sit under the Convex event id, under the public slug (fallback id)
+// or under an older event record of the same fair; `lastKnown.eventSlug` ties
+// the latter back to the fair. The garage list and the header count must use
+// this same matching, otherwise the badge disagrees with the list.
+function itemsForEventKeys(
   document: FairGarageDocument,
-  event: FairGarageEventView,
+  eventIds: string[],
+  eventSlugs: string[],
 ): FairGarageItem[] {
-  const ids = new Set([fairGarageEventId(event), event.fallbackId]);
-  const slugs = new Set([baseSlug(event.publicSlug), baseSlug(event.dataSlug)]);
+  const ids = new Set(eventIds);
+  const slugs = new Set(eventSlugs.map(fairPublicEventSlug));
   const seen = new Set<string>();
   const result: FairGarageItem[] = [];
 
@@ -55,13 +57,32 @@ export function fairGarageItemsForEvent(
     for (const item of items) {
       const matches =
         ids.has(eventId) ||
-        (item.lastKnown !== undefined && slugs.has(baseSlug(item.lastKnown.eventSlug)));
+        (item.lastKnown !== undefined && slugs.has(fairPublicEventSlug(item.lastKnown.eventSlug)));
       if (!matches || seen.has(item.modelId)) continue;
       seen.add(item.modelId);
       result.push(item);
     }
   }
   return result.sort((a, b) => b.savedAt - a.savedAt);
+}
+
+export function fairGarageItemsForEvent(
+  document: FairGarageDocument,
+  event: FairGarageEventView,
+): FairGarageItem[] {
+  return itemsForEventKeys(
+    document,
+    [fairGarageEventId(event), event.fallbackId],
+    [event.publicSlug, event.dataSlug],
+  );
+}
+
+export function fairGarageEventCount(
+  document: FairGarageDocument,
+  key: { eventId: string; eventSlug: string },
+): number {
+  const publicSlug = fairPublicEventSlug(key.eventSlug);
+  return itemsForEventKeys(document, [key.eventId, publicSlug], [publicSlug]).length;
 }
 
 export function fairGarageModelView(

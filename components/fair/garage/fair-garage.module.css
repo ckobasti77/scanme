@@ -951,10 +951,6 @@
 .comparisonPage { min-height: 100dvh; }
 
 .comparisonHeader {
-  position: sticky;
-  z-index: 20;
-  top: 0;
-  padding-top: env(safe-area-inset-top);
   border-bottom: 1px solid var(--fair-line);
   background: var(--fair-surface);
 }

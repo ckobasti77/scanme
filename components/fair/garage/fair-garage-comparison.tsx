@@ -12,6 +12,7 @@ import {
   type FairGarageDocument,
 } from "@/lib/fair-client/garage-store";
 import {
+  fairGarageEventId,
   fairGarageEventTitle,
   fairGarageItemsForEvent,
   fairGarageModelView,
@@ -19,7 +20,9 @@ import {
   type FairGarageEventView,
   type FairGarageModelView,
 } from "@/lib/fair-client/garage-view";
-import type { FairGarageDict } from "@/lib/i18n/types";
+import { fairEventThemeClass } from "@/lib/fair-theme";
+import type { FairGarageDict, FairModelDict } from "@/lib/i18n/types";
+import { FairEventShell } from "../event-shell";
 import styles from "./fair-garage.module.css";
 
 type ComparisonState = "loading" | "ready" | "error";
@@ -44,13 +47,17 @@ function modelPhoto(model: FairGarageModelView, dict: FairGarageDict) {
 }
 
 export function FairGarageComparison({
+  routeEventSlug,
   event,
   modelIds,
   dict,
+  shellDict,
 }: {
+  routeEventSlug: string;
   event: FairGarageEventView;
   modelIds: string[];
   dict: FairGarageDict;
+  shellDict: FairModelDict;
 }) {
   const [document, setDocument] = useState<FairGarageDocument>(() =>
     createEmptyFairGarageDocument(),
@@ -142,16 +149,24 @@ export function FairGarageComparison({
   const valid = modelIds.length === 2 && models.length === 2;
 
   return (
-    <div className={`fair-event ${styles.comparisonPage}`} data-reveal="off">
-      <header className={styles.comparisonHeader}>
+    <div className={`fair-event ${fairEventThemeClass(routeEventSlug)} ${styles.comparisonPage}`} data-reveal="off">
+      <FairEventShell
+        eventId={fairGarageEventId(event)}
+        eventSlug={routeEventSlug}
+        eventTitle={dict.umbrellaTitle}
+        eventName={fairGarageEventTitle(event)}
+        dict={shellDict}
+        current="garage"
+      />
+      <div className={styles.comparisonHeader}>
         <div>
-          <Link href="/sajam/garaza">
+          <Link href={`/sajam/${routeEventSlug}/garaza`}>
             <ArrowLeft aria-hidden="true" />
             {dict.comparisonBack}
           </Link>
           <span>{fairGarageEventTitle(event)}</span>
         </div>
-      </header>
+      </div>
       <main className={styles.comparisonMain}>
         <h1>{dict.comparisonTitle}</h1>
 
@@ -167,7 +182,7 @@ export function FairGarageComparison({
             <CarFront aria-hidden="true" />
             <h2>{dict.comparisonMissingTitle}</h2>
             <p>{dict.comparisonMissingBody}</p>
-            <Link href="/sajam/garaza">{dict.comparisonBack}</Link>
+            <Link href={`/sajam/${routeEventSlug}/garaza`}>{dict.comparisonBack}</Link>
           </section>
         ) : null}
 

@@ -46,12 +46,12 @@ export function FairEventShell({
           )}
           {current === "garage" ? (
             <span className="fair-garage-link fair-shell__current" aria-current="page">
-              <span className="fair-garage-icon"><CarFront aria-hidden="true" /><GarageBadge eventId={eventId} ariaTemplate={dict.garageCountAria} /></span>
+              <span className="fair-garage-icon" data-garage-target><CarFront aria-hidden="true" /><GarageBadge eventId={eventId} eventSlug={eventSlug} ariaTemplate={dict.garageCountAria} /></span>
               <span>{dict.garageNav}</span>
             </span>
           ) : (
-            <Link prefetch={false} href="/sajam/garaza" className="fair-garage-link">
-              <span className="fair-garage-icon"><CarFront aria-hidden="true" /><GarageBadge eventId={eventId} ariaTemplate={dict.garageCountAria} /></span>
+            <Link prefetch={false} href={`/sajam/${eventSlug}/garaza`} className="fair-garage-link">
+              <span className="fair-garage-icon" data-garage-target><CarFront aria-hidden="true" /><GarageBadge eventId={eventId} eventSlug={eventSlug} ariaTemplate={dict.garageCountAria} /></span>
               <span>{dict.garageNav}</span>
             </Link>
           )}

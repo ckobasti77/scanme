@@ -156,11 +156,13 @@ Master je zaključao čitljive URL-ove pod:
 | anketa | `/sajam/[eventSlug]/model/[modelSlug]/anketa` | zaseban kratki tok |
 | pasoši | `/sajam/[eventSlug]/pasosi` | pregled svih aktivnih pasoša događaja |
 | pasoš brenda | `/sajam/[eventSlug]/pasosi/[brandSlug]` | veliki model-card detalj, reveal novog pečata i izbor favorita |
-| garaža | `/sajam/garaza` | jedna površina sa dva event taba |
-| poređenje | `/sajam/garaza/poredjenje` | eksplicitno poređenje najviše dva modela |
-| deljena kolekcija | `/sajam/deli/[shareCode]` | 1-5 modela istog događaja; read-only, noindex, ističe 16. novembra |
+| garaža | `/sajam/[eventSlug]/garaza` | garaža jednog sajma; prebacivanje na drugi sajam vodi na njegovu adresu |
+| poređenje | `/sajam/[eventSlug]/garaza/poredjenje` | eksplicitno poređenje najviše dva modela (`?model=`) |
+| deljena kolekcija | `/sajam/[eventSlug]/deli/[shareCode]` | 1-5 modela istog događaja; read-only, noindex, ističe 16. novembra |
 
-Pasoš ima zasebnu javnu rutu i stalnu akciju `Pasoši` u event shell-u. Pregled prikazuje brendove i progres tačke, detalj prikazuje modele i reveal novih pečata, dok mapa zadržava eligibility i lični `N/M`. Garaža više ne duplira passport rail/modal. Format display moda ostaje tehnički detalj koleginog map toka.
+Odluka vlasnika proizvoda (7. oktobar 2026.): sve javne sajamske rute žive pod slugom događaja i svi linkovi koriste javni slug, bez DEV prefiksa `test-`. Stare adrese `/sajam`, `/sajam/garaza`, `/sajam/garaza/poredjenje` i `/sajam/deli/[shareCode]` privremeno (307) preusmeravaju na odgovarajući sajam. Štampani QR kodovi nisu pogođeni jer `/r/[cardCode]` već vodi na `/sajam/[eventSlug]/model/[modelSlug]`.
+
+Mapa, pasoši, garaža, poređenje i deljena kolekcija koriste isti event shell (`Mapa`, `Pasoši`, `Garaža` sa brojem sačuvanih modela). Pasoš ima zasebnu javnu rutu i stalnu akciju `Pasoši` u event shell-u. Pregled prikazuje brendove i progres tačke, detalj prikazuje modele i reveal novih pečata, dok mapa zadržava eligibility i lični `N/M`. Garaža više ne duplira passport rail/modal. Format display moda ostaje tehnički detalj koleginog map toka.
 
 Sve javne event rute u V1 imaju `noindex`. Ne smeju biti slučajno preusmerene na prelaunch početnu stranu u produkciji.
 

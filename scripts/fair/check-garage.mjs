@@ -3,7 +3,9 @@ import { chromium } from "playwright";
 
 const baseUrl = process.env.FAIR_BASE_URL ?? "http://127.0.0.1:3000";
 const outputDir = "output/playwright";
-const garagePath = "/sajam/garaza";
+const garagePath = "/sajam/elektromobilnost-2026/garaza";
+const autoGaragePath = "/sajam/auto-moto-fest-2026/garaza";
+const sharedPath = "/sajam/elektromobilnost-2026/deli/abcdefghijklmnopqrstuvwx";
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
@@ -185,9 +187,9 @@ try {
     await seedGarage(page);
     await page.reload({ waitUntil: "networkidle" });
     assert((await page.getByRole("article").count()) >= 3, `${viewport.width}: model cards missing`);
-    const autoMotoTab = page.getByRole("tab", { name: /Auto Moto Fest/i });
+    const autoMotoGarage = await page.request.get(`${baseUrl}${autoGaragePath}`);
     assert(
-      !(await autoMotoTab.isDisabled()),
+      autoMotoGarage.ok(),
       `${viewport.width}: Auto Moto Fest garage is unavailable in development`,
     );
     if (viewport.width === 390 && viewport.height === 844) {
@@ -228,7 +230,7 @@ try {
   });
   await page.route("**/api/fair/share-collection", async (route) => {
     shareRequests.push({ kind: "collection", body: route.request().postDataJSON() });
-    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, value: { collectionId: "collection-test-1", url: `${baseUrl}/sajam/deli/abcdefghijklmnopqrstuvwx` } }) });
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, value: { collectionId: "collection-test-1", url: `${baseUrl}${sharedPath}` } }) });
   });
   await page.route("**/api/fair/traffic", async (route) => {
     shareRequests.push({ kind: "traffic", body: route.request().postDataJSON() });
@@ -238,18 +240,12 @@ try {
   await seedGarage(page);
   await page.reload({ waitUntil: "networkidle" });
 
-  const activeEventTab = page.getByRole("tab", { selected: true });
-  const activeEventName = await activeEventTab.textContent();
-  await page.getByRole("tab", { name: /Auto Moto Fest/i }).tap();
   const passportLink = page.getByRole("link", { name: "Pasoši" });
   assert(await passportLink.isVisible(), "passport navigation is missing from the garage header");
   assert(
     (await passportLink.getAttribute("href"))?.endsWith("/pasosi"),
     "passport navigation does not point to the standalone passport route",
   );
-  if (activeEventName?.includes("Elektromobilnost")) {
-    await page.getByRole("tab", { name: /Elektromobilnost/i }).tap();
-  }
 
   await page.getByRole("button", { name: /Ukloni .* iz garaže/i }).first().tap();
   const removeDialog = page.getByRole("dialog");
@@ -303,7 +299,7 @@ try {
   assert(toolbarBounds && toolbarBounds.y + toolbarBounds.height <= 844, `selection toolbar is not fixed above the safe area: ${JSON.stringify(toolbarBounds)}`);
   await page.screenshot({ path: `${outputDir}/fair-garage-selection-390x844.png` });
   await selectionToolbar.getByRole("button", { name: "Podeli" }).tap();
-  await page.waitForFunction(() => globalThis.__fairSharedPayload?.url?.includes("/sajam/deli/"));
+  await page.waitForFunction(() => globalThis.__fairSharedPayload?.url?.includes("/deli/"));
   assert(await selectionToolbar.isVisible(), "native sharing unexpectedly closed selection mode");
   assert(shareRequests.some((request) => request.kind === "collection" && request.body.eventModelIds.length === 2), "multi-model share did not create a bounded collection");
   await page.waitForFunction(() => document.body.dataset.shareTrafficDone === "1", undefined, { timeout: 80 }).catch(() => undefined);
@@ -313,7 +309,7 @@ try {
   assert(await compareLink.isVisible(), "comparison action did not unlock after two selections");
   await page.evaluate(() => window.scrollTo(0, 0));
   await Promise.all([
-    page.waitForURL(/\/sajam\/garaza\/poredjenje/),
+    page.waitForURL(/\/sajam\/elektromobilnost-2026\/garaza\/poredjenje/),
     compareLink.tap(),
   ]);
   await page.waitForLoadState("networkidle");
@@ -337,16 +333,14 @@ try {
   const persistencePage = await persistenceContext.newPage();
   watchPage(persistencePage, errors);
   await shiftDateNow(persistencePage, "2026-10-31T12:00:00+01:00");
-  await persistencePage.goto(`${baseUrl}${garagePath}`, { waitUntil: "networkidle" });
-  await persistencePage.getByRole("tab", { name: /Auto Moto Fest/i }).tap();
+  await persistencePage.goto(`${baseUrl}${autoGaragePath}`, { waitUntil: "networkidle" });
   await persistencePage.waitForFunction(() => localStorage.getItem("scanme:fair-garage-active-event") === "auto-moto-fest-2026");
   await Promise.all([
     persistencePage.waitForURL(/\/sajam\/auto-moto-fest-2026$/),
     persistencePage.getByRole("link", { name: "Mapa" }).tap(),
   ]);
   await persistencePage.goBack({ waitUntil: "networkidle" });
-  await persistencePage.getByRole("tab", { name: /Auto Moto Fest/i, selected: true }).waitFor();
-  assert(persistencePage.url().endsWith(garagePath), "returning from the map did not restore the garage route");
+  assert(persistencePage.url().endsWith(autoGaragePath), "returning from the map did not restore the garage route");
   await persistenceContext.close();
 
   const removalContext = await browser.newContext({
@@ -362,7 +356,6 @@ try {
   await removalPage.goto(`${baseUrl}${garagePath}`, { waitUntil: "networkidle" });
   await seedGarage(removalPage);
   await removalPage.reload({ waitUntil: "networkidle" });
-  await removalPage.getByRole("tab", { name: /Elektromobilnost/i }).tap();
   await removalPage.getByRole("button", { name: /Ukloni Dolphin/i }).tap();
   await removalPage.getByRole("heading", { name: /Ukloniti model/i }).waitFor();
   await removalContext.setOffline(true);
@@ -376,7 +369,7 @@ try {
     savedAfterOfflineRemove === 2,
     `offline remove did not persist exactly two models: ${savedAfterOfflineRemove}`,
   );
-  await removalPage.getByRole("tab", { name: /Auto Moto Fest/i }).tap();
+  await removalPage.goto(`${baseUrl}${autoGaragePath}`, { waitUntil: "networkidle" });
   assert(
     await removalPage.getByRole("heading", { name: /Garaža je spremna/i }).isVisible(),
     "empty event state is missing",
@@ -402,10 +395,9 @@ try {
   await sponsoredPage.route("**/api/fair/sponsored-action", async (route) => {
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, value: { recorded: true } }) });
   });
-  await sponsoredPage.goto(`${baseUrl}${garagePath}`, { waitUntil: "networkidle" });
+  await sponsoredPage.goto(`${baseUrl}${autoGaragePath}`, { waitUntil: "networkidle" });
   await seedAutoGarage(sponsoredPage);
   await sponsoredPage.reload({ waitUntil: "networkidle" });
-  await sponsoredPage.getByRole("tab", { name: /Auto Moto Fest/i }).tap();
   assert(
     (await sponsoredPage.locator(".fair-shell__current").count()) === 1 &&
       (await sponsoredPage.locator(".fair-shell__current").getAttribute("href")) === null,
@@ -436,7 +428,7 @@ try {
   const sharedContext = await browser.newContext({ viewport: { width: 390, height: 844 }, colorScheme: "light", hasTouch: true, isMobile: true, deviceScaleFactor: 3 });
   const sharedPage = await sharedContext.newPage();
   watchPage(sharedPage, errors);
-  await sharedPage.goto(`${baseUrl}/sajam/deli/abcdefghijklmnopqrstuvwx`, { waitUntil: "networkidle" });
+  await sharedPage.goto(`${baseUrl}${sharedPath}`, { waitUntil: "networkidle" });
   await sharedPage.getByRole("heading", { name: "Ova kolekcija više nije dostupna." }).waitFor();
   await audit(sharedPage, "expired shared collection 390x844");
   await sharedPage.screenshot({ path: `${outputDir}/fair-garage-shared-expired-390x844.png` });

@@ -1,47 +1,27 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { fetchQuery } from "convex/nextjs";
+import { notFound, redirect } from "next/navigation";
 import { ArrowUpRight, CarFront, Share2 } from "lucide-react";
-import { api } from "@/convex/_generated/api";
+import { FairEventShell } from "@/components/fair/event-shell";
 import { FairShareOpenRecorder } from "@/components/fair/garage/fair-share-open-recorder";
-import { FAIR_SHARE_CODE_PATTERN, type FairPublicModel } from "@/lib/fair-contract";
-import { fairShareCodeHash } from "@/lib/fair-server/sharing";
+import { fairGarageEventId, fairGarageEventTitle } from "@/lib/fair-client/garage-view";
+import { fairPublicEventSlug } from "@/lib/fair-public-event";
+import { fairGarageDefinition, loadFairGarageEventSummary } from "@/lib/fair-server/garage-page";
+import { readFairSharedCollection } from "@/lib/fair-server/shared-collection";
+import { fairEventThemeClass } from "@/lib/fair-theme";
 import { fmt } from "@/lib/i18n/format";
 import { fairGarageSr as dict } from "@/lib/i18n/sr/fair-garage";
-import "../../fair-event.css";
+import { fairModelSr } from "@/lib/i18n/sr/fair-model";
 import styles from "./shared-collection.module.css";
 
 export const dynamic = "force-dynamic";
 
-type Props = { params: Promise<{ shareCode: string }> };
-
-type SharedCollection = {
-  id: string;
-  eventId: string;
-  eventModelIds: string[];
-  expiresAt: number;
-  models: FairPublicModel[];
-};
-
-async function readCollection(shareCode: string): Promise<SharedCollection | null> {
-  if (!FAIR_SHARE_CODE_PATTERN.test(shareCode)) return null;
-  try {
-    const collection = await fetchQuery(api.fairSharing.getShareCollectionByCodeHash, {
-      codeHash: fairShareCodeHash(shareCode),
-      now: Date.now(),
-    });
-    if (!collection) return null;
-    const models = await fetchQuery(api.fairPublic.getModelsByIds, { ids: collection.eventModelIds });
-    return { ...collection, models };
-  } catch {
-    return null;
-  }
-}
+type Props = { params: Promise<{ eventSlug: string; shareCode: string }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { shareCode } = await params;
-  const collection = await readCollection(shareCode);
+  const collection = await readFairSharedCollection(shareCode);
   if (!collection || collection.models.length === 0) {
     return { title: dict.sharedCollectionExpired, robots: { index: false, follow: false } };
   }
@@ -62,39 +42,48 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-function Header({ eventSlug, eventTitle }: { eventSlug?: string; eventTitle?: string }) {
-  return (
-    <header className={styles.header}>
-      <div className={styles.headerInner}>
-        <Link href={eventSlug ? `/sajam/${eventSlug}` : "/sajam/garaza"} className={styles.brand}>
-          <span><strong>{dict.umbrellaTitle}</strong><small>{eventTitle ?? dict.sharedCollectionPartner}</small></span>
-        </Link>
-        <Link href="/sajam/garaza" className={styles.garageLink}><CarFront aria-hidden="true" />{dict.garageNav}</Link>
-      </div>
-    </header>
-  );
-}
-
 export default async function SharedCollectionPage({ params }: Props) {
-  const { shareCode } = await params;
-  const collection = await readCollection(shareCode);
+  const { eventSlug, shareCode } = await params;
+  const definition = fairGarageDefinition(eventSlug);
+  if (!definition) notFound();
+  const [collection, event] = await Promise.all([
+    readFairSharedCollection(shareCode),
+    loadFairGarageEventSummary(definition),
+  ]);
   const first = collection?.models[0];
+
+  // A collection belongs to one event; a link under another event slug is
+  // sent to the collection's own event so the theme and navigation match.
+  if (first && fairPublicEventSlug(first.eventSlug) !== definition.publicSlug) {
+    redirect(`/sajam/${fairPublicEventSlug(first.eventSlug)}/deli/${shareCode}`);
+  }
+
+  const garageHref = `/sajam/${eventSlug}/garaza`;
+  const shell = (
+    <FairEventShell
+      eventId={fairGarageEventId(event)}
+      eventSlug={eventSlug}
+      eventTitle={dict.umbrellaTitle}
+      eventName={fairGarageEventTitle(event)}
+      dict={fairModelSr}
+    />
+  );
 
   if (!collection || !first || collection.models.length === 0) {
     return (
-      <div className={`fair-event ${styles.page}`} data-reveal="off">
-        <Header />
+      <div className={`fair-event ${fairEventThemeClass(eventSlug)} ${styles.page}`} data-reveal="off">
+        {shell}
         <main className={styles.expired}>
-          <div><Share2 aria-hidden="true" /><h1>{dict.sharedCollectionExpired}</h1><p>{dict.sharedCollectionBody}</p><Link href="/sajam/garaza" className={styles.backLink}><CarFront aria-hidden="true" />{dict.sharedCollectionBack}</Link></div>
+          <div><Share2 aria-hidden="true" /><h1>{dict.sharedCollectionExpired}</h1><p>{dict.sharedCollectionBody}</p><Link href={garageHref} className={styles.backLink}><CarFront aria-hidden="true" />{dict.sharedCollectionBack}</Link></div>
         </main>
       </div>
     );
   }
 
   return (
-    <div className={`fair-event ${styles.page}`} data-reveal="off">
+    <div className={`fair-event ${fairEventThemeClass(eventSlug)} ${styles.page}`} data-reveal="off">
       <FairShareOpenRecorder collectionId={collection.id} />
-      <Header eventSlug={first.eventSlug} eventTitle={first.eventTitle} />
+      {shell}
       <main className={styles.main}>
         <div className={styles.intro}><span>{first.eventTitle}</span><h1>{dict.sharedCollectionTitle}</h1><p>{dict.sharedCollectionBody}</p></div>
         <section className={styles.grid} aria-label={dict.sharedCollectionTitle}>
@@ -105,12 +94,12 @@ export default async function SharedCollectionPage({ params }: Props) {
               </div>
               <div className={styles.copy}>
                 <small>{model.brandName}</small><h2>{model.displayName}</h2><p>{model.priceText}</p>
-                <Link href={`/sajam/${model.eventSlug}/model/${model.slug}`}>{dict.viewModel}<ArrowUpRight aria-hidden="true" /></Link>
+                <Link href={`/sajam/${fairPublicEventSlug(model.eventSlug)}/model/${model.slug}`}>{dict.viewModel}<ArrowUpRight aria-hidden="true" /></Link>
               </div>
             </article>
           ))}
         </section>
-        <Link href="/sajam/garaza" className={styles.backLink}><CarFront aria-hidden="true" />{dict.sharedCollectionBack}</Link>
+        <Link href={garageHref} className={styles.backLink}><CarFront aria-hidden="true" />{dict.sharedCollectionBack}</Link>
       </main>
     </div>
   );

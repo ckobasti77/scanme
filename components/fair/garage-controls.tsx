@@ -7,13 +7,13 @@ import {
   FAIR_GARAGE_CHANGE_EVENT,
   FAIR_GARAGE_MODEL_CHANGE_EVENT,
   addFairGarageModel,
-  getFairGarageModels,
   hasFairGarageModel,
   readFairGarage,
   removeFairGarageModel,
   writeFairGarage,
   type FairGarageLastKnownModel,
 } from "@/lib/fair-client/garage-store";
+import { fairGarageEventCount } from "@/lib/fair-client/garage-view";
 import { fmt } from "@/lib/i18n";
 
 function subscribeToGarageEvent(eventName: string, onStoreChange: () => void) {
@@ -36,15 +36,15 @@ const subscribeGarageModel = (onStoreChange: () => void) =>
 
 const garageCountCache = new Map<string, number>();
 
-function getGarageCount(eventId: string) {
-  const count = getFairGarageModels(readFairGarage(window.localStorage).document, eventId).length;
-  garageCountCache.set(eventId, count);
+function getGarageCount(eventId: string, eventSlug: string) {
+  const count = fairGarageEventCount(readFairGarage(window.localStorage).document, { eventId, eventSlug });
+  garageCountCache.set(`${eventId}|${eventSlug}`, count);
   return count;
 }
 
-function getCachedGarageCount(eventId: string) {
+function getCachedGarageCount(eventId: string, eventSlug: string) {
   if (typeof window === "undefined") return null;
-  return garageCountCache.get(eventId) ?? null;
+  return garageCountCache.get(`${eventId}|${eventSlug}`) ?? null;
 }
 
 function hasModel(eventId: string, modelId: string) {
@@ -53,15 +53,17 @@ function hasModel(eventId: string, modelId: string) {
 
 export function GarageBadge({
   eventId,
+  eventSlug,
   ariaTemplate,
 }: {
   eventId: string;
+  eventSlug: string;
   ariaTemplate: string;
 }) {
   const count = useSyncExternalStore(
     subscribeGarageBadge,
-    () => getGarageCount(eventId),
-    () => getCachedGarageCount(eventId),
+    () => getGarageCount(eventId, eventSlug),
+    () => getCachedGarageCount(eventId, eventSlug),
   );
 
   return (

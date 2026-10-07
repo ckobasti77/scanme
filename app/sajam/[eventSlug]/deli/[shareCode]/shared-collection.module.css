@@ -5,72 +5,6 @@
     var(--fair-canvas);
 }
 
-.header {
-  position: sticky;
-  z-index: 20;
-  top: 0;
-  padding-top: env(safe-area-inset-top);
-  border-bottom: 1px solid var(--fair-line);
-  background: rgb(255 253 248 / 0.94);
-  backdrop-filter: blur(16px);
-}
-
-.headerInner {
-  display: flex;
-  width: min(100%, 620px);
-  min-height: 64px;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-inline: auto;
-  padding: 8px 14px;
-}
-
-.brand {
-  display: flex;
-  min-width: 0;
-  min-height: 44px;
-  align-items: center;
-  gap: 9px;
-  color: var(--fair-ink);
-  text-decoration: none;
-}
-
-.brand::before {
-  width: 5px;
-  height: 36px;
-  flex: none;
-  border-radius: 999px;
-  background: var(--fair-accent);
-  content: "";
-}
-
-.brand span {
-  display: grid;
-  min-width: 0;
-}
-
-.brand strong {
-  overflow: hidden;
-  font-size: 15px;
-  font-weight: 790;
-  letter-spacing: -0.035em;
-  line-height: 1.05;
-  text-overflow: ellipsis;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-
-.brand small {
-  margin-top: 4px;
-  color: var(--fair-ink-muted);
-  font-size: 9px;
-  font-weight: 660;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
-.garageLink,
 .backLink {
   display: inline-flex;
   min-height: 44px;
@@ -83,14 +17,6 @@
   text-decoration: none;
 }
 
-.garageLink {
-  padding: 8px 12px;
-  border: 1px solid var(--fair-line);
-  color: var(--fair-ink);
-  background: var(--fair-surface);
-}
-
-.garageLink svg,
 .backLink svg {
   width: 18px;
   height: 18px;

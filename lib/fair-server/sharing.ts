@@ -11,16 +11,19 @@ import {
   type FairShareChannel,
   type FairTrafficKind,
 } from "@/lib/fair-contract";
+import { fairPublicEventSlug } from "@/lib/fair-public-event";
 import { fairGatewayError, fairGatewayJson, fairGatewayRequest } from "./gateway";
 import { fairErrorCodeOf } from "./interactions";
 import { fairVisitorForRequest, type FairVisitorEnv } from "./visitor";
 
 type CreateShareCollection = typeof api.fairSharing.createShareCollection;
 type RecordTraffic = typeof api.fairSharing.recordTraffic;
+type GetModelsByIds = typeof api.fairPublic.getModelsByIds;
 
 export type FairSharingBackend = {
   createShareCollection(args: FunctionArgs<CreateShareCollection>): Promise<FunctionReturnType<CreateShareCollection>>;
   recordTraffic(args: FunctionArgs<RecordTraffic>): Promise<FunctionReturnType<RecordTraffic>>;
+  getModelsByIds(args: FunctionArgs<GetModelsByIds>): Promise<FunctionReturnType<GetModelsByIds>>;
 };
 
 export function convexFairSharingBackend(convexUrl: string): FairSharingBackend {
@@ -28,6 +31,7 @@ export function convexFairSharingBackend(convexUrl: string): FairSharingBackend 
   return {
     createShareCollection: (args) => client.mutation(api.fairSharing.createShareCollection, args),
     recordTraffic: (args) => client.mutation(api.fairSharing.recordTraffic, args),
+    getModelsByIds: (args) => client.query(api.fairPublic.getModelsByIds, args),
   };
 }
 
@@ -110,6 +114,19 @@ function parseTraffic(value: unknown) {
   };
 }
 
+// Shared collections live under their event's public slug. The collection
+// mutation returns only the event id, so the slug comes from the first model;
+// when that read fails the legacy path still redirects to the right event.
+async function sharePath(backend: FairSharingBackend, eventModelId: string, shareCode: string) {
+  try {
+    const [model] = await backend.getModelsByIds({ ids: [eventModelId] });
+    if (model) return `/sajam/${fairPublicEventSlug(model.eventSlug)}/deli/${shareCode}`;
+  } catch {
+    // Fall through to the legacy redirecting path.
+  }
+  return `/sajam/deli/${shareCode}`;
+}
+
 export type FairSharingDeps = { now?: number; env?: FairVisitorEnv; backend?: FairSharingBackend | null };
 
 export async function handleCreateShareCollection(request: Request, deps: FairSharingDeps = {}): Promise<Response> {
@@ -130,7 +147,7 @@ export async function handleCreateShareCollection(request: Request, deps: FairSh
       codeHash: fairShareCodeHash(shareCode),
       requestId: args.requestId,
     });
-    return fairGatewayJson({ ok: true, value: { ...value, shareCode, url: `${new URL(request.url).origin}/sajam/deli/${shareCode}` } }, 200, visitor.setCookie);
+    return fairGatewayJson({ ok: true, value: { ...value, shareCode, url: `${new URL(request.url).origin}${await sharePath(backend, args.eventModelIds[0], shareCode)}` } }, 200, visitor.setCookie);
   } catch (error) {
     const code = fairErrorCodeOf(error);
     return code ? fairGatewayError(code, STATUS[code] ?? 400) : fairGatewayError("SERVICE_UNAVAILABLE", 502);
