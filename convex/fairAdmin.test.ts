@@ -186,10 +186,15 @@ describe("idempotent catalog upserts and hard errors", () => {
     await expectCode(f.admin.mutation(api.fairAdmin.upsertParticipation, { ...p, accountId: f.a.accountId, businessId: deletedBusiness }), "FAIR_LINK_NOT_FOUND");
     // Brand of another account.
     await expectCode(f.admin.mutation(api.fairAdmin.upsertModel, f.modelArgs({ brandId: f.b.brandIds[0] })), "FAIR_LINK_CONFLICT");
-    // Stand of another event/participation, duplicate slug, duplicate map location.
+    // Stand of another event/participation, duplicate slug.
     await f.admin.mutation(api.fairAdmin.upsertModel, f.modelArgs());
     await expectCode(f.admin.mutation(api.fairAdmin.upsertModel, f.modelArgs({ externalKey: "em26-volta-x1-copy" })), "FAIR_SLUG_TAKEN");
-    await expectCode(f.admin.mutation(api.fairAdmin.upsertStand, { eventId: f.eventId, participationId: f.participationId, externalKey: "em26-stand-a13", code: "A13", displayName: "A13", mapLocationId: "hala-1a" }), "FAIR_MAP_LOCATION_TAKEN");
+    // Owner decision O4: a second stand may share the map location — only a warning.
+    const shared = await f.admin.mutation(api.fairAdmin.upsertStand, { eventId: f.eventId, participationId: f.participationId, externalKey: "em26-stand-a13", code: "A13", displayName: "A13", mapLocationId: "hala-1a" });
+    expect(shared.result).toBe("created");
+    const sharedIssues = (await f.admin.query(api.fairAdmin.listValidationIssues, { eventId: f.eventId }))[0].issues;
+    expect(sharedIssues).toContainEqual(expect.objectContaining({ severity: "warning", code: "FAIR_MAP_LOCATION_TAKEN" }));
+    expect(sharedIssues.filter((issue) => issue.severity === "error")).toEqual([]);
     await expectCode(f.admin.mutation(api.fairAdmin.upsertStand, { eventId: f.eventId, participationId: f.participationId, externalKey: "em26-stand-a14", code: "A14", displayName: "A14", mapLocationId: "  " }), "FAIR_MAP_LOCATION_INVALID");
     // M0 geometry: unknown id, another event's id and the ScanMe location are not stands of this map.
     for (const mapLocationId of ["hala-99", "hala-6-7", "scanme"]) {

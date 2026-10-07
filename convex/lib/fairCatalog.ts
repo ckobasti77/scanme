@@ -203,10 +203,10 @@ export function isFairEventMapLocationId(eventCode: string, id: string) {
 /**
  * Seam for the stand ↔ map contract (HANDOFF §8, DATA-INTAKE §5). Since M0
  * each id must be a stand location of the event's map geometry (lib/fair-map;
- * a `test-` event uses the real map, the ScanMe location is never a stand),
- * and within the event no two different non-withdrawn stands may share one id
- * (B1 step instruction). R0 finding 1 asks whether a shared map location is
- * legitimate; that is an open owner question — flip the "taken" check here only.
+ * a `test-` event uses the real map, the ScanMe location is never a stand).
+ * Owner decision O4 (2026-10-08): different stands/exhibitors may share one
+ * map location (e.g. hala-6: AUTO MIG/Foton and Grand Motors/Mazda+Chery), so
+ * a shared id is only a FAIR_MAP_LOCATION_TAKEN warning, never an error.
  */
 export async function validateMapLocationIds(
   ctx: Ctx,
@@ -228,7 +228,7 @@ export async function validateMapLocationIds(
     }
     const owner = owners.get(id);
     if (owner !== undefined && owner !== entry.standKey) {
-      issues.push(fairIssue("error", "FAIR_MAP_LOCATION_TAKEN", entry.path, { mapLocationId: id }));
+      issues.push(fairIssue("warning", "FAIR_MAP_LOCATION_TAKEN", entry.path, { mapLocationId: id }));
       continue;
     }
     owners.set(id, entry.standKey);
@@ -238,7 +238,7 @@ export async function validateMapLocationIds(
       .withIndex("by_eventId_and_mapLocationId", (q) => q.eq("eventId", eventId).eq("mapLocationId", id))
       .take(10);
     if (stands.some((stand) => stand.status !== "withdrawn" && stand.externalKey !== entry.standKey)) {
-      issues.push(fairIssue("error", "FAIR_MAP_LOCATION_TAKEN", entry.path, { mapLocationId: id }));
+      issues.push(fairIssue("warning", "FAIR_MAP_LOCATION_TAKEN", entry.path, { mapLocationId: id }));
     }
   }
   return issues;

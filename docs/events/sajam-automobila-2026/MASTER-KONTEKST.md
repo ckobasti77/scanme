@@ -736,6 +736,11 @@ Pre produkcije mora da bude dokazano najmanje sledeće:
 
 ## 20. Dnevnik izmena
 
+### 8. oktobar 2026.
+
+- Odluka vlasnika proizvoda O4 (rešeno): više različitih izlagača sme da deli istu lokaciju na mapi. Na `hala-6` su AUTO MIG/Foton i Grand Motors/Mazda+Chery, isti tim na štandu 6, ali odvojeni izlagači sa posebnim izveštajima i leadovima. Validacija deljenu lokaciju prijavljuje samo kao upozorenje (`JOVAN-DELTA-2026-10-08.md`).
+- Pravi događaj `elektromobilnost-2026` je postavljen na DEV-u: 5 `event_only` izlagača i 15 objavljenih modela iz ispravljenog intake-a. JMEV je jedini brend sa pasošem. Postupak za produkciju je u `RUNBOOK-EVENT-SETUP.md`.
+
 ### 7. oktobar 2026.
 
 - Odluka vlasnika proizvoda: sve javne sajamske rute žive pod `/sajam/[eventSlug]`. Garaža, poređenje i deljena kolekcija su premešteni na `/sajam/[eventSlug]/garaza`, `/sajam/[eventSlug]/garaza/poredjenje` i `/sajam/[eventSlug]/deli/[shareCode]`; samo `/sajam` privremeno (307) preusmerava na aktivni sajam, stare adrese bez sajma su uklonjene jer ništa nije objavljeno, a štampani QR kodovi ostaju nepromenjeni kroz `/r/[cardCode]`. Link deljene kolekcije uvek sadrži slug sajma; ako se sajam ne može pročitati, deljenje vraća grešku umesto linka.

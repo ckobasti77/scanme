@@ -565,7 +565,7 @@ export const listValidationIssues = query({
       if (stand) {
         if (!isFairEventMapLocationId(event.code, stand.mapLocationId)) mapIssues.push({ severity: "error", code: "FAIR_MAP_LOCATION_INVALID", path: "stand.mapLocationId" });
         else if (stands.some((other) => other._id !== stand._id && other.status !== "withdrawn" && other.mapLocationId === stand.mapLocationId)) {
-          mapIssues.push({ severity: "error", code: "FAIR_MAP_LOCATION_TAKEN", path: "stand.mapLocationId", details: { mapLocationId: stand.mapLocationId } });
+          mapIssues.push({ severity: "warning", code: "FAIR_MAP_LOCATION_TAKEN", path: "stand.mapLocationId", details: { mapLocationId: stand.mapLocationId } });
         }
       }
       return {

@@ -1,0 +1,8 @@
+event_code,participation_external_key,exhibitor_name,client_segment,primary_contact_name,primary_contact_email,primary_contact_phone,report_email,pii_recipient_name,pii_recipient_email,pii_delivery_channel,report_delivery_time_note,account_external_key,business_external_key,source_reference,internal_notes
+elektromobilnost-2026,elektromobilnost-2026-jmev,CUBI d.o.o.,event_only,,,,,,,,,SMK-SAJAM-26-CUBI,SML-SAJAM-26-CUBI,Izlagaci/JMEV/JMEV Mails/Re_ ScanMe podaci.eml,SMK/SML dodeljeni 8.10. (fairSetup:bootstrapEvent); kontakt je placeholder
+elektromobilnost-2026,elektromobilnost-2026-grand-motors,Grand Motors d.o.o.,event_only,,,,,,,,,SMK-SAJAM-26-GRAND-MOTORS,SML-SAJAM-26-GRAND-MOTORS,Izlagaci/Mazda x Chery,Zajednicko ucesce za Mazda i Chery; SMK/SML dodeljeni 8.10. (fairSetup:bootstrapEvent); kontakt je placeholder
+elektromobilnost-2026,elektromobilnost-2026-auto-mig,AUTO MIG d.o.o. Niš,event_only,,,,,,,,,SMK-SAJAM-26-AUTO-MIG,SML-SAJAM-26-AUTO-MIG,Izlagaci/Foton/Foton Mails/ScanMe podaci za sajam.eml,SMK/SML dodeljeni 8.10. (fairSetup:bootstrapEvent); kontakt je placeholder
+elektromobilnost-2026,elektromobilnost-2026-ferum,Ferum d.o.o.,event_only,,,,,,,,,SMK-SAJAM-26-FERUM,SML-SAJAM-26-FERUM,Izlagaci/Ferum/NAPOMENA.txt,SMK/SML dodeljeni 8.10. (fairSetup:bootstrapEvent); kontakt je placeholder
+elektromobilnost-2026,elektromobilnost-2026-bentu,BENTU MOTORS D.O.O,event_only,,,,,,,,,SMK-SAJAM-26-BENTU,SML-SAJAM-26-BENTU,Izlagaci/Bentu/NAPOMENA.txt,SMK/SML dodeljeni 8.10. (fairSetup:bootstrapEvent); kontakt je placeholder
+
+

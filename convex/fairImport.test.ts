@@ -170,8 +170,11 @@ describe("dry run", () => {
       "FAIR_PACKAGE_DOWNGRADE:participations[0].brands[0].models[0].packageTier",
       "FAIR_QR_ALREADY_ASSIGNED:participations[1].brands[0].models[0].assignedResolverCode",
       "FAIR_SLUG_TAKEN:participations[1].brands[0].models[1].slug",
-      "FAIR_MAP_LOCATION_TAKEN:participations[1].brands[0].stand.mapLocationId",
     ]));
+    // Owner decision O4: a map location shared by two exhibitors is a warning, not an error.
+    const dupWarnings = (await f.admin.query(api.fairImport.dryRun, { payload: dup })).issues.filter((i) => i.severity === "warning").map((i) => `${i.code}:${i.path}`);
+    expect(dupWarnings).toContain("FAIR_MAP_LOCATION_TAKEN:participations[1].brands[0].stand.mapLocationId");
+    expect(dupErrors.filter((issue) => issue.startsWith("FAIR_MAP_LOCATION_TAKEN"))).toEqual([]);
 
     const unsupported = await f.admin.query(api.fairImport.dryRun, { payload: { ...payload(), version: 2 } });
     expect(unsupported.issues).toEqual([expect.objectContaining({ code: "FAIR_IMPORT_VERSION_UNSUPPORTED" })]);

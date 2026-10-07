@@ -280,10 +280,11 @@ Ovo je redosled kojim se projekat trenutno odblokira. Stavka niže ne smatra se 
 | O1 | Odobrenje B0 ugovora i odstupanja šeme | Jovan je nastavio pre formalnog pregleda | Tokom sadašnjeg pregleda |
 | O2 | Automatski ili ručno odobren purge 16. novembra | Kod trenutno automatski briše u 00:00 | Pre produkcijskog deploy-a |
 | O3 | Tačna pozicija ScanMe štanda | Bez nje se ScanMe lokacija ne prikazuje | Pre finalnog audita mape |
-| O4 | Deljene lokacije štandova | Trenutna validacija traži jedinstvenu lokaciju | Pre stvarnog importa |
 | O5 | Vreme zatvaranja dana za izveštaj | Određuje dnevni cron i poređenje | Pre integracionog testa izveštaja |
 | O6 | Kanal predaje PII-a izlagačima | Bez toga leadovi ne smeju u produkciju | Pre aktivacije leadova |
 | O7 | Finalni PDF/XLSX izgled izveštaja | Funkcionalni eksport postoji, izgled nije odobren | Pre prvog pravog izveštaja |
+
+Rešeno: **O4 — Deljene lokacije štandova** (8. 10.). Različiti izlagači smeju da dele lokaciju na mapi (`hala-6`: AUTO MIG/Foton i Grand Motors/Mazda+Chery); validacija to prijavljuje samo kao upozorenje. Detalji su u `JOVAN-DELTA-2026-10-08.md`.
 
 ## Vlasništvo
 
