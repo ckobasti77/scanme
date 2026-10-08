@@ -370,6 +370,15 @@ export function AudienceMatrix({ rows, models, days, now, selected, onOpen }: {
   );
 }
 
+/**
+ * P1 (Aleksa, 8. 10. 2026) — „Otvori sada“ is offered for a PUBLISHED question
+ * whose window has not started yet (its day is still ahead) and has not ended.
+ * The backend keeps the question's day, so the daily limit is unchanged.
+ */
+export function audienceCanOpenNow(question: Pick<InteractionQuestion, "status" | "startsAt" | "endsAt">, now: number): boolean {
+  return question.status === "published" && question.startsAt !== undefined && question.startsAt > now && (question.endsAt === undefined || question.endsAt > now);
+}
+
 // -----------------------------------------------------------------------------
 // The view
 // -----------------------------------------------------------------------------
@@ -494,6 +503,17 @@ function Audience({ view, actions, now, query, onQueryChange, scoped = false }: 
         {question.showOnSponsoredRotation ? (
           <button type="button" className={cn(adminSecondaryButtonClass, "min-h-9 px-3")} disabled={pending} onClick={() => void run(() => actions.setSponsoredResult(question.modelId, null), a.sponsoredCleared)}>
             {a.clearSponsored}
+          </button>
+        ) : null}
+        {actions.openQuestionNow && audienceCanOpenNow(question, now) ? (
+          <button
+            type="button"
+            className={cn(adminSecondaryButtonClass, "min-h-11 px-3")}
+            disabled={pending}
+            aria-label={fmt(a.openNowAria, { prompt: question.prompt })}
+            onClick={() => void run(() => actions.openQuestionNow!(question.id), a.openedNow)}
+          >
+            {a.openNow}
           </button>
         ) : null}
         {status === "published" || status === "sponsored" ? (

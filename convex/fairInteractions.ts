@@ -1,6 +1,7 @@
 import { v, type Infer } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import {
+  fairIsPreEvent,
   isFairSubmissionId,
   type FairPassportState,
   type FairSponsoredActionKind,
@@ -65,6 +66,12 @@ import { rateLimiter } from "./lib/rateLimits";
 // ConvexError({ code }) (lib/fair-contract FAIR_ERROR_CODES), so nothing is
 // partially written. Nothing here returns PII, another visitor's state or a
 // rating count/sum/average (JOVAN-DELTA §1).
+//
+// P1 (pre-event): a write before the event's startsAt (fairIsPreEvent) is
+// stored for the visitor but bumps no counter (`preEvent: true` on rows that
+// would). The visitor's first write during the fair takes such a row over and
+// counts as the first one, so pre-event data never uses up a fair-time vote,
+// rating, favorite or survey answer.
 // =============================================================================
 
 type MyModelState = Infer<typeof fairMyModelStateView>;
@@ -189,7 +196,7 @@ export const upsertRating = mutation({
     const now = Date.now();
     requireFairGateway(args.gatewaySecret);
     requireVisitorHash(args.visitorHash);
-    const { model } = await requireInteractiveModel(ctx, args.eventModelId, now);
+    const { model, event } = await requireInteractiveModel(ctx, args.eventModelId, now);
     const tier = await fairModelTierAt(ctx, model, now);
     const values: FairRatingInputValues = {};
     if (args.overall !== undefined) values.overall = args.overall;
@@ -201,7 +208,7 @@ export const upsertRating = mutation({
 
     const visitorId = await requireFairVisitorRow(ctx, { visitorHash: args.visitorHash, ipHash: args.ipHash, now });
     await requireLimit(ctx, "fairRating", visitorId);
-    const row = await applyFairRating(ctx, { visitorId, model, values, now });
+    const row = await applyFairRating(ctx, { visitorId, model, values, now, preEvent: fairIsPreEvent(now, event) });
     return fairOwnRatingState(tier, row);
   },
 });
@@ -209,6 +216,7 @@ export const upsertRating = mutation({
 /**
  * One changeable vote per visitor and question. A change moves the counter
  * from the old option to the new one, so the number of voters stays the same.
+ * P1: a pre-event vote is in no counter; the first vote during the fair takes it over.
  */
 export const upsertAudienceVote = mutation({
   args: { gatewaySecret: v.optional(v.string()), ipHash: v.optional(v.string()), visitorHash: v.string(), questionId: v.string(), optionId: v.string() },
@@ -227,6 +235,7 @@ export const upsertAudienceVote = mutation({
 
     const visitorId = await requireFairVisitorRow(ctx, { visitorHash: args.visitorHash, ipHash: args.ipHash, now });
     await requireLimit(ctx, "fairAudienceVote", visitorId);
+    const preEvent = fairIsPreEvent(now, event);
     const existing = await ctx.db
       .query("fairAudienceVotes")
       .withIndex("by_visitorId_and_questionId", (q) => q.eq("visitorId", visitorId).eq("questionId", question._id))
@@ -240,12 +249,22 @@ export const upsertAudienceVote = mutation({
         optionId: args.optionId,
         createdAt: now,
         updatedAt: now,
+        ...(preEvent ? { preEvent: true } : {}),
       });
+      if (!preEvent) await bumpFairCount(ctx, fairAudienceVoteKey(question._id, args.optionId), 1);
+    } else if (existing.preEvent === true && !preEvent) {
+      await ctx.db.patch(existing._id, { optionId: args.optionId, createdAt: now, updatedAt: now, preEvent: undefined });
       await bumpFairCount(ctx, fairAudienceVoteKey(question._id, args.optionId), 1);
+    } else if (existing.preEvent !== true && preEvent) {
+      // A vote written before P1 (counted then) that gets a pre-event write leaves the counter now.
+      await ctx.db.patch(existing._id, { optionId: args.optionId, updatedAt: now, preEvent: true });
+      await bumpFairCount(ctx, fairAudienceVoteKey(question._id, existing.optionId), -1);
     } else if (existing.optionId !== args.optionId) {
       await ctx.db.patch(existing._id, { optionId: args.optionId, updatedAt: now });
-      await bumpFairCount(ctx, fairAudienceVoteKey(question._id, existing.optionId), -1);
-      await bumpFairCount(ctx, fairAudienceVoteKey(question._id, args.optionId), 1);
+      if (existing.preEvent !== true) {
+        await bumpFairCount(ctx, fairAudienceVoteKey(question._id, existing.optionId), -1);
+        await bumpFairCount(ctx, fairAudienceVoteKey(question._id, args.optionId), 1);
+      }
     }
     return fairAudienceResult(ctx, question, fairVoteThreshold(event), args.optionId);
   },
@@ -286,15 +305,18 @@ export const submitSurvey = mutation({
     const surveyId = ctx.db.normalizeId("fairSurveys", args.surveyId);
     const survey = surveyId ? await ctx.db.get(surveyId) : null;
     if (!survey || survey.status !== "published") fairInteractionError("SURVEY_NOT_OPEN");
-    const { model } = await requireInteractiveModel(ctx, survey.eventModelId, now);
+    const { model, event } = await requireInteractiveModel(ctx, survey.eventModelId, now);
     const tier = await fairModelTierAt(ctx, model, now);
     if (!getFairEntitlements(tier).survey) fairInteractionError("FEATURE_NOT_ENTITLED");
     const problem = fairSurveyAnswersProblem(survey, args.answers);
     if (problem) fairInteractionError(problem, { field: "answers" });
 
     const visitorId = await requireFairVisitorRow(ctx, { visitorHash: args.visitorHash, ipHash: args.ipHash, now });
-    if (await fairVisitorSurveyResponse(ctx, visitorId, await fairModelSurveys(ctx, model._id))) {
-      fairInteractionError("SURVEY_ALREADY_SUBMITTED");
+    const answered = await fairVisitorSurveyResponse(ctx, visitorId, await fairModelSurveys(ctx, model._id));
+    if (answered) {
+      // P1: a pre-event answer gives way to the visitor's first answer during the fair.
+      if (!fairIsPreEvent(answered.response.submittedAt, event) || fairIsPreEvent(now, event)) fairInteractionError("SURVEY_ALREADY_SUBMITTED");
+      await ctx.db.delete(answered.response._id);
     }
     await requireLimit(ctx, "fairSurveySubmit", visitorId);
     await ctx.db.insert("fairSurveyResponses", {
@@ -338,6 +360,7 @@ export const upsertBrandFavorite = mutation({
 
     const visitorId = await requireFairVisitorRow(ctx, { visitorHash: args.visitorHash, ipHash: args.ipHash, now });
     await requireLimit(ctx, "fairBrandFavorite", visitorId);
+    const preEvent = fairIsPreEvent(now, event);
     const existing = await ctx.db
       .query("fairBrandFavoriteVotes")
       .withIndex("by_visitorId_and_eventId_and_brandId", (q) =>
@@ -352,12 +375,23 @@ export const upsertBrandFavorite = mutation({
         eventModelId: choice.eventModelId,
         createdAt: now,
         updatedAt: now,
+        ...(preEvent ? { preEvent: true } : {}),
       });
+      if (!preEvent) await bumpFairCount(ctx, fairFavoriteKey(passport._id, choice.eventModelId), 1);
+    } else if (existing.preEvent === true && !preEvent) {
+      // P1: the first favorite during the fair takes the pre-event one over.
+      await ctx.db.patch(existing._id, { eventModelId: choice.eventModelId, createdAt: now, updatedAt: now, preEvent: undefined });
       await bumpFairCount(ctx, fairFavoriteKey(passport._id, choice.eventModelId), 1);
+    } else if (existing.preEvent !== true && preEvent) {
+      // A favorite written before P1 (counted then) that gets a pre-event write leaves the counter now.
+      await ctx.db.patch(existing._id, { eventModelId: choice.eventModelId, updatedAt: now, preEvent: true });
+      await bumpFairCount(ctx, fairFavoriteKey(passport._id, existing.eventModelId), -1);
     } else if (existing.eventModelId !== choice.eventModelId) {
       await ctx.db.patch(existing._id, { eventModelId: choice.eventModelId, updatedAt: now });
-      await bumpFairCount(ctx, fairFavoriteKey(passport._id, existing.eventModelId), -1);
-      await bumpFairCount(ctx, fairFavoriteKey(passport._id, choice.eventModelId), 1);
+      if (existing.preEvent !== true) {
+        await bumpFairCount(ctx, fairFavoriteKey(passport._id, existing.eventModelId), -1);
+        await bumpFairCount(ctx, fairFavoriteKey(passport._id, choice.eventModelId), 1);
+      }
     }
     return fairPassportProgress(ctx, { passport, required, visitorId, threshold });
   },
@@ -410,7 +444,7 @@ export const recordSponsoredAction = mutation({
       return { eventModelId: prior.eventModelId, kind: prior.kind, recordedAt: prior.occurredAt, duplicate: true };
     }
 
-    const { model } = await requireInteractiveModel(ctx, args.eventModelId, now);
+    const { model, event } = await requireInteractiveModel(ctx, args.eventModelId, now);
     if (!getFairEntitlements(await fairModelTierAt(ctx, model, now)).sponsoredGarageRotation) fairInteractionError("FEATURE_NOT_ENTITLED");
     const snapshot = await fairActiveSponsoredSnapshot(ctx, model.eventId);
     const inSnapshot = snapshot ? (await fairSponsoredItems(ctx, snapshot._id)).some((item) => item.eventModelId === model._id) : false;
@@ -419,6 +453,7 @@ export const recordSponsoredAction = mutation({
     const visitorId = await requireFairVisitorRow(ctx, { visitorHash: args.visitorHash, ipHash: args.ipHash, now });
     await requireLimit(ctx, "fairSponsoredAction", visitorId);
     const time = fairTimeKeys(now);
+    const preEvent = fairIsPreEvent(now, event);
     await ctx.db.insert("fairSponsoredEvents", {
       requestId: args.requestId,
       eventId: model.eventId,
@@ -429,8 +464,10 @@ export const recordSponsoredAction = mutation({
       dateKey: time.dateKey,
       hourKey: time.hourKey,
       visitorId,
+      ...(preEvent ? { preEvent: true } : {}),
     });
-    for (const key of fairSponsoredCountKeys(kind, model._id, time)) await bumpFairCount(ctx, key);
+    // P1: a pre-event action is stored, but in no counter.
+    if (!preEvent) for (const key of fairSponsoredCountKeys(kind, model._id, time)) await bumpFairCount(ctx, key);
     return { eventModelId: model._id, kind, recordedAt: now, duplicate: false };
   },
 });

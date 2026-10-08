@@ -36,6 +36,7 @@ import type {
   FairPassportConfigStatus,
   FairPassportEligibleStatus,
   FairPreferredContact,
+  FairPreEventCategory,
   FairPurgeCategory,
   FairPurgeCategoryStatus,
   FairPurgeMode,
@@ -4932,6 +4933,10 @@ export interface AdminEventsDict {
     sponsoredSet: string;
     sponsoredCleared: string;
     sponsoredHelp: string;
+    /** P1 — „Otvori sada“ for a published question whose day is still ahead. {prompt} in the aria label. */
+    openNow: string;
+    openNowAria: string;
+    openedNow: string;
   };
   /** Admin UX A6 — survey form. Placeholders: {n} {version} {from} {count} {max} {problem} {reason} {date} {model}. */
   surveyForm: {
@@ -5270,6 +5275,8 @@ export interface AdminEventsDict {
   retentionPlan: AdminEventsRetentionPlanDict;
   // Admin UX A10 — Pregled: the event dashboard.
   dashboard: AdminEventsDashboardDict;
+  // P1 — „Pre-event podaci“ (Brisanje): counts per kind and the reset.
+  preEvent: AdminEventsPreEventDict;
 }
 
 /**
@@ -5414,6 +5421,37 @@ export interface AdminEventsReportQueueDict {
 }
 
 /** Admin UX A9 — `brisanje`: countdown, last dry run, what is deleted and what stays. */
+/**
+ * P1 — `brisanje`: the event's pre-event data (visitor writes before the
+ * event's start) per kind, the dry run and the reset with the typed slug.
+ * Placeholders: {date} {cap} {count} {total} {slug}.
+ */
+export interface AdminEventsPreEventDict {
+  title: string;
+  help: string;
+  boundary: string;
+  countsTitle: string;
+  countsHelp: string;
+  countCapped: string;
+  total: string;
+  totalCapped: string;
+  empty: string;
+  categories: Record<FairPreEventCategory, string>;
+  dryRun: string;
+  dryRunDone: string;
+  reset: string;
+  confirmTitle: string;
+  confirmBody: string;
+  confirmLabel: string;
+  confirmHint: string;
+  confirmButton: string;
+  cancel: string;
+  started: string;
+  keptTitle: string;
+  kept: readonly string[];
+  unavailable: string;
+}
+
 export interface AdminEventsRetentionPlanDict {
   countdownTitle: string;
   countdownHelp: string;

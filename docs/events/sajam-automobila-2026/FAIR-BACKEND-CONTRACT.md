@@ -332,11 +332,11 @@ Konstante rotacije u `lib/fair-contract.ts` imaju ista imena i vrednosti kao u `
 13. **PII primaoci izlagača** (`pii_recipient_*`, kanal): nova polja ili samo `leadDeliveryNote`?
 14. **Nalog „Sajam automobila 2026 — QR inventar“**: da li je `event_only`? Da li su nalepnice digitalni QR ili fizički proizvodi (QC gate)?
 15. **Saglasnost mora imenovati konkretnog izlagača**, a `fairConsentConfigs` je po eventu i vrsti. B4 renderuje snapshot sa imenom izlagača kad pravni tekst bude odobren.
-16. **Početni red u `fairPackageActivations`**: kad se model uvozi direktno kao Starter/Advanced, B1 piše red `included → tier` u trenutku `package_active_from` (`note: "initial_tier"`). Primenjeno kao lako promenljiv seam; čeka potvrdu.
+16. **Početni red u `fairPackageActivations`**: kad se model uvozi direktno kao Starter/Advanced, B1 piše red `included → tier` u trenutku `package_active_from` (`note: "initial_tier"`). Primenjeno kao lako promenljiv seam; čeka potvrdu. **P1 (Aleksa, 8. 10.):** budući `package_active_from` se čita kao „od dodele“, pa red nosi trenutak dodele (§40.1).
 17. **Deljena lokacija na mapi (R0 nalaz 1, O4)** — REŠENO odlukom vlasnika 8. 10. (Jovan, NOC-KONTEKST §1.3): više izlagača sme da bude na istoj lokaciji, a jedan izlagač na više lokacija. `FAIR_MAP_LOCATION_TAKEN` sada odbija samo drugi ne-povučeni štand ISTOG učešća na istoj lokaciji; nepostojeća lokacija je i dalje `FAIR_MAP_LOCATION_INVALID` (§38.3).
 18. **Pisac brendova**: aplikacija nije imala mutaciju koja pravi `brands` red. B1 dodaje `fairAdmin.ensureBrand` (ista `brands` tabela, bez logotipa i boja). Da li brend treba da nastaje ovde ili u redovnom klijentskom toku?
 19. **Oslobađanje QR-a**: `accessDestinationHistory.targetId` je obavezan i ne postoji „prazna“ destinacija, pa release ne piše novi target. Prekidač je aktivni `fairQrAssignments` red: posle release kanal prelazi u `problem` (`destination_fair_unassigned`), a ponovna dodela piše novi immutable target i red istorije.
-20. **Nadogradnja pre početka paketa**: ako je početni paket uvezen sa budućim `package_active_from`, nadogradnja uneta ranije važi od tog trenutka (`max(sada, packageActivatedAt)`), da istorija nikad ne izgleda kao spuštanje paketa.
+20. **Nadogradnja pre početka paketa**: ako je početni paket uvezen sa budućim `package_active_from`, nadogradnja uneta ranije važi od tog trenutka (`max(sada, packageActivatedAt)`), da istorija nikad ne izgleda kao spuštanje paketa. **P1:** zamenjeno — nadogradnja važi od trenutka nadogradnje, a red koji je još čekao budući početak se prvo pomera na svoj trenutak dodele (§40.1).
 21. **Nalog QR inventara**: inventar se vezuje po eventu (`fairEvents.qrInventoryBusinessId`), pa oba sajma mogu deliti isti inventar. Dodeljuje se samo `kind: "qr"` kanal čiji subjekat ima tačno jedan kanal (fizička nalepnica sa QR+NFC na istom subjektu se odbija — vezano za §9.14).
 22. **Tajna `FAIR_VISITOR_HASH_SECRET`** (B2): pravu vrednost (32+ nasumičnih znakova) postavljaju Jovan i Aleksa u Next okruženje (Vercel/`.env.local`). Convex je ne treba. Bez nje produkcija ne upisuje fair skenove (redirect radi).
 23. **Domen cookie-ja / poddomen** (B2, nastavak §9.3): `FAIR_COOKIE_DOMAIN` je prazan, pa je cookie host-only na glavnom domenu. Poddomen se ne implementira (§13.7).
@@ -351,7 +351,7 @@ Konstante rotacije u `lib/fair-contract.ts` imaju ista imena i vrednosti kao u `
 32. **Povlačenje modela iz zamrznutog pasoša** (B3): `fairAdmin.withdrawModel` ne uklanja model iz pasoša automatski; admin to radi hitnom mutacijom `removePassportModel` (MASTER §11 „admin može da ga ukloni“). Dok se model ne ukloni, pasoš ne može da se kompletira.
 33. **Pasoš posle otvaranja** (B3): objava i zamrzavanje su dozvoljeni samo pre `fairEvents.startsAt` (`FAIR_PASSPORT_EVENT_STARTED`). Ako Aleksa želi kasnu objavu, menja se samo ta provera.
 34. **Rate limit `fairBrandFavorite`** (B3): HANDOFF §9 ga ne imenuje. Dodat je zaseban bucket (kapacitet 5, 10/min), jer promena favorita pomera brojače.
-35. **Prikaz pre `package_active_from`** (B3): javne `capabilities` i `getMyModelState.rating.mode` čitaju sačuvani paket (upit ne sme da čita sat). Upis sudi po paketu na snazi u trenutku interakcije. Zato pre početka paketa UI može da prikaže ocenu, a upis vraća `FEATURE_NOT_ENTITLED`. DEV TEST paketi počinju 9. 10. 2026. u 09:00.
+35. **Prikaz pre `package_active_from`** (B3): javne `capabilities` i `getMyModelState.rating.mode` čitaju sačuvani paket (upit ne sme da čita sat). Upis sudi po paketu na snazi u trenutku interakcije. Zato pre početka paketa UI može da prikaže ocenu, a upis vraća `FEATURE_NOT_ENTITLED`. DEV TEST paketi počinju 9. 10. 2026. u 09:00. **P1:** ova razlika više ne nastaje — paket važi od dodele, a stari redovi se pomeraju migracijom (§40.1).
 36. **Obavezno pitanje ankete** (B3): u V1 su pitanja opciona. Ako admin ipak označi pitanje kao `required`, submit bez tog odgovora vraća `INVALID_INPUT`.
 37. **Pravni tekst saglasnosti (P0)** (B4): nije napisan ni aktiviran, ni na DEV-u. Dok aktivna verzija ne postoji, `submitLead` vraća `CONSENT_NOT_CONFIGURED` i ništa ne čuva, a `getLeadForm` vraća `consent_not_configured`. Tekst mora da sadrži oznaku `{izlagac}`, koju server zamenjuje nazivom izlagača (§9.15). **K3:** aktivacija traži i zapis pravnog odobrenja (`legalApprovedBy`, `legalApprovedAt`), a tok se otvara tek uz Convex env `FAIR_LEADS_ENABLED=true` (§28).
 38. **Tekst potvrde i podnožje follow-upa (P1)** (B4): placeholder u `lib/i18n/sr/event-lead-email.ts`. Zamenjuje se pre aktivacije saglasnosti u produkciji.
@@ -711,7 +711,7 @@ Pečat (B2 `stampFairPassportOnScan`) nastaje samo za `required` člana `publish
 
 | Funkcija | Args | Vraća |
 |---|---|---|
-| `listAudienceQuestionsForModel` | `{ eventModelId, dateKey? }` | `FairAudienceQuestionView[]`: `published` pitanja, po danu pa po `sortOrder`; `dateKey` sužava na jedan dan |
+| `listAudienceQuestionsForModel` | `{ eventModelId, dateKey?, at? }` | `FairAudienceQuestionView[]`: `published` pitanja, po danu pa po `sortOrder`; `dateKey` sužava na jedan dan. P1: uz `at` (vreme zahteva na serveru) dodaje i pitanje koje je admin otvorio pre njegovog dana (`fairQuestionOpen`, §40.2); bez `at` odgovor je isti kao pre |
 | `getAudienceQuestionResult` | `{ questionId }` | `FairAudienceResultView` bez `myOptionId` za `published`/`closed`, inače `null` |
 | `getSurveyForModel` | `{ eventModelId }` | `FairSurveyView` objavljene verzije Advanced modela, bez rezultata; inače `null` |
 | `getPassportCatalog` | `{ eventSlug }` | `{ eventId, catalog: FairPassportCatalogEntry[] }`: objavljeni pasoši, `required` modeli, `standMapLocationIds` i logo brenda ako postoji |
@@ -1912,3 +1912,92 @@ Tekst i HTML, svaka vrednost HTML-escape-ovana, redovi pasusa kao `<br>`. Konač
 - Prilagođeni B4/B7 testovi (nova pravila, ne slabljenje): sačuvan telefon je E.164; lead pre nadogradnje — isti posetilac sada dobija duplikat bez follow-upa, a lead drugog posetioca posle nadogradnje dobija follow-up; `fairLeadSubmit` — 1 lead + 2 duplikata, pa `RATE_LIMITED`; izvoz — tri leada na istom modelu od tri posetioca; `fairPerformance` — posle 10 potvrda lead se upisuje bez potvrde, a od 30 je odbijen bez upisa.
 - `lib/fair-server/leads.test.ts`: `field`/`reason`, `required` i `retryAfterMs` stižu do browsera; `Retry-After` na 429 (i 60 bez poznatog čekanja), bez njega na ostalim statusima; kontakt, slobodan tekst i nepoznati ključevi se izbacuju.
 - `convex/fairAuthz.test.ts`: `fairEmails.requeueStaleDeliveries` je `internal`; `convex/fairSchema.test.ts`: novi indeks.
+
+## 40. P1 — pre-event: paket od dodele, Glas publike pre dana, oznaka, reset i mejlovi
+
+Aleksa, 8. 10. 2026. (SYNC-1008-KONTEKST §2.1): ScanMe tim i izlagači 8. 10. probaju sve na pravim podacima, sa pravim paketima. Ništa od toga ne ulazi u brojke sajma i ne ide mejlom pravom izlagaču. Ovo je nova eksplicitna Aleksina odluka i za period pre početka događaja ima prednost nad MASTER §5 („skeniranja se računaju bez obzira na radno vreme“).
+
+### 40.1 Paket važi od dodele
+
+- `lib/fair-entitlements.ts` `fairPackageActivationAt(requested, assignedAt)`: budući `package_active_from` → trenutak dodele; prošli se zadržava.
+- `convex/lib/fairCatalog.ts` `upsertFairModel` (admin `fairAdmin.upsertModel`, `fairImport.commit`, `fairSetup.importCommit` — svi idu istim putem) piše `packageActivatedAt` i početni red `fairPackageActivations` sa tim trenutkom. `convex/fairSetup.ts` nije menjan.
+- Ponovljeni import sa istim payload-om je i dalje `unchanged` (paket se postavlja samo pri pravljenju modela).
+- `upgradeFairModelPackage` (admin i import): aktivacija = `sada`; red koji je pre P1 čekao budući početak prvo se pomera (`fairSettleFutureActivations`).
+- `fairSettleFutureActivations(ctx, model, now, apply)`: svaka aktivacija sa `activatedAt > now` → `min(floor(_creationTime), now)` (trenutak dodele), a `packageActivatedAt` = najnovija aktivacija. Redosled pravljenja ostaje, pa istorija nikad ne izgleda kao spuštanje paketa.
+- **Interna migracija** `fairPackages.migrateFutureActivations({ dryRun? })` (`dryRun` je podrazumevano `true`):
+  - obuhvata sve sajamske događaje (≤ 50) i njihove modele (≤ 500);
+  - vraća `{ dryRun, now, events, modelsScanned, capped, moved: [{ eventCode, externalKey, slug, tier, from, to, activations: [{ from, to }] }] }`;
+  - posle stvarnog prolaza zakazuje `fairSponsoredAdmin.syncSponsoredSnapshotJob` za svaki događaj sa pomerenim modelima;
+  - idempotentna je.
+- Čitanje (`fairModelTierAt`, `fairTierAt`) nije menjano: aktivacija i dalje važi od svog trenutka.
+
+### 40.2 Glas publike pre svog dana
+
+- Nova admin mutacija `fairInteractionsAdmin.openAudienceQuestionNow({ questionId })` → `{ questionId, startsAt, opened }`:
+  - radi samo za `published` pitanje čiji prozor nije istekao, a `startsAt` postaje „sada“;
+  - već otvoreno pitanje vraća `opened: false`; sve ostalo je `FAIR_QUESTION_STATUS`;
+  - pitanje zadržava `eventDayId`, pa dnevna ograničenja (Starter 1, Napredni 5 po danu) ostaju ista.
+- Početak se može postaviti i kroz postojeće `upsertAudienceQuestion.startsAt`.
+- Javno: `listAudienceQuestionsForModel` dobija opcioni `at` (tabela u §15.3), a `lib/fair-server/model-page.ts` `loadFairAudienceQuestions(eventModelId, dateKey, at = Date.now())` ga šalje. Lista i glasanje koriste isto pravilo `fairQuestionOpen`. Odgovor je istog oblika.
+- Admin UI: dugme „Otvori sada“ u listi pitanja (Interakcije → Glas publike) za objavljeno pitanje čiji dan tek dolazi.
+
+### 40.3 Pre-event oznaka
+
+- `lib/fair-contract.ts` `fairIsPreEvent(at, event)` = `at < event.startsAt`. To je jedina granica; za `elektromobilnost-2026` to je 2026-10-09T00:00+02:00. Sam granični trenutak pripada sajmu.
+- Šema (aditivno): `preEvent: v.optional(v.boolean())` na `fairScanEvents`, `fairUniqueScans`, `fairRatings`, `fairAudienceVotes`, `fairBrandFavoriteVotes` i `fairSponsoredEvents`. Znači „upisano pre početka i NIJE u brojačima“. Red bez polja je računat (to važi i za svaki red pre P1). Ostale tabele (leadovi, ankete, pečati, saobraćaj) se prepoznaju po vremenu.
+- Indeksi za reset (aditivno): `fairUniqueScans.by_eventId_and_firstScannedAt`, `fairRatings.by_eventId_and_updatedAt`, `fairAudienceVotes.by_eventId_and_updatedAt`, `fairSurveyResponses.by_eventId_and_submittedAt`, `fairPassportStamps.by_eventId_and_scannedAt`, `fairBrandFavoriteVotes.by_eventId_and_updatedAt`.
+- Upis pre početka se čuva (posetilac vidi svoje stanje), ali ne pomera nijedan `fairMetricCountShards` ključ. Prvi upis istog posetioca tokom sajma preuzima red i računa se kao prvi:
+  - sken: pre-event jedinstveni red se preuzima (`firstScannedAt` = prvi sken tokom sajma, `totalScanCount` = 1) i broji se kao jedinstven; pre-event pečat se pomera na taj sken;
+  - ocena: pre-event vrednosti se brišu, a poslate se broje kao prve; glas i omiljeni model se broje kao prvi;
+  - anketa: pre-event odgovor ustupa mesto prvom odgovoru tokom sajma (inače `SURVEY_ALREADY_SUBMITTED`, kao pre);
+  - lead: pre-event lead nije duplikat leada tokom sajma.
+- Red upisan pre P1 (tada računat) koji dobije nov pre-event upis (ocena, glas, omiljeni model) u tom trenutku izlazi iz brojača i dobija oznaku `preEvent`, pa nijedan upis pre početka ne pomera brojač.
+- Čitanja koja sada počinju od `startsAt`:
+  - `fairDashboard` (leadovi) i `fairAdminStats.getLeadCounts`;
+  - `fairLeadsAdmin.exportLeads` i `fairReports.leadsExportPage` / `exportLeadsFile`;
+  - `fairLeadsInbox.listEventLeads` (od = `max(from, startsAt)`) i `markLeadsDelivered` (po izlagaču);
+  - `fairFollowUps.previewExhibitorFollowUp` / `estimateFollowUps` i `fairPairLeads`;
+  - aktivnost uz lead (`fairVisitorActivity`, `ratedModelNames`);
+  - `fairAnalytics.modelDayRaw` (leadovi i anketa; prozor dana počinje najranije u `startsAt`) i `organizerParticipationLeads`;
+  - `fairScans.modelScanCounts.raw` (pre-event redovi se vode odvojeno u `preEventScanEvents?`).
+- Brojači i javni procenti su čisti, jer pre-event upis ne pomera brojač.
+- Namerno van ovoga: generički ScanMe `cards.totalScans` / `cardScanEvents` (QR sistem, ne sajamska statistika) i `fairVisitors`.
+
+### 40.4 „Resetuj pre-event podatke“ (`convex/fairPreEvent.ts`)
+
+| Funkcija | Vrsta | Šta radi |
+|---|---|---|
+| `getPreEventSummary({ eventId })` | admin query | broj pre-event redova po vrsti (≤ 200 po vrsti, uz `capped`) |
+| `resetPreEventData({ eventId, dryRun?, confirmSlug? })` | admin mutation | `dryRun` (podrazumevano `true`) vraća brojke. Stvarno brisanje traži `confirmSlug` = slug događaja (inače `FAIR_RESET_CONFIRMATION_MISMATCH`), piše audit `fair_pre_event_reset_started` i pokreće serije |
+| `resetPreEventBatch(...)` | internal mutation | jedna stranica jedne vrste po transakciji (100 redova; jedinstveni skenovi 25), pa sledeća preko scheduler-a; na kraju audit `fair_pre_event_reset_completed` |
+| `previewPreEventReset({ eventSlug })` | internal query | isti dry-run za CLI (samo čitanje) |
+
+- Vrste (`FAIR_PRE_EVENT_CATEGORIES`): `email_deliveries` (idu uz lead), `leads`, `survey_responses`, `ratings`, `audience_votes`, `brand_favorites`, `passport_stamps`, `sponsored_actions`, `traffic_events`, `unique_scans`, `scan_events`.
+- Reset nikad ne dira:
+  - katalog (izlagači, učešća, brendovi, modeli, štandovi, aktivacije);
+  - QR inventar, kartice i `/r/[cardCode]`;
+  - saglasnosti, forme, pitanja, ankete, pasoše i podešavanja;
+  - `fairVisitors` (jedan red služi oba sajma; briše ga purge 16. 11.);
+  - deljene kolekcije (javni link ostaje da radi);
+  - sve upisano od `startsAt`.
+- Brojači: red pre P1 (bez oznake) bio je računat, pa se njegov udeo oduzima u istoj transakciji u kojoj se red briše.
+- Jedinstveni sken pre P1 čiji je posetilac skenirao i tokom sajma ostaje. Njegov dnevni i satni jedinstveni broj prelazi na prvi sken tokom sajma, a ukupan broj ostaje. Pečat takvog posetioca se pomera, ne briše.
+- Idempotentno: drugi prolaz ne nalazi ništa.
+- Admin UI: Događaji → Brisanje → „Pre-event podaci (probe pre sajma)“: brojke po vrsti, „Proveri šta bi bilo obrisano“, „Resetuj pre-event podatke“ → polje za slug → „Obriši pre-event podatke“ i ishod. Dev preview: `/dev/admin-events-preview/brisanje`.
+
+### 40.5 Leadovi i mejl
+
+- Pre-event lead dobija potvrdu posetiocu kao danas (prekidači i saglasnost važe), ali **nema follow-up**: `submitLead` ga ne zakazuje, pa ni potvrda ne najavljuje otkazivanje.
+- `claimDelivery` zatvara follow-up pre-event leada (i red zakazan pre P1) kao `skipped` / `PRE_EVENT` (novi kod u `FAIR_EMAIL_DELIVERY_ERRORS`).
+- Pre-event lead ne ulazi u dnevni izveštaj izlagača, izvoz, inbox, predaju (`markLeadsDelivered`), par za follow-up ni u jedan drugi mejl izlagaču.
+
+### 40.6 Ugovor sa frontendom
+
+- `POST /api/fair/lead`, ocene, glasanje, anketa, `getModelBySlug` i `getLeadForm`: oblik zahteva i odgovora je **isti**. `followUpScheduled` je `false` za pre-event lead (polje je postojalo i ranije).
+- `listAudienceQuestionsForModel`: aditivni opcioni argument `at`; odgovor je isti.
+- Novi kodovi: admin `FAIR_RESET_CONFIRMATION_MISMATCH`; isporuka `PRE_EVENT` (samo u admin listi isporuka).
+
+### 40.7 Testovi
+
+- Novi: `convex/fairPreEvent.test.ts`, `lib/fair-contract-pre-event.test.ts`, `components/admin/admin-events-pre-event.test.tsx`, `components/admin/events/sections/interakcije-glas-publike-open-now.test.tsx`.
+- Prilagođeni novim pravilima (ne slabljenje): `fairAdmin`, `fairImport`, `fairInteractions`, `fairScans`, `fairDashboard`, `fairAdminStats`, `fairIntegration`, `fairSponsored`, `fairAuthz`, `fairSchema` (vidi `jovan-status/P1.md` §4).

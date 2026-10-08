@@ -45,9 +45,10 @@ export const getLeadCounts = query({
         capped = true;
         break;
       }
+      // P1: pre-event leads (before the event's start) are in no admin count.
       const leads = await ctx.db
         .query("fairLeads")
-        .withIndex("by_participationId_and_createdAt", (q) => q.eq("participationId", participation._id))
+        .withIndex("by_participationId_and_createdAt", (q) => q.eq("participationId", participation._id).gte("createdAt", event.startsAt))
         .take(budget + 1);
       if (leads.length > budget) {
         capped = true;

@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 import { internalMutation, type MutationCtx } from "./_generated/server";
-import { FAIR_PII_PURGE_AT_MS, fairModelPath } from "../lib/fair-contract";
+import { FAIR_PII_PURGE_AT_MS, fairIsPreEvent, fairModelPath } from "../lib/fair-contract";
 import { buildFairReportEmail, fairLeadEmailMessage, fairReportEmailMessage, type FairLeadEmailMessage } from "./lib/fairEmails";
 import { fairDailyReportFileName, fairReportDateText } from "./lib/fairReportFiles";
 import { fairFollowUpValues, renderFairFollowUp } from "./lib/fairFollowUp";
@@ -131,6 +131,12 @@ export const claimDelivery = internalMutation({
     let pairContactName: string | null = null;
     let pairModelNames: string | null = null;
     if (delivery.kind === "post_event_follow_up") {
+      // P1: a lead from before the event's start never gets the follow-up
+      // (also a row queued before P1); nothing is sent.
+      if (fairIsPreEvent(lead.createdAt, event)) {
+        await ctx.db.patch(delivery._id, { status: "skipped", lastError: "PRE_EVENT", updatedAt: now });
+        return skip;
+      }
       // MASTER §8: suppression is checked immediately before delivery.
       if (lead.followUpSuppressed) {
         await ctx.db.patch(delivery._id, { status: "suppressed", updatedAt: now });

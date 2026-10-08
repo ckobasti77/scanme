@@ -142,7 +142,8 @@ export const reportContext = internalQuery({
 });
 
 async function leadCounts(ctx: QueryCtx, eventModelId: Id<"fairEventModels">, start: number, end: number) {
-  const rows = await ctx.db
+  // An empty window (a fair day that ends before the event's start, P1) reads nothing.
+  const rows = start >= end ? [] : await ctx.db
     .query("fairLeads")
     .withIndex("by_eventModelId_and_createdAt", (q) => q.eq("eventModelId", eventModelId).gte("createdAt", start).lt("createdAt", end))
     .take(FAIR_REPORT_ROWS_CAP + 1);
@@ -172,7 +173,7 @@ async function surveyAggregates(ctx: QueryCtx, eventModelId: Id<"fairEventModels
   const out: NonNullable<FairReportModelRaw["surveys"]> = [];
   const versions = (await fairModelSurveys(ctx, eventModelId)).filter((survey) => survey.status !== "draft").sort((a, b) => a.version - b.version);
   for (const survey of versions) {
-    const responses = await ctx.db
+    const responses = start >= end ? [] : await ctx.db
       .query("fairSurveyResponses")
       .withIndex("by_surveyId_and_submittedAt", (q) => q.eq("surveyId", survey._id).gte("submittedAt", start).lt("submittedAt", end))
       .take(FAIR_REPORT_ROWS_CAP + 1);
@@ -231,6 +232,9 @@ export const modelDayRaw = internalQuery({
     if (!day || day.eventId !== model.eventId) return null;
     const tier = await fairModelTierAt(ctx, model, day.endsAt - 1);
     const metrics = fairReportMetrics(tier);
+    // P1: raw rows (leads, survey answers) count only from the event's start;
+    // pre-event writes never reach a counter key in the first place.
+    const fairFrom = (await ctx.db.get(model.eventId))?.startsAt ?? 0;
     const wants = (metric: FairReportMetric, list: readonly FairReportMetric[] = metrics) => list.includes(metric);
 
     const raw: FairReportModelRaw = {
@@ -253,7 +257,7 @@ export const modelDayRaw = internalQuery({
       }
     }
     if (wants("interest") || wants("test_drive")) {
-      const leads = await leadCounts(ctx, model._id, day.startsAt, day.endsAt);
+      const leads = await leadCounts(ctx, model._id, Math.max(day.startsAt, fairFrom), day.endsAt);
       if (wants("interest")) raw.interest = leads.interest;
       if (wants("test_drive")) raw.testDrive = leads.testDrive;
     }
@@ -277,7 +281,7 @@ export const modelDayRaw = internalQuery({
         });
       }
     }
-    if (wants("survey")) raw.surveys = await surveyAggregates(ctx, model._id, day.startsAt, day.endsAt);
+    if (wants("survey")) raw.surveys = await surveyAggregates(ctx, model._id, Math.max(day.startsAt, fairFrom), day.endsAt);
     if (wants("sponsored_garage")) raw.sponsored = await daySponsored(ctx, model._id, day.dateKey);
 
     if (args.previousEventDayId && wants("day_comparison")) {
@@ -288,7 +292,7 @@ export const modelDayRaw = internalQuery({
         const previous: NonNullable<FairReportModelRaw["previous"]> = { tier: previousTier };
         if (wants("model_scans", before)) previous.scans = await dayScans(ctx, model._id, previousDay.dateKey);
         if (wants("interest", before) || wants("test_drive", before)) {
-          const leads = await leadCounts(ctx, model._id, previousDay.startsAt, previousDay.endsAt);
+          const leads = await leadCounts(ctx, model._id, Math.max(previousDay.startsAt, fairFrom), previousDay.endsAt);
           if (wants("interest", before)) previous.interest = leads.interest;
           if (wants("test_drive", before)) previous.testDrive = leads.testDrive;
         }
@@ -363,11 +367,16 @@ export const organizerParticipationLeads = internalQuery({
   returns: v.array(v.object({ interest: v.number(), testDrive: v.number() })),
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
+    // P1: never a pre-event lead, whatever window the caller passes.
+    const participation = await ctx.db.get(args.participationId);
+    const event = participation ? await ctx.db.get(participation.eventId) : null;
+    const fairFrom = event?.startsAt ?? 0;
     const out = [];
     for (const window of args.windows.slice(0, DAYS_CAP)) {
-      const rows = await ctx.db
+      const start = Math.max(window.start, fairFrom);
+      const rows = start >= window.end ? [] : await ctx.db
         .query("fairLeads")
-        .withIndex("by_participationId_and_createdAt", (q) => q.eq("participationId", args.participationId).gte("createdAt", window.start).lt("createdAt", window.end))
+        .withIndex("by_participationId_and_createdAt", (q) => q.eq("participationId", args.participationId).gte("createdAt", start).lt("createdAt", window.end))
         .take(FAIR_REPORT_ROWS_CAP);
       out.push({ interest: rows.filter((row) => row.kind === "interest").length, testDrive: rows.filter((row) => row.kind === "test_drive").length });
     }

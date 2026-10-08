@@ -60,12 +60,16 @@ export async function loadFairModelInteractions(
   };
 }
 
-/** Published Glas publike questions of one model for one event day (`YYYY-MM-DD`, Europe/Belgrade). */
+/**
+ * Published Glas publike questions of one model for one event day (`YYYY-MM-DD`, Europe/Belgrade).
+ * P1: `at` (request time) also lists a question the admin opened before its day.
+ */
 export async function loadFairAudienceQuestions(
   eventModelId: string,
   dateKey: string,
+  at: number = Date.now(),
 ): Promise<FairAudienceQuestionView[] | null> {
-  return orNull(fetchQuery(api.fairPublic.listAudienceQuestionsForModel, { eventModelId, dateKey }));
+  return orNull(fetchQuery(api.fairPublic.listAudienceQuestionsForModel, { eventModelId, dateKey, at }));
 }
 
 /** Today's fair day key in Europe/Belgrade (`YYYY-MM-DD`). */

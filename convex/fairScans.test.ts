@@ -183,8 +183,10 @@ describe("total and unique scans (HANDOFF §10)", () => {
     const b = newVisitor();
     await scan(f.t, f.emX1.code, a.hash);
     await scan(f.t, f.emX2.code, a.hash);
-    await scan(f.t, f.amfX1.code, a.hash);
     await scan(f.t, f.emX1.code, b.hash);
+    // P1: the other fair's scan is counted during that fair (before its start it would be pre-event).
+    vi.setSystemTime(Date.parse("2026-10-30T10:00:00+01:00"));
+    await scan(f.t, f.amfX1.code, a.hash);
     expect((await counts(f, f.emX1.modelId)).model).toEqual({ total: 2, unique: 2 });
     expect((await counts(f, f.emX2.modelId)).model).toEqual({ total: 1, unique: 1 });
     expect((await counts(f, f.amfX1.modelId)).model).toEqual({ total: 1, unique: 1 });
@@ -251,8 +253,13 @@ describe("admin exclusion and 24/7 counting (HANDOFF §5.2, §12)", () => {
 
   test("non-admin scans count outside opening hours and without a bot/device filter", async () => {
     const f = await setup();
-    // A week before the fair opens (the limiter's clock only moves forward).
+    // A week before the fair opens (the limiter's clock only moves forward):
+    // P1 (Aleksa, 8. 10.) — stored, but pre-event, so in no count.
     vi.setSystemTime(Date.parse("2026-10-01T12:00:00+02:00"));
+    expect(await scan(f.t, f.emX1.code, newVisitor().hash)).toMatchObject({ fairScan: "recorded" });
+    expect((await counts(f, f.emX1.modelId)).model).toEqual({ total: 0, unique: 0 });
+    // 03:00 in Belgrade on the first fair night, long before the halls open.
+    vi.setSystemTime(Date.parse("2026-10-09T03:00:00+02:00"));
     expect(await scan(f.t, f.emX1.code, newVisitor().hash)).toMatchObject({ fairScan: "recorded" });
     // 03:17 in Belgrade, the night after the fair closed; a link-preview bot.
     vi.setSystemTime(Date.parse("2026-10-12T03:17:00+02:00"));
@@ -260,7 +267,7 @@ describe("admin exclusion and 24/7 counting (HANDOFF §5.2, §12)", () => {
     expect((await counts(f, f.emX1.modelId)).model).toEqual({ total: 2, unique: 2 });
     // The generic card total keeps its existing bot suppression.
     const card = await f.t.run(async (ctx) => ctx.db.query("cards").withIndex("by_cardCode", (q) => q.eq("cardCode", f.emX1.code)).unique());
-    expect(card?.totalScans).toBe(1);
+    expect(card?.totalScans).toBe(2);
   });
 });
 

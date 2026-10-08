@@ -68,3 +68,84 @@ Pasoš nije u `fairSetup`: `upsertPassport`/`publishPassport` traže `requireAdm
 - **Anketa je po modelu, a proizvod je traži po izlagaču.** `submitSurvey` / `getMyModelState.survey` rade po paru posetilac + model. Frontend zato posle slanja upisuje lokalnu oznaku `scanme:fair-survey-done:v1:{eventId}:{participationId}`. Kada server za model vrati `submitted`, oznaka se upisuje i tada. Ako se oznaka izgubi (privatni režim ili brisanje podataka), oblačić se može ponovo pojaviti na drugom modelu istog izlagača. Pravo rešenje je backend pravilo „jedan odgovor po posetiocu i učešću“, ako vlasnik to želi.
 - **Opcioni kontakt u anketi** šalje se kao zaseban `POST /api/fair/lead` sa `kind: "interest"`, tek posle uspešnog `POST /api/fair/survey`. Koristi saglasnost i `contactRequirement` iz `getLeadForm(interest)` za isti model.
 - Leadovi: `contactRequirement` i `preferredContact` frontend čita iz `getLeadForm`. Ništa nije nedostajalo.
+
+## Jovan — 8. 10. — pre-event (P1)
+
+Korak P1 lanca SAJAM v2, Aleksin zahtev od 8. 10. (SYNC-1008-KONTEKST §2.1). Tehnički detalji su u [`FAIR-BACKEND-CONTRACT.md`](./FAIR-BACKEND-CONTRACT.md) §40, a status i testovi u [`jovan-status/P1.md`](./jovan-status/P1.md).
+
+### 1. Šta je urađeno
+
+1. **Paket važi od dodele.** Prava paketa počinju u trenutku dodele, a ne 9. 10. To važi za sve puteve: dodela u adminu, import, `fairSetup.importCommit` i nadogradnja.
+   - Budući `packageActiveFrom` (u `b1-payload.json` je `2026-10-09T00:00:00+02:00` za svih 15 modela) čita se kao „od dodele“. Payload i intake nisu menjani.
+   - `convex/fairSetup.ts` nije menjan: ide kroz isti `upsertFairModel`.
+   - Ponovljeni `importCommit` sa istim payload-om i dalje vraća `unchanged` (test).
+   - Stari redovi sa aktivacijom u budućnosti se pomeraju internom migracijom (§4 i §5).
+2. **Glas publike pre svog dana.**
+   - Admin u listi pitanja ima dugme „Otvori sada“ za objavljeno pitanje čiji dan tek dolazi. Pitanje ostaje pitanje svog dana, pa dnevna ograničenja ostaju: Starter 1, Napredni 5.
+   - Javna lista i glasanje koriste isto pravilo (`fairQuestionOpen`).
+3. **Pre-event oznaka.** Granica je `startsAt` događaja (`fairIsPreEvent`; `elektromobilnost-2026`: 9. 10. u 00:00).
+   - Sve što posetilac upiše pre granice se čuva i on vidi svoje stanje, ali to ne ulazi u brojače, analitiku, dnevne izveštaje, dashboard, admin statistiku, izvoz ni javne procente.
+   - Pre-event sken ne troši jedinstveni sken: prvi sken istog uređaja tokom sajma se broji kao jedinstven.
+   - Isto važi za ocenu, glas, omiljeni model i anketu: prvi upis tokom sajma se računa kao prvi.
+4. **„Resetuj pre-event podatke“** je u Događaji → Brisanje → „Pre-event podaci (probe pre sajma)“:
+   - brojke po vrsti, dry-run, potvrda ukucanim slugom događaja i ishod;
+   - briše samo pre-event podatke posetilaca tog događaja, u serijama;
+   - idempotentno je i ispravlja brojače za redove upisane pre ovog koda;
+   - nikad ne dira katalog, QR, kartice i `/r/`, saglasnosti, forme, podešavanja, `fairVisitors`, deljene kolekcije ni podatke od granice.
+5. **Pre-event lead ne ide izlagaču.** Posetilac dobija potvrdu kao danas, ali lead nema follow-up. Ne ulazi u dnevni izveštaj, izvoz, inbox, predaju ni u par za follow-up. Follow-up koji je zakazan ranije zatvara se kao `skipped`/`PRE_EVENT`.
+
+### 2. Nove funkcije i promene ugovora
+
+| Šta | Vrsta | Napomena |
+|---|---|---|
+| `fairInteractionsAdmin.openAudienceQuestionNow({ questionId })` | admin mutation | → `{ questionId, startsAt, opened }`; samo `published` pitanje sa otvorenim prozorom, inače `FAIR_QUESTION_STATUS` |
+| `fairPreEvent.getPreEventSummary({ eventId })` | admin query | broj pre-event redova po vrsti (≤ 200 po vrsti) |
+| `fairPreEvent.resetPreEventData({ eventId, dryRun?, confirmSlug? })` | admin mutation | `dryRun` je podrazumevano `true`; stvarno brisanje traži slug (`FAIR_RESET_CONFIRMATION_MISMATCH`) |
+| `fairPreEvent.resetPreEventBatch`, `fairPreEvent.previewPreEventReset({ eventSlug })` | internal | serije brisanja; dry-run za CLI (samo čitanje) |
+| `fairPackages.migrateFutureActivations({ dryRun? })` | internal mutation | migracija paketa; `dryRun` je podrazumevano `true` |
+| `fairPublic.listAudienceQuestionsForModel` | public query | **aditivno:** opcioni argument `at`. Bez njega je odgovor isti kao pre; sa njim dodaje i ranije otvoreno pitanje. Odgovor je istog oblika. |
+| `lib/fair-server/model-page.ts` `loadFairAudienceQuestions(eventModelId, dateKey, at = Date.now())` | server helper | jedini red Aleksinog fajla koji je menjan: šalje `at`. Potpis za postojeće pozive je isti. |
+| šema | aditivno | `preEvent?: boolean` na 6 tabela i 6 novih indeksa (§40.3); nijedno polje nije obavezno |
+| kodovi | aditivno | admin `FAIR_RESET_CONFIRMATION_MISMATCH`; isporuka `PRE_EVENT` |
+
+**Oblik zahteva i odgovora koje koristi Aleksin frontend je isti:** `POST /api/fair/lead`, ocene, glasanje, anketa, `getModelBySlug` i `getLeadForm`. Jedina razlika u vrednosti: za pre-event lead `followUpScheduled` je `false`, a polje je postojalo i ranije.
+
+### 3. DEV ishodi (`dev:expert-pelican-136`, 8. 10.)
+
+- `npx convex dev --once` → „Convex functions ready!“ (šema, indeksi i funkcije su na DEV-u).
+- `npx convex run fairPackages:migrateFutureActivations '{"dryRun":true}'`:
+  - 2 događaja, 10 modela;
+  - za pomeranje su 3 TEST modela `test-auto-moto-fest-2026` (30. 10. u 09:00 → trenutak dodele 3. 10. u 18:39).
+- `… '{"dryRun":false}'` → 3 pomerena. Ponovljeni dry-run → 0.
+- `npx convex run fairPreEvent:previewPreEventReset` (samo dry-run, ništa nije obrisano):
+  - `test-elektromobilnost-2026` (granica 8. 10. u 00:00, generalna proba): 32 reda (5 pečata, 12 jedinstvenih skenova, 15 skenova);
+  - `test-auto-moto-fest-2026`: 8 redova (4 + 4).
+- Stvarni reset nije pokretan ni na jednom deploymentu.
+
+### 4. Komande za produkciju, redom (izvršava Aleksa)
+
+1. Deploy koda sa ove grane na PROD (Convex i frontend, standardni tok), **pre 9. 10. u 00:00**. Posle toga svaki novi pre-event upis dobija oznaku.
+2. Ako pravi događaj još nije postavljen: RUNBOOK §1 (paketi od tada važe od importa).
+3. `npx convex run fairPackages:migrateFutureActivations '{"dryRun":true}' --prod` → proveri `moved`.
+4. `npx convex run fairPackages:migrateFutureActivations '{"dryRun":false}' --prod` → isto `moved`, a ponovljeni korak 3 daje `moved: []`.
+5. `npx convex run fairPreEvent:previewPreEventReset '{"eventSlug":"elektromobilnost-2026"}' --prod` (samo čitanje).
+6. Admin → Događaji → `elektromobilnost-2026` → Brisanje → „Pre-event podaci“ → „Proveri šta bi bilo obrisano“ → „Resetuj pre-event podatke“ → upiši `elektromobilnost-2026` → „Obriši pre-event podatke“.
+
+### 5. Šta Aleksa radi i kada
+
+- **Danas, pre proba na pravim podacima:** deploy (korak 1), pa koraci 3 i 4. Ako je import urađen pre deploy-a, migracija pomera pakete na trenutak dodele.
+- **8. 10. tokom dana:**
+  - forme, ocene, anketa i Glas publike rade odmah;
+  - za Glas publike objavi pitanje i klikni „Otvori sada“;
+  - probe se ne vide u brojkama; posetilac vidi samo svoj izbor (procenat se pojavljuje tek od 5 glasova tokom sajma).
+- **8. 10. uveče, posle poslednje probe** (najkasnije pre otvaranja hale 9. 10.): korak 6.
+  - Pokretanje posle ponoći je bezbedno: briše samo ono što je upisano pre 9. 10. u 00:00.
+  - Bez reseta brojke ostaju tačne, ali probni podaci (npr. probni lead u bazi, posetiočeve probne ocene) ostaju do purge-a 16. 11.
+- **9. 10. u 00:00:** sve što se upiše računa se.
+
+### 6. Otvoreno za Aleksu
+
+1. **Deljene kolekcije** napravljene pre sajma se ne brišu, jer je to javni link koji je možda već poslat; njihov pre-event saobraćaj se briše. Da li ih ipak brisati?
+2. **MASTER §5 i §18** („skeniranja se računaju 24/7“) treba dopuniti odlukom P1 (pre-event se ne računa) u dnevniku §20. Kanonski dokument menja vlasnik.
+3. Bez reseta, posetilac posle granice i dalje vidi svoju probnu ocenu, glas ili anketu dok ne upiše novu. Brojke su i bez toga tačne.
+4. Tabela za import (A5) i dalje ima kolonu „paket od“. Budući datum se sada čita kao „od uvoza“. Da li kolonu ukloniti iz šablona?

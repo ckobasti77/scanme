@@ -16,7 +16,7 @@ import {
   type FairSponsoredRotationView,
 } from "../lib/fair-contract";
 import { deriveFairCapabilities, getFairEntitlements } from "../lib/fair-entitlements";
-import { fairAudienceResult, fairModelQuestions, fairPassportState, fairVoteThreshold } from "./lib/fairInteractions";
+import { fairAudienceResult, fairModelQuestions, fairPassportState, fairQuestionOpen, fairVoteThreshold } from "./lib/fairInteractions";
 import { fairActiveConsent, fairExhibitorName, fairLeadConfig, fairLeadsEnabled, fairRenderConsentText } from "./lib/fairLeads";
 import { FAIR_SPONSORED_ITEMS_CAP, fairActiveSponsoredSnapshot, fairSponsoredItems, fairSponsoredVisual } from "./lib/fairSponsored";
 import {
@@ -365,9 +365,14 @@ async function publishedModel(ctx: QueryCtx, rawId: string) {
  * Published questions of a model, in day then `sortOrder` order. `dateKey`
  * (Europe/Belgrade `YYYY-MM-DD`) narrows to one fair day — the frontend passes
  * today. Votes are refused outside a question's own window anyway.
+ *
+ * P1 (Aleksa, 8. 10. 2026): with `at` (the server's request time; a query
+ * never reads the clock) a question the admin opened before its day is listed
+ * too — the same rule as the vote (fairQuestionOpen). Without `at` the result
+ * is exactly as before.
  */
 export const listAudienceQuestionsForModel = query({
-  args: { eventModelId: v.string(), dateKey: v.optional(v.string()) },
+  args: { eventModelId: v.string(), dateKey: v.optional(v.string()), at: v.optional(v.number()) },
   returns: v.array(fairAudienceQuestionView),
   handler: async (ctx, args): Promise<AudienceQuestion[]> => {
     const model = await publishedModel(ctx, args.eventModelId);
@@ -383,7 +388,8 @@ export const listAudienceQuestionsForModel = query({
         day = { dateKey: row.dateKey, sortOrder: row.sortOrder };
         days.set(question.eventDayId, day);
       }
-      if (args.dateKey !== undefined && day.dateKey !== args.dateKey) continue;
+      const openNow = args.at !== undefined && fairQuestionOpen(question, args.at);
+      if (args.dateKey !== undefined && day.dateKey !== args.dateKey && !openNow) continue;
       out.push({
         daySort: day.sortOrder,
         question: {

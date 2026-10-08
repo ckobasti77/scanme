@@ -197,6 +197,30 @@ export const publishAudienceQuestion = mutation({
   },
 });
 
+/**
+ * P1 (Aleksa, 8. 10. 2026): „Otvori sada“ — a PUBLISHED question opens for
+ * votes before its own fair day (its window now starts now). It keeps its
+ * `eventDayId`, so the daily limit per fair day (Starter 1, Advanced 5) is
+ * exactly as before. Votes before the event's start are pre-event (stored,
+ * in no counter). The window's start can also be set with
+ * upsertAudienceQuestion `startsAt`; the public read and the vote use the one
+ * rule fairQuestionOpen.
+ */
+export const openAudienceQuestionNow = mutation({
+  args: { questionId: v.id("fairAudienceQuestions") },
+  returns: v.object({ questionId: v.id("fairAudienceQuestions"), startsAt: v.number(), opened: v.boolean() }),
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    const now = Date.now();
+    const question = await requireQuestion(ctx, args.questionId);
+    if (question.status !== "published") fairAdminError("FAIR_QUESTION_STATUS", { status: question.status });
+    if (question.endsAt !== undefined && question.endsAt <= now) fairAdminError("FAIR_QUESTION_STATUS", { field: "endsAt" });
+    if (question.startsAt <= now) return { questionId: question._id, startsAt: question.startsAt, opened: false };
+    await ctx.db.patch(question._id, { startsAt: now, updatedAt: now });
+    return { questionId: question._id, startsAt: now, opened: true };
+  },
+});
+
 /** Published → closed. Votes and the result stay in history; the question still counts toward its day. */
 export const closeAudienceQuestion = mutation({
   args: { questionId: v.id("fairAudienceQuestions") },

@@ -2,7 +2,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { belgradeParts } from "../../lib/belgrade-time";
-import { FAIR_PII_PURGE_AT_MS, fairModelPath, isFairVisitorHash } from "../../lib/fair-contract";
+import { FAIR_PII_PURGE_AT_MS, fairIsPreEvent, fairModelPath, isFairVisitorHash } from "../../lib/fair-contract";
 import { isAdminEmail } from "./access";
 import { activeAssignmentForModel } from "./fairCatalog";
 import { bumpFairCount, fairScanCountKeys } from "./fairCountShards";
@@ -106,11 +106,14 @@ export type FairPassportStampResult = "stamped" | "already_stamped" | "not_in_pu
  * passport: it stamps only when the model is a `required` member of a
  * `published` passport of its event, and at most once per visitor+model, so
  * repeated scans never add a second stamp. A removed member stops stamping
- * but earned stamps stay.
+ * but earned stamps stay. P1: a pre-event stamp (`scannedAt` before the
+ * event's start) is taken over by the visitor's first scan of the model during
+ * the fair (`eventStartsAt` given) — it moves to that scan, so it never
+ * stands in for a fair-time stamp.
  */
 export async function stampFairPassportOnScan(
   ctx: MutationCtx,
-  input: { visitorId: Id<"fairVisitors">; model: Doc<"fairEventModels">; now: number },
+  input: { visitorId: Id<"fairVisitors">; model: Doc<"fairEventModels">; now: number; eventStartsAt?: number },
 ): Promise<FairPassportStampResult> {
   const memberships = await ctx.db
     .query("fairPassportEligibleModels")
@@ -126,7 +129,14 @@ export async function stampFairPassportOnScan(
         q.eq("visitorId", input.visitorId).eq("eventModelId", input.model._id),
       )
       .first();
-    if (existing) return "already_stamped";
+    if (existing) {
+      const startsAt = input.eventStartsAt;
+      if (startsAt !== undefined && existing.scannedAt < startsAt && input.now >= startsAt) {
+        await ctx.db.patch(existing._id, { scannedAt: input.now });
+        return "stamped";
+      }
+      return "already_stamped";
+    }
     await ctx.db.insert("fairPassportStamps", {
       visitorId: input.visitorId,
       eventId: input.model.eventId,
@@ -164,6 +174,12 @@ export type FairScanRecordStatus =
  * resolver request yields one generic event and at most one fair scan, and a
  * retry with the same requestId adds nothing. Every non-admin scan counts 24/7
  * with no opening-hours, device or bot filter (HANDOFF §5.2, MASTER §5).
+ *
+ * P1: a scan before the event's start (fairIsPreEvent) is stored with
+ * `preEvent: true` (scan row and, on first scan, the unique row) and bumps no
+ * counter. The visitor's first scan of the model DURING the fair takes the
+ * pre-event unique row over and counts as the unique scan, so a pre-event
+ * scan never uses it up.
  */
 export async function recordFairScan(
   ctx: MutationCtx,
@@ -201,6 +217,8 @@ export async function recordFairScan(
 
   const adminUserId = await fairSessionAdminUserId(ctx);
   const time = fairTimeKeys(now);
+  const event = await ctx.db.get(model.eventId);
+  const preEvent = event !== null && fairIsPreEvent(now, event);
   await ctx.db.insert("fairScanEvents", {
     requestId: input.requestId,
     visitorId,
@@ -213,6 +231,7 @@ export async function recordFairScan(
     hourKey: time.hourKey,
     isAdminExcluded: adminUserId !== null,
     ...(adminUserId ? { adminUserId } : {}),
+    ...(preEvent ? { preEvent: true } : {}),
   });
   // Admin scans: audit row only — no unique row, no counter, no stamp.
   if (adminUserId) return "admin_excluded";
@@ -223,7 +242,11 @@ export async function recordFairScan(
       q.eq("visitorId", visitorId).eq("eventModelId", model._id),
     )
     .unique();
-  if (unique) {
+  // P1: a pre-event unique row (never counted) is taken over by the first scan during the fair.
+  const takeOver = unique !== null && unique.preEvent === true && !preEvent;
+  if (takeOver) {
+    await ctx.db.patch(unique._id, { firstScannedAt: now, lastScannedAt: now, totalScanCount: 1, preEvent: undefined });
+  } else if (unique) {
     await ctx.db.patch(unique._id, { lastScannedAt: now, totalScanCount: unique.totalScanCount + 1 });
   } else {
     await ctx.db.insert("fairUniqueScans", {
@@ -233,13 +256,16 @@ export async function recordFairScan(
       firstScannedAt: now,
       lastScannedAt: now,
       totalScanCount: 1,
+      ...(preEvent ? { preEvent: true } : {}),
     });
   }
-  const ids = { eventModelId: model._id, standId: model.standId };
-  for (const key of fairScanCountKeys("scan_total", ids, time)) await bumpFairCount(ctx, key);
-  if (!unique) {
-    for (const key of fairScanCountKeys("scan_unique", ids, time)) await bumpFairCount(ctx, key);
+  if (!preEvent) {
+    const ids = { eventModelId: model._id, standId: model.standId };
+    for (const key of fairScanCountKeys("scan_total", ids, time)) await bumpFairCount(ctx, key);
+    if (!unique || takeOver) {
+      for (const key of fairScanCountKeys("scan_unique", ids, time)) await bumpFairCount(ctx, key);
+    }
   }
-  await stampFairPassportOnScan(ctx, { visitorId, model, now });
+  await stampFairPassportOnScan(ctx, { visitorId, model, now, ...(event ? { eventStartsAt: event.startsAt } : {}) });
   return "recorded";
 }

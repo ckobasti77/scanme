@@ -120,6 +120,19 @@ async function setup({ auto = false }: { auto?: boolean } = {}) {
         specifications: [spec(1), spec(2)], packageTier, passportEligible: true,
         ...(opts.packageActiveFrom !== undefined ? { packageActiveFrom: opts.packageActiveFrom } : {}),
       });
+      if (opts.packageActiveFrom !== undefined) {
+        // P1 (Aleksa, 8. 10.): the admin path now starts every package at its
+        // assignment. This reproduces a package written before P1 that still
+        // waits for a later start (fairPackages.migrateFutureActivations
+        // settles such rows); until then the read side honors it.
+        const from = opts.packageActiveFrom;
+        await t.run(async (ctx) => {
+          await ctx.db.patch(modelId, { packageActivatedAt: from });
+          for (const row of await ctx.db.query("fairPackageActivations").withIndex("by_eventModelId_and_activatedAt", (q) => q.eq("eventModelId", modelId)).collect()) {
+            await ctx.db.patch(row._id, { activatedAt: from });
+          }
+        });
+      }
       if (opts.publish !== false) await admin.mutation(api.fairAdmin.publishModel, { eventModelId: modelId });
       return modelId;
     };

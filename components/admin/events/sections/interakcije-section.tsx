@@ -41,6 +41,7 @@ export function useInteractionsActions(): InteractionsActions {
   const saveQuestion = useMutation(api.fairInteractionsAdmin.upsertAudienceQuestion);
   const publishQuestion = useMutation(api.fairInteractionsAdmin.publishAudienceQuestion);
   const closeQuestion = useMutation(api.fairInteractionsAdmin.closeAudienceQuestion);
+  const openQuestionNow = useMutation(api.fairInteractionsAdmin.openAudienceQuestionNow);
   const setSponsoredResult = useMutation(api.fairInteractionsAdmin.setSponsoredResultQuestion);
   const saveSurveyDraft = useMutation(api.fairInteractionsAdmin.upsertSurveyDraft);
   const publishSurvey = useMutation(api.fairInteractionsAdmin.publishSurvey);
@@ -52,6 +53,7 @@ export function useInteractionsActions(): InteractionsActions {
     })),
     publishQuestion: (questionId) => interactionOutcome(() => publishQuestion({ questionId: questionId as Id<"fairAudienceQuestions"> })),
     closeQuestion: (questionId) => interactionOutcome(() => closeQuestion({ questionId: questionId as Id<"fairAudienceQuestions"> })),
+    openQuestionNow: (questionId) => interactionOutcome(() => openQuestionNow({ questionId: questionId as Id<"fairAudienceQuestions"> })),
     setSponsoredResult: (modelId, questionId) => interactionOutcome(() => setSponsoredResult({ eventModelId: modelId as Id<"fairEventModels">, questionId: questionId as Id<"fairAudienceQuestions"> | null })),
     saveSurveyDraft: (modelId, questions) => interactionOutcome(() => saveSurveyDraft({ eventModelId: modelId as Id<"fairEventModels">, questions })),
     publishSurvey: (surveyId) => interactionOutcome(() => publishSurvey({ surveyId: surveyId as Id<"fairSurveys"> })),
@@ -142,6 +144,7 @@ function useInteractionData(now: number, dateKey: string | undefined) {
       questions: interactionData.questions.map((row) => ({
         id: row._id, modelId: row.eventModelId, dayId: row.eventDayId, prompt: row.prompt, options: row.options,
         status: row.status, sortOrder: row.sortOrder, showOnSponsoredRotation: row.showOnSponsoredRotation,
+        startsAt: row.startsAt, ...(row.endsAt !== undefined ? { endsAt: row.endsAt } : {}),
       })),
       surveys: interactionData.surveys.map((row) => ({
         id: row._id, modelId: row.eventModelId, version: row.version, status: row.status, ...(row.title !== undefined ? { title: row.title } : {}),

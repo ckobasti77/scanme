@@ -98,20 +98,21 @@ const FAIR_INDEXES: Record<string, string[]> = {
     "by_standId_and_occurredAt",
     "by_eventId_and_occurredAt",
   ],
-  fairUniqueScans: ["by_visitorId_and_eventModelId", "by_eventModelId_and_firstScannedAt"],
+  fairUniqueScans: ["by_visitorId_and_eventModelId", "by_eventModelId_and_firstScannedAt", "by_eventId_and_firstScannedAt"], // P1 pre-event reset
   fairMetricCountShards: ["by_key_and_shard"],
-  fairRatings: ["by_visitorId_and_eventModelId", "by_eventModelId_and_updatedAt"],
+  fairRatings: ["by_visitorId_and_eventModelId", "by_eventModelId_and_updatedAt", "by_eventId_and_updatedAt"], // P1 pre-event reset
   fairAudienceQuestions: [
     "by_eventModelId_and_eventDayId",
     "by_eventDayId_and_status",
     "by_eventId_and_externalKey", // B0 addition (import idempotency)
   ],
-  fairAudienceVotes: ["by_visitorId_and_questionId", "by_questionId_and_updatedAt"],
+  fairAudienceVotes: ["by_visitorId_and_questionId", "by_questionId_and_updatedAt", "by_eventId_and_updatedAt"], // P1 pre-event reset
   fairSurveys: ["by_eventModelId_and_status"],
   fairSurveyResponses: [
     "by_submissionId",
     "by_surveyId_and_submittedAt",
     "by_visitorId_and_surveyId",
+    "by_eventId_and_submittedAt", // P1 pre-event reset
   ],
   fairConsentConfigs: [
     "by_eventId_and_leadKind_and_status",
@@ -139,8 +140,8 @@ const FAIR_INDEXES: Record<string, string[]> = {
   ],
   fairPassportConfigs: ["by_eventId_and_brandId", "by_eventId_and_status"], // B0 design
   fairPassportEligibleModels: ["by_passportConfigId_and_status", "by_eventModelId"], // B0 design
-  fairPassportStamps: ["by_visitorId_and_eventId_and_brandId", "by_visitorId_and_eventModelId"],
-  fairBrandFavoriteVotes: ["by_visitorId_and_eventId_and_brandId", "by_eventId_and_brandId"],
+  fairPassportStamps: ["by_visitorId_and_eventId_and_brandId", "by_visitorId_and_eventModelId", "by_eventId_and_scannedAt"], // P1 pre-event reset
+  fairBrandFavoriteVotes: ["by_visitorId_and_eventId_and_brandId", "by_eventId_and_brandId", "by_eventId_and_updatedAt"], // P1 pre-event reset
   fairReportRuns: ["by_eventDayId_and_participationId", "by_status_and_createdAt"],
   fairSponsoredSnapshots: ["by_eventId_and_status", "by_eventId_and_version"],
   fairSponsoredSnapshotItems: ["by_snapshotId_and_order"],

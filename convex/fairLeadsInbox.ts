@@ -112,7 +112,9 @@ export const listEventLeads = query({
     await requireAdmin(ctx);
     const event = await requireFairEvent(ctx, args.eventId);
     if (args.paginationOpts.numItems > INBOX_PAGE_MAX) fairAdminError("INVALID_INPUT", { field: "numItems", max: INBOX_PAGE_MAX });
-    const from = args.from ?? 0;
+    // P1: the inbox (the source of the hand-over to exhibitors) starts at the
+    // event's start; pre-event leads are counted apart (fairPreEvent).
+    const from = Math.max(args.from ?? 0, event.startsAt);
     const to = args.to ?? Number.MAX_SAFE_INTEGER;
     let indexed;
     if (args.eventModelId) {
@@ -243,9 +245,10 @@ export const markLeadsDelivered = mutation({
     } else {
       participation = await ctx.db.get(args.participationId!);
       if (!participation || participation.eventId !== event._id) fairAdminError("FAIR_LINK_NOT_FOUND", { field: "participationId" });
+      // P1: a pre-event lead is never marked as handed to the exhibitor.
       const found = await ctx.db
         .query("fairLeads")
-        .withIndex("by_participationId_and_createdAt", (q) => q.eq("participationId", participation!._id))
+        .withIndex("by_participationId_and_createdAt", (q) => q.eq("participationId", participation!._id).gte("createdAt", event.startsAt))
         .filter((q) => q.neq(q.field("status"), "delivered"))
         .take(DELIVER_BATCH_MAX + 1);
       hasMore = found.length > DELIVER_BATCH_MAX;

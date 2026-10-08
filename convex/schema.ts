@@ -3498,6 +3498,10 @@ export default defineSchema({
     hourKey: v.string(), // YYYY-MM-DDTHH, Europe/Belgrade
     isAdminExcluded: v.boolean(),
     adminUserId: v.optional(v.id("users")),
+    // P1: written before the event's startsAt (fairIsPreEvent) and NOT in
+    // fairMetricCountShards. Cleared when the visitor's first write during the
+    // fair takes the row over; absent = counted (also every row before P1).
+    preEvent: v.optional(v.boolean()),
   })
     // unique: requestId
     .index("by_requestId", ["requestId"])
@@ -3513,10 +3517,16 @@ export default defineSchema({
     firstScannedAt: v.number(),
     lastScannedAt: v.number(),
     totalScanCount: v.number(),
+    // P1: written before the event's startsAt (fairIsPreEvent) and NOT in
+    // fairMetricCountShards. Cleared when the visitor's first write during the
+    // fair takes the row over; absent = counted (also every row before P1).
+    preEvent: v.optional(v.boolean()),
   })
     // unique: (visitorId, eventModelId)
     .index("by_visitorId_and_eventModelId", ["visitorId", "eventModelId"])
-    .index("by_eventModelId_and_firstScannedAt", ["eventModelId", "firstScannedAt"]),
+    .index("by_eventModelId_and_firstScannedAt", ["eventModelId", "firstScannedAt"])
+    // P1: the event's pre-event rows (firstScannedAt < startsAt) for the reset.
+    .index("by_eventId_and_firstScannedAt", ["eventId", "firstScannedAt"]),
 
   // Read projection for hot counters (helper arrives in B2, modeled on
   // convex/lib/countShards.ts; never memoriesCountShards). Raw rows stay the
@@ -3541,10 +3551,16 @@ export default defineSchema({
     price: v.optional(fairRatingValue),
     createdAt: v.number(),
     updatedAt: v.number(),
+    // P1: written before the event's startsAt (fairIsPreEvent) and NOT in
+    // fairMetricCountShards. Cleared when the visitor's first write during the
+    // fair takes the row over; absent = counted (also every row before P1).
+    preEvent: v.optional(v.boolean()),
   })
     // unique: (visitorId, eventModelId) — re-rating patches this row
     .index("by_visitorId_and_eventModelId", ["visitorId", "eventModelId"])
-    .index("by_eventModelId_and_updatedAt", ["eventModelId", "updatedAt"]),
+    .index("by_eventModelId_and_updatedAt", ["eventModelId", "updatedAt"])
+    // P1: the event's pre-event rows (updatedAt < startsAt) for the reset.
+    .index("by_eventId_and_updatedAt", ["eventId", "updatedAt"]),
 
   fairAudienceQuestions: defineTable({
     eventId: v.id("fairEvents"),
@@ -3579,10 +3595,16 @@ export default defineSchema({
     optionId: v.string(),
     createdAt: v.number(),
     updatedAt: v.number(),
+    // P1: written before the event's startsAt (fairIsPreEvent) and NOT in
+    // fairMetricCountShards. Cleared when the visitor's first write during the
+    // fair takes the row over; absent = counted (also every row before P1).
+    preEvent: v.optional(v.boolean()),
   })
     // unique: (visitorId, questionId)
     .index("by_visitorId_and_questionId", ["visitorId", "questionId"])
-    .index("by_questionId_and_updatedAt", ["questionId", "updatedAt"]),
+    .index("by_questionId_and_updatedAt", ["questionId", "updatedAt"])
+    // P1: the event's pre-event rows (updatedAt < startsAt) for the reset.
+    .index("by_eventId_and_updatedAt", ["eventId", "updatedAt"]),
 
   // Advanced only; ≤5 questions; a version with responses is never edited.
   fairSurveys: defineTable({
@@ -3613,7 +3635,9 @@ export default defineSchema({
     // unique: submissionId; (visitorId, surveyId)
     .index("by_submissionId", ["submissionId"])
     .index("by_surveyId_and_submittedAt", ["surveyId", "submittedAt"])
-    .index("by_visitorId_and_surveyId", ["visitorId", "surveyId"]),
+    .index("by_visitorId_and_surveyId", ["visitorId", "surveyId"])
+    // P1: the event's pre-event rows (submittedAt < startsAt) for the reset.
+    .index("by_eventId_and_submittedAt", ["eventId", "submittedAt"]),
 
   // §5.4 — leads and email
   fairConsentConfigs: defineTable({
@@ -3817,7 +3841,9 @@ export default defineSchema({
   })
     .index("by_visitorId_and_eventId_and_brandId", ["visitorId", "eventId", "brandId"])
     // unique: (visitorId, eventModelId)
-    .index("by_visitorId_and_eventModelId", ["visitorId", "eventModelId"]),
+    .index("by_visitorId_and_eventModelId", ["visitorId", "eventModelId"])
+    // P1: the event's pre-event stamps (scannedAt < startsAt) for the reset.
+    .index("by_eventId_and_scannedAt", ["eventId", "scannedAt"]),
 
   // (PII) One changeable favorite per visitor+event+brand, after completion.
   fairBrandFavoriteVotes: defineTable({
@@ -3827,10 +3853,16 @@ export default defineSchema({
     eventModelId: v.id("fairEventModels"),
     createdAt: v.number(),
     updatedAt: v.number(),
+    // P1: written before the event's startsAt (fairIsPreEvent) and NOT in
+    // fairMetricCountShards. Cleared when the visitor's first write during the
+    // fair takes the row over; absent = counted (also every row before P1).
+    preEvent: v.optional(v.boolean()),
   })
     // unique: (visitorId, eventId, brandId)
     .index("by_visitorId_and_eventId_and_brandId", ["visitorId", "eventId", "brandId"])
-    .index("by_eventId_and_brandId", ["eventId", "brandId"]),
+    .index("by_eventId_and_brandId", ["eventId", "brandId"])
+    // P1: the event's pre-event rows (updatedAt < startsAt) for the reset.
+    .index("by_eventId_and_updatedAt", ["eventId", "updatedAt"]),
 
   // §5.6 — reports (send is refused unless status is "approved")
   fairReportRuns: defineTable({
@@ -3898,6 +3930,10 @@ export default defineSchema({
     dateKey: v.string(),
     hourKey: v.string(),
     visitorId: v.optional(v.id("fairVisitors")),
+    // P1: written before the event's startsAt (fairIsPreEvent) and NOT in
+    // fairMetricCountShards. Cleared when the visitor's first write during the
+    // fair takes the row over; absent = counted (also every row before P1).
+    preEvent: v.optional(v.boolean()),
   })
     // unique: requestId
     .index("by_requestId", ["requestId"])
