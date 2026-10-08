@@ -121,3 +121,37 @@ Svaki obrisan red se **oduzima iz brojača** (`fairMetricCountShards`) tačno on
   - i18n ključevi u `lib/i18n/sr/admin-events.ts`.
 - Lead inbox više ne prikazuje pre-event leadove. Ako adminu treba da ih vidi, poziv dobija `includePreEvent: true`.
 - Pre-event jedinstveni sken posetioca koji je skenirao i na sajmu: posle reseta se taj jedinstveni sken ne računa ponovo. To je retko i tiče se samo test telefona.
+
+## 6. Dopuna 9. 10. 2026. (odluke vlasnika, posle ponoći)
+
+### 6.1 Granica analitike je otvaranje hale: 9. 10. 2026. 08:00 Europe/Belgrade
+
+- **Jedno mesto za podešavanje:** `FAIR_ANALYTICS_CUTOFF_BY_EVENT_CODE` u `convex/lib/fairPreEvent.ts`, `"elektromobilnost-2026": 2026-10-09T08:00+02:00`. Ostali događaji (i TEST) i dalje koriste `event.startsAt`.
+- **Šta je pre-event:** sve pre 08:00, uključujući noćne probe i lepljenje nalepnica. Ne ulazi u analitiku, izveštaje, brojače ni izvoz izlagača, a „Resetuj pre-event podatke“ to briše i oduzima iz brojača.
+- **Dan u kom pada granica:** pošto 08:00 pada usred 1. sajamskog dana, `fairDayCountFrom` za taj dan čita satne buckete od 08:00 umesto dnevnog bucketa. Tako rade:
+  - izveštaj (`modelDayRaw`: skenovi, sponzorisano, satni skenovi; leadovi i ankete od `max(day.startsAt, granica)`);
+  - ukupno po štandu u izveštaju (`reportContext`);
+  - `fairDashboard` (ukupno i danas).
+- **Ocene, glasovi i omiljeni** (all-time brojači) i zbirni pregled organizatora čiste se resetom.
+- **Testovi:** `convex/fairPreEvent.test.ts` („analytics cutoff: the hall opening“):
+  - granica za pravi kod je 08:00, a za TEST kod `startsAt`;
+  - čitanje bucketa od granice;
+  - na pravom događaju je sken u 02:00 pre-event, a sken u 10:00 se broji; reset briše samo prvi.
+
+### 6.2 Šta ide u koji deploy
+
+- **Prvi deploy (9. 10.):** ova grana, spojena sa `main`-om (`release/sajam-2026-10-08`), sa pre-event verzijom iz ovog dokumenta. Razlog:
+  - posle ponoći ne zamrzava ništa;
+  - JMEV pasoš nastaje objavljen sa EV3, YI i EWIND i kad se događaj pravi posle otvaranja.
+- **Drugi deploy (posle pregleda):** Jovanove ispravke P2 i D1 sa `codex/jovan-sajam-sync-2026-10-08` (`c8c392f`, `ef661e5`):
+  - normalizator nalepnica (ćirilica, `#7`, `SA26/7`);
+  - odbijanje zamene na zastarelim podacima;
+  - mapa po intake-u i `reconcileSiteExhibitorsWithIntake` / `listStandsOffMap`;
+  - spoljne fotografije van `/_next/image`;
+  - dorada forme i zona dodira.
+- **Jovanov P1** (`db7e5cf`: polje `preEvent` u šemi, `migrateFutureActivations`, potvrda reseta slugom) **ne ide**, jer ga ova verzija zamenjuje. Ako se P2/D1 prenose cherry-pick-om, delove koji zavise od P1 treba prilagoditi ovom API-ju (`openAudienceQuestionNow`, `openAt`, `fairPreEvent.*`).
+
+### 6.3 DEV `perfect-ant-98`
+
+- `test-elektromobilnost-2026` i `test-auto-moto-fest-2026` su arhivirani (`status: "archived"`, može da se vrati), pa admin otvara `elektromobilnost-2026`.
+- TEST događaji se nikad ne prave na produkciji.
