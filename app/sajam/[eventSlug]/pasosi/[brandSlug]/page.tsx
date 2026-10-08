@@ -28,6 +28,7 @@ export default async function FairBrandPassportPage({
 }) {
   const [{ eventSlug, brandSlug }, query] = await Promise.all([params, searchParams]);
   const devTools = process.env.NODE_ENV === "development" && (Array.isArray(query.dev) ? query.dev[0] : query.dev) === "1";
+  const focus = Array.isArray(query.focus) ? query.focus[0] : query.focus;
   const data = await loadFairPassportPage(eventSlug).catch(() => null);
   if (!data) notFound();
   const passport = data.catalog.find((entry) => fairPassportBrandSlug(entry.brandName) === brandSlug);
@@ -51,6 +52,7 @@ export default async function FairBrandPassportPage({
         catalog={data.catalog}
         models={data.models}
         selectedPassportId={passport.passportId}
+        focusModelSlug={focus || undefined}
         dict={dict}
         devTools={devTools}
         showDevEntry={process.env.NODE_ENV === "development"}

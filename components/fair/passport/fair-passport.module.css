@@ -6,6 +6,9 @@
   --passport-muted: #66707b;
   --passport-line: #dce2e8;
   --passport-surface: #ffffff;
+  /* Charge energy and its glow derive from the event accent (prototype #5fb2ff / #d9eeff). */
+  --passport-energy: color-mix(in srgb, var(--passport-blue) 58%, #fff);
+  --passport-glow: color-mix(in srgb, var(--passport-blue) 15%, #fff);
   min-height: calc(100dvh - var(--fair-header-height));
   background:
     radial-gradient(circle at 82% 5%, color-mix(in srgb, var(--passport-blue) 7%, transparent), transparent 28%),
@@ -55,55 +58,12 @@
 }
 
 .eventSeal {
-  position: relative;
-  display: grid;
+  --seal-paper: #f7f8f8;
+  display: block;
   width: 108px;
   height: 108px;
-  padding: 18px 10px 12px;
-  place-items: center;
-  align-content: center;
-  gap: 1px;
   color: var(--passport-blue);
-  text-align: center;
-  text-transform: uppercase;
-  isolation: isolate;
-}
-
-.eventSeal::before,
-.eventSeal::after {
-  position: absolute;
-  z-index: -1;
-  content: "";
-  inset: 2px;
-  border: 2px solid currentColor;
-  border-radius: 32% 42% 36% 40%;
-  transform: rotate(8deg);
-}
-
-.eventSeal::after {
-  inset: 8px;
-  border-width: 1px;
-  border-radius: 38% 31% 42% 35%;
-  opacity: 0.58;
-  transform: rotate(-7deg);
-}
-
-.eventSealIcon {
-  font-size: 22px;
-  font-weight: 800;
-  line-height: 0.8;
-}
-
-.eventSeal > span:nth-child(2) {
-  max-width: 84px;
-  font-size: 8px;
-  font-weight: 800;
-  line-height: 1.05;
-}
-
-.eventSeal strong {
-  font-size: 14px;
-  font-weight: 820;
+  transform: rotate(-8deg);
 }
 
 .passportGrid {
@@ -462,7 +422,12 @@
 
 .modelCardLocked {
   cursor: pointer;
-  transition: transform 180ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 180ms ease;
+  transition: transform 180ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 180ms ease, opacity 400ms ease;
+}
+
+/* While a stamp waits for its hold, only not-yet-scanned cards step back. */
+.modelStack[data-spotlight] .modelCardLocked {
+  opacity: 0.6;
 }
 
 .modelCardLocked:active {
@@ -508,16 +473,15 @@
   backdrop-filter: grayscale(1);
 }
 
-.modelCardLocked .modelPhoto,
-.modelCardRevealing .modelPhoto {
+.modelCardLocked .modelPhoto {
   filter: grayscale(100%) brightness(0.58);
 }
 
-.modelCardCollected:not(.modelCardRevealing) .modelPhoto {
+.modelCardCollected .modelPhoto {
   filter: grayscale(0%) brightness(1);
 }
 
-.modelCardCollected:not(.modelCardRevealing) .modelTextGradient {
+.modelCardCollected .modelTextGradient {
   background: linear-gradient(90deg, rgb(10 16 22 / 0.78) 0%, rgb(10 16 22 / 0.52) 28%, rgb(10 16 22 / 0.08) 64%, transparent 82%);
 }
 
@@ -663,7 +627,7 @@
   transform: scale(0.975);
 }
 
-.favoriteGrid button > span:last-of-type {
+.favoriteName {
   display: block;
   overflow: hidden;
   padding: 8px 10px 0;
@@ -831,8 +795,8 @@
   }
 
   .eventSeal {
-    width: 94px;
-    height: 94px;
+    width: 96px;
+    height: 96px;
   }
 
   .passportCard {
@@ -912,5 +876,791 @@
 
   .loadingLine::after {
     animation-duration: 1.8s;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Hold-to-unlock (port of public/prototip/pasos-otkljucavanje.html).
+   Every animated property below is transform, opacity or clip-path.
+   --------------------------------------------------------------------------- */
+
+.unlockCard {
+  -webkit-touch-callout: none;
+  user-select: none;
+  transition: box-shadow 400ms ease;
+}
+
+.unlockCard[data-phase="ready"] {
+  border-color: rgb(12 18 23 / 0.85);
+  box-shadow: 0 14px 30px color-mix(in srgb, var(--passport-blue) 18%, transparent);
+}
+
+.unlockCard .modelMedia {
+  z-index: 0;
+}
+
+.unlockPhoto {
+  filter: grayscale(1) brightness(0.58);
+}
+
+.unlockPhotoColor {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  opacity: 0;
+  clip-path: inset(0 100% 0 0);
+}
+
+.unlockCard .modelTextGradient {
+  z-index: 1;
+}
+
+.unlockShade {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  background:
+    linear-gradient(90deg, rgb(26 30 34 / 0.22), rgb(26 30 34 / 0.54)),
+    rgb(255 255 255 / 0.18);
+}
+
+.unlockCharge {
+  position: absolute;
+  z-index: 3;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    to right,
+    color-mix(in srgb, var(--passport-blue) 10%, transparent),
+    color-mix(in srgb, var(--passport-blue) 34%, transparent) 80%,
+    color-mix(in srgb, var(--passport-energy) 50%, transparent)
+  );
+  transform: translateX(-101%);
+}
+
+/* the bright vertical leading edge of the energy */
+.unlockCharge::before {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 2px;
+  background: linear-gradient(transparent, var(--passport-glow), #fff, var(--passport-glow), transparent);
+  box-shadow: 0 0 14px 3px color-mix(in srgb, var(--passport-energy) 75%, transparent);
+  content: "";
+  opacity: 0;
+  transition: opacity 300ms ease;
+}
+
+.unlockCard[data-charging] .unlockCharge::before {
+  opacity: 1;
+  transition-duration: 80ms;
+}
+
+.unlockCells {
+  position: absolute;
+  z-index: 3;
+  inset: 10px;
+  display: flex;
+  pointer-events: none;
+}
+
+.unlockCells > i {
+  position: relative;
+  flex: 1;
+  border-right: 1px solid rgb(255 255 255 / 0.14);
+}
+
+.unlockCells > i:nth-child(10) {
+  border-right: 0;
+}
+
+.unlockCells > i::after {
+  position: absolute;
+  top: 0;
+  right: -1px;
+  bottom: 0;
+  width: 1px;
+  background: color-mix(in srgb, var(--passport-glow) 85%, transparent);
+  box-shadow: 0 0 10px 1px color-mix(in srgb, var(--passport-energy) 80%, transparent);
+  content: "";
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.unlockCells > i:nth-child(10)::after {
+  display: none;
+}
+
+.unlockCells > i[data-lit]::after {
+  opacity: 1;
+}
+
+.unlockCellsFlash {
+  position: absolute;
+  inset: 0;
+  border-radius: 10px;
+  background: rgb(255 255 255 / 0.2);
+  opacity: 0;
+}
+
+/* Edge tracer: a ring mask holding a rotating conic comet and a pie band
+   growing behind it. Rotating a centred conic equals conic from <angle>. */
+.runner {
+  position: absolute;
+  z-index: 6;
+  inset: 0;
+  overflow: hidden;
+  padding: 2.5px;
+  border-radius: 19px;
+  pointer-events: none;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+}
+
+.unlockCard:not([data-active]):not([data-charging]) .runner {
+  background: color-mix(in srgb, var(--passport-energy) 38%, transparent);
+}
+
+.runnerSpin,
+.rimFill {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 150%;
+  aspect-ratio: 1;
+  translate: -50% -50%;
+}
+
+.runnerSpin {
+  background: conic-gradient(
+    transparent 0 72%,
+    color-mix(in srgb, var(--passport-energy) 20%, transparent) 80%,
+    #fff 88%,
+    var(--passport-energy) 92%,
+    transparent 100%
+  );
+  opacity: 0;
+  transition: opacity 240ms ease;
+}
+
+.unlockCard[data-active] .runnerSpin,
+.unlockCard[data-charging] .runnerSpin {
+  opacity: 1;
+  will-change: transform;
+}
+
+.rimFill {
+  opacity: 0;
+}
+
+.rimHalfRight,
+.rimHalfLeft,
+.rimHalfRight > span,
+.rimHalfLeft > span {
+  position: absolute;
+  inset: 0;
+}
+
+.rimHalfRight {
+  clip-path: inset(0 0 0 50%);
+}
+
+.rimHalfLeft {
+  clip-path: inset(0 50% 0 0);
+}
+
+.rimHalfRight > span {
+  background: linear-gradient(to right, var(--passport-energy) 50%, transparent 50%);
+}
+
+.rimHalfLeft > span {
+  background: linear-gradient(to right, transparent 50%, var(--passport-energy) 50%);
+}
+
+.rimGlow {
+  position: absolute;
+  inset: 0;
+  background: #fff;
+  opacity: 0;
+}
+
+.unlockFlash {
+  position: absolute;
+  z-index: 6;
+  inset: 0;
+  background: rgb(255 255 255 / 0.16);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.cardSweep {
+  position: absolute;
+  z-index: 7;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 32%, rgb(255 255 255 / 0.75) 48%, color-mix(in srgb, var(--passport-energy) 50%, transparent) 54%, transparent 68%);
+  mix-blend-mode: screen;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-110%);
+}
+
+.cardFlash {
+  position: absolute;
+  z-index: 7;
+  inset: 0;
+  border-radius: inherit;
+  background: rgb(255 255 255 / 0.08);
+  box-shadow:
+    inset 0 0 0 3px var(--passport-energy),
+    inset 0 0 34px color-mix(in srgb, var(--passport-energy) 55%, transparent);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.unlockCard .modelAccent {
+  z-index: 8;
+}
+
+.unlockCard[data-phase="ready"] .modelAccent {
+  transform: scaleY(0);
+}
+
+.nameGlow {
+  position: absolute;
+  z-index: 8;
+  top: 15%;
+  bottom: 15%;
+  left: 0;
+  width: 62%;
+  background: radial-gradient(ellipse at 32% 50%, color-mix(in srgb, var(--passport-energy) 60%, transparent), transparent 66%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.unlockCard > strong {
+  z-index: 9;
+}
+
+.unlockLabel {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--passport-glow);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-shadow: none;
+  text-transform: uppercase;
+  opacity: 0;
+}
+
+.unlockCard .lockState {
+  z-index: 9;
+}
+
+.newChip {
+  position: absolute;
+  z-index: 9;
+  top: 16px;
+  right: 14px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--passport-blue);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+
+.holdPill {
+  position: absolute;
+  z-index: 9;
+  right: 14px;
+  bottom: 14px;
+  display: inline-flex;
+  min-height: 44px;
+  padding: 0 14px 0 6px;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgb(255 255 255 / 0.3);
+  border-radius: 999px;
+  background: rgb(12 18 23 / 0.46);
+  backdrop-filter: blur(8px);
+  color: #fff;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 680;
+  letter-spacing: -0.01em;
+}
+
+.holdRing {
+  position: relative;
+  width: 32px;
+  height: 32px;
+  flex: none;
+}
+
+.holdRing > svg {
+  width: 32px;
+  height: 32px;
+  transform: rotate(-90deg);
+}
+
+.holdRing circle {
+  fill: none;
+  stroke-width: 3;
+}
+
+.holdRingTrack {
+  stroke: rgb(255 255 255 / 0.25);
+}
+
+.holdRingValue {
+  stroke: var(--passport-energy);
+  stroke-dasharray: 100 100;
+  stroke-dashoffset: 100;
+  stroke-linecap: round;
+  opacity: 0;
+}
+
+.holdRing > span {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+
+.holdRing > span svg {
+  width: 16px;
+  height: 16px;
+}
+
+.burst {
+  position: absolute;
+  z-index: 10;
+  inset: 0;
+  pointer-events: none;
+}
+
+.bloom,
+.wave,
+.spark {
+  position: absolute;
+  opacity: 0;
+}
+
+.bloom {
+  width: 60px;
+  height: 60px;
+  margin: -30px 0 0 -30px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #fff 0%, color-mix(in srgb, var(--passport-glow) 90%, transparent) 30%, color-mix(in srgb, var(--passport-energy) 35%, transparent) 60%, transparent 72%);
+}
+
+.wave {
+  width: 40px;
+  height: 40px;
+  margin: -20px 0 0 -20px;
+  border: 2px solid color-mix(in srgb, var(--passport-glow) 90%, transparent);
+  border-radius: 50%;
+}
+
+.spark {
+  width: 2px;
+  height: 12px;
+  margin: -6px 0 0 -1px;
+  border-radius: 2px;
+  background: linear-gradient(#fff, var(--passport-energy));
+}
+
+.holdHint {
+  position: absolute;
+  z-index: 11;
+  bottom: -2px;
+  left: 50%;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: var(--passport-ink);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 650;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, 0);
+  transition: opacity 200ms ease, transform 200ms ease;
+}
+
+.holdHint[data-show] {
+  opacity: 1;
+  transform: translate(-50%, -12px);
+}
+
+.unlockHit {
+  position: absolute;
+  z-index: 12;
+  inset: 0;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  cursor: pointer;
+  touch-action: pan-y;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  user-select: none;
+}
+
+.unlockHit:focus-visible {
+  outline: 3px solid var(--passport-blue-deep);
+  outline-offset: 3px;
+}
+
+.unlockCard[data-phase="done"] .unlockPhoto {
+  filter: none;
+}
+
+.unlockCard[data-phase="done"] :is(.unlockPhotoColor, .unlockShade, .unlockCharge, .runner) {
+  display: none;
+}
+
+.unlockCard[data-phase="done"] .modelTextGradient {
+  background: linear-gradient(90deg, rgb(10 16 22 / 0.78) 0%, rgb(10 16 22 / 0.52) 28%, rgb(10 16 22 / 0.08) 64%, transparent 82%);
+}
+
+.holdHelper {
+  margin: 14px 2px 0;
+  color: var(--passport-muted);
+  font-size: 14px;
+}
+
+/* header sweep (finale) */
+.headSweep {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 30%, rgb(255 255 255 / 0.85) 46%, color-mix(in srgb, var(--passport-blue) 26%, transparent) 52%, transparent 70%);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-100%);
+}
+
+.brandIdentity {
+  position: relative;
+  z-index: 1;
+}
+
+/* progress dots: stamped but still waiting for the hold */
+.progressDots > .progressDotPending {
+  position: relative;
+  background: #fff;
+  box-shadow: inset 0 0 0 2px var(--passport-blue);
+}
+
+.progressDotPending::before,
+.progressDotPending::after {
+  position: absolute;
+  border-radius: 50%;
+  content: "";
+}
+
+.progressDotPending::before {
+  inset: 5px;
+  background: var(--passport-blue);
+  animation: passport-dot-core 1.8s ease-in-out infinite;
+}
+
+.progressDotPending::after {
+  inset: -3px;
+  border: 2px solid var(--passport-blue);
+  opacity: 0;
+  animation: passport-dot-wait 1.8s ease-out infinite;
+}
+
+@keyframes passport-dot-core {
+  0%, 100% { opacity: 0.35; transform: scale(0.55); }
+  50% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes passport-dot-wait {
+  0% { opacity: 0.75; transform: scale(0.7); }
+  70%, 100% { opacity: 0; transform: scale(1.45); }
+}
+
+.dotRing {
+  position: absolute;
+  inset: 0;
+  border: 2px solid var(--passport-energy);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+/* ---------- finale ---------- */
+.finale {
+  position: fixed;
+  z-index: 100;
+  inset: 0;
+  display: grid;
+  padding: 24px 16px calc(24px + env(safe-area-inset-bottom));
+  place-items: center;
+}
+
+.finaleScrim {
+  position: absolute;
+  inset: 0;
+  background: rgb(10 16 22 / 0.62);
+  backdrop-filter: blur(6px);
+  opacity: 0;
+}
+
+.finaleCard {
+  --seal-paper: var(--passport-surface);
+  position: relative;
+  width: min(380px, 100%);
+  padding: 30px 22px 22px;
+  overflow: hidden;
+  border-radius: 26px;
+  background: var(--passport-surface);
+  box-shadow: 0 30px 70px rgb(0 0 0 / 0.3);
+  color: var(--passport-ink);
+  text-align: center;
+  opacity: 0;
+}
+
+.finaleCard::before {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 120px;
+  background: radial-gradient(ellipse at 50% 0%, color-mix(in srgb, var(--passport-energy) 28%, transparent), transparent 70%);
+  content: "";
+  pointer-events: none;
+}
+
+.sealWrap {
+  position: relative;
+  width: 156px;
+  height: 156px;
+  margin: 0 auto 18px;
+}
+
+.finaleSeal {
+  position: absolute;
+  inset: 0;
+  color: var(--passport-blue);
+  opacity: 0;
+  transform: rotate(-8deg);
+}
+
+.finaleSeal > svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.sealWave {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 150px;
+  height: 150px;
+  margin: -75px 0 0 -75px;
+  border: 2px solid var(--passport-blue);
+  border-radius: 50%;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.sealDust {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 5px;
+  height: 5px;
+  margin: -2.5px 0 0 -2.5px;
+  border-radius: 50%;
+  background: var(--passport-blue);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.finaleCard h2 {
+  position: relative;
+  margin: 0;
+  font-size: 26px;
+  font-weight: 790;
+  letter-spacing: -0.045em;
+  line-height: 1.08;
+  text-wrap: balance;
+}
+
+.finaleCard > p {
+  position: relative;
+  max-width: 30ch;
+  margin: 8px auto 0;
+  color: var(--passport-muted);
+  font-size: 15px;
+}
+
+.finaleThumbs {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.finaleThumbs > span {
+  position: relative;
+  width: 76px;
+  height: 50px;
+  overflow: hidden;
+  border: 2px solid var(--passport-blue-soft);
+  border-radius: 10px;
+  background: #e8ebed;
+}
+
+.finaleThumbs img {
+  object-fit: cover;
+}
+
+.finaleActions {
+  display: grid;
+  gap: 4px;
+  margin-top: 20px;
+}
+
+.finaleActions button {
+  display: inline-flex;
+  min-height: 48px;
+  padding-inline: 18px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 14px;
+  background: var(--passport-blue);
+  color: #fff;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 720;
+  cursor: pointer;
+}
+
+.finaleActions button + button {
+  background: transparent;
+  color: var(--passport-muted);
+}
+
+.finaleActions button:focus-visible {
+  outline: 3px solid var(--passport-blue-deep);
+  outline-offset: 2px;
+}
+
+.finaleReveal {
+  opacity: 0;
+}
+
+/* ---------- favorite results ---------- */
+.favoriteResult {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px 0;
+}
+
+.favoriteResultTrack {
+  position: relative;
+  height: 5px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--passport-blue) 12%, #fff);
+}
+
+.favoriteResultFill {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--passport-blue);
+  transform: scaleX(0);
+  transform-origin: left center;
+}
+
+.favoriteResult strong {
+  min-width: 34px;
+  color: var(--passport-ink);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 760;
+  text-align: right;
+}
+
+.crowdPick {
+  position: absolute;
+  z-index: 2;
+  bottom: 7px;
+  left: 7px;
+  display: inline-flex;
+  min-height: 22px;
+  padding: 0 8px;
+  align-items: center;
+  border-radius: 999px;
+  background: rgb(12 18 23 / 0.72);
+  backdrop-filter: blur(6px);
+  color: #fff;
+  font-size: 10.5px;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.resultsSoon {
+  margin-top: 13px !important;
+  color: var(--passport-muted) !important;
+  font-size: 13px !important;
+}
+
+/* ---------- DEV preview of the new-stamp card ---------- */
+.devPreviewFrame {
+  width: calc(100% + 32px);
+  max-width: 366px;
+  margin: 12px -16px 0;
+}
+
+@media (max-width: 430px) {
+  .runner {
+    border-radius: 16px;
+  }
+
+  .newChip {
+    top: 14px;
+    right: 12px;
+  }
+
+  .holdPill {
+    right: 12px;
+    bottom: 11px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .progressDotPending::before,
+  .progressDotPending::after {
+    animation: none;
+  }
+
+  .progressDotPending::before {
+    opacity: 1;
+    transform: scale(0.8);
+  }
+
+  .runnerSpin,
+  .holdHint,
+  .unlockCharge::before,
+  .unlockCells > i::after {
+    transition: none;
   }
 }

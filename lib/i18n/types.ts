@@ -420,6 +420,40 @@ export interface FairPassportDict {
   devStampGroup: string;
   devAddStamp: string;
   devRemoveStamp: string;
+  progressPendingAria: string;
+  holdToUnlock: string;
+  holdToUnlockAria: string;
+  holdToEnd: string;
+  holdHelper: string;
+  holdPercent: string;
+  unlockedLabel: string;
+  unlockedStatus: string;
+  finaleTitle: string;
+  finaleBody: string;
+  finalePickFavorite: string;
+  finaleLater: string;
+  finaleSealAria: string;
+  sealBrandTop: string;
+  sealBrandBottom: string;
+  sealBrandRibbon: string;
+  sealEventTop: string;
+  sealEventBottom: string;
+  sealEventCenter: string;
+  sealEventRibbon: string;
+  sealEventAria: string;
+  favoriteResultsSoon: string;
+  favoriteCrowdPick: string;
+  favoritePercentAria: string;
+  newStampEyebrow: string;
+  newStampTitle: string;
+  newStampAction: string;
+  newStampAria: string;
+  newStampDismiss: string;
+  devFavoriteResults: string;
+  devFavoriteBelow: string;
+  devFavoritePublic: string;
+  devNewStampPreview: string;
+  devNewStampReplay: string;
 }
 
 export interface AdminDomainDict {
