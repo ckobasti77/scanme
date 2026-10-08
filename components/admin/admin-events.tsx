@@ -146,8 +146,12 @@ export type QrActions = {
   resolveTest: (resolverCode: string) => Promise<Result<ResolveView>>;
 };
 
-/** N2 — „Poveži nalepnicu“: fairAdminQr.linkSticker and undoLink. */
-export type LinkStickerInput = { code: string; modelId: string; expectedHolderModelId: string | null; replaceModelSticker: boolean };
+/**
+ * N2 — „Poveži nalepnicu“: fairAdminQr.linkSticker and undoLink. P2:
+ * `expectedModelStickerCode` = the car's other sticker the admin saw (resolver
+ * code; null = none), checked by the server when it is replaced.
+ */
+export type LinkStickerInput = { code: string; modelId: string; expectedHolderModelId: string | null; replaceModelSticker: boolean; expectedModelStickerCode: string | null };
 export type LinkStickerActions = {
   link: (input: LinkStickerInput) => Promise<Result<LinkDone>>;
   undo: (assignmentId: string) => Promise<Result<{ restoredToModelId: string | null; restoredReplacedLabel: string | null }>>;

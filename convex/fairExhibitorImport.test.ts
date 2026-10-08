@@ -82,6 +82,8 @@ describe("Izlagači 2026: the organizer's list in one event", () => {
       exhibitors: COUNT,
       clients: { created: COUNT, updated: 0, unchanged: 0 },
       participations: { created: COUNT, updated: 0, unchanged: 0 },
+      // P2: the TEST event has no intake participation, so no exhibitor is covered.
+      covered: [],
     });
     const ferum = await exhibitor(f, "ferum-baw");
     expect(ferum.account).toMatchObject({ name: "Ferum BAW", smkCode: "SMK-IZL26-FERUM-BAW", clientSegment: "event_only", clientStatus: "active", websiteUrl: "https://www.ferum-doo.com/" });
@@ -106,6 +108,7 @@ describe("Izlagači 2026: the organizer's list in one event", () => {
       exhibitors: COUNT,
       clients: { created: 0, updated: 0, unchanged: COUNT },
       participations: { created: 0, updated: 0, unchanged: COUNT },
+      covered: [],
     });
     const { account } = await exhibitor(f, "ferum-baw");
     expect(await f.admin.mutation(api.adminClientProfiles.setWebsite, { accountId: account._id, websiteUrl: "ferum.rs/baw" })).toEqual({ websiteUrl: "https://ferum.rs/baw" });

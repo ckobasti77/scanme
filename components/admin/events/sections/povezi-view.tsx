@@ -23,6 +23,7 @@ import {
   linkExhibitors,
   linkFlowReducer,
   linkPlan,
+  linkStickerArgs,
   nextStickerLabel,
   stickerCodeFromInput,
   stickerNumberOf,
@@ -152,7 +153,7 @@ export function EventLinkStickerView({ catalog, labelFormat, query, onQueryChang
     setNotice(null);
     dispatch({ type: "submit" });
     try {
-      const result = await actions.link({ code: detail.resolverCode, modelId: model.id, expectedHolderModelId: plan.expectedHolderModelId, replaceModelSticker: plan.replaceModelSticker });
+      const result = await actions.link(linkStickerArgs(detail.resolverCode, model.id, plan));
       if (result.ok) {
         dispatch({ type: "success", done: result.value });
         onChanged?.();
@@ -361,7 +362,7 @@ function ExhibitorChosen({ exhibitor, disabled, onChange }: { exhibitor: LinkExh
       <ExhibitorLogo name={exhibitor.name} logoUrl={exhibitor.logoUrl} size="sm" />
       <span className="grid min-w-0 flex-1 leading-5">
         <strong className="truncate font-semibold">{exhibitor.name}</strong>
-        <span className="truncate text-xs text-[var(--admin-text-muted)]">{standsText(exhibitor)}</span>
+        <span className="truncate text-xs text-[var(--admin-text-muted)]">{standsText(exhibitor)} · {exhibitor.brands.join(", ")}</span>
       </span>
       <button type="button" onClick={onChange} disabled={disabled} className={cn(adminSecondaryButtonClass, "min-h-11 shrink-0 px-3")}>{t.exhibitorChange}</button>
     </div>
@@ -389,6 +390,7 @@ function ExhibitorPicker({ exhibitors, search, onSearch, onPick }: { exhibitors:
                 <ExhibitorLogo name={row.name} logoUrl={row.logoUrl} size="sm" />
                 <span className="grid min-w-0 flex-1 leading-5">
                   <strong className="truncate font-semibold">{row.name}</strong>
+                  <span className="truncate text-sm" data-exhibitor-brands>{row.brands.join(", ")}</span>
                   <span className="truncate text-xs text-[var(--admin-text-muted)]">{standsText(row)} · {fmt(t.exhibitorCars, { count: row.cars })}</span>
                 </span>
                 <ArrowRight className="size-4 shrink-0 text-[var(--admin-text-muted)]" aria-hidden="true" />

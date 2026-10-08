@@ -1,13 +1,14 @@
 import { v, type Infer } from "convex/values";
-import { internalMutation } from "./_generated/server";
+import { internalMutation, internalQuery } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
-import type { MutationCtx } from "./_generated/server";
+import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { isAdminEmail } from "./lib/access";
 import { writeAdminAudit } from "./lib/adminAudit";
 import { createEventOnlyClient } from "./fairAdmin";
 import { fairEventByCode, upsertFairParticipation, upsertFairStand } from "./lib/fairCatalog";
 import { normalizeWebsiteUrl } from "../lib/admin-v1/website";
 import { fairMapLocationById, isFairMapStandLocation } from "../lib/fair-map";
+import { fairMapRelocationCandidates } from "../lib/fair-map/relocate";
 import {
   ELEKTROMOBILNOST_2026_EXHIBITORS,
   FAIR_SITE_EXHIBITORS_SOURCE,
@@ -35,6 +36,16 @@ import {
 //    missing, so a value the team edited by hand is never overwritten.
 //  - N3 placeSiteExhibitors: the same list on the organizer map (stands,
 //    category, zone), with the same rules: idempotent, no overwrite.
+//  - P2 (Aleksa 8. 10., SYNC §2.3): six brands of the list (JMEV, Mazda,
+//    Chery, Foton, Ferum Yudo, Bentu) are exhibitors of Aleksa's intake
+//    (convex/fairSetup.ts). In an event with that intake participation the
+//    list makes no second record of them (import and place skip them), and
+//    reconcileSiteExhibitorsWithIntake withdraws a record made before and
+//    fills what the intake participation still lacks (category; logo and
+//    website when one brand stands for it). Aleksa's participations, brands,
+//    models and slugs are never renamed or duplicated.
+//  - P2 (RN N6) listStandsOffMap: read-only list of stands on a location
+//    that is not on today's map, with a proposal; nothing is moved.
 
 const LISTS = { "elektromobilnost-2026": ELEKTROMOBILNOST_2026_EXHIBITORS } as const;
 type ListKey = keyof typeof LISTS;
@@ -54,6 +65,22 @@ async function requireImportActor(ctx: MutationCtx, ownerEmail: string): Promise
 
 type Tally = { created: number; updated: number; unchanged: number };
 const tally = (): Tally => ({ created: 0, updated: 0, unchanged: 0 });
+
+/**
+ * P2 — the intake participation that is this site exhibitor in the event
+ * (any status: a withdrawn intake participation still never brings the site
+ * record back), or null.
+ */
+async function intakeParticipationOf(ctx: QueryCtx, eventId: Id<"fairEvents">, exhibitor: FairSiteExhibitor) {
+  if (!exhibitor.intakeParticipationKey) return null;
+  const key = exhibitor.intakeParticipationKey;
+  return ctx.db
+    .query("fairParticipations")
+    .withIndex("by_eventId_and_externalKey", (q) => q.eq("eventId", eventId).eq("externalKey", key))
+    .unique();
+}
+
+const coveredRow = v.object({ key: v.string(), intakeParticipationKey: v.string() });
 
 async function upsertSiteExhibitorClient(
   ctx: MutationCtx,
@@ -107,10 +134,12 @@ async function upsertSiteExhibitorClient(
  * Writes the organizer's exhibitor list into the event `eventCode`:
  * `npx convex run fairExhibitorImport:importSiteExhibitors
  *   '{"ownerEmail":"<admin>","eventCode":"elektromobilnost-2026","list":"elektromobilnost-2026"}'`
+ * P2: an exhibitor whose intake participation is in the event is `covered`
+ * and gets no client and no participation here (the intake one is it).
  */
 export const importSiteExhibitors = internalMutation({
   args: { ownerEmail: v.string(), eventCode: v.string(), list: v.literal("elektromobilnost-2026") },
-  returns: v.object({ exhibitors: v.number(), clients: counts, participations: counts }),
+  returns: v.object({ exhibitors: v.number(), clients: counts, participations: counts, covered: v.array(coveredRow) }),
   handler: async (ctx, args) => {
     const actor = await requireImportActor(ctx, args.ownerEmail);
     const event = await fairEventByCode(ctx, args.eventCode);
@@ -118,8 +147,13 @@ export const importSiteExhibitors = internalMutation({
     const now = Date.now();
     const clients = tally();
     const participations = tally();
+    const covered: Array<Infer<typeof coveredRow>> = [];
     const list = LISTS[args.list as ListKey];
     for (const exhibitor of list) {
+      if (await intakeParticipationOf(ctx, event._id, exhibitor)) {
+        covered.push({ key: exhibitor.key, intakeParticipationKey: exhibitor.intakeParticipationKey! });
+        continue;
+      }
       const client = await upsertSiteExhibitorClient(ctx, exhibitor, actor._id, now);
       clients[client.result] += 1;
       const participation = await upsertFairParticipation(ctx, {
@@ -135,15 +169,16 @@ export const importSiteExhibitors = internalMutation({
       await writeAdminAudit(ctx, {
         actorUserId: actor._id,
         action: "fair_site_exhibitors_imported",
-        detail: { eventCode: event.code, list: args.list, clients, participations },
+        detail: { eventCode: event.code, list: args.list, clients, participations, covered: covered.length },
         now,
       });
     }
-    return { exhibitors: list.length, clients, participations };
+    return { exhibitors: list.length, clients, participations, covered };
   },
 });
 
 const placeSkipReason = v.union(
+  v.literal("covered_by_intake"),
   v.literal("no_map_location"),
   v.literal("participation_missing"),
   v.literal("participation_withdrawn"),
@@ -163,7 +198,9 @@ type PlaceSkip = { key: string; reason: Infer<typeof placeSkipReason>; mapLocati
  * for an exhibitor without a place on the map, the zone the organizer names.
  * Idempotent: a second run writes nothing. Never overwrites a hand edit (a
  * changed stand, a category or zone set by hand) and never withdraws or
- * revives anything; what it leaves alone is reported with a reason.
+ * revives anything; what it leaves alone is reported with a reason. P2: an
+ * exhibitor covered by its intake participation is skipped
+ * (`covered_by_intake`): the intake stand is its place on the map.
  * `npx convex run fairExhibitorImport:placeSiteExhibitors
  *   '{"ownerEmail":"<admin>","eventCode":"elektromobilnost-2026","list":"elektromobilnost-2026"}'`
  */
@@ -185,6 +222,10 @@ export const placeSiteExhibitors = internalMutation({
     const skipped: PlaceSkip[] = [];
     const list = LISTS[args.list as ListKey];
     for (const exhibitor of list) {
+      if (await intakeParticipationOf(ctx, event._id, exhibitor)) {
+        skipped.push({ key: exhibitor.key, reason: "covered_by_intake" });
+        continue;
+      }
       const participation = await ctx.db
         .query("fairParticipations")
         .withIndex("by_eventId_and_externalKey", (q) => q.eq("eventId", event._id).eq("externalKey", fairSiteExhibitorCodes(exhibitor.key).participationKey))
@@ -258,6 +299,212 @@ export const placeSiteExhibitors = internalMutation({
       });
     }
     return { exhibitors: list.length, stands, participations, skipped };
+  },
+});
+
+const reconcileFill = v.union(v.literal("category"), v.literal("logo"), v.literal("website"));
+const reconcileRow = v.object({
+  key: v.string(),
+  intakeParticipationKey: v.string(),
+  /** The intake participation (Aleksa's) that is this exhibitor; null = not in this event (nothing done). */
+  intake: v.union(v.null(), v.object({
+    exhibitorName: v.string(),
+    status: v.string(),
+    stands: v.array(v.object({ code: v.string(), mapLocationId: v.string(), status: v.string() })),
+  })),
+  /**
+   * The site record: `absent`; `withdrawn` (earlier); `withdraw` (withdrawn
+   * now, or in a dry run: would be); `has_models` (kept: it holds cars, a
+   * person decides).
+   */
+  site: v.union(v.literal("absent"), v.literal("withdrawn"), v.literal("withdraw"), v.literal("has_models")),
+  siteStands: v.number(),
+  /** What the intake participation gets from the site list (only what it lacks). */
+  fill: v.array(reconcileFill),
+});
+
+/**
+ * P2 (Aleksa 8. 10., SYNC §2.3) — the map follows Aleksa's intake: for every
+ * site exhibitor that IS an intake participation of the event (JMEV → CUBI,
+ * Mazda/Chery → Grand Motors, Foton → AUTO MIG, Ferum Yudo → Ferum, Bentu →
+ * BENTU), a site participation made before the intake is withdrawn with its
+ * stands (never when it holds a car: `has_models`), and the intake
+ * participation gets what it lacks for the map: the category, and the logo
+ * and website when exactly one site brand stands for it (Grand Motors has two:
+ * category only). Nothing of Aleksa's is renamed, moved or duplicated.
+ * `dryRun` (default true) writes nothing and reports what a real run does; a
+ * second real run reports nothing to do.
+ * `npx convex run fairExhibitorImport:reconcileSiteExhibitorsWithIntake
+ *   '{"ownerEmail":"<admin>","eventCode":"elektromobilnost-2026","list":"elektromobilnost-2026","dryRun":true}'`
+ */
+export const reconcileSiteExhibitorsWithIntake = internalMutation({
+  args: { ownerEmail: v.string(), eventCode: v.string(), list: v.literal("elektromobilnost-2026"), dryRun: v.optional(v.boolean()) },
+  returns: v.object({
+    dryRun: v.boolean(),
+    rows: v.array(reconcileRow),
+    summary: v.object({ siteParticipationsWithdrawn: v.number(), siteStandsWithdrawn: v.number(), intakeFilled: v.number() }),
+  }),
+  handler: async (ctx, args) => {
+    const actor = await requireImportActor(ctx, args.ownerEmail);
+    const event = await fairEventByCode(ctx, args.eventCode);
+    if (!event) throw new Error("fair_exhibitor_import_event_missing");
+    const dryRun = args.dryRun ?? true;
+    const now = Date.now();
+    const list = LISTS[args.list as ListKey];
+    const covering = (intakeKey: string) => list.filter((row) => row.intakeParticipationKey === intakeKey);
+    const filledIntakes = new Set<Id<"fairParticipations">>();
+    const rows: Array<Infer<typeof reconcileRow>> = [];
+    const summary = { siteParticipationsWithdrawn: 0, siteStandsWithdrawn: 0, intakeFilled: 0 };
+    for (const exhibitor of list) {
+      if (!exhibitor.intakeParticipationKey) continue;
+      const intake = await intakeParticipationOf(ctx, event._id, exhibitor);
+      if (!intake) {
+        rows.push({ key: exhibitor.key, intakeParticipationKey: exhibitor.intakeParticipationKey, intake: null, site: "absent", siteStands: 0, fill: [] });
+        continue;
+      }
+      const [business, account, intakeStands] = await Promise.all([
+        ctx.db.get(intake.businessId),
+        ctx.db.get(intake.accountId),
+        ctx.db.query("fairStands").withIndex("by_eventId_and_participationId", (q) => q.eq("eventId", event._id).eq("participationId", intake._id)).take(20),
+      ]);
+
+      // The site record of this exhibitor, if the list wrote one before the intake.
+      let site: Infer<typeof reconcileRow>["site"] = "absent";
+      let siteStands = 0;
+      const siteParticipation = await ctx.db
+        .query("fairParticipations")
+        .withIndex("by_eventId_and_externalKey", (q) => q.eq("eventId", event._id).eq("externalKey", fairSiteExhibitorCodes(exhibitor.key).participationKey))
+        .unique();
+      if (siteParticipation?.status === "withdrawn") site = "withdrawn";
+      else if (siteParticipation) {
+        const stands = await ctx.db
+          .query("fairStands")
+          .withIndex("by_eventId_and_participationId", (q) => q.eq("eventId", event._id).eq("participationId", siteParticipation._id))
+          .take(100);
+        let hasModels = false;
+        for (const stand of stands) {
+          const models = await ctx.db.query("fairEventModels").withIndex("by_eventId_and_standId", (q) => q.eq("eventId", event._id).eq("standId", stand._id)).take(50);
+          if (models.some((model) => model.status !== "withdrawn")) hasModels = true;
+        }
+        if (hasModels) site = "has_models";
+        else {
+          site = "withdraw";
+          const open = stands.filter((stand) => stand.status !== "withdrawn");
+          siteStands = open.length;
+          summary.siteParticipationsWithdrawn += 1;
+          summary.siteStandsWithdrawn += open.length;
+          if (!dryRun) {
+            for (const stand of open) await ctx.db.patch(stand._id, { status: "withdrawn", updatedAt: now });
+            await ctx.db.patch(siteParticipation._id, { status: "withdrawn", updatedAt: now });
+          }
+        }
+      }
+
+      // What the intake participation still lacks for the map (never an overwrite).
+      const fill: Array<Infer<typeof reconcileFill>> = [];
+      if (!filledIntakes.has(intake._id)) {
+        filledIntakes.add(intake._id);
+        const sources = covering(exhibitor.intakeParticipationKey);
+        const categories = new Set(sources.map((row) => row.category));
+        const single = sources.length === 1 ? sources[0] : null;
+        const websiteUrl = single?.websiteUrl ? normalizeWebsiteUrl(single.websiteUrl) : null;
+        const intakePatch = intake.category === undefined && categories.size === 1 ? { category: exhibitor.category } : null;
+        const logoUrl = single && business && !business.logoUrl && !business.logoStorageId ? fairSiteLogoUrl(single) : null;
+        const website = websiteUrl && account && !account.websiteUrl ? websiteUrl : null;
+        if (intakePatch) fill.push("category");
+        if (logoUrl) fill.push("logo");
+        if (website) fill.push("website");
+        if (fill.length) summary.intakeFilled += 1;
+        if (!dryRun) {
+          if (intakePatch) await ctx.db.patch(intake._id, { ...intakePatch, updatedAt: now });
+          if (logoUrl && business) await ctx.db.patch(business._id, { logoUrl, updatedAt: now });
+          if (website && account) await ctx.db.patch(account._id, { websiteUrl: website, updatedAt: now });
+        }
+      }
+      rows.push({
+        key: exhibitor.key,
+        intakeParticipationKey: exhibitor.intakeParticipationKey,
+        intake: {
+          exhibitorName: business?.name ?? intake.externalKey,
+          status: intake.status,
+          stands: intakeStands.map((stand) => ({ code: stand.code, mapLocationId: stand.mapLocationId, status: stand.status })),
+        },
+        site,
+        siteStands,
+        fill,
+      });
+    }
+    if (!dryRun && (summary.siteParticipationsWithdrawn || summary.intakeFilled)) {
+      await writeAdminAudit(ctx, {
+        actorUserId: actor._id,
+        action: "fair_site_exhibitors_reconciled",
+        detail: { eventCode: event.code, list: args.list, ...summary },
+        now,
+      });
+    }
+    return { dryRun, rows, summary };
+  },
+});
+
+/**
+ * P2 (RN N6) — read-only: the stands of an event (not withdrawn) whose
+ * `mapLocationId` is not a stand location of today's map (lib/fair-map; e.g.
+ * S1–S5, 20/21/22, 12/13/15 of the M0 drawing). They are off the public map
+ * and publishing their cars fails with FAIR_MAP_LOCATION_INVALID. Each with
+ * its exhibitor, the old location, the candidates of today's map and a
+ * proposal when it is unambiguous (one candidate, or the one the organizer's
+ * list gives the site exhibitor). Nothing is moved.
+ * `npx convex run fairExhibitorImport:listStandsOffMap '{"eventCode":"elektromobilnost-2026"}'`
+ */
+export const listStandsOffMap = internalQuery({
+  args: { eventCode: v.string() },
+  returns: v.object({
+    eventCode: v.string(),
+    checked: v.number(),
+    capped: v.boolean(),
+    offMap: v.array(v.object({
+      standId: v.id("fairStands"),
+      standCode: v.string(),
+      standName: v.string(),
+      status: v.string(),
+      exhibitorName: v.string(),
+      participationKey: v.string(),
+      mapLocationId: v.string(),
+      candidates: v.array(v.string()),
+      proposal: v.union(v.string(), v.null()),
+      cars: v.number(),
+    })),
+  }),
+  handler: async (ctx, args) => {
+    const event = await fairEventByCode(ctx, args.eventCode);
+    if (!event) throw new Error("fair_exhibitor_import_event_missing");
+    const STANDS_CAP = 500;
+    const stands = await ctx.db.query("fairStands").withIndex("by_eventId_and_externalKey", (q) => q.eq("eventId", event._id)).take(STANDS_CAP + 1);
+    const siteByParticipationKey = new Map(ELEKTROMOBILNOST_2026_EXHIBITORS.map((row) => [fairSiteExhibitorCodes(row.key).participationKey, row]));
+    const offMap = [];
+    for (const stand of stands.slice(0, STANDS_CAP)) {
+      if (stand.status === "withdrawn" || isFairMapStandLocation(event.code, stand.mapLocationId)) continue;
+      const participation = await ctx.db.get(stand.participationId);
+      const business = participation ? await ctx.db.get(participation.businessId) : null;
+      const candidates = fairMapRelocationCandidates(event.code, stand.mapLocationId);
+      const site = participation ? siteByParticipationKey.get(participation.externalKey) : undefined;
+      const listed = site ? candidates.filter((id) => site.locations.includes(id)) : [];
+      const proposal = candidates.length === 1 ? candidates[0] : listed.length === 1 ? listed[0] : null;
+      const models = await ctx.db.query("fairEventModels").withIndex("by_eventId_and_standId", (q) => q.eq("eventId", event._id).eq("standId", stand._id)).take(50);
+      offMap.push({
+        standId: stand._id,
+        standCode: stand.code,
+        standName: stand.displayName,
+        status: stand.status,
+        exhibitorName: business?.name ?? participation?.externalKey ?? "—",
+        participationKey: participation?.externalKey ?? "—",
+        mapLocationId: stand.mapLocationId,
+        candidates,
+        proposal,
+        cars: models.filter((model) => model.status !== "withdrawn").length,
+      });
+    }
+    return { eventCode: event.code, checked: Math.min(stands.length, STANDS_CAP), capped: stands.length > STANDS_CAP, offMap };
   },
 });
 

@@ -60,6 +60,8 @@ export type LinkExhibitor = {
   logoUrl: string | null;
   /** Stand codes of the exhibitor, in stand order (`1A`, `2`, `10B` …). */
   stands: string[];
+  /** P2 — the brands of those cars, as on the cars (`CUBI d.o.o.` → `JMEV`). */
+  brands: string[];
   /** Cars that can take a sticker (not withdrawn). */
   cars: number;
 };
@@ -75,13 +77,14 @@ export function linkExhibitors(participations: readonly LinkExhibitorSource[], s
   const rows: LinkExhibitor[] = [];
   for (const participation of participations) {
     if (participation.status === "withdrawn") continue;
-    const cars = models.filter((model) => model.participationId === participation.id && model.status !== "withdrawn").length;
-    if (!cars) continue;
+    const own = models.filter((model) => model.participationId === participation.id && model.status !== "withdrawn");
+    if (!own.length) continue;
     const codes = stands
       .filter((stand) => stand.participationId === participation.id && stand.status !== "withdrawn")
       .map((stand) => stand.code)
       .sort(collator.compare);
-    rows.push({ id: participation.id, name: participation.exhibitorName, logoUrl: participation.logoUrl ?? null, stands: codes, cars });
+    const brands = [...new Set(own.map((model) => model.brandName))].sort(collator.compare);
+    rows.push({ id: participation.id, name: participation.exhibitorName, logoUrl: participation.logoUrl ?? null, stands: codes, brands, cars: own.length });
   }
   return rows.sort((a, b) => {
     if (a.stands.length && !b.stands.length) return -1;
@@ -90,12 +93,12 @@ export function linkExhibitors(participations: readonly LinkExhibitorSource[], s
   });
 }
 
-/** Search by exhibitor name or stand code (every word, without case or diacritics). */
+/** Search by exhibitor name, brand or stand code (every word, without case or diacritics). */
 export function filterLinkExhibitors(rows: readonly LinkExhibitor[], q: string): LinkExhibitor[] {
   const words = normalizeSearch(q).split(" ").filter(Boolean);
   if (!words.length) return [...rows];
   return rows.filter((row) => {
-    const text = normalizeSearch([row.name, ...row.stands].join(" "));
+    const text = normalizeSearch([row.name, ...row.brands, ...row.stands].join(" "));
     return words.every((word) => text.includes(word));
   });
 }
@@ -158,6 +161,22 @@ export function linkPlan(sticker: LinkStickerFacts | null, model: LinkModelSourc
   if (replacedCode) warnings.push("replace");
   if (sticker.outOfService) warnings.push("out_of_service");
   return { ...base, warnings, replaceModelSticker: Boolean(replacedCode), replacedCode };
+}
+
+/**
+ * P2 (RN N3) — the fairAdminQr.linkSticker arguments of a plan: exactly what
+ * the admin saw, the sticker's holder and the car's other sticker (resolver
+ * code, null = none); the server refuses (FAIR_QR_HOLDER_CHANGED) when either
+ * changed in the meantime.
+ */
+export function linkStickerArgs(code: string, modelId: string, plan: LinkPlan) {
+  return {
+    code,
+    modelId,
+    expectedHolderModelId: plan.expectedHolderModelId,
+    replaceModelSticker: plan.replaceModelSticker,
+    expectedModelStickerCode: plan.replacedCode,
+  };
 }
 
 /** Errors after which the screen re-reads the sticker: someone else changed it in the meantime. */

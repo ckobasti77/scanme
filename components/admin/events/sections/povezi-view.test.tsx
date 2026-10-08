@@ -108,6 +108,9 @@ describe("N2 Poveži nalepnicu — the phone screen", () => {
     expect(markup.indexOf("TEST Izlagač B")).toBeLessThan(markup.indexOf("TEST Izlagač A"));
     expect(markup).toContain(fmt(t.exhibitorStand, { stands: "1A" }));
     expect(markup).toMatch(/type="search"[^>]*class="[^"]*max-sm:text-base/);
+    // P2: each exhibitor names the brands of its cars (what the sticker team sees on the car).
+    expect(markup).toContain("data-exhibitor-brands=\"true\">TEST Brend a</span>");
+    expect(markup).toContain("data-exhibitor-brands=\"true\">TEST Brend b</span>");
     expect(markup).toContain(t.pickExhibitorFirst);
     expect(bar(markup)).toContain(t.barPick);
     expect(bar(markup)).toMatch(/<button[^>]*disabled=""[^>]*>Poveži<\/button>/);

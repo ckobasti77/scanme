@@ -491,7 +491,11 @@ async function printedLabelOf(ctx: Ctx, cardId: Id<"cards">, resolverCode: strin
  *   (or none) → FAIR_QR_HOLDER_CHANGED and nothing is written;
  * - the car already has another sticker → replaced only with
  *   `replaceModelSticker` (the old sticker is released), else
- *   FAIR_MODEL_ALREADY_ASSIGNED.
+ *   FAIR_MODEL_ALREADY_ASSIGNED. P2 (RN N3): a replacement names the car's
+ *   sticker the admin saw (`expectedModelStickerCode`, its resolver code;
+ *   absent = none); any other sticker on the car now (or none) →
+ *   FAIR_QR_HOLDER_CHANGED and nothing is written, so a sticker the admin
+ *   never saw is never released.
  * The same car and sticker again → the existing row, nothing written. The new
  * row remembers the moved-from row and the replaced row for undoLink.
  */
@@ -503,6 +507,7 @@ export async function linkFairSticker(
     eventModelId: Id<"fairEventModels">;
     expectedHolderModelId: Id<"fairEventModels"> | null;
     replaceModelSticker?: boolean;
+    expectedModelStickerCode?: string | null;
   },
   actorUserId: Id<"users">,
   now: number,
@@ -530,6 +535,9 @@ export async function linkFairSticker(
   if ((await channelsFor(ctx, subject._id)).length !== 1) fairAdminError("FAIR_QR_SUBJECT_SHARED");
   const replaced = await activeAssignmentForModel(ctx, model._id);
   if (replaced && !input.replaceModelSticker) fairAdminError("FAIR_MODEL_ALREADY_ASSIGNED", { resolverCode: replaced.resolverCode });
+  if (input.replaceModelSticker && (replaced?.resolverCode ?? null) !== (input.expectedModelStickerCode ?? null)) {
+    fairAdminError("FAIR_QR_HOLDER_CHANGED", { modelResolverCode: replaced?.resolverCode ?? "none" });
+  }
 
   // Every check passed: from here on the writes.
   if (replaced) await releaseAssignment(ctx, replaced, fieldReasons.replace, actorUserId, now, true);

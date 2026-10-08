@@ -20,3 +20,16 @@ Oblik zahteva i odgovora za javni frontend je isti: `POST /api/fair/lead`, ocene
   - `fairInteractionsAdmin.openAudienceQuestionNow`;
   - `fairPreEvent.getPreEventSummary` i `fairPreEvent.resetPreEventData`;
   - novi kodovi `FAIR_RESET_CONFIRMATION_MISMATCH` (admin) i `PRE_EVENT` (isporuka mejla).
+
+## Jovan — P2, mapa i nalepnice (8. 10.)
+
+Oblik zahteva i odgovora za javni frontend je isti. Detalji su u JOVAN-DELTA, sekcija „Jovan — 8. 10. — mapa i nalepnice (P2)“, i u ugovoru §41.
+
+- **`fairPublic.getEventMap`:** vraća samo `active` učešća i `active` štandove. Učešće ili štand u nacrtu nisu ni u `stands` ni u `exhibitorsWithoutLocation`.
+- **`fairPublic.getModelBySlug`:** za događaj u nacrtu vraća `null` (stranica → 404, kao i događaj).
+- **Mapa `elektromobilnost-2026`:**
+  - štandovi 9, 6, 1A i 1B su Aleksina intake učešća (CUBI, Grand Motors + AUTO MIG, Ferum, BENTU);
+  - sajtni zapisi JMEV, Mazda, Chery, Foton, Ferum Yudo i Bentu se ne prave ili se povlače;
+  - `mapLocationId`-jevi su isti; komponente mape nisu menjane;
+  - deljeni štand 6 prikazuje oba izlagača.
+- **Admin (naš):** `fairAdminQr.linkSticker` ima novi opcioni argument `expectedModelStickerCode`. Nove internal funkcije su `fairExhibitorImport.reconcileSiteExhibitorsWithIntake` i `listStandsOffMap`.

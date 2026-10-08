@@ -592,6 +592,11 @@ const linkCatalog: CatalogView = {
   participations: catalog.participations.map((row) => ({ ...row, ...IDENTITY[row.id] })),
   models: catalog.models.map((row) => ({ ...row, qrLabel: labelByModel.get(row.id) ?? null })),
 };
+// P2 — „Poveži nalepnicu“ only: two TEST exhibitors on one stand, as Grand Motors and AUTO MIG share stand 6 (O4).
+const linkStickerCatalog: CatalogView = {
+  ...linkCatalog,
+  stands: linkCatalog.stands.map((row) => (row.id === "s-d1" ? { ...row, code: "TEST-C1", displayName: "TEST štand C1" } : row)),
+};
 const LINKED_AT = opening - 20 * 3_600_000;
 const recentLinks: RecentLinkView[] = assignedQr.slice(0, 5).map((row, index) => ({
   assignmentId: `as-card-${row.id}`,
@@ -770,7 +775,7 @@ function PreviewSection({ path, detailId, query, setQuery, keep, previewStep }: 
     case "povezi": return (
       <EventLinkStickerView
         key={previewStep ?? ""}
-        catalog={linkCatalog}
+        catalog={linkStickerCatalog}
         labelFormat={FAIR_QR_LABEL_DEFAULT_FORMAT}
         query={query}
         onQueryChange={setQuery}

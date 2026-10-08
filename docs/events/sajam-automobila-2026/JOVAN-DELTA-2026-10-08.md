@@ -149,3 +149,90 @@ Korak P1 lanca SAJAM v2, Aleksin zahtev od 8. 10. (SYNC-1008-KONTEKST §2.1). Te
 2. **MASTER §5 i §18** („skeniranja se računaju 24/7“) treba dopuniti odlukom P1 (pre-event se ne računa) u dnevniku §20. Kanonski dokument menja vlasnik.
 3. Bez reseta, posetilac posle granice i dalje vidi svoju probnu ocenu, glas ili anketu dok ne upiše novu. Brojke su i bez toga tačne.
 4. Tabela za import (A5) i dalje ima kolonu „paket od“. Budući datum se sada čita kao „od uvoza“. Da li kolonu ukloniti iz šablona?
+
+## Jovan — 8. 10. — mapa i nalepnice (P2)
+
+Korak P2 lanca SAJAM v2, Aleksini zahtevi od 8. 10. (SYNC-1008-KONTEKST §2.3 i §2.4) i nalazi RN N3, N4, N6 i info. Tehnički detalji su u [`FAIR-BACKEND-CONTRACT.md`](./FAIR-BACKEND-CONTRACT.md) §41, a status i testovi u [`jovan-status/P2.md`](./jovan-status/P2.md). `convex/fairSetup.ts`, intake, RUNBOOK i `/r/[cardCode]` nisu menjani.
+
+### 1. Usklađivanje intake-a i izlagača sa sajta
+
+Mapa prati Aleksin intake. Izlagači sa sajta organizatora (38, `lib/fair-import/izlagaci-2026.ts`) za iste brendove ne prave drugi zapis:
+
+| Brend sa sajta | Pravo učešće (intake) | Štand / lokacija |
+|---|---|---|
+| JMEV | CUBI d.o.o. (`elektromobilnost-2026-jmev`) | 9 / `hala-9` |
+| Mazda, Chery | Grand Motors d.o.o. (`elektromobilnost-2026-grand-motors`) | 6 / `hala-6` |
+| Foton | AUTO MIG d.o.o. Niš (`elektromobilnost-2026-auto-mig`) | 6 / `hala-6` (deljeno, O4) |
+| Ferum Yudo | Ferum d.o.o. (`elektromobilnost-2026-ferum`) | 1A / `hala-1a` (pored sajtnog Ferum BAW, drugi brend) |
+| Bentu | BENTU MOTORS D.O.O (`elektromobilnost-2026-bentu`) | 1B / `hala-1b` |
+
+- Kad je intake učešće u događaju, `importSiteExhibitors` i `placeSiteExhibitors` preskaču ovih šest brendova.
+- Sajtni zapis napravljen pre intake-a povlači `reconcileSiteExhibitorsWithIntake` (prvo dry-run). Intake učešće dobija samo ono što mu fali: kategoriju „Automobili“, a logo i sajt organizatora kad ga predstavlja jedan brend. Grand Motors (dva brenda) dobija samo kategoriju i na mapi ima monogram, bez logotipa.
+- Nijedno Aleksino učešće, brend, model ni slug nije preimenovan ni dupliran.
+
+### 2. Nove funkcije i promene ugovora
+
+| Šta | Vrsta | Napomena |
+|---|---|---|
+| `fairExhibitorImport.reconcileSiteExhibitorsWithIntake({ ownerEmail, eventCode, list, dryRun? })` | internal mutation | `dryRun` je podrazumevano `true` |
+| `fairExhibitorImport.listStandsOffMap({ eventCode })` | internal query | samo čitanje; štandovi na lokacijama kojih nema na današnjoj mapi, sa predlogom (RN N6) |
+| `fairExhibitorImport.importSiteExhibitors` | internal | aditivno: polje `covered` u odgovoru |
+| `fairExhibitorImport.placeSiteExhibitors` | internal | aditivno: razlog `covered_by_intake` |
+| `fairAdminQr.linkSticker` | admin mutation | aditivno: `expectedModelStickerCode`. Zamena nalepnice koju admin nije video → `FAIR_QR_HOLDER_CHANGED`, bez upisa (RN N3) |
+| `fairPublic.getEventMap` | public query | samo aktivna učešća i štandovi; nacrt se više ne vidi (RN N4). Oblik isti. |
+| `fairPublic.getModelBySlug` | public query | događaj u nacrtu → `null` (RN info). Oblik isti. |
+| `lib/fair-qr-label.ts` | čista funkcija | prima i `СА26-7`, `SA-26-7`, `SA 26 7`, `#7`, `SA26/7` |
+
+**Aleksin frontend:** oblik zahteva i odgovora je isti. Razlika je samo u vrednosti: učešće ili štand u nacrtu više nisu na mapi, a model događaja u nacrtu daje 404 kao i sam događaj.
+
+### 3. DEV ishodi (`dev:expert-pelican-136`, 8. 10.)
+
+- `npx convex dev --once` → „Convex functions ready!“. TEST mape (`test-elektromobilnost-2026`: 42 štanda, `test-auto-moto-fest-2026`: 2) i TEST stranica `test-volta-x1-test-premium` su bajt-za-bajt iste pre i posle. Oba TEST događaja su `published`.
+- RUNBOOK §1 bez `--prod`, actor je Jovanov admin:
+  - `bootstrapEvent`: događaj, 3 dana, 5 klijenata i 6 brendova `created`;
+  - `importDryRun`: `ok`, 0 grešaka, `FAIR_QR_MISSING` ×15 i `FAIR_MAP_LOCATION_TAKEN` ×1 (`hala-6`);
+  - `importCommit`: 5 učešća, 5 štandova i 15 modela `created`;
+  - `publishEventModels`: 15 objavljeno.
+- Izlagači sa sajta na `elektromobilnost-2026`:
+  - `importSiteExhibitors`: 32 učešća (klijenti već postoje na DEV-u), `covered` 6;
+  - `placeSiteExhibitors`: 33 štanda, preskočeni 6 × `covered_by_intake` i Markus Pro.
+- `reconcileSiteExhibitorsWithIntake`:
+  - dry-run: 0 povlačenja (sajtnih duplikata nije bilo), dopuna za 5 intake učešća;
+  - stvarno: isto;
+  - ponovni dry-run: sve 0.
+- `getEventMap('elektromobilnost-2026')`:
+  - 9: CUBI d.o.o. (JMEV: EV3, YI, EWIND);
+  - 6: AUTO MIG (Foton ×4) i Grand Motors (Chery ×3, Mazda ×3);
+  - 1A: Ferum BAW i Ferum d.o.o. (Yudo Air);
+  - 1B: BENTU (Mango);
+  - nijedan sajtni duplikat, 37 izlagača, 15 modela, bez lokacije samo Markus Pro.
+- `listStandsOffMap`: prazno za `elektromobilnost-2026`, `test-elektromobilnost-2026` i `test-auto-moto-fest-2026`.
+- `linkEventQrInventory` za `elektromobilnost-2026` → `SML-SAJAM-26-QR`, samo DEV, da „Poveži nalepnicu“ radi za pravi događaj. Admin katalog na DEV-u kroz isti kod kao ekran daje redom:
+  - 1A Ferum d.o.o. (Yudo, 1);
+  - 1B BENTU (1);
+  - 6 AUTO MIG (Foton, 4);
+  - 6 Grand Motors (Chery i Mazda, 6);
+  - 9 CUBI (JMEV, 3).
+
+  Svih 15 je objavljeno i bez nalepnice. `getQrDetail` za `СА26-1`, `SA-26-15`, `#7` i `SA26/12` nalazi SA26-001, 015, 007 i 012. Nijedna nalepnica nije povezana na DEV-u.
+
+### 4. Komande za produkciju, redom (izvršava Aleksa)
+
+`<admin>` je admin e-mail iz `SCANME_ADMIN_EMAILS`. Kod događaja proveri u adminu pre pokretanja.
+
+1. Deploy koda sa ove grane: Convex prod, pa Vercel (standardni tok).
+2. Ako pravi događaj još nije postavljen: RUNBOOK §1, koraci 1–4.
+3. `npx convex run fairExhibitorImport:linkEventQrInventory '{"ownerEmail":"<admin>","eventCode":"elektromobilnost-2026","inventorySmlCode":"SML-SAJAM-26-QR"}' --prod`
+4. `npx convex run fairExhibitorImport:importSiteExhibitors '{"ownerEmail":"<admin>","eventCode":"elektromobilnost-2026","list":"elektromobilnost-2026"}' --prod` → očekivano `covered` 6.
+5. `npx convex run fairExhibitorImport:placeSiteExhibitors '{"ownerEmail":"<admin>","eventCode":"elektromobilnost-2026","list":"elektromobilnost-2026"}' --prod` → 6 × `covered_by_intake` i `markus-pro`.
+6. `npx convex run fairExhibitorImport:reconcileSiteExhibitorsWithIntake '{"ownerEmail":"<admin>","eventCode":"elektromobilnost-2026","list":"elektromobilnost-2026","dryRun":true}' --prod` → pregledaj `rows`. Ako je lista sajta puštena pre intake-a, `site: "withdraw"` za sajtne duplikate. `has_models` znači da sajtni zapis drži automobil: odluči ručno.
+7. Isto sa `"dryRun":false`. Ponovljeni korak 6 mora dati `summary` sa nulama.
+8. `npx convex run fairExhibitorImport:listStandsOffMap '{"eventCode":"elektromobilnost-2026"}' --prod` → za svaki red prebaci štand ručno na `proposal` ili na jednog od `candidates`: admin → Događaji → „Import kataloga“, isti `externalKey` štanda sa novim `mapLocationId`, prvo provera pa uvoz. Ništa se ne prebacuje samo.
+9. `npx convex run fairPublic:getEventMap '{"eventSlug":"elektromobilnost-2026"}' --prod` → štandovi 9, 6 (dva izlagača), 1A i 1B kao u tabeli §1.
+10. U adminu, na telefonu: Događaji → „Poveži nalepnicu“ → 5 izlagača po štandu i 15 automobila. Poveži SA26-001 … 015, pa skeniraj svaku nalepnicu u privatnom prozoru.
+
+### 5. Otvoreno za Aleksu
+
+1. Grand Motors (Mazda i Chery) na mapi nema logo, jer bi bilo koji od dva brenda bio pogrešan. Pravi logo firme se može otpremiti u profilu klijenta.
+2. Nazivi na mapi su pravni nazivi iz intake-a („CUBI d.o.o.“, „AUTO MIG d.o.o. Niš“). Pretraga i detalj štanda pokazuju brendove. Da li na mapi treba kraći javni naziv (npr. „JMEV“)? To bi bilo novo polje, ne preimenovanje.
+3. Na DEV-u oba događaja (`test-elektromobilnost-2026` i `elektromobilnost-2026`) dele SA26 inventar. Admin prečica za slobodnu nalepnicu bira događaj koji traje (N1 §7). Na produkciji TEST događaj ne vezivati za SA26.

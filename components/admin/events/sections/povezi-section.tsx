@@ -33,6 +33,7 @@ export function useLinkStickerActions(): LinkStickerActions {
         eventModelId: input.modelId as Id<"fairEventModels">,
         expectedHolderModelId: input.expectedHolderModelId as Id<"fairEventModels"> | null,
         replaceModelSticker: input.replaceModelSticker,
+        expectedModelStickerCode: input.expectedModelStickerCode,
       });
       return {
         assignmentId: result.assignmentId,

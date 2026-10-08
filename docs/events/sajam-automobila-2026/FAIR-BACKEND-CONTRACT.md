@@ -2001,3 +2001,49 @@ Aleksa, 8. 10. 2026. (SYNC-1008-KONTEKST §2.1): ScanMe tim i izlagači 8. 10. p
 
 - Novi: `convex/fairPreEvent.test.ts`, `lib/fair-contract-pre-event.test.ts`, `components/admin/admin-events-pre-event.test.tsx`, `components/admin/events/sections/interakcije-glas-publike-open-now.test.tsx`.
 - Prilagođeni novim pravilima (ne slabljenje): `fairAdmin`, `fairImport`, `fairInteractions`, `fairScans`, `fairDashboard`, `fairAdminStats`, `fairIntegration`, `fairSponsored`, `fairAuthz`, `fairSchema` (vidi `jovan-status/P1.md` §4).
+
+## 41. P2 — intake na mapi, nalepnice za pravih 15 modela, nacrti i štandovi van mape
+
+Korak P2 (8. 10. 2026), Aleksin zahtev SYNC-1008 §2.3 i §2.4 i nalazi RN N3, N4, N6, info i „niski: normalizator“. Status: `jovan-status/P2.md`; sažetak za Aleksu: JOVAN-DELTA-2026-10-08, sekcija „Jovan — 8. 10. — mapa i nalepnice (P2)“.
+
+### 41.1 Oznaka nalepnice (`lib/fair-qr-label.ts`)
+
+`normalizeFairQrLabel` i dalje daje `SA26-001` … `SA26-100` za sve ranije oblike. Novo:
+- ćirilica: `СА26-7`, `са26 7` (srpska ćirilica → latinica pre poređenja; `О` je i dalje nula);
+- razdvojen prefiks: `SA-26-7`, `SA 26 7`;
+- znak broja i kosa crta: `#7`, `SA26/7`, `SA26 #7`, `SA26.7` (`/`, `.` i `#` samo između prefiksa i broja; `7.5`, `SA26/7/1` i slično ostaju `null`).
+
+Važi svuda gde se normalizator koristi (`linkSticker`, `assignQr`, `getQrDetail`, `resolveTest`, masovna dodela, import, QR pretraga).
+
+### 41.2 `fairAdminQr.linkSticker` (admin) — zamena na zastarelim podacima (RN N3)
+
+- Novi opcioni argument `expectedModelStickerCode: string | null` = resolver kod nalepnice koju je admin VIDEO na automobilu (`null` = bez nalepnice).
+- Uz `replaceModelSticker: true` server poredi trenutnu nalepnicu automobila sa njim. Razlika (i kad argument nije poslat a automobil ima nalepnicu) → `FAIR_QR_HOLDER_CHANGED` sa `details.modelResolverCode` (trenutni kod ili `"none"`), **bez ijednog upisa**.
+- Bez `replaceModelSticker` ponašanje je isto kao pre (`FAIR_MODEL_ALREADY_ASSIGNED`).
+- Admin ekran „Poveži nalepnicu“ šalje šta je video (`lib/admin-v1/qr-link.ts` `linkStickerArgs`).
+
+### 41.3 Javni upiti (RN N4, info)
+
+- `fairPublic.getEventMap`: samo učešće sa `status === "active"` i štand sa `status === "active"`. Učešće ili štand u nacrtu (ili povučen) nisu ni u `stands` ni u `exhibitorsWithoutLocation`. Oblik odgovora je isti.
+- `fairPublic.getModelBySlug`: za događaj u nacrtu vraća `null` (isto pravilo kao `getEventBySlug`). Oblik odgovora je isti.
+
+### 41.4 Intake i izlagači sa sajta (`convex/fairExhibitorImport.ts`, `lib/fair-import/izlagaci-2026.ts`)
+
+- `FairSiteExhibitor.intakeParticipationKey?`: šest izlagača sa sajta jesu učešća iz Aleksinog intake-a: `jmev` → `elektromobilnost-2026-jmev` (CUBI), `mazda` i `chery` → `elektromobilnost-2026-grand-motors`, `foton` → `elektromobilnost-2026-auto-mig`, `ferum-yudo` → `elektromobilnost-2026-ferum`, `bentu` → `elektromobilnost-2026-bentu`.
+- `importSiteExhibitors` (internal): ako je intake učešće u događaju (u bilo kom statusu), izlagač je „pokriven“ i ne dobija klijenta ni učešće. Odgovor dobija polje `covered: [{ key, intakeParticipationKey }]` (aditivno).
+- `placeSiteExhibitors` (internal): pokriven izlagač se preskače sa razlogom `covered_by_intake`.
+- Novo **internal** `reconcileSiteExhibitorsWithIntake({ ownerEmail, eventCode, list, dryRun? })`, `dryRun` je podrazumevano `true`:
+  - sajtni zapis napravljen pre intake-a se povlači (učešće i njegovi štandovi → `withdrawn`), osim ako drži automobil (`has_models`, ostaje za ljudsku odluku);
+  - intake učešće dobija samo ono što mu fali za mapu: `category`, a `logoUrl` (biznis) i `websiteUrl` (nalog) samo kad ga predstavlja jedan brend sa sajta (Grand Motors ima dva → samo kategorija);
+  - ništa Aleksino se ne preimenuje, ne premešta i ne duplira; drugi stvarni prolaz ne radi ništa; audit `fair_site_exhibitors_reconciled`.
+- Mapa posle usklađivanja: 9 CUBI (JMEV), 6 AUTO MIG (Foton) i Grand Motors (Mazda, Chery) kao dva izlagača (O4), 1A Ferum d.o.o. (Yudo) pored sajtnog Ferum BAW, 1B BENTU. Ukupno 37 izlagača (38 − 6 + 5).
+
+### 41.5 Štandovi van mape (RN N6)
+
+- Novo **internal** `fairExhibitorImport.listStandsOffMap({ eventCode })`, samo čitanje: ne-povučeni štandovi čiji `mapLocationId` nije lokacija današnje mape. Za svaki: izlagač, ključ učešća, stara lokacija, kandidati, predlog (jedan kandidat, ili jedini koji lista organizatora daje sajtnom izlagaču) i broj automobila. Ništa se ne premešta.
+- Kandidati: `lib/fair-map/relocate.ts` `fairMapRelocationCandidates` (`ispred-20/21/22` → `ispred-20-22`; `ispred-12/13/15` → kutije grupe; S1–S5 i `scanme` → nijedan).
+
+### 41.6 Testovi
+
+- Novi: `convex/fairIntakeMap.test.ts` (pravi `b1-payload.json` kroz `fairSetup`, oba redosleda sa listom sajta, usklađivanje, `validateMapLocationIds`, „Poveži nalepnicu“ sa SA26-001 … 015, štandovi van mape), `lib/fair-map/relocate.test.ts`.
+- Dopunjeni: `lib/fair-qr-label.test.ts`, `convex/fairQrSticker.test.ts`, `convex/fairPublic.test.ts`, `lib/admin-v1/qr-link.test.ts`, `components/admin/events/sections/povezi-view.test.tsx`, `convex/fairExhibitorImport.test.ts` (`covered: []`), `convex/fairAuthz.test.ts` (dve nove internal funkcije).

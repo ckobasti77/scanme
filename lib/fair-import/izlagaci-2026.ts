@@ -33,6 +33,14 @@ export type FairSiteExhibitor = {
   /** mapLocationIds on the organizer map; empty only with a `noLocationReason`. */
   locations: readonly string[];
   noLocationReason?: string;
+  /**
+   * P2 (Aleksa 8. 10., SYNC §2.3): the participation of Aleksa's intake
+   * (intake/elektromobilnost-2026-2026-10-07/b1-payload.json) that IS this
+   * exhibitor on the map. In an event with that participation the site list
+   * makes no second record (fairExhibitorImport skips it; a record made
+   * before is withdrawn by reconcileSiteExhibitorsWithIntake).
+   */
+  intakeParticipationKey?: string;
 };
 
 /** The map zone of the organizer's list section ("ulazni deo" is the area in front of the hall). */
@@ -46,8 +54,8 @@ export const FAIR_SITE_LOGO_BASE = "/fair/izlagaci/2026";
 export const ELEKTROMOBILNOST_2026_EXHIBITORS: readonly FairSiteExhibitor[] = [
   // Hala (lista ispod mape sajma)
   { key: "ferum-baw", name: "Ferum BAW", websiteUrl: "https://www.ferum-doo.com/", logoFile: "ferum-baw.jpg", zone: "hala", category: "automobili", locations: ["hala-1a"] },
-  { key: "ferum-yudo", name: "Ferum Yudo", websiteUrl: "https://www.ferum-doo.com/", logoFile: "ferum-yudo.jpg", zone: "hala", category: "automobili", locations: ["hala-1a"] },
-  { key: "bentu", name: "Bentu", websiteUrl: "https://bentu.rs/", logoFile: "bentu.jpg", zone: "hala", category: "automobili", locations: ["hala-1b"] },
+  { key: "ferum-yudo", name: "Ferum Yudo", websiteUrl: "https://www.ferum-doo.com/", logoFile: "ferum-yudo.jpg", zone: "hala", category: "automobili", locations: ["hala-1a"], intakeParticipationKey: "elektromobilnost-2026-ferum" },
+  { key: "bentu", name: "Bentu", websiteUrl: "https://bentu.rs/", logoFile: "bentu.jpg", zone: "hala", category: "automobili", locations: ["hala-1b"], intakeParticipationKey: "elektromobilnost-2026-bentu" },
   { key: "xtreme-motors", name: "Xtreme Motors", websiteUrl: "https://xtreme.rs/", logoFile: "xtreme-motors.jpg", zone: "hala", category: "moto", locations: ["hala-1c"] },
   { key: "dualtron", name: "Dualtron", websiteUrl: "https://www.dualtron.rs/", logoFile: "dualtron.jpg", zone: "hala", category: "moto", locations: ["hala-10a"] },
   { key: "toyota", name: "Toyota", websiteUrl: "https://www.toyota.rs/retailers/raavex-group-doo", logoFile: "toyota.jpg", zone: "hala", category: "automobili", locations: ["hala-2"] },
@@ -66,10 +74,10 @@ export const ELEKTROMOBILNOST_2026_EXHIBITORS: readonly FairSiteExhibitor[] = [
   { key: "farizon", name: "Farizon", websiteUrl: "https://farizon.rs/", logoFile: "farizon.jpg", zone: "hala", category: "automobili", locations: ["hala-2"] },
   { key: "ford", name: "Ford", websiteUrl: "https://ford.rs/", logoFile: "ford.jpg", zone: "hala", category: "automobili", locations: ["hala-5"] },
   { key: "mg", name: "MG", websiteUrl: "https://www.mgmotor.rs/", logoFile: "mg.jpg", zone: "hala", category: "automobili", locations: ["hala-5"] },
-  { key: "foton", name: "Foton", websiteUrl: "https://fotonserbia.rs/", logoFile: "foton.jpg", zone: "hala", category: "automobili", locations: ["hala-6"] },
-  { key: "mazda", name: "Mazda", websiteUrl: "https://www.automg.mazda.rs/o-nama/kompanija", logoFile: "mazda.jpg", zone: "hala", category: "automobili", locations: ["hala-6"] },
-  { key: "chery", name: "Chery", websiteUrl: "https://www.cheryauto.rs/", logoFile: "chery.jpg", zone: "hala", category: "automobili", locations: ["hala-6"] },
-  { key: "jmev", name: "JMEV", websiteUrl: "https://www.jmev.rs/", logoFile: "jmev.jpg", zone: "hala", category: "automobili", locations: ["hala-9"] },
+  { key: "foton", name: "Foton", websiteUrl: "https://fotonserbia.rs/", logoFile: "foton.jpg", zone: "hala", category: "automobili", locations: ["hala-6"], intakeParticipationKey: "elektromobilnost-2026-auto-mig" },
+  { key: "mazda", name: "Mazda", websiteUrl: "https://www.automg.mazda.rs/o-nama/kompanija", logoFile: "mazda.jpg", zone: "hala", category: "automobili", locations: ["hala-6"], intakeParticipationKey: "elektromobilnost-2026-grand-motors" },
+  { key: "chery", name: "Chery", websiteUrl: "https://www.cheryauto.rs/", logoFile: "chery.jpg", zone: "hala", category: "automobili", locations: ["hala-6"], intakeParticipationKey: "elektromobilnost-2026-grand-motors" },
+  { key: "jmev", name: "JMEV", websiteUrl: "https://www.jmev.rs/", logoFile: "jmev.jpg", zone: "hala", category: "automobili", locations: ["hala-9"], intakeParticipationKey: "elektromobilnost-2026-jmev" },
   { key: "jac", name: "JAC", websiteUrl: "https://jacmotors.rs/", logoFile: "jac.jpg", zone: "hala", category: "automobili", locations: ["hala-10b"] },
   { key: "changan", name: "Changan", websiteUrl: "https://changanbalkans.com/rs/dilerska-mreza/", logoFile: "changan.jpg", zone: "hala", category: "automobili", locations: ["hala-10b"] },
   { key: "skoda", name: "Škoda", websiteUrl: "https://www.skoda-auto.rs/content/acp-nis", logoFile: "skoda.jpg", zone: "hala", category: "automobili", locations: ["hala-11"] },

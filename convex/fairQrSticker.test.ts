@@ -151,8 +151,12 @@ async function qrState(f: Fixture) {
 const active = (f: Fixture, eventModelId: Id<"fairEventModels">) =>
   f.t.run((ctx) => ctx.db.query("fairQrAssignments").withIndex("by_eventModelId_and_status", (q) => q.eq("eventModelId", eventModelId).eq("status", "assigned")).first());
 
-const link = (f: Fixture, code: string, eventModelId: Id<"fairEventModels">, expectedHolderModelId: Id<"fairEventModels"> | null, replaceModelSticker?: boolean) =>
-  f.admin.mutation(api.fairAdminQr.linkSticker, { eventId: f.em.eventId, code, eventModelId, expectedHolderModelId, ...(replaceModelSticker === undefined ? {} : { replaceModelSticker }) });
+const link = (f: Fixture, code: string, eventModelId: Id<"fairEventModels">, expectedHolderModelId: Id<"fairEventModels"> | null, replaceModelSticker?: boolean, expectedModelStickerCode?: string | null) =>
+  f.admin.mutation(api.fairAdminQr.linkSticker, {
+    eventId: f.em.eventId, code, eventModelId, expectedHolderModelId,
+    ...(replaceModelSticker === undefined ? {} : { replaceModelSticker }),
+    ...(expectedModelStickerCode === undefined ? {} : { expectedModelStickerCode }),
+  });
 
 let sequence = 0;
 function scan(caller: Caller, code: string, visitorHash?: string) {
@@ -339,13 +343,43 @@ describe("linkSticker — one atomic call on the fair floor", () => {
     await expectCode(link(f, "7", f.x1.modelId, null, false), "FAIR_MODEL_ALREADY_ASSIGNED");
     expect(await qrState(f)).toBe(before);
 
-    const replaced = await link(f, "7", f.x1.modelId, null, true);
+    // P2: the replacement names the car's sticker the admin saw (SA26-002).
+    const replaced = await link(f, "7", f.x1.modelId, null, true, f.s[2].resolverCode);
     expect(replaced).toMatchObject({ created: true, label: "SA26-007", replacedLabel: "SA26-002" });
     expect(replaced.movedFromModelId).toBeUndefined();
     expect(await f.t.run((ctx) => ctx.db.get(old.assignmentId))).toMatchObject({ status: "released", reason: REASON.replace });
     expect(await f.t.run((ctx) => ctx.db.get(replaced.assignmentId))).toMatchObject({ status: "assigned", reason: REASON.link, replacedAssignmentId: old.assignmentId });
     expect(await f.t.run((ctx) => ctx.db.get(f.s[2].channelId))).toMatchObject({ state: "problem", problemReason: "destination_fair_unassigned" });
     expect(await scan(f.t, f.s[2].resolverCode)).toEqual({ kind: "invalid" });
+  });
+
+  test("P2 (RN N3): a replacement on stale data — the car's sticker changed since the admin saw it — is FAIR_QR_HOLDER_CHANGED and writes nothing", async () => {
+    const f = await setup();
+    // Admin 1 sees car X1 with SA26-002. Meanwhile admin 2 replaces it with SA26-003.
+    await link(f, "2", f.x1.modelId, null);
+    await link(f, "3", f.x1.modelId, null, true, f.s[2].resolverCode);
+    const before = await qrState(f);
+    const rows = await count(f, "fairQrAssignments");
+    // Admin 1 replaces „SA26-002“ with SA26-007: the car now has SA26-003, which admin 1 never saw.
+    await expect(link(f, "7", f.x1.modelId, null, true, f.s[2].resolverCode))
+      .rejects.toMatchObject({ data: { code: "FAIR_QR_HOLDER_CHANGED", details: { modelResolverCode: f.s[3].resolverCode } } });
+    // Without naming the car's sticker (or naming none) a replacement never releases one.
+    await expectCode(link(f, "7", f.x1.modelId, null, true), "FAIR_QR_HOLDER_CHANGED");
+    await expectCode(link(f, "7", f.x1.modelId, null, true, null), "FAIR_QR_HOLDER_CHANGED");
+    expect(await count(f, "fairQrAssignments")).toBe(rows);
+    expect(await qrState(f)).toBe(before);
+    expect((await active(f, f.x1.modelId))?.accessChannelId).toBe(f.s[3].channelId);
+
+    // The car's sticker was released in the meantime: „replace SA26-003“ is stale too.
+    await f.admin.mutation(api.fairAdmin.releaseQr, { eventModelId: f.x1.modelId, reason: "TEST oslobađanje" });
+    const released = await qrState(f);
+    await expect(link(f, "7", f.x1.modelId, null, true, f.s[3].resolverCode))
+      .rejects.toMatchObject({ data: { code: "FAIR_QR_HOLDER_CHANGED", details: { modelResolverCode: "none" } } });
+    expect(await qrState(f)).toBe(released);
+
+    // What the admin sees now (none) links.
+    expect(await link(f, "7", f.x1.modelId, null, true, null)).toMatchObject({ created: true, label: "SA26-007" });
+    expect((await active(f, f.x1.modelId))?.accessChannelId).toBe(f.s[7].channelId);
   });
 
   test("a sticker on a car of the other fair is not taken over (FAIR_QR_OTHER_EVENT); a car of the other fair is refused", async () => {
@@ -393,7 +427,7 @@ describe("undoLink — 15 minutes, only the active link", () => {
   test("undo a replacement: the car gets its former sticker back while that one is still free", async () => {
     const f = await setup();
     await link(f, "2", f.x1.modelId, null);
-    const replaced = await link(f, "7", f.x1.modelId, null, true);
+    const replaced = await link(f, "7", f.x1.modelId, null, true, f.s[2].resolverCode);
     const result = await f.admin.mutation(api.fairAdminQr.undoLink, { assignmentId: replaced.assignmentId });
     expect(result).toMatchObject({ restoredToModelId: null, restoredAssignmentId: null, restoredReplacedLabel: "SA26-002" });
     expect(await active(f, f.x1.modelId)).toMatchObject({ _id: result.restoredReplacedAssignmentId, accessChannelId: f.s[2].channelId, reason: REASON.restore });
@@ -403,7 +437,7 @@ describe("undoLink — 15 minutes, only the active link", () => {
   test("undo a replacement after the former sticker went to another car: only the new link is removed", async () => {
     const f = await setup();
     await link(f, "2", f.x1.modelId, null);
-    const replaced = await link(f, "7", f.x1.modelId, null, true);
+    const replaced = await link(f, "7", f.x1.modelId, null, true, f.s[2].resolverCode);
     await link(f, "2", f.x3.modelId, null);
     const result = await f.admin.mutation(api.fairAdminQr.undoLink, { assignmentId: replaced.assignmentId });
     expect(result).toMatchObject({ restoredReplacedLabel: null, restoredReplacedAssignmentId: null });

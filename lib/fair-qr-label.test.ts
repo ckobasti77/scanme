@@ -25,6 +25,33 @@ describe("normalizeFairQrLabel", () => {
     for (const input of inputs) expect({ input, label: normalizeFairQrLabel(input) }).toEqual({ input, label: "SA26-007" });
   });
 
+  test("P2 (RN): the Cyrillic СА26, a split prefix, a number sign and a slash give SA26-007 too", () => {
+    const inputs = [
+      "СА26-7", "СА26-007", "са26 7", "са26-007", "СА26 7", "СА26007", "Са26-7", "СA26-7", "SА26-7", "СА26-О07", "О7",
+      "SA-26-7", "SA 26 7", "SA-26 007", "sa 26-7", "СА-26-7", "SA - 26 - 7", "SA-26007",
+      "#7", "# 7", "#007", "SA26/7", "SA26/007", "sa26 / 7", "SA26#7", "SA26 #7", "SA26.7", "SA-26/7", "СА26/7",
+    ];
+    for (const input of inputs) expect({ input, label: normalizeFairQrLabel(input) }).toEqual({ input, label: "SA26-007" });
+  });
+
+  test("P2: the new forms refuse what the old ones refuse", () => {
+    const inputs = [
+      "СА27-7", "СБ26-7", "SA-27-7", "SA 26", "SA-26", "SA-26-", "#", "# ", "##7", "#-7", "7#", "SA26/", "SA26/7/1", "SA26//7/", "/7", ".7", "7/", "7.",
+      "SA26#0", "#0", "#101", "СА26-101", "SA 26 7 1", "SA-26-7-1", "SA2 6 7", "S A26 7", "ТС26-7",
+    ];
+    for (const input of inputs) expect({ input, label: normalizeFairQrLabel(input) }).toEqual({ input, label: null });
+  });
+
+  test("RUNBOOK-EVENT-SETUP: the stickers of the 15 real cars, SA26-001 … SA26-015, in every typed form", () => {
+    for (let n = 1; n <= 15; n += 1) {
+      const label = `SA26-${String(n).padStart(3, "0")}`;
+      const forms = [label, String(n), String(n).padStart(3, "0"), `sa26 ${n}`, `SA26${String(n).padStart(3, "0")}`, `СА26-${n}`, `SA-26-${n}`, `SA 26 ${n}`, `#${n}`, `SA26/${n}`];
+      for (const input of forms) expect({ input, label: normalizeFairQrLabel(input) }).toEqual({ input, label });
+    }
+    expect(normalizeFairQrLabel("SA26-015")).toBe("SA26-015");
+    expect(normalizeFairQrLabel("16")).toBe("SA26-016");
+  });
+
   test("the first and the last sticker of the series", () => {
     expect(normalizeFairQrLabel("1")).toBe("SA26-001");
     expect(normalizeFairQrLabel("sa26-1")).toBe("SA26-001");
@@ -52,6 +79,9 @@ describe("normalizeFairQrLabel", () => {
     expect(normalizeFairQrLabel("ts26 250", format)).toBe("TS26-0250");
     expect(normalizeFairQrLabel("251", format)).toBeNull();
     expect(normalizeFairQrLabel("SA26-007", format)).toBeNull();
+    // P2: the split, Cyrillic and slash forms follow the series' own prefix.
+    expect(normalizeFairQrLabel("TS-26/7", format)).toBe("TS26-0007");
+    expect(normalizeFairQrLabel("ТС26 7", format)).toBe("TS26-0007");
   });
 });
 
