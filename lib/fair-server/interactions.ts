@@ -3,7 +3,14 @@ import "server-only";
 import { ConvexHttpClient } from "convex/browser";
 import type { FunctionArgs, FunctionReturnType } from "convex/server";
 import { api } from "@/convex/_generated/api";
-import { FAIR_ERROR_CODES, FAIR_SURVEY_MAX_QUESTIONS, type FairErrorCode } from "@/lib/fair-contract";
+import {
+  FAIR_ERROR_CODES,
+  FAIR_LEAD_INPUT_REASONS,
+  FAIR_SURVEY_MAX_QUESTIONS,
+  type FairContactRequirement,
+  type FairErrorCode,
+  type FairErrorDetails,
+} from "@/lib/fair-contract";
 import { fairGatewayError, fairGatewayJson, fairGatewayRequest } from "./gateway";
 import { fairConvexVisitorForRequest, warnOnce, type FairVisitorEnv } from "./visitor";
 
@@ -75,11 +82,36 @@ export function fairErrorCodeOf(error: unknown): FairErrorCode | null {
   return typeof code === "string" && KNOWN_CODES.has(code) ? (code as FairErrorCode) : null;
 }
 
+const CONTACT_REQUIREMENTS: readonly FairContactRequirement[] = ["one_of", "email", "phone", "both"];
+const INPUT_REASONS = new Set<string>(FAIR_LEAD_INPUT_REASONS);
+
 /**
- * The response for a failed Convex call: its stable code, or
- * SERVICE_UNAVAILABLE. K1: a refused gateway secret is a deploy problem, not
- * the visitor's — the browser sees SERVICE_UNAVAILABLE, the server log the
- * code once (never the secret).
+ * N5 — the details of a Convex failure the browser may see, or undefined.
+ * Only FAIR_PUBLIC_ERROR_DETAIL_KEYS, each with a shape that cannot carry a
+ * contact value or free text: `field` (an identifier), `required` (a contact
+ * rule), `reason` (FAIR_LEAD_INPUT_REASONS), `retryAfterMs` (whole ms ≥ 0).
+ */
+export function fairPublicErrorDetails(error: unknown): FairErrorDetails | undefined {
+  if (typeof error !== "object" || error === null || !("data" in error)) return undefined;
+  const data = (error as { data: unknown }).data;
+  if (typeof data !== "object" || data === null || !("details" in data)) return undefined;
+  const raw = (data as { details: unknown }).details;
+  if (typeof raw !== "object" || raw === null) return undefined;
+  const { field, required, reason, retryAfterMs } = raw as Record<string, unknown>;
+  const details: FairErrorDetails = {};
+  if (typeof field === "string" && /^[A-Za-z]{1,40}$/.test(field)) details.field = field;
+  if (typeof required === "string" && (CONTACT_REQUIREMENTS as readonly string[]).includes(required)) details.required = required;
+  if (typeof reason === "string" && INPUT_REASONS.has(reason)) details.reason = reason;
+  if (typeof retryAfterMs === "number" && Number.isFinite(retryAfterMs) && retryAfterMs >= 0) details.retryAfterMs = Math.ceil(retryAfterMs);
+  return Object.keys(details).length ? details : undefined;
+}
+
+/**
+ * The response for a failed Convex call: its stable code (N5: with the
+ * whitelisted details; a 429 with `Retry-After`), or SERVICE_UNAVAILABLE.
+ * K1: a refused gateway secret is a deploy problem, not the visitor's — the
+ * browser sees SERVICE_UNAVAILABLE, the server log the code once (never the
+ * secret).
  */
 export function fairBackendFailure(error: unknown, status: Partial<Record<FairErrorCode, number>>): Response {
   const code = fairErrorCodeOf(error);
@@ -87,7 +119,7 @@ export function fairBackendFailure(error: unknown, status: Partial<Record<FairEr
     warnOnce(code);
     return fairGatewayError("SERVICE_UNAVAILABLE", 503);
   }
-  return code ? fairGatewayError(code, status[code] ?? 400) : fairGatewayError("SERVICE_UNAVAILABLE", 502);
+  return code ? fairGatewayError(code, status[code] ?? 400, fairPublicErrorDetails(error)) : fairGatewayError("SERVICE_UNAVAILABLE", 502);
 }
 
 // -----------------------------------------------------------------------------

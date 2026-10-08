@@ -3,11 +3,12 @@ import { env, type MutationCtx, type QueryCtx } from "../_generated/server";
 import { internal } from "../_generated/api";
 import {
   FAIR_CONSENT_EXHIBITOR_PLACEHOLDER,
-  FAIR_LEAD_NAME_MAX,
   fairContactRequirementProblem,
-  isFairLeadEmail,
-  isFairLeadPhone,
+  normalizeFairLeadEmail,
+  normalizeFairLeadName,
+  normalizeFairLeadPhone,
   type FairContactRequirement,
+  type FairEmailDeliveryError,
   type FairLeadKind,
 } from "../../lib/fair-contract";
 import { belgradeLocalToEpoch, belgradeParts } from "../../lib/belgrade-time";
@@ -55,6 +56,10 @@ export const FAIR_FOLLOW_UP_HOUR = 10;
 /** Outbox retry policy: one send plus at most two automatic retries, then `failed` (admin may retry). */
 export const FAIR_EMAIL_MAX_ATTEMPTS = 3;
 export const FAIR_EMAIL_RETRY_DELAYS_MS = [60 * 1000, 10 * 60 * 1000] as const;
+/** N5: a `queued` row whose moment passed longer ago than this is stuck (its send was lost or crashed). */
+export const FAIR_EMAIL_STALE_MS = 5 * 60 * 1000;
+/** N5: a claim younger than this is a send in flight (a Convex action runs at most 10 minutes). */
+export const FAIR_EMAIL_CLAIM_LEASE_MS = 11 * 60 * 1000;
 
 const pad = (value: number) => String(value).padStart(2, "0");
 
@@ -146,36 +151,38 @@ export function fairModelFullName(model: Pick<Doc<"fairEventModels">, "displayNa
 }
 
 /**
- * Trimmed contact fields; an empty email/phone counts as absent. Format
- * errors are INVALID_INPUT, a missing required channel is
- * CONTACT_REQUIREMENT_NOT_MET (`preferredContact` never requires anything).
+ * N5: the lead fields as stored — name trimmed with collapsed spaces, email
+ * trimmed and lowercase, phone in E.164 (+381 for `06x…`); an empty
+ * email/phone counts as absent. The same lib/fair-contract.ts functions the
+ * form uses. A refused field is INVALID_INPUT with `{ field, reason }` (never
+ * the value); a missing required channel is CONTACT_REQUIREMENT_NOT_MET
+ * (`preferredContact` never requires anything).
  */
 export function normalizeFairLeadContact(
   input: { contactName: string; email?: string; phone?: string },
   requirement: FairContactRequirement,
 ): { contactName: string; email?: string; phone?: string } {
-  const contactName = input.contactName.trim().replace(/\s+/g, " ");
-  const hasControl = [...contactName].some((char) => char.charCodeAt(0) < 32 || char.charCodeAt(0) === 127);
-  if (!contactName || contactName.length > FAIR_LEAD_NAME_MAX || hasControl) {
-    fairInteractionError("INVALID_INPUT", { field: "contactName" });
-  }
-  const email = input.email?.trim() || undefined;
-  const phone = input.phone?.trim() || undefined;
-  if (email !== undefined && !isFairLeadEmail(email)) fairInteractionError("INVALID_INPUT", { field: "email" });
-  if (phone !== undefined && !isFairLeadPhone(phone)) fairInteractionError("INVALID_INPUT", { field: "phone" });
+  const name = normalizeFairLeadName(input.contactName);
+  if (!name.ok) fairInteractionError("INVALID_INPUT", { field: "contactName", reason: name.reason });
+  const rawEmail = input.email?.trim() || undefined;
+  const rawPhone = input.phone?.trim() || undefined;
+  const email = rawEmail === undefined ? undefined : (normalizeFairLeadEmail(rawEmail) ?? fairInteractionError("INVALID_INPUT", { field: "email", reason: "format" }));
+  const phone = rawPhone === undefined ? undefined : (normalizeFairLeadPhone(rawPhone) ?? fairInteractionError("INVALID_INPUT", { field: "phone", reason: "format" }));
   const missing = fairContactRequirementProblem(requirement, { email, phone });
   if (missing) fairInteractionError("CONTACT_REQUIREMENT_NOT_MET", { required: missing });
-  return { contactName, ...(email !== undefined ? { email } : {}), ...(phone !== undefined ? { phone } : {}) };
+  return { contactName: name.value, ...(email !== undefined ? { email } : {}), ...(phone !== undefined ? { phone } : {}) };
 }
 
 /**
  * Creates the outbox row (idempotent by dedupeKey) and schedules the Node
  * sender. A mutation never sends: fairEmailSender.sendDelivery does, through
- * the Resend seam, with Idempotency-Key = dedupeKey.
+ * the Resend seam, with Idempotency-Key = dedupeKey. N5: with `skipped` the
+ * row is written closed (`skipped` + that code) and nothing is scheduled, so
+ * the admin sees why no email went out.
  */
 export async function queueFairLeadEmail(
   ctx: MutationCtx,
-  input: { leadId: Id<"fairLeads">; kind: FairLeadEmailKind; recipient: string; scheduledFor: number; now: number },
+  input: { leadId: Id<"fairLeads">; kind: FairLeadEmailKind; recipient: string; scheduledFor: number; now: number; skipped?: FairEmailDeliveryError },
 ): Promise<Id<"fairEmailDeliveries">> {
   const dedupeKey = fairLeadEmailDedupeKey(input.leadId, input.kind);
   const existing = await ctx.db
@@ -188,13 +195,14 @@ export async function queueFairLeadEmail(
     leadId: input.leadId,
     kind: input.kind,
     recipient: input.recipient,
-    status: "queued",
+    status: input.skipped ? "skipped" : "queued",
     scheduledFor: input.scheduledFor,
     attemptCount: 0,
+    ...(input.skipped ? { lastError: input.skipped } : {}),
     createdAt: input.now,
     updatedAt: input.now,
   });
-  await scheduleFairEmailSend(ctx, deliveryId, input.scheduledFor, input.now);
+  if (!input.skipped) await scheduleFairEmailSend(ctx, deliveryId, input.scheduledFor, input.now);
   return deliveryId;
 }
 

@@ -143,6 +143,18 @@ export const rateLimiter = new RateLimiter(components.rateLimiter, {
   // limiter and costs nothing. Each model has its own key, so a visitor
   // leaving leads at ten stands never meets the cap.
   fairLeadSubmit: { kind: "token bucket", rate: 2, period: MINUTE, capacity: 3 },
+  // Sajam 2026 N5: fairLeadIp — one token per NEW lead (a duplicate or a
+  // same-submissionId retry never spends one), keyed by the HMAC of the
+  // caller IP the trusted gateway computes (the same `ipHash` as
+  // fairVisitorCreate; absent → one shared bucket). The arithmetic: the hall
+  // Wi-Fi may put every phone behind ONE address. A fair day is ~5–10k
+  // visitors; even if every tenth leaves a lead, that is ≤ 1,000 leads over
+  // ~8 h ≈ 2/min, and a rush 5× that ≈ 10/min. Capacity 60 absorbs a burst
+  // (a whole crowd at one stand), refill 30/min stays 3× above the rush; a
+  // script on one address stores at most 60 + 30/min leads, each also bound
+  // by its visitor (fairLeadSubmit, fairVisitorCreate) and every address by
+  // the per-recipient caps (FAIR_LEAD_CONFIRMATIONS_PER_RECIPIENT).
+  fairLeadIp: { kind: "token bucket", rate: 30, period: MINUTE, capacity: 60 },
   // Sajam 2026 B5 (HANDOFF §7, §9): fairSponsoredAction — per visitor
   // (fairVisitors._id), explicit garage strip taps only (`Pogledaj`,
   // `Dodaj u garažu`; passive views never reach the limiter). The strip

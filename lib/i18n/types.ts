@@ -5391,8 +5391,20 @@ export interface EventLeadEmailDict {
   confirmationSubjectInterest: string;
   confirmationSubjectTestDrive: string;
   greeting: string;
+  /** N5 — the greeting when the stored name is not safe to repeat. */
+  greetingWithoutName: string;
   confirmationBodyInterest: string;
   confirmationBodyTestDrive: string;
+  /** N5 — `{where}` = stand name and event venue ("Štand 2, Hala Čair, Niš"). */
+  confirmationWhere: string;
+  /** N5 — the next step by kind; `{exhibitor}`. */
+  confirmationNextInterest: string;
+  confirmationNextTestDrive: string;
+  /** N5 — `{contact}` = the email and/or phone the visitor shared. */
+  confirmationContact: string;
+  /** N5 — `{exhibitor}`, `{date}` = the purge day. */
+  confirmationPrivacy: string;
+  confirmationNotYou: string;
   confirmationFollowUpNote: string;
   followUpFooter: string;
   /** Admin UX A8 — what a merge field becomes when the lead has no value for it. */

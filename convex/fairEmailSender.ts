@@ -28,6 +28,8 @@ export const sendDelivery = internalAction({
     if (claim.action === "skip") return null;
     const config = fairResendConfig(env);
     if (!config) {
+      // N5: one line for the deployment log — a code and the outbox kind, never a recipient, name or key.
+      console.warn(`[fair-email] RESEND_NOT_CONFIGURED: ${claim.action === "send" ? claim.message.kind : "daily_report"} not sent, the row is failed; set RESEND_API_KEY and RESEND_FROM_EMAIL, then retry it in the admin`);
       await ctx.runMutation(internal.fairEmails.markFailed, { deliveryId: args.deliveryId, error: "RESEND_NOT_CONFIGURED", retryable: false });
       return null;
     }

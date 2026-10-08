@@ -1,13 +1,17 @@
 import { v } from "convex/values";
-import { internalMutation } from "./_generated/server";
+import type { Doc } from "./_generated/dataModel";
+import { internal } from "./_generated/api";
+import { internalMutation, type MutationCtx } from "./_generated/server";
 import { FAIR_PII_PURGE_AT_MS, fairModelPath } from "../lib/fair-contract";
 import { buildFairReportEmail, fairLeadEmailMessage, fairReportEmailMessage, type FairLeadEmailMessage } from "./lib/fairEmails";
 import { fairDailyReportFileName, fairReportDateText } from "./lib/fairReportFiles";
 import { fairFollowUpValues, renderFairFollowUp } from "./lib/fairFollowUp";
 import { fairPairFollowUpFacts, fairPairLeads } from "./lib/fairLeadActivity";
 import {
+  FAIR_EMAIL_CLAIM_LEASE_MS,
   FAIR_EMAIL_MAX_ATTEMPTS,
   FAIR_EMAIL_RETRY_DELAYS_MS,
+  FAIR_EMAIL_STALE_MS,
   fairActiveExhibitorFollowUp,
   fairActiveFollowUpTemplate,
   fairExhibitorName,
@@ -43,6 +47,13 @@ import {
 // dedupeKey `fair-report/<runId>/<n>`). The claim re-checks the run right
 // before delivery: only a manually approved run (or an already sent one, for
 // a resend) with its stored file is ever handed to the sender.
+//
+// N5: a claim stamps `claimedAt` (cleared by markSent/markFailed). While it is
+// younger than FAIR_EMAIL_CLAIM_LEASE_MS a second sender of the same row
+// skips, so a re-scheduled row is never sent twice in parallel. The 5-minute
+// cron `requeueStaleDeliveries` re-schedules a `queued` row whose moment
+// passed > 5 min ago (lost or crashed send) with the same dedupeKey — the
+// Resend Idempotency-Key — so a send that did reach Resend is not repeated.
 // =============================================================================
 
 const deliveryArgs = { deliveryId: v.id("fairEmailDeliveries") };
@@ -63,6 +74,8 @@ export const claimDelivery = internalMutation({
     const skip = { action: "skip" as const };
     const delivery = await ctx.db.get(args.deliveryId);
     if (!delivery || delivery.status !== "queued" || delivery.scheduledFor > now) return skip;
+    // N5: another sender holds this row (a send in flight) — never a parallel second send.
+    if (delivery.claimedAt !== undefined && now - delivery.claimedAt < FAIR_EMAIL_CLAIM_LEASE_MS) return skip;
     if (delivery.kind === "daily_report") {
       const run = delivery.reportRunId ? await ctx.db.get(delivery.reportRunId) : null;
       // The approval gate, again, immediately before delivery (MASTER §12).
@@ -74,7 +87,7 @@ export const claimDelivery = internalMutation({
         await ctx.db.patch(delivery._id, { status: "failed", lastError: "REPORT_FILE_MISSING", updatedAt: now });
         return skip;
       }
-      await ctx.db.patch(delivery._id, { attemptCount: delivery.attemptCount + 1, updatedAt: now });
+      await ctx.db.patch(delivery._id, { attemptCount: delivery.attemptCount + 1, claimedAt: now, updatedAt: now });
       const email = buildFairReportEmail({
         eventTitle: run.dataset.eventTitle,
         dayLabel: run.dataset.dayLabel,
@@ -163,8 +176,11 @@ export const claimDelivery = internalMutation({
       pairModelNames = values.modeli;
     }
 
-    await ctx.db.patch(delivery._id, { attemptCount: delivery.attemptCount + 1, updatedAt: now });
-    const followUp = delivery.kind === "immediate_confirmation" ? await fairLeadDelivery(ctx, lead._id, "post_event_follow_up") : null;
+    await ctx.db.patch(delivery._id, { attemptCount: delivery.attemptCount + 1, claimedAt: now, updatedAt: now });
+    const confirmation = delivery.kind === "immediate_confirmation";
+    const followUp = confirmation ? await fairLeadDelivery(ctx, lead._id, "post_event_follow_up") : null;
+    // N5: the confirmation says where the car is and which contact was shared.
+    const stand = confirmation ? await ctx.db.get(model.standId) : null;
     return {
       action: "send" as const,
       message: {
@@ -181,6 +197,14 @@ export const claimDelivery = internalMutation({
         // K3: announce the reply-to-cancel option only while the follow-up can still go out.
         followUpScheduled: followUp !== null && fairFollowUpEnabled(),
         ...(template ? { template } : {}),
+        ...(confirmation
+          ? {
+              venueName: event.venueName,
+              ...(stand?.displayName.trim() ? { standName: stand.displayName.trim() } : {}),
+              ...(lead.email ? { contactEmail: lead.email } : {}),
+              ...(lead.phone ? { contactPhone: lead.phone } : {}),
+            }
+          : {}),
       },
     };
   },
@@ -193,7 +217,7 @@ export const markSent = internalMutation({
     const delivery = await ctx.db.get(args.deliveryId);
     if (!delivery || delivery.status === "sent") return null;
     const now = Date.now();
-    await ctx.db.patch(delivery._id, { status: "sent", providerMessageId: args.providerMessageId, lastError: undefined, updatedAt: now });
+    await ctx.db.patch(delivery._id, { status: "sent", providerMessageId: args.providerMessageId, lastError: undefined, claimedAt: undefined, updatedAt: now });
     const run = delivery.reportRunId ? await ctx.db.get(delivery.reportRunId) : null;
     if (run) await ctx.db.patch(run._id, { status: "sent", providerMessageId: args.providerMessageId, error: undefined, updatedAt: now });
     return null;
@@ -215,18 +239,59 @@ export const markFailed = internalMutation({
     const lastError = args.error.slice(0, 120);
     if (args.retryable && delivery.attemptCount < FAIR_EMAIL_MAX_ATTEMPTS) {
       const delay = FAIR_EMAIL_RETRY_DELAYS_MS[Math.max(0, delivery.attemptCount - 1)] ?? FAIR_EMAIL_RETRY_DELAYS_MS[FAIR_EMAIL_RETRY_DELAYS_MS.length - 1];
-      await ctx.db.patch(delivery._id, { lastError, scheduledFor: now + delay, updatedAt: now });
+      await ctx.db.patch(delivery._id, { lastError, scheduledFor: now + delay, claimedAt: undefined, updatedAt: now });
       await scheduleFairEmailSend(ctx, delivery._id, now + delay, now);
       return null;
     }
-    await ctx.db.patch(delivery._id, { status: "failed", lastError, updatedAt: now });
-    // B6: a first send that finally failed fails the run (admin retry); a
-    // failed RESEND keeps the run `sent` and only records the error.
-    const run = delivery.reportRunId ? await ctx.db.get(delivery.reportRunId) : null;
-    if (run && (run.status === "approved" || run.status === "sent")) {
-      await ctx.db.patch(run._id, { ...(run.status === "approved" ? { status: "failed" as const } : {}), error: lastError, updatedAt: now });
-    }
+    await failFairDelivery(ctx, delivery, lastError, now);
     return null;
+  },
+});
+
+/** Final failure (admin may retry). B6: also fails a run's first send; a failed RESEND keeps the run `sent`. */
+async function failFairDelivery(ctx: MutationCtx, delivery: Doc<"fairEmailDeliveries">, lastError: string, now: number) {
+  await ctx.db.patch(delivery._id, { status: "failed", lastError, claimedAt: undefined, updatedAt: now });
+  const run = delivery.reportRunId ? await ctx.db.get(delivery.reportRunId) : null;
+  if (run && (run.status === "approved" || run.status === "sent")) {
+    await ctx.db.patch(run._id, { ...(run.status === "approved" ? { status: "failed" as const } : {}), error: lastError, updatedAt: now });
+  }
+}
+
+const REQUEUE_BATCH_MAX = 50;
+
+/**
+ * N5 — the 5-minute outbox sweep (convex/crons.ts). The backstop for a send
+ * that was lost (scheduler) or crashed after its claim: up to 50 `queued`
+ * rows whose moment passed more than FAIR_EMAIL_STALE_MS ago, oldest first
+ * (`by_status_and_scheduledFor`). A row with a live claim is a send in
+ * flight and is left alone; a crashed claim with no attempts left becomes
+ * `failed` (`PROVIDER_UNAVAILABLE:stalled`, admin retry); any other row gets
+ * its sender scheduled again. claimDelivery re-checks everything and the
+ * Idempotency-Key stays the dedupeKey, so a re-run never sends twice.
+ * A future follow-up is not due yet and is never touched.
+ */
+export const requeueStaleDeliveries = internalMutation({
+  args: {},
+  returns: v.object({ requeued: v.number(), failed: v.number(), inFlight: v.number() }),
+  handler: async (ctx) => {
+    const now = Date.now();
+    const rows = await ctx.db
+      .query("fairEmailDeliveries")
+      .withIndex("by_status_and_scheduledFor", (q) => q.eq("status", "queued").lt("scheduledFor", now - FAIR_EMAIL_STALE_MS))
+      .take(REQUEUE_BATCH_MAX);
+    const result = { requeued: 0, failed: 0, inFlight: 0 };
+    for (const row of rows) {
+      if (row.claimedAt !== undefined && now - row.claimedAt < FAIR_EMAIL_CLAIM_LEASE_MS) {
+        result.inFlight += 1;
+      } else if (row.claimedAt !== undefined && row.attemptCount >= FAIR_EMAIL_MAX_ATTEMPTS) {
+        await failFairDelivery(ctx, row, "PROVIDER_UNAVAILABLE:stalled", now);
+        result.failed += 1;
+      } else {
+        await ctx.scheduler.runAfter(0, internal.fairEmailSender.sendDelivery, { deliveryId: row._id });
+        result.requeued += 1;
+      }
+    }
+    return result;
   },
 });
 

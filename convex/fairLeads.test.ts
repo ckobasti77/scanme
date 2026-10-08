@@ -18,8 +18,14 @@ import { api, internal } from "./_generated/api";
 import type { Doc, Id, TableNames } from "./_generated/dataModel";
 import schema from "./schema";
 import type { FairLeadFormView, FairLeadSubmitResult } from "../lib/fair-contract";
+import {
+  FAIR_LEAD_CONFIRMATIONS_PER_RECIPIENT,
+  normalizeFairLeadEmail,
+  normalizeFairLeadName,
+  normalizeFairLeadPhone,
+} from "../lib/fair-contract";
 import { fairLeadFormView, fairLeadSubmitResultView } from "./lib/fairValidators";
-import { fairFollowUpAt, fairFollowUpScheduleFor } from "./lib/fairLeads";
+import { FAIR_EMAIL_MAX_ATTEMPTS, fairFollowUpAt, fairFollowUpScheduleFor } from "./lib/fairLeads";
 import { buildFairLeadEmail, fairPublicBaseUrl, sendFairResendEmail, type FairLeadEmailMessage } from "./lib/fairEmails";
 import * as fairLeadsModule from "./fairLeads";
 import * as fairEmailsModule from "./fairEmails";
@@ -45,6 +51,7 @@ const LEGAL = { legalApprovedBy: "TEST pravna provera", legalApprovedAt: Date.pa
 const NAME = "TEST Posetilac Jedan";
 const EMAIL = "posetilac.b4@example.invalid";
 const PHONE = "+381 60 000 0004";
+const PHONE_E164 = "+381600000004";
 
 // -----------------------------------------------------------------------------
 // Resend mock (the only `fetch` any test can reach)
@@ -330,7 +337,8 @@ describe("B4 entitlement per kind and contact rule (HANDOFF §4.4, §12)", () =>
     // A phone-only lead is stored, but there is no address for a confirmation.
     expect(await submit(f, visitor(), f.models.starter, { email: undefined, phone: PHONE })).toMatchObject({ confirmationEmail: false, followUpScheduled: false });
     const leads = await rows(f, "fairLeads");
-    expect(leads.map((row) => [row.contactName, row.email, row.phone])).toEqual([["TEST Ime", EMAIL, undefined], [NAME, undefined, PHONE]]);
+    // N5: the phone is stored in E.164 (PHONE is "+381 60 000 0004").
+    expect(leads.map((row) => [row.contactName, row.email, row.phone])).toEqual([["TEST Ime", EMAIL, undefined], [NAME, undefined, PHONE_E164]]);
     expect(await delivery(f, "immediate_confirmation")).toHaveLength(1);
   });
 
@@ -345,7 +353,10 @@ describe("B4 entitlement per kind and contact rule (HANDOFF §4.4, §12)", () =>
     expect(await delivery(f, "post_event_follow_up")).toHaveLength(0);
 
     vi.setSystemTime(DAY1 + 120_000);
-    expect(await submit(f, hash, f.models.starter)).toMatchObject({ followUpScheduled: true });
+    // N5: the same visitor gets the stored lead back — still without a follow-up.
+    expect(await submit(f, hash, f.models.starter)).toMatchObject({ duplicate: true, followUpScheduled: false });
+    expect(await rows(f, "fairLeads")).toEqual([before]);
+    expect(await submit(f, visitor(), f.models.starter)).toMatchObject({ duplicate: false, followUpScheduled: true });
     const followUps = await delivery(f, "post_event_follow_up");
     expect(followUps).toHaveLength(1);
     expect(followUps[0].leadId).not.toBe(before._id);
@@ -354,11 +365,14 @@ describe("B4 entitlement per kind and contact rule (HANDOFF §4.4, §12)", () =>
   test("fairLeadSubmit: 3 per visitor and model, then RATE_LIMITED; other models and other visitors are separate", async () => {
     const f = await setup();
     const hash = visitor();
-    for (let i = 0; i < 3; i += 1) await submit(f, hash, f.models.starter);
+    const duplicates: boolean[] = [];
+    for (let i = 0; i < 3; i += 1) duplicates.push((await submit(f, hash, f.models.starter)).duplicate);
+    // N5: one lead per visitor, model and kind — the 2nd and 3rd submit return it, but still spend the bucket.
+    expect(duplicates).toEqual([false, true, true]);
     await expectCode(submit(f, hash, f.models.starter), "RATE_LIMITED");
     await submit(f, hash, f.models.advanced);
     await submit(f, visitor(), f.models.starter);
-    expect(await rows(f, "fairLeads")).toHaveLength(5);
+    expect(await rows(f, "fairLeads")).toHaveLength(3);
   });
 
   test("refused for an unpublished model or an ended event", async () => {
@@ -717,6 +731,343 @@ describe("K3 hard switches FAIR_LEADS_ENABLED / FAIR_FOLLOWUP_ENABLED and the le
 });
 
 // =============================================================================
+// N5 — normalization, risky names, duplicates, caps, the outbox sweep and the
+// confirmation content (all against the fetch mock; nothing is sent)
+// =============================================================================
+
+/** Builds characters from code points, so this file stays plain ASCII around them. */
+const ch = (...codes: number[]) => String.fromCodePoint(...codes);
+const sweep = (f: Fixture) => f.t.mutation(internal.fairEmails.requeueStaleDeliveries, {});
+const deliveryRow = (f: Fixture, id: Id<"fairEmailDeliveries">) => f.t.run(async (ctx) => ctx.db.get(id));
+/** Simulates a lost send: the pending scheduled sender of one outbox row is dropped. */
+async function loseScheduledSend(f: Fixture, deliveryId: Id<"fairEmailDeliveries">) {
+  const dropped = await f.t.run(async (ctx) => {
+    let count = 0;
+    for (const job of await ctx.db.system.query("_scheduled_functions").collect()) {
+      if (job.state.kind === "pending" && (job.args[0] as { deliveryId?: string } | undefined)?.deliveryId === deliveryId) {
+        await ctx.scheduler.cancel(job._id);
+        count += 1;
+      }
+    }
+    return count;
+  });
+  expect(dropped).toBe(1);
+}
+
+describe("N5 lead fields: normalization and validation (lib/fair-contract.ts, the same code in Next and Convex)", () => {
+  test("phone: E.164 with +381 for national numbers; a number without +, 00 or 0 is refused", () => {
+    const accepted: Array<[string, string]> = [
+      ["064 123 4567", "+381641234567"],
+      ["0641234567", "+381641234567"],
+      ["064/123-456", "+38164123456"],
+      ["+381 64 123 4567", "+381641234567"],
+      ["00381 64 123-4567", "+381641234567"],
+      ["+381 (0)64 123 4567", "+381641234567"],
+      ["(011) 123-4567", "+381111234567"],
+      ["018 123 456", "+38118123456"],
+      ["+44 20 7946 0958", "+442079460958"],
+      [PHONE, PHONE_E164],
+    ];
+    for (const [raw, e164] of accepted) expect(normalizeFairLeadPhone(raw), raw).toBe(e164);
+    for (const raw of ["", "12", "64 123 4567", "381641234567", "+381 6", "06 12", "0641234567890123", "+0 64 123 4567", "064 abc 4567", "064 123 4567 lok. 2", "+381 64 123 4567 89"]) {
+      expect(normalizeFairLeadPhone(raw), raw).toBeNull();
+    }
+  });
+
+  test("email: trimmed and lowercase; a stricter but reasonable shape", () => {
+    expect(normalizeFairLeadEmail("  Posetilac.N5@Example.INVALID ")).toBe("posetilac.n5@example.invalid");
+    expect(normalizeFairLeadEmail("ime+sajam@poddomen.example.co.rs")).toBe("ime+sajam@poddomen.example.co.rs");
+    for (const raw of ["", "a@b", "@example.invalid", "ime@", "ime..prezime@example.invalid", ".ime@example.invalid", "ime@-example.invalid", "ime@example-.invalid", "ime prezime@example.invalid", "ime@example.invalid@x.rs", "ime@example.c", "ime@exa_mple.rs", `${"a".repeat(65)}@example.invalid`, "ime@primer.срб"]) {
+      expect(normalizeFairLeadEmail(raw), raw).toBeNull();
+    }
+  });
+
+  test("name: letters (any script), spaces, . , ' ’ - and up to 3 digits; links, addresses, invisible/bidi characters, phone numbers and sentences are refused with a reason", () => {
+    for (const name of ["Marko Petrović", "Ana-Marija O’Brien", "M. Petrović", "J.Petrović", "Đorđe Đokić", "Љубица Јовановић", "TEST A0", "  Ana   Ivić  "]) {
+      expect(normalizeFairLeadName(name), name).toEqual({ ok: true, value: name.trim().replace(/\s+/g, " ") });
+    }
+    const refused: Array<[string, string]> = [
+      ["", "empty"],
+      ["   ", "empty"],
+      ["Marko www.primer-banka.rs", "link"],
+      ["Hitno https://primer.invalid/prijava", "link"],
+      ["Pogledaj bit.ly", "link"],
+      ["Prijava na x.com", "link"],
+      ["marko@primer.invalid", "link"],
+      [`Marko${ch(0x202e)}exe.knom`, "invisible"],
+      [`Ma${ch(0x200b)}rko`, "invisible"],
+      [`Marko ${ch(0x2066)}Petrović${ch(0x2069)}`, "invisible"],
+      [`Marko${ch(0x200f)} Petrović`, "invisible"],
+      [`Marko${ch(10)}Petrović`, "invisible"],
+      [`Marko${ch(0xfeff)}Petrović`, "invisible"],
+      [`Marko${ch(0xe0041)}`, "invisible"],
+      ["Pozovite 064 123 4567", "characters"],
+      ["<b>Marko</b>", "characters"],
+      ["Vaš nalog je blokiran!", "characters"],
+      ["Marko: potvrdite", "characters"],
+      ["...", "characters"],
+      ["Vaš paket čeka potvrdite podatke odmah danas", "too_long"],
+      ["A".repeat(121), "too_long"],
+    ];
+    for (const [name, reason] of refused) expect(normalizeFairLeadName(name), JSON.stringify(name)).toEqual({ ok: false, reason });
+  });
+
+  test("submitLead stores the normalized email (lead and recipient) and the E.164 phone", async () => {
+    const f = await setup();
+    const phones: Array<[string, string]> = [["064 123 4567", "+381641234567"], ["00381 64 123-4567", "+381641234567"], ["+381 (0)64 123 4567", "+381641234567"], ["+44 20 7946 0958", "+442079460958"]];
+    for (const [phone] of phones) await submit(f, visitor(), f.models.starter, { email: "  Posetilac.N5@Example.INVALID ", phone });
+    const leads = await rows(f, "fairLeads");
+    expect(leads.map((row) => row.phone)).toEqual(phones.map(([, e164]) => e164));
+    expect(new Set(leads.map((row) => row.email))).toEqual(new Set(["posetilac.n5@example.invalid"]));
+    expect(new Set((await delivery(f, "immediate_confirmation")).map((row) => row.recipient))).toEqual(new Set(["posetilac.n5@example.invalid"]));
+    await runDueNow(f);
+    expect(calls.map((call) => call.body.to)).toEqual(phones.map(() => ["posetilac.n5@example.invalid"]));
+  });
+
+  test("a refused field is INVALID_INPUT with { field, reason } (never the value) and nothing is stored", async () => {
+    const f = await setup();
+    const cases: Array<[LeadArgs, string, string]> = [
+      [{ phone: "64 123 4567", email: undefined }, "phone", "format"],
+      [{ phone: "+381 6", email: undefined }, "phone", "format"],
+      [{ email: "ime..prezime@example.invalid" }, "email", "format"],
+      [{ email: "ime prezime@example.invalid" }, "email", "format"],
+    ];
+    for (const [args, field, reason] of cases) {
+      const error = await submit(f, visitor(), f.models.starter, args).then(() => null, (caught: unknown) => caught);
+      expect(error).toMatchObject({ data: { code: "INVALID_INPUT", details: { field, reason } } });
+      expect(JSON.stringify((error as { data: unknown }).data)).not.toMatch(/64 123|\+381 6|ime\.\.prezime|ime prezime/);
+    }
+    await expectNothingStored(f);
+  });
+
+  test("a name with a URL, an address, invisible/bidi characters, a phone number or phishing text is refused before anything is stored or sent", async () => {
+    const f = await setup();
+    const refused: Array<[string, string]> = [
+      ["Marko www.primer-banka.rs", "link"],
+      ["Vaš račun je blokiran https://primer.invalid", "link"],
+      ["podrska@primer.invalid", "link"],
+      [`Marko${ch(0x202e)}exe.knom`, "invisible"],
+      [`Ma${ch(0x200b)}rko`, "invisible"],
+      ["Pozovite 064 123 4567", "characters"],
+      ["Hitno potvrdite nalog odmah klikom ovde danas", "too_long"],
+    ];
+    for (const [contactName, reason] of refused) {
+      await expect(submit(f, visitor(), f.models.starter, { contactName })).rejects.toMatchObject({ data: { code: "INVALID_INPUT", details: { field: "contactName", reason } } });
+    }
+    await expectNothingStored(f);
+    await runEverything(f);
+    expect(calls).toHaveLength(0);
+  });
+});
+
+describe("N5 duplicates and caps", () => {
+  test("one lead per visitor, model and kind: sending the form again (new submissionId) returns the stored lead with duplicate: true and no second email", async () => {
+    const f = await setup();
+    const hash = visitor();
+    const first = await submit(f, hash, f.models.advanced, { kind: "test_drive", phone: PHONE });
+    expect(first).toMatchObject({ duplicate: false, confirmationEmail: true, followUpScheduled: true });
+    vi.setSystemTime(DAY1 + 60_000);
+    const again = await submit(f, hash, f.models.advanced, { kind: "test_drive", phone: "+381 64 999 9999", contactName: "TEST Drugo Ime" });
+    expect(again).toEqual({ ...first, duplicate: true });
+    const [lead] = await rows(f, "fairLeads");
+    expect(await rows(f, "fairLeads")).toHaveLength(1);
+    expect(lead).toMatchObject({ contactName: NAME, phone: PHONE_E164, createdAt: DAY1 });
+    expect(await rows(f, "fairEmailDeliveries")).toHaveLength(2);
+    await runDueNow(f);
+    expect(calls).toHaveLength(1);
+    expect(calls[0].key).toBe(`fair-lead/${lead._id}/immediate_confirmation`);
+
+    // Another kind on the model, another model and another visitor are new leads.
+    expect(await submit(f, hash, f.models.advanced, { kind: "interest" })).toMatchObject({ duplicate: false });
+    expect(await submit(f, hash, f.models.starter)).toMatchObject({ duplicate: false });
+    expect(await submit(f, visitor(), f.models.advanced, { kind: "test_drive", phone: PHONE })).toMatchObject({ duplicate: false });
+    expect(await rows(f, "fairLeads")).toHaveLength(4);
+    // B4 idempotency by submissionId is unchanged: the same id from another visitor is still refused.
+    await expectCode(submit(f, visitor(), f.models.advanced, { kind: "test_drive", phone: PHONE, submissionId: lead.submissionId }), "SUBMISSION_DUPLICATE");
+  });
+
+  test("soft cap per address: lead 11 within an hour is stored, its confirmation is skipped (RECIPIENT_CAP), it gets no follow-up and nothing is sent for it", async () => {
+    const f = await setup();
+    for (let i = 0; i < FAIR_LEAD_CONFIRMATIONS_PER_RECIPIENT; i += 1) {
+      expect(await submit(f, visitor(), f.models.starter, { email: i % 2 ? EMAIL : EMAIL.toUpperCase() })).toMatchObject({ confirmationEmail: true });
+    }
+    const capped = await submit(f, visitor(), f.models.advanced, { kind: "test_drive", phone: PHONE });
+    expect(capped).toMatchObject({ duplicate: false, confirmationEmail: false, followUpScheduled: false });
+    expect(await rows(f, "fairLeads")).toHaveLength(FAIR_LEAD_CONFIRMATIONS_PER_RECIPIENT + 1);
+    const confirmations = await delivery(f, "immediate_confirmation");
+    const cappedRow = confirmations[confirmations.length - 1];
+    expect(cappedRow).toMatchObject({ recipient: EMAIL, status: "skipped", lastError: "RECIPIENT_CAP", attemptCount: 0 });
+    expect(await delivery(f, "post_event_follow_up")).toHaveLength(0);
+    await runEverything(f);
+    expect(calls).toHaveLength(FAIR_LEAD_CONFIRMATIONS_PER_RECIPIENT);
+    expect(calls.map((call) => call.key)).not.toContain(cappedRow.dedupeKey);
+    expect(await deliveryRow(f, cappedRow._id)).toMatchObject({ status: "skipped", lastError: "RECIPIENT_CAP" });
+    // Closed for good: not an admin retry, not the outbox sweep.
+    await expectCode(f.admin.mutation(api.fairLeadsAdmin.retryEmailDelivery, { deliveryId: cappedRow._id }), "FAIR_EMAIL_DELIVERY_STATUS");
+    vi.setSystemTime(DAY1 + 10 * 60_000);
+    expect(await sweep(f)).toEqual({ requeued: 0, failed: 0, inFlight: 0 });
+  });
+});
+
+describe("N5 outbox sweep (5-minute cron): stuck queued rows run again, never twice", () => {
+  test("a lost send is re-run after 5 minutes with the same Idempotency-Key and sent once; a future follow-up is not touched", async () => {
+    const f = await setup();
+    await submit(f, visitor(), f.models.advanced, { kind: "test_drive", phone: PHONE });
+    const [confirmation] = await delivery(f, "immediate_confirmation");
+    const [followUp] = await delivery(f, "post_event_follow_up");
+    await loseScheduledSend(f, confirmation._id);
+    await runDueNow(f);
+    expect(calls).toHaveLength(0);
+
+    vi.setSystemTime(DAY1 + 4 * 60_000);
+    expect(await sweep(f)).toEqual({ requeued: 0, failed: 0, inFlight: 0 });
+    vi.setSystemTime(DAY1 + 6 * 60_000);
+    expect(await sweep(f)).toEqual({ requeued: 1, failed: 0, inFlight: 0 });
+    await runDueNow(f);
+    expect(calls).toHaveLength(1);
+    expect(calls[0].key).toBe(confirmation.dedupeKey);
+    const sent = await deliveryRow(f, confirmation._id);
+    expect(sent).toMatchObject({ status: "sent", attemptCount: 1 });
+    expect(sent!.claimedAt).toBeUndefined();
+
+    vi.setSystemTime(DAY1 + 11 * 60_000);
+    expect(await sweep(f)).toEqual({ requeued: 0, failed: 0, inFlight: 0 });
+    await runDueNow(f);
+    expect(calls).toHaveLength(1);
+    expect(await deliveryRow(f, followUp._id)).toMatchObject({ status: "queued", attemptCount: 0, scheduledFor: FOLLOW_UP_AT });
+  });
+
+  test("a send that crashed after its claim is left alone while the claim is live, then re-run with the same key; two re-runs still send once", async () => {
+    const f = await setup();
+    await submit(f, visitor(), f.models.starter);
+    const [row] = await delivery(f, "immediate_confirmation");
+    await loseScheduledSend(f, row._id);
+    // A sender claimed the row and died before markSent/markFailed.
+    expect(await f.t.mutation(internal.fairEmails.claimDelivery, { deliveryId: row._id })).toMatchObject({ action: "send" });
+    // While that claim is live, a second sender skips the row.
+    expect(await f.t.mutation(internal.fairEmails.claimDelivery, { deliveryId: row._id })).toEqual({ action: "skip" });
+    vi.setSystemTime(DAY1 + 6 * 60_000);
+    expect(await sweep(f)).toEqual({ requeued: 0, failed: 0, inFlight: 1 });
+    await runDueNow(f);
+    expect(calls).toHaveLength(0);
+
+    vi.setSystemTime(DAY1 + 12 * 60_000);
+    // Two ticks before the sender runs: two scheduled sends of the same row.
+    expect(await sweep(f)).toEqual({ requeued: 1, failed: 0, inFlight: 0 });
+    expect(await sweep(f)).toEqual({ requeued: 1, failed: 0, inFlight: 0 });
+    await runDueNow(f);
+    expect(calls).toHaveLength(1);
+    expect(calls[0].key).toBe(row.dedupeKey);
+    expect(await deliveryRow(f, row._id)).toMatchObject({ status: "sent", attemptCount: 2 });
+    await runEverything(f);
+    expect(calls).toHaveLength(1);
+  });
+
+  test("a row whose last attempt crashed becomes failed (PROVIDER_UNAVAILABLE:stalled) instead of a fourth try; the admin retry sends it once", async () => {
+    const f = await setup();
+    await submit(f, visitor(), f.models.starter);
+    const [row] = await delivery(f, "immediate_confirmation");
+    await loseScheduledSend(f, row._id);
+    await f.t.run(async (ctx) => { await ctx.db.patch(row._id, { attemptCount: FAIR_EMAIL_MAX_ATTEMPTS - 1 }); });
+    expect(await f.t.mutation(internal.fairEmails.claimDelivery, { deliveryId: row._id })).toMatchObject({ action: "send" });
+    vi.setSystemTime(DAY1 + 12 * 60_000);
+    expect(await sweep(f)).toEqual({ requeued: 0, failed: 1, inFlight: 0 });
+    const failed = await deliveryRow(f, row._id);
+    expect(failed).toMatchObject({ status: "failed", lastError: "PROVIDER_UNAVAILABLE:stalled", attemptCount: FAIR_EMAIL_MAX_ATTEMPTS });
+    expect(failed!.claimedAt).toBeUndefined();
+    await runEverything(f);
+    expect(calls).toHaveLength(0);
+
+    await f.admin.mutation(api.fairLeadsAdmin.retryEmailDelivery, { deliveryId: row._id });
+    await runDueNow(f);
+    expect(calls).toHaveLength(1);
+    expect(calls[0].key).toBe(row.dedupeKey);
+    expect(await deliveryRow(f, row._id)).toMatchObject({ status: "sent" });
+  });
+
+  test("without Resend: one console.warn without PII, the row stays failed/RESEND_NOT_CONFIGURED (the sweep leaves it), the admin retry sends it once configured", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    try {
+      const f = await setup();
+      delete process.env.RESEND_API_KEY;
+      await submit(f, visitor(), f.models.starter);
+      await runEverything(f);
+      expect(calls).toHaveLength(0);
+      const [row] = await delivery(f, "immediate_confirmation");
+      expect(row).toMatchObject({ status: "failed", lastError: "RESEND_NOT_CONFIGURED" });
+      const logged = warn.mock.calls.map((args) => args.map(String).join(" ")).join("\n");
+      expect(logged).toContain("RESEND_NOT_CONFIGURED");
+      for (const secret of [EMAIL, NAME, row.dedupeKey, String(row.leadId), "re_test"]) expect(logged).not.toContain(secret);
+
+      vi.setSystemTime(DAY1 + 10 * 60_000);
+      expect(await sweep(f)).toEqual({ requeued: 0, failed: 0, inFlight: 0 });
+      process.env.RESEND_API_KEY = "re_test_not_a_real_key";
+      await f.admin.mutation(api.fairLeadsAdmin.retryEmailDelivery, { deliveryId: row._id });
+      await runDueNow(f);
+      expect(calls).toHaveLength(1);
+      expect(calls[0].key).toBe(row.dedupeKey);
+      expect(await deliveryRow(f, row._id)).toMatchObject({ status: "sent" });
+    } finally {
+      warn.mockRestore();
+    }
+  });
+});
+
+describe("N5 confirmation content", () => {
+  test("it says what was received, where (stand and venue), the next step, the shared contact, the privacy line and „Ako niste vi…“, in text and HTML", async () => {
+    const f = await setup();
+    await submit(f, visitor(), f.models.advanced, { kind: "test_drive", phone: PHONE });
+    await submit(f, visitor(), f.models.starter, { email: "drugi.n5@example.invalid" });
+    await runDueNow(f);
+    expect(calls).toHaveLength(2);
+    const testDrive = calls.find((call) => call.body.subject.includes("probnu vožnju"))!;
+    const interest = calls.find((call) => call.body.subject.includes("interesovanje"))!;
+    for (const call of [testDrive, interest]) {
+      expect(call.body.text).toContain("Gde ga možete videti:\nTEST štand a, TEST hala");
+      expect(call.body.html).toContain("<p>Gde ga možete videti:<br>TEST štand a, TEST hala</p>");
+      expect(call.body.text).toContain("ScanMe je podatke primio uz vašu saglasnost i prosleđuje ih samo izlagaču TEST izlagač TA; trajno se brišu 16. 11. 2026.");
+      expect(call.body.text).toContain("Ako niste vi poslali ovaj zahtev, odgovorite na ovaj mejl.");
+      expect(call.body.text).toContain("ScanMe, digitalni partner Sajma automobila");
+    }
+    expect(testDrive.body.subject).toBe("Primili smo vaš zahtev za probnu vožnju: TEST test-volta-x2");
+    expect(testDrive.body.text).toContain(`Zdravo, ${NAME},`);
+    expect(testDrive.body.text).toContain("hvala na zahtevu za probnu vožnju modela TEST test-volta-x2 na događaju TEST elektromobilnost");
+    expect(testDrive.body.text).toContain("Šta sledi:\nOvo je zahtev, a ne zakazan termin — izlagač TEST izlagač TA će vas kontaktirati da dogovorite termin.");
+    expect(testDrive.body.text).toContain(`Kontakt koji ste ostavili:\n${EMAIL}, ${PHONE_E164}\n`);
+    expect(interest.body.text).toContain("Šta sledi:\nIzlagač TEST izlagač TA će vas kontaktirati.");
+    expect(interest.body.text).toContain("Kontakt koji ste ostavili:\ndrugi.n5@example.invalid\n");
+    // Order: received → where → next step → contact → privacy → „Ako niste vi“ → link → signature.
+    const order = ["hvala na zahtevu", "Gde ga možete videti", "Šta sledi", "Kontakt koji ste ostavili", "ScanMe je podatke primio", "Ako niste vi", "Model: https://scanme.rs/sajam/test-elektromobilnost-2026/model/", "ScanMe, digitalni partner"];
+    const at = order.map((part) => testDrive.body.text.indexOf(part));
+    expect(at.every((index) => index >= 0)).toBe(true);
+    expect([...at].sort((left, right) => left - right)).toEqual(at);
+  });
+
+  test("it never contains raw HTML from the input and never repeats a risky name", () => {
+    const base: FairLeadEmailMessage = {
+      kind: "immediate_confirmation", dedupeKey: "fair-lead/x/immediate_confirmation", recipient: EMAIL, leadKind: "interest", contactName: "TEST Ime",
+      modelName: "TEST <script>alert(1)</script>", exhibitorName: "TEST <img src=x onerror=alert(1)>", eventTitle: "TEST & sajam", modelPath: "/sajam/test/model/x",
+      followUpScheduled: false, standName: "Štand <b>2</b>", venueName: "Hala \"Čair\", Niš", contactEmail: EMAIL, contactPhone: PHONE_E164,
+    };
+    const email = buildFairLeadEmail(base, "https://scanme.rs");
+    expect(email.html).not.toMatch(/<script|<img|<b>/);
+    expect(email.html).toContain("TEST &lt;script&gt;alert(1)&lt;/script&gt;");
+    expect(email.html).toContain("TEST &lt;img src=x onerror=alert(1)&gt;");
+    expect(email.html).toContain("Štand &lt;b&gt;2&lt;/b&gt;, Hala &quot;Čair&quot;, Niš");
+    expect(email.text).toContain("Zdravo, TEST Ime,");
+    // A name stored before N5 with a link, invisible characters or a phone number is dropped from the greeting.
+    for (const contactName of ["Marko www.primer-banka.rs", `Marko${ch(0x202e)}exe.knom`, "Pozovite 0641234567"]) {
+      const risky = buildFairLeadEmail({ ...base, contactName }, "https://scanme.rs");
+      expect(risky.text.startsWith("Zdravo,\n\n")).toBe(true);
+      for (const part of [contactName, "primer-banka", "0641234567", ch(0x202e)]) {
+        expect(risky.text).not.toContain(part);
+        expect(risky.html).not.toContain(part);
+      }
+    }
+  });
+});
+
+// =============================================================================
 // PII boundary
 // =============================================================================
 
@@ -753,7 +1104,11 @@ describe("B4 PII boundary: public functions never return contacts (HANDOFF §7, 
     const visibility = (module: Record<string, unknown>) =>
       Object.fromEntries(Object.entries(module).map(([name, fn]) => [name, (fn as Registered).isPublic ? "public" : (fn as Registered).isInternal ? "internal" : "other"]));
     expect(visibility(fairLeadsModule)).toEqual({ submitLead: "public" });
-    expect(visibility(fairEmailsModule)).toEqual({ claimDelivery: "internal", markSent: "internal", markFailed: "internal", purgeLeadPiiBatch: "internal" });
+    expect(visibility(fairEmailsModule)).toEqual({
+      claimDelivery: "internal", markSent: "internal", markFailed: "internal", purgeLeadPiiBatch: "internal",
+      // N5: the 5-minute outbox sweep (cron only).
+      requeueStaleDeliveries: "internal",
+    });
     expect(visibility(fairEmailSenderModule)).toEqual({ sendDelivery: "internal", sendDevTestEmail: "internal" });
     // Admin functions are public endpoints guarded by requireAdmin (tested above).
     expect(Object.values(visibility(fairLeadsAdminModule)).every((value) => value === "public")).toBe(true);
@@ -772,10 +1127,10 @@ describe("B4 PII boundary: public functions never return contacts (HANDOFF §7, 
 describe("B4 admin export and purge seam", () => {
   test("export is per exhibitor and event, newest first, paginated and bounded", async () => {
     const f = await setup();
-    const hash = visitor();
+    // N5: one lead per visitor, model and kind, so three leads on one model come from three visitors.
     for (let i = 0; i < 3; i += 1) {
       vi.setSystemTime(DAY1 + i * 1000);
-      await submit(f, hash, f.models.advanced, { contactName: `TEST A${i}` });
+      await submit(f, visitor(), f.models.advanced, { contactName: `TEST A${i}` });
     }
     await submit(f, visitor(), f.models.advancedB, { contactName: "TEST izlagač B lead" });
     const first = await f.admin.query(api.fairLeadsAdmin.exportLeads, { eventId: f.eventId, participationId: f.a.participationId, paginationOpts: { numItems: 2, cursor: null } });

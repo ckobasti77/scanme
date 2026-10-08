@@ -120,6 +120,7 @@ export const fairEmailDeliveryStatus = v.union(
   v.literal("failed"),
   v.literal("suppressed"),
   // K3: closed at claim time because a lead switch was off; never sent.
+  // (A8: FOLLOW_UP_MERGED; N5: RECIPIENT_CAP, closed at submit — lastError says which.)
   v.literal("skipped"),
 );
 

@@ -161,7 +161,8 @@ const AUTHZ: Record<string, { module: Record<string, unknown>; functions: Record
   },
   fairAnalytics: { module: fairAnalytics, functions: { reportContext: I, modelDayRaw: I, organizerScope: I, organizerStandDays: I, organizerParticipationLeads: I } },
   fairScans: { module: fairScans, functions: { modelScanCounts: I } },
-  fairEmails: { module: fairEmails, functions: { claimDelivery: I, markSent: I, markFailed: I, purgeLeadPiiBatch: I } },
+  // N5: requeueStaleDeliveries — the 5-minute outbox sweep (cron only).
+  fairEmails: { module: fairEmails, functions: { claimDelivery: I, markSent: I, markFailed: I, purgeLeadPiiBatch: I, requeueStaleDeliveries: I } },
   fairEmailSender: { module: fairEmailSender, functions: { sendDelivery: I, sendDevTestEmail: I } },
   fairDevFixtures: {
     module: fairDevFixtures,

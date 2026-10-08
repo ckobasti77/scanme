@@ -126,6 +126,7 @@ const FAIR_INDEXES: Record<string, string[]> = {
     "by_participationId_and_createdAt",
     "by_status_and_purgeAt",
     "by_eventId_and_createdAt", // Admin UX A8 lead inbox
+    "by_visitorId_and_eventModelId_and_kind", // N5 one lead per visitor, model and kind
   ],
   fairMessageTemplates: ["by_eventModelId_and_kind_and_status"],
   // Admin UX A8 — the exhibitor's follow-up text (one draft + one active per participation).

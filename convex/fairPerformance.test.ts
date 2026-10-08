@@ -15,7 +15,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import schema from "./schema";
-import { FAIR_LEAD_CONFIRMATIONS_PER_RECIPIENT, FAIR_LEAD_RECIPIENT_WINDOW_MS, FAIR_MAX_MODEL_IDS_PER_READ, FAIR_PII_PURGE_AT_MS } from "../lib/fair-contract";
+import { FAIR_LEAD_CONFIRMATIONS_PER_RECIPIENT, FAIR_LEAD_LEADS_PER_RECIPIENT, FAIR_LEAD_RECIPIENT_WINDOW_MS, FAIR_MAX_MODEL_IDS_PER_READ, FAIR_PII_PURGE_AT_MS } from "../lib/fair-contract";
 import { fairAudienceVoteKey, fairFavoriteKey } from "./lib/fairInteractions";
 import { fairSponsoredSeed } from "./lib/fairSponsored";
 
@@ -182,7 +182,7 @@ describe("B7 rate limits behind one hall NAT", () => {
     expect((await t.mutation(api.cards.resolveAndRecord, { cardCode: code, requestId: "test-nat-other", deviceCategory: "mobile", ipHash: "test-mobile-nat", fairGatewaySecret: GATEWAY_SECRET, fairIpHash: "test-mobile-nat", fairVisitorHash: visitor() })).kind).toBe("fair_model");
   }, 180_000);
 
-  test("one address gets at most 10 lead confirmations an hour, however many visitor hashes ask; nothing is stored for a refused submit", async () => {
+  test("one address gets at most 10 lead confirmations an hour, however many visitor hashes ask; N5: above that the lead is stored without one, at 30 the submit is refused and stores nothing", async () => {
     const t = convexTest(schema, modules);
     rateLimiterTest.register(t);
     const adminId = await t.run((ctx) => ctx.db.insert("users", { email: ADMIN_EMAIL }));
@@ -204,16 +204,28 @@ describe("B7 rate limits behind one hall NAT", () => {
         visitorHash: visitor(), eventModelId: models[n % models.length], kind: "interest", submissionId: `test-cap-${++n}`, contactName: "TEST Žrtva",
         ...(email ? { email } : {}), ...(phone ? { phone } : {}), consentAccepted: true, consentVersion: 1,
       });
-    for (let i = 0; i < FAIR_LEAD_CONFIRMATIONS_PER_RECIPIENT; i += 1) await submit(i % 2 ? "zrtva@example.invalid" : "Zrtva@Example.invalid");
+    for (let i = 0; i < FAIR_LEAD_CONFIRMATIONS_PER_RECIPIENT; i += 1) {
+      expect(await submit(i % 2 ? "zrtva@example.invalid" : "Zrtva@Example.invalid")).toMatchObject({ confirmationEmail: true });
+    }
+    // N5 soft cap: the lead is stored, but its confirmation is closed (RECIPIENT_CAP) and nothing is scheduled for it.
+    const scheduledBefore = await t.run(async (ctx) => (await ctx.db.system.query("_scheduled_functions").collect()).length);
+    expect(await submit("ZRTVA@example.invalid")).toMatchObject({ duplicate: false, confirmationEmail: false, followUpScheduled: false });
+    const confirmations = () => t.run(async (ctx) => (await ctx.db.query("fairEmailDeliveries").collect()).filter((row) => row.kind === "immediate_confirmation"));
+    expect((await confirmations()).at(-1)).toMatchObject({ recipient: "zrtva@example.invalid", status: "skipped", lastError: "RECIPIENT_CAP", attemptCount: 0 });
+    expect(await t.run(async (ctx) => (await ctx.db.system.query("_scheduled_functions").collect()).length)).toBe(scheduledBefore);
+    for (let i = FAIR_LEAD_CONFIRMATIONS_PER_RECIPIENT + 1; i < FAIR_LEAD_LEADS_PER_RECIPIENT; i += 1) await submit("zrtva@example.invalid");
+    // Hard cap: refused, and nothing is stored for the refused submit.
     const before = await t.run(async (ctx) => ({ leads: (await ctx.db.query("fairLeads").collect()).length, visitors: (await ctx.db.query("fairVisitors").collect()).length }));
-    await expect(submit("ZRTVA@example.invalid")).rejects.toMatchObject({ data: { code: "RATE_LIMITED" } });
+    expect(before.leads).toBe(FAIR_LEAD_LEADS_PER_RECIPIENT);
+    await expect(submit("ZRTVA@example.invalid")).rejects.toMatchObject({ data: { code: "RATE_LIMITED", details: { retryAfterMs: expect.any(Number) } } });
     expect(await t.run(async (ctx) => ({ leads: (await ctx.db.query("fairLeads").collect()).length, visitors: (await ctx.db.query("fairVisitors").collect()).length }))).toEqual(before);
     // Other addresses and phone-only leads are unaffected; the window frees the address again.
-    await submit("neko.drugi@example.invalid");
+    expect(await submit("neko.drugi@example.invalid")).toMatchObject({ confirmationEmail: true });
     await submit(undefined, "+381 60 000 0099");
     vi.advanceTimersByTime(FAIR_LEAD_RECIPIENT_WINDOW_MS);
-    await submit("zrtva@example.invalid");
-    const recipients = await t.run(async (ctx) => (await ctx.db.query("fairEmailDeliveries").collect()).filter((row) => row.kind === "immediate_confirmation").map((row) => row.recipient));
-    expect(recipients.filter((row) => row === "zrtva@example.invalid")).toHaveLength(FAIR_LEAD_CONFIRMATIONS_PER_RECIPIENT + 1);
+    expect(await submit("zrtva@example.invalid")).toMatchObject({ confirmationEmail: true });
+    const victim = (await confirmations()).filter((row) => row.recipient === "zrtva@example.invalid");
+    expect(victim.filter((row) => row.status === "queued")).toHaveLength(FAIR_LEAD_CONFIRMATIONS_PER_RECIPIENT + 1);
+    expect(victim.filter((row) => row.status === "skipped" && row.lastError === "RECIPIENT_CAP")).toHaveLength(FAIR_LEAD_LEADS_PER_RECIPIENT - FAIR_LEAD_CONFIRMATIONS_PER_RECIPIENT);
   }, 120_000);
 });

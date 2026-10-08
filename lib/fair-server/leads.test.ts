@@ -135,4 +135,40 @@ describe("POST /api/fair/lead", () => {
     const text = await response.text();
     expect(text).toBe(JSON.stringify({ ok: false, code: "SERVICE_UNAVAILABLE" }));
   });
+
+  test("N5: the non-PII details reach the browser (field/reason, required, retryAfterMs); a 429 carries Retry-After", async () => {
+    const cases: Array<[Record<string, unknown>, number, Record<string, unknown>]> = [
+      [{ code: "INVALID_INPUT", details: { field: "contactName", reason: "link" } }, 400, { field: "contactName", reason: "link" }],
+      [{ code: "INVALID_INPUT", details: { field: "phone", reason: "format" } }, 400, { field: "phone", reason: "format" }],
+      [{ code: "CONTACT_REQUIREMENT_NOT_MET", details: { required: "both" } }, 422, { required: "both" }],
+      [{ code: "RATE_LIMITED", details: { retryAfterMs: 1500.2 } }, 429, { retryAfterMs: 1501 }],
+    ];
+    for (const [data, status, details] of cases) {
+      const response = await handleFairLead(post(BODY), { now: NOW, env: ENV, backend: backend(async () => { throw new ConvexError(data as never); }) });
+      expect(response.status).toBe(status);
+      expect(response.headers.get("cache-control")).toBe("no-store");
+      expect(await response.json()).toEqual({ ok: false, code: data.code, details });
+      expect(response.headers.get("retry-after")).toBe(status === 429 ? "2" : null);
+    }
+    // A 429 without a known wait still says when to come back.
+    const plain = await handleFairLead(post(BODY), { now: NOW, env: ENV, backend: backend(async () => { throw new ConvexError({ code: "RATE_LIMITED" }); }) });
+    expect(plain.status).toBe(429);
+    expect(plain.headers.get("retry-after")).toBe("60");
+    expect(await plain.json()).toEqual({ ok: false, code: "RATE_LIMITED" });
+  });
+
+  test("N5: anything else in the details is dropped — never a contact value, free text or an unknown key", async () => {
+    const leakyDetails = {
+      field: BODY.email, reason: "nešto drugo", required: BODY.phone, retryAfterMs: -1,
+      email: BODY.email, contactName: BODY.contactName, visitorHash: "a".repeat(64), status: "queued",
+    };
+    const response = await handleFairLead(post(BODY), { now: NOW, env: ENV, backend: backend(async () => { throw new ConvexError({ code: "INVALID_INPUT", details: leakyDetails }); }) });
+    expect(response.status).toBe(400);
+    const text = await response.text();
+    expect(JSON.parse(text)).toEqual({ ok: false, code: "INVALID_INPUT" });
+    for (const value of [BODY.email, BODY.phone, BODY.contactName, "nešto", "queued"]) expect(text).not.toContain(value);
+    // Only the whitelisted keys survive a mixed object.
+    const mixed = await handleFairLead(post(BODY), { now: NOW, env: ENV, backend: backend(async () => { throw new ConvexError({ code: "INVALID_INPUT", details: { field: "email", reason: "format", email: BODY.email } }); }) });
+    expect(await mixed.json()).toEqual({ ok: false, code: "INVALID_INPUT", details: { field: "email", reason: "format" } });
+  });
 });

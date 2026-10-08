@@ -3,6 +3,7 @@ import type { Doc } from "./_generated/dataModel";
 import { mutation, type MutationCtx } from "./_generated/server";
 import {
   FAIR_LEAD_CONFIRMATIONS_PER_RECIPIENT,
+  FAIR_LEAD_LEADS_PER_RECIPIENT,
   FAIR_LEAD_RECIPIENT_WINDOW_MS,
   FAIR_PII_PURGE_AT_MS,
   isFairSubmissionId,
@@ -54,15 +55,23 @@ import { rateLimiter } from "./lib/rateLimits";
 // so nothing — no lead, no visitor row, no email, no limiter token — is
 // written. The result never contains a contact value, and the visitor hash
 // is never a key for reading one back.
+//
+// N5: the fields are normalized (lowercase email, E.164 phone) and a name with
+// a link or invisible characters is refused; ONE lead per visitor, model and
+// kind (a second submit returns it with `duplicate: true` and sends nothing);
+// per address a soft cap (lead stored, confirmation `skipped`/RECIPIENT_CAP)
+// under a hard one (RATE_LIMITED); and a per-IP bucket for new leads.
 // =============================================================================
 
 async function submitResult(ctx: MutationCtx, lead: Doc<"fairLeads">, duplicate: boolean): Promise<FairLeadSubmitResult> {
+  const confirmation = await fairLeadDelivery(ctx, lead._id, "immediate_confirmation");
   return {
     eventModelId: lead.eventModelId,
     kind: lead.kind,
     submittedAt: lead.createdAt,
     duplicate,
-    confirmationEmail: (await fairLeadDelivery(ctx, lead._id, "immediate_confirmation")) !== null,
+    // A confirmation closed at submit (N5 RECIPIENT_CAP) was never going to be sent.
+    confirmationEmail: confirmation !== null && confirmation.status !== "skipped",
     followUpScheduled: (await fairLeadDelivery(ctx, lead._id, "post_event_follow_up")) !== null,
   };
 }
@@ -116,26 +125,45 @@ export const submitLead = mutation({
     const exhibitorName = await fairExhibitorName(ctx, model.participationId);
     if (!exhibitorName) fairInteractionError("CONSENT_NOT_CONFIGURED");
 
+    // N5: email lowercase, phone E.164, a risky name refused (INVALID_INPUT + field/reason).
     const contact = normalizeFairLeadContact(args, config.contactRequirement);
-    // B7 (§9.44): a per-address cap on confirmations, whatever visitor hash or
-    // model asked for them, so the public submit cannot be used to flood one
-    // inbox by cycling cookies. Bounded read (≤ the cap) on the outbox index.
-    const recipient = contact.email?.toLowerCase();
+    const recipient = contact.email;
+
+    const visitorId = await requireFairVisitorRow(ctx, { visitorHash: args.visitorHash, ipHash: args.ipHash, now });
+    const limit = await rateLimiter.limit(ctx, "fairLeadSubmit", { key: `${visitorId}:${model._id}` });
+    if (!limit.ok) fairInteractionError("RATE_LIMITED", { retryAfterMs: Math.ceil(limit.retryAfter) });
+
+    // N5: one lead per visitor, model and kind. A form opened again (new
+    // submissionId) gets the stored lead back and writes and sends nothing;
+    // it still spends the limiter token above, so hammering one model stops.
+    const existing = await ctx.db
+      .query("fairLeads")
+      .withIndex("by_visitorId_and_eventModelId_and_kind", (q) => q.eq("visitorId", visitorId).eq("eventModelId", model._id).eq("kind", args.kind))
+      .first();
+    if (existing) return submitResult(ctx, existing, true);
+
+    // B7 (§9.44), N5: per-address caps, whatever visitor hash or model asked,
+    // so the public submit cannot flood one inbox by cycling cookies. Over the
+    // soft cap the lead is still stored (a real visitor at many stands loses
+    // nothing) but its confirmation is closed as RECIPIENT_CAP; at the hard cap
+    // the submit is refused. Bounded read (≤ the hard cap) on the outbox index.
+    let recipientCapped = false;
     if (recipient !== undefined) {
       const recent = await ctx.db
         .query("fairEmailDeliveries")
         .withIndex("by_recipient_and_kind_and_createdAt", (q) =>
           q.eq("recipient", recipient).eq("kind", "immediate_confirmation").gt("createdAt", now - FAIR_LEAD_RECIPIENT_WINDOW_MS),
         )
-        .take(FAIR_LEAD_CONFIRMATIONS_PER_RECIPIENT);
-      if (recent.length >= FAIR_LEAD_CONFIRMATIONS_PER_RECIPIENT) {
+        .take(FAIR_LEAD_LEADS_PER_RECIPIENT);
+      if (recent.length >= FAIR_LEAD_LEADS_PER_RECIPIENT) {
         fairInteractionError("RATE_LIMITED", { retryAfterMs: Math.max(0, recent[0].createdAt + FAIR_LEAD_RECIPIENT_WINDOW_MS - now) });
       }
+      recipientCapped = recent.length >= FAIR_LEAD_CONFIRMATIONS_PER_RECIPIENT;
     }
 
-    const visitorId = await requireFairVisitorRow(ctx, { visitorHash: args.visitorHash, ipHash: args.ipHash, now });
-    const limit = await rateLimiter.limit(ctx, "fairLeadSubmit", { key: `${visitorId}:${model._id}` });
-    if (!limit.ok) fairInteractionError("RATE_LIMITED", { retryAfterMs: Math.ceil(limit.retryAfter) });
+    // N5: new leads per caller address (hall Wi-Fi sized, convex/lib/rateLimits.ts).
+    const perIp = await rateLimiter.limit(ctx, "fairLeadIp", { key: args.ipHash ?? "shared" });
+    if (!perIp.ok) fairInteractionError("RATE_LIMITED", { retryAfterMs: Math.ceil(perIp.retryAfter) });
 
     const leadId = await ctx.db.insert("fairLeads", {
       submissionId: args.submissionId,
@@ -157,12 +185,16 @@ export const submitLead = mutation({
 
     let followUpScheduled = false;
     if (recipient !== undefined) {
-      await queueFairLeadEmail(ctx, { leadId, kind: "immediate_confirmation", recipient, scheduledFor: now, now });
+      await queueFairLeadEmail(ctx, {
+        leadId, kind: "immediate_confirmation", recipient, scheduledFor: now, now,
+        ...(recipientCapped ? { skipped: "RECIPIENT_CAP" as const } : {}),
+      });
       // Advanced only, judged by the package in force NOW: a lead from before
       // an upgrade never gains a follow-up afterwards (no retroactivity).
       // K3: and only while FAIR_FOLLOWUP_ENABLED is on — a lead taken while it
       // is off never gains one later (its confirmation did not announce one).
-      const followUpAt = rights.postEventFollowUp && fairFollowUpEnabled() ? fairFollowUpScheduleFor(event.endsAt, now) : null;
+      // N5: the same for a lead over the soft cap — no confirmation announced it.
+      const followUpAt = rights.postEventFollowUp && fairFollowUpEnabled() && !recipientCapped ? fairFollowUpScheduleFor(event.endsAt, now) : null;
       if (followUpAt !== null) {
         await queueFairLeadEmail(ctx, { leadId, kind: "post_event_follow_up", recipient, scheduledFor: followUpAt, now });
         followUpScheduled = true;
@@ -174,7 +206,7 @@ export const submitLead = mutation({
       kind: args.kind,
       submittedAt: now,
       duplicate: false,
-      confirmationEmail: recipient !== undefined,
+      confirmationEmail: recipient !== undefined && !recipientCapped,
       followUpScheduled,
     };
   },

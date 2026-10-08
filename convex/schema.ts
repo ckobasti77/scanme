@@ -3699,7 +3699,10 @@ export default defineSchema({
     .index("by_participationId_and_createdAt", ["participationId", "createdAt"])
     .index("by_status_and_purgeAt", ["status", "purgeAt"])
     // Admin UX A8 — the event's lead inbox (newest first, date range).
-    .index("by_eventId_and_createdAt", ["eventId", "createdAt"]),
+    .index("by_eventId_and_createdAt", ["eventId", "createdAt"])
+    // N5 — one lead per visitor, model and kind (a model belongs to one event):
+    // a second submit returns the stored lead (`duplicate: true`).
+    .index("by_visitorId_and_eventModelId_and_kind", ["visitorId", "eventModelId", "kind"]),
 
   fairMessageTemplates: defineTable({
     eventModelId: v.id("fairEventModels"),
@@ -3746,6 +3749,10 @@ export default defineSchema({
     status: fairEmailDeliveryStatus,
     scheduledFor: v.number(),
     attemptCount: v.number(),
+    // N5: set when the sender claims the row, cleared by markSent/markFailed.
+    // A claim younger than FAIR_EMAIL_CLAIM_LEASE_MS is a send in flight: no
+    // second sender and no outbox sweep touches the row meanwhile.
+    claimedAt: v.optional(v.number()),
     providerMessageId: v.optional(v.string()),
     lastError: v.optional(v.string()),
     createdAt: v.number(),
@@ -3753,6 +3760,7 @@ export default defineSchema({
   })
     // unique: dedupeKey
     .index("by_dedupeKey", ["dedupeKey"])
+    // N5: the 5-minute outbox sweep (fairEmails.requeueStaleDeliveries) ranges queued rows by moment.
     .index("by_status_and_scheduledFor", ["status", "scheduledFor"])
     .index("by_leadId_and_kind", ["leadId", "kind"])
     // B7 (§9.44): bounded per-address confirmation limit in submitLead.

@@ -272,6 +272,14 @@ K3 dodaci (§28):
 
 B5: `recordSponsoredAction` koristi postojeće kodove (`INVALID_INPUT` za `surface` ≠ `garage`, drugu vrstu ili loš `requestId`; `FEATURE_NOT_ENTITLED`, `FAIR_MODEL_NOT_FOUND`, `EVENT_NOT_ACTIVE`, `SUBMISSION_DUPLICATE`, `RATE_LIMITED`). Nov admin kod: `FAIR_SPONSORED_LIMIT` (više od 200 Advanced modela u jednom eventu).
 
+N5 dodaci (§39, leadovi):
+- `INVALID_INPUT` u `submitLead` nosi `details: { field, reason }`: `field` ∈ `contactName` | `email` | `phone`, `reason` ∈ `FAIR_LEAD_INPUT_REASONS` (`empty`, `too_long`, `link`, `invisible`, `characters`, `format`); vrednost polja se nikad ne vraća;
+- `RATE_LIMITED` nosi `details.retryAfterMs` (ms do sledećeg pokušaja), a Next gateway na svaki 429 stavlja `Retry-After` (sekunde, naviše; bez poznatog čekanja 60);
+- kod isporuke `RECIPIENT_CAP` (uz status `skipped`): lead je sačuvan, a potvrda nije poslata jer je adresa iznad mekog ograničenja;
+- `PROVIDER_UNAVAILABLE:stalled` (status `failed`): slanje je prekinuto posle poslednjeg dozvoljenog pokušaja, pa outbox sweep ne pokušava četvrti put (admin retry).
+
+Next gateway browseru prosleđuje samo `field`, `required`, `reason` i `retryAfterMs`, i to samo u obliku koji ne može da nosi kontakt ili slobodan tekst (`lib/fair-server/interactions.ts` `fairPublicErrorDetails`); sve ostalo se izbacuje.
+
 N1 admin kodovi (§37, QR nalepnice na terenu): `FAIR_QR_NOT_MODEL_STICKER` (panel ili subjekat koji nije `legacy`/`fair_model`), `FAIR_MODEL_WITHDRAWN` (povučen model ili povučeno učešće), `FAIR_QR_HOLDER_CHANGED` (`details.holderModelId`: trenutni držalac ili `none`), `FAIR_QR_UNDO_EXPIRED`, `FAIR_QR_UNDO_SUPERSEDED`; upozorenje `FAIR_QR_STILL_LINKED` (`details.resolverCode`, `details.label`) u rezultatu `withdrawModel`. `adminProducts.bulkRetarget` preskače aktivnu sajamsku nalepnicu sa razlogom `fair_sticker_linked` u rezultatu (ne greška).
 
 Detalji greške su samo ne-PII vrednosti. Tekst greške mapira frontend kroz `lib/i18n`.
@@ -773,8 +781,8 @@ Admin UI je tab `Događaji → Interakcije` (`components/admin/admin-events-inte
    5. `fairLeadConfigs` za model i vrstu mora postojati i biti `enabled` → inače `FEATURE_NOT_ENTITLED`;
    6. **produkcijski gate:** aktivna `fairConsentConfigs` verzija za event i vrstu → inače `CONSENT_NOT_CONFIGURED`;
    7. `consentAccepted: true` i `consentVersion` = aktivna verzija → inače `CONSENT_REQUIRED`;
-   8. ime (1–120 znakova) i kontakt po `contactRequirement` (`one_of` | `email` | `phone` | `both`); neispravan format → `INVALID_INPUT`, nedostaje kanal → `CONTACT_REQUIREMENT_NOT_MET`; `preferredContact` nikad ne pravi obavezno polje; **B7:** ako postoji email, a ta adresa (malim slovima) je u poslednjih 60 min već dobila 10 neposrednih potvrda → `RATE_LIMITED` (§25.3); outbox `recipient` je adresa malim slovima;
-   9. `fairVisitors` upsert i `fairLeadSubmit` limit → `RATE_LIMITED`;
+   8. ime (1–120 znakova) i kontakt po `contactRequirement` (`one_of` | `email` | `phone` | `both`); neispravan format → `INVALID_INPUT`, nedostaje kanal → `CONTACT_REQUIREMENT_NOT_MET`; `preferredContact` nikad ne pravi obavezno polje; **N5 (§39.1):** ime bez linka i nevidljivih znakova, email malim slovima, telefon u E.164, a `INVALID_INPUT` nosi `{ field, reason }`; outbox `recipient` je adresa malim slovima;
+   9. `fairVisitors` upsert i `fairLeadSubmit` limit → `RATE_LIMITED`; **N5 (§39.2–§39.3):** postojeći lead istog posetioca, modela i vrste → vraća se sa `duplicate: true` i ništa se ne piše ni šalje; zatim ograničenja po adresi (meko: lead se upisuje, potvrda `skipped`/`RECIPIENT_CAP`; tvrdo: `RATE_LIMITED`; B7 je ovde odbijao već od 10) i `fairLeadIp` po `ipHash` → `RATE_LIMITED`;
    10. `fairLeads` red: `consentTextSnapshot` = aktivni tekst sa `{izlagac}` zamenjenim nazivom izlagača (server, ne browser), `consentedAt`, `status: received`, `followUpSuppressed: false`, `purgeAt` = 16. 11. 2026 (`FAIR_PII_PURGE_AT_MS`);
    11. ako postoji email: outbox red neposredne potvrde (`scheduledFor` = sada); ako paket na snazi ima `postEventFollowUp` (Advanced) **i** (K3) `FAIR_FOLLOWUP_ENABLED` je tačno `"true"`: i outbox red follow-upa (§17.3).
 
@@ -807,8 +815,8 @@ Kao i `capabilities`, upit čita sačuvani paket (upit ne čita sat); `submitLea
   1. `fairEmails.claimDelivery` (internal mutation) uzima samo `queued` red čiji je trenutak došao; K3: za potvrdu i follow-up **ponovo proverava prekidače** (`FAIR_LEADS_ENABLED`, a za follow-up i `FAIR_FOLLOWUP_ENABLED`) → `skipped` sa `lastError` `LEADS_DISABLED` / `FOLLOW_UP_DISABLED`, ništa se ne šalje; zatim ponovo čita lead i za follow-up proverava `followUpSuppressed` (→ `suppressed`) i aktivni tekst izlagača (→ `failed: FOLLOW_UP_TEMPLATE_MISSING`); povećava `attemptCount`;
   2. šalje kroz Resend seam (`convex/lib/fairEmails.ts`, isti obrazac kao `activationRequestEmails.ts`) sa `Idempotency-Key` = `dedupeKey`;
   3. `markSent` (`providerMessageId`) ili `markFailed`.
-- Retry: 409/429/5xx/mreža se ponavljaju na istom redu i sa istim ključem posle 1 min i 10 min (`FAIR_EMAIL_MAX_ATTEMPTS = 3`); ostale 4xx i `RESEND_NOT_CONFIGURED` odmah prelaze u `failed`. Admin `retryEmailDelivery` vraća `failed` u `queued` sa istim ključem. `sent` je konačno.
-- **Neposredna potvrda:** tačno jedna po leadu sa emailom. Tekst je ScanMe placeholder (P1, `lib/i18n/sr/event-lead-email.ts`): imenuje model, događaj i izlagača; za probnu vožnju kaže da termin nije zakazan. Rečenicu da se odgovorom otkazuje follow-up sadrži samo kad je follow-up zaista zakazan.
+- Retry: 409/429/5xx/mreža se ponavljaju na istom redu i sa istim ključem posle 1 min i 10 min (`FAIR_EMAIL_MAX_ATTEMPTS = 3`); ostale 4xx i `RESEND_NOT_CONFIGURED` odmah prelaze u `failed`. Admin `retryEmailDelivery` vraća `failed` u `queued` sa istim ključem. `sent` je konačno. **N5 (§39.4):** `claimedAt` i 5-minutni cron `requeueStaleDeliveries` ponovo pokreću zaglavljen `queued` red, bez duplog slanja.
+- **Neposredna potvrda:** tačno jedna po leadu sa emailom. Tekst je ScanMe placeholder (P1, `lib/i18n/sr/event-lead-email.ts`): imenuje model, događaj i izlagača; za probnu vožnju kaže da termin nije zakazan. Rečenicu da se odgovorom otkazuje follow-up sadrži samo kad je follow-up zaista zakazan. **N5 (§39.5):** i gde je auto (štand, mesto događaja), sledeći korak, podeljen kontakt, red o privatnosti i „Ako niste vi…“.
 - **Advanced follow-up:** jedan po leadu, zakazan pri upisu za prvi 10:00 po Beogradu najmanje 24 h posle `fairEvents.endsAt` (uvek u prozoru 24–48 h; §9.40). Lead pre nadogradnje ga nikad ne dobija naknadno. Telo je aktivni tekst izlagača (`fairMessageTemplates`, `post_event_follow_up`) + ScanMe podnožje; bez teksta se ne šalje (§9.42). **Od A8 (§34.5):** jedan email po paru (email posetioca, izlagač), tekst po izlagaču sa merge poljima; red po leadu ostaje, a ostali redovi para postaju `skipped`/`FOLLOW_UP_MERGED`.
 - Linkovi: `FAIR_PUBLIC_BASE_URL` (Convex env; https origin, za `localhost` i http), inače `https://scanme.rs`. `Reply-To`: `FAIR_EMAIL_REPLY_TO`, ako je postavljen (§9.39).
 - Resend env: `RESEND_API_KEY` (mora početi sa `re_`) i `RESEND_FROM_EMAIL`. Na DEV-u (`dev:expert-pelican-136`) oba imena postoje (`scripts/sajam/tools/env-imena.mjs`, 4. 10. 2026); vrednosti nisu čitane.
@@ -816,7 +824,7 @@ Kao i `capabilities`, upit čita sačuvani paket (upit ne čita sat); `submitLea
 
 ### 17.4 Rate limit `fairLeadSubmit`
 
-`{ kind: "token bucket", rate: 2, period: MINUTE, capacity: 3 }`, ključ `fairVisitors._id` + `:` + `eventModelId`. Aritmetika: na jednom modelu čovek pošalje `Zainteresovan sam` jednom i (Advanced) probnu vožnju jednom, plus jednu ispravku = 3. Dopuna 1 na 30 s zadržava skriptu na 2 emaila u minuti po modelu. Retry istog `submissionId` vraća se pre limitera i ne troši token. Svaki model ima svoj ključ (§9.44).
+`{ kind: "token bucket", rate: 2, period: MINUTE, capacity: 3 }`, ključ `fairVisitors._id` + `:` + `eventModelId`. Aritmetika: na jednom modelu čovek pošalje `Zainteresovan sam` jednom i (Advanced) probnu vožnju jednom, plus jednu ispravku = 3. Dopuna 1 na 30 s zadržava skriptu na 2 emaila u minuti po modelu. Retry istog `submissionId` vraća se pre limitera i ne troši token. Svaki model ima svoj ključ (§9.44). **N5:** „ispravka“ je sada duplikat (§39.2): vraća sačuvan lead, ali troši token, pa četvrti poziv istog posetioca na istom modelu dobija `RATE_LIMITED`. Novi bucket po IP-u je u §39.3.
 
 ### 17.5 Purge seam
 
@@ -1825,3 +1833,82 @@ Bez novih indeksa. Postojeći redovi rade bez izmene.
 - `convex/fairExhibitorImport.test.ts`: `placeSiteExhibitors` (39 štandova, deljene lokacije, kategorija, Markus Pro), idempotentnost, ručne izmene, povučeno, admin/događaj, kasniji import automobila nalazi štand.
 - `convex/fairPublic.test.ts`: svi izlagači, logo/sajt/kategorija, izlagači bez lokacije, povučeni van mape, bez upisa; admin provera objave ne prijavljuje deljenu lokaciju.
 - `convex/fairImport.test.ts` (isto učešće dva štanda = taken, drugo učešće = dozvoljeno), `convex/fairAuthz.test.ts` (`placeSiteExhibitors` je internal), `convex/fairSchema.test.ts` (nova polja i validatori).
+
+## 39. N5 — leadovi: normalizacija, duplikati, ograničenja, outbox sweep i sadržaj potvrde
+
+Odluka vlasnika 8. 10. (NOC-KONTEKST §1.6): forme „Zainteresovan sam“ i „Probna vožnja“ dobijaju utegnut backend i automatski mejl potvrde posetiocu, preko postojećeg Resend outbox-a. UI forme je N6. Tok i prekidači iz §17 i §28 se ne menjaju.
+
+### 39.1 Polja (`lib/fair-contract.ts`; isti kod koriste Convex i forma)
+
+| Polje | Čuva se | Odbija se (`INVALID_INPUT`, `details: { field, reason }`) |
+|---|---|---|
+| `contactName` (`normalizeFairLeadName`) | trim, razmaci sažeti u jedan | `empty`; `invisible` — kontrolni, bidi (U+202A–U+202E, U+2066–U+2069, LRM/RLM), zero-width, BOM, varijacioni i tag znakovi, provereno pre sažimanja razmaka; `link` — `@`, `://`, `www.` ili token oblika domena (`bit.ly`, `x.com`; vrh domena su ASCII slova, pa `M. Petrović` i `J.Petrović` prolaze); `characters` — bilo šta osim slova (svako pismo), spojnih znakova, razmaka, `.` `,` `'` `’` `-`, više od 3 cifre ili nijedno slovo; `too_long` — više od 120 znakova ili 6 reči |
+| `email` (`normalizeFairLeadEmail`) | trim i mala slova, i na leadu i kao outbox `recipient` | `format`: tačno jedno `@`, lokalni deo dot-atom do 64 znaka, ASCII/punycode domen sa bar dva dela, svaki deo 1–63 znaka bez crtice na krajevima, vrh 2–63 slova; ukupno ≤ 254 |
+| `phone` (`normalizeFairLeadPhone`) | E.164, npr. `+381641234567` | `format` (obrazloženje ispod) |
+
+Telefon:
+- separatori (razmak, `( ) . / -`) se izbacuju; slova nisu dozvoljena;
+- `+…` i `00…` su međunarodni zapis; vodeća `0` je srpski trunk prefiks (`064…`, `011…`, `018…`) → `+381`; `0` napisana posle `+381` (`+381 (0)64…`) se izbacuje;
+- broj bez `+`, `00` ili `0` (`64 123 4567`, `381641234567`) se **odbija**: to može biti domaći broj bez nule ili strani bez pozivnog broja, a pogađanje bi izlagaču dalo pogrešan kontakt. Forma traži ispravku (`reason: "format"`);
+- `+381`: 7–10 cifara nacionalnog broja; svaki broj: 8–15 cifara ukupno (E.164).
+
+Mejl nikad ne ponavlja rizično ime: `buildFairLeadEmail` (potvrda) i `fairFollowUpValues` (`{ime}` follow-upa) izbacuju ime koje `fairLeadNameRisk` označi (link, nevidljivi znakovi, više od 3 cifre), i za ime sačuvano pre N5. Potvrda tada počinje sa „Zdravo,“, a follow-up koristi zamenu „poštovani“.
+
+### 39.2 Duplikati
+
+- Novi indeks `fairLeads.by_visitorId_and_eventModelId_and_kind`. Model pripada jednom događaju, pa je to „isti posetilac, model i vrsta u istom događaju“.
+- Drugi submit istog posetioca za isti model i vrstu (nov `submissionId`, npr. ponovo otvorena forma) vraća **sačuvan** lead (`submittedAt` prvog) sa `duplicate: true`; ne upisuje lead ni outbox red i ne šalje mejl. Nov kontakt iz drugog slanja se ne čuva.
+- Provera je posle `fairLeadSubmit` limitera (§17.4), pa duplikat troši token: četvrti poziv istog posetioca na istom modelu u kratkom roku dobija `RATE_LIMITED`.
+- Idempotentnost po `submissionId` ostaje kao u B4: retry istog ključa vraća se pre limitera, a tuđi ključ je `SUBMISSION_DUPLICATE`.
+
+### 39.3 Ograničenja
+
+| Ograničenje | Ključ | Pravilo | Ishod |
+|---|---|---|---|
+| meko po primaocu | `fairEmailDeliveries.by_recipient_and_kind_and_createdAt` (adresa malim slovima, `immediate_confirmation`, poslednjih 60 min) | od `FAIR_LEAD_CONFIRMATIONS_PER_RECIPIENT` = 10 redova | lead se **upisuje**; red potvrde nastaje kao `skipped` sa `lastError: RECIPIENT_CAP`, ništa se ne zakazuje ni šalje; follow-up se ne zakazuje (potvrda ga nije najavila); `confirmationEmail: false`, `followUpScheduled: false` |
+| tvrdo po primaocu | isti indeks, čitanje ≤ 30 | od `FAIR_LEAD_LEADS_PER_RECIPIENT` = 30 redova | `RATE_LIMITED` (`retryAfterMs` = kad najstariji red izađe iz prozora); ništa se ne upisuje |
+| po IP-u, novi leadovi | `fairLeadIp` (`token bucket`, 30/min, kapacitet 60), ključ `ipHash` iz gateway-a (bez njega jedan zajednički bucket) | samo nov lead; duplikat i retry istog `submissionId` ga ne troše | `RATE_LIMITED` (`retryAfterMs`) |
+
+Dimenzionisanje po IP-u: Wi-Fi hale može da stavi sve telefone iza jedne adrese. Dan sajma je oko 5–10 hiljada posetilaca; i kad bi svaki deseti ostavio lead, to je najviše oko 1.000 leadova za oko 8 sati (≈ 2 u minuti), a u gužvi 5 puta više (≈ 10 u minuti). Kapacitet 60 prima nalet (cela grupa kod jednog štanda), a dopuna 30/min je 3 puta iznad gužve. Skripta sa jedne adrese upiše najviše 60 + 30/min leadova, a svaki je ograničen i po posetiocu i po adresi primaoca.
+
+`skipped`/`RECIPIENT_CAP` je konačno: admin `retryEmailDelivery` važi samo za `failed`, a outbox sweep dira samo `queued`. Admin vidi razlog („Ova adresa je u poslednjih sat vremena već dobila najviše potvrda…“).
+
+### 39.4 Outbox: zaglavljeni redovi (`convex/fairEmails.ts`)
+
+- `fairEmailDeliveries.claimedAt?` (aditivno): `claimDelivery` ga postavlja pri preuzimanju (uz `attemptCount + 1`), a `markSent` i `markFailed` ga brišu. Dok je preuzimanje mlađe od `FAIR_EMAIL_CLAIM_LEASE_MS` (11 min; Convex akcija traje najviše 10 min), drugi sender istog reda dobija `skip`. Tako dva zakazana slanja istog reda nikad ne šalju paralelno.
+- Cron „fair email outbox sweep“ na 5 min (`convex/crons.ts`) → `internal.fairEmails.requeueStaleDeliveries` (internal mutation, `{}` → `{ requeued, failed, inFlight }`):
+  - čita `by_status_and_scheduledFor` (`status = queued`, `scheduledFor < now − 5 min`), najstarije prvo, najviše 50 po prolazu;
+  - red sa živim preuzimanjem → `inFlight`, ne dira se;
+  - preuzet red bez preostalih pokušaja (`attemptCount ≥ FAIR_EMAIL_MAX_ATTEMPTS`) → `failed` sa `PROVIDER_UNAVAILABLE:stalled` (umesto četvrtog pokušaja; admin retry ga šalje);
+  - ostali → ponovo se zakazuje `fairEmailSender.sendDelivery`. `claimDelivery` ponovo proverava sve (status, trenutak, prekidače K3, suppression, tekst izlagača).
+- Nikad duplo slanje: `Idempotency-Key` ostaje `dedupeKey`, pa ponovljen poziv za slanje koje je stiglo do Resend-a (unutar 24 h) ne pravi drugi mejl. Budući follow-up (`scheduledFor` u budućnosti) sweep ne dira.
+- Resend nije podešen: sender upiše jedan `console.warn` (`[fair-email] RESEND_NOT_CONFIGURED: <vrsta> not sent…`) bez primaoca, imena, ključa i ID-ja; red ostaje `failed`/`RESEND_NOT_CONFIGURED`, a admin ga ponovi kad je ključ postavljen.
+
+### 39.5 Sadržaj potvrde (`lib/i18n/sr/event-lead-email.ts`, `convex/lib/fairEmails.ts` `buildFairLeadEmail`)
+
+Tekst i HTML, svaka vrednost HTML-escape-ovana, redovi pasusa kao `<br>`. Konačan tekst odobrava Aleksa (P1); ovo je radni tekst. Redosled:
+
+1. naslov po vrsti: „Primili smo vaše interesovanje: {model}“ / „Primili smo vaš zahtev za probnu vožnju: {model}“;
+2. „Zdravo, {ime},“ (ili „Zdravo,“ kad ime nije bezbedno, §39.1);
+3. šta je primljeno: model, događaj i izlagač (probna vožnja: „Vaš zahtev je primljen i prosleđen izlagaču {izlagač}.“);
+4. „Gde ga možete videti:“ + `fairStands.displayName` modela i `fairEvents.venueName` („Štand 2, Hala Čair, Niš“); bez štanda samo mesto;
+5. „Šta sledi:“ — interesovanje: „Izlagač {izlagač} će vas kontaktirati.“; probna vožnja: „Ovo je zahtev, a ne zakazan termin — izlagač {izlagač} će vas kontaktirati da dogovorite termin.“;
+6. „Kontakt koji ste ostavili:“ + email i/ili telefon (E.164) leada, uz „Ako je nešto pogrešno upisano, odgovorite na ovaj mejl i ispravićemo.“;
+7. napomena o follow-upu, samo kad je zakazan (K3, nepromenjeno);
+8. „ScanMe je podatke primio uz vašu saglasnost i prosleđuje ih samo izlagaču {izlagač}; trajno se brišu 16. 11. 2026.“ (datum iz `FAIR_PII_PURGE_AT_MS`);
+9. „Ako niste vi poslali ovaj zahtev, odgovorite na ovaj mejl.“;
+10. postojeći link na model i potpis.
+
+`claimDelivery` za potvrdu dodaje u poruku sendera (internal) `standName?`, `venueName?`, `contactEmail?`, `contactPhone?` (jedno čitanje štanda). Follow-up se ne menja.
+
+### 39.6 Next gateway (`lib/fair-server`)
+
+- `fairBackendFailure` (za sve sajamske POST rute) prosleđuje `details` iz `ConvexError` samo kroz `fairPublicErrorDetails`: `field` (identifikator, samo slova, ≤ 40), `required` (pravilo kontakta), `reason` (`FAIR_LEAD_INPUT_REASONS`), `retryAfterMs` (ceo broj ms ≥ 0). Sve ostalo (kontakt, slobodan tekst, nepoznat ključ) se izbacuje; bez ijednog dozvoljenog ključa odgovor ostaje `{ ok: false, code }`.
+- `fairGatewayError(code, status, details?)`: na 429 uvek `Retry-After` u sekundama (`ceil(retryAfterMs / 1000)`, najmanje 1; bez poznatog čekanja 60).
+
+### 39.7 Testovi (ništa se stvarno ne šalje: globalni `fetch` je mock, Resend ključ je lažan)
+
+- `convex/fairLeads.test.ts`, blokovi „N5 …“: telefon u E.164 (`06x…`, `+381 6x…`, `00381…`, `+381 (0)…`, fiksni, strani) i odbijeni zapisi; email (trim, mala slova, odbijeni oblici); ime (prihvaćena imena svih pisama; odbijeni link, adresa, bidi, zero-width, kontrolni, telefon, HTML i fišing rečenica, sa razlogom); `submitLead` čuva normalizovan email (i primaoca) i E.164 telefon; greška nosi `{ field, reason }` bez vrednosti i ništa nije upisano; rizično ime je odbijeno pre upisa i slanja (0 poziva `fetch`-a); duplikat vraća sačuvan lead (`duplicate: true`), 1 lead, 1 mejl, a druga vrsta, model ili posetilac su novi leadovi; tuđi `submissionId` je i dalje `SUBMISSION_DUPLICATE`; meko ograničenje (11. lead upisan, potvrda `skipped`/`RECIPIENT_CAP`, bez follow-upa, tačno 10 poziva, admin retry i sweep ga ne diraju); sweep: izgubljeno slanje ide ponovo posle 5 min sa istim ključem i samo jednom, a budući follow-up je netaknut; preuzeto pa prekinuto slanje čeka istek preuzimanja, a dva ponovna zakazivanja šalju jednom; prekinut poslednji pokušaj → `failed`/`PROVIDER_UNAVAILABLE:stalled`, admin retry šalje jednom; bez Resend-a jedan `console.warn` bez PII, red `failed`, admin retry posle podešavanja šalje; sadržaj potvrde (štand i mesto, sledeći korak po vrsti, kontakt, privatnost, „Ako niste vi…“, redosled, HTML); bez sirovog HTML-a iz unosa i bez rizičnog imena u pozdravu.
+- Prilagođeni B4/B7 testovi (nova pravila, ne slabljenje): sačuvan telefon je E.164; lead pre nadogradnje — isti posetilac sada dobija duplikat bez follow-upa, a lead drugog posetioca posle nadogradnje dobija follow-up; `fairLeadSubmit` — 1 lead + 2 duplikata, pa `RATE_LIMITED`; izvoz — tri leada na istom modelu od tri posetioca; `fairPerformance` — posle 10 potvrda lead se upisuje bez potvrde, a od 30 je odbijen bez upisa.
+- `lib/fair-server/leads.test.ts`: `field`/`reason`, `required` i `retryAfterMs` stižu do browsera; `Retry-After` na 429 (i 60 bez poznatog čekanja), bez njega na ostalim statusima; kontakt, slobodan tekst i nepoznati ključevi se izbacuju.
+- `convex/fairAuthz.test.ts`: `fairEmails.requeueStaleDeliveries` je `internal`; `convex/fairSchema.test.ts`: novi indeks.

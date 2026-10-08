@@ -1,6 +1,6 @@
 import "server-only";
 
-import type { FairErrorCode } from "@/lib/fair-contract";
+import type { FairErrorCode, FairErrorDetails } from "@/lib/fair-contract";
 import { fairVisitorForRequest, type FairVisitorEnv } from "./visitor";
 
 // =============================================================================
@@ -10,8 +10,10 @@ import { fairVisitorForRequest, type FairVisitorEnv } from "./visitor";
 //   - same-origin only (Sec-Fetch-Site, else Origin == this origin);
 //   - bounded JSON body (Content-Length AND the streamed byte count);
 //   - `Cache-Control: no-store` on every response;
-//   - errors are `{ ok: false, code }` with a stable FairErrorCode — never a
-//     token, hash, contact value or upstream message.
+//   - errors are `{ ok: false, code, details? }` with a stable FairErrorCode —
+//     never a token, hash, contact value or upstream message; `details` only
+//     carries whitelisted non-PII keys (N5, interactions.ts
+//     `fairPublicErrorDetails`) and a 429 always has `Retry-After` (seconds).
 // The visitor token is read from the HttpOnly cookie here, never from the
 // body or the URL; Convex receives only the hash (B3 adds the mutations).
 // =============================================================================
@@ -31,8 +33,17 @@ export function fairGatewayJson(body: unknown, status = 200, setCookie?: string 
   return new Response(JSON.stringify(body), { status, headers });
 }
 
-export function fairGatewayError(code: FairErrorCode, status: number): Response {
-  return fairGatewayJson({ ok: false, code }, status);
+/** Seconds a 429 asks the browser to wait when Convex gave no `retryAfterMs`. */
+export const FAIR_DEFAULT_RETRY_AFTER_SECONDS = 60;
+
+export function fairGatewayError(code: FairErrorCode, status: number, details?: FairErrorDetails): Response {
+  const response = fairGatewayJson(details ? { ok: false, code, details } : { ok: false, code }, status);
+  if (status === 429) {
+    const waitMs = details?.retryAfterMs;
+    const seconds = typeof waitMs === "number" ? Math.max(1, Math.ceil(waitMs / 1000)) : FAIR_DEFAULT_RETRY_AFTER_SECONDS;
+    response.headers.set("Retry-After", String(seconds));
+  }
+  return response;
 }
 
 /** Browsers send Sec-Fetch-Site on every fetch; Origin is the fallback. */

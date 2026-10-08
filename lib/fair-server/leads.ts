@@ -23,8 +23,11 @@ import { fairConvexVisitorForRequest, type FairVisitorEnv } from "./visitor";
 //      (Convex refuses it again with CONSENT_REQUIRED, without storing);
 //   4. visitor = HMAC of the HttpOnly cookie; one call to fairLeads.submitLead
 //      with FAIR_GATEWAY_SECRET and the caller-IP HMAC (K1; no secret → no call);
-//   5. `{ ok: true, value }` (never a contact value) or `{ ok: false, code }`,
-//      always `no-store`. Contact values are never logged or echoed.
+//   5. `{ ok: true, value }` (never a contact value) or `{ ok: false, code,
+//      details? }` — N5: `details` = { field, reason } of a refused field,
+//      `required` of an unmet contact rule, `retryAfterMs` of a limit, and a
+//      429 carries `Retry-After`; always `no-store`. Contact values are never
+//      logged or echoed.
 // =============================================================================
 
 type SubmitLead = typeof api.fairLeads.submitLead;

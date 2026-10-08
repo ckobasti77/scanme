@@ -176,4 +176,17 @@ crons.interval(
   {},
 );
 
+//   • the 5-minute fair email outbox sweep (Sajam 2026 N5) — the backstop for
+//     a lost or crashed send: re-schedules the sender for `queued`
+//     fairEmailDeliveries rows whose moment passed more than 5 minutes ago
+//     (by_status_and_scheduledFor, ≤ 50 per tick). A row with a live claim is
+//     left alone and the Resend Idempotency-Key stays the dedupeKey, so a
+//     re-run never sends twice. No-ops when nothing is stuck.
+crons.interval(
+  "fair email outbox sweep",
+  { minutes: 5 },
+  internal.fairEmails.requeueStaleDeliveries,
+  {},
+);
+
 export default crons;

@@ -6,16 +6,29 @@ import type { EventLeadEmailDict } from "../types";
 // replace these strings before the lead flow goes to production. The
 // follow-up body itself is the exhibitor's text (fairMessageTemplates);
 // only the footer below is ScanMe's.
+// N5: the confirmation also says where the car is, what happens next, which
+// contact was shared, the privacy line and „Ako niste vi…“. Konačan tekst
+// potvrde odobrava Aleksa (P1) — do tada je ovo radni tekst.
 export const eventLeadEmailSr = {
   confirmationSubjectInterest: "Primili smo vaše interesovanje: {model}",
   confirmationSubjectTestDrive: "Primili smo vaš zahtev za probnu vožnju: {model}",
   greeting: "Zdravo, {name},",
+  greetingWithoutName: "Zdravo,",
   confirmationBodyInterest:
     "hvala na interesovanju za model {model} na događaju {event}. Vaše kontakt podatke prosleđujemo izlagaču {exhibitor}.",
   // Admin UX A8 (ADMIN-UX §7): the test drive confirmation says the request
   // was received and passed on to the exhibitor.
   confirmationBodyTestDrive:
-    "hvala na zahtevu za probnu vožnju modela {model} na događaju {event}. Vaš zahtev je primljen i prosleđen izlagaču {exhibitor}, koji će vas kontaktirati radi dogovora o terminu. Ovo je zahtev, a ne zakazan termin.",
+    "hvala na zahtevu za probnu vožnju modela {model} na događaju {event}. Vaš zahtev je primljen i prosleđen izlagaču {exhibitor}.",
+  confirmationWhere: "Gde ga možete videti:\n{where}",
+  confirmationNextInterest: "Šta sledi:\nIzlagač {exhibitor} će vas kontaktirati.",
+  confirmationNextTestDrive:
+    "Šta sledi:\nOvo je zahtev, a ne zakazan termin — izlagač {exhibitor} će vas kontaktirati da dogovorite termin.",
+  confirmationContact:
+    "Kontakt koji ste ostavili:\n{contact}\nAko je nešto pogrešno upisano, odgovorite na ovaj mejl i ispravićemo.",
+  confirmationPrivacy:
+    "ScanMe je podatke primio uz vašu saglasnost i prosleđuje ih samo izlagaču {exhibitor}; trajno se brišu {date}",
+  confirmationNotYou: "Ako niste vi poslali ovaj zahtev, odgovorite na ovaj mejl.",
   confirmationFollowUpNote:
     "Posle sajma ćemo vam u ime izlagača poslati još jednu, poslednju poruku. Ako je ne želite, odgovorite na ovaj email i nećemo je poslati.",
   // A8: one follow-up per exhibitor, so {model} can be a list of models.

@@ -195,12 +195,16 @@ export type FairPurgeTrigger = "cron" | "admin" | "cli";
 export type FairPurgeRunStatus = "running" | "completed";
 export type FairPurgeCategoryStatus = "pending" | "running" | "done";
 /**
- * B7 (§9.44): at most this many immediate confirmations to ONE address per
- * window, whatever visitor or model asked for them. A visitor leaving leads
- * at a stand or two in one hour sends ≤ 5; a script cycling fake visitor
- * hashes is held at 10 emails/hour per victim address.
+ * B7 (§9.44), N5 soft cap: at most this many immediate confirmations to ONE
+ * address per window, whatever visitor or model asked for them. A visitor
+ * leaving leads at a stand or two in one hour sends ≤ 5; a script cycling fake
+ * visitor hashes is held at 10 emails/hour per victim address. N5: a lead
+ * above it is still STORED; its confirmation row is `skipped` with
+ * `RECIPIENT_CAP` (nothing is sent) and it gets no follow-up.
  */
 export const FAIR_LEAD_CONFIRMATIONS_PER_RECIPIENT = 10;
+/** N5 hard cap: from this many leads with one address per window on, the submit is refused (`RATE_LIMITED`). */
+export const FAIR_LEAD_LEADS_PER_RECIPIENT = 30;
 export const FAIR_LEAD_RECIPIENT_WINDOW_MS = 60 * 60 * 1000;
 
 /** `dateKey` is the event-local calendar day, `YYYY-MM-DD` in Europe/Belgrade. */
@@ -568,18 +572,124 @@ export const FAIR_LEAD_NAME_MAX = 120;
 export const FAIR_LEAD_EMAIL_MAX = 254;
 export const FAIR_LEAD_PHONE_MAX = 32;
 
-const FAIR_LEAD_EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const FAIR_LEAD_PHONE_PATTERN = /^\+?[0-9 ()./-]+$/;
+// -----------------------------------------------------------------------------
+// N5 — normalization and validation of the lead fields. One implementation for
+// Convex (convex/lib/fairLeads.ts `normalizeFairLeadContact`, authoritative)
+// and Next (the form validates with the same functions before sending). A
+// refusal is `INVALID_INPUT` with `details: { field, reason }` — never the value.
+// -----------------------------------------------------------------------------
 
-export function isFairLeadEmail(value: string): boolean {
-  return value.length <= FAIR_LEAD_EMAIL_MAX && FAIR_LEAD_EMAIL_PATTERN.test(value);
+export type FairLeadInputField = "contactName" | "email" | "phone";
+export const FAIR_LEAD_INPUT_REASONS = [
+  "empty",
+  "too_long",
+  /** URL, `www.`, `@` or a domain in the name. */
+  "link",
+  /** Bidi, zero-width or control characters in the name. */
+  "invisible",
+  /** Anything but letters, spaces, `.`, `,`, `'`, `-` and at most 3 digits in the name. */
+  "characters",
+  /** Email or phone that cannot be normalized. */
+  "format",
+] as const;
+export type FairLeadInputReason = (typeof FAIR_LEAD_INPUT_REASONS)[number];
+
+/** A name is at most this many words and digits (no sentence, no phone number). */
+export const FAIR_LEAD_NAME_MAX_WORDS = 6;
+export const FAIR_LEAD_NAME_MAX_DIGITS = 3;
+/** Country code assumed for a national number written with the trunk 0 (`06x…`, `011…`). */
+export const FAIR_LEAD_PHONE_DEFAULT_COUNTRY = "381";
+
+// C0/C1 controls, soft hyphen, Arabic letter mark, Hangul fillers, Khmer and
+// Mongolian invisibles, zero-width and LRM/RLM (U+200B–U+200F), line/paragraph
+// separators and bidi embeddings/overrides (U+2028–U+202E), word joiner,
+// invisible operators and bidi isolates (U+2060–U+206F), variation selectors,
+// BOM, interlinear annotations and tag characters.
+const FAIR_INVISIBLE_PATTERN =
+  /[\u0000-\u001F\u007F-\u009F\u00AD\u061C\u115F\u1160\u17B4\u17B5\u180B-\u180F\u200B-\u200F\u2028-\u202E\u2060-\u206F\u3164\uFE00-\uFE0F\uFEFF\uFFA0\uFFF9-\uFFFB]|[\u{E0000}-\u{E007F}\u{E0100}-\u{E01EF}]/u;
+// `@`, a scheme, `www.` or a domain-like token (`bit.ly`, `x.com`); the top
+// level is ASCII letters, so `M. Petrović` and `J.Petrović` stay names.
+const FAIR_LINK_PATTERN = /@|:\/\/|www\.|(?:^|[^\p{L}\p{N}])[\p{L}\p{N}-]+\.[a-z]{2,24}(?![\p{L}\p{N}])/iu;
+const FAIR_NAME_PATTERN = /^[\p{L}\p{M}0-9 .,'’-]+$/u;
+const FAIR_LETTER_PATTERN = /\p{L}/u;
+
+const digitCount = (value: string) => value.replace(/[^0-9]/g, "").length;
+
+/**
+ * What makes a name risky to repeat in an email (a link, invisible
+ * characters or a phone-like digit run), or null. The email builder drops
+ * such a name from the greeting even if it was stored before N5.
+ */
+export function fairLeadNameRisk(name: string): "link" | "invisible" | "characters" | null {
+  if (FAIR_INVISIBLE_PATTERN.test(name)) return "invisible";
+  if (FAIR_LINK_PATTERN.test(name)) return "link";
+  return digitCount(name) > FAIR_LEAD_NAME_MAX_DIGITS ? "characters" : null;
 }
 
-/** Digits with the usual separators; 6–15 digits (E.164 maximum). */
+/** Trimmed name with collapsed spaces, or the reason it is refused. */
+export function normalizeFairLeadName(raw: string): { ok: true; value: string } | { ok: false; reason: FairLeadInputReason } {
+  const trimmed = raw.trim();
+  if (!trimmed) return { ok: false, reason: "empty" };
+  // Checked before collapsing whitespace, so a zero-width or bidi character can never hide as a space.
+  if (FAIR_INVISIBLE_PATTERN.test(trimmed)) return { ok: false, reason: "invisible" };
+  const value = trimmed.replace(/\s+/g, " ");
+  const risk = fairLeadNameRisk(value);
+  if (risk) return { ok: false, reason: risk };
+  if (!FAIR_NAME_PATTERN.test(value) || !FAIR_LETTER_PATTERN.test(value)) return { ok: false, reason: "characters" };
+  if (value.length > FAIR_LEAD_NAME_MAX || value.split(" ").length > FAIR_LEAD_NAME_MAX_WORDS) return { ok: false, reason: "too_long" };
+  return { ok: true, value };
+}
+
+const FAIR_EMAIL_LOCAL_PATTERN = /^[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*$/;
+const FAIR_EMAIL_DOMAIN_PATTERN = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+(?:[a-z]{2,63}|xn--[a-z0-9-]{1,59})$/;
+
+/**
+ * Trimmed, lowercase address (stored on the lead and used as the outbox
+ * recipient), or null: one `@`, a dot-atom local part of ≤ 64 characters and
+ * an ASCII/punycode domain with at least two labels and a real top level.
+ */
+export function normalizeFairLeadEmail(raw: string): string | null {
+  const value = raw.trim().toLowerCase();
+  if (!value || value.length > FAIR_LEAD_EMAIL_MAX) return null;
+  const at = value.indexOf("@");
+  if (at <= 0 || at !== value.lastIndexOf("@")) return null;
+  const local = value.slice(0, at);
+  return local.length <= 64 && FAIR_EMAIL_LOCAL_PATTERN.test(local) && FAIR_EMAIL_DOMAIN_PATTERN.test(value.slice(at + 1)) ? value : null;
+}
+
+export function isFairLeadEmail(value: string): boolean {
+  return normalizeFairLeadEmail(value) !== null;
+}
+
+/**
+ * E.164 (`+381641234567`) or null. Separators (space ( ) . / -) are dropped;
+ * `+…` and `00…` are international, a leading 0 is the Serbian trunk prefix
+ * (`064…`, `011…` → +381). A trunk 0 written after +381 (`+381 (0)64…`) is
+ * dropped. A number without `+`, `00` or `0` is refused: it may be a local
+ * number without its 0 or a foreign one without its code, and a guessed
+ * number would hand the exhibitor a wrong contact. +381: 7–10 national
+ * digits; any number: 8–15 digits in total (E.164).
+ */
+export function normalizeFairLeadPhone(raw: string): string | null {
+  const value = raw.trim();
+  if (!value || value.length > FAIR_LEAD_PHONE_MAX || !/^\+?[0-9 ()./-]+$/.test(value)) return null;
+  let digits = value.replace(/\D/g, "");
+  if (!value.startsWith("+")) {
+    if (digits.startsWith("00")) digits = digits.slice(2);
+    else if (digits.startsWith("0")) digits = `${FAIR_LEAD_PHONE_DEFAULT_COUNTRY}${digits.slice(1)}`;
+    else return null;
+  }
+  if (digits.startsWith(`${FAIR_LEAD_PHONE_DEFAULT_COUNTRY}0`)) digits = `${FAIR_LEAD_PHONE_DEFAULT_COUNTRY}${digits.slice(4)}`;
+  if (digits.startsWith("0") || digits.length < 8 || digits.length > 15) return null;
+  if (digits.startsWith(FAIR_LEAD_PHONE_DEFAULT_COUNTRY)) {
+    const national = digits.length - FAIR_LEAD_PHONE_DEFAULT_COUNTRY.length;
+    if (national < 7 || national > 10) return null;
+  }
+  return `+${digits}`;
+}
+
 export function isFairLeadPhone(value: string): boolean {
-  if (value.length > FAIR_LEAD_PHONE_MAX || !FAIR_LEAD_PHONE_PATTERN.test(value)) return false;
-  const digits = value.replace(/\D/g, "").length;
-  return digits >= 6 && digits <= 15;
+  return normalizeFairLeadPhone(value) !== null;
 }
 
 /**
@@ -635,9 +745,13 @@ export type FairLeadSubmitResult = {
   eventModelId: string;
   kind: FairLeadKind;
   submittedAt: number;
-  /** The same submissionId was already stored; nothing new was written or sent. */
+  /**
+   * The same submissionId was already stored, or (N5) this visitor already
+   * sent this kind for this model: the stored lead is returned and nothing new
+   * was written or sent.
+   */
   duplicate: boolean;
-  /** One immediate confirmation email is queued (only when an email was given). */
+  /** One immediate confirmation email is queued (an email was given and, N5, the address is under its soft cap). */
   confirmationEmail: boolean;
   /** Advanced: the one post-fair follow-up is scheduled for this lead. */
   followUpScheduled: boolean;
@@ -661,6 +775,8 @@ export const FAIR_EMAIL_DELIVERY_ERRORS = [
   "FOLLOW_UP_DISABLED",
   // Admin UX A8 — one follow-up per (visitor email, exhibitor): this row's pair is sent by another row
   "FOLLOW_UP_MERGED",
+  // N5 — soft cap per address (FAIR_LEAD_CONFIRMATIONS_PER_RECIPIENT): the lead is stored, its confirmation is `skipped`
+  "RECIPIENT_CAP",
 ] as const;
 export type FairEmailDeliveryError = (typeof FAIR_EMAIL_DELIVERY_ERRORS)[number];
 
@@ -797,7 +913,12 @@ export const FAIR_ERROR_CODES = [
 ] as const;
 export type FairErrorCode = (typeof FAIR_ERROR_CODES)[number];
 
-/** Non-PII details only: never a token, hash, contact value or free text from a visitor. */
+/**
+ * Non-PII details only: never a token, hash, contact value or free text from
+ * a visitor. N5: the Next gateway passes on to the browser only `field`,
+ * `required`, `reason` (FAIR_LEAD_INPUT_REASONS) and `retryAfterMs`
+ * (lib/fair-server/interactions.ts `fairPublicErrorDetails`).
+ */
 export type FairErrorDetails = Record<string, string | number | boolean>;
 
 export type FairResult<T> =

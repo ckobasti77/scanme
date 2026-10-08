@@ -1207,6 +1207,7 @@ export const adminEventsSr = {
     LEADS_DISABLED: "Serverski prekidač leadova je bio isključen u trenutku slanja.",
     FOLLOW_UP_DISABLED: "Serverski prekidač follow-upa je bio isključen u trenutku slanja.",
     FOLLOW_UP_MERGED: "Isti posetilac dobija jedan follow-up ovog izlagača, uz drugi lead.",
+    RECIPIENT_CAP: "Ova adresa je u poslednjih sat vremena već dobila najviše potvrda; lead je sačuvan, potvrda nije poslata.",
   },
   suppress: "Obustavi follow-up",
   suppressConfirm: "Posetilac je odgovorom tražio da ne dobije follow-up. Poruka se neće poslati.",

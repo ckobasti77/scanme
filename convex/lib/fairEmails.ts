@@ -1,5 +1,6 @@
 import { v, type Infer } from "convex/values";
-import type { FairEmailDeliveryError } from "../../lib/fair-contract";
+import { FAIR_PII_PURGE_AT_MS, fairLeadNameRisk, type FairEmailDeliveryError } from "../../lib/fair-contract";
+import { belgradeParts } from "../../lib/belgrade-time";
 import { fmt } from "../../lib/i18n/format";
 import { eventLeadEmailSr as dict } from "../../lib/i18n/sr/event-lead-email";
 import { eventReportSr as reportDict } from "../../lib/i18n/sr/event-report";
@@ -35,6 +36,11 @@ export const fairLeadEmailMessage = v.object({
   modelPath: v.string(),
   followUpScheduled: v.boolean(),
   template: v.optional(v.object({ subject: v.string(), plainText: v.string() })),
+  // N5, confirmation only: where the car is (stand name + event venue) and the contact the visitor shared.
+  standName: v.optional(v.string()),
+  venueName: v.optional(v.string()),
+  contactEmail: v.optional(v.string()),
+  contactPhone: v.optional(v.string()),
 });
 export type FairLeadEmailMessage = Infer<typeof fairLeadEmailMessage>;
 
@@ -118,11 +124,23 @@ function compose(subject: string, paragraphs: string[], url: string): FairOutgoi
   return { subject: oneLine(subject), text, html };
 }
 
+/** N5: the purge day as the visitor reads it, `16. 11. 2026.` (Europe/Belgrade). */
+export function fairEmailPurgeDateText(): string {
+  const day = belgradeParts(FAIR_PII_PURGE_AT_MS);
+  return `${day.day}. ${day.month}. ${day.year}.`;
+}
+
 /**
  * Immediate confirmation (ScanMe text, placeholder until P1) or the Advanced
  * follow-up (the exhibitor's active template + ScanMe footer). The
  * confirmation mentions the reply-to-cancel option only when a follow-up is
  * actually scheduled for the lead (MASTER §8).
+ *
+ * N5 confirmation: what was received (model, exhibitor, event), where (stand
+ * and venue), the next step by kind, the contact that was shared (so a typo
+ * shows), the privacy line, „Ako niste vi…“, then the link and the signature.
+ * A name with a link, invisible characters or a phone-like number is never
+ * repeated (the greeting drops it); every value is HTML-escaped by compose.
  */
 export function buildFairLeadEmail(message: FairLeadEmailMessage, baseUrl: string): FairOutgoingEmail {
   const url = `${baseUrl}${message.modelPath}`;
@@ -133,10 +151,18 @@ export function buildFairLeadEmail(message: FairLeadEmailMessage, baseUrl: strin
     return compose(template.subject, [...body, fmt(dict.followUpFooter, names)], url);
   }
   const testDrive = message.leadKind === "test_drive";
+  const name = oneLine(message.contactName);
+  const where = [message.standName, message.venueName].map((part) => oneLine(part ?? "")).filter(Boolean).join(", ");
+  const contact = [message.contactEmail, message.contactPhone].map((part) => oneLine(part ?? "")).filter(Boolean).join(", ");
   const paragraphs = [
-    fmt(dict.greeting, { name: message.contactName }),
+    name && !fairLeadNameRisk(name) ? fmt(dict.greeting, { name }) : dict.greetingWithoutName,
     fmt(testDrive ? dict.confirmationBodyTestDrive : dict.confirmationBodyInterest, names),
+    ...(where ? [fmt(dict.confirmationWhere, { where })] : []),
+    fmt(testDrive ? dict.confirmationNextTestDrive : dict.confirmationNextInterest, names),
+    ...(contact ? [fmt(dict.confirmationContact, { contact })] : []),
     ...(message.followUpScheduled ? [dict.confirmationFollowUpNote] : []),
+    fmt(dict.confirmationPrivacy, { exhibitor: message.exhibitorName, date: fairEmailPurgeDateText() }),
+    dict.confirmationNotYou,
   ];
   return compose(fmt(testDrive ? dict.confirmationSubjectTestDrive : dict.confirmationSubjectInterest, names), paragraphs, url);
 }

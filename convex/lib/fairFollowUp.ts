@@ -1,4 +1,4 @@
-import { FAIR_FOLLOW_UP_FIELDS, type FairFollowUpField } from "../../lib/fair-contract";
+import { FAIR_FOLLOW_UP_FIELDS, fairLeadNameRisk, type FairFollowUpField } from "../../lib/fair-contract";
 import { eventLeadEmailSr as dict } from "../../lib/i18n/sr/event-lead-email";
 
 // =============================================================================
@@ -78,7 +78,8 @@ export type FairFollowUpLeadFacts = {
 export function fairFollowUpValues(facts: FairFollowUpLeadFacts): Record<FairFollowUpField, string | null> {
   const names = (kind?: "interest" | "test_drive") => fairJoinNames(facts.leads.filter((lead) => !kind || lead.kind === kind).map((lead) => lead.modelName)) || null;
   return {
-    ime: facts.contactName,
+    // N5: a name that is not safe to repeat (link, invisible characters) gets the fallback.
+    ime: facts.contactName && !fairLeadNameRisk(facts.contactName) ? facts.contactName : null,
     izlagac: facts.exhibitorName,
     dogadjaj: facts.eventTitle,
     modeli: names(),
