@@ -126,7 +126,7 @@ async function setup() {
     return { participationId, model };
   };
   const a = await exhibitor("a", ids.a, "ispred-14");
-  const b = await exhibitor("b", ids.b, "ispred-15");
+  const b = await exhibitor("b", ids.b, "ispred-15-1");
   const c = await exhibitor("c", ids.c, "ispred-16");
   const models = {
     x2: await a.model("test-volta-x2", "advanced"),

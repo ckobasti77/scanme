@@ -200,21 +200,27 @@ export function isFairEventMapLocationId(eventCode: string, id: string) {
   return isFairMapLocationId(id) && isFairMapStandLocation(eventCode, id);
 }
 
+/** Bounded read of one participation's stands (an exhibitor has a handful). */
+const STANDS_PER_PARTICIPATION_CAP = 100;
+
 /**
  * Seam for the stand ↔ map contract (HANDOFF §8, DATA-INTAKE §5). Since M0
- * each id must be a stand location of the event's map geometry (lib/fair-map;
- * a `test-` event uses the real map, the ScanMe location is never a stand),
- * and within the event no two different non-withdrawn stands may share one id
- * (B1 step instruction). R0 finding 1 asks whether a shared map location is
- * legitimate; that is an open owner question — flip the "taken" check here only.
+ * each id must be a location of the event's map geometry that takes stands
+ * (lib/fair-map; a `test-` event uses the real map, a placeholder is never a
+ * stand). N3 (odluka vlasnika 8. 10., O4 / R0 finding 1): different exhibitors
+ * may share one location, and one exhibitor may have several. "Taken" is only
+ * a second non-withdrawn stand of the SAME participation on the same location.
+ * `participationKey` groups the entries of one batch (import: the participation
+ * external key); `participationId` is the stored participation, when it exists.
  */
 export async function validateMapLocationIds(
   ctx: Ctx,
   eventId: Id<"fairEvents"> | null,
-  entries: ReadonlyArray<{ standKey: string; mapLocationId: string; path: string }>,
+  entries: ReadonlyArray<{ standKey: string; participationKey: string; participationId?: Id<"fairParticipations">; mapLocationId: string; path: string }>,
 ): Promise<FairAdminIssue[]> {
   const issues: FairAdminIssue[] = [];
   const owners = new Map<string, string>();
+  const ownStands = new Map<Id<"fairParticipations">, Doc<"fairStands">[]>();
   const event = eventId ? await ctx.db.get(eventId) : null;
   for (const entry of entries) {
     const id = entry.mapLocationId.trim();
@@ -226,18 +232,24 @@ export async function validateMapLocationIds(
       issues.push(fairIssue("error", "FAIR_MAP_LOCATION_INVALID", entry.path, { mapLocationId: id }));
       continue;
     }
-    const owner = owners.get(id);
+    const slot = `${entry.participationKey}\u0000${id}`;
+    const owner = owners.get(slot);
     if (owner !== undefined && owner !== entry.standKey) {
       issues.push(fairIssue("error", "FAIR_MAP_LOCATION_TAKEN", entry.path, { mapLocationId: id }));
       continue;
     }
-    owners.set(id, entry.standKey);
-    if (!eventId) continue;
-    const stands = await ctx.db
-      .query("fairStands")
-      .withIndex("by_eventId_and_mapLocationId", (q) => q.eq("eventId", eventId).eq("mapLocationId", id))
-      .take(10);
-    if (stands.some((stand) => stand.status !== "withdrawn" && stand.externalKey !== entry.standKey)) {
+    owners.set(slot, entry.standKey);
+    if (!eventId || !entry.participationId) continue;
+    const participationId = entry.participationId;
+    let stands = ownStands.get(participationId);
+    if (!stands) {
+      stands = await ctx.db
+        .query("fairStands")
+        .withIndex("by_eventId_and_participationId", (q) => q.eq("eventId", eventId).eq("participationId", participationId))
+        .take(STANDS_PER_PARTICIPATION_CAP);
+      ownStands.set(participationId, stands);
+    }
+    if (stands.some((stand) => stand.mapLocationId === id && stand.status !== "withdrawn" && stand.externalKey !== entry.standKey)) {
       issues.push(fairIssue("error", "FAIR_MAP_LOCATION_TAKEN", entry.path, { mapLocationId: id }));
     }
   }
@@ -480,7 +492,7 @@ export async function upsertFairStand(ctx: MutationCtx, input: FairStandInput, n
     .unique();
   if (existing && existing.participationId !== participation._id) fairAdminError("FAIR_LINK_CONFLICT", { link: "stand" });
   const mapLocationId = input.mapLocationId.trim();
-  throwFirstError(await validateMapLocationIds(ctx, event._id, [{ standKey: externalKey, mapLocationId, path: "mapLocationId" }]));
+  throwFirstError(await validateMapLocationIds(ctx, event._id, [{ standKey: externalKey, participationKey: participation._id, participationId: participation._id, mapLocationId, path: "mapLocationId" }]));
   const fields = {
     code: requireText(input.code, "code", 40),
     displayName: requireText(input.displayName, "displayName", 120),
@@ -696,7 +708,7 @@ export async function fairModelPublishIssues(ctx: Ctx, model: Doc<"fairEventMode
     ctx.db.get(model.standId),
   ]);
   const mapIssues = stand
-    ? await validateMapLocationIds(ctx, model.eventId, [{ standKey: stand.externalKey, mapLocationId: stand.mapLocationId, path: "stand.mapLocationId" }])
+    ? await validateMapLocationIds(ctx, model.eventId, [{ standKey: stand.externalKey, participationKey: stand.participationId, participationId: stand.participationId, mapLocationId: stand.mapLocationId, path: "stand.mapLocationId" }])
     : [];
   const slugOwners = await fairModelBySlug(ctx, model.eventId, model.slug);
   return fairPublishIssuesFromFacts(model, {

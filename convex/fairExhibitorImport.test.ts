@@ -146,6 +146,133 @@ describe("Izlagači 2026: the organizer's list in one event", () => {
   });
 });
 
+const place = (f: Fixture, ownerEmail = ADMIN_EMAIL, eventCode = EM) =>
+  f.t.mutation(internal.fairExhibitorImport.placeSiteExhibitors, { ownerEmail, eventCode, list: LIST });
+const PAIRS = ELEKTROMOBILNOST_2026_EXHIBITORS.reduce((sum, row) => sum + row.locations.length, 0);
+
+async function standsAt(f: Fixture, mapLocationId: string) {
+  return f.t.run((ctx) => ctx.db.query("fairStands").withIndex("by_eventId_and_mapLocationId", (q) => q.eq("eventId", f.eventId).eq("mapLocationId", mapLocationId)).collect());
+}
+
+describe("N3 placeSiteExhibitors: the organizer's exhibitors on the map of 7. 10.", () => {
+  test("one stand per (exhibitor, location) with the organizer's code; exhibitors share locations; category on the participation; Markus Pro is skipped with its zone", async () => {
+    const f = await setup();
+    await importList(f);
+    expect(PAIRS).toBe(39);
+    expect(await place(f)).toEqual({
+      exhibitors: COUNT,
+      stands: { created: PAIRS, updated: 0, unchanged: 0 },
+      participations: { created: 0, updated: COUNT, unchanged: 0 },
+      skipped: [{ key: "markus-pro", reason: "no_map_location" }],
+    });
+    const byd = await exhibitor(f, "byd");
+    expect(byd.participation).toMatchObject({ category: "automobili" });
+    expect(byd.participation?.mapZoneId).toBeUndefined();
+    const bydStands = await f.t.run((ctx) => ctx.db.query("fairStands").withIndex("by_eventId_and_participationId", (q) => q.eq("eventId", f.eventId).eq("participationId", byd.participation!._id)).collect());
+    expect(bydStands.map((row) => [row.externalKey, row.code, row.displayName, row.mapLocationId, row.status])).toEqual([["izl26-byd-hala-2", "2", "Štand 2", "hala-2", "active"]]);
+    // Six exhibitors on stand 2; Enigma IT and ScanMe on the ScanMe stand 14 next to the TEST stand; Venera Bike in three places.
+    expect((await standsAt(f, "hala-2")).length).toBe(6);
+    expect((await standsAt(f, "ispred-14")).map((row) => row.externalKey).sort()).toEqual(["izl26-enigma-it-ispred-14", "izl26-scanme-ispred-14", "test-em26-stand-a2"]);
+    const venera = await exhibitor(f, "venera-bike");
+    const veneraStands = await f.t.run((ctx) => ctx.db.query("fairStands").withIndex("by_eventId_and_participationId", (q) => q.eq("eventId", f.eventId).eq("participationId", venera.participation!._id)).collect());
+    expect(veneraStands.map((row) => [row.mapLocationId, row.code]).sort()).toEqual([["hala-12", "12"], ["ispred-19", "19"], ["ispred-20-22", "20–22"]]);
+    const markus = await exhibitor(f, "markus-pro");
+    expect(markus.participation).toMatchObject({ category: "usluge", mapZoneId: "ispred" });
+
+    // The public map: all 38, with logo, website and category; Markus Pro listed without a place, in front of the hall.
+    const map = (await f.t.query(api.fairPublic.getEventMap, { eventSlug: EM }))!;
+    const site = new Set(ELEKTROMOBILNOST_2026_EXHIBITORS.map((row) => row.name));
+    const onMap = map.stands.filter((row) => site.has(row.exhibitorName));
+    expect(onMap).toHaveLength(PAIRS);
+    expect(new Set([...onMap.map((row) => row.exhibitorName), ...map.exhibitorsWithoutLocation.map((row) => row.exhibitorName)])).toEqual(site);
+    expect(map.exhibitorsWithoutLocation).toEqual([
+      { participationId: markus.participation!._id, exhibitorName: "Auto servis Markus Pro", logoUrl: "/fair/izlagaci/2026/markus-pro.jpg", websiteUrl: "https://www.autoservismarkus.rs/", category: "usluge", zoneId: "ispred" },
+    ]);
+    expect(onMap.find((row) => row.exhibitorName === "BYD")).toMatchObject({
+      mapLocationId: "hala-2", code: "2", displayName: "Štand 2", logoUrl: "/fair/izlagaci/2026/byd.jpg", websiteUrl: "https://byd-auto.rs/", category: "automobili", brands: [],
+    });
+    expect(onMap.filter((row) => row.category === "scanme").map((row) => row.mapLocationId)).toEqual(["ispred-14", "ispred-14"]);
+  });
+
+  test("a second run writes nothing; a hand-edited, withdrawn or hand-made stand and a hand-set category are never overwritten; nothing is withdrawn", async () => {
+    const f = await setup();
+    await importList(f);
+    // A stand the team made by hand for JMEV on its location covers it: no second one.
+    const jmev = await exhibitor(f, "jmev");
+    await f.admin.mutation(api.fairAdmin.upsertStand, { eventId: f.eventId, participationId: jmev.participation!._id, externalKey: "rucni-jmev", code: "9", displayName: "JMEV", mapLocationId: "hala-9" });
+    const first = await place(f);
+    expect(first.stands).toEqual({ created: PAIRS - 1, updated: 0, unchanged: 0 });
+    expect(first.skipped).toEqual([{ key: "jmev", reason: "stand_exists_for_location", mapLocationId: "hala-9" }, { key: "markus-pro", reason: "no_map_location" }]);
+    expect(await place(f)).toEqual({
+      exhibitors: COUNT,
+      stands: { created: 0, updated: 0, unchanged: PAIRS - 1 },
+      participations: { created: 0, updated: 0, unchanged: COUNT },
+      skipped: first.skipped,
+    });
+
+    const byd = await exhibitor(f, "byd");
+    const mg = await exhibitor(f, "mg");
+    const toyota = await exhibitor(f, "toyota");
+    await f.admin.mutation(api.fairAdmin.upsertStand, { eventId: f.eventId, participationId: byd.participation!._id, externalKey: "izl26-byd-hala-2", code: "2", displayName: "BYD štand", mapLocationId: "hala-2" });
+    await f.admin.mutation(api.fairAdmin.upsertStand, { eventId: f.eventId, participationId: mg.participation!._id, externalKey: "izl26-mg-hala-5", code: "5", displayName: "Štand 5", mapLocationId: "hala-5", status: "withdrawn" });
+    await f.t.run((ctx) => ctx.db.patch(toyota.participation!._id, { category: "ostalo" }));
+    const third = await place(f);
+    expect(third.stands).toEqual({ created: 0, updated: 0, unchanged: PAIRS - 3 });
+    expect(third.participations).toEqual({ created: 0, updated: 0, unchanged: COUNT });
+    expect(third.skipped).toEqual(expect.arrayContaining([
+      { key: "byd", reason: "stand_edited", mapLocationId: "hala-2" },
+      { key: "mg", reason: "stand_withdrawn", mapLocationId: "hala-5" },
+    ]));
+    const stand = (key: string) => f.t.run((ctx) => ctx.db.query("fairStands").withIndex("by_eventId_and_externalKey", (q) => q.eq("eventId", f.eventId).eq("externalKey", key)).unique());
+    expect(await stand("izl26-byd-hala-2")).toMatchObject({ displayName: "BYD štand", status: "active" });
+    expect(await stand("izl26-mg-hala-5")).toMatchObject({ status: "withdrawn" });
+    expect(await stand("izl26-jmev-hala-9")).toBeNull();
+    expect((await exhibitor(f, "toyota")).participation).toMatchObject({ category: "ostalo" });
+    const audit = await f.t.run((ctx) => ctx.db.query("adminAuditLog").withIndex("by_createdAt").collect());
+    expect(audit.filter((row) => row.action === "fair_site_exhibitors_placed")).toHaveLength(1);
+  });
+
+  test("needs the site participations first; refuses a non-admin and an unknown event; skips a withdrawn participation", async () => {
+    const f = await setup();
+    const early = await place(f);
+    expect(early.stands).toEqual({ created: 0, updated: 0, unchanged: 0 });
+    expect(early.skipped).toHaveLength(COUNT);
+    expect(new Set(early.skipped.map((row) => row.reason))).toEqual(new Set(["participation_missing"]));
+    await importList(f);
+    await expect(place(f, "klijent@example.invalid")).rejects.toThrow("fair_exhibitor_import_admin_missing");
+    await expect(place(f, ADMIN_EMAIL, "nema-takvog")).rejects.toThrow("fair_exhibitor_import_event_missing");
+    const zepter = await exhibitor(f, "zepter");
+    await f.t.run((ctx) => ctx.db.patch(zepter.participation!._id, { status: "withdrawn" }));
+    const result = await place(f);
+    expect(result.skipped).toEqual(expect.arrayContaining([{ key: "zepter", reason: "participation_withdrawn" }]));
+    expect(await standsAt(f, "ispred-12-2")).toEqual([]);
+    expect((await exhibitor(f, "zepter")).participation).toMatchObject({ status: "withdrawn" });
+  });
+
+  test("a later car import of the exhibitor finds its stand by the organizer's code: no conflict, no taken location", async () => {
+    const f = await setup();
+    await importList(f);
+    await place(f);
+    const byd = await exhibitor(f, "byd");
+    await f.admin.mutation(api.fairAdmin.ensureBrand, { accountId: byd.account._id, name: "BYD" });
+    const result = await f.admin.query(api.fairImport.dryRun, {
+      payload: {
+        version: 1,
+        eventCode: EM,
+        participations: [{
+          externalKey: "izl26-byd", accountExternalKey: "SMK-IZL26-BYD", businessExternalKey: "SML-IZL26-BYD",
+          brands: [{
+            externalKey: "byd", name: "BYD",
+            stand: { externalKey: "izl26-byd-hala-2", code: "2", displayName: "Štand 2", mapLocationId: "hala-2" },
+            models: [{ externalKey: "test-n3-byd-model", displayName: "TEST BYD model", packageTier: "included", passportEligible: false, specifications: [{ label: "TEST", value: "TEST", order: 1 }] }],
+          }],
+        }],
+      },
+    });
+    expect(result.issues.filter((issue) => issue.severity === "error")).toEqual([]);
+  });
+});
+
 describe("Izlagači 2026: the client profile of an imported exhibitor", () => {
   test("opens without a ScanMe login (event-only), shows the website; the website is checked, cleared and audited", async () => {
     const f = await setup();

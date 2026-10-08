@@ -1,11 +1,13 @@
 import { describe, expect, test } from "vitest";
 import type { FairPassportCatalogEntry, FairPublicMapStand } from "../fair-contract";
+import { AUTO_MOTO_FEST_2026_MAP } from "./auto-moto-fest-2026";
 import { ELEKTROMOBILNOST_2026_MAP } from "./elektromobilnost-2026";
-import { buildFairMapView, fairMapSearchKey, fairPassportProgressFor, searchFairMapStands } from "./view";
+import { buildFairMapView, fairMapPlacedLocation, fairMapSearchKey, fairPassportProgressFor, searchFairMapStands } from "./view";
 import type { FairMapGeometry } from "./types";
 
 function stand(id: string, mapLocationId: string, brandId: string, brandName: string, models: string[]): FairPublicMapStand {
   return {
+    participationId: `p-${id}`,
     standId: id,
     mapLocationId,
     code: `TEST-${id}`,
@@ -48,15 +50,55 @@ describe("buildFairMapView", () => {
   });
 
   test("a placeholder ScanMe location is never shown publicly; an organizer-confirmed one is", () => {
-    expect(buildFairMapView(ELEKTROMOBILNOST_2026_MAP, [], []).zones.map((zone) => zone.scanme)).toEqual([null, null]);
+    expect(buildFairMapView(AUTO_MOTO_FEST_2026_MAP, [], []).zones.map((zone) => zone.scanme)).toEqual([null, null]);
+    // N3: the organizer confirmed stand 14 in front of the hall for the Elektro fair.
+    expect(buildFairMapView(ELEKTROMOBILNOST_2026_MAP, [], []).zones.map((zone) => zone.scanme?.id ?? null)).toEqual([null, "ispred-14", null]);
     const confirmed: FairMapGeometry = {
-      ...ELEKTROMOBILNOST_2026_MAP,
-      zones: ELEKTROMOBILNOST_2026_MAP.zones.map((zone) => ({
+      ...AUTO_MOTO_FEST_2026_MAP,
+      zones: AUTO_MOTO_FEST_2026_MAP.zones.map((zone) => ({
         ...zone,
         locations: zone.locations.map((location) => (location.kind === "scanme" ? { ...location, placement: "organizer" as const } : location)),
       })),
     };
     expect(buildFairMapView(confirmed, [], []).zones.find((zone) => zone.zone.id === "ispred")!.scanme?.id).toBe("scanme");
+  });
+});
+
+describe("buildFairMapView with every exhibitor (N3)", () => {
+  const bare = (id: string, mapLocationId: string, exhibitorName: string): FairPublicMapStand => ({
+    participationId: `p-${id}`, standId: id, mapLocationId, code: id, displayName: `TEST ${id}`, exhibitorName, brands: [],
+  });
+
+  test("exhibitors without a model, a shared location, partner points, the ScanMe stand and the rear area are all placed", () => {
+    const stands = [
+      volta,
+      bare("byd", "hala-2", "TEST BYD"),
+      bare("toyota", "hala-2", "TEST Toyota"),
+      bare("lotos", "hala-partner-10b", "TEST Hotel"),
+      bare("enigma", "ispred-14", "TEST Enigma"),
+      bare("scanme", "ispred-14", "TEST ScanMe"),
+      bare("venera-19", "ispred-19", "TEST Venera"),
+      bare("venera-20", "ispred-20-22", "TEST Venera"),
+      bare("auto1", "zadnji-deo", "TEST AUTO1"),
+    ];
+    const view = buildFairMapView(ELEKTROMOBILNOST_2026_MAP, stands, [], [{ participationId: "p-markus", exhibitorName: "TEST Markus", zoneId: "ispred" }]);
+    expect(view.zones.map((zone) => [zone.zone.id, zone.stands.length])).toEqual([["hala", 4], ["ispred", 4], ["zadnji-deo", 1]]);
+    expect(view.unplaced).toEqual([]);
+    expect(view.withoutLocation.map((row) => [row.exhibitorName, row.zoneId])).toEqual([["TEST Markus", "ispred"]]);
+    // One entry per occupied location, in geometry order; a shared one lists all its stands.
+    expect(view.zones[0].locations.map((row) => [row.location.id, row.stands.map((stand) => stand.stand.standId)])).toEqual([
+      ["hala-2", ["byd", "toyota"]],
+      ["hala-12", ["a1"]],
+      ["hala-partner-10b", ["lotos"]],
+    ]);
+    expect(fairMapPlacedLocation(view, "ispred-14")).toMatchObject({ zoneId: "ispred", location: { kind: "scanme" }, stands: [{ stand: { standId: "enigma" } }, { stand: { standId: "scanme" } }] });
+    expect(fairMapPlacedLocation(view, "zadnji-deo")).toMatchObject({ zoneId: "zadnji-deo", location: { kind: "area" } });
+    expect(fairMapPlacedLocation(view, "ispred-16")).toBeNull();
+  });
+
+  test("a location that is not on the organizer map (the AMF ScanMe placeholder) takes no stand", () => {
+    const view = buildFairMapView(AUTO_MOTO_FEST_2026_MAP, [bare("x", "scanme", "TEST X")], []);
+    expect(view.unplaced.map((row) => row.standId)).toEqual(["x"]);
   });
 });
 

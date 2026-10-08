@@ -1,13 +1,21 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronRight, MapPin, Maximize2, Minus, Plus, Search, Stamp, X } from "lucide-react";
+import { ChevronRight, ExternalLink, MapPin, Maximize2, Minus, Plus, Search, Stamp, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
-import type { FairPassportCatalogEntry, FairPassportProgress, FairPassportState, FairPublicMapStand, FairSponsoredRotationView } from "@/lib/fair-contract";
+import type {
+  FairPassportCatalogEntry,
+  FairPassportProgress,
+  FairPassportState,
+  FairPublicMapStand,
+  FairPublicMapUnlocatedExhibitor,
+  FairSponsoredRotationView,
+} from "@/lib/fair-contract";
 import {
   fairMapBounds,
   fairMapLabelPoint,
   fairMapPointsAttr,
+  fairMapPlacedLocation,
   fairPassportProgressFor,
   locateFairMapStand,
   searchFairMapStands,
@@ -33,6 +41,9 @@ import styles from "./fair-event-map.module.css";
 // model's stand gets a discrete, animated highlight; still no write.
 // K2: the rotation is read live (fair-map-live-rotation.ts), starting from the
 // server-rendered projection.
+// N3: every exhibitor is listed (also without a published model or without a
+// place on the map); one polygon per occupied location — a shared location
+// opens the list of its exhibitors. Full redesign is N4.
 
 const MAX_ZOOM = 4;
 const FOCUS_ZOOM = 3;
@@ -90,6 +101,33 @@ function brandSummary(stand: FairPublicMapStand) {
   return stand.brands.map((brand) => brand.brandName).join(", ");
 }
 
+/** "Štand 12 · Ispred hale", "Partner sajma, uz 10B · Hala", "Zadnji deo". */
+function placeText(location: FairMapLocation, zoneId: FairMapZoneId) {
+  const zone = dict.zones[zoneId];
+  if (location.kind === "partner") return fmt(dict.partnerLocation, { label: location.label, zone });
+  if (location.kind === "area") return fmt(dict.areaLocation, { zone });
+  return fmt(dict.standLocation, { label: location.label, zone });
+}
+
+function withMeta(stand: FairPublicMapStand, place: string) {
+  const brands = brandSummary(stand);
+  return brands ? `${brands} · ${place}` : place;
+}
+
+function unlocatedText(exhibitor: FairPublicMapUnlocatedExhibitor) {
+  return exhibitor.zoneId ? fmt(dict.withoutLocation, { zone: dict.zones[exhibitor.zoneId] }) : dict.withoutLocationNoZone;
+}
+
+function WebsiteLink({ exhibitor, url }: { exhibitor: string; url?: string }) {
+  if (!url || !/^https?:\/\//i.test(url)) return null;
+  return (
+    <a className={styles.website} href={url} target="_blank" rel="noopener noreferrer" aria-label={fmt(dict.websiteLinkAria, { exhibitor })}>
+      {dict.websiteLink}
+      <ExternalLink aria-hidden="true" />
+    </a>
+  );
+}
+
 // -----------------------------------------------------------------------------
 // One zone: image + stand polygons, with pan / pinch / wheel / button zoom.
 // -----------------------------------------------------------------------------
@@ -112,7 +150,7 @@ function clampView(next: View, size: Size, imageWidth: number, imageHeight: numb
 function ZoneMap({
   zoneView,
   active,
-  selectedStandId,
+  selectedLocationId,
   matchIds,
   passportLabel,
   highlight,
@@ -120,12 +158,14 @@ function ZoneMap({
 }: {
   zoneView: FairMapZoneView;
   active: boolean;
-  selectedStandId: string | null;
+  /** The selected location (or the location of the selected stand). */
+  selectedLocationId: string | null;
+  /** Locations matching the search; null without a search. */
   matchIds: Set<string> | null;
   passportLabel: (entry: FairPassportCatalogEntry) => string;
   /** M2: the rotation's active stand in this zone; `key` restarts the reveal each slot. */
   highlight: { location: FairMapLocation; key: number } | null;
-  onSelect: (standId: string) => void;
+  onSelect: (locationId: string) => void;
 }) {
   const { zone } = zoneView;
   const { width: imageWidth, height: imageHeight } = zone.image;
@@ -135,7 +175,7 @@ function ZoneMap({
   const [animate, setAnimate] = useState(false);
   const [dragging, setDragging] = useState(false);
   const pointers = useRef(new Map<number, { x: number; y: number }>());
-  const gesture = useRef<{ start: View; startX: number; startY: number; distance: number; moved: number; standId: string | null } | null>(null);
+  const gesture = useRef<{ start: View; startX: number; startY: number; distance: number; moved: number; locationId: string | null } | null>(null);
 
   const base = size.w && size.h ? Math.min(size.w / imageWidth, size.h / imageHeight) : 0;
 
@@ -170,8 +210,8 @@ function ZoneMap({
 
   // Focus the selected stand once per selection (the user keeps control afterwards).
   // Derived from the selection change during render, not in an effect.
-  const selected = zoneView.stands.find((row) => row.stand.standId === selectedStandId) ?? null;
-  const focusKey = selected && active && base ? `${selected.stand.standId}:${size.w}x${size.h}` : null;
+  const selected = zoneView.locations.find((row) => row.location.id === selectedLocationId) ?? null;
+  const focusKey = selected && active && base ? `${selected.location.id}:${size.w}x${size.h}` : null;
   const [focusedKey, setFocusedKey] = useState<string | null>(null);
   if (focusKey !== focusedKey) {
     setFocusedKey(focusKey);
@@ -208,10 +248,10 @@ function ZoneMap({
     const point = local(event);
     pointers.current.set(event.pointerId, point);
     event.currentTarget.setPointerCapture(event.pointerId);
-    const standId = (event.target as Element).closest("[data-stand-id]")?.getAttribute("data-stand-id") ?? null;
+    const locationId = (event.target as Element).closest("[data-location-id]")?.getAttribute("data-location-id") ?? null;
     const all = [...pointers.current.values()];
     const distance = all.length === 2 ? Math.hypot(all[0].x - all[1].x, all[0].y - all[1].y) : 0;
-    gesture.current = { start: view, startX: point.x, startY: point.y, distance, moved: all.length > 1 ? TAP_SLOP + 1 : 0, standId };
+    gesture.current = { start: view, startX: point.x, startY: point.y, distance, moved: all.length > 1 ? TAP_SLOP + 1 : 0, locationId };
     setAnimate(false);
   };
 
@@ -250,7 +290,7 @@ function ZoneMap({
     }
     setDragging(false);
     gesture.current = null;
-    if (g && event.type === "pointerup" && g.moved <= TAP_SLOP && g.standId) onSelect(g.standId);
+    if (g && event.type === "pointerup" && g.moved <= TAP_SLOP && g.locationId) onSelect(g.locationId);
   };
 
   const scale = view.s || 1;
@@ -282,24 +322,25 @@ function ZoneMap({
                 <polygon points={fairMapPointsAttr(zoneView.scanme.polygon)} vectorEffect="non-scaling-stroke" />
               </g>
             ) : null}
-            {zoneView.stands.map(({ stand, location }) => (
+            {zoneView.locations.map(({ location, stands }) => (
               <g
-                key={stand.standId}
+                key={location.id}
                 className={styles.stand}
-                data-stand-id={stand.standId}
-                data-dimmed={matchIds !== null && !matchIds.has(stand.standId)}
+                data-location-id={location.id}
+                data-on-scanme={location.kind === "scanme" ? "true" : undefined}
+                data-dimmed={matchIds !== null && !matchIds.has(location.id)}
                 role="button"
                 tabIndex={active ? 0 : -1}
-                aria-pressed={stand.standId === selectedStandId}
-                aria-label={fmt(dict.standAria, { exhibitor: stand.exhibitorName, label: location.label })}
+                aria-pressed={location.id === selectedLocationId}
+                aria-label={fmt(dict.locationAria, { location: placeText(location, zone.id), exhibitors: stands.map((row) => row.stand.exhibitorName).join(", ") })}
                 onClick={(event) => {
                   // Keyboard / assistive activation; pointer taps are handled above.
-                  if (event.detail === 0) onSelect(stand.standId);
+                  if (event.detail === 0) onSelect(location.id);
                 }}
                 onKeyDown={(event) => {
                   if (event.key === "Enter" || event.key === " ") {
                     event.preventDefault();
-                    onSelect(stand.standId);
+                    onSelect(location.id);
                   }
                 }}
               >
@@ -329,13 +370,14 @@ function ZoneMap({
                 );
               })()
             : null}
-          {zoneView.stands
+          {zoneView.locations
+            .map(({ location, stands }) => ({ location, passports: [...new Map(stands.flatMap((row) => row.passports).map((entry) => [entry.passportId, entry])).values()] }))
             .filter((row) => row.passports.length > 0)
-            .map(({ stand, location, passports }) => {
+            .map(({ location, passports }) => {
               const [x, y] = fairMapLabelPoint(location.polygon);
               return (
                 <span
-                  key={stand.standId}
+                  key={location.id}
                   className={styles.marker}
                   aria-hidden="true"
                   style={{ left: x, top: y, transform: `translate(-50%, -50%) scale(${1 / scale})` }}
@@ -374,6 +416,9 @@ function ZoneMap({
 // Whole map: search, zone switch, zones, stand detail and exhibitor list.
 // -----------------------------------------------------------------------------
 
+/** What the detail card shows: one stand, every exhibitor of one shared location, or an exhibitor without a place on the map. */
+type Selection = { kind: "stand" | "location" | "exhibitor"; id: string };
+
 export function FairEventMap({
   eventSlug,
   view,
@@ -394,14 +439,18 @@ export function FairEventMap({
   const passport = usePassportProgress(eventSlug, hasPassports);
   const reducedMotion = useReducedMotion();
   const [zoneId, setZoneId] = useState<FairMapZoneId>(() => view.zones.find((zone) => zone.stands.length > 0)?.zone.id ?? view.zones[0].zone.id);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selection, setSelection] = useState<Selection | null>(null);
   const [query, setQuery] = useState("");
   const stageRef = useRef<HTMLDivElement>(null);
 
   const results = useMemo(() => searchFairMapStands(placed, query), [placed, query]);
-  const matchIds = query.trim() ? new Set(results.map((row) => row.stand.standId)) : null;
-  const selectedPlaced = placed.find((row) => row.stand.standId === selectedId) ?? null;
-  const selectedUnplaced = selectedPlaced ? null : (view.unplaced.find((stand) => stand.standId === selectedId) ?? null);
+  const matchIds = query.trim() ? new Set(results.map((row) => row.location.id)) : null;
+  const selectedId = selection?.kind === "stand" ? selection.id : null;
+  const selectedPlaced = selectedId ? (placed.find((row) => row.stand.standId === selectedId) ?? null) : null;
+  const selectedUnplaced = selectedId && !selectedPlaced ? (view.unplaced.find((stand) => stand.standId === selectedId) ?? null) : null;
+  const selectedLocation = selection?.kind === "location" ? fairMapPlacedLocation(view, selection.id) : null;
+  const selectedExhibitor = selection?.kind === "exhibitor" ? (view.withoutLocation.find((row) => row.participationId === selection.id) ?? null) : null;
+  const highlightedLocationId = selectedPlaced?.location.id ?? selectedLocation?.location.id ?? null;
 
   const progressFor = (entry: FairPassportCatalogEntry) => fairPassportProgressFor(passport.status === "ready" ? passport.progress : null, entry);
   const passportLabel = (entry: FairPassportCatalogEntry) => {
@@ -412,12 +461,26 @@ export function FairEventMap({
   const select = (standId: string, fromList = false) => {
     const row = placed.find((item) => item.stand.standId === standId);
     if (row) setZoneId(row.zoneId);
-    setSelectedId(standId);
+    setSelection({ kind: "stand", id: standId });
     setQuery("");
     if (fromList && row) stageRef.current?.scrollIntoView({ block: "nearest", behavior: reducedMotion ? "auto" : "smooth" });
   };
 
-  const locationText = (row: FairMapPlacedStand) => fmt(dict.standLocation, { label: row.location.label, zone: dict.zones[row.zoneId] });
+  /** A tap on the map: one exhibitor there opens it, a shared location opens the list of its exhibitors. */
+  const selectLocation = (locationId: string, fromList = false) => {
+    const hit = fairMapPlacedLocation(view, locationId);
+    if (!hit) return;
+    if (hit.stands.length === 1) {
+      select(hit.stands[0].stand.standId, fromList);
+      return;
+    }
+    setZoneId(hit.zoneId);
+    setSelection({ kind: "location", id: locationId });
+    setQuery("");
+    if (fromList) stageRef.current?.scrollIntoView({ block: "nearest", behavior: reducedMotion ? "auto" : "smooth" });
+  };
+
+  const locationText = (row: FairMapPlacedStand) => placeText(row.location, row.zoneId);
 
   const passportChip = (entry: FairPassportCatalogEntry) => {
     const own = progressFor(entry);
@@ -433,11 +496,79 @@ export function FairEventMap({
     );
   };
 
+  const brandsOf = (stand: FairPublicMapStand, passports: FairPassportCatalogEntry[]) =>
+    stand.brands.length === 0 ? (
+      <p className={styles.passportNote}>{dict.noModels}</p>
+    ) : (
+      stand.brands.map((brand) => {
+        const entry = passports.find((row) => row.brandId === brand.brandId);
+        const own = entry ? progressFor(entry) : null;
+        return (
+          <div key={brand.brandId} className={styles.brand}>
+            <div className={styles.brandHeader}>
+              <h3 className={styles.brandName}>{brand.brandName}</h3>
+              {entry ? passportChip(entry) : null}
+            </div>
+            {entry ? (
+              passport.status === "error" ? (
+                <div>
+                  <p className={styles.passportNote}>{dict.passportUnavailable}</p>
+                  <button type="button" className={styles.retry} onClick={passport.retry}>
+                    {dict.retry}
+                  </button>
+                </div>
+              ) : (
+                <p className={styles.passportNote}>
+                  {passport.status === "loading" ? dict.passportLoading : own?.completed ? dict.passportComplete : dict.passportHint}
+                </p>
+              )
+            ) : null}
+            <p className={styles.modelsLabel}>{dict.modelsLabel}</p>
+            <ul className={styles.models}>
+              {brand.models.map((model) => (
+                <li key={model.id}>
+                  <Link prefetch={false} className={styles.modelLink} href={`/sajam/${eventSlug}/model/${model.slug}`}>
+                    <span>
+                      {model.displayName}
+                      {model.variant ? <small>{model.variant}</small> : null}
+                    </span>
+                    <ChevronRight aria-hidden="true" />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        );
+      })
+    );
+
   const detailStand = selectedPlaced?.stand ?? selectedUnplaced;
-  const detailPassports = selectedPlaced?.passports ?? [];
+  // An exhibitor without a place on the map is listed under the zone the organizer names.
+  const zoneIds = new Set(view.zones.map((zoneView) => zoneView.zone.id));
+  const unlocatedIn = (zone: FairMapZoneId) => view.withoutLocation.filter((row) => row.zoneId === zone);
+  const unlocatedElsewhere = view.withoutLocation.filter((row) => !row.zoneId || !zoneIds.has(row.zoneId));
+  const unlocatedItem = (exhibitor: FairPublicMapUnlocatedExhibitor) => (
+    <li key={exhibitor.participationId}>
+      <button
+        type="button"
+        className={styles.listButton}
+        aria-pressed={selection?.kind === "exhibitor" && selection.id === exhibitor.participationId}
+        onClick={() => setSelection({ kind: "exhibitor", id: exhibitor.participationId })}
+      >
+        <span className={styles.listName}>{exhibitor.exhibitorName}</span>
+        <span className={styles.listMeta}>{unlocatedText(exhibitor)}</span>
+      </button>
+    </li>
+  );
+  const hasExhibitors = placed.length > 0 || view.unplaced.length > 0 || view.withoutLocation.length > 0;
+  const closeButton = (
+    <button type="button" className={styles.iconButton} aria-label={dict.closeDetail} onClick={() => setSelection(null)}>
+      <X aria-hidden="true" />
+    </button>
+  );
 
   return (
-    <div className={styles.root} data-display={display ? "on" : undefined}>
+    <div className={styles.root} data-display={display ? "on" : undefined} style={{ "--fair-map-zones": view.zones.length } as CSSProperties}>
       <div className={styles.toolbar}>
         <div className={styles.search}>
           <label className={styles.searchLabel} htmlFor="fair-map-search">
@@ -475,9 +606,7 @@ export function FairEventMap({
                   <li key={row.stand.standId}>
                     <button type="button" className={styles.listButton} onClick={() => select(row.stand.standId)}>
                       <span className={styles.listName}>{row.stand.exhibitorName}</span>
-                      <span className={styles.listMeta}>
-                        {brandSummary(row.stand)} · {locationText(row)}
-                      </span>
+                      <span className={styles.listMeta}>{withMeta(row.stand, locationText(row))}</span>
                     </button>
                   </li>
                 ))
@@ -509,11 +638,11 @@ export function FairEventMap({
             key={zoneView.zone.id}
             zoneView={zoneView}
             active={zoneView.zone.id === zoneId}
-            selectedStandId={selectedId}
+            selectedLocationId={highlightedLocationId}
             matchIds={matchIds}
             passportLabel={passportLabel}
             highlight={rotationStand && rotationState && rotationStand.zoneId === zoneView.zone.id ? { location: rotationStand.location, key: rotationState.slotNumber } : null}
-            onSelect={(standId) => select(standId)}
+            onSelect={(locationId) => selectLocation(locationId)}
           />
         ))}
       </div>
@@ -523,11 +652,11 @@ export function FairEventMap({
           <FairMapRotationCard
             state={rotationState}
             display={display}
-            locationText={rotationStand ? fmt(dict.standLocation, { label: rotationStand.location.label, zone: dict.zones[rotationStand.zoneId] }) : dict.standUnplaced}
+            locationText={rotationStand ? placeText(rotationStand.location, rotationStand.zoneId) : dict.standUnplaced}
             onShowStand={
               rotationStand
                 ? () => {
-                    if (rotationStand.standId) select(rotationStand.standId, true);
+                    if (rotationStand.standIds.length) selectLocation(rotationStand.location.id, true);
                     else setZoneId(rotationStand.zoneId);
                   }
                 : null
@@ -541,64 +670,56 @@ export function FairEventMap({
                 <div>
                   <h2 className={styles.detailTitle}>{detailStand.exhibitorName}</h2>
                   <p className={styles.detailMeta}>{selectedPlaced ? locationText(selectedPlaced) : dict.standUnplaced}</p>
+                  <WebsiteLink exhibitor={detailStand.exhibitorName} url={detailStand.websiteUrl} />
                 </div>
-                <button type="button" className={styles.iconButton} aria-label={dict.closeDetail} onClick={() => setSelectedId(null)}>
-                  <X aria-hidden="true" />
-                </button>
+                {closeButton}
               </div>
-              {detailStand.brands.map((brand) => {
-                const entry = detailPassports.find((row) => row.brandId === brand.brandId);
-                const own = entry ? progressFor(entry) : null;
-                return (
-                  <div key={brand.brandId} className={styles.brand}>
-                    <div className={styles.brandHeader}>
-                      <h3 className={styles.brandName}>{brand.brandName}</h3>
-                      {entry ? passportChip(entry) : null}
-                    </div>
-                    {entry ? (
-                      passport.status === "error" ? (
-                        <div>
-                          <p className={styles.passportNote}>{dict.passportUnavailable}</p>
-                          <button type="button" className={styles.retry} onClick={passport.retry}>
-                            {dict.retry}
-                          </button>
-                        </div>
-                      ) : (
-                        <p className={styles.passportNote}>
-                          {passport.status === "loading" ? dict.passportLoading : own?.completed ? dict.passportComplete : dict.passportHint}
-                        </p>
-                      )
-                    ) : null}
-                    <p className={styles.modelsLabel}>{dict.modelsLabel}</p>
-                    <ul className={styles.models}>
-                      {brand.models.map((model) => (
-                        <li key={model.id}>
-                          <Link prefetch={false} className={styles.modelLink} href={`/sajam/${eventSlug}/model/${model.slug}`}>
-                            <span>
-                              {model.displayName}
-                              {model.variant ? <small>{model.variant}</small> : null}
-                            </span>
-                            <ChevronRight aria-hidden="true" />
-                          </Link>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                );
-              })}
+              {brandsOf(detailStand, selectedPlaced?.passports ?? [])}
+            </>
+          ) : selectedLocation ? (
+            <>
+              <div className={styles.detailHeader}>
+                <div>
+                  <h2 className={styles.detailTitle}>{placeText(selectedLocation.location, selectedLocation.zoneId)}</h2>
+                  <p className={styles.detailMeta}>{dict.locationExhibitors}</p>
+                </div>
+                {closeButton}
+              </div>
+              <ul className={styles.list}>
+                {selectedLocation.stands.map((row) => (
+                  <li key={row.stand.standId}>
+                    <button type="button" className={styles.listButton} onClick={() => select(row.stand.standId)}>
+                      <span className={styles.listName}>{row.stand.exhibitorName}</span>
+                      <span className={styles.listMeta}>{brandSummary(row.stand) || dict.noModels}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </>
+          ) : selectedExhibitor ? (
+            <>
+              <div className={styles.detailHeader}>
+                <div>
+                  <h2 className={styles.detailTitle}>{selectedExhibitor.exhibitorName}</h2>
+                  <p className={styles.detailMeta}>{unlocatedText(selectedExhibitor)}</p>
+                  <WebsiteLink exhibitor={selectedExhibitor.exhibitorName} url={selectedExhibitor.websiteUrl} />
+                </div>
+                {closeButton}
+              </div>
+              <p className={styles.passportNote}>{dict.noModels}</p>
             </>
           ) : (
-            <p className={styles.hint}>{placed.length || view.unplaced.length ? dict.selectHint : dict.listEmpty}</p>
+            <p className={styles.hint}>{hasExhibitors ? dict.selectHint : dict.listEmpty}</p>
           )}
         </section>
 
-        {placed.length || view.unplaced.length ? (
+        {hasExhibitors ? (
           <section className={styles.card} aria-labelledby="fair-map-list-title">
             <h2 id="fair-map-list-title" className={styles.listTitle}>
               {dict.listTitle}
             </h2>
             {view.zones
-              .filter((zoneView) => zoneView.stands.length > 0)
+              .filter((zoneView) => zoneView.stands.length > 0 || unlocatedIn(zoneView.zone.id).length > 0)
               .map((zoneView) => (
                 <div key={zoneView.zone.id}>
                   <p className={styles.listZone}>{dict.zones[zoneView.zone.id]}</p>
@@ -615,27 +736,25 @@ export function FairEventMap({
                             {row.stand.exhibitorName}
                             {row.passports.length ? <Stamp aria-label={dict.passportLabel} /> : null}
                           </span>
-                          <span className={styles.listMeta}>
-                            {brandSummary(row.stand)} · {fmt(dict.standLocation, { label: row.location.label, zone: dict.zones[row.zoneId] })}
-                          </span>
+                          <span className={styles.listMeta}>{withMeta(row.stand, locationText(row))}</span>
                         </button>
                       </li>
                     ))}
+                    {unlocatedIn(zoneView.zone.id).map(unlocatedItem)}
                   </ul>
                 </div>
               ))}
-            {view.unplaced.length ? (
+            {view.unplaced.length || unlocatedElsewhere.length ? (
               <ul className={styles.list}>
                 {view.unplaced.map((stand) => (
                   <li key={stand.standId}>
-                    <button type="button" className={styles.listButton} aria-pressed={stand.standId === selectedId} onClick={() => setSelectedId(stand.standId)}>
+                    <button type="button" className={styles.listButton} aria-pressed={stand.standId === selectedId} onClick={() => setSelection({ kind: "stand", id: stand.standId })}>
                       <span className={styles.listName}>{stand.exhibitorName}</span>
-                      <span className={styles.listMeta}>
-                        {brandSummary(stand)} · {dict.standUnplaced}
-                      </span>
+                      <span className={styles.listMeta}>{withMeta(stand, dict.standUnplaced)}</span>
                     </button>
                   </li>
                 ))}
+                {unlocatedElsewhere.map(unlocatedItem)}
               </ul>
             ) : null}
           </section>

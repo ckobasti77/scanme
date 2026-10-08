@@ -110,7 +110,7 @@ const AUTHZ: Record<string, { module: Record<string, unknown>; functions: Record
   },
   fairImport: { module: fairImport, functions: { dryRun: A, commit: A } },
   // Izlagači 2026 — the organizer's exhibitor list and the event → printed inventory link: CLI only.
-  fairExhibitorImport: { module: fairExhibitorImport, functions: { importSiteExhibitors: I, linkEventQrInventory: I } },
+  fairExhibitorImport: { module: fairExhibitorImport, functions: { importSiteExhibitors: I, linkEventQrInventory: I, placeSiteExhibitors: I } },
   // Admin UX A10 — the event dashboard (Pregled and the section badges): numbers and links only.
   fairDashboard: { module: fairDashboard, functions: { getEventDashboard: A } },
   fairInteractionsAdmin: {

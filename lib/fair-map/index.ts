@@ -1,8 +1,9 @@
 import { AUTO_MOTO_FEST_2026_MAP } from "./auto-moto-fest-2026";
 import { ELEKTROMOBILNOST_2026_MAP } from "./elektromobilnost-2026";
-import type { FairMapGeometry, FairMapKey } from "./types";
+import { fairMapLocationTakesStands, type FairMapGeometry, type FairMapKey, type FairMapLocation, type FairMapZoneId } from "./types";
 
 export type * from "./types";
+export { fairMapLocationTakesStands } from "./types";
 export * from "./shape";
 export * from "./view";
 export * from "./rotation";
@@ -28,8 +29,22 @@ export function fairMapEventSlugCandidates(slug: string, devTestFallback: boolea
   return devTestFallback && !slug.startsWith("test-") ? [slug, `test-${slug}`] : [slug];
 }
 
-/** True when `id` is an exhibitor stand location on the event's map (never the ScanMe location). */
-export function isFairMapStandLocation(eventCode: string, id: string): boolean {
+/** The location `id` of the event's map with its zone, or null. */
+export function fairMapLocationById(eventCode: string, id: string): { zoneId: FairMapZoneId; location: FairMapLocation } | null {
   const geometry = fairMapForEventCode(eventCode);
-  return geometry !== null && geometry.zones.some((zone) => zone.locations.some((location) => location.kind === "stand" && location.id === id));
+  for (const zone of geometry?.zones ?? []) {
+    const location = zone.locations.find((row) => row.id === id);
+    if (location) return { zoneId: zone.id, location };
+  }
+  return null;
+}
+
+/**
+ * True when a fair stand (fairStands row) may sit on `id` of the event's map:
+ * every location the organizer draws (stand box, the ScanMe stand, a partner
+ * point, an open area — N3), never a placeholder that is not on the organizer map.
+ */
+export function isFairMapStandLocation(eventCode: string, id: string): boolean {
+  const hit = fairMapLocationById(eventCode, id);
+  return hit !== null && fairMapLocationTakesStands(hit.location);
 }

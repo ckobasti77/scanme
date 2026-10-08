@@ -1,8 +1,11 @@
-import type { FairPassportCatalogEntry, FairPassportProgress, FairPublicMapStand } from "../fair-contract";
-import type { FairMapGeometry, FairMapLocation, FairMapZone, FairMapZoneId } from "./types";
+import type { FairPassportCatalogEntry, FairPassportProgress, FairPublicMapStand, FairPublicMapUnlocatedExhibitor } from "../fair-contract";
+import { fairMapLocationTakesStands, type FairMapGeometry, type FairMapLocation, type FairMapZone, type FairMapZoneId } from "./types";
 
 // M1 — joins the M0 geometry with the public fair catalog (by mapLocationId)
 // and the published passport catalog. Pure: the map component renders it.
+// N3: every exhibitor is on the map (also without a published model), several
+// exhibitors may share one location, and a location may be a stand box, the
+// ScanMe stand, a partner point or an open area.
 
 export type FairMapPlacedStand = {
   stand: FairPublicMapStand;
@@ -12,33 +15,45 @@ export type FairMapPlacedStand = {
   passports: FairPassportCatalogEntry[];
 };
 
+/** N3 — one occupied map location with every stand placed on it, in catalog order. */
+export type FairMapPlacedLocation = {
+  location: FairMapLocation;
+  stands: FairMapPlacedStand[];
+};
+
 export type FairMapZoneView = {
   zone: FairMapZone;
   stands: FairMapPlacedStand[];
-  /** Only an organizer-confirmed ScanMe location is shown publicly (M0 open question 1). */
+  /** N3 — the occupied locations of this zone, each once, in geometry order. */
+  locations: FairMapPlacedLocation[];
+  /** Only an organizer-confirmed ScanMe location is shown publicly (M0 open question 1; N3: stand 14). */
   scanme: FairMapLocation | null;
 };
 
 export type FairMapView = {
   zones: FairMapZoneView[];
-  /** Published stands whose mapLocationId is not on this event's map. */
+  /** Stands whose mapLocationId is not on this event's map. */
   unplaced: FairPublicMapStand[];
+  /** N3 — exhibitors of the event without a stand yet (with the zone the organizer names, if any). */
+  withoutLocation: FairPublicMapUnlocatedExhibitor[];
 };
 
 export function buildFairMapView(
   geometry: FairMapGeometry,
   stands: readonly FairPublicMapStand[],
   passportCatalog: readonly FairPassportCatalogEntry[],
+  withoutLocation: readonly FairPublicMapUnlocatedExhibitor[] = [],
 ): FairMapView {
   const located = new Map<string, { zoneId: FairMapZoneId; location: FairMapLocation }>();
   for (const zone of geometry.zones) {
     for (const location of zone.locations) {
-      if (location.kind === "stand") located.set(location.id, { zoneId: zone.id, location });
+      if (fairMapLocationTakesStands(location)) located.set(location.id, { zoneId: zone.id, location });
     }
   }
   const zones: FairMapZoneView[] = geometry.zones.map((zone) => ({
     zone,
     stands: [],
+    locations: [],
     scanme: zone.locations.find((location) => location.kind === "scanme" && location.placement === "organizer") ?? null,
   }));
   const unplaced: FairPublicMapStand[] = [];
@@ -53,7 +68,22 @@ export function buildFairMapView(
       .find((view) => view.zone.id === hit.zoneId)!
       .stands.push({ stand, zoneId: hit.zoneId, location: hit.location, passports: passportCatalog.filter((entry) => brandIds.has(entry.brandId)) });
   }
-  return { zones, unplaced };
+  for (const view of zones) {
+    view.locations = view.zone.locations.flatMap((location) => {
+      const here = view.stands.filter((row) => row.location.id === location.id);
+      return here.length ? [{ location, stands: here }] : [];
+    });
+  }
+  return { zones, unplaced, withoutLocation: [...withoutLocation] };
+}
+
+/** N3 — the occupied location `mapLocationId` with its zone, or null. */
+export function fairMapPlacedLocation(view: FairMapView, mapLocationId: string): (FairMapPlacedLocation & { zoneId: FairMapZoneId }) | null {
+  for (const zoneView of view.zones) {
+    const hit = zoneView.locations.find((row) => row.location.id === mapLocationId);
+    if (hit) return { ...hit, zoneId: zoneView.zone.id };
+  }
+  return null;
 }
 
 /** The visitor's N/M for one passport, or null while unknown. */

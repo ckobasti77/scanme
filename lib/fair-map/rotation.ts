@@ -1,6 +1,6 @@
 import { getFairRotationItem, getFairRotationSlot } from "../fair-client/rotation-slot";
 import type { FairSponsoredModelCard, FairSponsoredRotationView } from "../fair-contract";
-import type { FairMapLocation, FairMapZoneId } from "./types";
+import { fairMapLocationTakesStands, type FairMapLocation, type FairMapZoneId } from "./types";
 import type { FairMapView } from "./view";
 
 // M2 — the map/display side of the 12 s Advanced rotation. The active item is
@@ -28,16 +28,20 @@ export function fairMapRotationSlotNumber(rotation: FairSponsoredRotationView | 
   return getFairRotationSlot({ epochMs: rotation.epochMs, nowMs, intervalMs: rotation.intervalMs, itemCount: rotation.items.length })?.slotNumber ?? -1;
 }
 
-/** Where a stand location is on the event map: its zone, polygon and (if published there) the catalog stand id. */
+/**
+ * Where a stand location is on the event map: its zone, polygon and the
+ * catalog stands placed there (N3: several exhibitors may share it; `standId`
+ * is the first of them, null when none).
+ */
 export function locateFairMapStand(
   view: FairMapView,
   mapLocationId: string,
-): { zoneId: FairMapZoneId; location: FairMapLocation; standId: string | null } | null {
+): { zoneId: FairMapZoneId; location: FairMapLocation; standId: string | null; standIds: string[] } | null {
   for (const zoneView of view.zones) {
-    const location = zoneView.zone.locations.find((row) => row.kind === "stand" && row.id === mapLocationId);
+    const location = zoneView.zone.locations.find((row) => fairMapLocationTakesStands(row) && row.id === mapLocationId);
     if (location) {
-      const placed = zoneView.stands.find((row) => row.location.id === mapLocationId);
-      return { zoneId: zoneView.zone.id, location, standId: placed?.stand.standId ?? null };
+      const standIds = zoneView.stands.filter((row) => row.location.id === mapLocationId).map((row) => row.stand.standId);
+      return { zoneId: zoneView.zone.id, location, standId: standIds[0] ?? null, standIds };
     }
   }
   return null;

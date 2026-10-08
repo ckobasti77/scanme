@@ -8,6 +8,7 @@ import {
   type FairLeadFormView,
   type FairPublicEvent,
   type FairPublicEventMap,
+  type FairPublicMapExhibitor,
   type FairPublicMapStand,
   type FairPublicModel,
   type FairSpecificationGroup,
@@ -57,6 +58,8 @@ const QUESTIONS_PER_MODEL_CAP = 50;
 // B7: the same cap publish enforces (a snapshot never holds more items).
 const SNAPSHOT_ITEMS_CAP = FAIR_SPONSORED_ITEMS_CAP;
 const MAP_MODELS_CAP = 500;
+const MAP_PARTICIPATIONS_CAP = 300;
+const MAP_STANDS_CAP = 500;
 const SLUG_MAX = 120;
 
 type PublicEvent = Infer<typeof fairPublicEventView>;
@@ -265,11 +268,18 @@ export const getModelsByIds = query({
 });
 
 /**
- * M1 — the event map: every non-withdrawn stand with at least one published
- * model, its `mapLocationId` (lib/fair-map geometry) and safe exhibitor /
- * brand / model names. One bounded read of the event's models plus one read
- * per distinct stand, participation, business and brand. A query: showing
- * the map can never write (no impression, no analytics).
+ * M1/N3 — the event map. N3 (odluka vlasnika 8. 10.): EVERY exhibitor is on
+ * the map, also without a published car:
+ *  - `stands`: every non-withdrawn stand of a non-withdrawn participation,
+ *    with its `mapLocationId` (lib/fair-map geometry; exhibitors may share
+ *    one), the exhibitor's name, logo, website and category, and the
+ *    stand's published models by brand (possibly none);
+ *  - `exhibitorsWithoutLocation`: non-withdrawn participations without such a
+ *    stand, with the zone the organizer names (if any).
+ * Bounded reads of the event's participations, stands and models plus one
+ * read per distinct business, account and brand. No contact, package or
+ * counter. A query: showing the map can never write (no impression, no
+ * analytics).
  */
 export const getEventMap = query({
   args: { eventSlug: v.string() },
@@ -277,37 +287,48 @@ export const getEventMap = query({
   handler: async (ctx, args): Promise<FairPublicEventMap | null> => {
     const event = await eventBySlug(ctx, args.eventSlug);
     if (!event || event.status === "draft") return null;
-    const models = (
-      await ctx.db
-        .query("fairEventModels")
-        .withIndex("by_eventId_and_standId", (q) => q.eq("eventId", event._id))
-        .take(MAP_MODELS_CAP)
-    )
-      .filter((model) => model.status === "published")
-      .sort((a, b) => a.sortOrder - b.sortOrder || a.displayName.localeCompare(b.displayName, "sr"));
-    const stand = memo((id: Id<"fairStands">) => ctx.db.get(id));
-    const participation = memo((id: Id<"fairParticipations">) => ctx.db.get(id));
+    const [participationRows, standRows, modelRows] = await Promise.all([
+      ctx.db.query("fairParticipations").withIndex("by_eventId_and_externalKey", (q) => q.eq("eventId", event._id)).take(MAP_PARTICIPATIONS_CAP),
+      ctx.db.query("fairStands").withIndex("by_eventId_and_externalKey", (q) => q.eq("eventId", event._id)).take(MAP_STANDS_CAP),
+      ctx.db.query("fairEventModels").withIndex("by_eventId_and_standId", (q) => q.eq("eventId", event._id)).take(MAP_MODELS_CAP),
+    ]);
     const business = memo((id: Id<"businesses">) => ctx.db.get(id));
+    const account = memo((id: Id<"accounts">) => ctx.db.get(id));
     const brand = memo((id: Id<"brands">) => ctx.db.get(id));
 
-    const stands = new Map<string, FairPublicMapStand>();
-    for (const model of models) {
-      const [standRow, participationRow, brandRow] = await Promise.all([stand(model.standId), participation(model.participationId), brand(model.brandId)]);
-      if (!standRow || standRow.status === "withdrawn" || !participationRow || !brandRow) continue;
-      const businessRow = await business(participationRow.businessId);
+    // The public face of each non-withdrawn participation (no contact, no package).
+    const exhibitors = new Map<Id<"fairParticipations">, { face: FairPublicMapExhibitor; zoneId?: Doc<"fairParticipations">["mapZoneId"] }>();
+    for (const row of participationRows) {
+      if (row.status === "withdrawn") continue;
+      const [businessRow, accountRow] = await Promise.all([business(row.businessId), account(row.accountId)]);
       if (!businessRow) continue;
-      let entry = stands.get(standRow._id);
-      if (!entry) {
-        entry = {
-          standId: standRow._id,
-          mapLocationId: standRow.mapLocationId,
-          code: standRow.code,
-          displayName: standRow.displayName,
+      const logoUrl = businessRow.logoStorageId ? ((await ctx.storage.getUrl(businessRow.logoStorageId)) ?? businessRow.logoUrl) : businessRow.logoUrl;
+      exhibitors.set(row._id, {
+        face: {
+          participationId: row._id,
           exhibitorName: businessRow.name,
-          brands: [],
-        };
-        stands.set(standRow._id, entry);
-      }
+          ...(logoUrl ? { logoUrl } : {}),
+          ...(accountRow?.websiteUrl ? { websiteUrl: accountRow.websiteUrl } : {}),
+          ...(row.category ? { category: row.category } : {}),
+        },
+        zoneId: row.mapZoneId,
+      });
+    }
+
+    const stands = new Map<Id<"fairStands">, FairPublicMapStand>();
+    for (const row of standRows) {
+      const exhibitor = row.status === "withdrawn" ? undefined : exhibitors.get(row.participationId);
+      if (!exhibitor) continue;
+      stands.set(row._id, { ...exhibitor.face, standId: row._id, mapLocationId: row.mapLocationId, code: row.code, displayName: row.displayName, brands: [] });
+    }
+
+    const published = modelRows
+      .filter((model) => model.status === "published")
+      .sort((a, b) => a.sortOrder - b.sortOrder || a.displayName.localeCompare(b.displayName, "sr"));
+    for (const model of published) {
+      const entry = stands.get(model.standId);
+      const brandRow = entry ? await brand(model.brandId) : null;
+      if (!entry || !brandRow) continue;
       let brandEntry = entry.brands.find((row) => row.brandId === brandRow._id);
       if (!brandEntry) {
         brandEntry = { brandId: brandRow._id, brandName: brandRow.name, models: [] };
@@ -315,9 +336,15 @@ export const getEventMap = query({
       }
       brandEntry.models.push({ id: model._id, slug: model.slug, displayName: model.displayName, ...(model.variant ? { variant: model.variant } : {}) });
     }
+
+    const placed = new Set([...stands.values()].map((stand) => stand.participationId));
     return {
       eventId: event._id,
-      stands: [...stands.values()].sort((a, b) => a.code.localeCompare(b.code, "sr", { numeric: true })),
+      stands: [...stands.values()].sort((a, b) => a.code.localeCompare(b.code, "sr", { numeric: true }) || a.exhibitorName.localeCompare(b.exhibitorName, "sr")),
+      exhibitorsWithoutLocation: [...exhibitors.values()]
+        .filter((row) => !placed.has(row.face.participationId))
+        .map((row) => ({ ...row.face, ...(row.zoneId ? { zoneId: row.zoneId } : {}) }))
+        .sort((a, b) => a.exhibitorName.localeCompare(b.exhibitorName, "sr")),
     };
   },
 });

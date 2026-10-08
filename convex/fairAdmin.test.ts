@@ -189,6 +189,7 @@ describe("idempotent catalog upserts and hard errors", () => {
     // Stand of another event/participation, duplicate slug, duplicate map location.
     await f.admin.mutation(api.fairAdmin.upsertModel, f.modelArgs());
     await expectCode(f.admin.mutation(api.fairAdmin.upsertModel, f.modelArgs({ externalKey: "em26-volta-x1-copy" })), "FAIR_SLUG_TAKEN");
+    // N3: a second stand of the SAME exhibitor on a location is taken; another exhibitor may share it (odluka vlasnika 8. 10.).
     await expectCode(f.admin.mutation(api.fairAdmin.upsertStand, { eventId: f.eventId, participationId: f.participationId, externalKey: "em26-stand-a13", code: "A13", displayName: "A13", mapLocationId: "hala-1a" }), "FAIR_MAP_LOCATION_TAKEN");
     await expectCode(f.admin.mutation(api.fairAdmin.upsertStand, { eventId: f.eventId, participationId: f.participationId, externalKey: "em26-stand-a14", code: "A14", displayName: "A14", mapLocationId: "  " }), "FAIR_MAP_LOCATION_INVALID");
     // M0 geometry: unknown id, another event's id and the ScanMe location are not stands of this map.

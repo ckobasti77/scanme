@@ -85,8 +85,8 @@ Napomene:
 |---|---|---|---|
 | `fairEvents` | `code`, `slug`, `title`, `venueName`, `timezone: "Europe/Belgrade"`, `startsAt`, `endsAt`, `status: draft\|published\|live\|ended\|archived`, `garagePriority`, `piiPurgeAt`, `minimumPublicVoteCount`, `robotsIndexable`, `qrInventoryBusinessId?` (B1), `createdAt`, `updatedAt` | `by_code`, `by_slug`, `by_status_and_startsAt` | `code` (upsert ključ), `slug` |
 | `fairEventDays` | `eventId`, `dateKey`, `label`, `startsAt`, `endsAt`, `sortOrder` | `by_eventId_and_dateKey` | (event, dateKey) |
-| `fairParticipations` | `externalKey`, `eventId`, `accountId`, `businessId`, `primaryContactId?`, `reportRecipientEmail?`, `leadDeliveryNote?`, `status: draft\|active\|withdrawn`, `createdAt`, `updatedAt` | `by_eventId_and_externalKey`, `by_eventId_and_businessId`, `by_accountId_and_eventId` | (event, externalKey), (event, business) |
-| `fairStands` | `eventId`, `participationId`, `externalKey`, `code`, `displayName`, `mapLocationId`, `status: draft\|active\|withdrawn`¹, `createdAt`, `updatedAt` | `by_eventId_and_externalKey`, `by_eventId_and_participationId`, `by_eventId_and_mapLocationId` | (event, externalKey); (event, mapLocationId) među ne-povučenim štandovima — privremeno pravilo seam-a `validateMapLocationIds` po B1 uputstvu (R0 nalaz 1, §9.17) |
+| `fairParticipations` | `externalKey`, `eventId`, `accountId`, `businessId`, `primaryContactId?`, `reportRecipientEmail?`, `leadDeliveryNote?`, `category?` (N3), `mapZoneId?` (N3), `status: draft\|active\|withdrawn`, `createdAt`, `updatedAt` | `by_eventId_and_externalKey`, `by_eventId_and_businessId`, `by_accountId_and_eventId` | (event, externalKey), (event, business) |
+| `fairStands` | `eventId`, `participationId`, `externalKey`, `code`, `displayName`, `mapLocationId`, `status: draft\|active\|withdrawn`¹, `createdAt`, `updatedAt` | `by_eventId_and_externalKey`, `by_eventId_and_participationId`, `by_eventId_and_mapLocationId` | (event, externalKey); (event, učešće, mapLocationId) među ne-povučenim štandovima — seam `validateMapLocationIds`. N3: različiti izlagači smeju da dele lokaciju (§9.17, §38) |
 | `fairEventModels` | `externalKey`, `eventId`, `participationId`, `brandId`, `standId`, `slug`, `displayName`, `variant?`, `priceText`, `specifications[]`², `photoStorageId?`, `photoUrl?`, `packageTier`, `packageActivatedAt`, `passportEligible`, `status: draft\|published\|withdrawn`, `sortOrder`, `createdAt`, `updatedAt` | `by_eventId_and_slug`, `by_eventId_and_externalKey`, `by_eventId_and_standId`, `by_eventId_and_brandId`, `by_eventId_and_packageTier` | (event, slug), (event, externalKey) |
 | `fairQrAssignments` | `eventId`, `eventModelId`, `accessChannelId`, `accessSubjectId`, `cardId`, `resolverCode`, `status: assigned\|released`, `assignedAt`, `releasedAt?`, `assignedByUserId`, `releasedByUserId?`, `reason?` | `by_eventModelId_and_status`, `by_accessChannelId_and_status`, `by_eventId_and_status` | najviše jedan `assigned` po modelu i po kanalu |
 | `fairPackageActivations` | `eventModelId`, `eventId`, `fromTier`, `toTier`, `activatedAt`, `actorUserId`, `note?` | `by_eventModelId_and_activatedAt` | samo dodavanje (append-only) |
@@ -325,7 +325,7 @@ Konstante rotacije u `lib/fair-contract.ts` imaju ista imena i vrednosti kao u `
 14. **Nalog „Sajam automobila 2026 — QR inventar“**: da li je `event_only`? Da li su nalepnice digitalni QR ili fizički proizvodi (QC gate)?
 15. **Saglasnost mora imenovati konkretnog izlagača**, a `fairConsentConfigs` je po eventu i vrsti. B4 renderuje snapshot sa imenom izlagača kad pravni tekst bude odobren.
 16. **Početni red u `fairPackageActivations`**: kad se model uvozi direktno kao Starter/Advanced, B1 piše red `included → tier` u trenutku `package_active_from` (`note: "initial_tier"`). Primenjeno kao lako promenljiv seam; čeka potvrdu.
-17. **Deljena lokacija na mapi (R0 nalaz 1)**: B1 seam `validateMapLocationIds` odbija dva ne-povučena štanda sa istim `mapLocationId` u istom eventu, kako traži B1 uputstvo. Ako Aleksa potvrdi da je deljena lokacija legitimna, menja se samo provera „taken“ u tom seam-u (`convex/lib/fairCatalog.ts`).
+17. **Deljena lokacija na mapi (R0 nalaz 1, O4)** — REŠENO odlukom vlasnika 8. 10. (Jovan, NOC-KONTEKST §1.3): više izlagača sme da bude na istoj lokaciji, a jedan izlagač na više lokacija. `FAIR_MAP_LOCATION_TAKEN` sada odbija samo drugi ne-povučeni štand ISTOG učešća na istoj lokaciji; nepostojeća lokacija je i dalje `FAIR_MAP_LOCATION_INVALID` (§38.3).
 18. **Pisac brendova**: aplikacija nije imala mutaciju koja pravi `brands` red. B1 dodaje `fairAdmin.ensureBrand` (ista `brands` tabela, bez logotipa i boja). Da li brend treba da nastaje ovde ili u redovnom klijentskom toku?
 19. **Oslobađanje QR-a**: `accessDestinationHistory.targetId` je obavezan i ne postoji „prazna“ destinacija, pa release ne piše novi target. Prekidač je aktivni `fairQrAssignments` red: posle release kanal prelazi u `problem` (`destination_fair_unassigned`), a ponovna dodela piše novi immutable target i red istorije.
 20. **Nadogradnja pre početka paketa**: ako je početni paket uvezen sa budućim `package_active_from`, nadogradnja uneta ranije važi od tog trenutka (`max(sada, packageActivatedAt)`), da istorija nikad ne izgleda kao spuštanje paketa.
@@ -642,7 +642,7 @@ Javni, read-only upiti bez identiteta i bez PII. Ne vraćaju kontakte, email izv
 | `getEventBySlug` | `{ slug }` | `FairPublicEvent` sa danima po `sortOrder`; `null` za `draft`, nepostojeći ili predugačak slug |
 | `getModelBySlug` | `{ eventSlug, modelSlug }` | `FairPublicModel` za `published` model; inače `null` |
 | `getModelsByIds` | `{ ids: string[] }` (najviše 50) | modeli lokalne garaže (oba događaja) redom unosa; nepoznati, neispravni, neobjavljeni i ponovljeni ID-evi se preskaču; više od 50 → `ConvexError({ code: "INVALID_INPUT" })` |
-| `getEventMap` (M1) | `{ eventSlug }` | `{ eventId, stands[] }`: ne-povučeni štandovi sa bar jednim objavljenim modelom; štand ima `standId`, `mapLocationId`, `code`, `displayName`, `exhibitorName`, `brands[{ brandId, brandName, models[{ id, slug, displayName, variant? }] }]`; `null` za `draft`/nepostojeći event |
+| `getEventMap` (M1, N3) | `{ eventSlug }` | `{ eventId, stands[], exhibitorsWithoutLocation[] }`. N3: SVAKI ne-povučeni štand ne-povučenog učešća, i bez objavljenog modela; štand ima `participationId`, `standId`, `mapLocationId`, `code`, `displayName`, `exhibitorName`, `logoUrl?`, `websiteUrl?`, `category?`, `brands[{ brandId, brandName, models[{ id, slug, displayName, variant? }] }]` (može biti prazno). `exhibitorsWithoutLocation`: ne-povučena učešća bez takvog štanda, sa `zoneId?`. `null` za `draft`/nepostojeći event (§38.5) |
 
 - `exhibitorName` je `businesses.name` učešća.
 - `specificationGroups` grupiše server po `groupId`, a grupe i stavke ređa po `groupOrder`/`order`.
@@ -1767,3 +1767,61 @@ Novi ishod `{ kind: "fair_admin_link", eventSlug, cardCode }` vraća se PRE bilo
   - `listRecentLinks`, obogaćena čitanja, `bulkRetarget` ne gazi nalepnicu;
   - resolver: admin + nepovezana / oslobođena / nacrt / povučen → prečica bez reda u `cardScanEvents`; posetilac i ne-admin → `invalid` kao pre; admin + objavljen → `fair_model` / `admin_excluded`; oštećena, panel i kartica van sajma → nepromenjeno.
 - `lib/admin-v1/qr-filters.test.ts` (broj nalepnice u pretrazi i „Otvori detalj“), `convex/fairImport.test.ts` (polje koda u importu prima oznaku, panel odbijen), `convex/fairAdminQr.test.ts` i `convex/fairAuthz.test.ts` (tri nove funkcije su admin-only), `convex/fairSchema.test.ts` (novi indeks `fairEvents`).
+
+## 38. N3 — mape organizatora od 7. 10., svih 38 izlagača, deljene lokacije
+
+Odluke vlasnika 8. 10. (NOC-KONTEKST §1.2–§1.4): na mapi su svi izlagači sa sajta organizatora, i oni bez objavljenog automobila; deljeni štandovi su dozvoljeni (O4); ScanMe štand je štand 14 ispred hale (organizator potvrdio, O3).
+
+### 38.1 Geometrija (`lib/fair-map/elektromobilnost-2026.ts`, `capturedOn: "2026-10-07"`)
+
+| Zona | Slika (`public/sajam/mape/`) | Fajl organizatora | Lokacije |
+|---|---|---|---|
+| `hala` | `elektro-hala.jpg` 1375×1080 | `mapa-popunjena-0910-0710.jpg` | 11 štandova (poligoni iz M0, m² sa mape) + partnerske tačke `hala-partner-10b` (Hotel Lotos) i `hala-partner-10a` (Restoran Vidovdan) |
+| `ispred` | `elektro-ispred.jpg` 1239×1080 | `mapa-popunjena-0910-ispred-0510-1.jpg` | sve iznova: `ispred-12-1/2`, `ispred-13-1…4`, `ispred-14` (ScanMe), `ispred-15-1…4`, `ispred-16`, `ispred-17`, `ispred-18`, `ispred-19`, `ispred-20-22`; S1–S5 i stari placeholder `scanme` su uklonjeni |
+| `zadnji-deo` | `elektro-zadnji-deo.jpg` 1920×988 | `mapa-zadnji-deo.jpg` | jedna oblast `zadnji-deo` (zeleni obris) |
+
+- Vrste lokacije (`FairMapLocation.kind`): `stand`, `scanme` (jedina, `placement: "organizer"` na Elektro mapi), `partner` (tačka, ne štand) i `area` (otvoren prostor bez brojeva).
+- Podeljeni štandovi 12, 13 i 15: svaka kutija je svoja lokacija sa oznakom grupe; `zone.groups` nosi oznaku i m² štanda (oznaka se prikazuje jednom).
+- Orijentiri: `entrance`, `stairs`, `parking`, `totem`.
+- `isFairMapStandLocation` (seam u `validateMapLocationIds`): štand sme na svaku lokaciju koju organizator crta (`placement: "organizer"`), nikad na placeholder. AMF geometrija je nepromenjena (ScanMe placeholder i dalje ne prima štand).
+
+### 38.2 Šema (aditivno)
+
+| Izmena | Zašto |
+|---|---|
+| `fairParticipations.category?` (`automobili \| moto \| energija \| usluge \| hrana \| ostalo \| scanme`, `FAIR_EXHIBITOR_CATEGORIES`) | jedna kategorija izlagača za filter mape |
+| `fairParticipations.mapZoneId?` (`hala \| ispred \| zadnji-deo`, `FAIR_MAP_ZONE_IDS`) | zona koju organizator navodi za izlagača koji još nema mesto na mapi |
+
+Bez novih indeksa. Postojeći redovi rade bez izmene.
+
+### 38.3 Deljene lokacije (`validateMapLocationIds`, `eventValidationIssues`)
+
+- `FAIR_MAP_LOCATION_TAKEN` = drugi ne-povučeni štand ISTOG učešća (drugi `externalKey`) na istoj lokaciji; u importu i drugi štand iste grupe učešća u istom paketu.
+- Različita učešća na istoj lokaciji: dozvoljeno (upis, import, objava modela, admin provera objave).
+- Čitanje: štandovi jednog učešća (`fairStands.by_eventId_and_participationId`, `take(100)`).
+- Import tabele (`lib/fair-import/to-payload.ts`): oznaka štanda se traži prvo među štandovima istog izlagača; tuđa ista oznaka daje novi štand tog izlagača na istoj lokaciji (ključ `<učešće>-stand-<oznaka>`), nikad tuđi red.
+
+### 38.4 `fairExhibitorImport.placeSiteExhibitors` (internal mutation, samo CLI)
+
+- Args `{ ownerEmail, eventCode, list: "elektromobilnost-2026" }`; `ownerEmail` mora biti ScanMe admin (`fair_exhibitor_import_admin_missing`), događaj mora postojati (`fair_exhibitor_import_event_missing`). Ide posle `importSiteExhibitors`.
+- Za svaki par (učešće `izl26-<ključ>`, lokacija iz `lib/fair-import/izlagaci-2026.ts`) jedan `fairStands` red: `externalKey` = `izl26-<ključ>-<mapLocationId>`, `code` = oznaka organizatora (`"2"`, `"13"`, `"20–22"`, `"uz 10B"`, `"Zadnji deo"`), `displayName` = „Štand 2“, „Uz 10B“, „Zadnji deo“, `status: active`, kroz `upsertFairStand`.
+- Na učešće upisuje `category`, a izlagaču bez lokacije i `mapZoneId` — samo ako polje još nije postavljeno.
+- Idempotentno; nikad ne gazi ručnu izmenu i nikad ništa ne povlači niti vraća. Preskače sa razlogom: `no_map_location` (Markus Pro), `participation_missing`, `participation_withdrawn`, `location_not_on_map`, `stand_withdrawn`, `stand_edited` (štand sa našim ključem je ručno menjan), `stand_exists_for_location` (tim je izlagaču ručno napravio štand na toj lokaciji).
+- Vraća `{ exhibitors, stands: { created, updated, unchanged }, participations: { created, updated, unchanged }, skipped[{ key, reason, mapLocationId? }] }`; audit `fair_site_exhibitors_placed` samo kad nešto upiše.
+
+### 38.5 Javni upit mape (`fairPublic.getEventMap`)
+
+- Ograničena čitanja: učešća (300), štandovi (500) i modeli (500) događaja, plus jedno čitanje po biznisu, nalogu i brendu. Samo upit: bez upisa, impression-a i analitike.
+- `logoUrl` = URL otpremljenog logotipa (`logoStorageId`), inače `businesses.logoUrl`; `websiteUrl` = `accounts.websiteUrl`. Bez kontakta, paketa, SMK/SML koda i brojača.
+- Stari oblik je zadržan (sva ranija polja, isto značenje); novo je `participationId`, opciona polja izlagača, prazni `brands` i `exhibitorsWithoutLocation`.
+- Validator `fairPublicEventMapView` (`convex/lib/fairValidators.ts`) ima test jednakosti sa `FairPublicEventMap`.
+
+### 38.6 Testovi
+
+- `lib/fair-map/geometry.test.ts`: stvarna veličina JPEG-a za svaku zonu, tri zone Elektro mape, štandovi i m², partnerske tačke uz 10B/10A, nova lista ispred hale bez S1–S5, grupe 12/13/15, ScanMe 14, orijentiri, zadnji deo, AMF nepromenjen.
+- `lib/fair-map/view.test.ts`, `rotation.test.ts`: deljene lokacije, partner, oblast, izlagači bez lokacije, ScanMe 14 javno vidljiv.
+- `lib/fair-import/izlagaci-2026.test.ts`: tabela §3 (ko je gde), kategorije, samo Markus Pro bez lokacije, Venera Bike na tri mesta, polja štanda.
+- `lib/fair-import/to-payload.test.ts`: deljena oznaka štanda u importu tabele.
+- `convex/fairExhibitorImport.test.ts`: `placeSiteExhibitors` (39 štandova, deljene lokacije, kategorija, Markus Pro), idempotentnost, ručne izmene, povučeno, admin/događaj, kasniji import automobila nalazi štand.
+- `convex/fairPublic.test.ts`: svi izlagači, logo/sajt/kategorija, izlagači bez lokacije, povučeni van mape, bez upisa; admin provera objave ne prijavljuje deljenu lokaciju.
+- `convex/fairImport.test.ts` (isto učešće dva štanda = taken, drugo učešće = dozvoljeno), `convex/fairAuthz.test.ts` (`placeSiteExhibitors` je internal), `convex/fairSchema.test.ts` (nova polja i validatori).

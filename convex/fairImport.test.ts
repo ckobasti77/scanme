@@ -164,14 +164,17 @@ describe("dry run", () => {
     const dup = payload({ x1, z1: x1 });
     dup.participations[0].brands[0].models[0].packageTier = "included";
     dup.participations[1].brands[0].models.push({ ...dup.participations[1].brands[0].models[0], externalKey: "em26-om-z1b", assignedResolverCode: undefined });
+    // N3: another exhibitor on the same location is allowed; a second stand of the same exhibitor there is taken.
     dup.participations[1].brands[0].stand.mapLocationId = "hala-1a";
+    dup.participations[1].brands.push({ ...dup.participations[1].brands[0], externalKey: "om-2", stand: { externalKey: "em26-stand-b4", code: "B4", mapLocationId: "hala-1a" }, models: [] });
     const dupErrors = (await f.admin.query(api.fairImport.dryRun, { payload: dup })).issues.filter((i) => i.severity === "error").map((i) => `${i.code}:${i.path}`);
     expect(dupErrors).toEqual(expect.arrayContaining([
       "FAIR_PACKAGE_DOWNGRADE:participations[0].brands[0].models[0].packageTier",
       "FAIR_QR_ALREADY_ASSIGNED:participations[1].brands[0].models[0].assignedResolverCode",
       "FAIR_SLUG_TAKEN:participations[1].brands[0].models[1].slug",
-      "FAIR_MAP_LOCATION_TAKEN:participations[1].brands[0].stand.mapLocationId",
+      "FAIR_MAP_LOCATION_TAKEN:participations[1].brands[1].stand.mapLocationId",
     ]));
+    expect(dupErrors).not.toContain("FAIR_MAP_LOCATION_TAKEN:participations[1].brands[0].stand.mapLocationId");
 
     const unsupported = await f.admin.query(api.fairImport.dryRun, { payload: { ...payload(), version: 2 } });
     expect(unsupported.issues).toEqual([expect.objectContaining({ code: "FAIR_IMPORT_VERSION_UNSUPPORTED" })]);

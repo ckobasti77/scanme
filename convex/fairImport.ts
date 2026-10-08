@@ -168,7 +168,7 @@ export async function planFairImport(ctx: QueryCtx | MutationCtx, payload: FairI
   const modelKeys = new Set<string>();
   const slugs = new Set<string>();
   const resolverCodes = new Set<string>();
-  const mapEntries: Array<{ standKey: string; mapLocationId: string; path: string }> = [];
+  const mapEntries: Parameters<typeof validateMapLocationIds>[2][number][] = [];
 
   for (const [pIndex, p] of payload.participations.entries()) {
     const pPath = `participations[${pIndex}]`;
@@ -258,7 +258,7 @@ export async function planFairImport(ctx: QueryCtx | MutationCtx, payload: FairI
           issues.push(fairIssue("error", "FAIR_LINK_CONFLICT", sPath, { link: "stand" }));
         }
         plan.stands.set(s.externalKey, { input: s, participationKey: p.externalKey, displayName: s.displayName?.trim() || brand.name, existing: existingStand });
-        mapEntries.push({ standKey: s.externalKey, mapLocationId: s.mapLocationId, path: `${sPath}.mapLocationId` });
+        mapEntries.push({ standKey: s.externalKey, participationKey: p.externalKey, participationId: existing?._id, mapLocationId: s.mapLocationId, path: `${sPath}.mapLocationId` });
       }
 
       const plannedBrand: PlannedBrand = { brandId: brand._id, standKey: s.externalKey, models: [] };

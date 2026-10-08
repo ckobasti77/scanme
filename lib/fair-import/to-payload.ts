@@ -271,16 +271,22 @@ export function buildImportPayload(
     const brandName = cells.value("brand") || defaults.brand?.trim() || "";
     if (!brandName) fail("brand", "IMPORT_BRAND_MISSING");
 
-    // Stand: a code of a stand this event already has (keeps its key and map
-    // place), or a new stand with its map location; else the default stand.
+    // Stand: a code of a stand this exhibitor already has (keeps its key and
+    // map place), or a new stand with its map location; else the default
+    // stand. N3: exhibitors share stand codes ("2" holds six of them), so a
+    // code of another exhibitor's stand gives this exhibitor its own stand on
+    // the same location, never the other exhibitor's row.
     const standCode = cells.value("standCode");
     let stand: Brand["stand"] | null = null;
     if (standCode) {
       const candidates = context.stands.filter((row) => upper(row.code) === upper(standCode));
-      const existing = candidates.find((row) => row.id === participation?.id) ?? candidates[0];
+      const existing = participation ? candidates.find((row) => row.participationId === participation?.id) : candidates[0];
+      const shared = existing ? undefined : candidates[0];
       const standName = cells.value("standName");
-      if (existing) stand = { externalKey: existing.externalKey, code: existing.code, displayName: standName || existing.displayName, mapLocationId: cells.value("mapLocationId") || existing.mapLocationId };
-      else if (cells.value("mapLocationId")) stand = { externalKey: joinKey(context.eventCode, "stand", standCode), code: standCode, ...(standName ? { displayName: standName } : {}), mapLocationId: cells.value("mapLocationId") };
+      const mapLocationId = cells.value("mapLocationId") || existing?.mapLocationId || shared?.mapLocationId || "";
+      if (existing) stand = { externalKey: existing.externalKey, code: existing.code, displayName: standName || existing.displayName, mapLocationId };
+      else if (shared && participation) stand = { externalKey: joinKey(participation.externalKey, "stand", standCode), code: shared.code, ...(standName ? { displayName: standName } : {}), mapLocationId };
+      else if (mapLocationId) stand = { externalKey: joinKey(context.eventCode, "stand", standCode), code: standCode, ...(standName ? { displayName: standName } : {}), mapLocationId };
       else fail("mapLocationId", "IMPORT_STAND_LOCATION_MISSING");
     } else if (defaultStand) {
       stand = { externalKey: defaultStand.externalKey, code: defaultStand.code, displayName: defaultStand.displayName, mapLocationId: defaultStand.mapLocationId };

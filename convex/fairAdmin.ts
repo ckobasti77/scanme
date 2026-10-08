@@ -644,7 +644,8 @@ export function eventValidationIssues(
     const mapIssues: FairAdminIssue[] = [];
     if (stand) {
       if (!isFairEventMapLocationId(event.code, stand.mapLocationId)) mapIssues.push({ severity: "error", code: "FAIR_MAP_LOCATION_INVALID", path: "stand.mapLocationId" });
-      else if (stands.some((other) => other._id !== stand._id && other.status !== "withdrawn" && other.mapLocationId === stand.mapLocationId)) {
+      // N3: only a second stand of the same exhibitor on the location is "taken"; exhibitors may share it.
+      else if (stands.some((other) => other._id !== stand._id && other.participationId === stand.participationId && other.status !== "withdrawn" && other.mapLocationId === stand.mapLocationId)) {
         mapIssues.push({ severity: "error", code: "FAIR_MAP_LOCATION_TAKEN", path: "stand.mapLocationId", details: { mapLocationId: stand.mapLocationId } });
       }
     }

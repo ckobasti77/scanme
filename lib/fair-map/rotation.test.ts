@@ -62,11 +62,17 @@ describe("locateFairMapStand", () => {
   test("finds the zone and polygon of a stand, with the catalog stand id when it is published there", () => {
     const view = buildFairMapView(
       ELEKTROMOBILNOST_2026_MAP,
-      [{ standId: "st1", mapLocationId: "hala-12", code: "TEST-A1", displayName: "TEST", exhibitorName: "TEST A", brands: [] }],
+      [
+        { participationId: "p1", standId: "st1", mapLocationId: "hala-12", code: "TEST-A1", displayName: "TEST", exhibitorName: "TEST A", brands: [] },
+        { participationId: "p2", standId: "st2", mapLocationId: "ispred-14", code: "14", displayName: "TEST", exhibitorName: "TEST B", brands: [] },
+        { participationId: "p3", standId: "st3", mapLocationId: "ispred-14", code: "14", displayName: "TEST", exhibitorName: "TEST C", brands: [] },
+      ],
       [],
     );
-    expect(locateFairMapStand(view, "hala-12")).toMatchObject({ zoneId: "hala", standId: "st1", location: { label: "12" } });
-    expect(locateFairMapStand(view, "ispred-18")).toMatchObject({ zoneId: "ispred", standId: null });
+    expect(locateFairMapStand(view, "hala-12")).toMatchObject({ zoneId: "hala", standId: "st1", standIds: ["st1"], location: { label: "12" } });
+    expect(locateFairMapStand(view, "ispred-18")).toMatchObject({ zoneId: "ispred", standId: null, standIds: [] });
+    // N3: a shared location (the ScanMe stand 14) carries every stand placed there.
+    expect(locateFairMapStand(view, "ispred-14")).toMatchObject({ zoneId: "ispred", standId: "st2", standIds: ["st2", "st3"], location: { kind: "scanme" } });
     expect(locateFairMapStand(view, "scanme")).toBeNull();
     expect(locateFairMapStand(view, "hala-99")).toBeNull();
   });

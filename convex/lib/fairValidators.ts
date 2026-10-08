@@ -27,6 +27,20 @@ export const fairParticipationStatus = v.union(
   v.literal("withdrawn"),
 );
 
+/** N3 — FAIR_EXHIBITOR_CATEGORIES: the exhibitor's one map-filter category. */
+export const fairExhibitorCategory = v.union(
+  v.literal("automobili"),
+  v.literal("moto"),
+  v.literal("energija"),
+  v.literal("usluge"),
+  v.literal("hrana"),
+  v.literal("ostalo"),
+  v.literal("scanme"),
+);
+
+/** N3 — FAIR_MAP_ZONE_IDS. */
+export const fairMapZoneId = v.union(v.literal("hala"), v.literal("ispred"), v.literal("zadnji-deo"));
+
 // B0 placeholder (HANDOFF §5.1 names the field without values).
 export const fairStandStatus = v.union(
   v.literal("draft"),
@@ -403,15 +417,24 @@ export const fairPassportFavoriteResultView = v.union(
 );
 
 // M1 — public event map (fairPublic.getEventMap)
+const fairPublicMapExhibitorFields = {
+  participationId: v.string(),
+  exhibitorName: v.string(),
+  logoUrl: v.optional(v.string()),
+  websiteUrl: v.optional(v.string()),
+  category: v.optional(fairExhibitorCategory),
+};
+
 export const fairPublicEventMapView = v.object({
   eventId: v.string(),
+  exhibitorsWithoutLocation: v.array(v.object({ ...fairPublicMapExhibitorFields, zoneId: v.optional(fairMapZoneId) })),
   stands: v.array(
     v.object({
+      ...fairPublicMapExhibitorFields,
       standId: v.string(),
       mapLocationId: v.string(),
       code: v.string(),
       displayName: v.string(),
-      exhibitorName: v.string(),
       brands: v.array(
         v.object({
           brandId: v.string(),

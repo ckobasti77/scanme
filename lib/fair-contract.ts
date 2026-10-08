@@ -19,6 +19,17 @@
 export const FAIR_PACKAGE_TIERS = ["included", "starter", "advanced"] as const;
 export type FairPackageTier = (typeof FAIR_PACKAGE_TIERS)[number];
 
+/**
+ * N3 — the one category of an exhibitor for the map filter (NOC-KONTEKST §3,
+ * odluka vlasnika 8. 10.). Stored on `fairParticipations.category`.
+ */
+export const FAIR_EXHIBITOR_CATEGORIES = ["automobili", "moto", "energija", "usluge", "hrana", "ostalo", "scanme"] as const;
+export type FairExhibitorCategory = (typeof FAIR_EXHIBITOR_CATEGORIES)[number];
+
+/** N3 — the zones of a fair map (lib/fair-map); `zadnji-deo` exists only where the organizer draws it. */
+export const FAIR_MAP_ZONE_IDS = ["hala", "ispred", "zadnji-deo"] as const;
+export type FairMapZoneIdValue = (typeof FAIR_MAP_ZONE_IDS)[number];
+
 export type FairEventStatus = "draft" | "published" | "live" | "ended" | "archived";
 export type FairParticipationStatus = "draft" | "active" | "withdrawn";
 /** B0 placeholder: HANDOFF §5.1 names `fairStands.status` without values. */
@@ -341,22 +352,51 @@ export type FairPublicMapModel = {
   variant?: string;
 };
 
+/** N3 — the public face of an exhibitor on the map: no contact, no package. */
+export type FairPublicMapExhibitor = {
+  participationId: string;
+  exhibitorName: string;
+  /** `businesses.logoUrl`, or the URL of the uploaded logo. */
+  logoUrl?: string;
+  /** `accounts.websiteUrl` (the link the organizer gives). */
+  websiteUrl?: string;
+  category?: FairExhibitorCategory;
+};
+
 /**
- * M1 — one non-withdrawn stand with at least one published model, keyed to
- * the map geometry by `mapLocationId` (lib/fair-map). No contacts or package tiers.
+ * M1/N3 — one non-withdrawn stand of a non-withdrawn participation, keyed to
+ * the map geometry by `mapLocationId` (lib/fair-map). Since N3 every such
+ * stand is listed, also without a published model (`brands` is then empty);
+ * different exhibitors may share one location. No contacts or package tiers.
  */
 export type FairPublicMapStand = {
+  participationId: string;
+  exhibitorName: string;
+  logoUrl?: string;
+  websiteUrl?: string;
+  category?: FairExhibitorCategory;
   standId: string;
   mapLocationId: string;
   code: string;
   displayName: string;
-  exhibitorName: string;
+  /** Published models of this stand, grouped by brand (may be empty). */
   brands: Array<{ brandId: string; brandName: string; models: FairPublicMapModel[] }>;
+};
+
+/** N3 — an exhibitor of the event without a stand yet; `zoneId` is the zone the organizer names, if any. */
+export type FairPublicMapUnlocatedExhibitor = {
+  participationId: string;
+  exhibitorName: string;
+  logoUrl?: string;
+  websiteUrl?: string;
+  category?: FairExhibitorCategory;
+  zoneId?: FairMapZoneIdValue;
 };
 
 export type FairPublicEventMap = {
   eventId: string;
   stands: FairPublicMapStand[];
+  exhibitorsWithoutLocation: FairPublicMapUnlocatedExhibitor[];
 };
 
 export type FairChoiceOptionView = {

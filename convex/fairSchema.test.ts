@@ -18,7 +18,9 @@ import {
   fairClientSegment,
   fairContactRequirement,
   fairEventStatus,
+  fairExhibitorCategory,
   fairLeadKind,
+  fairMapZoneId,
   fairModelStatus,
   fairPackageTier,
   fairReportStatus,
@@ -32,7 +34,9 @@ import {
   type FairClientSegment,
   type FairContactRequirement,
   type FairEventStatus,
+  type FairExhibitorCategory,
   type FairLeadKind,
+  type FairMapZoneIdValue,
   type FairModelStatus,
   type FairPackageTier,
   type FairReportStatus,
@@ -819,6 +823,8 @@ describe("contract types and Convex validators never drift", () => {
     expectTypeOf<Infer<typeof fairSponsoredActionKind>>().toEqualTypeOf<FairSponsoredActionKind>();
     expectTypeOf<Infer<typeof fairSponsoredActionSurface>>().toEqualTypeOf<FairSponsoredActionSurface>();
     expectTypeOf<Infer<typeof fairClientSegment>>().toEqualTypeOf<FairClientSegment>();
+    expectTypeOf<Infer<typeof fairExhibitorCategory>>().toEqualTypeOf<FairExhibitorCategory>();
+    expectTypeOf<Infer<typeof fairMapZoneId>>().toEqualTypeOf<FairMapZoneIdValue>();
   });
 
   test("stored documents expose the contract types", () => {
@@ -835,6 +841,8 @@ describe("contract types and Convex validators never drift", () => {
     expectTypeOf<Doc<"fairEventModels">["packageTier"]>().toEqualTypeOf<FairPackageTier>();
     expectTypeOf<Doc<"fairLeads">["consentAccepted"]>().toEqualTypeOf<true>();
     expectTypeOf<Doc<"fairSponsoredEvents">["surface"]>().toEqualTypeOf<"garage">();
+    expectTypeOf<Doc<"fairParticipations">["category"]>().toEqualTypeOf<FairExhibitorCategory | undefined>();
+    expectTypeOf<Doc<"fairParticipations">["mapZoneId"]>().toEqualTypeOf<FairMapZoneIdValue | undefined>();
   });
 
   test("the PII purge instant is 16 Nov 2026 00:00 in Europe/Belgrade", () => {

@@ -27,6 +27,7 @@ import type {
   FairEventStatus,
   FairFollowUpField,
   FairFollowUpTemplateStatus,
+  FairExhibitorCategory,
   FairLeadActivityGroup,
   FairLeadKind,
   FairModelStatus,
@@ -136,6 +137,17 @@ export interface FairMapDict {
   passportUnavailable: string;
   passportHint: string;
   scanmeStand: string;
+  // N3: every exhibitor, shared locations, partner points, the rear area
+  categories: Record<FairExhibitorCategory, string>;
+  partnerLocation: string;
+  areaLocation: string;
+  locationAria: string;
+  locationExhibitors: string;
+  withoutLocation: string;
+  withoutLocationNoZone: string;
+  noModels: string;
+  websiteLink: string;
+  websiteLinkAria: string;
   // M2 12 s Advanced rotation on the map/display
   rotationLabel: string;
   rotationAria: string;

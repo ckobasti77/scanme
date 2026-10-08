@@ -10,7 +10,7 @@ import rateLimiterTest from "@convex-dev/rate-limiter/test";
 import type { Infer } from "convex/values";
 import { afterEach, beforeEach, describe, expect, expectTypeOf, test, vi } from "vitest";
 import { api } from "./_generated/api";
-import type { TableNames } from "./_generated/dataModel";
+import type { Doc, Id, TableNames } from "./_generated/dataModel";
 import schema from "./schema";
 import { fairPublicEventMapView, fairPublicEventView, fairPublicModelView } from "./lib/fairValidators";
 import type { FairPublicEvent, FairPublicEventMap, FairPublicModel } from "../lib/fair-contract";
@@ -233,8 +233,10 @@ describe("getEventMap (M1)", () => {
     expect(map!.eventId).toBe(f.em.eventId);
     expect(map!.stands).toHaveLength(1);
     const [stand] = map!.stands;
-    expect(Object.keys(stand).sort()).toEqual(["brands", "code", "displayName", "exhibitorName", "mapLocationId", "standId"]);
-    expect(stand).toMatchObject({ standId: f.em.standId, mapLocationId: "ispred-14", code: "TEST-A1", exhibitorName: "TEST izlagač" });
+    // N3 adds participationId (+ logoUrl, websiteUrl, category when present); the TEST exhibitor has none of the optional ones.
+    expect(Object.keys(stand).sort()).toEqual(["brands", "code", "displayName", "exhibitorName", "mapLocationId", "participationId", "standId"]);
+    expect(stand).toMatchObject({ standId: f.em.standId, participationId: f.em.participationId, mapLocationId: "ispred-14", code: "TEST-A1", exhibitorName: "TEST izlagač" });
+    expect(map!.exhibitorsWithoutLocation).toEqual([]);
     expect(stand.brands).toHaveLength(1);
     expect(stand.brands[0]).toMatchObject({ brandId: f.brandId, brandName: "TEST Volta" });
     const ids = stand.brands[0].models.map((model) => model.id).sort();
@@ -246,6 +248,56 @@ describe("getEventMap (M1)", () => {
     for (const table of ["fairScanEvents", "fairUniqueScans", "fairVisitors", "fairMetricCountShards", "cardScanEvents", "fairSponsoredEvents"] as const) {
       expect(await rows(f.t, table), table).toEqual([]);
     }
+  });
+
+  test("N3: every exhibitor — also without a published car or a stand — with logo, website and category; exhibitors share a location; withdrawn ones stay off", async () => {
+    const f = await setup();
+    const other = await f.t.run(async (ctx) => {
+      const client = async (code: string, extra: { websiteUrl?: string; logoUrl?: string }) => {
+        const accountId = await ctx.db.insert("accounts", {
+          name: `TEST ${code}`, plan: "basic", status: "active", smkCode: `SMK-TP-${code}`, ownerDisplayName: "TEST vlasnik", normalizedOwnerDisplayName: "test vlasnik",
+          clientStatus: "active", adminV1MigrationVersion: 1, ...(extra.websiteUrl ? { websiteUrl: extra.websiteUrl } : {}), createdAt: NOW, updatedAt: NOW,
+        });
+        const businessId = await ctx.db.insert("businesses", {
+          accountId, name: `TEST izlagač ${code}`, slug: `test-izlagac-${code.toLowerCase()}`, smlCode: `SML-TP-${code}`, kind: "business", clientStatus: "active",
+          adminV1MigrationVersion: 1, status: "active", ...(extra.logoUrl ? { logoUrl: extra.logoUrl } : {}), createdAt: NOW,
+        });
+        return { accountId, businessId };
+      };
+      const participation = async (code: string, ids: { accountId: Id<"accounts">; businessId: Id<"businesses"> }, fields: Partial<Doc<"fairParticipations">>) =>
+        ctx.db.insert("fairParticipations", { externalKey: `test-n3-${code.toLowerCase()}`, eventId: f.em.eventId, ...ids, status: "active", createdAt: NOW, updatedAt: NOW, ...fields });
+      const b = await client("B", { websiteUrl: "https://primer-b.example.invalid/", logoUrl: "/fair/izlagaci/2026/test-b.jpg" });
+      const c = await client("C", {});
+      const d = await client("D", {});
+      return {
+        b: await participation("B", b, { category: "moto" }),
+        c: await participation("C", c, { category: "usluge", mapZoneId: "ispred" }),
+        d: await participation("D", d, { status: "withdrawn" }),
+      };
+    });
+    // Different exhibitors share one location: no FAIR_MAP_LOCATION_TAKEN (odluka vlasnika 8. 10.).
+    const { standId } = await f.admin.mutation(api.fairAdmin.upsertStand, { eventId: f.em.eventId, participationId: other.b, externalKey: "test-n3-b-14", code: "14", displayName: "Štand 14", mapLocationId: "ispred-14" });
+    await f.admin.mutation(api.fairAdmin.upsertStand, { eventId: f.em.eventId, participationId: other.b, externalKey: "test-n3-b-2", code: "2", displayName: "Štand 2", mapLocationId: "hala-2", status: "withdrawn" });
+    await f.t.run(async (ctx) => {
+      await ctx.db.insert("fairStands", { eventId: f.em.eventId, participationId: other.d, externalKey: "test-n3-d-17", code: "17", displayName: "Štand 17", mapLocationId: "ispred-17", status: "active", createdAt: NOW, updatedAt: NOW });
+    });
+    const before = await Promise.all((["fairScanEvents", "fairVisitors", "fairSponsoredEvents", "adminAuditLog"] as const).map((table) => rows(f.t, table)));
+
+    const map = (await f.t.query(api.fairPublic.getEventMap, { eventSlug: "test-elektromobilnost-2026" }))!;
+    expect(map.stands.map((row) => row.exhibitorName).sort((x, y) => x.localeCompare(y, "sr"))).toEqual(["TEST izlagač", "TEST izlagač B"]);
+    expect(map.stands.map((row) => row.mapLocationId)).toEqual(["ispred-14", "ispred-14"]);
+    expect(map.stands.find((row) => row.standId === standId)).toEqual({
+      participationId: other.b, exhibitorName: "TEST izlagač B", logoUrl: "/fair/izlagaci/2026/test-b.jpg", websiteUrl: "https://primer-b.example.invalid/", category: "moto",
+      standId, mapLocationId: "ispred-14", code: "14", displayName: "Štand 14", brands: [],
+    });
+    expect(map.exhibitorsWithoutLocation).toEqual([{ participationId: other.c, exhibitorName: "TEST izlagač C", category: "usluge", zoneId: "ispred" }]);
+    const json = JSON.stringify(map);
+    for (const secret of [REPORT_EMAIL, CONTACT_EMAIL, "TEST napomena", "packageTier", "SMK-TP", "SML-TP", "TEST izlagač D"]) expect(json).not.toContain(secret);
+    // Reading the map writes nothing.
+    expect(await Promise.all((["fairScanEvents", "fairVisitors", "fairSponsoredEvents", "adminAuditLog"] as const).map((table) => rows(f.t, table)))).toEqual(before);
+    // The admin publish check agrees: a shared location is no problem of the TEST models there.
+    const issues = await f.admin.query(api.fairAdmin.listValidationIssues, { eventId: f.em.eventId });
+    expect(issues.flatMap((row) => row.issues.map((issue) => issue.code))).not.toContain("FAIR_MAP_LOCATION_TAKEN");
   });
 
   test("a withdrawn model leaves the map; draft and unknown events have no map", async () => {

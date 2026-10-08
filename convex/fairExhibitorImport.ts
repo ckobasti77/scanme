@@ -1,17 +1,20 @@
-import { v } from "convex/values";
+import { v, type Infer } from "convex/values";
 import { internalMutation } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
 import { isAdminEmail } from "./lib/access";
 import { writeAdminAudit } from "./lib/adminAudit";
 import { createEventOnlyClient } from "./fairAdmin";
-import { fairEventByCode, upsertFairParticipation } from "./lib/fairCatalog";
+import { fairEventByCode, upsertFairParticipation, upsertFairStand } from "./lib/fairCatalog";
 import { normalizeWebsiteUrl } from "../lib/admin-v1/website";
+import { fairMapLocationById, isFairMapStandLocation } from "../lib/fair-map";
 import {
   ELEKTROMOBILNOST_2026_EXHIBITORS,
   FAIR_SITE_EXHIBITORS_SOURCE,
   fairSiteExhibitorCodes,
+  fairSiteExhibitorMapZone,
   fairSiteLogoUrl,
+  fairSiteStandFields,
   type FairSiteExhibitor,
 } from "../lib/fair-import/izlagaci-2026";
 
@@ -30,6 +33,8 @@ import {
 //  - Idempotent by the stable codes (SMK/SML/participation key). A second
 //    run changes nothing; it only fills a website or logo that is still
 //    missing, so a value the team edited by hand is never overwritten.
+//  - N3 placeSiteExhibitors: the same list on the organizer map (stands,
+//    category, zone), with the same rules: idempotent, no overwrite.
 
 const LISTS = { "elektromobilnost-2026": ELEKTROMOBILNOST_2026_EXHIBITORS } as const;
 type ListKey = keyof typeof LISTS;
@@ -135,6 +140,124 @@ export const importSiteExhibitors = internalMutation({
       });
     }
     return { exhibitors: list.length, clients, participations };
+  },
+});
+
+const placeSkipReason = v.union(
+  v.literal("no_map_location"),
+  v.literal("participation_missing"),
+  v.literal("participation_withdrawn"),
+  v.literal("location_not_on_map"),
+  v.literal("stand_withdrawn"),
+  v.literal("stand_edited"),
+  v.literal("stand_exists_for_location"),
+);
+type PlaceSkip = { key: string; reason: Infer<typeof placeSkipReason>; mapLocationId?: string };
+
+/**
+ * N3 — puts the organizer's exhibitors on the map of event `eventCode`
+ * (after importSiteExhibitors): one fairStands row per (participation,
+ * location) of lib/fair-import/izlagaci-2026.ts, stable key
+ * `izl26-<key>-<mapLocationId>`, `code` = the organizer's label (a later car
+ * import finds the stand by it), plus the participation's map category and,
+ * for an exhibitor without a place on the map, the zone the organizer names.
+ * Idempotent: a second run writes nothing. Never overwrites a hand edit (a
+ * changed stand, a category or zone set by hand) and never withdraws or
+ * revives anything; what it leaves alone is reported with a reason.
+ * `npx convex run fairExhibitorImport:placeSiteExhibitors
+ *   '{"ownerEmail":"<admin>","eventCode":"elektromobilnost-2026","list":"elektromobilnost-2026"}'`
+ */
+export const placeSiteExhibitors = internalMutation({
+  args: { ownerEmail: v.string(), eventCode: v.string(), list: v.literal("elektromobilnost-2026") },
+  returns: v.object({
+    exhibitors: v.number(),
+    stands: counts,
+    participations: counts,
+    skipped: v.array(v.object({ key: v.string(), reason: placeSkipReason, mapLocationId: v.optional(v.string()) })),
+  }),
+  handler: async (ctx, args) => {
+    const actor = await requireImportActor(ctx, args.ownerEmail);
+    const event = await fairEventByCode(ctx, args.eventCode);
+    if (!event) throw new Error("fair_exhibitor_import_event_missing");
+    const now = Date.now();
+    const stands = tally();
+    const participations = tally();
+    const skipped: PlaceSkip[] = [];
+    const list = LISTS[args.list as ListKey];
+    for (const exhibitor of list) {
+      const participation = await ctx.db
+        .query("fairParticipations")
+        .withIndex("by_eventId_and_externalKey", (q) => q.eq("eventId", event._id).eq("externalKey", fairSiteExhibitorCodes(exhibitor.key).participationKey))
+        .unique();
+      if (!participation) {
+        skipped.push({ key: exhibitor.key, reason: "participation_missing" });
+        continue;
+      }
+      if (participation.status === "withdrawn") {
+        skipped.push({ key: exhibitor.key, reason: "participation_withdrawn" });
+        continue;
+      }
+      // Map data on the participation: only what is still missing.
+      const fill = {
+        ...(participation.category === undefined ? { category: exhibitor.category } : {}),
+        ...(!exhibitor.locations.length && participation.mapZoneId === undefined ? { mapZoneId: fairSiteExhibitorMapZone(exhibitor.zone) } : {}),
+      };
+      if (Object.keys(fill).length) {
+        await ctx.db.patch(participation._id, { ...fill, updatedAt: now });
+        participations.updated += 1;
+      } else {
+        participations.unchanged += 1;
+      }
+      if (!exhibitor.locations.length) {
+        skipped.push({ key: exhibitor.key, reason: "no_map_location" });
+        continue;
+      }
+      const own = await ctx.db
+        .query("fairStands")
+        .withIndex("by_eventId_and_participationId", (q) => q.eq("eventId", event._id).eq("participationId", participation._id))
+        .take(100);
+      for (const mapLocationId of exhibitor.locations) {
+        const hit = fairMapLocationById(event.code, mapLocationId);
+        if (!hit || !isFairMapStandLocation(event.code, mapLocationId)) {
+          skipped.push({ key: exhibitor.key, reason: "location_not_on_map", mapLocationId });
+          continue;
+        }
+        const fields = fairSiteStandFields(exhibitor.key, hit.location);
+        const existing = own.find((stand) => stand.externalKey === fields.externalKey) ?? null;
+        if (existing) {
+          if (existing.status === "withdrawn") skipped.push({ key: exhibitor.key, reason: "stand_withdrawn", mapLocationId });
+          else if (existing.code !== fields.code || existing.displayName !== fields.displayName || existing.mapLocationId !== mapLocationId) {
+            skipped.push({ key: exhibitor.key, reason: "stand_edited", mapLocationId });
+          } else stands.unchanged += 1;
+          continue;
+        }
+        // A stand the team made by hand for this exhibitor on this location already covers it.
+        if (own.some((stand) => stand.mapLocationId === mapLocationId && stand.status !== "withdrawn")) {
+          skipped.push({ key: exhibitor.key, reason: "stand_exists_for_location", mapLocationId });
+          continue;
+        }
+        const { standId } = await upsertFairStand(ctx, {
+          eventId: event._id,
+          participationId: participation._id,
+          externalKey: fields.externalKey,
+          code: fields.code,
+          displayName: fields.displayName,
+          mapLocationId,
+          status: "active",
+        }, now);
+        own.push((await ctx.db.get(standId))!);
+        stands.created += 1;
+      }
+    }
+    if (stands.created || participations.updated) {
+      await writeAdminAudit(ctx, {
+        actorUserId: actor._id,
+        action: "fair_site_exhibitors_placed",
+        detail: { eventCode: event.code, list: args.list, stands, participations, skipped: skipped.length },
+        now,
+      });
+    }
+    return { exhibitors: list.length, stands, participations, skipped };
   },
 });
 

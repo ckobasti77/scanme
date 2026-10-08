@@ -126,7 +126,7 @@ async function setup({ auto = false }: { auto?: boolean } = {}) {
     return { participationId, standId, model };
   };
   const a = await exhibitor("a", ids.a, "ispred-14");
-  const b = await exhibitor("b", ids.b, "ispred-15");
+  const b = await exhibitor("b", ids.b, "ispred-15-1");
   const models = {
     included: await a.model("test-volta-x0", "included"),
     starter: await a.model("test-volta-x1", "starter"),
@@ -334,7 +334,7 @@ describe("B5 sponsored projections (map 12 s, garage 8 s)", () => {
     expect(card(f.models.advanced2)).not.toHaveProperty("photoUrl");
     expect(card(f.models.advanced2)).not.toHaveProperty("brandLogoUrl");
     expect(view!.items.filter((item) => item.photoUrl === photo).map((item) => item.eventModelId)).toEqual([f.models.advanced]);
-    expect(card(f.models.advancedB)).toMatchObject({ eventSlug: f.eventSlug, brandName: "TEST Om", displayName: "TEST test-om-z2", standMapLocationId: "ispred-15", priceText: "TEST cena" });
+    expect(card(f.models.advancedB)).toMatchObject({ eventSlug: f.eventSlug, brandName: "TEST Om", displayName: "TEST test-om-z2", standMapLocationId: "ispred-15-1", priceText: "TEST cena" });
   });
 
   test("map shows the admin-chosen question result (waiting below 5 votes, then whole percentages); garage never does; no voting on the map", async () => {

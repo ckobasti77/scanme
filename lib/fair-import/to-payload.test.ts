@@ -128,6 +128,28 @@ describe("fair import table → payload (A5)", () => {
     ]);
   });
 
+  test("N3: exhibitors share a stand code; the import takes the exhibitor's own stand, never another exhibitor's", () => {
+    const shared: ImportCatalogContext = {
+      ...context,
+      stands: [
+        { id: "s-a2", participationId: "p-a", externalKey: "izl26-a-hala-2", code: "2", displayName: "Štand 2", mapLocationId: "hala-2" },
+        { id: "s-b2", participationId: "p-b", externalKey: "izl26-b-hala-2", code: "2", displayName: "Štand 2", mapLocationId: "hala-2" },
+      ],
+    };
+    const text = "Izlagač;Brend;Štand;Model;Paket;Pasoš\nTEST Izlagač B;TEST Om;2;TEST Om Z9;Starter;da\nTEST Izlagač A;TEST Volta;2;TEST Volta X9;Starter;da\n";
+    const table = parseImportTable(text);
+    const result = buildImportPayload(table.rows, detectColumns(table.headers), shared, {});
+    expect(result.issues).toEqual([]);
+    expect(result.payload.participations.map((row) => [row.externalKey, row.brands[0].stand.externalKey, row.brands[0].stand.mapLocationId])).toEqual([
+      ["test-em26-izlagac-b", "izl26-b-hala-2", "hala-2"],
+      ["test-em26-izlagac-a", "izl26-a-hala-2", "hala-2"],
+    ]);
+    // An exhibitor without its own stand there gets a new stand of its own on the same location.
+    const onlyB = { ...shared, stands: shared.stands.filter((row) => row.participationId === "p-b") };
+    const other = buildImportPayload(parseImportTable(text).rows, detectColumns(table.headers), onlyB, {});
+    expect(other.payload.participations[1].brands[0].stand).toEqual({ externalKey: "test-em26-izlagac-a-stand-2", code: "2", mapLocationId: "hala-2" });
+  });
+
   test("a value without its specification label is a warning; the row is still imported", () => {
     const result = build("Izlagač;Brend;Štand;Model;Paket;Pasoš;Spec 1 naziv;Spec 1 vrednost\nTEST Izlagač A;TEST Volta;TEST-A1;TEST X;Starter;da;;TEST 5\n");
     expect(result.issues).toEqual([{ line: 2, field: "specifications", code: "IMPORT_SPEC_LABEL_MISSING", severity: "warning" }]);

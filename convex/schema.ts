@@ -11,9 +11,11 @@ import {
   fairEmailDeliveryKind,
   fairEmailDeliveryStatus,
   fairEventStatus,
+  fairExhibitorCategory,
   fairLeadConfigSource,
   fairLeadKind,
   fairLeadStatus,
+  fairMapZoneId,
   fairMessageTemplateKind,
   fairMessageTemplateStatus,
   fairModelStatus,
@@ -3371,6 +3373,11 @@ export default defineSchema({
     primaryContactId: v.optional(v.id("accountContacts")),
     reportRecipientEmail: v.optional(v.string()),
     leadDeliveryNote: v.optional(v.string()),
+    // N3: the exhibitor's one map-filter category (NOC-KONTEKST §3).
+    category: v.optional(fairExhibitorCategory),
+    // N3: the zone the organizer names for an exhibitor that has no stand on
+    // the map yet (e.g. "ispred hale"); unused while a stand exists.
+    mapZoneId: v.optional(fairMapZoneId),
     status: fairParticipationStatus,
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -3392,8 +3399,9 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
   })
-    // unique: (eventId, externalKey); (eventId, mapLocationId) among
-    // non-withdrawn stands — B1 seam validateMapLocationIds (open: R0 #1)
+    // unique: (eventId, externalKey); (eventId, participationId, mapLocationId)
+    // among non-withdrawn stands — seam validateMapLocationIds. N3 (odluka
+    // vlasnika 8. 10.): different exhibitors may share one map location.
     .index("by_eventId_and_externalKey", ["eventId", "externalKey"])
     .index("by_eventId_and_participationId", ["eventId", "participationId"])
     .index("by_eventId_and_mapLocationId", ["eventId", "mapLocationId"]),

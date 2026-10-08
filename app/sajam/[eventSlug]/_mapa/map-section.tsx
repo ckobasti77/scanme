@@ -33,6 +33,6 @@ export async function MapSection({ eventSlug, eventCode, display }: { eventSlug:
     return <MapUnavailable eventSlug={eventSlug} />;
   }
   const [map, passports, rotation] = data;
-  const view = buildFairMapView(geometry, map?.stands ?? [], passports?.catalog ?? []);
+  const view = buildFairMapView(geometry, map?.stands ?? [], passports?.catalog ?? [], map?.exhibitorsWithoutLocation ?? []);
   return <FairEventMap eventSlug={eventSlug} view={view} initialRotation={rotation} display={display} />;
 }

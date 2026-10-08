@@ -147,7 +147,7 @@ async function setup(opts: { consent?: boolean } = {}) {
     return { participationId, model };
   };
   const a = await exhibitor("a", ids.a, "ispred-14");
-  const b = await exhibitor("b", ids.b, "ispred-15");
+  const b = await exhibitor("b", ids.b, "ispred-15-1");
   const included = await a.model("test-volta-x0", "included");
   const starter = await a.model("test-volta-x1", "starter");
   const advanced = await a.model("test-volta-x2", "advanced");
