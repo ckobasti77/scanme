@@ -21,15 +21,22 @@ export interface PrelaunchDict {
     secondaryCta: string;
   };
   fair: {
-    eventLabel: string;
     eyebrow: string;
     title: string;
     body: string;
     organizerLink: string;
     location: string;
     year: string;
-    mastheadDates: Array<{ firstLine: string; secondLine: string }>;
-    events: Array<{ name: string; date: string }>;
+    bannerTitle: string;
+    partnerBrand: string;
+    cta: string;
+    status: {
+      live: string;
+      /** {date} = prvi dan sledećeg sajma. */
+      next: string;
+      ended: string;
+    };
+    events: Array<{ name: string; date: string; shortDate: string; startLabel: string }>;
   };
   services: {
     eyebrow: string;
@@ -136,21 +143,34 @@ export const prelaunchSr: PrelaunchDict = {
     secondaryCta: "Pogledaj kako radi",
   },
   fair: {
-    eventLabel: "Event",
     eyebrow: "ScanMe × Sajam automobila",
     title: "Sajam automobila dobija novu digitalnu dimenziju.",
     body:
       "Kao digitalni partner povezujemo fizički prostor sajma sa informacijama, interakcijama i iskustvima koja posetioci nose sa sobom i nakon izlaska iz hale.",
     organizerLink: "Posetite sajt Sajma automobila",
-    location: "Hala Čair · Niš",
+    location: "Niš · Hala Čair",
     year: "2026",
-    mastheadDates: [
-      { firstLine: "09–11.", secondLine: "oktobar" },
-      { firstLine: "30. oktobar–01.", secondLine: "novembar" },
-    ],
+    bannerTitle: "Sajam automobila",
+    partnerBrand: "ScanMe",
+    cta: "Otvori digitalni sajam",
+    status: {
+      live: "U toku",
+      next: "Sledeći: {date}",
+      ended: "Završeno",
+    },
     events: [
-      { name: "Sajam elektromobilnosti", date: "09—11. oktobar" },
-      { name: "Sajam auto brendova · Auto Moto Fest", date: "30. oktobar—01. novembar" },
+      {
+        name: "Sajam elektromobilnosti",
+        date: "09—11. oktobar",
+        shortDate: "09/10/11. okt",
+        startLabel: "9. oktobar",
+      },
+      {
+        name: "Auto Moto Fest",
+        date: "30. oktobar—01. novembar",
+        shortDate: "30/31. okt – 01. nov",
+        startLabel: "30. oktobar",
+      },
     ],
   },
   services: {

@@ -4,9 +4,11 @@ import { Link2, Star, UtensilsCrossed } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
 import { HeroIntro } from "@/components/hero-intro";
 import { HeroMedia } from "@/components/hero-media";
+import { PrelaunchFairBanner } from "@/components/prelaunch-fair-banner";
 import { PrelaunchNav } from "@/components/prelaunch-nav";
 import { ScanStory } from "@/components/scan-story";
 import { prelaunchSr as dict } from "@/lib/i18n/sr/prelaunch";
+import { FAIR_BANNER_ENABLED } from "@/lib/prelaunch-fair-banner";
 import packageStyles from "./landing-packages.module.css";
 import styles from "./prelaunch-landing.module.css";
 
@@ -18,45 +20,6 @@ const navLinks = [
   { href: "#kontakt", label: dict.nav.contact },
 ] as const;
 
-function FairMasthead() {
-  return (
-    <aside
-      className={styles.fairMasthead}
-      aria-label={`${dict.hero.partner}: ${dict.hero.fairName}`}
-      data-reveal="off"
-    >
-      <div className={`${styles.fairMastheadInner} section-shell`}>
-        <div className={styles.fairMastheadTitle} aria-hidden="true">
-          <span className={styles.fairMastheadLabel}>{dict.fair.eventLabel}</span>
-          <span className={styles.fairMastheadSolid}>Sajam</span>
-          <span className={styles.fairMastheadOutline}>automobila</span>
-          <span className={styles.fairMastheadDot}>·</span>
-          <span className={styles.fairMastheadCity}>Niš</span>
-          <span className={styles.fairMastheadYearRail}>
-            <span className={styles.fairMastheadYear}>{dict.fair.year}</span>
-          </span>
-        </div>
-
-        <div className={styles.fairMastheadMeta}>
-          <p className={styles.fairMastheadPartner}>
-            <span>{dict.hero.partner}</span>
-            <i aria-hidden="true">—</i>
-            <BrandLogo className={styles.fairMastheadWordmark} width="clamp(7.5rem, 9vw, 10rem)" />
-          </p>
-          <div className={styles.fairMastheadDates}>
-            {dict.fair.mastheadDates.map((date) => (
-              <p key={`${date.firstLine}-${date.secondLine}`}>
-                <strong>{date.firstLine}</strong>
-                <span>{date.secondLine}</span>
-              </p>
-            ))}
-          </div>
-        </div>
-      </div>
-    </aside>
-  );
-}
-
 function Footer() {
   return (
     <footer id="kontakt" className={styles.footer} data-reveal="off">
@@ -66,7 +29,7 @@ function Footer() {
             <a href="#pocetak" className="focus-signal inline-flex min-h-11 items-center" aria-label={dict.nav.homeAria}>
               <BrandLogo />
             </a>
-            <p className={styles.footerFair}>{dict.footer.fair}</p>
+            {FAIR_BANNER_ENABLED ? <p className={styles.footerFair}>{dict.footer.fair}</p> : null}
           </div>
           <nav aria-label={dict.nav.aria} className={styles.footerNav}>
             {navLinks.map((link) => <a key={link.href} href={link.href}>{link.label}</a>)}
@@ -95,7 +58,7 @@ export function PrelaunchLanding() {
       <div className={styles.scanBeam} aria-hidden="true" />
       <div className={`${styles.contentLayer} landing-atmosphere`} data-text-reveal-root>
         <main id="glavni-sadrzaj">
-          <FairMasthead />
+          {FAIR_BANNER_ENABLED ? <PrelaunchFairBanner /> : null}
           <section id="pocetak" data-reveal="off" className={`${styles.hero} hero-scan-depth`}>
             <HeroMedia hasVideo={hasVideo} hasPoster={hasPoster} />
             <HeroIntro
