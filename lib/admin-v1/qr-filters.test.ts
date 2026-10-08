@@ -132,5 +132,29 @@ describe("printed sticker labels (Izlagači 2026)", () => {
     expect(qrCodeFromSearch("TS26-100")).toBe("TS26-100");
     for (const text of ["PANEL-2026-EVENT", "TEST-A1", "SA26-", "-001"]) expect(qrCodeFromSearch(text)).toBeNull();
   });
+
+  // N1 — the field team types sticker numbers the short way.
+  const printed = [
+    row("a7", "SMQ-TEST-0207", { label: "SA26-007" }),
+    row("a17", "SMQ-TEST-0217", { label: "SA26-017" }),
+    row("a70", "SMQ-TEST-0270", { label: "SA26-070" }),
+    row("p1", "SMQ-TEST-0300", { label: "PANEL-2026-EVENT" }),
+  ];
+
+  test("a typed sticker number (7, sa26 7, SA26_007, O for zero) opens the detail of SA26-007", () => {
+    for (const text of ["7", "07", "007", "sa26-7", "SA26 7", "SA26007", "SA26_007", "SA26–007", "OO7"]) expect({ text, code: qrCodeFromSearch(text) }).toEqual({ text, code: "SA26-007" });
+    for (const text of ["0", "101", "1000", "sedam"]) expect({ text, code: qrCodeFromSearch(text) }).toEqual({ text, code: null });
+    // Another series typed whole stays itself (never turned into SA26); the inventory decides whether it exists.
+    expect(qrCodeFromSearch("sa27-007")).toBe("SA27-007");
+    // The inventory's own series when the caller knows it.
+    expect(qrCodeFromSearch("7", { prefix: "TS26", digits: 3, max: 250 })).toBe("TS26-007");
+  });
+
+  test("a sticker number in the list search finds exactly that sticker, not every code containing the digit", () => {
+    for (const q of ["7", "sa26 7", "SA26_007", "sa26-007"]) expect({ q, ids: applyQrFilters(printed, models, { q }).map((entry) => entry.cardId) }).toEqual({ q, ids: ["a7"] });
+    expect(applyQrFilters(printed, models, { q: "70" }).map((entry) => entry.cardId)).toEqual(["a70"]);
+    expect(applyQrFilters(printed, models, { q: "panel" }).map((entry) => entry.cardId)).toEqual(["p1"]);
+    expect(applyQrFilters(printed, models, { q: "smq-test-02" }).map((entry) => entry.cardId)).toEqual(["a7", "a17", "a70"]);
+  });
 });
 

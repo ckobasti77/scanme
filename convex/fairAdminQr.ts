@@ -9,12 +9,24 @@ import { fairAdminError, requireFairEvent } from "./lib/fairCatalog";
 import {
   activeAssignmentForChannel,
   commitBulkQrAssign,
+  fairQrKindOf,
+  fairQrLabelFormatOf,
+  fairQrModelFactsLoader,
+  fairQrUndoOpen,
   findInventoryCode,
+  linkFairSticker,
   planBulkQrAssign,
   reassignFairQr,
+  undoFairStickerLink,
 } from "./lib/fairQr";
-import { fairModelStatus, fairQrAssignmentStatus } from "./lib/fairValidators";
-import { FAIR_QR_HISTORY_LIMIT, FAIR_QR_SCAN_STATS_MAX, fairModelPath } from "../lib/fair-contract";
+import { fairModelStatus, fairQrAssignmentStatus, fairQrKind } from "./lib/fairValidators";
+import {
+  FAIR_QR_HISTORY_LIMIT,
+  FAIR_QR_RECENT_LINKS_MAX,
+  FAIR_QR_SCAN_STATS_MAX,
+  FAIR_QR_UNDO_WINDOW_MS,
+  fairModelPath,
+} from "../lib/fair-contract";
 
 // Admin UX A4 — QR inventory of one event: the detail of one printed code,
 // its scan numbers, the change of destination (reassign) and the bulk
@@ -78,6 +90,8 @@ export const getQrDetail = query({
       resolverCode: v.string(),
       /** Izlagači 2026: the printed label of the card (`SA26-001`, cards.label). */
       label: v.string(),
+      /** N1: a car sticker or a panel (a panel never links to a model). */
+      kind: fairQrKind,
       smqCode: v.union(v.string(), v.null()),
       channelState: accessState,
       problemReason: v.union(v.string(), v.null()),
@@ -97,6 +111,11 @@ export const getQrDetail = query({
           path: v.union(v.string(), v.null()),
           assignedAt: v.number(),
           reason: v.union(v.string(), v.null()),
+          // N1: the car as the field team names it.
+          brandName: v.union(v.string(), v.null()),
+          exhibitorName: v.union(v.string(), v.null()),
+          standCode: v.union(v.string(), v.null()),
+          standName: v.union(v.string(), v.null()),
         }),
       ),
       history: v.array(historyRow),
@@ -134,11 +153,13 @@ export const getQrDetail = query({
     const currentModel = active ? models.get(active.eventModelId) ?? null : null;
     const currentEvent = active ? events.get(active.eventId) ?? null : null;
     const own = Boolean(active && active.eventId === event._id);
+    const facts = active ? await fairQrModelFactsLoader(ctx)(active.eventModelId) : null;
     return {
       cardId: card._id,
       accessChannelId: channel._id,
       resolverCode: channel.resolverCode,
       label: card.label,
+      kind: fairQrKindOf(await ctx.db.get(channel.subjectId)),
       smqCode: channel.smqCode ?? null,
       channelState: channel.state,
       problemReason: channel.problemReason ?? null,
@@ -155,6 +176,10 @@ export const getQrDetail = query({
         path: currentModel && currentEvent ? fairModelPath(currentEvent.slug, currentModel.slug) : null,
         assignedAt: active.assignedAt,
         reason: active.reason ?? null,
+        brandName: facts?.brandName ?? null,
+        exhibitorName: facts?.exhibitorName ?? null,
+        standCode: facts?.standCode ?? null,
+        standName: facts?.standName ?? null,
       } : null,
       history: rows.map((row) => ({
         assignmentId: row._id,
@@ -222,6 +247,8 @@ export const reassignQr = mutation({
     toAssignmentId: v.id("fairQrAssignments"),
     fromEventModelId: v.id("fairEventModels"),
     toEventModelId: v.id("fairEventModels"),
+    /** N1: status of the new model (draft → its scan reads „kartica nije aktivna“ until published). */
+    modelStatus: fairModelStatus,
   }),
   handler: async (ctx, args) => {
     const admin = await requireAdmin(ctx);
@@ -244,6 +271,7 @@ export const bulkAssignQrDryRun = query({
       resolverCode: v.optional(v.string()),
       smqCode: v.optional(v.string()),
       eventModelId: v.optional(v.id("fairEventModels")),
+      modelStatus: v.optional(fairModelStatus),
       assignedEventModelId: v.optional(v.id("fairEventModels")),
     })),
     summary: v.object({ ok: v.number(), unchanged: v.number(), errors: v.number() }),
@@ -263,6 +291,7 @@ export const bulkAssignQrCommit = mutation({
       index: v.number(),
       status: v.union(v.literal("applied"), v.literal("unchanged"), v.literal("error")),
       issue: v.optional(issueCode),
+      modelStatus: v.optional(fairModelStatus),
     })),
     summary: v.object({ applied: v.number(), unchanged: v.number(), errors: v.number() }),
   }),
@@ -270,5 +299,133 @@ export const bulkAssignQrCommit = mutation({
     const admin = await requireAdmin(ctx);
     const event = await requireFairEvent(ctx, args.eventId);
     return commitBulkQrAssign(ctx, event, args.rows, args.reason, admin._id, Date.now());
+  },
+});
+
+// -----------------------------------------------------------------------------
+// N1 — „Poveži nalepnicu“ on the fair floor (phone): link, undo, recent links
+// -----------------------------------------------------------------------------
+
+/**
+ * One atomic link of a typed sticker (label `7` / `SA26-007`, SMQ or resolver
+ * code; current inventory only) to a car of the event: free → link; on car A
+ * → move only when `expectedHolderModelId` is that holder (else
+ * FAIR_QR_HOLDER_CHANGED, nothing written); the car has another sticker →
+ * replace only with `replaceModelSticker`. Same car and sticker → unchanged.
+ */
+export const linkSticker = mutation({
+  args: {
+    eventId: v.id("fairEvents"),
+    code: v.string(),
+    eventModelId: v.id("fairEventModels"),
+    expectedHolderModelId: v.union(v.id("fairEventModels"), v.null()),
+    replaceModelSticker: v.optional(v.boolean()),
+  },
+  returns: v.object({
+    assignmentId: v.id("fairQrAssignments"),
+    /** false = this sticker was already on this car; nothing was written. */
+    created: v.boolean(),
+    label: v.string(),
+    resolverCode: v.string(),
+    modelStatus: fairModelStatus,
+    movedFromModelId: v.optional(v.id("fairEventModels")),
+    replacedLabel: v.optional(v.string()),
+  }),
+  handler: async (ctx, args) => {
+    const admin = await requireAdmin(ctx);
+    return linkFairSticker(ctx, args, admin._id, Date.now());
+  },
+});
+
+/** „Poništi“: within 15 minutes and while it is still the active link; restores the previous car or the replaced sticker. */
+export const undoLink = mutation({
+  args: { assignmentId: v.id("fairQrAssignments") },
+  returns: v.object({
+    undoneAssignmentId: v.id("fairQrAssignments"),
+    /** The car the sticker went back to (it was moved from there), else null. */
+    restoredToModelId: v.union(v.id("fairEventModels"), v.null()),
+    restoredAssignmentId: v.union(v.id("fairQrAssignments"), v.null()),
+    /** The car's former sticker, linked again (it was still free), else null. */
+    restoredReplacedLabel: v.union(v.string(), v.null()),
+    restoredReplacedAssignmentId: v.union(v.id("fairQrAssignments"), v.null()),
+  }),
+  handler: async (ctx, args) => {
+    const admin = await requireAdmin(ctx);
+    return undoFairStickerLink(ctx, args.assignmentId, admin._id, Date.now());
+  },
+});
+
+const labelFormat = v.object({ prefix: v.string(), digits: v.number(), max: v.number() });
+
+/**
+ * The newest active links of the event (≤ FAIR_QR_RECENT_LINKS_MAX), each with
+ * the car, exhibitor, stand, who linked it and when, and whether it can still
+ * be undone at `now` (the client's clock — a query never reads the time; pass
+ * it again to refresh `canUndo`). `labelFormat` is the inventory's sticker
+ * series for the client-side preview of a typed number (lib/fair-qr-label).
+ */
+export const listRecentLinks = query({
+  args: { eventId: v.id("fairEvents"), limit: v.optional(v.number()), now: v.number() },
+  returns: v.object({
+    labelFormat,
+    links: v.array(v.object({
+      assignmentId: v.id("fairQrAssignments"),
+      label: v.string(),
+      resolverCode: v.string(),
+      eventModelId: v.id("fairEventModels"),
+      modelName: v.union(v.string(), v.null()),
+      modelVariant: v.union(v.string(), v.null()),
+      modelStatus: v.union(fairModelStatus, v.null()),
+      brandName: v.union(v.string(), v.null()),
+      exhibitorName: v.union(v.string(), v.null()),
+      standCode: v.union(v.string(), v.null()),
+      standName: v.union(v.string(), v.null()),
+      linkedAt: v.number(),
+      linkedByUserId: v.id("users"),
+      linkedByName: v.union(v.string(), v.null()),
+      reason: v.union(v.string(), v.null()),
+      undoUntil: v.number(),
+      canUndo: v.boolean(),
+    })),
+  }),
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    const event = await requireFairEvent(ctx, args.eventId);
+    const limit = args.limit ?? FAIR_QR_RECENT_LINKS_MAX;
+    if (!Number.isInteger(limit) || limit < 1 || limit > FAIR_QR_RECENT_LINKS_MAX) fairAdminError("INVALID_INPUT", { field: "limit", max: FAIR_QR_RECENT_LINKS_MAX });
+    // Newest first: an assignment row is inserted at the moment of its link.
+    const rows = await ctx.db
+      .query("fairQrAssignments")
+      .withIndex("by_eventId_and_status", (q) => q.eq("eventId", event._id).eq("status", "assigned"))
+      .order("desc")
+      .take(limit);
+    const facts = fairQrModelFactsLoader(ctx);
+    const users = new Map<Id<"users">, Doc<"users"> | null>();
+    const links = [];
+    for (const row of rows) {
+      const [card, model] = await Promise.all([ctx.db.get(row.cardId), facts(row.eventModelId)]);
+      if (!users.has(row.assignedByUserId)) users.set(row.assignedByUserId, await ctx.db.get(row.assignedByUserId));
+      const user = users.get(row.assignedByUserId) ?? null;
+      links.push({
+        assignmentId: row._id,
+        label: card?.label ?? row.resolverCode,
+        resolverCode: row.resolverCode,
+        eventModelId: row.eventModelId,
+        modelName: model?.model.displayName ?? null,
+        modelVariant: model?.model.variant ?? null,
+        modelStatus: model?.model.status ?? null,
+        brandName: model?.brandName ?? null,
+        exhibitorName: model?.exhibitorName ?? null,
+        standCode: model?.standCode ?? null,
+        standName: model?.standName ?? null,
+        linkedAt: row.assignedAt,
+        linkedByUserId: row.assignedByUserId,
+        linkedByName: user?.name ?? user?.email ?? null,
+        reason: row.reason ?? null,
+        undoUntil: row.assignedAt + FAIR_QR_UNDO_WINDOW_MS,
+        canUndo: fairQrUndoOpen(row, args.now),
+      });
+    }
+    return { labelFormat: await fairQrLabelFormatOf(ctx, event.qrInventoryBusinessId), links };
   },
 });

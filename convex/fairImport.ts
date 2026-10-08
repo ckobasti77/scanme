@@ -27,7 +27,7 @@ import {
   validateMapLocationIds,
   type UpsertResult,
 } from "./lib/fairCatalog";
-import { activeAssignmentForChannel, assignFairQr, findInventoryChannel } from "./lib/fairQr";
+import { activeAssignmentForChannel, assignFairQr, findInventoryChannel, isFairStickerSubject } from "./lib/fairQr";
 import { fairClientSegment, fairPackageTier } from "./lib/fairValidators";
 import {
   FAIR_IMPORT_MAX_MODELS,
@@ -326,6 +326,10 @@ export async function planFairImport(ctx: QueryCtx | MutationCtx, payload: FairI
             } else if (modelAssignment && !sameModel) {
               issues.push(fairIssue("error", "FAIR_MODEL_ALREADY_ASSIGNED", `${mPath}.assignedResolverCode`));
             } else if (!sameModel) {
+              // N1: the same guards as assignFairQr — a panel is no car sticker; a withdrawn model takes no new link.
+              const subject = await ctx.db.get(found.channel.subjectId);
+              if (subject && !isFairStickerSubject(subject)) issues.push(fairIssue("error", "FAIR_QR_NOT_MODEL_STICKER", `${mPath}.assignedResolverCode`));
+              if (existingModel?.status === "withdrawn") issues.push(fairIssue("error", "FAIR_MODEL_WITHDRAWN", `${mPath}.assignedResolverCode`));
               if ((await channelsFor(ctx, found.channel.subjectId)).length !== 1) issues.push(fairIssue("error", "FAIR_QR_SUBJECT_SHARED", `${mPath}.assignedResolverCode`));
               assignCode = code;
             }

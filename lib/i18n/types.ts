@@ -4481,6 +4481,8 @@ export interface AdminEventsDict {
   channelStates: Record<"active" | "inactive" | "problem", string>;
   issues: Record<FairAdminIssueCode, string>;
   resolveProblems: Record<AdminEventsResolveProblem, string>;
+  /** N1 — reasons the field flow writes by itself (fairAdminQr.linkSticker / undoLink); the QR history shows them. */
+  qrFieldReasons: Record<"link" | "move" | "replace" | "undo" | "restore", string>;
   // B3 — Interakcije tab (Glas publike, ankete, pasoši)
   tabInteractions: string;
   interactionsUnavailable: string;

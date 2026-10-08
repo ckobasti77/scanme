@@ -62,7 +62,7 @@ type T = ReturnType<typeof convexTest>;
 // Every fair table and its index names. Fields are derived from the name
 // (Convex guideline: an index name lists all its fields in order).
 const FAIR_INDEXES: Record<string, string[]> = {
-  fairEvents: ["by_code", "by_slug", "by_status_and_startsAt"],
+  fairEvents: ["by_code", "by_slug", "by_status_and_startsAt", "by_qrInventoryBusinessId"],
   fairEventDays: ["by_eventId_and_dateKey"],
   fairParticipations: [
     "by_eventId_and_externalKey",

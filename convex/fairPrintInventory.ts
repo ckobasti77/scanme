@@ -16,12 +16,14 @@ import {
 } from "./lib/accessOperations";
 import { isAdminEmail } from "./lib/access";
 import { writeAdminAudit } from "./lib/adminAudit";
+import { FAIR_QR_LABEL_DEFAULT_FORMAT, formatFairQrLabel } from "../lib/fair-qr-label";
 
 const INVENTORY_SMK = "SMK-SAJAM-26-QR";
 const INVENTORY_SML = "SML-SAJAM-26-QR";
 const INVENTORY_NAME = "Sajam automobila 2026 — QR inventar";
 const INVENTORY_SLUG = "sajam-automobila-2026-qr-inventar";
-const PRINT_PREFIX = "SA26";
+// N1: the printed series (SA26, three digits, 100) lives in lib/fair-qr-label.ts only.
+const PRINT_MAX = FAIR_QR_LABEL_DEFAULT_FORMAT.max;
 const MAX_BATCH = 25;
 
 const PANEL_QR_SPECS = [
@@ -129,13 +131,13 @@ export const provisionBatch = internalMutation({
   },
   returns: v.array(provisionedQr),
   handler: async (ctx, args) => {
-    if (!Number.isInteger(args.startOrdinal) || args.startOrdinal < 1 || args.startOrdinal > 100) {
+    if (!Number.isInteger(args.startOrdinal) || args.startOrdinal < 1 || args.startOrdinal > PRINT_MAX) {
       throw new Error("fair_print_inventory_start_invalid");
     }
     if (!Number.isInteger(args.count) || args.count < 1 || args.count > MAX_BATCH) {
       throw new Error("fair_print_inventory_count_invalid");
     }
-    if (args.startOrdinal + args.count - 1 > 100) {
+    if (args.startOrdinal + args.count - 1 > PRINT_MAX) {
       throw new Error("fair_print_inventory_range_invalid");
     }
 
@@ -146,7 +148,7 @@ export const provisionBatch = internalMutation({
 
     for (let offset = 0; offset < args.count; offset += 1) {
       const ordinal = args.startOrdinal + offset;
-      const printedCode = `${PRINT_PREFIX}-${String(ordinal).padStart(3, "0")}`;
+      const printedCode = formatFairQrLabel(ordinal);
       const key = `fair-print-2026:${printedCode}`;
       const payload = { operation: "fair_print_qr", printedCode };
       const prior = await replay(ctx, key, payload);

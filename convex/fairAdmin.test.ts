@@ -341,7 +341,8 @@ describe("QR inventory assignment", () => {
     expect(state.assignment).toMatchObject({ status: "assigned", accessChannelId: qr1._id, accessSubjectId: qr1.subjectId, cardId: qr1.cardId, resolverCode: qr1.resolverCode, assignedByUserId: f.adminId });
 
     // Idempotent re-assign; conflicts never write a partial row.
-    expect(await f.admin.mutation(api.fairAdmin.assignQr, { eventModelId: x1.modelId, resolverCode: qr1.resolverCode })).toEqual({ assignmentId: assigned.assignmentId, created: false });
+    // N1: the result names the model's status (x1 is still a draft here).
+    expect(await f.admin.mutation(api.fairAdmin.assignQr, { eventModelId: x1.modelId, resolverCode: qr1.resolverCode })).toEqual({ assignmentId: assigned.assignmentId, created: false, modelStatus: "draft" });
     const counts = async () => ({ assignments: await rowCount(f, "fairQrAssignments"), targets: await rowCount(f, "cardTargets"), history: await rowCount(f, "accessDestinationHistory") });
     const stable = await counts();
     await expectCode(f.admin.mutation(api.fairAdmin.assignQr, { eventModelId: x2.modelId, resolverCode: qr1.resolverCode }), "FAIR_QR_ALREADY_ASSIGNED");

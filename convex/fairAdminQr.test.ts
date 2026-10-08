@@ -331,7 +331,7 @@ describe("getQrDetail and getQrScanStats", () => {
 describe("authorization", () => {
   test("every fairAdminQr function refuses an anonymous and a non-admin caller before touching data", async () => {
     const f = await setup();
-    await f.admin.mutation(api.fairAdmin.assignQr, { eventModelId: f.x1.modelId, resolverCode: f.codes.q1.resolverCode });
+    const linked = await f.admin.mutation(api.fairAdmin.assignQr, { eventModelId: f.x1.modelId, resolverCode: f.codes.q1.resolverCode });
     const before = await qrState(f);
     const rows = [{ code: f.codes.q2.resolverCode, model: f.x2.externalKey }];
     type Caller = Pick<Fixture["t"], "query" | "mutation">;
@@ -341,6 +341,10 @@ describe("authorization", () => {
       ["reassignQr", (c) => c.mutation(api.fairAdminQr.reassignQr, { eventId: f.em.eventId, code: f.codes.q1.resolverCode, toEventModelId: f.x3.modelId, reason: "TEST razlog" })],
       ["bulkAssignQrDryRun", (c) => c.query(api.fairAdminQr.bulkAssignQrDryRun, { eventId: f.em.eventId, rows })],
       ["bulkAssignQrCommit", (c) => c.mutation(api.fairAdminQr.bulkAssignQrCommit, { eventId: f.em.eventId, rows })],
+      // N1 — field linking.
+      ["linkSticker", (c) => c.mutation(api.fairAdminQr.linkSticker, { eventId: f.em.eventId, code: f.codes.q2.resolverCode, eventModelId: f.x2.modelId, expectedHolderModelId: null })],
+      ["undoLink", (c) => c.mutation(api.fairAdminQr.undoLink, { assignmentId: linked.assignmentId })],
+      ["listRecentLinks", (c) => c.query(api.fairAdminQr.listRecentLinks, { eventId: f.em.eventId, now: NOW })],
     ];
     for (const [name, call] of calls) {
       for (const [caller, expected] of [[f.t, "Niste prijavljeni."], [f.member, "Nemate administratorski pristup."]] as const) {

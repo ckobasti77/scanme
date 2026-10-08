@@ -184,6 +184,35 @@ describe("dry run", () => {
   });
 });
 
+describe("N1 — the import's QR field", () => {
+  test("takes the printed sticker label typed the short way and refuses a panel (FAIR_QR_NOT_MODEL_STICKER)", async () => {
+    const f = await setup();
+    const code = await f.qr("test-n1-import-sticker");
+    await f.t.run(async (ctx) => {
+      const card = (await ctx.db.query("cards").withIndex("by_cardCode", (q) => q.eq("cardCode", code)).unique())!;
+      await ctx.db.patch(card._id, { label: "SA26-007" });
+    });
+    const sticker = await f.admin.query(api.fairImport.dryRun, { payload: payload({ x1: "sa26 7" }) });
+    expect(sticker.issues.filter((issue) => issue.path.endsWith("assignedResolverCode"))).toEqual([
+      expect.objectContaining({ severity: "warning", code: "FAIR_QR_MISSING" }),
+      expect.objectContaining({ severity: "warning", code: "FAIR_QR_MISSING" }),
+    ]);
+    await f.admin.mutation(api.fairImport.commit, { payload: payload({ x1: "SA26_007" }) });
+    const assigned = await f.t.run((ctx) => ctx.db.query("fairQrAssignments").collect());
+    expect(assigned.map((row) => [row.resolverCode, row.status])).toEqual([[code, "assigned"]]);
+
+    // A panel: a code of the inventory that leads to its own URL.
+    const panel = await f.t.run(async (ctx) => {
+      const dynamicLinkId = await ctx.db.insert("dynamicLinks", { businessId: f.inventory.businessId, slug: "test-n1-panel", destinationUrl: "https://example.com/", type: "google_review", active: true, scanCount: 0, createdAt: NOW, updatedAt: NOW });
+      return dynamicLinkId;
+    });
+    const panelQr = await f.admin.mutation(api.adminProducts.createDigital, { accountId: f.inventory.accountId, businessId: f.inventory.businessId, destination: { kind: "dynamic_link", dynamicLinkId: panel }, key: "test-n1-import-panel" });
+    const panelCode = await f.t.run(async (ctx) => (await ctx.db.get((await ctx.db.get(panelQr))!.channelId))!.resolverCode);
+    const refused = await f.admin.query(api.fairImport.dryRun, { payload: payload({ z1: panelCode }) });
+    expect(refused.issues).toContainEqual(expect.objectContaining({ severity: "error", code: "FAIR_QR_NOT_MODEL_STICKER", path: "participations[1].brands[0].models[0].assignedResolverCode" }));
+  });
+});
+
 describe("commit", () => {
   test("is idempotent by event + externalKey and assigns only existing inventory QR", async () => {
     const f = await setup();

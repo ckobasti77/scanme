@@ -41,6 +41,8 @@ export const fairModelStatus = v.union(
 );
 
 export const fairQrAssignmentStatus = v.union(v.literal("assigned"), v.literal("released"));
+/** N1 — FAIR_QR_KINDS: a car sticker or a panel with its own URL. */
+export const fairQrKind = v.union(v.literal("sticker"), v.literal("panel"));
 
 export const fairAudienceQuestionStatus = v.union(
   v.literal("draft"),

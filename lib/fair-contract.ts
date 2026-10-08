@@ -788,6 +788,13 @@ export const FAIR_QR_BULK_MAX_ROWS = 100;
 export const FAIR_QR_HISTORY_LIMIT = 50;
 /** A4 — cards per getQrScanStats call. */
 export const FAIR_QR_SCAN_STATS_MAX = 100;
+/** N1 — a field link (fairAdminQr.linkSticker) can be undone this long after it was made. */
+export const FAIR_QR_UNDO_WINDOW_MS = 15 * 60 * 1000;
+/** N1 — rows of fairAdminQr.listRecentLinks. */
+export const FAIR_QR_RECENT_LINKS_MAX = 20;
+/** N1 — an inventory QR is a car sticker (never linked or a fair model QR) or a panel with its own URL. */
+export const FAIR_QR_KINDS = ["sticker", "panel"] as const;
+export type FairQrKind = (typeof FAIR_QR_KINDS)[number];
 
 /** Stable `externalKey`: lowercase ASCII, digits and single hyphens (DATA-INTAKE §4). */
 export const FAIR_EXTERNAL_KEY_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -836,6 +843,14 @@ export const FAIR_ADMIN_ISSUE_CODES = [
   "FAIR_BULK_ROW_INVALID",
   "FAIR_BULK_DUPLICATE_CODE",
   "FAIR_BULK_DUPLICATE_MODEL",
+  // N1 — field linking of stickers: a panel is no car sticker, a withdrawn
+  // model or participation takes no new link, the sticker moved since the
+  // admin saw it, and the undo window / an undo after a later change
+  "FAIR_QR_NOT_MODEL_STICKER",
+  "FAIR_MODEL_WITHDRAWN",
+  "FAIR_QR_HOLDER_CHANGED",
+  "FAIR_QR_UNDO_EXPIRED",
+  "FAIR_QR_UNDO_SUPERSEDED",
   // B3 — Glas publike, survey and passport admin commands
   "FAIR_FEATURE_NOT_ENTITLED",
   "FAIR_EVENT_DAY_NOT_FOUND",
@@ -879,6 +894,8 @@ export const FAIR_ADMIN_ISSUE_CODES = [
   "FAIR_PRICE_MISSING",
   "FAIR_PHOTO_MISSING",
   "FAIR_QR_MISSING",
+  // N1 — a withdrawn model keeps its sticker link; withdrawModel reports it
+  "FAIR_QR_STILL_LINKED",
 ] as const;
 export type FairAdminIssueCode = (typeof FAIR_ADMIN_ISSUE_CODES)[number];
 
@@ -893,6 +910,11 @@ export type FairAdminIssue = {
 /** Public model route opened by `/r/[cardCode]` for an assigned fair QR (B2 resolver fair hook). */
 export function fairModelPath(eventSlug: string, modelSlug: string): string {
   return `/sajam/${eventSlug}/model/${modelSlug}`;
+}
+
+/** N1 — where `/r/[cardCode]` sends a signed-in admin who scans an unlinked or unpublished sticker („Poveži nalepnicu“). */
+export function fairAdminLinkPath(eventSlug: string, cardCode: string): string {
+  return `/admin/dogadjaji/${encodeURIComponent(eventSlug)}/povezi?kod=${encodeURIComponent(cardCode)}`;
 }
 
 // -----------------------------------------------------------------------------

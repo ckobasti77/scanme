@@ -1761,7 +1761,10 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_cardCode", ["cardCode"])
-    .index("by_businessId", ["businessId"]),
+    .index("by_businessId", ["businessId"])
+    // Sajam 2026 N1: a printed label (`SA26-007`) inside one QR inventory
+    // business, and the label series of that inventory (convex/lib/fairQr.ts).
+    .index("by_businessId_and_label", ["businessId", "label"]),
 
   cardTargets: defineTable({
     cardId: v.id("cards"),
@@ -3343,7 +3346,9 @@ export default defineSchema({
     // unique: code (upsert key), slug
     .index("by_code", ["code"])
     .index("by_slug", ["slug"])
-    .index("by_status_and_startsAt", ["status", "startsAt"]),
+    .index("by_status_and_startsAt", ["status", "startsAt"])
+    // N1: the event(s) whose QR inventory a scanned card belongs to (admin shortcut of /r/[cardCode]).
+    .index("by_qrInventoryBusinessId", ["qrInventoryBusinessId"]),
 
   fairEventDays: defineTable({
     eventId: v.id("fairEvents"),
@@ -3440,6 +3445,10 @@ export default defineSchema({
     assignedByUserId: v.id("users"),
     releasedByUserId: v.optional(v.id("users")),
     reason: v.optional(v.string()),
+    // N1 (fairAdminQr.undoLink): the row this sticker was moved away from
+    // (its previous car) and the row of the car's former sticker it replaced.
+    previousAssignmentId: v.optional(v.id("fairQrAssignments")),
+    replacedAssignmentId: v.optional(v.id("fairQrAssignments")),
   })
     // unique: at most one "assigned" row per eventModelId and per accessChannelId
     .index("by_eventModelId_and_status", ["eventModelId", "status"])

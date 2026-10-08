@@ -6,6 +6,7 @@ import {
   resolverIpHash,
   resolverRedirect,
 } from "@/lib/card-resolver-http";
+import { fairAdminLinkPath } from "@/lib/fair-contract";
 import { fairConvexVisitorForRequest, warnOnce } from "@/lib/fair-server/visitor";
 import {
   buildGuestCookieValue,
@@ -134,6 +135,13 @@ export async function GET(
         return redirect(
           new URL(outcome.path, request.url).toString(),
           fairVisitor.setCookie ?? undefined,
+        );
+      case "fair_admin_link":
+        // Sajam 2026 N1: only a signed-in admin with an unlinked or
+        // unpublished fair sticker gets here (no scan recorded): „Poveži
+        // nalepnicu“ in the admin, no visitor cookie. no-store like every branch.
+        return redirect(
+          new URL(fairAdminLinkPath(outcome.eventSlug, outcome.cardCode), request.url).toString(),
         );
       case "memories_space": {
         // The guest lands on /m/[code] — the SPACE code, never the card code.

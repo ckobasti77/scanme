@@ -3,6 +3,8 @@ import { query } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { requireAdmin } from "./lib/access";
 import { fairAdminError, requireFairEvent } from "./lib/fairCatalog";
+import { fairQrKindOf, fairQrModelFactsLoader } from "./lib/fairQr";
+import { fairModelStatus, fairQrKind } from "./lib/fairValidators";
 import { FAIR_ADMIN_LIST_LIMIT } from "../lib/fair-contract";
 
 // Admin UX A3 — read-only numbers for the `Modeli` list and the model detail
@@ -82,7 +84,18 @@ export const getLeadCounts = query({
  */
 export const getModelQrCodes = query({
   args: { eventId: v.id("fairEvents") },
-  returns: v.array(v.object({ eventModelId: v.id("fairEventModels"), resolverCode: v.string(), smqCode: v.union(v.string(), v.null()) })),
+  returns: v.array(v.object({
+    eventModelId: v.id("fairEventModels"),
+    resolverCode: v.string(),
+    smqCode: v.union(v.string(), v.null()),
+    // N1: the printed label, the kind of the code and the car as the field team names it.
+    label: v.string(),
+    kind: fairQrKind,
+    modelStatus: v.union(fairModelStatus, v.null()),
+    exhibitorName: v.union(v.string(), v.null()),
+    standCode: v.union(v.string(), v.null()),
+    standName: v.union(v.string(), v.null()),
+  })),
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
     const event = await requireFairEvent(ctx, args.eventId);
@@ -91,11 +104,23 @@ export const getModelQrCodes = query({
       .withIndex("by_eventId_and_status", (q) => q.eq("eventId", event._id).eq("status", "assigned"))
       .take(FAIR_ADMIN_LIST_LIMIT + 1);
     if (assignments.length > FAIR_ADMIN_LIST_LIMIT) fairAdminError("INVALID_INPUT", { reason: "catalog_limit" });
-    const channels = await Promise.all(assignments.map((row) => ctx.db.get(row.accessChannelId)));
+    const facts = fairQrModelFactsLoader(ctx);
+    const [channels, cards, subjects, models] = await Promise.all([
+      Promise.all(assignments.map((row) => ctx.db.get(row.accessChannelId))),
+      Promise.all(assignments.map((row) => ctx.db.get(row.cardId))),
+      Promise.all(assignments.map((row) => ctx.db.get(row.accessSubjectId))),
+      Promise.all(assignments.map((row) => facts(row.eventModelId))),
+    ]);
     return assignments.map((row, index) => ({
       eventModelId: row.eventModelId,
       resolverCode: row.resolverCode,
       smqCode: channels[index]?.smqCode ?? null,
+      label: cards[index]?.label ?? row.resolverCode,
+      kind: fairQrKindOf(subjects[index]),
+      modelStatus: models[index]?.model.status ?? null,
+      exhibitorName: models[index]?.exhibitorName ?? null,
+      standCode: models[index]?.standCode ?? null,
+      standName: models[index]?.standName ?? null,
     }));
   },
 });

@@ -272,6 +272,8 @@ K3 dodaci (§28):
 
 B5: `recordSponsoredAction` koristi postojeće kodove (`INVALID_INPUT` za `surface` ≠ `garage`, drugu vrstu ili loš `requestId`; `FEATURE_NOT_ENTITLED`, `FAIR_MODEL_NOT_FOUND`, `EVENT_NOT_ACTIVE`, `SUBMISSION_DUPLICATE`, `RATE_LIMITED`). Nov admin kod: `FAIR_SPONSORED_LIMIT` (više od 200 Advanced modela u jednom eventu).
 
+N1 admin kodovi (§37, QR nalepnice na terenu): `FAIR_QR_NOT_MODEL_STICKER` (panel ili subjekat koji nije `legacy`/`fair_model`), `FAIR_MODEL_WITHDRAWN` (povučen model ili povučeno učešće), `FAIR_QR_HOLDER_CHANGED` (`details.holderModelId`: trenutni držalac ili `none`), `FAIR_QR_UNDO_EXPIRED`, `FAIR_QR_UNDO_SUPERSEDED`; upozorenje `FAIR_QR_STILL_LINKED` (`details.resolverCode`, `details.label`) u rezultatu `withdrawModel`. `adminProducts.bulkRetarget` preskače aktivnu sajamsku nalepnicu sa razlogom `fair_sticker_linked` u rezultatu (ne greška).
+
 Detalji greške su samo ne-PII vrednosti. Tekst greške mapira frontend kroz `lib/i18n`.
 
 ## 7. Formati i ključevi
@@ -1688,3 +1690,80 @@ Svako pravilo ulazi samo sa brojem većim od nule. „Veza“ je sekcija i njen 
 - `convex/fairDashboard.test.ts` (TEST seed `fairDevFixtures.seedTestCatalog`): faze i rokovi (pre, sajamski dan 1 i 3 od 3, posle, obrisano); pravila po fazi; katalog i QR (bez QR-a, greške na objavljenom i nacrtu, cena, QR na povučenom, inventar); Glas publike danas (hitno pre podne, uskoro posle) i sledeći dan; Napredni (pitanje za mapu, fotografija, zastarela lista posle ručne objave); leadovi (forme bez saglasnosti, prekidači, neisporučeni do 15. 11., follow-up tekst sa vezom na izlagača); izveštaji (najnoviji run odlučuje, kašnjenje posle 60 min); pasoš (nije napravljen, sakriven, zamrznut sa povučenim modelom); odbrojavanje brisanja; redosled; KPI i kartice (skenovi iz brojača štandova); izostavljanje funkcija bez paketa; granice (`capped`); authz i izlaz bez PII.
 - `convex/fairAuthz.test.ts`: `getEventDashboard` klasifikovan kao admin; anonimni i ne-admin odbijeni.
 - Komponente: `components/admin/events/sections/pregled-view.test.tsx` (redosled po tonu, veze na filtrirane sekcije, prazno stanje „Sve je spremno“, tri faze, KPI bez lažnih nula, kartice, bedževi navigacije), `components/admin/admin-events.test.tsx` (okvir + Pregled).
+
+## 37. N1 — QR nalepnice na terenu: utegnut backend (`convex/lib/fairQr.ts`, `convex/fairAdminQr.ts`)
+
+Odluka vlasnika 8. 10. (NOC-KONTEKST §1.5): povezivanje na terenu mora biti brzo, otporno na greške i sa poništavanjem; ništa se ne preštampava. 100 nalepnica `SA26-001…100` i 3 panela i dalje vode na `https://scanme.rs/r/<kod>`; resolver, kodovi i URL-ovi su isti.
+
+### 37.1 Oznaka nalepnice (`lib/fair-qr-label.ts`, čisto, deljeno sa UI-jem)
+
+- `normalizeFairQrLabel(unos, format?)` → kanonska oznaka ili `null`. `7`, `07`, `007`, `sa26-7`, `SA26 7`, `SA26007`, `SA26_007`, en/em crtica i druge crtice, slovo O umesto nule, razmaci okolo → `SA26-007`. `0`, broj iznad najvećeg, drugi prefiks (`SA27-007`), vodeća crtica (`-001`) i smeće → `null`.
+- Serija postoji na jednom mestu: `FAIR_QR_LABEL_DEFAULT_FORMAT = { prefix: "SA26", digits: 3, max: 100 }` (koristi je i `convex/fairPrintInventory.ts`). Stvarna serija inventara se izvodi iz njegovih oznaka: `fairQrLabelFormatFromLabels` (čisto) i `fairQrLabelFormatOf(ctx, businessId)` (Convex, „loose index scan“ po novom indeksu: prva oznaka svake grupe i poslednja oznaka serije, najviše 24 grupe; bez serije → podrazumevana).
+- Koriste je: `findInventoryChannel` i `findInventoryCode` (preko `lookupQrChannel`), masovna dodela, polje koda u importu (`assignedResolverCode`), `fairAdmin.resolveTest` (sa `eventId`), `qrCodeFromSearch` i pretraga QR liste (`lib/admin-v1/qr-filters.ts`: unos koji je broj nalepnice nalazi tačno tu nalepnicu).
+
+### 37.2 Pronalaženje koda
+
+Redosled u `lookupQrChannel`: SMQ (`digitalQrCodes.by_smqCode`) → 8-znakovni resolver kod (`accessChannels.by_resolverCode`) → oznaka u inventaru događaja (`cards.by_businessId_and_label`, eq): broj nalepnice u seriji inventara, pa cela oznaka kako je otkucana (panel `PANEL-2026-EVENT`). Nema skeniranja svih kartica (stari `FAIR_QR_LABEL_SCAN_LIMIT` je uklonjen).
+
+- `findInventoryChannel(ctx, event, code, missing?)`: samo TRENUTNI inventar događaja. Koriste ga sve dodele: `assignFairQr` (`assignQr`, import, DEV fixture-i, `reassignQr`), masovna dodela (dry run i commit; nepoznat kod → `FAIR_QR_NOT_FOUND`) i `linkSticker`.
+- `findInventoryCode` (detalj, `reassignQr`, `resolveTest`) i dalje otvara kod starog inventara koji vodi na model ovog događaja (Izlagači 2026).
+
+### 37.3 Šema (aditivno)
+
+| Izmena | Zašto |
+|---|---|
+| `cards.by_businessId_and_label` | oznaka u inventaru jednim indeksiranim čitanjem; serija inventara |
+| `fairEvents.by_qrInventoryBusinessId` | admin prečica resolvera: kom događaju pripada skenirana kartica |
+| `fairQrAssignments.previousAssignmentId?`, `replacedAssignmentId?` | `undoLink`: red sa kog je nalepnica premeštena (prethodni auto) i red nalepnice koju je zamenila |
+
+Postojeće kartice i redovi rade bez izmene; nova polja su opciona.
+
+### 37.4 Zaštite pri svakoj dodeli
+
+`assignFairQr`, `reassignFairQr`, masovna dodela (dry run vraća grešku po redu), import (plan) i `linkSticker`:
+
+- subjekat koji nije `legacy` ni `fair_model` (panel → `dynamic_url`) → `FAIR_QR_NOT_MODEL_STICKER`;
+- povučen model ili povučeno učešće → `FAIR_MODEL_WITHDRAWN`;
+- model u nacrtu je dozvoljen; odgovor nosi `modelStatus` (`assignQr`, `reassignQr`, redovi masovne dodele, `linkSticker`), da UI upozori da sken vodi na „kartica nije aktivna“ dok model nije objavljen.
+
+**Povlačenje modela** (`fairAdmin.withdrawModel`) NE oslobađa nalepnicu: veza ostaje (ponovna objava odmah vraća sken; nalepnica je fizički i dalje na autu), a rezultat je vidno prijavljuje kao upozorenje `FAIR_QR_STILL_LINKED` (`resolverCode`, `label`), audit `fair_model_withdrawn` dobija `qrStillLinked`, a Pregled je već broji (`qr_on_withdrawn`). Posetilac i dalje dobija `/r/nevazeca`; admin dobija prečicu iz §37.6. Ovo je bezbednija varijanta: ništa se ne menja tiho i ništa se ne gubi pri slučajnom povlačenju.
+
+**`adminProducts.bulkRetarget`** (opšti QR admin) preskače subjekat čija nalepnica ima aktivnu sajamsku vezu: rezultat `{ retargeted, skipped: [{ subjectId, resolverCode, reason: "fair_sticker_linked" }] }`; `null` = ponovljena komanda (replay), kao ranije.
+
+### 37.5 Funkcije (`convex/fairAdminQr.ts`, sve `requireAdmin`)
+
+| Funkcija | Vrsta | Args → returns | Pravila |
+|---|---|---|---|
+| `linkSticker` | admin mutation | `{ eventId, code, eventModelId, expectedHolderModelId: Id \| null, replaceModelSticker? }` → `{ assignmentId, created, label, resolverCode, modelStatus, movedFromModelId?, replacedLabel? }` | Jedna transakcija. Slobodna nalepnica → veži. Na autu A ovog događaja → premesti samo ako je `expectedHolderModelId` tačno A; inače `FAIR_QR_HOLDER_CHANGED` bez upisa (isto i kad je admin video slobodnu, a zauzeta je, ili obrnuto). Na autu drugog događaja → `FAIR_QR_OTHER_EVENT`. Auto već ima drugu nalepnicu → `FAIR_MODEL_ALREADY_ASSIGNED` (`details.resolverCode`); sa `replaceModelSticker` stara se oslobađa (`fair_qr_released`, kanal u `problem`). Isti auto i ista nalepnica → isti red, `created: false`, bez upisa. Razlozi se upisuju sami: „Teren: povezivanje nalepnice“, „Teren: premeštanje nalepnice“, „Teren: zamena nalepnice“ (`adminEventsSr.qrFieldReasons`). Upis je isti kao u `assignFairQr` (`insertFairAssignment`: red, novi nepromenljivi target, istorija, sync kanala, audit `fair_qr_assigned`); premeštanje dodaje `fair_qr_reassigned` i kanal ne prolazi kroz `problem`. |
+| `undoLink` | admin mutation | `{ assignmentId }` → `{ undoneAssignmentId, restoredToModelId, restoredAssignmentId, restoredReplacedLabel, restoredReplacedAssignmentId }` | Radi `FAIR_QR_UNDO_WINDOW_MS` = 15 min posle veze i dok je red i dalje aktivna veza; inače `FAIR_QR_UNDO_EXPIRED` / `FAIR_QR_UNDO_SUPERSEDED`. Uklanja vezu („Teren: poništeno povezivanje“) i vraća prethodno stanje („Teren: vraćeno posle poništavanja“): premeštena nalepnica ide nazad na prethodni auto (ako je taj auto u međuvremenu dobio drugu nalepnicu ili je povučen → `FAIR_QR_UNDO_SUPERSEDED`, ništa se ne upisuje); zamenjena nalepnica se vraća na auto samo ako je još slobodna. Audit `fair_qr_link_undone`. Važi i za `reassignQr` (novi red pamti `previousAssignmentId`). |
+| `listRecentLinks` | admin query | `{ eventId, limit? (1–20, podrazumevano 20), now }` → `{ labelFormat: { prefix, digits, max }, links: { assignmentId, label, resolverCode, eventModelId, modelName, modelVariant, modelStatus, brandName, exhibitorName, standCode, standName, linkedAt, linkedByUserId, linkedByName, reason, undoUntil, canUndo }[] }` | Aktivne veze događaja, najnovije prvo (`fairQrAssignments.by_eventId_and_status`, desc, `take(limit)`). `canUndo` se računa za `now` koje šalje klijent (upit ne čita sat; klijent ponovo šalje `now` da osveži). `labelFormat` je serija inventara za pregled unosa na klijentu. |
+
+Obogaćena čitanja (oznaka, vrsta `sticker`/`panel`, status modela, izlagač, štand; izlagač = naziv lokala, inače naziv klijenta, kao u adminu):
+
+- `fairAdminQr.getQrDetail`: `kind`; `current.brandName`, `exhibitorName`, `standCode`, `standName`;
+- `fairAdmin.listQrInventory`: `kind`; `assignment.modelStatus`, `exhibitorName`, `standCode`, `standName`;
+- `fairAdminStats.getModelQrCodes`: `label`, `kind`, `modelStatus`, `exhibitorName`, `standCode`, `standName`.
+
+`fairAdmin.resolveTest` prima opcioni `eventId`; tada prima kod kao i ostatak QR admina.
+
+### 37.6 Admin prečica u resolveru (`cards.resolveAndRecord` → `fairAdminLinkShortcut`)
+
+Novi ishod `{ kind: "fair_admin_link", eventSlug, cardCode }` vraća se PRE bilo kakvog upisa skena (posle postojeće sinhronizacije kanala), samo kad važi sve:
+
+1. zahtev nosi ScanMe sesiju admina (isto kao isključenje admin skenova: `fairSessionAdminUserId`, sesija koju prosleđuje `app/r/[cardCode]/route.ts`);
+2. kod je `qr` kanal sa uključenim preusmeravanjem i subjektom nalepnice (`legacy`/`fair_model`), a kartica pripada inventaru sajamskog događaja (`fairEvents.by_qrInventoryBusinessId`, bez arhiviranih);
+3. sken bi pao iz sajamskog razloga: nepovezana (`destination_missing`), oslobođena (`destination_fair_unassigned`), model obrisan (`destination_fair_model_missing`) ili vezana za model koji nije objavljen (nacrt, povučen).
+
+`eventSlug` je događaj modela za vezanu nalepnicu. Za slobodnu: događaj koji traje ili sledeći; ako su svi prošli, onaj koji se poslednji završio. `route.ts` šalje 302 `no-store` na `fairAdminLinkPath(eventSlug, cardCode)` = `/admin/dogadjaji/<eventSlug>/povezi?kod=<cardCode>` (stranica `povezi` stiže u N2). Sve ostalo je isto kao pre: posetilac, prijavljen ne-admin, objavljena veza (admin sken se beleži i isključuje iz brojača), panel, oštećena ili isključena nalepnica i kartice van sajma.
+
+### 37.7 Testovi
+
+- `lib/fair-qr-label.test.ts`: tabela ispravnih i neispravnih unosa, druga serija, izvođenje serije iz oznaka, `fairAdminLinkPath`.
+- `convex/fairQrSticker.test.ts` (štampani TEST inventar `SA26-001…012` + paneli kroz `fairPrintInventory`, dva događaja na istom inventaru):
+  - unos `7` / `sa26 8` / SMQ u `assignQr`, `getQrDetail`, `resolveTest` i masovnoj dodeli; oznaka samo iz inventara događaja;
+  - panel → `FAIR_QR_NOT_MODEL_STICKER`; povučen model ili učešće → `FAIR_MODEL_WITHDRAWN`; nacrt → `modelStatus`; povlačenje vezanog modela → `FAIR_QR_STILL_LINKED`;
+  - `linkSticker`: slobodna, ista (idempotentno), premeštanje sa tačnim i pogrešnim `expectedHolderModelId` (broj redova se ne menja), zamena, drugi događaj;
+  - `undoLink`: obična veza, premeštanje, zamena dok je stara slobodna i kad nije, prethodni auto zauzet, istek lažnim tajmerom, „superseded“;
+  - `listRecentLinks`, obogaćena čitanja, `bulkRetarget` ne gazi nalepnicu;
+  - resolver: admin + nepovezana / oslobođena / nacrt / povučen → prečica bez reda u `cardScanEvents`; posetilac i ne-admin → `invalid` kao pre; admin + objavljen → `fair_model` / `admin_excluded`; oštećena, panel i kartica van sajma → nepromenjeno.
+- `lib/admin-v1/qr-filters.test.ts` (broj nalepnice u pretrazi i „Otvori detalj“), `convex/fairImport.test.ts` (polje koda u importu prima oznaku, panel odbijen), `convex/fairAdminQr.test.ts` i `convex/fairAuthz.test.ts` (tri nove funkcije su admin-only), `convex/fairSchema.test.ts` (novi indeks `fairEvents`).

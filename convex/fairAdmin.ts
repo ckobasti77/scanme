@@ -10,7 +10,9 @@ import { writeAdminAudit } from "./lib/adminAudit";
 import { upsertClientReadModel, upsertVenueReadModel } from "./lib/adminReadModelEngine";
 import { normalizeAdminEmail, normalizeAdminHumanCode, normalizeAdminPhone, normalizeAdminSearchText } from "./lib/adminV1Validators";
 import {
+  activeAssignmentForModel,
   fairAdminError,
+  fairIssue,
   fairIssueValidator,
   fairPublishIssuesFromFacts,
   fairSpecificationInput,
@@ -28,13 +30,22 @@ import {
 } from "./lib/fairCatalog";
 import { scheduleFairBrandPassportSync } from "./lib/fairPassportSync";
 import { syncFairSponsoredSnapshot } from "./lib/fairSponsored";
-import { activeAssignmentForChannel, assignFairQr, fairResolveTest, releaseFairQr } from "./lib/fairQr";
+import {
+  activeAssignmentForChannel,
+  assignFairQr,
+  fairQrKindOf,
+  fairQrModelFactsLoader,
+  fairResolveTest,
+  findInventoryCode,
+  releaseFairQr,
+} from "./lib/fairQr";
 import {
   fairClientSegment,
   fairEventStatus,
   fairModelStatus,
   fairPackageTier,
   fairParticipationStatus,
+  fairQrKind,
   fairStandStatus,
 } from "./lib/fairValidators";
 import { requireSlug } from "./lib/validation";
@@ -174,7 +185,14 @@ const statusResult = v.object({ status: fairModelStatus, changed: v.boolean(), w
 async function changeModelStatus(ctx: MutationCtx, eventModelId: Id<"fairEventModels">, status: "published" | "withdrawn") {
   const admin = await requireAdmin(ctx);
   const now = Date.now();
-  const { model, changed, warnings } = await setFairModelStatus(ctx, eventModelId, status, now);
+  const { model, changed, warnings: publishWarnings } = await setFairModelStatus(ctx, eventModelId, status, now);
+  // N1: a withdrawn model KEEPS its sticker link (re-publishing restores the
+  // scan at once; the sticker is still on the car) and the result says so
+  // visibly; the dashboard counts it as `qr_on_withdrawn`. No silent link.
+  const linked = status === "withdrawn" ? await activeAssignmentForModel(ctx, model._id) : null;
+  const warnings = linked
+    ? [...publishWarnings, fairIssue("warning", "FAIR_QR_STILL_LINKED", "qr", { resolverCode: linked.resolverCode, label: (await ctx.db.get(linked.cardId))?.label ?? linked.resolverCode })]
+    : publishWarnings;
   if (changed) {
     const participation = await ctx.db.get(model.participationId);
     await writeAdminAudit(ctx, {
@@ -182,7 +200,7 @@ async function changeModelStatus(ctx: MutationCtx, eventModelId: Id<"fairEventMo
       accountId: participation?.accountId,
       businessId: participation?.businessId,
       action: status === "published" ? "fair_model_published" : "fair_model_withdrawn",
-      detail: { eventModelId: model._id, from: model.status, to: status },
+      detail: { eventModelId: model._id, from: model.status, to: status, ...(linked ? { qrStillLinked: linked.resolverCode } : {}) },
       now,
     });
     // Admin UX A7: the brand's automatic passport follows the catalog.
@@ -429,9 +447,15 @@ export const convertEventClientToStandard = mutation({
 // QR inventory, assignment and resolve test
 // -----------------------------------------------------------------------------
 
+/**
+ * `resolverCode` takes any typed code of the event's CURRENT inventory: the
+ * resolver code, the SMQ serial or (N1) the printed label (`7`, `SA26-007`).
+ * N1: a panel or a withdrawn model is refused; `modelStatus` tells the admin
+ * that a draft model's sticker reads „kartica nije aktivna“ until published.
+ */
 export const assignQr = mutation({
   args: { eventModelId: v.id("fairEventModels"), resolverCode: v.string(), reason: v.optional(v.string()) },
-  returns: v.object({ assignmentId: v.id("fairQrAssignments"), created: v.boolean() }),
+  returns: v.object({ assignmentId: v.id("fairQrAssignments"), created: v.boolean(), modelStatus: fairModelStatus }),
   handler: async (ctx, args) => {
     const admin = await requireAdmin(ctx);
     return assignFairQr(ctx, args, admin._id, Date.now());
@@ -454,12 +478,23 @@ const inventoryRow = v.object({
   resolverCode: v.string(),
   /** Izlagači 2026: the printed label of the card (`SA26-001`, cards.label). */
   label: v.string(),
+  /** N1: a car sticker or a panel. */
+  kind: fairQrKind,
   accessChannelId: v.union(v.id("accessChannels"), v.null()),
   smqCode: v.union(v.string(), v.null()),
   state: v.union(accessState, v.null()),
   problemReason: v.union(v.string(), v.null()),
   assignment: v.union(
-    v.object({ assignmentId: v.id("fairQrAssignments"), eventId: v.id("fairEvents"), eventModelId: v.id("fairEventModels") }),
+    v.object({
+      assignmentId: v.id("fairQrAssignments"),
+      eventId: v.id("fairEvents"),
+      eventModelId: v.id("fairEventModels"),
+      // N1: the car as the field team names it.
+      modelStatus: v.union(fairModelStatus, v.null()),
+      exhibitorName: v.union(v.string(), v.null()),
+      standCode: v.union(v.string(), v.null()),
+      standName: v.union(v.string(), v.null()),
+    }),
     v.null(),
   ),
 });
@@ -475,27 +510,45 @@ export const listQrInventory = query({
     if (args.paginationOpts.numItems > QR_INVENTORY_PAGE_MAX) fairAdminError("INVALID_INPUT", { field: "numItems" });
     const businessId = event.qrInventoryBusinessId;
     const cards = await ctx.db.query("cards").withIndex("by_businessId", (q) => q.eq("businessId", businessId)).paginate(args.paginationOpts);
+    const facts = fairQrModelFactsLoader(ctx);
     const page = [];
     for (const card of cards.page) {
       const channel = card.accessChannelId ? await ctx.db.get(card.accessChannelId) : null;
-      const assignment = channel ? await activeAssignmentForChannel(ctx, channel._id) : null;
+      const [assignment, subject] = channel ? await Promise.all([activeAssignmentForChannel(ctx, channel._id), ctx.db.get(channel.subjectId)]) : [null, null];
+      const model = assignment ? await facts(assignment.eventModelId) : null;
       page.push({
         cardId: card._id,
         resolverCode: card.cardCode,
         label: card.label,
+        kind: fairQrKindOf(subject),
         accessChannelId: channel?._id ?? null,
         smqCode: channel?.smqCode ?? null,
         state: channel?.state ?? null,
         problemReason: channel?.problemReason ?? null,
-        assignment: assignment ? { assignmentId: assignment._id, eventId: assignment.eventId, eventModelId: assignment.eventModelId } : null,
+        assignment: assignment
+          ? {
+            assignmentId: assignment._id,
+            eventId: assignment.eventId,
+            eventModelId: assignment.eventModelId,
+            modelStatus: model?.model.status ?? null,
+            exhibitorName: model?.exhibitorName ?? null,
+            standCode: model?.standCode ?? null,
+            standName: model?.standName ?? null,
+          }
+          : null,
       });
     }
     return { ...cards, page };
   },
 });
 
+/**
+ * What /r/[cardCode] would open for a code. N1: with `eventId` the code may be
+ * typed like everywhere else in the QR admin (label `7` / `SA26-007`, SMQ or
+ * resolver code of that event's inventory); without it, the resolver code.
+ */
 export const resolveTest = query({
-  args: { resolverCode: v.string() },
+  args: { resolverCode: v.string(), eventId: v.optional(v.id("fairEvents")) },
   returns: v.object({
     resolverCode: v.string(),
     outcome: v.union(v.literal("fair_model"), v.literal("other"), v.literal("invalid")),
@@ -509,6 +562,10 @@ export const resolveTest = query({
   }),
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
+    if (args.eventId) {
+      const found = await findInventoryCode(ctx, await requireFairEvent(ctx, args.eventId), args.resolverCode);
+      if ("channel" in found) return fairResolveTest(ctx, found.channel.resolverCode);
+    }
     return fairResolveTest(ctx, args.resolverCode);
   },
 });

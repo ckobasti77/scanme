@@ -11,6 +11,7 @@ import { getOrderLine, refreshOperation } from "./lib/adminOrderOperations";
 import { isDesignReady } from "../lib/admin-v1/order-workflow";
 import { writeAdminAudit } from "./lib/adminAudit";
 import { syncAutomaticAction } from "./lib/adminActionEngine";
+import { activeFairAssignmentForSubject } from "./lib/fairQr";
 
 const scope = { accountId: v.id("accounts"), businessId: v.id("businesses") };
 const provisionArgs = { ...scope, requestId: v.id("orderProvisioningRequests"), expectedOffset: v.number(), channels: v.array(accessKind), destination: v.optional(accessDestinationInput), key: v.string() };
@@ -229,10 +230,19 @@ export const refreshChannels = mutation({
   },
 });
 
-/** All selected products/channels resolve to a deduplicated set of subjects. */
+/**
+ * All selected products/channels resolve to a deduplicated set of subjects.
+ * Sajam 2026 N1: a subject whose code is a fair sticker actively linked to a
+ * car (fairQrAssignments) is skipped, never overwritten — the result lists it
+ * with reason `fair_sticker_linked` (free it in Događaji → QR first). null =
+ * a replay of an already applied command.
+ */
 export const bulkRetarget = mutation({
   args: { ...scope, productIds: v.array(v.id("physicalProducts")), channelIds: v.array(v.id("accessChannels")), destination: accessDestinationInput, reason: v.string(), key: v.string() },
-  returns: v.null(),
+  returns: v.union(v.null(), v.object({
+    retargeted: v.number(),
+    skipped: v.array(v.object({ subjectId: v.id("accessSubjects"), resolverCode: v.string(), reason: v.literal("fair_sticker_linked") })),
+  })),
   handler: async (ctx, args) => {
     const actor = await requireAdmin(ctx);
     await requireScope(ctx, args.accountId, args.businessId);
@@ -254,11 +264,18 @@ export const bulkRetarget = mutation({
       const subject = await subjectInScope(ctx, channel.subjectId, args.accountId, args.businessId);
       subjects.set(subject._id, subject);
     }
+    const skipped: { subjectId: Id<"accessSubjects">; resolverCode: string; reason: "fair_sticker_linked" }[] = [];
+    for (const subject of [...subjects.values()]) {
+      const fairLink = await activeFairAssignmentForSubject(ctx, subject._id);
+      if (!fairLink) continue;
+      skipped.push({ subjectId: subject._id, resolverCode: fairLink.resolverCode, reason: "fair_sticker_linked" });
+      subjects.delete(subject._id);
+    }
     const prepared = await prepareDestination(ctx, args.businessId, args.destination);
     for (const subject of subjects.values()) await assertDestinationHealthy(ctx, subject, prepared, args.destination);
     for (const subject of subjects.values()) await applyDestination(ctx, subject, args.destination, prepared, actor._id, args.reason, Date.now());
     await remember(ctx, args.key, payload);
-    return null;
+    return { retargeted: subjects.size, skipped };
   },
 });
 

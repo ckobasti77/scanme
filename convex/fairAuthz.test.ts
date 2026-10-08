@@ -103,7 +103,11 @@ const AUTHZ: Record<string, { module: Record<string, unknown>; functions: Record
   // Admin UX A3 — read-only numbers of the Modeli list and model detail.
   fairAdminStats: { module: fairAdminStats, functions: { getLeadCounts: A, getModelQrCodes: A } },
   // Admin UX A4 — QR detail, scan numbers, change of destination and bulk assignment.
-  fairAdminQr: { module: fairAdminQr, functions: { getQrDetail: A, getQrScanStats: A, reassignQr: A, bulkAssignQrDryRun: A, bulkAssignQrCommit: A } },
+  fairAdminQr: {
+    module: fairAdminQr,
+    // N1 — field linking of stickers (link, undo, recent links).
+    functions: { getQrDetail: A, getQrScanStats: A, reassignQr: A, bulkAssignQrDryRun: A, bulkAssignQrCommit: A, linkSticker: A, undoLink: A, listRecentLinks: A },
+  },
   fairImport: { module: fairImport, functions: { dryRun: A, commit: A } },
   // Izlagači 2026 — the organizer's exhibitor list and the event → printed inventory link: CLI only.
   fairExhibitorImport: { module: fairExhibitorImport, functions: { importSiteExhibitors: I, linkEventQrInventory: I } },
@@ -228,7 +232,9 @@ describe("B7 authz table of every fair function", () => {
       const adminId = (await ctx.db.query("users").collect()).find((row) => row.email === ADMIN_EMAIL)!._id;
       const followUpDraftId = await ctx.db.insert("fairExhibitorFollowUpTemplates", { eventId: f.eventId, participationId: f.participationId, subject: "TEST {ime}", plainText: "TEST {modeli}", status: "draft", version: 1, updatedByUserId: adminId, createdAt: now, updatedAt: now });
       const followUpActiveId = await ctx.db.insert("fairExhibitorFollowUpTemplates", { eventId: f.eventId, participationId: f.participationId, subject: "TEST", plainText: "TEST", status: "active", version: 2, updatedByUserId: adminId, createdAt: now, updatedAt: now });
-      return { leadId, deliveryId, consentId, reportRunId, followUpDraftId, followUpActiveId };
+      // N1: an active link of the TEST model, the target of undoLink.
+      const assignmentId = (await ctx.db.query("fairQrAssignments").withIndex("by_eventModelId_and_status", (q) => q.eq("eventModelId", f.modelId).eq("status", "assigned")).first())!._id;
+      return { leadId, deliveryId, consentId, reportRunId, followUpDraftId, followUpActiveId, assignmentId };
     });
     const question = { eventModelId: f.modelId, eventDayId: f.dayId, prompt: "TEST?", options: [{ id: "a", label: "A", order: 1 }, { id: "b", label: "B", order: 2 }], sortOrder: 9 };
     type Caller = Pick<typeof f.t, "query" | "mutation" | "action">;
@@ -280,6 +286,9 @@ describe("B7 authz table of every fair function", () => {
       ["reassignQr", (c) => c.mutation(api.fairAdminQr.reassignQr, { eventId: f.eventId, code: "ZZZZZZZZ", toEventModelId: f.modelId, reason: "TEST razlog" })],
       ["bulkAssignQrDryRun", (c) => c.query(api.fairAdminQr.bulkAssignQrDryRun, { eventId: f.eventId, rows: [{ code: "ZZZZZZZZ", model: "test-em26-volta-x1" }] })],
       ["bulkAssignQrCommit", (c) => c.mutation(api.fairAdminQr.bulkAssignQrCommit, { eventId: f.eventId, rows: [{ code: "ZZZZZZZZ", model: "test-em26-volta-x1" }] })],
+      ["linkSticker", (c) => c.mutation(api.fairAdminQr.linkSticker, { eventId: f.eventId, code: f.seed.qr[0].resolverCode, eventModelId: f.modelId, expectedHolderModelId: null, replaceModelSticker: true })],
+      ["undoLink", (c) => c.mutation(api.fairAdminQr.undoLink, { assignmentId: extra.assignmentId })],
+      ["listRecentLinks", (c) => c.query(api.fairAdminQr.listRecentLinks, { eventId: f.eventId, now: REHEARSAL })],
       ["getPassportOverview", (c) => c.query(api.fairPassports.getPassportOverview, { eventId: f.eventId })],
       ["refreshPassports", (c) => c.mutation(api.fairPassports.refreshPassports, { eventId: f.eventId })],
       ["setPassportHidden", (c) => c.mutation(api.fairPassports.setPassportHidden, { passportId: f.passportId, hidden: true })],

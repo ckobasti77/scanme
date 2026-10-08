@@ -17,6 +17,7 @@ import { cardResolution } from "./lib/accessResolution";
 import { refreshInventory, syncChannel } from "./lib/accessOperations";
 import { syncAutomaticAction } from "./lib/adminActionEngine";
 import { openableFairModel, recordFairScan, type FairScanRecordStatus } from "./lib/fairScans";
+import { fairAdminLinkShortcut } from "./lib/fairQr";
 
 // =============================================================================
 // TASK-14 — Cards: the printed /r/[cardCode] resolver and its management.
@@ -599,7 +600,11 @@ type ResolveOutcome =
   // Sajam 2026 B2: the readable /sajam/{eventSlug}/model/{modelSlug} path of
   // an assigned, published fair model. `fairScan` reports what the fair hook
   // did with this request (the redirect never depends on it).
-  | { kind: "fair_model"; path: string; fairScan: FairScanRecordStatus };
+  | { kind: "fair_model"; path: string; fairScan: FairScanRecordStatus }
+  // Sajam 2026 N1: a signed-in admin scanned an unlinked, released or
+  // unpublished fair sticker — the handler 302s to „Poveži nalepnicu“
+  // (/admin/dogadjaji/<eventSlug>/povezi?kod=<cardCode>). No scan is recorded.
+  | { kind: "fair_admin_link"; eventSlug: string; cardCode: string };
 
 // THE guest-minting path (RFC-001 §2.6 / RFC-002 §2.4): rate-limit, then
 // insert a memoriesGuests row attributed to the TABLE (guest.cardId). Shared
@@ -731,6 +736,10 @@ export const resolveAndRecord = mutation({
       await syncChannel(ctx, channel, subject, { kind: "system", source: "resolver" }, problem, Date.now());
       if (channel.problemReason !== problem || channel.state !== "problem") await refreshInventory(ctx, subject, Date.now());
     }
+    // Sajam 2026 N1: before any scan row — only an admin session with a fair
+    // sticker that would fail for a fair reason gets a different outcome.
+    const fairAdminLink = await fairAdminLinkShortcut(ctx, card, resolution);
+    if (fairAdminLink) return { kind: "fair_admin_link", ...fairAdminLink };
     if (problem || (channel && (!channel.redirectEnabled || channel.state !== "active"))) return { kind: "invalid" };
     if (!target) return { kind: "invalid" };
 

@@ -5,6 +5,7 @@
 // the sticker (`SA26-001`), which orders the list. Pure; shared by the admin
 // container, the dev preview and the tests.
 
+import { FAIR_QR_LABEL_DEFAULT_FORMAT, normalizeFairQrLabel, type FairQrLabelFormat } from "../fair-qr-label";
 import { matchesSearch, normalizeSearch } from "./hierarchy";
 import type { FilterableModel } from "./model-filters";
 import type { AdminQueryKey, AdminQueryPatch, AdminQueryState } from "./query-state";
@@ -53,6 +54,18 @@ function qrSearchText(row: FilterableQrRow, model: Pick<FilterableModel, "displa
 
 type Skip = "hierarchy" | "stanje";
 
+/**
+ * N1: a search that is a sticker number (`7`, `sa26 7`, `SA26_007`,
+ * normalizeFairQrLabel) finds exactly that printed sticker; any other text
+ * searches SMQ, resolver code, label and model as before.
+ */
+function matchesQrSearch(row: FilterableQrRow, model: Parameters<typeof qrSearchText>[1], q: string | undefined): boolean {
+  if (!q) return true;
+  const sticker = normalizeFairQrLabel(q, FAIR_QR_LABEL_DEFAULT_FORMAT);
+  if (sticker) return qrPrintedLabel(row)?.toUpperCase() === sticker;
+  return matchesSearch(qrSearchText(row, model), q);
+}
+
 export function matchesQrFilters(
   row: FilterableQrRow,
   model: Pick<FilterableModel, "id" | "participationId" | "brandId" | "displayName" | "variant" | "brandName" | "exhibitorName" | "externalKey"> | null,
@@ -66,7 +79,7 @@ export function matchesQrFilters(
     if (query.model && model.id !== query.model) return false;
   }
   if (skip !== "stanje" && query.stanje && (QR_STATES as readonly string[]).includes(query.stanje) && qrStateOf(row) !== query.stanje) return false;
-  return !query.q || matchesSearch(qrSearchText(row, model), query.q);
+  return matchesQrSearch(row, model, query.q);
 }
 
 const collator = new Intl.Collator("sr-Latn-RS", { numeric: true, sensitivity: "base" });
@@ -134,13 +147,16 @@ const RESOLVER_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 /**
  * The search text as a printed code (same normalization as the resolver:
  * upper case, I/L → 1, O → 0, 8 characters), an SMQ serial or a sticker
- * serial (`SA26-001`); null when it is not a whole code. Such a search offers
- * "Otvori detalj", which finds the code in the whole inventory, also when it
- * is not among the loaded rows.
+ * serial (`SA26-001`; N1: also `7`, `sa26 7`, `SA26_007` → `SA26-007` in the
+ * inventory's series, normalizeFairQrLabel); null when it is not a whole
+ * code. Such a search offers "Otvori detalj", which finds the code in the
+ * whole inventory, also when it is not among the loaded rows.
  */
-export function qrCodeFromSearch(text: string | undefined): string | null {
+export function qrCodeFromSearch(text: string | undefined, format: FairQrLabelFormat = FAIR_QR_LABEL_DEFAULT_FORMAT): string | null {
   const value = (text ?? "").trim().toUpperCase();
   if (/^SMQ-[A-Z0-9]+(?:-[A-Z0-9]+)*$/.test(value)) return value;
+  const sticker = normalizeFairQrLabel(value, format);
+  if (sticker) return sticker;
   if (SERIAL_LABEL.test(value)) return value;
   const mapped = value.replace(/[IL]/g, "1").replace(/O/g, "0");
   if (mapped.length !== 8 || [...mapped].some((char) => !RESOLVER_ALPHABET.includes(char))) return null;
