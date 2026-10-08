@@ -1,18 +1,15 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
-import { Link2, Star, UtensilsCrossed } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
 import { HeroIntro } from "@/components/hero-intro";
 import { HeroMedia } from "@/components/hero-media";
 import { PrelaunchFairBanner } from "@/components/prelaunch-fair-banner";
 import { PrelaunchNav } from "@/components/prelaunch-nav";
+import { PrelaunchServiceCards } from "@/components/prelaunch-service-cards";
 import { ScanStory } from "@/components/scan-story";
 import { prelaunchSr as dict } from "@/lib/i18n/sr/prelaunch";
 import { FAIR_BANNER_ENABLED } from "@/lib/prelaunch-fair-banner";
-import packageStyles from "./landing-packages.module.css";
 import styles from "./prelaunch-landing.module.css";
-
-const serviceIcons = [Link2, Star, UtensilsCrossed] as const;
 
 const navLinks = [
   { href: "#kako-radi", label: dict.nav.story },
@@ -74,30 +71,13 @@ export function PrelaunchLanding() {
 
           <ScanStory title={dict.story.title} compact />
 
-          <section id="usluge" className={`${styles.servicesSection} section-shell offer-surface`}>
+          <section id="usluge" className={`${styles.servicesSection} section-shell`} data-reveal="off">
             <div className={styles.servicesHeader}>
+              <p className={styles.sectionEyebrow}>{dict.services.eyebrow}</p>
               <h2>{dict.services.title}</h2>
+              <p className={styles.servicesBody}>{dict.services.body}</p>
             </div>
-            <div className={styles.serviceGrid} data-reveal-group>
-              {dict.services.items.map((service, index) => {
-                const Icon = serviceIcons[index];
-                return (
-                  <article
-                    key={service.name}
-                    className={`${packageStyles.card} ${styles.serviceCardFrame} offer-glass offer-glass--panel`}
-                  >
-                    <span className={packageStyles.icon} aria-hidden="true">
-                      <Icon size={22} strokeWidth={1.7} />
-                    </span>
-                    {service.status === "soon" && (
-                      <span className={packageStyles.soonTag}>{dict.services.soon}</span>
-                    )}
-                    <h3 className={packageStyles.name}>{service.name}</h3>
-                    <p className={packageStyles.sentence}>{service.body}</p>
-                  </article>
-                );
-              })}
-            </div>
+            <PrelaunchServiceCards />
           </section>
         </main>
         <Footer />

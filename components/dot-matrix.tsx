@@ -3,9 +3,10 @@ import type { CSSProperties } from "react";
 /**
  * Jednobojna ikonica od tačaka (dot-matrix). `pattern` je niz redova iste dužine:
  * "#" je upaljena tačka, "o" tačka koja se još „slaže“ (uskoro), "." prazno
- * mesto mreže. Svaka tačka nosi `--r`, `--c`, `--i` i `--n` (pseudo-slučajan
- * redosled) da bi CSS modul potrošača mogao da je animira samo preko
- * `transform` i `opacity`. Bez animacije ikonica je cela.
+ * mesto mreže. Svaka tačka nosi `--r`, `--c`, `--i`, `--n` (pseudo-slučajan
+ * redosled) i `--sx`/`--sy` (pseudo-slučajan pravac, -1…1, celi desetinski
+ * koraci da server i klijent daju isti HTML), da bi CSS modul potrošača mogao
+ * da je animira samo preko `transform` i `opacity`. Bez animacije ikonica je cela.
  */
 export function DotMatrix({
   pattern,
@@ -57,7 +58,16 @@ export function DotMatrix({
           cy={center(r)}
           r={radius}
           className={pending && pendingDotClassName ? `${dotClassName ?? ""} ${pendingDotClassName}` : dotClassName}
-          style={{ "--r": r, "--c": c, "--i": i, "--n": (i * 37) % Math.max(lit.length, 1) } as CSSProperties}
+          style={
+            {
+              "--r": r,
+              "--c": c,
+              "--i": i,
+              "--n": (i * 37) % Math.max(lit.length, 1),
+              "--sx": (((i * 7919) % 21) - 10) / 10,
+              "--sy": (((i * 104729) % 21) - 10) / 10,
+            } as CSSProperties
+          }
         />
       ))}
     </svg>

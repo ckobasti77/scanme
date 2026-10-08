@@ -44,6 +44,8 @@ export interface PrelaunchDict {
     body: string;
     available: string;
     soon: string;
+    cta: string;
+    soonNote: string;
     items: Array<{ name: string; body: string; status: "available" | "soon" }>;
   };
   story: {
@@ -180,6 +182,8 @@ export const prelaunchSr: PrelaunchDict = {
       "Mi pripremamo, povezujemo i održavamo ceo put iza skena. Vi dobijate jasno iskustvo za gosta i koristan uvid za svoj biznis.",
     available: "Dostupno",
     soon: "Uskoro",
+    cta: "Zatraži ponudu",
+    soonNote: "U pripremi",
     items: [
       {
         name: "ScanMe Links",
