@@ -45,7 +45,6 @@ import {
   createEmptyFairGarageDocument,
   getFairGaragePassportBadges,
   readFairGarage,
-  readFairGarageActiveEvent,
   removeFairGarageModel,
   saveFairGaragePassportBadge,
   updateFairGarageModelSnapshot,
@@ -54,6 +53,7 @@ import {
   type FairGarageDocument,
   type FairGarageReadResult,
 } from "@/lib/fair-client/garage-store";
+import { fairLocalPhotoUrl } from "@/lib/fair-client/photo-url";
 import {
   fairGarageEventId,
   fairGarageEventTitle,
@@ -65,8 +65,11 @@ import {
 } from "@/lib/fair-client/garage-view";
 import { useFairHistoryLayer } from "@/lib/fair-client/history-layer";
 import { getFairRotationItem } from "@/lib/fair-client/rotation-slot";
+import { fairPublicEventSlug } from "@/lib/fair-public-event";
+import { fairEventThemeClass } from "@/lib/fair-theme";
 import { fmt } from "@/lib/i18n/format";
-import type { FairGarageDict } from "@/lib/i18n/types";
+import type { FairGarageDict, FairModelDict } from "@/lib/i18n/types";
+import { FairEventShell } from "../event-shell";
 import { FairBrandMark } from "./fair-brand-mark";
 import styles from "./fair-garage.module.css";
 
@@ -131,8 +134,13 @@ const REVIEW_PHOTOS: Record<string, string> = {
   "toyota urban ev": "/fair/fixtures/toyota-urban-cruiser.webp",
   "toyota urban cruiser": "/fair/fixtures/toyota-urban-cruiser.webp",
   "byd dolphin": "/fair/fixtures/byd-dolphin.webp",
+  "byd dolphin surf": "/fair/elektromobilnost-2026/byd-dolphin-surf.png",
+  "byd sealion 7": "/fair/elektromobilnost-2026/byd-sealion-7.jpg",
   "byd dolphin demo": "/fair/fixtures/byd-dolphin.webp",
   "geely starray demo": "/fair/fixtures/geely-starray.webp",
+  "jmev ev3": "/fair/elektromobilnost-2026/jmev-ev3-event.jpg",
+  "jmev elight": "/fair/elektromobilnost-2026/jmev-elight-event.jpg",
+  "jmev ewind": "/fair/elektromobilnost-2026/jmev-ewind-event.jpg",
 };
 
 function cleanTestLabel(value: string) {
@@ -148,7 +156,7 @@ function displayModelName(brandName: string, displayName: string) {
 }
 
 function reviewPhoto(brandName: string, displayName: string, photoUrl?: string) {
-  if (photoUrl || process.env.NODE_ENV === "production") return photoUrl;
+  if (photoUrl || process.env.NODE_ENV === "production") return fairLocalPhotoUrl(photoUrl);
   return REVIEW_PHOTOS[`${cleanTestLabel(brandName)} ${displayModelName(brandName, displayName)}`.trim().toLocaleLowerCase("sr-Latn")];
 }
 
@@ -182,37 +190,6 @@ function subscribeGarage(onChange: (result: FairGarageReadResult) => void) {
 
 function subscribeBrowserCapability() {
   return () => undefined;
-}
-
-function GarageHeader({ event, count, dict }: { event: FairGarageEventView; count: number; dict: FairGarageDict }) {
-  return (
-    <header className="fair-shell">
-      <div className="fair-shell__inner">
-        <div className="fair-event-lockup" aria-label={`${dict.umbrellaTitle}, ${dict.pageTitle}`}>
-          <span className="fair-event-lockup__mark" aria-hidden="true" />
-          <span>
-            <strong>{dict.umbrellaTitle}</strong>
-            <small>{dict.pageTitle}</small>
-          </span>
-        </div>
-        <nav className="fair-shell__nav" aria-label={dict.umbrellaTitle}>
-          <Link prefetch={false} href={`/sajam/${event.publicSlug}`}>
-            <MapPin aria-hidden="true" />
-            <span>{dict.mapNav}</span>
-          </Link>
-          <span className="fair-garage-link fair-shell__current" aria-current="page">
-            <span className="fair-garage-icon" data-garage-target>
-              <CarFront aria-hidden="true" />
-              <span className="fair-garage-badge" aria-label={fmt(dict.garageCountAria, { count })}>
-                <span key={count} className="fair-garage-badge__value" aria-hidden="true">{count}</span>
-              </span>
-            </span>
-            <span>{dict.garageNav}</span>
-          </span>
-        </nav>
-      </div>
-    </header>
-  );
 }
 
 function ModelVisual({ model, alt, preload = false }: { model: FairGarageModelView; alt: string; preload?: boolean }) {
@@ -510,7 +487,7 @@ function GarageModelCard({
   );
 }
 
-function PassportSection({
+export function LegacyGaragePassportSection({
   event,
   load,
   document,
@@ -781,7 +758,19 @@ function SponsoredStrip({ event, document: garageDocument, dict, onDocument }: {
   );
 }
 
-export function FairGarage({ events, dict }: { events: FairGarageEventView[]; dict: FairGarageDict }) {
+export function FairGarage({
+  routeEventSlug,
+  event: activeEvent,
+  switchEvents,
+  dict,
+  shellDict,
+}: {
+  routeEventSlug: string;
+  event: FairGarageEventView;
+  switchEvents: FairGarageEventView[];
+  dict: FairGarageDict;
+  shellDict: FairModelDict;
+}) {
   const router = useRouter();
   const [garageDocument, setGarageDocument] = useState<FairGarageDocument>(() => createEmptyFairGarageDocument());
   const [storageState, setStorageState] = useState<FairGarageReadResult["status"]>("empty");
@@ -790,33 +779,24 @@ export function FairGarage({ events, dict }: { events: FairGarageEventView[]; di
   const [refreshState, setRefreshState] = useState<RefreshState>("idle");
   const [refreshNonce, setRefreshNonce] = useState(0);
   const [liveModels, setLiveModels] = useState<Map<string, FairGarageModelView["live"]>>(new Map());
-  const [activeSlug, setActiveSlug] = useState(
-    events.find((event) => event.publicSlug === "elektromobilnost-2026")?.publicSlug ??
-      events[0]?.publicSlug ??
-      "elektromobilnost-2026",
-  );
   const [selectionMode, setSelectionMode] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
   const [selectionMessage, setSelectionMessage] = useState<string | null>(null);
   const [shareBusy, setShareBusy] = useState(false);
   const [shareMessage, setShareMessage] = useState<string | null>(null);
   const [shareDraft, setShareDraft] = useState<ShareDraft | null>(null);
-  const [passports, setPassports] = useState<Record<string, PassportLoad>>({});
   const [clockNow] = useState(() => Date.now());
-  const requestedPassports = useRef(new Set<string>());
   const modelListRef = useRef<HTMLDivElement | null>(null);
   const previousModelLayout = useRef<{ eventSlug: string; rects: Map<string, DOMRect> }>({ eventSlug: "", rects: new Map() });
   const requestSelectionClose = useFairHistoryLayer(selectionMode, closeSelection, "garage-selection");
 
-  const activeEvent = events.find((event) => event.publicSlug === activeSlug) ?? events[0];
-  const activeItems = useMemo(() => activeEvent ? fairGarageItemsForEvent(garageDocument, activeEvent) : [], [activeEvent, garageDocument]);
-  const activeModels = useMemo(() => activeEvent ? activeItems.map((item) => fairGarageModelView(item, liveModels.get(item.modelId), activeEvent.publicSlug)).filter((item): item is FairGarageModelView => item !== null) : [], [activeEvent, activeItems, liveModels]);
-  const totalCount = useMemo(() => events.reduce((sum, event) => sum + fairGarageItemsForEvent(garageDocument, event).length, 0), [events, garageDocument]);
+  const activeItems = useMemo(() => fairGarageItemsForEvent(garageDocument, activeEvent), [activeEvent, garageDocument]);
+  const activeModels = useMemo(() => activeItems.map((item) => fairGarageModelView(item, liveModels.get(item.modelId), activeEvent.publicSlug)).filter((item): item is FairGarageModelView => item !== null), [activeEvent, activeItems, liveModels]);
   const activeModelLayoutKey = activeModels.map((model) => model.id).join("|");
   const refreshNoticeVisible = !online || refreshState === "error";
 
   useLayoutEffect(() => {
-    const eventSlug = activeEvent?.publicSlug ?? "";
+    const eventSlug = activeEvent.publicSlug;
     const list = modelListRef.current;
     if (!list) {
       previousModelLayout.current = { eventSlug, rects: new Map() };
@@ -850,7 +830,7 @@ export function FairGarage({ events, dict }: { events: FairGarageEventView[]; di
       // card stranded at a partially faded inline state.
       for (const card of cards) gsap.set(card, { clearProps: "transform,opacity,visibility" });
     };
-  }, [activeEvent?.publicSlug, activeModelLayoutKey, refreshNoticeVisible]);
+  }, [activeEvent.publicSlug, activeModelLayoutKey, refreshNoticeVisible]);
 
   const writeDocument = useCallback((next: FairGarageDocument) => {
     const result = writeFairGarage(window.localStorage, next);
@@ -869,20 +849,15 @@ export function FairGarage({ events, dict }: { events: FairGarageEventView[]; di
       const first = readFairGarage(window.localStorage);
       setGarageDocument(first.document);
       setStorageState(first.status);
-      const rememberedSlug = readFairGarageActiveEvent(window.localStorage);
-      const rememberedEvent = events.find((event) => event.publicSlug === rememberedSlug);
-      if (rememberedEvent && !eventIsLocked(rememberedEvent, Date.now())) {
-        setActiveSlug(rememberedEvent.publicSlug);
-      }
       setMounted(true);
       if (first.status === "ok") writeFairGarage(window.localStorage, first.document);
     }, 0);
     const unsubscribe = subscribeGarage((next) => { setGarageDocument(next.document); setStorageState(next.status); });
     return () => { window.clearTimeout(timeout); unsubscribe(); };
-  }, [events]);
+  }, []);
 
   useEffect(() => {
-    if (!mounted || !activeEvent || eventIsLocked(activeEvent, Date.now())) return;
+    if (!mounted || eventIsLocked(activeEvent, Date.now())) return;
     writeFairGarageActiveEvent(window.localStorage, activeEvent.publicSlug);
   }, [activeEvent, mounted]);
 
@@ -931,38 +906,21 @@ export function FairGarage({ events, dict }: { events: FairGarageEventView[]; di
         setRefreshState("ready");
         let next = garageDocument;
         for (const model of models) {
-          const event = events.find((candidate) => candidate.dataSlug === model.eventSlug || fairGarageEventId(candidate) === model.eventId);
-          next = updateFairGarageModelSnapshot(next, model.id, { eventSlug: event?.publicSlug ?? model.eventSlug, modelSlug: model.slug, brandName: model.brandName, displayName: model.displayName, priceText: model.priceText, ...(model.photoUrl ? { photoUrl: model.photoUrl } : {}) });
+          next = updateFairGarageModelSnapshot(next, model.id, { eventSlug: fairPublicEventSlug(model.eventSlug), modelSlug: model.slug, brandName: model.brandName, displayName: model.displayName, priceText: model.priceText, ...(model.photoUrl ? { photoUrl: model.photoUrl } : {}) });
         }
         if (next !== garageDocument) writeDocument(next);
       })
       .catch(() => { if (!cancelled) setRefreshState("error"); });
     return () => { cancelled = true; window.cancelAnimationFrame(loadingFrame); };
-  }, [events, garageDocument, mounted, refreshNonce, writeDocument]);
-
-  useEffect(() => {
-    if (!mounted || !activeEvent || requestedPassports.current.has(activeEvent.publicSlug)) return;
-    const key = activeEvent.publicSlug;
-    requestedPassports.current.add(key);
-    fetch("/api/fair/passport", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ eventSlug: activeEvent.dataSlug }) })
-      .then(async (response) => {
-        const body = (await response.json()) as { ok: boolean; value?: FairPassportState | null };
-        if (!response.ok || !body.ok) throw new Error("passport_failed");
-        setPassports((current) => ({ ...current, [key]: { state: "ready", value: body.value ?? null } }));
-      })
-      .catch(() => setPassports((current) => ({ ...current, [key]: { state: "error", value: null } })));
-  }, [activeEvent, mounted]);
-
-  if (!activeEvent) return null;
+  }, [garageDocument, mounted, refreshNonce, writeDocument]);
 
   const hasSponsored = Boolean(activeEvent.sponsoredRotation?.items.length);
-  const passportLoad = passports[activeEvent.publicSlug] ?? { state: "loading" as const, value: null };
-  const compareHref = `/sajam/garaza/poredjenje?${new URLSearchParams([["event", activeEvent.publicSlug], ...selected.map((id) => ["model", id])]).toString()}`;
+  const compareHref = `/sajam/${activeEvent.publicSlug}/garaza/poredjenje?${new URLSearchParams(selected.map((id) => ["model", id])).toString()}`;
   function changeEvent(slug: string) {
-    const nextEvent = events.find((event) => event.publicSlug === slug);
-    if (!nextEvent || eventIsLocked(nextEvent, clockNow)) return;
-    setActiveSlug(slug);
-    if (selectionMode) requestSelectionClose();
+    const nextEvent = switchEvents.find((event) => event.publicSlug === slug);
+    if (!nextEvent || slug === activeEvent.publicSlug || eventIsLocked(nextEvent, clockNow)) return;
+    if (selectionMode) requestSelectionClose(() => router.push(`/sajam/${slug}/garaza`));
+    else router.push(`/sajam/${slug}/garaza`);
   }
 
   function toggleSelected(modelId: string) {
@@ -1105,25 +1063,36 @@ export function FairGarage({ events, dict }: { events: FairGarageEventView[]; di
   }
 
   return (
-    <div className={`fair-event ${styles.page}${hasSponsored && !selectionMode ? ` ${styles.pageWithDock}` : ""}${selectionMode ? ` ${styles.pageWithSelection}` : ""}`} data-reveal="off">
-      <GarageHeader event={activeEvent} count={totalCount} dict={dict} />
+    <div className={`fair-event ${fairEventThemeClass(routeEventSlug)} ${styles.page}${hasSponsored && !selectionMode ? ` ${styles.pageWithDock}` : ""}${selectionMode ? ` ${styles.pageWithSelection}` : ""}`} data-reveal="off">
+      <FairEventShell
+        eventId={fairGarageEventId(activeEvent)}
+        eventSlug={routeEventSlug}
+        eventTitle={dict.umbrellaTitle}
+        eventName={fairGarageEventTitle(activeEvent)}
+        dict={shellDict}
+        current="garage"
+      />
       <main className={styles.main}>
-        <div className={styles.tabs} role="tablist" aria-label={dict.eventTabsAria}>
-          {events.map((event) => {
-            const count = fairGarageItemsForEvent(garageDocument, event).length;
-            const active = mounted && event.publicSlug === activeEvent.publicSlug;
-            const locked = eventIsLocked(event, clockNow);
-            const title = event.publicSlug === "auto-moto-fest-2026" ? dict.autoMotoTitle : event.publicSlug === "elektromobilnost-2026" ? dict.electromobilityTitle : fairGarageEventTitle(event);
-            return (
-              <button type="button" role="tab" aria-selected={active} disabled={locked} className={`${active ? styles.tabActive : ""}${locked ? ` ${styles.tabLocked}` : ""}`} onClick={() => changeEvent(event.publicSlug)} key={event.publicSlug}>
-                <span>{title}<small>{locked ? dict.eventUpcoming : event.fallbackDates}</small></span>
-                <b>{count}</b>
-              </button>
-            );
-          })}
-        </div>
-
-        <PassportSection event={activeEvent} load={passportLoad} document={garageDocument} dict={dict} onDocument={writeDocument} onPassport={(next) => setPassports((current) => ({ ...current, [activeEvent.publicSlug]: { state: "ready", value: next } }))} />
+        {switchEvents.length > 1 ? (
+          <nav className={styles.tabs} aria-label={dict.eventTabsAria}>
+            {switchEvents.map((event) => {
+              const count = fairGarageItemsForEvent(garageDocument, event).length;
+              const active = event.publicSlug === activeEvent.publicSlug;
+              const locked = eventIsLocked(event, clockNow);
+              const title = event.publicSlug === "auto-moto-fest-2026" ? dict.autoMotoTitle : event.publicSlug === "elektromobilnost-2026" ? dict.electromobilityTitle : fairGarageEventTitle(event);
+              return (
+                <button type="button" aria-current={active ? "page" : undefined} disabled={locked} className={`${active ? styles.tabActive : ""}${locked ? ` ${styles.tabLocked}` : ""}`} onClick={() => changeEvent(event.publicSlug)} key={event.publicSlug}>
+                  <span>{title}<small>{locked ? dict.eventUpcoming : event.fallbackDates}</small></span>
+                  <b>{count}</b>
+                </button>
+              );
+            })}
+          </nav>
+        ) : (
+          <section className={styles.intro}>
+            <div><h1>{dict.pageTitle}</h1><p>{dict.pageBody}</p></div>
+          </section>
+        )}
 
         {refreshNoticeVisible ? (
           <div className={styles.networkNotice} role="status">
@@ -1145,7 +1114,7 @@ export function FairGarage({ events, dict }: { events: FairGarageEventView[]; di
             </div>
           </section>
         ) : mounted ? (
-          <section className={styles.emptyState}><div className={styles.emptyVisual} aria-hidden="true"><CarFront /></div><h2>{dict.emptyTitle}</h2><p>{dict.emptyBody}</p><Link href={`/sajam/${activeEvent.publicSlug}`}><MapPin aria-hidden="true" />{dict.emptyAction}</Link></section>
+          <section className={styles.emptyState}><div className={styles.emptyVisual} aria-hidden="true"><CarFront /></div><h2>{dict.emptyTitle}</h2><p>{dict.emptyBody}</p><Link href={`/sajam/${routeEventSlug}`}><MapPin aria-hidden="true" />{dict.emptyAction}</Link></section>
         ) : <div className={styles.loadingState} aria-hidden="true"><span /><span /><span /></div>}
 
         <p className={styles.storageNotice}>{dict.storageNotice}</p>

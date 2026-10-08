@@ -275,7 +275,7 @@ describe("getEventMap (M1)", () => {
         d: await participation("D", d, { status: "withdrawn" }),
       };
     });
-    // Different exhibitors share one location: no FAIR_MAP_LOCATION_TAKEN (odluka vlasnika 8. 10.).
+    // Different exhibitors share one location (O4, Aleksa and owner 8. 10.): only a warning, never an error.
     const { standId } = await f.admin.mutation(api.fairAdmin.upsertStand, { eventId: f.em.eventId, participationId: other.b, externalKey: "test-n3-b-14", code: "14", displayName: "Štand 14", mapLocationId: "ispred-14" });
     await f.admin.mutation(api.fairAdmin.upsertStand, { eventId: f.em.eventId, participationId: other.b, externalKey: "test-n3-b-2", code: "2", displayName: "Štand 2", mapLocationId: "hala-2", status: "withdrawn" });
     await f.t.run(async (ctx) => {
@@ -295,9 +295,9 @@ describe("getEventMap (M1)", () => {
     for (const secret of [REPORT_EMAIL, CONTACT_EMAIL, "TEST napomena", "packageTier", "SMK-TP", "SML-TP", "TEST izlagač D"]) expect(json).not.toContain(secret);
     // Reading the map writes nothing.
     expect(await Promise.all((["fairScanEvents", "fairVisitors", "fairSponsoredEvents", "adminAuditLog"] as const).map((table) => rows(f.t, table)))).toEqual(before);
-    // The admin publish check agrees: a shared location is no problem of the TEST models there.
+    // The admin publish check agrees: a shared location never blocks the TEST models there (O4: warning only).
     const issues = await f.admin.query(api.fairAdmin.listValidationIssues, { eventId: f.em.eventId });
-    expect(issues.flatMap((row) => row.issues.map((issue) => issue.code))).not.toContain("FAIR_MAP_LOCATION_TAKEN");
+    expect(issues.flatMap((row) => row.issues.filter((issue) => issue.severity === "error").map((issue) => issue.code))).not.toContain("FAIR_MAP_LOCATION_TAKEN");
   });
 
   test("a withdrawn model leaves the map; draft and unknown events have no map", async () => {

@@ -277,6 +277,342 @@ async function ensureTestCatalog(ctx: MutationCtx, options: { rehearsal: boolean
     return out;
 }
 
+type ElectromobilityReviewModel = {
+  key: string;
+  name: string;
+  tier: "starter" | "advanced";
+  price: string;
+  specs: Array<{ group: string; label: string; value: string; highlight?: boolean }>;
+};
+
+const ELECTROMOBILITY_REVIEW_EVENT = {
+  code: "test-elektromobilnost-2026",
+  title: "TEST Sajam elektromobilnosti 2026",
+  startsAt: Date.parse("2026-10-09T00:00:00+02:00"),
+  endsAt: Date.parse("2026-10-12T00:00:00+02:00"),
+  activeFrom: "2026-10-09T09:00:00+02:00",
+  days: ["2026-10-09", "2026-10-10", "2026-10-11"],
+} as const;
+
+const ELECTROMOBILITY_REVIEW_EXHIBITORS = [
+  {
+    key: "jmev",
+    name: "TEST JMEV",
+    smk: "SMK-TEST-EM26-JMEV",
+    sml: "SML-TEST-EM26-JMEV",
+    slug: "test-em26-jmev",
+    stand: "hala-12",
+    models: [
+      {
+        key: "jmev-ev3",
+        name: "TEST JMEV EV3",
+        tier: "advanced",
+        price: "18.000 EUR",
+        specs: [
+          { group: "Pogon", label: "Snaga", value: "50 kW", highlight: true },
+          { group: "Pogon", label: "Obrtni moment", value: "125 Nm" },
+          { group: "Baterija", label: "Domet (CLTC)", value: "330 km", highlight: true },
+          { group: "Baterija", label: "Kapacitet baterije", value: "30,24 kWh", highlight: true },
+          { group: "Performanse", label: "Maksimalna brzina", value: "110 km/h", highlight: true },
+          { group: "Performanse", label: "Ubrzanje 0-50 km/h", value: "4,5 s" },
+          { group: "Punjenje", label: "Priključak za punjenje", value: "CCS-2" },
+          { group: "Punjenje", label: "AC punjenje", value: "3,5 kW" },
+          { group: "Punjenje", label: "DC punjenje", value: "30 kW" },
+          { group: "Dimenzije", label: "Dimenzije", value: "3720 x 1640 x 1535 mm" },
+          { group: "Dimenzije", label: "Međuosovinsko rastojanje", value: "2390 mm" },
+          { group: "Dimenzije", label: "Masa vozila", value: "1060 kg" },
+          { group: "Dimenzije", label: "Rastojanje od tla", value: "110 mm" },
+          { group: "Točkovi", label: "Pneumatici", value: "165/65 R15" },
+        ],
+      },
+      {
+        key: "jmev-elight",
+        name: "TEST JMEV ELIGHT",
+        tier: "advanced",
+        price: "26.000 EUR sa subvencijom",
+        specs: [
+          { group: "Pogon", label: "Snaga", value: "118 kW", highlight: true },
+          { group: "Pogon", label: "Pogon", value: "Prednji" },
+          { group: "Baterija", label: "Domet (NEDC)", value: "500 km", highlight: true },
+          { group: "Baterija", label: "Kapacitet baterije", value: "63 kWh", highlight: true },
+          { group: "Performanse", label: "Maksimalna brzina", value: "140 km/h", highlight: true },
+          { group: "Performanse", label: "Ubrzanje 0-50 km/h", value: "3,9 s" },
+          { group: "Punjenje", label: "AC punjenje", value: "6-10 h" },
+          { group: "Punjenje", label: "DC punjenje", value: "30 min" },
+          { group: "Punjenje", label: "Priključak za punjenje", value: "CCS-2" },
+          { group: "Dimenzije", label: "Dimenzije", value: "4675 x 1835 x 1480 mm" },
+          { group: "Dimenzije", label: "Međuosovinsko rastojanje", value: "2750 mm" },
+          { group: "Dimenzije", label: "Masa vozila", value: "1570 kg" },
+          { group: "Dimenzije", label: "Rastojanje od tla", value: "145 mm" },
+          { group: "Točkovi", label: "Pneumatici", value: "215/55 R17" },
+        ],
+      },
+      {
+        key: "jmev-ewind",
+        name: "TEST JMEV EWIND",
+        tier: "advanced",
+        price: "32.000 EUR",
+        specs: [
+          { group: "Pogon", label: "Snaga", value: "165 kW", highlight: true },
+          { group: "Pogon", label: "Pogon", value: "Prednji (FWD)" },
+          { group: "Pogon", label: "Obrtni moment", value: "210 Nm", highlight: true },
+          { group: "Baterija", label: "Domet (CLTC)", value: "610 km", highlight: true },
+          { group: "Baterija", label: "Kapacitet baterije", value: "70,38 kWh" },
+          { group: "Performanse", label: "Maksimalna brzina", value: "160 km/h", highlight: true },
+          { group: "Performanse", label: "Ubrzanje 0-100 km/h", value: "8,9 s" },
+          { group: "Punjenje", label: "AC punjenje", value: "6,6 kW" },
+          { group: "Punjenje", label: "DC punjenje 30-80%", value: "25 min" },
+          { group: "Dimenzije", label: "Dimenzije", value: "4640 x 1870 x 1685 mm" },
+          { group: "Dimenzije", label: "Međuosovinsko rastojanje", value: "2770 mm" },
+          { group: "Dimenzije", label: "Masa vozila", value: "1785 kg" },
+          { group: "Dimenzije", label: "Rastojanje od tla", value: "160 mm" },
+          { group: "Praktičnost", label: "Zapremina prtljažnika", value: "450 l" },
+          { group: "Točkovi", label: "Pneumatici", value: "235/50 R19" },
+        ],
+      },
+    ] satisfies ElectromobilityReviewModel[],
+  },
+  {
+    key: "byd",
+    name: "TEST BYD",
+    smk: "SMK-TEST-EM26-BYD",
+    sml: "SML-TEST-EM26-BYD",
+    slug: "test-em26-byd",
+    stand: "ispred-14",
+    models: [
+      {
+        key: "byd-dolphin-surf",
+        name: "TEST BYD DOLPHIN SURF",
+        tier: "starter",
+        price: "od 23.990 EUR",
+        specs: [
+          { group: "Pogon", label: "Pogon", value: "FWD", highlight: true },
+          { group: "Baterija", label: "Kapacitet baterije", value: "43,2 kWh", highlight: true },
+          { group: "Baterija", label: "Gradski domet (WLTP)", value: "do 507 km", highlight: true },
+          { group: "Performanse", label: "Maksimalna brzina", value: "150 km/h", highlight: true },
+          { group: "Punjenje", label: "DC punjenje 30–80%", value: "22 min" },
+        ],
+      },
+      {
+        key: "byd-sealion-7",
+        name: "TEST BYD SEALION 7",
+        tier: "starter",
+        price: "od 44.590 EUR",
+        specs: [
+          { group: "Pogon", label: "Pogon", value: "RWD / AWD", highlight: true },
+          { group: "Baterija", label: "Kapacitet baterije", value: "82,5–91,3 kWh", highlight: true },
+          { group: "Baterija", label: "Domet (WLTP)", value: "do 502 km", highlight: true },
+          { group: "Performanse", label: "Maksimalna brzina", value: "215 km/h", highlight: true },
+          { group: "Praktičnost", label: "Prtljažnik", value: "520 l" },
+        ],
+      },
+    ] satisfies ElectromobilityReviewModel[],
+  },
+] as const;
+
+function electromobilityReviewSpecifications(model: ElectromobilityReviewModel) {
+  const groups = [...new Set(model.specs.map((item) => item.group))];
+  return model.specs.map((item, index) => ({
+    id: `test-${model.key}-spec-${index + 1}`,
+    groupId: `test-${model.key}-${item.group.toLocaleLowerCase("sr-Latn").replace(/[^a-z0-9]+/g, "-")}`,
+    groupLabel: item.group,
+    groupOrder: groups.indexOf(item.group) + 1,
+    label: item.label,
+    value: item.value,
+    order: index + 1,
+    isHighlight: item.highlight ?? false,
+  }));
+}
+
+const electromobilityReviewSummary = v.object({
+  eventId: v.id("fairEvents"),
+  clients: v.object({ created: v.number(), unchanged: v.number() }),
+  brands: v.object({ created: v.number(), unchanged: v.number() }),
+  participations: counts,
+  stands: counts,
+  models: counts,
+  publishedNow: v.number(),
+  passports: v.array(v.object({ brand: v.string(), created: v.boolean(), requiredModels: v.number() })),
+});
+
+/**
+ * DEV visual-review catalog for the currently active public route. JMEV model
+ * names and specifications mirror its public Serbian site; BYD is a second
+ * real-data passport so overview and completion states can be tested. Client
+ * records remain obvious TEST fixtures with example.invalid contacts.
+ */
+export const seedElectromobilityReviewCatalog = internalMutation({
+  args: {},
+  returns: electromobilityReviewSummary,
+  handler: async (ctx) => {
+    const actorUserId = await fixtureActor(ctx);
+    const now = Date.now();
+    const clients = { created: 0, unchanged: 0 };
+    const brands = { created: 0, unchanged: 0 };
+
+    for (const exhibitor of ELECTROMOBILITY_REVIEW_EXHIBITORS) {
+      const result = await createEventOnlyClient(ctx, {
+        accountName: exhibitor.name,
+        ownerDisplayName: `${exhibitor.name} vlasnik`,
+        smkCode: exhibitor.smk,
+        contact: {
+          firstName: "TEST",
+          lastName: exhibitor.key.toUpperCase(),
+          email: `${exhibitor.slug}@example.invalid`,
+          positionTitle: "TEST sajamski kontakt",
+        },
+        venue: { name: exhibitor.name, slug: exhibitor.slug, smlCode: exhibitor.sml },
+      }, actorUserId, now);
+      clients[result.result] += 1;
+      const brand = await ensureTestBrand(ctx, result.accountId, exhibitor.name, now);
+      brands[brand.created ? "created" : "unchanged"] += 1;
+    }
+
+    const event = await upsertFairEvent(ctx, {
+      code: ELECTROMOBILITY_REVIEW_EVENT.code,
+      slug: ELECTROMOBILITY_REVIEW_EVENT.code,
+      title: ELECTROMOBILITY_REVIEW_EVENT.title,
+      venueName: "TEST Hala Čair, Niš",
+      startsAt: ELECTROMOBILITY_REVIEW_EVENT.startsAt,
+      endsAt: ELECTROMOBILITY_REVIEW_EVENT.endsAt,
+      status: "published",
+      garagePriority: 1,
+    }, now);
+    for (const [index, dateKey] of ELECTROMOBILITY_REVIEW_EVENT.days.entries()) {
+      await upsertFairEventDay(ctx, {
+        eventId: event.eventId,
+        dateKey,
+        label: `TEST dan ${index + 1}`,
+        sortOrder: index + 1,
+      });
+    }
+
+    const payload: FairImportPayload = {
+      version: FAIR_IMPORT_VERSION,
+      eventCode: ELECTROMOBILITY_REVIEW_EVENT.code,
+      participations: ELECTROMOBILITY_REVIEW_EXHIBITORS.map((exhibitor) => ({
+        externalKey: `test-em26-review-${exhibitor.key}`,
+        accountExternalKey: exhibitor.smk,
+        businessExternalKey: exhibitor.sml,
+        clientSegment: "event_only" as const,
+        brands: [{
+          externalKey: `test-em26-${exhibitor.key}`,
+          name: exhibitor.name,
+          stand: {
+            externalKey: `test-em26-review-stand-${exhibitor.key}`,
+            code: `TEST-${exhibitor.key.toUpperCase()}`,
+            displayName: `${exhibitor.name} štand`,
+            mapLocationId: exhibitor.stand,
+          },
+          models: exhibitor.models.map((entry) => ({
+            externalKey: `test-em26-review-${entry.key}`,
+            displayName: entry.name,
+            priceText: entry.price,
+            packageTier: entry.tier,
+            packageActiveFrom: ELECTROMOBILITY_REVIEW_EVENT.activeFrom,
+            specifications: electromobilityReviewSpecifications(entry),
+            passportEligible: true,
+          })),
+        }],
+      })),
+    };
+    const committed = await commitFairImport(ctx, payload, actorUserId, now);
+    if (!committed.committed) {
+      throw new Error(`fair_electromobility_review_import_failed:${committed.issues.filter((issue) => issue.severity === "error").map((issue) => `${issue.code}@${issue.path}`).join(",")}`);
+    }
+
+    let publishedNow = 0;
+    const firstDay = await ctx.db
+      .query("fairEventDays")
+      .withIndex("by_eventId_and_dateKey", (q) => q.eq("eventId", event.eventId).eq("dateKey", ELECTROMOBILITY_REVIEW_EVENT.days[0]))
+      .unique();
+    if (!firstDay) throw new Error("fair_electromobility_review_day_missing");
+
+    const storedModels = (
+      await ctx.db.query("fairEventModels").withIndex("by_eventId_and_externalKey", (q) => q.eq("eventId", event.eventId)).take(50)
+    ).filter((row) => row.externalKey.startsWith("test-em26-review-"));
+    for (const stored of storedModels) {
+      const status = await setFairModelStatus(ctx, stored._id, "published", now);
+      if (status.changed) publishedNow += 1;
+
+      const rights = getFairEntitlements(stored.packageTier);
+      for (const leadKind of [...(rights.interest ? ["interest" as const] : []), ...(rights.testDrive ? ["test_drive" as const] : [])]) {
+        if (!(await fairLeadConfig(ctx, stored._id, leadKind))) {
+          await ctx.db.insert("fairLeadConfigs", {
+            eventModelId: stored._id,
+            leadKind,
+            contactRequirement: "one_of",
+            enabled: true,
+            updatedByUserId: actorUserId,
+            createdAt: now,
+            updatedAt: now,
+          });
+        }
+      }
+
+      if (rights.survey && (await fairModelSurveys(ctx, stored._id)).length === 0) {
+        await ctx.db.insert("fairSurveys", {
+          eventId: event.eventId,
+          eventModelId: stored._id,
+          title: "TEST kratka anketa",
+          status: "published",
+          questions: TEST_SURVEY_QUESTIONS,
+          version: 1,
+          createdAt: now,
+          updatedAt: now,
+        });
+      }
+
+      if (rights.audienceQuestionsPerDay > 0) {
+        const externalKey = `${stored.externalKey}-q-dan-1`;
+        const existingQuestion = await ctx.db
+          .query("fairAudienceQuestions")
+          .withIndex("by_eventId_and_externalKey", (q) => q.eq("eventId", event.eventId).eq("externalKey", externalKey))
+          .unique();
+        if (!existingQuestion) {
+          await ctx.db.insert("fairAudienceQuestions", {
+            eventId: event.eventId,
+            eventDayId: firstDay._id,
+            eventModelId: stored._id,
+            externalKey,
+            prompt: "TEST Šta vam je najvažnije kod ovog modela?",
+            options: [
+              { id: "test-domet", label: "TEST domet", order: 1 },
+              { id: "test-dizajn", label: "TEST dizajn", order: 2 },
+              { id: "test-cena", label: "TEST cena", order: 3 },
+            ],
+            status: "published",
+            sortOrder: 1,
+            startsAt: firstDay.startsAt,
+            endsAt: firstDay.endsAt,
+            showOnSponsoredRotation: rights.sponsoredMapRotation,
+            createdAt: now,
+            updatedAt: now,
+          });
+        }
+      }
+    }
+
+    const passports = [];
+    for (const exhibitor of ELECTROMOBILITY_REVIEW_EXHIBITORS) {
+      const passport = await ensureTestPassport(ctx, ELECTROMOBILITY_REVIEW_EVENT.code, exhibitor.name);
+      passports.push({ brand: exhibitor.name, created: passport.created, requiredModels: passport.requiredModelIds.length });
+    }
+    await publishTestSponsoredSnapshot(ctx, ELECTROMOBILITY_REVIEW_EVENT.code, { rotationQuestions: false });
+
+    return {
+      eventId: event.eventId,
+      clients,
+      brands,
+      participations: committed.results.participations,
+      stands: committed.results.stands,
+      models: committed.results.models,
+      publishedNow,
+      passports,
+    };
+  },
+});
+
 // Review fixture based on five publicly listed 2026 exhibitors from
 // https://sajamautomobila.com/ucesnici-2026/. Only the exhibitor/brand names
 // come from that page; every model, price, contact and specification below is

@@ -1,0 +1,917 @@
+{
+  "version": 1,
+  "eventCode": "elektromobilnost-2026",
+  "participations": [
+    {
+      "externalKey": "elektromobilnost-2026-jmev",
+      "accountExternalKey": "SMK-SAJAM-26-CUBI",
+      "businessExternalKey": "SML-SAJAM-26-CUBI",
+      "clientSegment": "event_only",
+      "brands": [
+        {
+          "externalKey": "jmev",
+          "name": "JMEV",
+          "stand": {
+            "externalKey": "elektromobilnost-2026-stand-jmev",
+            "code": "9",
+            "mapLocationId": "hala-9"
+          },
+          "models": [
+            {
+              "externalKey": "elektromobilnost-2026-jmev-ev3",
+              "displayName": "EV3",
+              "slug": "jmev-ev3",
+              "priceText": "Cena na upit",
+              "packageTier": "advanced",
+              "packageActiveFrom": "2026-10-09T00:00:00+02:00",
+              "specifications": [
+                {
+                  "label": "Snaga",
+                  "value": "50 kW",
+                  "order": 1
+                },
+                {
+                  "label": "Obrtni moment",
+                  "value": "125 Nm",
+                  "order": 2
+                },
+                {
+                  "label": "Domet (CLTC)",
+                  "value": "330 km",
+                  "order": 3
+                },
+                {
+                  "label": "Kapacitet baterije",
+                  "value": "30,24 kWh",
+                  "order": 4
+                },
+                {
+                  "label": "Maksimalna brzina",
+                  "value": "110 km/h",
+                  "order": 5
+                },
+                {
+                  "label": "Ubrzanje 0-50 km/h",
+                  "value": "4,5 s",
+                  "order": 6
+                },
+                {
+                  "label": "DC punjenje",
+                  "value": "30 kW",
+                  "order": 7
+                },
+                {
+                  "label": "Dimenzije",
+                  "value": "3720 x 1640 x 1535 mm",
+                  "order": 8
+                }
+              ],
+              "photoUrl": "https://scanme.rs/fair/elektromobilnost-2026/jmev-ev3-event.jpg",
+              "passportEligible": true,
+              "sortOrder": 1
+            },
+            {
+              "externalKey": "elektromobilnost-2026-jmev-yi",
+              "displayName": "YI",
+              "slug": "jmev-yi",
+              "priceText": "31.000 EUR",
+              "packageTier": "advanced",
+              "packageActiveFrom": "2026-10-09T00:00:00+02:00",
+              "specifications": [
+                {
+                  "label": "Snaga",
+                  "value": "118 kW",
+                  "order": 1
+                },
+                {
+                  "label": "Pogon",
+                  "value": "Prednji",
+                  "order": 2
+                },
+                {
+                  "label": "Domet (NEDC)",
+                  "value": "500 km",
+                  "order": 3
+                },
+                {
+                  "label": "Kapacitet baterije",
+                  "value": "63 kWh",
+                  "order": 4
+                },
+                {
+                  "label": "Maksimalna brzina",
+                  "value": "140 km/h",
+                  "order": 5
+                },
+                {
+                  "label": "Ubrzanje 0-50 km/h",
+                  "value": "3,9 s",
+                  "order": 6
+                },
+                {
+                  "label": "DC punjenje",
+                  "value": "30 min",
+                  "order": 7
+                },
+                {
+                  "label": "Dimenzije",
+                  "value": "4675 x 1835 x 1480 mm",
+                  "order": 8
+                }
+              ],
+              "photoUrl": "https://scanme.rs/fair/elektromobilnost-2026/jmev-elight-event.jpg",
+              "passportEligible": true,
+              "sortOrder": 2
+            },
+            {
+              "externalKey": "elektromobilnost-2026-jmev-ewind",
+              "displayName": "EWIND",
+              "slug": "jmev-ewind",
+              "priceText": "32.000 EUR",
+              "packageTier": "advanced",
+              "packageActiveFrom": "2026-10-09T00:00:00+02:00",
+              "specifications": [
+                {
+                  "label": "Snaga",
+                  "value": "165 kW",
+                  "order": 1
+                },
+                {
+                  "label": "Obrtni moment",
+                  "value": "210 Nm",
+                  "order": 2
+                },
+                {
+                  "label": "Domet (CLTC)",
+                  "value": "610 km",
+                  "order": 3
+                },
+                {
+                  "label": "Kapacitet baterije",
+                  "value": "70,38 kWh",
+                  "order": 4
+                },
+                {
+                  "label": "Maksimalna brzina",
+                  "value": "160 km/h",
+                  "order": 5
+                },
+                {
+                  "label": "Ubrzanje 0-100 km/h",
+                  "value": "8,9 s",
+                  "order": 6
+                },
+                {
+                  "label": "DC punjenje 30-80%",
+                  "value": "25 min",
+                  "order": 7
+                },
+                {
+                  "label": "Prtljaznik",
+                  "value": "450 l",
+                  "order": 8
+                }
+              ],
+              "photoUrl": "https://scanme.rs/fair/elektromobilnost-2026/jmev-ewind-event.jpg",
+              "passportEligible": true,
+              "sortOrder": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "externalKey": "elektromobilnost-2026-grand-motors",
+      "accountExternalKey": "SMK-SAJAM-26-GRAND-MOTORS",
+      "businessExternalKey": "SML-SAJAM-26-GRAND-MOTORS",
+      "clientSegment": "event_only",
+      "brands": [
+        {
+          "externalKey": "mazda",
+          "name": "Mazda",
+          "stand": {
+            "externalKey": "elektromobilnost-2026-stand-grand-motors",
+            "code": "6",
+            "displayName": "Mazda i Chery",
+            "mapLocationId": "hala-6"
+          },
+          "models": [
+            {
+              "externalKey": "elektromobilnost-2026-mazda-cx-5",
+              "displayName": "Mazda CX-5",
+              "variant": "Homura",
+              "slug": "mazda-cx-5",
+              "priceText": "44.240 EUR",
+              "packageTier": "included",
+              "packageActiveFrom": "2026-10-09T00:00:00+02:00",
+              "specifications": [
+                {
+                  "label": "Snaga",
+                  "value": "141 KS (104 kW)",
+                  "order": 1
+                },
+                {
+                  "label": "Obrtni moment",
+                  "value": "238 Nm",
+                  "order": 2
+                },
+                {
+                  "label": "Pogon",
+                  "value": "Prednji",
+                  "order": 3
+                },
+                {
+                  "label": "Ubrzanje 0-100 km/h",
+                  "value": "10,5 s",
+                  "order": 4
+                },
+                {
+                  "label": "Maksimalna brzina",
+                  "value": "187 km/h",
+                  "order": 5
+                },
+                {
+                  "label": "WLTP potrosnja",
+                  "value": "7 l/100 km",
+                  "order": 6
+                },
+                {
+                  "label": "Prtljaznik",
+                  "value": "583 l",
+                  "order": 7
+                },
+                {
+                  "label": "Motor",
+                  "value": "2.5L e-SKYACTIV G",
+                  "order": 8
+                }
+              ],
+              "photoUrl": "https://scanme.rs/fair/elektromobilnost-2026/mazda-cx-5-homura.webp",
+              "passportEligible": false,
+              "sortOrder": 1
+            },
+            {
+              "externalKey": "elektromobilnost-2026-mazda-cx-60",
+              "displayName": "Mazda CX-60",
+              "variant": "Homura Plus",
+              "slug": "mazda-cx-60",
+              "priceText": "64.990 EUR",
+              "packageTier": "included",
+              "packageActiveFrom": "2026-10-09T00:00:00+02:00",
+              "specifications": [
+                {
+                  "label": "Sistemska snaga",
+                  "value": "327 KS",
+                  "order": 1
+                },
+                {
+                  "label": "Sistemski obrtni moment",
+                  "value": "500 Nm",
+                  "order": 2
+                },
+                {
+                  "label": "Pogon",
+                  "value": "Na sva cetiri tocka",
+                  "order": 3
+                },
+                {
+                  "label": "Kapacitet baterije",
+                  "value": "17,8 kWh",
+                  "order": 4
+                },
+                {
+                  "label": "Ubrzanje 0-100 km/h",
+                  "value": "5,8 s",
+                  "order": 5
+                },
+                {
+                  "label": "Maksimalna brzina",
+                  "value": "200 km/h",
+                  "order": 6
+                },
+                {
+                  "label": "WLTP potrosnja",
+                  "value": "3,8 l/100 km",
+                  "order": 7
+                },
+                {
+                  "label": "Prtljaznik",
+                  "value": "570 l",
+                  "order": 8
+                }
+              ],
+              "photoUrl": "https://scanme.rs/fair/elektromobilnost-2026/mazda-cx-60-homura-plus.webp",
+              "passportEligible": false,
+              "sortOrder": 2
+            },
+            {
+              "externalKey": "elektromobilnost-2026-mazda-cx-6e",
+              "displayName": "Mazda CX-6e",
+              "variant": "Takumi Plus",
+              "slug": "mazda-cx-6e",
+              "priceText": "49.900 EUR",
+              "packageTier": "included",
+              "packageActiveFrom": "2026-10-09T00:00:00+02:00",
+              "specifications": [
+                {
+                  "label": "Snaga",
+                  "value": "258 KS (190 kW)",
+                  "order": 1
+                },
+                {
+                  "label": "Obrtni moment",
+                  "value": "290 Nm",
+                  "order": 2
+                },
+                {
+                  "label": "Domet (WLTP)",
+                  "value": "468 km",
+                  "order": 3
+                },
+                {
+                  "label": "Kapacitet baterije",
+                  "value": "78 kWh",
+                  "order": 4
+                },
+                {
+                  "label": "Ubrzanje 0-100 km/h",
+                  "value": "7,9 s",
+                  "order": 5
+                },
+                {
+                  "label": "DC punjenje",
+                  "value": "Do 195 kW",
+                  "order": 6
+                },
+                {
+                  "label": "AC punjenje",
+                  "value": "11 kW",
+                  "order": 7
+                },
+                {
+                  "label": "Prtljaznik",
+                  "value": "468 l",
+                  "order": 8
+                }
+              ],
+              "photoUrl": "https://scanme.rs/fair/elektromobilnost-2026/mazda-cx-6e-takumi-plus.webp",
+              "passportEligible": false,
+              "sortOrder": 3
+            }
+          ]
+        },
+        {
+          "externalKey": "chery",
+          "name": "Chery",
+          "stand": {
+            "externalKey": "elektromobilnost-2026-stand-grand-motors",
+            "code": "6",
+            "displayName": "Mazda i Chery",
+            "mapLocationId": "hala-6"
+          },
+          "models": [
+            {
+              "externalKey": "elektromobilnost-2026-chery-arrizo-8-phev",
+              "displayName": "Chery Arrizo 8 PHEV",
+              "variant": "1.5T 2WD Noble",
+              "slug": "chery-arrizo-8-phev",
+              "priceText": "28.990 EUR sa popustom",
+              "packageTier": "included",
+              "packageActiveFrom": "2026-10-09T00:00:00+02:00",
+              "specifications": [
+                {
+                  "label": "Kombinovana snaga",
+                  "value": "205 kW (278 KS)",
+                  "order": 1
+                },
+                {
+                  "label": "Kombinovani obrtni moment",
+                  "value": "365 Nm",
+                  "order": 2
+                },
+                {
+                  "label": "Kapacitet baterije",
+                  "value": "18,3 kWh",
+                  "order": 3
+                },
+                {
+                  "label": "Ubrzanje 0-100 km/h",
+                  "value": "7,8 s",
+                  "order": 4
+                },
+                {
+                  "label": "Maksimalna brzina",
+                  "value": "185 km/h",
+                  "order": 5
+                },
+                {
+                  "label": "Domet",
+                  "value": "1400 km",
+                  "order": 6
+                },
+                {
+                  "label": "Prosecna potrosnja",
+                  "value": "0,7 l/100 km",
+                  "order": 7
+                },
+                {
+                  "label": "Prtljaznik",
+                  "value": "402 l",
+                  "order": 8
+                }
+              ],
+              "photoUrl": "https://scanme.rs/fair/elektromobilnost-2026/chery-arrizo-8-phev.webp",
+              "passportEligible": false,
+              "sortOrder": 1
+            },
+            {
+              "externalKey": "elektromobilnost-2026-chery-tiggo-4-pro-hev",
+              "displayName": "Chery Tiggo 4 Pro HEV",
+              "variant": "1.5L DHT 2WD Luxury",
+              "slug": "chery-tiggo-4-pro-hev",
+              "priceText": "22.990 EUR",
+              "packageTier": "included",
+              "packageActiveFrom": "2026-10-09T00:00:00+02:00",
+              "specifications": [
+                {
+                  "label": "Sistemska snaga",
+                  "value": "120 kW (163 KS)",
+                  "order": 1
+                },
+                {
+                  "label": "Sistemski obrtni moment",
+                  "value": "260 Nm",
+                  "order": 2
+                },
+                {
+                  "label": "Pogon",
+                  "value": "Prednji",
+                  "order": 3
+                },
+                {
+                  "label": "Ubrzanje 0-100 km/h",
+                  "value": "9,4 s",
+                  "order": 4
+                },
+                {
+                  "label": "Prosecna potrosnja",
+                  "value": "5,3 l/100 km",
+                  "order": 5
+                },
+                {
+                  "label": "Dimenzije",
+                  "value": "4320 x 1831 x 1646 mm",
+                  "order": 6
+                },
+                {
+                  "label": "Prtljaznik",
+                  "value": "310 l (470 l bez police)",
+                  "order": 7
+                },
+                {
+                  "label": "Pneumatici",
+                  "value": "215/60 R17",
+                  "order": 8
+                }
+              ],
+              "photoUrl": "https://scanme.rs/fair/elektromobilnost-2026/chery-tiggo-4-pro-hev.webp",
+              "passportEligible": false,
+              "sortOrder": 2
+            },
+            {
+              "externalKey": "elektromobilnost-2026-chery-tiggo-9-phev",
+              "displayName": "Chery Tiggo 9 PHEV",
+              "variant": "1.5T AWD Noble 315",
+              "slug": "chery-tiggo-9-phev",
+              "priceText": "44.990 EUR",
+              "packageTier": "included",
+              "packageActiveFrom": "2026-10-09T00:00:00+02:00",
+              "specifications": [
+                {
+                  "label": "Kombinovana snaga",
+                  "value": "315 kW (428 KS)",
+                  "order": 1
+                },
+                {
+                  "label": "Kombinovani obrtni moment",
+                  "value": "580 Nm",
+                  "order": 2
+                },
+                {
+                  "label": "Pogon",
+                  "value": "Na sva cetiri tocka",
+                  "order": 3
+                },
+                {
+                  "label": "Kapacitet baterije",
+                  "value": "34,46 kWh",
+                  "order": 4
+                },
+                {
+                  "label": "Ubrzanje 0-100 km/h",
+                  "value": "5,4 s",
+                  "order": 5
+                },
+                {
+                  "label": "Domet",
+                  "value": "1400 km",
+                  "order": 6
+                },
+                {
+                  "label": "DC punjenje 30-80%",
+                  "value": "18 min",
+                  "order": 7
+                },
+                {
+                  "label": "Broj sedista",
+                  "value": "7",
+                  "order": 8
+                }
+              ],
+              "photoUrl": "https://scanme.rs/fair/elektromobilnost-2026/chery-tiggo-9-phev.webp",
+              "passportEligible": false,
+              "sortOrder": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "externalKey": "elektromobilnost-2026-auto-mig",
+      "accountExternalKey": "SMK-SAJAM-26-AUTO-MIG",
+      "businessExternalKey": "SML-SAJAM-26-AUTO-MIG",
+      "clientSegment": "event_only",
+      "brands": [
+        {
+          "externalKey": "foton",
+          "name": "Foton",
+          "stand": {
+            "externalKey": "elektromobilnost-2026-stand-auto-mig",
+            "code": "6",
+            "mapLocationId": "hala-6"
+          },
+          "models": [
+            {
+              "externalKey": "elektromobilnost-2026-foton-etunland",
+              "displayName": "Foton eTunland",
+              "slug": "foton-etunland",
+              "priceText": "39.990 EUR bez PDV-a",
+              "packageTier": "included",
+              "packageActiveFrom": "2026-10-09T00:00:00+02:00",
+              "specifications": [
+                {
+                  "label": "Snaga",
+                  "value": "130 kW",
+                  "order": 1
+                },
+                {
+                  "label": "Obrtni moment",
+                  "value": "330 Nm",
+                  "order": 2
+                },
+                {
+                  "label": "Domet (WLTP)",
+                  "value": "400 km",
+                  "order": 3
+                },
+                {
+                  "label": "Kapacitet baterije",
+                  "value": "88,55 kWh",
+                  "order": 4
+                },
+                {
+                  "label": "DC punjenje",
+                  "value": "70 kW / oko 1 h 12 min",
+                  "order": 5
+                },
+                {
+                  "label": "AC punjenje",
+                  "value": "11 kW / oko 7 h",
+                  "order": 6
+                },
+                {
+                  "label": "Pogon",
+                  "value": "Zadnji 4x2",
+                  "order": 7
+                },
+                {
+                  "label": "Maksimalna brzina",
+                  "value": "120 km/h",
+                  "order": 8
+                }
+              ],
+              "photoUrl": "https://scanme.rs/fair/elektromobilnost-2026/foton-etunland.webp",
+              "passportEligible": false,
+              "sortOrder": 1
+            },
+            {
+              "externalKey": "elektromobilnost-2026-foton-eview",
+              "displayName": "Foton eView",
+              "slug": "foton-eview",
+              "priceText": "24.000 EUR bez PDV-a",
+              "packageTier": "included",
+              "packageActiveFrom": "2026-10-09T00:00:00+02:00",
+              "specifications": [
+                {
+                  "label": "Snaga",
+                  "value": "85 kW",
+                  "order": 1
+                },
+                {
+                  "label": "Domet (WLTP)",
+                  "value": "195 km",
+                  "order": 2
+                },
+                {
+                  "label": "Kapacitet baterije",
+                  "value": "50,23 kWh",
+                  "order": 3
+                },
+                {
+                  "label": "DC punjenje 20-80%",
+                  "value": "40 min",
+                  "order": 4
+                },
+                {
+                  "label": "AC punjenje 20-80%",
+                  "value": "5 h",
+                  "order": 5
+                },
+                {
+                  "label": "Tovarni prostor",
+                  "value": "7,1 m3",
+                  "order": 6
+                },
+                {
+                  "label": "Dimenzije",
+                  "value": "5340 x 1695 x 1990 mm",
+                  "order": 7
+                },
+                {
+                  "label": "Nosivost",
+                  "value": "Do 1200 kg",
+                  "order": 8
+                }
+              ],
+              "photoUrl": "https://scanme.rs/fair/elektromobilnost-2026/foton-eview.webp",
+              "passportEligible": false,
+              "sortOrder": 2
+            },
+            {
+              "externalKey": "elektromobilnost-2026-foton-eview-grand",
+              "displayName": "Foton eView Grand",
+              "slug": "foton-eview-grand",
+              "priceText": "29.990 EUR bez PDV-a",
+              "packageTier": "included",
+              "packageActiveFrom": "2026-10-09T00:00:00+02:00",
+              "specifications": [
+                {
+                  "label": "Snaga",
+                  "value": "135 kW",
+                  "order": 1
+                },
+                {
+                  "label": "Obrtni moment",
+                  "value": "330 Nm",
+                  "order": 2
+                },
+                {
+                  "label": "Domet (WLTP)",
+                  "value": "351 km",
+                  "order": 3
+                },
+                {
+                  "label": "Kapacitet baterije",
+                  "value": "77,28 kWh",
+                  "order": 4
+                },
+                {
+                  "label": "DC punjenje 20-80%",
+                  "value": "60 min",
+                  "order": 5
+                },
+                {
+                  "label": "Tovarni prostor",
+                  "value": "7,4 m3",
+                  "order": 6
+                },
+                {
+                  "label": "Nosivost",
+                  "value": "1130 kg",
+                  "order": 7
+                },
+                {
+                  "label": "Maksimalna brzina",
+                  "value": "120 km/h",
+                  "order": 8
+                }
+              ],
+              "photoUrl": "https://scanme.rs/fair/elektromobilnost-2026/foton-eview-grand.webp",
+              "passportEligible": false,
+              "sortOrder": 3
+            },
+            {
+              "externalKey": "elektromobilnost-2026-foton-cavan-c1-plus",
+              "displayName": "Foton Cavan C1 Plus",
+              "slug": "foton-cavan-c1-plus",
+              "priceText": "30.990 EUR bez PDV-a",
+              "packageTier": "included",
+              "packageActiveFrom": "2026-10-09T00:00:00+02:00",
+              "specifications": [
+                {
+                  "label": "Snaga",
+                  "value": "125 kW",
+                  "order": 1
+                },
+                {
+                  "label": "Obrtni moment",
+                  "value": "210 Nm",
+                  "order": 2
+                },
+                {
+                  "label": "Domet (WLTP)",
+                  "value": "310 km",
+                  "order": 3
+                },
+                {
+                  "label": "Kapacitet baterije",
+                  "value": "66,47 kWh",
+                  "order": 4
+                },
+                {
+                  "label": "DC punjenje 20-80%",
+                  "value": "40 min",
+                  "order": 5
+                },
+                {
+                  "label": "AC punjenje 20-80%",
+                  "value": "5 h",
+                  "order": 6
+                },
+                {
+                  "label": "Tovarni prostor",
+                  "value": "8,4 m3",
+                  "order": 7
+                },
+                {
+                  "label": "Nosivost",
+                  "value": "1425 kg",
+                  "order": 8
+                }
+              ],
+              "photoUrl": "https://scanme.rs/fair/elektromobilnost-2026/foton-cavan-c1-plus.webp",
+              "passportEligible": false,
+              "sortOrder": 4
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "externalKey": "elektromobilnost-2026-ferum",
+      "accountExternalKey": "SMK-SAJAM-26-FERUM",
+      "businessExternalKey": "SML-SAJAM-26-FERUM",
+      "clientSegment": "event_only",
+      "brands": [
+        {
+          "externalKey": "yudo",
+          "name": "Yudo",
+          "stand": {
+            "externalKey": "elektromobilnost-2026-stand-ferum",
+            "code": "1A",
+            "mapLocationId": "hala-1a"
+          },
+          "models": [
+            {
+              "externalKey": "elektromobilnost-2026-yudo-air",
+              "displayName": "Yudo Air",
+              "variant": "Ultra",
+              "slug": "yudo-air",
+              "priceText": "35.880 EUR",
+              "packageTier": "starter",
+              "packageActiveFrom": "2026-10-09T00:00:00+02:00",
+              "specifications": [
+                {
+                  "label": "Snaga",
+                  "value": "160 kW",
+                  "order": 1
+                },
+                {
+                  "label": "Obrtni moment",
+                  "value": "250 Nm",
+                  "order": 2
+                },
+                {
+                  "label": "Domet (WLTP)",
+                  "value": "430 km",
+                  "order": 3
+                },
+                {
+                  "label": "Kapacitet baterije",
+                  "value": "64,1 kWh",
+                  "order": 4
+                },
+                {
+                  "label": "DC punjenje 10-80%",
+                  "value": "36 min",
+                  "order": 5
+                },
+                {
+                  "label": "AC punjenje",
+                  "value": "11 kW",
+                  "order": 6
+                },
+                {
+                  "label": "Ubrzanje 0-100 km/h",
+                  "value": "< 7,9 s",
+                  "order": 7
+                },
+                {
+                  "label": "Prtljaznik",
+                  "value": "420 l",
+                  "order": 8
+                }
+              ],
+              "photoUrl": "https://scanme.rs/fair/elektromobilnost-2026/yudo-air-ultra.webp",
+              "passportEligible": false,
+              "sortOrder": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "externalKey": "elektromobilnost-2026-bentu",
+      "accountExternalKey": "SMK-SAJAM-26-BENTU",
+      "businessExternalKey": "SML-SAJAM-26-BENTU",
+      "clientSegment": "event_only",
+      "brands": [
+        {
+          "externalKey": "bentu",
+          "name": "BENTU",
+          "stand": {
+            "externalKey": "elektromobilnost-2026-stand-bentu",
+            "code": "1B",
+            "mapLocationId": "hala-1b"
+          },
+          "models": [
+            {
+              "externalKey": "elektromobilnost-2026-bentu-mango",
+              "displayName": "BENTU Mango",
+              "variant": "L7e-CU",
+              "slug": "bentu-mango",
+              "priceText": "Akcijska cena 10.600 EUR",
+              "packageTier": "included",
+              "packageActiveFrom": "2026-10-09T00:00:00+02:00",
+              "specifications": [
+                {
+                  "label": "Domet",
+                  "value": "Do 170 km",
+                  "order": 1
+                },
+                {
+                  "label": "Maksimalna brzina",
+                  "value": "90 km/h",
+                  "order": 2
+                },
+                {
+                  "label": "Maksimalna snaga",
+                  "value": "22 kW",
+                  "order": 3
+                },
+                {
+                  "label": "Kapacitet baterije",
+                  "value": "13,9 kWh",
+                  "order": 4
+                },
+                {
+                  "label": "Punjenje do 100%",
+                  "value": "6-6.5 h",
+                  "order": 5
+                },
+                {
+                  "label": "Pogon",
+                  "value": "Zadnji",
+                  "order": 6
+                },
+                {
+                  "label": "Broj sedista",
+                  "value": "2 ili 4",
+                  "order": 7
+                },
+                {
+                  "label": "Dimenzije",
+                  "value": "3 x 1.5 x 1.6 m",
+                  "order": 8
+                }
+              ],
+              "photoUrl": "https://scanme.rs/fair/elektromobilnost-2026/bentu-mango.webp",
+              "passportEligible": false,
+              "sortOrder": 1
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

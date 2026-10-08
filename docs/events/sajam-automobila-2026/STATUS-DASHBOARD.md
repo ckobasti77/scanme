@@ -1,7 +1,7 @@
 # Sajam automobila 2026 — komandni status
 
 > **Status dokumenta:** živi operativni pregled  
-> **Poslednje ažuriranje:** 6. oktobar 2026.
+> **Poslednje ažuriranje:** 7. oktobar 2026.
 > **Vlasnik odluka:** Aleksa  
 > **Aktivna integraciona grana:** `codex/sajam-integracija-2026-10-04`  
 > **Završeni Garage checkpoint:** `8e72c10`
@@ -36,7 +36,8 @@ Ne menja poslovni ili tehnički ugovor. Za proizvod važi [MASTER-KONTEKST](./MA
 | Backend jezgro | ✅ | Šema, paketi, QR, interakcije, analitika, izveštaji i retention postoje i imaju testove |
 | Backend hardening | 👀 | K1–K4 rešavaju četiri RF nalaza i testirani su (RK: spremno za integracioni test); čekaju ljudski pregled i env tajne po okruženju |
 | Mapa i displej | 👀 | Implementirani i testirani; čekaju pregled, stvarne podatke i osvežavanje uživo |
-| Garaža | 🔧 | Mobilna ruta, selection režim, poređenje, pasoši i sponsored tok su automatski provereni; native Samsung share još mora ručno da se potvrdi preko HTTPS origin-a |
+| Garaža | 🔧 | Mobilna ruta, selection režim, poređenje i sponsored tok su automatski provereni; native Samsung share još mora ručno da se potvrdi preko HTTPS origin-a |
+| Pasoš | 👀 | Zaseban pregled i brend detalj rade nad stvarnim backendom; čeka ručna proba reveal/favorite toka sa osvojenim pečatima |
 | Leadovi i email | ⛔ | Kod postoji, ali saglasnost, produkcijski prekidači i email podešavanja nisu zaključani |
 | Stvarni izlagači i modeli | ⛔ | Čekaju se kompletni podaci i priprema stvarnog importa |
 | QR štampa | ✅ | Kreirano je 100 trajnih dinamičkih modelskih kodova i 3 dinamička panel koda; završni materijal je poslat u štampu |
@@ -184,7 +185,7 @@ Ovo je redosled kojim se projekat trenutno odblokira. Stavka niže ne smatra se 
 - [x] ✅ G4 — Dva kompaktna event taba; događaji su hronološki poređani, a budući sajam je zaključan u produkciji do završetka prvog.
 - [x] ✅ G5 — Dugi dodir ulazi u selection režim; običan dodir zatim bira do pet modela, dok poređenje zahteva tačno dva.
 - [x] ✅ G6 — V2 lokalni dokument, V1 migracija i offline snapshot naziva, cene i fotografije.
-- [x] ✅ G7 — Svi objavljeni pasoši se prikazuju u kompaktnoj gornjoj traci, uključujući `0/N`, a detalji se otvaraju kao mobilni bottom sheet.
+- [x] ✅ G7 — Pasoši su izdvojeni na `/sajam/[eventSlug]/pasosi` i `/pasosi/[brandSlug]`; event shell ih otvara stalnom akcijom, a Garaža više ne duplira passport rail/modal.
 - [ ] 👀 G8 — Čuvanje završenog digitalnog badge-a je implementirano i unit-testirano; čeka ručni test sa kompletiranim stvarnim pasošem.
 - [x] ✅ G9 — Fixed Advanced rotacija najmanje na 12 sekundi, sa horizontalnim prelazom, border-trace detaljem, `Pogledaj` i `Dodaj u garažu`, pauzom tokom interakcije i safe-area insetom.
 - [x] ✅ G10 — Dodavanje iz sponsored trake ima animirani prenos modela do badge-a; broj se menja tek po završetku prenosa.
@@ -193,7 +194,7 @@ Ovo je redosled kojim se projekat trenutno odblokira. Stavka niže ne smatra se 
 - [x] ✅ G13 — Klijent šalje samo eksplicitne `open_model` i `garage_add`; nema impression upisa.
 - [x] ✅ G14 — Long-press na fotografiji, tekstu ili praznoj površini bira model za poređenje bez otvaranja slike i bez selekcije teksta.
 - [x] ✅ G15 — Sponsored dodavanje ume da obradi najmanje dva uzastopna modela; nova kartica ulazi FLIP animacijom bez remountovanja i ponovnog pojavljivanja postojeće liste.
-- [x] ✅ G16 — Pasoši imaju potpuno prazan `0/N` progres i zbijen, čitljiv summary; passport i remove sheet koriste jedan zajednički, čitljiv glass materijal.
+- [x] ✅ G16 — Pregled pasoša koristi logo/naziv brenda, progres tačke i `Novo`; detalj koristi velike kartice modela, zaključani gradijent i map deep-link do štanda.
 - [x] ✅ G17 — Sticky selection traka ostaje dostupna pri skrolu i nudi poređenje, deljenje, grupno uklanjanje i izlaz iz režima.
 - [x] ✅ G18 — Svaka kartica ima zasebno deljenje; 2–5 modela dobijaju javnu `noindex` kolekciju na `/sajam/deli/[shareCode]`.
 - [x] ✅ G19 — Podržan uređaj direktno poziva sistemski share sheet; aplikacijski WhatsApp/Viber/copy panel je fallback, a otkazivanje se ne broji kao uspeh.
@@ -280,10 +281,11 @@ Ovo je redosled kojim se projekat trenutno odblokira. Stavka niže ne smatra se 
 | O1 | Odobrenje B0 ugovora i odstupanja šeme | Jovan je nastavio pre formalnog pregleda | Tokom sadašnjeg pregleda |
 | O2 | Automatski ili ručno odobren purge 16. novembra | Kod trenutno automatski briše u 00:00 | Pre produkcijskog deploy-a |
 | O3 | Tačna pozicija ScanMe štanda | Bez nje se ScanMe lokacija ne prikazuje | Pre finalnog audita mape |
-| O4 | Deljene lokacije štandova | Trenutna validacija traži jedinstvenu lokaciju | Pre stvarnog importa |
 | O5 | Vreme zatvaranja dana za izveštaj | Određuje dnevni cron i poređenje | Pre integracionog testa izveštaja |
 | O6 | Kanal predaje PII-a izlagačima | Bez toga leadovi ne smeju u produkciju | Pre aktivacije leadova |
 | O7 | Finalni PDF/XLSX izgled izveštaja | Funkcionalni eksport postoji, izgled nije odobren | Pre prvog pravog izveštaja |
+
+Rešeno: **O4 — Deljene lokacije štandova** (8. 10.). Različiti izlagači smeju da dele lokaciju na mapi (`hala-6`: AUTO MIG/Foton i Grand Motors/Mazda+Chery); validacija to prijavljuje samo kao upozorenje. Detalji su u `JOVAN-DELTA-2026-10-08.md`.
 
 ## Vlasništvo
 

@@ -1857,3 +1857,14 @@ Izvori: `scripts/tasks/logs/sajam-v2/RN-IZVESTAJ.md`, `docs/events/sajam-automob
   - provera da nema `FAIR_MAP_LOCATION_INVALID` (uklonjene lokacije S1–S5, 20/21/22, 12/13/15);
   - `venueName`; TEST događaji nisu vezani za SA26 inventar.
 - **Leadovi:** zatvoreni dok saglasnost nije stručno proverena (`FAIR_LEADS_ENABLED`, `FAIR_EMAIL_REPLY_TO`). Deferred, awaiting owner decision.
+
+## SAJAM v2 — P3 (stranica modela na pravom API-ju, anketa, deljeni kontakt blok; 8. 10. 2026.)
+
+### 1. Tekst saglasnosti čeka stručnu pravnu proveru (MASTER §19 P0)
+Lead tokovi (`Zainteresovan sam`, `Probna vožnja`, opcioni kontakt u anketi) prikazuju tekst saglasnosti sa servera (`getLeadForm`) i šalju samo uz `Prihvatam`. Konačan tekst još nije pravno proveren. Za DEV proveru treba u TEST događaju (`test-elektromobilnost-2026`) aktivirati tekst koji počinje sa „TEST – nije pravni tekst“. To se radi kroz admin „Događaji“ i traži admin prijavu; stanje 8. 10.: još nije unet. Taj tekst nije pravni i ne sme na PROD. Pravi događaj `elektromobilnost-2026` nema aktivnu saglasnost, pa njegovi obrasci prikazuju „Trenutno nedostupno“ dok se tekst ne odobri.
+
+### 2. Pravni naziv izlagača
+Saglasnost imenuje izlagača preko `businesses.name`. Posebno polje za pravni naziv ne postoji (`JOVAN-DELTA-2026-10-08.md` §6). Ako pravna provera traži pravni naziv, potrebno je backend polje. Do tada se prikazuje naziv klijenta.
+
+### 3. Upozorenje pri zatvaranju sheet-a sa unetim podacima
+EVENT-DESIGN-SYSTEM §6 kaže da se sheet sa nepotvrđenim unosom ne zatvara bez upozorenja. Lead sheet-ovi to ne rade, isto kao prototip. Čeka se odluka da li je potrebno.

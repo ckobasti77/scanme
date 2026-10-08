@@ -84,6 +84,22 @@
   letter-spacing: -0.025em;
 }
 
+.railHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+}
+
+.domesticProduction {
+  flex: 0 0 auto;
+  color: rgb(24 20 17 / 0.54);
+  font-size: 0.6rem;
+  font-weight: 650;
+  letter-spacing: 0.035em;
+  line-height: 1.2;
+}
+
 .productList {
   display: grid;
   min-width: 0;

@@ -35,6 +35,7 @@ import * as fairReports from "./fairReports";
 import * as fairRetention from "./fairRetention";
 import * as fairScans from "./fairScans";
 import * as fairSharing from "./fairSharing";
+import * as fairSetup from "./fairSetup";
 import * as fairSponsoredAdmin from "./fairSponsoredAdmin";
 
 vi.mock("server-only", () => ({}));
@@ -166,8 +167,11 @@ const AUTHZ: Record<string, { module: Record<string, unknown>; functions: Record
   fairEmailSender: { module: fairEmailSender, functions: { sendDelivery: I, sendDevTestEmail: I } },
   fairDevFixtures: {
     module: fairDevFixtures,
-    functions: { seedTestCatalog: I, seedTestQr: I, seedTestPassport: I, seedTestSponsoredSnapshot: I, seedIntegrationTest: I, seedShowcaseCatalog: I },
+    // Aleksa (8. 10.): seedElectromobilityReviewCatalog — DEV review catalog of the real event.
+    functions: { seedTestCatalog: I, seedTestQr: I, seedTestPassport: I, seedTestSponsoredSnapshot: I, seedIntegrationTest: I, seedShowcaseCatalog: I, seedElectromobilityReviewCatalog: I },
   },
+  // Aleksa (8. 10., ebb3102): the real elektromobilnost-2026 setup, internal only (RUNBOOK-EVENT-SETUP.md).
+  fairSetup: { module: fairSetup, functions: { bootstrapEvent: I, importDryRun: I, importCommit: I, publishEventModels: I } },
 };
 
 type Registered = { isPublic?: boolean; isInternal?: boolean };

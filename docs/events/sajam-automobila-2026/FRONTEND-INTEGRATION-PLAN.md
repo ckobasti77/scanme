@@ -2,7 +2,7 @@
 
 > Status: **PRVI MODEL-PAGE VERTICAL SLICE OTKLJUČAN**
 >
-> Poslednje ažuriranje: **5. oktobar 2026.**
+> Poslednje ažuriranje: **7. oktobar 2026.**
 >
 > Vlasnik odluka: **Aleksa**
 >
@@ -154,11 +154,15 @@ Master je zaključao čitljive URL-ove pod:
 | model | `/sajam/[eventSlug]/model/[modelSlug]` | cilj postojećeg `/r/[cardCode]` resolvera |
 | Glas publike | `/sajam/[eventSlug]/model/[modelSlug]/glas-publike` | zaseban full-screen tok |
 | anketa | `/sajam/[eventSlug]/model/[modelSlug]/anketa` | zaseban kratki tok |
-| garaža | `/sajam/garaza` | jedna površina sa dva event taba |
-| poređenje | `/sajam/garaza/poredjenje` | eksplicitno poređenje najviše dva modela |
-| deljena kolekcija | `/sajam/deli/[shareCode]` | 1-5 modela istog događaja; read-only, noindex, ističe 16. novembra |
+| pasoši | `/sajam/[eventSlug]/pasosi` | pregled svih aktivnih pasoša događaja |
+| pasoš brenda | `/sajam/[eventSlug]/pasosi/[brandSlug]` | veliki model-card detalj, reveal novog pečata i izbor favorita |
+| garaža | `/sajam/[eventSlug]/garaza` | garaža jednog sajma; prebacivanje na drugi sajam vodi na njegovu adresu |
+| poređenje | `/sajam/[eventSlug]/garaza/poredjenje` | eksplicitno poređenje najviše dva modela (`?model=`) |
+| deljena kolekcija | `/sajam/[eventSlug]/deli/[shareCode]` | 1-5 modela istog događaja; read-only, noindex, ističe 16. novembra |
 
-Pasoš nema zasebnu javnu rutu u V1. Progres se prikazuje na modelu, svi aktivni pasoši u garaži, a eligibility i lični `N/M` na mapi. Format display moda ostaje tehnički detalj koleginog map toka.
+Odluka vlasnika proizvoda (7. oktobar 2026.): sve javne sajamske rute žive pod slugom događaja i svi linkovi koriste javni slug, bez DEV prefiksa `test-`. Kratka adresa `/sajam` (posteri i paneli) privremeno (307) preusmerava na aktivni sajam; adrese garaže, poređenja i deljene kolekcije bez sluga sajma ne postoje. Štampani QR kodovi nisu pogođeni jer `/r/[cardCode]` već vodi na `/sajam/[eventSlug]/model/[modelSlug]`.
+
+Mapa, pasoši, garaža, poređenje i deljena kolekcija koriste isti event shell (`Mapa`, `Pasoši`, `Garaža` sa brojem sačuvanih modela). Pasoš ima zasebnu javnu rutu i stalnu akciju `Pasoši` u event shell-u. Pregled prikazuje brendove i progres tačke, detalj prikazuje modele i reveal novih pečata, dok mapa zadržava eligibility i lični `N/M`. Garaža više ne duplira passport rail/modal. Format display moda ostaje tehnički detalj koleginog map toka.
 
 Sve javne event rute u V1 imaju `noindex`. Ne smeju biti slučajno preusmerene na prelaunch početnu stranu u produkciji.
 
@@ -183,7 +187,7 @@ Resolver uz 302 postavlja kratkotrajni potpisani HttpOnly QR entry marker. Model
 
 - Kanonsko otvaranje modela bez QR entry markera beleži `direct_view`, nikada scan.
 - Jedan model se deli kanonskim URL-om; podržan telefon direktno otvara sistemski share sheet, dok aplikacijski panel sa WhatsApp/Viber izlazima i eksplicitnim kopiranjem linka služi samo kao fallback.
-- Izbor 2-5 modela prvo kreira backend kolekciju, pa deli `/sajam/deli/[shareCode]`.
+- Izbor 2-5 modela prvo kreira backend kolekciju, pa deli `/sajam/[eventSlug]/deli/[shareCode]`.
 - `share_action` se šalje tek posle uspešnog native share promise-a, izbora WhatsApp/Viber izlaza ili uspešnog kopiranja; otkazivanje nije uspeh.
 - Otvaranje deljene kolekcije beleži `share_open`. Modeli sa te stranice ostaju obični public modeli i nijedan klik nije scan.
 - Share analytics greška ne sme blokirati sistemski share/copy UX, ali kreiranje više-modelske kolekcije mora uspeti pre nego što se ponudi link.
@@ -390,14 +394,16 @@ Isporučuje:
 
 ### F7 - brend pasoš
 
-**Čeka:** F0, F2 i Jovan B2/B3.
+**Status 7. oktobra:** implementirana zasebna ruta pregleda i brend detalja nad stvarnim B2/B3 ugovorom; čeka ručnu proveru reveal/favorite toka sa kompletiranim stvarnim pasošem.
 
 Isporučuje:
 
 - katalog zaključanih modela;
 - osvojene/nedostajuće pečate;
 - stanje kompletnog pasoša;
-- svi aktivni pasoši u garaži uključujući `0/N`, promenljiv izbor omiljenog modela i eksplicitno lokalno čuvanje badge-a;
+- svi aktivni pasoši u zasebnom pregledu, uključujući prazne progres tačke, promenljiv izbor omiljenog modela i eksplicitno lokalno čuvanje badge-a;
+- zaključani model vodi do štanda izlagača na mapi, bez lažnog obećanja precizne lokacije vozila;
+- `Elektromobilnost` koristi A/plavi digitalni pravac; `Auto Moto Fest` dobija zaseban B/narandžasti pravac u narednom vizuelnom prolazu;
 - bez fizičke nagrade i bez izmišljanja uslova na clientu.
 
 ### F8 - sponzorisane rotacije

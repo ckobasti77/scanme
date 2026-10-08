@@ -11,6 +11,7 @@ import {
   type FairShareChannel,
   type FairTrafficKind,
 } from "@/lib/fair-contract";
+import { fairPublicEventSlug } from "@/lib/fair-public-event";
 import { fairGatewayError, fairGatewayJson, fairGatewayRequest } from "./gateway";
 import { fairBackendFailure } from "./interactions";
 import { fairConvexVisitorForRequest, type FairVisitorEnv } from "./visitor";
@@ -24,10 +25,12 @@ import { fairConvexVisitorForRequest, type FairVisitorEnv } from "./visitor";
 
 type CreateShareCollection = typeof api.fairSharing.createShareCollection;
 type RecordTraffic = typeof api.fairSharing.recordTraffic;
+type GetModelsByIds = typeof api.fairPublic.getModelsByIds;
 
 export type FairSharingBackend = {
   createShareCollection(args: FunctionArgs<CreateShareCollection>): Promise<FunctionReturnType<CreateShareCollection>>;
   recordTraffic(args: FunctionArgs<RecordTraffic>): Promise<FunctionReturnType<RecordTraffic>>;
+  getModelsByIds(args: FunctionArgs<GetModelsByIds>): Promise<FunctionReturnType<GetModelsByIds>>;
 };
 
 export function convexFairSharingBackend(convexUrl: string): FairSharingBackend {
@@ -35,6 +38,7 @@ export function convexFairSharingBackend(convexUrl: string): FairSharingBackend 
   return {
     createShareCollection: (args) => client.mutation(api.fairSharing.createShareCollection, args),
     recordTraffic: (args) => client.mutation(api.fairSharing.recordTraffic, args),
+    getModelsByIds: (args) => client.query(api.fairPublic.getModelsByIds, args),
   };
 }
 
@@ -131,6 +135,11 @@ export async function handleCreateShareCollection(request: Request, deps: FairSh
   const shareCode = fairShareCode(visitor.visitorHash, args.requestId);
   if (!FAIR_SHARE_CODE_PATTERN.test(shareCode)) return fairGatewayError("SERVICE_UNAVAILABLE", 503);
   try {
+    // Shared collections live under their event's public slug. The collection
+    // mutation returns only the event id, so the slug comes from the first
+    // model, read before the collection exists so a failed read leaves none.
+    const [firstModel] = await backend.getModelsByIds({ ids: [args.eventModelIds[0]] });
+    if (!firstModel) return fairGatewayError("FAIR_MODEL_NOT_FOUND", 404);
     const value = await backend.createShareCollection({
       gatewaySecret: visitor.gatewaySecret,
       ipHash: visitor.ipHash,
@@ -139,7 +148,8 @@ export async function handleCreateShareCollection(request: Request, deps: FairSh
       codeHash: fairShareCodeHash(shareCode),
       requestId: args.requestId,
     });
-    return fairGatewayJson({ ok: true, value: { ...value, shareCode, url: `${new URL(request.url).origin}/sajam/deli/${shareCode}` } }, 200, visitor.setCookie);
+    const url = `${new URL(request.url).origin}/sajam/${fairPublicEventSlug(firstModel.eventSlug)}/deli/${shareCode}`;
+    return fairGatewayJson({ ok: true, value: { ...value, shareCode, url } }, 200, visitor.setCookie);
   } catch (error) {
     return fairBackendFailure(error, STATUS);
   }

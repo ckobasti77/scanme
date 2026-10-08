@@ -1,0 +1,7 @@
+event_code,model_external_key,event_day,question_external_key,display_order,question_text,option_1,option_2,option_3,option_4,option_5,use_in_sponsored_rotation,publication_status,source_reference,internal_notes
+elektromobilnost-2026,elektromobilnost-2026-jmev-ev3,2026-10-09,elektromobilnost-2026-jmev-q1,1,Da li ste pre danasnjeg sajma culi za JMEV?,Da,Ne,,,,no,draft,"Izlagaci/JMEV/JMEV Mails/Re_ ScanMe podaci.eml","Brand pitanje privremeno vezano za EV3; termin objave nije potvrdjen"
+elektromobilnost-2026,elektromobilnost-2026-jmev-ev3,2026-10-09,elektromobilnost-2026-jmev-q2,2,Koji JMEV model vam je privukao najvise paznje?,EV3,EVEASY,EWIND,Nisam siguran/na,,no,draft,"Izlagaci/JMEV/JMEV Mails/Re_ ScanMe podaci.eml","EVEASY je doslovno iz maila i razlikuje se od dostavljenog naziva YI"
+elektromobilnost-2026,elektromobilnost-2026-jmev-ev3,2026-10-09,elektromobilnost-2026-jmev-q4,3,Da li biste razmotrili kupovinu JMEV vozila u narednih 12 meseci?,"Da, ozbiljno razmatram kupovinu",Mozda,Trenutno samo istrazujem ponudu,Ne,,no,draft,"Izlagaci/JMEV/JMEV Mails/Re_ ScanMe podaci.eml","Termin objave nije potvrdjen"
+elektromobilnost-2026,elektromobilnost-2026-jmev-ev3,2026-10-09,elektromobilnost-2026-jmev-q5,4,Sta bi vas najvise podstaklo da izaberete JMEV?,Povoljnija cena / akcijska ponuda,Drzavna subvencija,Probna voznja,Bolje upoznavanje sa vozilom i opremom,,no,draft,"Izlagaci/JMEV/JMEV Mails/Re_ ScanMe podaci.eml","Termin objave nije potvrdjen"
+
+

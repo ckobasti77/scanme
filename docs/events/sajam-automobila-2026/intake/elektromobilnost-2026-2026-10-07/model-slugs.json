@@ -1,0 +1,20 @@
+{
+  "eventCode": "elektromobilnost-2026",
+  "models": [
+    { "externalKey": "elektromobilnost-2026-jmev-ev3", "slug": "jmev-ev3" },
+    { "externalKey": "elektromobilnost-2026-jmev-yi", "slug": "jmev-yi" },
+    { "externalKey": "elektromobilnost-2026-jmev-ewind", "slug": "jmev-ewind" },
+    { "externalKey": "elektromobilnost-2026-mazda-cx-5", "slug": "mazda-cx-5" },
+    { "externalKey": "elektromobilnost-2026-mazda-cx-60", "slug": "mazda-cx-60" },
+    { "externalKey": "elektromobilnost-2026-mazda-cx-6e", "slug": "mazda-cx-6e" },
+    { "externalKey": "elektromobilnost-2026-chery-arrizo-8-phev", "slug": "chery-arrizo-8-phev" },
+    { "externalKey": "elektromobilnost-2026-chery-tiggo-4-pro-hev", "slug": "chery-tiggo-4-pro-hev" },
+    { "externalKey": "elektromobilnost-2026-chery-tiggo-9-phev", "slug": "chery-tiggo-9-phev" },
+    { "externalKey": "elektromobilnost-2026-foton-etunland", "slug": "foton-etunland" },
+    { "externalKey": "elektromobilnost-2026-foton-eview", "slug": "foton-eview" },
+    { "externalKey": "elektromobilnost-2026-foton-eview-grand", "slug": "foton-eview-grand" },
+    { "externalKey": "elektromobilnost-2026-foton-cavan-c1-plus", "slug": "foton-cavan-c1-plus" },
+    { "externalKey": "elektromobilnost-2026-yudo-air", "slug": "yudo-air" },
+    { "externalKey": "elektromobilnost-2026-bentu-mango", "slug": "bentu-mango" }
+  ]
+}

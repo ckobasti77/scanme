@@ -1,10 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import {
-  BatteryCharging,
   Gauge,
-  PlugZap,
-  Route,
   Settings2,
   Timer,
   Zap,
@@ -13,27 +10,23 @@ import {
 import type {
   FairFixtureMode,
   FairPhotoPresentation,
+  FairPublicModelFixture,
 } from "@/lib/fair-client/model-fixtures";
 import { fmt, type FairModelDict } from "@/lib/i18n";
+import { fairEventThemeClass } from "@/lib/fair-theme";
+import type { FairModelInteractions } from "@/lib/fair-server/model-page";
 import { AnimatedModelDisclosure } from "./animated-model-disclosure";
 import { FairEventShell } from "./event-shell";
 import { GarageSaveButton } from "./garage-controls";
 import { ModelActionsCheckpoint } from "./model-actions-checkpoint";
-import type {
-  FairModelInteractions,
-  FairModelLeadForms,
-  FairModelPageModel,
-  FairModelSpecificationIcon,
-} from "./model-view";
+import { FairModelInteractionsProvider } from "./model-interactions";
+import { SurveyChatHead } from "./survey/survey-chat-head";
 
-const specificationIcons: Record<FairModelSpecificationIcon, LucideIcon> = {
+const specificationIcons: Record<string, LucideIcon> = {
   power: Zap,
   torque: Settings2,
   acceleration: Timer,
   speed: Gauge,
-  range: Route,
-  battery: BatteryCharging,
-  charging: PlugZap,
 };
 
 type FixtureSelection = {
@@ -152,61 +145,56 @@ function FairDevFixtureSwitcher({
   );
 }
 
-/**
- * N6 (F3): one page for a real published model (`source: "convex"`, server
- * capabilities, server-read lead forms) and, in `next dev` only, the design
- * fixture (`fixture` set: package/photo switcher, fixture Glas publike).
- * Only `interactions` that are really connected are shown; a lead button
- * exists only for an `open` form.
- */
 export function FairModelPage({
   model,
   dict,
   routePath,
-  leadForms,
+  selection,
+  showDevPanel,
   interactions,
-  fixture,
+  openSurvey,
 }: {
-  model: FairModelPageModel;
+  model: FairPublicModelFixture;
   dict: FairModelDict;
   routePath: string;
-  leadForms: FairModelLeadForms;
-  interactions: FairModelInteractions;
-  /** DEV design demo only. */
-  fixture?: { selection: FixtureSelection; showDevPanel: boolean };
+  selection: FixtureSelection;
+  showDevPanel: boolean;
+  /** Server-read survey and lead forms of a live model; null for DEV fixtures. */
+  interactions: FairModelInteractions | null;
+  /** `/anketa` deep link: open the survey sheet when the model offers one. */
+  openSurvey: boolean;
 }) {
-  const ratingMode = interactions.rating ? model.capabilities.ratingMode : "none";
+  const highlights = model.specificationGroups
+    .flatMap((group) => group.items)
+    .filter((item) => item.isHighlight)
+    .slice(0, 4);
   const actions = [
-    ...(ratingMode !== "none"
+    ...(model.capabilities.ratingMode !== "none"
       ? [{ kind: "rating" as const, label: dict.rateModel }]
       : []),
-    ...(leadForms.interest
+    ...(model.capabilities.canSubmitInterest
       ? [{ kind: "interest" as const, label: dict.submitInterest }]
       : []),
-    ...(leadForms.testDrive
+    ...(model.capabilities.canRequestTestDrive
       ? [{ kind: "testDrive" as const, label: dict.requestTestDrive }]
       : []),
   ];
-  const selection = fixture?.selection;
-  const audienceSearch = selection
-    ? new URLSearchParams({
-        mode: selection.mode,
-        photo: selection.withPhoto ? "1" : "0",
-        align: selection.alignment,
-        threshold: "public",
-        result: "success",
-        questions: selection.mode === "starter" ? "1" : "5",
-      })
-    : null;
-  const audienceHref = `${routePath}/glas-publike${audienceSearch ? `?${audienceSearch.toString()}` : ""}`;
-  const showAudience = interactions.audience && model.capabilities.hasAudienceQuestions;
-  const hasDetails = model.specificationGroups.length > 0 || Boolean(model.description);
+  const audienceSearch = new URLSearchParams({
+    mode: selection.mode,
+    photo: selection.withPhoto ? "1" : "0",
+    align: selection.alignment,
+    threshold: "public",
+    result: "success",
+    questions: selection.mode === "starter" ? "1" : "5",
+  });
+  const audienceHref = interactions
+    ? `${routePath}/glas-publike`
+    : `${routePath}/glas-publike?${audienceSearch.toString()}`;
 
   return (
     <div
-      className="fair-event fair-model-page"
-      data-package={selection?.mode}
-      data-source={model.source}
+      className={`fair-event fair-model-page ${fairEventThemeClass(model.eventSlug)}`}
+      data-package={selection.mode}
       data-reveal="off"
     >
       <FairEventShell
@@ -217,6 +205,20 @@ export function FairModelPage({
         dict={dict}
       />
 
+      <FairModelInteractionsProvider
+        dict={dict}
+        model={{
+          id: model.id,
+          eventId: model.eventId,
+          participationId: model.participationId,
+          brandName: model.brandName,
+          displayName: model.displayName,
+          exhibitorName: model.exhibitorName,
+        }}
+        interactions={interactions}
+        routePath={routePath}
+        openSurvey={openSurvey}
+      >
       <main className="fair-model-main">
         <section
           className={`fair-model-hero${model.photoUrl ? "" : " fair-model-hero--no-photo"}`}
@@ -225,7 +227,7 @@ export function FairModelPage({
           {model.photoUrl ? (
             <Image
               src={model.photoUrl}
-              alt={fmt(model.source === "fixture" ? dict.modelPhotoAlt : dict.modelPhotoAltPublic, { model: model.displayName })}
+              alt={fmt(dict.modelPhotoAlt, { model: model.displayName })}
               fill
               priority
               sizes="(max-width: 767px) 100vw, 560px"
@@ -242,61 +244,50 @@ export function FairModelPage({
             <h1>{model.displayName}</h1>
             <p>{model.priceText}</p>
           </div>
+          <SurveyChatHead />
         </section>
 
-        {model.highlights.length > 0 ? (
-          <section className="fair-specification-grid" aria-label={dict.allSpecifications}>
-            {model.highlights.map((item, index) => {
-              const Icon = item.icon ? specificationIcons[item.icon] : Gauge;
-              // N6: real data may have an odd number; the last one then spans the row (no empty cell).
-              const spansRow = model.highlights.length % 2 === 1 && index === model.highlights.length - 1;
-              return (
-                <div key={item.id} className="fair-specification" style={spansRow ? { gridColumn: "1 / -1", borderRight: 0 } : undefined}>
-                  <Icon aria-hidden="true" />
-                  <span>
-                    <strong>{item.value}</strong>
-                    <small>{item.shortLabel}</small>
-                  </span>
-                </div>
-              );
-            })}
-          </section>
-        ) : null}
+        <section className="fair-specification-grid" aria-label={dict.allSpecifications}>
+          {highlights.map((item) => {
+            const Icon = specificationIcons[item.icon] ?? Gauge;
+            return (
+              <div key={item.id} className="fair-specification">
+                <Icon aria-hidden="true" />
+                <span>
+                  <strong>{item.value}</strong>
+                  <small>{item.shortLabel}</small>
+                </span>
+              </div>
+            );
+          })}
+        </section>
 
-        {hasDetails ? (
-          <AnimatedModelDisclosure label={dict.allSpecifications}>
-              {model.specificationGroups.map((group) => (
-                <section key={group.id}>
-                  <h2>{group.label}</h2>
-                  <dl>
-                    {group.items.map((item) => (
-                      <div key={item.id}>
-                        <dt>{item.label}</dt>
-                        <dd>{item.value}</dd>
-                      </div>
-                    ))}
-                  </dl>
-                </section>
-              ))}
-              {model.description ? <p>{model.description}</p> : null}
-          </AnimatedModelDisclosure>
-        ) : null}
+        <AnimatedModelDisclosure label={dict.allSpecifications}>
+            {model.specificationGroups.map((group) => (
+              <section key={group.id}>
+                <h2>{group.label}</h2>
+                <dl>
+                  {group.items.map((item) => (
+                    <div key={item.id}>
+                      <dt>{item.label}</dt>
+                      <dd>{item.value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </section>
+            ))}
+            {model.description ? <p>{model.description}</p> : null}
+        </AnimatedModelDisclosure>
 
         <ModelActionsCheckpoint
           audience={
-            showAudience
+            model.capabilities.hasAudienceQuestions
               ? { title: dict.audienceTitle, body: dict.audienceBody, href: audienceHref }
               : undefined
           }
           actions={actions}
-          ratingMode={ratingMode}
+          ratingMode={model.capabilities.ratingMode}
           dict={dict}
-          lead={{
-            eventModelId: model.id,
-            modelName: model.displayName,
-            exhibitorName: model.exhibitorName,
-            forms: leadForms,
-          }}
         />
 
         <GarageSaveButton
@@ -315,22 +306,21 @@ export function FairModelPage({
           }}
         />
       </main>
+      </FairModelInteractionsProvider>
 
       <footer className="fair-footer">
         <span>{dict.poweredBy}</span>
-        {fixture ? (
-          <Link
-            href={fixture.showDevPanel ? routePath : `${routePath}?dev=1#fair-dev`}
-            scroll={false}
-            className="fair-dev-entry"
-          >
-            {dict.devLink}
-          </Link>
-        ) : null}
+        <Link
+          href={showDevPanel ? routePath : `${routePath}?dev=1#fair-dev`}
+          scroll={false}
+          className="fair-dev-entry"
+        >
+          {dict.devLink}
+        </Link>
       </footer>
 
-      {fixture?.showDevPanel ? (
-        <FairDevFixtureSwitcher routePath={routePath} selection={fixture.selection} dict={dict} />
+      {showDevPanel ? (
+        <FairDevFixtureSwitcher routePath={routePath} selection={selection} dict={dict} />
       ) : null}
     </div>
   );

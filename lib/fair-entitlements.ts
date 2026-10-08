@@ -227,7 +227,7 @@ export type FairRatingInput = {
 /**
  * Validates one rating submission against the tier in force. Starter accepts
  * exactly `overall`; Advanced never accepts `overall` and takes any non-empty
- * combination of appearance/specifications/price. Values are integers 1–5.
+ * combination of appearance/specifications/price. Values are 1–5 in steps of 0.5.
  */
 export function fairRatingInputProblem(
   tier: FairPackageTier,

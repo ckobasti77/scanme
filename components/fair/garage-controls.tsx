@@ -1,19 +1,19 @@
 "use client";
 
 import gsap from "gsap";
-import { CarFront } from "lucide-react";
+import { CarFront, Check } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
   FAIR_GARAGE_CHANGE_EVENT,
   FAIR_GARAGE_MODEL_CHANGE_EVENT,
   addFairGarageModel,
-  getFairGarageModels,
   hasFairGarageModel,
   readFairGarage,
   removeFairGarageModel,
   writeFairGarage,
   type FairGarageLastKnownModel,
 } from "@/lib/fair-client/garage-store";
+import { fairGarageEventCount } from "@/lib/fair-client/garage-view";
 import { fmt } from "@/lib/i18n";
 
 function subscribeToGarageEvent(eventName: string, onStoreChange: () => void) {
@@ -34,8 +34,17 @@ const subscribeGarageBadge = (onStoreChange: () => void) =>
 const subscribeGarageModel = (onStoreChange: () => void) =>
   subscribeToGarageEvent(FAIR_GARAGE_MODEL_CHANGE_EVENT, onStoreChange);
 
-function getGarageCount(eventId: string) {
-  return getFairGarageModels(readFairGarage(window.localStorage).document, eventId).length;
+const garageCountCache = new Map<string, number>();
+
+function getGarageCount(eventId: string, eventSlug: string) {
+  const count = fairGarageEventCount(readFairGarage(window.localStorage).document, { eventId, eventSlug });
+  garageCountCache.set(`${eventId}|${eventSlug}`, count);
+  return count;
+}
+
+function getCachedGarageCount(eventId: string, eventSlug: string) {
+  if (typeof window === "undefined") return null;
+  return garageCountCache.get(`${eventId}|${eventSlug}`) ?? null;
 }
 
 function hasModel(eventId: string, modelId: string) {
@@ -44,24 +53,27 @@ function hasModel(eventId: string, modelId: string) {
 
 export function GarageBadge({
   eventId,
+  eventSlug,
   ariaTemplate,
 }: {
   eventId: string;
+  eventSlug: string;
   ariaTemplate: string;
 }) {
   const count = useSyncExternalStore(
     subscribeGarageBadge,
-    () => getGarageCount(eventId),
-    () => 0,
+    () => getGarageCount(eventId, eventSlug),
+    () => getCachedGarageCount(eventId, eventSlug),
   );
 
   return (
     <span
       className="fair-garage-badge"
-      aria-label={fmt(ariaTemplate, { count })}
+      data-ready={count !== null}
+      aria-label={count === null ? undefined : fmt(ariaTemplate, { count })}
     >
-      <span key={count} className="fair-garage-badge__value" aria-hidden="true">
-        {count}
+      <span className="fair-garage-badge__value" aria-hidden="true" suppressHydrationWarning>
+        {count ?? ""}
       </span>
     </span>
   );
@@ -271,6 +283,11 @@ export function GarageSaveButton({
         <span className="fair-save-button__content">
           <CarFront aria-hidden="true" />
           <span>{saved ? savedLabel : saveLabel}</span>
+          {saved ? (
+            <span className="fair-save-button__check" aria-hidden="true">
+              <Check />
+            </span>
+          ) : null}
         </span>
       </button>
       {writeFailed ? (

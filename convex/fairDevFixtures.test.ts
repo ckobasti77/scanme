@@ -110,6 +110,96 @@ test("seedShowcaseCatalog creates five source-based TEST exhibitors and complete
   });
 });
 
+test("seedElectromobilityReviewCatalog creates real JMEV and BYD review models idempotently", async () => {
+  const t = convexTest(schema, modules);
+  rateLimiterTest.register(t);
+  await t.run((ctx) => ctx.db.insert("users", { email: ADMIN_EMAIL }));
+
+  const first = await t.mutation(internal.fairDevFixtures.seedElectromobilityReviewCatalog, {});
+  expect(first).toMatchObject({
+    clients: { created: 2, unchanged: 0 },
+    brands: { created: 2, unchanged: 0 },
+    participations: { created: 2 },
+    stands: { created: 2 },
+    models: { created: 5 },
+    publishedNow: 5,
+    passports: [
+      { brand: "TEST JMEV", created: true, requiredModels: 3 },
+      { brand: "TEST BYD", created: true, requiredModels: 2 },
+    ],
+  });
+  const rows = await t.run(async (ctx) => ({
+    models: await ctx.db.query("fairEventModels").collect(),
+    stands: await ctx.db.query("fairStands").collect(),
+    leadConfigs: await ctx.db.query("fairLeadConfigs").collect(),
+    surveys: await ctx.db.query("fairSurveys").collect(),
+    questions: await ctx.db.query("fairAudienceQuestions").collect(),
+    snapshots: await ctx.db.query("fairSponsoredSnapshots").collect(),
+    snapshotItems: await ctx.db.query("fairSponsoredSnapshotItems").collect(),
+  }));
+  const jmev = rows.models.filter((model) => model.displayName.startsWith("TEST JMEV"));
+  expect(jmev).toHaveLength(3);
+  expect(jmev.every((model) => model.packageTier === "advanced" && model.passportEligible)).toBe(true);
+  expect(jmev.find((model) => model.displayName.endsWith("EWIND"))?.specifications)
+    .toEqual(expect.arrayContaining([expect.objectContaining({ label: "Domet (CLTC)", value: "610 km" })]));
+  expect(new Set(rows.stands.map((stand) => stand.mapLocationId))).toEqual(new Set(["hala-12", "ispred-14"]));
+  expect(rows.leadConfigs).toHaveLength(8);
+  expect(rows.surveys).toHaveLength(3);
+  expect(rows.questions).toHaveLength(5);
+  expect(rows.snapshots).toHaveLength(1);
+  expect(rows.snapshotItems).toHaveLength(3);
+
+  const elight = await t.query(api.fairPublic.getModelBySlug, {
+    eventSlug: "test-elektromobilnost-2026",
+    modelSlug: "test-jmev-elight",
+  });
+  expect(elight?.capabilities).toEqual({
+    ratingMode: "dimensions",
+    canSubmitInterest: true,
+    canRequestTestDrive: true,
+    hasAudienceQuestions: true,
+    hasSurvey: true,
+    isSponsored: true,
+  });
+
+  const catalog = await t.query(api.fairPublic.getPassportCatalog, { eventSlug: "test-elektromobilnost-2026" });
+  expect(catalog?.catalog.map((passport) => [passport.brandName, passport.models.length]))
+    .toEqual([["TEST JMEV", 3], ["TEST BYD", 2]]);
+
+  const second = await t.mutation(internal.fairDevFixtures.seedElectromobilityReviewCatalog, {});
+  expect(second).toMatchObject({
+    clients: { created: 0, unchanged: 2 },
+    brands: { created: 0, unchanged: 2 },
+    participations: { created: 0, updated: 0, unchanged: 2 },
+    stands: { created: 0, updated: 0, unchanged: 2 },
+    models: { created: 0, updated: 0, unchanged: 5 },
+    publishedNow: 0,
+    passports: [
+      { brand: "TEST JMEV", created: false, requiredModels: 3 },
+      { brand: "TEST BYD", created: false, requiredModels: 2 },
+    ],
+  });
+  const rowsAfterSecondSeed = await t.run(async (ctx) => ({
+    leadConfigs: await ctx.db.query("fairLeadConfigs").collect(),
+    surveys: await ctx.db.query("fairSurveys").collect(),
+    questions: await ctx.db.query("fairAudienceQuestions").collect(),
+    snapshots: await ctx.db.query("fairSponsoredSnapshots").collect(),
+    snapshotItems: await ctx.db.query("fairSponsoredSnapshotItems").collect(),
+  }));
+  expect(rowsAfterSecondSeed).toMatchObject({
+    leadConfigs: expect.arrayContaining(rows.leadConfigs),
+    surveys: expect.arrayContaining(rows.surveys),
+    questions: expect.arrayContaining(rows.questions),
+    snapshots: expect.arrayContaining(rows.snapshots),
+    snapshotItems: expect.arrayContaining(rows.snapshotItems),
+  });
+  expect(rowsAfterSecondSeed.leadConfigs).toHaveLength(8);
+  expect(rowsAfterSecondSeed.surveys).toHaveLength(3);
+  expect(rowsAfterSecondSeed.questions).toHaveLength(5);
+  expect(rowsAfterSecondSeed.snapshots).toHaveLength(1);
+  expect(rowsAfterSecondSeed.snapshotItems).toHaveLength(3);
+});
+
 test("seedTestPassport publishes one TEST brand passport, idempotently, visible on the event map", async () => {
   const t = convexTest(schema, modules);
   rateLimiterTest.register(t);

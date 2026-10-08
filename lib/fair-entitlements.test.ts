@@ -193,8 +193,12 @@ describe("ratings: Starter overall, Advanced three optional dimensions", () => {
     expect(fairRatingInputProblem("advanced", { appearance: 1, specifications: 2, price: 3 })).toBeNull();
   });
 
-  test("values are integers from 1 to 5", () => {
-    for (const bad of [0, 6, 3.5, -1, Number.NaN]) {
+  test("values are 1 to 5 in steps of 0.5", () => {
+    for (const good of [1, 1.5, 3.5, 4.5, 5]) {
+      expect(fairRatingInputProblem("starter", { overall: good })).toBeNull();
+      expect(fairRatingInputProblem("advanced", { price: good })).toBeNull();
+    }
+    for (const bad of [0, 0.5, 1.25, 5.5, 6, -1, Number.NaN]) {
       expect(fairRatingInputProblem("starter", { overall: bad })).toBe("INVALID_INPUT");
       expect(fairRatingInputProblem("advanced", { price: bad })).toBe("INVALID_INPUT");
     }

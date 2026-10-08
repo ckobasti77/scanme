@@ -1,0 +1,151 @@
+/* Absolutely positioned inside .fair-model-hero: above the identity block
+   (brand / name / price), below the survey chat-head, never adds height. */
+.card {
+  position: absolute;
+  z-index: 4;
+  right: 10px;
+  bottom: var(--fair-new-stamp-bottom, 100px);
+  left: 10px;
+  display: flex;
+  min-height: 60px;
+  align-items: center;
+  padding: 7px 4px 7px 7px;
+  border: 1px solid color-mix(in srgb, var(--fair-accent) 26%, var(--fair-line));
+  border-radius: 18px;
+  background: var(--fair-surface);
+  box-shadow:
+    0 1px 0 rgb(255 255 255 / 0.9) inset,
+    0 18px 40px rgb(18 40 70 / 0.22);
+  color: var(--fair-ink);
+  text-shadow: none;
+  opacity: 0;
+}
+
+.link {
+  display: grid;
+  min-width: 0;
+  min-height: 46px;
+  flex: 1;
+  grid-template-columns: 46px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 11px;
+  border-radius: 13px;
+  color: inherit;
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.link:focus-visible,
+.dismiss:focus-visible {
+  outline: 3px solid var(--fair-focus);
+  outline-offset: 2px;
+}
+
+.tile {
+  position: relative;
+  display: grid;
+  width: 46px;
+  height: 46px;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 13px;
+  background:
+    radial-gradient(circle at 70% 20%, rgb(255 255 255 / 0.28), transparent 55%),
+    linear-gradient(145deg, var(--fair-accent), var(--fair-accent-strong));
+  color: #fff;
+}
+
+.tile svg {
+  position: relative;
+  z-index: 1;
+  width: 19px;
+  height: 19px;
+}
+
+/* a slow light pass across the tile, the only idle motion */
+.tile i {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 35%, rgb(255 255 255 / 0.45) 50%, transparent 65%);
+  transform: translateX(-120%);
+  animation: new-stamp-shine 3.2s cubic-bezier(0.5, 0, 0.2, 1) 1.4s infinite;
+}
+
+@keyframes new-stamp-shine {
+  0% { transform: translateX(-120%); }
+  35%, 100% { transform: translateX(120%); }
+}
+
+.copy {
+  display: grid;
+  min-width: 0;
+  line-height: 1.15;
+}
+
+.eyebrow {
+  color: var(--fair-accent-strong);
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.title {
+  overflow: hidden;
+  margin-top: 2px;
+  font-size: 16px;
+  font-weight: 740;
+  letter-spacing: -0.025em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.action {
+  display: inline-flex;
+  min-height: 40px;
+  padding: 0 8px 0 13px;
+  align-items: center;
+  gap: 2px;
+  border-radius: 12px;
+  background: var(--fair-accent);
+  color: var(--fair-accent-ink);
+  font-size: 14px;
+  font-weight: 720;
+}
+
+.action svg {
+  width: 17px;
+  height: 17px;
+}
+
+.dismiss {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  flex: none;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--fair-ink-muted);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.dismiss svg {
+  width: 17px;
+  height: 17px;
+}
+
+@media (hover: hover) {
+  .dismiss:hover {
+    background: var(--fair-surface-muted);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tile i {
+    animation: none;
+  }
+}

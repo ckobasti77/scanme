@@ -697,7 +697,7 @@ export const adminEventsSr = {
     FAIR_DUPLICATE_KEY: "Ključ je dupliran.",
     FAIR_SLUG_TAKEN: "Slug je već zauzet na ovom događaju.",
     FAIR_MAP_LOCATION_INVALID: "Lokacija na mapi nije ispravna.",
-    FAIR_MAP_LOCATION_TAKEN: "Ovaj izlagač već ima drugi štand na toj lokaciji.",
+    FAIR_MAP_LOCATION_TAKEN: "Lokaciju na mapi deli još jedan štand. To je dozvoljeno (O4); proveri da je tačno.",
     FAIR_SPECIFICATIONS_INVALID: "Specifikacije nisu ispravne (1–100 stavki, jedinstven redosled).",
     FAIR_HIGHLIGHT_LIMIT: "Najviše četiri specifikacije mogu biti istaknute.",
     FAIR_PACKAGE_DOWNGRADE: "Paket ne može da se spusti.",

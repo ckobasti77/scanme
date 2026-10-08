@@ -176,3 +176,9 @@ Convex agent skills for common tasks can be installed by running
 `npx convex ai-files install`.
 
 <!-- convex-ai-end -->
+
+## Cross-team sync rule (Sajam automobila 2026)
+Before starting ANY task that touches convex/, lib/fair-*, the fair map or the fair backend contract:
+1. Read every file matching docs/events/sajam-automobila-2026/JOVAN-DELTA-*.md that is newer than your last task, and the latest entries of MASTER-KONTEKST.md §20.
+2. Treat the changes listed there as agreed decisions of the product owner; do not revert or "fix" them. If one conflicts with what you are doing, stop and ask the owner instead of overwriting it.
+3. At the end of your task, if you changed something the frontend/integration side relies on (exports, validators, schema, mapLocationIds, API routes), add a short entry to a new docs/events/sajam-automobila-2026/FRONTEND-DELTA-<date>.md.

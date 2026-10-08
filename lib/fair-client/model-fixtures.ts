@@ -1,3 +1,6 @@
+import type { FairPublicModel } from "@/lib/fair-contract";
+import { fairLocalPhotoUrl } from "./photo-url";
+
 export type FairFixtureMode = "free" | "starter" | "advanced";
 export type FairPhotoPresentation = "left" | "right" | "bottom";
 export type FairAudienceThresholdFixture = "below" | "public";
@@ -29,6 +32,8 @@ export type FairPublicModelFixture = {
   eventTitle: string;
   eventName: string;
   exhibitorName: string;
+  /** Exhibitor key of the event: the survey marker is per exhibitor (MASTER §9.2). */
+  participationId: string;
   brandName: string;
   modelSlug: string;
   displayName: string;
@@ -88,6 +93,88 @@ const capabilitiesByMode = {
     isSponsored: true,
   },
 } as const satisfies Record<FairFixtureMode, FairModelCapabilitiesFixture>;
+
+const REVIEW_MODEL_PHOTOS: Record<string, string> = {
+  "jmev ev3": "/fair/elektromobilnost-2026/jmev-ev3-event.jpg",
+  "jmev elight": "/fair/elektromobilnost-2026/jmev-elight-event.jpg",
+  "jmev ewind": "/fair/elektromobilnost-2026/jmev-ewind-event.jpg",
+  "byd dolphin surf": "/fair/elektromobilnost-2026/byd-dolphin-surf.png",
+  "byd sealion 7": "/fair/elektromobilnost-2026/byd-sealion-7.jpg",
+};
+
+function cleanTestLabel(value: string) {
+  return value.replace(/^TEST\s+/i, "").trim();
+}
+
+function modelNameWithoutBrand(displayName: string, brandName: string) {
+  const cleanDisplayName = cleanTestLabel(displayName);
+  const cleanBrandName = cleanTestLabel(brandName);
+  return cleanDisplayName.toLocaleLowerCase("sr-Latn").startsWith(`${cleanBrandName.toLocaleLowerCase("sr-Latn")} `)
+    ? cleanDisplayName.slice(cleanBrandName.length).trim()
+    : cleanDisplayName;
+}
+
+function specificationIcon(label: string): FairModelSpecificationFixture["icon"] {
+  const normalized = label.toLocaleLowerCase("sr-Latn");
+  if (normalized.includes("snaga")) return "power";
+  if (normalized.includes("moment")) return "torque";
+  if (normalized.includes("ubrzanje")) return "acceleration";
+  return "speed";
+}
+
+function fixtureModeFromCapabilities(capabilities: FairModelCapabilitiesFixture): FairFixtureMode {
+  if (capabilities.ratingMode === "dimensions") return "advanced";
+  if (capabilities.ratingMode === "overall") return "starter";
+  return "free";
+}
+
+export function fairPublicModelToFixture(input: {
+  model: FairPublicModel;
+  publicEventSlug: string;
+  eventName: string;
+  withPhoto: boolean;
+  photoPresentation: FairPhotoPresentation;
+  /** Request origin: a photo URL on this site is rendered from its local path too. */
+  siteOrigin?: string;
+}): { model: FairPublicModelFixture; mode: FairFixtureMode } {
+  const brandName = cleanTestLabel(input.model.brandName);
+  const displayName = modelNameWithoutBrand(input.model.displayName, input.model.brandName);
+  const reviewPhoto = REVIEW_MODEL_PHOTOS[`${brandName} ${displayName}`.toLocaleLowerCase("sr-Latn")];
+  const photoUrl = fairLocalPhotoUrl(input.model.photoUrl, input.siteOrigin) ?? reviewPhoto;
+  const capabilities = input.model.capabilities;
+  return {
+    mode: fixtureModeFromCapabilities(capabilities),
+    model: {
+      id: input.model.id,
+      eventId: input.model.eventId,
+      eventSlug: input.publicEventSlug,
+      eventTitle: "Sajam automobila",
+      eventName: cleanTestLabel(input.eventName).replace(/\s+2026$/i, ""),
+      exhibitorName: cleanTestLabel(input.model.exhibitorName),
+      participationId: input.model.participationId,
+      brandName,
+      modelSlug: input.model.slug,
+      displayName,
+      priceText: input.model.priceText,
+      description: "",
+      ...(input.withPhoto && photoUrl ? { photoUrl } : {}),
+      photoPresentation: input.photoPresentation,
+      specificationGroups: input.model.specificationGroups.map((group) => ({
+        id: group.id,
+        label: group.label,
+        items: group.items.map((item) => ({
+          id: item.id,
+          label: item.label,
+          value: item.value,
+          shortLabel: item.label,
+          isHighlight: item.isHighlight,
+          icon: specificationIcon(item.label),
+        })),
+      })),
+      capabilities,
+    },
+  };
+}
 
 const specifications: FairModelSpecificationFixture[] = [
   {
@@ -230,6 +317,7 @@ export function readFairModelFixture(input: {
     eventTitle: "Sajam automobila",
     eventName: "Auto Moto Fest",
     exhibitorName: "Audi",
+    participationId: "fixture-participation-audi",
     brandName: "Audi",
     modelSlug: input.modelSlug,
     displayName: "RS 3 Sportback",
