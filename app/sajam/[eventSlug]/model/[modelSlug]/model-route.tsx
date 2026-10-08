@@ -8,7 +8,12 @@ import {
   type FairFixtureMode,
   type FairPhotoPresentation,
 } from "@/lib/fair-client/model-fixtures";
-import { loadFairModelInteractions, loadFairModelPage } from "@/lib/fair-server/model-page";
+import {
+  fairModelStand,
+  loadFairAudienceTeaser,
+  loadFairModelInteractions,
+  loadFairModelPage,
+} from "@/lib/fair-server/model-page";
 import { fairModelSr } from "@/lib/i18n/sr/fair-model";
 import { fmt } from "@/lib/i18n/format";
 
@@ -115,9 +120,13 @@ export async function FairModelRoute({
 
   if (!model) notFound();
 
-  const interactions = live
-    ? await loadFairModelInteractions(live.model.id, live.model.capabilities)
-    : null;
+  const [interactions, audienceTeaser] = live
+    ? await Promise.all([
+        loadFairModelInteractions(live.model.id, live.model.capabilities),
+        live.model.capabilities.hasAudienceQuestions ? loadFairAudienceTeaser(live.model.id) : null,
+      ])
+    : [null, null];
+  const stand = live ? fairModelStand(live.event, live.model, eventSlug) : null;
   const routePath = `/sajam/${eventSlug}/model/${modelSlug}`;
   return (
     <FairModelPage
@@ -127,6 +136,8 @@ export async function FairModelRoute({
       selection={selection}
       showDevPanel={scalar(query.dev) === "1"}
       interactions={interactions}
+      stand={stand}
+      audienceTeaser={audienceTeaser}
       openSurvey={openSurvey}
     />
   );

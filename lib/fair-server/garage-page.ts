@@ -128,3 +128,57 @@ export async function loadFairActiveEventSlug(now = Date.now()): Promise<string>
   );
   return fairNavigationEvent(events.sort(byEventOrder), now)?.publicSlug ?? "elektromobilnost-2026";
 }
+
+/** DEV design check only: published models shown as the garage recommendation when no snapshot exists. */
+const DEV_SPONSORED_SLUGS = ["jmev-ewind", "jmev-yi", "mazda-cx-60", "foton-etunland"];
+
+/**
+ * `next dev` + `?sponzor=1` only (never in a production build): when DEV has no
+ * published sponsored snapshot, fake a rotation from real published models so
+ * the sponsored dock can be reviewed. Server contracts are untouched.
+ */
+export async function withDevSponsoredRotation(view: FairGarageEventView, requested: boolean): Promise<FairGarageEventView> {
+  if (process.env.NODE_ENV !== "development" || !requested || view.sponsoredRotation || !view.event) return view;
+  const event = view.event;
+  const models = await Promise.all(
+    DEV_SPONSORED_SLUGS.map((modelSlug) =>
+      fetchQuery(api.fairPublic.getModelBySlug, { eventSlug: event.slug, modelSlug }).catch(() => null),
+    ),
+  );
+  const items = models.flatMap((model, order) =>
+    model
+      ? [
+          {
+            eventModelId: model.id,
+            eventId: model.eventId,
+            eventSlug: model.eventSlug,
+            slug: model.slug,
+            brandId: model.brandId,
+            brandName: model.brandName,
+            displayName: model.displayName,
+            ...(model.variant ? { variant: model.variant } : {}),
+            priceText: model.priceText,
+            visual: model.photoUrl ? ("photo" as const) : ("event_placeholder" as const),
+            ...(model.photoUrl ? { photoUrl: model.photoUrl } : {}),
+            standMapLocationId: model.standMapLocationId,
+            order,
+          },
+        ]
+      : [],
+  );
+  if (items.length === 0) return view;
+  return {
+    ...view,
+    sponsoredRotation: {
+      surface: "garage",
+      eventId: event.id,
+      snapshotId: "dev",
+      version: 0,
+      dayKey: "dev",
+      seed: "dev",
+      epochMs: Date.UTC(2026, 0, 1),
+      intervalMs: 12_000,
+      items,
+    },
+  };
+}

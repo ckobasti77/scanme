@@ -383,6 +383,36 @@ export interface FairModelDict {
   surveySentToast: string;
   surveyContactFailedToast: string;
   surveyAlreadySent: string;
+  // Model page v2 (prototype stranica-modela-v2).
+  priceLabel: string;
+  priceOnRequest: string;
+  standChipAria: string;
+  keySpecsAria: string;
+  keySpecRange: string;
+  keySpecBattery: string;
+  keySpecPower: string;
+  keySpecCharging: string;
+  keySpecSpeed: string;
+  keySpecAcceleration: string;
+  keySpecTorque: string;
+  specsToggle: string;
+  specsToggleWithDescription: string;
+  specsGroupDrivetrain: string;
+  specsGroupPerformance: string;
+  specsDescription: string;
+  audienceCardEyebrow: string;
+  ratingSheetModelTitle: string;
+  ratingDone: string;
+  ratingSummaryAppearance: string;
+  ratingSummarySpecifications: string;
+  ratingSummaryPrice: string;
+  ratingSummaryEmpty: string;
+  garageSavedState: string;
+  openGarage: string;
+  surveyAnonTitle: string;
+  surveyAnonBody: string;
+  surveyAnonAddContact: string;
+  surveyAnonSend: string;
 }
 
 export interface FairGarageDict {
@@ -408,7 +438,6 @@ export interface FairGarageDict {
   compareCount: string;
   compareAction: string;
   compareLimit: string;
-  compareHintLongPress: string;
   selectionCount: string;
   selectionClose: string;
   selectionShare: string;
@@ -468,6 +497,10 @@ export interface FairGarageDict {
   savedBadgesTitle: string;
   favoriteLabel: string;
   sponsoredLabel: string;
+  /** Visible tag on the garage recommendation dock (model page v2). */
+  sponsoredTag: string;
+  /** Parking-bay label on a garage photo: "MESTO 01". */
+  bayLabel: string;
   sponsoredView: string;
   sponsoredAdd: string;
   sponsoredAdding: string;

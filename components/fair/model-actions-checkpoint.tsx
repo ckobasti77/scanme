@@ -2,14 +2,9 @@
 
 import Link from "next/link";
 import { AnimatePresence } from "framer-motion";
-import {
-  BarChart3,
-  ChevronRight,
-  Mail,
-  Star,
-} from "lucide-react";
+import { ChevronRight, Mail, Star } from "lucide-react";
 import { TbSteeringWheel } from "react-icons/tb";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import {
   FAIR_RATING_MAX,
   FAIR_RATING_MIN,
@@ -25,18 +20,21 @@ import { fmt, type FairModelDict } from "@/lib/i18n";
 import { FairSheet } from "./fair-sheet";
 import { LeadSheet } from "./lead-sheet";
 import { useFairModelInteractions } from "./model-interactions";
+import { fairRatingFromPosition, fairRatingText } from "./rating-position";
 
-type SheetKind = "rating" | "interest" | "testDrive";
+type LeadKind = "interest" | "testDrive";
+type SheetKind = "rating" | LeadKind;
 
 type Action = {
-  kind: SheetKind;
+  kind: LeadKind;
   label: string;
 };
 
 type Dimension = "appearance" | "specifications" | "price";
 
+const DIMENSIONS: Dimension[] = ["appearance", "specifications", "price"];
+
 const icons = {
-  rating: Star,
   interest: Mail,
   testDrive: TbSteeringWheel,
 };
@@ -47,12 +45,14 @@ function clampRating(value: number) {
   return Math.min(FAIR_RATING_MAX, Math.max(FAIR_RATING_MIN, value));
 }
 
-function RatingField({
+/** One labelled row: label left, value and five half-step stars right (prototype stranica-modela-v2). */
+function RatingRow({
   label,
   value,
   onChange,
   onCommit,
   valueAriaTemplate,
+  size,
 }: {
   label: string;
   value?: number;
@@ -60,7 +60,9 @@ function RatingField({
   /** The gesture or key press is finished: the value may be sent. */
   onCommit?: (value: number) => void;
   valueAriaTemplate: string;
+  size: "inline" | "sheet";
 }) {
+  const labelId = useId();
   const controlRef = useRef<HTMLDivElement>(null);
   const keyTimer = useRef<number | null>(null);
   const gestureRef = useRef<{
@@ -82,8 +84,8 @@ function RatingField({
   function ratingFromPointer(clientX: number) {
     const bounds = controlRef.current?.getBoundingClientRect();
     if (!bounds?.width) return null;
-    const position = Math.min(1, Math.max(0, (clientX - bounds.left) / bounds.width));
-    const next = clampRating(Math.round((position * FAIR_RATING_MAX) / FAIR_RATING_STEP) * FAIR_RATING_STEP);
+    const next = fairRatingFromPosition((clientX - bounds.left) / bounds.width);
+    if (next !== value) fairHaptic(8);
     onChange(next);
     return next;
   }
@@ -109,73 +111,80 @@ function RatingField({
   }
 
   return (
-    <fieldset className="fair-rating-field">
-      <legend>{label}</legend>
-      <div
-        ref={controlRef}
-        className="fair-star-slider"
-        role="slider"
-        tabIndex={0}
-        aria-label={label}
-        aria-valuemin={FAIR_RATING_MIN}
-        aria-valuemax={FAIR_RATING_MAX}
-        aria-valuenow={value ?? undefined}
-        aria-valuetext={value ? fmt(valueAriaTemplate, { value: value.toLocaleString("sr-Latn-RS") }) : undefined}
-        onKeyDown={handleKeyDown}
-        onPointerDown={(event) => {
-          gestureRef.current = {
-            pointerId: event.pointerId,
-            startX: event.clientX,
-            startY: event.clientY,
-            mode: "pending",
-          };
-        }}
-        onPointerMove={(event) => {
-          const gesture = gestureRef.current;
-          if (gesture.pointerId !== event.pointerId || gesture.mode === "scroll") return;
-          const deltaX = Math.abs(event.clientX - gesture.startX);
-          const deltaY = Math.abs(event.clientY - gesture.startY);
+    <div className="fair-rate-row" data-size={size}>
+      <span className="fair-rate-row__label" id={labelId}>
+        {label}
+      </span>
+      <span className="fair-rate-row__control">
+        <span className="fair-rate-row__value" aria-hidden="true">
+          {value ? fairRatingText(value) : ""}
+        </span>
+        <div
+          ref={controlRef}
+          className="fair-star-slider"
+          role="slider"
+          tabIndex={0}
+          aria-labelledby={labelId}
+          aria-valuemin={FAIR_RATING_MIN}
+          aria-valuemax={FAIR_RATING_MAX}
+          aria-valuenow={value ?? undefined}
+          aria-valuetext={value ? fmt(valueAriaTemplate, { value: fairRatingText(value) }) : undefined}
+          onKeyDown={handleKeyDown}
+          onPointerDown={(event) => {
+            gestureRef.current = {
+              pointerId: event.pointerId,
+              startX: event.clientX,
+              startY: event.clientY,
+              mode: "pending",
+            };
+          }}
+          onPointerMove={(event) => {
+            const gesture = gestureRef.current;
+            if (gesture.pointerId !== event.pointerId || gesture.mode === "scroll") return;
+            const deltaX = Math.abs(event.clientX - gesture.startX);
+            const deltaY = Math.abs(event.clientY - gesture.startY);
 
-          if (gesture.mode === "pending" && deltaY > 7 && deltaY > deltaX) {
-            gesture.mode = "scroll";
-            return;
-          }
-          if (gesture.mode === "pending" && deltaX > 7 && deltaX >= deltaY) {
-            gesture.mode = "rating";
-            event.currentTarget.setPointerCapture(event.pointerId);
-          }
-          if (gesture.mode === "rating") ratingFromPointer(event.clientX);
-        }}
-        onPointerUp={(event) => {
-          const gesture = gestureRef.current;
-          if (gesture.pointerId === event.pointerId && gesture.mode !== "scroll") {
-            const next = ratingFromPointer(event.clientX);
-            if (next !== null) onCommit?.(next);
-          }
-          if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-            event.currentTarget.releasePointerCapture(event.pointerId);
-          }
-          resetGesture();
-        }}
-        onPointerCancel={resetGesture}
-      >
-        {[0, 1, 2, 3, 4].map((index) => {
-          const fill = Math.min(1, Math.max(0, rating - index)) * 100;
-          return (
-            <span key={index} className="fair-star-slider__star" aria-hidden="true">
-              <Star className="fair-star-slider__outline" />
-              <span className="fair-star-slider__fill" style={{ width: `${fill}%` }}>
-                <Star />
+            if (gesture.mode === "pending" && deltaY > 7 && deltaY > deltaX) {
+              gesture.mode = "scroll";
+              return;
+            }
+            if (gesture.mode === "pending" && deltaX > 7 && deltaX >= deltaY) {
+              gesture.mode = "rating";
+              event.currentTarget.setPointerCapture(event.pointerId);
+            }
+            if (gesture.mode === "rating") ratingFromPointer(event.clientX);
+          }}
+          onPointerUp={(event) => {
+            const gesture = gestureRef.current;
+            if (gesture.pointerId === event.pointerId && gesture.mode !== "scroll") {
+              const next = ratingFromPointer(event.clientX);
+              if (next !== null) onCommit?.(next);
+            }
+            if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+              event.currentTarget.releasePointerCapture(event.pointerId);
+            }
+            resetGesture();
+          }}
+          onPointerCancel={resetGesture}
+        >
+          {[0, 1, 2, 3, 4].map((index) => {
+            const fill = Math.min(1, Math.max(0, rating - index)) * 100;
+            return (
+              <span key={index} className="fair-star-slider__star" aria-hidden="true">
+                <Star className="fair-star-slider__outline" />
+                <span className="fair-star-slider__fill" style={{ width: `${fill}%` }}>
+                  <Star />
+                </span>
               </span>
-            </span>
-          );
-        })}
-      </div>
-    </fieldset>
+            );
+          })}
+        </div>
+      </span>
+    </div>
   );
 }
 
-/** Starter: one overall rating, sent when the gesture ends; success only after the server answered. */
+/** Starter: one overall rating in one row, sent when the gesture ends; only an error is shown in text. */
 function StarterRating({ dict }: { dict: FairModelDict }) {
   const { live, model, modelState, setRating } = useFairModelInteractions();
   const serverValue =
@@ -195,8 +204,8 @@ function StarterRating({ dict }: { dict: FairModelDict }) {
     setFailed(null);
     const result = await postFair<FairRatingState>("/api/fair/rating", { eventModelId: model.id, overall: next });
     if (request !== requestRef.current) return;
-    setDraft(undefined);
     if (result.ok) {
+      setDraft(undefined);
       setRating(result.value);
       setStatus("saved");
       fairHaptic(10);
@@ -207,16 +216,20 @@ function StarterRating({ dict }: { dict: FairModelDict }) {
   }
 
   return (
-    <div className="fair-starter-rating">
-      <RatingField
+    <div className="fair-rate-card fair-starter-rating">
+      <RatingRow
         label={dict.rateModel}
         value={value}
         onChange={setDraft}
         onCommit={(next) => void commit(next)}
         valueAriaTemplate={dict.ratingValueAria}
+        size="inline"
       />
-      <span className="fair-starter-rating__status" role="status" data-state={status}>
-        {status === "saving" ? dict.ratingSaving : null}
+      <span
+        className={status === "error" ? "fair-starter-rating__status" : "sr-only"}
+        role="status"
+        data-state={status}
+      >
         {status === "saved" ? dict.ratingSaved : null}
         {status === "error" && failed ? (
           <>
@@ -231,7 +244,47 @@ function StarterRating({ dict }: { dict: FairModelDict }) {
   );
 }
 
-/** Advanced: three optional dimensions (no fourth overall), prefilled with the visitor's own values. */
+function dimensionValues(rating: FairRatingState | null): Partial<Record<Dimension, number>> {
+  if (!rating || rating.mode !== "dimensions") return {};
+  return { appearance: rating.appearance, specifications: rating.specifications, price: rating.price };
+}
+
+/** Advanced: one row that opens the sheet; once rated it summarises "Izgled 4,5 · Spec. 4 · Cena 3,5". */
+function AdvancedRatingRow({ dict, onOpen }: { dict: FairModelDict; onOpen: () => void }) {
+  const { modelState } = useFairModelInteractions();
+  const values = dimensionValues(modelState.status === "ready" ? modelState.value.rating : null);
+  const short: Record<Dimension, string> = {
+    appearance: dict.ratingSummaryAppearance,
+    specifications: dict.ratingSummarySpecifications,
+    price: dict.ratingSummaryPrice,
+  };
+  const rated = DIMENSIONS.filter((dimension) => values[dimension] !== undefined);
+
+  return (
+    <button type="button" className="fair-rate-card fair-rate-open" onClick={onOpen} aria-haspopup="dialog">
+      <span className="fair-rate-open__label">{dict.rateModel}</span>
+      {rated.length > 0 ? (
+        <span className="fair-rate-open__summary">
+          {rated.map((dimension, index) => (
+            <span key={dimension}>
+              {index > 0 ? " · " : null}
+              {short[dimension]} <b>{fairRatingText(values[dimension] as number)}</b>
+            </span>
+          ))}
+        </span>
+      ) : (
+        <span className="fair-rate-open__empty" aria-label={dict.ratingSummaryEmpty}>
+          {[0, 1, 2, 3, 4].map((index) => (
+            <Star key={index} aria-hidden="true" />
+          ))}
+        </span>
+      )}
+      <ChevronRight className="fair-rate-open__chevron" aria-hidden="true" />
+    </button>
+  );
+}
+
+/** Advanced sheet: three optional dimensions, each saved on change through the rating API; "Gotovo" only closes. */
 function RatingSheet({
   dict,
   onRequestClose,
@@ -239,80 +292,70 @@ function RatingSheet({
   dict: FairModelDict;
   onRequestClose: (afterClose?: () => void) => void;
 }) {
-  const { live, model, modelState, setRating, showToast } = useFairModelInteractions();
-  const [values, setValues] = useState<Partial<Record<Dimension, number>>>(() => {
-    if (modelState.status !== "ready" || modelState.value.rating.mode !== "dimensions") return {};
-    const { appearance, specifications, price } = modelState.value.rating;
-    return { appearance, specifications, price };
-  });
-  const [status, setStatus] = useState<"idle" | "sending" | "error">("idle");
-  const [errorCode, setErrorCode] = useState<FairErrorCode | null>(null);
-  const hasValue = Object.values(values).some((value) => value !== undefined);
+  const { live, model, modelState, setRating } = useFairModelInteractions();
+  const [values, setValues] = useState<Partial<Record<Dimension, number>>>(() =>
+    dimensionValues(modelState.status === "ready" ? modelState.value.rating : null),
+  );
+  const [failed, setFailed] = useState<Partial<Record<Dimension, { value: number; code: FairErrorCode }>>>({});
+  const requests = useRef<Record<Dimension, number>>({ appearance: 0, specifications: 0, price: 0 });
   const fields: Array<{ key: Dimension; label: string }> = [
     { key: "appearance", label: dict.designRatingLabel },
     { key: "specifications", label: dict.specificationsRatingLabel },
     { key: "price", label: dict.priceRatingLabel },
   ];
 
-  async function submit() {
-    if (!hasValue || status === "sending") return;
-    if (!live) {
-      onRequestClose();
-      return;
+  async function commit(dimension: Dimension, next: number) {
+    if (!live) return;
+    const request = ++requests.current[dimension];
+    setFailed((current) => ({ ...current, [dimension]: undefined }));
+    const result = await postFair<FairRatingState>("/api/fair/rating", { eventModelId: model.id, [dimension]: next });
+    if (request !== requests.current[dimension]) return;
+    if (result.ok) {
+      setRating(result.value);
+      fairHaptic(10);
+    } else {
+      setFailed((current) => ({ ...current, [dimension]: { value: next, code: result.code } }));
     }
-    setStatus("sending");
-    setErrorCode(null);
-    const body = Object.fromEntries(Object.entries(values).filter(([, value]) => value !== undefined));
-    const result = await postFair<FairRatingState>("/api/fair/rating", { eventModelId: model.id, ...body });
-    if (!result.ok) {
-      setStatus("error");
-      setErrorCode(result.code);
-      return;
-    }
-    setRating(result.value);
-    fairHaptic(10);
-    onRequestClose(() => showToast(dict.ratingsSaved));
   }
 
   return (
     <FairSheet
       variant="bottom"
       titleId="fair-rating-title"
-      title={dict.ratingSheetTitle}
-      closable={status !== "sending"}
+      eyebrow={model.brandName}
+      title={fmt(dict.ratingSheetModelTitle, { model: model.displayName })}
+      closable
       closeLabel={dict.closeSheet}
       onRequestClose={() => onRequestClose()}
     >
-      <form
-        className="fair-sheet__form"
-        onSubmit={(event) => {
-          event.preventDefault();
-          void submit();
-        }}
-      >
-        {fields.map((field) => (
-          <RatingField
-            key={field.key}
-            label={field.label}
-            value={values[field.key]}
-            onChange={(value) => setValues((current) => ({ ...current, [field.key]: value }))}
-            valueAriaTemplate={dict.ratingValueAria}
-          />
-        ))}
-        {status === "error" && errorCode ? (
-          <p className="fair-inline-error" role="alert">
-            {fairErrorText(errorCode, dict)}
-          </p>
-        ) : null}
-        <button
-          className="fair-sheet__primary"
-          type="submit"
-          disabled={!hasValue || status === "sending"}
-          aria-busy={status === "sending" || undefined}
-        >
-          {status === "sending" ? dict.ratingSaving : dict.saveRatings}
+      <div className="fair-rating-sheet">
+        {fields.map((field) => {
+          const error = failed[field.key];
+          return (
+            <div key={field.key} className="fair-rating-sheet__row">
+              <RatingRow
+                label={field.label}
+                value={values[field.key]}
+                onChange={(value) => setValues((current) => ({ ...current, [field.key]: value }))}
+                onCommit={(value) => void commit(field.key, value)}
+                valueAriaTemplate={dict.ratingValueAria}
+                size="sheet"
+              />
+              {error ? (
+                <p className="fair-inline-error" role="alert">
+                  {fairErrorText(error.code, dict)}{" "}
+                  <button type="button" onClick={() => void commit(field.key, error.value)}>
+                    {dict.actionRetry}
+                  </button>
+                </p>
+              ) : null}
+            </div>
+          );
+        })}
+        <button className="fair-sheet__primary fair-rating-sheet__done" type="button" onClick={() => onRequestClose()}>
+          {dict.ratingDone}
         </button>
-      </form>
+      </div>
     </FairSheet>
   );
 }
@@ -323,20 +366,20 @@ export function ModelActionsCheckpoint({
   ratingMode,
   dict,
 }: {
-  audience?: { title: string; body: string; href: string };
+  audience?: { eyebrow: string; question: string; href: string };
   actions: Action[];
   ratingMode: "none" | "overall" | "dimensions";
   dict: FairModelDict;
 }) {
   const { leadForms } = useFairModelInteractions();
   const [openSheet, setOpenSheet] = useState<SheetKind | null>(null);
-  const sheetActions =
-    ratingMode === "overall" ? actions.filter((action) => action.kind !== "rating") : actions;
   const requestClose = useFairHistoryLayer(
     openSheet !== null,
     () => setOpenSheet(null),
     "model-action",
   );
+
+  if (!audience && ratingMode === "none" && actions.length === 0) return null;
 
   return (
     <section className="fair-action-section">
@@ -347,20 +390,21 @@ export function ModelActionsCheckpoint({
           draggable={false}
           onDragStart={(event) => event.preventDefault()}
         >
-          <BarChart3 aria-hidden="true" />
-          <span>
-            <strong>{audience.title}</strong>
-            <small>{audience.body}</small>
+          <span className="fair-live-dot" aria-hidden="true" />
+          <span className="fair-audience-action__copy">
+            <small>{audience.eyebrow}</small>
+            <strong>{audience.question}</strong>
           </span>
           <ChevronRight aria-hidden="true" />
         </Link>
       ) : null}
 
       {ratingMode === "overall" ? <StarterRating dict={dict} /> : null}
+      {ratingMode === "dimensions" ? <AdvancedRatingRow dict={dict} onOpen={() => setOpenSheet("rating")} /> : null}
 
-      {sheetActions.length > 0 ? (
-        <div className="fair-action-grid" data-count={sheetActions.length}>
-          {sheetActions.map((action) => {
+      {actions.length > 0 ? (
+        <div className="fair-action-grid" data-count={actions.length}>
+          {actions.map((action) => {
             const Icon = icons[action.kind];
             return (
               <button key={action.kind} type="button" onClick={() => setOpenSheet(action.kind)}>

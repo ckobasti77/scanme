@@ -37,6 +37,8 @@ export type FairPublicModelFixture = {
   brandName: string;
   modelSlug: string;
   displayName: string;
+  /** Trim line under the model name (model page v2), when the exhibitor gives one. */
+  variant?: string;
   priceText: string;
   description: string;
   photoUrl?: string;
@@ -142,6 +144,7 @@ export function fairPublicModelToFixture(input: {
   const reviewPhoto = REVIEW_MODEL_PHOTOS[`${brandName} ${displayName}`.toLocaleLowerCase("sr-Latn")];
   const photoUrl = fairLocalPhotoUrl(input.model.photoUrl, input.siteOrigin) ?? reviewPhoto;
   const capabilities = input.model.capabilities;
+  const variant = input.model.variant?.trim();
   return {
     mode: fixtureModeFromCapabilities(capabilities),
     model: {
@@ -155,6 +158,7 @@ export function fairPublicModelToFixture(input: {
       brandName,
       modelSlug: input.model.slug,
       displayName,
+      ...(variant ? { variant } : {}),
       priceText: input.model.priceText,
       description: "",
       ...(input.withPhoto && photoUrl ? { photoUrl } : {}),

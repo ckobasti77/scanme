@@ -13,11 +13,9 @@ import styles from "./new-stamp-card.module.css";
 const ENTRANCE_DELAY_MS = 700;
 
 /**
- * "Nov pečat" nudge for the model page (not mounted yet — see the MOUNT-NOTE
- * in the commit that introduced it). It is absolutely positioned: render it as
- * the last child of `.fair-model-hero`; it sits above the identity block
- * (price stays visible), under the survey chat-head, and never adds height.
- * Tune the gap with `--fair-new-stamp-bottom` on the hero if needed.
+ * "Nov pečat" nudge. `overlay` (passport dev preview) is absolutely positioned
+ * inside a hero; `strip` (model page v2) is a slim in-flow row between the
+ * hero and the key specs, never over the photo.
  */
 export function NewStampCard({
   brandName,
@@ -25,6 +23,7 @@ export function NewStampCard({
   modelSlug,
   eventSlug,
   onDismiss,
+  layout = "overlay",
   dict = fairPassportSr,
 }: {
   brandName: string;
@@ -32,6 +31,7 @@ export function NewStampCard({
   modelSlug: string;
   eventSlug: string;
   onDismiss: () => void;
+  layout?: "overlay" | "strip";
   dict?: FairPassportDict;
 }) {
   const rootRef = useRef<HTMLDivElement>(null);
@@ -80,7 +80,7 @@ export function NewStampCard({
   }
 
   return (
-    <div ref={rootRef} className={styles.card}>
+    <div ref={rootRef} className={layout === "strip" ? `${styles.card} ${styles.strip}` : styles.card}>
       <Link prefetch={false} href={href} className={styles.link} aria-label={fmt(dict.newStampAria, { brand })}>
         <span className={styles.tile} aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

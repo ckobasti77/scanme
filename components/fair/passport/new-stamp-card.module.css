@@ -144,6 +144,40 @@
   }
 }
 
+/* Model page v2: slim in-flow strip between the hero and the key specs. */
+.strip {
+  position: relative;
+  z-index: auto;
+  right: auto;
+  bottom: auto;
+  left: auto;
+  min-height: 56px;
+  padding: 5px 2px 5px 6px;
+  border-radius: 16px;
+  box-shadow: 0 1px 0 rgb(255 255 255 / 0.9) inset, 0 6px 16px rgb(18 40 70 / 0.08);
+}
+
+.strip .link {
+  min-height: 44px;
+  grid-template-columns: 42px minmax(0, 1fr) auto;
+  gap: 10px;
+}
+
+.strip .tile {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+}
+
+.strip .title {
+  font-size: 15px;
+}
+
+.strip .action {
+  min-height: 36px;
+  font-size: 13.5px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .tile i {
     animation: none;

@@ -1,12 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import {
-  Gauge,
-  Settings2,
-  Timer,
-  Zap,
-  type LucideIcon,
-} from "lucide-react";
+import { MapPin } from "lucide-react";
 import type {
   FairFixtureMode,
   FairPhotoPresentation,
@@ -14,20 +8,22 @@ import type {
 } from "@/lib/fair-client/model-fixtures";
 import { fmt, type FairModelDict } from "@/lib/i18n";
 import { fairEventThemeClass } from "@/lib/fair-theme";
-import type { FairModelInteractions } from "@/lib/fair-server/model-page";
-import { AnimatedModelDisclosure } from "./animated-model-disclosure";
+import type { FairModelInteractions, FairModelStand } from "@/lib/fair-server/model-page";
 import { FairEventShell } from "./event-shell";
 import { GarageSaveButton } from "./garage-controls";
 import { ModelActionsCheckpoint } from "./model-actions-checkpoint";
 import { FairModelInteractionsProvider } from "./model-interactions";
+import { fairModelKeySpecs, fairModelSpecGroups } from "./model-key-specs";
+import { ModelNewStamp } from "./model-new-stamp";
+import { ModelSpecsCard } from "./model-specs-card";
 import { SurveyChatHead } from "./survey/survey-chat-head";
 
-const specificationIcons: Record<string, LucideIcon> = {
-  power: Zap,
-  torque: Settings2,
-  acceleration: Timer,
-  speed: Gauge,
-};
+/** "Cena na upit" / empty → "na upit"; a leading "Cena " is dropped (the block already says Cena). */
+function priceValue(priceText: string, dict: FairModelDict) {
+  const text = priceText.trim();
+  if (!text || /^(cena\s+)?na upit$/i.test(text)) return dict.priceOnRequest;
+  return text.replace(/^cena\s+/i, "");
+}
 
 type FixtureSelection = {
   mode: FairFixtureMode;
@@ -152,6 +148,8 @@ export function FairModelPage({
   selection,
   showDevPanel,
   interactions,
+  stand,
+  audienceTeaser,
   openSurvey,
 }: {
   model: FairPublicModelFixture;
@@ -161,17 +159,19 @@ export function FairModelPage({
   showDevPanel: boolean;
   /** Server-read survey and lead forms of a live model; null for DEV fixtures. */
   interactions: FairModelInteractions | null;
+  /** Stand chip on the hero ("Štand 9 · Hala" → map focused on it); null hides it. */
+  stand: FairModelStand | null;
+  /** Today's first Glas publike question, shown on its card. */
+  audienceTeaser: string | null;
   /** `/anketa` deep link: open the survey sheet when the model offers one. */
   openSurvey: boolean;
 }) {
-  const highlights = model.specificationGroups
-    .flatMap((group) => group.items)
-    .filter((item) => item.isHighlight)
-    .slice(0, 4);
+  const keySpecs = fairModelKeySpecs(model.specificationGroups.flatMap((group) => group.items));
+  const specGroups = fairModelSpecGroups(model.specificationGroups, {
+    drivetrain: dict.specsGroupDrivetrain,
+    performance: dict.specsGroupPerformance,
+  });
   const actions = [
-    ...(model.capabilities.ratingMode !== "none"
-      ? [{ kind: "rating" as const, label: dict.rateModel }]
-      : []),
     ...(model.capabilities.canSubmitInterest
       ? [{ kind: "interest" as const, label: dict.submitInterest }]
       : []),
@@ -239,50 +239,44 @@ export function FairModelPage({
             </div>
           )}
           <div className="fair-model-hero__scrim" aria-hidden="true" />
+          {stand ? (
+            <Link
+              className="fair-model-stand"
+              href={stand.href}
+              aria-label={fmt(dict.standChipAria, { stand: stand.text })}
+            >
+              <MapPin aria-hidden="true" />
+              {stand.text}
+            </Link>
+          ) : null}
           <div className="fair-model-identity">
-            <span>{model.brandName}</span>
-            <h1>{model.displayName}</h1>
-            <p>{model.priceText}</p>
+            <div className="fair-model-identity__name">
+              <span>{model.brandName}</span>
+              <h1>{model.displayName}</h1>
+              {model.variant ? <p>{model.variant}</p> : null}
+            </div>
+            <p className="fair-model-price">
+              <small>{dict.priceLabel}</small>
+              <span>{priceValue(model.priceText, dict)}</span>
+            </p>
           </div>
           <SurveyChatHead />
         </section>
 
-        <section className="fair-specification-grid" aria-label={dict.allSpecifications}>
-          {highlights.map((item) => {
-            const Icon = specificationIcons[item.icon] ?? Gauge;
-            return (
-              <div key={item.id} className="fair-specification">
-                <Icon aria-hidden="true" />
-                <span>
-                  <strong>{item.value}</strong>
-                  <small>{item.shortLabel}</small>
-                </span>
-              </div>
-            );
-          })}
-        </section>
+        <ModelNewStamp eventSlug={model.eventSlug} modelSlug={model.modelSlug} />
 
-        <AnimatedModelDisclosure label={dict.allSpecifications}>
-            {model.specificationGroups.map((group) => (
-              <section key={group.id}>
-                <h2>{group.label}</h2>
-                <dl>
-                  {group.items.map((item) => (
-                    <div key={item.id}>
-                      <dt>{item.label}</dt>
-                      <dd>{item.value}</dd>
-                    </div>
-                  ))}
-                </dl>
-              </section>
-            ))}
-            {model.description ? <p>{model.description}</p> : null}
-        </AnimatedModelDisclosure>
+        <ModelSpecsCard
+          keySpecs={keySpecs}
+          groups={specGroups}
+          description={model.description || undefined}
+          defaultOpen={selection.mode === "free"}
+          dict={dict}
+        />
 
         <ModelActionsCheckpoint
           audience={
             model.capabilities.hasAudienceQuestions
-              ? { title: dict.audienceTitle, body: dict.audienceBody, href: audienceHref }
+              ? { eyebrow: dict.audienceCardEyebrow, question: audienceTeaser ?? dict.audienceBody, href: audienceHref }
               : undefined
           }
           actions={actions}
@@ -294,7 +288,9 @@ export function FairModelPage({
           eventId={model.eventId}
           modelId={model.id}
           saveLabel={dict.saveToGarage}
-          savedLabel={dict.savedToGarage}
+          savedLabel={dict.garageSavedState}
+          openGarageLabel={dict.openGarage}
+          garageHref={`/sajam/${model.eventSlug}/garaza`}
           errorLabel={dict.garageStorageError}
           lastKnown={{
             eventSlug: model.eventSlug,
