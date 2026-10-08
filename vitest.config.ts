@@ -21,6 +21,8 @@ export default defineConfig({
       "components/purchase/**/*.test.ts",
       "components/menu/**/*.test.tsx",
       "components/admin/**/*.test.tsx",
+      // Sajam 2026 N6: the public model page adapter, lead form logic and SSR markup.
+      "components/fair/**/*.test.{ts,tsx}",
       "scripts/events/**/*.test.ts",
     ],
   },

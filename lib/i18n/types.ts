@@ -250,14 +250,68 @@ export interface FairModelDict {
   fullNameLabel: string;
   emailLabel: string;
   phoneLabel: string;
-  preferredDateLabel: string;
   sendInterest: string;
   sendTestDrive: string;
-  leadFixtureNotice: string;
-  leadNotSent: string;
   notFoundTitle: string;
   notFoundBody: string;
   backToScanMe: string;
+  // N6 — the real model page (F3) and the lead forms wired to /api/fair/lead.
+  /** Header lockup above the event name ("Sajam automobila"). */
+  eventUmbrellaTitle: string;
+  /** Alt of a real exhibitor photo (`modelPhotoAlt` describes the DEV demo photo). */
+  modelPhotoAltPublic: string;
+  unavailableTitle: string;
+  unavailableBody: string;
+  unavailableRetry: string;
+  /** `{model}`, `{exhibitor}`. */
+  leadIntroInterest: string;
+  leadIntroTestDrive: string;
+  leadOptional: string;
+  leadEmailHint: string;
+  leadPhoneHint: string;
+  leadPhonePlaceholder: string;
+  leadContactOneOf: string;
+  leadContactEmail: string;
+  leadContactPhone: string;
+  leadContactBoth: string;
+  leadPreferredEmail: string;
+  leadPreferredPhone: string;
+  leadConsentLegend: string;
+  leadConsentAccept: string;
+  leadConsentDecline: string;
+  leadConsentDeclined: string;
+  leadConsentNeeded: string;
+  leadSubmitting: string;
+  leadSuccessTitle: string;
+  /** `{exhibitor}`. */
+  leadSuccessBody: string;
+  leadSuccessTestDrive: string;
+  /** `{email}`. */
+  leadSuccessConfirmation: string;
+  leadDuplicateTitle: string;
+  /** `{exhibitor}`. */
+  leadDuplicateInterest: string;
+  leadDuplicateTestDrive: string;
+  leadErrorNameEmpty: string;
+  leadErrorNameTooLong: string;
+  leadErrorNameLink: string;
+  leadErrorNameInvisible: string;
+  leadErrorNameCharacters: string;
+  leadErrorEmailFormat: string;
+  leadErrorEmailRequired: string;
+  leadErrorPhoneFormat: string;
+  leadErrorPhoneRequired: string;
+  leadErrorContactOneOf: string;
+  leadErrorFields: string;
+  /** `{seconds}`. */
+  leadErrorRateLimited: string;
+  leadErrorConsentChanged: string;
+  leadReload: string;
+  leadErrorClosed: string;
+  leadErrorFailed: string;
+  leadRetry: string;
+  /** DEV preview page of the form states (/dev/sajam-forma). */
+  leadPreviewTitle: string;
 }
 
 export interface FairGarageDict {

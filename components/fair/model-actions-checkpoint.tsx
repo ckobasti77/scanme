@@ -13,8 +13,28 @@ import { TbSteeringWheel } from "react-icons/tb";
 import { useEffect, useRef, useState } from "react";
 import { useFairHistoryLayer } from "@/lib/fair-client/history-layer";
 import { fmt, type FairModelDict } from "@/lib/i18n";
+import { FairLeadForm, type FairLeadStatus } from "./lead-form";
+import { FAIR_EMPTY_LEAD_DRAFT, type FairLeadDraft, type FairLeadSheetKind } from "./lead-form-model";
+import type { FairModelLeadForms } from "./model-view";
 
 type SheetKind = "rating" | "interest" | "testDrive";
+
+/** N6: what the real lead forms need (the server-read open forms and who receives the lead). */
+export type FairModelLeadContext = {
+  eventModelId: string;
+  modelName: string;
+  exhibitorName: string;
+  forms: FairModelLeadForms;
+};
+
+type LeadState = Record<FairLeadSheetKind, { draft: FairLeadDraft; status: FairLeadStatus }>;
+const INITIAL_LEAD_STATE: LeadState = {
+  interest: { draft: FAIR_EMPTY_LEAD_DRAFT, status: { kind: "idle" } },
+  testDrive: { draft: FAIR_EMPTY_LEAD_DRAFT, status: { kind: "idle" } },
+};
+
+const FOCUSABLE =
+  'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [href], [tabindex]:not([tabindex="-1"])';
 
 type Action = {
   kind: SheetKind;
@@ -138,25 +158,36 @@ function ActionSheet({
   ratingMode,
   dict,
   onRequestClose,
+  lead,
 }: {
   kind: SheetKind;
   ratingMode: "none" | "overall" | "dimensions";
   dict: FairModelDict;
   onRequestClose: () => void;
+  /** N6: the real lead form of this sheet (interest / test drive). */
+  lead?: React.ReactNode;
 }) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const [ratings, setRatings] = useState<Record<string, number>>({});
   const [ratingAttempted, setRatingAttempted] = useState(false);
-  const [leadAttempted, setLeadAttempted] = useState(false);
   const reduceMotion = useReducedMotion();
+
+  // N6: a form sheet starts on its first field (`data-autofocus`), any other on the close button.
+  function focusInitial() {
+    const first = dialogRef.current?.querySelector<HTMLElement>("[data-autofocus]");
+    (first ?? closeRef.current)?.focus({ preventScroll: true });
+  }
 
   useEffect(() => {
     const previousFocus = document.activeElement as HTMLElement | null;
+    if (reduceMotion) focusInitial();
 
     return () => {
       previousFocus?.focus();
     };
+    // Runs once per opening; reduced motion has no entrance animation to wait for.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function handleKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
@@ -167,11 +198,7 @@ function ActionSheet({
     }
     if (event.key !== "Tab") return;
 
-    const focusable = Array.from(
-      dialogRef.current?.querySelectorAll<HTMLElement>(
-        'button:not([disabled]), input:not([disabled]), [href], [tabindex]:not([tabindex="-1"])',
-      ) ?? [],
-    );
+    const focusable = Array.from(dialogRef.current?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? []);
     if (focusable.length === 0) return;
     const first = focusable[0];
     const last = focusable[focusable.length - 1];
@@ -217,7 +244,7 @@ function ActionSheet({
             ? { duration: 0 }
             : { duration: 0.54, ease: [0.22, 1, 0.36, 1] }
         }
-        onAnimationComplete={() => closeRef.current?.focus({ preventScroll: true })}
+        onAnimationComplete={focusInitial}
       >
         <header>
           <h2 id="fair-sheet-title">{title}</h2>
@@ -276,39 +303,7 @@ function ActionSheet({
             {ratingAttempted ? <p role="status">{dict.ratingNotSent}</p> : null}
           </form>
         ) : (
-          <form
-            className="fair-sheet__form"
-            onSubmit={(event) => {
-              event.preventDefault();
-              setLeadAttempted(true);
-            }}
-          >
-            <p className="fair-sheet__fixture-note">{dict.leadFixtureNotice}</p>
-            <label>
-              <span>{dict.fullNameLabel}</span>
-              <input name="name" autoComplete="name" required />
-            </label>
-            {kind === "interest" ? (
-              <label>
-                <span>{dict.emailLabel}</span>
-                <input name="email" type="email" autoComplete="email" required />
-              </label>
-            ) : null}
-            <label>
-              <span>{dict.phoneLabel}</span>
-              <input name="phone" type="tel" autoComplete="tel" required />
-            </label>
-            {kind === "testDrive" ? (
-              <label>
-                <span>{dict.preferredDateLabel}</span>
-                <input name="date" type="date" required />
-              </label>
-            ) : null}
-            <button className="fair-sheet__primary" type="submit">
-              {kind === "interest" ? dict.sendInterest : dict.sendTestDrive}
-            </button>
-            {leadAttempted ? <p role="status">{dict.leadNotSent}</p> : null}
-          </form>
+          lead
         )}
       </motion.div>
     </motion.div>
@@ -320,14 +315,49 @@ export function ModelActionsCheckpoint({
   actions,
   ratingMode,
   dict,
+  lead,
 }: {
   audience?: { title: string; body: string; href: string };
   actions: Action[];
   ratingMode: "none" | "overall" | "dimensions";
   dict: FairModelDict;
+  /** N6: only `open` forms (read on the server) become `interest` / `testDrive` actions. */
+  lead?: FairModelLeadContext;
 }) {
   const [openSheet, setOpenSheet] = useState<SheetKind | null>(null);
   const [starterRating, setStarterRating] = useState<number>();
+  // Kept while the page lives: a closed and reopened sheet shows what was typed.
+  const [leadState, setLeadState] = useState<LeadState>(INITIAL_LEAD_STATE);
+
+  function openAction(kind: SheetKind) {
+    // A failed attempt is not shown again on a new opening; a success stays.
+    if (kind !== "rating" && leadState[kind].status.kind === "error") {
+      setLeadState((current) => ({ ...current, [kind]: { ...current[kind], status: { kind: "idle" } } }));
+    }
+    setOpenSheet(kind);
+  }
+
+  function leadSheet(kind: SheetKind) {
+    if (kind === "rating" || !lead) return null;
+    const form = lead.forms[kind];
+    if (!form) return null;
+    const state = leadState[kind];
+    return (
+      <FairLeadForm
+        kind={kind}
+        form={form}
+        eventModelId={lead.eventModelId}
+        modelName={lead.modelName}
+        exhibitorName={lead.exhibitorName}
+        dict={dict}
+        draft={state.draft}
+        onDraftChange={(draft) => setLeadState((current) => ({ ...current, [kind]: { ...current[kind], draft } }))}
+        status={state.status}
+        onStatusChange={(status) => setLeadState((current) => ({ ...current, [kind]: { ...current[kind], status } }))}
+        onClose={() => requestClose()}
+      />
+    );
+  }
   const sheetActions =
     ratingMode === "overall" ? actions.filter((action) => action.kind !== "rating") : actions;
   const requestClose = useFairHistoryLayer(
@@ -370,7 +400,7 @@ export function ModelActionsCheckpoint({
           {sheetActions.map((action) => {
             const Icon = icons[action.kind];
             return (
-              <button key={action.kind} type="button" onClick={() => setOpenSheet(action.kind)}>
+              <button key={action.kind} type="button" onClick={() => openAction(action.kind)}>
                 <Icon aria-hidden="true" />
                 <span>{action.label}</span>
               </button>
@@ -387,6 +417,7 @@ export function ModelActionsCheckpoint({
             ratingMode={ratingMode}
             dict={dict}
             onRequestClose={requestClose}
+            lead={leadSheet(openSheet)}
           />
         ) : null}
       </AnimatePresence>

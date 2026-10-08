@@ -1834,3 +1834,10 @@ Presuda RA: **TREBA DORADA**. Izvori: `scripts/tasks/logs/sajam-v2/RA-IZVESTAJ.m
 - **QR lista:** filteri samo nad učitanih 100 kodova (`components/admin/events/sections/qr-section.tsx:25-31`).
 - **Odluke za Aleksu** (ADMIN-UX §12): automatska sponzorisana lista, automatski pasoš sa sakrivanjem, follow-up po izlagaču, aktivnost uz lead, lična Zoho sanduča, PII izvoz u Leadovima; plus promene prikaza V1 ekrana (`A1.md` §7). Deferred, awaiting owner decision.
 - **Podešavanja koja runner ne radi:** Zoho EU klijent i Convex env Pošte; `FAIR_LEADS_ENABLED` i `FAIR_FOLLOWUP_ENABLED` pre otvaranja sajma; pravna provera saglasnosti pre aktivacije.
+
+## SAJAM v2 — N6 (stranica automobila i forme, 8. 10. 2026.)
+
+- **Konflikt (okruženje):** uputstvo N6 i runnerova lista dozvoljenih putanja (`SajamRun.ps1`, `$AllowNmodel`) dozvoljavaju `lib/fair-client/**`, ali Claude podešavanja runnera (`scripts/sajam/claude-settings.json`, `Edit(./lib/fair-client/**)` u `deny`) to i dalje zabranjuju, pa je upis odbijen. Agent zabranu nije zaobilazio.
+- **Šta je urađeno:** čist adapter projekcije i logika forme su u `components/fair/model-view.ts` i `components/fair/lead-form-model.ts` (dozvoljena putanja), sa testovima u `components/fair/*.test.ts(x)`. Zato je u `vitest.config.ts` dodat `components/fair/**/*.test.{ts,tsx}` (jedini fajl van opsega, `jovan-status/N6.md` §5).
+- **Za Jovana:** ako adapter treba da bude u `lib/fair-client/`, ukloniti `Edit(./lib/fair-client/**)` iz `scripts/sajam/claude-settings.json` za korake koji ga smeju menjati i premestiti dva fajla (uvoz se menja samo u `app/sajam/[eventSlug]/model/[modelSlug]/page.tsx` i `components/fair/*`). Deferred, awaiting owner decision.
+- **Otvoreno (proizvod):** ocena i Glas publike su sakriveni na pravim modelima (rade samo na DEV fixture-u, sa polovinama zvezdica i localStorage glasovima); `direct_view` se ne šalje jer ne postoji QR entry marker koji bi QR ulaz razlikovao od direktnog. Povezivanje je sledeći korak (F5/F6, G20).

@@ -20,6 +20,8 @@ type RouteParams = {
 
 type RouteSearchParams = Record<string, string | string[] | undefined>;
 
+const DEV = process.env.NODE_ENV === "development";
+
 function scalar(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
 }
@@ -57,14 +59,16 @@ export async function generateMetadata({
   params: Promise<RouteParams>;
 }): Promise<Metadata> {
   const { eventSlug, modelSlug } = await params;
-  const model = readFairModelFixture({
-    eventSlug,
-    modelSlug,
-    mode: "advanced",
-    withPhoto: true,
-    photoPresentation: "left",
-  });
-  if (!model) return { title: fairModelSr.notFoundTitle };
+  const model = DEV
+    ? readFairModelFixture({
+        eventSlug,
+        modelSlug,
+        mode: "advanced",
+        withPhoto: true,
+        photoPresentation: "left",
+      })
+    : null;
+  if (!model) return { title: fairModelSr.notFoundTitle, robots: { index: false, follow: false } };
   return {
     title: fmt(fairModelSr.audienceMetaTitle, { model: model.displayName }),
     description: fmt(fairModelSr.audienceMetaDescription, { model: model.displayName }),
@@ -79,6 +83,9 @@ export default async function AudiencePage({
   params: Promise<RouteParams>;
   searchParams: Promise<RouteSearchParams>;
 }) {
+  // N6: Glas publike still runs on the design fixture (localStorage votes), so
+  // it exists only under `next dev`; a real model never offers it (jovan-status/N6.md).
+  if (!DEV) notFound();
   const [{ eventSlug, modelSlug }, query] = await Promise.all([params, searchParams]);
   const mode = fixtureMode(scalar(query.mode));
   const withPhoto = scalar(query.photo) !== "0";
