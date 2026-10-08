@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowLeft, CarFront, Check, LockKeyhole, MapPin, RotateCcw, Sparkles } from "lucide-react";
+import { ArrowLeft, CarFront, Check, LockKeyhole, MapPin, RotateCcw } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type {
   FairPassportCatalogEntry,
@@ -212,7 +212,6 @@ function Overview({
 
       {state.catalog.length === 0 ? (
         <section className={styles.empty}>
-          <Sparkles aria-hidden="true" />
           <h2>{dict.emptyTitle}</h2>
           <p>{dict.emptyBody}</p>
         </section>

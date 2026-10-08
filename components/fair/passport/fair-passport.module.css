@@ -684,9 +684,9 @@
 
 .empty {
   display: grid;
-  min-height: 250px;
+  min-height: 184px;
   margin-top: 20px;
-  padding: 34px;
+  padding: 32px 24px;
   place-items: center;
   align-content: center;
   border: 1px dashed #cfd6dd;
@@ -695,15 +695,13 @@
   text-align: center;
 }
 
-.empty svg {
-  width: 34px;
-  height: 34px;
-  color: var(--passport-blue);
-}
-
 .empty h2 {
-  margin: 13px 0 5px;
+  margin: 0 0 6px;
   font-size: 22px;
+  font-weight: 760;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  text-wrap: balance;
 }
 
 .empty p {
