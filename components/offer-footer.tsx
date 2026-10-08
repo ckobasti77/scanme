@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { Wordmark } from "@/components/site-nav";
 
 /**
@@ -31,7 +31,7 @@ export function OfferFooter({ contactHref = "/#ponuda" }: { contactHref?: string
             </p>
             <Link href={contactHref} className="button-secondary focus-signal mt-7">
               Zatraži ponudu
-              <ArrowUpRight aria-hidden="true" className="size-4" strokeWidth={1.7} />
+              <ArrowRight aria-hidden="true" className="size-4" strokeWidth={1.7} />
             </Link>
           </div>
 

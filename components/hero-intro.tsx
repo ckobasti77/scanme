@@ -9,7 +9,7 @@ import {
 } from "framer-motion";
 import { gsap } from "gsap";
 import Link from "next/link";
-import { ArrowDownRight, ArrowUpRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { HeroLinksAnimation } from "@/components/hero-links-animation";
 import { HeroOutcomeAnimation } from "@/components/hero-outcome-animation";
 import { getHeroCarouselCycleAction } from "@/lib/hero-animation-playback";
@@ -205,8 +205,8 @@ export function HeroIntro({
             {...enter(0.12)}
             aria-label="Izaberite ScanMe uslugu"
             role="group"
-            className={`order-1 flex w-full flex-wrap items-center gap-x-3 gap-y-1 sm:gap-x-7 lg:col-start-2 lg:row-start-1 lg:justify-self-end ${
-              compact ? "lg:max-w-[min(38rem,calc(100dvh-26rem))]" : ""
+            className={`order-1 flex w-full flex-wrap items-center justify-center gap-x-3 gap-y-1 sm:gap-x-7 lg:col-start-2 lg:row-start-1 lg:justify-self-end ${
+              compact ? "lg:max-w-[min(38rem,calc(100dvh-26rem))]" : "lg:max-w-[38rem]"
             }`}
             onBlurCapture={(event) => {
               if (!event.currentTarget.contains(event.relatedTarget)) {
@@ -260,7 +260,7 @@ export function HeroIntro({
                 className="inline-flex min-h-11 cursor-not-allowed items-center gap-2 py-2 font-mono text-xs font-medium uppercase tracking-[0.14em] text-foreground/38 sm:text-sm"
               >
                 <span>{menuLabel}</span>
-                <span className="rounded-full border border-foreground/14 bg-foreground/[0.045] px-2 py-1 text-[0.58rem] leading-none tracking-[0.1em] text-foreground/48">
+                <span className="rounded-[var(--button-radius)] border border-foreground/14 bg-foreground/[0.045] px-2 py-1 text-[0.58rem] leading-none tracking-[0.1em] text-foreground/48">
                   {soonLabel}
                 </span>
               </span>
@@ -314,15 +314,15 @@ export function HeroIntro({
               <Link href={primaryHref} className="button-primary focus-signal">
                 {primaryLabel}
                 {singleCta ? (
-                  <ArrowDownRight aria-hidden="true" className="size-4" strokeWidth={1.75} />
+                  <ArrowRight aria-hidden="true" className="size-4" strokeWidth={1.75} />
                 ) : (
-                  <ArrowUpRight aria-hidden="true" className="size-4" strokeWidth={1.75} />
+                  <ArrowRight aria-hidden="true" className="size-4" strokeWidth={1.75} />
                 )}
               </Link>
               {!singleCta ? (
-                <a href="#kako-radi" className="button-secondary focus-signal">
+                <a href="#kako-radi" className="button-ghost focus-signal">
                   {secondaryLabel}
-                  <ArrowDownRight aria-hidden="true" className="size-4" strokeWidth={1.75} />
+                  <ArrowRight aria-hidden="true" className="size-4" strokeWidth={1.75} />
                 </a>
               ) : null}
             </motion.div>
@@ -330,7 +330,7 @@ export function HeroIntro({
 
           <motion.div
             {...enter(0.18)}
-            className={`relative isolate order-3 mx-auto aspect-square w-full max-w-[20rem] overflow-hidden bg-card sm:max-w-[24rem] lg:col-start-2 lg:row-start-2 lg:mx-0 lg:justify-self-end ${
+            className={`relative isolate order-3 mx-auto aspect-square w-full max-w-[20rem] overflow-hidden rounded-[var(--button-radius)] bg-card sm:max-w-[24rem] lg:col-start-2 lg:row-start-2 lg:mx-0 lg:justify-self-end ${
               compact
                 ? "lg:max-w-[min(38rem,calc(100dvh-26rem))]"
                 : "lg:max-w-[38rem]"

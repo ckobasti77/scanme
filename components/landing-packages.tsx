@@ -15,7 +15,7 @@
 // (service-catalog.ts), so a service is recognizable across every surface.
 
 import Link from "next/link";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { Reveal } from "@/components/reveal";
 import {
   PACKAGE_ICONS,
@@ -70,7 +70,7 @@ export function LandingPackages() {
               {combo.available ? (
                 <Link href={packageHref(combo.services)} className="button-primary focus-signal mt-auto">
                   {copy.cta}
-                  <ArrowUpRight aria-hidden="true" className="size-4" strokeWidth={1.7} />
+                  <ArrowRight aria-hidden="true" className="size-4" strokeWidth={1.7} />
                 </Link>
               ) : (
                 <p className={styles.soonNote}>{dict.soonNote}</p>
@@ -82,9 +82,9 @@ export function LandingPackages() {
 
       <Reveal className="mt-10 flex flex-wrap items-center gap-4">
         <p className="font-medium tracking-[-0.02em]">{dict.buildOwnLabel}</p>
-        <Link href="/kupovina" className="button-secondary focus-signal">
+        <Link href="/kupovina" className="button-ghost focus-signal">
           {dict.buildOwnCta}
-          <ArrowUpRight aria-hidden="true" className="size-4" strokeWidth={1.7} />
+          <ArrowRight aria-hidden="true" className="size-4" strokeWidth={1.7} />
         </Link>
       </Reveal>
 

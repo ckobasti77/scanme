@@ -1,7 +1,7 @@
 "use client";
 
 import { useConvexAuth } from "convex/react";
-import { ArrowUpRight, Menu } from "lucide-react";
+import { ArrowRight, ArrowUpRight, Menu } from "lucide-react";
 import { motion, useMotionValueEvent, useReducedMotion, useScroll } from "framer-motion";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -131,7 +131,7 @@ export function SiteNav() {
             <ClientAccessAction isAuthenticated={isAuthenticated} isLoading={isLoading} onOpen={openClientLogin} />
             <Link href="/#ponuda" className="button-primary focus-signal">
               Zatraži ponudu
-              <ArrowUpRight aria-hidden="true" className="size-4" strokeWidth={1.75} />
+              <ArrowRight aria-hidden="true" className="size-4" strokeWidth={1.75} />
             </Link>
           </div>
 
@@ -184,7 +184,7 @@ export function SiteNav() {
                 <SheetClose asChild>
                   <Link href="/#ponuda" className="button-primary focus-signal mt-auto w-full">
                     Zatraži ponudu
-                    <ArrowUpRight aria-hidden="true" className="size-4" strokeWidth={1.75} />
+                    <ArrowRight aria-hidden="true" className="size-4" strokeWidth={1.75} />
                   </Link>
                 </SheetClose>
               </SheetContent>

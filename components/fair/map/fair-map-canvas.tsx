@@ -41,7 +41,7 @@ import styles from "./fair-event-map.module.css";
 // occupied stand and Enter/Space selects it. Nothing here writes anything.
 
 /** EDS §5.1 `event.scanmeStand`: set ONLY on the ScanMe location (EDS §3: never CTA, progress, selection or decoration). */
-const SCANME_STAND_STYLE = { "--fair-map-scanme": "#C6FF4A" } as CSSProperties;
+const SCANME_STAND_STYLE = { "--fair-map-scanme": "#6FC05D" } as CSSProperties;
 const TAP_SLOP = 8;
 const CHIP_ASPECT = 1.7;
 /** Smallest on-screen badge radius (px): numbers stay readable on the fitted map and grow when zoomed in. */

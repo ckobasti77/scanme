@@ -39,7 +39,7 @@ describe("ScanMe stand 14 is always ScanMe green (RN N5)", () => {
     expect(tags).toHaveLength(1);
     expect(tags[0]).toContain('data-location-id="ispred-14"');
     expect(tags[0]).toContain('role="button"');
-    expect(html.match(/--fair-map-scanme:#C6FF4A/g)).toHaveLength(1);
+    expect(html.match(/--fair-map-scanme:#6FC05D/g)).toHaveLength(1);
   });
 
   test("without any stand on ispred-14 it is still drawn green (not the grey empty box), only not interactive", () => {
@@ -57,10 +57,10 @@ describe("ScanMe stand 14 is always ScanMe green (RN N5)", () => {
     expect(tags[0]).not.toContain("data-location-id");
     expect(tags[0]).not.toContain('role="button"');
     expect(tags[0]).not.toContain("tabindex");
-    expect(html.match(/--fair-map-scanme:#C6FF4A/g)).toHaveLength(1);
+    expect(html.match(/--fair-map-scanme:#6FC05D/g)).toHaveLength(1);
     // The green group holds the ScanMe polygon itself.
     const points = fairMapPointsAttr(ELEKTROMOBILNOST_2026_MAP.zones.flatMap((zone) => zone.locations).find((row) => row.id === "ispred-14")!.polygon);
-    expect(html).toMatch(new RegExp(`--fair-map-scanme:#C6FF4A"><polygon [^>]*points="${points}"`));
+    expect(html).toMatch(new RegExp(`--fair-map-scanme:#6FC05D"><polygon [^>]*points="${points}"`));
     expect(html.split(`points="${points}"`)).toHaveLength(2);
   });
 

@@ -16,8 +16,8 @@ const all = Object.entries(files);
 const mapCode = all.filter(([path]) => !path.endsWith("fair-map-overlay.tsx")).map(([, code]) => code).join("\n");
 
 describe("public map guards", () => {
-  test("ScanMe green (#C6FF4A) is set once in the whole map, only on the ScanMe location element", () => {
-    expect(mapCode.match(/#c6ff4a/gi)).toHaveLength(1);
+  test("ScanMe green (#6FC05D) is set once in the whole map, only on the ScanMe location element", () => {
+    expect(mapCode.match(/#6fc05d/gi)).toHaveLength(1);
     expect(mapCode.match(/style=\{SCANME_STAND_STYLE\}/g)).toHaveLength(1);
     expect(canvas).toMatch(/<g className=\{styles\.scanmeLocation\} style=\{SCANME_STAND_STYLE\}>/);
     // …and only for the location of kind "scanme".

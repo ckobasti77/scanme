@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowLeft, ArrowUpRight, Check, FileText, ImageIcon } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, FileText, ImageIcon } from "lucide-react";
 import { OfferFooter } from "@/components/offer-footer";
 import { SiteNav } from "@/components/site-nav";
 import { fmt } from "@/lib/i18n/format";
@@ -239,7 +239,7 @@ export default async function PregledPage({ searchParams }: PageProps<"/ponuda/p
             <div className="mt-6 flex flex-col gap-3 sm:flex-row">
               <Link href={contactHref} className="button-primary focus-signal">
                 {dict.continueToContact}
-                <ArrowUpRight aria-hidden="true" className="size-4" strokeWidth={1.7} />
+                <ArrowRight aria-hidden="true" className="size-4" strokeWidth={1.7} />
               </Link>
               <Link href={backHref} className="button-secondary focus-signal">
                 <ArrowLeft aria-hidden="true" className="size-4" strokeWidth={1.7} />

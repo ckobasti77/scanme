@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowDownRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { useMemo, useState } from "react";
 import { OfferProductPreview } from "@/components/offer-product-preview";
 import { prelaunchSr as dict } from "@/lib/i18n/sr/prelaunch";
@@ -60,7 +60,7 @@ export function PrelaunchProductShowcase() {
           <p className={styles.noPrice}>{dict.products.noPrice}</p>
           <a href="#ponuda" className="button-secondary focus-signal">
             {dict.products.cta}
-            <ArrowDownRight aria-hidden="true" className="size-4" strokeWidth={1.7} />
+            <ArrowRight aria-hidden="true" className="size-4" strokeWidth={1.7} />
           </a>
         </div>
       </div>
