@@ -103,6 +103,7 @@ export function HeroIntro({
   secondaryLabel = "Pogledaj kako radi",
   primaryHref = "/#ponuda",
   compact = false,
+  heightFromParent = false,
   singleCta = false,
   showMenuSoon = false,
   menuLabel = "ScanMe Meni",
@@ -112,6 +113,9 @@ export function HeroIntro({
   secondaryLabel?: string;
   primaryHref?: string;
   compact?: boolean;
+  /** Visinu određuje roditeljska sekcija (npr. `min-height: 100svh`), umesto
+   *  sopstvenog `100dvh`; izgled i veličina QR scene ostaju nekompaktni. */
+  heightFromParent?: boolean;
   singleCta?: boolean;
   showMenuSoon?: boolean;
   menuLabel?: string;
@@ -196,7 +200,9 @@ export function HeroIntro({
       className={`relative z-10 flex items-center ${
         compact
           ? "min-h-0 py-6 sm:py-8 lg:py-8"
-          : "min-h-[100dvh] py-24 sm:py-28 lg:py-24"
+          : heightFromParent
+            ? "min-h-[inherit] py-24 sm:py-28 lg:py-24"
+            : "min-h-[100dvh] py-24 sm:py-28 lg:py-24"
       }`}
     >
       <div className="section-shell">

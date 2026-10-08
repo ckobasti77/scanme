@@ -90,16 +90,14 @@
   z-index: 3;
 }
 
+/* Hero sam zauzima punu visinu ekrana; svh ne skače kad se traka pregledača
+   na telefonu sakrije, vh je rezerva za starije pregledače. */
 .hero {
   position: relative;
-  min-height: 0;
+  min-height: 100vh;
+  min-height: 100svh;
   overflow: hidden;
   border-bottom: 1px solid color-mix(in srgb, var(--foreground) 10%, transparent);
-}
-
-.hero > :last-child {
-  align-items: flex-start;
-  padding-top: 1.5rem;
 }
 
 /* --- Sajam baner (privremen) ------------------------------------------------

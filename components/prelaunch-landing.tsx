@@ -62,7 +62,7 @@ export function PrelaunchLanding() {
           <section id="pocetak" data-reveal="off" className={`${styles.hero} hero-scan-depth`}>
             <HeroMedia hasVideo={hasVideo} hasPoster={hasPoster} />
             <HeroIntro
-              compact
+              heightFromParent
               primaryLabel={dict.hero.primaryCta}
               primaryHref="#kako-radi"
               singleCta
