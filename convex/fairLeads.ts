@@ -33,6 +33,7 @@ import {
 } from "./lib/fairLeads";
 import { fairLeadKind, fairLeadSubmitResultView } from "./lib/fairValidators";
 import { rateLimiter } from "./lib/rateLimits";
+import { fairIsPreEvent } from "./lib/fairPreEvent";
 
 // =============================================================================
 // Sajam automobila 2026 — B4 `Zainteresovan sam` / `Probna vožnja`
@@ -194,7 +195,8 @@ export const submitLead = mutation({
       // K3: and only while FAIR_FOLLOWUP_ENABLED is on — a lead taken while it
       // is off never gains one later (its confirmation did not announce one).
       // N5: the same for a lead over the soft cap — no confirmation announced it.
-      const followUpAt = rights.postEventFollowUp && fairFollowUpEnabled() && !recipientCapped ? fairFollowUpScheduleFor(event.endsAt, now) : null;
+      // Pre-event (JOVAN-DELTA 2026-10-08b): a test lead before the opening never gets the exhibitor's follow-up.
+      const followUpAt = rights.postEventFollowUp && fairFollowUpEnabled() && !recipientCapped && !fairIsPreEvent(now, event) ? fairFollowUpScheduleFor(event.endsAt, now) : null;
       if (followUpAt !== null) {
         await queueFairLeadEmail(ctx, { leadId, kind: "post_event_follow_up", recipient, scheduledFor: followUpAt, now });
         followUpScheduled = true;

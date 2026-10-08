@@ -118,8 +118,18 @@ async function setup({ auto = false }: { auto?: boolean } = {}) {
       const { modelId } = await admin.mutation(api.fairAdmin.upsertModel, {
         eventId, participationId, standId, brandId: client.brandId!, externalKey, displayName: `TEST ${externalKey}`, priceText: "TEST cena",
         specifications: [spec(1), spec(2)], packageTier, passportEligible: true,
-        ...(opts.packageActiveFrom !== undefined ? { packageActiveFrom: opts.packageActiveFrom } : {}),
       });
+      // A future start can no longer be imported (pre-event access, JOVAN-DELTA
+      // 2026-10-08b); it is written directly, as a catalog imported before it.
+      if (opts.packageActiveFrom !== undefined) {
+        const at = opts.packageActiveFrom;
+        await t.run(async (ctx) => {
+          await ctx.db.patch(modelId, { packageActivatedAt: at });
+          for (const row of await ctx.db.query("fairPackageActivations").withIndex("by_eventModelId_and_activatedAt", (q) => q.eq("eventModelId", modelId)).collect()) {
+            await ctx.db.patch(row._id, { activatedAt: at });
+          }
+        });
+      }
       if (opts.publish !== false) await admin.mutation(api.fairAdmin.publishModel, { eventModelId: modelId });
       return modelId;
     };

@@ -40,6 +40,7 @@ import type { FairPackageTier } from "@/lib/fair-contract";
 export function useInteractionsActions(): InteractionsActions {
   const saveQuestion = useMutation(api.fairInteractionsAdmin.upsertAudienceQuestion);
   const publishQuestion = useMutation(api.fairInteractionsAdmin.publishAudienceQuestion);
+  const openQuestionNow = useMutation(api.fairInteractionsAdmin.openAudienceQuestionNow);
   const closeQuestion = useMutation(api.fairInteractionsAdmin.closeAudienceQuestion);
   const setSponsoredResult = useMutation(api.fairInteractionsAdmin.setSponsoredResultQuestion);
   const saveSurveyDraft = useMutation(api.fairInteractionsAdmin.upsertSurveyDraft);
@@ -51,6 +52,7 @@ export function useInteractionsActions(): InteractionsActions {
       eventModelId: input.modelId as Id<"fairEventModels">, eventDayId: input.dayId as Id<"fairEventDays">, prompt: input.prompt, options: input.options, sortOrder: input.sortOrder,
     })),
     publishQuestion: (questionId) => interactionOutcome(() => publishQuestion({ questionId: questionId as Id<"fairAudienceQuestions"> })),
+    openQuestionNow: (questionId) => interactionOutcome(() => openQuestionNow({ questionId: questionId as Id<"fairAudienceQuestions"> })),
     closeQuestion: (questionId) => interactionOutcome(() => closeQuestion({ questionId: questionId as Id<"fairAudienceQuestions"> })),
     setSponsoredResult: (modelId, questionId) => interactionOutcome(() => setSponsoredResult({ eventModelId: modelId as Id<"fairEventModels">, questionId: questionId as Id<"fairAudienceQuestions"> | null })),
     saveSurveyDraft: (modelId, questions) => interactionOutcome(() => saveSurveyDraft({ eventModelId: modelId as Id<"fairEventModels">, questions })),
@@ -141,7 +143,7 @@ function useInteractionData(now: number, dateKey: string | undefined) {
       days,
       questions: interactionData.questions.map((row) => ({
         id: row._id, modelId: row.eventModelId, dayId: row.eventDayId, prompt: row.prompt, options: row.options,
-        status: row.status, sortOrder: row.sortOrder, showOnSponsoredRotation: row.showOnSponsoredRotation,
+        status: row.status, sortOrder: row.sortOrder, showOnSponsoredRotation: row.showOnSponsoredRotation, startsAt: row.startsAt,
       })),
       surveys: interactionData.surveys.map((row) => ({
         id: row._id, modelId: row.eventModelId, version: row.version, status: row.status, ...(row.title !== undefined ? { title: row.title } : {}),

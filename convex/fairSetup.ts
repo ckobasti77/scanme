@@ -5,6 +5,8 @@ import { isAdminEmail } from "./lib/access";
 import { writeAdminAudit } from "./lib/adminAudit";
 import { normalizeAdminSearchText } from "./lib/adminV1Validators";
 import { fairEventByCode, fairIssueValidator, setFairModelStatus, upsertFairEvent, upsertFairEventDay } from "./lib/fairCatalog";
+import { scheduleFairBrandPassportSync } from "./lib/fairPassportSync";
+import { syncFairSponsoredSnapshot } from "./lib/fairSponsored";
 import { createEventOnlyClient } from "./fairAdmin";
 import { commitFairImport, fairImportPayload, planFairImport } from "./fairImport";
 import { FAIR_ADMIN_LIST_LIMIT } from "../lib/fair-contract";
@@ -160,7 +162,9 @@ export const importCommit = internalMutation({
 /**
  * Publishes every draft model of the event through the same publish
  * validation and audit row as fairAdmin.publishModel. One publish error
- * aborts the whole mutation, so nothing is half-published.
+ * aborts the whole mutation, so nothing is half-published. Like publishModel,
+ * it then brings every brand's automatic passport and the sponsored snapshot
+ * up to date (no-op without a difference, so a re-run is safe).
  */
 export const publishEventModels = internalMutation({
   args: { eventCode: v.string(), actorEmail: v.string() },
@@ -200,6 +204,10 @@ export const publishEventModels = internalMutation({
       published.push(model.slug);
       if (result.warnings.length) warnings.push({ slug: model.slug, codes: result.warnings.map((issue) => issue.code) });
     }
+    for (const brandId of new Set(models.map((model) => model.brandId))) {
+      await scheduleFairBrandPassportSync(ctx, event._id, brandId, now);
+    }
+    await syncFairSponsoredSnapshot(ctx, event._id, now, actorUserId);
     return { published, alreadyPublished, warnings };
   },
 });

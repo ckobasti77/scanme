@@ -243,7 +243,8 @@ describe("commit", () => {
       assignment: await ctx.db.query("fairQrAssignments").unique(),
     }));
     const x1Model = stored.models.find((m) => m.externalKey === "em26-volta-x1")!;
-    expect(x1Model).toMatchObject({ slug: "volta-x1-premium", status: "draft", packageTier: "starter", packageActivatedAt: Date.parse("2026-10-09T09:00:00+02:00"), photoUrl: "https://cdn.example.invalid/x1.jpg" });
+    // Pre-event access (JOVAN-DELTA 2026-10-08b): the future package_active_from is clamped to the import time.
+    expect(x1Model).toMatchObject({ slug: "volta-x1-premium", status: "draft", packageTier: "starter", packageActivatedAt: NOW, photoUrl: "https://cdn.example.invalid/x1.jpg" });
     expect(x1Model.specifications.map((s) => [s.id, s.groupId, s.groupLabel, s.isHighlight])).toEqual([["spec-1", "pogon", "Pogon", true], ["spec-2", "pogon", "Pogon", false]]);
     const x2Model = stored.models.find((m) => m.externalKey === "em26-volta-x2")!;
     expect(x2Model.priceText).toBe(FAIR_PRICE_ON_REQUEST_TEXT);
@@ -289,13 +290,13 @@ describe("commit", () => {
       const model = (await ctx.db.query("fairEventModels").withIndex("by_eventId_and_externalKey").collect()).find((m) => m.externalKey === "em26-volta-x1")!;
       return { model, activations: await ctx.db.query("fairPackageActivations").withIndex("by_eventModelId_and_activatedAt", (q) => q.eq("eventModelId", model._id)).collect() };
     });
-    // Upgraded before the imported Starter start (9 Oct 09:00): Advanced starts
-    // with it, so the history never reads as a downgrade.
-    const opening = Date.parse("2026-10-09T09:00:00+02:00");
-    expect(rows.model).toMatchObject({ packageTier: "advanced", packageActivatedAt: opening });
+    // Pre-event access: the imported Starter (future package_active_from) is in
+    // force from the import, and the upgrade takes effect when it is made.
+    const upgradeAt = NOW + 3_600_000;
+    expect(rows.model).toMatchObject({ packageTier: "advanced", packageActivatedAt: upgradeAt });
     expect(rows.activations.map((a) => [a.fromTier, a.toTier, a.activatedAt])).toEqual([
-      ["included", "starter", opening],
-      ["starter", "advanced", opening],
+      ["included", "starter", NOW],
+      ["starter", "advanced", upgradeAt],
     ]);
     expect(await target()).toEqual(qrBefore);
   });

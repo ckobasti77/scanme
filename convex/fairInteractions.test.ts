@@ -482,15 +482,14 @@ describe("brand passport (HANDOFF §5.5; MASTER §11; JOVAN-DELTA §3)", () => {
   const favorite = (f: Fixture, visitorHash: string, passportId: string, eventModelId: string) =>
     f.t.mutation(api.fairInteractions.upsertBrandFavorite, { gatewaySecret: GATEWAY_SECRET, visitorHash, passportId, eventModelId });
 
-  test("publish needs ≥2 exhibited models, all published Starter+ candidates, and must happen before opening", async () => {
+  test("publish needs ≥2 exhibited models, all published Starter+ candidates, and also works after the opening", async () => {
     const f = await setup();
     expect(await f.admin.mutation(api.fairInteractionsAdmin.upsertPassport, { eventId: f.eventId, brandId: f.brands.om })).toMatchObject({ result: "created", problem: "model_below_starter" });
     await expectCode(publish(f, await open(f, f.brands.om)), "FAIR_PASSPORT_NOT_ELIGIBLE");
     await expectCode(publish(f, await open(f, f.brands.solo)), "FAIR_PASSPORT_NOT_ELIGIBLE");
     const volta = await open(f, f.brands.volta);
+    // Pre-event access (JOVAN-DELTA 2026-10-08b): no opening gate on publish.
     vi.setSystemTime(DAY1);
-    await expectCode(publish(f, volta), "FAIR_PASSPORT_EVENT_STARTED");
-    vi.setSystemTime(BEFORE_OPENING);
     expect(await publish(f, volta)).toEqual({ status: "published", requiredModelIds: [f.starter.id, f.advanced.id] });
     // Frozen: a model added later is not part of the set.
     await f.model("test-volta-x3", f.brands.volta, "starter");

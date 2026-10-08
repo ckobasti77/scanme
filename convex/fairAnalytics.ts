@@ -118,13 +118,20 @@ export const reportContext = internalQuery({
     const previous = days.filter((row) => row.sortOrder < day.sortOrder).at(-1) ?? null;
     const { stands, models, truncated } = await fairParticipationModels(ctx, participation);
     const standRows = [];
+    // Stand totals are the sum of the fair days, so pre-event scans never
+    // reach an exhibitor report (JOVAN-DELTA 2026-10-08b).
+    const fairDays = async (metric: "scan_total" | "scan_unique", standId: Id<"fairStands">) => {
+      let total = 0;
+      for (const row of days) total += await readFairCount(ctx, fairScanCountKey(metric, "stand", standId, row.dateKey));
+      return total;
+    };
     for (const stand of stands) {
       standRows.push({
         standId: stand._id,
         code: stand.code,
         displayName: stand.displayName,
-        total: await readFairCount(ctx, fairScanCountKey("scan_total", "stand", stand._id)),
-        unique: await readFairCount(ctx, fairScanCountKey("scan_unique", "stand", stand._id)),
+        total: await fairDays("scan_total", stand._id),
+        unique: await fairDays("scan_unique", stand._id),
       });
     }
     return {

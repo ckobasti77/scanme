@@ -4883,6 +4883,8 @@ export interface AdminEventsDict {
   questionsNoModels: string;
   questionPublish: string;
   questionPublished: string;
+  questionOpenNow: string;
+  questionOpenedNow: string;
   questionClose: string;
   questionClosed: string;
   questionStatus: Record<FairAudienceQuestionStatus, string>;
@@ -5294,6 +5296,25 @@ export interface AdminEventsDict {
   sponsoredAuto: AdminEventsSponsoredAutoDict;
   reportQueue: AdminEventsReportQueueDict;
   retentionPlan: AdminEventsRetentionPlanDict;
+  /** JOVAN-DELTA 2026-10-08b — Pregled: "Resetuj pre-event podatke" (dry run, typed RESETUJ). */
+  preEventReset: {
+    title: string;
+    /** {cutoff} */
+    body: string;
+    empty: string;
+    loading: string;
+    categories: Record<"leads" | "survey_responses" | "ratings" | "audience_votes" | "brand_favorites" | "passport_stamps" | "sponsored_events" | "traffic_events" | "share_collections" | "unique_scans" | "scan_events", string>;
+    /** {count} */
+    capped: string;
+    start: string;
+    confirmLabel: string;
+    /** {total} */
+    confirm: string;
+    cancel: string;
+    /** {deleted} */
+    done: string;
+    continuing: string;
+  };
   // Admin UX A10 — Pregled: the event dashboard.
   dashboard: AdminEventsDashboardDict;
 }

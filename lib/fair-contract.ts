@@ -1053,6 +1053,10 @@ export const FAIR_ADMIN_ISSUE_CODES = [
   "FAIR_REPORT_EXPORT_TOO_LARGE",
   // K4 — a manual build before the day's close (fairEventDays.endsAt) is refused
   "FAIR_DAY_NOT_CLOSED",
+  // JOVAN-DELTA 2026-10-08b — "Resetuj pre-event podatke": the typed
+  // confirmation is missing, or the data changed since the dry run
+  "FAIR_PRE_EVENT_RESET_CONFIRM",
+  "FAIR_PRE_EVENT_RESET_STALE",
   // Warnings
   "FAIR_PRICE_MISSING",
   "FAIR_PHOTO_MISSING",

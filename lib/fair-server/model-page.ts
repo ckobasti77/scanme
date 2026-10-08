@@ -66,8 +66,10 @@ export async function loadFairModelInteractions(
 export async function loadFairAudienceQuestions(
   eventModelId: string,
   dateKey: string,
+  openAt = Date.now(),
 ): Promise<FairAudienceQuestionView[] | null> {
-  return orNull(fetchQuery(api.fairPublic.listAudienceQuestionsForModel, { eventModelId, dateKey }));
+  // `openAt` also lists a question opened before its day ("Otvori odmah").
+  return orNull(fetchQuery(api.fairPublic.listAudienceQuestionsForModel, { eventModelId, dateKey, openAt }));
 }
 
 /** Today's fair day key in Europe/Belgrade (`YYYY-MM-DD`). */

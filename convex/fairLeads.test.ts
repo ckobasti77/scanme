@@ -1242,3 +1242,23 @@ describe("B4 email composition and the Resend seam", () => {
     expect(calls[0].body.subject).toBe("TEST: sajamski email sa DEV okruženja");
   });
 });
+
+describe("pre-event leads (JOVAN-DELTA 2026-10-08b)", () => {
+  test("a lead before the opening works, gets no follow-up and never reaches exhibitor counts, exports or the inbox", async () => {
+    const f = await setup();
+    vi.setSystemTime(BEFORE_OPENING);
+    expect(await submit(f, visitor(), f.models.advanced)).toMatchObject({ duplicate: false, confirmationEmail: true, followUpScheduled: false });
+    vi.setSystemTime(DAY1);
+    expect(await submit(f, visitor(), f.models.advanced)).toMatchObject({ duplicate: false, followUpScheduled: true });
+    expect(await rows(f, "fairLeads")).toHaveLength(2);
+    expect((await rows(f, "fairEmailDeliveries")).filter((row) => row.kind === "post_event_follow_up")).toHaveLength(1);
+
+    const counts = await f.admin.query(api.fairAdminStats.getLeadCounts, { eventId: f.eventId });
+    expect(counts.byModel).toEqual([{ eventModelId: f.models.advanced, interest: 1, testDrive: 0, undelivered: 1 }]);
+    const page = { numItems: 50, cursor: null };
+    const exported = await f.admin.query(api.fairLeadsAdmin.exportLeads, { eventId: f.eventId, participationId: f.a.participationId, paginationOpts: page });
+    expect(exported.page.map((row) => row.createdAt)).toEqual([DAY1]);
+    expect((await f.admin.query(api.fairLeadsInbox.listEventLeads, { eventId: f.eventId, paginationOpts: page })).page).toHaveLength(1);
+    expect((await f.admin.query(api.fairLeadsInbox.listEventLeads, { eventId: f.eventId, includePreEvent: true, paginationOpts: page })).page).toHaveLength(2);
+  });
+});

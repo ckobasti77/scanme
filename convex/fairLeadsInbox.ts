@@ -16,6 +16,7 @@ import {
   fairSponsoredActionKind,
   fairSurveyQuestionKind,
 } from "./lib/fairValidators";
+import { fairAnalyticsCutoff } from "./lib/fairPreEvent";
 
 // =============================================================================
 // Sajam automobila 2026 — Admin UX A8: the lead inbox (`Događaji → Leadovi`,
@@ -95,6 +96,8 @@ async function rowOf(ctx: QueryCtx, lead: Doc<"fairLeads">) {
  * else exhibitor, else the event; `from`/`to` (epoch ms, `to` exclusive) are
  * the index range; `kind` and `delivered` filter the bounded page. A brand
  * filter is applied by the screen (brand → exhibitor here, models there).
+ * Pre-event leads (before the opening, JOVAN-DELTA 2026-10-08b) are left out
+ * unless `includePreEvent`: this list is the hand-over to exhibitors.
  */
 export const listEventLeads = query({
   args: {
@@ -105,6 +108,7 @@ export const listEventLeads = query({
     delivered: v.optional(v.boolean()),
     from: v.optional(v.number()),
     to: v.optional(v.number()),
+    includePreEvent: v.optional(v.boolean()),
     paginationOpts: paginationOptsValidator,
   },
   returns: paginationResultValidator(v.object(inboxRow)),
@@ -112,7 +116,7 @@ export const listEventLeads = query({
     await requireAdmin(ctx);
     const event = await requireFairEvent(ctx, args.eventId);
     if (args.paginationOpts.numItems > INBOX_PAGE_MAX) fairAdminError("INVALID_INPUT", { field: "numItems", max: INBOX_PAGE_MAX });
-    const from = args.from ?? 0;
+    const from = args.includePreEvent ? (args.from ?? 0) : Math.max(args.from ?? 0, fairAnalyticsCutoff(event));
     const to = args.to ?? Number.MAX_SAFE_INTEGER;
     let indexed;
     if (args.eventModelId) {

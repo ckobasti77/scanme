@@ -15,6 +15,8 @@ import { FAIR_LEAD_COUNT_LIMIT } from "./fairAdminStats";
 
 const modules = import.meta.glob("./**/*.ts");
 const SEED_AT = Date.parse("2026-10-05T10:00:00+02:00");
+// Leads are counted from the opening on (pre-event leads are left out, JOVAN-DELTA 2026-10-08b).
+const FAIR_DAY1 = Date.parse("2026-10-09T10:00:00+02:00");
 const ADMIN_EMAIL = "fair-a3-stats@scanme.test";
 const ISSUER = "https://fair-a3-stats.test";
 const EM = "test-elektromobilnost-2026";
@@ -57,12 +59,13 @@ type LeadModel = { _id: Id<"fairEventModels">; eventId: Id<"fairEvents">; partic
 
 async function insertLeads(f: Setup, model: LeadModel, rows: { kind: "interest" | "test_drive"; delivered?: boolean }[]) {
   await f.t.run(async (ctx) => {
+    const base = Math.max(FAIR_DAY1, (await ctx.db.get(model.eventId))!.startsAt);
     for (const [index, row] of rows.entries()) {
       await ctx.db.insert("fairLeads", {
         submissionId: `test-a3-${model._id}-${index}`, kind: row.kind, visitorId: f.visitorId, eventId: model.eventId, eventModelId: model._id,
         participationId: model.participationId, contactName: "TEST Posetilac", email: "test.a3@example.invalid", consentAccepted: true, consentVersion: 1,
         consentTextSnapshot: "TEST saglasnost", consentedAt: SEED_AT, status: row.delivered ? "delivered" : "received",
-        ...(row.delivered ? { deliveredAt: SEED_AT } : {}), followUpSuppressed: false, createdAt: SEED_AT + index, purgeAt: SEED_AT,
+        ...(row.delivered ? { deliveredAt: SEED_AT } : {}), followUpSuppressed: false, createdAt: base + index, purgeAt: SEED_AT,
       });
     }
   });

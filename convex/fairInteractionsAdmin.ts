@@ -197,6 +197,41 @@ export const publishAudienceQuestion = mutation({
   },
 });
 
+/**
+ * Admin "Otvori odmah" (pre-event access, JOVAN-DELTA 2026-10-08b): publishes
+ * a draft with the same daily limit as publishAudienceQuestion and opens it
+ * from now, also before its fair day. A published question that starts later
+ * opens now. The question stays on its fair day (quota, dashboard, results).
+ */
+export const openAudienceQuestionNow = mutation({
+  args: { questionId: v.id("fairAudienceQuestions") },
+  returns: v.object({ status: fairAudienceQuestionStatus, startsAt: v.number(), remainingForDay: v.number() }),
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    const now = Date.now();
+    const question = await requireQuestion(ctx, args.questionId);
+    if (question.status === "closed") fairAdminError("FAIR_QUESTION_STATUS", { status: question.status });
+    if (question.endsAt !== undefined && question.endsAt <= now) fairAdminError("FAIR_QUESTION_STATUS", { field: "endsAt" });
+    const model = await requireModel(ctx, question.eventModelId);
+    const tier = await fairModelTierAt(ctx, model, now);
+    if (getFairEntitlements(tier).audienceQuestionsPerDay === 0) fairAdminError("FAIR_FEATURE_NOT_ENTITLED", { feature: "audienceQuestions" });
+    const sameDay = await ctx.db
+      .query("fairAudienceQuestions")
+      .withIndex("by_eventModelId_and_eventDayId", (q) => q.eq("eventModelId", model._id).eq("eventDayId", question.eventDayId))
+      .take(QUESTIONS_PER_MODEL_CAP);
+    let used = sameDay.filter((row) => row.status !== "draft").length;
+    if (question.status === "draft") {
+      if (fairAudienceQuestionsRemaining(tier, used) < 1) fairAdminError("FAIR_QUESTION_DAY_LIMIT", { tier, used });
+      used += 1;
+    }
+    const startsAt = Math.min(question.startsAt, now);
+    if (question.status !== "published" || startsAt !== question.startsAt) {
+      await ctx.db.patch(question._id, { status: "published", startsAt, updatedAt: now });
+    }
+    return { status: "published" as const, startsAt, remainingForDay: fairAudienceQuestionsRemaining(tier, used) };
+  },
+});
+
 /** Published → closed. Votes and the result stay in history; the question still counts toward its day. */
 export const closeAudienceQuestion = mutation({
   args: { questionId: v.id("fairAudienceQuestions") },
@@ -411,8 +446,9 @@ export const upsertPassport = mutation({
 
 /**
  * Validates, freezes and publishes: the eligible set is written as `required`
- * rows and never rebuilt. Only before the event opens (MASTER §11). From now
- * on a scan of a member stamps (B2 hook stampFairPassportOnScan).
+ * rows and never rebuilt. Allowed at any time (pre-event access, JOVAN-DELTA
+ * 2026-10-08b; was: only before the opening). From now on a scan of a member
+ * stamps (B2 hook stampFairPassportOnScan).
  */
 export const publishPassport = mutation({
   args: { passportId: v.id("fairPassportConfigs") },
@@ -430,7 +466,6 @@ export const publishPassport = mutation({
     if (passport.status !== "draft" || passport.frozenAt !== undefined) fairAdminError("FAIR_PASSPORT_FROZEN", { status: passport.status });
     const event = await ctx.db.get(passport.eventId);
     if (!event) fairAdminError("FAIR_EVENT_NOT_FOUND");
-    if (now >= event.startsAt) fairAdminError("FAIR_PASSPORT_EVENT_STARTED");
     const models = await brandModels(ctx, passport.eventId, passport.brandId);
     const problem = passportProblem(models);
     if (problem) fairAdminError("FAIR_PASSPORT_NOT_ELIGIBLE", { reason: problem });

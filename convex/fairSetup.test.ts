@@ -91,4 +91,16 @@ test("the intake payload dry-runs clean, commits idempotently and publishes all 
   expect(published.published).toEqual(expect.arrayContaining(["jmev-ev3", "jmev-yi", "jmev-ewind", "mazda-cx-5", "bentu-mango"]));
   const rerun = await t.mutation(internal.fairSetup.publishEventModels, { eventCode: "elektromobilnost-2026", actorEmail: ADMIN_EMAIL });
   expect(rerun).toMatchObject({ published: [], alreadyPublished: 15 });
+
+  // JOVAN-DELTA 2026-10-08b: the packages (package_active_from 9 Oct) are in
+  // force from the import, and the publish brings the JMEV passport (the only
+  // brand that qualifies) with it.
+  await t.finishAllScheduledFunctions(vi.runAllTimers);
+  const state = await t.run(async (ctx) => ({
+    models: await ctx.db.query("fairEventModels").collect(),
+    passports: await ctx.db.query("fairPassportConfigs").collect(),
+    brands: await ctx.db.query("brands").collect(),
+  }));
+  expect(state.models.every((row) => row.packageActivatedAt <= NOW)).toBe(true);
+  expect(state.passports.map((row) => [state.brands.find((brand) => brand._id === row.brandId)?.name, row.status])).toEqual([["JMEV", "published"]]);
 });
