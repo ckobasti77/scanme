@@ -4,6 +4,7 @@ import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ExternalLink, QrCode, ScanLine } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { gsap } from "gsap";
+import { decideScanStoryClick } from "@/lib/scan-story-transition";
 
 const steps = [
   {
@@ -48,6 +49,25 @@ function getSignalLength(target: unknown) {
   return Number(element.dataset.signalLength) || 1;
 }
 
+// Dve polovine zelene ivice kartice, u pikselima, sa istim zaobljenjem kao
+// kartica (radius + 1 px, jer overlay stoji 1 px izvan ivice). Desktop deli
+// ivicu na gornju i donju polovinu (ulaz levo), mobilni na levu i desnu (ulaz gore).
+function roundedBranchPaths(width: number, height: number, radius: number, vertical: boolean) {
+  const r = Math.max(0, Math.min(radius, width / 2, height / 2));
+  const w = width;
+  const h = height;
+  if (vertical) {
+    return [
+      `M ${w / 2} 0 L ${r} 0 A ${r} ${r} 0 0 0 0 ${r} L 0 ${h - r} A ${r} ${r} 0 0 0 ${r} ${h} L ${w / 2} ${h}`,
+      `M ${w / 2} 0 L ${w - r} 0 A ${r} ${r} 0 0 1 ${w} ${r} L ${w} ${h - r} A ${r} ${r} 0 0 1 ${w - r} ${h} L ${w / 2} ${h}`,
+    ];
+  }
+  return [
+    `M 0 ${h / 2} L 0 ${r} A ${r} ${r} 0 0 1 ${r} 0 L ${w - r} 0 A ${r} ${r} 0 0 1 ${w} ${r} L ${w} ${h / 2}`,
+    `M 0 ${h / 2} L 0 ${h - r} A ${r} ${r} 0 0 0 ${r} ${h} L ${w - r} ${h} A ${r} ${r} 0 0 0 ${w} ${h - r} L ${w} ${h / 2}`,
+  ];
+}
+
 function settleSignal(section: HTMLElement, index: number) {
   gsap.set(section.querySelectorAll("[data-signal-branch]"), {
     strokeDashoffset: (_: number, target: unknown) => getSignalLength(target),
@@ -71,7 +91,7 @@ export function ScanStory({
   const hasPlayedIntroRef = useRef(false);
   const hasInteractedRef = useRef(false);
   const settledIndexRef = useRef(0);
-  const transitionGenerationRef = useRef(0);
+  const transitionInFlightRef = useRef(false);
   const signalTimelineRef = useRef<gsap.core.Timeline | null>(null);
   const reduce = Boolean(useReducedMotion());
   const [activeIndex, setActiveIndex] = useState(0);
@@ -83,6 +103,19 @@ export function ScanStory({
     if (!section) return;
 
     const measureSignal = () => {
+      // Ivica kartice se crta u pikselima stvarne veličine, sa zaobljenim uglovima.
+      section.querySelectorAll<SVGSVGElement>("[data-signal-node]").forEach((overlay) => {
+        const { width, height } = overlay.getBoundingClientRect();
+        const card = overlay.parentElement;
+        if (width <= 0 || height <= 0 || !card) return;
+        const radius = (parseFloat(getComputedStyle(card).borderTopLeftRadius) || 0) + 1;
+        const paths = roundedBranchPaths(width, height, radius, overlay.dataset.signalLayout === "mobile");
+        overlay.setAttribute("viewBox", `0 0 ${width} ${height}`);
+        overlay.querySelectorAll<SVGPathElement>("[data-signal-branch]").forEach((branch, position) => {
+          branch.setAttribute("d", paths[position]);
+        });
+      });
+
       const signalElements = section.querySelectorAll<SVGGeometryElement>("[data-signal-branch], [data-signal-link]");
 
       signalElements.forEach((element) => {
@@ -94,7 +127,7 @@ export function ScanStory({
         const isBranch = element.hasAttribute("data-signal-branch");
         const axis = element.getAttribute("data-signal-axis");
         const length = isBranch
-          ? 100 * (horizontalScale + verticalScale)
+          ? element.getTotalLength() * horizontalScale
           : 100 * (axis === "vertical" ? verticalScale : horizontalScale);
 
         if (length <= 0) {
@@ -109,7 +142,8 @@ export function ScanStory({
         });
       });
 
-      settleSignal(section, settledIndexRef.current);
+      // Usred prelaza ivicu vodi timeline; ne vraćamo je na staru karticu.
+      if (!transitionInFlightRef.current) settleSignal(section, settledIndexRef.current);
     };
 
     measureSignal();
@@ -167,29 +201,9 @@ export function ScanStory({
     [],
   );
 
-  function runSignalTransition(to: number) {
-    const section = sectionRef.current;
-    if (!section) return;
-
-    const generation = transitionGenerationRef.current + 1;
-    transitionGenerationRef.current = generation;
-    signalTimelineRef.current?.kill();
-    const from = settledIndexRef.current;
+  function runSignalTransition(section: HTMLElement, from: number, to: number) {
+    transitionInFlightRef.current = true;
     settleSignal(section, from);
-
-    if (from === to) {
-      setActiveIndex(to);
-      setContentIndex(to);
-      return;
-    }
-
-    if (reduce) {
-      settledIndexRef.current = to;
-      setActiveIndex(to);
-      setContentIndex(to);
-      settleSignal(section, to);
-      return;
-    }
 
     const direction: SignalDirection = to > from ? "forward" : "backward";
     const step = direction === "forward" ? 1 : -1;
@@ -198,12 +212,12 @@ export function ScanStory({
     const timeline = gsap.timeline({
       defaults: { ease: "power1.inOut" },
       onComplete: () => {
-        if (transitionGenerationRef.current !== generation) return;
-
         settleSignal(section, to);
+        settledIndexRef.current = to;
         setActiveIndex(to);
         setContentIndex(to);
         signalTimelineRef.current = null;
+        transitionInFlightRef.current = false;
       },
     });
 
@@ -219,9 +233,7 @@ export function ScanStory({
       const outgoingLink = section.querySelectorAll(`[data-signal-link="${outgoingLinkIndex}"]`);
 
       if (hop === hopCount - 1) {
-        timeline.call(() => {
-          if (transitionGenerationRef.current === generation) setContentIndex(to);
-        });
+        timeline.call(() => setContentIndex(to));
       }
 
       if (direction === "forward") {
@@ -286,22 +298,34 @@ export function ScanStory({
           });
       }
 
-      const committedIndex = targetIndex;
-      timeline.call(() => {
-        if (transitionGenerationRef.current !== generation) return;
-
-        settledIndexRef.current = committedIndex;
-      });
-
       sourceIndex = targetIndex;
     }
   }
 
   function selectStep(index: number) {
+    const section = sectionRef.current;
+    if (!section) return;
+
+    const decision = decideScanStoryClick({
+      activeIndex: settledIndexRef.current,
+      targetIndex: index,
+      transitionInFlight: transitionInFlightRef.current,
+      reducedMotion: reduce,
+    });
+    if (decision === "ignore") return;
+
     hasInteractedRef.current = true;
     setAttentionActive(false);
 
-    runSignalTransition(index);
+    if (decision === "instant") {
+      settledIndexRef.current = index;
+      settleSignal(section, index);
+      setActiveIndex(index);
+      setContentIndex(index);
+      return;
+    }
+
+    runSignalTransition(section, settledIndexRef.current, index);
   }
 
   return (
@@ -453,7 +477,7 @@ function StoryNode({ index, activeIndex, attentionActive, panelId, mobile = fals
         <span className="absolute bottom-0 right-0 size-3 border-b border-r border-primary" />
       </motion.span>
 
-      <span className={`${mobile ? "flex size-12 shrink-0 items-center justify-center border border-current/35" : "relative"}`}>
+      <span className={`${mobile ? "flex size-12 shrink-0 items-center justify-center rounded-[var(--button-radius)] border border-current/35" : "relative"}`}>
         <Icon aria-hidden="true" className={`${mobile ? "size-6" : "size-8 transition-transform duration-200 group-hover:scale-110 xl:size-10"}`} strokeWidth={1.35} />
       </span>
       {mobile ? <span className={`text-sm font-semibold transition-colors ${active ? "text-accent-readable" : "text-foreground/76"}`}>{step.title}</span> : <span className="sr-only">{step.title}</span>}
@@ -470,6 +494,7 @@ function SignalNodeOverlay({ index, mobile }: { index: number; mobile: boolean }
     <svg
       aria-hidden="true"
       data-signal-node={index}
+      data-signal-layout={mobile ? "mobile" : "desktop"}
       className="pointer-events-none absolute inset-[-1px] z-20 h-[calc(100%+2px)] w-[calc(100%+2px)] overflow-visible"
       viewBox="0 0 100 100"
       preserveAspectRatio="none"
