@@ -9,7 +9,6 @@ import {
   Check,
   CircleDollarSign,
   ExternalLink,
-  Globe,
   Link2,
   Mail,
   MapPin,
@@ -35,13 +34,11 @@ import {
 import { Input } from "@/components/ui/input";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import { normalizeWebsiteUrl, websiteLabel } from "@/lib/admin-v1/website";
 import { adminV1Sr as dict } from "@/lib/i18n/sr/admin-v1";
 import { cn } from "@/lib/utils";
 import { AdminConversationWorkspace } from "./admin-inbox";
 import { AdminClientFinanceSummary } from "./admin-finance";
 import { AdminErrorState, AdminLoadingState, AdminPanel, AdminStatus } from "./admin-primitives";
-import { AdminDataCard, AdminDataView, type AdminColumn } from "./admin-ui";
 
 type ProfileResult = FunctionReturnType<typeof api.adminClientProfiles.getProfile>;
 type Profile = NonNullable<ProfileResult>;
@@ -109,57 +106,7 @@ function updateUrl(
   router.push(`${pathname}${next.size ? `?${next}` : ""}`, { scroll: false });
 }
 
-/** Izlagači 2026: the client's website — open it, add it or change it in place. */
-function ProfileWebsite({ websiteUrl, onSave }: { websiteUrl: string | null; onSave: (websiteUrl: string | null) => Promise<void> }) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(websiteUrl ?? "");
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  async function submit(event: FormEvent) {
-    event.preventDefault();
-    const raw = draft.trim();
-    const next = raw ? normalizeWebsiteUrl(raw) : null;
-    if (raw && !next) { setError(dict.clientProfileWebsiteInvalid); return; }
-    setBusy(true);
-    setError(null);
-    try {
-      await onSave(next);
-      setEditing(false);
-    } catch {
-      setError(dict.clientProfileWebsiteError);
-    } finally {
-      setBusy(false);
-    }
-  }
-  if (editing) {
-    return (
-      <form onSubmit={submit} className="mt-4 flex max-w-xl flex-wrap items-start gap-2" noValidate>
-        <label className="sr-only" htmlFor="client-website">{dict.clientProfileWebsite}</label>
-        <Input id="client-website" type="url" inputMode="url" autoComplete="url" value={draft} onChange={(event) => setDraft(event.target.value)} placeholder={dict.clientProfileWebsitePlaceholder} aria-invalid={error ? true : undefined} aria-describedby={error ? "client-website-error" : undefined} className="min-h-11 min-w-0 flex-1 basis-64" autoFocus />
-        <Button type="submit" className="min-h-11" disabled={busy}>{dict.clientProfileWebsiteSave}</Button>
-        <Button type="button" variant="outline" className="min-h-11" disabled={busy} onClick={() => { setEditing(false); setDraft(websiteUrl ?? ""); setError(null); }}>{dict.clientProfileCancel}</Button>
-        {error ? <p id="client-website-error" role="alert" className="basis-full text-sm text-[var(--admin-danger)]">{error}</p> : null}
-      </form>
-    );
-  }
-  return (
-    <div className="mt-4 flex min-w-0 flex-wrap items-center gap-2 text-sm">
-      <Globe className="size-4 shrink-0 text-[var(--admin-text-muted)]" aria-hidden="true" />
-      {websiteUrl ? (
-        <a href={websiteUrl} target="_blank" rel="noopener noreferrer" aria-label={`${dict.clientProfileWebsiteOpen}: ${websiteLabel(websiteUrl)}`} className="inline-flex min-h-11 min-w-0 items-center gap-1.5 font-semibold break-all underline-offset-4 hover:underline">
-          {websiteLabel(websiteUrl)}
-          <ExternalLink className="size-3.5 shrink-0" aria-hidden="true" />
-        </a>
-      ) : <span className="text-[var(--admin-text-muted)]">{dict.clientProfileWebsiteEmpty}</span>}
-      <button type="button" onClick={() => { setDraft(websiteUrl ?? ""); setEditing(true); }} className="inline-flex min-h-11 items-center gap-1.5 rounded-full px-3 text-xs font-semibold text-[var(--admin-text-muted)] hover:bg-[var(--admin-surface-muted)] hover:text-[var(--admin-ink)]">
-        <Pencil className="size-3.5" aria-hidden="true" />
-        {websiteUrl ? dict.clientProfileWebsiteEdit : dict.clientProfileWebsiteAdd}
-      </button>
-    </div>
-  );
-}
-
-function ProfileHeader({ profile, onWebsite }: { profile: Profile; onWebsite: (websiteUrl: string | null) => Promise<void> }) {
+function ProfileHeader({ profile }: { profile: Profile }) {
   const premiumLabel = profile.premiumStatus === "active"
     ? dict.clientProfilePremiumActive
     : profile.premiumStatus === "grace"
@@ -183,7 +130,6 @@ function ProfileHeader({ profile, onWebsite }: { profile: Profile; onWebsite: (w
       <h1 className="mt-3 max-w-5xl text-[clamp(2rem,4.5vw,4.2rem)] leading-[0.96] font-medium tracking-[-0.055em] break-words">{profile.ownerDisplayName}</h1>
       {profile.accountName !== profile.ownerDisplayName ? <p className="mt-2 text-sm font-semibold text-[var(--admin-text-muted)]">{profile.accountName}</p> : null}
       <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--admin-text-muted)]">{dict.clientProfileSubtitle}</p>
-      <ProfileWebsite key={profile.websiteUrl ?? ""} websiteUrl={profile.websiteUrl} onSave={onWebsite} />
       <div className="mt-4 flex flex-wrap gap-2 text-xs font-semibold">
         <span className="rounded-full border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 py-2">{profile.venueCount} {dict.clientProfileVenues}</span>
         <span className={cn("rounded-full border px-3 py-2", profile.openActionCount ? "border-[var(--admin-danger-border)] bg-[var(--admin-danger-soft)] text-[var(--admin-danger)]" : "border-[var(--admin-border)] bg-[var(--admin-surface)]")}>{profile.openActionCountCapped ? dict.clientProfileProblemCountCapped : profile.openActionCount === 1 ? dict.clientProfileOneProblem : `${profile.openActionCount} ${dict.clientProfileProblems}`}</span>
@@ -330,46 +276,9 @@ function HonestEmpty({ icon: Icon, title, body, href, linkLabel }: { icon: typeo
   return <div className="grid min-h-56 place-items-center px-5 py-8 text-center"><div className="max-w-lg"><span className="mx-auto grid size-12 place-items-center rounded-2xl bg-[var(--admin-surface-muted)] text-[var(--admin-text-muted)]"><Icon className="size-5" aria-hidden="true" /></span><h2 className="mt-4 text-lg font-semibold">{title}</h2><p className="mt-2 text-sm leading-6 text-[var(--admin-text-muted)]">{body}</p>{href && linkLabel ? <Link href={href} className="mt-4 inline-flex min-h-11 items-center gap-2 font-semibold underline underline-offset-4">{linkLabel}<ExternalLink className="size-4" aria-hidden="true" /></Link> : null}</div></div>;
 }
 
-type VenueService = VenueDetail["services"][number];
-
-function serviceState(service: VenueService) {
-  return service.subscription?.status ?? service.profileStatus;
-}
-
-function ServiceLink({ service }: { service: VenueService }) {
-  const meta = serviceMeta[service.type];
-  const Icon = meta.icon;
-  const href = service.type === "scanme_links" ? "/admin/usluge/links" : service.type === "google_review" ? "/admin/usluge/review" : "/admin/usluge/meni";
-  return <Link href={href} aria-label={`${dict.clientProfileOpenService}: ${meta.label}`} className="flex min-h-11 items-center gap-2 font-semibold underline-offset-4 hover:underline"><Icon className="size-4" aria-hidden="true" />{meta.label}</Link>;
-}
-
-function ServiceState({ service }: { service: VenueService }) {
-  const state = serviceState(service);
-  return <AdminStatus label={stateLabel[state] ?? state} tone={state === "active" ? "active" : state === "suspended" ? "problem" : "waiting"} />;
-}
-
-function subscriptionText(service: VenueService) {
-  return service.subscription ? `${service.subscription.period === "monthly" ? dict.clientProfileBillingMonthly : dict.clientProfileBillingAnnual} · ${dict.clientProfilePaidThrough} ${dateLabel(service.subscription.paidThrough)}` : dict.clientProfileNoSubscription;
-}
-
-const serviceColumns: AdminColumn<VenueService>[] = [
-  { id: "service", header: dict.clientProfileServices, rowHeader: true, sortValue: (service) => serviceMeta[service.type].label, cell: (service) => <ServiceLink service={service} /> },
-  { id: "state", header: dict.clientProfileVenueStatus, sortValue: (service) => stateLabel[serviceState(service)] ?? serviceState(service), cell: (service) => <ServiceState service={service} /> },
-  { id: "subscription", header: dict.clientProfileSubscription, cell: (service) => <span className="text-xs text-[var(--admin-text-muted)]">{subscriptionText(service)}</span> },
-];
-
 function ServiceRows({ detail }: { detail: VenueDetail }) {
   if (!detail.services.length) return <p className="text-sm text-[var(--admin-text-muted)]">{dict.clientsServiceAbsent}</p>;
-  return (
-    <AdminDataView
-      listKey="klijent.usluge"
-      caption={dict.clientProfileServices}
-      rows={detail.services}
-      getRowId={(service) => service.profileId}
-      columns={serviceColumns}
-      renderCard={(service) => <AdminDataCard title={<ServiceLink service={service} />} badges={<ServiceState service={service} />} subtitle={subscriptionText(service)} />}
-    />
-  );
+  return <div className="grid gap-2">{detail.services.map((service) => { const meta = serviceMeta[service.type]; const Icon = meta.icon; const state = service.subscription?.status ?? service.profileStatus; const href = service.type === "scanme_links" ? "/admin/usluge/links" : service.type === "google_review" ? "/admin/usluge/review" : "/admin/usluge/meni"; return <div key={service.profileId} className="grid gap-2 rounded-xl border border-[var(--admin-border)] p-3 sm:grid-cols-[minmax(9rem,1fr)_auto_auto] sm:items-center"><Link href={href} aria-label={`${dict.clientProfileOpenService}: ${meta.label}`} className="flex min-h-11 items-center gap-2 font-semibold underline-offset-4 hover:underline"><Icon className="size-4" aria-hidden="true" />{meta.label}</Link><AdminStatus label={stateLabel[state] ?? state} tone={state === "active" ? "active" : state === "suspended" ? "problem" : "waiting"} /><span className="text-xs text-[var(--admin-text-muted)]">{service.subscription ? `${service.subscription.period === "monthly" ? dict.clientProfileBillingMonthly : dict.clientProfileBillingAnnual} · ${dict.clientProfilePaidThrough} ${dateLabel(service.subscription.paidThrough)}` : dict.clientProfileNoSubscription}</span></div>; })}</div>;
 }
 
 function VenueSection({ venues, detail, selectedId, canLoadMore, loadingMore, onSelect, onLoadMore, onProblem }: { venues: Venue[]; detail: VenueDetail | null | undefined; selectedId?: string; canLoadMore: boolean; loadingMore: boolean; onSelect: (id: string) => void; onLoadMore: () => void; onProblem: (action: Action) => void }) {
@@ -413,15 +322,9 @@ type ProfileSurfaceProps = {
   onDefault: (contact: Contact) => Promise<void>;
   onStatus: (contact: Contact) => Promise<void>;
   onResolve: (action: Action, note: string) => Promise<void>;
-  onWebsite: (websiteUrl: string | null) => Promise<void>;
   loadVenues: () => void;
   loadActivity: () => void;
 };
-
-const venueProductColumns: AdminColumn<Venue>[] = [
-  { id: "venue", header: dict.clientProfileColVenue, rowHeader: true, sortValue: (venue) => venue.name, cell: (venue) => <strong className="font-semibold">{venue.name}</strong> },
-  { id: "products", header: dict.clientProfileColProducts, align: "end", sortValue: (venue) => venue.productCount, cell: (venue) => <span className="font-semibold tabular-nums">{venue.productCount}</span> },
-];
 
 function ProfileSurface(props: ProfileSurfaceProps) {
   const router = useRouter(); const pathname = usePathname(); const params = useSearchParams();
@@ -468,17 +371,9 @@ function ProfileSurface(props: ProfileSurfaceProps) {
     : section === "venues" ? props.venuesStatus === "LoadingFirstPage" ? <AdminLoadingState /> : <VenueSection venues={props.venues} detail={props.venueDetail} selectedId={selectedVenueId} canLoadMore={props.venuesStatus === "CanLoadMore"} loadingMore={props.venuesStatus === "LoadingMore"} onSelect={(id) => updateUrl(router, pathname, params, "venue", id)} onLoadMore={props.loadVenues} onProblem={openProblem} />
       : section === "finance" ? <AdminClientFinanceSummary accountId={props.profile.accountId} preview={!props.live} />
         : section === "communication" ? <CommunicationSection contact={selectedContact} profile={props.profile} live={props.live} />
-          : section === "products" ? <div><div className="flex flex-wrap items-center justify-between gap-3"><h2 className="text-lg font-semibold">{dict.clientProfileProductsSummary}</h2><Link href="/admin/operativa/proizvodi" className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold underline underline-offset-4">{dict.clientProfileOpenProducts}<ExternalLink className="size-4" aria-hidden="true" /></Link></div><p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--admin-text-muted)]">{dict.clientProfileProductsBody}</p><AdminDataView
-              className="mt-4"
-              listKey="klijent.proizvodi"
-              caption={dict.clientProfileProductsSummary}
-              rows={props.venues}
-              getRowId={(venue) => venue.businessId}
-              columns={venueProductColumns}
-              renderCard={(venue) => <><strong className="block truncate">{venue.name}</strong><span className="mt-2 block text-2xl font-semibold">{venue.productCount}</span><span className="text-xs text-[var(--admin-text-muted)]">{dict.clientProfileProductsAtVenue}</span></>}
-            /></div>
+          : section === "products" ? <div><div className="flex flex-wrap items-center justify-between gap-3"><h2 className="text-lg font-semibold">{dict.clientProfileProductsSummary}</h2><Link href="/admin/operativa/proizvodi" className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold underline underline-offset-4">{dict.clientProfileOpenProducts}<ExternalLink className="size-4" aria-hidden="true" /></Link></div><p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--admin-text-muted)]">{dict.clientProfileProductsBody}</p><div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{props.venues.map((venue) => <div key={venue.businessId} className="rounded-xl border border-[var(--admin-border)] p-4"><strong className="block truncate">{venue.name}</strong><span className="mt-2 block text-2xl font-semibold">{venue.productCount}</span><span className="text-xs text-[var(--admin-text-muted)]">{dict.clientProfileProductsAtVenue}</span></div>)}</div></div>
             : props.activityStatus === "LoadingFirstPage" ? <AdminLoadingState /> : <ActivitySection rows={props.activity} canLoadMore={props.activityStatus === "CanLoadMore"} loadingMore={props.activityStatus === "LoadingMore"} onLoadMore={props.loadActivity} />;
-  return <div className="grid min-w-0 gap-5"><ProfileHeader profile={props.profile} onWebsite={props.onWebsite} /><div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_21rem]"><div className="min-w-0 xl:col-start-1 xl:row-start-1"><nav aria-label={dict.clientProfileSectionOverview} className="grid grid-cols-2 gap-1 rounded-2xl border border-[var(--admin-border)] bg-[var(--admin-surface)] p-1 sm:grid-cols-3 xl:grid-cols-6">{SECTIONS.map((item) => <button key={item.id} type="button" aria-current={section === item.id ? "page" : undefined} onClick={() => updateUrl(router, pathname, params, "section", item.id === "overview" ? undefined : item.id)} className={cn("min-h-11 rounded-xl px-2 text-xs font-semibold", section === item.id ? "bg-[var(--admin-ink)] text-[var(--admin-surface)]" : "hover:bg-[var(--admin-surface-muted)]")}>{item.label}</button>)}</nav>{section === "communication" ? <div className="mt-4 min-w-0">{content}</div> : <AdminPanel className="mt-4 min-w-0 overflow-hidden p-4 sm:p-5">{content}</AdminPanel>}</div><aside className="order-first min-w-0 xl:order-none xl:col-start-2 xl:row-start-1"><ContactCard profile={props.profile} selected={selectedContact} onSelect={(id) => updateUrl(router, pathname, params, "contact", id)} onAdd={() => openContactDialog("new")} onEdit={openContactDialog} onDefault={(contact) => run(() => props.onDefault(contact))} onStatus={openConfirmStatus} pending={pending} /></aside></div><ContactDialog key={`${contactDialog === "new" ? "new" : contactDialog?.id ?? "closed"}-${contactDialogVersion}`} open={contactDialogOpen} contact={contactDialog === "new" ? null : contactDialog} busy={pending} error={mutationError} onOpenChange={(open) => open ? setContactDialogOpen(true) : closeDialog(setContactDialogOpen)} onSubmit={(draft) => run(() => contactDialog && contactDialog !== "new" ? props.onUpdate(contactDialog, draft) : props.onCreate(draft), () => closeDialog(setContactDialogOpen))} /><Dialog open={Boolean(confirmStatus) && confirmStatusOpen} onOpenChange={(open) => open ? setConfirmStatusOpen(true) : closeDialog(setConfirmStatusOpen)}><DialogContent className="admin-v1 border-[var(--admin-border)] bg-[var(--admin-surface-strong)]"><DialogHeader><DialogTitle>{confirmStatus?.status === "active" ? dict.clientProfileDeactivateContact : dict.clientProfileReactivateContact}</DialogTitle><DialogDescription>{dict.clientProfileConfirmDeactivate}</DialogDescription></DialogHeader>{mutationError ? <p role="alert" className="text-sm text-[var(--admin-danger)]">{mutationError}</p> : null}<DialogFooter><Button variant="outline" onClick={() => closeDialog(setConfirmStatusOpen)}>{dict.clientProfileCancel}</Button><Button disabled={pending} onClick={() => confirmStatus && run(() => props.onStatus(confirmStatus), () => closeDialog(setConfirmStatusOpen))}>{confirmStatus?.status === "active" ? dict.clientProfileDeactivateContact : dict.clientProfileReactivateContact}</Button></DialogFooter></DialogContent></Dialog><ProblemDialog profile={props.profile} action={action} open={actionOpen} onClose={() => closeDialog(setActionOpen)} onResolve={props.onResolve} live={props.live} /></div>;
+  return <div className="grid min-w-0 gap-5"><ProfileHeader profile={props.profile} /><div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_21rem]"><div className="min-w-0 xl:col-start-1 xl:row-start-1"><nav aria-label={dict.clientProfileSectionOverview} className="grid grid-cols-2 gap-1 rounded-2xl border border-[var(--admin-border)] bg-[var(--admin-surface)] p-1 sm:grid-cols-3 xl:grid-cols-6">{SECTIONS.map((item) => <button key={item.id} type="button" aria-current={section === item.id ? "page" : undefined} onClick={() => updateUrl(router, pathname, params, "section", item.id === "overview" ? undefined : item.id)} className={cn("min-h-11 rounded-xl px-2 text-xs font-semibold", section === item.id ? "bg-[var(--admin-ink)] text-[var(--admin-surface)]" : "hover:bg-[var(--admin-surface-muted)]")}>{item.label}</button>)}</nav>{section === "communication" ? <div className="mt-4 min-w-0">{content}</div> : <AdminPanel className="mt-4 min-w-0 overflow-hidden p-4 sm:p-5">{content}</AdminPanel>}</div><aside className="order-first min-w-0 xl:order-none xl:col-start-2 xl:row-start-1"><ContactCard profile={props.profile} selected={selectedContact} onSelect={(id) => updateUrl(router, pathname, params, "contact", id)} onAdd={() => openContactDialog("new")} onEdit={openContactDialog} onDefault={(contact) => run(() => props.onDefault(contact))} onStatus={openConfirmStatus} pending={pending} /></aside></div><ContactDialog key={`${contactDialog === "new" ? "new" : contactDialog?.id ?? "closed"}-${contactDialogVersion}`} open={contactDialogOpen} contact={contactDialog === "new" ? null : contactDialog} busy={pending} error={mutationError} onOpenChange={(open) => open ? setContactDialogOpen(true) : closeDialog(setContactDialogOpen)} onSubmit={(draft) => run(() => contactDialog && contactDialog !== "new" ? props.onUpdate(contactDialog, draft) : props.onCreate(draft), () => closeDialog(setContactDialogOpen))} /><Dialog open={Boolean(confirmStatus) && confirmStatusOpen} onOpenChange={(open) => open ? setConfirmStatusOpen(true) : closeDialog(setConfirmStatusOpen)}><DialogContent className="admin-v1 border-[var(--admin-border)] bg-[var(--admin-surface-strong)]"><DialogHeader><DialogTitle>{confirmStatus?.status === "active" ? dict.clientProfileDeactivateContact : dict.clientProfileReactivateContact}</DialogTitle><DialogDescription>{dict.clientProfileConfirmDeactivate}</DialogDescription></DialogHeader>{mutationError ? <p role="alert" className="text-sm text-[var(--admin-danger)]">{mutationError}</p> : null}<DialogFooter><Button variant="outline" onClick={() => closeDialog(setConfirmStatusOpen)}>{dict.clientProfileCancel}</Button><Button disabled={pending} onClick={() => confirmStatus && run(() => props.onStatus(confirmStatus), () => closeDialog(setConfirmStatusOpen))}>{confirmStatus?.status === "active" ? dict.clientProfileDeactivateContact : dict.clientProfileReactivateContact}</Button></DialogFooter></DialogContent></Dialog><ProblemDialog profile={props.profile} action={action} open={actionOpen} onClose={() => closeDialog(setActionOpen)} onResolve={props.onResolve} live={props.live} /></div>;
 }
 
 export function AdminClientProfileWorkspace({ accountId }: { accountId: string }) {
@@ -488,10 +383,10 @@ export function AdminClientProfileWorkspace({ accountId }: { accountId: string }
   const selectedVenue = venuePage.results.some((venue) => venue.businessId === params.get("venue")) ? params.get("venue") : venuePage.results[0]?.businessId;
   const venueDetail = useQuery(api.adminClientProfiles.getVenueDetail, profile && selectedVenue ? { accountId: profile.accountId, businessId: selectedVenue } : "skip");
   const activityPage = usePaginatedQuery(api.adminClientProfiles.listActivity, profile ? { accountId: profile.accountId } : "skip", { initialNumItems: 15 });
-  const create = useMutation(api.adminClientProfiles.createContact); const update = useMutation(api.adminClientProfiles.updateContact); const setDefault = useMutation(api.adminClientProfiles.setDefaultContact); const setStatus = useMutation(api.adminClientProfiles.setContactStatus); const resolve = useMutation(api.adminClientProfiles.resolveManualProblem); const setWebsite = useMutation(api.adminClientProfiles.setWebsite);
+  const create = useMutation(api.adminClientProfiles.createContact); const update = useMutation(api.adminClientProfiles.updateContact); const setDefault = useMutation(api.adminClientProfiles.setDefaultContact); const setStatus = useMutation(api.adminClientProfiles.setContactStatus); const resolve = useMutation(api.adminClientProfiles.resolveManualProblem);
   if (profile === undefined) return <AdminPanel><AdminLoadingState label={dict.loadingLabel} /></AdminPanel>;
   if (profile === null) return <AdminPanel><AdminErrorState title={dict.clientProfileNotFoundTitle} body={dict.clientProfileNotFoundBody} /></AdminPanel>;
-  return <ProfileSurface profile={profile} venues={venuePage.results} venueDetail={venueDetail} activity={activityPage.results} venuesStatus={venuePage.status} activityStatus={activityPage.status} live onCreate={async (draft) => { await create({ accountId: profile.accountId, ...draft }); }} onUpdate={async (contact, draft) => { await update({ accountId: profile.accountId, contactId: contact.id, ...draft }); }} onDefault={async (contact) => { await setDefault({ accountId: profile.accountId, contactId: contact.id }); }} onStatus={async (contact) => { await setStatus({ accountId: profile.accountId, contactId: contact.id, status: contact.status === "active" ? "inactive" : "active" }); }} onResolve={async (action, note) => { await resolve({ accountId: profile.accountId, actionItemId: action.id, note }); }} onWebsite={async (websiteUrl) => { await setWebsite({ accountId: profile.accountId, websiteUrl }); }} loadVenues={() => venuePage.loadMore(12)} loadActivity={() => activityPage.loadMore(15)} />;
+  return <ProfileSurface profile={profile} venues={venuePage.results} venueDetail={venueDetail} activity={activityPage.results} venuesStatus={venuePage.status} activityStatus={activityPage.status} live onCreate={async (draft) => { await create({ accountId: profile.accountId, ...draft }); }} onUpdate={async (contact, draft) => { await update({ accountId: profile.accountId, contactId: contact.id, ...draft }); }} onDefault={async (contact) => { await setDefault({ accountId: profile.accountId, contactId: contact.id }); }} onStatus={async (contact) => { await setStatus({ accountId: profile.accountId, contactId: contact.id, status: contact.status === "active" ? "inactive" : "active" }); }} onResolve={async (action, note) => { await resolve({ accountId: profile.accountId, actionItemId: action.id, note }); }} loadVenues={() => venuePage.loadMore(12)} loadActivity={() => activityPage.loadMore(15)} />;
 }
 
 export class AdminClientProfileErrorBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
@@ -501,7 +396,7 @@ export class AdminClientProfileErrorBoundary extends Component<{ children: React
 }
 
 const fixtureProfile = {
-  accountId: "fixture-account" as Id<"accounts">, accountName: "Bistro Zelen d.o.o.", ownerDisplayName: "Ana Petrović sa veoma dugim poslovnim imenom", smkCode: "SMK-ANA-014", websiteUrl: "https://www.primer.rs/", status: "active", premiumStatus: "grace", premiumWarning: true, venueCount: 2,
+  accountId: "fixture-account" as Id<"accounts">, websiteUrl: null, accountName: "Bistro Zelen d.o.o.", ownerDisplayName: "Ana Petrović sa veoma dugim poslovnim imenom", smkCode: "SMK-ANA-014", status: "active", premiumStatus: "grace", premiumWarning: true, venueCount: 2,
   contacts: [
     { id: "fixture-contact-1" as Id<"accountContacts">, firstName: "Ana", lastName: "Petrović", displayName: "Ana Petrović", email: "ana@bistrozelen.rs", phone: "+381641234567", positionTitle: "Vlasnica", isOwner: true, status: "active", isDefault: true },
     { id: "fixture-contact-2" as Id<"accountContacts">, firstName: "Marko", lastName: "Ilić", displayName: "Marko Ilić", email: "marko@bistrozelen.rs", phone: "+381635558011", positionTitle: "Operativa", isOwner: false, status: "active", isDefault: false },
@@ -516,7 +411,7 @@ const fixtureVenues: Venue[] = [
   { businessId: "fixture-venue-2" as Id<"businesses">, name: "Bistro Zelen Novi Beograd", smlCode: "SML-BZE-002", city: "Beograd", status: "active", productCount: 8, signal: { severity: null, causeId: null } },
 ];
 
-const fixtureVenueDetail = { businessId: "fixture-venue-1" as Id<"businesses">, name: "Bistro Zelen Dorćol", smlCode: "SML-BZE-001", city: "Beograd", address: "Cara Dušana 42", status: "active", legalEntity: { name: "Bistro Zelen d.o.o.", taxId: "112233445", registrationNumber: "22114455", address: "Cara Dušana 42" }, brand: { name: "Bistro Zelen" }, venueGroup: null, effectiveContact: fixtureProfile.contacts[1], contactSource: "venue_override", productCount: 14, services: [{ profileId: "fixture-service" as Id<"serviceProfiles">, type: "scanme_menu", profileStatus: "active", subscription: { id: "fixture-subscription" as Id<"subscriptions">, period: "annual", status: "grace", warning: true, startsAt: Date.parse("2025-09-15"), paidThrough: Date.parse("2026-09-15"), graceEndsAt: Date.parse("2026-09-22"), nextTransitionAt: Date.parse("2026-09-22"), cancelAtPeriodEnd: false } }], openActions: fixtureProfile.openActions, openActionsCapped: false } satisfies VenueDetail;
+const fixtureVenueDetail = { businessId: "fixture-venue-1" as Id<"businesses">, name: "Bistro Zelen Dorćol", smlCode: "SML-BZE-001", city: "Beograd", address: "Cara Dušana 42", status: "active", legalEntity: { name: "Bistro Zelen d.o.o.", taxId: "112233445", registrationNumber: "22114455", address: "Cara Dušana 42" }, brand: { name: "Bistro Zelen" }, venueGroup: null, effectiveContact: fixtureProfile.contacts[1], contactSource: "venue_override", productCount: 14, services: [{ profileId: "fixture-service" as Id<"serviceProfiles">, type: "google_review", profileStatus: "active", subscription: { id: "fixture-subscription" as Id<"subscriptions">, period: "annual", status: "grace", warning: true, startsAt: Date.parse("2025-09-15"), paidThrough: Date.parse("2026-09-15"), graceEndsAt: Date.parse("2026-09-22"), nextTransitionAt: Date.parse("2026-09-22"), cancelAtPeriodEnd: false } }], openActions: fixtureProfile.openActions, openActionsCapped: false } satisfies VenueDetail;
 const fixtureVenueDetailTwo = { ...fixtureVenueDetail, businessId: "fixture-venue-2" as Id<"businesses">, name: "Bistro Zelen Novi Beograd", smlCode: "SML-BZE-002", address: "Bulevar Zorana Đinđića 64", effectiveContact: fixtureProfile.contacts[0], contactSource: "account" as const, productCount: 8, services: [], openActions: [] } satisfies VenueDetail;
 
 const fixtureActivity: Activity[] = [{ id: "fixture-audit" as Id<"adminAuditLog">, action: "admin_v1_contact_updated", actorUserId: "fixture-admin" as Id<"users">, businessId: null, createdAt: Date.parse("2026-09-11T10:30:00Z") }];
@@ -525,5 +420,5 @@ export function AdminClientProfilePreview() {
   const params = useSearchParams();
   const venueDetail = params.get("venue") === String(fixtureVenueDetailTwo.businessId) ? fixtureVenueDetailTwo : fixtureVenueDetail;
   const [profile, setProfile] = useState<Profile>(fixtureProfile);
-  return <div className="grid gap-4"><div><span className="rounded-full bg-[var(--admin-accent)] px-2.5 py-1 text-[0.68rem] font-bold text-[var(--admin-accent-ink)]">{dict.clientProfileFixtureBadge}</span><p className="mt-2 text-sm text-[var(--admin-text-muted)]">{dict.clientProfileFixtureDescription}</p></div><ProfileSurface profile={profile} venues={fixtureVenues} venueDetail={venueDetail} activity={fixtureActivity} venuesStatus="Exhausted" activityStatus="Exhausted" live={false} onCreate={async (draft) => setProfile((value) => ({ ...value, contacts: [...value.contacts, { id: `fixture-${value.contacts.length + 1}` as Id<"accountContacts">, ...draft, displayName: `${draft.firstName} ${draft.lastName}`, email: draft.email || null, phone: draft.phone || null, isOwner: false, status: "active", isDefault: false }] }))} onUpdate={async (contact, draft) => setProfile((value) => ({ ...value, contacts: value.contacts.map((item) => item.id === contact.id ? { ...item, ...draft, displayName: `${draft.firstName} ${draft.lastName}`, email: draft.email || null, phone: draft.phone || null } : item) }))} onDefault={async (contact) => setProfile((value) => ({ ...value, defaultContactId: contact.id, contacts: value.contacts.map((item) => ({ ...item, isDefault: item.id === contact.id })) }))} onStatus={async (contact) => setProfile((value) => ({ ...value, contacts: value.contacts.map((item) => item.id === contact.id ? { ...item, status: item.status === "active" ? "inactive" : "active" } : item) }))} onResolve={async (action) => setProfile((value) => ({ ...value, openActions: value.openActions.filter((item) => item.id !== action.id), openActionCount: Math.max(0, value.openActionCount - 1) }))} onWebsite={async (websiteUrl) => setProfile((value) => ({ ...value, websiteUrl }))} loadVenues={() => undefined} loadActivity={() => undefined} /></div>;
+  return <div className="grid gap-4"><div><span className="rounded-full bg-[var(--admin-accent)] px-2.5 py-1 text-[0.68rem] font-bold text-[var(--admin-accent-ink)]">{dict.clientProfileFixtureBadge}</span><p className="mt-2 text-sm text-[var(--admin-text-muted)]">{dict.clientProfileFixtureDescription}</p></div><ProfileSurface profile={profile} venues={fixtureVenues} venueDetail={venueDetail} activity={fixtureActivity} venuesStatus="Exhausted" activityStatus="Exhausted" live={false} onCreate={async (draft) => setProfile((value) => ({ ...value, contacts: [...value.contacts, { id: `fixture-${value.contacts.length + 1}` as Id<"accountContacts">, ...draft, displayName: `${draft.firstName} ${draft.lastName}`, email: draft.email || null, phone: draft.phone || null, isOwner: false, status: "active", isDefault: false }] }))} onUpdate={async (contact, draft) => setProfile((value) => ({ ...value, contacts: value.contacts.map((item) => item.id === contact.id ? { ...item, ...draft, displayName: `${draft.firstName} ${draft.lastName}`, email: draft.email || null, phone: draft.phone || null } : item) }))} onDefault={async (contact) => setProfile((value) => ({ ...value, defaultContactId: contact.id, contacts: value.contacts.map((item) => ({ ...item, isDefault: item.id === contact.id })) }))} onStatus={async (contact) => setProfile((value) => ({ ...value, contacts: value.contacts.map((item) => item.id === contact.id ? { ...item, status: item.status === "active" ? "inactive" : "active" } : item) }))} onResolve={async (action) => setProfile((value) => ({ ...value, openActions: value.openActions.filter((item) => item.id !== action.id), openActionCount: Math.max(0, value.openActionCount - 1) }))} loadVenues={() => undefined} loadActivity={() => undefined} /></div>;
 }

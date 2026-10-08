@@ -88,7 +88,7 @@ export function AdminProductsWorkspace({ initialVenueId, initialProductId, initi
     ...(deferredInventorySearch.trim() ? { search: deferredInventorySearch } : {}),
     ...(filters.productType !== "all" ? { productType: filters.productType } : {}),
     ...(filters.design !== "all" ? { design: filters.design as "template" | "custom" } : {}),
-    ...(filters.service !== "all" ? { service: filters.service as "scanme_links" | "google_review" | "scanme_menu" } : {}),
+    ...(filters.service !== "all" ? { service: filters.service as "scanme_links" | "google_review" } : {}),
     ...(filters.status !== "all" ? { state: filters.status } : {}),
     sort: "smf",
     direction: "asc",

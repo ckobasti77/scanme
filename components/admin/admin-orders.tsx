@@ -29,8 +29,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
-import { AdminEmptyState, AdminErrorState, AdminLoadingState, AdminPanel, AdminStatus } from "./admin-primitives";
-import { AdminDataView, type AdminColumn } from "./admin-ui";
+import { AdminEmptyState, AdminErrorState, AdminLoadingState, AdminPanel, AdminStatus, AdminTable } from "./admin-primitives";
 
 type ListResult = FunctionReturnType<typeof api.adminOrders.list>;
 type OrderRow = ListResult["page"][number];
@@ -214,44 +213,56 @@ function OrdersList({ rows, details, onSelect, onExpand }: { rows: OrderRow[]; d
     if (next.has(id)) next.delete(id); else next.add(id);
     return next;
   });
-  const columns: AdminColumn<OrderRow>[] = [
-    { id: "order", header: dict.colOrder, sortValue: (row) => row.smpCode, cell: (row) => <button type="button" onClick={() => { toggle(row.id); onExpand(row.id); }} className="inline-flex min-h-11 items-center gap-2 rounded-lg pr-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-focus)]" aria-expanded={expanded.has(row.id)} aria-label={`${expanded.has(row.id) ? dict.collapseLines : dict.expandLines}: ${row.smpCode}`}><ChevronRight className={cn("size-4 transition-transform motion-reduce:transition-none", expanded.has(row.id) && "rotate-90")} aria-hidden="true" /><span><strong className="block text-sm">{row.smpCode}</strong><span className="mt-1 block font-mono text-[0.68rem] text-[var(--admin-text-muted)]">{row.lineCount} · {row.unitCount} {dict.quantityShort}</span></span></button> },
-    { id: "client", header: dict.colClient, sortValue: (row) => row.accountName, className: "max-w-[18rem]", cell: (row) => <><strong className="block text-sm">{row.accountName}</strong><span className="mt-1 block text-xs text-[var(--admin-text-muted)]">{row.primaryBusinessName ?? `${row.lineCount} ${dict.multipleLocations}`}</span><span className="mt-1 block font-mono text-[0.68rem] text-[var(--admin-text-muted)]">{row.smkCode}{row.primarySmlCode ? ` · ${row.primarySmlCode}` : ""}</span></> },
-    { id: "state", header: dict.colState, cell: (row) => <AxisStack row={row} /> },
-    { id: "next", header: dict.colNext, sortValue: nextStep, className: "max-w-[16rem]", cell: (row) => <span className={row.problemCount ? "font-semibold text-[var(--admin-danger)]" : "font-medium"}>{nextStep(row)}</span> },
-    { id: "note", header: dict.colNoteProblem, sortValue: (row) => row.problemCount, className: "max-w-[14rem] text-xs", cell: (row) => <><span className={row.problemCount ? "inline-flex items-center gap-1.5 font-semibold text-[var(--admin-danger)]" : "text-[var(--admin-text-muted)]"}>{row.problemCount ? <><AlertTriangle className="size-3.5" aria-hidden="true" />{row.problemCount} {dict.problems}</> : row.notePreview ?? dict.noNote}</span>{row.problemCount && row.notePreview ? <span className="mt-2 block line-clamp-2 text-[var(--admin-text-muted)]">{row.notePreview}</span> : null}</> },
-    { id: "assignee", header: dict.colAssignee, sortValue: (row) => row.assigneeName, cell: (row) => row.assigneeName },
-    { id: "updated", header: dict.colUpdated, sortValue: (row) => row.updatedAt, className: "text-xs text-[var(--admin-text-muted)]", cell: (row) => <time dateTime={new Date(row.updatedAt).toISOString()}>{dateTime.format(row.updatedAt)}</time> },
-  ];
   return (
-    <AdminDataView
-      listKey="operativa.porudzbine"
-      caption={dict.tableCaption}
-      rows={rows}
-      getRowId={(row) => row.id}
-      columns={columns}
-      tableClassName="min-w-[64rem]"
-      actionsHeader={dict.openDetail}
-      renderCard={(row) => (
-        <button type="button" data-order-detail-trigger={row.id} onClick={() => onSelect(row.id)} className="grid min-h-11 w-full gap-4 rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--admin-focus)]">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0"><strong className="block text-base">{row.smpCode}</strong><span className="mt-1 block truncate text-sm text-[var(--admin-text-muted)]">{row.accountName}</span></div>
-            {row.problemCount ? <AdminStatus label={`${row.problemCount} ${dict.problems}`} tone="problem" /> : <ChevronRight className="mt-1 size-5 shrink-0" aria-hidden="true" />}
-          </div>
-          <p className="text-sm font-semibold">{nextStep(row)}</p>
-          <AxisStack row={row} />
-          <div className="flex items-center justify-between gap-3 text-xs text-[var(--admin-text-muted)]"><span>{row.assigneeName}</span><time dateTime={new Date(row.updatedAt).toISOString()}>{dateTime.format(row.updatedAt)}</time></div>
-        </button>
-      )}
-      rowActions={(row, context) => (context.view === "kartice" ? (
-        <button type="button" onClick={() => { toggle(row.id); onExpand(row.id); }} className="flex min-h-11 w-full items-center justify-between rounded-lg text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-focus)]" aria-expanded={expanded.has(row.id)}>
-          {expanded.has(row.id) ? dict.collapseLines : dict.expandLines}<ChevronDown className={cn("size-4 transition-transform motion-reduce:transition-none", expanded.has(row.id) && "rotate-180")} aria-hidden="true" />
-        </button>
-      ) : (
-        <button type="button" data-order-detail-trigger={row.id} onClick={() => onSelect(row.id)} className="inline-grid size-11 place-items-center rounded-full hover:bg-[var(--admin-surface-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-focus)]" aria-label={`${dict.openDetail}: ${row.smpCode}`}><MoreHorizontal className="size-4" aria-hidden="true" /></button>
-      ))}
-      rowDetail={(row) => (expanded.has(row.id) ? (details[row.id] ? <Lines detail={details[row.id]!} /> : <AdminLoadingState compact />) : null)}
-    />
+    <>
+      <AdminTable caption={dict.tableCaption} className="hidden lg:block">
+        <thead className="bg-[var(--admin-surface-muted)] text-xs text-[var(--admin-text-muted)]">
+          <tr>{[dict.colOrder, dict.colClient, dict.colState, dict.colNext, dict.colNoteProblem, dict.colAssignee, dict.colUpdated, dict.openDetail].map((label) => <th key={label} className="px-4 py-3 font-medium last:w-14 last:text-right">{label}</th>)}</tr>
+        </thead>
+        <tbody className="divide-y divide-[var(--admin-border)]">
+          {rows.map((row) => (
+            <FragmentRow key={row.id} row={row} expanded={expanded.has(row.id)} detail={details[row.id]} onToggle={() => { toggle(row.id); onExpand(row.id); }} onSelect={() => onSelect(row.id)} />
+          ))}
+        </tbody>
+      </AdminTable>
+      <div className="grid gap-3 lg:hidden">
+        {rows.map((row) => (
+          <AdminPanel key={row.id} className="overflow-hidden">
+            <button type="button" data-order-detail-trigger={row.id} onClick={() => onSelect(row.id)} className="grid min-h-11 w-full gap-4 p-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--admin-focus)]">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0"><strong className="block text-base">{row.smpCode}</strong><span className="mt-1 block truncate text-sm text-[var(--admin-text-muted)]">{row.accountName}</span></div>
+                {row.problemCount ? <AdminStatus label={`${row.problemCount} ${dict.problems}`} tone="problem" /> : <ChevronRight className="mt-1 size-5 shrink-0" aria-hidden="true" />}
+              </div>
+              <p className="text-sm font-semibold">{nextStep(row)}</p>
+              <AxisStack row={row} />
+              <div className="flex items-center justify-between gap-3 text-xs text-[var(--admin-text-muted)]"><span>{row.assigneeName}</span><time dateTime={new Date(row.updatedAt).toISOString()}>{dateTime.format(row.updatedAt)}</time></div>
+            </button>
+            <button type="button" onClick={() => { toggle(row.id); onExpand(row.id); }} className="flex min-h-11 w-full items-center justify-between border-t border-[var(--admin-border)] px-4 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--admin-focus)]" aria-expanded={expanded.has(row.id)}>
+              {expanded.has(row.id) ? dict.collapseLines : dict.expandLines}<ChevronDown className={cn("size-4 transition-transform motion-reduce:transition-none", expanded.has(row.id) && "rotate-180")} aria-hidden="true" />
+            </button>
+            {expanded.has(row.id) ? details[row.id] ? <Lines detail={details[row.id]!} /> : <AdminLoadingState compact /> : null}
+          </AdminPanel>
+        ))}
+      </div>
+    </>
+  );
+}
+
+function FragmentRow({ row, expanded, detail, onToggle, onSelect }: { row: OrderRow; expanded: boolean; detail?: DetailView; onToggle: () => void; onSelect: () => void }) {
+  return (
+    <>
+      <tr className="hover:bg-[var(--admin-surface-muted)]/60">
+        <td className="px-4 py-4 align-top"><button type="button" onClick={onToggle} className="inline-flex min-h-11 items-center gap-2 rounded-lg pr-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-focus)]" aria-expanded={expanded} aria-label={`${expanded ? dict.collapseLines : dict.expandLines}: ${row.smpCode}`}><ChevronRight className={cn("size-4 transition-transform motion-reduce:transition-none", expanded && "rotate-90")} aria-hidden="true" /><span><strong className="block text-sm">{row.smpCode}</strong><span className="mt-1 block font-mono text-[0.68rem] text-[var(--admin-text-muted)]">{row.lineCount} · {row.unitCount} {dict.quantityShort}</span></span></button></td>
+        <td className="max-w-[18rem] px-4 py-4 align-top"><strong className="block text-sm">{row.accountName}</strong><span className="mt-1 block text-xs text-[var(--admin-text-muted)]">{row.primaryBusinessName ?? `${row.lineCount} ${dict.multipleLocations}`}</span><span className="mt-1 block font-mono text-[0.68rem] text-[var(--admin-text-muted)]">{row.smkCode}{row.primarySmlCode ? ` · ${row.primarySmlCode}` : ""}</span></td>
+        <td className="px-4 py-4 align-top"><AxisStack row={row} /></td>
+        <td className="max-w-[16rem] px-4 py-4 align-top text-sm"><span className={row.problemCount ? "font-semibold text-[var(--admin-danger)]" : "font-medium"}>{nextStep(row)}</span></td>
+        <td className="max-w-[14rem] px-4 py-4 align-top text-xs"><span className={row.problemCount ? "inline-flex items-center gap-1.5 font-semibold text-[var(--admin-danger)]" : "text-[var(--admin-text-muted)]"}>{row.problemCount ? <><AlertTriangle className="size-3.5" aria-hidden="true" />{row.problemCount} {dict.problems}</> : row.notePreview ?? dict.noNote}</span>{row.problemCount && row.notePreview ? <span className="mt-2 block line-clamp-2 text-[var(--admin-text-muted)]">{row.notePreview}</span> : null}</td>
+        <td className="px-4 py-4 align-top text-sm">{row.assigneeName}</td>
+        <td className="px-4 py-4 align-top text-xs text-[var(--admin-text-muted)]"><time dateTime={new Date(row.updatedAt).toISOString()}>{dateTime.format(row.updatedAt)}</time></td>
+        <td className="px-2 py-2 text-right"><button type="button" data-order-detail-trigger={row.id} onClick={onSelect} className="inline-grid size-11 place-items-center rounded-full hover:bg-[var(--admin-surface-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-focus)]" aria-label={`${dict.openDetail}: ${row.smpCode}`}><MoreHorizontal className="size-4" aria-hidden="true" /></button></td>
+      </tr>
+      {expanded ? <tr><td colSpan={8} className="p-0">{detail ? <Lines detail={detail} /> : <AdminLoadingState compact />}</td></tr> : null}
+    </>
   );
 }
 

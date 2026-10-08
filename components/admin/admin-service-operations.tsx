@@ -36,8 +36,7 @@ import {
 import { fmt } from "@/lib/i18n/format";
 import { adminServicesSr as dict } from "@/lib/i18n/sr/admin-services";
 import { cn } from "@/lib/utils";
-import { AdminEmptyState, AdminErrorState, AdminLoadingState, AdminPanel, AdminStatus } from "./admin-primitives";
-import { AdminDataView, type AdminColumn } from "./admin-ui";
+import { AdminEmptyState, AdminErrorState, AdminLoadingState, AdminPanel, AdminStatus, AdminTable } from "./admin-primitives";
 
 type ServiceType = "scanme_links" | "google_review" | "scanme_menu";
 type Filter = "all" | "active" | "grace" | "suspended" | "inactive" | "warning" | "problem";
@@ -276,16 +275,15 @@ export function AdminServiceOperations({ serviceType, preview = false, initialSe
         </div>
 
         {!preview && list.status === "LoadingFirstPage" ? <AdminLoadingState /> : rows.length === 0 ? <AdminEmptyState title={search || filter !== "all" ? dict.emptyFilteredTitle : dict.emptyTitle} body={search || filter !== "all" ? dict.emptyFilteredBody : dict.emptyBody} /> : (
-          <div className="p-3">
-            <ServiceList
-              listKey={`usluge.${serviceType === "scanme_links" ? "links" : serviceType === "google_review" ? "review" : "meni"}`}
-              rows={rows}
-              selectedId={selectedId}
-              onOpen={(row, trigger) => select(row.serviceProfileId, opensDetailSheet(), trigger)}
-              onPick={(row) => select(row.serviceProfileId)}
-              onLifecycle={openLifecycle}
-            />
-          </div>
+          <>
+            <div className="hidden xl:block">
+              <AdminTable caption={dict.tableCaption} className="m-3 rounded-xl" tableClassName="table-fixed">
+                <thead className="border-b border-[var(--admin-border)] text-xs font-semibold text-[var(--admin-text-muted)]"><tr><th className="w-[25%] px-4 py-3">{dict.colVenue}</th><th className="w-[13%] px-3 py-3">{dict.colStatus}</th><th className="w-[14%] px-3 py-3">{dict.colSubscription}</th><th className="w-[14%] px-3 py-3">{dict.colConfiguration}</th><th className="w-[18%] px-3 py-3">{dict.colChannels}</th><th className="w-[12%] px-3 py-3">{dict.colActivity}</th><th className="w-14 px-3 py-3"><span className="sr-only">{dict.colActions}</span></th></tr></thead>
+                <tbody>{rows.map((row) => <ServiceDesktopRow key={row.serviceProfileId} row={row} selected={row.serviceProfileId === selectedId} onSelect={() => select(row.serviceProfileId)} onLifecycle={openLifecycle} />)}</tbody>
+              </AdminTable>
+            </div>
+            <div className="grid gap-2 p-3 xl:hidden">{rows.map((row) => <ServiceMobileRow key={row.serviceProfileId} row={row} onSelect={(trigger) => select(row.serviceProfileId, true, trigger)} />)}</div>
+          </>
         )}
         {(list.status === "CanLoadMore" || list.status === "LoadingMore") ? <div className="border-t border-[var(--admin-border)] p-3"><Button type="button" variant="outline" disabled={list.status === "LoadingMore"} onClick={() => list.loadMore(pageSize)} className="min-h-11">{list.status === "LoadingMore" ? dict.loadingMore : dict.loadMore}</Button></div> : null}
       </AdminPanel>
@@ -299,40 +297,13 @@ export function AdminServiceOperations({ serviceType, preview = false, initialSe
   );
 }
 
-function ServiceList({ listKey, rows, selectedId, onOpen, onPick, onLifecycle }: { listKey: string; rows: ServiceRow[]; selectedId: string | null; onOpen: (row: ServiceRow, trigger: HTMLButtonElement) => void; onPick: (row: ServiceRow) => void; onLifecycle: (operation: "suspend" | "reactivate") => void }) {
-  return (
-    <AdminDataView
-      listKey={listKey}
-      caption={dict.tableCaption}
-      rows={rows}
-      getRowId={(row) => row.serviceProfileId}
-      columns={serviceColumns(onOpen, onPick, onLifecycle)}
-      tableClassName="min-w-[46rem] table-fixed"
-      rowClassName={(row) => (row.serviceProfileId === selectedId ? "bg-[var(--admin-accent-soft)]" : undefined)}
-      renderCard={(row) => <ServiceMobileRow row={row} onSelect={(trigger) => onOpen(row, trigger)} />}
-    />
-  );
-}
-
-/** Below xl the detail panel is not on screen, so selecting a venue opens it in a sheet. */
-function opensDetailSheet() {
-  return !window.matchMedia("(min-width: 80rem)").matches;
-}
-
-function serviceColumns(onSelect: (row: ServiceRow, trigger: HTMLButtonElement) => void, onPick: (row: ServiceRow) => void, onLifecycle: (operation: "suspend" | "reactivate") => void): AdminColumn<ServiceRow>[] {
-  return [
-    { id: "venue", header: dict.colVenue, width: "25%", sortValue: (row) => row.venueName, cell: (row) => <button type="button" onClick={(event) => onSelect(row, event.currentTarget)} className="block text-left outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-focus)]"><span className="block font-semibold">{row.venueName}</span><span className="block text-xs text-[var(--admin-text-muted)]">{row.accountName} · {row.smlCode}</span></button> },
-    { id: "status", header: dict.colStatus, width: "13%", sortValue: (row) => labelForState(row.filterState), cell: (row) => <AdminStatus label={labelForState(row.filterState)} tone={stateTone(row.filterState)} /> },
-    { id: "subscription", header: dict.colSubscription, width: "14%", sortValue: (row) => (row.subscriptionState === "inactive" ? null : row.paidThrough), cell: (row) => (row.subscriptionState === "inactive" ? <span className="text-[var(--admin-text-muted)]">{dict.subscriptionMissing}</span> : <span>{formatDate(row.paidThrough)}</span>) },
-    { id: "configuration", header: dict.colConfiguration, width: "14%", cell: (row) => <AdminStatus label={configurationLabel(row.configurationState)} tone={row.configurationState === "published" || row.configurationState === "configured" ? "active" : row.configurationState === "draft" || row.configurationState === "unconfigured" ? "waiting" : "neutral"} /> },
-    { id: "channels", header: dict.colChannels, width: "18%", className: "text-xs text-[var(--admin-text-muted)]", cell: (row) => channels(row) },
-    { id: "activity", header: dict.colActivity, width: "12%", className: "text-xs text-[var(--admin-text-muted)]", cell: (row) => (row.signal.severity ? labelForState(row.signal.severity === "blocking" ? "problem" : "warning") : dict.noData) },
-    { id: "actions", header: dict.colActions, headerHidden: true, width: "3.5rem", cell: (row) => <RowMenu row={row} onSelect={() => onPick(row)} onLifecycle={onLifecycle} /> },
-  ];
+function ServiceDesktopRow({ row, selected, onSelect, onLifecycle }: { row: ServiceRow; selected: boolean; onSelect: () => void; onLifecycle: (operation: "suspend" | "reactivate") => void }) {
+  const state = row.filterState;
+  return <tr className={cn("border-b border-[var(--admin-border)] last:border-b-0", selected && "bg-[var(--admin-accent-soft)]")}><td className="px-4 py-3"><button type="button" onClick={onSelect} className="block text-left outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-focus)]"><span className="block font-semibold">{row.venueName}</span><span className="block text-xs text-[var(--admin-text-muted)]">{row.accountName} · {row.smlCode}</span></button></td><td className="px-3 py-3"><AdminStatus label={labelForState(state)} tone={stateTone(state)} /></td><td className="px-3 py-3 text-sm">{row.subscriptionState === "inactive" ? <span className="text-[var(--admin-text-muted)]">{dict.subscriptionMissing}</span> : <span>{formatDate(row.paidThrough)}</span>}</td><td className="px-3 py-3"><AdminStatus label={configurationLabel(row.configurationState)} tone={row.configurationState === "published" || row.configurationState === "configured" ? "active" : row.configurationState === "draft" || row.configurationState === "unconfigured" ? "waiting" : "neutral"} /></td><td className="px-3 py-3 text-xs text-[var(--admin-text-muted)]">{channels(row)}</td><td className="px-3 py-3 text-xs text-[var(--admin-text-muted)]">{row.signal.severity ? labelForState(row.signal.severity === "blocking" ? "problem" : "warning") : dict.noData}</td><td className="px-3 py-3"><RowMenu row={row} onSelect={onSelect} onLifecycle={onLifecycle} /></td></tr>;
 }
 
 function ServiceMobileRow({ row, onSelect }: { row: ServiceRow; onSelect: (trigger: HTMLButtonElement) => void }) {
-  return <button type="button" onClick={(event) => onSelect(event.currentTarget)} className="grid gap-3 rounded-lg text-left outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--admin-focus)]"><div className="flex items-start justify-between gap-3"><div><span className="block font-semibold">{row.venueName}</span><span className="block text-xs text-[var(--admin-text-muted)]">{row.accountName} · {row.smlCode}</span></div><AdminStatus label={labelForState(row.filterState)} tone={stateTone(row.filterState)} /></div><div className="grid grid-cols-2 gap-2 text-xs text-[var(--admin-text-muted)]"><span>{configurationLabel(row.configurationState)}</span><span className="text-right">{channels(row)}</span></div></button>;
+  return <button type="button" onClick={(event) => onSelect(event.currentTarget)} className="grid gap-3 rounded-xl border border-[var(--admin-border)] bg-[var(--admin-surface)] p-4 text-left outline-none transition-colors hover:bg-[var(--admin-surface-muted)] focus-visible:ring-2 focus-visible:ring-[var(--admin-focus)]"><div className="flex items-start justify-between gap-3"><div><span className="block font-semibold">{row.venueName}</span><span className="block text-xs text-[var(--admin-text-muted)]">{row.accountName} · {row.smlCode}</span></div><AdminStatus label={labelForState(row.filterState)} tone={stateTone(row.filterState)} /></div><div className="grid grid-cols-2 gap-2 text-xs text-[var(--admin-text-muted)]"><span>{configurationLabel(row.configurationState)}</span><span className="text-right">{channels(row)}</span></div></button>;
 }
 
 function RowMenu({ row, onSelect, onLifecycle }: { row: ServiceRow; onSelect: () => void; onLifecycle: (operation: "suspend" | "reactivate") => void }) {

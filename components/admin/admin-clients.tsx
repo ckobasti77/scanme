@@ -38,8 +38,7 @@ import { fmt } from "@/lib/i18n";
 import { adminV1Sr as dict } from "@/lib/i18n/sr/admin-v1";
 import { adminSearchSr } from "@/lib/i18n/sr/admin-search";
 import { cn } from "@/lib/utils";
-import { AdminEmptyState, AdminErrorState, AdminLoadingState, AdminPanel } from "./admin-primitives";
-import { AdminDataView, type AdminColumn } from "./admin-ui";
+import { AdminEmptyState, AdminErrorState, AdminLoadingState, AdminPanel, AdminTable } from "./admin-primitives";
 import { AdminTooltip } from "./admin-tooltip";
 
 type ClientRow = FunctionReturnType<typeof api.adminReadModels.listClients>["page"][number];
@@ -281,9 +280,13 @@ function Actions({ row }: { row: ClientRow }) {
   );
 }
 
-function rowDoubleClick(event: MouseEvent<HTMLElement>, row: ClientRow) {
+function rowDoubleClick(
+  event: MouseEvent<HTMLElement>,
+  row: ClientRow,
+  navigate: (href: string) => void,
+) {
   if ((event.target as HTMLElement).closest("a,button,input,select,[role='menuitem']")) return;
-  window.location.assign(`/admin/klijenti/${row.accountId}`);
+  navigate(`/admin/klijenti/${row.accountId}`);
 }
 
 function StateBadge({ state }: { state: ServiceState | null }) {
@@ -334,58 +337,82 @@ function LiveServiceDetails({ accountId }: { accountId: Id<"accounts"> }) {
   return <ServiceDetailsTable rows={results} canLoadMore={status === "CanLoadMore"} loadingMore={status === "LoadingMore"} onLoadMore={() => loadMore(12)} />;
 }
 
-function ServiceDetails({ row, details }: { row: ClientRow; details?: VenueServiceRow[] }) {
-  return details ? <ServiceDetailsTable rows={details} canLoadMore={false} loadingMore={false} onLoadMore={() => undefined} /> : <LiveServiceDetails accountId={row.accountId} />;
+function DesktopRow({ row, details }: { row: ClientRow; details?: VenueServiceRow[] }) {
+  const [expanded, setExpanded] = useState(false);
+  const router = useRouter();
+  return (
+    <>
+      <tr onDoubleClick={(event) => rowDoubleClick(event, row, router.push)} className="border-b border-[var(--admin-border)] align-middle last:border-b-0 hover:bg-[var(--admin-surface-muted)]/45">
+        <td className="w-10 px-3 py-3 text-center"><Signal signal={row.signal} /></td>
+        <td className="min-w-40 px-3 py-3"><Identity row={row} /></td>
+        <td className="min-w-44 max-w-56 px-3 py-3"><Contact row={row} /></td>
+        <td className="min-w-32 max-w-44 px-3 py-3"><Venues row={row} /></td>
+        <td className="px-3 py-3"><ServiceButtons row={row} expanded={expanded} onToggle={() => setExpanded((value) => !value)} /></td>
+        <td className="min-w-36 max-w-52 px-3 py-3"><Activity signal={row.signal} /></td>
+        <td className="w-14 px-2 py-2 text-right"><Actions row={row} /></td>
+      </tr>
+      {expanded ? (
+        <tr>
+          <td colSpan={7} className="p-0">
+            {details ? <ServiceDetailsTable rows={details} canLoadMore={false} loadingMore={false} onLoadMore={() => undefined} /> : <LiveServiceDetails accountId={row.accountId} />}
+          </td>
+        </tr>
+      ) : null}
+    </>
+  );
 }
 
-function ClientCard({ row, expanded, onToggle }: { row: ClientRow; expanded: boolean; onToggle: () => void }) {
+function MobileCard({ row, details }: { row: ClientRow; details?: VenueServiceRow[] }) {
+  const [expanded, setExpanded] = useState(false);
+  const router = useRouter();
   return (
-    <div className="grid min-w-0 gap-4">
-      <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-3">
-        <span className="pt-2"><Signal signal={row.signal} /></span>
-        <Identity row={row} />
-        <Actions row={row} />
+    <article onDoubleClick={(event) => rowDoubleClick(event, row, router.push)} className="min-w-0 overflow-hidden rounded-[var(--admin-radius-panel)] border border-[var(--admin-border)] bg-[var(--admin-surface)] shadow-[var(--admin-shadow-xs)]">
+      <div className="grid min-w-0 gap-4 p-4">
+        <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-3">
+          <span className="pt-2"><Signal signal={row.signal} /></span>
+          <Identity row={row} />
+          <Actions row={row} />
+        </div>
+        <div className="grid min-w-0 gap-3 border-t border-[var(--admin-border)] pt-3">
+          <Contact row={row} />
+          <Venues row={row} />
+        </div>
+        <div className="flex min-w-0 items-center justify-between gap-3 border-t border-[var(--admin-border)] pt-3">
+          <ServiceButtons row={row} expanded={expanded} onToggle={() => setExpanded((value) => !value)} />
+          <Activity signal={row.signal} />
+        </div>
       </div>
-      <div className="grid min-w-0 gap-3 border-t border-[var(--admin-border)] pt-3">
-        <Contact row={row} />
-        <Venues row={row} />
-      </div>
-      <div className="flex min-w-0 items-center justify-between gap-3 border-t border-[var(--admin-border)] pt-3">
-        <ServiceButtons row={row} expanded={expanded} onToggle={onToggle} />
-        <Activity signal={row.signal} />
-      </div>
-    </div>
+      {expanded ? (details ? <ServiceDetailsTable rows={details} canLoadMore={false} loadingMore={false} onLoadMore={() => undefined} /> : <LiveServiceDetails accountId={row.accountId} />) : null}
+    </article>
   );
 }
 
 function ClientResults({ rows, detailsByAccount }: { rows: ClientRow[]; detailsByAccount?: Record<string, VenueServiceRow[]> }) {
-  const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
-  const toggle = (accountId: string) => setExpanded((current) => {
-    const next = new Set(current);
-    if (!next.delete(accountId)) next.add(accountId);
-    return next;
-  });
-  const columns: AdminColumn<ClientRow>[] = [
-    { id: "signal", header: dict.clientsColSignal, headerHidden: true, align: "center", width: "3.5%", cell: (row) => <Signal signal={row.signal} /> },
-    { id: "client", header: dict.clientsColClient, rowHeader: true, width: "17%", cell: (row) => <Identity row={row} /> },
-    { id: "contact", header: dict.clientsColContact, hideBelow: "xl", width: "22%", cell: (row) => <Contact row={row} /> },
-    { id: "venues", header: dict.clientsColVenues, width: "15%", cell: (row) => <Venues row={row} /> },
-    { id: "services", header: dict.clientsColServices, width: "15%", cell: (row) => <ServiceButtons row={row} expanded={expanded.has(row.accountId)} onToggle={() => toggle(row.accountId)} /> },
-    { id: "activity", header: dict.clientsColActivity, hideBelow: "xl", width: "22%", cell: (row) => <Activity signal={row.signal} /> },
-    { id: "actions", header: dict.clientsColActions, headerHidden: true, align: "end", width: "5.5%", cell: (row) => <Actions row={row} /> },
-  ];
   return (
-    <AdminDataView
-      listKey="klijenti.lista"
-      caption={dict.clientsTableCaption}
-      rows={rows}
-      getRowId={(row) => row.accountId}
-      columns={columns}
-      tableClassName="min-w-[52rem] table-fixed text-[0.82rem]"
-      onRowDoubleClick={(row, event) => rowDoubleClick(event, row)}
-      renderCard={(row) => <ClientCard row={row} expanded={expanded.has(row.accountId)} onToggle={() => toggle(row.accountId)} />}
-      rowDetail={(row) => (expanded.has(row.accountId) ? <ServiceDetails row={row} details={detailsByAccount?.[row.accountId]} /> : null)}
-    />
+    <>
+      <div className="hidden xl:block">
+        <AdminTable caption={dict.clientsTableCaption} tableClassName="table-fixed text-[0.82rem]">
+          <colgroup>
+            <col className="w-[3.5%]" /><col className="w-[17%]" /><col className="w-[22%]" /><col className="w-[15%]" /><col className="w-[15%]" /><col className="w-[22%]" /><col className="w-[5.5%]" />
+          </colgroup>
+          <thead className="bg-[var(--admin-surface-muted)] text-[0.67rem] font-bold tracking-[0.06em] text-[var(--admin-text-muted)] uppercase">
+            <tr>
+              <th className="px-3 py-3 text-center" scope="col"><span className="sr-only">{dict.clientsColSignal}</span></th>
+              <th className="px-3 py-3" scope="col">{dict.clientsColClient}</th>
+              <th className="px-3 py-3" scope="col">{dict.clientsColContact}</th>
+              <th className="px-3 py-3" scope="col">{dict.clientsColVenues}</th>
+              <th className="px-3 py-3" scope="col">{dict.clientsColServices}</th>
+              <th className="px-3 py-3" scope="col">{dict.clientsColActivity}</th>
+              <th className="px-2 py-3 text-right" scope="col"><span className="sr-only">{dict.clientsColActions}</span></th>
+            </tr>
+          </thead>
+          <tbody>{rows.map((row) => <DesktopRow key={row.accountId} row={row} details={detailsByAccount?.[row.accountId]} />)}</tbody>
+        </AdminTable>
+      </div>
+      <div className="grid min-w-0 gap-3 xl:hidden">
+        {rows.map((row) => <MobileCard key={row.accountId} row={row} details={detailsByAccount?.[row.accountId]} />)}
+      </div>
+    </>
   );
 }
 

@@ -154,17 +154,9 @@ const leadStatus = v.union(
 export const serviceTypeValidator = v.union(
   v.literal("scanme_links"),
   v.literal("google_review"),
+  v.literal("scanme_menu"),
   v.literal("scanme_venue"),
   v.literal("scanme_memories"),
-  // TASK-61 (terminal): `scanme_menu` joins the union here. This is the one task
-  // that forces the six total `Record<ServiceType, …>` maps to gain a `menu`
-  // case (SERVICE_PRODUCT_NAMES in convex/lib/access.ts, SERVICE_LABEL in
-  // components/admin/customers-admin.tsx, SPLITTER_BUTTON_LABEL in checkout.ts,
-  // PRICING_SERVICE_BY_SERVICE_TYPE in orderSnapshot.ts, SLUG_SUFFIX in
-  // orders.ts, and PLAN_LIMITS/ACCOUNT_PLAN_TIER in lib/plans.ts) — expected and
-  // unavoidable per RFC-003 §2.14, not a freeze violation. Deferred by TASK-47
-  // until every prerequisite (schema, editor, entitlements, admin) was green.
-  v.literal("scanme_menu"),
 );
 
 const serviceType = serviceTypeValidator;

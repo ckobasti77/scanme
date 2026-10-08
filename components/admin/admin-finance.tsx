@@ -26,7 +26,6 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AdminEmptyState, AdminErrorState, AdminLoadingState, AdminPanel } from "./admin-primitives";
-import { AdminDataView, type AdminColumn } from "./admin-ui";
 import { adminFinanceSr as dict } from "@/lib/i18n/sr/admin-finance";
 import { cn } from "@/lib/utils";
 import {
@@ -165,88 +164,34 @@ function MethodPanel({ methods, denominatorMinor, period }: { methods: Overview[
   return <AdminPanel className="p-4 sm:p-5"><div className="flex items-center justify-between gap-2"><h2 className="text-base font-semibold">{dict.methodsTitle}</h2><span className="rounded-full bg-[var(--admin-surface-muted)] px-2 py-1 text-xs font-semibold">{dict.actualBadge}</span></div><p className="mt-1 text-xs text-[var(--admin-text-muted)]">{dict.methodsDenominator}: <span className="font-mono tabular-nums">{money(denominatorMinor)}</span> · {COLLECTED_PERIOD_LABEL[period]}</p><div className="mt-4 grid gap-3">{methods.map((row) => { const Icon = METHOD_ICON[row.method]; return <div key={row.method} className="grid grid-cols-[2.5rem_minmax(0,1fr)_auto] items-center gap-3"><span className="grid size-10 place-items-center rounded-xl bg-[var(--admin-surface-muted)]"><Icon className="size-4" aria-hidden="true" /></span><div className="min-w-0"><span className="block truncate text-sm font-medium">{METHOD_LABEL[row.method]}</span><span className="mt-1 block h-1.5 overflow-hidden rounded-full bg-[var(--admin-border)]"><span className="block h-full rounded-full bg-[var(--admin-ink)]" style={{ width: `${Math.max(0, Math.min(100, row.percent))}%` }} /></span></div><div className="text-right"><span className="block font-mono text-sm font-semibold tabular-nums">{money(row.amountMinor)}</span><span className="text-xs text-[var(--admin-text-muted)]">{row.percent.toFixed(2)}%</span></div></div>; })}</div></AdminPanel>;
 }
 
-type CategoryRow = Overview["categories"][number];
-
-function missingText(row: CategoryRow) {
-  return row.missing.map((item) => MISSING_LABEL[item as keyof typeof MISSING_LABEL]).join(" · ");
-}
-
 function CategoryTable({ overview, tab }: { overview: Overview; tab: Tab }) {
   const expectedByCategory = new Map(overview.expected.categories.map((row) => [row.category, row]));
-  const mainAmount = (row: CategoryRow) => (tab === "expected" ? expectedByCategory.get(row.category)?.amountMinor ?? 0 : row.collectedMinor);
-  const undatedAmount = (row: CategoryRow) => expectedByCategory.get(row.category)?.undatedMinor ?? 0;
-  const amountCell = (value: number) => <span className="font-mono tabular-nums">{money(value)}</span>;
-  const columns: AdminColumn<CategoryRow>[] = [
-    { id: "category", header: dict.category, rowHeader: true, sortValue: (row) => CATEGORY_LABEL[row.category], cell: (row) => <><span className="font-semibold">{CATEGORY_LABEL[row.category]}</span>{tab !== "expected" && row.missing.length ? <span className="mt-1 block text-xs font-normal text-[var(--admin-danger)]">{missingText(row)}</span> : null}</> },
-    { id: "amount", header: tab === "expected" ? dict.expected : dict.collected, align: "end", sortValue: mainAmount, cell: (row) => amountCell(mainAmount(row)) },
-    ...(tab === "expected"
-      ? [{ id: "undated", header: dict.undated, align: "end", sortValue: undatedAmount, cell: (row) => amountCell(undatedAmount(row)) } satisfies AdminColumn<CategoryRow>]
-      : [{ id: "refunds", header: dict.refunds, align: "end", sortValue: (row) => row.refundsMinor, cell: (row) => amountCell(row.refundsMinor) } satisfies AdminColumn<CategoryRow>]),
-    ...(tab === "profit"
-      ? [
-          { id: "costs", header: dict.costs, align: "end", sortValue: (row) => row.costsMinor, cell: (row) => amountCell(row.costsMinor) } satisfies AdminColumn<CategoryRow>,
-          { id: "profit", header: dict.profit, align: "end", sortValue: (row) => row.profitMinor, cell: (row) => <span className="font-mono font-semibold tabular-nums">{row.profitMinor === null ? <span className="text-[var(--admin-danger)]">{dict.incompleteBadge}</span> : money(row.profitMinor)}</span> } satisfies AdminColumn<CategoryRow>,
-        ]
-      : []),
-  ];
   return <AdminPanel className="min-w-0 overflow-hidden">
     <div className="border-b border-[var(--admin-border)] px-4 py-4 sm:px-5"><h2 className="text-base font-semibold">{dict.categoriesTitle}</h2></div>
-    <div className="p-4">
-      <AdminDataView
-        listKey="finansije.kategorije"
-        caption={dict.categoriesTitle}
-        rows={overview.categories}
-        getRowId={(row) => row.category}
-        columns={columns}
-        autoBreakpoint="md"
-        tableClassName="min-w-[36rem]"
-        renderCard={(row) => <>
-          <div className="flex items-center justify-between gap-2"><h3 className="font-semibold">{CATEGORY_LABEL[row.category]}</h3>{tab !== "expected" && !row.complete ? <span className="rounded-full bg-[var(--admin-danger-soft)] px-2 py-1 text-xs font-semibold text-[var(--admin-danger)]">{dict.incompleteBadge}</span> : null}</div>
-          <dl className="grid grid-cols-2 gap-3 text-sm">
-            <div><dt className="text-xs text-[var(--admin-text-muted)]">{tab === "expected" ? dict.expected : dict.collected}</dt><dd className="mt-1 font-mono font-semibold tabular-nums">{money(mainAmount(row))}</dd></div>
-            {tab === "expected" && undatedAmount(row) > 0 ? <div><dt className="text-xs text-[var(--admin-text-muted)]">{dict.undated}</dt><dd className="mt-1 font-mono tabular-nums">{money(undatedAmount(row))}</dd></div> : null}
-            {tab === "profit" ? <><div><dt className="text-xs text-[var(--admin-text-muted)]">{dict.costs}</dt><dd className="mt-1 font-mono tabular-nums">{money(row.costsMinor)}</dd></div><div><dt className="text-xs text-[var(--admin-text-muted)]">{dict.profit}</dt><dd className="mt-1 font-mono font-semibold tabular-nums">{row.profitMinor === null ? "—" : money(row.profitMinor)}</dd></div></> : null}
-          </dl>
-          {tab !== "expected" && row.missing.length ? <p className="text-xs text-[var(--admin-danger)]">{missingText(row)}</p> : null}
-        </>}
-      />
+    <div className="grid gap-3 p-4 md:hidden">
+      {overview.categories.map((row) => <article key={row.category} className="rounded-xl border border-[var(--admin-border)] p-3">
+        <div className="flex items-center justify-between gap-2"><h3 className="font-semibold">{CATEGORY_LABEL[row.category]}</h3>{tab !== "expected" && !row.complete ? <span className="rounded-full bg-[var(--admin-danger-soft)] px-2 py-1 text-xs font-semibold text-[var(--admin-danger)]">{dict.incompleteBadge}</span> : null}</div>
+        <dl className="mt-3 grid grid-cols-2 gap-3 text-sm">
+          <div><dt className="text-xs text-[var(--admin-text-muted)]">{tab === "expected" ? dict.expected : dict.collected}</dt><dd className="mt-1 font-mono font-semibold tabular-nums">{money(tab === "expected" ? expectedByCategory.get(row.category)?.amountMinor ?? 0 : row.collectedMinor)}</dd></div>
+          {tab === "expected" && (expectedByCategory.get(row.category)?.undatedMinor ?? 0) > 0 ? <div><dt className="text-xs text-[var(--admin-text-muted)]">{dict.undated}</dt><dd className="mt-1 font-mono tabular-nums">{money(expectedByCategory.get(row.category)?.undatedMinor ?? 0)}</dd></div> : null}
+          {tab === "profit" ? <><div><dt className="text-xs text-[var(--admin-text-muted)]">{dict.costs}</dt><dd className="mt-1 font-mono tabular-nums">{money(row.costsMinor)}</dd></div><div><dt className="text-xs text-[var(--admin-text-muted)]">{dict.profit}</dt><dd className="mt-1 font-mono font-semibold tabular-nums">{row.profitMinor === null ? "—" : money(row.profitMinor)}</dd></div></> : null}
+        </dl>
+        {tab !== "expected" && row.missing.length ? <p className="mt-3 text-xs text-[var(--admin-danger)]">{row.missing.map((item) => MISSING_LABEL[item as keyof typeof MISSING_LABEL]).join(" · ")}</p> : null}
+      </article>)}
     </div>
+    <div className="hidden overflow-x-auto md:block"><table className="w-full min-w-[36rem] text-left text-sm"><caption className="sr-only">{dict.categoriesTitle}</caption>
+      <thead className="bg-[var(--admin-surface-muted)] text-xs text-[var(--admin-text-muted)]"><tr><th className="px-5 py-3">{dict.category}</th><th className="px-5 py-3 text-right">{tab === "expected" ? dict.expected : dict.collected}</th>{tab === "expected" ? <th className="px-5 py-3 text-right">{dict.undated}</th> : tab === "profit" ? <><th className="px-5 py-3 text-right">{dict.refunds}</th><th className="px-5 py-3 text-right">{dict.costs}</th><th className="px-5 py-3 text-right">{dict.profit}</th></> : <th className="px-5 py-3 text-right">{dict.refunds}</th>}</tr></thead>
+      <tbody>{overview.categories.map((row) => <tr key={row.category} className="border-t border-[var(--admin-border)]"><th className="px-5 py-4"><span className="font-semibold">{CATEGORY_LABEL[row.category]}</span>{tab !== "expected" && row.missing.length ? <span className="mt-1 block text-xs font-normal text-[var(--admin-danger)]">{row.missing.map((item) => MISSING_LABEL[item as keyof typeof MISSING_LABEL]).join(" · ")}</span> : null}</th><td className="px-5 py-4 text-right font-mono tabular-nums">{money(tab === "expected" ? expectedByCategory.get(row.category)?.amountMinor ?? 0 : row.collectedMinor)}</td>{tab === "expected" ? <td className="px-5 py-4 text-right font-mono tabular-nums">{money(expectedByCategory.get(row.category)?.undatedMinor ?? 0)}</td> : tab === "profit" ? <><td className="px-5 py-4 text-right font-mono tabular-nums">{money(row.refundsMinor)}</td><td className="px-5 py-4 text-right font-mono tabular-nums">{money(row.costsMinor)}</td><td className="px-5 py-4 text-right font-mono font-semibold tabular-nums">{row.profitMinor === null ? <span className="text-[var(--admin-danger)]">{dict.incompleteBadge}</span> : money(row.profitMinor)}</td></> : <td className="px-5 py-4 text-right font-mono tabular-nums">{money(row.refundsMinor)}</td>}</tr>)}</tbody>
+    </table></div>
   </AdminPanel>;
 }
-
-const paymentColumns: AdminColumn<PaymentRow>[] = [
-  { id: "client", header: dict.paymentClient, rowHeader: true, sortValue: (row) => row.accountName, cell: (row) => <span className="font-semibold">{row.accountName}</span> },
-  { id: "date", header: dict.paymentDate, sortValue: (row) => row.paidAt, cell: (row) => <span className="whitespace-nowrap">{date.format(row.paidAt)}</span> },
-  { id: "method", header: dict.paymentMethod, sortValue: (row) => METHOD_LABEL[row.method], cell: (row) => METHOD_LABEL[row.method] },
-  { id: "allocation", header: dict.paymentAllocation, cell: (row) => <span className="block max-w-72 truncate">{row.allocations.map(allocationLabel).join(" · ")}</span> },
-  { id: "state", header: dict.paymentState, sortValue: paymentState, cell: paymentState },
-  { id: "amount", header: dict.chartAmount, align: "end", sortValue: (row) => row.amountMinor, cell: (row) => <span className="font-mono font-semibold tabular-nums">{money(row.amountMinor)}</span> },
-];
 
 function Payments({ rows, status, onLoadMore, onOpen }: { rows: PaymentRow[]; status: string; onLoadMore: () => void; onOpen: (row: PaymentRow, trigger: HTMLButtonElement) => void }) {
   if (status === "LoadingFirstPage") return <AdminPanel><AdminLoadingState /></AdminPanel>;
   if (!rows.length) return <AdminPanel><AdminEmptyState title={dict.emptyTitle} body={dict.emptyBody} /></AdminPanel>;
   return <AdminPanel className="min-w-0 overflow-hidden"><div className="border-b border-[var(--admin-border)] px-4 py-4 sm:px-5"><h2 className="text-base font-semibold">{dict.paymentsTitle}</h2><p className="mt-1 text-sm text-[var(--admin-text-muted)]">{dict.paymentsCaption}</p></div>
-    <div className="p-4">
-      <AdminDataView
-        listKey="finansije.uplate"
-        caption={dict.paymentsCaption}
-        rows={rows}
-        getRowId={(row) => row._id}
-        columns={paymentColumns}
-        autoBreakpoint="md"
-        tableClassName="min-w-[58rem]"
-        actionsHeader={dict.paymentOpen}
-        renderCard={(row) => <>
-          <span className="flex items-center justify-between gap-2"><strong className="truncate">{row.accountName}</strong><span className="font-mono font-semibold tabular-nums">{money(row.amountMinor)}</span></span>
-          <span className="block text-xs text-[var(--admin-text-muted)]">{row.allocations.map(allocationLabel).join(" · ")}</span>
-          <span className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-[var(--admin-text-muted)]"><span>{date.format(row.paidAt)}</span><span>{METHOD_LABEL[row.method]}</span><span>{paymentState(row)}</span></span>
-        </>}
-        rowActions={(row, context) => (context.view === "kartice"
-          ? <Button type="button" variant="outline" onClick={(event) => onOpen(row, event.currentTarget)}><ArrowUpRight className="size-4" aria-hidden="true" />{dict.paymentOpen}</Button>
-          : <Button type="button" variant="ghost" size="icon" aria-label={dict.paymentOpen} onClick={(event) => onOpen(row, event.currentTarget)}><ArrowUpRight className="size-4" aria-hidden="true" /></Button>)}
-      />
-    </div>
+    <div className="grid gap-3 p-4 md:hidden">{rows.map((row) => <button key={row._id} type="button" onClick={(event) => onOpen(row, event.currentTarget)} className="min-h-11 rounded-xl border border-[var(--admin-border)] p-3 text-left transition-colors hover:bg-[var(--admin-surface-muted)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--admin-focus)] motion-reduce:transition-none"><span className="flex items-center justify-between gap-2"><strong className="truncate">{row.accountName}</strong><span className="font-mono font-semibold tabular-nums">{money(row.amountMinor)}</span></span><span className="mt-2 block text-xs text-[var(--admin-text-muted)]">{row.allocations.map(allocationLabel).join(" · ")}</span><span className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-[var(--admin-text-muted)]"><span>{date.format(row.paidAt)}</span><span>{METHOD_LABEL[row.method]}</span><span>{paymentState(row)}</span></span></button>)}</div>
+    <div className="hidden overflow-x-auto md:block"><table className="w-full min-w-[58rem] text-left text-sm"><caption className="sr-only">{dict.paymentsCaption}</caption><thead className="bg-[var(--admin-surface-muted)] text-xs text-[var(--admin-text-muted)]"><tr><th className="px-5 py-3">{dict.paymentClient}</th><th className="px-5 py-3">{dict.paymentDate}</th><th className="px-5 py-3">{dict.paymentMethod}</th><th className="px-5 py-3">{dict.paymentAllocation}</th><th className="px-5 py-3">{dict.paymentState}</th><th className="px-5 py-3 text-right">{dict.chartAmount}</th><th><span className="sr-only">{dict.paymentOpen}</span></th></tr></thead><tbody>{rows.map((row) => <tr key={row._id} className="border-t border-[var(--admin-border)]"><td className="px-5 py-4 font-semibold">{row.accountName}</td><td className="px-5 py-4 whitespace-nowrap">{date.format(row.paidAt)}</td><td className="px-5 py-4">{METHOD_LABEL[row.method]}</td><td className="px-5 py-4"><span className="block max-w-72 truncate">{row.allocations.map(allocationLabel).join(" · ")}</span></td><td className="px-5 py-4">{paymentState(row)}</td><td className="px-5 py-4 text-right font-mono font-semibold tabular-nums">{money(row.amountMinor)}</td><td className="px-5 py-4"><Button type="button" variant="ghost" size="icon" aria-label={dict.paymentOpen} onClick={(event) => onOpen(row, event.currentTarget)}><ArrowUpRight className="size-4" aria-hidden="true" /></Button></td></tr>)}</tbody></table></div>
     {status === "CanLoadMore" || status === "LoadingMore" ? <div className="border-t border-[var(--admin-border)] p-4 text-center"><Button type="button" variant="outline" disabled={status === "LoadingMore"} onClick={onLoadMore}>{status === "LoadingMore" ? dict.loadingMore : dict.loadMore}</Button></div> : null}
   </AdminPanel>;
 }
@@ -408,7 +353,7 @@ const fixtureOverview: Overview = {
 };
 
 const fixturePayments: PaymentRow[] = [
-  { _id: "fixture-payment-list-1" as Id<"financePaymentListRows">, _creationTime: 1, scopeKey: "global", filterKey: "total", accountId: "fixture-account-1" as Id<"accounts">, accountName: "Bistro Zelen", paymentId: "fixture-payment-1" as Id<"payments">, amountMinor: 240_000, currency: "RSD", paidAt: Date.parse("2026-09-12T10:00:00Z"), method: "bank_transfer", reference: "IZVOD-0912", recordedByUserId: "fixture-admin" as Id<"users">, allocations: [{ logicalKey: "fixture-annual", category: "saas", serviceType: "scanme_menu", amountMinor: 150_000, period: "annual", coveredStart: Date.parse("2026-09-01"), coveredEnd: Date.parse("2027-09-01"), subscriptionId: "fixture-sub" as Id<"subscriptions"> }, { logicalKey: "fixture-premium", category: "premium", amountMinor: 90_000, period: "annual", coveredStart: Date.parse("2026-09-01"), coveredEnd: Date.parse("2027-09-01"), subscriptionId: "fixture-premium-sub" as Id<"subscriptions"> }], refundedMinor: 25_000, reversedMinor: 0, updatedAt: 1 },
+  { _id: "fixture-payment-list-1" as Id<"financePaymentListRows">, _creationTime: 1, scopeKey: "global", filterKey: "total", accountId: "fixture-account-1" as Id<"accounts">, accountName: "Bistro Zelen", paymentId: "fixture-payment-1" as Id<"payments">, amountMinor: 240_000, currency: "RSD", paidAt: Date.parse("2026-09-12T10:00:00Z"), method: "bank_transfer", reference: "IZVOD-0912", recordedByUserId: "fixture-admin" as Id<"users">, allocations: [{ logicalKey: "fixture-annual", category: "saas", serviceType: "scanme_links", amountMinor: 150_000, period: "annual", coveredStart: Date.parse("2026-09-01"), coveredEnd: Date.parse("2027-09-01"), subscriptionId: "fixture-sub" as Id<"subscriptions"> }, { logicalKey: "fixture-premium", category: "premium", amountMinor: 90_000, period: "annual", coveredStart: Date.parse("2026-09-01"), coveredEnd: Date.parse("2027-09-01"), subscriptionId: "fixture-premium-sub" as Id<"subscriptions"> }], refundedMinor: 25_000, reversedMinor: 0, updatedAt: 1 },
   { _id: "fixture-payment-list-2" as Id<"financePaymentListRows">, _creationTime: 2, scopeKey: "global", filterKey: "total", accountId: "fixture-account-2" as Id<"accounts">, accountName: "Hotel Dunav", paymentId: "fixture-payment-2" as Id<"payments">, amountMinor: 160_000, currency: "RSD", paidAt: Date.parse("2026-09-07T10:00:00Z"), method: "payment_card", allocations: [{ logicalKey: "fixture-physical", category: "physical", amountMinor: 160_000, period: "one_time", orderId: "fixture-order" as Id<"orders"> }], refundedMinor: 0, reversedMinor: 0, updatedAt: 2 },
   { _id: "fixture-payment-list-3" as Id<"financePaymentListRows">, _creationTime: 3, scopeKey: "global", filterKey: "total", accountId: "fixture-account-3" as Id<"accounts">, accountName: "Kafe Most", paymentId: "fixture-payment-3" as Id<"payments">, amountMinor: 65_000, currency: "RSD", paidAt: Date.parse("2026-09-02T10:00:00Z"), method: "cash", allocations: [{ logicalKey: "fixture-links", category: "saas", serviceType: "scanme_links", amountMinor: 65_000, period: "monthly", coveredStart: Date.parse("2026-09-01"), coveredEnd: Date.parse("2026-10-01"), subscriptionId: "fixture-links-sub" as Id<"subscriptions"> }], refundedMinor: 0, reversedMinor: 0, updatedAt: 3 },
 ];

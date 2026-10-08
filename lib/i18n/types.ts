@@ -2839,11 +2839,10 @@ export interface AdminV1Dict {
   navDashboard: string;
   navClients: string;
   navInbox: string;
-  /** Admin UX Z1 — Pošta (each admin's own Zoho mailbox). */
-  navMail: string;
   navTasks: string;
   navOperations: string;
   navServices: string;
+  /** Sajam 2026 B1A — admin `Događaji` tab. */
   navEvents: string;
   navFinance: string;
   navTeam: string;
@@ -3076,15 +3075,6 @@ export interface AdminV1Dict {
   clientProfileContactPhone: string;
   clientProfileSaveContact: string;
   clientProfileCancel: string;
-  clientProfileWebsite: string;
-  clientProfileWebsiteEmpty: string;
-  clientProfileWebsiteAdd: string;
-  clientProfileWebsiteEdit: string;
-  clientProfileWebsiteSave: string;
-  clientProfileWebsiteOpen: string;
-  clientProfileWebsitePlaceholder: string;
-  clientProfileWebsiteInvalid: string;
-  clientProfileWebsiteError: string;
   clientProfileConfirmDeactivate: string;
   clientProfileContactRequired: string;
   clientProfileContactInvalidEmail: string;
@@ -3124,8 +3114,6 @@ export interface AdminV1Dict {
   clientProfileStartsAt: string;
   clientProfileNoSubscription: string;
   clientProfileProductsAtVenue: string;
-  clientProfileColVenue: string;
-  clientProfileColProducts: string;
   clientProfileProductsSummary: string;
   clientProfileProductsBody: string;
   clientProfileFinanceEmptyTitle: string;
@@ -3165,7 +3153,7 @@ export interface AdminSettingsDict {
   bankTransfer: string; supported: string; card: string; unavailable: string; cash: string; notConfigured: string; paymentNote: string;
   foundation: string; configured: string; inbound: string; needsConfiguration: string; notConnected: string; communicationNote: string;
   premiumReference: string; temporary: string; monthly: string; futurePrice: string; amount: string; validFrom: string; validUntil: string; reason: string; reasonPlaceholder: string; save: string; cancel: string; unsaved: string; saved: string; priceNote: string; agreementNote: string;
-  referralNote: string; agreements: string; agreementAccount: string; agreementTarget: string; agreementKind: string; agreementReference: string; agreementPrice: string; agreementCreate: string; agreementEmpty: string; referralRegister: string; referrer: string; referred: string; referralEmpty: string; chooseAccount: string; chooseTarget: string; founders: string; enterprise: string; individual: string; standard: string; pending: string; qualified: string; rewarded: string; cancelled: string; friendWaiver: string; friendTag: string; friendWaiverCreate: string; friendWaiverNote: string; leaveDraftTitle: string; leaveDraftBody: string; leaveDraftStay: string; leaveDraftLeave: string; loading: string; error: string; invalidAmount: string; invalidDate: string; invalidReason: string; conflict: string; saveFailed: string; annual: string; serviceSubscription: string; from: string; until: string; lifetime: string; foundersNote: string; chooseFriend: string; invalidAgreement: string; agreementSaved: string; invalidWaiver: string; waiverSaved: string; invalidReferral: string; referralSaved: string; rewardAgreement: string; rewardNote: string; chooseReferral: string; rewardType: string; percentage: string; fixedAmount: string; basisPoints: string; invalidReward: string; rewardCreate: string; rewardSaved: string; colValidity: string; colPeriod: string; colStatus: string; previewBadge: string; previewDescription: string;
+  referralNote: string; agreements: string; agreementAccount: string; agreementTarget: string; agreementKind: string; agreementReference: string; agreementPrice: string; agreementCreate: string; agreementEmpty: string; referralRegister: string; referrer: string; referred: string; referralEmpty: string; chooseAccount: string; chooseTarget: string; founders: string; enterprise: string; individual: string; standard: string; pending: string; qualified: string; rewarded: string; cancelled: string; friendWaiver: string; friendTag: string; friendWaiverCreate: string; friendWaiverNote: string; leaveDraftTitle: string; leaveDraftBody: string; leaveDraftStay: string; leaveDraftLeave: string; loading: string; error: string; invalidAmount: string; invalidDate: string; invalidReason: string; conflict: string; saveFailed: string; annual: string; serviceSubscription: string; from: string; until: string; lifetime: string; foundersNote: string; chooseFriend: string; invalidAgreement: string; agreementSaved: string; invalidWaiver: string; waiverSaved: string; invalidReferral: string; referralSaved: string; rewardAgreement: string; rewardNote: string; chooseReferral: string; rewardType: string; percentage: string; fixedAmount: string; basisPoints: string; invalidReward: string; rewardCreate: string; rewardSaved: string; previewBadge: string; previewDescription: string;
 }
 
 export interface AdminTasksDict {
@@ -3622,7 +3610,6 @@ export interface AdminTeamDict {
   conversationsTitle: string;
   openAllTasks: string;
   openAllConversations: string;
-  colLatestMessage: string;
   reassign: string;
   claim: string;
   noTasks: string;
@@ -3689,6 +3676,9 @@ export interface AdminProductsDict {
   filterDesignTemplate: string;
   filterDesignCustom: string;
   filterServiceAll: string;
+  viewLabel: string;
+  viewTable: string;
+  viewVisual: string;
   inventoryTableCaption: string;
   colSelect: string;
   colId: string;
@@ -3814,11 +3804,6 @@ export interface AdminSearchDict {
   channelQr: string;
   channelNfc: string;
   resultOpen: string;
-  resultsCaption: string;
-  colResult: string;
-  colGroup: string;
-  colStatus: string;
-  colDetails: string;
   emptyTitle: string;
   emptyBody: string;
   initialTitle: string;

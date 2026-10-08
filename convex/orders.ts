@@ -9,6 +9,7 @@ import { manualBillingPort } from "./lib/billingPort";
 import { requireText } from "./lib/validation";
 import {
   buildPriceSnapshot,
+  isOrderServiceType,
   PRICING_SERVICE_BY_SERVICE_TYPE,
   type ServiceType,
 } from "./lib/orderSnapshot";
@@ -85,7 +86,6 @@ const SLUG_SUFFIX: Record<Exclude<ServiceType, "scanme_links">, string> = {
   google_review: "review",
   scanme_venue: "venue",
   scanme_memories: "memories",
-  scanme_menu: "meni",
 };
 
 // One physical line's total, computed exactly as computeOrderBreakdown does
@@ -372,7 +372,7 @@ async function provisionPaidOrder(
 ): Promise<number> {
   let provisioned = 0;
   for (const item of items) {
-    if (item.kind !== "service" || !item.service) continue;
+    if (item.kind !== "service" || !item.service || !isOrderServiceType(item.service)) continue;
     await ensureActiveServiceProfile(ctx, item.businessId, item.service, now);
     provisioned += 1;
   }

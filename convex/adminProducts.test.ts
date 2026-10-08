@@ -189,19 +189,17 @@ describe("ADMIN-12 resolution, transitions, history and SMQ", () => {
     await f.admin.mutation(api.adminProducts.setChannelState, { ...f.scope, channelId: qr._id, state: "active", health: "healthy", reason: "Popravka", resolutionNote: "Proveren otisak", key: "fixed" });
     const events = await f.admin.query(api.adminProductReads.channelHistory, { ...f.scope, channelId: qr._id, paginationOpts: page() }); expect(events.page.some(e => e.reason === "Proveren otisak")).toBe(true);
   });
-  test("Links wins multi-service; Review + Menu uses existing splitter; retarget and bulk are atomic/retry safe", async () => {
+  test("Links wins supported multi-service; unfinished Menu retarget is rejected; bulk is atomic/retry safe", async () => {
     const f = await setup(); const p = await provision(f, 2); await qc(f, p);
     const first = await detail(f, p.productIds[0]);
-    const args = { ...f.scope, productIds: p.productIds, channelIds: [], destination: { kind: "services" as const, serviceProfileIds: f.profiles }, reason: "Sve usluge", key: "retarget-links" };
+    const args = { ...f.scope, productIds: p.productIds, channelIds: [], destination: { kind: "services" as const, serviceProfileIds: f.profiles.slice(0, 2) }, reason: "Podržane usluge", key: "retarget-links" };
     await f.admin.mutation(api.adminProducts.bulkRetarget, args); await f.admin.mutation(api.adminProducts.bulkRetarget, args);
     expect((await detail(f, p.productIds[0])).subject.destinationKind).toBe("links_splitter");
-    await f.admin.mutation(api.adminProducts.bulkRetarget, { ...args, key: "retarget-split", destination: { kind: "services", serviceProfileIds: f.profiles.slice(1) } });
-    const current = await detail(f, p.productIds[0]); expect(current.subject.destinationKind).toBe("generic_splitter");
-    expect(await resolve(f, current.channels[0].resolverCode, "split-scan")).toMatchObject({ kind: "splitter" });
-    const view = await f.t.query(api.cards.getSplitterView, { cardCode: current.channels[0].resolverCode });
-    expect(view.status).toBe("ok"); if (view.status === "ok") expect(view.buttons.map(b => b.href)).toContain("/most12/meni");
+    const current = await detail(f, p.productIds[0]);
+    await expect(f.admin.mutation(api.adminProducts.bulkRetarget, { ...args, key: "retarget-menu", destination: { kind: "services", serviceProfileIds: f.profiles.slice(1) } })).rejects.toThrow("access_services_invalid");
+    expect((await detail(f, p.productIds[0])).subject.currentTargetId).toBe(current.subject.currentTargetId);
     const history = await f.admin.query(api.adminProductReads.destinationHistory, { ...f.scope, subjectId: current.subject._id, paginationOpts: page() });
-    expect(history.page).toHaveLength(3); expect(history.page.some(h => h.previousTargetId === first.subject.currentTargetId)).toBe(true);
+    expect(history.page).toHaveLength(2); expect(history.page.some(h => h.previousTargetId === first.subject.currentTargetId)).toBe(true);
     await expect(f.admin.mutation(api.adminProducts.bulkRetarget, { ...args, key: "foreign-target", destination: { kind: "services", serviceProfileIds: [f.foreignProfileId] } })).rejects.toThrow("ownership");
     expect((await detail(f, p.productIds[0])).subject.currentTargetId).toBe(current.subject.currentTargetId);
     await expect(f.admin.mutation(api.adminProducts.bulkRetarget, { ...args, productIds: Array(51).fill(p.productIds[0]), key: "too-big" })).rejects.toThrow("bulk_size");
@@ -336,7 +334,7 @@ describe("ADMIN-12 legacy adapter", () => {
     expect(await f.t.run(ctx => ctx.db.query("cardScanEvents").take(10))).toEqual(source.events);
     expect(await f.t.run(ctx => ctx.db.query("dailyCardMetrics").take(10))).toEqual(source.daily);
     expect(await resolve(f, card.cardCode, "legacy-after")).toMatchObject({ kind: "service_page" });
-    await expect(f.admin.mutation(api.cardsAdmin.retargetCard, { cardId: card.cardId, target: { kind: "venue" } })).rejects.toThrow("canonical_writer");
+    await expect(f.admin.mutation(api.cards.retargetCard, { cardId: card.cardId, target: { kind: "venue" } })).rejects.toThrow("canonical_writer");
   });
 });
 

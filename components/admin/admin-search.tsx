@@ -12,7 +12,6 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { adminSearchSr as dict } from "@/lib/i18n/sr/admin-search";
 import { cn } from "@/lib/utils";
 import { AdminEmptyState, AdminErrorState, AdminLoadingState, AdminPanel } from "./admin-primitives";
-import { AdminDataView, type AdminColumn } from "./admin-ui";
 
 type SearchGroup = "clients" | "venues" | "contacts" | "products" | "channels" | "orders";
 type ActivityCategory = "client" | "communication" | "task" | "order" | "finance" | "subscription" | "problem" | "product" | "service" | "support";
@@ -181,45 +180,15 @@ function actorKindLabel(kind: string) {
   return dict.actorUnknown;
 }
 
-function resultDetails(result: SearchResult) {
-  return Array.from(new Set(
-    [result.code, result.ownerLabel, result.smkCode, result.venueLabel, result.smlCode, result.meta].filter(Boolean),
-  )).join(" · ");
-}
-
-function resultGroupLabel(result: SearchResult) {
-  return GROUPS.find((group) => group.value === result.group)?.label;
-}
-
-const resultColumns: AdminColumn<SearchResult>[] = [
-  { id: "title", header: dict.colResult, rowHeader: true, sortValue: (result) => result.title, cell: (result) => <Link href={result.href} className="font-semibold underline-offset-4 hover:underline">{result.title}</Link> },
-  { id: "group", header: dict.colGroup, sortValue: (result) => resultGroupLabel(result) ?? null, cell: (result) => resultGroupLabel(result) ?? "—" },
-  { id: "status", header: dict.colStatus, sortValue: (result) => (result.status ? statusLabel(result.status) : null), cell: (result) => (result.status ? <span className="rounded-full border border-[var(--admin-border)] bg-[var(--admin-surface-muted)] px-2 py-0.5 text-[0.68rem] font-semibold text-[var(--admin-text-muted)]">{statusLabel(result.status)}</span> : "—") },
-  { id: "details", header: dict.colDetails, className: "text-xs text-[var(--admin-text-muted)]", cell: resultDetails },
-  { id: "open", header: dict.resultOpen, headerHidden: true, align: "end", cell: (result) => <Link href={result.href} aria-label={`${dict.resultOpen}: ${result.title}`} className="inline-grid size-11 place-items-center rounded-full hover:bg-[var(--admin-surface-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-ink)]"><ArrowRight className="size-4" aria-hidden="true" /></Link> },
-];
-
-function SearchResults({ rows }: { rows: SearchResult[] }) {
-  return (
-    <AdminDataView
-      listKey="pretraga.rezultati"
-      caption={dict.resultsCaption}
-      rows={rows}
-      getRowId={(result) => `${result.group}:${result.id}`}
-      columns={resultColumns}
-      tableClassName="min-w-[48rem]"
-      renderCard={(result) => <ResultCard result={result} />}
-    />
-  );
-}
-
 function ResultCard({ result }: { result: SearchResult }) {
-  const detailParts = [resultDetails(result)];
-  const groupLabel = resultGroupLabel(result);
+  const detailParts = Array.from(new Set(
+    [result.code, result.ownerLabel, result.smkCode, result.venueLabel, result.smlCode, result.meta].filter(Boolean),
+  ));
+  const groupLabel = GROUPS.find((group) => group.value === result.group)?.label;
   return (
     <Link
       href={result.href}
-      className="group grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-4 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--admin-ink)]"
+      className="group grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-4 rounded-2xl border border-[var(--admin-border)] bg-[var(--admin-surface-strong)] p-4 shadow-[var(--admin-shadow-xs)] transition-colors hover:border-[var(--admin-ink)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-ink)]"
     >
       <span className="min-w-0">
         <span className="flex min-w-0 flex-wrap items-center gap-2">
@@ -339,7 +308,7 @@ function SearchView() {
         <AdminPanel><AdminEmptyState title={dict.emptyTitle} body={dict.emptyBody} /></AdminPanel>
       ) : (
         <div className="grid gap-2">
-          <SearchResults rows={results.results} />
+          {results.results.map((result) => <ResultCard key={`${result.group}:${result.id}`} result={result} />)}
           {results.status === "CanLoadMore" || results.status === "LoadingMore" ? (
             <button type="button" disabled={results.status === "LoadingMore"} onClick={() => results.loadMore(20)} className="mx-auto mt-2 min-h-11 rounded-full border border-[var(--admin-border)] bg-[var(--admin-surface-strong)] px-5 text-sm font-semibold">
               {results.status === "LoadingMore" ? dict.loadingMore : dict.loadMore}
@@ -506,7 +475,7 @@ export function AdminSearchPreviewWorkspace({
             <AdminPanel><AdminEmptyState title={dict.initialTitle} body={dict.initialBody} /></AdminPanel>
           ) : fixtureState !== "empty" && rows.length ? (
             <div className="grid gap-2">
-              <SearchResults rows={visibleRows} />
+              {visibleRows.map((result) => <ResultCard key={`${result.group}:${result.id}`} result={result} />)}
               {rows.length > visibleRows.length ? <button type="button" onClick={() => setShowAll(true)} className="mx-auto mt-2 min-h-11 rounded-full border border-[var(--admin-border)] bg-[var(--admin-surface-strong)] px-5 text-sm font-semibold">{dict.loadMore}</button> : null}
             </div>
           ) : (

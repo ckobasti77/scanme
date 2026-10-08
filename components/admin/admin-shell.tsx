@@ -3,7 +3,6 @@
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useQuery } from "convex/react";
 import {
-  AtSign,
   Bell,
   Building2,
   CalendarDays,
@@ -71,13 +70,13 @@ const navIcons: Record<AdminNavId, NavIcon> = {
   dashboard: LayoutDashboard,
   clients: Building2,
   inbox: Mail,
-  mail: AtSign,
   tasks: CheckSquare2,
   operations: PackageSearch,
   services: PanelsTopLeft,
-  events: CalendarDays,
   finance: CircleDollarSign,
   team: Users,
+  // Sajam 2026 B1A: admin `Događaji`.
+  events: CalendarDays,
 };
 
 const childIcons: Record<string, NavIcon> = {
@@ -119,7 +118,7 @@ export function AdminShell({
           data-reveal="off"
           className="sticky top-0 z-30 bg-[var(--admin-app)]/95 px-3 py-3 backdrop-blur-md sm:px-5 xl:px-7 xl:py-4"
         >
-          <div className="flex min-h-12 items-center gap-3 xl:grid xl:grid-cols-[auto_minmax(0,1fr)_auto] xl:gap-3 2xl:gap-5">
+          <div className="flex min-h-12 items-center gap-3 xl:grid xl:grid-cols-[auto_minmax(0,1fr)_auto] xl:gap-5">
             <Link
               href="/admin"
               className="flex min-h-11 shrink-0 items-center gap-2.5 rounded-xl px-1"
@@ -210,7 +209,7 @@ function DesktopNavigation({ pathname }: { pathname: string }) {
                   type="button"
                   aria-current={active ? "page" : undefined}
                   className={cn(
-                    "admin-v1-round inline-flex min-h-10 items-center gap-1 rounded-full px-1.5 text-[0.78rem] font-semibold whitespace-nowrap transition-[background-color,color] duration-150 2xl:gap-1.5 2xl:px-3.5 2xl:text-[0.82rem]",
+                    "admin-v1-round inline-flex min-h-10 items-center gap-1.5 rounded-full px-3.5 text-[0.82rem] font-semibold whitespace-nowrap transition-[background-color,color] duration-150",
                     active
                       ? "bg-[var(--admin-ink)] text-[var(--admin-on-ink)]"
                       : "text-[var(--admin-text)] hover:bg-[var(--admin-surface-muted)]",
@@ -262,7 +261,7 @@ function DesktopNavigation({ pathname }: { pathname: string }) {
             href={item.href}
             aria-current={active ? "page" : undefined}
             className={cn(
-              "inline-flex min-h-10 items-center rounded-full px-1.5 text-[0.78rem] font-semibold whitespace-nowrap transition-[background-color,color] duration-150 2xl:px-3.5 2xl:text-[0.82rem]",
+              "inline-flex min-h-10 items-center rounded-full px-3.5 text-[0.82rem] font-semibold whitespace-nowrap transition-[background-color,color] duration-150",
               active
                 ? "bg-[var(--admin-ink)] text-[var(--admin-on-ink)]"
                 : "text-[var(--admin-text)] hover:bg-[var(--admin-surface-muted)]",
