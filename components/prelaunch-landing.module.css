@@ -291,8 +291,9 @@
   white-space: nowrap;
 }
 
+/* Naziv sajma koji je u toku je u ScanMe zelenoj; ostali (tek će biti) su sivi. */
 .fairEvent span {
-  color: var(--accent-text);
+  color: color-mix(in srgb, var(--foreground) 58%, transparent);
   font-weight: 600;
   font-size: 0.68rem;
   line-height: 1.25;
@@ -302,6 +303,28 @@
 .fairEvent[data-state="next"] {
   border-color: color-mix(in srgb, var(--foreground) 34%, transparent);
 }
+
+.fairEvent[data-state="live"] span { color: var(--accent-text); }
+
+/* Ivica sajma koji je u toku se diskretno presijava (kao skeleton loader):
+   svetli odsjaj prelazi preko ivice s leva na desno; unutrašnjost se ne menja. */
+.fairEvent[data-state="live"]::after {
+  position: absolute;
+  inset: -1.25px;
+  content: "";
+  border-radius: calc(var(--button-radius) + 1px);
+  padding: 1.5px;
+  pointer-events: none;
+  background: linear-gradient(110deg, transparent 41%, var(--fair-shine) 50%, transparent 59%) 150% 0 / 260% 100% no-repeat;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  opacity: 0;
+}
+
+.fairEvents { --fair-shine: rgb(0 0 0 / 0.62); }
+html[data-theme="dark"] .fairEvents { --fair-shine: rgb(255 255 255 / 0.95); }
 
 .fairEvent[data-state="live"]::before,
 .fairEvent[data-state="next"]::before {
@@ -353,6 +376,7 @@
 @media (prefers-reduced-motion: no-preference) {
   .fairBanner::after { animation: fair-banner-scan 7s cubic-bezier(0.45, 0, 0.55, 1) 1.2s infinite; }
   .fairStatus[data-kind="live"] .fairStatusDot::after { animation: fair-live-pulse 1.8s ease-out infinite; }
+  .fairEvent[data-state="live"]::after { opacity: 1; animation: fair-event-shine 4.2s ease-in-out 0.8s infinite; }
   .fairYearDot { animation: fair-year-scan 6s ease-in-out infinite; animation-delay: calc(var(--c) * 70ms); }
 }
 
@@ -361,6 +385,11 @@
   10% { opacity: 1; }
   60% { opacity: 1; transform: translate3d(320%, 0, 0); }
   66%, 100% { opacity: 0; transform: translate3d(320%, 0, 0); }
+}
+
+@keyframes fair-event-shine {
+  0% { background-position: 150% 0; }
+  55%, 100% { background-position: -50% 0; }
 }
 
 @keyframes fair-live-pulse {
