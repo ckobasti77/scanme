@@ -1,4 +1,5 @@
 import { ConvexError, v } from "convex/values";
+import { internal } from "./_generated/api";
 import { mutation } from "./_generated/server";
 import { optionalText, requireText } from "./lib/validation";
 import { readyStorageForLead } from "./offerLogoUploads";
@@ -91,6 +92,7 @@ export const create = mutation({
       submissionId,
       status: "new",
       createdAt: now,
+      emailStatus: "queued",
     });
 
     if (args.logoUploadId && logoStorageId) {
@@ -100,6 +102,10 @@ export const create = mutation({
         updatedAt: now,
       });
     }
+
+    // Obaveštenje timu ide samo za prihvaćen upit (nikad za duplikat, honeypot
+    // ili isteklu formu — ti putevi se vraćaju ili bacaju pre ovoga).
+    await ctx.scheduler.runAfter(0, internal.leadEmails.sendLeadNotification, { leadId });
 
     return { status: "accepted" as const };
   },

@@ -3,6 +3,7 @@ import path from "node:path";
 import { BrandLogo } from "@/components/brand-logo";
 import { HeroIntro } from "@/components/hero-intro";
 import { HeroMedia } from "@/components/hero-media";
+import { LeadForm } from "@/components/lead-form";
 import { PrelaunchFairBanner } from "@/components/prelaunch-fair-banner";
 import { PrelaunchNav } from "@/components/prelaunch-nav";
 import { PrelaunchServiceCards } from "@/components/prelaunch-service-cards";
@@ -19,7 +20,7 @@ const navLinks = [
 
 function Footer() {
   return (
-    <footer id="kontakt" className={styles.footer} data-reveal="off">
+    <footer className={styles.footer} data-reveal="off">
       <div className="section-shell">
         <div className={styles.footerGrid}>
           <div>
@@ -78,6 +79,23 @@ export function PrelaunchLanding() {
               <p className={styles.servicesBody}>{dict.services.body}</p>
             </div>
             <PrelaunchServiceCards />
+          </section>
+
+          <section id="kontakt" className={styles.contactSection} data-reveal="off">
+            <div className={`${styles.contactGrid} section-shell`}>
+              <div className={styles.contactCopy}>
+                <p className={styles.sectionEyebrow}>{dict.contact.eyebrow}</p>
+                <h2>{dict.contact.title}</h2>
+                <p className={styles.contactBody}>{dict.contact.body}</p>
+                <p className={styles.contactEmail}>
+                  <span>{dict.contact.emailLabel}</span>
+                  <a href={`mailto:${dict.footer.email}`}>{dict.footer.email}</a>
+                </p>
+              </div>
+              <div className={styles.contactFormFrame}>
+                <LeadForm generalCopy={dict.contact.form} />
+              </div>
+            </div>
           </section>
         </main>
         <Footer />

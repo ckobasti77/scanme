@@ -103,6 +103,31 @@ export interface PrelaunchDict {
       interest: string;
     };
   };
+  contact: {
+    eyebrow: string;
+    title: string;
+    body: string;
+    emailLabel: string;
+    form: {
+      formAria: string;
+      cityLabel: string;
+      interestAria: string;
+      /** Prvi red poruke za uslugu bez tačne `interest` vrednosti. */
+      interestLinePrefix: string;
+      services: Array<{
+        value: string;
+        label: string;
+        interest: "review" | "not_sure";
+        tag?: string;
+        messageLabel?: string;
+      }>;
+      defaultService: string;
+      submit: string;
+      submitting: string;
+      successTitle: string;
+      successBody: string;
+    };
+  };
   partners: {
     eyebrow: string;
     title: string;
@@ -281,6 +306,30 @@ export const prelaunchSr: PrelaunchDict = {
       email: "Unesite ispravnu imejl adresu.",
       phone: "Unesite ispravan broj telefona.",
       interest: "Izaberite bar jednu oblast interesovanja.",
+    },
+  },
+  contact: {
+    eyebrow: "Kontakt",
+    title: "Recite nam šta želite da postavite.",
+    body:
+      "Pošaljite osnovne podatke i šta vas zanima. Javljamo se sa predlogom i realnim rokom — bez obaveze.",
+    emailLabel: "Ili pišite direktno na",
+    form: {
+      formAria: "Upit za ScanMe",
+      cityLabel: "Grad",
+      interestAria: "Zanima me",
+      interestLinePrefix: "Zanima me:",
+      services: [
+        { value: "links", label: "ScanMe Links", interest: "not_sure", messageLabel: "ScanMe Links" },
+        { value: "review", label: "ScanMe Review", interest: "review" },
+        { value: "menu", label: "ScanMe Meni", interest: "not_sure", tag: "Uskoro", messageLabel: "ScanMe Meni" },
+        { value: "not_sure", label: "Nisam siguran/na", interest: "not_sure" },
+      ],
+      defaultService: "not_sure",
+      submit: "Pošalji upit",
+      submitting: "Šaljemo upit...",
+      successTitle: "Upit je poslat.",
+      successBody: "Hvala. Javićemo se preko telefona ili imejla koji ste ostavili.",
     },
   },
   partners: {

@@ -33,6 +33,31 @@ type FormValues = {
 type FieldName = keyof FormValues;
 type FieldErrors = Partial<Record<FieldName, string>>;
 
+/**
+ * Opšta ScanMe kontakt forma (javni landing). Bez ovog propa forma je ista kao
+ * u klasičnom #ponuda toku. Argumenti leads.create se ne menjaju: usluga bez
+ * tačne `interest` vrednosti šalje "not_sure", a prvi red poruke je
+ * „<interestLinePrefix> <messageLabel>“.
+ */
+export type LeadFormGeneralCopy = {
+  formAria: string;
+  cityLabel: string;
+  interestAria: string;
+  interestLinePrefix: string;
+  services: ReadonlyArray<{
+    value: string;
+    label: string;
+    interest: FormValues["interest"];
+    tag?: string;
+    messageLabel?: string;
+  }>;
+  defaultService: string;
+  submit: string;
+  submitting: string;
+  successTitle: string;
+  successBody: string;
+};
+
 const initialValues: FormValues = {
   contactName: "",
   businessName: "",
@@ -71,18 +96,30 @@ export function LeadForm({
   initialMessage = "",
   initialOfferSelection,
   initialLogoUploadId,
+  generalCopy,
 }: {
   initialMessage?: string;
   initialOfferSelection?: string;
   initialLogoUploadId?: string;
+  generalCopy?: LeadFormGeneralCopy;
 } = {}) {
   const createLead = useMutation(api.leads.create);
   // `initialMessage` je predlog rezimea iz toka ponude (server-side); prazan bez konteksta.
   // Kontrolisano polje — korisnik ga slobodno menja ili briše.
   const [values, setValues] = useState<FormValues>(() => ({
     ...initialValues,
+    ...(generalCopy ? { city: "" } : {}),
     message: initialMessage,
   }));
+  const [service, setService] = useState(generalCopy?.defaultService ?? "");
+  const successHeadingRef = useRef<HTMLHeadingElement>(null);
+  // Prvi red „Zanima me: <usluga>“ ulazi u isto ograničenje od 5000 znakova na serveru.
+  const messageMaxLength = generalCopy
+    ? 5000 -
+      (generalCopy.interestLinePrefix.length +
+        Math.max(0, ...generalCopy.services.map((option) => option.messageLabel?.length ?? 0)) +
+        3)
+    : 5000;
   const [errors, setErrors] = useState<FieldErrors>({});
   const [status, setStatus] = useState<"idle" | "pending" | "success" | "error">("idle");
   const [serverError, setServerError] = useState("");
@@ -92,6 +129,11 @@ export function LeadForm({
   useEffect(() => {
     formStartedAt.current = Date.now();
   }, []);
+
+  // Forma nestaje posle uspeha; fokus prelazi na potvrdu da je čitač ekrana pročita.
+  useEffect(() => {
+    if (status === "success" && generalCopy) successHeadingRef.current?.focus();
+  }, [status, generalCopy]);
 
   const update = (field: FieldName, value: string) => {
     setValues((current) => ({ ...current, [field]: value }));
@@ -128,6 +170,13 @@ export function LeadForm({
     setStatus("pending");
     setServerError("");
     submissionId.current ??= crypto.randomUUID();
+    const serviceOption = generalCopy?.services.find((option) => option.value === service);
+    const interest = serviceOption?.interest ?? values.interest;
+    const message = serviceOption?.messageLabel
+      ? [`${generalCopy?.interestLinePrefix} ${serviceOption.messageLabel}`, values.message.trim()]
+          .filter(Boolean)
+          .join("\n\n")
+      : values.message;
 
     try {
       const logoSessionToken = initialLogoUploadId ? readOfferLogoSession() : null;
@@ -138,8 +187,8 @@ export function LeadForm({
         ...(values.city.trim() ? { city: values.city } : {}),
         ...(values.email.trim() ? { email: values.email } : {}),
         ...(values.phone.trim() ? { phone: values.phone } : {}),
-        interest: values.interest,
-        ...(values.message.trim() ? { message: values.message } : {}),
+        interest,
+        ...(message.trim() ? { message } : {}),
         ...(initialOfferSelection ? { offerSelection: initialOfferSelection } : {}),
         ...(initialLogoUploadId && logoSessionToken
           ? {
@@ -173,27 +222,45 @@ export function LeadForm({
 
   if (status === "success") {
     return (
-      <div className="flex min-h-[420px] flex-col justify-between border border-primary p-6 sm:p-8" aria-live="polite">
+      <div
+        className={
+          generalCopy
+            ? "flex min-h-[320px] flex-col justify-between"
+            : "flex min-h-[420px] flex-col justify-between border border-primary p-6 sm:p-8"
+        }
+        aria-live="polite"
+      >
         <Check aria-hidden="true" className="size-10 text-accent-readable" strokeWidth={1.5} />
         <div>
-          <h3 className="text-2xl font-semibold tracking-[-0.04em]">Zahtev je sačuvan.</h3>
+          <h3
+            ref={successHeadingRef}
+            tabIndex={generalCopy ? -1 : undefined}
+            className="text-2xl font-semibold tracking-[-0.04em] outline-none"
+          >
+            {generalCopy?.successTitle ?? "Zahtev je sačuvan."}
+          </h3>
           <p className="mt-3 max-w-[42ch] leading-7 text-foreground/66">
-            Hvala. Javićemo se preko telefona ili imejla koji ste ostavili.
+            {generalCopy?.successBody ?? "Hvala. Javićemo se preko telefona ili imejla koji ste ostavili."}
           </p>
         </div>
       </div>
     );
   }
 
+  // Opšta forma drži mesto za poruku o grešci, pa poruka ne pomera polja.
   const errorFor = (field: FieldName) =>
-    errors[field] ? (
+    generalCopy ? (
+      <p id={`${field}-error`} className="min-h-5 text-sm leading-5 text-destructive" aria-live="polite">
+        {errors[field] ?? ""}
+      </p>
+    ) : errors[field] ? (
       <p id={`${field}-error`} className="text-sm leading-5 text-destructive" role="alert">
         {errors[field]}
       </p>
     ) : null;
 
   return (
-    <form noValidate onSubmit={handleSubmit} className="grid gap-5" aria-label="Zahtev za ScanMe ponudu">
+    <form noValidate onSubmit={handleSubmit} className="grid gap-5" aria-label={generalCopy?.formAria ?? "Zahtev za ScanMe ponudu"}>
       {status === "error" ? (
         <div className="border border-destructive bg-destructive/10 p-4 text-sm leading-6 text-destructive" role="alert">
           {serverError}
@@ -259,17 +326,30 @@ export function LeadForm({
         </div>
 
         <div className="form-field">
-          <Label htmlFor="city">Grad</Label>
-          <select
-            id="city"
-            name="city"
-            autoComplete="address-level2"
-            value={values.city}
-            onChange={(event) => update("city", event.target.value)}
-            className="form-control h-12 w-full px-3 text-base"
-          >
-            <option value="Beograd">Beograd</option>
-          </select>
+          <Label htmlFor="city">{generalCopy?.cityLabel ?? "Grad"}</Label>
+          {generalCopy ? (
+            <Input
+              id="city"
+              name="city"
+              autoComplete="address-level2"
+              maxLength={80}
+              value={values.city}
+              onChange={(event) => update("city", event.target.value)}
+              className="form-control"
+            />
+          ) : (
+            <select
+              id="city"
+              name="city"
+              autoComplete="address-level2"
+              value={values.city}
+              onChange={(event) => update("city", event.target.value)}
+              className="form-control h-12 w-full px-3 text-base"
+            >
+              <option value="Beograd">Beograd</option>
+            </select>
+          )}
+          {generalCopy ? errorFor("city") : null}
         </div>
       </div>
 
@@ -316,6 +396,38 @@ export function LeadForm({
 
       <div className="form-field">
         <Label htmlFor="interest">Zanima me *</Label>
+        {generalCopy ? (
+          <Select name="interest" value={service} onValueChange={setService}>
+            <SelectTrigger
+              id="interest"
+              className="form-control h-12 w-full px-3 text-base"
+              aria-label={generalCopy.interestAria}
+            >
+              <SelectValue>
+                {generalCopy.services.find((option) => option.value === service)?.label}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent className="rounded-[var(--button-radius)] border-border bg-popover p-0 shadow-none">
+              {generalCopy.services.map((option) => (
+                <SelectItem
+                  key={option.value}
+                  value={option.value}
+                  className={`min-h-11 rounded-none pl-9 ${option.tag ? "pr-24" : "pr-3"}`}
+                >
+                  {option.label}
+                  {option.tag ? (
+                    <>
+                      <span className="sr-only">, </span>
+                      <span className="absolute right-3 text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                        {option.tag}
+                      </span>
+                    </>
+                  ) : null}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : (
         <Select
           name="interest"
           value={values.interest}
@@ -377,6 +489,7 @@ export function LeadForm({
             </SelectItem>
           </SelectContent>
         </Select>
+        )}
       </div>
 
       <div className="form-field">
@@ -385,7 +498,7 @@ export function LeadForm({
           id="message"
           name="message"
           rows={5}
-          maxLength={5000}
+          maxLength={messageMaxLength}
           value={values.message}
           onChange={(event) => update("message", event.target.value)}
           className="form-control min-h-32 resize-y"
@@ -404,14 +517,18 @@ export function LeadForm({
         />
       </div>
 
-      <button type="submit" disabled={status === "pending"} className="button-primary focus-signal mt-2 w-full">
+      <button
+        type="submit"
+        disabled={status === "pending"}
+        className={`button-primary focus-signal mt-2 w-full${generalCopy ? " min-h-12" : ""}`}
+      >
         {status === "pending" ? (
           <>
             <LoaderCircle aria-hidden="true" className="size-4 animate-spin" strokeWidth={1.75} />
-            Šaljemo zahtev...
+            {generalCopy?.submitting ?? "Šaljemo zahtev..."}
           </>
         ) : (
-          "Zatraži ponudu"
+          generalCopy?.submit ?? "Zatraži ponudu"
         )}
       </button>
     </form>

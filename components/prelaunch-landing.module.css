@@ -574,6 +574,50 @@
 .boothPartners { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 1rem; }
 .boothPartners span { border: 1px solid color-mix(in srgb, var(--foreground) 16%, transparent); padding: 0.75rem 0.9rem; color: color-mix(in srgb, var(--foreground) 68%, transparent); font-size: 0.82rem; }
 
+.contactSection {
+  border-top: 1px solid color-mix(in srgb, var(--foreground) 10%, transparent);
+  padding-block: clamp(3.5rem, 7vw, 6rem);
+}
+.contactGrid { display: grid; gap: 2rem; }
+.contactCopy { display: grid; align-content: start; gap: 0.9rem; }
+.contactCopy h2 {
+  max-width: 14ch;
+  font-size: clamp(2.25rem, 4.2vw, 3.75rem);
+  font-weight: 600;
+  line-height: 0.98;
+  letter-spacing: -0.06em;
+}
+.contactBody {
+  max-width: 46ch;
+  color: color-mix(in srgb, var(--foreground) 64%, transparent);
+  font-size: 0.95rem;
+  line-height: 1.65;
+}
+.contactEmail {
+  display: grid;
+  gap: 0.2rem;
+  margin-top: 0.5rem;
+  font-size: 0.82rem;
+}
+.contactEmail span { color: color-mix(in srgb, var(--foreground) 52%, transparent); }
+.contactEmail a {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-self: start;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 0.3em;
+}
+.contactFormFrame {
+  min-width: 0;
+  border: 1px solid color-mix(in srgb, var(--foreground) 14%, transparent);
+  border-radius: var(--button-radius);
+  background: color-mix(in srgb, var(--card) 72%, transparent);
+  box-shadow: inset 0 1px 0 var(--nav-glass-inner);
+  padding: clamp(1.15rem, 4vw, 2.25rem);
+}
+
 .footer { border-top: 1px solid color-mix(in srgb, var(--foreground) 10%, transparent); background: var(--landing-footer-surface); padding-block: 2rem 1.25rem; }
 .footerGrid { display: grid; gap: 1.5rem 3rem; }
 .footerFair { margin-top: 0.75rem; color: var(--accent-readable); font-family: var(--font-mono), monospace; font-size: 0.72rem; }
@@ -601,6 +645,7 @@
   .productTab { min-width: 0; flex: 1; }
   .productPreview { border-right: 1px solid color-mix(in srgb, var(--foreground) 14%, transparent); border-bottom: 0; }
   .leadSection { grid-template-columns: minmax(0, 0.85fr) minmax(30rem, 1.15fr); gap: clamp(5rem, 9vw, 9rem); }
+  .contactGrid { grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); gap: clamp(3rem, 7vw, 7rem); }
   .mainPartners { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .mainPartners article + article { border-top: 0; border-left: 1px solid color-mix(in srgb, var(--foreground) 16%, transparent); }
 }
