@@ -25,10 +25,11 @@
   - posle toga je skup zaključan (fer pravilo);
   - `publishPassport` nema rok.
 - **Dani:** dnevni izveštaj za 9. 10. pravi se tek posle 10. 10. 00:00, u statusu „čeka odobrenje“. Ništa se ne zatvara ni ne blokira ranije.
-- **Granica analitike** je već prošla: sve urađeno na prod-u računa se kao podatak sajma.
-  - Nalepnice testiraj **prijavljen kao admin**, jer admin skenovi se ne broje.
-  - Jedan sken iz privatnog prozora se računa kao pravi.
-  - „Resetuj pre-event podatke“ na prod-u nema šta da obriše.
+- **Granica analitike je otvaranje hale, 9. 10. 08:00** (`FAIR_ANALYTICS_CUTOFF_BY_EVENT_CODE`).
+  - Sve urađeno na prod-u pre 08:00 je pre-event: noćne probe, povezivanje i test skenovi.
+  - Leadovi, izvoz, izveštaj i ukupni skenovi to automatski ne broje.
+  - Ocene, glasove i omiljene čisti reset (korak 10).
+  - Admin skenovi se ne broje nikad.
 
 ### Šta deploy menja na prod-u
 
@@ -167,5 +168,13 @@ Pregled i Modeli:
 1. Prijavljen kao admin skeniraj SA26-013: otvara se `…/model/jmev-ev3`, a sken se ne broji.
 2. Jedan sken iz privatnog prozora (računa se): stranica modela, pečat u pasošu.
 3. Jedna postojeća klijentska nalepnica vodi kao pre.
+
+### Korak 10: reset pre-event podataka (posle poslednje probe, pre 08:00)
+
+Admin → Pregled → „Pre-event podaci“ → proveri brojke → **Resetuj pre-event podatke** → upiši `RESETUJ`.
+
+- Briše samo redove pre 08:00 i ispravlja brojače.
+- Katalog, nalepnice i pasoš se ne diraju.
+- Ponovna provera mora dati 0.
 
 **Rollback podataka (krajnja mera):** `npx convex import ../scanme-prod-backup-2026-10-08.zip --replace --prod`.
