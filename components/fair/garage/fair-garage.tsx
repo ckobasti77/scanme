@@ -53,6 +53,7 @@ import {
   type FairGarageDocument,
   type FairGarageReadResult,
 } from "@/lib/fair-client/garage-store";
+import { fairLocalPhotoUrl } from "@/lib/fair-client/photo-url";
 import {
   fairGarageEventId,
   fairGarageEventTitle,
@@ -155,7 +156,7 @@ function displayModelName(brandName: string, displayName: string) {
 }
 
 function reviewPhoto(brandName: string, displayName: string, photoUrl?: string) {
-  if (photoUrl || process.env.NODE_ENV === "production") return photoUrl;
+  if (photoUrl || process.env.NODE_ENV === "production") return fairLocalPhotoUrl(photoUrl);
   return REVIEW_PHOTOS[`${cleanTestLabel(brandName)} ${displayModelName(brandName, displayName)}`.trim().toLocaleLowerCase("sr-Latn")];
 }
 

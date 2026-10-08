@@ -6,6 +6,7 @@ import { ArrowUpRight, CarFront, Share2 } from "lucide-react";
 import { FairEventShell } from "@/components/fair/event-shell";
 import { FairShareOpenRecorder } from "@/components/fair/garage/fair-share-open-recorder";
 import { fairGarageEventId, fairGarageEventTitle } from "@/lib/fair-client/garage-view";
+import { fairLocalPhotoUrl } from "@/lib/fair-client/photo-url";
 import { fairPublicEventSlug } from "@/lib/fair-public-event";
 import { fairGarageDefinition, loadFairGarageEventSummary } from "@/lib/fair-server/garage-page";
 import { readFairSharedCollection } from "@/lib/fair-server/shared-collection";
@@ -90,7 +91,7 @@ export default async function SharedCollectionPage({ params }: Props) {
           {collection.models.map((model) => (
             <article className={styles.card} key={model.id}>
               <div className={styles.visual}>
-                {model.photoUrl ? <Image fill sizes="(max-width: 679px) 42vw, 230px" src={model.photoUrl} alt={fmt(dict.modelPhotoAlt, { brand: model.brandName, model: model.displayName })} /> : <span className={styles.placeholder}><CarFront aria-hidden="true" /></span>}
+                {model.photoUrl ? <Image fill sizes="(max-width: 679px) 42vw, 230px" src={fairLocalPhotoUrl(model.photoUrl)} alt={fmt(dict.modelPhotoAlt, { brand: model.brandName, model: model.displayName })} /> : <span className={styles.placeholder}><CarFront aria-hidden="true" /></span>}
               </div>
               <div className={styles.copy}>
                 <small>{model.brandName}</small><h2>{model.displayName}</h2><p>{model.priceText}</p>

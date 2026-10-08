@@ -17,6 +17,7 @@ import {
   markPassportModelsSeen,
   unreadPassportModelIds,
 } from "@/lib/fair-client/passport-visit-store";
+import { fairLocalPhotoUrl } from "@/lib/fair-client/photo-url";
 import {
   applyDevPassportStamps,
   devPassportProgressWithStamp,
@@ -84,7 +85,7 @@ function brandPresentation(brandName: string) {
 }
 
 function modelPhoto(model: FairPublicModel | undefined, brandName: string, displayName: string) {
-  if (model?.photoUrl) return model.photoUrl;
+  if (model?.photoUrl) return fairLocalPhotoUrl(model.photoUrl);
   if (process.env.NODE_ENV === "production") return undefined;
   const modelName = fairPassportDisplayName(brandName, displayName);
   return REVIEW_PHOTOS[`${cleanLabel(brandName)} ${modelName}`.toLocaleLowerCase("sr-Latn")];

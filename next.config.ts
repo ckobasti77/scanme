@@ -23,6 +23,14 @@ const nextConfig: NextConfig = {
         hostname: "**.convex.cloud",
         pathname: "/api/storage/**",
       },
+      // Fair model photos are stored as https://scanme.rs/fair/... ; the UI
+      // renders them from the local public/fair/ path (fairLocalPhotoUrl), this
+      // is only the fallback for a URL that reaches next/image unchanged.
+      {
+        protocol: "https",
+        hostname: "scanme.rs",
+        pathname: "/fair/**",
+      },
     ],
   },
 };
