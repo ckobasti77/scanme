@@ -1783,7 +1783,7 @@ Cron sam pokreće pravo brisanje 16. 11. u 00:00, a MASTER kaže „nakon odobre
 ## SAJAM v2 — P3 (stranica modela na pravom API-ju, anketa, deljeni kontakt blok; 8. 10. 2026.)
 
 ### 1. Tekst saglasnosti čeka stručnu pravnu proveru (MASTER §19 P0)
-Lead tokovi (`Zainteresovan sam`, `Probna vožnja`, opcioni kontakt u anketi) prikazuju tekst saglasnosti sa servera (`getLeadForm`) i šalju samo uz `Prihvatam`. Konačan tekst još nije pravno proveren. Za DEV proveru je u TEST događaju (`test-elektromobilnost-2026`) aktiviran tekst koji počinje sa „TEST – nije pravni tekst“. To nije pravni tekst i ne sme na PROD. Pravi događaj `elektromobilnost-2026` nema aktivnu saglasnost, pa njegovi obrasci prikazuju „Trenutno nedostupno“ dok se tekst ne odobri.
+Lead tokovi (`Zainteresovan sam`, `Probna vožnja`, opcioni kontakt u anketi) prikazuju tekst saglasnosti sa servera (`getLeadForm`) i šalju samo uz `Prihvatam`. Konačan tekst još nije pravno proveren. Za DEV proveru treba u TEST događaju (`test-elektromobilnost-2026`) aktivirati tekst koji počinje sa „TEST – nije pravni tekst“. To se radi kroz admin „Događaji“ i traži admin prijavu; stanje 8. 10.: još nije unet. Taj tekst nije pravni i ne sme na PROD. Pravi događaj `elektromobilnost-2026` nema aktivnu saglasnost, pa njegovi obrasci prikazuju „Trenutno nedostupno“ dok se tekst ne odobri.
 
 ### 2. Pravni naziv izlagača
 Saglasnost imenuje izlagača preko `businesses.name`. Posebno polje za pravni naziv ne postoji (`JOVAN-DELTA-2026-10-08.md` §6). Ako pravna provera traži pravni naziv, potrebno je backend polje. Do tada se prikazuje naziv klijenta.
