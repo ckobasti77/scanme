@@ -2990,7 +2990,7 @@
   font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.15em;
-  opacity: 0.85;
+  opacity: 0.95;
   text-transform: uppercase;
   white-space: nowrap;
 }
@@ -3073,6 +3073,10 @@
   position: absolute;
   inset: -7px -3px;
   content: "";
+}
+
+.spCard .spAdd {
+  border-radius: 9px;
 }
 
 .spAdd {

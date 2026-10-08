@@ -795,8 +795,8 @@ function SponsoredStrip({ event, document: garageDocument, dict, onDocument }: {
     if (ok) {
       record("garage_add", model);
       fairHaptic([18, 40, 28]);
-      // The new car parks as MESTO 01: bring the top of the list into view.
-      window.document.querySelector("[data-garage-list]")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      // The new car parks as MESTO 01: back to the top of the garage.
+      window.scrollTo({ top: 0, behavior: "smooth" });
     }
     setAddingId(null);
     addAttemptRef.current = null;
@@ -875,7 +875,7 @@ function SponsoredStrip({ event, document: garageDocument, dict, onDocument }: {
         </div>
         <div className={styles.spLeft}>
           <span className={styles.spTag}>{dict.sponsoredTag}</span>
-          <div className={styles.spName} data-out={nameOut || undefined} aria-live="polite">
+          <div className={styles.spName} data-out={nameOut || undefined}>
             <span>{cleanTestLabel(nameItem.brandName)}</span>
             <strong>{displayModelName(nameItem.brandName, nameItem.displayName)}</strong>
           </div>

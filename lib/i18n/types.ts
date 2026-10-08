@@ -191,14 +191,11 @@ export interface FairModelDict {
   garageNav: string;
   garageCountAria: string;
   modelPhotoAlt: string;
-  allSpecifications: string;
-  audienceTitle: string;
   audienceBody: string;
   rateModel: string;
   submitInterest: string;
   requestTestDrive: string;
   saveToGarage: string;
-  savedToGarage: string;
   garageStorageError: string;
   deferredFlowMessage: string;
   poweredBy: string;
@@ -237,14 +234,12 @@ export interface FairModelDict {
   fixtureOneQuestion: string;
   fixtureFiveQuestions: string;
   closeSheet: string;
-  ratingSheetTitle: string;
   overallRatingLabel: string;
   ratingValueAria: string;
   designRatingLabel: string;
   specificationsRatingLabel: string;
   priceRatingLabel: string;
   saveRating: string;
-  saveRatings: string;
   interestSheetTitle: string;
   testDriveSheetTitle: string;
   fullNameLabel: string;
@@ -311,9 +306,7 @@ export interface FairModelDict {
   /** DEV preview page of the form states (/dev/sajam-forma). */
   leadPreviewTitle: string;
   // P3 (Aleksa, 5532038) — the model page actions on the real API, survey bubble, shared contact block.
-  ratingSaving: string;
   ratingSaved: string;
-  ratingsSaved: string;
   actionRetry: string;
   errorGeneric: string;
   errorRateLimited: string;

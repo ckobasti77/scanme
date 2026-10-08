@@ -534,6 +534,7 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   align-items: center;
   gap: 10px;
   border: 0;
+  border-radius: 0;
   background: none;
   color: var(--fair-ink);
   cursor: pointer;
@@ -715,7 +716,6 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   font-size: 10.5px;
   font-weight: 700;
   letter-spacing: 0.1em;
-  opacity: 0.8;
   text-transform: uppercase;
 }
 
@@ -919,6 +919,12 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   color: #fff;
 }
 
+.fair-sheet:has(.fair-rating-sheet) h2 {
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
 .fair-sheet__eyebrow {
   display: block;
   color: var(--fair-accent);
@@ -979,6 +985,19 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   flex: none;
   color: var(--fair-accent);
   stroke-width: 1.9;
+}
+
+/* The global "button:not([data-slot])" corner rule outranks one class: restate the v2 corners. */
+.fair-event button.fair-specs__toggle {
+  border-radius: 0;
+}
+
+.fair-event button.fair-rate-open {
+  border-radius: 16px;
+}
+
+.fair-event button.fair-save-button {
+  border-radius: 16px;
 }
 
 /* Sticky save dock with a soft fade above it */
