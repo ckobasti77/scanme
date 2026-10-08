@@ -16,3 +16,14 @@ export function fairLocalPhotoUrl(url: string | undefined, siteOrigin?: string):
   }
   return url;
 }
+
+/**
+ * D1 (RN N1): true when next/image must not optimize `src` — every absolute
+ * URL left after fairLocalPhotoUrl (an exhibitor's own host is not in
+ * next.config `images.remotePatterns`: /_next/image answers 400 in production
+ * and `next dev` throws). The browser then loads the original directly; a
+ * local /fair/... path stays optimized.
+ */
+export function fairPhotoUnoptimized(src: string): boolean {
+  return /^(?:[a-z][a-z\d+.-]*:)?\/\//i.test(src);
+}

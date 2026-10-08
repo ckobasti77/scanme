@@ -33,3 +33,13 @@ Oblik zahteva i odgovora za javni frontend je isti. Detalji su u JOVAN-DELTA, se
   - `mapLocationId`-jevi su isti; komponente mape nisu menjane;
   - deljeni štand 6 prikazuje oba izlagača.
 - **Admin (naš):** `fairAdminQr.linkSticker` ima novi opcioni argument `expectedModelStickerCode`. Nove internal funkcije su `fairExhibitorImport.reconcileSiteExhibitorsWithIntake` i `listStandsOffMap`.
+
+## Jovan — D1, stranica automobila, forme i mapa (8. 10.)
+
+Oblik zahteva i odgovora je isti. Detalji su u JOVAN-DELTA, sekcija „Jovan — 8. 10. — stranica automobila i mapa (D1)“, i u ugovoru §42.
+
+- **`POST /api/fair/lead`:** za `duplicate: true` je `confirmationEmail` sada uvek `false`. `LeadSheet` za duplikat piše „Već smo primili …“ (`fairLeadSentText`, `lib/fair-client/lead-result.ts`; i18n `interestAlreadySent`, `testDriveAlreadySent`).
+- **Fotografije:** `fairPhotoUnoptimized(src)` u `lib/fair-client/photo-url.ts`. Spoljni URL ide direktno (`unoptimized`) na stranici automobila, u garaži, u poređenju i na stranici deljenja; lokalni `/fair/…` ostaje optimizovan.
+- **Mapa:** `lib/fair-map/touch.ts` (`fairMapTouchZone`, `fairMapTouchLocation`, `FAIR_MAP_TOUCH_MIN_PX`). `fair-map-canvas.tsx` ih koristi samo za tap prstom koji promaši štand. ScanMe `ispred-14` je zelen i bez štanda (tada nije interaktivan); placeholder lokacija (AMF) se ne crta.
+- **Ime:** `J.Petrovic` više nije „link“ (`fairLeadNameRisk`).
+- **`fairHaptic`:** ne zove `navigator.vibrate` pre prvog dodira (Chrome to blokira i loguje grešku).

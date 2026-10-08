@@ -529,7 +529,8 @@
   transition: opacity 200ms ease-out;
 }
 
-.viewport[data-interactive="false"] .stand {
+.viewport[data-interactive="false"] .stand,
+.stand:not([data-location-id]) {
   cursor: default;
 }
 
@@ -542,9 +543,13 @@
     stroke 160ms ease-out;
 }
 
-.stand:hover .standShape {
-  fill: #fffefb;
-  stroke: var(--fair-accent);
+/* D1 (RN N5): only where a pointer really hovers (a tap on a phone leaves
+   :hover stuck), and never over the ScanMe green. */
+@media (hover: hover) {
+  .stand:not([data-kind="scanme"]):hover .standShape {
+    fill: #fffefb;
+    stroke: var(--fair-accent);
+  }
 }
 
 .stand[data-kind="area"] .standShape {

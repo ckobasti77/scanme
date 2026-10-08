@@ -163,6 +163,8 @@ export interface FairMapDict {
   mapControlsLabel: string;
   selectedStand: string;
   standSummary: string;
+  /** D1: a box of a split stand shows the whole group's area. */
+  standSummaryGroup: string;
   scanmeBody: string;
   sheetHandle: string;
   directoryTitle: string;
@@ -335,6 +337,9 @@ export interface FairModelDict {
   leadSending: string;
   interestSent: string;
   testDriveSent: string;
+  /** D1 (RN N2): the server answered `duplicate` — already received, no confirmation promised. */
+  interestAlreadySent: string;
+  testDriveAlreadySent: string;
   leadUnavailableTitle: string;
   leadUnavailableBody: string;
   contactOneOfLabel: string;

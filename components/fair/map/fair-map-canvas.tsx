@@ -12,9 +12,11 @@ import {
   fairMapInscribedRect,
   fairMapLabelPoint,
   fairMapLimits,
+  fairMapLocationTakesStands,
   fairMapLogo,
   fairMapPointsAttr,
   fairMapStandLayout,
+  fairMapTouchLocation,
   fairMapZoomAt,
   type FairMapLocation,
   type FairMapPlacedStand,
@@ -139,7 +141,7 @@ export function ZoneCanvas({
   const [size, setSize] = useState<FairMapSize | null>(null);
   const controls = useRef<Array<{ stop: () => void }>>([]);
   const pointers = useRef(new Map<number, { x: number; y: number }>());
-  const gesture = useRef<{ start: FairMapViewport; px: number; py: number; distance: number; moved: number; locationId: string | null } | null>(null);
+  const gesture = useRef<{ start: FairMapViewport; px: number; py: number; distance: number; moved: number; locationId: string | null; touch: boolean } | null>(null);
   const padding = display ? 6 : 12;
   const limits = size ? fairMapLimits(size, content, padding) : null;
 
@@ -205,6 +207,13 @@ export function ZoneCanvas({
     return () => element.removeEventListener("wheel", onWheel);
   }, [apply, content, current, interactive, limits, size]);
 
+  const occupiedLocations = useMemo(() => zoneView.locations.map((row) => row.location), [zoneView.locations]);
+  /** The occupied location whose touch zone holds the viewport point (px, py), or null. */
+  const touchedLocation = (px: number, py: number) => {
+    const view = current();
+    return fairMapTouchLocation([(px - view.x) / view.scale, (py - view.y) / view.scale], occupiedLocations, view.scale);
+  };
+
   const local = (event: ReactPointerEvent) => {
     const rect = viewportRef.current!.getBoundingClientRect();
     return { x: event.clientX - rect.left, y: event.clientY - rect.top };
@@ -220,7 +229,7 @@ export function ZoneCanvas({
     const distance = all.length === 2 ? Math.hypot(all[0].x - all[1].x, all[0].y - all[1].y) : 0;
     const mid = all.length === 2 ? { x: (all[0].x + all[1].x) / 2, y: (all[0].y + all[1].y) / 2 } : point;
     const locationId = all.length === 1 ? ((event.target as Element).closest("[data-location-id]")?.getAttribute("data-location-id") ?? null) : null;
-    gesture.current = { start: current(), px: mid.x, py: mid.y, distance, moved: all.length > 1 ? TAP_SLOP + 1 : 0, locationId };
+    gesture.current = { start: current(), px: mid.x, py: mid.y, distance, moved: all.length > 1 ? TAP_SLOP + 1 : 0, locationId, touch: event.pointerType !== "mouse" };
   };
 
   const onPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -252,13 +261,18 @@ export function ZoneCanvas({
       return;
     }
     gesture.current = null;
-    if (g && event.type === "pointerup" && g.moved <= TAP_SLOP && g.locationId) onSelect(g.locationId);
+    if (!g || event.type !== "pointerup" || g.moved > TAP_SLOP) return;
+    // D1 (RN N7): a finger that missed a small stand still reaches it — every
+    // occupied location has an invisible touch zone of at least 44 CSS px.
+    const locationId = g.locationId ?? (g.touch ? touchedLocation(g.px, g.py) : null);
+    if (locationId) onSelect(locationId);
   };
 
   const items = useMemo<ZoneItem[]>(() => {
     const occupied = new Map(zoneView.locations.map((row) => [row.location.id, row.stands]));
     const chipOptions = { aspect: CHIP_ASPECT, gap: zone.image.width * 0.006, padding: zone.image.width * 0.006, maxWidth: zone.image.width * 0.15 };
-    return zone.locations.map((location) => {
+    // D1 (RN nisko): a placeholder (AMF "scanme") is not on the organizer map — not drawn.
+    return zone.locations.filter(fairMapLocationTakesStands).map((location) => {
       const stands = [...(occupied.get(location.id) ?? [])].sort((a, b) => a.stand.exhibitorName.localeCompare(b.stand.exhibitorName, "sr"));
       const layout = fairMapStandLayout(location, radius);
       const chips = location.kind === "partner" ? [] : fairMapChipGrid(layout.chips, stands.length, chipOptions).map((rect, index) => ({ rect, stand: stands[index].stand }));
@@ -361,37 +375,40 @@ export function ZoneCanvas({
 
             {/* Empty locations: drawn (they are on the organizer map), not interactive. */}
             {items
-              .filter((item) => !item.stands.length)
+              .filter((item) => !item.stands.length && item.location.kind !== "scanme")
               .map((item) => (
                 <g key={item.location.id} className={styles.standEmpty} data-dimmed={lit !== null} aria-hidden="true">
                   <polygon points={fairMapPointsAttr(item.location.polygon)} strokeWidth={stroke * 1.5} />
                 </g>
               ))}
 
+            {/* D1 (RN N5): the ScanMe stand is always ScanMe green — without a stand row it is only drawn, not interactive. */}
             {items
-              .filter((item) => item.stands.length)
+              .filter((item) => item.stands.length || item.location.kind === "scanme")
               .map((item) => {
                 const { location } = item;
-                const selected = location.id === selectedLocationId;
+                const open = item.stands.length > 0;
+                const selected = open && location.id === selectedLocationId;
                 const shape = <polygon className={styles.standShape} points={fairMapPointsAttr(location.polygon)} strokeWidth={stroke * (selected ? 4 : 2)} />;
                 return (
                   <g
                     key={location.id}
                     className={styles.stand}
-                    data-location-id={location.id}
+                    data-location-id={open ? location.id : undefined}
                     data-kind={location.kind}
                     data-selected={selected}
                     data-dimmed={lit !== null && !lit.has(location.id)}
-                    role="button"
-                    tabIndex={interactive && active ? 0 : -1}
-                    aria-pressed={selected}
-                    aria-label={fmt(dict.locationAria, { location: fairMapPlaceText(location, zone.id), exhibitors: item.stands.map((row) => row.stand.exhibitorName).join(", ") })}
+                    role={open ? "button" : undefined}
+                    tabIndex={open ? (interactive && active ? 0 : -1) : undefined}
+                    aria-hidden={open ? undefined : true}
+                    aria-pressed={open ? selected : undefined}
+                    aria-label={open ? fmt(dict.locationAria, { location: fairMapPlaceText(location, zone.id), exhibitors: item.stands.map((row) => row.stand.exhibitorName).join(", ") }) : undefined}
                     onClick={(event) => {
                       // Keyboard / assistive activation; pointer taps are handled on the viewport.
-                      if (event.detail === 0 && interactive) onSelect(location.id);
+                      if (open && event.detail === 0 && interactive) onSelect(location.id);
                     }}
                     onKeyDown={(event) => {
-                      if (interactive && (event.key === "Enter" || event.key === " ")) {
+                      if (open && interactive && (event.key === "Enter" || event.key === " ")) {
                         event.preventDefault();
                         onSelect(location.id);
                       }

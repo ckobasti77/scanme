@@ -48,7 +48,7 @@ const count = (html: string, needle: string) => html.split(needle).length - 1;
 describe("stand detail (sheet on a phone, panel on a computer)", () => {
   test("a shared stand: header with zone and m², every exhibitor with logo and website (new tab, noopener noreferrer), TEST models as links, the passport badge", () => {
     const html = detail("hala-2");
-    expect(html).toContain("Štand 2 · Hala · 490 m²");
+    expect(html).toContain("Štand 2 · Hala · 490\u00A0m²");
     for (const name of ["BYD", "Citroën", "Farizon", "Geely", "Motogrini", "Toyota"]) expect(html).toContain(`>${name}</h3>`);
     expect(count(html, 'target="_blank" rel="noopener noreferrer"')).toBe(6);
     expect(html).toContain('href="https://byd-auto.rs/"');
@@ -62,7 +62,7 @@ describe("stand detail (sheet on a phone, panel on a computer)", () => {
 
   test("an exhibitor without a published car: name, logo, website and one quiet line", () => {
     const html = detail("hala-11");
-    expect(html).toContain("Štand 11 · Hala · 120 m²");
+    expect(html).toContain("Štand 11 · Hala · 120\u00A0m²");
     expect(html).toContain(">Škoda</h3>");
     expect(html).toContain(dict.noModels);
     expect(html).not.toContain("/model/");
@@ -70,7 +70,7 @@ describe("stand detail (sheet on a phone, panel on a computer)", () => {
 
   test("the ScanMe stand has its own short text: ScanMe + Enigma IT, digital partner of the fair", () => {
     const html = detail("ispred-14");
-    expect(html).toContain("Štand 14 · Ispred hale · 3 m²");
+    expect(html).toContain("Štand 14 · Ispred hale · 3\u00A0m²");
     expect(html).toContain(dict.scanmeBody);
     expect(html).toContain(">Enigma IT</h3>");
     expect(html).toContain(">ScanMe</h3>");

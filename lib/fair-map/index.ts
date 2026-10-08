@@ -11,6 +11,7 @@ export * from "./explore";
 export * from "./layout";
 export * from "./viewport";
 export * from "./logos";
+export * from "./touch";
 
 export const FAIR_MAP_GEOMETRIES: Readonly<Record<FairMapKey, FairMapGeometry>> = {
   "elektromobilnost-2026": ELEKTROMOBILNOST_2026_MAP,

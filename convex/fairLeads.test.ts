@@ -400,7 +400,9 @@ describe("B4 outbox: idempotency, one confirmation, retries without duplicates (
     const first = await submit(f, hash, f.models.starter, { submissionId: id });
     const retry = await submit(f, hash, f.models.starter, { submissionId: id });
     expect(first.duplicate).toBe(false);
-    expect(retry).toEqual({ ...first, duplicate: true });
+    expect(first.confirmationEmail).toBe(true);
+    // D1 (RN N2): the retry queued nothing, so it announces no confirmation.
+    expect(retry).toEqual({ ...first, duplicate: true, confirmationEmail: false });
     expect(await rows(f, "fairLeads")).toHaveLength(1);
     expect(await rows(f, "fairEmailDeliveries")).toHaveLength(1);
 
@@ -411,7 +413,7 @@ describe("B4 outbox: idempotency, one confirmation, retries without duplicates (
     await runEverything(f);
     expect(calls).toHaveLength(1);
     // A retry after sending still writes and sends nothing.
-    expect(await submit(f, hash, f.models.starter, { submissionId: id })).toMatchObject({ duplicate: true, confirmationEmail: true });
+    expect(await submit(f, hash, f.models.starter, { submissionId: id })).toMatchObject({ duplicate: true, confirmationEmail: false });
     await runEverything(f);
     expect(calls).toHaveLength(1);
   });
@@ -783,7 +785,7 @@ describe("N5 lead fields: normalization and validation (lib/fair-contract.ts, th
   });
 
   test("name: letters (any script), spaces, . , ' ’ - and up to 3 digits; links, addresses, invisible/bidi characters, phone numbers and sentences are refused with a reason", () => {
-    for (const name of ["Marko Petrović", "Ana-Marija O’Brien", "M. Petrović", "J.Petrović", "Đorđe Đokić", "Љубица Јовановић", "TEST A0", "  Ana   Ivić  "]) {
+    for (const name of ["Marko Petrović", "Ana-Marija O’Brien", "M. Petrović", "J.Petrović", "J.Petrovic", "Ana J.Petrovic", "Đorđe Đokić", "Љубица Јовановић", "TEST A0", "  Ana   Ivić  "]) {
       expect(normalizeFairLeadName(name), name).toEqual({ ok: true, value: name.trim().replace(/\s+/g, " ") });
     }
     const refused: Array<[string, string]> = [
@@ -793,6 +795,9 @@ describe("N5 lead fields: normalization and validation (lib/fair-contract.ts, th
       ["Hitno https://primer.invalid/prijava", "link"],
       ["Pogledaj bit.ly", "link"],
       ["Prijava na x.com", "link"],
+      // D1: the initial exemption covers only a capitalized surname, never a lowercase domain.
+      ["Prijava na X.com", "link"],
+      ["J.bit.ly", "link"],
       ["marko@primer.invalid", "link"],
       [`Marko${ch(0x202e)}exe.knom`, "invisible"],
       [`Ma${ch(0x200b)}rko`, "invisible"],
@@ -868,7 +873,7 @@ describe("N5 duplicates and caps", () => {
     expect(first).toMatchObject({ duplicate: false, confirmationEmail: true, followUpScheduled: true });
     vi.setSystemTime(DAY1 + 60_000);
     const again = await submit(f, hash, f.models.advanced, { kind: "test_drive", phone: "+381 64 999 9999", contactName: "TEST Drugo Ime" });
-    expect(again).toEqual({ ...first, duplicate: true });
+    expect(again).toEqual({ ...first, duplicate: true, confirmationEmail: false });
     const [lead] = await rows(f, "fairLeads");
     expect(await rows(f, "fairLeads")).toHaveLength(1);
     expect(lead).toMatchObject({ contactName: NAME, phone: PHONE_E164, createdAt: DAY1 });
@@ -884,6 +889,23 @@ describe("N5 duplicates and caps", () => {
     expect(await rows(f, "fairLeads")).toHaveLength(4);
     // B4 idempotency by submissionId is unchanged: the same id from another visitor is still refused.
     await expectCode(submit(f, visitor(), f.models.advanced, { kind: "test_drive", phone: PHONE, submissionId: lead.submissionId }), "SUBMISSION_DUPLICATE");
+  });
+
+  test("D1 (RN N2): a duplicate with another address announces no confirmation (confirmationEmail: false) and queues nothing for the new address", async () => {
+    const f = await setup();
+    const hash = visitor();
+    const first = await submit(f, hash, f.models.starter);
+    expect(first).toMatchObject({ duplicate: false, confirmationEmail: true });
+    vi.setSystemTime(DAY1 + 60_000);
+    const other = "drugi.posetilac@example.invalid";
+    const again = await submit(f, hash, f.models.starter, { email: other });
+    expect(again).toEqual({ ...first, duplicate: true, confirmationEmail: false });
+    // The answer matches the gateway's view (same shape for the frontend).
+    expect(Object.keys(again).sort()).toEqual(["confirmationEmail", "duplicate", "eventModelId", "followUpScheduled", "kind", "submittedAt"]);
+    const confirmations = await delivery(f, "immediate_confirmation");
+    expect(confirmations.map((row) => row.recipient)).toEqual([EMAIL]);
+    await runEverything(f);
+    expect(calls.flatMap((call) => call.body.to)).toEqual([EMAIL]);
   });
 
   test("soft cap per address: lead 11 within an hour is stored, its confirmation is skipped (RECIPIENT_CAP), it gets no follow-up and nothing is sent for it", async () => {

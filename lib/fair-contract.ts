@@ -657,6 +657,8 @@ const FAIR_INVISIBLE_PATTERN =
 // `@`, a scheme, `www.` or a domain-like token (`bit.ly`, `x.com`); the top
 // level is ASCII letters, so `M. Petrović` and `J.Petrović` stay names.
 const FAIR_LINK_PATTERN = /@|:\/\/|www\.|(?:^|[^\p{L}\p{N}])[\p{L}\p{N}-]+\.[a-z]{2,24}(?![\p{L}\p{N}])/iu;
+// D1 (RN nisko): an initial glued to a capitalized surname (`J.Petrovic`) is read as `J. Petrovic` for the link test.
+const FAIR_NAME_INITIAL_PATTERN = /(^|[^\p{L}\p{N}])(\p{Lu})\.(?=\p{Lu}\p{Ll})/gu;
 const FAIR_NAME_PATTERN = /^[\p{L}\p{M}0-9 .,'’-]+$/u;
 const FAIR_LETTER_PATTERN = /\p{L}/u;
 
@@ -669,7 +671,7 @@ const digitCount = (value: string) => value.replace(/[^0-9]/g, "").length;
  */
 export function fairLeadNameRisk(name: string): "link" | "invisible" | "characters" | null {
   if (FAIR_INVISIBLE_PATTERN.test(name)) return "invisible";
-  if (FAIR_LINK_PATTERN.test(name)) return "link";
+  if (FAIR_LINK_PATTERN.test(name.replace(FAIR_NAME_INITIAL_PATTERN, "$1$2. "))) return "link";
   return digitCount(name) > FAIR_LEAD_NAME_MAX_DIGITS ? "characters" : null;
 }
 
@@ -798,7 +800,10 @@ export type FairLeadSubmitResult = {
    * was written or sent.
    */
   duplicate: boolean;
-  /** One immediate confirmation email is queued (an email was given and, N5, the address is under its soft cap). */
+  /**
+   * One immediate confirmation email is queued (an email was given and, N5, the address is under its soft cap).
+   * D1: always false when `duplicate` — this submit queued nothing.
+   */
   confirmationEmail: boolean;
   /** Advanced: the one post-fair follow-up is scheduled for this lead. */
   followUpScheduled: boolean;

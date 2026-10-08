@@ -236,3 +236,61 @@ Mapa prati Aleksin intake. Izlagači sa sajta organizatora (38, `lib/fair-import
 1. Grand Motors (Mazda i Chery) na mapi nema logo, jer bi bilo koji od dva brenda bio pogrešan. Pravi logo firme se može otpremiti u profilu klijenta.
 2. Nazivi na mapi su pravni nazivi iz intake-a („CUBI d.o.o.“, „AUTO MIG d.o.o. Niš“). Pretraga i detalj štanda pokazuju brendove. Da li na mapi treba kraći javni naziv (npr. „JMEV“)? To bi bilo novo polje, ne preimenovanje.
 3. Na DEV-u oba događaja (`test-elektromobilnost-2026` i `elektromobilnost-2026`) dele SA26 inventar. Admin prečica za slobodnu nalepnicu bira događaj koji traje (N1 §7). Na produkciji TEST događaj ne vezivati za SA26.
+
+## Jovan — 8. 10. — stranica automobila i mapa (D1)
+
+Korak D1 lanca SAJAM v2 (SYNC-1008-KONTEKST §2.2, §3), nalazi RN N1, N2, N5, N7 i dva niska. Stranica automobila i forme su Aleksine (`5532038`): nisu pravljene ponovo, izgled i tok su isti. Status i testovi su u [`jovan-status/D1.md`](./jovan-status/D1.md), a ugovor u [`FAIR-BACKEND-CONTRACT.md`](./FAIR-BACKEND-CONTRACT.md) §42.
+
+### 1. Tačka montaže `new-stamp-card.tsx` (Aleksa §2.2)
+
+D1 karticu nije montirao. `components/fair/passport/**` nije diran. Mesto je slobodno i izmereno; potvrđuje Aleksinu MOUNT-NOTE iz `1be0feb`.
+
+| Šta | Vrednost |
+|---|---|
+| Fajl | `components/fair/fair-model-page.tsx` |
+| Komponenta | `FairModelPage` (server komponenta) |
+| Mesto u JSX-u | poslednje dete `<section className="fair-model-hero…">`, odmah posle `<SurveyChatHead />` (danas red 249), pre `</section>` |
+| Kako | kroz mali klijentski omotač (npr. `NewStampSlot`), jer `FairModelPage` nije klijentska komponenta; omotač čita pasoš i drži `onDismiss` |
+| Uslov prikaza | samo pravi model (`interactions !== null`); model je u pasošu svog brenda (`FairPassportCatalogEntry.models[].eventModelId === model.id`); posetilac ima pečat (`stampedModelIds` iz `POST /api/fair/passport`); pečat je još nepročitan: `unreadPassportModelIds(window.localStorage, model.eventId, passportId, stampedModelIds).includes(model.id)` (`lib/fair-client/passport-visit-store.ts`); posle „×“ skriven do kraja sesije |
+| `brandName` | `model.brandName` |
+| `brandSlug` | `fairPassportBrandSlug(entry.brandName)` iz `lib/fair-passport.ts`, gde je `entry` stavka kataloga pasoša. Isto pravilo koristi ruta `/sajam/[eventSlug]/pasosi/[brandSlug]`. Ne računati ga iz očišćenog `model.brandName`, jer kod TEST brenda prefiks pravi drugi slug. |
+| `modelSlug` | `model.modelSlug` |
+| `eventSlug` | `model.eventSlug` (javni slug iz URL-a) |
+| `onDismiss` | sakriva karticu za sesiju |
+
+**Prostor (izmereno u D1, Playwright, px od vrha hero-a).** Kartica ima `bottom: var(--fair-new-stamp-bottom, 100px)` i visinu 60 px. Chat-head ankete je gore desno (`top: 12px; right: 12px`, `.fair-survey-head-wrap`) i sa oblačićem se završava na 95 px. Ni na jednoj širini nema fiksnog ni lepljivog elementa preko donje polovine hero-a.
+
+| Model | Širina | Visina hero-a | Kartica | Identitet počinje | Ishod |
+|---|---|---|---|---|---|
+| pravi, sa fotografijom (`jmev-ev3`) | 360 / 390 / 412 / 1280 | 383 / 487 / 558 / 435 | 223–283 / 327–387 / 398–458 / 275–335 | 293 / 395 / 464 / 336 | staje između chat-head-a i identiteta |
+| TEST bez fotografije | 390 / 412 / 1280 | 287 / 358 / 300 | 127–187 / 198–258 / 140–200 | 195 / 264 / 201 | staje |
+| TEST bez fotografije | 360 | 212 | 52–112 | 122 | **ne staje**: preklapa chat-head (13–95), a nijedna vrednost `--fair-new-stamp-bottom` ne odvaja ga i od chat-head-a i od identiteta |
+
+Svih 15 pravih modela ima fotografiju, pa se poslednji red na sajmu ne javlja. Ako model ostane bez fotografije, odluka je Aleksina: na primer, karticu prikazati tek kad chat-head nije vidljiv, ili hero bez fotografije na 360 px učiniti višim.
+
+### 2. Promene ugovora
+
+Oblik zahteva i odgovora koji koristi Aleksin frontend je isti.
+
+| Šta | Promena |
+|---|---|
+| `POST /api/fair/lead` (`fairLeads.submitLead`) | samo vrednost: za `duplicate: true` je `confirmationEmail` uvek `false` (RN N2) |
+| `fairLeadNameRisk` (`lib/fair-contract.ts`) | `J.Petrovic` i `Ana J.Petrovic` više nisu `link`; `x.com`, `X.com`, `bit.ly`, `J.bit.ly` jesu |
+
+### 3. Šta je urađeno
+
+- **RN N1, fotografija:** spoljni URL (fotografija ili logo brenda) ne ide kroz `/_next/image` na stranici automobila, u garaži, u poređenju i na stranici deljenja (`fairPhotoUnoptimized`). Lokalni `/fair/…` ostaje optimizovan, a `next.config` nije menjan. Mapa i rotacija su to već imale (`fair-map-rotation.tsx:80,82`, `fair-map-logo.tsx:15`).
+- **RN N2, duplikat:** server vraća `confirmationEmail: false`. `LeadSheet` piše „Već smo primili vaše interesovanje. {brand} će vas kontaktirati.“ ili „Već smo primili vašu prijavu za probnu vožnju. Diler će vas kontaktirati.“
+- **Forme:** Aleksine forme ispunjavaju sva pravila; dodati su samo testovi (`components/fair/lead-sheet.test.tsx`).
+- **RN N5, ScanMe:** `ispred-14` je zelen i bez štanda u podacima; tada nije interaktivan. Hover važi samo pod `@media (hover: hover)` i nikad na ScanMe. Placeholder ScanMe na AMF mapi se ne crta.
+- **RN N7, zona dodira:** tap prstom koji promaši štand bira najbliži crtež u zoni od najmanje 44 CSS px (`lib/fair-map/touch.ts`). Izgled mape je isti.
+- **Niski nalazi:** „3 m²“ se ne lomi (neprelomni razmak); kutija grupe piše „12 m² ukupno“; ime „J.Petrovic“ prolazi.
+- **Usput:** `fairHaptic` ne zove `navigator.vibrate` pre prvog dodira. To je bila greška u konzoli na stranici automobila, zbog chat-head-a ankete.
+
+### 4. Šta je ostalo (za Aleksu / D2)
+
+1. **Pasoš:** `components/fair/passport/**` (Aleksin, zabranjen u ovom lancu) i dalje šalje `photoUrl` i `brandLogoUrl` kroz `next/image` bez `unoptimized`. To je isti uzrok kao RN N1 ako fotografija ili logo nije na `scanme.rs/fair/` ili `*.convex.cloud`. Mesta: `fair-passport.tsx:129, 387, 620, 717`, `passport-finale.tsx:179`, `passport-unlock-card.tsx:403, 410`. Predlog: `unoptimized={fairPhotoUnoptimized(src)}` iz `lib/fair-client/photo-url.ts`. Svih 15 pravih fotografija je na `scanme.rs/fair/`, pa danas ništa ne pada.
+2. **`adminProducts.linkDigital`** nema sajamsku zaštitu, a admin UI ne prikazuje `skipped` iz `bulkRetarget`. Ostavljeno: `linkDigital` nema poziv iz UI-ja, a pravi test traži ceo ADMIN-12 lanac fizičkog proizvoda u sajamskom inventaru.
+3. **Preklop kod `hala-12`** (bedž, marker pasoša, pin rotacije) i **sažeta upozorenja na traci „Poveži“ na 360 px**: vizuelno, ostavljeno za posle sajma. „Poveži“ se danas koristi na terenu.
+4. **Pravi modeli bez istaknutih specifikacija** (intake nema `isHighlight`): ispod hero-a ostaje prazna mreža sa tankom linijom. Aleksin izgled, nije menjan.
+5. **DEV:** TEST saglasnost još nije aktivna, pa forme na DEV-u pokazuju „Trenutno nedostupno“. Izgled forme je proveren SSR testom.

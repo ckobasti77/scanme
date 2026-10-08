@@ -7,6 +7,7 @@ import { browserContactStorage, saveContact } from "@/lib/fair-client/contact-st
 import { newFairSubmissionId, postFair } from "@/lib/fair-client/fair-api";
 import { fairErrorText, isFairUnavailableCode } from "@/lib/fair-client/fair-errors";
 import { fairHaptic } from "@/lib/fair-client/haptics";
+import { fairLeadSentText } from "@/lib/fair-client/lead-result";
 import { fmt } from "@/lib/i18n";
 import { ContactBlock } from "./contact-block";
 import { FairSheet } from "./fair-sheet";
@@ -71,7 +72,7 @@ export function LeadSheet({
       });
     }
     fairHaptic([20, 40, 40]);
-    const text = kind === "testDrive" ? dict.testDriveSent : fmt(dict.interestSent, { brand: model.brandName });
+    const text = fairLeadSentText(kind, result.value, dict, model.brandName);
     onRequestClose(() => showToast(text));
   }
 

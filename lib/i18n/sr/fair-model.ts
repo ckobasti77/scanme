@@ -143,6 +143,8 @@ export const fairModelSr = {
   leadSending: "Šalje se…",
   interestSent: "Poslato. {brand} će vas kontaktirati.",
   testDriveSent: "Prijava je poslata. Diler će vas kontaktirati.",
+  interestAlreadySent: "Već smo primili vaše interesovanje. {brand} će vas kontaktirati.",
+  testDriveAlreadySent: "Već smo primili vašu prijavu za probnu vožnju. Diler će vas kontaktirati.",
   leadUnavailableTitle: "Trenutno nedostupno",
   leadUnavailableBody: "Ova prijava trenutno ne prima kontakte. Pokušajte kasnije ili se obratite osoblju na štandu.",
   contactOneOfLabel: "Email ili telefon",

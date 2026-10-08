@@ -53,7 +53,7 @@ import {
   type FairGarageDocument,
   type FairGarageReadResult,
 } from "@/lib/fair-client/garage-store";
-import { fairLocalPhotoUrl } from "@/lib/fair-client/photo-url";
+import { fairLocalPhotoUrl, fairPhotoUnoptimized } from "@/lib/fair-client/photo-url";
 import {
   fairGarageEventId,
   fairGarageEventTitle,
@@ -197,7 +197,7 @@ function ModelVisual({ model, alt, preload = false }: { model: FairGarageModelVi
   return (
     <div className={styles.modelVisual}>
       {photoUrl ? (
-        <Image fill sizes="(max-width: 720px) 100vw, 520px" src={photoUrl} alt={alt} preload={preload} draggable={false} className={styles.modelImage} />
+        <Image fill sizes="(max-width: 720px) 100vw, 520px" src={photoUrl} alt={alt} preload={preload} draggable={false} unoptimized={fairPhotoUnoptimized(photoUrl)} className={styles.modelImage} />
       ) : (
         <div className={styles.modelPlaceholder} aria-hidden="true">
           <FairBrandMark brandName={cleanTestLabel(model.brandName)} />
@@ -574,7 +574,7 @@ export function LegacyGaragePassportSection({
               <Dialog.Trigger asChild>
                 <button type="button" className={`${styles.passportChip}${completed ? ` ${styles.passportChipComplete}` : ""}`} aria-label={fmt(dict.passportsOpen, { brand: cleanTestLabel(passport.brandName) })}>
                   <span className={styles.brandMark}>
-                    {passport.brandLogoUrl ? <Image fill sizes="38px" src={passport.brandLogoUrl} alt="" /> : <FairBrandMark brandName={cleanTestLabel(passport.brandName)} className={styles.brandIcon} />}
+                    {passport.brandLogoUrl ? <Image fill sizes="38px" src={passport.brandLogoUrl} alt="" unoptimized={fairPhotoUnoptimized(passport.brandLogoUrl)} /> : <FairBrandMark brandName={cleanTestLabel(passport.brandName)} className={styles.brandIcon} />}
                   </span>
                   <span><strong>{cleanTestLabel(passport.brandName)}</strong><small>{stamped}/{required}</small></span>
                   <span className={`${styles.passportProgressRing}${stamped === 0 ? ` ${styles.passportProgressRingEmpty}` : ""}`} style={{ "--passport-progress": `${required > 0 ? (stamped / required) * 360 : 0}deg` } as React.CSSProperties} aria-hidden="true">
@@ -588,7 +588,7 @@ export function LegacyGaragePassportSection({
                   <div className={styles.dialogHandle} aria-hidden="true" />
                   <button type="button" className={styles.dialogClose} aria-label={dict.cancel} onClick={() => requestPassportClose()}><X aria-hidden="true" /></button>
                   <div className={styles.passportDialogHeader}>
-                    <span className={styles.brandMark}>{passport.brandLogoUrl ? <Image fill sizes="52px" src={passport.brandLogoUrl} alt="" /> : <FairBrandMark brandName={cleanTestLabel(passport.brandName)} className={styles.brandIcon} />}</span>
+                    <span className={styles.brandMark}>{passport.brandLogoUrl ? <Image fill sizes="52px" src={passport.brandLogoUrl} alt="" unoptimized={fairPhotoUnoptimized(passport.brandLogoUrl)} /> : <FairBrandMark brandName={cleanTestLabel(passport.brandName)} className={styles.brandIcon} />}</span>
                     <div><Dialog.Title>{cleanTestLabel(passport.brandName)}</Dialog.Title><Dialog.Description>{fmt(dict.passportProgress, { stamped, required })}</Dialog.Description></div>
                     {completed ? <BadgeCheck aria-label={dict.passportComplete} /> : null}
                   </div>
@@ -744,7 +744,7 @@ function SponsoredStrip({ event, document: garageDocument, dict, onDocument }: {
       <div className={styles.sponsoredFrame}>
         <div className={styles.sponsoredCard} ref={cardRef}>
           <div className={styles.sponsoredVisual} ref={visualRef}>
-            {photoUrl ? <Image fill sizes="96px" src={photoUrl} alt={fmt(dict.sponsoredPhotoAlt, { brand: cleanTestLabel(item.brandName), model: displayModelName(item.brandName, item.displayName) })} /> : item.brandLogoUrl ? <Image fill sizes="72px" src={item.brandLogoUrl} alt="" className={styles.sponsoredLogo} /> : <FairBrandMark brandName={cleanTestLabel(item.brandName)} className={styles.sponsoredBrandLogo} />}
+            {photoUrl ? <Image fill sizes="96px" src={photoUrl} unoptimized={fairPhotoUnoptimized(photoUrl)} alt={fmt(dict.sponsoredPhotoAlt, { brand: cleanTestLabel(item.brandName), model: displayModelName(item.brandName, item.displayName) })} /> : item.brandLogoUrl ? <Image fill sizes="72px" src={item.brandLogoUrl} alt="" unoptimized={fairPhotoUnoptimized(item.brandLogoUrl)} className={styles.sponsoredLogo} /> : <FairBrandMark brandName={cleanTestLabel(item.brandName)} className={styles.sponsoredBrandLogo} />}
           </div>
           <div className={styles.sponsoredCopy}><span>{dict.sponsoredLabel}</span><strong>{cleanTestLabel(item.brandName)} {displayModelName(item.brandName, item.displayName)}</strong><small>{cleanTestLabel(item.priceText)}</small></div>
           <div className={styles.sponsoredActions}>

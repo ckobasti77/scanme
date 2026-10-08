@@ -2047,3 +2047,30 @@ Važi svuda gde se normalizator koristi (`linkSticker`, `assignQr`, `getQrDetail
 
 - Novi: `convex/fairIntakeMap.test.ts` (pravi `b1-payload.json` kroz `fairSetup`, oba redosleda sa listom sajta, usklađivanje, `validateMapLocationIds`, „Poveži nalepnicu“ sa SA26-001 … 015, štandovi van mape), `lib/fair-map/relocate.test.ts`.
 - Dopunjeni: `lib/fair-qr-label.test.ts`, `convex/fairQrSticker.test.ts`, `convex/fairPublic.test.ts`, `lib/admin-v1/qr-link.test.ts`, `components/admin/events/sections/povezi-view.test.tsx`, `convex/fairExhibitorImport.test.ts` (`covered: []`), `convex/fairAuthz.test.ts` (dve nove internal funkcije).
+
+## 42. D1 — dorada na spojenom kodu: duplikat forme, fotografija, mapa
+
+Korak D1 (8. 10. 2026), nalazi RN N1, N2, N5, N7 i dva niska. Status: `jovan-status/D1.md`; sažetak za Aleksu: JOVAN-DELTA-2026-10-08, sekcija „Jovan — 8. 10. — stranica automobila i mapa (D1)“.
+
+### 42.1 `fairLeads.submitLead` / `POST /api/fair/lead` — duplikat (RN N2)
+
+- Oblik odgovora je isti (`FairLeadSubmitResult`, svih šest polja).
+- **Promena vrednosti:** kad je `duplicate: true` (isti `submissionId` ponovo, ili isti posetilac, model i vrsta), `confirmationEmail` je uvek `false`. Ovaj zahtev ništa ne upisuje i ništa ne šalje; sačuvana potvrda je možda išla na drugu adresu od ove upisane sada.
+- `followUpScheduled` se ne menja (opisuje sačuvani lead).
+- Aleksin `LeadSheet` za duplikat sada piše „Već smo primili …“ (`lib/fair-client/lead-result.ts`), a nikad ne obećava mejl.
+
+### 42.2 Ime u formi (`lib/fair-contract.ts` `fairLeadNameRisk`)
+
+- Inicijal zalepljen za prezime sa velikim slovom (`J.Petrovic`, `Ana J.Petrovic`) više nije `link`.
+- `x.com`, `X.com`, `bit.ly`, `J.bit.ly`, `www.`, `@` i `://` ostaju `link`. Važi i za Convex (`normalizeFairLeadContact`) i za formu.
+
+### 42.3 Bez promene ugovora
+
+- Fotografije (RN N1): spoljni URL (`photoUrl` koji nije `scanme.rs/fair/…`, `brandLogoUrl`) frontend učitava direktno (`unoptimized`, `lib/fair-client/photo-url.ts` `fairPhotoUnoptimized`). `next.config` i backend nisu menjani.
+- Mapa (RN N5, N7): ScanMe `ispred-14` je uvek zelen; zona dodira ≥ 44 CSS px (`lib/fair-map/touch.ts`). Samo frontend.
+- `standSummary` na mapi: neprelomni razmak pre „m²“; kutija grupe piše „12 m² ukupno“ (i18n `standSummaryGroup`).
+
+### 42.4 Testovi
+
+- `convex/fairLeads.test.ts`: novi test duplikata sa drugom adresom; tri postojeća očekivanja duplikata sada traže `confirmationEmail: false`; nova imena i linkovi.
+- Novi: `lib/fair-client/lead-result.test.ts`, `components/fair/lead-sheet.test.tsx`, `components/fair/fair-model-page.test.tsx`, `lib/fair-client/haptics.test.ts`, `lib/fair-map/touch.test.ts`, `lib/fair-map/scanme-green.test.ts`, `components/fair/map/fair-map-text.test.ts`; dopunjen `lib/fair-client/photo-url.test.ts`.

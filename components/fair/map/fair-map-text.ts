@@ -12,10 +12,15 @@ export function fairMapPlaceText(location: Pick<FairMapLocation, "kind" | "label
   return fmt(dict.standLocation, { label, zone });
 }
 
-/** Header of a selected location: "Štand 2 · Hala · 490 m²" (m² only when the organizer gives it). */
+/**
+ * Header of a selected location: "Štand 2 · Hala · 490 m²" (m² only when the organizer gives it,
+ * never broken from its number; D1: a box of a split stand says the area is the group's, "12 m² ukupno").
+ */
 export function fairMapSummaryText(summary: FairMapLocationSummary) {
   const place = fairMapPlaceText(summary.location, summary.zoneId, summary.label);
-  return summary.areaM2 !== undefined ? fmt(dict.standSummary, { place, area: summary.areaM2 }) : place;
+  if (summary.areaM2 === undefined) return place;
+  const groupArea = summary.group !== undefined && summary.location.areaM2 === undefined;
+  return fmt(groupArea ? dict.standSummaryGroup : dict.standSummary, { place, area: summary.areaM2 });
 }
 
 /** "1 izlagač", "3 izlagača", "12 izlagača". */

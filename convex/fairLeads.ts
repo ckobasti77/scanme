@@ -72,7 +72,9 @@ async function submitResult(ctx: MutationCtx, lead: Doc<"fairLeads">, duplicate:
     submittedAt: lead.createdAt,
     duplicate,
     // A confirmation closed at submit (N5 RECIPIENT_CAP) was never going to be sent.
-    confirmationEmail: confirmation !== null && confirmation.status !== "skipped",
+    // D1 (RN N2): a duplicate queues nothing, so it never announces a confirmation —
+    // the stored one may have gone (or not) to another address than the one typed now.
+    confirmationEmail: !duplicate && confirmation !== null && confirmation.status !== "skipped",
     followUpScheduled: (await fairLeadDelivery(ctx, lead._id, "post_event_follow_up")) !== null,
   };
 }
