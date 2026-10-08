@@ -200,6 +200,8 @@ export interface FairModelDict {
   deferredFlowMessage: string;
   poweredBy: string;
   devLink: string;
+  privacyLink: string;
+  consentPrivacyLink: string;
   devPanelTitle: string;
   devModeLabel: string;
   devPhotoLabel: string;
@@ -512,7 +514,107 @@ export interface FairGarageDict {
   noSpecification: string;
   modelPhotoAlt: string;
   poweredBy: string;
-  devLink: string;
+  privacyLink: string;
+}
+
+/** Admin DEV tools on the public fair pages (JOVAN-DELTA 2026-10-09). */
+export interface FairAdminDevDict {
+  bar: string;
+  tab: string;
+  tabAria: string;
+  title: string;
+  chip: string;
+  note: string;
+  close: string;
+  previewTitle: string;
+  previewFree: string;
+  previewStarter: string;
+  previewAdvanced: string;
+  previewReal: string;
+  previewRealName: string;
+  previewToast: string;
+  passportTitle: string;
+  stampModel: string;
+  stampBrand: string;
+  relock: string;
+  finale: string;
+  newStamp: string;
+  resetPassport: string;
+  garageTitle: string;
+  garageFill: string;
+  garageEmpty: string;
+  surveyTitle: string;
+  bubble: string;
+  clearAnswers: string;
+  forgetContact: string;
+  openAudience: string;
+  qrTitle: string;
+  simulateScan: string;
+  linkSticker: string;
+  stateTitle: string;
+  stateEvent: string;
+  stateModel: string;
+  statePackage: string;
+  stateView: string;
+  stateVisitor: string;
+  stateInternal: string;
+  stateYes: string;
+  stateDatabase: string;
+  stateBuild: string;
+  stateNone: string;
+  stateLocalBuild: string;
+  resetAll: string;
+  resetAllConfirm: string;
+  toastStampModel: string;
+  toastStampBrand: string;
+  toastRelock: string;
+  toastFinale: string;
+  toastNewStamp: string;
+  toastResetPassport: string;
+  toastGarageFill: string;
+  toastGarageEmpty: string;
+  toastBubble: string;
+  toastClearAnswers: string;
+  toastForgetContact: string;
+  toastOpenAudience: string;
+  toastNoQuestion: string;
+  toastSimulateScan: string;
+  toastLinkSticker: string;
+  toastResetAll: string;
+  toastFailed: string;
+  working: string;
+}
+
+/** /sajam/privatnost. */
+export interface FairPrivacyDict {
+  metaTitle: string;
+  metaDescription: string;
+  brand: string;
+  title: string;
+  intro: string;
+  whoTitle: string;
+  whoBody: string;
+  email: string;
+  collectTitle: string;
+  collectDevice: string;
+  collectScans: string;
+  collectAnswers: string;
+  collectContact: string;
+  whyTitle: string;
+  whyNoAccount: string;
+  whyStats: string;
+  whyContact: string;
+  contactTitle: string;
+  contactBody: string;
+  processorsTitle: string;
+  processorsBody: string;
+  retentionTitle: string;
+  retentionBody: string;
+  rightsTitle: string;
+  rightsBody: string;
+  complaintBody: string;
+  updated: string;
+  back: string;
 }
 
 export interface FairPassportDict {
@@ -544,6 +646,7 @@ export interface FairPassportDict {
   favoriteError: string;
   poweredBy: string;
   devLink: string;
+  privacyLink: string;
   devPanelTitle: string;
   devStampGroup: string;
   devAddStamp: string;
@@ -6002,6 +6105,8 @@ export interface DictBySurface {
   "fair-model": FairModelDict;
   "fair-garage": FairGarageDict;
   "fair-passport": FairPassportDict;
+  "fair-admin-dev": FairAdminDevDict;
+  "fair-privacy": FairPrivacyDict;
   "admin-v1": AdminV1Dict;
   "admin-ui": AdminUiDict;
   posta: PostaDict;

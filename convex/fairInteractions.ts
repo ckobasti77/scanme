@@ -36,7 +36,7 @@ import {
   type FairRatingInputValues,
 } from "./lib/fairInteractions";
 import { requireFairGateway } from "./lib/fairGateway";
-import { fairTimeKeys } from "./lib/fairScans";
+import { fairSessionAdminUserId, fairTimeKeys } from "./lib/fairScans";
 import { fairActiveSponsoredSnapshot, fairSponsoredCountKeys, fairSponsoredItems } from "./lib/fairSponsored";
 import {
   fairAudienceResultView,
@@ -201,7 +201,8 @@ export const upsertRating = mutation({
 
     const visitorId = await requireFairVisitorRow(ctx, { visitorHash: args.visitorHash, ipHash: args.ipHash, now });
     await requireLimit(ctx, "fairRating", visitorId);
-    const row = await applyFairRating(ctx, { visitorId, model, values, now });
+    const adminExcluded = (await fairSessionAdminUserId(ctx)) !== null;
+    const row = await applyFairRating(ctx, { visitorId, model, values, now, adminExcluded });
     return fairOwnRatingState(tier, row);
   },
 });
@@ -231,21 +232,26 @@ export const upsertAudienceVote = mutation({
       .query("fairAudienceVotes")
       .withIndex("by_visitorId_and_questionId", (q) => q.eq("visitorId", visitorId).eq("questionId", question._id))
       .unique();
+    // JOVAN-DELTA 2026-10-09: an admin-session vote is stored but never counted.
     if (!existing) {
+      const adminExcluded = (await fairSessionAdminUserId(ctx)) !== null;
       await ctx.db.insert("fairAudienceVotes", {
         visitorId,
         eventId: model.eventId,
         eventModelId: model._id,
         questionId: question._id,
         optionId: args.optionId,
+        ...(adminExcluded ? { isAdminExcluded: true } : {}),
         createdAt: now,
         updatedAt: now,
       });
-      await bumpFairCount(ctx, fairAudienceVoteKey(question._id, args.optionId), 1);
+      if (!adminExcluded) await bumpFairCount(ctx, fairAudienceVoteKey(question._id, args.optionId), 1);
     } else if (existing.optionId !== args.optionId) {
       await ctx.db.patch(existing._id, { optionId: args.optionId, updatedAt: now });
-      await bumpFairCount(ctx, fairAudienceVoteKey(question._id, existing.optionId), -1);
-      await bumpFairCount(ctx, fairAudienceVoteKey(question._id, args.optionId), 1);
+      if (existing.isAdminExcluded !== true) {
+        await bumpFairCount(ctx, fairAudienceVoteKey(question._id, existing.optionId), -1);
+        await bumpFairCount(ctx, fairAudienceVoteKey(question._id, args.optionId), 1);
+      }
     }
     return fairAudienceResult(ctx, question, fairVoteThreshold(event), args.optionId);
   },
@@ -304,6 +310,7 @@ export const submitSurvey = mutation({
       eventModelId: model._id,
       surveyId: survey._id,
       answers: args.answers.map((answer) => ({ questionId: answer.questionId, value: answer.value })),
+      ...((await fairSessionAdminUserId(ctx)) !== null ? { isAdminExcluded: true } : {}),
       submittedAt: now,
     });
     return { surveyId: survey._id, version: survey.version, submittedAt: now, duplicate: false };
@@ -345,19 +352,23 @@ export const upsertBrandFavorite = mutation({
       )
       .unique();
     if (!existing) {
+      const adminExcluded = (await fairSessionAdminUserId(ctx)) !== null;
       await ctx.db.insert("fairBrandFavoriteVotes", {
         visitorId,
         eventId: passport.eventId,
         brandId: passport.brandId,
         eventModelId: choice.eventModelId,
+        ...(adminExcluded ? { isAdminExcluded: true } : {}),
         createdAt: now,
         updatedAt: now,
       });
-      await bumpFairCount(ctx, fairFavoriteKey(passport._id, choice.eventModelId), 1);
+      if (!adminExcluded) await bumpFairCount(ctx, fairFavoriteKey(passport._id, choice.eventModelId), 1);
     } else if (existing.eventModelId !== choice.eventModelId) {
       await ctx.db.patch(existing._id, { eventModelId: choice.eventModelId, updatedAt: now });
-      await bumpFairCount(ctx, fairFavoriteKey(passport._id, existing.eventModelId), -1);
-      await bumpFairCount(ctx, fairFavoriteKey(passport._id, choice.eventModelId), 1);
+      if (existing.isAdminExcluded !== true) {
+        await bumpFairCount(ctx, fairFavoriteKey(passport._id, existing.eventModelId), -1);
+        await bumpFairCount(ctx, fairFavoriteKey(passport._id, choice.eventModelId), 1);
+      }
     }
     return fairPassportProgress(ctx, { passport, required, visitorId, threshold });
   },
@@ -419,6 +430,7 @@ export const recordSponsoredAction = mutation({
     const visitorId = await requireFairVisitorRow(ctx, { visitorHash: args.visitorHash, ipHash: args.ipHash, now });
     await requireLimit(ctx, "fairSponsoredAction", visitorId);
     const time = fairTimeKeys(now);
+    const adminExcluded = (await fairSessionAdminUserId(ctx)) !== null;
     await ctx.db.insert("fairSponsoredEvents", {
       requestId: args.requestId,
       eventId: model.eventId,
@@ -429,8 +441,11 @@ export const recordSponsoredAction = mutation({
       dateKey: time.dateKey,
       hourKey: time.hourKey,
       visitorId,
+      ...(adminExcluded ? { isAdminExcluded: true } : {}),
     });
-    for (const key of fairSponsoredCountKeys(kind, model._id, time)) await bumpFairCount(ctx, key);
+    if (!adminExcluded) {
+      for (const key of fairSponsoredCountKeys(kind, model._id, time)) await bumpFairCount(ctx, key);
+    }
     return { eventModelId: model._id, kind, recordedAt: now, duplicate: false };
   },
 });

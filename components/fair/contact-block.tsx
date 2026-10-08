@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import type { FairContactRequirement } from "@/lib/fair-contract";
+import { FAIR_PRIVACY_PATH, type FairContactRequirement } from "@/lib/fair-contract";
 import {
   contactFields,
   contactFormState,
@@ -131,6 +131,7 @@ export function ContactBlock({
 
       <div className="fair-consent">
         <p>{consentText}</p>
+        <a className="fair-consent__privacy" href={FAIR_PRIVACY_PATH} target="_blank" rel="noopener">{dict.consentPrivacyLink}</a>
         <div className="fair-consent__choice" role="group" aria-label={dict.consentGroupAria}>
           <button
             ref={acceptRef}

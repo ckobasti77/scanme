@@ -10,6 +10,7 @@ import type {
   FairPassportState,
   FairPublicModel,
 } from "@/lib/fair-contract";
+import { FAIR_PRIVACY_PATH } from "@/lib/fair-contract";
 import { fairHaptic } from "@/lib/fair-client/haptics";
 import {
   FAIR_PASSPORT_VISIT_CHANGE_EVENT,
@@ -952,9 +953,10 @@ export function FairPassportExperience({
       ) : (
         <Overview event={event} state={state} unread={unread} dict={dict} />
       )}
-      {showDevEntry ? (
-        <footer className="fair-footer">
-          <span>{dict.poweredBy}</span>
+      <footer className="fair-footer">
+        <span>{dict.poweredBy}</span>
+        <Link prefetch={false} href={FAIR_PRIVACY_PATH} className="fair-dev-entry">{dict.privacyLink}</Link>
+        {showDevEntry ? (
           <Link
             href={devTools ? `/sajam/${event.publicSlug}/pasosi${selected ? `/${fairPassportBrandSlug(selected.brandName)}` : ""}` : `?dev=1#fair-dev`}
             scroll={false}
@@ -962,8 +964,8 @@ export function FairPassportExperience({
           >
             {dict.devLink}
           </Link>
-        </footer>
-      ) : null}
+        ) : null}
+      </footer>
       {devTools && selected ? (
         <PassportDevPanel
           event={event}

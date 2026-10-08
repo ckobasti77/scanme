@@ -79,6 +79,8 @@ async function loadFacts(ctx: QueryCtx, event: Doc<"fairEvents">, at: number): P
   const leadRows = await ctx.db
     .query("fairLeads")
     .withIndex("by_eventId_and_createdAt", (q) => q.eq("eventId", event._id).gte("createdAt", fairAnalyticsCutoff(event)))
+    // Admin-session test leads left out too (JOVAN-DELTA 2026-10-09).
+    .filter((q) => q.neq(q.field("isAdminExcluded"), true))
     .order("desc")
     .take(FAIR_DASHBOARD_LEADS_CAP + 1);
   const leadsCapped = leadRows.length > FAIR_DASHBOARD_LEADS_CAP;

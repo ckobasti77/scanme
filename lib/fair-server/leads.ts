@@ -10,6 +10,7 @@ import {
   type FairErrorCode,
   type FairLeadKind,
 } from "@/lib/fair-contract";
+import { fairMutationWithSession } from "./convex-session";
 import { fairGatewayError, fairGatewayJson, fairGatewayRequest } from "./gateway";
 import { fairBackendFailure } from "./interactions";
 import { fairConvexVisitorForRequest, type FairVisitorEnv } from "./visitor";
@@ -39,7 +40,7 @@ export type FairLeadsBackend = {
 
 export function convexFairLeadsBackend(convexUrl: string): FairLeadsBackend {
   const client = new ConvexHttpClient(convexUrl);
-  return { submitLead: (args) => client.mutation(api.fairLeads.submitLead, args) };
+  return { submitLead: (args) => fairMutationWithSession(client, api.fairLeads.submitLead, args) };
 }
 
 function defaultBackend(): FairLeadsBackend | null {

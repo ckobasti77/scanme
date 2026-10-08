@@ -3532,6 +3532,9 @@ export default defineSchema({
   // three dimensions, never `overall`, no derived overall. Public projections
   // never return counts/sums/averages (JOVAN-DELTA §1).
   fairRatings: defineTable({
+    // Written from a signed-in ScanMe admin session (JOVAN-DELTA 2026-10-09):
+    // kept for testing, never counted, reported or exported.
+    isAdminExcluded: v.optional(v.boolean()),
     visitorId: v.id("fairVisitors"),
     eventId: v.id("fairEvents"),
     eventModelId: v.id("fairEventModels"),
@@ -3572,6 +3575,9 @@ export default defineSchema({
 
   // (PII) One changeable vote per visitor+question.
   fairAudienceVotes: defineTable({
+    // Written from a signed-in ScanMe admin session (JOVAN-DELTA 2026-10-09):
+    // kept for testing, never counted, reported or exported.
+    isAdminExcluded: v.optional(v.boolean()),
     visitorId: v.id("fairVisitors"),
     eventId: v.id("fairEvents"),
     eventModelId: v.id("fairEventModels"),
@@ -3602,6 +3608,9 @@ export default defineSchema({
 
   // (PII) Final, immutable; results never public.
   fairSurveyResponses: defineTable({
+    // Written from a signed-in ScanMe admin session (JOVAN-DELTA 2026-10-09):
+    // kept for testing, never counted, reported or exported.
+    isAdminExcluded: v.optional(v.boolean()),
     submissionId: v.string(),
     visitorId: v.id("fairVisitors"),
     eventId: v.id("fairEvents"),
@@ -3672,6 +3681,9 @@ export default defineSchema({
 
   // (PII) A declined consent is never stored (consentAccepted is literally true).
   fairLeads: defineTable({
+    // Written from a signed-in ScanMe admin session (JOVAN-DELTA 2026-10-09):
+    // kept for testing, never counted, reported or exported.
+    isAdminExcluded: v.optional(v.boolean()),
     submissionId: v.string(),
     kind: fairLeadKind,
     visitorId: v.id("fairVisitors"),
@@ -3809,6 +3821,9 @@ export default defineSchema({
 
   // (PII) One stamp per visitor+model, only for the published eligible set.
   fairPassportStamps: defineTable({
+    // Written from a signed-in ScanMe admin session (JOVAN-DELTA 2026-10-09):
+    // kept for testing, never counted, reported or exported.
+    isAdminExcluded: v.optional(v.boolean()),
     visitorId: v.id("fairVisitors"),
     eventId: v.id("fairEvents"),
     brandId: v.id("brands"),
@@ -3821,6 +3836,9 @@ export default defineSchema({
 
   // (PII) One changeable favorite per visitor+event+brand, after completion.
   fairBrandFavoriteVotes: defineTable({
+    // Written from a signed-in ScanMe admin session (JOVAN-DELTA 2026-10-09):
+    // kept for testing, never counted, reported or exported.
+    isAdminExcluded: v.optional(v.boolean()),
     visitorId: v.id("fairVisitors"),
     eventId: v.id("fairEvents"),
     brandId: v.id("brands"),
@@ -3889,6 +3907,9 @@ export default defineSchema({
   // `Dodaj u garažu`; never a QR scan, never a passive impression, never a
   // map/display write (JOVAN-DELTA §2).
   fairSponsoredEvents: defineTable({
+    // Written from a signed-in ScanMe admin session (JOVAN-DELTA 2026-10-09):
+    // kept for testing, never counted, reported or exported.
+    isAdminExcluded: v.optional(v.boolean()),
     requestId: v.string(),
     eventId: v.id("fairEvents"),
     eventModelId: v.id("fairEventModels"),
@@ -3909,6 +3930,9 @@ export default defineSchema({
   // 5 Oct traffic/share delta: public, read-only collections of 1-5 models.
   // The URL carries a 144-bit opaque code; only its SHA-256 hash is stored.
   fairShareCollections: defineTable({
+    // Written from a signed-in ScanMe admin session (JOVAN-DELTA 2026-10-09):
+    // kept for testing, never counted, reported or exported.
+    isAdminExcluded: v.optional(v.boolean()),
     requestId: v.string(),
     codeHash: v.string(),
     eventId: v.id("fairEvents"),
@@ -3924,6 +3948,9 @@ export default defineSchema({
   // Explicit traffic signals only. No visitorId is stored: these rows are
   // anonymous per-request analytics and never participate in QR scan counts.
   fairTrafficEvents: defineTable({
+    // Written from a signed-in ScanMe admin session (JOVAN-DELTA 2026-10-09):
+    // kept for testing, never counted, reported or exported.
+    isAdminExcluded: v.optional(v.boolean()),
     requestId: v.string(),
     eventId: v.id("fairEvents"),
     eventModelId: v.optional(v.id("fairEventModels")),

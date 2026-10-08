@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { Suspense, cache } from "react";
 import { fetchQuery } from "convex/nextjs";
 import { api } from "@/convex/_generated/api";
+import { FairAdminTools } from "@/components/fair/admin/fair-admin-tools";
 import { FairEventShell } from "@/components/fair/event-shell";
 import { fairMapEventSlugCandidates } from "@/lib/fair-map";
 import { fairEventThemeClass } from "@/lib/fair-theme";
@@ -73,7 +74,7 @@ export default async function FairEventMapPage({
 
   return (
     <div className={`fair-event ${fairEventThemeClass(eventSlug)}`} data-reveal="off">
-      <FairEventShell eventId={event.id} eventSlug={eventSlug} eventTitle={dict.umbrellaTitle} eventName={event.title} dict={fairModelSr} current="map" />
+      <FairEventShell eventId={event.id} eventSlug={eventSlug} eventTitle={dict.umbrellaTitle} eventName={event.title} dict={fairModelSr} current="map" adminTools={<FairAdminTools event={{ id: event.id, slug: eventSlug, dataSlug: event.slug, title: event.title }} />} />
       <main>
         <h1 style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)", whiteSpace: "nowrap" }}>
           {fmt(dict.metaTitle, { event: event.title })}

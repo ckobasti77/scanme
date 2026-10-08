@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { MapPin } from "lucide-react";
@@ -8,6 +9,7 @@ import type {
 } from "@/lib/fair-client/model-fixtures";
 import { fmt, type FairModelDict } from "@/lib/i18n";
 import { fairEventThemeClass } from "@/lib/fair-theme";
+import { FAIR_PRIVACY_PATH } from "@/lib/fair-contract";
 import type { FairModelInteractions, FairModelStand } from "@/lib/fair-server/model-page";
 import { FairEventShell } from "./event-shell";
 import { GarageSaveButton } from "./garage-controls";
@@ -151,6 +153,7 @@ export function FairModelPage({
   stand,
   audienceTeaser,
   openSurvey,
+  adminTools,
 }: {
   model: FairPublicModelFixture;
   dict: FairModelDict;
@@ -165,6 +168,8 @@ export function FairModelPage({
   audienceTeaser: string | null;
   /** `/anketa` deep link: open the survey sheet when the model offers one. */
   openSurvey: boolean;
+  /** Admin DEV tools (components/fair/admin): null for every visitor. */
+  adminTools?: ReactNode;
 }) {
   const keySpecs = fairModelKeySpecs(model.specificationGroups.flatMap((group) => group.items));
   const specGroups = fairModelSpecGroups(model.specificationGroups, {
@@ -203,6 +208,7 @@ export function FairModelPage({
         eventTitle={model.eventTitle}
         eventName={model.eventName}
         dict={dict}
+        adminTools={adminTools}
       />
 
       <FairModelInteractionsProvider
@@ -306,13 +312,7 @@ export function FairModelPage({
 
       <footer className="fair-footer">
         <span>{dict.poweredBy}</span>
-        <Link
-          href={showDevPanel ? routePath : `${routePath}?dev=1#fair-dev`}
-          scroll={false}
-          className="fair-dev-entry"
-        >
-          {dict.devLink}
-        </Link>
+        <Link prefetch={false} href={FAIR_PRIVACY_PATH} className="fair-dev-entry">{dict.privacyLink}</Link>
       </footer>
 
       {showDevPanel ? (

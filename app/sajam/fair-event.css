@@ -2492,3 +2492,410 @@ body:has(.fair-event) [data-theme-toggle="global"] {
     transition: none;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Admin DEV tools (JOVAN-DELTA 2026-10-09). Rendered for a verified admin
+   session only; 1:1 the "Admin (ti)" view of
+   public/prototip/stranica-modela-v2.html. The tab, sheet and toast are
+   portaled to <body>, outside .fair-event, so they set their own box model
+   and type.
+   --------------------------------------------------------------------------- */
+
+.fair-admin-bar {
+  display: flex;
+  height: 22px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: repeating-linear-gradient(135deg, #ff5a1f 0 10px, #ff7a45 10px 20px);
+  color: #fff;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.fair-admin-dev,
+.fair-admin-dev *,
+.fair-admin-dev *::before,
+.fair-admin-dev *::after {
+  box-sizing: border-box;
+}
+
+.fair-admin-dev {
+  font-family: "Archivo Variable", "Archivo", "Segoe UI", Arial, sans-serif;
+  line-height: 1.4;
+}
+
+.fair-admin-dev button {
+  font: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.fair-admin-dev button:focus-visible {
+  outline: 3px solid #ff7a45;
+  outline-offset: 2px;
+}
+
+.fair-admin-dev .fair-admin-dev__tab {
+  position: fixed;
+  z-index: 55;
+  top: 44%;
+  left: 0;
+  transform: translateY(-50%);
+  padding: 10px 5px;
+  border: 0;
+  border-radius: 0 10px 10px 0;
+  background: #ff5a1f;
+  box-shadow: 0 4px 12px rgb(255 90 31 / 0.35);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-orientation: mixed;
+  writing-mode: vertical-rl;
+}
+
+.fair-admin-dev__scrim {
+  position: fixed;
+  z-index: 60;
+  inset: 0;
+  background: rgb(10 12 16 / 0.45);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s;
+}
+
+.fair-admin-dev.is-open .fair-admin-dev__scrim {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.fair-admin-dev__sheet {
+  position: fixed;
+  z-index: 61;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  width: min(100%, 560px);
+  max-height: 82dvh;
+  margin-inline: auto;
+  flex-direction: column;
+  padding-bottom: env(safe-area-inset-bottom);
+  border-radius: 22px 22px 0 0;
+  background: #16181d;
+  color: #e9ebef;
+  transform: translateY(105%);
+  transition: transform 0.38s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.fair-admin-dev.is-open .fair-admin-dev__sheet {
+  transform: none;
+}
+
+.fair-admin-dev__hd {
+  padding: 10px 16px;
+  border-bottom: 1px solid #2a2e36;
+}
+
+.fair-admin-dev__grab {
+  width: 38px;
+  height: 4px;
+  margin: 0 auto 10px;
+  border-radius: 2px;
+  background: #3a3f49;
+}
+
+.fair-admin-dev__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.fair-admin-dev h3 {
+  display: flex;
+  margin: 0;
+  align-items: center;
+  gap: 8px;
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.fair-admin-dev h3 i {
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: #ff5a1f;
+  color: #fff;
+  font-size: 10px;
+  font-style: normal;
+  letter-spacing: 0.1em;
+}
+
+.fair-admin-dev .fair-admin-dev__x {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: #262a32;
+  color: #e9ebef;
+}
+
+.fair-admin-dev__x svg {
+  width: 18px;
+  height: 18px;
+}
+
+.fair-admin-dev__note {
+  margin-top: 4px;
+  color: #9aa1ad;
+  font-size: 11.5px;
+}
+
+.fair-admin-dev__bd {
+  overflow: auto;
+  padding: 4px 16px 18px;
+  overscroll-behavior: contain;
+}
+
+.fair-admin-dev__sec {
+  margin-top: 14px;
+}
+
+.fair-admin-dev h4 {
+  margin: 0 0 8px;
+  color: #8a919d;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.fair-admin-dev__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.fair-admin-dev .fair-admin-dev__btn {
+  display: flex;
+  min-height: 38px;
+  padding: 4px 8px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid #2f343d;
+  border-radius: 11px;
+  background: #1f232a;
+  color: #e9ebef;
+  font-size: 12.5px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.fair-admin-dev .fair-admin-dev__btn.is-warn {
+  border-color: #5a2a1e;
+  color: #ffb39a;
+}
+
+.fair-admin-dev__btn.is-wide {
+  width: 100%;
+}
+
+.fair-admin-dev__btn:active {
+  transform: scale(0.97);
+}
+
+.fair-admin-dev__btn:disabled {
+  opacity: 0.55;
+  cursor: progress;
+}
+
+.fair-admin-dev__seg {
+  display: flex;
+  padding: 3px;
+  gap: 2px;
+  border: 1px solid #2f343d;
+  border-radius: 11px;
+  background: #1f232a;
+}
+
+.fair-admin-dev .fair-admin-dev__seg button {
+  height: 30px;
+  flex: 1;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: #9aa1ad;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.fair-admin-dev .fair-admin-dev__seg button[aria-pressed="true"] {
+  background: #ff5a1f;
+  color: #fff;
+}
+
+.fair-admin-dev__info {
+  padding: 8px 10px;
+  overflow-wrap: anywhere;
+  border: 1px solid #2f343d;
+  border-radius: 11px;
+  background: #1f232a;
+  color: #b9c0cb;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.fair-admin-dev__info b {
+  color: #fff;
+  font-weight: 600;
+}
+
+.fair-admin-dev__toast {
+  position: fixed;
+  z-index: 70;
+  bottom: calc(96px + env(safe-area-inset-bottom));
+  left: 50%;
+  max-width: calc(100% - 32px);
+  padding: 9px 14px;
+  border-radius: 12px;
+  background: #16181d;
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 600;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, 10px);
+  transition: opacity 0.2s, transform 0.2s;
+}
+
+.fair-admin-dev__toast.is-on {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.fair-admin-dev__overlay.fair-event {
+  position: fixed;
+  z-index: 65;
+  top: 0;
+  right: 0;
+  left: 0;
+  min-height: 0;
+  background: none;
+}
+
+.fair-admin-dev__stamp {
+  position: fixed;
+  top: calc(env(safe-area-inset-top) + var(--fair-header-height) + 34px);
+  right: 12px;
+  left: 12px;
+  max-width: 536px;
+  margin-inline: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fair-admin-dev__sheet,
+  .fair-admin-dev__scrim,
+  .fair-admin-dev__toast {
+    transition: none;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   /sajam/privatnost and the privacy link under every consent text.
+   --------------------------------------------------------------------------- */
+
+.fair-consent__privacy {
+  justify-self: start;
+  color: var(--fair-accent-strong);
+  font-size: 13px;
+  font-weight: 600;
+  text-underline-offset: 3px;
+}
+
+.fair-privacy__main {
+  width: min(100%, 640px);
+  margin-inline: auto;
+  padding: calc(28px + env(safe-area-inset-top)) 16px 48px;
+}
+
+.fair-privacy__brand {
+  margin: 0 0 6px;
+  color: var(--fair-ink-muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.fair-privacy h1 {
+  margin: 0;
+  font-size: clamp(30px, 8vw, 40px);
+  line-height: 1.05;
+  letter-spacing: -0.01em;
+}
+
+.fair-privacy__lead {
+  margin: 12px 0 8px;
+  color: var(--fair-ink-muted);
+  font-size: 17px;
+}
+
+.fair-privacy section {
+  margin-top: 22px;
+  padding: 16px;
+  border: 1px solid var(--fair-line);
+  border-radius: 14px;
+  background: var(--fair-surface);
+}
+
+.fair-privacy h2 {
+  margin: 0 0 6px;
+  font-size: 17px;
+  line-height: 1.25;
+}
+
+.fair-privacy section p,
+.fair-privacy section ul {
+  margin: 0;
+  font-size: 15px;
+}
+
+.fair-privacy section p + p {
+  margin-top: 8px;
+}
+
+.fair-privacy section ul {
+  display: grid;
+  gap: 6px;
+  padding-left: 20px;
+  list-style: disc;
+}
+
+.fair-privacy a {
+  color: var(--fair-accent-strong);
+  overflow-wrap: anywhere;
+  text-underline-offset: 3px;
+}
+
+.fair-privacy__updated {
+  margin: 22px 0 16px;
+  color: var(--fair-ink-muted);
+  font-size: 13px;
+}
+
+.fair-privacy a.fair-privacy__back {
+  display: inline-flex;
+  min-height: 48px;
+  padding-inline: 18px;
+  align-items: center;
+  border-radius: 12px;
+  background: var(--fair-accent);
+  color: var(--fair-accent-ink);
+  font-weight: 680;
+  text-decoration: none;
+}

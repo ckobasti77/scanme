@@ -30,6 +30,7 @@ import {
   useRef,
   useState,
   useSyncExternalStore,
+  type ReactNode,
 } from "react";
 import type {
   FairPassportProgress,
@@ -38,6 +39,7 @@ import type {
   FairSponsoredActionKind,
   FairSponsoredModelCard,
 } from "@/lib/fair-contract";
+import { FAIR_PRIVACY_PATH } from "@/lib/fair-contract";
 import {
   FAIR_GARAGE_CHANGE_EVENT,
   FAIR_GARAGE_MODEL_CHANGE_EVENT,
@@ -901,12 +903,15 @@ export function FairGarage({
   switchEvents,
   dict,
   shellDict,
+  adminTools,
 }: {
   routeEventSlug: string;
   event: FairGarageEventView;
   switchEvents: FairGarageEventView[];
   dict: FairGarageDict;
   shellDict: FairModelDict;
+  /** Admin DEV tools, rendered on the server for a verified admin only. */
+  adminTools?: ReactNode;
 }) {
   const router = useRouter();
   const [garageDocument, setGarageDocument] = useState<FairGarageDocument>(() => createEmptyFairGarageDocument());
@@ -1208,6 +1213,7 @@ export function FairGarage({
         eventName={fairGarageEventTitle(activeEvent)}
         dict={shellDict}
         current="garage"
+        adminTools={adminTools}
       />
       <main className={styles.main}>
         {switchEvents.length > 1 ? (
@@ -1258,7 +1264,7 @@ export function FairGarage({
 
         <p className={styles.storageNotice}>{dict.storageNotice}</p>
       </main>
-      <footer className="fair-footer"><span>{dict.poweredBy}</span><Link href="?dev=1" className="fair-dev-entry">{dict.devLink}</Link></footer>
+      <footer className="fair-footer"><span>{dict.poweredBy}</span><Link prefetch={false} href={FAIR_PRIVACY_PATH} className="fair-dev-entry">{dict.privacyLink}</Link></footer>
       {mounted && !selectionMode ? <SponsoredStrip event={activeEvent} document={garageDocument} dict={dict} onDocument={writeDocument} /> : null}
       {selectionMode && shareDraft === null ? (
         <div className={styles.selectionDock} role="toolbar" aria-label={fmt(dict.selectionCount, { count: selected.length })}>

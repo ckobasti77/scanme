@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
+import { FairAdminTools } from "@/components/fair/admin/fair-admin-tools";
 import { FairModelPage } from "@/components/fair/fair-model-page";
 import {
   fairPublicModelToFixture,
@@ -14,6 +15,8 @@ import {
   loadFairModelInteractions,
   loadFairModelPage,
 } from "@/lib/fair-server/model-page";
+import { fairAdminPreview, fairPreviewCapabilities } from "@/lib/fair-server/admin-session";
+import type { FairModelCapabilities } from "@/lib/fair-contract";
 import { fairModelSr } from "@/lib/i18n/sr/fair-model";
 import { fmt } from "@/lib/i18n/format";
 
@@ -45,6 +48,10 @@ function fixtureMode(value: string | undefined): FairFixtureMode {
   return value === "free" || value === "starter" || value === "advanced"
     ? value
     : "advanced";
+}
+
+function capabilityTier(capabilities: FairModelCapabilities) {
+  return capabilities.ratingMode === "dimensions" ? "advanced" : capabilities.ratingMode === "overall" ? "starter" : "free";
 }
 
 function photoPresentation(value: string | undefined): FairPhotoPresentation {
@@ -97,9 +104,12 @@ export async function FairModelRoute({
     alignment: photoPresentation(scalar(query.align)),
   };
   const live = await loadFairModelPage(eventSlug, modelSlug);
+  // Admin "Pregled kao paket" (JOVAN-DELTA 2026-10-09): display only, read
+  // only after the server confirmed an admin session; actions stay real.
+  const preview = live ? await fairAdminPreview() : null;
   const adapted = live
     ? fairPublicModelToFixture({
-        model: live.model,
+        model: preview ? { ...live.model, capabilities: fairPreviewCapabilities(preview, live.model.capabilities) } : live.model,
         publicEventSlug: eventSlug,
         eventName: live.event.title,
         withPhoto: requestedSelection.withPhoto,
@@ -134,11 +144,24 @@ export async function FairModelRoute({
       dict={fairModelSr}
       routePath={routePath}
       selection={selection}
-      showDevPanel={scalar(query.dev) === "1"}
+      showDevPanel={process.env.NODE_ENV === "development" && scalar(query.dev) === "1"}
       interactions={interactions}
       stand={stand}
       audienceTeaser={audienceTeaser}
       openSurvey={openSurvey}
+      adminTools={live ? (
+        <FairAdminTools
+          event={{ id: live.event.id, slug: eventSlug, dataSlug: live.event.slug, title: live.event.title }}
+          model={{
+            id: live.model.id,
+            slug: live.model.slug,
+            name: model.displayName,
+            brandName: live.model.brandName,
+            participationId: live.model.participationId,
+            tier: capabilityTier(live.model.capabilities),
+          }}
+        />
+      ) : null}
     />
   );
 }

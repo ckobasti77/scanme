@@ -102,5 +102,5 @@ export const fairGarageSr = {
   noSpecification: "Nije navedeno",
   modelPhotoAlt: "{brand} {model}",
   poweredBy: "Powered by ScanMe",
-  devLink: "dev",
+  privacyLink: "Privatnost",
 } as const satisfies FairGarageDict;

@@ -716,6 +716,8 @@ export const exportLeads = query({
     const page = await ctx.db
       .query("fairLeads")
       .withIndex("by_participationId_and_createdAt", (q) => q.eq("participationId", args.participationId).gte("createdAt", fairAnalyticsCutoff(event)))
+      // Admin-session test leads are never exported (JOVAN-DELTA 2026-10-09).
+      .filter((q) => q.neq(q.field("isAdminExcluded"), true))
       .order("desc")
       .paginate(args.paginationOpts);
     const rows = [];

@@ -18,6 +18,8 @@ import { fairMapSr } from "./sr/fair-map";
 import { fairModelSr } from "./sr/fair-model";
 import { fairGarageSr } from "./sr/fair-garage";
 import { fairPassportSr } from "./sr/fair-passport";
+import { fairAdminDevSr } from "./sr/fair-admin-dev";
+import { fairPrivacySr } from "./sr/fair-privacy";
 import { venueSr } from "./sr/venue";
 import { venueEditorSr } from "./sr/venue-editor";
 import { venueAdminSr } from "./sr/venue-admin";
@@ -65,6 +67,8 @@ export type {
   FairModelDict,
   FairGarageDict,
   FairPassportDict,
+  FairAdminDevDict,
+  FairPrivacyDict,
   VenueDict,
   VenueEditorDict,
   VenueAdminDict,
@@ -109,6 +113,8 @@ export {
   fairModelSr,
   fairGarageSr,
   fairPassportSr,
+  fairAdminDevSr,
+  fairPrivacySr,
   venueEditorSr,
   venueAdminSr,
   venuePanelSr,
@@ -152,6 +158,8 @@ const SR: DictBySurface = {
   "fair-model": fairModelSr,
   "fair-garage": fairGarageSr,
   "fair-passport": fairPassportSr,
+  "fair-admin-dev": fairAdminDevSr,
+  "fair-privacy": fairPrivacySr,
   "admin-v1": adminV1Sr,
   "admin-ui": adminUiSr,
   posta: postaSr,

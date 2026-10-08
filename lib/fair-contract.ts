@@ -1080,6 +1080,9 @@ export function fairModelPath(eventSlug: string, modelSlug: string): string {
 }
 
 /** N1 — where `/r/[cardCode]` sends a signed-in admin who scans an unlinked or unpublished sticker („Poveži nalepnicu“). */
+/** The fair app privacy page, linked from the fair footers and every consent text. */
+export const FAIR_PRIVACY_PATH = "/sajam/privatnost";
+
 export function fairAdminLinkPath(eventSlug: string, cardCode: string): string {
   return `/admin/dogadjaji/${encodeURIComponent(eventSlug)}/povezi?kod=${encodeURIComponent(cardCode)}`;
 }

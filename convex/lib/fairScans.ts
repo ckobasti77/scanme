@@ -106,11 +106,12 @@ export type FairPassportStampResult = "stamped" | "already_stamped" | "not_in_pu
  * passport: it stamps only when the model is a `required` member of a
  * `published` passport of its event, and at most once per visitor+model, so
  * repeated scans never add a second stamp. A removed member stops stamping
- * but earned stamps stay.
+ * but earned stamps stay. `adminExcluded`: a stamp the admin DEV tools give
+ * (convex/fairAdminDev.ts, JOVAN-DELTA 2026-10-09).
  */
 export async function stampFairPassportOnScan(
   ctx: MutationCtx,
-  input: { visitorId: Id<"fairVisitors">; model: Doc<"fairEventModels">; now: number },
+  input: { visitorId: Id<"fairVisitors">; model: Doc<"fairEventModels">; now: number; adminExcluded?: boolean },
 ): Promise<FairPassportStampResult> {
   const memberships = await ctx.db
     .query("fairPassportEligibleModels")
@@ -133,6 +134,7 @@ export async function stampFairPassportOnScan(
       brandId: passport.brandId,
       eventModelId: input.model._id,
       scannedAt: input.now,
+      ...(input.adminExcluded ? { isAdminExcluded: true } : {}),
     });
     return "stamped";
   }

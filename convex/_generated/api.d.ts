@@ -47,6 +47,7 @@ import type * as emailProviderFoundation from "../emailProviderFoundation.js";
 import type * as enterpriseProvisioning from "../enterpriseProvisioning.js";
 import type * as entitlements from "../entitlements.js";
 import type * as fairAdmin from "../fairAdmin.js";
+import type * as fairAdminDev from "../fairAdminDev.js";
 import type * as fairAdminQr from "../fairAdminQr.js";
 import type * as fairAdminStats from "../fairAdminStats.js";
 import type * as fairAnalytics from "../fairAnalytics.js";
@@ -226,6 +227,7 @@ declare const fullApi: ApiFromModules<{
   enterpriseProvisioning: typeof enterpriseProvisioning;
   entitlements: typeof entitlements;
   fairAdmin: typeof fairAdmin;
+  fairAdminDev: typeof fairAdminDev;
   fairAdminQr: typeof fairAdminQr;
   fairAdminStats: typeof fairAdminStats;
   fairAnalytics: typeof fairAnalytics;

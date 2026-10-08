@@ -154,6 +154,8 @@ async function leadCounts(ctx: QueryCtx, eventModelId: Id<"fairEventModels">, st
   const rows = await ctx.db
     .query("fairLeads")
     .withIndex("by_eventModelId_and_createdAt", (q) => q.eq("eventModelId", eventModelId).gte("createdAt", start).lt("createdAt", end))
+    // Admin-session test leads never reach a report (JOVAN-DELTA 2026-10-09).
+    .filter((q) => q.neq(q.field("isAdminExcluded"), true))
     .take(FAIR_REPORT_ROWS_CAP + 1);
   const capped = rows.length > FAIR_REPORT_ROWS_CAP;
   const counted = rows.slice(0, FAIR_REPORT_ROWS_CAP);
@@ -188,6 +190,7 @@ async function surveyAggregates(ctx: QueryCtx, eventModelId: Id<"fairEventModels
     const responses = await ctx.db
       .query("fairSurveyResponses")
       .withIndex("by_surveyId_and_submittedAt", (q) => q.eq("surveyId", survey._id).gte("submittedAt", start).lt("submittedAt", end))
+      .filter((q) => q.neq(q.field("isAdminExcluded"), true))
       .take(FAIR_REPORT_ROWS_CAP + 1);
     if (!responses.length && survey.status !== "published") continue;
     const counted = responses.slice(0, FAIR_REPORT_ROWS_CAP);
@@ -385,6 +388,7 @@ export const organizerParticipationLeads = internalQuery({
       const rows = await ctx.db
         .query("fairLeads")
         .withIndex("by_participationId_and_createdAt", (q) => q.eq("participationId", args.participationId).gte("createdAt", window.start).lt("createdAt", window.end))
+        .filter((q) => q.neq(q.field("isAdminExcluded"), true))
         .take(FAIR_REPORT_ROWS_CAP);
       out.push({ interest: rows.filter((row) => row.kind === "interest").length, testDrive: rows.filter((row) => row.kind === "test_drive").length });
     }
