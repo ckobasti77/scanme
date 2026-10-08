@@ -7,6 +7,10 @@ export { fairMapLocationTakesStands } from "./types";
 export * from "./shape";
 export * from "./view";
 export * from "./rotation";
+export * from "./explore";
+export * from "./layout";
+export * from "./viewport";
+export * from "./logos";
 
 export const FAIR_MAP_GEOMETRIES: Readonly<Record<FairMapKey, FairMapGeometry>> = {
   "elektromobilnost-2026": ELEKTROMOBILNOST_2026_MAP,

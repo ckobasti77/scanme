@@ -12,7 +12,18 @@ import styles from "./map-states.module.css";
  * is only the first state: the client keeps it live over a Convex subscription
  * (K2) and picks the active 12 s slot from its clock — no polling, no write.
  */
-export async function MapSection({ eventSlug, eventCode, display }: { eventSlug: string; eventCode: string; display: boolean }) {
+export async function MapSection({
+  eventSlug,
+  eventCode,
+  display,
+  link,
+}: {
+  eventSlug: string;
+  eventCode: string;
+  display: boolean;
+  /** N4: `?zona=` / `?stand=` deep link (validated against the map in the client). */
+  link: { zona?: string | string[]; stand?: string | string[] };
+}) {
   const geometry = fairMapForEventCode(eventCode);
   if (!geometry) {
     return (
@@ -34,5 +45,5 @@ export async function MapSection({ eventSlug, eventCode, display }: { eventSlug:
   }
   const [map, passports, rotation] = data;
   const view = buildFairMapView(geometry, map?.stands ?? [], passports?.catalog ?? [], map?.exhibitorsWithoutLocation ?? []);
-  return <FairEventMap eventSlug={eventSlug} view={view} initialRotation={rotation} display={display} />;
+  return <FairEventMap eventSlug={eventSlug} view={view} initialRotation={rotation} display={display} initialLink={link} />;
 }

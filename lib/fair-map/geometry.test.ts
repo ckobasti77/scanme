@@ -54,8 +54,9 @@ describe.each(geometries)("map geometry $key", (geometry) => {
     }
   });
 
-  test("every polygon has at least 3 points, lies inside its image and encloses an area", () => {
-    for (const { zone, shape } of shapes) {
+  test("every polygon (and the N4 zone outline) has at least 3 points, lies inside its image and encloses an area", () => {
+    const outlines = geometry.zones.flatMap((zone) => (zone.outline ? [{ zone, shape: { id: `${zone.id}-obris`, polygon: zone.outline } }] : []));
+    for (const { zone, shape } of [...shapes, ...outlines]) {
       expect(shape.polygon.length, shape.id).toBeGreaterThanOrEqual(3);
       for (const [x, y] of shape.polygon) {
         expect(Number.isFinite(x) && Number.isFinite(y), shape.id).toBe(true);
@@ -137,9 +138,9 @@ describe("Sajam elektromobilnosti 2026 — organizer maps of 7. 10. (N3)", () =>
   test("split stands 12, 13 and 15: one label per group with the group's m²; box 13-3 exists although empty", () => {
     const front = zone("ispred");
     expect(front.groups).toEqual([
-      { id: "ispred-12", label: "12", areaM2: 9 },
-      { id: "ispred-13", label: "13", areaM2: 12 },
-      { id: "ispred-15", label: "15", areaM2: 12 },
+      { id: "ispred-12", label: "12", areaM2: 9, badge: [338, 27] },
+      { id: "ispred-13", label: "13", areaM2: 12, badge: [65, 327] },
+      { id: "ispred-15", label: "15", areaM2: 12, badge: [733, 254] },
     ]);
     expect(front.locations.filter((row) => row.group === "ispred-13").map((row) => row.id)).toEqual(["ispred-13-1", "ispred-13-2", "ispred-13-3", "ispred-13-4"]);
   });
@@ -147,7 +148,7 @@ describe("Sajam elektromobilnosti 2026 — organizer maps of 7. 10. (N3)", () =>
   test("stand 14 is the ScanMe stand, organizer-confirmed (placement organizer), and the event's only ScanMe location", () => {
     expect(fairMapLocationById("elektromobilnost-2026", "ispred-14")).toEqual({
       zoneId: "ispred",
-      location: { id: "ispred-14", label: "14", kind: "scanme", placement: "organizer", areaM2: 3, polygon: expect.any(Array) },
+      location: { id: "ispred-14", label: "14", kind: "scanme", placement: "organizer", areaM2: 3, badge: [402, 192], polygon: expect.any(Array) },
     });
     expect(map.zones.flatMap((row) => row.locations).filter((row) => row.kind === "scanme").map((row) => row.id)).toEqual(["ispred-14"]);
   });
@@ -162,6 +163,19 @@ describe("Sajam elektromobilnosti 2026 — organizer maps of 7. 10. (N3)", () =>
     expect(rear.locations.map((row) => [row.id, row.kind, row.label, row.placement])).toEqual([["zadnji-deo", "area", "Zadnji deo", "organizer"]]);
     expect(Math.abs(signedArea(rear.locations[0].polygon))).toBeGreaterThan(0.4 * rear.image.width * rear.image.height);
     expect(isFairMapStandLocation("elektromobilnost-2026", "zadnji-deo")).toBe(true);
+  });
+});
+
+describe("N4: zone outlines and stand-number positions of the Elektro map", () => {
+  test("each zone has its outline; numbers printed beside the boxes stay inside the image", () => {
+    for (const zone of ELEKTROMOBILNOST_2026_MAP.zones) {
+      expect(zone.outline?.length, zone.id).toBeGreaterThanOrEqual(3);
+      const points = [...zone.locations.flatMap((row) => (row.badge ? [row.badge] : [])), ...(zone.groups ?? []).flatMap((row) => (row.badge ? [row.badge] : []))];
+      for (const [x, y] of points) expect(x > 0 && x < zone.image.width && y > 0 && y < zone.image.height, `${zone.id} ${x},${y}`).toBe(true);
+    }
+    // The rear area's outline is its one area.
+    const rear = ELEKTROMOBILNOST_2026_MAP.zones[2];
+    expect(rear.outline).toEqual(rear.locations[0].polygon);
   });
 });
 

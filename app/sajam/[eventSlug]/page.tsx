@@ -14,7 +14,8 @@ import { MapUnavailable } from "./_mapa/map-unavailable";
 
 // M1 — map / event home. Kodeks's shell and tokens are used as-is; the map
 // content streams under the shell. `?prikaz=ekran` forces the large-display
-// composition (same data, no touch controls) on any width.
+// composition (same data, no touch controls) on any width. N4: `?zona=` and
+// `?stand=<mapLocationId>` open a zone and a stand (independent of `prikaz`).
 
 type RouteParams = { eventSlug: string };
 type RouteSearchParams = Record<string, string | string[] | undefined>;
@@ -77,7 +78,7 @@ export default async function FairEventMapPage({
           {fmt(dict.metaTitle, { event: event.title })}
         </h1>
         <Suspense fallback={<MapSkeleton />}>
-          <MapSection eventSlug={event.slug} eventCode={event.code} display={display} />
+          <MapSection eventSlug={event.slug} eventCode={event.code} display={display} link={{ zona: query.zona, stand: query.stand }} />
         </Suspense>
       </main>
     </div>

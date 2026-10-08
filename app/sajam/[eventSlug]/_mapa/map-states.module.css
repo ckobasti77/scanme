@@ -41,16 +41,37 @@
   gap: 12px;
 }
 
-.skeletonBar {
-  height: 52px;
-  border-radius: 12px;
+.skeletonIntro,
+.skeletonBar,
+.skeletonPill,
+.skeletonChips,
+.skeletonMap {
   background: var(--fair-surface-muted);
 }
 
-.skeletonMap {
-  height: clamp(320px, 46dvh, 460px);
+.skeletonIntro {
+  height: 92px;
   border-radius: 20px;
-  background: var(--fair-surface-muted);
+}
+
+.skeletonBar {
+  height: 70px;
+  border-radius: 12px;
+}
+
+.skeletonPill {
+  height: 54px;
+  border-radius: 999px;
+}
+
+.skeletonChips {
+  height: 48px;
+  border-radius: 999px;
+}
+
+.skeletonMap {
+  height: clamp(300px, 46dvh, 380px);
+  border-radius: 20px;
 }
 
 .srOnly {

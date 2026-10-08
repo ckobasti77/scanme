@@ -148,6 +148,31 @@ export interface FairMapDict {
   noModels: string;
   websiteLink: string;
   websiteLinkAria: string;
+  // N4 map v2 (test map look, real data)
+  introTitle: string;
+  introHint: string;
+  findScanMe: string;
+  filtersLabel: string;
+  filterAll: string;
+  filterAria: string;
+  exhibitorsOne: string;
+  exhibitorsFew: string;
+  exhibitorsMany: string;
+  originalMap: string;
+  mapControlsLabel: string;
+  selectedStand: string;
+  standSummary: string;
+  scanmeBody: string;
+  sheetHandle: string;
+  directoryTitle: string;
+  directoryHint: string;
+  uncategorized: string;
+  placeButtonAria: string;
+  landmarkEntrance: string;
+  landmarkParking: string;
+  displayHint: string;
+  previewTitle: string;
+  previewNotice: string;
   // M2 12 s Advanced rotation on the map/display
   rotationLabel: string;
   rotationAria: string;

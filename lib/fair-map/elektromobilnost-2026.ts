@@ -23,6 +23,8 @@ export const ELEKTROMOBILNOST_2026_MAP: FairMapGeometry = {
     {
       id: "hala",
       image: { src: "/sajam/mape/elektro-hala.jpg", width: 1375, height: 1080, organizerFile: "mapa-popunjena-0910-0710.jpg" },
+      // N4: the hall walls along the outer stand edges.
+      outline: [[30, 164], [128, 163], [211, 75], [253, 109], [322, 58], [393, 0], [980, 0], [1106, 108], [1157, 70], [1238, 164], [1332, 166], [1331, 404], [1372, 406], [1371, 672], [1316, 675], [1316, 916], [1225, 915], [1157, 1012], [1116, 983], [981, 1079], [393, 1079], [262, 974], [214, 1016], [120, 915], [31, 916]],
       locations: [
         fairMapStand("hala-1a", "1A", [[464, 567], [618, 570], [616, 835], [460, 833], [459, 571]], { areaM2: 60 }),
         fairMapStand("hala-1b", "1B", [[808, 567], [887, 569], [885, 700], [620, 698], [622, 568]], { areaM2: 50 }),
@@ -47,10 +49,13 @@ export const ELEKTROMOBILNOST_2026_MAP: FairMapGeometry = {
     {
       id: "ispred",
       image: { src: "/sajam/mape/elektro-ispred.jpg", width: 1239, height: 1080, organizerFile: "mapa-popunjena-0910-ispred-0510-1.jpg" },
+      // N4: the thin grey boundary of the area in front of the hall.
+      outline: [[276, 62], [640, 63], [677, 189], [767, 637], [1092, 526], [1238, 856], [889, 958], [871, 929], [590, 988], [87, 959], [172, 392]],
+      // Labels where the organizer prints them, beside the boxes.
       groups: [
-        { id: "ispred-12", label: "12", areaM2: 9 },
-        { id: "ispred-13", label: "13", areaM2: 12 },
-        { id: "ispred-15", label: "15", areaM2: 12 },
+        { id: "ispred-12", label: "12", areaM2: 9, badge: [338, 27] },
+        { id: "ispred-13", label: "13", areaM2: 12, badge: [65, 327] },
+        { id: "ispred-15", label: "15", areaM2: 12, badge: [733, 254] },
       ],
       locations: [
         fairMapStand("ispred-12-1", "12", [[322, 63], [462, 63], [462, 136], [322, 136]], { group: "ispred-12" }),
@@ -60,17 +65,17 @@ export const ELEKTROMOBILNOST_2026_MAP: FairMapGeometry = {
         fairMapStand("ispred-13-2", "13", [[244, 287], [316, 302], [297, 397], [225, 383]], { group: "ispred-13" }),
         fairMapStand("ispred-13-3", "13", [[225, 387], [296, 401], [277, 497], [206, 482]], { group: "ispred-13" }),
         fairMapStand("ispred-13-4", "13", [[204, 488], [276, 502], [244, 653], [173, 638]], { group: "ispred-13" }),
-        { id: "ispred-14", label: "14", kind: "scanme", placement: "organizer", areaM2: 3, polygon: [[406, 219], [503, 219], [503, 292], [406, 292]] },
+        { id: "ispred-14", label: "14", kind: "scanme", placement: "organizer", areaM2: 3, badge: [402, 192], polygon: [[406, 219], [503, 219], [503, 292], [406, 292]] },
         fairMapStand("ispred-15-1", "15", [[586, 231], [657, 216], [670, 278], [598, 293]], { group: "ispred-15" }),
         fairMapStand("ispred-15-2", "15", [[599, 298], [671, 283], [690, 379], [618, 393]], { group: "ispred-15" }),
         fairMapStand("ispred-15-3", "15", [[620, 398], [691, 384], [711, 479], [639, 494]], { group: "ispred-15" }),
         fairMapStand("ispred-15-4", "15", [[639, 497], [711, 483], [736, 606], [665, 621]], { group: "ispred-15" }),
-        fairMapStand("ispred-16", "16", [[149, 722], [173, 727], [163, 775], [140, 770]], { areaM2: 1 }),
-        fairMapStand("ispred-17", "17", [[318, 598], [591, 597], [591, 764], [318, 764]], { areaM2: 20 }),
-        fairMapStand("ispred-18", "18", [[729, 700], [753, 695], [763, 743], [739, 748]], { areaM2: 1 }),
-        fairMapStand("ispred-19", "19", [[112, 841], [184, 852], [181, 880], [281, 894], [271, 966], [97, 943]], { areaM2: 6 }),
+        fairMapStand("ispred-16", "16", [[149, 722], [173, 727], [163, 775], [140, 770]], { areaM2: 1, badge: [52, 646] }),
+        fairMapStand("ispred-17", "17", [[318, 598], [591, 597], [591, 764], [318, 764]], { areaM2: 20, badge: [627, 694] }),
+        fairMapStand("ispred-18", "18", [[729, 700], [753, 695], [763, 743], [739, 748]], { areaM2: 1, badge: [797, 694] }),
+        fairMapStand("ispred-19", "19", [[112, 841], [184, 852], [181, 880], [281, 894], [271, 966], [97, 943]], { areaM2: 6, badge: [30, 838] }),
         // 20 (3 m²) + 21 (6 m²) + 22 (3 m²): one L/J outline without visible partitions.
-        fairMapStand("ispred-20-22", "20–22", [[463, 906], [568, 912], [777, 867], [756, 773], [827, 758], [863, 921], [580, 984], [459, 980]], { areaM2: 12 }),
+        fairMapStand("ispred-20-22", "20–22", [[463, 906], [568, 912], [777, 867], [756, 773], [827, 758], [863, 921], [580, 984], [459, 980]], { areaM2: 12, badge: [560, 1022] }),
       ],
       landmarks: [
         { id: "ispred-glavni-ulaz", kind: "entrance", polygon: [[344, 1005], [390, 1065], [289, 1057]] },
@@ -82,6 +87,8 @@ export const ELEKTROMOBILNOST_2026_MAP: FairMapGeometry = {
     {
       id: "zadnji-deo",
       image: { src: "/sajam/mape/elektro-zadnji-deo.jpg", width: 1920, height: 988, organizerFile: "mapa-zadnji-deo.jpg" },
+      // N4: the green outline is both the zone and its one area.
+      outline: [[2, 695], [354, 343], [734, 80], [936, 615], [1138, 557], [1009, 28], [1336, 2], [1623, 31], [1917, 122], [1796, 454], [1545, 381], [1463, 744], [873, 744], [666, 910], [609, 857], [489, 985], [345, 985]],
       locations: [
         {
           id: "zadnji-deo",

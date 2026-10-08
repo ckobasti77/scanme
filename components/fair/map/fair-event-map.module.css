@@ -1,25 +1,143 @@
-/* M1 public map. Uses only the shared --fair-* tokens (app/sajam/fair-event.css).
-   --fair-map-scanme (EVENT-DESIGN-SYSTEM §5.1 `event.scanmeStand`, not in
-   fair-event.css yet — reported in jovan-status/M1.md) is set inline on the
-   ScanMe location element only, so nothing else can resolve it. */
+/* N4 public map v2 — the test map's look (/dev/sajam-cair) with the fair's
+   tokens only (app/sajam/fair-event.css, Archivo). --fair-map-scanme
+   (EVENT-DESIGN-SYSTEM §5.1 `event.scanmeStand`, not in fair-event.css yet —
+   jovan-status/M1.md) is set inline on the ScanMe location element only, so
+   nothing else can resolve it. Phone first; 1024 px: map + "Izabrani štand"
+   panel; 1440 px and ?prikaz=ekran: hall and the area in front side by side,
+   the rear area as a small inset. */
+
+/* ------------------------------------------------------------------ layout */
 
 .root {
   --fair-map-gutter: 16px;
+  --fair-map-chrome: rgb(23 25 24 / 0.86);
   display: grid;
   max-width: 1440px;
   margin-inline: auto;
-  padding: 12px var(--fair-map-gutter) 32px;
+  padding: 12px var(--fair-map-gutter) 40px;
   gap: 12px;
-  grid-template-areas:
-    "toolbar"
-    "stage"
-    "panel";
   grid-template-columns: minmax(0, 1fr);
 }
 
-.toolbar {
-  grid-area: toolbar;
+@media (max-width: 374px) {
+  .root {
+    --fair-map-gutter: 12px;
+  }
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.card {
+  padding: 16px;
+  border: 1px solid var(--fair-line);
+  border-radius: 20px;
+  background: var(--fair-surface);
+}
+
+.hint {
+  margin: 0;
+  color: var(--fair-ink-muted);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.count {
+  display: inline-grid;
+  min-width: 24px;
+  height: 22px;
+  padding-inline: 7px;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--fair-surface-muted);
+  color: var(--fair-ink);
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+/* --------------------------------------------------------------- intro */
+
+.intro {
   display: grid;
+  padding: 12px 12px 12px 16px;
+  align-items: center;
+  gap: 4px 12px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  border: 1px solid var(--fair-line);
+  border-radius: 20px;
+  background: var(--fair-surface);
+}
+
+.introText {
+  display: contents;
+}
+
+.introTitle {
+  grid-column: 1;
+  margin: 0;
+  font-size: 22px;
+  font-weight: 780;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+}
+
+.introHint {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  margin: 0;
+  color: var(--fair-ink-muted);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.findButton {
+  display: inline-flex;
+  grid-column: 2;
+  grid-row: 1;
+  min-height: 44px;
+  padding: 0 14px;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--fair-ink);
+  color: var(--fair-surface);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: 0 8px 18px var(--fair-shadow);
+  transition: transform 160ms ease-out;
+}
+
+.findButton svg {
+  width: 18px;
+  height: 18px;
+}
+
+.findButton:active {
+  transform: scale(0.98);
+}
+
+.findButton:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* --------------------------------------------------------------- tools */
+
+.tools {
+  display: grid;
+  min-width: 0;
   gap: 8px;
 }
 
@@ -86,15 +204,22 @@
   cursor: pointer;
 }
 
+.searchClear svg {
+  width: 20px;
+  height: 20px;
+}
+
 .results {
   position: absolute;
-  z-index: 15;
+  z-index: 25;
   top: calc(100% + 6px);
   right: 0;
   left: 0;
-  max-height: min(60dvh, 420px);
+  display: grid;
+  max-height: min(60dvh, 440px);
   margin: 0;
   padding: 6px;
+  gap: 4px;
   overflow-y: auto;
   border: 1px solid var(--fair-line);
   border-radius: 20px;
@@ -111,11 +236,57 @@
   line-height: 20px;
 }
 
+.resultButton,
+.entryButton {
+  display: flex;
+  width: 100%;
+  min-height: 56px;
+  padding: 8px 10px;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--fair-ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.resultButton:hover,
+.entryButton:hover {
+  background: var(--fair-canvas);
+}
+
+.entryButton[aria-pressed="true"] {
+  border-color: var(--fair-accent);
+  background: var(--fair-accent-soft);
+}
+
+.entryText {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.entryName {
+  overflow: hidden;
+  font-size: 16px;
+  font-weight: 680;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+}
+
+.resultMeta {
+  color: var(--fair-ink-muted);
+  font-size: 14px;
+  line-height: 20px;
+}
+
 .zoneSwitch {
   display: grid;
-  /* N3: one column per zone (the Elektro map has three). */
-  grid-template-columns: repeat(var(--fair-map-zones, 2), minmax(0, 1fr));
   padding: 4px;
+  grid-template-columns: repeat(var(--fair-map-zones, 3), minmax(0, 1fr));
   border: 1px solid var(--fair-line);
   border-radius: 999px;
   background: var(--fair-surface-muted);
@@ -123,6 +294,7 @@
 
 .zoneButton {
   min-height: 44px;
+  padding-inline: 6px;
   border: 0;
   border-radius: 999px;
   background: transparent;
@@ -139,18 +311,86 @@
   box-shadow: 0 1px 3px var(--fair-shadow);
 }
 
-.stage {
-  grid-area: stage;
-  scroll-margin-top: calc(var(--fair-header-height) + env(safe-area-inset-top) + 12px);
+/* One horizontal row that scrolls inside itself (never the page). */
+.filters {
+  display: flex;
+  margin-inline: calc(-1 * var(--fair-map-gutter));
+  padding: 2px var(--fair-map-gutter);
+  gap: 8px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-padding-inline: var(--fair-map-gutter);
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+}
+
+.filters::-webkit-scrollbar {
+  display: none;
+}
+
+.filterButton {
+  display: inline-flex;
+  min-height: 44px;
+  padding: 0 8px 0 12px;
+  flex: none;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid var(--fair-line-strong);
+  border-radius: 999px;
+  background: var(--fair-surface);
+  color: var(--fair-ink);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 650;
+  white-space: nowrap;
+  cursor: pointer;
+  scroll-snap-align: start;
+  transition:
+    background-color 160ms ease-out,
+    color 160ms ease-out;
+}
+
+.filterButton svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+
+.filterButton[aria-pressed="true"] {
+  border-color: var(--fair-ink);
+  background: var(--fair-ink);
+  color: var(--fair-surface);
+}
+
+.filterButton[aria-pressed="true"] .count {
+  background: rgb(255 253 248 / 0.2);
+  color: var(--fair-surface);
+}
+
+/* ---------------------------------------------------------------- map */
+
+.mapArea {
   display: grid;
   min-width: 0;
-  gap: 12px;
+  scroll-margin-top: calc(var(--fair-header-height) + env(safe-area-inset-top) + 8px);
 }
 
 .zone {
   display: grid;
   min-width: 0;
-  gap: 6px;
+  overflow: hidden;
+  border: 1px solid var(--fair-line);
+  border-radius: 20px;
+  background: var(--fair-surface);
+}
+
+.zoneBar {
+  display: flex;
+  min-height: 56px;
+  padding: 6px 6px 6px 12px;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid var(--fair-line);
 }
 
 .zone[data-active="false"] {
@@ -159,24 +399,30 @@
 
 .zoneTitle {
   display: none;
-  margin: 0;
-  font-size: 18px;
+  margin: 0 auto 0 0;
+  font-size: 17px;
   font-weight: 720;
+  letter-spacing: -0.01em;
 }
 
 .viewport {
   position: relative;
-  height: clamp(320px, 46dvh, 460px);
+  width: 100%;
+  height: auto;
+  min-height: 240px;
+  max-height: 56dvh;
+  aspect-ratio: var(--fair-map-ratio);
   overflow: hidden;
-  border: 1px solid var(--fair-line);
-  border-radius: 20px;
-  background: var(--fair-surface);
-  touch-action: none;
+  overscroll-behavior: contain;
+  background: radial-gradient(circle at 50% 35%, rgb(255 253 248 / 0.9), transparent 62%), var(--fair-surface-muted);
   cursor: grab;
+  touch-action: none;
+  user-select: none;
 }
 
-.viewport[data-dragging="true"] {
-  cursor: grabbing;
+.viewport[data-interactive="false"] {
+  cursor: default;
+  touch-action: auto;
 }
 
 .layer {
@@ -187,85 +433,227 @@
   will-change: transform;
 }
 
-.layer[data-animate="true"] {
-  transition: transform 240ms ease-out;
-}
-
 .layer svg {
   display: block;
   overflow: visible;
+  font-family: inherit;
+}
+
+.paper {
+  fill: #faf8f3;
+}
+
+.gridLine {
+  fill: none;
+  stroke: rgb(70 85 77 / 0.08);
+}
+
+.original {
+  opacity: 1;
+}
+
+/* "Originalna mapa organizatora": the organizer's JPG shows through the
+   vector (outlines and numbers stay, the drawing's own fills and logos step back). */
+.viewport[data-original="true"] :is(.paper, .zoneOutline, .stairs, .parking, .entrance, .totem) {
+  opacity: 0;
+}
+
+.viewport[data-original="true"] .standShape,
+.viewport[data-original="true"] .standEmpty polygon,
+.viewport[data-original="true"] .partnerCircle {
+  fill-opacity: 0.08;
+}
+
+.viewport[data-original="true"] .scanmeLocation .standShape {
+  fill-opacity: 0.45;
+}
+
+.viewport[data-original="true"] .chip,
+.viewport[data-original="true"] .stand image {
+  opacity: 0;
+}
+
+.zoneOutline {
+  fill: rgb(255 253 248 / 0.7);
+  stroke: var(--fair-line-strong);
+  stroke-linejoin: round;
+}
+
+.stairs {
+  stroke: var(--fair-line-strong);
+}
+
+.hatchLine {
+  stroke: rgb(98 97 93 / 0.35);
+}
+
+.totem {
+  fill: var(--fair-ink);
+}
+
+.parking polygon {
+  fill: none;
+  stroke: var(--fair-line-strong);
+  stroke-dasharray: 6 5;
+}
+
+.parking text {
+  fill: rgb(98 97 93 / 0.7);
+  font-weight: 800;
+}
+
+.entrance polygon {
+  fill: var(--fair-ink-muted);
+}
+
+.entrance text {
+  fill: var(--fair-ink-muted);
+  font-weight: 760;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.standEmpty polygon {
+  fill: var(--fair-surface-muted);
+  stroke: var(--fair-line-strong);
+  stroke-dasharray: 5 4;
+}
+
+.standEmpty[data-dimmed="true"] {
+  opacity: 0.4;
 }
 
 .stand {
   cursor: pointer;
   outline: none;
+  transition: opacity 200ms ease-out;
 }
 
-.stand polygon {
-  fill: color-mix(in srgb, var(--fair-accent) 22%, transparent);
+.viewport[data-interactive="false"] .stand {
+  cursor: default;
+}
+
+.standShape {
+  fill: var(--fair-surface);
+  stroke: rgb(23 25 24 / 0.32);
+  stroke-linejoin: round;
+  transition:
+    fill 160ms ease-out,
+    stroke 160ms ease-out;
+}
+
+.stand:hover .standShape {
+  fill: #fffefb;
   stroke: var(--fair-accent);
-  stroke-width: 2.5px;
-  transition: fill 160ms ease-out;
 }
 
-.stand[data-dimmed="true"] polygon {
-  fill: color-mix(in srgb, var(--fair-accent) 8%, transparent);
-  stroke-opacity: 0.45;
+.stand[data-kind="area"] .standShape {
+  fill: rgb(255 253 248 / 0.85);
 }
 
-.stand[aria-pressed="true"] polygon {
-  fill: color-mix(in srgb, var(--fair-accent) 46%, transparent);
+.stand[data-kind="partner"] .standShape {
+  fill: transparent;
+  stroke: transparent;
+}
+
+.stand[data-dimmed="true"] {
+  opacity: 0.22;
+}
+
+/* Selected: terracotta outline and a soft halo (the panel/sheet name it too). */
+.stand[data-selected="true"] .standShape {
+  stroke: var(--fair-accent);
+}
+
+.selectedGlow {
+  fill: none;
+  stroke: var(--fair-accent);
+  stroke-linejoin: round;
+  opacity: 0.18;
+  pointer-events: none;
+}
+
+.stand:focus-visible .standShape {
   stroke: var(--fair-focus);
-  stroke-width: 4px;
+  stroke-dasharray: 10 6;
 }
 
-.stand:focus-visible polygon {
-  stroke: var(--fair-focus);
-  stroke-width: 5px;
-}
-
-/* The ONLY use of ScanMe green (EDS §3, §5.1). N3: drawn over the organizer's
-   stand 14, so the "ENIGMA IT / ScanMe" sign stays readable through it. */
-.scanmeLocation polygon {
+/* The ONLY use of ScanMe green (EDS §3, §5.1). */
+.scanmeLocation .standShape {
   fill: var(--fair-map-scanme);
-  fill-opacity: 0.55;
   stroke: var(--fair-ink);
+}
+
+.partnerCircle {
+  fill: var(--fair-surface);
+  stroke: var(--fair-line-strong);
   stroke-width: 2px;
 }
 
-/* The exhibitors' tap target on the ScanMe stand keeps the green visible. */
-.stand[data-on-scanme="true"] polygon {
-  fill: transparent;
+.stand[data-selected="true"] .partnerCircle {
+  stroke: var(--fair-accent);
+  stroke-width: 4px;
 }
 
-.website {
+.chip rect {
+  fill: #ffffff;
+  stroke: rgb(23 25 24 / 0.12);
+  stroke-width: 1px;
+}
+
+.chip text {
+  fill: var(--fair-ink);
+  font-weight: 720;
+}
+
+/* Stand number: HTML over the drawing, never smaller than BADGE_MIN_PX on screen. */
+.badge {
+  position: absolute;
+  display: inline-grid;
+  place-items: center;
+  border: 0.08em solid var(--fair-line-strong);
+  border-radius: 999px;
+  background: var(--fair-surface);
+  color: var(--fair-ink);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 0.08em 0.2em var(--fair-shadow);
+  transition: opacity 200ms ease-out;
+}
+
+.badge[data-empty="true"] {
+  color: var(--fair-ink-muted);
+  background: var(--fair-surface-muted);
+  box-shadow: none;
+}
+
+.badge[data-dimmed="true"] {
+  opacity: 0.3;
+}
+
+.badge[data-selected="true"] {
+  border-color: var(--fair-accent);
+  background: var(--fair-accent);
+  color: var(--fair-accent-ink);
+}
+
+.marker,
+.bubble,
+.rotationPin {
+  position: absolute;
   display: inline-flex;
-  min-height: 44px;
   align-items: center;
-  gap: 6px;
-  color: var(--fair-accent);
-  font-weight: 600;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-
-.website svg {
-  width: 16px;
-  height: 16px;
-}
-
-.website:focus-visible {
-  outline: 3px solid var(--fair-focus);
-  outline-offset: 2px;
-  border-radius: 4px;
+  white-space: nowrap;
+  pointer-events: none;
+  transform-origin: 50% 100%;
 }
 
 .marker {
-  position: absolute;
-  display: inline-flex;
   min-height: 28px;
   padding: 3px 9px 3px 6px;
-  align-items: center;
   gap: 4px;
   border: 1px solid var(--fair-ink);
   border-radius: 999px;
@@ -274,9 +662,7 @@
   font-size: 13px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
-  line-height: 1;
-  white-space: nowrap;
-  pointer-events: none;
+  transform-origin: 100% 0;
 }
 
 .marker svg {
@@ -284,12 +670,21 @@
   height: 16px;
 }
 
+.bubble {
+  min-height: 32px;
+  margin-top: -10px;
+  padding: 6px 12px;
+  border-radius: 12px;
+  background: var(--fair-ink);
+  color: var(--fair-surface);
+  font-size: 14px;
+  font-weight: 700;
+  box-shadow: 0 8px 20px var(--fair-shadow);
+}
+
 .controls {
-  position: absolute;
-  z-index: 2;
-  top: 8px;
-  right: 8px;
-  display: grid;
+  display: flex;
+  margin-left: auto;
   gap: 6px;
 }
 
@@ -303,34 +698,210 @@
   background: var(--fair-surface);
   color: var(--fair-ink);
   cursor: pointer;
+  box-shadow: 0 1px 3px var(--fair-shadow);
 }
 
-.controlButton svg,
-.searchClear svg {
+.controlButton svg {
   width: 20px;
   height: 20px;
 }
 
-.panel {
-  grid-area: panel;
-  display: grid;
+.originalToggle {
+  display: inline-flex;
   min-width: 0;
-  align-content: start;
-  gap: 16px;
+  min-height: 44px;
+  padding: 0 12px;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--fair-line-strong);
+  border-radius: 999px;
+  background: rgb(255 253 248 / 0.94);
+  color: var(--fair-ink);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.15;
+  text-align: left;
+  cursor: pointer;
 }
 
-.card {
+.originalToggle svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+
+.originalToggle[aria-pressed="true"] {
+  border-color: var(--fair-ink);
+  background: var(--fair-ink);
+  color: var(--fair-surface);
+}
+
+/* ------------------------------------------------------- list + detail */
+
+.directory {
+  display: grid;
+  min-width: 0;
   padding: 16px;
+  gap: 8px;
   border: 1px solid var(--fair-line);
   border-radius: 20px;
   background: var(--fair-surface);
 }
 
-.hint {
+.directoryHead {
+  display: grid;
+  gap: 2px;
+}
+
+.directoryTitle {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 740;
+}
+
+.directoryHint {
   margin: 0;
   color: var(--fair-ink-muted);
   font-size: 14px;
   line-height: 20px;
+}
+
+.group {
+  border-top: 1px solid var(--fair-line);
+}
+
+.groupSummary {
+  display: flex;
+  min-height: 52px;
+  align-items: center;
+  gap: 10px;
+  font-size: 16px;
+  font-weight: 680;
+  cursor: pointer;
+  list-style: none;
+}
+
+.groupSummary::-webkit-details-marker {
+  display: none;
+}
+
+.groupSummary::after {
+  margin-left: auto;
+  content: "";
+  width: 10px;
+  height: 10px;
+  border-right: 2px solid var(--fair-ink-muted);
+  border-bottom: 2px solid var(--fair-ink-muted);
+  transform: rotate(45deg) translateY(-3px);
+  transition: transform 160ms ease-out;
+}
+
+.group[open] > .groupSummary::after {
+  transform: rotate(-135deg) translateY(-3px);
+}
+
+.groupSummary svg {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  color: var(--fair-ink-muted);
+}
+
+.groupSummary:focus-visible {
+  outline: 3px solid var(--fair-focus);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+.entries {
+  display: grid;
+  margin: 0 0 10px;
+  padding: 0;
+  gap: 2px;
+  list-style: none;
+}
+
+.entry {
+  display: grid;
+  gap: 4px;
+}
+
+.placeBadge {
+  justify-self: start;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--fair-surface-muted);
+  color: var(--fair-ink);
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 20px;
+}
+
+.placeBadge[data-unlocated="true"] {
+  background: transparent;
+  padding-inline: 0;
+  color: var(--fair-ink-muted);
+  font-weight: 560;
+}
+
+.morePlaces {
+  display: flex;
+  flex-wrap: wrap;
+  padding-left: 66px;
+  gap: 6px;
+}
+
+.placeChip {
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--fair-line-strong);
+  border-radius: 999px;
+  background: var(--fair-surface);
+  color: var(--fair-ink);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.logoBox {
+  position: relative;
+  display: grid;
+  width: 56px;
+  height: 40px;
+  flex: none;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid var(--fair-line);
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.logoBox[data-size="sm"] {
+  width: 54px;
+  height: 38px;
+}
+
+.logoBox[data-size="lg"] {
+  width: 76px;
+  height: 52px;
+}
+
+.logoImage {
+  padding: 4px;
+  object-fit: contain;
+}
+
+.logoInitial {
+  color: var(--fair-ink-muted);
+  font-size: 18px;
+  font-weight: 760;
+}
+
+.detail {
+  display: grid;
+  gap: 12px;
 }
 
 .detailHeader {
@@ -340,19 +911,29 @@
   gap: 8px;
 }
 
-.detailTitle {
+.eyebrow {
   margin: 0;
-  font-size: 24px;
-  font-weight: 760;
-  letter-spacing: -0.02em;
-  line-height: 1.15;
+  color: var(--fair-ink-muted);
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
-.detailMeta {
-  margin: 4px 0 0;
-  color: var(--fair-ink-muted);
-  font-size: 14px;
-  line-height: 20px;
+.detailTitle {
+  margin: 2px 0 0;
+  font-size: 22px;
+  font-weight: 760;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  outline: none;
+}
+
+.scanmeNote {
+  margin: 6px 0 0;
+  color: var(--fair-ink);
+  font-size: 15px;
+  line-height: 22px;
 }
 
 .iconButton {
@@ -373,10 +954,67 @@
   height: 20px;
 }
 
-.brand {
-  margin-top: 16px;
-  padding-top: 16px;
+.exhibitors {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  gap: 0;
+  list-style: none;
+}
+
+.exhibitor {
+  display: grid;
+  padding: 12px 0;
+  gap: 10px;
   border-top: 1px solid var(--fair-line);
+}
+
+.exhibitorHead {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.exhibitorText {
+  display: grid;
+  min-width: 0;
+  justify-items: start;
+}
+
+.exhibitorName {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 720;
+  line-height: 1.25;
+}
+
+.website {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 6px;
+  color: var(--fair-accent);
+  font-size: 15px;
+  font-weight: 650;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.website svg {
+  width: 16px;
+  height: 16px;
+}
+
+.quiet {
+  margin: 0;
+  color: var(--fair-ink-muted);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.brand {
+  display: grid;
+  gap: 6px;
 }
 
 .brandHeader {
@@ -389,20 +1027,20 @@
 
 .brandName {
   margin: 0;
-  font-size: 18px;
-  font-weight: 720;
+  font-size: 15px;
+  font-weight: 700;
 }
 
 .passport {
   display: inline-flex;
-  min-height: 32px;
-  padding: 4px 10px;
+  min-height: 28px;
+  padding: 2px 10px;
   align-items: center;
   gap: 6px;
   border: 1px solid var(--fair-ink);
   border-radius: 999px;
   color: var(--fair-ink);
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 650;
   font-variant-numeric: tabular-nums;
 }
@@ -410,33 +1048,6 @@
 .passport svg {
   width: 16px;
   height: 16px;
-}
-
-.passportNote {
-  margin: 8px 0 0;
-  color: var(--fair-ink-muted);
-  font-size: 14px;
-  line-height: 20px;
-}
-
-.retry {
-  min-height: 44px;
-  margin-top: 8px;
-  padding-inline: 14px;
-  border: 1px solid var(--fair-line-strong);
-  border-radius: 12px;
-  background: var(--fair-surface);
-  color: var(--fair-ink);
-  font: inherit;
-  font-weight: 650;
-  cursor: pointer;
-}
-
-.modelsLabel {
-  margin: 12px 0 6px;
-  color: var(--fair-ink-muted);
-  font-size: 13px;
-  font-weight: 620;
 }
 
 .models {
@@ -462,11 +1073,13 @@
 
 .modelLink span {
   display: grid;
+  font-weight: 620;
 }
 
 .modelLink small {
   color: var(--fair-ink-muted);
   font-size: 14px;
+  font-weight: 450;
 }
 
 .modelLink svg {
@@ -475,173 +1088,88 @@
   flex: none;
 }
 
-.listTitle {
-  margin: 0 0 8px;
-  font-size: 18px;
-  font-weight: 720;
-}
-
-.listZone {
-  margin: 12px 0 6px;
-  color: var(--fair-ink-muted);
-  font-size: 13px;
-  font-weight: 650;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.list {
-  display: grid;
-  margin: 0;
-  padding: 0;
-  gap: 6px;
-  list-style: none;
-}
-
-.listButton {
-  display: grid;
-  width: 100%;
-  min-height: 48px;
-  padding: 10px 12px;
-  gap: 2px;
-  border: 1px solid var(--fair-line);
+.retry {
+  min-height: 44px;
+  margin-top: 8px;
+  padding-inline: 14px;
+  border: 1px solid var(--fair-line-strong);
   border-radius: 12px;
   background: var(--fair-surface);
   color: var(--fair-ink);
   font: inherit;
-  text-align: left;
+  font-weight: 650;
   cursor: pointer;
 }
 
-.listButton[aria-pressed="true"] {
-  border-color: var(--fair-focus);
-  box-shadow: inset 0 0 0 1px var(--fair-focus);
+/* -------------------------------------------------------- bottom sheet */
+
+.sheetRoot {
+  position: fixed;
+  z-index: 40;
+  inset: 0;
+  pointer-events: none;
 }
 
-.listName {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  font-weight: 680;
-}
-
-.listName svg {
-  width: 16px;
-  height: 16px;
-  flex: none;
-}
-
-.listMeta {
-  color: var(--fair-ink-muted);
-  font-size: 14px;
-  line-height: 20px;
-}
-
-.srOnly {
+.sheetBackdrop {
   position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  white-space: nowrap;
+  inset: 0;
+  background: rgb(23 25 24 / 0.18);
+  pointer-events: auto;
+  touch-action: none;
 }
 
-.root :is(button, a):focus-visible {
-  outline: 3px solid var(--fair-focus);
-  outline-offset: 2px;
+.sheet {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: grid;
+  max-height: min(56dvh, 560px);
+  grid-template-rows: auto minmax(0, 1fr);
+  border-top: 1px solid var(--fair-line);
+  border-radius: 20px 20px 0 0;
+  background: var(--fair-surface);
+  box-shadow: 0 -16px 40px var(--fair-shadow);
+  pointer-events: auto;
 }
 
-/* Desktop: map and panel side by side (EDS §11 "kontrolisana dva panela"). */
-@media (min-width: 1024px) {
-  .root {
-    --fair-map-gutter: 32px;
-    padding-top: 24px;
-    gap: 16px 24px;
-    grid-template-areas:
-      "toolbar panel"
-      "stage panel";
-    grid-template-columns: minmax(0, 1fr) 380px;
-    grid-template-rows: auto 1fr;
-  }
-
-  .toolbar {
-    grid-template-columns: minmax(0, 1fr) 280px;
-    align-items: end;
-  }
-
-  .viewport {
-    height: calc(100dvh - var(--fair-header-height) - 180px);
-    min-height: 480px;
-  }
+.sheetHandle {
+  display: grid;
+  height: 28px;
+  place-items: center;
+  cursor: grab;
+  touch-action: none;
 }
 
-/* Large display (EDS §11 ≥1440, or ?prikaz=ekran): both zones at once, same data,
-   no touch controls; the stand list stays on the right. */
-@media (min-width: 1440px) {
-  .root {
-    max-width: none;
-    grid-template-columns: minmax(0, 1fr) 400px;
-  }
-
-  .zoneSwitch,
-  .controls {
-    display: none;
-  }
-
-  .toolbar {
-    grid-template-columns: minmax(0, 480px);
-  }
-
-  .stage {
-    grid-template-columns: repeat(var(--fair-map-zones, 2), minmax(0, 1fr));
-    align-items: start;
-  }
-
-  .zone[data-active="false"] {
-    display: grid;
-  }
-
-  .zoneTitle {
-    display: block;
-  }
-
-  .viewport {
-    height: auto;
-    min-height: 0;
-    aspect-ratio: var(--fair-map-ratio);
-    max-height: calc(100dvh - var(--fair-header-height) - 170px);
-    cursor: default;
-  }
+.sheetHandle > span:first-child {
+  width: 40px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--fair-line-strong);
 }
 
-.root[data-display="on"] {
-  max-width: none;
+.sheetBody {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0 16px calc(16px + env(safe-area-inset-bottom));
 }
 
-.root[data-display="on"] .zoneSwitch,
-.root[data-display="on"] .controls {
+/* ------------------------------------------------------------ rotation */
+
+.panel {
   display: none;
 }
 
-.root[data-display="on"] .stage {
-  grid-template-columns: repeat(var(--fair-map-zones, 2), minmax(0, 1fr));
-  align-items: start;
+.rotationInline {
+  min-width: 0;
 }
 
-.root[data-display="on"] .zone[data-active="false"] {
-  display: grid;
+.rotationPanel {
+  display: none;
 }
 
-.root[data-display="on"] .zoneTitle {
-  display: block;
-}
-
-.root[data-display="on"] .viewport {
-  height: auto;
-  min-height: 0;
-  aspect-ratio: var(--fair-map-ratio);
-  cursor: default;
+.legend {
+  display: none;
 }
 
 /* ---- M2: 12 s Advanced rotation (card + discrete stand highlight) ---- */
@@ -665,8 +1193,8 @@
 .rotationVisual {
   position: relative;
   display: grid;
-  width: 72px;
-  height: 72px;
+  width: 64px;
+  height: 64px;
   flex: none;
   place-items: center;
   overflow: hidden;
@@ -676,8 +1204,8 @@
 }
 
 .rotationVisual > svg {
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
 }
 
 .rotationPhoto {
@@ -704,7 +1232,7 @@
 
 .rotationTitle {
   margin: 2px 0 0;
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 760;
   letter-spacing: -0.02em;
   line-height: 1.15;
@@ -809,36 +1337,43 @@
   text-decoration: none;
 }
 
+/* Rotation: a dashed outline + the pin (a selection is a solid outline + halo). */
 .rotationHighlight polygon {
-  fill: color-mix(in srgb, var(--fair-accent) 32%, transparent);
+  fill: color-mix(in srgb, var(--fair-accent) 10%, transparent);
   stroke: var(--fair-accent-strong);
-  stroke-width: 5px;
+  stroke-dasharray: 14 9;
+  stroke-linejoin: round;
   pointer-events: none;
 }
 
 .rotationHighlight .rotationGlow {
   fill: none;
+  stroke-dasharray: none;
   stroke: var(--fair-accent);
-  stroke-width: 18px;
   opacity: 0;
   animation: fair-map-stand-glow 1400ms ease-out 400ms 2;
 }
 
 .rotationPin {
-  position: absolute;
-  display: inline-flex;
   min-height: 30px;
+  margin-top: -6px;
   padding: 4px 10px 4px 6px;
-  align-items: center;
   gap: 4px;
   border-radius: 999px;
   background: var(--fair-ink);
   color: var(--fair-surface);
   font-size: 13px;
   font-weight: 700;
-  white-space: nowrap;
-  pointer-events: none;
-  transform-origin: 50% 100%;
+}
+
+/* On a phone the pin is the icon only (the rotation card names the stand). */
+.pinText {
+  display: none;
+}
+
+.rotationPin[data-below="true"] {
+  margin-top: 6px;
+  transform-origin: 50% 0;
 }
 
 .rotationPin svg {
@@ -875,8 +1410,154 @@
   }
 }
 
-/* Large display: same card, readable from a distance. */
+/* ---------------------------------------------- desktop: map + panel */
+
+@media (min-width: 1024px) {
+  .root {
+    --fair-map-gutter: 32px;
+    gap: 16px 20px;
+    grid-template-columns: minmax(0, 1fr) 380px;
+    align-items: start;
+  }
+
+  .root > :not(.panel) {
+    grid-column: 1;
+  }
+
+  .intro {
+    padding: 16px 16px 16px 20px;
+  }
+
+  .introTitle {
+    font-size: 26px;
+  }
+
+  .introHint {
+    grid-row: auto;
+    grid-column: 1;
+  }
+
+  .findButton {
+    grid-row: 1 / span 2;
+    min-height: 48px;
+    padding-inline: 18px;
+  }
+
+  .tools {
+    grid-template-columns: minmax(0, 1fr) minmax(280px, 380px);
+    align-items: end;
+    gap: 10px 12px;
+  }
+
+  /* A mouse does not scroll sideways: the chips wrap on a computer. */
+  .filters {
+    grid-column: 1 / -1;
+    flex-wrap: wrap;
+    margin-inline: 0;
+    padding-inline: 0;
+    overflow: visible;
+  }
+
+  .viewport {
+    height: clamp(440px, calc(100dvh - var(--fair-header-height) - 300px), 680px);
+    max-height: none;
+    aspect-ratio: auto;
+  }
+
+  .rotationInline {
+    display: none;
+  }
+
+  .pinText {
+    display: inline;
+  }
+
+  .panel {
+    position: sticky;
+    top: calc(var(--fair-header-height) + 12px);
+    display: grid;
+    grid-column: 2;
+    grid-row: 1 / span 5;
+    max-height: calc(100dvh - var(--fair-header-height) - 24px);
+    gap: 12px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .rotationPanel {
+    display: block;
+  }
+
+  .sheetRoot {
+    display: none;
+  }
+
+  .directory {
+    grid-template-columns: minmax(180px, 0.3fr) minmax(0, 1fr);
+    align-items: start;
+    gap: 0 24px;
+  }
+
+  .directoryHead {
+    grid-row: 1 / span 20;
+  }
+
+  .group:first-of-type {
+    border-top: 0;
+  }
+}
+
+/* ------------------- 1440 px and the fair display: every zone on screen */
+
 @media (min-width: 1440px) {
+  .root {
+    max-width: 1920px;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 400px;
+  }
+
+  .root > :not(.panel) {
+    grid-column: 1 / span 2;
+  }
+
+  .panel {
+    grid-column: 3;
+  }
+
+  .zoneSwitch {
+    display: none;
+  }
+
+  .tools {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .mapArea {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+  }
+
+  .zone,
+  .zone[data-active="false"] {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .zoneTitle {
+    display: block;
+  }
+
+  .zone[data-zone="zadnji-deo"] {
+    grid-column: 1 / -1;
+  }
+
+  .viewport {
+    height: clamp(460px, calc(100dvh - var(--fair-header-height) - 330px), 720px);
+  }
+
+  .zone[data-zone="zadnji-deo"] .viewport {
+    height: 240px;
+  }
+
   .rotationVisual {
     width: 112px;
     height: 112px;
@@ -887,31 +1568,176 @@
   }
 
   .rotationMeta,
-  .rotationPrompt {
-    font-size: 18px;
-  }
-
+  .rotationPrompt,
   .rotationStandText {
     font-size: 18px;
   }
 }
 
-.root[data-display="on"] .rotationVisual {
-  width: 112px;
-  height: 112px;
+/* ?prikaz=ekran — a TV on the stand: readable from 3 m, no touch controls. */
+.root[data-display="on"] {
+  max-width: none;
+  height: calc(100dvh - var(--fair-header-height) - env(safe-area-inset-top));
+  min-height: 640px;
+  align-items: stretch;
+  padding: 20px 28px;
+  gap: 16px 24px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(360px, 440px);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "intro intro panel"
+    "hala ispred panel"
+    "legend legend panel";
 }
 
-.root[data-display="on"] .rotationTitle {
-  font-size: 32px;
+.root[data-display="on"] > * {
+  grid-column: auto;
 }
 
-.root[data-display="on"] :is(.rotationMeta, .rotationPrompt, .rotationStandText) {
+.root[data-display="on"] .intro {
+  grid-area: intro;
+  padding: 16px 24px;
+}
+
+.root[data-display="on"] .introTitle {
+  font-size: 40px;
+}
+
+.root[data-display="on"] .introHint {
+  grid-row: auto;
+  font-size: 22px;
+  line-height: 30px;
+}
+
+.root[data-display="on"] .mapArea {
+  display: contents;
+}
+
+.root[data-display="on"] .zone,
+.root[data-display="on"] .zone[data-active="false"] {
+  display: grid;
+  min-height: 0;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.root[data-display="on"] .zone[data-zone="hala"] {
+  grid-area: hala;
+}
+
+.root[data-display="on"] .zone[data-zone="ispred"] {
+  grid-area: ispred;
+}
+
+/* The rear area: a small inset at the bottom of the right column, under the rotation. */
+.root[data-display="on"] .zone[data-zone="zadnji-deo"] {
+  grid-area: auto;
+  grid-column: 3;
+  grid-row: 2 / 4;
+  align-self: end;
+}
+
+.root[data-display="on"] .zoneTitle {
+  display: block;
+  font-size: 26px;
+}
+
+.root[data-display="on"] .viewport {
+  height: auto;
+  min-height: 0;
+  max-height: none;
+  aspect-ratio: auto;
+}
+
+.root[data-display="on"] .zone[data-zone="zadnji-deo"] .viewport {
+  height: 190px;
+}
+
+.root[data-display="on"] .zone[data-zone="zadnji-deo"] .zoneTitle {
+  font-size: 20px;
+}
+
+.root[data-display="on"] .rotationInline {
+  display: none;
+}
+
+.root[data-display="on"] .panel {
+  position: static;
+  display: grid;
+  grid-area: panel;
+  align-self: start;
+  max-height: none;
+  align-content: start;
+  overflow: visible;
+}
+
+.root[data-display="on"] .rotationPanel {
+  display: block;
+}
+
+.root[data-display="on"] .legend {
+  display: flex;
+  grid-area: legend;
+  flex-wrap: wrap;
+  align-items: center;
+  align-content: center;
+  gap: 10px;
+}
+
+.legendItem {
+  display: inline-flex;
+  min-height: 48px;
+  padding: 0 10px 0 14px;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--fair-line);
+  border-radius: 999px;
+  background: var(--fair-surface);
+  font-size: 20px;
+  font-weight: 680;
+}
+
+.legendItem svg {
+  width: 24px;
+  height: 24px;
+}
+
+.legendItem .count {
+  min-width: 32px;
+  height: 30px;
   font-size: 18px;
 }
 
+.root[data-display="on"] .rotationVisual {
+  width: 128px;
+  height: 128px;
+}
+
+.root[data-display="on"] .rotationTitle {
+  font-size: 36px;
+}
+
+.root[data-display="on"] :is(.rotationMeta, .rotationPrompt, .rotationStandText, .rotationWaiting) {
+  font-size: 20px;
+}
+
+.root[data-display="on"] .rotationOption {
+  min-height: 52px;
+  font-size: 20px;
+}
+
+.root[data-display="on"] .rotationPin {
+  min-height: 40px;
+  font-size: 18px;
+}
+
+/* --------------------------------------------------------------- motion */
+
 @media (prefers-reduced-motion: reduce) {
-  .layer[data-animate="true"],
-  .stand polygon {
+  .stand,
+  .standShape,
+  .filterButton,
+  .findButton,
+  .groupSummary::after {
     transition: none;
   }
 

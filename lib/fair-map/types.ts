@@ -44,6 +44,8 @@ export type FairMapLocation = {
   areaM2?: number;
   /** Id of the `FairMapStandGroup` this box belongs to (stands 12, 13, 15 in front of the hall). */
   group?: string;
+  /** N4: where the stand number is drawn when the organizer prints it outside the box (default: inside, top left). */
+  badge?: FairMapPoint;
 };
 
 /**
@@ -54,6 +56,8 @@ export type FairMapStandGroup = {
   id: string;
   label: string;
   areaM2?: number;
+  /** N4: where the group label is drawn (the organizer prints it beside the boxes). */
+  badge?: FairMapPoint;
 };
 
 /** Only landmarks drawn on the organizer map. Never a route or a "you are here". */
@@ -73,6 +77,8 @@ export type FairMapZone = {
     /** File name on sajamautomobila.com/ucesnici-2026 (the date is in the name). */
     organizerFile: string;
   };
+  /** N4: outline of the zone (hall walls, the area in front of the hall) for the vector map. */
+  outline?: readonly FairMapPoint[];
   locations: readonly FairMapLocation[];
   groups?: readonly FairMapStandGroup[];
   landmarks: readonly FairMapLandmark[];
@@ -92,7 +98,7 @@ export function fairMapStand(
   id: string,
   label: string,
   polygon: readonly FairMapPoint[],
-  extra: Pick<FairMapLocation, "areaM2" | "group"> = {},
+  extra: Pick<FairMapLocation, "areaM2" | "group" | "badge"> = {},
 ): FairMapLocation {
   return { id, label, kind: "stand", placement: "organizer", polygon, ...extra };
 }
