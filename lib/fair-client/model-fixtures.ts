@@ -1,4 +1,5 @@
 import type { FairPublicModel } from "@/lib/fair-contract";
+import { fairLocalPhotoUrl } from "./photo-url";
 
 export type FairFixtureMode = "free" | "starter" | "advanced";
 export type FairPhotoPresentation = "left" | "right" | "bottom";
@@ -31,6 +32,8 @@ export type FairPublicModelFixture = {
   eventTitle: string;
   eventName: string;
   exhibitorName: string;
+  /** Exhibitor key of the event: the survey marker is per exhibitor (MASTER §9.2). */
+  participationId: string;
   brandName: string;
   modelSlug: string;
   displayName: string;
@@ -131,11 +134,13 @@ export function fairPublicModelToFixture(input: {
   eventName: string;
   withPhoto: boolean;
   photoPresentation: FairPhotoPresentation;
+  /** Request origin: a photo URL on this site is rendered from its local path too. */
+  siteOrigin?: string;
 }): { model: FairPublicModelFixture; mode: FairFixtureMode } {
   const brandName = cleanTestLabel(input.model.brandName);
   const displayName = modelNameWithoutBrand(input.model.displayName, input.model.brandName);
   const reviewPhoto = REVIEW_MODEL_PHOTOS[`${brandName} ${displayName}`.toLocaleLowerCase("sr-Latn")];
-  const photoUrl = input.model.photoUrl ?? reviewPhoto;
+  const photoUrl = fairLocalPhotoUrl(input.model.photoUrl, input.siteOrigin) ?? reviewPhoto;
   const capabilities = input.model.capabilities;
   return {
     mode: fixtureModeFromCapabilities(capabilities),
@@ -146,6 +151,7 @@ export function fairPublicModelToFixture(input: {
       eventTitle: "Sajam automobila",
       eventName: cleanTestLabel(input.eventName).replace(/\s+2026$/i, ""),
       exhibitorName: cleanTestLabel(input.model.exhibitorName),
+      participationId: input.model.participationId,
       brandName,
       modelSlug: input.model.slug,
       displayName,
@@ -311,6 +317,7 @@ export function readFairModelFixture(input: {
     eventTitle: "Sajam automobila",
     eventName: "Auto Moto Fest",
     exhibitorName: "Audi",
+    participationId: "fixture-participation-audi",
     brandName: "Audi",
     modelSlug: input.modelSlug,
     displayName: "RS 3 Sportback",

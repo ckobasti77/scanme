@@ -14,10 +14,13 @@ import type {
 } from "@/lib/fair-client/model-fixtures";
 import { fmt, type FairModelDict } from "@/lib/i18n";
 import { fairEventThemeClass } from "@/lib/fair-theme";
+import type { FairModelInteractions } from "@/lib/fair-server/model-page";
 import { AnimatedModelDisclosure } from "./animated-model-disclosure";
 import { FairEventShell } from "./event-shell";
 import { GarageSaveButton } from "./garage-controls";
 import { ModelActionsCheckpoint } from "./model-actions-checkpoint";
+import { FairModelInteractionsProvider } from "./model-interactions";
+import { SurveyChatHead } from "./survey/survey-chat-head";
 
 const specificationIcons: Record<string, LucideIcon> = {
   power: Zap,
@@ -148,12 +151,18 @@ export function FairModelPage({
   routePath,
   selection,
   showDevPanel,
+  interactions,
+  openSurvey,
 }: {
   model: FairPublicModelFixture;
   dict: FairModelDict;
   routePath: string;
   selection: FixtureSelection;
   showDevPanel: boolean;
+  /** Server-read survey and lead forms of a live model; null for DEV fixtures. */
+  interactions: FairModelInteractions | null;
+  /** `/anketa` deep link: open the survey sheet when the model offers one. */
+  openSurvey: boolean;
 }) {
   const highlights = model.specificationGroups
     .flatMap((group) => group.items)
@@ -178,7 +187,9 @@ export function FairModelPage({
     result: "success",
     questions: selection.mode === "starter" ? "1" : "5",
   });
-  const audienceHref = `${routePath}/glas-publike?${audienceSearch.toString()}`;
+  const audienceHref = interactions
+    ? `${routePath}/glas-publike`
+    : `${routePath}/glas-publike?${audienceSearch.toString()}`;
 
   return (
     <div
@@ -194,6 +205,20 @@ export function FairModelPage({
         dict={dict}
       />
 
+      <FairModelInteractionsProvider
+        dict={dict}
+        model={{
+          id: model.id,
+          eventId: model.eventId,
+          participationId: model.participationId,
+          brandName: model.brandName,
+          displayName: model.displayName,
+          exhibitorName: model.exhibitorName,
+        }}
+        interactions={interactions}
+        routePath={routePath}
+        openSurvey={openSurvey}
+      >
       <main className="fair-model-main">
         <section
           className={`fair-model-hero${model.photoUrl ? "" : " fair-model-hero--no-photo"}`}
@@ -219,6 +244,7 @@ export function FairModelPage({
             <h1>{model.displayName}</h1>
             <p>{model.priceText}</p>
           </div>
+          <SurveyChatHead />
         </section>
 
         <section className="fair-specification-grid" aria-label={dict.allSpecifications}>
@@ -280,6 +306,7 @@ export function FairModelPage({
           }}
         />
       </main>
+      </FairModelInteractionsProvider>
 
       <footer className="fair-footer">
         <span>{dict.poweredBy}</span>

@@ -1779,3 +1779,14 @@ Nalazi 1 i 3 traže nove env promenljive, koje agent ne postavlja.
 
 ### 2. Purge bez ručnog odobrenja (MASTER §13)
 Cron sam pokreće pravo brisanje 16. 11. u 00:00, a MASTER kaže „nakon odobrenog pokretanja“. Aleksa bira: automatski ili uz admin odobrenje. Posle purge-a broj leadova i odgovori ankete u novim izradama izveštaja su 0 (RF nalaz 5).
+
+## SAJAM v2 — P3 (stranica modela na pravom API-ju, anketa, deljeni kontakt blok; 8. 10. 2026.)
+
+### 1. Tekst saglasnosti čeka stručnu pravnu proveru (MASTER §19 P0)
+Lead tokovi (`Zainteresovan sam`, `Probna vožnja`, opcioni kontakt u anketi) prikazuju tekst saglasnosti sa servera (`getLeadForm`) i šalju samo uz `Prihvatam`. Konačan tekst još nije pravno proveren. Za DEV proveru je u TEST događaju (`test-elektromobilnost-2026`) aktiviran tekst koji počinje sa „TEST – nije pravni tekst“. To nije pravni tekst i ne sme na PROD. Pravi događaj `elektromobilnost-2026` nema aktivnu saglasnost, pa njegovi obrasci prikazuju „Trenutno nedostupno“ dok se tekst ne odobri.
+
+### 2. Pravni naziv izlagača
+Saglasnost imenuje izlagača preko `businesses.name`. Posebno polje za pravni naziv ne postoji (`JOVAN-DELTA-2026-10-08.md` §6). Ako pravna provera traži pravni naziv, potrebno je backend polje. Do tada se prikazuje naziv klijenta.
+
+### 3. Upozorenje pri zatvaranju sheet-a sa unetim podacima
+EVENT-DESIGN-SYSTEM §6 kaže da se sheet sa nepotvrđenim unosom ne zatvara bez upozorenja. Lead sheet-ovi to ne rade, isto kao prototip. Čeka se odluka da li je potrebno.

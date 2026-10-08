@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { AudienceFlow } from "@/components/fair/audience-flow";
+import { AudienceFlow, type AudienceQuestion } from "@/components/fair/audience-flow";
 import {
   fairPublicModelToFixture,
   readFairAudienceFixture,
@@ -11,7 +11,11 @@ import {
   type FairFixtureMode,
   type FairPhotoPresentation,
 } from "@/lib/fair-client/model-fixtures";
-import { loadFairModelPage } from "@/lib/fair-server/model-page";
+import {
+  fairTodayDateKey,
+  loadFairAudienceQuestions,
+  loadFairModelPage,
+} from "@/lib/fair-server/model-page";
 import { fmt } from "@/lib/i18n/format";
 import { fairModelSr } from "@/lib/i18n/sr/fair-model";
 
@@ -91,21 +95,44 @@ export default async function AudiencePage({
   searchParams: Promise<RouteSearchParams>;
 }) {
   const [{ eventSlug, modelSlug }, query] = await Promise.all([params, searchParams]);
-  const requestedMode = fixtureMode(scalar(query.mode));
+  const routePath = `/sajam/${eventSlug}/model/${modelSlug}/glas-publike`;
+  const live = await loadFairModelPage(eventSlug, modelSlug);
+
+  if (live) {
+    const { model } = fairPublicModelToFixture({
+      model: live.model,
+      publicEventSlug: eventSlug,
+      eventName: live.event.title,
+      withPhoto: false,
+      photoPresentation: "left",
+    });
+    if (!model.capabilities.hasAudienceQuestions) notFound();
+    const views = (await loadFairAudienceQuestions(live.model.id, fairTodayDateKey())) ?? [];
+    const questions: AudienceQuestion[] = views.map((view) => ({
+      id: view.id,
+      prompt: view.prompt,
+      answers: view.options.map((option) => ({ id: option.id, label: option.label })),
+    }));
+    return (
+      <AudienceFlow
+        model={model}
+        questions={questions}
+        source={{ kind: "live", eventModelId: live.model.id }}
+        dict={fairModelSr}
+        routePath={routePath}
+        modelHref={`/sajam/${eventSlug}/model/${modelSlug}`}
+        selection={null}
+        showDevPanel={false}
+      />
+    );
+  }
+
+  // DEV-only fixture flow (no live model): never reachable in production.
+  if (process.env.NODE_ENV !== "development") notFound();
+  const mode = fixtureMode(scalar(query.mode));
   const withPhoto = scalar(query.photo) !== "0";
   const alignment = photoPresentation(scalar(query.align));
-  const live = await loadFairModelPage(eventSlug, modelSlug);
-  const adapted = live
-    ? fairPublicModelToFixture({
-        model: live.model,
-        publicEventSlug: eventSlug,
-        eventName: live.event.title,
-        withPhoto,
-        photoPresentation: alignment,
-      })
-    : null;
-  const mode = adapted?.mode ?? requestedMode;
-  const model = adapted?.model ?? readFairModelFixture({
+  const model = readFairModelFixture({
     eventSlug,
     modelSlug,
     mode,
@@ -126,16 +153,20 @@ export default async function AudiencePage({
     photo: withPhoto ? "1" : "0",
     align: alignment,
   });
-  const modelHref = `/sajam/${eventSlug}/model/${modelSlug}?${modelSearch.toString()}`;
-  const routePath = `/sajam/${eventSlug}/model/${modelSlug}/glas-publike`;
 
   return (
     <AudienceFlow
       model={model}
-      fixture={fixture}
+      questions={fixture.questions.map((question) => ({
+        id: question.id,
+        prompt: question.prompt,
+        answers: question.answers,
+        fixturePercentages: question.resultPercentagesByAnswer,
+      }))}
+      source={{ kind: "fixture", threshold: fixture.threshold, response: fixture.response }}
       dict={fairModelSr}
       routePath={routePath}
-      modelHref={modelHref}
+      modelHref={`/sajam/${eventSlug}/model/${modelSlug}?${modelSearch.toString()}`}
       selection={selection}
       showDevPanel={scalar(query.dev) === "1"}
     />

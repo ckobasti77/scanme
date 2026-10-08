@@ -1,7 +1,7 @@
 "use client";
 
 import gsap from "gsap";
-import { CarFront } from "lucide-react";
+import { CarFront, Check } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
   FAIR_GARAGE_CHANGE_EVENT,
@@ -283,6 +283,11 @@ export function GarageSaveButton({
         <span className="fair-save-button__content">
           <CarFront aria-hidden="true" />
           <span>{saved ? savedLabel : saveLabel}</span>
+          {saved ? (
+            <span className="fair-save-button__check" aria-hidden="true">
+              <Check />
+            </span>
+          ) : null}
         </span>
       </button>
       {writeFailed ? (

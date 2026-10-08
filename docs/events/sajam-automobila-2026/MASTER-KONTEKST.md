@@ -258,7 +258,7 @@ Najvažnije prodajne tačke su:
 - Brisanje browser podataka ili privatni režim mogu da naprave nov anonimni identitet. To je prihvaćeno ograničenje sistema bez naloga.
 - Isti token važi kao anonimni identitet kroz oba sajma, dok su garaža i napredak odvojeni po događaju.
 - Garaža se čuva lokalno po uređaju i događaju.
-- Kontakt podaci iz tokova `Zainteresovan sam` i probne vožnje ne čuvaju se u browser skladištu nakon uspešnog slanja.
+- Kontakt (ime i email/telefon) iz tokova `Zainteresovan sam`, probne vožnje i opcionog kontakta u anketi čuva se u browser skladištu samo kada posetilac sam uključi `Zapamti moj kontakt na ovom telefonu` (podrazumevano isključeno) i kada slanje uspe. Na sledećem obrascu posetilac može da ga iskoristi (`Koristi`) ili obriše (`Zaboravi`). Saglasnost, visitor token i drugi podaci se nikada ne pamte. `Prihvatam` se bira svaki put, jer saglasnost imenuje konkretnog izlagača. Ovo je odluka vlasnika proizvoda od 8. oktobra 2026. i zamenjuje ranije pravilo da se kontakt nikada ne čuva u browseru.
 - Anonimni token omogućava samo rad sa sopstvenim anonimnim akcijama. Ne omogućava čitanje leadova, kontakata, izveštaja ili administratorskih podataka.
 - Ocena je jedinstvena po kombinaciji `posetilac + model`; ponovni unos menja postojeću ocenu.
 - Glas je jedinstven po kombinaciji `posetilac + pitanje`; ponovni unos menja postojeći glas.
@@ -312,6 +312,7 @@ Postojeći `/r/[cardCode]` tok mora jednim server request ID-em da zabeleži gen
 
 - Starter: jedna ukupna ocena modela od 1 do 5.
 - Napredni: umesto Starter ukupne ocene ima tačno tri odvojene opcione ocene — izgled, specifikacije i cena.
+- Skala je od 1 do 5 sa polovinama zvezdice (1; 1,5; 2; … 5), i za Starter i za tri Napredne ocene (odluka vlasnika proizvoda, 8. oktobar 2026.). Starter ocena se šalje čim posetilac pusti zvezdice. Potvrda se prikazuje tek posle uspešnog odgovora servera.
 - Napredni nema četvrtu ukupnu ocenu i backend ne računa izvedeni ukupni prosek iz tri dimenzije.
 - Isti anonimni posetilac može da izmeni svoju prethodnu ocenu.
 - Izmena ne sme da napravi novu nezavisnu ocenu istog posetioca za isti model.
@@ -389,6 +390,8 @@ Za Napredni paket:
 - Izlagač odlučuje kako će koristiti anketu; ne ograničavamo je isključivo na jednu vrstu istraživanja tržišta.
 - Anketa ima najviše pet pitanja. Pitanja su opciona, ali je za konačno slanje potreban najmanje jedan odgovor.
 - Poslata anketa se ne menja naknadno i njeni rezultati nisu javni.
+- Anketa pripada izlagaču (odluka vlasnika proizvoda, 8. oktobar 2026.). Kada je posetilac pošalje na jednom modelu, oblačić ankete se više ne prikazuje ni na jednom modelu istog izlagača na tom sajmu. Backend čuva jedan odgovor po posetiocu i modelu, pa frontend dodatno pamti lokalnu oznaku po sajmu i izlagaču.
+- Na poslednjem koraku ankete posetilac može, ali ne mora, da ostavi kontakt. Ako ga ostavi i izabere `Prihvatam`, posle uspešno poslate ankete šalje se i jedan zaseban `Zainteresovan sam` lead.
 
 ### Razlika koja se mora čuvati u komunikaciji
 
@@ -547,7 +550,7 @@ Podaci se dostavljaju emailom u terminu dogovorenom sa konkretnim izlagačem. Me
 - mapa/event home: `/sajam/[eventSlug]`;
 - model: `/sajam/[eventSlug]/model/[modelSlug]`;
 - Glas publike: `/sajam/[eventSlug]/model/[modelSlug]/glas-publike`;
-- anketa: `/sajam/[eventSlug]/model/[modelSlug]/anketa`;
+- anketa: `/sajam/[eventSlug]/model/[modelSlug]/anketa` je deep link, a ne posebna stranica: otvara stranicu modela sa već otvorenom anketom. Ako anketa nije dostupna (model je nema, već je poslata ili pripada izlagaču koji je već dobio odgovore), adresa se svodi na stranicu modela;
 - pregled pasoša: `/sajam/[eventSlug]/pasosi`;
 - pasoš brenda: `/sajam/[eventSlug]/pasosi/[brandSlug]`;
 - garaža sajma: `/sajam/[eventSlug]/garaza`;
@@ -740,6 +743,11 @@ Pre produkcije mora da bude dokazano najmanje sledeće:
 
 - Odluka vlasnika proizvoda O4 (rešeno): više različitih izlagača sme da deli istu lokaciju na mapi. Na `hala-6` su AUTO MIG/Foton i Grand Motors/Mazda+Chery, isti tim na štandu 6, ali odvojeni izlagači sa posebnim izveštajima i leadovima. Validacija deljenu lokaciju prijavljuje samo kao upozorenje (`JOVAN-DELTA-2026-10-08.md`).
 - Pravi događaj `elektromobilnost-2026` je postavljen na DEV-u: 5 `event_only` izlagača i 15 objavljenih modela iz ispravljenog intake-a. JMEV je jedini brend sa pasošem. Postupak za produkciju je u `RUNBOOK-EVENT-SETUP.md`.
+- Odluka vlasnika proizvoda (7/8. 10.): ocene su na skali od 1 do 5 sa polovinama zvezdice, za Starter i za tri Napredne dimenzije (§7). Backend validacija je proširena (`JOVAN-DELTA-2026-10-08.md`).
+- Odluka vlasnika proizvoda (7/8. 10.): kontakt se pamti u browseru samo uz izričit opt-in `Zapamti moj kontakt na ovom telefonu` i samo posle uspešnog slanja. Saglasnost se nikada ne pamti. Ovo zamenjuje raniju zabranu iz §5. Tekst saglasnosti i dalje čeka stručnu pravnu proveru (§19 P0).
+- Odluka vlasnika proizvoda (7/8. 10.): anketa pripada izlagaču. Posle slanja oblačić nestaje sa svih modela istog izlagača na tom sajmu (§9.2).
+- Stranica modela šalje ocene, Glas publike, ankete i leadove preko pravog `/api/fair/*` gateway-a. Probna vožnja nema izbor datuma. Lead obrasci traže kontakt prema pravilu izlagača sa servera. Kada server lead ne prima, obrazac prikazuje `Trenutno nedostupno`. Glas publike više ne koristi lokalni fixture tok; fixture postoji samo u DEV režimu.
+- Ruta `/anketa` iz §14 je deep link koji otvara stranicu modela sa otvorenom anketom.
 
 ### 7. oktobar 2026.
 
