@@ -1841,3 +1841,19 @@ Presuda RA: **TREBA DORADA**. Izvori: `scripts/tasks/logs/sajam-v2/RA-IZVESTAJ.m
 - **Šta je urađeno:** čist adapter projekcije i logika forme su u `components/fair/model-view.ts` i `components/fair/lead-form-model.ts` (dozvoljena putanja), sa testovima u `components/fair/*.test.ts(x)`. Zato je u `vitest.config.ts` dodat `components/fair/**/*.test.{ts,tsx}` (jedini fajl van opsega, `jovan-status/N6.md` §5).
 - **Za Jovana:** ako adapter treba da bude u `lib/fair-client/`, ukloniti `Edit(./lib/fair-client/**)` iz `scripts/sajam/claude-settings.json` za korake koji ga smeju menjati i premestiti dva fajla (uvoz se menja samo u `app/sajam/[eventSlug]/model/[modelSlug]/page.tsx` i `components/fair/*`). Deferred, awaiting owner decision.
 - **Otvoreno (proizvod):** ocena i Glas publike su sakriveni na pravim modelima (rade samo na DEV fixture-u, sa polovinama zvezdica i localStorage glasovima); `direct_view` se ne šalje jer ne postoji QR entry marker koji bi QR ulaz razlikovao od direktnog. Povezivanje je sledeći korak (F5/F6, G20).
+
+## NOĆNI LANAC 8. 10. — RN: TREBA DORADA (stanje posle IZN)
+
+Izvori: `scripts/tasks/logs/sajam-v2/RN-IZVESTAJ.md`, `docs/events/sajam-automobila-2026/jovan-status/IZVESTAJ-NOC-2026-10-08.md`. Commitovi N1–N6: `b8d518b` … `1278638`. Gejtovi runnera su zeleni. IZN kod ne menja, pa je sve ispod otvoreno.
+
+- **Pre produkcijskog deploya (dorada koda):**
+  - fotografija pravog modela ide kroz `next/image` bez `unoptimized`, a dozvoljen host je samo `*.convex.cloud` (`components/fair/fair-model-page.tsx:225-233`);
+  - kod duplikata leada forma navodi novu adresu za potvrdu (`components/fair/lead-form.tsx:154`);
+  - `replaceModelSticker` nema proveru očekivane nalepnice automobila (`convex/lib/fairQr.ts:531-535`);
+  - `getEventMap` prikazuje učešća u nacrtu (`convex/fairPublic.ts:302,320`);
+  - ScanMe zelena zavisi od zauzetosti štanda 14, a hover je gazi (`fair-map-canvas.tsx:363-369`, `fair-event-map.module.css:545`).
+- **Podaci na produkciji (Aleksa):**
+  - `linkEventQrInventory`, `importSiteExhibitors` i `placeSiteExhibitors` za produkcijski događaj;
+  - provera da nema `FAIR_MAP_LOCATION_INVALID` (uklonjene lokacije S1–S5, 20/21/22, 12/13/15);
+  - `venueName`; TEST događaji nisu vezani za SA26 inventar.
+- **Leadovi:** zatvoreni dok saglasnost nije stručno proverena (`FAIR_LEADS_ENABLED`, `FAIR_EMAIL_REPLY_TO`). Deferred, awaiting owner decision.
