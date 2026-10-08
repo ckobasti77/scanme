@@ -3798,6 +3798,8 @@ export interface AdminEventsDict {
   /** Admin UX A2 — navigation label of every section route (lib/admin-v1/event-sections.ts). */
   sectionLabels: {
     pregled: string;
+    /** N2 — „Poveži nalepnicu“. */
+    povezi: string;
     modeli: string;
     qr: string;
     izlagaci: string;
@@ -3911,7 +3913,7 @@ export interface AdminEventsDict {
     searchPlaceholder: string;
     hierarchyLabel: string;
     facetState: string;
-    states: Record<"slobodan" | "ovaj" | "drugi" | "neaktivan", string>;
+    states: Record<"slobodan" | "ovaj" | "drugi" | "neaktivan" | "panel", string>;
     /** {shown} of {total} codes. */
     count: string;
     /** {loaded} codes loaded so far. */
@@ -3935,6 +3937,8 @@ export interface AdminEventsDict {
     scansUnique: string;
     modelNone: string;
     modelOtherEvent: string;
+    /** N2 — a panel leads to its own URL. */
+    modelPanel: string;
     manage: string;
     /** {code} — accessible name of „Upravljaj“. */
     manageAria: string;
@@ -3966,6 +3970,11 @@ export interface AdminEventsDict {
     /** {event}. */
     whereOtherEvent: string;
     whereUnpublished: string;
+    /** N2 — a panel code: its own URL, never a car. */
+    wherePanel: string;
+    panelNote: string;
+    /** N2 — after a conflict the detail is read again. */
+    conflictRefreshed: string;
     openModel: string;
     changeTitle: string;
     changeHelp: string;
@@ -4125,6 +4134,23 @@ export interface AdminEventsDict {
     qrOpen: string;
     qrNone: string;
     qrSmq: string;
+    /** N2 — the printed label of the car's sticker, the field, its confirmation step. */
+    qrLabel: string;
+    qrResolver: string;
+    qrCodeLabel: string;
+    qrCodeHelp: string;
+    qrFind: string;
+    qrFinding: string;
+    qrConfirmTitle: string;
+    /** {sticker}, {model}, {exhibitor}, {stand}. */
+    qrConfirmBody: string;
+    qrConfirm: string;
+    qrConfirmDraft: string;
+    /** {model} — the sticker is on another car. */
+    qrTaken: string;
+    qrTakenOther: string;
+    qrPanel: string;
+    qrOpenLink: string;
     resolveHelp: string;
     summaryTitle: string;
     summaryOpen: string;
@@ -4483,6 +4509,106 @@ export interface AdminEventsDict {
   resolveProblems: Record<AdminEventsResolveProblem, string>;
   /** N1 — reasons the field flow writes by itself (fairAdminQr.linkSticker / undoLink); the QR history shows them. */
   qrFieldReasons: Record<"link" | "move" | "replace" | "undo" | "restore", string>;
+  /** N2 — `povezi`: „Poveži nalepnicu“ on the fair floor (lib/admin-v1/qr-link.ts). */
+  linkSticker: {
+    intro: string;
+    entry: string;
+    stepSticker: string;
+    numberLabel: string;
+    /** {prefix} — the printed series. */
+    numberHelp: string;
+    numberPlaceholder: string;
+    /** {max}. */
+    numberInvalid: string;
+    clear: string;
+    stickerEmpty: string;
+    stickerLoading: string;
+    stickerError: string;
+    /** {code}. */
+    stickerNotFound: string;
+    stateFree: string;
+    stateLinked: string;
+    stateOther: string;
+    statePanel: string;
+    stateOff: string;
+    freeBody: string;
+    /** {model}, {exhibitor}, {stand}. */
+    linkedBody: string;
+    linkedDraft: string;
+    /** {event}. */
+    otherBody: string;
+    panelBody: string;
+    /** {problem}. */
+    offBody: string;
+    stepExhibitor: string;
+    exhibitorSearch: string;
+    exhibitorSearchPlaceholder: string;
+    /** {stands}. */
+    exhibitorStand: string;
+    exhibitorNoStand: string;
+    /** {count}. */
+    exhibitorCars: string;
+    exhibitorChange: string;
+    exhibitorNone: string;
+    exhibitorEmpty: string;
+    stepCar: string;
+    pickExhibitorFirst: string;
+    carStickerHere: string;
+    /** {label}. */
+    carHasSticker: string;
+    carNoSticker: string;
+    carWithdrawn: string;
+    barLabel: string;
+    barPick: string;
+    /** {label}, {model}, {brand}, {stand}. */
+    barSummary: string;
+    warnDraft: string;
+    /** {model}. */
+    warnMove: string;
+    /** {label}. */
+    warnReplace: string;
+    /** {problem}. */
+    warnOutOfService: string;
+    blockPanel: string;
+    blockOther: string;
+    blockWithdrawn: string;
+    blockSame: string;
+    confirmLink: string;
+    confirmMove: string;
+    confirmReplace: string;
+    confirmMoveReplace: string;
+    saving: string;
+    doneTitle: string;
+    /** {label}, {model}, {exhibitor}, {stand}. */
+    doneBody: string;
+    /** {label}, {model}. */
+    doneUnchanged: string;
+    /** {model}. */
+    doneMoved: string;
+    /** {label}. */
+    doneReplaced: string;
+    doneDraft: string;
+    doneCheck: string;
+    undo: string;
+    undoing: string;
+    undone: string;
+    /** {label}. */
+    next: string;
+    nextPlain: string;
+    conflictRefreshed: string;
+    recentTitle: string;
+    recentHelp: string;
+    recentEmpty: string;
+    recentLoading: string;
+    /** {model}, {exhibitor}, {stand}. */
+    recentLine: string;
+    /** {time}, {who}. */
+    recentBy: string;
+    /** {label}. */
+    recentUndoAria: string;
+    /** {label}. */
+    recentUndone: string;
+  };
   // B3 — Interakcije tab (Glas publike, ankete, pasoši)
   tabInteractions: string;
   interactionsUnavailable: string;

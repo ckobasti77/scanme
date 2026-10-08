@@ -80,8 +80,9 @@ describe("applyQrFilters", () => {
   });
 
   test("counts next to each state follow the other filters; hierarchy numbers follow state and search", () => {
-    expect(qrStateCounts(rows, models, {})).toEqual({ slobodan: 2, ovaj: 3, drugi: 1, neaktivan: 2 });
-    expect(qrStateCounts(rows, models, { izlagac: "a", stanje: "slobodan" })).toEqual({ slobodan: 0, ovaj: 2, drugi: 0, neaktivan: 0 });
+    // N2: every state has a count, also „Panel“ (none among these rows).
+    expect(qrStateCounts(rows, models, {})).toEqual({ slobodan: 2, ovaj: 3, drugi: 1, neaktivan: 2, panel: 0 });
+    expect(qrStateCounts(rows, models, { izlagac: "a", stanje: "slobodan" })).toEqual({ slobodan: 0, ovaj: 2, drugi: 0, neaktivan: 0, panel: 0 });
     expect([...qrHierarchyCountedIds(rows, models, { q: "volta" })]).toEqual(["m1"]);
     expect([...qrHierarchyCountedIds(rows, models, { izlagac: "b" })].sort()).toEqual(["m1", "m2", "m3"]);
   });
@@ -131,6 +132,15 @@ describe("printed sticker labels (Izlagači 2026)", () => {
     expect(qrCodeFromSearch(" sa26-007 ")).toBe("SA26-007");
     expect(qrCodeFromSearch("TS26-100")).toBe("TS26-100");
     for (const text of ["PANEL-2026-EVENT", "TEST-A1", "SA26-", "-001"]) expect(qrCodeFromSearch(text)).toBeNull();
+  });
+
+  test("N2: a panel has its own state (never „Slobodan“) and its own filter", () => {
+    const panel = row("p9", "SMQ-TEST-0700", { kind: "panel", label: "PANEL-2026-EVENT", state: "active", problemReason: null });
+    const free = row("f9", "SMQ-TEST-0701", { kind: "sticker", label: "SA26-040" });
+    expect(qrStateOf(panel)).toBe("panel");
+    expect(qrStateOf(free)).toBe("slobodan");
+    expect(applyQrFilters([panel, free], models, { stanje: "panel" }).map((entry) => entry.cardId)).toEqual(["p9"]);
+    expect(qrStateCounts([panel, free], models, {})).toMatchObject({ panel: 1, slobodan: 1 });
   });
 
   // N1 — the field team types sticker numbers the short way.

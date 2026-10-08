@@ -2,8 +2,8 @@
 
 import { CarFront, CheckCircle2, ChevronLeft, ChevronRight, ImageIcon } from "lucide-react";
 import Link from "next/link";
-import { useMemo, useState, type ReactNode } from "react";
-import { issueText, type CatalogView, type EventsActions, type ModelView, type Outcome } from "@/components/admin/admin-events";
+import { useId, useMemo, useState, type ReactNode } from "react";
+import { issueText, type CatalogView, type EventsActions, type ModelView, type Outcome, type QrDetailView, type Result } from "@/components/admin/admin-events";
 import { AdminEmptyState, AdminPanel, AdminStatus } from "@/components/admin/admin-primitives";
 import {
   AdminDataCard,
@@ -13,6 +13,7 @@ import {
   adminFieldClass,
   adminPrimaryButtonClass,
   adminSecondaryButtonClass,
+  adminTouchFieldClass,
   type AdminColumn,
   type AdminFilterChip,
   type AdminFilterFacet,
@@ -53,7 +54,7 @@ const detail = dict.modelDetail;
 const modelColumns: AdminColumn<ModelView>[] = [
   { id: "model", header: dict.colModel, rowHeader: true, sortValue: modelName, cell: (model) => <strong className="font-semibold">{modelName(model)}</strong> },
   { id: "brand", header: dict.colBrand, sortValue: (model) => model.brandName, cell: (model) => <><span className="block">{model.brandName}</span><Meta>{model.exhibitorName} · {model.standLabel}</Meta></> },
-  { id: "qr", header: dict.colQr, sortValue: (model) => model.qrCode, cell: (model) => <span className="font-mono text-xs">{model.qrCode ?? dict.noQr}</span> },
+  { id: "qr", header: dict.colQr, sortValue: (model) => model.qrLabel ?? model.qrCode, cell: (model) => <span className="font-mono text-xs">{model.qrLabel ?? model.qrCode ?? dict.noQr}</span> },
   { id: "check", header: dict.colCheck, sortValue: (model) => model.issues.length, cell: (model) => checkLabel(model.issues) },
   { id: "package", header: dict.colPackage, sortValue: (model) => FAIR_PACKAGE_TIERS.indexOf(model.tier), cell: (model) => <AdminStatus label={dict.tiers[model.tier]} tone="neutral" /> },
   { id: "status", header: dict.colStatus, sortValue: (model) => dict.modelStatus[model.status], cell: (model) => <AdminStatus label={dict.modelStatus[model.status]} tone={modelTone(model.status)} /> },
@@ -75,7 +76,7 @@ export function EventModelsTable({ listKey, models, modelHref }: { listKey: stri
           title={modelName(model)}
           subtitle={`${model.brandName} · ${model.exhibitorName} · ${model.standLabel}`}
           badges={<><AdminStatus label={dict.tiers[model.tier]} tone="neutral" /><AdminStatus label={dict.modelStatus[model.status]} tone={modelTone(model.status)} /></>}
-          fields={[{ label: dict.colQr, value: <span className="font-mono">{model.qrCode ?? dict.noQr}</span> }, { label: dict.colCheck, value: checkLabel(model.issues) }]}
+          fields={[{ label: dict.colQr, value: <span className="font-mono">{model.qrLabel ?? model.qrCode ?? dict.noQr}</span> }, { label: dict.colCheck, value: checkLabel(model.issues) }]}
         />
       )}
       rowActions={(model) => <Link href={modelHref(model.id)} className={adminSecondaryButtonClass}>{dict.openModel}</Link>}
@@ -104,6 +105,8 @@ function QrCell({ model }: { model: ModelView }) {
   if (!model.qrCode) return <span className="text-xs text-[var(--admin-text-muted)]">{list.qrNone}</span>;
   return (
     <span className="grid font-mono text-xs leading-5 whitespace-nowrap">
+      {/* N2 — the printed sticker label first (`SA26-007`), then SMQ and resolver code. */}
+      {model.qrLabel && model.qrLabel !== model.qrCode ? <strong className="text-sm font-semibold">{model.qrLabel}</strong> : null}
       <span>{model.qrSmq ?? "—"}</span>
       <span className="text-[var(--admin-text-muted)]">{model.qrCode}</span>
     </span>
@@ -292,7 +295,10 @@ export type ModelDetailSummary = {
   sponsored?: { state: "active"; order: number } | { state: "candidate" } | { state: "none" };
 };
 
-export type ModelDetailActions = Pick<EventsActions, "publish" | "withdraw" | "upgrade" | "assignQr" | "resolveTest">;
+export type ModelDetailActions = Pick<EventsActions, "publish" | "withdraw" | "upgrade" | "assignQr" | "resolveTest"> & {
+  /** N2 — the typed sticker (label, SMQ or code) before the confirmation step (fairAdminQr.getQrDetail); null = not in the inventory. */
+  lookupQr?: (code: string) => Promise<Result<QrDetailView | null>>;
+};
 
 export type EventModelDetailViewProps = {
   catalog: CatalogView;
@@ -317,7 +323,6 @@ export function EventModelDetailView({ catalog, modelId, actions, query, listHre
   const [pending, setPending] = useState(false);
   const [target, setTarget] = useState<FairPackageTier | "">("");
   const [confirming, setConfirming] = useState(false);
-  const [assignCode, setAssignCode] = useState("");
   const higher = model ? FAIR_PACKAGE_TIERS.slice(FAIR_PACKAGE_TIERS.indexOf(model.tier) + 1) : [];
   const effectiveTarget = target && higher.includes(target) ? target : higher[0] ?? "";
   const position = adjacentModels(applyModelFilters(catalog.models, query), modelId);
@@ -415,18 +420,19 @@ export function EventModelDetailView({ catalog, modelId, actions, query, listHre
           </Section>
           <Section title={detail.qrTitle} action={model.qrCode ? <Link href={qrHref(model.qrCode)} className={adminSecondaryButtonClass}>{detail.qrOpen}</Link> : undefined}>
             {model.qrCode ? (
-              <dl className="grid gap-4 sm:grid-cols-2">
-                <Fact label={dict.fieldQr} value={<Link href={qrHref(model.qrCode)} className="font-mono underline underline-offset-4">{model.qrCode}</Link>} />
+              <dl className="grid gap-4 sm:grid-cols-3">
+                <Fact label={detail.qrLabel} value={<Link href={qrHref(model.qrCode)} className="font-mono text-base font-semibold underline underline-offset-4">{model.qrLabel ?? model.qrCode}</Link>} />
                 <Fact label={detail.qrSmq} value={<span className="font-mono">{model.qrSmq ?? "—"}</span>} />
+                <Fact label={detail.qrResolver} value={<span className="font-mono">{model.qrCode}</span>} />
               </dl>
             ) : catalog.qrConfigured ? (
-              <form className="grid gap-3 sm:grid-cols-[minmax(0,16rem)_auto] sm:items-end sm:justify-start" onSubmit={(event) => { event.preventDefault(); const code = assignCode.trim(); if (code) void run(() => actions.assignQr(model.id, code), dict.assignDone, () => setAssignCode("")); }}>
-                <p className="text-sm text-[var(--admin-text-muted)] sm:col-span-2">{detail.qrNone}</p>
-                <label className="grid gap-1.5 text-sm font-semibold">{dict.assignCode}
-                  <input value={assignCode} onChange={(event) => setAssignCode(event.target.value)} placeholder={dict.assignCodePlaceholder} autoComplete="off" spellCheck={false} className={cn(adminFieldClass, "font-mono uppercase")} />
-                </label>
-                <button type="submit" className={adminPrimaryButtonClass} disabled={pending || !assignCode.trim()}>{dict.assignSubmit}</button>
-              </form>
+              <ModelStickerForm
+                model={model}
+                actions={actions}
+                pending={pending}
+                onAssign={(code) => run(() => actions.assignQr(model.id, code), dict.assignDone)}
+                linkHref={(kod) => sectionHref("povezi", { kod, izlagac: model.participationId, model: model.id })}
+              />
             ) : <p className="text-sm text-[var(--admin-text-muted)]">{dict.qrNotConfigured}</p>}
           </Section>
           <Feedback message={message} />
@@ -435,6 +441,91 @@ export function EventModelDetailView({ catalog, modelId, actions, query, listHre
         <ModelSummary model={model} summary={summary} sectionHref={sectionHref} interactionHref={interactionHref} />
       </div>
     </div>
+  );
+}
+
+export type StickerStep =
+  | { kind: "edit" }
+  | { kind: "finding" }
+  /** `sticker` = what getQrDetail found; "unknown" = no lookup available (the typed code is named as typed). */
+  | { kind: "confirm"; code: string; sticker: QrDetailView | "unknown" };
+
+/**
+ * N2 — „Štampani kod“ of a car without a sticker: the label (`7`, `SA26-007`),
+ * SMQ or resolver code, then a confirmation step that names the sticker, the
+ * car and the exhibitor before assignQr. A sticker on another car, of the
+ * other event or a panel is not assigned here (moving goes through „Poveži
+ * nalepnicu“, which asks for the holder).
+ */
+export function ModelStickerForm({ model, actions, pending, onAssign, linkHref, initialStep }: {
+  model: ModelView;
+  actions: ModelDetailActions;
+  pending: boolean;
+  onAssign: (code: string) => Promise<void>;
+  linkHref: (kod: string) => string;
+  /** Tests: start in this step. */
+  initialStep?: StickerStep;
+}) {
+  const id = useId();
+  const [code, setCode] = useState("");
+  const [step, setStep] = useState<StickerStep>(initialStep ?? { kind: "edit" });
+  const [problem, setProblem] = useState<string | null>(null);
+
+  async function review() {
+    const text = code.trim();
+    if (!text) return;
+    setProblem(null);
+    if (!actions.lookupQr) return setStep({ kind: "confirm", code: text, sticker: "unknown" });
+    setStep({ kind: "finding" });
+    const found = await actions.lookupQr(text);
+    if (!found.ok || !found.value) {
+      setStep({ kind: "edit" });
+      setProblem(issueText(found.ok ? "FAIR_QR_NOT_FOUND" : found.code));
+      return;
+    }
+    setStep({ kind: "confirm", code: text, sticker: found.value });
+  }
+
+  if (step.kind === "confirm") {
+    const sticker = step.sticker === "unknown" ? null : step.sticker;
+    const name = sticker ? sticker.label ?? sticker.smqCode ?? sticker.resolverCode : step.code.toUpperCase();
+    const current = sticker?.current ?? null;
+    const block = sticker?.kind === "panel" ? detail.qrPanel
+      : current && !current.sameEvent ? detail.qrTakenOther
+      : current && current.eventModelId !== model.id ? fmt(detail.qrTaken, { model: current.modelLabel ?? "—" })
+      : null;
+    return (
+      <div role="group" aria-labelledby={`${id}-title`} data-sticker-confirm className="grid gap-3 rounded-xl border border-[var(--admin-warning-border)] bg-[var(--admin-warning-soft)] p-4">
+        <h3 id={`${id}-title`} className="font-semibold">{detail.qrConfirmTitle}</h3>
+        {block ? (
+          <p className="text-sm font-semibold text-[var(--admin-danger)]">{block}</p>
+        ) : (
+          <p className="text-sm break-words">{fmt(detail.qrConfirmBody, { sticker: name, model: modelName(model), exhibitor: model.exhibitorName, stand: model.standLabel })}</p>
+        )}
+        {!block && model.status === "draft" ? <p className="text-sm">{detail.qrConfirmDraft}</p> : null}
+        <div className="flex flex-wrap gap-2">
+          {block ? (
+            sticker && sticker.kind !== "panel" && current?.sameEvent ? <Link href={linkHref(sticker.resolverCode)} className={adminPrimaryButtonClass}>{detail.qrOpenLink}</Link> : null
+          ) : (
+            <button type="button" autoFocus className={adminPrimaryButtonClass} disabled={pending} aria-busy={pending || undefined} onClick={() => void onAssign(sticker?.resolverCode ?? step.code).then(() => setStep({ kind: "edit" }))}>{detail.qrConfirm}</button>
+          )}
+          <button type="button" className={adminSecondaryButtonClass} disabled={pending} onClick={() => setStep({ kind: "edit" })}>{dict.cancel}</button>
+        </div>
+      </div>
+    );
+  }
+
+  const finding = step.kind === "finding";
+  return (
+    <form className="grid gap-3 sm:grid-cols-[minmax(0,16rem)_auto] sm:items-end sm:justify-start" onSubmit={(event) => { event.preventDefault(); void review(); }}>
+      <p className="text-sm text-[var(--admin-text-muted)] sm:col-span-2">{detail.qrNone}</p>
+      <label className="grid gap-1.5 text-sm font-semibold">{dict.assignCode}
+        <input value={code} onChange={(event) => { setCode(event.target.value); setProblem(null); }} placeholder={dict.assignCodePlaceholder} autoComplete="off" spellCheck={false} aria-describedby={`${id}-help`} className={cn(adminTouchFieldClass, "font-mono uppercase placeholder:font-sans placeholder:normal-case")} />
+      </label>
+      <button type="submit" className={adminPrimaryButtonClass} disabled={pending || finding || !code.trim()} aria-busy={finding || undefined}>{finding ? detail.qrFinding : dict.assignSubmit}</button>
+      <p id={`${id}-help`} className="text-xs text-[var(--admin-text-muted)] sm:col-span-2">{detail.qrCodeHelp}</p>
+      {problem ? <p role="alert" className="text-sm font-semibold text-[var(--admin-danger)] sm:col-span-2">{problem}</p> : null}
+    </form>
   );
 }
 

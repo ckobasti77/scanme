@@ -1,13 +1,13 @@
 "use client";
 
-import { useMutation, useQuery } from "convex/react";
+import { useConvex, useMutation, useQuery } from "convex/react";
 import { useMemo } from "react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useAdminQueryState } from "@/components/admin/admin-ui/use-admin-query-state";
 import { buildCatalogView } from "@/components/admin/events/event-catalog";
 import { useAdminEvent } from "@/components/admin/events/event-context";
-import { outcome } from "@/components/admin/events/event-outcome";
+import { attempt, outcome } from "@/components/admin/events/event-outcome";
 import { SectionLoading } from "@/components/admin/events/sections/loading";
 import {
   EventModelDetailView,
@@ -63,6 +63,13 @@ export function useModelDetailActions(): ModelDetailActions {
   };
 }
 
+/** N2 — the typed sticker before the confirmation step of „Štampani kod“ (one read, not a subscription). */
+function useQrLookup(): Pick<ModelDetailActions, "lookupQr"> {
+  const { eventId } = useAdminEvent();
+  const convex = useConvex();
+  return { lookupQr: (code) => attempt(() => convex.query(api.fairAdminQr.getQrDetail, { eventId, code })) };
+}
+
 function useModelSummary(modelId: string): ModelDetailSummary {
   const { eventId, catalog } = useAdminEvent();
   const model = catalog.models.find((row) => row._id === modelId) ?? null;
@@ -106,7 +113,7 @@ export function ModelDetailSection({ modelId }: { modelId: string }) {
   const { base } = useAdminEvent();
   const [query] = useAdminQueryState();
   const view = useCheckedCatalog();
-  const actions = useModelDetailActions();
+  const actions = { ...useModelDetailActions(), ...useQrLookup() };
   const summary = useModelSummary(modelId);
   const listQuery = modelListQuery(query);
   if (!view) return <SectionLoading />;

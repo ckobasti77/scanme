@@ -2,7 +2,7 @@
 
 import { Search, SlidersHorizontal, X } from "lucide-react";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
-import { adminFieldClass, adminSecondaryButtonClass } from "@/components/admin/admin-ui/admin-controls";
+import { adminFieldClass, adminSecondaryButtonClass, adminTouchFieldClass } from "@/components/admin/admin-ui/admin-controls";
 import { fmt } from "@/lib/i18n/format";
 import { adminUiSr as dict } from "@/lib/i18n/sr/admin-ui";
 import { cn } from "@/lib/utils";
@@ -20,7 +20,8 @@ export type AdminFilterChip = { id: string; label: string; onRemove: () => void 
 export type AdminFilterBarProps = {
   /** Accessible name of the filter region. */
   label: string;
-  search?: { value: string; onChange: (value: string) => void; label: string; placeholder?: string };
+  /** N2 — `touch`: 16 px on the phone (a list searched on the fair floor; adminTouchFieldClass). */
+  search?: { value: string; onChange: (value: string) => void; label: string; placeholder?: string; touch?: boolean };
   hierarchy?: ReactNode;
   facets?: AdminFilterFacet[];
   values?: Record<string, string | undefined>;
@@ -106,7 +107,7 @@ export function AdminFilterBar({ label, search, hierarchy, facets = [], values =
   );
 }
 
-function SearchField({ value, onChange, label, placeholder }: NonNullable<AdminFilterBarProps["search"]>) {
+function SearchField({ value, onChange, label, placeholder, touch }: NonNullable<AdminFilterBarProps["search"]>) {
   const id = useId();
   const [text, setText] = useState(value);
   // The last value seen from the screen: a change from outside (Očisti, chip, Back) replaces the text unless the user is still typing.
@@ -144,7 +145,7 @@ function SearchField({ value, onChange, label, placeholder }: NonNullable<AdminF
           autoComplete="off"
           spellCheck={false}
           onChange={(event) => change(event.target.value)}
-          className={cn(adminFieldClass, "pl-9")}
+          className={cn(touch ? adminTouchFieldClass : adminFieldClass, "pl-9")}
         />
       </div>
     </div>

@@ -37,3 +37,15 @@ describe("admin query string (A2)", () => {
     expect(patchAdminQuery(current, { nepoznat: "x" } as never)).toEqual(current);
   });
 });
+
+describe("N2 — `kod` of „Poveži nalepnicu“ and the „Panel“ state", () => {
+  test("a sticker label, a resolver code and an SMQ serial are kept; anything else is dropped", () => {
+    expect(parseAdminQuery("?kod=SA26-007&izlagac=p1&model=m1")).toEqual({ kod: "SA26-007", izlagac: "p1", model: "m1" });
+    expect(parseAdminQuery("?kod=7KQ2M9XA")).toEqual({ kod: "7KQ2M9XA" });
+    expect(parseAdminQuery("?kod=SMQ-TEST-0001")).toEqual({ kod: "SMQ-TEST-0001" });
+    expect(parseAdminQuery("?kod=sa26%207")).toEqual({});
+    expect(parseAdminQuery(`?kod=${"A".repeat(41)}`)).toEqual({});
+    expect(serializeAdminQuery({ model: "m1", kod: "SA26-008", izlagac: "p1" })).toBe("?kod=SA26-008&izlagac=p1&model=m1");
+    expect(parseAdminQuery("?stanje=panel")).toEqual({ stanje: "panel" });
+  });
+});

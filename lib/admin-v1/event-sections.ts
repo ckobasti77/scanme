@@ -9,6 +9,8 @@ import type { AdminSubnavGroup, AdminSubnavItem } from "./subnav";
 
 export const EVENT_SECTION_PATHS = [
   "pregled",
+  // Sajam 2026 N2 (odluka vlasnika 8. 10.): „Poveži nalepnicu“ on the fair floor.
+  "povezi",
   "modeli",
   "qr",
   "izlagaci",
@@ -38,6 +40,8 @@ export type EventSectionDef = {
 
 export const EVENT_SECTIONS: readonly EventSectionDef[] = [
   { path: "pregled", group: null, queryKeys: ["prikaz", "faza"] },
+  // N2 — the sticker (`kod`, also what the /r/ admin shortcut opens), the exhibitor and the car being linked.
+  { path: "povezi", group: null, queryKeys: ["kod", "izlagac", "model"] },
   { path: "modeli", group: "katalog", queryKeys: ["izlagac", "brend", "model", "q", "paket", "status", "problemi", "qr", "foto", "prikaz"], detail: "model" },
   { path: "qr", group: "katalog", queryKeys: ["izlagac", "brend", "model", "stanje", "q", "prikaz"], detail: "qr" },
   { path: "izlagaci", group: "katalog", queryKeys: ["q", "segment", "prikaz"] },

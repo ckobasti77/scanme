@@ -34,6 +34,7 @@ function useInventory(): Paged<InventoryRowView> {
       cardId: row.cardId,
       resolverCode: row.resolverCode,
       label: row.label,
+      kind: row.kind,
       smqCode: row.smqCode,
       state: row.state,
       problemReason: row.problemReason,

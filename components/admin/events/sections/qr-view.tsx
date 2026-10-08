@@ -29,6 +29,7 @@ import {
   adminFieldClass,
   adminPrimaryButtonClass,
   adminSecondaryButtonClass,
+  adminTouchFieldClass,
   type AdminColumn,
   type AdminFilterChip,
 } from "@/components/admin/admin-ui";
@@ -50,6 +51,7 @@ import {
   type QrStateKey,
 } from "@/lib/admin-v1/qr-filters";
 import { QR_FLOW_IDLE, qrFlowProblem, qrFlowReducer, type QrActiveFlow, type QrFlowAction } from "@/lib/admin-v1/qr-flow";
+import { isQrConflict } from "@/lib/admin-v1/qr-link";
 import type { AdminQueryPatch, AdminQueryState } from "@/lib/admin-v1/query-state";
 import { FAIR_QR_BULK_MAX_ROWS, FAIR_QR_REASON_MAX_LENGTH, FAIR_QR_REASON_MIN_LENGTH } from "@/lib/fair-contract";
 import { fmt } from "@/lib/i18n/format";
@@ -77,7 +79,8 @@ function problemText(code: string) {
   return code in dict.resolveProblems ? dict.resolveProblems[code as AdminEventsResolveProblem] : fmt(dict.unknownProblem, { code });
 }
 
-const STATE_TONE: Record<QrStateKey, "neutral" | "active" | "waiting" | "problem"> = { slobodan: "neutral", ovaj: "active", drugi: "waiting", neaktivan: "problem" };
+// N2 — a panel has its own state (dashed: it leads to its own URL, never to a car).
+const STATE_TONE: Record<QrStateKey, "neutral" | "active" | "waiting" | "problem" | "muted"> = { slobodan: "neutral", ovaj: "active", drugi: "waiting", neaktivan: "problem", panel: "muted" };
 
 export function QrStateBadge({ state }: { state: QrStateKey }) {
   return <AdminStatus label={list.states[state]} tone={STATE_TONE[state]} className="whitespace-nowrap" />;
@@ -170,9 +173,10 @@ export function EventQrView({ catalog, inventory, stats, query, onQueryChange, q
       <p className="text-sm text-[var(--admin-text-muted)]">{dict.qrSubtitle}</p>
       <AdminFilterBar
         label={list.hierarchyLabel}
-        search={{ value: query.q ?? "", onChange: (q) => onQueryChange({ q: q || null }), label: list.searchLabel, placeholder: list.searchPlaceholder }}
+        search={{ value: query.q ?? "", onChange: (q) => onQueryChange({ q: q || null }), label: list.searchLabel, placeholder: list.searchPlaceholder, touch: true }}
         hierarchy={
           <AdminHierarchyPicker
+            touch
             data={hierarchy}
             value={value}
             counted={counted}
@@ -258,7 +262,7 @@ function QrModelCell({ row, model, modelHref }: { row: InventoryRowView; model: 
       </span>
     );
   }
-  return <span className="text-[var(--admin-text-muted)]">{row.assignment && !row.assignment.sameEvent ? list.modelOtherEvent : list.modelNone}</span>;
+  return <span className="text-[var(--admin-text-muted)]">{row.kind === "panel" ? list.modelPanel : row.assignment && !row.assignment.sameEvent ? list.modelOtherEvent : list.modelNone}</span>;
 }
 
 function qrColumns(modelsById: ReadonlyMap<string, ModelView>, modelHref: (modelId: string) => string, stats: ReadonlyMap<string, QrScanStatsView> | undefined): AdminColumn<InventoryRowView>[] {
@@ -371,7 +375,7 @@ export function QrBulkPanel({ catalog, bulk, initialOpen = false }: { catalog: C
               spellCheck={false}
               autoComplete="off"
               placeholder={bulkText.placeholder}
-              className={cn(adminFieldClass, "min-h-36 py-2 font-mono text-xs")}
+              className={cn(adminFieldClass, "min-h-36 py-2 font-mono text-xs max-sm:text-base")}
             />
           </label>
           <div role="status" aria-live="polite" className="grid gap-1 text-xs text-[var(--admin-text-muted)]">
@@ -513,7 +517,7 @@ export function ResolvePanel({ actions, initialCode = "", help = dict.resolveHel
     <Section title={dict.resolveTitle}>
       <p className="text-sm text-[var(--admin-text-muted)]">{help}</p>
       <form className="mt-3 grid gap-3 sm:grid-cols-[minmax(0,16rem)_auto] sm:items-end sm:justify-start" onSubmit={(event) => { event.preventDefault(); void resolve(); }}>
-        <label className="grid gap-1.5 text-sm font-semibold">{dict.resolveCode}<input value={resolveCode} onChange={(event) => setResolveCode(event.target.value)} autoComplete="off" spellCheck={false} className={cn(adminFieldClass, "font-mono uppercase")} /></label>
+        <label className="grid gap-1.5 text-sm font-semibold">{dict.resolveCode}<input value={resolveCode} onChange={(event) => setResolveCode(event.target.value)} autoComplete="off" spellCheck={false} className={cn(adminTouchFieldClass, "font-mono uppercase")} /></label>
         <button type="submit" className={adminSecondaryButtonClass} disabled={pending || !resolveCode.trim()}>{dict.resolveSubmit}</button>
       </form>
       <Feedback message={error} />
@@ -601,7 +605,8 @@ export function EventQrDetailView({ catalog, code, detail, failed, actions, onCh
   const own = current?.sameEvent ? current : null;
   const currentModel = own ? modelsById.get(own.eventModelId) ?? null : null;
   const currentLabel = currentModel ? modelName(currentModel) : own?.modelLabel ?? detailText.historyUnknownModel;
-  const state = qrStateOf({ state: detail.channelState, problemReason: detail.problemReason, assignment: current ? { modelId: current.eventModelId, sameEvent: current.sameEvent } : null });
+  const state = qrStateOf({ state: detail.channelState, problemReason: detail.problemReason, assignment: current ? { modelId: current.eventModelId, sameEvent: current.sameEvent } : null, kind: detail.kind });
+  const panel = detail.kind === "panel";
   const printedLabel = qrPrintedLabel(detail);
   const title = codeTitle(detail);
   const pickData = qrTargetHierarchy(catalog.models, { modelId: own?.eventModelId ?? null, resolverCode: detail.resolverCode });
@@ -617,7 +622,13 @@ export function EventQrDetailView({ catalog, code, detail, failed, actions, onCh
         setMessage({ tone: "ok", text: success });
         onChanged?.();
       } else {
-        setMessage({ tone: "error", text: issueText(outcome.code), issues: outcome.issues });
+        // N2 — someone changed the code in the meantime: read it again and say so.
+        const conflict = isQrConflict(outcome.code);
+        setMessage({ tone: "error", text: conflict ? `${issueText(outcome.code)} ${detailText.conflictRefreshed}` : issueText(outcome.code), issues: outcome.issues });
+        if (conflict) {
+          dispatch({ type: "reset" });
+          onChanged?.();
+        }
       }
     } finally {
       setPending(false);
@@ -707,11 +718,16 @@ export function EventQrDetailView({ catalog, code, detail, failed, actions, onCh
               </div>
             ) : current ? (
               <p className="text-sm">{fmt(detailText.whereOtherEvent, { event: current.eventTitle ?? "—" })}</p>
+            ) : panel ? (
+              <div className="grid gap-1 text-sm" data-qr-panel>
+                <p>{detailText.wherePanel}</p>
+                <p className="text-[var(--admin-text-muted)]">{detailText.panelNote}</p>
+              </div>
             ) : (
               <p className="text-sm">{detailText.whereFree}</p>
             )}
           </Section>
-          {current && !own ? null : (
+          {(current && !own) || panel ? null : (
             <Section title={own ? detailText.changeTitle : detailText.assignTitle}>
               <p className="text-sm text-[var(--admin-text-muted)]">{own ? detailText.changeHelp : detailText.assignHelp}</p>
               <div className="mt-4 grid gap-3">
@@ -812,6 +828,7 @@ export function QrFlowForm({ flow, pickData, currentModelId, onTarget, onReason,
           onChange={(next) => onTarget(next.modelId)}
           label={detailText.pickLabel}
           required
+          touch
         />
       ) : null}
       <label className="grid gap-1.5 text-sm font-semibold">{optional ? detailText.reasonOptional : detailText.reasonLabel}
@@ -822,7 +839,7 @@ export function QrFlowForm({ flow, pickData, currentModelId, onTarget, onReason,
           aria-describedby={`${id}-reason-help`}
           aria-required={optional ? undefined : true}
           autoComplete="off"
-          className={adminFieldClass}
+          className={adminTouchFieldClass}
         />
       </label>
       <p id={`${id}-reason-help`} className="text-xs text-[var(--admin-text-muted)]">{fmt(detailText.reasonHelp, { min: FAIR_QR_REASON_MIN_LENGTH, max: FAIR_QR_REASON_MAX_LENGTH })}</p>

@@ -10,7 +10,7 @@ import { matchesSearch, normalizeSearch } from "./hierarchy";
 import type { FilterableModel } from "./model-filters";
 import type { AdminQueryKey, AdminQueryPatch, AdminQueryState } from "./query-state";
 
-export const QR_STATES = ["slobodan", "ovaj", "drugi", "neaktivan"] as const;
+export const QR_STATES = ["slobodan", "ovaj", "drugi", "neaktivan", "panel"] as const;
 export type QrStateKey = (typeof QR_STATES)[number];
 
 export type FilterableQrRow = {
@@ -18,6 +18,8 @@ export type FilterableQrRow = {
   resolverCode: string;
   /** cards.label — the printed label (`SA26-001`); a card without one carries its resolver code. */
   label?: string | null;
+  /** N2 (fairAdmin.listQrInventory `kind`) — a panel leads to its own URL and never to a car. */
+  kind?: "sticker" | "panel";
   smqCode: string | null;
   state: "active" | "inactive" | "problem" | null;
   problemReason: string | null;
@@ -28,9 +30,11 @@ export type FilterableQrRow = {
  * slobodan = no assignment and nothing wrong except the missing destination;
  * ovaj / drugi = active assignment in this / the other event; neaktivan = no
  * assignment and the code is out of service (redirect off, manual problem,
- * damaged sticker, broken mapping…).
+ * damaged sticker, broken mapping…); N2: panel = a panel code (its own URL,
+ * never assigned to a car).
  */
-export function qrStateOf(row: Pick<FilterableQrRow, "state" | "problemReason" | "assignment">): QrStateKey {
+export function qrStateOf(row: Pick<FilterableQrRow, "state" | "problemReason" | "assignment" | "kind">): QrStateKey {
+  if (row.kind === "panel") return "panel";
   if (row.assignment) return row.assignment.sameEvent ? "ovaj" : "drugi";
   if (row.state === "inactive") return "neaktivan";
   if (row.state === "problem" && row.problemReason && !row.problemReason.startsWith("destination_")) return "neaktivan";

@@ -24,6 +24,8 @@ export function buildCatalogView(catalog: EventCatalogData, directory: EventDire
   const qr = new Map(catalog.activeAssignments.map((row) => [row.eventModelId, row.resolverCode]));
   const issues = new Map((validation ?? []).map((row) => [row.eventModelId, row.issues as IssueView[]]));
   const smq = new Map((qrCodes ?? []).map((row) => [row.eventModelId, row.smqCode]));
+  // N2 — the printed label of the car's sticker (`SA26-007`).
+  const labels = new Map((qrCodes ?? []).map((row) => [row.eventModelId, row.label]));
   const exhibitor = (participationId: Id<"fairParticipations">) => {
     const participation = participations.get(participationId);
     return participation ? businesses.get(participation.businessId)?.name ?? accounts.get(participation.accountId)?.name ?? participation.externalKey : "—";
@@ -52,6 +54,7 @@ export function buildCatalogView(catalog: EventCatalogData, directory: EventDire
       packageActivatedAt: model.packageActivatedAt,
       qrCode: qr.get(model._id) ?? null,
       qrSmq: smq.get(model._id) ?? null,
+      qrLabel: labels.get(model._id) ?? null,
       issues: issues.get(model._id) ?? [],
     };
   }).sort((a, b) => a.exhibitorName.localeCompare(b.exhibitorName, "sr-Latn-RS") || a.displayName.localeCompare(b.displayName, "sr-Latn-RS"));

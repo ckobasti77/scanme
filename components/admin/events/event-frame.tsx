@@ -69,6 +69,7 @@ export function AdminEventFrame({ eventSlug, children }: { eventSlug: string; ch
       currentSlug={eventSlug}
       onSelectEvent={(slug) => router.push(switchEventHref(eventBasePath(slug), section, query))}
       nav={nav}
+      linkStickerHref={activePath === "povezi" ? null : eventSectionHref(base, "povezi")}
     >
       {catalog === undefined || directory === undefined ? (
         <AdminPanel><AdminLoadingState label={dict.loading} /></AdminPanel>

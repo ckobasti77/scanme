@@ -2,7 +2,7 @@
 
 import { Search, X } from "lucide-react";
 import { useId, useState, type FocusEvent, type KeyboardEvent } from "react";
-import { adminFieldClass } from "@/components/admin/admin-ui/admin-controls";
+import { adminFieldClass, adminTouchFieldClass } from "@/components/admin/admin-ui/admin-controls";
 import {
   changeHierarchy,
   hierarchyOptions,
@@ -33,11 +33,13 @@ export type AdminHierarchyPickerProps = {
   counted?: ReadonlySet<string>;
   /** select mode: the field must be filled. */
   required?: boolean;
+  /** N2 — 16 px on the phone (a field typed on the fair floor; adminTouchFieldClass). */
+  touch?: boolean;
 };
 
 const MAX_SHOWN = 50;
 
-export function AdminHierarchyPicker({ data, value, onChange, mode = "filter", label, counted, required }: AdminHierarchyPickerProps) {
+export function AdminHierarchyPicker({ data, value, onChange, mode = "filter", label, counted, required, touch }: AdminHierarchyPickerProps) {
   const id = useId();
   const options = hierarchyOptions(data, value, counted);
   const current = options.value;
@@ -54,10 +56,12 @@ export function AdminHierarchyPicker({ data, value, onChange, mode = "filter", l
           selectedId={current.modelId}
           onSelect={pickModel}
           required={required}
+          touch={touch}
         />
       </div>
     );
   }
+  const fieldClass = touch ? adminTouchFieldClass : adminFieldClass;
 
   return (
     <fieldset data-admin-primitive="hierarchy-picker" className="grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.4fr)]">
@@ -68,7 +72,7 @@ export function AdminHierarchyPicker({ data, value, onChange, mode = "filter", l
           id={`${id}-exhibitor`}
           value={current.exhibitorId ?? ""}
           onChange={(event) => onChange(changeHierarchy(data, current, "exhibitor", event.target.value || undefined))}
-          className={adminFieldClass}
+          className={fieldClass}
         >
           <option value="">{dict.hierarchy.allExhibitors}</option>
           {options.exhibitors.map((option) => <option key={option.id} value={option.id}>{optionText(option)}</option>)}
@@ -80,7 +84,7 @@ export function AdminHierarchyPicker({ data, value, onChange, mode = "filter", l
           id={`${id}-brand`}
           value={current.brandId ?? ""}
           onChange={(event) => onChange(changeHierarchy(data, current, "brand", event.target.value || undefined))}
-          className={adminFieldClass}
+          className={fieldClass}
         >
           <option value="">{dict.hierarchy.allBrands}</option>
           {options.brands.map((option) => <option key={option.id} value={option.id}>{optionText(option)}</option>)}
@@ -93,19 +97,21 @@ export function AdminHierarchyPicker({ data, value, onChange, mode = "filter", l
           models={options.models}
           selectedId={current.modelId}
           onSelect={pickModel}
+          touch={touch}
         />
       </div>
     </fieldset>
   );
 }
 
-function ModelCombobox({ id, label, models, selectedId, onSelect, required }: {
+function ModelCombobox({ id, label, models, selectedId, onSelect, required, touch }: {
   id: string;
   label: string;
   models: readonly HierarchyModel[];
   selectedId: string | undefined;
   onSelect: (modelId: string | undefined) => void;
   required?: boolean;
+  touch?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState<string | null>(null);
@@ -174,7 +180,7 @@ function ModelCombobox({ id, label, models, selectedId, onSelect, required }: {
           onFocus={() => setOpen(true)}
           onClick={() => setOpen(true)}
           onKeyDown={onKeyDown}
-          className={cn(adminFieldClass, "pl-9", selected && "pr-11")}
+          className={cn(touch ? adminTouchFieldClass : adminFieldClass, "pl-9", selected && "pr-11")}
         />
         {selected ? (
           <button

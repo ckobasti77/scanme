@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test, vi } from "vitest";
-import type { CatalogView, ModelView } from "@/components/admin/admin-events";
+import type { CatalogView, ModelView, QrDetailView } from "@/components/admin/admin-events";
 import { AdminHierarchyPicker, AdminViewModeOverride } from "@/components/admin/admin-ui";
 import { buildHierarchy } from "@/lib/admin-v1/hierarchy";
 import { eventDetailHref, eventSectionHref, interactionExhibitorHref } from "@/lib/admin-v1/event-sections";
@@ -9,7 +9,7 @@ import { modelListQuery } from "@/lib/admin-v1/model-filters";
 import type { AdminQueryState } from "@/lib/admin-v1/query-state";
 import { adminEventsSr } from "@/lib/i18n/sr/admin-events";
 import { adminUiSr } from "@/lib/i18n/sr/admin-ui";
-import { EventModelDetailView, EventModelsView, type ModelDetailSummary } from "./modeli-view";
+import { EventModelDetailView, EventModelsView, ModelStickerForm, type ModelDetailSummary } from "./modeli-view";
 
 // Admin UX A3 — Modeli list (hierarchy filter, search, facets, chips, groups,
 // Tabela/Kartice, empty states) and the model detail (prethodni / sledeći in
@@ -238,5 +238,46 @@ describe("A3 AdminHierarchyPicker select mode", () => {
     expect(html).not.toContain("<select");
     expect(html).toContain('aria-disabled="true"');
     expect(html).toContain("TEST samo Napredni");
+  });
+});
+
+describe("N2 model detail: the printed sticker", () => {
+  const confirmProps = {
+    model: model("m2", "a", "b1", { status: "draft" }),
+    actions,
+    pending: false,
+    onAssign: async () => undefined,
+    linkHref: (kod: string) => `${BASE}/povezi?kod=${kod}`,
+  };
+  const found = (current: QrDetailView["current"], extra: Partial<QrDetailView> = {}): QrDetailView => ({
+    cardId: "c1", accessChannelId: "ch1", resolverCode: "TF000QRS", label: "SA26-040", kind: "sticker", smqCode: "SMQ-TEST-0300", channelState: "problem",
+    problemReason: "destination_missing", redirectEnabled: true, totalScansAllTime: 0, current, history: [], historyCapped: false, stats: null, lastScanAt: null, ...extra,
+  });
+
+  test("a car with a sticker shows its SA26 label, SMQ and resolver code", () => {
+    const html = detailHtml("m1", {});
+    expect(html).toContain(detail.qrLabel);
+    expect(html).toContain(detail.qrResolver);
+  });
+
+  test("the field takes a label, SMQ or code (16 px on the phone); the confirmation names sticker, car, exhibitor and stand", () => {
+    const form = renderToStaticMarkup(<ModelStickerForm {...confirmProps} />);
+    expect(form).toContain(detail.qrCodeHelp);
+    expect(form).toMatch(/<input[^>]*class="[^"]*max-sm:text-base/);
+    const html = renderToStaticMarkup(<ModelStickerForm {...confirmProps} initialStep={{ kind: "confirm", code: "40", sticker: found(null) }} />);
+    expect(html).toContain(detail.qrConfirmTitle);
+    expect(html).toContain(detail.qrConfirmBody.replace("{sticker}", "SA26-040").replace("{model}", "TEST m2").replace("{exhibitor}", "TEST Izlagač A").replace("{stand}", "TEST štand A1"));
+    expect(html).toContain(detail.qrConfirmDraft);
+    expect(html).toContain(`>${detail.qrConfirm}</button>`);
+  });
+
+  test("a sticker on another car, of the other event or a panel is not assigned here", () => {
+    const taken = renderToStaticMarkup(<ModelStickerForm {...confirmProps} initialStep={{ kind: "confirm", code: "1", sticker: found({ assignmentId: "as1", sameEvent: true, eventTitle: "TEST", eventModelId: "m1", modelLabel: "TEST m1", modelStatus: "published", path: null, assignedAt: 0, reason: null }) }} />);
+    expect(taken).toContain(detail.qrTaken.replace("{model}", "TEST m1"));
+    expect(taken).toContain(`href="${BASE}/povezi?kod=TF000QRS"`);
+    expect(taken).not.toContain(`>${detail.qrConfirm}</button>`);
+    const panel = renderToStaticMarkup(<ModelStickerForm {...confirmProps} initialStep={{ kind: "confirm", code: "panel", sticker: found(null, { kind: "panel", label: "PANEL-2026-EVENT" }) }} />);
+    expect(panel).toContain(detail.qrPanel);
+    expect(panel).not.toContain(`>${detail.qrConfirm}</button>`);
   });
 });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback } from "react";
 import type {
   CatalogView,
@@ -8,8 +8,10 @@ import type {
   EventClientView,
   EventsActions,
   InventoryRowView,
+  LinkStickerActions,
   ModelView,
   QrActions,
+  RecentLinkView,
   QrBulkActions,
   QrBulkDryRunView,
   QrBulkInput,
@@ -44,7 +46,10 @@ import { EventModelDetailView, EventModelsView, type ModelDetailSummary } from "
 import { dashboardSectionUrgency, withNavUrgency } from "@/components/admin/events/dashboard-logic";
 import { previewDashboard } from "@/components/admin/events/preview-dashboard-fixtures";
 import { EventDashboardView } from "@/components/admin/events/sections/pregled-view";
+import { EventLinkStickerView } from "@/components/admin/events/sections/povezi-view";
 import { EventQrDetailView, EventQrView } from "@/components/admin/events/sections/qr-view";
+import type { LinkFlow } from "@/lib/admin-v1/qr-link";
+import { FAIR_QR_LABEL_DEFAULT_FORMAT } from "@/lib/fair-qr-label";
 import {
   eventDetailHref,
   eventNavGroups,
@@ -478,18 +483,23 @@ const PREVIEW_EVENTS: FrameEvent[] = [
 // plus free codes, codes of the other TEST event and codes out of service —
 // 105 TEST codes in every state. No real codes or scan numbers.
 const pad = (value: number, size: number) => String(value).padStart(size, "0");
-// Izlagači 2026 — the codes of this event carry a TEST sticker label
-// (`TS26-001`…, like the printed `SA26-…`), the free ones continue the series;
-// codes of the other event and the broken ones have only their resolver code.
+// Izlagači 2026 — the codes of this event carry a sticker label; N2: in the
+// printed series format (`SA26-001`…, TEST codes, TEST resolver codes), so the
+// preview of „Poveži nalepnicu“ shows the prefix of the field; the free ones
+// continue the series; codes of the other event and the broken ones have only
+// their resolver code; three TEST panels lead to their own URL.
 const assignedQr = catalog.models.filter((row) => row.qrCode);
 const inventoryRows: InventoryRowView[] = [
   ...assignedQr.map((row, index) => ({
-    cardId: `card-${row.id}`, resolverCode: row.qrCode!, label: `TS26-${pad(index + 1, 3)}`, smqCode: row.qrSmq, state: "active" as const, problemReason: null,
+    cardId: `card-${row.id}`, resolverCode: row.qrCode!, label: `SA26-${pad(index + 1, 3)}`, kind: "sticker" as const, smqCode: row.qrSmq, state: "active" as const, problemReason: null,
     assignment: { modelId: row.id, sameEvent: true },
   })),
   ...Array.from({ length: 58 }, (_, index) => ({
-    cardId: `card-free-${index}`, resolverCode: `TF${pad(index, 3)}QRS`, label: `TS26-${pad(assignedQr.length + index + 1, 3)}`, smqCode: `SMQ-TEST-${pad(index + 300, 4)}`, state: "problem" as const,
+    cardId: `card-free-${index}`, resolverCode: `TF${pad(index, 3)}QRS`, label: `SA26-${pad(assignedQr.length + index + 1, 3)}`, kind: "sticker" as const, smqCode: `SMQ-TEST-${pad(index + 300, 4)}`, state: "problem" as const,
     problemReason: index % 7 === 3 ? "destination_fair_unassigned" : "destination_missing", assignment: null,
+  })),
+  ...["PANEL-2026-EVENT", "PANEL-2026-SCANME", "PANEL-2026-ENIGMAIT"].map((label, index) => ({
+    cardId: `card-panel-${index}`, resolverCode: `TP${pad(index, 3)}QRS`, label, kind: "panel" as const, smqCode: `SMQ-TEST-${pad(index + 700, 4)}`, state: "active" as const, problemReason: null, assignment: null,
   })),
   ...Array.from({ length: 12 }, (_, index) => ({
     cardId: `card-amf-${index}`, resolverCode: `TD${pad(index, 3)}QRS`, smqCode: `SMQ-TEST-${pad(index + 500, 4)}`, state: "active" as const, problemReason: null,
@@ -531,7 +541,7 @@ function qrDetailFixture(code: string): QrDetailView | null {
     });
   }
   return {
-    cardId: row.cardId, accessChannelId: `channel-${row.cardId}`, resolverCode: row.resolverCode, label: row.label ?? row.resolverCode, smqCode: row.smqCode,
+    cardId: row.cardId, accessChannelId: `channel-${row.cardId}`, resolverCode: row.resolverCode, label: row.label ?? row.resolverCode, kind: row.kind ?? "sticker", smqCode: row.smqCode,
     channelState: row.state ?? "problem", problemReason: row.problemReason, redirectEnabled: row.state !== "inactive",
     totalScansAllTime: (stats.total ?? 0) + 3,
     current: row.assignment ? {
@@ -539,6 +549,7 @@ function qrDetailFixture(code: string): QrDetailView | null {
       eventModelId: row.assignment.modelId, modelLabel: history[0]?.modelLabel ?? null, modelStatus: rowModel?.status ?? "published",
       path: rowModel ? `/sajam/test-elektromobilnost-2026/model/${rowModel.slug}` : "/sajam/test-auto-moto-fest-2026/model/test-amf-model",
       assignedAt, reason: "TEST dodela iz tabele nalepnica",
+      brandName: rowModel?.brandName ?? null, exhibitorName: rowModel?.exhibitorName ?? null, standCode: rowModel ? rowModel.standLabel : null, standName: null,
     } : null,
     history,
     historyCapped: false,
@@ -548,6 +559,64 @@ function qrDetailFixture(code: string): QrDetailView | null {
 }
 
 const qrActions: QrActions = { reassign: ok, assign: ok, release: ok, resolveTest: actions.resolveTest };
+
+// N2 — „Poveži nalepnicu“ on the TEST catalog: the cars carry the sticker
+// labels of the TEST inventory, TEST Izlagač A its TEST logo; five recent
+// TEST links (the newest three can still be undone); the actions only answer.
+// `?stanje=` picks a step the URL cannot hold (cuvanje, potvrda, ponisteno,
+// greska); `kod`, `izlagac` and `model` are the section's own query keys.
+const labelByModel = new Map(inventoryRows.flatMap((row) => (row.assignment?.sameEvent ? [[row.assignment.modelId, row.label ?? null] as const] : [])));
+const linkCatalog: CatalogView = {
+  ...catalog,
+  participations: catalog.participations.map((row) => ({ ...row, ...IDENTITY[row.id] })),
+  models: catalog.models.map((row) => ({ ...row, qrLabel: labelByModel.get(row.id) ?? null })),
+};
+const LINKED_AT = opening - 20 * 3_600_000;
+const recentLinks: RecentLinkView[] = assignedQr.slice(0, 5).map((row, index) => ({
+  assignmentId: `as-card-${row.id}`,
+  label: labelByModel.get(row.id) ?? row.qrCode!,
+  modelId: row.id,
+  modelName: `${row.displayName}${row.variant ? ` ${row.variant}` : ""}`,
+  exhibitorName: row.exhibitorName,
+  standCode: row.standLabel.split(" · ").at(-1) ?? null,
+  linkedAt: LINKED_AT - index * 4 * 60_000,
+  linkedByName: "TEST admin",
+  canUndo: index < 3,
+}));
+const linkActions: LinkStickerActions = {
+  link: async (input) => {
+    const row = inventoryRows.find((entry) => entry.resolverCode === input.code);
+    const target = catalog.models.find((entry) => entry.id === input.modelId);
+    return {
+      ok: true,
+      value: {
+        assignmentId: `as-preview-${input.code}`, label: row?.label ?? input.code, modelId: input.modelId, modelStatus: target?.status ?? "published", created: true,
+        ...(input.expectedHolderModelId ? { movedFromModelId: input.expectedHolderModelId } : {}),
+        ...(input.replaceModelSticker && target ? { replacedLabel: labelByModel.get(target.id) ?? target.qrCode ?? undefined } : {}),
+      },
+    };
+  },
+  undo: async () => ({ ok: true, value: { restoredToModelId: null, restoredReplacedLabel: null } }),
+};
+
+/** The step a `?stanje=` of the preview starts in (the admin always starts in „pick“). */
+function previewLinkFlow(step: string | null, kod: string | undefined, modelId: string | undefined): LinkFlow | undefined {
+  if (step === "cuvanje") return { step: "saving" };
+  if (step === "greska") return { step: "pick", error: "FAIR_QR_HOLDER_CHANGED" };
+  if (step !== "potvrda" && step !== "ponisteno") return undefined;
+  const sticker = kod ? qrDetailFixture(kod) : null;
+  const target = modelId ? catalog.models.find((entry) => entry.id === modelId) : undefined;
+  if (!sticker || !target) return undefined;
+  const moved = sticker.current?.sameEvent && sticker.current.eventModelId !== target.id ? sticker.current.eventModelId : undefined;
+  return {
+    step: "done",
+    done: { assignmentId: "as-preview", label: sticker.label ?? sticker.resolverCode, modelId: target.id, modelStatus: target.status, created: true, ...(moved ? { movedFromModelId: moved } : {}) },
+    undo: step === "ponisteno" ? "undone" : "idle",
+    error: null,
+  };
+}
+
+const modelDetailActions = { ...actions, lookupQr: async (code: string) => ({ ok: true as const, value: qrDetailFixture(code) }) };
 
 /** TEST dry run with the backend's rules (unknown code, code taken, model has a QR, duplicates); writes nothing. */
 function previewBulkPlan(rows: QrBulkInput[]): QrBulkDryRunView {
@@ -657,12 +726,14 @@ const importActions: Pick<EventsActions, "dryRun" | "commit"> = {
   },
 };
 
-function PreviewSection({ path, detailId, query, setQuery, keep }: {
+function PreviewSection({ path, detailId, query, setQuery, keep, previewStep }: {
   path: EventSectionPath;
   detailId?: string;
   query: AdminQueryState;
   setQuery: (patch: AdminQueryPatch) => void;
   keep: AdminQueryState;
+  /** N2 — the raw `?stanje=` of `povezi` (a step, not a filter). */
+  previewStep: string | null;
 }) {
   const modelHref = (id: string) => eventDetailHref(PREVIEW_BASE, "modeli", id, keep);
   const listQuery = { ...keep, ...modelListQuery(query) };
@@ -675,13 +746,27 @@ function PreviewSection({ path, detailId, query, setQuery, keep }: {
       const dashboard = previewDashboard(query.faza);
       return <EventDashboardView dashboard={dashboard} now={dashboard.at} base={PREVIEW_BASE} keep={keep} />;
     }
+    case "povezi": return (
+      <EventLinkStickerView
+        key={previewStep ?? ""}
+        catalog={linkCatalog}
+        labelFormat={FAIR_QR_LABEL_DEFAULT_FORMAT}
+        query={query}
+        onQueryChange={setQuery}
+        sticker={query.kod ? qrDetailFixture(query.kod) : undefined}
+        recent={recentLinks}
+        actions={linkActions}
+        qrHref={qrHref}
+        initialFlow={previewLinkFlow(previewStep, query.kod, query.model)}
+      />
+    );
     case "modeli": return detailId
       ? (
         <EventModelDetailView
           key={detailId}
-          catalog={catalog}
+          catalog={linkCatalog}
           modelId={detailId}
-          actions={actions}
+          actions={modelDetailActions}
           query={query}
           listHref={eventSectionHref(PREVIEW_BASE, "modeli", listQuery)}
           modelHref={listModelHref}
@@ -691,7 +776,7 @@ function PreviewSection({ path, detailId, query, setQuery, keep }: {
           summary={modelSummary(detailId)}
         />
       )
-      : <EventModelsView catalog={catalog} query={query} onQueryChange={setQuery} modelHref={listModelHref} importHref={eventSectionHref(PREVIEW_BASE, "import", keep)} />;
+      : <EventModelsView catalog={linkCatalog} query={query} onQueryChange={setQuery} modelHref={listModelHref} importHref={eventSectionHref(PREVIEW_BASE, "import", keep)} />;
     case "qr": {
       const qrListKeep = { ...keep, ...qrListQuery(query) };
       return detailId
@@ -833,6 +918,7 @@ function PreviewSection({ path, detailId, query, setQuery, keep }: {
 export function AdminEventsPreview({ section }: { section: ResolvedEventSection | null }) {
   const router = useRouter();
   const [query, setQuery] = useAdminQueryState();
+  const previewStep = useSearchParams().get("stanje");
   const currentSlug = PREVIEW_EVENTS.find((event) => event.slug === query.dogadjaj)?.slug ?? PREVIEW_EVENTS[0].slug;
   const keepFor = (slug: string): AdminQueryState => (slug === PREVIEW_EVENTS[0].slug ? {} : { dogadjaj: slug });
   const keep = keepFor(currentSlug);
@@ -846,10 +932,11 @@ export function AdminEventsPreview({ section }: { section: ResolvedEventSection 
         currentSlug={currentSlug}
         onSelectEvent={(slug) => router.push(switchEventHref(PREVIEW_BASE, section, query, keepFor(slug)))}
         nav={withNavUrgency(eventNavGroups((path) => eventSectionHref(PREVIEW_BASE, path, keep), active), dashboardSectionUrgency(previewDashboard(query.faza).actions))}
+        linkStickerHref={active === "povezi" ? null : eventSectionHref(PREVIEW_BASE, "povezi", keep)}
       >
         <AdminViewModeOverride value={parseViewModeParam(query.prikaz)} onChange={onViewChange}>
           {section?.kind === "section"
-            ? <PreviewSection path={section.path} detailId={section.detailId} query={query} setQuery={setQuery} keep={keep} />
+            ? <PreviewSection path={section.path} detailId={section.detailId} query={query} setQuery={setQuery} keep={keep} previewStep={previewStep} />
             : <AdminEventsNotFound title={dict.sectionNotFoundTitle} body={dict.sectionNotFoundBody} href={eventSectionHref(PREVIEW_BASE, "pregled", keep)} linkLabel={dict.backToOverview} />}
         </AdminViewModeOverride>
       </AdminEventFrameView>

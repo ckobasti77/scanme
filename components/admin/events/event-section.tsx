@@ -7,6 +7,7 @@ import { IzlagaciSection } from "@/components/admin/events/sections/izlagaci-sec
 import { IzvestajiSection } from "@/components/admin/events/sections/izvestaji-section";
 import { FollowUpSection, LeadoviSection, PodesavanjaSection } from "@/components/admin/events/sections/leadovi-section";
 import { ModelDetailSection, ModeliSection } from "@/components/admin/events/sections/modeli-section";
+import { PoveziSection } from "@/components/admin/events/sections/povezi-section";
 import { PregledSection } from "@/components/admin/events/sections/pregled-section";
 import { QrDetailSection, QrSection } from "@/components/admin/events/sections/qr-section";
 import { SponzorisanoSection } from "@/components/admin/events/sections/sponzorisano-section";
@@ -18,6 +19,7 @@ import type { EventSectionPath } from "@/lib/admin-v1/event-sections";
 export function AdminEventSection({ path, detailId }: { path: EventSectionPath; detailId?: string }) {
   switch (path) {
     case "pregled": return <PregledSection />;
+    case "povezi": return <PoveziSection />;
     case "modeli": return detailId ? <ModelDetailSection modelId={detailId} /> : <ModeliSection />;
     case "qr": return detailId ? <QrDetailSection code={detailId} /> : <QrSection />;
     case "izlagaci": return <IzlagaciSection />;

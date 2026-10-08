@@ -1,3 +1,4 @@
+import type { LinkDone } from "@/lib/admin-v1/qr-link";
 import type { FairClientSegment, FairPackageTier, FairModelStatus, FairParticipationStatus } from "@/lib/fair-contract";
 import { fmt } from "@/lib/i18n/format";
 import { adminEventsSr as dict } from "@/lib/i18n/sr/admin-events";
@@ -36,6 +37,8 @@ export type ModelView = {
   qrCode: string | null;
   /** A3 — SMQ serial of the assigned code (null = unknown or no QR). */
   qrSmq: string | null;
+  /** N2 — printed label of the assigned sticker (`SA26-007`; fairAdminStats.getModelQrCodes), when known. */
+  qrLabel?: string | null;
   issues: IssueView[];
 };
 
@@ -56,6 +59,8 @@ export type InventoryRowView = {
   resolverCode: string;
   /** Izlagači 2026 — cards.label: the printed sticker label (`SA26-001`); a card without one carries its resolver code. */
   label?: string | null;
+  /** N2 — a car sticker or a panel (fairAdmin.listQrInventory `kind`). */
+  kind?: "sticker" | "panel";
   smqCode: string | null;
   state: "active" | "inactive" | "problem" | null;
   /** A4 — why the channel is in `problem` (a free code: `destination_*`). */
@@ -73,6 +78,8 @@ export type QrDetailView = {
   resolverCode: string;
   /** Izlagači 2026 — cards.label (`SA26-001`). */
   label?: string | null;
+  /** N2 — a car sticker or a panel (getQrDetail `kind`). */
+  kind?: "sticker" | "panel";
   smqCode: string | null;
   channelState: "active" | "inactive" | "problem";
   problemReason: string | null;
@@ -88,6 +95,11 @@ export type QrDetailView = {
     path: string | null;
     assignedAt: number;
     reason: string | null;
+    /** N1 — the car as the field team names it. */
+    brandName?: string | null;
+    exhibitorName?: string | null;
+    standCode?: string | null;
+    standName?: string | null;
   } | null;
   history: {
     assignmentId: string;
@@ -132,6 +144,25 @@ export type QrActions = {
   assign: (modelId: string, code: string, reason?: string) => Promise<Outcome>;
   release: (modelId: string, reason: string) => Promise<Outcome>;
   resolveTest: (resolverCode: string) => Promise<Result<ResolveView>>;
+};
+
+/** N2 — „Poveži nalepnicu“: fairAdminQr.linkSticker and undoLink. */
+export type LinkStickerInput = { code: string; modelId: string; expectedHolderModelId: string | null; replaceModelSticker: boolean };
+export type LinkStickerActions = {
+  link: (input: LinkStickerInput) => Promise<Result<LinkDone>>;
+  undo: (assignmentId: string) => Promise<Result<{ restoredToModelId: string | null; restoredReplacedLabel: string | null }>>;
+};
+/** N2 — one row of fairAdminQr.listRecentLinks. */
+export type RecentLinkView = {
+  assignmentId: string;
+  label: string;
+  modelId: string;
+  modelName: string | null;
+  exhibitorName: string | null;
+  standCode: string | null;
+  linkedAt: number;
+  linkedByName: string | null;
+  canUndo: boolean;
 };
 
 export type EventClientView = { accountId: string; name: string; smkCode: string | null };

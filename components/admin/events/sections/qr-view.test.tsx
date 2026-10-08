@@ -219,6 +219,17 @@ describe("A4 QR detail", () => {
     expect(html).not.toContain(detail.changeTitle);
   });
 
+  test("N2: a panel has its own state, the right text and no assignment (no Dodeli model, no Ukloni vezu)", () => {
+    const html = detailHtml({ ...assigned, kind: "panel", label: "PANEL-2026-EVENT", current: null, history: [], stats: null, lastScanAt: null });
+    expect(html).toContain(`>${list.states.panel}<`);
+    expect(html).toContain(detail.wherePanel);
+    expect(html).toContain(detail.panelNote);
+    expect(html).not.toContain(detail.whereFree);
+    expect(html).not.toContain(detail.assignTitle);
+    expect(html).not.toContain(detail.changeTitle);
+    expect(html).not.toContain(detail.removeTitle);
+  });
+
   test("a code of the other event cannot be changed here; unknown and loading states", () => {
     const other = detailHtml({ ...assigned, current: { ...assigned.current!, sameEvent: false, eventTitle: "TEST AMF", eventModelId: "amf-1" }, stats: null });
     expect(other).toContain(fmt(detail.whereOtherEvent, { event: "TEST AMF" }));

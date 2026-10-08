@@ -5,6 +5,9 @@
 
 export const ADMIN_QUERY_KEYS = [
   "dogadjaj",
+  // Sajam 2026 N2 — „Poveži nalepnicu“: the sticker being linked (its label
+  // `SA26-007`, resolver code from the /r/ shortcut, or SMQ serial).
+  "kod",
   "izlagac",
   "brend",
   "model",
@@ -44,8 +47,8 @@ const ENUMS: Partial<Record<AdminQueryKey, readonly string[]>> = {
   problemi: ["greske", "upozorenja", "bez"],
   qr: ["ima", "nema"],
   foto: ["ima", "nema"],
-  // QR (A4) and, A7, the brand passport (lib/admin-v1/passport-overview.ts).
-  stanje: ["slobodan", "ovaj", "drugi", "neaktivan", "aktivan", "zamrznut", "sakriven", "bez-uslova", "nije-napravljen"],
+  // QR (A4; N2: + panel) and, A7, the brand passport (lib/admin-v1/passport-overview.ts).
+  stanje: ["slobodan", "ovaj", "drugi", "neaktivan", "panel", "aktivan", "zamrznut", "sakriven", "bez-uslova", "nije-napravljen"],
   segment: ["event-only", "standard"],
   tip: ["zainteresovan", "probna-voznja"],
   isporuka: ["da", "ne"],
@@ -54,6 +57,7 @@ const ENUMS: Partial<Record<AdminQueryKey, readonly string[]>> = {
 };
 const PATTERNS: Partial<Record<AdminQueryKey, RegExp>> = {
   dogadjaj: /^[a-z0-9-]{1,80}$/,
+  kod: /^[A-Za-z0-9-]{1,40}$/,
   izlagac: ID,
   brend: ID,
   model: ID,

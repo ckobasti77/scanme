@@ -19,8 +19,9 @@ import {
 // one section (the exhibitor cards) with a detail per exhibitor; the four
 // former pages redirect there.
 
+// N2 (odluka vlasnika 8. 10.): + `povezi`, „Poveži nalepnicu“ on the fair floor.
 const REQUIRED = [
-  "pregled", "modeli", "qr", "izlagaci", "import",
+  "pregled", "povezi", "modeli", "qr", "izlagaci", "import",
   "interakcije",
   "leadovi", "leadovi/follow-up", "leadovi/podesavanja",
   "sponzorisano", "izvestaji", "brisanje",
@@ -161,6 +162,17 @@ describe("eventNavGroups marks the open section (A2)", () => {
     expect(ids.sort()).toEqual([...REQUIRED].sort());
     expect(groups.map((group) => group.label)).toEqual([undefined, adminEventsSr.navGroups.katalog, adminEventsSr.navGroups.sajam, adminEventsSr.navGroups.posle]);
     expect(groups.flatMap((group) => group.items).some((item) => item.active || item.activeChild)).toBe(false);
+  });
+
+  test("N2: „Poveži nalepnicu“ is right after Pregled; the /r/ admin shortcut opens it with the scanned code", () => {
+    const [main] = eventNavGroups(href, null);
+    expect(main.items.map((item) => item.id)).toEqual(["pregled", "povezi"]);
+    expect(main.items[1]).toMatchObject({ href: "/x/povezi", label: "Poveži nalepnicu" });
+    // fairAdminLinkPath (lib/fair-contract.ts) → this route, with `kod` kept by the section.
+    expect(resolveEventSection(["povezi"])).toEqual({ kind: "section", path: "povezi" });
+    expect(eventRedirectHref("/admin/dogadjaji/test-em", { kind: "redirect", path: "povezi" }, "?kod=7KQ2M9XA&izlagac=p1&model=m1&q=x")).toBe("/admin/dogadjaji/test-em/povezi?kod=7KQ2M9XA&izlagac=p1&model=m1");
+    expect(eventSectionHref("/admin/dogadjaji/test-em", "povezi", { kod: "SA26-007" })).toBe("/admin/dogadjaji/test-em/povezi?kod=SA26-007");
+    expect(eventSectionTitle(resolveEventSection(["povezi"]))).toBe(`Poveži nalepnicu · ${adminEventsSr.pageTitle}`);
   });
 
   test("Izlagači replaces Event-only klijenti", () => {
