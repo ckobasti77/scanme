@@ -1868,3 +1868,20 @@ Saglasnost imenuje izlagača preko `businesses.name`. Posebno polje za pravni na
 
 ### 3. Upozorenje pri zatvaranju sheet-a sa unetim podacima
 EVENT-DESIGN-SYSTEM §6 kaže da se sheet sa nepotvrđenim unosom ne zatvara bez upozorenja. Lead sheet-ovi to ne rade, isto kao prototip. Čeka se odluka da li je potrebno.
+
+## SYNC 8. 10. — RD: SPREMNO ZA DEPLOY, D2 nije rađen (stanje posle IZD)
+
+Izveštaj: `docs/events/sajam-automobila-2026/jovan-status/IZVESTAJ-SYNC-2026-10-08.md`.
+
+- **Uslovi deploya:**
+  - Convex pre Vercel-a, zbog novih argumenata `at` i `expectedModelStickerCode`;
+  - migracija paketa: dry-run, pa stvarno;
+  - reset pre-event podataka pre 00:00, ako ga Aleksa odobri.
+- **Otvoreni nalazi RD (D2 nije radio):**
+  - zona dodira na velikim štandovima (`lib/fair-map/touch.ts`);
+  - izmena pitanja posle „Otvori sada“ (`convex/fairInteractionsAdmin.ts:126`);
+  - „Poveži“ zavisi od redosleda deploya (`lib/admin-v1/qr-link.ts:172`).
+- **Čeka odluku:**
+  - pravni tekst saglasnosti (P3 §1);
+  - pasoš i spoljni URL fotografije;
+  - javni naziv na mapi.
