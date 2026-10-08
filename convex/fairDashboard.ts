@@ -13,7 +13,7 @@ import { fairTimeKeys } from "./lib/fairScans";
 import { fairActiveSponsoredSnapshot, fairSponsoredAutoPublishOn, fairSponsoredItems } from "./lib/fairSponsored";
 import { belgradeLocalToEpoch } from "../lib/belgrade-time";
 import { FAIR_ADMIN_LIST_LIMIT } from "../lib/fair-contract";
-import { fairAnalyticsCutoff } from "./lib/fairPreEvent";
+import { fairAnalyticsCutoff, fairDayCountFrom } from "./lib/fairPreEvent";
 
 // =============================================================================
 // Admin UX A10 — `Događaji → Pregled`: ONE admin query for the event
@@ -130,16 +130,24 @@ async function loadFacts(ctx: QueryCtx, event: Doc<"fairEvents">, at: number): P
   }
 
   // Fair scans (admin scans excluded): the fair days' and today's stand
-  // counters; the total is the sum of the fair days, so pre-event scans
-  // never count (JOVAN-DELTA 2026-10-08b).
+  // counters from the analytics cutoff on, so pre-event scans never count
+  // (JOVAN-DELTA 2026-10-08b).
   const stands = catalog.stands.slice(0, FAIR_DASHBOARD_STANDS_CAP);
-  const fairDayKeys = (metric: "scan_total" | "scan_unique") =>
-    stands.flatMap((stand) => days.slice(0, DAYS_CAP).map((day) => fairScanCountKey(metric, "stand", stand._id, day.dateKey)));
+  const cutoff = fairAnalyticsCutoff(event);
+  const fairDays = days.slice(0, DAYS_CAP);
+  const today = fairDays.find((day) => day.dateKey === todayKey);
+  const standSum = async (metric: "scan_total" | "scan_unique", only?: (typeof fairDays)[number]) => {
+    let total = 0;
+    for (const stand of stands) {
+      for (const day of only ? [only] : fairDays) total += await fairDayCountFrom(ctx, fairScanCountKey(metric, "stand", stand._id), day, cutoff);
+    }
+    return total;
+  };
   const scans = {
-    total: await sumCounts(ctx, fairDayKeys("scan_total")),
-    today: await sumCounts(ctx, stands.map((stand) => fairScanCountKey("scan_total", "stand", stand._id, todayKey))),
-    uniqueTotal: await sumCounts(ctx, fairDayKeys("scan_unique")),
-    uniqueToday: await sumCounts(ctx, stands.map((stand) => fairScanCountKey("scan_unique", "stand", stand._id, todayKey))),
+    total: await standSum("scan_total"),
+    today: today ? await standSum("scan_total", today) : await sumCounts(ctx, stands.map((stand) => fairScanCountKey("scan_total", "stand", stand._id, todayKey))),
+    uniqueTotal: await standSum("scan_unique"),
+    uniqueToday: today ? await standSum("scan_unique", today) : await sumCounts(ctx, stands.map((stand) => fairScanCountKey("scan_unique", "stand", stand._id, todayKey))),
     capped: catalog.stands.length > FAIR_DASHBOARD_STANDS_CAP,
   };
 

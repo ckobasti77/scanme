@@ -14,6 +14,7 @@ import schema from "./schema";
 import { readFairCount, fairScanCountKey } from "./lib/fairCountShards";
 import { fairAudienceVoteKey, fairRatingCountKey } from "./lib/fairInteractions";
 import { FAIR_PRE_EVENT_CATEGORIES } from "./fairPreEvent";
+import { fairAnalyticsCutoff, fairDayCountFrom } from "./lib/fairPreEvent";
 
 vi.mock("server-only", () => ({}));
 const { fairVisitorHash, generateFairVisitorToken } = await import("../lib/fair-server/visitor");
@@ -45,7 +46,7 @@ async function expectCode(promise: Promise<unknown>, code: string) {
 
 type Tier = "included" | "starter" | "advanced";
 
-async function setup() {
+async function setup(code = "test-elektromobilnost-2026") {
   const t = convexTest(schema, modules);
   rateLimiterTest.register(t);
   const ids = await t.run(async (ctx) => {
@@ -70,7 +71,7 @@ async function setup() {
   const admin = t.withIdentity({ subject: ids.adminId, issuer: ISSUER });
   const [volta, om] = ids.a.brandIds;
   const { eventId } = await admin.mutation(api.fairAdmin.upsertEvent, {
-    code: "test-elektromobilnost-2026", slug: "test-elektromobilnost-2026", title: "TEST elektromobilnost", venueName: "TEST hala",
+    code, slug: "test-elektromobilnost-2026", title: "TEST elektromobilnost", venueName: "TEST hala",
     startsAt: OPENING, endsAt: Date.parse("2026-10-12T00:00:00+02:00"), status: "published", garagePriority: 1,
     qrInventoryBusinessId: ids.inventory.businessId,
   });
@@ -256,5 +257,48 @@ describe("Resetuj pre-event podatke", () => {
     expect(await rows(f, "fairPassportConfigs")).toHaveLength(1);
     expect(await rows(f, "fairAudienceQuestions")).toHaveLength(1);
     expect(await rows(f, "fairEventModels")).toHaveLength(3);
+  });
+});
+
+describe("analytics cutoff: the hall opening (owner decision 9 Oct 2026)", () => {
+  const HALL_OPENING = Date.parse("2026-10-09T08:00:00+02:00");
+
+  test("elektromobilnost-2026 counts from 9 Oct 08:00 Europe/Belgrade; any other event from its opening", () => {
+    expect(fairAnalyticsCutoff({ code: "elektromobilnost-2026", startsAt: OPENING })).toBe(HALL_OPENING);
+    expect(new Date(HALL_OPENING).toISOString()).toBe("2026-10-09T06:00:00.000Z");
+    expect(fairAnalyticsCutoff({ code: "test-elektromobilnost-2026", startsAt: OPENING })).toBe(OPENING);
+  });
+
+  test("a day bucket is read from the cutoff on: whole day, hours from the cutoff, or nothing", async () => {
+    const t = convexTest(schema, modules);
+    await t.run(async (ctx) => {
+      for (const [key, value] of [["k:2026-10-09", 9], ["k:2026-10-09T07", 3], ["k:2026-10-09T08", 4], ["k:2026-10-09T15", 2], ["k:2026-10-10", 5]] as const) {
+        await ctx.db.insert("fairMetricCountShards", { key, shard: 0, value });
+      }
+    });
+    const day1 = { dateKey: "2026-10-09", startsAt: OPENING, endsAt: Date.parse("2026-10-10T00:00:00+02:00") };
+    const day2 = { dateKey: "2026-10-10", startsAt: day1.endsAt, endsAt: Date.parse("2026-10-11T00:00:00+02:00") };
+    expect(await t.run((ctx) => fairDayCountFrom(ctx, "k", day1, OPENING))).toBe(9);
+    expect(await t.run((ctx) => fairDayCountFrom(ctx, "k", day1, HALL_OPENING))).toBe(6);
+    expect(await t.run((ctx) => fairDayCountFrom(ctx, "k", day2, HALL_OPENING))).toBe(5);
+    expect(await t.run((ctx) => fairDayCountFrom(ctx, "k", day1, day1.endsAt))).toBe(0);
+  });
+
+  test("the real event: a scan at 02:00 on the fair day is pre-event, one at 10:00 counts; the reset removes only the first", async () => {
+    const f = await setup("elektromobilnost-2026");
+    vi.setSystemTime(Date.parse("2026-10-09T02:00:00+02:00"));
+    await scan(f, f.starter.code, visitor());
+    vi.setSystemTime(DAY1);
+    await scan(f, f.starter.code, visitor());
+
+    const preview = await f.admin.query(api.fairPreEvent.previewPreEventReset, { eventId: f.eventId });
+    expect(preview).toMatchObject({ cutoff: HALL_OPENING, total: 2, counts: { scan_events: 1, unique_scans: 1 } });
+    const dash = await f.admin.query(api.fairDashboard.getEventDashboard, { eventId: f.eventId, at: DAY1 });
+    expect(dash.kpis.scans).toMatchObject({ total: 1, today: 1, uniqueTotal: 1, uniqueToday: 1 });
+
+    await f.admin.mutation(api.fairPreEvent.resetPreEventData, { eventId: f.eventId, confirm: "RESETUJ", expected: preview.counts });
+    expect(await rows(f, "fairScanEvents")).toHaveLength(1);
+    expect(await count(f, fairScanCountKey("scan_total", "model", f.starter.id))).toBe(1);
+    expect(await count(f, fairScanCountKey("scan_total", "model", f.starter.id, "2026-10-09"))).toBe(1);
   });
 });
