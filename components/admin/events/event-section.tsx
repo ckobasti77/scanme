@@ -1,6 +1,7 @@
 "use client";
 
 import { InterakcijeIzlagacSection, InterakcijeSection } from "@/components/admin/events/sections/interakcije-section";
+import { AnalitikaSection } from "@/components/admin/events/sections/analitika-section";
 import { BrisanjeSection } from "@/components/admin/events/sections/brisanje-section";
 import { ImportSection } from "@/components/admin/events/sections/import-section";
 import { IzlagaciSection } from "@/components/admin/events/sections/izlagaci-section";
@@ -26,6 +27,7 @@ export function AdminEventSection({ path, detailId }: { path: EventSectionPath; 
     case "import": return <ImportSection />;
     case "interakcije": return detailId ? <InterakcijeIzlagacSection key={detailId} participationId={detailId} /> : <InterakcijeSection />;
     case "sponzorisano": return <SponzorisanoSection />;
+    case "analitika": return <AnalitikaSection />;
     case "leadovi": return <LeadoviSection />;
     case "leadovi/follow-up": return <FollowUpSection />;
     case "leadovi/podesavanja": return <PodesavanjaSection />;

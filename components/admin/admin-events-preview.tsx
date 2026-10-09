@@ -45,6 +45,8 @@ import { EventLeadsInboxView, type InboxLead, type LeadInboxActions } from "@/co
 import { EventModelDetailView, EventModelsView, type ModelDetailSummary } from "@/components/admin/events/sections/modeli-view";
 import { dashboardSectionUrgency, withNavUrgency } from "@/components/admin/events/dashboard-logic";
 import { previewDashboard } from "@/components/admin/events/preview-dashboard-fixtures";
+import { previewAnalytics, previewAudience } from "@/components/admin/events/preview-analytics-fixtures";
+import { EventAnalyticsView } from "@/components/admin/events/sections/analitika-view";
 import { EventDashboardView } from "@/components/admin/events/sections/pregled-view";
 import { EventLinkStickerView } from "@/components/admin/events/sections/povezi-view";
 import { EventQrDetailView, EventQrView } from "@/components/admin/events/sections/qr-view";
@@ -882,6 +884,19 @@ function PreviewSection({ path, detailId, query, setQuery, keep, previewStep }: 
       );
     }
     case "sponzorisano": return <AdminEventsSponsored view={sponsoredView} actions={sponsoredActions} />;
+    // SAJAM SUPER Korak 4 — TEST numbers (preview-analytics-fixtures.ts).
+    case "analitika": return (
+      <EventAnalyticsView
+        eventCode="test-elektromobilnost-2026"
+        data={previewAnalytics}
+        audience={previewAudience}
+        hourDay={query.dan}
+        onHourDay={(dan) => setQuery({ dan })}
+        refreshing={false}
+        onRefresh={() => {}}
+        onExport={() => {}}
+      />
+    );
     case "leadovi": return (
       <EventLeadsInboxView
         catalog={catalog}

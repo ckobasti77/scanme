@@ -4197,6 +4197,8 @@ export interface AdminEventsDict {
     "leadovi/podesavanja": string;
     izvestaji: string;
     brisanje: string;
+    /** SAJAM SUPER Korak 4. */
+    analitika: string;
   };
   navGroups: { katalog: string; sajam: string; posle: string };
   navInteractions: string;
@@ -5443,6 +5445,91 @@ export interface AdminEventsDict {
   };
   // Admin UX A10 — Pregled: the event dashboard.
   dashboard: AdminEventsDashboardDict;
+  // SAJAM SUPER Korak 4 — Analitika.
+  analytics: AdminEventsAnalyticsDict;
+}
+
+export interface AdminEventsAnalyticsDict {
+  title: string;
+  /** {cutoff} */
+  intro: string;
+  refresh: string;
+  refreshing: string;
+  /** {time} */
+  updated: string;
+  exportCsv: string;
+  /** {event} {date} */
+  csvFileName: string;
+  errorTitle: string;
+  errorBody: string;
+  capped: string;
+  today: string;
+  total: string;
+  kpiTitle: string;
+  kpi: {
+    scans: string;
+    uniquePerModel: string;
+    visitors: string;
+    leads: string;
+    /** {interest} {testDrive} */
+    leadsHint: string;
+    votes: string;
+    votesHint: string;
+    surveys: string;
+    surveysHint: string;
+    stamps: string;
+    /** {passports} */
+    stampsHint: string;
+    shares: string;
+    sharesHint: string;
+    /** {today} {total} */
+    pair: string;
+  };
+  definitionsTitle: string;
+  definitions: { scans: string; uniquePerModel: string; visitors: string; stand: string; window: string };
+  daysTitle: string;
+  hoursTitle: string;
+  hoursDayLabel: string;
+  legendScans: string;
+  legendUnique: string;
+  /** {label} {scans} {unique} */
+  barAria: string;
+  tableToggle: string;
+  noData: string;
+  hourLabel: string;
+  dayLabel: string;
+  modelsTitle: string;
+  standsTitle: string;
+  columns: {
+    model: string;
+    exhibitor: string;
+    stand: string;
+    tier: string;
+    scans: string;
+    unique: string;
+    visitors: string;
+    leads: string;
+    conversion: string;
+    votes: string;
+    rating: string;
+  };
+  /** {count} */
+  ratingCount: string;
+  emptyRanking: string;
+  heatTitle: string;
+  heatIntro: string;
+  heatPeriodToday: string;
+  heatPeriodHour: string;
+  heatEmpty: string;
+  /** {stand} {count} {share} */
+  heatTooltip: string;
+  heatLegendLess: string;
+  heatLegendMore: string;
+  devicesTitle: string;
+  devices: { mobile: string; tablet: string; desktop: string; unknown: string };
+  /** {sample} {bots} */
+  devicesNote: string;
+  tiers: { included: string; starter: string; advanced: string };
 }
 
 /**

@@ -39,6 +39,7 @@ import * as fairSetup from "./fairSetup";
 import * as fairPreEvent from "./fairPreEvent";
 import * as fairAdminDev from "./fairAdminDev";
 import * as fairHeat from "./fairHeat";
+import * as fairEventAnalytics from "./fairEventAnalytics";
 import * as fairSponsoredAdmin from "./fairSponsoredAdmin";
 
 vi.mock("server-only", () => ({}));
@@ -181,6 +182,8 @@ const AUTHZ: Record<string, { module: Record<string, unknown>; functions: Record
   fairAdminDev: { module: fairAdminDev, functions: { devState: A, grantStamps: A, simulateScan: A, resetMine: A } },
   // SAJAM SUPER Korak 3 — „Gde je gužva“: heat levels only, read by the Next server with FAIR_GATEWAY_SECRET.
   fairHeat: { module: fairHeat, functions: { getMapHeat: V } },
+  // SAJAM SUPER Korak 4 — Analitika: numbers only, admin, polled.
+  fairEventAnalytics: { module: fairEventAnalytics, functions: { getEventAnalytics: A, getEventAudience: A } },
 };
 
 type Registered = { isPublic?: boolean; isInternal?: boolean };
@@ -327,9 +330,11 @@ describe("B7 authz table of every fair function", () => {
       ["grantStamps", (c) => c.mutation(api.fairAdminDev.grantStamps, { gatewaySecret: GATEWAY_SECRET, visitorHash: "f".repeat(64), eventId: f.eventId, eventModelIds: [f.modelId] })],
       ["simulateScan", (c) => c.mutation(api.fairAdminDev.simulateScan, { gatewaySecret: GATEWAY_SECRET, visitorHash: "f".repeat(64), eventId: f.eventId, eventModelId: f.modelId })],
       ["resetMine", (c) => c.mutation(api.fairAdminDev.resetMine, { gatewaySecret: GATEWAY_SECRET, visitorHash: "f".repeat(64), eventId: f.eventId, scope: "all" })],
+      ["getEventAnalytics", (c) => c.query(api.fairEventAnalytics.getEventAnalytics, { eventId: f.eventId, at: Date.now() })],
+      ["getEventAudience", (c) => c.query(api.fairEventAnalytics.getEventAudience, { eventId: f.eventId, at: Date.now() })],
       ["resetPreEventData", (c) => c.mutation(api.fairPreEvent.resetPreEventData, { eventId: f.eventId, confirm: "RESETUJ", expected: { leads: 0, survey_responses: 0, ratings: 0, audience_votes: 0, brand_favorites: 0, passport_stamps: 0, sponsored_events: 0, traffic_events: 0, share_collections: 0, unique_scans: 0, scan_events: 0 } })],
     ];
-    const adminFunctions = ["fairInteractionsAdmin", "fairLeadsAdmin", "fairSponsoredAdmin", "fairReports", "fairRetention", "fairAdminStats", "fairAdminQr", "fairPassports", "fairLeadsInbox", "fairFollowUps", "fairDashboard", "fairPreEvent", "fairAdminDev"].flatMap((name) =>
+    const adminFunctions = ["fairInteractionsAdmin", "fairLeadsAdmin", "fairSponsoredAdmin", "fairReports", "fairRetention", "fairAdminStats", "fairAdminQr", "fairPassports", "fairLeadsInbox", "fairFollowUps", "fairDashboard", "fairPreEvent", "fairAdminDev", "fairEventAnalytics"].flatMap((name) =>
       Object.entries(AUTHZ[name].functions).filter(([, access]) => access === "admin").map(([fn]) => fn),
     );
     expect(calls.map(([name]) => name).sort()).toEqual(adminFunctions.sort());
