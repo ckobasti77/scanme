@@ -1,4 +1,6 @@
 .page {
+  /* The header spans the same column as the shared cards. */
+  --fair-shell-width: 620px;
   min-height: 100dvh;
   /* Garaža i Pasoši: sjaj u akcentu sajma (ranije uvek crveni Auto Moto Fest). */
   background: var(--fair-canvas-glow), var(--fair-canvas);

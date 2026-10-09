@@ -639,7 +639,8 @@
   aspect-ratio: var(--fair-map-ratio);
   overflow: hidden;
   overscroll-behavior: contain;
-  background: radial-gradient(circle at 50% 35%, rgb(255 253 248 / 0.9), transparent 62%), var(--fair-surface-muted);
+  /* A cool frame from the page tones around the warm map paper (no beige band, SAJAM SUPER). */
+  background: radial-gradient(circle at 50% 35%, rgb(255 253 248 / 0.9), transparent 62%), color-mix(in srgb, var(--fair-canvas) 94%, var(--fair-ink));
   cursor: grab;
   touch-action: none;
   user-select: none;
@@ -2651,5 +2652,34 @@
   .heatLegend {
     transition-duration: 0s;
     animation: none;
+  }
+}
+
+/* The map page (never the fair display, which has no data-panel): the fair
+   header spans the map's own column and gutters, so the lockup and the menu
+   line up with the search and the cards. */
+:global(.fair-event):has(.root[data-panel]) {
+  --fair-shell-width: 1440px;
+}
+
+:global(.fair-event):has(.root[data-panel]) :global(.fair-shell__inner) {
+  padding-inline: var(--fair-space-4);
+}
+
+@media (max-width: 374px) {
+  :global(.fair-event):has(.root[data-panel]) :global(.fair-shell__inner) {
+    padding-inline: var(--fair-space-3);
+  }
+}
+
+@media (min-width: 1024px) {
+  :global(.fair-event):has(.root[data-panel]) :global(.fair-shell__inner) {
+    padding-inline: var(--fair-space-8);
+  }
+}
+
+@media (min-width: 1440px) {
+  :global(.fair-event):has(.root[data-panel]) {
+    --fair-shell-width: 1920px;
   }
 }

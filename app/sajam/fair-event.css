@@ -137,7 +137,8 @@ body:has(.fair-event) [data-theme-toggle="global"] {
 .fair-shell__inner {
   display: flex;
   min-height: var(--fair-header-height);
-  max-width: 560px;
+  /* A page may widen the header to its own content column (garage, map, deli). */
+  max-width: var(--fair-shell-width, 560px);
   margin-inline: auto;
   padding: var(--fair-space-2) var(--fair-space-3);
   align-items: center;
@@ -1783,7 +1784,7 @@ body:has(.fair-event) [data-theme-toggle="global"] {
 .fair-sheet--full > header {
   position: static;
   min-height: 60px;
-  padding: 10px 10px 6px var(--fair-space-4);
+  padding: 10px var(--fair-space-4) 6px;
   gap: 10px;
   border-bottom: 0;
   background: var(--fair-canvas);
@@ -1980,11 +1981,13 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   flex-direction: column;
 }
 
+/* The overline of a question, as on Glas publike and the garage cards. */
 .fair-survey-step__eyebrow {
   color: var(--fair-accent-strong);
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
+  font-size: 11px;
+  font-weight: 720;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .fair-survey-step h3,
