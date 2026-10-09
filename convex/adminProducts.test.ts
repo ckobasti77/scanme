@@ -433,7 +433,7 @@ test("500 venues and 10,000 physical products paginate under 4 queries/250 docum
   }
   const filtered = await f.admin.query(api.adminProductReads.listInventory, { accountId: f.accountId, businessId: venues[0], state: "inactive", productType: "two-piece-stand", search: "dvodelni", paginationOpts: page(), sort: "smf", direction: "asc" });
   expect(filtered.page).toHaveLength(20);
-}, 60_000);
+}, 180_000); // ~57 s alone; the contract is transactionLimits (4 queries / 250 docs), not wall time
 
 test("ADMIN-13 reads expose canonical compact inventory facts and bounded technical channel context", async () => {
   const f = await setup();
