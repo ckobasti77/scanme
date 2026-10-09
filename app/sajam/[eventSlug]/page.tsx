@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { Suspense, cache } from "react";
 import { fetchQuery } from "convex/nextjs";
 import { api } from "@/convex/_generated/api";
@@ -13,6 +13,7 @@ import { fairModelSr } from "@/lib/i18n/sr/fair-model";
 import { MapSection } from "./_mapa/map-section";
 import { MapSkeleton } from "./_mapa/map-skeleton";
 import { MapUnavailable } from "./_mapa/map-unavailable";
+import { FAIR_PUBLIC_MAP_ENABLED } from "@/lib/fair-contract";
 
 // M1 — map / event home. Kodeks's shell and tokens are used as-is; the map
 // content streams under the shell. `?prikaz=ekran` forces the large-display
@@ -57,6 +58,8 @@ export default async function FairEventMapPage({
   searchParams: Promise<RouteSearchParams>;
 }) {
   const [{ eventSlug }, query] = await Promise.all([params, searchParams]);
+  // 9 Oct 2026: the map is hidden; its URL (and the entrance panel QR) opens the garage.
+  if (!FAIR_PUBLIC_MAP_ENABLED) redirect(`/sajam/${eventSlug}/garaza`);
   let event;
   try {
     event = await getEvent(eventSlug);

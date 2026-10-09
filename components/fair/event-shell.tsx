@@ -3,6 +3,7 @@ import Link from "next/link";
 import { CarFront, MapPin, Stamp } from "lucide-react";
 import type { FairModelDict } from "@/lib/i18n";
 import { GarageBadge } from "./garage-controls";
+import { FAIR_PUBLIC_MAP_ENABLED } from "@/lib/fair-contract";
 
 export function FairEventShell({
   eventId,
@@ -38,7 +39,7 @@ export function FairEventShell({
         </div>
 
         <nav className="fair-shell__nav" aria-label={eventTitle}>
-          {current === "map" ? (
+          {!FAIR_PUBLIC_MAP_ENABLED ? null : current === "map" ? (
             <span className="fair-shell__current" aria-current="page"><MapPin aria-hidden="true" /><span>{dict.mapNav}</span></span>
           ) : (
             <Link prefetch={false} href={`/sajam/${eventSlug}`}><MapPin aria-hidden="true" /><span>{dict.mapNav}</span></Link>

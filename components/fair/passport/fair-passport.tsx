@@ -40,6 +40,7 @@ import { NewStampCard } from "./new-stamp-card";
 import { PassportFinale } from "./passport-finale";
 import { PassportSeal, passportBrandSealTexts, passportEventSealTexts } from "./passport-seal";
 import { PassportUnlockCard } from "./passport-unlock-card";
+import { FAIR_PUBLIC_MAP_ENABLED } from "@/lib/fair-contract";
 
 type EventView = {
   id: string;
@@ -636,7 +637,7 @@ function PassportDetail({
               {!collected ? (
                 <span className={styles.lockState}><LockKeyhole aria-hidden="true" /></span>
               ) : null}
-              {!collected ? <span className={styles.mapHint}><MapPin aria-hidden="true" />{dict.findOnMap}</span> : null}
+              {!collected && FAIR_PUBLIC_MAP_ENABLED ? <span className={styles.mapHint}><MapPin aria-hidden="true" />{dict.findOnMap}</span> : null}
             </>
           );
           return collected ? (
@@ -645,6 +646,15 @@ function PassportDetail({
               className={`${styles.modelCard} ${styles.modelCardCollected}`}
               data-passport-model={passportModel.eventModelId}
               aria-label={fmt(dict.modelUnlockedAria, { model: modelName })}
+            >
+              {content}
+            </article>
+          ) : !FAIR_PUBLIC_MAP_ENABLED ? (
+            <article
+              key={passportModel.eventModelId}
+              className={`${styles.modelCard} ${styles.modelCardLocked}`}
+              data-passport-model={passportModel.eventModelId}
+              aria-label={fmt(dict.modelLockedAriaNoMap, { model: modelName })}
             >
               {content}
             </article>

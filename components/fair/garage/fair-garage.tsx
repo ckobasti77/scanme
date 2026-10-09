@@ -75,6 +75,7 @@ import type { FairGarageDict, FairModelDict } from "@/lib/i18n/types";
 import { FairEventShell } from "../event-shell";
 import { FairBrandMark } from "./fair-brand-mark";
 import styles from "./fair-garage.module.css";
+import { FAIR_PUBLIC_MAP_ENABLED } from "@/lib/fair-contract";
 
 type RefreshState = "idle" | "loading" | "ready" | "error";
 type PassportLoad = { state: "loading" | "error" | "ready"; value: FairPassportState | null };
@@ -1259,7 +1260,7 @@ export function FairGarage({
             </div>
           </section>
         ) : mounted ? (
-          <section className={styles.emptyState} data-garage-empty><div className={styles.emptyVisual} aria-hidden="true"><CarFront /></div><h2>{dict.emptyTitle}</h2><p>{dict.emptyBody}</p><Link href={`/sajam/${routeEventSlug}`}><MapPin aria-hidden="true" />{dict.emptyAction}</Link></section>
+          <section className={styles.emptyState} data-garage-empty><div className={styles.emptyVisual} aria-hidden="true"><CarFront /></div><h2>{dict.emptyTitle}</h2>{FAIR_PUBLIC_MAP_ENABLED ? <><p>{dict.emptyBody}</p><Link href={`/sajam/${routeEventSlug}`}><MapPin aria-hidden="true" />{dict.emptyAction}</Link></> : <p>{dict.emptyBodyNoMap}</p>}</section>
         ) : <div className={styles.loadingState} aria-hidden="true"><span /><span /><span /></div>}
 
         <p className={styles.storageNotice}>{dict.storageNotice}</p>

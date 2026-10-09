@@ -60,6 +60,7 @@ export const fairGarageSr = {
   emptyTitle: "Garaža je spremna za prvi model",
   emptyBody: "Skenirajte oznaku uz automobil ili ga dodajte sa sajamske mape.",
   emptyAction: "Otvori mapu sajma",
+  emptyBodyNoMap: "Skenirajte QR kod uz automobil i sačuvajte ga u garažu.",
   refreshError: "Podaci nisu osveženi.",
   offlineNotice: "Nema mreže. Prikazujemo sačuvane podatke.",
   retry: "Pokušaj ponovo",

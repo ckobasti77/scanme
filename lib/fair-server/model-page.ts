@@ -11,6 +11,7 @@ import { epochToBelgradeLocal } from "@/lib/belgrade-time";
 import { fairMapEventSlugCandidates, fairMapLocationById } from "@/lib/fair-map";
 import { fmt } from "@/lib/i18n/format";
 import { fairMapSr } from "@/lib/i18n/sr/fair-map";
+import { FAIR_PUBLIC_MAP_ENABLED } from "@/lib/fair-contract";
 
 export const loadFairModelPage = cache(async (publicEventSlug: string, modelSlug: string) => {
   for (const candidate of fairMapEventSlugCandidates(
@@ -82,6 +83,8 @@ export type FairModelStand = { text: string; href: string };
 
 /** From the event map geometry (no extra read); null when the location is not on the map. */
 export function fairModelStand(event: { code: string }, model: { standMapLocationId: string }, publicEventSlug: string): FairModelStand | null {
+  // 9 Oct 2026: the map (and its stand data) is hidden, so is the chip that opens it.
+  if (!FAIR_PUBLIC_MAP_ENABLED) return null;
   const found = fairMapLocationById(event.code, model.standMapLocationId);
   if (!found) return null;
   const zone = fairMapSr.zones[found.zoneId];
