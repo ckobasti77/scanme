@@ -278,6 +278,7 @@ export const estimateFollowUps = query({
     const leads = await ctx.db
       .query("fairLeads")
       .withIndex("by_eventId_and_createdAt", (q) => q.eq("eventId", event._id))
+      .filter((q) => q.neq(q.field("isAdminExcluded"), true))
       .order("desc")
       .take(ESTIMATE_LEADS_CAP + 1);
     const capped = leads.length > ESTIMATE_LEADS_CAP;

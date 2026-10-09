@@ -4,6 +4,7 @@ import { ConvexHttpClient } from "convex/browser";
 import type { FunctionArgs, FunctionReturnType } from "convex/server";
 import { api } from "@/convex/_generated/api";
 import type { FairErrorCode, FairSponsoredActionKind } from "@/lib/fair-contract";
+import { fairMutationWithSession } from "./convex-session";
 import { fairGatewayError, fairGatewayJson, fairGatewayRequest } from "./gateway";
 import { fairBackendFailure } from "./interactions";
 import { fairConvexVisitorForRequest, type FairVisitorEnv } from "./visitor";
@@ -30,7 +31,7 @@ export type FairSponsoredBackend = {
 
 export function convexFairSponsoredBackend(convexUrl: string): FairSponsoredBackend {
   const client = new ConvexHttpClient(convexUrl);
-  return { recordSponsoredAction: (args) => client.mutation(api.fairInteractions.recordSponsoredAction, args) };
+  return { recordSponsoredAction: (args) => fairMutationWithSession(client, api.fairInteractions.recordSponsoredAction, args) };
 }
 
 function defaultBackend(): FairSponsoredBackend | null {

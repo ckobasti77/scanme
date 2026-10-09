@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { FairAdminTools } from "@/components/fair/admin/fair-admin-tools";
 import { FairGarage } from "@/components/fair/garage/fair-garage";
 import {
   GARAGE_EVENT_SWITCH_ENABLED,
@@ -48,6 +49,7 @@ export default async function FairGaragePage({
       switchEvents={switchEvents}
       dict={dict}
       shellDict={fairModelSr}
+      adminTools={event.event ? <FairAdminTools event={{ id: event.event.id, slug: eventSlug, dataSlug: event.dataSlug, title: event.event.title }} /> : null}
     />
   );
 }

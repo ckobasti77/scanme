@@ -29,6 +29,7 @@ export const fairPassportSr = {
   favoriteError: "Izbor trenutno nije sačuvan.",
   poweredBy: "Powered by ScanMe",
   devLink: "dev",
+  privacyLink: "Privatnost",
   devPanelTitle: "DEV provera pasoša",
   devStampGroup: "Pečati",
   devAddStamp: "Dodaj {model}",

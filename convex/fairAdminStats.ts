@@ -50,6 +50,8 @@ export const getLeadCounts = query({
       const leads = await ctx.db
         .query("fairLeads")
         .withIndex("by_participationId_and_createdAt", (q) => q.eq("participationId", participation._id).gte("createdAt", fairAnalyticsCutoff(event)))
+        // Admin-session test leads left out too (JOVAN-DELTA 2026-10-09).
+        .filter((q) => q.neq(q.field("isAdminExcluded"), true))
         .take(budget + 1);
       if (leads.length > budget) {
         capped = true;

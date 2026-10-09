@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { CarFront, MapPin, Stamp } from "lucide-react";
 import type { FairModelDict } from "@/lib/i18n";
@@ -10,6 +11,7 @@ export function FairEventShell({
   eventName,
   dict,
   current,
+  adminTools,
 }: {
   eventId: string;
   eventSlug: string;
@@ -17,6 +19,8 @@ export function FairEventShell({
   eventName: string;
   dict: FairModelDict;
   current?: "map" | "passports" | "garage";
+  /** Admin DEV tools (components/fair/admin): null for every visitor. */
+  adminTools?: ReactNode;
 }) {
   const publicEventName = eventName
     .replace(/^TEST\s+/i, "")
@@ -57,6 +61,7 @@ export function FairEventShell({
           )}
         </nav>
       </div>
+      {adminTools}
     </header>
   );
 }

@@ -630,6 +630,8 @@ export const leadsExportPage = internalQuery({
     const page = await ctx.db
       .query("fairLeads")
       .withIndex("by_participationId_and_createdAt", (q) => q.eq("participationId", participation._id).gte("createdAt", fairAnalyticsCutoff(event)))
+      // Nor admin-session test leads (JOVAN-DELTA 2026-10-09).
+      .filter((q) => q.neq(q.field("isAdminExcluded"), true))
       .paginate({ numItems: LEAD_EXPORT_PAGE, cursor: args.cursor });
     // A8 (ADMIN-UX §7, MASTER §4/§12): next to each contact, the visitor's
     // activity on THIS exhibitor's models — only the groups the package of

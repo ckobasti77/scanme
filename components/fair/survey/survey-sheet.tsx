@@ -151,7 +151,7 @@ export function SurveySheet() {
         </span>
         <h3>{interestForm ? fmt(dict.surveyFinalTitleContact, { brand: model.brandName }) : dict.surveyFinalTitle}</h3>
         <p className="fair-survey-step__lead">
-          {interestForm ? fmt(dict.surveyFinalBodyContact, { brand: model.brandName }) : dict.surveyFinalBody}
+          {interestForm ? fmt(dict.surveyFinalBodyContact, { exhibitor: model.exhibitorName }) : dict.surveyFinalBody}
         </p>
         {interestForm ? (
           <ContactBlock

@@ -12,6 +12,7 @@ import {
   type FairTrafficKind,
 } from "@/lib/fair-contract";
 import { fairPublicEventSlug } from "@/lib/fair-public-event";
+import { fairMutationWithSession } from "./convex-session";
 import { fairGatewayError, fairGatewayJson, fairGatewayRequest } from "./gateway";
 import { fairBackendFailure } from "./interactions";
 import { fairConvexVisitorForRequest, type FairVisitorEnv } from "./visitor";
@@ -36,8 +37,8 @@ export type FairSharingBackend = {
 export function convexFairSharingBackend(convexUrl: string): FairSharingBackend {
   const client = new ConvexHttpClient(convexUrl);
   return {
-    createShareCollection: (args) => client.mutation(api.fairSharing.createShareCollection, args),
-    recordTraffic: (args) => client.mutation(api.fairSharing.recordTraffic, args),
+    createShareCollection: (args) => fairMutationWithSession(client, api.fairSharing.createShareCollection, args),
+    recordTraffic: (args) => fairMutationWithSession(client, api.fairSharing.recordTraffic, args),
     getModelsByIds: (args) => client.query(api.fairPublic.getModelsByIds, args),
   };
 }

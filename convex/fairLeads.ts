@@ -34,6 +34,7 @@ import {
 import { fairLeadKind, fairLeadSubmitResultView } from "./lib/fairValidators";
 import { rateLimiter } from "./lib/rateLimits";
 import { fairIsPreEvent } from "./lib/fairPreEvent";
+import { fairSessionAdminUserId } from "./lib/fairScans";
 
 // =============================================================================
 // Sajam automobila 2026 — B4 `Zainteresovan sam` / `Probna vožnja`
@@ -166,6 +167,9 @@ export const submitLead = mutation({
     const perIp = await rateLimiter.limit(ctx, "fairLeadIp", { key: args.ipHash ?? "shared" });
     if (!perIp.ok) fairInteractionError("RATE_LIMITED", { retryAfterMs: Math.ceil(perIp.retryAfter) });
 
+    // JOVAN-DELTA 2026-10-09: an admin-session lead is a test lead — stored
+    // and confirmed by email, but never in the inbox, exports or counts.
+    const adminExcluded = (await fairSessionAdminUserId(ctx)) !== null;
     const leadId = await ctx.db.insert("fairLeads", {
       submissionId: args.submissionId,
       kind: args.kind,
@@ -180,6 +184,7 @@ export const submitLead = mutation({
       consentedAt: now,
       status: "received",
       followUpSuppressed: false,
+      ...(adminExcluded ? { isAdminExcluded: true } : {}),
       createdAt: now,
       purgeAt: FAIR_PII_PURGE_AT_MS,
     });
@@ -196,7 +201,8 @@ export const submitLead = mutation({
       // is off never gains one later (its confirmation did not announce one).
       // N5: the same for a lead over the soft cap — no confirmation announced it.
       // Pre-event (JOVAN-DELTA 2026-10-08b): a test lead before the opening never gets the exhibitor's follow-up.
-      const followUpAt = rights.postEventFollowUp && fairFollowUpEnabled() && !recipientCapped && !fairIsPreEvent(now, event) ? fairFollowUpScheduleFor(event.endsAt, now) : null;
+      // Neither does an admin-session test lead (JOVAN-DELTA 2026-10-09).
+      const followUpAt = rights.postEventFollowUp && fairFollowUpEnabled() && !recipientCapped && !fairIsPreEvent(now, event) && !adminExcluded ? fairFollowUpScheduleFor(event.endsAt, now) : null;
       if (followUpAt !== null) {
         await queueFairLeadEmail(ctx, { leadId, kind: "post_event_follow_up", recipient, scheduledFor: followUpAt, now });
         followUpScheduled = true;

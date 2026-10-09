@@ -11,7 +11,7 @@ import {
 } from "../lib/fair-contract";
 import { requireFairGateway } from "./lib/fairGateway";
 import { fairInteractionError, requireFairVisitorRow } from "./lib/fairInteractions";
-import { fairTimeKeys } from "./lib/fairScans";
+import { fairSessionAdminUserId, fairTimeKeys } from "./lib/fairScans";
 import { rateLimiter } from "./lib/rateLimits";
 
 // K1 (FAIR-BACKEND-CONTRACT §27, sync 2026-10-05): createShareCollection and
@@ -124,6 +124,7 @@ export const createShareCollection = mutation({
       eventId,
       eventModelIds: models.map((model) => model._id),
       status: "active",
+      ...((await fairSessionAdminUserId(ctx)) !== null ? { isAdminExcluded: true } : {}),
       createdAt: now,
       expiresAt: FAIR_PII_PURGE_AT_MS,
     });
@@ -215,6 +216,7 @@ export const recordTraffic = mutation({
       occurredAt: now,
       dateKey: time.dateKey,
       hourKey: time.hourKey,
+      ...((await fairSessionAdminUserId(ctx)) !== null ? { isAdminExcluded: true } : {}),
     });
     return { kind, recordedAt: now, duplicate: false };
   },

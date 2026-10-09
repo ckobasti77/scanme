@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { FairAdminTools } from "@/components/fair/admin/fair-admin-tools";
 import { FairEventShell } from "@/components/fair/event-shell";
 import { FairPassportExperience } from "@/components/fair/passport/fair-passport";
 import { fairPassportBrandSlug } from "@/lib/fair-passport";
@@ -46,6 +47,7 @@ export default async function FairBrandPassportPage({
         eventName={data.event.title}
         dict={fairModelSr}
         current="passports"
+        adminTools={<FairAdminTools event={{ id: data.event.id, slug: eventSlug, dataSlug: data.event.slug, title: data.event.title }} brandName={passport.brandName} />}
       />
       <FairPassportExperience
         event={{ id: data.event.id, publicSlug: eventSlug, dataSlug: data.event.slug, title: data.event.title }}

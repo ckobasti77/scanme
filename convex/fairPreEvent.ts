@@ -89,8 +89,13 @@ async function preEventCounts(ctx: QueryCtx, event: Doc<"fairEvents">): Promise<
   return out;
 }
 
-/** Deletes one row and takes its share back out of the counters it bumped. */
-async function removePreEventRow(ctx: MutationCtx, event: Doc<"fairEvents">, category: FairPreEventCategory, row: { _id: Id<TableNames> }) {
+/**
+ * Deletes one row and takes its share back out of the counters it bumped.
+ * Admin-session rows never bumped one (JOVAN-DELTA 2026-10-09), so they are
+ * only deleted. Also used by the admin DEV tools (convex/fairAdminDev.ts).
+ */
+export async function removePreEventRow(ctx: MutationCtx, event: Doc<"fairEvents">, category: FairPreEventCategory, row: { _id: Id<TableNames> }) {
+  const counted = (row as { isAdminExcluded?: boolean }).isAdminExcluded !== true;
   switch (category) {
     case "leads": {
       const lead = row as Doc<"fairLeads">;
@@ -102,6 +107,7 @@ async function removePreEventRow(ctx: MutationCtx, event: Doc<"fairEvents">, cat
     }
     case "ratings": {
       const rating = row as Doc<"fairRatings">;
+      if (!counted) break;
       for (const field of FAIR_RATING_FIELDS) {
         const value = rating[field];
         if (value === undefined) continue;
@@ -112,11 +118,12 @@ async function removePreEventRow(ctx: MutationCtx, event: Doc<"fairEvents">, cat
     }
     case "audience_votes": {
       const vote = row as Doc<"fairAudienceVotes">;
-      await bumpFairCount(ctx, fairAudienceVoteKey(vote.questionId, vote.optionId), -1);
+      if (counted) await bumpFairCount(ctx, fairAudienceVoteKey(vote.questionId, vote.optionId), -1);
       break;
     }
     case "brand_favorites": {
       const favorite = row as Doc<"fairBrandFavoriteVotes">;
+      if (!counted) break;
       const passport = await ctx.db
         .query("fairPassportConfigs")
         .withIndex("by_eventId_and_brandId", (q) => q.eq("eventId", event._id).eq("brandId", favorite.brandId))
@@ -126,6 +133,7 @@ async function removePreEventRow(ctx: MutationCtx, event: Doc<"fairEvents">, cat
     }
     case "sponsored_events": {
       const action = row as Doc<"fairSponsoredEvents">;
+      if (!counted) break;
       for (const key of fairSponsoredCountKeys(action.kind, action.eventModelId, action)) await bumpFairCount(ctx, key, -1);
       break;
     }

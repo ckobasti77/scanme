@@ -11,6 +11,7 @@ import {
   type FairErrorCode,
   type FairErrorDetails,
 } from "@/lib/fair-contract";
+import { fairMutationWithSession } from "./convex-session";
 import { fairGatewayError, fairGatewayJson, fairGatewayRequest } from "./gateway";
 import { fairConvexVisitorForRequest, warnOnce, type FairVisitorEnv } from "./visitor";
 
@@ -45,10 +46,10 @@ export function convexFairInteractionsBackend(convexUrl: string): FairInteractio
   return {
     getMyModelState: (args) => client.query(api.fairInteractions.getMyModelState, args),
     getMyPassportProgress: (args) => client.query(api.fairInteractions.getMyPassportProgress, args),
-    upsertRating: (args) => client.mutation(api.fairInteractions.upsertRating, args),
-    upsertAudienceVote: (args) => client.mutation(api.fairInteractions.upsertAudienceVote, args),
-    submitSurvey: (args) => client.mutation(api.fairInteractions.submitSurvey, args),
-    upsertBrandFavorite: (args) => client.mutation(api.fairInteractions.upsertBrandFavorite, args),
+    upsertRating: (args) => fairMutationWithSession(client, api.fairInteractions.upsertRating, args),
+    upsertAudienceVote: (args) => fairMutationWithSession(client, api.fairInteractions.upsertAudienceVote, args),
+    submitSurvey: (args) => fairMutationWithSession(client, api.fairInteractions.submitSurvey, args),
+    upsertBrandFavorite: (args) => fairMutationWithSession(client, api.fairInteractions.upsertBrandFavorite, args),
   };
 }
 
