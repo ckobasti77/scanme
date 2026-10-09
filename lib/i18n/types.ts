@@ -125,7 +125,6 @@ export interface FairMapDict {
   standAria: string;
   standLocation: string;
   standUnplaced: string;
-  selectHint: string;
   closeDetail: string;
   modelsLabel: string;
   listTitle: string;

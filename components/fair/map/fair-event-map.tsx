@@ -165,6 +165,13 @@ export function FairEventMapView({
   const summary = selectedLocationId ? fairMapLocationSummary(view, selectedLocationId, focusParticipation) : null;
   const unlocated = selection && "unlocated" in selection ? (exhibitors.find((row) => row.participationId === selection.unlocated) ?? null) : null;
   const selectedParticipationId = selection ? ("unlocated" in selection ? selection.unlocated : (selection.participationId ?? null)) : null;
+  // Desktop: the "Izabrani štand" column exists only while something is chosen;
+  // while it collapses it keeps the last choice on screen.
+  const panelOpen = summary !== null || unlocated !== null;
+  const [panelSelection, setPanelSelection] = useState(selection);
+  if (selection && selection !== panelSelection) setPanelSelection(selection);
+  const panelSummary = panelOpen ? summary : panelSelection && "locationId" in panelSelection ? fairMapLocationSummary(view, panelSelection.locationId, panelSelection.participationId) : null;
+  const panelUnlocated = panelOpen ? unlocated : panelSelection && "unlocated" in panelSelection ? (exhibitors.find((row) => row.participationId === panelSelection.unlocated) ?? null) : null;
   // Every zone is on screen on a large display; a phone/desktop shows the chosen one.
   const allZones = display || isWide;
 
@@ -226,6 +233,17 @@ export function FairEventMapView({
     syncUrl(zoneId, null);
   };
 
+  // Escape closes the desktop panel (the phone sheet handles its own).
+  useEffect(() => {
+    if (!isDesktop || display || !panelOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !event.defaultPrevented) closeSelection();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- closeSelection only reads zoneId
+  }, [isDesktop, display, panelOpen, zoneId]);
+
   const chooseZone = (next: FairMapZoneId) => {
     setZoneId(next);
     const keep = selectedLocationId !== null && summary?.zoneId === next;
@@ -258,11 +276,11 @@ export function FairEventMapView({
     : null;
   const sheetOpen = !display && !isDesktop && (summary !== null || unlocated !== null);
 
-  const detail = (headingId: string) =>
-    summary ? (
-      <FairMapStandDetail summary={summary} eventSlug={eventSlug} passportInfo={passportInfo} headingId={headingId} action={<FairMapCloseButton onClose={closeSelection} />} />
-    ) : unlocated ? (
-      <FairMapUnlocatedDetail exhibitor={unlocated} placeText={unlocatedText(unlocated)} headingId={headingId} action={<FairMapCloseButton onClose={closeSelection} />} />
+  const detail = (headingId: string, shown = { summary, unlocated }) =>
+    shown.summary ? (
+      <FairMapStandDetail summary={shown.summary} eventSlug={eventSlug} passportInfo={passportInfo} headingId={headingId} action={<FairMapCloseButton onClose={closeSelection} />} />
+    ) : shown.unlocated ? (
+      <FairMapUnlocatedDetail exhibitor={shown.unlocated} placeText={unlocatedText(shown.unlocated)} headingId={headingId} action={<FairMapCloseButton onClose={closeSelection} />} />
     ) : null;
 
   const rotationCard = (placement: "inline" | "panel") =>
@@ -288,7 +306,7 @@ export function FairEventMapView({
   const pick = (result: (typeof results)[number]) => (result.place ? selectLocation(result.place.location.id, result.participationId) : selectUnlocated(result.participationId));
 
   return (
-    <div className={styles.root} data-display={display ? "on" : undefined}>
+    <div className={styles.root} data-display={display ? "on" : undefined} data-panel={display ? undefined : panelOpen ? "open" : "closed"}>
       <section className={styles.intro} aria-labelledby="fair-map-intro-title">
         <div className={styles.introText}>
           <h2 id="fair-map-intro-title" className={styles.introTitle}>
@@ -323,7 +341,10 @@ export function FairEventMapView({
                 aria-controls={query.trim() ? "fair-map-results" : undefined}
                 onChange={(event) => setQuery(event.target.value)}
                 onKeyDown={(event) => {
-                  if (event.key === "Escape") setQuery("");
+                  if (event.key === "Escape" && query) {
+                    event.preventDefault();
+                    setQuery("");
+                  }
                   if (event.key === "Enter" && results[0]) pick(results[0]);
                 }}
               />
@@ -412,7 +433,9 @@ export function FairEventMapView({
             showOriginal={showOriginal}
             passportMarkers={passportMarkers}
             bubble={isDesktop && !display ? bubble : null}
-            onSelect={(locationId) => selectLocation(locationId)}
+            // Desktop: a second click on the chosen stand, or a click on an empty part of the map, closes the panel.
+            onSelect={(locationId) => (isDesktop && locationId === selectedLocationId ? closeSelection() : selectLocation(locationId))}
+            onEmptyTap={isDesktop && panelOpen ? closeSelection : undefined}
             onToggleOriginal={() => setShowOriginal((value) => !value)}
           />
         ))}
@@ -447,10 +470,10 @@ export function FairEventMapView({
       {display ? (
         <aside className={styles.panel}>{rotationCard("panel")}</aside>
       ) : (
-        <aside className={styles.panel} aria-label={dict.selectedStand}>
+        <aside className={styles.panel} aria-label={dict.selectedStand} inert={!panelOpen}>
           {rotationCard("panel")}
           <section className={styles.card} aria-live="polite">
-            {summary || unlocated ? detail("fair-map-panel-title") : <p className={styles.hint}>{hasExhibitors ? dict.selectHint : dict.listEmpty}</p>}
+            {detail("fair-map-panel-title", { summary: panelSummary, unlocated: panelUnlocated })}
           </section>
         </aside>
       )}

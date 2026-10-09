@@ -2,8 +2,9 @@
    tokens only (app/sajam/fair-event.css, Archivo). --fair-map-scanme
    (EVENT-DESIGN-SYSTEM §5.1 `event.scanmeStand`, not in fair-event.css yet —
    jovan-status/M1.md) is set inline on the ScanMe location element only, so
-   nothing else can resolve it. Phone first; 1024 px: map + "Izabrani štand"
-   panel; 1440 px and ?prikaz=ekran: hall and the area in front side by side,
+   nothing else can resolve it. Phone first; 1024 px: full width until a
+   stand is chosen, then map + "Izabrani štand" panel; 1440 px and
+   ?prikaz=ekran: hall and the area in front side by side,
    the rear area as a small inset. */
 
 /* ------------------------------------------------------------------ layout */
@@ -1420,9 +1421,25 @@
 @media (min-width: 1024px) {
   .root {
     --fair-map-gutter: 32px;
+    --fair-map-panel: 380px;
+    --fair-map-ease: cubic-bezier(0.32, 0.72, 0, 1);
     gap: 16px 20px;
-    grid-template-columns: minmax(0, 1fr) 380px;
+    grid-template-columns: minmax(0, 1fr) var(--fair-map-panel);
     align-items: start;
+  }
+
+  /* Nothing chosen: no right column — intro, tools, map and list take the
+     full width. A choice opens the column and an un-click closes it, both
+     as one glide of the grid track; the map keeps the stand in view. */
+  .root[data-panel] {
+    transition:
+      grid-template-columns 460ms var(--fair-map-ease),
+      column-gap 460ms var(--fair-map-ease);
+  }
+
+  .root[data-panel="closed"] {
+    column-gap: 0;
+    grid-template-columns: minmax(0, 1fr) 0px;
   }
 
   .root > :not(.panel) {
@@ -1473,6 +1490,41 @@
     display: none;
   }
 
+  /* The paid rotation stays on screen in the full width: right under the map, in one row. */
+  .root[data-panel="closed"] .rotationInline {
+    display: block;
+    animation: fair-map-reveal-in 360ms ease-out both;
+  }
+
+  .rotationInline .rotation {
+    display: grid;
+    align-content: center;
+  }
+
+  .rotationInline .rotationBody {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px 28px;
+  }
+
+  .rotationInline .rotationHead {
+    flex: 1 1 280px;
+  }
+
+  .rotationInline .rotationQuestion {
+    flex: 1 1 300px;
+    padding: 0 0 0 28px;
+    border-top: 0;
+    border-left: 1px solid var(--fair-line);
+  }
+
+  .rotationInline .rotationStand {
+    flex: 0 1 auto;
+    flex-direction: column;
+    align-items: flex-end;
+  }
+
   .pinText {
     display: inline;
   }
@@ -1487,6 +1539,25 @@
     gap: 12px;
     overflow-y: auto;
     overscroll-behavior: contain;
+  }
+
+  /* While the column glides the content keeps its final width and is
+     clipped, so it slides in from the right instead of re-wrapping. */
+  .root[data-panel] .panel {
+    overflow-x: hidden;
+    transition: opacity 280ms ease-out 140ms;
+  }
+
+  .root[data-panel] .panel > * {
+    min-width: var(--fair-map-panel);
+  }
+
+  .root[data-panel="closed"] .panel {
+    visibility: hidden;
+    opacity: 0;
+    transition:
+      opacity 180ms ease-out,
+      visibility 0s linear 460ms;
   }
 
   .rotationPanel {
@@ -1516,8 +1587,13 @@
 
 @media (min-width: 1440px) {
   .root {
+    --fair-map-panel: 400px;
     max-width: 1920px;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 400px;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) var(--fair-map-panel);
+  }
+
+  .root[data-panel="closed"] {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 0px;
   }
 
   .root > :not(.panel) {
@@ -1748,7 +1824,14 @@
 
   .rotationBody,
   .rotationFill,
-  .rotationHighlight .rotationGlow {
+  .rotationHighlight .rotationGlow,
+  .root[data-panel="closed"] .rotationInline {
     animation: none;
+  }
+
+  .root[data-panel],
+  .root[data-panel] .panel,
+  .root[data-panel="closed"] .panel {
+    transition: none;
   }
 }
