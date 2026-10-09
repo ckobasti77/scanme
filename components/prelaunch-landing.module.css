@@ -156,53 +156,6 @@
   gap: 0.75rem;
 }
 
-.fairStatus {
-  display: inline-flex;
-  min-height: 1.75rem;
-  align-items: center;
-  gap: 0.5rem;
-  border: 1px solid color-mix(in srgb, var(--foreground) 14%, transparent);
-  border-radius: var(--button-radius);
-  background: color-mix(in srgb, var(--card) 58%, transparent);
-  box-shadow: inset 0 1px 0 var(--nav-glass-inner);
-  -webkit-backdrop-filter: blur(10px) saturate(140%);
-  backdrop-filter: blur(10px) saturate(140%);
-  padding: 0.3rem 0.7rem 0.3rem 0.6rem;
-  font-family: var(--font-mono), monospace;
-  font-size: 0.7rem;
-  font-weight: 600;
-  line-height: 1;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-
-.fairStatus[data-kind="pending"] { visibility: hidden; }
-
-.fairStatusDot {
-  position: relative;
-  width: 0.5rem;
-  height: 0.5rem;
-  flex: 0 0 auto;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--foreground) 28%, transparent);
-}
-
-.fairStatus[data-kind="live"] .fairStatusDot,
-.fairStatus[data-kind="next"] .fairStatusDot {
-  background: var(--primary);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--foreground) 38%, transparent);
-}
-
-.fairStatus[data-kind="live"] .fairStatusDot::after {
-  position: absolute;
-  inset: 0;
-  content: "";
-  border-radius: inherit;
-  background: var(--primary);
-  opacity: 0;
-}
-
 .fairPartner {
   display: grid;
   grid-template-columns: auto auto;
@@ -235,6 +188,11 @@
   text-transform: uppercase;
 }
 
+.fairYearWrap {
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+
 .fairYear {
   width: auto;
   height: 0.8em;
@@ -249,7 +207,6 @@
 }
 
 .fairPlace {
-  margin-top: 0.4rem;
   color: color-mix(in srgb, var(--foreground) 62%, transparent);
   font-family: var(--font-mono), monospace;
   font-size: 0.7rem;
@@ -341,17 +298,17 @@ a.fairEvent:hover { border-color: color-mix(in srgb, var(--foreground) 58%, tran
 .fairEvents { --fair-shine: rgb(0 0 0 / 0.62); }
 html[data-theme="dark"] .fairEvents { --fair-shine: rgb(255 255 255 / 0.95); }
 
-.fairEvent[data-state="live"]::before,
-.fairEvent[data-state="next"]::before {
+.fairEventState {
   position: absolute;
-  top: 0.5rem;
-  right: 0.5rem;
-  width: 0.4rem;
-  height: 0.4rem;
-  content: "";
-  border-radius: 999px;
-  background: var(--primary);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--foreground) 38%, transparent);
+  top: 0.45rem;
+  right: 0.55rem;
+  color: var(--accent-text);
+  font-family: var(--font-mono), monospace;
+  font-size: 0.6rem;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
 
 .fairCta {
@@ -384,37 +341,41 @@ html[data-theme="dark"] .fairEvents { --fair-shine: rgb(255 255 255 / 0.95); }
     row-gap: 0.85rem;
     padding-block: 1.1rem 1.35rem;
   }
+  /* Naslov je u istom redu sa čipovima i CTA. */
+  .fairBannerInner { align-items: center; }
   .fairTitle { font-size: clamp(2.25rem, 3vw, 3rem); white-space: nowrap; }
-  .fairPlace { margin-top: 0.55rem; }
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  .fairBanner::after { animation: fair-banner-scan 7s cubic-bezier(0.45, 0, 0.55, 1) 1.2s infinite; }
-  .fairStatus[data-kind="live"] .fairStatusDot::after { animation: fair-live-pulse 1.8s ease-out infinite; }
-  /* „2026“ i ivica aktuelnog sajma dele isti ciklus od 6 s i kreću zajedno
-     (kad klijent odredi stanje sajma): talas pređe preko „2026“ s leva na
-     desno, a čim izađe iz poslednje kolone, odsjaj prelazi na ivicu čipa. */
-  .fairBanner[data-status] .fairYearDot { animation: fair-year-scan 6s ease-in-out infinite; animation-delay: calc(var(--c) * 70ms); }
-  .fairBanner[data-status] .fairEvent[data-state="live"]::after { animation: fair-event-shine 6s linear infinite; }
+  /* Tri animacije, jedan ciklus od 6 s; kreću zajedno kad klijent odredi
+     stanje sajma (data-status). Zelena linija prelazi donjom ivicom za 2,4 s
+     (linearno); --fair-sync je trenutak kad je ispod levog ruba „2026“
+     (meri ga prelaunch-fair-banner.tsx). Tada kreće talas preko „2026“, a kad
+     izađe iz poslednje kolone (+1,3 s), odsjaj prelazi na ivicu čipa. */
+  .fairBanner[data-status]::after { animation: fair-banner-scan 6s linear infinite; }
+  .fairBanner[data-status] .fairYearDot {
+    animation: fair-year-scan 6s ease-in-out infinite;
+    animation-delay: calc(var(--fair-sync, 900ms) + var(--c) * 70ms);
+  }
+  .fairBanner[data-status] .fairEvent[data-state="live"]::after {
+    animation: fair-event-shine 6s linear infinite;
+    animation-delay: calc(var(--fair-sync, 900ms) + 1300ms);
+  }
 }
 
+/* 0–40 % ciklusa (2,4 s) linija linearno prelazi od -100 % do 320 % svoje širine. */
 @keyframes fair-banner-scan {
   0% { opacity: 0; transform: translate3d(-100%, 0, 0); }
-  10% { opacity: 1; }
-  60% { opacity: 1; transform: translate3d(320%, 0, 0); }
-  66%, 100% { opacity: 0; transform: translate3d(320%, 0, 0); }
+  3%, 37% { opacity: 1; }
+  40% { opacity: 0; transform: translate3d(320%, 0, 0); }
+  100% { opacity: 0; transform: translate3d(320%, 0, 0); }
 }
 
+/* 0–25 % ciklusa (1,5 s) odsjaj prelazi preko ivice čipa. */
 @keyframes fair-event-shine {
-  0%, 22% { opacity: 0; background-position: 100% 0; }
-  23% { opacity: 1; background-position: 100% 0; animation-timing-function: cubic-bezier(0.45, 0, 0.55, 1); }
-  48% { opacity: 1; background-position: 0% 0; }
-  50%, 100% { opacity: 0; background-position: 0% 0; }
-}
-
-@keyframes fair-live-pulse {
-  from { opacity: 0.75; transform: scale(1); }
-  to { opacity: 0; transform: scale(2.8); }
+  0% { opacity: 1; background-position: 100% 0; animation-timing-function: cubic-bezier(0.45, 0, 0.55, 1); }
+  25% { opacity: 1; background-position: 0% 0; }
+  27%, 100% { opacity: 0; background-position: 0% 0; }
 }
 
 @keyframes fair-year-scan {

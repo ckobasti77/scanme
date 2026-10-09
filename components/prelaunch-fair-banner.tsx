@@ -2,7 +2,7 @@
 
 import { ArrowRight } from "lucide-react";
 import Link from "next/link";
-import { useSyncExternalStore } from "react";
+import { useLayoutEffect, useRef, useSyncExternalStore } from "react";
 import { BrandLogo } from "@/components/brand-logo";
 import { DotMatrix } from "@/components/dot-matrix";
 import { fmt } from "@/lib/i18n/format";
@@ -19,6 +19,14 @@ const YEAR_PATTERN = [
   "###.###.###.###",
 ] as const;
 
+// Zajednički ciklus tri animacije banera (prelaunch-landing.module.css):
+// zelena linija prelazi donjom ivicom (SCAN_SWEEP_MS, linearno); kad njen centar
+// dođe ispod levog ruba „2026“, kreće talas preko „2026“; kad talas izađe iz
+// poslednje kolone, odsjaj prelazi na ivicu čipa sajma koji je u toku.
+const SCAN_SWEEP_MS = 2400;
+const SCAN_WIDTH = 0.32; // širina linije kao deo širine banera
+const SCAN_TRAVEL = 4.2; // put linije u njenim širinama: od -100% do 320%
+
 // Stanje sajma zavisi od sata posetioca, pa se računa tek na klijentu:
 // server i hidratacija renderuju prazno (rezervisano) mesto, bez razlike u HTML-u.
 // Proverava se svakog minuta, pa strana ostavljena otvorena preko ponoći prelazi
@@ -34,20 +42,34 @@ const readStatusKey = () => {
 const readServerStatusKey = () => null;
 
 export function PrelaunchFairBanner() {
+  const bannerRef = useRef<HTMLElement>(null);
   const statusKey = useSyncExternalStore(subscribeToMinutes, readStatusKey, readServerStatusKey);
   const [kind, index] = statusKey ? statusKey.split(":") : [null, null];
   const eventIndex = index === null || index === undefined ? -1 : Number(index);
-  const statusLabel =
-    kind === "live"
-      ? dict.fair.status.live
-      : kind === "next"
-        ? fmt(dict.fair.status.next, { date: dict.fair.events[eventIndex].startLabel })
-        : kind === "ended"
-          ? dict.fair.status.ended
-          : "";
+
+  // Trenutak kada linija stigne ispod levog ruba „2026“ zavisi od rasporeda,
+  // pa se meri (i ponovo meri na promenu veličine) i daje CSS-u kao --fair-sync.
+  useLayoutEffect(() => {
+    const banner = bannerRef.current;
+    const year = banner?.querySelector<SVGSVGElement>("[data-fair-year]");
+    if (!banner || !year) return;
+    const measure = () => {
+      const width = banner.getBoundingClientRect().width;
+      const yearLeft = year.getBoundingClientRect().left - banner.getBoundingClientRect().left;
+      if (width <= 0) return;
+      const progress = (yearLeft / (SCAN_WIDTH * width) + 0.5) / SCAN_TRAVEL;
+      const reach = Math.min(Math.max(progress, 0), 1) * SCAN_SWEEP_MS;
+      banner.style.setProperty("--fair-sync", `${Math.round(reach)}ms`);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(banner);
+    return () => observer.disconnect();
+  }, []);
 
   return (
     <aside
+      ref={bannerRef}
       className={styles.fairBanner}
       aria-label={`${dict.fair.bannerTitle} · ${dict.fair.location} · ${dict.fair.year}`}
       data-reveal="off"
@@ -55,10 +77,7 @@ export function PrelaunchFairBanner() {
     >
       <div className={`${styles.fairBannerInner} section-shell`}>
         <div className={styles.fairBannerTop}>
-          <p className={styles.fairStatus} data-kind={kind ?? "pending"}>
-            <span className={styles.fairStatusDot} aria-hidden="true" />
-            <span>{statusLabel}</span>
-          </p>
+          <p className={styles.fairPlace}>{dict.fair.location}</p>
           <p className={styles.fairPartner}>
             <span>{dict.hero.partner}</span>
             <i aria-hidden="true">—</i>
@@ -70,10 +89,11 @@ export function PrelaunchFairBanner() {
         <div className={styles.fairHeadline}>
           <p className={styles.fairTitle}>
             <span>{dict.fair.bannerTitle}</span>
-            <DotMatrix pattern={YEAR_PATTERN} radius={4.3} className={styles.fairYear} dotClassName={styles.fairYearDot} />
+            <span className={styles.fairYearWrap} data-fair-year="">
+              <DotMatrix pattern={YEAR_PATTERN} radius={4.3} className={styles.fairYear} dotClassName={styles.fairYearDot} />
+            </span>
             <span className="sr-only">{dict.fair.year}</span>
           </p>
-          <p className={styles.fairPlace}>{dict.fair.location}</p>
         </div>
 
         <ul className={styles.fairEvents}>
@@ -83,6 +103,7 @@ export function PrelaunchFairBanner() {
               <>
                 <strong>{event.shortDate}</strong>
                 <span>{event.name}</span>
+                {state === "live" ? <small className={styles.fairEventState}>{dict.fair.status.live}</small> : null}
               </>
             );
             return (

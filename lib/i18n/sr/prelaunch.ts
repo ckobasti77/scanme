@@ -34,11 +34,8 @@ export interface PrelaunchDict {
     openEventAria: string;
     status: {
       live: string;
-      /** {date} = prvi dan sledećeg sajma. */
-      next: string;
-      ended: string;
     };
-    events: Array<{ name: string; date: string; shortDate: string; startLabel: string }>;
+    events: Array<{ name: string; date: string; shortDate: string }>;
   };
   services: {
     eyebrow: string;
@@ -185,21 +182,17 @@ export const prelaunchSr: PrelaunchDict = {
     openEventAria: "{name}, {dates} — otvori digitalni sajam",
     status: {
       live: "U toku",
-      next: "Sledeći: {date}",
-      ended: "Završeno",
     },
     events: [
       {
         name: "Sajam elektromobilnosti",
         date: "09—11. oktobar",
         shortDate: "09/10/11. okt",
-        startLabel: "9. oktobar",
       },
       {
         name: "Auto Moto Fest",
         date: "30. oktobar—01. novembar",
         shortDate: "30/31. okt – 01. nov",
-        startLabel: "30. oktobar",
       },
     ],
   },
