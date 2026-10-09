@@ -3676,6 +3676,9 @@ export default defineSchema({
     // Written from a signed-in ScanMe admin session (JOVAN-DELTA 2026-10-09):
     // kept for testing, never counted, reported or exported.
     isAdminExcluded: v.optional(v.boolean()),
+    // 9 Oct 2026: a lead left from the survey's last step ("Želite ponude…")
+    // gets the survey confirmation email instead of the interest one.
+    origin: v.optional(v.literal("survey")),
     submissionId: v.string(),
     kind: fairLeadKind,
     visitorId: v.id("fairVisitors"),

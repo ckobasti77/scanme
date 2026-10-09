@@ -71,7 +71,7 @@ export function LeadSheet({
       });
     }
     fairHaptic([20, 40, 40]);
-    const text = kind === "testDrive" ? dict.testDriveSent : fmt(dict.interestSent, { brand: model.brandName });
+    const text = fmt(kind === "testDrive" ? dict.testDriveSent : dict.interestSent, { brand: model.brandName });
     onRequestClose(() => showToast(text));
   }
 

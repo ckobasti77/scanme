@@ -30,6 +30,8 @@ import { removePreEventRow, type FairPreEventCategory } from "./fairPreEvent";
 const gatewayArgs = { gatewaySecret: v.optional(v.string()), visitorHash: v.string() };
 const ROWS_PER_CATEGORY = 200;
 const GARAGE_FILL = 5;
+/** Models offered by the sheet's pickers (QR "Simuliraj sken", passport pages). */
+const PICKER_MODELS = 100;
 
 async function requireAdminVisitor(ctx: QueryCtx | MutationCtx, args: { gatewaySecret?: string; visitorHash: string }) {
   const admin = await requireAdmin(ctx);
@@ -60,6 +62,7 @@ export const devState = query({
     garageModelIds: v.array(v.string()),
     questionId: v.union(v.string(), v.null()),
     visitorKnown: v.boolean(),
+    models: v.array(v.object({ id: v.string(), slug: v.string(), name: v.string(), brandName: v.string() })),
   }),
   handler: async (ctx, args) => {
     await requireAdminVisitor(ctx, args);
@@ -68,7 +71,11 @@ export const devState = query({
       .query("fairEventModels")
       .withIndex("by_eventId_and_slug", (q) => q.eq("eventId", event._id))
       .filter((q) => q.eq(q.field("status"), "published"))
-      .take(GARAGE_FILL);
+      .take(PICKER_MODELS);
+    const brandNames = new Map<string, string>();
+    for (const model of published) {
+      if (!brandNames.has(model.brandId)) brandNames.set(model.brandId, (await ctx.db.get(model.brandId))?.name ?? "");
+    }
     let questionId: string | null = null;
     const modelId = args.eventModelId ? ctx.db.normalizeId("fairEventModels", args.eventModelId) : null;
     if (modelId) {
@@ -84,9 +91,15 @@ export const devState = query({
     const passport: FairPassportState = await fairPassportState(ctx, event, args.visitorHash);
     return {
       passport,
-      garageModelIds: published.map((model) => model._id),
+      garageModelIds: published.slice(0, GARAGE_FILL).map((model) => model._id),
       questionId,
       visitorKnown: (await findFairVisitor(ctx, args.visitorHash)) !== null,
+      models: published.map((model) => ({
+        id: model._id as string,
+        slug: model.slug,
+        name: model.variant ? `${model.displayName} ${model.variant}` : model.displayName,
+        brandName: brandNames.get(model.brandId) ?? "",
+      })),
     };
   },
 });

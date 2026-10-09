@@ -535,6 +535,10 @@ export interface FairAdminDevDict {
   previewToast: string;
   passportTitle: string;
   stampModel: string;
+  pickBrand: string;
+  pickStampModel: string;
+  pickScanModel: string;
+  stateBrand: string;
   stampBrand: string;
   relock: string;
   finale: string;
@@ -5720,24 +5724,21 @@ export type AdminEventsPassportProblem = "fewer_than_two_models" | "model_not_pu
 // event-lead-email — visitor emails after a fair lead (Sajam 2026 B4,
 // convex/lib/fairEmails.ts). Placeholder copy until P1 is locked.
 export interface EventLeadEmailDict {
-  confirmationSubjectInterest: string;
-  confirmationSubjectTestDrive: string;
   greeting: string;
-  /** N5 — the greeting when the stored name is not safe to repeat. */
+  /** The greeting when there is no name, or the stored name is not safe to repeat. */
   greetingWithoutName: string;
-  confirmationBodyInterest: string;
-  confirmationBodyTestDrive: string;
-  /** N5 — `{where}` = stand name and event venue ("Štand 2, Hala Čair, Niš"). */
-  confirmationWhere: string;
-  /** N5 — the next step by kind; `{exhibitor}`. */
-  confirmationNextInterest: string;
-  confirmationNextTestDrive: string;
-  /** N5 — `{contact}` = the email and/or phone the visitor shared. */
-  confirmationContact: string;
-  /** N5 — `{exhibitor}`, `{date}` = the purge day. */
-  confirmationPrivacy: string;
-  confirmationNotYou: string;
-  confirmationFollowUpNote: string;
+  interestSubject: string;
+  interestBody: string;
+  interestModelLink: string;
+  testDriveSubject: string;
+  testDriveBody: string;
+  testDriveNote: string;
+  surveySubject: string;
+  surveyBody: string;
+  surveyContactNote: string;
+  closing: string;
+  /** `{subject}`, `{exhibitor}`, `{url}`. */
+  footer: string;
   followUpFooter: string;
   /** Admin UX A8 — what a merge field becomes when the lead has no value for it. */
   followUpFallbacks: Record<FairFollowUpField, string>;

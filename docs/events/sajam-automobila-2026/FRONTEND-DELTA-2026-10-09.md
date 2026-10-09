@@ -36,3 +36,13 @@ Nova ruta: `POST /api/fair/admin-dev`. Akcije su `state`, `stamps`, `scan`, `res
 - Nove površine: `fair-admin-dev` i `fair-privacy`.
 - `privacyLink` je dodat u model, garažu i pasoš. `consentPrivacyLink` je dodat u model.
 - `devLink` je uklonjen iz garaže.
+
+## Dopuna (9. 10., mejlovi posetiocu i DEV panel na pasošima)
+
+- `POST /api/fair/lead` prima opciono `origin: "survey"`. Lead ostavljen u poslednjem koraku ankete šalje ga sam (`model-interactions.tsx`), pa posetilac dobija mejl ankete umesto mejla „Zainteresovan sam“.
+- `fairLeads.origin?: "survey"` je novo opciono polje u šemi.
+- `fairAdminDev.devState` sada vraća i `models` (objavljeni modeli: id, slug, naziv, brend) za birače u DEV panelu.
+- Poruke na ekranu (`fair-model.ts`):
+  - `interestSent`: „Poslato! {brand} tim će vam se javiti.“
+  - `testDriveSent`: „Zahtev je poslat. {brand} tim će vas kontaktirati za termin.“ (sada sa `{brand}`)
+  - `surveySentToast`: „Hvala! Odgovori su poslati {brand} timu.“

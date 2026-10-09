@@ -220,8 +220,10 @@ describe("A8 follow-up per exhibitor: one email per (visitor email, exhibitor)",
     vi.advanceTimersByTime(1);
     await f.t.finishInProgressScheduledFunctions();
     const confirmation = calls.find((call) => call.key?.endsWith("/immediate_confirmation"))!;
-    expect(confirmation.body.text).toContain("Vaš zahtev je primljen i prosleđen izlagaču TEST izlagač TA");
-    expect(confirmation.body.text).toContain("Ovo je zahtev, a ne zakazan termin");
+    // 9 Oct 2026 copy.
+    expect(confirmation.body.text).toContain("primili smo vaš zahtev za probnu vožnju modela");
+    expect(confirmation.body.text).toContain("Kontaktiraće vas da zajedno dogovorite dan i vreme.");
+    expect(confirmation.body.text).toContain("Vaše podatke dobija samo TEST izlagač TA.");
   });
 
   test("re-running the outbox (and a submit retry) never makes a second email for the pair", async () => {

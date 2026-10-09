@@ -238,6 +238,8 @@ export function FairModelInteractionsProvider({
             ...contact.payload,
             consentAccepted: true,
             consentVersion: contact.consentVersion,
+            // 9 Oct 2026: the visitor gets the survey confirmation, not the interest one.
+            origin: "survey",
           });
           if (lead.ok && contact.remember) {
             saveContact(browserContactStorage(), {
