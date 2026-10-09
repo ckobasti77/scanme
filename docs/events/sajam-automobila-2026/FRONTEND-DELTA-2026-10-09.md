@@ -100,3 +100,26 @@ Nova ruta: `POST /api/fair/admin-dev`. Akcije su `state`, `stamps`, `scan`, `res
   - `interestSent`: „Poslato! {brand} tim će vam se javiti.“
   - `testDriveSent`: „Zahtev je poslat. {brand} tim će vas kontaktirati za termin.“ (sada sa `{brand}`)
   - `surveySentToast`: „Hvala! Odgovori su poslati {brand} timu.“
+
+## Jovan — SAJAM SUPER: javna mapa, doslednost, toplota, analitika (9. 10.)
+
+Grana `codex/jovan-sajam-super-2026-10-09`. Detalji, tabela razlika rasporeda i koraci za Aleksu su u [`jovan-status/SAJAM-SUPER-2026-10-09.md`](./jovan-status/SAJAM-SUPER-2026-10-09.md).
+
+- **`FAIR_PUBLIC_MAP_ENABLED = true`** (`lib/fair-contract.ts`, odluka Jovana 9. 10. u 13:45). Posle deploy-a su `/sajam`, adresa mape, QR panela PANEL-2026-EVENT, Mapa u meniju i linkovi iz garaže, pasoša i stranice modela ponovo aktivni.
+- **Šema i validatori:** bez izmena. `mapLocationId` je isti.
+- **Nove Convex funkcije** (deploy pre Vercel-a):
+  - `fairHeat.getMapHeat({ gatewaySecret, eventSlug, at })`: public, uz `FAIR_GATEWAY_SECRET`; vraća samo nivoe 0–1 po lokaciji (danas / poslednji sat);
+  - `fairEventAnalytics.getEventAnalytics({ eventId, at })` i `getEventAudience({ eventId, at })`: admin.
+  - Sve tri su klasifikovane u `fairAuthz.test.ts`.
+- **Nova API ruta:** `GET /api/fair/heat/[eventSlug]` (`s-maxage=60, stale-while-revalidate=300`, memorija 60 s).
+- **Nova admin sekcija:** `analitika` (`lib/admin-v1/event-sections.ts`, grupa Sajam), registrovana i u dev pregledu.
+- **Tokeni** (`app/sajam/fair-event.css`):
+  - `--fair-canvas` je `#f7f8f8` (bio `#f1eee7`);
+  - nov `--fair-canvas-glow`.
+  - Referenca je Garaža/Pasoši (`FAIR-DESIGN-DNA.md` §0).
+- **i18n:**
+  - `FairMapDict`: novi `heat*` ključevi;
+  - `AdminEventsDict`: `sectionLabels.analitika` i `analytics.*`;
+  - izmenjene oznake „jedinstveni“ u Pregledu i pre-event/brisanju (definicija nije promenjena).
+- **Nova zajednička skala:** `lib/fair-heat.ts` (javna i admin toplota).
+- **Nije dirano:** `components/fair/passport/**`, `components/fair/garage/**`, `app/r/**`, ugovor postojećih javnih upita, `?prikaz=ekran` (samo nova podloga).
