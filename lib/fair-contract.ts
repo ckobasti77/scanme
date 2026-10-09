@@ -1177,3 +1177,12 @@ export function sortFairDashboardActions<T extends Pick<FairDashboardAction, "ru
     || b.count - a.count
     || ruleIndex(a.rule) - ruleIndex(b.rule));
 }
+
+/**
+ * Owner decision 9 Oct 2026: the public fair map is hidden in production
+ * until it is fixed (wrong data). The map URL forwards to the garage (so the
+ * entrance panel QR, which opens the map URL, lands in the garage), the nav
+ * shows only Pasoši and Garaža, and no page links to the map. No "coming
+ * soon" text anywhere. Flip to `true` to bring the map back.
+ */
+export const FAIR_PUBLIC_MAP_ENABLED = false;

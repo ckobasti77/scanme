@@ -470,6 +470,8 @@ export interface FairGarageDict {
   emptyTitle: string;
   emptyBody: string;
   emptyAction: string;
+  /** 9 Oct 2026: while the public map is hidden. */
+  emptyBodyNoMap: string;
   refreshError: string;
   offlineNotice: string;
   retry: string;
@@ -640,6 +642,8 @@ export interface FairPassportDict {
   backToPassports: string;
   modelUnlockedAria: string;
   modelLockedAria: string;
+  /** 9 Oct 2026: while the public map is hidden. */
+  modelLockedAriaNoMap: string;
   findOnMap: string;
   revealStatus: string;
   completedTitle: string;
