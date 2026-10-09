@@ -177,6 +177,8 @@ export interface FairMapDict {
   standSummaryGroup: string;
   scanmeBody: string;
   sheetHandle: string;
+  sheetExpand: string;
+  sheetCollapse: string;
   directoryTitle: string;
   directoryHint: string;
   uncategorized: string;

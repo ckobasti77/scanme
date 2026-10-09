@@ -1615,6 +1615,8 @@
 
 /* -------------------------------------------------------- bottom sheet */
 
+/* Corners nest: the sheet is xl 24, a model row in it md 12 with a 12 px gap
+   to the sheet's edge, the tile in a row xs 6 with a 6 px gap. */
 .sheetRoot {
   position: fixed;
   z-index: 40;
@@ -1625,7 +1627,7 @@
 .sheetBackdrop {
   position: absolute;
   inset: 0;
-  background: rgb(23 25 24 / 0.18);
+  background: rgb(23 25 24 / 0.22);
   pointer-events: auto;
   touch-action: none;
 }
@@ -1635,35 +1637,107 @@
   right: 0;
   bottom: 0;
   left: 0;
-  display: grid;
-  max-height: min(56dvh, 560px);
-  grid-template-rows: auto minmax(0, 1fr);
-  border-top: var(--fair-border);
+  display: flex;
+  max-height: 90dvh;
+  flex-direction: column;
+  overflow: hidden;
+  overscroll-behavior: contain;
+  border: var(--fair-border);
+  border-bottom: 0;
   border-radius: var(--fair-radius-xl) var(--fair-radius-xl) 0 0;
   background: var(--fair-surface);
   box-shadow: var(--fair-shadow-3-up);
   pointer-events: auto;
+  will-change: transform;
 }
 
+/* Until it is measured (and on the server) it waits off screen, unseen. */
+.sheet[data-ready="false"] {
+  visibility: hidden;
+}
+
+/* The handle: a 44 px tall target over the header's top edge; a tap switches the height. */
 .sheetHandle {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  left: 50%;
   display: grid;
-  height: 28px;
-  place-items: center;
+  width: 96px;
+  height: 44px;
+  margin-left: -48px;
+  padding: 0;
+  place-items: start center;
+  border: 0;
+  background: transparent;
   cursor: grab;
   touch-action: none;
 }
 
-.sheetHandle > span:first-child {
+.sheetHandle > span {
   width: 40px;
   height: 4px;
+  margin-top: 10px;
   border-radius: var(--fair-radius-pill);
   background: var(--fair-line-strong);
+  transition:
+    background-color var(--fair-dur-feedback) var(--fair-ease-enter),
+    width var(--fair-dur-state) var(--fair-ease-enter);
 }
 
+.sheetHandle:disabled {
+  cursor: grab;
+}
+
+@media (hover: hover) {
+  .sheetHandle:not(:disabled):hover > span {
+    width: 48px;
+    background: var(--fair-ink-muted);
+  }
+}
+
+.sheetHandle:active > span {
+  background: var(--fair-ink-muted);
+}
+
+/* Only the full height scrolls; the preview moves as one piece under the finger. */
 .sheetBody {
-  overflow-y: auto;
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
   overscroll-behavior: contain;
-  padding: 0 16px calc(16px + env(safe-area-inset-bottom));
+  padding: 0 var(--fair-radius-md) calc(var(--fair-space-4) + env(safe-area-inset-bottom));
+  touch-action: none;
+}
+
+.sheet[data-snap="full"] .sheetBody {
+  overflow-y: auto;
+  touch-action: pan-y;
+}
+
+/* The header stays on top while the stand scrolls: place, exhibitor, close. */
+.sheet .detailHeader {
+  position: sticky;
+  z-index: 1;
+  top: 0;
+  margin-inline: calc(-1 * var(--fair-radius-md));
+  padding: var(--fair-space-6) var(--fair-radius-md) var(--fair-space-3);
+  border-bottom: 1px solid transparent;
+  background: var(--fair-surface);
+  touch-action: none;
+  transition: border-color var(--fair-dur-state) var(--fair-ease-enter);
+}
+
+.sheet[data-scrolled="true"] .detailHeader {
+  border-bottom-color: var(--fair-line);
+}
+
+.sheet .detail {
+  gap: 0;
+}
+
+.sheet .detailBody {
+  padding-top: var(--fair-space-1);
 }
 
 /* ------------------------------------------------------------ rotation */
