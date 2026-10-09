@@ -309,6 +309,18 @@ Snimci su u `tmp/sajam-super-2026-10-09/snimci/` (ne commituju se):
 | impeccable detektor | u izmenjenim fajlovima nema nalaza. Dva stara pravila su iz Aleksinih redova: `side-tab` na statusu forme u sheet-u (`518b32e`) i `transition: width` na zvezdicama (`b177729`); nisu dirana |
 | snimci | `tmp/…/snimci/posle/`: 25 snimaka, bez horizontalnog skrola i bez grešaka u konzoli |
 
+**Posle poslednje izmene (`364a45d`, samo CSS), na čistom stablu:**
+
+| Provera | Rezultat |
+|---|---|
+| tsc | 0 |
+| lint | 0 grešaka (ista 2 stara upozorenja) |
+| build | prolazi |
+| ceo suite (`--maxWorkers=2`) | 262 fajla, 2366 testova prolazi, 2 preskočena, bez isteklog roka |
+| `vitest run fair` (posle `e15d9cf`) | 726/726 |
+
+U kasnijim ponavljanjima `vitest run fair`, sa ~2,9 GB slobodne memorije, istekao je rok od 5 s u dva teška testa: `fairGateway` „without the secret…“ (fiksnih 10 poziva × 7 scenarija; sam traje ~5,7 s) i `fairQrSticker` „typed sticker numbers…“. Oba su netaknuta i ne pozivaju ništa iz ovog rada. Sa `--testTimeout=30000` oba fajla prolaze, 30/30, a u celom suite-u iznad prolaze sa podrazumevanim rokom.
+
 **Napomena o testovima:** na ovoj mašini, uz `next dev` od 2,3 GB i oko 3,5 GB slobodne memorije, `vitest run fair` sa podrazumevanim brojem radnika pada na rok od 5 s (Convex testovi traju 144 s umesto 20 s). Sa `--maxWorkers=4` sve prolazi. Pad koji je ostao sam od sebe je ponovo pokrenut sam i prošao je.
 
 **Usput ispravljen test:** `lib/fair-map/map-guards.test.ts` (`cc78a89`) dozvoljava jedino keširano čitanje toplote. Sve ostale zabrane važe i dalje: bez upisa, bez pretplate, bez rute i bez drugih tajmera.
