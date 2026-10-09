@@ -41,7 +41,7 @@
 }
 
 .intro h1 {
-  margin: 7px 0 8px;
+  margin: 7px 0 var(--fair-space-2);
   color: var(--fair-ink);
   font-size: clamp(34px, 9vw, 54px);
   font-weight: 790;
@@ -58,7 +58,7 @@
 
 .grid {
   display: grid;
-  gap: 12px;
+  gap: var(--fair-space-3);
   margin-top: 26px;
 }
 
@@ -103,7 +103,7 @@
   min-width: 0;
   flex-direction: column;
   justify-content: center;
-  padding: 18px 16px;
+  padding: 18px var(--fair-space-4);
 }
 
 .copy small {
@@ -124,7 +124,7 @@
 }
 
 .copy p {
-  margin: 8px 0 15px;
+  margin: var(--fair-space-2) 0 15px;
   color: var(--fair-ink-muted);
   font-size: 12px;
   font-weight: 700;
@@ -152,8 +152,8 @@
 
 .backLink {
   width: fit-content;
-  margin: 24px auto 0;
-  padding: 9px 16px;
+  margin: var(--fair-space-6) auto 0;
+  padding: 9px var(--fair-space-4);
   color: var(--fair-ink);
 }
 
@@ -177,7 +177,7 @@
 }
 
 .expired h1 {
-  margin: 15px 0 8px;
+  margin: 15px 0 var(--fair-space-2);
   font-size: 31px;
   letter-spacing: -0.045em;
 }

@@ -9,7 +9,7 @@
   display: flex;
   min-height: 60px;
   align-items: center;
-  padding: 7px 4px 7px 7px;
+  padding: 7px var(--fair-space-1) 7px 7px;
   border: 1px solid color-mix(in srgb, var(--fair-accent) 26%, var(--fair-line));
   border-radius: var(--fair-radius-lg);
   background: var(--fair-surface);
@@ -103,7 +103,7 @@
 .action {
   display: inline-flex;
   min-height: 40px;
-  padding: 0 8px 0 13px;
+  padding: 0 var(--fair-space-2) 0 13px;
   align-items: center;
   gap: 2px;
   border-radius: var(--fair-radius-md);

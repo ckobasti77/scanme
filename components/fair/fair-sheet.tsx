@@ -2,6 +2,7 @@
 
 import { motion, useReducedMotion } from "framer-motion";
 import { X } from "lucide-react";
+import { FAIR_DURATION, FAIR_EASE } from "./fair-motion";
 import { useEffect, useRef, type ReactNode } from "react";
 
 // Shared frame of the model page sheets. `bottom`: short action (rating).
@@ -80,10 +81,9 @@ export function FairSheet({
   return (
     <motion.div
       className={`fair-sheet-backdrop fair-sheet-backdrop--${variant}`}
-      initial={reduceMotion ? false : { opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={reduceMotion ? { opacity: 1 } : { opacity: 0 }}
-      transition={{ duration: reduceMotion ? 0 : 0.24, ease: "easeOut" }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1, transition: { duration: FAIR_DURATION.overlay, ease: FAIR_EASE.enter } }}
+      exit={{ opacity: 0, transition: { duration: FAIR_DURATION.state, ease: FAIR_EASE.exit } }}
       onPointerDown={(event) => {
         if (closable && event.currentTarget === event.target) onRequestClose();
       }}
@@ -96,14 +96,10 @@ export function FairSheet({
         aria-labelledby={titleId}
         tabIndex={-1}
         onKeyDown={handleKeyDown}
-        initial={reduceMotion ? false : { y: "100%" }}
-        animate={{ y: 0 }}
-        exit={reduceMotion ? { y: 0 } : { y: "100%" }}
-        transition={
-          reduceMotion
-            ? { duration: 0 }
-            : { duration: variant === "full" ? 0.38 : 0.54, ease: [0.22, 1, 0.36, 1] }
-        }
+        // Reduced motion: the sheet fades in place instead of rising.
+        initial={reduceMotion ? { opacity: 0, y: 0 } : { y: "100%" }}
+        animate={{ opacity: 1, y: 0, transition: { duration: reduceMotion ? FAIR_DURATION.state : variant === "full" ? FAIR_DURATION.overlay : FAIR_DURATION.focal, ease: FAIR_EASE.enter } }}
+        exit={reduceMotion ? { opacity: 0, transition: { duration: FAIR_DURATION.state } } : { y: "100%", transition: { duration: FAIR_DURATION.state, ease: FAIR_EASE.exit } }}
         onAnimationComplete={(definition) => {
           if (typeof definition === "object" && definition !== null && "y" in definition && definition.y === 0) {
             focusInitial();

@@ -2,6 +2,7 @@
 
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Check } from "lucide-react";
+import { FAIR_DURATION, FAIR_EASE } from "../fair-motion";
 import { useEffect, useRef, useState } from "react";
 import { EMPTY_CONTACT_DRAFT, contactFormState, type ContactDraft } from "@/lib/fair-client/contact-form";
 import { fairErrorText } from "@/lib/fair-client/fair-errors";
@@ -211,8 +212,8 @@ export function SurveySheet() {
             custom={shown.direction}
             variants={{
               enter: (direction: number) => ({ opacity: 0, x: 24 * direction }),
-              center: { opacity: 1, x: 0, transition: { duration: 0.24, ease: [0.2, 0.9, 0.2, 1] } },
-              exit: (direction: number) => ({ opacity: 0, x: -24 * direction, transition: { duration: 0.15, ease: "easeIn" } }),
+              center: { opacity: 1, x: 0, transition: { duration: FAIR_DURATION.state, ease: FAIR_EASE.enter } },
+              exit: (direction: number) => ({ opacity: 0, x: -24 * direction, transition: { duration: FAIR_DURATION.feedback, ease: FAIR_EASE.exit } }),
             }}
             initial={reduceMotion ? false : "enter"}
             animate="center"

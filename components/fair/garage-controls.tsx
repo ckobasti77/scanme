@@ -128,7 +128,8 @@ export function GarageSaveButton({
 
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const targetWidth = saved ? Math.min(220, bar.clientWidth) : bar.clientWidth;
-    const targetRadius = saved ? targetWidth / 2 : 14;
+    // Unsaved: the md corner of the fair's buttons (--fair-radius-md); saved: a pill.
+    const targetRadius = saved ? targetWidth / 2 : 12;
 
     if (reducedMotion) {
       gsap.set(surface, { clearProps: "borderRadius,width" });
