@@ -335,54 +335,71 @@ function SheetPanel({ labelledBy, onClose, children }: { labelledBy: string; onC
   const canDrag = (target: Element) =>
     target.closest("[data-sheet-handle]") !== null || target.closest("[data-sheet-header]") !== null || (snapRef.current === "preview" && twoHeights) || !twoHeights;
 
+  // A drag is followed on the window: with a mouse the pointer soon leaves the
+  // sheet (a finger is captured by the browser anyway).
+  const stopDrag = useRef<(() => void) | null>(null);
+  useEffect(() => () => stopDrag.current?.(), []);
+
   const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (!metrics || event.button !== 0 || (event.target as Element).closest("[data-sheet-close]")) return;
     if (!canDrag(event.target as Element)) return;
-    drag.current = { id: event.pointerId, startY: event.clientY, from: y.get(), lastY: event.clientY, lastT: event.timeStamp, speed: 0, active: false };
-  };
+    stopDrag.current?.();
+    const id = event.pointerId;
+    drag.current = { id, startY: event.clientY, from: y.get(), lastY: event.clientY, lastT: event.timeStamp, speed: 0, active: false };
 
-  const onPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
-    const state = drag.current;
-    if (!state || state.id !== event.pointerId || !metrics) return;
-    const delta = event.clientY - state.startY;
-    if (!state.active) {
-      if (Math.abs(delta) < DRAG_SLOP) return;
-      state.active = true;
-      panelRef.current?.setPointerCapture(event.pointerId);
-    }
-    const dt = Math.max(event.timeStamp - state.lastT, 1);
-    state.speed = 0.7 * ((event.clientY - state.lastY) / dt) * 1000 + 0.3 * state.speed;
-    state.lastY = event.clientY;
-    state.lastT = event.timeStamp;
-    const next = state.from + delta;
-    // Above the full height the sheet resists instead of leaving the bottom edge.
-    y.set(next < 0 ? next * 0.2 : next);
-  };
-
-  const onPointerEnd = (event: ReactPointerEvent<HTMLDivElement>) => {
-    const state = drag.current;
-    if (!state || state.id !== event.pointerId) return;
-    drag.current = null;
-    if (!state.active || !metrics) return;
-    // The click that ends a drag must not open a model link or toggle the handle under the finger.
-    const swallow = (click: MouseEvent) => {
-      click.preventDefault();
-      click.stopPropagation();
+    const move = (pointer: PointerEvent) => {
+      const state = drag.current;
+      if (!state || pointer.pointerId !== id) return;
+      const delta = pointer.clientY - state.startY;
+      if (!state.active) {
+        if (Math.abs(delta) < DRAG_SLOP) return;
+        state.active = true;
+      }
+      const dt = Math.max(pointer.timeStamp - state.lastT, 1);
+      state.speed = 0.7 * ((pointer.clientY - state.lastY) / dt) * 1000 + 0.3 * state.speed;
+      state.lastY = pointer.clientY;
+      state.lastT = pointer.timeStamp;
+      const offset = state.from + delta;
+      // Above the full height the sheet resists instead of leaving the bottom edge.
+      y.set(offset < 0 ? offset * 0.2 : offset);
     };
-    window.addEventListener("click", swallow, { capture: true, once: true });
-    window.setTimeout(() => window.removeEventListener("click", swallow, { capture: true }), 250);
-    const current = y.get();
-    const rest = twoHeights ? metrics.previewY : 0;
-    const projected = current + state.speed * 0.12;
-    if (current > rest + CLOSE_DISTANCE || (state.speed > FLICK_SPEED && (snapRef.current === "preview" || !twoHeights || current > rest))) {
-      closeRef.current();
-      return;
-    }
-    if (!twoHeights) {
-      settle(0);
-      return;
-    }
-    goTo(projected < metrics.previewY / 2 || state.speed < -FLICK_SPEED ? "full" : "preview");
+
+    const end = (pointer: PointerEvent) => {
+      if (pointer.pointerId !== id) return;
+      stopDrag.current?.();
+      const state = drag.current;
+      drag.current = null;
+      if (!state?.active) return;
+      // The click that ends a drag must not open a model link or toggle the handle under the finger.
+      const swallow = (click: MouseEvent) => {
+        click.preventDefault();
+        click.stopPropagation();
+      };
+      window.addEventListener("click", swallow, { capture: true, once: true });
+      window.setTimeout(() => window.removeEventListener("click", swallow, { capture: true }), 250);
+      const current = y.get();
+      const rest = twoHeights ? metrics.previewY : 0;
+      const projected = current + state.speed * 0.12;
+      if (current > rest + CLOSE_DISTANCE || (state.speed > FLICK_SPEED && (snapRef.current === "preview" || !twoHeights || current > rest))) {
+        closeRef.current();
+        return;
+      }
+      if (!twoHeights) {
+        settle(0);
+        return;
+      }
+      goTo(projected < metrics.previewY / 2 || state.speed < -FLICK_SPEED ? "full" : "preview");
+    };
+
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", end);
+    window.addEventListener("pointercancel", end);
+    stopDrag.current = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", end);
+      window.removeEventListener("pointercancel", end);
+      stopDrag.current = null;
+    };
   };
 
   const exitY = metrics ? metrics.height + 24 : 900;
@@ -412,9 +429,6 @@ function SheetPanel({ labelledBy, onClose, children }: { labelledBy: string; onC
         animate={reduceMotion ? { opacity: 1, transition: { duration: FAIR_DURATION.state } } : undefined}
         exit={reduceMotion ? { opacity: 0, transition: { duration: FAIR_DURATION.state } } : { y: exitY, transition: { duration: FAIR_DURATION.state, ease: FAIR_EASE.exit } }}
         onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerEnd}
-        onPointerCancel={onPointerEnd}
       >
         <button
           type="button"

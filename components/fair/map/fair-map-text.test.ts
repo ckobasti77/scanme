@@ -46,6 +46,7 @@ describe("fairMapMarks (the search hit is marked)", () => {
       { text: "ors", mark: false },
     ]);
     expect(fairMapMarks("JMEV", "")).toEqual([{ text: "JMEV", mark: false }]);
+    expect(fairMapMarks("Ispred hale", "a")).toEqual([{ text: "Ispred hale", mark: false }]);
   });
 
   test("the result count is a Serbian plural", () => {

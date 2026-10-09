@@ -474,14 +474,14 @@ export function FairEventMapView({
                           <span className={styles.entryText}>
                             <span className={styles.entryName}>{marked(result.exhibitorName)}</span>
                             <span className={styles.resultMeta}>
-                              {marked(
-                                [
-                                  result.models.length ? result.models.join(", ") : result.brands.join(", "),
-                                  result.place ? fairMapPlaceText(result.place.location, result.place.zoneId) : unlocatedText({ withoutLocation: { zoneId: result.zoneHint } }),
-                                ]
-                                  .filter(Boolean)
-                                  .join(" · "),
-                              )}
+                              {/* Brands and models are searched (marked); the place only says where. */}
+                              {result.models.length || result.brands.length ? (
+                                <>
+                                  {marked(result.models.length ? result.models.join(", ") : result.brands.join(", "))}
+                                  {" · "}
+                                </>
+                              ) : null}
+                              {result.place ? fairMapPlaceText(result.place.location, result.place.zoneId) : unlocatedText({ withoutLocation: { zoneId: result.zoneHint } })}
                             </span>
                           </span>
                         </li>

@@ -43,9 +43,13 @@ function searchChar(char: string) {
 /**
  * The text split into plain and matched parts, so a search result can mark
  * what the query hit ("Đorđe" is hit by "djo", "Citroën" by "citroen").
+ * A single letter marks nothing: it would light up half of every line.
  */
 export function fairMapMarks(text: string, query: string): Array<{ text: string; mark: boolean }> {
-  const words = query.split(/\s+/).map(searchChar).filter(Boolean);
+  const words = query
+    .split(/\s+/)
+    .map((word) => [...word].map(searchChar).join(""))
+    .filter((word) => word.length >= 2);
   if (!words.length || !text) return [{ text, mark: false }];
   // The normalized text and, per normalized character, the index of its source character.
   let normalized = "";
