@@ -42,6 +42,7 @@ export const fairMapSr = {
   standAria: "{exhibitor}, štand {label}",
   standLocation: "Štand {label} · {zone}",
   standUnplaced: "Lokacija na mapi još nije potvrđena",
+  selectHint: "Dodirnite označeni štand ili izaberite izlagača sa liste.",
   closeDetail: "Zatvori detalje štanda",
   modelsLabel: "Modeli na štandu",
   listTitle: "Izlagači na mapi",

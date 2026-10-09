@@ -105,7 +105,6 @@ export function ZoneCanvas({
   passportMarkers,
   bubble,
   onSelect,
-  onEmptyTap,
   onToggleOriginal,
 }: {
   zoneView: FairMapZoneView;
@@ -126,8 +125,6 @@ export function ZoneCanvas({
   /** Small callout over the selected stand (desktop); null for none. */
   bubble: string | null;
   onSelect: (locationId: string) => void;
-  /** A tap (not a drag) on the map outside every occupied stand. */
-  onEmptyTap?: () => void;
   onToggleOriginal: () => void;
 }) {
   const { zone } = zoneView;
@@ -177,39 +174,19 @@ export function ZoneCanvas({
     return () => observer.disconnect();
   }, []);
 
-  // A later size (the desktop panel opening or closing, a rotated phone) keeps what is on screen:
-  // the selected stand stays in focus, a fitted map refits, a moved map keeps its centre and zoom.
-  const measured = useRef<FairMapSize | null>(null);
   useEffect(() => {
-    if (!size || !limits) return;
-    const previous = measured.current;
-    measured.current = size;
-    const selected = previous && active && selectedLocationId ? zone.locations.find((row) => row.id === selectedLocationId) : undefined;
-    if (selected) {
-      apply(fairMapFocus(fairMapBounds(selected.polygon), size, content, limits, focus?.locationId === selected.id ? focus.anchorY : 0.5), true);
-      return;
-    }
-    const view = current();
-    const fitted = previous && fairMapFit(previous, content, fairMapLimits(previous, content, padding));
-    if (!previous || !fitted || (Math.abs(view.scale - fitted.scale) <= fitted.scale * 0.001 && Math.abs(view.x - fitted.x) < 1 && Math.abs(view.y - fitted.y) < 1)) {
-      apply(fairMapFit(size, content, limits), false);
-      return;
-    }
-    const cx = (previous.width / 2 - view.x) / view.scale;
-    const cy = (previous.height / 2 - view.y) / view.scale;
-    apply(fairMapClamp({ scale: view.scale, x: size.width / 2 - cx * view.scale, y: size.height / 2 - cy * view.scale }, size, content, limits), false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- only when the measured size changes
+    if (size && limits) apply(fairMapFit(size, content, limits), false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refit only when the measured size changes
   }, [size]);
 
   // A focus request (selection, search, list, deep link) for a location of this zone.
-  const hasSize = size !== null;
   useEffect(() => {
     if (!focus || !active || !size || !limits) return;
     const location = zone.locations.find((row) => row.id === focus.locationId);
     if (!location) return;
     apply(fairMapFocus(fairMapBounds(location.polygon), size, content, limits, focus.anchorY), true);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- one move per request
-  }, [focus?.key, active, hasSize]);
+  }, [focus?.key, active, size]);
 
   const zoomBy = (factor: number) => {
     if (!size || !limits) return;
@@ -289,7 +266,6 @@ export function ZoneCanvas({
     // occupied location has an invisible touch zone of at least 44 CSS px.
     const locationId = g.locationId ?? (g.touch ? touchedLocation(g.px, g.py) : null);
     if (locationId) onSelect(locationId);
-    else onEmptyTap?.();
   };
 
   const items = useMemo<ZoneItem[]>(() => {
