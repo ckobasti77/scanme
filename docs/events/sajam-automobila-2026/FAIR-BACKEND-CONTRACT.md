@@ -1915,6 +1915,8 @@ Tekst i HTML, svaka vrednost HTML-escape-ovana, redovi pasusa kao `<br>`. Konač
 
 ## 40. P1 — pre-event: paket od dodele, Glas publike pre dana, oznaka, reset i mejlovi
 
+> **Vraćeno 9. 10. 2026.** Po odluci vlasnika (JOVAN-DELTA-2026-10-08b §6.2) P1 ne ide, jer ga zamenjuje Aleksina pre-event verzija (`convex/fairPreEvent.ts`, `convex/lib/fairPreEvent.ts`, `openAudienceQuestionNow`, `openAt`). Kod iz ovog odeljka je uklonjen pre spoja sa `aleksa/main` (vidi `jovan-status/SPOJ-ALEKSA-2026-10-09.md`). Odeljak ostaje samo kao istorija.
+
 Aleksa, 8. 10. 2026. (SYNC-1008-KONTEKST §2.1): ScanMe tim i izlagači 8. 10. probaju sve na pravim podacima, sa pravim paketima. Ništa od toga ne ulazi u brojke sajma i ne ide mejlom pravom izlagaču. Ovo je nova eksplicitna Aleksina odluka i za period pre početka događaja ima prednost nad MASTER §5 („skeniranja se računaju bez obzira na radno vreme“).
 
 ### 40.1 Paket važi od dodele

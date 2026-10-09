@@ -1,13 +1,10 @@
 import { v } from "convex/values";
 import { internalQuery } from "./_generated/server";
-import { fairIsPreEvent } from "../lib/fair-contract";
 import { fairScanCountKey, readFairCount } from "./lib/fairCountShards";
 
 // Sajam automobila 2026 — B2 internal scan-count projection. Internal only
 // (`npx convex run fairScans:modelScanCounts` on DEV, B6 reports later):
 // anonymous counts per model/stand, never a visitor id or hash.
-// P1: the raw cross-check leaves pre-event rows out (they are in no counter)
-// and reports how many there are apart.
 
 const RAW_ROWS_CAP = 1000;
 
@@ -27,14 +24,7 @@ export const modelScanCounts = internalQuery({
       day: v.optional(counts),
       hour: v.optional(counts),
       // Cross-check from the raw rows (bounded by RAW_ROWS_CAP).
-      raw: v.object({
-        scanEvents: v.number(),
-        adminExcluded: v.number(),
-        uniqueVisitors: v.number(),
-        capped: v.boolean(),
-        // P1: pre-event scan rows of the model (only when there are any).
-        preEventScanEvents: v.optional(v.number()),
-      }),
+      raw: v.object({ scanEvents: v.number(), adminExcluded: v.number(), uniqueVisitors: v.number(), capped: v.boolean() }),
     }),
   ),
   handler: async (ctx, args) => {
@@ -52,21 +42,16 @@ export const modelScanCounts = internalQuery({
       .query("fairUniqueScans")
       .withIndex("by_eventModelId_and_firstScannedAt", (q) => q.eq("eventModelId", model._id))
       .take(RAW_ROWS_CAP);
-    const startsAt = (await ctx.db.get(model.eventId))?.startsAt ?? 0;
-    const fairEvents = events.filter((row) => row.preEvent !== true && !fairIsPreEvent(row.occurredAt, { startsAt }));
-    const fairUniques = uniques.filter((row) => row.preEvent !== true && !fairIsPreEvent(row.lastScannedAt, { startsAt }));
-    const preEventScanEvents = events.length - fairEvents.length;
     return {
       model: await read("model", model._id),
       stand: await read("stand", model.standId),
       ...(args.dateKey ? { day: await read("model", model._id, args.dateKey) } : {}),
       ...(args.hourKey ? { hour: await read("model", model._id, args.hourKey) } : {}),
       raw: {
-        scanEvents: fairEvents.length,
-        adminExcluded: fairEvents.filter((row) => row.isAdminExcluded).length,
-        uniqueVisitors: fairUniques.length,
+        scanEvents: events.length,
+        adminExcluded: events.filter((row) => row.isAdminExcluded).length,
+        uniqueVisitors: uniques.length,
         capped: events.length === RAW_ROWS_CAP || uniques.length === RAW_ROWS_CAP,
-        ...(preEventScanEvents > 0 ? { preEventScanEvents } : {}),
       },
     };
   },

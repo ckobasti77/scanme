@@ -163,39 +163,15 @@ export function fairRatingSumKey(field: FairRatingField, eventModelId: string) {
  * Patches the visitor's one row for the model. Only the SENT fields move the
  * aggregates: a first value adds to count and sum, a changed value only moves
  * the sum by the difference (HANDOFF §10: a rating change never adds to count).
- *
- * P1: a row written before the event's start (`preEvent`) is in no aggregate.
- * The visitor's first rating during the fair takes it over: the pre-event
- * values are dropped and the sent ones count as first values.
  */
 export async function applyFairRating(
   ctx: MutationCtx,
-  input: { visitorId: Id<"fairVisitors">; model: Doc<"fairEventModels">; values: FairRatingInputValues; now: number; preEvent?: boolean },
+  input: { visitorId: Id<"fairVisitors">; model: Doc<"fairEventModels">; values: FairRatingInputValues; now: number },
 ): Promise<Doc<"fairRatings">> {
-  const stored = await ctx.db
+  const existing = await ctx.db
     .query("fairRatings")
     .withIndex("by_visitorId_and_eventModelId", (q) => q.eq("visitorId", input.visitorId).eq("eventModelId", input.model._id))
     .unique();
-  if (stored && stored.preEvent === true && !input.preEvent) {
-    await ctx.db.replace(stored._id, {
-      visitorId: stored.visitorId,
-      eventId: stored.eventId,
-      eventModelId: stored.eventModelId,
-      createdAt: input.now,
-      updatedAt: input.now,
-    });
-  } else if (stored && stored.preEvent !== true && input.preEvent) {
-    // A row written before P1 (counted then) that gets a pre-event write leaves the aggregates now.
-    for (const field of FAIR_RATING_FIELDS) {
-      const value = stored[field];
-      if (value === undefined) continue;
-      await bumpFairCount(ctx, fairRatingCountKey(field, stored.eventModelId), -1);
-      await bumpFairCount(ctx, fairRatingSumKey(field, stored.eventModelId), -value);
-    }
-    await ctx.db.patch(stored._id, { preEvent: true });
-  }
-  const existing = stored ? await ctx.db.get(stored._id) : null;
-  const counted = !(existing?.preEvent === true || (!existing && input.preEvent));
   const patch: FairRatingInputValues = {};
   for (const field of FAIR_RATING_FIELDS) {
     const value = input.values[field];
@@ -203,7 +179,6 @@ export async function applyFairRating(
     const previous = existing?.[field];
     if (previous === value) continue;
     patch[field] = value;
-    if (!counted) continue;
     if (previous === undefined) {
       await bumpFairCount(ctx, fairRatingCountKey(field, input.model._id), 1);
       await bumpFairCount(ctx, fairRatingSumKey(field, input.model._id), value);
@@ -222,7 +197,6 @@ export async function applyFairRating(
     ...patch,
     createdAt: input.now,
     updatedAt: input.now,
-    ...(input.preEvent ? { preEvent: true } : {}),
   });
   return (await ctx.db.get(id))!;
 }

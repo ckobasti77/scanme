@@ -187,8 +187,6 @@ describe("ratings (HANDOFF §5.3, §10, §12; JOVAN-DELTA §1)", () => {
 
   test("re-rating patches the same row: count stays, sum/average move; partial Advanced re-entry moves only sent dimensions", async () => {
     const f = await setup();
-    // P1: only ratings from the fair's start on are counted.
-    vi.setSystemTime(DAY1);
     const [v1, v2] = [visitor(), visitor()];
     await rate(f, v1, f.starter.id, { overall: 2 });
     await rate(f, v2, f.starter.id, { overall: 4 });
@@ -209,8 +207,6 @@ describe("ratings (HANDOFF §5.3, §10, §12; JOVAN-DELTA §1)", () => {
 
   test("the visitor sees only their own rating; count/sum/average are admin-only", async () => {
     const f = await setup();
-    // P1: only ratings from the fair's start on are counted.
-    vi.setSystemTime(DAY1);
     const [v1, v2] = [visitor(), visitor()];
     await rate(f, v1, f.starter.id, { overall: 1 });
     for (let i = 0; i < 6; i++) await rate(f, visitor(), f.starter.id, { overall: 5 });
@@ -225,10 +221,8 @@ describe("ratings (HANDOFF §5.3, §10, §12; JOVAN-DELTA §1)", () => {
   test("upgrade Starter → Advanced is not retroactive: the old overall stays, new entries take dimensions only", async () => {
     const f = await setup();
     const v1 = visitor();
-    // P1: the Starter rating is given during the fair (a pre-event one is in no count); the upgrade comes the next day.
-    vi.setSystemTime(DAY1);
     await rate(f, v1, f.starter.id, { overall: 3 });
-    vi.setSystemTime(DAY2);
+    vi.setSystemTime(DAY1);
     await f.admin.mutation(api.fairAdmin.upgradePackage, { eventModelId: f.starter.id, toTier: "advanced" });
     await expectCode(rate(f, v1, f.starter.id, { overall: 5 }), "INVALID_INPUT");
     expect(await rate(f, v1, f.starter.id, { appearance: 5 })).toEqual({ mode: "dimensions", appearance: 5 });

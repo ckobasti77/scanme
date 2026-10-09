@@ -107,16 +107,6 @@ export function canUpgradeFairPackage(from: FairPackageTier, to: FairPackageTier
   return fairPackageChangeProblem(from, to) === null;
 }
 
-/**
- * P1 (Aleksa, 8. 10. 2026): a package's rights start when the package is
- * assigned — never later. A requested start in the future (DATA-INTAKE
- * `package_active_from`, e.g. the fair's first day) is taken as the moment of
- * assignment; a requested start in the past is kept as before.
- */
-export function fairPackageActivationAt(requested: number | undefined, assignedAt: number): number {
-  return requested === undefined ? assignedAt : Math.min(requested, assignedAt);
-}
-
 /** A model's package history: the tier it started with and its upgrades. */
 export type FairPackageHistory = {
   initialTier: FairPackageTier;

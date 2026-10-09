@@ -193,51 +193,6 @@ export const FAIR_PURGE_CATEGORIES = [
 ] as const;
 export type FairPurgeCategory = (typeof FAIR_PURGE_CATEGORIES)[number];
 export type FairPurgeMode = "dry_run" | "execute";
-
-/**
- * P1 (Aleksa, 8. 10. 2026): everything a visitor writes before the event's
- * `startsAt` (elektromobilnost-2026: 2026-10-09T00:00+02:00) is pre-event —
- * the day the ScanMe team and the exhibitors try everything on real data. It
- * is stored, but stays out of every counter, analytics, report, dashboard,
- * export and public number, and no exhibitor email or follow-up carries it.
- * The ONE rule; the boundary instant itself already belongs to the fair.
- */
-export function fairIsPreEvent(at: number, event: { startsAt: number }): boolean {
-  return at < event.startsAt;
-}
-
-/**
- * P1 — „Resetuj pre-event podatke“: the visitor data of one event a reset
- * counts and deletes, in deletion order (an email delivery goes with its
- * lead). Not a category: fairVisitors (one row serves every event; the
- * 16 Nov purge deletes it) and fairShareCollections (a public link someone
- * may already have sent keeps working; its pre-event traffic rows go).
- */
-export const FAIR_PRE_EVENT_CATEGORIES = [
-  "email_deliveries",
-  "leads",
-  "survey_responses",
-  "ratings",
-  "audience_votes",
-  "brand_favorites",
-  "passport_stamps",
-  "sponsored_actions",
-  "traffic_events",
-  "unique_scans",
-  "scan_events",
-] as const satisfies readonly FairPurgeCategory[];
-export type FairPreEventCategory = (typeof FAIR_PRE_EVENT_CATEGORIES)[number];
-/** P1 — admin overview and dry run of the reset: pre-event rows per category, counted up to a cap. */
-export type FairPreEventSummary = {
-  eventId: string;
-  eventSlug: string;
-  /** The boundary: every visitor write before it is pre-event. */
-  startsAt: number;
-  capPerCategory: number;
-  total: number;
-  capped: boolean;
-  categories: { category: FairPreEventCategory; count: number; capped: boolean }[];
-};
 export type FairPurgeTrigger = "cron" | "admin" | "cli";
 export type FairPurgeRunStatus = "running" | "completed";
 export type FairPurgeCategoryStatus = "pending" | "running" | "done";
@@ -829,8 +784,6 @@ export const FAIR_EMAIL_DELIVERY_ERRORS = [
   "FOLLOW_UP_MERGED",
   // N5 — soft cap per address (FAIR_LEAD_CONFIRMATIONS_PER_RECIPIENT): the lead is stored, its confirmation is `skipped`
   "RECIPIENT_CAP",
-  // P1 — a follow-up of a lead from before the event's start (fairIsPreEvent) is `skipped`, never sent
-  "PRE_EVENT",
 ] as const;
 export type FairEmailDeliveryError = (typeof FAIR_EMAIL_DELIVERY_ERRORS)[number];
 
@@ -1105,8 +1058,6 @@ export const FAIR_ADMIN_ISSUE_CODES = [
   "FAIR_REPORT_EXPORT_TOO_LARGE",
   // K4 — a manual build before the day's close (fairEventDays.endsAt) is refused
   "FAIR_DAY_NOT_CLOSED",
-  // P1 — „Resetuj pre-event podatke“: the typed confirmation is not the event's slug
-  "FAIR_RESET_CONFIRMATION_MISMATCH",
   // Warnings
   "FAIR_PRICE_MISSING",
   "FAIR_PHOTO_MISSING",

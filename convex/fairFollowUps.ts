@@ -234,10 +234,9 @@ export const previewExhibitorFollowUp = query({
     const participation = await ctx.db.get(args.participationId);
     if (!participation) fairAdminError("FAIR_LINK_NOT_FOUND", { field: "participationId" });
     const event = await requireFairEvent(ctx, participation.eventId);
-    // P1: pre-event leads never get a follow-up, so they are no preview source either.
     const recent = (await ctx.db
       .query("fairLeads")
-      .withIndex("by_participationId_and_createdAt", (q) => q.eq("participationId", participation._id).gte("createdAt", event.startsAt))
+      .withIndex("by_participationId_and_createdAt", (q) => q.eq("participationId", participation._id))
       .order("desc")
       .take(PREVIEW_LEADS * 3)).filter((lead) => lead.email !== undefined).slice(0, PREVIEW_LEADS);
     const leads = recent.map((lead) => ({ leadId: lead._id, contactName: lead.contactName, kind: lead.kind, createdAt: lead.createdAt }));
@@ -276,10 +275,9 @@ export const estimateFollowUps = query({
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
     const event = await requireFairEvent(ctx, args.eventId);
-    // P1: pre-event leads have no follow-up and are not counted.
     const leads = await ctx.db
       .query("fairLeads")
-      .withIndex("by_eventId_and_createdAt", (q) => q.eq("eventId", event._id).gte("createdAt", event.startsAt))
+      .withIndex("by_eventId_and_createdAt", (q) => q.eq("eventId", event._id))
       .order("desc")
       .take(ESTIMATE_LEADS_CAP + 1);
     const capped = leads.length > ESTIMATE_LEADS_CAP;

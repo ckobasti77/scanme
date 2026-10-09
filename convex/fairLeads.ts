@@ -6,7 +6,6 @@ import {
   FAIR_LEAD_LEADS_PER_RECIPIENT,
   FAIR_LEAD_RECIPIENT_WINDOW_MS,
   FAIR_PII_PURGE_AT_MS,
-  fairIsPreEvent,
   isFairSubmissionId,
   type FairLeadSubmitResult,
 } from "../lib/fair-contract";
@@ -139,14 +138,11 @@ export const submitLead = mutation({
     // N5: one lead per visitor, model and kind. A form opened again (new
     // submissionId) gets the stored lead back and writes and sends nothing;
     // it still spends the limiter token above, so hammering one model stops.
-    // P1: a pre-event lead (newest row) never stands in for one during the fair.
-    const preEvent = fairIsPreEvent(now, event);
     const existing = await ctx.db
       .query("fairLeads")
       .withIndex("by_visitorId_and_eventModelId_and_kind", (q) => q.eq("visitorId", visitorId).eq("eventModelId", model._id).eq("kind", args.kind))
-      .order("desc")
       .first();
-    if (existing && (preEvent || !fairIsPreEvent(existing.createdAt, event))) return submitResult(ctx, existing, true);
+    if (existing) return submitResult(ctx, existing, true);
 
     // B7 (§9.44), N5: per-address caps, whatever visitor hash or model asked,
     // so the public submit cannot flood one inbox by cycling cookies. Over the
@@ -200,9 +196,7 @@ export const submitLead = mutation({
       // K3: and only while FAIR_FOLLOWUP_ENABLED is on — a lead taken while it
       // is off never gains one later (its confirmation did not announce one).
       // N5: the same for a lead over the soft cap — no confirmation announced it.
-      // P1: and for a pre-event lead (tests on the day before the fair): no
-      // post-event follow-up, so its confirmation announces none either.
-      const followUpAt = rights.postEventFollowUp && fairFollowUpEnabled() && !recipientCapped && !preEvent ? fairFollowUpScheduleFor(event.endsAt, now) : null;
+      const followUpAt = rights.postEventFollowUp && fairFollowUpEnabled() && !recipientCapped ? fairFollowUpScheduleFor(event.endsAt, now) : null;
       if (followUpAt !== null) {
         await queueFairLeadEmail(ctx, { leadId, kind: "post_event_follow_up", recipient, scheduledFor: followUpAt, now });
         followUpScheduled = true;

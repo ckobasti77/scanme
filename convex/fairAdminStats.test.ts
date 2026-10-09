@@ -57,14 +57,12 @@ type LeadModel = { _id: Id<"fairEventModels">; eventId: Id<"fairEvents">; partic
 
 async function insertLeads(f: Setup, model: LeadModel, rows: { kind: "interest" | "test_drive"; delivered?: boolean }[]) {
   await f.t.run(async (ctx) => {
-    // P1: counted leads are left during the fair (from the event's start on); pre-event leads are in no admin count.
-    const startsAt = (await ctx.db.get(model.eventId))!.startsAt;
     for (const [index, row] of rows.entries()) {
       await ctx.db.insert("fairLeads", {
         submissionId: `test-a3-${model._id}-${index}`, kind: row.kind, visitorId: f.visitorId, eventId: model.eventId, eventModelId: model._id,
         participationId: model.participationId, contactName: "TEST Posetilac", email: "test.a3@example.invalid", consentAccepted: true, consentVersion: 1,
         consentTextSnapshot: "TEST saglasnost", consentedAt: SEED_AT, status: row.delivered ? "delivered" : "received",
-        ...(row.delivered ? { deliveredAt: SEED_AT } : {}), followUpSuppressed: false, createdAt: startsAt + index, purgeAt: SEED_AT,
+        ...(row.delivered ? { deliveredAt: SEED_AT } : {}), followUpSuppressed: false, createdAt: SEED_AT + index, purgeAt: SEED_AT,
       });
     }
   });

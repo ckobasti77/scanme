@@ -125,20 +125,6 @@ describe("B7 integration TEST seed (8 Oct 2026)", () => {
     rateLimiterTest.register(t);
     await t.run((ctx) => ctx.db.insert("users", { email: ADMIN_EMAIL }));
     await t.mutation(internal.fairDevFixtures.seedTestCatalog, {});
-    // P1 (Aleksa, 8. 10.): a catalog seeded now is in force from its
-    // assignment. This reproduces a DEV catalog written before P1 — paid
-    // packages that still wait for each fair's opening (9 Oct / 30 Oct, 09:00) —
-    // which the rehearsal seed aligns.
-    await t.run(async (ctx) => {
-      for (const model of await ctx.db.query("fairEventModels").collect()) {
-        if (model.packageTier === "included") continue;
-        const from = Date.parse(model.externalKey.startsWith("test-em26-") ? "2026-10-09T09:00:00+02:00" : "2026-10-30T09:00:00+01:00");
-        await ctx.db.patch(model._id, { packageActivatedAt: from });
-        for (const row of await ctx.db.query("fairPackageActivations").withIndex("by_eventModelId_and_activatedAt", (q) => q.eq("eventModelId", model._id)).collect()) {
-          await ctx.db.patch(row._id, { activatedAt: from });
-        }
-      }
-    });
     const seed = await t.mutation(internal.fairDevFixtures.seedIntegrationTest, {});
     expect(seed.catalog.events.updated).toBe(1);
     expect(seed.rehearsal.activationsMoved).toBe(4); // EM: 2 Advanced + 2 Starter
@@ -226,15 +212,9 @@ describe("B7 end to end on the TEST seed", () => {
     expect(await f.t.query(api.fairPublic.getSponsoredGarageRotation, { eventSlug: EM })).toMatchObject({ surface: "garage", intervalMs: 8000 });
     expect(await f.t.mutation(api.fairInteractions.recordSponsoredAction, { gatewaySecret: GATEWAY_SECRET, visitorHash: me, eventModelId: omZ1._id, surface: "garage", kind: "open_model", requestId: requestId() })).toMatchObject({ duplicate: false });
 
-    // The future second fair is seeded and readable. P1 (Aleksa, 8. 10.): its
-    // paid packages are in force from their assignment, so a rating is taken —
-    // but before that fair's start (30 Oct) it is pre-event: stored for the
-    // visitor and in no count.
+    // The future second fair is seeded and readable; its paid features start with its package (30 Oct).
     expect(await f.t.query(api.fairPublic.getEventBySlug, { slug: AMF })).toMatchObject({ slug: AMF });
-    expect(await f.t.mutation(api.fairInteractions.upsertRating, { gatewaySecret: GATEWAY_SECRET, visitorHash: visitor(), eventModelId: amfOm._id, appearance: 5 })).toMatchObject({ mode: "dimensions", appearance: 5 });
-    expect(await f.admin.query(api.fairInteractionsAdmin.getModelInteractionSummary, { eventModelId: amfOm._id })).toMatchObject({
-      ratings: expect.arrayContaining([expect.objectContaining({ field: "appearance", count: 0, sum: 0 })]),
-    });
+    await expect(f.t.mutation(api.fairInteractions.upsertRating, { gatewaySecret: GATEWAY_SECRET, visitorHash: me, eventModelId: amfOm._id, appearance: 5 })).rejects.toMatchObject({ data: { code: "FEATURE_NOT_ENTITLED" } });
 
     // 8. Daily dataset of the rehearsal day, per exhibitor, without mixing them.
     vi.setSystemTime(REHEARSAL_END + 15 * 60_000);

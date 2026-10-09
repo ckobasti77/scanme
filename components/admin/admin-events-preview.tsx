@@ -29,7 +29,6 @@ import { EventInteractionExhibitorsView } from "@/components/admin/events/sectio
 import { EventPassportsView, type PassportsActions } from "@/components/admin/events/sections/interakcije-pasos-view";
 import { AdminEventsConsent, type LeadsActions } from "@/components/admin/admin-events-leads";
 import { AdminEventsReports, type ReportsActions, type ReportsView } from "@/components/admin/admin-events-reports";
-import { AdminEventsPreEvent, type PreEventActions } from "@/components/admin/admin-events-pre-event";
 import { AdminEventsRetention, type RetentionActions, type RetentionView } from "@/components/admin/admin-events-retention";
 import { AdminEventsSponsored, type SponsoredActions, type SponsoredView } from "@/components/admin/admin-events-sponsored";
 import { AdminShell } from "@/components/admin/admin-shell";
@@ -77,7 +76,7 @@ import { qrListQuery } from "@/lib/admin-v1/qr-filters";
 import type { AdminQueryPatch, AdminQueryState } from "@/lib/admin-v1/query-state";
 import { parseViewModeParam, type AdminViewMode } from "@/lib/admin-v1/view-mode";
 import type { FairImportPayload } from "@/lib/fair-import/to-payload";
-import { FAIR_PII_PURGE_AT_MS, FAIR_PRE_EVENT_CATEGORIES, FAIR_PURGE_CATEGORIES, type FairPreEventSummary } from "@/lib/fair-contract";
+import { FAIR_PII_PURGE_AT_MS, FAIR_PURGE_CATEGORIES } from "@/lib/fair-contract";
 import { adminEventsSr as dict } from "@/lib/i18n/sr/admin-events";
 
 // Static TEST fixture of the `Događaji` sections (mirrors the B1 DEV TEST
@@ -205,8 +204,6 @@ const interactions: InteractionsView = {
     question("q5", "volta-x1", "d1", "TEST jutarnje pitanje", "closed", 3),
     question("q6", "volta-x1", "d1", "TEST pitanje za popodne", "draft", 4),
     question("q7", "volta-x1", "d2", "TEST pitanje za drugi dan", "draft", 5),
-    // P1 — published for day 2, window still ahead: „Otvori sada“ is offered.
-    question("q10", "volta-x2", "d2", "TEST pitanje za sutra (objavljeno)", "published", 3, { startsAt: opening + DAY_MS, endsAt: opening + DAY_MS + 10 * 3_600_000 }),
     question("q2", "volta-x2", "d1", "TEST da li biste probali ovaj model?", "published", 1),
     question("q3", "volta-x2", "d1", "TEST pitanje u nacrtu", "draft", 2),
     question("q8", "volta-m2", "d1", "TEST domet ili cena?", "published", 1, { options: options2("TEST domet", "TEST cena") }),
@@ -226,7 +223,7 @@ const interactions: InteractionsView = {
   ],
 };
 const interactionActions: InteractionsActions = {
-  saveQuestion: ok, publishQuestion: ok, closeQuestion: ok, openQuestionNow: ok, setSponsoredResult: ok, saveSurveyDraft: ok, publishSurvey: ok, retireSurvey: ok,
+  saveQuestion: ok, publishQuestion: ok, closeQuestion: ok, setSponsoredResult: ok, saveSurveyDraft: ok, publishSurvey: ok, retireSurvey: ok,
 };
 
 // A7 — Pasoš brenda: one TEST brand per state, shown the day before the
@@ -451,24 +448,6 @@ const retentionView: RetentionView = {
   now: opening,
 };
 const retentionActions: RetentionActions = { startDryRun: ok };
-// P1 — pre-event data of the TEST event (TEST counts, no real rows).
-const PRE_EVENT_COUNTS: Record<(typeof FAIR_PRE_EVENT_CATEGORIES)[number], number> = {
-  email_deliveries: 2, leads: 2, survey_responses: 1, ratings: 6, audience_votes: 4, brand_favorites: 0,
-  passport_stamps: 3, sponsored_actions: 1, traffic_events: 5, unique_scans: 9, scan_events: 17,
-};
-const preEventSummary: FairPreEventSummary = {
-  eventId: "test-event",
-  eventSlug: "test-elektromobilnost-2026",
-  startsAt: Date.parse("2026-10-09T00:00:00+02:00"),
-  capPerCategory: 200,
-  total: Object.values(PRE_EVENT_COUNTS).reduce((sum, count) => sum + count, 0),
-  capped: false,
-  categories: FAIR_PRE_EVENT_CATEGORIES.map((category) => ({ category, count: PRE_EVENT_COUNTS[category], capped: false })),
-};
-const preEventActions: PreEventActions = {
-  dryRun: async () => ({ ok: true, total: preEventSummary.total, capped: false }),
-  reset: async (confirmSlug) => (confirmSlug === preEventSummary.eventSlug ? { ok: true, total: preEventSummary.total, capped: false } : { ok: false, code: "FAIR_RESET_CONFIRMATION_MISMATCH" }),
-};
 
 /** A3 — the detail's linked summaries from the TEST fixtures above (leads: fixed TEST numbers). */
 function modelSummary(modelId: string): ModelDetailSummary {
@@ -936,12 +915,7 @@ function PreviewSection({ path, detailId, query, setQuery, keep, previewStep }: 
     }
     case "leadovi/podesavanja": return <AdminEventsConsent view={{ consents: leadsFixture.consents }} actions={leadActions} />;
     case "izvestaji": return <AdminEventsReports view={reportsView} actions={reportsActions} query={query} onQueryChange={setQuery} />;
-    case "brisanje": return (
-      <div className="grid min-w-0 gap-5">
-        <AdminEventsPreEvent summary={preEventSummary} actions={preEventActions} />
-        <AdminEventsRetention view={retentionView} actions={retentionActions} />
-      </div>
-    );
+    case "brisanje": return <AdminEventsRetention view={retentionView} actions={retentionActions} />;
   }
 }
 

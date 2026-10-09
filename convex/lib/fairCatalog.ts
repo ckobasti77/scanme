@@ -16,7 +16,7 @@ import {
   type FairErrorDetails,
   type FairPackageTier,
 } from "../../lib/fair-contract";
-import { fairPackageActivationAt, fairPackageChangeProblem } from "../../lib/fair-entitlements";
+import { fairPackageChangeProblem } from "../../lib/fair-entitlements";
 import { isFairMapStandLocation } from "../../lib/fair-map";
 import { belgradeDayBounds } from "../../lib/admin-v1/task-time";
 import { isSafePublicDestination } from "./validation";
@@ -520,11 +520,7 @@ export type FairModelInput = {
   specifications: FairSpecificationInput[];
   photoUrl?: string;
   packageTier: FairPackageTier;
-  /**
-   * DATA-INTAKE `package_active_from`; default now. P1 (Aleksa, 8. 10.): the
-   * rights start when the package is assigned, so a FUTURE value no longer
-   * delays them — it is taken as "now" (a past value is kept as before).
-   */
+  /** When the initial tier takes effect (DATA-INTAKE `package_active_from`); default now. */
   packageActiveFrom?: number;
   passportEligible: boolean;
   sortOrder?: number;
@@ -584,8 +580,8 @@ export async function upsertFairModel(ctx: MutationCtx, input: FairModelInput, a
     sortOrder: input.sortOrder ?? existing?.sortOrder ?? 0,
   };
   if (!existing) {
-    if (input.packageActiveFrom !== undefined && !Number.isFinite(input.packageActiveFrom)) fairAdminError("INVALID_INPUT", { field: "packageActiveFrom" });
-    const activatedAt = fairPackageActivationAt(input.packageActiveFrom, now);
+    const activatedAt = input.packageActiveFrom ?? now;
+    if (!Number.isFinite(activatedAt)) fairAdminError("INVALID_INPUT", { field: "packageActiveFrom" });
     const modelId = await ctx.db.insert("fairEventModels", {
       externalKey,
       eventId: event._id,
@@ -617,60 +613,12 @@ export async function upsertFairModel(ctx: MutationCtx, input: FairModelInput, a
   return { modelId: existing._id, result: "updated" as UpsertResult, warnings };
 }
 
-/** Activation rows read per model (a model has its initial row and at most two upgrades). */
-const PACKAGE_ACTIVATIONS_CAP = 20;
-
-export type FairSettledActivations = {
-  /** The model's packageActivatedAt before and after. */
-  from: number;
-  to: number;
-  activations: { activationId: Id<"fairPackageActivations">; from: number; to: number }[];
-};
-
-/**
- * P1 (Aleksa, 8. 10. 2026): rights start at assignment. Activations written
- * before P1 that still wait for a future moment (a future
- * `package_active_from`, or an upgrade that waited for it) move to the moment
- * they were assigned — the activation row's creation — or to `now` if that is
- * later. Creation order is kept, so the history never reads as a downgrade,
- * and `packageActivatedAt` follows the newest activation. Returns null when
- * nothing waits; writes only when `apply` is true (the migration's dry run).
- */
-export async function fairSettleFutureActivations(
-  ctx: MutationCtx,
-  model: Doc<"fairEventModels">,
-  now: number,
-  apply: boolean,
-): Promise<FairSettledActivations | null> {
-  if (model.packageActivatedAt <= now) return null;
-  const rows = await ctx.db
-    .query("fairPackageActivations")
-    .withIndex("by_eventModelId_and_activatedAt", (q) => q.eq("eventModelId", model._id))
-    .take(PACKAGE_ACTIVATIONS_CAP);
-  const activations: FairSettledActivations["activations"] = [];
-  let newest: number | null = null;
-  for (const row of rows) {
-    // _creationTime carries a sub-millisecond part; activations are whole milliseconds.
-    const to = row.activatedAt > now ? Math.min(Math.floor(row._creationTime), now) : row.activatedAt;
-    if (to !== row.activatedAt) {
-      activations.push({ activationId: row._id, from: row.activatedAt, to });
-      if (apply) await ctx.db.patch(row._id, { activatedAt: to });
-    }
-    newest = newest === null ? to : Math.max(newest, to);
-  }
-  // No activation row (an `included` model given a future start): the model's own creation.
-  const to = newest ?? Math.min(Math.floor(model._creationTime), now);
-  if (apply) await ctx.db.patch(model._id, { packageActivatedAt: to });
-  return { from: model.packageActivatedAt, to, activations };
-}
-
 /**
  * Upgrade only (included → starter → advanced, HANDOFF §4.1) via the central
  * entitlement rule. The model's tier and its fairPackageActivations audit row
  * are written in this one mutation; the QR assignment and card target are not
- * touched. The activation takes effect now — never retroactively. P1: a
- * current tier still waiting for a future start (written before P1) is first
- * moved to its assignment moment, so the history stays in order.
+ * touched. The activation takes effect now (or when the current tier starts,
+ * if that is still ahead) — never retroactively.
  */
 export async function upgradeFairModelPackage(
   ctx: MutationCtx,
@@ -684,8 +632,10 @@ export async function upgradeFairModelPackage(
   if (problem === "same_tier") fairAdminError("FAIR_PACKAGE_SAME_TIER", { tier: model.packageTier });
   if (problem === "downgrade") fairAdminError("FAIR_PACKAGE_DOWNGRADE", { from: model.packageTier, to: input.toTier });
   const note = optionalText(input.note, "note", 200);
-  await fairSettleFutureActivations(ctx, model, now, true);
-  const activatedAt = now;
+  // An upgrade entered before the current tier takes effect (e.g. a package
+  // imported with a future package_active_from) starts with it, never before
+  // it — otherwise the history would read as a later downgrade.
+  const activatedAt = Math.max(now, model.packageActivatedAt);
   await ctx.db.patch(model._id, { packageTier: input.toTier, packageActivatedAt: activatedAt, updatedAt: now });
   const activationId = await ctx.db.insert("fairPackageActivations", {
     eventModelId: model._id,

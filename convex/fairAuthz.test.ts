@@ -29,9 +29,7 @@ import * as fairInteractionsAdmin from "./fairInteractionsAdmin";
 import * as fairLeads from "./fairLeads";
 import * as fairLeadsAdmin from "./fairLeadsAdmin";
 import * as fairLeadsInbox from "./fairLeadsInbox";
-import * as fairPackages from "./fairPackages";
 import * as fairPassports from "./fairPassports";
-import * as fairPreEvent from "./fairPreEvent";
 import * as fairPublic from "./fairPublic";
 import * as fairReports from "./fairReports";
 import * as fairRetention from "./fairRetention";
@@ -121,14 +119,8 @@ const AUTHZ: Record<string, { module: Record<string, unknown>; functions: Record
     functions: {
       upsertAudienceQuestion: A, publishAudienceQuestion: A, closeAudienceQuestion: A, setSponsoredResultQuestion: A, upsertSurveyDraft: A, publishSurvey: A,
       retireSurvey: A, upsertPassport: A, publishPassport: A, withdrawPassport: A, removePassportModel: A, getEventInteractions: A, getModelInteractionSummary: A,
-      // P1 — „Otvori sada“ (a published question opens before its day).
-      openAudienceQuestionNow: A,
     },
   },
-  // P1 — pre-event data: the admin overview and reset; the batches and the CLI dry run are internal.
-  fairPreEvent: { module: fairPreEvent, functions: { getPreEventSummary: A, resetPreEventData: A, resetPreEventBatch: I, previewPreEventReset: I } },
-  // P1 — the package migration (future activations → assignment moment), CLI only.
-  fairPackages: { module: fairPackages, functions: { migrateFutureActivations: I } },
   fairLeadsAdmin: {
     module: fairLeadsAdmin,
     functions: {
@@ -255,10 +247,6 @@ describe("B7 authz table of every fair function", () => {
       ["upsertAudienceQuestion", (c) => c.mutation(api.fairInteractionsAdmin.upsertAudienceQuestion, question)],
       ["publishAudienceQuestion", (c) => c.mutation(api.fairInteractionsAdmin.publishAudienceQuestion, { questionId: f.questionId })],
       ["closeAudienceQuestion", (c) => c.mutation(api.fairInteractionsAdmin.closeAudienceQuestion, { questionId: f.questionId })],
-      ["openAudienceQuestionNow", (c) => c.mutation(api.fairInteractionsAdmin.openAudienceQuestionNow, { questionId: f.questionId })],
-      ["getPreEventSummary", (c) => c.query(api.fairPreEvent.getPreEventSummary, { eventId: f.eventId })],
-      // The real run with the right slug: only requireAdmin stands between a caller and the delete.
-      ["resetPreEventData", (c) => c.mutation(api.fairPreEvent.resetPreEventData, { eventId: f.eventId, dryRun: false, confirmSlug: EM })],
       ["setSponsoredResultQuestion", (c) => c.mutation(api.fairInteractionsAdmin.setSponsoredResultQuestion, { eventModelId: f.modelId, questionId: null })],
       ["upsertSurveyDraft", (c) => c.mutation(api.fairInteractionsAdmin.upsertSurveyDraft, { eventModelId: f.modelId, questions: [{ id: "q", prompt: "TEST?", kind: "yes_no", options: [], required: false, order: 1 }] })],
       ["publishSurvey", (c) => c.mutation(api.fairInteractionsAdmin.publishSurvey, { surveyId: f.surveyId })],
@@ -325,7 +313,7 @@ describe("B7 authz table of every fair function", () => {
       ["estimateFollowUps", (c) => c.query(api.fairFollowUps.estimateFollowUps, { eventId: f.eventId })],
       ["getEventDashboard", (c) => c.query(api.fairDashboard.getEventDashboard, { eventId: f.eventId, at: REHEARSAL })],
     ];
-    const adminFunctions = ["fairInteractionsAdmin", "fairLeadsAdmin", "fairSponsoredAdmin", "fairReports", "fairRetention", "fairAdminStats", "fairAdminQr", "fairPassports", "fairLeadsInbox", "fairFollowUps", "fairDashboard", "fairPreEvent"].flatMap((name) =>
+    const adminFunctions = ["fairInteractionsAdmin", "fairLeadsAdmin", "fairSponsoredAdmin", "fairReports", "fairRetention", "fairAdminStats", "fairAdminQr", "fairPassports", "fairLeadsInbox", "fairFollowUps", "fairDashboard"].flatMap((name) =>
       Object.entries(AUTHZ[name].functions).filter(([, access]) => access === "admin").map(([fn]) => fn),
     );
     expect(calls.map(([name]) => name).sort()).toEqual(adminFunctions.sort());

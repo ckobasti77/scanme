@@ -209,10 +209,7 @@ describe("A10 dashboard rules (A0-IZVESTAJ §6)", () => {
     expect(action(d, "question_missing_today")).toMatchObject({ tone: "uskoro", count: 2 });
     expect(d.kpis.questions).toMatchObject({ covered: 2, required: 4 });
 
-    // P1: the seed's packages are in force from their assignment. A package
-    // that still waits for the opening (a row written before P1) lists nothing
-    // before it; in force from the seed, the first day's questions are due.
-    await activatePackagesAt(f, OPENING);
+    // Before the fair the packages are not in force yet: nothing can be asked, nothing is listed.
     expect(rules(await f.dash(at("2026-10-08T10:00:00+02:00")))).not.toContain("question_missing_next_day");
     await activatePackagesAt(f, SEED_AT);
     d = await f.dash(at("2026-10-08T10:00:00+02:00"));
@@ -409,8 +406,7 @@ describe("A10 dashboard order, numbers and bounds", () => {
       for (let index = 0; index <= FAIR_DASHBOARD_LEADS_CAP; index += 1) {
         await ctx.db.insert("fairLeads", {
           submissionId: `test-a10-cap-${index}`, kind: "interest", visitorId, eventId: f.eventId, eventModelId: model._id, participationId: f.a, contactName: "TEST",
-          // P1: leads of the fair itself (pre-event leads are in no dashboard number).
-          consentAccepted: true, consentVersion: 1, consentTextSnapshot: "TEST", consentedAt: OPENING, status: "received", followUpSuppressed: false, createdAt: OPENING + index, purgeAt: FAIR_PII_PURGE_AT_MS,
+          consentAccepted: true, consentVersion: 1, consentTextSnapshot: "TEST", consentedAt: SEED_AT, status: "received", followUpSuppressed: false, createdAt: SEED_AT + index, purgeAt: FAIR_PII_PURGE_AT_MS,
         });
       }
     });

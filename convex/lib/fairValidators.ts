@@ -214,31 +214,6 @@ export const fairPurgeCategoryProgress = v.object({
   finishedAt: v.optional(v.number()),
 });
 
-// P1 — „Resetuj pre-event podatke“ (FAIR_PRE_EVENT_CATEGORIES in lib/fair-contract.ts, same order).
-export const fairPreEventCategory = v.union(
-  v.literal("email_deliveries"),
-  v.literal("leads"),
-  v.literal("survey_responses"),
-  v.literal("ratings"),
-  v.literal("audience_votes"),
-  v.literal("brand_favorites"),
-  v.literal("passport_stamps"),
-  v.literal("sponsored_actions"),
-  v.literal("traffic_events"),
-  v.literal("unique_scans"),
-  v.literal("scan_events"),
-);
-export const fairPreEventSummaryView = v.object({
-  eventId: v.id("fairEvents"),
-  eventSlug: v.string(),
-  // The boundary (fairIsPreEvent): every visitor write before it is pre-event.
-  startsAt: v.number(),
-  capPerCategory: v.number(),
-  total: v.number(),
-  capped: v.boolean(),
-  categories: v.array(v.object({ category: fairPreEventCategory, count: v.number(), capped: v.boolean() })),
-});
-
 // Server-computed HMAC of the visitor token: lowercase 64-char hex, checked
 // with isFairVisitorHash before any write. The raw token never reaches Convex.
 export const fairVisitorHash = v.string();

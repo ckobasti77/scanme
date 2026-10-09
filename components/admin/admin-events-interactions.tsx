@@ -49,9 +49,6 @@ export type InteractionQuestion = {
   status: FairAudienceQuestionStatus;
   sortOrder: number;
   showOnSponsoredRotation: boolean;
-  /** The voting window (P1: a published question can open before its day). */
-  startsAt?: number;
-  endsAt?: number;
 };
 export type InteractionSurvey = { id: string; modelId: string; version: number; status: FairSurveyStatus; title?: string; questions: StoredSurveyQuestion[] };
 export type InteractionsView = {
@@ -68,8 +65,6 @@ export type InteractionsActions = {
   saveQuestion: (input: { questionId?: string; modelId: string; dayId: string; prompt: string; options: { id: string; label: string; order: number }[]; sortOrder: number }) => Promise<InteractionOutcome>;
   publishQuestion: (questionId: string) => Promise<InteractionOutcome>;
   closeQuestion: (questionId: string) => Promise<InteractionOutcome>;
-  /** P1 — „Otvori sada“: a published question opens for votes before its day. */
-  openQuestionNow?: (questionId: string) => Promise<InteractionOutcome>;
   setSponsoredResult: (modelId: string, questionId: string | null) => Promise<InteractionOutcome>;
   /** Edits the model's one draft version or opens the next version (upsertSurveyDraft). */
   saveSurveyDraft: (modelId: string, questions: SurveyQuestionInput[]) => Promise<InteractionOutcome>;

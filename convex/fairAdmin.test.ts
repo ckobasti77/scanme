@@ -272,8 +272,7 @@ describe("package upgrade", () => {
       return { subject, card: await ctx.db.get(channel.cardId), assignments: await ctx.db.query("fairQrAssignments").collect(), targets: (await ctx.db.query("cardTargets").collect()).length };
     });
     const initial = await f.t.run((ctx) => ctx.db.query("fairPackageActivations").collect());
-    // P1 (Aleksa, 8. 10.): rights start at assignment — a future packageActiveFrom no longer delays them.
-    expect(initial).toEqual([expect.objectContaining({ fromTier: "included", toTier: "starter", activatedAt: NOW, note: "initial_tier" })]);
+    expect(initial).toEqual([expect.objectContaining({ fromTier: "included", toTier: "starter", activatedAt: Date.parse("2026-10-09T09:00:00+02:00"), note: "initial_tier" })]);
 
     // Upgrade on the second fair day takes effect at that instant.
     const upgradeAt = Date.parse("2026-10-10T12:30:00+02:00");

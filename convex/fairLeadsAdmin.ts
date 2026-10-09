@@ -710,11 +710,9 @@ export const exportLeads = query({
     const participation = await ctx.db.get(args.participationId);
     if (!participation || participation.eventId !== args.eventId) fairAdminError("FAIR_LINK_NOT_FOUND", { field: "participationId" });
     if (args.paginationOpts.numItems > EXPORT_PAGE_MAX) fairAdminError("INVALID_INPUT", { field: "numItems", max: EXPORT_PAGE_MAX });
-    // P1: a pre-event lead (before the event's start) is never handed to the exhibitor.
-    const event = await requireFairEvent(ctx, args.eventId);
     const page = await ctx.db
       .query("fairLeads")
-      .withIndex("by_participationId_and_createdAt", (q) => q.eq("participationId", args.participationId).gte("createdAt", event.startsAt))
+      .withIndex("by_participationId_and_createdAt", (q) => q.eq("participationId", args.participationId))
       .order("desc")
       .paginate(args.paginationOpts);
     const rows = [];

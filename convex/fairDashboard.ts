@@ -74,10 +74,10 @@ async function loadFacts(ctx: QueryCtx, event: Doc<"fairEvents">, at: number): P
     }
   }
 
-  // Leads: counts only (newest first, bounded). P1: pre-event leads never count.
+  // Leads: counts only (newest first, bounded).
   const leadRows = await ctx.db
     .query("fairLeads")
-    .withIndex("by_eventId_and_createdAt", (q) => q.eq("eventId", event._id).gte("createdAt", event.startsAt))
+    .withIndex("by_eventId_and_createdAt", (q) => q.eq("eventId", event._id))
     .order("desc")
     .take(FAIR_DASHBOARD_LEADS_CAP + 1);
   const leadsCapped = leadRows.length > FAIR_DASHBOARD_LEADS_CAP;
