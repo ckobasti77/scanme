@@ -145,6 +145,8 @@ export function FairEventMapView({
   const [zoneId, setZoneId] = useState<FairMapZoneId>(() => link.zoneId ?? view.zones.find((zone) => zone.stands.length > 0)?.zone.id ?? view.zones[0].zone.id);
   const [filter, setFilter] = useState<FairMapFilter>("sve");
   const [query, setQuery] = useState("");
+  /** Focus is in the search (field or its clear button). */
+  const [searchFocused, setSearchFocused] = useState(false);
   /** The search hit the arrow keys point at (-1: none yet; Enter then takes the first). */
   const [activeResult, setActiveResult] = useState(-1);
   const [selection, setSelection] = useState<Selection | null>(() => (link.locationId ? { locationId: link.locationId } : null));
@@ -370,6 +372,8 @@ export function FairEventMapView({
       ),
     );
   const showResults = !display && query.trim() !== "";
+  // The search opens wide while in use; "Pronađi ScanMe" folds to its icon until it closes.
+  const searchOpen = searchFocused || query !== "";
   const activeHit = activeResult >= 0 && activeResult < results.length ? activeResult : -1;
   const pick = (result: (typeof results)[number]) => (result.place ? selectLocation(result.place.location.id, result.participationId) : selectUnlocated(result.participationId));
 
@@ -386,8 +390,14 @@ export function FairEventMapView({
         </section>
       ) : (
         // First row: the search and the page's one ScanMe action, one height, never two lines.
-        <div className={styles.topBar}>
-          <div className={styles.search}>
+        <div className={styles.topBar} data-search-open={searchOpen}>
+          <div
+            className={styles.search}
+            onFocus={() => setSearchFocused(true)}
+            onBlur={(event) => {
+              if (!event.currentTarget.contains(event.relatedTarget)) setSearchFocused(false);
+            }}
+          >
             <label className={styles.srOnly} htmlFor="fair-map-search">
               {dict.searchLabel}
             </label>
@@ -489,7 +499,6 @@ export function FairEventMapView({
           <button type="button" className={styles.findButton} onClick={findScanMe} disabled={!scanmeTarget} aria-label={dict.findScanMe}>
             <LocateFixed aria-hidden="true" />
             <span className={styles.findLabel}>{dict.findScanMe}</span>
-            <span className={styles.findLabelShort}>{dict.findScanMeShort}</span>
           </button>
         </div>
       )}

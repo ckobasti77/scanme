@@ -32,6 +32,6 @@ Grana `codex/jovan-sajam-mapa-raspored-2026-10-09`. Backend, validatori, šema, 
 
 - **Redosled (telefon i računar):** pretraga + „Pronađi ScanMe“ u jednom redu → zone → mapa sa kontrolama (+, −, ceo deo) ispod, u istom okviru → kategorije → rotacija/spisak kao ranije. Gornji baner „Mapa sajma“ postoji još samo na `?prikaz=ekran`.
 - **Uklonjeno:** dugme i podloga „Originalna mapa organizatora“ (`ZoneCanvas` više nema `showOriginal`/`onToggleOriginal`; `zone.image.src` se više ne crta, podaci su isti).
-- **`FairMapDict`:** uklonjeni `introHint` i `originalMap`; novi `findScanMeShort` („ScanMe“, kraći natpis dugmeta ispod 480 px). Natpis za čitače ekrana je i dalje `findScanMe`.
+- **`FairMapDict`:** uklonjeni `introHint` i `originalMap`; novih ključeva nema.
+- **Prvi red:** „Pronađi ScanMe“ je šire od pretrage i uvek ima ceo natpis. Dok je pretraga otvorena (fokus ili upisan tekst), ona se animirano širi, a dugme se skuplja u kvadrat od 48 px samo sa ikonicom (`aria-label` ostaje „Pronađi ScanMe“). Kad se pretraga zatvori, sve se vraća. Sa smanjenim pokretom nema klizanja, samo promena.
 - **„Pronađi ScanMe“ je u ScanMe zelenoj** (`var(--primary)`, uglovi `var(--button-radius)`), kako je traženo u zadatku. To je izuzetak od EDS §3 („ScanMe zelena se ne koristi za CTA“); `--fair-map-scanme` i dalje postoji samo na ScanMe štandu. Ako izuzetak ne treba da važi, vraća se jednim pravilom u `fair-event-map.module.css` (`.findButton`).
-- Test `scanme-green.test.ts` (AMF): provera „nema `>ScanMe</span>`“ je sužena na značke štandova, jer kratki natpis dugmeta nije značka.

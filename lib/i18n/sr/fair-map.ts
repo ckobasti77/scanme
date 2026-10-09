@@ -85,7 +85,6 @@ export const fairMapSr = {
   websiteLinkAria: "Sajt izlagača {exhibitor} (otvara se u novom prozoru)",
   introTitle: "Mapa sajma",
   findScanMe: "Pronađi ScanMe",
-  findScanMeShort: "ScanMe",
   filtersLabel: "Kategorije izlagača",
   filterAll: "Sve",
   filterAria: "{label}, {count}",

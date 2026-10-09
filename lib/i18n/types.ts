@@ -162,8 +162,6 @@ export interface FairMapDict {
   // N4 map v2 (test map look, real data)
   introTitle: string;
   findScanMe: string;
-  /** The phone's first row: the same action, shortened so the search keeps its width. */
-  findScanMeShort: string;
   filtersLabel: string;
   filterAll: string;
   filterAria: string;

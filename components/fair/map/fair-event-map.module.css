@@ -141,15 +141,19 @@
 }
 
 /* "Pronađi ScanMe": the page's one ScanMe action, so it alone wears the
-   ScanMe primary (green, the site's button corners), at the search's height. */
+   ScanMe primary (green, the site's button corners), at the search's height.
+   It takes the larger share of the row; while the search is open it folds
+   to a 48 px square with its icon (the name stays in aria-label). */
 .findButton {
   display: inline-flex;
-  min-width: 0;
+  min-width: 48px;
   height: 48px;
-  padding: 0 var(--fair-space-4);
-  flex: none;
+  padding: 0 var(--fair-space-3);
+  flex: 1.25 1 0;
+  justify-content: center;
   align-items: center;
   gap: var(--fair-space-2);
+  overflow: hidden;
   border: 0;
   border-radius: var(--button-radius);
   background: var(--primary);
@@ -160,8 +164,33 @@
   white-space: nowrap;
   cursor: pointer;
   transition:
+    flex-grow var(--fair-dur-overlay) var(--fair-ease-move),
+    flex-basis var(--fair-dur-overlay) var(--fair-ease-move),
+    padding var(--fair-dur-overlay) var(--fair-ease-move),
+    gap var(--fair-dur-overlay) var(--fair-ease-move),
     transform var(--fair-dur-feedback) var(--fair-ease-enter),
     background-color var(--fair-dur-feedback) var(--fair-ease-enter);
+}
+
+.findLabel {
+  min-width: 0;
+  max-width: 16em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition:
+    max-width var(--fair-dur-overlay) var(--fair-ease-move),
+    opacity var(--fair-dur-feedback) var(--fair-ease-enter);
+}
+
+.topBar[data-search-open="true"] .findButton {
+  flex: 0 0 48px;
+  padding-inline: 0;
+  gap: 0;
+}
+
+.topBar[data-search-open="true"] .findLabel {
+  max-width: 0;
+  opacity: 0;
 }
 
 .findButton svg {
@@ -190,25 +219,6 @@
   cursor: default;
 }
 
-/* A phone keeps one row: the button shortens to "ScanMe", the search keeps the rest. */
-.findLabelShort {
-  display: none;
-}
-
-@media (max-width: 479px) {
-  .findButton {
-    padding-inline: 14px;
-  }
-
-  .findLabel {
-    display: none;
-  }
-
-  .findLabelShort {
-    display: inline;
-  }
-}
-
 /* ------------------------------------------------------------- top bar */
 
 /* First row: search + "Pronađi ScanMe", one line at every width. The results
@@ -223,7 +233,7 @@
 
 .search {
   min-width: 0;
-  flex: 1 1 auto;
+  flex: 1 1 0;
 }
 
 .searchField {
@@ -2002,9 +2012,6 @@
     grid-column: 1;
   }
 
-  .findButton {
-    padding-inline: 18px;
-  }
 
   .topBar {
     gap: var(--fair-space-3);
@@ -2314,5 +2321,11 @@
   .entries[data-cascade="on"] .entry,
   .bubble {
     animation: none;
+  }
+
+  /* The search still opens and the button still folds, without the sliding. */
+  .findButton,
+  .findLabel {
+    transition-property: opacity, background-color;
   }
 }
