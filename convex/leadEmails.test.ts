@@ -206,6 +206,22 @@ describe("mejl timu za upit sa landinga", () => {
     expect((await leads())[0]).toMatchObject({ emailStatus: "sent", emailMessageId: "re_test_message_3" });
   });
 
+  test("mrežna greška (fetch baci izuzetak) se ponavlja, pa mejl ode", async () => {
+    let calls2 = 0;
+    vi.stubGlobal("fetch", vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
+      calls2 += 1;
+      if (calls2 === 1) throw new TypeError("fetch failed");
+      const headers = new Headers(init?.headers);
+      calls.push({ url: String(url), key: headers.get("idempotency-key"), auth: headers.get("authorization"), body: JSON.parse(String(init?.body)) });
+      return Response.json({ id: "re_test_message_after_network" });
+    }));
+    const { t, runAll, leads } = await setup();
+    await t.mutation(api.leads.create, leadArgs());
+    await runAll();
+    expect(calls2).toBe(2);
+    expect((await leads())[0]).toMatchObject({ emailStatus: "sent", emailMessageId: "re_test_message_after_network" });
+  });
+
   test("posle tri privremene greške upit ostaje sa emailStatus failed", async () => {
     respond = () => Response.json({ message: "Service unavailable" }, { status: 503 });
     const { t, runAll, leads } = await setup();
