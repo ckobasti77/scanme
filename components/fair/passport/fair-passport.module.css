@@ -873,7 +873,7 @@
   }
 
   .loadingLine::after {
-    animation-duration: calc(var(--fair-dur-focal) * 3);
+    animation-duration: calc(var(--fair-dur-loop) * 1.5);
   }
 }
 
