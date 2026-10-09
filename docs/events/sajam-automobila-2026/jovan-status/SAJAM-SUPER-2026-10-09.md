@@ -321,6 +321,32 @@ Snimci su u `tmp/sajam-super-2026-10-09/snimci/` (ne commituju se):
 
 U kasnijim ponavljanjima `vitest run fair`, sa ~2,9 GB slobodne memorije, istekao je rok od 5 s u dva teška testa: `fairGateway` „without the secret…“ (fiksnih 10 poziva × 7 scenarija; sam traje ~5,7 s) i `fairQrSticker` „typed sticker numbers…“. Oba su netaknuta i ne pozivaju ništa iz ovog rada. Sa `--testTimeout=30000` oba fajla prolaze, 30/30, a u celom suite-u iznad prolaze sa podrazumevanim rokom.
 
+### Bez novih grešaka: polazište i grana na istoj mašini, jedno za drugim
+
+Polazište `3cfe71b` je pokrenuto u privremenom worktree-u, posle uklonjenom. Obe strane su pokrenute sa `--maxWorkers=2`.
+
+| | `3cfe71b` (polazište) | grana (`bcf2453`) |
+|---|---|---|
+| `vitest run fair` | 1 pada / 701 prolazi (80 fajlova) | 1 pada / **725** prolazi (85 fajlova) |
+| pad u `vitest run fair` | `fairGateway` „without the secret…“ (rok 5 s) | **isti** test, isti razlog |
+| ceo suite | 1 pada / 2336 prolazi | 3 pada / 2363 prolazi |
+
+**Vitest fair:** pad na grani isti je kao na polazištu, pa nema novih padova. Svih 24 nova testa prolaze.
+
+**Ceo suite:**
+- Dva dodatna pada na grani su takođe istekli rokovi: `adminProducts` „500 venues…“ (rok 180 s) i `subscriptions` sweep (5 s).
+- Oba fajla su netaknuta u ovom radu (`git diff 3cfe71b..HEAD` je prazan), a sama prolaze 64/64.
+- Raniji ceo suite posle poslednje izmene koda prošao je 2366/2366, bez ijednog isteklog roka.
+
+### Nezavisni pregled — poslednja potvrda (posle `364a45d`)
+
+„Da, sajamske strane izgledaju kao Garaža i Pasoši. Novih problema nema.“
+
+- Logo mape na telefonu je na istom mestu kao na ostalim stranama.
+- Garaža i Pasoši na 1440 prate isto pravilo zaglavlja kao mapa.
+
+Dva svesno nemenjana mesta (boja „Sačuvaj u garažu“ i zaglavlje toka Glasa publike) su u `docs/tasks/BLOCKED.md` (`bcf2453`) kao otvoreno pitanje: deferred, awaiting owner decision.
+
 **Napomena o testovima:** na ovoj mašini, uz `next dev` od 2,3 GB i oko 3,5 GB slobodne memorije, `vitest run fair` sa podrazumevanim brojem radnika pada na rok od 5 s (Convex testovi traju 144 s umesto 20 s). Sa `--maxWorkers=4` sve prolazi. Pad koji je ostao sam od sebe je ponovo pokrenut sam i prošao je.
 
 **Usput ispravljen test:** `lib/fair-map/map-guards.test.ts` (`cc78a89`) dozvoljava jedino keširano čitanje toplote. Sve ostale zabrane važe i dalje: bez upisa, bez pretplate, bez rute i bez drugih tajmera.
