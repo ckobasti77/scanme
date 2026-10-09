@@ -69,8 +69,8 @@
   align-items: center;
   gap: 9px;
   padding: 10px 14px;
-  border: 1px solid var(--fair-line);
-  border-radius: 999px;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-pill);
   background: var(--fair-surface);
   color: var(--fair-ink);
   font-size: 13px;
@@ -88,8 +88,8 @@
   margin-top: 26px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   overflow: hidden;
-  border: 1px solid var(--fair-line);
-  border-radius: 18px;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-lg);
   background: var(--fair-surface-muted);
 }
 
@@ -103,11 +103,11 @@
   color: var(--fair-ink-muted);
   text-align: left;
   cursor: pointer;
-  transition: background-color 180ms ease, color 180ms ease;
+  transition: background-color var(--fair-dur-state) var(--fair-ease-enter), color var(--fair-dur-state) var(--fair-ease-enter);
 }
 
 .tabs button + button {
-  border-left: 1px solid var(--fair-line);
+  border-left: var(--fair-border);
 }
 
 .tabs button:hover {
@@ -144,7 +144,7 @@
   height: 28px;
   padding-inline: 7px;
   place-items: center;
-  border-radius: 999px;
+  border-radius: var(--fair-radius-pill);
   background: var(--fair-surface-muted);
   color: var(--fair-ink);
   font-size: 12px;
@@ -159,8 +159,8 @@
 .networkNotice,
 .storageError {
   margin: 18px 0 0;
-  border: 1px solid var(--fair-line);
-  border-radius: 14px;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-lg);
   background: var(--fair-surface);
   color: var(--fair-ink-muted);
 }
@@ -190,8 +190,8 @@
   align-items: center;
   gap: 7px;
   padding: 8px 11px;
-  border: 1px solid var(--fair-line);
-  border-radius: 10px;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-md);
   background: var(--fair-surface-muted);
   color: var(--fair-ink);
   font: inherit;
@@ -224,8 +224,8 @@
   justify-content: space-between;
   gap: 16px;
   padding: 8px 10px 8px 14px;
-  border: 1px solid var(--fair-line);
-  border-radius: 15px;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-lg);
   background: var(--fair-surface);
 }
 
@@ -248,14 +248,14 @@
 .compareBar button {
   min-height: 38px;
   padding: 8px 11px;
-  border-radius: 10px;
+  border-radius: var(--fair-radius-md);
   background: var(--fair-accent);
   color: var(--fair-accent-ink);
   text-decoration: none;
   border: 0;
   font-family: inherit;
   cursor: pointer;
-  transition: background-color 160ms ease, transform 160ms ease;
+  transition: background-color var(--fair-dur-feedback) var(--fair-ease-enter), transform var(--fair-dur-feedback) var(--fair-ease-enter);
 }
 
 .compareBar a:hover,
@@ -293,15 +293,15 @@
   min-width: 0;
   grid-template-columns: 178px minmax(0, 1fr);
   overflow: hidden;
-  border: 1px solid var(--fair-line);
-  border-radius: 20px;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-xl);
   background: var(--fair-surface);
   box-shadow: 0 12px 30px -26px var(--fair-shadow);
   transition:
-    border-color 180ms ease,
-    box-shadow 180ms ease,
-    opacity 220ms ease,
-    transform 220ms ease;
+    border-color var(--fair-dur-state) var(--fair-ease-enter),
+    box-shadow var(--fair-dur-state) var(--fair-ease-enter),
+    opacity var(--fair-dur-state) var(--fair-ease-enter),
+    transform var(--fair-dur-state) var(--fair-ease-enter);
 }
 
 .modelCardSelectionMode {
@@ -426,7 +426,7 @@
   align-items: center;
   justify-content: center;
   gap: 7px;
-  border-radius: 11px;
+  border-radius: var(--fair-radius-md);
   font: inherit;
   font-size: 11px;
   font-weight: 690;
@@ -438,7 +438,7 @@
   grid-column: 1 / -1;
   justify-content: flex-start;
   padding: 8px 10px;
-  border: 1px solid var(--fair-line);
+  border: var(--fair-border);
   background: transparent;
   color: var(--fair-ink);
 }
@@ -454,8 +454,8 @@
   height: 20px;
   flex: none;
   place-items: center;
-  border: 1px solid var(--fair-line-strong);
-  border-radius: 7px;
+  border: var(--fair-border-strong);
+  border-radius: var(--fair-radius-sm);
   background: var(--fair-surface);
 }
 
@@ -485,7 +485,7 @@
 
 .removeButton {
   padding: 8px 10px;
-  border: 1px solid var(--fair-line);
+  border: var(--fair-border);
   background: transparent;
   color: var(--fair-ink-muted);
 }
@@ -502,8 +502,8 @@
   padding: 40px 20px;
   place-items: center;
   align-content: center;
-  border: 1px solid var(--fair-line);
-  border-radius: 24px;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-xl);
   background: var(--fair-surface);
   text-align: center;
 }
@@ -513,7 +513,7 @@
   width: 76px;
   height: 76px;
   place-items: center;
-  border-radius: 24px;
+  border-radius: var(--fair-radius-xl);
   background: var(--fair-accent-soft);
   color: var(--fair-accent-strong);
 }
@@ -543,7 +543,7 @@
   padding: 10px 15px;
   align-items: center;
   gap: 8px;
-  border-radius: 12px;
+  border-radius: var(--fair-radius-md);
   background: var(--fair-accent);
   color: var(--fair-accent-ink);
   font-size: 13px;
@@ -562,16 +562,16 @@
   padding: 24px;
   align-content: center;
   gap: 12px;
-  border: 1px solid var(--fair-line);
-  border-radius: 24px;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-xl);
   background: var(--fair-surface);
 }
 
 .loadingState span {
   height: 18px;
-  border-radius: 8px;
+  border-radius: var(--fair-radius-sm);
   background: var(--fair-surface-muted);
-  animation: garage-pulse 1.2s ease-in-out infinite alternate;
+  animation: garage-pulse var(--fair-dur-loop) var(--fair-ease-move) infinite alternate;
 }
 
 .loadingState span:nth-child(2) { width: 72%; }
@@ -583,7 +583,7 @@
 
 .sectionHeading {
   padding-top: 10px;
-  border-top: 1px solid var(--fair-line);
+  border-top: var(--fair-border);
 }
 
 .sectionHeading h2,
@@ -619,8 +619,8 @@
   position: relative;
   padding: 18px;
   overflow: hidden;
-  border: 1px solid var(--fair-line);
-  border-radius: 20px;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-xl);
   background: var(--fair-surface);
 }
 
@@ -642,8 +642,8 @@
   height: 44px;
   overflow: hidden;
   place-items: center;
-  border: 1px solid var(--fair-line);
-  border-radius: 13px;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-md);
   background: var(--fair-surface-muted);
   color: var(--fair-ink);
   font-size: 20px;
@@ -689,7 +689,7 @@
   align-content: center;
   gap: 4px;
   border: 1px dashed var(--fair-line-strong);
-  border-radius: 12px;
+  border-radius: var(--fair-radius-md);
   color: var(--fair-ink-muted);
   font-size: 9px;
   text-align: center;
@@ -743,8 +743,8 @@
 .favoriteFieldset button {
   min-height: 44px;
   padding: 7px 10px;
-  border: 1px solid var(--fair-line);
-  border-radius: 999px;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-pill);
   background: transparent;
   color: var(--fair-ink);
   font: inherit;
@@ -781,7 +781,7 @@
 
 .savedBadges {
   padding-top: 10px;
-  border-top: 1px solid var(--fair-line);
+  border-top: var(--fair-border);
 }
 
 .savedBadges > div {
@@ -798,8 +798,8 @@
   grid-template-columns: 24px minmax(0, 1fr);
   align-items: center;
   gap: 2px 9px;
-  border: 1px solid var(--fair-line);
-  border-radius: 16px;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-lg);
   background: var(--fair-surface);
 }
 
@@ -835,9 +835,9 @@
   width: min(calc(100% - 20px), 760px);
   padding: 5px;
   border: 1px solid color-mix(in srgb, var(--fair-line-strong) 74%, transparent);
-  border-radius: 20px;
+  border-radius: var(--fair-radius-xl);
   background: rgb(255 253 248 / 0.94);
-  box-shadow: 0 18px 48px rgb(48 36 30 / 0.2);
+  box-shadow: var(--fair-shadow-3);
   backdrop-filter: blur(14px);
   transform: translateX(50%);
 }
@@ -857,7 +857,7 @@
   height: 78px;
   overflow: hidden;
   place-items: center;
-  border-radius: 15px;
+  border-radius: var(--fair-radius-md);
   background: var(--fair-surface-warm);
   color: var(--fair-ink-muted);
 }
@@ -918,8 +918,8 @@
   padding: 8px 11px;
   align-items: center;
   justify-content: center;
-  border: 1px solid var(--fair-line);
-  border-radius: 11px;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-md);
   background: transparent;
   color: var(--fair-ink);
   font: inherit;
@@ -951,7 +951,7 @@
 .comparisonPage { min-height: 100dvh; }
 
 .comparisonHeader {
-  border-bottom: 1px solid var(--fair-line);
+  border-bottom: var(--fair-border);
   background: var(--fair-surface);
 }
 
@@ -972,7 +972,7 @@
   padding: 8px 10px;
   align-items: center;
   gap: 8px;
-  border-radius: 11px;
+  border-radius: var(--fair-radius-md);
   color: var(--fair-ink);
   font-size: 13px;
   font-weight: 700;
@@ -1017,8 +1017,8 @@
   display: grid;
   min-width: 0;
   padding: 8px 8px 14px;
-  border: 1px solid var(--fair-line);
-  border-radius: 20px;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-xl);
   background: var(--fair-surface);
 }
 
@@ -1028,7 +1028,7 @@
   aspect-ratio: 16 / 9;
   overflow: hidden;
   place-items: center;
-  border-radius: 14px;
+  border-radius: var(--fair-radius-md);
   background: var(--fair-surface-warm);
   color: var(--fair-ink-muted);
 }
@@ -1068,7 +1068,7 @@
   padding: 8px 12px;
   align-items: center;
   justify-content: center;
-  border-radius: 11px;
+  border-radius: var(--fair-radius-md);
   background: var(--fair-ink);
   color: var(--fair-surface);
   font-size: 12px;
@@ -1083,8 +1083,8 @@
   padding: 12px 14px;
   align-items: center;
   gap: 9px;
-  border: 1px solid var(--fair-line);
-  border-radius: 13px;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-md);
   background: var(--fair-surface);
   color: var(--fair-ink-muted);
   font-size: 12px;
@@ -1099,8 +1099,8 @@
   padding: 40px 20px;
   place-items: center;
   align-content: center;
-  border: 1px solid var(--fair-line);
-  border-radius: 22px;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-xl);
   background: var(--fair-surface);
   text-align: center;
 }
@@ -1115,7 +1115,7 @@
   margin-top: 18px;
   padding: 9px 14px;
   align-items: center;
-  border-radius: 11px;
+  border-radius: var(--fair-radius-md);
   background: var(--fair-accent);
   color: var(--fair-accent-ink);
   font-size: 12px;
@@ -1125,10 +1125,10 @@
 
 .comparisonLoading span {
   height: 310px;
-  border: 1px solid var(--fair-line);
-  border-radius: 20px;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-xl);
   background: var(--fair-surface-muted);
-  animation: garage-pulse 1.2s ease-in-out infinite alternate;
+  animation: garage-pulse var(--fair-dur-loop) var(--fair-ease-move) infinite alternate;
 }
 
 .specComparison { margin-top: 30px; }
@@ -1150,8 +1150,8 @@
   position: sticky;
   z-index: 5;
   top: calc(64px + env(safe-area-inset-top));
-  border: 1px solid var(--fair-line);
-  border-radius: 14px 14px 0 0;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-lg) var(--fair-radius-lg) 0 0;
   background: var(--fair-surface-muted);
 }
 
@@ -1164,22 +1164,22 @@
   white-space: nowrap;
 }
 
-.specHeader strong + strong { border-left: 1px solid var(--fair-line); }
+.specHeader strong + strong { border-left: var(--fair-border); }
 
 .specRow {
-  border-right: 1px solid var(--fair-line);
-  border-bottom: 1px solid var(--fair-line);
-  border-left: 1px solid var(--fair-line);
+  border-right: var(--fair-border);
+  border-bottom: var(--fair-border);
+  border-left: var(--fair-border);
   background: var(--fair-surface);
 }
 
-.specRow:last-child { overflow: hidden; border-radius: 0 0 14px 14px; }
+.specRow:last-child { overflow: hidden; border-radius: 0 0 var(--fair-radius-lg) var(--fair-radius-lg); }
 
 .specRow h3 {
   grid-column: 1 / -1;
   margin: 0;
   padding: 13px 12px 8px;
-  border-bottom: 1px solid var(--fair-line);
+  border-bottom: var(--fair-border);
   background: color-mix(in srgb, var(--fair-surface-muted) 55%, var(--fair-surface));
   color: var(--fair-accent-strong);
   font-size: 10px;
@@ -1197,7 +1197,7 @@
 }
 
 .specRow > span { color: var(--fair-ink-muted); font-size: 11px; }
-.specRow > strong { border-left: 1px solid var(--fair-line); font-size: 12px; font-weight: 680; text-align: center; }
+.specRow > strong { border-left: var(--fair-border); font-size: 12px; font-weight: 680; text-align: center; }
 
 @media (max-width: 780px) {
   .main {
@@ -1255,7 +1255,7 @@
 
   .tabs {
     margin-top: 18px;
-    border-radius: 15px;
+    border-radius: var(--fair-radius-lg);
   }
 
   .tabs button {
@@ -1286,7 +1286,7 @@
 
   .compareBar {
     min-height: 50px;
-    border-radius: 13px;
+    border-radius: var(--fair-radius-lg);
   }
 
   .compareHint {
@@ -1296,7 +1296,7 @@
 
   .modelCard {
     grid-template-columns: 124px minmax(0, 1fr);
-    border-radius: 18px;
+    border-radius: var(--fair-radius-xl);
   }
 
   .modelVisual,
@@ -1368,7 +1368,7 @@
   .sponsoredDock {
     width: calc(100% - 12px);
     bottom: max(6px, env(safe-area-inset-bottom));
-    border-radius: 18px;
+    border-radius: var(--fair-radius-xl);
   }
 
   .sponsoredCard {
@@ -1380,7 +1380,7 @@
   .sponsoredVisual {
     width: 68px;
     height: 68px;
-    border-radius: 13px;
+    border-radius: var(--fair-radius-md);
   }
 
   .sponsoredCopy strong {
@@ -1397,7 +1397,7 @@
     min-width: 74px;
     min-height: 44px;
     padding: 5px 7px;
-    border-radius: 9px;
+    border-radius: var(--fair-radius-sm);
     font-size: 9px;
   }
 
@@ -1421,11 +1421,11 @@
 
   .comparisonModels article {
     padding: 5px 5px 10px;
-    border-radius: 16px;
+    border-radius: var(--fair-radius-xl);
   }
 
   .comparisonPhoto {
-    border-radius: 12px;
+    border-radius: var(--fair-radius-md);
   }
 
   .comparisonModels article > span,
@@ -1497,9 +1497,9 @@
   .page *::before,
   .page *::after {
     scroll-behavior: auto !important;
-    animation-duration: 0.01ms !important;
+    animation-duration: var(--fair-dur-instant) !important;
     animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+    transition-duration: var(--fair-dur-instant) !important;
   }
 }
 
@@ -1535,9 +1535,9 @@
   margin: 0;
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--fair-line) 88%, transparent);
-  border-radius: 17px;
+  border-radius: var(--fair-radius-lg);
   background: color-mix(in srgb, var(--fair-surface) 92%, transparent);
-  box-shadow: 0 9px 26px rgba(35, 30, 25, 0.045);
+  box-shadow: var(--fair-shadow-2);
 }
 
 .tabs button {
@@ -1555,12 +1555,12 @@
   text-align: left;
   cursor: pointer;
   transition:
-    background-color 180ms ease,
-    color 180ms ease;
+    background-color var(--fair-dur-state) var(--fair-ease-enter),
+    color var(--fair-dur-state) var(--fair-ease-enter);
 }
 
 .tabs button + button {
-  border-left: 1px solid var(--fair-line);
+  border-left: var(--fair-border);
 }
 
 .tabs button::after {
@@ -1569,14 +1569,14 @@
   bottom: 0;
   left: 12px;
   height: 2px;
-  border-radius: 2px 2px 0 0;
+  border-radius: var(--fair-radius-2xs) var(--fair-radius-2xs) 0 0;
   background: var(--fair-accent);
   content: "";
   opacity: 0;
   transform: scaleX(0.45);
   transition:
-    opacity 180ms ease,
-    transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+    opacity var(--fair-dur-state) var(--fair-ease-enter),
+    transform var(--fair-dur-state) var(--fair-ease-enter);
 }
 
 .tabs button:hover {
@@ -1620,8 +1620,8 @@
   width: 27px;
   height: 27px;
   place-items: center;
-  border: 1px solid var(--fair-line);
-  border-radius: 999px;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-pill);
   background: color-mix(in srgb, var(--fair-canvas) 76%, white);
   color: var(--fair-ink);
   font-size: 11px;
@@ -1663,7 +1663,7 @@
   width: 21px;
   height: 21px;
   place-items: center;
-  border-radius: 999px;
+  border-radius: var(--fair-radius-pill);
   background: var(--fair-warm);
   color: var(--fair-ink);
   font-size: 9px;
@@ -1692,23 +1692,23 @@
   min-width: 178px;
   min-height: 54px;
   padding: 7px 10px;
-  border: 1px solid var(--fair-line);
-  border-radius: 15px;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-lg);
   background: var(--fair-surface);
   color: var(--fair-ink);
-  box-shadow: 0 7px 20px rgba(35, 30, 25, 0.04);
+  box-shadow: var(--fair-shadow-2);
   text-align: left;
   scroll-snap-align: start;
   cursor: pointer;
   transition:
-    border-color 180ms ease,
-    transform 180ms ease,
-    box-shadow 180ms ease;
+    border-color var(--fair-dur-state) var(--fair-ease-enter),
+    transform var(--fair-dur-state) var(--fair-ease-enter),
+    box-shadow var(--fair-dur-state) var(--fair-ease-enter);
 }
 
 .passportChip:hover {
   border-color: color-mix(in srgb, var(--fair-accent) 38%, var(--fair-line));
-  box-shadow: 0 10px 24px rgba(35, 30, 25, 0.07);
+  box-shadow: var(--fair-shadow-2);
   transform: translateY(-1px);
 }
 
@@ -1743,8 +1743,8 @@
   height: 38px;
   place-items: center;
   overflow: hidden;
-  border: 1px solid var(--fair-line);
-  border-radius: 11px;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-md);
   background: #fff;
   color: var(--fair-ink);
   font-size: 9px;
@@ -1774,7 +1774,7 @@
   width: 28px;
   height: 28px;
   place-items: center;
-  border-radius: 999px;
+  border-radius: var(--fair-radius-pill);
   background:
     radial-gradient(circle, var(--fair-surface) 57%, transparent 59%),
     conic-gradient(var(--fair-accent) var(--passport-progress), var(--fair-line) 0);
@@ -1803,10 +1803,10 @@
   margin-top: 10px;
   padding: 5px 5px 5px 11px;
   border: 1px solid color-mix(in srgb, #a56f39 34%, var(--fair-line));
-  border-radius: 13px;
+  border-radius: var(--fair-radius-md);
   background: color-mix(in srgb, #fff3de 52%, var(--fair-surface));
   color: var(--fair-ink-muted);
-  animation: garage-notice-in 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: garage-notice-in var(--fair-dur-state) var(--fair-ease-enter) both;
 }
 
 @keyframes garage-notice-in {
@@ -1840,7 +1840,7 @@
   height: 40px;
   place-items: center;
   border: 0;
-  border-radius: 10px;
+  border-radius: var(--fair-radius-md);
   background: transparent;
   color: var(--fair-ink);
   cursor: pointer;
@@ -1905,7 +1905,7 @@
   gap: 5px;
   padding: 0 12px;
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--fair-radius-pill);
   background: var(--fair-ink);
   color: #fff;
   font-size: 10px;
@@ -1936,18 +1936,18 @@
   grid-template-columns: 1fr;
   min-width: 0;
   overflow: hidden;
-  border: 1px solid var(--fair-line);
-  border-radius: 22px;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-xl);
   background: var(--fair-surface);
-  box-shadow: 0 14px 38px rgba(35, 30, 25, 0.07);
+  box-shadow: var(--fair-shadow-2);
   touch-action: pan-y;
   -webkit-touch-callout: none;
   -webkit-user-select: none;
   user-select: none;
   transition:
-    border-color 200ms ease,
-    box-shadow 240ms ease,
-    opacity 220ms ease;
+    border-color var(--fair-dur-state) var(--fair-ease-enter),
+    box-shadow var(--fair-dur-state) var(--fair-ease-enter),
+    opacity var(--fair-dur-state) var(--fair-ease-enter);
 }
 
 @keyframes garage-card-remove {
@@ -1969,7 +1969,7 @@
 }
 
 .modelCardRemoving {
-  animation: garage-card-remove 250ms ease-in both;
+  animation: garage-card-remove var(--fair-dur-state) var(--fair-ease-exit) both;
 }
 
 .modelMedia {
@@ -1995,7 +1995,7 @@
   object-fit: cover;
   object-position: center;
   transform: scale(1.002);
-  transition: transform 700ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: transform var(--fair-dur-focal) var(--fair-ease-enter);
 }
 
 .modelCard:hover .modelImage {
@@ -2040,16 +2040,16 @@
   place-items: center;
   justify-content: center;
   border: 1px solid rgba(255, 255, 255, 0.72);
-  border-radius: 14px;
+  border-radius: var(--fair-radius-md);
   background: rgba(22, 24, 23, 0.72);
   color: #fff;
-  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.14);
+  box-shadow: var(--fair-shadow-2);
   backdrop-filter: blur(10px);
   cursor: pointer;
   line-height: 0;
   transition:
-    background-color 180ms ease,
-    transform 180ms ease;
+    background-color var(--fair-dur-state) var(--fair-ease-enter),
+    transform var(--fair-dur-state) var(--fair-ease-enter);
 }
 
 .compareToggle:hover {
@@ -2157,7 +2157,7 @@
 .shareButton,
 .removeButton {
   min-height: 44px;
-  border-radius: 13px;
+  border-radius: var(--fair-radius-md);
 }
 
 .viewLink {
@@ -2181,7 +2181,7 @@
   display: grid;
   width: 44px;
   place-items: center;
-  border: 1px solid var(--fair-line);
+  border: var(--fair-border);
   background: transparent;
   color: var(--fair-ink-muted);
   cursor: pointer;
@@ -2191,7 +2191,7 @@
   display: grid;
   width: 44px;
   place-items: center;
-  border: 1px solid var(--fair-line);
+  border: var(--fair-border);
   background: transparent;
   color: var(--fair-ink);
   cursor: pointer;
@@ -2222,11 +2222,11 @@
   margin-inline: auto;
   padding: 7px;
   border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 20px;
+  border-radius: var(--fair-radius-xl);
   background: rgba(24, 25, 24, 0.96);
-  box-shadow: 0 20px 56px rgba(20, 18, 16, 0.3);
+  box-shadow: var(--fair-shadow-3);
   color: #fff;
-  animation: garage-selection-dock-in 300ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: garage-selection-dock-in var(--fair-dur-overlay) var(--fair-ease-enter) both;
 }
 
 @keyframes garage-selection-dock-in {
@@ -2245,7 +2245,7 @@
   width: 30px;
   height: 30px;
   place-items: center;
-  border-radius: 999px;
+  border-radius: var(--fair-radius-pill);
   background: var(--fair-accent);
   font-size: 12px;
   font-variant-numeric: tabular-nums;
@@ -2260,14 +2260,14 @@
   gap: 2px;
   padding: 3px 4px;
   border: 0;
-  border-radius: 13px;
+  border-radius: var(--fair-radius-md);
   background: transparent;
   color: #fff;
   cursor: pointer;
   transition:
-    background-color 160ms ease,
-    opacity 160ms ease,
-    transform 160ms ease;
+    background-color var(--fair-dur-feedback) var(--fair-ease-enter),
+    opacity var(--fair-dur-feedback) var(--fair-ease-enter),
+    transform var(--fair-dur-feedback) var(--fair-ease-enter);
 }
 
 .selectionDock button:hover {
@@ -2316,13 +2316,13 @@
   margin-inline: auto;
   padding: 10px 14px;
   border: 1px solid rgba(255, 255, 255, 0.35);
-  border-radius: 999px;
+  border-radius: var(--fair-radius-pill);
   background: rgba(24, 25, 24, 0.94);
   color: #fff;
-  box-shadow: 0 14px 36px rgba(20, 18, 16, 0.22);
+  box-shadow: var(--fair-shadow-3);
   font-size: 11px;
   font-weight: 720;
-  animation: garage-toast-in 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: garage-toast-in var(--fair-dur-state) var(--fair-ease-enter) both;
 }
 
 @keyframes garage-toast-in {
@@ -2364,7 +2364,7 @@
   z-index: 120;
   inset: 0;
   background: rgba(18, 18, 17, 0.38);
-  animation: garage-overlay-in 190ms ease-out both;
+  animation: garage-overlay-in var(--fair-dur-state) var(--fair-ease-enter) both;
 }
 
 @keyframes garage-overlay-in {
@@ -2390,7 +2390,7 @@
   overflow-y: auto;
   isolation: isolate;
   border: 1px solid rgba(255, 255, 255, 0.74);
-  border-radius: 25px;
+  border-radius: var(--fair-radius-xl);
   background:
     linear-gradient(145deg, rgba(255, 255, 255, 0.96), rgba(250, 247, 241, 0.9)),
     rgba(248, 245, 239, 0.94);
@@ -2403,7 +2403,7 @@
   transform: translate(-50%, -50%);
   color: var(--fair-ink);
   font-family: "Archivo Variable", "Archivo", "Segoe UI", Arial, sans-serif;
-  animation: garage-dialog-in 300ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: garage-dialog-in var(--fair-dur-overlay) var(--fair-ease-enter) both;
 }
 
 .confirmDialog::before,
@@ -2412,7 +2412,7 @@
   position: absolute;
   z-index: -1;
   inset: 1px;
-  border-radius: calc(25px - 1px);
+  border-radius: calc(var(--fair-radius-xl) - 1px);
   background:
     radial-gradient(circle at 16% 0%, rgba(255, 255, 255, 0.72), transparent 31%),
     linear-gradient(115deg, rgba(255, 255, 255, 0.2), transparent 46%);
@@ -2478,8 +2478,8 @@
 
 .confirmActions button {
   min-height: 46px;
-  border: 1px solid var(--fair-line);
-  border-radius: 14px;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-md);
   background: transparent;
   color: var(--fair-ink);
   font-size: 12px;
@@ -2538,8 +2538,8 @@
   align-content: center;
   gap: 7px;
   padding: 10px;
-  border: 1px solid var(--fair-line);
-  border-radius: 16px;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-lg);
   background: color-mix(in srgb, var(--fair-canvas) 66%, white);
   color: var(--fair-ink);
   font: inherit;
@@ -2548,9 +2548,9 @@
   text-decoration: none;
   cursor: pointer;
   transition:
-    border-color 180ms ease,
-    background-color 180ms ease,
-    transform 180ms ease;
+    border-color var(--fair-dur-state) var(--fair-ease-enter),
+    background-color var(--fair-dur-state) var(--fair-ease-enter),
+    transform var(--fair-dur-state) var(--fair-ease-enter);
 }
 
 .shareOptions a:hover,
@@ -2578,8 +2578,8 @@
   width: 44px;
   height: 44px;
   place-items: center;
-  border: 1px solid var(--fair-line);
-  border-radius: 14px;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-md);
   background: var(--fair-surface);
   color: var(--fair-ink);
   cursor: pointer;
@@ -2601,7 +2601,7 @@
 .passportDialogHeader .brandMark {
   width: 52px;
   height: 52px;
-  border-radius: 16px;
+  border-radius: var(--fair-radius-lg);
 }
 
 .passportDialogHeader .brandMark svg {
@@ -2647,7 +2647,7 @@
   gap: 8px;
   padding: 8px 10px;
   border: 1px dashed var(--fair-line);
-  border-radius: 14px;
+  border-radius: var(--fair-radius-md);
   background: color-mix(in srgb, var(--fair-canvas) 72%, white);
   color: var(--fair-ink-muted);
 }
@@ -2701,8 +2701,8 @@
 .favoriteFieldset button {
   min-height: 42px;
   padding: 0 13px;
-  border: 1px solid var(--fair-line);
-  border-radius: 999px;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-pill);
   background: transparent;
   color: var(--fair-ink);
   font-size: 10px;
@@ -2725,7 +2725,7 @@
   margin-top: 16px;
   padding: 0 15px;
   border: 0;
-  border-radius: 14px;
+  border-radius: var(--fair-radius-md);
   background: var(--fair-ink);
   color: #fff;
   font-size: 11px;
@@ -2757,7 +2757,7 @@
   min-height: 260px;
   margin-top: 14px;
   padding: 28px 18px;
-  border-radius: 22px;
+  border-radius: var(--fair-radius-xl);
 }
 
 .emptyState h2 {
@@ -2777,7 +2777,7 @@
 .emptyVisual {
   width: 64px;
   height: 64px;
-  border-radius: 20px;
+  border-radius: var(--fair-radius-xl);
 }
 
 .sponsoredDock {
@@ -2800,9 +2800,9 @@
   padding: 1px;
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--fair-accent) 28%, var(--fair-line));
-  border-radius: 20px;
+  border-radius: var(--fair-radius-xl);
   background: var(--fair-surface);
-  box-shadow: 0 18px 48px rgba(29, 25, 21, 0.18);
+  box-shadow: var(--fair-shadow-3);
   isolation: isolate;
 }
 
@@ -2820,7 +2820,7 @@
     linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
-  animation: sponsored-trace 5.6s linear infinite;
+  animation: sponsored-trace calc(var(--fair-dur-loop) * 4.5) var(--fair-ease-linear) infinite;
 }
 
 @keyframes sponsored-trace {
@@ -2835,7 +2835,7 @@
   gap: 12px;
   padding: 8px;
   border: 0;
-  border-radius: 18px;
+  border-radius: calc(var(--fair-radius-xl) - 2px);
   background: color-mix(in srgb, var(--fair-surface) 96%, var(--fair-warm));
 }
 
@@ -2846,7 +2846,7 @@
   height: 74px;
   place-items: center;
   overflow: hidden;
-  border-radius: 13px;
+  border-radius: var(--fair-radius-md);
   background: color-mix(in srgb, var(--fair-warm) 54%, white);
   color: var(--fair-ink);
 }
@@ -2917,8 +2917,8 @@
   align-items: center;
   justify-content: center;
   padding: 0 13px;
-  border: 1px solid var(--fair-line);
-  border-radius: 13px;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-md);
   background: transparent;
   color: var(--fair-ink);
   font-size: 10px;
@@ -2946,7 +2946,7 @@
   bottom: 100%;
   margin: 0 0 5px;
   padding: 5px 8px;
-  border-radius: 8px;
+  border-radius: var(--fair-radius-sm);
   background: #9d332d;
   color: #fff;
   font-size: 9px;
@@ -2957,9 +2957,9 @@
   z-index: 200;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.78);
-  border-radius: 13px;
+  border-radius: var(--fair-radius-md);
   background: var(--fair-surface);
-  box-shadow: 0 18px 48px rgba(18, 18, 17, 0.28);
+  box-shadow: var(--fair-shadow-3);
   pointer-events: none;
 }
 
@@ -2987,7 +2987,7 @@
   }
 
   .modelCard {
-    border-radius: 20px;
+    border-radius: var(--fair-radius-xl);
   }
 
   .modelVisual {
@@ -3019,7 +3019,7 @@
   .sponsoredActions button {
     min-height: 34px;
     padding: 0 9px;
-    border-radius: 10px;
+    border-radius: var(--fair-radius-md);
     font-size: 9px;
   }
 }
@@ -3030,7 +3030,7 @@
   }
 
   .tabs {
-    border-radius: 15px;
+    border-radius: var(--fair-radius-lg);
   }
 
   .tabs button {
@@ -3092,7 +3092,7 @@
     border-right: 0;
     border-bottom: 0;
     border-left: 0;
-    border-radius: 24px 24px 0 0;
+    border-radius: var(--fair-radius-xl) var(--fair-radius-xl) 0 0;
     transform: none;
     animation-name: garage-sheet-in;
   }
@@ -3113,7 +3113,7 @@
     width: 38px;
     height: 4px;
     margin: -11px auto 18px;
-    border-radius: 999px;
+    border-radius: var(--fair-radius-pill);
     background: var(--fair-line);
   }
 
@@ -3135,20 +3135,20 @@
   }
 
   .sponsoredFrame {
-    border-radius: 17px;
+    border-radius: var(--fair-radius-lg);
   }
 
   .sponsoredCard {
     grid-template-columns: 66px minmax(0, 1fr) 74px;
     min-height: 76px;
     gap: 7px;
-    border-radius: 15px;
+    border-radius: calc(var(--fair-radius-lg) - 2px);
   }
 
   .sponsoredVisual {
     width: 66px;
     height: 60px;
-    border-radius: 11px;
+    border-radius: var(--fair-radius-md);
   }
 
   .sponsoredCopy strong {

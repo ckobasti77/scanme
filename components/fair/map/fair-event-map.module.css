@@ -36,8 +36,8 @@
 
 .card {
   padding: 16px;
-  border: 1px solid var(--fair-line);
-  border-radius: 20px;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-xl);
   background: var(--fair-surface);
 }
 
@@ -54,7 +54,7 @@
   height: 22px;
   padding-inline: 7px;
   place-items: center;
-  border-radius: 999px;
+  border-radius: var(--fair-radius-pill);
   background: var(--fair-surface-muted);
   color: var(--fair-ink);
   font-size: 13px;
@@ -71,8 +71,8 @@
   align-items: center;
   gap: 4px 12px;
   grid-template-columns: minmax(0, 1fr) auto;
-  border: 1px solid var(--fair-line);
-  border-radius: 20px;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-xl);
   background: var(--fair-surface);
 }
 
@@ -107,7 +107,7 @@
   align-items: center;
   gap: 8px;
   border: 0;
-  border-radius: 12px;
+  border-radius: var(--fair-radius-md);
   background: var(--fair-ink);
   color: var(--fair-surface);
   font: inherit;
@@ -115,8 +115,8 @@
   font-weight: 700;
   white-space: nowrap;
   cursor: pointer;
-  box-shadow: 0 8px 18px var(--fair-shadow);
-  transition: transform 160ms ease-out;
+  box-shadow: var(--fair-shadow-2);
+  transition: transform var(--fair-dur-feedback) var(--fair-ease-enter);
 }
 
 .findButton svg {
@@ -173,8 +173,8 @@
   width: 100%;
   min-height: 48px;
   padding: 0 48px 0 44px;
-  border: 1px solid var(--fair-line-strong);
-  border-radius: 12px;
+  border: var(--fair-border-strong);
+  border-radius: var(--fair-radius-md);
   background: var(--fair-surface);
   color: var(--fair-ink);
   font: inherit;
@@ -198,7 +198,7 @@
   height: 44px;
   place-items: center;
   border: 0;
-  border-radius: 10px;
+  border-radius: var(--fair-radius-md);
   background: transparent;
   color: var(--fair-ink);
   cursor: pointer;
@@ -221,10 +221,10 @@
   padding: 6px;
   gap: 4px;
   overflow-y: auto;
-  border: 1px solid var(--fair-line);
-  border-radius: 20px;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-xl);
   background: var(--fair-surface);
-  box-shadow: 0 16px 40px var(--fair-shadow);
+  box-shadow: var(--fair-shadow-3);
   list-style: none;
 }
 
@@ -245,7 +245,7 @@
   align-items: center;
   gap: 12px;
   border: 1px solid transparent;
-  border-radius: 12px;
+  border-radius: var(--fair-radius-md);
   background: transparent;
   color: var(--fair-ink);
   font: inherit;
@@ -287,8 +287,8 @@
   display: grid;
   padding: 4px;
   grid-template-columns: repeat(var(--fair-map-zones, 3), minmax(0, 1fr));
-  border: 1px solid var(--fair-line);
-  border-radius: 999px;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-pill);
   background: var(--fair-surface-muted);
 }
 
@@ -296,7 +296,7 @@
   min-height: 44px;
   padding-inline: 6px;
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--fair-radius-pill);
   background: transparent;
   color: var(--fair-ink-muted);
   font: inherit;
@@ -308,7 +308,7 @@
 .zoneButton[aria-pressed="true"] {
   background: var(--fair-surface);
   color: var(--fair-ink);
-  box-shadow: 0 1px 3px var(--fair-shadow);
+  box-shadow: var(--fair-shadow-1);
 }
 
 /* One horizontal row that scrolls inside itself (never the page). */
@@ -335,8 +335,8 @@
   flex: none;
   align-items: center;
   gap: 7px;
-  border: 1px solid var(--fair-line-strong);
-  border-radius: 999px;
+  border: var(--fair-border-strong);
+  border-radius: var(--fair-radius-pill);
   background: var(--fair-surface);
   color: var(--fair-ink);
   font: inherit;
@@ -346,8 +346,8 @@
   cursor: pointer;
   scroll-snap-align: start;
   transition:
-    background-color 160ms ease-out,
-    color 160ms ease-out;
+    background-color var(--fair-dur-feedback) var(--fair-ease-enter),
+    color var(--fair-dur-feedback) var(--fair-ease-enter);
 }
 
 .filterButton svg {
@@ -379,8 +379,8 @@
   display: grid;
   min-width: 0;
   overflow: hidden;
-  border: 1px solid var(--fair-line);
-  border-radius: 20px;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-xl);
   background: var(--fair-surface);
 }
 
@@ -390,7 +390,7 @@
   padding: 6px 6px 6px 12px;
   align-items: center;
   gap: 8px;
-  border-bottom: 1px solid var(--fair-line);
+  border-bottom: var(--fair-border);
 }
 
 .zone[data-active="false"] {
@@ -526,7 +526,7 @@
 .stand {
   cursor: pointer;
   outline: none;
-  transition: opacity 200ms ease-out;
+  transition: opacity var(--fair-dur-state) var(--fair-ease-enter);
 }
 
 .viewport[data-interactive="false"] .stand,
@@ -539,8 +539,8 @@
   stroke: rgb(23 25 24 / 0.32);
   stroke-linejoin: round;
   transition:
-    fill 160ms ease-out,
-    stroke 160ms ease-out;
+    fill var(--fair-dur-feedback) var(--fair-ease-enter),
+    stroke var(--fair-dur-feedback) var(--fair-ease-enter);
 }
 
 /* D1 (RN N5): only where a pointer really hovers (a tap on a phone leaves
@@ -617,7 +617,7 @@
   display: inline-grid;
   place-items: center;
   border: 0.08em solid var(--fair-line-strong);
-  border-radius: 999px;
+  border-radius: var(--fair-radius-pill);
   background: var(--fair-surface);
   color: var(--fair-ink);
   font-weight: 800;
@@ -626,7 +626,7 @@
   white-space: nowrap;
   pointer-events: none;
   box-shadow: 0 0.08em 0.2em var(--fair-shadow);
-  transition: opacity 200ms ease-out;
+  transition: opacity var(--fair-dur-state) var(--fair-ease-enter);
 }
 
 .badge[data-empty="true"] {
@@ -661,7 +661,7 @@
   padding: 3px 9px 3px 6px;
   gap: 4px;
   border: 1px solid var(--fair-ink);
-  border-radius: 999px;
+  border-radius: var(--fair-radius-pill);
   background: var(--fair-surface);
   color: var(--fair-ink);
   font-size: 13px;
@@ -679,12 +679,12 @@
   min-height: 32px;
   margin-top: -10px;
   padding: 6px 12px;
-  border-radius: 12px;
+  border-radius: var(--fair-radius-md);
   background: var(--fair-ink);
   color: var(--fair-surface);
   font-size: 14px;
   font-weight: 700;
-  box-shadow: 0 8px 20px var(--fair-shadow);
+  box-shadow: var(--fair-shadow-2);
 }
 
 .controls {
@@ -698,12 +698,12 @@
   width: 44px;
   height: 44px;
   place-items: center;
-  border: 1px solid var(--fair-line-strong);
-  border-radius: 12px;
+  border: var(--fair-border-strong);
+  border-radius: var(--fair-radius-md);
   background: var(--fair-surface);
   color: var(--fair-ink);
   cursor: pointer;
-  box-shadow: 0 1px 3px var(--fair-shadow);
+  box-shadow: var(--fair-shadow-1);
 }
 
 .controlButton svg {
@@ -718,8 +718,8 @@
   padding: 0 12px;
   align-items: center;
   gap: 6px;
-  border: 1px solid var(--fair-line-strong);
-  border-radius: 999px;
+  border: var(--fair-border-strong);
+  border-radius: var(--fair-radius-pill);
   background: rgb(255 253 248 / 0.94);
   color: var(--fair-ink);
   font: inherit;
@@ -749,8 +749,8 @@
   min-width: 0;
   padding: 16px;
   gap: 8px;
-  border: 1px solid var(--fair-line);
-  border-radius: 20px;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-xl);
   background: var(--fair-surface);
 }
 
@@ -773,7 +773,7 @@
 }
 
 .group {
-  border-top: 1px solid var(--fair-line);
+  border-top: var(--fair-border);
 }
 
 .groupSummary {
@@ -799,7 +799,7 @@
   border-right: 2px solid var(--fair-ink-muted);
   border-bottom: 2px solid var(--fair-ink-muted);
   transform: rotate(45deg) translateY(-3px);
-  transition: transform 160ms ease-out;
+  transition: transform var(--fair-dur-feedback) var(--fair-ease-enter);
 }
 
 .group[open] > .groupSummary::after {
@@ -816,7 +816,7 @@
 .groupSummary:focus-visible {
   outline: 3px solid var(--fair-focus);
   outline-offset: 2px;
-  border-radius: 8px;
+  border-radius: var(--fair-radius-sm);
 }
 
 .entries {
@@ -835,7 +835,7 @@
 .placeBadge {
   justify-self: start;
   padding: 1px 8px;
-  border-radius: 999px;
+  border-radius: var(--fair-radius-pill);
   background: var(--fair-surface-muted);
   color: var(--fair-ink);
   font-size: 13px;
@@ -860,8 +860,8 @@
 .placeChip {
   min-height: 44px;
   padding: 0 12px;
-  border: 1px solid var(--fair-line-strong);
-  border-radius: 999px;
+  border: var(--fair-border-strong);
+  border-radius: var(--fair-radius-pill);
   background: var(--fair-surface);
   color: var(--fair-ink);
   font: inherit;
@@ -878,8 +878,8 @@
   flex: none;
   place-items: center;
   overflow: hidden;
-  border: 1px solid var(--fair-line);
-  border-radius: 10px;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-md);
   background: #ffffff;
 }
 
@@ -947,8 +947,8 @@
   height: 44px;
   flex: none;
   place-items: center;
-  border: 1px solid var(--fair-line);
-  border-radius: 12px;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-md);
   background: var(--fair-surface);
   color: var(--fair-ink);
   cursor: pointer;
@@ -971,7 +971,7 @@
   display: grid;
   padding: 12px 0;
   gap: 10px;
-  border-top: 1px solid var(--fair-line);
+  border-top: var(--fair-border);
 }
 
 .exhibitorHead {
@@ -1043,7 +1043,7 @@
   align-items: center;
   gap: 6px;
   border: 1px solid var(--fair-ink);
-  border-radius: 999px;
+  border-radius: var(--fair-radius-pill);
   color: var(--fair-ink);
   font-size: 13px;
   font-weight: 650;
@@ -1070,8 +1070,8 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  border: 1px solid var(--fair-line);
-  border-radius: 12px;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-md);
   color: var(--fair-ink);
   text-decoration: none;
 }
@@ -1097,8 +1097,8 @@
   min-height: 44px;
   margin-top: 8px;
   padding-inline: 14px;
-  border: 1px solid var(--fair-line-strong);
-  border-radius: 12px;
+  border: var(--fair-border-strong);
+  border-radius: var(--fair-radius-md);
   background: var(--fair-surface);
   color: var(--fair-ink);
   font: inherit;
@@ -1131,10 +1131,10 @@
   display: grid;
   max-height: min(56dvh, 560px);
   grid-template-rows: auto minmax(0, 1fr);
-  border-top: 1px solid var(--fair-line);
-  border-radius: 20px 20px 0 0;
+  border-top: var(--fair-border);
+  border-radius: var(--fair-radius-xl) var(--fair-radius-xl) 0 0;
   background: var(--fair-surface);
-  box-shadow: 0 -16px 40px var(--fair-shadow);
+  box-shadow: var(--fair-shadow-3-up);
   pointer-events: auto;
 }
 
@@ -1149,7 +1149,7 @@
 .sheetHandle > span:first-child {
   width: 40px;
   height: 4px;
-  border-radius: 999px;
+  border-radius: var(--fair-radius-pill);
   background: var(--fair-line-strong);
 }
 
@@ -1186,7 +1186,7 @@
 .rotationBody {
   display: grid;
   gap: 12px;
-  animation: fair-map-reveal-in 360ms ease-out both;
+  animation: fair-map-reveal-in var(--fair-dur-overlay) var(--fair-ease-enter) both;
 }
 
 .rotationHead {
@@ -1203,7 +1203,7 @@
   flex: none;
   place-items: center;
   overflow: hidden;
-  border-radius: 12px;
+  border-radius: var(--fair-radius-md);
   background: var(--fair-surface-muted);
   color: var(--fair-ink-muted);
 }
@@ -1251,7 +1251,7 @@
 
 .rotationQuestion {
   padding-top: 12px;
-  border-top: 1px solid var(--fair-line);
+  border-top: var(--fair-border);
 }
 
 .rotationPrompt {
@@ -1265,8 +1265,8 @@
   margin: 0;
   padding: 4px 12px;
   align-items: center;
-  border: 1px solid var(--fair-line-strong);
-  border-radius: 999px;
+  border: var(--fair-border-strong);
+  border-radius: var(--fair-radius-pill);
   color: var(--fair-ink-muted);
   font-size: 14px;
   font-weight: 650;
@@ -1289,8 +1289,8 @@
   justify-content: space-between;
   gap: 8px;
   overflow: hidden;
-  border: 1px solid var(--fair-line);
-  border-radius: 12px;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-md);
   font-variant-numeric: tabular-nums;
 }
 
@@ -1305,7 +1305,7 @@
   background: var(--fair-accent-soft);
   transform: scaleX(var(--fair-map-share));
   transform-origin: left center;
-  animation: fair-map-share-in 750ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation: fair-map-share-in var(--fair-dur-focal) var(--fair-ease-enter) both;
 }
 
 .rotationStand {
@@ -1356,7 +1356,7 @@
   stroke-dasharray: none;
   stroke: var(--fair-accent);
   opacity: 0;
-  animation: fair-map-stand-glow 1400ms ease-out 400ms 2;
+  animation: fair-map-stand-glow calc(var(--fair-dur-focal) * 3) var(--fair-ease-enter) var(--fair-dur-overlay) 2;
 }
 
 .rotationPin {
@@ -1364,7 +1364,7 @@
   margin-top: -6px;
   padding: 4px 10px 4px 6px;
   gap: 4px;
-  border-radius: 999px;
+  border-radius: var(--fair-radius-pill);
   background: var(--fair-ink);
   color: var(--fair-surface);
   font-size: 13px;
@@ -1579,8 +1579,11 @@
   }
 }
 
-/* ?prikaz=ekran — a TV on the stand: readable from 3 m, no touch controls. */
+/* ?prikaz=ekran — a TV on the stand: readable from 3 m, no touch controls.
+   The display composition is frozen (SAJAM-DIZAJN): its cards keep the
+   20 px corner they had before the token scale. */
 .root[data-display="on"] {
+  --fair-radius-xl: 20px;
   max-width: none;
   height: calc(100dvh - var(--fair-header-height) - env(safe-area-inset-top));
   min-height: 640px;
@@ -1694,8 +1697,8 @@
   padding: 0 10px 0 14px;
   align-items: center;
   gap: 10px;
-  border: 1px solid var(--fair-line);
-  border-radius: 999px;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-pill);
   background: var(--fair-surface);
   font-size: 20px;
   font-weight: 680;

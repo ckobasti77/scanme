@@ -4,8 +4,8 @@
   max-width: 560px;
   margin: 24px auto;
   padding: 24px 16px;
-  border: 1px solid var(--fair-line);
-  border-radius: 20px;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-xl);
   background: var(--fair-surface);
   text-align: center;
 }
@@ -26,7 +26,7 @@
   min-height: 48px;
   padding-inline: 18px;
   align-items: center;
-  border-radius: 12px;
+  border-radius: var(--fair-radius-md);
   background: var(--fair-accent);
   color: var(--fair-accent-ink);
   font-weight: 680;
@@ -51,27 +51,27 @@
 
 .skeletonIntro {
   height: 92px;
-  border-radius: 20px;
+  border-radius: var(--fair-radius-xl);
 }
 
 .skeletonBar {
   height: 70px;
-  border-radius: 12px;
+  border-radius: var(--fair-radius-md);
 }
 
 .skeletonPill {
   height: 54px;
-  border-radius: 999px;
+  border-radius: var(--fair-radius-pill);
 }
 
 .skeletonChips {
   height: 48px;
-  border-radius: 999px;
+  border-radius: var(--fair-radius-pill);
 }
 
 .skeletonMap {
   height: clamp(300px, 46dvh, 380px);
-  border-radius: 20px;
+  border-radius: var(--fair-radius-xl);
 }
 
 .srOnly {

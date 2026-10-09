@@ -13,7 +13,7 @@
 .rule {
   margin: 2px 0 -4px;
   padding-top: 14px;
-  border-top: 1px solid var(--fair-line);
+  border-top: var(--fair-border);
   color: var(--fair-ink);
   font-size: 14px;
   font-weight: 600;
@@ -78,8 +78,8 @@
   margin: 0;
   padding: 14px;
   gap: 12px;
-  border: 1px solid var(--fair-line);
-  border-radius: 14px;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-lg);
   background: var(--fair-canvas);
 }
 
@@ -114,15 +114,15 @@
   min-height: 48px;
   padding: 10px 12px;
   place-items: center;
-  border: 1px solid var(--fair-line-strong);
-  border-radius: 12px;
+  border: var(--fair-border-strong);
+  border-radius: var(--fair-radius-md);
   background: var(--fair-surface);
   color: var(--fair-ink);
   cursor: pointer;
   font-size: 16px;
   font-weight: 650;
   text-align: center;
-  transition: background-color 160ms ease-out, border-color 160ms ease-out;
+  transition: background-color var(--fair-dur-feedback) var(--fair-ease-enter), border-color var(--fair-dur-feedback) var(--fair-ease-enter);
 }
 
 .consent .choice input {
@@ -168,7 +168,7 @@
   padding: 11px 12px;
   gap: 10px;
   border-left: 3px solid var(--fair-danger);
-  border-radius: 4px 10px 10px 4px;
+  border-radius: var(--fair-radius-2xs) var(--fair-radius-md) var(--fair-radius-md) var(--fair-radius-2xs);
   background: var(--fair-surface-muted);
   color: var(--fair-ink);
   font-size: 14px;
@@ -183,8 +183,8 @@
   justify-self: start;
   min-height: 44px;
   padding: 8px 16px;
-  border: 1px solid var(--fair-line-strong);
-  border-radius: 999px;
+  border: var(--fair-border-strong);
+  border-radius: var(--fair-radius-pill);
   background: var(--fair-surface);
   color: var(--fair-ink);
   cursor: pointer;
@@ -217,8 +217,8 @@
   flex: none;
   border: 2px solid currentColor;
   border-right-color: transparent;
-  border-radius: 999px;
-  animation: lead-spin 0.8s linear infinite;
+  border-radius: var(--fair-radius-pill);
+  animation: lead-spin var(--fair-dur-spin) var(--fair-ease-linear) infinite;
 }
 
 @keyframes lead-spin {
@@ -264,7 +264,7 @@
   width: 48px;
   height: 48px;
   place-items: center;
-  border-radius: 999px;
+  border-radius: var(--fair-radius-pill);
   background: var(--fair-accent-soft);
   color: var(--fair-accent-strong);
 }

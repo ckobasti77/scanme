@@ -79,7 +79,7 @@
   padding: 20px 22px;
   overflow: hidden;
   border: 1px solid #e1e5e9;
-  border-radius: 22px;
+  border-radius: var(--fair-radius-xl);
   isolation: isolate;
   background: #0e2d48;
   box-shadow:
@@ -88,9 +88,9 @@
   color: #fff;
   text-decoration: none;
   transition:
-    border-color 180ms ease,
-    box-shadow 180ms ease,
-    transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
+    border-color var(--fair-dur-state) var(--fair-ease-enter),
+    box-shadow var(--fair-dur-state) var(--fair-ease-enter),
+    transform var(--fair-dur-state) var(--fair-ease-enter);
 }
 
 .passportCardGraphic {
@@ -130,7 +130,7 @@
   object-fit: cover;
   object-position: center 48%;
   transform: scale(1.002);
-  transition: transform 500ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: transform var(--fair-dur-focal) var(--fair-ease-enter);
 }
 
 .passportCardShade {
@@ -217,7 +217,7 @@
 .brandLogoPresentation {
   overflow: hidden;
   border: 1px solid rgb(255 255 255 / 0.34);
-  border-radius: 14px;
+  border-radius: var(--fair-radius-md);
   background: linear-gradient(135deg, #0b73e0, #064a91);
   box-shadow: 0 7px 18px rgb(4 76 145 / 0.18);
 }
@@ -236,7 +236,7 @@
   min-height: 30px;
   padding: 0 12px;
   align-items: center;
-  border-radius: 10px;
+  border-radius: var(--fair-radius-md);
   border: 1px solid rgb(255 255 255 / 0.54);
   background: rgb(7 22 36 / 0.48);
   backdrop-filter: blur(12px);
@@ -270,7 +270,7 @@
   width: 18px;
   height: 18px;
   flex: none;
-  border-radius: 999px;
+  border-radius: var(--fair-radius-pill);
   background: #d7dadd;
   box-shadow: 0 1px 2px rgb(19 34 46 / 0.12) inset;
 }
@@ -303,7 +303,7 @@
   padding: 8px 10px;
   overflow: hidden;
   border: 1px solid #dfe5e9;
-  border-radius: 22px;
+  border-radius: var(--fair-radius-xl);
   box-shadow: 0 12px 30px rgb(31 56 79 / 0.07);
 }
 
@@ -337,10 +337,10 @@
   width: 44px;
   height: 44px;
   place-items: center;
-  border-radius: 999px;
+  border-radius: var(--fair-radius-pill);
   color: var(--passport-ink);
   text-decoration: none;
-  transition: background-color 160ms ease, transform 160ms ease;
+  transition: background-color var(--fair-dur-feedback) var(--fair-ease-enter), transform var(--fair-dur-feedback) var(--fair-ease-enter);
 }
 
 .backButton:hover {
@@ -411,7 +411,7 @@
   min-height: 126px;
   overflow: hidden;
   border: 1px solid rgb(13 21 29 / 0.12);
-  border-radius: 20px;
+  border-radius: var(--fair-radius-xl);
   background: #d9dde0;
   box-shadow: 0 12px 26px rgb(24 36 48 / 0.08);
   color: #fff;
@@ -422,7 +422,7 @@
 
 .modelCardLocked {
   cursor: pointer;
-  transition: transform 180ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 180ms ease, opacity 400ms ease;
+  transition: transform var(--fair-dur-state) var(--fair-ease-enter), box-shadow var(--fair-dur-state) var(--fair-ease-enter), opacity var(--fair-dur-overlay) var(--fair-ease-enter);
 }
 
 /* While a stamp waits for its hold, only not-yet-scanned cards step back. */
@@ -492,7 +492,7 @@
   bottom: 25%;
   left: 0;
   width: 5px;
-  border-radius: 0 5px 5px 0;
+  border-radius: 0 var(--fair-radius-xs) var(--fair-radius-xs) 0;
   background: var(--passport-blue);
   transform-origin: center;
 }
@@ -521,7 +521,7 @@
   height: 28px;
   place-items: center;
   border: 1px solid rgb(255 255 255 / 0.32);
-  border-radius: 999px;
+  border-radius: var(--fair-radius-pill);
   background: rgb(12 18 23 / 0.34);
   backdrop-filter: blur(7px);
 }
@@ -542,7 +542,7 @@
   align-items: center;
   gap: 5px;
   border: 1px solid rgb(255 255 255 / 0.28);
-  border-radius: 999px;
+  border-radius: var(--fair-radius-pill);
   background: rgb(12 18 23 / 0.38);
   backdrop-filter: blur(8px);
   color: #fff;
@@ -559,7 +559,7 @@
   margin-top: 20px;
   padding: 22px 18px;
   border: 1px solid #cfdae5;
-  border-radius: 24px;
+  border-radius: var(--fair-radius-xl);
   background: #fff;
   box-shadow: 0 15px 34px rgb(29 54 78 / 0.07);
 }
@@ -570,7 +570,7 @@
   padding: 0 11px;
   align-items: center;
   gap: 6px;
-  border-radius: 999px;
+  border-radius: var(--fair-radius-pill);
   background: var(--passport-blue-soft);
   color: var(--passport-blue-deep);
   font-size: 12px;
@@ -608,14 +608,14 @@
   padding: 0 0 11px;
   overflow: hidden;
   border: 1px solid var(--passport-line);
-  border-radius: 17px;
+  border-radius: var(--fair-radius-lg);
   background: #f8f9fa;
   color: var(--passport-ink);
   font: inherit;
   font-size: 13px;
   font-weight: 720;
   text-align: left;
-  transition: border-color 160ms ease, background-color 160ms ease, transform 160ms ease;
+  transition: border-color var(--fair-dur-feedback) var(--fair-ease-enter), background-color var(--fair-dur-feedback) var(--fair-ease-enter), transform var(--fair-dur-feedback) var(--fair-ease-enter);
 }
 
 .favoriteGrid button[aria-pressed="true"] {
@@ -643,7 +643,7 @@
   width: 22px;
   height: 22px;
   padding: 4px;
-  border-radius: 999px;
+  border-radius: var(--fair-radius-pill);
   background: var(--passport-blue);
   color: #fff;
 }
@@ -690,7 +690,7 @@
   place-items: center;
   align-content: center;
   border: 1px dashed #cfd6dd;
-  border-radius: 24px;
+  border-radius: var(--fair-radius-xl);
   background: rgb(255 255 255 / 0.7);
   text-align: center;
 }
@@ -727,7 +727,7 @@
   height: 100%;
   background: var(--passport-blue);
   content: "";
-  animation: passport-loading 900ms ease-in-out infinite;
+  animation: passport-loading var(--fair-dur-loop) var(--fair-ease-move) infinite;
 }
 
 @keyframes passport-loading {
@@ -745,7 +745,7 @@
   justify-content: space-between;
   gap: 10px;
   border: 1px solid #d9c6a4;
-  border-radius: 15px;
+  border-radius: var(--fair-radius-lg);
   background: #fff9ec;
   color: #5f5038;
   font-size: 13px;
@@ -759,7 +759,7 @@
   align-items: center;
   gap: 5px;
   border: 0;
-  border-radius: 11px;
+  border-radius: var(--fair-radius-md);
   background: #f0e2c6;
   color: inherit;
   font: inherit;
@@ -827,7 +827,7 @@
 
   .modelCard {
     min-height: 116px;
-    border-radius: 17px;
+    border-radius: var(--fair-radius-lg);
   }
 
   .modelCard > strong {
@@ -873,7 +873,7 @@
   }
 
   .loadingLine::after {
-    animation-duration: 1.8s;
+    animation-duration: calc(var(--fair-dur-focal) * 3);
   }
 }
 
@@ -885,7 +885,7 @@
 .unlockCard {
   -webkit-touch-callout: none;
   user-select: none;
-  transition: box-shadow 400ms ease;
+  transition: box-shadow var(--fair-dur-overlay) var(--fair-ease-enter);
 }
 
 .unlockCard[data-phase="ready"] {
@@ -947,12 +947,12 @@
   box-shadow: 0 0 14px 3px color-mix(in srgb, var(--passport-energy) 75%, transparent);
   content: "";
   opacity: 0;
-  transition: opacity 300ms ease;
+  transition: opacity var(--fair-dur-overlay) var(--fair-ease-enter);
 }
 
 .unlockCard[data-charging] .unlockCharge::before {
   opacity: 1;
-  transition-duration: 80ms;
+  transition-duration: var(--fair-dur-feedback);
 }
 
 .unlockCells {
@@ -983,7 +983,7 @@
   box-shadow: 0 0 10px 1px color-mix(in srgb, var(--passport-energy) 80%, transparent);
   content: "";
   opacity: 0;
-  transition: opacity 120ms ease;
+  transition: opacity var(--fair-dur-feedback) var(--fair-ease-enter);
 }
 
 .unlockCells > i:nth-child(10)::after {
@@ -997,7 +997,7 @@
 .unlockCellsFlash {
   position: absolute;
   inset: 0;
-  border-radius: 10px;
+  border-radius: var(--fair-radius-md);
   background: rgb(255 255 255 / 0.2);
   opacity: 0;
 }
@@ -1010,7 +1010,7 @@
   inset: 0;
   overflow: hidden;
   padding: 2.5px;
-  border-radius: 19px;
+  border-radius: var(--fair-radius-lg);
   pointer-events: none;
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
@@ -1041,7 +1041,7 @@
     transparent 100%
   );
   opacity: 0;
-  transition: opacity 240ms ease;
+  transition: opacity var(--fair-dur-state) var(--fair-ease-enter);
 }
 
 .unlockCard[data-active] .runnerSpin,
@@ -1164,7 +1164,7 @@
   top: 16px;
   right: 14px;
   padding: 3px 9px;
-  border-radius: 999px;
+  border-radius: var(--fair-radius-pill);
   background: var(--passport-blue);
   color: #fff;
   font-size: 11px;
@@ -1185,7 +1185,7 @@
   align-items: center;
   gap: 8px;
   border: 1px solid rgb(255 255 255 / 0.3);
-  border-radius: 999px;
+  border-radius: var(--fair-radius-pill);
   background: rgb(12 18 23 / 0.46);
   backdrop-filter: blur(8px);
   color: #fff;
@@ -1255,7 +1255,7 @@
   width: 60px;
   height: 60px;
   margin: -30px 0 0 -30px;
-  border-radius: 50%;
+  border-radius: var(--fair-radius-round);
   background: radial-gradient(circle, #fff 0%, color-mix(in srgb, var(--passport-glow) 90%, transparent) 30%, color-mix(in srgb, var(--passport-energy) 35%, transparent) 60%, transparent 72%);
 }
 
@@ -1264,14 +1264,14 @@
   height: 40px;
   margin: -20px 0 0 -20px;
   border: 2px solid color-mix(in srgb, var(--passport-glow) 90%, transparent);
-  border-radius: 50%;
+  border-radius: var(--fair-radius-round);
 }
 
 .spark {
   width: 2px;
   height: 12px;
   margin: -6px 0 0 -1px;
-  border-radius: 2px;
+  border-radius: var(--fair-radius-2xs);
   background: linear-gradient(#fff, var(--passport-energy));
 }
 
@@ -1281,7 +1281,7 @@
   bottom: -2px;
   left: 50%;
   padding: 5px 10px;
-  border-radius: 999px;
+  border-radius: var(--fair-radius-pill);
   background: var(--passport-ink);
   color: #fff;
   font-size: 12px;
@@ -1290,7 +1290,7 @@
   opacity: 0;
   pointer-events: none;
   transform: translate(-50%, 0);
-  transition: opacity 200ms ease, transform 200ms ease;
+  transition: opacity var(--fair-dur-state) var(--fair-ease-enter), transform var(--fair-dur-state) var(--fair-ease-enter);
 }
 
 .holdHint[data-show] {
@@ -1363,21 +1363,21 @@
 .progressDotPending::before,
 .progressDotPending::after {
   position: absolute;
-  border-radius: 50%;
+  border-radius: var(--fair-radius-round);
   content: "";
 }
 
 .progressDotPending::before {
   inset: 5px;
   background: var(--passport-blue);
-  animation: passport-dot-core 1.8s ease-in-out infinite;
+  animation: passport-dot-core calc(var(--fair-dur-loop) * 1.5) var(--fair-ease-move) infinite;
 }
 
 .progressDotPending::after {
   inset: -3px;
   border: 2px solid var(--passport-blue);
   opacity: 0;
-  animation: passport-dot-wait 1.8s ease-out infinite;
+  animation: passport-dot-wait calc(var(--fair-dur-loop) * 1.5) var(--fair-ease-enter) infinite;
 }
 
 @keyframes passport-dot-core {
@@ -1394,7 +1394,7 @@
   position: absolute;
   inset: 0;
   border: 2px solid var(--passport-energy);
-  border-radius: 50%;
+  border-radius: var(--fair-radius-round);
   pointer-events: none;
 }
 
@@ -1422,7 +1422,7 @@
   width: min(380px, 100%);
   padding: 30px 22px 22px;
   overflow: hidden;
-  border-radius: 26px;
+  border-radius: var(--fair-radius-xl);
   background: var(--passport-surface);
   box-shadow: 0 30px 70px rgb(0 0 0 / 0.3);
   color: var(--passport-ink);
@@ -1468,7 +1468,7 @@
   height: 150px;
   margin: -75px 0 0 -75px;
   border: 2px solid var(--passport-blue);
-  border-radius: 50%;
+  border-radius: var(--fair-radius-round);
   opacity: 0;
   pointer-events: none;
 }
@@ -1480,7 +1480,7 @@
   width: 5px;
   height: 5px;
   margin: -2.5px 0 0 -2.5px;
-  border-radius: 50%;
+  border-radius: var(--fair-radius-round);
   background: var(--passport-blue);
   opacity: 0;
   pointer-events: none;
@@ -1517,7 +1517,7 @@
   height: 50px;
   overflow: hidden;
   border: 2px solid var(--passport-blue-soft);
-  border-radius: 10px;
+  border-radius: var(--fair-radius-md);
   background: #e8ebed;
 }
 
@@ -1538,7 +1538,7 @@
   align-items: center;
   justify-content: center;
   border: 0;
-  border-radius: 14px;
+  border-radius: var(--fair-radius-md);
   background: var(--passport-blue);
   color: #fff;
   font: inherit;
@@ -1574,7 +1574,7 @@
   position: relative;
   height: 5px;
   overflow: hidden;
-  border-radius: 999px;
+  border-radius: var(--fair-radius-pill);
   background: color-mix(in srgb, var(--passport-blue) 12%, #fff);
 }
 
@@ -1605,7 +1605,7 @@
   min-height: 22px;
   padding: 0 8px;
   align-items: center;
-  border-radius: 999px;
+  border-radius: var(--fair-radius-pill);
   background: rgb(12 18 23 / 0.72);
   backdrop-filter: blur(6px);
   color: #fff;
@@ -1630,7 +1630,7 @@
 
 @media (max-width: 430px) {
   .runner {
-    border-radius: 16px;
+    border-radius: var(--fair-radius-lg);
   }
 
   .newChip {

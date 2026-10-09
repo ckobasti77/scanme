@@ -17,6 +17,56 @@
   --fair-photo-scrim: rgb(20 19 18 / 0.82);
   --fair-photo-clear: rgb(20 19 18 / 0);
   --fair-header-height: 64px;
+
+  /* Tokeni sajamskog dizajna — docs/events/sajam-automobila-2026/FAIR-DESIGN-DNA.md.
+     Razmak: skala sa bazom 4. */
+  --fair-space-1: 4px;
+  --fair-space-2: 8px;
+  --fair-space-3: 12px;
+  --fair-space-4: 16px;
+  --fair-space-6: 24px;
+  --fair-space-8: 32px;
+  --fair-space-12: 48px;
+
+  /* Uglovi po pravilu ugnježdenja: unutrašnji = pola spoljašnjeg, a razmak
+     između njih = unutrašnji (24 → 12 → 6 i 16 → 8 → 4). Pilula samo za
+     čipove i dugmad koji su pilule po dizajnu; krug ostaje krug. */
+  --fair-radius-xl: 24px;
+  --fair-radius-lg: 16px;
+  --fair-radius-md: 12px;
+  --fair-radius-sm: 8px;
+  --fair-radius-xs: 6px;
+  --fair-radius-2xs: 4px;
+  --fair-radius-pill: 999px;
+  --fair-radius-round: 50%;
+
+  /* Ivice: jedna debljina, dve nijanse (tiha i izražena). */
+  --fair-border-width: 1px;
+  --fair-border: var(--fair-border-width) solid var(--fair-line);
+  --fair-border-strong: var(--fair-border-width) solid var(--fair-line-strong);
+
+  /* Senke: tri nivoa (miruje, podignuto, preko sadržaja), sa pomakom i mekim zamućenjem. */
+  --fair-shadow-1: 0 1px 3px var(--fair-shadow);
+  --fair-shadow-2: 0 8px 20px var(--fair-shadow);
+  --fair-shadow-3: 0 16px 40px var(--fair-shadow);
+  --fair-shadow-3-up: 0 -16px 40px var(--fair-shadow);
+
+  /* Pokret: 120 povratna reakcija, 200 promena stanja, 320 overlay i raspored,
+     480 jedan fokalni momenat. Ulaz usporava, izlaz je brži i ubrzava;
+     linear samo za beskonačne rotacije i progres. */
+  --fair-dur-instant: 0.01ms;
+  --fair-dur-feedback: 120ms;
+  --fair-dur-state: 200ms;
+  --fair-dur-overlay: 320ms;
+  --fair-dur-focal: 480ms;
+  --fair-dur-stagger: 40ms;
+  --fair-dur-spin: 800ms;
+  --fair-dur-loop: 1200ms;
+  --fair-ease-enter: cubic-bezier(0.16, 1, 0.3, 1);
+  --fair-ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  --fair-ease-move: cubic-bezier(0.65, 0, 0.35, 1);
+  --fair-ease-linear: linear;
+
   min-height: 100dvh;
   overflow-x: clip;
   color-scheme: light;
@@ -79,7 +129,7 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   top: 0;
   z-index: 20;
   padding-top: env(safe-area-inset-top);
-  border-bottom: 1px solid var(--fair-line);
+  border-bottom: var(--fair-border);
   background: var(--fair-surface);
 }
 
@@ -106,7 +156,7 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   width: 5px;
   height: 36px;
   flex: none;
-  border-radius: 2px;
+  border-radius: var(--fair-radius-2xs);
   background: var(--fair-accent);
 }
 
@@ -151,16 +201,16 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   align-content: center;
   gap: 1px;
   border: 1px solid transparent;
-  border-radius: 12px;
+  border-radius: var(--fair-radius-md);
   color: var(--fair-ink);
   font-size: 10px;
   font-weight: 620;
   line-height: 1.1;
   text-decoration: none;
   transition:
-    background-color 160ms ease-out,
-    border-color 160ms ease-out,
-    transform 160ms ease-out;
+    background-color var(--fair-dur-feedback) var(--fair-ease-enter),
+    border-color var(--fair-dur-feedback) var(--fair-ease-enter),
+    transform var(--fair-dur-feedback) var(--fair-ease-enter);
 }
 
 .fair-shell__nav > .fair-shell__current {
@@ -201,7 +251,7 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   padding-inline: 5px;
   place-items: center;
   border: 2px solid var(--fair-surface);
-  border-radius: 999px;
+  border-radius: var(--fair-radius-pill);
   background: var(--fair-accent);
   color: var(--fair-accent-ink);
   font-size: 11px;
@@ -262,8 +312,8 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   isolation: isolate;
   min-height: 212px;
   overflow: hidden;
-  border: 1px solid var(--fair-line);
-  border-radius: 20px;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-xl);
   background: var(--fair-surface-warm);
 }
 
@@ -358,8 +408,8 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   margin-top: 8px;
   overflow: hidden;
-  border: 1px solid var(--fair-line);
-  border-radius: 16px;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-lg);
   background: var(--fair-surface);
 }
 
@@ -374,11 +424,11 @@ body:has(.fair-event) [data-theme-toggle="global"] {
 }
 
 .fair-specification:nth-child(odd) {
-  border-right: 1px solid var(--fair-line);
+  border-right: var(--fair-border);
 }
 
 .fair-specification:nth-child(n + 3) {
-  border-top: 1px solid var(--fair-line);
+  border-top: var(--fair-border);
 }
 
 .fair-specification svg {
@@ -416,8 +466,8 @@ body:has(.fair-event) [data-theme-toggle="global"] {
 .fair-model-disclosure {
   margin-top: 8px;
   overflow-anchor: none;
-  border: 1px solid var(--fair-line);
-  border-radius: 14px;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-lg);
   background: var(--fair-surface);
 }
 
@@ -448,7 +498,7 @@ body:has(.fair-event) [data-theme-toggle="global"] {
 }
 
 .fair-disclosure-chevron {
-  transition: transform 360ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: transform var(--fair-dur-overlay) var(--fair-ease-enter);
 }
 
 .fair-model-disclosure[data-open="true"] .fair-disclosure-chevron {
@@ -468,7 +518,7 @@ body:has(.fair-event) [data-theme-toggle="global"] {
 
 .fair-model-disclosure__content {
   padding: 4px 14px 16px;
-  border-top: 1px solid var(--fair-line);
+  border-top: var(--fair-border);
 }
 
 .fair-model-disclosure__content h2 {
@@ -520,7 +570,7 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   align-items: center;
   gap: 10px;
   border: 1px solid var(--fair-accent-strong);
-  border-radius: 14px;
+  border-radius: var(--fair-radius-md);
   background: var(--fair-accent);
   color: var(--fair-accent-ink);
   cursor: pointer;
@@ -528,8 +578,8 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   text-decoration: none;
   -webkit-user-drag: none;
   transition:
-    background-color 160ms ease-out,
-    transform 160ms ease-out;
+    background-color var(--fair-dur-feedback) var(--fair-ease-enter),
+    transform var(--fair-dur-feedback) var(--fair-ease-enter);
 }
 
 .fair-audience-action:hover {
@@ -597,8 +647,8 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   place-items: center;
   align-content: center;
   gap: 5px;
-  border: 1px solid var(--fair-line);
-  border-radius: 14px;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-md);
   background: var(--fair-surface);
   color: var(--fair-ink);
   cursor: pointer;
@@ -608,9 +658,9 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   line-height: 1.08;
   text-align: center;
   transition:
-    border-color 160ms ease-out,
-    background-color 160ms ease-out,
-    transform 160ms ease-out;
+    border-color var(--fair-dur-feedback) var(--fair-ease-enter),
+    background-color var(--fair-dur-feedback) var(--fair-ease-enter),
+    transform var(--fair-dur-feedback) var(--fair-ease-enter);
 }
 
 .fair-action-grid button:hover {
@@ -675,14 +725,14 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   left: 50%;
   width: 100%;
   border: 1px solid var(--fair-accent-strong);
-  border-radius: 14px;
+  border-radius: var(--fair-radius-md);
   background: var(--fair-accent);
   pointer-events: none;
   transform: translateX(-50%);
   transition:
-    background-color 320ms ease-out,
-    border-color 320ms ease-out,
-    filter 180ms ease-out;
+    background-color var(--fair-dur-overlay) var(--fair-ease-enter),
+    border-color var(--fair-dur-overlay) var(--fair-ease-enter),
+    filter var(--fair-dur-state) var(--fair-ease-enter);
   will-change: width, border-radius;
 }
 
@@ -698,7 +748,7 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   width: 220px;
   background: var(--fair-ink);
   border-color: var(--fair-ink);
-  border-radius: 110px;
+  border-radius: var(--fair-radius-pill);
 }
 
 .fair-save-button:hover .fair-save-button__surface {
@@ -744,11 +794,11 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   margin-inline: auto;
   overflow-y: auto;
   overscroll-behavior: contain;
-  border: 1px solid var(--fair-line);
+  border: var(--fair-border);
   border-bottom: 0;
-  border-radius: 22px 22px 0 0;
+  border-radius: var(--fair-radius-xl) var(--fair-radius-xl) 0 0;
   background: var(--fair-surface);
-  box-shadow: 0 -18px 48px var(--fair-shadow);
+  box-shadow: var(--fair-shadow-3-up);
   transform-origin: bottom center;
   will-change: transform;
   backface-visibility: hidden;
@@ -766,7 +816,7 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  border-bottom: 1px solid var(--fair-line);
+  border-bottom: var(--fair-border);
   background: var(--fair-surface);
 }
 
@@ -782,8 +832,8 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   height: 44px;
   flex: none;
   place-items: center;
-  border: 1px solid var(--fair-line);
-  border-radius: 999px;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-pill);
   background: var(--fair-surface);
   color: var(--fair-ink);
   cursor: pointer;
@@ -812,8 +862,8 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   width: 100%;
   min-height: 48px;
   padding: 10px 12px;
-  border: 1px solid var(--fair-line-strong);
-  border-radius: 12px;
+  border: var(--fair-border-strong);
+  border-radius: var(--fair-radius-md);
   background: var(--fair-surface);
   color: var(--fair-ink);
   font: inherit;
@@ -841,7 +891,7 @@ body:has(.fair-event) [data-theme-toggle="global"] {
 .fair-sheet__primary {
   min-height: 52px;
   border: 1px solid var(--fair-accent-strong);
-  border-radius: 13px;
+  border-radius: var(--fair-radius-md);
   background: var(--fair-accent);
   color: var(--fair-accent-ink);
   cursor: pointer;
@@ -878,7 +928,7 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   grid-template-columns: repeat(5, minmax(0, 1fr));
   align-items: center;
   gap: clamp(3px, 2.4vw, 10px);
-  border-radius: 12px;
+  border-radius: var(--fair-radius-md);
   cursor: ew-resize;
   touch-action: pan-y;
 }
@@ -913,7 +963,7 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   overflow: hidden;
   place-items: center start;
   color: var(--fair-accent);
-  transition: width 90ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: width var(--fair-dur-feedback) var(--fair-ease-enter);
 }
 
 .fair-star-slider__fill > svg {
@@ -926,8 +976,8 @@ body:has(.fair-event) [data-theme-toggle="global"] {
 
 .fair-starter-rating {
   padding: 8px 12px 6px;
-  border: 1px solid var(--fair-line);
-  border-radius: 14px;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-lg);
   background: var(--fair-surface);
 }
 
@@ -942,10 +992,10 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   z-index: 90;
   overflow: hidden;
   border: 1px solid rgb(255 253 248 / 0.72);
-  border-radius: 18px;
+  border-radius: var(--fair-radius-lg);
   pointer-events: none;
   object-fit: cover;
-  box-shadow: 0 18px 42px rgb(23 25 24 / 0.24);
+  box-shadow: var(--fair-shadow-3);
   will-change: transform, opacity, border-radius;
 }
 
@@ -963,7 +1013,7 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   padding: max(8px, env(safe-area-inset-top)) 12px 8px;
   grid-template-columns: 48px minmax(0, 1fr) 48px;
   align-items: center;
-  border-bottom: 1px solid var(--fair-line);
+  border-bottom: var(--fair-border);
 }
 
 .fair-flow-header > a {
@@ -971,8 +1021,8 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   width: 44px;
   height: 44px;
   place-items: center;
-  border: 1px solid var(--fair-line);
-  border-radius: 999px;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-pill);
   color: var(--fair-ink);
 }
 
@@ -1036,10 +1086,10 @@ body:has(.fair-event) [data-theme-toggle="global"] {
 .fair-question-progress button::before {
   width: 8px;
   height: 8px;
-  border-radius: 999px;
+  border-radius: var(--fair-radius-pill);
   background: var(--fair-line-strong);
   content: "";
-  transition: transform 160ms ease-out, background-color 160ms ease-out;
+  transition: transform var(--fair-dur-feedback) var(--fair-ease-enter), background-color var(--fair-dur-feedback) var(--fair-ease-enter);
 }
 
 .fair-question-progress button[aria-current="step"]::before {
@@ -1057,10 +1107,10 @@ body:has(.fair-event) [data-theme-toggle="global"] {
 
 .fair-question-card {
   padding: 18px 14px;
-  border: 1px solid var(--fair-line);
-  border-radius: 20px;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-xl);
   background: var(--fair-surface);
-  box-shadow: 0 12px 36px var(--fair-shadow);
+  box-shadow: var(--fair-shadow-3);
 }
 
 .fair-question-card > p {
@@ -1097,15 +1147,15 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 12px;
-  border: 1px solid var(--fair-line);
-  border-radius: 14px;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-md);
   background: var(--fair-surface);
   color: var(--fair-ink);
   cursor: pointer;
   font: inherit;
   font-weight: 670;
   text-align: left;
-  transition: border-color 120ms ease-out, transform 120ms ease-out;
+  transition: border-color var(--fair-dur-feedback) var(--fair-ease-enter), transform var(--fair-dur-feedback) var(--fair-ease-enter);
 }
 
 .fair-vote-answer:active {
@@ -1164,7 +1214,7 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   padding-inline: 12px;
   flex: none;
   border: 1px solid var(--fair-danger);
-  border-radius: 11px;
+  border-radius: var(--fair-radius-md);
   background: var(--fair-surface);
   color: var(--fair-danger);
   cursor: pointer;
@@ -1181,7 +1231,7 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   justify-content: center;
   gap: 10px;
   border: 1px solid var(--fair-accent-strong);
-  border-radius: 14px;
+  border-radius: var(--fair-radius-md);
   background: var(--fair-accent);
   color: var(--fair-accent-ink);
   cursor: pointer;
@@ -1225,7 +1275,7 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   margin: 0 auto 32px;
   padding: 16px;
   border: 1px dashed var(--fair-line-strong);
-  border-radius: 14px;
+  border-radius: var(--fair-radius-lg);
   background: var(--fair-surface-muted);
 }
 
@@ -1257,8 +1307,8 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   min-height: 44px;
   padding-inline: 12px;
   align-items: center;
-  border: 1px solid var(--fair-line-strong);
-  border-radius: 12px;
+  border: var(--fair-border-strong);
+  border-radius: var(--fair-radius-md);
   background: var(--fair-surface);
   color: var(--fair-ink);
   font-size: 13px;
@@ -1303,7 +1353,7 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   min-height: 48px;
   padding-inline: 18px;
   align-items: center;
-  border-radius: 12px;
+  border-radius: var(--fair-radius-md);
   background: var(--fair-accent);
   color: var(--fair-accent-ink);
   font-weight: 680;
@@ -1333,7 +1383,7 @@ body:has(.fair-event) [data-theme-toggle="global"] {
 
   .fair-model-hero {
     min-height: 142px;
-    border-radius: 17px;
+    border-radius: var(--fair-radius-lg);
   }
 
   .fair-model-hero--no-photo {
@@ -1361,7 +1411,7 @@ body:has(.fair-event) [data-theme-toggle="global"] {
 
   .fair-specification-grid {
     margin-top: 6px;
-    border-radius: 14px;
+    border-radius: var(--fair-radius-lg);
   }
 
   .fair-specification {
@@ -1520,14 +1570,17 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   }
 }
 
+/* Reduced motion: bez pomeranja. Keyframe animacije odmah staju na krajnjem
+   stanju, a prelazi zadržavaju samo boju, providnost i stanje, nikad
+   položaj ni veličinu (transform, širina, visina, grid). */
 @media (prefers-reduced-motion: reduce) {
   .fair-event *,
   .fair-event *::before,
   .fair-event *::after {
     scroll-behavior: auto !important;
-    animation-duration: 0.01ms !important;
+    animation-duration: var(--fair-dur-instant) !important;
     animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+    transition-property: opacity, color, background-color, border-color, outline-color, box-shadow, fill, stroke, fill-opacity, stroke-opacity, visibility !important;
   }
 }
 
@@ -1575,7 +1628,7 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   height: 38px;
   flex: none;
   place-items: center;
-  border-radius: 50%;
+  border-radius: var(--fair-radius-round);
   background: var(--fair-ink);
   color: var(--fair-accent-ink);
   font-size: 17px;
@@ -1607,7 +1660,7 @@ body:has(.fair-event) [data-theme-toggle="global"] {
 .fair-sheet__footer {
   flex: none;
   padding: 12px 16px max(16px, env(safe-area-inset-bottom));
-  border-top: 1px solid var(--fair-line);
+  border-top: var(--fair-border);
   background: var(--fair-canvas);
 }
 
@@ -1618,8 +1671,8 @@ body:has(.fair-event) [data-theme-toggle="global"] {
 
 .fair-sheet__secondary {
   min-height: 52px;
-  border: 1px solid var(--fair-line-strong);
-  border-radius: 13px;
+  border: var(--fair-border-strong);
+  border-radius: var(--fair-radius-md);
   background: var(--fair-surface);
   color: var(--fair-ink);
   cursor: pointer;
@@ -1648,9 +1701,9 @@ body:has(.fair-event) [data-theme-toggle="global"] {
 
   .fair-sheet--full {
     height: calc(100dvh - 24px);
-    border: 1px solid var(--fair-line);
+    border: var(--fair-border);
     border-bottom: 0;
-    border-radius: 22px 22px 0 0;
+    border-radius: var(--fair-radius-xl) var(--fair-radius-xl) 0 0;
   }
 }
 
@@ -1675,7 +1728,7 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   position: relative;
   height: 4px;
   overflow: hidden;
-  border-radius: 4px;
+  border-radius: var(--fair-radius-2xs);
   background: var(--fair-line);
 }
 
@@ -1686,7 +1739,7 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   content: "";
   transform: scaleX(var(--fair-bar-fill, 0));
   transform-origin: left;
-  transition: transform 700ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: transform var(--fair-dur-focal) var(--fair-ease-enter);
 }
 
 .fair-survey-stage {
@@ -1738,8 +1791,8 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   padding: 10px 14px;
   align-items: center;
   gap: 12px;
-  border: 1.5px solid var(--fair-line);
-  border-radius: 14px;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-md);
   background: var(--fair-surface);
   color: var(--fair-ink);
   cursor: pointer;
@@ -1749,9 +1802,9 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   text-align: left;
   -webkit-tap-highlight-color: transparent;
   transition:
-    border-color 160ms ease-out,
-    background-color 160ms ease-out,
-    transform 120ms ease-out;
+    border-color var(--fair-dur-feedback) var(--fair-ease-enter),
+    background-color var(--fair-dur-feedback) var(--fair-ease-enter),
+    transform var(--fair-dur-feedback) var(--fair-ease-enter);
 }
 
 .fair-survey-option:active {
@@ -1765,10 +1818,10 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   flex: none;
   place-items: center;
   border: 2px solid var(--fair-line-strong);
-  border-radius: 50%;
+  border-radius: var(--fair-radius-round);
   transition:
-    border-color 160ms ease-out,
-    background-color 160ms ease-out;
+    border-color var(--fair-dur-feedback) var(--fair-ease-enter),
+    background-color var(--fair-dur-feedback) var(--fair-ease-enter);
 }
 
 .fair-survey-option__dot svg {
@@ -1856,8 +1909,8 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   width: 100%;
   min-height: 48px;
   padding: 0 14px;
-  border: 1.5px solid var(--fair-line);
-  border-radius: 12px;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-md);
   background: var(--fair-surface);
   color: var(--fair-ink);
   font: inherit;
@@ -1880,7 +1933,7 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   align-items: center;
   gap: 8px;
   border: 1px solid color-mix(in srgb, var(--fair-accent) 25%, transparent);
-  border-radius: 14px;
+  border-radius: var(--fair-radius-lg);
   background: var(--fair-accent-soft);
 }
 
@@ -1905,7 +1958,7 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   min-height: 44px;
   padding-inline: 14px;
   border: 0;
-  border-radius: 10px;
+  border-radius: var(--fair-radius-md);
   background: var(--fair-accent);
   color: var(--fair-accent-ink);
   cursor: pointer;
@@ -1930,8 +1983,8 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   display: grid;
   padding: 10px 12px;
   gap: 8px;
-  border: 1px solid var(--fair-line);
-  border-radius: 14px;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-lg);
   background: var(--fair-surface);
 }
 
@@ -1949,8 +2002,8 @@ body:has(.fair-event) [data-theme-toggle="global"] {
 
 .fair-consent__choice button {
   min-height: 44px;
-  border: 1.5px solid var(--fair-line);
-  border-radius: 10px;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-md);
   background: var(--fair-surface);
   color: var(--fair-ink);
   cursor: pointer;
@@ -2014,7 +2067,7 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   flex: none;
   padding: 0;
   border: 0;
-  border-radius: 50%;
+  border-radius: var(--fair-radius-round);
   background: transparent;
   cursor: pointer;
   pointer-events: auto;
@@ -2027,7 +2080,7 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   display: grid;
   overflow: hidden;
   place-items: center;
-  border-radius: 50%;
+  border-radius: var(--fair-radius-round);
   background: var(--fair-ink);
   box-shadow:
     0 10px 24px rgb(0 0 0 / 0.32),
@@ -2081,7 +2134,7 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   stroke-width: 3.2;
   opacity: min(1, calc(var(--fair-survey-done, 0) * 50));
   filter: drop-shadow(0 0 3px color-mix(in srgb, var(--fair-accent) 70%, white));
-  transition: stroke-dashoffset 600ms cubic-bezier(0.2, 0.9, 0.2, 1);
+  transition: stroke-dashoffset var(--fair-dur-focal) var(--fair-ease-enter);
 }
 
 .fair-survey-head__badge {
@@ -2093,7 +2146,7 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   height: 22px;
   padding: 0 6px;
   place-items: center;
-  border-radius: 999px;
+  border-radius: var(--fair-radius-pill);
   background: var(--fair-accent);
   box-shadow: 0 0 0 2px #fff;
   color: var(--fair-accent-ink);
@@ -2109,7 +2162,7 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   width: 6px;
   height: 6px;
   margin: -3px 0 0 -3px;
-  border-radius: 50%;
+  border-radius: var(--fair-radius-round);
   background: color-mix(in srgb, var(--fair-accent) 55%, white);
   opacity: 0;
   pointer-events: none;
@@ -2120,7 +2173,7 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   width: 214px;
   margin-top: 4px;
   order: -1;
-  border-radius: 16px 4px 16px 16px;
+  border-radius: var(--fair-radius-lg) var(--fair-radius-2xs) var(--fair-radius-lg) var(--fair-radius-lg);
   background: var(--fair-surface);
   box-shadow: 0 12px 28px rgb(0 0 0 / 0.22);
   color: var(--fair-ink);
@@ -2175,17 +2228,17 @@ body:has(.fair-event) [data-theme-toggle="global"] {
 .fair-survey-preview__typing i {
   width: 7px;
   height: 7px;
-  border-radius: 50%;
+  border-radius: var(--fair-radius-round);
   background: var(--fair-line-strong);
-  animation: fair-typing-dot 900ms ease-in-out infinite;
+  animation: fair-typing-dot var(--fair-dur-loop) var(--fair-ease-move) infinite;
 }
 
 .fair-survey-preview__typing i:nth-child(2) {
-  animation-delay: 150ms;
+  animation-delay: var(--fair-dur-feedback);
 }
 
 .fair-survey-preview__typing i:nth-child(3) {
-  animation-delay: 300ms;
+  animation-delay: var(--fair-dur-overlay);
 }
 
 @keyframes fair-typing-dot {
@@ -2211,7 +2264,7 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   height: 32px;
   place-items: center;
   border: 0;
-  border-radius: 10px;
+  border-radius: var(--fair-radius-md);
   background: transparent;
   color: var(--fair-ink-muted);
   cursor: pointer;
@@ -2282,9 +2335,9 @@ body:has(.fair-event) [data-theme-toggle="global"] {
 .fair-toast {
   margin: 0;
   padding: 10px 14px;
-  border-radius: 12px;
+  border-radius: var(--fair-radius-md);
   background: var(--fair-ink);
-  box-shadow: 0 12px 28px rgb(0 0 0 / 0.2);
+  box-shadow: var(--fair-shadow-3);
   color: var(--fair-accent-ink);
   font-size: 14px;
   font-weight: 600;
@@ -2298,10 +2351,10 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   width: 22px;
   height: 22px;
   place-items: center;
-  border-radius: 50%;
+  border-radius: var(--fair-radius-round);
   background: var(--fair-accent);
   color: var(--fair-accent-ink);
-  animation: fair-check-in 320ms cubic-bezier(0.2, 0.9, 0.2, 1) both;
+  animation: fair-check-in var(--fair-dur-overlay) var(--fair-ease-enter) both;
 }
 
 .fair-save-button .fair-save-button__check svg {
