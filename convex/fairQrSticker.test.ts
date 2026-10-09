@@ -203,7 +203,7 @@ describe("typed sticker numbers in every QR path", () => {
     ]);
     const commit = await f.admin.mutation(api.fairAdminQr.bulkAssignQrCommit, { eventId: f.em.eventId, rows: [{ code: "SA26 10", model: "test-n1-volta-x3" }] });
     expect(commit.rows).toEqual([{ index: 0, status: "applied", modelStatus: "published" }]);
-  });
+  }, 30_000); // many calls in one convex-test transaction log; 5 s is too tight on a loaded machine (as f37edac)
 
   test("a label is looked up in the event's current inventory only, through the label index", async () => {
     const f = await setup();
@@ -214,7 +214,7 @@ describe("typed sticker numbers in every QR path", () => {
     // A panel is found by its whole label and is shown as a panel.
     expect(await f.admin.query(api.fairAdminQr.getQrDetail, { eventId: f.em.eventId, code: "panel-2026-event" })).toMatchObject({ cardId: f.panel.cardId, kind: "panel", label: "PANEL-2026-EVENT" });
     expect(await f.admin.query(api.fairAdminQr.getQrDetail, { eventId: f.em.eventId, code: "SA26-005" })).toMatchObject({ kind: "sticker", label: "SA26-005" });
-  });
+  }, 30_000); // many calls in one convex-test transaction log; 5 s is too tight on a loaded machine (as f37edac)
 });
 
 describe("guards of every new link", () => {

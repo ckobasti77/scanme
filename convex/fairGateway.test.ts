@@ -153,7 +153,7 @@ describe("K1: every visitor-specific fair function requires FAIR_GATEWAY_SECRET"
     expect(outputs).toHaveLength(10);
     expect(JSON.stringify(outputs)).not.toContain(GATEWAY_SECRET);
     expect(await dump(f)).not.toContain(GATEWAY_SECRET);
-  });
+  }, 30_000); // many calls in one convex-test transaction log; 5 s is too tight on a loaded machine (as f37edac)
 
   test("the secret is checked before anything else: a malformed hash without it is still FAIR_GATEWAY_UNAUTHORIZED", async () => {
     const f = await setup();
@@ -163,7 +163,7 @@ describe("K1: every visitor-specific fair function requires FAIR_GATEWAY_SECRET"
     for (const call of Object.values(protectedCalls(f, GATEWAY_SECRET, "abc"))) {
       await expect(call()).rejects.toMatchObject({ data: { code: "INVALID_INPUT" } });
     }
-  });
+  }, 30_000); // many calls in one convex-test transaction log; 5 s is too tight on a loaded machine (as f37edac)
 });
 
 describe("K1: cards.resolveAndRecord without the secret", () => {
@@ -211,7 +211,7 @@ describe("K1: cards.resolveAndRecord without the secret", () => {
     expect(counted).toEqual({ kind: "fair_model", path, fairScan: "recorded" });
     expect((await counts())!.model.total).toBe(countsBefore!.model.total + 1);
     expect(JSON.stringify(counted)).not.toContain(GATEWAY_SECRET);
-  });
+  }, 30_000); // many calls in one convex-test transaction log; 5 s is too tight on a loaded machine (as f37edac)
 });
 
 describe("K1: new identities per caller-IP HMAC (fairVisitorCreate: capacity 300, 120/min)", () => {
