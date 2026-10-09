@@ -31,6 +31,7 @@ import {
   BasicTemplateThumbnail,
   OfferProductPreview,
 } from "./offer-product-preview";
+import { PRODUCT_SCENES, SCENE_ASSETS } from "./offer-scenes";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import {
@@ -84,24 +85,6 @@ const SERVICES: readonly ServiceId[] = ["review", "links"];
 const TIERS: readonly PublicTierId[] = ["starter", "premium"];
 const PERIODS: readonly BillingPeriod[] = ["monthly", "annual"];
 type ControlSectionId = ProductControlId | "design" | "logo";
-const SCENE_ASSETS = {
-  stickers: "/offer/scenes/stickers-tabletop-v2.webp",
-  windowFilm: "/offer/scenes/window-film-storefront-door-v1.webp",
-  twoPiece: "/offer/scenes/two-piece-stand-cafe-table-v1.webp",
-  compact: "/offer/scenes/compact-stand-cafe-counter-v2.webp",
-  counter: "/offer/scenes/counter-studio.webp",
-  reception: "/offer/scenes/premium-reception.webp",
-} as const;
-
-type SceneId = keyof typeof SCENE_ASSETS;
-
-const PRODUCT_SCENES: Record<ProductId, SceneId> = {
-  stickers: "stickers",
-  "window-film": "windowFilm",
-  "two-piece-stand": "twoPiece",
-  "compact-stand": "compact",
-  "premium-engraved-stand": "reception",
-};
 
 function copySelection(selection: OrderSelection): OrderSelection {
   return {

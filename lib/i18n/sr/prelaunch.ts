@@ -1,5 +1,3 @@
-import type { ProductId } from "@/lib/scanme-pricing";
-
 export interface PrelaunchDict {
   skip: string;
   nav: {
@@ -50,18 +48,13 @@ export interface PrelaunchDict {
   story: {
     title: string;
   };
+  /** #proizvodi: nazivi, opisi i „Najbolje za“ dolaze iz offer rečnika (offerSr.products). */
   products: {
     eyebrow: string;
     title: string;
     body: string;
     selectorAria: string;
-    previewLabel: string;
-    selectedLabel: string;
-    useCase: string;
-    noPrice: string;
     cta: string;
-    names: Record<ProductId, string>;
-    descriptions: Record<ProductId, string>;
   };
   lead: {
     eyebrow: string;
@@ -228,29 +221,11 @@ export const prelaunchSr: PrelaunchDict = {
   },
   products: {
     eyebrow: "Fizički proizvodi",
-    title: "Digitalna usluga dobija svoje mesto u stvarnom prostoru.",
+    title: "Proizvodi",
     body:
       "Izaberite format koji odgovara vašem lokalu ili događaju. Svaki proizvod povezujemo sa ScanMe uslugom i prilagođavamo vašem vizuelnom identitetu.",
     selectorAria: "Izaberite fizički proizvod",
-    previewLabel: "Prikaz proizvoda",
-    selectedLabel: "Izabrano",
-    useCase: "Najbolje za",
-    noPrice: "Dizajn, format i količinu dogovaramo prema vašem prostoru.",
     cta: "Zanima me ovaj proizvod",
-    names: {
-      stickers: "Nalepnice",
-      "window-film": "Folija za izlog",
-      "two-piece-stand": "Dvodelni stalak",
-      "compact-stand": "Kompaktni stalak",
-      "premium-engraved-stand": "Premium gravirani stalak",
-    },
-    descriptions: {
-      stickers: "Stolove, pultove i suve unutrašnje površine.",
-      "window-film": "Izloge i staklene površine izložene redovnom čišćenju.",
-      "two-piece-stand": "Stolove, pultove i recepcije gde se umetak povremeno menja.",
-      "compact-stand": "Stabilan prikaz na mestu gde želite čist i jednostavan format.",
-      "premium-engraved-stand": "Reprezentativne lokale, hotele, restorane i salone.",
-    },
   },
   lead: {
     eyebrow: "Prelaunch prijava",

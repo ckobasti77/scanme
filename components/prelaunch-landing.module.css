@@ -511,49 +511,11 @@ html[data-theme="dark"] .fairEvents { --fair-shine: rgb(255 255 255 / 0.95); }
 }
 .sectionIntro { max-width: 68rem; }
 
-.productsSection,
 .partnersSection {
   border-block: 1px solid color-mix(in srgb, var(--foreground) 10%, transparent);
   background: var(--nav-glass-surface);
   padding-block: clamp(6rem, 10vw, 10rem);
 }
-.productShowcase { margin-top: 4rem; }
-.productRail { display: flex; overflow-x: auto; border-block: 1px solid color-mix(in srgb, var(--foreground) 16%, transparent); scrollbar-width: thin; }
-.productTab {
-  min-width: min(17rem, 78vw);
-  min-height: 5rem;
-  display: grid;
-  grid-template-columns: 2rem 1fr;
-  gap: 0.75rem;
-  align-items: center;
-  border-right: 1px solid color-mix(in srgb, var(--foreground) 14%, transparent);
-  padding: 1rem;
-  text-align: left;
-  color: color-mix(in srgb, var(--foreground) 58%, transparent);
-  transition: background 180ms ease, color 180ms ease;
-}
-.productTab[data-active="true"] { background: var(--primary); color: var(--primary-foreground); }
-.productIndex { font-family: var(--font-mono), monospace; font-size: 0.68rem; opacity: 0.72; }
-.productPanel { display: grid; border-bottom: 1px solid color-mix(in srgb, var(--foreground) 16%, transparent); }
-.productPreview {
-  position: relative;
-  min-height: 28rem;
-  display: grid;
-  place-items: center;
-  overflow: hidden;
-  border-bottom: 1px solid color-mix(in srgb, var(--foreground) 14%, transparent);
-  background:
-    radial-gradient(circle at 50% 42%, color-mix(in srgb, var(--primary) 13%, transparent), transparent 42%),
-    repeating-linear-gradient(0deg, transparent 0 3.95rem, color-mix(in srgb, var(--foreground) 5%, transparent) 4rem);
-}
-.productPreview > div { width: min(100%, 34rem); min-height: 25rem; }
-.previewLabel { position: absolute; z-index: 2; top: 1.25rem; left: 1.25rem; font-family: var(--font-mono), monospace; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.14em; }
-.productCopy { display: flex; min-height: 28rem; flex-direction: column; align-items: flex-start; padding: clamp(2rem, 5vw, 4rem); }
-.productCopy h3 { margin-top: 1.25rem; font-size: clamp(2rem, 4vw, 4.2rem); font-weight: 600; line-height: 0.98; letter-spacing: -0.06em; }
-.useCaseLabel { margin-top: auto; font-family: var(--font-mono), monospace; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.14em; color: color-mix(in srgb, var(--foreground) 50%, transparent); }
-.productDescription { margin-top: 0.65rem; max-width: 42ch; font-size: 1.05rem; line-height: 1.6; }
-.noPrice { margin-top: 1.25rem; color: color-mix(in srgb, var(--foreground) 58%, transparent); font-size: 0.88rem; line-height: 1.6; }
-.productCopy > a { margin-top: 1.75rem; }
 
 .leadSection { display: grid; gap: 4rem; }
 .benefitBox { margin-top: 3rem; border-block: 1px solid color-mix(in srgb, var(--foreground) 16%, transparent); padding-block: 1.5rem; }
@@ -651,9 +613,6 @@ html[data-theme="dark"] .fairEvents { --fair-shine: rgb(255 255 255 / 0.95); }
     column-gap: 3rem;
   }
   .sectionEyebrow { grid-column: 1 / -1; }
-  .productPanel { grid-template-columns: minmax(0, 1.15fr) minmax(22rem, 0.85fr); }
-  .productTab { min-width: 0; flex: 1; }
-  .productPreview { border-right: 1px solid color-mix(in srgb, var(--foreground) 14%, transparent); border-bottom: 0; }
   .leadSection { grid-template-columns: minmax(0, 0.85fr) minmax(30rem, 1.15fr); gap: clamp(5rem, 9vw, 9rem); }
   .contactGrid { grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); gap: clamp(3rem, 7vw, 7rem); }
   .mainPartners { grid-template-columns: repeat(2, minmax(0, 1fr)); }

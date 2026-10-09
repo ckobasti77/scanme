@@ -6,6 +6,7 @@ import { HeroMedia } from "@/components/hero-media";
 import { LeadForm } from "@/components/lead-form";
 import { PrelaunchFairBanner } from "@/components/prelaunch-fair-banner";
 import { PrelaunchNav } from "@/components/prelaunch-nav";
+import { PrelaunchProducts } from "@/components/prelaunch-products";
 import { PrelaunchServiceCards } from "@/components/prelaunch-service-cards";
 import { ScanStory } from "@/components/scan-story";
 import { prelaunchSr as dict } from "@/lib/i18n/sr/prelaunch";
@@ -79,6 +80,15 @@ export function PrelaunchLanding() {
               <p className={styles.servicesBody}>{dict.services.body}</p>
             </div>
             <PrelaunchServiceCards />
+          </section>
+
+          <section id="proizvodi" className={`${styles.servicesSection} section-shell`} data-reveal="off">
+            <div className={styles.servicesHeader}>
+              <p className={styles.sectionEyebrow}>{dict.products.eyebrow}</p>
+              <h2>{dict.products.title}</h2>
+              <p className={styles.servicesBody}>{dict.products.body}</p>
+            </div>
+            <PrelaunchProducts />
           </section>
 
           <section id="kontakt" className={styles.contactSection} data-reveal="off">
