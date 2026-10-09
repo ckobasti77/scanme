@@ -23,6 +23,8 @@ const SEED_AT = Date.parse("2026-10-05T10:00:00+02:00");
 const OPENING = Date.parse("2026-10-09T00:00:00+02:00");
 const CLOSE = Date.parse("2026-10-12T00:00:00+02:00");
 const at = (iso: string) => Date.parse(iso);
+// Leads counted by the dashboard are from the fair days (pre-event leads are left out, JOVAN-DELTA 2026-10-08b).
+const FAIR_DAY1 = Date.parse("2026-10-09T10:00:00+02:00");
 const MODELS = ["volta-x1", "volta-x2", "amper-y1", "amper-y2", "om-z1", "om-z2"] as const;
 type ModelKey = (typeof MODELS)[number];
 
@@ -209,13 +211,34 @@ describe("A10 dashboard rules (A0-IZVESTAJ §6)", () => {
     expect(action(d, "question_missing_today")).toMatchObject({ tone: "uskoro", count: 2 });
     expect(d.kpis.questions).toMatchObject({ covered: 2, required: 4 });
 
-    // Before the fair the packages are not in force yet: nothing can be asked, nothing is listed.
-    expect(rules(await f.dash(at("2026-10-08T10:00:00+02:00")))).not.toContain("question_missing_next_day");
+    // Pre-event access (JOVAN-DELTA 2026-10-08b): the seeded packages are in force from the seed.
     await activatePackagesAt(f, SEED_AT);
     d = await f.dash(at("2026-10-08T10:00:00+02:00"));
     expect(action(d, "question_missing_next_day")).toEqual({ rule: "question_missing_next_day", tone: "uskoro", count: 3, section: "interakcije", query: { dan: "2026-10-09" } });
     expect(d.kpis.questions).toMatchObject({ dateKey: "2026-10-09", today: false, covered: 1, required: 4 });
     expect(rules(await f.dash(at("2026-10-06T10:00:00+02:00")))).not.toContain("question_missing_next_day");
+  });
+
+  test("a question open for the whole fair covers every day: no missing-question warning for days it serves (9 Oct 2026)", async () => {
+    const f = await setup();
+    const models = ["volta-x1", "volta-x2", "om-z1", "amper-y1"] as const;
+    await f.t.run(async (ctx) => {
+      const day1 = (await ctx.db.get(f.day1))!;
+      const day3 = (await ctx.db.get(f.day3))!;
+      for (const model of models) {
+        await ctx.db.insert("fairAudienceQuestions", {
+          eventId: f.eventId, eventDayId: f.day1, eventModelId: f.models[model], prompt: "TEST pitanje?",
+          options: [{ id: "o1", label: "TEST da", order: 1 }, { id: "o2", label: "TEST ne", order: 2 }],
+          status: "published", sortOrder: 1, startsAt: day1.startsAt, endsAt: day3.endsAt,
+          showOnSponsoredRotation: false, createdAt: SEED_AT, updatedAt: SEED_AT,
+        });
+      }
+    });
+    const d = await f.dash(at("2026-10-10T10:00:00+02:00"));
+    expect(rules(d)).not.toContain("question_missing_today");
+    expect(d.kpis.questions).toMatchObject({ dateKey: "2026-10-10", covered: 4, required: 4 });
+    // Counted once each, not once per day.
+    expect(d.sections.interakcije.questions).toBe(4);
   });
 
   test("Napredni: map question, photo and an out-of-date sponsored list", async () => {
@@ -361,8 +384,10 @@ describe("A10 dashboard order, numbers and bounds", () => {
       for (const [key, value] of [
         [`scan_total:stand:${first}`, 7], [`scan_total:stand:${second}`, 5], [`scan_total:stand:${first}:2026-10-10`, 3],
         [`scan_unique:stand:${first}`, 4], [`scan_unique:stand:${second}`, 2], [`scan_unique:stand:${second}:2026-10-10`, 1],
-        // Another day and a model key: not part of today's / the stand sums.
+        // Another fair day counts in the total, not today; a model key is never a stand sum.
         [`scan_total:stand:${first}:2026-10-09`, 4], [`scan_total:model:${f.models["volta-x1"]}`, 99],
+        // JOVAN-DELTA 2026-10-08b: the total is the fair days only, a pre-event day never counts.
+        [`scan_total:stand:${second}:2026-10-08`, 6], [`scan_unique:stand:${second}:2026-10-08`, 2],
       ] as const) {
         await ctx.db.insert("fairMetricCountShards", { key, shard: 0, value });
       }
@@ -371,7 +396,7 @@ describe("A10 dashboard order, numbers and bounds", () => {
     const d = await f.dash(at("2026-10-10T10:00:00+02:00"));
     expect(d.kpis.models).toEqual({ published: 5, total: 6, byTier: { included: 2, starter: 2, advanced: 2 } });
     expect(d.kpis.qr).toEqual({ assigned: 1, inventory: 1, inventoryCapped: false });
-    expect(d.kpis.scans).toEqual({ today: 3, total: 12, uniqueToday: 1, uniqueTotal: 6, capped: false });
+    expect(d.kpis.scans).toEqual({ today: 3, total: 7, uniqueToday: 1, uniqueTotal: 1, capped: false });
     expect(d.sections.modeli).toEqual({ published: 5, draft: 1, withdrawn: 0, withErrors: 0 });
     expect(d.sections.qr).toEqual({ assigned: 1, publishedWithoutQr: 4, onWithdrawn: 0, inventory: 1 });
     expect(d.sections.izlagaci).toEqual({ active: 2, total: 2, withAdvanced: 2 });
@@ -406,7 +431,7 @@ describe("A10 dashboard order, numbers and bounds", () => {
       for (let index = 0; index <= FAIR_DASHBOARD_LEADS_CAP; index += 1) {
         await ctx.db.insert("fairLeads", {
           submissionId: `test-a10-cap-${index}`, kind: "interest", visitorId, eventId: f.eventId, eventModelId: model._id, participationId: f.a, contactName: "TEST",
-          consentAccepted: true, consentVersion: 1, consentTextSnapshot: "TEST", consentedAt: SEED_AT, status: "received", followUpSuppressed: false, createdAt: SEED_AT + index, purgeAt: FAIR_PII_PURGE_AT_MS,
+          consentAccepted: true, consentVersion: 1, consentTextSnapshot: "TEST", consentedAt: SEED_AT, status: "received", followUpSuppressed: false, createdAt: FAIR_DAY1 + index, purgeAt: FAIR_PII_PURGE_AT_MS,
         });
       }
     });

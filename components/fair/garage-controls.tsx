@@ -1,8 +1,9 @@
 "use client";
 
 import gsap from "gsap";
-import { CarFront, Check } from "lucide-react";
-import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
+import Link from "next/link";
+import { CarFront, Check, ChevronRight } from "lucide-react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
   FAIR_GARAGE_CHANGE_EVENT,
   FAIR_GARAGE_MODEL_CHANGE_EVENT,
@@ -14,6 +15,7 @@ import {
   type FairGarageLastKnownModel,
 } from "@/lib/fair-client/garage-store";
 import { fairGarageEventCount } from "@/lib/fair-client/garage-view";
+import { fairHaptic } from "@/lib/fair-client/haptics";
 import { fmt } from "@/lib/i18n";
 
 function subscribeToGarageEvent(eventName: string, onStoreChange: () => void) {
@@ -65,9 +67,24 @@ export function GarageBadge({
     () => getGarageCount(eventId, eventSlug),
     () => getCachedGarageCount(eventId, eventSlug),
   );
+  const badgeRef = useRef<HTMLSpanElement>(null);
+  const previousCount = useRef(count);
+
+  // The count changed (saved or removed, not the first read): the badge pops.
+  useEffect(() => {
+    const previous = previousCount.current;
+    previousCount.current = count;
+    if (previous === null || count === null || previous === count) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    badgeRef.current?.animate([{ transform: "scale(.4)" }, { transform: "scale(1)" }], {
+      duration: 450,
+      easing: "cubic-bezier(.3,1.6,.5,1)",
+    });
+  }, [count]);
 
   return (
     <span
+      ref={badgeRef}
       className="fair-garage-badge"
       data-ready={count !== null}
       aria-label={count === null ? undefined : fmt(ariaTemplate, { count })}
@@ -79,12 +96,19 @@ export function GarageBadge({
   );
 }
 
+/**
+ * Model page v2 save dock: blue "Sačuvaj u garažu"; once saved a white pill
+ * with a check badge ("U garaži", tap removes) and "Otvori garažu ›". Saving
+ * flies the hero photo into the garage icon, then the badge pops.
+ */
 export function GarageSaveButton({
   eventId,
   modelId,
   lastKnown,
   saveLabel,
   savedLabel,
+  openGarageLabel,
+  garageHref,
   errorLabel,
 }: {
   eventId: string;
@@ -92,14 +116,11 @@ export function GarageSaveButton({
   lastKnown: FairGarageLastKnownModel;
   saveLabel: string;
   savedLabel: string;
+  openGarageLabel: string;
+  garageHref: string;
   errorLabel: string;
 }) {
   const [writeFailed, setWriteFailed] = useState(false);
-  const saveBarRef = useRef<HTMLDivElement | null>(null);
-  const saveButtonRef = useRef<HTMLButtonElement | null>(null);
-  const saveSurfaceRef = useRef<HTMLSpanElement | null>(null);
-  const morphStartRef = useRef<{ radius: number; width: number } | null>(null);
-  const morphTweenRef = useRef<gsap.core.Tween | null>(null);
   const flightTimelineRef = useRef<gsap.core.Timeline | null>(null);
   const flightElementRef = useRef<HTMLImageElement | null>(null);
   const saved = useSyncExternalStore(
@@ -110,48 +131,10 @@ export function GarageSaveButton({
 
   useEffect(() => {
     return () => {
-      morphTweenRef.current?.kill();
       flightTimelineRef.current?.kill();
       flightElementRef.current?.remove();
     };
   }, []);
-
-  useLayoutEffect(() => {
-    const button = saveButtonRef.current;
-    const surface = saveSurfaceRef.current;
-    const bar = saveBarRef.current;
-    const start = morphStartRef.current;
-    if (!button || !surface || !bar || !start) return;
-
-    morphStartRef.current = null;
-    morphTweenRef.current?.kill();
-
-    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const targetWidth = saved ? Math.min(220, bar.clientWidth) : bar.clientWidth;
-    // Unsaved: the md corner of the fair's buttons (--fair-radius-md); saved: a pill.
-    const targetRadius = saved ? targetWidth / 2 : 12;
-
-    if (reducedMotion) {
-      gsap.set(surface, { clearProps: "borderRadius,width" });
-      return;
-    }
-
-    gsap.set(surface, {
-      width: start.width,
-      borderRadius: start.radius,
-    });
-    morphTweenRef.current = gsap.to(surface, {
-      width: targetWidth,
-      borderRadius: targetRadius,
-      duration: 0.42,
-      ease: "sine.inOut",
-      overwrite: true,
-      onComplete: () => {
-        gsap.set(surface, { clearProps: "borderRadius,width" });
-        morphTweenRef.current = null;
-      },
-    });
-  }, [saved]);
 
   function animateToGarage(onDock: () => void) {
     const target = document.querySelector<HTMLElement>(".fair-garage-icon");
@@ -246,15 +229,6 @@ export function GarageSaveButton({
   }
 
   function toggleSaved() {
-    const surface = saveSurfaceRef.current;
-    if (surface) {
-      const style = getComputedStyle(surface);
-      morphStartRef.current = {
-        width: surface.getBoundingClientRect().width,
-        radius: Number.parseFloat(style.borderTopLeftRadius) || 0,
-      };
-    }
-
     const current = readFairGarage(window.localStorage);
     const next = saved
       ? removeFairGarageModel(current.document, eventId, modelId)
@@ -264,7 +238,10 @@ export function GarageSaveButton({
     if (result.ok) {
       window.dispatchEvent(new Event(FAIR_GARAGE_MODEL_CHANGE_EVENT));
       if (!saved) {
-        animateToGarage(() => window.dispatchEvent(new Event(FAIR_GARAGE_CHANGE_EVENT)));
+        animateToGarage(() => {
+          fairHaptic([18, 40, 28]);
+          window.dispatchEvent(new Event(FAIR_GARAGE_CHANGE_EVENT));
+        });
       } else {
         window.dispatchEvent(new Event(FAIR_GARAGE_CHANGE_EVENT));
       }
@@ -272,25 +249,30 @@ export function GarageSaveButton({
   }
 
   return (
-    <div ref={saveBarRef} className="fair-save-bar">
-      <button
-        ref={saveButtonRef}
-        type="button"
-        aria-pressed={saved}
-        onClick={toggleSaved}
-        className="fair-save-button"
-      >
-        <span ref={saveSurfaceRef} className="fair-save-button__surface" aria-hidden="true" />
-        <span className="fair-save-button__content">
-          <CarFront aria-hidden="true" />
-          <span>{saved ? savedLabel : saveLabel}</span>
+    <div className="fair-save-bar">
+      <div className="fair-save-dock" data-saved={saved}>
+        <button type="button" aria-pressed={saved} onClick={toggleSaved} className="fair-save-button">
           {saved ? (
-            <span className="fair-save-button__check" aria-hidden="true">
-              <Check />
-            </span>
-          ) : null}
-        </span>
-      </button>
+            <>
+              <span className="fair-save-button__check" aria-hidden="true">
+                <Check />
+              </span>
+              <span>{savedLabel}</span>
+            </>
+          ) : (
+            <>
+              <CarFront aria-hidden="true" />
+              <span>{saveLabel}</span>
+            </>
+          )}
+        </button>
+        {saved ? (
+          <Link className="fair-save-open" href={garageHref}>
+            {openGarageLabel}
+            <ChevronRight aria-hidden="true" />
+          </Link>
+        ) : null}
+      </div>
       {writeFailed ? (
         <p className="fair-save-error" role="alert">
           {errorLabel}

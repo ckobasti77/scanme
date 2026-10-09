@@ -84,6 +84,8 @@ function render(model: FairPublicModel, siteOrigin?: string): string {
       showDevPanel={false}
       interactions={null}
       openSurvey={false}
+      stand={null}
+      audienceTeaser={null}
     />
   );
   return renderToStaticMarkup(element);
@@ -136,9 +138,12 @@ describe("room for the new-stamp card (Aleksa §2.2)", () => {
     expect(hero).toContain("fair-model-hero__image");
     expect(hero).toContain("fair-model-hero__scrim");
     expect(hero).toContain("fair-model-identity");
-    // Only these three top-level parts are server-rendered; the survey head mounts client-side top right.
+    // Only these three top-level parts are server-rendered (model page v2: the identity holds the
+    // name and the price); the survey head mounts client-side top right.
     const classes = [...hero.matchAll(/class="([^"]+)"/g)].map((m) => m[1].split(" ")[0]);
-    expect(new Set(classes)).toEqual(new Set(["fair-model-hero__image", "fair-model-hero__scrim", "fair-model-identity"]));
+    expect(new Set(classes)).toEqual(
+      new Set(["fair-model-hero__image", "fair-model-hero__scrim", "fair-model-identity", "fair-model-identity__name", "fair-model-price"]),
+    );
     expect(markup).not.toMatch(/position:\s*fixed/);
   });
 });

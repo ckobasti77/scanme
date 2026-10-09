@@ -17,6 +17,7 @@ export function FairSheet({
   variant,
   titleId,
   title,
+  eyebrow,
   subtitle,
   mark,
   closable,
@@ -29,6 +30,8 @@ export function FairSheet({
   variant: "bottom" | "full";
   titleId: string;
   title: string;
+  /** Small uppercase line above the title (the rating sheet's brand). */
+  eyebrow?: string;
   subtitle?: string;
   /** One-letter brand monogram shown before the title (full variant). */
   mark?: string;
@@ -113,6 +116,7 @@ export function FairSheet({
             </span>
           ) : null}
           <div className="fair-sheet__titles">
+            {eyebrow ? <span className="fair-sheet__eyebrow">{eyebrow}</span> : null}
             <h2 id={titleId}>{title}</h2>
             {subtitle ? <small>{subtitle}</small> : null}
           </div>

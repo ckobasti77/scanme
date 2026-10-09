@@ -2,7 +2,22 @@
 
 > Pravilo „Cross-team sync rule“ (`AGENTS.md`): kratak unos za svaku backend izmenu na koju se frontend ili integracija oslanja. Detalji su u [`JOVAN-DELTA-2026-10-08.md`](./JOVAN-DELTA-2026-10-08.md) i [`FAIR-BACKEND-CONTRACT.md`](./FAIR-BACKEND-CONTRACT.md).
 
-## Jovan — P1, pre-event (8. 10.)
+## Aleksa — pre-event pristup (8–9. 10.)
+
+Detalji i razlozi su u [`JOVAN-DELTA-2026-10-08b.md`](./JOVAN-DELTA-2026-10-08b.md) (pre-event pristup).
+
+- `fairPublic.listAudienceQuestionsForModel` ima nov opcioni argument `openAt` (sat pozivaoca). Vraća pitanja današnjeg `dateKey` **i** pitanja otvorena u `openAt`. `loadFairAudienceQuestions` (`lib/fair-server/model-page.ts`) ga šalje sam (`Date.now()`).
+- Nova admin mutacija `fairInteractionsAdmin.openAudienceQuestionNow({ questionId })` je povezana kao `InteractionsActions.openQuestionNow` (opciono). `InteractionQuestion` ima opciono `startsAt`.
+- Novi admin upit i mutacija `fairPreEvent.previewPreEventReset` / `resetPreEventData` (kartica „Pre-event podaci“ u Pregledu, `components/admin/events/sections/pre-event-reset.tsx`).
+- `fairLeadsInbox.listEventLeads` ima nov opcioni argument `includePreEvent`. Bez njega lista počinje od otvaranja sajma.
+- Novi kodovi grešaka: `FAIR_PRE_EVENT_RESET_CONFIRM` i `FAIR_PRE_EVENT_RESET_STALE` (`lib/fair-contract.ts` i i18n).
+- `FAIR_PASSPORT_EVENT_STARTED` se više ne baca. Kod i tekst su ostali u ugovoru.
+- Šema i `mapLocationId` se ne menjaju.
+- 9. 10.: `fairPreEvent.previewPreEventReset.cutoff` je za `elektromobilnost-2026` sada 9. 10. 08:00 (otvaranje hale), a ne 00:00. Kartica „Pre-event podaci“ ga prikazuje sama; frontend ne treba menjati.
+
+## Jovan — P1, pre-event (8. 10.) — vraćeno 9. 10.
+
+> Po JOVAN-DELTA-2026-10-08b §6.2 P1 ne ide: zamenjen je Aleksinom verzijom iz odeljka iznad (vraćen pre spoja sa `aleksa/main`, vidi `jovan-status/SPOJ-ALEKSA-2026-10-09.md`). Ovo ispod je samo istorija; `at`, polje `preEvent`, indeksi za reset i `getPreEventSummary` ne postoje.
 
 Oblik zahteva i odgovora za javni frontend je isti: `POST /api/fair/lead`, ocene, glasanje, anketa, `getModelBySlug` i `getLeadForm`. Detalji su u JOVAN-DELTA, sekcija „Jovan — 8. 10. — pre-event (P1)“, i u ugovoru §40.
 

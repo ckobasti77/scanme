@@ -8,7 +8,10 @@ import type {
   FairSurveyView,
 } from "@/lib/fair-contract";
 import { epochToBelgradeLocal } from "@/lib/belgrade-time";
-import { fairMapEventSlugCandidates } from "@/lib/fair-map";
+import { fairMapEventSlugCandidates, fairMapLocationById } from "@/lib/fair-map";
+import { fmt } from "@/lib/i18n/format";
+import { fairMapSr } from "@/lib/i18n/sr/fair-map";
+import { FAIR_PUBLIC_MAP_ENABLED } from "@/lib/fair-contract";
 
 export const loadFairModelPage = cache(async (publicEventSlug: string, modelSlug: string) => {
   for (const candidate of fairMapEventSlugCandidates(
@@ -64,11 +67,35 @@ export async function loadFairModelInteractions(
 export async function loadFairAudienceQuestions(
   eventModelId: string,
   dateKey: string,
+  openAt = Date.now(),
 ): Promise<FairAudienceQuestionView[] | null> {
-  return orNull(fetchQuery(api.fairPublic.listAudienceQuestionsForModel, { eventModelId, dateKey }));
+  // `openAt` also lists a question opened before its day ("Otvori odmah").
+  return orNull(fetchQuery(api.fairPublic.listAudienceQuestionsForModel, { eventModelId, dateKey, openAt }));
 }
 
 /** Today's fair day key in Europe/Belgrade (`YYYY-MM-DD`). */
 export function fairTodayDateKey(now = Date.now()): string {
   return epochToBelgradeLocal(now).slice(0, 10);
+}
+
+/** Model page v2 stand chip: "Štand 9 · Hala" and the map deep link that focuses it. */
+export type FairModelStand = { text: string; href: string };
+
+/** From the event map geometry (no extra read); null when the location is not on the map. */
+export function fairModelStand(event: { code: string }, model: { standMapLocationId: string }, publicEventSlug: string): FairModelStand | null {
+  // 9 Oct 2026: the map (and its stand data) is hidden, so is the chip that opens it.
+  if (!FAIR_PUBLIC_MAP_ENABLED) return null;
+  const found = fairMapLocationById(event.code, model.standMapLocationId);
+  if (!found) return null;
+  const zone = fairMapSr.zones[found.zoneId];
+  const text =
+    found.location.kind === "stand" ? fmt(fairMapSr.standLocation, { label: found.location.label, zone }) : zone;
+  return { text, href: `/sajam/${publicEventSlug}?stand=${encodeURIComponent(model.standMapLocationId)}` };
+}
+
+/** Prompt of today's first Glas publike question (the card on the model page), or null. */
+export async function loadFairAudienceTeaser(eventModelId: string): Promise<string | null> {
+  const questions = await loadFairAudienceQuestions(eventModelId, fairTodayDateKey());
+  const first = [...(questions ?? [])].sort((left, right) => left.order - right.order)[0];
+  return first?.prompt.trim() || null;
 }

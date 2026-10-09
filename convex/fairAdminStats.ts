@@ -6,6 +6,7 @@ import { fairAdminError, requireFairEvent } from "./lib/fairCatalog";
 import { fairQrKindOf, fairQrModelFactsLoader } from "./lib/fairQr";
 import { fairModelStatus, fairQrKind } from "./lib/fairValidators";
 import { FAIR_ADMIN_LIST_LIMIT } from "../lib/fair-contract";
+import { fairAnalyticsCutoff } from "./lib/fairPreEvent";
 
 // Admin UX A3 — read-only numbers for the `Modeli` list and the model detail
 // (also used by Izlagači in A5 and Pregled in A10). Admin only, no visitor or
@@ -19,6 +20,7 @@ export const FAIR_LEAD_COUNT_LIMIT = 4000;
  * Leads per model and per participation of one event: `fairLeads` by
  * participation (`by_participationId_and_createdAt`), within one shared
  * budget. `undelivered` = not yet marked as delivered to the exhibitor.
+ * Pre-event leads are not counted (JOVAN-DELTA 2026-10-08b).
  */
 export const getLeadCounts = query({
   args: { eventId: v.id("fairEvents") },
@@ -47,7 +49,9 @@ export const getLeadCounts = query({
       }
       const leads = await ctx.db
         .query("fairLeads")
-        .withIndex("by_participationId_and_createdAt", (q) => q.eq("participationId", participation._id))
+        .withIndex("by_participationId_and_createdAt", (q) => q.eq("participationId", participation._id).gte("createdAt", fairAnalyticsCutoff(event)))
+        // Admin-session test leads left out too (JOVAN-DELTA 2026-10-09).
+        .filter((q) => q.neq(q.field("isAdminExcluded"), true))
         .take(budget + 1);
       if (leads.length > budget) {
         capped = true;

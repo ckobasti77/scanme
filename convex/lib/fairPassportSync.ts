@@ -93,7 +93,9 @@ export async function syncFairBrandPassport(
   const { event, brandId, now } = input;
   const state = await readFairBrandPassport(ctx, event._id, brandId);
   if (state.tooManyModels) return "too_many_models";
-  if (now >= fairPassportFreezesAt(state.passport, event)) return "frozen";
+  // Pre-event access (JOVAN-DELTA 2026-10-08b): a brand without a passport still
+  // gets one after the opening; an existing passport keeps its frozen set.
+  if (state.passport && now >= fairPassportFreezesAt(state.passport, event)) return "frozen";
   const writes: Array<() => Promise<unknown>> = [];
   let result: FairPassportSyncResult = "unchanged";
   const passport = state.passport;

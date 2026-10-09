@@ -4,7 +4,7 @@
 // again. Question ids stay stable (q1…q5) inside a version.
 
 import { FAIR_SURVEY_MAX_QUESTIONS, type FairSurveyQuestionKind } from "@/lib/fair-contract";
-import { emptyOptionRows, optionRowsFrom, toChoiceOptions, validateOptionRows, type OptionRow, type OptionRowsProblem } from "./option-rows";
+import { SURVEY_OPTION_LIMITS, emptyOptionRows, optionRowsFrom, toChoiceOptions, validateOptionRows, type OptionRow, type OptionRowsProblem } from "./option-rows";
 
 export type SurveyFormQuestion = { id: string; prompt: string; kind: FairSurveyQuestionKind; options: OptionRow[] };
 
@@ -75,7 +75,7 @@ export function validateSurveyForm(questions: readonly SurveyFormQuestion[]): Su
   for (const question of questions) {
     if (!question.prompt.trim()) problems.push({ kind: "prompt_empty", questionId: question.id });
     if (question.kind === "single_choice") {
-      const optionProblems = validateOptionRows(question.options);
+      const optionProblems = validateOptionRows(question.options, SURVEY_OPTION_LIMITS);
       if (optionProblems.length) problems.push({ kind: "options", questionId: question.id, problems: optionProblems });
     }
   }

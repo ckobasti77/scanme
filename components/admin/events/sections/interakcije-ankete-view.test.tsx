@@ -63,14 +63,14 @@ describe("A6 Ankete", () => {
     expect(html).toContain('value="TEST gotovina"');
     expect(html).toContain('data-admin-primitive="option-rows"');
     expect(html).not.toContain("<textarea");
-    expect(html).toContain(f.count.replace("{count}", "2").replace("{max}", "5"));
+    expect(html).toContain(f.count.replace("{count}", "2").replace("{max}", "10"));
   });
 
-  test("without a draft the next version starts from the latest one; five questions disable Dodaj pitanje", () => {
-    const five = Array.from({ length: 5 }, (_, index) => yesNo(`q${index + 1}`, `TEST ${index + 1}`, index + 1));
-    const html = render({ model: "m3" }, { ...view, surveys: [{ id: "s9", modelId: "m3", version: 4, status: "published", questions: five }] });
+  test("without a draft the next version starts from the latest one; ten questions disable Dodaj pitanje", () => {
+    const ten = Array.from({ length: 10 }, (_, index) => yesNo(`q${index + 1}`, `TEST ${index + 1}`, index + 1));
+    const html = render({ model: "m3" }, { ...view, surveys: [{ id: "s9", modelId: "m3", version: 4, status: "published", questions: ten }] });
     expect(html).toContain(f.newFromPublished.replace("{version}", "5").replace("{from}", "4"));
-    expect(html).toContain(f.maxReached.replace("{max}", "5"));
+    expect(html).toContain(f.maxReached.replace("{max}", "10"));
     expect(html).toMatch(new RegExp(`<button[^>]*disabled=""[^>]*>(?:(?!</button>).)*${f.add}`));
     expect(render({ model: "m3" }, { ...view, surveys: [] })).toContain(f.newFirst);
   });

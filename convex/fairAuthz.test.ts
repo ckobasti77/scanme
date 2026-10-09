@@ -36,6 +36,8 @@ import * as fairRetention from "./fairRetention";
 import * as fairScans from "./fairScans";
 import * as fairSharing from "./fairSharing";
 import * as fairSetup from "./fairSetup";
+import * as fairPreEvent from "./fairPreEvent";
+import * as fairAdminDev from "./fairAdminDev";
 import * as fairSponsoredAdmin from "./fairSponsoredAdmin";
 
 vi.mock("server-only", () => ({}));
@@ -117,7 +119,7 @@ const AUTHZ: Record<string, { module: Record<string, unknown>; functions: Record
   fairInteractionsAdmin: {
     module: fairInteractionsAdmin,
     functions: {
-      upsertAudienceQuestion: A, publishAudienceQuestion: A, closeAudienceQuestion: A, setSponsoredResultQuestion: A, upsertSurveyDraft: A, publishSurvey: A,
+      upsertAudienceQuestion: A, publishAudienceQuestion: A, openAudienceQuestionNow: A, closeAudienceQuestion: A, setSponsoredResultQuestion: A, upsertSurveyDraft: A, publishSurvey: A,
       retireSurvey: A, upsertPassport: A, publishPassport: A, withdrawPassport: A, removePassportModel: A, getEventInteractions: A, getModelInteractionSummary: A,
     },
   },
@@ -172,6 +174,10 @@ const AUTHZ: Record<string, { module: Record<string, unknown>; functions: Record
   },
   // Aleksa (8. 10., ebb3102): the real elektromobilnost-2026 setup, internal only (RUNBOOK-EVENT-SETUP.md).
   fairSetup: { module: fairSetup, functions: { bootstrapEvent: I, importDryRun: I, importCommit: I, publishEventModels: I } },
+  // JOVAN-DELTA 2026-10-08b — "Resetuj pre-event podatke" (admin) and the one-off package alignment (CLI).
+  fairPreEvent: { module: fairPreEvent, functions: { previewPreEventReset: A, resetPreEventData: A, resetPreEventContinue: I, alignFuturePackageActivations: I } },
+  // JOVAN-DELTA 2026-10-09 — admin DEV tools on the public fair pages: admin session AND gateway secret.
+  fairAdminDev: { module: fairAdminDev, functions: { devState: A, grantStamps: A, simulateScan: A, resetMine: A } },
 };
 
 type Registered = { isPublic?: boolean; isInternal?: boolean };
@@ -246,6 +252,7 @@ describe("B7 authz table of every fair function", () => {
     const calls: [string, (caller: Caller) => Promise<unknown>][] = [
       ["upsertAudienceQuestion", (c) => c.mutation(api.fairInteractionsAdmin.upsertAudienceQuestion, question)],
       ["publishAudienceQuestion", (c) => c.mutation(api.fairInteractionsAdmin.publishAudienceQuestion, { questionId: f.questionId })],
+      ["openAudienceQuestionNow", (c) => c.mutation(api.fairInteractionsAdmin.openAudienceQuestionNow, { questionId: f.questionId })],
       ["closeAudienceQuestion", (c) => c.mutation(api.fairInteractionsAdmin.closeAudienceQuestion, { questionId: f.questionId })],
       ["setSponsoredResultQuestion", (c) => c.mutation(api.fairInteractionsAdmin.setSponsoredResultQuestion, { eventModelId: f.modelId, questionId: null })],
       ["upsertSurveyDraft", (c) => c.mutation(api.fairInteractionsAdmin.upsertSurveyDraft, { eventModelId: f.modelId, questions: [{ id: "q", prompt: "TEST?", kind: "yes_no", options: [], required: false, order: 1 }] })],
@@ -312,8 +319,14 @@ describe("B7 authz table of every fair function", () => {
       ["previewExhibitorFollowUp", (c) => c.query(api.fairFollowUps.previewExhibitorFollowUp, { participationId: f.participationId, leadId: extra.leadId })],
       ["estimateFollowUps", (c) => c.query(api.fairFollowUps.estimateFollowUps, { eventId: f.eventId })],
       ["getEventDashboard", (c) => c.query(api.fairDashboard.getEventDashboard, { eventId: f.eventId, at: REHEARSAL })],
+      ["previewPreEventReset", (c) => c.query(api.fairPreEvent.previewPreEventReset, { eventId: f.eventId })],
+      ["devState", (c) => c.query(api.fairAdminDev.devState, { gatewaySecret: GATEWAY_SECRET, visitorHash: "f".repeat(64), eventId: f.eventId })],
+      ["grantStamps", (c) => c.mutation(api.fairAdminDev.grantStamps, { gatewaySecret: GATEWAY_SECRET, visitorHash: "f".repeat(64), eventId: f.eventId, eventModelIds: [f.modelId] })],
+      ["simulateScan", (c) => c.mutation(api.fairAdminDev.simulateScan, { gatewaySecret: GATEWAY_SECRET, visitorHash: "f".repeat(64), eventId: f.eventId, eventModelId: f.modelId })],
+      ["resetMine", (c) => c.mutation(api.fairAdminDev.resetMine, { gatewaySecret: GATEWAY_SECRET, visitorHash: "f".repeat(64), eventId: f.eventId, scope: "all" })],
+      ["resetPreEventData", (c) => c.mutation(api.fairPreEvent.resetPreEventData, { eventId: f.eventId, confirm: "RESETUJ", expected: { leads: 0, survey_responses: 0, ratings: 0, audience_votes: 0, brand_favorites: 0, passport_stamps: 0, sponsored_events: 0, traffic_events: 0, share_collections: 0, unique_scans: 0, scan_events: 0 } })],
     ];
-    const adminFunctions = ["fairInteractionsAdmin", "fairLeadsAdmin", "fairSponsoredAdmin", "fairReports", "fairRetention", "fairAdminStats", "fairAdminQr", "fairPassports", "fairLeadsInbox", "fairFollowUps", "fairDashboard"].flatMap((name) =>
+    const adminFunctions = ["fairInteractionsAdmin", "fairLeadsAdmin", "fairSponsoredAdmin", "fairReports", "fairRetention", "fairAdminStats", "fairAdminQr", "fairPassports", "fairLeadsInbox", "fairFollowUps", "fairDashboard", "fairPreEvent", "fairAdminDev"].flatMap((name) =>
       Object.entries(AUTHZ[name].functions).filter(([, access]) => access === "admin").map(([fn]) => fn),
     );
     expect(calls.map(([name]) => name).sort()).toEqual(adminFunctions.sort());

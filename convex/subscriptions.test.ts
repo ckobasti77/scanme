@@ -432,13 +432,13 @@ describe("ADMIN-03 lifecycle, Premium and overrides", () => {
   test("Premium on every location/product, no changes to service dates, then Starter has no badge", async () => {
     const t = convexTest(schema, modules), a = await adopt(t);
     const before = await Promise.all(a.subs.slice(0, 6).map((sub) => t.run((ctx) => ctx.db.get(sub._id))));
-    for (const business of a.businesses) for (const product of ["scanme_menu", "scanme_venue", "scanme_memories"] as const) {
+    for (const business of a.businesses) for (const product of ["scanme_venue", "scanme_memories"] as const) {
       expect((await t.run((ctx) => getEntitlement(ctx, business, product)))?.planKey).toBe("premium");
     }
     expect(await a.adminClient.query(internal.subscriptions.premium, { accountId: a.accountId })).toBe("active");
     await a.adminClient.mutation(internal.subscriptions.control, { subscriptionId: a.subs[6]._id, operation: "cancel_now", key: "stop-premium", reason: "Test requested cancellation" });
     expect(await a.adminClient.query(internal.subscriptions.premium, { accountId: a.accountId })).toBeNull();
-    for (const business of a.businesses) expect((await t.run((ctx) => getEntitlement(ctx, business, "scanme_menu")))?.planKey).toBe("basic");
+    for (const business of a.businesses) expect((await t.run((ctx) => getEntitlement(ctx, business, "scanme_venue")))?.planKey).toBe("basic");
     for (let i = 0; i < 6; i++) expect(await t.run((ctx) => ctx.db.get(a.subs[i]._id))).toEqual(before[i]);
   });
 

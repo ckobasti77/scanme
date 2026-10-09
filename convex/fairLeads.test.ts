@@ -427,7 +427,7 @@ describe("B4 outbox: idempotency, one confirmation, retries without duplicates (
     expect(calls).toHaveLength(1);
     expect(calls[0]).toMatchObject({ url: "https://api.resend.com/emails", key: row.dedupeKey, auth: "Bearer re_test_not_a_real_key" });
     expect(calls[0].body.to).toEqual([EMAIL]);
-    expect(calls[0].body.subject).toBe("Primili smo vaše interesovanje: TEST test-volta-x1");
+    expect(calls[0].body.subject).toBe("Zabeležili smo vaše interesovanje za TEST Volta TEST test-volta-x1");
     expect(calls[0].body.text).toContain("TEST izlagač TA");
     // Starter: no follow-up, so the confirmation does not offer to cancel one.
     expect(calls[0].body.text).not.toContain("odgovorite na ovaj email");
@@ -492,9 +492,10 @@ describe("B4 Advanced follow-up (MASTER §8, DATA-INTAKE §6.7, HANDOFF §12)", 
     await runDueNow(f);
     expect(calls).toHaveLength(2);
     const advancedConfirmation = calls.find((call) => call.body.subject.includes("probnu vožnju"))!;
-    expect(advancedConfirmation.body.text).toContain("odgovorite na ovaj email");
-    expect(advancedConfirmation.body.text).toContain("Ovo je zahtev, a ne zakazan termin");
-    expect(advancedConfirmation.body.text).toContain("https://test-sajam.example.invalid/sajam/test-elektromobilnost-2026/model/");
+    // 9 Oct 2026 copy: no follow-up promise; the footer offers withdrawal by reply.
+    expect(advancedConfirmation.body.text).toContain("Za vožnju ponesite vozačku dozvolu. Uživajte!");
+    expect(advancedConfirmation.body.text).toContain("Saglasnost možete povući u svakom trenutku odgovorom na ovaj mejl.");
+    expect(advancedConfirmation.body.text).toContain("https://test-sajam.example.invalid/sajam/privatnost");
     expect(advancedConfirmation.body.reply_to).toBe("odgovori@example.invalid");
     expect((await delivery(f, "post_event_follow_up"))[0].status).toBe("queued");
 
@@ -656,7 +657,7 @@ describe("K3 hard switches FAIR_LEADS_ENABLED / FAIR_FOLLOWUP_ENABLED and the le
     await submit(f, visitor(), f.models.advanced, { kind: "test_drive", phone: PHONE });
     await runDueNow(f);
     expect(calls).toHaveLength(1);
-    expect(calls[0].body.text).toContain("odgovorite na ovaj email");
+    expect(calls[0].body.text).toContain("odgovorom na ovaj mejl");
 
     setEnv("FAIR_FOLLOWUP_ENABLED", "false");
     await runEverything(f);
@@ -1035,53 +1036,49 @@ describe("N5 outbox sweep (5-minute cron): stuck queued rows run again, never tw
   });
 });
 
-describe("N5 confirmation content", () => {
-  test("it says what was received, where (stand and venue), the next step, the shared contact, the privacy line and „Ako niste vi…“, in text and HTML", async () => {
+describe("Visitor confirmation content (9 Oct 2026 copy)", () => {
+  test("interest and test drive: the final texts in text and HTML, brand + model, exhibitor in the footer, never the stand", async () => {
     const f = await setup();
     await submit(f, visitor(), f.models.advanced, { kind: "test_drive", phone: PHONE });
     await submit(f, visitor(), f.models.starter, { email: "drugi.n5@example.invalid" });
     await runDueNow(f);
     expect(calls).toHaveLength(2);
-    const testDrive = calls.find((call) => call.body.subject.includes("probnu vožnju"))!;
-    const interest = calls.find((call) => call.body.subject.includes("interesovanje"))!;
+    const testDrive = calls.find((call) => call.body.subject.startsWith("Zahtev za probnu vožnju"))!;
+    const interest = calls.find((call) => call.body.subject.startsWith("Zabeležili"))!;
+    expect(testDrive.body.subject).toBe("Zahtev za probnu vožnju: TEST Volta TEST test-volta-x2");
+    expect(testDrive.body.text).toBe([
+      "Zdravo TEST,\nprimili smo vaš zahtev za probnu vožnju modela TEST Volta TEST test-volta-x2 i prosledili ga TEST Volta timu. Kontaktiraće vas da zajedno dogovorite dan i vreme.",
+      "Za vožnju ponesite vozačku dozvolu. Uživajte!",
+      "Pozdrav,\nScanMe tim, Sajam elektromobilnosti",
+      "—",
+      "Ovu poruku ste dobili jer ste na sajmu ostavili kontakt za TEST Volta TEST test-volta-x2. Vaše podatke dobija samo TEST izlagač TA. Saglasnost možete povući u svakom trenutku odgovorom na ovaj mejl. Politika privatnosti: https://scanme.rs/sajam/privatnost",
+    ].join("\n\n"));
+    expect(interest.body.text).toContain("hvala što ste na Sajmu elektromobilnosti pogledali TEST Volta TEST test-volta-x1. Vaše interesovanje smo prosledili TEST Volta timu.");
+    expect(interest.body.text).toContain("Model i specifikacije možete ponovo da pogledate ovde: https://scanme.rs/sajam/test-elektromobilnost-2026/model/");
     for (const call of [testDrive, interest]) {
-      expect(call.body.text).toContain("Gde ga možete videti:\nTEST štand a, TEST hala");
-      expect(call.body.html).toContain("<p>Gde ga možete videti:<br>TEST štand a, TEST hala</p>");
-      expect(call.body.text).toContain("ScanMe je podatke primio uz vašu saglasnost i prosleđuje ih samo izlagaču TEST izlagač TA; trajno se brišu 16. 11. 2026.");
-      expect(call.body.text).toContain("Ako niste vi poslali ovaj zahtev, odgovorite na ovaj mejl.");
-      expect(call.body.text).toContain("ScanMe, digitalni partner Sajma automobila");
+      expect(call.body.text).not.toMatch(/štand|TEST hala/i);
+      expect(call.body.html).not.toMatch(/štand|TEST hala/i);
+      expect(call.body.html).toContain('<a href="https://scanme.rs/sajam/privatnost"');
     }
-    expect(testDrive.body.subject).toBe("Primili smo vaš zahtev za probnu vožnju: TEST test-volta-x2");
-    expect(testDrive.body.text).toContain(`Zdravo, ${NAME},`);
-    expect(testDrive.body.text).toContain("hvala na zahtevu za probnu vožnju modela TEST test-volta-x2 na događaju TEST elektromobilnost");
-    expect(testDrive.body.text).toContain("Šta sledi:\nOvo je zahtev, a ne zakazan termin — izlagač TEST izlagač TA će vas kontaktirati da dogovorite termin.");
-    expect(testDrive.body.text).toContain(`Kontakt koji ste ostavili:\n${EMAIL}, ${PHONE_E164}\n`);
-    expect(interest.body.text).toContain("Šta sledi:\nIzlagač TEST izlagač TA će vas kontaktirati.");
-    expect(interest.body.text).toContain("Kontakt koji ste ostavili:\ndrugi.n5@example.invalid\n");
-    // Order: received → where → next step → contact → privacy → „Ako niste vi“ → link → signature.
-    const order = ["hvala na zahtevu", "Gde ga možete videti", "Šta sledi", "Kontakt koji ste ostavili", "ScanMe je podatke primio", "Ako niste vi", "Model: https://scanme.rs/sajam/test-elektromobilnost-2026/model/", "ScanMe, digitalni partner"];
-    const at = order.map((part) => testDrive.body.text.indexOf(part));
-    expect(at.every((index) => index >= 0)).toBe(true);
-    expect([...at].sort((left, right) => left - right)).toEqual(at);
   });
 
   test("it never contains raw HTML from the input and never repeats a risky name", () => {
     const base: FairLeadEmailMessage = {
       kind: "immediate_confirmation", dedupeKey: "fair-lead/x/immediate_confirmation", recipient: EMAIL, leadKind: "interest", contactName: "TEST Ime",
       modelName: "TEST <script>alert(1)</script>", exhibitorName: "TEST <img src=x onerror=alert(1)>", eventTitle: "TEST & sajam", modelPath: "/sajam/test/model/x",
-      followUpScheduled: false, standName: "Štand <b>2</b>", venueName: "Hala \"Čair\", Niš", contactEmail: EMAIL, contactPhone: PHONE_E164,
+      followUpScheduled: false, brandName: "Brend <b>B</b>",
     };
     const email = buildFairLeadEmail(base, "https://scanme.rs");
     expect(email.html).not.toMatch(/<script|<img|<b>/);
     expect(email.html).toContain("TEST &lt;script&gt;alert(1)&lt;/script&gt;");
     expect(email.html).toContain("TEST &lt;img src=x onerror=alert(1)&gt;");
-    expect(email.html).toContain("Štand &lt;b&gt;2&lt;/b&gt;, Hala &quot;Čair&quot;, Niš");
-    expect(email.text).toContain("Zdravo, TEST Ime,");
-    // A name stored before N5 with a link, invisible characters or a phone number is dropped from the greeting.
+    expect(email.html).toContain("Brend &lt;b&gt;B&lt;/b&gt;");
+    expect(email.text.startsWith("Zdravo TEST,\n")).toBe(true);
+    // A name with a link, invisible characters or a phone number is dropped from the greeting.
     for (const contactName of ["Marko www.primer-banka.rs", `Marko${ch(0x202e)}exe.knom`, "Pozovite 0641234567"]) {
       const risky = buildFairLeadEmail({ ...base, contactName }, "https://scanme.rs");
-      expect(risky.text.startsWith("Zdravo,\n\n")).toBe(true);
-      for (const part of [contactName, "primer-banka", "0641234567", ch(0x202e)]) {
+      expect(risky.text.startsWith("Zdravo,\n")).toBe(true);
+      for (const part of ["primer-banka", "0641234567", ch(0x202e)]) {
         expect(risky.text).not.toContain(part);
         expect(risky.html).not.toContain(part);
       }
@@ -1229,7 +1226,8 @@ describe("B4 admin export and purge seam", () => {
 describe("B4 email composition and the Resend seam", () => {
   const message: FairLeadEmailMessage = {
     kind: "immediate_confirmation", dedupeKey: "fair-lead/x/immediate_confirmation", recipient: EMAIL, leadKind: "interest",
-    contactName: "TEST <b>Ime</b>", modelName: "TEST Model", exhibitorName: "TEST Izlagač & Co", eventTitle: "TEST sajam", modelPath: "/sajam/test/model/test-model", followUpScheduled: false,
+    contactName: "<b>Ime</b> TEST", modelName: "TEST Model", exhibitorName: "TEST Izlagač & Co", eventTitle: "TEST sajam", modelPath: "/sajam/test/model/test-model", followUpScheduled: false,
+    brandName: "TEST",
   };
 
   test("links come from FAIR_PUBLIC_BASE_URL with the main domain as default; HTML is escaped", () => {
@@ -1238,8 +1236,8 @@ describe("B4 email composition and the Resend seam", () => {
     expect(fairPublicBaseUrl("nije url")).toBe("https://scanme.rs");
     expect(fairPublicBaseUrl("https://sajam.example.invalid/")).toBe("https://sajam.example.invalid");
     const email = buildFairLeadEmail(message, "https://scanme.rs");
-    expect(email.text).toContain("Model: https://scanme.rs/sajam/test/model/test-model");
-    expect(email.html).toContain("TEST &lt;b&gt;Ime&lt;/b&gt;");
+    expect(email.text).toContain("Model i specifikacije možete ponovo da pogledate ovde: https://scanme.rs/sajam/test/model/test-model");
+    expect(email.html).toContain("Zdravo &lt;b&gt;Ime&lt;/b&gt;,");
     expect(email.html).toContain("TEST Izlagač &amp; Co");
     expect(email.html).not.toContain("<b>Ime</b>");
   });
@@ -1262,5 +1260,25 @@ describe("B4 email composition and the Resend seam", () => {
     expect(await t.action(internal.fairEmailSender.sendDevTestEmail, { to: EMAIL })).toEqual({ ok: true, providerMessageId: "re_test_message_1" });
     expect(calls[0].key).toMatch(/^fair-dev-test\//);
     expect(calls[0].body.subject).toBe("TEST: sajamski email sa DEV okruženja");
+  });
+});
+
+describe("pre-event leads (JOVAN-DELTA 2026-10-08b)", () => {
+  test("a lead before the opening works, gets no follow-up and never reaches exhibitor counts, exports or the inbox", async () => {
+    const f = await setup();
+    vi.setSystemTime(BEFORE_OPENING);
+    expect(await submit(f, visitor(), f.models.advanced)).toMatchObject({ duplicate: false, confirmationEmail: true, followUpScheduled: false });
+    vi.setSystemTime(DAY1);
+    expect(await submit(f, visitor(), f.models.advanced)).toMatchObject({ duplicate: false, followUpScheduled: true });
+    expect(await rows(f, "fairLeads")).toHaveLength(2);
+    expect((await rows(f, "fairEmailDeliveries")).filter((row) => row.kind === "post_event_follow_up")).toHaveLength(1);
+
+    const counts = await f.admin.query(api.fairAdminStats.getLeadCounts, { eventId: f.eventId });
+    expect(counts.byModel).toEqual([{ eventModelId: f.models.advanced, interest: 1, testDrive: 0, undelivered: 1 }]);
+    const page = { numItems: 50, cursor: null };
+    const exported = await f.admin.query(api.fairLeadsAdmin.exportLeads, { eventId: f.eventId, participationId: f.a.participationId, paginationOpts: page });
+    expect(exported.page.map((row) => row.createdAt)).toEqual([DAY1]);
+    expect((await f.admin.query(api.fairLeadsInbox.listEventLeads, { eventId: f.eventId, paginationOpts: page })).page).toHaveLength(1);
+    expect((await f.admin.query(api.fairLeadsInbox.listEventLeads, { eventId: f.eventId, includePreEvent: true, paginationOpts: page })).page).toHaveLength(2);
   });
 });

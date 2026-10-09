@@ -486,6 +486,12 @@ function Audience({ view, actions, now, query, onQueryChange, scoped = false }: 
             {publishBlock ? <span className="w-full text-right text-xs font-semibold text-[var(--admin-warning)]">{publishBlock === "day_limit" ? a.publishBlockedShort : blockText(publishBlock, quota, dayLabel(question.dayId))}</span> : null}
           </>
         ) : null}
+        {/* JOVAN-DELTA 2026-10-08b: open before its fair day (setup day, exhibitor demo). */}
+        {actions.openQuestionNow && (question.status === "draft" ? !publishBlock : question.status === "published" && (question.startsAt ?? 0) > now) ? (
+          <button type="button" className={cn(adminSecondaryButtonClass, "min-h-9 px-3")} disabled={pending} onClick={() => void run(() => actions.openQuestionNow!(question.id), dict.questionOpenedNow)}>
+            {dict.questionOpenNow}
+          </button>
+        ) : null}
         {canSetSponsored(question, model, now) ? (
           <button type="button" className={cn(adminSecondaryButtonClass, "min-h-9 px-3")} disabled={pending} onClick={() => void run(() => actions.setSponsoredResult(question.modelId, question.id), a.sponsoredSet)}>
             <Sparkles className="size-4" aria-hidden="true" />{a.setSponsored}

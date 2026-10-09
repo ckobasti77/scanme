@@ -20,14 +20,16 @@ const DUPLICATE_DRIVE: FairLeadSubmitResult = { ...DUPLICATE, kind: "test_drive"
 
 describe("fairLeadSentText (RN N2)", () => {
   test("a new lead keeps Aleksa's success texts", () => {
-    expect(fairLeadSentText("interest", SENT, fairModelSr, "JMEV")).toBe("Poslato. JMEV će vas kontaktirati.");
-    expect(fairLeadSentText("testDrive", SENT_DRIVE, fairModelSr, "JMEV")).toBe(fairModelSr.testDriveSent);
+    expect(fairLeadSentText("interest", SENT, fairModelSr, "JMEV")).toBe("Poslato! JMEV tim će vam se javiti.");
+    expect(fairLeadSentText("testDrive", SENT_DRIVE, fairModelSr, "JMEV")).toBe(
+      "Zahtev je poslat. JMEV tim će vas kontaktirati za termin.",
+    );
   });
 
   test("a duplicate politely says it was already received", () => {
-    expect(fairLeadSentText("interest", DUPLICATE, fairModelSr, "Mazda")).toBe("Već smo primili vaše interesovanje. Mazda će vas kontaktirati.");
+    expect(fairLeadSentText("interest", DUPLICATE, fairModelSr, "Mazda")).toBe("Već smo primili vaše interesovanje. Mazda tim će vam se javiti.");
     expect(fairLeadSentText("testDrive", DUPLICATE_DRIVE, fairModelSr, "Mazda")).toBe(
-      "Već smo primili vašu prijavu za probnu vožnju. Diler će vas kontaktirati.",
+      "Već smo primili vaš zahtev za probnu vožnju. Mazda tim će vas kontaktirati za termin.",
     );
   });
 

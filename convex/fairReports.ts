@@ -35,6 +35,7 @@ import {
 } from "./lib/fairReportFiles";
 import { fairParticipationModels } from "./fairAnalytics";
 import { chunkBytes } from "./menuExport";
+import { fairAnalyticsCutoff } from "./lib/fairPreEvent";
 
 // =============================================================================
 // Sajam automobila 2026 — B6 report runs (BACKEND-HANDOFF §5.6, §7
@@ -625,9 +626,12 @@ export const leadsExportPage = internalQuery({
     const [event, participation] = await Promise.all([ctx.db.get(args.eventId), ctx.db.get(args.participationId)]);
     if (!event) fairAdminError("FAIR_EVENT_NOT_FOUND");
     if (!participation || participation.eventId !== event._id) fairAdminError("FAIR_LINK_NOT_FOUND", { field: "participationId" });
+    // Pre-event leads are never exported to an exhibitor (JOVAN-DELTA 2026-10-08b).
     const page = await ctx.db
       .query("fairLeads")
-      .withIndex("by_participationId_and_createdAt", (q) => q.eq("participationId", participation._id))
+      .withIndex("by_participationId_and_createdAt", (q) => q.eq("participationId", participation._id).gte("createdAt", fairAnalyticsCutoff(event)))
+      // Nor admin-session test leads (JOVAN-DELTA 2026-10-09).
+      .filter((q) => q.neq(q.field("isAdminExcluded"), true))
       .paginate({ numItems: LEAD_EXPORT_PAGE, cursor: args.cursor });
     // A8 (ADMIN-UX §7, MASTER §4/§12): next to each contact, the visitor's
     // activity on THIS exhibitor's models — only the groups the package of

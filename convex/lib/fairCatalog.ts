@@ -520,7 +520,11 @@ export type FairModelInput = {
   specifications: FairSpecificationInput[];
   photoUrl?: string;
   packageTier: FairPackageTier;
-  /** When the initial tier takes effect (DATA-INTAKE `package_active_from`); default now. */
+  /**
+   * DATA-INTAKE `package_active_from`. Pre-event access (JOVAN-DELTA
+   * 2026-10-08b): a package works from the moment it is assigned, so a future
+   * value is clamped to now; only a past value back-dates the activation.
+   */
   packageActiveFrom?: number;
   passportEligible: boolean;
   sortOrder?: number;
@@ -580,7 +584,7 @@ export async function upsertFairModel(ctx: MutationCtx, input: FairModelInput, a
     sortOrder: input.sortOrder ?? existing?.sortOrder ?? 0,
   };
   if (!existing) {
-    const activatedAt = input.packageActiveFrom ?? now;
+    const activatedAt = Math.min(input.packageActiveFrom ?? now, now);
     if (!Number.isFinite(activatedAt)) fairAdminError("INVALID_INPUT", { field: "packageActiveFrom" });
     const modelId = await ctx.db.insert("fairEventModels", {
       externalKey,

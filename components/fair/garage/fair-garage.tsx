@@ -30,6 +30,7 @@ import {
   useRef,
   useState,
   useSyncExternalStore,
+  type ReactNode,
 } from "react";
 import type {
   FairPassportProgress,
@@ -38,6 +39,7 @@ import type {
   FairSponsoredActionKind,
   FairSponsoredModelCard,
 } from "@/lib/fair-contract";
+import { FAIR_PRIVACY_PATH } from "@/lib/fair-contract";
 import {
   FAIR_GARAGE_CHANGE_EVENT,
   FAIR_GARAGE_MODEL_CHANGE_EVENT,
@@ -63,6 +65,7 @@ import {
   type FairGarageEventView,
   type FairGarageModelView,
 } from "@/lib/fair-client/garage-view";
+import { fairHaptic } from "@/lib/fair-client/haptics";
 import { useFairHistoryLayer } from "@/lib/fair-client/history-layer";
 import { getFairRotationItem } from "@/lib/fair-client/rotation-slot";
 import { fairPublicEventSlug } from "@/lib/fair-public-event";
@@ -72,6 +75,7 @@ import type { FairGarageDict, FairModelDict } from "@/lib/i18n/types";
 import { FairEventShell } from "../event-shell";
 import { FairBrandMark } from "./fair-brand-mark";
 import styles from "./fair-garage.module.css";
+import { FAIR_PUBLIC_MAP_ENABLED } from "@/lib/fair-contract";
 
 type RefreshState = "idle" | "loading" | "ready" | "error";
 type PassportLoad = { state: "loading" | "error" | "ready"; value: FairPassportState | null };
@@ -336,6 +340,7 @@ function GarageModelCard({
   onShare,
   onRemove,
   preload,
+  bay,
 }: {
   model: FairGarageModelView;
   selected: boolean;
@@ -348,6 +353,8 @@ function GarageModelCard({
   onShare: () => void;
   onRemove: () => void;
   preload?: boolean;
+  /** Parking bay number in the list: "MESTO 01". */
+  bay: number;
 }) {
   const [removing, setRemoving] = useState(false);
   const longPress = useRef<{ pointerId: number; x: number; y: number; timeout: number } | null>(null);
@@ -450,8 +457,9 @@ function GarageModelCard({
         if (!selectionDisabled || selected) onSelect();
       }}
     >
-      <div className={styles.modelMedia}>
+      <div className={styles.modelMedia} data-garage-photo>
         <ModelVisual model={model} preload={preload} alt={fmt(dict.modelPhotoAlt, { brand: model.brandName, model: model.displayName })} />
+        <span className={styles.bay}>{fmt(dict.bayLabel, { n: String(bay).padStart(2, "0") })}</span>
         <button
           type="button"
           className={styles.compareToggle}
@@ -618,51 +626,140 @@ export function LegacyGaragePassportSection({
   );
 }
 
+/** Conveyor slide (model page v2 prototype): the next photo enters from the left while the current one leaves right. */
+const SPONSORED_SLIDE_MS = 650;
+/** The model name fades out, swaps, and fades back in during the slide. */
+const SPONSORED_NAME_SWAP_MS = 300;
+
+function SponsoredSlideVisual({ item, dict }: { item: FairSponsoredModelCard; dict: FairGarageDict }) {
+  const photoUrl = reviewPhoto(item.brandName, item.displayName, item.photoUrl);
+  if (photoUrl) {
+    return (
+      <Image
+        fill
+        sizes="240px"
+        src={photoUrl}
+        unoptimized={fairPhotoUnoptimized(photoUrl)}
+        alt={fmt(dict.sponsoredPhotoAlt, { brand: cleanTestLabel(item.brandName), model: displayModelName(item.brandName, item.displayName) })}
+        className={styles.spPhoto}
+      />
+    );
+  }
+  if (item.brandLogoUrl) return <Image fill sizes="120px" src={item.brandLogoUrl} alt="" unoptimized={fairPhotoUnoptimized(item.brandLogoUrl)} className={styles.spLogo} />;
+  return <FairBrandMark brandName={cleanTestLabel(item.brandName)} className={styles.spMark} />;
+}
+
+/**
+ * Garage recommendation dock (prototype stranica-modela-v2): sticky, dark
+ * aurora card, photo on the right fading into the dark, a conveyor every
+ * SPONSORED_INTERVAL_MS. The tag, the progress segments and the buttons are
+ * fixed nodes; only the photo slides and the name crossfades. Rotation slots
+ * stay deterministic (server epoch + interval), so every visitor sees the
+ * same model at the same time.
+ */
 function SponsoredStrip({ event, document: garageDocument, dict, onDocument }: { event: FairGarageEventView; document: FairGarageDocument; dict: FairGarageDict; onDocument: (next: FairGarageDocument) => boolean }) {
   const rotation = event.sponsoredRotation;
+  const items = rotation?.items ?? [];
   const intervalMs = rotation ? Math.max(SPONSORED_INTERVAL_MS, rotation.intervalMs) : SPONSORED_INTERVAL_MS;
   const [now, setNow] = useState(() => Date.now());
-  const [displayedIndex, setDisplayedIndex] = useState(0);
+  const slot = rotation ? getFairRotationItem(items, { epochMs: rotation.epochMs, nowMs: now, intervalMs }) : null;
+  const targetIndex = slot?.slot.index ?? 0;
+  const nextSlotAt = slot?.slot.nextSlotAt;
+  const slotStartedAt = slot?.slot.slotStartedAt;
+  const [shownIndex, setShownIndex] = useState(targetIndex);
+  const [incomingIndex, setIncomingIndex] = useState<number | null>(null);
+  const [nameIndex, setNameIndex] = useState(targetIndex);
+  const [nameOut, setNameOut] = useState(false);
   const [paused, setPaused] = useState(false);
   const [storageError, setStorageError] = useState(false);
   const [addingId, setAddingId] = useState<string | null>(null);
-  const cardRef = useRef<HTMLDivElement | null>(null);
-  const visualRef = useRef<HTMLDivElement | null>(null);
+  const viewportRef = useRef<HTMLDivElement | null>(null);
+  const barsRef = useRef<HTMLDivElement | null>(null);
   const addAttemptRef = useRef<{ id: string; committed: boolean; fallback: number | null } | null>(null);
 
-  const slot = rotation ? getFairRotationItem(rotation.items, { epochMs: rotation.epochMs, nowMs: now, intervalMs }) : null;
-  const targetIndex = slot?.slot.index ?? 0;
-  const nextSlotAt = slot?.slot.nextSlotAt;
-  const item = rotation?.items[displayedIndex];
-
+  // Next slot boundary: read the clock again (rotation keeps running while paused).
   useEffect(() => {
     if (!rotation || paused || nextSlotAt === undefined) return;
     const timeout = window.setTimeout(() => setNow(Date.now()), Math.max(100, nextSlotAt - Date.now() + 20));
     return () => window.clearTimeout(timeout);
   }, [nextSlotAt, paused, rotation]);
 
+  // A new slot: start the conveyor (or swap at once under reduced motion).
   useEffect(() => {
-    if (!rotation || targetIndex === displayedIndex || !cardRef.current || paused) return;
+    if (!rotation || paused || incomingIndex !== null || targetIndex === shownIndex) return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      const frame = window.requestAnimationFrame(() => setDisplayedIndex(targetIndex));
+      const frame = window.requestAnimationFrame(() => {
+        setShownIndex(targetIndex);
+        setNameIndex(targetIndex);
+      });
       return () => window.cancelAnimationFrame(frame);
     }
-    const tween = gsap.to(cardRef.current, { x: 30, opacity: 0, duration: 0.24, ease: "power2.in", onComplete: () => setDisplayedIndex(targetIndex) });
-    return () => { tween.kill(); };
-  }, [displayedIndex, paused, rotation, targetIndex]);
+    const frame = window.requestAnimationFrame(() => setIncomingIndex(targetIndex));
+    return () => window.cancelAnimationFrame(frame);
+  }, [incomingIndex, paused, rotation, shownIndex, targetIndex]);
 
   useLayoutEffect(() => {
-    if (!cardRef.current || !item || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const tween = gsap.fromTo(cardRef.current, { x: -34, opacity: 0 }, { x: 0, opacity: 1, duration: 0.52, ease: "power3.out" });
-    return () => { tween.kill(); };
-  }, [item]);
+    const viewport = viewportRef.current;
+    if (incomingIndex === null || !viewport) return;
+    const outgoing = viewport.querySelector<HTMLElement>("[data-slide='current']");
+    const incoming = viewport.querySelector<HTMLElement>("[data-slide='incoming']");
+    setNameOut(true);
+    const nameTimer = window.setTimeout(() => {
+      setNameIndex(incomingIndex);
+      setNameOut(false);
+    }, SPONSORED_NAME_SWAP_MS);
+    const timeline = gsap.timeline({
+      defaults: { duration: SPONSORED_SLIDE_MS / 1000, ease: "power2.inOut" },
+      onComplete: () => {
+        setShownIndex(incomingIndex);
+        setIncomingIndex(null);
+      },
+    });
+    if (outgoing) timeline.fromTo(outgoing, { xPercent: 0, opacity: 1 }, { xPercent: 105, opacity: 0.6 }, 0);
+    if (incoming) timeline.fromTo(incoming, { xPercent: -105, opacity: 0.6 }, { xPercent: 0, opacity: 1 }, 0);
+    return () => {
+      timeline.kill();
+      window.clearTimeout(nameTimer);
+    };
+  }, [incomingIndex]);
+
+  // Progress segments: earlier ones full, the current one fills linearly to the slot end.
+  const activeIndex = incomingIndex ?? shownIndex;
+  useEffect(() => {
+    const bars = barsRef.current;
+    if (!bars || slotStartedAt === undefined) return;
+    const fills = Array.from(bars.querySelectorAll<HTMLElement>("b"));
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    let animation: Animation | null = null;
+    fills.forEach((fill, index) => {
+      fill.getAnimations().forEach((running) => running.cancel());
+      fill.style.transform = index < activeIndex ? "scaleX(1)" : "scaleX(0)";
+    });
+    const current = fills[activeIndex];
+    if (current) {
+      const progress = Math.min(1, Math.max(0, (Date.now() - slotStartedAt) / intervalMs));
+      if (reduced) {
+        current.style.transform = "scaleX(1)";
+      } else {
+        animation = current.animate([{ transform: `scaleX(${progress})` }, { transform: "scaleX(1)" }], {
+          duration: Math.max(1, (1 - progress) * intervalMs),
+          easing: "linear",
+          fill: "forwards",
+        });
+        if (paused) animation.pause();
+      }
+    }
+    return () => animation?.cancel();
+  }, [activeIndex, intervalMs, paused, slotStartedAt]);
 
   useEffect(() => () => {
     const fallback = addAttemptRef.current?.fallback;
     if (fallback !== null && fallback !== undefined) window.clearTimeout(fallback);
   }, []);
 
-  if (!rotation || rotation.items.length === 0 || !item) return null;
+  const item = items[activeIndex] ?? items[0];
+  const nameItem = items[nameIndex] ?? item;
+  if (!rotation || items.length === 0 || !item) return null;
 
   function record(kind: FairSponsoredActionKind, model: FairSponsoredModelCard) {
     void fetch("/api/fair/sponsored-action", {
@@ -671,6 +768,11 @@ function SponsoredStrip({ event, document: garageDocument, dict, onDocument }: {
       body: JSON.stringify({ eventModelId: model.eventModelId, surface: "garage", kind, requestId: createClientRequestId() }),
       keepalive: true,
     }).catch(() => undefined);
+  }
+
+  function resume() {
+    setPaused(false);
+    setNow(Date.now());
   }
 
   function commitAdd(model: FairSponsoredModelCard) {
@@ -694,7 +796,12 @@ function SponsoredStrip({ event, document: garageDocument, dict, onDocument }: {
     });
     const ok = onDocument(next);
     setStorageError(!ok);
-    if (ok) record("garage_add", model);
+    if (ok) {
+      record("garage_add", model);
+      fairHaptic([18, 40, 28]);
+      // The new car parks as MESTO 01: back to the top of the garage.
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
     setAddingId(null);
     addAttemptRef.current = null;
   }
@@ -705,55 +812,89 @@ function SponsoredStrip({ event, document: garageDocument, dict, onDocument }: {
     setAddingId(model.eventModelId);
     setStorageError(false);
     addAttemptRef.current = { id: model.eventModelId, committed: false, fallback: null };
-    const source = visualRef.current;
-    const target = window.document.querySelector<HTMLElement>("[data-garage-target]");
+    const source = viewportRef.current?.querySelector<HTMLElement>("[data-slide='current']");
+    // Fly into the list where the car will park (first bay), else into the garage icon.
+    const target =
+      window.document.querySelector<HTMLElement>("[data-garage-model-id] [data-garage-photo]") ??
+      window.document.querySelector<HTMLElement>("[data-garage-list], [data-garage-empty]") ??
+      window.document.querySelector<HTMLElement>("[data-garage-target]");
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (!source || !target || reduced) {
       commitAdd(model);
-      window.setTimeout(() => { setPaused(false); setNow(Date.now()); }, 320);
+      window.setTimeout(resume, 320);
       return;
     }
     const from = source.getBoundingClientRect();
     const to = target.getBoundingClientRect();
+    const toWidth = Math.min(to.width, from.width * 2.4);
+    const toHeight = Math.min(to.height || toWidth * 0.59, toWidth * 0.59);
     const clone = source.cloneNode(true) as HTMLElement;
+    clone.removeAttribute("data-slide");
     clone.className = styles.flyingCar;
-    Object.assign(clone.style, { left: `${from.left}px`, top: `${from.top}px`, width: `${from.width}px`, height: `${from.height}px` });
+    Object.assign(clone.style, { left: `${from.left}px`, top: `${from.top}px`, width: `${from.width}px`, height: `${from.height}px`, transform: "none", opacity: "1" });
     window.document.body.appendChild(clone);
     addAttemptRef.current.fallback = window.setTimeout(() => {
       clone.remove();
       commitAdd(model);
-      setPaused(false);
-      setNow(Date.now());
-    }, 1_300);
+      resume();
+    }, 1_400);
     const timeline = gsap.timeline({
       onComplete: () => {
         clone.remove();
         commitAdd(model);
-        window.setTimeout(() => { setPaused(false); setNow(Date.now()); }, 420);
+        window.setTimeout(resume, 420);
       },
     });
-    timeline.to(clone, { left: to.left + to.width * 0.2, top: to.top + to.height * 0.2, width: to.width * 0.6, height: to.height * 0.6, borderRadius: 18, opacity: 0.92, rotate: -2, duration: 0.72, ease: "power3.inOut" });
-    timeline.to(clone, { scale: 0.28, opacity: 0, duration: 0.16, ease: "power2.in" }, "-=0.12");
-    timeline.fromTo(target, { scale: 1 }, { scale: 1.1, duration: 0.16, yoyo: true, repeat: 1, ease: "power2.out" }, "-=0.14");
+    timeline.to(clone, { y: -12, scale: 0.98, duration: 0.16, ease: "power2.out" });
+    timeline.to(clone, { left: to.left + (to.width - toWidth) / 2, top: Math.max(to.top, 0), width: toWidth, height: toHeight, y: 0, scale: 1, borderRadius: 22, duration: 0.6, ease: "power3.inOut" });
+    timeline.to(clone, { opacity: 0, duration: 0.18, ease: "power1.in" }, "-=0.08");
   }
 
   const saved = eventContainsModel(garageDocument, item.eventModelId);
-  const photoUrl = reviewPhoto(item.brandName, item.displayName, item.photoUrl);
+  const adding = addingId === item.eventModelId;
+  const shown = items[shownIndex] ?? item;
+  const incoming = incomingIndex === null ? null : items[incomingIndex];
   return (
-    <aside className={styles.sponsoredDock} aria-label={dict.sponsoredLabel} onPointerEnter={(pointerEvent) => { if (pointerEvent.pointerType === "mouse") setPaused(true); }} onPointerLeave={(pointerEvent) => { if (pointerEvent.pointerType === "mouse") { setPaused(false); setNow(Date.now()); } }} onFocusCapture={() => setPaused(true)} onBlurCapture={(focusEvent) => { if (!focusEvent.currentTarget.contains(focusEvent.relatedTarget)) { setPaused(false); setNow(Date.now()); } }}>
-      <div className={styles.sponsoredFrame}>
-        <div className={styles.sponsoredCard} ref={cardRef}>
-          <div className={styles.sponsoredVisual} ref={visualRef}>
-            {photoUrl ? <Image fill sizes="96px" src={photoUrl} unoptimized={fairPhotoUnoptimized(photoUrl)} alt={fmt(dict.sponsoredPhotoAlt, { brand: cleanTestLabel(item.brandName), model: displayModelName(item.brandName, item.displayName) })} /> : item.brandLogoUrl ? <Image fill sizes="72px" src={item.brandLogoUrl} alt="" unoptimized={fairPhotoUnoptimized(item.brandLogoUrl)} className={styles.sponsoredLogo} /> : <FairBrandMark brandName={cleanTestLabel(item.brandName)} className={styles.sponsoredBrandLogo} />}
+    <aside
+      className={styles.spDock}
+      aria-label={dict.sponsoredLabel}
+      onPointerEnter={(pointerEvent) => { if (pointerEvent.pointerType === "mouse") setPaused(true); }}
+      onPointerLeave={(pointerEvent) => { if (pointerEvent.pointerType === "mouse") resume(); }}
+      onFocusCapture={() => setPaused(true)}
+      onBlurCapture={(focusEvent) => { if (!focusEvent.currentTarget.contains(focusEvent.relatedTarget)) resume(); }}
+    >
+      <div className={styles.spCard}>
+        <div className={styles.spViewport} ref={viewportRef}>
+          <div className={styles.spSlide} data-slide="current" key={`slide-${shown.eventModelId}`}>
+            <SponsoredSlideVisual item={shown} dict={dict} />
           </div>
-          <div className={styles.sponsoredCopy}><span>{dict.sponsoredLabel}</span><strong>{cleanTestLabel(item.brandName)} {displayModelName(item.brandName, item.displayName)}</strong><small>{cleanTestLabel(item.priceText)}</small></div>
-          <div className={styles.sponsoredActions}>
-            <Link prefetch={false} href={`/sajam/${event.publicSlug}/model/${item.slug}`} onClick={() => record("open_model", item)}>{dict.sponsoredView}</Link>
-            <button type="button" disabled={saved || addingId === item.eventModelId} onClick={() => add(item)}>{saved ? dict.sponsoredAdded : addingId === item.eventModelId ? dict.sponsoredAdding : dict.sponsoredAdd}</button>
+          {incoming ? (
+            <div className={styles.spSlide} data-slide="incoming" key={`slide-${incoming.eventModelId}`}>
+              <SponsoredSlideVisual item={incoming} dict={dict} />
+            </div>
+          ) : null}
+        </div>
+        <div className={styles.spBars} ref={barsRef} aria-hidden="true">
+          {items.map((entry) => <i key={entry.eventModelId}><b /></i>)}
+        </div>
+        <div className={styles.spLeft}>
+          <span className={styles.spTag}>{dict.sponsoredTag}</span>
+          <div className={styles.spName} data-out={nameOut || undefined}>
+            <span>{cleanTestLabel(nameItem.brandName)}</span>
+            <strong>{displayModelName(nameItem.brandName, nameItem.displayName)}</strong>
+          </div>
+          <div className={styles.spActions}>
+            <button type="button" className={styles.spAdd} data-done={saved || undefined} disabled={saved || adding} onClick={() => add(item)}>
+              {saved ? <Check aria-hidden="true" /> : <CarFront aria-hidden="true" />}
+              {saved ? dict.sponsoredAdded : adding ? dict.sponsoredAdding : dict.sponsoredAdd}
+            </button>
+            <Link prefetch={false} className={styles.spView} href={`/sajam/${event.publicSlug}/model/${item.slug}`} onClick={() => record("open_model", item)}>
+              {dict.sponsoredView}
+            </Link>
           </div>
         </div>
       </div>
-      {storageError ? <p role="alert">{dict.sponsoredAddError}</p> : null}
+      {storageError ? <p className={styles.spError} role="alert">{dict.sponsoredAddError}</p> : null}
     </aside>
   );
 }
@@ -764,12 +905,15 @@ export function FairGarage({
   switchEvents,
   dict,
   shellDict,
+  adminTools,
 }: {
   routeEventSlug: string;
   event: FairGarageEventView;
   switchEvents: FairGarageEventView[];
   dict: FairGarageDict;
   shellDict: FairModelDict;
+  /** Admin DEV tools, rendered on the server for a verified admin only. */
+  adminTools?: ReactNode;
 }) {
   const router = useRouter();
   const [garageDocument, setGarageDocument] = useState<FairGarageDocument>(() => createEmptyFairGarageDocument());
@@ -816,7 +960,7 @@ export function FairGarage({
       const after = currentRects.get(id);
       if (!after) continue;
       if (!before) {
-        tweens.push(gsap.fromTo(card, { autoAlpha: 0, y: 18, scale: 0.985 }, { autoAlpha: 1, y: 0, scale: 1, duration: 0.46, ease: "power3.out", clearProps: "transform,opacity,visibility" }));
+        tweens.push(gsap.fromTo(card, { autoAlpha: 0, y: -18, scale: 0.96 }, { autoAlpha: 1, y: 0, scale: 1, duration: 0.7, ease: "expo.out", clearProps: "transform,opacity,visibility" }));
         continue;
       }
       const x = before.left - after.left;
@@ -1071,6 +1215,7 @@ export function FairGarage({
         eventName={fairGarageEventTitle(activeEvent)}
         dict={shellDict}
         current="garage"
+        adminTools={adminTools}
       />
       <main className={styles.main}>
         {switchEvents.length > 1 ? (
@@ -1105,21 +1250,23 @@ export function FairGarage({
 
         {activeModels.length > 0 ? (
           <section className={styles.models} aria-label={dict.pageTitle}>
-            <div className={`${styles.compareBar}${selectionMode ? ` ${styles.compareBarActive}` : ""}`}>
-              <span><GitCompareArrows aria-hidden="true" /><span>{selectionMode ? fmt(dict.selectionCount, { count: selected.length }) : dict.compareHintLongPress}</span></span>
-            </div>
+            {selectionMode ? (
+              <div className={`${styles.compareBar} ${styles.compareBarActive}`}>
+                <span><GitCompareArrows aria-hidden="true" /><span>{fmt(dict.selectionCount, { count: selected.length })}</span></span>
+              </div>
+            ) : null}
             {selectionMessage ? <p className={styles.selectionMessage} role="status">{selectionMessage}</p> : null}
-            <div className={styles.modelList} ref={modelListRef}>
-              {activeModels.map((model, index) => <GarageModelCard key={model.id} model={model} selected={selected.includes(model.id)} selectionMode={selectionMode} selectionDisabled={selected.length >= MAX_SELECTED_MODELS} stale={!model.live && (refreshState === "error" || !online)} dict={dict} onSelect={() => toggleSelected(model.id)} onEnterSelection={() => enterSelection(model.id)} onShare={() => void shareModels([model])} onRemove={() => removeModel(model.id)} preload={index === 0} />)}
+            <div className={styles.modelList} ref={modelListRef} data-garage-list>
+              {activeModels.map((model, index) => <GarageModelCard key={model.id} model={model} selected={selected.includes(model.id)} selectionMode={selectionMode} selectionDisabled={selected.length >= MAX_SELECTED_MODELS} stale={!model.live && (refreshState === "error" || !online)} dict={dict} onSelect={() => toggleSelected(model.id)} onEnterSelection={() => enterSelection(model.id)} onShare={() => void shareModels([model])} onRemove={() => removeModel(model.id)} preload={index === 0} bay={index + 1} />)}
             </div>
           </section>
         ) : mounted ? (
-          <section className={styles.emptyState}><div className={styles.emptyVisual} aria-hidden="true"><CarFront /></div><h2>{dict.emptyTitle}</h2><p>{dict.emptyBody}</p><Link href={`/sajam/${routeEventSlug}`}><MapPin aria-hidden="true" />{dict.emptyAction}</Link></section>
+          <section className={styles.emptyState} data-garage-empty><div className={styles.emptyVisual} aria-hidden="true"><CarFront /></div><h2>{dict.emptyTitle}</h2>{FAIR_PUBLIC_MAP_ENABLED ? <><p>{dict.emptyBody}</p><Link href={`/sajam/${routeEventSlug}`}><MapPin aria-hidden="true" />{dict.emptyAction}</Link></> : <p>{dict.emptyBodyNoMap}</p>}</section>
         ) : <div className={styles.loadingState} aria-hidden="true"><span /><span /><span /></div>}
 
         <p className={styles.storageNotice}>{dict.storageNotice}</p>
       </main>
-      <footer className="fair-footer"><span>{dict.poweredBy}</span><Link href="?dev=1" className="fair-dev-entry">{dict.devLink}</Link></footer>
+      <footer className="fair-footer"><span>{dict.poweredBy}</span><Link prefetch={false} href={FAIR_PRIVACY_PATH} className="fair-dev-entry">{dict.privacyLink}</Link></footer>
       {mounted && !selectionMode ? <SponsoredStrip event={activeEvent} document={garageDocument} dict={dict} onDocument={writeDocument} /> : null}
       {selectionMode && shareDraft === null ? (
         <div className={styles.selectionDock} role="toolbar" aria-label={fmt(dict.selectionCount, { count: selected.length })}>

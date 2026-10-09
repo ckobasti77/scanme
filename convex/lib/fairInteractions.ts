@@ -163,15 +163,18 @@ export function fairRatingSumKey(field: FairRatingField, eventModelId: string) {
  * Patches the visitor's one row for the model. Only the SENT fields move the
  * aggregates: a first value adds to count and sum, a changed value only moves
  * the sum by the difference (HANDOFF §10: a rating change never adds to count).
+ * An admin-session row (JOVAN-DELTA 2026-10-09) never moves them: whether a
+ * row counts is fixed when it is created.
  */
 export async function applyFairRating(
   ctx: MutationCtx,
-  input: { visitorId: Id<"fairVisitors">; model: Doc<"fairEventModels">; values: FairRatingInputValues; now: number },
+  input: { visitorId: Id<"fairVisitors">; model: Doc<"fairEventModels">; values: FairRatingInputValues; now: number; adminExcluded?: boolean },
 ): Promise<Doc<"fairRatings">> {
   const existing = await ctx.db
     .query("fairRatings")
     .withIndex("by_visitorId_and_eventModelId", (q) => q.eq("visitorId", input.visitorId).eq("eventModelId", input.model._id))
     .unique();
+  const counted = existing ? existing.isAdminExcluded !== true : !input.adminExcluded;
   const patch: FairRatingInputValues = {};
   for (const field of FAIR_RATING_FIELDS) {
     const value = input.values[field];
@@ -179,6 +182,7 @@ export async function applyFairRating(
     const previous = existing?.[field];
     if (previous === value) continue;
     patch[field] = value;
+    if (!counted) continue;
     if (previous === undefined) {
       await bumpFairCount(ctx, fairRatingCountKey(field, input.model._id), 1);
       await bumpFairCount(ctx, fairRatingSumKey(field, input.model._id), value);
@@ -195,6 +199,7 @@ export async function applyFairRating(
     eventId: input.model.eventId,
     eventModelId: input.model._id,
     ...patch,
+    ...(input.adminExcluded ? { isAdminExcluded: true } : {}),
     createdAt: input.now,
     updatedAt: input.now,
   });

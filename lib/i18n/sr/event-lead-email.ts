@@ -1,36 +1,33 @@
 import type { EventLeadEmailDict } from "../types";
 
 // Sajam 2026 B4 — emails that ScanMe sends to a visitor after `Zainteresovan
-// sam` / `Probna vožnja` (convex/lib/fairEmails.ts). PLACEHOLDER copy: the
-// final confirmation and follow-up texts are open item P1 (MASTER §19) and
-// replace these strings before the lead flow goes to production. The
-// follow-up body itself is the exhibitor's text (fairMessageTemplates);
-// only the footer below is ScanMe's.
-// N5: the confirmation also says where the car is, what happens next, which
-// contact was shared, the privacy line and „Ako niste vi…“. Konačan tekst
-// potvrde odobrava Aleksa (P1) — do tada je ovo radni tekst.
+// sam` / `Probna vožnja` / a survey with a contact (convex/lib/fairEmails.ts).
+// The follow-up body itself is the exhibitor's text (fairMessageTemplates);
+// only its footer below is ScanMe's.
+// 9 Oct 2026 (Aleksa): the final visitor confirmations — "Zainteresovan sam",
+// "Probna vožnja" and a survey with a contact left — word for word. {brand} =
+// brand display name, {model} = model name without the brand, {exhibitor} =
+// the exhibitor's legal name, {url} = the public model page / privacy page.
+// The stand is never shown. Exhibitors get no automatic email.
 export const eventLeadEmailSr = {
-  confirmationSubjectInterest: "Primili smo vaše interesovanje: {model}",
-  confirmationSubjectTestDrive: "Primili smo vaš zahtev za probnu vožnju: {model}",
-  greeting: "Zdravo, {name},",
+  greeting: "Zdravo {name},",
   greetingWithoutName: "Zdravo,",
-  confirmationBodyInterest:
-    "hvala na interesovanju za model {model} na događaju {event}. Vaše kontakt podatke prosleđujemo izlagaču {exhibitor}.",
-  // Admin UX A8 (ADMIN-UX §7): the test drive confirmation says the request
-  // was received and passed on to the exhibitor.
-  confirmationBodyTestDrive:
-    "hvala na zahtevu za probnu vožnju modela {model} na događaju {event}. Vaš zahtev je primljen i prosleđen izlagaču {exhibitor}.",
-  confirmationWhere: "Gde ga možete videti:\n{where}",
-  confirmationNextInterest: "Šta sledi:\nIzlagač {exhibitor} će vas kontaktirati.",
-  confirmationNextTestDrive:
-    "Šta sledi:\nOvo je zahtev, a ne zakazan termin — izlagač {exhibitor} će vas kontaktirati da dogovorite termin.",
-  confirmationContact:
-    "Kontakt koji ste ostavili:\n{contact}\nAko je nešto pogrešno upisano, odgovorite na ovaj mejl i ispravićemo.",
-  confirmationPrivacy:
-    "ScanMe je podatke primio uz vašu saglasnost i prosleđuje ih samo izlagaču {exhibitor}; trajno se brišu {date}",
-  confirmationNotYou: "Ako niste vi poslali ovaj zahtev, odgovorite na ovaj mejl.",
-  confirmationFollowUpNote:
-    "Posle sajma ćemo vam u ime izlagača poslati još jednu, poslednju poruku. Ako je ne želite, odgovorite na ovaj email i nećemo je poslati.",
+  interestSubject: "Zabeležili smo vaše interesovanje za {brand} {model}",
+  interestBody:
+    "hvala što ste na Sajmu elektromobilnosti pogledali {brand} {model}. Vaše interesovanje smo prosledili {brand} timu. Javiće vam se sa ponudom i odgovorima na sva pitanja koja imate.",
+  interestModelLink: "Model i specifikacije možete ponovo da pogledate ovde: {url}",
+  testDriveSubject: "Zahtev za probnu vožnju: {brand} {model}",
+  testDriveBody:
+    "primili smo vaš zahtev za probnu vožnju modela {brand} {model} i prosledili ga {brand} timu. Kontaktiraće vas da zajedno dogovorite dan i vreme.",
+  testDriveNote: "Za vožnju ponesite vozačku dozvolu. Uživajte!",
+  surveySubject: "Hvala na odgovorima za {brand}",
+  surveyBody:
+    "hvala što ste odvojili minut za {brand} anketu. Vaši odgovori pomažu {brand} timu da bolje razume šta je posetiocima zaista važno.",
+  surveyContactNote: "Pošto ste ostavili kontakt, {brand} tim vam može poslati ponudu za model koji vam se dopao.",
+  closing: "Pozdrav,\nScanMe tim, Sajam elektromobilnosti",
+  /** `{subject}` = "{brand} {model}" (survey: "{brand}"), `{exhibitor}`, `{url}` = the privacy page. */
+  footer:
+    "Ovu poruku ste dobili jer ste na sajmu ostavili kontakt za {subject}. Vaše podatke dobija samo {exhibitor}. Saglasnost možete povući u svakom trenutku odgovorom na ovaj mejl. Politika privatnosti: {url}",
   // A8: one follow-up per exhibitor, so {model} can be a list of models.
   followUpFooter:
     "Ovu poruku šalje ScanMe u ime izlagača {exhibitor}, jer ste na događaju {event} ostavili kontakt za: {model}. Ovo je jedina poruka posle sajma.",

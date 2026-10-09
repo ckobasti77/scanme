@@ -10,6 +10,7 @@ import {
   type FairErrorCode,
   type FairLeadKind,
 } from "@/lib/fair-contract";
+import { fairMutationWithSession } from "./convex-session";
 import { fairGatewayError, fairGatewayJson, fairGatewayRequest } from "./gateway";
 import { fairBackendFailure } from "./interactions";
 import { fairConvexVisitorForRequest, type FairVisitorEnv } from "./visitor";
@@ -39,7 +40,7 @@ export type FairLeadsBackend = {
 
 export function convexFairLeadsBackend(convexUrl: string): FairLeadsBackend {
   const client = new ConvexHttpClient(convexUrl);
-  return { submitLead: (args) => client.mutation(api.fairLeads.submitLead, args) };
+  return { submitLead: (args) => fairMutationWithSession(client, api.fairLeads.submitLead, args) };
 }
 
 function defaultBackend(): FairLeadsBackend | null {
@@ -61,7 +62,7 @@ const STATUS: Partial<Record<FairErrorCode, number>> = {
   RATE_LIMITED: 429,
 };
 
-const KEYS = ["eventModelId", "kind", "submissionId", "contactName", "email", "phone", "consentAccepted", "consentVersion"];
+const KEYS = ["eventModelId", "kind", "submissionId", "contactName", "email", "phone", "consentAccepted", "consentVersion", "origin"];
 
 function str(value: unknown, max: number): value is string {
   return typeof value === "string" && value.length > 0 && value.length <= max;
@@ -78,6 +79,7 @@ export function parseLead(body: Record<string, unknown>) {
   if (!str(body.eventModelId, 64) || !str(body.submissionId, 80) || !str(body.contactName, FAIR_LEAD_NAME_MAX * 2)) return null;
   if (!optStr(body.email, FAIR_LEAD_EMAIL_MAX) || !optStr(body.phone, FAIR_LEAD_PHONE_MAX)) return null;
   if (typeof body.consentAccepted !== "boolean" || typeof body.consentVersion !== "number" || !Number.isInteger(body.consentVersion)) return null;
+  if (body.origin !== undefined && body.origin !== "survey") return null;
   return {
     eventModelId: body.eventModelId,
     kind: kind as FairLeadKind,
@@ -87,6 +89,7 @@ export function parseLead(body: Record<string, unknown>) {
     ...(body.phone ? { phone: body.phone } : {}),
     consentAccepted: body.consentAccepted,
     consentVersion: body.consentVersion,
+    ...(body.origin === "survey" ? { origin: "survey" as const } : {}),
   };
 }
 

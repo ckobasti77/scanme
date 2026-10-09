@@ -1,8 +1,9 @@
 "use client";
 
 import { AnimatePresence, motion, useAnimate, useReducedMotion } from "framer-motion";
-import { Check, X } from "lucide-react";
+import { Check, MessageCircle, X } from "lucide-react";
 import { useEffect, useState } from "react";
+import { fairBrandEmblem } from "@/lib/fair-client/brand-emblems";
 import { fairHaptic } from "@/lib/fair-client/haptics";
 import { answeredCount, surveyHeadCopy } from "@/lib/fair-client/survey-machine";
 import { fmt, type FairModelDict } from "@/lib/i18n";
@@ -51,6 +52,8 @@ function ChatHead({ survey }: { survey: FairSurveyController }) {
   const [preview, setPreview] = useState<Preview | null>(null);
   const [typingDoneFor, setTypingDoneFor] = useState<number | null>(null);
   const [seenSignal, setSeenSignal] = useState(survey.reopenSignal);
+  const emblem = fairBrandEmblem(model.brandName);
+  const [emblemFailed, setEmblemFailed] = useState(false);
   const copy = previewCopy(survey, dict);
   const answered = answeredCount(survey.state);
   const total = survey.state.total;
@@ -170,13 +173,30 @@ function ChatHead({ survey }: { survey: FairSurveyController }) {
       >
         <span className="fair-survey-head__face" aria-hidden="true">
           <span className="fair-survey-head__accent" />
-          <span className="fair-survey-head__mark">{model.brandName.slice(0, 1)}</span>
+          <span className="fair-survey-head__mark">
+            {emblem && !emblemFailed ? (
+              // A plain <img>: own class and size, so no hero image rule can reach it.
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                className="fair-survey-head__logo"
+                src={emblem}
+                alt=""
+                width={24}
+                height={24}
+                decoding="async"
+                onError={() => setEmblemFailed(true)}
+              />
+            ) : (
+              <MessageCircle className="fair-survey-head__fallback" />
+            )}
+          </span>
           <span className="fair-survey-head__check">
             <Check />
           </span>
         </span>
         <svg className="fair-survey-head__ring" viewBox="0 0 36 36" aria-hidden="true">
-          <circle cx="18" cy="18" r="16" pathLength={100} />
+          <circle className="fair-survey-head__track" cx="18" cy="18" r="16" />
+          <circle className="fair-survey-head__progress" cx="18" cy="18" r="16" pathLength={100} />
         </svg>
         <span className="fair-survey-head__badge" aria-hidden="true">
           {answered}/{total}

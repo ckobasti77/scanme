@@ -5,6 +5,7 @@ import { ArrowLeft, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { FairAudienceResultView, FairErrorCode, FairResult } from "@/lib/fair-contract";
+import { FAIR_PRIVACY_PATH } from "@/lib/fair-contract";
 import { postFair, useFairModelState } from "@/lib/fair-client/fair-api";
 import { fairErrorText } from "@/lib/fair-client/fair-errors";
 import type {
@@ -414,6 +415,7 @@ export function AudienceFlow({
 
       <footer className="fair-footer">
         <span>{dict.poweredBy}</span>
+        <Link prefetch={false} href={FAIR_PRIVACY_PATH} className="fair-dev-entry">{dict.privacyLink}</Link>
         {selection ? (
           <Link
             href={showDevPanel ? routePath : `${routePath}?dev=1#fair-dev`}

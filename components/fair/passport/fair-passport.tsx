@@ -10,6 +10,7 @@ import type {
   FairPassportState,
   FairPublicModel,
 } from "@/lib/fair-contract";
+import { FAIR_PRIVACY_PATH } from "@/lib/fair-contract";
 import { fairHaptic } from "@/lib/fair-client/haptics";
 import {
   FAIR_PASSPORT_VISIT_CHANGE_EVENT,
@@ -39,6 +40,7 @@ import { NewStampCard } from "./new-stamp-card";
 import { PassportFinale } from "./passport-finale";
 import { PassportSeal, passportBrandSealTexts, passportEventSealTexts } from "./passport-seal";
 import { PassportUnlockCard } from "./passport-unlock-card";
+import { FAIR_PUBLIC_MAP_ENABLED } from "@/lib/fair-contract";
 
 type EventView = {
   id: string;
@@ -635,7 +637,7 @@ function PassportDetail({
               {!collected ? (
                 <span className={styles.lockState}><LockKeyhole aria-hidden="true" /></span>
               ) : null}
-              {!collected ? <span className={styles.mapHint}><MapPin aria-hidden="true" />{dict.findOnMap}</span> : null}
+              {!collected && FAIR_PUBLIC_MAP_ENABLED ? <span className={styles.mapHint}><MapPin aria-hidden="true" />{dict.findOnMap}</span> : null}
             </>
           );
           return collected ? (
@@ -644,6 +646,15 @@ function PassportDetail({
               className={`${styles.modelCard} ${styles.modelCardCollected}`}
               data-passport-model={passportModel.eventModelId}
               aria-label={fmt(dict.modelUnlockedAria, { model: modelName })}
+            >
+              {content}
+            </article>
+          ) : !FAIR_PUBLIC_MAP_ENABLED ? (
+            <article
+              key={passportModel.eventModelId}
+              className={`${styles.modelCard} ${styles.modelCardLocked}`}
+              data-passport-model={passportModel.eventModelId}
+              aria-label={fmt(dict.modelLockedAriaNoMap, { model: modelName })}
             >
               {content}
             </article>
@@ -952,9 +963,10 @@ export function FairPassportExperience({
       ) : (
         <Overview event={event} state={state} unread={unread} dict={dict} />
       )}
-      {showDevEntry ? (
-        <footer className="fair-footer">
-          <span>{dict.poweredBy}</span>
+      <footer className="fair-footer">
+        <span>{dict.poweredBy}</span>
+        <Link prefetch={false} href={FAIR_PRIVACY_PATH} className="fair-dev-entry">{dict.privacyLink}</Link>
+        {showDevEntry ? (
           <Link
             href={devTools ? `/sajam/${event.publicSlug}/pasosi${selected ? `/${fairPassportBrandSlug(selected.brandName)}` : ""}` : `?dev=1#fair-dev`}
             scroll={false}
@@ -962,8 +974,8 @@ export function FairPassportExperience({
           >
             {dict.devLink}
           </Link>
-        </footer>
-      ) : null}
+        ) : null}
+      </footer>
       {devTools && selected ? (
         <PassportDevPanel
           event={event}

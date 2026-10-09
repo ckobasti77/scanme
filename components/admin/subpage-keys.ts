@@ -20,12 +20,12 @@ export const SUBPAGE_SERVICE_TYPE = {
   links: "scanme_links",
   review: "google_review",
   venue: "scanme_venue",
-  menu: "scanme_menu",
-} as const satisfies Record<SubpageKey, string>;
+} as const satisfies Record<Exclude<SubpageKey, "menu">, string>;
 
 export function activeSubpageProfile<
   T extends { id: string; type: string; active: boolean },
 >(kind: SubpageKey, services: readonly T[]) {
+  if (kind === "menu") return undefined;
   return services.find(
     (service) =>
       service.type === SUBPAGE_SERVICE_TYPE[kind] && service.active,

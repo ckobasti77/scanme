@@ -148,8 +148,13 @@ export const FAIR_MAP_ROTATION_INTERVAL_MS = 12_000;
 export const FAIR_GARAGE_ROTATION_INTERVAL_MS = 8_000;
 export const FAIR_SHARE_COLLECTION_MAX_MODELS = 5;
 export const FAIR_SHARE_CODE_PATTERN = /^[A-Za-z0-9_-]{24}$/;
-/** Survey has at most five questions (MASTER §9.2). */
-export const FAIR_SURVEY_MAX_QUESTIONS = 5;
+/**
+ * Survey size. Owner decision 9 Oct 2026: the admin allows up to 10 questions
+ * of up to 6 answers each; exhibitors are still told "5" (MASTER §9.2) and more
+ * is agreed case by case. Glas publike keeps 2–5 answers.
+ */
+export const FAIR_SURVEY_MAX_QUESTIONS = 10;
+export const FAIR_SURVEY_OPTIONS_MAX = 6;
 /** Audience question options: at least 2 (HANDOFF §5.3), at most 5 (DATA-INTAKE §6.5). */
 export const FAIR_AUDIENCE_OPTIONS_MIN = 2;
 export const FAIR_AUDIENCE_OPTIONS_MAX = 5;
@@ -1058,6 +1063,10 @@ export const FAIR_ADMIN_ISSUE_CODES = [
   "FAIR_REPORT_EXPORT_TOO_LARGE",
   // K4 — a manual build before the day's close (fairEventDays.endsAt) is refused
   "FAIR_DAY_NOT_CLOSED",
+  // JOVAN-DELTA 2026-10-08b — "Resetuj pre-event podatke": the typed
+  // confirmation is missing, or the data changed since the dry run
+  "FAIR_PRE_EVENT_RESET_CONFIRM",
+  "FAIR_PRE_EVENT_RESET_STALE",
   // Warnings
   "FAIR_PRICE_MISSING",
   "FAIR_PHOTO_MISSING",
@@ -1081,6 +1090,9 @@ export function fairModelPath(eventSlug: string, modelSlug: string): string {
 }
 
 /** N1 — where `/r/[cardCode]` sends a signed-in admin who scans an unlinked or unpublished sticker („Poveži nalepnicu“). */
+/** The fair app privacy page, linked from the fair footers and every consent text. */
+export const FAIR_PRIVACY_PATH = "/sajam/privatnost";
+
 export function fairAdminLinkPath(eventSlug: string, cardCode: string): string {
   return `/admin/dogadjaji/${encodeURIComponent(eventSlug)}/povezi?kod=${encodeURIComponent(cardCode)}`;
 }
@@ -1170,3 +1182,12 @@ export function sortFairDashboardActions<T extends Pick<FairDashboardAction, "ru
     || b.count - a.count
     || ruleIndex(a.rule) - ruleIndex(b.rule));
 }
+
+/**
+ * Owner decision 9 Oct 2026: the public fair map is hidden in production
+ * until it is fixed (wrong data). The map URL forwards to the garage (so the
+ * entrance panel QR, which opens the map URL, lands in the garage), the nav
+ * shows only Pasoši and Garaža, and no page links to the map. No "coming
+ * soon" text anywhere. Flip to `true` to bring the map back.
+ */
+export const FAIR_PUBLIC_MAP_ENABLED = false;

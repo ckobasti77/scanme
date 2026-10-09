@@ -1,0 +1,33 @@
+import type { FairPrivacyDict } from "../types";
+
+// /sajam/privatnost — the fair app's privacy page, in plain language.
+export const fairPrivacySr = {
+  metaTitle: "Privatnost na sajmu | ScanMe",
+  metaDescription: "Koje podatke koristi aplikacija sajma, zašto, koliko ih čuvamo i kako da ih obrišete.",
+  brand: "ScanMe · Sajam automobila",
+  title: "Privatnost na sajmu",
+  intro: "Aplikacija sajma radi bez naloga. Ovde ukratko piše koje podatke koristimo, zašto i kako možete da ih vidite ili obrišete.",
+  whoTitle: "Ko je odgovoran",
+  whoBody: "Za aplikaciju sajma odgovoran je Aleksa Đorđević (ScanMe). Za sva pitanja o vašim podacima pišite na",
+  email: "aleksa.djordjevic@scanme.rs",
+  collectTitle: "Šta prikupljamo",
+  collectDevice: "Anonimni ID uređaja (kolačić). Po njemu aplikacija prepoznaje vaš telefon za garažu, pasoš, ocene i glasove. U njemu nema vašeg imena ni broja telefona.",
+  collectScans: "Skenove QR kodova: koji model je skeniran i kada.",
+  collectAnswers: "Ocene, glasove i odgovore na ankete.",
+  collectContact: "Ime, e-poštu i telefon, samo kada ih sami pošaljete u formi.",
+  whyTitle: "Zašto",
+  whyNoAccount: "Da aplikacija sajma radi bez naloga i lozinke.",
+  whyStats: "Da izlagači dobiju anonimnu statistiku, na primer koliko ljudi je skeniralo ili ocenilo model. Iz nje se ne vidi ko ste.",
+  whyContact: "Samo uz vašu saglasnost: da vaše kontakt podatke prosledimo izlagaču koga ste izabrali.",
+  contactTitle: "Kome idu vaši kontakt podaci",
+  contactBody: "Samo izlagaču čiji model ste izabrali u formi. On vas kontaktira u vezi sa tim modelom i od tada je on odgovoran za to kako koristi vaše podatke.",
+  processorsTitle: "Ko obrađuje podatke za nas",
+  processorsBody: "Hosting i baza podataka: Vercel i Convex. Slanje e-pošte: Resend. Ovi servisi rade po našem nalogu i podatke mogu da obrađuju i van Srbije.",
+  retentionTitle: "Koliko čuvamo podatke",
+  retentionBody: "Podatke sa sajma brišemo posle sajma, najkasnije {date} Posle toga ostaje samo anonimna statistika, bez ličnih podataka.",
+  rightsTitle: "Vaša prava",
+  rightsBody: "Možete da tražite uvid u svoje podatke, njihovu ispravku ili brisanje, i da povučete saglasnost u svakom trenutku. Dovoljno je da pišete na",
+  complaintBody: "Ako mislite da su vaša prava povređena, možete da podnesete pritužbu Povereniku za informacije od javnog značaja i zaštitu podataka o ličnosti.",
+  updated: "Poslednja izmena: 9. oktobar 2026.",
+  back: "Nazad na sajam",
+} as const satisfies FairPrivacyDict;

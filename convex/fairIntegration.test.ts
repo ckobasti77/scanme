@@ -125,6 +125,18 @@ describe("B7 integration TEST seed (8 Oct 2026)", () => {
     rateLimiterTest.register(t);
     await t.run((ctx) => ctx.db.insert("users", { email: ADMIN_EMAIL }));
     await t.mutation(internal.fairDevFixtures.seedTestCatalog, {});
+    // Since the pre-event access change (JOVAN-DELTA 2026-10-08b) an import clamps a
+    // future package_active_from to now; this rebuilds a catalog imported before it.
+    await t.run(async (ctx) => {
+      for (const model of await ctx.db.query("fairEventModels").collect()) {
+        if (model.packageTier === "included") continue;
+        const at = Date.parse(model.externalKey.startsWith("test-em26-") ? "2026-10-09T09:00:00+02:00" : "2026-10-30T09:00:00+01:00");
+        await ctx.db.patch(model._id, { packageActivatedAt: at });
+        for (const row of await ctx.db.query("fairPackageActivations").withIndex("by_eventModelId_and_activatedAt", (q) => q.eq("eventModelId", model._id)).collect()) {
+          await ctx.db.patch(row._id, { activatedAt: at });
+        }
+      }
+    });
     const seed = await t.mutation(internal.fairDevFixtures.seedIntegrationTest, {});
     expect(seed.catalog.events.updated).toBe(1);
     expect(seed.rehearsal.activationsMoved).toBe(4); // EM: 2 Advanced + 2 Starter
@@ -212,9 +224,10 @@ describe("B7 end to end on the TEST seed", () => {
     expect(await f.t.query(api.fairPublic.getSponsoredGarageRotation, { eventSlug: EM })).toMatchObject({ surface: "garage", intervalMs: 8000 });
     expect(await f.t.mutation(api.fairInteractions.recordSponsoredAction, { gatewaySecret: GATEWAY_SECRET, visitorHash: me, eventModelId: omZ1._id, surface: "garage", kind: "open_model", requestId: requestId() })).toMatchObject({ duplicate: false });
 
-    // The future second fair is seeded and readable; its paid features start with its package (30 Oct).
+    // The future second fair is seeded and readable; pre-event access (JOVAN-DELTA
+    // 2026-10-08b): its package is in force from the import, not from 30 Oct.
     expect(await f.t.query(api.fairPublic.getEventBySlug, { slug: AMF })).toMatchObject({ slug: AMF });
-    await expect(f.t.mutation(api.fairInteractions.upsertRating, { gatewaySecret: GATEWAY_SECRET, visitorHash: me, eventModelId: amfOm._id, appearance: 5 })).rejects.toMatchObject({ data: { code: "FEATURE_NOT_ENTITLED" } });
+    expect(amfOm.packageActivatedAt).toBeLessThanOrEqual(Date.now());
 
     // 8. Daily dataset of the rehearsal day, per exhibitor, without mixing them.
     vi.setSystemTime(REHEARSAL_END + 15 * 60_000);

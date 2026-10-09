@@ -415,10 +415,14 @@ describe("survey (HANDOFF §5.3; MASTER §9.2)", () => {
   const submit = (f: Fixture, visitorHash: string, surveyId: string, submissionId: string, answers: Array<{ questionId: string; value: string }>) =>
     f.t.mutation(api.fairInteractions.submitSurvey, { gatewaySecret: GATEWAY_SECRET, visitorHash, surveyId, submissionId, answers });
 
-  test("Advanced only, at most 5 yes_no/single_choice questions; yes_no carries no options", async () => {
+  test("Advanced only, at most 10 yes_no/single_choice questions of up to 6 answers; yes_no carries no options", async () => {
     const f = await setup();
-    const six = [1, 2, 3, 4, 5, 6].map((n) => yesNo(`q${n}`, n));
-    await expectCode(f.admin.mutation(api.fairInteractionsAdmin.upsertSurveyDraft, { eventModelId: f.advanced.id, questions: six }), "FAIR_SURVEY_INVALID");
+    // Owner 9 Oct 2026: the admin allows 10 questions and 6 answers (exhibitors are told 5).
+    const eleven = Array.from({ length: 11 }, (_, i) => yesNo(`q${i + 1}`, i + 1));
+    await expectCode(f.admin.mutation(api.fairInteractionsAdmin.upsertSurveyDraft, { eventModelId: f.advanced.id, questions: eleven }), "FAIR_SURVEY_INVALID");
+    await expectCode(f.admin.mutation(api.fairInteractionsAdmin.upsertSurveyDraft, { eventModelId: f.advanced.id, questions: [{ ...choice("q1", 1), options: options("a", "b", "c", "d", "e", "f", "g") }] }), "FAIR_SURVEY_INVALID");
+    expect(await f.admin.mutation(api.fairInteractionsAdmin.upsertSurveyDraft, { eventModelId: f.advanced.id, questions: [...eleven.slice(0, 9), { ...choice("q10", 10), options: options("a", "b", "c", "d", "e", "f") }] })).toMatchObject({ result: "created" });
+    await f.t.run(async (ctx) => { for (const row of await ctx.db.query("fairSurveys").collect()) await ctx.db.delete(row._id); });
     await expectCode(f.admin.mutation(api.fairInteractionsAdmin.upsertSurveyDraft, { eventModelId: f.advanced.id, questions: [] }), "FAIR_SURVEY_INVALID");
     await expectCode(f.admin.mutation(api.fairInteractionsAdmin.upsertSurveyDraft, { eventModelId: f.advanced.id, questions: [{ ...yesNo("q1", 1), options: options("a", "b") }] }), "FAIR_SURVEY_INVALID");
     await expectCode(f.admin.mutation(api.fairInteractionsAdmin.upsertSurveyDraft, { eventModelId: f.advanced.id, questions: [{ ...choice("q1", 1), options: options("a") }] }), "FAIR_SURVEY_INVALID");
@@ -482,15 +486,14 @@ describe("brand passport (HANDOFF §5.5; MASTER §11; JOVAN-DELTA §3)", () => {
   const favorite = (f: Fixture, visitorHash: string, passportId: string, eventModelId: string) =>
     f.t.mutation(api.fairInteractions.upsertBrandFavorite, { gatewaySecret: GATEWAY_SECRET, visitorHash, passportId, eventModelId });
 
-  test("publish needs ≥2 exhibited models, all published Starter+ candidates, and must happen before opening", async () => {
+  test("publish needs ≥2 exhibited models, all published Starter+ candidates, and also works after the opening", async () => {
     const f = await setup();
     expect(await f.admin.mutation(api.fairInteractionsAdmin.upsertPassport, { eventId: f.eventId, brandId: f.brands.om })).toMatchObject({ result: "created", problem: "model_below_starter" });
     await expectCode(publish(f, await open(f, f.brands.om)), "FAIR_PASSPORT_NOT_ELIGIBLE");
     await expectCode(publish(f, await open(f, f.brands.solo)), "FAIR_PASSPORT_NOT_ELIGIBLE");
     const volta = await open(f, f.brands.volta);
+    // Pre-event access (JOVAN-DELTA 2026-10-08b): no opening gate on publish.
     vi.setSystemTime(DAY1);
-    await expectCode(publish(f, volta), "FAIR_PASSPORT_EVENT_STARTED");
-    vi.setSystemTime(BEFORE_OPENING);
     expect(await publish(f, volta)).toEqual({ status: "published", requiredModelIds: [f.starter.id, f.advanced.id] });
     // Frozen: a model added later is not part of the set.
     await f.model("test-volta-x3", f.brands.volta, "starter");

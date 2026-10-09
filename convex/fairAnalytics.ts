@@ -17,6 +17,7 @@ import {
   fairWindowHourKeys,
   type FairReportModelRaw,
 } from "./lib/fairReportDataset";
+import { fairAnalyticsCutoff, fairDayCountFrom } from "./lib/fairPreEvent";
 
 // =============================================================================
 // Sajam automobila 2026 — B6 analytics reads (BACKEND-HANDOFF §7
@@ -118,13 +119,21 @@ export const reportContext = internalQuery({
     const previous = days.filter((row) => row.sortOrder < day.sortOrder).at(-1) ?? null;
     const { stands, models, truncated } = await fairParticipationModels(ctx, participation);
     const standRows = [];
+    // Stand totals are the sum of the fair days from the analytics cutoff on,
+    // so pre-event scans never reach an exhibitor report (JOVAN-DELTA 2026-10-08b).
+    const cutoff = fairAnalyticsCutoff(event);
+    const fairDays = async (metric: "scan_total" | "scan_unique", standId: Id<"fairStands">) => {
+      let total = 0;
+      for (const row of days) total += await fairDayCountFrom(ctx, fairScanCountKey(metric, "stand", standId), row, cutoff);
+      return total;
+    };
     for (const stand of stands) {
       standRows.push({
         standId: stand._id,
         code: stand.code,
         displayName: stand.displayName,
-        total: await readFairCount(ctx, fairScanCountKey("scan_total", "stand", stand._id)),
-        unique: await readFairCount(ctx, fairScanCountKey("scan_unique", "stand", stand._id)),
+        total: await fairDays("scan_total", stand._id),
+        unique: await fairDays("scan_unique", stand._id),
       });
     }
     return {
@@ -145,6 +154,8 @@ async function leadCounts(ctx: QueryCtx, eventModelId: Id<"fairEventModels">, st
   const rows = await ctx.db
     .query("fairLeads")
     .withIndex("by_eventModelId_and_createdAt", (q) => q.eq("eventModelId", eventModelId).gte("createdAt", start).lt("createdAt", end))
+    // Admin-session test leads never reach a report (JOVAN-DELTA 2026-10-09).
+    .filter((q) => q.neq(q.field("isAdminExcluded"), true))
     .take(FAIR_REPORT_ROWS_CAP + 1);
   const capped = rows.length > FAIR_REPORT_ROWS_CAP;
   const counted = rows.slice(0, FAIR_REPORT_ROWS_CAP);
@@ -154,17 +165,21 @@ async function leadCounts(ctx: QueryCtx, eventModelId: Id<"fairEventModels">, st
   };
 }
 
-async function dayScans(ctx: QueryCtx, eventModelId: Id<"fairEventModels">, dateKey: string) {
+// One fair day from the analytics cutoff on (JOVAN-DELTA 2026-10-08b): the
+// night before the hall opens is pre-event even when it is a fair day.
+type CountedDay = Pick<Doc<"fairEventDays">, "dateKey" | "startsAt" | "endsAt">;
+
+async function dayScans(ctx: QueryCtx, eventModelId: Id<"fairEventModels">, day: CountedDay, cutoff: number) {
   return {
-    total: await readFairCount(ctx, fairScanCountKey("scan_total", "model", eventModelId, dateKey)),
-    unique: await readFairCount(ctx, fairScanCountKey("scan_unique", "model", eventModelId, dateKey)),
+    total: await fairDayCountFrom(ctx, fairScanCountKey("scan_total", "model", eventModelId), day, cutoff),
+    unique: await fairDayCountFrom(ctx, fairScanCountKey("scan_unique", "model", eventModelId), day, cutoff),
   };
 }
 
-async function daySponsored(ctx: QueryCtx, eventModelId: Id<"fairEventModels">, dateKey: string) {
+async function daySponsored(ctx: QueryCtx, eventModelId: Id<"fairEventModels">, day: CountedDay, cutoff: number) {
   return {
-    openModel: await readFairCount(ctx, `sponsored_open_model:model:${eventModelId}:${dateKey}`),
-    garageAdd: await readFairCount(ctx, `sponsored_garage_add:model:${eventModelId}:${dateKey}`),
+    openModel: await fairDayCountFrom(ctx, `sponsored_open_model:model:${eventModelId}`, day, cutoff),
+    garageAdd: await fairDayCountFrom(ctx, `sponsored_garage_add:model:${eventModelId}`, day, cutoff),
   };
 }
 
@@ -175,6 +190,7 @@ async function surveyAggregates(ctx: QueryCtx, eventModelId: Id<"fairEventModels
     const responses = await ctx.db
       .query("fairSurveyResponses")
       .withIndex("by_surveyId_and_submittedAt", (q) => q.eq("surveyId", survey._id).gte("submittedAt", start).lt("submittedAt", end))
+      .filter((q) => q.neq(q.field("isAdminExcluded"), true))
       .take(FAIR_REPORT_ROWS_CAP + 1);
     if (!responses.length && survey.status !== "published") continue;
     const counted = responses.slice(0, FAIR_REPORT_ROWS_CAP);
@@ -231,6 +247,10 @@ export const modelDayRaw = internalQuery({
     if (!day || day.eventId !== model.eventId) return null;
     const tier = await fairModelTierAt(ctx, model, day.endsAt - 1);
     const metrics = fairReportMetrics(tier);
+    const event = await ctx.db.get(model.eventId);
+    const cutoff = event ? fairAnalyticsCutoff(event) : day.startsAt;
+    // Windows of row-based numbers start at the cutoff on the day it falls in.
+    const from = (row: CountedDay) => Math.max(row.startsAt, cutoff);
     const wants = (metric: FairReportMetric, list: readonly FairReportMetric[] = metrics) => list.includes(metric);
 
     const raw: FairReportModelRaw = {
@@ -241,10 +261,10 @@ export const modelDayRaw = internalQuery({
       sortOrder: model.sortOrder,
       tier,
     };
-    if (wants("model_scans")) raw.scans = await dayScans(ctx, model._id, day.dateKey);
+    if (wants("model_scans")) raw.scans = await dayScans(ctx, model._id, day, cutoff);
     if (wants("hourly_scans")) {
       raw.hourly = [];
-      for (const hourKey of fairWindowHourKeys(day.startsAt, day.endsAt)) {
+      for (const hourKey of fairWindowHourKeys(from(day), day.endsAt)) {
         raw.hourly.push({
           hourKey,
           total: await readFairCount(ctx, fairScanCountKey("scan_total", "model", model._id, hourKey)),
@@ -253,7 +273,7 @@ export const modelDayRaw = internalQuery({
       }
     }
     if (wants("interest") || wants("test_drive")) {
-      const leads = await leadCounts(ctx, model._id, day.startsAt, day.endsAt);
+      const leads = await leadCounts(ctx, model._id, from(day), day.endsAt);
       if (wants("interest")) raw.interest = leads.interest;
       if (wants("test_drive")) raw.testDrive = leads.testDrive;
     }
@@ -277,8 +297,8 @@ export const modelDayRaw = internalQuery({
         });
       }
     }
-    if (wants("survey")) raw.surveys = await surveyAggregates(ctx, model._id, day.startsAt, day.endsAt);
-    if (wants("sponsored_garage")) raw.sponsored = await daySponsored(ctx, model._id, day.dateKey);
+    if (wants("survey")) raw.surveys = await surveyAggregates(ctx, model._id, from(day), day.endsAt);
+    if (wants("sponsored_garage")) raw.sponsored = await daySponsored(ctx, model._id, day, cutoff);
 
     if (args.previousEventDayId && wants("day_comparison")) {
       const previousDay = await ctx.db.get(args.previousEventDayId);
@@ -286,13 +306,13 @@ export const modelDayRaw = internalQuery({
         const previousTier = await fairModelTierAt(ctx, model, previousDay.endsAt - 1);
         const before = fairReportMetrics(previousTier);
         const previous: NonNullable<FairReportModelRaw["previous"]> = { tier: previousTier };
-        if (wants("model_scans", before)) previous.scans = await dayScans(ctx, model._id, previousDay.dateKey);
+        if (wants("model_scans", before)) previous.scans = await dayScans(ctx, model._id, previousDay, cutoff);
         if (wants("interest", before) || wants("test_drive", before)) {
-          const leads = await leadCounts(ctx, model._id, previousDay.startsAt, previousDay.endsAt);
+          const leads = await leadCounts(ctx, model._id, from(previousDay), previousDay.endsAt);
           if (wants("interest", before)) previous.interest = leads.interest;
           if (wants("test_drive", before)) previous.testDrive = leads.testDrive;
         }
-        if (wants("sponsored_garage", before)) previous.sponsored = await daySponsored(ctx, model._id, previousDay.dateKey);
+        if (wants("sponsored_garage", before)) previous.sponsored = await daySponsored(ctx, model._id, previousDay, cutoff);
         raw.previous = previous;
       }
     }
@@ -368,6 +388,7 @@ export const organizerParticipationLeads = internalQuery({
       const rows = await ctx.db
         .query("fairLeads")
         .withIndex("by_participationId_and_createdAt", (q) => q.eq("participationId", args.participationId).gte("createdAt", window.start).lt("createdAt", window.end))
+        .filter((q) => q.neq(q.field("isAdminExcluded"), true))
         .take(FAIR_REPORT_ROWS_CAP);
       out.push({ interest: rows.filter((row) => row.kind === "interest").length, testDrive: rows.filter((row) => row.kind === "test_drive").length });
     }

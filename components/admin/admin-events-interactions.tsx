@@ -49,6 +49,8 @@ export type InteractionQuestion = {
   status: FairAudienceQuestionStatus;
   sortOrder: number;
   showOnSponsoredRotation: boolean;
+  /** When voting opens (the fair day by default); "Otvori odmah" moves it to now. */
+  startsAt?: number;
 };
 export type InteractionSurvey = { id: string; modelId: string; version: number; status: FairSurveyStatus; title?: string; questions: StoredSurveyQuestion[] };
 export type InteractionsView = {
@@ -64,6 +66,8 @@ export type InteractionsActions = {
   /** `questionId` edits that draft; without it a new draft is created. */
   saveQuestion: (input: { questionId?: string; modelId: string; dayId: string; prompt: string; options: { id: string; label: string; order: number }[]; sortOrder: number }) => Promise<InteractionOutcome>;
   publishQuestion: (questionId: string) => Promise<InteractionOutcome>;
+  /** Publishes (a draft) and opens the question from now, also before its fair day. */
+  openQuestionNow?: (questionId: string) => Promise<InteractionOutcome>;
   closeQuestion: (questionId: string) => Promise<InteractionOutcome>;
   setSponsoredResult: (modelId: string, questionId: string | null) => Promise<InteractionOutcome>;
   /** Edits the model's one draft version or opens the next version (upsertSurveyDraft). */

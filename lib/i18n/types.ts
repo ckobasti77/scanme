@@ -203,18 +203,17 @@ export interface FairModelDict {
   garageNav: string;
   garageCountAria: string;
   modelPhotoAlt: string;
-  allSpecifications: string;
-  audienceTitle: string;
   audienceBody: string;
   rateModel: string;
   submitInterest: string;
   requestTestDrive: string;
   saveToGarage: string;
-  savedToGarage: string;
   garageStorageError: string;
   deferredFlowMessage: string;
   poweredBy: string;
   devLink: string;
+  privacyLink: string;
+  consentPrivacyLink: string;
   devPanelTitle: string;
   devModeLabel: string;
   devPhotoLabel: string;
@@ -249,14 +248,12 @@ export interface FairModelDict {
   fixtureOneQuestion: string;
   fixtureFiveQuestions: string;
   closeSheet: string;
-  ratingSheetTitle: string;
   overallRatingLabel: string;
   ratingValueAria: string;
   designRatingLabel: string;
   specificationsRatingLabel: string;
   priceRatingLabel: string;
   saveRating: string;
-  saveRatings: string;
   interestSheetTitle: string;
   testDriveSheetTitle: string;
   fullNameLabel: string;
@@ -323,9 +320,7 @@ export interface FairModelDict {
   /** DEV preview page of the form states (/dev/sajam-forma). */
   leadPreviewTitle: string;
   // P3 (Aleksa, 5532038) — the model page actions on the real API, survey bubble, shared contact block.
-  ratingSaving: string;
   ratingSaved: string;
-  ratingsSaved: string;
   actionRetry: string;
   errorGeneric: string;
   errorRateLimited: string;
@@ -398,6 +393,36 @@ export interface FairModelDict {
   surveySentToast: string;
   surveyContactFailedToast: string;
   surveyAlreadySent: string;
+  // Model page v2 (prototype stranica-modela-v2).
+  priceLabel: string;
+  priceOnRequest: string;
+  standChipAria: string;
+  keySpecsAria: string;
+  keySpecRange: string;
+  keySpecBattery: string;
+  keySpecPower: string;
+  keySpecCharging: string;
+  keySpecSpeed: string;
+  keySpecAcceleration: string;
+  keySpecTorque: string;
+  specsToggle: string;
+  specsToggleWithDescription: string;
+  specsGroupDrivetrain: string;
+  specsGroupPerformance: string;
+  specsDescription: string;
+  audienceCardEyebrow: string;
+  ratingSheetModelTitle: string;
+  ratingDone: string;
+  ratingSummaryAppearance: string;
+  ratingSummarySpecifications: string;
+  ratingSummaryPrice: string;
+  ratingSummaryEmpty: string;
+  garageSavedState: string;
+  openGarage: string;
+  surveyAnonTitle: string;
+  surveyAnonBody: string;
+  surveyAnonAddContact: string;
+  surveyAnonSend: string;
 }
 
 export interface FairGarageDict {
@@ -423,7 +448,6 @@ export interface FairGarageDict {
   compareCount: string;
   compareAction: string;
   compareLimit: string;
-  compareHintLongPress: string;
   selectionCount: string;
   selectionClose: string;
   selectionShare: string;
@@ -461,6 +485,8 @@ export interface FairGarageDict {
   emptyTitle: string;
   emptyBody: string;
   emptyAction: string;
+  /** 9 Oct 2026: while the public map is hidden. */
+  emptyBodyNoMap: string;
   refreshError: string;
   offlineNotice: string;
   retry: string;
@@ -483,6 +509,10 @@ export interface FairGarageDict {
   savedBadgesTitle: string;
   favoriteLabel: string;
   sponsoredLabel: string;
+  /** Visible tag on the garage recommendation dock (model page v2). */
+  sponsoredTag: string;
+  /** Parking-bay label on a garage photo: "MESTO 01". */
+  bayLabel: string;
   sponsoredView: string;
   sponsoredAdd: string;
   sponsoredAdding: string;
@@ -501,7 +531,111 @@ export interface FairGarageDict {
   noSpecification: string;
   modelPhotoAlt: string;
   poweredBy: string;
-  devLink: string;
+  privacyLink: string;
+}
+
+/** Admin DEV tools on the public fair pages (JOVAN-DELTA 2026-10-09). */
+export interface FairAdminDevDict {
+  bar: string;
+  tab: string;
+  tabAria: string;
+  title: string;
+  chip: string;
+  note: string;
+  close: string;
+  previewTitle: string;
+  previewFree: string;
+  previewStarter: string;
+  previewAdvanced: string;
+  previewReal: string;
+  previewRealName: string;
+  previewToast: string;
+  passportTitle: string;
+  stampModel: string;
+  pickBrand: string;
+  pickStampModel: string;
+  pickScanModel: string;
+  stateBrand: string;
+  stampBrand: string;
+  relock: string;
+  finale: string;
+  newStamp: string;
+  resetPassport: string;
+  garageTitle: string;
+  garageFill: string;
+  garageEmpty: string;
+  surveyTitle: string;
+  bubble: string;
+  clearAnswers: string;
+  forgetContact: string;
+  openAudience: string;
+  qrTitle: string;
+  simulateScan: string;
+  linkSticker: string;
+  stateTitle: string;
+  stateEvent: string;
+  stateModel: string;
+  statePackage: string;
+  stateView: string;
+  stateVisitor: string;
+  stateInternal: string;
+  stateYes: string;
+  stateDatabase: string;
+  stateBuild: string;
+  stateNone: string;
+  stateLocalBuild: string;
+  resetAll: string;
+  resetAllConfirm: string;
+  toastStampModel: string;
+  toastStampBrand: string;
+  toastRelock: string;
+  toastFinale: string;
+  toastNewStamp: string;
+  toastResetPassport: string;
+  toastGarageFill: string;
+  toastGarageEmpty: string;
+  toastBubble: string;
+  toastClearAnswers: string;
+  toastForgetContact: string;
+  toastOpenAudience: string;
+  toastNoQuestion: string;
+  toastSimulateScan: string;
+  toastLinkSticker: string;
+  toastResetAll: string;
+  toastFailed: string;
+  working: string;
+}
+
+/** /sajam/privatnost. */
+export interface FairPrivacyDict {
+  metaTitle: string;
+  metaDescription: string;
+  brand: string;
+  title: string;
+  intro: string;
+  whoTitle: string;
+  whoBody: string;
+  email: string;
+  collectTitle: string;
+  collectDevice: string;
+  collectScans: string;
+  collectAnswers: string;
+  collectContact: string;
+  whyTitle: string;
+  whyNoAccount: string;
+  whyStats: string;
+  whyContact: string;
+  contactTitle: string;
+  contactBody: string;
+  processorsTitle: string;
+  processorsBody: string;
+  retentionTitle: string;
+  retentionBody: string;
+  rightsTitle: string;
+  rightsBody: string;
+  complaintBody: string;
+  updated: string;
+  back: string;
 }
 
 export interface FairPassportDict {
@@ -523,6 +657,8 @@ export interface FairPassportDict {
   backToPassports: string;
   modelUnlockedAria: string;
   modelLockedAria: string;
+  /** 9 Oct 2026: while the public map is hidden. */
+  modelLockedAriaNoMap: string;
   findOnMap: string;
   revealStatus: string;
   completedTitle: string;
@@ -533,6 +669,7 @@ export interface FairPassportDict {
   favoriteError: string;
   poweredBy: string;
   devLink: string;
+  privacyLink: string;
   devPanelTitle: string;
   devStampGroup: string;
   devAddStamp: string;
@@ -2828,11 +2965,10 @@ export interface AdminV1Dict {
   navDashboard: string;
   navClients: string;
   navInbox: string;
-  /** Admin UX Z1 — Pošta (each admin's own Zoho mailbox). */
-  navMail: string;
   navTasks: string;
   navOperations: string;
   navServices: string;
+  /** Sajam 2026 B1A — admin `Događaji` tab. */
   navEvents: string;
   navFinance: string;
   navTeam: string;
@@ -3065,15 +3201,6 @@ export interface AdminV1Dict {
   clientProfileContactPhone: string;
   clientProfileSaveContact: string;
   clientProfileCancel: string;
-  clientProfileWebsite: string;
-  clientProfileWebsiteEmpty: string;
-  clientProfileWebsiteAdd: string;
-  clientProfileWebsiteEdit: string;
-  clientProfileWebsiteSave: string;
-  clientProfileWebsiteOpen: string;
-  clientProfileWebsitePlaceholder: string;
-  clientProfileWebsiteInvalid: string;
-  clientProfileWebsiteError: string;
   clientProfileConfirmDeactivate: string;
   clientProfileContactRequired: string;
   clientProfileContactInvalidEmail: string;
@@ -3113,8 +3240,6 @@ export interface AdminV1Dict {
   clientProfileStartsAt: string;
   clientProfileNoSubscription: string;
   clientProfileProductsAtVenue: string;
-  clientProfileColVenue: string;
-  clientProfileColProducts: string;
   clientProfileProductsSummary: string;
   clientProfileProductsBody: string;
   clientProfileFinanceEmptyTitle: string;
@@ -3154,7 +3279,7 @@ export interface AdminSettingsDict {
   bankTransfer: string; supported: string; card: string; unavailable: string; cash: string; notConfigured: string; paymentNote: string;
   foundation: string; configured: string; inbound: string; needsConfiguration: string; notConnected: string; communicationNote: string;
   premiumReference: string; temporary: string; monthly: string; futurePrice: string; amount: string; validFrom: string; validUntil: string; reason: string; reasonPlaceholder: string; save: string; cancel: string; unsaved: string; saved: string; priceNote: string; agreementNote: string;
-  referralNote: string; agreements: string; agreementAccount: string; agreementTarget: string; agreementKind: string; agreementReference: string; agreementPrice: string; agreementCreate: string; agreementEmpty: string; referralRegister: string; referrer: string; referred: string; referralEmpty: string; chooseAccount: string; chooseTarget: string; founders: string; enterprise: string; individual: string; standard: string; pending: string; qualified: string; rewarded: string; cancelled: string; friendWaiver: string; friendTag: string; friendWaiverCreate: string; friendWaiverNote: string; leaveDraftTitle: string; leaveDraftBody: string; leaveDraftStay: string; leaveDraftLeave: string; loading: string; error: string; invalidAmount: string; invalidDate: string; invalidReason: string; conflict: string; saveFailed: string; annual: string; serviceSubscription: string; from: string; until: string; lifetime: string; foundersNote: string; chooseFriend: string; invalidAgreement: string; agreementSaved: string; invalidWaiver: string; waiverSaved: string; invalidReferral: string; referralSaved: string; rewardAgreement: string; rewardNote: string; chooseReferral: string; rewardType: string; percentage: string; fixedAmount: string; basisPoints: string; invalidReward: string; rewardCreate: string; rewardSaved: string; colValidity: string; colPeriod: string; colStatus: string; previewBadge: string; previewDescription: string;
+  referralNote: string; agreements: string; agreementAccount: string; agreementTarget: string; agreementKind: string; agreementReference: string; agreementPrice: string; agreementCreate: string; agreementEmpty: string; referralRegister: string; referrer: string; referred: string; referralEmpty: string; chooseAccount: string; chooseTarget: string; founders: string; enterprise: string; individual: string; standard: string; pending: string; qualified: string; rewarded: string; cancelled: string; friendWaiver: string; friendTag: string; friendWaiverCreate: string; friendWaiverNote: string; leaveDraftTitle: string; leaveDraftBody: string; leaveDraftStay: string; leaveDraftLeave: string; loading: string; error: string; invalidAmount: string; invalidDate: string; invalidReason: string; conflict: string; saveFailed: string; annual: string; serviceSubscription: string; from: string; until: string; lifetime: string; foundersNote: string; chooseFriend: string; invalidAgreement: string; agreementSaved: string; invalidWaiver: string; waiverSaved: string; invalidReferral: string; referralSaved: string; rewardAgreement: string; rewardNote: string; chooseReferral: string; rewardType: string; percentage: string; fixedAmount: string; basisPoints: string; invalidReward: string; rewardCreate: string; rewardSaved: string; previewBadge: string; previewDescription: string;
 }
 
 export interface AdminTasksDict {
@@ -3611,7 +3736,6 @@ export interface AdminTeamDict {
   conversationsTitle: string;
   openAllTasks: string;
   openAllConversations: string;
-  colLatestMessage: string;
   reassign: string;
   claim: string;
   noTasks: string;
@@ -3678,6 +3802,9 @@ export interface AdminProductsDict {
   filterDesignTemplate: string;
   filterDesignCustom: string;
   filterServiceAll: string;
+  viewLabel: string;
+  viewTable: string;
+  viewVisual: string;
   inventoryTableCaption: string;
   colSelect: string;
   colId: string;
@@ -3803,11 +3930,6 @@ export interface AdminSearchDict {
   channelQr: string;
   channelNfc: string;
   resultOpen: string;
-  resultsCaption: string;
-  colResult: string;
-  colGroup: string;
-  colStatus: string;
-  colDetails: string;
   emptyTitle: string;
   emptyBody: string;
   initialTitle: string;
@@ -4872,6 +4994,8 @@ export interface AdminEventsDict {
   questionsNoModels: string;
   questionPublish: string;
   questionPublished: string;
+  questionOpenNow: string;
+  questionOpenedNow: string;
   questionClose: string;
   questionClosed: string;
   questionStatus: Record<FairAudienceQuestionStatus, string>;
@@ -5283,6 +5407,25 @@ export interface AdminEventsDict {
   sponsoredAuto: AdminEventsSponsoredAutoDict;
   reportQueue: AdminEventsReportQueueDict;
   retentionPlan: AdminEventsRetentionPlanDict;
+  /** JOVAN-DELTA 2026-10-08b — Pregled: "Resetuj pre-event podatke" (dry run, typed RESETUJ). */
+  preEventReset: {
+    title: string;
+    /** {cutoff} */
+    body: string;
+    empty: string;
+    loading: string;
+    categories: Record<"leads" | "survey_responses" | "ratings" | "audience_votes" | "brand_favorites" | "passport_stamps" | "sponsored_events" | "traffic_events" | "share_collections" | "unique_scans" | "scan_events", string>;
+    /** {count} */
+    capped: string;
+    start: string;
+    confirmLabel: string;
+    /** {total} */
+    confirm: string;
+    cancel: string;
+    /** {deleted} */
+    done: string;
+    continuing: string;
+  };
   // Admin UX A10 — Pregled: the event dashboard.
   dashboard: AdminEventsDashboardDict;
 }
@@ -5600,24 +5743,21 @@ export type AdminEventsPassportProblem = "fewer_than_two_models" | "model_not_pu
 // event-lead-email — visitor emails after a fair lead (Sajam 2026 B4,
 // convex/lib/fairEmails.ts). Placeholder copy until P1 is locked.
 export interface EventLeadEmailDict {
-  confirmationSubjectInterest: string;
-  confirmationSubjectTestDrive: string;
   greeting: string;
-  /** N5 — the greeting when the stored name is not safe to repeat. */
+  /** The greeting when there is no name, or the stored name is not safe to repeat. */
   greetingWithoutName: string;
-  confirmationBodyInterest: string;
-  confirmationBodyTestDrive: string;
-  /** N5 — `{where}` = stand name and event venue ("Štand 2, Hala Čair, Niš"). */
-  confirmationWhere: string;
-  /** N5 — the next step by kind; `{exhibitor}`. */
-  confirmationNextInterest: string;
-  confirmationNextTestDrive: string;
-  /** N5 — `{contact}` = the email and/or phone the visitor shared. */
-  confirmationContact: string;
-  /** N5 — `{exhibitor}`, `{date}` = the purge day. */
-  confirmationPrivacy: string;
-  confirmationNotYou: string;
-  confirmationFollowUpNote: string;
+  interestSubject: string;
+  interestBody: string;
+  interestModelLink: string;
+  testDriveSubject: string;
+  testDriveBody: string;
+  testDriveNote: string;
+  surveySubject: string;
+  surveyBody: string;
+  surveyContactNote: string;
+  closing: string;
+  /** `{subject}`, `{exhibitor}`, `{url}`. */
+  footer: string;
   followUpFooter: string;
   /** Admin UX A8 — what a merge field becomes when the lead has no value for it. */
   followUpFallbacks: Record<FairFollowUpField, string>;
@@ -5970,6 +6110,8 @@ export interface DictBySurface {
   "fair-model": FairModelDict;
   "fair-garage": FairGarageDict;
   "fair-passport": FairPassportDict;
+  "fair-admin-dev": FairAdminDevDict;
+  "fair-privacy": FairPrivacyDict;
   "admin-v1": AdminV1Dict;
   "admin-ui": AdminUiDict;
   posta: PostaDict;

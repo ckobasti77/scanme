@@ -33,6 +33,8 @@ import {
 } from "./lib/fairLeads";
 import { fairLeadKind, fairLeadSubmitResultView } from "./lib/fairValidators";
 import { rateLimiter } from "./lib/rateLimits";
+import { fairIsPreEvent } from "./lib/fairPreEvent";
+import { fairSessionAdminUserId } from "./lib/fairScans";
 
 // =============================================================================
 // Sajam automobila 2026 — B4 `Zainteresovan sam` / `Probna vožnja`
@@ -91,6 +93,8 @@ export const submitLead = mutation({
     phone: v.optional(v.string()),
     consentAccepted: v.boolean(),
     consentVersion: v.number(),
+    /** 9 Oct 2026: "survey" = left on the survey's last step (survey confirmation email). */
+    origin: v.optional(v.literal("survey")),
   },
   returns: fairLeadSubmitResultView,
   handler: async (ctx, args): Promise<FairLeadSubmitResult> => {
@@ -167,9 +171,13 @@ export const submitLead = mutation({
     const perIp = await rateLimiter.limit(ctx, "fairLeadIp", { key: args.ipHash ?? "shared" });
     if (!perIp.ok) fairInteractionError("RATE_LIMITED", { retryAfterMs: Math.ceil(perIp.retryAfter) });
 
+    // JOVAN-DELTA 2026-10-09: an admin-session lead is a test lead — stored
+    // and confirmed by email, but never in the inbox, exports or counts.
+    const adminExcluded = (await fairSessionAdminUserId(ctx)) !== null;
     const leadId = await ctx.db.insert("fairLeads", {
       submissionId: args.submissionId,
       kind: args.kind,
+      ...(args.origin ? { origin: args.origin } : {}),
       visitorId,
       eventId: model.eventId,
       eventModelId: model._id,
@@ -181,6 +189,7 @@ export const submitLead = mutation({
       consentedAt: now,
       status: "received",
       followUpSuppressed: false,
+      ...(adminExcluded ? { isAdminExcluded: true } : {}),
       createdAt: now,
       purgeAt: FAIR_PII_PURGE_AT_MS,
     });
@@ -196,7 +205,9 @@ export const submitLead = mutation({
       // K3: and only while FAIR_FOLLOWUP_ENABLED is on — a lead taken while it
       // is off never gains one later (its confirmation did not announce one).
       // N5: the same for a lead over the soft cap — no confirmation announced it.
-      const followUpAt = rights.postEventFollowUp && fairFollowUpEnabled() && !recipientCapped ? fairFollowUpScheduleFor(event.endsAt, now) : null;
+      // Pre-event (JOVAN-DELTA 2026-10-08b): a test lead before the opening never gets the exhibitor's follow-up.
+      // Neither does an admin-session test lead (JOVAN-DELTA 2026-10-09).
+      const followUpAt = rights.postEventFollowUp && fairFollowUpEnabled() && !recipientCapped && !fairIsPreEvent(now, event) && !adminExcluded ? fairFollowUpScheduleFor(event.endsAt, now) : null;
       if (followUpAt !== null) {
         await queueFairLeadEmail(ctx, { leadId, kind: "post_event_follow_up", recipient, scheduledFor: followUpAt, now });
         followUpScheduled = true;

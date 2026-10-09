@@ -13,6 +13,7 @@ import { fairTimeKeys } from "./lib/fairScans";
 import { fairActiveSponsoredSnapshot, fairSponsoredAutoPublishOn, fairSponsoredItems } from "./lib/fairSponsored";
 import { belgradeLocalToEpoch } from "../lib/belgrade-time";
 import { FAIR_ADMIN_LIST_LIMIT } from "../lib/fair-contract";
+import { fairAnalyticsCutoff, fairDayCountFrom } from "./lib/fairPreEvent";
 
 // =============================================================================
 // Admin UX A10 — `Događaji → Pregled`: ONE admin query for the event
@@ -69,15 +70,19 @@ async function loadFacts(ctx: QueryCtx, event: Doc<"fairEvents">, at: number): P
         .take(QUESTIONS_PER_DAY_CAP + 1);
       if (rows.length > QUESTIONS_PER_DAY_CAP) questionsCapped = true;
       for (const row of rows.slice(0, QUESTIONS_PER_DAY_CAP)) {
-        questions.push({ id: row._id, modelId: row.eventModelId, dayId: row.eventDayId, showOnSponsoredRotation: row.showOnSponsoredRotation });
+        const endsAt = row.endsAt ?? Number.POSITIVE_INFINITY;
+        const coveredDayIds = days.filter((other) => other._id === row.eventDayId || (row.startsAt < other.endsAt && endsAt > other.startsAt)).map((other) => other._id as string);
+        questions.push({ id: row._id, modelId: row.eventModelId, dayId: row.eventDayId, coveredDayIds, showOnSponsoredRotation: row.showOnSponsoredRotation });
       }
     }
   }
 
-  // Leads: counts only (newest first, bounded).
+  // Leads: counts only (newest first, bounded), pre-event leads left out (JOVAN-DELTA 2026-10-08b).
   const leadRows = await ctx.db
     .query("fairLeads")
-    .withIndex("by_eventId_and_createdAt", (q) => q.eq("eventId", event._id))
+    .withIndex("by_eventId_and_createdAt", (q) => q.eq("eventId", event._id).gte("createdAt", fairAnalyticsCutoff(event)))
+    // Admin-session test leads left out too (JOVAN-DELTA 2026-10-09).
+    .filter((q) => q.neq(q.field("isAdminExcluded"), true))
     .order("desc")
     .take(FAIR_DASHBOARD_LEADS_CAP + 1);
   const leadsCapped = leadRows.length > FAIR_DASHBOARD_LEADS_CAP;
@@ -128,13 +133,25 @@ async function loadFacts(ctx: QueryCtx, event: Doc<"fairEvents">, at: number): P
     for (const run of newest.values()) reports.push({ dayId: day._id, participationId: run.participationId, status: run.status });
   }
 
-  // Fair scans (admin scans excluded): all-time and today's stand counters.
+  // Fair scans (admin scans excluded): the fair days' and today's stand
+  // counters from the analytics cutoff on, so pre-event scans never count
+  // (JOVAN-DELTA 2026-10-08b).
   const stands = catalog.stands.slice(0, FAIR_DASHBOARD_STANDS_CAP);
+  const cutoff = fairAnalyticsCutoff(event);
+  const fairDays = days.slice(0, DAYS_CAP);
+  const today = fairDays.find((day) => day.dateKey === todayKey);
+  const standSum = async (metric: "scan_total" | "scan_unique", only?: (typeof fairDays)[number]) => {
+    let total = 0;
+    for (const stand of stands) {
+      for (const day of only ? [only] : fairDays) total += await fairDayCountFrom(ctx, fairScanCountKey(metric, "stand", stand._id), day, cutoff);
+    }
+    return total;
+  };
   const scans = {
-    total: await sumCounts(ctx, stands.map((stand) => fairScanCountKey("scan_total", "stand", stand._id))),
-    today: await sumCounts(ctx, stands.map((stand) => fairScanCountKey("scan_total", "stand", stand._id, todayKey))),
-    uniqueTotal: await sumCounts(ctx, stands.map((stand) => fairScanCountKey("scan_unique", "stand", stand._id))),
-    uniqueToday: await sumCounts(ctx, stands.map((stand) => fairScanCountKey("scan_unique", "stand", stand._id, todayKey))),
+    total: await standSum("scan_total"),
+    today: today ? await standSum("scan_total", today) : await sumCounts(ctx, stands.map((stand) => fairScanCountKey("scan_total", "stand", stand._id, todayKey))),
+    uniqueTotal: await standSum("scan_unique"),
+    uniqueToday: today ? await standSum("scan_unique", today) : await sumCounts(ctx, stands.map((stand) => fairScanCountKey("scan_unique", "stand", stand._id, todayKey))),
     capped: catalog.stands.length > FAIR_DASHBOARD_STANDS_CAP,
   };
 

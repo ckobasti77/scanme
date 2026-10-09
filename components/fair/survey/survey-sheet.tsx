@@ -21,17 +21,27 @@ import { useFairModelInteractions } from "../model-interactions";
 // Full-screen survey (prototype public/prototip/anketa.html): one question per
 // screen, auto-advance after a choice, Nazad/Preskoči, smooth segmented
 // progress, and a final step with no way back once there is an answer.
+// Sending without contact (when the exhibitor asks for one) first shows an
+// in-sheet confirmation step: "Dodaj kontakt" goes back to the contact fields.
 
 const ADVANCE_MS = 340;
+/** Step exit (0.15 s) + enter (0.24 s), then the contact field takes focus. */
+const CONTACT_FOCUS_MS = 420;
 
 export function SurveySheet() {
   const { survey, dict, model, leadForms } = useFairModelInteractions();
   const reduceMotion = useReducedMotion();
   const advanceTimer = useRef<number | null>(null);
   const [draft, setDraft] = useState<ContactDraft>(EMPTY_CONTACT_DRAFT);
+  const [confirmAnonymous, setConfirmAnonymous] = useState(false);
   const step = survey?.state.step ?? 0;
-  const [shown, setShown] = useState({ step, direction: 1 });
-  if (shown.step !== step) setShown({ step, direction: step > shown.step ? 1 : -1 });
+  const stage: number | "anonymous" = confirmAnonymous ? "anonymous" : step;
+  const [shown, setShown] = useState<{ stage: number | "anonymous"; direction: number }>({ stage, direction: 1 });
+  if (shown.stage !== stage) {
+    const direction =
+      stage === "anonymous" ? 1 : shown.stage === "anonymous" ? -1 : step > shown.stage ? 1 : -1;
+    setShown({ stage, direction });
+  }
 
   useEffect(() => () => {
     if (advanceTimer.current !== null) window.clearTimeout(advanceTimer.current);
@@ -60,6 +70,10 @@ export function SurveySheet() {
 
   function send() {
     if (!canSendSurvey(state) || !contactUsable || !survey) return;
+    if (interestForm && contact?.empty) {
+      setConfirmAnonymous(true);
+      return;
+    }
     void survey.send(
       interestForm && contact?.ok && contact.payload
         ? { payload: contact.payload, remember: draft.remember, consentVersion: interestForm.consent.version }
@@ -77,7 +91,24 @@ export function SurveySheet() {
       : question.options.map((option) => ({ id: option.id, label: option.label }));
   };
 
-  const stepContent = (index: number) => {
+  /** "Dodaj kontakt": back to the contact step, first field focused once it has slid in. */
+  function backToContact() {
+    setConfirmAnonymous(false);
+    window.setTimeout(() => {
+      const block = document.querySelector<HTMLElement>(".fair-survey-stage .fair-contact");
+      block?.querySelector<HTMLElement>("input, button")?.focus();
+    }, reduceMotion ? 0 : CONTACT_FOCUS_MS);
+  }
+
+  const stepContent = (index: number | "anonymous") => {
+    if (index === "anonymous") {
+      return (
+        <>
+          <h3>{dict.surveyAnonTitle}</h3>
+          <p className="fair-survey-step__lead">{fmt(dict.surveyAnonBody, { exhibitor: model.exhibitorName })}</p>
+        </>
+      );
+    }
     if (index < questions.length) {
       const question = questions[index];
       return (
@@ -121,7 +152,7 @@ export function SurveySheet() {
         </span>
         <h3>{interestForm ? fmt(dict.surveyFinalTitleContact, { brand: model.brandName }) : dict.surveyFinalTitle}</h3>
         <p className="fair-survey-step__lead">
-          {interestForm ? fmt(dict.surveyFinalBodyContact, { brand: model.brandName }) : dict.surveyFinalBody}
+          {interestForm ? fmt(dict.surveyFinalBodyContact, { exhibitor: model.exhibitorName }) : dict.surveyFinalBody}
         </p>
         {interestForm ? (
           <ContactBlock
@@ -137,7 +168,27 @@ export function SurveySheet() {
     );
   };
 
-  const footer = !final ? (
+  const footer = confirmAnonymous ? (
+    <div className="fair-survey-send fair-survey-send--confirm">
+      {state.phase === "error" && state.errorCode ? (
+        <p className="fair-inline-error" role="alert">
+          {fairErrorText(state.errorCode, dict)}
+        </p>
+      ) : null}
+      <button type="button" className="fair-sheet__primary" disabled={sending} onClick={backToContact}>
+        {dict.surveyAnonAddContact}
+      </button>
+      <button
+        type="button"
+        className="fair-sheet__secondary"
+        disabled={sending}
+        aria-busy={sending || undefined}
+        onClick={() => void survey.send(null)}
+      >
+        {sending ? dict.leadSending : dict.surveyAnonSend}
+      </button>
+    </div>
+  ) : !final ? (
     <div className="fair-survey-nav">
       <button
         type="button"
@@ -182,7 +233,7 @@ export function SurveySheet() {
       title={fmt(dict.surveySheetTitle, { brand: model.brandName })}
       subtitle={fmt(dict.surveySheetSubtitle, { exhibitor: model.exhibitorName })}
       mark={model.brandName.slice(0, 1)}
-      closable={!isSurveyLocked(state) && !sending}
+      closable={!isSurveyLocked(state) && !sending && !confirmAnonymous}
       closeLabel={dict.closeSheet}
       onRequestClose={survey.closeSheet}
       toolbar={
@@ -207,7 +258,7 @@ export function SurveySheet() {
       <div className="fair-survey-stage">
         <AnimatePresence mode="wait" initial={false} custom={shown.direction}>
           <motion.div
-            key={shown.step}
+            key={shown.stage}
             className="fair-survey-step"
             custom={shown.direction}
             variants={{
@@ -219,7 +270,7 @@ export function SurveySheet() {
             animate="center"
             exit={reduceMotion ? undefined : "exit"}
           >
-            {stepContent(shown.step)}
+            {stepContent(shown.stage)}
           </motion.div>
         </AnimatePresence>
       </div>

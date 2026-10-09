@@ -35,6 +35,7 @@ import {
   fairPackageTier,
   fairPreferredContact,
 } from "./lib/fairValidators";
+import { fairAnalyticsCutoff } from "./lib/fairPreEvent";
 
 // =============================================================================
 // Sajam automobila 2026 — B4 admin for leads and email (BACKEND-HANDOFF §4.4,
@@ -700,19 +701,23 @@ function deliverySummary(row: Doc<"fairEmailDeliveries"> | null) {
  * Paginated lead export of one exhibitor on one event (newest first) — the
  * list in `Događaji → Leadovi` and the source of the PII hand-over to the
  * exhibitor. At most EXPORT_PAGE_MAX rows per page; per row only the two
- * outbox rows of that lead are read.
+ * outbox rows of that lead are read. Pre-event leads are never exported
+ * (JOVAN-DELTA 2026-10-08b).
  */
 export const exportLeads = query({
   args: { eventId: v.id("fairEvents"), participationId: v.id("fairParticipations"), paginationOpts: paginationOptsValidator },
   returns: paginationResultValidator(leadRow),
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
-    const participation = await ctx.db.get(args.participationId);
+    const [participation, event] = await Promise.all([ctx.db.get(args.participationId), ctx.db.get(args.eventId)]);
+    if (!event) fairAdminError("FAIR_EVENT_NOT_FOUND");
     if (!participation || participation.eventId !== args.eventId) fairAdminError("FAIR_LINK_NOT_FOUND", { field: "participationId" });
     if (args.paginationOpts.numItems > EXPORT_PAGE_MAX) fairAdminError("INVALID_INPUT", { field: "numItems", max: EXPORT_PAGE_MAX });
     const page = await ctx.db
       .query("fairLeads")
-      .withIndex("by_participationId_and_createdAt", (q) => q.eq("participationId", args.participationId))
+      .withIndex("by_participationId_and_createdAt", (q) => q.eq("participationId", args.participationId).gte("createdAt", fairAnalyticsCutoff(event)))
+      // Admin-session test leads are never exported (JOVAN-DELTA 2026-10-09).
+      .filter((q) => q.neq(q.field("isAdminExcluded"), true))
       .order("desc")
       .paginate(args.paginationOpts);
     const rows = [];

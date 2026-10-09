@@ -14,7 +14,7 @@ export function fairLeadSentText(
   brandName: string,
 ): string {
   if (result.duplicate) {
-    return kind === "testDrive" ? dict.testDriveAlreadySent : fmt(dict.interestAlreadySent, { brand: brandName });
+    return fmt(kind === "testDrive" ? dict.testDriveAlreadySent : dict.interestAlreadySent, { brand: brandName });
   }
-  return kind === "testDrive" ? dict.testDriveSent : fmt(dict.interestSent, { brand: brandName });
+  return fmt(kind === "testDrive" ? dict.testDriveSent : dict.interestSent, { brand: brandName });
 }
