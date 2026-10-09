@@ -75,7 +75,7 @@ const stateLabel: Record<string, string> = {
 };
 
 const controlClass = "min-h-11 rounded-xl border border-[var(--admin-border)] bg-[var(--admin-surface-strong)] px-3 text-sm outline-none focus-visible:border-[var(--admin-focus)] focus-visible:ring-2 focus-visible:ring-[var(--admin-focus)]/25";
-const subtleButton = "min-h-11 rounded-xl border border-[var(--admin-border)] bg-[var(--admin-surface-strong)] px-3 text-sm font-semibold hover:border-[var(--admin-ink)]";
+const subtleButton = "admin-button-ghost min-h-11 rounded-xl border border-[var(--admin-border)] bg-[var(--admin-surface-strong)] px-3 text-sm font-semibold hover:border-[var(--admin-ink)]";
 
 function dateLabel(value: number | null) {
   return value ? new Intl.DateTimeFormat("sr-Latn-RS", { dateStyle: "medium" }).format(value) : "—";

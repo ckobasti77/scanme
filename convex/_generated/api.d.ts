@@ -76,6 +76,7 @@ import type * as fairSponsoredAdmin from "../fairSponsoredAdmin.js";
 import type * as http from "../http.js";
 import type * as invitationEmails from "../invitationEmails.js";
 import type * as invitations from "../invitations.js";
+import type * as leadEmails from "../leadEmails.js";
 import type * as leads from "../leads.js";
 import type * as lib_access from "../lib/access.js";
 import type * as lib_accessOperations from "../lib/accessOperations.js";
@@ -256,6 +257,7 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   invitationEmails: typeof invitationEmails;
   invitations: typeof invitations;
+  leadEmails: typeof leadEmails;
   leads: typeof leads;
   "lib/access": typeof lib_access;
   "lib/accessOperations": typeof lib_accessOperations;

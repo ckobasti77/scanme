@@ -1,4 +1,4 @@
-import { ArrowUpRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { BrandLogo } from "@/components/brand-logo";
 
@@ -13,7 +13,7 @@ export function ComingSoon() {
           </span>
           <Link href="/preview-login" className="button-secondary focus-signal h-11 min-h-11 px-4">
             Admin login
-            <ArrowUpRight aria-hidden="true" className="size-4" strokeWidth={1.75} />
+            <ArrowRight aria-hidden="true" className="size-4" strokeWidth={1.75} />
           </Link>
         </div>
       </header>

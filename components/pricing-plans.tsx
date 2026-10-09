@@ -325,7 +325,7 @@ export function PricingPlans() {
                 href={href}
                 className={[
                   "focus-signal mt-8",
-                  card.highlighted ? "button-primary" : "button-secondary",
+                  card.highlighted ? "button-primary" : "button-ghost",
                 ].join(" ")}
               >
                 {cta}

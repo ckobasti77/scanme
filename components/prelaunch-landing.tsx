@@ -1,16 +1,17 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
-import { Link2, Star, UtensilsCrossed } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
 import { HeroIntro } from "@/components/hero-intro";
 import { HeroMedia } from "@/components/hero-media";
+import { LeadForm } from "@/components/lead-form";
+import { PrelaunchFairBanner } from "@/components/prelaunch-fair-banner";
 import { PrelaunchNav } from "@/components/prelaunch-nav";
+import { PrelaunchProducts } from "@/components/prelaunch-products";
+import { PrelaunchServiceCards } from "@/components/prelaunch-service-cards";
 import { ScanStory } from "@/components/scan-story";
 import { prelaunchSr as dict } from "@/lib/i18n/sr/prelaunch";
-import packageStyles from "./landing-packages.module.css";
+import { FAIR_BANNER_ENABLED } from "@/lib/prelaunch-fair-banner";
 import styles from "./prelaunch-landing.module.css";
-
-const serviceIcons = [Link2, Star, UtensilsCrossed] as const;
 
 const navLinks = [
   { href: "#kako-radi", label: dict.nav.story },
@@ -18,55 +19,16 @@ const navLinks = [
   { href: "#kontakt", label: dict.nav.contact },
 ] as const;
 
-function FairMasthead() {
-  return (
-    <aside
-      className={styles.fairMasthead}
-      aria-label={`${dict.hero.partner}: ${dict.hero.fairName}`}
-      data-reveal="off"
-    >
-      <div className={`${styles.fairMastheadInner} section-shell`}>
-        <div className={styles.fairMastheadTitle} aria-hidden="true">
-          <span className={styles.fairMastheadLabel}>{dict.fair.eventLabel}</span>
-          <span className={styles.fairMastheadSolid}>Sajam</span>
-          <span className={styles.fairMastheadOutline}>automobila</span>
-          <span className={styles.fairMastheadDot}>·</span>
-          <span className={styles.fairMastheadCity}>Niš</span>
-          <span className={styles.fairMastheadYearRail}>
-            <span className={styles.fairMastheadYear}>{dict.fair.year}</span>
-          </span>
-        </div>
-
-        <div className={styles.fairMastheadMeta}>
-          <p className={styles.fairMastheadPartner}>
-            <span>{dict.hero.partner}</span>
-            <i aria-hidden="true">—</i>
-            <BrandLogo className={styles.fairMastheadWordmark} width="clamp(7.5rem, 9vw, 10rem)" />
-          </p>
-          <div className={styles.fairMastheadDates}>
-            {dict.fair.mastheadDates.map((date) => (
-              <p key={`${date.firstLine}-${date.secondLine}`}>
-                <strong>{date.firstLine}</strong>
-                <span>{date.secondLine}</span>
-              </p>
-            ))}
-          </div>
-        </div>
-      </div>
-    </aside>
-  );
-}
-
 function Footer() {
   return (
-    <footer id="kontakt" className={styles.footer} data-reveal="off">
+    <footer className={styles.footer} data-reveal="off">
       <div className="section-shell">
         <div className={styles.footerGrid}>
           <div>
             <a href="#pocetak" className="focus-signal inline-flex min-h-11 items-center" aria-label={dict.nav.homeAria}>
               <BrandLogo />
             </a>
-            <p className={styles.footerFair}>{dict.footer.fair}</p>
+            {FAIR_BANNER_ENABLED ? <p className={styles.footerFair}>{dict.footer.fair}</p> : null}
           </div>
           <nav aria-label={dict.nav.aria} className={styles.footerNav}>
             {navLinks.map((link) => <a key={link.href} href={link.href}>{link.label}</a>)}
@@ -95,11 +57,11 @@ export function PrelaunchLanding() {
       <div className={styles.scanBeam} aria-hidden="true" />
       <div className={`${styles.contentLayer} landing-atmosphere`} data-text-reveal-root>
         <main id="glavni-sadrzaj">
-          <FairMasthead />
+          {FAIR_BANNER_ENABLED ? <PrelaunchFairBanner /> : null}
           <section id="pocetak" data-reveal="off" className={`${styles.hero} hero-scan-depth`}>
             <HeroMedia hasVideo={hasVideo} hasPoster={hasPoster} />
             <HeroIntro
-              compact
+              heightFromParent
               primaryLabel={dict.hero.primaryCta}
               primaryHref="#kako-radi"
               singleCta
@@ -111,29 +73,38 @@ export function PrelaunchLanding() {
 
           <ScanStory title={dict.story.title} compact />
 
-          <section id="usluge" className={`${styles.servicesSection} section-shell offer-surface`}>
+          <section id="usluge" className={`${styles.servicesSection} section-shell`} data-reveal="off">
             <div className={styles.servicesHeader}>
+              <p className={styles.sectionEyebrow}>{dict.services.eyebrow}</p>
               <h2>{dict.services.title}</h2>
+              <p className={styles.servicesBody}>{dict.services.body}</p>
             </div>
-            <div className={styles.serviceGrid} data-reveal-group>
-              {dict.services.items.map((service, index) => {
-                const Icon = serviceIcons[index];
-                return (
-                  <article
-                    key={service.name}
-                    className={`${packageStyles.card} ${styles.serviceCardFrame} offer-glass offer-glass--panel`}
-                  >
-                    <span className={packageStyles.icon} aria-hidden="true">
-                      <Icon size={22} strokeWidth={1.7} />
-                    </span>
-                    {service.status === "soon" && (
-                      <span className={packageStyles.soonTag}>{dict.services.soon}</span>
-                    )}
-                    <h3 className={packageStyles.name}>{service.name}</h3>
-                    <p className={packageStyles.sentence}>{service.body}</p>
-                  </article>
-                );
-              })}
+            <PrelaunchServiceCards />
+          </section>
+
+          <section id="proizvodi" className={`${styles.servicesSection} section-shell`} data-reveal="off">
+            <div className={styles.servicesHeader}>
+              <p className={styles.sectionEyebrow}>{dict.products.eyebrow}</p>
+              <h2>{dict.products.title}</h2>
+              <p className={styles.servicesBody}>{dict.products.body}</p>
+            </div>
+            <PrelaunchProducts />
+          </section>
+
+          <section id="kontakt" className={styles.contactSection} data-reveal="off">
+            <div className={`${styles.contactGrid} section-shell`}>
+              <div className={styles.contactCopy}>
+                <p className={styles.sectionEyebrow}>{dict.contact.eyebrow}</p>
+                <h2>{dict.contact.title}</h2>
+                <p className={styles.contactBody}>{dict.contact.body}</p>
+                <p className={styles.contactEmail}>
+                  <span>{dict.contact.emailLabel}</span>
+                  <a href={`mailto:${dict.footer.email}`}>{dict.footer.email}</a>
+                </p>
+              </div>
+              <div className={styles.contactFormFrame}>
+                <LeadForm generalCopy={dict.contact.form} />
+              </div>
             </div>
           </section>
         </main>

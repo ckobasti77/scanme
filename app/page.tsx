@@ -3,7 +3,7 @@ import path from "node:path";
 import Image from "next/image";
 import Link from "next/link";
 import {
-  ArrowUpRight,
+  ArrowRight,
   BarChart3,
   BriefcaseBusiness,
   CalendarDays,
@@ -301,9 +301,9 @@ export default async function Home({ searchParams }: PageProps<"/">) {
                 <p className="mt-7 max-w-[36ch] text-base leading-7 text-foreground/58">
                   Fizički predmet postaje jasan digitalni put, bez dodatne aplikacije i bez tehničkog tereta za vaš tim.
                 </p>
-                <Link href="/#ponuda" className="button-secondary focus-signal mt-8">
+                <Link href="/#ponuda" className="button-ghost focus-signal mt-8">
                   Zatraži ponudu
-                  <ArrowUpRight aria-hidden="true" className="size-4" strokeWidth={1.7} />
+                  <ArrowRight aria-hidden="true" className="size-4" strokeWidth={1.7} />
                 </Link>
               </div>
 

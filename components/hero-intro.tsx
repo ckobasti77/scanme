@@ -9,7 +9,7 @@ import {
 } from "framer-motion";
 import { gsap } from "gsap";
 import Link from "next/link";
-import { ArrowDownRight, ArrowUpRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { HeroLinksAnimation } from "@/components/hero-links-animation";
 import { HeroOutcomeAnimation } from "@/components/hero-outcome-animation";
 import { getHeroCarouselCycleAction } from "@/lib/hero-animation-playback";
@@ -73,7 +73,7 @@ function HeroAnimationPlayer({
     <motion.div
       aria-hidden={!isPresent}
       className="pointer-events-none absolute inset-0"
-      initial={reducedMotion ? false : { opacity: 0 }}
+      initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{
@@ -103,6 +103,7 @@ export function HeroIntro({
   secondaryLabel = "Pogledaj kako radi",
   primaryHref = "/#ponuda",
   compact = false,
+  heightFromParent = false,
   singleCta = false,
   showMenuSoon = false,
   menuLabel = "ScanMe Meni",
@@ -112,6 +113,9 @@ export function HeroIntro({
   secondaryLabel?: string;
   primaryHref?: string;
   compact?: boolean;
+  /** Visinu određuje roditeljska sekcija (npr. `min-height: 100svh`), umesto
+   *  sopstvenog `100dvh`; izgled i veličina QR scene ostaju nekompaktni. */
+  heightFromParent?: boolean;
   singleCta?: boolean;
   showMenuSoon?: boolean;
   menuLabel?: string;
@@ -166,10 +170,17 @@ export function HeroIntro({
     return () => restoreWords(active);
   }, [activeService, reduce]);
 
+  // `initial` must be identical on the server and on the first client render:
+  // the server cannot know prefers-reduced-motion, so reduced motion only
+  // shortens the transition to an instant one instead of skipping `initial`.
   const enter = (delay: number) => ({
-    initial: reduce ? false : { opacity: 0, y: 24 },
+    initial: { opacity: 0, y: 24 },
     animate: { opacity: 1, y: 0 },
-    transition: { duration: 0.7, delay, ease: [0.16, 1, 0.3, 1] as const },
+    transition: {
+      duration: reduce ? 0 : 0.7,
+      delay: reduce ? 0 : delay,
+      ease: [0.16, 1, 0.3, 1] as const,
+    },
   });
 
   const reachServiceCycleBoundary = useCallback(
@@ -196,7 +207,9 @@ export function HeroIntro({
       className={`relative z-10 flex items-center ${
         compact
           ? "min-h-0 py-6 sm:py-8 lg:py-8"
-          : "min-h-[100dvh] py-24 sm:py-28 lg:py-24"
+          : heightFromParent
+            ? "min-h-[inherit] py-24 sm:py-28 lg:py-24"
+            : "min-h-[100dvh] py-24 sm:py-28 lg:py-24"
       }`}
     >
       <div className="section-shell">
@@ -205,8 +218,8 @@ export function HeroIntro({
             {...enter(0.12)}
             aria-label="Izaberite ScanMe uslugu"
             role="group"
-            className={`order-1 flex w-full flex-wrap items-center gap-x-3 gap-y-1 sm:gap-x-7 lg:col-start-2 lg:row-start-1 lg:justify-self-end ${
-              compact ? "lg:max-w-[min(38rem,calc(100dvh-26rem))]" : ""
+            className={`order-1 flex w-full flex-wrap items-center justify-center gap-x-3 gap-y-1 sm:gap-x-7 lg:col-start-2 lg:row-start-1 lg:justify-self-end ${
+              compact ? "lg:max-w-[min(38rem,calc(100dvh-26rem))]" : "lg:max-w-[38rem]"
             }`}
             onBlurCapture={(event) => {
               if (!event.currentTarget.contains(event.relatedTarget)) {
@@ -260,7 +273,7 @@ export function HeroIntro({
                 className="inline-flex min-h-11 cursor-not-allowed items-center gap-2 py-2 font-mono text-xs font-medium uppercase tracking-[0.14em] text-foreground/38 sm:text-sm"
               >
                 <span>{menuLabel}</span>
-                <span className="rounded-full border border-foreground/14 bg-foreground/[0.045] px-2 py-1 text-[0.58rem] leading-none tracking-[0.1em] text-foreground/48">
+                <span className="rounded-[var(--button-radius)] border border-foreground/14 bg-foreground/[0.045] px-2 py-1 text-[0.58rem] leading-none tracking-[0.1em] text-foreground/48">
                   {soonLabel}
                 </span>
               </span>
@@ -314,15 +327,15 @@ export function HeroIntro({
               <Link href={primaryHref} className="button-primary focus-signal">
                 {primaryLabel}
                 {singleCta ? (
-                  <ArrowDownRight aria-hidden="true" className="size-4" strokeWidth={1.75} />
+                  <ArrowRight aria-hidden="true" className="size-4" strokeWidth={1.75} />
                 ) : (
-                  <ArrowUpRight aria-hidden="true" className="size-4" strokeWidth={1.75} />
+                  <ArrowRight aria-hidden="true" className="size-4" strokeWidth={1.75} />
                 )}
               </Link>
               {!singleCta ? (
-                <a href="#kako-radi" className="button-secondary focus-signal">
+                <a href="#kako-radi" className="button-ghost focus-signal">
                   {secondaryLabel}
-                  <ArrowDownRight aria-hidden="true" className="size-4" strokeWidth={1.75} />
+                  <ArrowRight aria-hidden="true" className="size-4" strokeWidth={1.75} />
                 </a>
               ) : null}
             </motion.div>
@@ -330,7 +343,7 @@ export function HeroIntro({
 
           <motion.div
             {...enter(0.18)}
-            className={`relative isolate order-3 mx-auto aspect-square w-full max-w-[20rem] overflow-hidden bg-card sm:max-w-[24rem] lg:col-start-2 lg:row-start-2 lg:mx-0 lg:justify-self-end ${
+            className={`relative isolate order-3 mx-auto aspect-square w-full max-w-[20rem] overflow-hidden rounded-[var(--button-radius)] bg-card sm:max-w-[24rem] lg:col-start-2 lg:row-start-2 lg:mx-0 lg:justify-self-end ${
               compact
                 ? "lg:max-w-[min(38rem,calc(100dvh-26rem))]"
                 : "lg:max-w-[38rem]"

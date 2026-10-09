@@ -1,5 +1,3 @@
-import type { ProductId } from "@/lib/scanme-pricing";
-
 export interface PrelaunchDict {
   skip: string;
   nav: {
@@ -21,15 +19,21 @@ export interface PrelaunchDict {
     secondaryCta: string;
   };
   fair: {
-    eventLabel: string;
     eyebrow: string;
     title: string;
     body: string;
     organizerLink: string;
     location: string;
     year: string;
-    mastheadDates: Array<{ firstLine: string; secondLine: string }>;
-    events: Array<{ name: string; date: string }>;
+    bannerTitle: string;
+    partnerBrand: string;
+    cta: string;
+    /** {name} = naziv sajma, {dates} = kratki datumi. */
+    openEventAria: string;
+    status: {
+      live: string;
+    };
+    events: Array<{ name: string; date: string; shortDate: string }>;
   };
   services: {
     eyebrow: string;
@@ -37,23 +41,20 @@ export interface PrelaunchDict {
     body: string;
     available: string;
     soon: string;
+    cta: string;
+    soonNote: string;
     items: Array<{ name: string; body: string; status: "available" | "soon" }>;
   };
   story: {
     title: string;
   };
+  /** #proizvodi: nazivi, opisi i „Najbolje za“ dolaze iz offer rečnika (offerSr.products). */
   products: {
     eyebrow: string;
     title: string;
     body: string;
     selectorAria: string;
-    previewLabel: string;
-    selectedLabel: string;
-    useCase: string;
-    noPrice: string;
     cta: string;
-    names: Record<ProductId, string>;
-    descriptions: Record<ProductId, string>;
   };
   lead: {
     eyebrow: string;
@@ -92,6 +93,31 @@ export interface PrelaunchDict {
       email: string;
       phone: string;
       interest: string;
+    };
+  };
+  contact: {
+    eyebrow: string;
+    title: string;
+    body: string;
+    emailLabel: string;
+    form: {
+      formAria: string;
+      cityLabel: string;
+      interestAria: string;
+      /** Prvi red poruke za uslugu bez tačne `interest` vrednosti. */
+      interestLinePrefix: string;
+      services: Array<{
+        value: string;
+        label: string;
+        interest: "review" | "not_sure";
+        tag?: string;
+        messageLabel?: string;
+      }>;
+      defaultService: string;
+      submit: string;
+      submitting: string;
+      successTitle: string;
+      successBody: string;
     };
   };
   partners: {
@@ -136,21 +162,31 @@ export const prelaunchSr: PrelaunchDict = {
     secondaryCta: "Pogledaj kako radi",
   },
   fair: {
-    eventLabel: "Event",
     eyebrow: "ScanMe × Sajam automobila",
     title: "Sajam automobila dobija novu digitalnu dimenziju.",
     body:
       "Kao digitalni partner povezujemo fizički prostor sajma sa informacijama, interakcijama i iskustvima koja posetioci nose sa sobom i nakon izlaska iz hale.",
     organizerLink: "Posetite sajt Sajma automobila",
-    location: "Hala Čair · Niš",
+    location: "Niš · Hala Čair",
     year: "2026",
-    mastheadDates: [
-      { firstLine: "09–11.", secondLine: "oktobar" },
-      { firstLine: "30. oktobar–01.", secondLine: "novembar" },
-    ],
+    bannerTitle: "Sajam automobila",
+    partnerBrand: "ScanMe",
+    cta: "Otvori digitalni sajam",
+    openEventAria: "{name}, {dates} — otvori digitalni sajam",
+    status: {
+      live: "U toku",
+    },
     events: [
-      { name: "Sajam elektromobilnosti", date: "09—11. oktobar" },
-      { name: "Sajam auto brendova · Auto Moto Fest", date: "30. oktobar—01. novembar" },
+      {
+        name: "Sajam elektromobilnosti",
+        date: "09—11. oktobar",
+        shortDate: "09/10/11. okt",
+      },
+      {
+        name: "Auto Moto Fest",
+        date: "30. oktobar—01. novembar",
+        shortDate: "30/31. okt – 01. nov",
+      },
     ],
   },
   services: {
@@ -160,6 +196,8 @@ export const prelaunchSr: PrelaunchDict = {
       "Mi pripremamo, povezujemo i održavamo ceo put iza skena. Vi dobijate jasno iskustvo za gosta i koristan uvid za svoj biznis.",
     available: "Dostupno",
     soon: "Uskoro",
+    cta: "Zatraži ponudu",
+    soonNote: "U pripremi",
     items: [
       {
         name: "ScanMe Links",
@@ -183,29 +221,11 @@ export const prelaunchSr: PrelaunchDict = {
   },
   products: {
     eyebrow: "Fizički proizvodi",
-    title: "Digitalna usluga dobija svoje mesto u stvarnom prostoru.",
+    title: "Proizvodi",
     body:
       "Izaberite format koji odgovara vašem lokalu ili događaju. Svaki proizvod povezujemo sa ScanMe uslugom i prilagođavamo vašem vizuelnom identitetu.",
     selectorAria: "Izaberite fizički proizvod",
-    previewLabel: "Prikaz proizvoda",
-    selectedLabel: "Izabrano",
-    useCase: "Najbolje za",
-    noPrice: "Dizajn, format i količinu dogovaramo prema vašem prostoru.",
     cta: "Zanima me ovaj proizvod",
-    names: {
-      stickers: "Nalepnice",
-      "window-film": "Folija za izlog",
-      "two-piece-stand": "Dvodelni stalak",
-      "compact-stand": "Kompaktni stalak",
-      "premium-engraved-stand": "Premium gravirani stalak",
-    },
-    descriptions: {
-      stickers: "Stolove, pultove i suve unutrašnje površine.",
-      "window-film": "Izloge i staklene površine izložene redovnom čišćenju.",
-      "two-piece-stand": "Stolove, pultove i recepcije gde se umetak povremeno menja.",
-      "compact-stand": "Stabilan prikaz na mestu gde želite čist i jednostavan format.",
-      "premium-engraved-stand": "Reprezentativne lokale, hotele, restorane i salone.",
-    },
   },
   lead: {
     eyebrow: "Prelaunch prijava",
@@ -257,6 +277,30 @@ export const prelaunchSr: PrelaunchDict = {
       email: "Unesite ispravnu imejl adresu.",
       phone: "Unesite ispravan broj telefona.",
       interest: "Izaberite bar jednu oblast interesovanja.",
+    },
+  },
+  contact: {
+    eyebrow: "Kontakt",
+    title: "Recite nam šta želite da postavite.",
+    body:
+      "Pošaljite osnovne podatke i šta vas zanima. Javljamo se sa predlogom i realnim rokom — bez obaveze.",
+    emailLabel: "Ili pišite direktno na",
+    form: {
+      formAria: "Upit za ScanMe",
+      cityLabel: "Grad",
+      interestAria: "Zanima me",
+      interestLinePrefix: "Zanima me:",
+      services: [
+        { value: "links", label: "ScanMe Links", interest: "not_sure", messageLabel: "ScanMe Links" },
+        { value: "review", label: "ScanMe Review", interest: "review" },
+        { value: "menu", label: "ScanMe Meni", interest: "not_sure", tag: "Uskoro", messageLabel: "ScanMe Meni" },
+        { value: "not_sure", label: "Nisam siguran/na", interest: "not_sure" },
+      ],
+      defaultService: "not_sure",
+      submit: "Pošalji upit",
+      submitting: "Šaljemo upit...",
+      successTitle: "Upit je poslat.",
+      successBody: "Hvala. Javićemo se preko telefona ili imejla koji ste ostavili.",
     },
   },
   partners: {

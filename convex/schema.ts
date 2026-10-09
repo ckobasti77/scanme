@@ -1464,6 +1464,12 @@ export default defineSchema({
     submissionId: v.string(),
     status: leadStatus,
     createdAt: v.number(),
+    // Mejl timu (convex/leadEmails.ts), samo za prihvaćen upit. Opciono:
+    // redovi upisani pre ovog polja ostaju validni.
+    emailStatus: v.optional(v.union(v.literal("queued"), v.literal("sent"), v.literal("failed"))),
+    emailMessageId: v.optional(v.string()),
+    emailFailureReason: v.optional(v.string()),
+    emailUpdatedAt: v.optional(v.number()),
   })
     .index("by_submissionId", ["submissionId"])
     .index("by_status_and_createdAt", ["status", "createdAt"]),

@@ -2,7 +2,7 @@
 
 import { FileImage } from "lucide-react";
 import Image from "next/image";
-import { useMemo, type CSSProperties } from "react";
+import { useMemo, type CSSProperties, type ReactNode } from "react";
 import { offerSr as dict } from "@/lib/i18n/sr/offer";
 import { qrMatrix } from "@/lib/qr/qrcodegen";
 import {
@@ -52,20 +52,23 @@ const COMPACT_STAND_TRANSFORM: ProductMockupTransformConfig = {
   borderRadius: "4.5% 4.5% 1.2% 1.2% / 2.4% 2.4% 0.8% 0.8%",
 };
 
-function PreviewQr() {
-  const { path, dimension } = useMemo(() => {
-    const matrix = qrMatrix("https://scanme.rs/review/basic-preview", "MEDIUM");
-    const dimension = matrix.length + QR_QUIET_ZONE * 2;
-    let path = "";
-    for (let y = 0; y < matrix.length; y += 1) {
-      for (let x = 0; x < matrix.length; x += 1) {
-        if (matrix[y][x]) {
-          path += `M${x + QR_QUIET_ZONE},${y + QR_QUIET_ZONE}h1v1h-1z`;
-        }
+/** QR modules as one SVG path, with the 4-module quiet zone inside `dimension`. */
+function qrPath(value: string) {
+  const matrix = qrMatrix(value, "MEDIUM");
+  const dimension = matrix.length + QR_QUIET_ZONE * 2;
+  let path = "";
+  for (let y = 0; y < matrix.length; y += 1) {
+    for (let x = 0; x < matrix.length; x += 1) {
+      if (matrix[y][x]) {
+        path += `M${x + QR_QUIET_ZONE},${y + QR_QUIET_ZONE}h1v1h-1z`;
       }
     }
-    return { path, dimension };
-  }, []);
+  }
+  return { path, dimension };
+}
+
+function PreviewQr() {
+  const { path, dimension } = useMemo(() => qrPath("https://scanme.rs/review/basic-preview"), []);
 
   return (
     <svg
@@ -106,20 +109,57 @@ export function BasicReviewArtwork({
   );
 }
 
+/**
+ * Landing design for the compact L stand (black FOREX face): the ScanMe mark
+ * and a real QR to scanme.rs on a light tile with its quiet zone, framed by
+ * green viewfinder corners. Sized in container units of the printed face.
+ */
+export function ScanMeStandArtwork() {
+  const { path, dimension } = useMemo(() => qrPath("https://scanme.rs"), []);
+
+  return (
+    <div className={styles.standArtwork}>
+      <div className={styles.standLayout}>
+        <span className={styles.standMark}>ScanMe</span>
+        <div className={styles.standCode}>
+          <svg
+            aria-hidden="true"
+            viewBox={`0 0 ${dimension} ${dimension}`}
+            shapeRendering="crispEdges"
+            className={styles.standQr}
+          >
+            <rect width={dimension} height={dimension} rx="1.25" fill="#f4f3ee" />
+            <path d={path} fill="#121513" />
+          </svg>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+type PreviewProps = {
+  selected: ProductSelection;
+  logoUrl: string | null;
+  /** Replaces the selection's design on the printed surface; `null` is a clean surface. */
+  artwork?: ReactNode;
+  className?: string;
+};
+
 function DesignArtwork({
   selected,
   logoUrl,
+  artwork,
   transparentBase = false,
-}: {
-  selected: ProductSelection;
-  logoUrl: string | null;
+}: Omit<PreviewProps, "className"> & {
   transparentBase?: boolean;
 }) {
   const dark = selected.background === "black";
 
   return (
     <div className={styles.designArtwork} data-dark={dark ? "true" : "false"}>
-      {selected.design.kind === "template" ? (
+      {artwork !== undefined ? (
+        artwork
+      ) : selected.design.kind === "template" ? (
         selected.design.templateId === "basic" ? (
           <BasicReviewArtwork dark={dark} transparent={transparentBase} />
         ) : (
@@ -160,38 +200,26 @@ function previewScale(dimension: ProductDimension): CSSProperties {
   return { "--product-scale": DIMENSION_SCALE[dimension] } as CSSProperties;
 }
 
-function StickerPreview({
-  selected,
-  logoUrl,
-}: {
-  selected: ProductSelection;
-  logoUrl: string | null;
-}) {
+function StickerPreview({ selected, logoUrl, artwork, className = "" }: PreviewProps) {
   return (
     <div
       aria-hidden="true"
-      className={`${styles.previewRoot} ${styles.stickerPreview}`}
+      className={`${styles.previewRoot} ${styles.stickerPreview} ${className}`}
       data-shape={selected.shape ?? "square"}
       style={previewScale(selected.dimension)}
     >
       <div className={styles.stickerProduct}>
-        <DesignArtwork selected={selected} logoUrl={logoUrl} />
+        <DesignArtwork selected={selected} logoUrl={logoUrl} artwork={artwork} />
       </div>
     </div>
   );
 }
 
-function WindowFilmPreview({
-  selected,
-  logoUrl,
-}: {
-  selected: ProductSelection;
-  logoUrl: string | null;
-}) {
+function WindowFilmPreview({ selected, logoUrl, artwork, className = "" }: PreviewProps) {
   return (
     <div
       aria-hidden="true"
-      className={`${styles.previewRoot} ${styles.windowFilmPreview}`}
+      className={`${styles.previewRoot} ${styles.windowFilmPreview} ${className}`}
       style={previewScale(selected.dimension)}
     >
       <div
@@ -202,6 +230,7 @@ function WindowFilmPreview({
         <DesignArtwork
           selected={selected}
           logoUrl={logoUrl}
+          artwork={artwork}
           transparentBase={selected.background === "transparent"}
         />
       </div>
@@ -209,24 +238,18 @@ function WindowFilmPreview({
   );
 }
 
-function TwoPiecePreview({
-  selected,
-  logoUrl,
-}: {
-  selected: ProductSelection;
-  logoUrl: string | null;
-}) {
+function TwoPiecePreview({ selected, logoUrl, artwork, className = "" }: PreviewProps) {
   const orientation = selected.orientation ?? "portrait";
   return (
     <div
       aria-hidden="true"
-      className={`${styles.previewRoot} ${styles.twoPiecePreview}`}
+      className={`${styles.previewRoot} ${styles.twoPiecePreview} ${className}`}
       data-orientation={orientation}
       style={previewScale(selected.dimension)}
     >
       <div className={styles.twoPieceObject} data-orientation={orientation}>
         <div className={styles.twoPieceInsert}>
-          <DesignArtwork selected={selected} logoUrl={logoUrl} />
+          <DesignArtwork selected={selected} logoUrl={logoUrl} artwork={artwork} />
         </div>
         <Image
           src={
@@ -245,17 +268,11 @@ function TwoPiecePreview({
   );
 }
 
-function CompactStandPreview({
-  selected,
-  logoUrl,
-}: {
-  selected: ProductSelection;
-  logoUrl: string | null;
-}) {
+function CompactStandPreview({ selected, logoUrl, artwork, className = "" }: PreviewProps) {
   return (
     <div
       aria-hidden="true"
-      className={`${styles.previewRoot} ${styles.compactPreview}`}
+      className={`${styles.previewRoot} ${styles.compactPreview} ${className}`}
       style={previewScale(selected.dimension)}
     >
       <div
@@ -274,26 +291,20 @@ function CompactStandPreview({
           overlayBlendMode={selected.background === "white" ? "multiply" : "normal"}
           inkFilter="drop-shadow(0.35px 0.35px 0 rgb(255 255 255 / 0.2)) drop-shadow(-0.35px -0.35px 0 rgb(0 0 0 / 0.24))"
         >
-          <DesignArtwork selected={selected} logoUrl={logoUrl} />
+          <DesignArtwork selected={selected} logoUrl={logoUrl} artwork={artwork} />
         </ProductMockup>
       </div>
     </div>
   );
 }
 
-function PremiumPreview({
-  selected,
-  logoUrl,
-}: {
-  selected: ProductSelection;
-  logoUrl: string | null;
-}) {
+function PremiumPreview({ selected, logoUrl, artwork, className = "" }: PreviewProps) {
   const product = getProduct(selected.productId);
   if (!product) return null;
   return (
     <div
       aria-hidden="true"
-      className={`${styles.previewRoot} ${styles.premiumPreview}`}
+      className={`${styles.previewRoot} ${styles.premiumPreview} ${className}`}
       style={previewScale(selected.dimension)}
     >
       <Image
@@ -313,30 +324,17 @@ function PremiumPreview({
           height: `${product.previewPlane.height}%`,
         }}
       >
-        <DesignArtwork selected={selected} logoUrl={logoUrl} />
+        <DesignArtwork selected={selected} logoUrl={logoUrl} artwork={artwork} />
       </div>
     </div>
   );
 }
 
-export function OfferProductPreview({
-  selected,
-  logoUrl,
-}: {
-  selected: ProductSelection;
-  logoUrl: string | null;
-}) {
-  if (selected.productId === "stickers") {
-    return <StickerPreview selected={selected} logoUrl={logoUrl} />;
-  }
-  if (selected.productId === "window-film") {
-    return <WindowFilmPreview selected={selected} logoUrl={logoUrl} />;
-  }
-  if (selected.productId === "two-piece-stand") {
-    return <TwoPiecePreview selected={selected} logoUrl={logoUrl} />;
-  }
-  if (selected.productId === "compact-stand") {
-    return <CompactStandPreview selected={selected} logoUrl={logoUrl} />;
-  }
-  return <PremiumPreview selected={selected} logoUrl={logoUrl} />;
+export function OfferProductPreview(props: PreviewProps) {
+  const { productId } = props.selected;
+  if (productId === "stickers") return <StickerPreview {...props} />;
+  if (productId === "window-film") return <WindowFilmPreview {...props} />;
+  if (productId === "two-piece-stand") return <TwoPiecePreview {...props} />;
+  if (productId === "compact-stand") return <CompactStandPreview {...props} />;
+  return <PremiumPreview {...props} />;
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowDownRight, Menu, X } from "lucide-react";
+import { ArrowRight, Menu, X } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { BrandLogo } from "@/components/brand-logo";
@@ -33,7 +33,7 @@ export function PrelaunchNav() {
           <ThemeToggle />
           <Link href="#kako-radi" className={`${styles.navCta} button-primary focus-signal`}>
             {dict.nav.cta}
-            <ArrowDownRight aria-hidden="true" className="size-4" strokeWidth={1.7} />
+            <ArrowRight aria-hidden="true" className="size-4" strokeWidth={1.7} />
           </Link>
           <button
             type="button"
