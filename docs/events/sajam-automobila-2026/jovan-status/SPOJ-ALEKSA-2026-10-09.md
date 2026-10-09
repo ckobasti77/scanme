@@ -11,7 +11,9 @@ Grana `codex/jovan-spoj-aleksa-2026-10-09`, napravljena od `codex/jovan-sajam-ma
 | `ff08475` | Revert P1 (`db7e5cf`) pre spoja |
 | `f824c86` | `git merge --no-ff aleksa/main` (`6afd7cb`) |
 | `24a0e89` | Ispravke mape: logoi bez pozadine, bez zone „Zadnji deo“, filteri iznad mape |
-| (ovaj) | Ova beleška |
+| `3fbd49f` | Ova beleška |
+| `ec576d6` | Tipovi u testovima: tsc bez grešaka |
+| (ovaj) | Dopuna beleške |
 
 ## 1. Aleksine grane
 
@@ -84,18 +86,23 @@ Spoj ne dira ScanMe Links ni `app/r`, pa `harness:check` nije potreban.
 
 ## 4. Provere
 
-| Provera | Pre spoja (`92bae1a`) | Posle spoja (`f824c86`) | Posle mape (`24a0e89`) |
-|---|---|---|---|
-| `npx tsc --noEmit` | 35 grešaka | 35, iste | 35, iste |
-| `npm run lint` | 0 grešaka / 3 upozorenja | 0 / 2 | 0 / 2 |
-| `npm test` (vitest) | 2 pala / 2312 prolazi | 2 pala / 2336 prolazi | 2 pala / 2335 prolazi |
-| `npm run build` | prolazi | prolazi | prolazi |
-| `npx vitest run fair` | — | — | 80 fajlova, 702 testa, sve prolazi |
+| Provera | Pre spoja (`92bae1a`) | Posle spoja (`f824c86`) | Posle mape (`24a0e89`) | Posle tipova (`ec576d6`) |
+|---|---|---|---|---|
+| `npx tsc --noEmit` | 35 grešaka | 35, iste | 35, iste | **0 grešaka** |
+| `npm run lint` | 0 grešaka / 3 upozorenja | 0 / 2 | 0 / 2 | 0 / 2 |
+| `npm test` (vitest) | 2 pala / 2312 prolazi | 2 pala / 2336 prolazi | 2 pala / 2335 prolazi | 1 pao / 2336 prolazi |
+| `npm run build` | prolazi | prolazi | prolazi | prolazi (bez izmene app koda) |
+| `npx vitest run fair` | — | — | 80 fajlova, 702 testa | 80 fajlova, 702 testa |
 
-- Svih 35 tsc grešaka su postojeće, u test fajlovima van sajma (`convex/admin*.test.ts`, `checkout`, `subscriptions`, `emailSyncEngine`, `enterpriseProvisioning`, `lib/memories-*`). Nijedna nije nova.
-- Uvek isti 2 pala testa:
-  - `convex/adminProducts.test.ts`: perf test „500 venues…“;
-  - `convex/memoriesHost.test.ts`: „extend then close a one_off window“.
+- 35 tsc grešaka su bile postojeće, u test fajlovima van sajma (`convex/admin*.test.ts`, `checkout`, `subscriptions`, `emailSyncEngine`, `enterpriseProvisioning`, `lib/memories-*`). Spoj i mapa nisu dodali nijednu.
+- U `ec576d6` su ispravljene samo anotacijama, bez promene ponašanja testova:
+  - helperi sa `TestConvex<typeof schema>` umesto `ReturnType<typeof convexTest>`, koji gubi tipove šeme;
+  - `FunctionReturnType<…>` za stranicu u petljama sa kursorom;
+  - `Promise<never>` za metode lažnog transporta koje samo bacaju;
+  - `as const` za `coverage`; `BlobPart` i sharp `Create` u memories testovima.
+- Stari padovi:
+  - `convex/memoriesHost.test.ts`, „extend then close a one_off window“: pada uvek;
+  - `convex/adminProducts.test.ts`, perf test „500 venues…“: pada samo pod opterećenjem celog suite-a, a sam prolazi.
 - Posle ispravki mape jedan test manje, jer je test oblasti „Zadnji deo“ u `layout.test.ts` uklonjen sa zonom.
 
 ## 5. Ispravke mape (`24a0e89`)
