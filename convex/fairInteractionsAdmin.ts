@@ -6,6 +6,7 @@ import {
   FAIR_AUDIENCE_OPTIONS_MAX,
   FAIR_AUDIENCE_OPTIONS_MIN,
   FAIR_SURVEY_MAX_QUESTIONS,
+  FAIR_SURVEY_OPTIONS_MAX,
 } from "../lib/fair-contract";
 import { fairAudienceQuestionsRemaining, fairBrandPassportProblems, getFairEntitlements } from "../lib/fair-entitlements";
 import { requireAdmin } from "./lib/access";
@@ -294,7 +295,7 @@ function normalizeSurveyQuestions(questions: ReadonlyArray<Doc<"fairSurveys">["q
       if (!prompt || prompt.length > 300) fairAdminError("FAIR_SURVEY_INVALID", { field: "questions.prompt" });
       const options = question.kind === "yes_no"
         ? (question.options.length ? fairAdminError("FAIR_SURVEY_INVALID", { field: "questions.options" }) : [])
-        : normalizeOptions(question.options, FAIR_AUDIENCE_OPTIONS_MIN, FAIR_AUDIENCE_OPTIONS_MAX, "FAIR_SURVEY_INVALID");
+        : normalizeOptions(question.options, FAIR_AUDIENCE_OPTIONS_MIN, FAIR_SURVEY_OPTIONS_MAX, "FAIR_SURVEY_INVALID");
       return { id, prompt, kind: question.kind, options, required: question.required, order: question.order };
     })
     .sort((a, b) => a.order - b.order);

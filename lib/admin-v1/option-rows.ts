@@ -4,7 +4,7 @@
 // stay stable (o1…o5): a new row takes the first free id, because votes and
 // answers store the `optionId`, never the position.
 
-import { FAIR_AUDIENCE_OPTIONS_MAX, FAIR_AUDIENCE_OPTIONS_MIN } from "@/lib/fair-contract";
+import { FAIR_AUDIENCE_OPTIONS_MAX, FAIR_AUDIENCE_OPTIONS_MIN, FAIR_SURVEY_OPTIONS_MAX } from "@/lib/fair-contract";
 import { normalizeSearch } from "./hierarchy";
 
 export type OptionRow = { id: string; label: string };
@@ -12,6 +12,8 @@ export type OptionRowLimits = { min: number; max: number };
 
 /** Glas publike and survey choice questions: 2–5 options (lib/fair-contract). */
 export const AUDIENCE_OPTION_LIMITS: OptionRowLimits = { min: FAIR_AUDIENCE_OPTIONS_MIN, max: FAIR_AUDIENCE_OPTIONS_MAX };
+/** Survey choice questions: 2–6 options (owner, 9 Oct 2026). */
+export const SURVEY_OPTION_LIMITS: OptionRowLimits = { min: FAIR_AUDIENCE_OPTIONS_MIN, max: FAIR_SURVEY_OPTIONS_MAX };
 
 export type OptionRowsProblem =
   | { kind: "too_few"; min: number }

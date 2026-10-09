@@ -219,6 +219,28 @@ describe("A10 dashboard rules (A0-IZVESTAJ §6)", () => {
     expect(rules(await f.dash(at("2026-10-06T10:00:00+02:00")))).not.toContain("question_missing_next_day");
   });
 
+  test("a question open for the whole fair covers every day: no missing-question warning for days it serves (9 Oct 2026)", async () => {
+    const f = await setup();
+    const models = ["volta-x1", "volta-x2", "om-z1", "amper-y1"] as const;
+    await f.t.run(async (ctx) => {
+      const day1 = (await ctx.db.get(f.day1))!;
+      const day3 = (await ctx.db.get(f.day3))!;
+      for (const model of models) {
+        await ctx.db.insert("fairAudienceQuestions", {
+          eventId: f.eventId, eventDayId: f.day1, eventModelId: f.models[model], prompt: "TEST pitanje?",
+          options: [{ id: "o1", label: "TEST da", order: 1 }, { id: "o2", label: "TEST ne", order: 2 }],
+          status: "published", sortOrder: 1, startsAt: day1.startsAt, endsAt: day3.endsAt,
+          showOnSponsoredRotation: false, createdAt: SEED_AT, updatedAt: SEED_AT,
+        });
+      }
+    });
+    const d = await f.dash(at("2026-10-10T10:00:00+02:00"));
+    expect(rules(d)).not.toContain("question_missing_today");
+    expect(d.kpis.questions).toMatchObject({ dateKey: "2026-10-10", covered: 4, required: 4 });
+    // Counted once each, not once per day.
+    expect(d.sections.interakcije.questions).toBe(4);
+  });
+
   test("Napredni: map question, photo and an out-of-date sponsored list", async () => {
     const f = await setup();
     const fairDay = at("2026-10-10T10:00:00+02:00");

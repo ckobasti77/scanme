@@ -148,8 +148,13 @@ export const FAIR_MAP_ROTATION_INTERVAL_MS = 12_000;
 export const FAIR_GARAGE_ROTATION_INTERVAL_MS = 8_000;
 export const FAIR_SHARE_COLLECTION_MAX_MODELS = 5;
 export const FAIR_SHARE_CODE_PATTERN = /^[A-Za-z0-9_-]{24}$/;
-/** Survey has at most five questions (MASTER §9.2). */
-export const FAIR_SURVEY_MAX_QUESTIONS = 5;
+/**
+ * Survey size. Owner decision 9 Oct 2026: the admin allows up to 10 questions
+ * of up to 6 answers each; exhibitors are still told "5" (MASTER §9.2) and more
+ * is agreed case by case. Glas publike keeps 2–5 answers.
+ */
+export const FAIR_SURVEY_MAX_QUESTIONS = 10;
+export const FAIR_SURVEY_OPTIONS_MAX = 6;
 /** Audience question options: at least 2 (HANDOFF §5.3), at most 5 (DATA-INTAKE §6.5). */
 export const FAIR_AUDIENCE_OPTIONS_MIN = 2;
 export const FAIR_AUDIENCE_OPTIONS_MAX = 5;

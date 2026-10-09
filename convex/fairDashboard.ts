@@ -70,7 +70,9 @@ async function loadFacts(ctx: QueryCtx, event: Doc<"fairEvents">, at: number): P
         .take(QUESTIONS_PER_DAY_CAP + 1);
       if (rows.length > QUESTIONS_PER_DAY_CAP) questionsCapped = true;
       for (const row of rows.slice(0, QUESTIONS_PER_DAY_CAP)) {
-        questions.push({ id: row._id, modelId: row.eventModelId, dayId: row.eventDayId, showOnSponsoredRotation: row.showOnSponsoredRotation });
+        const endsAt = row.endsAt ?? Number.POSITIVE_INFINITY;
+        const coveredDayIds = days.filter((other) => other._id === row.eventDayId || (row.startsAt < other.endsAt && endsAt > other.startsAt)).map((other) => other._id as string);
+        questions.push({ id: row._id, modelId: row.eventModelId, dayId: row.eventDayId, coveredDayIds, showOnSponsoredRotation: row.showOnSponsoredRotation });
       }
     }
   }

@@ -92,7 +92,8 @@ export type FairDashboardFacts = {
   assignments: number;
   inventory: { total: number | null; capped: boolean };
   /** Published and closed Glas publike questions of every day (drafts are not read). */
-  questions: { id: string; modelId: string; dayId: string; showOnSponsoredRotation: boolean }[];
+  /** `coveredDayIds`: every fair day the question's window overlaps (its own day included), 9 Oct 2026. */
+  questions: { id: string; modelId: string; dayId: string; coveredDayIds?: string[]; showOnSponsoredRotation: boolean }[];
   questionsCapped: boolean;
   consents: Record<FairLeadKind, boolean>;
   formDefaults: { participationId: string; leadKind: FairLeadKind; enabled: boolean }[];
@@ -238,10 +239,14 @@ export function buildFairDashboard(facts: FairDashboardFacts) {
   // Glas publike (rules 6, 6b) — only models whose package in force NOW has
   // questions: that is when the admin can create and publish one.
   const questionsByDay = new Map<string, Set<string>>();
+  // A question open across several fair days covers each of them (owner,
+  // 9 Oct 2026): no "missing question" warning for a day it already serves.
   for (const question of facts.questions) {
-    const set = questionsByDay.get(question.dayId) ?? new Set<string>();
-    set.add(question.modelId);
-    questionsByDay.set(question.dayId, set);
+    for (const dayId of question.coveredDayIds ?? [question.dayId]) {
+      const set = questionsByDay.get(dayId) ?? new Set<string>();
+      set.add(question.modelId);
+      questionsByDay.set(dayId, set);
+    }
   }
   const askers = published.filter((model) => rights(tierNow(model)).audienceQuestionsPerDay > 0);
   const missingOn = (dayId: string) => askers.filter((model) => !questionsByDay.get(dayId)?.has(model.id)).length;

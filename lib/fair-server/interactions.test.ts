@@ -149,7 +149,7 @@ describe("guards", () => {
       [handleFairAudienceVote, ["q1", "a"]],
       [handleFairRating, { eventModelId: "m1", overall: "5" }],
       [handleFairSurvey, { surveyId: "s1", submissionId: "sub-00001", answers: [{ questionId: "q1", value: "yes", extra: 1 }] }],
-      [handleFairSurvey, { surveyId: "s1", submissionId: "sub-00001", answers: Array.from({ length: 6 }, () => ({ questionId: "q1", value: "yes" })) }],
+      [handleFairSurvey, { surveyId: "s1", submissionId: "sub-00001", answers: Array.from({ length: 11 }, () => ({ questionId: "q1", value: "yes" })) }],
       [handleFairFavorite, { passportId: "p1" }],
       [handleFairPassport, { eventSlug: "" }],
     ] as const) {

@@ -15,10 +15,10 @@ import {
 const run = (state: SurveyState, ...actions: SurveyAction[]) => actions.reduce(surveyReducer, state);
 
 describe("survey state machine", () => {
-  it("caps at five questions and starts fresh", () => {
-    const state = initialSurveyState(7);
-    expect(state.total).toBe(5);
-    expect(surveyHeadCopy(state)).toEqual({ kind: "fresh", total: 5 });
+  it("caps at ten questions (owner, 9 Oct 2026) and starts fresh", () => {
+    const state = initialSurveyState(12);
+    expect(state.total).toBe(10);
+    expect(surveyHeadCopy(state)).toEqual({ kind: "fresh", total: 10 });
   });
 
   it("answers, skips and goes back; partial and ready head copy", () => {
