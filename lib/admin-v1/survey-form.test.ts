@@ -15,14 +15,14 @@ import {
 // "Izbor jednog odgovora" with 2–5 options.
 
 describe("survey form", () => {
-  test("at most 5 questions, at least 1; stable ids q1…q5", () => {
+  test("at most 10 questions (owner, 9 Oct 2026), at least 1; stable ids q1…q10", () => {
     let questions = [emptySurveyQuestion()];
-    for (let i = 0; i < 6; i += 1) questions = addSurveyQuestion(questions);
-    expect(questions.map((question) => question.id)).toEqual(["q1", "q2", "q3", "q4", "q5"]);
+    for (let i = 0; i < 11; i += 1) questions = addSurveyQuestion(questions);
+    expect(questions.map((question) => question.id)).toEqual(["q1", "q2", "q3", "q4", "q5", "q6", "q7", "q8", "q9", "q10"]);
     questions = removeSurveyQuestion(questions, "q2");
-    expect(addSurveyQuestion(questions).map((question) => question.id)).toEqual(["q1", "q3", "q4", "q5", "q2"]);
+    expect(addSurveyQuestion(questions).map((question) => question.id)).toEqual(["q1", "q3", "q4", "q5", "q6", "q7", "q8", "q9", "q10", "q2"]);
     expect(removeSurveyQuestion([emptySurveyQuestion()], "q1")).toHaveLength(1);
-    expect(validateSurveyForm(Array.from({ length: 6 }, (_, index) => ({ ...emptySurveyQuestion(), id: `q${index + 1}`, prompt: "TEST" })))).toContainEqual({ kind: "too_many", max: 5 });
+    expect(validateSurveyForm(Array.from({ length: 11 }, (_, index) => ({ ...emptySurveyQuestion(), id: `q${index + 1}`, prompt: "TEST" })))).toContainEqual({ kind: "too_many", max: 10 });
   });
 
   test("question types: Da/Ne has no options, a choice starts with two option rows", () => {

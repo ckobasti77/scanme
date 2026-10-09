@@ -26,6 +26,7 @@ import {
 import { eventDateTime, Feedback, Meta, Section, type EventMessage } from "@/components/admin/events/event-ui";
 import { audienceTierNow } from "@/lib/admin-v1/audience-quota";
 import { buildHierarchy } from "@/lib/admin-v1/hierarchy";
+import { SURVEY_OPTION_LIMITS } from "@/lib/admin-v1/option-rows";
 import type { AdminQueryPatch, AdminQueryState } from "@/lib/admin-v1/query-state";
 import {
   addSurveyQuestion,
@@ -156,7 +157,7 @@ function SurveyEditor({ model, versions, actions, setMessage }: {
                   </div>
                 </fieldset>
                 {question.kind === "single_choice" ? (
-                  <AdminOptionRows label={f.optionsLabel} value={question.options} onChange={(options) => setQuestions((rows) => updateSurveyQuestion(rows, question.id, { options }))} showProblems={showProblems} />
+                  <AdminOptionRows label={f.optionsLabel} value={question.options} limits={SURVEY_OPTION_LIMITS} onChange={(options) => setQuestions((rows) => updateSurveyQuestion(rows, question.id, { options }))} showProblems={showProblems} />
                 ) : null}
               </fieldset>
             </li>
