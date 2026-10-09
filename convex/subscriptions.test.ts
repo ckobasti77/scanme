@@ -1,5 +1,5 @@
 /// <reference types="vite/client" />
-import { convexTest } from "convex-test";
+import { convexTest, type TestConvex } from "convex-test";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { api, internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
@@ -13,7 +13,7 @@ const modules = import.meta.glob("./**/*.ts");
 const date = (day: string) => Date.parse(`${day}T10:00:00Z`);
 const rsd = (amountMinor: number) => ({ amountMinor, currency: "RSD" });
 const adminIdentity = (userId: Id<"users">) => ({ subject: userId, issuer: "https://admin03.test" });
-type Backend = ReturnType<typeof convexTest>;
+type Backend = TestConvex<typeof schema>;
 
 beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(AS_OF); process.env.SCANME_ADMIN_EMAILS = "admin03@example.invalid"; });
 afterEach(() => vi.useRealTimers());
@@ -373,7 +373,7 @@ describe("ADMIN-03 additive migration and single writer", () => {
 
   test("Starter is explicit; unpaid migration never grants paid service or creates a Premium row", async () => {
     const t = convexTest(schema, modules), a = await seed(t);
-    await a.adminClient.mutation(internal.subscriptionMigrations.adoptAccount, { ...a.migration, premiumDecision: "starter", subscriptions: a.migration.subscriptions.slice(0, 6).map((row) => ({ ...row, coverage: { kind: "unpaid" } })) });
+    await a.adminClient.mutation(internal.subscriptionMigrations.adoptAccount, { ...a.migration, premiumDecision: "starter", subscriptions: a.migration.subscriptions.slice(0, 6).map((row) => ({ ...row, coverage: { kind: "unpaid" as const } })) });
     expect(await a.adminClient.query(internal.subscriptions.premium, { accountId: a.accountId })).toBeNull();
     const rows = await t.run((ctx) => ctx.db.query("subscriptions").collect());
     expect(rows).toHaveLength(6);

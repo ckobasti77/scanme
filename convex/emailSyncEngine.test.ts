@@ -116,8 +116,8 @@ class FakeTransport implements EmailProviderTransport {
   refreshCalls = 0;
   attachmentCalls = 0;
 
-  async discoverAccount() { throw new Error("not used"); }
-  async discoverFolders() { throw new Error("not used"); }
+  async discoverAccount(): Promise<never> { throw new Error("not used"); }
+  async discoverFolders(): Promise<never> { throw new Error("not used"); }
   async listMessages(args: { start: number }) {
     if (this.listError) throw this.listError;
     return this.pages.get(args.start) ?? [];
@@ -144,9 +144,9 @@ class FakeTransport implements EmailProviderTransport {
     if (this.attachmentError) throw this.attachmentError;
     return [{ providerAttachmentId: "5001", fileName: "racun.pdf", size: 42, inline: false }];
   }
-  async downloadAttachment() { throw new Error("not used"); }
-  async send() { throw new Error("not used"); }
-  async reply() { throw new Error("not used"); }
+  async downloadAttachment(): Promise<never> { throw new Error("not used"); }
+  async send(): Promise<never> { throw new Error("not used"); }
+  async reply(): Promise<never> { throw new Error("not used"); }
   async searchSentForReconciliation() { return []; }
   async refreshAccessToken() {
     this.refreshCalls += 1;

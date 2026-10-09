@@ -1,5 +1,6 @@
 /// <reference types="vite/client" />
 import { convexTest } from "convex-test";
+import type { FunctionReturnType } from "convex/server";
 import rateLimiterTest from "@convex-dev/rate-limiter/test";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { api, internal } from "./_generated/api";
@@ -404,7 +405,7 @@ test("500 venues and 10,000 physical products paginate under 4 queries/250 docum
   });
   let venueCursor: string | null = null; let venueCount = 0;
   do {
-    const result = await f.admin.query(api.adminProductReads.listVenues, { paginationOpts: page(37, venueCursor) });
+    const result: FunctionReturnType<typeof api.adminProductReads.listVenues> = await f.admin.query(api.adminProductReads.listVenues, { paginationOpts: page(37, venueCursor) });
     venueCount += result.page.length; venueCursor = result.isDone ? null : result.continueCursor;
   } while (venueCursor);
   expect(venueCount).toBe(500);
@@ -412,7 +413,7 @@ test("500 venues and 10,000 physical products paginate under 4 queries/250 docum
   for (const businessId of venues) {
     let cursor: string | null = null; const seen = new Set<string>();
     do {
-      const result = await f.admin.query(api.adminProductReads.listInventory, { accountId: f.accountId, businessId, paginationOpts: page(7, cursor), sort: "smf", direction: "asc" });
+      const result: FunctionReturnType<typeof api.adminProductReads.listInventory> = await f.admin.query(api.adminProductReads.listInventory, { accountId: f.accountId, businessId, paginationOpts: page(7, cursor), sort: "smf", direction: "asc" });
       for (const row of result.page) { expect(seen.has(row.smfCode)).toBe(false); seen.add(row.smfCode); expect(row.businessId).toBe(businessId); }
       productCount += result.page.length; cursor = result.isDone ? null : result.continueCursor;
     } while (cursor);
@@ -423,7 +424,7 @@ test("500 venues and 10,000 physical products paginate under 4 queries/250 docum
     let channelCount = 0;
     let cursor: string | null = null;
     do {
-      const result = await f.admin.query(api.adminProductReads.listChannels, { kind, binding: "physical", direction: "asc", paginationOpts: page(50, cursor) });
+      const result: FunctionReturnType<typeof api.adminProductReads.listChannels> = await f.admin.query(api.adminProductReads.listChannels, { kind, binding: "physical", direction: "asc", paginationOpts: page(50, cursor) });
       channelCount += result.page.length;
       expect(result.page.every((row) => row.kind === kind && row.binding === "physical")).toBe(true);
       cursor = result.isDone ? null : result.continueCursor;
