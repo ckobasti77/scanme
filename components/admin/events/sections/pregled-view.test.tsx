@@ -100,7 +100,7 @@ describe("A10 Pregled view", () => {
 
   test("KPI row: one number per function; a function no package has is left out, never a zero", () => {
     const sajam = render(previewDashboard("sajam"));
-    for (const text of [d.kpi.models, "34/37", "Za sve 9 · Starter 18 · Napredni 10", d.kpi.qr, "33/100", d.kpi.scans, "412", "ukupno 1286 · jedinstveni 903", d.kpi.leads, "neisporučeno 14 od 23", d.kpi.questionsToday, "15/20", d.kpi.reports]) {
+    for (const text of [d.kpi.models, "34/37", "Za sve 9 · Starter 18 · Napredni 10", d.kpi.qr, "33/100", d.kpi.scans, "412", "ceo sajam 1286 · jedinstveni po modelu 903", d.kpi.leads, "neisporučeno 14 od 23", d.kpi.questionsToday, "15/20", d.kpi.reports]) {
       expect(sajam).toContain(text);
     }
     expect(sajam).toContain('aria-label="Brojevi"');
@@ -113,7 +113,7 @@ describe("A10 Pregled view", () => {
     expect(render(previewDashboard("pre"))).toContain("Pitanja za TEST dan 1");
     // After the fair the totals and the open deliveries replace "today".
     const posle = render(previewDashboard("posle"));
-    for (const text of [d.kpi.scansTotal, "3954", "jedinstveni 2710", d.kpi.leadsUndelivered, "od 61 primljenih"]) expect(posle).toContain(text);
+    for (const text of [d.kpi.scansTotal, "3954", "jedinstveni po modelu 2710", d.kpi.leadsUndelivered, "od 61 primljenih"]) expect(posle).toContain(text);
     for (const text of [d.kpi.scans, d.kpi.leads]) expect(posle).not.toContain(text);
   });
 
