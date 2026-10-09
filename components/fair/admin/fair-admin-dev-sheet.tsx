@@ -43,7 +43,8 @@ export type FairAdminDevSheetProps = {
   build: string;
 };
 
-type DevState = { passport: FairPassportState | null; garageModelIds: string[]; questionId: string | null };
+type DevModel = { id: string; slug: string; name: string; brandName: string };
+type DevState = { passport: FairPassportState | null; garageModelIds: string[]; questionId: string | null; models?: DevModel[] };
 type Overlay = { kind: "finale" } | { kind: "newStamp"; modelSlug: string } | null;
 
 const NEW_STAMP_DISMISS_PREFIX = "scanme:fair-new-stamp-dismissed:";
@@ -71,6 +72,11 @@ export function FairAdminDevSheet({ dict, event, model, brandName, preview, visi
   const [toast, setToast] = useState<string | null>(null);
   const [state, setState] = useState<DevState | null>(null);
   const [overlay, setOverlay] = useState<Overlay>(null);
+  // Pickers (9 Oct 2026): passport pages have no model in context, so the
+  // sheet lets the admin choose the brand (overview) and the models itself.
+  const [pickedPassportId, setPickedPassportId] = useState<string | null>(null);
+  const [pickedStampModelId, setPickedStampModelId] = useState<string | null>(null);
+  const [pickedScanModelId, setPickedScanModelId] = useState<string | null>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const tabRef = useRef<HTMLButtonElement>(null);
   const toastTimer = useRef<number | undefined>(undefined);
@@ -111,11 +117,24 @@ export function FairAdminDevSheet({ dict, event, model, brandName, preview, visi
     tabRef.current?.focus();
   };
 
-  const passportBrand = model?.brandName ?? brandName;
-  const catalogEntry = state?.passport?.catalog.find((entry) => entry.brandName === passportBrand) ?? null;
+  const catalog = state?.passport?.catalog ?? [];
+  const contextBrand = model?.brandName ?? brandName;
+  // A model or brand page shows its own brand; the /pasosi overview offers every published passport.
+  const pickBrand = !contextBrand;
+  const catalogEntry = (pickBrand
+    ? catalog.find((entry) => entry.passportId === pickedPassportId) ?? catalog[0]
+    : catalog.find((entry) => entry.brandName === contextBrand)) ?? null;
+  const passportBrand = catalogEntry?.brandName ?? contextBrand;
   const progress = catalogEntry ? state?.passport?.progress.find((row) => row.passportId === catalogEntry.passportId) ?? null : null;
   const brandLabel = catalogEntry?.brandName.replace(/^TEST\s+/i, "") ?? "";
-  const modelInPassport = Boolean(model && catalogEntry?.models.some((member) => member.eventModelId === model.id));
+  const members = catalogEntry?.models ?? [];
+  const memberName = (member: (typeof members)[number]) => (member.variant ? `${member.displayName} ${member.variant}` : member.displayName);
+  const stampTarget = members.find((member) => member.eventModelId === pickedStampModelId)
+    ?? members.find((member) => member.eventModelId === model?.id)
+    ?? members[0]
+    ?? null;
+  const scanModels: DevModel[] = state?.models ?? (model ? [{ id: model.id, slug: model.slug, name: model.name, brandName: model.brandName }] : []);
+  const scanTarget = scanModels.find((row) => row.id === pickedScanModelId) ?? scanModels.find((row) => row.id === model?.id) ?? scanModels[0] ?? null;
 
   const run = async (work: () => Promise<string | void>, reload = false) => {
     if (busy) return;
@@ -207,12 +226,28 @@ export function FairAdminDevSheet({ dict, event, model, brandName, preview, visi
           {catalogEntry ? (
             <section className="fair-admin-dev__sec">
               <h4>{fmt(dict.passportTitle, { brand: brandLabel })}</h4>
+              {pickBrand && catalog.length > 1 ? (
+                <label className="fair-admin-dev__pick">
+                  <span>{dict.pickBrand}</span>
+                  <select value={catalogEntry.passportId} onChange={(changeEvent) => { setPickedPassportId(changeEvent.target.value); setPickedStampModelId(null); }}>
+                    {catalog.map((entry) => <option key={entry.passportId} value={entry.passportId}>{entry.brandName.replace(/^TEST\s+/i, "")}</option>)}
+                  </select>
+                </label>
+              ) : null}
+              {stampTarget ? (
+                <label className="fair-admin-dev__pick">
+                  <span>{dict.pickStampModel}</span>
+                  <select value={stampTarget.eventModelId} onChange={(changeEvent) => setPickedStampModelId(changeEvent.target.value)}>
+                    {members.map((member) => <option key={member.eventModelId} value={member.eventModelId}>{memberName(member)}</option>)}
+                  </select>
+                </label>
+              ) : null}
               <div className="fair-admin-dev__grid">
-                {model && modelInPassport ? (
+                {stampTarget ? (
                   <button type="button" className="fair-admin-dev__btn" disabled={busy} onClick={() => void run(async () => {
-                    await adminDev({ action: "stamps", eventId: event.id, eventModelIds: [model.id] });
-                    return fmt(dict.toastStampModel, { model: model.name });
-                  }, true)}>{fmt(dict.stampModel, { model: model.name })}</button>
+                    await adminDev({ action: "stamps", eventId: event.id, eventModelIds: [stampTarget.eventModelId] });
+                    return fmt(dict.toastStampModel, { model: memberName(stampTarget) });
+                  }, true)}>{fmt(dict.stampModel, { model: memberName(stampTarget) })}</button>
                 ) : null}
                 <button type="button" className="fair-admin-dev__btn" disabled={busy} onClick={() => void run(async () => {
                   await adminDev({ action: "stamps", eventId: event.id, eventModelIds: catalogEntry.models.map((member) => member.eventModelId) });
@@ -229,7 +264,7 @@ export function FairAdminDevSheet({ dict, event, model, brandName, preview, visi
                 }}>{dict.finale}</button>
                 <button type="button" className="fair-admin-dev__btn" onClick={() => {
                   setOpen(false);
-                  setOverlay({ kind: "newStamp", modelSlug: model && modelInPassport ? model.slug : catalogEntry.models[0]?.slug ?? "" });
+                  setOverlay({ kind: "newStamp", modelSlug: stampTarget?.slug ?? "" });
                   say(dict.toastNewStamp);
                 }}>{dict.newStamp}</button>
                 <button type="button" className="fair-admin-dev__btn is-warn" disabled={busy} onClick={() => void run(async () => {
@@ -290,18 +325,26 @@ export function FairAdminDevSheet({ dict, event, model, brandName, preview, visi
             </div>
           </section>
 
-          {model ? (
+          {scanTarget ? (
             <section className="fair-admin-dev__sec">
               <h4>{dict.qrTitle}</h4>
+              {scanModels.length > 1 ? (
+                <label className="fair-admin-dev__pick">
+                  <span>{dict.pickScanModel}</span>
+                  <select value={scanTarget.id} onChange={(changeEvent) => setPickedScanModelId(changeEvent.target.value)}>
+                    {scanModels.map((row) => <option key={row.id} value={row.id}>{row.brandName && !row.name.toLowerCase().startsWith(row.brandName.toLowerCase()) ? `${row.brandName} ${row.name}` : row.name}</option>)}
+                  </select>
+                </label>
+              ) : null}
               <div className="fair-admin-dev__grid">
                 <button type="button" className="fair-admin-dev__btn" disabled={busy} onClick={() => void run(async () => {
-                  await adminDev({ action: "scan", eventId: event.id, eventModelId: model.id });
-                  forgetSeen([model.id]);
-                  return fmt(dict.toastSimulateScan, { model: model.name });
+                  await adminDev({ action: "scan", eventId: event.id, eventModelId: scanTarget.id });
+                  forgetSeen([scanTarget.id]);
+                  return fmt(dict.toastSimulateScan, { model: scanTarget.name });
                 }, true)}>{dict.simulateScan}</button>
                 <button type="button" className="fair-admin-dev__btn" onClick={() => {
                   say(dict.toastLinkSticker);
-                  router.push(`/admin/dogadjaji/${event.dataSlug}/povezi?model=${encodeURIComponent(model.id)}`);
+                  router.push(`/admin/dogadjaji/${event.dataSlug}/povezi?model=${encodeURIComponent(scanTarget.id)}`);
                 }}>{dict.linkSticker}</button>
               </div>
             </section>
@@ -310,7 +353,8 @@ export function FairAdminDevSheet({ dict, event, model, brandName, preview, visi
           <section className="fair-admin-dev__sec">
             <h4>{dict.stateTitle}</h4>
             <div className="fair-admin-dev__info">
-              {dict.stateEvent} <b>{event.dataSlug}</b> · {dict.stateModel} <b>{model?.slug ?? dict.stateNone}</b><br />
+              {dict.stateEvent} <b>{event.dataSlug}</b> · {dict.stateBrand} <b>{brandLabel || model?.brandName || dict.stateNone}</b><br />
+              {dict.stateModel} <b>{model?.slug ?? scanTarget?.slug ?? dict.stateNone}</b><br />
               {dict.statePackage} <b>{model ? tierName(model.tier) : dict.stateNone}</b> · {dict.stateView} <b>{view}</b><br />
               {dict.stateVisitor} <b>{visitor}</b> · {dict.stateInternal} <b>{dict.stateYes}</b><br />
               {dict.stateDatabase} <b>{database}</b> · {dict.stateBuild} <b>{build}</b>

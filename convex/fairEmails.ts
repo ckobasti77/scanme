@@ -179,8 +179,8 @@ export const claimDelivery = internalMutation({
     await ctx.db.patch(delivery._id, { attemptCount: delivery.attemptCount + 1, claimedAt: now, updatedAt: now });
     const confirmation = delivery.kind === "immediate_confirmation";
     const followUp = confirmation ? await fairLeadDelivery(ctx, lead._id, "post_event_follow_up") : null;
-    // N5: the confirmation says where the car is and which contact was shared.
-    const stand = confirmation ? await ctx.db.get(model.standId) : null;
+    // 9 Oct 2026: the confirmation names the brand (never the stand).
+    const brand = confirmation ? await ctx.db.get(model.brandId) : null;
     return {
       action: "send" as const,
       message: {
@@ -199,10 +199,8 @@ export const claimDelivery = internalMutation({
         ...(template ? { template } : {}),
         ...(confirmation
           ? {
-              venueName: event.venueName,
-              ...(stand?.displayName.trim() ? { standName: stand.displayName.trim() } : {}),
-              ...(lead.email ? { contactEmail: lead.email } : {}),
-              ...(lead.phone ? { contactPhone: lead.phone } : {}),
+              ...(brand?.name.trim() ? { brandName: brand.name.trim() } : {}),
+              ...(lead.origin ? { origin: lead.origin } : {}),
             }
           : {}),
       },

@@ -97,3 +97,20 @@ Na DEV-u `elektromobilnost-2026` postoje nacrti v1 za `interest` i `test_drive` 
 - Model nije placeholder. Forma ga već prikazuje, a Aleksa je izabrao da ne bude u tekstu.
 - Ispod teksta forma prikazuje link „Politika privatnosti“ ka `/sajam/privatnost`.
 - Ništa nije aktivirano. Aktivacija na PROD-u ide kroz admin „Leadovi → Podešavanja“ (pravno odobrenje i `FAIR_LEADS_ENABLED`).
+
+## 6. Dopuna: konačni mejlovi posetiocu i DEV panel na pasošima
+
+- **Mejlovi posetiocu** (`convex/lib/fairEmails.ts`, `lib/i18n/sr/event-lead-email.ts`):
+  - konačan tekst za „Zainteresovan sam“, „Probna vožnja“ i za anketu sa ostavljenim kontaktom (lead sa `origin: "survey"`);
+  - podnožje sa izlagačem i linkom na `/sajam/privatnost`;
+  - štand se ne prikazuje;
+  - `{model}` je bez imena brenda kad ga naziv već sadrži.
+- **Izlagaču ne ide nijedan automatski mejl.** Follow-up je i dalje isključen.
+- **`claimDelivery`** šalje `brandName` i `origin` umesto štanda, hale i kontakta.
+- **`sendDevTestEmail({ to, variant? })`** šalje jedan od 3 šablona sa primer podacima.
+- **DEV panel** (`fair-admin-dev-sheet.tsx`):
+  - na `/pasosi` je birač brenda;
+  - birač modela za „Daj pečat za…“;
+  - QR sekcija sa biračem modela na svakoj strani sajma;
+  - „Stanje“ prikazuje izabrani brend i model.
+- **Testovi:** `convex/fairVisitorEmails.test.ts` (tačni tekstovi); prilagođeni `fairLeads.test.ts` i `fairFollowUps.test.ts`.

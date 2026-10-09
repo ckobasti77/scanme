@@ -1,7 +1,6 @@
 import { v, type Infer } from "convex/values";
-import { FAIR_PII_PURGE_AT_MS, fairLeadNameRisk, type FairEmailDeliveryError } from "../../lib/fair-contract";
-import { belgradeParts } from "../../lib/belgrade-time";
-import { fmt } from "../../lib/i18n/format";
+import { fairLeadNameRisk, type FairEmailDeliveryError } from "../../lib/fair-contract";
+import { fmt, fmt as fmtRaw } from "../../lib/i18n/format";
 import { eventLeadEmailSr as dict } from "../../lib/i18n/sr/event-lead-email";
 import { eventReportSr as reportDict } from "../../lib/i18n/sr/event-report";
 import { fairLeadKind } from "./fairValidators";
@@ -36,11 +35,10 @@ export const fairLeadEmailMessage = v.object({
   modelPath: v.string(),
   followUpScheduled: v.boolean(),
   template: v.optional(v.object({ subject: v.string(), plainText: v.string() })),
-  // N5, confirmation only: where the car is (stand name + event venue) and the contact the visitor shared.
-  standName: v.optional(v.string()),
-  venueName: v.optional(v.string()),
-  contactEmail: v.optional(v.string()),
-  contactPhone: v.optional(v.string()),
+  // Confirmation only (9 Oct 2026): the brand display name and, for a lead
+  // left in the survey, the survey confirmation instead of the interest one.
+  brandName: v.optional(v.string()),
+  origin: v.optional(v.literal("survey")),
 });
 export type FairLeadEmailMessage = Infer<typeof fairLeadEmailMessage>;
 
@@ -124,47 +122,84 @@ function compose(subject: string, paragraphs: string[], url: string): FairOutgoi
   return { subject: oneLine(subject), text, html };
 }
 
-/** N5: the purge day as the visitor reads it, `16. 11. 2026.` (Europe/Belgrade). */
-export function fairEmailPurgeDateText(): string {
-  const day = belgradeParts(FAIR_PII_PURGE_AT_MS);
-  return `${day.day}. ${day.month}. ${day.year}.`;
+/** The model name without a leading brand ("Mazda CX-5" → "CX-5" for brand Mazda). */
+export function fairModelNameWithoutBrand(modelName: string, brandName: string): string {
+  const name = oneLine(modelName);
+  const brand = oneLine(brandName);
+  if (brand && name.toLowerCase().startsWith(`${brand.toLowerCase()} `)) return name.slice(brand.length + 1).trim();
+  return name;
+}
+
+/** The visitor's first name, or null when there is none or it is not safe to repeat. */
+export function fairFirstName(contactName: string): string | null {
+  const name = oneLine(contactName);
+  if (!name || fairLeadNameRisk(name)) return null;
+  return name.split(/\s+/)[0] ?? null;
+}
+
+function linkHtml(url: string) {
+  return `<a href="${escapeHtml(url)}" style="color:#1d5bd8">${escapeHtml(url.replace(/^https?:\/\//, ""))}</a>`;
 }
 
 /**
- * Immediate confirmation (ScanMe text, placeholder until P1) or the Advanced
- * follow-up (the exhibitor's active template + ScanMe footer). The
- * confirmation mentions the reply-to-cancel option only when a follow-up is
- * actually scheduled for the lead (MASTER §8).
- *
- * N5 confirmation: what was received (model, exhibitor, event), where (stand
- * and venue), the next step by kind, the contact that was shared (so a typo
- * shows), the privacy line, „Ako niste vi…“, then the link and the signature.
- * A name with a link, invisible characters or a phone-like number is never
- * repeated (the greeting drops it); every value is HTML-escaped by compose.
+ * The three visitor confirmations (9 Oct 2026, final copy): "Zainteresovan
+ * sam", "Probna vožnja" and a survey with a contact left. Plain text + HTML in
+ * the existing style; every value is HTML-escaped; the stand is never shown.
+ */
+function buildFairVisitorConfirmation(message: FairLeadEmailMessage, baseUrl: string): FairOutgoingEmail {
+  const brand = oneLine(message.brandName ?? "");
+  const model = fairModelNameWithoutBrand(message.modelName, brand);
+  const names = { brand, model };
+  // An empty value never leaves a double space behind.
+  const fmt = (template: string, values: Record<string, string>) => fmtRaw(template, values).replace(/ {2,}/g, " ").replace(/ ([.,:])/g, "$1").replace(/\.\.(?=\s|$)/g, ".");
+  const modelUrl = `${baseUrl}${message.modelPath}`;
+  const privacyUrl = `${baseUrl}/sajam/privatnost`;
+  const first = fairFirstName(message.contactName);
+  const greeting = first ? fmt(dict.greeting, { name: first }) : dict.greetingWithoutName;
+  const survey = message.origin === "survey";
+  const testDrive = !survey && message.leadKind === "test_drive";
+
+  const subject = survey ? dict.surveySubject : testDrive ? dict.testDriveSubject : dict.interestSubject;
+  // Body paragraphs; `link` marks the one paragraph that ends with the model URL.
+  const body: { text: string; link?: string }[] = survey
+    ? [{ text: fmt(dict.surveyBody, names) }, { text: fmt(dict.surveyContactNote, names) }]
+    : testDrive
+      ? [{ text: fmt(dict.testDriveBody, names) }, { text: dict.testDriveNote }]
+      : [{ text: fmt(dict.interestBody, names) }, { text: fmt(dict.interestModelLink, { url: modelUrl }), link: modelUrl }];
+  const footer = fmt(dict.footer, {
+    subject: survey ? brand : `${brand} ${model}`.trim(),
+    exhibitor: message.exhibitorName,
+    url: privacyUrl,
+  });
+
+  const text = [`${greeting}\n${body[0].text}`, ...body.slice(1).map((part) => part.text), dict.closing, "—", footer].join("\n\n");
+  const paragraph = (part: { text: string; link?: string }) =>
+    part.link ? `<p>${escapeHtml(part.text.slice(0, part.text.length - part.link.length))}${linkHtml(part.link)}</p>` : `<p>${escapeHtml(part.text)}</p>`;
+  const footerHtml = `${escapeHtml(footer.slice(0, footer.length - privacyUrl.length))}${linkHtml(privacyUrl)}`;
+  const html = `<div style="font-family:Arial,sans-serif;color:#151713;line-height:1.5">`
+    + `<p>${escapeHtml(greeting)}<br>${escapeHtml(body[0].text)}</p>`
+    + body.slice(1).map(paragraph).join("")
+    + `<p>${escapeHtml(dict.closing).replace(/\n/g, "<br>")}</p>`
+    + `<hr style="border:none;border-top:1px solid #e3e5df;margin:24px 0 12px">`
+    + `<p style="color:#6b7068;font-size:12px">${footerHtml}</p>`
+    + `</div>`;
+  return { subject: oneLine(fmt(subject, names)), text, html };
+}
+
+/**
+ * The visitor's immediate confirmation (9 Oct 2026 copy, see above) or the
+ * Advanced follow-up (the exhibitor's active template + ScanMe footer; off for
+ * the fair: FAIR_FOLLOWUP_ENABLED is not set).
  */
 export function buildFairLeadEmail(message: FairLeadEmailMessage, baseUrl: string): FairOutgoingEmail {
   const url = `${baseUrl}${message.modelPath}`;
-  const names = { model: message.modelName, event: message.eventTitle, exhibitor: message.exhibitorName };
   if (message.kind === "post_event_follow_up") {
+    const names = { model: message.modelName, event: message.eventTitle, exhibitor: message.exhibitorName };
     const template = message.template ?? { subject: "", plainText: "" };
     const body = template.plainText.split(/\n\s*\n/).map((paragraph) => paragraph.trim()).filter(Boolean);
     return compose(template.subject, [...body, fmt(dict.followUpFooter, names)], url);
   }
-  const testDrive = message.leadKind === "test_drive";
-  const name = oneLine(message.contactName);
-  const where = [message.standName, message.venueName].map((part) => oneLine(part ?? "")).filter(Boolean).join(", ");
-  const contact = [message.contactEmail, message.contactPhone].map((part) => oneLine(part ?? "")).filter(Boolean).join(", ");
-  const paragraphs = [
-    name && !fairLeadNameRisk(name) ? fmt(dict.greeting, { name }) : dict.greetingWithoutName,
-    fmt(testDrive ? dict.confirmationBodyTestDrive : dict.confirmationBodyInterest, names),
-    ...(where ? [fmt(dict.confirmationWhere, { where })] : []),
-    fmt(testDrive ? dict.confirmationNextTestDrive : dict.confirmationNextInterest, names),
-    ...(contact ? [fmt(dict.confirmationContact, { contact })] : []),
-    ...(message.followUpScheduled ? [dict.confirmationFollowUpNote] : []),
-    fmt(dict.confirmationPrivacy, { exhibitor: message.exhibitorName, date: fairEmailPurgeDateText() }),
-    dict.confirmationNotYou,
-  ];
-  return compose(fmt(testDrive ? dict.confirmationSubjectTestDrive : dict.confirmationSubjectInterest, names), paragraphs, url);
+  return buildFairVisitorConfirmation(message, baseUrl);
 }
 
 /** B6 report email (placeholder copy, MASTER §12 template PRIVREMENO). Same layout as the lead emails, without a link. */

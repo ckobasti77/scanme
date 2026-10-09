@@ -75,15 +75,27 @@ export const sendDelivery = internalAction({
  * access can call it; it writes nothing and never runs on its own.
  */
 export const sendDevTestEmail = internalAction({
-  args: { to: v.string() },
+  // 9 Oct 2026: `variant` sends one of the visitor confirmations with sample
+  // data (JMEV EWIND, CUBI d.o.o.) instead of the generic test message.
+  args: { to: v.string(), variant: v.optional(v.union(v.literal("interest"), v.literal("test_drive"), v.literal("survey"))) },
   returns: v.object({ ok: v.boolean(), providerMessageId: v.optional(v.string()), error: v.optional(v.string()) }),
   handler: async (_ctx, args) => {
     const to = args.to.trim();
     if (!isFairLeadEmail(to)) return { ok: false, error: "INVALID_INPUT" };
     const config = fairResendConfig(env);
     if (!config) return { ok: false, error: "RESEND_NOT_CONFIGURED" };
+    const baseUrl = fairPublicBaseUrl(env.FAIR_PUBLIC_BASE_URL);
+    const email = args.variant
+      ? buildFairLeadEmail({
+          kind: "immediate_confirmation", dedupeKey: "fair-dev-test", recipient: to,
+          leadKind: args.variant === "test_drive" ? "test_drive" : "interest",
+          contactName: "TEST Aleksa", modelName: "EWIND", brandName: "JMEV", exhibitorName: "CUBI d.o.o.",
+          eventTitle: "Sajam elektromobilnosti 2026", modelPath: "/sajam/elektromobilnost-2026/model/jmev-ewind",
+          followUpScheduled: false, ...(args.variant === "survey" ? { origin: "survey" as const } : {}),
+        }, baseUrl)
+      : buildFairDevTestEmail(baseUrl);
     const outcome = await sendFairResendEmail(
-      buildFairDevTestEmail(fairPublicBaseUrl(env.FAIR_PUBLIC_BASE_URL)),
+      email,
       { ...config, to, idempotencyKey: `fair-dev-test/${Date.now()}` },
       fetch,
     );

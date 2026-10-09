@@ -91,6 +91,8 @@ export const submitLead = mutation({
     phone: v.optional(v.string()),
     consentAccepted: v.boolean(),
     consentVersion: v.number(),
+    /** 9 Oct 2026: "survey" = left on the survey's last step (survey confirmation email). */
+    origin: v.optional(v.literal("survey")),
   },
   returns: fairLeadSubmitResultView,
   handler: async (ctx, args): Promise<FairLeadSubmitResult> => {
@@ -173,6 +175,7 @@ export const submitLead = mutation({
     const leadId = await ctx.db.insert("fairLeads", {
       submissionId: args.submissionId,
       kind: args.kind,
+      ...(args.origin ? { origin: args.origin } : {}),
       visitorId,
       eventId: model.eventId,
       eventModelId: model._id,
