@@ -17,6 +17,7 @@ import type {
 } from "@/lib/fair-client/model-fixtures";
 import { fmt, type FairModelDict } from "@/lib/i18n";
 import { fairEventThemeClass } from "@/lib/fair-theme";
+import { FairEventShell } from "./event-shell";
 
 // Glas publike (MASTER §9.1): votes go through POST /api/fair/audience-vote;
 // the server returns the visitor's own choice and, from five votes, whole
@@ -301,6 +302,8 @@ export function AudienceFlow({
 
   return (
     <div className={`fair-event fair-audience-page ${fairEventThemeClass(model.eventSlug)}`} data-reveal="off">
+      {/* SAJAM SUPER: the same fair header as every other page; the flow's own row (back, title) follows it. */}
+      <FairEventShell eventId={model.eventId} eventSlug={model.eventSlug} eventTitle={model.eventTitle} eventName={model.eventName} dict={dict} />
       <header className="fair-flow-header">
         <Link href={modelHref} aria-label={dict.audienceBack}>
           <ArrowLeft aria-hidden="true" />

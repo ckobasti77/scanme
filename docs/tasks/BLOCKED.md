@@ -1894,7 +1894,14 @@ Vlasnik (Jovan, u četu 9. 10.): „Zadnji deo“ ne postoji; postoje samo Hala 
 - **Otvoreno:** gde u hali tačno stoji AUTO1 (štand na mapi hale) ili da li ga treba skloniti sa sajma. Do odluke ostaje bez mesta.
 - **Backend:** vrednost `zadnji-deo` je i dalje dozvoljena u `fairMapZoneId` (Convex validator) i `FAIR_MAP_ZONE_IDS`, jer je sačuvana u podacima. Uklanjanje traži čišćenje podataka i Convex deploy (Aleksa).
 
-## SAJAM SUPER 9. 10. — dva odstupanja od Garaže/Pasoša čekaju odluku vlasnika
+## SAJAM SUPER 9. 10. — dva odstupanja od Garaže/Pasoša (REŠENO istog dana po briefu Koraka 2)
+
+> **Rešeno:** Jovanov brief za Korak 2 traži „ista dugmad“ i „zajedničke delove (zaglavlje, meni)“ kao u Garaži i Pasošima.
+>
+> - „Sačuvaj u garažu“ je sada crno, kao „Pogledaj“. Ponašanje je isto.
+> - Glas publike ima standardno sajamsko zaglavlje. Red „nazad + GLAS PUBLIKE / model“ ostaje isti i nalazi se ispod zaglavlja, kao na detalju pasoša.
+>
+> Ako vlasnik želi staro stanje, svaka stavka se vraća jednim pravilom ili jednom linijom. Opis ispod je stanje pre rešenja.
 
 Nezavisni pregled doslednosti (Korak 2, `jovan-status/SAJAM-SUPER-2026-10-09.md`) prijavio je dva mesta koja nisu ista kao referenca. Vlasnikove saglasnosti nema, pa je izabrana konzervativna opcija: obe stvari ostaju kakve su bile. Izgled im je usklađen samo tamo gde se ne menja ni dizajnerska odluka ni sadržaj. **Deferred, awaiting owner decision.**
 

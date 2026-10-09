@@ -1078,9 +1078,10 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   display: flex;
   height: 56px;
   align-items: center;
-  border: var(--fair-border-width) solid var(--fair-accent);
+  /* The page's main button, black like „Pogledaj“ in the garage (SAJAM SUPER). */
+  border: var(--fair-border-width) solid var(--fair-ink);
   border-radius: var(--fair-radius-md);
-  background: var(--fair-accent);
+  background: var(--fair-ink);
   box-shadow: var(--fair-shadow-2);
   transition:
     background-color var(--fair-dur-state) var(--fair-ease-enter),
@@ -1089,7 +1090,7 @@ body:has(.fair-event) [data-theme-toggle="global"] {
 }
 
 .fair-save-dock:not([data-saved="true"]):has(.fair-save-button:hover) {
-  background: var(--fair-accent-strong);
+  background: color-mix(in srgb, var(--fair-ink) 84%, var(--fair-surface));
 }
 
 .fair-save-dock[data-saved="true"] {
@@ -1293,16 +1294,15 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   flex-direction: column;
 }
 
-/* Same surface and full-width line as the fair header; the content stays in the 560 px column. */
+/* The flow's row under the fair header (as the back row of a passport): back and the title, in the 560 px column. */
 .fair-flow-header {
   display: grid;
-  width: 100%;
+  width: min(100%, 560px);
   min-height: 64px;
-  padding: max(var(--fair-space-2), env(safe-area-inset-top)) max(var(--fair-space-3), calc(50% - 280px + var(--fair-space-3))) var(--fair-space-2);
+  margin-inline: auto;
+  padding: var(--fair-space-2) var(--fair-space-3) 0;
   grid-template-columns: 48px minmax(0, 1fr) 48px;
   align-items: center;
-  border-bottom: var(--fair-border);
-  background: var(--fair-surface);
 }
 
 .fair-flow-header > a {

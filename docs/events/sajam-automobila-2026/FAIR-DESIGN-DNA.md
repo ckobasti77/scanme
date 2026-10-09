@@ -24,13 +24,13 @@ zajednički delovi (zaglavlje, meni, sheet, prazna stanja) koriste iste vrednost
 |---|---|---|
 | Podloga strane | hladni svetli papir `#f7f8f8` + blag sjaj akcenta gore desno (`radial-gradient(circle at 82% 5%, akcenat 7 %, providno 28 %)`) | `--fair-canvas`, `--fair-canvas-glow`; `.fair-event { background: var(--fair-canvas-glow), var(--fair-canvas) }` |
 | Površine | topla krem `#fffdf8` na hladnoj podlozi | `--fair-surface` (nepromenjeno) |
-| Zaglavlje | `#fffdf8`, tiha linija dole preko cele širine, 64 px, lepljivo; aktivna stavka menija: `accent-soft` + ivica akcenta, `md` | `.fair-shell`; zaglavlje toka (Glas publike) dobija istu površinu i liniju preko cele širine |
+| Zaglavlje | `#fffdf8`, tiha linija dole preko cele širine, 64 px, lepljivo; aktivna stavka menija: `accent-soft` + ivica akcenta, `md` | `.fair-shell` na svim stranama, i na Glasu publike; red „nazad + naslov“ toka je ispod njega, u sadržaju, kao na detalju pasoša |
 | Naslov strane | akcenat, `clamp(28px, 8vw, 38px)`, 790, −0.05 em, visina reda 0.98; podnaslov 14/1.35 `ink-muted`, najviše 310 px | „Moja garaža“, „Pasoši“, „Izdvojeni modeli“, „Strana nije pronađena“ |
 | Kartica strane | `surface` + tiha ivica 1 px + `xl` 24 + senka 2 (`0 8px 20px`, topla 12 %) | kartice modela u garaži, kartice deljenja, mapa, spisak, panel, kartica pitanja, specifikacije, hero modela |
 | Kartica-red (traka) | `surface` + tiha ivica + `lg` 16 + senka 2 | čip pasoša u garaži, „Oceni model“ |
 | Naslov kartice | 19–25 px, 790, −0.045 em; natpis iznad (brend) 10 px, 820, +0.075 em, verzal, akcenat | `.modelTopline`, `.modelContent h2` |
-| Primarno dugme (alat) | `ink` podloga, beli tekst, `md` 12, 44 px, 780 | „Pogledaj“ |
-| Primarno dugme (radnja) | akcenat, `md` 12 | „Sačuvaj u garažu“, „Otvori mapu sajma“ |
+| Glavno dugme strane | `ink` podloga, beli tekst, `md` 12, 44 px, 780 | „Pogledaj“ (garaža, deli), „Sačuvaj u garažu“ (model) |
+| Dugme u boji akcenta | akcenat, `md` 12 | poziv iz praznog stanja („Otvori mapu sajma“), slanje u formi i sheet-u |
 | Sekundarno i ikonica-dugme | providno ili `surface` + **tiha** ivica (`--fair-border`), `md` 12, 44 × 44 | deli, ukloni, zatvori dijalog, kontrole mape, zatvori sheet, nazad |
 | Jezičci (dva izbora) | traka `lg` 16, `surface` 92 %, tiha ivica, senka 2; izabrano: `surface` + linija akcenta 2 px dole; tekst 13 px, 780, −0.02 em | jezičci garaže; prekidač zona na mapi (indikator i dalje klizi) |
 | Čip / filter | pilula 44 px, `surface` + **tiha** ivica; izabrano `ink` | filteri kategorija, čipovi mesta |
