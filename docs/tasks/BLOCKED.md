@@ -1893,3 +1893,21 @@ Vlasnik (Jovan, u četu 9. 10.): „Zadnji deo“ ne postoji; postoje samo Hala 
 - **Na DEV-u (`expert-pelican-136`)** AUTO1.com ima aktivno učešće i aktivan štand sa `mapLocationId: "zadnji-deo"`. Podaci nisu dirani: AUTO1 se sada vidi u spisku izlagača (Usluge i grad) sa „Tačno mesto još nije na mapi organizatora“, a na mapi ga nema.
 - **Otvoreno:** gde u hali tačno stoji AUTO1 (štand na mapi hale) ili da li ga treba skloniti sa sajma. Do odluke ostaje bez mesta.
 - **Backend:** vrednost `zadnji-deo` je i dalje dozvoljena u `fairMapZoneId` (Convex validator) i `FAIR_MAP_ZONE_IDS`, jer je sačuvana u podacima. Uklanjanje traži čišćenje podataka i Convex deploy (Aleksa).
+
+## SAJAM SUPER 9. 10. — dva odstupanja od Garaže/Pasoša čekaju odluku vlasnika
+
+Nezavisni pregled doslednosti (Korak 2, `jovan-status/SAJAM-SUPER-2026-10-09.md`) prijavio je dva mesta koja nisu ista kao referenca. Vlasnikove saglasnosti nema, pa je izabrana konzervativna opcija: obe stvari ostaju kakve su bile. Izgled im je usklađen samo tamo gde se ne menja ni dizajnerska odluka ni sadržaj. **Deferred, awaiting owner decision.**
+
+### 1. Boja dugmeta „Sačuvaj u garažu“ na stranici modela
+
+- **Sada:** plava boja akcenta, kao u Aleksinom dizajnu model page v2. Uglovi `md` 12, ivica 1 px i senka 2 već su kao u garaži.
+- **Pitanje:** da li dugme treba da bude crno (`--fair-ink`), kao „Pogledaj“ u garaži?
+  - Garaža ima oba primarna stila: crno dugme-alat („Pogledaj“) i dugme u boji akcenta („Otvori mapu sajma“ u praznoj garaži).
+  - `FAIR-DESIGN-DNA.md` §9 vodi glavnu radnju u boji akcenta, a alat u crnoj.
+- **Izmena:** jedno pravilo u `app/sajam/fair-event.css` (`.fair-save-dock`, pozadina i ivica). Ponašanje se ne menja.
+
+### 2. Zaglavlje toka Glasa publike
+
+- **Sada:** strelica nazad i centrirano „GLAS PUBLIKE / model“, bez lockup-a i menija sajma. Pozadina, linija preko cele širine i dugme nazad (`md`) usklađeni su sa zaglavljem sajma.
+- **Pitanje:** da li Glas publike dobija standardno sajamsko zaglavlje (lockup i Mapa · Pasoši · Garaža), sa strelicom nazad u sadržaju, kao na detalju pasoša?
+- **Zašto nije urađeno:** to menja strukturu i navigaciju toka. Korak 2 kaže da se ponašanje i sadržaj ne menjaju.
