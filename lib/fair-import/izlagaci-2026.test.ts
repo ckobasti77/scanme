@@ -21,13 +21,12 @@ import {
 const list = ELEKTROMOBILNOST_2026_EXHIBITORS;
 
 describe("Sajam elektromobilnosti 2026 — exhibitor list", () => {
-  test("38 exhibitors (hall, entrance, rear), each once", () => {
+  test("38 exhibitors (hall with its rear, entrance), each once", () => {
     expect(list).toHaveLength(38);
     expect(new Set(list.map((row) => row.key)).size).toBe(list.length);
     expect(new Set(list.map((row) => row.name.toLowerCase())).size).toBe(list.length);
-    expect(list.filter((row) => row.zone === "hala")).toHaveLength(23);
+    expect(list.filter((row) => row.zone === "hala")).toHaveLength(24);
     expect(list.filter((row) => row.zone === "ulaz")).toHaveLength(14);
-    expect(list.filter((row) => row.zone === "zadnji-deo").map((row) => row.key)).toEqual(["auto1"]);
   });
 
   test("keys and codes pass the catalog and client rules", () => {
@@ -66,12 +65,16 @@ describe("Sajam elektromobilnosti 2026 — exhibitors on the organizer maps of 7
     }
   });
 
-  test("only Markus Pro has no location, with the reason; Venera Bike has three", () => {
-    expect(list.filter((row) => row.locations.length === 0).map((row) => row.key)).toEqual(["markus-pro"]);
+  test("only Markus Pro and AUTO1 have no location, with the reason; Venera Bike has three", () => {
+    expect(list.filter((row) => row.locations.length === 0).map((row) => row.key)).toEqual(["markus-pro", "auto1"]);
     const markus = list.find((row) => row.key === "markus-pro")!;
     expect(markus.noLocationReason).toMatch(/ispred hale/i);
     expect(fairSiteExhibitorMapZone(markus.zone)).toBe("ispred");
-    expect(list.filter((row) => row.noLocationReason).map((row) => row.key)).toEqual(["markus-pro"]);
+    // Owner 9. 10.: "Zadnji deo" is no zone (only Hala and Ispred hale); AUTO1 is in the rear of the hall, spot unknown.
+    const auto1 = list.find((row) => row.key === "auto1")!;
+    expect(auto1.noLocationReason).toMatch(/zadnjem delu hale/i);
+    expect(fairSiteExhibitorMapZone(auto1.zone)).toBe("hala");
+    expect(list.filter((row) => row.noLocationReason).map((row) => row.key)).toEqual(["markus-pro", "auto1"]);
     expect(list.find((row) => row.key === "venera-bike")!.locations).toEqual(["hala-12", "ispred-19", "ispred-20-22"]);
   });
 
@@ -106,7 +109,6 @@ describe("Sajam elektromobilnosti 2026 — exhibitors on the organizer maps of 7
       "ispred-18": [],
       "ispred-19": ["venera-bike"],
       "ispred-20-22": ["venera-bike"],
-      "zadnji-deo": ["auto1"],
     });
   });
 
@@ -135,7 +137,6 @@ describe("Sajam elektromobilnosti 2026 — exhibitors on the organizer maps of 7
     expect(fairSiteStandFields("scanme", location("ispred-14"))).toEqual({ externalKey: "izl26-scanme-ispred-14", code: "14", displayName: "Štand 14" });
     expect(fairSiteStandFields("venera-bike", location("ispred-20-22"))).toEqual({ externalKey: "izl26-venera-bike-ispred-20-22", code: "20–22", displayName: "Štand 20–22" });
     expect(fairSiteStandFields("hotel-lotos", location("hala-partner-10b"))).toEqual({ externalKey: "izl26-hotel-lotos-hala-partner-10b", code: "uz 10B", displayName: "Uz 10B" });
-    expect(fairSiteStandFields("auto1", location("zadnji-deo"))).toEqual({ externalKey: "izl26-auto1-zadnji-deo", code: "Zadnji deo", displayName: "Zadnji deo" });
     for (const row of list) {
       for (const id of row.locations) {
         const fields = fairSiteStandFields(row.key, location(id));

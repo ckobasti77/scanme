@@ -1,7 +1,7 @@
 // Izlagači 2026 — the exhibitors of Sajam elektromobilnosti (9–11. 10. 2026.)
 // exactly as the organizer lists them on https://sajamautomobila.com/ucesnici-2026/
 // (stanje 6. 10. 2026.): the hall under the map, the entrance area ("ulazni
-// deo") and the rear area ("zadnji deo"), in the page order, without
+// deo") and the rear of the hall (AUTO1, listed with the hall: owner 9. 10.), in the page order, without
 // duplicates. `websiteUrl` is the link the organizer gives; the logo is the
 // organizer's image, saved under public/fair/izlagaci/2026/. Nothing else is
 // invented: no contact, no e-mail, no package (everyone starts on the free
@@ -19,7 +19,7 @@
 import type { FairExhibitorCategory, FairMapZoneIdValue } from "../fair-contract";
 import type { FairMapLocation } from "../fair-map/types";
 
-export type FairSiteExhibitorZone = "hala" | "ulaz" | "zadnji-deo";
+export type FairSiteExhibitorZone = "hala" | "ulaz";
 
 export type FairSiteExhibitor = {
   /** Stable lowercase key: the SMK/SML codes and the participation key derive from it. */
@@ -99,8 +99,9 @@ export const ELEKTROMOBILNOST_2026_EXHIBITORS: readonly FairSiteExhibitor[] = [
   { key: "ev-charging-solutions", name: "EV Charging Solutions", websiteUrl: "https://www.evchargingsolutions.rs/", logoFile: "ev-charging-solutions.jpg", zone: "ulaz", category: "energija", locations: ["ispred-17"] },
   { key: "markus-pro", name: "Auto servis Markus Pro", websiteUrl: "https://www.autoservismarkus.rs/", logoFile: "markus-pro.jpg", zone: "ulaz", category: "usluge", locations: [], noLocationReason: "Organizator ga navodi ispred hale, ali tačno mesto još nije na njegovoj mapi (7. 10.)." },
   { key: "jkp-parking-servis-nis", name: "JKP Parking servis Niš", websiteUrl: "https://www.nisparking.rs/sr/", logoFile: "jkp-parking-servis-nis.jpg", zone: "ulaz", category: "usluge", locations: ["ispred-15-4"] },
-  // Zadnji deo — 9–11. 10. bez linka; link je onaj koji organizator daje za AUTO1 u terminu 30. 10.
-  { key: "auto1", name: "AUTO1.com", websiteUrl: "https://www.auto1.com/sr/home", logoFile: "auto1.png", zone: "zadnji-deo", category: "usluge", locations: ["zadnji-deo"] },
+  // Zadnji deo hale — 9–11. 10. bez linka; link je onaj koji organizator daje za AUTO1 u terminu 30. 10.
+  // Vlasnik 9. 10.: „Zadnji deo“ nije zona (postoje samo Hala i Ispred hale), pa AUTO1 nema mesto na mapi.
+  { key: "auto1", name: "AUTO1.com", websiteUrl: "https://www.auto1.com/sr/home", logoFile: "auto1.png", zone: "hala", category: "usluge", locations: [], noLocationReason: "Organizator ga navodi u zadnjem delu hale; to nije zona mape (vlasnik, 9. 10.), a tačno mesto u hali još nije poznato." },
 ];
 
 /** Stable human codes of one exhibitor (accounts.smkCode, businesses.smlCode, participation key, business slug). */

@@ -36,6 +36,22 @@ Grana `codex/jovan-sajam-mapa-raspored-2026-10-09`. Backend, validatori, šema, 
 - **Prvi red:** „Pronađi ScanMe“ je šire od pretrage i uvek ima ceo natpis. Dok je pretraga otvorena (fokus ili upisan tekst), ona se animirano širi, a dugme se skuplja u kvadrat od 48 px samo sa ikonicom (`aria-label` ostaje „Pronađi ScanMe“). Kad se pretraga zatvori, sve se vraća. Sa smanjenim pokretom nema klizanja, samo promena.
 - **„Pronađi ScanMe“ je u ScanMe zelenoj** (`var(--primary)`, uglovi `var(--button-radius)`), kako je traženo u zadatku. To je izuzetak od EDS §3 („ScanMe zelena se ne koristi za CTA“); `--fair-map-scanme` i dalje postoji samo na ScanMe štandu. Ako izuzetak ne treba da važi, vraća se jednim pravilom u `fair-event-map.module.css` (`.findButton`).
 
+## Jovan — mapa: providni logoi, bez zone „Zadnji deo“, filteri iznad mape (9. 10.)
+
+Grana `codex/jovan-spoj-aleksa-2026-10-09`. `FAIR_PUBLIC_MAP_ENABLED` ostaje `false`; mapa se vraća kad Jovan i Aleksa prebace vrednost na `true`.
+
+- **Bez zone „Zadnji deo“** (odluka vlasnika u četu 9. 10.: postoje samo Hala i Ispred hale):
+  - `ELEKTROMOBILNOST_2026_MAP` ima dve zone; lokacija `zadnji-deo` ne postoji, pa `isFairMapStandLocation` / `validateMapLocationIds` odbijaju nov štand na njoj;
+  - `FairMapZoneId` (lib/fair-map) je `hala | ispred`; `FairMapDict.zones` nema `zadnji-deo`;
+  - `FAIR_MAP_ZONE_IDS` i Convex `fairMapZoneId` su **nepromenjeni** (vrednost je sačuvana u podacima); sačuvan `zadnji-deo` na učešću bez štanda mapa čita kao Hala;
+  - lista organizatora (`lib/fair-import/izlagaci-2026.ts`): AUTO1 je u Hali, bez lokacije (`noLocationReason`), kao Markus Pro; `placeSiteExhibitors` ga preskače sa `no_map_location`;
+  - postojeći štand AUTO1 na `zadnji-deo` (DEV) ostaje u podacima; na mapi ga nema, a u spisku piše „Tačno mesto još nije na mapi organizatora“;
+  - provera na PROD-u (samo čitanje): `npx convex run fairPublic:getEventMap '{"eventSlug":"elektromobilnost-2026"}' --prod` i štand sa `mapLocationId: "zadnji-deo"`, ili `npx convex run fairExhibitorImport:listStandsOffMap '{"eventCode":"elektromobilnost-2026"}' --prod`;
+  - otvoreno pitanje za AUTO1: `docs/tasks/BLOCKED.md`.
+- **Logoi bez belog kvadrata:** kopije su sada providne u `public/sajam/izlagaci/2026/providni/` (skripta `scripts/fair/map-logos-transparent.mjs`, sharp), `FAIR_MAP_LOGO_THUMB_BASE` pokazuje na njih; stare neprovidne kopije su obrisane. `.logoBox` i čip na mapi nemaju belu podlogu ni okvir; na zelenom ScanMe štandu ScanMe logo je jednobojan taman.
+- **Redosled:** pretraga + „Pronađi ScanMe“ → zone → filteri → mapa sa kontrolama → ostalo.
+- **Režim velikih ekrana** (`?prikaz=ekran` i ≥ 1440 px) prikazuje dve zone.
+
 ## Aleksa — admin alati, privatnost i mejlovi posetiocu (9. 10.)
 
 Detalji i razlozi su u [`JOVAN-DELTA-2026-10-09.md`](./JOVAN-DELTA-2026-10-09.md).

@@ -4,7 +4,7 @@ import { fairMapSr as dict } from "@/lib/i18n/sr/fair-map";
 
 // N4 — the few sentences the map, the sheet and the list build from data.
 
-/** "Štand 12 · Ispred hale", "Partner sajma, uz 10B · Hala", "Zadnji deo". */
+/** "Štand 12 · Ispred hale", "Partner sajma, uz 10B · Hala"; an open area is named by its zone. */
 export function fairMapPlaceText(location: Pick<FairMapLocation, "kind" | "label">, zoneId: FairMapZoneId, label = location.label) {
   const zone = dict.zones[zoneId];
   if (location.kind === "partner") return fmt(dict.partnerLocation, { label, zone });

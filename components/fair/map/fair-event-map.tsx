@@ -520,28 +520,6 @@ export function FairEventMapView({
         </div>
       )}
 
-      <div ref={mapRef} className={styles.mapArea} data-all-zones={allZones} aria-describedby="fair-map-hint">
-        <p id="fair-map-hint" className={styles.srOnly}>
-          {dict.mapHint}
-        </p>
-        {view.zones.map((zoneView) => (
-          <ZoneCanvas
-            key={zoneView.zone.id}
-            zoneView={zoneView}
-            active={allZones || zoneView.zone.id === zoneId}
-            interactive={!display}
-            display={display}
-            lit={lit}
-            selectedLocationId={summary?.zoneId === zoneView.zone.id ? selectedLocationId : null}
-            focus={focus && zoneView.zone.locations.some((row) => row.id === focus.locationId) ? focus : null}
-            highlight={rotationStand && rotationState && rotationStand.zoneId === zoneView.zone.id ? { location: rotationStand.location, key: rotationState.slotNumber } : null}
-            passportMarkers={passportMarkers}
-            bubble={isDesktop && !display ? bubble : null}
-            onSelect={(locationId) => selectLocation(locationId)}
-          />
-        ))}
-      </div>
-
       {display ? null : (
         <div className={styles.filters} role="group" aria-label={dict.filtersLabel}>
           {FAIR_MAP_FILTERS.filter((key) => key === "sve" || counts[key] > 0).map((key) => {
@@ -566,6 +544,28 @@ export function FairEventMapView({
           })}
         </div>
       )}
+
+      <div ref={mapRef} className={styles.mapArea} data-all-zones={allZones} aria-describedby="fair-map-hint">
+        <p id="fair-map-hint" className={styles.srOnly}>
+          {dict.mapHint}
+        </p>
+        {view.zones.map((zoneView) => (
+          <ZoneCanvas
+            key={zoneView.zone.id}
+            zoneView={zoneView}
+            active={allZones || zoneView.zone.id === zoneId}
+            interactive={!display}
+            display={display}
+            lit={lit}
+            selectedLocationId={summary?.zoneId === zoneView.zone.id ? selectedLocationId : null}
+            focus={focus && zoneView.zone.locations.some((row) => row.id === focus.locationId) ? focus : null}
+            highlight={rotationStand && rotationState && rotationStand.zoneId === zoneView.zone.id ? { location: rotationStand.location, key: rotationState.slotNumber } : null}
+            passportMarkers={passportMarkers}
+            bubble={isDesktop && !display ? bubble : null}
+            onSelect={(locationId) => selectLocation(locationId)}
+          />
+        ))}
+      </div>
 
       {rotationCard("inline")}
 

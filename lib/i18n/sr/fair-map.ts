@@ -15,7 +15,6 @@ export const fairMapSr = {
   zones: {
     hala: "Hala",
     ispred: "Ispred hale",
-    "zadnji-deo": "Zadnji deo",
   },
 
   umbrellaTitle: "Sajam automobila",

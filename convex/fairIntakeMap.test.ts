@@ -111,9 +111,9 @@ async function expectIntakeOnMap(f: Fixture) {
   // All 15 published cars are on the map, under their unchanged slugs.
   const slugs = map.stands.flatMap((row) => row.brands.flatMap((brand) => brand.models.map((model) => model.slug))).sort();
   expect(slugs).toEqual(slugsJson.models.map((row) => row.slug).sort());
-  // 38 organizer exhibitors − 6 covered + 5 intake = 37; Markus Pro has no place yet.
+  // 38 organizer exhibitors − 6 covered + 5 intake = 37; Markus Pro and AUTO1 (no "Zadnji deo" zone, owner 9. 10.) have no place yet.
   expect(new Set([...map.stands.map((row) => row.participationId), ...map.exhibitorsWithoutLocation.map((row) => row.participationId)]).size).toBe(37);
-  expect(map.exhibitorsWithoutLocation.map((row) => row.exhibitorName)).toEqual(["Auto servis Markus Pro"]);
+  expect(map.exhibitorsWithoutLocation.map((row) => row.exhibitorName)).toEqual(["Auto servis Markus Pro", "AUTO1.com"]);
   return map;
 }
 
@@ -137,8 +137,11 @@ describe("P2 — the intake on the map, without duplicates of the site list", ()
     expect(imported.participations.created).toBe(32);
     const placed = await site.place(f);
     expect(placed.skipped.filter((row) => row.reason === "covered_by_intake").map((row) => row.key).sort()).toEqual(Object.keys(COVERED).sort());
-    expect(placed.skipped.filter((row) => row.reason !== "covered_by_intake")).toEqual([{ key: "markus-pro", reason: "no_map_location" }]);
-    expect(placed.stands.created).toBe(33);
+    expect(placed.skipped.filter((row) => row.reason !== "covered_by_intake")).toEqual([
+      { key: "markus-pro", reason: "no_map_location" },
+      { key: "auto1", reason: "no_map_location" },
+    ]);
+    expect(placed.stands.created).toBe(32);
 
     // Dry run first: what a real run does, nothing written.
     const before = await snapshot(f);
@@ -180,7 +183,7 @@ describe("P2 — the intake on the map, without duplicates of the site list", ()
     const settled = await snapshot(f);
     expect((await site.reconcile(f, false)).summary).toEqual({ siteParticipationsWithdrawn: 0, siteStandsWithdrawn: 0, intakeFilled: 0 });
     expect((await site.import(f)).participations).toEqual({ created: 0, updated: 0, unchanged: 32 });
-    expect((await site.place(f)).stands).toEqual({ created: 0, updated: 0, unchanged: 33 });
+    expect((await site.place(f)).stands).toEqual({ created: 0, updated: 0, unchanged: 32 });
     expect(await snapshot(f)).toBe(settled);
   });
 
@@ -188,7 +191,7 @@ describe("P2 — the intake on the map, without duplicates of the site list", ()
     const f = await setup();
     await f.t.mutation(internal.fairSetup.bootstrapEvent, { actorEmail: ADMIN_EMAIL });
     expect((await site.import(f)).covered).toEqual([]);
-    expect((await site.place(f)).stands.created).toBe(39);
+    expect((await site.place(f)).stands.created).toBe(38);
     await runbook(f, {});
     // The duplicates as they are before the reconciliation: Foton, Mazda and Chery next to AUTO MIG and Grand Motors.
     expect((await eventMap(f)).at("hala-6")).toEqual(["AUTO MIG d.o.o. Niš", "Chery", "Foton", "Grand Motors d.o.o.", "Mazda"]);
@@ -345,7 +348,7 @@ describe("P2 (RN N6) — stands on a location that is not on today's map", () =>
     const result = await f.t.query(internal.fairExhibitorImport.listStandsOffMap, { eventCode: EVENT });
     expect(await snapshot(f)).toBe(before);
     expect(result.capped).toBe(false);
-    expect(result.checked).toBe(33 + 5 + 5);
+    expect(result.checked).toBe(32 + 5 + 5);
     const rows = Object.fromEntries(result.offMap.map((row) => [row.standCode, [row.exhibitorName, row.status, row.mapLocationId, row.candidates, row.proposal, row.cars]]));
     expect(rows).toEqual({
       // 20/21/22 are one outline today: one candidate.

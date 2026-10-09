@@ -26,7 +26,11 @@ export type FairPackageTier = (typeof FAIR_PACKAGE_TIERS)[number];
 export const FAIR_EXHIBITOR_CATEGORIES = ["automobili", "moto", "energija", "usluge", "hrana", "ostalo", "scanme"] as const;
 export type FairExhibitorCategory = (typeof FAIR_EXHIBITOR_CATEGORIES)[number];
 
-/** N3 — the zones of a fair map (lib/fair-map); `zadnji-deo` exists only where the organizer draws it. */
+/**
+ * N3 — the zone values the backend stores (fairParticipations.mapZoneId). No map draws
+ * `zadnji-deo` any more (owner, 9. 10. 2026: only Hala and Ispred hale); the value stays
+ * accepted until the stored rows (AUTO1) are cleaned up, see FairMapZoneId in lib/fair-map.
+ */
 export const FAIR_MAP_ZONE_IDS = ["hala", "ispred", "zadnji-deo"] as const;
 export type FairMapZoneIdValue = (typeof FAIR_MAP_ZONE_IDS)[number];
 

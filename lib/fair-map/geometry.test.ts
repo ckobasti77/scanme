@@ -97,12 +97,11 @@ describe("Sajam elektromobilnosti 2026 — organizer maps of 7. 10. (N3)", () =>
     return Math.hypot(cx - x, cy - y) <= slack;
   };
 
-  test("captured 7. 10. from the organizer's three files: hall, in front of the hall, rear area", () => {
+  test("captured 7. 10. from the organizer's files: hall and in front of the hall; no rear zone (owner, 9. 10.)", () => {
     expect(map.capturedOn).toBe("2026-10-07");
     expect(map.zones.map((row) => [row.id, row.image.src, row.image.width, row.image.height, row.image.organizerFile])).toEqual([
       ["hala", "/sajam/mape/elektro-hala.jpg", 1375, 1080, "mapa-popunjena-0910-0710.jpg"],
       ["ispred", "/sajam/mape/elektro-ispred.jpg", 1239, 1080, "mapa-popunjena-0910-ispred-0510-1.jpg"],
-      ["zadnji-deo", "/sajam/mape/elektro-zadnji-deo.jpg", 1920, 988, "mapa-zadnji-deo.jpg"],
     ]);
   });
 
@@ -155,14 +154,11 @@ describe("Sajam elektromobilnosti 2026 — organizer maps of 7. 10. (N3)", () =>
 
   test("landmarks drawn by the organizer: main entrance, parking rows, the totem and stairs; never a route", () => {
     expect(zone("ispred").landmarks.map((row) => row.kind).sort()).toEqual(["entrance", "parking", "stairs", "totem"]);
-    expect(zone("zadnji-deo").landmarks.map((row) => row.kind).sort()).toEqual(["parking", "parking", "stairs", "stairs"]);
   });
 
-  test("rear area: one open area location over the green outline, without stand numbers", () => {
-    const rear = zone("zadnji-deo");
-    expect(rear.locations.map((row) => [row.id, row.kind, row.label, row.placement])).toEqual([["zadnji-deo", "area", "Zadnji deo", "organizer"]]);
-    expect(Math.abs(signedArea(rear.locations[0].polygon))).toBeGreaterThan(0.4 * rear.image.width * rear.image.height);
-    expect(isFairMapStandLocation("elektromobilnost-2026", "zadnji-deo")).toBe(true);
+  test("no rear zone: \"Zadnji deo\" is not a place on this map, so no stand can be put there", () => {
+    expect(map.zones.map((row) => row.id)).toEqual(["hala", "ispred"]);
+    expect(isFairMapStandLocation("elektromobilnost-2026", "zadnji-deo")).toBe(false);
   });
 });
 
@@ -173,9 +169,6 @@ describe("N4: zone outlines and stand-number positions of the Elektro map", () =
       const points = [...zone.locations.flatMap((row) => (row.badge ? [row.badge] : [])), ...(zone.groups ?? []).flatMap((row) => (row.badge ? [row.badge] : []))];
       for (const [x, y] of points) expect(x > 0 && x < zone.image.width && y > 0 && y < zone.image.height, `${zone.id} ${x},${y}`).toBe(true);
     }
-    // The rear area's outline is its one area.
-    const rear = ELEKTROMOBILNOST_2026_MAP.zones[2];
-    expect(rear.outline).toEqual(rear.locations[0].polygon);
   });
 });
 

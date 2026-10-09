@@ -22,7 +22,7 @@ describe("fairMapSummaryText", () => {
   });
 
   test("a place without an organizer area has no m² at all", () => {
-    expect(header("zadnji-deo")).not.toContain("m²");
+    expect(header("hala-partner-10b")).not.toContain("m²");
   });
 });
 

@@ -10,7 +10,7 @@ import styles from "./fair-event-map.module.css";
 export function FairMapLogoBox({ logoUrl, name, size = "md" }: { logoUrl?: string; name: string; size?: "sm" | "md" | "lg" }) {
   const logo = fairMapLogo(logoUrl);
   return (
-    <span className={styles.logoBox} data-size={size}>
+    <span className={styles.logoBox} data-size={size} data-empty={logo ? undefined : "true"}>
       {logo ? (
         <Image src={logo.src} alt={name} fill unoptimized sizes="96px" loading="lazy" className={styles.logoImage} />
       ) : (

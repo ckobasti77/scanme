@@ -808,6 +808,12 @@
   stroke: var(--fair-ink);
 }
 
+/* Logos have no plate any more: on the green stand the ScanMe logo's light
+   green "Me" would vanish, so there it is drawn in one dark ink. */
+.stand[data-kind="scanme"] .chip image[href$="/scanme.webp"] {
+  filter: brightness(0);
+}
+
 .partnerCircle {
   fill: var(--fair-surface);
   stroke: var(--fair-line-strong);
@@ -819,10 +825,10 @@
   stroke-width: 4px;
 }
 
+/* No plate behind a logo: the transparent logo sits on the stand itself. */
 .chip rect {
-  fill: #ffffff;
-  stroke: rgb(23 25 24 / 0.12);
-  stroke-width: 1px;
+  fill: none;
+  stroke: none;
 }
 
 .chip text {
@@ -1139,7 +1145,9 @@
   }
 }
 
-/* A logo sits in a md row with a 6 px gap, so its corner is xs. */
+/* A logo sits in a md row with a 6 px gap, so its corner is xs. The logo
+   files are transparent (scripts/fair/map-logos-transparent.mjs), so the box
+   has no fill or frame of its own; only the initial without a logo gets one. */
 .logoBox {
   position: relative;
   display: grid;
@@ -1148,9 +1156,12 @@
   flex: none;
   place-items: center;
   overflow: hidden;
-  border: var(--fair-border);
   border-radius: var(--fair-radius-xs);
-  background: #ffffff;
+}
+
+.logoBox[data-empty="true"] {
+  border: var(--fair-border);
+  background: var(--fair-surface-muted);
 }
 
 .logoBox[data-size="sm"] {
@@ -2121,16 +2132,8 @@
     display: block;
   }
 
-  .zone[data-zone="zadnji-deo"] {
-    grid-column: 1 / -1;
-  }
-
   .viewport {
     height: clamp(460px, calc(100dvh - var(--fair-header-height) - 330px), 720px);
-  }
-
-  .zone[data-zone="zadnji-deo"] .viewport {
-    height: 240px;
   }
 
   .rotationVisual {
@@ -2206,14 +2209,6 @@
   grid-area: ispred;
 }
 
-/* The rear area: a small inset at the bottom of the right column, under the rotation. */
-.root[data-display="on"] .zone[data-zone="zadnji-deo"] {
-  grid-area: auto;
-  grid-column: 3;
-  grid-row: 2 / 4;
-  align-self: end;
-}
-
 .root[data-display="on"] .zoneTitle {
   display: block;
   font-size: 26px;
@@ -2224,14 +2219,6 @@
   min-height: 0;
   max-height: none;
   aspect-ratio: auto;
-}
-
-.root[data-display="on"] .zone[data-zone="zadnji-deo"] .viewport {
-  height: 190px;
-}
-
-.root[data-display="on"] .zone[data-zone="zadnji-deo"] .zoneTitle {
-  font-size: 20px;
 }
 
 .root[data-display="on"] .rotationInline {

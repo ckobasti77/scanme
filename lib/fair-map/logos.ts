@@ -1,12 +1,14 @@
 // N4 — light exhibitor logos for the map. The organizer's logos
 // (public/fair/izlagaci/2026/, 300×300 JPG, ~20 KB each) have small trimmed
-// WebP copies in public/sajam/izlagaci/2026/ (≤ 288×154 px, ~3 KB each, 122 KB
-// for all 38). Pixel sizes are known up front, so a logo chip never changes
-// size when the image arrives (no layout jump). An uploaded logo (Convex
-// storage URL) or any other address is used as it is.
+// WebP copies in public/sajam/izlagaci/2026/providni/ (≤ 288×154 px, ≤ 12 KB
+// each, ~200 KB for all 38) with a TRANSPARENT background, so the map never
+// draws a white square behind a logo (scripts/fair/map-logos-transparent.mjs).
+// Pixel sizes are known up front, so a logo chip never changes size when the
+// image arrives (no layout jump). An uploaded logo (Convex storage URL) or any
+// other address is used as it is.
 
 export const FAIR_MAP_LOGO_SOURCE_BASE = "/fair/izlagaci/2026/";
-export const FAIR_MAP_LOGO_THUMB_BASE = "/sajam/izlagaci/2026/";
+export const FAIR_MAP_LOGO_THUMB_BASE = "/sajam/izlagaci/2026/providni/";
 
 /** Original file → [width, height] of its WebP copy. */
 export const FAIR_MAP_LOGO_THUMBS: Readonly<Record<string, readonly [number, number]>> = {

@@ -158,15 +158,16 @@ async function standsAt(f: Fixture, mapLocationId: string) {
 }
 
 describe("N3 placeSiteExhibitors: the organizer's exhibitors on the map of 7. 10.", () => {
-  test("one stand per (exhibitor, location) with the organizer's code; exhibitors share locations; category on the participation; Markus Pro is skipped with its zone", async () => {
+  test("one stand per (exhibitor, location) with the organizer's code; exhibitors share locations; category on the participation; Markus Pro and AUTO1 are skipped with their zone", async () => {
     const f = await setup();
     await importList(f);
-    expect(PAIRS).toBe(39);
+    // 38: AUTO1 has no map location since the owner removed "Zadnji deo" (9. 10.).
+    expect(PAIRS).toBe(38);
     expect(await place(f)).toEqual({
       exhibitors: COUNT,
       stands: { created: PAIRS, updated: 0, unchanged: 0 },
       participations: { created: 0, updated: COUNT, unchanged: 0 },
-      skipped: [{ key: "markus-pro", reason: "no_map_location" }],
+      skipped: [{ key: "markus-pro", reason: "no_map_location" }, { key: "auto1", reason: "no_map_location" }],
     });
     const byd = await exhibitor(f, "byd");
     expect(byd.participation).toMatchObject({ category: "automobili" });
@@ -181,8 +182,10 @@ describe("N3 placeSiteExhibitors: the organizer's exhibitors on the map of 7. 10
     expect(veneraStands.map((row) => [row.mapLocationId, row.code]).sort()).toEqual([["hala-12", "12"], ["ispred-19", "19"], ["ispred-20-22", "20–22"]]);
     const markus = await exhibitor(f, "markus-pro");
     expect(markus.participation).toMatchObject({ category: "usluge", mapZoneId: "ispred" });
+    const auto1 = await exhibitor(f, "auto1");
+    expect(auto1.participation).toMatchObject({ category: "usluge", mapZoneId: "hala" });
 
-    // The public map: all 38, with logo, website and category; Markus Pro listed without a place, in front of the hall.
+    // The public map: all 38, with logo, website and category; Markus Pro (in front of the hall) and AUTO1 (the hall) listed without a place.
     const map = (await f.t.query(api.fairPublic.getEventMap, { eventSlug: EM }))!;
     const site = new Set(ELEKTROMOBILNOST_2026_EXHIBITORS.map((row) => row.name));
     const onMap = map.stands.filter((row) => site.has(row.exhibitorName));
@@ -190,6 +193,7 @@ describe("N3 placeSiteExhibitors: the organizer's exhibitors on the map of 7. 10
     expect(new Set([...onMap.map((row) => row.exhibitorName), ...map.exhibitorsWithoutLocation.map((row) => row.exhibitorName)])).toEqual(site);
     expect(map.exhibitorsWithoutLocation).toEqual([
       { participationId: markus.participation!._id, exhibitorName: "Auto servis Markus Pro", logoUrl: "/fair/izlagaci/2026/markus-pro.jpg", websiteUrl: "https://www.autoservismarkus.rs/", category: "usluge", zoneId: "ispred" },
+      { participationId: auto1.participation!._id, exhibitorName: "AUTO1.com", logoUrl: "/fair/izlagaci/2026/auto1.png", websiteUrl: "https://www.auto1.com/sr/home", category: "usluge", zoneId: "hala" },
     ]);
     expect(onMap.find((row) => row.exhibitorName === "BYD")).toMatchObject({
       mapLocationId: "hala-2", code: "2", displayName: "Štand 2", logoUrl: "/fair/izlagaci/2026/byd.jpg", websiteUrl: "https://byd-auto.rs/", category: "automobili", brands: [],
@@ -205,7 +209,7 @@ describe("N3 placeSiteExhibitors: the organizer's exhibitors on the map of 7. 10
     await f.admin.mutation(api.fairAdmin.upsertStand, { eventId: f.eventId, participationId: jmev.participation!._id, externalKey: "rucni-jmev", code: "9", displayName: "JMEV", mapLocationId: "hala-9" });
     const first = await place(f);
     expect(first.stands).toEqual({ created: PAIRS - 1, updated: 0, unchanged: 0 });
-    expect(first.skipped).toEqual([{ key: "jmev", reason: "stand_exists_for_location", mapLocationId: "hala-9" }, { key: "markus-pro", reason: "no_map_location" }]);
+    expect(first.skipped).toEqual([{ key: "jmev", reason: "stand_exists_for_location", mapLocationId: "hala-9" }, { key: "markus-pro", reason: "no_map_location" }, { key: "auto1", reason: "no_map_location" }]);
     expect(await place(f)).toEqual({
       exhibitors: COUNT,
       stands: { created: 0, updated: 0, unchanged: PAIRS - 1 },

@@ -1885,3 +1885,11 @@ Izveštaj: `docs/events/sajam-automobila-2026/jovan-status/IZVESTAJ-SYNC-2026-10
   - pravni tekst saglasnosti (P3 §1);
   - pasoš i spoljni URL fotografije;
   - javni naziv na mapi.
+
+## SPOJ I MAPA 9. 10. — AUTO1.com posle uklanjanja zone „Zadnji deo“
+
+Vlasnik (Jovan, u četu 9. 10.): „Zadnji deo“ ne postoji; postoje samo Hala i Ispred hale. Zona je uklonjena sa mape (grana `codex/jovan-spoj-aleksa-2026-10-09`).
+
+- **Na DEV-u (`expert-pelican-136`)** AUTO1.com ima aktivno učešće i aktivan štand sa `mapLocationId: "zadnji-deo"`. Podaci nisu dirani: AUTO1 se sada vidi u spisku izlagača (Usluge i grad) sa „Tačno mesto još nije na mapi organizatora“, a na mapi ga nema.
+- **Otvoreno:** gde u hali tačno stoji AUTO1 (štand na mapi hale) ili da li ga treba skloniti sa sajma. Do odluke ostaje bez mesta.
+- **Backend:** vrednost `zadnji-deo` je i dalje dozvoljena u `fairMapZoneId` (Convex validator) i `FAIR_MAP_ZONE_IDS`, jer je sačuvana u podacima. Uklanjanje traži čišćenje podataka i Convex deploy (Aleksa).
