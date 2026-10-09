@@ -183,7 +183,7 @@
   justify-self: start;
   min-height: 44px;
   padding: var(--fair-space-2) var(--fair-space-4);
-  border: var(--fair-border-strong);
+  border: var(--fair-border);
   border-radius: var(--fair-radius-pill);
   background: var(--fair-surface);
   color: var(--fair-ink);

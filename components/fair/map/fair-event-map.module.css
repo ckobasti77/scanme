@@ -41,6 +41,11 @@
   background: var(--fair-surface);
 }
 
+/* Page cards sit like the garage cards: shadow 2. The display mode keeps its flat cards. */
+.root:not([data-display="on"]) :is(.card, .zone, .directory) {
+  box-shadow: var(--fair-shadow-2);
+}
+
 .hint {
   margin: 0;
   color: var(--fair-ink-muted);
@@ -74,7 +79,7 @@
   justify-self: start;
   align-items: center;
   gap: var(--fair-space-2);
-  border: var(--fair-border-strong);
+  border: var(--fair-border);
   border-radius: var(--fair-radius-md);
   background: var(--fair-surface);
   color: var(--fair-ink);
@@ -433,43 +438,60 @@
 }
 
 /* Segmented zones: the chosen one is marked by one indicator that glides. */
+/* The zones look like the garage tabs: a raised lg bar, the chosen zone on the
+   surface with an accent line under it; the indicator still slides. */
 .zoneSwitch {
   position: relative;
   isolation: isolate;
   display: grid;
-  padding: var(--fair-space-1);
   grid-template-columns: repeat(var(--fair-map-zones, 3), minmax(0, 1fr));
-  border: var(--fair-border);
-  border-radius: var(--fair-radius-pill);
-  background: var(--fair-surface-muted);
+  overflow: hidden;
+  border: var(--fair-border-width) solid color-mix(in srgb, var(--fair-line) 88%, transparent);
+  border-radius: var(--fair-radius-lg);
+  background: color-mix(in srgb, var(--fair-surface) 92%, transparent);
+  box-shadow: var(--fair-shadow-2);
 }
 
 .zoneIndicator {
   position: absolute;
   z-index: -1;
-  top: var(--fair-space-1);
-  bottom: var(--fair-space-1);
-  left: var(--fair-space-1);
-  width: calc((100% - 2 * var(--fair-space-1)) / var(--fair-map-zones, 3));
-  border-radius: var(--fair-radius-pill);
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: calc(100% / var(--fair-map-zones, 3));
   background: var(--fair-surface);
-  box-shadow: var(--fair-shadow-1);
   transform: translateX(calc(100% * var(--fair-map-zone-index, 0)));
   transition: transform var(--fair-dur-overlay) var(--fair-ease-move);
 }
 
+.zoneIndicator::after {
+  position: absolute;
+  right: var(--fair-space-3);
+  bottom: 0;
+  left: var(--fair-space-3);
+  height: 2px;
+  border-radius: var(--fair-radius-2xs) var(--fair-radius-2xs) 0 0;
+  background: var(--fair-accent);
+  content: "";
+}
+
 .zoneButton {
-  min-height: 44px;
+  min-height: 52px;
   padding-inline: 6px;
   border: 0;
-  border-radius: var(--fair-radius-pill);
+  border-radius: 0;
   background: transparent;
   color: var(--fair-ink-muted);
   font: inherit;
-  font-size: 15px;
-  font-weight: 650;
+  font-size: 13px;
+  font-weight: 780;
+  letter-spacing: -0.02em;
   cursor: pointer;
   transition: color var(--fair-dur-state) var(--fair-ease-enter);
+}
+
+.zoneButton + .zoneButton {
+  border-left: var(--fair-border);
 }
 
 @media (hover: hover) {
@@ -507,7 +529,7 @@
   flex: none;
   align-items: center;
   gap: 7px;
-  border: var(--fair-border-strong);
+  border: var(--fair-border);
   border-radius: var(--fair-radius-pill);
   background: var(--fair-surface);
   color: var(--fair-ink);
@@ -939,12 +961,11 @@
   width: 44px;
   height: 44px;
   place-items: center;
-  border: var(--fair-border-strong);
+  border: var(--fair-border);
   border-radius: var(--fair-radius-md);
   background: var(--fair-surface);
   color: var(--fair-ink);
   cursor: pointer;
-  box-shadow: var(--fair-shadow-1);
   transition:
     background-color var(--fair-dur-feedback) var(--fair-ease-enter),
     transform var(--fair-dur-feedback) var(--fair-ease-enter);
@@ -1128,7 +1149,7 @@
 .placeChip {
   min-height: 44px;
   padding: 0 var(--fair-space-3);
-  border: var(--fair-border-strong);
+  border: var(--fair-border);
   border-radius: var(--fair-radius-pill);
   background: var(--fair-surface);
   color: var(--fair-ink);
@@ -1488,7 +1509,7 @@
   min-height: 44px;
   margin-top: var(--fair-space-2);
   padding-inline: 14px;
-  border: var(--fair-border-strong);
+  border: var(--fair-border);
   border-radius: var(--fair-radius-md);
   background: var(--fair-surface);
   color: var(--fair-ink);
@@ -1563,8 +1584,8 @@
   flex: none;
   place-items: center;
   border-radius: var(--fair-radius-md);
-  background: var(--fair-surface-muted);
-  color: var(--fair-ink);
+  background: var(--fair-accent-soft);
+  color: var(--fair-accent);
 }
 
 .guideIcon svg {
@@ -2076,6 +2097,14 @@
 
   .rotationPanel {
     display: block;
+  }
+
+  /* Room for the cards' shadow 2 inside the scrolling panel; the content keeps its place. */
+  .root:not([data-display="on"]) .panel {
+    top: var(--fair-header-height);
+    max-height: calc(100dvh - var(--fair-header-height));
+    margin: calc(-1 * var(--fair-space-3)) calc(-1 * var(--fair-space-4)) 0;
+    padding: var(--fair-space-3) var(--fair-space-4) var(--fair-space-6);
   }
 
   .sheetRoot {

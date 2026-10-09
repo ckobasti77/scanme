@@ -11,6 +11,38 @@
 > i EDS §8 (160/240/360 ms). Semantika ostaje ista: enter usporava, exit je brži, animiraju se
 > transform i opacity, reduced motion ima statičnu alternativu.
 
+## 0. Referenca: Garaža i Pasoši (SAJAM SUPER, 9. 10. 2026.)
+
+Izvučeno metodom design-dna, faza 2, iz koda (`components/fair/garage/fair-garage.module.css`,
+blok „Garage V2“, i `components/fair/passport/fair-passport.module.css`, `.page`) i iz
+izračunatih stilova na snimcima `/sajam/<slug>/garaza` i `/sajam/<slug>/pasosi` na 390 i 1280 px.
+Garaža i Pasoši su **referenca**: kad se ova tabela i ostatak dokumenta razlikuju, važi tabela.
+Sve ostale sajamske strane (mapa, model, Glas publike, anketa, deli, „nije pronađeno“) i
+zajednički delovi (zaglavlje, meni, sheet, prazna stanja) koriste iste vrednosti.
+
+| Šta | Garaža i Pasoši | Token / pravilo |
+|---|---|---|
+| Podloga strane | hladni svetli papir `#f7f8f8` + blag sjaj akcenta gore desno (`radial-gradient(circle at 82% 5%, akcenat 7 %, providno 28 %)`) | `--fair-canvas`, `--fair-canvas-glow`; `.fair-event { background: var(--fair-canvas-glow), var(--fair-canvas) }` |
+| Površine | topla krem `#fffdf8` na hladnoj podlozi | `--fair-surface` (nepromenjeno) |
+| Zaglavlje | `#fffdf8`, tiha linija dole preko cele širine, 64 px, lepljivo; aktivna stavka menija: `accent-soft` + ivica akcenta, `md` | `.fair-shell`; zaglavlje toka (Glas publike) dobija istu površinu i liniju preko cele širine |
+| Naslov strane | akcenat, `clamp(28px, 8vw, 38px)`, 790, −0.05 em, visina reda 0.98; podnaslov 14/1.35 `ink-muted`, najviše 310 px | „Moja garaža“, „Pasoši“, „Izdvojeni modeli“, „Strana nije pronađena“ |
+| Kartica strane | `surface` + tiha ivica 1 px + `xl` 24 + senka 2 (`0 8px 20px`, topla 12 %) | kartice modela u garaži, kartice deljenja, mapa, spisak, panel, kartica pitanja, specifikacije, hero modela |
+| Kartica-red (traka) | `surface` + tiha ivica + `lg` 16 + senka 2 | čip pasoša u garaži, „Oceni model“ |
+| Naslov kartice | 19–25 px, 790, −0.045 em; natpis iznad (brend) 10 px, 820, +0.075 em, verzal, akcenat | `.modelTopline`, `.modelContent h2` |
+| Primarno dugme (alat) | `ink` podloga, beli tekst, `md` 12, 44 px, 780 | „Pogledaj“ |
+| Primarno dugme (radnja) | akcenat, `md` 12 | „Sačuvaj u garažu“, „Otvori mapu sajma“ |
+| Sekundarno i ikonica-dugme | providno ili `surface` + **tiha** ivica (`--fair-border`), `md` 12, 44 × 44 | deli, ukloni, zatvori dijalog, kontrole mape, zatvori sheet, nazad |
+| Jezičci (dva izbora) | traka `lg` 16, `surface` 92 %, tiha ivica, senka 2; izabrano: `surface` + linija akcenta 2 px dole; tekst 13 px, 780, −0.02 em | jezičci garaže; prekidač zona na mapi (indikator i dalje klizi) |
+| Čip / filter | pilula 44 px, `surface` + **tiha** ivica; izabrano `ink` | filteri kategorija, čipovi mesta |
+| Prazno stanje | kartica `xl` bez senke, ikonica u pločici `accent-soft` / akcenat, naslov regularne težine −0.04 em, kratak tekst, dugme akcenta | garaža bez modela, stanja mape, koraci u panelu mape |
+| Sheet / dijalog | `surface`, `xl` gore, tiha ivica, senka 3 nagore; zatvaranje = ikonica-dugme `md` | `.fair-sheet`, sheet mape |
+| Ivice | uvek 1 px; tiha (`line`) za kartice, dugmad i čipove; izražena (`line-strong`) samo za polja za unos i izbor u formi | |
+| ScanMe zelena `#6FC05D` | samo ScanMe: ScanMe štand na mapi i dugme „Pronađi ScanMe“ | nigde drugde |
+
+Šta se **ne** menja ovom referencom: ponašanje i sadržaj strana, pasoš (`components/fair/passport/**`,
+Aleksino područje; on je već referenca), raspored i logika režima velikih ekrana (`?prikaz=ekran`),
+koji dobija samo nove boje podloge, a kartice mu ostaju bez senke.
+
 ## 1. Karakter
 
 - **Šta je:** svetla, topla, papirna površina za posetioca sajma sa telefonom u ruci. Prijatno,
@@ -27,7 +59,8 @@
 
 | Token | Vrednost | Uloga |
 |---|---|---|
-| `--fair-canvas` | `#f1eee7` | podloga strane (topli papir) |
+| `--fair-canvas` | `#f7f8f8` (do SAJAM SUPER `#f1eee7`) | podloga strane, kao Garaža i Pasoši |
+| `--fair-canvas-glow` | radijalni sjaj akcenta 7 % gore desno | drugi sloj podloge strane |
 | `--fair-surface` | `#fffdf8` | kartice, sheet, kontrole |
 | `--fair-surface-muted` | `#e9e5dc` | sekundarne grupe, skeleton, segmentirani prekidač |
 | `--fair-surface-warm` | `#d8c7b6` | pozadina fotografije modela bez slike |
@@ -165,11 +198,11 @@ Pravila:
 |---|---|
 | Primarno dugme | akcenat, `md`, min. visina 48 (44 za sekundarne), težina 700 |
 | Crno dugme (alat) | `ink` podloga, `md`, `--fair-shadow-2` samo kad pluta |
-| Sekundarno dugme | `surface` + `--fair-border-strong`, `md` |
+| Sekundarno dugme | `surface` + `--fair-border` (tiha, kao garaža), `md` |
 | Ikonica-dugme | 44 × 44, `md`, `--fair-border` |
-| Čip / filter | `pill`, 44 visine, `--fair-border-strong`; izabrano = `ink` podloga |
-| Segmentirani prekidač | `pill` staza `surface-muted`, klizni indikator `surface` + `--fair-shadow-1` |
-| Kartica | `surface`, `--fair-border`, `xl` (strana) ili `lg` (na podlozi) |
+| Čip / filter | `pill`, 44 visine, `--fair-border` (tiha); izabrano = `ink` podloga |
+| Prekidač zona (jezičci) | kao jezičci garaže: traka `lg`, `surface` 92 %, senka 2; izabrano `surface` + linija akcenta; indikator klizi |
+| Kartica | `surface`, `--fair-border`, `xl` + `--fair-shadow-2` (strana) ili `lg` + senka 2 (traka) |
 | Red liste | 56 visine, `md`, hover `canvas`, izabrano `accent-soft` + ivica akcenta |
 | Input | 48 visine, `md`, `--fair-border-strong`, fokus prsten 3 px |
 | Sheet | `xl` gore, `--fair-shadow-3-up`, ručka 40 × 4, lepljivo zaglavlje |
@@ -220,7 +253,7 @@ ekranu zadržale ugao koji su imale pre skale.
       "accent": { "hex": "#0b73e0", "role": "radnja i izbor (Auto Moto Fest: #bd4f39)" },
       "neutral": { "scale": ["#fffdf8", "#f1eee7", "#e9e5dc", "#d8d1c7", "#bdb4a8", "#62615d", "#171918"], "usage": "površina → podloga → tiho → ivice → tekst" },
       "semantic": { "success": "#34734B", "warning": "#8A5A00", "error": "#b42332", "info": "#0b73e0" },
-      "surface": { "background": "#f1eee7", "card": "#fffdf8", "elevated": "#fffdf8 + --fair-shadow-3" },
+      "surface": { "background": "#f7f8f8 + radijalni sjaj akcenta 7 % (Garaža i Pasoši)", "card": "#fffdf8 + tiha ivica + --fair-shadow-2", "elevated": "#fffdf8 + --fair-shadow-3" },
       "contrast_strategy": "tekst ≥ 4.5:1; akcenat samo za radnju i izbor; status nikad samo bojom"
     },
     "typography": {

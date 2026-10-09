@@ -1,5 +1,7 @@
 .fair-event {
-  --fair-canvas: #f1eee7;
+  /* Podloga strane i njen sjaj su iz Garaže i Pasoša (SAJAM SUPER, FAIR-DESIGN-DNA §2). */
+  --fair-canvas: #f7f8f8;
+  --fair-canvas-glow: radial-gradient(circle at 82% 5%, color-mix(in srgb, var(--fair-accent) 7%, transparent), transparent 28%);
   --fair-surface: #fffdf8;
   --fair-surface-muted: #e9e5dc;
   --fair-surface-warm: #d8c7b6;
@@ -74,7 +76,7 @@
   min-height: 100dvh;
   overflow-x: clip;
   color-scheme: light;
-  background: var(--fair-canvas);
+  background: var(--fair-canvas-glow), var(--fair-canvas);
   color: var(--fair-ink);
   font-family: "Archivo Variable", "Archivo", "Segoe UI", Arial, sans-serif;
   font-size: 16px;
@@ -313,8 +315,9 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   flex: none;
   aspect-ratio: 4 / 3;
   overflow: hidden;
-  border-radius: 22px;
+  border-radius: var(--fair-radius-xl);
   background: #2a2d33;
+  box-shadow: var(--fair-shadow-2);
 }
 
 /* Class + direct child only: nothing else inside the hero (chat-head logo, chip) is ever matched. */
@@ -503,9 +506,10 @@ body:has(.fair-event) [data-theme-toggle="global"] {
 .fair-specs {
   flex: none;
   overflow: hidden;
-  border: 1px solid var(--fair-line);
-  border-radius: 18px;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-xl);
   background: var(--fair-surface);
+  box-shadow: var(--fair-shadow-2);
   -webkit-user-select: none;
   user-select: none;
 }
@@ -707,14 +711,14 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   padding: 10px 14px;
   align-items: center;
   gap: 12px;
-  border: 1px solid color-mix(in srgb, var(--fair-accent) 12%, transparent);
-  border-radius: 16px;
+  border: var(--fair-border-width) solid color-mix(in srgb, var(--fair-accent) 12%, transparent);
+  border-radius: var(--fair-radius-lg);
   background: var(--fair-accent-soft);
   color: var(--fair-accent-strong);
   text-align: left;
   text-decoration: none;
   -webkit-user-drag: none;
-  transition: background-color 160ms ease-out;
+  transition: background-color var(--fair-dur-feedback) var(--fair-ease-enter);
 }
 
 .fair-audience-action:hover {
@@ -781,9 +785,10 @@ body:has(.fair-event) [data-theme-toggle="global"] {
 }
 
 .fair-rate-card {
-  border: 1px solid var(--fair-line);
-  border-radius: 16px;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-lg);
   background: var(--fair-surface);
+  box-shadow: var(--fair-shadow-2);
 }
 
 .fair-starter-rating {
@@ -966,7 +971,7 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   min-height: 50px;
   margin-top: 12px;
   border-color: var(--fair-ink);
-  border-radius: 15px;
+  border-radius: var(--fair-radius-md);
   background: var(--fair-ink);
   color: #fff;
 }
@@ -1005,8 +1010,8 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  border: 1px solid var(--fair-line);
-  border-radius: 16px;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-md);
   background: var(--fair-surface);
   color: var(--fair-ink);
   cursor: pointer;
@@ -1047,11 +1052,11 @@ body:has(.fair-event) [data-theme-toggle="global"] {
 }
 
 .fair-event button.fair-rate-open {
-  border-radius: 16px;
+  border-radius: var(--fair-radius-lg);
 }
 
 .fair-event button.fair-save-button {
-  border-radius: 16px;
+  border-radius: calc(var(--fair-radius-md) - var(--fair-border-width));
 }
 
 /* Sticky save dock with a soft fade above it */
@@ -1072,13 +1077,14 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   display: flex;
   height: 56px;
   align-items: center;
-  border: 1.5px solid var(--fair-accent);
-  border-radius: 18px;
+  border: var(--fair-border-width) solid var(--fair-accent);
+  border-radius: var(--fair-radius-md);
   background: var(--fair-accent);
-  box-shadow: 0 8px 20px color-mix(in srgb, var(--fair-accent) 28%, transparent);
+  box-shadow: var(--fair-shadow-2);
   transition:
-    background-color 260ms ease-out,
-    box-shadow 260ms ease-out;
+    background-color var(--fair-dur-state) var(--fair-ease-enter),
+    border-color var(--fair-dur-state) var(--fair-ease-enter),
+    box-shadow var(--fair-dur-state) var(--fair-ease-enter);
 }
 
 .fair-save-dock:not([data-saved="true"]):has(.fair-save-button:hover) {
@@ -1086,8 +1092,9 @@ body:has(.fair-event) [data-theme-toggle="global"] {
 }
 
 .fair-save-dock[data-saved="true"] {
+  border-color: var(--fair-line);
   background: var(--fair-surface);
-  box-shadow: 0 6px 16px rgb(0 0 0 / 0.08);
+  box-shadow: var(--fair-shadow-2);
 }
 
 .fair-save-button {
@@ -1100,7 +1107,7 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   justify-content: center;
   gap: 10px;
   border: 0;
-  border-radius: 16px;
+  border-radius: calc(var(--fair-radius-md) - var(--fair-border-width));
   background: none;
   color: #fff;
   cursor: pointer;
@@ -1132,7 +1139,7 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   padding: 0 14px 0 10px;
   align-items: center;
   gap: 2px;
-  border-radius: 16px;
+  border-radius: var(--fair-radius-md);
   color: var(--fair-accent-strong);
   font-size: 13.5px;
   font-weight: 700;
@@ -1199,6 +1206,7 @@ body:has(.fair-event) [data-theme-toggle="global"] {
 .fair-sheet h2 {
   margin: 0;
   font-size: 21px;
+  font-weight: 760;
   letter-spacing: -0.035em;
 }
 
@@ -1209,7 +1217,7 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   flex: none;
   place-items: center;
   border: var(--fair-border);
-  border-radius: var(--fair-radius-pill);
+  border-radius: var(--fair-radius-md);
   background: var(--fair-surface);
   color: var(--fair-ink);
   cursor: pointer;
@@ -1284,15 +1292,16 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   flex-direction: column;
 }
 
+/* Same surface and full-width line as the fair header; the content stays in the 560 px column. */
 .fair-flow-header {
   display: grid;
-  width: min(100%, 560px);
+  width: 100%;
   min-height: 64px;
-  margin-inline: auto;
-  padding: max(var(--fair-space-2), env(safe-area-inset-top)) var(--fair-space-3) var(--fair-space-2);
+  padding: max(var(--fair-space-2), env(safe-area-inset-top)) max(var(--fair-space-3), calc(50% - 280px + var(--fair-space-3))) var(--fair-space-2);
   grid-template-columns: 48px minmax(0, 1fr) 48px;
   align-items: center;
   border-bottom: var(--fair-border);
+  background: var(--fair-surface);
 }
 
 .fair-flow-header > a {
@@ -1301,7 +1310,7 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   height: 44px;
   place-items: center;
   border: var(--fair-border);
-  border-radius: var(--fair-radius-pill);
+  border-radius: var(--fair-radius-md);
   color: var(--fair-ink);
 }
 
@@ -1389,7 +1398,7 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   border: var(--fair-border);
   border-radius: var(--fair-radius-xl);
   background: var(--fair-surface);
-  box-shadow: var(--fair-shadow-3);
+  box-shadow: var(--fair-shadow-2);
 }
 
 .fair-question-card > p {
@@ -1405,6 +1414,7 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   max-width: 460px;
   margin: 7px 0 18px;
   font-size: clamp(23px, 7vw, 30px);
+  font-weight: 760;
   letter-spacing: -0.045em;
   line-height: 1.08;
   text-wrap: balance;
@@ -1608,7 +1618,7 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   min-height: 100dvh;
   padding: var(--fair-space-8) 20px;
   place-items: center;
-  background: var(--fair-canvas);
+  background: var(--fair-canvas-glow), var(--fair-canvas);
 }
 
 .fair-not-found > div {
@@ -1618,8 +1628,11 @@ body:has(.fair-event) [data-theme-toggle="global"] {
 
 .fair-not-found h1 {
   margin: 0;
-  font-size: 32px;
-  line-height: 1.05;
+  color: var(--fair-accent);
+  font-size: clamp(28px, 8vw, 38px);
+  font-weight: 790;
+  letter-spacing: -0.05em;
+  line-height: 0.98;
 }
 
 .fair-not-found p {
@@ -1831,7 +1844,7 @@ body:has(.fair-event) [data-theme-toggle="global"] {
 
 .fair-sheet__secondary {
   min-height: 52px;
-  border: var(--fair-border-strong);
+  border: var(--fair-border);
   border-radius: var(--fair-radius-md);
   background: var(--fair-surface);
   color: var(--fair-ink);
