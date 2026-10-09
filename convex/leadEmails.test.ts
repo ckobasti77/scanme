@@ -183,13 +183,51 @@ describe("mejl timu za upit sa landinga", () => {
     expect((await leads())[0].emailStatus).toBe("failed");
   });
 
-  test("greška Resend-a se upisuje kao razlog, upit ostaje sačuvan", async () => {
+  test("trajna greška Resend-a (bez reply_to) se upisuje kao razlog, upit ostaje sačuvan", async () => {
     respond = () => Response.json({ message: "Invalid `from` field." }, { status: 422 });
     const { t, runAll, leads } = await setup();
-    await t.mutation(api.leads.create, leadArgs());
+    await t.mutation(api.leads.create, leadArgs({ email: undefined }));
     await runAll();
     expect(calls).toHaveLength(1);
     expect((await leads())[0]).toMatchObject({ emailStatus: "failed", emailFailureReason: "Invalid `from` field." });
+  });
+
+  test("privremena greška (503, 429, mreža) se ponavlja istim Idempotency-Key, pa mejl ode", async () => {
+    let failuresLeft = 2;
+    respond = (call) =>
+      failuresLeft-- > 0
+        ? Response.json({ message: "Service unavailable" }, { status: call === 1 ? 503 : 429 })
+        : Response.json({ id: `re_test_message_${call}` });
+    const { t, runAll, leads } = await setup();
+    await t.mutation(api.leads.create, leadArgs());
+    await runAll();
+    expect(calls).toHaveLength(3);
+    expect(new Set(calls.map((call) => call.key)).size).toBe(1);
+    expect((await leads())[0]).toMatchObject({ emailStatus: "sent", emailMessageId: "re_test_message_3" });
+  });
+
+  test("posle tri privremene greške upit ostaje sa emailStatus failed", async () => {
+    respond = () => Response.json({ message: "Service unavailable" }, { status: 503 });
+    const { t, runAll, leads } = await setup();
+    await t.mutation(api.leads.create, leadArgs());
+    await runAll();
+    expect(calls).toHaveLength(3);
+    expect((await leads())[0]).toMatchObject({ emailStatus: "failed", emailFailureReason: "Service unavailable" });
+  });
+
+  test("Resend odbije reply_to: jedan novi pokušaj bez reply_to", async () => {
+    respond = (call) =>
+      call === 1
+        ? Response.json({ message: "Invalid `reply_to` field." }, { status: 422 })
+        : Response.json({ id: `re_test_message_${call}` });
+    const { t, runAll, leads } = await setup();
+    await t.mutation(api.leads.create, leadArgs());
+    await runAll();
+    expect(calls).toHaveLength(2);
+    expect(calls[0].body.reply_to).toBe("posetilac@example.invalid");
+    expect(calls[1].body).not.toHaveProperty("reply_to");
+    expect(calls[1].key).not.toBe(calls[0].key);
+    expect((await leads())[0]).toMatchObject({ emailStatus: "sent", emailMessageId: "re_test_message_2" });
   });
 });
 

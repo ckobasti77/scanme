@@ -91,6 +91,19 @@ export const markLeadEmailSent = internalMutation({
   },
 });
 
+// Privremena greška (mreža, 429, 5xx): red ostaje "queued", razlog se pamti, a
+// sledeći pokušaj je već zakazan.
+export const noteLeadEmailRetry = internalMutation({
+  args: { leadId: v.id("leads"), reason: v.string() },
+  handler: async (ctx, args) => {
+    await ctx.db.patch("leads", args.leadId, {
+      emailFailureReason: args.reason.slice(0, 500),
+      emailUpdatedAt: Date.now(),
+    });
+    return null;
+  },
+});
+
 export const markLeadEmailFailed = internalMutation({
   args: { leadId: v.id("leads"), reason: v.string() },
   handler: async (ctx, args) => {
@@ -103,11 +116,34 @@ export const markLeadEmailFailed = internalMutation({
   },
 });
 
+// Ponovni pokušaji posle privremene greške (ukupno 3 pokušaja). Isti
+// Idempotency-Key čuva od duplog mejla ako je prvi pokušaj ipak prošao.
+const RETRY_DELAYS_MS = [60_000, 5 * 60_000] as const;
+
+class LeadEmailError extends Error {
+  retryable: boolean;
+  rejected: boolean;
+  constructor(message: string, retryable: boolean, rejected: boolean) {
+    super(message);
+    this.retryable = retryable;
+    this.rejected = rejected;
+  }
+}
+
 export const sendLeadNotification = internalAction({
-  args: { leadId: v.id("leads") },
+  args: {
+    leadId: v.id("leads"),
+    attempt: v.optional(v.number()),
+    // Resend je odbio adresu za odgovor (npr. neispravan imejl posetioca):
+    // šalje se jednom bez reply_to, imejl je ionako u telu mejla.
+    skipReplyTo: v.optional(v.boolean()),
+  },
   handler: async (ctx, args) => {
-    const lead: Doc<"leads"> | null = await ctx.runQuery(internal.leadEmails.getQueuedLead, args);
+    const lead: Doc<"leads"> | null = await ctx.runQuery(internal.leadEmails.getQueuedLead, {
+      leadId: args.leadId,
+    });
     if (!lead) return null;
+    const attempt = args.attempt ?? 1;
 
     const apiKey = (env.RESEND_API_KEY ?? "").trim();
     const from = (env.RESEND_FROM_EMAIL ?? "").trim();
@@ -121,36 +157,66 @@ export const sendLeadNotification = internalAction({
     }
 
     const email = buildLeadEmail(lead);
+    const replyTo = args.skipReplyTo ? undefined : email.replyTo;
     try {
-      const response = await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-          "Idempotency-Key": `scanme-lead/${args.leadId}`,
-        },
-        body: JSON.stringify({
-          from,
-          to: [to],
-          subject: email.subject,
-          text: email.text,
-          html: email.html,
-          ...(email.replyTo ? { reply_to: email.replyTo } : {}),
-        }),
-      });
+      let response: Response;
+      try {
+        response = await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+            "Idempotency-Key": `scanme-lead/${args.leadId}${args.skipReplyTo ? "/bez-reply-to" : ""}`,
+          },
+          body: JSON.stringify({
+            from,
+            to: [to],
+            subject: email.subject,
+            text: email.text,
+            html: email.html,
+            ...(replyTo ? { reply_to: replyTo } : {}),
+          }),
+        });
+      } catch (error) {
+        throw new LeadEmailError(error instanceof Error ? error.message : dict.failure.unknown, true, false);
+      }
       const result = (await response.json().catch(() => ({}))) as { id?: string; message?: string };
       if (!response.ok || !result.id) {
-        throw new Error(result.message || fmt(dict.failure.providerStatus, { status: response.status }));
+        const retryable = response.status === 429 || response.status >= 500;
+        const rejected = !retryable && response.status >= 400 && response.status < 500;
+        throw new LeadEmailError(
+          result.message || fmt(dict.failure.providerStatus, { status: response.status }),
+          retryable,
+          rejected,
+        );
       }
       await ctx.runMutation(internal.leadEmails.markLeadEmailSent, {
         leadId: args.leadId,
         messageId: result.id,
       });
     } catch (error) {
-      await ctx.runMutation(internal.leadEmails.markLeadEmailFailed, {
-        leadId: args.leadId,
-        reason: error instanceof Error ? error.message : dict.failure.unknown,
-      });
+      const reason = error instanceof Error ? error.message : dict.failure.unknown;
+      const failure = error instanceof LeadEmailError ? error : null;
+      const delay = RETRY_DELAYS_MS[attempt - 1];
+      if (failure?.retryable && delay !== undefined) {
+        await ctx.runMutation(internal.leadEmails.noteLeadEmailRetry, { leadId: args.leadId, reason });
+        await ctx.scheduler.runAfter(delay, internal.leadEmails.sendLeadNotification, {
+          leadId: args.leadId,
+          attempt: attempt + 1,
+          ...(args.skipReplyTo ? { skipReplyTo: true } : {}),
+        });
+        return null;
+      }
+      if (failure?.rejected && replyTo) {
+        await ctx.runMutation(internal.leadEmails.noteLeadEmailRetry, { leadId: args.leadId, reason });
+        await ctx.scheduler.runAfter(0, internal.leadEmails.sendLeadNotification, {
+          leadId: args.leadId,
+          attempt,
+          skipReplyTo: true,
+        });
+        return null;
+      }
+      await ctx.runMutation(internal.leadEmails.markLeadEmailFailed, { leadId: args.leadId, reason });
     }
     return null;
   },
