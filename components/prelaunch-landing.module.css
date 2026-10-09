@@ -265,6 +265,13 @@
   gap: 0.5rem;
 }
 
+.fairEventItem {
+  display: flex;
+  min-width: 0;
+}
+
+.fairEventItem > .fairEvent { flex: 1 1 auto; }
+
 .fairEvent {
   position: relative;
   display: grid;
@@ -305,6 +312,14 @@
 }
 
 .fairEvent[data-state="live"] span { color: var(--accent-text); }
+
+a.fairEvent {
+  color: inherit;
+  text-decoration: none;
+  transition: border-color 180ms ease;
+}
+
+a.fairEvent:hover { border-color: color-mix(in srgb, var(--foreground) 58%, transparent); }
 
 /* Ivica sajma koji je u toku se diskretno presijava (kao skeleton loader):
    svetli odsjaj prelazi preko ivice s leva na desno; unutrašnjost se ne menja. */
@@ -376,8 +391,11 @@ html[data-theme="dark"] .fairEvents { --fair-shine: rgb(255 255 255 / 0.95); }
 @media (prefers-reduced-motion: no-preference) {
   .fairBanner::after { animation: fair-banner-scan 7s cubic-bezier(0.45, 0, 0.55, 1) 1.2s infinite; }
   .fairStatus[data-kind="live"] .fairStatusDot::after { animation: fair-live-pulse 1.8s ease-out infinite; }
-  .fairEvent[data-state="live"]::after { opacity: 1; animation: fair-event-shine 4.2s ease-in-out 0.8s infinite; }
-  .fairYearDot { animation: fair-year-scan 6s ease-in-out infinite; animation-delay: calc(var(--c) * 70ms); }
+  /* „2026“ i ivica aktuelnog sajma dele isti ciklus od 6 s i kreću zajedno
+     (kad klijent odredi stanje sajma): talas pređe preko „2026“ s leva na
+     desno, a čim izađe iz poslednje kolone, odsjaj prelazi na ivicu čipa. */
+  .fairBanner[data-status] .fairYearDot { animation: fair-year-scan 6s ease-in-out infinite; animation-delay: calc(var(--c) * 70ms); }
+  .fairBanner[data-status] .fairEvent[data-state="live"]::after { animation: fair-event-shine 6s linear infinite; }
 }
 
 @keyframes fair-banner-scan {
@@ -388,8 +406,10 @@ html[data-theme="dark"] .fairEvents { --fair-shine: rgb(255 255 255 / 0.95); }
 }
 
 @keyframes fair-event-shine {
-  0% { background-position: 150% 0; }
-  55%, 100% { background-position: -50% 0; }
+  0%, 22% { opacity: 0; background-position: 100% 0; }
+  23% { opacity: 1; background-position: 100% 0; animation-timing-function: cubic-bezier(0.45, 0, 0.55, 1); }
+  48% { opacity: 1; background-position: 0% 0; }
+  50%, 100% { opacity: 0; background-position: 0% 0; }
 }
 
 @keyframes fair-live-pulse {

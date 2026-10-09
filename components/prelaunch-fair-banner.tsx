@@ -51,6 +51,7 @@ export function PrelaunchFairBanner() {
       className={styles.fairBanner}
       aria-label={`${dict.fair.bannerTitle} · ${dict.fair.location} · ${dict.fair.year}`}
       data-reveal="off"
+      data-status={kind ?? undefined}
     >
       <div className={`${styles.fairBannerInner} section-shell`}>
         <div className={styles.fairBannerTop}>
@@ -76,16 +77,35 @@ export function PrelaunchFairBanner() {
         </div>
 
         <ul className={styles.fairEvents}>
-          {dict.fair.events.map((event, position) => (
-            <li
-              key={event.name}
-              className={styles.fairEvent}
-              data-state={position === eventIndex ? kind : undefined}
-            >
-              <strong>{event.shortDate}</strong>
-              <span>{event.name}</span>
-            </li>
-          ))}
+          {dict.fair.events.map((event, position) => {
+            const state = position === eventIndex ? kind : undefined;
+            const content = (
+              <>
+                <strong>{event.shortDate}</strong>
+                <span>{event.name}</span>
+              </>
+            );
+            return (
+              <li key={event.name} className={styles.fairEventItem}>
+                {/* Sajam koji je u toku vodi na digitalni sajam, kao i CTA. */}
+                {state === "live" ? (
+                  <Link
+                    href="/sajam"
+                    prefetch={false}
+                    className={`${styles.fairEvent} focus-signal`}
+                    data-state={state}
+                    aria-label={fmt(dict.fair.openEventAria, { name: event.name, dates: event.shortDate })}
+                  >
+                    {content}
+                  </Link>
+                ) : (
+                  <div className={styles.fairEvent} data-state={state}>
+                    {content}
+                  </div>
+                )}
+              </li>
+            );
+          })}
         </ul>
 
         {/* /sajam vraća 307 na sajam koji je u toku (app/sajam/route.ts). */}

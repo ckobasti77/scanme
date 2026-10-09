@@ -30,6 +30,8 @@ export interface PrelaunchDict {
     bannerTitle: string;
     partnerBrand: string;
     cta: string;
+    /** {name} = naziv sajma, {dates} = kratki datumi. */
+    openEventAria: string;
     status: {
       live: string;
       /** {date} = prvi dan sledećeg sajma. */
@@ -180,6 +182,7 @@ export const prelaunchSr: PrelaunchDict = {
     bannerTitle: "Sajam automobila",
     partnerBrand: "ScanMe",
     cta: "Otvori digitalni sajam",
+    openEventAria: "{name}, {dates} — otvori digitalni sajam",
     status: {
       live: "U toku",
       next: "Sledeći: {date}",
