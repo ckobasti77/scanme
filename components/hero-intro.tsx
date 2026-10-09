@@ -73,7 +73,7 @@ function HeroAnimationPlayer({
     <motion.div
       aria-hidden={!isPresent}
       className="pointer-events-none absolute inset-0"
-      initial={reducedMotion ? false : { opacity: 0 }}
+      initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{
@@ -170,10 +170,17 @@ export function HeroIntro({
     return () => restoreWords(active);
   }, [activeService, reduce]);
 
+  // `initial` must be identical on the server and on the first client render:
+  // the server cannot know prefers-reduced-motion, so reduced motion only
+  // shortens the transition to an instant one instead of skipping `initial`.
   const enter = (delay: number) => ({
-    initial: reduce ? false : { opacity: 0, y: 24 },
+    initial: { opacity: 0, y: 24 },
     animate: { opacity: 1, y: 0 },
-    transition: { duration: 0.7, delay, ease: [0.16, 1, 0.3, 1] as const },
+    transition: {
+      duration: reduce ? 0 : 0.7,
+      delay: reduce ? 0 : delay,
+      ease: [0.16, 1, 0.3, 1] as const,
+    },
   });
 
   const reachServiceCycleBoundary = useCallback(
