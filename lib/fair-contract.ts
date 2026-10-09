@@ -1188,10 +1188,13 @@ export function sortFairDashboardActions<T extends Pick<FairDashboardAction, "ru
 }
 
 /**
- * Owner decision 9 Oct 2026: the public fair map is hidden in production
- * until it is fixed (wrong data). The map URL forwards to the garage (so the
- * entrance panel QR, which opens the map URL, lands in the garage), the nav
- * shows only Pasoši and Garaža, and no page links to the map. No "coming
- * soon" text anywhere. Flip to `true` to bring the map back.
+ * The public fair map is visible again: Jovan's decision, 9 Oct 2026 at 13:45
+ * (SAJAM SUPER), after the stand data was checked against the intake. It was
+ * hidden that morning (owner decision, Aleksa's 173fb5b) because of wrong
+ * data. With `true` the map URL (and the entrance panel QR PANEL-2026-EVENT,
+ * which opens it) shows the map, `/sajam` opens the active fair's map, the nav
+ * has Mapa, and the garage, passport and model page link to the map again.
+ * Set to `false` to hide it once more: everything above then falls back to the
+ * garage, with no "coming soon" text anywhere.
  */
-export const FAIR_PUBLIC_MAP_ENABLED = false;
+export const FAIR_PUBLIC_MAP_ENABLED = true;
