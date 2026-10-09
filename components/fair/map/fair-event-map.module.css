@@ -2662,16 +2662,7 @@
   --fair-shell-width: 1440px;
 }
 
-:global(.fair-event):has(.root[data-panel]) :global(.fair-shell__inner) {
-  padding-inline: var(--fair-space-4);
-}
-
-@media (max-width: 374px) {
-  :global(.fair-event):has(.root[data-panel]) :global(.fair-shell__inner) {
-    padding-inline: var(--fair-space-3);
-  }
-}
-
+/* Phones keep the header's own gutter (the same on every fair page); from 1024 px it matches the map's. */
 @media (min-width: 1024px) {
   :global(.fair-event):has(.root[data-panel]) :global(.fair-shell__inner) {
     padding-inline: var(--fair-space-8);
