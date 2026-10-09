@@ -1,7 +1,8 @@
 "use client";
 
-import { LocateFixed, Search, X } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { List, LocateFixed, MousePointerClick, Search, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from "react";
 import type { FairPassportCatalogEntry, FairPassportProgress, FairPassportState, FairSponsoredRotationView } from "@/lib/fair-contract";
 import {
   FAIR_MAP_FILTERS,
@@ -29,7 +30,8 @@ import { FairMapDirectory } from "./fair-map-directory";
 import { useLiveFairMapRotation } from "./fair-map-live-rotation";
 import { FAIR_MAP_CATEGORY_ICONS, FairMapLogoBox, fairMapCategoryLabel } from "./fair-map-logo";
 import { FairMapRotationCard, useFairMapRotation } from "./fair-map-rotation";
-import { fairMapExhibitorCount, fairMapPlaceText } from "./fair-map-text";
+import { fairMapExhibitorCount, fairMapMarks, fairMapPlaceText, fairMapResultCount } from "./fair-map-text";
+import { FAIR_DURATION, FAIR_EASE } from "../fair-motion";
 import styles from "./fair-event-map.module.css";
 
 // N4 — public event map v2 (/sajam/[eventSlug]): the test map's look and
@@ -143,6 +145,8 @@ export function FairEventMapView({
   const [zoneId, setZoneId] = useState<FairMapZoneId>(() => link.zoneId ?? view.zones.find((zone) => zone.stands.length > 0)?.zone.id ?? view.zones[0].zone.id);
   const [filter, setFilter] = useState<FairMapFilter>("sve");
   const [query, setQuery] = useState("");
+  /** The search hit the arrow keys point at (-1: none yet; Enter then takes the first). */
+  const [activeResult, setActiveResult] = useState(-1);
   const [selection, setSelection] = useState<Selection | null>(() => (link.locationId ? { locationId: link.locationId } : null));
   const [focus, setFocus] = useState<ZoneFocusRequest | null>(() => (link.locationId ? { locationId: link.locationId, key: 1, anchorY: 0.4 } : null));
   const [showOriginal, setShowOriginal] = useState(false);
@@ -226,6 +230,23 @@ export function FairEventMapView({
     syncUrl(zoneId, null);
   };
 
+  const changeQuery = (value: string) => {
+    setQuery(value);
+    setActiveResult(-1);
+  };
+
+  // Escape closes the desktop panel back to its guide (the phone sheet handles its own).
+  const panelOpen = summary !== null || unlocated !== null;
+  useEffect(() => {
+    if (!isDesktop || display || !panelOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !event.defaultPrevented) closeSelection();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- closeSelection only reads zoneId
+  }, [isDesktop, display, panelOpen, zoneId]);
+
   const chooseZone = (next: FairMapZoneId) => {
     setZoneId(next);
     const keep = selectedLocationId !== null && summary?.zoneId === next;
@@ -285,10 +306,76 @@ export function FairEventMapView({
     ) : null;
 
   const hasExhibitors = exhibitors.length > 0;
+  // Nothing chosen (Korak 0): the panel guides — how to pick a stand, and a quick way to the ScanMe stand.
+  const scanmePlace = scanmeTarget ? locateFairMapStand(view, scanmeTarget.locationId) : null;
+  const panelGuide = (
+    <>
+      <section className={`${styles.card} ${styles.guide}`} aria-labelledby="fair-map-guide-title">
+        <h2 id="fair-map-guide-title" className={styles.guideTitle}>
+          {hasExhibitors ? dict.panelEmptyTitle : dict.listTitle}
+        </h2>
+        {hasExhibitors ? (
+          <>
+            <ol className={styles.guideSteps}>
+              <li>
+                <span className={styles.guideIcon} aria-hidden="true">
+                  <MousePointerClick />
+                </span>
+                {dict.panelEmptyStepMap}
+              </li>
+              <li>
+                <span className={styles.guideIcon} aria-hidden="true">
+                  <Search />
+                </span>
+                {dict.panelEmptyStepSearch}
+              </li>
+              <li>
+                <span className={styles.guideIcon} aria-hidden="true">
+                  <List />
+                </span>
+                {dict.panelEmptyStepList}
+              </li>
+            </ol>
+            <p className={styles.hint}>{dict.panelEmptyResult}</p>
+          </>
+        ) : (
+          <p className={styles.hint}>{dict.listEmpty}</p>
+        )}
+      </section>
+      {scanmeTarget && scanmePlace ? (
+        <section className={`${styles.card} ${styles.scanmeQuick}`} aria-labelledby="fair-map-scanme-title">
+          <div className={styles.scanmeQuickText}>
+            <h2 id="fair-map-scanme-title" className={styles.guideTitle}>
+              {dict.scanmeQuickTitle}
+            </h2>
+            <p className={styles.scanmeQuickPlace}>{fairMapPlaceText(scanmePlace.location, scanmePlace.zoneId)}</p>
+            <p className={styles.hint}>{dict.scanmeBody}</p>
+          </div>
+          <button type="button" className={styles.secondaryButton} onClick={findScanMe}>
+            <LocateFixed aria-hidden="true" />
+            {dict.findScanMe}
+          </button>
+        </section>
+      ) : null}
+    </>
+  );
+  /** The search hit in a result line: matched letters marked. */
+  const marked = (text: string): ReactNode =>
+    fairMapMarks(text, query).map((part, index) =>
+      part.mark ? (
+        <mark key={index} className={styles.hit}>
+          {part.text}
+        </mark>
+      ) : (
+        part.text
+      ),
+    );
+  const showResults = !display && query.trim() !== "";
+  const activeHit = activeResult >= 0 && activeResult < results.length ? activeResult : -1;
   const pick = (result: (typeof results)[number]) => (result.place ? selectLocation(result.place.location.id, result.participationId) : selectUnlocated(result.participationId));
 
   return (
-    <div className={styles.root} data-display={display ? "on" : undefined}>
+    <div className={styles.root} data-display={display ? "on" : undefined} data-panel={display ? undefined : panelOpen ? "detail" : "guide"}>
       <section className={styles.intro} aria-labelledby="fair-map-intro-title">
         <div className={styles.introText}>
           <h2 id="fair-map-intro-title" className={styles.introTitle}>
@@ -316,52 +403,104 @@ export function FairEventMapView({
                 id="fair-map-search"
                 className={styles.searchInput}
                 type="search"
+                role="combobox"
                 autoComplete="off"
                 enterKeyHint="search"
                 placeholder={dict.searchPlaceholder}
                 value={query}
-                aria-controls={query.trim() ? "fair-map-results" : undefined}
-                onChange={(event) => setQuery(event.target.value)}
+                aria-expanded={showResults && results.length > 0}
+                aria-autocomplete="list"
+                aria-controls={showResults && results.length ? "fair-map-results" : undefined}
+                aria-activedescendant={activeHit >= 0 ? `fair-map-result-${activeHit}` : undefined}
+                onChange={(event) => changeQuery(event.target.value)}
                 onKeyDown={(event) => {
-                  if (event.key === "Escape") setQuery("");
-                  if (event.key === "Enter" && results[0]) pick(results[0]);
+                  if (event.key === "ArrowDown" && results.length) {
+                    event.preventDefault();
+                    setActiveResult((activeHit + 1) % results.length);
+                  } else if (event.key === "ArrowUp" && results.length) {
+                    event.preventDefault();
+                    setActiveResult(activeHit <= 0 ? results.length - 1 : activeHit - 1);
+                  } else if (event.key === "Escape" && query) {
+                    event.preventDefault();
+                    changeQuery("");
+                  } else if (event.key === "Enter" && results.length) {
+                    event.preventDefault();
+                    pick(results[Math.max(activeHit, 0)]);
+                  }
                 }}
               />
               {query ? (
-                <button type="button" className={styles.searchClear} aria-label={dict.searchClear} onClick={() => setQuery("")}>
+                <button type="button" className={styles.searchClear} aria-label={dict.searchClear} onClick={() => changeQuery("")}>
                   <X aria-hidden="true" />
                 </button>
               ) : null}
             </div>
-            {query.trim() ? (
-              <ul id="fair-map-results" className={styles.results} aria-label={dict.searchResultsLabel} aria-live="polite">
-                {results.length === 0 ? (
-                  <li className={styles.resultsEmpty}>{fmt(dict.searchEmpty, { query: query.trim() })}</li>
-                ) : (
-                  results.map((result) => (
-                    <li key={result.key}>
-                      <button type="button" className={styles.resultButton} onClick={() => pick(result)}>
-                        <FairMapLogoBox logoUrl={result.logoUrl} name={result.exhibitorName} size="sm" />
-                        <span className={styles.entryText}>
-                          <span className={styles.entryName}>{result.exhibitorName}</span>
-                          <span className={styles.resultMeta}>
-                            {[
-                              result.models.length ? result.models.join(", ") : result.brands.join(", "),
-                              result.place ? fairMapPlaceText(result.place.location, result.place.zoneId) : unlocatedText({ withoutLocation: { zoneId: result.zoneHint } }),
-                            ]
-                              .filter(Boolean)
-                              .join(" · ")}
-                          </span>
-                        </span>
+            <p className={styles.srOnly} role="status">
+              {showResults ? (results.length ? fairMapResultCount(results.length) : fmt(dict.searchEmpty, { query: query.trim() })) : ""}
+            </p>
+            <AnimatePresence>
+              {showResults ? (
+                <motion.div
+                  key="results"
+                  className={styles.results}
+                  initial={{ opacity: 0, y: reducedMotion ? 0 : -6 }}
+                  animate={{ opacity: 1, y: 0, transition: { duration: FAIR_DURATION.state, ease: FAIR_EASE.enter } }}
+                  exit={{ opacity: 0, y: reducedMotion ? 0 : -4, transition: { duration: FAIR_DURATION.feedback, ease: FAIR_EASE.exit } }}
+                >
+                  {results.length === 0 ? (
+                    <div className={styles.resultsEmpty}>
+                      <p className={styles.resultsEmptyTitle}>{fmt(dict.searchEmpty, { query: query.trim() })}</p>
+                      <p className={styles.hint}>{dict.searchEmptyHint}</p>
+                      <button type="button" className={styles.secondaryButton} onClick={() => changeQuery("")}>
+                        <X aria-hidden="true" />
+                        {dict.searchClear}
                       </button>
-                    </li>
-                  ))
-                )}
-              </ul>
-            ) : null}
+                    </div>
+                  ) : (
+                    <ul id="fair-map-results" className={styles.resultList} role="listbox" aria-label={dict.searchResultsLabel}>
+                      {results.map((result, index) => (
+                        <li
+                          key={result.key}
+                          id={`fair-map-result-${index}`}
+                          role="option"
+                          aria-selected={index === activeHit}
+                          className={styles.resultButton}
+                          // Keep the focus in the field: a tap picks without closing the keyboard first.
+                          onPointerDown={(event) => event.preventDefault()}
+                          onPointerEnter={() => setActiveResult(index)}
+                          onClick={() => pick(result)}
+                        >
+                          <FairMapLogoBox logoUrl={result.logoUrl} name={result.exhibitorName} size="sm" />
+                          <span className={styles.entryText}>
+                            <span className={styles.entryName}>{marked(result.exhibitorName)}</span>
+                            <span className={styles.resultMeta}>
+                              {marked(
+                                [
+                                  result.models.length ? result.models.join(", ") : result.brands.join(", "),
+                                  result.place ? fairMapPlaceText(result.place.location, result.place.zoneId) : unlocatedText({ withoutLocation: { zoneId: result.zoneHint } }),
+                                ]
+                                  .filter(Boolean)
+                                  .join(" · "),
+                              )}
+                            </span>
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </motion.div>
+              ) : null}
+            </AnimatePresence>
           </div>
 
-          <div className={styles.zoneSwitch} role="group" aria-label={dict.zoneSwitchLabel} style={{ "--fair-map-zones": view.zones.length } as CSSProperties}>
+          <div
+            className={styles.zoneSwitch}
+            role="group"
+            aria-label={dict.zoneSwitchLabel}
+            style={{ "--fair-map-zones": view.zones.length, "--fair-map-zone-index": Math.max(view.zones.findIndex(({ zone }) => zone.id === zoneId), 0) } as CSSProperties}
+          >
+            {/* One indicator glides under the chosen zone. */}
+            <span className={styles.zoneIndicator} aria-hidden="true" />
             {view.zones.map(({ zone }) => (
               <button key={zone.id} type="button" className={styles.zoneButton} aria-pressed={zone.id === zoneId} onClick={() => chooseZone(zone.id)}>
                 {dict.zones[zone.id]}
@@ -449,9 +588,14 @@ export function FairEventMapView({
       ) : (
         <aside className={styles.panel} aria-label={dict.selectedStand}>
           {rotationCard("panel")}
-          <section className={styles.card} aria-live="polite">
-            {summary || unlocated ? detail("fair-map-panel-title") : <p className={styles.hint}>{hasExhibitors ? dict.selectHint : dict.listEmpty}</p>}
-          </section>
+          {/* The chosen stand enters in place of the guide; a new choice enters anew. */}
+          {panelOpen ? (
+            <section key={selectedLocationId ?? selectedParticipationId ?? "detail"} className={`${styles.card} ${styles.panelDetail}`} aria-live="polite">
+              {detail("fair-map-panel-title")}
+            </section>
+          ) : (
+            panelGuide
+          )}
         </aside>
       )}
 

@@ -29,6 +29,7 @@ import {
 import { fmt } from "@/lib/i18n/format";
 import { fairMapSr as dict } from "@/lib/i18n/sr/fair-map";
 import { fairMapPlaceText } from "./fair-map-text";
+import { FAIR_DURATION, FAIR_EASE } from "../fair-motion";
 import styles from "./fair-event-map.module.css";
 
 // N4 — one zone of the map as a vector drawing from the organizer geometry
@@ -133,6 +134,8 @@ export function ZoneCanvas({
   const x = useMotionValue(0);
   const y = useMotionValue(0);
   const scale = useMotionValue(1);
+  /** Reduced motion: the camera jumps, and this short fade tells the eye it moved. */
+  const fade = useMotionValue(1);
   const inverse = useTransform(scale, (value) => 1 / value);
   const radius = fairMapBadgeRadius(zone, display);
   const badgeMin = display ? BADGE_MIN_PX_DISPLAY : BADGE_MIN_PX;
@@ -147,19 +150,21 @@ export function ZoneCanvas({
 
   const current = useCallback((): FairMapViewport => ({ scale: scale.get(), x: x.get(), y: y.get() }), [scale, x, y]);
   const apply = useCallback(
-    (next: FairMapViewport, animated: boolean) => {
+    /** `duration`: overlay for the zoom buttons, focal for bringing a chosen stand into view. */
+    (next: FairMapViewport, animated: boolean, duration: number = FAIR_DURATION.overlay) => {
       controls.current.forEach((control) => control.stop());
       controls.current = [];
       if (animated && !reduceMotion) {
-        const transition = { duration: 0.34, ease: [0.16, 1, 0.3, 1] as const };
+        const transition = { duration, ease: FAIR_EASE.enter };
         controls.current = [animate(x, next.x, transition), animate(y, next.y, transition), animate(scale, next.scale, transition)];
-      } else {
-        x.set(next.x);
-        y.set(next.y);
-        scale.set(next.scale);
+        return;
       }
+      x.set(next.x);
+      y.set(next.y);
+      scale.set(next.scale);
+      if (animated) controls.current = [animate(fade, [0.35, 1], { duration: FAIR_DURATION.state, ease: FAIR_EASE.enter })];
     },
-    [reduceMotion, scale, x, y],
+    [fade, reduceMotion, scale, x, y],
   );
 
   // Measure the viewport; fit on first measure and on every resize (rotation, zone shown).
@@ -184,7 +189,7 @@ export function ZoneCanvas({
     if (!focus || !active || !size || !limits) return;
     const location = zone.locations.find((row) => row.id === focus.locationId);
     if (!location) return;
-    apply(fairMapFocus(fairMapBounds(location.polygon), size, content, limits, focus.anchorY), true);
+    apply(fairMapFocus(fairMapBounds(location.polygon), size, content, limits, focus.anchorY), true, FAIR_DURATION.focal);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- one move per request
   }, [focus?.key, active, size]);
 
@@ -331,8 +336,16 @@ export function ZoneCanvas({
         onPointerUp={onPointerEnd}
         onPointerCancel={onPointerEnd}
       >
-        <motion.div className={styles.layer} style={{ x, y, scale, width: zone.image.width, height: zone.image.height, visibility: size ? "visible" : "hidden" }}>
-          <svg viewBox={`0 0 ${zone.image.width} ${zone.image.height}`} width={zone.image.width} height={zone.image.height} role="group" aria-label={fmt(dict.mapAria, { zone: zoneName })}>
+        <motion.div className={styles.layer} style={{ x, y, scale, opacity: fade, width: zone.image.width, height: zone.image.height, visibility: size ? "visible" : "hidden" }}>
+          <svg
+            viewBox={`0 0 ${zone.image.width} ${zone.image.height}`}
+            width={zone.image.width}
+            height={zone.image.height}
+            role="group"
+            aria-label={fmt(dict.mapAria, { zone: zoneName })}
+            // The drawing's stroke unit: CSS sets every stand outline (and its selection ring) from it.
+            style={{ "--fair-map-stroke": stroke } as CSSProperties}
+          >
             <defs>
               <pattern id={gridId} width={grid} height={grid} patternUnits="userSpaceOnUse">
                 <path d={`M${grid} 0H0V${grid}`} className={styles.gridLine} strokeWidth={stroke * 0.6} />
@@ -414,7 +427,12 @@ export function ZoneCanvas({
                       }
                     }}
                   >
-                    {selected ? <polygon className={styles.selectedGlow} points={fairMapPointsAttr(location.polygon)} strokeWidth={stroke * 14} /> : null}
+                    {selected ? (
+                      <>
+                        <polygon key={`pulse-${focus?.locationId === location.id ? focus.key : 0}`} className={styles.selectedPulse} points={fairMapPointsAttr(location.polygon)} />
+                        <polygon className={styles.selectedGlow} points={fairMapPointsAttr(location.polygon)} strokeWidth={stroke * 14} />
+                      </>
+                    ) : null}
                     {location.kind === "scanme" ? (
                       <g className={styles.scanmeLocation} style={SCANME_STAND_STYLE}>
                         {shape}
@@ -485,6 +503,7 @@ export function ZoneCanvas({
             ))}
           {bubble && selectedItem ? (
             <motion.span
+              key={`bubble-${selectedItem.location.id}`}
               className={styles.bubble}
               aria-hidden="true"
               style={{ left: selectedItem.box.x + selectedItem.box.width / 2, top: fairMapBounds(selectedItem.location.polygon).minY, scale: inverse, x: "-50%", y: "-100%" }}

@@ -9,19 +9,19 @@
 /* ------------------------------------------------------------------ layout */
 
 .root {
-  --fair-map-gutter: 16px;
+  --fair-map-gutter: var(--fair-space-4);
   --fair-map-chrome: rgb(23 25 24 / 0.86);
   display: grid;
   max-width: 1440px;
   margin-inline: auto;
-  padding: 12px var(--fair-map-gutter) 40px;
-  gap: 12px;
+  padding: var(--fair-space-3) var(--fair-map-gutter) var(--fair-space-12);
+  gap: var(--fair-space-3);
   grid-template-columns: minmax(0, 1fr);
 }
 
 @media (max-width: 374px) {
   .root {
-    --fair-map-gutter: 12px;
+    --fair-map-gutter: var(--fair-space-3);
   }
 }
 
@@ -35,7 +35,7 @@
 }
 
 .card {
-  padding: 16px;
+  padding: var(--fair-space-4);
   border: var(--fair-border);
   border-radius: var(--fair-radius-xl);
   background: var(--fair-surface);
@@ -61,15 +61,57 @@
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   line-height: 1;
+  transition:
+    background-color var(--fair-dur-state) var(--fair-ease-enter),
+    color var(--fair-dur-state) var(--fair-ease-enter);
+}
+
+/* A plain secondary action (outline): the empty search, the ScanMe card. */
+.secondaryButton {
+  display: inline-flex;
+  min-height: 44px;
+  padding: 0 var(--fair-space-4);
+  justify-self: start;
+  align-items: center;
+  gap: var(--fair-space-2);
+  border: var(--fair-border-strong);
+  border-radius: var(--fair-radius-md);
+  background: var(--fair-surface);
+  color: var(--fair-ink);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 680;
+  cursor: pointer;
+  transition:
+    background-color var(--fair-dur-feedback) var(--fair-ease-enter),
+    border-color var(--fair-dur-feedback) var(--fair-ease-enter),
+    transform var(--fair-dur-feedback) var(--fair-ease-enter);
+}
+
+.secondaryButton svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+
+.secondaryButton:active {
+  transform: scale(0.98);
+}
+
+@media (hover: hover) {
+  .secondaryButton:hover {
+    border-color: var(--fair-ink-muted);
+    background: var(--fair-canvas);
+  }
 }
 
 /* --------------------------------------------------------------- intro */
 
 .intro {
   display: grid;
-  padding: 12px 12px 12px 16px;
+  padding: var(--fair-radius-md) var(--fair-radius-md) var(--fair-radius-md) var(--fair-space-4);
   align-items: center;
-  gap: 4px 12px;
+  gap: var(--fair-space-1) var(--fair-space-3);
   grid-template-columns: minmax(0, 1fr) auto;
   border: var(--fair-border);
   border-radius: var(--fair-radius-xl);
@@ -105,7 +147,7 @@
   min-height: 44px;
   padding: 0 14px;
   align-items: center;
-  gap: 8px;
+  gap: var(--fair-space-2);
   border: 0;
   border-radius: var(--fair-radius-md);
   background: var(--fair-ink);
@@ -116,7 +158,9 @@
   white-space: nowrap;
   cursor: pointer;
   box-shadow: var(--fair-shadow-2);
-  transition: transform var(--fair-dur-feedback) var(--fair-ease-enter);
+  transition:
+    transform var(--fair-dur-feedback) var(--fair-ease-enter),
+    background-color var(--fair-dur-feedback) var(--fair-ease-enter);
 }
 
 .findButton svg {
@@ -128,9 +172,16 @@
   transform: scale(0.98);
 }
 
+@media (hover: hover) {
+  .findButton:not(:disabled):hover {
+    background: color-mix(in srgb, var(--fair-ink) 86%, var(--fair-surface));
+  }
+}
+
 .findButton:disabled {
   opacity: 0.5;
   cursor: default;
+  box-shadow: none;
 }
 
 /* --------------------------------------------------------------- tools */
@@ -138,7 +189,7 @@
 .tools {
   display: grid;
   min-width: 0;
-  gap: 8px;
+  gap: var(--fair-space-2);
 }
 
 .search {
@@ -147,7 +198,7 @@
 
 .searchLabel {
   display: block;
-  margin-bottom: 4px;
+  margin-bottom: var(--fair-space-1);
   color: var(--fair-ink-muted);
   font-size: 13px;
   font-weight: 620;
@@ -172,20 +223,33 @@
 .searchInput {
   width: 100%;
   min-height: 48px;
-  padding: 0 48px 0 44px;
+  padding: 0 var(--fair-space-12) 0 44px;
   border: var(--fair-border-strong);
   border-radius: var(--fair-radius-md);
   background: var(--fair-surface);
   color: var(--fair-ink);
   font: inherit;
   font-size: 16px;
+  transition: border-color var(--fair-dur-feedback) var(--fair-ease-enter);
+}
+
+.searchInput::placeholder {
+  color: var(--fair-ink-muted);
+  opacity: 1;
 }
 
 .searchInput::-webkit-search-cancel-button {
   display: none;
 }
 
+@media (hover: hover) {
+  .searchInput:hover {
+    border-color: var(--fair-ink-muted);
+  }
+}
+
 .searchInput:focus-visible {
+  border-color: var(--fair-focus);
   outline: 3px solid var(--fair-focus);
   outline-offset: 2px;
 }
@@ -202,6 +266,7 @@
   background: transparent;
   color: var(--fair-ink);
   cursor: pointer;
+  transition: background-color var(--fair-dur-feedback) var(--fair-ease-enter);
 }
 
 .searchClear svg {
@@ -209,31 +274,50 @@
   height: 20px;
 }
 
+@media (hover: hover) {
+  .searchClear:hover {
+    background: var(--fair-canvas);
+  }
+}
+
+/* Results float over the map: lg card, sm rows, the gap equal to the row's corner. */
 .results {
   position: absolute;
   z-index: 25;
-  top: calc(100% + 6px);
+  top: calc(100% + var(--fair-space-2));
   right: 0;
   left: 0;
-  display: grid;
   max-height: min(60dvh, 440px);
-  margin: 0;
-  padding: 6px;
-  gap: 4px;
+  padding: var(--fair-radius-sm);
   overflow-y: auto;
+  overscroll-behavior: contain;
   border: var(--fair-border);
-  border-radius: var(--fair-radius-xl);
+  border-radius: var(--fair-radius-lg);
   background: var(--fair-surface);
   box-shadow: var(--fair-shadow-3);
+  transform-origin: 50% 0;
+}
+
+.resultList {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  gap: var(--fair-space-1);
   list-style: none;
 }
 
 .resultsEmpty {
+  display: grid;
+  padding: var(--fair-space-2) var(--fair-space-2) var(--fair-space-1);
+  gap: var(--fair-space-2);
+}
+
+.resultsEmptyTitle {
   margin: 0;
-  padding: 12px;
-  color: var(--fair-ink-muted);
-  font-size: 14px;
-  line-height: 20px;
+  font-size: 15px;
+  font-weight: 680;
+  line-height: 22px;
+  overflow-wrap: anywhere;
 }
 
 .resultButton,
@@ -241,9 +325,9 @@
   display: flex;
   width: 100%;
   min-height: 56px;
-  padding: 8px 10px;
+  padding: var(--fair-radius-xs) 10px var(--fair-radius-xs) var(--fair-radius-xs);
   align-items: center;
-  gap: 12px;
+  gap: var(--fair-space-3);
   border: 1px solid transparent;
   border-radius: var(--fair-radius-md);
   background: transparent;
@@ -251,16 +335,44 @@
   font: inherit;
   text-align: left;
   cursor: pointer;
+  transition:
+    background-color var(--fair-dur-feedback) var(--fair-ease-enter),
+    border-color var(--fair-dur-state) var(--fair-ease-enter);
 }
 
-.resultButton:hover,
-.entryButton:hover {
+.resultButton {
+  border-radius: var(--fair-radius-sm);
+}
+
+/* The hit the arrow keys point at reads like a pointer hover. */
+.resultButton[aria-selected="true"] {
   background: var(--fair-canvas);
+}
+
+@media (hover: hover) {
+  .entryButton:hover {
+    background: var(--fair-canvas);
+  }
+}
+
+.entryButton:active {
+  background: var(--fair-surface-muted);
 }
 
 .entryButton[aria-pressed="true"] {
   border-color: var(--fair-accent);
   background: var(--fair-accent-soft);
+}
+
+/* The letters the query hit. */
+.hit {
+  background: transparent;
+  color: inherit;
+  font-weight: 800;
+  text-decoration: underline;
+  text-decoration-color: var(--fair-accent);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
 }
 
 .entryText {
@@ -283,13 +395,30 @@
   line-height: 20px;
 }
 
+/* Segmented zones: the chosen one is marked by one indicator that glides. */
 .zoneSwitch {
+  position: relative;
+  isolation: isolate;
   display: grid;
-  padding: 4px;
+  padding: var(--fair-space-1);
   grid-template-columns: repeat(var(--fair-map-zones, 3), minmax(0, 1fr));
   border: var(--fair-border);
   border-radius: var(--fair-radius-pill);
   background: var(--fair-surface-muted);
+}
+
+.zoneIndicator {
+  position: absolute;
+  z-index: -1;
+  top: var(--fair-space-1);
+  bottom: var(--fair-space-1);
+  left: var(--fair-space-1);
+  width: calc((100% - 2 * var(--fair-space-1)) / var(--fair-map-zones, 3));
+  border-radius: var(--fair-radius-pill);
+  background: var(--fair-surface);
+  box-shadow: var(--fair-shadow-1);
+  transform: translateX(calc(100% * var(--fair-map-zone-index, 0)));
+  transition: transform var(--fair-dur-overlay) var(--fair-ease-move);
 }
 
 .zoneButton {
@@ -303,12 +432,17 @@
   font-size: 15px;
   font-weight: 650;
   cursor: pointer;
+  transition: color var(--fair-dur-state) var(--fair-ease-enter);
+}
+
+@media (hover: hover) {
+  .zoneButton:hover {
+    color: var(--fair-ink);
+  }
 }
 
 .zoneButton[aria-pressed="true"] {
-  background: var(--fair-surface);
   color: var(--fair-ink);
-  box-shadow: var(--fair-shadow-1);
 }
 
 /* One horizontal row that scrolls inside itself (never the page). */
@@ -316,7 +450,7 @@
   display: flex;
   margin-inline: calc(-1 * var(--fair-map-gutter));
   padding: 2px var(--fair-map-gutter);
-  gap: 8px;
+  gap: var(--fair-space-2);
   overflow-x: auto;
   overscroll-behavior-x: contain;
   scroll-padding-inline: var(--fair-map-gutter);
@@ -328,10 +462,11 @@
   display: none;
 }
 
+/* Choosing a filter changes colour only: same border, same weight, no jump. */
 .filterButton {
   display: inline-flex;
   min-height: 44px;
-  padding: 0 8px 0 12px;
+  padding: 0 var(--fair-space-2) 0 var(--fair-space-3);
   flex: none;
   align-items: center;
   gap: 7px;
@@ -346,14 +481,27 @@
   cursor: pointer;
   scroll-snap-align: start;
   transition:
-    background-color var(--fair-dur-feedback) var(--fair-ease-enter),
-    color var(--fair-dur-feedback) var(--fair-ease-enter);
+    background-color var(--fair-dur-state) var(--fair-ease-enter),
+    border-color var(--fair-dur-state) var(--fair-ease-enter),
+    color var(--fair-dur-state) var(--fair-ease-enter),
+    transform var(--fair-dur-feedback) var(--fair-ease-enter);
 }
 
 .filterButton svg {
   width: 18px;
   height: 18px;
   flex: none;
+}
+
+.filterButton:active {
+  transform: scale(0.97);
+}
+
+@media (hover: hover) {
+  .filterButton:not([aria-pressed="true"]):hover {
+    border-color: var(--fair-ink-muted);
+    background: var(--fair-canvas);
+  }
 }
 
 .filterButton[aria-pressed="true"] {
@@ -372,7 +520,7 @@
 .mapArea {
   display: grid;
   min-width: 0;
-  scroll-margin-top: calc(var(--fair-header-height) + env(safe-area-inset-top) + 8px);
+  scroll-margin-top: calc(var(--fair-header-height) + env(safe-area-inset-top) + var(--fair-space-2));
 }
 
 .zone {
@@ -395,6 +543,23 @@
 
 .zone[data-active="false"] {
   display: none;
+}
+
+/* Another zone: the map cross-fades in (the indicator above glides to it). */
+.root:not([data-display="on"]) .zone {
+  transition: opacity var(--fair-dur-state) var(--fair-ease-enter);
+}
+
+@starting-style {
+  .root:not([data-display="on"]) .zone[data-active="true"] {
+    opacity: 0;
+  }
+}
+
+/* The map's tool bar: md controls 12 px inside the xl card corner. */
+.root:not([data-display="on"]) .zoneBar {
+  min-height: 0;
+  padding: var(--fair-radius-md) var(--fair-radius-md) var(--fair-radius-md) var(--fair-space-3);
 }
 
 .zoneTitle {
@@ -454,6 +619,17 @@
 
 /* "Originalna mapa organizatora": the organizer's JPG shows through the
    vector (outlines and numbers stay, the drawing's own fills and logos step back). */
+.paper,
+.zoneOutline,
+.stairs,
+.parking,
+.entrance,
+.totem,
+.chip,
+.stand image {
+  transition: opacity var(--fair-dur-state) var(--fair-ease-enter);
+}
+
 .viewport[data-original="true"] :is(.paper, .zoneOutline, .stairs, .parking, .entrance, .totem) {
   opacity: 0;
 }
@@ -529,18 +705,28 @@
   transition: opacity var(--fair-dur-state) var(--fair-ease-enter);
 }
 
+.standEmpty {
+  transition: opacity var(--fair-dur-state) var(--fair-ease-enter);
+}
+
 .viewport[data-interactive="false"] .stand,
 .stand:not([data-location-id]) {
   cursor: default;
 }
 
+/* Outline widths come from the drawing's stroke unit (--fair-map-stroke on the svg),
+   so a choice can thicken the outline smoothly. */
 .standShape {
   fill: var(--fair-surface);
+  fill-opacity: 1;
   stroke: rgb(23 25 24 / 0.32);
+  stroke-width: calc(var(--fair-map-stroke, 1) * 2);
   stroke-linejoin: round;
   transition:
     fill var(--fair-dur-feedback) var(--fair-ease-enter),
-    stroke var(--fair-dur-feedback) var(--fair-ease-enter);
+    fill-opacity var(--fair-dur-state) var(--fair-ease-enter),
+    stroke var(--fair-dur-state) var(--fair-ease-enter),
+    stroke-width var(--fair-dur-state) var(--fair-ease-enter);
 }
 
 /* D1 (RN N5): only where a pointer really hovers (a tap on a phone leaves
@@ -565,9 +751,12 @@
   opacity: 0.22;
 }
 
-/* Selected: terracotta outline and a soft halo (the panel/sheet name it too). */
+/* Selected — the map's focal moment: the outline thickens in the accent, a
+   soft halo settles and one pulse goes out once (the camera brings the stand
+   into view at the same time; the panel or sheet names it). */
 .stand[data-selected="true"] .standShape {
   stroke: var(--fair-accent);
+  stroke-width: calc(var(--fair-map-stroke, 1) * 4);
 }
 
 .selectedGlow {
@@ -576,6 +765,34 @@
   stroke-linejoin: round;
   opacity: 0.18;
   pointer-events: none;
+  animation: fair-map-glow-in var(--fair-dur-focal) var(--fair-ease-enter) both;
+}
+
+.selectedPulse {
+  fill: none;
+  stroke: var(--fair-accent);
+  stroke-width: calc(var(--fair-map-stroke, 1) * 4);
+  stroke-linejoin: round;
+  opacity: 0;
+  pointer-events: none;
+  animation: fair-map-pulse calc(var(--fair-dur-focal) * 1.5) var(--fair-ease-enter) both;
+}
+
+@keyframes fair-map-glow-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes fair-map-pulse {
+  from {
+    opacity: 0.55;
+    stroke-width: calc(var(--fair-map-stroke, 1) * 4);
+  }
+  to {
+    opacity: 0;
+    stroke-width: calc(var(--fair-map-stroke, 1) * 40);
+  }
 }
 
 .stand:focus-visible .standShape {
@@ -626,7 +843,11 @@
   white-space: nowrap;
   pointer-events: none;
   box-shadow: 0 0.08em 0.2em var(--fair-shadow);
-  transition: opacity var(--fair-dur-state) var(--fair-ease-enter);
+  transition:
+    opacity var(--fair-dur-state) var(--fair-ease-enter),
+    background-color var(--fair-dur-state) var(--fair-ease-enter),
+    border-color var(--fair-dur-state) var(--fair-ease-enter),
+    color var(--fair-dur-state) var(--fair-ease-enter);
 }
 
 .badge[data-empty="true"] {
@@ -678,19 +899,28 @@
 .bubble {
   min-height: 32px;
   margin-top: -10px;
-  padding: 6px 12px;
+  padding: 6px var(--fair-space-3);
   border-radius: var(--fair-radius-md);
   background: var(--fair-ink);
   color: var(--fair-surface);
   font-size: 14px;
   font-weight: 700;
   box-shadow: var(--fair-shadow-2);
+  animation: fair-map-bubble-in var(--fair-dur-overlay) var(--fair-ease-enter) both;
+}
+
+/* `translate` is its own property: it rises without touching the inline transform. */
+@keyframes fair-map-bubble-in {
+  from {
+    opacity: 0;
+    translate: 0 6px;
+  }
 }
 
 .controls {
   display: flex;
   margin-left: auto;
-  gap: 6px;
+  gap: var(--fair-space-2);
 }
 
 .controlButton {
@@ -704,6 +934,20 @@
   color: var(--fair-ink);
   cursor: pointer;
   box-shadow: var(--fair-shadow-1);
+  transition:
+    background-color var(--fair-dur-feedback) var(--fair-ease-enter),
+    transform var(--fair-dur-feedback) var(--fair-ease-enter);
+}
+
+.controlButton:active {
+  transform: scale(0.95);
+}
+
+@media (hover: hover) {
+  .controlButton:hover,
+  .originalToggle:not([aria-pressed="true"]):hover {
+    background: var(--fair-canvas);
+  }
 }
 
 .controlButton svg {
@@ -728,6 +972,10 @@
   line-height: 1.15;
   text-align: left;
   cursor: pointer;
+  transition:
+    background-color var(--fair-dur-state) var(--fair-ease-enter),
+    border-color var(--fair-dur-state) var(--fair-ease-enter),
+    color var(--fair-dur-state) var(--fair-ease-enter);
 }
 
 .originalToggle svg {
@@ -747,8 +995,8 @@
 .directory {
   display: grid;
   min-width: 0;
-  padding: 16px;
-  gap: 8px;
+  padding: var(--fair-space-4);
+  gap: var(--fair-space-2);
   border: var(--fair-border);
   border-radius: var(--fair-radius-xl);
   background: var(--fair-surface);
@@ -772,38 +1020,43 @@
   line-height: 20px;
 }
 
+.groups {
+  display: grid;
+  min-width: 0;
+}
+
 .group {
   border-top: var(--fair-border);
 }
 
+.groupHeading {
+  margin: 0;
+  font: inherit;
+}
+
 .groupSummary {
   display: flex;
+  width: 100%;
   min-height: 52px;
+  padding: 0 var(--fair-space-1);
   align-items: center;
   gap: 10px;
+  border: 0;
+  border-radius: var(--fair-radius-md);
+  background: transparent;
+  color: var(--fair-ink);
+  font: inherit;
   font-size: 16px;
   font-weight: 680;
+  text-align: left;
   cursor: pointer;
-  list-style: none;
+  transition: background-color var(--fair-dur-feedback) var(--fair-ease-enter);
 }
 
-.groupSummary::-webkit-details-marker {
-  display: none;
-}
-
-.groupSummary::after {
-  margin-left: auto;
-  content: "";
-  width: 10px;
-  height: 10px;
-  border-right: 2px solid var(--fair-ink-muted);
-  border-bottom: 2px solid var(--fair-ink-muted);
-  transform: rotate(45deg) translateY(-3px);
-  transition: transform var(--fair-dur-feedback) var(--fair-ease-enter);
-}
-
-.group[open] > .groupSummary::after {
-  transform: rotate(-135deg) translateY(-3px);
+@media (hover: hover) {
+  .groupSummary:hover {
+    background: var(--fair-canvas);
+  }
 }
 
 .groupSummary svg {
@@ -813,28 +1066,68 @@
   color: var(--fair-ink-muted);
 }
 
-.groupSummary:focus-visible {
-  outline: 3px solid var(--fair-focus);
-  outline-offset: 2px;
-  border-radius: var(--fair-radius-sm);
+.groupChevron {
+  margin-left: auto;
+  transition: transform var(--fair-dur-state) var(--fair-ease-enter);
+}
+
+.group[data-open="true"] .groupChevron {
+  transform: rotate(-180deg);
+}
+
+/* Open and close with the grid trick (0fr → 1fr): the height follows the
+   content without measuring it; closing is quicker than opening. */
+.groupBody {
+  display: grid;
+  grid-template-rows: 0fr;
+  visibility: hidden;
+  transition:
+    grid-template-rows var(--fair-dur-state) var(--fair-ease-exit),
+    visibility var(--fair-dur-instant) var(--fair-ease-exit) var(--fair-dur-state);
+}
+
+.group[data-open="true"] .groupBody {
+  grid-template-rows: 1fr;
+  visibility: visible;
+  transition:
+    grid-template-rows var(--fair-dur-overlay) var(--fair-ease-enter),
+    visibility var(--fair-dur-instant) var(--fair-ease-enter);
+}
+
+.groupInner {
+  min-height: 0;
+  overflow: hidden;
 }
 
 .entries {
   display: grid;
-  margin: 0 0 10px;
+  margin: 0 0 var(--fair-space-3);
   padding: 0;
-  gap: 2px;
+  gap: var(--fair-space-1);
   list-style: none;
 }
 
 .entry {
   display: grid;
-  gap: 4px;
+  gap: var(--fair-space-1);
+}
+
+/* First time a group opens, its rows arrive one after another (≤ 5 × 40 ms). */
+.entries[data-cascade="on"] .entry {
+  animation: fair-map-entry-in var(--fair-dur-overlay) var(--fair-ease-enter) both;
+  animation-delay: calc(var(--fair-dur-stagger) * var(--fair-map-cascade, 0));
+}
+
+@keyframes fair-map-entry-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
 }
 
 .placeBadge {
   justify-self: start;
-  padding: 1px 8px;
+  padding: 1px var(--fair-space-2);
   border-radius: var(--fair-radius-pill);
   background: var(--fair-surface-muted);
   color: var(--fair-ink);
@@ -854,12 +1147,12 @@
   display: flex;
   flex-wrap: wrap;
   padding-left: 66px;
-  gap: 6px;
+  gap: var(--fair-space-2);
 }
 
 .placeChip {
   min-height: 44px;
-  padding: 0 12px;
+  padding: 0 var(--fair-space-3);
   border: var(--fair-border-strong);
   border-radius: var(--fair-radius-pill);
   background: var(--fair-surface);
@@ -868,8 +1161,16 @@
   font-size: 13px;
   font-weight: 650;
   cursor: pointer;
+  transition: background-color var(--fair-dur-feedback) var(--fair-ease-enter);
 }
 
+@media (hover: hover) {
+  .placeChip:hover {
+    background: var(--fair-canvas);
+  }
+}
+
+/* A logo sits in a md row with a 6 px gap, so its corner is xs. */
 .logoBox {
   position: relative;
   display: grid;
@@ -879,7 +1180,7 @@
   place-items: center;
   overflow: hidden;
   border: var(--fair-border);
-  border-radius: var(--fair-radius-md);
+  border-radius: var(--fair-radius-xs);
   background: #ffffff;
 }
 
@@ -891,10 +1192,11 @@
 .logoBox[data-size="lg"] {
   width: 76px;
   height: 52px;
+  border-radius: var(--fair-radius-md);
 }
 
 .logoImage {
-  padding: 4px;
+  padding: var(--fair-space-1);
   object-fit: contain;
 }
 
@@ -906,36 +1208,55 @@
 
 .detail {
   display: grid;
-  gap: 12px;
+  gap: var(--fair-space-3);
 }
 
 .detailHeader {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 8px;
+  gap: var(--fair-space-3);
 }
 
-.eyebrow {
+.detailHeading {
+  display: grid;
+  min-width: 0;
+  justify-items: start;
+  gap: var(--fair-space-2);
+}
+
+/* The stand as a label: the chosen place (accent = choice). */
+.detailPlace {
   margin: 0;
-  color: var(--fair-ink-muted);
+  padding: var(--fair-space-1) var(--fair-space-2);
+  border-radius: var(--fair-radius-sm);
+  background: var(--fair-accent-soft);
+  color: var(--fair-accent-strong);
   font-size: 13px;
-  font-weight: 650;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 18px;
+  text-wrap: balance;
+  outline: none;
 }
 
 .detailTitle {
-  margin: 2px 0 0;
+  margin: 0;
   font-size: 22px;
   font-weight: 760;
   letter-spacing: -0.02em;
   line-height: 1.2;
+  overflow-wrap: anywhere;
   outline: none;
 }
 
+.detailBody {
+  display: grid;
+  gap: var(--fair-space-3);
+}
+
 .scanmeNote {
-  margin: 6px 0 0;
+  margin: 0;
   color: var(--fair-ink);
   font-size: 15px;
   line-height: 22px;
@@ -952,11 +1273,24 @@
   background: var(--fair-surface);
   color: var(--fair-ink);
   cursor: pointer;
+  transition:
+    background-color var(--fair-dur-feedback) var(--fair-ease-enter),
+    transform var(--fair-dur-feedback) var(--fair-ease-enter);
 }
 
 .iconButton svg {
   width: 20px;
   height: 20px;
+}
+
+.iconButton:active {
+  transform: scale(0.96);
+}
+
+@media (hover: hover) {
+  .iconButton:hover {
+    background: var(--fair-canvas);
+  }
 }
 
 .exhibitors {
@@ -969,15 +1303,21 @@
 
 .exhibitor {
   display: grid;
-  padding: 12px 0;
-  gap: 10px;
+  padding: var(--fair-space-3) 0;
+  gap: var(--fair-space-3);
   border-top: var(--fair-border);
+}
+
+/* One exhibitor: the header already names it, no extra rule above it. */
+.exhibitors[data-single="true"] > .exhibitor {
+  padding-top: 0;
+  border-top: 0;
 }
 
 .exhibitorHead {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--fair-space-3);
 }
 
 .exhibitorText {
@@ -998,11 +1338,19 @@
   min-height: 44px;
   align-items: center;
   gap: 6px;
-  color: var(--fair-accent);
+  color: var(--fair-accent-strong);
   font-size: 15px;
   font-weight: 650;
   text-decoration: underline;
+  text-decoration-thickness: 1px;
   text-underline-offset: 3px;
+  transition: text-decoration-thickness var(--fair-dur-feedback) var(--fair-ease-enter);
+}
+
+@media (hover: hover) {
+  .website:hover {
+    text-decoration-thickness: 2px;
+  }
 }
 
 .website svg {
@@ -1019,7 +1367,7 @@
 
 .brand {
   display: grid;
-  gap: 6px;
+  gap: var(--fair-space-2);
 }
 
 .brandHeader {
@@ -1027,7 +1375,7 @@
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: var(--fair-space-2);
 }
 
 .brandName {
@@ -1059,43 +1407,106 @@
   display: grid;
   margin: 0;
   padding: 0;
-  gap: 6px;
+  gap: var(--fair-space-2);
   list-style: none;
 }
 
+/* A model as a rich row: md row, xs tile 6 px in, the arrow says "open". */
 .modelLink {
-  display: flex;
-  min-height: 48px;
-  padding: 8px 12px;
+  display: grid;
+  min-height: 56px;
+  padding: var(--fair-radius-xs) var(--fair-space-2) var(--fair-radius-xs) var(--fair-radius-xs);
+  grid-template-columns: 44px minmax(0, 1fr) 32px;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+  gap: var(--fair-space-3);
   border: var(--fair-border);
   border-radius: var(--fair-radius-md);
+  background: var(--fair-surface);
   color: var(--fair-ink);
   text-decoration: none;
+  transition:
+    background-color var(--fair-dur-feedback) var(--fair-ease-enter),
+    border-color var(--fair-dur-feedback) var(--fair-ease-enter);
 }
 
-.modelLink span {
+.modelThumb {
   display: grid;
-  font-weight: 620;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border-radius: var(--fair-radius-xs);
+  background: var(--fair-surface-muted);
+  color: var(--fair-ink-muted);
 }
 
-.modelLink small {
+.modelThumb svg {
+  width: 22px;
+  height: 22px;
+}
+
+.modelText {
+  display: grid;
+  min-width: 0;
+}
+
+.modelName,
+.modelMeta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.modelName {
+  font-size: 16px;
+  font-weight: 680;
+  line-height: 22px;
+}
+
+.modelMeta {
   color: var(--fair-ink-muted);
   font-size: 14px;
-  font-weight: 450;
+  line-height: 20px;
 }
 
-.modelLink svg {
+.modelArrow {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border-radius: var(--fair-radius-round);
+  background: var(--fair-canvas);
+  color: var(--fair-ink);
+  transition:
+    background-color var(--fair-dur-feedback) var(--fair-ease-enter),
+    color var(--fair-dur-feedback) var(--fair-ease-enter),
+    transform var(--fair-dur-feedback) var(--fair-ease-enter);
+}
+
+.modelArrow svg {
   width: 18px;
   height: 18px;
-  flex: none;
+}
+
+.modelLink:active {
+  background: var(--fair-surface-muted);
+}
+
+@media (hover: hover) {
+  .modelLink:hover {
+    border-color: var(--fair-line-strong);
+    background: var(--fair-canvas);
+  }
+
+  .modelLink:hover .modelArrow {
+    background: var(--fair-accent-soft);
+    color: var(--fair-accent-strong);
+    transform: translateX(2px);
+  }
 }
 
 .retry {
   min-height: 44px;
-  margin-top: 8px;
+  margin-top: var(--fair-space-2);
   padding-inline: 14px;
   border: var(--fair-border-strong);
   border-radius: var(--fair-radius-md);
@@ -1104,6 +1515,102 @@
   font: inherit;
   font-weight: 650;
   cursor: pointer;
+  transition: background-color var(--fair-dur-feedback) var(--fair-ease-enter);
+}
+
+@media (hover: hover) {
+  .retry:hover {
+    background: var(--fair-canvas);
+  }
+}
+
+/* -------------------------------------------- desktop panel: guide + stand */
+
+/* Nothing chosen: how to pick a stand, then a quick way to the ScanMe stand.
+   The guide and every chosen stand enter in place (opacity, a short rise). */
+.guide,
+.scanmeQuick,
+.panelDetail {
+  transition:
+    opacity var(--fair-dur-overlay) var(--fair-ease-enter),
+    translate var(--fair-dur-overlay) var(--fair-ease-enter);
+}
+
+@starting-style {
+  .guide,
+  .scanmeQuick,
+  .panelDetail {
+    opacity: 0;
+    translate: 0 8px;
+  }
+}
+
+.guide {
+  display: grid;
+  gap: var(--fair-space-3);
+}
+
+.guideTitle {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 740;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+}
+
+.guideSteps {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  gap: var(--fair-space-2);
+  list-style: none;
+}
+
+.guideSteps li {
+  display: flex;
+  min-height: 36px;
+  align-items: center;
+  gap: var(--fair-space-3);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.guideIcon {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  flex: none;
+  place-items: center;
+  border-radius: var(--fair-radius-md);
+  background: var(--fair-surface-muted);
+  color: var(--fair-ink);
+}
+
+.guideIcon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.scanmeQuick {
+  display: grid;
+  gap: var(--fair-space-3);
+}
+
+.scanmeQuickText {
+  display: grid;
+  gap: var(--fair-space-1);
+}
+
+.scanmeQuickPlace {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 650;
+}
+
+/* The chosen stand's card: its close button sits md in the xl corner, 12 px in. */
+.panelDetail {
+  padding: var(--fair-radius-md) var(--fair-radius-md) var(--fair-space-4) var(--fair-space-4);
 }
 
 /* -------------------------------------------------------- bottom sheet */
@@ -1183,10 +1690,28 @@
   min-height: 132px;
 }
 
+.rotationStack {
+  display: grid;
+}
+
+.rotationStack > * {
+  grid-area: 1 / 1;
+}
+
 .rotationBody {
   display: grid;
-  gap: 12px;
+  gap: var(--fair-space-3);
   animation: fair-map-reveal-in var(--fair-dur-overlay) var(--fair-ease-enter) both;
+}
+
+/* Outside the fair display the slot's entrance is framer-motion's cross-fade. */
+.rotationSlide {
+  animation: none;
+}
+
+.root:not([data-display="on"]) .rotation[data-rotation-pending] {
+  border-color: transparent;
+  background: var(--fair-surface-muted);
 }
 
 .rotationHead {
@@ -1332,7 +1857,7 @@
 .rotationActions {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: var(--fair-space-2);
 }
 
 .rotationActions .retry {
@@ -1417,10 +1942,12 @@
 
 /* ---------------------------------------------- desktop: map + panel */
 
+/* The map and the panel are both always there, at fixed widths: nothing
+   grows or shrinks when a stand is chosen (Korak 0). */
 @media (min-width: 1024px) {
   .root {
-    --fair-map-gutter: 32px;
-    gap: 16px 20px;
+    --fair-map-gutter: var(--fair-space-8);
+    gap: var(--fair-space-4) var(--fair-space-6);
     grid-template-columns: minmax(0, 1fr) 380px;
     align-items: start;
   }
@@ -1430,7 +1957,7 @@
   }
 
   .intro {
-    padding: 16px 16px 16px 20px;
+    padding: var(--fair-space-4) var(--fair-space-4) var(--fair-space-4) var(--fair-space-6);
   }
 
   .introTitle {
@@ -1451,7 +1978,7 @@
   .tools {
     grid-template-columns: minmax(0, 1fr) minmax(280px, 380px);
     align-items: end;
-    gap: 10px 12px;
+    gap: var(--fair-space-2) var(--fair-space-3);
   }
 
   /* A mouse does not scroll sideways: the chips wrap on a computer. */
@@ -1479,12 +2006,13 @@
 
   .panel {
     position: sticky;
-    top: calc(var(--fair-header-height) + 12px);
+    top: calc(var(--fair-header-height) + var(--fair-space-3));
     display: grid;
     grid-column: 2;
     grid-row: 1 / span 5;
-    max-height: calc(100dvh - var(--fair-header-height) - 24px);
-    gap: 12px;
+    max-height: calc(100dvh - var(--fair-header-height) - var(--fair-space-6));
+    align-content: start;
+    gap: var(--fair-space-3);
     overflow-y: auto;
     overscroll-behavior: contain;
   }
@@ -1500,14 +2028,10 @@
   .directory {
     grid-template-columns: minmax(180px, 0.3fr) minmax(0, 1fr);
     align-items: start;
-    gap: 0 24px;
+    gap: 0 var(--fair-space-6);
   }
 
-  .directoryHead {
-    grid-row: 1 / span 20;
-  }
-
-  .group:first-of-type {
+  .groups > .group:first-child {
     border-top: 0;
   }
 }
@@ -1740,18 +2264,16 @@
 
 /* --------------------------------------------------------------- motion */
 
+/* Reduced motion, on top of the global rule in fair-event.css: whatever moves
+   (pulse, cascade, rise, glide, camera) stops at its end state, while colour,
+   opacity and state changes stay — the camera cross-fades instead (canvas). */
 @media (prefers-reduced-motion: reduce) {
-  .stand,
-  .standShape,
-  .filterButton,
-  .findButton,
-  .groupSummary::after {
-    transition: none;
-  }
-
   .rotationBody,
   .rotationFill,
-  .rotationHighlight .rotationGlow {
+  .rotationHighlight .rotationGlow,
+  .selectedPulse,
+  .entries[data-cascade="on"] .entry,
+  .bubble {
     animation: none;
   }
 }

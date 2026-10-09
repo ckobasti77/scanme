@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { AnimatePresence, motion, useDragControls, useReducedMotion } from "framer-motion";
-import { ChevronRight, ExternalLink, Stamp, X } from "lucide-react";
+import { CarFront, ChevronRight, ExternalLink, Stamp, X } from "lucide-react";
 import { useEffect, useRef, type ReactNode } from "react";
 import type { FairPassportCatalogEntry } from "@/lib/fair-contract";
 import type { FairMapExhibitorEntry, FairMapLocationSummary, FairMapPlacedStand } from "@/lib/fair-map";
 import { fmt } from "@/lib/i18n/format";
 import { fairMapSr as dict } from "@/lib/i18n/sr/fair-map";
 import { FairMapLogoBox } from "./fair-map-logo";
-import { fairMapSummaryText } from "./fair-map-text";
+import { fairMapExhibitorCount, fairMapSummaryText } from "./fair-map-text";
 import styles from "./fair-event-map.module.css";
 
 // N4 — what a tap on a stand shows: every exhibitor of the location with its
@@ -38,14 +38,25 @@ function PassportChip({ label, aria }: { label: string | null; aria: string }) {
 
 export type FairMapPassportInfo = (entry: FairPassportCatalogEntry) => { label: string | null; aria: string };
 
-function ExhibitorBlock({ placed, eventSlug, passportInfo }: { placed: FairMapPlacedStand; eventSlug: string; passportInfo: FairMapPassportInfo }) {
+function ExhibitorBlock({
+  placed,
+  eventSlug,
+  passportInfo,
+  named,
+}: {
+  placed: FairMapPlacedStand;
+  eventSlug: string;
+  passportInfo: FairMapPassportInfo;
+  /** False when the header already names this, the only exhibitor: the name stays for screen readers. */
+  named: boolean;
+}) {
   const { stand } = placed;
   return (
     <li className={styles.exhibitor}>
       <div className={styles.exhibitorHead}>
         <FairMapLogoBox logoUrl={stand.logoUrl} name={stand.exhibitorName} size="lg" />
         <div className={styles.exhibitorText}>
-          <h3 className={styles.exhibitorName}>{stand.exhibitorName}</h3>
+          <h3 className={named ? styles.exhibitorName : styles.srOnly}>{stand.exhibitorName}</h3>
           <WebsiteLink exhibitor={stand.exhibitorName} url={stand.websiteUrl} />
         </div>
       </div>
@@ -64,12 +75,18 @@ function ExhibitorBlock({ placed, eventSlug, passportInfo }: { placed: FairMapPl
               <ul className={styles.models} aria-label={dict.modelsLabel}>
                 {brand.models.map((model) => (
                   <li key={model.id}>
+                    {/* A rich row: tile, name, one line about it, the arrow — the whole row opens the model. */}
                     <Link prefetch={false} className={styles.modelLink} href={`/sajam/${eventSlug}/model/${model.slug}`}>
-                      <span>
-                        {model.displayName}
-                        {model.variant ? <small>{model.variant}</small> : null}
+                      <span className={styles.modelThumb} aria-hidden="true">
+                        <CarFront />
                       </span>
-                      <ChevronRight aria-hidden="true" />
+                      <span className={styles.modelText}>
+                        <span className={styles.modelName}>{model.displayName}</span>
+                        <span className={styles.modelMeta}>{model.variant ?? dict.modelRowHint}</span>
+                      </span>
+                      <span className={styles.modelArrow} aria-hidden="true">
+                        <ChevronRight />
+                      </span>
                     </Link>
                   </li>
                 ))}
@@ -82,7 +99,12 @@ function ExhibitorBlock({ placed, eventSlug, passportInfo }: { placed: FairMapPl
   );
 }
 
-/** The selected location: header "Štand 2 · Hala · 490 m²" and every exhibitor there. */
+/** Header line under the stand: the exhibitor's name, or how many share the place. */
+function exhibitorLine(summary: FairMapLocationSummary) {
+  return summary.stands.length === 1 ? summary.stands[0].stand.exhibitorName : fairMapExhibitorCount(summary.stands.length);
+}
+
+/** The selected location: header "Štand 2 · Hala · 490 m²" with who is there, and every exhibitor there. */
 export function FairMapStandDetail({
   summary,
   eventSlug,
@@ -97,23 +119,27 @@ export function FairMapStandDetail({
   /** Close button (sheet / panel). */
   action?: ReactNode;
 }) {
+  const single = summary.stands.length === 1;
   return (
     <div className={styles.detail} data-kind={summary.location.kind}>
       <div className={styles.detailHeader}>
-        <div>
-          <p className={styles.eyebrow}>{dict.selectedStand}</p>
-          <h2 id={headingId} className={styles.detailTitle} tabIndex={-1}>
+        <div className={styles.detailHeading}>
+          <h2 id={headingId} className={styles.detailPlace} tabIndex={-1}>
+            <span className={styles.srOnly}>{dict.selectedStand}: </span>
             {fairMapSummaryText(summary)}
           </h2>
-          {summary.location.kind === "scanme" ? <p className={styles.scanmeNote}>{dict.scanmeBody}</p> : null}
+          <p className={styles.detailTitle}>{exhibitorLine(summary)}</p>
         </div>
         {action}
       </div>
-      <ul className={styles.exhibitors}>
-        {summary.stands.map((placed) => (
-          <ExhibitorBlock key={placed.stand.standId} placed={placed} eventSlug={eventSlug} passportInfo={passportInfo} />
-        ))}
-      </ul>
+      <div className={styles.detailBody}>
+        {summary.location.kind === "scanme" ? <p className={styles.scanmeNote}>{dict.scanmeBody}</p> : null}
+        <ul className={styles.exhibitors} data-single={single}>
+          {summary.stands.map((placed) => (
+            <ExhibitorBlock key={placed.stand.standId} placed={placed} eventSlug={eventSlug} passportInfo={passportInfo} named={!single} />
+          ))}
+        </ul>
+      </div>
     </div>
   );
 }
@@ -123,26 +149,28 @@ export function FairMapUnlocatedDetail({ exhibitor, placeText, headingId, action
   return (
     <div className={styles.detail}>
       <div className={styles.detailHeader}>
-        <div>
-          <p className={styles.eyebrow}>{placeText}</p>
+        <div className={styles.detailHeading}>
+          <p className={styles.detailPlace}>{placeText}</p>
           <h2 id={headingId} className={styles.detailTitle} tabIndex={-1}>
             {exhibitor.exhibitorName}
           </h2>
         </div>
         {action}
       </div>
-      <ul className={styles.exhibitors}>
-        <li className={styles.exhibitor}>
-          <div className={styles.exhibitorHead}>
-            <FairMapLogoBox logoUrl={exhibitor.logoUrl} name={exhibitor.exhibitorName} size="lg" />
-            <div className={styles.exhibitorText}>
-              <h3 className={styles.exhibitorName}>{exhibitor.exhibitorName}</h3>
-              <WebsiteLink exhibitor={exhibitor.exhibitorName} url={exhibitor.websiteUrl} />
+      <div className={styles.detailBody}>
+        <ul className={styles.exhibitors} data-single="true">
+          <li className={styles.exhibitor}>
+            <div className={styles.exhibitorHead}>
+              <FairMapLogoBox logoUrl={exhibitor.logoUrl} name={exhibitor.exhibitorName} size="lg" />
+              <div className={styles.exhibitorText}>
+                <h3 className={styles.srOnly}>{exhibitor.exhibitorName}</h3>
+                <WebsiteLink exhibitor={exhibitor.exhibitorName} url={exhibitor.websiteUrl} />
+              </div>
             </div>
-          </div>
-          <p className={styles.quiet}>{dict.noModels}</p>
-        </li>
-      </ul>
+            <p className={styles.quiet}>{dict.noModels}</p>
+          </li>
+        </ul>
+      </div>
     </div>
   );
 }

@@ -179,6 +179,23 @@ Stanja su ista svuda: hover (samo gde pokazivač stvarno lebdi), fokus (prsten 3
 aktivno (pritisak, 120 ms), izabrano (akcenat ili grafit), onemogućeno (`disabled`, prigušeno,
 bez kursora).
 
+## 9a. Motion thesis glavne strane (mapa)
+
+- **Fokalni momenat: izbor štanda.** Obris štanda se podebljava u akcentu, meki oreol se smiri, a
+  jedan puls ode od obrisa (720 ms, jednom). Istovremeno kamera glatko dovodi štand u vidno polje
+  (480 ms, `enter`), a panel (desktop) ili sheet (telefon) uđe sa izabranim štandom (320 ms).
+- **Kontinuitet:** indikator zona klizi do izabrane zone (320 ms, `move`), a mapa zone se pretapa
+  (200 ms). Grupa u spisku se otvara trikom sa gridom (320 ms, zatvaranje 200 ms), a redovi pri
+  prvom otvaranju dolaze jedan za drugim (40 ms korak, najviše 200 ms). Rezultati pretrage ulaze
+  (200 ms) i izlaze brže (120 ms). Stavke rotacije se pretapaju jedna u drugu (320 / 200 ms).
+  Originalna mapa organizatora se pretapa umesto da se prebaci.
+- **Povratna reakcija:** pritisak (skala 0.95–0.98) i boja za 120 ms; izabran filter menja samo
+  boju (bez skoka); hover samo gde pokazivač stvarno lebdi.
+- **Budžet:** kamera i oblačić su `transform` (framer-motion vrednosti, bez re-rendera po
+  frejmu); puls je jedna SVG animacija koja se ne ponavlja; ništa se ne vrti samo.
+- **Reduced motion:** kamera skače i kratko se pretopi (200 ms providnosti), puls i kaskada
+  izostaju, indikator i spisak se menjaju odmah; boje, providnost i stanje ostaju.
+
 ## 10. Režim ekrana (`?prikaz=ekran`)
 
 Zamrznut. Ne menja se u ovom zadatku: raspored, veličine i boje ostaju. Jedina tehnička
