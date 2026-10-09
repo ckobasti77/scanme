@@ -25,3 +25,13 @@ Detalji: [`jovan-status/SAJAM-DIZAJN-2026-10-09.md`](./jovan-status/SAJAM-DIZAJN
 - **`FairMapDict` (`lib/i18n/types.ts`, `sr/fair-map.ts`):** novi ključevi `searchEmptyHint`, `searchResultsOne/Few/Many`, `panelEmptyTitle`, `panelEmptyStepMap/Search/List`, `panelEmptyResult`, `scanmeQuickTitle`, `modelRowHint`, `sheetExpand`, `sheetCollapse`; `sheetHandle` dopunjen („nagore za ceo prikaz“); `selectHint` (vraćen revertom) je zamenjen novim ključevima i uklonjen.
 - **Reduced motion** na svim sajamskim stranicama: bez pomeranja, ali prelazi boje i providnosti ostaju (ranije ugašeni svi prelazi).
 - `?prikaz=ekran` i `/r/**` nisu menjani.
+
+## Jovan — mapa sajma: novi raspored glavne kolone (9. 10.)
+
+Grana `codex/jovan-sajam-mapa-raspored-2026-10-09`. Backend, validatori, šema, API rute i `mapLocationId` se ne menjaju; `?prikaz=ekran`, donji sheet i desni panel su isti.
+
+- **Redosled (telefon i računar):** pretraga + „Pronađi ScanMe“ u jednom redu → zone → mapa sa kontrolama (+, −, ceo deo) ispod, u istom okviru → kategorije → rotacija/spisak kao ranije. Gornji baner „Mapa sajma“ postoji još samo na `?prikaz=ekran`.
+- **Uklonjeno:** dugme i podloga „Originalna mapa organizatora“ (`ZoneCanvas` više nema `showOriginal`/`onToggleOriginal`; `zone.image.src` se više ne crta, podaci su isti).
+- **`FairMapDict`:** uklonjeni `introHint` i `originalMap`; novi `findScanMeShort` („ScanMe“, kraći natpis dugmeta ispod 480 px). Natpis za čitače ekrana je i dalje `findScanMe`.
+- **„Pronađi ScanMe“ je u ScanMe zelenoj** (`var(--primary)`, uglovi `var(--button-radius)`), kako je traženo u zadatku. To je izuzetak od EDS §3 („ScanMe zelena se ne koristi za CTA“); `--fair-map-scanme` i dalje postoji samo na ScanMe štandu. Ako izuzetak ne treba da važi, vraća se jednim pravilom u `fair-event-map.module.css` (`.findButton`).
+- Test `scanme-green.test.ts` (AMF): provera „nema `>ScanMe</span>`“ je sužena na značke štandova, jer kratki natpis dugmeta nije značka.

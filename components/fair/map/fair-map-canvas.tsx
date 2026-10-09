@@ -1,5 +1,5 @@
 import { animate, motion, useMotionValue, useReducedMotion, useTransform } from "framer-motion";
-import { Layers, MapPin, Maximize2, Minus, Plus, Stamp } from "lucide-react";
+import { MapPin, Maximize2, Minus, Plus, Stamp } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
 import type { FairPublicMapStand } from "@/lib/fair-contract";
 import {
@@ -36,9 +36,9 @@ import styles from "./fair-event-map.module.css";
 // (lib/fair-map): paper card with a fine grid, the zone outline, landmarks,
 // every stand with its number badge (once per split stand) and its
 // exhibitors' logo chips, partner points as circles, the open rear area.
-// The organizer's JPG is only an optional underlay ("Originalna mapa").
 // Pan / pinch / wheel / +/−/fit as in the test map (framer-motion values, no
-// re-render per frame), at most 4× the fitted view; Tab reaches every
+// re-render per frame; the buttons sit in a row under the map, inside its
+// card), at most 4× the fitted view; Tab reaches every
 // occupied stand and Enter/Space selects it. Nothing here writes anything.
 
 /** EDS §5.1 `event.scanmeStand`: set ONLY on the ScanMe location (EDS §3: never CTA, progress, selection or decoration). */
@@ -102,11 +102,9 @@ export function ZoneCanvas({
   selectedLocationId,
   focus,
   highlight,
-  showOriginal,
   passportMarkers,
   bubble,
   onSelect,
-  onToggleOriginal,
 }: {
   zoneView: FairMapZoneView;
   /** Shown on screen (the chosen zone on a phone; every zone on a large display). */
@@ -120,13 +118,11 @@ export function ZoneCanvas({
   focus: ZoneFocusRequest | null;
   /** M2: the rotation's active stand in this zone; `key` restarts the reveal each slot. */
   highlight: { location: FairMapLocation; key: number } | null;
-  showOriginal: boolean;
   /** Location id → the visitor's passport N/M label. */
   passportMarkers: ReadonlyMap<string, string>;
   /** Small callout over the selected stand (desktop); null for none. */
   bubble: string | null;
   onSelect: (locationId: string) => void;
-  onToggleOriginal: () => void;
 }) {
   const { zone } = zoneView;
   const content = useMemo<FairMapSize>(() => ({ width: zone.image.width, height: zone.image.height }), [zone.image.width, zone.image.height]);
@@ -305,31 +301,11 @@ export function ZoneCanvas({
     <section className={styles.zone} data-active={active} data-zone={zone.id} aria-label={zoneName}>
       <div className={styles.zoneBar}>
         <h2 className={styles.zoneTitle}>{zoneName}</h2>
-        {interactive ? (
-          <>
-            <button type="button" className={styles.originalToggle} aria-pressed={showOriginal} onClick={onToggleOriginal}>
-              <Layers aria-hidden="true" />
-              {dict.originalMap}
-            </button>
-            <div className={styles.controls} role="group" aria-label={dict.mapControlsLabel}>
-              <button type="button" className={styles.controlButton} aria-label={dict.zoomIn} onClick={() => zoomBy(1.5)}>
-                <Plus aria-hidden="true" />
-              </button>
-              <button type="button" className={styles.controlButton} aria-label={dict.zoomOut} onClick={() => zoomBy(1 / 1.5)}>
-                <Minus aria-hidden="true" />
-              </button>
-              <button type="button" className={styles.controlButton} aria-label={dict.fitMap} onClick={() => size && limits && apply(fairMapFit(size, content, limits), true)}>
-                <Maximize2 aria-hidden="true" />
-              </button>
-            </div>
-          </>
-        ) : null}
       </div>
       <div
         ref={viewportRef}
         className={styles.viewport}
         data-interactive={interactive}
-        data-original={showOriginal}
         style={{ "--fair-map-ratio": `${zone.image.width} / ${zone.image.height}` } as CSSProperties}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
@@ -356,7 +332,6 @@ export function ZoneCanvas({
             </defs>
             <rect width={zone.image.width} height={zone.image.height} className={styles.paper} />
             <rect width={zone.image.width} height={zone.image.height} fill={`url(#${gridId})`} />
-            {showOriginal ? <image href={zone.image.src} width={zone.image.width} height={zone.image.height} className={styles.original} /> : null}
             {zone.outline ? <polygon points={fairMapPointsAttr(zone.outline)} className={styles.zoneOutline} strokeWidth={stroke * 2.5} /> : null}
 
             {zone.landmarks.map((landmark) => {
@@ -513,6 +488,20 @@ export function ZoneCanvas({
           ) : null}
         </motion.div>
       </div>
+      {/* Under the map, inside its card: the drawing stays free of buttons. */}
+      {interactive ? (
+        <div className={styles.controls} role="group" aria-label={dict.mapControlsLabel}>
+          <button type="button" className={styles.controlButton} aria-label={dict.zoomIn} onClick={() => zoomBy(1.5)}>
+            <Plus aria-hidden="true" />
+          </button>
+          <button type="button" className={styles.controlButton} aria-label={dict.zoomOut} onClick={() => zoomBy(1 / 1.5)}>
+            <Minus aria-hidden="true" />
+          </button>
+          <button type="button" className={styles.controlButton} aria-label={dict.fitMap} onClick={() => size && limits && apply(fairMapFit(size, content, limits), true)}>
+            <Maximize2 aria-hidden="true" />
+          </button>
+        </div>
+      ) : null}
     </section>
   );
 }

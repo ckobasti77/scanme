@@ -140,24 +140,25 @@
   line-height: 20px;
 }
 
+/* "Pronađi ScanMe": the page's one ScanMe action, so it alone wears the
+   ScanMe primary (green, the site's button corners), at the search's height. */
 .findButton {
   display: inline-flex;
-  grid-column: 2;
-  grid-row: 1;
-  min-height: 44px;
-  padding: 0 14px;
+  min-width: 0;
+  height: 48px;
+  padding: 0 var(--fair-space-4);
+  flex: none;
   align-items: center;
   gap: var(--fair-space-2);
   border: 0;
-  border-radius: var(--fair-radius-md);
-  background: var(--fair-ink);
-  color: var(--fair-surface);
+  border-radius: var(--button-radius);
+  background: var(--primary);
+  color: var(--primary-foreground);
   font: inherit;
-  font-size: 14px;
-  font-weight: 700;
+  font-size: 15px;
+  font-weight: 720;
   white-space: nowrap;
   cursor: pointer;
-  box-shadow: var(--fair-shadow-2);
   transition:
     transform var(--fair-dur-feedback) var(--fair-ease-enter),
     background-color var(--fair-dur-feedback) var(--fair-ease-enter);
@@ -166,6 +167,7 @@
 .findButton svg {
   width: 18px;
   height: 18px;
+  flex: none;
 }
 
 .findButton:active {
@@ -174,35 +176,54 @@
 
 @media (hover: hover) {
   .findButton:not(:disabled):hover {
-    background: color-mix(in srgb, var(--fair-ink) 86%, var(--fair-surface));
+    background: var(--primary-hover);
   }
+}
+
+.findButton:focus-visible {
+  outline: 3px solid var(--fair-focus);
+  outline-offset: 2px;
 }
 
 .findButton:disabled {
   opacity: 0.5;
   cursor: default;
-  box-shadow: none;
 }
 
-/* --------------------------------------------------------------- tools */
+/* A phone keeps one row: the button shortens to "ScanMe", the search keeps the rest. */
+.findLabelShort {
+  display: none;
+}
 
-.tools {
-  display: grid;
+@media (max-width: 479px) {
+  .findButton {
+    padding-inline: 14px;
+  }
+
+  .findLabel {
+    display: none;
+  }
+
+  .findLabelShort {
+    display: inline;
+  }
+}
+
+/* ------------------------------------------------------------- top bar */
+
+/* First row: search + "Pronađi ScanMe", one line at every width. The results
+   hang from the whole row on a phone (the field alone is too narrow for them). */
+.topBar {
+  position: relative;
+  display: flex;
   min-width: 0;
+  align-items: center;
   gap: var(--fair-space-2);
 }
 
 .search {
-  position: relative;
-}
-
-.searchLabel {
-  display: block;
-  margin-bottom: var(--fair-space-1);
-  color: var(--fair-ink-muted);
-  font-size: 13px;
-  font-weight: 620;
-  line-height: 18px;
+  min-width: 0;
+  flex: 1 1 auto;
 }
 
 .searchField {
@@ -222,8 +243,9 @@
 
 .searchInput {
   width: 100%;
-  min-height: 48px;
+  height: 48px;
   padding: 0 var(--fair-space-12) 0 44px;
+  text-overflow: ellipsis;
   border: var(--fair-border-strong);
   border-radius: var(--fair-radius-md);
   background: var(--fair-surface);
@@ -236,6 +258,11 @@
 .searchInput::placeholder {
   color: var(--fair-ink-muted);
   opacity: 1;
+}
+
+/* Empty field: no clear button, so the placeholder may use that space. */
+.searchInput:placeholder-shown {
+  padding-right: var(--fair-space-3);
 }
 
 .searchInput::-webkit-search-cancel-button {
@@ -556,8 +583,9 @@
   }
 }
 
-/* The map's tool bar: md controls 12 px inside the xl card corner. */
+/* The zone's title bar: only where the titles show (1440 px, the display). */
 .root:not([data-display="on"]) .zoneBar {
+  display: none;
   min-height: 0;
   padding: var(--fair-radius-md) var(--fair-radius-md) var(--fair-radius-md) var(--fair-space-3);
 }
@@ -611,42 +639,6 @@
 .gridLine {
   fill: none;
   stroke: rgb(70 85 77 / 0.08);
-}
-
-.original {
-  opacity: 1;
-}
-
-/* "Originalna mapa organizatora": the organizer's JPG shows through the
-   vector (outlines and numbers stay, the drawing's own fills and logos step back). */
-.paper,
-.zoneOutline,
-.stairs,
-.parking,
-.entrance,
-.totem,
-.chip,
-.stand image {
-  transition: opacity var(--fair-dur-state) var(--fair-ease-enter);
-}
-
-.viewport[data-original="true"] :is(.paper, .zoneOutline, .stairs, .parking, .entrance, .totem) {
-  opacity: 0;
-}
-
-.viewport[data-original="true"] .standShape,
-.viewport[data-original="true"] .standEmpty polygon,
-.viewport[data-original="true"] .partnerCircle {
-  fill-opacity: 0.08;
-}
-
-.viewport[data-original="true"] .scanmeLocation .standShape {
-  fill-opacity: 0.45;
-}
-
-.viewport[data-original="true"] .chip,
-.viewport[data-original="true"] .stand image {
-  opacity: 0;
 }
 
 .zoneOutline {
@@ -917,10 +909,13 @@
   }
 }
 
+/* Under the map, inside its card, from the left: md buttons 12 px inside the xl corner. */
 .controls {
   display: flex;
-  margin-left: auto;
+  padding: var(--fair-radius-md);
+  justify-content: flex-start;
   gap: var(--fair-space-2);
+  border-top: var(--fair-border);
 }
 
 .controlButton {
@@ -944,8 +939,7 @@
 }
 
 @media (hover: hover) {
-  .controlButton:hover,
-  .originalToggle:not([aria-pressed="true"]):hover {
+  .controlButton:hover {
     background: var(--fair-canvas);
   }
 }
@@ -953,41 +947,6 @@
 .controlButton svg {
   width: 20px;
   height: 20px;
-}
-
-.originalToggle {
-  display: inline-flex;
-  min-width: 0;
-  min-height: 44px;
-  padding: 0 12px;
-  align-items: center;
-  gap: 6px;
-  border: var(--fair-border-strong);
-  border-radius: var(--fair-radius-pill);
-  background: rgb(255 253 248 / 0.94);
-  color: var(--fair-ink);
-  font: inherit;
-  font-size: 13px;
-  font-weight: 650;
-  line-height: 1.15;
-  text-align: left;
-  cursor: pointer;
-  transition:
-    background-color var(--fair-dur-state) var(--fair-ease-enter),
-    border-color var(--fair-dur-state) var(--fair-ease-enter),
-    color var(--fair-dur-state) var(--fair-ease-enter);
-}
-
-.originalToggle svg {
-  width: 16px;
-  height: 16px;
-  flex: none;
-}
-
-.originalToggle[aria-pressed="true"] {
-  border-color: var(--fair-ink);
-  background: var(--fair-ink);
-  color: var(--fair-surface);
 }
 
 /* ------------------------------------------------------- list + detail */
@@ -2044,20 +2003,26 @@
   }
 
   .findButton {
-    grid-row: 1 / span 2;
-    min-height: 48px;
     padding-inline: 18px;
   }
 
-  .tools {
-    grid-template-columns: minmax(0, 1fr) minmax(280px, 380px);
-    align-items: end;
-    gap: var(--fair-space-2) var(--fair-space-3);
+  .topBar {
+    gap: var(--fair-space-3);
+  }
+
+  /* The field is wide enough here: the results hang from it. */
+  .search {
+    position: relative;
+  }
+
+  /* The zones keep the size they had beside the search, at the same right edge. */
+  .zoneSwitch {
+    width: clamp(280px, 100%, 380px);
+    justify-self: end;
   }
 
   /* A mouse does not scroll sideways: the chips wrap on a computer. */
   .filters {
-    grid-column: 1 / -1;
     flex-wrap: wrap;
     margin-inline: 0;
     padding-inline: 0;
@@ -2130,10 +2095,6 @@
     display: none;
   }
 
-  .tools {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
   .mapArea {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 16px;
@@ -2142,7 +2103,11 @@
   .zone,
   .zone[data-active="false"] {
     display: grid;
-    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) auto;
+  }
+
+  .root:not([data-display="on"]) .zoneBar {
+    display: flex;
   }
 
   .zoneTitle {

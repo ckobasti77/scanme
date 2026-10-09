@@ -83,11 +83,17 @@ describe("stand detail (sheet on a phone, panel on a computer)", () => {
 });
 
 describe("the page", () => {
-  test("phone first: intro + Pronađi ScanMe, search, three zones, category filters with counts, the map of every zone, the list; no route, no 'you are here'", () => {
+  test("phone first: search + Pronađi ScanMe in one row, three zones, the map with its controls under it, then the category filters with counts, the list; no intro, no organizer underlay, no route, no 'you are here'", () => {
     const html = page({});
-    expect(html).toContain(dict.introTitle);
+    expect(html).not.toContain(dict.introTitle);
     expect(html).toContain(dict.findScanMe);
     expect(html).toContain('id="fair-map-search"');
+    // Reading order: search, ScanMe, zones, map, its controls, filters.
+    const order = ['id="fair-map-search"', dict.findScanMe, `aria-label="${dict.zoneSwitchLabel}"`, 'data-zone="', `aria-label="${dict.zoomIn}"`, `aria-label="${dict.filtersLabel}"`].map((needle) => html.indexOf(needle));
+    expect(order.every((at) => at >= 0)).toBe(true);
+    expect([...order].sort((x, y) => x - y)).toEqual(order);
+    expect(html).not.toContain("Originalna mapa");
+    expect(html).not.toContain("/sajam/mape/");
     for (const zone of ["Hala", "Ispred hale", "Zadnji deo"]) expect(html).toContain(`>${zone}</button>`);
     expect(html).toContain(`aria-label="${dict.categories.automobili}, 17 izlagača"`);
     expect(html).toContain(`aria-label="${dict.categories.scanme}, 2 izlagača"`);

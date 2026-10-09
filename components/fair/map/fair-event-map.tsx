@@ -37,9 +37,9 @@ import styles from "./fair-event-map.module.css";
 // N4 — public event map v2 (/sajam/[eventSlug]): the test map's look and
 // interactions (/dev/sajam-cair) over the real organizer geometry (lib/fair-map)
 // and the real catalog (fairPublic.getEventMap), with the fair's tokens and
-// Archivo. Phone first: intro card + "Pronađi ScanMe", search, zones, category
-// filters, the map in the first screen, the 12 s rotation card, the
-// exhibitor list. A stand opens a bottom sheet on the phone and the
+// Archivo. Phone first: one row of search + "Pronađi ScanMe", the zones, the
+// map with its controls under it, the category filters, the 12 s rotation
+// card, the exhibitor list. A stand opens a bottom sheet on the phone and the
 // "Izabrani štand" panel on a computer; ?zona= and ?stand= open a zone and a
 // stand. Not a game: no route, no "you are here", no voting, no "visited"
 // colouring, and the map writes nothing (the passport N/M read is a query
@@ -149,7 +149,6 @@ export function FairEventMapView({
   const [activeResult, setActiveResult] = useState(-1);
   const [selection, setSelection] = useState<Selection | null>(() => (link.locationId ? { locationId: link.locationId } : null));
   const [focus, setFocus] = useState<ZoneFocusRequest | null>(() => (link.locationId ? { locationId: link.locationId, key: 1, anchorY: 0.4 } : null));
-  const [showOriginal, setShowOriginal] = useState(false);
   const focusKey = useRef(1);
   const mapRef = useRef<HTMLDivElement>(null);
 
@@ -376,25 +375,20 @@ export function FairEventMapView({
 
   return (
     <div className={styles.root} data-display={display ? "on" : undefined} data-panel={display ? undefined : panelOpen ? "detail" : "guide"}>
-      <section className={styles.intro} aria-labelledby="fair-map-intro-title">
-        <div className={styles.introText}>
-          <h2 id="fair-map-intro-title" className={styles.introTitle}>
-            {dict.introTitle}
-          </h2>
-          <p className={styles.introHint}>{display ? dict.displayHint : hasExhibitors ? dict.introHint : dict.listEmpty}</p>
-        </div>
-        {display ? null : (
-          <button type="button" className={styles.findButton} onClick={findScanMe} disabled={!scanmeTarget}>
-            <LocateFixed aria-hidden="true" />
-            {dict.findScanMe}
-          </button>
-        )}
-      </section>
-
-      {display ? null : (
-        <div className={styles.tools}>
+      {display ? (
+        <section className={styles.intro} aria-labelledby="fair-map-intro-title">
+          <div className={styles.introText}>
+            <h2 id="fair-map-intro-title" className={styles.introTitle}>
+              {dict.introTitle}
+            </h2>
+            <p className={styles.introHint}>{dict.displayHint}</p>
+          </div>
+        </section>
+      ) : (
+        // First row: the search and the page's one ScanMe action, one height, never two lines.
+        <div className={styles.topBar}>
           <div className={styles.search}>
-            <label className={styles.searchLabel} htmlFor="fair-map-search">
+            <label className={styles.srOnly} htmlFor="fair-map-search">
               {dict.searchLabel}
             </label>
             <div className={styles.searchField}>
@@ -492,44 +486,28 @@ export function FairEventMapView({
               ) : null}
             </AnimatePresence>
           </div>
+          <button type="button" className={styles.findButton} onClick={findScanMe} disabled={!scanmeTarget} aria-label={dict.findScanMe}>
+            <LocateFixed aria-hidden="true" />
+            <span className={styles.findLabel}>{dict.findScanMe}</span>
+            <span className={styles.findLabelShort}>{dict.findScanMeShort}</span>
+          </button>
+        </div>
+      )}
 
-          <div
-            className={styles.zoneSwitch}
-            role="group"
-            aria-label={dict.zoneSwitchLabel}
-            style={{ "--fair-map-zones": view.zones.length, "--fair-map-zone-index": Math.max(view.zones.findIndex(({ zone }) => zone.id === zoneId), 0) } as CSSProperties}
-          >
-            {/* One indicator glides under the chosen zone. */}
-            <span className={styles.zoneIndicator} aria-hidden="true" />
-            {view.zones.map(({ zone }) => (
-              <button key={zone.id} type="button" className={styles.zoneButton} aria-pressed={zone.id === zoneId} onClick={() => chooseZone(zone.id)}>
-                {dict.zones[zone.id]}
-              </button>
-            ))}
-          </div>
-
-          <div className={styles.filters} role="group" aria-label={dict.filtersLabel}>
-            {FAIR_MAP_FILTERS.filter((key) => key === "sve" || counts[key] > 0).map((key) => {
-              const Icon = FAIR_MAP_CATEGORY_ICONS[key];
-              const label = fairMapCategoryLabel(key);
-              return (
-                <button
-                  key={key}
-                  type="button"
-                  className={styles.filterButton}
-                  aria-pressed={filter === key}
-                  aria-label={fmt(dict.filterAria, { label, count: fairMapExhibitorCount(counts[key]) })}
-                  onClick={() => setFilter(key)}
-                >
-                  <Icon aria-hidden="true" />
-                  <span>{label}</span>
-                  <span className={styles.count} aria-hidden="true">
-                    {counts[key]}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+      {display ? null : (
+        <div
+          className={styles.zoneSwitch}
+          role="group"
+          aria-label={dict.zoneSwitchLabel}
+          style={{ "--fair-map-zones": view.zones.length, "--fair-map-zone-index": Math.max(view.zones.findIndex(({ zone }) => zone.id === zoneId), 0) } as CSSProperties}
+        >
+          {/* One indicator glides under the chosen zone. */}
+          <span className={styles.zoneIndicator} aria-hidden="true" />
+          {view.zones.map(({ zone }) => (
+            <button key={zone.id} type="button" className={styles.zoneButton} aria-pressed={zone.id === zoneId} onClick={() => chooseZone(zone.id)}>
+              {dict.zones[zone.id]}
+            </button>
+          ))}
         </div>
       )}
 
@@ -548,14 +526,37 @@ export function FairEventMapView({
             selectedLocationId={summary?.zoneId === zoneView.zone.id ? selectedLocationId : null}
             focus={focus && zoneView.zone.locations.some((row) => row.id === focus.locationId) ? focus : null}
             highlight={rotationStand && rotationState && rotationStand.zoneId === zoneView.zone.id ? { location: rotationStand.location, key: rotationState.slotNumber } : null}
-            showOriginal={showOriginal}
             passportMarkers={passportMarkers}
             bubble={isDesktop && !display ? bubble : null}
             onSelect={(locationId) => selectLocation(locationId)}
-            onToggleOriginal={() => setShowOriginal((value) => !value)}
           />
         ))}
       </div>
+
+      {display ? null : (
+        <div className={styles.filters} role="group" aria-label={dict.filtersLabel}>
+          {FAIR_MAP_FILTERS.filter((key) => key === "sve" || counts[key] > 0).map((key) => {
+            const Icon = FAIR_MAP_CATEGORY_ICONS[key];
+            const label = fairMapCategoryLabel(key);
+            return (
+              <button
+                key={key}
+                type="button"
+                className={styles.filterButton}
+                aria-pressed={filter === key}
+                aria-label={fmt(dict.filterAria, { label, count: fairMapExhibitorCount(counts[key]) })}
+                onClick={() => setFilter(key)}
+              >
+                <Icon aria-hidden="true" />
+                <span>{label}</span>
+                <span className={styles.count} aria-hidden="true">
+                  {counts[key]}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {rotationCard("inline")}
 

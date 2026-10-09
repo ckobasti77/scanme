@@ -161,15 +161,15 @@ export interface FairMapDict {
   websiteLinkAria: string;
   // N4 map v2 (test map look, real data)
   introTitle: string;
-  introHint: string;
   findScanMe: string;
+  /** The phone's first row: the same action, shortened so the search keeps its width. */
+  findScanMeShort: string;
   filtersLabel: string;
   filterAll: string;
   filterAria: string;
   exhibitorsOne: string;
   exhibitorsFew: string;
   exhibitorsMany: string;
-  originalMap: string;
   mapControlsLabel: string;
   selectedStand: string;
   standSummary: string;

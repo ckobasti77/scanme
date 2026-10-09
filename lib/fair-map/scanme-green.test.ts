@@ -83,7 +83,8 @@ describe("no ScanMe placeholder on a map without an organizer ScanMe stand (AMF)
     const html = render(buildFairMapView(AUTO_MOTO_FEST_2026_MAP, [], []), "test-auto-moto-fest-2026");
     expect(html).not.toContain(`points="${fairMapPointsAttr(placeholder.polygon)}"`);
     expect(scanmeTags(html)).toHaveLength(0);
-    expect(html).not.toContain(">ScanMe</span>");
+    // No stand-number badge reads "ScanMe" (the "Pronađi ScanMe" button's short label is not a badge).
+    expect(html).not.toMatch(/class="_badge_[^"]*"[^>]*>ScanMe<\/span>/);
     expect(html).not.toContain("--fair-map-scanme");
   });
 });
