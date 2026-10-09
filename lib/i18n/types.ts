@@ -193,6 +193,21 @@ export interface FairMapDict {
   rotationShowStand: string;
   rotationOpenModel: string;
   rotationStandPin: string;
+  // SAJAM SUPER Korak 3: „Gde je gužva“ (heat layer on the public map)
+  heatToggle: string;
+  heatPeriodLabel: string;
+  heatPeriodToday: string;
+  heatPeriodHour: string;
+  heatLegendLabel: string;
+  heatLegendLess: string;
+  heatLegendMore: string;
+  heatUpdatedNow: string;
+  heatUpdatedAgo: string;
+  heatLoading: string;
+  heatEmpty: string;
+  heatEmptyHint: string;
+  heatError: string;
+  heatRetry: string;
 }
 
 export interface FairModelDict {

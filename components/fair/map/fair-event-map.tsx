@@ -27,6 +27,7 @@ import { fairMapSr as dict } from "@/lib/i18n/sr/fair-map";
 import { ZoneCanvas, type ZoneFocusRequest } from "./fair-map-canvas";
 import { FairMapCloseButton, FairMapSheet, FairMapStandDetail, FairMapUnlocatedDetail, type FairMapPassportInfo } from "./fair-map-detail";
 import { FairMapDirectory } from "./fair-map-directory";
+import { FairMapHeatLegend, FairMapHeatSwitch, fairMapHeatView, useFairMapHeatData, useFairMapHeatPreference } from "./fair-map-heat";
 import { useLiveFairMapRotation } from "./fair-map-live-rotation";
 import { FAIR_MAP_CATEGORY_ICONS, FairMapLogoBox, fairMapCategoryLabel } from "./fair-map-logo";
 import { FairMapRotationCard, useFairMapRotation } from "./fair-map-rotation";
@@ -141,6 +142,11 @@ export function FairEventMapView({
   const reducedMotion = useMedia(REDUCED_MOTION);
   const isDesktop = useMedia(DESKTOP);
   const isWide = useMedia(WIDE);
+  // SAJAM SUPER Korak 3: „Gde je gužva“ — off by default, never on the fair display.
+  const heatPreference = useFairMapHeatPreference();
+  const heatOn = !display && heatPreference.on;
+  const heatData = useFairMapHeatData(eventSlug, heatOn);
+  const heatView = useMemo(() => fairMapHeatView(heatData.value, heatPreference.period), [heatData.value, heatPreference.period]);
 
   const [zoneId, setZoneId] = useState<FairMapZoneId>(() => link.zoneId ?? view.zones.find((zone) => zone.stands.length > 0)?.zone.id ?? view.zones[0].zone.id);
   const [filter, setFilter] = useState<FairMapFilter>("sve");
@@ -522,6 +528,8 @@ export function FairEventMapView({
 
       {display ? null : (
         <div className={styles.filters} role="group" aria-label={dict.filtersLabel}>
+          <FairMapHeatSwitch on={heatOn} onChange={(on) => heatPreference.update({ on, period: heatPreference.period })} />
+          <span className={styles.filterDivider} aria-hidden="true" />
           {FAIR_MAP_FILTERS.filter((key) => key === "sve" || counts[key] > 0).map((key) => {
             const Icon = FAIR_MAP_CATEGORY_ICONS[key];
             const label = fairMapCategoryLabel(key);
@@ -561,11 +569,23 @@ export function FairEventMapView({
             focus={focus && zoneView.zone.locations.some((row) => row.id === focus.locationId) ? focus : null}
             highlight={rotationStand && rotationState && rotationStand.zoneId === zoneView.zone.id ? { location: rotationStand.location, key: rotationState.slotNumber } : null}
             passportMarkers={passportMarkers}
+            heat={heatView}
+            heatOn={heatOn}
             bubble={isDesktop && !display ? bubble : null}
             onSelect={(locationId) => selectLocation(locationId)}
           />
         ))}
       </div>
+
+      {heatOn ? (
+        <FairMapHeatLegend
+          period={heatPreference.period}
+          onPeriod={(period) => heatPreference.update({ on: true, period })}
+          view={heatView}
+          failed={heatData.failed}
+          onRetry={heatData.retry}
+        />
+      ) : null}
 
       {rotationCard("inline")}
 

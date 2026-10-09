@@ -2345,3 +2345,311 @@
     transition-property: opacity, background-color;
   }
 }
+
+/* --------------------------------------- „Gde je gužva“ (SAJAM SUPER Korak 3) */
+
+/* The switch sits first in the filter row, a hairline away from the filters. */
+.filterDivider {
+  flex: none;
+  width: 1px;
+  margin-block: var(--fair-space-2);
+  align-self: stretch;
+  background: var(--fair-line);
+}
+
+.heatSwitch {
+  display: inline-flex;
+  min-height: 44px;
+  padding: 0 var(--fair-space-2) 0 var(--fair-space-3);
+  flex: none;
+  align-items: center;
+  gap: var(--fair-space-2);
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-pill);
+  background: var(--fair-surface);
+  color: var(--fair-ink);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 650;
+  white-space: nowrap;
+  cursor: pointer;
+  scroll-snap-align: start;
+  transition:
+    border-color var(--fair-dur-state) var(--fair-ease-enter),
+    background-color var(--fair-dur-state) var(--fair-ease-enter),
+    transform var(--fair-dur-feedback) var(--fair-ease-enter);
+}
+
+.heatSwitch:active {
+  transform: scale(0.97);
+}
+
+@media (hover: hover) {
+  .heatSwitch:hover {
+    border-color: var(--fair-ink-muted);
+  }
+}
+
+.heatSwitch[aria-checked="true"] {
+  border-color: var(--fair-ink);
+}
+
+.heatFlame {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  color: var(--fair-ink-muted);
+  transition: color var(--fair-dur-state) var(--fair-ease-enter), fill var(--fair-dur-state) var(--fair-ease-enter);
+}
+
+/* The flame takes the warm end of the heat scale (lib/fair-heat.ts) when on. */
+.heatSwitch[aria-checked="true"] .heatFlame {
+  color: #e0362c;
+  fill: rgb(240 134 42 / 0.28);
+}
+
+.heatTrack {
+  position: relative;
+  width: 36px;
+  height: 22px;
+  flex: none;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-pill);
+  background: var(--fair-surface-muted);
+  transition: background-color var(--fair-dur-state) var(--fair-ease-enter), border-color var(--fair-dur-state) var(--fair-ease-enter);
+}
+
+.heatKnob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: var(--fair-radius-round);
+  background: var(--fair-surface);
+  box-shadow: var(--fair-shadow-1);
+  transition: transform var(--fair-dur-state) var(--fair-ease-enter);
+}
+
+.heatSwitch[aria-checked="true"] .heatTrack {
+  border-color: var(--fair-ink);
+  background: var(--fair-ink);
+}
+
+.heatSwitch[aria-checked="true"] .heatKnob {
+  transform: translateX(14px);
+}
+
+/* The layer: pre-drawn radial gradients under the stands (no blur filter); it
+   enters in 320 ms and new data cross-fade the colours, never a flash. */
+.heatLayer {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--fair-dur-overlay) var(--fair-ease-enter);
+}
+
+.zone[data-heat="on"] .heatLayer {
+  opacity: 1;
+}
+
+.heatStopCore,
+.heatStopMid,
+.heatStopEdge {
+  stop-color: var(--heat);
+  transition:
+    stop-color var(--fair-dur-overlay) var(--fair-ease-move),
+    stop-opacity var(--fair-dur-overlay) var(--fair-ease-move);
+}
+
+.heatStopCore {
+  stop-opacity: var(--heat-alpha);
+}
+
+.heatStopMid {
+  stop-opacity: calc(var(--heat-alpha) * 0.72);
+}
+
+.heatStopEdge {
+  stop-opacity: 0;
+}
+
+/* Only colours change: the paper and the quiet stands go a little greyer, a
+   stand with activity takes a light tint of its heat; logos, labels and the
+   ScanMe stand stay as they are. */
+.paper {
+  transition: fill var(--fair-dur-overlay) var(--fair-ease-enter);
+}
+
+.zone[data-heat] .standShape {
+  transition-duration: var(--fair-dur-overlay);
+}
+
+.zone[data-heat="on"] .paper {
+  fill: #f1f2f2;
+}
+
+.zone[data-heat="on"] .standEmpty polygon {
+  fill: #eceeed;
+}
+
+.zone[data-heat="on"] .stand:not([data-heat="on"]):not([data-kind="scanme"]) .standShape {
+  fill: #f5f6f5;
+  stroke: rgb(23 25 24 / 0.22);
+}
+
+.zone[data-heat="on"] .stand[data-heat="on"]:not([data-kind="scanme"]) .standShape {
+  fill: color-mix(in srgb, var(--heat) calc(var(--heat-mix) * 1%), var(--fair-surface));
+  stroke: color-mix(in srgb, var(--heat) 60%, var(--fair-ink));
+}
+
+/* The chosen stand keeps its accent outline over the heat tint. */
+.zone[data-heat="on"] .stand[data-selected="true"] .standShape {
+  stroke: var(--fair-accent);
+}
+
+/* A name without a logo keeps a light halo over any tint. */
+.zone[data-heat="on"] .chip text {
+  paint-order: stroke;
+  stroke: rgb(255 253 248 / 0.92);
+  stroke-width: calc(var(--fair-map-stroke, 1) * 3);
+  stroke-linejoin: round;
+}
+
+/* The legend under the map: period, the scale (manje → više) and the age of the data. */
+.heatLegend {
+  display: grid;
+  padding: var(--fair-space-3) var(--fair-space-4);
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--fair-space-2) var(--fair-space-4);
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-lg);
+  background: var(--fair-surface);
+  box-shadow: var(--fair-shadow-2);
+  animation: fair-heat-legend-in var(--fair-dur-overlay) var(--fair-ease-enter) both;
+}
+
+@keyframes fair-heat-legend-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+.heatPeriods {
+  display: flex;
+  gap: var(--fair-space-2);
+}
+
+.heatPeriods button {
+  min-height: 44px;
+  padding: 0 var(--fair-space-3);
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-pill);
+  background: var(--fair-surface);
+  color: var(--fair-ink);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 650;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color var(--fair-dur-state) var(--fair-ease-enter),
+    border-color var(--fair-dur-state) var(--fair-ease-enter),
+    color var(--fair-dur-state) var(--fair-ease-enter);
+}
+
+.heatPeriods button[aria-pressed="true"] {
+  border-color: var(--fair-ink);
+  background: var(--fair-ink);
+  color: var(--fair-surface);
+}
+
+.heatBody {
+  display: grid;
+  min-width: 0;
+  gap: var(--fair-space-1);
+}
+
+.heatScale {
+  display: grid;
+  grid-template-columns: auto minmax(64px, 1fr) auto;
+  align-items: center;
+  gap: var(--fair-space-2);
+  color: var(--fair-ink-muted);
+  font-size: 13px;
+  font-weight: 620;
+}
+
+.heatBar {
+  height: 10px;
+  border-radius: var(--fair-radius-pill);
+}
+
+.heatNote {
+  display: grid;
+  margin: 0;
+  gap: 2px;
+  color: var(--fair-ink);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.heatNote strong {
+  font-weight: 680;
+}
+
+.heatHint {
+  color: var(--fair-ink-muted);
+  font-size: 13px;
+}
+
+.heatRetry {
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--fair-accent-strong);
+  font: inherit;
+  font-weight: 680;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.heatUpdated {
+  margin: 0;
+  color: var(--fair-ink-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* Phone: the legend folds to two short rows (period, then the scale with its age). */
+@media (max-width: 639px) {
+  .heatLegend {
+    padding: var(--fair-space-2) var(--fair-space-3) var(--fair-space-3);
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .heatHint {
+    display: none;
+  }
+}
+
+/* Reduced motion (after the rules above, so it wins): the heat layer, new data,
+   the switch and the legend change at once. */
+@media (prefers-reduced-motion: reduce) {
+  .heatLayer,
+  .heatStopCore,
+  .heatStopMid,
+  .zone[data-heat] .standShape,
+  .zone[data-heat] .paper,
+  .heatTrack,
+  .heatKnob,
+  .heatSwitch,
+  .heatLegend {
+    transition-duration: 0s;
+    animation: none;
+  }
+}

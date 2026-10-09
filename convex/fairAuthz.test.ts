@@ -38,6 +38,7 @@ import * as fairSharing from "./fairSharing";
 import * as fairSetup from "./fairSetup";
 import * as fairPreEvent from "./fairPreEvent";
 import * as fairAdminDev from "./fairAdminDev";
+import * as fairHeat from "./fairHeat";
 import * as fairSponsoredAdmin from "./fairSponsoredAdmin";
 
 vi.mock("server-only", () => ({}));
@@ -178,6 +179,8 @@ const AUTHZ: Record<string, { module: Record<string, unknown>; functions: Record
   fairPreEvent: { module: fairPreEvent, functions: { previewPreEventReset: A, resetPreEventData: A, resetPreEventContinue: I, alignFuturePackageActivations: I } },
   // JOVAN-DELTA 2026-10-09 — admin DEV tools on the public fair pages: admin session AND gateway secret.
   fairAdminDev: { module: fairAdminDev, functions: { devState: A, grantStamps: A, simulateScan: A, resetMine: A } },
+  // SAJAM SUPER Korak 3 — „Gde je gužva“: heat levels only, read by the Next server with FAIR_GATEWAY_SECRET.
+  fairHeat: { module: fairHeat, functions: { getMapHeat: V } },
 };
 
 type Registered = { isPublic?: boolean; isInternal?: boolean };
@@ -382,6 +385,7 @@ describe("B7 authz table of every fair function", () => {
     outputs.push(await f.t.mutation(api.fairInteractions.recordSponsoredAction, { gatewaySecret: GATEWAY_SECRET, visitorHash: me, eventModelId: f.modelId, surface: "garage", kind: "garage_add", requestId: "test-authz-sponsored" }));
     outputs.push(await f.t.query(api.fairInteractions.getMyModelState, { gatewaySecret: GATEWAY_SECRET, visitorHash: me, eventModelId: f.modelId }));
     outputs.push(await f.t.query(api.fairInteractions.getMyPassportProgress, { gatewaySecret: GATEWAY_SECRET, visitorHash: me, eventSlug: EM }));
+    outputs.push(await f.t.query(api.fairHeat.getMapHeat, { gatewaySecret: GATEWAY_SECRET, eventSlug: EM, at: Date.now() }));
     const shareCodeHash = "5".repeat(64);
     outputs.push(await f.t.mutation(api.fairSharing.createShareCollection, { gatewaySecret: GATEWAY_SECRET, visitorHash: me, eventModelIds: [f.modelId], codeHash: shareCodeHash, requestId: "test-authz-share" }));
     outputs.push(await f.t.mutation(api.fairSharing.recordTraffic, { gatewaySecret: GATEWAY_SECRET, visitorHash: me, kind: "direct_view", requestId: "test-authz-traffic", eventModelId: f.modelId }));

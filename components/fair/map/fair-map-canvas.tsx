@@ -26,8 +26,10 @@ import {
   type FairMapViewport,
   type FairMapZoneView,
 } from "@/lib/fair-map";
+import { fairHeatColor } from "@/lib/fair-heat";
 import { fmt } from "@/lib/i18n/format";
 import { fairMapSr as dict } from "@/lib/i18n/sr/fair-map";
+import type { FairMapHeatView } from "./fair-map-heat";
 import { fairMapPlaceText } from "./fair-map-text";
 import { FAIR_DURATION, FAIR_EASE } from "../fair-motion";
 import styles from "./fair-event-map.module.css";
@@ -104,6 +106,8 @@ export function ZoneCanvas({
   highlight,
   passportMarkers,
   bubble,
+  heat = null,
+  heatOn = false,
   onSelect,
 }: {
   zoneView: FairMapZoneView;
@@ -122,6 +126,10 @@ export function ZoneCanvas({
   passportMarkers: ReadonlyMap<string, string>;
   /** Small callout over the selected stand (desktop); null for none. */
   bubble: string | null;
+  /** SAJAM SUPER: the last heat levels (kept after the switch goes off, so the layer fades out). */
+  heat?: FairMapHeatView | null;
+  /** „Gde je gužva“ is on: only colours change, nothing moves. */
+  heatOn?: boolean;
   onSelect: (locationId: string) => void;
 }) {
   const { zone } = zoneView;
@@ -296,9 +304,18 @@ export function ZoneCanvas({
   const gridId = `fair-map-grid-${zone.id}`;
   const grid = zone.image.width / 40;
   const stroke = zone.image.width / 600;
+  const heatShown = heatOn && heat !== null && heat.enough;
+  const heatLevel = (locationId: string) => (heat?.enough ? (heat.levels.get(locationId) ?? 0) : 0);
+  /** The heat colour of a location as CSS variables (stand tint and glow stops). */
+  const heatStyle = (locationId: string) => {
+    const level = heatLevel(locationId);
+    return level > 0
+      ? ({ "--heat": fairHeatColor(level), "--heat-alpha": (0.34 + 0.4 * level).toFixed(2), "--heat-mix": Math.round(14 + 22 * level) } as CSSProperties)
+      : undefined;
+  };
 
   return (
-    <section className={styles.zone} data-active={active} data-zone={zone.id} aria-label={zoneName}>
+    <section className={styles.zone} data-active={active} data-zone={zone.id} data-heat={heatShown ? "on" : "off"} aria-label={zoneName}>
       <div className={styles.zoneBar}>
         <h2 className={styles.zoneTitle}>{zoneName}</h2>
       </div>
@@ -361,6 +378,41 @@ export function ZoneCanvas({
               );
             })}
 
+            {/* „Gde je gužva“: a soft pre-drawn radial glow around every stand with activity,
+                under the stands so numbers and logos stay on top (no blur filter). */}
+            {heat ? (
+              <g className={styles.heatLayer} aria-hidden="true">
+                {items
+                  .filter((item) => item.stands.length && heatLevel(item.location.id) > 0)
+                  .map((item) => {
+                    const bounds = fairMapBounds(item.location.polygon);
+                    // The halo grows with the stand and its heat, within 1.5–5 % of the zone width.
+                    const size = Math.max(bounds.maxX - bounds.minX, bounds.maxY - bounds.minY);
+                    const spread = Math.min(Math.max(size * 0.45, zone.image.width * 0.015), zone.image.width * 0.05) * (0.75 + 0.5 * heatLevel(item.location.id));
+                    const id = `fair-heat-${zone.id}-${item.location.id}`;
+                    return (
+                      <g key={item.location.id} style={heatStyle(item.location.id)}>
+                        <defs>
+                          <radialGradient id={id}>
+                            <stop offset="0%" className={styles.heatStopCore} />
+                            <stop offset="72%" className={styles.heatStopMid} />
+                            <stop offset="100%" className={styles.heatStopEdge} />
+                          </radialGradient>
+                        </defs>
+                        <ellipse
+                          className={styles.heatGlow}
+                          cx={(bounds.minX + bounds.maxX) / 2}
+                          cy={(bounds.minY + bounds.maxY) / 2}
+                          rx={(bounds.maxX - bounds.minX) / 2 + spread}
+                          ry={(bounds.maxY - bounds.minY) / 2 + spread}
+                          fill={`url(#${id})`}
+                        />
+                      </g>
+                    );
+                  })}
+              </g>
+            ) : null}
+
             {/* Empty locations: drawn (they are on the organizer map), not interactive. */}
             {items
               .filter((item) => !item.stands.length && item.location.kind !== "scanme")
@@ -386,6 +438,8 @@ export function ZoneCanvas({
                     data-kind={location.kind}
                     data-selected={selected}
                     data-dimmed={lit !== null && !lit.has(location.id)}
+                    data-heat={heatLevel(location.id) > 0 ? "on" : undefined}
+                    style={heatStyle(location.id)}
                     role={open ? "button" : undefined}
                     tabIndex={open ? (interactive && active ? 0 : -1) : undefined}
                     aria-hidden={open ? undefined : true}
