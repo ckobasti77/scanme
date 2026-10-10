@@ -1090,6 +1090,8 @@ export const adminEventsSr = {
   consentInactive: "Nema aktivne verzije: obrazac se ne nudi i nijedan kontakt se ne čuva.",
   consentDraftLabel: "Tekst nacrta (verzija {version})",
   consentNewLabel: "Tekst nove verzije",
+  consentShortText: "Saglasan/na sam da ScanMe moje podatke prosledi izlagaču {izlagac} kako bi mi slao ponude za svoje modele.",
+  consentUseShortText: "Koristi skraćeni tekst",
   consentSaveDraft: "Sačuvaj nacrt",
   consentSaved: "Nacrt je sačuvan.",
   consentActivate: "Aktiviraj verziju {version}",

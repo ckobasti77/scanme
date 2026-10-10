@@ -1,5 +1,6 @@
 "use client";
 
+import { fairVehiclePhotoStyle } from "@/lib/fair-client/vehicle-photo";
 import Image from "next/image";
 import { CarFront } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -400,14 +401,14 @@ export function PassportUnlockCard({
     >
       <span className={styles.modelMedia}>
         {photo ? (
-          <Image fill sizes="(max-width: 620px) 100vw, 560px" src={photo} alt="" preload={preload} className={`${styles.modelPhoto} ${styles.unlockPhoto}`} />
+          <Image fill sizes="(max-width: 620px) 100vw, 560px" src={photo} style={fairVehiclePhotoStyle(photo)} alt="" preload={preload} className={`${styles.modelPhoto} ${styles.unlockPhoto}`} />
         ) : (
           <CarFront className={styles.modelFallback} aria-hidden="true" />
         )}
       </span>
       {photo ? (
         <span data-u="color" className={styles.unlockPhotoColor} aria-hidden="true">
-          <Image fill sizes="(max-width: 620px) 100vw, 560px" src={photo} alt="" className={styles.modelPhoto} />
+          <Image fill sizes="(max-width: 620px) 100vw, 560px" src={photo} style={fairVehiclePhotoStyle(photo)} alt="" className={styles.modelPhoto} />
         </span>
       ) : null}
       <span className={styles.modelTextGradient} aria-hidden="true" />

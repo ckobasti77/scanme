@@ -1,5 +1,6 @@
 "use client";
 
+import { fairVehiclePhotoStyle } from "@/lib/fair-client/vehicle-photo";
 import Image from "next/image";
 import { fairLocalPhotoUrl } from "@/lib/fair-client/photo-url";
 import Link from "next/link";
@@ -77,7 +78,7 @@ export function FairMapRotationCard({
         <div className={styles.rotationHead}>
           <div className={styles.rotationVisual}>
             {item.visual === "photo" && item.photoUrl ? (
-              <Image src={fairLocalPhotoUrl(item.photoUrl)} alt={item.displayName} fill unoptimized sizes="96px" className={styles.rotationPhoto} />
+              <Image src={fairLocalPhotoUrl(item.photoUrl)} style={fairVehiclePhotoStyle(item.photoUrl)} alt={item.displayName} fill unoptimized sizes="96px" className={styles.rotationPhoto} />
             ) : item.visual === "brand_logo" && item.brandLogoUrl ? (
               <Image src={item.brandLogoUrl} alt={item.brandName} fill unoptimized sizes="96px" className={styles.rotationLogo} />
             ) : (

@@ -1,5 +1,6 @@
 "use client";
 
+import { fairVehiclePhotoStyle } from "@/lib/fair-client/vehicle-photo";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowLeft, CarFront, Check, LockKeyhole, MapPin, RotateCcw } from "lucide-react";
@@ -85,7 +86,7 @@ const REVIEW_PHOTOS: Record<string, string> = {
 const REVIEW_BRAND_PRESENTATIONS: Record<string, { backdropUrl?: string; logoUrl?: string; variant: "photo" | "graphic" }> = {
   byd: { variant: "graphic" },
   jmev: {
-    backdropUrl: "/fair/elektromobilnost-2026/jmev-showroom-backdrop.jpg",
+    backdropUrl: "/fair/elektromobilnost-2026/jmev-showroom-emblem.jpg",
     logoUrl: "/fair/elektromobilnost-2026/jmev-brand-logo.png",
     variant: "photo",
   },
@@ -386,7 +387,7 @@ function FavoritePicker({
               onClick={() => void choose(passportModel.eventModelId)}
             >
               <span className={styles.favoriteVisual}>
-                {photo ? <Image fill sizes="160px" src={photo} alt="" /> : <CarFront aria-hidden="true" />}
+                {photo ? <Image fill sizes="160px" src={photo} style={fairVehiclePhotoStyle(photo)} alt="" /> : <CarFront aria-hidden="true" />}
                 {leaders.includes(passportModel.eventModelId) ? <span className={styles.crowdPick}>{dict.favoriteCrowdPick}</span> : null}
               </span>
               <span className={styles.favoriteName}>{modelName}</span>
@@ -623,6 +624,7 @@ function PassportDetail({
                     alt=""
                     preload={index === 0}
                     className={styles.modelPhoto}
+                    style={fairVehiclePhotoStyle(photo)}
                   />
                 ) : (
                   <CarFront className={styles.modelFallback} aria-hidden="true" />
@@ -725,7 +727,7 @@ function NewStampPreview({
   return (
     <div className={styles.devPreviewFrame}>
       <section className="fair-model-hero" data-new-stamp-preview style={{ height: 287 }}>
-        {photo ? <Image src={photo} alt="" fill sizes="366px" className="fair-model-hero__image" /> : null}
+        {photo ? <Image src={photo} style={fairVehiclePhotoStyle(photo)} alt="" fill sizes="366px" className="fair-model-hero__image" /> : null}
         <div className="fair-model-hero__scrim" aria-hidden="true" />
         <div className="fair-model-identity">
           <span>{cleanLabel(passport.brandName)}</span>

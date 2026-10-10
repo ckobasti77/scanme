@@ -1,5 +1,6 @@
 "use client";
 
+import { fairVehiclePhotoStyle } from "@/lib/fair-client/vehicle-photo";
 import Image from "next/image";
 import { CarFront } from "lucide-react";
 import { useEffect, useId, useLayoutEffect, useRef } from "react";
@@ -176,7 +177,7 @@ export function PassportFinale({
         <div data-finale-reveal className={`${styles.finaleThumbs} ${styles.finaleReveal}`}>
           {thumbs.map((thumb) => (
             <span key={thumb.id} data-finale-thumb>
-              {thumb.photo ? <Image fill sizes="76px" src={thumb.photo} alt={thumb.name} /> : <CarFront aria-label={thumb.name} />}
+              {thumb.photo ? <Image fill sizes="76px" src={thumb.photo} style={fairVehiclePhotoStyle(thumb.photo)} alt={thumb.name} /> : <CarFront aria-label={thumb.name} />}
             </span>
           ))}
         </div>

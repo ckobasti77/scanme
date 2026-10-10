@@ -16,6 +16,7 @@ import {
 } from "@/lib/fair-client/garage-store";
 import { FAIR_PASSPORT_VISIT_CHANGE_EVENT, forgetPassportModelsSeen } from "@/lib/fair-client/passport-visit-store";
 import { fairSurveyMarkerKey } from "@/lib/fair-client/survey-marker";
+import { fetchFairGarageModels } from "@/lib/fair-client/garage-view";
 import { fmt } from "@/lib/i18n/format";
 import type { FairAdminDevDict } from "@/lib/i18n";
 import { fairPassportSr } from "@/lib/i18n/sr/fair-passport";
@@ -170,8 +171,10 @@ export function FairAdminDevSheet({ dict, event, model, brandName, preview, visi
   };
 
   const writeGarage = (update: (eventItems: Parameters<typeof addFairGarageModel>[0]) => Parameters<typeof addFairGarageModel>[0]) => {
-    const next = update(readFairGarage(window.localStorage).document);
-    writeFairGarage(window.localStorage, next);
+    const current = readFairGarage(window.localStorage);
+    if (current.status === "invalid" || current.status === "unavailable") throw new Error("STORAGE_UNAVAILABLE");
+    const next = update(current.document);
+    if (!writeFairGarage(window.localStorage, next).ok) throw new Error("STORAGE_UNAVAILABLE");
     window.dispatchEvent(new Event(FAIR_GARAGE_MODEL_CHANGE_EVENT));
     window.dispatchEvent(new Event(FAIR_GARAGE_CHANGE_EVENT));
   };
@@ -280,10 +283,19 @@ export function FairAdminDevSheet({ dict, event, model, brandName, preview, visi
           <section className="fair-admin-dev__sec">
             <h4>{dict.garageTitle}</h4>
             <div className="fair-admin-dev__grid">
-              <button type="button" className="fair-admin-dev__btn" disabled={busy || !state?.garageModelIds.length} onClick={() => void run(async () => {
-                const ids = state?.garageModelIds ?? [];
-                writeGarage((document) => ids.reduce((next, modelId, index) => addFairGarageModel(next, { eventId: event.id, modelId, savedAt: Date.now() + index }), document));
-                return fmt(dict.toastGarageFill, { count: ids.length });
+              <button type="button" className="fair-admin-dev__btn" disabled={busy || !state?.models?.length} onClick={() => void run(async () => {
+                // The admin state includes every published model; garageModelIds was capped at five.
+                const ids = state?.models?.map((row) => row.id) ?? [];
+                const models = await fetchFairGarageModels(ids);
+                if (models.length !== ids.length || models.some((row) => row.eventId !== event.id)) throw new Error("SERVICE_UNAVAILABLE");
+                writeGarage((document) => models.reduce((next, row, index) => {
+                  const existingEventId = Object.entries(next.events).find(([, items]) => items.some((item) => item.modelId === row.id))?.[0];
+                  return addFairGarageModel(next, {
+                    eventId: existingEventId ?? event.id, modelId: row.id, savedAt: Date.now() + index,
+                    lastKnown: { eventSlug: event.slug, modelSlug: row.slug, brandName: row.brandName, displayName: row.displayName, priceText: row.priceText, ...(row.photoUrl ? { photoUrl: row.photoUrl } : {}) },
+                  });
+                }, document));
+                return fmt(dict.toastGarageFill, { count: models.length });
               })}>{dict.garageFill}</button>
               <button type="button" className="fair-admin-dev__btn is-warn" disabled={busy} onClick={() => void run(async () => {
                 writeGarage((document) => {

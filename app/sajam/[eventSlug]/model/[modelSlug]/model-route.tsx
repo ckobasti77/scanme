@@ -36,7 +36,7 @@ async function requestOrigin() {
   if (!host) return undefined;
   const protocol =
     requestHeaders.get("x-forwarded-proto")?.split(",")[0]?.trim() ||
-    (/^(localhost|127\.0\.0\.1|\[::1\])(:|$)/.test(host) ? "http" : "https");
+    (process.env.NODE_ENV === "development" || /^(localhost|127\.0\.0\.1|\[::1\])(:|$)/.test(host) ? "http" : "https");
   return `${protocol}://${host}`;
 }
 

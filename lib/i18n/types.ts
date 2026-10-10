@@ -5166,6 +5166,8 @@ export interface AdminEventsDict {
   consentInactive: string;
   consentDraftLabel: string;
   consentNewLabel: string;
+  consentShortText: string;
+  consentUseShortText: string;
   consentSaveDraft: string;
   consentSaved: string;
   consentActivate: string;

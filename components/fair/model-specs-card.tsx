@@ -14,6 +14,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useId, useState } from "react";
+import { motion, useReducedMotion } from "framer-motion";
 import type { FairModelDict } from "@/lib/i18n";
 import type { FairKeySpec, FairKeySpecKind } from "./model-key-specs";
 
@@ -61,6 +62,7 @@ export function ModelSpecsCard({
   dict: FairModelDict;
 }) {
   const [open, setOpen] = useState(defaultOpen);
+  const reducedMotion = useReducedMotion();
   const bodyId = useId();
   const count = groups.reduce((sum, group) => sum + group.items.length, 0);
   const hasList = count > 0 || Boolean(description);
@@ -105,7 +107,11 @@ export function ModelSpecsCard({
             </span>
             <ChevronDown className="fair-specs__chevron" aria-hidden="true" />
           </button>
-          <div className="fair-specs__drop" id={bodyId} inert={!open}>
+          <motion.div className="fair-specs__drop" id={bodyId} inert={!open}
+            initial={false}
+            animate={{ height: open ? "auto" : 0 }}
+            transition={{ duration: reducedMotion ? 0 : 0.5, ease: [0.4, 0, 0.2, 1] }}
+          >
             <div className="fair-specs__drop-inner">
               <div className="fair-specs__list">
                 {groups.map((group) => (
@@ -129,7 +135,7 @@ export function ModelSpecsCard({
                 ) : null}
               </div>
             </div>
-          </div>
+          </motion.div>
         </>
       ) : null}
     </section>

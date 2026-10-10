@@ -70,7 +70,7 @@ function ConsentKind({ kind, versions, actions }: { kind: FairLeadKind; versions
   const { message, pending, run } = useRunner();
   const active = versions.find((row) => row.status === "active");
   const draft = versions.find((row) => row.status === "draft");
-  const [text, setText] = useState(draft?.text ?? "");
+  const [text, setText] = useState(draft?.text ?? dict.consentShortText);
   const [approvedBy, setApprovedBy] = useState("");
   const [approvedDay, setApprovedDay] = useState("");
   const approvedAt = legalApprovalAt(approvedDay);
@@ -119,6 +119,7 @@ function ConsentKind({ kind, versions, actions }: { kind: FairLeadKind; versions
           </label>
           <span className="flex flex-wrap gap-2">
             <button type="submit" className={secondaryButton} disabled={pending || !text.trim()}>{dict.consentSaveDraft}</button>
+            <button type="button" className={secondaryButton} disabled={pending} onClick={() => setText(dict.consentShortText)}>{dict.consentUseShortText}</button>
           </span>
         </form>
         {draft ? (

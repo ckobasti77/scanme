@@ -1,5 +1,6 @@
 "use client";
 
+import { fairVehiclePhotoStyle } from "@/lib/fair-client/vehicle-photo";
 import * as Dialog from "@radix-ui/react-dialog";
 import gsap from "gsap";
 import Image from "next/image";
@@ -201,7 +202,7 @@ function ModelVisual({ model, alt, preload = false }: { model: FairGarageModelVi
   return (
     <div className={styles.modelVisual}>
       {photoUrl ? (
-        <Image fill sizes="(max-width: 720px) 100vw, 520px" src={photoUrl} alt={alt} preload={preload} draggable={false} className={styles.modelImage} />
+        <Image fill sizes="(max-width: 720px) 100vw, 520px" src={photoUrl} style={fairVehiclePhotoStyle(photoUrl)} alt={alt} preload={preload} draggable={false} className={styles.modelImage} />
       ) : (
         <div className={styles.modelPlaceholder} aria-hidden="true">
           <FairBrandMark brandName={cleanTestLabel(model.brandName)} />
@@ -641,6 +642,7 @@ function SponsoredSlideVisual({ item, dict }: { item: FairSponsoredModelCard; di
         src={photoUrl}
         alt={fmt(dict.sponsoredPhotoAlt, { brand: cleanTestLabel(item.brandName), model: displayModelName(item.brandName, item.displayName) })}
         className={styles.spPhoto}
+        style={fairVehiclePhotoStyle(photoUrl)}
       />
     );
   }

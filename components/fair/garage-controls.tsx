@@ -171,6 +171,7 @@ export function GarageSaveButton({
       width: `${sourceBounds.width}px`,
       height: `${sourceBounds.height}px`,
       objectPosition: getComputedStyle(source).objectPosition,
+      objectFit: getComputedStyle(source).objectFit,
     });
     document.body.appendChild(flight);
     flightElementRef.current?.remove();

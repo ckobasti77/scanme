@@ -19,6 +19,8 @@ import { fairModelKeySpecs, fairModelSpecGroups } from "./model-key-specs";
 import { ModelNewStamp } from "./model-new-stamp";
 import { ModelSpecsCard } from "./model-specs-card";
 import { SurveyChatHead } from "./survey/survey-chat-head";
+import { ModelName } from "./model-name";
+import { fairVehiclePhotoStyle } from "@/lib/fair-client/vehicle-photo";
 
 /** "Cena na upit" / empty → "na upit"; a leading "Cena " is dropped (the block already says Cena). */
 function priceValue(priceText: string, dict: FairModelDict) {
@@ -238,6 +240,7 @@ export function FairModelPage({
               priority
               sizes="(max-width: 767px) 100vw, 560px"
               className="fair-model-hero__image"
+              style={fairVehiclePhotoStyle(model.photoUrl)}
             />
           ) : (
             <div className="fair-model-hero__tonal-mark" aria-hidden="true">
@@ -258,7 +261,7 @@ export function FairModelPage({
           <div className="fair-model-identity">
             <div className="fair-model-identity__name">
               <span>{model.brandName}</span>
-              <h1>{model.displayName}</h1>
+              <ModelName>{model.displayName}</ModelName>
               {model.variant ? <p>{model.variant}</p> : null}
             </div>
             <p className="fair-model-price">

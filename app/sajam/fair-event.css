@@ -259,7 +259,7 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   position: relative;
   isolation: isolate;
   flex: none;
-  aspect-ratio: 4 / 3;
+  aspect-ratio: 16 / 10;
   overflow: hidden;
   border-radius: 22px;
   background: #2a2d33;
@@ -361,6 +361,7 @@ body:has(.fair-event) [data-theme-toggle="global"] {
 
 .fair-model-identity__name {
   min-width: 0;
+  flex: 1;
 }
 
 .fair-model-identity__name > span {
@@ -378,7 +379,9 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   font-weight: 800;
   letter-spacing: -0.02em;
   line-height: 0.95;
-  overflow-wrap: anywhere;
+  overflow-wrap: normal;
+  word-break: normal;
+  hyphens: none;
 }
 
 .fair-model-identity__name > p {
@@ -576,13 +579,7 @@ body:has(.fair-event) [data-theme-toggle="global"] {
 }
 
 .fair-specs__drop {
-  display: grid;
-  grid-template-rows: 0fr;
-  transition: grid-template-rows 350ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.fair-specs[data-open="true"] .fair-specs__drop {
-  grid-template-rows: 1fr;
+  overflow: hidden;
 }
 
 .fair-specs__drop-inner {
@@ -1000,9 +997,9 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   border-radius: 16px;
 }
 
-/* Sticky save dock with a soft fade above it */
+/* Save dock stays in flow: bottom-sticky used to cover the last lead action. */
 .fair-save-bar {
-  position: sticky;
+  position: relative;
   z-index: 5;
   bottom: 0;
   margin: auto -12px 0;
@@ -1638,6 +1635,32 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   .fair-save-bar {
     padding-top: 10px;
     padding-bottom: max(10px, env(safe-area-inset-bottom));
+  }
+}
+
+/* Keep all paid-model actions together on a phone without shrinking touch targets. */
+@media (max-width: 767px) {
+  .fair-model-page:is([data-package="starter"], [data-package="advanced"]) .fair-model-hero {
+    aspect-ratio: auto;
+    height: clamp(124px, calc(100svh - 457px), 320px);
+    max-height: calc((100vw - 24px) * 0.625);
+  }
+
+  .fair-model-page:is([data-package="starter"], [data-package="advanced"]) .fair-model-main:has(.fair-new-stamp-slot) .fair-model-hero {
+    height: clamp(140px, calc(100svh - 525px), 260px);
+  }
+
+  .fair-model-page:is([data-package="starter"], [data-package="advanced"]) .fair-specs__key {
+    padding-block: 7px;
+    gap: 2px;
+  }
+
+  .fair-model-page:is([data-package="starter"], [data-package="advanced"]) .fair-save-bar {
+    padding-block: 8px max(8px, env(safe-area-inset-bottom));
+  }
+
+  .fair-model-page:is([data-package="starter"], [data-package="advanced"]) .fair-save-dock {
+    height: 48px;
   }
 }
 

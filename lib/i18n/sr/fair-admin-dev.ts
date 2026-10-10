@@ -29,7 +29,7 @@ export const fairAdminDevSr = {
   newStamp: "Prikaži karticu „Nov pečat“",
   resetPassport: "Resetuj pasoš",
   garageTitle: "Garaža",
-  garageFill: "+ Dodaj 5 modela",
+  garageFill: "Dodaj sve modele sajma",
   garageEmpty: "Isprazni garažu",
   surveyTitle: "Anketa i kontakt",
   bubble: "Prikaži oblačić ponovo",
