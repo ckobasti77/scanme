@@ -91,7 +91,7 @@ describe("detectImageFormat", () => {
 
 describe("sniffFile ignores everything except bytes", () => {
   test("a HEIC mislabelled as .jpg with MIME image/jpeg is still HEIC", async () => {
-    const lying = new File([ftyp("heic", "mif1", "heic")], "photo.jpg", {
+    const lying = new File([ftyp("heic", "mif1", "heic") as BlobPart], "photo.jpg", {
       type: "image/jpeg",
     });
     expect(lying.name).toBe("photo.jpg");

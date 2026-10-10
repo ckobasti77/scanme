@@ -83,7 +83,7 @@ export type FairModelStand = { text: string; href: string };
 
 /** From the event map geometry (no extra read); null when the location is not on the map. */
 export function fairModelStand(event: { code: string }, model: { standMapLocationId: string }, publicEventSlug: string): FairModelStand | null {
-  // 9 Oct 2026: the map (and its stand data) is hidden, so is the chip that opens it.
+  // While the map is hidden (FAIR_PUBLIC_MAP_ENABLED false), so is the chip that opens it.
   if (!FAIR_PUBLIC_MAP_ENABLED) return null;
   const found = fairMapLocationById(event.code, model.standMapLocationId);
   if (!found) return null;

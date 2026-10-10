@@ -1,5 +1,6 @@
 /// <reference types="vite/client" />
 import { convexTest } from "convex-test";
+import type { FunctionReturnType } from "convex/server";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
@@ -406,7 +407,7 @@ describe("ADMIN-14 payment projection and canonical aggregates", () => {
     let backfillDone = false;
     let scanned = 0;
     while (!backfillDone) {
-      const batch = await seeded.admin.mutation(internal.adminFinance.backfillPaymentProjection, { cursor: backfillCursor, limit: 25, dryRun: false });
+      const batch: FunctionReturnType<typeof internal.adminFinance.backfillPaymentProjection> = await seeded.admin.mutation(internal.adminFinance.backfillPaymentProjection, { cursor: backfillCursor, limit: 25, dryRun: false });
       scanned += batch.scanned;
       backfillCursor = batch.continueCursor;
       backfillDone = batch.isDone;
@@ -418,7 +419,7 @@ describe("ADMIN-14 payment projection and canonical aggregates", () => {
     let listDone = false;
     const paymentIds: string[] = [];
     while (!listDone) {
-      const batch = await seeded.admin.query(api.adminFinance.listPayments, { filter: "total", paginationOpts: page(17, listCursor) });
+      const batch: FunctionReturnType<typeof api.adminFinance.listPayments> = await seeded.admin.query(api.adminFinance.listPayments, { filter: "total", paginationOpts: page(17, listCursor) });
       paymentIds.push(...batch.page.map((row) => String(row.paymentId)));
       listCursor = batch.continueCursor;
       listDone = batch.isDone;

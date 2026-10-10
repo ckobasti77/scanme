@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
 
-import { convexTest } from "convex-test";
+import { convexTest, type TestConvex } from "convex-test";
 import { beforeEach, describe, expect, test } from "vitest";
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
@@ -16,7 +16,7 @@ const ISSUER = "https://admin-02.test";
 const ADMIN_EMAIL = "admin@scanme.test";
 const NOW = Date.parse("2026-09-10T10:00:00Z");
 
-type TestBackend = ReturnType<typeof convexTest>;
+type TestBackend = TestConvex<typeof schema>;
 
 beforeEach(() => {
   process.env.SCANME_ADMIN_EMAILS = ADMIN_EMAIL;

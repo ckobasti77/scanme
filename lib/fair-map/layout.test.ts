@@ -1,7 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { ELEKTROMOBILNOST_2026_MAP } from "./elektromobilnost-2026";
 import { fairMapBadgeRadius, fairMapChipGrid, fairMapInscribedRect, fairMapPointInPolygon, fairMapStandLayout, type FairMapRect } from "./layout";
-import { fairMapLabelPoint } from "./shape";
 import type { FairMapLocation, FairMapPoint } from "./types";
 
 // N4 — pure layout of the vector map: logo chips inside every stand, the
@@ -34,12 +33,6 @@ describe("geometry helpers", () => {
     expect(box.height).toBeGreaterThan(155);
   });
 
-  test("the rear area's inscribed centre is inside the area, unlike its centroid", () => {
-    const area = location("zadnji-deo");
-    const rect = fairMapInscribedRect(area.polygon);
-    expect(fairMapPointInPolygon(fairMapLabelPoint(area.polygon), area.polygon)).toBe(false);
-    expect(fairMapPointInPolygon([rect.x + rect.width / 2, rect.y + rect.height / 2], area.polygon)).toBe(true);
-  });
 });
 
 describe("logo chips", () => {
@@ -92,9 +85,9 @@ describe("stand number", () => {
     for (const point of corners(layout.chips)) expect(fairMapPointInPolygon(point, location("hala-11").polygon)).toBe(true);
   });
 
-  test("beside the stand where the organizer prints it; once per split stand; none for partners and the area", () => {
+  test("beside the stand where the organizer prints it; once per split stand; none for partners", () => {
     expect(fairMapStandLayout(location("ispred-14"), r).badge).toEqual([402, 192]);
-    for (const id of ["ispred-12-1", "ispred-13-3", "ispred-15-4", "hala-partner-10b", "zadnji-deo"]) {
+    for (const id of ["ispred-12-1", "ispred-13-3", "ispred-15-4", "hala-partner-10b"]) {
       expect(fairMapStandLayout(location(id) as FairMapLocation, r).badge, id).toBeNull();
     }
     const front = ELEKTROMOBILNOST_2026_MAP.zones[1];

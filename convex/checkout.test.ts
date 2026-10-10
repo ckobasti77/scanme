@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
 
-import { convexTest } from "convex-test";
+import { convexTest, type TestConvex } from "convex-test";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
@@ -22,7 +22,7 @@ beforeEach(() => {
 // they own via an active membership. This is the shape onboarding leaves behind:
 // a signed-in owner with a location and no account yet.
 async function seedBuyerWithBusiness(
-  t: ReturnType<typeof convexTest>,
+  t: TestConvex<typeof schema>,
   slug: string,
   opts: { email?: string; memoriesProfileStatus?: "active" | "inactive" } = {},
 ) {
@@ -64,7 +64,7 @@ async function seedBuyerWithBusiness(
 }
 
 async function entitlementRows(
-  t: ReturnType<typeof convexTest>,
+  t: TestConvex<typeof schema>,
   businessId: Id<"businesses">,
   product: "scanme_memories" | "scanme_venue",
 ) {
@@ -349,7 +349,7 @@ describe("checkout — Enterprise fan-out is resumable without duplicates (RFC-0
   // exact resume a crash recovery uses. convex-test does not auto-run scheduled
   // functions, so nothing double-executes.
   async function drainProvisioning(
-    t: ReturnType<typeof convexTest>,
+    t: TestConvex<typeof schema>,
     orderId: Id<"orders">,
     ownerUserId: Id<"users">,
     startIndex: number,
@@ -367,7 +367,7 @@ describe("checkout — Enterprise fan-out is resumable without duplicates (RFC-0
   }
 
   async function seedAdminAndLocations(
-    t: ReturnType<typeof convexTest>,
+    t: TestConvex<typeof schema>,
     n: number,
   ) {
     return t.run(async (ctx) => {

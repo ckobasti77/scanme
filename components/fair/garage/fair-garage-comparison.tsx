@@ -2,7 +2,7 @@
 
 import { fairVehiclePhotoStyle } from "@/lib/fair-client/vehicle-photo";
 import Image from "next/image";
-import { fairLocalPhotoUrl } from "@/lib/fair-client/photo-url";
+import { fairLocalPhotoUrl, fairPhotoUnoptimized } from "@/lib/fair-client/photo-url";
 import Link from "next/link";
 import { ArrowLeft, CarFront, WifiOff } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -38,6 +38,7 @@ function modelPhoto(model: FairGarageModelView, dict: FairGarageDict) {
           sizes="(max-width: 640px) 46vw, 350px"
           src={fairLocalPhotoUrl(model.photoUrl)}
           style={fairVehiclePhotoStyle(model.photoUrl)}
+          unoptimized={fairPhotoUnoptimized(fairLocalPhotoUrl(model.photoUrl))}
           alt={dict.modelPhotoAlt
             .replace("{brand}", model.brandName)
             .replace("{model}", model.displayName)}

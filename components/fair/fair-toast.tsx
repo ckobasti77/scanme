@@ -2,6 +2,7 @@
 
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { FAIR_DURATION, FAIR_EASE } from "./fair-motion";
 
 // Short confirmation only (EVENT-DESIGN-SYSTEM §6): polite live region, never
 // steals focus. Errors that need a retry stay inline in their own flow.
@@ -37,8 +38,8 @@ export function FairToast({ toast, onDone }: { toast: FairToastMessage | null; o
             className="fair-toast"
             initial={reduceMotion ? false : { opacity: 0, y: -14 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={reduceMotion ? { opacity: 0, transition: { duration: 0 } } : { opacity: 0, y: -10 }}
-            transition={{ duration: reduceMotion ? 0 : 0.26, ease: "easeOut" }}
+            exit={reduceMotion ? { opacity: 0, transition: { duration: FAIR_DURATION.feedback } } : { opacity: 0, y: -10, transition: { duration: FAIR_DURATION.feedback, ease: FAIR_EASE.exit } }}
+            transition={{ duration: FAIR_DURATION.state, ease: FAIR_EASE.enter }}
           >
             {toast.text}
           </motion.p>

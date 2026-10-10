@@ -13,7 +13,8 @@ import { fairMapStand, type FairMapGeometry } from "./types";
 //    label belongs to the group. 20–22 has no visible partitions: one
 //    location. S1–S5 are not on this fair's map. Stand 14 is the ScanMe
 //    stand (the organizer's map says "ENIGMA IT / ScanMe").
-//  - Zadnji deo: one open area without stand numbers (the green outline).
+//  - There is no third zone: "Zadnji deo" (the rear of the hall) is not a
+//    zone of this fair (owner, 9. 10. 2026); only Hala and Ispred hale exist.
 export const ELEKTROMOBILNOST_2026_MAP: FairMapGeometry = {
   key: "elektromobilnost-2026",
   status: "draft",
@@ -82,27 +83,6 @@ export const ELEKTROMOBILNOST_2026_MAP: FairMapGeometry = {
         { id: "ispred-totem", kind: "totem", polygon: [[442, 294], [468, 294], [468, 346], [442, 346]] },
         { id: "ispred-stepeniste", kind: "stairs", polygon: [[363, 343], [546, 343], [546, 597], [363, 597]] },
         { id: "ispred-parking", kind: "parking", polygon: [[242, 779], [674, 779], [674, 839], [242, 839]] },
-      ],
-    },
-    {
-      id: "zadnji-deo",
-      image: { src: "/sajam/mape/elektro-zadnji-deo.jpg", width: 1920, height: 988, organizerFile: "mapa-zadnji-deo.jpg" },
-      // N4: the green outline is both the zone and its one area.
-      outline: [[2, 695], [354, 343], [734, 80], [936, 615], [1138, 557], [1009, 28], [1336, 2], [1623, 31], [1917, 122], [1796, 454], [1545, 381], [1463, 744], [873, 744], [666, 910], [609, 857], [489, 985], [345, 985]],
-      locations: [
-        {
-          id: "zadnji-deo",
-          label: "Zadnji deo",
-          kind: "area",
-          placement: "organizer",
-          polygon: [[2, 695], [354, 343], [734, 80], [936, 615], [1138, 557], [1009, 28], [1336, 2], [1623, 31], [1917, 122], [1796, 454], [1545, 381], [1463, 744], [873, 744], [666, 910], [609, 857], [489, 985], [345, 985]],
-        },
-      ],
-      landmarks: [
-        { id: "zadnji-deo-stepeniste-desno", kind: "stairs", polygon: [[1242, 317], [1389, 317], [1389, 521], [1242, 521]] },
-        { id: "zadnji-deo-stepeniste-levo", kind: "stairs", polygon: [[511, 631], [655, 772], [551, 876], [409, 735]] },
-        { id: "zadnji-deo-parking-desno", kind: "parking", polygon: [[1140, 127], [1483, 127], [1483, 177], [1140, 177]] },
-        { id: "zadnji-deo-parking-levo", kind: "parking", polygon: [[313, 648], [427, 525], [456, 558], [341, 674]] },
       ],
     },
   ],

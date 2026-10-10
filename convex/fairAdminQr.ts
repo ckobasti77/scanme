@@ -311,7 +311,9 @@ export const bulkAssignQrCommit = mutation({
  * code; current inventory only) to a car of the event: free → link; on car A
  * → move only when `expectedHolderModelId` is that holder (else
  * FAIR_QR_HOLDER_CHANGED, nothing written); the car has another sticker →
- * replace only with `replaceModelSticker`. Same car and sticker → unchanged.
+ * replace only with `replaceModelSticker` and the car's sticker the admin saw
+ * (`expectedModelStickerCode`, resolver code; P2/RN N3: another one →
+ * FAIR_QR_HOLDER_CHANGED, nothing written). Same car and sticker → unchanged.
  */
 export const linkSticker = mutation({
   args: {
@@ -320,6 +322,7 @@ export const linkSticker = mutation({
     eventModelId: v.id("fairEventModels"),
     expectedHolderModelId: v.union(v.id("fairEventModels"), v.null()),
     replaceModelSticker: v.optional(v.boolean()),
+    expectedModelStickerCode: v.optional(v.union(v.string(), v.null())),
   },
   returns: v.object({
     assignmentId: v.id("fairQrAssignments"),

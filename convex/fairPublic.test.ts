@@ -192,6 +192,16 @@ describe("getModelBySlug", () => {
     expect(await read("nepostojeci-model")).toBeNull();
     expect(await f.t.query(api.fairPublic.getModelBySlug, { eventSlug: "nepostojeci", modelSlug: f.starter.slug })).toBeNull();
   });
+
+  test("P2 (RN info): a published model of a draft event is not public until the event is", async () => {
+    const f = await setup();
+    const inDraft = await f.model(f.draftEvent, "test-volta-draft-event", "starter");
+    const read = () => f.t.query(api.fairPublic.getModelBySlug, { eventSlug: "test-auto-moto-fest-2026", modelSlug: inDraft.slug });
+    expect(await f.t.run(async (ctx) => (await ctx.db.get(inDraft.modelId))!.status)).toBe("published");
+    expect(await read()).toBeNull();
+    await f.t.run((ctx) => ctx.db.patch(f.draftEvent.eventId, { status: "published" }));
+    expect(await read()).toMatchObject({ id: inDraft.modelId, eventSlug: "test-auto-moto-fest-2026" });
+  });
 });
 
 describe("getModelsByIds (local garage)", () => {
@@ -298,6 +308,41 @@ describe("getEventMap (M1)", () => {
     // The admin publish check agrees: a shared location never blocks the TEST models there (O4: warning only).
     const issues = await f.admin.query(api.fairAdmin.listValidationIssues, { eventId: f.em.eventId });
     expect(issues.flatMap((row) => row.issues.filter((issue) => issue.severity === "error").map((issue) => issue.code))).not.toContain("FAIR_MAP_LOCATION_TAKEN");
+  });
+
+  test("P2 (RN N4): a draft participation or a draft stand is never on the map; the active ones stay", async () => {
+    const f = await setup();
+    const extra = await f.t.run(async (ctx) => {
+      const client = async (code: string) => {
+        const accountId = await ctx.db.insert("accounts", {
+          name: `TEST ${code}`, plan: "basic", status: "active", smkCode: `SMK-TP-${code}`, ownerDisplayName: "TEST vlasnik", normalizedOwnerDisplayName: "test vlasnik",
+          clientStatus: "active", adminV1MigrationVersion: 1, createdAt: NOW, updatedAt: NOW,
+        });
+        const businessId = await ctx.db.insert("businesses", {
+          accountId, name: `TEST izlagač ${code}`, slug: `test-izlagac-${code.toLowerCase()}`, smlCode: `SML-TP-${code}`, kind: "business", clientStatus: "active",
+          adminV1MigrationVersion: 1, status: "active", createdAt: NOW,
+        });
+        return { accountId, businessId };
+      };
+      const participation = (code: string, ids: { accountId: Id<"accounts">; businessId: Id<"businesses"> }, status: "draft" | "active", mapZoneId?: "ispred") =>
+        ctx.db.insert("fairParticipations", { externalKey: `test-p2-${code.toLowerCase()}`, eventId: f.em.eventId, ...ids, status, ...(mapZoneId ? { mapZoneId } : {}), createdAt: NOW, updatedAt: NOW });
+      const stand = (participationId: Id<"fairParticipations">, key: string, mapLocationId: string, status: "draft" | "active") =>
+        ctx.db.insert("fairStands", { eventId: f.em.eventId, participationId, externalKey: key, code: key, displayName: `TEST ${key}`, mapLocationId, status, createdAt: NOW, updatedAt: NOW });
+      const draftExhibitor = await participation("NACRT", await client("NACRT"), "draft", "ispred");
+      await stand(draftExhibitor, "test-p2-nacrt-17", "ispred-17", "active");
+      const activeExhibitor = await participation("AKTIVAN", await client("AKTIVAN"), "active");
+      const activeStand = await stand(activeExhibitor, "test-p2-aktivan-9", "hala-9", "active");
+      await stand(activeExhibitor, "test-p2-aktivan-6", "hala-6", "draft");
+      // The draft stand of the first exhibitor's stand too: off the map.
+      await stand(f.em.participationId, "test-p2-izlagac-5", "hala-5", "draft");
+      return { activeExhibitor, activeStand };
+    });
+    const map = (await f.t.query(api.fairPublic.getEventMap, { eventSlug: "test-elektromobilnost-2026" }))!;
+    expect(map.stands.map((row) => `${row.exhibitorName} @ ${row.mapLocationId}`).sort()).toEqual(["TEST izlagač @ ispred-14", "TEST izlagač AKTIVAN @ hala-9"]);
+    expect(map.stands.find((row) => row.participationId === extra.activeExhibitor)?.standId).toBe(extra.activeStand);
+    // A draft exhibitor is not „without location“ either.
+    expect(map.exhibitorsWithoutLocation).toEqual([]);
+    expect(JSON.stringify(map)).not.toContain("NACRT");
   });
 
   test("a withdrawn model leaves the map; draft and unknown events have no map", async () => {

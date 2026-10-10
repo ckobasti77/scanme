@@ -1,5 +1,5 @@
 import { animate, motion, useMotionValue, useReducedMotion, useTransform } from "framer-motion";
-import { Layers, MapPin, Maximize2, Minus, Plus, Stamp } from "lucide-react";
+import { MapPin, Maximize2, Minus, Plus, Stamp } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
 import type { FairPublicMapStand } from "@/lib/fair-contract";
 import {
@@ -12,9 +12,11 @@ import {
   fairMapInscribedRect,
   fairMapLabelPoint,
   fairMapLimits,
+  fairMapLocationTakesStands,
   fairMapLogo,
   fairMapPointsAttr,
   fairMapStandLayout,
+  fairMapTouchLocation,
   fairMapZoomAt,
   type FairMapLocation,
   type FairMapPlacedStand,
@@ -24,22 +26,25 @@ import {
   type FairMapViewport,
   type FairMapZoneView,
 } from "@/lib/fair-map";
+import { fairHeatColor } from "@/lib/fair-heat";
 import { fmt } from "@/lib/i18n/format";
 import { fairMapSr as dict } from "@/lib/i18n/sr/fair-map";
+import type { FairMapHeatView } from "./fair-map-heat";
 import { fairMapPlaceText } from "./fair-map-text";
+import { FAIR_DURATION, FAIR_EASE } from "../fair-motion";
 import styles from "./fair-event-map.module.css";
 
 // N4 — one zone of the map as a vector drawing from the organizer geometry
 // (lib/fair-map): paper card with a fine grid, the zone outline, landmarks,
 // every stand with its number badge (once per split stand) and its
 // exhibitors' logo chips, partner points as circles, the open rear area.
-// The organizer's JPG is only an optional underlay ("Originalna mapa").
 // Pan / pinch / wheel / +/−/fit as in the test map (framer-motion values, no
-// re-render per frame), at most 4× the fitted view; Tab reaches every
+// re-render per frame; the buttons sit in a row under the map, inside its
+// card), at most 4× the fitted view; Tab reaches every
 // occupied stand and Enter/Space selects it. Nothing here writes anything.
 
 /** EDS §5.1 `event.scanmeStand`: set ONLY on the ScanMe location (EDS §3: never CTA, progress, selection or decoration). */
-const SCANME_STAND_STYLE = { "--fair-map-scanme": "#C6FF4A" } as CSSProperties;
+const SCANME_STAND_STYLE = { "--fair-map-scanme": "#6FC05D" } as CSSProperties;
 const TAP_SLOP = 8;
 const CHIP_ASPECT = 1.7;
 /** Smallest on-screen badge radius (px): numbers stay readable on the fitted map and grow when zoomed in. */
@@ -99,11 +104,11 @@ export function ZoneCanvas({
   selectedLocationId,
   focus,
   highlight,
-  showOriginal,
   passportMarkers,
   bubble,
+  heat = null,
+  heatOn = false,
   onSelect,
-  onToggleOriginal,
 }: {
   zoneView: FairMapZoneView;
   /** Shown on screen (the chosen zone on a phone; every zone on a large display). */
@@ -117,13 +122,15 @@ export function ZoneCanvas({
   focus: ZoneFocusRequest | null;
   /** M2: the rotation's active stand in this zone; `key` restarts the reveal each slot. */
   highlight: { location: FairMapLocation; key: number } | null;
-  showOriginal: boolean;
   /** Location id → the visitor's passport N/M label. */
   passportMarkers: ReadonlyMap<string, string>;
   /** Small callout over the selected stand (desktop); null for none. */
   bubble: string | null;
+  /** SAJAM SUPER: the last heat levels (kept after the switch goes off, so the layer fades out). */
+  heat?: FairMapHeatView | null;
+  /** „Gde je gužva“ is on: only colours change, nothing moves. */
+  heatOn?: boolean;
   onSelect: (locationId: string) => void;
-  onToggleOriginal: () => void;
 }) {
   const { zone } = zoneView;
   const content = useMemo<FairMapSize>(() => ({ width: zone.image.width, height: zone.image.height }), [zone.image.width, zone.image.height]);
@@ -131,6 +138,8 @@ export function ZoneCanvas({
   const x = useMotionValue(0);
   const y = useMotionValue(0);
   const scale = useMotionValue(1);
+  /** Reduced motion: the camera jumps, and this short fade tells the eye it moved. */
+  const fade = useMotionValue(1);
   const inverse = useTransform(scale, (value) => 1 / value);
   const radius = fairMapBadgeRadius(zone, display);
   const badgeMin = display ? BADGE_MIN_PX_DISPLAY : BADGE_MIN_PX;
@@ -139,25 +148,27 @@ export function ZoneCanvas({
   const [size, setSize] = useState<FairMapSize | null>(null);
   const controls = useRef<Array<{ stop: () => void }>>([]);
   const pointers = useRef(new Map<number, { x: number; y: number }>());
-  const gesture = useRef<{ start: FairMapViewport; px: number; py: number; distance: number; moved: number; locationId: string | null } | null>(null);
+  const gesture = useRef<{ start: FairMapViewport; px: number; py: number; distance: number; moved: number; locationId: string | null; touch: boolean } | null>(null);
   const padding = display ? 6 : 12;
   const limits = size ? fairMapLimits(size, content, padding) : null;
 
   const current = useCallback((): FairMapViewport => ({ scale: scale.get(), x: x.get(), y: y.get() }), [scale, x, y]);
   const apply = useCallback(
-    (next: FairMapViewport, animated: boolean) => {
+    /** `duration`: overlay for the zoom buttons, focal for bringing a chosen stand into view. */
+    (next: FairMapViewport, animated: boolean, duration: number = FAIR_DURATION.overlay) => {
       controls.current.forEach((control) => control.stop());
       controls.current = [];
       if (animated && !reduceMotion) {
-        const transition = { duration: 0.34, ease: [0.16, 1, 0.3, 1] as const };
+        const transition = { duration, ease: FAIR_EASE.enter };
         controls.current = [animate(x, next.x, transition), animate(y, next.y, transition), animate(scale, next.scale, transition)];
-      } else {
-        x.set(next.x);
-        y.set(next.y);
-        scale.set(next.scale);
+        return;
       }
+      x.set(next.x);
+      y.set(next.y);
+      scale.set(next.scale);
+      if (animated) controls.current = [animate(fade, [0.35, 1], { duration: FAIR_DURATION.state, ease: FAIR_EASE.enter })];
     },
-    [reduceMotion, scale, x, y],
+    [fade, reduceMotion, scale, x, y],
   );
 
   // Measure the viewport; fit on first measure and on every resize (rotation, zone shown).
@@ -182,7 +193,7 @@ export function ZoneCanvas({
     if (!focus || !active || !size || !limits) return;
     const location = zone.locations.find((row) => row.id === focus.locationId);
     if (!location) return;
-    apply(fairMapFocus(fairMapBounds(location.polygon), size, content, limits, focus.anchorY), true);
+    apply(fairMapFocus(fairMapBounds(location.polygon), size, content, limits, focus.anchorY), true, FAIR_DURATION.focal);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- one move per request
   }, [focus?.key, active, size]);
 
@@ -205,6 +216,13 @@ export function ZoneCanvas({
     return () => element.removeEventListener("wheel", onWheel);
   }, [apply, content, current, interactive, limits, size]);
 
+  const occupiedLocations = useMemo(() => zoneView.locations.map((row) => row.location), [zoneView.locations]);
+  /** The occupied location whose touch zone holds the viewport point (px, py), or null. */
+  const touchedLocation = (px: number, py: number) => {
+    const view = current();
+    return fairMapTouchLocation([(px - view.x) / view.scale, (py - view.y) / view.scale], occupiedLocations, view.scale);
+  };
+
   const local = (event: ReactPointerEvent) => {
     const rect = viewportRef.current!.getBoundingClientRect();
     return { x: event.clientX - rect.left, y: event.clientY - rect.top };
@@ -220,7 +238,7 @@ export function ZoneCanvas({
     const distance = all.length === 2 ? Math.hypot(all[0].x - all[1].x, all[0].y - all[1].y) : 0;
     const mid = all.length === 2 ? { x: (all[0].x + all[1].x) / 2, y: (all[0].y + all[1].y) / 2 } : point;
     const locationId = all.length === 1 ? ((event.target as Element).closest("[data-location-id]")?.getAttribute("data-location-id") ?? null) : null;
-    gesture.current = { start: current(), px: mid.x, py: mid.y, distance, moved: all.length > 1 ? TAP_SLOP + 1 : 0, locationId };
+    gesture.current = { start: current(), px: mid.x, py: mid.y, distance, moved: all.length > 1 ? TAP_SLOP + 1 : 0, locationId, touch: event.pointerType !== "mouse" };
   };
 
   const onPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -252,13 +270,18 @@ export function ZoneCanvas({
       return;
     }
     gesture.current = null;
-    if (g && event.type === "pointerup" && g.moved <= TAP_SLOP && g.locationId) onSelect(g.locationId);
+    if (!g || event.type !== "pointerup" || g.moved > TAP_SLOP) return;
+    // D1 (RN N7): a finger that missed a small stand still reaches it — every
+    // occupied location has an invisible touch zone of at least 44 CSS px.
+    const locationId = g.locationId ?? (g.touch ? touchedLocation(g.px, g.py) : null);
+    if (locationId) onSelect(locationId);
   };
 
   const items = useMemo<ZoneItem[]>(() => {
     const occupied = new Map(zoneView.locations.map((row) => [row.location.id, row.stands]));
     const chipOptions = { aspect: CHIP_ASPECT, gap: zone.image.width * 0.006, padding: zone.image.width * 0.006, maxWidth: zone.image.width * 0.15 };
-    return zone.locations.map((location) => {
+    // D1 (RN nisko): a placeholder (AMF "scanme") is not on the organizer map — not drawn.
+    return zone.locations.filter(fairMapLocationTakesStands).map((location) => {
       const stands = [...(occupied.get(location.id) ?? [])].sort((a, b) => a.stand.exhibitorName.localeCompare(b.stand.exhibitorName, "sr"));
       const layout = fairMapStandLayout(location, radius);
       const chips = location.kind === "partner" ? [] : fairMapChipGrid(layout.chips, stands.length, chipOptions).map((rect, index) => ({ rect, stand: stands[index].stand }));
@@ -281,44 +304,41 @@ export function ZoneCanvas({
   const gridId = `fair-map-grid-${zone.id}`;
   const grid = zone.image.width / 40;
   const stroke = zone.image.width / 600;
+  const heatShown = heatOn && heat !== null && heat.enough;
+  const heatLevel = (locationId: string) => (heat?.enough ? (heat.levels.get(locationId) ?? 0) : 0);
+  /** The heat colour of a location as CSS variables (stand tint and glow stops). */
+  const heatStyle = (locationId: string) => {
+    const level = heatLevel(locationId);
+    return level > 0
+      ? ({ "--heat": fairHeatColor(level), "--heat-alpha": (0.34 + 0.4 * level).toFixed(2), "--heat-mix": Math.round(14 + 22 * level) } as CSSProperties)
+      : undefined;
+  };
 
   return (
-    <section className={styles.zone} data-active={active} data-zone={zone.id} aria-label={zoneName}>
+    <section className={styles.zone} data-active={active} data-zone={zone.id} data-heat={heatShown ? "on" : "off"} aria-label={zoneName}>
       <div className={styles.zoneBar}>
         <h2 className={styles.zoneTitle}>{zoneName}</h2>
-        {interactive ? (
-          <>
-            <button type="button" className={styles.originalToggle} aria-pressed={showOriginal} onClick={onToggleOriginal}>
-              <Layers aria-hidden="true" />
-              {dict.originalMap}
-            </button>
-            <div className={styles.controls} role="group" aria-label={dict.mapControlsLabel}>
-              <button type="button" className={styles.controlButton} aria-label={dict.zoomIn} onClick={() => zoomBy(1.5)}>
-                <Plus aria-hidden="true" />
-              </button>
-              <button type="button" className={styles.controlButton} aria-label={dict.zoomOut} onClick={() => zoomBy(1 / 1.5)}>
-                <Minus aria-hidden="true" />
-              </button>
-              <button type="button" className={styles.controlButton} aria-label={dict.fitMap} onClick={() => size && limits && apply(fairMapFit(size, content, limits), true)}>
-                <Maximize2 aria-hidden="true" />
-              </button>
-            </div>
-          </>
-        ) : null}
       </div>
       <div
         ref={viewportRef}
         className={styles.viewport}
         data-interactive={interactive}
-        data-original={showOriginal}
         style={{ "--fair-map-ratio": `${zone.image.width} / ${zone.image.height}` } as CSSProperties}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerEnd}
         onPointerCancel={onPointerEnd}
       >
-        <motion.div className={styles.layer} style={{ x, y, scale, width: zone.image.width, height: zone.image.height, visibility: size ? "visible" : "hidden" }}>
-          <svg viewBox={`0 0 ${zone.image.width} ${zone.image.height}`} width={zone.image.width} height={zone.image.height} role="group" aria-label={fmt(dict.mapAria, { zone: zoneName })}>
+        <motion.div className={styles.layer} style={{ x, y, scale, opacity: fade, width: zone.image.width, height: zone.image.height, visibility: size ? "visible" : "hidden" }}>
+          <svg
+            viewBox={`0 0 ${zone.image.width} ${zone.image.height}`}
+            width={zone.image.width}
+            height={zone.image.height}
+            role="group"
+            aria-label={fmt(dict.mapAria, { zone: zoneName })}
+            // The drawing's stroke unit: CSS sets every stand outline (and its selection ring) from it.
+            style={{ "--fair-map-stroke": stroke } as CSSProperties}
+          >
             <defs>
               <pattern id={gridId} width={grid} height={grid} patternUnits="userSpaceOnUse">
                 <path d={`M${grid} 0H0V${grid}`} className={styles.gridLine} strokeWidth={stroke * 0.6} />
@@ -329,7 +349,6 @@ export function ZoneCanvas({
             </defs>
             <rect width={zone.image.width} height={zone.image.height} className={styles.paper} />
             <rect width={zone.image.width} height={zone.image.height} fill={`url(#${gridId})`} />
-            {showOriginal ? <image href={zone.image.src} width={zone.image.width} height={zone.image.height} className={styles.original} /> : null}
             {zone.outline ? <polygon points={fairMapPointsAttr(zone.outline)} className={styles.zoneOutline} strokeWidth={stroke * 2.5} /> : null}
 
             {zone.landmarks.map((landmark) => {
@@ -359,45 +378,90 @@ export function ZoneCanvas({
               );
             })}
 
+            {/* „Gde je gužva“: a soft pre-drawn radial glow around every stand with activity,
+                under the stands so numbers and logos stay on top (no blur filter). */}
+            {heat ? (
+              <g className={styles.heatLayer} aria-hidden="true">
+                {items
+                  .filter((item) => item.stands.length && heatLevel(item.location.id) > 0)
+                  .map((item) => {
+                    const bounds = fairMapBounds(item.location.polygon);
+                    // The halo grows with the stand and its heat, within 1.5–5 % of the zone width.
+                    const size = Math.max(bounds.maxX - bounds.minX, bounds.maxY - bounds.minY);
+                    const spread = Math.min(Math.max(size * 0.45, zone.image.width * 0.015), zone.image.width * 0.05) * (0.75 + 0.5 * heatLevel(item.location.id));
+                    const id = `fair-heat-${zone.id}-${item.location.id}`;
+                    return (
+                      <g key={item.location.id} style={heatStyle(item.location.id)}>
+                        <defs>
+                          <radialGradient id={id}>
+                            <stop offset="0%" className={styles.heatStopCore} />
+                            <stop offset="72%" className={styles.heatStopMid} />
+                            <stop offset="100%" className={styles.heatStopEdge} />
+                          </radialGradient>
+                        </defs>
+                        <ellipse
+                          className={styles.heatGlow}
+                          cx={(bounds.minX + bounds.maxX) / 2}
+                          cy={(bounds.minY + bounds.maxY) / 2}
+                          rx={(bounds.maxX - bounds.minX) / 2 + spread}
+                          ry={(bounds.maxY - bounds.minY) / 2 + spread}
+                          fill={`url(#${id})`}
+                        />
+                      </g>
+                    );
+                  })}
+              </g>
+            ) : null}
+
             {/* Empty locations: drawn (they are on the organizer map), not interactive. */}
             {items
-              .filter((item) => !item.stands.length)
+              .filter((item) => !item.stands.length && item.location.kind !== "scanme")
               .map((item) => (
                 <g key={item.location.id} className={styles.standEmpty} data-dimmed={lit !== null} aria-hidden="true">
                   <polygon points={fairMapPointsAttr(item.location.polygon)} strokeWidth={stroke * 1.5} />
                 </g>
               ))}
 
+            {/* D1 (RN N5): the ScanMe stand is always ScanMe green — without a stand row it is only drawn, not interactive. */}
             {items
-              .filter((item) => item.stands.length)
+              .filter((item) => item.stands.length || item.location.kind === "scanme")
               .map((item) => {
                 const { location } = item;
-                const selected = location.id === selectedLocationId;
+                const open = item.stands.length > 0;
+                const selected = open && location.id === selectedLocationId;
                 const shape = <polygon className={styles.standShape} points={fairMapPointsAttr(location.polygon)} strokeWidth={stroke * (selected ? 4 : 2)} />;
                 return (
                   <g
                     key={location.id}
                     className={styles.stand}
-                    data-location-id={location.id}
+                    data-location-id={open ? location.id : undefined}
                     data-kind={location.kind}
                     data-selected={selected}
                     data-dimmed={lit !== null && !lit.has(location.id)}
-                    role="button"
-                    tabIndex={interactive && active ? 0 : -1}
-                    aria-pressed={selected}
-                    aria-label={fmt(dict.locationAria, { location: fairMapPlaceText(location, zone.id), exhibitors: item.stands.map((row) => row.stand.exhibitorName).join(", ") })}
+                    data-heat={heatLevel(location.id) > 0 ? "on" : undefined}
+                    style={heatStyle(location.id)}
+                    role={open ? "button" : undefined}
+                    tabIndex={open ? (interactive && active ? 0 : -1) : undefined}
+                    aria-hidden={open ? undefined : true}
+                    aria-pressed={open ? selected : undefined}
+                    aria-label={open ? fmt(dict.locationAria, { location: fairMapPlaceText(location, zone.id), exhibitors: item.stands.map((row) => row.stand.exhibitorName).join(", ") }) : undefined}
                     onClick={(event) => {
                       // Keyboard / assistive activation; pointer taps are handled on the viewport.
-                      if (event.detail === 0 && interactive) onSelect(location.id);
+                      if (open && event.detail === 0 && interactive) onSelect(location.id);
                     }}
                     onKeyDown={(event) => {
-                      if (interactive && (event.key === "Enter" || event.key === " ")) {
+                      if (open && interactive && (event.key === "Enter" || event.key === " ")) {
                         event.preventDefault();
                         onSelect(location.id);
                       }
                     }}
                   >
-                    {selected ? <polygon className={styles.selectedGlow} points={fairMapPointsAttr(location.polygon)} strokeWidth={stroke * 14} /> : null}
+                    {selected ? (
+                      <>
+                        <polygon key={`pulse-${focus?.locationId === location.id ? focus.key : 0}`} className={styles.selectedPulse} points={fairMapPointsAttr(location.polygon)} />
+                        <polygon className={styles.selectedGlow} points={fairMapPointsAttr(location.polygon)} strokeWidth={stroke * 14} />
+                      </>
+                    ) : null}
                     {location.kind === "scanme" ? (
                       <g className={styles.scanmeLocation} style={SCANME_STAND_STYLE}>
                         {shape}
@@ -468,6 +532,7 @@ export function ZoneCanvas({
             ))}
           {bubble && selectedItem ? (
             <motion.span
+              key={`bubble-${selectedItem.location.id}`}
               className={styles.bubble}
               aria-hidden="true"
               style={{ left: selectedItem.box.x + selectedItem.box.width / 2, top: fairMapBounds(selectedItem.location.polygon).minY, scale: inverse, x: "-50%", y: "-100%" }}
@@ -477,6 +542,20 @@ export function ZoneCanvas({
           ) : null}
         </motion.div>
       </div>
+      {/* Under the map, inside its card: the drawing stays free of buttons. */}
+      {interactive ? (
+        <div className={styles.controls} role="group" aria-label={dict.mapControlsLabel}>
+          <button type="button" className={styles.controlButton} aria-label={dict.zoomIn} onClick={() => zoomBy(1.5)}>
+            <Plus aria-hidden="true" />
+          </button>
+          <button type="button" className={styles.controlButton} aria-label={dict.zoomOut} onClick={() => zoomBy(1 / 1.5)}>
+            <Minus aria-hidden="true" />
+          </button>
+          <button type="button" className={styles.controlButton} aria-label={dict.fitMap} onClick={() => size && limits && apply(fairMapFit(size, content, limits), true)}>
+            <Maximize2 aria-hidden="true" />
+          </button>
+        </div>
+      ) : null}
     </section>
   );
 }

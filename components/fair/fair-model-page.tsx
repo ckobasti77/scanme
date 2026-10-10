@@ -7,6 +7,7 @@ import type {
   FairPhotoPresentation,
   FairPublicModelFixture,
 } from "@/lib/fair-client/model-fixtures";
+import { fairPhotoUnoptimized } from "@/lib/fair-client/photo-url";
 import { fmt, type FairModelDict } from "@/lib/i18n";
 import { fairEventThemeClass } from "@/lib/fair-theme";
 import { FAIR_PRIVACY_PATH } from "@/lib/fair-contract";
@@ -239,6 +240,7 @@ export function FairModelPage({
               fill
               priority
               sizes="(max-width: 767px) 100vw, 560px"
+              unoptimized={fairPhotoUnoptimized(model.photoUrl)}
               className="fair-model-hero__image"
               style={fairVehiclePhotoStyle(model.photoUrl)}
             />

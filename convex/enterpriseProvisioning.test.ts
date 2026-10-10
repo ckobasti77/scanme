@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
 
-import { convexTest } from "convex-test";
+import { convexTest, type TestConvex } from "convex-test";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
@@ -20,7 +20,7 @@ beforeEach(() => {
 // A platform-admin user (gates provisioning) and a REGULAR Enterprise-owner user
 // (NOT an admin email — if it were, requireBusinessAccess would bypass membership
 // and reaching N locations would prove nothing).
-async function seedUsers(t: ReturnType<typeof convexTest>) {
+async function seedUsers(t: TestConvex<typeof schema>) {
   return t.run(async (ctx) => {
     const now = Date.now();
     const adminUserId = await ctx.db.insert("users", {
@@ -46,7 +46,7 @@ function makeLocations(count: number) {
 // exact resume mechanism a crash recovery uses (re-invoke with the next index).
 // Convex-test does not auto-run scheduled functions, so nothing double-executes.
 async function drainFanOut(
-  t: ReturnType<typeof convexTest>,
+  t: TestConvex<typeof schema>,
   accountId: Id<"accounts">,
   ownerUserId: Id<"users">,
   locations: Array<{ name: string; slug: string }>,
@@ -65,7 +65,7 @@ async function drainFanOut(
 }
 
 async function businessesForAccount(
-  t: ReturnType<typeof convexTest>,
+  t: TestConvex<typeof schema>,
   accountId: Id<"accounts">,
 ) {
   return t.run((ctx) =>
@@ -77,7 +77,7 @@ async function businessesForAccount(
 }
 
 async function activeMemberships(
-  t: ReturnType<typeof convexTest>,
+  t: TestConvex<typeof schema>,
   ownerUserId: Id<"users">,
 ) {
   return t.run((ctx) =>

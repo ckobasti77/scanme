@@ -141,6 +141,7 @@ describe("space controls", () => {
 
   test("extend then close a one_off window, leaving the session row intact", async () => {
     const t = newT();
+    const eventDate = Date.now() + 3 * 24 * 60 * 60 * 1000;
     const adminId = await t.run((ctx) =>
       ctx.db.insert("users", {
         email: ADMIN_EMAIL,
@@ -151,13 +152,14 @@ describe("space controls", () => {
     const created = await as.mutation(api.memoriesAdmin.createCelebration, {
       kind: "svadba",
       title: "Ana i Nikola",
-      eventDate: Date.parse("2026-09-12T18:00:00Z"),
+      // Relative to now: extendSpaceWindow only accepts a closing time in the future.
+      eventDate,
       acquisitionChannel: "direct",
       contactName: "Ana",
       planKey: "basic",
     });
 
-    const later = Date.parse("2026-09-20T18:00:00Z");
+    const later = eventDate + 8 * 24 * 60 * 60 * 1000;
     await as.mutation(api.memoriesHost.extendSpaceWindow, {
       spaceId: created.spaceId,
       windowEndAt: later,

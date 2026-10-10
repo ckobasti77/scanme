@@ -1,5 +1,7 @@
 .fair-event {
-  --fair-canvas: #f1eee7;
+  /* Podloga strane i njen sjaj su iz Garaže i Pasoša (SAJAM SUPER, FAIR-DESIGN-DNA §2). */
+  --fair-canvas: #f7f8f8;
+  --fair-canvas-glow: radial-gradient(circle at 82% 5%, color-mix(in srgb, var(--fair-accent) 7%, transparent), transparent 28%);
   --fair-surface: #fffdf8;
   --fair-surface-muted: #e9e5dc;
   --fair-surface-warm: #d8c7b6;
@@ -17,6 +19,56 @@
   --fair-photo-scrim: rgb(20 19 18 / 0.82);
   --fair-photo-clear: rgb(20 19 18 / 0);
   --fair-header-height: 64px;
+
+  /* Tokeni sajamskog dizajna — docs/events/sajam-automobila-2026/FAIR-DESIGN-DNA.md.
+     Razmak: skala sa bazom 4. */
+  --fair-space-1: 4px;
+  --fair-space-2: 8px;
+  --fair-space-3: 12px;
+  --fair-space-4: 16px;
+  --fair-space-6: 24px;
+  --fair-space-8: 32px;
+  --fair-space-12: 48px;
+
+  /* Uglovi po pravilu ugnježdenja: unutrašnji = pola spoljašnjeg, a razmak
+     između njih = unutrašnji (24 → 12 → 6 i 16 → 8 → 4). Pilula samo za
+     čipove i dugmad koji su pilule po dizajnu; krug ostaje krug. */
+  --fair-radius-xl: 24px;
+  --fair-radius-lg: 16px;
+  --fair-radius-md: 12px;
+  --fair-radius-sm: 8px;
+  --fair-radius-xs: 6px;
+  --fair-radius-2xs: 4px;
+  --fair-radius-pill: 999px;
+  --fair-radius-round: 50%;
+
+  /* Ivice: jedna debljina, dve nijanse (tiha i izražena). */
+  --fair-border-width: 1px;
+  --fair-border: var(--fair-border-width) solid var(--fair-line);
+  --fair-border-strong: var(--fair-border-width) solid var(--fair-line-strong);
+
+  /* Senke: tri nivoa (miruje, podignuto, preko sadržaja), sa pomakom i mekim zamućenjem. */
+  --fair-shadow-1: 0 1px 3px var(--fair-shadow);
+  --fair-shadow-2: 0 8px 20px var(--fair-shadow);
+  --fair-shadow-3: 0 16px 40px var(--fair-shadow);
+  --fair-shadow-3-up: 0 -16px 40px var(--fair-shadow);
+
+  /* Pokret: 120 povratna reakcija, 200 promena stanja, 320 overlay i raspored,
+     480 jedan fokalni momenat. Ulaz usporava, izlaz je brži i ubrzava;
+     linear samo za beskonačne rotacije i progres. */
+  --fair-dur-instant: 0.01ms;
+  --fair-dur-feedback: 120ms;
+  --fair-dur-state: 200ms;
+  --fair-dur-overlay: 320ms;
+  --fair-dur-focal: 480ms;
+  --fair-dur-stagger: 40ms;
+  --fair-dur-spin: 800ms;
+  --fair-dur-loop: 1200ms;
+  --fair-ease-enter: cubic-bezier(0.16, 1, 0.3, 1);
+  --fair-ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  --fair-ease-move: cubic-bezier(0.65, 0, 0.35, 1);
+  --fair-ease-linear: linear;
+
   --fair-good: #1a8f5a;
   --fair-star: #f0a500;
   --fair-star-off: #d9d4c8;
@@ -24,7 +76,7 @@
   min-height: 100dvh;
   overflow-x: clip;
   color-scheme: light;
-  background: var(--fair-canvas);
+  background: var(--fair-canvas-glow), var(--fair-canvas);
   color: var(--fair-ink);
   font-family: "Archivo Variable", "Archivo", "Segoe UI", Arial, sans-serif;
   font-size: 16px;
@@ -78,19 +130,20 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   top: 0;
   z-index: 20;
   padding-top: env(safe-area-inset-top);
-  border-bottom: 1px solid var(--fair-line);
+  border-bottom: var(--fair-border);
   background: var(--fair-surface);
 }
 
 .fair-shell__inner {
   display: flex;
   min-height: var(--fair-header-height);
-  max-width: 560px;
+  /* A page may widen the header to its own content column (garage, map, deli). */
+  max-width: var(--fair-shell-width, 560px);
   margin-inline: auto;
-  padding: 8px 12px;
+  padding: var(--fair-space-2) var(--fair-space-3);
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: var(--fair-space-2);
 }
 
 .fair-event-lockup {
@@ -105,7 +158,7 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   width: 5px;
   height: 36px;
   flex: none;
-  border-radius: 2px;
+  border-radius: var(--fair-radius-2xs);
   background: var(--fair-accent);
 }
 
@@ -126,7 +179,7 @@ body:has(.fair-event) [data-theme-toggle="global"] {
 }
 
 .fair-event-lockup small {
-  margin-top: 4px;
+  margin-top: var(--fair-space-1);
   color: var(--fair-ink-muted);
   font-size: 9px;
   font-weight: 660;
@@ -138,7 +191,7 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   display: flex;
   flex: none;
   align-items: center;
-  gap: 4px;
+  gap: var(--fair-space-1);
 }
 
 .fair-shell__nav > a,
@@ -150,16 +203,16 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   align-content: center;
   gap: 1px;
   border: 1px solid transparent;
-  border-radius: 12px;
+  border-radius: var(--fair-radius-md);
   color: var(--fair-ink);
   font-size: 10px;
   font-weight: 620;
   line-height: 1.1;
   text-decoration: none;
   transition:
-    background-color 160ms ease-out,
-    border-color 160ms ease-out,
-    transform 160ms ease-out;
+    background-color var(--fair-dur-feedback) var(--fair-ease-enter),
+    border-color var(--fair-dur-feedback) var(--fair-ease-enter),
+    transform var(--fair-dur-feedback) var(--fair-ease-enter);
 }
 
 .fair-shell__nav > .fair-shell__current {
@@ -169,9 +222,11 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   color: var(--fair-accent-strong);
 }
 
-.fair-shell__nav > a:hover {
-  border-color: var(--fair-line);
-  background: var(--fair-surface-muted);
+@media (hover: hover) {
+  .fair-shell__nav > a:hover {
+    border-color: var(--fair-line);
+    background: var(--fair-surface-muted);
+  }
 }
 
 .fair-shell__nav > a:active {
@@ -200,7 +255,7 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   padding-inline: 5px;
   place-items: center;
   border: 2px solid var(--fair-surface);
-  border-radius: 999px;
+  border-radius: var(--fair-radius-pill);
   background: var(--fair-accent);
   color: var(--fair-accent-ink);
   font-size: 11px;
@@ -261,8 +316,9 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   flex: none;
   aspect-ratio: 16 / 10;
   overflow: hidden;
-  border-radius: 22px;
+  border-radius: var(--fair-radius-xl);
   background: #2a2d33;
+  box-shadow: var(--fair-shadow-2);
 }
 
 /* Class + direct child only: nothing else inside the hero (chat-head logo, chip) is ever matched. */
@@ -454,9 +510,10 @@ body:has(.fair-event) [data-theme-toggle="global"] {
 .fair-specs {
   flex: none;
   overflow: hidden;
-  border: 1px solid var(--fair-line);
-  border-radius: 18px;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-xl);
   background: var(--fair-surface);
+  box-shadow: var(--fair-shadow-2);
   -webkit-user-select: none;
   user-select: none;
 }
@@ -652,14 +709,14 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   padding: 10px 14px;
   align-items: center;
   gap: 12px;
-  border: 1px solid color-mix(in srgb, var(--fair-accent) 12%, transparent);
-  border-radius: 16px;
+  border: var(--fair-border-width) solid color-mix(in srgb, var(--fair-accent) 12%, transparent);
+  border-radius: var(--fair-radius-lg);
   background: var(--fair-accent-soft);
   color: var(--fair-accent-strong);
   text-align: left;
   text-decoration: none;
   -webkit-user-drag: none;
-  transition: background-color 160ms ease-out;
+  transition: background-color var(--fair-dur-feedback) var(--fair-ease-enter);
 }
 
 .fair-audience-action:hover {
@@ -726,9 +783,10 @@ body:has(.fair-event) [data-theme-toggle="global"] {
 }
 
 .fair-rate-card {
-  border: 1px solid var(--fair-line);
-  border-radius: 16px;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-lg);
   background: var(--fair-surface);
+  box-shadow: var(--fair-shadow-2);
 }
 
 .fair-starter-rating {
@@ -775,7 +833,7 @@ body:has(.fair-event) [data-theme-toggle="global"] {
 .fair-rate-row__control {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--fair-space-2);
 }
 
 .fair-rate-row__value {
@@ -911,7 +969,7 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   min-height: 50px;
   margin-top: 12px;
   border-color: var(--fair-ink);
-  border-radius: 15px;
+  border-radius: var(--fair-radius-md);
   background: var(--fair-ink);
   color: #fff;
 }
@@ -950,8 +1008,8 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  border: 1px solid var(--fair-line);
-  border-radius: 16px;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-md);
   background: var(--fair-surface);
   color: var(--fair-ink);
   cursor: pointer;
@@ -960,14 +1018,16 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   font-weight: 700;
   white-space: nowrap;
   transition:
-    border-color 160ms ease-out,
-    background-color 160ms ease-out,
-    transform 160ms ease-out;
+    border-color var(--fair-dur-feedback) var(--fair-ease-enter),
+    background-color var(--fair-dur-feedback) var(--fair-ease-enter),
+    transform var(--fair-dur-feedback) var(--fair-ease-enter);
 }
 
-.fair-action-grid button:hover {
-  border-color: var(--fair-accent);
-  background: var(--fair-accent-soft);
+@media (hover: hover) {
+  .fair-action-grid button:hover {
+    border-color: var(--fair-accent);
+    background: var(--fair-accent-soft);
+  }
 }
 
 .fair-action-grid button:active,
@@ -990,11 +1050,11 @@ body:has(.fair-event) [data-theme-toggle="global"] {
 }
 
 .fair-event button.fair-rate-open {
-  border-radius: 16px;
+  border-radius: var(--fair-radius-lg);
 }
 
 .fair-event button.fair-save-button {
-  border-radius: 16px;
+  border-radius: calc(var(--fair-radius-md) - var(--fair-border-width));
 }
 
 /* Save dock stays in flow: bottom-sticky used to cover the last lead action. */
@@ -1015,22 +1075,25 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   display: flex;
   height: 56px;
   align-items: center;
-  border: 1.5px solid var(--fair-accent);
-  border-radius: 18px;
-  background: var(--fair-accent);
-  box-shadow: 0 8px 20px color-mix(in srgb, var(--fair-accent) 28%, transparent);
+  /* The page's main button, black like „Pogledaj“ in the garage (SAJAM SUPER). */
+  border: var(--fair-border-width) solid var(--fair-ink);
+  border-radius: var(--fair-radius-md);
+  background: var(--fair-ink);
+  box-shadow: var(--fair-shadow-2);
   transition:
-    background-color 260ms ease-out,
-    box-shadow 260ms ease-out;
+    background-color var(--fair-dur-state) var(--fair-ease-enter),
+    border-color var(--fair-dur-state) var(--fair-ease-enter),
+    box-shadow var(--fair-dur-state) var(--fair-ease-enter);
 }
 
 .fair-save-dock:not([data-saved="true"]):has(.fair-save-button:hover) {
-  background: var(--fair-accent-strong);
+  background: color-mix(in srgb, var(--fair-ink) 84%, var(--fair-surface));
 }
 
 .fair-save-dock[data-saved="true"] {
+  border-color: var(--fair-line);
   background: var(--fair-surface);
-  box-shadow: 0 6px 16px rgb(0 0 0 / 0.08);
+  box-shadow: var(--fair-shadow-2);
 }
 
 .fair-save-button {
@@ -1043,7 +1106,7 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   justify-content: center;
   gap: 10px;
   border: 0;
-  border-radius: 16px;
+  border-radius: calc(var(--fair-radius-md) - var(--fair-border-width));
   background: none;
   color: #fff;
   cursor: pointer;
@@ -1075,7 +1138,7 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   padding: 0 14px 0 10px;
   align-items: center;
   gap: 2px;
-  border-radius: 16px;
+  border-radius: var(--fair-radius-md);
   color: var(--fair-accent-strong);
   font-size: 13.5px;
   font-weight: 700;
@@ -1101,7 +1164,7 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   z-index: 60;
   inset: 0;
   display: grid;
-  padding: 16px 12px 0;
+  padding: var(--fair-space-4) var(--fair-space-3) 0;
   align-items: end;
   background: rgb(23 25 24 / 0.5);
   touch-action: none;
@@ -1113,11 +1176,11 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   margin-inline: auto;
   overflow-y: auto;
   overscroll-behavior: contain;
-  border: 1px solid var(--fair-line);
+  border: var(--fair-border);
   border-bottom: 0;
-  border-radius: 22px 22px 0 0;
+  border-radius: var(--fair-radius-xl) var(--fair-radius-xl) 0 0;
   background: var(--fair-surface);
-  box-shadow: 0 -18px 48px var(--fair-shadow);
+  box-shadow: var(--fair-shadow-3-up);
   transform-origin: bottom center;
   will-change: transform;
   backface-visibility: hidden;
@@ -1131,17 +1194,18 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   z-index: 2;
   display: flex;
   min-height: 64px;
-  padding: 10px 12px 10px 18px;
+  padding: 10px var(--fair-space-3) 10px 18px;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  border-bottom: 1px solid var(--fair-line);
+  gap: var(--fair-space-4);
+  border-bottom: var(--fair-border);
   background: var(--fair-surface);
 }
 
 .fair-sheet h2 {
   margin: 0;
   font-size: 21px;
+  font-weight: 760;
   letter-spacing: -0.035em;
 }
 
@@ -1151,8 +1215,8 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   height: 44px;
   flex: none;
   place-items: center;
-  border: 1px solid var(--fair-line);
-  border-radius: 999px;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-md);
   background: var(--fair-surface);
   color: var(--fair-ink);
   cursor: pointer;
@@ -1165,8 +1229,8 @@ body:has(.fair-event) [data-theme-toggle="global"] {
 
 .fair-sheet__form {
   display: grid;
-  padding: 18px 16px max(20px, env(safe-area-inset-bottom));
-  gap: 16px;
+  padding: 18px var(--fair-space-4) max(20px, env(safe-area-inset-bottom));
+  gap: var(--fair-space-4);
 }
 
 .fair-sheet__form > label {
@@ -1175,22 +1239,6 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   color: var(--fair-ink-muted);
   font-size: 13px;
   font-weight: 620;
-}
-
-.fair-sheet__form input {
-  width: 100%;
-  min-height: 48px;
-  padding: 10px 12px;
-  border: 1px solid var(--fair-line-strong);
-  border-radius: 12px;
-  background: var(--fair-surface);
-  color: var(--fair-ink);
-  font: inherit;
-}
-
-.fair-sheet__form input:focus-visible {
-  outline: 3px solid var(--fair-focus);
-  outline-offset: 2px;
 }
 
 .fair-sheet__fixture-note,
@@ -1210,7 +1258,7 @@ body:has(.fair-event) [data-theme-toggle="global"] {
 .fair-sheet__primary {
   min-height: 52px;
   border: 1px solid var(--fair-accent-strong);
-  border-radius: 13px;
+  border-radius: var(--fair-radius-md);
   background: var(--fair-accent);
   color: var(--fair-accent-ink);
   cursor: pointer;
@@ -1230,10 +1278,10 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   z-index: 90;
   overflow: hidden;
   border: 1px solid rgb(255 253 248 / 0.72);
-  border-radius: 18px;
+  border-radius: var(--fair-radius-lg);
   pointer-events: none;
   object-fit: cover;
-  box-shadow: 0 18px 42px rgb(23 25 24 / 0.24);
+  box-shadow: var(--fair-shadow-3);
   will-change: transform, opacity, border-radius;
 }
 
@@ -1243,15 +1291,15 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   flex-direction: column;
 }
 
+/* The flow's row under the fair header (as the back row of a passport): back and the title, in the 560 px column. */
 .fair-flow-header {
   display: grid;
   width: min(100%, 560px);
   min-height: 64px;
   margin-inline: auto;
-  padding: max(8px, env(safe-area-inset-top)) 12px 8px;
+  padding: var(--fair-space-2) var(--fair-space-3) 0;
   grid-template-columns: 48px minmax(0, 1fr) 48px;
   align-items: center;
-  border-bottom: 1px solid var(--fair-line);
 }
 
 .fair-flow-header > a {
@@ -1259,8 +1307,8 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   width: 44px;
   height: 44px;
   place-items: center;
-  border: 1px solid var(--fair-line);
-  border-radius: 999px;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-md);
   color: var(--fair-ink);
 }
 
@@ -1297,7 +1345,7 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   display: grid;
   width: min(100%, 560px);
   margin-inline: auto;
-  padding: 12px 12px 0;
+  padding: var(--fair-space-3) var(--fair-space-3) 0;
   gap: 10px;
 }
 
@@ -1324,10 +1372,10 @@ body:has(.fair-event) [data-theme-toggle="global"] {
 .fair-question-progress button::before {
   width: 8px;
   height: 8px;
-  border-radius: 999px;
+  border-radius: var(--fair-radius-pill);
   background: var(--fair-line-strong);
   content: "";
-  transition: transform 160ms ease-out, background-color 160ms ease-out;
+  transition: transform var(--fair-dur-feedback) var(--fair-ease-enter), background-color var(--fair-dur-feedback) var(--fair-ease-enter);
 }
 
 .fair-question-progress button[aria-current="step"]::before {
@@ -1345,10 +1393,10 @@ body:has(.fair-event) [data-theme-toggle="global"] {
 
 .fair-question-card {
   padding: 18px 14px;
-  border: 1px solid var(--fair-line);
-  border-radius: 20px;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-xl);
   background: var(--fair-surface);
-  box-shadow: 0 12px 36px var(--fair-shadow);
+  box-shadow: var(--fair-shadow-2);
 }
 
 .fair-question-card > p {
@@ -1364,6 +1412,7 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   max-width: 460px;
   margin: 7px 0 18px;
   font-size: clamp(23px, 7vw, 30px);
+  font-weight: 760;
   letter-spacing: -0.045em;
   line-height: 1.08;
   text-wrap: balance;
@@ -1371,7 +1420,7 @@ body:has(.fair-event) [data-theme-toggle="global"] {
 
 .fair-vote-answers {
   display: grid;
-  gap: 8px;
+  gap: var(--fair-space-2);
 }
 
 .fair-vote-answer {
@@ -1384,16 +1433,16 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   padding: 10px 14px;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 12px;
-  border: 1px solid var(--fair-line);
-  border-radius: 14px;
+  gap: var(--fair-space-3);
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-md);
   background: var(--fair-surface);
   color: var(--fair-ink);
   cursor: pointer;
   font: inherit;
   font-weight: 670;
   text-align: left;
-  transition: border-color 120ms ease-out, transform 120ms ease-out;
+  transition: border-color var(--fair-dur-feedback) var(--fair-ease-enter), transform var(--fair-dur-feedback) var(--fair-ease-enter);
 }
 
 .fair-vote-answer:active {
@@ -1443,16 +1492,16 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--fair-space-3);
   color: var(--fair-danger);
 }
 
 .fair-vote-status button {
   min-height: 44px;
-  padding-inline: 12px;
+  padding-inline: var(--fair-space-3);
   flex: none;
   border: 1px solid var(--fair-danger);
-  border-radius: 11px;
+  border-radius: var(--fair-radius-md);
   background: var(--fair-surface);
   color: var(--fair-danger);
   cursor: pointer;
@@ -1464,12 +1513,12 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   display: flex;
   width: 100%;
   min-height: 54px;
-  padding: 10px 16px;
+  padding: 10px var(--fair-space-4);
   align-items: center;
   justify-content: center;
   gap: 10px;
   border: 1px solid var(--fair-accent-strong);
-  border-radius: 14px;
+  border-radius: var(--fair-radius-md);
   background: var(--fair-accent);
   color: var(--fair-accent-ink);
   cursor: pointer;
@@ -1488,10 +1537,10 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   width: min(100%, 560px);
   min-height: 72px;
   margin-inline: auto;
-  padding: 24px 16px 20px;
+  padding: var(--fair-space-6) var(--fair-space-4) 20px;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: var(--fair-space-2);
   color: var(--fair-ink-muted);
   font-size: 11px;
 }
@@ -1510,15 +1559,15 @@ body:has(.fair-event) [data-theme-toggle="global"] {
 
 .fair-dev-panel {
   width: min(calc(100% - 24px), 536px);
-  margin: 0 auto 32px;
-  padding: 16px;
+  margin: 0 auto var(--fair-space-8);
+  padding: var(--fair-space-4);
   border: 1px dashed var(--fair-line-strong);
-  border-radius: 14px;
+  border-radius: var(--fair-radius-lg);
   background: var(--fair-surface-muted);
 }
 
 .fair-dev-panel h2 {
-  margin: 0 0 12px;
+  margin: 0 0 var(--fair-space-3);
   font-size: 16px;
 }
 
@@ -1543,10 +1592,10 @@ body:has(.fair-event) [data-theme-toggle="global"] {
 .fair-dev-panel__group button {
   display: inline-flex;
   min-height: 44px;
-  padding-inline: 12px;
+  padding-inline: var(--fair-space-3);
   align-items: center;
-  border: 1px solid var(--fair-line-strong);
-  border-radius: 12px;
+  border: var(--fair-border-strong);
+  border-radius: var(--fair-radius-md);
   background: var(--fair-surface);
   color: var(--fair-ink);
   font-size: 13px;
@@ -1565,9 +1614,9 @@ body:has(.fair-event) [data-theme-toggle="global"] {
 .fair-not-found {
   display: grid;
   min-height: 100dvh;
-  padding: 32px 20px;
+  padding: var(--fair-space-8) 20px;
   place-items: center;
-  background: var(--fair-canvas);
+  background: var(--fair-canvas-glow), var(--fair-canvas);
 }
 
 .fair-not-found > div {
@@ -1577,12 +1626,15 @@ body:has(.fair-event) [data-theme-toggle="global"] {
 
 .fair-not-found h1 {
   margin: 0;
-  font-size: 32px;
-  line-height: 1.05;
+  color: var(--fair-accent);
+  font-size: clamp(28px, 8vw, 38px);
+  font-weight: 790;
+  letter-spacing: -0.05em;
+  line-height: 0.98;
 }
 
 .fair-not-found p {
-  margin: 12px 0 24px;
+  margin: var(--fair-space-3) 0 var(--fair-space-6);
   color: var(--fair-ink-muted);
 }
 
@@ -1591,7 +1643,7 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   min-height: 48px;
   padding-inline: 18px;
   align-items: center;
-  border-radius: 12px;
+  border-radius: var(--fair-radius-md);
   background: var(--fair-accent);
   color: var(--fair-accent-ink);
   font-weight: 680;
@@ -1604,7 +1656,7 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   }
 
   .fair-shell__inner {
-    padding-block: 4px;
+    padding-block: var(--fair-space-1);
   }
 
   .fair-event-lockup__mark {
@@ -1677,8 +1729,8 @@ body:has(.fair-event) [data-theme-toggle="global"] {
 
 @media (max-width: 360px) {
   .fair-shell__inner {
-    padding-inline: 8px;
-    gap: 4px;
+    padding-inline: var(--fair-space-2);
+    gap: var(--fair-space-1);
   }
 
   .fair-event-lockup {
@@ -1711,18 +1763,21 @@ body:has(.fair-event) [data-theme-toggle="global"] {
 
 @media (min-width: 768px) {
   .fair-model-main {
-    padding-top: 16px;
+    padding-top: var(--fair-space-4);
   }
 }
 
+/* Reduced motion: bez pomeranja. Keyframe animacije odmah staju na krajnjem
+   stanju, a prelazi zadržavaju samo boju, providnost i stanje, nikad
+   položaj ni veličinu (transform, širina, visina, grid). */
 @media (prefers-reduced-motion: reduce) {
   .fair-event *,
   .fair-event *::before,
   .fair-event *::after {
     scroll-behavior: auto !important;
-    animation-duration: 0.01ms !important;
+    animation-duration: var(--fair-dur-instant) !important;
     animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+    transition-property: opacity, color, background-color, border-color, outline-color, box-shadow, fill, stroke, fill-opacity, stroke-opacity, visibility !important;
   }
 }
 
@@ -1752,7 +1807,7 @@ body:has(.fair-event) [data-theme-toggle="global"] {
 .fair-sheet--full > header {
   position: static;
   min-height: 60px;
-  padding: 10px 10px 6px 16px;
+  padding: 10px var(--fair-space-4) 6px;
   gap: 10px;
   border-bottom: 0;
   background: var(--fair-canvas);
@@ -1770,7 +1825,7 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   height: 38px;
   flex: none;
   place-items: center;
-  border-radius: 50%;
+  border-radius: var(--fair-radius-round);
   background: var(--fair-ink);
   color: var(--fair-accent-ink);
   font-size: 17px;
@@ -1794,15 +1849,15 @@ body:has(.fair-event) [data-theme-toggle="global"] {
 .fair-sheet__body {
   min-height: 0;
   flex: 1;
-  padding: 0 16px;
+  padding: 0 var(--fair-space-4);
   overflow-y: auto;
   overscroll-behavior: contain;
 }
 
 .fair-sheet__footer {
   flex: none;
-  padding: 12px 16px max(16px, env(safe-area-inset-bottom));
-  border-top: 1px solid var(--fair-line);
+  padding: var(--fair-space-3) var(--fair-space-4) max(var(--fair-space-4), env(safe-area-inset-bottom));
+  border-top: var(--fair-border);
   background: var(--fair-canvas);
 }
 
@@ -1813,8 +1868,8 @@ body:has(.fair-event) [data-theme-toggle="global"] {
 
 .fair-sheet__secondary {
   min-height: 52px;
-  border: 1px solid var(--fair-line-strong);
-  border-radius: 13px;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-md);
   background: var(--fair-surface);
   color: var(--fair-ink);
   cursor: pointer;
@@ -1838,14 +1893,14 @@ body:has(.fair-event) [data-theme-toggle="global"] {
 
 @media (min-width: 600px) {
   .fair-sheet-backdrop--full {
-    padding: 24px 12px 0;
+    padding: var(--fair-space-6) var(--fair-space-3) 0;
   }
 
   .fair-sheet--full {
     height: calc(100dvh - 24px);
-    border: 1px solid var(--fair-line);
+    border: var(--fair-border);
     border-bottom: 0;
-    border-radius: 22px 22px 0 0;
+    border-radius: var(--fair-radius-xl) var(--fair-radius-xl) 0 0;
   }
 }
 
@@ -1856,11 +1911,67 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   line-height: 1.35;
 }
 
+/* One set of button states across the fair: a colour change on hover (only
+   where a pointer hovers), a short press, the shared focus ring; disabled
+   is a real disabled state. */
+.fair-sheet__primary,
+.fair-sheet__secondary,
+.fair-flow-primary,
+.fair-contact__use,
+.fair-contact__forget,
+.fair-consent__choice button,
+.fair-vote-status button,
+.fair-not-found a,
+.fair-flow-header > a,
+.fair-sheet > header button,
+.fair-dev-panel__group a,
+.fair-dev-panel__group button {
+  transition:
+    background-color var(--fair-dur-feedback) var(--fair-ease-enter),
+    border-color var(--fair-dur-feedback) var(--fair-ease-enter),
+    color var(--fair-dur-feedback) var(--fair-ease-enter),
+    transform var(--fair-dur-feedback) var(--fair-ease-enter);
+}
+
+.fair-sheet__primary:active:not(:disabled),
+.fair-sheet__secondary:active,
+.fair-flow-primary:active,
+.fair-contact__use:active,
+.fair-consent__choice button:active,
+.fair-vote-status button:active,
+.fair-not-found a:active,
+.fair-flow-header > a:active,
+.fair-sheet > header button:active {
+  transform: scale(0.98);
+}
+
+@media (hover: hover) {
+  .fair-sheet__primary:not(:disabled):hover,
+  .fair-flow-primary:hover,
+  .fair-contact__use:hover,
+  .fair-not-found a:hover {
+    background: var(--fair-accent-strong);
+  }
+
+  .fair-sheet__secondary:hover,
+  .fair-flow-header > a:hover,
+  .fair-sheet > header button:hover,
+  .fair-consent__choice button:not([aria-pressed="true"]):hover,
+  .fair-dev-panel__group a:not([aria-current="true"]):hover,
+  .fair-dev-panel__group button:not([aria-pressed="true"]):hover {
+    background: var(--fair-canvas);
+  }
+
+  .fair-contact__forget:hover {
+    color: var(--fair-ink);
+  }
+}
+
 /* Survey sheet */
 
 .fair-survey-bars {
   display: grid;
-  padding: 6px 16px 0;
+  padding: 6px var(--fair-space-4) 0;
   grid-auto-columns: minmax(0, 1fr);
   grid-auto-flow: column;
   gap: 5px;
@@ -1870,7 +1981,7 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   position: relative;
   height: 4px;
   overflow: hidden;
-  border-radius: 4px;
+  border-radius: var(--fair-radius-2xs);
   background: var(--fair-line);
 }
 
@@ -1881,11 +1992,11 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   content: "";
   transform: scaleX(var(--fair-bar-fill, 0));
   transform-origin: left;
-  transition: transform 700ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: transform var(--fair-dur-focal) var(--fair-ease-enter);
 }
 
 .fair-survey-stage {
-  padding: 22px 0 16px;
+  padding: 22px 0 var(--fair-space-4);
 }
 
 .fair-survey-step {
@@ -1893,11 +2004,13 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   flex-direction: column;
 }
 
+/* The overline of a question, as on Glas publike and the garage cards. */
 .fair-survey-step__eyebrow {
   color: var(--fair-accent-strong);
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
+  font-size: 11px;
+  font-weight: 720;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .fair-survey-step h3,
@@ -1932,9 +2045,9 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   min-height: 54px;
   padding: 10px 14px;
   align-items: center;
-  gap: 12px;
-  border: 1.5px solid var(--fair-line);
-  border-radius: 14px;
+  gap: var(--fair-space-3);
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-md);
   background: var(--fair-surface);
   color: var(--fair-ink);
   cursor: pointer;
@@ -1944,9 +2057,9 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   text-align: left;
   -webkit-tap-highlight-color: transparent;
   transition:
-    border-color 160ms ease-out,
-    background-color 160ms ease-out,
-    transform 120ms ease-out;
+    border-color var(--fair-dur-feedback) var(--fair-ease-enter),
+    background-color var(--fair-dur-feedback) var(--fair-ease-enter),
+    transform var(--fair-dur-feedback) var(--fair-ease-enter);
 }
 
 .fair-survey-option:active {
@@ -1960,10 +2073,10 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   flex: none;
   place-items: center;
   border: 2px solid var(--fair-line-strong);
-  border-radius: 50%;
+  border-radius: var(--fair-radius-round);
   transition:
-    border-color 160ms ease-out,
-    background-color 160ms ease-out;
+    border-color var(--fair-dur-feedback) var(--fair-ease-enter),
+    background-color var(--fair-dur-feedback) var(--fair-ease-enter);
 }
 
 .fair-survey-option__dot svg {
@@ -1992,7 +2105,7 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--fair-space-3);
 }
 
 .fair-survey-link {
@@ -2013,13 +2126,13 @@ body:has(.fair-event) [data-theme-toggle="global"] {
 
 .fair-survey-send {
   display: grid;
-  gap: 8px;
+  gap: var(--fair-space-2);
 }
 
 /* Lead sheets */
 
 .fair-lead {
-  padding: 18px 0 16px;
+  padding: 18px 0 var(--fair-space-4);
 }
 
 .fair-lead__unavailable p {
@@ -2038,7 +2151,7 @@ body:has(.fair-event) [data-theme-toggle="global"] {
 
 .fair-field {
   display: grid;
-  gap: 4px;
+  gap: var(--fair-space-1);
 }
 
 .fair-field > span {
@@ -2047,22 +2160,40 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   font-weight: 650;
 }
 
+/* One input for the whole fair (map search, lead and survey contact, sheet
+   forms): 48 px, md, the strong border, the same hover and focus ring. */
+.fair-sheet__form input,
 .fair-field input {
   width: 100%;
   min-height: 48px;
   padding: 0 14px;
-  border: 1.5px solid var(--fair-line);
-  border-radius: 12px;
+  border: var(--fair-border-strong);
+  border-radius: var(--fair-radius-md);
   background: var(--fair-surface);
   color: var(--fair-ink);
   font: inherit;
   font-size: 16px;
+  transition: border-color var(--fair-dur-feedback) var(--fair-ease-enter);
 }
 
-.fair-field input:focus-visible {
-  border-color: var(--fair-accent);
-  outline: 3px solid var(--fair-accent-soft);
-  outline-offset: 0;
+.fair-field input::placeholder,
+.fair-sheet__form input::placeholder {
+  color: var(--fair-ink-muted);
+  opacity: 1;
+}
+
+@media (hover: hover) {
+  .fair-field input:hover,
+  .fair-sheet__form input:hover {
+    border-color: var(--fair-ink-muted);
+  }
+}
+
+.fair-field input:focus-visible,
+.fair-sheet__form input:focus-visible {
+  border-color: var(--fair-focus);
+  outline: 3px solid var(--fair-focus);
+  outline-offset: 2px;
 }
 
 .fair-field input[aria-invalid="true"] {
@@ -2071,11 +2202,11 @@ body:has(.fair-event) [data-theme-toggle="global"] {
 
 .fair-contact__saved {
   display: flex;
-  padding: 8px 8px 8px 12px;
+  padding: var(--fair-space-2) var(--fair-space-2) var(--fair-space-2) var(--fair-space-3);
   align-items: center;
-  gap: 8px;
+  gap: var(--fair-space-2);
   border: 1px solid color-mix(in srgb, var(--fair-accent) 25%, transparent);
-  border-radius: 14px;
+  border-radius: var(--fair-radius-lg);
   background: var(--fair-accent-soft);
 }
 
@@ -2100,7 +2231,7 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   min-height: 44px;
   padding-inline: 14px;
   border: 0;
-  border-radius: 10px;
+  border-radius: var(--fair-radius-md);
   background: var(--fair-accent);
   color: var(--fair-accent-ink);
   cursor: pointer;
@@ -2123,10 +2254,10 @@ body:has(.fair-event) [data-theme-toggle="global"] {
 
 .fair-consent {
   display: grid;
-  padding: 10px 12px;
-  gap: 8px;
-  border: 1px solid var(--fair-line);
-  border-radius: 14px;
+  padding: 10px var(--fair-space-3);
+  gap: var(--fair-space-2);
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-lg);
   background: var(--fair-surface);
 }
 
@@ -2144,8 +2275,8 @@ body:has(.fair-event) [data-theme-toggle="global"] {
 
 .fair-consent__choice button {
   min-height: 44px;
-  border: 1.5px solid var(--fair-line);
-  border-radius: 10px;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-md);
   background: var(--fair-surface);
   color: var(--fair-ink);
   cursor: pointer;
@@ -2198,7 +2329,7 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   right: 10px;
   display: flex;
   align-items: flex-start;
-  gap: 8px;
+  gap: var(--fair-space-2);
   pointer-events: none;
 }
 
@@ -2209,7 +2340,7 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   flex: none;
   padding: 0;
   border: 0;
-  border-radius: 50%;
+  border-radius: var(--fair-radius-round);
   background: transparent;
   cursor: pointer;
   pointer-events: auto;
@@ -2223,7 +2354,7 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   overflow: hidden;
   place-items: center;
   border: 2px solid #fff;
-  border-radius: 50%;
+  border-radius: var(--fair-radius-round);
   background: var(--fair-ink);
   box-shadow: 0 6px 18px rgb(0 0 0 / 0.3);
   color: #fff;
@@ -2298,7 +2429,7 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   stroke-linecap: round;
   stroke-width: 2.4;
   opacity: min(1, calc(var(--fair-survey-done, 0) * 50));
-  transition: stroke-dashoffset 600ms cubic-bezier(0.2, 0.9, 0.2, 1);
+  transition: stroke-dashoffset var(--fair-dur-focal) var(--fair-ease-enter);
 }
 
 .fair-survey-head__badge {
@@ -2310,7 +2441,7 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   height: 18px;
   padding: 0 5px;
   place-items: center;
-  border-radius: 999px;
+  border-radius: var(--fair-radius-pill);
   background: var(--fair-accent);
   box-shadow: 0 0 0 2px var(--fair-surface);
   color: var(--fair-accent-ink);
@@ -2326,7 +2457,7 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   width: 6px;
   height: 6px;
   margin: -3px 0 0 -3px;
-  border-radius: 50%;
+  border-radius: var(--fair-radius-round);
   background: color-mix(in srgb, var(--fair-accent) 55%, white);
   opacity: 0;
   pointer-events: none;
@@ -2335,9 +2466,9 @@ body:has(.fair-event) [data-theme-toggle="global"] {
 .fair-survey-preview {
   position: relative;
   width: 214px;
-  margin-top: 4px;
+  margin-top: var(--fair-space-1);
   order: -1;
-  border-radius: 16px 4px 16px 16px;
+  border-radius: var(--fair-radius-lg) var(--fair-radius-2xs) var(--fair-radius-lg) var(--fair-radius-lg);
   background: var(--fair-surface);
   box-shadow: 0 12px 28px rgb(0 0 0 / 0.22);
   color: var(--fair-ink);
@@ -2348,7 +2479,7 @@ body:has(.fair-event) [data-theme-toggle="global"] {
 .fair-survey-preview__open {
   display: grid;
   width: 100%;
-  padding: 10px 34px 10px 12px;
+  padding: 10px 34px 10px var(--fair-space-3);
   border: 0;
   border-radius: inherit;
   background: transparent;
@@ -2385,24 +2516,24 @@ body:has(.fair-event) [data-theme-toggle="global"] {
 
 .fair-survey-preview__typing {
   display: inline-flex;
-  padding: 6px 0 4px;
-  gap: 4px;
+  padding: 6px 0 var(--fair-space-1);
+  gap: var(--fair-space-1);
 }
 
 .fair-survey-preview__typing i {
   width: 7px;
   height: 7px;
-  border-radius: 50%;
+  border-radius: var(--fair-radius-round);
   background: var(--fair-line-strong);
-  animation: fair-typing-dot 900ms ease-in-out infinite;
+  animation: fair-typing-dot var(--fair-dur-loop) var(--fair-ease-move) infinite;
 }
 
 .fair-survey-preview__typing i:nth-child(2) {
-  animation-delay: 150ms;
+  animation-delay: var(--fair-dur-feedback);
 }
 
 .fair-survey-preview__typing i:nth-child(3) {
-  animation-delay: 300ms;
+  animation-delay: var(--fair-dur-overlay);
 }
 
 @keyframes fair-typing-dot {
@@ -2428,7 +2559,7 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   height: 32px;
   place-items: center;
   border: 0;
-  border-radius: 10px;
+  border-radius: var(--fair-radius-md);
   background: transparent;
   color: var(--fair-ink-muted);
   cursor: pointer;
@@ -2462,9 +2593,9 @@ body:has(.fair-event) [data-theme-toggle="global"] {
 .fair-toast {
   margin: 0;
   padding: 10px 14px;
-  border-radius: 12px;
+  border-radius: var(--fair-radius-md);
   background: var(--fair-ink);
-  box-shadow: 0 12px 28px rgb(0 0 0 / 0.2);
+  box-shadow: var(--fair-shadow-3);
   color: var(--fair-accent-ink);
   font-size: 14px;
   font-weight: 600;
@@ -2479,10 +2610,10 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   height: 24px;
   flex: none;
   place-items: center;
-  border-radius: 50%;
+  border-radius: var(--fair-radius-round);
   background: var(--fair-accent);
   color: var(--fair-accent-ink);
-  animation: fair-check-in 320ms cubic-bezier(0.2, 0.9, 0.2, 1) both;
+  animation: fair-check-in var(--fair-dur-overlay) var(--fair-ease-enter) both;
 }
 
 .fair-save-button .fair-save-button__check svg {

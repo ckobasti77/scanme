@@ -9,19 +9,19 @@
 /* ------------------------------------------------------------------ layout */
 
 .root {
-  --fair-map-gutter: 16px;
+  --fair-map-gutter: var(--fair-space-4);
   --fair-map-chrome: rgb(23 25 24 / 0.86);
   display: grid;
   max-width: 1440px;
   margin-inline: auto;
-  padding: 12px var(--fair-map-gutter) 40px;
-  gap: 12px;
+  padding: var(--fair-space-3) var(--fair-map-gutter) var(--fair-space-12);
+  gap: var(--fair-space-3);
   grid-template-columns: minmax(0, 1fr);
 }
 
 @media (max-width: 374px) {
   .root {
-    --fair-map-gutter: 12px;
+    --fair-map-gutter: var(--fair-space-3);
   }
 }
 
@@ -35,10 +35,15 @@
 }
 
 .card {
-  padding: 16px;
-  border: 1px solid var(--fair-line);
-  border-radius: 20px;
+  padding: var(--fair-space-4);
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-xl);
   background: var(--fair-surface);
+}
+
+/* Page cards sit like the garage cards: shadow 2. The display mode keeps its flat cards. */
+.root:not([data-display="on"]) :is(.card, .zone, .directory) {
+  box-shadow: var(--fair-shadow-2);
 }
 
 .hint {
@@ -54,25 +59,67 @@
   height: 22px;
   padding-inline: 7px;
   place-items: center;
-  border-radius: 999px;
+  border-radius: var(--fair-radius-pill);
   background: var(--fair-surface-muted);
   color: var(--fair-ink);
   font-size: 13px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   line-height: 1;
+  transition:
+    background-color var(--fair-dur-state) var(--fair-ease-enter),
+    color var(--fair-dur-state) var(--fair-ease-enter);
+}
+
+/* A plain secondary action (outline): the empty search, the ScanMe card. */
+.secondaryButton {
+  display: inline-flex;
+  min-height: 44px;
+  padding: 0 var(--fair-space-4);
+  justify-self: start;
+  align-items: center;
+  gap: var(--fair-space-2);
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-md);
+  background: var(--fair-surface);
+  color: var(--fair-ink);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 680;
+  cursor: pointer;
+  transition:
+    background-color var(--fair-dur-feedback) var(--fair-ease-enter),
+    border-color var(--fair-dur-feedback) var(--fair-ease-enter),
+    transform var(--fair-dur-feedback) var(--fair-ease-enter);
+}
+
+.secondaryButton svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+
+.secondaryButton:active {
+  transform: scale(0.98);
+}
+
+@media (hover: hover) {
+  .secondaryButton:hover {
+    border-color: var(--fair-ink-muted);
+    background: var(--fair-canvas);
+  }
 }
 
 /* --------------------------------------------------------------- intro */
 
 .intro {
   display: grid;
-  padding: 12px 12px 12px 16px;
+  padding: var(--fair-radius-md) var(--fair-radius-md) var(--fair-radius-md) var(--fair-space-4);
   align-items: center;
-  gap: 4px 12px;
+  gap: var(--fair-space-1) var(--fair-space-3);
   grid-template-columns: minmax(0, 1fr) auto;
-  border: 1px solid var(--fair-line);
-  border-radius: 20px;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-xl);
   background: var(--fair-surface);
 }
 
@@ -98,34 +145,78 @@
   line-height: 20px;
 }
 
+/* "Pronađi ScanMe": the page's one ScanMe action, so it alone wears the
+   ScanMe primary (green, the site's button corners), at the search's height.
+   It takes the larger share of the row; while the search is open it folds
+   to a 48 px square with its icon (the name stays in aria-label). */
 .findButton {
   display: inline-flex;
-  grid-column: 2;
-  grid-row: 1;
-  min-height: 44px;
-  padding: 0 14px;
+  min-width: 48px;
+  height: 48px;
+  padding: 0 var(--fair-space-3);
+  flex: 1.25 1 0;
+  justify-content: center;
   align-items: center;
-  gap: 8px;
+  gap: var(--fair-space-2);
+  overflow: hidden;
   border: 0;
-  border-radius: 12px;
-  background: var(--fair-ink);
-  color: var(--fair-surface);
+  border-radius: var(--button-radius);
+  background: var(--primary);
+  color: var(--primary-foreground);
   font: inherit;
-  font-size: 14px;
-  font-weight: 700;
+  font-size: 15px;
+  font-weight: 720;
   white-space: nowrap;
   cursor: pointer;
-  box-shadow: 0 8px 18px var(--fair-shadow);
-  transition: transform 160ms ease-out;
+  transition:
+    flex-grow var(--fair-dur-overlay) var(--fair-ease-move),
+    flex-basis var(--fair-dur-overlay) var(--fair-ease-move),
+    padding var(--fair-dur-overlay) var(--fair-ease-move),
+    gap var(--fair-dur-overlay) var(--fair-ease-move),
+    transform var(--fair-dur-feedback) var(--fair-ease-enter),
+    background-color var(--fair-dur-feedback) var(--fair-ease-enter);
+}
+
+.findLabel {
+  min-width: 0;
+  max-width: 16em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition:
+    max-width var(--fair-dur-overlay) var(--fair-ease-move),
+    opacity var(--fair-dur-feedback) var(--fair-ease-enter);
+}
+
+.topBar[data-search-open="true"] .findButton {
+  flex: 0 0 48px;
+  padding-inline: 0;
+  gap: 0;
+}
+
+.topBar[data-search-open="true"] .findLabel {
+  max-width: 0;
+  opacity: 0;
 }
 
 .findButton svg {
   width: 18px;
   height: 18px;
+  flex: none;
 }
 
 .findButton:active {
   transform: scale(0.98);
+}
+
+@media (hover: hover) {
+  .findButton:not(:disabled):hover {
+    background: var(--primary-hover);
+  }
+}
+
+.findButton:focus-visible {
+  outline: 3px solid var(--fair-focus);
+  outline-offset: 2px;
 }
 
 .findButton:disabled {
@@ -133,25 +224,21 @@
   cursor: default;
 }
 
-/* --------------------------------------------------------------- tools */
+/* ------------------------------------------------------------- top bar */
 
-.tools {
-  display: grid;
+/* First row: search + "Pronađi ScanMe", one line at every width. The results
+   hang from the whole row on a phone (the field alone is too narrow for them). */
+.topBar {
+  position: relative;
+  display: flex;
   min-width: 0;
-  gap: 8px;
+  align-items: center;
+  gap: var(--fair-space-2);
 }
 
 .search {
-  position: relative;
-}
-
-.searchLabel {
-  display: block;
-  margin-bottom: 4px;
-  color: var(--fair-ink-muted);
-  font-size: 13px;
-  font-weight: 620;
-  line-height: 18px;
+  min-width: 0;
+  flex: 1 1 0;
 }
 
 .searchField {
@@ -171,21 +258,40 @@
 
 .searchInput {
   width: 100%;
-  min-height: 48px;
-  padding: 0 48px 0 44px;
-  border: 1px solid var(--fair-line-strong);
-  border-radius: 12px;
+  height: 48px;
+  padding: 0 var(--fair-space-12) 0 44px;
+  text-overflow: ellipsis;
+  border: var(--fair-border-strong);
+  border-radius: var(--fair-radius-md);
   background: var(--fair-surface);
   color: var(--fair-ink);
   font: inherit;
   font-size: 16px;
+  transition: border-color var(--fair-dur-feedback) var(--fair-ease-enter);
+}
+
+.searchInput::placeholder {
+  color: var(--fair-ink-muted);
+  opacity: 1;
+}
+
+/* Empty field: no clear button, so the placeholder may use that space. */
+.searchInput:placeholder-shown {
+  padding-right: var(--fair-space-3);
 }
 
 .searchInput::-webkit-search-cancel-button {
   display: none;
 }
 
+@media (hover: hover) {
+  .searchInput:hover {
+    border-color: var(--fair-ink-muted);
+  }
+}
+
 .searchInput:focus-visible {
+  border-color: var(--fair-focus);
   outline: 3px solid var(--fair-focus);
   outline-offset: 2px;
 }
@@ -198,10 +304,11 @@
   height: 44px;
   place-items: center;
   border: 0;
-  border-radius: 10px;
+  border-radius: var(--fair-radius-md);
   background: transparent;
   color: var(--fair-ink);
   cursor: pointer;
+  transition: background-color var(--fair-dur-feedback) var(--fair-ease-enter);
 }
 
 .searchClear svg {
@@ -209,31 +316,50 @@
   height: 20px;
 }
 
+@media (hover: hover) {
+  .searchClear:hover {
+    background: var(--fair-canvas);
+  }
+}
+
+/* Results float over the map: lg card, sm rows, the gap equal to the row's corner. */
 .results {
   position: absolute;
   z-index: 25;
-  top: calc(100% + 6px);
+  top: calc(100% + var(--fair-space-2));
   right: 0;
   left: 0;
-  display: grid;
   max-height: min(60dvh, 440px);
-  margin: 0;
-  padding: 6px;
-  gap: 4px;
+  padding: var(--fair-radius-sm);
   overflow-y: auto;
-  border: 1px solid var(--fair-line);
-  border-radius: 20px;
+  overscroll-behavior: contain;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-lg);
   background: var(--fair-surface);
-  box-shadow: 0 16px 40px var(--fair-shadow);
+  box-shadow: var(--fair-shadow-3);
+  transform-origin: 50% 0;
+}
+
+.resultList {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  gap: var(--fair-space-1);
   list-style: none;
 }
 
 .resultsEmpty {
+  display: grid;
+  padding: var(--fair-space-2) var(--fair-space-2) var(--fair-space-1);
+  gap: var(--fair-space-2);
+}
+
+.resultsEmptyTitle {
   margin: 0;
-  padding: 12px;
-  color: var(--fair-ink-muted);
-  font-size: 14px;
-  line-height: 20px;
+  font-size: 15px;
+  font-weight: 680;
+  line-height: 22px;
+  overflow-wrap: anywhere;
 }
 
 .resultButton,
@@ -241,26 +367,54 @@
   display: flex;
   width: 100%;
   min-height: 56px;
-  padding: 8px 10px;
+  padding: var(--fair-radius-xs) 10px var(--fair-radius-xs) var(--fair-radius-xs);
   align-items: center;
-  gap: 12px;
+  gap: var(--fair-space-3);
   border: 1px solid transparent;
-  border-radius: 12px;
+  border-radius: var(--fair-radius-md);
   background: transparent;
   color: var(--fair-ink);
   font: inherit;
   text-align: left;
   cursor: pointer;
+  transition:
+    background-color var(--fair-dur-feedback) var(--fair-ease-enter),
+    border-color var(--fair-dur-state) var(--fair-ease-enter);
 }
 
-.resultButton:hover,
-.entryButton:hover {
+.resultButton {
+  border-radius: var(--fair-radius-sm);
+}
+
+/* The hit the arrow keys point at reads like a pointer hover. */
+.resultButton[aria-selected="true"] {
   background: var(--fair-canvas);
+}
+
+@media (hover: hover) {
+  .entryButton:hover {
+    background: var(--fair-canvas);
+  }
+}
+
+.entryButton:active {
+  background: var(--fair-surface-muted);
 }
 
 .entryButton[aria-pressed="true"] {
   border-color: var(--fair-accent);
   background: var(--fair-accent-soft);
+}
+
+/* The letters the query hit. */
+.hit {
+  background: transparent;
+  color: inherit;
+  font-weight: 800;
+  text-decoration: underline;
+  text-decoration-color: var(--fair-accent);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
 }
 
 .entryText {
@@ -283,32 +437,71 @@
   line-height: 20px;
 }
 
+/* Segmented zones: the chosen one is marked by one indicator that glides. */
+/* The zones look like the garage tabs: a raised lg bar, the chosen zone on the
+   surface with an accent line under it; the indicator still slides. */
 .zoneSwitch {
+  position: relative;
+  isolation: isolate;
   display: grid;
-  padding: 4px;
   grid-template-columns: repeat(var(--fair-map-zones, 3), minmax(0, 1fr));
-  border: 1px solid var(--fair-line);
-  border-radius: 999px;
-  background: var(--fair-surface-muted);
+  overflow: hidden;
+  border: var(--fair-border-width) solid color-mix(in srgb, var(--fair-line) 88%, transparent);
+  border-radius: var(--fair-radius-lg);
+  background: color-mix(in srgb, var(--fair-surface) 92%, transparent);
+  box-shadow: var(--fair-shadow-2);
+}
+
+.zoneIndicator {
+  position: absolute;
+  z-index: -1;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: calc(100% / var(--fair-map-zones, 3));
+  background: var(--fair-surface);
+  transform: translateX(calc(100% * var(--fair-map-zone-index, 0)));
+  transition: transform var(--fair-dur-overlay) var(--fair-ease-move);
+}
+
+.zoneIndicator::after {
+  position: absolute;
+  right: var(--fair-space-3);
+  bottom: 0;
+  left: var(--fair-space-3);
+  height: 2px;
+  border-radius: var(--fair-radius-2xs) var(--fair-radius-2xs) 0 0;
+  background: var(--fair-accent);
+  content: "";
 }
 
 .zoneButton {
-  min-height: 44px;
+  min-height: 52px;
   padding-inline: 6px;
   border: 0;
-  border-radius: 999px;
+  border-radius: 0;
   background: transparent;
   color: var(--fair-ink-muted);
   font: inherit;
-  font-size: 15px;
-  font-weight: 650;
+  font-size: 13px;
+  font-weight: 780;
+  letter-spacing: -0.02em;
   cursor: pointer;
+  transition: color var(--fair-dur-state) var(--fair-ease-enter);
+}
+
+.zoneButton + .zoneButton {
+  border-left: var(--fair-border);
+}
+
+@media (hover: hover) {
+  .zoneButton:hover {
+    color: var(--fair-ink);
+  }
 }
 
 .zoneButton[aria-pressed="true"] {
-  background: var(--fair-surface);
   color: var(--fair-ink);
-  box-shadow: 0 1px 3px var(--fair-shadow);
 }
 
 /* One horizontal row that scrolls inside itself (never the page). */
@@ -316,7 +509,7 @@
   display: flex;
   margin-inline: calc(-1 * var(--fair-map-gutter));
   padding: 2px var(--fair-map-gutter);
-  gap: 8px;
+  gap: var(--fair-space-2);
   overflow-x: auto;
   overscroll-behavior-x: contain;
   scroll-padding-inline: var(--fair-map-gutter);
@@ -328,15 +521,16 @@
   display: none;
 }
 
+/* Choosing a filter changes colour only: same border, same weight, no jump. */
 .filterButton {
   display: inline-flex;
   min-height: 44px;
-  padding: 0 8px 0 12px;
+  padding: 0 var(--fair-space-2) 0 var(--fair-space-3);
   flex: none;
   align-items: center;
   gap: 7px;
-  border: 1px solid var(--fair-line-strong);
-  border-radius: 999px;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-pill);
   background: var(--fair-surface);
   color: var(--fair-ink);
   font: inherit;
@@ -346,14 +540,27 @@
   cursor: pointer;
   scroll-snap-align: start;
   transition:
-    background-color 160ms ease-out,
-    color 160ms ease-out;
+    background-color var(--fair-dur-state) var(--fair-ease-enter),
+    border-color var(--fair-dur-state) var(--fair-ease-enter),
+    color var(--fair-dur-state) var(--fair-ease-enter),
+    transform var(--fair-dur-feedback) var(--fair-ease-enter);
 }
 
 .filterButton svg {
   width: 18px;
   height: 18px;
   flex: none;
+}
+
+.filterButton:active {
+  transform: scale(0.97);
+}
+
+@media (hover: hover) {
+  .filterButton:not([aria-pressed="true"]):hover {
+    border-color: var(--fair-ink-muted);
+    background: var(--fair-canvas);
+  }
 }
 
 .filterButton[aria-pressed="true"] {
@@ -372,15 +579,15 @@
 .mapArea {
   display: grid;
   min-width: 0;
-  scroll-margin-top: calc(var(--fair-header-height) + env(safe-area-inset-top) + 8px);
+  scroll-margin-top: calc(var(--fair-header-height) + env(safe-area-inset-top) + var(--fair-space-2));
 }
 
 .zone {
   display: grid;
   min-width: 0;
   overflow: hidden;
-  border: 1px solid var(--fair-line);
-  border-radius: 20px;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-xl);
   background: var(--fair-surface);
 }
 
@@ -390,11 +597,29 @@
   padding: 6px 6px 6px 12px;
   align-items: center;
   gap: 8px;
-  border-bottom: 1px solid var(--fair-line);
+  border-bottom: var(--fair-border);
 }
 
 .zone[data-active="false"] {
   display: none;
+}
+
+/* Another zone: the map cross-fades in (the indicator above glides to it). */
+.root:not([data-display="on"]) .zone {
+  transition: opacity var(--fair-dur-state) var(--fair-ease-enter);
+}
+
+@starting-style {
+  .root:not([data-display="on"]) .zone[data-active="true"] {
+    opacity: 0;
+  }
+}
+
+/* The zone's title bar: only where the titles show (1440 px, the display). */
+.root:not([data-display="on"]) .zoneBar {
+  display: none;
+  min-height: 0;
+  padding: var(--fair-radius-md) var(--fair-radius-md) var(--fair-radius-md) var(--fair-space-3);
 }
 
 .zoneTitle {
@@ -414,7 +639,8 @@
   aspect-ratio: var(--fair-map-ratio);
   overflow: hidden;
   overscroll-behavior: contain;
-  background: radial-gradient(circle at 50% 35%, rgb(255 253 248 / 0.9), transparent 62%), var(--fair-surface-muted);
+  /* A cool frame from the page tones around the warm map paper (no beige band, SAJAM SUPER). */
+  background: radial-gradient(circle at 50% 35%, rgb(255 253 248 / 0.9), transparent 62%), color-mix(in srgb, var(--fair-canvas) 94%, var(--fair-ink));
   cursor: grab;
   touch-action: none;
   user-select: none;
@@ -446,31 +672,6 @@
 .gridLine {
   fill: none;
   stroke: rgb(70 85 77 / 0.08);
-}
-
-.original {
-  opacity: 1;
-}
-
-/* "Originalna mapa organizatora": the organizer's JPG shows through the
-   vector (outlines and numbers stay, the drawing's own fills and logos step back). */
-.viewport[data-original="true"] :is(.paper, .zoneOutline, .stairs, .parking, .entrance, .totem) {
-  opacity: 0;
-}
-
-.viewport[data-original="true"] .standShape,
-.viewport[data-original="true"] .standEmpty polygon,
-.viewport[data-original="true"] .partnerCircle {
-  fill-opacity: 0.08;
-}
-
-.viewport[data-original="true"] .scanmeLocation .standShape {
-  fill-opacity: 0.45;
-}
-
-.viewport[data-original="true"] .chip,
-.viewport[data-original="true"] .stand image {
-  opacity: 0;
 }
 
 .zoneOutline {
@@ -526,25 +727,40 @@
 .stand {
   cursor: pointer;
   outline: none;
-  transition: opacity 200ms ease-out;
+  transition: opacity var(--fair-dur-state) var(--fair-ease-enter);
 }
 
-.viewport[data-interactive="false"] .stand {
+.standEmpty {
+  transition: opacity var(--fair-dur-state) var(--fair-ease-enter);
+}
+
+.viewport[data-interactive="false"] .stand,
+.stand:not([data-location-id]) {
   cursor: default;
 }
 
+/* Outline widths come from the drawing's stroke unit (--fair-map-stroke on the svg),
+   so a choice can thicken the outline smoothly. */
 .standShape {
   fill: var(--fair-surface);
+  fill-opacity: 1;
   stroke: rgb(23 25 24 / 0.32);
+  stroke-width: calc(var(--fair-map-stroke, 1) * 2);
   stroke-linejoin: round;
   transition:
-    fill 160ms ease-out,
-    stroke 160ms ease-out;
+    fill var(--fair-dur-feedback) var(--fair-ease-enter),
+    fill-opacity var(--fair-dur-state) var(--fair-ease-enter),
+    stroke var(--fair-dur-state) var(--fair-ease-enter),
+    stroke-width var(--fair-dur-state) var(--fair-ease-enter);
 }
 
-.stand:hover .standShape {
-  fill: #fffefb;
-  stroke: var(--fair-accent);
+/* D1 (RN N5): only where a pointer really hovers (a tap on a phone leaves
+   :hover stuck), and never over the ScanMe green. */
+@media (hover: hover) {
+  .stand:not([data-kind="scanme"]):hover .standShape {
+    fill: #fffefb;
+    stroke: var(--fair-accent);
+  }
 }
 
 .stand[data-kind="area"] .standShape {
@@ -560,9 +776,12 @@
   opacity: 0.22;
 }
 
-/* Selected: terracotta outline and a soft halo (the panel/sheet name it too). */
+/* Selected — the map's focal moment: the outline thickens in the accent, a
+   soft halo settles and one pulse goes out once (the camera brings the stand
+   into view at the same time; the panel or sheet names it). */
 .stand[data-selected="true"] .standShape {
   stroke: var(--fair-accent);
+  stroke-width: calc(var(--fair-map-stroke, 1) * 4);
 }
 
 .selectedGlow {
@@ -571,6 +790,34 @@
   stroke-linejoin: round;
   opacity: 0.18;
   pointer-events: none;
+  animation: fair-map-glow-in var(--fair-dur-focal) var(--fair-ease-enter) both;
+}
+
+.selectedPulse {
+  fill: none;
+  stroke: var(--fair-accent);
+  stroke-width: calc(var(--fair-map-stroke, 1) * 4);
+  stroke-linejoin: round;
+  opacity: 0;
+  pointer-events: none;
+  animation: fair-map-pulse calc(var(--fair-dur-focal) * 1.5) var(--fair-ease-enter) both;
+}
+
+@keyframes fair-map-glow-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes fair-map-pulse {
+  from {
+    opacity: 0.55;
+    stroke-width: calc(var(--fair-map-stroke, 1) * 4);
+  }
+  to {
+    opacity: 0;
+    stroke-width: calc(var(--fair-map-stroke, 1) * 40);
+  }
 }
 
 .stand:focus-visible .standShape {
@@ -584,6 +831,12 @@
   stroke: var(--fair-ink);
 }
 
+/* Logos have no plate any more: on the green stand the ScanMe logo's light
+   green "Me" would vanish, so there it is drawn in one dark ink. */
+.stand[data-kind="scanme"] .chip image[href$="/scanme.webp"] {
+  filter: brightness(0);
+}
+
 .partnerCircle {
   fill: var(--fair-surface);
   stroke: var(--fair-line-strong);
@@ -595,10 +848,10 @@
   stroke-width: 4px;
 }
 
+/* No plate behind a logo: the transparent logo sits on the stand itself. */
 .chip rect {
-  fill: #ffffff;
-  stroke: rgb(23 25 24 / 0.12);
-  stroke-width: 1px;
+  fill: none;
+  stroke: none;
 }
 
 .chip text {
@@ -612,7 +865,7 @@
   display: inline-grid;
   place-items: center;
   border: 0.08em solid var(--fair-line-strong);
-  border-radius: 999px;
+  border-radius: var(--fair-radius-pill);
   background: var(--fair-surface);
   color: var(--fair-ink);
   font-weight: 800;
@@ -621,7 +874,11 @@
   white-space: nowrap;
   pointer-events: none;
   box-shadow: 0 0.08em 0.2em var(--fair-shadow);
-  transition: opacity 200ms ease-out;
+  transition:
+    opacity var(--fair-dur-state) var(--fair-ease-enter),
+    background-color var(--fair-dur-state) var(--fair-ease-enter),
+    border-color var(--fair-dur-state) var(--fair-ease-enter),
+    color var(--fair-dur-state) var(--fair-ease-enter);
 }
 
 .badge[data-empty="true"] {
@@ -656,7 +913,7 @@
   padding: 3px 9px 3px 6px;
   gap: 4px;
   border: 1px solid var(--fair-ink);
-  border-radius: 999px;
+  border-radius: var(--fair-radius-pill);
   background: var(--fair-surface);
   color: var(--fair-ink);
   font-size: 13px;
@@ -673,19 +930,31 @@
 .bubble {
   min-height: 32px;
   margin-top: -10px;
-  padding: 6px 12px;
-  border-radius: 12px;
+  padding: 6px var(--fair-space-3);
+  border-radius: var(--fair-radius-md);
   background: var(--fair-ink);
   color: var(--fair-surface);
   font-size: 14px;
   font-weight: 700;
-  box-shadow: 0 8px 20px var(--fair-shadow);
+  box-shadow: var(--fair-shadow-2);
+  animation: fair-map-bubble-in var(--fair-dur-overlay) var(--fair-ease-enter) both;
 }
 
+/* `translate` is its own property: it rises without touching the inline transform. */
+@keyframes fair-map-bubble-in {
+  from {
+    opacity: 0;
+    translate: 0 6px;
+  }
+}
+
+/* Under the map, inside its card, from the left: md buttons 12 px inside the xl corner. */
 .controls {
   display: flex;
-  margin-left: auto;
-  gap: 6px;
+  padding: var(--fair-radius-md);
+  justify-content: flex-start;
+  gap: var(--fair-space-2);
+  border-top: var(--fair-border);
 }
 
 .controlButton {
@@ -693,12 +962,24 @@
   width: 44px;
   height: 44px;
   place-items: center;
-  border: 1px solid var(--fair-line-strong);
-  border-radius: 12px;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-md);
   background: var(--fair-surface);
   color: var(--fair-ink);
   cursor: pointer;
-  box-shadow: 0 1px 3px var(--fair-shadow);
+  transition:
+    background-color var(--fair-dur-feedback) var(--fair-ease-enter),
+    transform var(--fair-dur-feedback) var(--fair-ease-enter);
+}
+
+.controlButton:active {
+  transform: scale(0.95);
+}
+
+@media (hover: hover) {
+  .controlButton:hover {
+    background: var(--fair-canvas);
+  }
 }
 
 .controlButton svg {
@@ -706,46 +987,15 @@
   height: 20px;
 }
 
-.originalToggle {
-  display: inline-flex;
-  min-width: 0;
-  min-height: 44px;
-  padding: 0 12px;
-  align-items: center;
-  gap: 6px;
-  border: 1px solid var(--fair-line-strong);
-  border-radius: 999px;
-  background: rgb(255 253 248 / 0.94);
-  color: var(--fair-ink);
-  font: inherit;
-  font-size: 13px;
-  font-weight: 650;
-  line-height: 1.15;
-  text-align: left;
-  cursor: pointer;
-}
-
-.originalToggle svg {
-  width: 16px;
-  height: 16px;
-  flex: none;
-}
-
-.originalToggle[aria-pressed="true"] {
-  border-color: var(--fair-ink);
-  background: var(--fair-ink);
-  color: var(--fair-surface);
-}
-
 /* ------------------------------------------------------- list + detail */
 
 .directory {
   display: grid;
   min-width: 0;
-  padding: 16px;
-  gap: 8px;
-  border: 1px solid var(--fair-line);
-  border-radius: 20px;
+  padding: var(--fair-space-4);
+  gap: var(--fair-space-2);
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-xl);
   background: var(--fair-surface);
 }
 
@@ -767,38 +1017,43 @@
   line-height: 20px;
 }
 
+.groups {
+  display: grid;
+  min-width: 0;
+}
+
 .group {
-  border-top: 1px solid var(--fair-line);
+  border-top: var(--fair-border);
+}
+
+.groupHeading {
+  margin: 0;
+  font: inherit;
 }
 
 .groupSummary {
   display: flex;
+  width: 100%;
   min-height: 52px;
+  padding: 0 var(--fair-space-1);
   align-items: center;
   gap: 10px;
+  border: 0;
+  border-radius: var(--fair-radius-md);
+  background: transparent;
+  color: var(--fair-ink);
+  font: inherit;
   font-size: 16px;
   font-weight: 680;
+  text-align: left;
   cursor: pointer;
-  list-style: none;
+  transition: background-color var(--fair-dur-feedback) var(--fair-ease-enter);
 }
 
-.groupSummary::-webkit-details-marker {
-  display: none;
-}
-
-.groupSummary::after {
-  margin-left: auto;
-  content: "";
-  width: 10px;
-  height: 10px;
-  border-right: 2px solid var(--fair-ink-muted);
-  border-bottom: 2px solid var(--fair-ink-muted);
-  transform: rotate(45deg) translateY(-3px);
-  transition: transform 160ms ease-out;
-}
-
-.group[open] > .groupSummary::after {
-  transform: rotate(-135deg) translateY(-3px);
+@media (hover: hover) {
+  .groupSummary:hover {
+    background: var(--fair-canvas);
+  }
 }
 
 .groupSummary svg {
@@ -808,29 +1063,69 @@
   color: var(--fair-ink-muted);
 }
 
-.groupSummary:focus-visible {
-  outline: 3px solid var(--fair-focus);
-  outline-offset: 2px;
-  border-radius: 8px;
+.groupChevron {
+  margin-left: auto;
+  transition: transform var(--fair-dur-state) var(--fair-ease-enter);
+}
+
+.group[data-open="true"] .groupChevron {
+  transform: rotate(-180deg);
+}
+
+/* Open and close with the grid trick (0fr → 1fr): the height follows the
+   content without measuring it; closing is quicker than opening. */
+.groupBody {
+  display: grid;
+  grid-template-rows: 0fr;
+  visibility: hidden;
+  transition:
+    grid-template-rows var(--fair-dur-state) var(--fair-ease-exit),
+    visibility var(--fair-dur-instant) var(--fair-ease-exit) var(--fair-dur-state);
+}
+
+.group[data-open="true"] .groupBody {
+  grid-template-rows: 1fr;
+  visibility: visible;
+  transition:
+    grid-template-rows var(--fair-dur-overlay) var(--fair-ease-enter),
+    visibility var(--fair-dur-instant) var(--fair-ease-enter);
+}
+
+.groupInner {
+  min-height: 0;
+  overflow: hidden;
 }
 
 .entries {
   display: grid;
-  margin: 0 0 10px;
+  margin: 0 0 var(--fair-space-3);
   padding: 0;
-  gap: 2px;
+  gap: var(--fair-space-1);
   list-style: none;
 }
 
 .entry {
   display: grid;
-  gap: 4px;
+  gap: var(--fair-space-1);
+}
+
+/* First time a group opens, its rows arrive one after another (≤ 5 × 40 ms). */
+.entries[data-cascade="on"] .entry {
+  animation: fair-map-entry-in var(--fair-dur-overlay) var(--fair-ease-enter) both;
+  animation-delay: calc(var(--fair-dur-stagger) * var(--fair-map-cascade, 0));
+}
+
+@keyframes fair-map-entry-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
 }
 
 .placeBadge {
   justify-self: start;
-  padding: 1px 8px;
-  border-radius: 999px;
+  padding: 1px var(--fair-space-2);
+  border-radius: var(--fair-radius-pill);
   background: var(--fair-surface-muted);
   color: var(--fair-ink);
   font-size: 13px;
@@ -849,22 +1144,32 @@
   display: flex;
   flex-wrap: wrap;
   padding-left: 66px;
-  gap: 6px;
+  gap: var(--fair-space-2);
 }
 
 .placeChip {
   min-height: 44px;
-  padding: 0 12px;
-  border: 1px solid var(--fair-line-strong);
-  border-radius: 999px;
+  padding: 0 var(--fair-space-3);
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-pill);
   background: var(--fair-surface);
   color: var(--fair-ink);
   font: inherit;
   font-size: 13px;
   font-weight: 650;
   cursor: pointer;
+  transition: background-color var(--fair-dur-feedback) var(--fair-ease-enter);
 }
 
+@media (hover: hover) {
+  .placeChip:hover {
+    background: var(--fair-canvas);
+  }
+}
+
+/* A logo sits in a md row with a 6 px gap, so its corner is xs. The logo
+   files are transparent (scripts/fair/map-logos-transparent.mjs), so the box
+   has no fill or frame of its own; only the initial without a logo gets one. */
 .logoBox {
   position: relative;
   display: grid;
@@ -873,9 +1178,12 @@
   flex: none;
   place-items: center;
   overflow: hidden;
-  border: 1px solid var(--fair-line);
-  border-radius: 10px;
-  background: #ffffff;
+  border-radius: var(--fair-radius-xs);
+}
+
+.logoBox[data-empty="true"] {
+  border: var(--fair-border);
+  background: var(--fair-surface-muted);
 }
 
 .logoBox[data-size="sm"] {
@@ -886,10 +1194,11 @@
 .logoBox[data-size="lg"] {
   width: 76px;
   height: 52px;
+  border-radius: var(--fair-radius-md);
 }
 
 .logoImage {
-  padding: 4px;
+  padding: var(--fair-space-1);
   object-fit: contain;
 }
 
@@ -901,36 +1210,55 @@
 
 .detail {
   display: grid;
-  gap: 12px;
+  gap: var(--fair-space-3);
 }
 
 .detailHeader {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 8px;
+  gap: var(--fair-space-3);
 }
 
-.eyebrow {
+.detailHeading {
+  display: grid;
+  min-width: 0;
+  justify-items: start;
+  gap: var(--fair-space-2);
+}
+
+/* The stand as a label: the chosen place (accent = choice). */
+.detailPlace {
   margin: 0;
-  color: var(--fair-ink-muted);
+  padding: var(--fair-space-1) var(--fair-space-2);
+  border-radius: var(--fair-radius-sm);
+  background: var(--fair-accent-soft);
+  color: var(--fair-accent-strong);
   font-size: 13px;
-  font-weight: 650;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 18px;
+  text-wrap: balance;
+  outline: none;
 }
 
 .detailTitle {
-  margin: 2px 0 0;
+  margin: 0;
   font-size: 22px;
   font-weight: 760;
   letter-spacing: -0.02em;
   line-height: 1.2;
+  overflow-wrap: anywhere;
   outline: none;
 }
 
+.detailBody {
+  display: grid;
+  gap: var(--fair-space-3);
+}
+
 .scanmeNote {
-  margin: 6px 0 0;
+  margin: 0;
   color: var(--fair-ink);
   font-size: 15px;
   line-height: 22px;
@@ -942,16 +1270,29 @@
   height: 44px;
   flex: none;
   place-items: center;
-  border: 1px solid var(--fair-line);
-  border-radius: 12px;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-md);
   background: var(--fair-surface);
   color: var(--fair-ink);
   cursor: pointer;
+  transition:
+    background-color var(--fair-dur-feedback) var(--fair-ease-enter),
+    transform var(--fair-dur-feedback) var(--fair-ease-enter);
 }
 
 .iconButton svg {
   width: 20px;
   height: 20px;
+}
+
+.iconButton:active {
+  transform: scale(0.96);
+}
+
+@media (hover: hover) {
+  .iconButton:hover {
+    background: var(--fair-canvas);
+  }
 }
 
 .exhibitors {
@@ -964,15 +1305,21 @@
 
 .exhibitor {
   display: grid;
-  padding: 12px 0;
-  gap: 10px;
-  border-top: 1px solid var(--fair-line);
+  padding: var(--fair-space-3) 0;
+  gap: var(--fair-space-3);
+  border-top: var(--fair-border);
+}
+
+/* One exhibitor: the header already names it, no extra rule above it. */
+.exhibitors[data-single="true"] > .exhibitor {
+  padding-top: 0;
+  border-top: 0;
 }
 
 .exhibitorHead {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--fair-space-3);
 }
 
 .exhibitorText {
@@ -993,11 +1340,19 @@
   min-height: 44px;
   align-items: center;
   gap: 6px;
-  color: var(--fair-accent);
+  color: var(--fair-accent-strong);
   font-size: 15px;
   font-weight: 650;
   text-decoration: underline;
+  text-decoration-thickness: 1px;
   text-underline-offset: 3px;
+  transition: text-decoration-thickness var(--fair-dur-feedback) var(--fair-ease-enter);
+}
+
+@media (hover: hover) {
+  .website:hover {
+    text-decoration-thickness: 2px;
+  }
 }
 
 .website svg {
@@ -1014,7 +1369,7 @@
 
 .brand {
   display: grid;
-  gap: 6px;
+  gap: var(--fair-space-2);
 }
 
 .brandHeader {
@@ -1022,7 +1377,7 @@
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: var(--fair-space-2);
 }
 
 .brandName {
@@ -1038,7 +1393,7 @@
   align-items: center;
   gap: 6px;
   border: 1px solid var(--fair-ink);
-  border-radius: 999px;
+  border-radius: var(--fair-radius-pill);
   color: var(--fair-ink);
   font-size: 13px;
   font-weight: 650;
@@ -1054,55 +1409,216 @@
   display: grid;
   margin: 0;
   padding: 0;
-  gap: 6px;
+  gap: var(--fair-space-2);
   list-style: none;
 }
 
+/* A model as a rich row: md row, xs tile 6 px in, the arrow says "open". */
 .modelLink {
-  display: flex;
-  min-height: 48px;
-  padding: 8px 12px;
+  display: grid;
+  min-height: 56px;
+  padding: var(--fair-radius-xs) var(--fair-space-2) var(--fair-radius-xs) var(--fair-radius-xs);
+  grid-template-columns: 44px minmax(0, 1fr) 32px;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  border: 1px solid var(--fair-line);
-  border-radius: 12px;
+  gap: var(--fair-space-3);
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-md);
+  background: var(--fair-surface);
   color: var(--fair-ink);
   text-decoration: none;
+  transition:
+    background-color var(--fair-dur-feedback) var(--fair-ease-enter),
+    border-color var(--fair-dur-feedback) var(--fair-ease-enter);
 }
 
-.modelLink span {
+.modelThumb {
   display: grid;
-  font-weight: 620;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border-radius: var(--fair-radius-xs);
+  background: var(--fair-surface-muted);
+  color: var(--fair-ink-muted);
 }
 
-.modelLink small {
+.modelThumb svg {
+  width: 22px;
+  height: 22px;
+}
+
+.modelText {
+  display: grid;
+  min-width: 0;
+}
+
+.modelName,
+.modelMeta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.modelName {
+  font-size: 16px;
+  font-weight: 680;
+  line-height: 22px;
+}
+
+.modelMeta {
   color: var(--fair-ink-muted);
   font-size: 14px;
-  font-weight: 450;
+  line-height: 20px;
 }
 
-.modelLink svg {
+.modelArrow {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border-radius: var(--fair-radius-round);
+  background: var(--fair-canvas);
+  color: var(--fair-ink);
+  transition:
+    background-color var(--fair-dur-feedback) var(--fair-ease-enter),
+    color var(--fair-dur-feedback) var(--fair-ease-enter),
+    transform var(--fair-dur-feedback) var(--fair-ease-enter);
+}
+
+.modelArrow svg {
   width: 18px;
   height: 18px;
-  flex: none;
+}
+
+.modelLink:active {
+  background: var(--fair-surface-muted);
+}
+
+@media (hover: hover) {
+  .modelLink:hover {
+    border-color: var(--fair-line-strong);
+    background: var(--fair-canvas);
+  }
+
+  .modelLink:hover .modelArrow {
+    background: var(--fair-accent-soft);
+    color: var(--fair-accent-strong);
+    transform: translateX(2px);
+  }
 }
 
 .retry {
   min-height: 44px;
-  margin-top: 8px;
+  margin-top: var(--fair-space-2);
   padding-inline: 14px;
-  border: 1px solid var(--fair-line-strong);
-  border-radius: 12px;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-md);
   background: var(--fair-surface);
   color: var(--fair-ink);
   font: inherit;
   font-weight: 650;
   cursor: pointer;
+  transition: background-color var(--fair-dur-feedback) var(--fair-ease-enter);
+}
+
+@media (hover: hover) {
+  .retry:hover {
+    background: var(--fair-canvas);
+  }
+}
+
+/* -------------------------------------------- desktop panel: guide + stand */
+
+/* Nothing chosen: how to pick a stand, then a quick way to the ScanMe stand.
+   The guide and every chosen stand enter in place (opacity, a short rise). */
+.guide,
+.scanmeQuick,
+.panelDetail {
+  transition:
+    opacity var(--fair-dur-overlay) var(--fair-ease-enter),
+    translate var(--fair-dur-overlay) var(--fair-ease-enter);
+}
+
+@starting-style {
+  .guide,
+  .scanmeQuick,
+  .panelDetail {
+    opacity: 0;
+    translate: 0 8px;
+  }
+}
+
+.guide {
+  display: grid;
+  gap: var(--fair-space-3);
+}
+
+.guideTitle {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 740;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+}
+
+.guideSteps {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  gap: var(--fair-space-2);
+  list-style: none;
+}
+
+.guideSteps li {
+  display: flex;
+  min-height: 36px;
+  align-items: center;
+  gap: var(--fair-space-3);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.guideIcon {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  flex: none;
+  place-items: center;
+  border-radius: var(--fair-radius-md);
+  background: var(--fair-accent-soft);
+  color: var(--fair-accent);
+}
+
+.guideIcon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.scanmeQuick {
+  display: grid;
+  gap: var(--fair-space-3);
+}
+
+.scanmeQuickText {
+  display: grid;
+  gap: var(--fair-space-1);
+}
+
+.scanmeQuickPlace {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 650;
+}
+
+/* The chosen stand's card: its close button sits md in the xl corner, 12 px in. */
+.panelDetail {
+  padding: var(--fair-radius-md) var(--fair-radius-md) var(--fair-space-4) var(--fair-space-4);
 }
 
 /* -------------------------------------------------------- bottom sheet */
 
+/* Corners nest: the sheet is xl 24, a model row in it md 12 with a 12 px gap
+   to the sheet's edge, the tile in a row xs 6 with a 6 px gap. */
 .sheetRoot {
   position: fixed;
   z-index: 40;
@@ -1113,7 +1629,7 @@
 .sheetBackdrop {
   position: absolute;
   inset: 0;
-  background: rgb(23 25 24 / 0.18);
+  background: rgb(23 25 24 / 0.22);
   pointer-events: auto;
   touch-action: none;
 }
@@ -1123,35 +1639,107 @@
   right: 0;
   bottom: 0;
   left: 0;
-  display: grid;
-  max-height: min(56dvh, 560px);
-  grid-template-rows: auto minmax(0, 1fr);
-  border-top: 1px solid var(--fair-line);
-  border-radius: 20px 20px 0 0;
+  display: flex;
+  max-height: 90dvh;
+  flex-direction: column;
+  overflow: hidden;
+  overscroll-behavior: contain;
+  border: var(--fair-border);
+  border-bottom: 0;
+  border-radius: var(--fair-radius-xl) var(--fair-radius-xl) 0 0;
   background: var(--fair-surface);
-  box-shadow: 0 -16px 40px var(--fair-shadow);
+  box-shadow: var(--fair-shadow-3-up);
   pointer-events: auto;
+  will-change: transform;
 }
 
+/* Until it is measured (and on the server) it waits off screen, unseen. */
+.sheet[data-ready="false"] {
+  visibility: hidden;
+}
+
+/* The handle: a 44 px tall target over the header's top edge; a tap switches the height. */
 .sheetHandle {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  left: 50%;
   display: grid;
-  height: 28px;
-  place-items: center;
+  width: 96px;
+  height: 44px;
+  margin-left: -48px;
+  padding: 0;
+  place-items: start center;
+  border: 0;
+  background: transparent;
   cursor: grab;
   touch-action: none;
 }
 
-.sheetHandle > span:first-child {
+.sheetHandle > span {
   width: 40px;
   height: 4px;
-  border-radius: 999px;
+  margin-top: 10px;
+  border-radius: var(--fair-radius-pill);
   background: var(--fair-line-strong);
+  transition:
+    background-color var(--fair-dur-feedback) var(--fair-ease-enter),
+    width var(--fair-dur-state) var(--fair-ease-enter);
 }
 
+.sheetHandle:disabled {
+  cursor: grab;
+}
+
+@media (hover: hover) {
+  .sheetHandle:not(:disabled):hover > span {
+    width: 48px;
+    background: var(--fair-ink-muted);
+  }
+}
+
+.sheetHandle:active > span {
+  background: var(--fair-ink-muted);
+}
+
+/* Only the full height scrolls; the preview moves as one piece under the finger. */
 .sheetBody {
-  overflow-y: auto;
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
   overscroll-behavior: contain;
-  padding: 0 16px calc(16px + env(safe-area-inset-bottom));
+  padding: 0 var(--fair-radius-md) calc(var(--fair-space-4) + env(safe-area-inset-bottom));
+  touch-action: none;
+}
+
+.sheet[data-snap="full"] .sheetBody {
+  overflow-y: auto;
+  touch-action: pan-y;
+}
+
+/* The header stays on top while the stand scrolls: place, exhibitor, close. */
+.sheet .detailHeader {
+  position: sticky;
+  z-index: 1;
+  top: 0;
+  margin-inline: calc(-1 * var(--fair-radius-md));
+  padding: var(--fair-space-6) var(--fair-radius-md) var(--fair-space-3);
+  border-bottom: 1px solid transparent;
+  background: var(--fair-surface);
+  touch-action: none;
+  transition: border-color var(--fair-dur-state) var(--fair-ease-enter);
+}
+
+.sheet[data-scrolled="true"] .detailHeader {
+  border-bottom-color: var(--fair-line);
+}
+
+.sheet .detail {
+  gap: 0;
+}
+
+.sheet .detailBody {
+  padding-top: var(--fair-space-1);
 }
 
 /* ------------------------------------------------------------ rotation */
@@ -1178,10 +1766,28 @@
   min-height: 132px;
 }
 
+.rotationStack {
+  display: grid;
+}
+
+.rotationStack > * {
+  grid-area: 1 / 1;
+}
+
 .rotationBody {
   display: grid;
-  gap: 12px;
-  animation: fair-map-reveal-in 360ms ease-out both;
+  gap: var(--fair-space-3);
+  animation: fair-map-reveal-in var(--fair-dur-overlay) var(--fair-ease-enter) both;
+}
+
+/* Outside the fair display the slot's entrance is framer-motion's cross-fade. */
+.rotationSlide {
+  animation: none;
+}
+
+.root:not([data-display="on"]) .rotation[data-rotation-pending] {
+  border-color: transparent;
+  background: var(--fair-surface-muted);
 }
 
 .rotationHead {
@@ -1198,7 +1804,7 @@
   flex: none;
   place-items: center;
   overflow: hidden;
-  border-radius: 12px;
+  border-radius: var(--fair-radius-md);
   background: var(--fair-surface-muted);
   color: var(--fair-ink-muted);
 }
@@ -1246,7 +1852,7 @@
 
 .rotationQuestion {
   padding-top: 12px;
-  border-top: 1px solid var(--fair-line);
+  border-top: var(--fair-border);
 }
 
 .rotationPrompt {
@@ -1260,8 +1866,8 @@
   margin: 0;
   padding: 4px 12px;
   align-items: center;
-  border: 1px solid var(--fair-line-strong);
-  border-radius: 999px;
+  border: var(--fair-border-strong);
+  border-radius: var(--fair-radius-pill);
   color: var(--fair-ink-muted);
   font-size: 14px;
   font-weight: 650;
@@ -1284,8 +1890,8 @@
   justify-content: space-between;
   gap: 8px;
   overflow: hidden;
-  border: 1px solid var(--fair-line);
-  border-radius: 12px;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-md);
   font-variant-numeric: tabular-nums;
 }
 
@@ -1300,7 +1906,7 @@
   background: var(--fair-accent-soft);
   transform: scaleX(var(--fair-map-share));
   transform-origin: left center;
-  animation: fair-map-share-in 750ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation: fair-map-share-in var(--fair-dur-focal) var(--fair-ease-enter) both;
 }
 
 .rotationStand {
@@ -1327,7 +1933,7 @@
 .rotationActions {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: var(--fair-space-2);
 }
 
 .rotationActions .retry {
@@ -1351,7 +1957,7 @@
   stroke-dasharray: none;
   stroke: var(--fair-accent);
   opacity: 0;
-  animation: fair-map-stand-glow 1400ms ease-out 400ms 2;
+  animation: fair-map-stand-glow calc(var(--fair-dur-focal) * 3) var(--fair-ease-enter) var(--fair-dur-overlay) 2;
 }
 
 .rotationPin {
@@ -1359,7 +1965,7 @@
   margin-top: -6px;
   padding: 4px 10px 4px 6px;
   gap: 4px;
-  border-radius: 999px;
+  border-radius: var(--fair-radius-pill);
   background: var(--fair-ink);
   color: var(--fair-surface);
   font-size: 13px;
@@ -1412,10 +2018,12 @@
 
 /* ---------------------------------------------- desktop: map + panel */
 
+/* The map and the panel are both always there, at fixed widths: nothing
+   grows or shrinks when a stand is chosen (Korak 0). */
 @media (min-width: 1024px) {
   .root {
-    --fair-map-gutter: 32px;
-    gap: 16px 20px;
+    --fair-map-gutter: var(--fair-space-8);
+    gap: var(--fair-space-4) var(--fair-space-6);
     grid-template-columns: minmax(0, 1fr) 380px;
     align-items: start;
   }
@@ -1425,7 +2033,7 @@
   }
 
   .intro {
-    padding: 16px 16px 16px 20px;
+    padding: var(--fair-space-4) var(--fair-space-4) var(--fair-space-4) var(--fair-space-6);
   }
 
   .introTitle {
@@ -1437,21 +2045,24 @@
     grid-column: 1;
   }
 
-  .findButton {
-    grid-row: 1 / span 2;
-    min-height: 48px;
-    padding-inline: 18px;
+
+  .topBar {
+    gap: var(--fair-space-3);
   }
 
-  .tools {
-    grid-template-columns: minmax(0, 1fr) minmax(280px, 380px);
-    align-items: end;
-    gap: 10px 12px;
+  /* The field is wide enough here: the results hang from it. */
+  .search {
+    position: relative;
+  }
+
+  /* The zones keep the size they had beside the search, at the same right edge. */
+  .zoneSwitch {
+    width: clamp(280px, 100%, 380px);
+    justify-self: end;
   }
 
   /* A mouse does not scroll sideways: the chips wrap on a computer. */
   .filters {
-    grid-column: 1 / -1;
     flex-wrap: wrap;
     margin-inline: 0;
     padding-inline: 0;
@@ -1474,18 +2085,27 @@
 
   .panel {
     position: sticky;
-    top: calc(var(--fair-header-height) + 12px);
+    top: calc(var(--fair-header-height) + var(--fair-space-3));
     display: grid;
     grid-column: 2;
     grid-row: 1 / span 5;
-    max-height: calc(100dvh - var(--fair-header-height) - 24px);
-    gap: 12px;
+    max-height: calc(100dvh - var(--fair-header-height) - var(--fair-space-6));
+    align-content: start;
+    gap: var(--fair-space-3);
     overflow-y: auto;
     overscroll-behavior: contain;
   }
 
   .rotationPanel {
     display: block;
+  }
+
+  /* Room for the cards' shadow 2 inside the scrolling panel; the content keeps its place. */
+  .root:not([data-display="on"]) .panel {
+    top: var(--fair-header-height);
+    max-height: calc(100dvh - var(--fair-header-height));
+    margin: calc(-1 * var(--fair-space-3)) calc(-1 * var(--fair-space-4)) 0;
+    padding: var(--fair-space-3) var(--fair-space-4) var(--fair-space-6);
   }
 
   .sheetRoot {
@@ -1495,14 +2115,10 @@
   .directory {
     grid-template-columns: minmax(180px, 0.3fr) minmax(0, 1fr);
     align-items: start;
-    gap: 0 24px;
+    gap: 0 var(--fair-space-6);
   }
 
-  .directoryHead {
-    grid-row: 1 / span 20;
-  }
-
-  .group:first-of-type {
+  .groups > .group:first-child {
     border-top: 0;
   }
 }
@@ -1527,10 +2143,6 @@
     display: none;
   }
 
-  .tools {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
   .mapArea {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 16px;
@@ -1539,23 +2151,19 @@
   .zone,
   .zone[data-active="false"] {
     display: grid;
-    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) auto;
+  }
+
+  .root:not([data-display="on"]) .zoneBar {
+    display: flex;
   }
 
   .zoneTitle {
     display: block;
   }
 
-  .zone[data-zone="zadnji-deo"] {
-    grid-column: 1 / -1;
-  }
-
   .viewport {
     height: clamp(460px, calc(100dvh - var(--fair-header-height) - 330px), 720px);
-  }
-
-  .zone[data-zone="zadnji-deo"] .viewport {
-    height: 240px;
   }
 
   .rotationVisual {
@@ -1574,8 +2182,11 @@
   }
 }
 
-/* ?prikaz=ekran — a TV on the stand: readable from 3 m, no touch controls. */
+/* ?prikaz=ekran — a TV on the stand: readable from 3 m, no touch controls.
+   The display composition is frozen (SAJAM-DIZAJN): its cards keep the
+   20 px corner they had before the token scale. */
 .root[data-display="on"] {
+  --fair-radius-xl: 20px;
   max-width: none;
   height: calc(100dvh - var(--fair-header-height) - env(safe-area-inset-top));
   min-height: 640px;
@@ -1628,14 +2239,6 @@
   grid-area: ispred;
 }
 
-/* The rear area: a small inset at the bottom of the right column, under the rotation. */
-.root[data-display="on"] .zone[data-zone="zadnji-deo"] {
-  grid-area: auto;
-  grid-column: 3;
-  grid-row: 2 / 4;
-  align-self: end;
-}
-
 .root[data-display="on"] .zoneTitle {
   display: block;
   font-size: 26px;
@@ -1646,14 +2249,6 @@
   min-height: 0;
   max-height: none;
   aspect-ratio: auto;
-}
-
-.root[data-display="on"] .zone[data-zone="zadnji-deo"] .viewport {
-  height: 190px;
-}
-
-.root[data-display="on"] .zone[data-zone="zadnji-deo"] .zoneTitle {
-  font-size: 20px;
 }
 
 .root[data-display="on"] .rotationInline {
@@ -1689,8 +2284,8 @@
   padding: 0 10px 0 14px;
   align-items: center;
   gap: 10px;
-  border: 1px solid var(--fair-line);
-  border-radius: 999px;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-pill);
   background: var(--fair-surface);
   font-size: 20px;
   font-weight: 680;
@@ -1732,18 +2327,350 @@
 
 /* --------------------------------------------------------------- motion */
 
+/* Reduced motion, on top of the global rule in fair-event.css: whatever moves
+   (pulse, cascade, rise, glide, camera) stops at its end state, while colour,
+   opacity and state changes stay — the camera cross-fades instead (canvas). */
 @media (prefers-reduced-motion: reduce) {
-  .stand,
-  .standShape,
-  .filterButton,
-  .findButton,
-  .groupSummary::after {
-    transition: none;
-  }
-
   .rotationBody,
   .rotationFill,
-  .rotationHighlight .rotationGlow {
+  .rotationHighlight .rotationGlow,
+  .selectedPulse,
+  .entries[data-cascade="on"] .entry,
+  .bubble {
     animation: none;
+  }
+
+  /* The search still opens and the button still folds, without the sliding. */
+  .findButton,
+  .findLabel {
+    transition-property: opacity, background-color;
+  }
+}
+
+/* --------------------------------------- „Gde je gužva“ (SAJAM SUPER Korak 3) */
+
+/* The switch sits first in the filter row, a hairline away from the filters. */
+.filterDivider {
+  flex: none;
+  width: 1px;
+  margin-block: var(--fair-space-2);
+  align-self: stretch;
+  background: var(--fair-line);
+}
+
+.heatSwitch {
+  display: inline-flex;
+  min-height: 44px;
+  padding: 0 var(--fair-space-2) 0 var(--fair-space-3);
+  flex: none;
+  align-items: center;
+  gap: var(--fair-space-2);
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-pill);
+  background: var(--fair-surface);
+  color: var(--fair-ink);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 650;
+  white-space: nowrap;
+  cursor: pointer;
+  scroll-snap-align: start;
+  transition:
+    border-color var(--fair-dur-state) var(--fair-ease-enter),
+    background-color var(--fair-dur-state) var(--fair-ease-enter),
+    transform var(--fair-dur-feedback) var(--fair-ease-enter);
+}
+
+.heatSwitch:active {
+  transform: scale(0.97);
+}
+
+@media (hover: hover) {
+  .heatSwitch:hover {
+    border-color: var(--fair-ink-muted);
+  }
+}
+
+.heatSwitch[aria-checked="true"] {
+  border-color: var(--fair-ink);
+}
+
+.heatFlame {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  color: var(--fair-ink-muted);
+  transition: color var(--fair-dur-state) var(--fair-ease-enter), fill var(--fair-dur-state) var(--fair-ease-enter);
+}
+
+/* The flame takes the warm end of the heat scale (lib/fair-heat.ts) when on. */
+.heatSwitch[aria-checked="true"] .heatFlame {
+  color: #e0362c;
+  fill: rgb(240 134 42 / 0.28);
+}
+
+.heatTrack {
+  position: relative;
+  width: 36px;
+  height: 22px;
+  flex: none;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-pill);
+  background: var(--fair-surface-muted);
+  transition: background-color var(--fair-dur-state) var(--fair-ease-enter), border-color var(--fair-dur-state) var(--fair-ease-enter);
+}
+
+.heatKnob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: var(--fair-radius-round);
+  background: var(--fair-surface);
+  box-shadow: var(--fair-shadow-1);
+  transition: transform var(--fair-dur-state) var(--fair-ease-enter);
+}
+
+.heatSwitch[aria-checked="true"] .heatTrack {
+  border-color: var(--fair-ink);
+  background: var(--fair-ink);
+}
+
+.heatSwitch[aria-checked="true"] .heatKnob {
+  transform: translateX(14px);
+}
+
+/* The layer: pre-drawn radial gradients under the stands (no blur filter); it
+   enters in 320 ms and new data cross-fade the colours, never a flash. */
+.heatLayer {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--fair-dur-overlay) var(--fair-ease-enter);
+}
+
+.zone[data-heat="on"] .heatLayer {
+  opacity: 1;
+}
+
+.heatStopCore,
+.heatStopMid,
+.heatStopEdge {
+  stop-color: var(--heat);
+  transition:
+    stop-color var(--fair-dur-overlay) var(--fair-ease-move),
+    stop-opacity var(--fair-dur-overlay) var(--fair-ease-move);
+}
+
+.heatStopCore {
+  stop-opacity: var(--heat-alpha);
+}
+
+.heatStopMid {
+  stop-opacity: calc(var(--heat-alpha) * 0.72);
+}
+
+.heatStopEdge {
+  stop-opacity: 0;
+}
+
+/* Only colours change: the paper and the quiet stands go a little greyer, a
+   stand with activity takes a light tint of its heat; logos, labels and the
+   ScanMe stand stay as they are. */
+.paper {
+  transition: fill var(--fair-dur-overlay) var(--fair-ease-enter);
+}
+
+.zone[data-heat] .standShape {
+  transition-duration: var(--fair-dur-overlay);
+}
+
+.zone[data-heat="on"] .paper {
+  fill: #f1f2f2;
+}
+
+.zone[data-heat="on"] .standEmpty polygon {
+  fill: #eceeed;
+}
+
+.zone[data-heat="on"] .stand:not([data-heat="on"]):not([data-kind="scanme"]) .standShape {
+  fill: #f5f6f5;
+  stroke: rgb(23 25 24 / 0.22);
+}
+
+.zone[data-heat="on"] .stand[data-heat="on"]:not([data-kind="scanme"]) .standShape {
+  fill: color-mix(in srgb, var(--heat) calc(var(--heat-mix) * 1%), var(--fair-surface));
+  stroke: color-mix(in srgb, var(--heat) 60%, var(--fair-ink));
+}
+
+/* The chosen stand keeps its accent outline over the heat tint. */
+.zone[data-heat="on"] .stand[data-selected="true"] .standShape {
+  stroke: var(--fair-accent);
+}
+
+/* A name without a logo keeps a light halo over any tint. */
+.zone[data-heat="on"] .chip text {
+  paint-order: stroke;
+  stroke: rgb(255 253 248 / 0.92);
+  stroke-width: calc(var(--fair-map-stroke, 1) * 3);
+  stroke-linejoin: round;
+}
+
+/* The legend under the map: period, the scale (manje → više) and the age of the data. */
+.heatLegend {
+  display: grid;
+  padding: var(--fair-space-3) var(--fair-space-4);
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--fair-space-2) var(--fair-space-4);
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-lg);
+  background: var(--fair-surface);
+  box-shadow: var(--fair-shadow-2);
+  animation: fair-heat-legend-in var(--fair-dur-overlay) var(--fair-ease-enter) both;
+}
+
+@keyframes fair-heat-legend-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+.heatPeriods {
+  display: flex;
+  gap: var(--fair-space-2);
+}
+
+.heatPeriods button {
+  min-height: 44px;
+  padding: 0 var(--fair-space-3);
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-pill);
+  background: var(--fair-surface);
+  color: var(--fair-ink);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 650;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color var(--fair-dur-state) var(--fair-ease-enter),
+    border-color var(--fair-dur-state) var(--fair-ease-enter),
+    color var(--fair-dur-state) var(--fair-ease-enter);
+}
+
+.heatPeriods button[aria-pressed="true"] {
+  border-color: var(--fair-ink);
+  background: var(--fair-ink);
+  color: var(--fair-surface);
+}
+
+.heatBody {
+  display: grid;
+  min-width: 0;
+  gap: var(--fair-space-1);
+}
+
+.heatScale {
+  display: grid;
+  grid-template-columns: auto minmax(64px, 1fr) auto;
+  align-items: center;
+  gap: var(--fair-space-2);
+  color: var(--fair-ink-muted);
+  font-size: 13px;
+  font-weight: 620;
+}
+
+.heatBar {
+  height: 10px;
+  border-radius: var(--fair-radius-pill);
+}
+
+.heatNote {
+  display: grid;
+  margin: 0;
+  gap: 2px;
+  color: var(--fair-ink);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.heatNote strong {
+  font-weight: 680;
+}
+
+.heatHint {
+  color: var(--fair-ink-muted);
+  font-size: 13px;
+}
+
+.heatRetry {
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--fair-accent-strong);
+  font: inherit;
+  font-weight: 680;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.heatUpdated {
+  margin: 0;
+  color: var(--fair-ink-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* Phone: the legend folds to two short rows (period, then the scale with its age). */
+@media (max-width: 639px) {
+  .heatLegend {
+    padding: var(--fair-space-2) var(--fair-space-3) var(--fair-space-3);
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .heatHint {
+    display: none;
+  }
+}
+
+/* Reduced motion (after the rules above, so it wins): the heat layer, new data,
+   the switch and the legend change at once. */
+@media (prefers-reduced-motion: reduce) {
+  .heatLayer,
+  .heatStopCore,
+  .heatStopMid,
+  .zone[data-heat] .standShape,
+  .zone[data-heat] .paper,
+  .heatTrack,
+  .heatKnob,
+  .heatSwitch,
+  .heatLegend {
+    transition-duration: 0s;
+    animation: none;
+  }
+}
+
+/* The map page (never the fair display, which has no data-panel): the fair
+   header spans the map's own column and gutters, so the lockup and the menu
+   line up with the search and the cards. */
+:global(.fair-event):has(.root[data-panel]) {
+  --fair-shell-width: 1440px;
+}
+
+/* Phones keep the header's own gutter (the same on every fair page); from 1024 px it matches the map's. */
+@media (min-width: 1024px) {
+  :global(.fair-event):has(.root[data-panel]) :global(.fair-shell__inner) {
+    padding-inline: var(--fair-space-8);
+  }
+}
+
+@media (min-width: 1440px) {
+  :global(.fair-event):has(.root[data-panel]) {
+    --fair-shell-width: 1920px;
   }
 }

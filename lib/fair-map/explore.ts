@@ -50,7 +50,8 @@ export function fairMapExhibitors(view: FairMapView): FairMapExhibitorEntry[] {
   };
   for (const zone of view.zones) for (const location of zone.locations) for (const placed of location.stands) entry(placed.stand).places.push(placed);
   for (const stand of view.unplaced) entry(stand).unplaced.push(stand);
-  for (const row of view.withoutLocation) entry(row).withoutLocation = row.zoneId ? { zoneId: row.zoneId } : {};
+  // A stored `zadnji-deo` is the rear of the hall (owner, 9. 10.): no map has that zone, so it reads as Hala.
+  for (const row of view.withoutLocation) entry(row).withoutLocation = row.zoneId ? { zoneId: row.zoneId === "zadnji-deo" ? "hala" : row.zoneId } : {};
   return [...entries.values()].sort(byName);
 }
 

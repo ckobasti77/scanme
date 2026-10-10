@@ -20,9 +20,10 @@ import {
 // former pages redirect there.
 
 // N2 (odluka vlasnika 8. 10.): + `povezi`, „Poveži nalepnicu“ on the fair floor.
+// SAJAM SUPER Korak 4: + `analitika` (Sajam group).
 const REQUIRED = [
   "pregled", "povezi", "modeli", "qr", "izlagaci", "import",
-  "interakcije",
+  "interakcije", "analitika",
   "leadovi", "leadovi/follow-up", "leadovi/podesavanja",
   "sponzorisano", "izvestaji", "brisanje",
 ];

@@ -1,7 +1,7 @@
 // Izlagači 2026 — the exhibitors of Sajam elektromobilnosti (9–11. 10. 2026.)
 // exactly as the organizer lists them on https://sajamautomobila.com/ucesnici-2026/
 // (stanje 6. 10. 2026.): the hall under the map, the entrance area ("ulazni
-// deo") and the rear area ("zadnji deo"), in the page order, without
+// deo") and the rear of the hall (AUTO1, listed with the hall: owner 9. 10.), in the page order, without
 // duplicates. `websiteUrl` is the link the organizer gives; the logo is the
 // organizer's image, saved under public/fair/izlagaci/2026/. Nothing else is
 // invented: no contact, no e-mail, no package (everyone starts on the free
@@ -19,7 +19,7 @@
 import type { FairExhibitorCategory, FairMapZoneIdValue } from "../fair-contract";
 import type { FairMapLocation } from "../fair-map/types";
 
-export type FairSiteExhibitorZone = "hala" | "ulaz" | "zadnji-deo";
+export type FairSiteExhibitorZone = "hala" | "ulaz";
 
 export type FairSiteExhibitor = {
   /** Stable lowercase key: the SMK/SML codes and the participation key derive from it. */
@@ -33,6 +33,14 @@ export type FairSiteExhibitor = {
   /** mapLocationIds on the organizer map; empty only with a `noLocationReason`. */
   locations: readonly string[];
   noLocationReason?: string;
+  /**
+   * P2 (Aleksa 8. 10., SYNC §2.3): the participation of Aleksa's intake
+   * (intake/elektromobilnost-2026-2026-10-07/b1-payload.json) that IS this
+   * exhibitor on the map. In an event with that participation the site list
+   * makes no second record (fairExhibitorImport skips it; a record made
+   * before is withdrawn by reconcileSiteExhibitorsWithIntake).
+   */
+  intakeParticipationKey?: string;
 };
 
 /** The map zone of the organizer's list section ("ulazni deo" is the area in front of the hall). */
@@ -46,8 +54,8 @@ export const FAIR_SITE_LOGO_BASE = "/fair/izlagaci/2026";
 export const ELEKTROMOBILNOST_2026_EXHIBITORS: readonly FairSiteExhibitor[] = [
   // Hala (lista ispod mape sajma)
   { key: "ferum-baw", name: "Ferum BAW", websiteUrl: "https://www.ferum-doo.com/", logoFile: "ferum-baw.jpg", zone: "hala", category: "automobili", locations: ["hala-1a"] },
-  { key: "ferum-yudo", name: "Ferum Yudo", websiteUrl: "https://www.ferum-doo.com/", logoFile: "ferum-yudo.jpg", zone: "hala", category: "automobili", locations: ["hala-1a"] },
-  { key: "bentu", name: "Bentu", websiteUrl: "https://bentu.rs/", logoFile: "bentu.jpg", zone: "hala", category: "automobili", locations: ["hala-1b"] },
+  { key: "ferum-yudo", name: "Ferum Yudo", websiteUrl: "https://www.ferum-doo.com/", logoFile: "ferum-yudo.jpg", zone: "hala", category: "automobili", locations: ["hala-1a"], intakeParticipationKey: "elektromobilnost-2026-ferum" },
+  { key: "bentu", name: "Bentu", websiteUrl: "https://bentu.rs/", logoFile: "bentu.jpg", zone: "hala", category: "automobili", locations: ["hala-1b"], intakeParticipationKey: "elektromobilnost-2026-bentu" },
   { key: "xtreme-motors", name: "Xtreme Motors", websiteUrl: "https://xtreme.rs/", logoFile: "xtreme-motors.jpg", zone: "hala", category: "moto", locations: ["hala-1c"] },
   { key: "dualtron", name: "Dualtron", websiteUrl: "https://www.dualtron.rs/", logoFile: "dualtron.jpg", zone: "hala", category: "moto", locations: ["hala-10a"] },
   { key: "toyota", name: "Toyota", websiteUrl: "https://www.toyota.rs/retailers/raavex-group-doo", logoFile: "toyota.jpg", zone: "hala", category: "automobili", locations: ["hala-2"] },
@@ -66,10 +74,10 @@ export const ELEKTROMOBILNOST_2026_EXHIBITORS: readonly FairSiteExhibitor[] = [
   { key: "farizon", name: "Farizon", websiteUrl: "https://farizon.rs/", logoFile: "farizon.jpg", zone: "hala", category: "automobili", locations: ["hala-2"] },
   { key: "ford", name: "Ford", websiteUrl: "https://ford.rs/", logoFile: "ford.jpg", zone: "hala", category: "automobili", locations: ["hala-5"] },
   { key: "mg", name: "MG", websiteUrl: "https://www.mgmotor.rs/", logoFile: "mg.jpg", zone: "hala", category: "automobili", locations: ["hala-5"] },
-  { key: "foton", name: "Foton", websiteUrl: "https://fotonserbia.rs/", logoFile: "foton.jpg", zone: "hala", category: "automobili", locations: ["hala-6"] },
-  { key: "mazda", name: "Mazda", websiteUrl: "https://www.automg.mazda.rs/o-nama/kompanija", logoFile: "mazda.jpg", zone: "hala", category: "automobili", locations: ["hala-6"] },
-  { key: "chery", name: "Chery", websiteUrl: "https://www.cheryauto.rs/", logoFile: "chery.jpg", zone: "hala", category: "automobili", locations: ["hala-6"] },
-  { key: "jmev", name: "JMEV", websiteUrl: "https://www.jmev.rs/", logoFile: "jmev.jpg", zone: "hala", category: "automobili", locations: ["hala-9"] },
+  { key: "foton", name: "Foton", websiteUrl: "https://fotonserbia.rs/", logoFile: "foton.jpg", zone: "hala", category: "automobili", locations: ["hala-6"], intakeParticipationKey: "elektromobilnost-2026-auto-mig" },
+  { key: "mazda", name: "Mazda", websiteUrl: "https://www.automg.mazda.rs/o-nama/kompanija", logoFile: "mazda.jpg", zone: "hala", category: "automobili", locations: ["hala-6"], intakeParticipationKey: "elektromobilnost-2026-grand-motors" },
+  { key: "chery", name: "Chery", websiteUrl: "https://www.cheryauto.rs/", logoFile: "chery.jpg", zone: "hala", category: "automobili", locations: ["hala-6"], intakeParticipationKey: "elektromobilnost-2026-grand-motors" },
+  { key: "jmev", name: "JMEV", websiteUrl: "https://www.jmev.rs/", logoFile: "jmev.jpg", zone: "hala", category: "automobili", locations: ["hala-9"], intakeParticipationKey: "elektromobilnost-2026-jmev" },
   { key: "jac", name: "JAC", websiteUrl: "https://jacmotors.rs/", logoFile: "jac.jpg", zone: "hala", category: "automobili", locations: ["hala-10b"] },
   { key: "changan", name: "Changan", websiteUrl: "https://changanbalkans.com/rs/dilerska-mreza/", logoFile: "changan.jpg", zone: "hala", category: "automobili", locations: ["hala-10b"] },
   { key: "skoda", name: "Škoda", websiteUrl: "https://www.skoda-auto.rs/content/acp-nis", logoFile: "skoda.jpg", zone: "hala", category: "automobili", locations: ["hala-11"] },
@@ -91,8 +99,9 @@ export const ELEKTROMOBILNOST_2026_EXHIBITORS: readonly FairSiteExhibitor[] = [
   { key: "ev-charging-solutions", name: "EV Charging Solutions", websiteUrl: "https://www.evchargingsolutions.rs/", logoFile: "ev-charging-solutions.jpg", zone: "ulaz", category: "energija", locations: ["ispred-17"] },
   { key: "markus-pro", name: "Auto servis Markus Pro", websiteUrl: "https://www.autoservismarkus.rs/", logoFile: "markus-pro.jpg", zone: "ulaz", category: "usluge", locations: [], noLocationReason: "Organizator ga navodi ispred hale, ali tačno mesto još nije na njegovoj mapi (7. 10.)." },
   { key: "jkp-parking-servis-nis", name: "JKP Parking servis Niš", websiteUrl: "https://www.nisparking.rs/sr/", logoFile: "jkp-parking-servis-nis.jpg", zone: "ulaz", category: "usluge", locations: ["ispred-15-4"] },
-  // Zadnji deo — 9–11. 10. bez linka; link je onaj koji organizator daje za AUTO1 u terminu 30. 10.
-  { key: "auto1", name: "AUTO1.com", websiteUrl: "https://www.auto1.com/sr/home", logoFile: "auto1.png", zone: "zadnji-deo", category: "usluge", locations: ["zadnji-deo"] },
+  // Zadnji deo hale — 9–11. 10. bez linka; link je onaj koji organizator daje za AUTO1 u terminu 30. 10.
+  // Vlasnik 9. 10.: „Zadnji deo“ nije zona (postoje samo Hala i Ispred hale), pa AUTO1 nema mesto na mapi.
+  { key: "auto1", name: "AUTO1.com", websiteUrl: "https://www.auto1.com/sr/home", logoFile: "auto1.png", zone: "hala", category: "usluge", locations: [], noLocationReason: "Organizator ga navodi u zadnjem delu hale; to nije zona mape (vlasnik, 9. 10.), a tačno mesto u hali još nije poznato." },
 ];
 
 /** Stable human codes of one exhibitor (accounts.smkCode, businesses.smlCode, participation key, business slug). */

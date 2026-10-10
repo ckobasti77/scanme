@@ -52,7 +52,7 @@ describe("buildFairMapView", () => {
   test("a placeholder ScanMe location is never shown publicly; an organizer-confirmed one is", () => {
     expect(buildFairMapView(AUTO_MOTO_FEST_2026_MAP, [], []).zones.map((zone) => zone.scanme)).toEqual([null, null]);
     // N3: the organizer confirmed stand 14 in front of the hall for the Elektro fair.
-    expect(buildFairMapView(ELEKTROMOBILNOST_2026_MAP, [], []).zones.map((zone) => zone.scanme?.id ?? null)).toEqual([null, "ispred-14", null]);
+    expect(buildFairMapView(ELEKTROMOBILNOST_2026_MAP, [], []).zones.map((zone) => zone.scanme?.id ?? null)).toEqual([null, "ispred-14"]);
     const confirmed: FairMapGeometry = {
       ...AUTO_MOTO_FEST_2026_MAP,
       zones: AUTO_MOTO_FEST_2026_MAP.zones.map((zone) => ({
@@ -69,7 +69,7 @@ describe("buildFairMapView with every exhibitor (N3)", () => {
     participationId: `p-${id}`, standId: id, mapLocationId, code: id, displayName: `TEST ${id}`, exhibitorName, brands: [],
   });
 
-  test("exhibitors without a model, a shared location, partner points, the ScanMe stand and the rear area are all placed", () => {
+  test("exhibitors without a model, a shared location, partner points and the ScanMe stand are placed; a stand left on the removed rear zone is unplaced", () => {
     const stands = [
       volta,
       bare("byd", "hala-2", "TEST BYD"),
@@ -82,8 +82,9 @@ describe("buildFairMapView with every exhibitor (N3)", () => {
       bare("auto1", "zadnji-deo", "TEST AUTO1"),
     ];
     const view = buildFairMapView(ELEKTROMOBILNOST_2026_MAP, stands, [], [{ participationId: "p-markus", exhibitorName: "TEST Markus", zoneId: "ispred" }]);
-    expect(view.zones.map((zone) => [zone.zone.id, zone.stands.length])).toEqual([["hala", 4], ["ispred", 4], ["zadnji-deo", 1]]);
-    expect(view.unplaced).toEqual([]);
+    expect(view.zones.map((zone) => [zone.zone.id, zone.stands.length])).toEqual([["hala", 4], ["ispred", 4]]);
+    // Owner 9. 10.: no "Zadnji deo" zone. A stand still stored there (AUTO1 on DEV) is not drawn anywhere.
+    expect(view.unplaced.map((stand) => stand.standId)).toEqual(["auto1"]);
     expect(view.withoutLocation.map((row) => [row.exhibitorName, row.zoneId])).toEqual([["TEST Markus", "ispred"]]);
     // One entry per occupied location, in geometry order; a shared one lists all its stands.
     expect(view.zones[0].locations.map((row) => [row.location.id, row.stands.map((stand) => stand.stand.standId)])).toEqual([
@@ -92,7 +93,7 @@ describe("buildFairMapView with every exhibitor (N3)", () => {
       ["hala-partner-10b", ["lotos"]],
     ]);
     expect(fairMapPlacedLocation(view, "ispred-14")).toMatchObject({ zoneId: "ispred", location: { kind: "scanme" }, stands: [{ stand: { standId: "enigma" } }, { stand: { standId: "scanme" } }] });
-    expect(fairMapPlacedLocation(view, "zadnji-deo")).toMatchObject({ zoneId: "zadnji-deo", location: { kind: "area" } });
+    expect(fairMapPlacedLocation(view, "zadnji-deo")).toBeNull();
     expect(fairMapPlacedLocation(view, "ispred-16")).toBeNull();
   });
 

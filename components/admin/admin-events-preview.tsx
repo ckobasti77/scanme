@@ -45,6 +45,8 @@ import { EventLeadsInboxView, type InboxLead, type LeadInboxActions } from "@/co
 import { EventModelDetailView, EventModelsView, type ModelDetailSummary } from "@/components/admin/events/sections/modeli-view";
 import { dashboardSectionUrgency, withNavUrgency } from "@/components/admin/events/dashboard-logic";
 import { previewDashboard } from "@/components/admin/events/preview-dashboard-fixtures";
+import { previewAnalytics, previewAudience } from "@/components/admin/events/preview-analytics-fixtures";
+import { EventAnalyticsView } from "@/components/admin/events/sections/analitika-view";
 import { EventDashboardView } from "@/components/admin/events/sections/pregled-view";
 import { EventLinkStickerView } from "@/components/admin/events/sections/povezi-view";
 import { EventQrDetailView, EventQrView } from "@/components/admin/events/sections/qr-view";
@@ -571,6 +573,11 @@ const linkCatalog: CatalogView = {
   participations: catalog.participations.map((row) => ({ ...row, ...IDENTITY[row.id] })),
   models: catalog.models.map((row) => ({ ...row, qrLabel: labelByModel.get(row.id) ?? null })),
 };
+// P2 — „Poveži nalepnicu“ only: two TEST exhibitors on one stand, as Grand Motors and AUTO MIG share stand 6 (O4).
+const linkStickerCatalog: CatalogView = {
+  ...linkCatalog,
+  stands: linkCatalog.stands.map((row) => (row.id === "s-d1" ? { ...row, code: "TEST-C1", displayName: "TEST štand C1" } : row)),
+};
 const LINKED_AT = opening - 20 * 3_600_000;
 const recentLinks: RecentLinkView[] = assignedQr.slice(0, 5).map((row, index) => ({
   assignmentId: `as-card-${row.id}`,
@@ -749,7 +756,7 @@ function PreviewSection({ path, detailId, query, setQuery, keep, previewStep }: 
     case "povezi": return (
       <EventLinkStickerView
         key={previewStep ?? ""}
-        catalog={linkCatalog}
+        catalog={linkStickerCatalog}
         labelFormat={FAIR_QR_LABEL_DEFAULT_FORMAT}
         query={query}
         onQueryChange={setQuery}
@@ -877,6 +884,19 @@ function PreviewSection({ path, detailId, query, setQuery, keep, previewStep }: 
       );
     }
     case "sponzorisano": return <AdminEventsSponsored view={sponsoredView} actions={sponsoredActions} />;
+    // SAJAM SUPER Korak 4 — TEST numbers (preview-analytics-fixtures.ts).
+    case "analitika": return (
+      <EventAnalyticsView
+        eventCode="test-elektromobilnost-2026"
+        data={previewAnalytics}
+        audience={previewAudience}
+        hourDay={query.dan}
+        onHourDay={(dan) => setQuery({ dan })}
+        refreshing={false}
+        onRefresh={() => {}}
+        onExport={() => {}}
+      />
+    );
     case "leadovi": return (
       <EventLeadsInboxView
         catalog={catalog}

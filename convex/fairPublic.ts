@@ -228,13 +228,16 @@ export const getEventBySlug = query({
   },
 });
 
-/** The model page read. A page view is NOT a scan: this query cannot write. */
+/**
+ * The model page read. A page view is NOT a scan: this query cannot write.
+ * P2 (RN info): a model of a draft event is not public, as getEventBySlug.
+ */
 export const getModelBySlug = query({
   args: { eventSlug: v.string(), modelSlug: v.string() },
   returns: v.union(fairPublicModelView, v.null()),
   handler: async (ctx, args): Promise<PublicModel | null> => {
     const event = await eventBySlug(ctx, args.eventSlug);
-    if (!event || !args.modelSlug || args.modelSlug.length > SLUG_MAX) return null;
+    if (!event || event.status === "draft" || !args.modelSlug || args.modelSlug.length > SLUG_MAX) return null;
     const model = await ctx.db
       .query("fairEventModels")
       .withIndex("by_eventId_and_slug", (q) => q.eq("eventId", event._id).eq("slug", args.modelSlug))
@@ -269,12 +272,14 @@ export const getModelsByIds = query({
 
 /**
  * M1/N3 — the event map. N3 (odluka vlasnika 8. 10.): EVERY exhibitor is on
- * the map, also without a published car:
- *  - `stands`: every non-withdrawn stand of a non-withdrawn participation,
+ * the map, also without a published car. P2 (RN N4): only what is public —
+ * an `active` participation and an `active` stand; a draft or withdrawn one
+ * is never shown:
+ *  - `stands`: every active stand of an active participation,
  *    with its `mapLocationId` (lib/fair-map geometry; exhibitors may share
  *    one), the exhibitor's name, logo, website and category, and the
  *    stand's published models by brand (possibly none);
- *  - `exhibitorsWithoutLocation`: non-withdrawn participations without such a
+ *  - `exhibitorsWithoutLocation`: active participations without such a
  *    stand, with the zone the organizer names (if any).
  * Bounded reads of the event's participations, stands and models plus one
  * read per distinct business, account and brand. No contact, package or
@@ -296,10 +301,10 @@ export const getEventMap = query({
     const account = memo((id: Id<"accounts">) => ctx.db.get(id));
     const brand = memo((id: Id<"brands">) => ctx.db.get(id));
 
-    // The public face of each non-withdrawn participation (no contact, no package).
+    // The public face of each active participation (no contact, no package).
     const exhibitors = new Map<Id<"fairParticipations">, { face: FairPublicMapExhibitor; zoneId?: Doc<"fairParticipations">["mapZoneId"] }>();
     for (const row of participationRows) {
-      if (row.status === "withdrawn") continue;
+      if (row.status !== "active") continue;
       const [businessRow, accountRow] = await Promise.all([business(row.businessId), account(row.accountId)]);
       if (!businessRow) continue;
       const logoUrl = businessRow.logoStorageId ? ((await ctx.storage.getUrl(businessRow.logoStorageId)) ?? businessRow.logoUrl) : businessRow.logoUrl;
@@ -317,7 +322,7 @@ export const getEventMap = query({
 
     const stands = new Map<Id<"fairStands">, FairPublicMapStand>();
     for (const row of standRows) {
-      const exhibitor = row.status === "withdrawn" ? undefined : exhibitors.get(row.participationId);
+      const exhibitor = row.status === "active" ? exhibitors.get(row.participationId) : undefined;
       if (!exhibitor) continue;
       stands.set(row._id, { ...exhibitor.face, standId: row._id, mapLocationId: row.mapLocationId, code: row.code, displayName: row.displayName, brands: [] });
     }

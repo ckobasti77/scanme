@@ -17,6 +17,8 @@ export const EVENT_SECTION_PATHS = [
   "import",
   "interakcije",
   "sponzorisano",
+  // SAJAM SUPER Korak 4 — numbers of the fair (admin only, polled).
+  "analitika",
   "leadovi",
   "leadovi/follow-up",
   "leadovi/podesavanja",
@@ -56,6 +58,8 @@ export const EVENT_SECTIONS: readonly EventSectionDef[] = [
   // the page, so "Svi izlagači" returns to the same list.
   { path: "interakcije", group: "sajam", queryKeys: ["paket", "q", "stanje", "dan", "model", "status", "anketa", "brend", "forma", "prikaz"], detail: "izlagac" },
   { path: "sponzorisano", group: "sajam", queryKeys: ["prikaz"] },
+  // SAJAM SUPER Korak 4 — `dan` = the day of the hour chart.
+  { path: "analitika", group: "sajam", queryKeys: ["dan", "prikaz"] },
   // A8 — the inbox filters; `lead` opens the lead's drawer.
   { path: "leadovi", group: "posle", parent: "leadovi", queryKeys: ["izlagac", "brend", "model", "tip", "isporuka", "od", "do", "lead", "prikaz"] },
   // A8 — `izlagac` opens that exhibitor's text, `lead` previews it on that lead.

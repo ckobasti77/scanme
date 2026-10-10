@@ -21,9 +21,15 @@ export const FAIR_QR_LABEL_DEFAULT_FORMAT: FairQrLabelFormat = { prefix: "SA26",
 const INPUT_MAX_LENGTH = 40;
 /** Hyphen look-alikes a phone keyboard or a paste can produce, and `_`. */
 const DASH_LIKE = /[‐-―−﹘﹣－_]/g;
-const SEPARATORS = /^[\s-]+/;
 /** A canonical serial label: prefix, one dash, digits (`SA26-007`, `TS26-100`). */
 const SERIAL_LABEL = /^([A-Z][A-Z0-9]*)-(\d+)$/;
+/** P2 — a phone on the Serbian Cyrillic keyboard types `СА26`: the Latin letter of each upper-case Cyrillic one. */
+const CYRILLIC_LATIN: Readonly<Record<string, string>> = {
+  А: "A", Б: "B", В: "V", Г: "G", Д: "D", Ђ: "Đ", Е: "E", Ж: "Ž", З: "Z", И: "I", Ј: "J", К: "K", Л: "L", Љ: "LJ", М: "M",
+  Н: "N", Њ: "NJ", О: "O", П: "P", Р: "R", С: "S", Т: "T", Ћ: "Ć", У: "U", Ф: "F", Х: "H", Ц: "C", Ч: "Č", Џ: "DŽ", Ш: "Š",
+};
+const CYRILLIC = /[Ѐ-ӿ]/g;
+const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 /** `SA26-007` for 7 in the given series. */
 export function formatFairQrLabel(number: number, format: FairQrLabelFormat = FAIR_QR_LABEL_DEFAULT_FORMAT): string {
@@ -37,25 +43,37 @@ export function parseFairQrSerialLabel(label: string): { prefix: string; number:
   return { prefix: match[1], number: Number(match[2]), digits: match[2].length };
 }
 
-/** Letter O and digit 0 are the same character on a sticker. */
-const sameIgnoringO = (a: string, b: string) => a.replace(/O/g, "0") === b.replace(/O/g, "0");
+/**
+ * The typed form of a series prefix: letter O and digit 0 are the same
+ * character on a sticker, and a space or dash may split letters from digits
+ * (`SA26`, `SA-26`, `SA 26`, `SAO26`…).
+ */
+function typedPrefixPattern(prefix: string) {
+  let pattern = "";
+  for (const [index, char] of [...prefix].entries()) {
+    if (index > 0 && /\d/.test(char) !== /\d/.test(prefix[index - 1])) pattern += "[\\s-]*";
+    pattern += char === "0" || char === "O" ? "[0O]" : escapeRegExp(char);
+  }
+  return pattern;
+}
 
 /**
  * The canonical label (`SA26-007`) of a typed sticker number, or null.
  * Accepted: `7`, `07`, `007`, `sa26-7`, `SA26 7`, `SA26007`, `SA26_007`, an
- * en/em dash or another hyphen look-alike, letter O for zero, spaces around.
+ * en/em dash or another hyphen look-alike, letter O for zero, spaces around;
+ * P2 (RN): the Cyrillic `СА26-7`, a split prefix `SA-26-7` / `SA 26 7`, a
+ * number sign `#7` and `SA26/7` (`/`, `.` or `#` between prefix and number).
  * Refused: 0, a number above `format.max`, another prefix (`SA27-007`), a
  * leading separator (`-001`) and anything that is not a sticker number.
  */
 export function normalizeFairQrLabel(input: string | null | undefined, format: FairQrLabelFormat = FAIR_QR_LABEL_DEFAULT_FORMAT): string | null {
   if (typeof input !== "string" || input.length > INPUT_MAX_LENGTH) return null;
-  const text = input.normalize("NFKC").trim().toUpperCase().replace(DASH_LIKE, "-");
+  const text = input.normalize("NFKC").trim().toUpperCase().replace(CYRILLIC, (char) => CYRILLIC_LATIN[char] ?? char).replace(DASH_LIKE, "-");
   if (!text) return null;
-  const prefix = format.prefix.toUpperCase();
-  const head = text.slice(0, prefix.length);
-  const rest = head.length === prefix.length && sameIgnoringO(head, prefix) ? text.slice(prefix.length).replace(SEPARATORS, "") : text;
-  const digits = rest.replace(/O/g, "0");
-  if (!/^\d+$/.test(digits) || digits.length > format.digits + 2) return null;
+  const typed = new RegExp(`^(?:${typedPrefixPattern(format.prefix.toUpperCase())}[\\s\\-/.#]*|#\\s*)?([0-9O]+)$`).exec(text);
+  if (!typed) return null;
+  const digits = typed[1].replace(/O/g, "0");
+  if (digits.length > format.digits + 2) return null;
   const number = Number(digits);
   if (!Number.isInteger(number) || number < 1 || number > format.max) return null;
   return formatFairQrLabel(number, format);

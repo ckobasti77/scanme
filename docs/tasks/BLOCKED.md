@@ -1868,3 +1868,53 @@ Saglasnost imenuje izlagača preko `businesses.name`. Posebno polje za pravni na
 
 ### 3. Upozorenje pri zatvaranju sheet-a sa unetim podacima
 EVENT-DESIGN-SYSTEM §6 kaže da se sheet sa nepotvrđenim unosom ne zatvara bez upozorenja. Lead sheet-ovi to ne rade, isto kao prototip. Čeka se odluka da li je potrebno.
+
+## SYNC 8. 10. — RD: SPREMNO ZA DEPLOY, D2 nije rađen (stanje posle IZD)
+
+Izveštaj: `docs/events/sajam-automobila-2026/jovan-status/IZVESTAJ-SYNC-2026-10-08.md`.
+
+- **Uslovi deploya:**
+  - Convex pre Vercel-a, zbog novih argumenata `at` i `expectedModelStickerCode`;
+  - migracija paketa: dry-run, pa stvarno;
+  - reset pre-event podataka pre 00:00, ako ga Aleksa odobri.
+- **Otvoreni nalazi RD (D2 nije radio):**
+  - zona dodira na velikim štandovima (`lib/fair-map/touch.ts`);
+  - izmena pitanja posle „Otvori sada“ (`convex/fairInteractionsAdmin.ts:126`);
+  - „Poveži“ zavisi od redosleda deploya (`lib/admin-v1/qr-link.ts:172`).
+- **Čeka odluku:**
+  - pravni tekst saglasnosti (P3 §1);
+  - pasoš i spoljni URL fotografije;
+  - javni naziv na mapi.
+
+## SPOJ I MAPA 9. 10. — AUTO1.com posle uklanjanja zone „Zadnji deo“
+
+Vlasnik (Jovan, u četu 9. 10.): „Zadnji deo“ ne postoji; postoje samo Hala i Ispred hale. Zona je uklonjena sa mape (grana `codex/jovan-spoj-aleksa-2026-10-09`).
+
+- **Na DEV-u (`expert-pelican-136`)** AUTO1.com ima aktivno učešće i aktivan štand sa `mapLocationId: "zadnji-deo"`. Podaci nisu dirani: AUTO1 se sada vidi u spisku izlagača (Usluge i grad) sa „Tačno mesto još nije na mapi organizatora“, a na mapi ga nema.
+- **Otvoreno:** gde u hali tačno stoji AUTO1 (štand na mapi hale) ili da li ga treba skloniti sa sajma. Do odluke ostaje bez mesta.
+- **Backend:** vrednost `zadnji-deo` je i dalje dozvoljena u `fairMapZoneId` (Convex validator) i `FAIR_MAP_ZONE_IDS`, jer je sačuvana u podacima. Uklanjanje traži čišćenje podataka i Convex deploy (Aleksa).
+
+## SAJAM SUPER 9. 10. — dva odstupanja od Garaže/Pasoša (REŠENO istog dana po briefu Koraka 2)
+
+> **Rešeno:** Jovanov brief za Korak 2 traži „ista dugmad“ i „zajedničke delove (zaglavlje, meni)“ kao u Garaži i Pasošima.
+>
+> - „Sačuvaj u garažu“ je sada crno, kao „Pogledaj“. Ponašanje je isto.
+> - Glas publike ima standardno sajamsko zaglavlje. Red „nazad + GLAS PUBLIKE / model“ ostaje isti i nalazi se ispod zaglavlja, kao na detalju pasoša.
+>
+> Ako vlasnik želi staro stanje, svaka stavka se vraća jednim pravilom ili jednom linijom. Opis ispod je stanje pre rešenja.
+
+Nezavisni pregled doslednosti (Korak 2, `jovan-status/SAJAM-SUPER-2026-10-09.md`) prijavio je dva mesta koja nisu ista kao referenca. Vlasnikove saglasnosti nema, pa je izabrana konzervativna opcija: obe stvari ostaju kakve su bile. Izgled im je usklađen samo tamo gde se ne menja ni dizajnerska odluka ni sadržaj. **Deferred, awaiting owner decision.**
+
+### 1. Boja dugmeta „Sačuvaj u garažu“ na stranici modela
+
+- **Sada:** plava boja akcenta, kao u Aleksinom dizajnu model page v2. Uglovi `md` 12, ivica 1 px i senka 2 već su kao u garaži.
+- **Pitanje:** da li dugme treba da bude crno (`--fair-ink`), kao „Pogledaj“ u garaži?
+  - Garaža ima oba primarna stila: crno dugme-alat („Pogledaj“) i dugme u boji akcenta („Otvori mapu sajma“ u praznoj garaži).
+  - `FAIR-DESIGN-DNA.md` §9 vodi glavnu radnju u boji akcenta, a alat u crnoj.
+- **Izmena:** jedno pravilo u `app/sajam/fair-event.css` (`.fair-save-dock`, pozadina i ivica). Ponašanje se ne menja.
+
+### 2. Zaglavlje toka Glasa publike
+
+- **Sada:** strelica nazad i centrirano „GLAS PUBLIKE / model“, bez lockup-a i menija sajma. Pozadina, linija preko cele širine i dugme nazad (`md`) usklađeni su sa zaglavljem sajma.
+- **Pitanje:** da li Glas publike dobija standardno sajamsko zaglavlje (lockup i Mapa · Pasoši · Garaža), sa strelicom nazad u sadržaju, kao na detalju pasoša?
+- **Zašto nije urađeno:** to menja strukturu i navigaciju toka. Korak 2 kaže da se ponašanje i sadržaj ne menjaju.

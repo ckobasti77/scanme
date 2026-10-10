@@ -58,7 +58,7 @@ export default async function FairEventMapPage({
   searchParams: Promise<RouteSearchParams>;
 }) {
   const [{ eventSlug }, query] = await Promise.all([params, searchParams]);
-  // 9 Oct 2026: the map is hidden; its URL (and the entrance panel QR) opens the garage.
+  // While the map is hidden (FAIR_PUBLIC_MAP_ENABLED false) its URL, and the entrance panel QR, open the garage.
   if (!FAIR_PUBLIC_MAP_ENABLED) redirect(`/sajam/${eventSlug}/garaza`);
   let event;
   try {

@@ -21,7 +21,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { performance } from "node:perf_hooks";
-import sharp from "sharp";
+import sharp, { type Create } from "sharp";
 import { describe, expect, test } from "vitest";
 import { transformMemoryPhoto } from "../memories-pipeline/transform";
 import { deriveExportJpeg } from "./jpeg";
@@ -74,7 +74,7 @@ describe.skipIf(!RUN)("memories export bench (400 photos)", () => {
             height: TIER.sourceHeight,
             channels: 3,
             noise: { type: "gaussian", mean: 128, sigma: 40 + i },
-          },
+          } as Create,
         })
           .jpeg({ quality: 92 })
           .toBuffer();

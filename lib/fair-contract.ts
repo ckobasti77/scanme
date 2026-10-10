@@ -26,7 +26,11 @@ export type FairPackageTier = (typeof FAIR_PACKAGE_TIERS)[number];
 export const FAIR_EXHIBITOR_CATEGORIES = ["automobili", "moto", "energija", "usluge", "hrana", "ostalo", "scanme"] as const;
 export type FairExhibitorCategory = (typeof FAIR_EXHIBITOR_CATEGORIES)[number];
 
-/** N3 — the zones of a fair map (lib/fair-map); `zadnji-deo` exists only where the organizer draws it. */
+/**
+ * N3 — the zone values the backend stores (fairParticipations.mapZoneId). No map draws
+ * `zadnji-deo` any more (owner, 9. 10. 2026: only Hala and Ispred hale); the value stays
+ * accepted until the stored rows (AUTO1) are cleaned up, see FairMapZoneId in lib/fair-map.
+ */
 export const FAIR_MAP_ZONE_IDS = ["hala", "ispred", "zadnji-deo"] as const;
 export type FairMapZoneIdValue = (typeof FAIR_MAP_ZONE_IDS)[number];
 
@@ -617,6 +621,8 @@ const FAIR_INVISIBLE_PATTERN =
 // `@`, a scheme, `www.` or a domain-like token (`bit.ly`, `x.com`); the top
 // level is ASCII letters, so `M. Petrović` and `J.Petrović` stay names.
 const FAIR_LINK_PATTERN = /@|:\/\/|www\.|(?:^|[^\p{L}\p{N}])[\p{L}\p{N}-]+\.[a-z]{2,24}(?![\p{L}\p{N}])/iu;
+// D1 (RN nisko): an initial glued to a capitalized surname (`J.Petrovic`) is read as `J. Petrovic` for the link test.
+const FAIR_NAME_INITIAL_PATTERN = /(^|[^\p{L}\p{N}])(\p{Lu})\.(?=\p{Lu}\p{Ll})/gu;
 const FAIR_NAME_PATTERN = /^[\p{L}\p{M}0-9 .,'’-]+$/u;
 const FAIR_LETTER_PATTERN = /\p{L}/u;
 
@@ -629,7 +635,7 @@ const digitCount = (value: string) => value.replace(/[^0-9]/g, "").length;
  */
 export function fairLeadNameRisk(name: string): "link" | "invisible" | "characters" | null {
   if (FAIR_INVISIBLE_PATTERN.test(name)) return "invisible";
-  if (FAIR_LINK_PATTERN.test(name)) return "link";
+  if (FAIR_LINK_PATTERN.test(name.replace(FAIR_NAME_INITIAL_PATTERN, "$1$2. "))) return "link";
   return digitCount(name) > FAIR_LEAD_NAME_MAX_DIGITS ? "characters" : null;
 }
 
@@ -758,7 +764,10 @@ export type FairLeadSubmitResult = {
    * was written or sent.
    */
   duplicate: boolean;
-  /** One immediate confirmation email is queued (an email was given and, N5, the address is under its soft cap). */
+  /**
+   * One immediate confirmation email is queued (an email was given and, N5, the address is under its soft cap).
+   * D1: always false when `duplicate` — this submit queued nothing.
+   */
   confirmationEmail: boolean;
   /** Advanced: the one post-fair follow-up is scheduled for this lead. */
   followUpScheduled: boolean;
@@ -1179,10 +1188,14 @@ export function sortFairDashboardActions<T extends Pick<FairDashboardAction, "ru
 }
 
 /**
- * Owner decision 9 Oct 2026: the public fair map is hidden in production
- * until it is fixed (wrong data). The map URL forwards to the garage (so the
- * entrance panel QR, which opens the map URL, lands in the garage), the nav
- * shows only Pasoši and Garaža, and no page links to the map. No "coming
- * soon" text anywhere. Flip to `true` to bring the map back.
+ * Production review, 10 Oct 2026: only the five intake stands are present;
+ * the organizer's remaining exhibitors, including ScanMe, are not imported.
+ * Keep the public map hidden until the production layout is complete, as
+ * required by the SAJAM SUPER production checklist. With `true` the map URL
+ * (and the entrance panel QR PANEL-2026-EVENT,
+ * which opens it) shows the map, `/sajam` opens the active fair's map, the nav
+ * has Mapa, and the garage, passport and model page link to the map again.
+ * Set to `false` to hide it once more: everything above then falls back to the
+ * garage, with no "coming soon" text anywhere.
  */
 export const FAIR_PUBLIC_MAP_ENABLED = false;

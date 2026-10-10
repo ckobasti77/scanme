@@ -1,5 +1,7 @@
 # Jutarnji izveštaj noćnog lanca — 8. 10. 2026.
 
+> **Novije stanje (posle sync-a i dorade, 8. 10. popodne):** [`IZVESTAJ-SYNC-2026-10-08.md`](./IZVESTAJ-SYNC-2026-10-08.md).
+
 > Grana `codex/jovan-sajam-noc-2026-10-08` (osnova `6f246b9`), HEAD `1278638`, DEV `dev:expert-pelican-136`.
 > Izvori: `jovan-status/N1.md`–`N6.md`, `scripts/tasks/logs/sajam-v2/SAJAM-IZVESTAJ.md`, `scripts/tasks/logs/sajam-v2/RN-IZVESTAJ.md`, gate logovi runnera (`N*-gate-*.log`).
 

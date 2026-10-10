@@ -121,12 +121,22 @@ export interface FairMapDict {
   searchClear: string;
   searchEmpty: string;
   searchResultsLabel: string;
+  searchEmptyHint: string;
+  searchResultsOne: string;
+  searchResultsFew: string;
+  searchResultsMany: string;
   standAria: string;
   standLocation: string;
   standUnplaced: string;
-  selectHint: string;
+  panelEmptyTitle: string;
+  panelEmptyStepMap: string;
+  panelEmptyStepSearch: string;
+  panelEmptyStepList: string;
+  panelEmptyResult: string;
+  scanmeQuickTitle: string;
   closeDetail: string;
   modelsLabel: string;
+  modelRowHint: string;
   listTitle: string;
   listEmpty: string;
   passportLabel: string;
@@ -150,7 +160,6 @@ export interface FairMapDict {
   websiteLinkAria: string;
   // N4 map v2 (test map look, real data)
   introTitle: string;
-  introHint: string;
   findScanMe: string;
   filtersLabel: string;
   filterAll: string;
@@ -158,12 +167,15 @@ export interface FairMapDict {
   exhibitorsOne: string;
   exhibitorsFew: string;
   exhibitorsMany: string;
-  originalMap: string;
   mapControlsLabel: string;
   selectedStand: string;
   standSummary: string;
+  /** D1: a box of a split stand shows the whole group's area. */
+  standSummaryGroup: string;
   scanmeBody: string;
   sheetHandle: string;
+  sheetExpand: string;
+  sheetCollapse: string;
   directoryTitle: string;
   directoryHint: string;
   uncategorized: string;
@@ -181,6 +193,21 @@ export interface FairMapDict {
   rotationShowStand: string;
   rotationOpenModel: string;
   rotationStandPin: string;
+  // SAJAM SUPER Korak 3: „Gde je gužva“ (heat layer on the public map)
+  heatToggle: string;
+  heatPeriodLabel: string;
+  heatPeriodToday: string;
+  heatPeriodHour: string;
+  heatLegendLabel: string;
+  heatLegendLess: string;
+  heatLegendMore: string;
+  heatUpdatedNow: string;
+  heatUpdatedAgo: string;
+  heatLoading: string;
+  heatEmpty: string;
+  heatEmptyHint: string;
+  heatError: string;
+  heatRetry: string;
 }
 
 export interface FairModelDict {
@@ -329,6 +356,9 @@ export interface FairModelDict {
   leadSending: string;
   interestSent: string;
   testDriveSent: string;
+  /** D1 (RN N2): the server answered `duplicate` — already received, no confirmation promised. */
+  interestAlreadySent: string;
+  testDriveAlreadySent: string;
   leadUnavailableTitle: string;
   leadUnavailableBody: string;
   contactOneOfLabel: string;
@@ -4167,6 +4197,8 @@ export interface AdminEventsDict {
     "leadovi/podesavanja": string;
     izvestaji: string;
     brisanje: string;
+    /** SAJAM SUPER Korak 4. */
+    analitika: string;
   };
   navGroups: { katalog: string; sajam: string; posle: string };
   navInteractions: string;
@@ -5415,6 +5447,91 @@ export interface AdminEventsDict {
   };
   // Admin UX A10 — Pregled: the event dashboard.
   dashboard: AdminEventsDashboardDict;
+  // SAJAM SUPER Korak 4 — Analitika.
+  analytics: AdminEventsAnalyticsDict;
+}
+
+export interface AdminEventsAnalyticsDict {
+  title: string;
+  /** {cutoff} */
+  intro: string;
+  refresh: string;
+  refreshing: string;
+  /** {time} */
+  updated: string;
+  exportCsv: string;
+  /** {event} {date} */
+  csvFileName: string;
+  errorTitle: string;
+  errorBody: string;
+  capped: string;
+  today: string;
+  total: string;
+  kpiTitle: string;
+  kpi: {
+    scans: string;
+    uniquePerModel: string;
+    visitors: string;
+    leads: string;
+    /** {interest} {testDrive} */
+    leadsHint: string;
+    votes: string;
+    votesHint: string;
+    surveys: string;
+    surveysHint: string;
+    stamps: string;
+    /** {passports} */
+    stampsHint: string;
+    shares: string;
+    sharesHint: string;
+    /** {today} {total} */
+    pair: string;
+  };
+  definitionsTitle: string;
+  definitions: { scans: string; uniquePerModel: string; visitors: string; stand: string; window: string };
+  daysTitle: string;
+  hoursTitle: string;
+  hoursDayLabel: string;
+  legendScans: string;
+  legendUnique: string;
+  /** {label} {scans} {unique} */
+  barAria: string;
+  tableToggle: string;
+  noData: string;
+  hourLabel: string;
+  dayLabel: string;
+  modelsTitle: string;
+  standsTitle: string;
+  columns: {
+    model: string;
+    exhibitor: string;
+    stand: string;
+    tier: string;
+    scans: string;
+    unique: string;
+    visitors: string;
+    leads: string;
+    conversion: string;
+    votes: string;
+    rating: string;
+  };
+  /** {count} */
+  ratingCount: string;
+  emptyRanking: string;
+  heatTitle: string;
+  heatIntro: string;
+  heatPeriodToday: string;
+  heatPeriodHour: string;
+  heatEmpty: string;
+  /** {stand} {count} {share} */
+  heatTooltip: string;
+  heatLegendLess: string;
+  heatLegendMore: string;
+  devicesTitle: string;
+  devices: { mobile: string; tablet: string; desktop: string; unknown: string };
+  /** {sample} {bots} */
+  devicesNote: string;
+  tiers: { included: string; starter: string; advanced: string };
 }
 
 /**

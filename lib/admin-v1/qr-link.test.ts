@@ -7,6 +7,7 @@ import {
   linkExhibitors,
   linkFlowReducer,
   linkPlan,
+  linkStickerArgs,
   nextStickerLabel,
   stickerCodeFromInput,
   stickerNumberOf,
@@ -81,6 +82,25 @@ describe("exhibitors and cars", () => {
     expect(filterLinkExhibitors(rows, "  ")).toHaveLength(4);
   });
 
+  test("P2: each exhibitor shows the brands of its cars and is found by brand; two exhibitors may share a stand", () => {
+    const shared = linkExhibitors(
+      [{ id: "gm", exhibitorName: "TEST Grand", status: "active" }, { id: "mig", exhibitorName: "TEST Mig", status: "active" }, { id: "cubi", exhibitorName: "TEST Cubi", status: "active" }],
+      [{ participationId: "gm", code: "6", status: "active" }, { participationId: "mig", code: "6", status: "active" }, { participationId: "cubi", code: "9", status: "active" }],
+      [
+        car("m1", "gm", { brandName: "TEST Chery" }), car("m2", "gm", { brandName: "TEST Mazda" }), car("m3", "gm", { brandName: "TEST Chery" }),
+        car("f1", "mig", { brandName: "TEST Foton" }), car("j1", "cubi", { brandName: "TEST Jmev" }), car("j2", "cubi", { brandName: "TEST Jmev Povučen", status: "withdrawn" }),
+      ],
+    );
+    expect(shared.map((row) => [row.name, row.stands, row.brands, row.cars])).toEqual([
+      ["TEST Grand", ["6"], ["TEST Chery", "TEST Mazda"], 3],
+      ["TEST Mig", ["6"], ["TEST Foton"], 1],
+      ["TEST Cubi", ["9"], ["TEST Jmev"], 1],
+    ]);
+    expect(filterLinkExhibitors(shared, "jmev").map((row) => row.id)).toEqual(["cubi"]);
+    expect(filterLinkExhibitors(shared, "mazda").map((row) => row.id)).toEqual(["gm"]);
+    expect(filterLinkExhibitors(shared, "6").map((row) => row.id)).toEqual(["gm", "mig"]);
+  });
+
   test("the cars of one exhibitor by name, withdrawn last", () => {
     const own = [car("x2", "p1", { displayName: "TEST Volta X2" }), car("x1", "p1", { displayName: "TEST Volta X1", status: "withdrawn" }), car("a1", "p1", { displayName: "TEST Amper" }), car("o", "p2")];
     expect(exhibitorCars(own, "p1").map((row) => row.id)).toEqual(["a1", "x2", "x1"]);
@@ -100,6 +120,16 @@ describe("linkPlan — what a link would do", () => {
       block: null, warnings: ["draft", "move", "replace"], expectedHolderModelId: "m9", replaceModelSticker: true, holderModelId: "m9", replacedCode: "OLD00QRS",
     });
     expect(linkPlan({ ...free, outOfService: true }, car("m1", "p1")).warnings).toEqual(["out_of_service"]);
+  });
+
+  test("P2 (RN N3): the screen sends what the admin saw — the holder and the car's other sticker (null = none)", () => {
+    const held = { ...free, holder: { modelId: "m9", sameEvent: true } };
+    expect(linkStickerArgs("TF000QRS", "m1", linkPlan(held, car("m1", "p1", { qrCode: "OLD00QRS" })))).toEqual({
+      code: "TF000QRS", modelId: "m1", expectedHolderModelId: "m9", replaceModelSticker: true, expectedModelStickerCode: "OLD00QRS",
+    });
+    expect(linkStickerArgs("TF000QRS", "m1", linkPlan(free, car("m1", "p1")))).toEqual({
+      code: "TF000QRS", modelId: "m1", expectedHolderModelId: null, replaceModelSticker: false, expectedModelStickerCode: null,
+    });
   });
 
   test("blocks: no sticker, a panel, a car of the other event, no car, a withdrawn car, already here", () => {

@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   return new Response(null, {
     status: 307,
-    // 9 Oct 2026: while the map is hidden the active fair opens on its garage.
+    // While the map is hidden (FAIR_PUBLIC_MAP_ENABLED false) the active fair opens on its garage.
     headers: { Location: `/sajam/${await loadFairActiveEventSlug()}${FAIR_PUBLIC_MAP_ENABLED ? "" : "/garaza"}` },
   });
 }

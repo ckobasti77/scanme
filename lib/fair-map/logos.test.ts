@@ -4,8 +4,9 @@ import { describe, expect, test } from "vitest";
 import { ELEKTROMOBILNOST_2026_EXHIBITORS, fairSiteLogoUrl } from "../fair-import/izlagaci-2026";
 import { FAIR_MAP_LOGO_THUMBS, fairMapLogo } from "./logos";
 
-// N4 — light logos for the map: every organizer logo has a small WebP copy of
-// the declared pixel size (so chips never jump), and other addresses pass.
+// N4 — light logos for the map: every organizer logo has a small transparent
+// WebP copy of the declared pixel size (so chips never jump), and other
+// addresses pass.
 
 /** WebP pixel size from its first chunk (VP8 / VP8L / VP8X). */
 function webpSize(file: string) {
@@ -30,6 +31,10 @@ describe("map logos", () => {
       expect(statSync(file).size, logo!.src).toBeLessThan(12_000);
       const [width, height] = FAIR_MAP_LOGO_THUMBS[exhibitor.logoFile];
       expect(webpSize(file), logo!.src).toEqual({ width, height });
+      // Transparent background (VP8X with the alpha flag): no white square behind the logo on the map.
+      const data = readFileSync(file);
+      expect(data.toString("ascii", 12, 16), logo!.src).toBe("VP8X");
+      expect(data[20] & 0x10, logo!.src).toBe(0x10);
       expect(logo!.aspect).toBeCloseTo(width / height);
     }
   });
@@ -38,6 +43,6 @@ describe("map logos", () => {
     expect(fairMapLogo("https://expert-pelican-136.eu-west-1.convex.cloud/api/storage/abc")).toEqual({ src: "https://expert-pelican-136.eu-west-1.convex.cloud/api/storage/abc", aspect: 1, thumb: false });
     expect(fairMapLogo("/fair/izlagaci/2026/nepoznat.jpg")).toMatchObject({ src: "/fair/izlagaci/2026/nepoznat.jpg", thumb: false });
     expect(fairMapLogo(undefined)).toBeNull();
-    expect(fairMapLogo("/fair/izlagaci/2026/byd.jpg")).toMatchObject({ src: "/sajam/izlagaci/2026/byd.webp", thumb: true });
+    expect(fairMapLogo("/fair/izlagaci/2026/byd.jpg")).toMatchObject({ src: "/sajam/izlagaci/2026/providni/byd.webp", thumb: true });
   });
 });

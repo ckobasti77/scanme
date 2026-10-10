@@ -12,8 +12,13 @@ import type { FairMapZoneIdValue } from "../fair-contract";
 /** Base event code of a geometry (DATA-INTAKE §1). `test-<key>` events use the same map. */
 export type FairMapKey = "elektromobilnost-2026" | "auto-moto-fest-2026";
 
-/** `zadnji-deo` (N3) exists only on maps where the organizer draws the rear area. */
-export type FairMapZoneId = FairMapZoneIdValue;
+/**
+ * The zones a map draws: only Hala and Ispred hale (owner, 9. 10. 2026: there
+ * is no "Zadnji deo"). `zadnji-deo` stays in FairMapZoneIdValue only because
+ * the backend still accepts it as a stored value (AUTO1's participation);
+ * no map has that zone.
+ */
+export type FairMapZoneId = Exclude<FairMapZoneIdValue, "zadnji-deo">;
 
 export type FairMapPoint = readonly [x: number, y: number];
 
@@ -32,7 +37,7 @@ export type FairMapLocation = {
   id: string;
   /**
    * Literal stand label printed on the organizer map ("10B", "6-7", "20–22").
-   * A partner point has none: its label says where it is ("uz 10B"); an area is named ("Zadnji deo").
+   * A partner point has none: its label says where it is ("uz 10B"); an area is named.
    */
   label: string;
   kind: FairMapLocationKind;

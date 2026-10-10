@@ -1,6 +1,7 @@
 /// <reference types="vite/client" />
 
 import { convexTest } from "convex-test";
+import type { FunctionReturnType } from "convex/server";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
@@ -770,7 +771,7 @@ describe("ADMIN-04 service aggregates and searchable directories", () => {
     let clientCursor: string | null = null;
     let clientsDone = false;
     while (!clientsDone) {
-      const result = await ids.adminAClient.query(api.adminReadModels.listClients, {
+      const result: FunctionReturnType<typeof api.adminReadModels.listClients> = await ids.adminAClient.query(api.adminReadModels.listClients, {
         paginationOpts: page(17, clientCursor), status: "active", sort: "name",
       });
       clientCount += result.page.length;
@@ -782,7 +783,7 @@ describe("ADMIN-04 service aggregates and searchable directories", () => {
     let venueCursor: string | null = null;
     let venuesDone = false;
     while (!venuesDone) {
-      const result = await ids.adminAClient.query(internal.adminReadModels.venues, {
+      const result: FunctionReturnType<typeof internal.adminReadModels.venues> = await ids.adminAClient.query(internal.adminReadModels.venues, {
         paginationOpts: page(200, venueCursor), status: "all", sort: "name",
       });
       venueCount += result.page.length;
@@ -795,7 +796,7 @@ describe("ADMIN-04 service aggregates and searchable directories", () => {
     let productCursor: string | null = null;
     let productsDone = false;
     while (!productsDone) {
-      const result = await ids.adminAClient.query(internal.adminReadModels.products, {
+      const result: FunctionReturnType<typeof internal.adminReadModels.products> = await ids.adminAClient.query(internal.adminReadModels.products, {
         paginationOpts: page(200, productCursor), status: "all", sort: "name",
       });
       productCount += result.page.length;

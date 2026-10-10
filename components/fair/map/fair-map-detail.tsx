@@ -1,13 +1,14 @@
 import Link from "next/link";
-import { AnimatePresence, motion, useDragControls, useReducedMotion } from "framer-motion";
-import { ChevronRight, ExternalLink, Stamp, X } from "lucide-react";
-import { useEffect, useRef, type ReactNode } from "react";
+import { animate, AnimatePresence, motion, useMotionValue, useReducedMotion } from "framer-motion";
+import { CarFront, ChevronRight, ExternalLink, Stamp, X } from "lucide-react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import type { FairPassportCatalogEntry } from "@/lib/fair-contract";
 import type { FairMapExhibitorEntry, FairMapLocationSummary, FairMapPlacedStand } from "@/lib/fair-map";
 import { fmt } from "@/lib/i18n/format";
 import { fairMapSr as dict } from "@/lib/i18n/sr/fair-map";
 import { FairMapLogoBox } from "./fair-map-logo";
-import { fairMapSummaryText } from "./fair-map-text";
+import { fairMapExhibitorCount, fairMapSummaryText } from "./fair-map-text";
+import { FAIR_DURATION, FAIR_EASE } from "../fair-motion";
 import styles from "./fair-event-map.module.css";
 
 // N4 — what a tap on a stand shows: every exhibitor of the location with its
@@ -38,14 +39,25 @@ function PassportChip({ label, aria }: { label: string | null; aria: string }) {
 
 export type FairMapPassportInfo = (entry: FairPassportCatalogEntry) => { label: string | null; aria: string };
 
-function ExhibitorBlock({ placed, eventSlug, passportInfo }: { placed: FairMapPlacedStand; eventSlug: string; passportInfo: FairMapPassportInfo }) {
+function ExhibitorBlock({
+  placed,
+  eventSlug,
+  passportInfo,
+  named,
+}: {
+  placed: FairMapPlacedStand;
+  eventSlug: string;
+  passportInfo: FairMapPassportInfo;
+  /** False when the header already names this, the only exhibitor: the name stays for screen readers. */
+  named: boolean;
+}) {
   const { stand } = placed;
   return (
     <li className={styles.exhibitor}>
       <div className={styles.exhibitorHead}>
         <FairMapLogoBox logoUrl={stand.logoUrl} name={stand.exhibitorName} size="lg" />
         <div className={styles.exhibitorText}>
-          <h3 className={styles.exhibitorName}>{stand.exhibitorName}</h3>
+          <h3 className={named ? styles.exhibitorName : styles.srOnly}>{stand.exhibitorName}</h3>
           <WebsiteLink exhibitor={stand.exhibitorName} url={stand.websiteUrl} />
         </div>
       </div>
@@ -64,12 +76,18 @@ function ExhibitorBlock({ placed, eventSlug, passportInfo }: { placed: FairMapPl
               <ul className={styles.models} aria-label={dict.modelsLabel}>
                 {brand.models.map((model) => (
                   <li key={model.id}>
+                    {/* A rich row: tile, name, one line about it, the arrow — the whole row opens the model. */}
                     <Link prefetch={false} className={styles.modelLink} href={`/sajam/${eventSlug}/model/${model.slug}`}>
-                      <span>
-                        {model.displayName}
-                        {model.variant ? <small>{model.variant}</small> : null}
+                      <span className={styles.modelThumb} aria-hidden="true">
+                        <CarFront />
                       </span>
-                      <ChevronRight aria-hidden="true" />
+                      <span className={styles.modelText}>
+                        <span className={styles.modelName}>{model.displayName}</span>
+                        <span className={styles.modelMeta}>{model.variant ?? dict.modelRowHint}</span>
+                      </span>
+                      <span className={styles.modelArrow} aria-hidden="true">
+                        <ChevronRight />
+                      </span>
                     </Link>
                   </li>
                 ))}
@@ -82,7 +100,12 @@ function ExhibitorBlock({ placed, eventSlug, passportInfo }: { placed: FairMapPl
   );
 }
 
-/** The selected location: header "Štand 2 · Hala · 490 m²" and every exhibitor there. */
+/** Header line under the stand: the exhibitor's name, or how many share the place. */
+function exhibitorLine(summary: FairMapLocationSummary) {
+  return summary.stands.length === 1 ? summary.stands[0].stand.exhibitorName : fairMapExhibitorCount(summary.stands.length);
+}
+
+/** The selected location: header "Štand 2 · Hala · 490 m²" with who is there, and every exhibitor there. */
 export function FairMapStandDetail({
   summary,
   eventSlug,
@@ -97,23 +120,27 @@ export function FairMapStandDetail({
   /** Close button (sheet / panel). */
   action?: ReactNode;
 }) {
+  const single = summary.stands.length === 1;
   return (
     <div className={styles.detail} data-kind={summary.location.kind}>
-      <div className={styles.detailHeader}>
-        <div>
-          <p className={styles.eyebrow}>{dict.selectedStand}</p>
-          <h2 id={headingId} className={styles.detailTitle} tabIndex={-1}>
+      <div className={styles.detailHeader} data-sheet-header="">
+        <div className={styles.detailHeading}>
+          <h2 id={headingId} className={styles.detailPlace} tabIndex={-1}>
+            <span className={styles.srOnly}>{dict.selectedStand}: </span>
             {fairMapSummaryText(summary)}
           </h2>
-          {summary.location.kind === "scanme" ? <p className={styles.scanmeNote}>{dict.scanmeBody}</p> : null}
+          <p className={styles.detailTitle}>{exhibitorLine(summary)}</p>
         </div>
         {action}
       </div>
-      <ul className={styles.exhibitors}>
-        {summary.stands.map((placed) => (
-          <ExhibitorBlock key={placed.stand.standId} placed={placed} eventSlug={eventSlug} passportInfo={passportInfo} />
-        ))}
-      </ul>
+      <div className={styles.detailBody}>
+        {summary.location.kind === "scanme" ? <p className={styles.scanmeNote}>{dict.scanmeBody}</p> : null}
+        <ul className={styles.exhibitors} data-single={single}>
+          {summary.stands.map((placed) => (
+            <ExhibitorBlock key={placed.stand.standId} placed={placed} eventSlug={eventSlug} passportInfo={passportInfo} named={!single} />
+          ))}
+        </ul>
+      </div>
     </div>
   );
 }
@@ -122,27 +149,29 @@ export function FairMapStandDetail({
 export function FairMapUnlocatedDetail({ exhibitor, placeText, headingId, action }: { exhibitor: FairMapExhibitorEntry; placeText: string; headingId: string; action?: ReactNode }) {
   return (
     <div className={styles.detail}>
-      <div className={styles.detailHeader}>
-        <div>
-          <p className={styles.eyebrow}>{placeText}</p>
+      <div className={styles.detailHeader} data-sheet-header="">
+        <div className={styles.detailHeading}>
+          <p className={styles.detailPlace}>{placeText}</p>
           <h2 id={headingId} className={styles.detailTitle} tabIndex={-1}>
             {exhibitor.exhibitorName}
           </h2>
         </div>
         {action}
       </div>
-      <ul className={styles.exhibitors}>
-        <li className={styles.exhibitor}>
-          <div className={styles.exhibitorHead}>
-            <FairMapLogoBox logoUrl={exhibitor.logoUrl} name={exhibitor.exhibitorName} size="lg" />
-            <div className={styles.exhibitorText}>
-              <h3 className={styles.exhibitorName}>{exhibitor.exhibitorName}</h3>
-              <WebsiteLink exhibitor={exhibitor.exhibitorName} url={exhibitor.websiteUrl} />
+      <div className={styles.detailBody}>
+        <ul className={styles.exhibitors} data-single="true">
+          <li className={styles.exhibitor}>
+            <div className={styles.exhibitorHead}>
+              <FairMapLogoBox logoUrl={exhibitor.logoUrl} name={exhibitor.exhibitorName} size="lg" />
+              <div className={styles.exhibitorText}>
+                <h3 className={styles.srOnly}>{exhibitor.exhibitorName}</h3>
+                <WebsiteLink exhibitor={exhibitor.exhibitorName} url={exhibitor.websiteUrl} />
+              </div>
             </div>
-          </div>
-          <p className={styles.quiet}>{dict.noModels}</p>
-        </li>
-      </ul>
+            <p className={styles.quiet}>{dict.noModels}</p>
+          </li>
+        </ul>
+      </div>
     </div>
   );
 }
@@ -156,31 +185,110 @@ export function FairMapCloseButton({ onClose }: { onClose: () => void }) {
 }
 
 /**
- * Phone bottom sheet: never the whole screen (the chosen stand stays visible
- * above it), safe-area aware, drag the handle down / Esc / tap outside to
- * close; focus moves in and goes back to where it came from.
+ * Phone bottom sheet with two heights: a preview (~45 % of the screen, the
+ * chosen stand stays visible on the map above it) and the full stand (~90 %,
+ * only there the content scrolls). The handle, the sticky header and — in the
+ * preview — the whole sheet drag; a drag down past the threshold or a quick
+ * flick closes it, and so do the backdrop, Escape and the 44 px close button.
+ * It is a modal dialog: the focus moves in and goes back, the page behind does
+ * not scroll, and the bottom keeps clear of the home indicator (safe area).
  */
 const GHOST_CLICK_MS = 450;
+/** Share of the screen the preview shows. */
+const PREVIEW_SHARE = 0.45;
+/** Movement before a press becomes a drag (a tap on a model link stays a tap). */
+const DRAG_SLOP = 6;
+/** A drag this far below the preview closes the sheet… */
+const CLOSE_DISTANCE = 96;
+/** …and so does a flick this fast (px/s) going down. */
+const FLICK_SPEED = 700;
+
+type SheetSnap = "preview" | "full";
+type SheetMetrics = { height: number; previewY: number };
 
 export function FairMapSheet({ open, labelledBy, onClose, children }: { open: boolean; labelledBy: string; onClose: () => void; children: ReactNode }) {
+  return (
+    <AnimatePresence>
+      {open ? (
+        <SheetPanel key="sheet" labelledBy={labelledBy} onClose={onClose}>
+          {children}
+        </SheetPanel>
+      ) : null}
+    </AnimatePresence>
+  );
+}
+
+function SheetPanel({ labelledBy, onClose, children }: { labelledBy: string; onClose: () => void; children: ReactNode }) {
   const panelRef = useRef<HTMLDivElement>(null);
-  const drag = useDragControls();
+  const bodyRef = useRef<HTMLDivElement>(null);
   const reduceMotion = useReducedMotion();
   const closeRef = useRef(onClose);
   // The click a phone synthesizes after the opening tap lands on the backdrop: ignore it.
   const openedAt = useRef(0);
+  const y = useMotionValue(0);
+  const [metrics, setMetrics] = useState<SheetMetrics | null>(null);
+  const metricsRef = useRef<SheetMetrics | null>(null);
+  const [snap, setSnap] = useState<SheetSnap>("preview");
+  const [scrolled, setScrolled] = useState(false);
+  const snapRef = useRef(snap);
+  const drag = useRef<{ id: number; startY: number; from: number; lastY: number; lastT: number; speed: number; active: boolean } | null>(null);
   useEffect(() => {
     closeRef.current = onClose;
   }, [onClose]);
-
   useEffect(() => {
-    if (!open) return;
+    snapRef.current = snap;
+  }, [snap]);
+
+  const settle = useCallback(
+    (target: number) => {
+      if (reduceMotion) y.set(target);
+      else animate(y, target, { duration: FAIR_DURATION.overlay, ease: FAIR_EASE.enter });
+    },
+    [reduceMotion, y],
+  );
+
+  // Measure: the sheet is as tall as its content, at most 90 % of the screen.
+  // The preview shows its top 45 %; a short stand has only the one height.
+  useLayoutEffect(() => {
+    const panel = panelRef.current;
+    if (!panel) return;
+    const measure = () => {
+      const height = panel.offsetHeight;
+      const visible = Math.min(height, Math.round(window.innerHeight * PREVIEW_SHARE));
+      const previewY = height - visible < 32 ? 0 : height - visible;
+      const old = metricsRef.current;
+      if (old && old.height === height && old.previewY === previewY) return;
+      metricsRef.current = { height, previewY };
+      if (!old) {
+        // First measure: start below the screen, then rise into the preview.
+        y.set(reduceMotion ? previewY : height);
+        settle(previewY);
+      } else if (!drag.current?.active) {
+        settle(snapRef.current === "full" || previewY === 0 ? 0 : previewY);
+      }
+      setMetrics({ height, previewY });
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(panel);
+    window.addEventListener("resize", measure);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, [reduceMotion, settle, y]);
+
+  // Focus in, Tab kept inside, Escape closes, focus back; the page behind stays put.
+  useEffect(() => {
     openedAt.current = performance.now();
     // A stand on the map is an SVG element: both kinds can take the focus back.
     const active = document.activeElement;
     const previous = active instanceof HTMLElement || active instanceof SVGElement ? active : null;
     const panel = panelRef.current;
-    panel?.querySelector<HTMLElement>("[data-sheet-close]")?.focus({ preventScroll: true });
+    const root = document.documentElement;
+    const locked = { overflow: root.style.overflow, gutter: root.style.scrollbarGutter };
+    root.style.overflow = "hidden";
+    root.style.scrollbarGutter = "stable";
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault();
@@ -203,53 +311,143 @@ export function FairMapSheet({ open, labelledBy, onClose, children }: { open: bo
     document.addEventListener("keydown", onKey);
     return () => {
       document.removeEventListener("keydown", onKey);
+      root.style.overflow = locked.overflow;
+      root.style.scrollbarGutter = locked.gutter;
       previous?.focus({ preventScroll: true });
     };
-  }, [open]);
+  }, []);
 
-  const duration = reduceMotion ? 0 : 0.24;
+  // The focus moves in once the sheet is measured and visible (a hidden element cannot take it).
+  const ready = metrics !== null;
+  useEffect(() => {
+    if (ready) panelRef.current?.querySelector<HTMLElement>("[data-sheet-close]")?.focus({ preventScroll: true });
+  }, [ready]);
+
+  const twoHeights = metrics !== null && metrics.previewY > 0;
+  const goTo = (next: SheetSnap) => {
+    if (!metrics) return;
+    setSnap(next);
+    settle(next === "full" || !twoHeights ? 0 : metrics.previewY);
+    if (next === "preview") bodyRef.current?.scrollTo({ top: 0 });
+  };
+
+  /** Where a drag may start: the handle and the header always; the whole sheet while it is a preview. */
+  const canDrag = (target: Element) =>
+    target.closest("[data-sheet-handle]") !== null || target.closest("[data-sheet-header]") !== null || (snapRef.current === "preview" && twoHeights) || !twoHeights;
+
+  // A drag is followed on the window: with a mouse the pointer soon leaves the
+  // sheet (a finger is captured by the browser anyway).
+  const stopDrag = useRef<(() => void) | null>(null);
+  useEffect(() => () => stopDrag.current?.(), []);
+
+  const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!metrics || event.button !== 0 || (event.target as Element).closest("[data-sheet-close]")) return;
+    if (!canDrag(event.target as Element)) return;
+    stopDrag.current?.();
+    const id = event.pointerId;
+    drag.current = { id, startY: event.clientY, from: y.get(), lastY: event.clientY, lastT: event.timeStamp, speed: 0, active: false };
+
+    const move = (pointer: PointerEvent) => {
+      const state = drag.current;
+      if (!state || pointer.pointerId !== id) return;
+      const delta = pointer.clientY - state.startY;
+      if (!state.active) {
+        if (Math.abs(delta) < DRAG_SLOP) return;
+        state.active = true;
+      }
+      const dt = Math.max(pointer.timeStamp - state.lastT, 1);
+      state.speed = 0.7 * ((pointer.clientY - state.lastY) / dt) * 1000 + 0.3 * state.speed;
+      state.lastY = pointer.clientY;
+      state.lastT = pointer.timeStamp;
+      const offset = state.from + delta;
+      // Above the full height the sheet resists instead of leaving the bottom edge.
+      y.set(offset < 0 ? offset * 0.2 : offset);
+    };
+
+    const end = (pointer: PointerEvent) => {
+      if (pointer.pointerId !== id) return;
+      stopDrag.current?.();
+      const state = drag.current;
+      drag.current = null;
+      if (!state?.active) return;
+      // The click that ends a drag must not open a model link or toggle the handle under the finger.
+      const swallow = (click: MouseEvent) => {
+        click.preventDefault();
+        click.stopPropagation();
+      };
+      window.addEventListener("click", swallow, { capture: true, once: true });
+      window.setTimeout(() => window.removeEventListener("click", swallow, { capture: true }), 250);
+      const current = y.get();
+      const rest = twoHeights ? metrics.previewY : 0;
+      const projected = current + state.speed * 0.12;
+      if (current > rest + CLOSE_DISTANCE || (state.speed > FLICK_SPEED && (snapRef.current === "preview" || !twoHeights || current > rest))) {
+        closeRef.current();
+        return;
+      }
+      if (!twoHeights) {
+        settle(0);
+        return;
+      }
+      goTo(projected < metrics.previewY / 2 || state.speed < -FLICK_SPEED ? "full" : "preview");
+    };
+
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", end);
+    window.addEventListener("pointercancel", end);
+    stopDrag.current = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", end);
+      window.removeEventListener("pointercancel", end);
+      stopDrag.current = null;
+    };
+  };
+
+  const exitY = metrics ? metrics.height + 24 : 900;
   return (
-    <AnimatePresence>
-      {open ? (
-        <div className={styles.sheetRoot}>
-          <motion.div
-            className={styles.sheetBackdrop}
-            aria-hidden="true"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0, transition: { duration: duration * 0.7 } }}
-            transition={{ duration }}
-            onClick={() => {
-              if (performance.now() - openedAt.current > GHOST_CLICK_MS) onClose();
-            }}
-          />
-          <motion.div
-            ref={panelRef}
-            className={styles.sheet}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby={labelledBy}
-            initial={{ y: "100%" }}
-            animate={{ y: 0 }}
-            exit={{ y: "100%", transition: { duration: duration * 0.7, ease: [0.4, 0, 1, 1] } }}
-            transition={{ duration, ease: [0.16, 1, 0.3, 1] }}
-            drag="y"
-            dragListener={false}
-            dragControls={drag}
-            dragConstraints={{ top: 0, bottom: 0 }}
-            dragElastic={{ top: 0, bottom: 0.7 }}
-            onDragEnd={(_, info) => {
-              if (info.offset.y > 90 || info.velocity.y > 600) onClose();
-            }}
-          >
-            <div className={styles.sheetHandle} onPointerDown={(event) => drag.start(event)}>
-              <span aria-hidden="true" />
-              <span className={styles.srOnly}>{dict.sheetHandle}</span>
-            </div>
-            <div className={styles.sheetBody}>{children}</div>
-          </motion.div>
+    <div className={styles.sheetRoot}>
+      <motion.div
+        className={styles.sheetBackdrop}
+        aria-hidden="true"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1, transition: { duration: FAIR_DURATION.overlay, ease: FAIR_EASE.enter } }}
+        exit={{ opacity: 0, transition: { duration: FAIR_DURATION.state, ease: FAIR_EASE.exit } }}
+        onClick={() => {
+          if (performance.now() - openedAt.current > GHOST_CLICK_MS) onClose();
+        }}
+      />
+      <motion.div
+        ref={panelRef}
+        className={styles.sheet}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={labelledBy}
+        data-ready={ready}
+        data-snap={twoHeights ? snap : "full"}
+        data-scrolled={scrolled}
+        style={{ y }}
+        initial={reduceMotion ? { opacity: 0 } : false}
+        animate={reduceMotion ? { opacity: 1, transition: { duration: FAIR_DURATION.state } } : undefined}
+        exit={reduceMotion ? { opacity: 0, transition: { duration: FAIR_DURATION.state } } : { y: exitY, transition: { duration: FAIR_DURATION.state, ease: FAIR_EASE.exit } }}
+        onPointerDown={onPointerDown}
+      >
+        <button
+          type="button"
+          className={styles.sheetHandle}
+          data-sheet-handle=""
+          aria-label={twoHeights && snap === "preview" ? dict.sheetExpand : dict.sheetCollapse}
+          aria-describedby="fair-map-sheet-hint"
+          disabled={!twoHeights}
+          onClick={() => goTo(snap === "preview" ? "full" : "preview")}
+        >
+          <span aria-hidden="true" />
+        </button>
+        <span id="fair-map-sheet-hint" className={styles.srOnly}>
+          {dict.sheetHandle}
+        </span>
+        <div ref={bodyRef} className={styles.sheetBody} onScroll={(event) => setScrolled(event.currentTarget.scrollTop > 0)}>
+          {children}
         </div>
-      ) : null}
-    </AnimatePresence>
+      </motion.div>
+    </div>
   );
 }
