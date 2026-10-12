@@ -45,7 +45,7 @@ import { EventLeadsInboxView, type InboxLead, type LeadInboxActions } from "@/co
 import { EventModelDetailView, EventModelsView, type ModelDetailSummary } from "@/components/admin/events/sections/modeli-view";
 import { dashboardSectionUrgency, withNavUrgency } from "@/components/admin/events/dashboard-logic";
 import { previewDashboard } from "@/components/admin/events/preview-dashboard-fixtures";
-import { previewAnalytics, previewAudience } from "@/components/admin/events/preview-analytics-fixtures";
+import { previewAnalytics, previewAudience, previewEngagement, previewModelAnalytics } from "@/components/admin/events/preview-analytics-fixtures";
 import { EventAnalyticsView } from "@/components/admin/events/sections/analitika-view";
 import { EventDashboardView } from "@/components/admin/events/sections/pregled-view";
 import { EventLinkStickerView } from "@/components/admin/events/sections/povezi-view";
@@ -887,14 +887,19 @@ function PreviewSection({ base: PREVIEW_BASE, path, detailId, query, setQuery, k
       );
     }
     case "sponzorisano": return <AdminEventsSponsored view={sponsoredView} actions={sponsoredActions} />;
-    // SAJAM SUPER Korak 4 — TEST numbers (preview-analytics-fixtures.ts).
+    // ADMIN v2 X3 — TEST numbers in the shape of a real fair (preview-analytics-fixtures.ts); `?model=` opens the detail.
     case "analitika": return (
       <EventAnalyticsView
         eventCode="test-elektromobilnost-2026"
         data={previewAnalytics}
         audience={previewAudience}
-        hourDay={query.dan}
-        onHourDay={(dan) => setQuery({ dan })}
+        engagement={previewEngagement}
+        modelId={query.model}
+        modelDetail={query.model ? previewModelAnalytics(query.model) ?? undefined : undefined}
+        modelError={false}
+        onModel={(model) => setQuery({ model })}
+        onModelRetry={() => {}}
+        links={{ leadSettings: eventSectionHref(PREVIEW_BASE, "leadovi/podesavanja", keep), forms: eventSectionHref(PREVIEW_BASE, "interakcije", keep) }}
         refreshing={false}
         onRefresh={() => {}}
         onExport={() => {}}

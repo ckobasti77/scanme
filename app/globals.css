@@ -209,6 +209,41 @@ html[data-theme="dark"] {
   --admin-dur-4: 320ms;
   --admin-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --admin-ease-in: cubic-bezier(0.4, 0, 1, 1);
+  /* ADMIN v2 X3 — chart colours (ZADATAK §4; lib/admin-v2/analytics/palette.ts).
+     Categorical: eight slots in a fixed order, the colour follows the entity.
+     Validated on the admin surfaces with the dataviz validator: worst adjacent
+     pair CVD 9.1 light / 8.4 dark, normal vision 19.6 / 19.3. Slots 3, 4, 5
+     (light) and 6 (dark) are below 3:1 on the surface, so every chart has
+     visible labels and a table view. */
+  --admin-chart-1: #2a78d6;
+  --admin-chart-2: #eb6834;
+  --admin-chart-3: #1baf7a;
+  --admin-chart-4: #eda100;
+  --admin-chart-5: #e87ba4;
+  --admin-chart-6: #008300;
+  --admin-chart-7: #6250d6;
+  --admin-chart-8: #e34948;
+  --admin-chart-other: #8f9490;
+  /* Sequential (matrices): one blue, 100 = near zero … 700 = the maximum;
+     `-on-` is the text colour on that step. */
+  --admin-seq-100: #cde2fb;
+  --admin-seq-200: #9ec5f4;
+  --admin-seq-300: #6da7ec;
+  --admin-seq-400: #3987e5;
+  --admin-seq-500: #256abf;
+  --admin-seq-600: #184f95;
+  --admin-seq-700: #0d366b;
+  --admin-seq-on-100: #171918;
+  --admin-seq-on-200: #171918;
+  --admin-seq-on-300: #171918;
+  --admin-seq-on-400: #171918;
+  --admin-seq-on-500: #ffffff;
+  --admin-seq-on-600: #ffffff;
+  --admin-seq-on-700: #ffffff;
+  /* Medals of a ranking: an accent ring, never a series colour. */
+  --admin-medal-1: #b8890f;
+  --admin-medal-2: #7f878b;
+  --admin-medal-3: #a8623a;
   font-family: "DM Sans Variable", "DM Sans", ui-sans-serif, system-ui, sans-serif;
 }
 
@@ -245,6 +280,34 @@ html[data-theme="dark"] .admin-v1 {
   --admin-sponsored-border: #5a4478;
   --admin-accent-soft: #22321f;
   --admin-accent-border: #3f6a35;
+  /* ADMIN v2 X3 — the same eight hues stepped for the dark surface; the
+     sequential scale flips its anchor (near zero recedes into the surface). */
+  --admin-chart-1: #3987e5;
+  --admin-chart-2: #d95926;
+  --admin-chart-3: #199e70;
+  --admin-chart-4: #c98500;
+  --admin-chart-5: #d55181;
+  --admin-chart-6: #008300;
+  --admin-chart-7: #9085e9;
+  --admin-chart-8: #e66767;
+  --admin-chart-other: #7d837e;
+  --admin-seq-100: #0d366b;
+  --admin-seq-200: #184f95;
+  --admin-seq-300: #256abf;
+  --admin-seq-400: #3987e5;
+  --admin-seq-500: #6da7ec;
+  --admin-seq-600: #9ec5f4;
+  --admin-seq-700: #cde2fb;
+  --admin-seq-on-100: #f2f4ee;
+  --admin-seq-on-200: #f2f4ee;
+  --admin-seq-on-300: #ffffff;
+  --admin-seq-on-400: #171918;
+  --admin-seq-on-500: #171918;
+  --admin-seq-on-600: #171918;
+  --admin-seq-on-700: #171918;
+  --admin-medal-1: #e0b84a;
+  --admin-medal-2: #b4bbbf;
+  --admin-medal-3: #d08a5c;
   --admin-shadow-xs: 0 1px 2px rgb(0 0 0 / 0.18);
   --admin-shadow-sm: 0 8px 24px rgb(0 0 0 / 0.2);
   --admin-shadow-md: 0 18px 48px rgb(0 0 0 / 0.34);

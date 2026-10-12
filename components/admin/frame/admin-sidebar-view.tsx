@@ -113,6 +113,18 @@ export function AdminSidebarView({ config, live = {}, state, onPatch, large, jum
         </nav>
       ) : null}
 
+      {/* The parts of a long page; in the drawer the page itself is one swipe away, so the list is left out. */}
+      {config.anchors && !large ? (
+        <nav data-sidebar-block="anchors" aria-label={config.anchors.label} className="grid min-w-0 gap-0.5">
+          <p className={blockLabel}>{config.anchors.label}</p>
+          {config.anchors.items.map((anchor) => (
+            <a key={anchor.id} href={`#${anchor.id}`} className={cn("flex min-w-0 items-center rounded-lg px-2 text-sm text-[var(--admin-text-muted)] hover:bg-[var(--admin-surface-muted)] hover:text-[var(--admin-text)]", navRow)}>
+              <span className="truncate">{anchor.label}</span>
+            </a>
+          ))}
+        </nav>
+      ) : null}
+
       {config.views ? (
         <Choice
           block="filters"

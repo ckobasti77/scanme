@@ -4,10 +4,11 @@ import type { Doc } from "./_generated/dataModel";
 import { fairHeatCap, fairHeatLevel } from "../lib/fair-heat";
 import { loadEventCatalog } from "./fairAdmin";
 import { requireAdmin } from "./lib/access";
-import { requireFairEvent } from "./lib/fairCatalog";
+import { fairAdminError, requireFairEvent } from "./lib/fairCatalog";
 import { fairScanCountKey, readFairCount, type FairScanMetric } from "./lib/fairCountShards";
 import { fairHeatWindow, fairStandWindowCounts } from "./lib/fairHeat";
 import { fairAudienceOptionCounts, fairModelSurveys, fairRatingSummary } from "./lib/fairInteractions";
+import { loadFairEngagement, loadFairModelAnalytics } from "./lib/fairEventAnalytics";
 import { fairExhibitorName } from "./lib/fairLeads";
 import { fairAnalyticsCutoff, fairDayCountFrom } from "./lib/fairPreEvent";
 import { fairTimeKeys } from "./lib/fairScans";
@@ -29,6 +30,13 @@ import { fairTimeKeys } from "./lib/fairScans";
 //   uniquePerModel = one per visitor AND model (scan_unique = fairUniqueScans rows)
 //   visitors       = distinct visitors (one person scanning three cars = 1)
 // The time comes in as `at`; nothing here returns a visitor id or contact.
+//
+// ADMIN v2 X3 adds two more reads (aggregations in lib/fairEventAnalytics.ts):
+//   getEventEngagement — scans per model and day, visitors and leads per day,
+//     models per visitor, the visitors who did more than scan, packages;
+//     polled every 5 minutes;
+//   getModelAnalytics  — one model: scans per day and hour, ratings 1–5, votes
+//     and leads; read only when its detail is opened.
 // =============================================================================
 
 const MODELS_CAP = 150;
@@ -40,6 +48,7 @@ const UNIQUE_ROWS_CAP = 5000;
 const DEVICE_SAMPLE_CAP = 1500;
 const STAMPS_CAP = 2500;
 const PASSPORTS_CAP = 50;
+const DAYS_CAP = 60;
 const HOUR_MS = 3_600_000;
 /** The hour series starts at the hall's opening hour. */
 export const FAIR_ANALYTICS_FIRST_HOUR = 8;
@@ -378,3 +387,56 @@ export const getEventAudience = query({
   },
 });
 
+export const getEventEngagement = query({
+  args: { eventId: v.id("fairEvents"), at: v.number() },
+  returns: v.object({
+    at: v.number(),
+    days: v.array(v.object({ dateKey: v.string(), label: v.string(), visitors: v.number(), leads: v.number() })),
+    models: v.array(v.object({ eventModelId: v.id("fairEventModels"), scansByDay: v.array(v.number()) })),
+    depth: v.object({ one: v.number(), two: v.number(), three: v.number(), fourPlus: v.number(), visitors: v.number() }),
+    engaged: v.object({ visitors: v.number(), rating: v.number(), vote: v.number(), survey: v.number(), lead: v.number() }),
+    stampVisitors: v.number(),
+    packages: v.array(v.object({ tier: v.string(), models: v.number(), scans: v.number(), scansPerModel: v.number() })),
+    capped: v.object({ days: v.boolean(), visitors: v.boolean(), ratings: v.boolean(), votes: v.boolean(), surveys: v.boolean(), leads: v.boolean(), stamps: v.boolean() }),
+  }),
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    const event = await requireFairEvent(ctx, args.eventId);
+    const catalog = await loadEventCatalog(ctx, event._id);
+    // The same day order as getEventAnalytics, so `scansByDay[i]` is its `days[i]`.
+    const days: Day[] = [...catalog.days].sort((a, b) => a.sortOrder - b.sortOrder || a.dateKey.localeCompare(b.dateKey));
+    const engagement = await loadFairEngagement(ctx, { event, cutoff: fairAnalyticsCutoff(event), days, models: exhibited(catalog.models) });
+    return { at: args.at, ...engagement };
+  },
+});
+
+export const getModelAnalytics = query({
+  args: { eventId: v.id("fairEvents"), eventModelId: v.id("fairEventModels"), at: v.number() },
+  returns: v.object({
+    at: v.number(),
+    eventModelId: v.id("fairEventModels"),
+    days: v.array(v.object({ dateKey: v.string(), label: v.string(), scans: v.number(), uniquePerModel: v.number() })),
+    hours: v.array(v.object({ dateKey: v.string(), hour: v.number(), scans: v.number(), uniquePerModel: v.number() })),
+    ratings: v.object({ count: v.number(), average: v.union(v.null(), v.number()), buckets: v.array(v.number()), capped: v.boolean() }),
+    votes: v.object({ total: v.number(), questions: v.array(v.object({ prompt: v.string(), votes: v.number() })) }),
+    leads: v.object({ total: v.number(), interest: v.number(), testDrive: v.number(), capped: v.boolean() }),
+  }),
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    const event = await requireFairEvent(ctx, args.eventId);
+    const model = await ctx.db.get(args.eventModelId);
+    if (!model || model.eventId !== event._id || model.status === "draft") fairAdminError("FAIR_MODEL_NOT_FOUND");
+    const days = await ctx.db
+      .query("fairEventDays")
+      .withIndex("by_eventId_and_dateKey", (q) => q.eq("eventId", event._id))
+      .take(DAYS_CAP);
+    const analytics = await loadFairModelAnalytics(ctx, {
+      cutoff: fairAnalyticsCutoff(event),
+      days: [...days].sort((a, b) => a.sortOrder - b.sortOrder || a.dateKey.localeCompare(b.dateKey)),
+      model,
+      at: args.at,
+      firstHour: FAIR_ANALYTICS_FIRST_HOUR,
+    });
+    return { at: args.at, ...analytics };
+  },
+});

@@ -11,6 +11,7 @@ import { INTERACTION_PACKAGE_VALUES } from "@/lib/admin-v1/interaction-exhibitor
 import { MODEL_FACET_VALUES, MODEL_FACETS } from "@/lib/admin-v1/model-filters";
 import { PASSPORT_STATE_OF_PARAM, PASSPORT_STATE_VALUES } from "@/lib/admin-v1/passport-overview";
 import { QR_STATES } from "@/lib/admin-v1/qr-filters";
+import { ANALYTICS_ANCHORS } from "@/lib/admin-v2/analytics/anchors";
 import { adminEventsSr as dict } from "@/lib/i18n/sr/admin-events";
 import { adminUiSr as ui } from "@/lib/i18n/sr/admin-ui";
 import type { SidebarConfig, SidebarGroup } from "../types";
@@ -19,7 +20,7 @@ const exhibitor: SidebarGroup = { id: "izlagac", label: ui.hierarchy.exhibitor }
 const brand: SidebarGroup = { id: "brend", label: ui.hierarchy.brand };
 const model: SidebarGroup = { id: "model", label: ui.hierarchy.model };
 
-type Filters = Pick<SidebarConfig, "views" | "search" | "groups">;
+type Filters = Pick<SidebarConfig, "views" | "search" | "groups" | "anchors">;
 
 const LIST_FILTERS: Partial<Record<EventSectionPath, Filters>> = {
   modeli: {
@@ -65,6 +66,8 @@ const LIST_FILTERS: Partial<Record<EventSectionPath, Filters>> = {
       { id: "isporuka", label: dict.leadInbox.facetDelivery, options: (["ne", "da"] as const).map((value) => ({ value, label: dict.leadInbox.deliveryOptions[value] })) },
     ],
   },
+  // A long page of charts: its parts instead of filters (the charts have none).
+  analitika: { anchors: { label: dict.analytics.v2.onThisPage, items: ANALYTICS_ANCHORS } },
   izvestaji: {
     groups: [
       { id: "dan", label: dict.reportQueue.facetDay },

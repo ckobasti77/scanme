@@ -23,6 +23,8 @@ import {
 } from "@/components/admin/events/dashboard-logic";
 import { eventSectionHref, type EventSectionPath } from "@/lib/admin-v1/event-sections";
 import type { AdminQueryState } from "@/lib/admin-v1/query-state";
+import { formatCount } from "@/lib/admin-v2/analytics/format";
+import { liveDay, liveDayPercent, type LiveDay } from "@/lib/admin-v2/analytics/live-day";
 import type { AdminUrgencyTone } from "@/lib/admin-v1/subnav";
 import { fmt } from "@/lib/i18n/format";
 import { adminEventsSr as dict } from "@/lib/i18n/sr/admin-events";
@@ -52,11 +54,56 @@ const focusRing = "focus-visible:outline-2 focus-visible:outline-offset-2 focus-
 
 const deadlineMoment = (deadline: { kind: string; at: number }) => (deadline.kind === "day_end" ? deadline.at - 1 : deadline.at);
 
+function LiveNumber({ id, label, value, hint }: { id: string; label: string; value: string; hint?: string }) {
+  return (
+    <p data-live-number={id} className="grid min-w-0 content-start gap-0.5">
+      <span className="text-xs font-semibold text-[var(--admin-text-muted)]">{label}</span>
+      <span className="text-xl leading-7 font-semibold tracking-[-0.02em] tabular-nums">{value}</span>
+      {hint ? <span className="text-xs text-[var(--admin-text-muted)] tabular-nums">{hint}</span> : null}
+    </p>
+  );
+}
+
+// ADMIN v2 X3 — the small live excerpt of Analitika on Pregled: how far the open fair day is, the key
+// numbers of the day and the open items, from the same getEventDashboard result (no new read).
+function LiveStrip({ live, capped }: { live: LiveDay; capped: { scans: boolean; leads: boolean } }) {
+  const share = `${liveDayPercent(live.progress)} %`;
+  const open = live.urgent + live.soon;
+  // A partial count reads "412+", as in the KPI row.
+  const count = (value: number, partial: boolean) => (partial ? `${formatCount(value)}+` : formatCount(value));
+  return (
+    <div data-live-day="" role="group" aria-label={d.live.region} className="grid min-w-0 grid-cols-3 gap-x-6 gap-y-3 border-t border-[var(--admin-border)] pt-3 sm:grid-cols-[minmax(0,1.6fr)_repeat(3,minmax(0,1fr))]">
+      <div className="col-span-3 grid min-w-0 content-start gap-1.5 sm:col-span-1">
+        <p className="flex items-center gap-2 text-xs font-bold tracking-[0.08em] uppercase">
+          <span aria-hidden="true" className="size-2 rounded-full bg-[var(--admin-success)]" />
+          {d.live.label}
+        </p>
+        <div
+          role="progressbar"
+          aria-label={d.live.progressLabel}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={liveDayPercent(live.progress)}
+          aria-valuetext={fmt(d.live.progressText, { share, left: timeLeftText(live.left) })}
+          className="h-1.5 overflow-hidden rounded-full bg-[var(--admin-border)]"
+        >
+          <div className="h-full rounded-full bg-[var(--admin-chart-1)]" style={{ width: `${live.progress * 100}%` }} />
+        </div>
+        <p className="text-xs text-[var(--admin-text-muted)] tabular-nums">{fmt(d.live.progress, { share })}</p>
+      </div>
+      <LiveNumber id="scans" label={d.kpi.scans} value={count(live.scansToday, capped.scans)} />
+      {live.leadsToday !== null ? <LiveNumber id="leads" label={d.kpi.leads} value={count(live.leadsToday, capped.leads)} /> : null}
+      <LiveNumber id="todo" label={d.live.todo} value={formatCount(open)} hint={open ? fmt(d.live.todoHint, { hitno: live.urgent, uskoro: live.soon }) : d.live.todoClear} />
+    </div>
+  );
+}
+
 function Header({ dashboard, now }: { dashboard: EventDashboardData; now: number }) {
   const { phase, days } = dashboard;
   const deadline = phase.nextDeadline;
   const last = days[days.length - 1];
   const openIndex = phase.kind === "sajam" && phase.dayOpen ? (phase.dayIndex ?? 0) - 1 : -1;
+  const live = liveDay({ phase, days, scansToday: dashboard.kpis.scans.today, leadsToday: dashboard.kpis.leads?.newToday ?? null, actions: dashboard.actions }, now);
   return (
     <AdminPanel className="grid min-w-0 gap-3 p-4 sm:p-5">
       <div className="flex min-w-0 flex-wrap items-start justify-between gap-x-6 gap-y-3">
@@ -96,6 +143,7 @@ function Header({ dashboard, now }: { dashboard: EventDashboardData; now: number
           ))}
         </ol>
       ) : null}
+      {live ? <LiveStrip live={live} capped={{ scans: dashboard.kpis.scans.capped, leads: dashboard.kpis.leads?.capped ?? false }} /> : null}
     </AdminPanel>
   );
 }
@@ -333,7 +381,13 @@ export function EventDashboardView({ dashboard, now, base, keep = {} }: {
           <section aria-labelledby={kpiId} className="grid min-w-0 gap-2">
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <h2 id={kpiId} className="text-xs font-bold tracking-[0.08em] text-[var(--admin-text-muted)] uppercase">{d.kpiTitle}</h2>
-              <p className="text-xs text-[var(--admin-text-muted)] tabular-nums">{fmt(d.updated, { time: dashboardTime(dashboard.at) })}</p>
+              <p className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-xs text-[var(--admin-text-muted)] tabular-nums">
+                <span>{fmt(d.updated, { time: dashboardTime(dashboard.at) })}</span>
+                <Link href={href("analitika")} data-open-analytics="" className={cn("inline-flex items-center gap-1 rounded-sm text-sm font-semibold text-[var(--admin-text)] underline-offset-4 hover:underline", focusRing)}>
+                  {d.openAnalytics}
+                  <ArrowRight className="size-4" aria-hidden="true" />
+                </Link>
+              </p>
             </div>
             <AdminKpiRow label={d.kpiTitle} items={kpiItems(dashboard, href)} itemClassName="2xl:flex-[1_1_9.5rem]" />
           </section>

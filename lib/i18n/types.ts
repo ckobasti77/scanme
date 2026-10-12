@@ -11,6 +11,7 @@
 // interface grows when the screen is built.
 
 import type { ProductType, ServiceType } from "../admin-v1/catalog";
+import type { InsightId } from "../admin-v2/analytics/insight-ids";
 import type {
   FairAdminIssueCode,
   FairAudienceQuestionStatus,
@@ -5552,6 +5553,252 @@ export interface AdminEventsAnalyticsDict {
   /** {sample} {bots} */
   devicesNote: string;
   tiers: { included: string; starter: string; advanced: string };
+  /** ADMIN v2 X3 — Analitika v2: every chart answers one question. */
+  v2: AdminEventsAnalyticsV2Dict;
+}
+
+export interface AdminEventsAnalyticsV2Dict {
+  onThisPage: string;
+  loadingPart: string;
+  capped: string;
+  /** {count} */
+  modelsCount: string;
+  table: { value: string; share: string; day: string; hour: string; total: string };
+  /** Counted nouns in their three forms (1, 2–4, 5+). */
+  units: {
+    scans: readonly [string, string, string];
+    uniques: readonly [string, string, string];
+    visitors: readonly [string, string, string];
+  };
+  kpi: {
+    question: string;
+    today: string;
+    total: string;
+    /** {total} */
+    totalHint: string;
+    /** {diff} */
+    deltaFullDay: string;
+    /** {diff} {hour} */
+    deltaSameTime: string;
+    deltaNone: string;
+    /** {percent} */
+    deltaPercent: string;
+    trendTitle: string;
+    /** {label} {values} */
+    trendAria: string;
+    /** {day} {value} */
+    trendPoint: string;
+    leadsZero: string;
+    moreTitle: string;
+  };
+  funnel: {
+    title: string;
+    question: string;
+    steps: { scans: string; visitors: string; engaged: string; leads: string };
+    help: { scans: string; visitors: string; engaged: string; leads: string };
+    /** {share} */
+    rate: string;
+    /** {value} */
+    perVisitor: string;
+    columnStep: string;
+    columnRate: string;
+    zeroTitles: { visitors: string; engaged: string; leads: string };
+    /** {visitors} */
+    leadsZeroBody: string;
+    leadsZeroChecks: readonly string[];
+    openLeadSettings: string;
+    openForms: string;
+    engagedZeroBody: string;
+    note: string;
+  };
+  matrix: {
+    title: string;
+    question: string;
+    /** {day} {hour} {scans}: the number with its noun */
+    cell: string;
+    /** {day} {hour} */
+    cellEmpty: string;
+    /** {day} {hour} {scans}: the number with its noun */
+    peak: string;
+    /** {max} */
+    scaleMax: string;
+    dayTotal: string;
+    keyboardHint: string;
+    empty: string;
+  };
+  leaderboard: {
+    title: string;
+    question: string;
+    rank: string;
+    move: string;
+    /** {places} */
+    moveUp: string;
+    /** {places} */
+    moveDown: string;
+    moveSame: string;
+    moveNew: string;
+    moveHelp: string;
+    trend: string;
+    today: string;
+    /** {share} */
+    fairShare: string;
+    /** {model} */
+    open: string;
+    /** {count} */
+    showAll: string;
+    /** {count} */
+    showTop: string;
+    medals: { 1: string; 2: string; 3: string };
+    /** {rank} */
+    place: string;
+  };
+  detail: {
+    title: string;
+    description: string;
+    close: string;
+    loading: string;
+    errorTitle: string;
+    errorBody: string;
+    retry: string;
+    notFound: string;
+    /** {stand} {tier} */
+    meta: string;
+    kpi: { scans: string; unique: string; repeated: string; leads: string; conversion: string; votes: string; rating: string };
+    repeatedHelp: string;
+    conversionHelp: string;
+    compareTitle: string;
+    compareQuestion: string;
+    compareModel: string;
+    /** {stand} {models} */
+    compareStand: string;
+    /** {models} */
+    compareFair: string;
+    compareAlone: string;
+    daysTitle: string;
+    daysQuestion: string;
+    legendUnique: string;
+    legendRepeated: string;
+    /** {day} {unique} {repeated} */
+    dayTip: string;
+    hoursTitle: string;
+    hoursQuestion: string;
+    ratingsTitle: string;
+    ratingsQuestion: string;
+    ratingsEmpty: string;
+    /** {average} {count} */
+    ratingsSummary: string;
+    ratingBuckets: readonly [string, string, string, string, string];
+    /** {label} {count} */
+    ratingTip: string;
+    votesTitle: string;
+    votesEmpty: string;
+    /** {votes} */
+    votesCount: string;
+    leadsTitle: string;
+    /** {interest} {testDrive} */
+    leadsLine: string;
+    leadsEmpty: string;
+    garageNote: string;
+  };
+  stands: {
+    title: string;
+    question: string;
+    legendTitle: string;
+    other: string;
+    /** {exhibitor} {scans} */
+    segment: string;
+    /** {stand} */
+    open: string;
+    today: string;
+  };
+  packages: {
+    title: string;
+    question: string;
+    perModel: string;
+    columnModels: string;
+    /** {models} {scans} */
+    row: string;
+    single: string;
+    note: string;
+  };
+  depth: {
+    title: string;
+    question: string;
+    buckets: { one: string; two: string; three: string; fourPlus: string };
+    /** {value} */
+    headline: string;
+    headlineHelp: string;
+    /** {label} {visitors} {share} */
+    bucket: string;
+    columnBucket: string;
+    columnVisitors: string;
+    empty: string;
+  };
+  passport: {
+    title: string;
+    question: string;
+    steps: { stampVisitors: string; stamps: string; completed: string };
+    /** {share} {completed} {visitors} */
+    summary: string;
+    /** {stamps} */
+    stampsLine: string;
+    empty: string;
+    note: string;
+  };
+  heat: {
+    title: string;
+    question: string;
+    viewLabel: string;
+    view2d: string;
+    view3d: string;
+    loading3d: string;
+    unavailable3d: string;
+    help3d: string;
+    reset3d: string;
+    /** {max} */
+    heightToday: string;
+    /** {max} */
+    heightHour: string;
+    canvasLabel: string;
+    zones: { hala: string; ispred: string };
+    /** {zones} */
+    zonesEmpty: string;
+    /** {stand} {count}: the number with its noun {share} */
+    standRow: string;
+    standsTitle: string;
+    /** {stand} */
+    standTitle: string;
+    standPick: string;
+    standClose: string;
+    standModels: string;
+    standNoModels: string;
+    /** {stand} {value}: the number with its noun */
+    blockLabel: string;
+    columnHeight: string;
+    /** {exhibitors} */
+    standExhibitors: string;
+  };
+  devices: {
+    title: string;
+    /** {kind} {share} {count} {total} */
+    top: string;
+    /** {kind} {count} */
+    rest: string;
+    /** {bots} */
+    bots: string;
+    note: string;
+    empty: string;
+  };
+  insights: {
+    title: string;
+    question: string;
+    empty: string;
+    note: string;
+    and: string;
+    otherDays: string;
+    problemLabel: string;
+    items: Record<InsightId, string>;
+  };
 }
 
 /**
@@ -5560,6 +5807,13 @@ export interface AdminEventsAnalyticsDict {
  * backend (fairDashboard.getEventDashboard) returns rules and numbers only.
  */
 export interface AdminEventsDashboardDict {
+  /** ADMIN v2 X3 — the link from the KPI row to Analitika. */
+  openAnalytics: string;
+  /**
+   * ADMIN v2 X3 — the live strip of the open fair day: {share} = "94 %" of the
+   * day passed, {left} = time to its end; {hitno} / {uskoro} = open items.
+   */
+  live: { label: string; region: string; progressLabel: string; progress: string; progressText: string; todo: string; todoHint: string; todoClear: string };
   title: string;
   /** sajam: {day} of {count}. */
   phase: Record<FairDashboardPhase, string>;

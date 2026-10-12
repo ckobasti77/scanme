@@ -98,6 +98,38 @@ describe("A10 Pregled view", () => {
     expect(rulesInOrder(posle).at(-1)).toBe("pii_purge_countdown");
   });
 
+  test("ADMIN v2 X3 live strip: only while a fair day is open; the progress of the day, the key numbers of the day and the open items", () => {
+    const number = (html: string, id: string) => html.match(new RegExp(`data-live-number="${id}"[^>]*>(.*?)</p>`))?.[1].replace(/<[^>]+>/g, "|");
+
+    // 10:40 of the second day: 44 % of the day, 13 h 20 min to its end.
+    const sajam = render(previewDashboard("sajam"));
+    expect(sajam.split("data-live-day").length - 1).toBe(1);
+    for (const text of [`aria-label="${d.live.region}"`, `>${d.live.label}<`, `role="progressbar" aria-label="${d.live.progressLabel}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="44"`, 'aria-valuetext="Prošlo je 44 % dana, do kraja 13 h 20 min"', "Prošlo je 44 % dana"]) {
+      expect(sajam).toContain(text);
+    }
+    expect(number(sajam, "scans")).toBe(`|${d.kpi.scans}||412|`);
+    expect(number(sajam, "leads")).toBe(`|${d.kpi.leads}||9|`);
+    expect(number(sajam, "todo")).toBe(`|${d.live.todo}||6||hitno 4 · uskoro 2|`);
+
+    // The last day at 22:38, with the totals of the fair: 94 %, no lead, one urgent item and three that come soon.
+    const dan3 = render(previewDashboard("dan3"));
+    for (const text of ['aria-valuenow="94"', 'aria-valuetext="Prošlo je 94 % dana, do kraja 1 h 22 min"', "Sajamski dan 3 od 3"]) expect(dan3).toContain(text);
+    expect(number(dan3, "scans")).toBe(`|${d.kpi.scans}||179|`);
+    expect(number(dan3, "leads")).toBe(`|${d.kpi.leads}||0|`);
+    expect(number(dan3, "todo")).toBe(`|${d.live.todo}||4||hitno 1 · uskoro 3|`);
+
+    // Nothing to react to; a partial count keeps its plus; leads no package has are left out, never a zero.
+    const base = previewDashboard("dan3");
+    const quiet = render({ ...base, actions: base.actions.filter((action) => action.tone === "info"), kpis: { ...base.kpis, scans: { ...base.kpis.scans, capped: true }, leads: null } });
+    expect(number(quiet, "todo")).toBe(`|${d.live.todo}||0||${d.live.todoClear}|`);
+    expect(number(quiet, "scans")).toBe(`|${d.kpi.scans}||179+|`);
+    expect(quiet).not.toContain('data-live-number="leads"');
+
+    // Before and after the fair, and between two fair days, there is no live strip.
+    for (const faza of ["pre", "posle"]) expect(render(previewDashboard(faza))).not.toContain("data-live-day");
+    expect(render({ ...base, phase: { ...base.phase, dayOpen: false } })).not.toContain("data-live-day");
+  });
+
   test("KPI row: one number per function; a function no package has is left out, never a zero", () => {
     const sajam = render(previewDashboard("sajam"));
     for (const text of [d.kpi.models, "34/37", "Za sve 9 · Starter 18 · Napredni 10", d.kpi.qr, "33/100", d.kpi.scans, "412", "ceo sajam 1286 · jedinstveni po modelu 903", d.kpi.leads, "neisporučeno 14 od 23", d.kpi.questionsToday, "15/20", d.kpi.reports]) {

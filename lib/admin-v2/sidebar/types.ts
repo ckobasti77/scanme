@@ -57,6 +57,8 @@ export type SidebarConfig = {
   nav?: readonly AdminSubnavGroup[];
   /** Label of `nav` for assistive technology. */
   navLabel?: string;
+  /** „Na ovoj strani“: the parts of a long page, as links to their ids on the screen. */
+  anchors?: { label: string; items: readonly { id: string; label: string }[] };
   views?: SidebarViews;
   search?: SidebarSearch;
   groups?: readonly SidebarGroup[];
