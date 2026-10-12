@@ -51,9 +51,11 @@ describe("SAJAM SUPER: Analitika logic", () => {
     const html = renderToStaticMarkup(
       <EventAnalyticsView eventCode="test-elektromobilnost-2026" data={previewAnalytics} audience={previewAudience} hourDay={undefined} onHourDay={() => {}} onRefresh={() => {}} refreshing={false} onExport={() => {}} />,
     );
-    for (const text of ["Analitika", "Jedinstveni po modelu", "Jedinstveni posetioci", "Skenovi po danu", "Skenovi po satu, od 08:00", "Rang modela", "Rang štandova", "Toplotna mapa", "Uređaji", "Izvezi CSV", "Osveži"]) {
+    for (const text of ["Jedinstveni po modelu", "Jedinstveni posetioci", "Skenovi po danu", "Skenovi po satu, od 08:00", "Rang modela", "Rang štandova", "Toplotna mapa", "Uređaji", "Izvezi CSV", "Osveži"]) {
       expect(html).toContain(text);
     }
+    // ADMIN v2: the title „Analitika“ is the H1 of the page header (the event frame), so the view has no second H1.
+    expect(html).not.toContain("<h1");
     // Admin heat map: the exact count is on the stand, the share in the list.
     expect(html).toContain("Štand 9: 72 · 57,6 %");
   });

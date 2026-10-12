@@ -1918,3 +1918,13 @@ Nezavisni pregled doslednosti (Korak 2, `jovan-status/SAJAM-SUPER-2026-10-09.md`
 - **Sada:** strelica nazad i centrirano „GLAS PUBLIKE / model“, bez lockup-a i menija sajma. Pozadina, linija preko cele širine i dugme nazad (`md`) usklađeni su sa zaglavljem sajma.
 - **Pitanje:** da li Glas publike dobija standardno sajamsko zaglavlje (lockup i Mapa · Pasoši · Garaža), sa strelicom nazad u sadržaju, kao na detalju pasoša?
 - **Zašto nije urađeno:** to menja strukturu i navigaciju toka. Korak 2 kaže da se ponašanje i sadržaj ne menjaju.
+
+## ADMIN v2 X1 (12. 10. 2026.) — korak je završen, ali ga provera cilja ne propušta (REŠENO 12. 10. 2026.)
+
+> **Rešeno:** uslov cilja koraka je ispravljen (napomena runnera u `scripts/tasks/logs/admin-v2/X1-pad-a3.md`). Prijava na pravi `/admin` nije deo cilja i nije potrebna: čuvar (`AdminGuard`) se dokazuje testom i proverom bez prijave, što je urađeno (`docs/admin/v2/X1.md`, odeljak 10). Korak X1 je potvrđen. Opis ispod je stanje pre rešenja.
+
+Kod, testovi, snimci, recept i beleška koraka X1 su završeni i gejtovi su čisti (`docs/admin/v2/X1.md`). Lanac je ipak stajao na X1 u tri pokušaja. **Deferred, awaiting owner decision.**
+
+- **Šta se dešava:** provera cilja sesije (Stop hook) za stavku „AdminGuard štiti isto kao pre“ traži pregled pravog `/admin` sa stvarnom prijavom. Lanac to ne sme (`scripts/admin-v2/pravila.md`: „ne prijavljuješ se i ne unosiš lozinke“), a naloga ni sesije u okruženju nema. Zato se sesija nije završavala redom `KORAK X1 GOTOVO` i runner je dobijao praznu poslednju poruku (`scripts/tasks/logs/admin-v2/X1-pad-a1.md`, `X1-pad-a2.md`).
+- **Šta je dokazano bez prijave:** `docs/admin/v2/X1.md`, odeljak 10 (isti čuvar i izvor, isti ishod za svaki odgovor upita `admin.me`, ista pokrivenost 30 stranica, četiri stanja čuvara u pregledaču).
+- **Odluka za vlasnika:** ili se prijavi na DEV-u, prođi Dashboard → Klijenti → Događaji → Modeli i prihvati X1 ručno, pa pusti lanac od X2; ili u uslovu cilja koraka precizira da se čuvar dokazuje testovima i pregledom bez prijave.

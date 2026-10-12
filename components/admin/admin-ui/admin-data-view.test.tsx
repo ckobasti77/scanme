@@ -43,21 +43,23 @@ function view(overrides: Partial<AdminDataViewProps<Row>> = {}) {
 const count = (html: string, needle: string) => html.split(needle).length - 1;
 
 describe("AdminDataView (A1)", () => {
-  test("without a saved choice both views render and CSS picks Tabela on desktop, Kartice on the phone", () => {
+  test("without a saved choice both views render and CSS picks Tabela in a wide list, Kartice in a narrow one (ADMIN v2: by the width of the list, not of the window)", () => {
     const html = view();
     expect(html).toContain('data-admin-primitive="data-view"');
     expect(html).toContain('data-view-mode="auto"');
     expect(html).toContain("<table");
-    expect(html).toMatch(/role="region"[^>]*class="[^"]*hidden lg:block"/);
-    expect(html).toContain("lg:hidden");
+    expect(html).toContain('class="@container ');
+    expect(html).toMatch(/role="region"[^>]*class="[^"]*hidden @4xl:block"/);
+    expect(html).toContain("@4xl:hidden");
+    expect(html).not.toMatch(/hidden (md|lg):block/);
     expect(html).toContain('<caption class="sr-only">TEST lista</caption>');
     expect(html).toContain('<ul aria-label="TEST lista"');
   });
 
   test("the md breakpoint switches earlier", () => {
     const html = view({ autoBreakpoint: "md" });
-    expect(html).toContain("hidden md:block");
-    expect(html).toContain("md:hidden");
+    expect(html).toContain("hidden @2xl:block");
+    expect(html).toContain("@2xl:hidden");
   });
 
   test("a chosen view renders only that view", () => {
@@ -102,9 +104,14 @@ describe("AdminDataView (A1)", () => {
     expect(html).toContain(`aria-label="Sortiraj po koloni Naziv"`);
     expect(count(html, "Sortiraj po koloni")).toBe(1);
     expect(html).toContain('<th scope="row"');
-    expect(html).toContain("hidden xl:table-cell");
-    expect(html).toContain("sticky top-0");
-    expect(html).toContain("overflow-x-auto");
+    expect(html).toContain("hidden @6xl:table-cell");
+    // ADMIN v2: the table scrolls with the screen, never in its own box; the
+    // wrapper keeps the header row on top and scrolls sideways only while the
+    // table is wider than it (AdminTableScroll + app/globals.css).
+    expect(html).toMatch(/<div[^>]*data-admin-table-wrap=""[^>]*role="region"/);
+    expect(html).not.toContain("max-h-[70vh]");
+    expect(html).not.toContain("overflow-y-auto");
+    expect(html).not.toContain("overflow-x-auto");
     expect(html.indexOf("TEST Žika")).toBeLessThan(html.indexOf("TEST Ana"));
   });
 

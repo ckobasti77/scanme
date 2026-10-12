@@ -19,7 +19,7 @@ import { getFairEntitlements } from "@/lib/fair-entitlements";
 
 export function IzvestajiSection() {
   const { eventId, catalog, directory } = useAdminEvent();
-  const [query, setQuery] = useAdminQueryState();
+  const [query] = useAdminQueryState();
   const runs = useQuery(api.fairReports.listReportRuns, { eventId });
   const [reviewId, setReviewId] = useState<Id<"fairReportRuns"> | null>(null);
   const reviewed = useQuery(api.fairReports.getReportRun, reviewId ? { reportRunId: reviewId } : "skip");
@@ -84,5 +84,5 @@ export function IzvestajiSection() {
     review: (id) => setReviewId(id ? runId(id) : null),
   };
 
-  return <AdminEventsReports view={view} actions={actions} query={query} onQueryChange={setQuery} />;
+  return <AdminEventsReports view={view} actions={actions} query={query} />;
 }

@@ -5978,8 +5978,35 @@ export interface AdminUiDict {
     activeLabel: string;
     /** {label} = chip text. */
     removeChip: string;
-    /** `<select>` option that turns a facet off. */
+    /** The option that turns a filter off. */
     any: string;
+    /** ADMIN v2 — the contextual sidebar (views, search, accordion, chips, sort). */
+    clearAll: string;
+    views: string;
+    groups: string;
+    sort: string;
+    /** Group header with the current choice: {group}, {value}. */
+    groupWithValue: string;
+    /** Search field of a long group: {group}. */
+    searchIn: string;
+    noMatches: string;
+    /** {shown}, {total}. */
+    moreMatches: string;
+    /** {count} matching options (screen reader). */
+    matchesAnnounce: string;
+    period: string;
+  };
+  /** ADMIN v2 — the frame: sidebar, navbar, screen and the phone drawer. */
+  frame: {
+    home: string;
+    sidebarAria: string;
+    mainNavTitle: string;
+    openMenu: string;
+    drawerTitle: string;
+    drawerDescription: string;
+    search: string;
+    searchShortcut: string;
+    jumpsTitle: string;
   };
   /** A3 — AdminHierarchyPicker (Izlagač → Brend → Model). */
   hierarchy: {

@@ -17,6 +17,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { api } from "@/convex/_generated/api";
 import { adminSearchSr as dict } from "@/lib/i18n/sr/admin-search";
+import { adminUiSr } from "@/lib/i18n/sr/admin-ui";
 import { cn } from "@/lib/utils";
 
 const GROUP_LABEL = {
@@ -33,9 +34,12 @@ export type AdminSearchCommandPreviewGroups = FunctionReturnType<typeof api.admi
 export function AdminSearchCommand({
   buttonClass,
   previewGroups,
+  showShortcut = false,
 }: {
   buttonClass: string;
   previewGroups?: AdminSearchCommandPreviewGroups;
+  /** ADMIN v2 — the button names itself and shows the Ctrl K shortcut on a wide navbar. */
+  showShortcut?: boolean;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -72,8 +76,14 @@ export function AdminSearchCommand({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <button type="button" className={buttonClass} aria-label={dict.commandTitle}>
+        <button type="button" className={buttonClass} aria-label={dict.commandTitle} aria-keyshortcuts={showShortcut ? "Control+K" : undefined}>
           <Search className="size-[1.15rem]" aria-hidden="true" />
+          {showShortcut ? (
+            <>
+              <span className="hidden 2xl:inline">{adminUiSr.frame.search}</span>
+              <kbd className="hidden rounded-md border border-[var(--admin-border)] bg-[var(--admin-surface-muted)] px-1.5 py-0.5 font-sans text-[0.68rem] font-semibold text-[var(--admin-text-muted)] xl:inline">{adminUiSr.frame.searchShortcut}</kbd>
+            </>
+          ) : null}
         </button>
       </DialogTrigger>
       <DialogContent

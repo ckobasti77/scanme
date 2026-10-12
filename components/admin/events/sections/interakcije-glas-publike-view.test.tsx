@@ -1,12 +1,16 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test } from "vitest";
 import type { InteractionsActions, InteractionsView } from "@/components/admin/admin-events-interactions";
+import { AdminSidebarView } from "@/components/admin/frame/admin-sidebar-view";
 import type { AdminQueryState } from "@/lib/admin-v1/query-state";
+import { resolveAdminSidebar } from "@/lib/admin-v2/sidebar/registry";
+import type { SidebarState } from "@/lib/admin-v2/sidebar/types";
 import { adminEventsSr } from "@/lib/i18n/sr/admin-events";
 import { adminUiSr } from "@/lib/i18n/sr/admin-ui";
-import { EventAudienceView } from "./interakcije-glas-publike-view";
+import { audienceSidebarLive, EventAudienceView } from "./interakcije-glas-publike-view";
 
-// Admin UX A6 — Glas publike (SSR): picker with package and the day's quota,
+// Admin UX A6 / ADMIN v2 — Glas publike (SSR; the status filter of the list is
+// in the sidebar of the admin frame): picker with package and the day's quota,
 // option rows instead of a textarea, quota visible and enforced before
 // saving, the four statuses (Sponzorisano in its own tone) and the model ×
 // day matrix.
@@ -47,6 +51,15 @@ const actions: InteractionsActions = {
   retireSurvey: ok,
 };
 const render = (query: AdminQueryState = {}) => renderToStaticMarkup(<EventAudienceView view={view} actions={actions} now={NOW} query={query} onQueryChange={() => undefined} />);
+const BASE = "/admin/dogadjaji/test-sajam";
+const exhibitorOf = (modelId: string) => view.models.find((model) => model.id === modelId)?.exhibitorId;
+/** The sidebar of the exhibitor's page as the frame renders it: the registry configuration with what the question list sends. */
+const sidebarHtml = (query: AdminQueryState = {}, questions = view.questions) =>
+  renderToStaticMarkup(
+    <AdminSidebarView config={resolveAdminSidebar(`${BASE}/interakcije/p1`)} live={audienceSidebarLive(questions, query.izlagac, exhibitorOf)} state={query as SidebarState} onPatch={() => undefined} />,
+  );
+/** A radio row of a sidebar group: the option and the number next to it. */
+const option = (label: string, count: number) => new RegExp(`>${label}</span><span[^>]*>${count}</span>`);
 const buttonWith = (html: string, text: string) => html.match(new RegExp(`<button[^>]*>(?:(?!</button>).)*${text}(?:(?!</button>).)*</button>`))?.[0] ?? "";
 
 describe("A6 Glas publike", () => {
@@ -142,6 +155,43 @@ describe("A6 Glas publike", () => {
     expect(html).toContain(">1/1<");
     expect(html).toContain(">3/5<");
     expect(html).toContain(a.matrixDrafts.replace("{count}", "1"));
+  });
+
+  test("ADMIN v2: the question list has no filter block above it; the N od M counter stays", () => {
+    const html = render();
+    expect(html).not.toContain('data-admin-primitive="filter-bar"');
+    expect(html).not.toContain(`aria-label="${a.filterLabel}"`);
+    expect(html).toContain(a.listCount.replace("{shown}", "5").replace("{total}", "5"));
+    expect(render({ status: "sponzorisano" })).toContain(a.listCount.replace("{shown}", "1").replace("{total}", "5"));
+  });
+
+  test("ADMIN v2 sidebar: the status of the questions with counts, the chip of the choice and Očisti sve", () => {
+    const html = sidebarHtml();
+    expect(html).toContain(`>${a.facetStatus}</span>`);
+    expect(html).toMatch(option(a.statuses.draft, 1));
+    expect(html).toMatch(option(a.statuses.published, 2));
+    expect(html).toMatch(option(a.statuses.sponsored, 1));
+    expect(html).toMatch(option(a.statuses.closed, 1));
+    // The brand arrives by a link from the model page: a chip only, never a group.
+    expect(html).not.toContain(`>${adminUiSr.hierarchy.brand}</span>`);
+    expect(html).not.toContain('aria-expanded="true"');
+    const chosen = sidebarHtml({ status: "sponzorisano" });
+    expect(chosen).toContain(`${a.facetStatus}: ${a.statuses.sponsored}`);
+    expect(chosen).toContain(`>${adminUiSr.filters.clearAll}</button>`);
+    // The counts follow the exhibitor filter of the link.
+    expect(sidebarHtml({ izlagac: "nema" })).toMatch(option(a.statuses.published, 0));
+    expect(audienceSidebarLive(view.questions, undefined, exhibitorOf).options?.status.map((entry) => entry.value)).toEqual(["nacrt", "objavljeno", "sponzorisano", "zatvoreno"]);
+  });
+
+  test("ADMIN v2: the matrix scrolls with the screen, not in its own box; the model column stays sticky sideways", () => {
+    const html = render();
+    const matrix = html.slice(html.indexOf('data-admin-matrix="audience"'));
+    expect(matrix).toContain("data-admin-table-wrap");
+    expect(matrix).not.toContain("overflow-x-auto");
+    expect(matrix).not.toContain("md:max-h-[70vh]");
+    expect(matrix).not.toContain("md:overflow-y-auto");
+    expect(matrix).not.toMatch(/<thead[^>]*sticky/);
+    expect(matrix).toMatch(/<th scope="row" class="sticky left-0/);
   });
 
   test("without a Starter/Napredni model the form explains why", () => {

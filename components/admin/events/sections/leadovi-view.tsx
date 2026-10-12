@@ -6,31 +6,26 @@ import { useId, useMemo, useState, type ReactNode } from "react";
 import type { CatalogView, ModelView, Paged } from "@/components/admin/admin-events";
 import { ConfirmAction, Feedback, Meta, interactionCodeText, useRunner } from "@/components/admin/admin-events-interactions";
 import { AdminEmptyState, AdminLoadingState, AdminPanel, AdminStatus } from "@/components/admin/admin-primitives";
-import {
-  AdminDataCard,
-  AdminDataView,
-  AdminFilterBar,
-  AdminHierarchyPicker,
-  adminFieldClass,
-  adminSecondaryButtonClass,
-  type AdminColumn,
-  type AdminFilterChip,
-} from "@/components/admin/admin-ui";
+import { AdminDataCard, AdminDataView, adminFieldClass, adminSecondaryButtonClass, type AdminColumn } from "@/components/admin/admin-ui";
+import { useAdminSidebarLive } from "@/components/admin/frame/admin-sidebar-store";
 import { Feedback as EventFeedback, Section, eventDateTime, modelName, type EventMessage } from "@/components/admin/events/event-ui";
-import { clearLeadInboxPatch, hasLeadInboxFilter, leadDeliveryDeadline, type LeadDeadline } from "@/components/admin/events/leads-logic";
+import { hasLeadInboxFilter, leadDeliveryDeadline, type LeadDeadline } from "@/components/admin/events/leads-logic";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import type { HierarchyData } from "@/lib/admin-v1/hierarchy";
 import { modelHierarchy } from "@/lib/admin-v1/model-filters";
 import type { AdminQueryPatch, AdminQueryState } from "@/lib/admin-v1/query-state";
+import { hierarchyIntercept, hierarchySidebarOptions } from "@/lib/admin-v2/sidebar/hierarchy";
+import type { SidebarLive } from "@/lib/admin-v2/sidebar/types";
 import type { FairEmailDeliveryStatus, FairLeadActivityGroup, FairLeadKind, FairPackageTier } from "@/lib/fair-contract";
 import { fmt } from "@/lib/i18n/format";
 import { adminEventsSr as dict } from "@/lib/i18n/sr/admin-events";
 import { cn } from "@/lib/utils";
 
-// Admin UX A8 — `leadovi` (ADMIN-UX §7; MASTER §8, §12, §13): the inbox of
-// the event's leads with the Izlagač → Brend → Model, type, delivery and
-// date filters, Tabela/Kartice, the lead detail in a drawer (`?lead=`) with
-// the visitor's activity ONLY on that exhibitor's models, delivery to the
+// Admin UX A8 / ADMIN v2 — `leadovi` (ADMIN-UX §7; MASTER §8, §12, §13): the
+// inbox of the event's leads (the Izlagač → Brend → Model, type, delivery and
+// date filters are in the sidebar of the admin frame), Tabela/Kartice, the
+// lead detail in a drawer (`?lead=`) with the visitor's activity ONLY on that
+// exhibitor's models, delivery to the
 // exhibitor (one lead or the whole exhibitor), the PII file per exhibitor
 // (moved here from Izveštaji), suppression and email retry. Presentational;
 // data and actions come from leadovi-section.tsx (convex/fairLeadsInbox.ts,
@@ -184,45 +179,24 @@ function DateField({ label, value, onChange }: { label: string; value: string | 
   );
 }
 
-function InboxFilters({ hierarchy, query, onQueryChange }: { hierarchy: HierarchyData; query: AdminQueryState; onQueryChange: (patch: AdminQueryPatch) => void }) {
-  const exhibitor = hierarchy.exhibitors.find((row) => row.id === query.izlagac);
-  const brand = hierarchy.brands.find((row) => row.id === query.brend);
-  const model = hierarchy.models.find((row) => row.id === query.model);
-  const chips: AdminFilterChip[] = [];
-  if (exhibitor) chips.push({ id: "izlagac", label: `${t.colExhibitor}: ${exhibitor.label}`, onRemove: () => onQueryChange({ izlagac: null, brend: null, model: null }) });
-  if (brand) chips.push({ id: "brend", label: `${dict.colBrand}: ${brand.label}`, onRemove: () => onQueryChange({ brend: null, model: null }) });
-  if (model) chips.push({ id: "model", label: `${dict.colModel}: ${model.label}`, onRemove: () => onQueryChange({ model: null }) });
-  if (query.tip) chips.push({ id: "tip", label: fmt(t.chipKind, { value: t.kindOptions[query.tip as keyof typeof t.kindOptions] }), onRemove: () => onQueryChange({ tip: null }) });
-  if (query.isporuka) chips.push({ id: "isporuka", label: fmt(t.chipDelivery, { value: t.deliveryOptions[query.isporuka as keyof typeof t.deliveryOptions] }), onRemove: () => onQueryChange({ isporuka: null }) });
-  if (query.od) chips.push({ id: "od", label: fmt(t.chipFrom, { date: query.od }), onRemove: () => onQueryChange({ od: null }) });
-  if (query.do) chips.push({ id: "do", label: fmt(t.chipTo, { date: query.do }), onRemove: () => onQueryChange({ do: null }) });
+/** The two „Primljeno od / do“ fields of the Period group; the page filters by the same `od` and `do`. */
+function periodBody(query: AdminQueryState, onQueryChange: (patch: AdminQueryPatch) => void) {
   return (
-    <AdminFilterBar
-      label={t.filtersLabel}
-      hierarchy={
-        <div className="grid min-w-0 gap-3">
-          <AdminHierarchyPicker
-            data={hierarchy}
-            value={{ exhibitorId: query.izlagac, brandId: query.brend, modelId: query.model }}
-            label={t.hierarchyLabel}
-            onChange={(next) => onQueryChange({ izlagac: next.exhibitorId ?? null, brend: next.brandId ?? null, model: next.modelId ?? null, lead: null })}
-          />
-          <div className="grid min-w-0 gap-3 sm:grid-cols-2 lg:max-w-xl">
-            <DateField label={t.fromLabel} value={query.od} onChange={(od) => onQueryChange({ od })} />
-            <DateField label={t.toLabel} value={query.do} onChange={(next) => onQueryChange({ do: next })} />
-          </div>
-        </div>
-      }
-      facets={[
-        { id: "tip", label: t.facetKind, options: (["zainteresovan", "probna-voznja"] as const).map((value) => ({ value, label: t.kindOptions[value] })) },
-        { id: "isporuka", label: t.facetDelivery, options: (["ne", "da"] as const).map((value) => ({ value, label: t.deliveryOptions[value] })) },
-      ]}
-      values={query}
-      onFacetChange={(id, next) => onQueryChange({ [id]: next ?? null })}
-      chips={chips}
-      onClear={() => onQueryChange(clearLeadInboxPatch())}
-    />
+    <div className="grid min-w-0 gap-3">
+      <DateField label={t.fromLabel} value={query.od} onChange={(od) => onQueryChange({ od })} />
+      <DateField label={t.toLabel} value={query.do} onChange={(next) => onQueryChange({ do: next })} />
+    </div>
   );
+}
+
+/** What the inbox sends to the sidebar: the hierarchy options (no counts, the list is filtered by the query), the dependent filters and the Period group. */
+export function leadsSidebarLive(hierarchy: HierarchyData, query: AdminQueryState, onQueryChange: (patch: AdminQueryPatch) => void): SidebarLive {
+  const summary = [query.od ? fmt(t.chipFrom, { date: query.od }) : null, query.do ? fmt(t.chipTo, { date: query.do }) : null].filter(Boolean).join(" · ");
+  return {
+    options: hierarchySidebarOptions(hierarchy, query),
+    intercept: hierarchyIntercept(hierarchy),
+    custom: { period: { summary, body: periodBody(query, onQueryChange) } },
+  };
 }
 
 function HandOver({ exhibitorId, exhibitorName, actions }: { exhibitorId: string | undefined; exhibitorName: string | null; actions: LeadInboxActions }) {
@@ -277,11 +251,14 @@ export function EventLeadsInboxView({ catalog, leads, query, onQueryChange, lead
   const columns = useMemo(() => inboxColumns(names), [names]);
   const filtered = hasLeadInboxFilter(query);
   const deadline = leadDeliveryDeadline(now);
+  const sidebar = useMemo(() => leadsSidebarLive(hierarchy, query, onQueryChange), [hierarchy, query, onQueryChange]);
+  useAdminSidebarLive(sidebar);
   const openLead = query.lead ? leads.rows.find((row) => row.id === query.lead) ?? null : null;
 
   return (
     <div className="grid min-w-0 gap-4">
-      <Section title={dict.sectionLabels.leadovi}>
+      {/* The page header carries the title „Primljeni leadovi“; this panel is the state of the inbox. */}
+      <AdminPanel className="min-w-0 p-4 sm:p-5">
         <p className="mb-3 max-w-3xl text-sm text-[var(--admin-text-muted)]">{t.help}</p>
         <div className="grid gap-2 rounded-xl border border-[var(--admin-border)] bg-[var(--admin-surface-muted)] p-3 text-sm sm:grid-cols-2" role="status" aria-live="polite">
           <p className="flex min-w-0 items-start gap-2 font-semibold">
@@ -306,9 +283,8 @@ export function EventLeadsInboxView({ catalog, leads, query, onQueryChange, lead
             </Link>
           ))}
         </nav>
-      </Section>
-      <InboxFilters hierarchy={hierarchy} query={query} onQueryChange={onQueryChange} />
-      <Section title={t.listTitle}>
+      </AdminPanel>
+      <>
         <AdminDataView
           listKey="dogadjaji.leadovi"
           caption={t.listTitle}
@@ -362,7 +338,7 @@ export function EventLeadsInboxView({ catalog, leads, query, onQueryChange, lead
           ) : null}
         />
         <Feedback message={rowRun.message} />
-      </Section>
+      </>
       <HandOver exhibitorId={query.izlagac && exhibitors.has(query.izlagac) ? query.izlagac : undefined} exhibitorName={query.izlagac ? exhibitors.get(query.izlagac) ?? null : null} actions={actions} />
       <LeadDetailDrawer
         open={Boolean(query.lead)}

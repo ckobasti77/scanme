@@ -1,6 +1,4 @@
 import type { Metadata } from "next";
-import { AdminGuard } from "@/components/admin/admin-guard";
-import { AdminShell } from "@/components/admin/admin-shell";
 import { AdminMailContainer } from "@/components/admin/mail/admin-mail";
 import { postaSr } from "@/lib/i18n/sr/posta";
 
@@ -13,13 +11,9 @@ export const metadata: Metadata = {
 export default async function PostaPage({ searchParams }: { searchParams: Promise<{ status?: string | string[]; kod?: string | string[] }> }) {
   const { status, kod } = await searchParams;
   return (
-    <AdminGuard>
-      <AdminShell>
-        <AdminMailContainer
-          callbackStatus={typeof status === "string" ? status : undefined}
-          callbackCode={typeof kod === "string" ? kod : undefined}
-        />
-      </AdminShell>
-    </AdminGuard>
+    <AdminMailContainer
+      callbackStatus={typeof status === "string" ? status : undefined}
+      callbackCode={typeof kod === "string" ? kod : undefined}
+    />
   );
 }

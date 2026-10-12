@@ -306,10 +306,7 @@ export function EventAnalyticsView({ eventCode, data, audience, hourDay, onHourD
     <div className="grid min-w-0 gap-4">
       <AdminPanel className="grid min-w-0 gap-3 p-4 sm:p-5">
         <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
-          <div className="grid min-w-0 gap-1">
-            <h1 className="text-xl leading-7 font-semibold tracking-[-0.02em]">{d.title}</h1>
-            <p className="max-w-2xl text-sm leading-5 text-[var(--admin-text-muted)]">{fmt(d.intro, { cutoff: formatBelgrade(data.cutoff) })}</p>
-          </div>
+          <p className="max-w-2xl min-w-0 text-sm leading-5 text-[var(--admin-text-muted)]">{fmt(d.intro, { cutoff: formatBelgrade(data.cutoff) })}</p>
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs text-[var(--admin-text-muted)] tabular-nums" aria-live="polite">{refreshing ? d.refreshing : fmt(d.updated, { time: formatBelgrade(data.at).split(" ").at(-1) ?? "" })}</span>
             <button type="button" className={adminSecondaryButtonClass} onClick={onRefresh} disabled={refreshing}>

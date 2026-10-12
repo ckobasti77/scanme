@@ -187,7 +187,35 @@ html[data-theme="dark"] {
   --admin-shadow-sm: 0 8px 24px rgb(45 49 47 / 0.07);
   --admin-shadow-md: 0 18px 48px rgb(38 42 40 / 0.16);
   --admin-shadow-lg: 0 28px 80px rgb(35 40 46 / 0.2);
+  /* ADMIN v2 — tokens the admin already used without a definition. */
+  --admin-focus: var(--admin-ink);
+  --admin-accent-soft: #e9f5e4;
+  --admin-accent-border: #b7deab;
+  --admin-nav-active: #2f6d23;
+  --admin-link: var(--accent-text);
+  /* ADMIN v2 — the frame (sidebar, navbar, screen). The current navbar item is
+     green text (light: the darker --accent-text for contrast, dark: #6fc05d);
+     the line under it is always #6fc05d. */
+  --admin-nav-current: var(--accent-text);
+  --admin-nav-line: #6fc05d;
+  --admin-sidebar-w: 17.5rem;
+  --admin-navbar-h: 3.5rem;
+  --admin-radius-screen: 1rem;
+  --admin-radius-inner: 0.25rem;
+  /* ADMIN v2 — motion tokens (the same values as lib/admin-v2/motion.ts). */
+  --admin-dur-1: 120ms;
+  --admin-dur-2: 180ms;
+  --admin-dur-3: 240ms;
+  --admin-dur-4: 320ms;
+  --admin-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --admin-ease-in: cubic-bezier(0.4, 0, 1, 1);
   font-family: "DM Sans Variable", "DM Sans", ui-sans-serif, system-ui, sans-serif;
+}
+
+@media (min-width: 90rem) {
+  .admin-v1 {
+    --admin-sidebar-w: 18.5rem;
+  }
 }
 
 html[data-theme="dark"] .admin-v1 {
@@ -215,16 +243,12 @@ html[data-theme="dark"] .admin-v1 {
   --admin-sponsored: #c9a8f5;
   --admin-sponsored-soft: #2f2540;
   --admin-sponsored-border: #5a4478;
+  --admin-accent-soft: #22321f;
+  --admin-accent-border: #3f6a35;
   --admin-shadow-xs: 0 1px 2px rgb(0 0 0 / 0.18);
   --admin-shadow-sm: 0 8px 24px rgb(0 0 0 / 0.2);
   --admin-shadow-md: 0 18px 48px rgb(0 0 0 / 0.34);
   --admin-shadow-lg: 0 28px 80px rgb(0 0 0 / 0.42);
-}
-
-.admin-v1-frame {
-  background-image:
-    radial-gradient(circle at 88% 8%, rgb(255 239 119 / 0.28), transparent 27rem),
-    radial-gradient(circle at 20% 100%, rgb(111 192 93 / 0.08), transparent 31rem);
 }
 
 .admin-v1 :is(button, a, input) {
@@ -269,13 +293,102 @@ html[data-theme="dark"] .admin-v1 {
   outline-color: var(--admin-ink);
 }
 
-@media (max-width: 1279px) {
-  .admin-v1-frame {
-    background-image: radial-gradient(
-      circle at 92% 4%,
-      rgb(255 239 119 / 0.18),
-      transparent 19rem
-    );
+/* ADMIN v2 — the frame. The sidebar keeps its own scroll; a soft fade shows
+   where more content is (the attributes are set while it can scroll there). */
+.admin-v1 .admin-sidebar-scroll {
+  --admin-fade-top: 0px;
+  --admin-fade-bottom: 0px;
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 var(--admin-fade-top),
+    #000 calc(100% - var(--admin-fade-bottom)),
+    transparent 100%
+  );
+}
+
+.admin-v1 .admin-sidebar-scroll[data-fade-top] {
+  --admin-fade-top: 1.5rem;
+}
+
+.admin-v1 .admin-sidebar-scroll[data-fade-bottom] {
+  --admin-fade-bottom: 1.5rem;
+}
+
+/* The navbar links scroll sideways on a narrow desktop instead of wrapping. */
+.admin-v1 .admin-navbar-links {
+  scrollbar-width: none;
+}
+
+.admin-v1 .admin-navbar-links::-webkit-scrollbar {
+  display: none;
+}
+
+/* Between lg and xl the nine links do not fit: the row fades out on the right where it continues. */
+@media (min-width: 64rem) and (max-width: 79.99rem) {
+  .admin-v1 .admin-navbar-links {
+    mask-image: linear-gradient(to right, #000 calc(100% - 2rem), transparent 100%);
+  }
+}
+
+/* Filter accordion: the height opens through grid rows (no measured height),
+   the arrow turns 180 degrees. */
+.admin-v1 .admin-acc-body {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows var(--admin-dur-2) var(--admin-ease-out);
+}
+
+.admin-v1 .admin-acc-body[data-open] {
+  grid-template-rows: 1fr;
+}
+
+.admin-v1 .admin-acc-body > div {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.admin-v1 .admin-acc-chevron {
+  transition: transform var(--admin-dur-2) var(--admin-ease-out);
+}
+
+.admin-v1 [aria-expanded="true"] > .admin-acc-chevron {
+  transform: rotate(180deg);
+}
+
+/* The phone drawer follows the motion tokens (in 240 ms, out 180 ms). */
+.admin-v1[data-admin-drawer][data-state="open"] {
+  animation-duration: var(--admin-dur-3);
+  animation-timing-function: var(--admin-ease-out);
+}
+
+.admin-v1[data-admin-drawer][data-state="closed"] {
+  animation-duration: var(--admin-dur-2);
+  animation-timing-function: var(--admin-ease-in);
+}
+
+/* Tables scroll with the screen, never in their own box: the header row
+   stays under the top edge of the screen. A table too wide for the screen
+   gets a sideways scroll from its wrapper ([data-overflow-x]) and then the
+   header scrolls with it. */
+.admin-v1 [data-admin-table-wrap] {
+  overflow-x: clip;
+}
+
+.admin-v1 [data-admin-table-wrap][data-overflow-x] {
+  overflow-x: auto;
+}
+
+.admin-v1 [data-admin-table-wrap] thead {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  box-shadow: inset 0 -1px 0 var(--admin-border);
+}
+
+@layer base {
+  .admin-v1 [data-admin-table-wrap] thead {
+    background-color: var(--admin-surface-strong);
   }
 }
 

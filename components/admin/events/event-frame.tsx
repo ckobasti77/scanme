@@ -13,7 +13,7 @@ import { dashboardSectionUrgency, withNavUrgency } from "@/components/admin/even
 import { AdminEventProvider } from "@/components/admin/events/event-context";
 import { AdminEventFrameView } from "@/components/admin/events/event-frame-view";
 import { AdminEventsNotFound } from "@/components/admin/events/event-not-found";
-import { eventBasePath, eventNavGroups, eventPathSegments, eventSectionHref, resolveEventSection, switchEventHref } from "@/lib/admin-v1/event-sections";
+import { eventBasePath, eventNavGroups, eventPathSegments, eventSectionHeading, eventSectionHref, resolveEventSection, switchEventHref } from "@/lib/admin-v1/event-sections";
 import { parseViewModeParam, type AdminViewMode } from "@/lib/admin-v1/view-mode";
 import { adminEventsSr as dict } from "@/lib/i18n/sr/admin-events";
 
@@ -59,6 +59,12 @@ export function AdminEventFrame({ eventSlug, children }: { eventSlug: string; ch
   }, [activePath, refresh]);
   const frameEvents = useMemo(() => [...(events ?? [])].sort((a, b) => a.startsAt - b.startsAt).map((row) => ({ slug: row.slug, title: row.title, status: row.status })), [events]);
   const onViewChange = useCallback((mode: AdminViewMode) => setQuery({ prikaz: mode }), [setQuery]);
+  // The event switch is in the sidebar; its handler reads the filters at the moment of the change.
+  const switchTo = useRef<(slug: string) => void>(() => undefined);
+  useEffect(() => {
+    switchTo.current = (slug) => router.push(switchEventHref(eventBasePath(slug), section, query));
+  });
+  const onSelectEvent = useCallback((slug: string) => switchTo.current(slug), []);
 
   if (events === undefined) return <AdminPanel><AdminLoadingState label={dict.loading} /></AdminPanel>;
   if (!event) return <AdminEventsNotFound title={dict.eventNotFoundTitle} body={dict.eventNotFoundBody} href="/admin/dogadjaji" linkLabel={dict.backToEvents} />;
@@ -67,9 +73,10 @@ export function AdminEventFrame({ eventSlug, children }: { eventSlug: string; ch
     <AdminEventFrameView
       events={frameEvents}
       currentSlug={eventSlug}
-      onSelectEvent={(slug) => router.push(switchEventHref(eventBasePath(slug), section, query))}
+      onSelectEvent={onSelectEvent}
       nav={nav}
       linkStickerHref={activePath === "povezi" ? null : eventSectionHref(base, "povezi")}
+      title={section ? eventSectionHeading(section) : undefined}
     >
       {catalog === undefined || directory === undefined ? (
         <AdminPanel><AdminLoadingState label={dict.loading} /></AdminPanel>

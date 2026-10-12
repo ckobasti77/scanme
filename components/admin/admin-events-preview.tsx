@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import type {
   CatalogView,
   DryRunView,
@@ -55,6 +55,7 @@ import { FAIR_QR_LABEL_DEFAULT_FORMAT } from "@/lib/fair-qr-label";
 import {
   eventDetailHref,
   eventNavGroups,
+  eventSectionHeading,
   eventSectionHref,
   interactionExhibitorHref,
   switchEventHref,
@@ -475,7 +476,7 @@ function modelSummary(modelId: string): ModelDetailSummary {
   };
 }
 
-const PREVIEW_BASE = "/dev/admin-events-preview";
+const DEFAULT_PREVIEW_BASE = "/dev/admin-events-preview";
 const PREVIEW_EVENTS: FrameEvent[] = [
   { slug: "test-elektromobilnost-2026", title: "TEST Sajam elektromobilnosti", status: "published" },
   { slug: "test-auto-moto-fest-2026", title: "TEST Auto Moto Fest", status: "published" },
@@ -733,7 +734,9 @@ const importActions: Pick<EventsActions, "dryRun" | "commit"> = {
   },
 };
 
-function PreviewSection({ path, detailId, query, setQuery, keep, previewStep }: {
+function PreviewSection({ base: PREVIEW_BASE, path, detailId, query, setQuery, keep, previewStep }: {
+  /** The link base of the preview (the single-surface route or the persistent frame preview). */
+  base: string;
   path: EventSectionPath;
   detailId?: string;
   query: AdminQueryState;
@@ -929,34 +932,50 @@ function PreviewSection({ path, detailId, query, setQuery, keep, previewStep }: 
       );
     }
     case "leadovi/podesavanja": return <AdminEventsConsent view={{ consents: leadsFixture.consents }} actions={leadActions} />;
-    case "izvestaji": return <AdminEventsReports view={reportsView} actions={reportsActions} query={query} onQueryChange={setQuery} />;
+    case "izvestaji": return <AdminEventsReports view={reportsView} actions={reportsActions} query={query} />;
     case "brisanje": return <AdminEventsRetention view={retentionView} actions={retentionActions} />;
   }
 }
 
-/** `section` = the resolved route (null = unknown path → "not found" state). */
-export function AdminEventsPreview({ section }: { section: ResolvedEventSection | null }) {
+const keepFor = (slug: string): AdminQueryState => (slug === PREVIEW_EVENTS[0].slug ? {} : { dogadjaj: slug });
+
+/**
+ * `section` = the resolved route (null = unknown path → "not found" state).
+ * `base` = where the section links point (ADMIN v2: the persistent frame
+ * preview passes its own).
+ */
+export function AdminEventsPreview({ section, base: PREVIEW_BASE = DEFAULT_PREVIEW_BASE }: { section: ResolvedEventSection | null; base?: string }) {
   const router = useRouter();
   const [query, setQuery] = useAdminQueryState();
   const previewStep = useSearchParams().get("stanje");
   const currentSlug = PREVIEW_EVENTS.find((event) => event.slug === query.dogadjaj)?.slug ?? PREVIEW_EVENTS[0].slug;
-  const keepFor = (slug: string): AdminQueryState => (slug === PREVIEW_EVENTS[0].slug ? {} : { dogadjaj: slug });
-  const keep = keepFor(currentSlug);
+  const keep = useMemo(() => keepFor(currentSlug), [currentSlug]);
   const active = section?.kind === "section" ? section.path : null;
   const onViewChange = useCallback((mode: AdminViewMode) => setQuery({ prikaz: mode }), [setQuery]);
+  const nav = useMemo(
+    () => withNavUrgency(eventNavGroups((path) => eventSectionHref(PREVIEW_BASE, path, keep), active), dashboardSectionUrgency(previewDashboard(query.faza).actions)),
+    [PREVIEW_BASE, keep, active, query.faza],
+  );
+  // The event switch is in the sidebar; its handler reads the filters at the moment of the change.
+  const switchTo = useRef<(slug: string) => void>(() => undefined);
+  useEffect(() => {
+    switchTo.current = (slug) => router.push(switchEventHref(PREVIEW_BASE, section, query, keepFor(slug)));
+  });
+  const onSelectEvent = useCallback((slug: string) => switchTo.current(slug), []);
   return (
     <AdminShell previewIdentity={dict.fixtureIdentity} activePathname="/admin/dogadjaji">
       <AdminEventFrameView
         preview
         events={PREVIEW_EVENTS}
         currentSlug={currentSlug}
-        onSelectEvent={(slug) => router.push(switchEventHref(PREVIEW_BASE, section, query, keepFor(slug)))}
-        nav={withNavUrgency(eventNavGroups((path) => eventSectionHref(PREVIEW_BASE, path, keep), active), dashboardSectionUrgency(previewDashboard(query.faza).actions))}
+        onSelectEvent={onSelectEvent}
+        nav={nav}
         linkStickerHref={active === "povezi" ? null : eventSectionHref(PREVIEW_BASE, "povezi", keep)}
+        title={section ? eventSectionHeading(section) : undefined}
       >
         <AdminViewModeOverride value={parseViewModeParam(query.prikaz)} onChange={onViewChange}>
           {section?.kind === "section"
-            ? <PreviewSection path={section.path} detailId={section.detailId} query={query} setQuery={setQuery} keep={keep} previewStep={previewStep} />
+            ? <PreviewSection base={PREVIEW_BASE} path={section.path} detailId={section.detailId} query={query} setQuery={setQuery} keep={keep} previewStep={previewStep} />
             : <AdminEventsNotFound title={dict.sectionNotFoundTitle} body={dict.sectionNotFoundBody} href={eventSectionHref(PREVIEW_BASE, "pregled", keep)} linkLabel={dict.backToOverview} />}
         </AdminViewModeOverride>
       </AdminEventFrameView>

@@ -7,6 +7,7 @@ import {
   RotateCcw,
 } from "lucide-react";
 import type { ComponentProps, ReactNode } from "react";
+import { AdminTableScroll } from "@/components/admin/admin-ui/admin-table-scroll";
 import { adminV1Sr } from "@/lib/i18n/sr/admin-v1";
 import { cn } from "@/lib/utils";
 
@@ -37,11 +38,12 @@ export function AdminTable({
   className?: string;
   tableClassName?: string;
 }) {
+  // ADMIN v2: the table scrolls with the screen and keeps its header row on top (AdminTableScroll).
   return (
-    <div
+    <AdminTableScroll
       data-admin-primitive="table"
       className={cn(
-        "max-w-full overflow-hidden rounded-[var(--admin-radius-control)] border border-[var(--admin-border)] bg-[var(--admin-surface)]",
+        "max-w-full min-w-0 rounded-[var(--admin-radius-control)] border border-[var(--admin-border)] bg-[var(--admin-surface)]",
         className,
       )}
     >
@@ -54,7 +56,7 @@ export function AdminTable({
         <caption className="sr-only">{caption}</caption>
         {children}
       </table>
-    </div>
+    </AdminTableScroll>
   );
 }
 

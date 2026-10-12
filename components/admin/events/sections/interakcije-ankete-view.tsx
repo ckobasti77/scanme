@@ -258,7 +258,7 @@ function Surveys({ view, actions, now, query, onQueryChange }: { view: Interacti
         {anyAdvanced ? (
           <div className="grid min-w-0 gap-4">
             <div className="max-w-2xl">
-              <AdminHierarchyPicker mode="select" data={pickData} value={{ modelId: model?.id }} onChange={(next) => onQueryChange({ model: next.modelId ?? null })} label={f.modelLabel} required />
+              <AdminHierarchyPicker data={pickData} value={{ modelId: model?.id }} onChange={(next) => onQueryChange({ model: next.modelId ?? null })} label={f.modelLabel} required />
             </div>
             {model ? (
               <SurveyEditor key={editorKey} model={model} versions={versions} actions={actions} setMessage={setFormMessage} />
