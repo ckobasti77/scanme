@@ -338,9 +338,10 @@ export function MiniBars({ values, highlight, label, color = chartColor(1), widt
 
 /** A place in a ranking: gold, silver and bronze as a quiet ring around the number, the rest a plain number. */
 export function RankMedal({ rank, medal, label }: { rank: number; medal: 1 | 2 | 3 | null; label: string }) {
-  if (!medal) return <span aria-label={label} className="inline-flex size-7 items-center justify-center text-sm text-[var(--admin-text-muted)] tabular-nums">{rank}</span>;
+  if (!medal) return <span role="img" aria-label={label} className="inline-flex size-7 items-center justify-center text-sm text-[var(--admin-text-muted)] tabular-nums">{rank}</span>;
   return (
     <span
+      role="img"
       aria-label={label}
       data-medal={medal}
       className="inline-flex size-7 items-center justify-center rounded-full border-2 text-sm font-bold tabular-nums"

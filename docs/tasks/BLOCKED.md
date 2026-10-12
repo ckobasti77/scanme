@@ -2003,3 +2003,19 @@ Napomena runnera u `scripts/tasks/logs/admin-v2/X3-pad-a3.md` kaže da je prover
 - Urađeno po napomeni: unosi X1, X2 i X3 označeni, `tsc`, testovi i lint ponovljeni i čisti.
 - Red „KORAK X3 GOTOVO“ je u ovom pokušaju poslat sedam puta i svaki put odbijen. To je isto ponavljanje koje je već jednom ispravljeno, pa se pokušaj završava redom „KORAK X3 NIJE GOTOVO“.
 - Šta treba: `/goal clear` u ovoj sesiji ili nova sesija za X3. Korak ne sme i ne može sam da ugasi proveru.
+
+## ADMIN v2 X4 (12. 10. 2026.) — dev server lanca ugašen usred koraka (REŠENO 12. 10. 2026.)
+
+> **Rešeno** (napomena runnera u `scripts/tasks/logs/admin-v2/X4-pad-a1.md`, 12. 10. u 21:00): prekid nije bio do koraka. Runner sada sam ponovo podiže dev server na 3170 ako padne, a `.env.local` proverava samo po `CONVEX_DEPLOYMENT`. Korak je u popravci nastavljen tamo gde je stao i sve provere u pregledaču su ponovljene na 3170.
+
+Šta se desilo, redom:
+- Oko 55. minuta koraka Playwright provere su dobile `ERR_CONNECTION_REFUSED` na `http://localhost:3170`. Tri provere porta u razmaku od nekoliko minuta (20:39, 20:41, 20:43): niko ne sluša.
+- Log dev servera (`scripts/tasks/logs/admin-v2/dev-server.log`) se završava uredno, bez greške: server nije pao zbog koda, ugašen je spolja.
+- U istom prozoru je van lanca u ovom repou pokrenut `npx convex dev` (režim praćenja) i `npm run dev` bez porta (`next dev` na 3000). Korak ih nije pokrenuo, nije ih dirao i nije pokretao svoj server: STANJE.md je govorio da server drži runner, a dva `next dev` u istom folderu pišu u isti `.next`.
+- Posledica 1: jedno pokretanje `npx tsc --noEmit` je vratilo 8 sintaksnih grešaka u generisanom `.next/dev/types/routes.d.ts`, jer ga je drugi `next dev` baš tada prepisivao. Ponovljeno pokretanje je čisto (exit 0). U izvornom kodu grešaka nije bilo.
+- Posledica 2: runner je promenu `.env.local` (prepisao ga je spoljni `convex dev`) pročitao kao prekršaj i prekinuo pokušaj. Korak nije čitao ni menjao `.env*`.
+- Dok je ta ručna sesija trajala, korak nije puštao `npm run build` (pisao bi u `.next` pored živog tuđeg dev servera). U popravci, kad je na 3000 više niko nije slušao, build je pušten kao dodatna provera i prolazi (exit 0, 53/53 stranice); `next-env.d.ts`, koji build sam prepiše, vraćen je na sadržaj iz HEAD-a.
+
+Šta ostaje kao rizik za sledeće korake: ako neko ručno radi u ovom folderu dok lanac traje, runner pre svojih gejtova gasi svaki `next dev` ovog repoa i pušta build, pa se dve sesije sudaraju. Predlog za vlasnika: dok lanac radi, ručni rad voditi u drugom klonu repoa. **Deferred, awaiting owner decision** (o tome kako se ubuduće razdvajaju ručni rad i lanac).
+
+Gde je korak izašao iz slova pravila: jedan složeni Bash poziv je odbijen jer se završavao sa `git stash list` (pravila dozvoljavaju samo `status`, `diff`, `log` i `show`); ništa nije stavljeno u stash niti promenjeno, a deo poziva koji je bio potreban je ponovljen bez git-a. Pri čitanju spiska procesa ispisane su i komandne linije alata koji nisu deo ovog repoa; njihov sadržaj nije prenet ni u jedan fajl.

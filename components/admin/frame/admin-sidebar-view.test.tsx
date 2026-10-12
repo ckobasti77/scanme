@@ -2,6 +2,8 @@ import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test, vi } from "vitest";
 import { eventNavGroups } from "@/lib/admin-v1/event-sections";
+import type { MissionProgress } from "@/components/admin/admin-ui/use-mission-progress";
+import { advanceLedger, markClearShown, missionBoard, type MissionBoard } from "@/lib/admin-v2/missions";
 import type { SidebarConfig, SidebarLive, SidebarState } from "@/lib/admin-v2/sidebar/types";
 import { adminEventsSr } from "@/lib/i18n/sr/admin-events";
 import { adminUiSr } from "@/lib/i18n/sr/admin-ui";
@@ -195,6 +197,11 @@ describe("the sidebar of the other pages", () => {
     expect(open).toContain(adminUiSr.frame.missionsTitle);
     expect(open).toMatch(/Hitne stavke<\/span><span data-urgency="hitno"/);
     expect(open).toContain("Hitno: 3");
+    // X4 — without a ledger (the first paint) nothing is solved yet: the ring is empty and names the progress in missions.
+    expect(open).toContain('role="img" aria-label="Misije danas: 0 od 1 misije rešeno"');
+    expect(open).toContain(">0 od 1 misije rešeno<");
+    expect(open).not.toContain("data-mission-progress");
+    expect(open).not.toContain("data-mission-confirm");
     // A mission with nothing to do is not listed.
     expect(open).not.toContain("Nepročitani razgovori");
     expect(open.indexOf(adminUiSr.frame.missionsTitle)).toBeLessThan(open.indexOf(adminUiSr.frame.jumpsTitle));
@@ -202,8 +209,73 @@ describe("the sidebar of the other pages", () => {
 
     const clear = render(page, { missions: [{ id: "hitno", label: "Hitne stavke", count: 0, tone: "hitno" }] });
     expect(clear).toContain(adminUiSr.frame.missionsClear);
+    expect(clear).toContain('data-mission-clear="empty"');
+    expect(clear).not.toContain(adminUiSr.missions.clearTitle);
     // Until the page publishes its data there is no missions block (no invented zero).
     expect(render(page)).not.toContain(adminUiSr.frame.missionsTitle);
+  });
+
+  test("Misije danas with the progress of the day: the ring, „1 od 3 misije rešeno“, a row's own progress and „Sve čisto“ once", () => {
+    const page: SidebarConfig = { id: "test/dashboard", blocks: ["missions"] };
+    const DAY = "2026-10-12";
+    const mission = (id: string, label: string, count: number, tone: "hitno" | "uskoro" | "info") => ({ id, label, count, tone });
+    const start = [mission("hitno", "Hitne stavke", 3, "hitno"), mission("kasne", "Zadaci koji kasne", 1, "hitno"), mission("danas", "Stavke za danas", 2, "uskoro"), mission("inbox", "Nepročitani razgovori", 4, "info")];
+    // Two urgent items and both items for today were solved; one overdue task still waits untouched.
+    const missions = [mission("hitno", "Hitne stavke", 1, "hitno"), start[1], mission("danas", "Stavke za danas", 0, "uskoro"), start[3]];
+    const ledger = advanceLedger(advanceLedger(null, start, DAY).ledger, missions, DAY).ledger;
+    const view = (list: typeof missions, board: MissionBoard, confirm: MissionProgress["confirm"] = null) =>
+      renderToStaticMarkup(<AdminSidebarView config={page} live={{ missions: list }} state={{}} onPatch={() => undefined} missions={{ board, confirm }} />);
+
+    const open = view(missions, missionBoard(missions, ledger));
+    // One of the three missions is solved; the info line is not a mission.
+    expect(open).toContain('aria-label="Misije danas: 1 od 3 misije rešeno"');
+    expect(open).toContain(">1 od 3 misije rešeno<");
+    // Inside a mission the solved items stand beside its row, once there are some (said in words to a screen reader).
+    expect(open).toMatch(/data-mission="hitno".*?Hitne stavke<\/span><span data-mission-progress=""[^>]*><span aria-hidden="true">2 od 3<\/span><span class="sr-only">rešeno stavki: 2 od 3<\/span><\/span><span data-urgency="hitno"/);
+    expect(open).toMatch(/data-mission="kasne"(?:(?!data-mission-progress).)*Hitno: 1/);
+    expect(open).toMatch(/data-mission="inbox"(?:(?!data-mission-progress).)*Info: 4/);
+    // The solved mission is no longer listed; the rest are in the order hitno, uskoro, info.
+    expect(open).not.toContain('data-mission="danas"');
+    expect(open.indexOf('data-mission="hitno"')).toBeLessThan(open.indexOf('data-mission="kasne"'));
+    expect(open.indexOf('data-mission="kasne"')).toBeLessThan(open.indexOf('data-mission="inbox"'));
+
+    // A mission with nothing left is confirmed as solved, in the progress line, and announced.
+    const confirmed = view(missions, missionBoard(missions, ledger), { seq: 1, items: [{ label: "Stavke za danas", done: 2, total: 2, complete: true }] });
+    expect(confirmed).toContain("data-mission-confirm");
+    expect(confirmed).toContain('<span role="status" class="sr-only">Rešeno: Stavke za danas</span>');
+    // A mission that only lost an item says how far it is, never that it is solved.
+    const part = view(missions, missionBoard(missions, ledger), { seq: 2, items: [{ label: "Hitne stavke", done: 2, total: 3, complete: false }] });
+    expect(part).toContain('<span role="status" class="sr-only">Rešeno 2 od 3 · Hitne stavke</span>');
+    expect(part).not.toContain("Rešeno: Hitne stavke");
+
+    // A number the read could only give as "at least" says so, also to a screen reader.
+    const capped = missions.map((item) => (item.id === "kasne" ? { ...item, count: 4, capped: true } : item));
+    const more = view(capped, missionBoard(capped, ledger));
+    expect(more).toMatch(/data-mission="kasne".*?<span aria-hidden="true">4\+<\/span><span class="sr-only">Hitno: 4\+<\/span>/);
+
+    const none = start.map((item) => ({ ...item, count: item.tone === "info" ? 4 : 0 }));
+    const solved = advanceLedger(ledger, none, DAY).ledger;
+    const celebrate = view(none, missionBoard(none, solved));
+    expect(celebrate).toContain('data-mission-clear="celebrate"');
+    expect(celebrate).toContain(adminUiSr.missions.clearTitle);
+    expect(celebrate).toContain("3 od 3 misije rešeno");
+    expect(celebrate).toContain(adminUiSr.missions.clearBody);
+    // The info line is still listed above it.
+    expect(celebrate).toContain('data-mission="inbox"');
+    // While the numbers are being replaced (the Dashboard scope was switched and the new ones are on their way)
+    // only the rows are shown: no progress and no all-clear is claimed from numbers of another scope.
+    const pending = renderToStaticMarkup(<AdminSidebarView config={page} live={{ missions }} state={{}} onPatch={() => undefined} missions={{ board: missionBoard(missions, null), confirm: null, pending: true }} />);
+    expect(pending).toContain('data-mission="hitno"');
+    expect(pending).not.toContain("data-mission-summary");
+    expect(pending).not.toContain("data-mission-clear");
+    const pendingNone = renderToStaticMarkup(<AdminSidebarView config={page} live={{ missions: none }} state={{}} onPatch={() => undefined} missions={{ board: missionBoard(none, null), confirm: null, pending: true }} />);
+    expect(pendingNone).not.toContain("data-mission-clear");
+    expect(pendingNone).not.toContain(adminUiSr.frame.missionsClear);
+
+    const later = view(none, missionBoard(none, markClearShown(solved)));
+    expect(later).toContain('data-mission-clear="quiet"');
+    expect(later).toContain(adminUiSr.missions.clearQuiet);
+    expect(later).not.toContain(adminUiSr.missions.clearTitle);
   });
 });
 

@@ -83,6 +83,37 @@ describe("A10 Pregled view", () => {
     expect(html).not.toContain(d.todoHelp);
   });
 
+  test("ADMIN v2 X4 missions: the ring and „0 od N misija rešeno“ beside the heading; without a ledger nothing is solved and nothing is celebrated", () => {
+    const sajam = render(previewDashboard("sajam"));
+    // Nine rules fire; the three info lines are not missions.
+    expect(sajam).toContain(`role="img" aria-label="${d.todoTitle}: 0 od 6 misija rešeno"`);
+    expect(sajam).toContain(">0 od 6 misija rešeno<");
+    expect(sajam).toContain('<span role="status" class="sr-only"></span>');
+    expect(sajam).not.toContain("data-mission-confirm");
+    // The old summary by tone stays under the heading.
+    expect(sajam).toContain("Hitno 4 · uskoro 2 · info 3");
+
+    const dan3 = render(previewDashboard("dan3"));
+    expect(dan3).toContain(`aria-label="${d.todoTitle}: 0 od 4 misije rešeno"`);
+
+    // Nothing waits and nothing was solved (the first paint has no ledger): the calm state, never the celebration.
+    const empty = render({ ...previewDashboard("sajam"), actions: [] });
+    expect(empty).toContain('data-mission-clear="empty"');
+    expect(empty).not.toContain('data-mission-clear="celebrate"');
+    expect(empty).not.toContain("data-mission-summary");
+    expect(empty).toContain(d.readyTitle);
+  });
+
+  test("ADMIN v2 X4: the numbers a poll changes are odometers with the same text as before (a partial count keeps its +)", () => {
+    const sajam = render(previewDashboard("sajam"));
+    expect(sajam).toMatch(/data-live-number="scans"[^>]*>.*?<span data-admin-odometer=""[^>]*>412<\/span>/);
+    const base = previewDashboard("sajam");
+    const capped = render({ ...base, kpis: { ...base.kpis, scans: { ...base.kpis.scans, capped: true } } });
+    expect(capped).toMatch(/data-live-number="scans"[^>]*>.*?<span data-admin-odometer=""[^>]*>412\+<\/span>/);
+    // Nothing rolls in the first render.
+    expect(sajam).not.toContain("data-rolling");
+  });
+
   test("three phases: phase badge, countdown to the next deadline, fair days with today marked", () => {
     const pre = render(previewDashboard("pre"));
     for (const text of [d.phase.pre, d.deadline.opening, "1 d 14 h", "9. 10. 2026. 00:00", "9. 10. 2026. – 11. 10. 2026.", "TEST dan 1"]) expect(pre).toContain(text);

@@ -5,7 +5,7 @@ import type { FunctionReturnType } from "convex/server";
 import { ArrowRight, Search } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { api } from "@/convex/_generated/api";
+import { fmt } from "@/lib/i18n/format";
 import { adminSearchSr as dict } from "@/lib/i18n/sr/admin-search";
 import { adminUiSr } from "@/lib/i18n/sr/admin-ui";
 import { cn } from "@/lib/utils";
@@ -47,6 +48,7 @@ export function AdminSearchCommand({
   const [activeIndex, setActiveIndex] = useState(0);
   const deferredTerm = useDeferredValue(term.trim());
   const inputRef = useRef<HTMLInputElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const queriedGroups = useQuery(
     api.adminGlobalSearch.preview,
     deferredTerm && !previewGroups ? { term: deferredTerm, limitPerGroup: 4 } : "skip",
@@ -68,6 +70,17 @@ export function AdminSearchCommand({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
+  // ADMIN v2 X4 — the palette opens from its button: the scale starts at the point the trigger is at
+  // (app/globals.css reads --admin-origin). Its box is centred and starts 12vh from the top. A ref
+  // callback, because the dialog mounts its content one render after it opens.
+  const placeOrigin = useCallback((content: HTMLDivElement | null) => {
+    const trigger = triggerRef.current?.getBoundingClientRect();
+    if (!content || !trigger?.width) return;
+    const left = (window.innerWidth - content.offsetWidth) / 2;
+    const top = window.innerHeight * 0.12;
+    content.style.setProperty("--admin-origin", `${Math.round(trigger.left + trigger.width / 2 - left)}px ${Math.round(trigger.top + trigger.height / 2 - top)}px`);
+  }, []);
+
   function openResult(href: string) {
     setOpen(false);
     router.push(href);
@@ -76,7 +89,15 @@ export function AdminSearchCommand({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <button type="button" className={buttonClass} aria-label={dict.commandTitle} aria-keyshortcuts={showShortcut ? "Control+K" : undefined}>
+        <button
+          type="button"
+          ref={triggerRef}
+          data-admin-palette-trigger=""
+          className={buttonClass}
+          aria-label={dict.commandTitle}
+          aria-keyshortcuts={showShortcut ? "Control+K" : undefined}
+          title={showShortcut ? fmt(adminUiSr.shortcuts.hint, { label: adminUiSr.shortcuts.items.palette, keys: adminUiSr.frame.searchShortcut }) : undefined}
+        >
           <Search className="size-[1.15rem]" aria-hidden="true" />
           {showShortcut ? (
             <>
@@ -87,6 +108,8 @@ export function AdminSearchCommand({
         </button>
       </DialogTrigger>
       <DialogContent
+        ref={placeOrigin}
+        data-admin-dialog="palette"
         className="admin-v1 top-[12vh] max-h-[78vh] w-[min(44rem,calc(100vw-2rem))] translate-y-0 overflow-hidden rounded-[var(--admin-radius-panel)] border-[var(--admin-border)] bg-[var(--admin-surface-strong)] p-0 shadow-[var(--admin-shadow-lg)]"
         onOpenAutoFocus={(event) => {
           event.preventDefault();

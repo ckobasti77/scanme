@@ -5710,6 +5710,29 @@ export interface AdminEventsAnalyticsV2Dict {
     /** {stand} */
     open: string;
     today: string;
+    /** ADMIN v2 X4 — what the place, the medal, the arrow and the badge of the day measure. */
+    rankHelp: string;
+  };
+  /** ADMIN v2 X4 — records and badges computed from the data (a tag beside a chart, a toast on a new one). */
+  records: {
+    hour: string;
+    /** {scans}: the number with its noun {day} {hour} */
+    hourValue: string;
+    stand: string;
+    /** {stand} {scans}: the number with its noun */
+    standValue: string;
+    firstLead: string;
+    /** {day} */
+    firstLeadValue: string;
+    /** {value}: the record hour is the one that still runs. */
+    hourRunning: string;
+    /** {scans}: the number with its noun; beside the row of the stand itself. */
+    standToday: string;
+    /** {scans}: the number with its noun {hour} */
+    toastHour: string;
+    /** {stand} */
+    toastStand: string;
+    toastFirstLead: string;
   };
   packages: {
     title: string;
@@ -6332,6 +6355,75 @@ export interface AdminUiDict {
     duplicateRow: string;
     emptyRow: string;
   };
+  /** ADMIN v2 X4 — missions with progress (the Dashboard sidebar, Zadaci, Pregled of an event). */
+  missions: {
+    /** {done} {total} {noun}: missions solved today; {noun} is `units` in the form of {total}. */
+    progress: string;
+    /** {title} {done} {total} {noun} */
+    progressAria: string;
+    /** „misija“ after „od N“, in its three forms (1, 2–4, 5+). */
+    units: readonly [string, string, string];
+    /** {done} {total}: items solved inside one mission, beside its row. */
+    rowProgress: string;
+    /** The same for a screen reader: {done} {total}. */
+    rowProgressAria: string;
+    /** {label}: a mission with nothing left in it. */
+    resolved: string;
+    /** {label} {done} {total}: a mission that lost items and still has some. */
+    resolvedPart: string;
+    /** {count}: a number the read could only give as "at least". */
+    capped: string;
+    clearTitle: string;
+    clearBody: string;
+    /** The all-clear after it was already shown today. */
+    clearQuiet: string;
+  };
+  /** ADMIN v2 X4 — the HUD „Danas“ at the bottom of the sidebar. */
+  hud: {
+    title: string;
+    live: string;
+    /** {day} {count} */
+    day: string;
+    /** {left} */
+    left: string;
+    /** {day} {count} {left} */
+    nextDay: string;
+    /** {share} {left} */
+    progressText: string;
+    progressLabel: string;
+    scansToday: string;
+    /** {event} */
+    open: string;
+    /** {time}: instead of „Uživo“ when the last read is old. */
+    stale: string;
+  };
+  /** ADMIN v2 X4 — keyboard shortcuts and their list (`?`). */
+  shortcuts: {
+    title: string;
+    description: string;
+    /** Between the two keys of a sequence (G then D). */
+    then: string;
+    /** Tooltip of a control: {label} {keys}. */
+    hint: string;
+    groups: { global: string; go: string; page: string };
+    items: {
+      palette: string;
+      help: string;
+      pageSearch: string;
+      goDashboard: string;
+      goClients: string;
+      goInbox: string;
+      goTasks: string;
+      goEvents: string;
+      goFinance: string;
+      escape: string;
+    };
+    inputNote: string;
+  };
+  /** ADMIN v2 X4 — the quiet mode switch of the profile menu. */
+  quiet: { label: string; hint: string };
+  /** ADMIN v2 X4 — the toast region of the frame. */
+  toast: { region: string; dismiss: string };
 }
 
 /** Admin UX Z1 — Pošta: each admin's own Zoho mailbox, read live (ADMIN-UX-ZAHTEVI §10). */

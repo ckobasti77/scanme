@@ -2,7 +2,8 @@
 // with its venue and the linked object. The values are the arguments of
 // `adminTasks.list`; `assignee` is the parameter the links from Tim already
 // use. The assignee, client and venue options come from the page; the venue
-// has options only after a client is chosen.
+// has options only after a client is chosen. X4: „Misije danas“ (the overdue
+// and today tasks with the progress of the day) stands under the filters.
 
 import { sidebarUrlFields } from "@/lib/admin-v2/query/url-state";
 import { adminTasksSr as dict } from "@/lib/i18n/sr/admin-tasks";
@@ -45,6 +46,7 @@ export const tasksSidebar: SidebarConfig = {
     { id: "lokal", label: dict.filterVenue, emptyText: dict.filterVenueNeedsClient },
     { id: "objekat", label: dict.filterSubject, options: TASK_SUBJECTS.map((value) => ({ value, label: SUBJECT_LABELS[value] })) },
   ],
+  blocks: ["missions"],
 };
 
 export const TASKS_URL_FIELDS = sidebarUrlFields(tasksSidebar);

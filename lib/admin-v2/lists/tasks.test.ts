@@ -2,7 +2,9 @@ import { describe, expect, test } from "vitest";
 import { readUrlState } from "@/lib/admin-v2/query/url-state";
 import { TASK_SUBJECTS, TASK_VIEWS, TASKS_URL_FIELDS } from "@/lib/admin-v2/sidebar/configs/tasks";
 import {
+  TASK_MISSION_LIMIT,
   filterPreviewTasks,
+  previewTaskMissions,
   tasksAreFiltered,
   tasksIntercept,
   tasksListArgs,
@@ -170,5 +172,39 @@ describe("filterPreviewTasks", () => {
     expect(tasksVenuesFromRows(rows, undefined)).toEqual([]);
     expect(tasksVenuesFromRows(rows, "a2")).toEqual([{ id: "b2", name: "TEST Lokal 2", smlCode: "SML-TEST-002" }]);
     expect(tasksVenuesFromRows(rows, "a1").map((venue) => venue.id)).toEqual(["b1", "b3"]);
+  });
+});
+
+// ADMIN v2 X4 — „Misije danas“ of Zadaci: the overdue and today tasks that are still open.
+describe("previewTaskMissions", () => {
+  const row = (status: PreviewTaskRow["status"], timePhase: PreviewTaskRow["timePhase"]) => ({ status, timePhase });
+
+  test("counts only open and in-progress tasks, overdue as hitno and today as uskoro, with the links to those views", () => {
+    const missions = previewTaskMissions([
+      row("open", "overdue"),
+      row("in_progress", "today"),
+      row("open", "today"),
+      row("open", "future"),
+      row("open", "none"),
+      row("completed", "today"),
+      row("cancelled", "overdue"),
+      row("deferred", "overdue"),
+    ]);
+    expect(missions.map((mission) => [mission.id, mission.count, mission.tone, mission.href])).toEqual([
+      ["tasks-overdue", 1, "hitno", "/admin/zadaci?pogled=overdue"],
+      ["tasks-today", 2, "uskoro", "/admin/zadaci?pogled=today"],
+    ]);
+  });
+
+  test("a finished task leaves its mission: the count falls, which the sidebar shows as progress", () => {
+    const before = previewTaskMissions([row("open", "today"), row("open", "today")]);
+    const after = previewTaskMissions([row("completed", "today"), row("open", "today")]);
+    expect(before.find((mission) => mission.id === "tasks-today")?.count).toBe(2);
+    expect(after.find((mission) => mission.id === "tasks-today")?.count).toBe(1);
+  });
+
+  test("no rows give zeros; the read of the admin page stays inside the limit of the query", () => {
+    expect(previewTaskMissions([]).map((mission) => mission.count)).toEqual([0, 0]);
+    expect(TASK_MISSION_LIMIT).toBeLessThanOrEqual(12);
   });
 });

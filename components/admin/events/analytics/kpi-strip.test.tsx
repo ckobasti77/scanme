@@ -15,8 +15,8 @@ const render = (props: Partial<Parameters<typeof KpiStrip>[0]> = {}) =>
 /** The markup of one big tile. */
 const tileOf = (html: string, id: string) => html.split('data-kpi-tile="').find((part) => part.startsWith(`${id}"`)) ?? "";
 
-/** The big number of a tile, as text. */
-const bigOf = (tile: string) => /data-kpi-value="[^>]*>([^<]*)</.exec(tile)?.[1];
+/** The big number of a tile, as text (the odometer span inside the value element is looked through). */
+const bigOf = (tile: string) => /data-kpi-value="[^>]*>(?:<span[^>]*>)?([^<]*)</.exec(tile)?.[1];
 
 describe("X3 KpiStrip", () => {
   test("shows today's number with the whole fair beside it, from the fixtures", () => {
@@ -108,5 +108,29 @@ describe("X3 KpiStrip", () => {
   test("a capped read is said so on the tile", () => {
     const html = render({ data: { ...previewAnalytics, capped: true } });
     expect(tileOf(html, "scans")).toContain(d.capped);
+  });
+});
+
+describe("X4 KpiStrip: odometer and the first lead", () => {
+  const withLeads = (perDay: number[]) => ({ ...previewEngagement, days: previewEngagement.days.map((day, index) => ({ ...day, leads: perDay[index] ?? 0 })) });
+
+  test("the big number is drawn by the odometer; a missing number stays a plain dash", () => {
+    const html = render();
+    expect(tileOf(html, "scans")).toContain('data-kpi-value=""');
+    expect(tileOf(html, "scans")).toContain("data-admin-odometer");
+    const early = tileOf(render({ audience: undefined, engagement: undefined }), "visitors");
+    expect(early).not.toContain("data-admin-odometer");
+    expect(bigOf(early)).toBe("—");
+  });
+
+  test("no lead, no tag", () => {
+    expect(render()).not.toContain("data-record-badge");
+  });
+
+  test("the first lead is tagged with the day it came, on the leads tile only", () => {
+    const html = render({ engagement: withLeads([0, 2, 3]) });
+    expect(tileOf(html, "leads")).toContain("data-record-badge");
+    expect(tileOf(html, "leads")).toContain(`${d.v2.records.firstLead}</span><span class="text-[var(--admin-text-muted)]">Subota`);
+    expect(html.split("data-record-badge").length - 1).toBe(1);
   });
 });

@@ -3,6 +3,7 @@ import { describe, expect, test } from "vitest";
 import { StandRanking } from "@/components/admin/events/analytics/stand-ranking";
 import { previewAnalytics, previewAudience } from "@/components/admin/events/preview-analytics-fixtures";
 import { formatCount, formatShare } from "@/lib/admin-v2/analytics/format";
+import { fairRecords } from "@/lib/admin-v2/analytics/records";
 import { standRanking } from "@/lib/admin-v2/analytics/stands";
 import { adminEventsSr } from "@/lib/i18n/sr/admin-events";
 
@@ -71,5 +72,52 @@ describe("StandRanking", () => {
     expect(empty).toContain(adminEventsSr.analytics.emptyRanking);
     expect(empty).not.toContain("data-chart-table");
     expect(standCodes(empty)).toEqual([]);
+  });
+});
+
+describe("StandRanking: medals, moves and the record of the day (ADMIN v2 X4)", () => {
+  const lb = adminEventsSr.analytics.v2.leaderboard;
+  const records = adminEventsSr.analytics.v2.records;
+
+  test("the first three stands wear a medal with its words, the fourth a plain place", () => {
+    const html = render();
+    const [first, second, third, fourth] = standRanking(previewAnalytics, previewAudience);
+    expect(row(html, first.standCode)).toContain('data-medal="1"');
+    expect(row(html, first.standCode)).toContain(`aria-label="${lb.medals[1]}"`);
+    expect(row(html, second.standCode)).toContain(`aria-label="${lb.medals[2]}"`);
+    expect(row(html, third.standCode)).toContain(`aria-label="${lb.medals[3]}"`);
+    expect(row(html, fourth.standCode)).not.toContain("data-medal");
+    expect(row(html, fourth.standCode)).toContain(`aria-label="4. mesto"`);
+    // The medal stands left of the stand code.
+    const markup = row(html, first.standCode);
+    expect(markup.indexOf("data-medal")).toBeLessThan(markup.indexOf(">9<"));
+  });
+
+  test("a stand that moved up shows an arrow and the words; a stand that stood still shows only words for assistive technology", () => {
+    // Stand 1A had the fewest scans before today; give it a big day so it passes the others.
+    const models = previewAnalytics.models.map((model) => (model.standCode === "1A" ? { ...model, scans: { today: 400, total: model.scans.total + 400 - model.scans.today } } : model));
+    const html = render({ data: { ...previewAnalytics, models } });
+    const up = row(html, "1A");
+    expect(up).toContain("lucide-arrow-up");
+    expect(up).toContain("gore za 3");
+    const same = standRanking(previewAnalytics, previewAudience);
+    expect(same.every((entry) => entry.move === 0)).toBe(true);
+    expect(row(render(), "9")).toContain(`>${lb.moveSame}<`);
+    expect(row(render(), "9")).not.toContain("lucide-arrow");
+  });
+
+  test("the strongest stand of the day carries the tag, and only that one", () => {
+    const record = fairRecords(previewAnalytics, undefined).stand;
+    expect(record?.standCode).toBe("9");
+    const html = render({ record });
+    expect(html.split("data-record-badge").length - 1).toBe(1);
+    expect(row(html, "9")).toContain(records.stand);
+    // In the stand's own row the tag says only the number of the day (the stand is named beside it).
+    expect(row(html, "9")).toContain("77 skenova danas");
+    expect(row(html, "9")).not.toContain("Štand 9 · 77 skenova");
+    // What the place, the arrow and the tag measure is written under the list.
+    expect(html).toContain(adminEventsSr.analytics.v2.stands.rankHelp);
+    expect(row(html, "6")).not.toContain("data-record-badge");
+    expect(render()).not.toContain("data-record-badge");
   });
 });

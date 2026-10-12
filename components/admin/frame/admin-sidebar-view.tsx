@@ -3,7 +3,10 @@
 import { ChevronDown, Search, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useId, useReducer, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { AdminMissionList } from "@/components/admin/admin-ui/admin-missions";
+import type { MissionProgress } from "@/components/admin/admin-ui/use-mission-progress";
 import type { AdminSubnavGroup, AdminSubnavItem, AdminUrgencyTone } from "@/lib/admin-v1/subnav";
+import { missionBoard } from "@/lib/admin-v2/missions";
 import {
   accordionReducer,
   clearFiltersPatch,
@@ -12,18 +15,19 @@ import {
   groupSummary,
   sidebarChips,
 } from "@/lib/admin-v2/sidebar/accordion";
-import type { SidebarConfig, SidebarLive, SidebarMission, SidebarOption, SidebarPatch, SidebarState } from "@/lib/admin-v2/sidebar/types";
+import type { SidebarConfig, SidebarLive, SidebarOption, SidebarPatch, SidebarState } from "@/lib/admin-v2/sidebar/types";
 import { fmt } from "@/lib/i18n/format";
 import { adminUiSr as dict } from "@/lib/i18n/sr/admin-ui";
 import { cn } from "@/lib/utils";
 import { AdminSearchSelect } from "./admin-search-select";
+import { useChipMotion } from "./use-chip-motion";
 
 // ADMIN v2 — the contextual sidebar (ZADATAK §3), one design on every page.
 // Top to bottom: the context of the area, its sub-pages, the views, the page
 // search, the filter groups as an accordion (at most one open; up to 7
 // options a radio list, more a search-select), the chips of the active
-// filters with "Očisti sve", the sort, „Misije danas“ and the quick jumps
-// (Dashboard). Presentational: `config` comes from
+// filters with "Očisti sve", the sort, „Misije danas“ with the progress of
+// the day and the quick jumps (Dashboard). Presentational: `config` comes from
 // the registry, `live` from the page, `state` from the URL; a choice is
 // written at once through `onPatch` (no "Primeni"). The same component fills
 // the desktop sidebar and the phone drawer (`large` = 44 px targets).
@@ -33,8 +37,6 @@ const URGENCY_TONES: Record<AdminUrgencyTone, string> = {
   uskoro: "border-[var(--admin-warning-border)] bg-[var(--admin-warning-soft)] text-[var(--admin-warning)]",
   info: "border-[var(--admin-border)] bg-[var(--admin-surface-muted)] text-[var(--admin-text-muted)]",
 };
-
-const MISSION_ORDER: Record<AdminUrgencyTone, number> = { hitno: 0, uskoro: 1, info: 2 };
 
 const blockLabel = "px-2 pb-1 text-[0.67rem] font-bold tracking-[0.08em] text-[var(--admin-text-muted)] uppercase";
 /** The typed text waits this long before it is written to the URL. */
@@ -48,9 +50,11 @@ export type AdminSidebarViewProps = {
   large?: boolean;
   /** Quick links of the default sidebar (the frame builds them for the page it is on). */
   jumps?: readonly { href: string; label: string }[];
+  /** The missions with the progress of the day (the frame keeps the ledger); without it nothing is solved yet. */
+  missions?: MissionProgress;
 };
 
-export function AdminSidebarView({ config, live = {}, state, onPatch, large, jumps = [] }: AdminSidebarViewProps) {
+export function AdminSidebarView({ config, live = {}, state, onPatch, large, jumps = [], missions }: AdminSidebarViewProps) {
   const uid = useId();
   const [open, dispatch] = useReducer(accordionReducer, null);
   const row = large ? "min-h-11" : "min-h-9";
@@ -58,6 +62,8 @@ export function AdminSidebarView({ config, live = {}, state, onPatch, large, jum
   const nav = live.nav ?? config.nav;
   const groups = (config.groups ?? []).filter((group) => !group.chipOnly);
   const chips = sidebarChips(config, state, live);
+  const root = useRef<HTMLDivElement>(null);
+  useChipMotion(root, chips.map((chip) => chip.id));
   const toggle = (id: string) => dispatch({ type: "toggle", id });
   const close = (id: string) => {
     dispatch({ type: "close" });
@@ -65,7 +71,7 @@ export function AdminSidebarView({ config, live = {}, state, onPatch, large, jum
   };
 
   return (
-    <div className="grid min-w-0 gap-4">
+    <div ref={root} className="grid min-w-0 gap-4">
       {config.context?.list && live.context ? (
         <Choice
           block="nav"
@@ -193,9 +199,9 @@ export function AdminSidebarView({ config, live = {}, state, onPatch, large, jum
       {chips.length ? (
         <div data-sidebar-block="filters" className="grid min-w-0 gap-2">
           <p className={blockLabel}>{dict.filters.activeLabel}</p>
-          <ul className="flex min-w-0 flex-wrap gap-1.5 px-1">
+          <ul data-chip-list="" className="relative flex min-w-0 flex-wrap gap-1.5 px-1">
             {chips.map((chip) => (
-              <li key={chip.id} className="min-w-0 max-w-full">
+              <li key={chip.id} data-chip={chip.id} className="min-w-0 max-w-full">
                 <button
                   type="button"
                   onClick={() => onPatch(chip.clear)}
@@ -226,7 +232,19 @@ export function AdminSidebarView({ config, live = {}, state, onPatch, large, jum
         />
       ) : null}
 
-      {config.blocks?.includes("missions") && live.missions ? <Missions missions={live.missions} row={row} /> : null}
+      {config.blocks?.includes("missions") && live.missions ? (
+        <section data-sidebar-block="nav" aria-label={dict.frame.missionsTitle} className="grid min-w-0 gap-0.5">
+          <p className={blockLabel}>{dict.frame.missionsTitle}</p>
+          <AdminMissionList
+            title={dict.frame.missionsTitle}
+            board={missions?.board ?? missionBoard(live.missions, null)}
+            confirm={missions?.confirm}
+            pending={missions?.pending}
+            row={row}
+            emptyText={dict.frame.missionsClear}
+          />
+        </section>
+      ) : null}
 
       {config.blocks?.includes("jumps") && jumps.length ? (
         <nav data-sidebar-block="nav" aria-label={dict.frame.jumpsTitle} className="grid min-w-0 gap-0.5">
@@ -355,40 +373,6 @@ function Choice({ block, title, name, options, counts, value, row, onChange }: {
   );
 }
 
-/** „Misije danas“: what waits for a reaction, from data the page already has (the progress is X4). */
-function Missions({ missions, row }: { missions: readonly SidebarMission[]; row: string }) {
-  // The most urgent first, whatever the order the widgets of the page sent them in.
-  const open = missions.filter((mission) => mission.count > 0).sort((left, right) => MISSION_ORDER[left.tone] - MISSION_ORDER[right.tone]);
-  return (
-    <section data-sidebar-block="nav" aria-label={dict.frame.missionsTitle} className="grid min-w-0 gap-0.5">
-      <p className={blockLabel}>{dict.frame.missionsTitle}</p>
-      {open.length ? (
-        <ul className="grid min-w-0 gap-0.5">
-          {open.map((mission) => {
-            const content = (
-              <>
-                <span className="min-w-0 truncate">{mission.label}</span>
-                <span data-urgency={mission.tone} className={cn("inline-flex min-w-5 shrink-0 items-center justify-center rounded-full border px-1.5 text-[0.68rem] leading-5 font-bold tabular-nums", URGENCY_TONES[mission.tone])}>
-                  <span aria-hidden="true">{mission.count}</span>
-                  <span className="sr-only">{fmt(dict.urgency[mission.tone], { count: mission.count })}</span>
-                </span>
-              </>
-            );
-            const className = cn("flex min-w-0 items-center justify-between gap-2 rounded-lg px-2 text-sm", row);
-            return (
-              <li key={mission.id} className="min-w-0">
-                {mission.href ? <Link href={mission.href} className={cn(className, "hover:bg-[var(--admin-surface-muted)]")}>{content}</Link> : <div className={className}>{content}</div>}
-              </li>
-            );
-          })}
-        </ul>
-      ) : (
-        <p className="px-2 py-1.5 text-sm leading-5 text-[var(--admin-text-muted)]">{dict.frame.missionsClear}</p>
-      )}
-    </section>
-  );
-}
-
 function SearchField({ value, onChange, label, placeholder, row, submit }: {
   value: string;
   onChange: (value: string) => void;
@@ -435,6 +419,8 @@ function SearchField({ value, onChange, label, placeholder, row, submit }: {
           id={id}
           type="search"
           data-admin-sidebar-search=""
+          title={fmt(dict.shortcuts.hint, { label: dict.shortcuts.items.pageSearch, keys: "/" })}
+          aria-keyshortcuts="/"
           value={text}
           placeholder={placeholder}
           autoComplete="off"

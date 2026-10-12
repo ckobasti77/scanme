@@ -430,6 +430,117 @@ html[data-theme="dark"] .admin-v1 {
   animation-timing-function: var(--admin-ease-in);
 }
 
+/* ADMIN v2 X4 — motion of the whole admin (ZADATAK §7; the same tokens as
+   lib/admin-v2/motion.ts). Only transform-like properties and opacity move,
+   nothing lasts longer than --admin-dur-4, and with prefers-reduced-motion
+   nothing moves (the block at the end of the admin rules).
+
+   A pressed button gives way a little. `scale` is its own property, so it
+   never fights a transform of Tailwind or GSAP on the same element. */
+.admin-v1 :is(button, [role="button"], .admin-press):active:not(:disabled, [aria-disabled="true"]) {
+  scale: 0.98;
+}
+
+@layer base {
+  .admin-v1 :is(button, [role="button"], .admin-press) {
+    transition: scale var(--admin-dur-1) var(--admin-ease-out);
+  }
+}
+
+/* Menus open from the control that opened them (Radix gives the point), the
+   search palette from its button in the navbar (--admin-origin, set when it
+   opens); every other admin dialog from its centre. Out is shorter than in. */
+@keyframes admin-pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+
+@keyframes admin-pop-out {
+  to {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+}
+
+@keyframes admin-origin-in {
+  from {
+    opacity: 0;
+    transform: scale(0.86);
+  }
+}
+
+@keyframes admin-origin-out {
+  to {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+}
+
+.admin-v1[data-slot="dropdown-menu-content"] {
+  transform-origin: var(--radix-dropdown-menu-content-transform-origin);
+}
+
+.admin-v1[data-slot="dropdown-menu-content"][data-state="open"] {
+  animation: admin-pop-in var(--admin-dur-2) var(--admin-ease-out);
+}
+
+.admin-v1[data-slot="dropdown-menu-content"][data-state="closed"] {
+  animation: admin-pop-out var(--admin-dur-1) var(--admin-ease-in);
+}
+
+.admin-v1[data-slot="dialog-content"][data-state="open"] {
+  animation: admin-pop-in var(--admin-dur-3) var(--admin-ease-out);
+}
+
+.admin-v1[data-slot="dialog-content"][data-state="closed"] {
+  animation: admin-pop-out var(--admin-dur-2) var(--admin-ease-in);
+}
+
+.admin-v1[data-admin-dialog="palette"] {
+  transform-origin: var(--admin-origin, 100% 0);
+}
+
+.admin-v1[data-admin-dialog="palette"][data-state="open"] {
+  animation-name: admin-origin-in;
+}
+
+.admin-v1[data-admin-dialog="palette"][data-state="closed"] {
+  animation-name: admin-origin-out;
+}
+
+/* The quiet mode switch of the phone drawer (the profile menu uses a checked item). */
+.admin-v1 .admin-switch {
+  position: relative;
+  flex: none;
+  width: 2rem;
+  height: 1.125rem;
+  border-radius: 9999px;
+  background-color: color-mix(in srgb, var(--admin-text-muted) 45%, transparent);
+  transition: background-color var(--admin-dur-1) var(--admin-ease-out);
+}
+
+.admin-v1 .admin-switch::after {
+  content: "";
+  position: absolute;
+  top: 0.125rem;
+  left: 0.125rem;
+  width: 0.875rem;
+  height: 0.875rem;
+  border-radius: 9999px;
+  background-color: var(--admin-surface-strong);
+  transition: transform var(--admin-dur-1) var(--admin-ease-out);
+}
+
+.admin-v1 .admin-switch[data-on] {
+  background-color: var(--admin-nav-line);
+}
+
+.admin-v1 .admin-switch[data-on]::after {
+  transform: translateX(0.875rem);
+}
+
 /* Tables scroll with the screen, never in their own box: the header row
    stays under the top edge of the screen. A table too wide for the screen
    gets a sideways scroll from its wrapper ([data-overflow-x]) and then the
@@ -461,11 +572,18 @@ html[data-theme="dark"] .admin-v1 {
   .admin-v1 *::after,
   [data-slot="sheet-overlay"],
   [data-slot="sheet-content"],
+  [data-slot="dialog-overlay"],
+  [data-slot="dialog-content"],
   [data-slot="dropdown-menu-content"] {
     scroll-behavior: auto !important;
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+
+  /* Nothing moves: a pressed button keeps its size (the same selector as the rule above, so it wins). */
+  .admin-v1 :is(button, [role="button"], .admin-press):active:not(:disabled, [aria-disabled="true"]) {
+    scale: none;
   }
 }
 

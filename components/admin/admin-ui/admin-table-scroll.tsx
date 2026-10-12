@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, type ComponentProps } from "react";
+import { useAdminFlip } from "@/components/admin/admin-ui/use-admin-flip";
 
 // ADMIN v2 — the wrapper of an admin table (ZADATAK §2): a table scrolls
 // with the screen, never up and down in its own box, and its header row
@@ -10,8 +11,12 @@ import { useEffect, useRef, type ComponentProps } from "react";
 // gets the sideways scroll (`data-overflow-x`, app/globals.css) only while
 // the table is really wider than it.
 
-export function AdminTableScroll({ children, ...props }: ComponentProps<"div">) {
+// X4: rows glide when the list is filtered (useAdminFlip); `flipSignature`
+// adds what else reorders the rows (a column sort) to the filters in the URL.
+
+export function AdminTableScroll({ children, flipSignature, ...props }: ComponentProps<"div"> & { flipSignature?: string }) {
   const ref = useRef<HTMLDivElement>(null);
+  useAdminFlip(ref, "tbody > tr", flipSignature);
   useEffect(() => {
     const element = ref.current;
     const table = element?.querySelector("table");

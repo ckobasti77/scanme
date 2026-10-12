@@ -130,7 +130,7 @@ describe("SAJAM SUPER: Analitika logic", () => {
     const html = view();
     for (const text of [
       "ceo sajam 460", "ceo sajam 431", "ceo sajam 310",
-      "Najjači sat: nedelja u 12:00 · 39 skenova",
+      "Rekord sata", "39 skenova · nedelja u 12:00",
       "Za 3 dana nijedan lead.", "Subota i nedelja: 1,7× više skenova po danu nego petak.",
       "1,48 skena po posetiocu", "1,39",
       "3 % posetilaca sa pečatom završilo je pasoš (5 od 164).", "Pečata ukupno: 210",

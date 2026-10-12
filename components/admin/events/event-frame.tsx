@@ -7,7 +7,7 @@ import { api } from "@/convex/_generated/api";
 import { AdminErrorState, AdminLoadingState, AdminPanel } from "@/components/admin/admin-primitives";
 import { AdminViewModeOverride } from "@/components/admin/admin-ui";
 import { useAdminQueryState } from "@/components/admin/admin-ui/use-admin-query-state";
-import { minuteFloor } from "@/components/admin/admin-ui/use-minute-now";
+import { minuteFloor, useMinuteNow } from "@/components/admin/admin-ui/use-minute-now";
 import { usePolled } from "@/components/admin/admin-ui/use-polled-query";
 import { dashboardSectionUrgency, withNavUrgency } from "@/components/admin/events/dashboard-logic";
 import { AdminEventProvider } from "@/components/admin/events/event-context";
@@ -15,6 +15,7 @@ import { AdminEventFrameView } from "@/components/admin/events/event-frame-view"
 import { AdminEventsNotFound } from "@/components/admin/events/event-not-found";
 import { eventBasePath, eventNavGroups, eventPathSegments, eventSectionHeading, eventSectionHref, resolveEventSection, switchEventHref } from "@/lib/admin-v1/event-sections";
 import { parseViewModeParam, type AdminViewMode } from "@/lib/admin-v1/view-mode";
+import { hudData } from "@/lib/admin-v2/hud";
 import { adminEventsSr as dict } from "@/lib/i18n/sr/admin-events";
 
 // Admin UX A2 — container of `/admin/dogadjaji/[eventSlug]/**` (layout): the
@@ -57,6 +58,14 @@ export function AdminEventFrame({ eventSlug, children }: { eventSlug: string; ch
   useEffect(() => {
     if (activePath === "pregled" && readAt.current && Date.now() - readAt.current > DASHBOARD_FRESH_MS) refresh();
   }, [activePath, refresh]);
+  // X4 — the HUD of the sidebar reads the same dashboard result while this event's fair is on.
+  const minute = useMinuteNow();
+  const eventTitle = event?.title;
+  const dashboardData = dashboard.data;
+  const hud = useMemo(
+    () => (eventTitle && dashboardData ? hudData({ title: eventTitle, href: eventSectionHref(base, "pregled") }, dashboardData, Math.max(minute, dashboardData.at)) : null),
+    [eventTitle, dashboardData, base, minute],
+  );
   const frameEvents = useMemo(() => [...(events ?? [])].sort((a, b) => a.startsAt - b.startsAt).map((row) => ({ slug: row.slug, title: row.title, status: row.status })), [events]);
   const onViewChange = useCallback((mode: AdminViewMode) => setQuery({ prikaz: mode }), [setQuery]);
   // The event switch is in the sidebar; its handler reads the filters at the moment of the change.
@@ -77,6 +86,7 @@ export function AdminEventFrame({ eventSlug, children }: { eventSlug: string; ch
       nav={nav}
       linkStickerHref={activePath === "povezi" ? null : eventSectionHref(base, "povezi")}
       title={section ? eventSectionHeading(section) : undefined}
+      hud={hud}
     >
       {catalog === undefined || directory === undefined ? (
         <AdminPanel><AdminLoadingState label={dict.loading} /></AdminPanel>

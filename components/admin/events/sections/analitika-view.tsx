@@ -14,11 +14,13 @@ import { KpiStrip } from "@/components/admin/events/analytics/kpi-strip";
 import { ModelDetailDrawer } from "@/components/admin/events/analytics/model-detail-drawer";
 import { ModelLeaderboard } from "@/components/admin/events/analytics/model-leaderboard";
 import { PackageComparison } from "@/components/admin/events/analytics/packages";
+import { useRecordToasts } from "@/components/admin/events/analytics/records";
 import { StandRanking } from "@/components/admin/events/analytics/stand-ranking";
 import type { EventAnalyticsData, EventAudienceData } from "@/components/admin/events/analytics-logic";
 import { deviceSummary } from "@/lib/admin-v2/analytics/devices";
 import { formatCount, formatShare, lowerFirst } from "@/lib/admin-v2/analytics/format";
 import { leaderboard } from "@/lib/admin-v2/analytics/leaderboard";
+import { fairRecords } from "@/lib/admin-v2/analytics/records";
 import { standRanking } from "@/lib/admin-v2/analytics/stands";
 import type { EngagementData, ModelAnalyticsData } from "@/lib/admin-v2/analytics/types";
 import { formatBelgrade } from "@/lib/belgrade-time";
@@ -86,6 +88,8 @@ export function EventAnalyticsView({ eventCode, data, audience, engagement, mode
   const [stand, setStand] = useState<string | null>(null);
   const models = useMemo(() => leaderboard(data, audience, engagement), [data, audience, engagement]);
   const stands = useMemo(() => standRanking(data, audience), [data, audience]);
+  const records = useMemo(() => fairRecords(data, engagement), [data, engagement]);
+  useRecordToasts(`${eventCode}:${data.todayKey}`, records, data.kpis.leads.total);
   const openRow = useMemo(() => (modelId ? models.find((row) => row.eventModelId === modelId) ?? null : null), [models, modelId]);
   const hours = useMemo(() => data.hours.map((row) => ({ dateKey: row.dateKey, hour: row.hour, value: row.scans })), [data.hours]);
   const showStand = (locationId: string) => {
@@ -110,7 +114,7 @@ export function EventAnalyticsView({ eventCode, data, audience, engagement, mode
         </div>
       </div>
 
-      <KpiStrip data={data} audience={audience} engagement={engagement} />
+      <KpiStrip data={data} audience={audience} engagement={engagement} records={records} />
 
       <Insights data={data} audience={audience} engagement={engagement} />
 
@@ -123,11 +127,11 @@ export function EventAnalyticsView({ eventCode, data, audience, engagement, mode
         </div>
       </div>
 
-      <DayHourMatrix id="dan-sat" days={data.days} hours={hours} />
+      <DayHourMatrix id="dan-sat" days={data.days} hours={hours} running={records.hour?.running ?? false} />
 
       <ModelLeaderboard data={data} audience={audience} engagement={engagement} onOpen={onModel} openId={openRow?.eventModelId ?? null} />
 
-      <StandRanking data={data} audience={audience} onPickStand={showStand} />
+      <StandRanking data={data} audience={audience} record={records.stand} onPickStand={showStand} />
 
       <PackageComparison data={data} engagement={engagement} />
 

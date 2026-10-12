@@ -21,12 +21,15 @@ import {
   type ReactNode,
 } from "react";
 import { useAdminUrlState } from "@/components/admin/admin-ui/use-admin-query-state";
+import { useMinuteNow } from "@/components/admin/admin-ui/use-minute-now";
 import { AdminPageHeader } from "@/components/admin/frame/admin-page-header";
 import { useAdminSidebarLive } from "@/components/admin/frame/admin-sidebar-store";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import {
+  TASK_MISSION_LIMIT,
   filterPreviewTasks,
+  previewTaskMissions,
   tasksAreFiltered,
   tasksListArgs,
   tasksSidebarLive,
@@ -34,6 +37,7 @@ import {
   type TaskAccountOption,
   type TaskVenueOption,
 } from "@/lib/admin-v2/lists/tasks";
+import { taskMissions } from "@/lib/admin-v2/lists/dashboard-missions";
 import { TASKS_URL_FIELDS } from "@/lib/admin-v2/sidebar/configs/tasks";
 import { adminTasksSr as dict } from "@/lib/i18n/sr/admin-tasks";
 import { belgradeLocalDateTimeToUtc } from "@/lib/admin-v1/task-time";
@@ -357,6 +361,14 @@ export function AdminTasksWorkspace({
     [admins, accounts, venues],
   );
   useAdminSidebarLive(sidebar);
+  // X4 — „Misije danas“: the overdue and today tasks (the read the Dashboard already uses). The last
+  // answer is kept while the next minute's read is on its way, so the block never blinks.
+  const minute = useMinuteNow();
+  const due = useQuery(api.adminTasks.dashboardAdapter, { now: minute, limit: TASK_MISSION_LIMIT });
+  const [dueKept, setDueKept] = useState(due);
+  if (due && due !== dueKept) setDueKept(due);
+  const missions = useMemo(() => (dueKept ? { missions: taskMissions(dueKept) } : null), [dueKept]);
+  useAdminSidebarLive(missions);
 
   return (
     <div className="grid min-w-0 gap-5 sm:gap-6">
@@ -1644,6 +1656,9 @@ export function AdminTasksPreview() {
     [rows, state.klijent],
   );
   useAdminSidebarLive(sidebar);
+  // Solving a task here moves „Misije danas“ of the sidebar, as it does in the admin.
+  const missions = useMemo(() => ({ missions: previewTaskMissions(rows) }), [rows]);
+  useAdminSidebarLive(missions);
   const updateSelected = (patch: Partial<TaskItem>) => {
     if (!selectedId) return;
     setRows((current) =>

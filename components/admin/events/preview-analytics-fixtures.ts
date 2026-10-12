@@ -159,6 +159,54 @@ export const previewEngagement: EngagementData = {
   capped: { days: false, visitors: false, ratings: false, votes: false, surveys: false, leads: false, stamps: false },
 };
 
+/** ADMIN v2 X4 — scans one simulated poll adds (`?uzivo=<step>` of the preview). */
+export const PREVIEW_STEP_SCANS = 14;
+const MAX_STEP = 9;
+
+/** `?uzivo=` as a step: 0 (the fixtures as they are) to 9. */
+export function previewStep(value: string | null | undefined): number {
+  const step = Number(value);
+  return Number.isInteger(step) && step > 0 ? Math.min(step, MAX_STEP) : 0;
+}
+
+/**
+ * ADMIN v2 X4 — the three reads as a poll would bring them `step` minutes later
+ * (dev preview `?uzivo=<step>`): every step adds 14 TEST scans of the leading
+ * TEST model in the current hour (the third step makes that hour the record of
+ * the fair) and the second step brings the first TEST lead. Nothing here is a
+ * real number; it only lets the preview show what moves when data changes (the
+ * rolling numbers, a new record, its toast).
+ */
+export function previewAnalyticsStep(step: number): { data: EventAnalyticsData; audience: EventAudienceData; engagement: EngagementData } {
+  if (step <= 0) return { data: previewAnalytics, audience: previewAudience, engagement: previewEngagement };
+  const extra = PREVIEW_STEP_SCANS * step;
+  const lead = step >= 2 ? 1 : 0;
+  const last = DAYS.length - 1;
+  const today = previewAnalytics.todayKey;
+  const hour = LAST_HOUR[last];
+  const kpis = previewAnalytics.kpis;
+  const data: EventAnalyticsData = {
+    ...previewAnalytics,
+    at: AT + step * 60_000,
+    kpis: {
+      ...kpis,
+      scans: { today: kpis.scans.today + extra, total: kpis.scans.total + extra },
+      leads: lead ? { today: 1, total: 1, interest: 1, testDrive: 0, capped: false } : kpis.leads,
+    },
+    days: previewAnalytics.days.map((day, index) => (index === last ? { ...day, scans: day.scans + extra } : day)),
+    hours: previewAnalytics.hours.map((row) => (row.dateKey === today && row.hour === hour ? { ...row, scans: row.scans + extra } : row)),
+    models: previewAnalytics.models.map((model, index) => (index === 0 ? { ...model, scans: { today: model.scans.today + extra, total: model.scans.total + extra }, leads: lead } : model)),
+  };
+  const engagement: EngagementData = {
+    ...previewEngagement,
+    at: AT + step * 60_000,
+    days: previewEngagement.days.map((day, index) => (index === last ? { ...day, leads: lead } : day)),
+    models: previewEngagement.models.map((model, index) => (index === 0 ? { ...model, scansByDay: model.scansByDay.map((scans, day) => (day === last ? scans + extra : scans)) } : model)),
+    engaged: lead ? { ...previewEngagement.engaged, visitors: previewEngagement.engaged.visitors + 1, lead: 1 } : previewEngagement.engaged,
+  };
+  return { data, audience: previewAudience, engagement };
+}
+
 /** `amount` split over `weights` in whole numbers that sum to it (largest remainder). */
 function split(amount: number, weights: readonly number[]): number[] {
   const sum = total(weights);

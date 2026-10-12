@@ -2,7 +2,8 @@
 
 import { useId, useMemo, useState, type CSSProperties, type KeyboardEvent } from "react";
 import { ChartFrame, ChartTipLayer, chartFocusRing, useChartTip, type ChartTableData } from "@/components/admin/events/analytics/chart-kit";
-import { countOf, formatCount, hourLabel, lowerFirst } from "@/lib/admin-v2/analytics/format";
+import { RecordBadge, hourRecordValue } from "@/components/admin/events/analytics/records";
+import { countOf, formatCount, hourLabel } from "@/lib/admin-v2/analytics/format";
 import { hourMatrix, type HourMatrix, type MatrixDay, type MatrixHour } from "@/lib/admin-v2/analytics/matrix";
 import { SEQ_STEPS, seqColor, seqInk, seqStep } from "@/lib/admin-v2/analytics/palette";
 import { fmt } from "@/lib/i18n/format";
@@ -133,7 +134,13 @@ export function matrixTable(matrix: HourMatrix, caption: string): ChartTableData
   };
 }
 
-export function DayHourMatrix({ id, days, hours }: { id: string; days: readonly MatrixDay[]; hours: readonly MatrixHour[] }) {
+export function DayHourMatrix({ id, days, hours, running = false }: {
+  id: string;
+  days: readonly MatrixDay[];
+  hours: readonly MatrixHour[];
+  /** X4 — the record hour is the one the day is in right now (its number can still grow). */
+  running?: boolean;
+}) {
   const matrix = useMemo(() => hourMatrix(days, hours), [days, hours]);
   const peak = matrix.peak;
   return (
@@ -141,7 +148,11 @@ export function DayHourMatrix({ id, days, hours }: { id: string; days: readonly 
       {matrix.hours.length ? (
         <>
           <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-1">
-            {peak ? <p data-matrix-peak="" className="text-sm font-semibold">{fmt(v.peak, { day: lowerFirst(peak.label), hour: hourLabel(peak.hour), scans: countOf(peak.value, d.v2.units.scans) })}</p> : <span />}
+            {peak ? (
+              <p data-matrix-peak="" className="min-w-0">
+                <RecordBadge label={d.v2.records.hour} value={hourRecordValue({ value: peak.value, dayLabel: peak.label, hour: peak.hour, running })} />
+              </p>
+            ) : <span />}
             <SequentialScale max={matrix.max} />
           </div>
           <HourMatrixGrid matrix={matrix} label={`${v.title}: ${v.question}`} />

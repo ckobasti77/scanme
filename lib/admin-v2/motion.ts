@@ -25,3 +25,9 @@ export const ADMIN_EASE = {
 export const ADMIN_STAGGER_TOTAL = 0.12;
 /** Offset of an entering block (px). */
 export const ADMIN_ENTER_OFFSET = 7;
+/** A pressed button (ZADATAK §7); the same value is in app/globals.css. */
+export const ADMIN_PRESS_SCALE = 0.98;
+/** Nothing in the admin moves longer than this (seconds); the tokens above stay below it. */
+export const ADMIN_MOTION_MAX = 0.4;
+/** Offset of an entering page inside the screen (px). */
+export const ADMIN_PAGE_OFFSET = 6;

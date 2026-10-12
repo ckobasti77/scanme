@@ -4,6 +4,7 @@ import gsap from "gsap";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useAdminUrlState } from "@/components/admin/admin-ui/use-admin-query-state";
+import { useMissionProgress } from "@/components/admin/admin-ui/use-mission-progress";
 import { adminRoute, routeHref } from "@/lib/admin-v2/frame/routes";
 import { ADMIN_DURATION, ADMIN_EASE, ADMIN_ENTER_OFFSET, ADMIN_STAGGER_TOTAL } from "@/lib/admin-v2/motion";
 import { sidebarUrlFields } from "@/lib/admin-v2/query/url-state";
@@ -61,6 +62,14 @@ export function AdminSidebarContent({ large }: { large?: boolean }) {
     () => (live.missions ? { ...live, missions: live.missions.map((mission) => (mission.href ? { ...mission, href: routeHref(mission.href, route) } : mission)) } : live),
     [live, route],
   );
+  // The day's ledger of this page's missions: one per page (the Dashboard and Zadaci count apart) and per
+  // value of the key that changes what they count (the Dashboard scope).
+  const missionsFor = config.missionsBy ? state[config.missionsBy] ?? config.views?.defaultValue ?? "" : null;
+  const missionScope = missionsFor === null ? config.id : `${config.id}:${missionsFor}`;
+  // The URL changes at once, the numbers for the new value a moment later: until the page says its numbers
+  // are for this value, the ledger is not touched (old numbers in the new ledger would read as solved work).
+  const waiting = missionsFor !== null && live.missionsScope !== missionsFor;
+  const missions = useMissionProgress(missionScope, config.blocks?.includes("missions") ? pageLive.missions ?? null : null, false, waiting);
 
   useEffect(() => {
     const previous = shown.current;
@@ -86,7 +95,7 @@ export function AdminSidebarContent({ large }: { large?: boolean }) {
 
   return (
     <div ref={root}>
-      <AdminSidebarView config={config} live={pageLive} state={state} onPatch={patch} large={large} jumps={jumps} />
+      <AdminSidebarView config={config} live={pageLive} state={state} onPatch={patch} large={large} jumps={jumps} missions={missions} />
     </div>
   );
 }

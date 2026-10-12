@@ -9,6 +9,7 @@ import { AdminPageHeader } from "@/components/admin/frame/admin-page-header";
 import { useAdminSidebarLive } from "@/components/admin/frame/admin-sidebar-store";
 import { cn } from "@/lib/utils";
 import type { AdminSubnavGroup } from "@/lib/admin-v1/subnav";
+import type { HudData } from "@/lib/admin-v2/hud";
 import type { SidebarLive } from "@/lib/admin-v2/sidebar/types";
 import type { FairEventStatus } from "@/lib/fair-contract";
 import { fmt } from "@/lib/i18n/format";
@@ -23,7 +24,7 @@ import { adminEventsSr as dict } from "@/lib/i18n/sr/admin-events";
 
 export type FrameEvent = { slug: string; title: string; status: FairEventStatus };
 
-export function AdminEventFrameView({ preview, events, currentSlug, onSelectEvent, nav, linkStickerHref, title, children }: {
+export function AdminEventFrameView({ preview, events, currentSlug, onSelectEvent, nav, linkStickerHref, title, hud, children }: {
   preview?: boolean;
   events: readonly FrameEvent[];
   currentSlug: string;
@@ -33,6 +34,8 @@ export function AdminEventFrameView({ preview, events, currentSlug, onSelectEven
   linkStickerHref?: string | null;
   /** The open section (the H1 of the screen); the event title when there is none. */
   title?: string;
+  /** X4 — the HUD „Danas“ of this event while its fair is on (from the dashboard the frame already reads). */
+  hud?: HudData | null;
   children: ReactNode;
 }) {
   const current = events.find((event) => event.slug === currentSlug);
@@ -43,7 +46,8 @@ export function AdminEventFrameView({ preview, events, currentSlug, onSelectEven
       onChange: onSelectEvent,
     },
     nav,
-  }), [currentSlug, events, nav, onSelectEvent]);
+    ...(hud ? { hud } : {}),
+  }), [currentSlug, events, nav, onSelectEvent, hud]);
   useAdminSidebarLive(live);
   const eventTitle = current?.title ?? dict.pageTitle;
   return (

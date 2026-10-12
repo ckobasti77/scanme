@@ -1,4 +1,5 @@
 import type { EventDashboardData } from "@/components/admin/events/dashboard-logic";
+import { hudData, type HudData } from "@/lib/admin-v2/hud";
 import { FAIR_LEAD_DELIVERY_DEADLINE_MS, FAIR_PII_PURGE_AT_MS, sortFairDashboardActions } from "@/lib/fair-contract";
 
 // Admin UX A10 — TEST results of fairDashboard.getEventDashboard for the dev
@@ -148,7 +149,47 @@ const POSLE: EventDashboardData = {
 
 const PREVIEW_DASHBOARDS: Record<PreviewPhase, EventDashboardData> = { pre: PRE, sajam: SAJAM, dan3: DAN3, posle: POSLE };
 
-/** `?faza=` of the preview (default sajam). */
-export function previewDashboard(faza: string | undefined): EventDashboardData {
-  return PREVIEW_DASHBOARDS[faza === "pre" || faza === "posle" || faza === "dan3" ? faza : "sajam"];
+/** ADMIN v2 X4 — scans one simulated poll adds to a fair day (the same as the Analitika preview). */
+const STEP_SCANS = 14;
+
+/**
+ * `?faza=` of the preview (default sajam). ADMIN v2 X4 — `step` (`?uzivo=<step>`)
+ * is the same result as a later poll would bring it: `step` items of „Šta treba
+ * da uradim“ were solved (the most urgent first; a rule with nothing left stops
+ * firing) and, on a fair day, every step brought 14 TEST scans. It only lets
+ * the preview show a mission being solved and the numbers rolling.
+ */
+export function previewDashboard(faza: string | undefined, step = 0): EventDashboardData {
+  const dashboard = PREVIEW_DASHBOARDS[faza === "pre" || faza === "posle" || faza === "dan3" ? faza : "sajam"];
+  if (step <= 0) return dashboard;
+  let left = step;
+  const actions = dashboard.actions.flatMap((action) => {
+    const solved = action.rule === "pii_purge_countdown" ? 0 : Math.min(left, action.count);
+    left -= solved;
+    return action.count - solved > 0 ? [{ ...action, count: action.count - solved }] : [];
+  });
+  const extra = dashboard.phase.dayOpen ? STEP_SCANS * step : 0;
+  const scans = dashboard.kpis.scans;
+  // The reports that wait for approval are one of the rules: the number and the card show what is left of it.
+  const pending = dashboard.actions.some((action) => action.rule === "reports_pending_review")
+    ? actions.find((action) => action.rule === "reports_pending_review")?.count ?? 0
+    : dashboard.kpis.reports?.pendingReview ?? 0;
+  return {
+    ...dashboard,
+    at: dashboard.at + step * 60_000,
+    actions,
+    kpis: {
+      ...dashboard.kpis,
+      scans: { ...scans, today: scans.today + extra, total: scans.total + extra },
+      reports: dashboard.kpis.reports ? { ...dashboard.kpis.reports, pendingReview: pending } : dashboard.kpis.reports,
+    },
+    sections: { ...dashboard.sections, izvestaji: dashboard.sections.izvestaji ? { ...dashboard.sections.izvestaji, pendingReview: pending } : dashboard.sections.izvestaji },
+  };
 }
+
+/**
+ * ADMIN v2 X4 — the TEST HUD „Danas“ of the dev previews outside Događaji (the
+ * last fair day in the evening, `dan3`): the frame shows it at the bottom of
+ * the sidebar, as it would while a fair is on. The link opens the events preview.
+ */
+export const PREVIEW_HUD: HudData | undefined = hudData({ title: "TEST Sajam 2026", href: "/admin/dogadjaji" }, DAN3, DAN3.at) ?? undefined;

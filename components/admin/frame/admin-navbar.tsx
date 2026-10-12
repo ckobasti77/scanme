@@ -1,14 +1,16 @@
 "use client";
 
 import gsap from "gsap";
-import { Bell, ChevronDown, Link2, LogOut, Menu, Package, QrCode, Settings, ShoppingBag, Star, UserRound, UtensilsCrossed } from "lucide-react";
+import { Bell, BellOff, ChevronDown, Keyboard, Link2, LogOut, Menu, Package, QrCode, Settings, ShoppingBag, Star, UserRound, UtensilsCrossed } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, type ComponentType } from "react";
 import { AdminSearchCommand, type AdminSearchCommandPreviewGroups } from "@/components/admin/admin-search-command";
+import { useQuietMode } from "@/components/admin/admin-ui/admin-toast";
 import { BrandLogo } from "@/components/brand-logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
@@ -18,6 +20,7 @@ import {
 import { ADMIN_NAV_ITEMS, isAdminNavChildActive, isAdminNavItemActive } from "@/lib/admin-v1/navigation";
 import { routeHref } from "@/lib/admin-v2/frame/routes";
 import { ADMIN_DURATION, ADMIN_EASE } from "@/lib/admin-v2/motion";
+import { ADMIN_SHORTCUTS_EVENT, goShortcutKeys } from "@/lib/admin-v2/shortcuts";
 import { fmt } from "@/lib/i18n/format";
 import { adminUiSr } from "@/lib/i18n/sr/admin-ui";
 import { adminV1Sr } from "@/lib/i18n/sr/admin-v1";
@@ -30,7 +33,9 @@ import { useAdminFrame } from "./admin-frame-context";
 // line slides under it. The Operativa and Usluge menus are the ones the
 // admin had before. On the right: search (with its Ctrl K shortcut),
 // settings, notifications, theme and profile. Below lg it is the top bar
-// with the menu button of the drawer.
+// with the menu button of the drawer. X4: an area with a shortcut says it in
+// its tooltip (G D), the profile menu holds the quiet mode and the list of
+// shortcuts.
 
 type NavIcon = ComponentType<{ className?: string; "aria-hidden"?: boolean | "true" | "false" }>;
 
@@ -57,6 +62,7 @@ export function AdminNavbar({ identity, onSignOut, previewSearchGroups }: {
   const pathname = frame?.activePath ?? "/admin";
   const route = frame?.route ?? null;
   const href = (target: string) => routeHref(target, route);
+  const [quiet, setQuiet] = useQuietMode();
 
   return (
     <header data-admin-frame="navbar" className="flex h-[var(--admin-navbar-h)] shrink-0 items-center gap-1 px-2 lg:pr-3 lg:pl-0">
@@ -107,6 +113,26 @@ export function AdminNavbar({ identity, onSignOut, previewSearchGroups }: {
                 {adminV1Sr.settings}
               </Link>
             </DropdownMenuItem>
+            <DropdownMenuCheckboxItem
+              checked={quiet}
+              onCheckedChange={(checked) => setQuiet(checked === true)}
+              onSelect={(event) => event.preventDefault()}
+              // The state is the switch on the right (visible on and off), as in the phone drawer; the built-in check mark is hidden.
+              className="min-h-11 gap-2 rounded-xl px-3 text-sm font-semibold focus:bg-[var(--admin-surface-muted)] [&>span:first-child]:hidden"
+            >
+              <BellOff className="size-4 self-start mt-0.5" aria-hidden="true" />
+              <span className="grid min-w-0 flex-1 gap-0.5 py-1.5">
+                <span>{adminUiSr.quiet.label}</span>
+                <span className="text-xs leading-4 font-normal text-[var(--admin-text-muted)]">{adminUiSr.quiet.hint}</span>
+              </span>
+              <span aria-hidden="true" data-on={quiet ? "" : undefined} className="admin-switch" />
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuItem onSelect={() => window.dispatchEvent(new Event(ADMIN_SHORTCUTS_EVENT))} className="min-h-11 rounded-xl px-3 text-sm font-semibold focus:bg-[var(--admin-surface-muted)]">
+              <Keyboard className="size-4" aria-hidden="true" />
+              <span className="flex-1">{adminUiSr.shortcuts.title}</span>
+              <kbd aria-hidden="true" className="rounded-md border border-[var(--admin-border)] bg-[var(--admin-surface-muted)] px-1.5 py-0.5 font-sans text-[0.68rem] font-semibold text-[var(--admin-text-muted)]">?</kbd>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={onSignOut} className="min-h-11 rounded-xl px-3 text-sm font-semibold focus:bg-[var(--admin-surface-muted)]">
               <LogOut className="size-4" aria-hidden="true" />
               {adminV1Sr.signOut}
@@ -142,7 +168,13 @@ function DesktopLinks({ pathname, href }: { pathname: string; href: (target: str
       if (animate && placed.current && !still) gsap.to(bar, { ...target, duration: ADMIN_DURATION.move, ease: ADMIN_EASE.out, overwrite: true });
       else gsap.set(bar, target);
       placed.current = true;
-      current.scrollIntoView({ block: "nearest", inline: "nearest" });
+      // The row scrolls sideways on a narrow desktop: bring the current link into view by scrolling the row itself.
+      // Not scrollIntoView: in Chromium it moves the keyboard's starting point to the link, so the first Tab
+      // of a page skipped the skip link and the whole sidebar.
+      const left = current.offsetLeft;
+      const right = left + current.offsetWidth;
+      if (left < container.scrollLeft) container.scrollLeft = left;
+      else if (right > container.scrollLeft + container.clientWidth) container.scrollLeft = right - container.clientWidth;
     };
     place(true);
     const observer = new ResizeObserver(() => place(false));
@@ -159,7 +191,20 @@ function DesktopLinks({ pathname, href }: { pathname: string; href: (target: str
         const active = isAdminNavItemActive(pathname, item);
         const label = adminV1Sr[item.labelKey];
         if (!item.children) {
-          return <Link key={item.id} href={href(item.href)} aria-current={active ? "page" : undefined} className={linkClass}>{label}</Link>;
+          // The shortcut of the area is its tooltip (G D). No aria-keyshortcuts: its values are alternatives,
+          // so "G D" would be announced as two single keys; the sequence is in the list of shortcuts (?).
+          const keys = goShortcutKeys(item.href);
+          return (
+            <Link
+              key={item.id}
+              href={href(item.href)}
+              aria-current={active ? "page" : undefined}
+              title={keys ? fmt(adminUiSr.shortcuts.hint, { label, keys }) : undefined}
+              className={linkClass}
+            >
+              {label}
+            </Link>
+          );
         }
         return (
           <DropdownMenu key={item.id}>

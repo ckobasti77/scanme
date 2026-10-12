@@ -1,9 +1,11 @@
 "use client";
 
 import { useMemo } from "react";
-import { ChartFrame, ChartLegend, StackedBar, chartFocusRing, type LegendItem } from "@/components/admin/events/analytics/chart-kit";
+import { ChartFrame, ChartLegend, RankMedal, RankMove, StackedBar, chartFocusRing, type LegendItem } from "@/components/admin/events/analytics/chart-kit";
+import { RecordBadge } from "@/components/admin/events/analytics/records";
 import { countOf, formatCount, formatShare } from "@/lib/admin-v2/analytics/format";
 import { CHART_OTHER_COLOR, entityColors } from "@/lib/admin-v2/analytics/palette";
+import type { FairRecords } from "@/lib/admin-v2/analytics/records";
 import { standExhibitors, standRanking } from "@/lib/admin-v2/analytics/stands";
 import type { AnalyticsData, AudienceData } from "@/lib/admin-v2/analytics/types";
 import { fmt } from "@/lib/i18n/format";
@@ -18,12 +20,15 @@ import { cn } from "@/lib/utils";
 
 const d = adminEventsSr.analytics;
 const v = d.v2.stands;
+const lb = d.v2.leaderboard;
 
 const numberColumns = "@4xl:[grid-template-columns:minmax(0,1fr)_repeat(5,5.75rem)]";
 
-export function StandRanking({ data, audience, onPickStand }: {
+export function StandRanking({ data, audience, record, onPickStand }: {
   data: AnalyticsData;
   audience: AudienceData | undefined;
+  /** The strongest stand of the day (`fairRecords`); its row carries the tag. */
+  record?: FairRecords["stand"];
   onPickStand?: (locationId: string) => void;
 }) {
   const rows = useMemo(() => standRanking(data, audience), [data, audience]);
@@ -46,6 +51,7 @@ export function StandRanking({ data, audience, onPickStand }: {
       title={v.title}
       question={v.question}
       legend={<ChartLegend label={v.legendTitle} items={legend} />}
+      note={rows.length ? v.rankHelp : undefined}
       table={rows.length ? {
         caption: v.title,
         columns: [d.columns.stand, d.columns.exhibitor, d.columns.scans, d.columns.unique, d.columns.visitors, d.columns.leads, d.columns.conversion],
@@ -66,7 +72,15 @@ export function StandRanking({ data, audience, onPickStand }: {
             {rows.map((row) => (
               <li key={row.locationId} data-stand={row.standCode} className={cn("grid min-w-0 gap-x-4 gap-y-2 border-t border-[var(--admin-border)] px-1 py-3 first:border-t-0 @4xl:items-center", numberColumns)}>
                 <div className="grid min-w-0 gap-1.5">
-                  <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
+                  <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                    <span className="inline-flex flex-none items-center gap-1">
+                      <RankMedal rank={row.rank} medal={row.medal} label={row.medal ? lb.medals[row.medal] : fmt(lb.place, { rank: row.rank })} />
+                      <RankMove
+                        move={row.move}
+                        isNew={row.isNew}
+                        labels={{ up: (places) => fmt(lb.moveUp, { places }), down: (places) => fmt(lb.moveDown, { places }), same: lb.moveSame, isNew: lb.moveNew }}
+                      />
+                    </span>
                     {onPickStand ? (
                       <button
                         type="button"
@@ -81,6 +95,9 @@ export function StandRanking({ data, audience, onPickStand }: {
                     {row.tiers.map((tier) => (
                       <span key={tier} className="rounded-full border border-[var(--admin-border)] px-1.5 text-[0.6875rem] leading-5 font-semibold text-[var(--admin-text-muted)]">{d.tiers[tier as keyof typeof d.tiers] ?? tier}</span>
                     ))}
+                    {record && record.locationId === row.locationId ? (
+                      <RecordBadge label={d.v2.records.stand} value={fmt(d.v2.records.standToday, { scans: countOf(record.scansToday, d.v2.units.scans) })} />
+                    ) : null}
                   </div>
                   <StackedBar
                     label={`${d.columns.stand} ${row.standCode}`}

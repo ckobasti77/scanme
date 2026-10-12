@@ -176,6 +176,63 @@ describe("standRanking: grouping and order rules", () => {
   });
 });
 
+describe("standRanking: place, medal and move (ADMIN v2 X4)", () => {
+  // `before` = the scans until the end of the day before, `today` = the scans of today; a stand is one model.
+  const stand = (code: string, before: number, today: number) =>
+    model(code, before + today, { standCode: code, mapLocationId: `l-${code}`, scans: { today, total: before + today }, uniquePerModel: { today: 0, total: before + today } });
+  const byCode = (rows: ReturnType<typeof standRanking>, code: string) => rows.find((row) => row.standCode === code)!;
+
+  test("the place is 1-based; the first three stands with a scan wear a medal, the others none", () => {
+    const rows = standRanking(data, audience);
+    expect(rows.map((row) => [row.rank, row.medal])).toEqual([[1, 1], [2, 2], [3, 3], [4, null]]);
+  });
+
+  test("a stand without a scan has no medal, even among the first three", () => {
+    const rows = standRanking(dataOf([stand("a", 4, 0), stand("b", 0, 0), stand("c", 0, 0)]), undefined);
+    expect(rows.map((row) => [row.standCode, row.rank, row.medal])).toEqual([["a", 1, 1], ["b", 2, null], ["c", 3, null]]);
+  });
+
+  test("the move is the places gained since the end of the day before", () => {
+    // Before today: a 10, b 8, c 5. Today b +5, c +9: b 13, c 14, a 10.
+    const rows = standRanking(dataOf([stand("a", 10, 0), stand("b", 8, 5), stand("c", 5, 9)]), undefined);
+    expect(rows.map((row) => row.standCode)).toEqual(["c", "b", "a"]);
+    expect(rows.map((row) => row.move)).toEqual([2, 0, -2]);
+    expect(rows.every((row) => !row.isNew)).toBe(true);
+  });
+
+  test("equal counts before today keep today's order: a tie is not a move", () => {
+    const rows = standRanking(dataOf([stand("a", 5, 3), stand("b", 5, 1)]), undefined);
+    expect(rows.map((row) => [row.standCode, row.move])).toEqual([["a", 0], ["b", 0]]);
+  });
+
+  test("a stand with its first scans today is new, with no move; the old stands each lose a place to it", () => {
+    const rows = standRanking(dataOf([stand("a", 10, 0), stand("b", 6, 0), stand("c", 0, 12)]), undefined);
+    expect(byCode(rows, "c")).toMatchObject({ rank: 1, move: null, isNew: true });
+    expect(byCode(rows, "a")).toMatchObject({ rank: 2, move: -1, isNew: false });
+    expect(byCode(rows, "b")).toMatchObject({ rank: 3, move: -1, isNew: false });
+  });
+
+  test("a stand that is still without a scan is not new", () => {
+    const rows = standRanking(dataOf([stand("a", 10, 2), stand("b", 0, 0)]), undefined);
+    expect(byCode(rows, "b")).toMatchObject({ move: null, isNew: false });
+  });
+
+  test("no scan today anywhere: nothing to compare, no move and nothing new", () => {
+    const rows = standRanking(dataOf([stand("a", 10, 0), stand("b", 6, 0)]), undefined);
+    expect(rows.every((row) => row.move === null && !row.isNew)).toBe(true);
+  });
+
+  test("no scan before today (the first day): nothing to compare, no move and nothing new", () => {
+    const rows = standRanking(dataOf([stand("a", 0, 10), stand("b", 0, 6)]), undefined);
+    expect(rows.every((row) => row.move === null && !row.isNew)).toBe(true);
+    expect(rows.map((row) => row.medal)).toEqual([1, 2]);
+  });
+
+  test("the fixtures stand still: the order of the stands did not change today", () => {
+    expect(standRanking(data, audience).every((row) => row.move === 0 && !row.isNew)).toBe(true);
+  });
+});
+
 describe("standExhibitors", () => {
   test("lists every exhibitor once", () => {
     const names = standExhibitors(data);

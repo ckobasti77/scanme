@@ -45,7 +45,8 @@ import { EventLeadsInboxView, type InboxLead, type LeadInboxActions } from "@/co
 import { EventModelDetailView, EventModelsView, type ModelDetailSummary } from "@/components/admin/events/sections/modeli-view";
 import { dashboardSectionUrgency, withNavUrgency } from "@/components/admin/events/dashboard-logic";
 import { previewDashboard } from "@/components/admin/events/preview-dashboard-fixtures";
-import { previewAnalytics, previewAudience, previewEngagement, previewModelAnalytics } from "@/components/admin/events/preview-analytics-fixtures";
+import { hudData } from "@/lib/admin-v2/hud";
+import { previewAnalyticsStep, previewModelAnalytics, previewStep as previewLiveStep } from "@/components/admin/events/preview-analytics-fixtures";
 import { EventAnalyticsView } from "@/components/admin/events/sections/analitika-view";
 import { EventDashboardView } from "@/components/admin/events/sections/pregled-view";
 import { EventLinkStickerView } from "@/components/admin/events/sections/povezi-view";
@@ -734,7 +735,7 @@ const importActions: Pick<EventsActions, "dryRun" | "commit"> = {
   },
 };
 
-function PreviewSection({ base: PREVIEW_BASE, path, detailId, query, setQuery, keep, previewStep }: {
+function PreviewSection({ base: PREVIEW_BASE, path, detailId, query, setQuery, keep, previewStep, liveStep }: {
   /** The link base of the preview (the single-surface route or the persistent frame preview). */
   base: string;
   path: EventSectionPath;
@@ -744,6 +745,8 @@ function PreviewSection({ base: PREVIEW_BASE, path, detailId, query, setQuery, k
   keep: AdminQueryState;
   /** N2 — the raw `?stanje=` of `povezi` (a step, not a filter). */
   previewStep: string | null;
+  /** X4 — `?uzivo=`: the fixtures as a later poll would bring them (0 = as they are). */
+  liveStep: number;
 }) {
   const modelHref = (id: string) => eventDetailHref(PREVIEW_BASE, "modeli", id, keep);
   const listQuery = { ...keep, ...modelListQuery(query) };
@@ -753,7 +756,7 @@ function PreviewSection({ base: PREVIEW_BASE, path, detailId, query, setQuery, k
   delete inboxQuery.lead;
   switch (path) {
     case "pregled": {
-      const dashboard = previewDashboard(query.faza);
+      const dashboard = previewDashboard(query.faza, liveStep);
       return <EventDashboardView dashboard={dashboard} now={dashboard.at} base={PREVIEW_BASE} keep={keep} />;
     }
     case "povezi": return (
@@ -888,12 +891,11 @@ function PreviewSection({ base: PREVIEW_BASE, path, detailId, query, setQuery, k
     }
     case "sponzorisano": return <AdminEventsSponsored view={sponsoredView} actions={sponsoredActions} />;
     // ADMIN v2 X3 — TEST numbers in the shape of a real fair (preview-analytics-fixtures.ts); `?model=` opens the detail.
+    // X4 — `?uzivo=<step>` shows the same page after a poll that brought new scans (the numbers roll, a record falls).
     case "analitika": return (
       <EventAnalyticsView
         eventCode="test-elektromobilnost-2026"
-        data={previewAnalytics}
-        audience={previewAudience}
-        engagement={previewEngagement}
+        {...previewAnalyticsStep(liveStep)}
         modelId={query.model}
         modelDetail={query.model ? previewModelAnalytics(query.model) ?? undefined : undefined}
         modelError={false}
@@ -952,14 +954,16 @@ const keepFor = (slug: string): AdminQueryState => (slug === PREVIEW_EVENTS[0].s
 export function AdminEventsPreview({ section, base: PREVIEW_BASE = DEFAULT_PREVIEW_BASE }: { section: ResolvedEventSection | null; base?: string }) {
   const router = useRouter();
   const [query, setQuery] = useAdminQueryState();
-  const previewStep = useSearchParams().get("stanje");
+  const search = useSearchParams();
+  const previewStep = search.get("stanje");
+  const liveStep = previewLiveStep(search.get("uzivo"));
   const currentSlug = PREVIEW_EVENTS.find((event) => event.slug === query.dogadjaj)?.slug ?? PREVIEW_EVENTS[0].slug;
   const keep = useMemo(() => keepFor(currentSlug), [currentSlug]);
   const active = section?.kind === "section" ? section.path : null;
   const onViewChange = useCallback((mode: AdminViewMode) => setQuery({ prikaz: mode }), [setQuery]);
   const nav = useMemo(
-    () => withNavUrgency(eventNavGroups((path) => eventSectionHref(PREVIEW_BASE, path, keep), active), dashboardSectionUrgency(previewDashboard(query.faza).actions)),
-    [PREVIEW_BASE, keep, active, query.faza],
+    () => withNavUrgency(eventNavGroups((path) => eventSectionHref(PREVIEW_BASE, path, keep), active), dashboardSectionUrgency(previewDashboard(query.faza, liveStep).actions)),
+    [PREVIEW_BASE, keep, active, query.faza, liveStep],
   );
   // The event switch is in the sidebar; its handler reads the filters at the moment of the change.
   const switchTo = useRef<(slug: string) => void>(() => undefined);
@@ -967,6 +971,13 @@ export function AdminEventsPreview({ section, base: PREVIEW_BASE = DEFAULT_PREVI
     switchTo.current = (slug) => router.push(switchEventHref(PREVIEW_BASE, section, query, keepFor(slug)));
   });
   const onSelectEvent = useCallback((slug: string) => switchTo.current(slug), []);
+  // X4 — the HUD „Danas“ of the preview follows `?faza=` (only a fair day has one).
+  const hud = useMemo(() => {
+    // The Analitika fixtures are the last fair day (`dan3`): without `?faza=` its HUD shows that day, not the default one of Pregled.
+    const dashboard = previewDashboard(query.faza ?? (active === "analitika" ? "dan3" : undefined), liveStep);
+    const title = PREVIEW_EVENTS.find((event) => event.slug === currentSlug)?.title ?? "";
+    return hudData({ title, href: eventSectionHref(PREVIEW_BASE, "pregled", keep) }, dashboard, dashboard.at);
+  }, [PREVIEW_BASE, currentSlug, keep, query.faza, liveStep, active]);
   return (
     <AdminShell previewIdentity={dict.fixtureIdentity} activePathname="/admin/dogadjaji">
       <AdminEventFrameView
@@ -977,10 +988,11 @@ export function AdminEventsPreview({ section, base: PREVIEW_BASE = DEFAULT_PREVI
         nav={nav}
         linkStickerHref={active === "povezi" ? null : eventSectionHref(PREVIEW_BASE, "povezi", keep)}
         title={section ? eventSectionHeading(section) : undefined}
+        hud={hud}
       >
         <AdminViewModeOverride value={parseViewModeParam(query.prikaz)} onChange={onViewChange}>
           {section?.kind === "section"
-            ? <PreviewSection base={PREVIEW_BASE} path={section.path} detailId={section.detailId} query={query} setQuery={setQuery} keep={keep} previewStep={previewStep} />
+            ? <PreviewSection base={PREVIEW_BASE} path={section.path} detailId={section.detailId} query={query} setQuery={setQuery} keep={keep} previewStep={previewStep} liveStep={liveStep} />
             : <AdminEventsNotFound title={dict.sectionNotFoundTitle} body={dict.sectionNotFoundBody} href={eventSectionHref(PREVIEW_BASE, "pregled", keep)} linkLabel={dict.backToOverview} />}
         </AdminViewModeOverride>
       </AdminEventFrameView>

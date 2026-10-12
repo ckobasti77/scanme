@@ -6,12 +6,14 @@ import { BrandLogo } from "@/components/brand-logo";
 import { routeHref } from "@/lib/admin-v2/frame/routes";
 import { adminUiSr as dict } from "@/lib/i18n/sr/admin-ui";
 import { useAdminFrame } from "./admin-frame-context";
+import { AdminHud } from "./admin-hud";
 import { AdminSidebarContent } from "./admin-sidebar-content";
 
 // ADMIN v2 — the sidebar of the frame (ZADATAK §2): fixed on the left over
 // the whole height from lg up, the ScanMe logo centred on top, the
 // contextual content of the page below it. Content that does not fit scrolls
-// inside the sidebar, with a soft fade where there is more.
+// inside the sidebar, with a soft fade where there is more. The HUD „Danas“
+// stands at the bottom while a fair is on (X4).
 
 export function AdminSidebar() {
   const frame = useAdminFrame();
@@ -26,6 +28,7 @@ export function AdminSidebar() {
         {/* The content reads the query string (useSearchParams). */}
         <Suspense fallback={null}><AdminSidebarContent /></Suspense>
       </AdminSidebarScroll>
+      <AdminHud />
     </aside>
   );
 }

@@ -23,6 +23,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import { AdminOdometer } from "@/components/admin/admin-ui/admin-odometer";
 import { useAdminUrlState } from "@/components/admin/admin-ui/use-admin-query-state";
 import { AdminPageHeader } from "@/components/admin/frame/admin-page-header";
 import { useAdminSidebarLive } from "@/components/admin/frame/admin-sidebar-store";
@@ -111,7 +112,7 @@ export function AdminDashboardFoundation({
         <div className="grid min-w-0 gap-4 sm:gap-5 @4xl:grid-cols-2 @6xl:grid-cols-[minmax(0,1.8fr)_minmax(15rem,0.6fr)_minmax(15rem,0.6fr)] @6xl:gap-6">
           <DashboardWidgetBoundary key={`reaction-${scope}`} className="contents">
             {fixture ? (
-              <ReactionBundle data={fixture.reactions[scope]} now={now} fixture />
+              <ReactionBundle data={fixture.reactions[scope]} now={now} scope={scope} fixture />
             ) : (
               <ReactionLive now={now} scope={scope} />
             )}
@@ -143,7 +144,7 @@ const mainColumn = "@4xl:col-span-2 @6xl:col-span-1";
 function ReactionLive({ now, scope }: { now: number; scope: DashboardScope }) {
   const data = useQuery(api.adminDashboard.reactions, { now, scope, limit: 8 });
   if (!data) return <ReactionLoading />;
-  return <ReactionBundle data={data} now={now} />;
+  return <ReactionBundle data={data} now={now} scope={scope} />;
 }
 
 function ReactionLoading() {
@@ -155,9 +156,10 @@ function ReactionLoading() {
   );
 }
 
-function ReactionBundle({ data, now, fixture = false }: { data: ReactionData; now: number; fixture?: boolean }) {
-  // Without counts nothing is published: a „Sve je čisto“ would be false.
-  const live = useMemo(() => data.counts ? { missions: reactionMissions(data.counts) } : null, [data.counts]);
+function ReactionBundle({ data, now, scope, fixture = false }: { data: ReactionData; now: number; scope: DashboardScope; fixture?: boolean }) {
+  // Without counts no mission is published: a „Sve je čisto“ would be false. The scope the numbers are for
+  // always is (X4): the day's ledger of „Sve“ and of „Moje“ are kept apart.
+  const live = useMemo(() => ({ ...(data.counts ? { missions: reactionMissions(data.counts) } : {}), missionsScope: scope }), [data.counts, scope]);
   useAdminSidebarLive(live);
   return (
     <>
@@ -194,7 +196,7 @@ function SignalStrip({ counts }: { counts: NonNullable<ReactionData["counts"]> }
       {signals.map((signal) => (
         <div key={signal.label} title={signal.title} className="flex min-h-20 items-center justify-between gap-3 px-4 py-3 @xl:min-h-24 @xl:px-5">
           <span className="text-sm font-semibold text-[var(--admin-text-muted)]">{signal.label}</span>
-          <span data-tone={signal.tone} className={cn("font-mono text-3xl font-semibold tracking-[-0.05em] tabular-nums", signal.tone === "danger" && "text-[var(--admin-danger)]", signal.tone === "warning" && "text-[var(--admin-warning)]", signal.tone === "success" && "text-[var(--admin-success)]")}>{signal.value}</span>
+          <span data-tone={signal.tone} className={cn("font-mono text-3xl font-semibold tracking-[-0.05em] tabular-nums", signal.tone === "danger" && "text-[var(--admin-danger)]", signal.tone === "warning" && "text-[var(--admin-warning)]", signal.tone === "success" && "text-[var(--admin-success)]")}><AdminOdometer value={signal.value} text={String(signal.value)} /></span>
         </div>
       ))}
     </AdminPanel>
@@ -281,7 +283,7 @@ function RingWidget({ icon, title, total, totalLabel, segments, footer }: { icon
   return (
     <AdminPanel className={cn(panelClass, "h-full min-h-[21rem] p-5")}>
       <div className="flex items-center justify-between gap-3"><h2 className="text-lg font-semibold tracking-[-0.025em]">{title}</h2><span className="text-[var(--admin-text-muted)]">{icon}</span></div>
-      <div className="relative mx-auto mt-5 aspect-square w-36"><svg viewBox="0 0 120 120" className="size-full -rotate-90" role="img" aria-label={`${title}: ${total} ${totalLabel}`}><circle cx="60" cy="60" r="46" fill="none" stroke="var(--admin-surface-muted)" strokeWidth="12" />{segments.map((segment, index) => { const length = (segment.value / denominator) * 289; const offset = segments.slice(0, index).reduce((sum, previous) => sum + (previous.value / denominator) * 289, 0); return <circle key={segment.label} cx="60" cy="60" r="46" fill="none" strokeWidth="12" stroke={toneColor(segment.tone)} strokeDasharray={`${length} ${289 - length}`} strokeDashoffset={-offset} />; })}</svg><div className="absolute inset-0 grid place-content-center text-center"><strong className="font-mono text-4xl tracking-[-0.06em] tabular-nums">{total}</strong><span className="text-xs font-semibold text-[var(--admin-text-muted)]">{totalLabel}</span></div></div>
+      <div className="relative mx-auto mt-5 aspect-square w-36"><svg viewBox="0 0 120 120" className="size-full -rotate-90" role="img" aria-label={`${title}: ${total} ${totalLabel}`}><circle cx="60" cy="60" r="46" fill="none" stroke="var(--admin-surface-muted)" strokeWidth="12" />{segments.map((segment, index) => { const length = (segment.value / denominator) * 289; const offset = segments.slice(0, index).reduce((sum, previous) => sum + (previous.value / denominator) * 289, 0); return <circle key={segment.label} cx="60" cy="60" r="46" fill="none" strokeWidth="12" stroke={toneColor(segment.tone)} strokeDasharray={`${length} ${289 - length}`} strokeDashoffset={-offset} />; })}</svg><div className="absolute inset-0 grid place-content-center text-center"><strong className="font-mono text-4xl tracking-[-0.06em] tabular-nums"><AdminOdometer value={total} text={String(total)} /></strong><span className="text-xs font-semibold text-[var(--admin-text-muted)]">{totalLabel}</span></div></div>
       <ul className="mt-5 grid gap-2 text-xs">{segments.map((segment) => <li key={segment.label} className="flex items-center justify-between gap-3"><span className="flex items-center gap-2"><span className="size-2 rounded-full" style={{ background: toneColor(segment.tone) }} aria-hidden="true" />{segment.label}</span><strong className="font-mono tabular-nums">{segment.value}</strong></li>)}</ul>
       {footer ? <p className="mt-4 border-t border-[var(--admin-border)] pt-3 text-xs text-[var(--admin-text-muted)]">{footer}</p> : null}
     </AdminPanel>

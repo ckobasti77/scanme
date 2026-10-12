@@ -13,9 +13,9 @@ export function dashboardScope(state: SidebarState): "all" | "mine" {
 /** The signal counts of `adminDashboard.reactions` that become missions. */
 export type ReactionMissionCounts = { urgent: number; today: number };
 /** Both groups of `adminTasks.dashboardAdapter` that become missions. */
-export type TaskMissionGroups = { overdue: { items: readonly unknown[] }; today: { items: readonly unknown[] } };
+export type TaskMissionGroups = { overdue: { items: readonly unknown[]; capped?: boolean }; today: { items: readonly unknown[]; capped?: boolean } };
 /** The conversations of `adminDashboard.inbox`. */
-export type InboxMissionRows = { items: readonly { unreadCount: number }[] };
+export type InboxMissionRows = { items: readonly { unreadCount: number }[]; capped?: boolean };
 
 /**
  * „Hitne stavke“ and „Stavke za danas“. Without counts (the total is not
@@ -30,13 +30,14 @@ export function reactionMissions(counts: ReactionMissionCounts | null | undefine
 }
 
 /**
- * The overdue and today tasks. The query returns at most four per group, so
- * the number is the smallest confirmed one (it is never made bigger).
+ * The overdue and today tasks. The query returns a limited number per group,
+ * so the number is the smallest confirmed one; when the group has more, the
+ * mission says so (`capped`, shown as „4+“) instead of looking exact.
  */
 export function taskMissions(tasks: TaskMissionGroups): SidebarMission[] {
   return [
-    { id: "tasks-overdue", label: dict.dashboardMissionTasksOverdue, count: tasks.overdue.items.length, tone: "hitno", href: "/admin/zadaci?pogled=overdue" },
-    { id: "tasks-today", label: dict.dashboardMissionTasksToday, count: tasks.today.items.length, tone: "uskoro", href: "/admin/zadaci?pogled=today" },
+    { id: "tasks-overdue", label: dict.dashboardMissionTasksOverdue, count: tasks.overdue.items.length, tone: "hitno", href: "/admin/zadaci?pogled=overdue", ...(tasks.overdue.capped ? { capped: true } : {}) },
+    { id: "tasks-today", label: dict.dashboardMissionTasksToday, count: tasks.today.items.length, tone: "uskoro", href: "/admin/zadaci?pogled=today", ...(tasks.today.capped ? { capped: true } : {}) },
   ];
 }
 
@@ -49,6 +50,8 @@ export function inboxMissions(inbox: InboxMissionRows): SidebarMission[] {
       count: inbox.items.filter((item) => item.unreadCount > 0).length,
       tone: "info",
       href: "/admin/inbox",
+      // Only the first conversations are read: with more of them the number is "at least".
+      ...(inbox.capped ? { capped: true } : {}),
     },
   ];
 }

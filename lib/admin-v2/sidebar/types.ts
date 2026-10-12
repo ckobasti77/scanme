@@ -5,6 +5,7 @@
 
 import type { ReactNode } from "react";
 import type { AdminSubnavGroup, AdminUrgencyTone } from "@/lib/admin-v1/subnav";
+import type { HudData } from "@/lib/admin-v2/hud";
 
 export type SidebarOption = { value: string; label: string; count?: number; hint?: string };
 
@@ -43,7 +44,15 @@ export type SidebarSearch = {
 export type SidebarBlock = "missions" | "jumps";
 export type SidebarJump = { href: string; label: string };
 /** One line of „Misije danas“: what waits, how much of it and where it is solved. */
-export type SidebarMission = { id: string; label: string; count: number; tone: AdminUrgencyTone; href?: string };
+export type SidebarMission = {
+  id: string;
+  label: string;
+  count: number;
+  tone: AdminUrgencyTone;
+  href?: string;
+  /** X4 — the read was limited: the count is "at least this many" („4+“). */
+  capped?: boolean;
+};
 
 export type SidebarConfig = {
   id: string;
@@ -64,6 +73,13 @@ export type SidebarConfig = {
   groups?: readonly SidebarGroup[];
   sort?: SidebarSort;
   blocks?: readonly SidebarBlock[];
+  /**
+   * X4 — the URL key whose value changes what the missions count (Dashboard: the scope „Sve“ / „Moje“).
+   * Each value keeps its own ledger of the day, so switching it is never read as solved work. The page
+   * says which value its numbers are for (`SidebarLive.missionsScope`); until the two agree (the new
+   * numbers are on their way) the ledger is not touched.
+   */
+  missionsBy?: string;
   /** Quick jumps of this page (admin paths); without them the frame shows its own list. */
   jumps?: readonly SidebarJump[];
 };
@@ -86,6 +102,12 @@ export type SidebarLive = {
   custom?: Readonly<Record<string, { summary?: string; body: ReactNode }>>;
   /** „Misije danas“ (block `missions`), from data the page already has. */
   missions?: readonly SidebarMission[];
+  /** X4 — the value of `SidebarConfig.missionsBy` the missions were counted for (Dashboard: "all" or "mine"). */
+  missionsScope?: string;
+  /** X4 — the HUD „Danas“ of the event the page is about (it already reads that event's dashboard). */
+  hud?: HudData;
+  /** X4 — the HUD the frame reads itself while a fair is on; a page's own `hud` goes first. */
+  frameHud?: HudData;
   /**
    * Called before a change is written: returns the patch to write (dependent
    * filters: picking a brand sets its exhibitor) or null to cancel it.

@@ -8,6 +8,7 @@ import {
   AdminLoadingState,
 } from "@/components/admin/admin-primitives";
 import { AdminTableScroll } from "@/components/admin/admin-ui/admin-table-scroll";
+import { useAdminFlip } from "@/components/admin/admin-ui/use-admin-flip";
 import { AdminViewToggle } from "@/components/admin/admin-ui/admin-view-toggle";
 import { useAdminViewMode, useIsWideContainer } from "@/components/admin/admin-ui/use-admin-view-mode";
 import { nextSortState, sortRows, type SortState, type SortValue } from "@/lib/admin-v1/table-sort";
@@ -141,6 +142,9 @@ export function AdminDataView<T>(props: AdminDataViewProps<T>) {
   const [stored, setStored] = useAdminViewMode(listKey);
   const [container, wide] = useIsWideContainer(autoBreakpoint);
   const [sort, setSort] = useState<SortState>(defaultSort);
+  const sortSignature = sort ? `${sort.columnId}:${sort.direction}` : "";
+  // X4: cards glide when the list is filtered or re-sorted (the table rows do the same in AdminTableScroll).
+  useAdminFlip(container, "[data-admin-card]", sortSignature);
   const mode = resolveViewMode(view ?? override.value, stored);
   const effective: AdminViewMode = mode === "auto" ? (wide ? "tabela" : "kartice") : mode;
 
@@ -171,7 +175,7 @@ export function AdminDataView<T>(props: AdminDataViewProps<T>) {
           const actions = rowActions?.(row, context);
           const detail = rowDetail?.(row, context);
           return (
-            <li key={getRowId(row)} onDoubleClick={onRowDoubleClick ? (event) => onRowDoubleClick(row, event) : undefined} className={cn("flex min-w-0 flex-col gap-3 rounded-[var(--admin-radius-control)] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-4", rowClassName?.(row))}>
+            <li key={getRowId(row)} data-admin-card="" onDoubleClick={onRowDoubleClick ? (event) => onRowDoubleClick(row, event) : undefined} className={cn("flex min-w-0 flex-col gap-3 rounded-[var(--admin-radius-control)] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-4", rowClassName?.(row))}>
               {renderCard(row, context)}
               {actions ? <div className="mt-auto flex min-w-0 flex-wrap items-center gap-2 border-t border-[var(--admin-border)] pt-3">{actions}</div> : null}
               {detail ? <div className="min-w-0">{detail}</div> : null}
@@ -194,6 +198,7 @@ export function AdminDataView<T>(props: AdminDataViewProps<T>) {
             rowClassName={rowClassName}
             onRowDoubleClick={onRowDoubleClick}
             sort={sort}
+            flipSignature={sortSignature}
             onSort={(columnId) => setSort((current) => nextSortState(current, columnId))}
             className={mode === "auto" ? AUTO_TABLE[autoBreakpoint] : undefined}
             tableClassName={tableClassName}
@@ -251,6 +256,7 @@ function DataTable<T>({
   rowClassName,
   onRowDoubleClick,
   sort,
+  flipSignature,
   onSort,
   className,
   tableClassName,
@@ -266,6 +272,7 @@ function DataTable<T>({
   rowClassName?: (row: T) => string | undefined;
   onRowDoubleClick?: (row: T, event: MouseEvent<HTMLElement>) => void;
   sort: SortState;
+  flipSignature: string;
   onSort: (columnId: string) => void;
   className?: string;
   tableClassName?: string;
@@ -274,6 +281,7 @@ function DataTable<T>({
   const columnCount = columns.length + (rowActions ? 1 : 0);
   return (
     <AdminTableScroll
+      flipSignature={flipSignature}
       role="region"
       aria-label={caption}
       tabIndex={0}

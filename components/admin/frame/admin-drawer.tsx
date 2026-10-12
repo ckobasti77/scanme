@@ -1,8 +1,9 @@
 "use client";
 
-import { ChevronDown, LogOut, Search, Settings } from "lucide-react";
+import { BellOff, ChevronDown, LogOut, Search, Settings } from "lucide-react";
 import Link from "next/link";
 import { Suspense, useRef, useState, type PointerEvent } from "react";
+import { useQuietMode } from "@/components/admin/admin-ui/admin-toast";
 import { BrandLogo } from "@/components/brand-logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Sheet, SheetClose, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -12,6 +13,7 @@ import { adminUiSr as dict } from "@/lib/i18n/sr/admin-ui";
 import { adminV1Sr } from "@/lib/i18n/sr/admin-v1";
 import { cn } from "@/lib/utils";
 import { useAdminFrame } from "./admin-frame-context";
+import { AdminHud } from "./admin-hud";
 import { AdminSidebarContent } from "./admin-sidebar-content";
 
 // ADMIN v2 — the sidebar below lg (ZADATAK §2): a drawer from the left with
@@ -32,6 +34,7 @@ export function AdminDrawer({ identity, onSignOut }: { identity: string; onSignO
   const drag = useRef<{ x: number; y: number; at: number; dx: number; active: boolean } | null>(null);
   // „Filteri“ opens with the main navigation folded, so the filters are the first thing on the screen.
   const [navOpen, setNavOpen] = useState<boolean | null>(null);
+  const [quiet, setQuiet] = useQuietMode();
   if (!frame) return null;
   const pathname = frame.activePath;
   const href = (target: string) => routeHref(target, frame.route);
@@ -138,11 +141,22 @@ export function AdminDrawer({ identity, onSignOut }: { identity: string; onSignO
           </div>
         </div>
 
+        <AdminHud className="shrink-0" />
         <div className="grid shrink-0 gap-1 border-t border-[var(--admin-border)] p-3">
           <div className="flex min-h-11 items-center justify-between gap-3 px-3">
             <span className="min-w-0 truncate text-sm font-semibold">{identity}</span>
             <ThemeToggle className="rounded-lg border-[var(--admin-border)] bg-[var(--admin-surface-strong)]" />
           </div>
+          <button type="button" role="switch" aria-checked={quiet} aria-describedby="admin-drawer-quiet-hint" onClick={() => setQuiet(!quiet)} className={cn(rowClass, "justify-between py-1.5 text-left hover:bg-[var(--admin-surface-muted)]")}>
+            <span className="flex min-w-0 items-start gap-3">
+              <BellOff className="mt-0.5 size-4 flex-none" aria-hidden="true" />
+              <span className="grid min-w-0 gap-0.5">
+                <span>{dict.quiet.label}</span>
+                <span id="admin-drawer-quiet-hint" className="text-xs leading-4 font-normal text-[var(--admin-text-muted)]">{dict.quiet.hint}</span>
+              </span>
+            </span>
+            <span aria-hidden="true" data-on={quiet ? "" : undefined} className="admin-switch" />
+          </button>
           <SheetClose asChild>
             <Link href={href("/admin/pretraga")} className={cn(rowClass, "hover:bg-[var(--admin-surface-muted)]")}>
               <Search className="size-4" aria-hidden="true" />

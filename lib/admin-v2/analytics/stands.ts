@@ -7,6 +7,18 @@ import type { AnalyticsData, AudienceData, EngagementData } from "./types";
 export type StandSegment = { exhibitor: string; scans: number; models: number };
 
 export type StandRank = {
+  /** 1-based place by scans of the whole fair. */
+  rank: number;
+  /** Gold, silver, bronze; null from the fourth place and for a stand without a scan. */
+  medal: 1 | 2 | 3 | null;
+  /**
+   * Places gained (+) or lost (−) since the end of the day before; null when
+   * there is nothing to compare (no scan today anywhere, or none before today)
+   * or the stand had no scan until today (`isNew`).
+   */
+  move: number | null;
+  /** First scans today: the stand had none before today. */
+  isNew: boolean;
   locationId: string;
   standCode: string;
   exhibitors: string[];
@@ -39,7 +51,7 @@ export function standRanking(data: AnalyticsData, audience: AudienceData | undef
   for (const model of data.models) {
     const key = model.mapLocationId || model.standCode;
     const row = rows.get(key) ?? {
-      locationId: key, standCode: model.standCode, exhibitors: [], tiers: [], models: 0, scans: 0, scansToday: 0, uniquePerModel: 0,
+      rank: 0, medal: null, move: null, isNew: false, locationId: key, standCode: model.standCode, exhibitors: [], tiers: [], models: 0, scans: 0, scansToday: 0, uniquePerModel: 0,
       visitors: null, leads: 0, conversion: null, votes: 0, segments: [], share: 0, fairShare: null,
     };
     row.models += 1;
@@ -61,11 +73,23 @@ export function standRanking(data: AnalyticsData, audience: AudienceData | undef
   const ordered = [...rows.values()].sort((a, b) => b.scans - a.scans || b.uniquePerModel - a.uniquePerModel || a.standCode.localeCompare(b.standCode, "sr", { numeric: true }));
   const top = ordered[0]?.scans ?? 0;
   const all = data.kpis.scans.total;
-  return ordered.map((row) => {
+  // Places at the end of the day before: scans without today's. With no scan today, or none before today, there is nothing to compare.
+  const before = (row: StandRank) => row.scans - row.scansToday;
+  const comparable = ordered.some((row) => row.scansToday > 0) && ordered.some((row) => before(row) > 0);
+  // Equal counts keep today's order (a stable sort), so a tie never shows as a move.
+  const previousOrder = comparable ? ordered.filter((row) => before(row) > 0).sort((a, b) => before(b) - before(a)) : [];
+  const previousRank = new Map(previousOrder.map((row, index) => [row.locationId, index + 1]));
+  return ordered.map((row, index) => {
     const standVisitors = audience ? (visitors.get(row.locationId) ?? 0) : null;
     const base = standVisitors ?? row.uniquePerModel;
+    const rank = index + 1;
+    const was = previousRank.get(row.locationId);
     return {
       ...row,
+      rank,
+      medal: rank <= 3 && row.scans > 0 ? (rank as 1 | 2 | 3) : null,
+      move: was === undefined ? null : was - rank,
+      isNew: comparable && was === undefined && row.scans > 0,
       exhibitors: row.segments.map((segment) => segment.exhibitor).filter(Boolean).sort((a, b) => a.localeCompare(b, "sr")),
       tiers: [...row.tiers].sort((a, b) => tierPlace(a) - tierPlace(b)),
       segments: [...row.segments].sort((a, b) => b.scans - a.scans || a.exhibitor.localeCompare(b.exhibitor, "sr")),

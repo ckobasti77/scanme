@@ -2,9 +2,12 @@
 
 import { AlertTriangle, ArrowDownRight, ArrowUpRight } from "lucide-react";
 import { useMemo } from "react";
+import { AdminOdometer } from "@/components/admin/admin-ui/admin-odometer";
 import { ChartFrame, MiniBars, type ChartTableData } from "@/components/admin/events/analytics/chart-kit";
+import { RecordBadge } from "@/components/admin/events/analytics/records";
 import { formatCount, formatShare, formatSigned, hourLabel } from "@/lib/admin-v2/analytics/format";
 import { kpiStrip, type KpiDelta, type KpiTile } from "@/lib/admin-v2/analytics/kpi";
+import { fairRecords, type FairRecords } from "@/lib/admin-v2/analytics/records";
 import type { AnalyticsData, AudienceData, EngagementData } from "@/lib/admin-v2/analytics/types";
 import { fmt } from "@/lib/i18n/format";
 import { adminEventsSr } from "@/lib/i18n/sr/admin-events";
@@ -42,17 +45,20 @@ function Delta({ delta }: { delta: KpiDelta }) {
   );
 }
 
-function Tile({ tile, dayIndex, dayLabels }: { tile: KpiTile; dayIndex: number; dayLabels: readonly string[] }) {
+function Tile({ tile, dayIndex, dayLabels, firstLead }: { tile: KpiTile; dayIndex: number; dayLabels: readonly string[]; firstLead: FairRecords["firstLead"] }) {
   const label = d.kpi[tile.id];
   const running = dayIndex >= 0;
   const trend = tile.trend;
+  const big = running ? tile.today : tile.total;
   return (
     <div data-kpi-tile={tile.id} className="grid min-w-0 content-start gap-1.5 bg-[var(--admin-surface)] p-3 @md:p-4">
       <dt className="text-xs font-semibold text-[var(--admin-text-muted)]">{label}</dt>
       <dd className="grid min-w-0 gap-1.5">
         <div className="flex min-w-0 items-end justify-between gap-3">
           <div className="flex min-w-0 items-center gap-2">
-            <span data-kpi-value="" className="text-[1.75rem] leading-none font-semibold tracking-[-0.02em] @md:text-[2rem]">{formatCount(running ? tile.today : tile.total)}</span>
+            <span data-kpi-value="" className="text-[1.75rem] leading-none font-semibold tracking-[-0.02em] @md:text-[2rem]">
+              {big === null ? formatCount(big) : <AdminOdometer value={big} />}
+            </span>
             {tile.problem ? <AlertTriangle aria-hidden="true" className="size-5 flex-none text-[var(--admin-danger)]" /> : null}
           </div>
           {trend ? (
@@ -70,13 +76,21 @@ function Tile({ tile, dayIndex, dayLabels }: { tile: KpiTile; dayIndex: number; 
         {running && tile.delta && !tile.problem ? <Delta delta={tile.delta} /> : null}
         {tile.problem ? <p data-kpi-problem="" className="text-xs font-semibold">{v.leadsZero}</p> : null}
         {tile.capped ? <p className="text-xs text-[var(--admin-text-muted)]">{d.capped}</p> : null}
+        {tile.id === "leads" && firstLead ? <RecordBadge label={d.v2.records.firstLead} value={fmt(d.v2.records.firstLeadValue, { day: firstLead.dayLabel })} className="justify-self-start" /> : null}
       </dd>
     </div>
   );
 }
 
-export function KpiStrip({ data, audience, engagement }: { data: AnalyticsData; audience: AudienceData | undefined; engagement: EngagementData | undefined }) {
+export function KpiStrip({ data, audience, engagement, records }: {
+  data: AnalyticsData;
+  audience: AudienceData | undefined;
+  engagement: EngagementData | undefined;
+  /** The records of the page (`fairRecords`); worked out here when the caller has none. */
+  records?: FairRecords;
+}) {
   const strip = useMemo(() => kpiStrip(data, audience, engagement), [data, audience, engagement]);
+  const firstLead = useMemo(() => (records ?? fairRecords(data, engagement)).firstLead, [records, data, engagement]);
   const table: ChartTableData = {
     caption: d.kpiTitle,
     columns: [d.kpiTitle, ...strip.dayLabels, d.v2.table.total],
@@ -92,7 +106,7 @@ export function KpiStrip({ data, audience, engagement }: { data: AnalyticsData; 
     <ChartFrame id="brojevi" title={d.kpiTitle} question={v.question} table={table}>
       {/* Two by two on a phone, so the fourth number (the leads) is on the first screen. */}
       <dl className="grid min-w-0 grid-cols-2 gap-px overflow-hidden rounded-[var(--admin-radius-control)] border border-[var(--admin-border)] bg-[var(--admin-border)] @4xl:grid-cols-4">
-        {strip.tiles.map((tile) => <Tile key={tile.id} tile={tile} dayIndex={strip.dayIndex} dayLabels={strip.dayLabels} />)}
+        {strip.tiles.map((tile) => <Tile key={tile.id} tile={tile} dayIndex={strip.dayIndex} dayLabels={strip.dayLabels} firstLead={firstLead} />)}
       </dl>
       <dl aria-label={v.moreTitle} className="grid min-w-0 grid-cols-2 gap-x-4 gap-y-3 @2xl:grid-cols-4">
         {more.map((item) => (

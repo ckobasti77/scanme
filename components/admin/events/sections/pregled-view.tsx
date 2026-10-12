@@ -2,9 +2,12 @@
 
 import { ArrowRight, Building2, Car, CheckCircle2, FileText, Inbox, MessagesSquare, QrCode, Sparkles, type LucideIcon } from "lucide-react";
 import Link from "next/link";
-import { useId, type ReactNode } from "react";
+import { useId, useMemo, type ReactNode } from "react";
 import { AdminPanel, AdminStatus } from "@/components/admin/admin-primitives";
 import { ADMIN_URGENCY_ICONS, AdminKpiRow, AdminUrgencyBadge, adminSecondaryButtonClass, type AdminKpi } from "@/components/admin/admin-ui";
+import { AdminMissionSummary } from "@/components/admin/admin-ui/admin-missions";
+import { AdminOdometer } from "@/components/admin/admin-ui/admin-odometer";
+import { useMissionProgress } from "@/components/admin/admin-ui/use-mission-progress";
 import {
   actionCountText,
   actionText,
@@ -25,6 +28,7 @@ import { eventSectionHref, type EventSectionPath } from "@/lib/admin-v1/event-se
 import type { AdminQueryState } from "@/lib/admin-v1/query-state";
 import { formatCount } from "@/lib/admin-v2/analytics/format";
 import { liveDay, liveDayPercent, type LiveDay } from "@/lib/admin-v2/analytics/live-day";
+import type { MissionInput } from "@/lib/admin-v2/missions";
 import type { AdminUrgencyTone } from "@/lib/admin-v1/subnav";
 import { fmt } from "@/lib/i18n/format";
 import { adminEventsSr as dict } from "@/lib/i18n/sr/admin-events";
@@ -36,6 +40,12 @@ import { cn } from "@/lib/utils";
 // filtered section), the KPI row and one card per section. Presentational:
 // everything comes from fairDashboard.getEventDashboard (admin) or a TEST
 // fixture (dev preview).
+// ADMIN v2 X4 — the items of „Šta treba da uradim“ are missions with the
+// progress of the day (the ring and „3 od 5 rešeno“; the ledger is kept in the
+// browser), the numbers of the live strip roll when a poll brings new ones, and
+// the live strip stays here only below lg (the sidebar is in the drawer then):
+// from lg up the HUD „Danas“ of the sidebar shows the day on every page, and
+// its numbers are in the KPI row and beside the missions, so nothing is twice.
 
 const d = dict.dashboard;
 
@@ -54,11 +64,12 @@ const focusRing = "focus-visible:outline-2 focus-visible:outline-offset-2 focus-
 
 const deadlineMoment = (deadline: { kind: string; at: number }) => (deadline.kind === "day_end" ? deadline.at - 1 : deadline.at);
 
-function LiveNumber({ id, label, value, hint }: { id: string; label: string; value: string; hint?: string }) {
+function LiveNumber({ id, label, value, partial, hint }: { id: string; label: string; value: number; partial?: boolean; hint?: string }) {
   return (
     <p data-live-number={id} className="grid min-w-0 content-start gap-0.5">
       <span className="text-xs font-semibold text-[var(--admin-text-muted)]">{label}</span>
-      <span className="text-xl leading-7 font-semibold tracking-[-0.02em] tabular-nums">{value}</span>
+      {/* A partial count reads "412+", as in the KPI row. */}
+      <AdminOdometer value={value} text={partial ? `${formatCount(value)}+` : undefined} className="text-xl leading-7 font-semibold tracking-[-0.02em]" />
       {hint ? <span className="text-xs text-[var(--admin-text-muted)] tabular-nums">{hint}</span> : null}
     </p>
   );
@@ -69,10 +80,8 @@ function LiveNumber({ id, label, value, hint }: { id: string; label: string; val
 function LiveStrip({ live, capped }: { live: LiveDay; capped: { scans: boolean; leads: boolean } }) {
   const share = `${liveDayPercent(live.progress)} %`;
   const open = live.urgent + live.soon;
-  // A partial count reads "412+", as in the KPI row.
-  const count = (value: number, partial: boolean) => (partial ? `${formatCount(value)}+` : formatCount(value));
   return (
-    <div data-live-day="" role="group" aria-label={d.live.region} className="grid min-w-0 grid-cols-3 gap-x-6 gap-y-3 border-t border-[var(--admin-border)] pt-3 sm:grid-cols-[minmax(0,1.6fr)_repeat(3,minmax(0,1fr))]">
+    <div data-live-day="" role="group" aria-label={d.live.region} className="grid min-w-0 grid-cols-3 gap-x-6 gap-y-3 border-t border-[var(--admin-border)] pt-3 sm:grid-cols-[minmax(0,1.6fr)_repeat(3,minmax(0,1fr))] lg:hidden">
       <div className="col-span-3 grid min-w-0 content-start gap-1.5 sm:col-span-1">
         <p className="flex items-center gap-2 text-xs font-bold tracking-[0.08em] uppercase">
           <span aria-hidden="true" className="size-2 rounded-full bg-[var(--admin-success)]" />
@@ -91,9 +100,9 @@ function LiveStrip({ live, capped }: { live: LiveDay; capped: { scans: boolean; 
         </div>
         <p className="text-xs text-[var(--admin-text-muted)] tabular-nums">{fmt(d.live.progress, { share })}</p>
       </div>
-      <LiveNumber id="scans" label={d.kpi.scans} value={count(live.scansToday, capped.scans)} />
-      {live.leadsToday !== null ? <LiveNumber id="leads" label={d.kpi.leads} value={count(live.leadsToday, capped.leads)} /> : null}
-      <LiveNumber id="todo" label={d.live.todo} value={formatCount(open)} hint={open ? fmt(d.live.todoHint, { hitno: live.urgent, uskoro: live.soon }) : d.live.todoClear} />
+      <LiveNumber id="scans" label={d.kpi.scans} value={live.scansToday} partial={capped.scans} />
+      {live.leadsToday !== null ? <LiveNumber id="leads" label={d.kpi.leads} value={live.leadsToday} partial={capped.leads} /> : null}
+      <LiveNumber id="todo" label={d.live.todo} value={open} hint={open ? fmt(d.live.todoHint, { hitno: live.urgent, uskoro: live.soon }) : d.live.todoClear} />
     </div>
   );
 }
@@ -174,16 +183,34 @@ function ActionItem({ action, dashboard, now, href }: { action: DashboardAction;
   );
 }
 
-function Todo({ dashboard, now, actionHref }: { dashboard: EventDashboardData; now: number; actionHref: (action: DashboardAction) => string }) {
+/** The items as missions: the countdown to the deletion counts as one item, not as its days. */
+function actionMissions(dashboard: EventDashboardData, now: number): MissionInput[] {
+  return dashboard.actions.map((action) => ({
+    id: action.rule,
+    label: actionText(action, dashboard, now).title,
+    count: action.rule === "pii_purge_countdown" ? 1 : action.count,
+    tone: action.tone,
+  }));
+}
+
+function Todo({ dashboard, now, scope, actionHref }: { dashboard: EventDashboardData; now: number; scope: string; actionHref: (action: DashboardAction) => string }) {
   const headingId = useId();
   const actions = sortDashboardActions(dashboard.actions);
   const tones = dashboardToneCounts(actions);
   const models = dashboard.kpis.models;
+  const missions = useMemo(() => actionMissions(dashboard, now), [dashboard, now]);
+  // The actions are the whole list: a rule that no longer fires was solved. The ledger is per phase and fair
+  // day (`scope`), so a rule that stops only because the day closed is never counted as solved.
+  const { board, confirm } = useMissionProgress(scope, missions, true);
+  const celebrate = board.clear === "celebrate";
   return (
     <AdminPanel aria-labelledby={headingId} className="grid min-w-0 gap-3 p-4 sm:p-5">
-      <div className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-        <h2 id={headingId} className="text-lg font-semibold tracking-[-0.025em]">{d.todoTitle}</h2>
-        {actions.length ? <p className="text-xs text-[var(--admin-text-muted)]">{fmt(d.todoSummary, tones)}</p> : null}
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <div className="grid min-w-0 gap-0.5">
+          <h2 id={headingId} className="text-lg font-semibold tracking-[-0.025em]">{d.todoTitle}</h2>
+          {actions.length ? <p className="text-xs text-[var(--admin-text-muted)]">{fmt(d.todoSummary, tones)}</p> : null}
+        </div>
+        {board.total > 0 ? <AdminMissionSummary title={d.todoTitle} board={board} confirm={confirm} className="min-w-[min(100%,22rem)] sm:max-w-md" /> : null}
       </div>
       {actions.length ? (
         <>
@@ -193,8 +220,9 @@ function Todo({ dashboard, now, actionHref }: { dashboard: EventDashboardData; n
           </ol>
         </>
       ) : (
-        <div role="status" className="flex min-w-0 items-start gap-3 rounded-xl border border-[var(--admin-success-border)] bg-[var(--admin-success-soft)] p-4">
-          <CheckCircle2 className="mt-0.5 size-6 shrink-0 text-[var(--admin-success)]" aria-hidden="true" />
+        // The green all-clear is the day's first one; after that (and on a day nothing waited) the same facts stand calm.
+        <div role="status" data-mission-clear={board.clear} className={cn("flex min-w-0 items-start gap-3 rounded-xl border p-4", celebrate ? "border-[var(--admin-success-border)] bg-[var(--admin-success-soft)]" : "border-[var(--admin-border)] bg-[var(--admin-surface-strong)]")}>
+          <CheckCircle2 className={cn("mt-0.5 size-6 shrink-0", celebrate ? "text-[var(--admin-success)]" : "text-[var(--admin-text-muted)]")} aria-hidden="true" />
           <div className="min-w-0">
             <p className="font-semibold">{d.readyTitle}</p>
             <p className="mt-1 text-sm leading-6 text-[var(--admin-text)]">{fmt(d.readyBody, { published: models.published, total: models.total, qr: dashboard.kpis.qr.assigned })}</p>
@@ -208,16 +236,18 @@ function Todo({ dashboard, now, actionHref }: { dashboard: EventDashboardData; n
 function kpiItems(dashboard: EventDashboardData, href: (path: EventSectionPath, query?: AdminQueryState) => string): AdminKpi[] {
   const { models, qr, scans, leads, questions, reports } = dashboard.kpis;
   const capped = (value: string, flag: boolean) => (flag ? `${value}+` : value);
+  // X4 — the numbers a poll changes roll (the same text as before, „412+“ when partial).
+  const rolling = (value: number, flag: boolean) => <AdminOdometer value={value} text={capped(String(value), flag)} />;
   // After the fair nothing happens "today": the totals and the open deliveries lead.
   const after = dashboard.phase.kind === "posle" || dashboard.phase.kind === "obrisano";
   const scansKpi: AdminKpi = after
-    ? { id: "scans", label: d.kpi.scansTotal, value: capped(String(scans.total), scans.capped), hint: fmt(d.kpi.scansTotalHint, { unique: capped(String(scans.uniqueTotal), scans.capped) }) }
-    : { id: "scans", label: d.kpi.scans, value: capped(String(scans.today), scans.capped), hint: fmt(d.kpi.scansHint, { total: capped(String(scans.total), scans.capped), unique: capped(String(scans.uniqueTotal), scans.capped) }) };
+    ? { id: "scans", label: d.kpi.scansTotal, value: rolling(scans.total, scans.capped), hint: fmt(d.kpi.scansTotalHint, { unique: capped(String(scans.uniqueTotal), scans.capped) }) }
+    : { id: "scans", label: d.kpi.scans, value: rolling(scans.today, scans.capped), hint: fmt(d.kpi.scansHint, { total: capped(String(scans.total), scans.capped), unique: capped(String(scans.uniqueTotal), scans.capped) }) };
   const leadsKpi: AdminKpi | null = !leads
     ? null
     : after
-      ? { id: "leads", label: d.kpi.leadsUndelivered, value: capped(String(leads.undelivered), leads.capped), hint: fmt(d.kpi.leadsUndeliveredHint, { total: capped(String(leads.total), leads.capped) }), tone: leads.undelivered > 0 ? "warning" : "default", href: href("leadovi", { isporuka: "ne" }) }
-      : { id: "leads", label: d.kpi.leads, value: capped(String(leads.newToday), leads.capped), hint: fmt(d.kpi.leadsHint, { undelivered: capped(String(leads.undelivered), leads.capped), total: capped(String(leads.total), leads.capped) }), href: href("leadovi", { isporuka: "ne" }) };
+      ? { id: "leads", label: d.kpi.leadsUndelivered, value: rolling(leads.undelivered, leads.capped), hint: fmt(d.kpi.leadsUndeliveredHint, { total: capped(String(leads.total), leads.capped) }), tone: leads.undelivered > 0 ? "warning" : "default", href: href("leadovi", { isporuka: "ne" }) }
+      : { id: "leads", label: d.kpi.leads, value: rolling(leads.newToday, leads.capped), hint: fmt(d.kpi.leadsHint, { undelivered: capped(String(leads.undelivered), leads.capped), total: capped(String(leads.total), leads.capped) }), href: href("leadovi", { isporuka: "ne" }) };
   const items: (AdminKpi | null)[] = [
     { id: "models", label: d.kpi.models, value: `${models.published}/${models.total}`, hint: fmt(d.kpi.modelsHint, models.byTier), href: href("modeli") },
     {
@@ -376,7 +406,7 @@ export function EventDashboardView({ dashboard, now, base, keep = {} }: {
       <Header dashboard={dashboard} now={Math.max(now, dashboard.at)} />
       {/* From 2xl the work list keeps the wide column and the numbers sit beside it, above the fold. */}
       <div className="grid min-w-0 gap-5 2xl:grid-cols-[minmax(0,1fr)_minmax(0,34rem)] 2xl:items-start">
-        <Todo dashboard={dashboard} now={Math.max(now, dashboard.at)} actionHref={(action) => dashboardActionHref(base, action, keep)} />
+        <Todo dashboard={dashboard} now={Math.max(now, dashboard.at)} scope={`event:${base}:${dashboard.phase.kind}:${dashboard.phase.dayIndex ?? 0}:${dashboard.phase.dayOpen ? "otvoren" : "zatvoren"}`} actionHref={(action) => dashboardActionHref(base, action, keep)} />
         <div className="grid min-w-0 gap-5">
           <section aria-labelledby={kpiId} className="grid min-w-0 gap-2">
             <div className="flex flex-wrap items-baseline justify-between gap-2">

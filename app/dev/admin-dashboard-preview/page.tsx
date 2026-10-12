@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { AdminDashboardFoundation } from "@/components/admin/admin-dashboard-foundation";
 import { dashboardFixture } from "@/components/admin/admin-dashboard-fixtures";
 import { AdminShell } from "@/components/admin/admin-shell";
+import { PREVIEW_HUD } from "@/components/admin/events/preview-dashboard-fixtures";
 import { adminV1Sr } from "@/lib/i18n/sr/admin-v1";
 
 export default async function AdminDashboardPreviewPage({
@@ -14,7 +15,7 @@ export default async function AdminDashboardPreviewPage({
   const state = requested === "empty" || requested === "unavailable" || requested === "error" || requested === "loading" ? requested : "ready";
   const fixture = dashboardFixture(state);
   return (
-    <AdminShell previewIdentity={adminV1Sr.fixtureIdentity} activePathname="/admin">
+    <AdminShell previewIdentity={adminV1Sr.fixtureIdentity} activePathname="/admin" previewHud={PREVIEW_HUD}>
       <AdminDashboardFoundation initialNow={fixture.now} fixture={fixture} />
     </AdminShell>
   );

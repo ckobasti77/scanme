@@ -4,8 +4,9 @@
 // the same filters over the preview fixtures. Pure; the component casts the
 // ids to `Id<…>`.
 
+import { taskMissions } from "@/lib/admin-v2/lists/dashboard-missions";
 import { TASK_SUBJECTS, TASK_VIEWS } from "@/lib/admin-v2/sidebar/configs/tasks";
-import type { SidebarLive, SidebarOption, SidebarPatch, SidebarState } from "@/lib/admin-v2/sidebar/types";
+import type { SidebarLive, SidebarMission, SidebarOption, SidebarPatch, SidebarState } from "@/lib/admin-v2/sidebar/types";
 
 export type TaskTab = (typeof TASK_VIEWS)[number];
 export type TaskSubjectFilter = (typeof TASK_SUBJECTS)[number];
@@ -116,5 +117,17 @@ export function filterPreviewTasks<Row extends PreviewTaskRow>(rows: readonly Ro
     if (args.businessId && task.businessId !== args.businessId) return false;
     if (args.subjectKind && task.subjectKind !== args.subjectKind) return false;
     return !needle || `${task.accountName} ${task.smkCode} ${task.businessName} ${task.smlCode} ${task.title}`.toLocaleLowerCase("sr-Latn-RS").includes(needle);
+  });
+}
+
+/** How many tasks per group Zadaci reads for „Misije danas“ (the limit of `adminTasks.dashboardAdapter`). */
+export const TASK_MISSION_LIMIT = 12;
+
+/** „Misije danas“ of the preview: the overdue and today tasks that are still open among the fixture rows. */
+export function previewTaskMissions(rows: readonly Pick<PreviewTaskRow, "status" | "timePhase">[]): SidebarMission[] {
+  const open = rows.filter((row) => row.status === "open" || row.status === "in_progress");
+  return taskMissions({
+    overdue: { items: open.filter((row) => row.timePhase === "overdue") },
+    today: { items: open.filter((row) => row.timePhase === "today") },
   });
 }

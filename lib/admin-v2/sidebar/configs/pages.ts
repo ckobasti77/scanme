@@ -27,6 +27,8 @@ export const dashboardSidebar: SidebarConfig = {
     ],
   },
   blocks: ["missions", "jumps"],
+  // „Sve“ and „Moje“ count different items: each keeps its own progress of the day.
+  missionsBy: "obim",
   // Each jump opens a list already filtered to what needs work.
   jumps: [
     { href: "/admin/zadaci?pogled=overdue", label: dict.dashboardJumpTasksOverdue },

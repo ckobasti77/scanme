@@ -25,7 +25,15 @@ vi.mock("next/navigation", () => ({
 vi.mock("next/link", () => ({
   default: ({ href, children, ...rest }: { href: string; children: ReactNode } & Record<string, unknown>) => <a href={href} {...rest}>{children}</a>,
 }));
-vi.mock("convex/react", () => ({ useQuery: () => state.me }));
+// X4: the frame of a signed-in admin also reads the event list for the HUD „Danas“; here only `admin.me`
+// has an answer, every other query is still loading (no fair, so no HUD).
+vi.mock("convex/react", async () => {
+  const { getFunctionName } = await import("convex/server");
+  return {
+    useQuery: (query: Parameters<typeof getFunctionName>[0]) => (getFunctionName(query) === "admin:me" ? state.me : undefined),
+    useConvex: () => ({}),
+  };
+});
 vi.mock("@convex-dev/auth/react", () => ({ useAuthActions: () => ({ signOut: async () => undefined }) }));
 
 const PAGE = "TEST sadržaj stranice";
