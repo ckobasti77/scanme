@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminClearFilters } from "@/components/admin/admin-ui/admin-clear-filters";
 import { useMutation, usePaginatedQuery, useQuery } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
 import {
@@ -388,11 +389,12 @@ export function AdminTasksWorkspace({
       />
       {rows.status === "LoadingFirstPage" ? (
         <AdminPanel>
-          <AdminLoadingState />
+          <AdminLoadingState shape="table" />
         </AdminPanel>
       ) : rows.results.length === 0 ? (
         <AdminPanel>
           <AdminEmptyState
+            action={<AdminClearFilters />}
             title={filtered ? dict.noResultsTitle : dict.emptyTitle}
             body={filtered ? dict.noResultsBody : dict.emptyBody}
           />
@@ -1692,6 +1694,7 @@ export function AdminTasksPreview() {
       ) : (
         <AdminPanel>
           <AdminEmptyState
+            action={<AdminClearFilters />}
             title={dict.noResultsTitle}
             body={dict.noResultsBody}
           />

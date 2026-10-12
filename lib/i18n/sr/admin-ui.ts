@@ -19,6 +19,7 @@ export const adminUiSr: AdminUiDict = {
     removeChip: "Ukloni filter: {label}",
     any: "Sve",
     clearAll: "Očisti sve",
+    clearFilters: "Očisti filtere",
     views: "Pogledi",
     groups: "Filteri",
     sort: "Sortiranje",

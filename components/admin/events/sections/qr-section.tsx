@@ -134,7 +134,7 @@ export function QrDetailSection({ code }: { code: string }) {
   useEffect(() => {
     if (canonical && canonical !== code) router.replace(eventDetailHref(base, "qr", canonical, listQuery));
   }, [canonical, code, base, listQuery, router]);
-  if (!qrConfigured) return <AdminPanel><AdminEmptyState title={dict.detailQrTitle} body={dict.qrNotConfigured} /></AdminPanel>;
+  if (!qrConfigured) return <AdminPanel><AdminEmptyState title={dict.qrNotConfiguredTitle} body={dict.qrNotConfigured} /></AdminPanel>;
   return (
     <EventQrDetailView
       key={code}

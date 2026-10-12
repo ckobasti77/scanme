@@ -163,7 +163,7 @@ export function EventQrView({ catalog, inventory, stats, query, onQueryChange, q
   const sidebar = useMemo(() => qrSidebarLive(rows, modelsById, hierarchy, query), [rows, modelsById, hierarchy, query]);
   useAdminSidebarLive(catalog.qrConfigured ? sidebar : null);
 
-  if (!catalog.qrConfigured) return <AdminPanel><AdminEmptyState title={dict.sectionLabels.qr} body={dict.qrNotConfigured} /></AdminPanel>;
+  if (!catalog.qrConfigured) return <AdminPanel><AdminEmptyState title={dict.qrNotConfiguredTitle} body={dict.qrNotConfigured} /></AdminPanel>;
 
   const filtered = applyQrFilters(rows, modelsById, query);
   const typedCode = qrCodeFromSearch(query.q);

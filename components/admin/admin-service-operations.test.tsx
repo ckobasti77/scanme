@@ -73,26 +73,26 @@ describe("Usluge page", () => {
 
   test("the list is of the service in the URL view; the detail panel stays on the screen", () => {
     const links = page("scanme_links");
-    expect(links).toContain("Demo lokal — Kej");
-    expect(links).not.toContain("Demo lokal — Centar");
+    expect(links).toContain("Probni lokal — Kej");
+    expect(links).not.toContain("Probni lokal — Centar");
     expect(links).toContain(dict.tableCaption);
     expect(links).toContain("<aside");
     expect(links).toContain(dict.selectedVenue);
-    expect(page("google_review")).toContain("Demo lokal — Centar");
+    expect(page("google_review")).toContain("Probni lokal — Centar");
   });
 
   test("a view from the URL narrows the list; no match shows the filtered empty state", () => {
-    expect(page("scanme_menu", "?pogled=problem")).toContain("Demo lokal — Terasa");
+    expect(page("scanme_menu", "?pogled=problem")).toContain("Probni lokal — Terasa");
     const none = page("scanme_menu", "?pogled=active");
-    expect(none).not.toContain("Demo lokal — Terasa");
+    expect(none).not.toContain("Probni lokal — Terasa");
     expect(none).toContain(dict.emptyFilteredTitle);
     expect(page("scanme_links", "?q=nema-takvog")).toContain(dict.emptyFilteredTitle);
-    expect(page("scanme_links", "?q=SML-DEMO-01")).toContain("Demo lokal — Kej");
+    expect(page("scanme_links", "?q=SML-DEMO-01")).toContain("Probni lokal — Kej");
   });
 
   test("an invalid view or sort is ignored", () => {
     const html = page("scanme_links", "?pogled=warning&sort=x");
-    expect(html).toContain("Demo lokal — Kej");
+    expect(html).toContain("Probni lokal — Kej");
     expect(html).not.toContain(dict.emptyFilteredTitle);
   });
 

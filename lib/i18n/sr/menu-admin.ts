@@ -121,7 +121,7 @@ export const menuAdminSr = {
   grantSuccess: "Meni je uspešno aktiviran.",
   grantSuccessExisting: "Meni je ponovo aktiviran. Sadržaj je sačuvan.",
   grantError: "Aktivacija menija nije uspela.",
-  grantSlugConflict: "Izvedeni slug Menija se već koristi.",
+  grantSlugConflict: "Adresa menija je već zauzeta.",
   deactivateSuccess: "Meni je deaktiviran. Podaci su sačuvani.",
   deactivateError: "Deaktivacija menija nije uspela.",
   deactivateDialogTitle: "Deaktivirati Meni za ovaj lokal?",

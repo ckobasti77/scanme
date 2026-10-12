@@ -2,6 +2,10 @@ import { notFound } from "next/navigation";
 import { AdminShell } from "@/components/admin/admin-shell";
 import { FinanceSurface } from "@/components/admin/admin-finance";
 import { adminFinanceSr as dict } from "@/lib/i18n/sr/admin-finance";
+import type { Metadata } from "next";
+import { adminTitle } from "@/lib/admin-v2/frame/titles";
+
+export const metadata: Metadata = { title: adminTitle(dict.pageTitle), robots: { index: false, follow: false } };
 
 export default function AdminFinancePreviewPage() {
   if (process.env.NODE_ENV === "production") notFound();

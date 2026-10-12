@@ -510,5 +510,5 @@ export function LeadDetailPanel({ detail, names, brandName, actions }: { detail:
 
 /** Without the event catalog the section cannot name models or exhibitors. */
 export function LeadsInboxUnavailable() {
-  return <AdminPanel><AdminEmptyState title={dict.tabLeads} body={dict.leadsUnavailable} /></AdminPanel>;
+  return <AdminPanel><AdminEmptyState title={dict.loading} body={dict.leadsUnavailable} /></AdminPanel>;
 }

@@ -91,7 +91,7 @@ function RunProgress({ run }: { run: RetentionRun }) {
 
 export function AdminEventsRetention({ view, actions }: { view: RetentionView | undefined; actions: RetentionActions | undefined }) {
   const dryRun = useRunner();
-  if (!view || !actions) return <AdminPanel><AdminEmptyState title={dict.tabRetention} body={dict.retentionUnavailable} /></AdminPanel>;
+  if (!view || !actions) return <AdminPanel><AdminEmptyState title={dict.loading} body={dict.retentionUnavailable} /></AdminPanel>;
 
   const count = (row: RetentionView["preview"][number]) => (row.capped ? fmt(dict.retentionCountCapped, { count: row.count }) : String(row.count));
   const plan = dict.retentionPlan;
@@ -165,7 +165,7 @@ export function AdminEventsRetention({ view, actions }: { view: RetentionView | 
           listKey="dogadjaji.brisanje.runovi"
           caption={dict.retentionRunsTitle}
           rows={view.runs}
-          empty={{ title: dict.retentionRunsTitle, body: dict.retentionRunsEmpty }}
+          empty={{ title: dict.retentionRunsEmptyTitle, body: dict.retentionRunsEmpty }}
           getRowId={(run) => run.id}
           columns={[
             { id: "run", header: dict.colRun, rowHeader: true, sortValue: (run) => run.startedAt, cell: (run) => <strong className="font-semibold">{runLine(run)}</strong> },

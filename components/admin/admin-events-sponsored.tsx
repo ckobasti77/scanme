@@ -121,7 +121,7 @@ export function AdminEventsSponsored({ view, actions }: { view: SponsoredView | 
   const autoRun = useRunner();
   const resultRun = useRunner();
   const now = useRotationNow(view?.now ?? 0);
-  if (!view || !actions) return <AdminPanel><AdminEmptyState title={dict.tabSponsored} body={dict.sponsoredUnavailable} /></AdminPanel>;
+  if (!view || !actions) return <AdminPanel><AdminEmptyState title={dict.loading} body={dict.sponsoredUnavailable} /></AdminPanel>;
 
   const a = dict.sponsoredAuto;
   const models = new Map(view.models.map((model) => [model.id, model]));
@@ -216,7 +216,7 @@ export function AdminEventsSponsored({ view, actions }: { view: SponsoredView | 
               listKey="dogadjaji.sponzorisano.redosled"
               caption={a.orderTitle}
               rows={items}
-              empty={{ title: a.orderTitle, body: dict.sponsoredItemsEmpty }}
+              empty={{ title: dict.sponsoredItemsEmptyTitle, body: dict.sponsoredItemsEmpty }}
               getRowId={(item) => item.modelId}
               columns={[
                 { id: "order", header: dict.colOrder, align: "end", sortValue: (item) => item.order, cell: (item) => <span className="tabular-nums">{item.order + 1}</span> },
@@ -253,7 +253,7 @@ export function AdminEventsSponsored({ view, actions }: { view: SponsoredView | 
           listKey="dogadjaji.sponzorisano.kandidati"
           caption={dict.sponsoredResultTitle}
           rows={view.candidates}
-          empty={{ title: dict.sponsoredResultTitle, body: dict.sponsoredResultNoModels }}
+          empty={{ title: dict.sponsoredResultNoModelsTitle, body: dict.sponsoredResultNoModels }}
           getRowId={(candidate) => candidate.modelId}
           columns={[
             { id: "model", header: dict.colModel, rowHeader: true, sortValue: (candidate) => name(candidate.modelId), cell: (candidate) => <strong className="font-semibold">{name(candidate.modelId)}</strong> },

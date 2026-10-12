@@ -527,7 +527,7 @@ function Audience({ view, actions, now, query, onQueryChange, scoped = false }: 
       <Section title={dict.questionsTitle}>
         <p className="-mt-2 mb-4 max-w-3xl text-sm text-[var(--admin-text-muted)]">{dict.questionsHelp}</p>
         {!view.days.length ? <p className="text-sm text-[var(--admin-text-muted)]">{a.noDays}</p>
-          : !eligible ? <AdminEmptyState title={dict.questionsTitle} body={a.noModels} className="min-h-40" />
+          : !eligible ? <AdminEmptyState title={a.noModelsTitle} body={a.noModels} className="min-h-40" />
             : (
               <AudienceForm
                 key={editing?.questionId ?? "new"}

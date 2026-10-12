@@ -286,7 +286,7 @@ function Surveys({ view, actions, now, query, onQueryChange }: { view: Interacti
                 </span>
               ),
             }}
-            empty={{ title: dict.surveysTitle, body: dict.surveysEmpty }}
+            empty={{ title: dict.surveysEmptyTitle, body: dict.surveysEmpty }}
             renderCard={(survey) => (
               <AdminDataCard
                 title={fmt(f.versionLabel, { version: survey.version })}

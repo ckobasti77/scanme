@@ -3280,6 +3280,12 @@ export interface AdminV1Dict {
   clientProfileLoadMore: string;
   clientProfileProblemTitle: string;
   clientProfileProblemHistory: string;
+  /** Activity of an account: the label of each audit action code (the code stays in the tooltip). */
+  clientProfileActivityActions: Record<string, string>;
+  clientProfileActivityUnknown: string;
+  /** History of an open item: the label of each event kind. */
+  clientProfileProblemEvents: Record<string, string>;
+  clientProfileProblemUnknown: string;
   clientProfileProblemAutomatic: string;
   clientProfileResolutionNote: string;
   clientProfileResolutionNotePlaceholder: string;
@@ -3303,6 +3309,7 @@ export interface AdminV1Dict {
 }
 
 export interface AdminSettingsDict {
+  errorBody: string;
   title: string; subtitle: string; general: string; subscriptions: string; payments: string; communication: string; pricing: string; referral: string;
   timezone: string; currency: string; policyVersion: string; readOnly: string; monthlyWarning: string; annualWarning: string; monthlyGrace: string; annualGrace: string; days: string; lifecycleNote: string;
   bankTransfer: string; supported: string; card: string; unavailable: string; cash: string; notConfigured: string; paymentNote: string;
@@ -3771,6 +3778,7 @@ export interface AdminTeamDict {
   claim: string;
   noTasks: string;
   noConversations: string;
+  noConversationsBody: string;
   loading: string;
   errorTitle: string;
   errorBody: string;
@@ -3861,6 +3869,8 @@ export interface AdminProductsDict {
   channelNfc: string;
   channelState: string;
   channelReason: string;
+  /** Shown when a channel has no recorded reason. */
+  channelReasonNone: string;
   productTypeTwoPiece: string;
   productTypeCompact: string;
   productTypeSticker: string;
@@ -4236,6 +4246,7 @@ export interface AdminEventsDict {
   backToOverview: string;
   backToList: string;
   modelNotFoundBody: string;
+  modelNotFoundTitle: string;
   openDetail: string;
   interactionExhibitors: {
     subtitle: string;
@@ -4676,6 +4687,7 @@ export interface AdminEventsDict {
   cancel: string;
   qrSubtitle: string;
   qrNotConfigured: string;
+  qrNotConfiguredTitle: string;
   qrEmpty: string;
   assignCode: string;
   assignCodePlaceholder: string;
@@ -4740,6 +4752,7 @@ export interface AdminEventsDict {
     otherClientsTitle: string;
     otherClientsHelp: string;
     otherClientsEmpty: string;
+    otherClientsEmptyTitle: string;
   };
   /** Admin UX A5 — the table import guide (lib/fair-import/*): source, column mapping, preview with dry run, commit. */
   importGuide: {
@@ -5047,6 +5060,7 @@ export interface AdminEventsDict {
   surveySave: string;
   surveySaved: string;
   surveysEmpty: string;
+  surveysEmptyTitle: string;
   surveysNoModels: string;
   surveyVersion: string;
   surveyPublish: string;
@@ -5068,6 +5082,7 @@ export interface AdminEventsDict {
     promptEmpty: string;
     noDays: string;
     noModels: string;
+    noModelsTitle: string;
     pickSublabel: string;
     pickNotEntitled: string;
     pickPending: string;
@@ -5355,6 +5370,7 @@ export interface AdminEventsDict {
   sponsoredItemsTitle: string;
   sponsoredItemsHelp: string;
   sponsoredItemsEmpty: string;
+  sponsoredItemsEmptyTitle: string;
   sponsoredItemLine: string;
   sponsoredItemResult: string;
   sponsoredItemNoResult: string;
@@ -5362,6 +5378,7 @@ export interface AdminEventsDict {
   sponsoredResultHelp: string;
   sponsoredResultNone: string;
   sponsoredResultNoModels: string;
+  sponsoredResultNoModelsTitle: string;
   sponsoredResultNoQuestions: string;
   sponsoredResultSaved: string;
   sponsoredHistoryTitle: string;
@@ -5374,6 +5391,7 @@ export interface AdminEventsDict {
   reportsBuildTitle: string;
   reportsBuildHelp: string;
   reportsBuildEmpty: string;
+  reportsBuildEmptyTitle: string;
   reportsDay: string;
   reportsExhibitor: string;
   reportsFormat: string;
@@ -5434,6 +5452,7 @@ export interface AdminEventsDict {
   retentionRunsTitle: string;
   retentionRunsHelp: string;
   retentionRunsEmpty: string;
+  retentionRunsEmptyTitle: string;
   retentionRunLine: string;
   retentionRunFinished: string;
   retentionRunProgress: string;
@@ -6279,6 +6298,8 @@ export interface AdminUiDict {
     any: string;
     /** ADMIN v2 — the contextual sidebar (views, search, accordion, chips, sort). */
     clearAll: string;
+    /** Action of an empty state after filtering. */
+    clearFilters: string;
     views: string;
     groups: string;
     sort: string;

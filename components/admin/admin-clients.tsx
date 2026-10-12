@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminClearFilters } from "@/components/admin/admin-ui/admin-clear-filters";
 import { useMutation, usePaginatedQuery } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
 import {
@@ -432,10 +433,10 @@ export function AdminClientsWorkspace() {
     <div className="@container grid min-w-0 gap-5">
       <AdminPageHeader title={dict.clientsTitle} description={dict.clientsSubtitle} />
       {status === "LoadingFirstPage" ? (
-        <AdminPanel><AdminLoadingState /></AdminPanel>
+        <AdminPanel><AdminLoadingState shape="table" /></AdminPanel>
       ) : results.length === 0 ? (
         <AdminPanel>
-          <AdminEmptyState title={narrowed ? dict.clientsNoResultsTitle : dict.clientsEmptyTitle} body={narrowed ? dict.clientsNoResultsBody : dict.clientsEmptyBody} />
+          <AdminEmptyState action={<AdminClearFilters />} title={narrowed ? dict.clientsNoResultsTitle : dict.clientsEmptyTitle} body={narrowed ? dict.clientsNoResultsBody : dict.clientsEmptyBody} />
         </AdminPanel>
       ) : (
         <ClientResults rows={results} />
@@ -475,7 +476,7 @@ export function AdminClientsPreview({ mode = "loaded" }: { mode?: "loaded" | "lo
     <div className="@container grid min-w-0 gap-5">
       <AdminPageHeader title={dict.clientsTitle} description={dict.clientsFixtureDescription} badge={<AdminStatus label={dict.clientsFixtureBadge} tone="waiting" />} />
       {mode === "loading" ? (
-        <AdminPanel><AdminLoadingState /></AdminPanel>
+        <AdminPanel><AdminLoadingState shape="table" /></AdminPanel>
       ) : mode === "error" ? (
         <AdminPanel>
           <AdminErrorState title={dict.clientsErrorTitle} body={dict.clientsErrorBody} />
@@ -485,7 +486,7 @@ export function AdminClientsPreview({ mode = "loaded" }: { mode?: "loaded" | "lo
         </AdminPanel>
       ) : mode === "empty" || filtered.length === 0 ? (
         <AdminPanel>
-          <AdminEmptyState title={narrowed ? dict.clientsNoResultsTitle : dict.clientsEmptyTitle} body={narrowed ? dict.clientsNoResultsBody : dict.clientsEmptyBody} />
+          <AdminEmptyState action={<AdminClearFilters />} title={narrowed ? dict.clientsNoResultsTitle : dict.clientsEmptyTitle} body={narrowed ? dict.clientsNoResultsBody : dict.clientsEmptyBody} />
         </AdminPanel>
       ) : (
         <ClientResults rows={filtered} detailsByAccount={FIXTURE_DETAILS} />

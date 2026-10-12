@@ -4,6 +4,10 @@ import { dashboardFixture } from "@/components/admin/admin-dashboard-fixtures";
 import { AdminShell } from "@/components/admin/admin-shell";
 import { PREVIEW_HUD } from "@/components/admin/events/preview-dashboard-fixtures";
 import { adminV1Sr } from "@/lib/i18n/sr/admin-v1";
+import type { Metadata } from "next";
+import { adminTitle } from "@/lib/admin-v2/frame/titles";
+
+export const metadata: Metadata = { title: adminTitle(adminV1Sr.dashboardTitle), robots: { index: false, follow: false } };
 
 export default async function AdminDashboardPreviewPage({
   searchParams,

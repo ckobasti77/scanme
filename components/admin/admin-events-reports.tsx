@@ -325,7 +325,7 @@ export function AdminEventsReports({
   const exportRun = useRunner();
   const sidebar = useMemo(() => (view ? reportsSidebarLive(view) : null), [view]);
   useAdminSidebarLive(sidebar);
-  if (!view || !actions) return <AdminPanel><AdminEmptyState title={dict.tabReports} body={dict.reportsUnavailable} /></AdminPanel>;
+  if (!view || !actions) return <AdminPanel><AdminEmptyState title={dict.loading} body={dict.reportsUnavailable} /></AdminPanel>;
 
   const q = dict.reportQueue;
   const rows = buildReportQueue(view);
@@ -347,7 +347,7 @@ export function AdminEventsReports({
           listKey="dogadjaji.izvestaji.red"
           caption={q.title}
           rows={shown}
-          empty={rows.length ? { title: q.noMatchTitle, body: q.noMatchBody } : { title: q.title, body: dict.reportsBuildEmpty }}
+          empty={rows.length ? { title: q.noMatchTitle, body: q.noMatchBody } : { title: dict.reportsBuildEmptyTitle, body: dict.reportsBuildEmpty }}
           getRowId={(row) => row.id}
           toolbar={<Meta>{fmt(q.count, { shown: shown.length, total: rows.length })}</Meta>}
           groupBy={{ key: (row) => row.day.id, label: (_key, group) => group[0]?.day.label ?? "" }}

@@ -116,7 +116,7 @@ export function EventLinkStickerView({ catalog, labelFormat, query, onQueryChang
     carStep.current.scrollIntoView({ block: "start", behavior: reduced ? "auto" : "smooth" });
   }, [query.izlagac]);
 
-  if (!catalog.qrConfigured) return <AdminPanel><AdminEmptyState title={dict.sectionLabels.povezi} body={dict.qrNotConfigured} /></AdminPanel>;
+  if (!catalog.qrConfigured) return <AdminPanel><AdminEmptyState title={dict.qrNotConfiguredTitle} body={dict.qrNotConfigured} /></AdminPanel>;
 
   const kod = query.kod ?? null;
   const detail = kod ? sticker : undefined;

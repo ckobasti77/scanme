@@ -163,5 +163,5 @@ export function ConfirmAction({ label, body, disabled, onConfirm, ariaLabel }: {
 // `interakcije/ankete`, `interakcije/pasos`, `interakcije/forme`).
 
 export function InteractionsUnavailable() {
-  return <AdminPanel><AdminEmptyState title={dict.tabInteractions} body={dict.interactionsUnavailable} /></AdminPanel>;
+  return <AdminPanel><AdminEmptyState title={dict.loading} body={dict.interactionsUnavailable} /></AdminPanel>;
 }

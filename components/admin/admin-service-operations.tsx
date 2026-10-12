@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminClearFilters } from "@/components/admin/admin-ui/admin-clear-filters";
 import { Component, type ReactNode, useDeferredValue, useRef, useState } from "react";
 import { useMutation, usePaginatedQuery, useQuery } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
@@ -70,9 +71,9 @@ const previewRows: ServiceRow[] = [
     filterState: "warning",
     smkCode: "SMK-DEMO-01",
     smlCode: "SML-DEMO-01",
-    accountName: "Demo nalog",
-    ownerDisplayName: "Demo vlasnik",
-    venueName: "Demo lokal — Kej",
+    accountName: "Probni nalog",
+    ownerDisplayName: "Probni vlasnik",
+    venueName: "Probni lokal — Kej",
     publicSlug: "demo-links",
     productCount: 12,
     qrCount: 11,
@@ -94,9 +95,9 @@ const previewRows: ServiceRow[] = [
     filterState: "active",
     smkCode: "SMK-DEMO-01",
     smlCode: "SML-DEMO-02",
-    accountName: "Demo nalog",
-    ownerDisplayName: "Demo vlasnik",
-    venueName: "Demo lokal — Centar",
+    accountName: "Probni nalog",
+    ownerDisplayName: "Probni vlasnik",
+    venueName: "Probni lokal — Centar",
     publicSlug: "demo-review",
     productCount: 8,
     qrCount: 8,
@@ -118,9 +119,9 @@ const previewRows: ServiceRow[] = [
     filterState: "problem",
     smkCode: "SMK-DEMO-02",
     smlCode: "SML-DEMO-03",
-    accountName: "Demo ugostiteljstvo",
-    ownerDisplayName: "Demo vlasnik",
-    venueName: "Demo lokal — Terasa",
+    accountName: "Probni ugostiteljstvo",
+    ownerDisplayName: "Probni vlasnik",
+    venueName: "Probni lokal — Terasa",
     publicSlug: "demo-meni",
     productCount: 7,
     qrCount: 7,
@@ -251,7 +252,7 @@ export function AdminServiceOperations({ serviceType, preview = false, initialSe
       <div className="@container">
       <div className="grid gap-5 @4xl:grid-cols-[minmax(0,1fr)_24rem] @4xl:items-start">
       <AdminPanel className="@container">
-        {!preview && list.status === "LoadingFirstPage" ? <AdminLoadingState /> : rows.length === 0 ? <AdminEmptyState title={filtered ? dict.emptyFilteredTitle : dict.emptyTitle} body={filtered ? dict.emptyFilteredBody : dict.emptyBody} /> : (
+        {!preview && list.status === "LoadingFirstPage" ? <AdminLoadingState shape="table" /> : rows.length === 0 ? <AdminEmptyState action={<AdminClearFilters />} title={filtered ? dict.emptyFilteredTitle : dict.emptyTitle} body={filtered ? dict.emptyFilteredBody : dict.emptyBody} /> : (
           <>
             <div className="hidden @4xl:block">
               <AdminTable caption={dict.tableCaption} className="m-3 rounded-xl" tableClassName="table-fixed">

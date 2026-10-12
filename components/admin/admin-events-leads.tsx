@@ -176,7 +176,7 @@ function Consent({ view, actions }: { view: LeadsView; actions: LeadsActions }) 
 }
 
 function Unavailable() {
-  return <AdminPanel><AdminEmptyState title={dict.tabLeads} body={dict.leadsUnavailable} /></AdminPanel>;
+  return <AdminPanel><AdminEmptyState title={dict.loading} body={dict.leadsUnavailable} /></AdminPanel>;
 }
 
 export function AdminEventsConsent({ view, actions }: { view: LeadsView | undefined; actions: LeadsActions | undefined }) {

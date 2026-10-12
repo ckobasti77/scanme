@@ -140,9 +140,6 @@ function TaskRows({
                       : "active"
                 }
               />
-              <span className="text-xs text-[var(--admin-text-muted)]">
-                {task.assigneeName}
-              </span>
             </div>
           </div>
           <div className="flex flex-wrap gap-2 sm:justify-end">
@@ -200,7 +197,7 @@ function ConversationRows({
     return (
       <AdminEmptyState
         title={dict.noConversations}
-        body={dict.pageSubtitle}
+        body={dict.noConversationsBody}
         className="min-h-44"
       />
     );

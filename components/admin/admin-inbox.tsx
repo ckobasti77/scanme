@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminClearFilters } from "@/components/admin/admin-ui/admin-clear-filters";
 import { useMutation, usePaginatedQuery, useQuery } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
 import {
@@ -562,7 +563,7 @@ export function AdminConversationWorkspace(scope: WorkspaceScope = {}) {
 
       {inbox.results.length === 0 ? (
         <AdminPanel>
-          <AdminEmptyState title={filtered ? dict.noFilteredTitle : dict.noConversationsTitle} body={filtered ? dict.noFilteredBody : dict.noConversationsBody} />
+          <AdminEmptyState action={<AdminClearFilters />} title={filtered ? dict.noFilteredTitle : dict.noConversationsTitle} body={filtered ? dict.noFilteredBody : dict.noConversationsBody} />
         </AdminPanel>
       ) : (
         <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(17rem,0.78fr)_minmax(0,1.45fr)]">
@@ -662,7 +663,7 @@ const fixtureRows = [
     assigneeName: adminV1Sr.fixtureIdentity,
     latestMessagePreview: "Dogovoreno je da klijent pošalje finalni logo do petka.",
     latestMessageAt: Date.parse("2026-09-11T09:20:00Z"),
-    latestMessageAuthorName: "Demo admin",
+    latestMessageAuthorName: adminV1Sr.fixtureIdentity,
     adminUnreadCount: 0,
   },
 ] satisfies InboxItem[];
@@ -711,7 +712,7 @@ export function AdminInboxPreview() {
         </div>
       ) : (
         <AdminPanel>
-          <AdminEmptyState title={filtered ? dict.noFilteredTitle : dict.noConversationsTitle} body={filtered ? dict.noFilteredBody : dict.noConversationsBody} />
+          <AdminEmptyState action={<AdminClearFilters />} title={filtered ? dict.noFilteredTitle : dict.noConversationsTitle} body={filtered ? dict.noFilteredBody : dict.noConversationsBody} />
         </AdminPanel>
       )}
       <ManualDialog open={manualOpen} busy={false} error="" onOpenChange={changeManualOpen} onSubmit={async () => changeManualOpen(false)} />

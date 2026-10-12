@@ -268,7 +268,7 @@ export function EventExhibitorsView({ exhibitors, leadsCapped, query, onQueryCha
             caption={list.otherClientsTitle}
             rows={clients.status === "loading" ? undefined : otherClients}
             loadingLabel={dict.loading}
-            empty={{ title: list.otherClientsTitle, body: list.otherClientsEmpty }}
+            empty={{ title: list.otherClientsEmptyTitle, body: list.otherClientsEmpty }}
             getRowId={(row) => row.accountId}
             columns={otherClientColumns}
             renderCard={(row) => <AdminDataCard title={row.name} subtitle={<span className="font-mono">{row.smkCode ?? list.none}</span>} badges={<SegmentStatus segment="event_only" />} />}

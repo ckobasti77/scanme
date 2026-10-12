@@ -315,7 +315,7 @@ export function EventModelDetailView({ catalog, modelId, actions, query, listHre
     return (
       <div className="grid min-w-0 gap-4">
         <BackLink href={listHref} label={dict.backToList} />
-        <AdminPanel><AdminEmptyState title={dict.detailModelTitle} body={dict.modelNotFoundBody} /></AdminPanel>
+        <AdminPanel><AdminEmptyState title={dict.modelNotFoundTitle} body={dict.modelNotFoundBody} /></AdminPanel>
       </div>
     );
   }
