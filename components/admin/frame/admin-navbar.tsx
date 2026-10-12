@@ -16,7 +16,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ADMIN_NAV_ITEMS, isAdminNavChildActive, isAdminNavItemActive } from "@/lib/admin-v1/navigation";
-import { previewHref } from "@/lib/admin-v2/frame/routes";
+import { routeHref } from "@/lib/admin-v2/frame/routes";
 import { ADMIN_DURATION, ADMIN_EASE } from "@/lib/admin-v2/motion";
 import { fmt } from "@/lib/i18n/format";
 import { adminUiSr } from "@/lib/i18n/sr/admin-ui";
@@ -55,8 +55,8 @@ export function AdminNavbar({ identity, onSignOut, previewSearchGroups }: {
 }) {
   const frame = useAdminFrame();
   const pathname = frame?.activePath ?? "/admin";
-  const previewBase = frame?.route.previewBase ?? null;
-  const href = (target: string) => previewHref(target, previewBase);
+  const route = frame?.route ?? null;
+  const href = (target: string) => routeHref(target, route);
 
   return (
     <header data-admin-frame="navbar" className="flex h-[var(--admin-navbar-h)] shrink-0 items-center gap-1 px-2 lg:pr-3 lg:pl-0">

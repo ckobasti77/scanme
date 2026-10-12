@@ -5,13 +5,17 @@ import { useMutation, useQuery } from "convex/react";
 import { CheckCircle2, CircleAlert, LockKeyhole, Save } from "lucide-react";
 import { api } from "@/convex/_generated/api";
 import { adminSettingsSr as dict } from "@/lib/i18n/sr/admin-settings";
-import { cn } from "@/lib/utils";
+import { SETTINGS_TABS, SETTINGS_URL_FIELDS } from "@/lib/admin-v2/sidebar/configs/pages";
+import type { SidebarLive, SidebarPatch } from "@/lib/admin-v2/sidebar/types";
 import { AdminErrorState, AdminLoadingState, AdminPanel, AdminStatus } from "./admin-primitives";
+import { useAdminUrlState } from "./admin-ui/use-admin-query-state";
+import { AdminPageHeader } from "./frame/admin-page-header";
+import { useAdminSidebarLive } from "./frame/admin-sidebar-store";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
-export const SETTINGS_TABS = ["general", "subscriptions", "payments", "communication", "pricing", "referral"] as const;
-const tabs = SETTINGS_TABS;
-type Tab = (typeof tabs)[number];
+// The sections live in the sidebar configuration; they are re-exported for the existing imports.
+export { SETTINGS_TABS };
+type Tab = (typeof SETTINGS_TABS)[number];
 type AgreementKind = "standard" | "founders" | "enterprise" | "individual";
 type PremiumDraftError = "amount" | "date" | "reason" | null;
 
@@ -19,6 +23,20 @@ export function premiumDraftError({ amountMinor, validFrom, validUntil, reason, 
   if (!Number.isSafeInteger(amountMinor) || amountMinor < 0) return "amount";
   if (!Number.isFinite(validFrom) || validFrom <= now || validUntil !== null && (!Number.isFinite(validUntil) || validUntil <= validFrom)) return "date";
   return reason.trim() ? null : "reason";
+}
+
+const isTab = (value: string | null | undefined): value is Tab => SETTINGS_TABS.some((tab) => tab === value);
+
+/**
+ * The sidebar asks before it writes a section. With unsaved changes a move to
+ * another section is cancelled (the URL stays) and the target is returned so
+ * the page can ask whether to leave the draft.
+ */
+export function settingsTabIntercept(patch: SidebarPatch, currentTab: string | undefined, dirty: boolean): { patch: SidebarPatch | null; pendingTab: Tab | null } {
+  if (!dirty || !("tab" in patch)) return { patch, pendingTab: null };
+  const target = patch.tab ?? "general";
+  if (!isTab(target) || target === (currentTab ?? "general")) return { patch, pendingTab: null };
+  return { patch: null, pendingTab: target };
 }
 
 const previewSettings = { premiumReference: { amountMinor: 1_490, currency: "RSD" as const, validFrom: null, validUntil: null, version: 0, temporary: true } };
@@ -185,13 +203,14 @@ function AgreementRules({ section, preview = false, onDirtyChange }: { section: 
   </div>;
 }
 
-export function AdminSettingsWorkspace({ initialTab = "general", preview = false }: { initialTab?: Tab; preview?: boolean }) {
+export function AdminSettingsWorkspace({ preview = false }: { preview?: boolean }) {
   const liveSettings = useQuery(api.adminSettings.overview, preview ? "skip" : {});
   const liveEmail = useQuery(api.emailProviderFoundation.getStatus, preview ? "skip" : {});
   const settings = preview ? previewSettings : liveSettings;
   const email = preview ? previewEmail : liveEmail;
   const save = useMutation(api.adminSettings.setPremiumReference);
-  const [tab, setTab] = useState<Tab>(initialTab);
+  const [state, setState] = useAdminUrlState(SETTINGS_URL_FIELDS);
+  const tab: Tab = isTab(state.tab) ? state.tab : "general";
   const [amount, setAmount] = useState("");
   const [validFrom, setValidFrom] = useState("");
   const [validUntil, setValidUntil] = useState("");
@@ -207,6 +226,18 @@ export function AdminSettingsWorkspace({ initialTab = "general", preview = false
   const leaveTrigger = useRef<HTMLElement | null>(null);
   const priceDirty = Boolean(amount || validFrom || validUntil || reason);
   const dirty = priceDirty || rulesDirty;
+  const sidebar = useMemo<SidebarLive>(() => ({
+    intercept(patch, current) {
+      const result = settingsTabIntercept(patch, current.tab, dirty);
+      if (result.pendingTab) {
+        // Called from the sidebar's change handler: the focus is still on the control that was used.
+        leaveTrigger.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        setPendingTab(result.pendingTab);
+      }
+      return result.patch;
+    },
+  }), [dirty]);
+  useAdminSidebarLive(sidebar);
   useEffect(() => {
     const warn = (event: BeforeUnloadEvent) => { if (dirty) event.preventDefault(); };
     window.addEventListener("beforeunload", warn); return () => window.removeEventListener("beforeunload", warn);
@@ -221,7 +252,8 @@ export function AdminSettingsWorkspace({ initialTab = "general", preview = false
     document.addEventListener("click", intercept, true); return () => document.removeEventListener("click", intercept, true);
   }, [dirty]);
   const initial = useMemo(() => settings ? { amount: String(settings.premiumReference.amountMinor), validFrom: datetimeLocal(settings.premiumReference.validFrom) } : null, [settings]);
-  if (!settings || !email) return <AdminPanel><AdminLoadingState label={dict.loading} /></AdminPanel>;
+  const header = <AdminPageHeader title={dict.title} description={dict.subtitle} badge={preview ? <AdminStatus label={dict.previewBadge} tone="waiting" /> : undefined} actions={dirty ? <AdminStatus label={dict.unsaved} tone="waiting" /> : undefined} />;
+  if (!settings || !email) return <div className="grid min-w-0 gap-5">{header}<AdminPanel><AdminLoadingState label={dict.loading} /></AdminPanel></div>;
   const formAmount = amount || initial?.amount || "", formFrom = validFrom || initial?.validFrom || "", currentVersion = settings.premiumReference.version;
   const draftAmountMinor = Number(formAmount), draftFrom = Date.parse(formFrom), draftUntil = validUntil ? Date.parse(validUntil) : null;
   const priceDraftErrorKind = premiumDraftError({ amountMinor: draftAmountMinor, validFrom: draftFrom, validUntil: draftUntil, reason, now: draftValidationNow });
@@ -230,7 +262,6 @@ export function AdminSettingsWorkspace({ initialTab = "general", preview = false
   function reset() { setAmount(""); setValidFrom(""); setValidUntil(""); setReason(""); setError(""); setNotice(""); }
   function closeLeaveDialog() {
     const trigger = leaveTrigger.current;
-    const triggerTab = pendingTab;
     setPendingHref(null);
     setPendingTab(null);
     let frame = 0;
@@ -240,8 +271,7 @@ export function AdminSettingsWorkspace({ initialTab = "general", preview = false
         requestAnimationFrame(restoreFocus);
         return;
       }
-      const tabTrigger = triggerTab ? document.querySelector<HTMLElement>(`[data-settings-tab="${triggerTab}"]`) : null;
-      (tabTrigger ?? trigger)?.focus();
+      trigger?.focus();
     };
     requestAnimationFrame(restoreFocus);
   }
@@ -253,10 +283,9 @@ export function AdminSettingsWorkspace({ initialTab = "general", preview = false
     });
   }
   const connected = email.configured && email.syncEnabled && email.outboundEnabled;
-  return <div className="grid min-w-0 gap-5">{preview ? <div><span className="rounded-full bg-[var(--admin-warning-soft)] px-2.5 py-1 text-xs font-bold text-[var(--admin-warning)]">{dict.previewBadge}</span><p className="mt-2 text-sm text-[var(--admin-text-muted)]">{dict.previewDescription}</p></div> : null}<header className="flex flex-wrap items-start justify-between gap-4"><div><h1 className="text-2xl font-semibold tracking-[-0.04em] sm:text-3xl">{dict.title}</h1><p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--admin-text-muted)]">{dict.subtitle}</p></div>{dirty ? <AdminStatus label={dict.unsaved} tone="waiting" /> : null}</header>
+  return <div className="grid min-w-0 gap-5">{header}{preview ? <p className="text-sm text-[var(--admin-text-muted)]">{dict.previewDescription}</p> : null}
     {notice ? <p role="status" className="flex items-center gap-2 rounded-xl bg-[var(--admin-success-soft)] px-3 py-2 text-sm font-medium text-[var(--admin-success)]"><CheckCircle2 className="size-4" aria-hidden="true" />{notice}</p> : null}
-    <Dialog open={pendingHref !== null || pendingTab !== null} onOpenChange={(open) => { if (!open) closeLeaveDialog(); }}><DialogContent showCloseButton={false} onCloseAutoFocus={(event) => event.preventDefault()}><DialogHeader><DialogTitle>{dict.leaveDraftTitle}</DialogTitle><DialogDescription>{dict.leaveDraftBody}</DialogDescription></DialogHeader><DialogFooter><button type="button" onClick={closeLeaveDialog} className="min-h-11 rounded-lg border border-[var(--admin-border)] px-4 text-sm font-semibold">{dict.leaveDraftStay}</button><button type="button" onClick={() => { if (pendingHref) { window.location.assign(pendingHref); return; } if (pendingTab) { reset(); setRulesDirty(false); setTab(pendingTab); closeLeaveDialog(); } }} className="min-h-11 rounded-lg bg-[var(--admin-danger)] px-4 text-sm font-semibold text-white">{dict.leaveDraftLeave}</button></DialogFooter></DialogContent></Dialog>
-    <div role="tablist" aria-label={dict.title} className="flex max-w-full gap-1 overflow-x-auto border-b border-[var(--admin-border)] pb-2">{tabs.map((item) => <button key={item} type="button" role="tab" data-settings-tab={item} aria-selected={tab === item} onClick={(event) => { if (dirty && item !== tab) { leaveTrigger.current = event.currentTarget; setPendingTab(item); } else setTab(item); }} className={cn("min-h-11 shrink-0 rounded-lg px-3 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--admin-focus)]", tab === item ? "bg-[var(--admin-ink)] text-[var(--admin-surface)]" : "text-[var(--admin-text-muted)] hover:bg-[var(--admin-surface-muted)]")}>{dict[item]}</button>)}</div>
+    <Dialog open={pendingHref !== null || pendingTab !== null} onOpenChange={(open) => { if (!open) closeLeaveDialog(); }}><DialogContent showCloseButton={false} onCloseAutoFocus={(event) => event.preventDefault()} className="admin-v1 border-[var(--admin-border)] bg-[var(--admin-surface-strong)] text-[var(--admin-text)]"><DialogHeader><DialogTitle>{dict.leaveDraftTitle}</DialogTitle><DialogDescription>{dict.leaveDraftBody}</DialogDescription></DialogHeader><DialogFooter><button type="button" onClick={closeLeaveDialog} className="min-h-11 rounded-lg border border-[var(--admin-border)] px-4 text-sm font-semibold">{dict.leaveDraftStay}</button><button type="button" onClick={() => { if (pendingHref) { window.location.assign(pendingHref); return; } if (pendingTab) { reset(); setRulesDirty(false); setState({ tab: pendingTab }); closeLeaveDialog(); } }} className="min-h-11 rounded-lg bg-[var(--admin-danger)] px-4 text-sm font-semibold text-white">{dict.leaveDraftLeave}</button></DialogFooter></DialogContent></Dialog>
     <AdminPanel className="p-4 sm:p-6">
       {tab === "general" ? <section aria-labelledby="settings-general"><h2 id="settings-general" className="text-lg font-semibold">{dict.general}</h2><dl className="mt-4"><ReadOnlyFact label={dict.timezone} value="Europe/Belgrade" /><ReadOnlyFact label={dict.currency} value="RSD" /><ReadOnlyFact label={dict.policyVersion} value="ADMIN-V1" /></dl></section> : null}
       {tab === "subscriptions" ? <section aria-labelledby="settings-subscriptions"><h2 id="settings-subscriptions" className="text-lg font-semibold">{dict.subscriptions}</h2><p className="mt-2 text-sm text-[var(--admin-text-muted)]">{dict.readOnly}</p><dl className="mt-4 grid gap-x-8 sm:grid-cols-2"><ReadOnlyFact label={dict.monthlyWarning} value={`7 ${dict.days}`} /><ReadOnlyFact label={dict.annualWarning} value={`15 ${dict.days}`} /><ReadOnlyFact label={dict.monthlyGrace} value={`7 ${dict.days}`} /><ReadOnlyFact label={dict.annualGrace} value={`15 ${dict.days}`} /></dl><p className="mt-4 text-sm leading-6 text-[var(--admin-text-muted)]">{dict.lifecycleNote}</p></section> : null}

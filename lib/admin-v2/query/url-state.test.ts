@@ -22,6 +22,13 @@ describe("the schema of a page", () => {
   test("every key the sidebar owns: view, search, each group (a custom group its own keys), sort", () => {
     expect(fields.map((field) => field.key)).toEqual(["pogled", "q", "status", "klijent", "od", "do", "sort"]);
   });
+
+  test("the choice of an always open context list is a key too (an intercept may clear it); a context the route chooses is not", () => {
+    const list = sidebarUrlFields({ id: "test/posta", context: { id: "folder", label: "Folderi", list: true }, views: config.views, groups: [{ id: "nalog", label: "Sanduče" }] });
+    expect(list.map((field) => field.key)).toEqual(["folder", "pogled", "nalog"]);
+    expect(writeUrlState(list, "?folder=2099&pogled=danas", { nalog: "b", folder: null })).toBe("?pogled=danas&nalog=b");
+    expect(sidebarUrlFields({ id: "test/dogadjaji", context: { id: "dogadjaj", label: "Događaj" } })).toEqual([]);
+  });
 });
 
 describe("reading", () => {
@@ -65,6 +72,30 @@ describe("writing", () => {
 
   test("several keys in one patch (dependent filters, Očisti sve)", () => {
     expect(writeUrlState(fields, "?q=bistro&status=aktivan&od=2026-10-09&pogled=danas", { q: null, status: null, klijent: null, od: null, do: null })).toBe("?pogled=danas");
+  });
+});
+
+describe("groups with a default and custom groups with a name", () => {
+  const page: SidebarConfig = {
+    id: "test/finansije",
+    groups: [
+      { id: "period", label: "Period", defaultValue: "mesec", options: [{ value: "mesec", label: "Ovaj mesec" }, { value: "godina", label: "Godina" }] },
+      { id: "opseg", label: "Opseg", kind: "custom", keys: ["klijent", "opseg"], textKeys: ["opseg"] },
+    ],
+  };
+  const pageFields = sidebarUrlFields(page);
+
+  test("the default of a group is not written and reads as absent", () => {
+    expect(writeUrlState(pageFields, "?period=godina", { period: "mesec" })).toBe("");
+    expect(readUrlState(pageFields, "?period=mesec")).toEqual({});
+    expect(readUrlState(pageFields, "?period=godina")).toEqual({ period: "godina" });
+    expect(readUrlState(pageFields, "?period=xyz")).toEqual({});
+  });
+
+  test("a text key of a custom group keeps a name with spaces; its id key stays an id", () => {
+    const url = writeUrlState(pageFields, "", { klijent: "k_17", opseg: "TEST Klijent · SMK-0001" });
+    expect(readUrlState(pageFields, url)).toEqual({ klijent: "k_17", opseg: "TEST Klijent · SMK-0001" });
+    expect(readUrlState(pageFields, "?klijent=ima%20razmak")).toEqual({});
   });
 });
 

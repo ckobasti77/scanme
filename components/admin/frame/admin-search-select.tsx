@@ -21,7 +21,8 @@ export function AdminSearchSelect({ label, options, value, anyLabel, onChange, o
   label: string;
   options: readonly SidebarOption[];
   value: string | undefined;
-  anyLabel: string;
+  /** The row that turns the filter off; null = the group always has a value. */
+  anyLabel: string | null;
   onChange: (value: string | null) => void;
   /** The list is rendered only while the group is open. */
   open: boolean;
@@ -34,7 +35,7 @@ export function AdminSearchSelect({ label, options, value, anyLabel, onChange, o
   const matches = text.trim() ? options.filter((option) => matchesSearch(normalizeSearch(`${option.label} ${option.hint ?? ""}`), text)) : options;
   const shown = matches.slice(0, MAX_SHOWN);
   // "Sve" first; it is a row like the others, so the choice can be undone from the keyboard.
-  const rows: { value: string | null; label: string; hint?: string; count?: number }[] = [{ value: null, label: anyLabel }, ...shown];
+  const rows: { value: string | null; label: string; hint?: string; count?: number }[] = anyLabel === null ? [...shown] : [{ value: null, label: anyLabel }, ...shown];
   const rowHeight = large ? "min-h-11" : "min-h-9";
 
   function onKeyDown(event: KeyboardEvent<HTMLInputElement>) {

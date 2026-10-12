@@ -7,6 +7,7 @@ import {
   groupSummary,
   hasSidebarFilters,
   SIDEBAR_RADIO_MAX,
+  sidebarHasFilters,
   sidebarChips,
 } from "./accordion";
 import type { SidebarConfig, SidebarGroup } from "./types";
@@ -89,6 +90,18 @@ describe("the header of a group and the chips", () => {
     expect(chips[3].clear).toEqual({ od: null, do: null });
   });
 
+  test("a group that always has a value shows its default in the header and is not an active filter", () => {
+    const period: SidebarGroup = { id: "period", label: "Period", defaultValue: "mesec", options: [{ value: "mesec", label: "Ovaj mesec" }, { value: "godina", label: "Godina" }] };
+    const page: SidebarConfig = { id: "test/period", groups: [period] };
+    expect(groupSummary(period, {}, period.options!)).toBe("Ovaj mesec");
+    expect(groupSummary(period, { period: "godina" }, period.options!)).toBe("Godina");
+    // The default is never in the state (lib/admin-v2/query/url-state.ts), so it is neither a chip nor counted.
+    expect(sidebarChips(page, {})).toEqual([]);
+    expect(activeFilterCount(page, {})).toBe(0);
+    expect(sidebarChips(page, { period: "godina" }).map((chip) => chip.label)).toEqual(["Period: Godina"]);
+    expect(activeFilterCount(page, { period: "godina" })).toBe(1);
+  });
+
   test("Očisti sve removes search and every group; the view and the sort stay", () => {
     expect(clearFiltersPatch(config)).toEqual({ q: null, status: null, klijent: null, od: null, do: null, model: null });
   });
@@ -104,5 +117,14 @@ describe("the header of a group and the chips", () => {
     expect(hasSidebarFilters({ id: "x", blocks: ["jumps"] })).toBe(false);
     expect(hasSidebarFilters({ id: "x", groups: [{ id: "model", label: "Model", chipOnly: true }] })).toBe(false);
     expect(hasSidebarFilters({ id: "x", groups: [{ id: "status", label: "Status", options: options(3) }] })).toBe(true);
+  });
+
+  test("a page with only sections or a view has a drawer button, but nothing to filter (the button names the sections)", () => {
+    const sections: SidebarConfig = { id: "x", views: { key: "tab", label: "Odeljci", defaultValue: "a", items: [{ value: "a", label: "A" }, { value: "b", label: "B" }] } };
+    expect(hasSidebarFilters(sections)).toBe(true);
+    expect(sidebarHasFilters(sections)).toBe(false);
+    expect(sidebarHasFilters(config)).toBe(true);
+    expect(sidebarHasFilters({ ...sections, search: { key: "q", label: "Pretraga" } })).toBe(true);
+    expect(sidebarHasFilters({ id: "x", groups: [{ id: "model", label: "Model", chipOnly: true }] })).toBe(false);
   });
 });

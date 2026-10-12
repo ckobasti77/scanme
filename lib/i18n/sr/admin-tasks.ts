@@ -15,6 +15,7 @@ export const adminTasksSr: AdminTasksDict = {
   filterClient: "Klijent",
   filterVenue: "Lokal",
   filterSubject: "Vezani objekat",
+  filterVenueNeedsClient: "Prvo izaberi klijenta.",
   filterAll: "Svi",
   noVenue: "Svi lokali",
   subjectNone: "Bez objekta",

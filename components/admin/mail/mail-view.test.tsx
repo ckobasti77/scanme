@@ -1,17 +1,27 @@
+import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 import type { Id } from "@/convex/_generated/dataModel";
 import type { AdminMailConnectionView, AdminMailMessage } from "@/convex/lib/adminMailContract";
+import { AdminSidebarView } from "@/components/admin/frame/admin-sidebar-view";
+import { mailFolderId, mailSidebarLive } from "@/lib/admin-v2/lists/mail";
+import { DEFAULT_SIDEBAR, resolveAdminSidebar } from "@/lib/admin-v2/sidebar/registry";
+import type { SidebarState } from "@/lib/admin-v2/sidebar/types";
 import { MailHtmlFrame } from "./mail-html-frame";
 import { blockRemoteMailImages, buildMailSrcDoc, MAIL_FRAME_SANDBOX, mailContentSecurityPolicy, mailHasRemoteImages, stripActiveMailContent } from "./mail-srcdoc";
 import { AdminMailView } from "./mail-view";
-import { mailCallbackNotice } from "./mail-format";
+import { mailCallbackNotice, mailFolderLabel } from "./mail-format";
 import { previewFolders, previewMailSource, previewMailStatus, PREVIEW_HTML_MESSAGE_ID, PREVIEW_INBOX_ID } from "./mail-fixtures";
 import { mailAccountOptions, MAIL_PAGE_SIZE, type MailViewActions, type MailViewModel } from "./use-mail-workspace";
 
 // Admin UX Z1 — Pošta view (SSR markup) and the HTML message frame: sandbox
 // without scripts, CSP meta first, remote images blocked until "Prikaži slike",
-// active content stripped, plain text escaped. TEST data only.
+// active content stripped, plain text escaped. ADMIN v2: the mailbox, the
+// folders, the view and the search are in the sidebar. TEST data only.
+
+vi.mock("next/link", () => ({
+  default: ({ href, children, ...rest }: { href: string; children: ReactNode } & Record<string, unknown>) => <a href={href} {...rest}>{children}</a>,
+}));
 
 const DANGEROUS = [
   '<html><head><meta http-equiv="refresh" content="0;url=https://evil.example.invalid">',
@@ -27,9 +37,9 @@ const DANGEROUS = [
 
 const noop = () => {};
 const actions: MailViewActions = {
-  connect: noop, disconnect: noop, dismissNotice: noop, selectAccount: noop, selectFolder: noop, setFilter: noop, setSearchDraft: noop,
-  submitSearch: noop, clearSearch: noop, goToStart: noop, retryFolders: noop, retryList: noop, selectMessage: noop, closeMessage: noop,
-  retryMessage: noop, showImages: noop, markRead: noop, download: noop, compose: noop, openSignature: noop, openSentFolder: noop,
+  connect: noop, disconnect: noop, dismissNotice: noop, goToStart: noop, retryFolders: noop, retryList: noop, selectMessage: noop,
+  closeMessage: noop, retryMessage: noop, showImages: noop, markRead: noop, download: noop, compose: noop, openSignature: noop,
+  openSentFolder: noop,
 };
 
 async function readyModel(overrides: Partial<MailViewModel> = {}): Promise<MailViewModel> {
@@ -40,7 +50,7 @@ async function readyModel(overrides: Partial<MailViewModel> = {}): Promise<MailV
   const message = await source.getMessage(accounts[0], { folderId: PREVIEW_INBOX_ID, messageId: PREVIEW_HTML_MESSAGE_ID });
   return {
     mode: "ready", notice: null, connections: status.connections, busyConnect: false, busyConnectionId: null, accounts, accountKey: accounts[0].key,
-    folders: { status: "ready", data: previewFolders }, folderId: PREVIEW_INBOX_ID, filter: "all", searchDraft: "", search: "", start: 1,
+    folders: { status: "ready", data: previewFolders }, folderId: PREVIEW_INBOX_ID, filter: "all", search: "", start: 1,
     pageSize: MAIL_PAGE_SIZE, list: { status: "ready", data: page }, selected: { folderId: PREVIEW_INBOX_ID, messageId: PREVIEW_HTML_MESSAGE_ID },
     message: { status: "ready", data: message }, readIds: new Set(), showImages: false, markingRead: false, downloadingId: null,
     readerFailure: null, now: Date.parse("2026-10-06T10:00:00+02:00"), ...overrides,
@@ -119,7 +129,7 @@ describe("Pošta view", () => {
   test("not configured: a clear state, no connect button, no list and no frame", () => {
     const markup = render({
       mode: "not_configured", notice: null, connections: [], busyConnect: false, busyConnectionId: null, accounts: [], accountKey: null,
-      folders: { status: "idle" }, folderId: null, filter: "all", searchDraft: "", search: "", start: 1, pageSize: MAIL_PAGE_SIZE,
+      folders: { status: "idle" }, folderId: null, filter: "all", search: "", start: 1, pageSize: MAIL_PAGE_SIZE,
       list: { status: "idle" }, selected: null, message: { status: "idle" }, readIds: new Set(), showImages: false, markingRead: false,
       downloadingId: null, readerFailure: null, now: 0,
     });
@@ -137,21 +147,14 @@ describe("Pošta view", () => {
     expect(markup).toContain("lozinka nikad ne prolazi kroz ScanMe");
   });
 
-  test("ready: three panes, mailbox picker, folders, list with unread marker and attachment clip, sandboxed HTML message with images blocked", async () => {
+  test("ready: the list and the message, list with unread marker and attachment clip, sandboxed HTML message with images blocked", async () => {
     const markup = render(await readyModel());
-    expect(markup).toContain('aria-label="Folderi"');
     expect(markup).toContain('aria-label="Poruke"');
     expect(markup).toContain('aria-label="Poruka"');
-    expect(markup).toContain("<select");
-    expect(markup).toContain(">prodaja-test@example.invalid</option>");
-    expect(markup).not.toContain("stari-test@example.invalid</option>"); // auth_required mailbox is not selectable
     expect(markup).toContain("Treba ponovo povezati");
     expect(markup).toContain("Ponovo poveži");
-    expect(markup).toContain("Prijemno");
-    expect(markup).toContain("Poslato");
     expect(markup).toContain('<span class="sr-only">Nepročitano</span>');
     expect(markup).toContain('aria-label="Ima prilog"');
-    expect(markup).toContain('aria-pressed="true"');
     expect(markup).toContain("1–25");
     expect(markup).toContain("Sledeća");
     expect(markup).toContain(`sandbox="${MAIL_FRAME_SANDBOX}"`);
@@ -193,12 +196,59 @@ describe("Pošta view", () => {
     expect(limited).toContain("Pokušaj ponovo");
   });
 
+  test("no filter block on the screen: the folders, the mailbox picker, the search and the unread filter are not drawn here", async () => {
+    const markup = render(await readyModel());
+    expect(markup).not.toContain('aria-label="Folderi"');
+    expect(markup).not.toContain("<select");
+    expect(markup).not.toContain("</option>");
+    expect(markup).not.toContain('role="search"');
+    expect(markup).not.toContain('type="search"');
+    expect(markup).not.toContain("aria-pressed");
+    expect(markup).not.toContain('role="tablist"');
+    expect(markup).not.toContain(">Prijemno<");
+    expect(markup).not.toContain(">Poslato<");
+    // list | message by the width of the screen (container), not of the window
+    expect(markup).toContain("@3xl:grid-cols-[minmax(17rem,22rem)_minmax(0,1fr)]");
+    expect(markup).not.toMatch(/\b(?:lg|xl):grid-cols/);
+  });
+
+  test("a search says what the list shows, and that the unread view does not apply to it", async () => {
+    const model = await readyModel({ selected: null, search: "ponuda" });
+    expect(render(model)).toContain("Rezultati u celom sanduku za „ponuda“");
+    expect(render(model)).not.toContain("Pretraga prikazuje i pročitane poruke.");
+    expect(render({ ...model, filter: "unread" })).toContain("Rezultati u celom sanduku za „ponuda“ Pretraga prikazuje i pročitane poruke.");
+    // the line is text only: the search is removed in the sidebar (its chip)
+    expect(render(model)).not.toContain("Očisti pretragu");
+  });
+
+  test("folders that fail to load show the error with a retry in the list; a mailbox without folders says so", async () => {
+    const model = await readyModel({ selected: null, folderId: null, list: { status: "idle" } });
+    const failed = render({ ...model, folders: { status: "error", failure: { code: "ZOHO_RATE_LIMITED", retryAfterSeconds: 30 } } });
+    expect(failed).toContain("Zoho je privremeno ograničio broj zahteva. Pokušaj ponovo za 30 s.");
+    expect(failed).toContain("Pokušaj ponovo");
+    expect(render({ ...model, folders: { status: "ready", data: [] } })).toContain("Sanduče nema foldere.");
+    expect(render({ ...model, folders: { status: "loading" } })).toContain("Učitavam foldere");
+  });
+
   test("empty folder, empty unread filter and empty search have their own text", async () => {
     const model = await readyModel({ selected: null, list: { status: "ready", data: { messages: [], hasMore: false } } });
     expect(render(model)).toContain("Folder je prazan");
     expect(render({ ...model, filter: "unread" })).toContain("Nema nepročitanih poruka u ovom folderu.");
     expect(render({ ...model, search: "ponuda" })).toContain("Nema rezultata");
     expect(render({ ...model, search: "ponuda" })).toContain("Rezultati u celom sanduku za „ponuda“");
+  });
+
+  test("the header is the common page header: one h1 on the fixed scale, the actions on the right, the demo label as a status", async () => {
+    const model = await readyModel();
+    const markup = render(model);
+    expect(markup.match(/<h1/g)).toHaveLength(1);
+    expect(markup).toContain('data-admin-primitive="page-header"');
+    expect(markup).toMatch(/<h1[^>]*>Pošta<\/h1>/);
+    expect(markup).not.toContain("sm:text-4xl");
+    expect(markup).toContain("Novo pismo");
+    const demo = renderToStaticMarkup(<AdminMailView model={model} actions={actions} badge="Demo prikaz" />);
+    expect(demo).toMatch(/data-admin-primitive="status"[^>]*><span[^>]*><\/span>Demo prikaz/);
+    expect(markup).not.toContain("Demo prikaz");
   });
 
   test("callback notice: connected, a known error code, anything else is generic", () => {
@@ -208,11 +258,106 @@ describe("Pošta view", () => {
     expect(mailCallbackNotice(undefined, undefined)).toBeNull();
   });
 
+  test("the TEST mailboxes have their own folders, like Zoho mailboxes do; a folder the mailbox does not have opens its Inbox", async () => {
+    const accounts = mailAccountOptions(previewMailStatus("spremno").connections);
+    const source = previewMailSource("spremno");
+    const first = await source.listFolders(accounts[0]);
+    const second = await source.listFolders(accounts[1]);
+    expect(first).toBe(previewFolders);
+    expect(second.map((folder) => folder.type)).toEqual(["Inbox", "Sent", "Drafts"]);
+    expect(second.some((folder) => first.some((other) => other.folderId === folder.folderId))).toBe(false);
+    expect(mailFolderId({ folder: first[1].folderId }, second)).toBe(second[0].folderId);
+    const page = await source.listMessages(accounts[1], { folderId: second[0].folderId, start: 1, limit: MAIL_PAGE_SIZE, unreadOnly: false, search: "" });
+    expect(page.messages.map((message) => message.subject)).toEqual(["TEST upit za probnu vožnju"]);
+    expect((await source.listMessages(accounts[1], { folderId: first[0].folderId, start: 1, limit: MAIL_PAGE_SIZE, unreadOnly: false, search: "" })).messages).toEqual([]);
+  });
+
   test("only active connections give selectable mailboxes", () => {
+    expect(mailAccountOptions(previewMailStatus("spremno").connections).map((option) => option.label)).toEqual(["posta-test@example.invalid", "prodaja-test@example.invalid"]);
     const connections: AdminMailConnectionView[] = [
       { connectionId: "a" as Id<"adminMailConnections">, primaryEmail: "a@example.invalid", status: "active", lastErrorCode: null, connectedAt: 1, accounts: [{ accountId: "1", emailAddress: "a@example.invalid", displayName: null, isDefault: true, signatureText: null }] },
       { connectionId: "b" as Id<"adminMailConnections">, primaryEmail: "b@example.invalid", status: "auth_required", lastErrorCode: "ZOHO_AUTH_REQUIRED", connectedAt: 1, accounts: [{ accountId: "2", emailAddress: "b@example.invalid", displayName: null, isDefault: true, signatureText: null }] },
     ];
     expect(mailAccountOptions(connections).map((option) => option.key)).toEqual(["a:1"]);
+  });
+});
+
+
+describe("Pošta sidebar", () => {
+  const config = resolveAdminSidebar("/admin/posta");
+
+  async function sidebar(state: SidebarState = {}, search = "") {
+    const model = await readyModel();
+    const live = mailSidebarLive({
+      mailboxes: model.accounts,
+      folders: previewFolders.map((folder) => ({ folderId: folder.folderId, label: mailFolderLabel(folder) })),
+      folderId: model.folderId,
+      search,
+      onFolder: noop,
+    });
+    return { model, markup: renderToStaticMarkup(<AdminSidebarView config={config} live={live} state={state} onPatch={noop} />) };
+  }
+
+  test("the registry gives Pošta its own sidebar, on the admin route and in the dev preview", () => {
+    expect(config).not.toBe(DEFAULT_SIDEBAR);
+    expect(config.id).toBe("posta");
+    expect(resolveAdminSidebar("/dev/admin-mail-preview")).toBe(config);
+    expect(config.search).toEqual({ key: "q", label: "Pretraga pošte", placeholder: "Pretraži celo sanduče", submit: true });
+    expect(config.views?.items.map((item) => item.value)).toEqual(["all", "unread"]);
+    expect(config.groups?.map((group) => group.id)).toEqual(["nalog"]);
+  });
+
+  test("the folders are an always open list with the open folder marked, in the order of the mailbox", async () => {
+    const { markup } = await sidebar();
+    const block = markup.slice(markup.indexOf('aria-label="Folderi"'), markup.indexOf('aria-label="Koje poruke"'));
+    expect(block).toContain('role="radiogroup"');
+    expect([...block.matchAll(/<span class="min-w-0 truncate">([^<]+)<\/span>/g)].map((match) => match[1])).toEqual(["Prijemno", "Poslato", "Nacrti", "TEST Sajam 2026", "Neželjeno", "Otpad"]);
+    expect(block.match(/checked=""/g)).toHaveLength(1);
+    expect(block).toMatch(/checked=""[^>]*\/><span class="min-w-0 truncate">Prijemno</);
+    expect(block).not.toContain("data-admin-filter-toggle");
+  });
+
+  test("while a search runs no folder is marked (the search covers the whole mailbox)", async () => {
+    const { markup } = await sidebar({ q: "ponuda" }, "ponuda");
+    const block = markup.slice(markup.indexOf('aria-label="Folderi"'), markup.indexOf('aria-label="Koje poruke"'));
+    expect(block).not.toContain('checked=""');
+    expect(markup).toContain("Pretraga pošte: ponuda");
+  });
+
+  test("the view: Sve and Nepročitane, the chosen one marked", async () => {
+    const all = (await sidebar()).markup;
+    const viewsOf = (markup: string) => markup.slice(markup.indexOf('aria-label="Koje poruke"'), markup.indexOf('type="search"'));
+    expect(viewsOf(all)).toMatch(/checked=""[^>]*\/><span class="min-w-0 truncate">Sve</);
+    expect(viewsOf((await sidebar({ prikaz: "unread" })).markup)).toMatch(/checked=""[^>]*\/><span class="min-w-0 truncate">Nepročitane</);
+  });
+
+  test("one search field, written on Enter, and it says so", async () => {
+    const { markup } = await sidebar();
+    expect(markup.match(/type="search"/g)).toHaveLength(1);
+    expect(markup).toContain("Pretraga pošte");
+    expect(markup).toContain('placeholder="Pretraži celo sanduče"');
+    expect(markup).toMatch(/enterkeyhint="search"/i);
+    expect(markup).toContain("Enter pokreće pretragu.");
+    expect(markup).toMatch(/aria-describedby="[^"]+-hint"/);
+  });
+
+  test("the mailbox is a group that always has a value: the first mailbox until another is chosen, no Sve, only connected mailboxes", async () => {
+    const { model, markup } = await sidebar();
+    expect(markup).toContain('>Sanduče</span><span class="text-[var(--admin-text-muted)]"> · posta-test@example.invalid</span>');
+    expect(markup).toContain(">prodaja-test@example.invalid<");
+    expect(markup).not.toContain("stari-test@example.invalid"); // auth_required mailbox is not selectable
+    // "Sve" is only the view; the mailbox group has no "any" option
+    expect(markup.match(/>Sve<\/span>/g)).toHaveLength(1);
+    // the first mailbox is the default: no chip for it
+    expect(markup).not.toContain("Sanduče: ");
+    const second = (await sidebar({ nalog: model.accounts[1].key })).markup;
+    expect(second).toContain('>Sanduče</span><span class="text-[var(--admin-text-muted)]"> · prodaja-test@example.invalid</span>');
+    expect(second).toContain("Sanduče: prodaja-test@example.invalid");
+  });
+
+  test("without a connected mailbox the group says what to do instead of an empty list", () => {
+    const markup = renderToStaticMarkup(<AdminSidebarView config={config} live={{}} state={{}} onPatch={noop} />);
+    expect(markup).toContain("Poveži svoje sanduče");
+    expect(markup).not.toContain('aria-label="Folderi"');
   });
 });

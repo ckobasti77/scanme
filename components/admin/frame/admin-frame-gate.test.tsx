@@ -175,7 +175,8 @@ describe("AdminShell (the dev previews and the older screens)", () => {
     state.pathname = "/dev/admin-clients-preview";
     const preview = renderToStaticMarkup(<AdminShell previewIdentity="TEST admin" activePathname="/admin/klijenti"><p>{PAGE}</p></AdminShell>);
     expect(frames(preview)).toHaveLength(3);
-    // The navbar marks the admin route the preview stands for.
-    expect(preview).toMatch(/<a[^>]*href="\/admin\/klijenti"[^>]*aria-current="page"|<a[^>]*aria-current="page"[^>]*href="\/admin\/klijenti"/);
+    // The navbar marks the admin route the preview stands for; inside a preview its links stay in the previews (X2).
+    expect(preview).toMatch(/<a[^>]*href="\/dev\/admin-clients-preview"[^>]*aria-current="page"|<a[^>]*aria-current="page"[^>]*href="\/dev\/admin-clients-preview"/);
+    expect(preview).not.toContain('href="/admin/klijenti"');
   });
 });

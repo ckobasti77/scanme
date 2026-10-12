@@ -36,6 +36,20 @@ const PREVIEW_ROUTES: Readonly<Record<string, string>> = {
   "/dev/admin-mail-preview": "/admin/posta",
 };
 
+/** `/dev/admin-services-preview?service=…` shows one of the three service pages. */
+const SERVICES_PREVIEW = "/dev/admin-services-preview";
+const SERVICE_PREVIEWS: readonly string[] = ["links", "review", "meni"];
+/** `/dev/admin-18-preview?mode=debug` shows the support view instead of Pretraga. */
+const SEARCH_PREVIEW = "/dev/admin-18-preview";
+
+/** Admin route → the single-surface dev preview that shows it (links inside such a preview stay in the previews). */
+const ADMIN_PREVIEWS: Readonly<Record<string, string>> = {
+  ...Object.fromEntries(Object.entries(PREVIEW_ROUTES).map(([preview, admin]) => [admin, preview])),
+  "/admin/usluge/review": `${SERVICES_PREVIEW}?service=review`,
+  "/admin/usluge/meni": `${SERVICES_PREVIEW}?service=meni`,
+  "/admin/dogadjaji": EVENTS_PREVIEW_BASE,
+};
+
 export type AdminRoute = {
   /** The admin path this page stands for (a dev preview maps to its admin route). */
   key: string;
@@ -43,6 +57,8 @@ export type AdminRoute = {
   events: { base: string; segments: string[] } | null;
   /** Set inside the persistent dev preview: `/admin/x` links go to `<previewBase>/x`. */
   previewBase: string | null;
+  /** A single-surface dev preview: `/admin/x` links go to the preview of `x`, when there is one. */
+  single?: true;
 };
 
 function segmentsOf(path: string): string[] {
@@ -60,7 +76,8 @@ function below(path: string, base: string): string | null {
   return path.startsWith(`${base}/`) ? path.slice(base.length) : null;
 }
 
-export function adminRoute(pathname: string): AdminRoute {
+/** `search`: a preview that shows more than one admin page picks it by a parameter. */
+export function adminRoute(pathname: string, search?: URLSearchParams | { get(name: string): string | null }): AdminRoute {
   const path = normalize(pathname);
 
   const inFramePreview = below(path, ADMIN_FRAME_PREVIEW_BASE);
@@ -74,7 +91,12 @@ export function adminRoute(pathname: string): AdminRoute {
   const inEventsPreview = below(path, EVENTS_PREVIEW_BASE);
   if (inEventsPreview !== null) return { key: `/admin/dogadjaji/preview${inEventsPreview}`, events: { base: EVENTS_PREVIEW_BASE, segments: segmentsOf(inEventsPreview) }, previewBase: null };
 
-  if (Object.hasOwn(PREVIEW_ROUTES, path)) return { key: PREVIEW_ROUTES[path], events: null, previewBase: null };
+  if (path === SERVICES_PREVIEW) {
+    const service = search?.get("service") ?? "";
+    return { key: `/admin/usluge/${SERVICE_PREVIEWS.includes(service) ? service : "links"}`, events: null, previewBase: null, single: true };
+  }
+  if (path === SEARCH_PREVIEW && search?.get("mode") === "debug") return { key: "/admin/debug/preview", events: null, previewBase: null, single: true };
+  if (Object.hasOwn(PREVIEW_ROUTES, path)) return { key: PREVIEW_ROUTES[path], events: null, previewBase: null, single: true };
 
   const event = /^\/admin\/dogadjaji\/([^/]+)(\/.*)?$/.exec(path);
   if (event) return { key: path, events: { base: `/admin/dogadjaji/${event[1]}`, segments: segmentsOf(event[2] ?? "") }, previewBase: null };
@@ -86,4 +108,21 @@ export function adminRoute(pathname: string): AdminRoute {
 export function previewHref(href: string, previewBase: string | null): string {
   if (!previewBase || (href !== "/admin" && !href.startsWith("/admin/"))) return href;
   return `${previewBase}${href.slice("/admin".length)}`;
+}
+
+/**
+ * An admin link (it may carry a query) as the page of `route` must write it:
+ * unchanged in the admin, under the base of the persistent preview, and in a
+ * single-surface preview the preview of the target (a target without one
+ * keeps its admin path).
+ */
+export function routeHref(href: string, route: AdminRoute | null): string {
+  if (!route) return href;
+  if (route.previewBase) return previewHref(href, route.previewBase);
+  if (!route.single) return href;
+  const [path, query = ""] = href.split("?");
+  const preview = ADMIN_PREVIEWS[normalize(path)];
+  if (!preview) return href;
+  if (!query) return preview;
+  return `${preview}${preview.includes("?") ? "&" : "?"}${query}`;
 }

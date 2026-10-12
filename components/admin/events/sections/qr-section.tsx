@@ -146,7 +146,7 @@ export function QrDetailSection({ code }: { code: string }) {
       onChanged={detail.refresh}
       listHref={eventSectionHref(base, "qr", listQuery)}
       modelHref={(id) => eventDetailHref(base, "modeli", id)}
-      generalQrHref={(row) => `/admin/operativa/qr?code=${encodeURIComponent(row.resolverCode)}&channel=${encodeURIComponent(row.accessChannelId)}`}
+      generalQrHref={(row) => `/admin/operativa/qr?q=${encodeURIComponent(row.resolverCode)}&channel=${encodeURIComponent(row.accessChannelId)}`}
     />
   );
 }

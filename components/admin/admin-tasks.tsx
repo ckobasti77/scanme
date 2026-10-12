@@ -9,7 +9,6 @@ import {
   CircleAlert,
   Clock3,
   Plus,
-  Search,
   UserRound,
   UsersRound,
 } from "lucide-react";
@@ -21,8 +20,21 @@ import {
   type FormEvent,
   type ReactNode,
 } from "react";
+import { useAdminUrlState } from "@/components/admin/admin-ui/use-admin-query-state";
+import { AdminPageHeader } from "@/components/admin/frame/admin-page-header";
+import { useAdminSidebarLive } from "@/components/admin/frame/admin-sidebar-store";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
+import {
+  filterPreviewTasks,
+  tasksAreFiltered,
+  tasksListArgs,
+  tasksSidebarLive,
+  tasksVenuesFromRows,
+  type TaskAccountOption,
+  type TaskVenueOption,
+} from "@/lib/admin-v2/lists/tasks";
+import { TASKS_URL_FIELDS } from "@/lib/admin-v2/sidebar/configs/tasks";
 import { adminTasksSr as dict } from "@/lib/i18n/sr/admin-tasks";
 import { belgradeLocalDateTimeToUtc } from "@/lib/admin-v1/task-time";
 import { cn } from "@/lib/utils";
@@ -67,7 +79,6 @@ type TaskDetail = NonNullable<
   FunctionReturnType<typeof api.adminTasks.getTask>
 >;
 type AdminOption = FunctionReturnType<typeof api.adminTasks.listAdmins>[number];
-type TaskTab = "all" | "today" | "overdue" | "deferred" | "completed";
 type TaskStatus = TaskItem["status"];
 type TaskPriority = TaskItem["priority"];
 type SubjectKind = TaskItem["subjectKind"];
@@ -101,14 +112,6 @@ const subjectLabels: Record<SubjectKind, string> = {
   delivery: dict.subjectDelivery,
   action_item: dict.subjectActionItem,
 };
-
-const tabs: { value: TaskTab; label: string }[] = [
-  { value: "all", label: dict.tabAll },
-  { value: "today", label: dict.tabToday },
-  { value: "overdue", label: dict.tabOverdue },
-  { value: "deferred", label: dict.tabDeferred },
-  { value: "completed", label: dict.tabCompleted },
-];
 
 const dateFormatter = new Intl.DateTimeFormat("sr-Latn-RS", {
   timeZone: "Europe/Belgrade",
@@ -175,8 +178,8 @@ function TaskList({
   onSelect: (id: Id<"clientTasks">) => void;
 }) {
   return (
-    <>
-      <AdminTable caption={dict.tableCaption} className="hidden md:block">
+    <div className="@container min-w-0">
+      <AdminTable caption={dict.tableCaption} className="hidden @4xl:block">
         <thead className="bg-[var(--admin-surface-muted)] text-xs text-[var(--admin-text-muted)]">
           <tr>
             {[
@@ -192,7 +195,7 @@ function TaskList({
                 key={label}
                 className="px-4 py-3 font-medium last:w-14 last:text-right"
               >
-                {label}
+                {label === dict.openDetail ? <span className="sr-only">{label}</span> : label}
               </th>
             ))}
           </tr>
@@ -253,7 +256,7 @@ function TaskList({
           ))}
         </tbody>
       </AdminTable>
-      <div className="grid gap-3 md:hidden">
+      <div className="grid gap-3 @4xl:hidden">
         {rows.map((task) => (
           <button
             key={task.id}
@@ -304,250 +307,72 @@ function TaskList({
           </button>
         ))}
       </div>
-    </>
+    </div>
   );
 }
 
-function Filters({
-  tab,
-  search,
-  assignee,
-  account,
-  business,
-  subject,
-  admins,
-  accounts,
-  venues,
-  onTab,
-  onSearch,
-  onAssignee,
-  onAccount,
-  onBusiness,
-  onSubject,
-}: {
-  tab: TaskTab;
-  search: string;
-  assignee: string;
-  account: string;
-  business: string;
-  subject: SubjectKind | "all";
-  admins: AdminOption[];
-  accounts: { id: Id<"accounts">; name: string; smkCode: string }[];
-  venues: { id: Id<"businesses">; name: string; smlCode: string }[];
-  onTab: (value: TaskTab) => void;
-  onSearch: (value: string) => void;
-  onAssignee: (value: string) => void;
-  onAccount: (value: string) => void;
-  onBusiness: (value: string) => void;
-  onSubject: (value: SubjectKind | "all") => void;
-}) {
-  return (
-    <AdminPanel className="grid gap-4 p-3 sm:p-4">
-      <div
-        className="flex max-w-full gap-0 overflow-hidden rounded-full bg-[var(--admin-surface-muted)] p-1 sm:gap-1"
-        role="tablist"
-      >
-        {tabs.map((item) => (
-          <button
-            key={item.value}
-            type="button"
-            role="tab"
-            aria-selected={tab === item.value}
-            onClick={() => onTab(item.value)}
-            className={cn(
-              "min-h-11 min-w-0 flex-1 rounded-full px-1 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-focus)] sm:flex-none sm:px-4 sm:text-sm",
-              tab === item.value
-                ? "bg-[var(--admin-nav-active)] text-white shadow-sm"
-                : "text-[var(--admin-text-muted)] hover:text-[var(--admin-text)]",
-            )}
-          >
-            {item.label}
-          </button>
-        ))}
-      </div>
-      <div className="grid gap-3 lg:grid-cols-[minmax(15rem,1fr)_repeat(4,minmax(9rem,0.55fr))]">
-        <label className="relative block">
-          <span className="sr-only">{dict.searchLabel}</span>
-          <Search
-            className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-[var(--admin-text-muted)]"
-            aria-hidden="true"
-          />
-          <Input
-            value={search}
-            onChange={(event) => onSearch(event.target.value)}
-            placeholder={dict.searchPlaceholder}
-            className="min-h-11 pl-10"
-          />
-        </label>
-        <NativeFilter
-          label={dict.filterAssignee}
-          value={assignee}
-          onChange={onAssignee}
-        >
-          <option value="all">{dict.filterAll}</option>
-          {admins.map((admin) => (
-            <option key={admin.id} value={admin.id}>
-              {admin.name}
-            </option>
-          ))}
-        </NativeFilter>
-        <NativeFilter
-          label={dict.filterClient}
-          value={account}
-          onChange={(value) => {
-            onAccount(value);
-            onBusiness("all");
-          }}
-        >
-          <option value="all">{dict.filterAll}</option>
-          {accounts.map((item) => (
-            <option key={item.id} value={item.id}>
-              {item.name} · {item.smkCode}
-            </option>
-          ))}
-        </NativeFilter>
-        <NativeFilter
-          label={dict.filterVenue}
-          value={business}
-          onChange={onBusiness}
-          disabled={account === "all"}
-        >
-          <option value="all">{dict.noVenue}</option>
-          {venues.map((item) => (
-            <option key={item.id} value={item.id}>
-              {item.name} · {item.smlCode}
-            </option>
-          ))}
-        </NativeFilter>
-        <NativeFilter
-          label={dict.filterSubject}
-          value={subject}
-          onChange={(value) => onSubject(value as SubjectKind | "all")}
-        >
-          <option value="all">{dict.filterAll}</option>
-          {(Object.keys(subjectLabels) as SubjectKind[])
-            .filter((kind) => kind !== "none")
-            .map((kind) => (
-              <option key={kind} value={kind}>
-                {subjectLabels[kind]}
-              </option>
-            ))}
-        </NativeFilter>
-      </div>
-    </AdminPanel>
-  );
-}
-
-function NativeFilter({
-  label,
-  value,
-  onChange,
-  disabled,
-  children,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  disabled?: boolean;
-  children: ReactNode;
-}) {
-  return (
-    <label className="grid gap-1.5 text-xs font-medium text-[var(--admin-text-muted)]">
-      {label}
-      <select
-        value={value}
-        disabled={disabled}
-        onChange={(event) => onChange(event.target.value)}
-        className="min-h-11 min-w-0 rounded-xl border border-[var(--admin-border)] bg-[var(--admin-surface-strong)] px-3 text-sm text-[var(--admin-text)] outline-none focus:ring-2 focus:ring-[var(--admin-focus)] disabled:opacity-50"
-      >
-        {children}
-      </select>
-    </label>
-  );
-}
+const NO_ADMINS: AdminOption[] = [];
+const NO_ACCOUNTS: TaskAccountOption[] = [];
+const NO_VENUES: TaskVenueOption[] = [];
 
 export function AdminTasksWorkspace({
-  initialAssigneeId,
   initialTaskId,
 }: {
-  initialAssigneeId?: Id<"users">;
   initialTaskId?: Id<"clientTasks">;
 } = {}) {
-  const [tab, setTab] = useState<TaskTab>("all");
-  const [search, setSearch] = useState("");
-  const [assignee, setAssignee] = useState<string>(initialAssigneeId ?? "all");
-  const [account, setAccount] = useState("all");
-  const [business, setBusiness] = useState("all");
-  const [subject, setSubject] = useState<SubjectKind | "all">("all");
+  const [state] = useAdminUrlState(TASKS_URL_FIELDS);
   const [selectedId, setSelectedId] = useState<Id<"clientTasks"> | null>(
     initialTaskId ?? null,
   );
   const [createOpen, setCreateOpen] = useState(false);
-  const admins = useQuery(api.adminTasks.listAdmins) ?? [];
+  const admins = useQuery(api.adminTasks.listAdmins) ?? NO_ADMINS;
   const baseOptions = useQuery(api.adminTasks.contextOptions, {});
+  // The venues exist only for a chosen client.
   const scopedOptions = useQuery(
     api.adminTasks.contextOptions,
-    account === "all" ? {} : { accountId: account as Id<"accounts"> },
+    state.klijent ? { accountId: state.klijent as Id<"accounts"> } : "skip",
   );
+  const args = tasksListArgs(state);
   const rows = usePaginatedQuery(
     api.adminTasks.list,
     {
-      tab,
-      ...(search.trim() ? { search: search.trim() } : {}),
-      ...(assignee !== "all" ? { assigneeId: assignee as Id<"users"> } : {}),
-      ...(account !== "all" ? { accountId: account as Id<"accounts"> } : {}),
-      ...(business !== "all"
-        ? { businessId: business as Id<"businesses"> }
+      tab: args.tab,
+      ...(args.search ? { search: args.search } : {}),
+      ...(args.assigneeId
+        ? { assigneeId: args.assigneeId as Id<"users"> }
         : {}),
-      ...(subject !== "all" ? { subjectKind: subject } : {}),
+      ...(args.accountId ? { accountId: args.accountId as Id<"accounts"> } : {}),
+      ...(args.businessId
+        ? { businessId: args.businessId as Id<"businesses"> }
+        : {}),
+      ...(args.subjectKind ? { subjectKind: args.subjectKind } : {}),
     },
     { initialNumItems: 20 },
   );
-  const filtered = Boolean(
-    search.trim() ||
-    assignee !== "all" ||
-    account !== "all" ||
-    business !== "all" ||
-    subject !== "all" ||
-    tab !== "all",
+  const filtered = tasksAreFiltered(state);
+  const accounts = baseOptions?.accounts ?? NO_ACCOUNTS;
+  const venues = state.klijent ? (scopedOptions?.venues ?? NO_VENUES) : NO_VENUES;
+  const sidebar = useMemo(
+    () => tasksSidebarLive({ admins, accounts, venues }),
+    [admins, accounts, venues],
   );
+  useAdminSidebarLive(sidebar);
 
   return (
     <div className="grid min-w-0 gap-5 sm:gap-6">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-[clamp(2.1rem,4vw,3.75rem)] leading-none font-medium tracking-[-0.05em]">
-            {dict.pageTitle}
-          </h1>
-          <p className="mt-2 text-sm text-[var(--admin-text-muted)] sm:text-base">
-            {dict.pageSubtitle}
-          </p>
-        </div>
-        <Button
-          type="button"
-          onClick={() => setCreateOpen(true)}
-          className="min-h-11 rounded-full px-5"
-        >
-          <Plus className="size-4" aria-hidden="true" />
-          {dict.createAction}
-        </Button>
-      </header>
-      <Filters
-        tab={tab}
-        search={search}
-        assignee={assignee}
-        account={account}
-        business={business}
-        subject={subject}
-        admins={admins}
-        accounts={baseOptions?.accounts ?? []}
-        venues={scopedOptions?.venues ?? []}
-        onTab={setTab}
-        onSearch={setSearch}
-        onAssignee={setAssignee}
-        onAccount={setAccount}
-        onBusiness={setBusiness}
-        onSubject={setSubject}
+      <AdminPageHeader
+        title={dict.pageTitle}
+        description={dict.pageSubtitle}
+        actions={
+          <Button
+            type="button"
+            onClick={() => setCreateOpen(true)}
+            className="min-h-11 rounded-full px-5"
+          >
+            <Plus className="size-4" aria-hidden="true" />
+            {dict.createAction}
+          </Button>
+        }
       />
       {rows.status === "LoadingFirstPage" ? (
         <AdminPanel>
@@ -1804,47 +1629,21 @@ const initialPreviewTasks: TaskItem[] = [
 
 export function AdminTasksPreview() {
   const [rows, setRows] = useState(initialPreviewTasks);
-  const [tab, setTab] = useState<TaskTab>("all");
-  const [search, setSearch] = useState("");
-  const [assignee, setAssignee] = useState("all");
-  const [account, setAccount] = useState("all");
-  const [business, setBusiness] = useState("all");
-  const [subject, setSubject] = useState<SubjectKind | "all">("all");
+  const [state] = useAdminUrlState(TASKS_URL_FIELDS);
   const [selectedId, setSelectedId] = useState<Id<"clientTasks"> | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const selected = rows.find((task) => task.id === selectedId) ?? null;
-  const visible = useMemo(
+  const visible = useMemo(() => filterPreviewTasks(rows, state), [rows, state]);
+  const sidebar = useMemo(
     () =>
-      rows.filter((task) => {
-        if (
-          tab === "all" &&
-          (task.status === "deferred" ||
-            task.status === "completed" ||
-            task.status === "cancelled")
-        )
-          return false;
-        if (tab === "today" && task.timePhase !== "today") return false;
-        if (tab === "overdue" && task.timePhase !== "overdue") return false;
-        if (tab === "deferred" && task.status !== "deferred") return false;
-        if (
-          tab === "completed" &&
-          task.status !== "completed" &&
-          task.status !== "cancelled"
-        )
-          return false;
-        if (assignee !== "all" && task.assigneeId !== assignee) return false;
-        if (account !== "all" && task.accountId !== account) return false;
-        if (subject !== "all" && task.subjectKind !== subject) return false;
-        const needle = search.trim().toLocaleLowerCase("sr-Latn-RS");
-        return (
-          !needle ||
-          `${task.accountName} ${task.smkCode} ${task.businessName} ${task.smlCode} ${task.title}`
-            .toLocaleLowerCase("sr-Latn-RS")
-            .includes(needle)
-        );
+      tasksSidebarLive({
+        admins: previewAdmins,
+        accounts: previewAccounts,
+        venues: tasksVenuesFromRows(rows, state.klijent),
       }),
-    [rows, tab, assignee, account, subject, search],
+    [rows, state.klijent],
   );
+  useAdminSidebarLive(sidebar);
   const updateSelected = (patch: Partial<TaskItem>) => {
     if (!selectedId) return;
     setRows((current) =>
@@ -1855,47 +1654,24 @@ export function AdminTasksPreview() {
   };
   return (
     <div className="grid gap-5 sm:gap-6">
-      <div className="flex flex-wrap items-center gap-2">
-        <AdminStatus label={dict.previewBadge} tone="waiting" />
-        <p className="text-xs text-[var(--admin-text-muted)]">
-          {dict.previewDescription}
-        </p>
-      </div>
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-[clamp(2.1rem,4vw,3.75rem)] leading-none font-medium tracking-[-0.05em]">
-            {dict.pageTitle}
-          </h1>
-          <p className="mt-2 text-sm text-[var(--admin-text-muted)] sm:text-base">
-            {dict.pageSubtitle}
-          </p>
-        </div>
-        <Button
-          type="button"
-          className="min-h-11 rounded-full px-5"
-          onClick={() => setCreateOpen(true)}
-        >
-          <Plus className="size-4" aria-hidden="true" />
-          {dict.createAction}
-        </Button>
-      </header>
-      <Filters
-        tab={tab}
-        search={search}
-        assignee={assignee}
-        account={account}
-        business={business}
-        subject={subject}
-        admins={previewAdmins}
-        accounts={previewAccounts}
-        venues={[]}
-        onTab={setTab}
-        onSearch={setSearch}
-        onAssignee={setAssignee}
-        onAccount={setAccount}
-        onBusiness={setBusiness}
-        onSubject={setSubject}
+      <AdminPageHeader
+        title={dict.pageTitle}
+        description={dict.pageSubtitle}
+        badge={<AdminStatus label={dict.previewBadge} tone="waiting" />}
+        actions={
+          <Button
+            type="button"
+            className="min-h-11 rounded-full px-5"
+            onClick={() => setCreateOpen(true)}
+          >
+            <Plus className="size-4" aria-hidden="true" />
+            {dict.createAction}
+          </Button>
+        }
       />
+      <p className="text-xs text-[var(--admin-text-muted)]">
+        {dict.previewDescription}
+      </p>
       {visible.length ? (
         <TaskList rows={visible} onSelect={setSelectedId} />
       ) : (

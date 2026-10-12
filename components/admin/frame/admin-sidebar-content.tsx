@@ -4,11 +4,11 @@ import gsap from "gsap";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useAdminUrlState } from "@/components/admin/admin-ui/use-admin-query-state";
-import { previewHref } from "@/lib/admin-v2/frame/routes";
+import { adminRoute, routeHref } from "@/lib/admin-v2/frame/routes";
 import { ADMIN_DURATION, ADMIN_EASE, ADMIN_ENTER_OFFSET, ADMIN_STAGGER_TOTAL } from "@/lib/admin-v2/motion";
 import { sidebarUrlFields } from "@/lib/admin-v2/query/url-state";
 import { activeFilterCount, hasSidebarFilters } from "@/lib/admin-v2/sidebar/accordion";
-import { resolveAdminSidebar } from "@/lib/admin-v2/sidebar/registry";
+import { resolveSidebar } from "@/lib/admin-v2/sidebar/registry";
 import type { SidebarPatch } from "@/lib/admin-v2/sidebar/types";
 import { adminV1Sr } from "@/lib/i18n/sr/admin-v1";
 import { useAdminFrame } from "./admin-frame-context";
@@ -32,7 +32,8 @@ const JUMPS = [
 export function useAdminSidebar() {
   const pathname = usePathname();
   const search = useSearchParams().toString();
-  const config = useMemo(() => resolveAdminSidebar(pathname, search), [pathname, search]);
+  const frameRoute = useAdminFrame()?.route;
+  const config = useMemo(() => resolveSidebar(frameRoute ?? adminRoute(pathname), new URLSearchParams(search)), [frameRoute, pathname, search]);
   const fields = useMemo(() => sidebarUrlFields(config), [config]);
   const [state, setState] = useAdminUrlState(fields);
   const live = useAdminSidebarSnapshot();
@@ -52,8 +53,14 @@ export function AdminSidebarContent({ large }: { large?: boolean }) {
   const { config, state, live, patch } = useAdminSidebar();
   const root = useRef<HTMLDivElement>(null);
   const shown = useRef<string | null>(null);
-  const previewBase = frame?.route.previewBase ?? null;
-  const jumps = useMemo(() => JUMPS.map((jump) => ({ ...jump, href: previewHref(jump.href, previewBase) })), [previewBase]);
+  const route = frame?.route ?? null;
+  const pageJumps = config.jumps;
+  const jumps = useMemo(() => (pageJumps ?? JUMPS).map((jump) => ({ ...jump, href: routeHref(jump.href, route) })), [pageJumps, route]);
+  // The page writes admin paths; in a dev preview the links of its missions stay in the previews, like the jumps.
+  const pageLive = useMemo(
+    () => (live.missions ? { ...live, missions: live.missions.map((mission) => (mission.href ? { ...mission, href: routeHref(mission.href, route) } : mission)) } : live),
+    [live, route],
+  );
 
   useEffect(() => {
     const previous = shown.current;
@@ -79,7 +86,7 @@ export function AdminSidebarContent({ large }: { large?: boolean }) {
 
   return (
     <div ref={root}>
-      <AdminSidebarView config={config} live={live} state={state} onPatch={patch} large={large} jumps={jumps} />
+      <AdminSidebarView config={config} live={pageLive} state={state} onPatch={patch} large={large} jumps={jumps} />
     </div>
   );
 }

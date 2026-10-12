@@ -5,6 +5,7 @@ import { ArrowLeft, Building2, LogOut, ShieldAlert } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { AdminPageHeader } from "@/components/admin/frame/admin-page-header";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { adminSearchSr as dict } from "@/lib/i18n/sr/admin-search";
@@ -50,7 +51,7 @@ function ActiveDebugView({
       <aside
         role="status"
         aria-label={dict.debugBannerLabel}
-        className="sticky top-[4.5rem] z-20 grid gap-3 rounded-2xl border-2 border-[var(--admin-danger)] bg-[var(--admin-surface-strong)] p-3 shadow-[var(--admin-shadow-md)] sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center sm:p-4 motion-reduce:transition-none"
+        className="sticky top-0 z-20 grid gap-3 rounded-2xl border-2 border-[var(--admin-danger)] bg-[var(--admin-surface-strong)] p-3 shadow-[var(--admin-shadow-md)] sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center sm:p-4 motion-reduce:transition-none"
       >
         <span className="grid size-11 place-items-center rounded-xl bg-[var(--admin-danger-soft)] text-[var(--admin-danger)]">
           <ShieldAlert className="size-5" aria-hidden="true" />
@@ -75,10 +76,7 @@ function ActiveDebugView({
         </button>
       </aside>
 
-      <header>
-        <h1 className="text-[clamp(2rem,4vw,3.6rem)] leading-none font-medium tracking-[-0.05em]">{dict.debugOverviewTitle}</h1>
-        <p className="mt-2 text-sm text-[var(--admin-text-muted)]">{context.accountName} · {context.smkCode}</p>
-      </header>
+      <AdminPageHeader title={dict.debugOverviewTitle} description={`${context.accountName} · ${context.smkCode}`} />
 
       {overview === undefined ? <AdminLoadingState label={dict.loading} /> : (
         <div className="grid gap-4 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">

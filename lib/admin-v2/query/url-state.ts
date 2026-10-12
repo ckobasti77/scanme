@@ -40,11 +40,17 @@ function normalize(field: UrlField, raw: string | null | undefined): string | nu
 /** Every URL key the sidebar of a page reads and writes. */
 export function sidebarUrlFields(config: SidebarConfig): UrlField[] {
   const fields: UrlField[] = [];
+  // The choice of an always open context list (Tim: the member, Pošta: the folder) is a URL key too: an intercept may clear it.
+  if (config.context?.list) fields.push({ key: config.context.id });
   if (config.views) fields.push({ key: config.views.key, values: config.views.items.map((item) => item.value), defaultValue: config.views.defaultValue });
   if (config.search) fields.push({ key: config.search.key, maxLength: SEARCH_MAX });
   for (const group of config.groups ?? []) {
     for (const key of groupKeys(group)) {
-      fields.push(group.kind !== "custom" && group.options ? { key, values: group.options.map((option) => option.value) } : { key });
+      const field: UrlField =
+        group.kind === "custom" ? (group.textKeys?.includes(key) ? { key, maxLength: SEARCH_MAX } : { key })
+        : group.options ? { key, values: group.options.map((option) => option.value) }
+        : { key };
+      fields.push(group.defaultValue ? { ...field, defaultValue: group.defaultValue } : field);
     }
   }
   if (config.sort) fields.push({ key: config.sort.key, values: config.sort.options.map((option) => option.value), defaultValue: config.sort.defaultValue });

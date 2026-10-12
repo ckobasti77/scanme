@@ -23,8 +23,13 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import { useAdminUrlState } from "@/components/admin/admin-ui/use-admin-query-state";
+import { AdminPageHeader } from "@/components/admin/frame/admin-page-header";
+import { useAdminSidebarLive } from "@/components/admin/frame/admin-sidebar-store";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
+import { dashboardScope, inboxMissions, reactionMissions, taskMissions } from "@/lib/admin-v2/lists/dashboard-missions";
+import { DASHBOARD_URL_FIELDS } from "@/lib/admin-v2/sidebar/configs/pages";
 import { fmt } from "@/lib/i18n/format";
 import { adminV1Sr } from "@/lib/i18n/sr/admin-v1";
 import { cn } from "@/lib/utils";
@@ -75,8 +80,13 @@ export function AdminDashboardFoundation({
   initialNow?: number;
   fixture?: AdminDashboardFixture;
 }) {
-  const [scope, setScope] = useState<DashboardScope>("all");
+  // The scope is the sidebar's „Obim Dashboarda“ (`?obim=mine`), not a control on the screen.
+  const [urlState] = useAdminUrlState(DASHBOARD_URL_FIELDS);
+  const scope = dashboardScope(urlState);
   const [now, setNow] = useState(fixture?.now ?? initialNow ?? 0);
+  const date = useMemo(() => now === 0 ? undefined : new Intl.DateTimeFormat("sr-Latn-RS", {
+    weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "Europe/Belgrade",
+  }).format(now), [now]);
 
   useEffect(() => {
     if (fixture) return;
@@ -86,102 +96,90 @@ export function AdminDashboardFoundation({
     return () => window.clearInterval(timer);
   }, [fixture]);
 
-  if (now === 0) {
-    return (
-      <div className="mx-auto grid w-full max-w-[112rem] gap-5">
-        <h1 className="text-[clamp(2.2rem,5vw,4.75rem)] leading-[0.92] font-medium tracking-[-0.06em]">
-          {adminV1Sr.dashboardTitle}
-        </h1>
-        <PanelLoading />
-      </div>
-    );
-  }
-
+  // The frame centres and limits the screen; the layout follows the width of the screen (container), not of the window.
   return (
-    <div className="mx-auto grid w-full max-w-[112rem] min-w-0 gap-4 sm:gap-5 xl:grid-cols-[minmax(0,1.8fr)_minmax(15rem,0.6fr)_minmax(15rem,0.6fr)] xl:gap-6">
-      {fixture ? (
-        <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-[var(--admin-warning-border)] bg-[var(--admin-warning-soft)] px-4 py-3 text-sm text-[var(--admin-warning)] xl:col-span-3">
-          <strong>{adminV1Sr.dashboardFixtureBadge}</strong>
-          <span>{adminV1Sr.dashboardFixtureDescription}</span>
+    <div className="@container grid w-full min-w-0 gap-4 sm:gap-5">
+      <AdminPageHeader
+        eyebrow={date ? <span className="normal-case first-letter:uppercase">{date}</span> : undefined}
+        title={adminV1Sr.dashboardTitle}
+        badge={fixture ? <AdminStatus tone="waiting" label={adminV1Sr.dashboardFixtureBadge} /> : undefined}
+        description={fixture ? adminV1Sr.dashboardFixtureDescription : undefined}
+      />
+      {now === 0 ? (
+        <PanelLoading />
+      ) : (
+        <div className="grid min-w-0 gap-4 sm:gap-5 @4xl:grid-cols-2 @6xl:grid-cols-[minmax(0,1.8fr)_minmax(15rem,0.6fr)_minmax(15rem,0.6fr)] @6xl:gap-6">
+          <DashboardWidgetBoundary key={`reaction-${scope}`} className="contents">
+            {fixture ? (
+              <ReactionBundle data={fixture.reactions[scope]} now={now} fixture />
+            ) : (
+              <ReactionLive now={now} scope={scope} />
+            )}
+          </DashboardWidgetBoundary>
+          <DashboardWidgetBoundary>
+            {fixture?.errorWidget === "subscriptions" ? <FixtureWidgetFailure /> : fixture?.loadingWidget === "subscriptions" ? <RingLoading /> : fixture ? <SubscriptionWidget data={fixture.subscriptions} /> : <SubscriptionLive />}
+          </DashboardWidgetBoundary>
+          <DashboardWidgetBoundary>
+            {fixture ? <ProductWidget data={fixture.products} /> : <ProductLive />}
+          </DashboardWidgetBoundary>
+          <DashboardWidgetBoundary className="min-w-0 @4xl:col-span-2 @6xl:col-span-1">
+            {fixture ? <FinanceWidget data={fixture.finance} /> : <FinanceLive now={now} />}
+          </DashboardWidgetBoundary>
+          <DashboardWidgetBoundary>
+            {fixture ? <TasksWidget data={fixture.tasks} scope={scope} /> : <TasksLive now={now} scope={scope} />}
+          </DashboardWidgetBoundary>
+          <DashboardWidgetBoundary>
+            {fixture ? <InboxWidget data={fixture.inbox} now={now} /> : <InboxLive now={now} />}
+          </DashboardWidgetBoundary>
         </div>
-      ) : null}
-
-      <DashboardWidgetBoundary key={`reaction-${scope}`} contents>
-        {fixture ? (
-          <ReactionBundle data={fixture.reactions[scope]} now={now} scope={scope} onScopeChange={setScope} fixture />
-        ) : (
-          <ReactionLive now={now} scope={scope} onScopeChange={setScope} />
-        )}
-      </DashboardWidgetBoundary>
-      <DashboardWidgetBoundary>
-        {fixture?.errorWidget === "subscriptions" ? <FixtureWidgetFailure /> : fixture?.loadingWidget === "subscriptions" ? <RingLoading /> : fixture ? <SubscriptionWidget data={fixture.subscriptions} /> : <SubscriptionLive />}
-      </DashboardWidgetBoundary>
-      <DashboardWidgetBoundary>
-        {fixture ? <ProductWidget data={fixture.products} /> : <ProductLive />}
-      </DashboardWidgetBoundary>
-      <DashboardWidgetBoundary>
-        {fixture ? <FinanceWidget data={fixture.finance} /> : <FinanceLive now={now} />}
-      </DashboardWidgetBoundary>
-      <DashboardWidgetBoundary>
-        {fixture ? <TasksWidget data={fixture.tasks} scope={scope} /> : <TasksLive now={now} scope={scope} />}
-      </DashboardWidgetBoundary>
-      <DashboardWidgetBoundary>
-        {fixture ? <InboxWidget data={fixture.inbox} now={now} /> : <InboxLive now={now} />}
-      </DashboardWidgetBoundary>
+      )}
     </div>
   );
 }
 
-function ReactionLive({ now, scope, onScopeChange }: { now: number; scope: DashboardScope; onScopeChange: (scope: DashboardScope) => void }) {
+const fullRow = "@4xl:col-span-2 @6xl:col-span-3";
+const mainColumn = "@4xl:col-span-2 @6xl:col-span-1";
+
+function ReactionLive({ now, scope }: { now: number; scope: DashboardScope }) {
   const data = useQuery(api.adminDashboard.reactions, { now, scope, limit: 8 });
-  if (!data) return <ReactionLoading scope={scope} onScopeChange={onScopeChange} now={now} />;
-  return <ReactionBundle data={data} now={now} scope={scope} onScopeChange={onScopeChange} />;
+  if (!data) return <ReactionLoading />;
+  return <ReactionBundle data={data} now={now} />;
 }
 
-function ReactionLoading({ scope, onScopeChange, now }: { scope: DashboardScope; onScopeChange: (scope: DashboardScope) => void; now: number }) {
+function ReactionLoading() {
   return (
     <>
-      <div className="xl:col-span-3"><DashboardHeader count={null} now={now} scope={scope} onScopeChange={onScopeChange} /></div>
-      <AdminPanel className={cn(panelClass, "min-h-24 xl:col-span-3")}><AdminLoadingState compact /></AdminPanel>
-      <AdminPanel className={cn(panelClass, "min-h-[28rem]")}><AdminLoadingState /></AdminPanel>
+      <AdminPanel className={cn(panelClass, "min-h-24", fullRow)}><AdminLoadingState compact /></AdminPanel>
+      <AdminPanel className={cn(panelClass, "min-h-[28rem]", mainColumn)}><AdminLoadingState /></AdminPanel>
     </>
   );
 }
 
-function ReactionBundle({ data, now, scope, onScopeChange, fixture = false }: { data: ReactionData; now: number; scope: DashboardScope; onScopeChange: (scope: DashboardScope) => void; fixture?: boolean }) {
+function ReactionBundle({ data, now, fixture = false }: { data: ReactionData; now: number; fixture?: boolean }) {
+  // Without counts nothing is published: a „Sve je čisto“ would be false.
+  const live = useMemo(() => data.counts ? { missions: reactionMissions(data.counts) } : null, [data.counts]);
+  useAdminSidebarLive(live);
   return (
     <>
-      <div className="xl:col-span-3"><DashboardHeader count={data.counts?.total ?? null} now={now} scope={scope} onScopeChange={onScopeChange} /></div>
-      <div className="xl:col-span-3">{data.counts ? <SignalStrip counts={data.counts} /> : <ProjectionUnavailable compact />}</div>
+      <div className={cn("grid gap-3", fullRow)}>
+        <ReactionCount count={data.counts?.total ?? null} />
+        {data.counts ? <SignalStrip counts={data.counts} /> : <ProjectionUnavailable compact />}
+      </div>
       <ReactionList data={data} now={now} fixture={fixture} />
     </>
   );
 }
 
-function DashboardHeader({ count, now, scope, onScopeChange }: { count: number | null; now: number; scope: DashboardScope; onScopeChange: (scope: DashboardScope) => void }) {
-  const countLabel = count === null
+/** The number of items waiting for a reaction: plain text next to the signals, never the title. */
+function ReactionCount({ count }: { count: number | null }) {
+  const label = count === null
     ? adminV1Sr.dashboardCountUnavailable
     : count === 0
       ? adminV1Sr.dashboardCountZero
       : count === 1
         ? adminV1Sr.dashboardCountOne
         : fmt(adminV1Sr.dashboardCountMany, { count });
-  const date = useMemo(() => new Intl.DateTimeFormat("sr-Latn-RS", {
-    weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "Europe/Belgrade",
-  }).format(now), [now]);
-  return (
-    <header className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
-      <div className="min-w-0">
-        <p className="text-sm font-semibold text-[var(--admin-text-muted)] first-letter:uppercase">{date}</p>
-        <h1 className="mt-2 text-[clamp(2.2rem,5vw,4.75rem)] leading-[0.92] font-medium tracking-[-0.06em] text-balance">{countLabel}</h1>
-      </div>
-      <div role="group" aria-label={adminV1Sr.dashboardScopeLabel} className="inline-grid min-h-[3.25rem] grid-cols-2 rounded-full border border-[var(--admin-border)] bg-[var(--admin-surface-strong)] p-1 shadow-[var(--admin-shadow-xs)]">
-        {(["all", "mine"] as const).map((value) => (
-          <button key={value} type="button" aria-pressed={scope === value} onClick={() => onScopeChange(value)} className={cn("min-h-11 rounded-full px-4 text-sm font-semibold transition-colors", scope === value ? "bg-[var(--admin-ink)] text-[var(--admin-on-ink)]" : "text-[var(--admin-text-muted)] hover:text-[var(--admin-text)]")}>{value === "all" ? adminV1Sr.dashboardScopeAll : adminV1Sr.dashboardScopeMine}</button>
-        ))}
-      </div>
-    </header>
-  );
+  return <p className="text-base font-semibold tracking-[-0.02em]">{label}</p>;
 }
 
 function SignalStrip({ counts }: { counts: NonNullable<ReactionData["counts"]> }) {
@@ -192,9 +190,9 @@ function SignalStrip({ counts }: { counts: NonNullable<ReactionData["counts"]> }
     { label: adminV1Sr.dashboardSignalCalm, value: counts.calm, tone: "success", title: adminV1Sr.dashboardSignalCalmHelp },
   ];
   return (
-    <AdminPanel className={cn(panelClass, "grid grid-cols-2 divide-x divide-y divide-[var(--admin-border)] sm:grid-cols-4 sm:divide-y-0")}>
+    <AdminPanel className={cn(panelClass, "grid grid-cols-2 divide-x divide-y divide-[var(--admin-border)] @xl:grid-cols-4 @xl:divide-y-0")}>
       {signals.map((signal) => (
-        <div key={signal.label} title={signal.title} className="flex min-h-20 items-center justify-between gap-3 px-4 py-3 sm:min-h-24 sm:px-5">
+        <div key={signal.label} title={signal.title} className="flex min-h-20 items-center justify-between gap-3 px-4 py-3 @xl:min-h-24 @xl:px-5">
           <span className="text-sm font-semibold text-[var(--admin-text-muted)]">{signal.label}</span>
           <span data-tone={signal.tone} className={cn("font-mono text-3xl font-semibold tracking-[-0.05em] tabular-nums", signal.tone === "danger" && "text-[var(--admin-danger)]", signal.tone === "warning" && "text-[var(--admin-warning)]", signal.tone === "success" && "text-[var(--admin-success)]")}>{signal.value}</span>
         </div>
@@ -204,9 +202,9 @@ function SignalStrip({ counts }: { counts: NonNullable<ReactionData["counts"]> }
 }
 
 function ReactionList({ data, now, fixture = false }: { data: ReactionData; now: number; fixture?: boolean }) {
-  if (data.projection === "unavailable") return <AdminPanel className={cn(panelClass, "min-h-[28rem]")}><ProjectionUnavailable /></AdminPanel>;
+  if (data.projection === "unavailable") return <AdminPanel className={cn(panelClass, "min-h-[28rem]", mainColumn)}><ProjectionUnavailable /></AdminPanel>;
   return (
-    <AdminPanel className={cn(panelClass, "min-h-[28rem]")}>
+    <AdminPanel className={cn(panelClass, "min-h-[28rem]", mainColumn)}>
       <div className="flex items-start justify-between gap-4 border-b border-[var(--admin-border)] px-5 py-5 sm:px-6">
         <div><h2 className="text-xl font-semibold tracking-[-0.03em]">{adminV1Sr.dashboardReactionTitle}</h2><p className="mt-1 text-sm leading-5 text-[var(--admin-text-muted)]">{adminV1Sr.dashboardReactionHint}</p></div>
         <AlertTriangle className="mt-1 size-5 text-[var(--admin-danger)]" aria-hidden="true" />
@@ -292,18 +290,22 @@ function RingWidget({ icon, title, total, totalLabel, segments, footer }: { icon
 
 function FinanceLive({ now }: { now: number }) { const data = useQuery(api.adminFinance.overview, { now, collectedPeriod: "month", expectedPeriod: "next_month", filter: "total", profitFilter: "total" }); return data ? <FinanceWidget data={data} /> : <PanelLoading />; }
 function FinanceWidget({ data }: { data: FinanceData }) {
-  return <AdminPanel className={cn(panelClass, "h-full p-5 sm:p-6")}><div className="flex items-center justify-between"><h2 className="text-lg font-semibold tracking-[-0.025em]">{adminV1Sr.dashboardFinanceTitle}</h2><CircleDollarSign className="size-5 text-[var(--admin-text-muted)]" aria-hidden="true" /></div><dl className="mt-6 grid gap-5 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3"><MoneyFact label={adminV1Sr.dashboardFinanceCollected} value={data.collected.amount.amountMinor} /><MoneyFact label={adminV1Sr.dashboardFinanceExpected} value={data.expected.amount.amountMinor} /><MoneyFact label={adminV1Sr.dashboardFinanceProfit} value={data.profit.amount?.amountMinor ?? null} hint={!data.profit.complete ? adminV1Sr.dashboardFinanceProfitUnavailable : undefined} /></dl><Link href="/admin/finansije" className={cn(linkClass, "mt-5 px-0")}>{adminV1Sr.dashboardFinanceOpen}<ArrowUpRight className="size-4" aria-hidden="true" /></Link></AdminPanel>;
+  return <AdminPanel className={cn(panelClass, "@container h-full p-5 sm:p-6")}><div className="flex items-center justify-between"><h2 className="text-lg font-semibold tracking-[-0.025em]">{adminV1Sr.dashboardFinanceTitle}</h2><CircleDollarSign className="size-5 text-[var(--admin-text-muted)]" aria-hidden="true" /></div><dl className="mt-6 grid gap-5 @md:grid-cols-3"><MoneyFact label={adminV1Sr.dashboardFinanceCollected} value={data.collected.amount.amountMinor} /><MoneyFact label={adminV1Sr.dashboardFinanceExpected} value={data.expected.amount.amountMinor} /><MoneyFact label={adminV1Sr.dashboardFinanceProfit} value={data.profit.amount?.amountMinor ?? null} hint={!data.profit.complete ? adminV1Sr.dashboardFinanceProfitUnavailable : undefined} /></dl><Link href="/admin/finansije" className={cn(linkClass, "mt-5 px-0")}>{adminV1Sr.dashboardFinanceOpen}<ArrowUpRight className="size-4" aria-hidden="true" /></Link></AdminPanel>;
 }
 function MoneyFact({ label, value, hint }: { label: string; value: number | null; hint?: string }) { return <div><dt className="text-xs font-semibold text-[var(--admin-text-muted)]">{label}</dt><dd className="mt-1 font-mono text-xl font-semibold tracking-[-0.04em] tabular-nums">{value === null ? "—" : money(value)}</dd>{hint ? <p className="mt-1 text-xs leading-4 text-[var(--admin-warning)]">{hint}</p> : null}</div>; }
 
 function TasksLive({ now, scope }: { now: number; scope: DashboardScope }) { const data = useQuery(api.adminTasks.dashboardAdapter, { now, limit: 4 }); return data ? <TasksWidget data={data} scope={scope} /> : <PanelLoading />; }
 function TasksWidget({ data, scope }: { data: TaskData; scope: DashboardScope }) {
+  const live = useMemo(() => ({ missions: taskMissions(data) }), [data]);
+  useAdminSidebarLive(live);
   const source = scope === "mine" ? data.mine : { items: [...data.overdue.items, ...data.today.items].filter((item, index, rows) => rows.findIndex((candidate) => candidate.id === item.id) === index).slice(0, 4), capped: data.overdue.capped || data.today.capped || data.overdue.items.length + data.today.items.length > 4 };
   return <AdminPanel className={cn(panelClass, "h-full p-5 sm:p-6")}><div className="flex items-center justify-between"><h2 className="text-lg font-semibold tracking-[-0.025em]">{adminV1Sr.dashboardTasksTitle}</h2><CheckSquare2 className="size-5 text-[var(--admin-text-muted)]" aria-hidden="true" /></div>{source.items.length ? <ul className="mt-4 divide-y divide-[var(--admin-border)]">{source.items.map((task) => <li key={task.id} className="py-3"><Link href={task.subjectHref ?? "/admin/zadaci"} className="block rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2"><span className="line-clamp-2 text-sm font-semibold">{task.title}</span><span className="mt-1 flex items-center gap-2 text-xs text-[var(--admin-text-muted)]"><Clock3 className="size-3.5" aria-hidden="true" />{task.timePhase === "overdue" ? adminV1Sr.dashboardTasksOverdue : task.timePhase === "today" ? adminV1Sr.dashboardTasksToday : task.assigneeName}</span></Link></li>)}</ul> : <p className="mt-8 text-sm text-[var(--admin-text-muted)]">{adminV1Sr.dashboardTasksEmpty}</p>}{source.capped ? <p className="mt-2 text-xs font-semibold text-[var(--admin-text-muted)]">{adminV1Sr.dashboardMoreActions}</p> : null}<Link href="/admin/zadaci" className={cn(linkClass, "mt-3 px-0")}>{adminV1Sr.dashboardTasksOpen}<ArrowUpRight className="size-4" aria-hidden="true" /></Link></AdminPanel>;
 }
 
 function InboxLive({ now }: { now: number }) { const data = useQuery(api.adminDashboard.inbox, { limit: 4 }); return data ? <InboxWidget data={data} now={now} /> : <PanelLoading />; }
 function InboxWidget({ data, now }: { data: InboxData; now: number }) {
+  const live = useMemo(() => ({ missions: inboxMissions(data) }), [data]);
+  useAdminSidebarLive(live);
   return <AdminPanel className={cn(panelClass, "h-full p-5 sm:p-6")}><div className="flex items-center justify-between"><h2 className="text-lg font-semibold tracking-[-0.025em]">{adminV1Sr.dashboardInboxTitle}</h2><Inbox className="size-5 text-[var(--admin-text-muted)]" aria-hidden="true" /></div>{!data.provider ? <p className="mt-3 rounded-xl bg-[var(--admin-warning-soft)] px-3 py-2 text-xs leading-5 text-[var(--admin-warning)]">{adminV1Sr.dashboardInboxProviderUnavailable}</p> : <p className="mt-3 text-xs text-[var(--admin-text-muted)]">{fmt(adminV1Sr.dashboardInboxProviderState, { state: data.provider.operationalState })}</p>}{data.items.length ? <ul className="mt-3 divide-y divide-[var(--admin-border)]">{data.items.map((item) => <li key={item.id} className="py-3"><Link href={item.href} className="block rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2"><span className="flex items-center justify-between gap-3"><strong className="truncate text-sm">{item.contactName}</strong>{item.unreadCount ? <AdminStatus tone="problem" label={fmt(adminV1Sr.dashboardUnread, { count: item.unreadCount })} className="shrink-0" /> : null}</span><span className="mt-1 block truncate text-xs text-[var(--admin-text-muted)]">{item.accountName} · {relativeTime(item.latestMessageAt, now)}</span><span className="mt-1 line-clamp-1 text-xs text-[var(--admin-text-muted)]">{item.preview}</span></Link></li>)}</ul> : <p className="mt-8 text-sm text-[var(--admin-text-muted)]">{adminV1Sr.dashboardInboxEmpty}</p>}{data.capped ? <p className="mt-2 text-xs font-semibold text-[var(--admin-text-muted)]">{adminV1Sr.dashboardMoreActions}</p> : null}<Link href="/admin/inbox" className={cn(linkClass, "mt-3 px-0")}>{adminV1Sr.dashboardInboxOpen}<ArrowUpRight className="size-4" aria-hidden="true" /></Link></AdminPanel>;
 }
 
@@ -312,13 +314,13 @@ function SmallUnavailable({ title }: { title: string }) { return <AdminPanel cla
 function PanelLoading() { return <AdminPanel className={cn(panelClass, "min-h-64")}><AdminLoadingState /></AdminPanel>; }
 function RingLoading() { return <AdminPanel className={cn(panelClass, "min-h-[21rem]")}><AdminLoadingState /></AdminPanel>; }
 
-class DashboardWidgetBoundary extends Component<{ children: ReactNode; contents?: boolean }, { failed: boolean; resetKey: number }> {
+class DashboardWidgetBoundary extends Component<{ children: ReactNode; className?: string }, { failed: boolean; resetKey: number }> {
   state = { failed: false, resetKey: 0 };
   static getDerivedStateFromError() { return { failed: true }; }
   componentDidCatch() {}
   render() {
     if (this.state.failed) return <AdminPanel className={cn(panelClass, "min-h-56")}><AdminErrorState title={adminV1Sr.dashboardWidgetErrorTitle} body={adminV1Sr.dashboardWidgetErrorBody} /><button type="button" onClick={() => this.setState((state) => ({ failed: false, resetKey: state.resetKey + 1 }))} className={cn(linkClass, "mx-auto mb-5 flex")}><RotateCcw className="size-4" aria-hidden="true" />{adminV1Sr.retryAction}</button></AdminPanel>;
-    return <div key={this.state.resetKey} className={this.props.contents ? "contents" : "min-w-0"}>{this.props.children}</div>;
+    return <div key={this.state.resetKey} className={this.props.className ?? "min-w-0"}>{this.props.children}</div>;
   }
 }
 

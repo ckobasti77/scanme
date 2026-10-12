@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Suspense, useEffect, useRef, type ReactNode } from "react";
 import { BrandLogo } from "@/components/brand-logo";
-import { previewHref } from "@/lib/admin-v2/frame/routes";
+import { routeHref } from "@/lib/admin-v2/frame/routes";
 import { adminUiSr as dict } from "@/lib/i18n/sr/admin-ui";
 import { useAdminFrame } from "./admin-frame-context";
 import { AdminSidebarContent } from "./admin-sidebar-content";
@@ -18,7 +18,7 @@ export function AdminSidebar() {
   return (
     <aside data-admin-frame="sidebar" aria-label={dict.frame.sidebarAria} className="hidden min-h-0 w-[var(--admin-sidebar-w)] shrink-0 flex-col lg:flex">
       <div className="flex h-[var(--admin-navbar-h)] shrink-0 items-center justify-center px-4">
-        <Link href={previewHref("/admin", frame?.route.previewBase ?? null)} aria-label={dict.frame.home} className="flex min-h-11 items-center rounded-lg px-2">
+        <Link href={routeHref("/admin", frame?.route ?? null)} aria-label={dict.frame.home} className="flex min-h-11 items-center rounded-lg px-2">
           <BrandLogo width="6.9rem" />
         </Link>
       </div>

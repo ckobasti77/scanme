@@ -25,6 +25,9 @@ function replaceUrl(pathname: string, search: string) {
   window.history.replaceState(null, "", `${pathname}${search}${window.location.hash}`);
 }
 
+/** `push`: a step Back must undo (opening a venue); filters replace the entry. */
+export type AdminUrlWrite = "replace" | "push";
+
 /** `Događaji`: the fixed query keys of lib/admin-v1/query-state.ts. */
 export function useAdminQueryState(): [AdminQueryState, (patch: AdminQueryPatch) => void] {
   const params = useSearchParams();
@@ -46,12 +49,16 @@ export function useAdminQueryState(): [AdminQueryState, (patch: AdminQueryPatch)
 }
 
 /** A list with its own schema (the sidebar of a page: lib/admin-v2/query/url-state.ts). */
-export function useAdminUrlState(fields: readonly UrlField[]): [SidebarState, (patch: SidebarPatch) => void] {
+export function useAdminUrlState(fields: readonly UrlField[]): [SidebarState, (patch: SidebarPatch, write?: AdminUrlWrite) => void] {
   const params = useSearchParams();
   const pathname = usePathname();
   const state = useMemo(() => readUrlState(fields, params), [fields, params]);
   const setState = useCallback(
-    (patch: SidebarPatch) => replaceUrl(pathname, writeUrlState(fields, window.location.search, patch)),
+    (patch: SidebarPatch, write: AdminUrlWrite = "replace") => {
+      const search = writeUrlState(fields, window.location.search, patch);
+      if (write === "push") window.history.pushState(null, "", `${pathname}${search}${window.location.hash}`);
+      else replaceUrl(pathname, search);
+    },
     [fields, pathname],
   );
   return [state, setState];

@@ -41,6 +41,7 @@ export const postaSr: PostaDict = {
   searchSubmit: "Traži",
   searchClear: "Očisti pretragu",
   searchScope: "Rezultati u celom sanduku za „{query}“",
+  searchIgnoresUnread: "Pretraga prikazuje i pročitane poruke.",
   unread: "Nepročitano",
   hasAttachment: "Ima prilog",
   noSubject: "(bez naslova)",

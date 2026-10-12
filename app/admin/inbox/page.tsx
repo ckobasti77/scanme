@@ -8,9 +8,10 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default async function InboxPage({ searchParams }: { searchParams: Promise<{ conversation?: string; assignee?: string }> }) {
+// ADMIN v2: the filters (also `?assignee=`) are read from the URL by the page itself.
+export default async function InboxPage({ searchParams }: { searchParams: Promise<{ conversation?: string }> }) {
   const query = await searchParams;
   return (
-    <AdminInboxErrorBoundary><AdminInboxWorkspace initialConversationId={query.conversation as Id<"conversations"> | undefined} initialAssigneeId={query.assignee as Id<"users"> | undefined} /></AdminInboxErrorBoundary>
+    <AdminInboxErrorBoundary><AdminInboxWorkspace initialConversationId={query.conversation as Id<"conversations"> | undefined} /></AdminInboxErrorBoundary>
   );
 }

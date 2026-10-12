@@ -119,6 +119,94 @@ describe("the contextual sidebar", () => {
   });
 });
 
+// ADMIN v2 X2 — what the lists outside Događaji need from the same component.
+describe("the sidebar of the other pages", () => {
+  const render = (page: SidebarConfig, data: SidebarLive = {}, state: SidebarState = {}) => renderToStaticMarkup(<AdminSidebarView config={page} live={data} state={state} onPatch={() => undefined} />);
+
+  test("a context list is always open: the members with their counts, no accordion toggle", () => {
+    const markup = render(
+      { id: "test/tim", context: { id: "clan", label: "Član tima", list: true }, views: { key: "tab", label: "Prikaz", defaultValue: "pregled", items: [{ value: "pregled", label: "Pregled" }, { value: "zadaci", label: "Zadaci" }] } },
+      { context: { value: "u2", options: [{ value: "u1", label: "TEST Član A", count: 6 }, { value: "u2", label: "TEST Član B", count: 2 }], onChange: () => undefined } },
+    );
+    expect(toggles(markup)).toHaveLength(0);
+    expect(markup).toMatch(/role="radiogroup" aria-label="Član tima"/);
+    expect(markup).toMatch(/>TEST Član A<\/span><span[^>]*>6<\/span>/);
+    // The chosen member is the checked row; the view block follows it.
+    expect(markup).toMatch(/<input type="radio"[^>]*checked=""[^>]*\/><span[^>]*>TEST Član B</);
+    expect(markup.indexOf("Član tima")).toBeLessThan(markup.indexOf(">Prikaz<"));
+  });
+
+  test("a group that always has a value has no Sve and marks its default", () => {
+    const page: SidebarConfig = { id: "test/finansije", groups: [{ id: "period", label: "Period", defaultValue: "mesec", options: [{ value: "mesec", label: "Ovaj mesec" }, { value: "godina", label: "Godina" }] }] };
+    const markup = render(page);
+    expect(markup).toContain('>Period</span><span class="text-[var(--admin-text-muted)]"> · Ovaj mesec</span>');
+    expect(markup).not.toContain(`>${adminUiSr.filters.any}<`);
+    expect(markup).toMatch(/<input type="radio"[^>]*checked=""[^>]*\/><span[^>]*>Ovaj mesec</);
+    expect(markup).not.toContain(adminUiSr.filters.clearAll);
+  });
+
+  test("a default only the page knows acts like the configured one: no Sve, the default marked, no chip; a choice is a chip", () => {
+    const page: SidebarConfig = { id: "test/posta", groups: [{ id: "nalog", label: "Sanduče" }] };
+    const data: SidebarLive = { options: { nalog: [{ value: "a", label: "TEST sanduče A" }, { value: "b", label: "TEST sanduče B" }] }, defaults: { nalog: "a" } };
+    const markup = render(page, data);
+    expect(markup).toContain('>Sanduče</span><span class="text-[var(--admin-text-muted)]"> · TEST sanduče A</span>');
+    expect(markup).not.toContain(`>${adminUiSr.filters.any}<`);
+    expect(markup).toMatch(/<input type="radio"[^>]*checked=""[^>]*\/><span[^>]*>TEST sanduče A</);
+    expect(markup).not.toContain(adminUiSr.filters.clearAll);
+    // Without the page's default the same group offers "Sve" and has no summary.
+    const plain = render(page, { options: data.options });
+    expect(plain).toContain(`>${adminUiSr.filters.any}<`);
+    expect(plain).not.toContain(" · TEST sanduče A");
+    const chosen = render(page, data, { nalog: "b" });
+    expect(chosen).toContain('>Sanduče</span><span class="text-[var(--admin-text-muted)]"> · TEST sanduče B</span>');
+    expect(chosen).toContain("Sanduče: TEST sanduče B");
+  });
+
+  test("a search written on Enter says so and hints the phone keyboard; an ordinary search has neither", () => {
+    const markup = render({ id: "test/enter", search: { key: "q", label: "TEST pretraga", submit: true } }, {}, { q: "ponuda" });
+    expect(markup.match(/type="search"/g)).toHaveLength(1);
+    expect(markup).toContain('value="ponuda"');
+    expect(markup).toContain(adminUiSr.filters.searchOnEnter);
+    expect(markup).toMatch(/enterkeyhint="search"/i);
+    expect(markup).toMatch(/aria-describedby="[^"]+-hint"/);
+    expect(html()).not.toContain(adminUiSr.filters.searchOnEnter);
+    expect(html()).not.toMatch(/enterkeyhint/i);
+    expect(html()).not.toContain("aria-describedby");
+  });
+
+  test("a group that waits for another choice says so instead of an empty list", () => {
+    const page: SidebarConfig = { id: "test/zadaci", groups: [{ id: "lokal", label: "Lokal", emptyText: "Prvo izaberi klijenta." }] };
+    expect(render(page)).toContain("Prvo izaberi klijenta.");
+    expect(render(page, { options: { lokal: [{ value: "l1", label: "TEST Lokal" }] } })).not.toContain("Prvo izaberi klijenta.");
+  });
+
+  test("Misije danas: the open missions with their counts and links; all solved shows one calm line", () => {
+    const page: SidebarConfig = { id: "test/dashboard", blocks: ["missions", "jumps"], jumps: [{ href: "/admin/zadaci?pogled=overdue", label: "Zadaci koji kasne" }] };
+    const jumps = [{ href: "/admin/zadaci?pogled=overdue", label: "Zadaci koji kasne" }];
+    const open = renderToStaticMarkup(
+      <AdminSidebarView
+        config={page}
+        live={{ missions: [{ id: "hitno", label: "Hitne stavke", count: 3, tone: "hitno", href: "/admin" }, { id: "inbox", label: "Nepročitani razgovori", count: 0, tone: "info" }] }}
+        state={{}}
+        onPatch={() => undefined}
+        jumps={jumps}
+      />,
+    );
+    expect(open).toContain(adminUiSr.frame.missionsTitle);
+    expect(open).toMatch(/Hitne stavke<\/span><span data-urgency="hitno"/);
+    expect(open).toContain("Hitno: 3");
+    // A mission with nothing to do is not listed.
+    expect(open).not.toContain("Nepročitani razgovori");
+    expect(open.indexOf(adminUiSr.frame.missionsTitle)).toBeLessThan(open.indexOf(adminUiSr.frame.jumpsTitle));
+    expect(open).toContain('href="/admin/zadaci?pogled=overdue"');
+
+    const clear = render(page, { missions: [{ id: "hitno", label: "Hitne stavke", count: 0, tone: "hitno" }] });
+    expect(clear).toContain(adminUiSr.frame.missionsClear);
+    // Until the page publishes its data there is no missions block (no invented zero).
+    expect(render(page)).not.toContain(adminUiSr.frame.missionsTitle);
+  });
+});
+
 // These checks were on AdminSubnav (Admin UX A2), which the sidebar replaced.
 describe("the navigation of an area", () => {
   const nav = (groups: SidebarConfig["nav"]) => renderToStaticMarkup(<AdminSidebarView config={{ id: "test/nav", nav: groups, navLabel: "TEST sekcije" }} state={{}} onPatch={() => undefined} />);

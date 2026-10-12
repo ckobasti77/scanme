@@ -8,7 +8,8 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default async function TasksPage({ searchParams }: { searchParams: Promise<{ task?: string; assignee?: string }> }) {
+// ADMIN v2: the filters (also `?assignee=`) are read from the URL by the page itself.
+export default async function TasksPage({ searchParams }: { searchParams: Promise<{ task?: string }> }) {
   const query = await searchParams;
-  return <AdminTasksErrorBoundary><AdminTasksWorkspace initialTaskId={query.task as Id<"clientTasks"> | undefined} initialAssigneeId={query.assignee as Id<"users"> | undefined} /></AdminTasksErrorBoundary>;
+  return <AdminTasksErrorBoundary><AdminTasksWorkspace initialTaskId={query.task as Id<"clientTasks"> | undefined} /></AdminTasksErrorBoundary>;
 }

@@ -27,6 +27,8 @@ function merge(layers: Iterable<SidebarLive>): SidebarLive {
       ...layer,
       ...(result.options || layer.options ? { options: { ...result.options, ...layer.options } } : {}),
       ...(result.custom || layer.custom ? { custom: { ...result.custom, ...layer.custom } } : {}),
+      // Each widget of a page may send its own missions (Dashboard): they add up.
+      ...(result.missions || layer.missions ? { missions: [...(result.missions ?? []), ...(layer.missions ?? [])] } : {}),
     };
   }
   return result;

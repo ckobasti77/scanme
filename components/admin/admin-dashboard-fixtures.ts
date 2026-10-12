@@ -83,6 +83,38 @@ const allItems = [
   },
 ];
 
+function taskFixture(timePhase: "today" | "overdue", index: number) {
+  return {
+    id: `task-fixture-${index}`,
+    accountId: `account-fixture-${index}`,
+    accountName: "Demo Bistro",
+    smkCode: "SMK-0012",
+    contactId: null,
+    contactName: null,
+    businessId: null,
+    businessName: null,
+    smlCode: null,
+    conversationId: null,
+    subject: null,
+    subjectKind: "none",
+    subjectLabel: null,
+    subjectHref: null,
+    title: timePhase === "overdue" ? "Pozvati klijenta zbog obnove" : `Proveriti štampu kartice ${index}`,
+    description: "",
+    assigneeId: "user-fixture-admin",
+    assigneeName: "Demo Admin",
+    participantCount: 1,
+    priority: "normal",
+    due: { kind: "instant", at: NOW },
+    timePhase,
+    status: "open",
+    deferredUntil: null,
+    deferredReason: null,
+    createdAt: NOW - 86_400_000,
+    updatedAt: NOW - 3_600_000,
+  };
+}
+
 export function dashboardFixture(state: "ready" | "empty" | "unavailable" | "error" | "loading" = "ready") {
   const unavailable = state === "unavailable";
   const empty = state === "empty";
@@ -109,9 +141,9 @@ export function dashboardFixture(state: "ready" | "empty" | "unavailable" | "err
       profit: { amount: empty ? { amountMinor: 0, currency: "RSD" } : null, complete: empty, missing: empty ? [] : ["production"], costs: { amountMinor: 0, currency: "RSD" } },
       categories: [], methods: [],
     },
-    tasks: {
-      today: { items: [], capped: false }, overdue: { items: [], capped: false }, mine: { items: [], capped: false },
-    },
+    tasks: empty || unavailable
+      ? { today: { items: [], capped: false }, overdue: { items: [], capped: false }, mine: { items: [], capped: false } }
+      : { today: { items: [taskFixture("today", 1), taskFixture("today", 2)], capped: false }, overdue: { items: [taskFixture("overdue", 3)], capped: false }, mine: { items: [taskFixture("overdue", 3)], capped: false } },
     inbox: {
       items: empty ? [] : [{ id: "conversation-fixture-1", accountName: "Demo Bistro", contactName: "Mila Petrović", channel: "panel_chat", status: "needs_reply", preview: "Možete li potvrditi da je dizajn spreman?", latestMessageAt: NOW - 42 * 60 * 1000, unreadCount: 2, href: "/admin/inbox?conversation=conversation-fixture-1" }],
       capped: false,

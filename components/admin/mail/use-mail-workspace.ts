@@ -12,15 +12,21 @@ import type {
   AdminMailSendStatus,
   AdminMailStatus,
 } from "@/convex/lib/adminMailContract";
+import { useAdminUrlState } from "@/components/admin/admin-ui/use-admin-query-state";
 import { useMinuteNow } from "@/components/admin/admin-ui/use-minute-now";
+import { useAdminSidebarLive } from "@/components/admin/frame/admin-sidebar-store";
+import { mailFolderId, mailFolderPatch, mailListArgs, mailSelection, mailSidebarLive, type MailFilter } from "@/lib/admin-v2/lists/mail";
+import { MAIL_URL_FIELDS } from "@/lib/admin-v2/sidebar/configs/mail";
 import { fmt } from "@/lib/i18n/format";
 import { postaSr as dict } from "@/lib/i18n/sr/posta";
-import { mailErrorText, mailFailure, type MailFailure } from "./mail-format";
+import { mailErrorText, mailFailure, mailFolderLabel, type MailFailure } from "./mail-format";
 
 // Admin UX Z1 — state of the Pošta screen, shared by the Convex container and
 // the fixture preview (the preview runs this same code over TEST data). Every
 // read is keyed: a result is shown only for the key it was loaded for, so a
 // late answer for another folder/message never lands on the screen.
+// ADMIN v2: the mailbox, the folder, the view and the search live in the URL
+// and are chosen in the sidebar (lib/admin-v2/sidebar/configs/mail.ts).
 
 export const MAIL_PAGE_SIZE = 25;
 
@@ -77,7 +83,9 @@ export type Loadable<T> =
   | { status: "ready"; data: T };
 
 export type MailNotice = { tone: "success" | "error" | "info"; text: string; action?: "openSent" };
-export type MailFilter = "all" | "unread";
+export type { MailFilter };
+
+const NO_FOLDERS: AdminMailFolder[] = [];
 
 export type MailViewModel = {
   mode: "not_configured" | "no_connection" | "ready";
@@ -90,7 +98,6 @@ export type MailViewModel = {
   folders: Loadable<AdminMailFolder[]>;
   folderId: string | null;
   filter: MailFilter;
-  searchDraft: string;
   search: string;
   start: number;
   pageSize: number;
@@ -109,12 +116,6 @@ export type MailViewActions = {
   connect(): void;
   disconnect(connection: AdminMailConnectionView): void;
   dismissNotice(): void;
-  selectAccount(key: string): void;
-  selectFolder(folderId: string): void;
-  setFilter(filter: MailFilter): void;
-  setSearchDraft(value: string): void;
-  submitSearch(): void;
-  clearSearch(): void;
   goToStart(start: number): void;
   retryFolders(): void;
   retryList(): void;
@@ -192,14 +193,10 @@ export function useMailWorkspace({
 } {
   const now = useMinuteNow();
   const accounts = useMemo(() => mailAccountOptions(status.connections), [status.connections]);
-  const [accountChoice, setAccountChoice] = useState<string | null>(null);
-  const account = accounts.find((option) => option.key === accountChoice) ?? accounts[0] ?? null;
+  const [url, setUrl] = useAdminUrlState(MAIL_URL_FIELDS);
+  const { account, filter, search } = mailSelection(url, accounts);
   const accountKey = account?.key ?? null;
 
-  const [folderChoice, setFolderChoice] = useState<{ accountKey: string; folderId: string } | null>(null);
-  const [filter, setFilterState] = useState<MailFilter>("all");
-  const [searchDraft, setSearchDraft] = useState("");
-  const [search, setSearch] = useState("");
   const [start, setStart] = useState(1);
   const [selection, setSelection] = useState<{ accountKey: string | null; folderId: string; messageId: string } | null>(
     initialMessage ? { accountKey: null, ...initialMessage } : null,
@@ -216,13 +213,21 @@ export function useMailWorkspace({
   const ready = status.configured && account !== null;
 
   const [folders, retryFolders] = useKeyedLoad(ready && account ? `folders:${account.key}` : null, () => source.listFolders(account!));
-  const folderList = folders.status === "ready" ? folders.data : [];
-  const chosenFolder = folderChoice && folderChoice.accountKey === accountKey && folderList.some((folder) => folder.folderId === folderChoice.folderId)
-    ? folderChoice.folderId
-    : null;
-  const folderId = chosenFolder ?? (folderList.find((folder) => folder.type === "Inbox") ?? folderList[0])?.folderId ?? null;
+  const folderList = folders.status === "ready" ? folders.data : NO_FOLDERS;
+  const folderId = mailFolderId(url, folderList);
 
-  const listArgs = { folderId: folderId ?? "", start, limit: MAIL_PAGE_SIZE, unreadOnly: filter === "unread" && !search, search };
+  // A change of mailbox, folder, view or search (the sidebar, a link, Back)
+  // starts at the first page; another mailbox or folder and a new search also
+  // close the open message.
+  const scope = { accountKey, folder: url.folder ?? null, filter, search };
+  const [seen, setSeen] = useState(scope);
+  if (seen.accountKey !== scope.accountKey || seen.folder !== scope.folder || seen.filter !== scope.filter || seen.search !== scope.search) {
+    setSeen(scope);
+    setStart(1);
+    if (seen.accountKey !== scope.accountKey || seen.folder !== scope.folder || (scope.search && seen.search !== scope.search)) setSelection(null);
+  }
+
+  const listArgs = mailListArgs(folderId, start, MAIL_PAGE_SIZE, filter, search);
   const [list, retryList] = useKeyedLoad(
     ready && account && folderId ? `list:${JSON.stringify([account.key, listArgs])}` : null,
     () => source.listMessages(account!, listArgs),
@@ -236,6 +241,20 @@ export function useMailWorkspace({
   const [message, retryMessage] = useKeyedLoad(messageKey, () => source.getMessage(account!, selected!));
 
   const mode: MailViewModel["mode"] = !status.configured ? "not_configured" : accounts.length === 0 ? "no_connection" : "ready";
+
+  const selectFolder = useCallback(
+    (nextFolderId: string) => {
+      setUrl(mailFolderPatch(nextFolderId, folderList));
+      setSelection(null);
+    },
+    [setUrl, folderList, setSelection],
+  );
+  const folderOptions = useMemo(() => folderList.map((folder) => ({ folderId: folder.folderId, label: mailFolderLabel(folder) })), [folderList]);
+  const sidebar = useMemo(
+    () => (mode === "ready" ? mailSidebarLive({ mailboxes: accounts, folders: folderOptions, folderId, search, onFolder: selectFolder }) : null),
+    [mode, accounts, folderOptions, folderId, search, selectFolder],
+  );
+  useAdminSidebarLive(sidebar);
 
   const actions: Omit<MailViewActions, "compose" | "openSignature"> = {
     connect() {
@@ -260,34 +279,6 @@ export function useMailWorkspace({
       );
     },
     dismissNotice: () => setNotice(null),
-    selectAccount(key) {
-      setAccountChoice(key);
-      setFolderChoice(null);
-      setStart(1);
-      setSelection(null);
-    },
-    selectFolder(nextFolderId) {
-      if (accountKey) setFolderChoice({ accountKey, folderId: nextFolderId });
-      setSearch("");
-      setSearchDraft("");
-      setStart(1);
-      setSelection(null);
-    },
-    setFilter(next) {
-      setFilterState(next);
-      setStart(1);
-    },
-    setSearchDraft,
-    submitSearch() {
-      setSearch(searchDraft.trim());
-      setStart(1);
-      setSelection(null);
-    },
-    clearSearch() {
-      setSearch("");
-      setSearchDraft("");
-      setStart(1);
-    },
     goToStart: (next) => setStart(Math.max(1, next)),
     retryFolders,
     retryList,
@@ -330,11 +321,8 @@ export function useMailWorkspace({
       const sent = folderList.find((folder) => folder.type === "Sent");
       setNotice(null);
       if (!sent) return;
-      if (accountKey) setFolderChoice({ accountKey, folderId: sent.folderId });
-      setSearch("");
-      setSearchDraft("");
+      selectFolder(sent.folderId);
       setStart(1);
-      setSelection(null);
       retryList();
     },
   };
@@ -351,7 +339,6 @@ export function useMailWorkspace({
       folders,
       folderId,
       filter,
-      searchDraft,
       search,
       start,
       pageSize: MAIL_PAGE_SIZE,

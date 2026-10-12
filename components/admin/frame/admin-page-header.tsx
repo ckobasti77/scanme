@@ -4,6 +4,7 @@ import { SlidersHorizontal } from "lucide-react";
 import type { ReactNode } from "react";
 import { adminSecondaryButtonClass } from "@/components/admin/admin-ui/admin-controls";
 import { fmt } from "@/lib/i18n/format";
+import { sidebarHasFilters } from "@/lib/admin-v2/sidebar/accordion";
 import { adminUiSr as dict } from "@/lib/i18n/sr/admin-ui";
 import { cn } from "@/lib/utils";
 import { useAdminFrame } from "./admin-frame-context";
@@ -26,7 +27,7 @@ export function AdminPageHeader({ title, eyebrow, description, badge, actions, c
   const frame = useAdminFrame();
   return (
     <header data-admin-primitive="page-header" className={cn("flex min-w-0 flex-wrap items-end justify-between gap-x-6 gap-y-3", className)}>
-      <div className="grid min-w-0 gap-1">
+      <div className="grid min-w-0 flex-1 basis-72 gap-1">
         {badge ? <div className="mb-0.5">{badge}</div> : null}
         {eyebrow ? <p className="text-xs font-bold tracking-[0.08em] text-[var(--admin-text-muted)] uppercase [overflow-wrap:anywhere]">{eyebrow}</p> : null}
         <h1 className="text-2xl leading-8 font-semibold tracking-[-0.03em] [overflow-wrap:anywhere] lg:text-[1.75rem] lg:leading-[2.125rem]">{title}</h1>
@@ -43,12 +44,14 @@ export function AdminPageHeader({ title, eyebrow, description, badge, actions, c
 }
 
 function FiltersButton({ onOpen }: { onOpen: () => void }) {
-  const { hasFilters, filterCount } = useAdminSidebar();
+  const { config, hasFilters, filterCount } = useAdminSidebar();
   if (!hasFilters) return null;
+  // A page with nothing to filter (only sections, a view or a member list) names what the drawer holds.
+  const label = sidebarHasFilters(config) ? (filterCount ? fmt(dict.filters.toggleCount, { count: filterCount }) : dict.filters.toggle) : (config.context?.list ? config.context.label : config.views?.label) ?? dict.filters.toggle;
   return (
     <button type="button" data-admin-filters-open="" onClick={onOpen} className={cn(adminSecondaryButtonClass, "lg:hidden")}>
       <SlidersHorizontal className="size-4" aria-hidden="true" />
-      {filterCount ? fmt(dict.filters.toggleCount, { count: filterCount }) : dict.filters.toggle}
+      {label}
     </button>
   );
 }

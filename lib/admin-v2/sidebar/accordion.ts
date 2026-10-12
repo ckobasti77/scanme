@@ -33,7 +33,7 @@ export function groupKeys(group: SidebarGroup): readonly string[] {
 /** Text of the current choice in the group header; null = nothing chosen. */
 export function groupSummary(group: SidebarGroup, state: SidebarState, options: readonly SidebarOption[], customSummary?: string): string | null {
   if (group.kind === "custom") return customSummary || null;
-  const value = state[group.id];
+  const value = state[group.id] ?? group.defaultValue;
   if (!value) return null;
   return options.find((option) => option.value === value)?.label ?? value;
 }
@@ -73,7 +73,12 @@ export function activeFilterCount(config: SidebarConfig, state: SidebarState): n
   return count;
 }
 
-/** True when the page has anything to filter with (the phone shows „Filteri“ only then). */
+/** True when the sidebar has something to choose (the phone shows its drawer button only then). */
 export function hasSidebarFilters(config: SidebarConfig): boolean {
-  return Boolean(config.search || config.views || config.sort || config.groups?.some((group) => !group.chipOnly));
+  return Boolean(config.views || sidebarHasFilters(config));
+}
+
+/** True when the page really filters or sorts a list; a page with only sections or a view does not. */
+export function sidebarHasFilters(config: SidebarConfig): boolean {
+  return Boolean(config.search || config.sort || config.groups?.some((group) => !group.chipOnly));
 }

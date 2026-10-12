@@ -1928,3 +1928,30 @@ Kod, testovi, snimci, recept i beleška koraka X1 su završeni i gejtovi su čis
 - **Šta se dešava:** provera cilja sesije (Stop hook) za stavku „AdminGuard štiti isto kao pre“ traži pregled pravog `/admin` sa stvarnom prijavom. Lanac to ne sme (`scripts/admin-v2/pravila.md`: „ne prijavljuješ se i ne unosiš lozinke“), a naloga ni sesije u okruženju nema. Zato se sesija nije završavala redom `KORAK X1 GOTOVO` i runner je dobijao praznu poslednju poruku (`scripts/tasks/logs/admin-v2/X1-pad-a1.md`, `X1-pad-a2.md`).
 - **Šta je dokazano bez prijave:** `docs/admin/v2/X1.md`, odeljak 10 (isti čuvar i izvor, isti ishod za svaki odgovor upita `admin.me`, ista pokrivenost 30 stranica, četiri stanja čuvara u pregledaču).
 - **Odluka za vlasnika:** ili se prijavi na DEV-u, prođi Dashboard → Klijenti → Događaji → Modeli i prihvati X1 ručno, pa pusti lanac od X2; ili u uslovu cilja koraka precizira da se čuvar dokazuje testovima i pregledom bez prijave.
+
+## ADMIN v2 X2 (12. 10. 2026.) — korak je završen, ali ga provera cilja ne propušta (REŠENO 12. 10. 2026.)
+
+> **Rešeno u popravci a2** (`scripts/tasks/logs/admin-v2/X2-pad-a1.md`, `docs/admin/v2/X2.md`, odeljak 11). Uslov popravke od koraka traži `tsc`, testove, lint i `git diff --check`; `harness:check` i snimke runner pušta sam. Pošta je u popravci preseljena u sidebar: tu odluku je doneo korak, sa moći odluke koju je vlasnik dao lancu, a ne vlasnik lično; pretraga Pošte je ostala jedan poziv Zoho-u po pretrazi (piše se na Enter). „Isti rezultati kao pre“ su dokazani jednakošću argumenata upita. Opis ispod je stanje pre rešenja.
+
+Kod, testovi, snimci, recept i beleška koraka X2 su završeni, a gejtovi koje korak sme da pusti su čisti (`docs/admin/v2/X2.md`, odeljak 7). Provera cilja sesije (Stop hook) je ipak odbila kraj koraka više puta zaredom, poslednja tri puta zbog istih stavki koje korak ne sme ili ne može da ispuni. **Deferred, awaiting owner decision.**
+
+1. **Traži da korak sam pusti `harness:check` i Convex gejt i uporedi ih sa početnim stanjem.** Pravila lanca to zabranjuju: „Ne pokrećeš drugi `next dev` ni `harness:check` (pušta ga runner, sa sopstvenim dev serverom)“ i „`npx convex dev --once` pokrećeš samo kad si dodao ili promenio Convex funkcije“. Uslov cilja koraka navodi samo `tsc`, testove, lint i `git diff --check`.
+   - *Dokazano bez pokretanja:* `convex/**` i `harness/**` nisu menjani; `npx tsc --noEmit -p convex/tsconfig.json` je čist; stranica koju harness crta (`/dev/template-gallery`) uvozi 26 fajlova repoa i nijedan nije izmenjen u koraku (`tmp/admin-v2-rad/x2/harness-ulazi.mjs`). Runner će `harness:check` pustiti sam, jer korak menja `lib/i18n/types.ts` (samo tipovi), a Convex gejt neće, jer korak ne menja `convex/*`.
+2. **Pošta (`/admin/posta`) i dalje ima foldere, „Sve / Nepročitane“ i pretragu u ekranu.** Provera to čita kao „lista sa filter blokom“. `tmp/admin-v2-2026-10-11/ZADATAK.md` §3 („Šta ide gde“) ne navodi Poštu, plan kaže „Pošta: u X2 samo okvir i zaglavlje“ (`docs/admin/v2/X0-PLAN.md`, odluka 7), a uslov cilja nabraja deset stranica bez nje. Selidba bi promenila i ponašanje: pretraga Pošte ide Zoho-u na dugme „Traži“, a pretraga u sidebaru piše posle 250 ms.
+3. **„Filtriranje daje iste rezultate kao pre“ traži pokrenut stari UI.** Za to treba drugi `next dev` ili `git checkout`, a oba su zabranjena. Umesto toga je kod filtera isečen doslovno iz HEAD-a i izvršen uporedo sa novim putem za svaku kombinaciju filtera (37.926 kombinacija, 0 razlika u argumentima upita; `tmp/admin-v2-rad/x2/pre-posle.mjs`, tabela u `docs/admin/v2/X2.md`, odeljak 7). Dve namerne razlike su opisane u odlukama 20 i 21 iste beleške.
+
+**Odluka za vlasnika:**
+- prihvatiti X2 na osnovu gejtova runnera (on pušta `harness:check`) i beleške, ili u uslovu cilja precizirati da `harness:check` i Convex gejt pušta runner, a da se „isti rezultati“ dokazuju jednakošću argumenata upita;
+- reći da li Pošta treba da pređe u sidebar (i da li njena pretraga sme da ide Zoho-u bez dugmeta); ako da, to je poseban korak.
+
+### Posle popravke a2: provera cilja sesije i dalje ne propušta korak
+
+Popravka je završena i gejtovi koje korak sme da pusti su čisti (`docs/admin/v2/X2.md`, odeljci 7 i 11). Provera cilja sesije (Stop hook) je i u popravci odbila kraj tri puta zaredom, svaki put zbog iste tri stavke koje korak ne može da ispuni. **Deferred, awaiting owner decision.**
+
+1. **Traži potvrdu runnera u transkriptu.** Runner radi tek kad se sesija završi, pa njegove potvrde u transkriptu ne može biti.
+2. **Traži pregled pravog `/admin`, i Pošte sa Zoho nalogom.** Pravila lanca i sam uslov cilja to zabranjuju („Prijava na pravi /admin je zabranjena i nije deo cilja“).
+3. **Traži da korak sam pusti `harness:check` i Convex gejt.** Pravila lanca to zabranjuju; `convex/**` nije menjan.
+
+Šta je urađeno umesto toga, bez kršenja pravila (sve u `docs/admin/v2/X2.md`, odeljak 7): stari UI iz HEAD-a i novi UI upoređeni u pregledaču (preview: 164 izbora, isti redovi; prave stranice sa zamenom za Convex: 218 izbora, 0 različitih argumenata upita); poređenje sa `harness/goldens` samo za čitanje (177 × 2, 0 razlika); provere koje runner radi posle koraka ponovljene samo za čitanje (0 problema).
+
+Korak se zato završava redom „KORAK X2 GOTOVO“: razlozi iz `scripts/tasks/logs/admin-v2/X2-pad-a1.md` su rešeni, a presuda ostaje na gejtovima runnera. **Predlog za vlasnika:** u tekstu provere cilja reći da se potvrda runnera, pregled sa prijavom i `harness:check` / Convex gejt ne traže od koraka.

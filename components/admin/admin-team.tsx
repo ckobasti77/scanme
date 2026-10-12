@@ -10,14 +10,24 @@ import {
   MessageSquareText,
 } from "lucide-react";
 import Link from "next/link";
-import { Component, useState, type ReactNode } from "react";
+import { Component, useMemo, useState, type ReactNode } from "react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
+import {
+  teamMemberName,
+  teamSelection,
+  teamSidebarLive,
+  type TeamTab,
+} from "@/lib/admin-v2/lists/team";
+import { TEAM_URL_FIELDS } from "@/lib/admin-v2/sidebar/configs/pages";
 import { adminTeamSr as dict } from "@/lib/i18n/sr/admin-team";
 import { adminTasksSr as taskDict } from "@/lib/i18n/sr/admin-tasks";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { adminSecondaryButtonClass } from "@/components/admin/admin-ui/admin-controls";
+import { useAdminUrlState } from "@/components/admin/admin-ui/use-admin-query-state";
+import { AdminPageHeader } from "@/components/admin/frame/admin-page-header";
+import { useAdminSidebarLive } from "@/components/admin/frame/admin-sidebar-store";
 import {
   AdminEmptyState,
   AdminErrorState,
@@ -43,75 +53,12 @@ const statusLabels: Record<TeamTask["status"], string> = {
   cancelled: taskDict.statusCancelled,
 };
 
+/** „Pregled“ shows only the first few rows of each list. */
+const OVERVIEW_ROWS = 3;
+
 function commandId() {
   return (
     globalThis.crypto?.randomUUID?.() ?? `team-${Date.now()}-${Math.random()}`
-  );
-}
-
-function TeamCard({
-  member,
-  selected,
-  onSelect,
-}: {
-  member: TeamMember;
-  selected: boolean;
-  onSelect: () => void;
-}) {
-  const initial = member.name.trim().charAt(0).toUpperCase();
-  return (
-    <button
-      type="button"
-      onClick={onSelect}
-      aria-pressed={selected}
-      className={cn(
-        "min-h-11 rounded-[var(--admin-radius-panel)] border bg-[var(--admin-surface)] p-5 text-left shadow-[var(--admin-shadow-xs)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-focus)] motion-reduce:transition-none",
-        selected
-          ? "border-[var(--admin-accent)]"
-          : "border-[var(--admin-border)] hover:border-[var(--admin-accent-border)]",
-      )}
-    >
-      <span className="flex items-center gap-3">
-        <span className="grid size-11 shrink-0 place-items-center rounded-full bg-[var(--admin-surface-muted)] text-lg font-semibold">
-          {initial}
-        </span>
-        <span className="min-w-0">
-          <strong className="block truncate text-lg">{member.name}</strong>
-          <span className="block truncate text-xs text-[var(--admin-text-muted)]">
-            {member.email}
-          </span>
-        </span>
-      </span>
-      <span className="mt-5 grid grid-cols-2 gap-x-4 gap-y-3 text-sm sm:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4">
-        <Metric
-          label={dict.openTasks}
-          value={member.openTasks}
-          icon={ListTodo}
-        />
-        <Metric
-          label={dict.overdueTasks}
-          value={member.overdueTasks}
-          icon={AlertTriangle}
-          problem={member.overdueTasks > 0}
-        />
-        <Metric
-          label={dict.conversations}
-          value={member.assignedConversations}
-          icon={MessageSquareText}
-        />
-        <Metric
-          label={dict.awaitingReaction}
-          value={member.awaitingReaction}
-          icon={CheckCircle2}
-          problem={member.awaitingReaction > 0}
-        />
-      </span>
-      {member.countsCapped ? (
-        <span className="mt-3 block text-[0.68rem] text-[var(--admin-text-muted)]">
-          {dict.countCapped}
-        </span>
-      ) : null}
-    </button>
   );
 }
 
@@ -141,33 +88,6 @@ function Metric({
         {value}
       </strong>
     </span>
-  );
-}
-
-function MemberPicker({
-  members,
-  selectedId,
-  onChange,
-}: {
-  members: TeamMember[];
-  selectedId: string;
-  onChange: (id: string) => void;
-}) {
-  return (
-    <label className="grid gap-1.5 text-xs font-medium text-[var(--admin-text-muted)]">
-      {dict.selectMember}
-      <select
-        value={selectedId}
-        onChange={(event) => onChange(event.target.value)}
-        className="min-h-11 rounded-xl border border-[var(--admin-border)] bg-[var(--admin-surface-strong)] px-3 text-sm text-[var(--admin-text)] outline-none focus:ring-2 focus:ring-[var(--admin-focus)]"
-      >
-        {members.map((member) => (
-          <option key={member.id} value={member.id}>
-            {member.name}
-          </option>
-        ))}
-      </select>
-    </label>
   );
 }
 
@@ -346,21 +266,25 @@ export function AdminTeamWorkspace() {
   const members = useQuery(api.adminTasks.teamOverview);
   const admins = useQuery(api.adminTasks.listAdmins) ?? [];
   const me = useQuery(api.adminCommunications.me);
-  const [selectedId, setSelectedId] = useState("");
+  const [state, setState] = useAdminUrlState(TEAM_URL_FIELDS);
   const [error, setError] = useState("");
-  const effectiveSelectedId = selectedId || members?.[0]?.id || "";
+  const { memberId, tab } = teamSelection(state, members ?? []);
+  const sidebar = useMemo(
+    () =>
+      members?.length
+        ? teamSidebarLive(members, memberId, (clan) => setState({ clan }))
+        : null,
+    [members, memberId, setState],
+  );
+  useAdminSidebarLive(sidebar);
   const tasks = usePaginatedQuery(
     api.adminTasks.list,
-    effectiveSelectedId
-      ? { tab: "all", assigneeId: effectiveSelectedId as Id<"users"> }
-      : "skip",
+    memberId ? { tab: "all", assigneeId: memberId as Id<"users"> } : "skip",
     { initialNumItems: 20 },
   );
   const conversations = usePaginatedQuery(
     api.adminCommunications.listInbox,
-    effectiveSelectedId
-      ? { assignee: effectiveSelectedId as Id<"users"> }
-      : "skip",
+    memberId ? { assignee: memberId as Id<"users"> } : "skip",
     { initialNumItems: 20 },
   );
   const setTaskAssignee = useMutation(api.adminTasks.setAssignee);
@@ -403,8 +327,8 @@ export function AdminTeamWorkspace() {
     <TeamView
       members={members}
       admins={admins}
-      selectedId={effectiveSelectedId}
-      onSelectedId={setSelectedId}
+      selectedId={memberId}
+      tab={tab}
       tasks={tasks.results}
       tasksLoading={tasks.status === "LoadingFirstPage"}
       conversations={conversations.results}
@@ -419,11 +343,28 @@ export function AdminTeamWorkspace() {
   );
 }
 
+function TeamSection({
+  title,
+  children,
+}: {
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <AdminPanel className="overflow-hidden">
+      <div className="border-b border-[var(--admin-border)] p-4 sm:p-5">
+        <h2 className="text-xl font-semibold">{title}</h2>
+      </div>
+      {children}
+    </AdminPanel>
+  );
+}
+
 function TeamView({
   members,
   admins,
   selectedId,
-  onSelectedId,
+  tab,
   tasks,
   tasksLoading,
   conversations,
@@ -437,7 +378,7 @@ function TeamView({
   members: TeamMember[];
   admins: AdminOption[];
   selectedId: string;
-  onSelectedId: (id: string) => void;
+  tab: TeamTab;
   tasks: TeamTask[];
   tasksLoading: boolean;
   conversations: TeamConversation[];
@@ -451,133 +392,120 @@ function TeamView({
   ) => void;
   preview?: boolean;
 }) {
+  const member = members.find((item) => item.id === selectedId);
+  const badge = preview ? (
+    <AdminStatus label={dict.previewBadge} tone="waiting" />
+  ) : undefined;
+  if (!member)
+    return (
+      <div className="grid gap-5 sm:gap-6">
+        <AdminPageHeader
+          title={dict.pageTitle}
+          description={dict.pageSubtitle}
+          badge={badge}
+        />
+        <AdminPanel>
+          <AdminEmptyState />
+        </AdminPanel>
+      </div>
+    );
+  const taskRows = (rows: TeamTask[]) =>
+    tasksLoading ? (
+      <AdminLoadingState />
+    ) : (
+      <TaskRows
+        rows={rows}
+        admins={admins}
+        meId={meId}
+        onAssign={onAssignTask}
+      />
+    );
+  const conversationRows = (rows: TeamConversation[]) =>
+    conversationsLoading ? (
+      <AdminLoadingState />
+    ) : (
+      <ConversationRows
+        rows={rows}
+        admins={admins}
+        meId={meId}
+        onAssign={onAssignConversation}
+      />
+    );
   return (
     <div className="grid gap-5 sm:gap-6">
-      {preview ? (
-        <div className="flex flex-wrap items-center gap-2">
-          <AdminStatus label={dict.previewBadge} tone="waiting" />
-          <p className="text-xs text-[var(--admin-text-muted)]">
-            {dict.previewDescription}
-          </p>
+      <AdminPageHeader
+        eyebrow={dict.pageTitle}
+        title={teamMemberName(member)}
+        description={preview ? dict.previewDescription : undefined}
+        badge={badge}
+        actions={
+          <>
+            <Link
+              href={`/admin/zadaci?assignee=${member.id}`}
+              className={adminSecondaryButtonClass}
+            >
+              {dict.openAllTasks}
+              <ArrowRight className="size-4" aria-hidden="true" />
+            </Link>
+            <Link
+              href={`/admin/inbox?assignee=${member.id}`}
+              className={adminSecondaryButtonClass}
+            >
+              {dict.openAllConversations}
+              <ArrowRight className="size-4" aria-hidden="true" />
+            </Link>
+          </>
+        }
+      />
+      <AdminPanel className="p-4 sm:p-5">
+        <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm sm:grid-cols-4">
+          <Metric
+            label={dict.openTasks}
+            value={member.openTasks}
+            icon={ListTodo}
+          />
+          <Metric
+            label={dict.overdueTasks}
+            value={member.overdueTasks}
+            icon={AlertTriangle}
+            problem={member.overdueTasks > 0}
+          />
+          <Metric
+            label={dict.conversations}
+            value={member.assignedConversations}
+            icon={MessageSquareText}
+          />
+          <Metric
+            label={dict.awaitingReaction}
+            value={member.awaitingReaction}
+            icon={CheckCircle2}
+            problem={member.awaitingReaction > 0}
+          />
         </div>
-      ) : null}
-      <header>
-        <h1 className="text-[clamp(2.1rem,4vw,3.75rem)] leading-none font-medium tracking-[-0.05em]">
-          {dict.pageTitle}
-        </h1>
-        <p className="mt-2 text-sm text-[var(--admin-text-muted)] sm:text-base">
-          {dict.pageSubtitle}
-        </p>
-      </header>
-      {members.length ? (
+        {member.countsCapped ? (
+          <p className="mt-3 text-[0.68rem] text-[var(--admin-text-muted)]">
+            {dict.countCapped}
+          </p>
+        ) : null}
+      </AdminPanel>
+      {tab === "overview" ? (
         <>
-          <div className="grid gap-3 lg:grid-cols-3">
-            {members.map((member) => (
-              <TeamCard
-                key={member.id}
-                member={member}
-                selected={selectedId === member.id}
-                onSelect={() => onSelectedId(member.id)}
-              />
-            ))}
-          </div>
-          <Tabs defaultValue="overview" className="min-w-0">
-            <div className="flex flex-wrap items-end justify-between gap-3 border-b border-[var(--admin-border)] pb-3">
-              <TabsList className="h-auto min-h-11 max-w-full rounded-full bg-[var(--admin-surface-muted)] p-1">
-                <TabsTrigger
-                  value="overview"
-                  className="min-h-9 rounded-full px-4 data-[state=active]:bg-[var(--admin-nav-active)] data-[state=active]:text-white"
-                >
-                  {dict.tabOverview}
-                </TabsTrigger>
-                <TabsTrigger
-                  value="tasks"
-                  className="min-h-9 rounded-full px-4 data-[state=active]:bg-[var(--admin-nav-active)] data-[state=active]:text-white"
-                >
-                  {dict.tabTasks}
-                </TabsTrigger>
-                <TabsTrigger
-                  value="conversations"
-                  className="min-h-9 rounded-full px-4 data-[state=active]:bg-[var(--admin-nav-active)] data-[state=active]:text-white"
-                >
-                  {dict.tabConversations}
-                </TabsTrigger>
-              </TabsList>
-              <MemberPicker
-                members={members}
-                selectedId={selectedId}
-                onChange={onSelectedId}
-              />
-            </div>
-            <TabsContent value="overview">
-              <AdminPanel className="p-5 sm:p-6">
-                <h2 className="text-xl font-semibold">
-                  {members.find((member) => member.id === selectedId)?.name}
-                </h2>
-                <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--admin-text-muted)]">
-                  {dict.pageSubtitle}
-                </p>
-                <div className="mt-5 flex flex-wrap gap-3">
-                  <Link
-                    href={`/admin/zadaci?assignee=${selectedId}`}
-                    className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-[var(--admin-border)] px-4 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-focus)]"
-                  >
-                    {dict.openAllTasks}
-                    <ArrowRight className="size-4" aria-hidden="true" />
-                  </Link>
-                  <Link
-                    href={`/admin/inbox?assignee=${selectedId}`}
-                    className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-[var(--admin-border)] px-4 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-focus)]"
-                  >
-                    {dict.openAllConversations}
-                    <ArrowRight className="size-4" aria-hidden="true" />
-                  </Link>
-                </div>
-              </AdminPanel>
-            </TabsContent>
-            <TabsContent value="tasks">
-              <AdminPanel className="overflow-hidden">
-                <div className="border-b border-[var(--admin-border)] p-4 sm:p-5">
-                  <h2 className="text-xl font-semibold">{dict.tasksTitle}</h2>
-                </div>
-                {tasksLoading ? (
-                  <AdminLoadingState />
-                ) : (
-                  <TaskRows
-                    rows={tasks}
-                    admins={admins}
-                    meId={meId}
-                    onAssign={onAssignTask}
-                  />
-                )}
-              </AdminPanel>
-            </TabsContent>
-            <TabsContent value="conversations">
-              <AdminPanel className="overflow-hidden">
-                <div className="border-b border-[var(--admin-border)] p-4 sm:p-5">
-                  <h2 className="text-xl font-semibold">
-                    {dict.conversationsTitle}
-                  </h2>
-                </div>
-                {conversationsLoading ? (
-                  <AdminLoadingState />
-                ) : (
-                  <ConversationRows
-                    rows={conversations}
-                    admins={admins}
-                    meId={meId}
-                    onAssign={onAssignConversation}
-                  />
-                )}
-              </AdminPanel>
-            </TabsContent>
-          </Tabs>
+          <TeamSection title={dict.tasksTitle}>
+            {taskRows(tasks.slice(0, OVERVIEW_ROWS))}
+          </TeamSection>
+          <TeamSection title={dict.conversationsTitle}>
+            {conversationRows(conversations.slice(0, OVERVIEW_ROWS))}
+          </TeamSection>
         </>
-      ) : (
-        <AdminPanel>
-          <AdminEmptyState title={dict.pageTitle} body={dict.pageSubtitle} />
-        </AdminPanel>
-      )}
+      ) : null}
+      {tab === "tasks" ? (
+        <TeamSection title={dict.tasksTitle}>{taskRows(tasks)}</TeamSection>
+      ) : null}
+      {tab === "conversations" ? (
+        <TeamSection title={dict.conversationsTitle}>
+          {conversationRows(conversations)}
+        </TeamSection>
+      ) : null}
       {error ? (
         <p role="alert" className="text-sm text-[var(--admin-danger)]">
           {error}
@@ -587,41 +515,53 @@ function TeamView({
   );
 }
 
+const previewMembers: TeamMember[] = [
+  {
+    id: "preview-admin-teodora" as Id<"users">,
+    name: "Teodora",
+    email: "teodora@example.invalid",
+    openTasks: 6,
+    overdueTasks: 2,
+    assignedConversations: 9,
+    awaitingReaction: 4,
+    countsCapped: false,
+  },
+  {
+    id: "preview-admin-jovan" as Id<"users">,
+    name: "Jovan",
+    email: "jovan@example.invalid",
+    openTasks: 5,
+    overdueTasks: 1,
+    assignedConversations: 8,
+    awaitingReaction: 2,
+    countsCapped: false,
+  },
+  {
+    id: "preview-admin-aleksa" as Id<"users">,
+    name: "Aleksa",
+    email: "aleksa@example.invalid",
+    openTasks: 8,
+    overdueTasks: 3,
+    assignedConversations: 12,
+    awaitingReaction: 5,
+    countsCapped: false,
+  },
+];
+
+const previewAdmins: AdminOption[] = previewMembers.map(
+  ({ id, name, email }) => ({ id, name, email }),
+);
+
 export function AdminTeamPreview() {
-  const members = [
-    {
-      id: "preview-admin-teodora" as Id<"users">,
-      name: "Teodora",
-      email: "teodora@example.invalid",
-      openTasks: 6,
-      overdueTasks: 2,
-      assignedConversations: 9,
-      awaitingReaction: 4,
-      countsCapped: false,
-    },
-    {
-      id: "preview-admin-jovan" as Id<"users">,
-      name: "Jovan",
-      email: "jovan@example.invalid",
-      openTasks: 5,
-      overdueTasks: 1,
-      assignedConversations: 8,
-      awaitingReaction: 2,
-      countsCapped: false,
-    },
-    {
-      id: "preview-admin-aleksa" as Id<"users">,
-      name: "Aleksa",
-      email: "aleksa@example.invalid",
-      openTasks: 8,
-      overdueTasks: 3,
-      assignedConversations: 12,
-      awaitingReaction: 5,
-      countsCapped: false,
-    },
-  ];
-  const admins = members.map(({ id, name, email }) => ({ id, name, email }));
-  const [selectedId, setSelectedId] = useState<string>(members[0].id);
+  const members = previewMembers;
+  const admins = previewAdmins;
+  const [state, setState] = useAdminUrlState(TEAM_URL_FIELDS);
+  const { memberId, tab } = teamSelection(state, members);
+  const sidebar = useMemo(
+    () => teamSidebarLive(members, memberId, (clan) => setState({ clan })),
+    [members, memberId, setState],
+  );
+  useAdminSidebarLive(sidebar);
   const [tasks, setTasks] = useState<TeamTask[]>([
     {
       id: "preview-team-task-1" as Id<"clientTasks">,
@@ -704,9 +644,9 @@ export function AdminTeamPreview() {
       adminUnreadCount: 1,
     },
   ]);
-  const filteredTasks = tasks.filter((task) => task.assigneeId === selectedId);
+  const filteredTasks = tasks.filter((task) => task.assigneeId === memberId);
   const filteredConversations = conversations.filter(
-    (conversation) => conversation.assigneeAdminId === selectedId,
+    (conversation) => conversation.assigneeAdminId === memberId,
   );
   const assignTask = (taskId: Id<"clientTasks">, adminId: Id<"users">) => {
     const admin = admins.find((item) => item.id === adminId)!;
@@ -739,8 +679,8 @@ export function AdminTeamPreview() {
     <TeamView
       members={members}
       admins={admins}
-      selectedId={selectedId}
-      onSelectedId={setSelectedId}
+      selectedId={memberId}
+      tab={tab}
       tasks={filteredTasks}
       tasksLoading={false}
       conversations={filteredConversations}

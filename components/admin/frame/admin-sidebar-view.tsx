@@ -12,7 +12,7 @@ import {
   groupSummary,
   sidebarChips,
 } from "@/lib/admin-v2/sidebar/accordion";
-import type { SidebarConfig, SidebarLive, SidebarOption, SidebarPatch, SidebarState } from "@/lib/admin-v2/sidebar/types";
+import type { SidebarConfig, SidebarLive, SidebarMission, SidebarOption, SidebarPatch, SidebarState } from "@/lib/admin-v2/sidebar/types";
 import { fmt } from "@/lib/i18n/format";
 import { adminUiSr as dict } from "@/lib/i18n/sr/admin-ui";
 import { cn } from "@/lib/utils";
@@ -22,7 +22,8 @@ import { AdminSearchSelect } from "./admin-search-select";
 // Top to bottom: the context of the area, its sub-pages, the views, the page
 // search, the filter groups as an accordion (at most one open; up to 7
 // options a radio list, more a search-select), the chips of the active
-// filters with "Očisti sve", the sort. Presentational: `config` comes from
+// filters with "Očisti sve", the sort, „Misije danas“ and the quick jumps
+// (Dashboard). Presentational: `config` comes from
 // the registry, `live` from the page, `state` from the URL; a choice is
 // written at once through `onPatch` (no "Primeni"). The same component fills
 // the desktop sidebar and the phone drawer (`large` = 44 px targets).
@@ -32,6 +33,8 @@ const URGENCY_TONES: Record<AdminUrgencyTone, string> = {
   uskoro: "border-[var(--admin-warning-border)] bg-[var(--admin-warning-soft)] text-[var(--admin-warning)]",
   info: "border-[var(--admin-border)] bg-[var(--admin-surface-muted)] text-[var(--admin-text-muted)]",
 };
+
+const MISSION_ORDER: Record<AdminUrgencyTone, number> = { hitno: 0, uskoro: 1, info: 2 };
 
 const blockLabel = "px-2 pb-1 text-[0.67rem] font-bold tracking-[0.08em] text-[var(--admin-text-muted)] uppercase";
 /** The typed text waits this long before it is written to the URL. */
@@ -63,7 +66,19 @@ export function AdminSidebarView({ config, live = {}, state, onPatch, large, jum
 
   return (
     <div className="grid min-w-0 gap-4">
-      {config.context && live.context ? (
+      {config.context?.list && live.context ? (
+        <Choice
+          block="nav"
+          title={config.context.label}
+          name={`${uid}-${config.context.id}`}
+          options={live.context.options}
+          value={live.context.value}
+          row={row}
+          onChange={(value) => {
+            if (value !== live.context?.value) live.context?.onChange(value);
+          }}
+        />
+      ) : config.context && live.context ? (
         <div data-sidebar-block="nav" className="min-w-0 border-b border-[var(--admin-border)] pb-1">
           <Group
             uid={uid}
@@ -120,6 +135,7 @@ export function AdminSidebarView({ config, live = {}, state, onPatch, large, jum
             value={state[config.search.key] ?? ""}
             onChange={(value) => onPatch({ [config.search!.key]: value || null })}
             row={large ? "min-h-11" : "min-h-10"}
+            submit={config.search.submit}
           />
         </div>
       ) : null}
@@ -132,18 +148,23 @@ export function AdminSidebarView({ config, live = {}, state, onPatch, large, jum
               const options = groupOptions(group, live.options);
               const custom = live.custom?.[group.id];
               const isOpen = open === group.id;
+              // A default only the page knows (Pošta: the first mailbox) acts like the configured one.
+              const fallback = group.defaultValue ?? live.defaults?.[group.id];
               return (
                 <div key={group.id} className="border-b border-[var(--admin-border)] px-1 last:border-b-0">
-                  <Group uid={uid} id={group.id} label={group.label} summary={groupSummary(group, state, options, custom?.summary)} open={isOpen} onToggle={toggle} onClose={close} row="min-h-11">
+                  <Group uid={uid} id={group.id} label={group.label} summary={groupSummary({ ...group, defaultValue: fallback }, state, options, custom?.summary)} open={isOpen} onToggle={toggle} onClose={close} row="min-h-11">
                     {group.kind === "custom" ? (
                       <div className="px-2 pb-3">{custom?.body}</div>
+                    ) : !options.length && group.emptyText ? (
+                      <p className="px-2 pb-3 text-sm leading-5 text-[var(--admin-text-muted)]">{group.emptyText}</p>
                     ) : (
                       <Options
                         name={`${uid}-${group.id}`}
                         labelledBy={`${uid}-${group.id}-toggle`}
                         label={group.label}
                         options={options}
-                        value={state[group.id]}
+                        value={state[group.id] ?? fallback}
+                        required={Boolean(fallback)}
                         open={isOpen}
                         large={large}
                         onChange={(value) => onPatch({ [group.id]: value })}
@@ -192,6 +213,8 @@ export function AdminSidebarView({ config, live = {}, state, onPatch, large, jum
           onChange={(value) => onPatch({ [config.sort!.key]: value })}
         />
       ) : null}
+
+      {config.blocks?.includes("missions") && live.missions ? <Missions missions={live.missions} row={row} /> : null}
 
       {config.blocks?.includes("jumps") && jumps.length ? (
         <nav data-sidebar-block="nav" aria-label={dict.frame.jumpsTitle} className="grid min-w-0 gap-0.5">
@@ -249,22 +272,24 @@ function Group({ uid, id, label, summary, open, onToggle, onClose, row, children
 }
 
 /** Up to 7 options: a radio list; more: a search-select (ZADATAK §3). */
-function Options({ name, labelledBy, label, options, value, open, large, onChange }: {
+function Options({ name, labelledBy, label, options, value, required, open, large, onChange }: {
   name: string;
   labelledBy: string;
   label: string;
   options: readonly SidebarOption[];
   value: string | undefined;
+  /** The group always has a value: no "Sve". */
+  required?: boolean;
   open: boolean;
   large?: boolean;
   onChange: (value: string | null) => void;
 }) {
   if (groupControlKind(options.length) === "search") {
-    return <div className="px-1 pb-2"><AdminSearchSelect label={label} options={options} value={value} anyLabel={dict.filters.any} onChange={onChange} open={open} large={large} /></div>;
+    return <div className="px-1 pb-2"><AdminSearchSelect label={label} options={options} value={value} anyLabel={required ? null : dict.filters.any} onChange={onChange} open={open} large={large} /></div>;
   }
   return (
     <div role="radiogroup" aria-labelledby={labelledBy} className="grid min-w-0 gap-px pb-2">
-      <Radio name={name} label={dict.filters.any} checked={!value} large={large} onChange={() => onChange(null)} />
+      {required ? null : <Radio name={name} label={dict.filters.any} checked={!value} large={large} onChange={() => onChange(null)} />}
       {options.map((option) => (
         <Radio key={option.value} name={name} label={option.label} count={option.count} checked={value === option.value} large={large} onChange={() => onChange(option.value)} />
       ))}
@@ -318,7 +343,49 @@ function Choice({ block, title, name, options, counts, value, row, onChange }: {
   );
 }
 
-function SearchField({ value, onChange, label, placeholder, row }: { value: string; onChange: (value: string) => void; label: string; placeholder?: string; row: string }) {
+/** „Misije danas“: what waits for a reaction, from data the page already has (the progress is X4). */
+function Missions({ missions, row }: { missions: readonly SidebarMission[]; row: string }) {
+  // The most urgent first, whatever the order the widgets of the page sent them in.
+  const open = missions.filter((mission) => mission.count > 0).sort((left, right) => MISSION_ORDER[left.tone] - MISSION_ORDER[right.tone]);
+  return (
+    <section data-sidebar-block="nav" aria-label={dict.frame.missionsTitle} className="grid min-w-0 gap-0.5">
+      <p className={blockLabel}>{dict.frame.missionsTitle}</p>
+      {open.length ? (
+        <ul className="grid min-w-0 gap-0.5">
+          {open.map((mission) => {
+            const content = (
+              <>
+                <span className="min-w-0 truncate">{mission.label}</span>
+                <span data-urgency={mission.tone} className={cn("inline-flex min-w-5 shrink-0 items-center justify-center rounded-full border px-1.5 text-[0.68rem] leading-5 font-bold tabular-nums", URGENCY_TONES[mission.tone])}>
+                  <span aria-hidden="true">{mission.count}</span>
+                  <span className="sr-only">{fmt(dict.urgency[mission.tone], { count: mission.count })}</span>
+                </span>
+              </>
+            );
+            const className = cn("flex min-w-0 items-center justify-between gap-2 rounded-lg px-2 text-sm", row);
+            return (
+              <li key={mission.id} className="min-w-0">
+                {mission.href ? <Link href={mission.href} className={cn(className, "hover:bg-[var(--admin-surface-muted)]")}>{content}</Link> : <div className={className}>{content}</div>}
+              </li>
+            );
+          })}
+        </ul>
+      ) : (
+        <p className="px-2 py-1.5 text-sm leading-5 text-[var(--admin-text-muted)]">{dict.frame.missionsClear}</p>
+      )}
+    </section>
+  );
+}
+
+function SearchField({ value, onChange, label, placeholder, row, submit }: {
+  value: string;
+  onChange: (value: string) => void;
+  label: string;
+  placeholder?: string;
+  row: string;
+  /** Written on Enter (`SidebarSearch.submit`); emptying the field removes the search at once. */
+  submit?: boolean;
+}) {
   const id = useId();
   const [text, setText] = useState(value);
   // The last value seen from the URL: a change from outside (a chip, "Očisti sve", Back) replaces the text unless the user is still typing.
@@ -335,6 +402,10 @@ function SearchField({ value, onChange, label, placeholder, row }: { value: stri
 
   function change(next: string) {
     setText(next);
+    if (submit) {
+      if (!next && value) onChange("");
+      return;
+    }
     setTyping(true);
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => {
@@ -356,10 +427,16 @@ function SearchField({ value, onChange, label, placeholder, row }: { value: stri
           placeholder={placeholder}
           autoComplete="off"
           spellCheck={false}
+          enterKeyHint={submit ? "search" : undefined}
+          aria-describedby={submit ? `${id}-hint` : undefined}
           onChange={(event) => change(event.target.value)}
+          onKeyDown={submit ? (event) => {
+            if (event.key === "Enter") onChange(text.trim());
+          } : undefined}
           className={cn("w-full min-w-0 rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface-strong)] pr-3 pl-9 text-sm max-sm:text-base", row)}
         />
       </div>
+      {submit ? <p id={`${id}-hint`} className="px-2 text-xs leading-5 text-[var(--admin-text-muted)]">{dict.filters.searchOnEnter}</p> : null}
     </div>
   );
 }

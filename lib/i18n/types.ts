@@ -3083,6 +3083,19 @@ export interface AdminV1Dict {
   dashboardWidgetErrorBody: string;
   dashboardFixtureBadge: string;
   dashboardFixtureDescription: string;
+  /** ADMIN v2 X2 — quick jumps of the Dashboard sidebar (lists opened with a filter). */
+  dashboardJumpTasksOverdue: string;
+  dashboardJumpTasksToday: string;
+  dashboardJumpInboxReply: string;
+  dashboardJumpOrdersProblem: string;
+  dashboardJumpQrProblem: string;
+  dashboardJumpVenuesProblem: string;
+  /** ADMIN v2 X2 — „Misije danas“ of the Dashboard sidebar. */
+  dashboardMissionUrgent: string;
+  dashboardMissionToday: string;
+  dashboardMissionTasksOverdue: string;
+  dashboardMissionTasksToday: string;
+  dashboardMissionInboxUnread: string;
   moduleUnavailableTitle: string;
   moduleUnavailableBody: string;
   loadingLabel: string;
@@ -3312,6 +3325,8 @@ export interface AdminTasksDict {
   filterClient: string;
   filterVenue: string;
   filterSubject: string;
+  /** ADMIN v2 X2 — shown in the sidebar group „Lokal“ until a client is chosen. */
+  filterVenueNeedsClient: string;
   filterAll: string;
   noVenue: string;
   subjectNone: string;
@@ -3961,6 +3976,11 @@ export interface AdminSearchDict {
   activitySubtitle: string;
   activityAllCategories: string;
   activityAllActors: string;
+  /** ADMIN v2 X2 — names of the sidebar groups of Pretraga. */
+  groupLabel: string;
+  activityCategoryLabel: string;
+  activityActorLabel: string;
+  scopeLabel: string;
   activityClient: string;
   activityCommunication: string;
   activityTask: string;
@@ -5995,6 +6015,13 @@ export interface AdminUiDict {
     /** {count} matching options (screen reader). */
     matchesAnnounce: string;
     period: string;
+    /** ADMIN v2 X2 — the name of a status group in the sidebar. */
+    status: string;
+    /** ADMIN v2 X2 — labels of the views block: sections of a page (Podešavanja, profil) and its view (Tim, Finansije, Pretraga). */
+    sections: string;
+    view: string;
+    /** ADMIN v2 X2 — under a sidebar search that is written on Enter (Pošta). */
+    searchOnEnter: string;
   };
   /** ADMIN v2 — the frame: sidebar, navbar, screen and the phone drawer. */
   frame: {
@@ -6007,6 +6034,11 @@ export interface AdminUiDict {
     search: string;
     searchShortcut: string;
     jumpsTitle: string;
+    /** ADMIN v2 X2 — label of the sub-page navigation of an area (Operativa, Usluge) for assistive technology. */
+    areaNav: string;
+    /** ADMIN v2 X2 — „Misije danas“ in the Dashboard sidebar. */
+    missionsTitle: string;
+    missionsClear: string;
   };
   /** A3 — AdminHierarchyPicker (Izlagač → Brend → Model). */
   hierarchy: {
@@ -6083,6 +6115,8 @@ export interface PostaDict {
   searchClear: string;
   /** {query}. */
   searchScope: string;
+  /** ADMIN v2 X2 — shown with the search results while the view is „Nepročitane“. */
+  searchIgnoresUnread: string;
   unread: string;
   hasAttachment: string;
   noSubject: string;

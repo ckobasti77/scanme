@@ -8,5 +8,5 @@ export const dynamic = "force-dynamic";
 
 export default function AdminClientProfilePreviewPage() {
   if (process.env.NODE_ENV === "production") notFound();
-  return <AdminShell previewIdentity={adminV1Sr.fixtureIdentity} activePathname="/admin/klijenti"><Suspense fallback={null}><AdminClientProfilePreview /></Suspense></AdminShell>;
+  return <AdminShell previewIdentity={adminV1Sr.fixtureIdentity} activePathname="/admin/klijenti/preview"><Suspense fallback={null}><AdminClientProfilePreview /></Suspense></AdminShell>;
 }

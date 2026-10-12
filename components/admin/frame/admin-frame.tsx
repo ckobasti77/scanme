@@ -38,7 +38,11 @@ export function AdminFrame({ children, previewIdentity, previewSearchGroups, act
   const { signOut } = useAuthActions();
   const identity = previewIdentity ?? me?.email ?? adminV1Sr.profileFallback;
   const [drawer, setDrawer] = useState<AdminDrawerTarget | null>(null);
-  const route = useMemo(() => adminRoute(pathname), [pathname]);
+  const route = useMemo(() => {
+    const base = adminRoute(pathname);
+    // A single-surface preview names the admin page it shows (one preview route may show several).
+    return base.single && activePathname ? { ...base, key: activePathname } : base;
+  }, [pathname, activePathname]);
   const closeDrawer = useCallback(() => setDrawer(null), []);
   const value = useMemo<AdminFrameValue>(
     () => ({ route, activePath: activePathname ?? route.key, drawer, openDrawer: setDrawer, closeDrawer }),

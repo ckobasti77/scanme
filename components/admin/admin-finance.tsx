@@ -2,7 +2,6 @@
 
 import { Component, type FormEvent, type ReactNode, useRef, useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMutation, usePaginatedQuery, useQuery } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -25,39 +24,25 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { AdminEmptyState, AdminErrorState, AdminLoadingState, AdminPanel } from "./admin-primitives";
+import { useAdminUrlState } from "./admin-ui/use-admin-query-state";
+import { AdminPageHeader } from "./frame/admin-page-header";
+import { useAdminSidebarLive } from "./frame/admin-sidebar-store";
+import { AdminEmptyState, AdminErrorState, AdminLoadingState, AdminPanel, AdminStatus, AdminTable } from "./admin-primitives";
 import { adminFinanceSr as dict } from "@/lib/i18n/sr/admin-finance";
 import { cn } from "@/lib/utils";
-import {
-  financeMonthBounds,
-  financeFilterMatches,
-  isFinanceFilter,
-  isProfitFilter,
-  type FinanceCollectedPeriod,
-  type FinanceExpectedPeriod,
-  type FinanceFilter,
-  type FinanceProfitFilter,
-} from "@/lib/admin-v1/finance";
+import { financeMonthBounds, financeFilterMatches, type FinanceCollectedPeriod } from "@/lib/admin-v1/finance";
 import { belgradeDateKey, belgradeLocalDateTimeToUtc } from "@/lib/admin-v1/task-time";
+import { financeSidebarLive, financeView } from "@/lib/admin-v2/lists/finance";
+import { FINANCE_URL_FIELDS, type FinanceTab } from "@/lib/admin-v2/sidebar/configs/finance";
 
 type Overview = FunctionReturnType<typeof api.adminFinance.overview>;
 type PaymentPage = FunctionReturnType<typeof api.adminFinance.listPayments>;
 type PaymentRow = PaymentPage["page"][number];
 type PaymentDetail = FunctionReturnType<typeof api.adminFinance.paymentDetail>;
-type Tab = "collected" | "expected" | "profit";
 
 const date = new Intl.DateTimeFormat("sr-Latn-RS", { timeZone: "Europe/Belgrade", dateStyle: "medium" });
 const month = new Intl.DateTimeFormat("sr-Latn-RS", { timeZone: "Europe/Belgrade", month: "short", year: "numeric" });
 
-const FILTER_LABEL: Record<FinanceFilter, string> = {
-  total: dict.filterTotal,
-  physical: dict.filterPhysical,
-  saas: dict.filterSaas,
-  premium: dict.filterPremium,
-  scanme_links: dict.filterLinks,
-  google_review: dict.filterReview,
-  scanme_menu: dict.filterMenu,
-};
 const CATEGORY_LABEL = {
   physical: dict.categoryPhysical,
   saas: dict.categorySaas,
@@ -101,20 +86,6 @@ function allocationLabel(allocation: PaymentRow["allocations"][number]) {
   return `${CATEGORY_LABEL[allocation.category]} — ${PERIOD_LABEL[allocation.period]}`;
 }
 
-function updateQuery(
-  router: ReturnType<typeof useRouter>,
-  pathname: string,
-  params: ReturnType<typeof useSearchParams>,
-  updates: Record<string, string | undefined>,
-) {
-  const next = new URLSearchParams(params.toString());
-  for (const [key, value] of Object.entries(updates)) {
-    if (value) next.set(key, value);
-    else next.delete(key);
-  }
-  router.replace(`${pathname}${next.size ? `?${next}` : ""}`, { scroll: false });
-}
-
 function MetricCard({ label, value, hint, state, icon: Icon }: { label: string; value: string; hint: string; state: "actual" | "future" | "complete" | "incomplete"; icon: typeof CircleDollarSign }) {
   const badge = state === "actual" ? dict.actualBadge : state === "future" ? dict.futureBadge : state === "incomplete" ? dict.incompleteBadge : dict.profit;
   return <AdminPanel className="min-w-0 p-4 sm:p-5">
@@ -155,7 +126,7 @@ export function FinanceChart({ points, future }: { points: Overview["collected"]
     </div> : <AdminEmptyState className="mt-4 min-h-52" title={dict.emptyTitle} body={dict.emptyBody} />}
     <details className="mt-4 rounded-xl border border-[var(--admin-border)] bg-[var(--admin-surface-muted)] p-3 text-sm">
       <summary className="min-h-11 cursor-pointer content-center font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--admin-focus)]">{dict.chartTableCaption}</summary>
-      <div className="overflow-x-auto"><table className="mt-2 w-full min-w-80 text-left"><caption className="sr-only">{dict.chartTableCaption}</caption><thead><tr><th className="py-2 pr-4">{dict.chartPeriod}</th><th className="py-2 text-right">{dict.chartAmount}</th></tr></thead><tbody>{points.map((point) => <tr key={point.key} className="border-t border-[var(--admin-border)]"><td className="py-2 pr-4">{pointLabel(point.key)}</td><td className="py-2 text-right font-mono tabular-nums">{money(point.amountMinor)}</td></tr>)}</tbody></table></div>
+      <div><table className="mt-2 w-full text-left"><caption className="sr-only">{dict.chartTableCaption}</caption><thead><tr><th className="py-2 pr-4">{dict.chartPeriod}</th><th className="py-2 text-right">{dict.chartAmount}</th></tr></thead><tbody>{points.map((point) => <tr key={point.key} className="border-t border-[var(--admin-border)]"><td className="py-2 pr-4">{pointLabel(point.key)}</td><td className="py-2 text-right font-mono tabular-nums">{money(point.amountMinor)}</td></tr>)}</tbody></table></div>
     </details>
   </AdminPanel>;
 }
@@ -164,11 +135,11 @@ function MethodPanel({ methods, denominatorMinor, period }: { methods: Overview[
   return <AdminPanel className="p-4 sm:p-5"><div className="flex items-center justify-between gap-2"><h2 className="text-base font-semibold">{dict.methodsTitle}</h2><span className="rounded-full bg-[var(--admin-surface-muted)] px-2 py-1 text-xs font-semibold">{dict.actualBadge}</span></div><p className="mt-1 text-xs text-[var(--admin-text-muted)]">{dict.methodsDenominator}: <span className="font-mono tabular-nums">{money(denominatorMinor)}</span> · {COLLECTED_PERIOD_LABEL[period]}</p><div className="mt-4 grid gap-3">{methods.map((row) => { const Icon = METHOD_ICON[row.method]; return <div key={row.method} className="grid grid-cols-[2.5rem_minmax(0,1fr)_auto] items-center gap-3"><span className="grid size-10 place-items-center rounded-xl bg-[var(--admin-surface-muted)]"><Icon className="size-4" aria-hidden="true" /></span><div className="min-w-0"><span className="block truncate text-sm font-medium">{METHOD_LABEL[row.method]}</span><span className="mt-1 block h-1.5 overflow-hidden rounded-full bg-[var(--admin-border)]"><span className="block h-full rounded-full bg-[var(--admin-ink)]" style={{ width: `${Math.max(0, Math.min(100, row.percent))}%` }} /></span></div><div className="text-right"><span className="block font-mono text-sm font-semibold tabular-nums">{money(row.amountMinor)}</span><span className="text-xs text-[var(--admin-text-muted)]">{row.percent.toFixed(2)}%</span></div></div>; })}</div></AdminPanel>;
 }
 
-function CategoryTable({ overview, tab }: { overview: Overview; tab: Tab }) {
+function CategoryTable({ overview, tab }: { overview: Overview; tab: FinanceTab }) {
   const expectedByCategory = new Map(overview.expected.categories.map((row) => [row.category, row]));
-  return <AdminPanel className="min-w-0 overflow-hidden">
+  return <AdminPanel className="min-w-0">
     <div className="border-b border-[var(--admin-border)] px-4 py-4 sm:px-5"><h2 className="text-base font-semibold">{dict.categoriesTitle}</h2></div>
-    <div className="grid gap-3 p-4 md:hidden">
+    <div className="grid gap-3 p-4 @2xl:hidden">
       {overview.categories.map((row) => <article key={row.category} className="rounded-xl border border-[var(--admin-border)] p-3">
         <div className="flex items-center justify-between gap-2"><h3 className="font-semibold">{CATEGORY_LABEL[row.category]}</h3>{tab !== "expected" && !row.complete ? <span className="rounded-full bg-[var(--admin-danger-soft)] px-2 py-1 text-xs font-semibold text-[var(--admin-danger)]">{dict.incompleteBadge}</span> : null}</div>
         <dl className="mt-3 grid grid-cols-2 gap-3 text-sm">
@@ -179,19 +150,19 @@ function CategoryTable({ overview, tab }: { overview: Overview; tab: Tab }) {
         {tab !== "expected" && row.missing.length ? <p className="mt-3 text-xs text-[var(--admin-danger)]">{row.missing.map((item) => MISSING_LABEL[item as keyof typeof MISSING_LABEL]).join(" · ")}</p> : null}
       </article>)}
     </div>
-    <div className="hidden overflow-x-auto md:block"><table className="w-full min-w-[36rem] text-left text-sm"><caption className="sr-only">{dict.categoriesTitle}</caption>
+    <AdminTable caption={dict.categoriesTitle} className="hidden rounded-none border-0 @2xl:block">
       <thead className="bg-[var(--admin-surface-muted)] text-xs text-[var(--admin-text-muted)]"><tr><th className="px-5 py-3">{dict.category}</th><th className="px-5 py-3 text-right">{tab === "expected" ? dict.expected : dict.collected}</th>{tab === "expected" ? <th className="px-5 py-3 text-right">{dict.undated}</th> : tab === "profit" ? <><th className="px-5 py-3 text-right">{dict.refunds}</th><th className="px-5 py-3 text-right">{dict.costs}</th><th className="px-5 py-3 text-right">{dict.profit}</th></> : <th className="px-5 py-3 text-right">{dict.refunds}</th>}</tr></thead>
       <tbody>{overview.categories.map((row) => <tr key={row.category} className="border-t border-[var(--admin-border)]"><th className="px-5 py-4"><span className="font-semibold">{CATEGORY_LABEL[row.category]}</span>{tab !== "expected" && row.missing.length ? <span className="mt-1 block text-xs font-normal text-[var(--admin-danger)]">{row.missing.map((item) => MISSING_LABEL[item as keyof typeof MISSING_LABEL]).join(" · ")}</span> : null}</th><td className="px-5 py-4 text-right font-mono tabular-nums">{money(tab === "expected" ? expectedByCategory.get(row.category)?.amountMinor ?? 0 : row.collectedMinor)}</td>{tab === "expected" ? <td className="px-5 py-4 text-right font-mono tabular-nums">{money(expectedByCategory.get(row.category)?.undatedMinor ?? 0)}</td> : tab === "profit" ? <><td className="px-5 py-4 text-right font-mono tabular-nums">{money(row.refundsMinor)}</td><td className="px-5 py-4 text-right font-mono tabular-nums">{money(row.costsMinor)}</td><td className="px-5 py-4 text-right font-mono font-semibold tabular-nums">{row.profitMinor === null ? <span className="text-[var(--admin-danger)]">{dict.incompleteBadge}</span> : money(row.profitMinor)}</td></> : <td className="px-5 py-4 text-right font-mono tabular-nums">{money(row.refundsMinor)}</td>}</tr>)}</tbody>
-    </table></div>
+    </AdminTable>
   </AdminPanel>;
 }
 
 function Payments({ rows, status, onLoadMore, onOpen }: { rows: PaymentRow[]; status: string; onLoadMore: () => void; onOpen: (row: PaymentRow, trigger: HTMLButtonElement) => void }) {
   if (status === "LoadingFirstPage") return <AdminPanel><AdminLoadingState /></AdminPanel>;
   if (!rows.length) return <AdminPanel><AdminEmptyState title={dict.emptyTitle} body={dict.emptyBody} /></AdminPanel>;
-  return <AdminPanel className="min-w-0 overflow-hidden"><div className="border-b border-[var(--admin-border)] px-4 py-4 sm:px-5"><h2 className="text-base font-semibold">{dict.paymentsTitle}</h2><p className="mt-1 text-sm text-[var(--admin-text-muted)]">{dict.paymentsCaption}</p></div>
-    <div className="grid gap-3 p-4 md:hidden">{rows.map((row) => <button key={row._id} type="button" onClick={(event) => onOpen(row, event.currentTarget)} className="min-h-11 rounded-xl border border-[var(--admin-border)] p-3 text-left transition-colors hover:bg-[var(--admin-surface-muted)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--admin-focus)] motion-reduce:transition-none"><span className="flex items-center justify-between gap-2"><strong className="truncate">{row.accountName}</strong><span className="font-mono font-semibold tabular-nums">{money(row.amountMinor)}</span></span><span className="mt-2 block text-xs text-[var(--admin-text-muted)]">{row.allocations.map(allocationLabel).join(" · ")}</span><span className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-[var(--admin-text-muted)]"><span>{date.format(row.paidAt)}</span><span>{METHOD_LABEL[row.method]}</span><span>{paymentState(row)}</span></span></button>)}</div>
-    <div className="hidden overflow-x-auto md:block"><table className="w-full min-w-[58rem] text-left text-sm"><caption className="sr-only">{dict.paymentsCaption}</caption><thead className="bg-[var(--admin-surface-muted)] text-xs text-[var(--admin-text-muted)]"><tr><th className="px-5 py-3">{dict.paymentClient}</th><th className="px-5 py-3">{dict.paymentDate}</th><th className="px-5 py-3">{dict.paymentMethod}</th><th className="px-5 py-3">{dict.paymentAllocation}</th><th className="px-5 py-3">{dict.paymentState}</th><th className="px-5 py-3 text-right">{dict.chartAmount}</th><th><span className="sr-only">{dict.paymentOpen}</span></th></tr></thead><tbody>{rows.map((row) => <tr key={row._id} className="border-t border-[var(--admin-border)]"><td className="px-5 py-4 font-semibold">{row.accountName}</td><td className="px-5 py-4 whitespace-nowrap">{date.format(row.paidAt)}</td><td className="px-5 py-4">{METHOD_LABEL[row.method]}</td><td className="px-5 py-4"><span className="block max-w-72 truncate">{row.allocations.map(allocationLabel).join(" · ")}</span></td><td className="px-5 py-4">{paymentState(row)}</td><td className="px-5 py-4 text-right font-mono font-semibold tabular-nums">{money(row.amountMinor)}</td><td className="px-5 py-4"><Button type="button" variant="ghost" size="icon" aria-label={dict.paymentOpen} onClick={(event) => onOpen(row, event.currentTarget)}><ArrowUpRight className="size-4" aria-hidden="true" /></Button></td></tr>)}</tbody></table></div>
+  return <AdminPanel className="min-w-0"><div className="border-b border-[var(--admin-border)] px-4 py-4 sm:px-5"><h2 className="text-base font-semibold">{dict.paymentsTitle}</h2><p className="mt-1 text-sm text-[var(--admin-text-muted)]">{dict.paymentsCaption}</p></div>
+    <div className="grid gap-3 p-4 @6xl:hidden">{rows.map((row) => <button key={row._id} type="button" onClick={(event) => onOpen(row, event.currentTarget)} className="min-h-11 rounded-xl border border-[var(--admin-border)] p-3 text-left transition-colors hover:bg-[var(--admin-surface-muted)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--admin-focus)] motion-reduce:transition-none"><span className="flex items-center justify-between gap-2"><strong className="truncate">{row.accountName}</strong><span className="font-mono font-semibold tabular-nums">{money(row.amountMinor)}</span></span><span className="mt-2 block text-xs text-[var(--admin-text-muted)]">{row.allocations.map(allocationLabel).join(" · ")}</span><span className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-[var(--admin-text-muted)]"><span>{date.format(row.paidAt)}</span><span>{METHOD_LABEL[row.method]}</span><span>{paymentState(row)}</span></span></button>)}</div>
+    <AdminTable caption={dict.paymentsCaption} className="hidden rounded-none border-0 @6xl:block"><thead className="bg-[var(--admin-surface-muted)] text-xs text-[var(--admin-text-muted)]"><tr><th className="px-5 py-3">{dict.paymentClient}</th><th className="px-5 py-3">{dict.paymentDate}</th><th className="px-5 py-3">{dict.paymentMethod}</th><th className="px-5 py-3">{dict.paymentAllocation}</th><th className="px-5 py-3">{dict.paymentState}</th><th className="px-5 py-3 text-right">{dict.chartAmount}</th><th><span className="sr-only">{dict.paymentOpen}</span></th></tr></thead><tbody>{rows.map((row) => <tr key={row._id} className="border-t border-[var(--admin-border)]"><td className="px-5 py-4 font-semibold">{row.accountName}</td><td className="px-5 py-4 whitespace-nowrap">{date.format(row.paidAt)}</td><td className="px-5 py-4">{METHOD_LABEL[row.method]}</td><td className="px-5 py-4"><span className="block max-w-72 truncate">{row.allocations.map(allocationLabel).join(" · ")}</span></td><td className="px-5 py-4">{paymentState(row)}</td><td className="px-5 py-4 text-right font-mono font-semibold tabular-nums">{money(row.amountMinor)}</td><td className="px-5 py-4"><Button type="button" variant="ghost" size="icon" aria-label={dict.paymentOpen} onClick={(event) => onOpen(row, event.currentTarget)}><ArrowUpRight className="size-4" aria-hidden="true" /></Button></td></tr>)}</tbody></AdminTable>
     {status === "CanLoadMore" || status === "LoadingMore" ? <div className="border-t border-[var(--admin-border)] p-4 text-center"><Button type="button" variant="outline" disabled={status === "LoadingMore"} onClick={onLoadMore}>{status === "LoadingMore" ? dict.loadingMore : dict.loadMore}</Button></div> : null}
   </AdminPanel>;
 }
@@ -274,25 +245,14 @@ function PaymentDialog({ open, onOpenChange, row, detail, onRefund }: { open: bo
   </Dialog>;
 }
 
-function Controls({ tab, setTab, collectedPeriod, setCollectedPeriod, expectedPeriod, setExpectedPeriod, filter, setFilter, profitFilter, setProfitFilter }: { tab: Tab; setTab: (value: Tab) => void; collectedPeriod: FinanceCollectedPeriod; setCollectedPeriod: (value: FinanceCollectedPeriod) => void; expectedPeriod: FinanceExpectedPeriod; setExpectedPeriod: (value: FinanceExpectedPeriod) => void; filter: FinanceFilter; setFilter: (value: FinanceFilter) => void; profitFilter: FinanceProfitFilter; setProfitFilter: (value: FinanceProfitFilter) => void }) {
-  const periods = tab === "expected" ? (["next_month", "three_months", "six_months", "year"] as const) : (["month", "three_months", "six_months", "year", "all_time"] as const);
-  const labels = { month: dict.periodMonth, next_month: dict.periodNextMonth, three_months: dict.periodThree, six_months: dict.periodSix, year: dict.periodYear, all_time: dict.periodAll } as const;
-  const filters = tab === "profit" ? (["total", "physical", "saas", "premium"] as const) : (["total", "physical", "saas", "premium", "scanme_links", "google_review", "scanme_menu"] as const);
-  return <div className="grid gap-3"><div role="tablist" aria-label={dict.pageTitle} className="grid grid-cols-3 gap-1 rounded-2xl border border-[var(--admin-border)] bg-[var(--admin-surface)] p-1 sm:w-fit">{(["collected", "expected", "profit"] as const).map((item) => <button key={item} type="button" role="tab" aria-selected={tab === item} onClick={() => setTab(item)} className={cn("min-h-11 rounded-xl px-4 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--admin-focus)] motion-reduce:transition-none", tab === item ? "bg-[var(--admin-ink)] text-[var(--admin-surface)]" : "hover:bg-[var(--admin-surface-muted)]")}>{item === "collected" ? dict.tabCollected : item === "expected" ? dict.tabExpected : dict.tabProfit}</button>)}</div><div className="flex flex-wrap items-end gap-3"><div><span className="mb-1.5 block text-xs font-semibold text-[var(--admin-text-muted)]">{dict.periodLabel}</span><div className="flex flex-wrap gap-1">{periods.map((period) => <button key={period} type="button" onClick={() => tab === "expected" ? setExpectedPeriod(period as FinanceExpectedPeriod) : setCollectedPeriod(period as FinanceCollectedPeriod)} className={cn("min-h-11 rounded-xl border px-3 text-xs font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--admin-focus)] motion-reduce:transition-none", (tab === "expected" ? expectedPeriod : collectedPeriod) === period ? "border-[var(--admin-ink)] bg-[var(--admin-ink)] text-[var(--admin-surface)]" : "border-[var(--admin-border)] bg-[var(--admin-surface)] hover:bg-[var(--admin-surface-muted)]")}>{labels[period]}</button>)}</div></div><div><span className="mb-1.5 block text-xs font-semibold text-[var(--admin-text-muted)]">{dict.filterLabel}</span><div className="flex flex-wrap gap-1">{filters.map((item) => <button key={item} type="button" onClick={() => tab === "profit" ? setProfitFilter(item as FinanceProfitFilter) : setFilter(item as FinanceFilter)} className={cn("min-h-11 rounded-xl border px-3 text-xs font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--admin-focus)] motion-reduce:transition-none", (tab === "profit" ? profitFilter : filter) === item ? "border-[var(--admin-accent-ink)] bg-[var(--admin-accent-soft)] text-[var(--admin-accent-ink)]" : "border-[var(--admin-border)] bg-[var(--admin-surface)] hover:bg-[var(--admin-surface-muted)]")}>{FILTER_LABEL[item]}</button>)}</div></div></div></div>;
-}
-
 export function FinanceSurface({ accountId, preview = false }: { accountId?: Id<"accounts">; preview?: boolean }) {
-  const router = useRouter(); const pathname = usePathname(); const params = useSearchParams();
-  const requestedTab = params.get("tab"); const [tab, setTabState] = useState<Tab>(requestedTab === "expected" || requestedTab === "profit" ? requestedTab : "collected");
-  const requestedFilter = params.get("filter") ?? undefined; const requestedProfit = params.get("profit") ?? undefined;
-  const [collectedPeriod, setCollectedPeriodState] = useState<FinanceCollectedPeriod>(params.get("period") === "three_months" || params.get("period") === "six_months" || params.get("period") === "year" || params.get("period") === "all_time" ? params.get("period") as FinanceCollectedPeriod : "month");
-  const [expectedPeriod, setExpectedPeriodState] = useState<FinanceExpectedPeriod>(params.get("future") === "three_months" || params.get("future") === "six_months" || params.get("future") === "year" ? params.get("future") as FinanceExpectedPeriod : "next_month");
-  const [filter, setFilterState] = useState<FinanceFilter>(isFinanceFilter(requestedFilter) ? requestedFilter : "total");
-  const [profitFilter, setProfitFilterState] = useState<FinanceProfitFilter>(isProfitFilter(requestedProfit) ? requestedProfit : "total");
+  // The view, the period and the category are chosen in the sidebar (the URL); the page only reads them.
+  const [urlState] = useAdminUrlState(FINANCE_URL_FIELDS);
+  useAdminSidebarLive(financeSidebarLive());
+  const { tab, collectedPeriod, expectedPeriod, profitFilter, activeFilter } = financeView(urlState);
   const [now] = useState(() => Date.now());
   const [costOpen, setCostOpen] = useState(false); const [selectedPayment, setSelectedPayment] = useState<PaymentRow | null>(null); const [notice, setNotice] = useState("");
   const costTriggerRef = useRef<HTMLButtonElement>(null); const paymentTriggerRef = useRef<HTMLButtonElement | null>(null);
-  const activeFilter = tab === "profit" ? profitFilter : filter;
   const liveOverview = useQuery(api.adminFinance.overview, preview ? "skip" : { accountId, now, collectedPeriod, expectedPeriod, filter: activeFilter, profitFilter });
   const liveSummary = useQuery(api.adminFinance.overview, preview ? "skip" : { accountId, now, collectedPeriod: "month", expectedPeriod: "next_month", filter: "total", profitFilter: "total" });
   const payments = usePaginatedQuery(api.adminFinance.listPayments, preview ? "skip" : { accountId, filter: activeFilter }, { initialNumItems: 12 });
@@ -303,23 +263,23 @@ export function FinanceSurface({ accountId, preview = false }: { accountId?: Id<
   const paymentRows = preview ? fixturePayments.filter((row) => activeFilter === "total" || row.allocations.some((allocation) => financeFilterMatches(activeFilter, allocation.category, allocation.serviceType))) : payments.results;
   const paymentStatus = preview ? "Exhausted" : payments.status;
   const effectiveDetail = preview && selectedPayment ? fixtureDetail(selectedPayment) : detail;
-  function setTab(value: Tab) { setTabState(value); updateQuery(router, pathname, params, { tab: value === "collected" ? undefined : value, ...(value === "profit" ? { filter: undefined } : { profit: undefined }) }); }
-  function setCollectedPeriod(value: FinanceCollectedPeriod) { setCollectedPeriodState(value); updateQuery(router, pathname, params, { period: value === "month" ? undefined : value }); }
-  function setExpectedPeriod(value: FinanceExpectedPeriod) { setExpectedPeriodState(value); updateQuery(router, pathname, params, { future: value === "next_month" ? undefined : value }); }
-  function setFilter(value: FinanceFilter) { setFilterState(value); updateQuery(router, pathname, params, { filter: value === "total" ? undefined : value }); }
-  function setProfitFilter(value: FinanceProfitFilter) { setProfitFilterState(value); updateQuery(router, pathname, params, { profit: value === "total" ? undefined : value }); }
-  if (!overview || !summary) return <AdminPanel><AdminLoadingState /></AdminPanel>;
-  const points = tab === "expected" ? overview.expected.series : overview.collected.series;
-  return <div className="grid min-w-0 gap-5">
-    {preview ? <div><span className="rounded-full bg-[var(--admin-accent)] px-2.5 py-1 text-xs font-bold text-[var(--admin-accent-ink)]">{dict.previewBadge}</span><p className="mt-2 text-sm text-[var(--admin-text-muted)]">{dict.previewDescription}</p></div> : null}
-    <header className="flex flex-wrap items-start justify-between gap-4"><div><h1 className="text-2xl font-semibold tracking-[-0.04em] sm:text-3xl">{dict.pageTitle}</h1><p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--admin-text-muted)]">{dict.pageSubtitle}</p></div><Button ref={costTriggerRef} type="button" variant="outline" onClick={() => setCostOpen(true)}><Plus className="size-4" aria-hidden="true" />{dict.costAction}</Button></header>
+  const points = overview ? (tab === "expected" ? overview.expected.series : overview.collected.series) : [];
+  // The screen sits beside the sidebar, so the layout follows the width of the screen (container), not of the window.
+  return <div className="@container grid min-w-0 gap-5">
+    <AdminPageHeader
+      title={dict.pageTitle}
+      description={dict.pageSubtitle}
+      badge={preview ? <AdminStatus label={dict.previewBadge} tone="waiting" /> : undefined}
+      actions={<Button ref={costTriggerRef} type="button" variant="outline" onClick={() => setCostOpen(true)}><Plus className="size-4" aria-hidden="true" />{dict.costAction}</Button>}
+    />
     {notice ? <p role="status" className="flex items-center gap-2 rounded-xl bg-[var(--admin-accent-soft)] px-3 py-2 text-sm font-medium text-[var(--admin-accent-ink)]"><CheckCircle2 className="size-4" aria-hidden="true" />{notice}</p> : null}
-    <Controls tab={tab} setTab={setTab} collectedPeriod={collectedPeriod} setCollectedPeriod={setCollectedPeriod} expectedPeriod={expectedPeriod} setExpectedPeriod={setExpectedPeriod} filter={filter} setFilter={setFilter} profitFilter={profitFilter} setProfitFilter={setProfitFilter} />
-    <section aria-label={dict.pageTitle} className="grid gap-3 md:grid-cols-3"><MetricCard label={dict.summaryCollected} value={money(summary.collected.amount.amountMinor)} hint={dict.summaryCurrentMonth} state="actual" icon={ReceiptText} /><MetricCard label={dict.summaryExpected} value={money(summary.expected.amount.amountMinor)} hint={dict.summaryNextMonth} state="future" icon={CalendarClock} /><MetricCard label={dict.summaryProfit} value={summary.profit.amount ? money(summary.profit.amount.amountMinor) : "—"} hint={summary.profit.complete ? dict.directCosts : summary.profit.missing.map((item) => MISSING_LABEL[item as keyof typeof MISSING_LABEL]).join(" · ")} state={summary.profit.complete ? "complete" : "incomplete"} icon={CircleDollarSign} /></section>
-    {tab === "expected" && (overview.expected.undatedMinor || overview.expected.overdueMinor || overview.expected.unavailablePriceCount) ? <AdminPanel className="grid gap-2 p-4 text-sm"><p><strong>{dict.undated}:</strong> <span className="font-mono tabular-nums">{money(overview.expected.undatedMinor)}</span></p>{overview.expected.overdueMinor ? <p><strong>{dict.overdueKnown}:</strong> <span className="font-mono tabular-nums">{money(overview.expected.overdueMinor)}</span></p> : null}{overview.expected.unavailablePriceCount ? <p className="flex items-start gap-2 text-[var(--admin-danger)]"><AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />{dict.priceUnavailable}: {overview.expected.unavailablePriceCount}</p> : null}</AdminPanel> : null}
-    <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_21rem]"><FinanceChart points={points} future={tab === "expected"} /><MethodPanel methods={overview.methods} denominatorMinor={overview.collected.amount.amountMinor} period={collectedPeriod} /></div>
-    <CategoryTable overview={overview} tab={tab} />
-    <Payments rows={paymentRows} status={paymentStatus} onLoadMore={() => !preview && payments.loadMore(12)} onOpen={(row, trigger) => { paymentTriggerRef.current = trigger; setSelectedPayment(row); }} />
+    {!overview || !summary ? <AdminPanel><AdminLoadingState /></AdminPanel> : <>
+      <section aria-label={dict.pageTitle} className="grid gap-3 @2xl:grid-cols-3"><MetricCard label={dict.summaryCollected} value={money(summary.collected.amount.amountMinor)} hint={dict.summaryCurrentMonth} state="actual" icon={ReceiptText} /><MetricCard label={dict.summaryExpected} value={money(summary.expected.amount.amountMinor)} hint={dict.summaryNextMonth} state="future" icon={CalendarClock} /><MetricCard label={dict.summaryProfit} value={summary.profit.amount ? money(summary.profit.amount.amountMinor) : "—"} hint={summary.profit.complete ? dict.directCosts : summary.profit.missing.map((item) => MISSING_LABEL[item as keyof typeof MISSING_LABEL]).join(" · ")} state={summary.profit.complete ? "complete" : "incomplete"} icon={CircleDollarSign} /></section>
+      {tab === "expected" && (overview.expected.undatedMinor || overview.expected.overdueMinor || overview.expected.unavailablePriceCount) ? <AdminPanel className="grid gap-2 p-4 text-sm"><p><strong>{dict.undated}:</strong> <span className="font-mono tabular-nums">{money(overview.expected.undatedMinor)}</span></p>{overview.expected.overdueMinor ? <p><strong>{dict.overdueKnown}:</strong> <span className="font-mono tabular-nums">{money(overview.expected.overdueMinor)}</span></p> : null}{overview.expected.unavailablePriceCount ? <p className="flex items-start gap-2 text-[var(--admin-danger)]"><AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />{dict.priceUnavailable}: {overview.expected.unavailablePriceCount}</p> : null}</AdminPanel> : null}
+      <div className="grid min-w-0 gap-4 @4xl:grid-cols-[minmax(0,1fr)_21rem]"><FinanceChart points={points} future={tab === "expected"} /><MethodPanel methods={overview.methods} denominatorMinor={overview.collected.amount.amountMinor} period={collectedPeriod} /></div>
+      <CategoryTable overview={overview} tab={tab} />
+      <Payments rows={paymentRows} status={paymentStatus} onLoadMore={() => !preview && payments.loadMore(12)} onOpen={(row, trigger) => { paymentTriggerRef.current = trigger; setSelectedPayment(row); }} />
+    </>}
     <CostDialog open={costOpen} onOpenChange={(open) => { setCostOpen(open); if (!open) window.setTimeout(() => costTriggerRef.current?.focus(), 250); }} accountId={accountId} onSave={async (payload) => { if (preview) { setNotice(dict.mutationSuccess); return; } await saveCost(payload); setNotice(dict.mutationSuccess); }} />
     <PaymentDialog open={Boolean(selectedPayment)} onOpenChange={(open) => { if (!open) { setSelectedPayment(null); window.setTimeout(() => paymentTriggerRef.current?.focus(), 250); } }} row={selectedPayment} detail={effectiveDetail} onRefund={async (payload) => { if (preview) { setNotice(dict.mutationSuccess); return; } await refund(payload); setNotice(dict.mutationSuccess); }} />
   </div>;

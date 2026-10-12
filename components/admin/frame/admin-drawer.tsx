@@ -7,7 +7,7 @@ import { BrandLogo } from "@/components/brand-logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Sheet, SheetClose, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { ADMIN_NAV_ITEMS, isAdminNavChildActive, isAdminNavItemActive } from "@/lib/admin-v1/navigation";
-import { previewHref } from "@/lib/admin-v2/frame/routes";
+import { routeHref } from "@/lib/admin-v2/frame/routes";
 import { adminUiSr as dict } from "@/lib/i18n/sr/admin-ui";
 import { adminV1Sr } from "@/lib/i18n/sr/admin-v1";
 import { cn } from "@/lib/utils";
@@ -34,7 +34,7 @@ export function AdminDrawer({ identity, onSignOut }: { identity: string; onSignO
   const [navOpen, setNavOpen] = useState<boolean | null>(null);
   if (!frame) return null;
   const pathname = frame.activePath;
-  const href = (target: string) => previewHref(target, frame.route.previewBase);
+  const href = (target: string) => routeHref(target, frame.route);
   const showNav = navOpen ?? frame.drawer !== "filters";
 
   function onPointerDown(event: PointerEvent<HTMLDivElement>) {

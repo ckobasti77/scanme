@@ -22,7 +22,7 @@ export default async function Admin18PreviewPage({
     <AdminShell
       previewIdentity={adminV1Sr.fixtureIdentity}
       previewSearchGroups={adminSearchCommandPreviewGroups}
-      activePathname={mode === "debug" ? "/admin/klijenti" : "/admin/pretraga"}
+      activePathname={mode === "debug" ? "/admin/debug/preview" : "/admin/pretraga"}
     >
       {mode === "debug" ? <AdminDebugSupportPreview /> : <AdminSearchPreviewWorkspace initialState={previewState} />}
     </AdminShell>

@@ -28,6 +28,10 @@ export const adminUiSr: AdminUiDict = {
     moreMatches: "Prikazano {shown} od {total}. Suzi pretragu.",
     matchesAnnounce: "Pronađeno opcija: {count}",
     period: "Period",
+    status: "Status",
+    sections: "Odeljci",
+    view: "Prikaz",
+    searchOnEnter: "Enter pokreće pretragu.",
   },
   frame: {
     home: "ScanMe Admin, početna",
@@ -39,6 +43,9 @@ export const adminUiSr: AdminUiDict = {
     search: "Pretraga",
     searchShortcut: "Ctrl K",
     jumpsTitle: "Brzi skokovi",
+    areaNav: "Stranice oblasti",
+    missionsTitle: "Misije danas",
+    missionsClear: "Sve je čisto. Ništa ne čeka reakciju.",
   },
   hierarchy: {
     exhibitor: "Izlagač",

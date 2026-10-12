@@ -33,22 +33,26 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { useAdminUrlState } from "@/components/admin/admin-ui/use-admin-query-state";
+import { AdminPageHeader } from "@/components/admin/frame/admin-page-header";
+import { filterPreviewServices, servicesAreFiltered, servicesListArgs } from "@/lib/admin-v2/lists/services";
+import { SERVICES_URL_FIELDS } from "@/lib/admin-v2/sidebar/configs/services";
 import { fmt } from "@/lib/i18n/format";
 import { adminServicesSr as dict } from "@/lib/i18n/sr/admin-services";
+import { adminV1Sr } from "@/lib/i18n/sr/admin-v1";
 import { cn } from "@/lib/utils";
 import { AdminEmptyState, AdminErrorState, AdminLoadingState, AdminPanel, AdminStatus, AdminTable } from "./admin-primitives";
 
 type ServiceType = "scanme_links" | "google_review" | "scanme_menu";
 type Filter = "all" | "active" | "grace" | "suspended" | "inactive" | "warning" | "problem";
-type Sort = "urgency" | "name" | "recent";
 type ServiceRow = FunctionReturnType<typeof api.adminServiceOperations.list>["page"][number];
 
 const pageSize = 24;
 
-const serviceMeta: Record<ServiceType, { title: string; href: string }> = {
-  scanme_links: { title: dict.titleLinks, href: "/admin/usluge/links" },
-  google_review: { title: dict.titleReview, href: "/admin/usluge/review" },
-  scanme_menu: { title: dict.titleMenu, href: "/admin/usluge/meni" },
+const serviceTitles: Record<ServiceType, string> = {
+  scanme_links: dict.titleLinks,
+  google_review: dict.titleReview,
+  scanme_menu: dict.titleMenu,
 };
 
 const previewProfileId = (value: string) => value as Id<"serviceProfiles">;
@@ -172,9 +176,8 @@ function previewDetail(row: ServiceRow): NonNullable<FunctionReturnType<typeof a
 }
 
 export function AdminServiceOperations({ serviceType, preview = false, initialServiceProfileId }: { serviceType: ServiceType; preview?: boolean; initialServiceProfileId?: string }) {
-  const [filter, setFilter] = useState<Filter>("all");
-  const [sort, setSort] = useState<Sort>("urgency");
-  const [search, setSearch] = useState("");
+  // The view, search and sort are in the sidebar of the frame and in the URL (`pogled`, `q`, `sort`).
+  const [urlState] = useAdminUrlState(SERVICES_URL_FIELDS);
   const [selectedId, setSelectedId] = useState<Id<"serviceProfiles"> | null>(() => preview
     ? previewRows[0]?.serviceProfileId ?? null
     : (initialServiceProfileId as Id<"serviceProfiles"> | undefined) ?? null);
@@ -184,16 +187,10 @@ export function AdminServiceOperations({ serviceType, preview = false, initialSe
   const [lifecycleKey, setLifecycleKey] = useState<string | null>(null);
   const [reason, setReason] = useState("");
   const [mutationError, setMutationError] = useState<string | null>(null);
-  const deferredSearch = useDeferredValue(search);
-  const list = usePaginatedQuery(api.adminServiceOperations.list, preview ? "skip" : {
-    serviceType,
-    filter,
-    sort,
-    ...(deferredSearch.trim() ? { search: deferredSearch } : {}),
-  }, { initialNumItems: pageSize });
-  const rows = preview
-    ? previewRows.filter((row) => row.serviceType === serviceType && (filter === "all" || row.filterState === filter) && `${row.accountName} ${row.venueName} ${row.smkCode} ${row.smlCode}`.toLocaleLowerCase("sr-Latn-RS").includes(deferredSearch.trim().toLocaleLowerCase("sr-Latn-RS")))
-    : list.results;
+  const asideRef = useRef<HTMLElement | null>(null);
+  const listState = useDeferredValue(urlState);
+  const list = usePaginatedQuery(api.adminServiceOperations.list, preview ? "skip" : { serviceType, ...servicesListArgs(listState) }, { initialNumItems: pageSize });
+  const rows = preview ? filterPreviewServices(previewRows, serviceType, listState) : list.results;
   const detail = useQuery(
     api.adminServiceOperations.detail,
     selectedId && !preview ? { serviceProfileId: selectedId } : "skip",
@@ -237,58 +234,40 @@ export function AdminServiceOperations({ serviceType, preview = false, initialSe
     }
   };
 
-  const meta = serviceMeta[serviceType];
-  const filters: Array<{ value: Filter; label: string }> = [
-    { value: "all", label: dict.filterAll },
-    { value: "active", label: dict.filterActive },
-    { value: "grace", label: dict.filterGrace },
-    { value: "suspended", label: dict.filterPaused },
-    { value: "problem", label: dict.filterProblem },
-  ];
+  // The detail panel sits beside the list from a 56 rem screen; below that a card opens it in a sheet.
+  const detailBesideList = () => (asideRef.current?.getClientRects().length ?? 0) > 0;
+  const filtered = servicesAreFiltered(listState);
 
   return (
-    <section className="grid gap-5 xl:gap-6">
-      <div className="grid gap-4">
-        <nav aria-label={dict.tabLinks} className="flex w-fit max-w-full gap-1 rounded-full border border-[var(--admin-border)] bg-[var(--admin-surface-strong)] p-1">
-          {(Object.keys(serviceMeta) as ServiceType[]).map((type) => (
-            <Link key={type} href={preview ? `/dev/admin-services-preview?service=${type === "scanme_links" ? "links" : type === "google_review" ? "review" : "meni"}` : serviceMeta[type].href} aria-current={type === serviceType ? "page" : undefined} className={cn("admin-v1-round inline-flex min-h-11 items-center rounded-full px-4 text-sm font-semibold", type === serviceType ? "bg-[var(--admin-ink)] text-[var(--admin-on-ink)]" : "text-[var(--admin-text-muted)] hover:bg-[var(--admin-surface-muted)] hover:text-[var(--admin-text)]")}>{type === "scanme_links" ? dict.tabLinks : type === "google_review" ? dict.tabReview : dict.tabMenu}</Link>
-          ))}
-        </nav>
-        <div>
-          {preview ? <span data-reveal="off" className="inline-flex rounded-full border border-[var(--admin-warning-border)] bg-[var(--admin-warning-soft)] px-2.5 py-1 text-xs font-bold text-[var(--admin-warning)]">{dict.previewBadge}</span> : null}
-          <h1 className="text-[clamp(2rem,4vw,3.25rem)] leading-none font-semibold tracking-[-0.055em]">{meta.title}</h1>
-          <p className="mt-2 text-sm text-[var(--admin-text-muted)] sm:text-base">{preview ? dict.previewDescription : dict.subtitle}</p>
-        </div>
-      </div>
+    <section className="grid gap-5">
+      <AdminPageHeader
+        eyebrow={adminV1Sr.navServices}
+        title={serviceTitles[serviceType]}
+        description={preview ? dict.previewDescription : dict.subtitle}
+        badge={preview ? <AdminStatus label={dict.previewBadge} tone="waiting" /> : undefined}
+      />
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_24rem] xl:items-start">
-      <AdminPanel className="overflow-hidden">
-        <div className="grid gap-3 border-b border-[var(--admin-border)] p-3 sm:p-4 xl:grid-cols-[minmax(0,1fr)_minmax(15rem,22rem)_11rem] xl:items-center">
-          <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] xl:pb-0">
-            {filters.map((item) => <button key={item.value} type="button" aria-pressed={filter === item.value} onClick={() => setFilter(item.value)} className={cn("admin-v1-round min-h-11 shrink-0 rounded-full border px-3 text-sm font-semibold", filter === item.value ? "border-[var(--admin-ink)] bg-[var(--admin-ink)] text-[var(--admin-on-ink)]" : "border-transparent text-[var(--admin-text-muted)] hover:border-[var(--admin-border)] hover:bg-[var(--admin-surface-muted)]")}>{item.label}</button>)}
-          </div>
-          <div className="relative">
-            <Label htmlFor="service-search" className="sr-only">{dict.searchLabel}</Label>
-            <Input id="service-search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder={dict.searchPlaceholder} className="min-h-11 bg-[var(--admin-surface)]" />
-          </div>
-          <label className="grid gap-1 text-xs font-semibold text-[var(--admin-text-muted)]"><span>{dict.sortLabel}</span><select value={sort} onChange={(event) => setSort(event.target.value as Sort)} className="min-h-10 rounded-xl border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-sm font-semibold text-[var(--admin-text)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-focus)]"><option value="urgency">{dict.sortUrgency}</option><option value="name">{dict.sortName}</option><option value="recent">{dict.sortRecent}</option></select></label>
-        </div>
-
-        {!preview && list.status === "LoadingFirstPage" ? <AdminLoadingState /> : rows.length === 0 ? <AdminEmptyState title={search || filter !== "all" ? dict.emptyFilteredTitle : dict.emptyTitle} body={search || filter !== "all" ? dict.emptyFilteredBody : dict.emptyBody} /> : (
+      {/* The list and the detail panel follow the width of the screen beside the sidebar, not of the window: the panel sits beside the list from 56 rem. */}
+      <div className="@container">
+      <div className="grid gap-5 @4xl:grid-cols-[minmax(0,1fr)_24rem] @4xl:items-start">
+      <AdminPanel className="@container">
+        {!preview && list.status === "LoadingFirstPage" ? <AdminLoadingState /> : rows.length === 0 ? <AdminEmptyState title={filtered ? dict.emptyFilteredTitle : dict.emptyTitle} body={filtered ? dict.emptyFilteredBody : dict.emptyBody} /> : (
           <>
-            <div className="hidden xl:block">
+            <div className="hidden @4xl:block">
               <AdminTable caption={dict.tableCaption} className="m-3 rounded-xl" tableClassName="table-fixed">
                 <thead className="border-b border-[var(--admin-border)] text-xs font-semibold text-[var(--admin-text-muted)]"><tr><th className="w-[25%] px-4 py-3">{dict.colVenue}</th><th className="w-[13%] px-3 py-3">{dict.colStatus}</th><th className="w-[14%] px-3 py-3">{dict.colSubscription}</th><th className="w-[14%] px-3 py-3">{dict.colConfiguration}</th><th className="w-[18%] px-3 py-3">{dict.colChannels}</th><th className="w-[12%] px-3 py-3">{dict.colActivity}</th><th className="w-14 px-3 py-3"><span className="sr-only">{dict.colActions}</span></th></tr></thead>
                 <tbody>{rows.map((row) => <ServiceDesktopRow key={row.serviceProfileId} row={row} selected={row.serviceProfileId === selectedId} onSelect={() => select(row.serviceProfileId)} onLifecycle={openLifecycle} />)}</tbody>
               </AdminTable>
             </div>
-            <div className="grid gap-2 p-3 xl:hidden">{rows.map((row) => <ServiceMobileRow key={row.serviceProfileId} row={row} onSelect={(trigger) => select(row.serviceProfileId, true, trigger)} />)}</div>
+            {/* Rows of the panel, not cards inside it; beside the detail panel the chosen venue is marked. */}
+            <div className="divide-y divide-[var(--admin-border)] @4xl:hidden">{rows.map((row) => <ServiceMobileRow key={row.serviceProfileId} row={row} selected={row.serviceProfileId === selectedRow?.serviceProfileId} onSelect={(trigger) => select(row.serviceProfileId, !detailBesideList(), trigger)} />)}</div>
           </>
         )}
         {(list.status === "CanLoadMore" || list.status === "LoadingMore") ? <div className="border-t border-[var(--admin-border)] p-3"><Button type="button" variant="outline" disabled={list.status === "LoadingMore"} onClick={() => list.loadMore(pageSize)} className="min-h-11">{list.status === "LoadingMore" ? dict.loadingMore : dict.loadMore}</Button></div> : null}
       </AdminPanel>
 
-      <aside className="hidden xl:block"><ServiceDetail detail={preview && selectedRow ? previewDetail(selectedRow) : detail} selectedRow={selectedRow} onLifecycle={openLifecycle} /></aside>
+      <aside ref={asideRef} className="hidden @4xl:block"><ServiceDetail detail={preview && selectedRow ? previewDetail(selectedRow) : detail} selectedRow={selectedRow} onLifecycle={openLifecycle} /></aside>
+      </div>
       </div>
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}><SheetContent side="bottom" onCloseAutoFocus={(event) => { event.preventDefault(); mobileTriggerRef.current?.focus(); }} className="admin-v1 max-h-[88dvh] overflow-y-auto rounded-t-[var(--admin-radius-panel)] border-[var(--admin-border)] bg-[var(--admin-app)] p-4 sm:p-6"><SheetHeader className="sr-only"><SheetTitle>{dict.mobileDetails}</SheetTitle><SheetDescription>{dict.selectedVenue}</SheetDescription></SheetHeader><ServiceDetail detail={preview && selectedRow ? previewDetail(selectedRow) : detail} selectedRow={selectedRow} onLifecycle={openLifecycle} /></SheetContent></Sheet>
 
@@ -302,8 +281,8 @@ function ServiceDesktopRow({ row, selected, onSelect, onLifecycle }: { row: Serv
   return <tr className={cn("border-b border-[var(--admin-border)] last:border-b-0", selected && "bg-[var(--admin-accent-soft)]")}><td className="px-4 py-3"><button type="button" onClick={onSelect} className="block text-left outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-focus)]"><span className="block font-semibold">{row.venueName}</span><span className="block text-xs text-[var(--admin-text-muted)]">{row.accountName} · {row.smlCode}</span></button></td><td className="px-3 py-3"><AdminStatus label={labelForState(state)} tone={stateTone(state)} /></td><td className="px-3 py-3 text-sm">{row.subscriptionState === "inactive" ? <span className="text-[var(--admin-text-muted)]">{dict.subscriptionMissing}</span> : <span>{formatDate(row.paidThrough)}</span>}</td><td className="px-3 py-3"><AdminStatus label={configurationLabel(row.configurationState)} tone={row.configurationState === "published" || row.configurationState === "configured" ? "active" : row.configurationState === "draft" || row.configurationState === "unconfigured" ? "waiting" : "neutral"} /></td><td className="px-3 py-3 text-xs text-[var(--admin-text-muted)]">{channels(row)}</td><td className="px-3 py-3 text-xs text-[var(--admin-text-muted)]">{row.signal.severity ? labelForState(row.signal.severity === "blocking" ? "problem" : "warning") : dict.noData}</td><td className="px-3 py-3"><RowMenu row={row} onSelect={onSelect} onLifecycle={onLifecycle} /></td></tr>;
 }
 
-function ServiceMobileRow({ row, onSelect }: { row: ServiceRow; onSelect: (trigger: HTMLButtonElement) => void }) {
-  return <button type="button" onClick={(event) => onSelect(event.currentTarget)} className="grid gap-3 rounded-xl border border-[var(--admin-border)] bg-[var(--admin-surface)] p-4 text-left outline-none transition-colors hover:bg-[var(--admin-surface-muted)] focus-visible:ring-2 focus-visible:ring-[var(--admin-focus)]"><div className="flex items-start justify-between gap-3"><div><span className="block font-semibold">{row.venueName}</span><span className="block text-xs text-[var(--admin-text-muted)]">{row.accountName} · {row.smlCode}</span></div><AdminStatus label={labelForState(row.filterState)} tone={stateTone(row.filterState)} /></div><div className="grid grid-cols-2 gap-2 text-xs text-[var(--admin-text-muted)]"><span>{configurationLabel(row.configurationState)}</span><span className="text-right">{channels(row)}</span></div></button>;
+function ServiceMobileRow({ row, selected, onSelect }: { row: ServiceRow; selected: boolean; onSelect: (trigger: HTMLButtonElement) => void }) {
+  return <button type="button" aria-current={selected ? "true" : undefined} onClick={(event) => onSelect(event.currentTarget)} className={cn("grid w-full gap-3 px-4 py-3.5 text-left outline-none transition-colors first:rounded-t-[var(--admin-radius-panel)] last:rounded-b-[var(--admin-radius-panel)] hover:bg-[var(--admin-surface-muted)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--admin-focus)]", selected && "bg-[var(--admin-surface-muted)] shadow-[inset_2px_0_0_var(--admin-nav-line)]")}><div className="flex items-start justify-between gap-3"><div><span className="block font-semibold">{row.venueName}</span><span className="block text-xs text-[var(--admin-text-muted)]">{row.accountName} · {row.smlCode}</span></div><AdminStatus label={labelForState(row.filterState)} tone={stateTone(row.filterState)} /></div><div className="flex flex-wrap justify-between gap-x-3 gap-y-1 text-xs text-[var(--admin-text-muted)]"><span>{configurationLabel(row.configurationState)}</span><span className="whitespace-nowrap">{channels(row)}</span></div></button>;
 }
 
 function RowMenu({ row, onSelect, onLifecycle }: { row: ServiceRow; onSelect: () => void; onLifecycle: (operation: "suspend" | "reactivate") => void }) {

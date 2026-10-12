@@ -799,7 +799,7 @@ function PreviewSection({ base: PREVIEW_BASE, path, detailId, query, setQuery, k
             actions={qrActions}
             listHref={eventSectionHref(PREVIEW_BASE, "qr", qrListKeep)}
             modelHref={modelHref}
-            generalQrHref={(row) => `/admin/operativa/qr?code=${encodeURIComponent(row.resolverCode)}`}
+            generalQrHref={(row) => `/admin/operativa/qr?q=${encodeURIComponent(row.resolverCode)}`}
           />
         )
         : (
