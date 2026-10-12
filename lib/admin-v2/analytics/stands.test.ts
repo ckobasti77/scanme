@@ -90,7 +90,8 @@ describe("standRanking with the fixtures", () => {
   test("today's scans, unique per model and votes are summed per stand", () => {
     expect(stand("9").scansToday).toBe(data.models.filter((row) => row.standCode === "9").reduce((total, row) => total + row.scans.today, 0));
     expect(stand("9").uniquePerModel).toBe(201);
-    expect(stand("9").votes).toBe(3);
+    expect(stand("9").votes).toBe(2);
+    expect(stand("1B").votes).toBe(1);
   });
 });
 

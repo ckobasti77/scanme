@@ -15,6 +15,7 @@ import {
   groupSummary,
   sidebarChips,
 } from "@/lib/admin-v2/sidebar/accordion";
+import { foldedNavSummary, searchFieldText } from "@/lib/admin-v2/sidebar/nav-fold";
 import type { SidebarConfig, SidebarLive, SidebarOption, SidebarPatch, SidebarState } from "@/lib/admin-v2/sidebar/types";
 import { fmt } from "@/lib/i18n/format";
 import { adminUiSr as dict } from "@/lib/i18n/sr/admin-ui";
@@ -23,8 +24,9 @@ import { AdminSearchSelect } from "./admin-search-select";
 import { useChipMotion } from "./use-chip-motion";
 
 // ADMIN v2 — the contextual sidebar (ZADATAK §3), one design on every page.
-// Top to bottom: the context of the area, its sub-pages, the views, the page
-// search, the filter groups as an accordion (at most one open; up to 7
+// Top to bottom: the context of the area, its sub-pages (one folded group
+// where the page has a search or filters, so those stay above the fold), the
+// views, the page search, the filter groups as an accordion (at most one open; up to 7
 // options a radio list, more a search-select), the chips of the active
 // filters with "Očisti sve", the sort, „Misije danas“ with the progress of
 // the day and the quick jumps (Dashboard). Presentational: `config` comes from
@@ -60,6 +62,9 @@ export function AdminSidebarView({ config, live = {}, state, onPatch, large, jum
   const row = large ? "min-h-11" : "min-h-9";
   const navRow = large ? "min-h-11" : "min-h-8";
   const nav = live.nav ?? config.nav;
+  const navFold = nav?.length ? config.navFold : undefined;
+  const folded = navFold && nav ? foldedNavSummary(nav) : null;
+  const contextGroup = Boolean(config.context && !config.context.list && live.context);
   const groups = (config.groups ?? []).filter((group) => !group.chipOnly);
   const chips = sidebarChips(config, state, live);
   const root = useRef<HTMLDivElement>(null);
@@ -84,36 +89,56 @@ export function AdminSidebarView({ config, live = {}, state, onPatch, large, jum
             if (value !== live.context?.value) live.context?.onChange(value);
           }}
         />
-      ) : config.context && live.context ? (
+      ) : contextGroup || navFold ? (
         <div data-sidebar-block="nav" className="min-w-0 border-b border-[var(--admin-border)] pb-1">
-          <Group
-            uid={uid}
-            id={config.context.id}
-            label={config.context.label}
-            summary={live.context.options.find((option) => option.value === live.context?.value)?.label ?? null}
-            open={open === config.context.id}
-            onToggle={toggle}
-            onClose={close}
-            row={row}
-          >
-            <Options
-              name={`${uid}-${config.context.id}`}
-              labelledBy={`${uid}-${config.context.id}-toggle`}
+          {contextGroup && config.context && live.context ? (
+            <Group
+              uid={uid}
+              id={config.context.id}
               label={config.context.label}
-              options={live.context.options}
-              value={live.context.value}
+              summary={live.context.options.find((option) => option.value === live.context?.value)?.label ?? null}
               open={open === config.context.id}
-              large={large}
-              onChange={(value) => {
-                if (value && value !== live.context?.value) live.context?.onChange(value);
-                dispatch({ type: "close" });
-              }}
-            />
-          </Group>
+              onToggle={toggle}
+              onClose={close}
+              row={row}
+            >
+              <Options
+                name={`${uid}-${config.context.id}`}
+                labelledBy={`${uid}-${config.context.id}-toggle`}
+                label={config.context.label}
+                options={live.context.options}
+                value={live.context.value}
+                open={open === config.context.id}
+                large={large}
+                onChange={(value) => {
+                  if (value && value !== live.context?.value) live.context?.onChange(value);
+                  dispatch({ type: "close" });
+                }}
+              />
+            </Group>
+          ) : null}
+          {/* The sub-pages as one group („Sekcija · Modeli“): the search and the filters of the page stay above the fold. */}
+          {navFold && nav ? (
+            <Group
+              uid={uid}
+              id={navFold.id}
+              label={navFold.label}
+              summary={folded?.label ?? null}
+              badge={folded?.urgency ? <UrgencyBadge tone={folded.urgency.tone} count={folded.urgency.count} /> : null}
+              open={open === navFold.id}
+              onToggle={toggle}
+              onClose={close}
+              row={row}
+            >
+              <nav aria-label={config.navLabel} className="grid min-w-0 gap-3 pt-1 pb-2">
+                {nav.map((group) => <NavGroup key={group.id} group={group} row={navRow} />)}
+              </nav>
+            </Group>
+          ) : null}
         </div>
       ) : null}
 
-      {nav?.length ? (
+      {nav?.length && !navFold ? (
         <nav data-sidebar-block="nav" aria-label={config.navLabel} className="grid min-w-0 gap-3">
           {nav.map((group) => <NavGroup key={group.id} group={group} row={navRow} />)}
         </nav>
@@ -260,11 +285,13 @@ export function AdminSidebarView({ config, live = {}, state, onPatch, large, jum
   );
 }
 
-function Group({ uid, id, label, summary, open, onToggle, onClose, row, children }: {
+function Group({ uid, id, label, summary, badge, open, onToggle, onClose, row, children }: {
   uid: string;
   id: string;
   label: string;
   summary: string | null;
+  /** Shown beside the arrow (the folded navigation: what waits in its sub-pages). */
+  badge?: ReactNode;
   open: boolean;
   onToggle: (id: string) => void;
   onClose: (id: string) => void;
@@ -276,6 +303,16 @@ function Group({ uid, id, label, summary, open, onToggle, onClose, row, children
     event.stopPropagation();
     onClose(id);
   }
+  // Arrow down on the header goes into the options (it opens the group first): the chosen one, else the first.
+  function onHeaderKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
+    if (event.key !== "ArrowDown") return;
+    event.preventDefault();
+    if (!open) onToggle(id);
+    requestAnimationFrame(() => {
+      const body = document.getElementById(`${uid}-${id}-body`);
+      (body?.querySelector<HTMLElement>('input:checked, [aria-current="page"]') ?? body?.querySelector<HTMLElement>("input, a, button"))?.focus();
+    });
+  }
   return (
     <>
       <button
@@ -285,12 +322,14 @@ function Group({ uid, id, label, summary, open, onToggle, onClose, row, children
         aria-expanded={open}
         aria-controls={`${uid}-${id}-body`}
         onClick={() => onToggle(id)}
+        onKeyDown={onHeaderKeyDown}
         className={cn("flex w-full min-w-0 items-center gap-2 rounded-lg px-2 text-left text-sm", row)}
       >
         <span className="min-w-0 flex-1 truncate">
           <span className="font-semibold">{label}</span>
           {summary ? <span className="text-[var(--admin-text-muted)]">{fmt(dict.filters.groupWithValue, { group: "", value: summary })}</span> : null}
         </span>
+        {badge}
         <ChevronDown className="admin-acc-chevron size-4 shrink-0 text-[var(--admin-text-muted)]" aria-hidden="true" />
       </button>
       {/* Closed: the options stay out of the tab order and of the accessibility tree. */}
@@ -343,7 +382,7 @@ function Choice({ block, title, name, options, counts, value, row, onChange }: {
   title: string;
   name: string;
   options: readonly SidebarOption[];
-  counts?: Readonly<Record<string, number>>;
+  counts?: Readonly<Record<string, number | string>>;
   value: string;
   row: string;
   onChange: (value: string) => void;
@@ -360,7 +399,7 @@ function Choice({ block, title, name, options, counts, value, row, onChange }: {
             className={cn(
               "flex min-w-0 cursor-pointer items-center justify-between gap-2 rounded-lg px-2 text-sm has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-[var(--admin-focus)]",
               row,
-              checked ? "bg-[var(--admin-surface-muted)] font-semibold text-[var(--admin-text)] shadow-[inset_2px_0_0_var(--admin-nav-line)]" : "text-[var(--admin-text-muted)] hover:bg-[var(--admin-surface-muted)] hover:text-[var(--admin-text)]",
+              checked ? "bg-[var(--admin-surface-muted)] font-semibold text-[var(--admin-text)] shadow-[inset_2px_0_0_var(--admin-nav-current)]" : "text-[var(--admin-text-muted)] hover:bg-[var(--admin-surface-muted)] hover:text-[var(--admin-text)]",
             )}
           >
             <input type="radio" name={name} checked={checked} onChange={() => onChange(option.value)} className="sr-only" />
@@ -390,7 +429,8 @@ function SearchField({ value, onChange, label, placeholder, row, submit }: {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   if (value !== seen) {
     setSeen(value);
-    if (!typing) setText(value);
+    const next = searchFieldText(text, value, typing);
+    if (next !== text) setText(next);
   }
   useEffect(() => () => {
     if (timer.current) clearTimeout(timer.current);
@@ -461,6 +501,15 @@ function NavGroup({ group, row }: { group: AdminSubnavGroup; row: string }) {
   );
 }
 
+function UrgencyBadge({ tone, count }: { tone: AdminUrgencyTone; count: number }) {
+  return (
+    <span data-urgency={tone} className={cn("inline-flex min-w-5 shrink-0 items-center justify-center rounded-full border px-1.5 text-[0.68rem] leading-5 font-bold", URGENCY_TONES[tone])}>
+      <span aria-hidden="true">{count}</span>
+      <span className="sr-only">{fmt(dict.urgency[tone], { count })}</span>
+    </span>
+  );
+}
+
 function NavLink({ item, row, nested }: { item: AdminSubnavItem; row: string; nested?: boolean }) {
   return (
     <Link
@@ -471,18 +520,13 @@ function NavLink({ item, row, nested }: { item: AdminSubnavItem; row: string; ne
         row,
         nested && "pl-5",
         item.active
-          ? "bg-[var(--admin-surface-muted)] font-semibold text-[var(--admin-text)] shadow-[inset_2px_0_0_var(--admin-nav-line)]"
+          ? "bg-[var(--admin-surface-muted)] font-semibold text-[var(--admin-text)] shadow-[inset_2px_0_0_var(--admin-nav-current)]"
           : "text-[var(--admin-text-muted)] hover:bg-[var(--admin-surface-muted)] hover:text-[var(--admin-text)]",
       )}
     >
       <span className="min-w-0 truncate">{item.label}</span>
       <span className="flex shrink-0 items-center gap-1.5">
-        {item.urgency && item.urgency.count > 0 ? (
-          <span data-urgency={item.urgency.tone} className={cn("inline-flex min-w-5 items-center justify-center rounded-full border px-1.5 text-[0.68rem] leading-5 font-bold", URGENCY_TONES[item.urgency.tone])}>
-            <span aria-hidden="true">{item.urgency.count}</span>
-            <span className="sr-only">{fmt(dict.urgency[item.urgency.tone], { count: item.urgency.count })}</span>
-          </span>
-        ) : null}
+        {item.urgency && item.urgency.count > 0 ? <UrgencyBadge tone={item.urgency.tone} count={item.urgency.count} /> : null}
         {item.count !== undefined ? (
           <span className="text-xs font-normal text-[var(--admin-text-muted)] tabular-nums">
             <span aria-hidden="true">{item.count}</span>

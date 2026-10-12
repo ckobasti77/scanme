@@ -32,7 +32,8 @@ export const inboxSidebar: SidebarConfig = {
   groups: [
     { id: "status", label: dict.statusFilter, options: INBOX_STATUSES.map((value) => ({ value, label: STATUS_LABELS[value] })) },
     { id: "kanal", label: dict.channelFilter, options: INBOX_CHANNELS.map((value) => ({ value, label: CHANNEL_LABELS[value] })) },
-    { id: "assignee", label: dict.assigneeFilter },
+    // An admin's id, or one of the two words the list itself understands.
+    { id: "assignee", label: dict.assigneeFilter, ids: ["mine", "unassigned"] },
   ],
 };
 

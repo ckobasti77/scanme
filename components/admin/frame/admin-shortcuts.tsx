@@ -29,6 +29,8 @@ export function AdminShortcuts() {
   const frame = useAdminFrame();
   const [open, setOpen] = useState(false);
   const sequence = useRef<ShortcutState>(SHORTCUT_IDLE);
+  // The dialog has no Trigger (a key or the profile menu opens it), so Radix would focus nothing on close.
+  const opener = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     const onOpen = () => setOpen(true);
@@ -101,6 +103,18 @@ export function AdminShortcuts() {
     >
       <DialogContent
         data-admin-dialog="shortcuts"
+        onOpenAutoFocus={() => {
+          // Radix has not moved focus yet: remember where it was.
+          opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        }}
+        onCloseAutoFocus={(event) => {
+          const target = opener.current;
+          opener.current = null;
+          // Opened from the profile menu the item is gone by now: Radix then does what it did before.
+          if (!target?.isConnected) return;
+          event.preventDefault();
+          target.focus();
+        }}
         className="admin-v1 max-h-[85vh] w-[min(32rem,calc(100vw-2rem))] overflow-y-auto rounded-[var(--admin-radius-panel)] border-[var(--admin-border)] bg-[var(--admin-surface-strong)] p-5 shadow-[var(--admin-shadow-lg)]"
       >
         <DialogHeader className="text-left">

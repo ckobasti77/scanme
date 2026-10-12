@@ -3085,8 +3085,6 @@ export interface AdminV1Dict {
   dashboardFixtureBadge: string;
   dashboardFixtureDescription: string;
   /** ADMIN v2 X2 — quick jumps of the Dashboard sidebar (lists opened with a filter). */
-  dashboardJumpTasksOverdue: string;
-  dashboardJumpTasksToday: string;
   dashboardJumpInboxReply: string;
   dashboardJumpOrdersProblem: string;
   dashboardJumpQrProblem: string;
@@ -4212,6 +4210,8 @@ export interface AdminEventsDict {
   noEventsTitle: string;
   noEventsBody: string;
   sectionsAria: string;
+  /** ADMIN v2 X6 — header of the folded section navigation in the sidebar („Sekcija · Modeli“). */
+  sectionFold: string;
   /** Admin UX A2 — navigation label of every section route (lib/admin-v1/event-sections.ts). */
   sectionLabels: {
     pregled: string;
@@ -5795,6 +5795,7 @@ export interface AdminEventsAnalyticsV2Dict {
     view3d: string;
     loading3d: string;
     unavailable3d: string;
+    failed3d: string;
     help3d: string;
     reset3d: string;
     /** {max} */
@@ -6331,6 +6332,8 @@ export interface AdminUiDict {
     drawerDescription: string;
     search: string;
     searchShortcut: string;
+    /** ADMIN v2 X6 — the theme switch in the profile menu (between lg and xl its button has no room in the navbar). */
+    darkTheme: string;
     jumpsTitle: string;
     /** ADMIN v2 X2 — label of the sub-page navigation of an area (Operativa, Usluge) for assistive technology. */
     areaNav: string;
@@ -6338,6 +6341,8 @@ export interface AdminUiDict {
     missionsTitle: string;
     missionsClear: string;
   };
+  /** ADMIN v2 X6 — a page of the admin that failed, shown inside the frame (app/admin/error.tsx). */
+  routeError: { title: string; body: string; bodyWithFilters: string; clearFilters: string };
   /** A3 — AdminHierarchyPicker (Izlagač → Brend → Model). */
   hierarchy: {
     exhibitor: string;

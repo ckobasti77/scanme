@@ -5,6 +5,7 @@ import { ArrowLeft, Building2, LogOut, ShieldAlert } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { adminPrimaryButtonClass } from "@/components/admin/admin-ui/admin-controls";
 import { AdminPageHeader } from "@/components/admin/frame/admin-page-header";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -69,7 +70,7 @@ function ActiveDebugView({
           type="button"
           disabled={exiting}
           onClick={onExit}
-          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[var(--admin-ink)] px-4 text-sm font-semibold text-[var(--admin-on-ink)] disabled:opacity-60"
+          className={adminPrimaryButtonClass}
         >
           <LogOut className="size-4" aria-hidden="true" />
           {exiting ? dict.debugExiting : dict.debugExit}

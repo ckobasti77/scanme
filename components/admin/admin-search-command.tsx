@@ -81,6 +81,19 @@ export function AdminSearchCommand({
     content.style.setProperty("--admin-origin", `${Math.round(trigger.left + trigger.width / 2 - left)}px ${Math.round(trigger.top + trigger.height / 2 - top)}px`);
   }, []);
 
+  // The arrows move the active option; the list (max-h + overflow-y) scrolls by the least amount that
+  // brings it into view. Only the list scrolls: scrollIntoView would also move the clipped dialog box.
+  function moveActive(index: number) {
+    setActiveIndex(index);
+    const list = document.getElementById("admin-search-command-results");
+    const option = document.getElementById(`admin-search-result-${index}`);
+    if (!list || !option) return;
+    const box = list.getBoundingClientRect();
+    const item = option.getBoundingClientRect();
+    if (item.top < box.top) list.scrollTop -= box.top - item.top;
+    else if (item.bottom > box.bottom) list.scrollTop += item.bottom - box.bottom;
+  }
+
   function openResult(href: string) {
     setOpen(false);
     router.push(href);
@@ -110,17 +123,17 @@ export function AdminSearchCommand({
       <DialogContent
         ref={placeOrigin}
         data-admin-dialog="palette"
-        className="admin-v1 top-[12vh] max-h-[78vh] w-[min(44rem,calc(100vw-2rem))] translate-y-0 overflow-hidden rounded-[var(--admin-radius-panel)] border-[var(--admin-border)] bg-[var(--admin-surface-strong)] p-0 shadow-[var(--admin-shadow-lg)]"
+        className="admin-v1 top-[12vh] flex max-h-[78vh] w-[min(44rem,calc(100vw-2rem))] translate-y-0 flex-col overflow-hidden rounded-[var(--admin-radius-panel)] border-[var(--admin-border)] bg-[var(--admin-surface-strong)] p-0 shadow-[var(--admin-shadow-lg)]"
         onOpenAutoFocus={(event) => {
           event.preventDefault();
           inputRef.current?.focus();
         }}
       >
-        <DialogHeader className="border-b border-[var(--admin-border)] px-5 pt-5 pb-3 text-left">
+        <DialogHeader className="shrink-0 border-b border-[var(--admin-border)] px-5 pt-5 pb-3 text-left">
           <DialogTitle>{dict.commandTitle}</DialogTitle>
           <DialogDescription>{dict.commandDescription}</DialogDescription>
         </DialogHeader>
-        <div className="p-3 sm:p-4">
+        <div className="shrink-0 p-3 sm:p-4">
           <label className="relative block">
             <span className="sr-only">{dict.searchLabel}</span>
             <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-[var(--admin-text-muted)]" aria-hidden="true" />
@@ -137,10 +150,10 @@ export function AdminSearchCommand({
                   setOpen(false);
                 } else if (event.key === "ArrowDown" && results.length) {
                   event.preventDefault();
-                  setActiveIndex((index) => (index + 1) % results.length);
+                  moveActive((activeIndex + 1) % results.length);
                 } else if (event.key === "ArrowUp" && results.length) {
                   event.preventDefault();
-                  setActiveIndex((index) => (index - 1 + results.length) % results.length);
+                  moveActive((activeIndex - 1 + results.length) % results.length);
                 } else if (event.key === "Enter" && results[activeIndex]) {
                   event.preventDefault();
                   openResult(results[activeIndex].href);
@@ -155,7 +168,7 @@ export function AdminSearchCommand({
             />
           </label>
         </div>
-        <div id="admin-search-command-results" role="listbox" className="max-h-[48vh] overflow-y-auto px-3 pb-3 sm:px-4 sm:pb-4">
+        <div id="admin-search-command-results" role="listbox" className="max-h-[48vh] min-h-0 flex-1 overflow-y-auto px-3 pb-3 sm:px-4 sm:pb-4">
           {!deferredTerm ? null : groups === undefined ? (
             <p className="px-3 py-8 text-center text-sm text-[var(--admin-text-muted)]">{dict.loading}</p>
           ) : results.length === 0 ? (
@@ -180,12 +193,12 @@ export function AdminSearchCommand({
                         onClick={() => openResult(result.href)}
                         className={cn(
                           "grid min-h-14 w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-xl px-3 py-2 text-left outline-none",
-                          activeIndex === index ? "bg-[var(--admin-ink)] text-[var(--admin-on-ink)]" : "hover:bg-[var(--admin-surface-muted)]",
+                          activeIndex === index ? "bg-[var(--admin-surface-muted)] text-[var(--admin-text)]" : "hover:bg-[var(--admin-surface-muted)]",
                         )}
                       >
                         <span className="min-w-0">
                           <span className="block truncate text-sm font-semibold">{result.title}</span>
-                          <span className={cn("block truncate text-xs", activeIndex === index ? "text-white/70" : "text-[var(--admin-text-muted)]")}>
+                          <span className="block truncate text-xs text-[var(--admin-text-muted)]">
                             {Array.from(new Set([result.code, result.smkCode, result.smlCode].filter(Boolean))).join(" · ")}
                           </span>
                         </span>
@@ -198,7 +211,7 @@ export function AdminSearchCommand({
             ))
           )}
         </div>
-        <div className="border-t border-[var(--admin-border)] p-3 sm:px-4">
+        <div className="shrink-0 border-t border-[var(--admin-border)] p-3 sm:px-4">
           <Link
             href={`/admin/pretraga${deferredTerm ? `?q=${encodeURIComponent(deferredTerm)}` : ""}`}
             onClick={() => setOpen(false)}

@@ -1,7 +1,7 @@
 "use client";
 
 import { X } from "lucide-react";
-import { Suspense, lazy, useMemo, useState } from "react";
+import { Component, Suspense, lazy, useMemo, useState, type ReactNode } from "react";
 import { ChartFrame, ChartSegmented, chartFocusRing } from "@/components/admin/events/analytics/chart-kit";
 import { countOf, formatCount, formatShare } from "@/lib/admin-v2/analytics/format";
 import { heatBlocks, heatZoneIds, locationScans } from "@/lib/admin-v2/analytics/heat-blocks";
@@ -24,7 +24,24 @@ import { cn } from "@/lib/utils";
 const d = adminEventsSr.analytics;
 const v = d.v2.heat;
 
-const HeatMap3D = lazy(() => import("@/components/admin/events/analytics/heat-map-3d"));
+const loadHeatMap3D = () => lazy(() => import("@/components/admin/events/analytics/heat-map-3d"));
+// React keeps a rejected import for good, so after a failure the next choice of „3D“ gets a fresh lazy (and a fresh request).
+let HeatMap3D = loadHeatMap3D();
+
+/** A 3D chunk that does not load (or a scene that throws) hands the page back to the 2D map instead of taking the frame down. */
+class Heat3DBoundary extends Component<{ onFailed: () => void; children: ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  componentDidCatch() {
+    HeatMap3D = loadHeatMap3D();
+    this.props.onFailed();
+  }
+  render() {
+    return this.state.failed ? null : this.props.children;
+  }
+}
 
 type View = "2d" | "3d";
 
@@ -177,7 +194,8 @@ export function HallHeatMap({ eventCode, data, stands, models, picked, onPick, o
 }) {
   const [period, setPeriod] = useState<FairHeatPeriod>("today");
   const [view, setView] = useState<View>("2d");
-  const [unavailable, setUnavailable] = useState(false);
+  // Why the 3D view is not shown: the browser cannot draw it, or its code did not load.
+  const [fallback, setFallback] = useState<"unavailable" | "failed" | null>(null);
   const geometry = fairMapForEventCode(eventCode);
   const rows = data.heat[period];
   const byLocation = useMemo(() => new Map(rows.map((row) => [row.locationId, row])), [rows]);
@@ -209,7 +227,7 @@ export function HallHeatMap({ eventCode, data, stands, models, picked, onPick, o
               label={v.viewLabel}
               value={view}
               onChange={(next) => {
-                setUnavailable(false);
+                setFallback(null);
                 setView(next);
               }}
               options={[{ value: "2d", label: v.view2d }, { value: "3d", label: v.view3d }]}
@@ -231,17 +249,21 @@ export function HallHeatMap({ eventCode, data, stands, models, picked, onPick, o
         rows: rows.map((row) => [standLabel(geometry, row.locationId), row.count, formatShare(row.share), heights.get(row.locationId) ?? null]),
       } : undefined}
     >
-      {unavailable ? <p role="status" data-heat-fallback="" className="text-sm text-[var(--admin-text-muted)]">{v.unavailable3d}</p> : null}
+      {fallback ? <p role="status" data-heat-fallback="" data-heat-reason={fallback} className="text-sm text-[var(--admin-text-muted)]">{fallback === "failed" ? v.failed3d : v.unavailable3d}</p> : null}
       {rows.length === 0 ? <p className="text-sm text-[var(--admin-text-muted)]">{d.heatEmpty}</p> : null}
       {show3d && scene ? (
         <>
+          <Heat3DBoundary onFailed={() => {
+            setFallback("failed");
+            setView("2d");
+          }}>
           <Suspense fallback={<p role="status" className="flex h-[20rem] items-center justify-center rounded-xl border border-[var(--admin-border)] text-sm text-[var(--admin-text-muted)] @2xl:h-[28rem]">{v.loading3d}</p>}>
             <HeatMap3D
               scene={scene}
               picked={picked}
               onPick={onPick}
               onUnavailable={() => {
-                setUnavailable(true);
+                setFallback("unavailable");
                 setView("2d");
               }}
               label={v.canvasLabel}
@@ -249,6 +271,7 @@ export function HallHeatMap({ eventCode, data, stands, models, picked, onPick, o
               blockLabel={(block) => fmt(v.blockLabel, { stand: block.label, value: countOf(block.value, heightUnit) })}
             />
           </Suspense>
+          </Heat3DBoundary>
           <p className="text-xs leading-5 text-[var(--admin-text-muted)]">{fmt(period === "today" ? v.heightToday : v.heightHour, { max: formatCount(scene.maxValue) })} {v.help3d}</p>
         </>
       ) : geometry ? (

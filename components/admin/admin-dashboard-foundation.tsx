@@ -23,6 +23,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import { adminPrimaryButtonClass } from "@/components/admin/admin-ui/admin-controls";
 import { AdminOdometer } from "@/components/admin/admin-ui/admin-odometer";
 import { useAdminUrlState } from "@/components/admin/admin-ui/use-admin-query-state";
 import { AdminPageHeader } from "@/components/admin/frame/admin-page-header";
@@ -227,7 +228,7 @@ function ReactionRow({ item, now, fixture }: { item: ReactionData["items"][numbe
       <div className="min-w-0"><p className="font-semibold tracking-[-0.015em]">{item.action.description ?? causeLabel}</p><div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[var(--admin-text-muted)]"><span>{context || causeLabel}</span><span>{relativeTime(item.action.relevantAt, now)}</span><span>{item.action.assigneeId ? adminV1Sr.dashboardScopeMine : adminV1Sr.dashboardUnassigned}</span></div></div>
       <div className="flex flex-wrap items-center gap-1 sm:justify-end">
         <button type="button" onClick={() => setDialog("snooze")} className={linkClass}><Pause className="size-4" aria-hidden="true" />{adminV1Sr.dashboardSnooze}</button>
-        {item.action.resolutionRule === "manual_problem_resolution" ? <button type="button" onClick={() => setDialog("resolve")} className={cn(linkClass, "bg-[var(--admin-ink)] text-[var(--admin-on-ink)] hover:bg-[var(--admin-text-muted)]")}>{adminV1Sr.dashboardResolve}</button> : <Link href={item.href} className={cn(linkClass, "bg-[var(--admin-ink)] text-[var(--admin-on-ink)] hover:bg-[var(--admin-text-muted)]")}>{adminV1Sr.dashboardResolve}<ArrowUpRight className="size-4" aria-hidden="true" /></Link>}
+        {item.action.resolutionRule === "manual_problem_resolution" ? <button type="button" onClick={() => setDialog("resolve")} className={adminPrimaryButtonClass}>{adminV1Sr.dashboardResolve}</button> : <Link href={item.href} className={adminPrimaryButtonClass}>{adminV1Sr.dashboardResolve}<ArrowUpRight className="size-4" aria-hidden="true" /></Link>}
       </div>
       <ActionDialog mode={dialog} onOpenChange={(open) => { if (!open) setDialog(null); }} actionItemId={item.action.actionItemId} fixture={fixture} />
     </li>
@@ -260,7 +261,7 @@ function ActionDialog({ mode, onOpenChange, actionItemId, fixture }: { mode: "sn
         <label className="grid gap-2 text-sm font-semibold">{mode === "snooze" ? adminV1Sr.dashboardSnoozeReason : adminV1Sr.dashboardResolveNote}<textarea value={reason} onChange={(event) => setReason(event.target.value)} placeholder={mode === "snooze" ? adminV1Sr.dashboardSnoozeReasonPlaceholder : adminV1Sr.dashboardResolveNotePlaceholder} rows={4} className="min-h-24 rounded-xl border border-[var(--admin-border)] bg-[var(--admin-app)] px-3 py-2 font-normal outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-ink)]" /></label>
         {mode === "snooze" ? <label className="grid gap-2 text-sm font-semibold">{adminV1Sr.dashboardSnoozeUntil}<input type="datetime-local" value={until} onChange={(event) => setUntil(event.target.value)} className="min-h-11 rounded-xl border border-[var(--admin-border)] bg-[var(--admin-app)] px-3 font-normal outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-ink)]" /></label> : null}
         {error ? <p role="alert" className="text-sm text-[var(--admin-danger)]">{adminV1Sr.dashboardMutationError}</p> : null}
-        <DialogFooter><DialogClose asChild><button type="button" className={linkClass}>{adminV1Sr.dashboardCancel}</button></DialogClose><button type="button" disabled={pending || !reason.trim() || (mode === "snooze" && !until)} onClick={() => void submit()} className={cn(linkClass, "justify-center bg-[var(--admin-ink)] text-[var(--admin-on-ink)] disabled:opacity-50")}>{mode === "snooze" ? adminV1Sr.dashboardSnoozeConfirm : adminV1Sr.dashboardResolveConfirm}</button></DialogFooter>
+        <DialogFooter><DialogClose asChild><button type="button" className={linkClass}>{adminV1Sr.dashboardCancel}</button></DialogClose><button type="button" disabled={pending || !reason.trim() || (mode === "snooze" && !until)} onClick={() => void submit()} className={adminPrimaryButtonClass}>{mode === "snooze" ? adminV1Sr.dashboardSnoozeConfirm : adminV1Sr.dashboardResolveConfirm}</button></DialogFooter>
       </DialogContent>
     </Dialog>
   );

@@ -33,7 +33,10 @@ describe("inboxListArgs", () => {
     expect(inboxListArgs(read("?assignee=mine"))).toEqual({});
     expect(inboxListArgs(read("?assignee=mine"), null)).toEqual({});
     expect(inboxListArgs(read("?assignee=unassigned"), "me1")).toEqual({ assignee: "unassigned" });
-    expect(inboxListArgs(read("?assignee=k57abc"), "me1")).toEqual({ assignee: "k57abc" });
+    // A Convex id (32 lower-case letters and digits) goes as it is; anything else reads as absent (RX S5).
+    const id = "k57".padEnd(32, "a");
+    expect(inboxListArgs(read(`?assignee=${id}`), "me1")).toEqual({ assignee: id });
+    expect(inboxListArgs(read("?assignee=k57abc"), "me1")).toEqual({});
   });
 
   test("an invalid value is ignored (readUrlState drops it)", () => {
@@ -80,7 +83,7 @@ describe("filterPreviewInbox", () => {
   const rows = [
     row("r1"),
     row("r2", { status: "waiting_client", channel: "phone", assigneeAdminId: INBOX_PREVIEW_ME, latestMessagePreview: "TEST Šampon i logo" }),
-    row("r3", { status: "completed", channel: "email", assigneeAdminId: "other", businessName: "TEST Lokal" }),
+    row("r3", { status: "completed", channel: "email", assigneeAdminId: "test-admin-other", businessName: "TEST Lokal" }),
   ];
   const ids = (state: Record<string, string>) => filterPreviewInbox(rows, state).map((item) => item.id);
 
@@ -97,8 +100,8 @@ describe("filterPreviewInbox", () => {
   test("assignee: unassigned, mine is the fixture admin, an id", () => {
     expect(ids(read("?assignee=unassigned"))).toEqual(["r1"]);
     expect(ids(read("?assignee=mine"))).toEqual(["r2"]);
-    expect(filterPreviewInbox(rows, read("?assignee=mine"), "other").map((item) => item.id)).toEqual(["r3"]);
-    expect(ids(read("?assignee=other"))).toEqual(["r3"]);
+    expect(filterPreviewInbox(rows, read("?assignee=mine"), "test-admin-other").map((item) => item.id)).toEqual(["r3"]);
+    expect(ids(read("?assignee=test-admin-other"))).toEqual(["r3"]);
   });
 
   test("search looks at names, business, code and the last message, without diacritics or case", () => {

@@ -43,10 +43,17 @@ export const adminUiSr: AdminUiDict = {
     drawerDescription: "Navigacija, kontekst stranice i filteri.",
     search: "Pretraga",
     searchShortcut: "Ctrl K",
+    darkTheme: "Tamna tema",
     jumpsTitle: "Brzi skokovi",
     areaNav: "Stranice oblasti",
     missionsTitle: "Misije danas",
     missionsClear: "Sve je čisto. Ništa ne čeka reakciju.",
+  },
+  routeError: {
+    title: "Stranica nije učitana",
+    body: "Pokušaj ponovo. Ako se ponovi, javi se timu.",
+    bodyWithFilters: "Pokušaj ponovo. Ako se ponovi, očisti filtere: link je možda nepotpun ili zastareo.",
+    clearFilters: "Očisti filtere",
   },
   hierarchy: {
     exhibitor: "Izlagač",

@@ -179,7 +179,8 @@ describe("ADMIN v2 X3: Uvidi and the hall heat map", () => {
     const detail = html.slice(html.indexOf('data-stand-detail="6"'));
     // Ten models stand on location 6 in the fixture, the busiest first.
     expect(detail.split("Otvori detalj: ").length - 1).toBe(10);
-    expect(detail.indexOf("TEST Faradej F4 Hybrid")).toBeLessThan(detail.indexOf("TEST Om Kombi"));
+    expect(detail.indexOf("TEST Faradej Epsilon")).toBeGreaterThan(-1);
+    expect(detail.indexOf("TEST Faradej Epsilon")).toBeLessThan(detail.indexOf("TEST Om Omikron"));
     expect(html).not.toContain(d.v2.heat.standPick);
     // A map location without a stand in the ranking opens nothing.
     expect(map("hala-2")).not.toContain("data-stand-detail");

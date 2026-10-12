@@ -5,7 +5,7 @@ export const adminProductsSr = {
   pageSubtitle: "Izaberi lokal za rad sa fizičkim proizvodima i QR i NFC kanalima.",
   venueSearchLabel: "Pretraži lokale",
   venueSearchPlaceholder: "Klijent, lokal, SMK, SML, SMF ili SMQ",
-  venueFilterLabel: "Filter lokala",
+  venueFilterLabel: "Stanje lokala",
   venueFilterAll: "Svi",
   venueFilterProblem: "Problem",
   venueFilterActive: "Aktivni",

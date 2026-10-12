@@ -2,9 +2,9 @@
 
 import { QrCode } from "lucide-react";
 import Link from "next/link";
-import { useMemo, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { AdminEmptyState, AdminLoadingState, AdminPanel } from "@/components/admin/admin-primitives";
-import { adminPrimaryButtonClass } from "@/components/admin/admin-ui";
+import { adminPrimaryButtonClass, adminSecondaryButtonClass } from "@/components/admin/admin-ui";
 import { AdminPageHeader } from "@/components/admin/frame/admin-page-header";
 import { useAdminSidebarLive } from "@/components/admin/frame/admin-sidebar-store";
 import { cn } from "@/lib/utils";
@@ -20,9 +20,27 @@ import { adminEventsSr as dict } from "@/lib/i18n/sr/admin-events";
 // of the admin frame: this view sends them there (useAdminSidebarLive) and
 // renders the page header (the event above, the section as the title, the
 // one „Poveži nalepnicu“ entry on the right). Presentational; the admin
-// (AdminEventFrame) and the dev preview fill it.
+// (AdminEventFrame) and the dev preview fill it. X6: a section may put its own
+// actions into that header (Analitika: „Osveži“, „Izvezi CSV“); the sticker
+// entry is then the secondary button beside them.
 
 export type FrameEvent = { slug: string; title: string; status: FairEventStatus };
+
+const HeaderActionsContext = createContext<((actions: ReactNode) => void) | null>(null);
+
+/**
+ * The actions of the open section, shown on the right of the page header (ZADATAK §2). Returns false
+ * when no event frame is around the section (a test): the section then renders them itself.
+ * `actions` should be memoized; they are taken out again when the section unmounts.
+ */
+export function useEventHeaderActions(actions: ReactNode): boolean {
+  const set = useContext(HeaderActionsContext);
+  useEffect(() => {
+    set?.(actions);
+  }, [set, actions]);
+  useEffect(() => () => set?.(null), [set]);
+  return set !== null;
+}
 
 export function AdminEventFrameView({ preview, events, currentSlug, onSelectEvent, nav, linkStickerHref, title, hud, children }: {
   preview?: boolean;
@@ -39,6 +57,7 @@ export function AdminEventFrameView({ preview, events, currentSlug, onSelectEven
   children: ReactNode;
 }) {
   const current = events.find((event) => event.slug === currentSlug);
+  const [sectionActions, setSectionActions] = useState<ReactNode>(null);
   const live = useMemo<SidebarLive>(() => ({
     context: {
       value: currentSlug,
@@ -57,13 +76,21 @@ export function AdminEventFrameView({ preview, events, currentSlug, onSelectEven
         eyebrow={title ? `${dict.pageTitle} · ${eventTitle}` : dict.pageTitle}
         title={title ?? eventTitle}
         description={preview ? dict.previewDescription : undefined}
-        actions={linkStickerHref ? (
-          <Link href={linkStickerHref} data-link-sticker-entry className={cn(adminPrimaryButtonClass, "min-h-12 text-base")}>
-            <QrCode className="size-5" aria-hidden="true" />{dict.linkSticker.entry}
-          </Link>
+        actions={sectionActions || linkStickerHref ? (
+          <>
+            {sectionActions}
+            {linkStickerHref ? (
+              // Beside the actions of a section it is the secondary button; alone it is the primary action of the page.
+              <Link href={linkStickerHref} data-link-sticker-entry className={sectionActions ? adminSecondaryButtonClass : cn(adminPrimaryButtonClass, "min-h-12 text-base")}>
+                <QrCode className={sectionActions ? "size-4" : "size-5"} aria-hidden="true" />{dict.linkSticker.entry}
+              </Link>
+            ) : null}
+          </>
         ) : undefined}
       />
-      <div className="min-w-0">{children}</div>
+      <HeaderActionsContext.Provider value={setSectionActions}>
+        <div className="min-w-0">{children}</div>
+      </HeaderActionsContext.Provider>
     </div>
   );
 }

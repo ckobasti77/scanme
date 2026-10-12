@@ -3,6 +3,7 @@
 import { AlertTriangle, ArrowDown, ArrowUp, ChevronDown } from "lucide-react";
 import { useCallback, useEffect, useId, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import { AdminPanel } from "@/components/admin/admin-primitives";
+import { adminSegmentOnClass } from "@/components/admin/admin-ui/admin-controls";
 import { nextRadioIndex } from "@/lib/admin-v1/view-mode";
 import { formatCount } from "@/lib/admin-v2/analytics/format";
 import { CHART_OTHER_COLOR, chartColor } from "@/lib/admin-v2/analytics/palette";
@@ -151,7 +152,7 @@ export function ChartSegmented<T extends string>({ value, options, onChange, lab
             className={cn(
               "inline-flex min-h-11 items-center rounded-full px-3 text-xs font-semibold whitespace-nowrap transition-colors motion-reduce:transition-none lg:min-h-8",
               chartFocusRing,
-              checked ? "bg-[var(--admin-ink)] text-[var(--admin-on-ink)]" : "text-[var(--admin-text-muted)] hover:bg-[var(--admin-surface-muted)] hover:text-[var(--admin-text)]",
+              checked ? adminSegmentOnClass : "text-[var(--admin-text-muted)] hover:bg-[var(--admin-surface-muted)] hover:text-[var(--admin-text)]",
             )}
           >
             {option.label}
@@ -210,8 +211,16 @@ export function useChartTip<T extends HTMLElement = HTMLDivElement>() {
     const outside = (event: Event) => {
       if (!ref.current?.contains(event.target as Node)) setTip(null);
     };
+    // Escape closes the readout (WCAG 1.4.13); it is not stopped, so it still closes a drawer the chart sits in.
+    const escape = (event: globalThis.KeyboardEvent) => {
+      if (event.key === "Escape") setTip(null);
+    };
     document.addEventListener("pointerdown", outside);
-    return () => document.removeEventListener("pointerdown", outside);
+    document.addEventListener("keydown", escape);
+    return () => {
+      document.removeEventListener("pointerdown", outside);
+      document.removeEventListener("keydown", escape);
+    };
   }, [open]);
   const bind = (key: string, content: ReactNode): TipHandlers => ({
     onPointerEnter: (event) => {

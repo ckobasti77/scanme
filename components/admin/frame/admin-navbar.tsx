@@ -1,10 +1,11 @@
 "use client";
 
 import gsap from "gsap";
-import { Bell, BellOff, ChevronDown, Keyboard, Link2, LogOut, Menu, Package, QrCode, Settings, ShoppingBag, Star, UserRound, UtensilsCrossed } from "lucide-react";
+import { Bell, BellOff, ChevronDown, Keyboard, Link2, LogOut, Menu, Moon, Package, QrCode, Settings, ShoppingBag, Star, UserRound, UtensilsCrossed } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useRef, type ComponentType } from "react";
+import { useEffect, useRef, useSyncExternalStore, type ComponentType } from "react";
 import { AdminSearchCommand, type AdminSearchCommandPreviewGroups } from "@/components/admin/admin-search-command";
+import { adminSegmentOnClass } from "@/components/admin/admin-ui/admin-controls";
 import { useQuietMode } from "@/components/admin/admin-ui/admin-toast";
 import { BrandLogo } from "@/components/brand-logo";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -35,7 +36,8 @@ import { useAdminFrame } from "./admin-frame-context";
 // settings, notifications, theme and profile. Below lg it is the top bar
 // with the menu button of the drawer. X4: an area with a shortcut says it in
 // its tooltip (G D), the profile menu holds the quiet mode and the list of
-// shortcuts.
+// shortcuts. X6: between lg and xl the nine links are set tighter so all of
+// them fit, and the theme (its button has no room there) is in the profile menu.
 
 type NavIcon = ComponentType<{ className?: string; "aria-hidden"?: boolean | "true" | "false" }>;
 
@@ -49,7 +51,7 @@ const childIcons: Record<string, NavIcon> = {
 };
 
 const linkClass =
-  "inline-flex min-h-11 shrink-0 items-center gap-1 px-2.5 text-sm font-semibold whitespace-nowrap text-[var(--admin-text)] transition-colors duration-150 hover:text-[var(--admin-nav-current)] aria-[current=page]:text-[var(--admin-nav-current)]";
+  "inline-flex min-h-11 shrink-0 items-center gap-1 px-1.5 text-[0.8125rem] font-semibold whitespace-nowrap text-[var(--admin-text)] transition-colors duration-150 hover:text-[var(--admin-nav-current)] aria-[current=page]:text-[var(--admin-nav-current)] xl:px-2.5 xl:text-sm";
 const utilityClass =
   "grid size-11 shrink-0 place-items-center rounded-lg text-[var(--admin-text)] transition-colors duration-150 hover:bg-[var(--admin-surface-muted)]";
 
@@ -63,9 +65,13 @@ export function AdminNavbar({ identity, onSignOut, previewSearchGroups }: {
   const route = frame?.route ?? null;
   const href = (target: string) => routeHref(target, route);
   const [quiet, setQuiet] = useQuietMode();
+  const header = useRef<HTMLElement>(null);
+  const dark = useSyncExternalStore(subscribeTheme, readDarkTheme, () => false);
+  // The one theme switch of the navbar does the work (it is in the DOM also while it has no room to show).
+  const toggleTheme = () => header.current?.querySelector<HTMLButtonElement>('button[data-theme-toggle="local"]')?.click();
 
   return (
-    <header data-admin-frame="navbar" className="flex h-[var(--admin-navbar-h)] shrink-0 items-center gap-1 px-2 lg:pr-3 lg:pl-0">
+    <header ref={header} data-admin-frame="navbar" className="flex h-[var(--admin-navbar-h)] shrink-0 items-center gap-1 px-2 lg:pr-3 lg:pl-0">
       <button type="button" onClick={() => frame?.openDrawer("nav")} className={cn(utilityClass, "lg:hidden")} aria-label={adminUiSr.frame.openMenu}>
         <Menu className="size-5" aria-hidden="true" />
       </button>
@@ -113,6 +119,18 @@ export function AdminNavbar({ identity, onSignOut, previewSearchGroups }: {
                 {adminV1Sr.settings}
               </Link>
             </DropdownMenuItem>
+            {/* Between lg and xl the theme button has no room in the navbar: the theme is here, like the settings. */}
+            <DropdownMenuCheckboxItem
+              checked={dark}
+              onCheckedChange={toggleTheme}
+              onSelect={(event) => event.preventDefault()}
+              data-admin-theme-item=""
+              className="min-h-11 gap-2 rounded-xl px-3 text-sm font-semibold focus:bg-[var(--admin-surface-muted)] xl:hidden [&>span:first-child]:hidden"
+            >
+              <Moon className="size-4" aria-hidden="true" />
+              <span className="flex-1">{adminUiSr.frame.darkTheme}</span>
+              <span aria-hidden="true" data-on={dark ? "" : undefined} className="admin-switch" />
+            </DropdownMenuCheckboxItem>
             <DropdownMenuCheckboxItem
               checked={quiet}
               onCheckedChange={(checked) => setQuiet(checked === true)}
@@ -144,6 +162,15 @@ export function AdminNavbar({ identity, onSignOut, previewSearchGroups }: {
   );
 }
 
+function subscribeTheme(onChange: () => void) {
+  window.addEventListener("scanme-theme-change", onChange);
+  return () => window.removeEventListener("scanme-theme-change", onChange);
+}
+
+function readDarkTheme() {
+  return document.documentElement.dataset.theme === "dark";
+}
+
 function DesktopLinks({ pathname, href }: { pathname: string; href: (target: string) => string }) {
   const nav = useRef<HTMLElement>(null);
   const line = useRef<HTMLSpanElement>(null);
@@ -162,13 +189,14 @@ function DesktopLinks({ pathname, href }: { pathname: string; href: (target: str
         placed.current = false;
         return;
       }
-      const inset = 10;
+      // The line is as wide as the name: the padding of the link (tighter between lg and xl) is left out.
+      const inset = Number.parseFloat(getComputedStyle(current).paddingLeft) || 0;
       const target = { x: current.offsetLeft + inset, scaleX: Math.max(1, current.offsetWidth - inset * 2), opacity: 1 };
       const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       if (animate && placed.current && !still) gsap.to(bar, { ...target, duration: ADMIN_DURATION.move, ease: ADMIN_EASE.out, overwrite: true });
       else gsap.set(bar, target);
       placed.current = true;
-      // The row scrolls sideways on a narrow desktop: bring the current link into view by scrolling the row itself.
+      // Should the row ever be wider than its room (a large text zoom), bring the current link into view by scrolling the row itself.
       // Not scrollIntoView: in Chromium it moves the keyboard's starting point to the link, so the first Tab
       // of a page skipped the skip link and the whole sidebar.
       const left = current.offsetLeft;
@@ -227,7 +255,7 @@ function DesktopLinks({ pathname, href }: { pathname: string; href: (target: str
                     <Link
                       href={href(child.href)}
                       aria-current={childActive ? "page" : undefined}
-                      className={cn("flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-sm font-semibold outline-none", childActive && "bg-[var(--admin-ink)] text-[var(--admin-on-ink)]")}
+                      className={cn("flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-sm font-semibold outline-none", childActive && adminSegmentOnClass)}
                     >
                       {ChildIcon ? <ChildIcon className="size-4" aria-hidden="true" /> : null}
                       {adminV1Sr[child.labelKey]}

@@ -89,6 +89,11 @@ describe("AdminDataView (A1)", () => {
     expect(html.indexOf("TEST filteri")).toBeLessThan(html.indexOf('role="radiogroup"'));
     const standalone = renderToStaticMarkup(<AdminViewToggle value="tabela" onChange={() => undefined} />);
     expect(standalone).toMatch(/aria-checked="true" tabindex="0" data-view="tabela"/);
+    // X6 — the chosen option is the named primary fill; every option is a 44 px target on a phone (36 px from lg).
+    expect(standalone).toMatch(/aria-checked="true"[^>]*class="[^"]*admin-button-primary/);
+    expect(standalone).not.toContain("bg-[var(--admin-ink)]");
+    expect(count(standalone, "min-h-11")).toBe(2);
+    expect(count(standalone, "lg:min-h-9")).toBe(2);
   });
 
   test("a card and a row offer the same actions", () => {

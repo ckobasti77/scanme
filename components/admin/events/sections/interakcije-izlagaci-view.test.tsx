@@ -146,7 +146,9 @@ describe("Interakcije: exhibitor cards", () => {
     expect(html).toContain(`placeholder="${t.searchPlaceholder}"`);
     expect(html.match(/type="search"/g)).toHaveLength(1);
     // The passport state arrives by a link from Pregled: a chip only, never a group.
-    expect(html).not.toContain("data-admin-filter-toggle");
+    // X6 (RX V2) — the only toggle is the folded section navigation („Sekcija“).
+    expect(html.match(/data-admin-filter-toggle=""/g)).toHaveLength(1);
+    expect(html).toMatch(/id="[^"]+-sekcija-toggle" data-admin-filter-toggle=""/);
     for (const row of ROWS) expect(html).not.toContain(row.name);
   });
 

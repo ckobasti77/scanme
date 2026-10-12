@@ -41,7 +41,10 @@ export function AdminSearchSelect({ label, options, value, anyLabel, onChange, o
   function onKeyDown(event: KeyboardEvent<HTMLInputElement>) {
     if (event.key === "ArrowDown" || event.key === "ArrowUp" || event.key === "Home" || event.key === "End") {
       event.preventDefault();
-      setActive((current) => nextActiveIndex(current, event.key, rows.length));
+      const next = nextActiveIndex(active, event.key, rows.length);
+      setActive(next);
+      // The list is as high as 7 rows and scrolls: the active option is brought into view (the field keeps the focus).
+      document.getElementById(`${id}-${next}`)?.scrollIntoView({ block: "nearest" });
     } else if (event.key === "Enter" && rows[active]) {
       event.preventDefault();
       onChange(rows[active].value);

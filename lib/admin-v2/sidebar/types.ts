@@ -30,6 +30,12 @@ export type SidebarGroup = {
   defaultValue?: string;
   /** Shown instead of the options while there are none (a group that waits for another choice). */
   emptyText?: string;
+  /**
+   * X6 — the values are ids of records the page sends to a query (`v.id(…)`): a value that is not shaped
+   * like an id reads as absent, so a mistyped or cut link shows the unfiltered list instead of an error.
+   * `true`, or the words the group accepts besides ids (Inbox: „mine“, „unassigned“).
+   */
+  ids?: true | readonly string[];
 };
 
 export type SidebarViews = { key: string; label: string; items: readonly SidebarOption[]; defaultValue: string };
@@ -66,6 +72,11 @@ export type SidebarConfig = {
   nav?: readonly AdminSubnavGroup[];
   /** Label of `nav` for assistive technology. */
   navLabel?: string;
+  /**
+   * X6 — the sub-pages are drawn as one folded accordion group („Sekcija · Modeli“) instead of an open list:
+   * a page whose search and filters would otherwise start below the fold of the sidebar (the lists of Događaji).
+   */
+  navFold?: { id: string; label: string };
   /** „Na ovoj strani“: the parts of a long page, as links to their ids on the screen. */
   anchors?: { label: string; items: readonly { id: string; label: string }[] };
   views?: SidebarViews;
@@ -90,7 +101,8 @@ export type SidebarPatch = Record<string, string | null>;
 export type SidebarLive = {
   context?: { value: string; options: readonly SidebarOption[]; onChange: (value: string) => void };
   nav?: readonly AdminSubnavGroup[];
-  viewCounts?: Readonly<Record<string, number>>;
+  /** A number, or a text when the read was limited („12+“). */
+  viewCounts?: Readonly<Record<string, number | string>>;
   /** Options (with counts) of the groups, by group id; they replace the static ones. */
   options?: Readonly<Record<string, readonly SidebarOption[]>>;
   /**

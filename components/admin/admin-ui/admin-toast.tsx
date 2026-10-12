@@ -70,7 +70,7 @@ function ToastItem({ toast }: { toast: AdminToast }) {
         <p className="font-semibold [overflow-wrap:anywhere]">{toast.title}</p>
         {toast.body ? <p className="mt-0.5 text-xs leading-5 text-[var(--admin-text-muted)]">{toast.body}</p> : null}
       </div>
-      <button type="button" onClick={dismiss} aria-label={adminUiSr.toast.dismiss} className="grid size-8 flex-none place-items-center rounded-md text-[var(--admin-text-muted)] hover:bg-[var(--admin-surface-muted)] hover:text-[var(--admin-text)]">
+      <button type="button" onClick={dismiss} aria-label={adminUiSr.toast.dismiss} className="-my-1.5 grid size-11 flex-none place-items-center rounded-md lg:my-0 lg:size-8 text-[var(--admin-text-muted)] hover:bg-[var(--admin-surface-muted)] hover:text-[var(--admin-text)]">
         <X className="size-4" aria-hidden="true" />
       </button>
     </li>

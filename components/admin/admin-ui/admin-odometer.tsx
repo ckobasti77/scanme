@@ -55,7 +55,8 @@ export function AdminOdometer({ value, text, className }: AdminOdometerProps) {
         { yPercent: direction === 1 ? 0 : -50 },
         {
           yPercent: direction === 1 ? -50 : 0,
-          duration: ADMIN_DURATION.move,
+          // The digits are staggered: 180 ms each, the last one ends within 250 ms.
+          duration: ADMIN_DURATION.state,
           ease: ADMIN_EASE.out,
           stagger: { each: strips.length > 1 ? ADMIN_STAGGER_TOTAL / (strips.length - 1) : 0, from: "end" },
           onComplete: end,

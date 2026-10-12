@@ -324,15 +324,19 @@ html[data-theme="dark"] .admin-v1 {
   border-radius: var(--button-radius);
 }
 
-/* Ista dugmad kao sajt: puna (crna) dugmad su primary u ScanMe zelenoj, a
-   sekundarna dugmad su ghost (zelena slova, bez pozadine, ivica 2 px). */
-.admin-v1 :is(button, a)[class*="bg-[var(--admin-ink)]"] {
+/* Ista dugmad kao sajt: primarno dugme je u ScanMe zelenoj, a sekundarna
+   dugmad su ghost (zelena slova, bez pozadine, ivica 2 px).
+   ADMIN v2 X6 — the one primary button of the admin (adminPrimaryButtonClass in
+   components/admin/admin-ui/admin-controls.ts) and the chosen option of a
+   segmented control. A named class: until X6 every button or link whose class
+   list contained `bg-[var(--admin-ink)]` was painted green by a substring match. */
+.admin-v1 .admin-button-primary {
   border-color: var(--primary);
   background-color: var(--primary);
   color: var(--primary-foreground);
 }
 
-.admin-v1 :is(button, a)[class*="bg-[var(--admin-ink)]"]:hover:not(:disabled) {
+.admin-v1 .admin-button-primary:hover:not(:disabled) {
   border-color: var(--primary-hover);
   background-color: var(--primary-hover);
 }
@@ -378,20 +382,14 @@ html[data-theme="dark"] .admin-v1 {
   --admin-fade-bottom: 1.5rem;
 }
 
-/* The navbar links scroll sideways on a narrow desktop instead of wrapping. */
+/* The navbar links never wrap. All nine fit from lg up (tighter between lg and xl, admin-navbar.tsx);
+   with a large text zoom the row scrolls sideways, without a scrollbar. */
 .admin-v1 .admin-navbar-links {
   scrollbar-width: none;
 }
 
 .admin-v1 .admin-navbar-links::-webkit-scrollbar {
   display: none;
-}
-
-/* Between lg and xl the nine links do not fit: the row fades out on the right where it continues. */
-@media (min-width: 64rem) and (max-width: 79.99rem) {
-  .admin-v1 .admin-navbar-links {
-    mask-image: linear-gradient(to right, #000 calc(100% - 2rem), transparent 100%);
-  }
 }
 
 /* Filter accordion: the height opens through grid rows (no measured height),
@@ -584,6 +582,28 @@ html[data-theme="dark"] .admin-v1 {
   /* Nothing moves: a pressed button keeps its size (the same selector as the rule above, so it wins). */
   .admin-v1 :is(button, [role="button"], .admin-press):active:not(:disabled, [aria-disabled="true"]) {
     scale: none;
+  }
+
+  /* ...but what opens still cross-fades (ZADATAK §7: no movement, only a fade): menus, dialogs and the
+     drawers of the admin fade in --admin-dur-1 instead of appearing at once. No transform is animated. */
+  @keyframes admin-fade-in {
+    from {
+      opacity: 0;
+    }
+  }
+
+  @keyframes admin-fade-out {
+    to {
+      opacity: 0;
+    }
+  }
+
+  .admin-v1:is([data-slot="dropdown-menu-content"], [data-slot="dialog-content"], [data-slot="sheet-content"])[data-state="open"] {
+    animation: admin-fade-in var(--admin-dur-1) linear !important;
+  }
+
+  .admin-v1:is([data-slot="dropdown-menu-content"], [data-slot="dialog-content"], [data-slot="sheet-content"])[data-state="closed"] {
+    animation: admin-fade-out var(--admin-dur-1) linear !important;
   }
 }
 

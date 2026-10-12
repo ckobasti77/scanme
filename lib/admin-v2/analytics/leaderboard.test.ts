@@ -93,7 +93,7 @@ describe("leaderboard change of place", () => {
     const lost = rows.filter((row) => row.move === -1);
     expect(gained).toHaveLength(1);
     expect(lost).toHaveLength(1);
-    // Cumulative to Subota: X1 56, X2 50, City 46 → City is second now, X2 third.
+    // Cumulative to Subota: Alfa 56, Gama 50, Beta 46 → Beta is second now, Gama third.
     expect(gained[0].eventModelId).toBe("test-preview-e1");
     expect(lost[0].eventModelId).toBe("test-preview-a2");
     expect(find("e1").rank).toBe(2);
@@ -217,7 +217,7 @@ describe("leaderboard numbers of a row", () => {
   });
 
   test("keeps the fields of the model it came from", () => {
-    expect(rows[0].name).toBe("X1");
+    expect(rows[0].name).toBe("Alfa");
     expect(rows[0].brandName).toBe("TEST Volta");
   });
 

@@ -19,18 +19,18 @@ describe("ordersListArgs: the same arguments of adminOrders.list as before the s
     for (const value of ORDER_PAYMENTS) expect(args(`?uplata=${value}`)).toEqual({ view: "active", sort: "updated_desc", paymentState: value });
     for (const value of ORDER_DESIGNS) expect(args(`?dizajn=${value}`)).toEqual({ view: "active", sort: "updated_desc", designState: value });
     for (const value of ORDER_FULFILLMENTS) expect(args(`?izvrsenje=${value}`)).toEqual({ view: "active", sort: "updated_desc", fulfillmentState: value });
-    expect(args("?assignee=TESTadmin1")).toEqual({ view: "active", sort: "updated_desc", assigneeId: "TESTadmin1" });
+    expect(args("?assignee=test-admin-1")).toEqual({ view: "active", sort: "updated_desc", assigneeId: "test-admin-1" });
     expect(args("?problem=da")).toEqual({ view: "active", sort: "updated_desc", problemsOnly: true });
     expect(args("?sort=updated_asc")).toEqual({ view: "active", sort: "updated_asc" });
   });
 
   test("all choices together", () => {
-    expect(args("?pogled=completed&uplata=paid&dizajn=approved&izvrsenje=delivered&assignee=TESTadmin1&problem=da&sort=updated_asc")).toEqual({
+    expect(args("?pogled=completed&uplata=paid&dizajn=approved&izvrsenje=delivered&assignee=test-admin-1&problem=da&sort=updated_asc")).toEqual({
       view: "completed",
       paymentState: "paid",
       designState: "approved",
       fulfillmentState: "delivered",
-      assigneeId: "TESTadmin1",
+      assigneeId: "test-admin-1",
       sort: "updated_asc",
       problemsOnly: true,
     });
@@ -53,7 +53,7 @@ describe("ordersAreFiltered and ordersSortIgnored", () => {
     expect(ordersAreFiltered({})).toBe(false);
     expect(ordersAreFiltered({ pogled: "archived", sort: "updated_asc" })).toBe(false);
     expect(ordersAreFiltered({ q: "  " })).toBe(false);
-    const states: Record<string, string>[] = [{ q: "TEST" }, { assignee: "TESTadmin1" }, { uplata: "paid" }, { dizajn: "approved" }, { izvrsenje: "delivered" }, { problem: "da" }];
+    const states: Record<string, string>[] = [{ q: "TEST" }, { assignee: "test-admin-1" }, { uplata: "paid" }, { dizajn: "approved" }, { izvrsenje: "delivered" }, { problem: "da" }];
     for (const state of states) {
       expect(ordersAreFiltered(state)).toBe(true);
     }
@@ -68,10 +68,10 @@ describe("ordersAreFiltered and ordersSortIgnored", () => {
 });
 
 describe("sidebar options", () => {
-  const admins = [{ id: "TESTadmin1", name: "TEST Admin Jedan" }, { id: "TESTadmin2", name: "TEST Admin Dva" }];
+  const admins = [{ id: "test-admin-1", name: "TEST Admin Jedan" }, { id: "test-admin-2", name: "TEST Admin Dva" }];
 
   test("the assignees become the options of the assignee group", () => {
-    expect(ordersAssigneeOptions(admins)).toEqual([{ value: "TESTadmin1", label: "TEST Admin Jedan" }, { value: "TESTadmin2", label: "TEST Admin Dva" }]);
+    expect(ordersAssigneeOptions(admins)).toEqual([{ value: "test-admin-1", label: "TEST Admin Jedan" }, { value: "test-admin-2", label: "TEST Admin Dva" }]);
     expect(ordersAssigneeOptions([])).toEqual([]);
     expect(ordersSidebarLive(admins)).toEqual({ options: { assignee: ordersAssigneeOptions(admins) } });
   });
@@ -81,7 +81,7 @@ describe("filterPreviewOrders", () => {
   const row = (id: string, extra: Partial<PreviewOrderRow> = {}): PreviewOrderRow & { id: string } => ({
     id,
     view: "active",
-    assigneeId: "TESTadmin1",
+    assigneeId: "test-admin-1",
     paymentState: "paid",
     designState: "approved",
     fulfillmentState: "ready_for_printer",
@@ -96,7 +96,7 @@ describe("filterPreviewOrders", () => {
   });
   const rows = [
     row("a", { updatedAt: 1_000 }),
-    row("b", { updatedAt: 3_000, paymentState: "awaiting_payment", designState: "in_progress", fulfillmentState: "awaiting_conditions", assigneeId: "TESTadmin2" }),
+    row("b", { updatedAt: 3_000, paymentState: "awaiting_payment", designState: "in_progress", fulfillmentState: "awaiting_conditions", assigneeId: "test-admin-2" }),
     row("c", { updatedAt: 2_000, problemCount: 1, fulfillmentState: "quality_control" }),
     row("d", { updatedAt: 4_000, view: "completed", fulfillmentState: "delivered" }),
     row("e", { updatedAt: 5_000, view: "archived" }),
@@ -114,7 +114,7 @@ describe("filterPreviewOrders", () => {
   });
 
   test("the filters", () => {
-    expect(ids({ assignee: "TESTadmin2" })).toEqual(["b"]);
+    expect(ids({ assignee: "test-admin-2" })).toEqual(["b"]);
     expect(ids({ uplata: "awaiting_payment" })).toEqual(["b"]);
     expect(ids({ dizajn: "in_progress" })).toEqual(["b"]);
     expect(ids({ izvrsenje: "quality_control" })).toEqual(["c"]);

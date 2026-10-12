@@ -41,9 +41,10 @@ export const tasksSidebar: SidebarConfig = {
   views: { key: "pogled", label: ui.filters.views, defaultValue: "all", items: TASK_VIEWS.map((value) => ({ value, label: VIEW_LABELS[value] })) },
   search: { key: "q", label: dict.searchLabel, placeholder: dict.searchPlaceholder },
   groups: [
-    { id: "assignee", label: dict.filterAssignee },
-    { id: "klijent", label: dict.filterClient },
-    { id: "lokal", label: dict.filterVenue, emptyText: dict.filterVenueNeedsClient },
+    // Ids the list sends to `adminTasks.list`: anything else in the URL reads as absent (RX S5).
+    { id: "assignee", label: dict.filterAssignee, ids: true },
+    { id: "klijent", label: dict.filterClient, ids: true },
+    { id: "lokal", label: dict.filterVenue, emptyText: dict.filterVenueNeedsClient, ids: true },
     { id: "objekat", label: dict.filterSubject, options: TASK_SUBJECTS.map((value) => ({ value, label: SUBJECT_LABELS[value] })) },
   ],
   blocks: ["missions"],

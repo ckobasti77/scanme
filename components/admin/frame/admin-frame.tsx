@@ -3,7 +3,7 @@
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useQuery } from "convex/react";
 import { usePathname } from "next/navigation";
-import { useCallback, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { AdminSearchCommandPreviewGroups } from "@/components/admin/admin-search-command";
 import { AdminToaster } from "@/components/admin/admin-ui/admin-toast";
 import { api } from "@/convex/_generated/api";
@@ -46,6 +46,22 @@ export function AdminFrame({ children, previewIdentity, previewSearchGroups, act
   const { signOut } = useAuthActions();
   const identity = previewIdentity ?? me?.email ?? adminV1Sr.profileFallback;
   const [drawer, setDrawer] = useState<AdminDrawerTarget | null>(null);
+  // X6 — the layout is persistent, so a link inside the drawer changes the page while the drawer stays
+  // mounted: the frame closes it when the path changes. A filter only changes the query and keeps it open.
+  const [drawerPath, setDrawerPath] = useState(pathname);
+  if (pathname !== drawerPath) {
+    setDrawerPath(pathname);
+    if (drawer !== null) setDrawer(null);
+  }
+  // From lg up the sidebar itself is on the screen: a drawer left open by a resize or a rotation is closed.
+  useEffect(() => {
+    const wide = window.matchMedia("(min-width: 64rem)");
+    const onChange = () => {
+      if (wide.matches) setDrawer(null);
+    };
+    wide.addEventListener("change", onChange);
+    return () => wide.removeEventListener("change", onChange);
+  }, []);
   const route = useMemo(() => {
     const base = adminRoute(pathname);
     // A single-surface preview names the admin page it shows (one preview route may show several).

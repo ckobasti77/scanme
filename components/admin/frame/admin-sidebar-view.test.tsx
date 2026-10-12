@@ -121,6 +121,51 @@ describe("the contextual sidebar", () => {
   });
 });
 
+// ADMIN v2 X6 (RX V2) — on a page with a search or filters the sub-pages are one folded group, so the
+// search and the first filter group are above the fold of the sidebar.
+describe("the folded navigation of an area", () => {
+  const folded: SidebarConfig = { ...config, navFold: { id: "sekcija", label: "Sekcija" } };
+  const render = (page: SidebarConfig, state: SidebarState = {}) => renderToStaticMarkup(<AdminSidebarView config={page} live={live} state={state} onPatch={() => undefined} />);
+
+  test("the sub-pages are one accordion group that names the open one and carries what waits in the others", () => {
+    const markup = render(folded);
+    // The context, the folded navigation and the two filter groups: all four are groups of the one accordion.
+    expect(toggles(markup)).toHaveLength(4);
+    expect(markup.match(/class="admin-acc-body"[^>]*inert=""/g)).toHaveLength(4);
+    const toggle = toggles(markup)[1];
+    expect(toggle).toContain('aria-expanded="false"');
+    expect(markup).toContain('>Sekcija</span><span class="text-[var(--admin-text-muted)]"> · TEST A</span>');
+    // „TEST B“ has three urgent items: the header of the folded group says so.
+    expect(markup).toMatch(/> · TEST A<\/span><\/span><span data-urgency="hitno"[^>]*><span aria-hidden="true">3<\/span><span class="sr-only">Hitno: 3<\/span>/);
+    // The links are still in the markup (inside the closed body), each once, with the open page marked.
+    expect(markup.match(/<nav aria-label="TEST navigacija"/g)).toHaveLength(1);
+    expect(markup.match(/aria-current="page"/g)).toHaveLength(1);
+    expect(markup).toContain('href="/admin/test/b"');
+  });
+
+  test("the order of ZADATAK §3 stays: context, navigation, views, search, filter groups, sort", () => {
+    const markup = render(folded);
+    const order = ["Događaj", ">Sekcija<", "TEST navigacija", ">Pogledi<", "Pretraga liste", `>${adminUiSr.filters.groups}<`, ">Sortiranje<"].map((text) => markup.indexOf(text));
+    expect(order.every((index) => index >= 0)).toBe(true);
+    expect([...order].sort((a, b) => a - b)).toEqual(order);
+  });
+
+  test("the search follows the folded navigation directly: no open list of sections stands between them", () => {
+    const markup = render({ id: "test/fold", nav: config.nav, navLabel: "TEST navigacija", navFold: { id: "sekcija", label: "Sekcija" }, search: config.search });
+    const body = /id="([^"]+-sekcija-body)"[^>]*inert=""/.exec(markup);
+    expect(body).not.toBeNull();
+    // Without the flag the same configuration draws the open list (the pages that have nothing to filter).
+    const open = render({ id: "test/open", nav: config.nav, navLabel: "TEST navigacija", search: config.search });
+    expect(open).toContain('<nav data-sidebar-block="nav" aria-label="TEST navigacija"');
+    expect(toggles(open)).toHaveLength(0);
+  });
+
+  test("a view count may be a text: a limited read says „12+“", () => {
+    const markup = renderToStaticMarkup(<AdminSidebarView config={config} live={{ ...live, viewCounts: { sve: 30, danas: "12+" } }} state={{}} onPatch={() => undefined} />);
+    expect(markup).toMatch(/>Danas<\/span><span[^>]*>12\+<\/span>/);
+  });
+});
+
 // ADMIN v2 X2 — what the lists outside Događaji need from the same component.
 describe("the sidebar of the other pages", () => {
   const render = (page: SidebarConfig, data: SidebarLive = {}, state: SidebarState = {}) => renderToStaticMarkup(<AdminSidebarView config={page} live={data} state={state} onPatch={() => undefined} />);
@@ -311,5 +356,12 @@ describe("the page header", () => {
     expect(markup).toContain("TEST oblast");
     expect(markup).toContain("TEST akcija");
     expect(markup).not.toContain("data-admin-filters-open");
+    expect(markup).not.toContain("data-eyebrow-space");
+  });
+
+  test("X6 (RX N14): without an eyebrow its line is kept on a wide screen, so the H1 stands at the same height on every page", () => {
+    const markup = renderToStaticMarkup(<AdminPageHeader title="TEST naslov" />);
+    expect(markup).toContain('<span aria-hidden="true" data-eyebrow-space="" class="hidden h-4 @2xl/screen:block"></span>');
+    expect(markup.indexOf("data-eyebrow-space")).toBeLessThan(markup.indexOf("<h1"));
   });
 });

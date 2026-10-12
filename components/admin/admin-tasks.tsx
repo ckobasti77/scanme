@@ -21,6 +21,7 @@ import {
   type FormEvent,
   type ReactNode,
 } from "react";
+import { adminPrimaryButtonClass } from "@/components/admin/admin-ui/admin-controls";
 import { useAdminUrlState } from "@/components/admin/admin-ui/use-admin-query-state";
 import { useMinuteNow } from "@/components/admin/admin-ui/use-minute-now";
 import { AdminPageHeader } from "@/components/admin/frame/admin-page-header";
@@ -31,9 +32,12 @@ import {
   TASK_MISSION_LIMIT,
   filterPreviewTasks,
   previewTaskMissions,
+  previewTaskViewCounts,
+  taskStatusTone,
   tasksAreFiltered,
   tasksListArgs,
   tasksSidebarLive,
+  tasksViewCounts,
   tasksVenuesFromRows,
   type TaskAccountOption,
   type TaskVenueOption,
@@ -150,15 +154,6 @@ function dueLabel(task: TaskItem) {
     : dateTimeFormatter.format(task.due.at);
 }
 
-function statusTone(status: TaskStatus, phase: TaskItem["timePhase"]) {
-  if (status === "completed" || status === "cancelled")
-    return "neutral" as const;
-  if (phase === "overdue") return "problem" as const;
-  if (status === "in_progress" || phase === "today") return "waiting" as const;
-  if (status === "open") return "active" as const;
-  return "neutral" as const;
-}
-
 function PriorityLabel({ priority }: { priority: TaskPriority }) {
   return (
     <span
@@ -244,7 +239,7 @@ function TaskList({
               <td className="px-4 py-4 align-top">
                 <AdminStatus
                   label={statusLabels[task.status]}
-                  tone={statusTone(task.status, task.timePhase)}
+                  tone={taskStatusTone(task.status, task.timePhase)}
                 />
               </td>
               <td className="px-2 py-2 text-right align-middle">
@@ -291,7 +286,7 @@ function TaskList({
             <span className="mt-4 flex flex-wrap items-center gap-2">
               <AdminStatus
                 label={statusLabels[task.status]}
-                tone={statusTone(task.status, task.timePhase)}
+                tone={taskStatusTone(task.status, task.timePhase)}
               />
               <PriorityLabel priority={task.priority} />
             </span>
@@ -368,7 +363,10 @@ export function AdminTasksWorkspace({
   const due = useQuery(api.adminTasks.dashboardAdapter, { now: minute, limit: TASK_MISSION_LIMIT });
   const [dueKept, setDueKept] = useState(due);
   if (due && due !== dueKept) setDueKept(due);
-  const missions = useMemo(() => (dueKept ? { missions: taskMissions(dueKept) } : null), [dueKept]);
+  const missions = useMemo(
+    () => (dueKept ? { missions: taskMissions(dueKept), viewCounts: tasksViewCounts(dueKept, state) } : null),
+    [dueKept, state],
+  );
   useAdminSidebarLive(missions);
 
   return (
@@ -377,14 +375,14 @@ export function AdminTasksWorkspace({
         title={dict.pageTitle}
         description={dict.pageSubtitle}
         actions={
-          <Button
+          <button
             type="button"
             onClick={() => setCreateOpen(true)}
-            className="min-h-11 rounded-full px-5"
+            className={adminPrimaryButtonClass}
           >
             <Plus className="size-4" aria-hidden="true" />
             {dict.createAction}
-          </Button>
+          </button>
         }
       />
       {rows.status === "LoadingFirstPage" ? (
@@ -979,7 +977,7 @@ function TaskDetailContent({
           </div>
           <AdminStatus
             label={statusLabels[task.status]}
-            tone={statusTone(task.status, task.timePhase)}
+            tone={taskStatusTone(task.status, task.timePhase)}
           />
         </div>
         <div className="mt-4 flex flex-wrap gap-2 text-xs text-[var(--admin-text-muted)]">
@@ -1659,7 +1657,10 @@ export function AdminTasksPreview() {
   );
   useAdminSidebarLive(sidebar);
   // Solving a task here moves „Misije danas“ of the sidebar, as it does in the admin.
-  const missions = useMemo(() => ({ missions: previewTaskMissions(rows) }), [rows]);
+  const missions = useMemo(
+    () => ({ missions: previewTaskMissions(rows), viewCounts: previewTaskViewCounts(rows, state) }),
+    [rows, state],
+  );
   useAdminSidebarLive(missions);
   const updateSelected = (patch: Partial<TaskItem>) => {
     if (!selectedId) return;
@@ -1676,14 +1677,14 @@ export function AdminTasksPreview() {
         description={dict.pageSubtitle}
         badge={<AdminStatus label={dict.previewBadge} tone="waiting" />}
         actions={
-          <Button
+          <button
             type="button"
-            className="min-h-11 rounded-full px-5"
+            className={adminPrimaryButtonClass}
             onClick={() => setCreateOpen(true)}
           >
             <Plus className="size-4" aria-hidden="true" />
             {dict.createAction}
-          </Button>
+          </button>
         }
       />
       <p className="text-xs text-[var(--admin-text-muted)]">
@@ -1836,7 +1837,7 @@ function PreviewDetail({
         <div className="mt-4">
           <AdminStatus
             label={statusLabels[task.status]}
-            tone={statusTone(task.status, task.timePhase)}
+            tone={taskStatusTone(task.status, task.timePhase)}
           />
         </div>
       </section>

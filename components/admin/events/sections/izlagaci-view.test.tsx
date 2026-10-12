@@ -133,7 +133,8 @@ describe("A5 Izlagači", () => {
     expect(markup).toContain(`>${list.facetSegment}</span>`);
     expect(markup).toMatch(option(list.segments["event-only"], 1));
     expect(markup).toMatch(option(list.segments.standard, 1));
-    expect(markup.match(/data-admin-filter-toggle=""/g)).toHaveLength(1);
+    // X6 (RX V2) — one more toggle: the section navigation is the folded group „Sekcija“ on a page with filters.
+    expect(markup.match(/data-admin-filter-toggle=""/g)).toHaveLength(2);
     expect(markup).not.toContain('aria-expanded="true"');
     expect(markup).not.toContain(`>${adminUiSr.filters.clearAll}</button>`);
     for (const row of exhibitors) expect(markup).not.toContain(row.name);

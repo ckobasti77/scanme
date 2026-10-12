@@ -71,6 +71,9 @@ describe("Finansije page", () => {
     expect(html.match(/<h1/g)).toHaveLength(1);
     expect(html).toContain(`>${dict.pageTitle}</h1>`);
     expect(html).toContain(dict.costAction);
+    // X6 — the header action is the primary button (the named class, not an ink fill the stylesheet matches by substring).
+    expect(html).toMatch(new RegExp(`<button[^>]*admin-button-primary[^>]*>(?:(?!</button>).)*${dict.costAction}`));
+    expect(html).not.toMatch(/<(?:button|a)\b[^>]*bg-\[var\(--admin-ink\)\]/);
     expect(html).toContain(dict.previewBadge);
     expect(html).toContain('data-tone="waiting"');
     expect(html).not.toContain('role="tablist"');

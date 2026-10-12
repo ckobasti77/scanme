@@ -9,7 +9,7 @@ import type { SidebarConfig, SidebarPatch, SidebarState } from "@/lib/admin-v2/s
 
 export type UrlField = {
   key: string;
-  /** Allowed values; without them `pattern` decides. */
+  /** Allowed values; without them `pattern` decides. With both, either one allows the value. */
   values?: readonly string[];
   pattern?: RegExp;
   /** Not written to the URL; an absent key reads as absent, the page applies the default. */
@@ -21,6 +21,11 @@ export type UrlField = {
 /** Ids, slugs, dates and `column:asc` sorts. */
 const VALUE = /^[A-Za-z0-9_.:-]{1,80}$/;
 const SEARCH_MAX = 120;
+/**
+ * The id of a record: a Convex id (lower-case letters and digits, 31–37 long). A dev preview has no
+ * Convex: its fixture ids are words joined by hyphens with „fixture“, „preview“ or „test“ among them.
+ */
+export const RECORD_ID = /^(?:[a-z0-9]{31,37}|(?:[a-z0-9]+-)*(?:fixture|preview|test)(?:-[a-z0-9]+)*)$/;
 
 type Source = string | URLSearchParams | { toString(): string };
 
@@ -33,7 +38,8 @@ function normalize(field: UrlField, raw: string | null | undefined): string | nu
   const value = raw?.trim();
   if (!value) return null;
   if (field.maxLength) return value.slice(0, field.maxLength);
-  if (field.values) return field.values.includes(value) ? value : null;
+  if (field.values?.includes(value)) return value;
+  if (field.values && !field.pattern) return null;
   return (field.pattern ?? VALUE).test(value) ? value : null;
 }
 
@@ -48,6 +54,7 @@ export function sidebarUrlFields(config: SidebarConfig): UrlField[] {
     for (const key of groupKeys(group)) {
       const field: UrlField =
         group.kind === "custom" ? (group.textKeys?.includes(key) ? { key, maxLength: SEARCH_MAX } : { key })
+        : group.ids ? { key, pattern: RECORD_ID, ...(group.ids === true ? {} : { values: group.ids }) }
         : group.options ? { key, values: group.options.map((option) => option.value) }
         : { key };
       fields.push(group.defaultValue ? { ...field, defaultValue: group.defaultValue } : field);

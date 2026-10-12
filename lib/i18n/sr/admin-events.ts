@@ -7,6 +7,7 @@ export const adminEventsSr = {
   noEventsTitle: "Nema događaja",
   noEventsBody: "Događaji se pojavljuju ovde čim se unesu ili uvezu iz kataloga. Ako očekuješ događaj, javi se timu.",
   sectionsAria: "Sekcije događaja",
+  sectionFold: "Sekcija",
   sectionLabels: {
     pregled: "Pregled",
     povezi: "Poveži nalepnicu",
@@ -1800,10 +1801,10 @@ export const adminEventsSr = {
   },
   analytics: {
     title: "Analitika",
-    intro: "Brojevi od otvaranja hale ({cutoff}), bez skenova pre otvaranja i bez skenova osoblja. Osvežava se na dugme i sam svakih 60 sekundi.",
+    intro: "Od otvaranja hale ({cutoff}), bez skenova osoblja. Brojevi se osvežavaju svakog minuta, angažovanje na 5 minuta.",
     refresh: "Osveži",
     refreshing: "Osvežava se…",
-    updated: "Ažurirano u {time}",
+    updated: "Ažurirano u {time}.",
     exportCsv: "Izvezi CSV",
     csvFileName: "analitika-{event}-{date}.csv",
     errorTitle: "Analitika nije učitana",
@@ -2061,6 +2062,7 @@ export const adminEventsSr = {
         view3d: "3D",
         loading3d: "Učitava se 3D prikaz…",
         unavailable3d: "3D prikaz ne radi u ovom pregledaču, pa je prikazana 2D mapa.",
+        failed3d: "3D prikaz nije učitan, pa je prikazana 2D mapa. Proveri vezu i osveži stranicu.",
         help3d: "Prevuci da okreneš halu; točkić ili dva prsta zumiraju.",
         reset3d: "Vrati pogled",
         heightToday: "Visina bloka je broj skenova danas (najviši: {max}); boja je gužva, kao na 2D mapi.",

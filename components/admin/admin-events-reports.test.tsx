@@ -206,7 +206,8 @@ describe("A9 report approval queue (day × exhibitor)", () => {
     ]);
     const html = sidebarHtml({});
     for (const label of [q.facetDay, q.facetExhibitor, q.facetStatus]) expect(html).toContain(`>${label}</span>`);
-    expect(html.match(/data-admin-filter-toggle=""/g)).toHaveLength(3);
+    // X6 (RX V2) — the three filter groups and one more toggle: the folded section navigation („Sekcija“).
+    expect(html.match(/data-admin-filter-toggle=""/g)).toHaveLength(4);
     expect(html).toMatch(option("TEST dan 2", 2));
     expect(html).toMatch(option("TEST izlagač A", 2));
     expect(html).toMatch(option(q.statuses["ceka-odobrenje"], 1));

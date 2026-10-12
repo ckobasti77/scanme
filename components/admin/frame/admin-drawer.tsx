@@ -24,6 +24,8 @@ import { AdminSidebarContent } from "./admin-sidebar-content";
 // target is at least 44 px.
 
 const rowClass = "flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-semibold";
+/** One icon of the footer row: 44 px, the same on the buttons and the links. */
+const footIconClass = "focus-signal inline-flex size-11 flex-none items-center justify-center rounded-lg text-[var(--admin-text-muted)] transition-colors hover:bg-[var(--admin-surface-muted)] hover:text-[var(--admin-text)]";
 /** A swipe past this share of the drawer width, or a quick flick, closes it. */
 const CLOSE_SHARE = 0.3;
 const FLICK_PX_PER_MS = 0.5;
@@ -31,11 +33,15 @@ const FLICK_PX_PER_MS = 0.5;
 export function AdminDrawer({ identity, onSignOut }: { identity: string; onSignOut: () => void }) {
   const frame = useAdminFrame();
   const content = useRef<HTMLDivElement>(null);
+  // The element that had focus when the drawer opened: the drawer has no Trigger, so Radix would focus nothing on close.
+  const opener = useRef<HTMLElement | null>(null);
   const drag = useRef<{ x: number; y: number; at: number; dx: number; active: boolean } | null>(null);
   // „Filteri“ opens with the main navigation folded, so the filters are the first thing on the screen.
   const [navOpen, setNavOpen] = useState<boolean | null>(null);
   const [quiet, setQuiet] = useQuietMode();
   if (!frame) return null;
+  // The frame closes the drawer itself on a navigation (X6): the fold of the main navigation starts over then too.
+  if (frame.drawer === null && navOpen !== null) setNavOpen(null);
   const pathname = frame.activePath;
   const href = (target: string) => routeHref(target, frame.route);
   const showNav = navOpen ?? frame.drawer !== "filters";
@@ -85,6 +91,8 @@ export function AdminDrawer({ identity, onSignOut }: { identity: string; onSignO
         onPointerUp={onPointerEnd}
         onPointerCancel={onPointerEnd}
         onOpenAutoFocus={(event) => {
+          // Radix has not moved focus yet: remember where it was.
+          opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
           if (frame.drawer !== "filters") return;
           // The page search first; a page without one starts at its first filter group (not at the event switch).
           const target = content.current?.querySelector<HTMLElement>("[data-admin-sidebar-search]")
@@ -92,6 +100,18 @@ export function AdminDrawer({ identity, onSignOut }: { identity: string; onSignO
           if (!target) return;
           event.preventDefault();
           target.focus();
+        }}
+        onCloseAutoFocus={(event) => {
+          event.preventDefault();
+          const target = opener.current;
+          opener.current = null;
+          // After a navigation through a link the button may be gone: then there is nothing to focus.
+          if (target?.isConnected) target.focus();
+        }}
+        onEscapeKeyDown={(event) => {
+          // An open filter group closes itself on Escape (and returns focus to its header); the drawer stays.
+          const active = document.activeElement;
+          if (active instanceof Element && active.closest(".admin-acc-body[data-open]")) event.preventDefault();
         }}
         className="admin-v1 w-[min(88vw,22rem)] touch-pan-y gap-0 border-[var(--admin-border)] bg-[var(--admin-app)] p-0 text-[var(--admin-text)] shadow-[var(--admin-shadow-lg)] sm:max-w-none"
       >
@@ -139,39 +159,35 @@ export function AdminDrawer({ identity, onSignOut }: { identity: string; onSignO
           <div className="pt-3">
             <Suspense fallback={null}><AdminSidebarContent large /></Suspense>
           </div>
+          <AdminHud className="mt-3 px-3" />
+          <p className="truncate border-t border-[var(--admin-border)] px-3 py-3 text-sm font-semibold">{identity}</p>
         </div>
 
-        <AdminHud className="shrink-0" />
-        <div className="grid shrink-0 gap-1 border-t border-[var(--admin-border)] p-3">
-          <div className="flex min-h-11 items-center justify-between gap-3 px-3">
-            <span className="min-w-0 truncate text-sm font-semibold">{identity}</span>
-            <ThemeToggle className="rounded-lg border-[var(--admin-border)] bg-[var(--admin-surface-strong)]" />
-          </div>
-          <button type="button" role="switch" aria-checked={quiet} aria-describedby="admin-drawer-quiet-hint" onClick={() => setQuiet(!quiet)} className={cn(rowClass, "justify-between py-1.5 text-left hover:bg-[var(--admin-surface-muted)]")}>
-            <span className="flex min-w-0 items-start gap-3">
-              <BellOff className="mt-0.5 size-4 flex-none" aria-hidden="true" />
-              <span className="grid min-w-0 gap-0.5">
-                <span>{dict.quiet.label}</span>
-                <span id="admin-drawer-quiet-hint" className="text-xs leading-4 font-normal text-[var(--admin-text-muted)]">{dict.quiet.hint}</span>
-              </span>
-            </span>
-            <span aria-hidden="true" data-on={quiet ? "" : undefined} className="admin-switch" />
+        <div className="flex shrink-0 items-center justify-around border-t border-[var(--admin-border)] p-2">
+          <ThemeToggle className="rounded-lg border-0 bg-transparent" />
+          <button
+            type="button"
+            role="switch"
+            aria-checked={quiet}
+            aria-label={dict.quiet.label}
+            title={dict.quiet.hint}
+            onClick={() => setQuiet(!quiet)}
+            className={cn(footIconClass, quiet && "bg-[var(--admin-surface-muted)] text-[var(--admin-nav-current)] ring-1 ring-current")}
+          >
+            <BellOff className="size-5" aria-hidden="true" />
           </button>
           <SheetClose asChild>
-            <Link href={href("/admin/pretraga")} className={cn(rowClass, "hover:bg-[var(--admin-surface-muted)]")}>
-              <Search className="size-4" aria-hidden="true" />
-              {adminV1Sr.globalSearch}
+            <Link href={href("/admin/pretraga")} aria-label={adminV1Sr.globalSearch} title={adminV1Sr.globalSearch} className={footIconClass}>
+              <Search className="size-5" aria-hidden="true" />
             </Link>
           </SheetClose>
           <SheetClose asChild>
-            <Link href={href("/admin/podesavanja")} className={cn(rowClass, "hover:bg-[var(--admin-surface-muted)]")}>
-              <Settings className="size-4" aria-hidden="true" />
-              {adminV1Sr.settings}
+            <Link href={href("/admin/podesavanja")} aria-label={adminV1Sr.settings} title={adminV1Sr.settings} className={footIconClass}>
+              <Settings className="size-5" aria-hidden="true" />
             </Link>
           </SheetClose>
-          <button type="button" onClick={onSignOut} className={cn(rowClass, "text-left hover:bg-[var(--admin-danger-soft)] hover:text-[var(--admin-danger)]")}>
-            <LogOut className="size-4" aria-hidden="true" />
-            {adminV1Sr.signOut}
+          <button type="button" aria-label={adminV1Sr.signOut} title={adminV1Sr.signOut} onClick={onSignOut} className={cn(footIconClass, "hover:bg-[var(--admin-danger-soft)] hover:text-[var(--admin-danger)]")}>
+            <LogOut className="size-5" aria-hidden="true" />
           </button>
         </div>
       </SheetContent>

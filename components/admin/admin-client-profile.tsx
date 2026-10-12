@@ -197,7 +197,7 @@ function ContactDialog({ open, contact, busy, error, onOpenChange, onSubmit }: {
             {fields.map((field) => <label key={field.key} className={cn("grid gap-1.5 text-sm font-semibold", field.key === "positionTitle" && "sm:col-span-2")}><span>{field.label}{field.key === "firstName" || field.key === "lastName" || field.key === "positionTitle" ? " *" : ""}</span><Input type={field.type} autoComplete={field.autoComplete} value={draft[field.key]} onChange={(event) => setDraft((value) => ({ ...value, [field.key]: event.target.value }))} className="min-h-11 rounded-xl border-[var(--admin-border)]" /></label>)}
           </div>
           {validation || error ? <p role="alert" className="text-sm text-[var(--admin-danger)]">{validation || error}</p> : null}
-          <DialogFooter><Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="min-h-11">{dict.clientProfileCancel}</Button><Button disabled={busy} type="submit" className="min-h-11 bg-[var(--admin-ink)] text-[var(--admin-surface)]">{dict.clientProfileSaveContact}</Button></DialogFooter>
+          <DialogFooter><Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="min-h-11">{dict.clientProfileCancel}</Button><Button disabled={busy} type="submit" className="min-h-11 admin-button-primary">{dict.clientProfileSaveContact}</Button></DialogFooter>
         </form>
       </DialogContent>
     </Dialog>
@@ -225,7 +225,7 @@ function ProblemDialog({ profile, action, open, onClose, onResolve, live }: { pr
             {action.resolutionRule === "source_fact_changed" ? <p className="rounded-xl border border-[var(--admin-warning-border)] bg-[var(--admin-warning-soft)] p-3">{dict.clientProfileProblemAutomatic}</p> : <label className="grid gap-2 font-semibold">{dict.clientProfileResolutionNote}<textarea value={note} onChange={(event) => setNote(event.target.value)} placeholder={dict.clientProfileResolutionNotePlaceholder} className="min-h-28 rounded-xl border border-[var(--admin-border)] bg-[var(--admin-surface)] p-3 font-normal" /></label>}
             {error ? <p role="alert" className="text-[var(--admin-danger)]">{error}</p> : null}
           </div>
-          {action.resolutionRule === "manual_problem_resolution" ? <DialogFooter><Button disabled={busy} onClick={resolve} className="min-h-11 bg-[var(--admin-ink)] text-[var(--admin-surface)]"><Check className="size-4" aria-hidden="true" />{dict.clientProfileResolveProblem}</Button></DialogFooter> : null}
+          {action.resolutionRule === "manual_problem_resolution" ? <DialogFooter><Button disabled={busy} onClick={resolve} className="min-h-11 admin-button-primary"><Check className="size-4" aria-hidden="true" />{dict.clientProfileResolveProblem}</Button></DialogFooter> : null}
         </> : null}
       </DialogContent>
     </Dialog>

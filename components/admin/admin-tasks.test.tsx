@@ -129,12 +129,12 @@ describe("Zadaci page", () => {
     expect(empty.html).not.toContain("<select");
     expect(run("?pogled=deferred").args).toEqual({ tab: "deferred" });
     expect(run("?pogled=xyz&objekat=none").args).toEqual({ tab: "all" });
-    expect(run("?pogled=today&q=%20grace%20&assignee=u1&klijent=a1&lokal=b1&objekat=venue&task=t1").args).toEqual({
+    expect(run("?pogled=today&q=%20grace%20&assignee=test-admin-1&klijent=test-account-1&lokal=test-venue-1&objekat=venue&task=t1").args).toEqual({
       tab: "today",
       search: "grace",
-      assigneeId: "u1",
-      accountId: "a1",
-      businessId: "b1",
+      assigneeId: "test-admin-1",
+      accountId: "test-account-1",
+      businessId: "test-venue-1",
       subjectKind: "venue",
     });
   });
@@ -142,8 +142,8 @@ describe("Zadaci page", () => {
 
 describe("Zadaci sidebar", () => {
   const live = tasksSidebarLive({
-    admins: [{ id: "u1", name: "TEST Admin 1" }, { id: "u2", name: "TEST Admin 2" }],
-    accounts: [{ id: "a1", name: "TEST Klijent 1", smkCode: "SMK-TEST-001" }, { id: "a2", name: "TEST Klijent 2", smkCode: "SMK-TEST-002" }],
+    admins: [{ id: "test-admin-1", name: "TEST Admin 1" }, { id: "test-admin-2", name: "TEST Admin 2" }],
+    accounts: [{ id: "test-account-1", name: "TEST Klijent 1", smkCode: "SMK-TEST-001" }, { id: "test-account-2", name: "TEST Klijent 2", smkCode: "SMK-TEST-002" }],
     venues: [],
   });
   const sidebarHtml = (search = "") =>
@@ -192,8 +192,8 @@ describe("Zadaci sidebar", () => {
     const withVenues = renderToStaticMarkup(
       <AdminSidebarView
         config={resolveAdminSidebar("/admin/zadaci")}
-        live={tasksSidebarLive({ admins: [], accounts: [{ id: "a1", name: "TEST Klijent 1", smkCode: "SMK-TEST-001" }], venues: [{ id: "b1", name: "TEST Lokal 1", smlCode: "SML-TEST-001" }] })}
-        state={readUrlState(TASKS_URL_FIELDS, "?klijent=a1")}
+        live={tasksSidebarLive({ admins: [], accounts: [{ id: "test-account-1", name: "TEST Klijent 1", smkCode: "SMK-TEST-001" }], venues: [{ id: "test-venue-1", name: "TEST Lokal 1", smlCode: "SML-TEST-001" }] })}
+        state={readUrlState(TASKS_URL_FIELDS, "?klijent=test-account-1")}
         onPatch={() => undefined}
       />,
     );
@@ -202,7 +202,7 @@ describe("Zadaci sidebar", () => {
   });
 
   test("the header of a group names the choice and a chip removes it", () => {
-    const html = sidebarHtml("?pogled=overdue&assignee=u2&klijent=a1");
+    const html = sidebarHtml("?pogled=overdue&assignee=test-admin-2&klijent=test-account-1");
     expect(html).toContain(`<span class="text-[var(--admin-text-muted)]"> · TEST Admin 2</span>`);
     expect(html).toContain(`aria-label="${adminUiSr.filters.removeChip.replace("{label}", `${dict.filterClient}: TEST Klijent 1`)}"`);
   });

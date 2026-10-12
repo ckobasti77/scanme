@@ -61,7 +61,7 @@ export const ordersFilters: Filters = {
   views: { key: "pogled", label: ui.filters.views, defaultValue: "active", items: ORDER_VIEWS.map((value) => ({ value, label: ORDER_VIEW_LABELS[value] })) },
   search: { key: "q", label: orders.searchLabel, placeholder: orders.searchPlaceholder },
   groups: [
-    { id: "assignee", label: orders.filterAssignee },
+    { id: "assignee", label: orders.filterAssignee, ids: true },
     { id: "uplata", label: orders.filterPayment, options: ORDER_PAYMENTS.map((value) => ({ value, label: ORDER_PAYMENT_LABELS[value] })) },
     { id: "dizajn", label: orders.filterDesign, options: ORDER_DESIGNS.map((value) => ({ value, label: ORDER_DESIGN_LABELS[value] })) },
     { id: "izvrsenje", label: orders.filterFulfillment, options: ORDER_FULFILLMENTS.map((value) => ({ value, label: ORDER_FULFILLMENT_LABELS[value] })) },

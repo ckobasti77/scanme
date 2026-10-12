@@ -5,11 +5,15 @@ import {
   TASK_MISSION_LIMIT,
   filterPreviewTasks,
   previewTaskMissions,
+  previewTaskViewCounts,
+  taskStatusTone,
   tasksAreFiltered,
   tasksIntercept,
   tasksListArgs,
   tasksSidebarLive,
   tasksSidebarOptions,
+  tasksAreNarrowed,
+  tasksViewCounts,
   tasksVenuesFromRows,
   type PreviewTaskRow,
 } from "./tasks";
@@ -35,21 +39,21 @@ describe("tasksListArgs", () => {
 
   test("every filter sends its own argument", () => {
     expect(tasksListArgs(read("?q=%20grace%20"))).toEqual({ tab: "all", search: "grace" });
-    expect(tasksListArgs(read("?assignee=user1"))).toEqual({ tab: "all", assigneeId: "user1" });
-    expect(tasksListArgs(read("?klijent=acc1"))).toEqual({ tab: "all", accountId: "acc1" });
-    expect(tasksListArgs(read("?lokal=biz1"))).toEqual({ tab: "all", businessId: "biz1" });
+    expect(tasksListArgs(read("?assignee=test-admin-7"))).toEqual({ tab: "all", assigneeId: "test-admin-7" });
+    expect(tasksListArgs(read("?klijent=test-account-7"))).toEqual({ tab: "all", accountId: "test-account-7" });
+    expect(tasksListArgs(read("?lokal=test-venue-7"))).toEqual({ tab: "all", businessId: "test-venue-7" });
     for (const subject of TASK_SUBJECTS) {
       expect(tasksListArgs(read(`?objekat=${subject}`))).toEqual({ tab: "all", subjectKind: subject });
     }
   });
 
   test("all of them together", () => {
-    expect(tasksListArgs(read("?pogled=overdue&q=ponuda&assignee=user1&klijent=acc1&lokal=biz1&objekat=venue"))).toEqual({
+    expect(tasksListArgs(read("?pogled=overdue&q=ponuda&assignee=test-admin-7&klijent=test-account-7&lokal=test-venue-7&objekat=venue"))).toEqual({
       tab: "overdue",
       search: "ponuda",
-      assigneeId: "user1",
-      accountId: "acc1",
-      businessId: "biz1",
+      assigneeId: "test-admin-7",
+      accountId: "test-account-7",
+      businessId: "test-venue-7",
       subjectKind: "venue",
     });
   });
@@ -66,7 +70,7 @@ describe("tasksAreFiltered", () => {
   test("nothing chosen is not filtered; any choice, a view other than „Svi“ included, is", () => {
     expect(tasksAreFiltered({})).toBe(false);
     expect(tasksAreFiltered(read("?task=t1"))).toBe(false);
-    for (const search of ["?pogled=today", "?q=a", "?assignee=u1", "?klijent=a1", "?lokal=b1", "?objekat=order"]) {
+    for (const search of ["?pogled=today", "?q=a", "?assignee=test-admin-1", "?klijent=test-account-1", "?lokal=test-venue-1", "?objekat=order"]) {
       expect(tasksAreFiltered(read(search)), search).toBe(true);
     }
     expect(tasksAreFiltered({ q: "   " })).toBe(false);
@@ -76,35 +80,35 @@ describe("tasksAreFiltered", () => {
 
 describe("sidebar options and the dependent venue", () => {
   const input = {
-    admins: [{ id: "u1", name: "TEST Admin 1" }],
-    accounts: [{ id: "a1", name: "TEST Klijent 1", smkCode: "SMK-TEST-001" }],
-    venues: [{ id: "b1", name: "TEST Lokal 1", smlCode: "SML-TEST-001" }],
+    admins: [{ id: "test-admin-1", name: "TEST Admin 1" }],
+    accounts: [{ id: "test-account-1", name: "TEST Klijent 1", smkCode: "SMK-TEST-001" }],
+    venues: [{ id: "test-venue-1", name: "TEST Lokal 1", smlCode: "SML-TEST-001" }],
   };
 
   test("assignee by name; client and venue by name with the code as the hint", () => {
     expect(tasksSidebarOptions(input)).toEqual({
-      assignee: [{ value: "u1", label: "TEST Admin 1" }],
-      klijent: [{ value: "a1", label: "TEST Klijent 1", hint: "SMK-TEST-001" }],
-      lokal: [{ value: "b1", label: "TEST Lokal 1", hint: "SML-TEST-001" }],
+      assignee: [{ value: "test-admin-1", label: "TEST Admin 1" }],
+      klijent: [{ value: "test-account-1", label: "TEST Klijent 1", hint: "SMK-TEST-001" }],
+      lokal: [{ value: "test-venue-1", label: "TEST Lokal 1", hint: "SML-TEST-001" }],
     });
     expect(tasksSidebarOptions({ admins: [], accounts: [], venues: [] }).lokal).toEqual([]);
   });
 
   test("changing or clearing the client clears the venue; other changes pass untouched", () => {
-    expect(tasksIntercept({ klijent: "a2" }, { klijent: "a1", lokal: "b1" })).toEqual({ klijent: "a2", lokal: null });
-    expect(tasksIntercept({ klijent: "a1" }, {})).toEqual({ klijent: "a1", lokal: null });
-    expect(tasksIntercept({ klijent: null }, { klijent: "a1", lokal: "b1" })).toEqual({ klijent: null, lokal: null });
-    const other = { assignee: "u1" };
-    expect(tasksIntercept(other, { klijent: "a1" })).toBe(other);
-    expect(tasksIntercept({ lokal: "b2" }, { klijent: "a1", lokal: "b1" })).toEqual({ lokal: "b2" });
+    expect(tasksIntercept({ klijent: "test-account-2" }, { klijent: "test-account-1", lokal: "test-venue-1" })).toEqual({ klijent: "test-account-2", lokal: null });
+    expect(tasksIntercept({ klijent: "test-account-1" }, {})).toEqual({ klijent: "test-account-1", lokal: null });
+    expect(tasksIntercept({ klijent: null }, { klijent: "test-account-1", lokal: "test-venue-1" })).toEqual({ klijent: null, lokal: null });
+    const other = { assignee: "test-admin-1" };
+    expect(tasksIntercept(other, { klijent: "test-account-1" })).toBe(other);
+    expect(tasksIntercept({ lokal: "test-venue-2" }, { klijent: "test-account-1", lokal: "test-venue-1" })).toEqual({ lokal: "test-venue-2" });
     // The same client again is not a change.
-    expect(tasksIntercept({ klijent: "a1" }, { klijent: "a1", lokal: "b1" })).toEqual({ klijent: "a1" });
+    expect(tasksIntercept({ klijent: "test-account-1" }, { klijent: "test-account-1", lokal: "test-venue-1" })).toEqual({ klijent: "test-account-1" });
   });
 
   test("the live object carries the options and the intercept", () => {
     const live = tasksSidebarLive(input);
     expect(live.options?.klijent).toHaveLength(1);
-    expect(live.intercept?.({ klijent: "a9" }, {})).toEqual({ klijent: "a9", lokal: null });
+    expect(live.intercept?.({ klijent: "test-account-9" }, {})).toEqual({ klijent: "test-account-9", lokal: null });
   });
 });
 
@@ -113,11 +117,11 @@ function row(id: string, extra: Partial<PreviewTaskRow> = {}): PreviewTaskRow & 
     id,
     status: "open",
     timePhase: "future",
-    assigneeId: "u1",
-    accountId: "a1",
+    assigneeId: "test-admin-1",
+    accountId: "test-account-1",
     accountName: "TEST Klijent 1",
     smkCode: "SMK-TEST-001",
-    businessId: "b1",
+    businessId: "test-venue-1",
     businessName: "TEST Lokal 1",
     smlCode: "SML-TEST-001",
     subjectKind: "venue",
@@ -128,10 +132,10 @@ function row(id: string, extra: Partial<PreviewTaskRow> = {}): PreviewTaskRow & 
 
 const rows = [
   row("t1", { timePhase: "today" }),
-  row("t2", { timePhase: "overdue", assigneeId: "u2", accountId: "a2", accountName: "TEST Klijent 2", smkCode: "SMK-TEST-002", businessId: "b2", businessName: "TEST Lokal 2", smlCode: "SML-TEST-002", subjectKind: "order" }),
+  row("t2", { timePhase: "overdue", assigneeId: "test-admin-2", accountId: "test-account-2", accountName: "TEST Klijent 2", smkCode: "SMK-TEST-002", businessId: "test-venue-2", businessName: "TEST Lokal 2", smlCode: "SML-TEST-002", subjectKind: "order" }),
   row("t3", { status: "deferred" }),
   row("t4", { status: "completed", timePhase: "none" }),
-  row("t5", { status: "cancelled", timePhase: "none", businessId: "b3", businessName: "TEST Lokal 3", smlCode: "SML-TEST-003" }),
+  row("t5", { status: "cancelled", timePhase: "none", businessId: "test-venue-3", businessName: "TEST Lokal 3", smlCode: "SML-TEST-003" }),
   row("t6", { status: "in_progress", businessId: null, businessName: null, smlCode: null, title: "TEST Ponuda za dopunu" }),
 ];
 
@@ -150,10 +154,10 @@ describe("filterPreviewTasks", () => {
   });
 
   test("assignee, client, venue and linked object", () => {
-    expect(ids("?assignee=u2")).toEqual(["t2"]);
-    expect(ids("?klijent=a2")).toEqual(["t2"]);
-    expect(ids("?klijent=a1&lokal=b1")).toEqual(["t1"]);
-    expect(ids("?pogled=completed&lokal=b3")).toEqual(["t5"]);
+    expect(ids("?assignee=test-admin-2")).toEqual(["t2"]);
+    expect(ids("?klijent=test-account-2")).toEqual(["t2"]);
+    expect(ids("?klijent=test-account-1&lokal=test-venue-1")).toEqual(["t1"]);
+    expect(ids("?pogled=completed&lokal=test-venue-3")).toEqual(["t5"]);
     expect(ids("?objekat=order")).toEqual(["t2"]);
   });
 
@@ -170,8 +174,8 @@ describe("filterPreviewTasks", () => {
 
   test("the venues of the chosen client come from the rows, once each", () => {
     expect(tasksVenuesFromRows(rows, undefined)).toEqual([]);
-    expect(tasksVenuesFromRows(rows, "a2")).toEqual([{ id: "b2", name: "TEST Lokal 2", smlCode: "SML-TEST-002" }]);
-    expect(tasksVenuesFromRows(rows, "a1").map((venue) => venue.id)).toEqual(["b1", "b3"]);
+    expect(tasksVenuesFromRows(rows, "test-account-2")).toEqual([{ id: "test-venue-2", name: "TEST Lokal 2", smlCode: "SML-TEST-002" }]);
+    expect(tasksVenuesFromRows(rows, "test-account-1").map((venue) => venue.id)).toEqual(["test-venue-1", "test-venue-3"]);
   });
 });
 
@@ -206,5 +210,82 @@ describe("previewTaskMissions", () => {
   test("no rows give zeros; the read of the admin page stays inside the limit of the query", () => {
     expect(previewTaskMissions([]).map((mission) => mission.count)).toEqual([0, 0]);
     expect(TASK_MISSION_LIMIT).toBeLessThanOrEqual(12);
+  });
+});
+
+// ADMIN v2 X6 (N2) — one tone for a task status on Zadaci and Tim.
+describe("taskStatusTone", () => {
+  const table: [PreviewTaskRow["status"], PreviewTaskRow["timePhase"], string][] = [
+    ["open", "overdue", "problem"],
+    ["in_progress", "overdue", "problem"],
+    ["deferred", "overdue", "problem"],
+    ["in_progress", "future", "waiting"],
+    ["in_progress", "none", "waiting"],
+    ["open", "today", "waiting"],
+    ["deferred", "today", "waiting"],
+    ["open", "future", "active"],
+    ["open", "none", "active"],
+    ["deferred", "future", "neutral"],
+    ["deferred", "none", "neutral"],
+    ["completed", "overdue", "neutral"],
+    ["completed", "today", "neutral"],
+    ["cancelled", "overdue", "neutral"],
+    ["cancelled", "none", "neutral"],
+  ];
+
+  test.each(table)("%s + %s gives %s", (status, phase, tone) => {
+    expect(taskStatusTone(status, phase)).toBe(tone);
+  });
+});
+
+// ADMIN v2 X6 (N15) — the numbers next to „Kasni“ and „Danas“.
+describe("tasksViewCounts", () => {
+  const items = (count: number) => Array.from({ length: count }, (_, index) => ({ id: index }));
+
+  test("the exact number is the length of the group", () => {
+    expect(tasksViewCounts({ overdue: { items: items(3) }, today: { items: items(7), capped: false } })).toEqual({ overdue: 3, today: 7 });
+  });
+
+  test("a capped group says „at least“: the number with a plus, as text", () => {
+    expect(tasksViewCounts({ overdue: { items: items(TASK_MISSION_LIMIT), capped: true }, today: { items: items(2) } })).toEqual({
+      overdue: `${TASK_MISSION_LIMIT}+`,
+      today: 2,
+    });
+  });
+
+  test("empty groups are zeros, not missing", () => {
+    expect(tasksViewCounts({ overdue: { items: [] }, today: { items: [] } })).toEqual({ overdue: 0, today: 0 });
+  });
+});
+
+describe("previewTaskViewCounts", () => {
+  const row = (status: PreviewTaskRow["status"], timePhase: PreviewTaskRow["timePhase"]) => ({ status, timePhase });
+
+  test("counts only open and in-progress tasks, like the missions", () => {
+    expect(previewTaskViewCounts([row("open", "overdue"), row("in_progress", "today"), row("open", "today"), row("completed", "today"), row("deferred", "overdue"), row("open", "future")])).toEqual({ overdue: 1, today: 2 });
+  });
+
+  test("more rows than the limit of the query give \"12+\"", () => {
+    const many = Array.from({ length: TASK_MISSION_LIMIT + 1 }, () => row("open", "overdue"));
+    expect(previewTaskViewCounts(many)).toEqual({ overdue: `${TASK_MISSION_LIMIT}+`, today: 0 });
+    expect(previewTaskViewCounts(many.slice(0, TASK_MISSION_LIMIT))).toEqual({ overdue: TASK_MISSION_LIMIT, today: 0 });
+    expect(previewTaskViewCounts([])).toEqual({ overdue: 0, today: 0 });
+  });
+});
+
+// X6 (RX N15) — the numbers count every open task, so they stand beside the views only while nothing narrows the list.
+describe("the view numbers and the filters", () => {
+  const groups = { overdue: { items: [1, 2] }, today: { items: [1] } };
+
+  test("with a search or a filter group chosen there are no numbers; a view alone keeps them", () => {
+    expect(tasksViewCounts(groups)).toEqual({ overdue: 2, today: 1 });
+    expect(tasksViewCounts(groups, { pogled: "overdue" })).toEqual({ overdue: 2, today: 1 });
+    const narrowed: Record<string, string>[] = [{ q: "ponuda" }, { assignee: "test-admin-1" }, { klijent: "test-account-1" }, { lokal: "test-venue-1" }, { objekat: "order" }];
+    for (const state of narrowed) {
+      expect(tasksViewCounts(groups, state), JSON.stringify(state)).toBeUndefined();
+    }
+    expect(previewTaskViewCounts([{ status: "open", timePhase: "overdue" }], { assignee: "test-admin-1" })).toBeUndefined();
+    expect(tasksAreNarrowed({ pogled: "today" })).toBe(false);
+    expect(tasksAreNarrowed({ q: "  " })).toBe(false);
   });
 });

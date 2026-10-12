@@ -116,8 +116,6 @@ export const adminV1Sr = {
   dashboardWidgetErrorBody: "Ostali delovi Dashboarda rade. Pokušaj ponovo da učitaš ovaj deo.",
   dashboardFixtureBadge: "Probni prikaz · nisu stvarni podaci",
   dashboardFixtureDescription: "Probni podaci za pregled izgleda. Raspored je isti kao na pravom Dashboardu.",
-  dashboardJumpTasksOverdue: "Zadaci koji kasne",
-  dashboardJumpTasksToday: "Zadaci za danas",
   dashboardJumpInboxReply: "Razgovori koji čekaju odgovor",
   dashboardJumpOrdersProblem: "Porudžbine sa problemom",
   dashboardJumpQrProblem: "QR i NFC sa problemom",

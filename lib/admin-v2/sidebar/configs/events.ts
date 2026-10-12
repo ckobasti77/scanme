@@ -92,11 +92,15 @@ export function eventsSidebarConfig(base: string, segments: readonly string[]): 
   const path = section?.path ?? null;
   const detail = section?.kind === "section" && section.detailId !== undefined;
   const filters = !path || section?.kind !== "section" ? undefined : detail ? (path === "interakcije" ? INTERACTION_EXHIBITOR_FILTERS : undefined) : LIST_FILTERS[path];
+  // X6 — a section with a search, views or filter groups folds the section list into one group
+  // („Sekcija · Modeli“), so its search and first filters are above the fold of the sidebar.
+  const fold = Boolean(filters && (filters.search || filters.views || filters.groups?.some((group) => !group.chipOnly)));
   return {
     id: `dogadjaji/${path ?? "nepoznato"}${detail ? "/detalj" : ""}`,
     context: { id: "dogadjaj", label: dict.eventLabel },
     nav: eventNavGroups((target) => eventSectionHref(base, target), path),
     navLabel: dict.sectionsAria,
+    ...(fold ? { navFold: { id: "sekcija", label: dict.sectionFold } } : {}),
     ...filters,
   };
 }

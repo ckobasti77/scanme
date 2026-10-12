@@ -45,22 +45,24 @@ const C = { exhibitor: "TEST Izlagač C", stand: "6", location: "hala-6", tier: 
 const D = { exhibitor: "TEST Izlagač D", stand: "1A", location: "hala-1a", tier: "starter" } as const;
 const E = { exhibitor: "TEST Izlagač E", stand: "1B", location: "hala-1b", tier: "included" } as const;
 
+// X6 (RX V3) — the model names are neutral letters: they carry no word and no digit of a real model name.
+// No pair (scans, unique), of the fair or of a day, and no vote count of a row or a stand equals a real one.
 const ROWS: Row[] = [
-  { key: "a1", name: "X1", brand: "TEST Volta", ...A, byDay: [20, 36, 35], unique: 88, uniqueToday: 32, rating: { average: 4.4, buckets: [0, 0, 2, 4, 6] } },
-  { key: "e1", name: "City", brand: "TEST Njutn", ...E, byDay: [17, 29, 32], unique: 68, uniqueToday: 26 },
-  { key: "a2", name: "X2", brand: "TEST Volta", ...A, byDay: [19, 31, 22], unique: 65, uniqueToday: 20 },
-  { key: "a3", name: "X3", brand: "TEST Volta", ...A, byDay: [12, 19, 20], unique: 48, uniqueToday: 18, votes: 3, rating: { average: 4.8, buckets: [0, 0, 0, 1, 3] } },
-  { key: "c1", name: "F4 Hybrid", brand: "TEST Faradej", ...C, byDay: [9, 16, 13], unique: 36, uniqueToday: 12 },
-  { key: "c2", name: "F9 Plug-in", brand: "TEST Faradej", ...C, byDay: [6, 10, 12], unique: 26, uniqueToday: 11 },
-  { key: "d1", name: "Tera", brand: "TEST Vat", ...D, byDay: [6, 8, 13], unique: 26, uniqueToday: 12, rating: { average: 4, buckets: [0, 0, 0, 2, 0] } },
-  { key: "c3", name: "J6", brand: "TEST Džul", ...C, byDay: [5, 8, 10], unique: 22, uniqueToday: 9 },
-  { key: "c4", name: "F8 Plug-in", brand: "TEST Faradej", ...C, byDay: [4, 5, 9], unique: 18, uniqueToday: 9 },
-  { key: "c5", name: "J5", brand: "TEST Džul", ...C, byDay: [2, 5, 6], unique: 13, uniqueToday: 6 },
-  { key: "c6", name: "J60", brand: "TEST Džul", ...C, byDay: [2, 2, 5], unique: 9, uniqueToday: 5 },
-  { key: "b1", name: "Kargo K1", brand: "TEST Om", ...B, byDay: [1, 3, 2], unique: 6, uniqueToday: 2 },
-  { key: "b2", name: "Pikap", brand: "TEST Om", ...B, byDay: [1, 3, 0], unique: 4, uniqueToday: 0 },
-  { key: "b3", name: "Kombi Maxi", brand: "TEST Om", ...B, byDay: [0, 1, 0], unique: 1, uniqueToday: 0 },
-  { key: "b4", name: "Kombi", brand: "TEST Om", ...B, byDay: [0, 1, 0], unique: 1, uniqueToday: 0 },
+  { key: "a1", name: "Alfa", brand: "TEST Volta", ...A, byDay: [20, 36, 35], unique: 88, uniqueToday: 32, rating: { average: 4.4, buckets: [0, 0, 2, 4, 6] } },
+  { key: "e1", name: "Beta", brand: "TEST Njutn", ...E, byDay: [17, 29, 32], unique: 68, uniqueToday: 26, votes: 1 },
+  { key: "a2", name: "Gama", brand: "TEST Volta", ...A, byDay: [19, 31, 22], unique: 65, uniqueToday: 20 },
+  { key: "a3", name: "Delta", brand: "TEST Volta", ...A, byDay: [12, 19, 20], unique: 48, uniqueToday: 18, votes: 2, rating: { average: 4.8, buckets: [0, 0, 0, 1, 3] } },
+  { key: "c1", name: "Epsilon", brand: "TEST Faradej", ...C, byDay: [9, 16, 13], unique: 37, uniqueToday: 13 },
+  { key: "c2", name: "Zeta", brand: "TEST Faradej", ...C, byDay: [6, 11, 11], unique: 26, uniqueToday: 10 },
+  { key: "d1", name: "Eta", brand: "TEST Vat", ...D, byDay: [6, 8, 13], unique: 26, uniqueToday: 12, rating: { average: 4, buckets: [0, 0, 0, 2, 0] } },
+  { key: "c3", name: "Teta", brand: "TEST Džul", ...C, byDay: [5, 7, 11], unique: 22, uniqueToday: 10 },
+  { key: "c4", name: "Jota", brand: "TEST Faradej", ...C, byDay: [4, 5, 9], unique: 18, uniqueToday: 9 },
+  { key: "c5", name: "Kapa", brand: "TEST Džul", ...C, byDay: [2, 5, 6], unique: 13, uniqueToday: 6 },
+  { key: "c6", name: "Lambda", brand: "TEST Džul", ...C, byDay: [2, 2, 5], unique: 9, uniqueToday: 5 },
+  { key: "b1", name: "Mi", brand: "TEST Om", ...B, byDay: [1, 3, 2], unique: 5, uniqueToday: 1 },
+  { key: "b2", name: "Ni", brand: "TEST Om", ...B, byDay: [1, 3, 0], unique: 4, uniqueToday: 0 },
+  { key: "b3", name: "Ksi", brand: "TEST Om", ...B, byDay: [0, 1, 0], unique: 1, uniqueToday: 0 },
+  { key: "b4", name: "Omikron", brand: "TEST Om", ...B, byDay: [0, 1, 0], unique: 1, uniqueToday: 0 },
 ];
 
 const total = (values: readonly number[]) => values.reduce((sum, value) => sum + value, 0);

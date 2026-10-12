@@ -103,7 +103,8 @@ describe("A8 lead inbox", () => {
     for (const label of [adminUiSr.hierarchy.exhibitor, adminUiSr.hierarchy.brand, adminUiSr.hierarchy.model, adminUiSr.filters.period, t.facetKind, t.facetDelivery]) {
       expect(html).toContain(`>${label}</span>`);
     }
-    expect(html.match(/data-admin-filter-toggle=""/g)).toHaveLength(6);
+    // X6 (RX V2) — one more toggle: the section navigation is the folded group „Sekcija“ on a page with filters.
+    expect(html.match(/data-admin-filter-toggle=""/g)).toHaveLength(7);
     expect(html).not.toContain('aria-expanded="true"');
     // The same fields, labels and bounds as before the move.
     expect(html.match(/type="date"/g)).toHaveLength(2);

@@ -19,6 +19,14 @@ const tileOf = (html: string, id: string) => html.split('data-kpi-tile="').find(
 const bigOf = (tile: string) => /data-kpi-value="[^>]*>(?:<span[^>]*>)?([^<]*)</.exec(tile)?.[1];
 
 describe("X3 KpiStrip", () => {
+  test("only the name „Jedinstveni po modelu“ carries its definition as a title", () => {
+    const html = render();
+    const titled = html.match(/<dt title="/g) ?? [];
+    expect(titled).toHaveLength(1);
+    expect(tileOf(html, "uniquePerModel")).toContain(`<dt title="${d.definitions.uniquePerModel.replace(/&/g, "&amp;").replace(/"/g, "&quot;")}`);
+    expect(tileOf(html, "scans")).not.toContain("<dt title=");
+  });
+
   test("shows today's number with the whole fair beside it, from the fixtures", () => {
     const html = render();
     const strip = kpiStrip(previewAnalytics, previewAudience, previewEngagement);

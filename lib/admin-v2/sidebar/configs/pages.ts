@@ -29,10 +29,9 @@ export const dashboardSidebar: SidebarConfig = {
   blocks: ["missions", "jumps"],
   // „Sve“ and „Moje“ count different items: each keeps its own progress of the day.
   missionsBy: "obim",
-  // Each jump opens a list already filtered to what needs work.
+  // Each jump opens a list already filtered to what needs work. The overdue and today tasks are not
+  // repeated here: they are missions of the block above, with the same links.
   jumps: [
-    { href: "/admin/zadaci?pogled=overdue", label: dict.dashboardJumpTasksOverdue },
-    { href: "/admin/zadaci?pogled=today", label: dict.dashboardJumpTasksToday },
     { href: "/admin/inbox?status=needs_reply", label: dict.dashboardJumpInboxReply },
     { href: "/admin/operativa/porudzbine?problem=da", label: dict.dashboardJumpOrdersProblem },
     { href: "/admin/operativa/qr?status=problem", label: dict.dashboardJumpQrProblem },

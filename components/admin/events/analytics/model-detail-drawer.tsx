@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useMemo, useState, type ReactNode } from "react";
+import { useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { AdminErrorState } from "@/components/admin/admin-primitives";
 import { ChartLegend, ChartTable, HBar, RankMedal, StackedBar } from "@/components/admin/events/analytics/chart-kit";
 import { HourMatrixGrid, SequentialScale, matrixTable } from "@/components/admin/events/analytics/day-hour-matrix";
@@ -245,15 +245,24 @@ export function ModelDetailDrawer({ row, data, detail, error, onRetry, onClose }
   const [last, setLast] = useState(row);
   if (row && row.eventModelId !== last?.eventModelId) setLast(row);
   const shown = row ?? last;
+  // The sheet has no Trigger (a row of the ranking opens it), so Radix would focus an empty ref on close: the opener is kept here.
+  const opener = useRef<HTMLElement | null>(null);
   return (
     <Sheet open={row !== null} onOpenChange={(open) => { if (!open) onClose(); }}>
       <SheetContent
         side="right"
         data-admin-drawer="detail"
-        // Focus starts on the panel (its title is read), not on the first bar of a chart.
+        // Focus starts on the panel (its title is read), not on the first bar of a chart; the opener is remembered first.
         onOpenAutoFocus={(event) => {
           event.preventDefault();
+          opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
           (event.currentTarget as HTMLElement).focus();
+        }}
+        // ...and gets the focus back on close (the ranking row that was opened).
+        onCloseAutoFocus={(event) => {
+          event.preventDefault();
+          if (opener.current?.isConnected) opener.current.focus();
+          opener.current = null;
         }}
         className="admin-v1 w-[min(100vw,34rem)] gap-0 border-[var(--admin-border)] bg-[var(--admin-app)] p-0 text-[var(--admin-text)] shadow-[var(--admin-shadow-lg)] sm:max-w-none"
       >

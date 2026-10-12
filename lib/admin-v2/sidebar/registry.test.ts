@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import { EVENT_SECTION_PATHS } from "@/lib/admin-v1/event-sections";
 import { ADMIN_NAV_ITEMS } from "@/lib/admin-v1/navigation";
 import { ADMIN_FRAME_PREVIEW_BASE, adminRoute, isFramedAdminPath, previewHref, routeHref } from "@/lib/admin-v2/frame/routes";
+import { taskMissions } from "@/lib/admin-v2/lists/dashboard-missions";
 import { readUrlState, sidebarUrlFields } from "@/lib/admin-v2/query/url-state";
 import { adminEventsSr } from "@/lib/i18n/sr/admin-events";
 import { groupControlKind, hasSidebarFilters } from "./accordion";
@@ -265,7 +266,11 @@ describe("the registry: route → sidebar", () => {
   test("the jumps of the Dashboard open lists with a filter those lists accept", () => {
     const state = (fields: Parameters<typeof readUrlState>[0], href: string) => readUrlState(fields, href.split("?")[1] ?? "");
     const jumps = resolveAdminSidebar("/admin").jumps!.map((jump) => jump.href);
-    expect(jumps).toContain("/admin/zadaci?pogled=overdue");
+    // X6 (RX N1) — the overdue and today tasks are missions of the block above the jumps, with the same
+    // links; they are no longer repeated as jumps.
+    expect(jumps.some((href) => href.startsWith("/admin/zadaci"))).toBe(false);
+    expect(taskMissions({ overdue: { items: [] }, today: { items: [] } }).map((mission) => mission.href)).toEqual(["/admin/zadaci?pogled=overdue", "/admin/zadaci?pogled=today"]);
+    expect(jumps).toContain("/admin/inbox?status=needs_reply");
     expect(state(TASKS_URL_FIELDS, "/admin/zadaci?pogled=overdue")).toEqual({ pogled: "overdue" });
     expect(state(TASKS_URL_FIELDS, "/admin/zadaci?pogled=today")).toEqual({ pogled: "today" });
     expect(state(sidebarUrlFields(resolveAdminSidebar("/admin/inbox")), "/admin/inbox?status=needs_reply")).toEqual({ status: "needs_reply" });

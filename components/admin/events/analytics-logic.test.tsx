@@ -41,7 +41,7 @@ describe("SAJAM SUPER: Analitika logic", () => {
     const ofNine = withLeads.models.filter((row) => row.mapLocationId === "hala-9");
     expect(nine).toMatchObject({
       standCode: "9", models: 3, scans: sum(ofNine.map((row) => row.scans.total)), uniquePerModel: sum(ofNine.map((row) => row.uniquePerModel.total)),
-      visitors: 168, leads: 12, votes: 3,
+      visitors: 168, leads: 12, votes: 2,
     });
     expect(nine.conversion).toBeCloseTo(12 / 168);
     // Visitors of a stand are never more than its unique-per-model pairs.
@@ -55,7 +55,7 @@ describe("SAJAM SUPER: Analitika logic", () => {
 
   test("models: sorted by scans, conversion = leads / unique per model, none without a unique scan", () => {
     const models = analyticsModelRows(withLeads, previewAudience);
-    expect(models[0].name).toBe("X1");
+    expect(models[0].name).toBe("Alfa");
     expect(models[0].conversion).toBeCloseTo(6 / models[0].uniquePerModel.total);
     const empty = analyticsModelRows({ ...previewAnalytics, models: [{ ...previewAnalytics.models[0], uniquePerModel: { today: 0, total: 0 } }] }, undefined);
     expect(empty[0].conversion).toBeNull();

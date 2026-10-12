@@ -21,8 +21,11 @@ export const ADMIN_EASE = {
   in: "power2.in",
 } as const;
 
-/** The whole stagger of one group of elements never exceeds this. */
-export const ADMIN_STAGGER_TOTAL = 0.12;
+/**
+ * The whole stagger of one group of elements never exceeds this. A staggered group moves in `state`
+ * (0.18 s), so its last element ends at 0.25 s: the limit of a transition (ZADATAK §1).
+ */
+export const ADMIN_STAGGER_TOTAL = 0.07;
 /** Offset of an entering block (px). */
 export const ADMIN_ENTER_OFFSET = 7;
 /** A pressed button (ZADATAK §7); the same value is in app/globals.css. */

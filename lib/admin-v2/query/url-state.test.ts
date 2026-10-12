@@ -1,6 +1,9 @@
 import { describe, expect, test } from "vitest";
+import { INBOX_URL_FIELDS } from "@/lib/admin-v2/sidebar/configs/inbox";
+import { ORDERS_URL_FIELDS } from "@/lib/admin-v2/sidebar/configs/operations";
+import { TASKS_URL_FIELDS } from "@/lib/admin-v2/sidebar/configs/tasks";
 import type { SidebarConfig } from "@/lib/admin-v2/sidebar/types";
-import { readUrlState, sidebarUrlFields, writeUrlState } from "./url-state";
+import { RECORD_ID, readUrlState, sidebarUrlFields, writeUrlState } from "./url-state";
 
 // ADMIN v2 — filters, views, search and sort live in the URL (ZADATAK §3):
 // a link can be shared, Back restores the list and a reload keeps it.
@@ -113,5 +116,55 @@ describe("Back and reload", () => {
     const second = writeUrlState(fields, first, { q: "bistro", status: "arhiviran" });
     expect(readUrlState(fields, second)).toEqual({ q: "bistro", status: "arhiviran" });
     expect(readUrlState(fields, first)).toEqual({ status: "aktivan" });
+  });
+});
+
+// ADMIN v2 X6 (RX S5) — a filter whose value is the id of a record goes to a Convex query as `v.id(…)`.
+// A value that is not shaped like an id used to reach the query and fail the whole page.
+describe("groups whose values are ids of records", () => {
+  const page: SidebarConfig = {
+    id: "test/ids",
+    groups: [
+      { id: "assignee", label: "Zaduženi", ids: ["mine", "unassigned"] },
+      { id: "klijent", label: "Klijent", ids: true },
+    ],
+  };
+  const idFields = sidebarUrlFields(page);
+  const convexId = "jd7".padEnd(32, "4");
+
+  test("?assignee=abc reads as absent; a Convex id and the words of the group are kept", () => {
+    expect(readUrlState(idFields, "?assignee=abc")).toEqual({});
+    expect(readUrlState(idFields, "?assignee=123&klijent=ima%20razmak")).toEqual({});
+    expect(readUrlState(idFields, `?assignee=${convexId}&klijent=${convexId}`)).toEqual({ assignee: convexId, klijent: convexId });
+    expect(readUrlState(idFields, "?assignee=mine")).toEqual({ assignee: "mine" });
+    expect(readUrlState(idFields, "?assignee=unassigned")).toEqual({ assignee: "unassigned" });
+    // The words belong to the group that names them, not to every id group.
+    expect(readUrlState(idFields, "?klijent=mine")).toEqual({});
+    // Upper case, a wrong length or other characters are not an id.
+    expect(readUrlState(idFields, `?klijent=${convexId.toUpperCase()}`)).toEqual({});
+    expect(readUrlState(idFields, `?klijent=${convexId.slice(0, 20)}`)).toEqual({});
+    expect(readUrlState(idFields, `?klijent=${convexId}'--`)).toEqual({});
+  });
+
+  test("the fixture ids of the dev previews are ids too, so the previews keep their filters", () => {
+    for (const id of ["user-fixture-admin", "fixture-admin", "account-fixture-1", "preview-admin-jovan", "test-admin-1"]) {
+      expect(RECORD_ID.test(id), id).toBe(true);
+      expect(readUrlState(idFields, `?klijent=${id}`)).toEqual({ klijent: id });
+    }
+    for (const id of ["abc", "admin-1", "a1", "fixture admin", ""]) expect(RECORD_ID.test(id), id).toBe(false);
+  });
+
+  test("a value that is not an id is never written", () => {
+    expect(writeUrlState(idFields, "", { assignee: "abc" })).toBe("");
+    expect(writeUrlState(idFields, `?assignee=${convexId}`, { assignee: "abc" })).toBe("");
+    expect(writeUrlState(idFields, "", { assignee: "mine", klijent: convexId })).toBe(`?assignee=mine&klijent=${convexId}`);
+  });
+
+  test("the lists that send ids to their query use the rule: Zadaci, Porudžbine, Inbox", () => {
+    expect(readUrlState(TASKS_URL_FIELDS, "?assignee=abc&klijent=abc&lokal=abc&pogled=overdue")).toEqual({ pogled: "overdue" });
+    expect(readUrlState(ORDERS_URL_FIELDS, "?assignee=abc&problem=da")).toEqual({ problem: "da" });
+    expect(readUrlState(INBOX_URL_FIELDS, "?assignee=abc&status=needs_reply")).toEqual({ status: "needs_reply" });
+    expect(readUrlState(INBOX_URL_FIELDS, "?assignee=mine")).toEqual({ assignee: "mine" });
+    expect(readUrlState(TASKS_URL_FIELDS, `?assignee=${convexId}`)).toEqual({ assignee: convexId });
   });
 });

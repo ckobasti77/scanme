@@ -52,7 +52,8 @@ function Tile({ tile, dayIndex, dayLabels, firstLead }: { tile: KpiTile; dayInde
   const big = running ? tile.today : tile.total;
   return (
     <div data-kpi-tile={tile.id} className="grid min-w-0 content-start gap-1.5 bg-[var(--admin-surface)] p-3 @md:p-4">
-      <dt className="text-xs font-semibold text-[var(--admin-text-muted)]">{label}</dt>
+      {/* The one name that says nothing by itself gets its definition on hover. */}
+      <dt title={tile.id === "uniquePerModel" ? d.definitions.uniquePerModel : undefined} className="text-xs font-semibold text-[var(--admin-text-muted)]">{label}</dt>
       <dd className="grid min-w-0 gap-1.5">
         <div className="flex min-w-0 items-end justify-between gap-3">
           <div className="flex min-w-0 items-center gap-2">

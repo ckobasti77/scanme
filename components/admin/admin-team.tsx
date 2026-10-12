@@ -19,6 +19,7 @@ import {
   teamSidebarLive,
   type TeamTab,
 } from "@/lib/admin-v2/lists/team";
+import { taskStatusTone } from "@/lib/admin-v2/lists/tasks";
 import { TEAM_URL_FIELDS } from "@/lib/admin-v2/sidebar/configs/pages";
 import { adminTeamSr as dict } from "@/lib/i18n/sr/admin-team";
 import { adminTasksSr as taskDict } from "@/lib/i18n/sr/admin-tasks";
@@ -132,13 +133,7 @@ function TaskRows({
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <AdminStatus
                 label={statusLabels[task.status]}
-                tone={
-                  task.timePhase === "overdue"
-                    ? "problem"
-                    : task.status === "in_progress"
-                      ? "waiting"
-                      : "active"
-                }
+                tone={taskStatusTone(task.status, task.timePhase)}
               />
             </div>
           </div>

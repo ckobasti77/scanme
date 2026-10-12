@@ -15,6 +15,7 @@ import { ModelDetailDrawer } from "@/components/admin/events/analytics/model-det
 import { ModelLeaderboard } from "@/components/admin/events/analytics/model-leaderboard";
 import { PackageComparison } from "@/components/admin/events/analytics/packages";
 import { useRecordToasts } from "@/components/admin/events/analytics/records";
+import { useEventHeaderActions } from "@/components/admin/events/event-frame-view";
 import { StandRanking } from "@/components/admin/events/analytics/stand-ranking";
 import type { EventAnalyticsData, EventAudienceData } from "@/components/admin/events/analytics-logic";
 import { deviceSummary } from "@/lib/admin-v2/analytics/devices";
@@ -96,22 +97,32 @@ export function EventAnalyticsView({ eventCode, data, audience, engagement, mode
     setStand(locationId);
     document.getElementById("mapa")?.scrollIntoView({ block: "start" });
   };
+  // „Osveži“ and „Izvezi CSV“ are actions of the page: they stand in its header, on the right (ZADATAK §2).
+  // On a phone they are icon buttons (the name stays for a screen reader), so the header keeps one row.
+  const actions = useMemo(() => (
+    <>
+      <button type="button" data-analytics-action="refresh" title={d.refresh} className={cn(adminSecondaryButtonClass, "max-sm:size-11 max-sm:px-0")} onClick={onRefresh} disabled={refreshing}>
+        <RefreshCw aria-hidden="true" className={cn("size-4", refreshing && "motion-safe:animate-spin")} />
+        <span className="max-sm:sr-only">{d.refresh}</span>
+      </button>
+      <button type="button" data-analytics-action="export" title={d.exportCsv} className={cn(adminSecondaryButtonClass, "max-sm:size-11 max-sm:px-0")} onClick={onExport}>
+        <Download aria-hidden="true" className="size-4" />
+        <span className="max-sm:sr-only">{d.exportCsv}</span>
+      </button>
+    </>
+  ), [onRefresh, onExport, refreshing]);
+  const inHeader = useEventHeaderActions(actions);
 
   return (
     <div className="@container grid min-w-0 gap-4">
-      <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
-        <p className="max-w-2xl min-w-0 text-sm leading-5 text-[var(--admin-text-muted)]">{fmt(d.intro, { cutoff: formatBelgrade(data.cutoff) })}</p>
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs text-[var(--admin-text-muted)] tabular-nums" aria-live="polite">{refreshing ? d.refreshing : fmt(d.updated, { time: formatBelgrade(data.at).split(" ").at(-1) ?? "" })}</span>
-          <button type="button" className={adminSecondaryButtonClass} onClick={onRefresh} disabled={refreshing}>
-            <RefreshCw aria-hidden="true" className={cn("size-4", refreshing && "motion-safe:animate-spin")} />
-            {d.refresh}
-          </button>
-          <button type="button" className={adminSecondaryButtonClass} onClick={onExport}>
-            <Download aria-hidden="true" className="size-4" />
-            {d.exportCsv}
-          </button>
-        </div>
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <p className="min-w-0 text-sm leading-5 text-[var(--admin-text-muted)]">
+          {fmt(d.intro, { cutoff: formatBelgrade(data.cutoff) })}
+          {" "}
+          <span className="whitespace-nowrap tabular-nums" aria-live="polite">{refreshing ? d.refreshing : fmt(d.updated, { time: formatBelgrade(data.at).split(" ").at(-1) ?? "" })}</span>
+        </p>
+        {/* Outside an event frame (a test of this view alone) nothing takes the actions: they stay here. */}
+        {inHeader ? null : <div className="flex flex-wrap items-center gap-2">{actions}</div>}
       </div>
 
       <KpiStrip data={data} audience={audience} engagement={engagement} records={records} />

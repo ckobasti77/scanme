@@ -24,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { adminPrimaryButtonClass } from "./admin-ui/admin-controls";
 import { useAdminUrlState } from "./admin-ui/use-admin-query-state";
 import { AdminPageHeader } from "./frame/admin-page-header";
 import { useAdminSidebarLive } from "./frame/admin-sidebar-store";
@@ -270,7 +271,7 @@ export function FinanceSurface({ accountId, preview = false }: { accountId?: Id<
       title={dict.pageTitle}
       description={dict.pageSubtitle}
       badge={preview ? <AdminStatus label={dict.previewBadge} tone="waiting" /> : undefined}
-      actions={<Button ref={costTriggerRef} type="button" variant="outline" onClick={() => setCostOpen(true)}><Plus className="size-4" aria-hidden="true" />{dict.costAction}</Button>}
+      actions={<button ref={costTriggerRef} type="button" className={adminPrimaryButtonClass} onClick={() => setCostOpen(true)}><Plus className="size-4" aria-hidden="true" />{dict.costAction}</button>}
     />
     {notice ? <p role="status" className="flex items-center gap-2 rounded-xl bg-[var(--admin-accent-soft)] px-3 py-2 text-sm font-medium text-[var(--admin-accent-ink)]"><CheckCircle2 className="size-4" aria-hidden="true" />{notice}</p> : null}
     {!overview || !summary ? <AdminPanel><AdminLoadingState /></AdminPanel> : <>

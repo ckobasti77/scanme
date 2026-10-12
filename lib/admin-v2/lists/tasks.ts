@@ -4,7 +4,7 @@
 // the same filters over the preview fixtures. Pure; the component casts the
 // ids to `Id<…>`.
 
-import { taskMissions } from "@/lib/admin-v2/lists/dashboard-missions";
+import { taskMissions, type TaskMissionGroups } from "@/lib/admin-v2/lists/dashboard-missions";
 import { TASK_SUBJECTS, TASK_VIEWS } from "@/lib/admin-v2/sidebar/configs/tasks";
 import type { SidebarLive, SidebarMission, SidebarOption, SidebarPatch, SidebarState } from "@/lib/admin-v2/sidebar/types";
 
@@ -44,7 +44,12 @@ export function tasksListArgs(state: SidebarState): TasksListArgs {
 
 /** Whether anything is chosen (a view other than „Svi“ counts): picks the „no results“ empty state. */
 export function tasksAreFiltered(state: SidebarState): boolean {
-  return Boolean(state.q?.trim() || state.assignee || state.klijent || state.lokal || isSubject(state.objekat) || (isTab(state.pogled) && state.pogled !== "all"));
+  return tasksAreNarrowed(state) || (isTab(state.pogled) && state.pogled !== "all");
+}
+
+/** Whether a search or a filter group narrows the list (the view does not count). */
+export function tasksAreNarrowed(state: SidebarState): boolean {
+  return Boolean(state.q?.trim() || state.assignee || state.klijent || state.lokal || isSubject(state.objekat));
 }
 
 export type TaskAdminOption = { id: string; name: string };
@@ -130,4 +135,37 @@ export function previewTaskMissions(rows: readonly Pick<PreviewTaskRow, "status"
     overdue: { items: open.filter((row) => row.timePhase === "overdue") },
     today: { items: open.filter((row) => row.timePhase === "today") },
   });
+}
+
+/** The tone of a task status chip. One rule for Zadaci and Tim, so the same task never has two colours. */
+export type TaskStatusTone = "neutral" | "problem" | "waiting" | "active";
+
+export function taskStatusTone(status: PreviewTaskRow["status"], timePhase: PreviewTaskRow["timePhase"]): TaskStatusTone {
+  if (status === "completed" || status === "cancelled") return "neutral";
+  if (timePhase === "overdue") return "problem";
+  if (status === "in_progress" || timePhase === "today") return "waiting";
+  if (status === "open") return "active";
+  return "neutral";
+}
+
+/**
+ * The numbers next to „Kasni“ and „Danas“ in the sidebar, from the same read as
+ * „Misije danas“ (open tasks of everyone). The query returns a limited number
+ * per group, so a full group is shown as „12+“ and not as an exact number.
+ */
+export function tasksViewCounts(groups: TaskMissionGroups, state: SidebarState = {}): Record<string, number | string> | undefined {
+  // The read counts every open task: with a search or a filter chosen the numbers would not match the list.
+  if (tasksAreNarrowed(state)) return undefined;
+  const count = (group: TaskMissionGroups["overdue"]) => (group.capped ? `${group.items.length}+` : group.items.length);
+  return { overdue: count(groups.overdue), today: count(groups.today) };
+}
+
+/** The same numbers for the preview: the open fixture rows, cut at the limit of the query. */
+export function previewTaskViewCounts(rows: readonly Pick<PreviewTaskRow, "status" | "timePhase">[], state: SidebarState = {}): Record<string, number | string> | undefined {
+  const open = rows.filter((row) => row.status === "open" || row.status === "in_progress");
+  const group = (phase: PreviewTaskRow["timePhase"]) => {
+    const items = open.filter((row) => row.timePhase === phase);
+    return { items: items.slice(0, TASK_MISSION_LIMIT), capped: items.length > TASK_MISSION_LIMIT };
+  };
+  return tasksViewCounts({ overdue: group("overdue"), today: group("today") }, state);
 }

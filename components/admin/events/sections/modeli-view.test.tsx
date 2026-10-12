@@ -100,7 +100,8 @@ describe("A3 Modeli list", () => {
     expect(html).toMatch(option("Starter", 3));
     expect(html).toMatch(option("Ima greške", 1));
     // Seven groups, each a toggle of the accordion; none is open before a click.
-    expect(html.match(/data-admin-filter-toggle=""/g)).toHaveLength(7);
+    // X6 (RX V2) — and one more toggle: the section navigation is the folded group „Sekcija“ on a page with filters.
+    expect(html.match(/data-admin-filter-toggle=""/g)).toHaveLength(8);
     expect(html).not.toContain('aria-expanded="true"');
     for (const row of catalog.models) expect(html).not.toContain(row.displayName);
   });
@@ -154,6 +155,16 @@ describe("A3 Modeli list", () => {
     expect(html).toContain(`aria-label="${list.openAria.replace("{model}", "TEST m1")}"`);
     // One brand selected → one group → no group heading.
     expect(listHtml({ brend: "b3" }, "tabela")).not.toContain('scope="rowgroup"');
+  });
+
+  test("N12 — the Model column keeps a minimum width and Brend shows only from a 72 rem list", () => {
+    const html = listHtml({}, "tabela");
+    const headers = html.split("<th").slice(1).map((cell) => cell.slice(0, cell.indexOf("</th>")));
+    const header = (label: string) => headers.find((cell) => cell.includes(label)) ?? "";
+    expect(header(adminEventsSr.colModel)).toContain("width:10.5rem");
+    expect(header(adminEventsSr.colBrand)).toContain("hidden @6xl:table-cell");
+    expect(header(adminEventsSr.colModel)).not.toContain("hidden @");
+    expect(html).toContain("min-w-[10.5rem]");
   });
 
   test("Kartice show a photo fallback, the same badges and the open action", () => {

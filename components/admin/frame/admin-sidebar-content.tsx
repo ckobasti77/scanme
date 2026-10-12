@@ -84,7 +84,8 @@ export function AdminSidebarContent({ large }: { large?: boolean }) {
       gsap.from(blocks, {
         opacity: 0,
         y: still ? 0 : ADMIN_ENTER_OFFSET,
-        duration: ADMIN_DURATION.move,
+        // The blocks are staggered: 180 ms each, the last one ends within 250 ms.
+        duration: ADMIN_DURATION.state,
         ease: ADMIN_EASE.out,
         stagger: Math.min(0.04, ADMIN_STAGGER_TOTAL / blocks.length),
         clearProps: "opacity,transform",

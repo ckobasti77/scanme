@@ -141,7 +141,8 @@ function ModelPhoto({ model }: { model: ModelView }) {
 function listColumns(modelHref: (modelId: string) => string): AdminColumn<ModelView>[] {
   return [
     {
-      id: "model", header: dict.colModel, rowHeader: true, sortValue: modelName,
+      // N12 — the name keeps a minimum width (no three-line wrap at 1280 px; 12 rem would push the table 17 px past a 58 rem list, so 10.5 rem); Brend is shown only from a 72 rem list.
+      id: "model", header: dict.colModel, rowHeader: true, sortValue: modelName, width: "10.5rem", className: "min-w-[10.5rem]",
       cell: (model) => (
         <>
           <Link href={modelHref(model.id)} className="font-semibold underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--admin-focus,var(--admin-ink))]">{model.displayName}</Link>
@@ -149,7 +150,7 @@ function listColumns(modelHref: (modelId: string) => string): AdminColumn<ModelV
         </>
       ),
     },
-    { id: "brand", header: dict.colBrand, sortValue: (model) => model.brandName, cell: (model) => model.brandName },
+    { id: "brand", header: dict.colBrand, hideBelow: "xl", sortValue: (model) => model.brandName, cell: (model) => model.brandName },
     { id: "exhibitor", header: list.colExhibitor, sortValue: (model) => model.exhibitorName, cell: (model) => model.exhibitorName },
     { id: "stand", header: list.colStand, hideBelow: "2xl", sortValue: (model) => model.standLabel, cell: (model) => <span className="text-xs">{model.standLabel}</span> },
     { id: "package", header: dict.colPackage, sortValue: (model) => FAIR_PACKAGE_TIERS.indexOf(model.tier), cell: (model) => <TierBadge model={model} /> },

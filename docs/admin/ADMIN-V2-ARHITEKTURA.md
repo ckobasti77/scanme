@@ -1,6 +1,6 @@
 # ADMIN v2: arhitektura okvira i recept za stranice
 
-Ovo je recept po kome se svaka admin stranica prebacuje u novi okvir. Napisan je u koraku X1 (okvir i Događaji) i dopunjen u X2, koji je po njemu prebacio sve ostale liste. Plan je u `docs/admin/v2/X0-PLAN.md`, a beleške u `docs/admin/v2/X1.md` i `docs/admin/v2/X2.md`.
+Ovo je recept po kome se svaka admin stranica prebacuje u novi okvir. Napisan je u koraku X1 (okvir i Događaji) i dopunjen u X2, koji je po njemu prebacio sve ostale liste, i u X6 (dorada po pregledu RX). Plan je u `docs/admin/v2/X0-PLAN.md`, a beleške u `docs/admin/v2/X1.md`, `docs/admin/v2/X2.md` i `docs/admin/v2/X6.md`.
 
 ## 1. Okvir
 
@@ -22,6 +22,9 @@ app/admin/layout.tsx
 - **Linkovi u preview-u.** Admin link se piše kao `/admin/...`, a okvir ga prevodi funkcijom `routeHref(href, route)` (`lib/admin-v2/frame/routes.ts`): u adminu ostaje isti, u trajnom preview-u dobija njegovu osnovu, a u pojedinačnom preview-u vodi na preview ciljne stranice (`/admin/zadaci?pogled=overdue` → `/dev/admin-tasks-preview?pogled=overdue`). Tako navbar, navigacija oblasti i „Brzi skokovi“ rade i bez prijave. Preview ruta koja prikazuje više admin stranica (`/dev/admin-services-preview?service=…`, `/dev/admin-18-preview?mode=debug`) kaže okviru koju prikazuje preko `activePathname`.
 - **Pregled čuvara.** `/dev/admin-cuvar-preview/<stanje>` (`provera`, `neprijavljen`, `bez-prava`, `admin`) crta pravi `app/admin/layout.tsx` sa pravim `AdminGuard`, a upit `admin.me` dobija TEST odgovor iz `components/admin/frame/admin-guard-preview.tsx`. Tu se bez prijave vidi šta čuvar pušta i da okvir ostaje isti pri prelasku između dve stranice. Ništa se ne šalje na Convex; ruta ne postoji u produkciji.
 - **Pravi `/admin`** bez prijave vraća preusmerenje na `/admin/login` (`proxy.ts`), pa se ne snima.
+- **Greška stranice** (`app/admin/error.tsx` → `AdminRouteError`, `components/admin/frame/admin-route-error.tsx`): stranica koja padne (upit odbije argumente, chunk se ne učita) zamenjuje se unutar ekrana, a sidebar i navbar ostaju. „Pokušaj ponovo“ zove `unstable_retry`, a „Očisti filtere“ je običan link na istu stranicu bez upita (postoji samo kad adresa ima upit). Greška u samom okviru i dalje ide na `app/error.tsx`.
+- **Fioka** (`AdminDrawer`): okvir je zatvara kad se promeni putanja (ne na promenu upita) i kad prozor pređe `lg`. Podnožje je jedan red ikonica od 44 px (tema, tihi režim, pretraga, podešavanja, odjava); HUD i identitet su u skrolu, posle sadržaja sidebara. Posle zatvaranja fokus se vraća na dugme koje ju je otvorilo, a Escape u otvorenoj grupi filtera zatvara samo grupu.
+- **Navbar od `lg` do `xl`:** svih devet stavki staje jer su tu uže (13 px, manji razmak); dugme teme nema mesta, pa je tema stavka „Tamna tema“ u meniju profila (kao Podešavanja).
 - **Ugovor za automatsku proveru** (`scripts/admin-v2/alati/snimi.mjs --okvir --harmonika`): tri `data-admin-frame` atributa; od 1024 px sidebar ide od vrha do dna prozora, prozor ne skroluje, sidebar i navbar stoje dok ekran skroluje; dugme grupe filtera ima `data-admin-filter-toggle` i `aria-expanded`, a otvorena je najviše jedna grupa.
 
 ### Mere i tokeni (`app/globals.css`, blok `.admin-v1`)
@@ -55,7 +58,9 @@ Površine: sidebar i navbar su na `--admin-app`, ekran na `--admin-surface`, pan
 - Ispod `lg` zaglavlje samo dodaje dugme „Filteri (N)“ kad stranica ima pretragu, poglede, grupe ili sortiranje. Dugme otvara fioku direktno na filterima. Stranica koja u sidebaru ima samo odeljke, prikaz ili članove (bez pretrage, grupa i sortiranja) imenuje dugme po tome: „Odeljci“, „Član tima“.
 - Blok naslova se sužava pre nego što akcije pređu u novi red: akcije ostaju desno dok ima mesta.
 - Lista čiji bi naslov panela ponovio H1 ne dobija panel sa naslovom: `AdminDataView` stoji direktno u ekranu (primer: Modeli).
-- U Događajima zaglavlje crta okvir oblasti (`AdminEventFrameView`): iznad naslova je „Događaji · naziv događaja“, H1 je naziv sekcije, a desno je jedino „Poveži nalepnicu“. Sekcije ne crtaju svoj H1.
+- U Događajima zaglavlje crta okvir oblasti (`AdminEventFrameView`): iznad naslova je „Događaji · naziv događaja“, H1 je naziv sekcije, a desno je „Poveži nalepnicu“. Sekcije ne crtaju svoj H1.
+- Sekcija Događaja koja ima svoje akcije šalje ih u to zaglavlje hook-om `useEventHeaderActions(akcije)` (`components/admin/events/event-frame-view.tsx`; primer: „Osveži“ i „Izvezi CSV“ u Analitici). Akcije moraju biti memoizovane. „Poveži nalepnicu“ je tada sekundarno dugme pored njih. Hook vraća `false` kad okvira događaja nema (test): sekcija ih tada crta sama.
+- Stranica bez nadnaslova (`eyebrow`) zadržava njegov red na ekranu širem od 42 rem, pa je H1 na istoj visini na svim stranicama. Na telefonu tog reda nema.
 
 ## 3. Kontekstualni sidebar
 
@@ -69,7 +74,7 @@ Vrednosti filtera sidebar čita iz URL-a i sam ih piše. Stranica ne prosleđuje
 ### 3.1 Redosled blokova
 
 1. kontekst oblasti (Događaji: izbor događaja kao grupa harmonike; Tim: članovi kao uvek otvorena lista);
-2. navigacija oblasti (podstrane: Operativa, Usluge, sekcije Događaja, „Nazad na klijente“ u profilu);
+2. navigacija oblasti (podstrane: Operativa, Usluge, sekcije Događaja, „Nazad na klijente“ u profilu). Uz `navFold` je to jedna sklopljena grupa harmonike („Sekcija · Modeli“), da pretraga i prva grupa filtera ostanu iznad preloma sidebara; zaglavlje grupe nosi naziv otvorene podstrane i zbir najhitnijih stavki ostalih;
 3. pogledi sa brojevima (i odeljci stranice: Podešavanja, profil klijenta);
 4. pretraga stranice (uvek vidljiva);
 5. grupe filtera kao harmonika;
@@ -93,6 +98,7 @@ type SidebarGroup = {
   chipOnly?: boolean;                 // filter bez kontrole: stiže linkom, vidi se samo čip
   defaultValue?: string;              // grupa uvek ima vrednost (period, kategorija): nema „Sve“
   emptyText?: string;                 // tekst umesto opcija dok ih nema („Prvo izaberi klijenta.“)
+  ids?: true | readonly string[];     // vrednosti su id-jevi zapisa (idu u upit kao v.id): sve drugo se čita kao odsutno; niz = reči koje grupa prima uz id („mine“)
 };
 
 type SidebarConfig = {
@@ -100,6 +106,7 @@ type SidebarConfig = {
   context?: { id: string; label: string; list?: boolean };   // list: uvek otvorena lista (Tim)
   nav?: readonly AdminSubnavGroup[];
   navLabel?: string;
+  navFold?: { id: string; label: string };                   // navigacija kao jedna sklopljena grupa (stranica sa pretragom ili filterima)
   views?: { key: string; label: string; items: readonly SidebarOption[]; defaultValue: string };
   search?: { key: string; label: string; placeholder?: string; submit?: boolean };   // submit: piše se na Enter (Pošta → Zoho)
   groups?: readonly SidebarGroup[];
@@ -137,7 +144,7 @@ resolveSidebar(route: AdminRoute, search: URLSearchParams): SidebarConfig;   // 
 type SidebarLive = {
   context?: { value: string; options: readonly SidebarOption[]; onChange: (value: string) => void };
   nav?: readonly AdminSubnavGroup[];                          // navigacija sa bedževima
-  viewCounts?: Record<string, number>;
+  viewCounts?: Record<string, number | string>;               // tekst kad je čitanje ograničeno („12+“)
   options?: Record<string, readonly SidebarOption[]>;         // opcije grupa (sa brojevima), po id-u grupe
   defaults?: Record<string, string>;                          // vrednost grupe dok ključa nema, kad je zna samo stranica
   custom?: Record<string, { summary?: string; body: ReactNode }>;
@@ -152,6 +159,7 @@ useAdminSidebarLive(live: SidebarLive | null): void;          // components/admi
 - Više komponenti jedne stranice sme da objavljuje; rezultati se spajaju (Događaji: okvir događaja šalje `context` i `nav`, sekcija šalje `options`).
 - Bez okvira hook ne radi ništa, pa komponenta i dalje radi sama u testu.
 - Brojevi uz opcije se šalju samo kad ih stranica već ima u podacima. Liste koje filtrira Convex upit ih nemaju.
+- Broj uz pogled koji važi za celu listu (Zadaci: „Danas“, „Kasni“ iz `dashboardAdapter`) šalje se samo dok nijedan filter ne sužava listu; inače se ne bi slagao sa onim što se vidi.
 - `intercept` služi za zavisne filtere (Zadaci: izmena klijenta briše lokal; Finansije: promena pogleda briše kategoriju drugog pogleda) i za zaštitu (Podešavanja: sa nesačuvanim izmenama vraća `null` i otvara dijalog).
 - `missions` („Misije danas“) sme da pošalje svaki widget stranice za sebe; sidebar ih sabira, ređa po hitnosti i ne prikazuje one sa nulom. Dok stranica ništa ne pošalje, bloka nema.
 - `context` uz `list: true` je uvek otvorena lista: stranica šalje opcije (sa brojevima), izabranu vrednost i `onChange`, i sama piše svoj ključ u URL. Ključ je u šemi sidebara, pa ga `intercept` sme da obriše (Pošta: drugo sanduče briše folder).
@@ -167,7 +175,8 @@ Pravila su u `lib/admin-v2/sidebar/accordion.ts`:
 - Grupa sa `defaultValue` nema „Sve“: u zaglavlju stoji podrazumevana vrednost („Period · Ovaj mesec“), a čip i broj u „Filteri (N)“ postoje samo kad je izabrano nešto drugo.
 - Jedan izbor „da / ne“ je grupa sa jednom opcijom (Porudžbine: „Problem · Samo sa problemom“), bez posebne vrste kontrole.
 - Izbor važi odmah. Čip uklanja jedan filter, „Očisti sve“ pretragu i sve grupe; pogled, sortiranje i kontekst ostaju.
-- Tastatura: Enter i Space otvaraju grupu, strelice idu kroz opcije, Escape zatvara grupu i vraća fokus na njeno zaglavlje. U search-selectu prvi Escape briše upisan tekst.
+- Tastatura: Enter i Space otvaraju grupu, strelica nadole sa zaglavlja otvara grupu i ulazi u opcije (na izabranu, inače na prvu), strelice idu kroz opcije, Escape zatvara grupu i vraća fokus na njeno zaglavlje. U search-selectu prvi Escape briše upisan tekst, a aktivna opcija se strelicama dovodi u vidljivi deo liste.
+- Sklopljena navigacija oblasti (`navFold`) je grupa iste harmonike: otvaranje filtera je zatvara i obrnuto.
 
 ## 4. URL stanje
 
@@ -184,7 +193,8 @@ useAdminQueryState()                  // Događaji: fiksni ključevi iz lib/admi
 - Filter zamenjuje stavku istorije. Sekcije i detalji su linkovi, pa Back vraća na prethodnu stranicu sa filterima u URL-u.
 - Korak koji Back mora da poništi piše se sa `set(patch, "push")` (Proizvodi: ulazak u lokal i povratak na listu lokala).
 - Filtere piše sidebar. Stranica zove `set` samo za ključeve koje sama poseduje (`venue`, `clan`, `contact`, `q` Pretrage) i za izmenu koju je `intercept` odložio (Podešavanja posle potvrde).
-- Pretraga liste se piše 250 ms posle kucanja (`SearchField` u sidebaru), bez tastera Enter.
+- Pretraga liste se piše 250 ms posle kucanja (`SearchField` u sidebaru), bez tastera Enter. U URL ide tekst bez razmaka na krajevima; polje zadržava ono što je otkucano (razmak posle reči je početak sledeće), a zamenjuje ga samo vrednost koja je stigla spolja (`searchFieldText`, `lib/admin-v2/sidebar/nav-fold.ts`).
+- Grupa čije su vrednosti id-jevi zapisa nosi `ids` (Zadaci: zaduženi, klijent, lokal; Porudžbine i Inbox: zaduženi). Šema tada prima samo Convex id ili fixture id dev preview-a (`RECORD_ID`); `?assignee=abc` se čita kao odsutno i lista se prikazuje bez tog filtera.
 - Pretraga koja zove spoljni servis ima `submit: true`: piše se na Enter, ispod polja stoji „Enter pokreće pretragu.“, a pražnjenje polja je uklanja odmah (Pošta: jedan poziv Zoho-u po pretrazi).
 - Stari link sa pretragom u sopstvenom parametru (`?code=` QR kodova, `?smf=` Proizvoda) stranica jednom preusmeri na `?q=` (`legacySearchHref`, `lib/admin-v2/query/legacy-param.ts`, u `app/admin/operativa/*/page.tsx`).
 - Podrazumevana vrednost se ne piše. Parametri koje šema ne poznaje (`?task=`, `?profile=`, `?order=`) se ne brišu.
@@ -275,7 +285,7 @@ renderToStaticMarkup(
 8. **Testovi.** Okruženje je bez DOM-a. Komponenta koja koristi URL hook traži u testu `vi.mock("next/navigation", …)` sa `usePathname` i `useSearchParams`. Čiste funkcije idu u `lib/**` (`*.test.ts`), markup u `components/admin/**` (`*.test.tsx`).
 9. **Ugrađene površine.** Komponenta koja se crta i unutar druge stranice (Inbox u profilu klijenta) ne objavljuje ništa u sidebar kad je ugrađena.
 10. **Portali.** Meni, dijalog i fioka idu u `body` i ne nasleđuju tokene: sadržaj mora da nosi `className="admin-v1"`.
-11. **`bg-[var(--admin-ink)]` na dugmetu ili linku** globalno pravilo boji u zeleno (primarno dugme). Ne koristi tu klasu za aktivno stanje u navigaciji.
+11. **Primarno dugme je `adminPrimaryButtonClass`**, a izabrana opcija segmenta ili menija `adminSegmentOnClass` (`components/admin/admin-ui/admin-controls.ts`; oba nose CSS klasu `admin-button-primary`). Do X6 je globalno pravilo bojilo u zeleno svako dugme ili link sa podstringom `bg-[var(--admin-ink)]`; tog pravila više nema, pa je `bg-[var(--admin-ink)]` samo boja tokena (tačka, traka napretka, broj koraka) i na dugmetu bi dao crnu popunu.
 12. **`ThemeToggle` mora da ostane u DOM-u** (može biti skriven klasom). Sajt ima plutajući prekidač teme koji se sakriva samo dok postoji lokalni.
 13. **`eslint-plugin-react-hooks` 7.** Bez `setState` direktno u efektu i bez čitanja ref-a u renderu. Uzor za izvedeno stanje je `SearchField` u `admin-sidebar-view.tsx`.
 14. **Javni repo.** Fixtures koriste TEST imena i izmišljene brojeve; pravi brojevi po izlagaču, modelu ili štandu ne ulaze u kod, testove ni beleške.
@@ -286,3 +296,5 @@ renderToStaticMarkup(
 19. **Pomoćne skripte se lintuju.** `npm run lint` obuhvata i `output/playwright/**`: skripta sa neupotrebljenom promenljivom diže broj upozorenja.
 20. **Git Bash i putanje.** `/dev/...` kao argument alata postaje Windows putanja; alat za snimke pokreći sa `MSYS_NO_PATHCONV=1`.
 21. **URL stiže pre podataka.** Filter iz URL-a važi od prvog crtanja, i pre nego što stignu podaci od kojih zavisi (Inbox: `?assignee=mine` pre upita `me`). Dok takav podatak nije poznat, upit liste se preskače (`"skip"`); lista bez tog filtera ne sme ni na trenutak da se učita, jer stranica otvara prvi red i označava ga pročitanim.
+22. **Dijalog ili fioka bez `Trigger`-a ne vraća fokus.** Radix tada fokusira prazan ref. Zapamti `document.activeElement` u `onOpenAutoFocus` i vrati ga u `onCloseAutoFocus` (uz `preventDefault()`, samo ako je element još u dokumentu). Uzori: `admin-drawer.tsx`, `model-detail-drawer.tsx`, `admin-shortcuts.tsx`.
+23. **Lenji uvoz traži granicu.** `lazy`/`dynamic` bez granice grešaka ruši stranicu kad se chunk ne učita. 3D mapa ima svoju (`Heat3DBoundary` u `heat-map.tsx`) i vraća 2D prikaz sa porukom.

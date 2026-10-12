@@ -106,6 +106,12 @@ describe("Dashboard page", () => {
     expect(html("ready", "?obim=xyz")).toContain("Potrebna je potvrda dizajna pre štampe");
   });
 
+  test("X6 — „Reši“ is the primary button, as a link and as a button; no button or link is inked by a class substring", () => {
+    const markup = html("ready");
+    expect(markup).toMatch(new RegExp(`<a[^>]*admin-button-primary[^>]*>${dict.dashboardResolve}`));
+    expect(markup).not.toMatch(/<(?:button|a)\b[^>]*bg-\[var\(--admin-ink\)\]/);
+  });
+
   test("the preview keeps its badge and says what it is", () => {
     const markup = html();
     expect(markup).toContain(dict.dashboardFixtureBadge);

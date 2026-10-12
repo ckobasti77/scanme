@@ -137,7 +137,8 @@ describe("A4 QR list", () => {
     for (const [state, n] of [["slobodan", 1], ["ovaj", 2], ["drugi", 1], ["neaktivan", 1]] as const) expect(html).toMatch(option(list.states[state], n));
     expect(html).not.toContain(`${list.states.slobodan} (1)`);
     // Izlagač, brend, model and stanje: four toggles; none is open before a click.
-    expect(html.match(/data-admin-filter-toggle=""/g)).toHaveLength(4);
+    // X6 (RX V2) — one more toggle: the section navigation is the folded group „Sekcija“ on a page with filters.
+    expect(html.match(/data-admin-filter-toggle=""/g)).toHaveLength(5);
     expect(html).not.toContain('aria-expanded="true"');
     for (const code of ["SMQ-TEST-0001", "7KQ2M9XA"]) expect(html).not.toContain(code);
   });
