@@ -5806,9 +5806,7 @@ export interface AdminEventsAnalyticsV2Dict {
     viewLabel: string;
     view2d: string;
     view3d: string;
-    loading3d: string;
     unavailable3d: string;
-    failed3d: string;
     help3d: string;
     reset3d: string;
     /** {max} */
@@ -5833,6 +5831,50 @@ export interface AdminEventsAnalyticsV2Dict {
     columnHeight: string;
     /** {exhibitors} */
     standExhibitors: string;
+    /** ADMIN v3 V3 — a column of the 3D hall is layered by hour. */
+    layers: string;
+    /** {time} {max} */
+    heightMoment: string;
+  };
+  /** ADMIN v3 V3 — the Vremeplov under the hall and the excerpt of the hall on Pregled. */
+  timelapse: {
+    title: string;
+    days: string;
+    live: string;
+    play: string;
+    pause: string;
+    slider: string;
+    rankTitle: string;
+    /** {time} */
+    rankAt: string;
+    /** {stand} */
+    rankRow: string;
+    /** {time} */
+    rankEmpty: string;
+    /** {time} {stand} {count}: the number with its noun */
+    announce: string;
+    /** {time} */
+    announceEmpty: string;
+    loading: string;
+    error: string;
+    retry: string;
+    empty: string;
+    none: string;
+    /** {unread} */
+    capped: string;
+    help: string;
+    /** {day} */
+    tableCaption: string;
+    tableStand: string;
+    /** {hour} */
+    tableHour: string;
+    miniTitle: string;
+    miniQuestion: string;
+    miniOpen: string;
+    miniEmpty: string;
+    miniLabel: string;
+    /** {stand} {count}: the number with its noun */
+    miniSummary: string;
   };
   devices: {
     title: string;

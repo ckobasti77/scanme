@@ -4,6 +4,7 @@ import { belgradeParts } from "../../lib/belgrade-time";
 import { fairScanCountKey, readFairCount } from "./fairCountShards";
 import { fairAudienceOptionCounts, fairModelSurveys } from "./fairInteractions";
 import { fairDayCountFrom } from "./fairPreEvent";
+import { fairTimeKeys } from "./fairScans";
 
 // =============================================================================
 // ADMIN v2 X3 — Analitika v2 (admin only, read only). The aggregations behind
@@ -13,7 +14,9 @@ import { fairDayCountFrom } from "./fairPreEvent";
 //     (rated, voted, answered a survey, left a lead), the visitors with a
 //     passport stamp and scans per model by package;
 //   one model  — its scans per day and per hour, the ratings 1–5, the votes of
-//     its questions and its leads by kind.
+//     its questions and its leads by kind;
+//   stand hours (ADMIN v3 V3) — one fair day, hour by hour, per stand: the
+//     Vremeplov of the admin hall (loadFairStandHours, its own caps below).
 // Everything starts at the event's analytics cutoff and leaves admin rows out,
 // like the two existing reads. A day and an hour are Europe/Belgrade buckets.
 // Every row read is capped; a cap that was hit is returned as `capped`. Nothing
@@ -285,6 +288,100 @@ export async function loadFairEngagement(
       leads: leads.capped,
       stamps: stamps.capped,
     },
+  };
+}
+
+export type FairStandHoursCaps = {
+  /** Stands whose day counter is read to choose and order the stands (one index range each). */
+  preselect: number;
+  /** Hourly `scan_total` counters read (one index range each). */
+  totalRanges: number;
+  /** Hourly `scan_unique` counters read (one index range each). */
+  uniqueRanges: number;
+};
+export const FAIR_STAND_HOURS_CAPS: FairStandHoursCaps = { preselect: 150, totalRanges: 1200, uniqueRanges: 800 };
+
+/** The hours of a fair day the series can hold: 08:00 to 23:00. */
+const FAIR_STAND_HOURS_MAX = 16;
+
+type FairStandHoursStand = Pick<Doc<"fairStands">, "_id" | "code" | "mapLocationId">;
+
+/**
+ * ADMIN v3 V3 — one fair day, hour by hour, per stand (the Vremeplov of the
+ * hall). The hours are the loop of getEventAnalytics for that day, the stands
+ * are the ones it sums, so the sum over stands of an hour is its `hours[]` row.
+ * A stand's day total is the sum of its hour series (its all-time counter
+ * includes pre-event); a stand whose series is zero is not returned.
+ *
+ * Steps, each with its own cap on index ranges:
+ *   1. a day that starts at or after the cutoff: the day counter of every stand
+ *      (one range each) drops the stands without a scan and orders the rest by
+ *      it; the opening day has no such step (the stands go by code);
+ *   2. the hourly `scan_total` of the stands in that order while the budget
+ *      lasts; the stands that did not fit are `unread`;
+ *   3. the hourly `scan_unique` of the stands with a scan, in the same order;
+ *      the others get an empty `uniquePerModel`.
+ */
+export async function loadFairStandHours(
+  ctx: QueryCtx,
+  input: {
+    cutoff: number;
+    day: FairAnalyticsDay;
+    at: number;
+    firstHour: number;
+    stands: ReadonlyArray<FairStandHoursStand>;
+    /** The event has more exhibited models than the stands were chosen from. */
+    modelsCapped: boolean;
+  },
+  caps: FairStandHoursCaps = FAIR_STAND_HOURS_CAPS,
+) {
+  const { cutoff, day, at } = input;
+  const hourKeys: string[] = [];
+  for (let start = Math.max(day.startsAt + input.firstHour * HOUR_MS, cutoff); start < day.endsAt && start <= at && hourKeys.length < FAIR_STAND_HOURS_MAX; start += HOUR_MS) {
+    hourKeys.push(fairTimeKeys(start).hourKey);
+  }
+  if (!hourKeys.length) return { hours: [], stands: [], unread: 0, capped: input.modelsCapped };
+
+  const byCode = (a: FairStandHoursStand, b: FairStandHoursStand) => a.code.localeCompare(b.code);
+  let ordered = [...input.stands].sort(byCode);
+  let unread = 0;
+  if (cutoff <= day.startsAt) {
+    const looked = ordered.slice(0, caps.preselect);
+    unread += ordered.length - looked.length;
+    const totals: Array<{ stand: FairStandHoursStand; total: number }> = [];
+    for (const stand of looked) totals.push({ stand, total: await readFairCount(ctx, fairScanCountKey("scan_total", "stand", stand._id, day.dateKey)) });
+    ordered = totals
+      .filter((row) => row.total > 0)
+      .sort((a, b) => b.total - a.total || byCode(a.stand, b.stand))
+      .map((row) => row.stand);
+  }
+
+  const readable = ordered.slice(0, Math.floor(caps.totalRanges / hourKeys.length));
+  unread += ordered.length - readable.length;
+  const series: Array<{ stand: FairStandHoursStand; scans: number[]; total: number }> = [];
+  for (const stand of readable) {
+    const scans: number[] = [];
+    for (const hourKey of hourKeys) scans.push(await readFairCount(ctx, fairScanCountKey("scan_total", "stand", stand._id, hourKey)));
+    series.push({ stand, scans, total: scans.reduce((sum, value) => sum + value, 0) });
+  }
+
+  const uniqueFits = Math.floor(caps.uniqueRanges / hourKeys.length);
+  const rows = [];
+  for (const row of series.filter((entry) => entry.total > 0)) {
+    const uniquePerModel: number[] = [];
+    if (rows.length < uniqueFits) {
+      for (const hourKey of hourKeys) uniquePerModel.push(await readFairCount(ctx, fairScanCountKey("scan_unique", "stand", row.stand._id, hourKey)));
+    }
+    rows.push({ ...row, uniquePerModel });
+  }
+
+  return {
+    hours: hourKeys.map((hourKey) => Number(hourKey.slice(11, 13))),
+    stands: rows
+      .sort((a, b) => b.total - a.total || byCode(a.stand, b.stand))
+      .map((row) => ({ standCode: row.stand.code, mapLocationId: row.stand.mapLocationId, scans: row.scans, uniquePerModel: row.uniquePerModel })),
+    unread,
+    capped: unread > 0 || input.modelsCapped,
   };
 }
 

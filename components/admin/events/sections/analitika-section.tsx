@@ -6,6 +6,7 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { AdminErrorState, AdminPanel } from "@/components/admin/admin-primitives";
 import { useAdminQueryState } from "@/components/admin/admin-ui/use-admin-query-state";
 import { usePolled } from "@/components/admin/admin-ui/use-polled-query";
+import { useStandHours } from "@/components/admin/events/analytics/use-stand-hours";
 import { analyticsCsv } from "@/components/admin/events/analytics-logic";
 import { downloadAdminFile } from "@/components/admin/events/download-file";
 import { useAdminEvent } from "@/components/admin/events/event-context";
@@ -20,6 +21,7 @@ import { adminEventsSr } from "@/lib/i18n/sr/admin-events";
 // counters): the counters and the audience once and then every 60 s while the
 // tab is visible, the engagement every 5 minutes (it reads the visitor rows),
 // and one model only while its detail is open (`?model=`). „Osveži“ reads all.
+// ADMIN v3 V3 adds getEventStandHours (one day per stand and hour), on demand.
 
 const d = adminEventsSr.analytics;
 const ENGAGEMENT_INTERVAL_MS = 5 * 60_000;
@@ -39,6 +41,8 @@ export function AnalitikaSection() {
     (convex) => convex.query(api.fairEventAnalytics.getModelAnalytics, { eventId, eventModelId: modelId as Id<"fairEventModels">, at: Date.now() }),
     MODEL_INTERVAL_MS,
   );
+  // V3 — one fair day hour by hour per stand (the Vremeplov): read when the hall asks for a day, never on a timer.
+  const standHours = useStandHours(eventId, analytics.data?.todayKey);
   const [refreshedAt, setRefreshedAt] = useState<number | null>(null);
 
   if (analytics.data === undefined) {
@@ -60,6 +64,7 @@ export function AnalitikaSection() {
       onModel={(next) => setQuery({ model: next })}
       onModelRetry={model.refresh}
       links={{ leadSettings: eventSectionHref(base, "leadovi/podesavanja"), forms: eventSectionHref(base, "interakcije") }}
+      standHours={standHours}
       refreshing={refreshing}
       onRefresh={() => {
         setRefreshedAt(Date.now());
@@ -67,6 +72,8 @@ export function AnalitikaSection() {
         audience.refresh();
         engagement.refresh();
         model.refresh();
+        // The hours of the day the hall shows (its layers and the Vremeplov) are read again too.
+        if (standHours.dateKey) standHours.request(standHours.dateKey, true);
       }}
       onExport={() => {
         const csv = analyticsCsv({ eventTitle: catalog.event.title, data, audience: audience.data, engagement: engagement.data });

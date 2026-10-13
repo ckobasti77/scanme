@@ -731,6 +731,44 @@ html[data-theme="dark"] .admin-v1 .admin-edge-glow {
   opacity: calc(var(--admin-energy, 0) * 0.18);
 }
 
+/* The Living hall (v3 V3). The clock of the Vremeplov ticks on every new hour
+   (opacity only: the text never moves), and in the 2D map a new scan of a poll
+   is a ring that goes out from its stand (transform and opacity, 600 ms). Both
+   stand in the quiet mode and with reduced motion (the rule below). */
+.admin-v1 .admin-hall-tick {
+  animation: admin-hall-tick var(--admin-dur-2) var(--admin-ease-out);
+}
+
+@keyframes admin-hall-tick {
+  from {
+    opacity: 0.45;
+  }
+}
+
+.admin-v1 .admin-hall-ping {
+  transform-box: fill-box;
+  transform-origin: center;
+  opacity: 0;
+  pointer-events: none;
+  animation: admin-hall-ping 600ms var(--admin-ease-out);
+}
+
+@keyframes admin-hall-ping {
+  from {
+    opacity: 0.9;
+    transform: scale(0.35);
+  }
+
+  to {
+    opacity: 0;
+    transform: scale(1.5);
+  }
+}
+
+.admin-v1[data-admin-quiet] :is(.admin-hall-tick, .admin-hall-ping) {
+  animation: none;
+}
+
 /* Tables scroll with the screen, never in their own box: the header row
    stays under the top edge of the screen. A table too wide for the screen
    gets a sideways scroll from its wrapper ([data-overflow-x]) and then the

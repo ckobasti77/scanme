@@ -84,6 +84,7 @@ export function AdminStage<Props>({
   flatBelow = 0,
   flat = false,
   onScene,
+  onUnavailable,
   className,
   children,
 }: {
@@ -100,6 +101,8 @@ export function AdminStage<Props>({
   flat?: boolean;
   /** The running scene, or null when the fallback is shown. */
   onScene?: (scene: StageScene<Props> | null) => void;
+  /** The scene cannot run here (no WebGL, a weak device, a lost context, a chunk that did not load): the fallback stays. */
+  onUnavailable?: () => void;
   className?: string;
   /** Drawn over the scene (a tooltip). */
   children?: ReactNode;
@@ -109,6 +112,9 @@ export function AdminStage<Props>({
   const scene = useRef<StageScene<Props> | null>(null);
   const props = useRef(sceneProps);
   const sceneCallback = useRef(onScene);
+  const unavailable = useRef(onUnavailable);
+  /** Takes the running scene down and shows the fallback (set while a scene runs). */
+  const failScene = useRef<(() => void) | null>(null);
   const loader = useRef(load);
   const reveal = useAdminReveal();
   const entered = useRef(reveal);
@@ -119,10 +125,16 @@ export function AdminStage<Props>({
 
   useEffect(() => {
     props.current = sceneProps;
-    scene.current?.update(sceneProps);
+    try {
+      scene.current?.update(sceneProps);
+    } catch {
+      // A scene that throws on new data would take the page down: the 2D fallback stays instead.
+      failScene.current?.();
+    }
   }, [sceneProps]);
   useEffect(() => {
     sceneCallback.current = onScene;
+    unavailable.current = onUnavailable;
     loader.current = load;
     entered.current = reveal;
   });
@@ -134,7 +146,11 @@ export function AdminStage<Props>({
     const pinned = pinnedQuality();
     const quality = pinned ?? (window.innerWidth < flatBelow ? "off" : sessionQuality(flat ? "2d" : null));
     hostElement.dataset.stageQuality = quality;
-    if (quality === "off") return;
+    if (quality === "off") {
+      // The 2D view by choice or by width is not a failure; a device that cannot draw the scene is.
+      if (!flat && window.innerWidth >= flatBelow) unavailable.current?.();
+      return;
+    }
 
     let cancelled = false;
     let stage: Stage | null = null;
@@ -144,6 +160,7 @@ export function AdminStage<Props>({
     const fail = () => {
       if (cancelled) return;
       cancelled = true;
+      failScene.current = null;
       for (const cleanup of cleanups.splice(0)) cleanup();
       created?.dispose();
       stage?.dispose();
@@ -153,14 +170,19 @@ export function AdminStage<Props>({
       sceneCallback.current?.(null);
       setMode("flat");
       setCovered(false);
+      unavailable.current?.();
     };
 
+    failScene.current = fail;
     const start = async (drawQuality: DrawQuality) => {
       try {
         const [kit, module] = await Promise.all([import("./stage"), loader.current()]);
         if (cancelled) return;
         stage = kit.createStage(mountElement, { quality: drawQuality, pinned: pinned !== null, onUnavailable: fail });
-        if (!stage) return;
+        if (!stage) {
+          unavailable.current?.();
+          return;
+        }
         const motion = !quiet && !reducedMotion;
         const intro: StageIntro = motion && entered.current.mode !== "none" ? entered.current.mode : "none";
         created = module.create(stage, props.current, { intro, motion });
@@ -198,6 +220,7 @@ export function AdminStage<Props>({
 
     return () => {
       cancelled = true;
+      failScene.current = null;
       for (const cleanup of cleanups.splice(0)) cleanup();
       created?.dispose();
       stage?.dispose();

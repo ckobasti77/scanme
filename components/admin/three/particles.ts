@@ -8,7 +8,8 @@ import type { Stage } from "./stage";
 // computed in the shader from `uTime − aBirth`, so a live particle costs the
 // CPU nothing. The budget is the quality's (600 or 150): what does not fit is
 // not emitted. While a particle lives the stage keeps drawing; when the last
-// one is gone the loop is free to stop.
+// one is gone the loop is free to stop. A scene whose particles never end (the
+// hall) passes `ambient` and keeps the 30 fps loop itself.
 
 export type ParticleSpec = {
   position: THREE.Vector3;
@@ -68,7 +69,7 @@ const FRAGMENT = /* glsl */ `
   }
 `;
 
-export function createParticles(stage: Stage, options: { max: number }): Particles {
+export function createParticles(stage: Stage, options: { max: number; /** The scene keeps an ambient loop while particles live (at most 30 fps): they do not ask for frames themselves. */ ambient?: boolean }): Particles {
   const capacity = Math.max(1, Math.floor(options.max));
   let budget = Math.min(capacity, particleBudget(stage.quality));
   let cursor = 0;
@@ -128,7 +129,7 @@ export function createParticles(stage: Stage, options: { max: number }): Particl
     stage.onFrame((_delta, time) => {
       now = time;
       material.uniforms.uTime.value = time;
-      if (alive() > 0) stage.invalidate();
+      if (!options.ambient && alive() > 0) stage.invalidate();
     }),
     stage.onTheme(paint),
     stage.onQuality((quality) => {
@@ -156,7 +157,8 @@ export function createParticles(stage: Stage, options: { max: number }): Particl
       }
       if (count > 0) {
         for (const attribute of [position, velocity, birth, life, size, color]) attribute.needsUpdate = true;
-        stage.invalidate();
+        // An ambient scene draws them on its next frame (30 fps): an emission is not a reason for a frame of its own.
+        if (!options.ambient) stage.invalidate();
       }
       return count;
     },

@@ -8,7 +8,7 @@ import { fairAdminError, requireFairEvent } from "./lib/fairCatalog";
 import { fairScanCountKey, readFairCount, type FairScanMetric } from "./lib/fairCountShards";
 import { fairHeatWindow, fairStandWindowCounts } from "./lib/fairHeat";
 import { fairAudienceOptionCounts, fairModelSurveys, fairRatingSummary } from "./lib/fairInteractions";
-import { loadFairEngagement, loadFairModelAnalytics } from "./lib/fairEventAnalytics";
+import { loadFairEngagement, loadFairModelAnalytics, loadFairStandHours } from "./lib/fairEventAnalytics";
 import { fairExhibitorName } from "./lib/fairLeads";
 import { fairAnalyticsCutoff, fairDayCountFrom } from "./lib/fairPreEvent";
 import { fairTimeKeys } from "./lib/fairScans";
@@ -37,6 +37,12 @@ import { fairTimeKeys } from "./lib/fairScans";
 //     polled every 5 minutes;
 //   getModelAnalytics  — one model: scans per day and hour, ratings 1–5, votes
 //     and leads; read only when its detail is opened.
+//
+// ADMIN v3 V3 adds getEventStandHours — the Vremeplov of the admin hall: ONE fair
+// day, hour by hour, per stand (loadFairStandHours, read only and capped to 2 150
+// index ranges). The stands and the hours are those of getEventAnalytics, so the
+// sum over stands of an hour is its `hours[]` row; the all-time counter of a stand
+// is not read (it includes pre-event). An unknown day gives an empty answer.
 // =============================================================================
 
 const MODELS_CAP = 150;
@@ -438,5 +444,45 @@ export const getModelAnalytics = query({
       firstHour: FAIR_ANALYTICS_FIRST_HOUR,
     });
     return { at: args.at, ...analytics };
+  },
+});
+
+export const getEventStandHours = query({
+  args: { eventId: v.id("fairEvents"), dateKey: v.string(), at: v.number() },
+  returns: v.object({
+    at: v.number(),
+    dateKey: v.string(),
+    hours: v.array(v.number()),
+    stands: v.array(
+      v.object({
+        standCode: v.string(),
+        mapLocationId: v.string(),
+        scans: v.array(v.number()),
+        uniquePerModel: v.array(v.number()),
+      }),
+    ),
+    unread: v.number(),
+    capped: v.boolean(),
+  }),
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    const event = await requireFairEvent(ctx, args.eventId);
+    const catalog = await loadEventCatalog(ctx, event._id);
+    const day = catalog.days.find((row) => row.dateKey === args.dateKey);
+    if (!day) return { at: args.at, dateKey: args.dateKey, hours: [], stands: [], unread: 0, capped: false };
+    // The stands of the exhibited models, as getEventAnalytics chooses them.
+    const standById = new Map(catalog.stands.map((stand) => [stand._id as string, stand]));
+    const stands = [...new Set(exhibited(catalog.models).map((model) => model.standId as string))]
+      .map((id) => standById.get(id))
+      .filter((stand): stand is Doc<"fairStands"> => stand !== undefined);
+    const hours = await loadFairStandHours(ctx, {
+      cutoff: fairAnalyticsCutoff(event),
+      day,
+      at: args.at,
+      firstHour: FAIR_ANALYTICS_FIRST_HOUR,
+      stands,
+      modelsCapped: catalog.models.filter((model) => model.status !== "draft").length > MODELS_CAP,
+    });
+    return { at: args.at, dateKey: args.dateKey, ...hours };
   },
 });

@@ -2,6 +2,7 @@ import type { Id } from "@/convex/_generated/dataModel";
 import type { EventAnalyticsData, EventAudienceData } from "@/components/admin/events/analytics-logic";
 import type { EngagementData, ModelAnalyticsData } from "@/lib/admin-v2/analytics/types";
 import { fairHeatCap, fairHeatLevel } from "@/lib/fair-heat";
+import type { StandHoursData } from "@/lib/admin-v2/hall/types";
 
 // ADMIN v2 X3 — TEST numbers of `analitika` for the dev preview
 // (/dev/admin-events-preview/analitika), in the SHAPE of a real three-day fair:
@@ -11,6 +12,9 @@ import { fairHeatCap, fairHeatLevel } from "@/lib/fair-heat";
 // exhibitor, model and stand is invented in the same order of magnitude (the
 // leading model holds about a fifth of the scans), and every name is a TEST
 // name. The map locations are the real ones of Elektromobilnost.
+// V3 — `previewStandHours` splits the hours of one TEST fair day over the four
+// TEST stands (the Vremeplov of the hall) and `previewHallToday` is the
+// analytics the hall excerpt of Pregled shows; both stay in step with these rows.
 // Never shown outside `next dev`.
 
 const AT = Date.parse("2026-10-11T22:37:00+02:00");
@@ -196,8 +200,11 @@ export function previewAnalyticsStep(step: number): { data: EventAnalyticsData; 
       leads: lead ? { today: 1, total: 1, interest: 1, testDrive: 0, capped: false } : kpis.leads,
     },
     days: previewAnalytics.days.map((day, index) => (index === last ? { ...day, scans: day.scans + extra } : day)),
-    hours: previewAnalytics.hours.map((row) => (row.dateKey === today && row.hour === hour ? { ...row, scans: row.scans + extra } : row)),
+    // V3 — the same hour also has the unique of the leading stand (`previewHourHeat`), so its layer of the hall is not „nobody new“.
+    hours: previewAnalytics.hours.map((row) => (row.dateKey === today && row.hour === hour ? { ...row, scans: row.scans + extra, uniquePerModel: row.uniquePerModel + previewStepUnique(step) } : row)),
     models: previewAnalytics.models.map((model, index) => (index === 0 ? { ...model, scans: { today: model.scans.today + extra, total: model.scans.total + extra }, leads: lead } : model)),
+    // V3 — the last hour has unique visitors per location from the first poll on (at step 0 the hall closed at 20:00).
+    heat: { ...previewAnalytics.heat, hour: previewHourHeat(step) },
   };
   const engagement: EngagementData = {
     ...previewEngagement,
@@ -240,5 +247,93 @@ export function previewModelAnalytics(modelId: string): ModelAnalyticsData | nul
     ratings: { count, average: row.rating?.average ?? null, buckets: row.rating ? [...row.rating.buckets] : [0, 0, 0, 0, 0], capped: false },
     votes: { total: row.votes ?? 0, questions: row.votes ? [{ prompt: "TEST pitanje: koja boja vam se najviše sviđa?", votes: row.votes }] : [] },
     leads: { total: 0, interest: 0, testDrive: 0, capped: false },
+  };
+}
+
+/** V3 — the invented unique visitors of the leading stand in the last hour after `step` simulated polls. */
+const previewStepUnique = (step: number) => (step > 0 ? 4 + 2 * step : 0);
+
+/** V3 — invented unique visitors in the last hour per location, from the first simulated poll on (the leading stand grows with the step). */
+function previewHourHeat(step: number) {
+  return heatRows(new Map([["hala-9", previewStepUnique(step)], ["hala-6", 3], ["hala-1b", 2], ["hala-1a", 1]]), "hour");
+}
+
+/**
+ * V3 — the analytics the hall excerpt of Pregled shows in the preview: the
+ * analytics of `analitika` with the models' scans of today re-split so they sum
+ * to `scansToday` (the dashboard fixture's number), and the heat of the last hour.
+ */
+export function previewHallToday(scansToday: number): EventAnalyticsData {
+  const today = split(scansToday, previewAnalytics.models.map((model) => model.scans.today));
+  return {
+    ...previewAnalytics,
+    kpis: { ...previewAnalytics.kpis, scans: { ...previewAnalytics.kpis.scans, today: scansToday } },
+    models: previewAnalytics.models.map((model, index) => ({ ...model, scans: { ...model.scans, today: today[index] } })),
+    heat: { ...previewAnalytics.heat, hour: previewHourHeat(1) },
+  };
+}
+
+/** The four TEST stands of the rows, in the order the hall splits the hours over them (the last one takes what is left). */
+const STANDS = [
+  { standCode: "9", mapLocationId: "hala-9" },
+  { standCode: "6", mapLocationId: "hala-6" },
+  { standCode: "1B", mapLocationId: "hala-1b" },
+  { standCode: "1A", mapLocationId: "hala-1a" },
+] as const;
+
+type StandHoursDay = { hours: number[]; scans: number[][]; unique: number[][] };
+const standHoursDays = new Map<number, StandHoursDay>();
+
+/**
+ * One fair day over the stands, deterministic, with exact margins: per hour the stands sum to `HOUR_SCANS`
+ * (and their unique to `HOUR_UNIQUE`), per stand the hours sum to its rows' scans of the day. The first three
+ * stands take their day total by the weights of what is still free in each hour (never above it), the last one
+ * what is left. Unique per hour is split by the scans of the hour, so no cell exceeds its scans (the hour's
+ * unique never exceeds its scans).
+ */
+function standHoursDay(dayIndex: number): StandHoursDay {
+  const cached = standHoursDays.get(dayIndex);
+  if (cached) return cached;
+  const profile = HOUR_SCANS.filter(([hour]) => hour <= LAST_HOUR[dayIndex]);
+  const free = profile.map((entry) => entry[dayIndex + 1]);
+  const scans = STANDS.map((stand, index) => {
+    const dayTotal = total(ROWS.filter((row) => row.stand === stand.standCode).map((row) => row.byDay[dayIndex]));
+    const cells = index === STANDS.length - 1 ? [...free] : split(dayTotal, free);
+    cells.forEach((cell, hour) => { free[hour] -= cell; });
+    return cells;
+  });
+  const unique = STANDS.map(() => profile.map(() => 0));
+  profile.forEach(([hour], index) => {
+    const row = HOUR_UNIQUE.find((entry) => entry[0] === hour)?.[dayIndex + 1] ?? 0;
+    split(row, scans.map((cells) => cells[index])).forEach((cell, stand) => { unique[stand][index] = cell; });
+  });
+  const day = { hours: profile.map(([hour]) => hour), scans, unique };
+  standHoursDays.set(dayIndex, day);
+  return day;
+}
+
+/**
+ * V3 — the hourly read of one TEST fair day per stand (`getEventStandHours` in the Vremeplov of the dev preview);
+ * null for a day that is not one of the fixtures'. `step` is the same simulated poll as `previewAnalyticsStep`:
+ * the extra scans land on stand 9 in the last hour of the last day, so the hour sums follow `previewAnalyticsStep(step).data.hours`.
+ */
+export function previewStandHours(dateKey: string, step = 0): StandHoursData | null {
+  const dayIndex = DAYS.findIndex((day) => day.dateKey === dateKey);
+  if (dayIndex < 0) return null;
+  const day = standHoursDay(dayIndex);
+  const extra = step > 0 && dayIndex === DAYS.length - 1 ? PREVIEW_STEP_SCANS * step : 0;
+  const lastHour = day.hours.indexOf(LAST_HOUR[dayIndex]);
+  return {
+    at: AT + step * 60_000,
+    dateKey,
+    hours: [...day.hours],
+    stands: STANDS.map((stand, index) => ({
+      standCode: stand.standCode,
+      mapLocationId: stand.mapLocationId,
+      scans: day.scans[index].map((cell, hour) => (index === 0 && hour === lastHour ? cell + extra : cell)),
+      uniquePerModel: day.unique[index].map((cell, hour) => (index === 0 && hour === lastHour && extra > 0 ? cell + previewStepUnique(step) : cell)),
+    })),
+    unread: 0,
+    capped: false,
   };
 }

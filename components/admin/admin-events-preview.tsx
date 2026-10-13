@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   CatalogView,
   DryRunView,
@@ -46,12 +46,14 @@ import { EventModelDetailView, EventModelsView, type ModelDetailSummary } from "
 import { dashboardSectionUrgency, withNavUrgency } from "@/components/admin/events/dashboard-logic";
 import { previewDashboard } from "@/components/admin/events/preview-dashboard-fixtures";
 import { hudData } from "@/lib/admin-v2/hud";
-import { previewAnalyticsStep, previewModelAnalytics, previewStep as previewLiveStep } from "@/components/admin/events/preview-analytics-fixtures";
+import { previewAnalyticsStep, previewHallToday, previewModelAnalytics, previewStandHours, previewStep as previewLiveStep } from "@/components/admin/events/preview-analytics-fixtures";
+import { HallMini } from "@/components/admin/events/analytics/hall-mini";
 import { EventAnalyticsView } from "@/components/admin/events/sections/analitika-view";
 import { EventDashboardView } from "@/components/admin/events/sections/pregled-view";
 import { EventLinkStickerView } from "@/components/admin/events/sections/povezi-view";
 import { EventQrDetailView, EventQrView } from "@/components/admin/events/sections/qr-view";
 import type { LinkFlow } from "@/lib/admin-v1/qr-link";
+import type { StandHoursState, TimelapseStart } from "@/lib/admin-v2/hall/types";
 import { FAIR_QR_LABEL_DEFAULT_FORMAT } from "@/lib/fair-qr-label";
 import {
   eventDetailHref,
@@ -735,7 +737,52 @@ const importActions: Pick<EventsActions, "dryRun" | "commit"> = {
   },
 };
 
-function PreviewSection({ base: PREVIEW_BASE, path, detailId, query, setQuery, keep, previewStep, liveStep }: {
+/** V3 — Analitika with the hourly read of a day faked per stand (the Vremeplov asks for a day, the preview answers at once). */
+function PreviewAnalitika({ base, keep, query, setQuery, liveStep, timelapseStart }: {
+  base: string;
+  keep: AdminQueryState;
+  query: AdminQueryState;
+  setQuery: (patch: AdminQueryPatch) => void;
+  liveStep: number;
+  timelapseStart: TimelapseStart | undefined;
+}) {
+  const [day, setDay] = useState<string | null>(null);
+  const standHours = useMemo<StandHoursState>(
+    () => ({ dateKey: day, data: day ? previewStandHours(day, liveStep) ?? undefined : undefined, error: false, request: (dateKey) => setDay(dateKey) }),
+    [day, liveStep],
+  );
+  // One object per step: the hall tells a new poll from a re-render by the identity of its data.
+  const reads = useMemo(() => previewAnalyticsStep(liveStep), [liveStep]);
+  return (
+    <EventAnalyticsView
+      eventCode="test-elektromobilnost-2026"
+      {...reads}
+      modelId={query.model}
+      modelDetail={query.model ? previewModelAnalytics(query.model) ?? undefined : undefined}
+      modelError={false}
+      onModel={(model) => setQuery({ model })}
+      onModelRetry={() => {}}
+      links={{ leadSettings: eventSectionHref(base, "leadovi/podesavanja", keep), forms: eventSectionHref(base, "interakcije", keep) }}
+      refreshing={false}
+      onRefresh={() => {}}
+      onExport={() => {}}
+      standHours={standHours}
+      timelapseStart={timelapseStart}
+    />
+  );
+}
+
+/** V3 — Pregled; while a fair day is open it carries the excerpt of the hall (TEST numbers re-split to the day's scans). */
+function PreviewPregled({ base, keep, phase, liveStep }: { base: string; keep: AdminQueryState; phase: string | undefined; liveStep: number }) {
+  const dashboard = previewDashboard(phase, liveStep);
+  const open = dashboard.phase.kind === "sajam" && dashboard.phase.dayOpen;
+  const scansToday = dashboard.kpis.scans.today;
+  const hallData = useMemo(() => previewHallToday(scansToday), [scansToday]);
+  const hall = open ? <HallMini eventCode="test-elektromobilnost-2026" data={hallData} href={`${eventSectionHref(base, "analitika", keep)}#mapa`} /> : undefined;
+  return <EventDashboardView dashboard={dashboard} now={dashboard.at} base={base} keep={keep} hall={hall} />;
+}
+
+function PreviewSection({ base: PREVIEW_BASE, path, detailId, query, setQuery, keep, previewStep, liveStep, timelapseStart }: {
   /** The link base of the preview (the single-surface route or the persistent frame preview). */
   base: string;
   path: EventSectionPath;
@@ -747,6 +794,8 @@ function PreviewSection({ base: PREVIEW_BASE, path, detailId, query, setQuery, k
   previewStep: string | null;
   /** X4 — `?uzivo=`: the fixtures as a later poll would bring them (0 = as they are). */
   liveStep: number;
+  /** V3 — `?vremeplov=`: where the Vremeplov of Analitika starts. */
+  timelapseStart: TimelapseStart | undefined;
 }) {
   const modelHref = (id: string) => eventDetailHref(PREVIEW_BASE, "modeli", id, keep);
   const listQuery = { ...keep, ...modelListQuery(query) };
@@ -755,10 +804,7 @@ function PreviewSection({ base: PREVIEW_BASE, path, detailId, query, setQuery, k
   const inboxQuery: AdminQueryState = { ...keep, ...query };
   delete inboxQuery.lead;
   switch (path) {
-    case "pregled": {
-      const dashboard = previewDashboard(query.faza, liveStep);
-      return <EventDashboardView dashboard={dashboard} now={dashboard.at} base={PREVIEW_BASE} keep={keep} />;
-    }
+    case "pregled": return <PreviewPregled base={PREVIEW_BASE} keep={keep} phase={query.faza} liveStep={liveStep} />;
     case "povezi": return (
       <EventLinkStickerView
         key={previewStep ?? ""}
@@ -892,21 +938,7 @@ function PreviewSection({ base: PREVIEW_BASE, path, detailId, query, setQuery, k
     case "sponzorisano": return <AdminEventsSponsored view={sponsoredView} actions={sponsoredActions} />;
     // ADMIN v2 X3 — TEST numbers in the shape of a real fair (preview-analytics-fixtures.ts); `?model=` opens the detail.
     // X4 — `?uzivo=<step>` shows the same page after a poll that brought new scans (the numbers roll, a record falls).
-    case "analitika": return (
-      <EventAnalyticsView
-        eventCode="test-elektromobilnost-2026"
-        {...previewAnalyticsStep(liveStep)}
-        modelId={query.model}
-        modelDetail={query.model ? previewModelAnalytics(query.model) ?? undefined : undefined}
-        modelError={false}
-        onModel={(model) => setQuery({ model })}
-        onModelRetry={() => {}}
-        links={{ leadSettings: eventSectionHref(PREVIEW_BASE, "leadovi/podesavanja", keep), forms: eventSectionHref(PREVIEW_BASE, "interakcije", keep) }}
-        refreshing={false}
-        onRefresh={() => {}}
-        onExport={() => {}}
-      />
-    );
+    case "analitika": return <PreviewAnalitika base={PREVIEW_BASE} keep={keep} query={query} setQuery={setQuery} liveStep={liveStep} timelapseStart={timelapseStart} />;
     case "leadovi": return (
       <EventLeadsInboxView
         catalog={catalog}
@@ -956,7 +988,22 @@ export function AdminEventsPreview({ section, base: PREVIEW_BASE = DEFAULT_PREVI
   const [query, setQuery] = useAdminQueryState();
   const search = useSearchParams();
   const previewStep = search.get("stanje");
-  const liveStep = previewLiveStep(search.get("uzivo"));
+  // X4 — `?uzivo=<n>` is a fixed step; V3 — `?uzivo=auto` starts at 1 and grows by one every 3 seconds up to 9.
+  const liveAuto = search.get("uzivo") === "auto";
+  const [autoStep, setAutoStep] = useState(1);
+  useEffect(() => {
+    if (!liveAuto) return;
+    const timer = setInterval(() => setAutoStep((step) => previewLiveStep(String(step + 1))), 3000);
+    return () => clearInterval(timer);
+  }, [liveAuto]);
+  const liveStep = liveAuto ? autoStep : previewLiveStep(search.get("uzivo"));
+  // V3 — `?vremeplov=<hour 0-23>|auto`: the Vremeplov opens at an hour, or replays the day.
+  const vremeplov = search.get("vremeplov");
+  const timelapseStart = useMemo<TimelapseStart | undefined>(() => {
+    if (vremeplov === "auto") return "auto";
+    const hour = vremeplov !== null && /^\d{1,2}$/.test(vremeplov) ? Number(vremeplov) : -1;
+    return hour >= 0 && hour <= 23 ? { hour } : undefined;
+  }, [vremeplov]);
   const currentSlug = PREVIEW_EVENTS.find((event) => event.slug === query.dogadjaj)?.slug ?? PREVIEW_EVENTS[0].slug;
   const keep = useMemo(() => keepFor(currentSlug), [currentSlug]);
   const active = section?.kind === "section" ? section.path : null;
@@ -992,7 +1039,7 @@ export function AdminEventsPreview({ section, base: PREVIEW_BASE = DEFAULT_PREVI
       >
         <AdminViewModeOverride value={parseViewModeParam(query.prikaz)} onChange={onViewChange}>
           {section?.kind === "section"
-            ? <PreviewSection base={PREVIEW_BASE} path={section.path} detailId={section.detailId} query={query} setQuery={setQuery} keep={keep} previewStep={previewStep} liveStep={liveStep} />
+            ? <PreviewSection base={PREVIEW_BASE} path={section.path} detailId={section.detailId} query={query} setQuery={setQuery} keep={keep} previewStep={previewStep} liveStep={liveStep} timelapseStart={timelapseStart} />
             : <AdminEventsNotFound title={dict.sectionNotFoundTitle} body={dict.sectionNotFoundBody} href={eventSectionHref(PREVIEW_BASE, "pregled", keep)} linkLabel={dict.backToOverview} />}
         </AdminViewModeOverride>
       </AdminEventFrameView>

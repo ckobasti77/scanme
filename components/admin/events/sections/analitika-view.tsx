@@ -24,6 +24,7 @@ import { leaderboard } from "@/lib/admin-v2/analytics/leaderboard";
 import { fairRecords } from "@/lib/admin-v2/analytics/records";
 import { standRanking } from "@/lib/admin-v2/analytics/stands";
 import type { EngagementData, ModelAnalyticsData } from "@/lib/admin-v2/analytics/types";
+import type { StandHoursState, TimelapseStart } from "@/lib/admin-v2/hall/types";
 import { formatBelgrade } from "@/lib/belgrade-time";
 import { fmt } from "@/lib/i18n/format";
 import { adminEventsSr } from "@/lib/i18n/sr/admin-events";
@@ -32,8 +33,9 @@ import { cn } from "@/lib/utils";
 // ADMIN v2 X3 — `Događaji → Analitika` (presentational). Every part answers
 // one question (ZADATAK §4): the numbers of today with their trend, the
 // insights, the funnel, when it is busy, the model leaderboard with the model
-// detail, the stands and the packages, how far a visitor goes, where it is
-// busy on the map (2D, 3D on demand) and the devices as one sentence. The
+// detail, the stands and the packages, how far a visitor goes and the devices
+// as one sentence. Right after the numbers stands the Living hall (v3 V3): where
+// it is busy on the map, in 3D on a desktop, with the Vremeplov under it. The
 // charts are in components/admin/events/analytics/, what they draw is computed
 // in lib/admin-v2/analytics/. Everything comes from fairEventAnalytics (admin)
 // or a TEST fixture (dev preview); the two later reads may still be on the way.
@@ -57,6 +59,10 @@ export type AnalyticsViewProps = {
   onExport: () => void;
   /** Where the funnel sends the admin when there is no lead. */
   links: { leadSettings: string; forms: string };
+  /** V3 — the hourly read of one fair day (the Vremeplov and the layers of the hall); without it the hall is live only. */
+  standHours?: StandHoursState;
+  /** Dev preview: `?vremeplov=<hour>|auto`. */
+  timelapseStart?: TimelapseStart;
 };
 
 function Devices({ audience }: { audience: EventAudienceData | undefined }) {
@@ -85,7 +91,7 @@ function Devices({ audience }: { audience: EventAudienceData | undefined }) {
   );
 }
 
-export function EventAnalyticsView({ eventCode, data, audience, engagement, modelId, modelDetail, modelError, onModel, onModelRetry, onRefresh, refreshing, onExport, links }: AnalyticsViewProps) {
+export function EventAnalyticsView({ eventCode, data, audience, engagement, modelId, modelDetail, modelError, onModel, onModelRetry, onRefresh, refreshing, onExport, links, standHours, timelapseStart }: AnalyticsViewProps) {
   const [stand, setStand] = useState<string | null>(null);
   const models = useMemo(() => leaderboard(data, audience, engagement), [data, audience, engagement]);
   const stands = useMemo(() => standRanking(data, audience), [data, audience]);
@@ -127,6 +133,9 @@ export function EventAnalyticsView({ eventCode, data, audience, engagement, mode
 
       <KpiStrip data={data} audience={audience} engagement={engagement} records={records} />
 
+      {/* V3 — the Living hall is the second part: on a fair day „Gde je gužva?“ is among the first questions. */}
+      <HallHeatMap eventCode={eventCode} data={data} stands={stands} models={models} picked={stand} onPick={setStand} onOpenModel={onModel} standHours={standHours} timelapseStart={timelapseStart} />
+
       <Insights data={data} audience={audience} engagement={engagement} />
 
       {/* Where it is lost, beside how far a visitor goes. */}
@@ -145,8 +154,6 @@ export function EventAnalyticsView({ eventCode, data, audience, engagement, mode
       <StandRanking data={data} audience={audience} record={records.stand} onPickStand={showStand} />
 
       <PackageComparison data={data} engagement={engagement} />
-
-      <HallHeatMap eventCode={eventCode} data={data} stands={stands} models={models} picked={stand} onPick={setStand} onOpenModel={onModel} />
 
       <Devices audience={audience} />
 

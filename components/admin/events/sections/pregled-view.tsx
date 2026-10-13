@@ -380,7 +380,7 @@ function SectionCard({ card, urgency, href }: { card: CardDef; urgency: SectionU
   );
 }
 
-export function EventDashboardView({ dashboard, now, base, keep = {} }: {
+export function EventDashboardView({ dashboard, now, base, keep = {}, hall }: {
   dashboard: EventDashboardData;
   /** Browser time (minute) for the countdown; at least the query's `at`. */
   now: number;
@@ -388,6 +388,8 @@ export function EventDashboardView({ dashboard, now, base, keep = {} }: {
   base: string;
   /** Query keys every link keeps (the preview's `?dogadjaj=`). */
   keep?: AdminQueryState;
+  /** V3 — the excerpt of the Living hall while a fair day is open; below „Šta treba da uradim“ in the left column. */
+  hall?: ReactNode;
 }) {
   const kpiId = useId();
   const cardsId = useId();
@@ -401,12 +403,14 @@ export function EventDashboardView({ dashboard, now, base, keep = {} }: {
       if (acc.tone === next.tone) return { tone: acc.tone, count: acc.count + next.count };
       return acc.tone === "hitno" ? acc : next;
     }, undefined);
+  const todo = <Todo dashboard={dashboard} now={Math.max(now, dashboard.at)} scope={`event:${base}:${dashboard.phase.kind}:${dashboard.phase.dayIndex ?? 0}:${dashboard.phase.dayOpen ? "otvoren" : "zatvoren"}`} actionHref={(action) => dashboardActionHref(base, action, keep)} />;
   return (
     <div className="grid min-w-0 gap-5">
       <Header dashboard={dashboard} now={Math.max(now, dashboard.at)} />
       {/* From 2xl the work list keeps the wide column and the numbers sit beside it, above the fold. */}
       <div className="grid min-w-0 gap-5 2xl:grid-cols-[minmax(0,1fr)_minmax(0,34rem)] 2xl:items-start">
-        <Todo dashboard={dashboard} now={Math.max(now, dashboard.at)} scope={`event:${base}:${dashboard.phase.kind}:${dashboard.phase.dayIndex ?? 0}:${dashboard.phase.dayOpen ? "otvoren" : "zatvoren"}`} actionHref={(action) => dashboardActionHref(base, action, keep)} />
+        {/* One wrapper with or without the hall: the work list keeps its place in the tree when a fair day opens or closes. */}
+        <div className="grid min-w-0 content-start gap-5">{todo}{hall}</div>
         <div className="grid min-w-0 gap-5">
           <section aria-labelledby={kpiId} className="grid min-w-0 gap-2">
             <div className="flex flex-wrap items-baseline justify-between gap-2">

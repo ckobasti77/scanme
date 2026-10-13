@@ -5,6 +5,9 @@ import { describe, expect, test } from "vitest";
 // ADMIN v3 V2 — the import boundary of `three` (plan §4.3, point 1). Only the
 // files below may import the library as a value; nobody else may import them
 // statically. A lazy chunk loads them through `import()`, which is allowed.
+// V3 — the hall heat map moved onto the kit: `heat-map-3d.tsx` is now the React
+// side of a scene (it loads `scenes/hall-scene.ts` through `import()`), so it
+// left the allowed list and may be imported like any other component.
 
 const ROOT = process.cwd();
 const SELF = "lib/admin-v2/three/import-boundary.test.ts";
@@ -14,7 +17,6 @@ const ALLOWED_FILES = [
   "components/admin/three/post.ts",
   "components/admin/three/picking.ts",
   "components/admin/three/particles.ts",
-  "components/admin/events/analytics/heat-map-3d.tsx",
 ];
 const ALLOWED_DIR = "components/admin/three/scenes/";
 
@@ -111,8 +113,12 @@ describe("three import boundary", () => {
 
   test("the check sees something: an allowed file exists and imports three", () => {
     const present = ALLOWED_FILES.filter((file) => existsSync(join(ROOT, file)));
-    expect(present).toContain("components/admin/events/analytics/heat-map-3d.tsx");
-    expect(present.some((file) => valueImports(read(file)).some(isThree))).toBe(true);
+    expect(present).toContain("components/admin/three/stage.ts");
+    expect(present.every((file) => valueImports(read(file)).some(isThree))).toBe(true);
+    // The scenes of the kit are there and each imports the library.
+    for (const scene of ["constellation-scene.ts", "hall-scene.ts"]) {
+      expect(valueImports(read(`${ALLOWED_DIR}${scene}`)).some(isThree), scene).toBe(true);
+    }
   });
 });
 
@@ -175,9 +181,9 @@ describe("candidates", () => {
     expect(candidates("components/admin/x.tsx", "react")).toEqual([]);
   });
 
-  test("the allowed set knows the scenes folder and the heat map", () => {
+  test("the allowed set knows the scenes folder; the React side of a scene is outside it", () => {
     expect(isAllowed("components/admin/three/scenes/hall-scene.ts")).toBe(true);
-    expect(isAllowed("components/admin/events/analytics/heat-map-3d.tsx")).toBe(true);
+    expect(isAllowed("components/admin/events/analytics/heat-map-3d.tsx")).toBe(false);
     expect(isAllowed("components/admin/three/admin-stage.tsx")).toBe(false);
   });
 });
