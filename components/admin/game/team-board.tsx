@@ -42,29 +42,30 @@ function FullBoard({ board, className }: { board: TeamBoardData; className?: str
         <AdminTable caption={d.team.title} className="rounded-none border-0 bg-transparent">
           <thead className="bg-[var(--admin-surface-muted)] text-[0.67rem] font-bold tracking-[0.06em] text-[var(--admin-text-muted)] uppercase">
             <tr>
-              <th className="px-3 py-3 sm:pl-5" scope="col">{d.team.columns.place}</th>
-              <th className="px-3 py-3" scope="col">{d.team.columns.member}</th>
-              <th className="px-3 py-3" scope="col">{d.team.columns.xp}</th>
-              <th className="px-3 py-3" scope="col">{d.team.columns.actions}</th>
-              <th className="px-3 py-3" scope="col">{d.team.columns.combo}</th>
-              <th className="px-3 py-3 sm:pr-5" scope="col">{d.team.columns.move}</th>
+              {/* V5: on a phone the table must fit 360 px with any name, so the cells are tighter and the longest combo (the least needed column) waits for a wider screen. */}
+              <th className="px-2 py-3 sm:px-3 sm:pl-5" scope="col">{d.team.columns.place}</th>
+              <th className="px-2 py-3 sm:px-3" scope="col">{d.team.columns.member}</th>
+              <th className="px-2 py-3 sm:px-3" scope="col">{d.team.columns.xp}</th>
+              <th className="px-2 py-3 sm:px-3" scope="col">{d.team.columns.actions}</th>
+              <th className="px-3 py-3 max-sm:hidden" scope="col">{d.team.columns.combo}</th>
+              <th className="px-2 py-3 sm:px-3 sm:pr-5" scope="col">{d.team.columns.move}</th>
             </tr>
           </thead>
           <tbody data-admin-reveal="rows">
             {board.rows.map((row) => (
               <tr key={row.id} data-team-row={row.id} data-me={row.me ? "" : undefined} className={cn("border-t border-[var(--admin-border)]", row.me ? "bg-[var(--admin-surface-muted)]" : "")}>
-                <td className="px-3 py-2.5 sm:pl-5"><RankMedal rank={row.rank} medal={row.medal} label={medalLabel(row)} /></td>
-                <td className="px-3 py-2.5 font-semibold">
+                <td className="px-2 py-2.5 sm:px-3 sm:pl-5"><RankMedal rank={row.rank} medal={row.medal} label={medalLabel(row)} /></td>
+                <td className="px-2 py-2.5 font-semibold [overflow-wrap:anywhere] sm:px-3">
                   {row.name}
                   {row.me ? <MeChip className="ml-2" /> : null}
                 </td>
-                <td className="px-3 py-2.5">
+                <td className="px-2 py-2.5 sm:px-3">
                   <span className="font-mono font-semibold tabular-nums">{row.atLeast ? fmt(d.team.atLeast, { xp: row.xp }) : row.xp}</span>
                   {row.atLeast ? <span className="block text-xs text-[var(--admin-text-muted)]">{d.team.capped}</span> : null}
                 </td>
-                <td className="px-3 py-2.5 tabular-nums">{row.actions}</td>
-                <td className="px-3 py-2.5 tabular-nums">{row.bestChain}</td>
-                <td className="px-3 py-2.5 sm:pr-5"><RankMove move={row.move} isNew={false} labels={moveLabels} /></td>
+                <td className="px-2 py-2.5 tabular-nums sm:px-3">{row.actions}</td>
+                <td className="px-3 py-2.5 tabular-nums max-sm:hidden">{row.bestChain}</td>
+                <td className="px-2 py-2.5 sm:px-3 sm:pr-5"><RankMove move={row.move} isNew={false} labels={moveLabels} /></td>
               </tr>
             ))}
           </tbody>

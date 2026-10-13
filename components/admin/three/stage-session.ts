@@ -1,18 +1,18 @@
 import { isSoftwareRenderer, pickQuality, type StageQuality } from "@/lib/admin-v2/three/quality";
 
 // ADMIN v3 V2 — what the 3D kit knows about this tab, without loading `three`:
-// whether WebGL works here (asked once, on a throwaway canvas), how many
-// contexts were lost and whether the regulator already lowered the quality.
-// `AdminStage` reads it to choose between the scene and the 2D fallback before
-// any chunk is requested; the stage writes the last two.
+// whether WebGL works here (asked once, on a throwaway canvas, and only by
+// `sessionQuality`: the caller asks right before a scene starts, never for a
+// 2D view that was chosen), how many contexts were lost and whether the
+// regulator already lowered the quality. `AdminStage` reads it to choose
+// between the scene and the 2D fallback before any chunk is requested; the
+// stage writes the last two.
 
 type Probe = { webgl: boolean; softwareRenderer: boolean };
 
 let probe: Probe | null = null;
 let contextLosses = 0;
 let downgraded = false;
-let kitLoaded = false;
-const kitListeners = new Set<() => void>();
 
 function probeWebgl(): Probe {
   try {
@@ -57,22 +57,6 @@ export const stageSession = {
     downgraded = true;
   },
   downgraded: () => downgraded,
-  /** V4 — the chunk of the kit (`three`) is in this tab: a page with a scene has loaded it. */
-  kitLoaded: () => kitLoaded,
-  markKitLoaded() {
-    if (kitLoaded) return;
-    kitLoaded = true;
-    for (const listener of kitListeners) listener();
-  },
-  /** Called once the kit is in the tab (at once when it already is). */
-  onKitLoaded(listener: () => void) {
-    if (kitLoaded) {
-      listener();
-      return () => {};
-    }
-    kitListeners.add(listener);
-    return () => {
-      kitListeners.delete(listener);
-    };
-  },
+  /** V5 — whether WebGL works here: null until `sessionQuality` has probed it (the probe makes a context, so this never does). */
+  webglKnown: (): boolean | null => probe?.webgl ?? null,
 };

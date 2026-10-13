@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test, vi } from "vitest";
 import type { BossView, ComboView, FairChallenge, FairNode, OperatorView, StreakView, TeamBoard as TeamBoardData, TeamRow } from "@/lib/admin-v2/game/types";
 import { FAIR_CHALLENGE_IDS, FAIR_NODE_IDS, RANK_IDS } from "@/lib/admin-v2/game/ids";
+import { ADMIN_GAME_MOTION } from "@/lib/admin-v2/motion";
 import { adminGameSr as d } from "@/lib/i18n/sr/admin-game";
 import { BossBar, bossEventText, type BossBarEvent } from "./boss-bar";
 import { ComboMeter } from "./combo-meter";
@@ -37,7 +38,17 @@ describe("XpChip", () => {
   test("where the navbar has no room, the same ring stands around the profile icon: decoration, no tab stop", () => {
     const out = html(<XpProfileRing operator={OPERATOR} className="min-[87.5rem]:hidden" />);
     expect(out).toMatch(/^<span data-admin-xp-ring="" aria-hidden="true" class="pointer-events-none absolute inset-0 m-auto size-9 min-\[87\.5rem\]:hidden">/);
-    expect(out).toContain('stroke="var(--admin-nav-line)"');
+    // The fill is the energy ink (3:1 on both surfaces), not the line colour of the navbar.
+    expect(out).toContain('stroke="var(--admin-energy-ink)"');
+    expect(out).not.toContain("--admin-nav-line");
+    expect(out).not.toMatch(/<button|tabindex/);
+  });
+
+  test("N11 — the level is a number on the ring, a badge at its lower right: decoration inside the ring, no new tab stop", () => {
+    const out = html(<XpProfileRing operator={OPERATOR} />);
+    expect(out).toMatch(/<span data-admin-xp-level="" class="absolute -right-1 -bottom-1 [^"]*">7<\/span><\/span>$/);
+    // One ring only: the badge is not a second `data-admin-xp-ring` (the spark looks for the first visible one).
+    expect(out.match(/data-admin-xp-ring=""/g)).toHaveLength(1);
     expect(out).not.toMatch(/<button|tabindex/);
   });
 
@@ -53,7 +64,7 @@ describe("XpChip", () => {
     // The chip is shown only where the navbar has room for it (the navbar decides); then „Nv 7“ is always beside the ring.
     expect(out).toMatch(/<span aria-hidden="true" class="whitespace-nowrap tabular-nums">Nv 7</);
     // The earned part of the level is an arc of the circumference, the track is the border token.
-    expect(out).toContain('stroke="var(--admin-nav-line)"');
+    expect(out).toContain('stroke="var(--admin-energy-ink)"');
     expect(out).toContain('stroke="var(--admin-border)"');
     const circumference = 2 * Math.PI * 15.5;
     const part = (300 / 700) * circumference;
@@ -61,8 +72,21 @@ describe("XpChip", () => {
   });
 
   test("a level with nothing earned draws the track only; every rank names itself", () => {
-    expect(html(<XpChip operator={{ ...OPERATOR, share: 0 }} onOpen={noop} />)).not.toContain('stroke="var(--admin-nav-line)"');
+    expect(html(<XpChip operator={{ ...OPERATOR, share: 0 }} onOpen={noop} />)).not.toContain('stroke="var(--admin-energy-ink)"');
     for (const rank of RANK_IDS) expect(html(<XpChip operator={{ ...OPERATOR, rank }} onOpen={noop} />)).toContain(`aria-label="${d.ranks[rank]}, nivo 7.`);
+  });
+
+  test("N11 — on a phone the chip is the ring alone: a real button of 44 × 44 px with the level in the ring and the same name", () => {
+    const out = html(<XpChip operator={OPERATOR} onOpen={noop} compact className="lg:hidden" />);
+    expect(out).toMatch(/^<button type="button" data-admin-xp-chip=""/);
+    expect(out).toContain('aria-label="Operater, nivo 7. Otvori Vitrinu."');
+    expect(out).toMatch(/class="[^"]*\bsize-11\b[^"]*\blg:hidden\b/);
+    expect(out).not.toMatch(/class="[^"]*\bpx-2\b/);
+    expect(out).toMatch(/<span class="absolute[^"]*">7<\/span>/);
+    // „Nv 7“ is left out: there is no room for it in the bar of a phone.
+    expect(out).not.toContain("Nv 7");
+    expect(out.match(/data-admin-xp-ring=""/g)).toHaveLength(1);
+    expect(html(<XpChip operator={null} onOpen={noop} compact />)).toBe("");
   });
 });
 
@@ -128,6 +152,7 @@ describe("OperatorRow", () => {
     expect(out).toContain('role="progressbar" aria-label="Napredak do sledećeg nivoa" aria-valuemin="0" aria-valuemax="700" aria-valuenow="300" aria-valuetext="300 od 700 XP do nivoa 8"');
     expect(out).toContain(`transform:scaleX(${300 / 700})`);
     expect(out).toContain("origin-left");
+    expect(out).toContain("bg-[var(--admin-energy-ink)]");
     expect(out).toContain("Danas +45 XP");
     // The flame of the streak sits in the heading line.
     expect(out).toContain('data-admin-streak=""');
@@ -135,6 +160,44 @@ describe("OperatorRow", () => {
     expect(out.match(/<button/g)).toHaveLength(1);
     const button = out.slice(out.indexOf("<button"), out.indexOf("</button>"));
     expect(button).not.toContain("progressbar");
+  });
+
+  test("N12 — the fill follows its number: a transform transition of 0.22 s, none with reduced motion or in the quiet mode", () => {
+    const out = html(<OperatorRow operator={OPERATOR} streak={STREAK} onOpen={noop} />);
+    // (The `&amp;` is the `&` of the arbitrary variant: it marks the element in „inside a quiet frame“.)
+    expect(out).toContain("transition-transform ease-[var(--admin-ease-out)] motion-reduce:transition-none [.admin-v1[data-admin-quiet]_&amp;]:transition-none");
+    expect(out).toContain(`transition-duration:${ADMIN_GAME_MOTION.xpBar}s`);
+    expect(ADMIN_GAME_MOTION.xpBar).toBe(0.22);
+    // Only the transform moves: no transition of everything on the fill.
+    expect(out).not.toContain("transition-all");
+  });
+
+  test("S10 — without `dense` (the drawer of a phone) the row is the full one: no variant of a low window", () => {
+    const out = html(<OperatorRow operator={OPERATOR} streak={STREAK} onOpen={noop} />);
+    expect(out).not.toContain("max-height");
+    expect(out).not.toContain("Nv 7");
+  });
+
+  test("S10 — `dense` (the sidebar): one line up to 800 px of height, the text of the rest kept for assistive technology", () => {
+    const out = html(<OperatorRow operator={{ ...OPERATOR, complete: false, since: Date.UTC(2026, 8, 3, 10) }} streak={STREAK} onOpen={noop} dense />);
+    const low = "[@media(max-height:800px)]:";
+    // The section becomes a flex line; the heading line dissolves into it (the flame goes last) and the heading is read, not seen.
+    expect(out).toContain(`${low}flex ${low}items-center`);
+    expect(out).toContain(`${low}contents`);
+    expect(out).toContain(`${low}sr-only">Operater</p>`);
+    expect(out).toContain(`${low}order-last`);
+    // The long level gives way to the short one; the short one is decoration (the button has its name).
+    expect(out).toContain(`${low}hidden">Nivo 7<`);
+    expect(out).toMatch(/<span aria-hidden="true" class="hidden [^"]*max-height:800px\)\]:inline">Nv 7<\/span>/);
+    // The sentence under the bar and the note of the date are still in the markup, for assistive technology only.
+    expect(out).toContain(`${low}sr-only"><span>300 od 700 XP do nivoa 8</span>`);
+    expect(out).toContain(`${low}sr-only">XP se računa od 3. 9. 2026.</p>`);
+    // The bar keeps its values for assistive technology; the target of the block stays 44 px on a touch layout.
+    expect(out).toContain('aria-valuetext="300 od 700 XP do nivoa 8"');
+    expect(out).toContain(`${low}pointer-coarse:min-h-11`);
+    // Still one button, and the bar is outside it.
+    expect(out.match(/<button/g)).toHaveLength(1);
+    expect(out.slice(out.indexOf("<button"), out.indexOf("</button>"))).not.toContain("progressbar");
   });
 
   test("no XP today, no streak, a complete history: only what is true", () => {
@@ -260,7 +323,7 @@ describe("ComboMeter", () => {
     expect(out).toContain("×1");
     expect(out).toContain("još 1 do ×2");
     expect(out).toContain('stroke="var(--admin-text-muted)"');
-    expect(out).not.toContain('stroke="var(--admin-nav-line)"');
+    expect(out).not.toContain('stroke="var(--admin-energy-ink)"');
   });
 
   test("chain 5 is ×3, the top, in the energy colour", () => {
@@ -268,7 +331,7 @@ describe("ComboMeter", () => {
     expect(out).toContain('data-game-combo="3"');
     expect(out).toContain('<span class="sr-only">Kombo ×3, akcija zaredom: 5.</span>');
     expect(out).toContain(d.combo.top);
-    expect(out).toContain('stroke="var(--admin-nav-line)"');
+    expect(out).toContain('stroke="var(--admin-energy-ink)"');
   });
 
   test("the ring starts at the share of the window that is left", () => {
@@ -462,8 +525,8 @@ describe("FairChain", () => {
 describe("FairChallenges", () => {
   const items: FairChallenge[] = [
     { id: "skenovi_10", value: 10, target: 10, done: true, missed: false },
-    { id: "prestigni_prepodne", value: 31, target: 80, done: false, missed: true },
-    { id: "skenovi_50", value: 20, target: 50, done: false, missed: false },
+    { id: "prestigni_prepodne", value: 29, target: 80, done: false, missed: true },
+    { id: "skenovi_50", value: 17, target: 50, done: false, missed: false },
     { id: "hitni_na_nuli", value: 2, target: 0, done: false, missed: false },
   ];
 
@@ -495,20 +558,23 @@ describe("FairChallenges", () => {
     expect(out).toContain("Prestigni jučerašnje prepodne: 80 do 12:00");
     expect(out).toContain("Rok je prošao");
     expect(out).toContain("bg-[var(--admin-text-muted)]");
-    expect(out).toContain(`transform:scaleX(${31 / 80})`);
+    expect(out).toContain(`transform:scaleX(${29 / 80})`);
   });
 
   test("in progress: „value od target“ and a bar with the right values", () => {
     const out = html(<FairChallenges items={[items[2]]} />);
     expect(out).not.toContain("data-done");
     expect(out).not.toContain("data-missed");
-    expect(out).toContain(">20 od 50<");
-    expect(out).toContain('role="progressbar" aria-label="50 skenova danas" aria-valuemin="0" aria-valuemax="50" aria-valuenow="20" aria-valuetext="20 od 50"');
-    expect(out).toContain("transform:scaleX(0.4)");
+    expect(out).toContain(">17 od 50<");
+    expect(out).toContain('role="progressbar" aria-label="50 skenova danas" aria-valuemin="0" aria-valuemax="50" aria-valuenow="17" aria-valuetext="17 od 50"');
+    expect(out).toContain("transform:scaleX(0.34)");
+    // N10 — the fill of a challenge in progress is the energy ink, readable on both surfaces.
+    expect(out).toContain("bg-[var(--admin-energy-ink)]");
+    expect(out).not.toContain("--admin-nav-line");
   });
 
   test("a value above the target holds the bar full and the value inside the range", () => {
-    const out = html(<FairChallenges items={[{ id: "skenovi_100", value: 130, target: 100, done: true, missed: false }]} />);
+    const out = html(<FairChallenges items={[{ id: "skenovi_100", value: 140, target: 100, done: true, missed: false }]} />);
     expect(out).toContain("transform:scaleX(1)");
     expect(out).toContain('aria-valuenow="100"');
   });

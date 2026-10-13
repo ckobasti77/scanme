@@ -176,6 +176,56 @@ describe("Constellation2D", () => {
     expect(html).not.toContain("data-star");
   });
 
+  test("the light theme gives a disc a gradient and a soft shadow, the dark theme keeps the flat disc", () => {
+    const g = group(render(FULL), "u1");
+    // The flat disc stays (the dark picture); the gradient disc lies over it and the shadow under it, both hidden in the dark theme.
+    expect(g).toContain(`<circle r="${STAR_RADIUS.large}" fill="var(--admin-danger)"></circle>`);
+    const disc = g.match(/<circle data-star-disc=""[^>]*>/)?.[0] ?? "";
+    expect(disc).toContain("hidden");
+    expect(disc).toContain("data-theme=dark");
+    expect(disc).toContain('fill="url(#c2d-disc-danger)"');
+    const shadow = g.match(/<circle data-star-shadow=""[^>]*>/)?.[0] ?? "";
+    expect(shadow).toContain("data-theme=dark");
+    expect(shadow).toContain('fill="url(#c2d-shadow)"');
+    expect(shadow).toContain("scale(1 0.7)");
+    // The shadow is under the disc, the gradient over it, and the halo under both.
+    expect(g.indexOf("c2d-shadow")).toBeLessThan(g.indexOf(`<circle r="${STAR_RADIUS.large}"`));
+    expect(g.indexOf(`<circle r="${STAR_RADIUS.large}"`)).toBeLessThan(g.indexOf("c2d-disc-danger"));
+  });
+
+  test("the gradients are made of the tokens of the tones (nothing new), one per tone and one for the core", () => {
+    const html = render(FULL);
+    for (const [tone, token] of [
+      ["danger", "--admin-danger"],
+      ["warning", "--admin-warning"],
+      ["neutral", "--admin-text-muted"],
+      ["success", "--admin-success"],
+      ["core", "--admin-nav-line"],
+    ]) {
+      const gradient = html.match(new RegExp(`<radialGradient id="c2d-disc-${tone}"[^>]*>.*?</radialGradient>`))?.[0] ?? "";
+      expect(gradient).toContain(`var(${token})`);
+      expect(gradient.match(/<stop /g)).toHaveLength(2);
+    }
+    expect(html).not.toMatch(/#[0-9a-f]{3,8}/i);
+  });
+
+  test("a 'more' star has no shadow and no gradient disc; the core has both", () => {
+    const g = group(render(FULL), "more:3");
+    expect(g).not.toContain("data-star-shadow");
+    expect(g).not.toContain("data-star-disc");
+    const html = render(EMPTY);
+    expect(html).toContain("data-core-shadow");
+    expect(html).toContain('fill="url(#c2d-disc-core)"');
+  });
+
+  test("the stars still carry the mouse path and nothing is a tab stop", () => {
+    // The touch path (tapStar on the whole picture) lives in the handlers and is tested in geometry.test.ts; there is no DOM here.
+    const html = render(FULL, { onPick: () => {}, onHover: () => {} });
+    expect(html).toMatch(/^<svg /);
+    expect(group(html, "d1")).toContain('style="cursor:pointer"');
+    expect(html).not.toMatch(/tabindex/i);
+  });
+
   test("is a still picture: no animation of any kind", () => {
     const html = render(FULL, { aimed: "u1" });
     expect(html).not.toContain("<animate");

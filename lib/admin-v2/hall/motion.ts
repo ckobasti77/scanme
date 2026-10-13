@@ -24,6 +24,8 @@ export const HALL_MOTION = {
   ring: 0.6,
   /** The tops flash when the replay crosses a whole hour. */
   flash: 0.25,
+  /** The ring that goes out over the floor when the replay crosses a whole hour. */
+  hourRing: 0.9,
 } as const;
 
 /** The upper limit of the intro of the camera (ZADATAK-V3 §3.2). */
@@ -63,6 +65,17 @@ export function introGrow(time: number, order: number, count: number): number {
 /** How far the columns of the short intro have risen at `time` (0–1). */
 export function shortGrow(time: number): number {
   return powerOut(time / HALL_MOTION.short);
+}
+
+/**
+ * The ring of an hour `age` seconds after the replay crossed it: how far it has gone (0–1 of its reach; fast, then
+ * it settles) and how visible it is on added light (fades fast) and painted on a light surface (stays readable
+ * for most of its life). null once it is over.
+ */
+export function hourRingAt(age: number): { reach: number; additive: number; painted: number } | null {
+  const k = age / HALL_MOTION.hourRing;
+  if (!(k >= 0) || k >= 1) return null;
+  return { reach: powerOut(k), additive: (1 - k) * (1 - k), painted: (1 - k) * 0.9 };
 }
 
 /** A value on its way to `to`: an exponential approach with the time constant `seconds` (a frame rate does not change it). */

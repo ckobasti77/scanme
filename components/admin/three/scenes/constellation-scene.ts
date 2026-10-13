@@ -2,7 +2,19 @@ import * as THREE from "three";
 import { BACKLOG_TOKEN, CORE_TOKEN, ORBIT_LINE_TOKEN, STAR_TOKENS, type TokenColor } from "@/lib/admin-v2/constellation/colors";
 import { constellationDiff } from "@/lib/admin-v2/constellation/diff";
 import { BACKLOG_RADIUS, CONSTELLATION_TILT_DEG, CORE_RADIUS, FLAT_VIEW, ORBIT_PERIOD_S, ORBIT_RADIUS, STAR_RADIUS } from "@/lib/admin-v2/constellation/geometry";
-import { CONSTELLATION_MOTION as M, angleDelta, arrivalRadius, backOut, introStarStart, powerInOut, powerOut, spiralPoint } from "@/lib/admin-v2/constellation/motion";
+import {
+  CONSTELLATION_MOTION as M,
+  INTRO_SHADE,
+  angleDelta,
+  arrivalRadius,
+  backOut,
+  introCore,
+  introStarScale,
+  introStrength,
+  powerInOut,
+  powerOut,
+  spiralPoint,
+} from "@/lib/admin-v2/constellation/motion";
 import { CALM_DOTS_MAX } from "@/lib/admin-v2/constellation/layout";
 import type { ConstellationLayout, OrbitIndex, Star, StarTone } from "@/lib/admin-v2/constellation/types";
 import { blendMode } from "@/lib/admin-v2/three/theme";
@@ -22,6 +34,12 @@ import type { Stage } from "../stage";
 // one for the particles. A resolved item spirals out to the calm orbit with a
 // trail, a new one falls into its orbit. With reduced motion and in the quiet
 // mode nothing turns and nothing pulses: the same picture, still.
+//
+// The full entrance is „Skener pali“ (RV move 1): the scene starts in the shade of
+// the 2D picture underneath (orbits, belt, ring track and every star in place at
+// `INTRO_SHADE`, the core dark), so the canvas fading in changes almost nothing,
+// then lights up once, from the core out: a front travels through the radii and
+// whatever it passes rises to full (a star with a small pop). Nothing dims.
 
 export type ConstellationSceneProps = {
   layout: ConstellationLayout;
@@ -49,6 +67,10 @@ type Body = {
   /** 0 = the colour of its tone, 1 = the calm green (a resolved star on its way out). */
   calm: number;
   phase: number;
+  /** The star was there when the intro began: the intro lights it up. */
+  intro: boolean;
+  /** The size of the disc as a multiple of its own (the pop of the intro); the halo does not grow with it. */
+  pop: number;
 };
 
 type Tween = { key: string | null; at: number; duration: number; step: (k: number) => void; done?: () => void };
@@ -67,6 +89,7 @@ const GAIN: Record<StarTone, number> = { danger: 1.9, warning: 1.6, neutral: 1, 
 /** Without the bloom pass (the low quality) a lifted colour only washes out: it is lifted this much at most. */
 const GAIN_PLAIN = 1.12;
 const LINE_OPACITY = { rest: 0.32, on: 0.7 };
+const DEV = process.env.NODE_ENV !== "production";
 
 const STAR_VERTEX = /* glsl */ `
   uniform float uTime;
@@ -75,13 +98,16 @@ const STAR_VERTEX = /* glsl */ `
   attribute vec3 aColor;
   attribute vec4 aParams;
   attribute vec2 aShape;
+  attribute float aPop;
   varying vec2 vUv;
   varying vec3 vColor;
   varying vec4 vParams;
   varying vec2 vShape;
   varying float vBeat;
+  varying float vPop;
   void main() {
     vUv = uv;
+    vPop = aPop;
     vColor = aColor;
     vParams = aParams;
     vShape = aShape;
@@ -92,7 +118,7 @@ const STAR_VERTEX = /* glsl */ `
 `;
 
 // aShape.x: 0 a star (disc), 1 the „+N“ star (a ring with a plus), 2 the glow of the core. aShape.y: the gain of the body.
-// aParams: x phase of the pulse, y strength of the pulse, z opacity, w hover (0–1).
+// aParams: x phase of the pulse, y strength of the pulse, z opacity, w hover (0–1). aPop: the disc as a multiple of its size.
 const STAR_FRAGMENT = /* glsl */ `
   uniform float uDark;
   uniform vec3 uInk;
@@ -101,15 +127,19 @@ const STAR_FRAGMENT = /* glsl */ `
   varying vec4 vParams;
   varying vec2 vShape;
   varying float vBeat;
+  varying float vPop;
   const float DISC = ${DISC.toFixed(2)};
   void main() {
     vec2 q = vUv * 2.0 - 1.0;
     float d = length(q);
-    float disc = 1.0 - smoothstep(DISC - 0.05, DISC, d);
-    float ring = smoothstep(DISC - 0.12, DISC - 0.08, d) * (1.0 - smoothstep(DISC - 0.02, DISC + 0.02, d));
+    // The body (disc, ring, plus) pops by itself; the halo, the aim ring and the shadow keep their size.
+    vec2 b = q / vPop;
+    float db = length(b);
+    float disc = 1.0 - smoothstep(DISC - 0.05, DISC, db);
+    float ring = smoothstep(DISC - 0.12, DISC - 0.08, db) * (1.0 - smoothstep(DISC - 0.02, DISC + 0.02, db));
     float plus = max(
-      (1.0 - step(0.045, abs(q.x))) * (1.0 - step(0.16, abs(q.y))),
-      (1.0 - step(0.045, abs(q.y))) * (1.0 - step(0.16, abs(q.x)))
+      (1.0 - step(0.045, abs(b.x))) * (1.0 - step(0.16, abs(b.y))),
+      (1.0 - step(0.045, abs(b.y))) * (1.0 - step(0.16, abs(b.x)))
     );
     float isMore = step(0.5, vShape.x) * (1.0 - step(1.5, vShape.x));
     float isGlow = step(1.5, vShape.x);
@@ -119,13 +149,29 @@ const STAR_FRAGMENT = /* glsl */ `
     float light = halo * mix(0.42 + 0.75 * vBeat, 1.0, isGlow);
 
     // The centre of a disc is the hottest: the rim keeps the colour of the star.
-    float heat = mix(1.0, vShape.y, 1.0 - smoothstep(0.0, DISC, d));
+    float heat = mix(1.0, vShape.y, 1.0 - smoothstep(0.0, DISC, db));
     vec3 darkColor = vColor * (body * heat + light * 0.9 * (1.0 - body)) + uInk * aim;
     float darkAlpha = vParams.z;
 
-    float paint = max(body, halo * mix(0.2 + 0.3 * vBeat, 0.3, isGlow));
-    vec3 lightColor = mix(vColor, uInk, aim);
-    float lightAlpha = max(paint, aim * 0.85) * vParams.z;
+    // The light theme has depth instead of a glow: a gradient inside the disc (lighter upper left, darker lower
+    // right) and a soft shadow just below it. Layers are composed premultiplied: shadow, halo, disc, aim ring.
+    float haloA = halo * mix(0.2 + 0.3 * vBeat, 0.3, isGlow);
+    vec2 p = b / DISC;
+    float t = clamp(length(p - vec2(-0.3, 0.4)) / 1.8, 0.0, 1.0);
+    vec3 discColor = mix(mix(vColor, vec3(1.0), 0.32), mix(vColor, uInk, 0.22), smoothstep(0.0, 1.0, t));
+    discColor = mix(discColor, vColor, isMore);
+    // The shadow of the core is only what shows round the sphere (the sphere itself is not part of this quad).
+    float shade = mix(DISC, 0.32, isGlow);
+    float shadowReach = length((q - vec2(0.0, -0.5 * shade)) / vec2(1.0, 0.7));
+    float shadowA = (1.0 - smoothstep(0.1 * shade, 1.4 * shade, shadowReach)) * 0.26 * (1.0 - isMore);
+    shadowA *= mix(1.0, smoothstep(0.31, 0.34, d), isGlow);
+    vec4 acc = vec4(uInk * shadowA, shadowA);
+    acc = vec4(vColor * haloA, haloA) + acc * (1.0 - haloA);
+    acc = vec4(discColor * body, body) + acc * (1.0 - body);
+    float aimA = aim * 0.85;
+    acc = vec4(uInk * aimA, aimA) + acc * (1.0 - aimA);
+    vec3 lightColor = acc.a > 0.0001 ? acc.rgb / acc.a : vColor;
+    float lightAlpha = acc.a * vParams.z;
 
     gl_FragColor = vec4(mix(lightColor, darkColor, uDark), mix(lightAlpha, darkAlpha, uDark));
     #include <tonemapping_fragment>
@@ -150,14 +196,17 @@ const CORE_FRAGMENT = /* glsl */ `
   uniform float uDark;
   uniform float uPower;
   uniform float uRim;
+  uniform float uAlpha;
   varying vec3 vNormal;
   varying vec3 vView;
   void main() {
     float facing = max(dot(normalize(vNormal), normalize(vView)), 0.0);
     float rim = pow(1.0 - facing, 2.2);
     vec3 darkColor = uColor * (0.5 + 0.35 * facing + uRim * rim) * uPower;
-    vec3 lightColor = uColor * (0.8 + 0.24 * facing) + vec3(0.14) * rim;
-    gl_FragColor = vec4(mix(lightColor, darkColor, uDark), 1.0);
+    // Light theme: a gradient from the upper left (lit) to the lower right (turned away), not a flat disc.
+    float lit = smoothstep(0.0, 0.95, dot(normalize(vNormal), normalize(vec3(-0.45, 0.55, 0.7))));
+    vec3 lightColor = uColor * mix(0.78, 1.12, lit) + vec3(0.14) * rim;
+    gl_FragColor = vec4(mix(lightColor, darkColor, uDark), mix(uAlpha, 1.0, uDark));
     #include <tonemapping_fragment>
     #include <colorspace_fragment>
   }
@@ -315,7 +364,7 @@ export function create(stage: Stage, initial: ConstellationSceneProps, run: Stag
     line.renderOrder = 0;
     line.frustumCulled = false;
     scene.add(line);
-    return { orbit, geometry, material, line, opacity: LINE_OPACITY.rest };
+    return { orbit, geometry, material, line, opacity: LINE_OPACITY.rest, strength: 1 };
   });
   const drawOrbits = (share: number) => {
     for (const { geometry } of orbitLines) geometry.setDrawRange(0, Math.max(2, Math.round((ORBIT_SEGMENTS + 1) * share)));
@@ -342,6 +391,8 @@ export function create(stage: Stage, initial: ConstellationSceneProps, run: Stag
   scene.add(ring);
   /** A hit on the ring: it flares when the backlog falls. */
   let ringFlare = 0;
+  /** How strong the ring is drawn (the shade of the intro, then 1). */
+  let ringStrength = 1;
 
   // --- the core ----------------------------------------------------------------
   const coreGeometry = stage.track(new THREE.SphereGeometry(CORE_RADIUS * 0.8, 40, 24));
@@ -349,13 +400,15 @@ export function create(stage: Stage, initial: ConstellationSceneProps, run: Stag
     new THREE.ShaderMaterial({
       vertexShader: CORE_VERTEX,
       fragmentShader: CORE_FRAGMENT,
-      uniforms: { uColor: { value: palette.core }, uDark: { value: 0 }, uPower: { value: 1 }, uRim: { value: 1 } },
+      uniforms: { uColor: { value: palette.core }, uDark: { value: 0 }, uPower: { value: 1 }, uRim: { value: 1 }, uAlpha: { value: 1 } },
+      // The light theme shows the shade of the intro through its alpha (the dark one through its power).
+      transparent: true,
     }),
   );
   const core = new THREE.Mesh(coreGeometry, coreMaterial);
   core.renderOrder = 1;
   scene.add(core);
-  /** 0–1: how lit the core is (its intro), how busy the system is (`--admin-energy`), a flash for a resolved item. */
+  /** INTRO_SHADE–1: how lit the core is (its intro), 0–1: how busy the system is (`--admin-energy`), a flash for a resolved item. */
   const coreState = { lit: 1, energy: 0, energyTo: 0, flash: 0, energyReadAt: -10 };
 
   // --- the belt of calm dots ---------------------------------------------------
@@ -385,9 +438,11 @@ export function create(stage: Stage, initial: ConstellationSceneProps, run: Stag
   const starColor = new THREE.InstancedBufferAttribute(new Float32Array(STAR_CAPACITY * 3), 3);
   const starParams = new THREE.InstancedBufferAttribute(new Float32Array(STAR_CAPACITY * 4), 4);
   const starShape = new THREE.InstancedBufferAttribute(new Float32Array(STAR_CAPACITY * 2), 2);
+  const starPop = new THREE.InstancedBufferAttribute(new Float32Array(STAR_CAPACITY).fill(1), 1);
   starGeometry.setAttribute("aColor", starColor);
   starGeometry.setAttribute("aParams", starParams);
   starGeometry.setAttribute("aShape", starShape);
+  starGeometry.setAttribute("aPop", starPop);
   const starMaterial = stage.track(
     new THREE.ShaderMaterial({
       vertexShader: STAR_VERTEX,
@@ -471,7 +526,7 @@ export function create(stage: Stage, initial: ConstellationSceneProps, run: Stag
     return into.set(Math.cos(place.angle) * place.radius, 0, Math.sin(place.angle) * place.radius);
   };
 
-  const newBody = (star: Star): Body => ({ id: star.id, star, dr: 0, da: 0, free: null, scale: 1, alpha: 1, hover: 0, ring: 0, calm: 0, phase: (star.angle * 7) % TAU });
+  const newBody = (star: Star): Body => ({ id: star.id, star, dr: 0, da: 0, free: null, scale: 1, alpha: 1, hover: 0, ring: 0, calm: 0, phase: (star.angle * 7) % TAU, intro: false, pop: 1 });
 
   /** The star that is looked at; one that has left since (the pointer did not move) no longer counts. */
   const highlighted = () => [picker.hovered, props.aimed].find((id) => id !== null && bodies.has(id)) ?? null;
@@ -485,7 +540,7 @@ export function create(stage: Stage, initial: ConstellationSceneProps, run: Stag
     const additive = dark();
     instanceIds = [];
     let at = 0;
-    const put = (id: string | null, where: THREE.Vector3, side: number, tint: THREE.Color, shape: number, gain: number, phase: number, pulse: number, alpha: number, hover: number) => {
+    const put = (id: string | null, where: THREE.Vector3, side: number, tint: THREE.Color, shape: number, gain: number, phase: number, pulse: number, alpha: number, hover: number, pop = 1) => {
       if (at >= STAR_CAPACITY) return;
       scale.setScalar(side);
       matrix.compose(where, camera.quaternion, scale);
@@ -493,6 +548,7 @@ export function create(stage: Stage, initial: ConstellationSceneProps, run: Stag
       starColor.setXYZ(at, tint.r, tint.g, tint.b);
       starParams.setXYZW(at, phase, pulse, alpha, hover);
       starShape.setXY(at, shape, gain);
+      starPop.setX(at, pop);
       instanceIds.push(id);
       at += 1;
     };
@@ -505,7 +561,7 @@ export function create(stage: Stage, initial: ConstellationSceneProps, run: Stag
       const side = ((2 * STAR_RADIUS[star.size]) / DISC) * body.scale;
       colour.copy(palette[star.tone]).lerp(palette.success, body.calm);
       const gain = additive ? lift(GAIN[star.tone] + (GAIN.success - GAIN[star.tone]) * body.calm) : 1;
-      put(id, worldOf(body, position), side, colour, star.kind === "more" ? 1 : 0, gain, body.phase, star.pulse && !body.free ? 1 : 0, body.alpha, Math.max(body.hover, body.ring));
+      put(id, worldOf(body, position), side, colour, star.kind === "more" ? 1 : 0, gain, body.phase, star.pulse && !body.free ? 1 : 0, body.alpha, Math.max(body.hover, body.ring), body.pop);
     };
     // The live stars first: if the buffer is ever full, it is a leaving one that is not drawn.
     for (const body of bodies.values()) one(body, body.id);
@@ -515,6 +571,7 @@ export function create(stage: Stage, initial: ConstellationSceneProps, run: Stag
     starColor.needsUpdate = true;
     starParams.needsUpdate = true;
     starShape.needsUpdate = true;
+    starPop.needsUpdate = true;
     stars.computeBoundingSphere();
   };
 
@@ -718,36 +775,33 @@ export function create(stage: Stage, initial: ConstellationSceneProps, run: Stag
     stage.invalidate();
   };
 
-  // --- the intro: the core lights up, the orbits are drawn, the stars come out ------
+  // --- the intro: the scene starts in the shade, then lights up once from the core out ------
+  const lightUp = (elapsed: number) => {
+    coreState.lit = introCore(elapsed);
+    ringStrength = introStrength(elapsed, BACKLOG_RADIUS);
+    for (const item of orbitLines) item.strength = introStrength(elapsed, ORBIT_RADIUS[item.orbit]);
+    dotsShown = introStrength(elapsed, ORBIT_RADIUS[4]);
+    for (const body of bodies.values()) {
+      if (!body.intro) continue;
+      const radius = ORBIT_RADIUS[body.star.orbit];
+      // A star moved to another orbit in the middle of the intro does not dim.
+      body.alpha = Math.max(body.alpha, introStrength(elapsed, radius));
+      body.pop = introStarScale(elapsed, radius);
+    }
+  };
   const intro = () => {
-    const share = layout?.backlog?.share ?? 0;
-    coreState.lit = 0;
-    drawOrbits(0);
-    ringMaterial.uniforms.uArc.value = 0;
-    dotsShown = 0;
-    tween({ delay: M.intro.core[0], duration: M.intro.core[1] - M.intro.core[0], step: (k) => (coreState.lit = powerOut(k)) });
+    for (const body of bodies.values()) {
+      body.intro = true;
+      body.alpha = INTRO_SHADE;
+    }
     tween({
-      delay: M.intro.orbits[0],
-      duration: M.intro.orbits[1] - M.intro.orbits[0],
-      step: (k) => {
-        drawOrbits(powerInOut(k));
-        ringMaterial.uniforms.uArc.value = share * powerInOut(k);
+      key: "intro",
+      duration: M.intro.total,
+      step: (k) => lightUp(k * M.intro.total),
+      done: () => {
+        for (const body of bodies.values()) body.intro = false;
       },
     });
-    tween({ delay: introStarStart(ORBIT_RADIUS[4]), duration: M.intro.star, step: (k) => (dotsShown = powerOut(k)) });
-    for (const body of bodies.values()) {
-      body.alpha = 0;
-      body.scale = 0;
-      tween({
-        key: `${body.id}:show`,
-        delay: introStarStart(ORBIT_RADIUS[body.star.orbit]),
-        duration: M.intro.star,
-        step: (k) => {
-          body.alpha = powerOut(k);
-          body.scale = backOut(k, 1.4);
-        },
-      });
-    }
   };
 
   // --- a frame -----------------------------------------------------------------------
@@ -777,7 +831,7 @@ export function create(stage: Stage, initial: ConstellationSceneProps, run: Stag
         if (Math.abs(item.opacity - to) < 0.01) item.opacity = to;
         else moving = true;
       }
-      item.material.opacity = item.opacity;
+      item.material.opacity = item.opacity * item.strength;
     }
 
     if (lean.x !== lean.toX || lean.y !== lean.toY) {
@@ -806,15 +860,22 @@ export function create(stage: Stage, initial: ConstellationSceneProps, run: Stag
       moving = true;
     }
     const breath = motion ? 0.02 * Math.sin(now * 1.6) : 0;
-    core.scale.setScalar((0.6 + 0.4 * coreState.lit) * (1 + breath));
+    core.scale.setScalar(1 + breath);
     coreMaterial.uniforms.uPower.value = coreState.lit * (0.8 + 0.4 * coreState.energy + 0.8 * coreState.flash);
-    ringMaterial.uniforms.uOpacity.value = coreState.lit;
+    ringMaterial.uniforms.uOpacity.value = ringStrength;
+    coreMaterial.uniforms.uAlpha.value = coreState.lit;
     coreMaterial.uniforms.uRim.value = composer.bloom ? 1.9 : 0.6;
     ringMaterial.uniforms.uGain.value = (composer.bloom ? 1.7 : dark() ? GAIN_PLAIN : 1) + ringFlare * (dark() ? 1.2 : 0.3);
     dotMaterial.uniforms.uOpacity.value = (dark() ? 0.75 : 0.6) * dotsShown;
     dotMaterial.uniforms.uSize.value = 3.4 * stage.pixelRatio;
     starMaterial.uniforms.uTime.value = now;
     writeStars();
+    if (DEV) {
+      // What the frames script of the step reads: the mean strength (0-1) of the stars (dev only).
+      let sum = 0;
+      for (const body of bodies.values()) sum += body.alpha;
+      stage.host.dataset.constellationLit = (bodies.size > 0 ? sum / bodies.size : 1).toFixed(3);
+    }
     if (moving) stage.invalidate();
   });
 

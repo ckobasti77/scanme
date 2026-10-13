@@ -44,6 +44,12 @@ describe("the HUD „Danas“", () => {
     expect(html).not.toMatch(/\p{Extended_Pictographic}/u);
   });
 
+  test("S10 — up to 800 px of window height the HUD gives back padding and gap, and drops no line", () => {
+    const html = view(fromPreview("dan3")!);
+    expect(html).toContain("[@media(max-height:800px)]:gap-1 [@media(max-height:800px)]:py-2");
+    for (const text of ["Dan 3 / 3", d.scansToday, d.live]) expect(html).toContain(text);
+  });
+
   test("a read that is too old does not say „Uživo“: it says from when the number is", () => {
     const hud = fromPreview("dan3")!;
     const html = view({ ...hud, stale: true });

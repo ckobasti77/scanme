@@ -75,16 +75,22 @@ export function useAdminRevealRoot({ screen, page, scanLine, pathname, routeKey,
       now: Date.now(),
     });
     setAdminRevealState({ mode, firstVisit: mode === "full", enteredAt: performance.now() });
-    return startVisit({
-      screen: screenElement,
-      page: pageElement,
-      scanLine: scanLine.current,
-      mode,
-      watch: !reducedMotion && !quiet && visible,
-      first,
-      phone: window.matchMedia(PHONE_QUERY).matches,
-      onFull: () => void writeRevealVisit(sessionStore(), routeKey, Date.now()),
-    });
+    try {
+      return startVisit({
+        screen: screenElement,
+        page: pageElement,
+        scanLine: scanLine.current,
+        mode,
+        watch: !reducedMotion && !quiet && visible,
+        first,
+        phone: window.matchMedia(PHONE_QUERY).matches,
+        onFull: () => void writeRevealVisit(sessionStore(), routeKey, Date.now()),
+      });
+    } catch {
+      // An animation never takes the page down (ZADATAK-V3 §0): the page simply stands, as with reduced motion.
+      adminMotion().gsap.set(pageElement, { clearProps: "opacity,transform" });
+      return undefined;
+    }
     // The quiet mode is read when a page is entered; switching it does not replay the open page.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname, replay]);
@@ -128,11 +134,12 @@ export function useAdminRevealRoot({ screen, page, scanLine, pathname, routeKey,
     };
   }, [page, quiet]);
 
-  // Dev only: the frame script reads GSAP (to switch off its lag smoothing under a fake clock) and can replay an entrance.
+  // Dev only: the frame script reads GSAP (to switch off its lag smoothing under a fake clock; V5: to make SplitText
+  // throw and see that the page survives) and can replay an entrance.
   useEffect(() => {
     if (process.env.NODE_ENV === "production") return;
-    const { gsap } = adminMotion();
-    (window as unknown as { __adminMotion?: unknown }).__adminMotion = { gsap };
+    const { gsap, SplitText } = adminMotion();
+    (window as unknown as { __adminMotion?: unknown }).__adminMotion = { gsap, SplitText };
     const onReplay = () => {
       clearRevealLog(sessionStore());
       setReplay((value) => value + 1);

@@ -16,7 +16,7 @@ import { adminV1Sr as dict } from "@/lib/i18n/sr/admin-v1";
 // „Misije danas“ from the data the widgets already have. SSR markup, like the
 // other admin views.
 
-const mocks = vi.hoisted(() => ({ search: "", queries: [] as unknown[] }));
+const mocks = vi.hoisted(() => ({ search: "", queries: [] as unknown[], hero: "constellation" as "constellation" | "list" }));
 
 vi.mock("next/link", () => ({
   default: ({ href, children, ...rest }: { href: string; children: ReactNode } & Record<string, unknown>) => <a href={href} {...rest}>{children}</a>,
@@ -30,6 +30,12 @@ vi.mock("convex/react", () => ({
   useMutation: () => async () => undefined,
 }));
 
+// The server render reads the hero choice from `getServer`: the mock lets one test see the list mode.
+vi.mock("@/components/admin/dashboard/hero-choice", async (importOriginal) => {
+  const original = await importOriginal<typeof import("@/components/admin/dashboard/hero-choice")>();
+  return { ...original, dashboardHeroStore: { ...original.dashboardHeroStore, get: () => mocks.hero, getServer: () => mocks.hero } };
+});
+
 vi.mock("next/navigation", () => ({
   usePathname: () => "/admin",
   useSearchParams: () => new URLSearchParams(mocks.search),
@@ -37,12 +43,13 @@ vi.mock("next/navigation", () => ({
 }));
 
 // Imported after the mocks.
-import { AdminDashboardFoundation } from "./admin-dashboard-foundation";
+import { AdminDashboardFoundation, aimLineVisible } from "./admin-dashboard-foundation";
 import { dashboardFixture } from "./admin-dashboard-fixtures";
 
 beforeEach(() => {
   mocks.search = "";
   mocks.queries = [];
+  mocks.hero = "constellation";
 });
 
 type FixtureState = Parameters<typeof dashboardFixture>[0];
@@ -222,6 +229,60 @@ describe("Dashboard hero: the Constellation (V3 V2)", () => {
     mocks.queries = [];
     renderToStaticMarkup(<AdminDashboardFoundation initialNow={Date.UTC(2026, 9, 13, 8)} />);
     expect(mocks.queries).toContainEqual({ now: Date.UTC(2026, 9, 13, 8), scope: "all", limit: 12 });
+  });
+});
+
+describe("Dashboard list mode: the game does not depend on the view (V5, S4)", () => {
+  test("the boss of the day and the combo are in the row of the count, the same as in the hero", () => {
+    mocks.hero = "list";
+    const list = html("ready");
+    expect(list).not.toContain('data-dashboard-hero=""');
+    expect(list).toContain('data-dashboard-boss=""');
+    expect(list).toContain('data-game-boss="alive"');
+    expect(list).toMatch(/role="progressbar" aria-label="Šef dana: zaostatak" aria-valuemin="0" aria-valuemax="20" aria-valuenow="20"/);
+    // The row of the count holds the boss, and the button that brings the hero back is still there.
+    expect(list.indexOf(`>${dict.dashboardConstellationShow}<`)).toBeGreaterThan(list.indexOf('data-game-boss="alive"'));
+    expect(list.indexOf('data-game-boss="alive"')).toBeGreaterThan(list.indexOf(count(74)));
+    mocks.hero = "constellation";
+    const hero = html("ready");
+    expect(hero).toContain('data-dashboard-hero=""');
+    expect(hero).toContain('data-game-boss="alive"');
+  });
+
+  test("no counts: the list mode says the boss is not known, like the hero does", () => {
+    mocks.hero = "list";
+    expect(html("unavailable")).toContain('data-game-boss="unavailable"');
+  });
+});
+
+describe("the aim line is drawn only when it may be (V5, S8)", () => {
+  const ok = { aimed: "cause-1", dialogOpen: false, ceremony: null, heroVisible: true } as const;
+
+  test("a row is aimed at, no dialog, no ceremony, the hero on the screen", () => {
+    expect(aimLineVisible(ok)).toBe(true);
+  });
+
+  test("nothing aimed at, nothing to draw", () => {
+    expect(aimLineVisible({ ...ok, aimed: null })).toBe(false);
+  });
+
+  test("while the dialog of „Reši“ or „Odloži“ is open the line is away", () => {
+    expect(aimLineVisible({ ...ok, dialogOpen: true })).toBe(false);
+  });
+
+  test("a ceremony of either size takes the line off the screen", () => {
+    expect(aimLineVisible({ ...ok, ceremony: "big" })).toBe(false);
+    expect(aimLineVisible({ ...ok, ceremony: "card" })).toBe(false);
+  });
+
+  test("a hero that is not on the screen would point to a star nobody sees", () => {
+    expect(aimLineVisible({ ...ok, heroVisible: false })).toBe(false);
+  });
+
+  test("the markup of the page has the layer but no path before anything is aimed at", () => {
+    const markup = html("ready");
+    expect(markup).toContain('data-dashboard-aim=""');
+    expect(markup).not.toMatch(/data-dashboard-aim=""[^>]*><path/);
   });
 });
 

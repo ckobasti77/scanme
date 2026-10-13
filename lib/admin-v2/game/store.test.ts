@@ -10,6 +10,8 @@ import type { ActivityRow } from "./types";
 
 const T0 = Date.UTC(2026, 9, 13, 8, 0);
 const ME = "user-test-ana";
+const EVENT_A = "test-sajam-a";
+const EVENT_B = "test-sajam-b";
 let seq = 0;
 const row = (action: string, at: number): ActivityRow => ({ id: `s${++seq}`, action, actorKind: "admin", occurredAt: at, href: `/admin/test/${seq}` });
 
@@ -123,16 +125,59 @@ describe("the game store", () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
-  test("what a fair page tells before the game starts is kept and told again at the start", () => {
+  test("what a fair page tells before the game starts is kept and told again at the start, without a ceremony", () => {
     const store = createGameStore();
-    store.dispatch({ type: "fair", fair: { firstLead: true } });
-    store.dispatch({ type: "fair", fair: { hourRecord: 120 } });
+    const effects: GameEffect[] = [];
+    store.onEffect((effect) => effects.push(effect));
+    store.dispatch({ type: "fair", event: EVENT_A, ended: false, fair: { firstLead: true } });
+    store.dispatch({ type: "fair", event: EVENT_A, ended: false, fair: { hourRecord: 120 } });
     expect(store.live()).toBe(false);
     store.start(ME);
     store.dispatch({ type: "journal", rows: [], initial: true });
     expect(store.live()).toBe(true);
     const earned = store.getSnapshot().view.badges.filter((badge) => badge.earnedAt !== null).map((badge) => badge.id);
     expect(earned).toEqual(expect.arrayContaining(["prvi_lead", "sto_skenova"]));
+    expect(effects.filter((effect) => effect.type === "ceremony")).toEqual([]);
+  });
+
+  test("several events told early are not merged: an ended one is ignored, the others keep their own facts", () => {
+    const store = createGameStore();
+    store.dispatch({ type: "fair", event: EVENT_A, ended: true, fair: { firstLead: true, hourRecord: 150 } });
+    store.dispatch({ type: "fair", event: EVENT_B, ended: false, fair: { ready: true } });
+    store.start(ME);
+    store.dispatch({ type: "journal", rows: [], initial: true });
+    const earned = store.getSnapshot().view.badges.filter((badge) => badge.earnedAt !== null).map((badge) => badge.id);
+    expect(earned).toContain("sajam_spreman");
+    expect(earned).not.toContain("prvi_lead");
+    expect(earned).not.toContain("sto_skenova");
+  });
+
+  test("the hard reload and the client-side navigation end the same way: the badge is earned, nothing is shown", () => {
+    const effectsOf = (reload: boolean) => {
+      const store = createGameStore();
+      const effects: GameEffect[] = [];
+      store.onEffect((effect) => effects.push(effect));
+      const report = () => store.dispatch({ type: "fair", event: EVENT_A, ended: false, fair: { ready: false, firstLead: true } });
+      if (reload) report();
+      store.start(ME);
+      store.dispatch({ type: "journal", rows: [], initial: true });
+      if (!reload) report();
+      const earned = store.getSnapshot().view.badges.filter((badge) => badge.earnedAt !== null).map((badge) => badge.id);
+      return { earned, ceremonies: effects.filter((effect) => effect.type === "ceremony") };
+    };
+    expect(effectsOf(true)).toEqual({ earned: ["prvi_lead"], ceremonies: [] });
+    expect(effectsOf(false)).toEqual(effectsOf(true));
+  });
+
+  test("a fact told false and then true while the page is open is shown, after a client-side navigation", () => {
+    const store = createGameStore();
+    const effects: GameEffect[] = [];
+    store.onEffect((effect) => effects.push(effect));
+    store.start(ME);
+    store.dispatch({ type: "journal", rows: [], initial: true });
+    store.dispatch({ type: "fair", event: EVENT_A, ended: false, fair: { firstLead: false } });
+    store.dispatch({ type: "fair", event: EVENT_A, ended: false, fair: { firstLead: true } });
+    expect(effects.filter((effect) => effect.type === "ceremony")).toHaveLength(1);
   });
 
   test("two tabs of one person: a tab keeps what the other one wrote", () => {
@@ -143,10 +188,10 @@ describe("the game store", () => {
       store.start(ME);
       store.dispatch({ type: "journal", rows: [], initial: true });
     }
-    first.dispatch({ type: "fair", fair: { firstLead: true } });
+    first.dispatch({ type: "fair", event: EVENT_A, ended: false, fair: { firstLead: true } });
     vi.setSystemTime(T0 + 60_000);
     // The second tab read the storage before the first one wrote: its own write must not take the badge back.
-    second.dispatch({ type: "fair", fair: { hourRecord: 120, firstLead: true } });
+    second.dispatch({ type: "fair", event: EVENT_A, ended: false, fair: { hourRecord: 120, firstLead: true } });
     const dates = JSON.parse(storage.map.get(GAME_KEYS.badges + ME) ?? "{}") as Record<string, number>;
     expect(dates).toMatchObject({ prvi_lead: T0, sto_skenova: T0 + 60_000 });
     const seen = JSON.parse(storage.map.get(GAME_KEYS.seen + ME) ?? "[]") as string[];

@@ -125,7 +125,7 @@ export type CeremonyParticle = {
   angle: number;
   /** How far it flies: a share of the shorter side of the screen, at most 0.5. */
   speed: number;
-  /** Radius in px at scale 1. */
+  /** Width of its trail in px at scale 1 (2–7 for a big ceremony, 2–4 for a card). */
   size: number;
   /** When it starts, as a share of the whole ceremony (0–0.25). */
   delay: number;
@@ -145,19 +145,33 @@ function seeded(seed: number): () => number {
   };
 }
 
-/** The burst of a ceremony: at most 120 particles for a big one, 24 for a card. */
+/** Share of the ceremony from which the particles burst from the landed medal (the rest streams out of the chip behind it). */
+export const BURST_FROM = 0.2;
+/** Largest `delay` of a particle. */
+const DELAY_MAX = 0.25;
+/** A trail looks back this share of the ceremony (about 65 ms of a big one). */
+export const PARTICLE_TRAIL_LAG = 0.04;
+
+/**
+ * The particles of a ceremony: at most 120 for a big one, 24 for a card. Four in ten stream out of the XP
+ * chip behind the flying medal (they start in the first `BURST_FROM` of the ceremony and fly short), the rest
+ * burst when it lands. Sizes are 2–7 px for a big one and 2–4 px for a card: they are drawn as trails.
+ */
 export function ceremonyParticles(size: CeremonySize, seed: number): CeremonyParticle[] {
   const random = seeded(seed);
   const count = size === "big" ? CEREMONY_PARTICLES_MAX : CARD_PARTICLES_MAX;
   const reach = size === "big" ? 0.5 : 0.22;
-  const grain = size === "big" ? 4.5 : 3;
-  return Array.from({ length: count }, () => ({
-    angle: random() * Math.PI * 2,
-    speed: reach * (0.2 + 0.8 * random()),
-    size: 1.5 + random() * (grain - 1.5),
-    delay: random() * 0.25,
-    hue: random(),
-  }));
+  const [thin, thick] = size === "big" ? [2, 7] : [2, 4];
+  return Array.from({ length: count }, () => {
+    const stream = random() < 0.4;
+    return {
+      angle: random() * Math.PI * 2,
+      speed: reach * (stream ? 0.12 + 0.28 * random() : 0.3 + 0.7 * random()),
+      size: thin + random() * (thick - thin),
+      delay: stream ? random() * BURST_FROM : BURST_FROM + random() * (DELAY_MAX - BURST_FROM),
+      hue: random(),
+    };
+  });
 }
 
 const FALL = 0.06;
@@ -180,4 +194,40 @@ export function particleAt(particle: CeremonyParticle, progress: number): { x: n
     alpha: Math.min(1, Math.max(0, alpha)),
     scale: 1 - 0.6 * t,
   };
+}
+
+export type ParticleTrail = {
+  /** Where the trail starts (a moment ago) and where it ends (now), as `particleAt` offsets. */
+  from: { x: number; y: number };
+  to: { x: number; y: number };
+  alpha: number;
+  /** Width in px: the size of the particle shrunk with its scale. */
+  width: number;
+};
+
+/**
+ * The trail of a particle at `progress`: a line from where it was `lag` of the ceremony ago (never before
+ * it started) to where it is. It is the head of the trail that flies, so `to` is `particleAt`; null while
+ * the particle is not visible.
+ */
+export function particleTrail(particle: CeremonyParticle, progress: number, lag = PARTICLE_TRAIL_LAG): ParticleTrail | null {
+  const head = particleAt(particle, progress);
+  if (head.alpha <= 0) return null;
+  const tail = particleAt(particle, Math.max(particle.delay, progress - lag));
+  return { from: { x: tail.x, y: tail.y }, to: { x: head.x, y: head.y }, alpha: head.alpha, width: particle.size * head.scale };
+}
+
+/** The ring of the strike: it starts at the rim of the medal and ends this far out (shares of the shorter side of the screen). */
+const RING_FROM = 0.1;
+const RING_TO = 0.58;
+
+/**
+ * The one ring of a big ceremony, `seconds` after the medal landed: it goes out from the centre of the medal,
+ * easing out, and fades over `ADMIN_CEREMONY.ring`. Null before the strike and after the ring is gone.
+ */
+export function strikeRing(seconds: number): { radius: number; alpha: number; width: number } | null {
+  if (!(seconds > 0) || seconds >= ADMIN_CEREMONY.ring) return null;
+  const t = seconds / ADMIN_CEREMONY.ring;
+  const eased = 1 - (1 - t) ** 3;
+  return { radius: RING_FROM + (RING_TO - RING_FROM) * eased, alpha: (1 - t) ** 1.5, width: 1 + 3 * (1 - t) };
 }

@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test, vi } from "vitest";
 import { HallMini } from "@/components/admin/events/analytics/hall-mini";
 import { HALL_3D_FROM, HALL_VIEW_KEY, hallViewFor, hallViewStore, readHallView, writeHallView } from "@/components/admin/events/analytics/hall-view";
-import { HallHeatMap } from "@/components/admin/events/analytics/heat-map";
+import { HallCaption, HallHeatMap } from "@/components/admin/events/analytics/heat-map";
 import HeatMap3D from "@/components/admin/events/analytics/heat-map-3d";
 import { previewAnalytics, previewAnalyticsStep, previewAudience, previewEngagement, previewHallToday, previewStandHours } from "@/components/admin/events/preview-analytics-fixtures";
 import { previewDashboard } from "@/components/admin/events/preview-dashboard-fixtures";
@@ -13,6 +13,7 @@ import { ANALYTICS_ANCHORS } from "@/lib/admin-v2/analytics/anchors";
 import { heatBlocks, locationScans } from "@/lib/admin-v2/analytics/heat-blocks";
 import { leaderboard } from "@/lib/admin-v2/analytics/leaderboard";
 import { standRanking } from "@/lib/admin-v2/analytics/stands";
+import { frameRect } from "@/lib/admin-v2/hall/framing";
 import { ambientRates, scanImpulses } from "@/lib/admin-v2/hall/impulses";
 import { hallSeries, heightsAt, rankAt } from "@/lib/admin-v2/hall/timelapse";
 import type { StandHoursState } from "@/lib/admin-v2/hall/types";
@@ -271,6 +272,44 @@ describe("V3: „2D | 3D“ is kept in this browser", () => {
     expect(writeHallView(broken, "2d")).toBe(false);
     expect(readHallView(null)).toBeNull();
     expect(writeHallView(undefined, "2d")).toBe(false);
+  });
+});
+
+describe("V5: the hall as the main picture", () => {
+  const geometry = fairMapForEventCode(EVENT)!;
+  const floor = heatBlocks(geometry, previewAnalytics.heat.today, locationScans(previewAnalytics.models, "today"), ["hala"]);
+  const rectOf = (polygon: ReadonlyArray<readonly [number, number]>) => ({
+    minX: Math.min(...polygon.map((point) => point[0])),
+    maxX: Math.max(...polygon.map((point) => point[0])),
+    minZ: Math.min(...polygon.map((point) => point[1])),
+    maxZ: Math.max(...polygon.map((point) => point[1])),
+  });
+
+  test("the frame of the TEST hall holds every stand with a scan, with room around them, inside the floor", () => {
+    const stands = floor.blocks.filter((block) => block.value > 0);
+    expect(stands.length).toBeGreaterThan(0);
+    const frame = frameRect({ width: floor.width, depth: floor.depth }, stands.map((block) => rectOf(block.polygon)));
+    for (const block of stands) {
+      const rect = rectOf(block.polygon);
+      expect(frame.minX).toBeLessThanOrEqual(rect.minX);
+      expect(frame.maxX).toBeGreaterThanOrEqual(rect.maxX);
+      expect(frame.minZ).toBeLessThanOrEqual(rect.minZ);
+      expect(frame.maxZ).toBeGreaterThanOrEqual(rect.maxZ);
+    }
+    expect(frame.minX).toBeGreaterThanOrEqual(0);
+    expect(frame.minZ).toBeGreaterThanOrEqual(0);
+    expect(frame.maxX).toBeLessThanOrEqual(floor.width + 1e-9);
+    expect(frame.maxZ).toBeLessThanOrEqual(floor.depth + 1e-9);
+  });
+
+  test("the caption says one text and holds the room of the others invisibly, hidden from a screen reader", () => {
+    const html = renderToStaticMarkup(<HallCaption shown="TEST kratak" reserve={["TEST kratak", "TEST mnogo duzi natpis", "TEST treci"]} />);
+    expect(html).toContain('<p class="col-start-1 row-start-1">TEST kratak</p>');
+    expect(html).toContain('<p aria-hidden="true" class="invisible col-start-1 row-start-1">TEST mnogo duzi natpis</p>');
+    expect(html).toContain('<p aria-hidden="true" class="invisible col-start-1 row-start-1">TEST treci</p>');
+    // The shown text is not laid twice.
+    expect(html.split("TEST kratak").length - 1).toBe(1);
+    expect(html).toContain("grid");
   });
 });
 

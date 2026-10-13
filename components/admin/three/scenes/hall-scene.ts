@@ -3,15 +3,16 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import type { HeatScene } from "@/lib/admin-v2/analytics/heat-blocks";
 import { liftLabels } from "@/lib/admin-v2/analytics/label-lift";
 import { HALL_PARTICLES, emitCount, impulseDelays, replayRates } from "@/lib/admin-v2/hall/impulses";
-import { HALL_MOTION, approach, introCamera, introGrow, shortGrow } from "@/lib/admin-v2/hall/motion";
+import { frameRect, projectBox, viewAxes, type FrameRect } from "@/lib/admin-v2/hall/framing";
+import { HALL_MOTION, approach, hourRingAt, introCamera, introGrow, shortGrow } from "@/lib/admin-v2/hall/motion";
 import { playerT } from "@/lib/admin-v2/hall/player";
 import { rimStrip } from "@/lib/admin-v2/hall/rim";
 import { dayLevelsAt, heightsAt, layersAt, levelsAt } from "@/lib/admin-v2/hall/timelapse";
-import type { HallImpulse, HallLayer, HallSeries, TimelapsePlayer } from "@/lib/admin-v2/hall/types";
+import type { HallImpulse, HallLayer, HallSeries, HallStand, TimelapsePlayer } from "@/lib/admin-v2/hall/types";
 import { blendMode } from "@/lib/admin-v2/three/theme";
 import { fairHeatColor } from "@/lib/fair-heat";
 import type { StageRun, StageScene } from "../admin-stage";
-import { createParticles } from "../particles";
+import { createParticles, type ParticleSpec } from "../particles";
 import { createPicker } from "../picking";
 import { createComposer } from "../post";
 import type { Stage } from "../stage";
@@ -32,6 +33,10 @@ import type { Stage } from "../stage";
 // the orbit of X3 (drag turns, Ctrl + wheel or two fingers zoom, a plain wheel
 // scrolls the page). With reduced motion and in the quiet mode: the final
 // picture, no particles, no intro.
+// V5: the home view is fitted to the stands that have something to show (the
+// rest of the plan peeks in at the edges, `lib/admin-v2/hall/framing.ts`), and
+// every whole hour of a replay sends a ring over the floor from the middle of
+// that frame.
 
 export type HallSceneProps = {
   /** The floor plan with the live picture: the height and the heat of every stand right now. */
@@ -62,6 +67,8 @@ type Block = {
   center: [number, number];
   /** Half the size of the stand on the floor: where its particles start. */
   spread: [number, number];
+  /** The box of the stand on the floor: what the home view is fitted to. */
+  rect: FrameRect;
   /** How near the camera the stand is (0 = the nearest). */
   order: number;
   /** Its turn in the intro, among the stands that have something to show (the nearest first). */
@@ -76,10 +83,19 @@ type Block = {
 };
 
 type Ring = { mesh: THREE.Mesh; material: THREE.MeshBasicMaterial; block: Block | null; age: number };
+/** The ring of a whole hour of the replay: it belongs to no stand, it goes out from the middle of the frame. */
+type HourRing = { mesh: THREE.Mesh; material: THREE.MeshBasicMaterial; active: boolean; age: number };
+type Spark = ParticleSpec & { position: THREE.Vector3; velocity: THREE.Vector3 };
 type TokenColor = { token: string; light: string; dark: string };
 
 const LAYERS_MAX = 16;
 const RINGS = 8;
+/** An hour is 0.9 s and a replay crosses one about every second: two rings are never both in use for long. */
+const HOUR_RINGS = 2;
+/** What the keys of a column are, hoisted out of the frame. */
+const SHOWN_KEYS = ["height", "level", "beam"] as const;
+/** The replay has no stream in the live picture (never written to). */
+const NO_RATES: ReadonlyMap<string, number> = new Map();
 const DEV = process.env.NODE_ENV !== "production";
 /** What a click beside every stand (the floor, the empty space around the hall) is for the picker: it closes the picked stand. */
 const NO_STAND = "\u0000none";
@@ -214,16 +230,28 @@ export function create(stage: Stage, initial: HallSceneProps, run: StageRun): St
   /** Where the camera stands, seen from the middle of the floor: low and mostly from the front, so a wide hall fills a wide box. */
   const VIEW = new THREE.Vector3(0.48, 0.56, 1).normalize();
 
+  /** Half the height of what the box shows at zoom 1: the width is this times the aspect. */
+  const fitHalf = (box: { halfWidth: number; halfHeight: number }) => Math.max(box.halfHeight, box.halfWidth / (stage.size.width / stage.size.height));
+
   const fit = () => {
     const { width, height } = stage.size;
     const aspect = width / height;
-    const half = Math.max(extent.halfHeight, extent.halfWidth / aspect);
+    const half = fitHalf(extent);
     camera.left = -half * aspect;
     camera.right = half * aspect;
     camera.top = half;
     camera.bottom = -half;
     camera.updateProjectionMatrix();
   };
+
+  // The wheel never zooms on its own (it would stop the page under the cursor): Ctrl + wheel and a pinch do. It is
+  // registered BEFORE the controls: an older Safari runs the listeners of one target in the order they were added,
+  // and the controls would zoom first.
+  const onWheel = (event: WheelEvent) => {
+    endIntro();
+    if (!event.ctrlKey && !event.metaKey) event.stopImmediatePropagation();
+  };
+  stage.canvas.addEventListener("wheel", onWheel, { capture: true, passive: true });
 
   let controls: OrbitControls | null = null;
   if (!props.mini) {
@@ -267,6 +295,73 @@ export function create(stage: Stage, initial: HallSceneProps, run: StageRun): St
     blocks = [];
     floors = [];
     byId = new Map();
+  };
+
+  // --- the frame of the home view -------------------------------------------------
+  /** The floor being drawn (map pixels) and how far the camera stands from its middle. */
+  const plan = { width: 1, depth: 1, radius: 1, headroom: 0 };
+  /** The middle of the framed part of the floor and its reach: the ring of an hour goes out from here. */
+  const framed = { x: 0, z: 0, reach: 1 };
+  /** Which stands the home view was fitted to. */
+  let frameKey = "";
+  /** What it takes to see the whole floor (the zoom of the controls may go out that far). */
+  let wholeView = { halfWidth: 1, halfHeight: 1 };
+  const viewDirection: [number, number, number] = [VIEW.x, VIEW.y, VIEW.z];
+  const axes = viewAxes(viewDirection);
+  const rightAxis = new THREE.Vector3(...axes.right);
+  const upAxis = new THREE.Vector3(...axes.up);
+
+  /** The stands the home view is fitted to: all of the series (a replay never grows out of the frame), else those with a value. */
+  const framedStands = (from: HallSceneProps) =>
+    (from.series ? from.series.stands.map((stand) => stand.locationId) : from.floor.blocks.filter((block) => block.value > 0).map((block) => block.locationId))
+      .filter((id) => byId.has(id))
+      .sort();
+
+  const atHome = () => !controls || (camera.position.distanceTo(home.position) < plan.width * 1e-3 && controls.target.distanceTo(home.target) < plan.width * 1e-3 && Math.abs(camera.zoom - 1) < 1e-3);
+
+  /** How far the controls may zoom out: far enough to see the whole floor, never less than before the frame. */
+  const limitZoom = () => {
+    if (controls) controls.minZoom = Math.min(0.6, fitHalf(extent) / fitHalf(wholeView));
+  };
+
+  /**
+   * Fits the home view (what the intro ends on and „Vrati pogled“ returns to) to the stands that have something to
+   * show. `follow`: the camera goes there too (the hall was just built). Otherwise it goes only if it is still at
+   * home; a camera someone has orbited keeps its place and its scale on the screen, and only „Vrati pogled“ changes.
+   */
+  const setFrame = (follow: boolean) => {
+    const ids = framedStands(props);
+    frameKey = ids.join("|");
+    const rect = frameRect(plan, ids.flatMap((id) => (byId.has(id) ? [byId.get(id)!.rect] : [])));
+    const look: [number, number] = [plan.width / 2, plan.depth / 2];
+    const seen = projectBox(rect, plan.headroom, viewDirection, look);
+    const all = projectBox({ minX: 0, minZ: 0, maxX: plan.width, maxZ: plan.depth }, plan.headroom, viewDirection, look);
+    const before = fitHalf(extent);
+    const moves = follow || intro === "full" || atHome();
+    extent = { halfWidth: seen.halfWidth * 1.06, halfHeight: seen.halfHeight * 1.08 };
+    wholeView = { halfWidth: all.halfWidth * 1.06, halfHeight: all.halfHeight * 1.08 };
+    home.target.set(look[0], 0, look[1]).addScaledVector(rightAxis, seen.shiftRight).addScaledVector(upAxis, seen.shiftUp);
+    home.position.copy(home.target).addScaledVector(VIEW, plan.radius * 3);
+    framed.x = (rect.minX + rect.maxX) / 2;
+    framed.z = (rect.minZ + rect.maxZ) / 2;
+    framed.reach = Math.max(1, Math.hypot(rect.maxX - rect.minX, rect.maxZ - rect.minZ) / 2);
+    if (moves) {
+      camera.position.copy(home.position);
+      camera.zoom = 1;
+      camera.lookAt(home.target);
+    } else camera.zoom *= fitHalf(extent) / before;
+    fit();
+    if (controls) {
+      limitZoom();
+      if (moves) {
+        controls.target.copy(home.target);
+        controls.update();
+      }
+      controls.target0.copy(home.target);
+      controls.position0.copy(home.position);
+      controls.zoom0 = 1;
+    }
+    if (intro === "full") placeIntroCamera();
   };
 
   const build = (floor: HeatScene) => {
@@ -332,6 +427,7 @@ export function create(stage: Stage, initial: HallSceneProps, run: StageRun): St
         rimMaterial,
         center: [block.center[0], block.center[1]],
         spread: [(Math.max(...xs) - Math.min(...xs)) / 2, (Math.max(...ys) - Math.min(...ys)) / 2],
+        rect: { minX: Math.min(...xs), minZ: Math.min(...ys), maxX: Math.max(...xs), maxZ: Math.max(...ys) },
         order: 0,
         turn: 0,
         shown: { height: 0, level: 0, beam: 0 },
@@ -343,31 +439,15 @@ export function create(stage: Stage, initial: HallSceneProps, run: StageRun): St
     }
     byId = new Map(blocks.map((block) => [block.id, block]));
 
-    // Isometric, no rotation of its own: the whole floor with its tallest column and the light above it fills the view.
-    const center = new THREE.Vector3(floor.width / 2, 0, floor.depth / 2);
-    const radius = Math.max(1, Math.hypot(floor.width, floor.depth) / 2);
-    camera.position.copy(center).addScaledVector(VIEW, radius * 3);
-    camera.near = radius * 0.1;
-    camera.far = radius * 8;
-    camera.zoom = 1;
-    camera.lookAt(center);
-    camera.updateMatrixWorld(true);
-    const seen = new THREE.Box3();
-    const corner = new THREE.Vector3();
-    const headroom = tallest + floor.width * HALL_PARTICLES.rise * 0.6;
-    for (const x of [0, floor.width]) for (const y of [0, headroom]) for (const z of [0, floor.depth]) seen.expandByPoint(corner.set(x, y, z).applyMatrix4(camera.matrixWorldInverse));
-    extent = { halfWidth: ((seen.max.x - seen.min.x) / 2) * 1.06, halfHeight: ((seen.max.y - seen.min.y) / 2) * 1.08 };
-    const shift = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0).multiplyScalar((seen.min.x + seen.max.x) / 2)
-      .add(new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 1).multiplyScalar((seen.min.y + seen.max.y) / 2));
-    camera.position.add(shift);
-    home.position.copy(camera.position);
-    home.target.copy(center).add(shift);
-    fit();
-    if (controls) {
-      controls.target.copy(home.target);
-      controls.update();
-      controls.saveState();
-    }
+    // Isometric, no rotation of its own. The camera looks at the middle of the floor from far enough that every
+    // corner is between its planes; what it frames is decided by `setFrame`.
+    plan.width = floor.width;
+    plan.depth = floor.depth;
+    plan.radius = Math.max(1, Math.hypot(floor.width, floor.depth) / 2);
+    plan.headroom = tallest + floor.width * HALL_PARTICLES.rise * 0.3;
+    camera.near = plan.radius * 0.1;
+    camera.far = plan.radius * 8;
+    setFrame(true);
     // The order of the intro: the stands nearest to the camera rise first.
     const toward = new THREE.Vector3().subVectors(home.position, home.target).normalize();
     [...blocks]
@@ -411,6 +491,19 @@ export function create(stage: Stage, initial: HallSceneProps, run: StageRun): St
     return { mesh, material, block: null, age: 0 };
   });
 
+  // The ring of a whole hour: a thin ring over the floor (its width grows with it), two pooled meshes, nothing allocated per hour.
+  const hourGeometry = stage.track(new THREE.RingGeometry(0.975, 1, 96));
+  hourGeometry.rotateX(-Math.PI / 2);
+  const hourRings: HourRing[] = Array.from({ length: HOUR_RINGS }, () => {
+    const material = stage.track(new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide }));
+    const mesh = new THREE.Mesh(hourGeometry, material);
+    mesh.visible = false;
+    mesh.renderOrder = 6;
+    scene.add(mesh);
+    return { mesh, material, active: false, age: 0 };
+  });
+  let hourCount = 0;
+
   const particles = createParticles(stage, { max: 600, ambient: true });
   const composer = createComposer(stage, camera);
 
@@ -423,7 +516,7 @@ export function create(stage: Stage, initial: HallSceneProps, run: StageRun): St
     beamMaterial.uniforms.uGain.value = additive ? (composer.bloom ? 2.2 : RIM_GAIN_PLAIN) : 1;
     beamMaterial.uniforms.uOpacity.value = additive ? 0.9 : 0.8;
     beamMaterial.needsUpdate = true;
-    for (const ring of rings) {
+    for (const ring of [...rings, ...hourRings]) {
       ring.material.blending = additive ? THREE.AdditiveBlending : THREE.NormalBlending;
       ring.material.color.copy(palette.energy).multiplyScalar(additive && composer.bloom ? 2.4 : 1);
       ring.material.needsUpdate = true;
@@ -494,14 +587,20 @@ export function create(stage: Stage, initial: HallSceneProps, run: StageRun): St
   let lastMoment: number | null | undefined;
   let lastHour = -1;
   let flash = 0;
-  let replay: ReadonlyMap<string, number> = new Map();
+  let replay: ReadonlyMap<string, number> = NO_RATES;
+  /** The stands of a series by location: built once per series, not on every frame of a replay. */
+  let standIndex: { series: HallSeries; byLocation: ReadonlyMap<string, HallStand> } | null = null;
+  const standsOf = (series: HallSeries) => {
+    if (standIndex?.series !== series) standIndex = { series, byLocation: new Map(series.stands.map((stand) => [stand.locationId, stand])) };
+    return standIndex.byLocation;
+  };
 
   /** Where every column is going: the live picture of the floor, or the moment of the day. */
   const aim = (moment: number | null) => {
     const series = props.series;
-    const standOf = series ? new Map(series.stands.map((stand) => [stand.locationId, stand])) : null;
+    const standOf = series ? standsOf(series) : null;
     if (moment === null || !series) {
-      replay = new Map();
+      replay = NO_RATES;
       for (const item of props.floor.blocks) {
         const block = byId.get(item.locationId);
         if (!block) continue;
@@ -533,7 +632,12 @@ export function create(stage: Stage, initial: HallSceneProps, run: StageRun): St
     : createPicker(stage, {
         camera,
         targets: () => blocks.map((block) => block.mesh),
-        idOf: (hits) => (hits[0]?.object.userData.locationId as string | undefined) ?? NO_STAND,
+        // A flat tile (a stand without a scan, height 0) is no stand: the ray goes on to a column behind it, and with
+        // none behind it the click is a click beside every stand — it closes the picked one, as the floor does.
+        idOf: (hits) => {
+          const hit = hits.find((item) => (byId.get(item.object.userData.locationId as string)?.to.height ?? 0) > 0);
+          return (hit?.object.userData.locationId as string | undefined) ?? NO_STAND;
+        },
         onHover: (id) => {
           stage.canvas.style.cursor = id && id !== NO_STAND ? "pointer" : "grab";
           paintEdges();
@@ -603,12 +707,6 @@ export function create(stage: Stage, initial: HallSceneProps, run: StageRun): St
     labelsDirty = true;
     stage.invalidate();
   };
-  // The wheel never zooms on its own (it would stop the page under the cursor): Ctrl + wheel and a pinch do.
-  const onWheel = (event: WheelEvent) => {
-    endIntro();
-    if (!event.ctrlKey && !event.metaKey) event.stopImmediatePropagation();
-  };
-  stage.canvas.addEventListener("wheel", onWheel, { capture: true, passive: true });
   if (intro !== "none") {
     // Any input skips it: the press that skips it already turns the hall.
     stage.canvas.addEventListener("pointerdown", endIntro, true);
@@ -659,14 +757,30 @@ export function create(stage: Stage, initial: HallSceneProps, run: StageRun): St
   // --- bursts ---------------------------------------------------------------------------------------
   const topOf = (block: Block, into: THREE.Vector3) => into.set(block.center[0], worldHeight(block.shown.height), block.center[1]);
   const rise = () => (props.floor.width * HALL_PARTICLES.rise) / HALL_PARTICLES.lifeS;
-  const spark = (block: Block, delay: number) => ({
-    position: topOf(block, new THREE.Vector3()).add(new THREE.Vector3((Math.random() - 0.5) * block.spread[0], 0, (Math.random() - 0.5) * block.spread[1])),
-    velocity: new THREE.Vector3(0, rise() * (0.8 + 0.4 * Math.random()), 0),
+  // The specs of the particles are reused: `emit` copies them into its buffers as it takes them, and keeps nothing.
+  const sparkPool: Spark[] = Array.from({ length: Math.max(HALL_PARTICLES.perStandMax, HALL_PARTICLES.burstMax) }, () => ({
+    position: new THREE.Vector3(),
+    velocity: new THREE.Vector3(),
     life: HALL_PARTICLES.lifeS,
     size: 7,
     color: palette.spark,
-    delay,
-  });
+    delay: 0,
+  }));
+  const sparkBatch: Spark[] = [];
+  /** Sends `count` particles up from the top of a stand; `delays` (seconds from now) default to all at once. */
+  const sendSparks = (block: Block, count: number, delays?: readonly number[]) => {
+    sparkBatch.length = 0;
+    for (let index = 0; index < Math.min(count, sparkPool.length); index += 1) {
+      const spec = sparkPool[index];
+      topOf(block, spec.position);
+      spec.position.x += (Math.random() - 0.5) * block.spread[0];
+      spec.position.z += (Math.random() - 0.5) * block.spread[1];
+      spec.velocity.set(0, rise() * (0.8 + 0.4 * Math.random()), 0);
+      spec.delay = delays?.[index] ?? 0;
+      sparkBatch.push(spec);
+    }
+    particles.emit(sparkBatch);
+  };
   let bursts = 0;
   const burst = (impulses: readonly HallImpulse[]) => {
     if (!motion) return;
@@ -674,13 +788,22 @@ export function create(stage: Stage, initial: HallSceneProps, run: StageRun): St
     for (const impulse of impulses) {
       const block = byId.get(impulse.locationId);
       if (!block) continue;
-      particles.emit(impulseDelays(impulse.count).map((delay) => spark(block, delay)));
+      const delays = impulseDelays(impulse.count);
+      sendSparks(block, delays.length, delays);
       block.ring = 1;
       const ring = rings.find((item) => !item.block) ?? rings.reduce((oldest, item) => (item.age > oldest.age ? item : oldest));
       ring.block = block;
       ring.age = 0;
     }
     stage.invalidate();
+  };
+
+  /** The replay crossed a whole hour: a ring goes out over the floor from the middle of the framed stands. */
+  const startHourRing = () => {
+    const ring = hourRings.find((item) => !item.active) ?? hourRings.reduce((oldest, item) => (item.age > oldest.age ? item : oldest));
+    ring.active = true;
+    ring.age = 0;
+    hourCount += 1;
   };
 
   // --- a frame ------------------------------------------------------------------------------------------
@@ -712,7 +835,10 @@ export function create(stage: Stage, initial: HallSceneProps, run: StageRun): St
     if (moment !== lastMoment || playing) {
       if (playing && moment !== null) {
         const hour = Math.floor(moment);
-        if (hour !== lastHour && lastHour >= 0 && motion) flash = 1;
+        if (hour !== lastHour && lastHour >= 0 && motion) {
+          flash = 1;
+          startHourRing();
+        }
         lastHour = hour;
       } else lastHour = -1;
       lastMoment = moment;
@@ -732,7 +858,7 @@ export function create(stage: Stage, initial: HallSceneProps, run: StageRun): St
       const { shown, to } = block;
       // A replay is the motion itself; a jump of the slider or a poll settles inside the interaction layer.
       const direct = !motion || playing;
-      for (const key of ["height", "level", "beam"] as const) {
+      for (const key of SHOWN_KEYS) {
         if (shown[key] === to[key]) continue;
         shown[key] = direct ? to[key] : approach(shown[key], to[key], delta, HALL_MOTION.settle);
         if (Math.abs(shown[key] - to[key]) < 0.002) shown[key] = to[key];
@@ -769,7 +895,7 @@ export function create(stage: Stage, initial: HallSceneProps, run: StageRun): St
         if (rate > 0) {
           const next = emitCount(rate, block.carry, delta);
           block.carry = next.carry;
-          if (next.count > 0) particles.emit(Array.from({ length: next.count }, () => spark(block, 0)));
+          if (next.count > 0) sendSparks(block, next.count);
         }
       }
     }
@@ -795,6 +921,24 @@ export function create(stage: Stage, initial: HallSceneProps, run: StageRun): St
       moving = true;
     }
 
+    for (const ring of hourRings) {
+      if (!ring.active) continue;
+      ring.age += delta;
+      const at = hourRingAt(ring.age);
+      if (!at) {
+        ring.active = false;
+        ring.mesh.visible = false;
+        continue;
+      }
+      // It grows past the frame, so the whole picture is swept; a hair above the flat tiles of the empty stands.
+      const radius = Math.max(tile, framed.reach * 1.2 * at.reach);
+      ring.mesh.position.set(framed.x, tile * 2, framed.z);
+      ring.mesh.scale.set(radius, 1, radius);
+      ring.material.opacity = dark() ? at.additive : at.painted;
+      ring.mesh.visible = true;
+      moving = true;
+    }
+
     if (labelsDirty) placeLabels();
     if (DEV) {
       // What the frames script of the step reads (dev only).
@@ -803,6 +947,10 @@ export function create(stage: Stage, initial: HallSceneProps, run: StageRun): St
       state.hallMoment = moment === null ? "live" : moment.toFixed(3);
       state.hallParticles = String(particles.alive());
       state.hallBursts = String(bursts);
+      state.hallHours = String(hourCount);
+      state.hallFrame = frameKey;
+      state.hallCamera = camera.position.toArray().map((value) => value.toFixed(1)).join(",");
+      state.hallView = `${(camera.right - camera.left).toFixed(1)}x${(camera.top - camera.bottom).toFixed(1)}`;
       state.hallZoom = camera.zoom.toFixed(3);
       state.hallHeight = Math.max(0, ...blocks.map((block) => (block.shown.height > 0 ? block.shown.height * grown(block) : 0))).toFixed(3);
       const up = blocks.filter((block) => block.shown.height > 0);
@@ -817,6 +965,7 @@ export function create(stage: Stage, initial: HallSceneProps, run: StageRun): St
 
   const offResize = stage.onResize(() => {
     fit();
+    limitZoom();
     labelSizes.clear();
     labelsDirty = true;
   });
@@ -839,7 +988,7 @@ export function create(stage: Stage, initial: HallSceneProps, run: StageRun): St
     particles.dispose();
     composer.dispose();
     clear();
-    scene.remove(root, beams, ...rings.map((ring) => ring.mesh));
+    scene.remove(root, beams, ...rings.map((ring) => ring.mesh), ...hourRings.map((ring) => ring.mesh));
     stage.canvas.style.cursor = "";
   };
 
@@ -877,6 +1026,11 @@ export function create(stage: Stage, initial: HallSceneProps, run: StageRun): St
         }
         if (introAt >= 0) takeTurns();
         lastMoment = undefined;
+      } else if ((next.floor !== previous.floor || next.series !== previous.series) && framedStands(next).join("|") !== frameKey) {
+        // The stands with something to show changed (the first scan of a stand, a day with another set, the measure
+        // of the map): the home view is fitted again; a camera that someone has orbited stays where it is.
+        setFrame(false);
+        labelsDirty = true;
       }
       if (next.floor !== previous.floor || next.series !== previous.series || next.ambient !== previous.ambient || next.player !== previous.player) {
         lastMoment = undefined;

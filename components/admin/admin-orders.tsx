@@ -564,8 +564,8 @@ function previewRow(index: number, overrides: Partial<OrderRow>): OrderRow {
     fulfillmentState: "ready_for_printer",
     view: "active",
     priority: "normal",
-    assigneeId: `preview-admin-${index % 2 ? "jovan" : "teodora"}` as Id<"users">,
-    assigneeName: index % 2 ? "Jovan" : "Teodora",
+    assigneeId: `preview-admin-${index % 2 ? "b" : "a"}` as Id<"users">,
+    assigneeName: index % 2 ? "TEST Operater B" : "TEST Operater A",
     requiredMinor: 240000,
     settledMinor: 240000,
     lineCount: 1,
@@ -586,8 +586,8 @@ const previewRows: OrderRow[] = [
   previewRow(4, { accountName: "Bistro Most", smkCode: "SMK-MOS-001", fulfillmentState: "delivered", view: "completed" }),
 ];
 const previewAdmins: AdminOption[] = [
-  { id: "preview-admin-teodora" as Id<"users">, name: "Teodora", email: "teodora@example.invalid" },
-  { id: "preview-admin-jovan" as Id<"users">, name: "Jovan", email: "jovan@example.invalid" },
+  { id: "preview-admin-a" as Id<"users">, name: "TEST Operater A", email: "test-operater-a@example.invalid" },
+  { id: "preview-admin-b" as Id<"users">, name: "TEST Operater B", email: "test-operater-b@example.invalid" },
 ];
 const previewSidebar = ordersSidebarLive(previewAdmins);
 
@@ -616,7 +616,7 @@ function previewDetail(row: OrderRow): DetailView {
     delivered: row.fulfillmentState === "delivered" ? row.unitCount : 0,
   };
   return {
-    operation: { ...row, reversedMinor: 0, createdByName: "Teodora", note: row.problemCount ? dict.previewProblemNote : dict.previewStandardNote },
+    operation: { ...row, reversedMinor: 0, createdByName: "TEST Operater A", note: row.problemCount ? dict.previewProblemNote : dict.previewStandardNote },
     lines: [line],
     provisioningCount: row.provisioningReady ? 1 : 0,
     printJobs: [] as LiveDetail["printJobs"],

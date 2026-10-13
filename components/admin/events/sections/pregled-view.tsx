@@ -2,7 +2,7 @@
 
 import { ArrowRight, Building2, Car, CheckCircle2, FileText, Inbox, MessagesSquare, QrCode, Sparkles, type LucideIcon } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useId, useMemo, type ReactNode } from "react";
+import { useEffect, useId, useMemo, useRef, type ReactNode } from "react";
 import { AdminPanel, AdminStatus } from "@/components/admin/admin-primitives";
 import { ADMIN_URGENCY_ICONS, AdminKpiRow, AdminUrgencyBadge, adminSecondaryButtonClass, type AdminKpi } from "@/components/admin/admin-ui";
 import { AdminMissionSummary } from "@/components/admin/admin-ui/admin-missions";
@@ -408,7 +408,7 @@ function challengeInput(dashboard: EventDashboardData, now: number, hours: FairC
   };
 }
 
-export function EventDashboardView({ dashboard, now, base, keep = {}, hall, hours = null }: {
+export function EventDashboardView({ dashboard, now, base, keep = {}, hall, hours = null, eventKey = base, onBlockView }: {
   dashboard: EventDashboardData;
   /** Browser time (minute) for the countdown; at least the query's `at`. */
   now: number;
@@ -420,6 +420,10 @@ export function EventDashboardView({ dashboard, now, base, keep = {}, hall, hour
   hall?: ReactNode;
   /** V4 — scans per fair day and hour (the analytics of the event) for the daily challenges; null while that read is not in. */
   hours?: FairChallengeInput["hours"];
+  /** V5 — the stable key of the event for the game (its code); the base when the page has none (the preview). */
+  eventKey?: string;
+  /** V5 — told when the block „challenges + hall“ enters or leaves the screen (the section reads the hours only then). */
+  onBlockView?: (inView: boolean) => void;
 }) {
   const kpiId = useId();
   const cardsId = useId();
@@ -439,12 +443,23 @@ export function EventDashboardView({ dashboard, now, base, keep = {}, hall, hour
     const input = challengeInput(dashboard, Math.max(now, dashboard.at), hours);
     return input ? fairChallenges(input) : [];
   }, [dashboard, now, hours]);
-  // The fair badges are facts of the event: the map all lit before the opening, the first lead.
+  // The fair badges are facts of the event: the map all lit before the opening, the first lead. Both are told
+  // as booleans (false is a known state, so a later true is news) with the event and whether its fair is over.
   const ready = dashboard.phase.kind === "pre" && fairReady(nodes);
   const firstLead = (dashboard.kpis.leads?.total ?? 0) > 0;
+  const ended = dashboard.phase.kind === "posle";
   useEffect(() => {
-    if (ready || firstLead) game.reportFair({ ...(ready ? { ready } : {}), ...(firstLead ? { firstLead } : {}) });
-  }, [game, ready, firstLead]);
+    game.reportFair({ event: eventKey, ended, facts: { ready, firstLead } });
+  }, [game, eventKey, ended, ready, firstLead]);
+  // The block „challenges + hall“ is watched so that the hours it needs are read only while it is on the screen.
+  const hasBlock = challenges.length > 0 || hall !== undefined;
+  const block = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!hasBlock || !onBlockView || !block.current) return;
+    const watcher = new IntersectionObserver((entries) => onBlockView(entries.some((entry) => entry.isIntersecting)));
+    watcher.observe(block.current);
+    return () => watcher.disconnect();
+  }, [hasBlock, onBlockView]);
   const todo = <Todo dashboard={dashboard} now={Math.max(now, dashboard.at)} scope={`event:${base}:${dashboard.phase.kind}:${dashboard.phase.dayIndex ?? 0}:${dashboard.phase.dayOpen ? "otvoren" : "zatvoren"}`} actionHref={(action) => dashboardActionHref(base, action, keep)} />;
   return (
     <div className="grid min-w-0 gap-5">
@@ -455,8 +470,13 @@ export function EventDashboardView({ dashboard, now, base, keep = {}, hall, hour
         <div className="grid min-w-0 content-start gap-5">
           {todo}
           <FairChain nodes={nodes} />
-          <FairChallenges items={challenges} />
-          {hall}
+          {/* The watched block has the same gap as the column and exists only when it has content (no extra gap). */}
+          {hasBlock ? (
+            <div ref={block} data-pregled-live-block="" className="grid min-w-0 gap-5">
+              <FairChallenges items={challenges} />
+              {hall}
+            </div>
+          ) : null}
         </div>
         <div className="grid min-w-0 gap-5">
           <section aria-labelledby={kpiId} className="grid min-w-0 gap-2">

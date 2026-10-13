@@ -93,7 +93,13 @@ export function TimelapseControls({ days, dateKey, onDay, hours, end, t, clock, 
                   <span aria-hidden="true" className="size-2 flex-none rounded-full bg-[var(--admin-success)]" />
                   {v.live}
                 </span>
-              ) : null}
+              ) : (
+                // The mark keeps its width while a moment is shown, so the clock does not slide on a click.
+                <span data-timelapse-hold="" aria-hidden="true" className="invisible inline-flex items-center gap-1.5 text-xs font-semibold">
+                  <span className="size-2 flex-none" />
+                  {v.live}
+                </span>
+              )}
             </div>
             <div className="flex w-full gap-2 @2xl:order-3 @2xl:w-auto">
               <button

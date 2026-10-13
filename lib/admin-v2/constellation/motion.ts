@@ -1,4 +1,5 @@
-import { ORBIT_RADIUS } from "./geometry";
+import { ADMIN_STAGE_MOTION } from "@/lib/admin-v2/motion";
+import { CORE_RADIUS, ORBIT_RADIUS } from "./geometry";
 
 // ADMIN v3 V2 — the motion of the Constellation as numbers and pure curves, so
 // the limits are tested without a canvas. Seconds. The intro of the scene is
@@ -8,8 +9,14 @@ import { ORBIT_RADIUS } from "./geometry";
 // motion and in the quiet mode.
 
 export const CONSTELLATION_MOTION = {
-  /** The full entrance: the core lights up, the orbits and the backlog ring are drawn, the stars come out from the inner orbit. */
-  intro: { core: [0, 0.3], orbits: [0.2, 0.6], stars: [0.4, 0.9], star: 0.26, total: 0.9 },
+  /**
+   * The full entrance („Skener pali“): the scene starts in the shade of the 2D picture (everything in place at
+   * `ADMIN_STAGE_MOTION.shade`), then lights up once. `core`: the core ignites. `front`: the front leaves the core
+   * and reaches the outer orbit; whatever it passes (an orbit, a star, the backlog ring, the belt) rises from the
+   * shade to full within `rise`. `pop`: the disc of a star (not its halo, which would widen the lit area) peaks this much over its size on the way. The last thing
+   * on the outer orbit ends exactly with `total`.
+   */
+  intro: { core: [0, 0.3], front: [0.06, 0.62], rise: 0.28, pop: 0.08, total: 0.9 },
   /** A resolved item: a spiral out to the calm orbit, a third of a turn, with a trail. */
   resolved: { duration: 0.9, turn: (2 * Math.PI) / 3, trail: 24, trailLife: 0.6, fadeFrom: 0.72 },
   /** A new item falls into its orbit from outside the system. */
@@ -45,16 +52,37 @@ export const backOut = (t: number, overshoot = 1.70158) => {
 /** Progress 0–1 of a part of the intro that runs in `[from, to]` seconds. */
 export const windowProgress = (elapsed: number, [from, to]: readonly [number, number]) => clamp01((elapsed - from) / (to - from));
 
-/**
- * When a star comes out in the intro (seconds from its start): the inner orbit first, the outer one
- * last, each star for `intro.star`; the last one ends exactly with the intro.
- */
-export function introStarStart(orbitRadius: number): number {
-  const { stars, star } = CONSTELLATION_MOTION.intro;
-  const inner = ORBIT_RADIUS[1];
-  const outer = ORBIT_RADIUS[4];
-  const share = clamp01((orbitRadius - inner) / (outer - inner));
-  return stars[0] + share * (stars[1] - stars[0] - star);
+/** The strength (opacity, gain) of everything in the 2D shade: the scene starts here and only rises. */
+export const INTRO_SHADE = ADMIN_STAGE_MOTION.shade;
+
+/** When the front of the intro passes a radius (seconds from its start): from the core out to the outer orbit. */
+export function introFrontTime(radius: number): number {
+  const { front } = CONSTELLATION_MOTION.intro;
+  const share = clamp01((radius - CORE_RADIUS) / (ORBIT_RADIUS[4] - CORE_RADIUS));
+  return front[0] + share * (front[1] - front[0]);
+}
+
+/** How far a thing at `radius` has risen at `elapsed` (0 = before the front, 1 = lit). Never falls. */
+export function introRise(elapsed: number, radius: number): number {
+  const { rise } = CONSTELLATION_MOTION.intro;
+  return powerOut((elapsed - introFrontTime(radius)) / rise);
+}
+
+/** The strength of a thing at `radius`: from the shade to 1, once, as the front passes it. */
+export function introStrength(elapsed: number, radius: number): number {
+  return INTRO_SHADE + (1 - INTRO_SHADE) * introRise(elapsed, radius);
+}
+
+/** The size of a star at `radius` as a multiple of its own: a small pop while it lights up, never below 1. */
+export function introStarScale(elapsed: number, radius: number): number {
+  const { rise, pop } = CONSTELLATION_MOTION.intro;
+  const k = clamp01((elapsed - introFrontTime(radius)) / rise);
+  return 1 + pop * Math.sin(Math.PI * k);
+}
+
+/** The light of the core: from the shade to full over `intro.core`. */
+export function introCore(elapsed: number): number {
+  return INTRO_SHADE + (1 - INTRO_SHADE) * powerOut(windowProgress(elapsed, CONSTELLATION_MOTION.intro.core));
 }
 
 /**

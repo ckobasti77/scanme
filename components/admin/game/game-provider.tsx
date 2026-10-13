@@ -120,7 +120,7 @@ export function GameProvider({ mode, fixture, children }: { mode: "live" | "prev
       // Until the game runs (nobody signed in, the journal not read yet) a record is the v2 toast: it is never lost.
       celebrate: (record) => (store.live() ? store.dispatch({ type: "record", ...record }) : void pushAdminToast(record)),
       // Told before the game started (a hard reload of an event page), the store keeps it for the start.
-      reportFair: (fair) => store.dispatch({ type: "fair", fair }),
+      reportFair: ({ event, ended, facts }) => store.dispatch({ type: "fair", event, ended, fair: facts }),
       aim: (point) => {
         aimed.current = point ? { point, at: Date.now() } : null;
       },
@@ -162,7 +162,9 @@ function GameLive({ store }: { store: GameStore }) {
   const convex = useConvex();
   const internal = useGameInternal();
   const me = useQuery(api.adminCommunications.me);
-  const admins = useQuery(api.adminTasks.listAdmins);
+  // The table of the team is on a screen while at least one watcher exists; only then the list of admins is read.
+  const wanted = useSyncExternalStore(internal?.teamWatchers.subscribe ?? neverChanges, internal?.teamWatchers.get ?? noWatchers, noWatchers) > 0;
+  const admins = useQuery(api.adminTasks.listAdmins, wanted ? {} : "skip");
   const minute = useMinuteNow();
   const actorKey = me ? actorKeyOf(me.id) : null;
   const head = useQuery(api.adminActivity.list, actorKey ? { actorKey, paginationOpts: { numItems: XP_PAGE_SIZE, cursor: null } } : "skip");
@@ -229,7 +231,6 @@ function GameLive({ store }: { store: GameStore }) {
 
   // The table of the team: its journals are read only while it is on a screen, when it appears and then every
   // five minutes while the tab is visible (and when the tab comes back after longer than that).
-  const wanted = useSyncExternalStore(internal?.teamWatchers.subscribe ?? neverChanges, internal?.teamWatchers.get ?? noWatchers, noWatchers) > 0;
   const team = useRef<{ members: TeamMember[]; journals: Record<string, TeamJournal>; at: number } | null>(null);
   useEffect(() => {
     if (!wanted || !ready || !admins) return;

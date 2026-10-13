@@ -118,11 +118,13 @@ export function ChartLegend({ items, label }: { items: readonly LegendItem[]; la
 }
 
 /** A switch of one chart (period, 2D | 3D): the same radiogroup as `Tabela | Kartice`, arrows move the choice. */
-export function ChartSegmented<T extends string>({ value, options, onChange, label }: {
+export function ChartSegmented<T extends string>({ value, options, onChange, label, disabled = false }: {
   value: T;
   options: ReadonlyArray<{ value: T; label: string }>;
   onChange: (value: T) => void;
   label: string;
+  /** The choice does not apply right now: it stays where it is (its name, its place), dimmed, and cannot be focused or pressed. */
+  disabled?: boolean;
 }) {
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
   const onKeyDown = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
@@ -133,7 +135,7 @@ export function ChartSegmented<T extends string>({ value, options, onChange, lab
     refs.current[next]?.focus();
   };
   return (
-    <div role="radiogroup" aria-label={label} className="inline-flex shrink-0 items-center gap-0.5 rounded-full border border-[var(--admin-border)] bg-[var(--admin-surface-strong)] p-0.5">
+    <div role="radiogroup" aria-label={label} aria-disabled={disabled || undefined} className={cn("inline-flex shrink-0 items-center gap-0.5 rounded-full border border-[var(--admin-border)] bg-[var(--admin-surface-strong)] p-0.5", disabled && "opacity-50")}>
       {options.map((option, index) => {
         const checked = option.value === value;
         return (
@@ -145,14 +147,15 @@ export function ChartSegmented<T extends string>({ value, options, onChange, lab
             type="button"
             role="radio"
             aria-checked={checked}
+            disabled={disabled}
             tabIndex={checked ? 0 : -1}
             data-value={option.value}
             onClick={() => onChange(option.value)}
             onKeyDown={(event) => onKeyDown(event, index)}
             className={cn(
-              "inline-flex min-h-11 items-center rounded-full px-3 text-xs font-semibold whitespace-nowrap transition-colors motion-reduce:transition-none lg:min-h-8",
+              "inline-flex min-h-11 items-center rounded-full px-3 text-xs font-semibold whitespace-nowrap transition-colors motion-reduce:transition-none lg:min-h-8 disabled:cursor-not-allowed",
               chartFocusRing,
-              checked ? adminSegmentOnClass : "text-[var(--admin-text-muted)] hover:bg-[var(--admin-surface-muted)] hover:text-[var(--admin-text)]",
+              checked ? adminSegmentOnClass : cn("text-[var(--admin-text-muted)]", !disabled && "hover:bg-[var(--admin-surface-muted)] hover:text-[var(--admin-text)]"),
             )}
           >
             {option.label}

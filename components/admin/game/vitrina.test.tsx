@@ -165,9 +165,12 @@ describe("Medal2D", () => {
     }
   });
 
-  test("the material is read in the face: flat, linear, conic, conic with a ring", () => {
+  test("the material is read in the face: matte, linear, conic, conic with a ring", () => {
     const face = (rarity: (typeof RARITIES)[number]) => renderToStaticMarkup(<Medal2D art={art} rarity={rarity} />);
-    expect(face("obicna")).not.toContain("gradient");
+    // V5 (RV move 5): the common face is no longer a flat fill but a faint matte gradient, so it has depth on
+    // a light surface; it is still the plainest of the four (no metal, no hologram).
+    expect(face("obicna")).toContain("linear-gradient");
+    expect(face("obicna")).not.toContain("conic-gradient");
     expect(face("retka")).toContain("linear-gradient");
     expect(face("retka")).not.toContain("conic-gradient");
     expect(face("epska")).toContain("conic-gradient");

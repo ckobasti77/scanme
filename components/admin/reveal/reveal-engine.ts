@@ -1,6 +1,6 @@
 "use client";
 
-import { inRevealWindow, isLiveRow, type RevealMode } from "@/lib/admin-v2/reveal/gate";
+import { inRevealWindow, isLiveRow, lateReveal, type RevealMode } from "@/lib/admin-v2/reveal/gate";
 import {
   DRAW_REGISTRY,
   REVEAL_REGISTRY,
@@ -32,6 +32,11 @@ import { adminMotion } from "./gsap-plugins";
 // and is reverted when the page changes; `clearProps` leaves nothing on an
 // element. The hidden start state is set here, by JavaScript, after the gate:
 // without it nothing is ever hidden.
+// V5 (RV S1, S5): a read that arrives after the window still gets its own
+// choreography, once per place of the page (the real admin waits for its
+// queries; a filter and polling still never repeat an entrance). An error
+// anywhere in a visit ends the visit with everything in its final state, and
+// what waits below the fold is let go by a fuse and when the page is printed.
 
 type Timeline = gsap.core.Timeline;
 
@@ -96,8 +101,34 @@ export function startVisit(input: VisitInput): () => void {
   const cleanups: (() => void)[] = [];
   const context = gsap.context(() => undefined);
   const finish = () => {
-    for (const cleanup of cleanups.splice(0)) cleanup();
+    for (const cleanup of cleanups.splice(0)) {
+      try {
+        cleanup();
+      } catch {
+        // One cleanup that fails must not keep the others from running.
+      }
+    }
     context.revert();
+  };
+  /** An animation must never take the page down (ZADATAK-V3 §0): the visit ends, everything is in its final state. */
+  let failed = false;
+  const fail = () => {
+    if (failed) return;
+    failed = true;
+    try {
+      finish();
+      gsap.set(page, { clearProps: "opacity,transform" });
+    } catch {
+      // Nothing more to take back.
+    }
+  };
+  const guard = (run: () => void) => {
+    if (failed) return;
+    try {
+      run();
+    } catch {
+      fail();
+    }
   };
 
   // The old page was dimmed by the click that left it: the new one starts clean.
@@ -114,8 +145,10 @@ export function startVisit(input: VisitInput): () => void {
   const seen = new WeakSet<Element>();
   const ids = new Set<string>();
   const rowLists = new WeakSet<Element>();
-  /** Rows whose cascade may still be running, by their list. */
-  const cascades = new Map<Element, HTMLElement[]>();
+  /** Rows whose cascade may still be running, by their list, with the tweens that move them. */
+  const cascades = new Map<Element, { rows: HTMLElement[]; tweens: gsap.core.Tween[] }>();
+  /** Places of the page whose skeleton was already replaced in this visit. */
+  const regions = new WeakSet<Element>();
   const options = { mode: mode === "short" ? ("short" as const) : ("full" as const), phone };
   const budget = revealBudget(options);
   const still = mode === "none";
@@ -180,6 +213,23 @@ export function startVisit(input: VisitInput): () => void {
     return found;
   }
 
+  /** After the entrance: what arrived is only written down as seen. No layout is read and nothing enters. */
+  function note(roots: readonly Element[]): void {
+    for (const root of roots) {
+      const nodes = [...root.querySelectorAll(NODES)];
+      if (root.matches(NODES)) nodes.unshift(root);
+      for (const element of nodes) {
+        if (seen.has(element)) continue;
+        seen.add(element);
+        const id = element.getAttribute("data-admin-reveal-id");
+        if (id) ids.add(id);
+        if (element.getAttribute("data-admin-reveal") !== "rows") continue;
+        rowLists.add(element);
+        for (const child of element.children) seen.add(child);
+      }
+    }
+  }
+
   // ---------------------------------------------------------------------------
   // Write: the tweens of one node inside a timeline
   // ---------------------------------------------------------------------------
@@ -196,16 +246,19 @@ export function startVisit(input: VisitInput): () => void {
     const ghosts: HTMLElement[] = [];
     const splits: { revert(): void }[] = [];
     let done = false;
+    let watcher: MutationObserver | null = null;
     const end = () => {
       if (done) return;
       done = true;
-      watcher.disconnect();
+      watcher?.disconnect();
       for (const split of splits) split.revert();
       for (const ghost of ghosts) ghost.remove();
       for (const line of lines) line.element.style.removeProperty("visibility");
     };
+    // Known to the visit before the first line is hidden: whatever throws below, the real title comes back.
+    cleanups.push(end);
     // The real title changed while its copy was on the screen (a profile got its name): show the real one at once.
-    const watcher = new MutationObserver((records) => {
+    watcher = new MutationObserver((records) => {
       if (records.some((record) => !layer.contains(record.target))) end();
     });
     lines.forEach((line, index) => {
@@ -231,7 +284,6 @@ export function startVisit(input: VisitInput): () => void {
     });
     watcher.observe(node.element, { childList: true, characterData: true, subtree: true });
     timeline.call(end, undefined, start + Math.min(available, duration + (lines.length - 1) * ADMIN_REVEAL.titleStagger) + 0.001);
-    cleanups.push(end);
   }
 
   /** A number counts from zero: only the value of its text node changes, in the format of the final text. */
@@ -250,6 +302,9 @@ export function startVisit(input: VisitInput): () => void {
       let written = "";
       let state: "waiting" | "counting" | "over" = "waiting";
       let inline = false;
+      // A number that is a link (a KPI tile with `href`) is not hidden with its link: the link is named instead.
+      const link = target.querySelector<HTMLElement>("a[href], button");
+      let named = false;
       const reader = document.createElement("span");
       reader.className = "sr-only";
       reader.setAttribute("data-admin-reveal-ghost", "");
@@ -261,8 +316,13 @@ export function startVisit(input: VisitInput): () => void {
         inline = getComputedStyle(target).display === "inline";
         const width = target.getBoundingClientRect().width;
         reader.textContent = final;
-        target.setAttribute("aria-hidden", "true");
-        target.after(reader);
+        if (link) {
+          named = !link.hasAttribute("aria-label");
+          if (named) link.setAttribute("aria-label", final.trim());
+        } else {
+          target.setAttribute("aria-hidden", "true");
+          target.after(reader);
+        }
         target.style.minWidth = `${Math.ceil(width)}px`;
         if (inline) target.style.display = "inline-block";
         written = countFrame(final, 0);
@@ -277,7 +337,8 @@ export function startVisit(input: VisitInput): () => void {
         // Polling changed the number meanwhile: its value stays.
         if (text.nodeValue === written) text.nodeValue = final;
         reader.remove();
-        target.removeAttribute("aria-hidden");
+        if (link && named) link.removeAttribute("aria-label");
+        else if (!link) target.removeAttribute("aria-hidden");
         target.style.removeProperty("min-width");
         if (inline) target.style.removeProperty("display");
       };
@@ -370,10 +431,13 @@ export function startVisit(input: VisitInput): () => void {
       // In the entrance every row has its own place in the scan; in a group the rows follow each other.
       const fitted = fitStagger(rows.length, duration, 0.03, available);
       const slots = rows.map((_, index) => rowSlots?.[index] ?? { start: start + index * fitted.each, duration: fitted.duration });
-      cascades.set(element, rows.map((row) => row.element));
+      const tweens: gsap.core.Tween[] = [];
+      cascades.set(element, { rows: rows.map((row) => row.element), tweens });
       rows.forEach((row, index) => {
         const slot = slots[index];
-        timeline.fromTo(row.element, short ? { opacity: 0 } : { opacity: 0, y: 8 }, { opacity: 1, ...(short ? {} : { y: 0 }), duration: slot.duration, ease: ADMIN_REVEAL_EASE.out, clearProps: "opacity,transform" }, slot.start);
+        const tween = gsap.fromTo(row.element, short ? { opacity: 0 } : { opacity: 0, y: 8 }, { opacity: 1, ...(short ? {} : { y: 0 }), duration: slot.duration, ease: ADMIN_REVEAL_EASE.out, clearProps: "opacity,transform" });
+        tweens.push(tween);
+        timeline.add(tween, slot.start);
         // The medals of a ranking pop one after another with their rows.
         if (!short) for (const medal of row.element.querySelectorAll("[data-medal]")) timeline.fromTo(medal, { scale: 0.6 }, { scale: 1, duration: Math.max(0.1, slot.duration - 0.03), ease: ADMIN_REVEAL_EASE.out, clearProps: "transform" }, slot.start + 0.03);
       });
@@ -416,80 +480,96 @@ export function startVisit(input: VisitInput): () => void {
   // ---------------------------------------------------------------------------
 
   if (!still) {
-    const viewport = { width: screen.clientWidth, height: screen.clientHeight };
-    const edge = ADMIN_REVEAL.threshold * viewport.height;
-    const nodes = find([page]);
-    const above = nodes.filter((node) => node.top < edge);
-    const below = nodes.filter((node) => node.top >= edge);
-    const slots = revealSchedule(above, viewport, options);
-    context.add(() => {
-      const timeline = gsap.timeline({ onComplete: mode === "full" ? input.onFull : undefined });
-      above.forEach((node, index) => {
-        const slot = slots[index];
-        const rowSlots = node.rows ? revealSchedule(node.rows.map((row) => ({ kind: "rows" as const, top: row.top, left: row.left })), viewport, options) : undefined;
-        build(node, timeline, slot.start, slot.duration, budget - slot.start, rowSlots);
-      });
-      // The scan line: from the top of the screen to its bottom, lighting what it passes.
-      if (mode === "full" && scanLine) {
-        const scale = phone ? ADMIN_REVEAL.phone.scale : 1;
-        timeline
-          .fromTo(scanLine, { y: 0, opacity: 1 }, { y: viewport.height, duration: ADMIN_REVEAL.scan * scale, ease: "none" }, 0)
-          .to(scanLine, { opacity: 0, duration: ADMIN_REVEAL.scanFade, ease: "none", clearProps: "opacity,transform" }, ADMIN_REVEAL.scan * scale);
-      }
-      // An empty page still counts as entered.
-      if (!timeline.duration()) timeline.to({}, { duration: 0.01 });
-
-      // Below the fold: hidden now, revealed once when the screen scrolls there.
-      if (below.length) {
-        const waiting = new Map<Element, { node: Found; timeline: Timeline }>();
-        for (const node of below) {
-          const paused = gsap.timeline({ paused: true });
-          build(node, paused, 0, mode === "short" ? FADE : revealDuration(node.kind) * (phone ? ADMIN_REVEAL.phone.scale : 1), ADMIN_REVEAL.scroll);
-          waiting.set(node.element, { node, timeline: paused });
-        }
-        const play = (entries: readonly { node: Found; timeline: Timeline }[]) => {
-          const group = groupSchedule(entries.map((entry) => entry.node.kind), { phone });
-          entries.forEach((entry, index) => {
-            waiting.delete(entry.node.element);
-            const natural = entry.timeline.duration() || 1;
-            // The whole group is done within 500 ms: a long node is played faster.
-            entry.timeline.timeScale(Math.max(1, natural / Math.max(0.12, ADMIN_REVEAL.scroll - group[index].start)));
-            entry.timeline.delay(group[index].start).restart(true);
-          });
-        };
-        ScrollTrigger.batch([...waiting.keys()], {
-          scroller: screen,
-          start: `top ${Math.round(ADMIN_REVEAL.threshold * 100)}%`,
-          once: true,
-          interval: 0.08,
-          batchMax: 6,
-          onEnter: (batch) => play(batch.map((element) => waiting.get(element)).filter((entry) => entry !== undefined)),
+    guard(() => {
+      const viewport = { width: screen.clientWidth, height: screen.clientHeight };
+      const edge = ADMIN_REVEAL.threshold * viewport.height;
+      const nodes = find([page]);
+      const above = nodes.filter((node) => node.top < edge);
+      const below = nodes.filter((node) => node.top >= edge);
+      const slots = revealSchedule(above, viewport, options);
+      context.add(() => {
+        const timeline = gsap.timeline({ onComplete: mode === "full" ? input.onFull : undefined });
+        above.forEach((node, index) => {
+          const slot = slots[index];
+          const rowSlots = node.rows ? revealSchedule(node.rows.map((row) => ({ kind: "rows" as const, top: row.top, left: row.left })), viewport, options) : undefined;
+          build(node, timeline, slot.start, slot.duration, budget - slot.start, rowSlots);
         });
-        // The content never depends on the trigger: a node that is on the screen and still waits
-        // (the layout moved without a scroll) is revealed all the same.
-        if (typeof IntersectionObserver !== "undefined") {
-          const timers = new Set<ReturnType<typeof setTimeout>>();
-          const safety = new IntersectionObserver((entries) => {
-            const shown = entries.filter((entry) => entry.isIntersecting).map((entry) => entry.target);
-            if (!shown.length) return;
-            const timer = setTimeout(() => {
-              timers.delete(timer);
-              context.add(() => play(shown.map((element) => waiting.get(element)).filter((entry) => entry !== undefined)));
-            }, 400);
-            timers.add(timer);
-          }, { root: screen });
-          for (const element of waiting.keys()) safety.observe(element);
-          cleanups.push(() => {
-            safety.disconnect();
-            for (const timer of timers) clearTimeout(timer);
-          });
+        // The scan line: from the top of the screen to its bottom, lighting what it passes.
+        if (mode === "full" && scanLine) {
+          const scale = phone ? ADMIN_REVEAL.phone.scale : 1;
+          timeline
+            .fromTo(scanLine, { y: 0, opacity: 1 }, { y: viewport.height, duration: ADMIN_REVEAL.scan * scale, ease: "none" }, 0)
+            .to(scanLine, { opacity: 0, duration: ADMIN_REVEAL.scanFade, ease: "none", clearProps: "opacity,transform" }, ADMIN_REVEAL.scan * scale);
         }
-      }
+        // An empty page still counts as entered.
+        if (!timeline.duration()) timeline.to({}, { duration: 0.01 });
+
+        // Below the fold: hidden now, revealed once when the screen scrolls there.
+        if (below.length) {
+          const waiting = new Map<Element, { node: Found; timeline: Timeline }>();
+          for (const node of below) {
+            const paused = gsap.timeline({ paused: true });
+            build(node, paused, 0, mode === "short" ? FADE : revealDuration(node.kind) * (phone ? ADMIN_REVEAL.phone.scale : 1), ADMIN_REVEAL.scroll);
+            waiting.set(node.element, { node, timeline: paused });
+          }
+          const play = (entries: readonly { node: Found; timeline: Timeline }[]) => {
+            const group = groupSchedule(entries.map((entry) => entry.node.kind), { phone });
+            entries.forEach((entry, index) => {
+              waiting.delete(entry.node.element);
+              const natural = entry.timeline.duration() || 1;
+              // The whole group is done within 500 ms: a long node is played faster.
+              entry.timeline.timeScale(Math.max(1, natural / Math.max(0.12, ADMIN_REVEAL.scroll - group[index].start)));
+              entry.timeline.delay(group[index].start).restart(true);
+            });
+          };
+          ScrollTrigger.batch([...waiting.keys()], {
+            scroller: screen,
+            start: `top ${Math.round(ADMIN_REVEAL.threshold * 100)}%`,
+            once: true,
+            interval: 0.08,
+            batchMax: 6,
+            onEnter: (batch) => guard(() => play(batch.map((element) => waiting.get(element)).filter((entry) => entry !== undefined))),
+          });
+          // The fuse (V5, RV S5): whatever still waits long after the navigation, and everything that waits when
+          // the page is printed, is put into its final state at once, without a move.
+          const release = () => {
+            for (const entry of [...waiting.values()]) entry.timeline.progress(1);
+            waiting.clear();
+          };
+          const letGo = () => guard(release);
+          const fuse = setTimeout(letGo, Math.max(0, ADMIN_REVEAL.fuse * 1000 - (performance.now() - enteredAt)));
+          window.addEventListener("beforeprint", letGo);
+          cleanups.push(() => {
+            clearTimeout(fuse);
+            window.removeEventListener("beforeprint", letGo);
+          });
+          // The content never depends on the trigger: a node that is on the screen and still waits
+          // (the layout moved without a scroll) is revealed all the same.
+          if (typeof IntersectionObserver !== "undefined") {
+            const timers = new Set<ReturnType<typeof setTimeout>>();
+            const safety = new IntersectionObserver((entries) => {
+              const shown = entries.filter((entry) => entry.isIntersecting).map((entry) => entry.target);
+              if (!shown.length) return;
+              const timer = setTimeout(() => {
+                timers.delete(timer);
+                guard(() => context.add(() => play(shown.map((element) => waiting.get(element)).filter((entry) => entry !== undefined))));
+              }, 400);
+              timers.add(timer);
+            }, { root: screen });
+            for (const element of waiting.keys()) safety.observe(element);
+            cleanups.push(() => {
+              safety.disconnect();
+              for (const timer of timers) clearTimeout(timer);
+            });
+          }
+        }
+      });
     });
   } else {
     // Drawn by the server: what is painted stays; only what arrives later is revealed.
-    find([page]);
+    guard(() => void find([page]));
   }
+  if (failed) return finish;
 
   // ---------------------------------------------------------------------------
   // After the entrance: late content, a replaced skeleton, live rows
@@ -509,13 +589,24 @@ export function startVisit(input: VisitInput): () => void {
 
   let search = window.location.search;
   let searchChangedAt = enteredAt;
+  /** The query string changed since the page was entered: what loads from now on answers a filter. */
+  let queryChanged = false;
+  const isSkeleton = (node: Node) => isElement(node) && (node.matches(SKELETON) || node.querySelector(SKELETON) !== null);
 
-  const observer = new MutationObserver((records) => {
+  const onMutations = (records: MutationRecord[]) => {
     const now = performance.now();
     if (window.location.search !== search) {
       search = window.location.search;
       searchChangedAt = now;
+      queryChanged = true;
     }
+    // One commit of React is one batch, but the skeleton that leaves and the content that takes its place are
+    // two records of the same parent: the places a skeleton left are read first.
+    const emptied = new Set<Node>();
+    for (const record of records) if ([...record.removedNodes].some(isSkeleton)) emptied.add(record.target);
+    const settle = () => {
+      for (const place of emptied) if (isElement(place)) regions.add(place);
+    };
     const added: HTMLElement[] = [];
     const replaced: HTMLElement[] = [];
     const arrived = new Map<Element, HTMLElement[]>();
@@ -523,36 +614,50 @@ export function startVisit(input: VisitInput): () => void {
       const target = record.target as Element;
       if (!isElement(target) || target.closest(SKIP)) continue;
       const fresh = [...record.addedNodes].filter((node): node is HTMLElement => isElement(node) && node.isConnected && !node.matches(SKIP));
-      const skeletonLeft = [...record.removedNodes].some((node) => isElement(node) && (node.matches(SKELETON) || node.querySelector(SKELETON) !== null));
       if (rowLists.has(target)) {
-        // A list changed while its cascade runs (a filter): the cascade ends at once, so FLIP measures still rows.
+        // A list changed while its cascade runs (a filter): the cascade ends at once. Only its own tweens are
+        // killed: FLIP has measured in the commit, before this, and its glide of the same rows goes on.
         const running = cascades.get(target);
         if (running && (record.addedNodes.length || record.removedNodes.length)) {
           cascades.delete(target);
-          gsap.killTweensOf(running);
-          gsap.set(running, { clearProps: "opacity,transform" });
+          for (const tween of running.tweens) tween.kill();
+          for (const row of running.rows) {
+            const others = gsap.getTweensOf(row);
+            const moved = (...props: string[]) => others.some((tween) => props.some((prop) => prop in tween.vars));
+            const clear = [moved("opacity") ? "" : "opacity", moved("x", "y") ? "" : "transform"].filter(Boolean).join(",");
+            if (clear) gsap.set(row, { clearProps: clear });
+          }
         }
         const rows = fresh.filter((row) => !seen.has(row));
         if (rows.length) arrived.set(target, [...(arrived.get(target) ?? []), ...rows]);
         continue;
       }
       added.push(...fresh);
-      if (skeletonLeft) replaced.push(...fresh);
+      if (emptied.has(target)) replaced.push(...fresh);
     }
-    if (!added.length && !arrived.size) return;
+    if (!added.length && !arrived.size) return settle();
 
-    if (inRevealWindow(enteredAt, now)) {
-      // Late content: its own choreography at once, without making the entrance longer.
-      const late = find(added);
-      const origin = screen.getBoundingClientRect();
-      for (const [list, rows] of arrived) {
-        // A list that was empty until now gets its first rows: they cascade. Rows added to a list that
-        // already had some (a filter) are left to FLIP.
-        const wasEmpty = ![...list.children].some((child) => seen.has(child));
-        for (const row of rows) seen.add(row);
-        if (!wasEmpty || !(list instanceof HTMLElement)) continue;
+    const inWindow = inRevealWindow(enteredAt, now);
+    /** How what took the place of a skeleton under `place` enters. */
+    const verdict = (place: Element | null) =>
+      lateReveal({ inWindow, replacedSkeleton: place !== null && emptied.has(place), regionSeen: place !== null && regions.has(place), queryChanged });
+
+    // Inside the window everything new gets its choreography at once, without making the entrance longer.
+    // After it only the first read of a place does (the real admin waits for its queries); the rest is
+    // written down as seen, and no layout is read for it.
+    const late = find(inWindow ? added : replaced.filter((element) => verdict(element.parentElement) === "group"));
+    if (!inWindow) note(added);
+
+    let origin: DOMRect | null = null;
+    for (const [list, rows] of arrived) {
+      // A list that was empty until now gets its first rows: they cascade. Rows added to a list that
+      // already had some (a filter) are left to FLIP.
+      const wasEmpty = ![...list.children].some((child) => seen.has(child));
+      for (const row of rows) seen.add(row);
+      if (wasEmpty && list instanceof HTMLElement && (inWindow || verdict(list) === "group")) {
         const box = list.getBoundingClientRect();
         if (box.width === 0 && box.height === 0) continue;
+        origin ??= screen.getBoundingClientRect();
         late.push({
           element: list,
           kind: "rows",
@@ -560,28 +665,11 @@ export function startVisit(input: VisitInput): () => void {
           left: box.left - origin.left,
           rows: rows.slice(0, revealRowsMax(phone)).map((row) => ({ element: row, top: 0, left: 0 })),
         });
+        continue;
       }
-      const entering = new Set<Element>(late.map((node) => node.element));
-      // What replaces a skeleton and has no choreography of its own fades in over it.
-      const fading = replaced.filter((element) => !entering.has(element));
-      if (fading.length) context.add(() => gsap.fromTo(fading, { opacity: 0 }, { opacity: 1, duration: FADE, ease: "none", clearProps: "opacity" }));
-      playGroup(late);
-      refreshSoon();
-      return;
-    }
-
-    // Only what replaces a skeleton fades in; everything else is simply there.
-    const fading = replaced.filter((element) => !seen.has(element));
-    find(added);
-    for (const element of added) seen.add(element);
-    if (fading.length) context.add(() => gsap.fromTo(fading, { opacity: 0 }, { opacity: 1, duration: FADE, ease: "none", clearProps: "opacity" }));
-
-    // A row that arrived while the page is open: it enters from above with a green edge that fades.
-    for (const [list, rows] of arrived) {
-      const known = [...list.children].some((child) => seen.has(child));
-      const live = isLiveRow({ afterWindow: true, seen: false, sinceQueryChange: now - searchChangedAt, listWasEmpty: !known, addedTogether: rows.length });
-      for (const row of rows) seen.add(row);
-      if (!live) continue;
+      if (inWindow) continue;
+      // A row that arrived while the page is open: it enters from above with a green edge that fades.
+      if (!isLiveRow({ afterWindow: true, seen: false, sinceQueryChange: now - searchChangedAt, listWasEmpty: wasEmpty, addedTogether: rows.length })) continue;
       context.add(() => gsap.fromTo(rows, { opacity: 0, y: -8 }, { opacity: 1, y: 0, duration: ADMIN_REVEAL.liveRow, ease: ADMIN_REVEAL_EASE.out, clearProps: "opacity,transform" }));
       const edges = rows.map((row) => (row instanceof HTMLTableRowElement ? row.firstElementChild ?? row : row));
       for (const edge of edges) edge.setAttribute("data-admin-live-edge", "");
@@ -593,8 +681,16 @@ export function startVisit(input: VisitInput): () => void {
         for (const edge of edges) edge.removeAttribute("data-admin-live-edge");
       });
     }
+    settle();
+
+    const entering = new Set<Element>(late.map((node) => node.element));
+    // What replaces a skeleton and has no choreography of its own fades in over it.
+    const fading = replaced.filter((element) => !entering.has(element));
+    if (fading.length) context.add(() => gsap.fromTo(fading, { opacity: 0 }, { opacity: 1, duration: FADE, ease: "none", clearProps: "opacity" }));
+    playGroup(late);
     refreshSoon();
-  });
+  };
+  const observer = new MutationObserver((records) => guard(() => onMutations(records)));
   observer.observe(page, { childList: true, subtree: true });
   cleanups.push(() => observer.disconnect());
 

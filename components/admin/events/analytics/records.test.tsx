@@ -7,7 +7,7 @@ import { adminEventsSr } from "@/lib/i18n/sr/admin-events";
 // Effects do not run in a static render, and each render is a new tree. So the
 // hook is driven by hand: `useEffect` runs its function at once and `useRef`
 // keeps one box for the whole file (what a mounted component does over time).
-const mocks = vi.hoisted(() => ({ box: { current: null as unknown }, push: vi.fn() }));
+const mocks = vi.hoisted(() => ({ box: { current: null as unknown }, push: vi.fn(), report: vi.fn() }));
 vi.mock("react", async (importOriginal) => ({
   ...(await importOriginal<typeof import("react")>()),
   useRef: () => mocks.box,
@@ -16,22 +16,28 @@ vi.mock("react", async (importOriginal) => ({
   },
 }));
 vi.mock("@/lib/admin-v2/toast", () => ({ pushAdminToast: mocks.push }));
+// The game of the frame: a record is the v2 toast (as outside a frame) and the fair facts are recorded.
+vi.mock("@/components/admin/game/game-context", () => ({
+  useGameApi: () => ({ celebrate: (record: { key: string; title: string }) => mocks.push(record), reportFair: mocks.report }),
+}));
 
 import { RecordBadge, hourRecordValue, useRecordToasts } from "@/components/admin/events/analytics/records";
 
 const v = adminEventsSr.analytics.v2.records;
 const base = fairRecords(previewAnalytics, undefined);
 
-function Probe({ scope, records, leads }: { scope: string; records: FairRecords; leads: number }) {
-  useRecordToasts(scope, records, leads);
+const EVENT = "test-sajam";
+function Probe({ scope, records, leads, ended }: { scope: string; records: FairRecords; leads: number; ended: boolean }) {
+  useRecordToasts(scope, records, leads, { event: EVENT, ended });
   return null;
 }
-const look = (records: FairRecords, leads = 0, scope = "test:2026-10-11") => renderToStaticMarkup(<Probe scope={scope} records={records} leads={leads} />);
+const look = (records: FairRecords, leads = 0, scope = "test:2026-10-11", ended = false) => renderToStaticMarkup(<Probe scope={scope} records={records} leads={leads} ended={ended} />);
 const titles = () => mocks.push.mock.calls.map(([toast]) => toast.title);
 
 beforeEach(() => {
   mocks.box.current = null;
   mocks.push.mockClear();
+  mocks.report.mockClear();
 });
 
 describe("RecordBadge", () => {
@@ -101,5 +107,36 @@ describe("useRecordToasts", () => {
     look(base, 0, "a:2026-10-11");
     look({ ...base, hour: { ...base.hour!, value: 42 } }, 0, "b:2026-10-11");
     expect(mocks.push).not.toHaveBeenCalled();
+  });
+});
+
+describe("useRecordToasts: the fair facts of the event", () => {
+  const facts = (call: number) => mocks.report.mock.calls[call][0];
+
+  test("every report carries the event and whether its fair has ended", () => {
+    look(base);
+    look(base, 0, "test:2026-10-11", true);
+    for (const [report] of mocks.report.mock.calls) expect(report).toMatchObject({ event: EVENT });
+    expect(mocks.report.mock.calls.map(([report]) => report.ended)).toEqual([false, true]);
+  });
+
+  test("the first look tells the state as it is: no record is null and no lead is false, so a later rise is news", () => {
+    look({ ...base, hour: null, firstLead: null });
+    expect(mocks.report).toHaveBeenCalledTimes(1);
+    expect(facts(0)).toEqual({ event: EVENT, ended: false, facts: { hourRecord: null, firstLead: false } });
+  });
+
+  test("a record that exists at the first look is told as a number, without the flag of a new record", () => {
+    look(base);
+    expect(facts(0).facts).toEqual({ hourRecord: base.hour!.value, firstLead: base.firstLead !== null });
+    expect(facts(0).facts).not.toHaveProperty("hourRecordSeen");
+  });
+
+  test("a new record that arrives while the page is open is told as seen, once", () => {
+    look(base);
+    mocks.report.mockClear();
+    look({ ...base, hour: { ...base.hour!, value: 42, hour: 22, running: true } });
+    const seen = mocks.report.mock.calls.filter(([report]) => report.facts.hourRecordSeen === true);
+    expect(seen).toEqual([[{ event: EVENT, ended: false, facts: { hourRecordSeen: true } }]]);
   });
 });

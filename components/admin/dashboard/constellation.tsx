@@ -6,6 +6,7 @@ import type { ConstellationSceneProps } from "@/components/admin/three/scenes/co
 import { ORBIT_RADIUS, flatProject } from "@/lib/admin-v2/constellation/geometry";
 import { orbitLayout } from "@/lib/admin-v2/constellation/layout";
 import type { BacklogRing, ConstellationCounts, ConstellationItem, ConstellationLayout, Star } from "@/lib/admin-v2/constellation/types";
+import { ADMIN_STAGE_MOTION } from "@/lib/admin-v2/motion";
 import { fmt } from "@/lib/i18n/format";
 import { adminV1Sr } from "@/lib/i18n/sr/admin-v1";
 import { cn } from "@/lib/utils";
@@ -17,7 +18,9 @@ import { ConstellationSummary } from "./constellation-summary";
 // tooltip of a star. It shows the work, it does not replace it: the list „Za
 // reakciju“ stays below, and a click on a star does what the main action of
 // its row does. Nothing here is a tab stop: the list is the keyboard path, and
-// a focused row lights up its star.
+// a focused row lights up its star. On a full entrance the Scanner lights it up
+// („ignite“): the 2D picture waits as a shade and the scene, which starts about
+// 0.35 s after the navigation, lights up over it from the core outwards.
 
 /** Below this window width (px) the Constellation is the 2D picture. */
 const FLAT_BELOW = 768;
@@ -133,6 +136,8 @@ export function Constellation({
         load={loadScene}
         sceneProps={sceneProps}
         flatBelow={FLAT_BELOW}
+        ignite
+        startAfterMs={ADMIN_STAGE_MOTION.igniteAfter * 1000}
         onScene={onScene}
         className="h-full w-full"
         summary={<ConstellationSummary counts={counts} />}

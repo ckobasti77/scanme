@@ -4,11 +4,12 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { prefersReducedMotion } from "@/components/admin/frame/use-admin-gsap";
 import { adminMotion } from "@/components/admin/reveal/gsap-plugins";
 import { badgeDef } from "@/lib/admin-v2/game/badges";
-import { ceremonyForm, ceremonyParticles, ceremonySeconds, particleAt } from "@/lib/admin-v2/game/ceremonies";
+import { ceremonyForm, ceremonyParticles, ceremonySeconds, particleTrail, strikeRing } from "@/lib/admin-v2/game/ceremonies";
+import { ceremonySignal } from "@/lib/admin-v2/game/ceremony-signal";
 import type { RankId, Rarity } from "@/lib/admin-v2/game/ids";
 import { BADGE_ART, RANK_ART, type MedalArt } from "@/lib/admin-v2/game/medal-art";
 import type { CeremonyEnv, CeremonyItem, CeremonyPlan, CeremonySize } from "@/lib/admin-v2/game/types";
-import { ADMIN_CEREMONY, ADMIN_EASE, ADMIN_REVEAL_EASE } from "@/lib/admin-v2/motion";
+import { ADMIN_CEREMONY, ADMIN_DURATION, ADMIN_EASE, ADMIN_REVEAL_EASE } from "@/lib/admin-v2/motion";
 import { quietModeStore } from "@/lib/admin-v2/quiet-mode";
 import { isEditableTarget } from "@/lib/admin-v2/shortcuts";
 import { pushAdminToast, type AdminToastInput } from "@/lib/admin-v2/toast";
@@ -16,18 +17,24 @@ import { fmt } from "@/lib/i18n/format";
 import { adminGameSr as d } from "@/lib/i18n/sr/admin-game";
 import { useGameApi } from "./game-context";
 import { Medal2D } from "./medal-2d";
-import { MedalStage, medalSceneReady, warmMedalScene } from "./medal-stage";
 
-// ADMIN v3 V4 — the ceremonies (ZADATAK-V3 §4.8): a new level or rank, a beaten
+// ADMIN v3 V5 — the ceremonies (ZADATAK-V3 §4.8): a new level or rank, a beaten
 // boss, a badge, a record. A moment over the screen of at most 1.8 s:
-//   big  — the medal flies out of the XP chip to the centre, with particles;
+//   big  — the whole screen takes part: the live edge is fully lit, the medal flies
+//          out of the XP chip and lands with a punch, one ring goes out as it lands,
+//          and particles drawn as short trails stream out of the chip behind it and
+//          burst from it. The medal is always the 2D one (a WebGL context never
+//          starts inside a moment of 1.6 s; the 3D medal lives in the Vitrina), with
+//          one sheen that sweeps across it while it holds;
 //   card — a card under the navbar beside the chip (a common or rare badge, a
 //          record, and everything on a phone).
 // It never takes input: the layer has no pointer events and no tab stop, it is
 // hidden from a screen reader (one polite sentence announces it instead), and
 // any key or click ends it while that key or click still does its own work.
-// While focus is in a field or a dialog is open it is one calm toast; the quiet
-// mode and reduced motion always make it a toast, and a record then says nothing.
+// While focus is in a field or a dialog is open, or the tab is hidden, it is one
+// calm toast (also for the second ceremony of a row, which asks again when its
+// turn comes); the quiet mode and reduced motion always make it a toast, and a
+// record then says nothing.
 
 const OPEN_LAYER = '[role="dialog"][data-state="open"], [role="menu"][data-state="open"], [role="listbox"][data-state="open"]';
 /** Below this window width a ceremony is always the card. */
@@ -49,11 +56,11 @@ export function ceremonyText(item: CeremonyItem): CeremonyText {
   return { title: d.ceremony.record, body: event.title };
 }
 
-/** The medal a ceremony shows. */
-export function ceremonyMedal(item: CeremonyItem): { art: MedalArt; rarity: Rarity } {
+/** The medal a ceremony shows. The beaten boss, the biggest moment of the game, has a gold one: the rim and sign of the top rarity on a gold face (the badge itself keeps its own rarity in the Vitrina). */
+export function ceremonyMedal(item: CeremonyItem): { art: MedalArt; rarity: Rarity; gold?: true } {
   const event = item.event;
   if (event.kind === "level") return { art: RANK_ART[event.rank], rarity: RANK_RARITY[event.rank] };
-  if (event.kind === "boss") return { art: BADGE_ART.sef_je_pao, rarity: badgeDef("sef_je_pao").rarity };
+  if (event.kind === "boss") return { art: BADGE_ART.sef_je_pao, rarity: "legendarna", gold: true };
   if (event.kind === "badge") return { art: BADGE_ART[event.badge], rarity: event.rarity };
   return { art: BADGE_ART.rekord_sata, rarity: badgeDef("rekord_sata").rarity };
 }
@@ -62,13 +69,19 @@ export type CeremonyEntry = { item: CeremonyItem; size: CeremonySize };
 
 const isPersonal = (item: CeremonyItem) => item.event.kind !== "record";
 
+/** The environment right now: `hidden` is a tab nobody looks at, where a layer would play to nobody (a calm toast waits for them instead). */
+export type CeremonyNow = CeremonyEnv & { hidden?: boolean };
+
+const settled = (now: CeremonyNow): CeremonyEnv => (now.hidden ? { ...now, reducedMotion: true } : now);
+
 /**
  * Where a plan goes right now: over the screen, into a toast, or nowhere. A
  * level, a badge and a beaten boss are information about the operator, so their
  * toast also shows in the quiet mode (`personal`). However much happened at
  * once, a plan is never more than its ceremonies and ONE calm line.
  */
-export function ceremonyRoute(plan: CeremonyPlan, env: CeremonyEnv): { layer: CeremonyEntry[]; toasts: AdminToastInput[] } {
+export function ceremonyRoute(plan: CeremonyPlan, now: CeremonyNow): { layer: CeremonyEntry[]; toasts: AdminToastInput[] } {
+  const env = settled(now);
   const layer: CeremonyEntry[] = [];
   const calm: CeremonyItem[] = [];
   for (const item of plan.show) {
@@ -90,13 +103,31 @@ export function ceremonyRoute(plan: CeremonyPlan, env: CeremonyEnv): { layer: Ce
   return { layer, toasts: [{ key: first.key, title: text.title, body, personal: all.some(isPersonal) }] };
 }
 
-function readEnv(): CeremonyEnv {
+/**
+ * The turn of the next ceremony of a row. The screen may have changed since the plan was made (a field has
+ * focus, a dialog is open, the tab is hidden), so each entry asks again: the first one that may still show
+ * is returned with what follows it, and every one that may not is a calm toast with the same words (or
+ * nothing, for a record in the quiet mode).
+ */
+export function ceremonyAdvance(queue: readonly CeremonyEntry[], now: CeremonyNow): { show: CeremonyEntry | null; rest: CeremonyEntry[]; toasts: AdminToastInput[] } {
+  const toasts: AdminToastInput[] = [];
+  for (let at = 0; at < queue.length; at += 1) {
+    const { item } = queue[at];
+    const form = ceremonyForm(item, settled(now));
+    if (form.as === "layer") return { show: { item, size: form.size }, rest: queue.slice(at + 1), toasts };
+    if (form.as === "toast") toasts.push({ key: item.key, ...ceremonyText(item), personal: isPersonal(item) });
+  }
+  return { show: null, rest: [], toasts };
+}
+
+function readEnv(): CeremonyNow {
   return {
     quiet: quietModeStore.get(),
     reducedMotion: prefersReducedMotion(),
     editable: isEditableTarget(document.activeElement),
     modal: document.querySelector(OPEN_LAYER) !== null,
     phone: window.innerWidth < PHONE_BELOW,
+    hidden: document.visibilityState !== "visible",
   };
 }
 
@@ -121,7 +152,11 @@ export function CeremonyLayer() {
   const row = useRef(0);
 
   const next = useCallback(() => {
-    const entry = queue.current.shift();
+    // The screen is read again at the turn of each ceremony, not only when the plan arrived.
+    const turn = ceremonyAdvance(queue.current, readEnv());
+    queue.current = turn.rest;
+    for (const toast of turn.toasts) pushAdminToast(toast);
+    const entry = turn.show;
     if (!entry) {
       playing.current = false;
       row.current = 0;
@@ -189,9 +224,6 @@ export function CeremonyLayer() {
     },
     [],
   );
-  // On a page with a scene of its own the medal scene follows the kit, so a ceremony finds it there.
-  useEffect(() => warmMedalScene(), []);
-
   return (
     <>
       <p role="status" aria-live="polite" aria-label={d.ceremony.region} data-ceremony-announce="" className="sr-only">{announce}</p>
@@ -208,12 +240,22 @@ export function CeremonyStage({ entry, onDone }: { entry: CeremonyEntry; onDone:
   const text = ceremonyText(entry.item);
   const medal = ceremonyMedal(entry.item);
   const big = entry.size === "big";
-  // A 3D medal only where its scene is already in this tab: a moment of 1.6 s never waits for the network.
-  const [solid] = useState(() => big && typeof window !== "undefined" && medalSceneReady());
 
   useEffect(() => {
     done.current = onDone;
   });
+
+  // The screen knows a ceremony is on it: decoration steps aside (the aim line of the Dashboard), and a big one
+  // lights the live edge of the frame. Taken back at the end, on a skip and on unmount.
+  useLayoutEffect(() => {
+    const frame = root.current?.closest<HTMLElement>(".admin-v1") ?? null;
+    ceremonySignal.set(entry.size);
+    if (big) frame?.setAttribute("data-admin-celebrating", "");
+    return () => {
+      frame?.removeAttribute("data-admin-celebrating");
+      ceremonySignal.set(null);
+    };
+  }, [entry.size, big]);
 
   useLayoutEffect(() => {
     const element = root.current;
@@ -223,15 +265,18 @@ export function CeremonyStage({ entry, onDone }: { entry: CeremonyEntry; onDone:
     const body = element.querySelector<HTMLElement>("[data-ceremony-body]");
     const words = element.querySelector<HTMLElement>("[data-ceremony-words]");
     const shade = element.querySelector<HTMLElement>("[data-ceremony-shade]");
+    const sheen = element.querySelector<HTMLElement>("[data-ceremony-sheen]");
     if (!body) return;
     // Measured at rest: a run of this effect that was cut short (React runs it twice in development) leaves nothing behind.
-    gsap.set([body, words, shade].filter(Boolean), { clearProps: "transform,opacity" });
+    gsap.set([body, words, shade, sheen].filter(Boolean), { clearProps: "transform,opacity" });
     const box = body.getBoundingClientRect();
     const chip = chipRect();
     // It leaves the XP chip and returns to it; without a chip on the screen it comes from above.
-    const from = chip
+    const back = chip
       ? { x: chip.left + chip.width / 2 - (box.left + box.width / 2), y: chip.top + chip.height / 2 - (box.top + box.height / 2), scale: Math.max(0.12, chip.width / box.width) }
       : { x: 0, y: -24, scale: 0.8 };
+    // The big medal comes out of the chip already at 0.4 and lands with a punch; the card grows from the chip.
+    const enter = big ? { ...back, scale: ADMIN_CEREMONY.medal.from } : back;
     const leave = time.in + time.hold;
 
     const particles = ceremonyParticles(entry.size, entry.item.key.length * 7919 + entry.item.event.at % 9973);
@@ -248,34 +293,61 @@ export function CeremonyStage({ entry, onDone }: { entry: CeremonyEntry; onDone:
     }
     const reach = Math.min(width, height);
     const origin = { x: box.left + box.width / 2, y: box.top + box.height / 2 };
-    const draw = (progress: number) => {
+    // A particle is born where the medal is at that moment (the chip, then on its way, then the centre), and flies from there.
+    const anchors: Array<{ x: number; y: number } | undefined> = [];
+    const draw = () => {
       if (!context) return;
+      const seconds = timeline.time();
+      const progress = seconds / time.total;
       context.setTransform(ratio, 0, 0, ratio, 0, 0);
       context.clearRect(0, 0, width, height);
-      for (const particle of particles) {
-        const at = particleAt(particle, progress);
-        if (at.alpha <= 0) continue;
-        context.globalAlpha = at.alpha;
-        context.fillStyle = colors[Math.min(colors.length - 1, Math.floor(particle.hue * colors.length))];
+      context.lineCap = "round";
+      const live = { x: origin.x + Number(gsap.getProperty(body, "x")), y: origin.y + Number(gsap.getProperty(body, "y")) };
+      for (let index = 0; index < particles.length; index += 1) {
+        const particle = particles[index];
+        const trail = particleTrail(particle, progress);
+        if (!trail) continue;
+        const anchor = (anchors[index] ??= live);
+        context.globalAlpha = trail.alpha;
+        context.strokeStyle = colors[Math.min(colors.length - 1, Math.floor(particle.hue * colors.length))];
+        context.lineWidth = trail.width;
         context.beginPath();
-        context.arc(origin.x + at.x * reach, origin.y + at.y * reach, particle.size * at.scale, 0, Math.PI * 2);
-        context.fill();
+        context.moveTo(anchor.x + trail.from.x * reach, anchor.y + trail.from.y * reach);
+        context.lineTo(anchor.x + trail.to.x * reach, anchor.y + trail.to.y * reach);
+        context.stroke();
+      }
+      // The one ring of the strike goes out from the centre of the medal as it lands.
+      const ring = big ? strikeRing(seconds - time.in) : null;
+      if (ring) {
+        context.globalAlpha = ring.alpha;
+        context.strokeStyle = colors[0];
+        context.lineWidth = ring.width;
+        context.beginPath();
+        context.arc(origin.x, origin.y, ring.radius * reach, 0, Math.PI * 2);
+        context.stroke();
       }
       context.globalAlpha = 1;
     };
 
-    const timeline = gsap.timeline({ onUpdate: () => draw(timeline.time() / time.total), onComplete: () => done.current() });
+    const timeline = gsap.timeline({ onUpdate: draw, onComplete: () => done.current() });
     if (shade) timeline.fromTo(shade, { opacity: 0 }, { opacity: 1, duration: time.in, ease: ADMIN_EASE.out }, 0).to(shade, { opacity: 0, duration: time.out, ease: ADMIN_EASE.in }, leave);
-    timeline
-      .fromTo(body, { x: from.x, y: from.y, scale: from.scale, opacity: 0.2 }, { x: 0, y: 0, scale: 1, opacity: 1, duration: time.in, ease: ADMIN_REVEAL_EASE.out }, 0)
-      .to(body, { x: from.x, y: from.y, scale: from.scale, opacity: 0, duration: time.out, ease: ADMIN_EASE.in }, leave);
-    if (words) timeline.fromTo(words, { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.2, ease: ADMIN_EASE.out }, time.in * 0.5).to(words, { opacity: 0, duration: 0.16, ease: ADMIN_EASE.in }, leave);
+    timeline.fromTo(body, { x: enter.x, y: enter.y, opacity: 0.2 }, { x: 0, y: 0, opacity: 1, duration: time.in, ease: ADMIN_REVEAL_EASE.out }, 0);
+    if (big) {
+      // Up to a little past 1 on the curve of the spark, then settled onto 1: it lands once, it does not bounce.
+      timeline.fromTo(body, { scale: enter.scale }, { scale: ADMIN_CEREMONY.medal.over, duration: time.in, ease: ADMIN_REVEAL_EASE.ignite }, 0).to(body, { scale: 1, duration: ADMIN_DURATION.feedback, ease: ADMIN_EASE.out }, time.in);
+    } else {
+      timeline.fromTo(body, { scale: enter.scale }, { scale: 1, duration: time.in, ease: ADMIN_REVEAL_EASE.out }, 0);
+    }
+    timeline.to(body, { x: back.x, y: back.y, scale: back.scale, opacity: 0, duration: time.out, ease: ADMIN_EASE.in }, leave);
+    // One sheen sweeps across the medal while it holds (clipped to its circle by its box; transform only).
+    if (sheen) timeline.fromTo(sheen, { xPercent: 0, skewX: -18 }, { xPercent: 420, skewX: -18, duration: time.hold * 0.55, ease: ADMIN_EASE.in }, time.in + ADMIN_DURATION.feedback);
+    if (words) timeline.fromTo(words, { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: ADMIN_CEREMONY.words.in, ease: ADMIN_EASE.out }, time.in * 0.5).to(words, { opacity: 0, duration: ADMIN_CEREMONY.words.out, ease: ADMIN_EASE.in }, leave);
     // The whole moment has one fixed length, whatever its parts add up to.
     timeline.set({}, {}, time.total);
     return () => {
       timeline.kill();
     };
-  }, [entry]);
+  }, [entry, big]);
 
   return (
     <div ref={root} data-admin-ceremony={entry.size} data-ceremony-kind={entry.item.event.kind} aria-hidden="true" className="pointer-events-none fixed inset-0 z-[70] overflow-hidden">
@@ -284,7 +356,13 @@ export function CeremonyStage({ entry, onDone }: { entry: CeremonyEntry; onDone:
       {big ? (
         <div className="absolute inset-0 grid place-content-center justify-items-center gap-5 pb-[10vh]">
           <div data-ceremony-body="" className="size-44 rounded-full border border-[var(--admin-border)] bg-[var(--admin-surface-strong)] p-2 opacity-0 shadow-[var(--admin-shadow-lg)]">
-            {solid ? <MedalStage art={medal.art} rarity={medal.rarity} mode="ceremony" className="size-full" /> : <Medal2D art={medal.art} rarity={medal.rarity} className="size-full" />}
+            <div className="relative size-full">
+              <Medal2D art={medal.art} rarity={medal.rarity} gold={medal.gold} className="size-full" />
+              {/* The face of the medal is its box inset by 7 %; the band runs from outside its left edge to outside its right one. */}
+              <span aria-hidden="true" className="absolute inset-[7%] overflow-hidden rounded-full">
+                <span data-ceremony-sheen="" className="absolute inset-y-[-12%] -left-1/3 w-1/3" style={{ background: "linear-gradient(90deg, transparent, rgb(255 255 255 / 0.62), transparent)" }} />
+              </span>
+            </div>
           </div>
           <div data-ceremony-words="" className="max-w-[min(26rem,calc(100vw-2rem))] rounded-2xl border border-[var(--admin-border)] bg-[var(--admin-surface-strong)] px-5 py-3 text-center opacity-0 shadow-[var(--admin-shadow-md)]">
             <p className="text-xl leading-7 font-semibold tracking-[-0.02em]">{text.title}</p>
@@ -294,7 +372,7 @@ export function CeremonyStage({ entry, onDone }: { entry: CeremonyEntry; onDone:
         </div>
       ) : (
         <div data-ceremony-body="" className="absolute top-[calc(var(--admin-navbar-h)+0.75rem)] right-4 flex h-24 w-[min(17.5rem,calc(100vw-2rem))] origin-top-right items-center gap-3 rounded-2xl border border-[var(--admin-border)] bg-[var(--admin-surface-strong)] px-4 opacity-0 shadow-[var(--admin-shadow-lg)]">
-          <Medal2D art={medal.art} rarity={medal.rarity} className="size-14 flex-none" />
+          <Medal2D art={medal.art} rarity={medal.rarity} gold={medal.gold} className="size-14 flex-none" />
           <div className="min-w-0">
             <p className="text-sm leading-5 font-semibold [overflow-wrap:anywhere]">{text.title}</p>
             <p className="mt-0.5 line-clamp-2 text-xs leading-4 text-[var(--admin-text-muted)]">{text.body}</p>

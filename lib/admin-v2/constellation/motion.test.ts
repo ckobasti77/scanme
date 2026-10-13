@@ -1,13 +1,28 @@
 import { describe, expect, test } from "vitest";
-import { ADMIN_LAYER_MAX, ADMIN_REVEAL } from "@/lib/admin-v2/motion";
-import { ORBIT_RADIUS } from "./geometry";
-import { CONSTELLATION_MOTION as M, angleDelta, arrivalRadius, backOut, introStarStart, powerInOut, powerOut, spiralPoint, windowProgress } from "./motion";
+import { ADMIN_LAYER_MAX, ADMIN_REVEAL, ADMIN_STAGE_MOTION } from "@/lib/admin-v2/motion";
+import { BACKLOG_RADIUS, CORE_RADIUS, ORBIT_RADIUS } from "./geometry";
+import {
+  CONSTELLATION_MOTION as M,
+  INTRO_SHADE,
+  angleDelta,
+  arrivalRadius,
+  backOut,
+  introCore,
+  introFrontTime,
+  introRise,
+  introStarScale,
+  introStrength,
+  powerInOut,
+  powerOut,
+  spiralPoint,
+  windowProgress,
+} from "./motion";
 
 describe("the motion of the Constellation stays inside the layers", () => {
   test("the intro is a reveal: at most the budget of a page entrance", () => {
     expect(M.intro.total).toBeLessThanOrEqual(ADMIN_REVEAL.budget);
     expect(M.intro.total).toBeLessThanOrEqual(ADMIN_LAYER_MAX.reveal);
-    for (const [from, to] of [M.intro.core, M.intro.orbits, M.intro.stars]) {
+    for (const [from, to] of [M.intro.core, M.intro.front]) {
       expect(from).toBeGreaterThanOrEqual(0);
       expect(to).toBeGreaterThan(from);
       expect(to).toBeLessThanOrEqual(M.intro.total);
@@ -24,21 +39,75 @@ describe("the motion of the Constellation stays inside the layers", () => {
   });
 });
 
-describe("the intro", () => {
-  test("the stars come out from the inner orbit to the outer one and the last ends with the intro", () => {
-    const starts = ([1, 2, 3, 4] as const).map((orbit) => introStarStart(ORBIT_RADIUS[orbit]));
-    expect(starts[0]).toBeCloseTo(M.intro.stars[0], 6);
-    expect([...starts].sort((a, b) => a - b)).toEqual(starts);
-    expect(starts[3] + M.intro.star).toBeCloseTo(M.intro.total, 6);
-    // Radii outside the system are clamped: nothing starts before or ends after the window.
-    expect(introStarStart(0)).toBeCloseTo(M.intro.stars[0], 6);
-    expect(introStarStart(2) + M.intro.star).toBeCloseTo(M.intro.total, 6);
+describe("the intro (the scene lights up over the shade of the 2D picture)", () => {
+  const RADII = [CORE_RADIUS, BACKLOG_RADIUS, ...([1, 2, 3, 4] as const).map((orbit) => ORBIT_RADIUS[orbit])];
+  const STEPS = Array.from({ length: 91 }, (_, step) => step / 100);
+
+  test("the shade is the one the stage keeps the 2D picture at", () => {
+    expect(INTRO_SHADE).toBe(ADMIN_STAGE_MOTION.shade);
+    expect(introCore(0)).toBeCloseTo(INTRO_SHADE, 6);
+    for (const radius of RADII) expect(introStrength(0, radius)).toBeCloseTo(INTRO_SHADE, 6);
+  });
+
+  test("the front goes from the core out: the inner thing is lit before the outer one", () => {
+    const times = RADII.map(introFrontTime);
+    expect([...times].sort((a, b) => a - b)).toEqual(times);
+    expect(introFrontTime(CORE_RADIUS)).toBeCloseTo(M.intro.front[0], 6);
+    expect(introFrontTime(ORBIT_RADIUS[4])).toBeCloseTo(M.intro.front[1], 6);
+    // Outside the system the front is clamped: nothing starts before or ends after its window.
+    expect(introFrontTime(0)).toBeCloseTo(M.intro.front[0], 6);
+    expect(introFrontTime(2)).toBeCloseTo(M.intro.front[1], 6);
+  });
+
+  test("a strength never falls during the intro, and stays inside the shade and 1", () => {
+    for (const radius of RADII) {
+      let before = 0;
+      for (const elapsed of STEPS) {
+        const strength = introStrength(elapsed, radius);
+        expect(strength).toBeGreaterThanOrEqual(before - 1e-12);
+        expect(strength).toBeGreaterThanOrEqual(INTRO_SHADE - 1e-12);
+        expect(strength).toBeLessThanOrEqual(1 + 1e-12);
+        before = strength;
+      }
+    }
+    let core = 0;
+    for (const elapsed of STEPS) {
+      expect(introCore(elapsed)).toBeGreaterThanOrEqual(core - 1e-12);
+      core = introCore(elapsed);
+    }
+  });
+
+  test("everything is fully lit within the total, the last star on the outer orbit exactly with it", () => {
+    for (const radius of RADII) expect(introStrength(M.intro.total, radius)).toBeCloseTo(1, 6);
+    expect(introCore(M.intro.total)).toBeCloseTo(1, 6);
+    expect(introFrontTime(ORBIT_RADIUS[4]) + M.intro.rise).toBeCloseTo(M.intro.total, 6);
+    // Just before the end the outer orbit is still rising: the intro is not over early.
+    expect(introStrength(M.intro.total - 0.05, ORBIT_RADIUS[4])).toBeLessThan(1);
+  });
+
+  test("a star pops a little over its size and settles; it never shrinks and is never gone", () => {
+    for (const radius of RADII) {
+      for (const elapsed of STEPS) {
+        const scale = introStarScale(elapsed, radius);
+        expect(scale).toBeGreaterThanOrEqual(1);
+        expect(scale).toBeLessThanOrEqual(1 + M.intro.pop + 1e-12);
+      }
+      expect(introStarScale(0, radius)).toBe(1);
+      expect(introStarScale(M.intro.total, radius)).toBeCloseTo(1, 6);
+      expect(Math.max(...STEPS.map((elapsed) => introStarScale(elapsed, radius)))).toBeGreaterThan(1.05);
+    }
+  });
+
+  test("a thing has not started rising before the front reaches it", () => {
+    const radius = ORBIT_RADIUS[3];
+    expect(introRise(introFrontTime(radius) - 0.01, radius)).toBe(0);
+    expect(introRise(introFrontTime(radius) + M.intro.rise, radius)).toBeCloseTo(1, 6);
   });
 
   test("a part of the intro runs only inside its window", () => {
-    expect(windowProgress(0, M.intro.orbits)).toBe(0);
-    expect(windowProgress(0.4, M.intro.orbits)).toBeCloseTo(0.5, 6);
-    expect(windowProgress(5, M.intro.orbits)).toBe(1);
+    expect(windowProgress(0, M.intro.front)).toBe(0);
+    expect(windowProgress((M.intro.front[0] + M.intro.front[1]) / 2, M.intro.front)).toBeCloseTo(0.5, 6);
+    expect(windowProgress(5, M.intro.front)).toBe(1);
   });
 });
 

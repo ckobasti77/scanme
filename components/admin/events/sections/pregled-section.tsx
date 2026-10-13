@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { api } from "@/convex/_generated/api";
 import { AdminErrorState, AdminPanel } from "@/components/admin/admin-primitives";
 import { useMinuteNow } from "@/components/admin/admin-ui/use-minute-now";
@@ -13,60 +13,59 @@ import { PreEventResetCard } from "@/components/admin/events/sections/pre-event-
 import { eventSectionHref } from "@/lib/admin-v1/event-sections";
 import { fairMapForEventCode } from "@/lib/fair-map";
 import type { AnalyticsData } from "@/lib/admin-v2/analytics/types";
+import { fairReadKey } from "@/lib/admin-v2/game/fair-read";
 import { adminEventsSr as dict } from "@/lib/i18n/sr/admin-events";
 
 // Admin UX A10 — container of `pregled`: the event dashboard the frame reads
 // (one fairDashboard.getEventDashboard result, polled) and the browser minute
 // for the countdown.
 // ADMIN v3 V3 — while a fair day is open, the excerpt of the Living hall stands
-// below „Šta treba da uradim“. It reads the analytics of the event
-// (fairEventAnalytics.getEventAnalytics, the read of Analitika) only while the
-// excerpt is on the screen, once and then every 60 s; nothing is read outside a
-// fair day.
-// ADMIN v3 V4 — the hours of that read also feed the daily challenges; an event
-// without a floor plan has none, so its challenges are the ones the dashboard
-// alone can count.
+// below „Šta treba da uradim“. It shows the analytics of the event
+// (fairEventAnalytics.getEventAnalytics, the read of Analitika).
+// ADMIN v3 V4 — the hours of that read also feed the daily challenges.
+// ADMIN v3 V5 — that read lives here, not in the excerpt: it runs once and then
+// every 60 s while a fair day is open AND the block „challenges + hall“ is on
+// the screen (the view watches it), also for an event without a floor plan,
+// which has the challenges but no hall. Off the screen, or outside a fair day,
+// nothing is read; the last picture stays (the scene is not torn down by a scroll).
 
-function HallMiniLive({ onData }: { onData: (data: AnalyticsData) => void }) {
-  const { eventId, base, catalog } = useAdminEvent();
-  const host = useRef<HTMLDivElement>(null);
-  const [inView, setInView] = useState(false);
-  useEffect(() => {
-    if (!host.current) return;
-    const watcher = new IntersectionObserver((entries) => setInView(entries.some((entry) => entry.isIntersecting)));
-    watcher.observe(host.current);
-    return () => watcher.disconnect();
-  }, []);
-  const analytics = usePolled(inView ? `hall:${eventId}` : null, (convex) => convex.query(api.fairEventAnalytics.getEventAnalytics, { eventId, at: Date.now() }));
-  // Off the screen nothing is read, and the last picture stays (the scene is not torn down by a scroll).
-  const [kept, setKept] = useState<AnalyticsData>();
-  if (analytics.data && analytics.data !== kept) setKept(analytics.data);
-  // V4 — the hours of the same read feed the daily challenges of the page.
-  const data = analytics.data;
-  useEffect(() => {
-    if (data) onData(data);
-  }, [data, onData]);
+function HallMiniLive({ data }: { data: AnalyticsData | undefined }) {
+  const { base, catalog } = useAdminEvent();
   return (
-    <div ref={host} className="min-w-0">
-      <HallMini eventCode={catalog.event.code} data={analytics.data ?? kept} href={`${eventSectionHref(base, "analitika")}#mapa`} />
+    <div className="min-w-0">
+      <HallMini eventCode={catalog.event.code} data={data} href={`${eventSectionHref(base, "analitika")}#mapa`} />
     </div>
   );
 }
 
 export function PregledSection() {
-  const { base, dashboard, catalog } = useAdminEvent();
+  const { eventId, base, dashboard, catalog } = useAdminEvent();
   const now = useMinuteNow();
-  const [analytics, setAnalytics] = useState<AnalyticsData>();
+  const [inView, setInView] = useState(false);
+  const dayOpen = dashboard.data?.phase.kind === "sajam" && dashboard.data.phase.dayOpen;
+  const analytics = usePolled(fairReadKey({ eventId, dayOpen: dayOpen === true, inView }), (convex) => convex.query(api.fairEventAnalytics.getEventAnalytics, { eventId, at: Date.now() }));
+  // Off the screen the read stops and the last picture stays.
+  const [kept, setKept] = useState<{ eventId: string; data: AnalyticsData }>();
+  if (analytics.data && analytics.data !== kept?.data) setKept({ eventId, data: analytics.data });
   if (dashboard.data === undefined) {
     return dashboard.error
       ? <AdminPanel><AdminErrorState title={dict.dashboard.errorTitle} body={dict.dashboard.errorBody} retryLabel={dict.retry} onRetry={dashboard.refresh} /></AdminPanel>
       : <SectionLoading />;
   }
-  // An event without a floor plan has no hall to show, so nothing is read for it.
-  const dayOpen = dashboard.data.phase.kind === "sajam" && dashboard.data.phase.dayOpen && fairMapForEventCode(catalog.event.code) !== null;
+  const picture = analytics.data ?? (kept?.eventId === eventId ? kept.data : undefined);
+  // An event without a floor plan has no hall to show; its challenges still get the hours.
+  const hall = dayOpen && fairMapForEventCode(catalog.event.code) !== null;
   return (
     <>
-      <EventDashboardView dashboard={dashboard.data} now={now} base={base} hall={dayOpen ? <HallMiniLive onData={setAnalytics} /> : undefined} hours={analytics?.hours ?? null} />
+      <EventDashboardView
+        dashboard={dashboard.data}
+        now={now}
+        base={base}
+        eventKey={catalog.event.code}
+        hall={hall ? <HallMiniLive data={picture} /> : undefined}
+        hours={picture?.hours ?? null}
+        onBlockView={setInView}
+      />
       <PreEventResetCard />
     </>
   );

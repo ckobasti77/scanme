@@ -513,9 +513,9 @@ function TeamView({
 
 const previewMembers: TeamMember[] = [
   {
-    id: "preview-admin-teodora" as Id<"users">,
-    name: "Teodora",
-    email: "teodora@example.invalid",
+    id: "preview-admin-a" as Id<"users">,
+    name: "TEST Operater A",
+    email: "test-operater-a@example.invalid",
     openTasks: 6,
     overdueTasks: 2,
     assignedConversations: 9,
@@ -523,9 +523,9 @@ const previewMembers: TeamMember[] = [
     countsCapped: false,
   },
   {
-    id: "preview-admin-jovan" as Id<"users">,
-    name: "Jovan",
-    email: "jovan@example.invalid",
+    id: "preview-admin-b" as Id<"users">,
+    name: "TEST Operater B",
+    email: "test-operater-b@example.invalid",
     openTasks: 5,
     overdueTasks: 1,
     assignedConversations: 8,
@@ -533,9 +533,9 @@ const previewMembers: TeamMember[] = [
     countsCapped: false,
   },
   {
-    id: "preview-admin-aleksa" as Id<"users">,
-    name: "Aleksa",
-    email: "aleksa@example.invalid",
+    id: "preview-admin-c" as Id<"users">,
+    name: "TEST Operater C",
+    email: "test-operater-c@example.invalid",
     openTasks: 8,
     overdueTasks: 3,
     assignedConversations: 12,

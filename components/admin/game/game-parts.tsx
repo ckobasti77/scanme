@@ -19,11 +19,14 @@ import { XpChip, XpProfileRing } from "./xp-chip";
 // each reads the game of the frame (`useGame`) and hands it to a display
 // component that only draws. Outside a frame they draw an empty game (nothing).
 
-/** The XP chip of the navbar, left of the profile (from 1400 px): the ring of the level and „Nv 7“; a click opens the Vitrina. */
-export function GameChip({ className }: { className?: string }) {
+/**
+ * The XP chip of the navbar, left of the profile (from 1400 px): the ring of the level and „Nv 7“; a click opens the Vitrina.
+ * `compact`: the ring alone, for the top bar of a phone.
+ */
+export function GameChip({ compact, className }: { compact?: boolean; className?: string }) {
   const { view } = useGame();
   const api = useGameApi();
-  return <XpChip operator={view.operator} onOpen={api.openVitrina} className={className} />;
+  return <XpChip operator={view.operator} onOpen={api.openVitrina} compact={compact} className={className} />;
 }
 
 /** The ring of the level around the profile icon, where the navbar has no room for the chip. */
@@ -32,11 +35,14 @@ export function GameProfileRing({ className }: { className?: string }) {
   return <XpProfileRing operator={view.operator} className={className} />;
 }
 
-/** The row „Operater“ at the bottom of the sidebar and in the phone drawer: rank, level, the bar to the next level, the streak. */
-export function GameOperator({ className }: { className?: string }) {
+/**
+ * The row „Operater“ at the bottom of the sidebar and in the phone drawer: rank, level, the bar to the next level, the streak.
+ * `dense` (the sidebar only): on a window up to 800 px tall the row is one line.
+ */
+export function GameOperator({ dense, className }: { dense?: boolean; className?: string }) {
   const { view } = useGame();
   const api = useGameApi();
-  return <OperatorRow operator={view.operator} streak={view.streak} onOpen={api.openVitrina} className={className} />;
+  return <OperatorRow operator={view.operator} streak={view.streak} onOpen={api.openVitrina} dense={dense} className={className} />;
 }
 
 /** The boss of the day and the combo, in the legend of the Dashboard hero. */

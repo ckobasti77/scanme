@@ -30,7 +30,7 @@ describe("the TEST game", () => {
     expect(view.operator).toMatchObject({ level: 7, rank: "operater", into: 680, span: 700, todayXp: 70 });
     expect(view.streak).toMatchObject({ count: 4, flame: 2, todayDone: false });
     expect(view.boss).toEqual({ kind: "alive", hp: 20, hpMax: 20, share: 1, returned: false });
-    expect(view.team?.rows.map((row) => row.name)).toEqual(["Teodora", "Jovan", "Aleksa"]);
+    expect(view.team?.rows.map((row) => row.name)).toEqual(["TEST Operater A", "TEST Operater B", "TEST Operater C"]);
     // A combo of five this morning took the first place from the one who held it yesterday.
     expect(view.team?.rows[0]).toMatchObject({ me: true, rank: 1, medal: 1, bestChain: 5, move: 1 });
     expect(view.team?.rows[1]).toMatchObject({ rank: 2, bestChain: 3, move: -1 });
@@ -134,7 +134,7 @@ describe("the game in a preview frame", () => {
     expect(html).toContain('data-admin-operator=""');
     expect(html).toContain('data-game-boss="alive"');
     expect(html).toContain('data-game-team="strip"');
-    expect(html).toContain(">Teodora<");
+    expect(html).toContain(">TEST Operater A<");
   });
 
   test("a preview without a TEST game has no game (the fixtures never reach a frame that did not ask for them)", () => {

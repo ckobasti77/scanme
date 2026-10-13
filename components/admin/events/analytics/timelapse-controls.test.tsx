@@ -119,6 +119,20 @@ describe("TimelapseControls", () => {
     expect(button(render(), "live")).toContain(v.live);
   });
 
+  test("V5: the live mark leaves an invisible mark of the same text in its place, hidden from a screen reader, so a click moves nothing", () => {
+    expect(render({ mode: "live" })).not.toContain("data-timelapse-hold");
+    for (const mode of ["paused", "playing"] as const) {
+      const html = render({ mode });
+      expect(html).toMatch(/<span data-timelapse-hold="" aria-hidden="true" class="invisible[^"]*">/);
+      expect(html).not.toContain("data-timelapse-live");
+    }
+    // Never two live marks at once.
+    for (const mode of ["live", "paused", "playing"] as const) {
+      const html = render({ mode });
+      expect((html.match(/data-timelapse-live=""|data-timelapse-hold=""/g) ?? []).length).toBe(1);
+    }
+  });
+
   test("ready: the help text, no status line, the play button and the slider are enabled", () => {
     const html = render();
     expect(html).toContain(v.help);

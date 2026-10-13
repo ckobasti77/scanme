@@ -37,3 +37,58 @@ export function flatProject(angle: number, radius: number, width: number, height
   const [x, y] = flatPoint(angle, radius);
   return { x: width / 2 + x * scale, y: height / 2 + y * scale };
 }
+
+// --- the tap on the 2D picture -------------------------------------------------
+// A finger is wider than the transparent hit circle of a star (about 26-29 px on a phone) and the circles of
+// neighbours overlap, so on a touch the tap is resolved on the whole picture: the star whose centre is nearest wins,
+// within the reach of a 44 px target; a tap farther from every star does nothing. A mouse keeps its per-star hover.
+
+/** The reach of a tap (px): the radius of a 44 px target. */
+export const TOUCH_REACH_PX = 22;
+
+/** A star of the flat picture: its centre in view-box units (the centre of the picture is 0, 0). */
+export type FlatStar = { id: string; x: number; y: number };
+
+/** Px per view-box unit when the picture is drawn `meet` into a box of `width` × `height` px. */
+export function flatScale(width: number, height: number): number {
+  return Math.min(width / (2 * FLAT_VIEW.halfWidth), height / (2 * FLAT_VIEW.halfHeight));
+}
+
+/** The centres of the stars in view-box units (a „+N“ star counts as any other). */
+export function flatStars(stars: readonly { id: string; angle: number; orbit: OrbitIndex }[]): FlatStar[] {
+  return stars.map((star) => {
+    const [x, y] = flatPoint(star.angle, ORBIT_RADIUS[star.orbit]);
+    return { id: star.id, x, y };
+  });
+}
+
+/**
+ * The id of the star nearest to `point` (view-box units) that is at most `reach` away, else null. Of two stars at
+ * the same distance the first of `stars` wins, so a tap is never a coin toss.
+ */
+export function nearestStar(point: { x: number; y: number }, stars: readonly FlatStar[], reach: number): string | null {
+  let best: string | null = null;
+  let bestDistance = Infinity;
+  for (const star of stars) {
+    const distance = Math.hypot(star.x - point.x, star.y - point.y);
+    if (distance <= reach && distance < bestDistance) {
+      best = star.id;
+      bestDistance = distance;
+    }
+  }
+  return best;
+}
+
+/** A tap at (`clientX`, `clientY`) on a picture whose box is `box` (client px): the star it is for, else null. */
+export function tapStar(
+  clientX: number,
+  clientY: number,
+  box: { left: number; top: number; width: number; height: number },
+  stars: readonly FlatStar[],
+  reachPx: number = TOUCH_REACH_PX,
+): string | null {
+  if (box.width <= 0 || box.height <= 0) return null;
+  const scale = flatScale(box.width, box.height);
+  const point = { x: (clientX - box.left - box.width / 2) / scale, y: (clientY - box.top - box.height / 2) / scale };
+  return nearestStar(point, stars, reachPx / scale);
+}

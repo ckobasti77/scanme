@@ -1,7 +1,8 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, test } from "vitest";
-import { ADMIN_CEREMONY, ADMIN_DURATION, ADMIN_LAYER_MAX, ADMIN_REVEAL, ADMIN_SHIMMER } from "@/lib/admin-v2/motion";
+import { HALL_MOTION } from "@/lib/admin-v2/hall/motion";
+import { ADMIN_CEREMONY, ADMIN_DURATION, ADMIN_EDGE_FADE, ADMIN_LAYER_MAX, ADMIN_REVEAL, ADMIN_SHIMMER } from "@/lib/admin-v2/motion";
 
 // ADMIN v3 V1 — the contract between the motion tokens and the stylesheet
 // (the source is read from disk, like lib/admin-v2/frame/titles.test.ts):
@@ -29,6 +30,18 @@ describe("the motion tokens in CSS", () => {
     expect(token("--admin-shimmer")).toBe(ms(ADMIN_SHIMMER));
     const big = ADMIN_CEREMONY.big.in + ADMIN_CEREMONY.big.hold + ADMIN_CEREMONY.big.out;
     expect(big).toBeLessThanOrEqual(ADMIN_LAYER_MAX.ceremonija);
+  });
+
+  test("V5 (RV N6): the live row, the ring of the hall and the live edge are tokens, not literals", () => {
+    expect(token("--admin-live-edge")).toBe(ms(ADMIN_REVEAL.liveEdge));
+    expect(token("--admin-hall-ping")).toBe(ms(HALL_MOTION.ring));
+    expect(token("--admin-edge-fade")).toBe(ms(ADMIN_EDGE_FADE));
+    expect(css).toContain("animation: admin-live-edge var(--admin-live-edge) linear forwards;");
+    expect(css).toContain("animation: admin-hall-ping var(--admin-hall-ping) var(--admin-ease-out);");
+    // No admin animation or transition of the v3 block names its length in milliseconds.
+    const v3 = css.slice(css.indexOf("/* ADMIN v3 V1 — the reveal engine"), css.indexOf("/* Tables scroll with the screen"));
+    const literal = [...v3.matchAll(/(?:animation|transition)[^;{}]*\b\d+m?s\b[^;]*;/g)].map((match) => match[0]);
+    expect(literal).toEqual([]);
   });
 });
 
@@ -59,6 +72,12 @@ describe("content does not depend on the animation", () => {
     // The only endless CSS animation of the admin is the shimmer of a skeleton.
     const endless = [...css.matchAll(/animation:[^;]*infinite[^;]*;/g)].map((match) => match[0]).filter((rule) => rule.includes("admin-"));
     expect(endless).toEqual(["animation: admin-shimmer var(--admin-shimmer) linear infinite;"]);
+  });
+
+  test("V5: a ceremony lights the live edge and an admin dialog gets a dark scrim in the dark theme (RV S13)", () => {
+    expect(css).toMatch(/\.admin-v1\[data-admin-celebrating\] \.admin-edge-ring \{\s*opacity: 0\.9;/);
+    // Only a dialog whose content carries `admin-v1`: the shared dialog of the site is not changed.
+    expect(css).toMatch(/html\[data-theme="dark"\] \[data-slot="dialog-overlay"\]:has\(\+ \.admin-v1\[data-slot="dialog-content"\]\) \{\s*background-color: rgb\(8 10 9 \/ 0\.68\);/);
   });
 
   test("the live edge follows --admin-energy with opacity only", () => {

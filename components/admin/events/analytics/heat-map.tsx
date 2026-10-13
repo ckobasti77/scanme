@@ -124,6 +124,21 @@ function HeatMap2D({ geometry, zoneIds, rows, picked, onPick, tooltip, pings, fi
   );
 }
 
+/**
+ * The caption under the 3D scene. It says one of a few texts depending on the mode; the others are laid in the same
+ * grid cell, invisible and hidden from a screen reader, so the block is always as high as the longest of them.
+ */
+export function HallCaption({ shown, reserve }: { shown: string; reserve: readonly string[] }) {
+  return (
+    <div className="grid text-xs leading-5 text-[var(--admin-text-muted)]">
+      <p className="col-start-1 row-start-1">{shown}</p>
+      {reserve.filter((text) => text !== shown).map((text) => (
+        <p key={text} aria-hidden="true" className="invisible col-start-1 row-start-1">{text}</p>
+      ))}
+    </div>
+  );
+}
+
 function StandDetail({ stand, heat, models, onOpenModel, onClose }: {
   stand: StandRank;
   heat: AnalyticsHeatRow | undefined;
@@ -348,7 +363,8 @@ export function HallHeatMap({ eventCode, data, stands, models, picked, onPick, o
       question={v.question}
       actions={(
         <div className="flex min-w-0 flex-wrap items-center gap-2">
-          {moment === null ? <ChartSegmented label={d.heatTitle} value={period} onChange={setPeriod} options={[{ value: "today", label: d.heatPeriodToday }, { value: "hour", label: d.heatPeriodHour }]} /> : null}
+          {/* A moment of the Vremeplov has no measure to choose: the switch stays in its place, dimmed, so nothing beside it moves. */}
+          <ChartSegmented label={d.heatTitle} value={period} onChange={setPeriod} disabled={moment !== null} options={[{ value: "today", label: d.heatPeriodToday }, { value: "hour", label: d.heatPeriodHour }]} />
           {geometry ? (
             <ChartSegmented
               label={v.viewLabel}
@@ -395,15 +411,19 @@ export function HallHeatMap({ eventCode, data, stands, models, picked, onPick, o
               return value > 0 ? fmt(v.blockLabel, { stand: block.label, value: countOf(value, moment !== null ? d.v2.units.scans : heightUnit) }) : null;
             }}
             fallback={map2d(true)}
-            className="h-[20rem] @2xl:h-[24rem]"
+            className="h-[20rem] @2xl:h-[24rem] @4xl:h-[28rem] @5xl:h-[30rem]"
           />
-          <p className="text-xs leading-5 text-[var(--admin-text-muted)]">
-            {moment !== null && series
-              ? `${fmt(v.heightMoment, { time: clock, max: formatCount(series.maxTotal) })} ${v.layers}`
-              : `${fmt(period === "today" ? v.heightToday : v.heightHour, { max: formatCount(scene.maxValue) })}${period === "today" && series?.dateKey === data.todayKey ? ` ${v.layers}` : ""}`}
-            {" "}
-            {v.help3d}
-          </p>
+          <HallCaption
+            shown={moment !== null && series
+              ? `${fmt(v.heightMoment, { time: clock, max: formatCount(series.maxTotal) })} ${v.layers} ${v.help3d}`
+              : `${fmt(period === "today" ? v.heightToday : v.heightHour, { max: formatCount(scene.maxValue) })}${period === "today" && series?.dateKey === data.todayKey ? ` ${v.layers}` : ""} ${v.help3d}`}
+            // Whichever of these is shown, the caption is as high as the longest: a click on „Premotaj dan“ moves nothing.
+            reserve={[
+              `${fmt(v.heightToday, { max: formatCount(scene.maxValue) })} ${v.layers} ${v.help3d}`,
+              `${fmt(v.heightHour, { max: formatCount(scene.maxValue) })} ${v.help3d}`,
+              ...(series ? [`${fmt(v.heightMoment, { time: "00:00", max: formatCount(series.maxTotal) })} ${v.layers} ${v.help3d}`] : []),
+            ]}
+          />
         </>
       ) : map2d(false)}
       {quietZones.length ? <p data-heat-quiet="" className="text-xs text-[var(--admin-text-muted)]">{fmt(v.zonesEmpty, { zones: quietZones.join(", ") })}</p> : null}

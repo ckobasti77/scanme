@@ -1,7 +1,9 @@
 import { describe, expect, test } from "vitest";
 import { ADMIN_CEREMONY } from "@/lib/admin-v2/motion";
 import {
+  BURST_FROM,
   CEREMONY_PARTICLES_MAX,
+  PARTICLE_TRAIL_LAG,
   RANK_BADGE,
   ceremonyForm,
   ceremonyKey,
@@ -10,7 +12,9 @@ import {
   ceremonySeconds,
   ceremonySize,
   particleAt,
+  particleTrail,
   planSeconds,
+  strikeRing,
 } from "./ceremonies";
 import type { BadgeId, Rarity } from "./ids";
 import type { CeremonyEnv, CeremonyEvent, CeremonyItem, CeremonyPlan } from "./types";
@@ -227,6 +231,31 @@ describe("particles", () => {
       }
     }
   });
+  test("trails, not dots: 2–7 px for a big one, a card smaller (2–4 px)", () => {
+    for (const particle of ceremonyParticles("big", 11)) {
+      expect(particle.size).toBeGreaterThanOrEqual(2);
+      expect(particle.size).toBeLessThanOrEqual(7);
+    }
+    for (const particle of ceremonyParticles("card", 11)) {
+      expect(particle.size).toBeGreaterThanOrEqual(2);
+      expect(particle.size).toBeLessThanOrEqual(4);
+    }
+    // They really reach the range: a burst of 120 is not all thin.
+    expect(Math.max(...ceremonyParticles("big", 11).map((particle) => particle.size))).toBeGreaterThan(5.5);
+  });
+  test("some stream out of the chip behind the medal, the rest burst when it lands", () => {
+    const big = ceremonyParticles("big", 21);
+    const streaming = big.filter((particle) => particle.delay < BURST_FROM);
+    const bursting = big.filter((particle) => particle.delay >= BURST_FROM);
+    expect(streaming.length).toBeGreaterThan(20);
+    expect(bursting.length).toBeGreaterThan(streaming.length);
+    // The burst starts as the medal lands (the end of `in` is at 0.235 of a big ceremony).
+    const landing = ceremonySeconds("big").in / ceremonySeconds("big").total;
+    expect(BURST_FROM).toBeLessThanOrEqual(landing);
+    expect(Math.max(...bursting.map((particle) => particle.delay))).toBeGreaterThanOrEqual(landing - 0.02);
+    // A streaming particle stays short; a burst reaches further.
+    expect(Math.max(...streaming.map((particle) => particle.speed))).toBeLessThan(0.5 * 0.4 + 1e-9);
+  });
   test("no randomness outside the seed", () => {
     const real = Math.random;
     Math.random = () => {
@@ -283,5 +312,79 @@ describe("particleAt", () => {
         expect(at.scale).toBeLessThanOrEqual(1);
       }
     }
+  });
+  test("the distance from the origin never shrinks for a particle that flies sideways or down (the sink only adds to it)", () => {
+    const bursts = ceremonyParticles("big", 9).filter((burst) => Math.sin(burst.angle) >= 0);
+    expect(bursts.length).toBeGreaterThan(30);
+    for (const burst of bursts) {
+      let last = 0;
+      for (let step = 0; step <= 99; step += 1) {
+        const at = particleAt(burst, step / 100);
+        const distance = Math.hypot(at.x, at.y);
+        expect(distance).toBeGreaterThanOrEqual(last - 1e-9);
+        last = distance;
+        expect(distance).toBeLessThan(0.6);
+      }
+    }
+  });
+});
+
+describe("particleTrail", () => {
+  const particle = { angle: 0, speed: 0.4, size: 5, delay: 0.2, hue: 0.5 };
+
+  test("nothing at the edges or before it starts", () => {
+    for (const progress of [-1, 0, 0.1, 0.2, 1, 2]) expect(particleTrail(particle, progress)).toBeNull();
+  });
+  test("the head of the trail is where the particle is; the tail is where it was a moment ago", () => {
+    const trail = particleTrail(particle, 0.5)!;
+    const now = particleAt(particle, 0.5);
+    const before = particleAt(particle, 0.5 - PARTICLE_TRAIL_LAG);
+    expect(trail.to).toEqual({ x: now.x, y: now.y });
+    expect(trail.from).toEqual({ x: before.x, y: before.y });
+    expect(trail.alpha).toBe(now.alpha);
+    // It flies away from the origin, so the tail is nearer to it than the head.
+    expect(Math.hypot(trail.from.x, trail.from.y)).toBeLessThan(Math.hypot(trail.to.x, trail.to.y));
+  });
+  test("a trail never starts before its particle did", () => {
+    const trail = particleTrail(particle, 0.21)!;
+    expect(trail.from).toEqual({ x: 0, y: 0 });
+    expect(trail.to.x).toBeGreaterThan(0);
+  });
+  test("the width is the size shrunk by the scale, in the range of the sizes", () => {
+    for (const burst of ceremonyParticles("big", 4)) {
+      for (let step = 1; step < 100; step += 1) {
+        const trail = particleTrail(burst, step / 100);
+        if (!trail) continue;
+        expect(trail.width).toBeGreaterThanOrEqual(burst.size * 0.4 - 1e-9);
+        expect(trail.width).toBeLessThanOrEqual(burst.size + 1e-9);
+        expect(trail.alpha).toBeGreaterThan(0);
+        expect(trail.alpha).toBeLessThanOrEqual(1);
+      }
+    }
+  });
+});
+
+describe("strikeRing", () => {
+  test("one ring: nothing before the medal lands or after ADMIN_CEREMONY.ring", () => {
+    for (const seconds of [-1, 0, ADMIN_CEREMONY.ring, ADMIN_CEREMONY.ring + 1, Number.NaN]) expect(strikeRing(seconds)).toBeNull();
+    expect(ADMIN_CEREMONY.ring).toBeLessThanOrEqual(ceremonySeconds("big").hold + ceremonySeconds("big").out);
+  });
+  test("it goes out, easing out, and fades", () => {
+    const early = strikeRing(0.1)!;
+    const mid = strikeRing(ADMIN_CEREMONY.ring / 2)!;
+    const late = strikeRing(ADMIN_CEREMONY.ring - 0.05)!;
+    expect(mid.radius).toBeGreaterThan(early.radius);
+    expect(late.radius).toBeGreaterThan(mid.radius);
+    expect(late.radius).toBeLessThanOrEqual(0.6);
+    // Ease-out: the first half of the time covers more than the second.
+    expect(mid.radius - 0.1).toBeGreaterThan(late.radius - mid.radius);
+    expect(early.alpha).toBeGreaterThan(mid.alpha);
+    expect(mid.alpha).toBeGreaterThan(late.alpha);
+    for (const ring of [early, mid, late]) {
+      expect(ring.alpha).toBeGreaterThan(0);
+      expect(ring.alpha).toBeLessThanOrEqual(1);
+      expect(ring.width).toBeGreaterThanOrEqual(1);
+    }
+    expect(early.width).toBeGreaterThan(late.width);
   });
 });

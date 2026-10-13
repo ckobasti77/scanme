@@ -22,6 +22,7 @@ import { deviceSummary } from "@/lib/admin-v2/analytics/devices";
 import { formatCount, formatShare, lowerFirst } from "@/lib/admin-v2/analytics/format";
 import { leaderboard } from "@/lib/admin-v2/analytics/leaderboard";
 import { fairRecords } from "@/lib/admin-v2/analytics/records";
+import { fairEnded } from "@/lib/admin-v2/game/fair-read";
 import { standRanking } from "@/lib/admin-v2/analytics/stands";
 import type { EngagementData, ModelAnalyticsData } from "@/lib/admin-v2/analytics/types";
 import type { StandHoursState, TimelapseStart } from "@/lib/admin-v2/hall/types";
@@ -96,7 +97,9 @@ export function EventAnalyticsView({ eventCode, data, audience, engagement, mode
   const models = useMemo(() => leaderboard(data, audience, engagement), [data, audience, engagement]);
   const stands = useMemo(() => standRanking(data, audience), [data, audience]);
   const records = useMemo(() => fairRecords(data, engagement), [data, engagement]);
-  useRecordToasts(`${eventCode}:${data.todayKey}`, records, data.kpis.leads.total);
+  // The fair badges are tied to this event, and an event whose last fair day is before today gives none.
+  const ended = fairEnded(data.days.map((day) => day.dateKey), data.todayKey);
+  useRecordToasts(`${eventCode}:${data.todayKey}`, records, data.kpis.leads.total, { event: eventCode, ended });
   const openRow = useMemo(() => (modelId ? models.find((row) => row.eventModelId === modelId) ?? null : null), [models, modelId]);
   const hours = useMemo(() => data.hours.map((row) => ({ dateKey: row.dateKey, hour: row.hour, value: row.scans })), [data.hours]);
   const showStand = (locationId: string) => {

@@ -5,7 +5,7 @@ import { useRef } from "react";
 import { useQuietMode } from "@/components/admin/admin-ui/admin-toast";
 import { gsap, useAdminGsap } from "@/components/admin/frame/use-admin-gsap";
 import type { BossEvent, BossView } from "@/lib/admin-v2/game/types";
-import { ADMIN_EASE, ADMIN_LAYER_MAX } from "@/lib/admin-v2/motion";
+import { ADMIN_EASE, ADMIN_GAME_MOTION, ADMIN_LAYER_MAX } from "@/lib/admin-v2/motion";
 import { fmt } from "@/lib/i18n/format";
 import { adminGameSr as d } from "@/lib/i18n/sr/admin-game";
 import { cn } from "@/lib/utils";
@@ -21,7 +21,6 @@ import { cn } from "@/lib/utils";
 const bossHour = new Intl.DateTimeFormat("sr-Latn-RS", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Belgrade" });
 /** The jolt of the bar (x: 0, −3, 3, 0) lasts 250 ms: a quarter to the left, half across to the right, a quarter back. */
 const JOLT_STEP = ADMIN_LAYER_MAX.interakcija / 4;
-const POP_SECONDS = 0.6;
 
 export type BossBarEvent = BossEvent & {
   /** Changes with every event, so the same event twice is shown twice. */
@@ -52,7 +51,7 @@ export function BossBar({ boss, event, className }: { boss: BossView; event: Bos
   useAdminGsap(
     ({ reduced }) => {
       if (!hit || reduced || quiet) return;
-      if (damage.current) gsap.fromTo(damage.current, { y: 0, opacity: 1 }, { y: -10, opacity: 0, duration: POP_SECONDS, ease: ADMIN_EASE.out });
+      if (damage.current) gsap.fromTo(damage.current, { y: 0, opacity: 1 }, { y: -10, opacity: 0, duration: ADMIN_GAME_MOTION.damagePop, ease: ADMIN_EASE.out });
       if (track.current) {
         gsap
           .timeline({ defaults: { ease: "none" } })

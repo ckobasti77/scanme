@@ -50,7 +50,7 @@ export function FairChallenges({ items, className }: { items: readonly FairChall
                   aria-valuetext={progress}
                   className="h-1.5 overflow-hidden rounded-full bg-[var(--admin-border)]"
                 >
-                  <div className={cn("h-full origin-left rounded-full", item.missed && !item.done ? "bg-[var(--admin-text-muted)]" : "bg-[var(--admin-nav-line)]")} style={{ transform: `scaleX(${Math.min(1, item.value / Math.max(1, item.target))})` }} />
+                  <div className={cn("h-full origin-left rounded-full", item.missed && !item.done ? "bg-[var(--admin-text-muted)]" : "bg-[var(--admin-energy-ink)]")} style={{ transform: `scaleX(${Math.min(1, item.value / Math.max(1, item.target))})` }} />
                 </div>
               ) : null}
             </li>

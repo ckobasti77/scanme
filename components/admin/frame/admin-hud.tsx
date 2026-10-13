@@ -37,7 +37,7 @@ export function AdminHudView({ hud, href, className }: { hud: HudData; href: str
   const { state } = hud;
   const day = fmt(d.day, { day: state.dayIndex, count: state.dayCount });
   return (
-    <section data-admin-hud={state.kind} aria-label={d.title} className={cn("grid min-w-0 gap-1.5 border-t border-[var(--admin-border)] px-5 py-3", className)}>
+    <section data-admin-hud={state.kind} aria-label={d.title} className={cn("grid min-w-0 gap-1.5 border-t border-[var(--admin-border)] px-5 py-3 [@media(max-height:800px)]:gap-1 [@media(max-height:800px)]:py-2", className)}>
       <div className="flex min-w-0 items-center justify-between gap-2">
         <p className="text-[0.67rem] font-bold tracking-[0.08em] text-[var(--admin-text-muted)] uppercase">{d.title}</p>
         {state.kind !== "live" ? null : hud.stale ? (

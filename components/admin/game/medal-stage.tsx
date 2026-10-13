@@ -2,7 +2,6 @@
 
 import { useMemo } from "react";
 import { AdminStage, type StageSceneModule } from "@/components/admin/three/admin-stage";
-import { stageSession } from "@/components/admin/three/stage-session";
 import type { MedalSceneProps } from "@/components/admin/three/scenes/medal-scene";
 import type { Rarity } from "@/lib/admin-v2/game/ids";
 import type { MedalArt } from "@/lib/admin-v2/game/medal-art";
@@ -15,30 +14,13 @@ import { Medal2D } from "./medal-2d";
 // of the same badge is shown. The scene is asked for at once (the Vitrina was
 // opened on purpose) and it stops every other scene while it lives. The box is a
 // square cut to a circle: the canvas is opaque, and the circle keeps its corners
-// from showing as a lighter box.
+// from showing as a lighter box. V5: only the Vitrina shows it; a ceremony is a
+// moment of 1.6 s and always shows the 2D medal (no WebGL context starts inside it).
 
 /** Below this window width (px) the medal stays 2D. */
 const FLAT_BELOW = 768;
 
-let sceneReady = false;
-const loadScene = () =>
-  (import("@/components/admin/three/scenes/medal-scene") as Promise<StageSceneModule<MedalSceneProps>>).then((module) => {
-    sceneReady = true;
-    return module;
-  });
-
-/** The chunk of the medal scene is in this tab: a ceremony may show the 3D medal without waiting for the network. */
-export const medalSceneReady = () => sceneReady;
-
-/**
- * Brings the medal scene in ahead of a ceremony, but only on a page that already loaded the 3D kit
- * (a scene of its own); a page without one never asks for `three` because of a ceremony.
- */
-export function warmMedalScene(): () => void {
-  return stageSession.onKitLoaded(() => {
-    if (!sceneReady) void loadScene().catch(() => undefined);
-  });
-}
+const loadScene = () => import("@/components/admin/three/scenes/medal-scene") as Promise<StageSceneModule<MedalSceneProps>>;
 
 export function MedalStage({
   art,

@@ -101,7 +101,7 @@ describe("Zadaci page", () => {
     expect(shown(previewHtml("?pogled=overdue"))).toEqual(["qr"]);
     expect(shown(previewHtml("?pogled=deferred"))).toEqual(["offer"]);
     expect(shown(previewHtml("?pogled=completed"))).toEqual(["design"]);
-    expect(shown(previewHtml("?assignee=preview-admin-jovan"))).toEqual(["qr"]);
+    expect(shown(previewHtml("?assignee=preview-admin-b"))).toEqual(["qr"]);
     expect(shown(previewHtml("?klijent=preview-account-vrbak"))).toEqual(["qr"]);
     expect(shown(previewHtml("?q=ponudu&pogled=deferred"))).toEqual(["offer"]);
     expect(shown(previewHtml("?objekat=venue"))).toEqual(["grace", "qr", "cards"]);

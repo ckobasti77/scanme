@@ -41,6 +41,8 @@ export type XpRule = {
   /** The action enters a combo chain. */
   combo: boolean;
   repeat: XpRepeat;
+  /** V5 — at most this many rows of the label carry XP on one Belgrade day; undefined: no limit. */
+  dailyMax?: number;
 };
 
 /** A row that carries XP, after the XP table, the repeat rules and the combo. */

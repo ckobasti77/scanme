@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
 import { useQuietMode } from "@/components/admin/admin-ui/admin-toast";
 import { ADMIN_AMBIENT_FPS } from "@/lib/admin-v2/motion";
 import { PULSE_HEIGHT, beatPoints, beatShape, beatX, demoBeats, pulseActive, pulseEnergy, pulseStore, visibleBeats } from "@/lib/admin-v2/pulse";
@@ -18,16 +18,26 @@ import { REDUCED_MOTION_QUERY } from "./use-admin-gsap";
 
 const FRAME_MS = 1000 / ADMIN_AMBIENT_FPS;
 
+// V5 (N16): the system setting is followed while the page is open: a `change` re-runs the effect below.
+const watchReducedMotion = (onChange: () => void) => {
+  const query = window.matchMedia(REDUCED_MOTION_QUERY);
+  query.addEventListener("change", onChange);
+  return () => query.removeEventListener("change", onChange);
+};
+const reducedMotionNow = () => window.matchMedia(REDUCED_MOTION_QUERY).matches;
+const noReducedMotion = () => false;
+
 export function AdminPulse() {
   const ref = useRef<HTMLCanvasElement>(null);
   const [quiet] = useQuietMode();
+  const reducedMotion = useSyncExternalStore(watchReducedMotion, reducedMotionNow, noReducedMotion);
 
   useEffect(() => {
     const canvas = ref.current;
     const context = canvas?.getContext("2d");
     const root = canvas?.closest<HTMLElement>(".admin-v1");
     if (!canvas || !context || !root) return;
-    const still = quiet || window.matchMedia(REDUCED_MOTION_QUERY).matches;
+    const still = quiet || reducedMotion;
     // Dev: `?puls=demo` freezes one beat of every kind on the line, `?energija=<0–1>` holds the live edge.
     const params = process.env.NODE_ENV === "production" ? null : new URLSearchParams(window.location.search);
     const frozenAt = params?.get("puls") === "demo" ? Date.now() : null;
@@ -131,7 +141,7 @@ export function AdminPulse() {
       if (frame) cancelAnimationFrame(frame);
       root.style.removeProperty("--admin-energy");
     };
-  }, [quiet]);
+  }, [quiet, reducedMotion]);
 
   return (
     <>

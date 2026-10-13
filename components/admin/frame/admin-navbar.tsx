@@ -44,7 +44,9 @@ import { AdminPulse } from "./admin-pulse";
 // V3: the Pulse of the system runs along its bottom edge, under the links.
 // V4: the XP chip (the ring of the operator's level and „Nv 7“) stands left of the profile from 1400 px,
 // where the row has room for it; below that the nine links fill the row, so the ring stands around the
-// icon of the profile instead. The chip and the item „Vitrina“ of the profile menu open the Vitrina.
+// icon of the profile instead (with the level as a small badge on the ring). Below lg the top bar of the
+// phone shows the ring alone, as a 44 px button (the profile is not in that bar). The chip and the item
+// „Vitrina“ of the profile menu open the Vitrina.
 
 type NavIcon = ComponentType<{ className?: string; "aria-hidden"?: boolean | "true" | "false" }>;
 
@@ -96,6 +98,8 @@ export function AdminNavbar({ identity, onSignOut, previewSearchGroups }: {
           previewGroups={previewSearchGroups}
           showShortcut
         />
+        {/* V5 (N11): the level on a phone; the three rings (this, the profile's, the desktop chip's) are never shown together. */}
+        <GameChip compact className="lg:hidden" />
         <Link href={href("/admin/podesavanja")} className={cn(utilityClass, "hidden xl:grid")} aria-label={adminV1Sr.settings}>
           <Settings className="size-[1.15rem]" aria-hidden="true" />
         </Link>

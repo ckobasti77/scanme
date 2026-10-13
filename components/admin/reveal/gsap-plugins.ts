@@ -10,8 +10,11 @@ import { ADMIN_IGNITE_CURVE, ADMIN_REVEAL_EASE } from "@/lib/admin-v2/motion";
 // ADMIN v3 V1 — the one place the admin registers GSAP plugins. The site uses
 // ScrollTrigger over the window; the admin never calls `ScrollTrigger.defaults()`
 // or `normalizeScroll`, never pins, and every admin trigger names its own
-// scroller (the screen of the frame). `Flip` (the flight of a spark to the XP
-// chip) is registered by V4, the first step that uses it.
+// scroller (the screen of the frame). GSAP's `Flip` is not registered: the admin
+// has no use for it. A filtered list glides with its own 40 lines
+// (use-admin-flip.ts: it measures after every commit and must tell a filter from
+// a poll), and the comet of gained XP is a plain flight between two measured
+// points (game/cause-chain.tsx). A plugin nobody calls would only be weight.
 
 let registered = false;
 

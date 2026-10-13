@@ -194,6 +194,43 @@ describe("A10 Pregled view", () => {
   });
 });
 
+describe("ADMIN v3 V5 Pregled: the hourly challenges do not wait for the hall", () => {
+  const sajam = previewDashboard("sajam");
+  const [yesterday, today] = [sajam.days[0].dateKey, sajam.days[1].dateKey];
+  // TEST hours of the fair: yesterday's forenoon and a busy hour, today's forenoon so far.
+  const hours = [
+    { dateKey: yesterday, hour: 9, scans: 18, uniquePerModel: 10 },
+    { dateKey: yesterday, hour: 14, scans: 45, uniquePerModel: 22 },
+    { dateKey: today, hour: 9, scans: 12, uniquePerModel: 6 },
+  ];
+  const renderWith = (extra: Partial<Parameters<typeof EventDashboardView>[0]>) => renderToStaticMarkup(<EventDashboardView dashboard={sajam} now={sajam.at} base={BASE} {...extra} />);
+
+  test("with the hours and without a hall (an event without a floor plan) the hourly challenges are there, inside the watched wrapper", () => {
+    const html = renderWith({ hours });
+    for (const id of ["prestigni_prepodne", "obori_rekord_sata"]) expect(html).toContain(`data-challenge="${id}"`);
+    expect(html).toContain("data-pregled-live-block");
+    expect(html.indexOf("data-pregled-live-block")).toBeLessThan(html.indexOf('data-challenge="prestigni_prepodne"'));
+    // The wrapper keeps the gap of the column it stands in.
+    expect(html).toMatch(/<div data-pregled-live-block="" class="grid min-w-0 gap-5">/);
+  });
+
+  test("without the hours only the challenges the dashboard alone can count are shown", () => {
+    const html = renderWith({});
+    expect(html).toContain('data-challenge="hitni_na_nuli"');
+    for (const id of ["prestigni_prepodne", "obori_rekord_sata"]) expect(html).not.toContain(`data-challenge="${id}"`);
+  });
+
+  test("the hall stands inside the same wrapper, after the challenges", () => {
+    const html = renderWith({ hours, hall: <p data-test-hall="">TEST hala</p> });
+    expect(html.match(/data-pregled-live-block/g)).toHaveLength(1);
+    expect(html.indexOf('data-challenge="hitni_na_nuli"')).toBeLessThan(html.indexOf("data-test-hall"));
+  });
+
+  test("an event with nothing to watch (before the fair) has no wrapper, so no extra gap", () => {
+    expect(render(previewDashboard("pre"))).not.toContain("data-pregled-live-block");
+  });
+});
+
 describe("A10 dashboard logic", () => {
   test("section badges: the most urgent tone per section, info stays on Pregled, a parent carries its pages' badge", () => {
     const actions: Action[] = [

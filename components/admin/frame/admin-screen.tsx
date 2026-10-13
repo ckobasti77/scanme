@@ -38,10 +38,13 @@ export function AdminScreen({ children }: { children: ReactNode }) {
   const content = useRef<HTMLDivElement>(null);
   const scan = useRef<HTMLSpanElement>(null);
   const glow = useRef<HTMLDivElement>(null);
+  const shownPath = useRef(pathname);
 
   useEffect(() => {
+    // Back or Forward that stays on this page (an entry of the same path) is not a visit: the mark would
+    // wait for the next click and make it a return.
     const onPop = () => {
-      history.current = true;
+      history.current = window.location.pathname.replace(/\/+$/, "") !== shownPath.current.replace(/\/+$/, "");
     };
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
@@ -52,6 +55,7 @@ export function AdminScreen({ children }: { children: ReactNode }) {
     const element = ref.current;
     if (!element) return;
     const saved = positions.current;
+    shownPath.current = pathname;
     back.current = history.current;
     history.current = false;
     element.scrollTop = back.current ? saved.get(pathname) ?? 0 : 0;
@@ -70,10 +74,11 @@ export function AdminScreen({ children }: { children: ReactNode }) {
     history: back,
   });
 
+  // Attached per page: the light of the page that was left is put out and folded with it.
   useEffect(() => {
     if (quiet || !ref.current) return;
     return attachMaterial(ref.current, glow.current);
-  }, [quiet]);
+  }, [quiet, pathname]);
 
   return (
     <main

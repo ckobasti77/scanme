@@ -147,7 +147,7 @@ describe("groups whose values are ids of records", () => {
   });
 
   test("the fixture ids of the dev previews are ids too, so the previews keep their filters", () => {
-    for (const id of ["user-fixture-admin", "fixture-admin", "account-fixture-1", "preview-admin-jovan", "test-admin-1"]) {
+    for (const id of ["user-fixture-admin", "fixture-admin", "account-fixture-1", "preview-admin-b", "test-admin-1"]) {
       expect(RECORD_ID.test(id), id).toBe(true);
       expect(readUrlState(idFields, `?klijent=${id}`)).toEqual({ klijent: id });
     }

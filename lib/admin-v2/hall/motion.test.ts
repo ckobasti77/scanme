@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { ADMIN_DURATION, ADMIN_LAYER_MAX } from "@/lib/admin-v2/motion";
 import { HALL_PARTICLES } from "./impulses";
-import { HALL_INTRO_MAX, HALL_MOTION, approach, introCamera, introColumnDelay, introGrow, powerInOut, powerOut, shortGrow } from "./motion";
+import { HALL_INTRO_MAX, HALL_MOTION, approach, hourRingAt, introCamera, introColumnDelay, introGrow, powerInOut, powerOut, shortGrow } from "./motion";
 
 // ADMIN v3 V3 — the motion of the Living hall: the intro of the camera is at most
 // 1.6 s and ends on the isometric view, the columns have risen by 0.9 s (the
@@ -105,5 +105,37 @@ describe("curves and the settle of a column", () => {
   test("the ring of a new scan and the flash of an hour are short", () => {
     expect(HALL_MOTION.ring).toBe(HALL_PARTICLES.ringS);
     expect(HALL_MOTION.flash).toBeLessThanOrEqual(ADMIN_LAYER_MAX.interakcija);
+  });
+});
+
+describe("the ring of a whole hour of the replay (V5)", () => {
+  test("lasts at most 0.9 s, and longer than the ring of a scan", () => {
+    expect(HALL_MOTION.hourRing).toBeLessThanOrEqual(0.9);
+    expect(HALL_MOTION.hourRing).toBeGreaterThan(HALL_MOTION.ring);
+  });
+
+  test("goes out fast then settles, never back, and fades to nothing", () => {
+    let before = hourRingAt(0)!;
+    expect(before.reach).toBe(0);
+    expect(before.additive).toBe(1);
+    for (let age = 0.05; age < HALL_MOTION.hourRing; age += 0.05) {
+      const now = hourRingAt(age)!;
+      expect(now.reach).toBeGreaterThanOrEqual(before.reach);
+      expect(now.reach).toBeLessThanOrEqual(1);
+      expect(now.additive).toBeLessThan(before.additive);
+      expect(now.painted).toBeLessThan(before.painted);
+      before = now;
+    }
+    // Added light is gone sooner than paint: on a light surface the ring stays readable.
+    const half = hourRingAt(HALL_MOTION.hourRing / 2)!;
+    expect(half.painted).toBeGreaterThan(half.additive);
+    expect(half.reach).toBeGreaterThan(0.9);
+  });
+
+  test("is over at 0.9 s, and has no age before it started or when the age is not a number", () => {
+    expect(hourRingAt(HALL_MOTION.hourRing)).toBeNull();
+    expect(hourRingAt(5)).toBeNull();
+    expect(hourRingAt(-0.1)).toBeNull();
+    expect(hourRingAt(Number.NaN)).toBeNull();
   });
 });

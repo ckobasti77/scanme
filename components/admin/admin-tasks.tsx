@@ -1538,19 +1538,19 @@ export class AdminTasksErrorBoundary extends Component<
 
 const previewAdmins = [
   {
-    id: "preview-admin-teodora" as Id<"users">,
-    name: "Teodora",
-    email: "teodora@example.invalid",
+    id: "preview-admin-a" as Id<"users">,
+    name: "TEST Operater A",
+    email: "test-operater-a@example.invalid",
   },
   {
-    id: "preview-admin-jovan" as Id<"users">,
-    name: "Jovan",
-    email: "jovan@example.invalid",
+    id: "preview-admin-b" as Id<"users">,
+    name: "TEST Operater B",
+    email: "test-operater-b@example.invalid",
   },
   {
-    id: "preview-admin-aleksa" as Id<"users">,
-    name: "Aleksa",
-    email: "aleksa@example.invalid",
+    id: "preview-admin-c" as Id<"users">,
+    name: "TEST Operater C",
+    email: "test-operater-c@example.invalid",
   },
 ];
 

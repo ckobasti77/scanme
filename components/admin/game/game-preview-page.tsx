@@ -42,7 +42,7 @@ const CHALLENGES: FairChallengeInput = {
   hours: [
     { dateKey: "test-dan-1", hour: 9, scans: 14 },
     { dateKey: "test-dan-1", hour: 10, scans: 22 },
-    { dateKey: "test-dan-1", hour: 11, scans: 31 },
+    { dateKey: "test-dan-1", hour: 11, scans: 29 },
     { dateKey: "test-dan-1", hour: 14, scans: 47 },
     { dateKey: "test-dan-2", hour: 9, scans: 19 },
     { dateKey: "test-dan-2", hour: 10, scans: 27 },
@@ -55,6 +55,8 @@ const TRIGGERS: readonly Trigger[] = ["resolve", "combo", "level", "badge", "epi
 /** `?igra=` → the button it presses. */
 const BY_PARAM: Readonly<Record<string, Trigger>> = { nivo: "level", rang: "level", znacka: "badge", epska: "epicBadge", sef: "boss", kombo: "combo", rekord: "record", vise: "many", vitrina: "vitrina", zaostatak: "newBacklog" };
 const AUTO_DELAY_MS = 400;
+/** The key of the TEST event the preview reports the fair facts of. */
+const PREVIEW_EVENT = "test-sajam";
 
 export function GamePreviewPage({ igra }: { igra?: string }) {
   const game = useGameApi();
@@ -72,7 +74,11 @@ export function GamePreviewPage({ igra }: { igra?: string }) {
       preview.act("task");
       preview.act("resolved");
     } else if (trigger === "badge") preview.act("delivery");
-    else if (trigger === "epicBadge") game.reportFair({ hourRecord: 120 });
+    else if (trigger === "epicBadge") {
+      // The state first (an hour record below 100), then the rise: only a rise seen while the page is open is news.
+      game.reportFair({ event: PREVIEW_EVENT, ended: false, facts: { hourRecord: 90 } });
+      game.reportFair({ event: PREVIEW_EVENT, ended: false, facts: { hourRecord: 120 } });
+    }
     else if (trigger === "boss") preview.clearBacklog();
     else if (trigger === "record") record();
     else if (trigger === "many") {

@@ -49,6 +49,7 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { backlogRing } from "@/lib/admin-v2/constellation/layout";
 import type { BacklogRing, ConstellationItem, OrbitIndex, Star } from "@/lib/admin-v2/constellation/types";
 import { bossView } from "@/lib/admin-v2/game/boss";
+import { ceremonySignal } from "@/lib/admin-v2/game/ceremony-signal";
 import type { BossView } from "@/lib/admin-v2/game/types";
 import { dashboardScope, inboxMissions, reactionMissions, taskMissions } from "@/lib/admin-v2/lists/dashboard-missions";
 import { ADMIN_DURATION, ADMIN_EASE } from "@/lib/admin-v2/motion";
@@ -237,7 +238,11 @@ function ReactionBundle({ data, now, scope, fixture = false, previewAim }: { dat
     if (previewGame && previewCounts !== undefined) previewGame.setCounts(previewCounts ? { urgent: previewCounts.urgent, needsReply: previewCounts.needsReply, today: previewCounts.today } : null);
   }, [previewGame, previewCounts]);
 
-  const open = useCallback((mode: "snooze" | "resolve", item: ReactionItem) => setDialog({ mode, actionItemId: item.action.actionItemId }), []);
+  // V5 (S8) — pressing „Reši“ or „Odloži“ takes the aim away: the line comes back only when the pointer or the focus aims at a row again.
+  const open = useCallback((mode: "snooze" | "resolve", item: ReactionItem) => {
+    setRowAim(null);
+    setDialog({ mode, actionItemId: item.action.actionItemId });
+  }, []);
   // V4 — the spark of the XP a solved item carries starts at its star (or at its row when the hero is hidden).
   const onResolved = useCallback(
     (actionItemId: Id<"actionItems">) => {
@@ -245,7 +250,11 @@ function ReactionBundle({ data, now, scope, fixture = false, previewAim }: { dat
       const star = id && handle?.host ? handle.project(id) : null;
       const box = star ? handle?.host?.getBoundingClientRect() : null;
       const dot = id ? list.current?.querySelector(`[data-reaction-row="${CSS.escape(id)}"] [data-reaction-dot]`)?.getBoundingClientRect() : null;
-      gameApi.aim(star && box ? { x: box.left + star.x, y: box.top + star.y } : dot ? { x: dot.left + dot.width / 2, y: dot.top + dot.height / 2 } : null);
+      // V5 — a star that is scrolled off the screen is not where the eye is: the comet then starts at the row.
+      const view = list.current?.closest('main[data-admin-frame="screen"]')?.getBoundingClientRect() ?? null;
+      const onScreen = (point: { x: number; y: number }) => !view || (point.x >= view.left && point.x <= view.right && point.y >= view.top && point.y <= view.bottom);
+      const from = [star && box ? { x: box.left + star.x, y: box.top + star.y } : null, dot ? { x: dot.left + dot.width / 2, y: dot.top + dot.height / 2 } : null];
+      gameApi.aim(from.find((point) => point !== null && onScreen(point)) ?? null);
       // Dev preview: the TEST journal gets its row a moment later, as the answer of the server would come.
       if (fixture) window.setTimeout(() => gameApi.preview?.act("resolved"), PREVIEW_ANSWER_MS);
     },
@@ -295,7 +304,14 @@ function ReactionBundle({ data, now, scope, fixture = false, previewAim }: { dat
       {hero === "list" ? (
         <div className={cn("grid gap-3", fullRow)}>
           <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
-            <ReactionCount count={data.counts?.total ?? null} />
+            {/* V5 (S4) — the boss of the day and the combo do not depend on the view: here they stand in the row of the count. */}
+            <div className="flex min-w-0 flex-wrap items-center gap-x-5 gap-y-2">
+              <ReactionCount count={data.counts?.total ?? null} />
+              <div data-dashboard-boss="" className="flex min-w-0 flex-wrap items-center gap-x-5 gap-y-2">
+                <BossBar boss={boss} event={game.bossEvent} className="w-48 max-w-full" />
+                <ComboMeter combo={game.view.combo} now={game.now} />
+              </div>
+            </div>
             <button type="button" onClick={() => dashboardHeroStore.set("constellation")} className={quietButtonClass}>{adminV1Sr.dashboardConstellationShow}</button>
           </div>
           {data.counts ? <SignalStrip counts={data.counts} /> : <ProjectionUnavailable compact />}
@@ -335,7 +351,7 @@ function ReactionBundle({ data, now, scope, fixture = false, previewAim }: { dat
 
       <ReactionList data={data} now={now} lit={starAim} onAim={setRowAim} onDialog={open} panelRef={list} />
       {dialog ? <ActionDialog key={dialog.actionItemId} mode={dialog.mode} onOpenChange={(next) => { if (!next) setDialog({ ...dialog, mode: null }); }} actionItemId={dialog.actionItemId} fixture={fixture} onResolved={onResolved} /> : null}
-      {hero === "list" ? null : <AimLine aimed={rowAim} handle={handle} quiet={quiet} />}
+      {hero === "list" ? null : <AimLine aimed={rowAim} handle={handle} quiet={quiet} dialogOpen={dialog?.mode != null} />}
     </>
   );
 }
@@ -424,23 +440,49 @@ function ReactionRow({ item, now, lit, onAim, onDialog }: { item: ReactionItem; 
   );
 }
 
+/** The hero must show at least this share of itself for the line to point at a star the eye can find. */
+const AIM_HERO_SHARE = 0.5;
+
+/**
+ * V5 (S8) — may the aim line be drawn? Only while a row is aimed at, no dialog of the list is open
+ * („Reši“ and „Odloži“ took the aim away), no ceremony is on the screen (the line would cut across
+ * it) and the hero is on the screen (otherwise the line points to a star above the visible screen).
+ */
+export function aimLineVisible({ aimed, dialogOpen, ceremony, heroVisible }: { aimed: string | null; dialogOpen: boolean; ceremony: "big" | "card" | null; heroVisible: boolean }): boolean {
+  return aimed !== null && !dialogOpen && ceremony === null && heroVisible;
+}
+
 /**
  * The aim line: from the dot of a row to its star, drawn over the grid of the Dashboard. Decoration
  * only (the row and the star are both lit without it); it is measured, never animated in place.
  */
-function AimLine({ aimed, handle, quiet }: { aimed: string | null; handle: ConstellationHandle | null; quiet: boolean }) {
+function AimLine({ aimed, handle, quiet, dialogOpen }: { aimed: string | null; handle: ConstellationHandle | null; quiet: boolean; dialogOpen: boolean }) {
   const svg = useRef<SVGSVGElement>(null);
   const path = useRef<SVGPathElement>(null);
   const [line, setLine] = useState<{ id: string; d: string } | null>(null);
+  const ceremony = useSyncExternalStore(ceremonySignal.subscribe, ceremonySignal.get, ceremonySignal.getServer);
+  const host = handle?.host ?? null;
+  // What the observer last said, with the host it said it about (another host has not been seen yet).
+  const [seenHero, setSeenHero] = useState<{ host: HTMLElement; visible: boolean } | null>(null);
 
+  // The hero on the screen: the line is drawn only while at least half of it is.
+  useEffect(() => {
+    if (!host || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver(([entry]) => setSeenHero({ host, visible: entry.isIntersecting && entry.intersectionRatio >= AIM_HERO_SHARE }), { threshold: [0, AIM_HERO_SHARE] });
+    observer.observe(host);
+    return () => observer.disconnect();
+  }, [host]);
+  const heroVisible = host !== null && (typeof IntersectionObserver === "undefined" || (seenHero?.host === host && seenHero.visible));
+
+  const active = aimLineVisible({ aimed, dialogOpen, ceremony, heroVisible }) ? aimed : null;
   useEffect(() => {
     const element = svg.current;
-    if (!aimed || !handle?.host || !element) return;
+    if (!active || !handle?.host || !element) return;
     const host = handle.host;
     const measure = () => {
-      const dot = element.parentElement?.querySelector(`[data-reaction-row="${CSS.escape(aimed)}"] [data-reaction-dot]`);
+      const dot = element.parentElement?.querySelector(`[data-reaction-row="${CSS.escape(active)}"] [data-reaction-dot]`);
       const panel = dot?.closest('[data-admin-primitive="panel"]');
-      const star = handle.project(aimed);
+      const star = handle.project(active);
       if (!dot || !panel || !star) return setLine(null);
       const origin = element.getBoundingClientRect();
       const from = dot.getBoundingClientRect();
@@ -456,7 +498,7 @@ function AimLine({ aimed, handle, quiet }: { aimed: string | null; handle: Const
       const top = stage.bottom - origin.top;
       const bend = (top - y2) * 0.5;
       setLine({
-        id: aimed,
+        id: active,
         d: `M${fixed(x1)} ${fixed(y1)} L${fixed(rail + turn)} ${fixed(y1)} Q${fixed(rail)} ${fixed(y1)} ${fixed(rail)} ${fixed(y1 - turn)} L${fixed(rail)} ${fixed(top)} C${fixed(rail)} ${fixed(top - bend)} ${fixed(x2)} ${fixed(y2 + bend)} ${fixed(x2)} ${fixed(y2)}`,
       });
     };
@@ -464,9 +506,9 @@ function AimLine({ aimed, handle, quiet }: { aimed: string | null; handle: Const
     const observer = new ResizeObserver(measure);
     observer.observe(element);
     return () => observer.disconnect();
-  }, [aimed, handle]);
+  }, [active, handle]);
 
-  const shown = aimed && line?.id === aimed ? line : null;
+  const shown = active && line?.id === active ? line : null;
   useAdminGsap(({ reduced }) => {
     if (!shown || reduced || quiet || !path.current) return;
     adminMotion().gsap.fromTo(path.current, { drawSVG: "0%" }, { drawSVG: "100%", duration: ADMIN_DURATION.state, ease: ADMIN_EASE.out });

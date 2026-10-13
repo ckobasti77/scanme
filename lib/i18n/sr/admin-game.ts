@@ -99,7 +99,7 @@ export const adminGameSr: AdminGameDict = {
     progress: "{value} od {goal}",
     groupPersonal: "Lične značke",
     groupFair: "Sajam",
-    fairNote: "Sajamske značke su zajedničke za tim i ne nose XP.",
+    fairNote: "Sajamske značke ne nose XP. Upisuje ih uređaj koji je video događaj dok traje, sa datumom kad ih je prvi put video.",
     localNote: "Značke vezane za niz i za stanje dana postoje samo na uređaju koji ih je video. Ostale se računaju iz dnevnika akcija na svakom uređaju.",
     count: "Osvojeno {earned} od {total}",
     badgeAria: "{name}. {rarity}. {state}",

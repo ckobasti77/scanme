@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { BOSS_PENDING_MS, gameStep, gameView, initialGame, nextTickAt, type GameEffect, type GameInput, type GameState, type GameStored } from "./engine";
+import { BOSS_PENDING_MS, gameStep, gameView, initialGame, nextTickAt, type FairFacts, type GameEffect, type GameInput, type GameState, type GameStored } from "./engine";
 import { xpForLevel } from "./levels";
 import { dayKey, dayStart, shiftDay } from "./time";
 import type { ActivityRow, BossCounts, CeremonyPlan, XpSnapshot } from "./types";
@@ -49,6 +49,11 @@ function liveGame(xp = xpForLevel(3) + 10, extra: Partial<GameStored> = {}): Gam
 }
 
 const COUNTS: BossCounts = { urgent: 2, needsReply: 1, today: 3 };
+const EVENT_A = "test-sajam-a";
+const EVENT_B = "test-sajam-b";
+/** The report of a fair page: the facts of one event, by default one that is running. */
+const fair = (event: string, facts: Partial<FairFacts>, now: number, ended = false): GameInput => ({ type: "fair", event, ended, fair: facts, now });
+const celebrated = (effects: GameEffect[]) => plans(effects).flatMap((plan) => [...plan.show, ...plan.rest].map((item) => item.key));
 const plans = (effects: GameEffect[]): CeremonyPlan[] => effects.flatMap((effect) => (effect.type === "ceremony" ? [effect.plan] : []));
 const bossEvents = (effects: GameEffect[]) => effects.flatMap((effect) => (effect.type === "boss" ? [effect.event] : []));
 
@@ -336,14 +341,18 @@ describe("badges that are a moment", () => {
     expect(later.state.badgeDates.inbox_nula).toBe(T0 + MIN + 400);
   });
 
-  test("a fair badge from the facts of a fair page: an epic one is a big ceremony", () => {
-    const { state, effects } = run(liveGame(), { type: "fair", fair: { hourRecord: 120 }, now: T0 + MIN });
-    expect(state.badgeDates.sto_skenova).toBe(T0 + MIN);
+  test("a fair badge from the facts of a fair page: an epic one is a big ceremony once the fact rose while the page was open", () => {
+    // The page first told the hour record below 100 (the state), later it rose.
+    const first = run(liveGame(), fair(EVENT_A, { hourRecord: 80 }, T0 + MIN));
+    expect(first.state.badgeDates.sto_skenova).toBeUndefined();
+    const { state, effects } = run(first.state, fair(EVENT_A, { hourRecord: 120 }, T0 + 2 * MIN));
+    expect(state.badgeDates.sto_skenova).toBe(T0 + 2 * MIN);
     expect(plans(effects)[0].show[0]).toMatchObject({ key: "badge:sto_skenova", size: "big" });
     // The facts are kept: a later, smaller number does not take the record back.
-    const later = run(state, { type: "fair", fair: { hourRecord: 40, ready: true }, now: T0 + 2 * MIN });
+    const known = run(state, fair(EVENT_A, { ready: false }, T0 + 3 * MIN));
+    const later = run(known.state, fair(EVENT_A, { hourRecord: 40, ready: true }, T0 + 4 * MIN));
     expect(later.state.fair).toMatchObject({ hourRecord: 120, ready: true });
-    expect(later.state.badgeDates.sajam_spreman).toBe(T0 + 2 * MIN);
+    expect(later.state.badgeDates.sajam_spreman).toBe(T0 + 4 * MIN);
   });
 
   test("a record of the fair is a card, once per key", () => {
@@ -356,6 +365,83 @@ describe("badges that are a moment", () => {
     const state = liveGame(undefined, { badgeDates: { inbox_nula: T0 - 9 * MIN } });
     expect(gameView(state, T0).badges.find((badge) => badge.id === "inbox_nula")?.earnedAt).toBe(T0 - 9 * MIN);
     expect(state.seen).toContain("badge:inbox_nula");
+  });
+});
+
+describe("the fair badges are tied to the event: state versus news", () => {
+  test("the first report of a fact is the state: the date is written, the key is seen, no ceremony", () => {
+    const { state, effects } = run(liveGame(), fair(EVENT_A, { ready: true, firstLead: true, hourRecord: 140 }, T0 + MIN));
+    expect(effects).toEqual([]);
+    expect(state.badgeDates).toMatchObject({ sajam_spreman: T0 + MIN, prvi_lead: T0 + MIN, sto_skenova: T0 + MIN });
+    expect(state.seen).toEqual(expect.arrayContaining(["badge:sajam_spreman", "badge:prvi_lead", "badge:sto_skenova"]));
+    // The Vitrina shows them as earned.
+    const earned = gameView(state, T0 + MIN).badges.filter((badge) => badge.earnedAt !== null).map((badge) => badge.id);
+    expect(earned).toEqual(expect.arrayContaining(["sajam_spreman", "prvi_lead", "sto_skenova"]));
+  });
+
+  test("a fact seen false that becomes true while the page is open is news: a ceremony", () => {
+    const seenFalse = run(liveGame(), fair(EVENT_A, { ready: false, firstLead: false }, T0 + MIN));
+    expect(seenFalse.effects).toEqual([]);
+    expect(seenFalse.state.badgeDates.prvi_lead).toBeUndefined();
+    const lead = run(seenFalse.state, fair(EVENT_A, { firstLead: true }, T0 + 2 * MIN));
+    expect(celebrated(lead.effects)).toEqual(["badge:prvi_lead"]);
+    const ready = run(lead.state, fair(EVENT_A, { ready: true }, T0 + 3 * MIN));
+    expect(celebrated(ready.effects)).toEqual(["badge:sajam_spreman"]);
+    // Said again, it is the same fact: nothing more.
+    expect(run(ready.state, fair(EVENT_A, { ready: true, firstLead: true }, T0 + 4 * MIN)).effects).toEqual([]);
+  });
+
+  test("the hour record is news when it was seen below 100 and rises to 100; a new record while the page is open is news", () => {
+    const low = run(liveGame(), fair(EVENT_A, { hourRecord: 99 }, T0 + MIN));
+    expect(low.effects).toEqual([]);
+    expect(celebrated(run(low.state, fair(EVENT_A, { hourRecord: 100 }, T0 + 2 * MIN)).effects)).toEqual(["badge:sto_skenova"]);
+    expect(celebrated(run(liveGame(), fair(EVENT_A, { hourRecordSeen: true }, T0 + MIN)).effects)).toEqual(["badge:rekord_sata"]);
+  });
+
+  test("a report of an event that has ended is ignored: no fact, no badge, no date", () => {
+    const before = liveGame();
+    const { state, effects } = run(before, fair(EVENT_A, { ready: true, firstLead: true, hourRecordSeen: true, hourRecord: 150 }, T0 + MIN, true));
+    expect(effects).toEqual([]);
+    expect(state.fair).toEqual(before.fair);
+    expect(state.fairReported).toEqual({});
+    expect(state.badgeDates).toEqual({});
+    expect(state.seen).toEqual(before.seen);
+    // It does not even count as a first look: after it the event reports as a first report again.
+    expect(run(state, fair(EVENT_A, { firstLead: true }, T0 + 2 * MIN)).effects).toEqual([]);
+  });
+
+  test("two events do not share what they have reported", () => {
+    const a = run(liveGame(), fair(EVENT_A, { hourRecord: 80, ready: false }, T0 + MIN));
+    // The first report of event B is its state, though event A has seen the same facts lower.
+    const b = run(a.state, fair(EVENT_B, { hourRecord: 120, ready: true }, T0 + 2 * MIN));
+    expect(b.effects).toEqual([]);
+    expect(b.state.badgeDates.sto_skenova).toBe(T0 + 2 * MIN);
+    expect(b.state.fairReported[EVENT_A]).toEqual({ hourRecord: 80, ready: false });
+    expect(b.state.fairReported[EVENT_B]).toEqual({ hourRecord: 120, ready: true });
+  });
+
+  test("an old event with a lead gives no ceremony, however the page was reached", () => {
+    // Client-side navigation: the game is live, the page reports.
+    const navigated = run(liveGame(), fair(EVENT_A, { ready: false, firstLead: true }, T0 + MIN));
+    // Hard reload: the page reported before the game was live, the journal is read afterwards.
+    const reloaded = run(
+      initialGame(ME, stored(xpForLevel(3) + 10)),
+      fair(EVENT_A, { ready: false, firstLead: true }, T0),
+      { type: "journal", rows: [], initial: true, now: T0 },
+    );
+    expect(navigated.effects).toEqual([]);
+    expect(reloaded.effects).toEqual([]);
+    for (const state of [navigated.state, reloaded.state]) {
+      expect(state.badgeDates.prvi_lead).toBeDefined();
+      expect(state.seen).toContain("badge:prvi_lead");
+    }
+  });
+
+  test("after the state, the same badge is not celebrated by a later fact either", () => {
+    const state = run(liveGame(), fair(EVENT_A, { firstLead: true }, T0 + MIN)).state;
+    // Another event that saw its lead false and then true: the badge is already won, nothing is shown.
+    const other = run(state, fair(EVENT_B, { firstLead: false }, T0 + 2 * MIN), fair(EVENT_B, { firstLead: true }, T0 + 3 * MIN));
+    expect(other.effects).toEqual([]);
   });
 });
 
@@ -389,7 +475,7 @@ describe("the engine is pure", () => {
   test("a step never changes the state it was given", () => {
     const before = liveGame();
     const copy = JSON.stringify(before);
-    run(before, { type: "counts", counts: COUNTS, now: T0 }, { type: "journal", rows: [row(RESOLVED, T0 + MIN)], now: T0 + MIN }, { type: "fair", fair: { firstLead: true }, now: T0 + MIN });
+    run(before, { type: "counts", counts: COUNTS, now: T0 }, { type: "journal", rows: [row(RESOLVED, T0 + MIN)], now: T0 + MIN }, fair(EVENT_A, { firstLead: true }, T0 + MIN));
     expect(JSON.stringify(before)).toBe(copy);
   });
 });

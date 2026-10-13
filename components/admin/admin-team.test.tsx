@@ -74,7 +74,7 @@ beforeEach(() => {
   mocks.paginated = [];
 });
 
-const FIXTURE = { teodora: "Teodora", jovan: "Jovan", aleksa: "Aleksa" };
+const FIXTURE = { first: "TEST Operater A", second: "TEST Operater B", third: "TEST Operater C" };
 
 function previewHtml(search = "") {
   mocks.search = search;
@@ -96,7 +96,7 @@ const occurrences = (html: string, text: string) => html.split(text).length - 1;
 
 describe("Tim page", () => {
   test("one header: a single h1 with the name of the chosen member, the member chosen only in the sidebar", () => {
-    for (const html of [previewHtml(), previewHtml("?clan=preview-admin-jovan&tab=tasks")]) {
+    for (const html of [previewHtml(), previewHtml("?clan=preview-admin-b&tab=tasks")]) {
       expect(html.match(/<h1/g)).toHaveLength(1);
       // The only selects are the „Preraspodeli“ ones in the rows (data of the row).
       expect(withoutRows(html)).not.toContain("<select");
@@ -105,17 +105,17 @@ describe("Tim page", () => {
       expect(html).not.toContain('role="radiogroup"');
       expect(html).not.toContain('type="search"');
     }
-    expect(previewHtml()).toMatch(new RegExp(`<h1[^>]*>${FIXTURE.teodora}</h1>`));
-    expect(previewHtml("?clan=preview-admin-jovan")).toMatch(new RegExp(`<h1[^>]*>${FIXTURE.jovan}</h1>`));
-    expect(previewHtml("?clan=preview-admin-aleksa")).toMatch(new RegExp(`<h1[^>]*>${FIXTURE.aleksa}</h1>`));
+    expect(previewHtml()).toMatch(new RegExp(`<h1[^>]*>${FIXTURE.first}</h1>`));
+    expect(previewHtml("?clan=preview-admin-b")).toMatch(new RegExp(`<h1[^>]*>${FIXTURE.second}</h1>`));
+    expect(previewHtml("?clan=preview-admin-c")).toMatch(new RegExp(`<h1[^>]*>${FIXTURE.third}</h1>`));
     // An unknown member is the first one.
-    expect(previewHtml("?clan=nepoznat")).toMatch(new RegExp(`<h1[^>]*>${FIXTURE.teodora}</h1>`));
+    expect(previewHtml("?clan=nepoznat")).toMatch(new RegExp(`<h1[^>]*>${FIXTURE.first}</h1>`));
   });
 
   test("the name is shown once and the e-mail of a member with a name is not shown", () => {
-    for (const search of ["", "?tab=tasks", "?tab=conversations", "?clan=preview-admin-jovan"]) {
+    for (const search of ["", "?tab=tasks", "?tab=conversations", "?clan=preview-admin-b"]) {
       const html = withoutRows(previewHtml(search));
-      const name = search.includes("jovan") ? FIXTURE.jovan : FIXTURE.teodora;
+      const name = search.includes("preview-admin-b") ? FIXTURE.second : FIXTURE.first;
       expect(occurrences(html, `>${name}<`)).toBe(1);
       expect(html).not.toContain("example.invalid");
     }
@@ -135,12 +135,12 @@ describe("Tim page", () => {
   });
 
   test("four counters of the chosen member and two links with the member in the query", () => {
-    const html = previewHtml("?clan=preview-admin-aleksa");
+    const html = previewHtml("?clan=preview-admin-c");
     for (const label of [dict.openTasks, dict.overdueTasks, dict.conversations, dict.awaitingReaction]) expect(html).toContain(`${label}</span>`);
     expect(html).toMatch(/<strong[^>]*>8<\/strong>/);
     expect(html).toMatch(/<strong[^>]*>12<\/strong>/);
-    expect(html).toContain('href="/admin/zadaci?assignee=preview-admin-aleksa"');
-    expect(html).toContain('href="/admin/inbox?assignee=preview-admin-aleksa"');
+    expect(html).toContain('href="/admin/zadaci?assignee=preview-admin-c"');
+    expect(html).toContain('href="/admin/inbox?assignee=preview-admin-c"');
     expect(html).toContain(dict.openAllTasks);
     expect(html).toContain(dict.openAllConversations);
   });
@@ -149,10 +149,10 @@ describe("Tim page", () => {
     expect(previewHtml()).toContain("Pozovi zbog grace perioda");
     expect(previewHtml()).toContain("Da li kartice stižu ove nedelje?");
     expect(previewHtml()).not.toContain("Potvrdi prijem kartica");
-    const jovan = previewHtml("?clan=preview-admin-jovan&tab=tasks");
-    expect(jovan).toContain("Potvrdi prijem kartica");
-    expect(jovan).not.toContain("Pozovi zbog grace perioda");
-    expect(previewHtml("?clan=preview-admin-aleksa&tab=conversations")).toContain(dict.noConversations);
+    const second = previewHtml("?clan=preview-admin-b&tab=tasks");
+    expect(second).toContain("Potvrdi prijem kartica");
+    expect(second).not.toContain("Pozovi zbog grace perioda");
+    expect(previewHtml("?clan=preview-admin-c&tab=conversations")).toContain(dict.noConversations);
   });
 
   test("the view comes from the URL: the overview has both lists, the others one", () => {

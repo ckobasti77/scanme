@@ -58,6 +58,12 @@ export const ADMIN_REVEAL = {
   rearmMs: 20 * 60_000,
   /** Share of the screen height above which a node belongs to the entrance (below: scroll). */
   threshold: 0.92,
+  /**
+   * V5 — the fuse: a node that still waits below the fold this long after the navigation is put into its
+   * final state without a move (as is everything that waits when the page is printed). Content never
+   * depends on a trigger.
+   */
+  fuse: 30,
   /** The old page dims on a click that leaves it. */
   exit: 0.14,
   exitOpacity: 0.55,
@@ -107,10 +113,36 @@ export const ADMIN_CEREMONY = {
   compact: { in: 0.24, hold: 0.72, out: 0.24 },
   gap: 0.4,
   maxInRow: 2,
+  /** The words under the medal come in and leave. */
+  words: { in: 0.2, out: 0.16 },
+  /** V5 — the medal of a big ceremony lands with a punch: from this scale, a little past 1, to 1 (curve `adminIgnite`). */
+  medal: { from: 0.4, over: 1.12 },
+  /** V5 — the one ring of the strike goes out as the medal lands. */
+  ring: 0.7,
 } as const;
+
+/**
+ * V5 — the comet of gained XP (the chain of cause): from the place of the action to the bar of the boss,
+ * then into the XP chip. Ceremony layer: decoration over the screen, it never takes input. `head` and
+ * `tail` are px; the rest seconds.
+ */
+export const ADMIN_SPARK = { toBoss: 0.25, toChip: 0.6, fade: 0.12, label: 0.9, head: 9, tail: 120, strike: 0.25, ring: 0.4 } as const;
+
+/** Small moves of the game outside a ceremony: the damage number floats off (reveal layer), the XP bar follows its number (interaction). */
+export const ADMIN_GAME_MOTION = { damagePop: 0.6, xpBar: 0.22 } as const;
+
+/**
+ * V5 — the stage of the 3D kit. `fade`: the canvas fades in over the 2D picture. „Skener pali“ (`ignite`):
+ * on a full entrance the 2D picture waits as a shade (`shade` of its opacity), the scene may start
+ * `igniteAfter` s after the navigation and lights up over it; a scene that is not there after
+ * `igniteDeadline` s leaves the 2D picture at full strength.
+ */
+export const ADMIN_STAGE_MOTION = { fade: 0.3, startAfter: 1, igniteAfter: 0.35, igniteDeadline: 2.5, shade: 0.15 } as const;
 
 /** Ambient loops (WebGL, the Pulse) draw at most this often. */
 export const ADMIN_AMBIENT_FPS = 30;
+/** The live edge of the screen follows `--admin-energy` this slowly (seconds; `--admin-edge-fade` in CSS). */
+export const ADMIN_EDGE_FADE = 0.6;
 /** The material: the light that follows the cursor (px), the magnet (px) and the tilt (degrees). */
 export const ADMIN_MATERIAL = { light: 360, magnetRadius: 40, magnetMax: 6, magnetIn: 0.2, magnetOut: 0.18, tiltMax: 3, tilt: 0.15, glow: 0.12 } as const;
 /** One pass of the skeleton shimmer (seconds). */

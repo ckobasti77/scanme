@@ -38,8 +38,11 @@ export function createGameStore(options: { clock?: () => number; storage?: () =>
   let snapshot: GameSnapshot = EMPTY;
   let seq = 0;
   let timer: ReturnType<typeof setTimeout> | null = null;
-  /** What a fair page told before the game started (a hard reload of an event page): kept and told again at the start. */
-  let early: Partial<FairFacts> | null = null;
+  /**
+   * What fair pages told before the game started (a hard reload of an event page): kept per event, with the
+   * flag of an ended event, and told again at the start in the order they came. Events are never merged.
+   */
+  const early = new Map<string, { ended: boolean; facts: Partial<FairFacts> }>();
   const listeners = new Set<() => void>();
   const effectListeners = new Set<(effect: GameEffect) => void>();
 
@@ -79,7 +82,10 @@ export function createGameStore(options: { clock?: () => number; storage?: () =>
 
   function dispatch(action: GameAction) {
     if (!state) {
-      if (action.type === "fair") early = { ...early, ...action.fair };
+      if (action.type === "fair") {
+        const told = early.get(action.event);
+        early.set(action.event, { ended: action.ended, facts: { ...told?.facts, ...action.fair } });
+      }
       return;
     }
     const before = state;
@@ -104,11 +110,9 @@ export function createGameStore(options: { clock?: () => number; storage?: () =>
       snapshot = EMPTY;
       publish(null, null);
       schedule();
-      if (early) {
-        const fair = early;
-        early = null;
-        dispatch({ type: "fair", fair });
-      }
+      const told = [...early];
+      early.clear();
+      for (const [event, { ended, facts }] of told) dispatch({ type: "fair", event, ended, fair: facts });
     },
     started: () => state !== null,
     /** The first read of the journal is in: what happens from now on is news. */

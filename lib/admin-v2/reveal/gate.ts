@@ -137,6 +137,33 @@ export function inRevealWindow(enteredAt: number, now: number): boolean {
   return now - enteredAt < ADMIN_REVEAL.window * 1000;
 }
 
+export type LateRevealInput = {
+  /** The entrance window of the page is still open. */
+  inWindow: boolean;
+  /** The content took the place of a skeleton (a read has arrived). */
+  replacedSkeleton: boolean;
+  /** This place of the page has already had a skeleton replaced in this visit. */
+  regionSeen: boolean;
+  /** The query string changed since the page was entered (a filter, a sort, a tab). */
+  queryChanged: boolean;
+};
+
+/**
+ * How content that arrives after the navigation enters (V5, RV S1):
+ * `group` — its own choreography (the number counts from zero, the chart is drawn, the rows cascade);
+ * `fade`  — it only fades in over the skeleton it replaces;
+ * `none`  — it is simply there.
+ * Inside the entrance window everything new gets its choreography. After it only the FIRST read of a
+ * place does: on the real admin the data often arrives later than the window, and the page would
+ * otherwise enter with nothing but a fade. A read that follows a filter, and every later read of the
+ * same place, only fades; polling replaces no skeleton, so it never enters at all.
+ */
+export function lateReveal(input: LateRevealInput): "group" | "fade" | "none" {
+  if (input.inWindow) return "group";
+  if (!input.replacedSkeleton) return "none";
+  return input.regionSeen || input.queryChanged ? "fade" : "group";
+}
+
 const normalizePath = (path: string) => (path === "/" ? path : path.replace(/\/+$/, ""));
 const isAdminPath = (path: string) => path === "/admin" || path.startsWith("/admin/") || path.startsWith("/dev/admin-");
 

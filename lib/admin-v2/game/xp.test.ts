@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { XP_TABLE, XP_UNDO, countedRows, scoreRows, xpRule } from "./xp";
+import { XP_DAILY_MAX, XP_TABLE, XP_UNDO, countedRows, scoreRows, xpRule } from "./xp";
 import type { ActivityRow } from "./types";
 
 // Tuesday 2026-10-13, 10:00 in Belgrade.
@@ -176,5 +176,66 @@ describe("the undo of a sticker", () => {
 
   it("does not carry XP itself", () => {
     expect(xpRule(XP_UNDO.action)).toBeNull();
+  });
+});
+
+// ADMIN v3 V5 (RV N1) — the cheap actions carry XP a limited number of times a Belgrade day.
+describe("the daily limit of the cheap actions", () => {
+  const many = (action: string, count: number, from = T0, href = (index: number) => `/admin/test/${index}`) =>
+    Array.from({ length: count }, (_, index) => row(action, from + index * MIN, href(index)));
+
+  it("fifty empty tasks on one day carry XP ten times: 30 XP, not 150", () => {
+    const scored = scoreRows(many("admin_v1_task_created", 50));
+    expect(scored).toHaveLength(XP_DAILY_MAX.novi_zadatak);
+    expect(scored.reduce((sum, action) => sum + action.xp, 0)).toBe(30);
+    // The first ten of the day, in the order they were done.
+    expect(scored.map((action) => action.at)).toEqual(Array.from({ length: 10 }, (_, index) => T0 + index * MIN));
+  });
+
+  it("every cheap kind has its own limit, and the kinds do not share one", () => {
+    for (const [action, label] of [["fair_qr_assigned", "nalepnica"], ["digital_qr_linked", "digitalni_qr"], ["admin_v1_manual_communication_logged", "komunikacija"], ["access_channel_changed", "kanal"]] as const) {
+      expect(countedRows(many(action, 50)), action).toHaveLength(XP_DAILY_MAX[label]);
+    }
+    // A sticker assigned and a sticker moved are one kind; tasks beside them keep their own ten.
+    const mixed = [...many("fair_qr_assigned", 15), ...many("fair_qr_reassigned", 15, T0 + HOUR), ...many("admin_v1_task_created", 12, T0 + 2 * HOUR)];
+    const labels = countedRows(mixed).map((item) => item.rule.label);
+    expect(labels.filter((label) => label === "nalepnica")).toHaveLength(XP_DAILY_MAX.nalepnica);
+    expect(labels.filter((label) => label === "novi_zadatak")).toHaveLength(XP_DAILY_MAX.novi_zadatak);
+  });
+
+  it("the limit is of a Belgrade day: the next day starts from zero", () => {
+    // 23:30 in Belgrade on the 13th: twelve rows five minutes apart cross midnight after the sixth.
+    const late = Date.UTC(2026, 9, 13, 21, 30);
+    const rows = Array.from({ length: 30 }, (_, index) => row("admin_v1_task_created", late + index * 5 * MIN, `/admin/test/${index}`));
+    // Six before midnight (all counted), twenty-four after it (ten counted).
+    expect(countedRows(rows)).toHaveLength(6 + XP_DAILY_MAX.novi_zadatak);
+  });
+
+  it("the work that is hard to repeat has no limit", () => {
+    for (const action of ["admin_v1_problem_resolved", "admin_order_delivery_completed", "admin_order_design_approved"]) {
+      expect(xpRule(action)?.dailyMax, action).toBeUndefined();
+      expect(countedRows(many(action, 50)), action).toHaveLength(50);
+    }
+    // A reply and a finished task are bound by their own repeat rule (once per conversation, once per task), not by a number a day.
+    expect(countedRows(many("admin_v1_conversation_reply_sent", 50))).toHaveLength(50);
+  });
+
+  it("a sticker that was taken back gives its place of the day back", () => {
+    const rows = many("fair_qr_assigned", XP_DAILY_MAX.nalepnica);
+    const undone = row(XP_UNDO.action, T0 + XP_DAILY_MAX.nalepnica * MIN, `/admin/test/${XP_DAILY_MAX.nalepnica - 1}`);
+    const next = row("fair_qr_assigned", T0 + (XP_DAILY_MAX.nalepnica + 1) * MIN, "/admin/test/jos-jedna");
+    const counted = countedRows([...rows, undone, next]);
+    expect(counted).toHaveLength(XP_DAILY_MAX.nalepnica);
+    expect(counted.at(-1)?.row.href).toBe("/admin/test/jos-jedna");
+  });
+
+  it("a row the limit left out does not start the repeat window of its href", () => {
+    // Ten channels fill the day; the eleventh (another href) is left out, and the same href counts the next day.
+    const first = many("access_channel_changed", XP_DAILY_MAX.kanal);
+    const over = row("access_channel_changed", T0 + 20 * MIN, "/admin/test/kasnije");
+    const nextDay = row("access_channel_changed", T0 + 20 * HOUR, "/admin/test/kasnije");
+    const counted = countedRows([...first, over, nextDay]);
+    expect(counted).toHaveLength(XP_DAILY_MAX.kanal + 1);
+    expect(counted.at(-1)?.row.occurredAt).toBe(T0 + 20 * HOUR);
   });
 });

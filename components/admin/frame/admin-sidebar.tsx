@@ -30,8 +30,8 @@ export function AdminSidebar() {
         {/* The content reads the query string (useSearchParams). */}
         <Suspense fallback={null}><AdminSidebarContent /></Suspense>
       </AdminSidebarScroll>
-      {/* V4: the operator (rank, level, streak) is always here; „Danas“ below it only while a fair runs. */}
-      <GameOperator />
+      {/* V4: the operator (rank, level, streak) is always here; „Danas“ below it only while a fair runs. V5: on a window up to 800 px tall the operator is one line. */}
+      <GameOperator dense />
       <AdminHud />
     </aside>
   );

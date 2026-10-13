@@ -10,6 +10,7 @@ import {
   isLiveRow,
   isPageExit,
   lastFullEntrance,
+  lateReveal,
   readRevealLog,
   revealMode,
   revealRouteKey,
@@ -177,6 +178,31 @@ describe("content that arrives later", () => {
     expect(isLiveRow({ ...live, afterWindow: false })).toBe(false);
     expect(isLiveRow({ ...live, seen: true })).toBe(false);
     expect(isLiveRow({ ...live, addedTogether: 0 })).toBe(false);
+  });
+});
+
+describe("a read that arrives after the navigation (V5, RV S1)", () => {
+  const late = { inWindow: false, replacedSkeleton: true, regionSeen: false, queryChanged: false };
+
+  test("inside the window everything new gets its choreography, also what replaced nothing", () => {
+    expect(lateReveal({ ...late, inWindow: true })).toBe("group");
+    expect(lateReveal({ inWindow: true, replacedSkeleton: false, regionSeen: true, queryChanged: true })).toBe("group");
+  });
+
+  test("after the window the first read of a place still enters in full: the real admin waits for its queries", () => {
+    // 1.5 s and 3 s after the navigation: the number counts from zero, the ring is drawn, the rows cascade.
+    expect(inRevealWindow(NOW, NOW + 1500)).toBe(false);
+    expect(lateReveal(late)).toBe("group");
+  });
+
+  test("a later read of the same place and a read that answers a filter only fade", () => {
+    expect(lateReveal({ ...late, regionSeen: true })).toBe("fade");
+    expect(lateReveal({ ...late, queryChanged: true })).toBe("fade");
+  });
+
+  test("polling replaces no skeleton, so it never enters", () => {
+    expect(lateReveal({ ...late, replacedSkeleton: false })).toBe("none");
+    expect(lateReveal({ inWindow: false, replacedSkeleton: false, regionSeen: true, queryChanged: true })).toBe("none");
   });
 });
 

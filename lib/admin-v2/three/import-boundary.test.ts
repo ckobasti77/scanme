@@ -45,14 +45,23 @@ function codeLines(lines: readonly string[]): string[] {
       }
       rest = trimmed.slice(end + 2);
     }
+    // A comment inside an import list (`a, // it's A`, `{ /* a */ b }`) must not hide the closing `from "…"`.
+    // A `//` after a quote may be part of a string ("https://…"): such a line stays as it is.
+    rest = rest.replace(/\/\*.*?\*\//g, " ");
+    const slashes = rest.indexOf("//");
+    if (slashes !== -1 && !/["'`]/.test(rest.slice(0, slashes))) rest = rest.slice(0, slashes);
     code.push(rest);
   }
   return code;
 }
 
-const IMPORT_FROM = /(?:^|;)\s*import\s+(?!type\s)[^"'`;]*?\sfrom\s*["']([^"']+)["']/gm;
+// Every pattern reads the whole source, so a list over many lines (`import {\n  a,\n  b\n} from "three"`), a
+// `from` right behind the brace (`}from"three"`) and `import*as` are seen. A dynamic `import(…)`, also over
+// several lines, never matches: it has no `from` and its `(` stops the bare pattern.
+// `(?!type\b(?!\s+from\b))` skips `import type …` / `export type …` (but not a default import that is called `type`).
+const IMPORT_FROM = /(?:^|;)\s*import(?![\w$.(])(?!\s*type\b(?!\s+from\b))[^"'`;]*?\bfrom\s*["']([^"']+)["']/gm;
 const IMPORT_BARE = /(?:^|;)\s*import\s*["']([^"']+)["']/gm;
-const EXPORT_FROM = /(?:^|;)\s*export\s+(?!type\s)(?:\*(?:\s+as\s+[\w$]+)?|\{[^}]*\})\s*from\s*["']([^"']+)["']/gm;
+const EXPORT_FROM = /(?:^|;)\s*export(?![\w$])(?!\s*type\b(?!\s+from\b))\s*(?:\*(?:\s*as\s+[\w$]+)?|\{[^}]*\})\s*from\s*["']([^"']+)["']/gm;
 const REQUIRE = /\brequire\(\s*["']([^"']+)["']\s*\)/g;
 
 /** The specifiers a source imports as values: not `import type`, not a dynamic `import()`, not a comment. */
@@ -162,6 +171,59 @@ describe("valueImports", () => {
     expect(valueImports(['import "three/examples/jsm/loaders/GLTFLoader.js";'])).toEqual(["three/examples/jsm/loaders/GLTFLoader.js"]);
     expect(valueImports(["import {", "  A,", "  type B,", '} from "three";'])).toEqual(["three"]);
     expect(valueImports(["import type {", "  A,", '} from "three";'])).toEqual([]);
+  });
+
+  test("a list over many lines counts, whatever sits inside it", () => {
+    expect(valueImports(["import {", "  WebGLRenderer,", "  Scene,", '} from "three";'])).toEqual(["three"]);
+    expect(valueImports(["import {", "  type Scene,", "  WebGLRenderer", '} from "three"'])).toEqual(["three"]);
+    expect(valueImports(["import Default, {", "  a,", "  b", "} from 'three/examples/jsm/controls/OrbitControls.js';"])).toEqual([
+      "three/examples/jsm/controls/OrbitControls.js",
+    ]);
+    expect(valueImports(["import * as", "  THREE", 'from "three";'])).toEqual(["three"]);
+    expect(valueImports(["import {", "  a, // it's the scene", "  /* and the \"renderer\" */ b,", '} from "three";'])).toEqual(["three"]);
+    expect(valueImports(["import {", "  a,", '} from "three"; // not "type"'])).toEqual(["three"]);
+  });
+
+  test("no space around the braces or the star still counts", () => {
+    expect(valueImports(['import{Scene}from"three";'])).toEqual(["three"]);
+    expect(valueImports(['import*as THREE from"three";'])).toEqual(["three"]);
+    expect(valueImports(["import typeFoo from 'three';"])).toEqual(["three"]);
+    expect(valueImports(['import type from "three";'])).toEqual(["three"]);
+  });
+
+  test("a type import over many lines or without a space does not count", () => {
+    expect(valueImports(["import type {", "  Scene,", "  WebGLRenderer,", '} from "three";'])).toEqual([]);
+    expect(valueImports(["import type", "  * as THREE", 'from "three";'])).toEqual([]);
+    expect(valueImports(['import type{ Scene } from "three";'])).toEqual([]);
+    expect(valueImports(["import type Scene from 'three';"])).toEqual([]);
+    expect(valueImports(["export type {", "  Scene,", '} from "three";'])).toEqual([]);
+    expect(valueImports(["export type * from 'three';"])).toEqual([]);
+  });
+
+  test("export from over many lines counts", () => {
+    expect(valueImports(["export {", "  Scene,", "  WebGLRenderer,", '} from "three";'])).toEqual(["three"]);
+    expect(valueImports(["export {", "  type Scene,", "  default as Stage", "}", 'from "./stage";'])).toEqual(["./stage"]);
+    expect(valueImports(["export *", "  as THREE", 'from "three";'])).toEqual(["three"]);
+    expect(valueImports(['export{Scene}from"three";'])).toEqual(["three"]);
+    expect(valueImports(['export*from"three";'])).toEqual(["three"]);
+    expect(valueImports(["export const scene = 1;", 'export default { from: "three" };'])).toEqual([]);
+  });
+
+  test("a dynamic import over many lines does not count", () => {
+    expect(valueImports(["const kit = await import(", '  "three"', ");"])).toEqual([]);
+    expect(valueImports(["const kit = await import(", '  /* webpackChunkName: "three" */ "three/examples/jsm/controls/OrbitControls.js"', ");"])).toEqual([]);
+    expect(valueImports(["const load = () =>", "  import(", '    "@/components/admin/three/stage"', "  );"])).toEqual([]);
+    expect(valueImports(["load={() =>", '  import("@/components/admin/three/scenes/constellation-scene")', "}"])).toEqual([]);
+    // ...and it does not hide a static import that follows it.
+    expect(valueImports(["const kit = await import(", '  "three"', ");", 'import { a } from "three";'])).toEqual(["three"]);
+  });
+
+  test("a side-effect import over many lines counts", () => {
+    expect(valueImports(["import", '  "three/examples/jsm/loaders/GLTFLoader.js";'])).toEqual(["three/examples/jsm/loaders/GLTFLoader.js"]);
+  });
+
+  test("require over many lines counts", () => {
+    expect(valueImports(["const THREE = require(", '  "three"', ");"])).toEqual(["three"]);
   });
 
   test("require counts", () => {

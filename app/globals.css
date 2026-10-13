@@ -219,6 +219,14 @@ html[data-theme="dark"] {
   --admin-shimmer: 1400ms;
   --admin-shimmer-light: rgb(255 255 255 / 0.55);
   --admin-glow-strength: 6%;
+  /* ADMIN v3 V5 — the fill of energy (the XP bar, the ring of the combo, the progress of a
+     challenge): the green that reads on this surface (light: the darker success green, dark:
+     ScanMe green), as the Pulse does. The durations below are named in lib/admin-v2/motion.ts
+     (ADMIN_EDGE_FADE, ADMIN_REVEAL.liveEdge) and lib/admin-v2/hall/motion.ts (HALL_MOTION.ring). */
+  --admin-energy-ink: var(--admin-success);
+  --admin-edge-fade: 600ms;
+  --admin-live-edge: 1200ms;
+  --admin-hall-ping: 600ms;
   /* ADMIN v2 X3 — chart colours (ZADATAK §4; lib/admin-v2/analytics/palette.ts).
      Categorical: eight slots in a fixed order, the colour follows the entity.
      Validated on the admin surfaces with the dataviz validator: worst adjacent
@@ -292,6 +300,7 @@ html[data-theme="dark"] .admin-v1 {
   --admin-accent-border: #3f6a35;
   --admin-shimmer-light: rgb(242 244 238 / 0.08);
   --admin-glow-strength: 9%;
+  --admin-energy-ink: var(--admin-nav-line);
   /* ADMIN v2 X3 — the same eight hues stepped for the dark surface; the
      sequential scale flips its anchor (near zero recedes into the surface). */
   --admin-chart-1: #3987e5;
@@ -666,7 +675,7 @@ html[data-theme="dark"] .admin-v1 {
   width: 2px;
   background: var(--admin-nav-line);
   pointer-events: none;
-  animation: admin-live-edge 1200ms linear forwards;
+  animation: admin-live-edge var(--admin-live-edge) linear forwards;
 }
 
 @keyframes admin-live-edge {
@@ -713,7 +722,7 @@ html[data-theme="dark"] .admin-v1 {
   border-radius: inherit;
   box-shadow: inset 0 0 0 1px var(--admin-nav-line);
   opacity: calc(var(--admin-energy, 0) * 0.55);
-  transition: opacity 600ms linear;
+  transition: opacity var(--admin-edge-fade) linear;
 }
 
 .admin-v1 .admin-edge-glow {
@@ -724,11 +733,31 @@ html[data-theme="dark"] .admin-v1 {
   height: 1.5rem;
   background: linear-gradient(to bottom, var(--admin-nav-line), transparent);
   opacity: 0;
-  transition: opacity 600ms linear;
+  transition: opacity var(--admin-edge-fade) linear;
 }
 
 html[data-theme="dark"] .admin-v1 .admin-edge-glow {
   opacity: calc(var(--admin-energy, 0) * 0.18);
+}
+
+/* V5 — while a big ceremony is on the screen the live edge is fully lit: the whole
+   screen takes part in the moment (opacity only; the ceremony layer sets the mark). */
+.admin-v1[data-admin-celebrating] .admin-edge-ring {
+  opacity: 0.9;
+  transition-duration: var(--admin-dur-2);
+}
+
+html[data-theme="dark"] .admin-v1[data-admin-celebrating] .admin-edge-glow {
+  opacity: 0.32;
+  transition-duration: var(--admin-dur-2);
+}
+
+/* V5 (RV S13) — the scrim of an admin dialog. The shared dialog dims with the
+   text colour, which is light in the dark theme: the page behind the Vitrina
+   turned lighter than the dialog. An admin dialog (its content carries
+   `admin-v1`) gets a dark scrim there; components/ui is not touched. */
+html[data-theme="dark"] [data-slot="dialog-overlay"]:has(+ .admin-v1[data-slot="dialog-content"]) {
+  background-color: rgb(8 10 9 / 0.68);
 }
 
 /* The Living hall (v3 V3). The clock of the Vremeplov ticks on every new hour
@@ -750,7 +779,7 @@ html[data-theme="dark"] .admin-v1 .admin-edge-glow {
   transform-origin: center;
   opacity: 0;
   pointer-events: none;
-  animation: admin-hall-ping 600ms var(--admin-ease-out);
+  animation: admin-hall-ping var(--admin-hall-ping) var(--admin-ease-out);
 }
 
 @keyframes admin-hall-ping {

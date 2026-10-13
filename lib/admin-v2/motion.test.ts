@@ -1,5 +1,18 @@
 import { describe, expect, test } from "vitest";
-import { ADMIN_AMBIENT_FPS, ADMIN_CEREMONY, ADMIN_DURATION, ADMIN_LAYER_MAX, ADMIN_MATERIAL, ADMIN_MOTION_MAX, ADMIN_REVEAL, ADMIN_STAGGER_TOTAL } from "./motion";
+import {
+  ADMIN_AMBIENT_FPS,
+  ADMIN_CEREMONY,
+  ADMIN_DURATION,
+  ADMIN_EDGE_FADE,
+  ADMIN_GAME_MOTION,
+  ADMIN_LAYER_MAX,
+  ADMIN_MATERIAL,
+  ADMIN_MOTION_MAX,
+  ADMIN_REVEAL,
+  ADMIN_SPARK,
+  ADMIN_STAGE_MOTION,
+  ADMIN_STAGGER_TOTAL,
+} from "./motion";
 
 // ADMIN v2 X6 (RX N5) — the limits of ZADATAK §1 and §7 as numbers: a
 // transition lasts at most 250 ms, a change of the frame at most 320 ms, and
@@ -63,5 +76,55 @@ describe("the three layers of v3", () => {
 
   test("ambient loops draw at most 30 times a second", () => {
     expect(ADMIN_AMBIENT_FPS).toBe(30);
+  });
+});
+
+// ADMIN v3 V5 (RV N6) — the durations that stood as literals in components are tokens, each inside its layer.
+describe("the tokens V5 named", () => {
+  test("the comet of gained XP is of the ceremony layer: it lands within 1.8 s, label included", () => {
+    const flight = ADMIN_SPARK.toBoss + ADMIN_SPARK.toChip + ADMIN_SPARK.fade;
+    expect(flight).toBeLessThanOrEqual(1);
+    // The label appears as the comet lands and is gone before the layer's limit.
+    expect(ADMIN_SPARK.toBoss + ADMIN_SPARK.toChip + ADMIN_SPARK.label).toBeLessThanOrEqual(ADMIN_LAYER_MAX.ceremonija);
+    // What answers the strike and the arrival is short.
+    expect(ADMIN_SPARK.strike).toBeLessThanOrEqual(ADMIN_LAYER_MAX.interakcija);
+    expect(ADMIN_SPARK.ring).toBeLessThanOrEqual(ADMIN_LAYER_MAX.reveal);
+    // RV S8: a comet, not a dash. The head is 8–10 px, the tail 100–140 px.
+    expect(ADMIN_SPARK.head).toBeGreaterThanOrEqual(8);
+    expect(ADMIN_SPARK.head).toBeLessThanOrEqual(10);
+    expect(ADMIN_SPARK.tail).toBeGreaterThanOrEqual(100);
+    expect(ADMIN_SPARK.tail).toBeLessThanOrEqual(140);
+  });
+
+  test("the parts of a ceremony fit inside it", () => {
+    const { big, words, medal, ring } = ADMIN_CEREMONY;
+    expect(words.in).toBeLessThanOrEqual(big.in);
+    expect(words.out).toBeLessThanOrEqual(big.out);
+    expect(ring).toBeLessThanOrEqual(big.hold);
+    expect(medal.from).toBeLessThan(1);
+    expect(medal.over).toBeGreaterThan(1);
+    expect(medal.over).toBeLessThanOrEqual(1.15);
+  });
+
+  test("the XP bar follows its number inside the interaction layer; the damage number floats off inside the reveal layer", () => {
+    expect(ADMIN_GAME_MOTION.xpBar).toBeGreaterThanOrEqual(0.18);
+    expect(ADMIN_GAME_MOTION.xpBar).toBeLessThanOrEqual(ADMIN_LAYER_MAX.interakcija);
+    expect(ADMIN_GAME_MOTION.damagePop).toBeLessThanOrEqual(ADMIN_LAYER_MAX.reveal);
+  });
+
+  test("the stage: the canvas fades in as a `media` node; a scene that ignites starts while the scan line is still on the screen", () => {
+    expect(ADMIN_STAGE_MOTION.fade).toBe(ADMIN_REVEAL.media);
+    expect(ADMIN_STAGE_MOTION.igniteAfter).toBeLessThan(ADMIN_REVEAL.scan);
+    expect(ADMIN_STAGE_MOTION.igniteAfter).toBeLessThan(ADMIN_STAGE_MOTION.startAfter);
+    // The 2D picture never waits as a shade for long, and never as nothing.
+    expect(ADMIN_STAGE_MOTION.igniteDeadline).toBeLessThanOrEqual(3);
+    expect(ADMIN_STAGE_MOTION.shade).toBeGreaterThan(0);
+    expect(ADMIN_STAGE_MOTION.shade).toBeLessThanOrEqual(0.2);
+  });
+
+  test("the fuse of the reveal: what waits below the fold is let go long after the entrance, never by it", () => {
+    expect(ADMIN_REVEAL.fuse).toBeGreaterThan(ADMIN_REVEAL.budget * 10);
+    expect(ADMIN_REVEAL.fuse).toBeLessThanOrEqual(60);
+    expect(ADMIN_EDGE_FADE).toBe(0.6);
   });
 });

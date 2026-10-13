@@ -29,8 +29,12 @@ export type GameApi = {
   openVitrina(): void;
   /** A record of the fair seen on a page: a card beside the XP chip (a toast where the ceremony cannot show). */
   celebrate(record: { key: string; title: string }): void;
-  /** Facts of a fair page that may award a fair badge. */
-  reportFair(fair: Partial<FairFacts>): void;
+  /**
+   * Facts of the fair page of ONE event that may award a fair badge. `event` is a stable key of the event (its
+   * code); `ended` says its fair is over, and then the report is ignored. The first report of a fact is the
+   * state (the badge is dated, no ceremony); only a fact seen false/lower that rises while the page is open is news.
+   */
+  reportFair(report: { event: string; ended: boolean; facts: Partial<FairFacts> }): void;
   /** Where the spark of the next gained XP starts (viewport px): the star or the row the admin has just solved. */
   aim(point: { x: number; y: number } | null): void;
   /** The team table is on the screen: its journals are read while at least one watcher exists. */

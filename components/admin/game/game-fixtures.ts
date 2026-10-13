@@ -16,9 +16,9 @@ export type GameFixtureVariant = "nivo" | "rang" | "mirno" | "pocetak";
 
 /** The people of the Team preview (components/admin/admin-team.tsx); the first one is „ja“. */
 const MEMBERS: TeamMember[] = [
-  { id: "preview-admin-teodora", name: "Teodora" },
-  { id: "preview-admin-jovan", name: "Jovan" },
-  { id: "preview-admin-aleksa", name: "Aleksa" },
+  { id: "preview-admin-a", name: "TEST Operater A" },
+  { id: "preview-admin-b", name: "TEST Operater B" },
+  { id: "preview-admin-c", name: "TEST Operater C" },
 ];
 const ME = MEMBERS[0].id;
 
@@ -73,7 +73,7 @@ export function gameFixture(variant: GameFixtureVariant = "nivo", now = GAME_FIX
   const team = {
     members: MEMBERS,
     journals: {
-      // Yesterday ended with Jovan first; a combo of five this morning put Teodora („ja“) ahead of him.
+      // Yesterday ended with B first; a combo of five this morning put A („ja“) ahead of them.
       [MEMBERS[0].id]: { rows: weekRows(1, now, [6, 8, 4], { day: 2, hour: 9, count: 5 }), capped: false },
       [MEMBERS[1].id]: { rows: weekRows(2, now, [9, 8, 5], { day: 1, hour: 13, count: 3 }), capped: false },
       [MEMBERS[2].id]: { rows: weekRows(3, now, [5, 8, 2]), capped: false },

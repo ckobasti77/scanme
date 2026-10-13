@@ -38,6 +38,24 @@ export const BOSS_PENDING_MS = 3_000;
 
 export type FairFacts = BadgeFacts["fair"];
 const NO_FAIR: FairFacts = { ready: false, firstLead: false, hourRecordSeen: false, hourRecord: null };
+/** The scans of an hour that give „Sto skenova“. */
+const HUNDRED_SCANS = 100;
+const FAIR_BADGE_IDS: ReadonlySet<BadgeId> = new Set<BadgeId>(["sajam_spreman", "prvi_lead", "rekord_sata", "sto_skenova"]);
+
+/**
+ * The fair badges a report makes NEWS: a fact this visit already saw as false/lower that now holds. The first
+ * report of a fact is the state (`known` has no value for it) and is never news. `hourRecordSeen` is set by the
+ * records hook only when a new record arrives while the page is open, so when it holds it is news by itself.
+ */
+function fairNews(known: Partial<FairFacts>, report: Partial<FairFacts>): Set<BadgeId> {
+  const news = new Set<BadgeId>();
+  if (known.ready === false && report.ready === true) news.add("sajam_spreman");
+  if (known.firstLead === false && report.firstLead === true) news.add("prvi_lead");
+  if (report.hourRecordSeen === true) news.add("rekord_sata");
+  const before = known.hourRecord;
+  if (before !== undefined && (before === null || before < HUNDRED_SCANS) && report.hourRecord != null && report.hourRecord >= HUNDRED_SCANS) news.add("sto_skenova");
+  return news;
+}
 
 export type GameState = {
   userId: string;
@@ -61,6 +79,8 @@ export type GameState = {
   seen: string[];
   team: { members: readonly TeamMember[]; journals: Readonly<Record<string, TeamJournal>> } | null;
   fair: FairFacts;
+  /** For this visit only (never stored): the facts each event has already reported, by the key of the event. */
+  fairReported: Readonly<Record<string, Partial<FairFacts>>>;
   /** The badges as of the last step (what a new one is compared with). */
   badges: BadgeState[];
 };
@@ -77,7 +97,8 @@ export type GameInput =
   | { type: "journal"; rows: readonly ActivityRow[]; initial?: boolean; complete?: boolean; now: number }
   | { type: "counts"; counts: BossCounts | null; now: number }
   | { type: "team"; members: readonly TeamMember[]; journals: Readonly<Record<string, TeamJournal>>; now: number }
-  | { type: "fair"; fair: Partial<FairFacts>; now: number }
+  /** Facts of the fair page of ONE event; a report of an event that has ended is ignored. */
+  | { type: "fair"; event: string; ended: boolean; fair: Partial<FairFacts>; now: number }
   /** A record of the fair seen on a page (v2 showed it as a toast). */
   | { type: "record"; key: string; title: string; now: number }
   /** Time passed: a pending fall is settled, a new day starts. */
@@ -103,6 +124,7 @@ export function initialGame(userId: string, stored: GameStored | null): GameStat
     seen: [...(stored?.seen ?? [])],
     team: null,
     fair: NO_FAIR,
+    fairReported: {},
     badges: [],
   };
 }
@@ -148,6 +170,8 @@ export function gameStep(previous: GameState, input: GameInput): { state: GameSt
   /** The counts before a fall that has just been settled as a hit (not a postponement): the moment badges read it. */
   let fallFrom: BossCounts | null = null;
   let hpNow: number | null = state.counts ? bossHp(state.counts) : null;
+  /** The fair badges this step makes news (a ceremony); the other fair badges it awards are the state. */
+  let fairNewsIds = new Set<BadgeId>();
 
   if (input.type === "journal") {
     const before = state.snapshot;
@@ -184,7 +208,10 @@ export function gameStep(previous: GameState, input: GameInput): { state: GameSt
     } else if (hp < before) state.pending = { from: previous.pending?.from ?? before, at: now, counts: previous.pending?.counts ?? previous.counts };
   } else if (input.type === "team") {
     state.team = { members: input.members, journals: input.journals };
-  } else if (input.type === "fair") {
+  } else if (input.type === "fair" && !input.ended) {
+    const known = state.fairReported[input.event] ?? {};
+    fairNewsIds = fairNews(known, input.fair);
+    state.fairReported = { ...state.fairReported, [input.event]: { ...known, ...input.fair } };
     const fair = { ...state.fair, ...input.fair };
     state.fair = {
       ready: state.fair.ready || fair.ready,
@@ -253,6 +280,9 @@ export function gameStep(previous: GameState, input: GameInput): { state: GameSt
     state.badgeDates = { ...state.badgeDates };
     for (const id of triggered) state.badgeDates[id] = now;
   }
+  // A fair badge a report awards without that fact having been seen false/lower first is the state of the event:
+  // its date is written (the Vitrina shows it as earned) but it is never celebrated, now or later.
+  const quiet = new Set<BadgeId>(input.type === "fair" ? triggered.filter((id) => FAIR_BADGE_IDS.has(id) && !fairNewsIds.has(id)) : []);
 
   const badges = badgesOf(state, now);
   const fresh = newlyEarned(previous.badges.length ? previous.badges : null, badges);
@@ -261,6 +291,7 @@ export function gameStep(previous: GameState, input: GameInput): { state: GameSt
   for (const badge of fresh) {
     // The boss of the day gives its badge with its own ceremony: one moment, not two.
     if (badge.id === "sef_je_pao" && bossCelebrated) continue;
+    if (quiet.has(badge.id)) continue;
     celebrate.push({ kind: "badge", badge: badge.id, rarity: badge.rarity, at: badge.earnedAt ?? now });
   }
 
@@ -276,6 +307,11 @@ export function gameStep(previous: GameState, input: GameInput): { state: GameSt
     const added = marks.filter((key) => !seen.has(key));
     if (added.length) state.seen = [...state.seen, ...added];
     if (plan.show.length || plan.rest.length) effects.push({ type: "ceremony", plan });
+  }
+  if (quiet.size) {
+    const marked = new Set(state.seen);
+    const added = [...quiet].map((id) => `badge:${id}`).filter((key) => !marked.has(key));
+    if (added.length) state.seen = [...state.seen, ...added];
   }
 
   return { state, effects };

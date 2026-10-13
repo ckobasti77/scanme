@@ -42,7 +42,7 @@ export function ComboMeter({ combo, now, className }: { combo: ComboView | null;
   );
   if (!combo || !shown) return null;
   const multiplier = fmt(d.combo.multiplier, { n: combo.multiplier });
-  const color = combo.multiplier >= 2 ? "var(--admin-nav-line)" : "var(--admin-text-muted)";
+  const color = combo.multiplier >= 2 ? "var(--admin-energy-ink)" : "var(--admin-text-muted)";
   return (
     // Not a live region: the boss line and the ceremony already speak when something happens; this is read on demand.
     <div data-game-combo={combo.multiplier} title={d.combo.help} className={cn("inline-flex min-w-0 items-center gap-2.5", className)}>

@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { ADMIN_AMBIENT_FPS } from "@/lib/admin-v2/motion";
 import { createRegulator, frameTargetMs, nextQuality } from "@/lib/admin-v2/three/budget";
+import { runningStages } from "@/lib/admin-v2/three/exclusive";
 import { loopActive, shouldRender, type LoopState } from "@/lib/admin-v2/three/loop";
 import { STAGE_CONTEXT_LIMIT, stageDpr, type DrawQuality } from "@/lib/admin-v2/three/quality";
 import { parseCssColor, themeOf, type StageTheme } from "@/lib/admin-v2/three/theme";
@@ -50,6 +51,11 @@ export type Stage = {
   token(name: string, fallback: string): THREE.Color;
   /** Compiles the shaders of the scene without blocking the main thread where the browser can. */
   compile(): Promise<void>;
+  /**
+   * One frame drawn while the canvas is still invisible, so the passes of the composer compile before the fade
+   * (`compile()` covers the scene only). It calls no frame listener, counts no frame and feeds no regulator.
+   */
+  warm(): void;
   dispose(): void;
 };
 
@@ -65,9 +71,18 @@ export type StageOptions = {
   onUnavailable: () => void;
 };
 
-type Entry = { exclusive: boolean; pause(paused: boolean): void };
+type Entry = { id: number; exclusive: boolean; pause(paused: boolean): void };
 
+/** In creation order (a Set keeps the order of insertion). */
 const stages = new Set<Entry>();
+let nextId = 1;
+
+/** Lets the stages that may draw draw and stands the others (`runningStages`); on every create and dispose. */
+function syncRunning() {
+  const entries = [...stages];
+  const running = runningStages(entries);
+  for (const entry of entries) entry.pause(!running.has(entry.id));
+}
 const DEV = process.env.NODE_ENV !== "production";
 const DEFAULT_SURFACE = { token: "--admin-surface-strong", light: "#fffefa", dark: "#292e2b" };
 /** A frame gap longer than this is a pause, not a slow frame (seconds). */
@@ -236,15 +251,15 @@ export function createStage(host: HTMLElement, options: StageOptions): Stage | n
 
   // --- the registry: a scene in a dialog pauses the others ----------------------
   const entry: Entry = {
+    id: nextId++,
     exclusive: options.exclusive === true,
     pause(paused) {
       state.paused = paused;
       schedule();
     },
   };
-  if (entry.exclusive) for (const other of stages) other.pause(true);
-  else if ([...stages].some((other) => other.exclusive)) state.paused = true;
   stages.add(entry);
+  syncRunning();
 
   const subscribe = <T>(listeners: Set<T>, listener: T) => {
     listeners.add(listener);
@@ -306,6 +321,15 @@ export function createStage(host: HTMLElement, options: StageOptions): Stage | n
         schedule();
       }
     },
+    warm() {
+      if (disposed || !camera) return;
+      try {
+        if (customRender) customRender(0);
+        else renderer.render(scene, camera);
+      } catch {
+        // The first real frame meets the same error and hands the stage to the 2D fallback.
+      }
+    },
     dispose() {
       if (disposed) return;
       disposed = true;
@@ -316,7 +340,7 @@ export function createStage(host: HTMLElement, options: StageOptions): Stage | n
       themeWatch.disconnect();
       canvas.removeEventListener("webglcontextlost", onContextLost);
       stages.delete(entry);
-      if (entry.exclusive && ![...stages].some((other) => other.exclusive)) for (const other of stages) other.pause(false);
+      syncRunning();
       frameListeners.clear();
       themeListeners.clear();
       resizeListeners.clear();
