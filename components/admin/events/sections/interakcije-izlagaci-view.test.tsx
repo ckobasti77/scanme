@@ -229,3 +229,12 @@ describe("Interakcije: the exhibitor's page", () => {
     expect(missing).toContain(`href="${BASE}/interakcije?paket=svi"`);
   });
 });
+
+describe("ADMIN v3 V1 Interakcije", () => {
+  test("the subtitle is text, the exhibitor cards are rows; the exhibitor page header is a card", () => {
+    const markup = list();
+    expect(markup).toContain('<p data-admin-reveal="text"');
+    expect(markup).toContain('data-admin-reveal="rows"');
+    expect(exhibitorPage(ROWS[0].id)).toContain('data-admin-reveal="card"');
+  });
+});

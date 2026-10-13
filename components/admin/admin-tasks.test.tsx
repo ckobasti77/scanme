@@ -88,6 +88,13 @@ describe("Zadaci page", () => {
     expect(html).not.toMatch(/\bmd:(hidden|block)\b/);
   });
 
+  test("the table body and the card list carry the rows attribute, the preview note the text attribute", () => {
+    const html = previewHtml();
+    expect(html).toContain('<tbody data-admin-reveal="rows"');
+    expect(html).toContain('data-admin-reveal="rows" class="grid gap-3 @4xl:hidden"');
+    expect(html).toContain('<p data-admin-reveal="text"');
+  });
+
   test("the preview filters by the URL", () => {
     expect(shown(previewHtml())).toEqual(["grace", "qr", "cards"]);
     expect(shown(previewHtml("?pogled=today"))).toEqual(["grace", "cards"]);

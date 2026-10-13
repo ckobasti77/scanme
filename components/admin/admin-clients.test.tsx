@@ -66,6 +66,12 @@ describe("Klijenti screen", () => {
     expect(html).not.toMatch(/data-admin-primitive="panel"[^>]*overflow-hidden/);
   });
 
+  test("the table body and the card list carry the rows attribute", () => {
+    const html = previewHtml();
+    expect(html).toContain('<tbody data-admin-reveal="rows">');
+    expect(html).toContain('data-admin-reveal="rows" class="grid min-w-0 gap-3 @4xl:hidden"');
+  });
+
   test("no URL state shows both fixture clients in the order of the fixture", () => {
     const html = previewHtml();
     expect(html.indexOf("SMK-ANA-014")).toBeGreaterThan(-1);

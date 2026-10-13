@@ -125,4 +125,18 @@ describe("Profil klijenta", () => {
     expect(readUrlState(CLIENT_PROFILE_URL_FIELDS, "?section=venues&contact=c1&venue=v1")).toEqual({ section: "venues", contact: "c1", venue: "v1" });
     expect(readUrlState(CLIENT_PROFILE_URL_FIELDS, "")).toEqual({});
   });
+
+  test("the sections carry the reveal attributes: text row, rows lists, kpi tiles with a count", () => {
+    const overview = render();
+    expect(overview).toContain('data-admin-reveal="text"');
+    expect(overview).toContain('data-admin-reveal="rows"');
+    const venues = render("section=venues");
+    expect(venues).toContain('data-admin-reveal="rows"');
+    expect(venues).toContain('data-admin-reveal="kpi"');
+    expect(venues).toContain('data-admin-tilt=""');
+    expect(venues).toContain('data-admin-count=""');
+    expect(render("section=products")).toContain('data-admin-reveal="kpi"');
+    expect(render("section=activity")).toContain('<ol data-admin-reveal="rows"');
+    expect(render("section=communication")).toContain('data-admin-reveal="card"');
+  });
 });

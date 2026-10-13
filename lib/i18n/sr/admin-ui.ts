@@ -128,7 +128,10 @@ export const adminUiSr: AdminUiDict = {
       escape: "Zatvori meni, grupu filtera ili prozor",
     },
     inputNote: "Dok je fokus u polju za unos, prečice sa jednim tasterom ne rade. Ctrl K radi uvek.",
+    goPending: "G …",
+    goPendingAria: "Prečica G: pritisni slovo oblasti.",
   },
-  quiet: { label: "Tihi režim", hint: "Bez proslava i obaveštenja o rekordima. Brojevi i napredak ostaju." },
+  quiet: { label: "Tihi režim", hint: "Bez pokreta, proslava i obaveštenja o rekordima. Brojevi i napredak ostaju." },
+  pulse: { description: "Puls: linija prikazuje skenove i promene iz poslednjeg minuta; skenovi kasne do jednog čitanja. Isti brojevi su u okviru Danas i na Dashboard-u." },
   toast: { region: "Obaveštenja", dismiss: "Zatvori obaveštenje" },
 };

@@ -200,3 +200,11 @@ describe("A6 Glas publike", () => {
     expect(html).not.toMatch(/FAIR_[A-Z_]+/);
   });
 });
+
+describe("ADMIN v3 V1 Glas publike", () => {
+  test("the matrix body is rows and the sections are cards", () => {
+    const markup = render({ model: "m2", dan: "2026-10-10" });
+    expect(markup).toContain('<tbody data-admin-reveal="rows"');
+    expect(markup).toContain('data-admin-reveal="card"');
+  });
+});

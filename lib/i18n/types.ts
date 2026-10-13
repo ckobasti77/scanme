@@ -6445,9 +6445,14 @@ export interface AdminUiDict {
       escape: string;
     };
     inputNote: string;
+    /** ADMIN v3 V1 — the chip of the navbar while the letter after G is awaited, and what it says to assistive technology. */
+    goPending: string;
+    goPendingAria: string;
   };
   /** ADMIN v2 X4 — the quiet mode switch of the profile menu. */
   quiet: { label: string; hint: string };
+  /** ADMIN v3 V1 — the Pulse of the navbar: what the line shows, for assistive technology. */
+  pulse: { description: string };
   /** ADMIN v2 X4 — the toast region of the frame. */
   toast: { region: string; dismiss: string };
 }

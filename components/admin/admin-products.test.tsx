@@ -200,3 +200,15 @@ describe("Proizvodi: the workspace sends the same query arguments as before", ()
     expect(html).toContain("QR 3 · NFC 2");
   });
 });
+
+describe("Proizvodi: reveal attributes", () => {
+  test("the venue table and cards, the inventory grid and the strips carry the attributes of the reveal engine", () => {
+    const venues = preview();
+    expect(venues).toContain('<tbody data-admin-reveal="rows"');
+    expect(venues).toContain('<div data-admin-reveal="rows" class="grid gap-2 @4xl:hidden"');
+    const inventory = preview("?venue=business-kej");
+    expect(inventory).toContain('<div data-admin-reveal="rows" class="grid grid-cols-1');
+    expect(inventory).toContain('data-admin-reveal="text"');
+    expect(inventory).toContain('data-admin-reveal="title"');
+  });
+});

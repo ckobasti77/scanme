@@ -41,6 +41,8 @@ export type HudState =
       left: number;
       scansToday: number;
       scansCapped: boolean;
+      /** V3: new leads of the day (the Pulse beats on a rise); null: no exhibitor has leads on. */
+      leadsToday: number | null;
     }
   | {
       /** Between two fair days: the next one and how long until it opens. */
@@ -54,7 +56,7 @@ export type HudState =
 export function hudState(input: HudInput, now: number): HudState | null {
   const live = liveDay(input, now);
   if (live) {
-    return { kind: "live", dayIndex: live.dayIndex, dayCount: live.dayCount, progress: live.progress, left: live.left, scansToday: live.scansToday, scansCapped: input.scansCapped ?? false };
+    return { kind: "live", dayIndex: live.dayIndex, dayCount: live.dayCount, progress: live.progress, left: live.left, scansToday: live.scansToday, scansCapped: input.scansCapped ?? false, leadsToday: live.leadsToday };
   }
   const { phase } = input;
   if (phase.kind !== "sajam" || phase.dayOpen || !phase.dayIndex || phase.nextDeadline?.kind !== "day_start") return null;
@@ -81,11 +83,11 @@ export type HudDashboard = {
   at: number;
   phase: HudInput["phase"];
   days: HudInput["days"];
-  kpis: { scans: { today: number; capped: boolean } };
+  kpis: { scans: { today: number; capped: boolean }; leads?: { newToday: number } | null };
 };
 
 /** The HUD of `event` from its dashboard read; null outside the fair days. `href`: the event's Pregled (an admin path). */
 export function hudData(event: { title: string; href: string }, dashboard: HudDashboard, now: number): HudData | null {
-  const state = hudState({ phase: dashboard.phase, days: dashboard.days, scansToday: dashboard.kpis.scans.today, leadsToday: null, actions: [], scansCapped: dashboard.kpis.scans.capped }, now);
+  const state = hudState({ phase: dashboard.phase, days: dashboard.days, scansToday: dashboard.kpis.scans.today, leadsToday: dashboard.kpis.leads?.newToday ?? null, actions: [], scansCapped: dashboard.kpis.scans.capped }, now);
   return state ? { eventTitle: event.title, href: event.href, state, readAt: dashboard.at, stale: now - dashboard.at > HUD_STALE_MS } : null;
 }

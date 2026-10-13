@@ -165,3 +165,14 @@ describe("ADMIN-16 settings UI", () => {
     expect(source).toContain("disabled={pending || !priceDraftValid}");
   });
 });
+
+describe("Podešavanja reveal attributes", () => {
+  test("the section is a card, the records of the agreements and referrals are rows, the preview line is text", () => {
+    const pricing = render("pricing", true);
+    expect(pricing).toContain('data-admin-primitive="panel" data-admin-reveal="card"');
+    expect(pricing).toContain('<ul data-admin-reveal="rows"');
+    expect(pricing).toContain('<p data-admin-reveal="text"');
+    expect(render("referral", true)).toContain('<ul data-admin-reveal="rows"');
+    expect(render("general")).not.toContain('data-admin-reveal="rows"');
+  });
+});

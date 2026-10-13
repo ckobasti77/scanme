@@ -150,7 +150,7 @@ function ConversationList({
   onSelect: (id: Id<"conversations">) => void;
 }) {
   return (
-    <div aria-label={dict.conversationList} className="divide-y divide-[var(--admin-border)]">
+    <div aria-label={dict.conversationList} data-admin-reveal="rows" className="divide-y divide-[var(--admin-border)]">
       {rows.map((row) => (
         <button
           key={row.id}
@@ -533,7 +533,7 @@ export function AdminConversationWorkspace(scope: WorkspaceScope = {}) {
   const filtered = Object.keys(filters).length > 0;
   const manualAction = manualContext ? <Button type="button" variant="outline" onClick={openManual} className="min-h-11"><Plus className="size-4" aria-hidden="true" />{dict.manualOpen}</Button> : null;
   const header = scope.embedded ? (
-    <header className="flex flex-wrap items-end justify-between gap-4">
+    <header data-admin-reveal="text" className="flex flex-wrap items-end justify-between gap-4">
       <div>
         <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--admin-text-muted)]">{dict.profileScope}</p>
         <h2 className="mt-1 text-2xl font-semibold tracking-[-0.04em]">{scope.contactName}</h2>

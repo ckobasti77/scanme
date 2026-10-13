@@ -3,7 +3,7 @@
 import gsap from "gsap";
 import { Bell, BellOff, ChevronDown, Keyboard, Link2, LogOut, Menu, Moon, Package, QrCode, Settings, ShoppingBag, Star, UserRound, UtensilsCrossed } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useRef, useSyncExternalStore, type ComponentType } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type ComponentType } from "react";
 import { AdminSearchCommand, type AdminSearchCommandPreviewGroups } from "@/components/admin/admin-search-command";
 import { adminSegmentOnClass } from "@/components/admin/admin-ui/admin-controls";
 import { useQuietMode } from "@/components/admin/admin-ui/admin-toast";
@@ -21,12 +21,13 @@ import {
 import { ADMIN_NAV_ITEMS, isAdminNavChildActive, isAdminNavItemActive } from "@/lib/admin-v1/navigation";
 import { routeHref } from "@/lib/admin-v2/frame/routes";
 import { ADMIN_DURATION, ADMIN_EASE } from "@/lib/admin-v2/motion";
-import { ADMIN_SHORTCUTS_EVENT, goShortcutKeys } from "@/lib/admin-v2/shortcuts";
+import { ADMIN_GO_PENDING_EVENT, ADMIN_SHORTCUTS_EVENT, GO_SEQUENCE_MS, goShortcutKeys } from "@/lib/admin-v2/shortcuts";
 import { fmt } from "@/lib/i18n/format";
 import { adminUiSr } from "@/lib/i18n/sr/admin-ui";
 import { adminV1Sr } from "@/lib/i18n/sr/admin-v1";
 import { cn } from "@/lib/utils";
 import { useAdminFrame } from "./admin-frame-context";
+import { AdminPulse } from "./admin-pulse";
 
 // ADMIN v2 — the navbar of the frame (ZADATAK §2): right of the sidebar, on
 // top. The links start at the left edge, are plain text without any
@@ -38,6 +39,7 @@ import { useAdminFrame } from "./admin-frame-context";
 // its tooltip (G D), the profile menu holds the quiet mode and the list of
 // shortcuts. X6: between lg and xl the nine links are set tighter so all of
 // them fit, and the theme (its button has no room there) is in the profile menu.
+// V3: the Pulse of the system runs along its bottom edge, under the links.
 
 type NavIcon = ComponentType<{ className?: string; "aria-hidden"?: boolean | "true" | "false" }>;
 
@@ -71,7 +73,8 @@ export function AdminNavbar({ identity, onSignOut, previewSearchGroups }: {
   const toggleTheme = () => header.current?.querySelector<HTMLButtonElement>('button[data-theme-toggle="local"]')?.click();
 
   return (
-    <header ref={header} data-admin-frame="navbar" className="flex h-[var(--admin-navbar-h)] shrink-0 items-center gap-1 px-2 lg:pr-3 lg:pl-0">
+    <header ref={header} data-admin-frame="navbar" className="relative isolate flex h-[var(--admin-navbar-h)] shrink-0 items-center gap-1 px-2 lg:pr-3 lg:pl-0">
+      <AdminPulse />
       <button type="button" onClick={() => frame?.openDrawer("nav")} className={cn(utilityClass, "lg:hidden")} aria-label={adminUiSr.frame.openMenu}>
         <Menu className="size-5" aria-hidden="true" />
       </button>
@@ -82,6 +85,7 @@ export function AdminNavbar({ identity, onSignOut, previewSearchGroups }: {
       <DesktopLinks pathname={pathname} href={href} />
 
       <div className="ml-auto flex shrink-0 items-center gap-0.5">
+        <GoPendingChip />
         <AdminSearchCommand
           buttonClass="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-lg px-3 text-sm font-semibold text-[var(--admin-text)] transition-colors duration-150 hover:bg-[var(--admin-surface-muted)]"
           previewGroups={previewSearchGroups}
@@ -159,6 +163,35 @@ export function AdminNavbar({ identity, onSignOut, previewSearchGroups }: {
         </DropdownMenu>
       </div>
     </header>
+  );
+}
+
+/** V3: after `G` the navbar shows the chip until the letter of an area arrives or the sequence runs out (1.5 s). */
+function GoPendingChip() {
+  const [pending, setPending] = useState(false);
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const onPending = (event: Event) => {
+      const on = (event as CustomEvent<boolean>).detail === true;
+      if (timer) clearTimeout(timer);
+      timer = on ? setTimeout(() => setPending(false), GO_SEQUENCE_MS) : null;
+      setPending(on);
+    };
+    window.addEventListener(ADMIN_GO_PENDING_EVENT, onPending);
+    return () => {
+      window.removeEventListener(ADMIN_GO_PENDING_EVENT, onPending);
+      if (timer) clearTimeout(timer);
+    };
+  }, []);
+  return (
+    <span role="status" className="hidden lg:inline-flex">
+      {pending ? (
+        <kbd data-admin-go-pending="" className="admin-go-chip rounded-md border border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] px-1.5 py-0.5 font-sans text-[0.68rem] font-semibold whitespace-nowrap text-[var(--admin-nav-current)]">
+          <span aria-hidden="true">{adminUiSr.shortcuts.goPending}</span>
+          <span className="sr-only">{adminUiSr.shortcuts.goPendingAria}</span>
+        </kbd>
+      ) : null}
+    </span>
   );
 }
 

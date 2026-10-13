@@ -51,7 +51,7 @@ function Tile({ tile, dayIndex, dayLabels, firstLead }: { tile: KpiTile; dayInde
   const trend = tile.trend;
   const big = running ? tile.today : tile.total;
   return (
-    <div data-kpi-tile={tile.id} className="grid min-w-0 content-start gap-1.5 bg-[var(--admin-surface)] p-3 @md:p-4">
+    <div data-kpi-tile={tile.id} data-admin-reveal="kpi" data-admin-tilt="" className="grid min-w-0 content-start gap-1.5 bg-[var(--admin-surface)] p-3 @md:p-4">
       {/* The one name that says nothing by itself gets its definition on hover. */}
       <dt title={tile.id === "uniquePerModel" ? d.definitions.uniquePerModel : undefined} className="text-xs font-semibold text-[var(--admin-text-muted)]">{label}</dt>
       <dd className="grid min-w-0 gap-1.5">
@@ -109,7 +109,7 @@ export function KpiStrip({ data, audience, engagement, records }: {
       <dl className="grid min-w-0 grid-cols-2 gap-px overflow-hidden rounded-[var(--admin-radius-control)] border border-[var(--admin-border)] bg-[var(--admin-border)] @4xl:grid-cols-4">
         {strip.tiles.map((tile) => <Tile key={tile.id} tile={tile} dayIndex={strip.dayIndex} dayLabels={strip.dayLabels} firstLead={firstLead} />)}
       </dl>
-      <dl aria-label={v.moreTitle} className="grid min-w-0 grid-cols-2 gap-x-4 gap-y-3 @2xl:grid-cols-4">
+      <dl aria-label={v.moreTitle} data-admin-reveal="text" className="grid min-w-0 grid-cols-2 gap-x-4 gap-y-3 @2xl:grid-cols-4">
         {more.map((item) => (
           <div key={item.key} data-kpi-more={item.key} className="grid min-w-0 gap-0.5">
             <dt className="text-xs font-semibold text-[var(--admin-text-muted)]">{item.label}</dt>

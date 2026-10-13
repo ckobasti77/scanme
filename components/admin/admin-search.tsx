@@ -361,7 +361,7 @@ function SearchInput({ value, onCommit }: { value: string; onCommit: (value: str
   }
 
   return (
-    <div className="relative min-w-0">
+    <div data-admin-reveal="text" className="relative min-w-0">
       <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-[var(--admin-text-muted)]" aria-hidden="true" />
       <Input
         value={text}
@@ -406,7 +406,7 @@ function SearchView({ state, setState }: ViewProps) {
       ) : results.results.length === 0 ? (
         <AdminPanel><AdminEmptyState title={dict.emptyTitle} body={dict.emptyBody} /></AdminPanel>
       ) : (
-        <div className="grid gap-2">
+        <div data-admin-reveal="rows" className="grid gap-2">
           {results.results.map((result) => <ResultCard key={`${result.group}:${result.id}`} result={result} />)}
           {results.status === "CanLoadMore" || results.status === "LoadingMore" ? (
             <button type="button" disabled={results.status === "LoadingMore"} onClick={() => results.loadMore(20)} className="mx-auto mt-2 min-h-11 rounded-full border border-[var(--admin-border)] bg-[var(--admin-surface-strong)] px-5 text-sm font-semibold">
@@ -452,7 +452,7 @@ function ActivityRowCard({ row }: { row: ActivityRow }) {
 
 function ActivityHeader() {
   return (
-    <header>
+    <header data-admin-reveal="text">
       <h2 className="text-2xl font-semibold tracking-[-0.03em]">{dict.activityTitle}</h2>
       <p className="mt-1 text-sm text-[var(--admin-text-muted)]">{dict.activitySubtitle}</p>
     </header>
@@ -482,7 +482,7 @@ function ActivityView({ state, setState }: ViewProps) {
       ) : rows.results.length === 0 ? (
         <AdminPanel><AdminEmptyState title={dict.activityEmptyTitle} body={dict.activityEmptyBody} /></AdminPanel>
       ) : (
-        <div className="grid gap-2">
+        <div data-admin-reveal="rows" className="grid gap-2">
           {rows.results.map((row) => <ActivityRowCard key={row.id} row={row} />)}
           {rows.status === "CanLoadMore" || rows.status === "LoadingMore" ? (
             <button type="button" disabled={rows.status === "LoadingMore"} onClick={() => rows.loadMore(20)} className="mx-auto mt-2 min-h-11 rounded-full border border-[var(--admin-border)] bg-[var(--admin-surface-strong)] px-5 text-sm font-semibold">
@@ -561,7 +561,7 @@ export function AdminSearchPreviewWorkspace({
           ) : !searching ? (
             <AdminPanel><AdminEmptyState title={dict.initialTitle} body={dict.initialBody} /></AdminPanel>
           ) : fixtureState !== "empty" && rows.length ? (
-            <div className="grid gap-2">
+            <div data-admin-reveal="rows" className="grid gap-2">
               {visibleRows.map((result) => <ResultCard key={`${result.group}:${result.id}`} result={result} />)}
               {rows.length > visibleRows.length ? <button type="button" onClick={() => setOpenedFor(searchKey)} className="mx-auto mt-2 min-h-11 rounded-full border border-[var(--admin-border)] bg-[var(--admin-surface-strong)] px-5 text-sm font-semibold">{dict.loadMore}</button> : null}
             </div>
@@ -572,7 +572,7 @@ export function AdminSearchPreviewWorkspace({
       ) : (
         <div className="grid min-w-0 gap-4">
           <ActivityHeader />
-          {previewActivityRows.length ? <div className="grid gap-2">
+          {previewActivityRows.length ? <div data-admin-reveal="rows" className="grid gap-2">
             {previewActivityRows.map((row) => <ActivityRowCard key={row.id} row={row} />)}
           </div> : <AdminPanel><AdminEmptyState title={dict.activityEmptyTitle} body={dict.activityEmptyBody} /></AdminPanel>}
         </div>

@@ -237,4 +237,12 @@ describe("A10 dashboard logic", () => {
     expect(previewDashboard("posle").phase.kind).toBe("posle");
     expect(previewDashboard("nepoznato").phase.kind).toBe("sajam");
   });
+
+  test("ADMIN v3 V1: the items and the section cards are rows, the header and the work list are cards, the numbers are kpi tiles", () => {
+    const html = render(previewDashboard("sajam"));
+    expect(html).toMatch(/<ol data-admin-reveal="rows" class="grid min-w-0 gap-2">\s*<li data-rule=/);
+    expect(html).toMatch(/<div data-admin-reveal="rows" class="grid min-w-0 gap-3 sm:grid-cols-2[^"]*"><article data-card=/);
+    expect(html).toContain('data-admin-reveal="card"');
+    expect(html).toContain('data-admin-reveal="kpi"');
+  });
 });

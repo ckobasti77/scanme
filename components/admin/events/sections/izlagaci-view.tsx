@@ -198,7 +198,7 @@ export function EventExhibitorsView({ exhibitors, leadsCapped, query, onQueryCha
 
   return (
     <div className="grid min-w-0 gap-4">
-      <p className="text-sm text-[var(--admin-text-muted)]">{list.subtitle}</p>
+      <p data-admin-reveal="text" className="text-sm text-[var(--admin-text-muted)]">{list.subtitle}</p>
       {exhibitors.length ? (
         <AdminDataView
           listKey="dogadjaji.izlagaci"

@@ -142,3 +142,14 @@ describe("X4 KpiStrip: odometer and the first lead", () => {
     expect(html.split("data-record-badge").length - 1).toBe(1);
   });
 });
+
+describe("V1 KpiStrip: reveal marks", () => {
+  test("each of the four big numbers is a tilting kpi tile and the quiet totals are text", () => {
+    const html = render();
+    expect(html.split("data-admin-reveal=\"kpi\" data-admin-tilt=\"\"").length - 1).toBe(4);
+    for (const id of ["scans", "uniquePerModel", "visitors", "leads"]) expect(tileOf(html, id).startsWith(id + "\" data-admin-reveal=\"kpi\"")).toBe(true);
+    // The odometer inside the tile is found by the engine itself: no count mark on the value.
+    expect(html).not.toContain("data-admin-count");
+    expect(html.split("data-admin-reveal=\"text\"").length - 1).toBe(1);
+  });
+});

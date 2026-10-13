@@ -224,3 +224,12 @@ describe("A9 report approval queue (day × exhibitor)", () => {
     expect(html).toContain(`>${q.facetStatus}</span><span class="text-[var(--admin-text-muted)]"> · ${q.statuses.poslato}</span>`);
   });
 });
+
+describe("ADMIN v3 V1 Izveštaji", () => {
+  test("the subtitle is text, the queue is rows, the sections are cards", () => {
+    const markup = renderToStaticMarkup(<AdminEventsReports view={view} actions={actions} />);
+    expect(markup).toContain('<p data-admin-reveal="text"');
+    expect(markup).toContain('data-admin-reveal="rows"');
+    expect(markup).toContain('data-admin-reveal="card"');
+  });
+});

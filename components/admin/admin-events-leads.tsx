@@ -163,7 +163,7 @@ function Consent({ view, actions }: { view: LeadsView; actions: LeadsActions }) 
       <p className="mb-2 max-w-3xl text-sm text-[var(--admin-text-muted)]">{dict.leadSettings.help}</p>
       <p className="mb-4 max-w-3xl rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface-muted)] p-3 text-sm">{dict.leadSettings.activitySharingNote}</p>
       {consents === undefined ? <AdminLoadingState label={dict.loading} /> : (
-        <div className="grid gap-3">
+        <div data-admin-reveal="rows" className="grid gap-3">
           {LEAD_KINDS.map((kind) => {
             const versions = consents.filter((row) => row.kind === kind);
             const draftId = versions.find((row) => row.status === "draft")?.id ?? "new";

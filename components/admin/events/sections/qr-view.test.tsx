@@ -410,3 +410,16 @@ describe("sticker labels and the real QR (Izlagači 2026)", () => {
     expect(plain).toMatch(/<h2[^>]*>SMQ-TEST-0001<\/h2>/);
   });
 });
+
+describe("ADMIN v3 V1 QR", () => {
+  test("the intro and the note are text, the list is rows; the detail sections are cards and the history is rows", () => {
+    const markup = listHtml({});
+    expect(markup).toContain('<p data-admin-reveal="text"');
+    expect(markup).toContain(`<p data-admin-reveal="text" class="text-sm text-[var(--admin-text-muted)]">${adminEventsSr.qrSubtitle}</p>`);
+    expect(markup).toContain(`<p data-admin-reveal="text" class="text-xs text-[var(--admin-text-muted)]">${list.statsNote}</p>`);
+    expect(markup).toContain('<tbody data-admin-reveal="rows"');
+    const page = detailHtml(assigned);
+    expect(page).toContain('data-admin-reveal="card"');
+    expect(page).toMatch(/<ol data-admin-reveal="rows" class="grid gap-3"><li /);
+  });
+});

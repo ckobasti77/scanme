@@ -192,3 +192,13 @@ describe("A5 Izlagači", () => {
     expect(markup).not.toContain(list.followUpPendingHint);
   });
 });
+
+describe("ADMIN v3 V1 Izlagači", () => {
+  test("the subtitle is text, the list is rows in both views and the other-clients panel is a card", () => {
+    const table = html({}, "tabela");
+    expect(table).toContain('<p data-admin-reveal="text"');
+    expect(table).toContain('<tbody data-admin-reveal="rows"');
+    expect(table).toContain('data-admin-reveal="card"');
+    expect(html({}, "kartice")).toContain('data-admin-reveal="rows"');
+  });
+});

@@ -75,12 +75,13 @@ function Metric({
   problem?: boolean;
 }) {
   return (
-    <span className="min-w-0">
+    <span data-admin-reveal="kpi" data-admin-tilt="" className="min-w-0">
       <span className="flex items-center gap-1.5 text-[0.68rem] text-[var(--admin-text-muted)]">
         <Icon className="size-3.5" aria-hidden="true" />
         {label}
       </span>
       <strong
+        data-admin-count=""
         className={cn(
           "mt-1 block font-mono text-xl tabular-nums",
           problem && "text-[var(--admin-danger)]",
@@ -112,7 +113,7 @@ function TaskRows({
       />
     );
   return (
-    <div className="divide-y divide-[var(--admin-border)]">
+    <div data-admin-reveal="rows" className="divide-y divide-[var(--admin-border)]">
       {rows.map((task) => (
         <article
           key={task.id}
@@ -197,7 +198,7 @@ function ConversationRows({
       />
     );
   return (
-    <div className="divide-y divide-[var(--admin-border)]">
+    <div data-admin-reveal="rows" className="divide-y divide-[var(--admin-border)]">
       {rows.map((conversation) => (
         <article
           key={conversation.id}

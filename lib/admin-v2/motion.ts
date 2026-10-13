@@ -1,8 +1,16 @@
-// ADMIN v2 — the one place of the admin motion tokens (ZADATAK §7). Seconds
+// ADMIN v3 — the one place of the admin motion tokens (ZADATAK-V3 §2). Seconds
 // for GSAP; the same values are CSS custom properties in app/globals.css
-// (`--admin-dur-1…4`, `--admin-ease-out`, `--admin-ease-in`). Exits are
-// shorter than entries; nothing in the admin runs longer than `frame`.
+// (`--admin-dur-1…4`, `--admin-ease-out`, `--admin-ease-in`, `--admin-reveal-*`,
+// `--admin-ceremony-max`, `--admin-shimmer`). Three layers:
+//   interakcija — press, hover, a state change: at most 250 ms (the drawer of
+//                 the frame, 320 ms, is the one written exception);
+//   reveal      — the entrance of a page, its charts, the scroll: at most
+//                 900 ms for the whole page, and it never blocks input;
+//   ceremonija  — a level, a badge, a record: at most 1800 ms, skippable.
+// The v2 limits (`ADMIN_MOTION_MAX`, `ADMIN_ENTER_OFFSET`, `ADMIN_STAGGER_TOTAL`)
+// are no longer the limit of everything: they bound the interaction layer only.
 
+// Layer 1 — interaction. The v2 values, unchanged.
 export const ADMIN_DURATION = {
   /** Press, hover, colour. */
   feedback: 0.12,
@@ -22,15 +30,88 @@ export const ADMIN_EASE = {
 } as const;
 
 /**
- * The whole stagger of one group of elements never exceeds this. A staggered group moves in `state`
- * (0.18 s), so its last element ends at 0.25 s: the limit of a transition (ZADATAK §1).
+ * The whole stagger of one group of elements of the interaction layer never exceeds this. A staggered
+ * group moves in `state` (0.18 s), so its last element ends at 0.25 s: the limit of a transition.
  */
 export const ADMIN_STAGGER_TOTAL = 0.07;
-/** Offset of an entering block (px). */
+/** Offset of an entering block of the interaction layer (px). */
 export const ADMIN_ENTER_OFFSET = 7;
-/** A pressed button (ZADATAK §7); the same value is in app/globals.css. */
+/** A pressed button; the same value is in app/globals.css. */
 export const ADMIN_PRESS_SCALE = 0.98;
-/** Nothing in the admin moves longer than this (seconds); the tokens above stay below it. */
+/** The interaction layer together with the frame (the drawer, 320 ms) stays below this (seconds). */
 export const ADMIN_MOTION_MAX = 0.4;
-/** Offset of an entering page inside the screen (px). */
-export const ADMIN_PAGE_OFFSET = 6;
+
+/** The upper limit of each layer (seconds). */
+export const ADMIN_LAYER_MAX = { interakcija: 0.25, reveal: 0.9, ceremonija: 1.8 } as const;
+
+// Layer 2 — reveal (lib/admin-v2/reveal/registry.ts turns these into a schedule).
+export const ADMIN_REVEAL = {
+  /** The whole entrance of a page. */
+  budget: 0.9,
+  /** A return to a page that had its full entrance a moment ago. */
+  short: 0.36,
+  /** One group revealed on scroll. */
+  scroll: 0.5,
+  /** Content that arrives this long after the navigation still gets its choreography. */
+  window: 1.2,
+  /** A page has its full entrance again after this long (ms). */
+  rearmMs: 20 * 60_000,
+  /** Share of the screen height above which a node belongs to the entrance (below: scroll). */
+  threshold: 0.92,
+  /** The old page dims on a click that leaves it. */
+  exit: 0.14,
+  exitOpacity: 0.55,
+  exitScale: 0.992,
+  /** The dim is taken back when the path did not change this long after the click. */
+  exitBack: 0.4,
+  /** The scanner: the start of a node is its place on the screen (top, then left). */
+  sweepY: 0.5,
+  sweepX: 0.08,
+  scan: 0.5,
+  scanFade: 0.12,
+  title: 0.5,
+  titleStagger: 0.06,
+  titleShort: 0.32,
+  text: 0.32,
+  kpi: 0.42,
+  count: 0.6,
+  card: 0.4,
+  /** Rise of a card (px). */
+  offset: 14,
+  media: 0.3,
+  row: 0.24,
+  rowsMax: 12,
+  bar: 0.45,
+  barStagger: 0.03,
+  cell: 0.24,
+  cellStep: 0.018,
+  cellWave: 0.5,
+  funnel: 0.45,
+  funnelStagger: 0.08,
+  ring: 0.55,
+  line: 0.55,
+  /** A row that arrives while the page is open. */
+  liveRow: 0.24,
+  liveEdge: 1.2,
+  /** A phone: shorter, fewer rows. */
+  phone: { scale: 0.75, sweepY: 0.375, rowsMax: 8 },
+} as const;
+
+export const ADMIN_REVEAL_EASE = { out: "expo.out", ignite: "adminIgnite", in: "power2.in" } as const;
+/** The one custom curve of the admin (`CustomEase.create("adminIgnite", …)`). */
+export const ADMIN_IGNITE_CURVE = "0.05,0.7,0.1,1";
+
+// Layer 3 — ceremony (V4 draws them; the limits are tested here).
+export const ADMIN_CEREMONY = {
+  big: { in: 0.38, hold: 0.94, out: 0.3 },
+  compact: { in: 0.24, hold: 0.72, out: 0.24 },
+  gap: 0.4,
+  maxInRow: 2,
+} as const;
+
+/** Ambient loops (WebGL, the Pulse) draw at most this often. */
+export const ADMIN_AMBIENT_FPS = 30;
+/** The material: the light that follows the cursor (px), the magnet (px) and the tilt (degrees). */
+export const ADMIN_MATERIAL = { light: 360, magnetRadius: 40, magnetMax: 6, magnetIn: 0.2, magnetOut: 0.18, tiltMax: 3, tilt: 0.15, glow: 0.12 } as const;
+/** One pass of the skeleton shimmer (seconds). */
+export const ADMIN_SHIMMER = 1.4;

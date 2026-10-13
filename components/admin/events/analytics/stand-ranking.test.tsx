@@ -37,7 +37,7 @@ describe("StandRanking", () => {
     const html = render();
     const two = standRanking(previewAnalytics, previewAudience).find((entry) => entry.exhibitors.length === 2)!;
     const one = standRanking(previewAnalytics, previewAudience).find((entry) => entry.exhibitors.length === 1)!;
-    const segments = (code: string) => (row(html, code).match(/<button type="button" aria-label="[^"]*skenova"/g) ?? []).length;
+    const segments = (code: string) => (row(html, code).match(/<button type="button" data-admin-bar="x" aria-label="[^"]*skenova"/g) ?? []).length;
     expect(segments(two.standCode)).toBe(2);
     expect(segments(one.standCode)).toBe(1);
     expect(row(html, two.standCode)).toContain(`${two.segments[0].exhibitor}: ${formatCount(two.segments[0].scans)} skenova`);
@@ -119,5 +119,13 @@ describe("StandRanking: medals, moves and the record of the day (ADMIN v2 X4)", 
     expect(html).toContain(adminEventsSr.analytics.v2.stands.rankHelp);
     expect(row(html, "6")).not.toContain("data-record-badge");
     expect(render()).not.toContain("data-record-badge");
+  });
+});
+
+describe("V1 StandRanking: reveal marks", () => {
+  test("the ranked list is a rows container whose direct children are the stands", () => {
+    const html = render();
+    expect(html.split("data-admin-reveal=\"rows\"").length - 1).toBe(1);
+    expect(/<ol data-admin-reveal="rows"[^>]*><li data-stand=/.test(html)).toBe(true);
   });
 });

@@ -169,7 +169,7 @@ export function AdminDataView<T>(props: AdminDataViewProps<T>) {
     const showCards = mode === "auto" || mode === "kartice";
     const groups = groupBy ? groupRows(sorted, groupBy) : [{ key: "", label: null, rows: sorted }];
     const cardList = (list: readonly T[], label: string, extra?: string) => (
-      <ul aria-label={label} className={cn("grid gap-3 @xl:grid-cols-2 @5xl:grid-cols-3", extra, cardsClassName)}>
+      <ul aria-label={label} data-admin-reveal="rows" className={cn("grid gap-3 @xl:grid-cols-2 @5xl:grid-cols-3", extra, cardsClassName)}>
         {list.map((row) => {
           const context = { view: "kartice" } as const;
           const actions = rowActions?.(row, context);
@@ -223,7 +223,7 @@ export function AdminDataView<T>(props: AdminDataViewProps<T>) {
   return (
     <div ref={container} data-admin-primitive="data-view" data-view-mode={mode} className={cn("@container grid min-w-0 gap-3", className)}>
       <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
-        <div className="min-w-0 flex-1">{toolbar}</div>
+        <div data-admin-reveal="text" className="min-w-0 flex-1">{toolbar}</div>
         <AdminViewToggle value={effective} onChange={changeView} />
       </div>
       {body}
@@ -332,7 +332,7 @@ function DataTable<T>({
           </tr>
         </thead>
         {groups.map((group) => (
-        <tbody key={group.key}>
+        <tbody key={group.key} data-admin-reveal="rows">
           {group.label ? (
             <tr className="border-t border-[var(--admin-border)] bg-[var(--admin-surface-muted)]">
               <th colSpan={columnCount} scope="rowgroup" className="px-3 py-2 text-left text-xs font-semibold text-[var(--admin-text)]">

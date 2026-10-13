@@ -5,6 +5,7 @@ import { Fragment, useEffect, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { routeHref } from "@/lib/admin-v2/frame/routes";
 import {
+  ADMIN_GO_PENDING_EVENT,
   ADMIN_SHORTCUT_GROUPS,
   ADMIN_SHORTCUTS_EVENT,
   SHORTCUT_IDLE,
@@ -13,6 +14,7 @@ import {
   type ShortcutAction,
   type ShortcutState,
 } from "@/lib/admin-v2/shortcuts";
+import { ADMIN_NAV_INTENT_EVENT } from "@/components/admin/reveal/admin-reveal-root";
 import { adminUiSr } from "@/lib/i18n/sr/admin-ui";
 import { useAdminFrame } from "./admin-frame-context";
 
@@ -60,7 +62,12 @@ export function AdminShortcuts() {
     };
 
     const run = (action: ShortcutAction) => {
-      if (action.type === "go") router.push(routeHref(action.href, frame?.route ?? null));
+      if (action.type === "go") {
+        const href = routeHref(action.href, frame?.route ?? null);
+        // V3: a shortcut leaves the page like a click on a link does (the old page dims).
+        window.dispatchEvent(new CustomEvent(ADMIN_NAV_INTENT_EVENT, { detail: href }));
+        router.push(href);
+      }
       else if (action.type === "pageSearch") focusPageSearch();
       else setOpen(true);
     };
@@ -83,6 +90,9 @@ export function AdminShortcuts() {
         modal: document.querySelector(OPEN_LAYER) !== null,
         at: event.timeStamp,
       });
+      // V3: while the letter after G is awaited the navbar says so (a chip beside the search).
+      const pending = result.state.goAt !== null;
+      if (pending !== (sequence.current.goAt !== null)) window.dispatchEvent(new CustomEvent(ADMIN_GO_PENDING_EVENT, { detail: pending }));
       sequence.current = result.state;
       if (!result.action) return;
       event.preventDefault();

@@ -215,7 +215,7 @@ function Todo({ dashboard, now, scope, actionHref }: { dashboard: EventDashboard
       {actions.length ? (
         <>
           <p className="text-sm text-[var(--admin-text-muted)]">{d.todoHelp}</p>
-          <ol className="grid min-w-0 gap-2">
+          <ol data-admin-reveal="rows" className="grid min-w-0 gap-2">
             {actions.map((action) => <ActionItem key={action.rule} action={action} dashboard={dashboard} now={now} href={actionHref(action)} />)}
           </ol>
         </>
@@ -423,7 +423,7 @@ export function EventDashboardView({ dashboard, now, base, keep = {} }: {
           </section>
           <section aria-labelledby={cardsId} className="grid min-w-0 gap-2">
             <h2 id={cardsId} className="text-xs font-bold tracking-[0.08em] text-[var(--admin-text-muted)] uppercase">{d.cardsTitle}</h2>
-            <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-2">
+            <div data-admin-reveal="rows" className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-2">
               {cards(dashboard).map((card) => <SectionCard key={card.id} card={card} urgency={cardUrgency(card)} href={href(card.path)} />)}
             </div>
           </section>

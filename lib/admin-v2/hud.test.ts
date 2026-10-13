@@ -38,7 +38,7 @@ describe("what the HUD shows", () => {
   it("an open fair day: the day, how far it is, the time left and the scans of the day", () => {
     const now = days[2].startsAt + 8 * HOUR;
     const state = hudState(input({ kind: "sajam", dayOpen: true, dayIndex: 3, dayCount: 3, nextDeadline: { kind: "day_end", at: days[2].endsAt } }), now);
-    expect(state).toEqual({ kind: "live", dayIndex: 3, dayCount: 3, progress: 0.8, left: 2 * HOUR, scansToday: 179, scansCapped: false });
+    expect(state).toEqual({ kind: "live", dayIndex: 3, dayCount: 3, progress: 0.8, left: 2 * HOUR, scansToday: 179, scansCapped: false, leadsToday: 0 });
   });
 
   it("a partial scan count is marked", () => {
@@ -71,7 +71,17 @@ describe("the HUD of an event from its dashboard read", () => {
   it("carries the event, its link and the state", () => {
     const at = days[2].startsAt + 5 * HOUR;
     const hud = hudData(event, { at, phase: { kind: "sajam", dayOpen: true, dayIndex: 3, dayCount: 3, nextDeadline: null }, days, kpis: { scans: { today: 179, capped: true } } }, at);
-    expect(hud).toEqual({ eventTitle: "TEST Sajam", href: event.href, readAt: at, stale: false, state: { kind: "live", dayIndex: 3, dayCount: 3, progress: 0.5, left: 5 * HOUR, scansToday: 179, scansCapped: true } });
+    expect(hud).toEqual({ eventTitle: "TEST Sajam", href: event.href, readAt: at, stale: false, state: { kind: "live", dayIndex: 3, dayCount: 3, progress: 0.5, left: 5 * HOUR, scansToday: 179, scansCapped: true, leadsToday: null } });
+  });
+
+  // V3 V1 — the Pulse beats on new leads: the HUD carries the leads of the day from the same read.
+  it("carries the new leads of the day; null when no exhibitor has leads on", () => {
+    const at = days[2].startsAt + 5 * HOUR;
+    const read = (leads?: { newToday: number } | null) => hudData(event, { at, phase: { kind: "sajam", dayOpen: true, dayIndex: 3, dayCount: 3, nextDeadline: null }, days, kpis: { scans: { today: 179, capped: false }, leads } }, at)?.state;
+    expect(read({ newToday: 9 })).toMatchObject({ kind: "live", leadsToday: 9 });
+    expect(read({ newToday: 0 })).toMatchObject({ kind: "live", leadsToday: 0 });
+    expect(read(null)).toMatchObject({ kind: "live", leadsToday: null });
+    expect(read()).toMatchObject({ kind: "live", leadsToday: null });
   });
 
   it("a read the polls have not renewed for a while is not live any more", () => {

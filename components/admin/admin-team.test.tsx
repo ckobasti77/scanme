@@ -216,6 +216,15 @@ describe("Tim page", () => {
     expect(html).not.toContain("<select");
     expect(mocks.paginated.map((call) => call.args)).toEqual(["skip", "skip"]);
   });
+
+  test("the page carries the attributes of the reveal engine: counters as kpi, rows of tasks and conversations as rows", () => {
+    const html = previewHtml();
+    expect(html.match(/data-admin-reveal="kpi"/g)).toHaveLength(4);
+    expect(html.match(/data-admin-tilt=""/g)).toHaveLength(4);
+    expect(html.match(/<strong data-admin-count=""/g)).toHaveLength(4);
+    // „Pregled“ lists the tasks and the conversations of the member: two row containers.
+    expect(html.match(/data-admin-reveal="rows"/g)).toHaveLength(2);
+  });
 });
 
 describe("Tim sidebar", () => {

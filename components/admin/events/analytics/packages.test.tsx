@@ -50,3 +50,9 @@ describe("PackageComparison", () => {
     expect(tiers(empty)).toEqual([]);
   });
 });
+
+describe("V1 PackageComparison: reveal marks", () => {
+  test("the packages are a rows container", () => {
+    expect(/<ol data-admin-reveal="rows"[^>]*><li data-package=/.test(render())).toBe(true);
+  });
+});

@@ -84,7 +84,7 @@ export function ChartFrame({ id, title, question, actions, legend, note, table, 
 }) {
   const headingId = useId();
   return (
-    <AdminPanel id={id} data-analytics-chart={id} aria-labelledby={headingId} className={cn("@container grid min-w-0 scroll-mt-4 content-start gap-3 p-4 sm:p-5", className)}>
+    <AdminPanel id={id} data-analytics-chart={id} data-admin-reveal="chart" aria-labelledby={headingId} className={cn("@container grid min-w-0 scroll-mt-4 content-start gap-3 p-4 sm:p-5", className)}>
       <header className="flex min-w-0 flex-wrap items-start justify-between gap-x-4 gap-y-2">
         <div className="grid min-w-0 gap-0.5">
           <h2 id={headingId} className="text-xs font-bold tracking-[0.08em] text-[var(--admin-text-muted)] uppercase">{title}</h2>
@@ -266,8 +266,8 @@ export function ChartTipLayer({ tip, align = "center" }: { tip: ChartTip | null;
 export function HBar({ share, color = chartColor(1), className, style }: { share: number; color?: string; className?: string; style?: CSSProperties }) {
   const width = Math.max(0, Math.min(1, share)) * 100;
   return (
-    <span aria-hidden="true" className={cn("block h-2 min-w-0 overflow-hidden rounded-r-[4px] bg-[var(--admin-surface-muted)]", className)} style={style}>
-      <span className="block h-full rounded-r-[4px]" style={{ width: `${width}%`, minWidth: width > 0 ? 2 : 0, background: color }} />
+    <span aria-hidden="true" data-admin-draw="bars" className={cn("block h-2 min-w-0 overflow-hidden rounded-r-[4px] bg-[var(--admin-surface-muted)]", className)} style={style}>
+      <span data-admin-bar="x" className="block h-full rounded-r-[4px]" style={{ width: `${width}%`, minWidth: width > 0 ? 2 : 0, background: color }} />
     </span>
   );
 }
@@ -284,11 +284,12 @@ export function StackedBar({ segments, share = 1, label, className }: { segments
   const shown = segments.filter((segment) => segment.value > 0);
   return (
     <div ref={ref} className={cn("relative min-w-0", className)}>
-      <div role="group" aria-label={label} className="flex h-3 min-w-0 gap-[2px]" style={{ width: `${Math.max(0, Math.min(1, share)) * 100}%`, minWidth: shown.length ? "0.5rem" : 0 }}>
+      <div role="group" aria-label={label} data-admin-draw="bars" className="flex h-3 min-w-0 gap-[2px]" style={{ width: `${Math.max(0, Math.min(1, share)) * 100}%`, minWidth: shown.length ? "0.5rem" : 0 }}>
         {shown.map((segment, index) => (
           <button
             key={segment.key}
             type="button"
+            data-admin-bar="x"
             aria-label={typeof segment.tip === "string" ? segment.tip : `${segment.label}: ${formatCount(segment.value)}`}
             className={cn("h-full min-w-[3px] cursor-default", chartFocusRing)}
             style={{ flexGrow: segment.value, flexBasis: 0, background: segment.color, borderRadius: index === shown.length - 1 ? "0 4px 4px 0" : 0 }}
@@ -324,7 +325,7 @@ export function MiniBars({ values, highlight, label, color = chartColor(1), widt
   const { onPointerEnter, onPointerLeave, onClick } = bind("trend", label);
   return (
     <span ref={ref} data-mini-bars="" className={cn("relative inline-flex flex-none", className)} onPointerEnter={onPointerEnter} onPointerLeave={onPointerLeave} onClick={onClick}>
-    <svg role="img" aria-label={label} viewBox={`0 0 ${width} ${height}`} width={width} height={height} className="block flex-none">
+    <svg role="img" aria-label={label} data-admin-draw="bars" viewBox={`0 0 ${width} ${height}`} width={width} height={height} className="block flex-none">
       {values.map((value, index) => {
         const h = value > 0 ? Math.max(2, (value / max) * (height - 1)) : 1;
         const x = (width - used) / 2 + index * (bar + gap);
@@ -333,6 +334,7 @@ export function MiniBars({ values, highlight, label, color = chartColor(1), widt
         return (
           <path
             key={index}
+            data-admin-bar="y"
             d={`M${x},${height} V${y + radius} Q${x},${y} ${x + radius},${y} H${x + bar - radius} Q${x + bar},${y} ${x + bar},${y + radius} V${height} Z`}
             fill={highlight === undefined || index === highlight ? color : CHART_OTHER_COLOR}
             fillOpacity={value > 0 ? 1 : 0.45}

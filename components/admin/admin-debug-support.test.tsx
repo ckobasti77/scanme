@@ -39,3 +39,13 @@ describe("Debug support page", () => {
     expect(resolveAdminSidebar("/dev/admin-18-preview", "?mode=debug")).toBe(DEFAULT_SIDEBAR);
   });
 });
+
+describe("Debug support page: reveal attributes", () => {
+  const html = renderToStaticMarkup(<AdminDebugSupportPreview />);
+
+  test("the venues are rows and the sticky debug bar carries no attribute", () => {
+    expect(html).toContain('<div data-admin-reveal="rows" class="grid gap-2 p-3 sm:p-4"');
+    expect(html).toContain('data-admin-reveal="card"');
+    expect(html.match(/<aside[^>]*>/)?.[0]).not.toContain("data-admin-reveal");
+  });
+});

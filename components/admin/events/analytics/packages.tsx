@@ -33,7 +33,7 @@ export function PackageComparison({ data, engagement }: { data: AnalyticsData; e
       } : undefined}
     >
       {rows.length ? (
-        <ol className="grid min-w-0 gap-x-8 gap-y-4 @3xl:grid-cols-3">
+        <ol data-admin-reveal="rows" className="grid min-w-0 gap-x-8 gap-y-4 @3xl:grid-cols-3">
           {rows.map((row) => (
             <li key={row.tier} data-package={row.tier} className="grid min-w-0 gap-1.5">
               <div className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5">

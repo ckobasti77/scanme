@@ -200,7 +200,7 @@ function TaskList({
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-[var(--admin-border)]">
+        <tbody data-admin-reveal="rows" className="divide-y divide-[var(--admin-border)]">
           {rows.map((task) => (
             <tr
               key={task.id}
@@ -256,7 +256,7 @@ function TaskList({
           ))}
         </tbody>
       </AdminTable>
-      <div className="grid gap-3 @4xl:hidden">
+      <div data-admin-reveal="rows" className="grid gap-3 @4xl:hidden">
         {rows.map((task) => (
           <button
             key={task.id}
@@ -1687,7 +1687,7 @@ export function AdminTasksPreview() {
           </button>
         }
       />
-      <p className="text-xs text-[var(--admin-text-muted)]">
+      <p data-admin-reveal="text" className="text-xs text-[var(--admin-text-muted)]">
         {dict.previewDescription}
       </p>
       {visible.length ? (

@@ -68,7 +68,7 @@ export function StandRanking({ data, audience, record, onPickStand }: {
             <span className="text-right">{d.columns.leads}</span>
             <span className="text-right">{d.columns.conversion}</span>
           </div>
-          <ol className="grid min-w-0">
+          <ol data-admin-reveal="rows" className="grid min-w-0">
             {rows.map((row) => (
               <li key={row.locationId} data-stand={row.standCode} className={cn("grid min-w-0 gap-x-4 gap-y-2 border-t border-[var(--admin-border)] px-1 py-3 first:border-t-0 @4xl:items-center", numberColumns)}>
                 <div className="grid min-w-0 gap-1.5">

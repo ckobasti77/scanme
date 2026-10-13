@@ -253,3 +253,11 @@ describe("A8 inbox logic", () => {
     expect(leadDeliveryDeadline(FAIR_PII_PURGE_AT_MS)).toEqual({ kind: "passed" });
   });
 });
+
+describe("ADMIN v3 V1 lead inbox", () => {
+  test("the status panel is a card and the list is rows", () => {
+    const markup = render();
+    expect(markup).toContain('data-admin-reveal="card"');
+    expect(markup).toContain('data-admin-reveal="rows"');
+  });
+});

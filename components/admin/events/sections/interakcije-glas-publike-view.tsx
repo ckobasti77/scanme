@@ -323,7 +323,7 @@ export function AudienceMatrix({ rows, models, days, now, selected, onOpen }: {
               })}
             </tr>
           </thead>
-          <tbody>
+          <tbody data-admin-reveal="rows">
             {rows.map((row) => {
               const model = models.get(row.modelId);
               if (!model) return null;

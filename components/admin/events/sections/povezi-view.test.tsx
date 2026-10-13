@@ -186,4 +186,13 @@ describe("N2 Poveži nalepnicu — the phone screen", () => {
     expect(conflict).toContain(adminEventsSr.issues.FAIR_QR_HOLDER_CHANGED);
     expect(conflict).not.toMatch(/FAIR_[A-Z_]+/);
   });
+
+  test("ADMIN v3 V1: the steps are cards, the recent links are rows, the sticky bar carries no reveal attribute", () => {
+    const markup = html({}, undefined);
+    expect(markup).toContain('data-admin-reveal="card"');
+    expect(markup).toMatch(/<ol data-admin-reveal="rows" class="grid gap-2"><li /);
+    const tag = markup.slice(markup.lastIndexOf("<section", markup.indexOf("data-link-bar")), markup.indexOf(">", markup.indexOf("data-link-bar")));
+    expect(tag).toContain("sticky");
+    expect(tag).not.toContain("data-admin");
+  });
 });

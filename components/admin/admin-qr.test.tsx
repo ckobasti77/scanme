@@ -111,3 +111,12 @@ describe("QR kodovi: the workspace sends the same query arguments as before", ()
     expect(render("?veza=sve&vrsta=ostalo&status=zatvoren")).toEqual({ direction: "desc" });
   });
 });
+
+describe("QR kodovi: reveal attributes", () => {
+  test("the table body and the cards are the rows of the reveal engine", () => {
+    const html = preview();
+    expect(html).toContain('<tbody data-admin-reveal="rows"');
+    expect(html).toContain('<div data-admin-reveal="rows" class="grid gap-2 @4xl:hidden"');
+    expect(html).toContain('data-admin-reveal="title"');
+  });
+});

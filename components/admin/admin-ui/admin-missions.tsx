@@ -2,13 +2,16 @@
 
 import { Check, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
-import { useRef } from "react";
-import { gsap, useAdminGsapLayout } from "@/components/admin/frame/use-admin-gsap";
+import { useId, useRef } from "react";
+import { gsap, useAdminGsap, useAdminGsapLayout } from "@/components/admin/frame/use-admin-gsap";
+import { adminMotion } from "@/components/admin/reveal/gsap-plugins";
+import { AdminRingMask } from "@/components/admin/reveal/reveal-marks";
 import type { MissionConfirm } from "@/components/admin/admin-ui/use-mission-progress";
 import { plural } from "@/lib/admin-v2/analytics/format";
 import type { MissionBoard, MissionRow, MissionTone } from "@/lib/admin-v2/missions";
 import { ringDash } from "@/lib/admin-v2/missions";
 import { ADMIN_DURATION, ADMIN_EASE } from "@/lib/admin-v2/motion";
+import { quietModeStore } from "@/lib/admin-v2/quiet-mode";
 import { fmt } from "@/lib/i18n/format";
 import { adminUiSr as dict } from "@/lib/i18n/sr/admin-ui";
 import { cn } from "@/lib/utils";
@@ -17,8 +20,8 @@ import { cn } from "@/lib/utils";
 // misija rešeno“ of the day (missions, said so), the open missions with what
 // was solved inside each („2 od 3“), the short confirmation of a solved one and
 // „Sve čisto“. Presentational: the board and the confirmation come from
-// useMissionProgress. The ring is never animated (it changes at once); only the
-// confirmation moves, and only transform and opacity.
+// useMissionProgress. V3: the ring is drawn on the entrance of the page and its
+// new part when the share grows; the confirmation moves with transform and opacity.
 
 const m = dict.missions;
 const RADIUS = 15.5;
@@ -48,11 +51,28 @@ export function missionConfirmText(confirm: MissionConfirm | null): string {
 /** The solved share of the day as a ring; a full ring wears a check. `label` names it, without one it is decoration. */
 export function AdminMissionRing({ share, label, className }: { share: number; label?: string; className?: string }) {
   const full = share >= 1;
+  // V3: the solved share is drawn through a mask on the entrance of the page (the reveal engine, `ring`).
+  const maskId = useId();
+  const svg = useRef<SVGSVGElement>(null);
+  const drawn = useRef(share);
+  // When the share grows while the ring is on the screen, the new part is drawn (240 ms); a fall and the quiet mode change it at once.
+  useAdminGsap(
+    ({ reduced }) => {
+      const from = drawn.current;
+      drawn.current = share;
+      const mask = svg.current?.querySelector("[data-admin-ring-mask]");
+      if (reduced || quietModeStore.get() || !mask || share <= from || share <= 0) return;
+      adminMotion();
+      gsap.fromTo(mask, { drawSVG: `${(from / share) * 100}%` }, { drawSVG: "100%", duration: ADMIN_DURATION.move, ease: ADMIN_EASE.out, clearProps: "strokeDasharray,strokeDashoffset" });
+    },
+    [share],
+  );
   return (
     <span data-mission-ring="" data-full={full ? "" : undefined} role={label ? "img" : undefined} aria-label={label} aria-hidden={label ? undefined : true} className={cn("relative inline-grid size-7 flex-none place-items-center", className)}>
-      <svg viewBox="0 0 36 36" className="size-full -rotate-90" aria-hidden="true">
+      <svg ref={svg} viewBox="0 0 36 36" data-admin-draw="ring" className="size-full -rotate-90" aria-hidden="true">
+        <AdminRingMask id={maskId} size={36} r={RADIUS} strokeWidth={4} />
         <circle cx="18" cy="18" r={RADIUS} fill="none" stroke="var(--admin-border)" strokeWidth="4" />
-        {share > 0 ? <circle cx="18" cy="18" r={RADIUS} fill="none" stroke="var(--admin-nav-line)" strokeWidth="4" strokeLinecap={full ? "butt" : "round"} strokeDasharray={ringDash(share, CIRCUMFERENCE)} /> : null}
+        {share > 0 ? <circle cx="18" cy="18" r={RADIUS} fill="none" stroke="var(--admin-nav-line)" strokeWidth="4" strokeLinecap={full ? "butt" : "round"} strokeDasharray={ringDash(share, CIRCUMFERENCE)} mask={`url(#${maskId})`} /> : null}
       </svg>
       {full ? <Check className="absolute size-[55%] text-[var(--admin-nav-current)]" strokeWidth={3} aria-hidden="true" /> : null}
     </span>

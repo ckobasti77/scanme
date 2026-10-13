@@ -138,7 +138,7 @@ export function ModelLeaderboard({ data, audience, engagement, onOpen, openId }:
             <HeadCell area="leads" right>{d.columns.leads}</HeadCell>
             <HeadCell area="rating" right>{d.columns.rating}</HeadCell>
           </div>
-          <ol className="min-w-0">
+          <ol data-admin-reveal="rows" className="min-w-0">
             {shown.map((row) => <LeaderItem key={row.eventModelId} row={row} data={data} onOpen={onOpen} open={row.eventModelId === openId} />)}
           </ol>
           {rows.length > LEADER_LIMIT ? (

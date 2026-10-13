@@ -334,7 +334,7 @@ export function AdminEventsReports({
 
   return (
     <div className="grid min-w-0 gap-5">
-      <p className="text-sm text-[var(--admin-text-muted)]">{dict.reportsSubtitle}</p>
+      <p data-admin-reveal="text" className="text-sm text-[var(--admin-text-muted)]">{dict.reportsSubtitle}</p>
 
       <Section title={q.title} help={q.help}>
         <div className="mb-3 grid gap-1">

@@ -5,7 +5,7 @@ import { useQuery } from "convex/react";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { AdminSearchCommandPreviewGroups } from "@/components/admin/admin-search-command";
-import { AdminToaster } from "@/components/admin/admin-ui/admin-toast";
+import { AdminToaster, useQuietMode } from "@/components/admin/admin-ui/admin-toast";
 import { api } from "@/convex/_generated/api";
 import { adminRoute } from "@/lib/admin-v2/frame/routes";
 import type { HudData } from "@/lib/admin-v2/hud";
@@ -14,6 +14,7 @@ import { AdminDrawer } from "./admin-drawer";
 import { AdminFrameContext, type AdminDrawerTarget, type AdminFrameValue } from "./admin-frame-context";
 import { AdminHudLive, AdminHudPreview } from "./admin-hud";
 import { AdminNavbar } from "./admin-navbar";
+import { AdminPulseFeedLive, AdminPulseFeedPreview } from "./admin-pulse-feed";
 import { AdminScreen } from "./admin-screen";
 import { AdminShortcuts } from "./admin-shortcuts";
 import { AdminSidebar } from "./admin-sidebar";
@@ -27,7 +28,9 @@ import { AdminSidebarProvider } from "./admin-sidebar-store";
 // never scrolls, only the screen does. Below lg the navbar is the top bar and
 // the sidebar is a drawer. X4: the frame also holds the keyboard shortcuts,
 // the toasts and the read behind the HUD „Danas“ (only for a signed-in admin;
-// a dev preview shows a TEST HUD instead and reads nothing).
+// a dev preview shows a TEST HUD instead and reads nothing). V3: it also holds
+// the feed of the Pulse and the live edge of the screen, and says on its root
+// when the quiet mode is on (`data-admin-quiet`: the skeleton shimmer stands).
 
 export type AdminFrameProps = {
   children: ReactNode;
@@ -45,6 +48,7 @@ export function AdminFrame({ children, previewIdentity, previewSearchGroups, act
   const me = useQuery(api.admin.me);
   const { signOut } = useAuthActions();
   const identity = previewIdentity ?? me?.email ?? adminV1Sr.profileFallback;
+  const [quiet] = useQuietMode();
   const [drawer, setDrawer] = useState<AdminDrawerTarget | null>(null);
   // X6 — the layout is persistent, so a link inside the drawer changes the page while the drawer stays
   // mounted: the frame closes it when the path changes. A filter only changes the query and keeps it open.
@@ -78,15 +82,21 @@ export function AdminFrame({ children, previewIdentity, previewSearchGroups, act
     <AdminFrameContext.Provider value={value}>
       <AdminSidebarProvider>
         {/* data-reveal="off": the site's text reveal never hides admin text, also not on a client navigation. */}
-        <div data-reveal="off" className="admin-v1 relative flex h-[100dvh] w-full overflow-hidden bg-[var(--admin-app)] text-[var(--admin-text)]">
+        <div data-reveal="off" data-admin-quiet={quiet ? "" : undefined} className="admin-v1 relative flex h-[100dvh] w-full overflow-hidden bg-[var(--admin-app)] text-[var(--admin-text)]">
           <a href="#main-content" className="skip-link">{adminV1Sr.skipToContent}</a>
           <AdminSidebar />
-          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
             <AdminNavbar identity={identity} onSignOut={onSignOut} previewSearchGroups={previewSearchGroups} />
             <AdminScreen>{children}</AdminScreen>
+            {/* The live edge of the screen: decoration that follows --admin-energy (the Pulse writes it). */}
+            <div aria-hidden="true" data-admin-edge="" className="admin-edge">
+              <span className="admin-edge-ring" />
+              <span className="admin-edge-glow" />
+            </div>
           </div>
           <AdminDrawer identity={identity} onSignOut={onSignOut} />
           {previewHud ? <AdminHudPreview hud={previewHud} /> : previewIdentity === undefined && me?.isAdmin ? <AdminHudLive /> : null}
+          {previewIdentity === undefined ? (me?.isAdmin ? <AdminPulseFeedLive /> : null) : <AdminPulseFeedPreview />}
           <AdminShortcuts />
           <AdminToaster />
         </div>

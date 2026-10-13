@@ -25,7 +25,7 @@ export function Insights({ data, audience, engagement }: { data: AnalyticsData; 
   return (
     <ChartFrame id="uvidi" title={v.title} question={v.question} note={items.length ? v.note : undefined}>
       {items.length ? (
-        <ol className="min-w-0 gap-x-8 @3xl:columns-2">
+        <ol data-admin-reveal="rows" className="min-w-0 gap-x-8 @3xl:columns-2">
           {items.map((item) => (
             <li key={item.id} data-insight={item.id} data-tone={item.tone} className="mb-2.5 grid min-w-0 break-inside-avoid grid-cols-[1.25rem_minmax(0,1fr)] items-start gap-x-2.5 text-sm leading-5">
               {item.tone === "problem"

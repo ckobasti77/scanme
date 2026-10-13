@@ -70,7 +70,7 @@ export function Funnel({ data, audience, engagement, links }: {
   };
   return (
     <ChartFrame id="levak" title={v.title} question={v.question} note={v.note} table={table}>
-      <ol className="grid min-w-0 gap-4">
+      <ol data-admin-draw="funnel" className="grid min-w-0 gap-4">
         {steps.map((step) => <StepRow key={step.id} step={step} />)}
       </ol>
       {problem ? (

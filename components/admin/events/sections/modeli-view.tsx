@@ -566,7 +566,7 @@ function ModelSummary({ model, summary, sectionHref, interactionHref }: { model:
   ];
   return (
     <Section title={detail.summaryTitle}>
-      <ul className="grid gap-3">
+      <ul data-admin-reveal="rows" className="grid gap-3">
         {rows.map((row) => (
           <li key={row.id} className="grid min-w-0 gap-1.5 rounded-[var(--admin-radius-control)] border border-[var(--admin-border)] p-3">
             <div className="flex min-w-0 items-center justify-between gap-2">

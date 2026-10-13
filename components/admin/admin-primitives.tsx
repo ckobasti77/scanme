@@ -16,8 +16,12 @@ export function AdminPanel({
   ...props
 }: ComponentProps<"section">) {
   return (
+    // V3: a panel is a card of the reveal engine and wears the light that follows the cursor
+    // (`data-admin-reveal="off"` from the caller keeps it still).
     <section
       data-admin-primitive="panel"
+      data-admin-reveal="card"
+      data-admin-glow=""
       className={cn(
         "rounded-[var(--admin-radius-panel)] border border-[var(--admin-border)] bg-[var(--admin-surface)] shadow-[var(--admin-shadow-sm)]",
         className,
@@ -112,7 +116,8 @@ export function AdminLoadingState({
   compact?: boolean;
   shape?: "panel" | "table";
 }) {
-  const bar = "animate-pulse rounded-[var(--admin-radius-inner)] bg-[var(--admin-skeleton)]";
+  // V3: a shimmer passes over the bars (app/globals.css); it stands still with reduced motion and in the quiet mode.
+  const bar = "admin-shimmer rounded-[var(--admin-radius-inner)] bg-[var(--admin-skeleton)]";
   return (
     <div
       data-admin-primitive="loading"
@@ -136,10 +141,10 @@ export function AdminLoadingState({
         </>
       ) : (
         <>
-          <div className="h-3 w-32 animate-pulse rounded-full bg-[var(--admin-skeleton)]" />
-          <div className="h-10 w-full animate-pulse rounded-xl bg-[var(--admin-skeleton)]" />
+          <div className="admin-shimmer h-3 w-32 rounded-full bg-[var(--admin-skeleton)]" />
+          <div className="admin-shimmer h-10 w-full rounded-xl bg-[var(--admin-skeleton)]" />
           {!compact ? (
-            <div className="h-10 w-4/5 animate-pulse rounded-xl bg-[var(--admin-skeleton)]" />
+            <div className="admin-shimmer h-10 w-4/5 rounded-xl bg-[var(--admin-skeleton)]" />
           ) : null}
         </>
       )}

@@ -407,10 +407,10 @@ function ClientResults({ rows, detailsByAccount }: { rows: ClientRow[]; detailsB
               <th className="px-2 py-3 text-right" scope="col"><span className="sr-only">{dict.clientsColActions}</span></th>
             </tr>
           </thead>
-          <tbody>{rows.map((row) => <DesktopRow key={row.accountId} row={row} details={detailsByAccount?.[row.accountId]} />)}</tbody>
+          <tbody data-admin-reveal="rows">{rows.map((row) => <DesktopRow key={row.accountId} row={row} details={detailsByAccount?.[row.accountId]} />)}</tbody>
         </AdminTable>
       </div>
-      <div className="grid min-w-0 gap-3 @4xl:hidden">
+      <div data-admin-reveal="rows" className="grid min-w-0 gap-3 @4xl:hidden">
         {rows.map((row) => <MobileCard key={row.accountId} row={row} details={detailsByAccount?.[row.accountId]} />)}
       </div>
     </>

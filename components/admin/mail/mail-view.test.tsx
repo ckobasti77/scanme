@@ -361,3 +361,13 @@ describe("Pošta sidebar", () => {
     expect(markup).not.toContain('aria-label="Folderi"');
   });
 });
+
+describe("Pošta reveal attributes", () => {
+  test("the messages are rows, the opened message is a card, the frame carries no attribute", async () => {
+    const markup = render(await readyModel());
+    expect(markup).toContain('<ul data-admin-reveal="rows"');
+    expect(markup).toMatch(/<section data-admin-primitive="panel" data-admin-reveal="card"[^>]*aria-label="Poruka"/);
+    expect(markup).toContain('<p data-admin-reveal="text"');
+    expect(markup.match(/<iframe[^>]*>/)?.[0]).not.toContain("data-admin-reveal");
+  });
+});

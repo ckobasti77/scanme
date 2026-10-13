@@ -239,15 +239,15 @@ function OrdersList({ rows, details, onSelect, onExpand }: { rows: OrderRow[]; d
         <thead className="bg-[var(--admin-surface-muted)] text-xs text-[var(--admin-text-muted)]">
           <tr>{ORDER_COLUMNS.map((column) => <th key={column.label} className={cn("px-4 py-3 font-medium last:w-14 last:text-right", column.wide && WIDE_COLUMN)}>{column.label === dict.openDetail ? <span className="sr-only">{column.label}</span> : column.label}</th>)}</tr>
         </thead>
-        <tbody className="divide-y divide-[var(--admin-border)]">
+        <tbody data-admin-reveal="rows" className="divide-y divide-[var(--admin-border)]">
           {rows.map((row) => (
             <FragmentRow key={row.id} row={row} expanded={expanded.has(row.id)} detail={details[row.id]} onToggle={() => { toggle(row.id); onExpand(row.id); }} onSelect={() => onSelect(row.id)} />
           ))}
         </tbody>
       </AdminTable>
-      <div className="grid gap-3 @4xl:hidden">
+      <div data-admin-reveal="rows" className="grid gap-3 @4xl:hidden">
         {rows.map((row) => (
-          <AdminPanel key={row.id} className="overflow-hidden">
+          <AdminPanel key={row.id} data-admin-reveal="off" className="overflow-hidden">
             <button type="button" data-order-detail-trigger={row.id} onClick={() => onSelect(row.id)} className="grid min-h-11 w-full gap-4 p-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--admin-focus)]">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0"><strong className="block text-base">{row.smpCode}</strong><span className="mt-1 block truncate text-sm text-[var(--admin-text-muted)]">{row.accountName}</span></div>
@@ -541,7 +541,7 @@ export function AdminOrdersWorkspace({ initialOrderId }: { initialOrderId?: stri
   return (
     <div className="grid min-w-0 gap-5 sm:gap-6">
       <Header />
-      {ordersSortIgnored(listState) ? <p className="text-xs text-[var(--admin-text-muted)]">{dict.sortSearchHint}</p> : null}
+      {ordersSortIgnored(listState) ? <p data-admin-reveal="text" className="text-xs text-[var(--admin-text-muted)]">{dict.sortSearchHint}</p> : null}
       {orders.status === "LoadingFirstPage" ? <AdminPanel><AdminLoadingState shape="table" label={dict.loading} /></AdminPanel> : orders.results.length === 0 ? <AdminPanel><AdminEmptyState action={<AdminClearFilters />} title={ordersAreFiltered(listState) ? dict.noResultsTitle : dict.emptyTitle} body={ordersAreFiltered(listState) ? dict.noResultsBody : dict.emptyBody} /></AdminPanel> : <OrdersList rows={orders.results} details={details} onSelect={setSelectedId} onExpand={setExpandedId} />}
       {orders.status === "CanLoadMore" || orders.status === "LoadingMore" ? <Button type="button" variant="outline" className="min-h-11 justify-self-start" disabled={orders.status === "LoadingMore"} onClick={() => orders.loadMore(20)}>{dict.loadMore}</Button> : null}
       <OrdersSheet selected={selectedRow} detail={selectedDetail} timeline={timeline.results} onClose={closeDetail} actions={selectedRaw ? <LiveActions key={selectedRaw.operation._id} raw={selectedRaw} normalized={normalizeDetail(selectedRaw)} /> : undefined} />
@@ -666,7 +666,7 @@ export function AdminOrdersPreview() {
   return (
     <div className="grid min-w-0 gap-5 sm:gap-6">
       <Header preview />
-      {ordersSortIgnored(state) ? <p className="text-xs text-[var(--admin-text-muted)]">{dict.sortSearchHint}</p> : null}
+      {ordersSortIgnored(state) ? <p data-admin-reveal="text" className="text-xs text-[var(--admin-text-muted)]">{dict.sortSearchHint}</p> : null}
       {visible.length ? <OrdersList rows={visible} details={details} onSelect={setSelectedId} onExpand={() => undefined} /> : <AdminPanel><AdminEmptyState action={<AdminClearFilters />} title={dict.noResultsTitle} body={dict.noResultsBody} /></AdminPanel>}
       <OrdersSheet selected={selected} detail={selectedDetail} timeline={timeline} onClose={closeDetail} actions={<div className="grid gap-3"><Button type="button" disabled={!canAdvance} onClick={advancePreview} className="min-h-11 justify-self-start" title={dict.previewApplyAction}>{selected ? nextStep(selected) : dict.blockedAction}</Button><Button type="button" variant="outline" disabled className="min-h-11 justify-self-start">{dict.blockedAction}</Button><p className="text-xs text-[var(--admin-text-muted)]">{dict.previewDescription}</p></div>} />
     </div>

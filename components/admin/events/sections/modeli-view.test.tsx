@@ -139,6 +139,11 @@ describe("A3 Modeli list", () => {
     expect(sidebarHtml({ q: "nepostojeci" })).toContain(`${list.searchLabel}: nepostojeci`);
   });
 
+  test("ADMIN v3 V1: the list rows enter as rows in both views (table body and cards)", () => {
+    expect(listHtml({}, "tabela")).toContain('<tbody data-admin-reveal="rows"');
+    expect(listHtml({}, "kartice")).toContain('data-admin-reveal="rows"');
+  });
+
   test("Tabela is grouped by izlagač · brend with the A3 columns (SMQ and code, nema, problems, photo)", () => {
     const html = listHtml({}, "tabela");
     expect(html).not.toContain('data-admin-primitive="data-card"');
@@ -258,6 +263,12 @@ describe("A3 model detail", () => {
     const starter = detailHtml("m2", {}, { forms: { interest: true, testDrive: false } });
     expect(starter).toContain(detail.advancedOnly);
     expect(starter).toContain(`${detail.formTestDrive}: ${detail.formNotInPackage}`);
+  });
+
+  test("ADMIN v3 V1: the detail sections are cards and the linked summaries are rows", () => {
+    const html = detailHtml("m1", {});
+    expect(html).toContain('data-admin-reveal="card"');
+    expect(html).toMatch(/<ul data-admin-reveal="rows" class="grid gap-3"><li /);
   });
 });
 

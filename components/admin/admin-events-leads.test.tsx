@@ -187,3 +187,11 @@ describe("B4 admin Leadovi", () => {
     expect(html).toContain(adminEventsSr.leadSettings.activitySharingNote);
   });
 });
+
+describe("ADMIN v3 V1 Leadovi settings", () => {
+  test("the consent kinds are rows inside the settings card", () => {
+    const markup = renderToStaticMarkup(<AdminEventsConsent view={view} actions={actions} />);
+    expect(markup).toContain('data-admin-reveal="card"');
+    expect(markup).toMatch(/<div data-admin-reveal="rows" class="grid gap-3"><details /);
+  });
+});

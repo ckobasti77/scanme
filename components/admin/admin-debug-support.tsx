@@ -90,7 +90,7 @@ function ActiveDebugView({
           </AdminPanel>
           <AdminPanel className="overflow-hidden">
             <div className="border-b border-[var(--admin-border)] px-4 py-3"><h2 className="font-semibold">{dict.debugVenues}</h2></div>
-            <div className="grid gap-2 p-3 sm:p-4">
+            <div data-admin-reveal="rows" className="grid gap-2 p-3 sm:p-4">
               {overview.venues.map((venue) => (
                 <article key={venue.businessId} className="grid gap-3 rounded-xl border border-[var(--admin-border)] bg-[var(--admin-surface-strong)] p-3 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center">
                   <Building2 className="size-4 text-[var(--admin-text-muted)]" aria-hidden="true" />

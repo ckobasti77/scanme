@@ -172,7 +172,7 @@ export function EventQrView({ catalog, inventory, stats, query, onQueryChange, q
 
   return (
     <div className="grid min-w-0 gap-4">
-      <p className="text-sm text-[var(--admin-text-muted)]">{dict.qrSubtitle}</p>
+      <p data-admin-reveal="text" className="text-sm text-[var(--admin-text-muted)]">{dict.qrSubtitle}</p>
       {typedCode ? (
         <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
           <Link href={qrHref(typedCode)} className={cn(adminSecondaryButtonClass, "min-h-9 px-3")}>
@@ -227,7 +227,7 @@ export function EventQrView({ catalog, inventory, stats, query, onQueryChange, q
         )}
         footer={<LoadMore list={inventory} />}
       />
-      <p className="text-xs text-[var(--admin-text-muted)]">{list.statsNote}</p>
+      <p data-admin-reveal="text" className="text-xs text-[var(--admin-text-muted)]">{list.statsNote}</p>
       <QrBulkPanel catalog={catalog} bulk={bulk} />
       <ResolvePanel actions={actions} />
     </div>
@@ -854,7 +854,7 @@ function QrHistorySection({ detail, modelsById, modelHref }: { detail: QrDetailV
   return (
     <Section title={detailText.historyTitle}>
       {detail.history.length ? (
-        <ol className="grid gap-3">
+        <ol data-admin-reveal="rows" className="grid gap-3">
           {detail.history.map((row) => {
             const model = row.sameEvent ? modelsById.get(row.eventModelId) ?? null : null;
             const label = model ? modelName(model) : row.modelLabel ?? detailText.historyUnknownModel;

@@ -72,6 +72,12 @@ describe("Inbox page", () => {
     expect(html).not.toContain(`${dict.statusFilter}:`);
   });
 
+  test("the conversation list carries the rows attribute, the open conversation is a card panel", () => {
+    const html = preview();
+    expect(html).toContain(`aria-label="${dict.conversationList}" data-admin-reveal="rows"`);
+    expect(html).toContain('data-admin-reveal="card"');
+  });
+
   test("the fixture rows follow the URL: all, by status, by assignee, by search", () => {
     const both = preview();
     expect(both).toContain("Bistro Zelen d.o.o.");

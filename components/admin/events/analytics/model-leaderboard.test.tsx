@@ -199,3 +199,11 @@ describe("ModelLeaderboard", () => {
     expect(html).not.toContain("data-chart-table");
   });
 });
+
+describe("V1 ModelLeaderboard: reveal marks", () => {
+  test("the ranked list is a rows container whose direct children are the rows", () => {
+    const html = render();
+    expect(html.split("data-admin-reveal=\"rows\"").length - 1).toBe(1);
+    expect(/<ol data-admin-reveal="rows"[^>]*><li data-leader-row=""/.test(html)).toBe(true);
+  });
+});

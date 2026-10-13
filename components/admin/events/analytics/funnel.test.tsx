@@ -134,3 +134,11 @@ describe("X3 Funnel", () => {
     expect(html).not.toContain("data-funnel-ratio");
   });
 });
+
+describe("V1 Funnel: reveal marks", () => {
+  test("the list of steps is the funnel the reveal engine fills from the top", () => {
+    const html = render();
+    expect(count(html, "data-admin-draw=\"funnel\"")).toBe(1);
+    expect(/<ol data-admin-draw="funnel"[^>]*>s*<li data-funnel-step="scans"/.test(html)).toBe(true);
+  });
+});

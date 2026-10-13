@@ -134,7 +134,7 @@ export function Section({ title, help, children }: { title: string; help: string
 }
 
 export function RowList({ children }: { children: ReactNode }) {
-  return <ul className="mt-4 grid divide-y divide-[var(--admin-border)] overflow-hidden rounded-[var(--admin-radius-control)] border border-[var(--admin-border)]">{children}</ul>;
+  return <ul data-admin-reveal="rows" className="mt-4 grid divide-y divide-[var(--admin-border)] overflow-hidden rounded-[var(--admin-radius-control)] border border-[var(--admin-border)]">{children}</ul>;
 }
 
 export function Row({ children }: { children: ReactNode }) {

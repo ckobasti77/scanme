@@ -4,12 +4,14 @@ import { describe, expect, test, vi } from "vitest";
 import { ChartFrame, ChartLegend, ChartSegmented, ChartTable, HBar, MiniBars, RankMedal, RankMove, StackedBar } from "@/components/admin/events/analytics/chart-kit";
 import { HallHeatMap } from "@/components/admin/events/analytics/heat-map";
 import { Insights } from "@/components/admin/events/analytics/insights";
+import { EventAnalyticsView } from "@/components/admin/events/sections/analitika-view";
 import { previewAnalytics, previewAudience, previewEngagement } from "@/components/admin/events/preview-analytics-fixtures";
 import { previewDashboard } from "@/components/admin/events/preview-dashboard-fixtures";
 import { EventDashboardView } from "@/components/admin/events/sections/pregled-view";
 import { AdminSidebarView } from "@/components/admin/frame/admin-sidebar-view";
 import { ANALYTICS_ANCHORS } from "@/lib/admin-v2/analytics/anchors";
 import { leaderboard } from "@/lib/admin-v2/analytics/leaderboard";
+import { hourMatrix } from "@/lib/admin-v2/analytics/matrix";
 import { CHART_OTHER_COLOR, chartColor } from "@/lib/admin-v2/analytics/palette";
 import { standRanking } from "@/lib/admin-v2/analytics/stands";
 import { resolveAdminSidebar } from "@/lib/admin-v2/sidebar/registry";
@@ -243,5 +245,43 @@ describe("ADMIN v2 X3: „Na ovoj strani“ and the link from Pregled", () => {
     const html = renderToStaticMarkup(<EventDashboardView dashboard={dashboard} now={dashboard.at} base={BASE} />);
     expect(html).toMatch(new RegExp(`<a href="${BASE}/analitika" data-open-analytics=""[^>]*>${adminEventsSr.dashboard.openAnalytics}`));
     expect(html.split("data-open-analytics").length - 1).toBe(1);
+  });
+});
+
+describe("V1 Analitika: reveal marks", () => {
+  const html = renderToStaticMarkup(
+    <EventAnalyticsView
+      eventCode="test-elektromobilnost-2026"
+      data={previewAnalytics}
+      audience={previewAudience}
+      engagement={previewEngagement}
+      modelId={undefined}
+      modelDetail={undefined}
+      modelError={false}
+      onModel={() => {}}
+      onModelRetry={() => {}}
+      links={{ leadSettings: "/admin/dogadjaji/test/leadovi/podesavanja", forms: "/admin/dogadjaji/test/interakcije" }}
+      onRefresh={() => {}}
+      refreshing={false}
+      onExport={() => {}}
+    />,
+  );
+  const count = (needle: string) => html.split(needle).length - 1;
+
+  test("the funnel, the day x hour cells, the four numbers and the rankings carry the marks the engine reads", () => {
+    expect(count('data-admin-draw="funnel"')).toBe(1);
+    expect(count('data-admin-draw="cells"')).toBe(1);
+    const cells = [...html.matchAll(/data-admin-cell="(\d+):(\d+)"/g)];
+    const matrix = hourMatrix(previewAnalytics.days, previewAnalytics.hours.map((row) => ({ dateKey: row.dateKey, hour: row.hour, value: row.scans })));
+    expect(cells.length).toBe(matrix.rows.length * matrix.hours.length);
+    expect(cells.length).toBeGreaterThan(0);
+    expect(new Set(cells.map((match) => match[0])).size).toBe(cells.length);
+    expect(count("data-peak")).toBe(1);
+    expect(/data-peak=""\s+data-admin-cell="\d+:\d+"/.test(html)).toBe(true);
+    expect(count('data-admin-reveal="kpi"')).toBe(4);
+    // Insights, leaderboard, stands and packages: one rows container each.
+    expect(count('data-admin-reveal="rows"')).toBe(4);
+    // The introduction outside every panel, and the quiet totals of the numbers.
+    expect(count('data-admin-reveal="text"')).toBe(2);
   });
 });

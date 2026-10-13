@@ -2,7 +2,7 @@
 
 import { useQuery } from "convex/react";
 import Link from "next/link";
-import { Component, useMemo, type ReactNode } from "react";
+import { Component, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { AdminOdometer } from "@/components/admin/admin-ui/admin-odometer";
 import { minuteFloor, useMinuteNow } from "@/components/admin/admin-ui/use-minute-now";
 import { usePolled } from "@/components/admin/admin-ui/use-polled-query";
@@ -13,12 +13,16 @@ import { formatCount } from "@/lib/admin-v2/analytics/format";
 import { liveDayPercent } from "@/lib/admin-v2/analytics/live-day";
 import { routeHref } from "@/lib/admin-v2/frame/routes";
 import { hudData, hudEvent, type HudData } from "@/lib/admin-v2/hud";
+import { ADMIN_DURATION, ADMIN_EASE } from "@/lib/admin-v2/motion";
+import { pulseStore } from "@/lib/admin-v2/pulse";
+import { quietModeStore } from "@/lib/admin-v2/quiet-mode";
 import type { SidebarLive } from "@/lib/admin-v2/sidebar/types";
 import { fmt } from "@/lib/i18n/format";
 import { adminUiSr } from "@/lib/i18n/sr/admin-ui";
 import { cn } from "@/lib/utils";
 import { useAdminFrame } from "./admin-frame-context";
 import { useAdminSidebarLive, useAdminSidebarSnapshot } from "./admin-sidebar-store";
+import { gsap, prefersReducedMotion } from "./use-admin-gsap";
 
 // ADMIN v2 X4 — the HUD „Danas“ (ZADATAK §5.2) at the bottom of the sidebar,
 // on every page: the fair day as a progress bar, the time to the end of the
@@ -41,7 +45,7 @@ export function AdminHudView({ hud, href, className }: { hud: HudData; href: str
           <p data-hud-stale="" className="text-[0.67rem] font-semibold text-[var(--admin-text-muted)] tabular-nums">{fmt(d.stale, { time: dashboardTime(hud.readAt) })}</p>
         ) : (
           <p data-hud-live="" className="flex items-center gap-1.5 text-[0.67rem] font-bold tracking-[0.08em] uppercase">
-            <span aria-hidden="true" className="size-2 rounded-full bg-[var(--admin-success)]" />
+            <LiveDot />
             {d.live}
           </p>
         )}
@@ -77,6 +81,24 @@ export function AdminHudView({ hud, href, className }: { hud: HudData; href: str
       )}
     </section>
   );
+}
+
+/** V3: the live mark blinks once (opacity, 240 ms) only when the Pulse gets a beat; never in the quiet mode or with reduced motion. */
+function LiveDot() {
+  const ref = useRef<HTMLSpanElement>(null);
+  useEffect(() => {
+    const dot = ref.current;
+    if (!dot) return;
+    const unsubscribe = pulseStore.subscribe(() => {
+      if (quietModeStore.get() || prefersReducedMotion() || !pulseStore.beats().length) return;
+      gsap.fromTo(dot, { opacity: 0.3 }, { opacity: 1, duration: ADMIN_DURATION.move, ease: ADMIN_EASE.out, overwrite: true, clearProps: "opacity" });
+    });
+    return () => {
+      unsubscribe();
+      gsap.killTweensOf(dot);
+    };
+  }, []);
+  return <span ref={ref} aria-hidden="true" className="size-2 rounded-full bg-[var(--admin-success)]" />;
 }
 
 /** The HUD of the open page (its own event first, then the running fair the frame read); nothing outside a fair. */

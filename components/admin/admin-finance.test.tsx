@@ -141,6 +141,21 @@ describe("Finansije page", () => {
     // An invalid value reads as the default.
     expect(pageHtml("?filter=nepostojece")).toContain("Kafe Most");
   });
+
+  test("the page carries the attributes of the reveal engine: amounts as kpi, chart drawn, bars and tables as rows", () => {
+    const html = pageHtml("");
+    expect(html.match(/data-admin-reveal="kpi"/g)).toHaveLength(3);
+    expect(html.match(/data-admin-tilt=""/g)).toHaveLength(3);
+    // The profit of the preview is incomplete („—“), so it is not a number to count up.
+    expect(html.match(/data-admin-count=""/g)).toHaveLength(2);
+    expect(html).toContain('data-admin-draw="line"');
+    expect(html).toContain('data-admin-area=""');
+    expect(html).toContain('data-admin-dot=""');
+    expect(html).toContain('data-admin-draw="bars"');
+    expect(html).toContain('data-admin-bar="x"');
+    expect(html).toContain('<tbody data-admin-reveal="rows">');
+    expect(html).toContain('data-admin-reveal="rows"');
+  });
 });
 
 describe("Finansije sidebar", () => {

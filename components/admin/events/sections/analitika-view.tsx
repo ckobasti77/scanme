@@ -116,7 +116,7 @@ export function EventAnalyticsView({ eventCode, data, audience, engagement, mode
   return (
     <div className="@container grid min-w-0 gap-4">
       <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-2">
-        <p className="min-w-0 text-sm leading-5 text-[var(--admin-text-muted)]">
+        <p data-admin-reveal="text" className="min-w-0 text-sm leading-5 text-[var(--admin-text-muted)]">
           {fmt(d.intro, { cutoff: formatBelgrade(data.cutoff) })}
           {" "}
           <span className="whitespace-nowrap tabular-nums" aria-live="polite">{refreshing ? d.refreshing : fmt(d.updated, { time: formatBelgrade(data.at).split(" ").at(-1) ?? "" })}</span>

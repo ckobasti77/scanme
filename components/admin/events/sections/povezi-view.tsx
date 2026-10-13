@@ -602,7 +602,7 @@ function RecentLinks({ recent, actions, onChanged, qrHref }: { recent: RecentLin
       </div>
       {recent === undefined ? <p className="text-sm text-[var(--admin-text-muted)]">{t.recentLoading}</p>
         : recent.length ? (
-          <ol className="grid gap-2">
+          <ol data-admin-reveal="rows" className="grid gap-2">
             {recent.map((row) => (
               <li key={row.assignmentId} className="flex min-w-0 items-center gap-3 rounded-[var(--admin-radius-control)] border border-[var(--admin-border)] p-3">
                 <span className="grid min-w-0 flex-1 gap-0.5 leading-5">

@@ -144,3 +144,12 @@ describe("Usluge sidebar", () => {
     expect(html.match(/checked=""/g)).toHaveLength(2);
   });
 });
+
+describe("Usluge reveal attributes", () => {
+  test("the table body and the mobile rows are rows of the reveal engine", () => {
+    const html = page("scanme_links");
+    expect(html).toContain('<tbody data-admin-reveal="rows"');
+    expect(html).toContain('<div data-admin-reveal="rows" class="divide-y');
+    expect(html).toContain('data-admin-reveal="card"');
+  });
+});

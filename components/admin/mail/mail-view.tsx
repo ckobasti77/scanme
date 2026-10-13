@@ -96,7 +96,7 @@ export function AdminMailView({ model, actions, badge }: { model: MailViewModel;
         </div>
       )}
 
-      {model.mode === "ready" ? <p className="text-xs leading-5 text-[var(--admin-text-muted)]">{dict.privacyNote}</p> : null}
+      {model.mode === "ready" ? <p data-admin-reveal="text" className="text-xs leading-5 text-[var(--admin-text-muted)]">{dict.privacyNote}</p> : null}
     </div>
   );
 }
@@ -229,7 +229,7 @@ function ListPane({ model, actions, className }: { model: MailViewModel; actions
 
 function MessageRows({ page, model, actions }: { page: AdminMailMessagePage; model: MailViewModel; actions: MailViewActions }) {
   return (
-    <ul className="divide-y divide-[var(--admin-border)]">
+    <ul data-admin-reveal="rows" className="divide-y divide-[var(--admin-border)]">
       {page.messages.map((row) => {
         const unread = row.unread && !model.readIds.has(row.messageId);
         const active = model.selected?.messageId === row.messageId;

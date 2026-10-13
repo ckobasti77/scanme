@@ -238,3 +238,15 @@ describe("Pretraga sidebar", () => {
     expect(html).toContain(`<span class="text-[var(--admin-text-muted)]"> · TEST Admin · ${dict.actorAdmin}</span>`);
   });
 });
+
+describe("Pretraga reveal attributes", () => {
+  test("the field is text and the results are rows, in the preview and in the feed", () => {
+    const results = previewHtml("?q=SM");
+    expect(results).toContain('<div data-admin-reveal="text" class="relative');
+    expect(results).toContain('<div data-admin-reveal="rows" class="grid gap-2"');
+    const feed = previewHtml("?view=activity");
+    expect(feed).toContain('<header data-admin-reveal="text"');
+    expect(feed).toContain('<div data-admin-reveal="rows" class="grid gap-2"');
+    expect(workspace().html).toContain('<div data-admin-reveal="text" class="relative');
+  });
+});

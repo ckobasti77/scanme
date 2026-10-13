@@ -136,3 +136,13 @@ describe("Porudžbine sidebar", () => {
     expect(html).toContain(`${dict.problems}: ${dict.filterProblems}`);
   });
 });
+
+describe("Porudžbine reveal attributes", () => {
+  test("the table body and the card list are rows; a card inside the list does not reveal twice; the hint is text", () => {
+    const html = pageHtml("");
+    expect(html).toContain('<tbody data-admin-reveal="rows"');
+    expect(html).toContain('<div data-admin-reveal="rows" class="grid gap-3 @4xl:hidden"');
+    expect(html).toContain('<section data-admin-primitive="panel" data-admin-reveal="off"');
+    expect(pageHtml("?q=TEST&sort=updated_asc")).toContain('<p data-admin-reveal="text"');
+  });
+});

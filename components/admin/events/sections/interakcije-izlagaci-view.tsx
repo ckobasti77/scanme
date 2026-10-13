@@ -143,7 +143,7 @@ export function EventInteractionExhibitorsView({ rows, dayLabel, query, onQueryC
 
   return (
     <div className="grid min-w-0 gap-4">
-      <p className="max-w-3xl text-sm text-[var(--admin-text-muted)]">{t.subtitle}</p>
+      <p data-admin-reveal="text" className="max-w-3xl text-sm text-[var(--admin-text-muted)]">{t.subtitle}</p>
       {!rows.length ? (
         <AdminEmptyState title={t.noExhibitorsTitle} body={t.noExhibitorsBody} className="min-h-40" />
       ) : (

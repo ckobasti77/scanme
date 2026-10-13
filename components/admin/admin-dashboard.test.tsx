@@ -129,6 +129,17 @@ describe("Dashboard page", () => {
     expect(markup).not.toContain("mx-auto grid");
     expect(markup).not.toContain("clamp(");
   });
+
+  test("the page carries the attributes of the reveal engine: signals as kpi, lists as rows, rings drawn through a mask", () => {
+    const markup = html("ready");
+    expect(markup).toContain('data-admin-reveal="kpi"');
+    expect(markup).toContain('data-admin-tilt=""');
+    expect(markup).toContain('data-admin-reveal="rows"');
+    expect(markup).toContain('data-admin-count=""');
+    expect(markup.match(/data-admin-draw="ring"/g)).toHaveLength(2);
+    expect(markup.match(/<mask /g)).toHaveLength(2);
+    expect(markup.match(/<g mask="url\(#[^)]+\)"/g)).toHaveLength(2);
+  });
 });
 
 describe("Dashboard sidebar", () => {

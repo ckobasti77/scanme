@@ -258,11 +258,11 @@ export function AdminServiceOperations({ serviceType, preview = false, initialSe
             <div className="hidden @4xl:block">
               <AdminTable caption={dict.tableCaption} className="m-3 rounded-xl" tableClassName="table-fixed">
                 <thead className="border-b border-[var(--admin-border)] text-xs font-semibold text-[var(--admin-text-muted)]"><tr><th className="w-[25%] px-4 py-3">{dict.colVenue}</th><th className="w-[13%] px-3 py-3">{dict.colStatus}</th><th className="w-[14%] px-3 py-3">{dict.colSubscription}</th><th className="w-[14%] px-3 py-3">{dict.colConfiguration}</th><th className="w-[18%] px-3 py-3">{dict.colChannels}</th><th className="w-[12%] px-3 py-3">{dict.colActivity}</th><th className="w-14 px-3 py-3"><span className="sr-only">{dict.colActions}</span></th></tr></thead>
-                <tbody>{rows.map((row) => <ServiceDesktopRow key={row.serviceProfileId} row={row} selected={row.serviceProfileId === selectedId} onSelect={() => select(row.serviceProfileId)} onLifecycle={openLifecycle} />)}</tbody>
+                <tbody data-admin-reveal="rows">{rows.map((row) => <ServiceDesktopRow key={row.serviceProfileId} row={row} selected={row.serviceProfileId === selectedId} onSelect={() => select(row.serviceProfileId)} onLifecycle={openLifecycle} />)}</tbody>
               </AdminTable>
             </div>
             {/* Rows of the panel, not cards inside it; beside the detail panel the chosen venue is marked. */}
-            <div className="divide-y divide-[var(--admin-border)] @4xl:hidden">{rows.map((row) => <ServiceMobileRow key={row.serviceProfileId} row={row} selected={row.serviceProfileId === selectedRow?.serviceProfileId} onSelect={(trigger) => select(row.serviceProfileId, !detailBesideList(), trigger)} />)}</div>
+            <div data-admin-reveal="rows" className="divide-y divide-[var(--admin-border)] @4xl:hidden">{rows.map((row) => <ServiceMobileRow key={row.serviceProfileId} row={row} selected={row.serviceProfileId === selectedRow?.serviceProfileId} onSelect={(trigger) => select(row.serviceProfileId, !detailBesideList(), trigger)} />)}</div>
           </>
         )}
         {(list.status === "CanLoadMore" || list.status === "LoadingMore") ? <div className="border-t border-[var(--admin-border)] p-3"><Button type="button" variant="outline" disabled={list.status === "LoadingMore"} onClick={() => list.loadMore(pageSize)} className="min-h-11">{list.status === "LoadingMore" ? dict.loadingMore : dict.loadMore}</Button></div> : null}

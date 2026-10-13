@@ -53,6 +53,7 @@ export function HourMatrixGrid({ matrix, label }: { matrix: HourMatrix; label: s
     <div ref={ref} className="@container relative min-w-0">
       <div
         role="group"
+        data-admin-draw="cells"
         tabIndex={0}
         aria-label={label}
         aria-describedby={hintId}
@@ -91,6 +92,7 @@ export function HourMatrixGrid({ matrix, label }: { matrix: HourMatrix; label: s
                 role="img"
                 aria-label={text}
                 data-peak={peak ? "" : undefined}
+                data-admin-cell={`${dayIndex}:${hourIndex}`}
                 className={cn(
                   "flex h-8 min-w-0 items-center justify-center rounded-[3px] text-[0.6875rem] leading-none font-semibold tabular-nums @2xl:h-9",
                   // No scan: an empty outlined cell, so a zero never looks busier than a small number.

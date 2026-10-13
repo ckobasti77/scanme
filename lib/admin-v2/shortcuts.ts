@@ -53,6 +53,8 @@ export function goShortcutKeys(href: string): string | null {
 export const ADMIN_SHORTCUTS_EVENT = "scanme-admin:shortcuts";
 /** How long G waits for the area letter. */
 export const GO_SEQUENCE_MS = 1500;
+/** V3: `G` was pressed and the letter of an area is awaited (detail: true) or not any more (false); the navbar shows a chip. */
+export const ADMIN_GO_PENDING_EVENT = "scanme-admin:go-pending";
 
 export type ShortcutInput = {
   key: string;

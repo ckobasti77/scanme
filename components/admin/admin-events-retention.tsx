@@ -100,7 +100,7 @@ export function AdminEventsRetention({ view, actions }: { view: RetentionView | 
 
   return (
     <div className="grid min-w-0 gap-5">
-      <p className="text-sm text-[var(--admin-text-muted)]">{dict.retentionSubtitle}</p>
+      <p data-admin-reveal="text" className="text-sm text-[var(--admin-text-muted)]">{dict.retentionSubtitle}</p>
 
       <Section title={dict.retentionScheduleTitle} help={dict.retentionScheduleHelp}>
         <div className="grid gap-4 sm:grid-cols-2">
