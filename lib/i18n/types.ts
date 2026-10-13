@@ -3095,6 +3095,19 @@ export interface AdminV1Dict {
   dashboardMissionTasksOverdue: string;
   dashboardMissionTasksToday: string;
   dashboardMissionInboxUnread: string;
+  /** ADMIN v3 V2 — the Constellation, the hero of the Dashboard. */
+  dashboardConstellationHint: string;
+  dashboardConstellationSummary: string;
+  dashboardConstellationSummaryUnavailable: string;
+  dashboardConstellationWaiting: string;
+  dashboardConstellationMore: string;
+  dashboardConstellationMoreMark: string;
+  dashboardConstellationHide: string;
+  dashboardConstellationShow: string;
+  dashboardBacklogLabel: string;
+  dashboardBacklogValue: string;
+  dashboardBacklogClear: string;
+  dashboardBacklogHelp: string;
   moduleUnavailableTitle: string;
   moduleUnavailableBody: string;
   loadingLabel: string;

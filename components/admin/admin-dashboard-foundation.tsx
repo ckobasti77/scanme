@@ -15,24 +15,37 @@ import {
   WalletCards,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Component,
   type ReactNode,
+  type RefObject,
+  useCallback,
   useEffect,
   useId,
   useMemo,
+  useRef,
   useState,
   useSyncExternalStore,
 } from "react";
 import { adminPrimaryButtonClass } from "@/components/admin/admin-ui/admin-controls";
 import { AdminOdometer } from "@/components/admin/admin-ui/admin-odometer";
+import { useQuietMode } from "@/components/admin/admin-ui/admin-toast";
 import { useAdminUrlState } from "@/components/admin/admin-ui/use-admin-query-state";
+import { Constellation, type ConstellationHandle } from "@/components/admin/dashboard/constellation";
+import { dashboardHeroStore } from "@/components/admin/dashboard/hero-choice";
 import { AdminPageHeader } from "@/components/admin/frame/admin-page-header";
+import { prefersReducedMotion, useAdminGsap } from "@/components/admin/frame/use-admin-gsap";
+import { ADMIN_NAV_INTENT_EVENT } from "@/components/admin/reveal/admin-reveal-root";
+import { adminMotion } from "@/components/admin/reveal/gsap-plugins";
 import { AdminRingMask } from "@/components/admin/reveal/reveal-marks";
 import { useAdminSidebarLive } from "@/components/admin/frame/admin-sidebar-store";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
+import { backlogRing } from "@/lib/admin-v2/constellation/layout";
+import type { BacklogRing, ConstellationItem, OrbitIndex, Star } from "@/lib/admin-v2/constellation/types";
 import { dashboardScope, inboxMissions, reactionMissions, taskMissions } from "@/lib/admin-v2/lists/dashboard-missions";
+import { ADMIN_DURATION, ADMIN_EASE } from "@/lib/admin-v2/motion";
 import { DASHBOARD_URL_FIELDS } from "@/lib/admin-v2/sidebar/configs/pages";
 import { fmt } from "@/lib/i18n/format";
 import { adminV1Sr } from "@/lib/i18n/sr/admin-v1";
@@ -80,9 +93,12 @@ const linkClass = "inline-flex min-h-11 items-center gap-1.5 rounded-full px-3 t
 export function AdminDashboardFoundation({
   initialNow,
   fixture,
+  previewAim,
 }: {
   initialNow?: number;
   fixture?: AdminDashboardFixture;
+  /** Dev preview (`?nisan=<causeId>`): the star of this item is aimed at without a mouse. */
+  previewAim?: string;
 }) {
   // The scope is the sidebar's „Obim Dashboarda“ (`?obim=mine`), not a control on the screen.
   const [urlState] = useAdminUrlState(DASHBOARD_URL_FIELDS);
@@ -112,10 +128,10 @@ export function AdminDashboardFoundation({
       {now === 0 ? (
         <PanelLoading />
       ) : (
-        <div className="grid min-w-0 gap-4 sm:gap-5 @4xl:grid-cols-2 @6xl:grid-cols-[minmax(0,1.8fr)_minmax(15rem,0.6fr)_minmax(15rem,0.6fr)] @6xl:gap-6">
+        <div className="relative grid min-w-0 gap-4 sm:gap-5 @4xl:grid-cols-2 @6xl:grid-cols-[minmax(0,1.8fr)_minmax(15rem,0.6fr)_minmax(15rem,0.6fr)] @6xl:gap-6">
           <DashboardWidgetBoundary key={`reaction-${scope}`} className="contents">
             {fixture ? (
-              <ReactionBundle data={fixture.reactions[scope]} now={now} scope={scope} fixture />
+              <ReactionBundle data={fixture.reactions[scope]} now={now} scope={scope} fixture previewAim={previewAim} />
             ) : (
               <ReactionLive now={now} scope={scope} />
             )}
@@ -145,7 +161,12 @@ const fullRow = "@4xl:col-span-2 @6xl:col-span-3";
 const mainColumn = "@4xl:col-span-2 @6xl:col-span-1";
 
 function ReactionLive({ now, scope }: { now: number; scope: DashboardScope }) {
-  const data = useQuery(api.adminDashboard.reactions, { now, scope, limit: 8 });
+  // 12 is the most the query gives: the list and the Constellation show the same items.
+  const fresh = useQuery(api.adminDashboard.reactions, { now, scope, limit: 12 });
+  // `now` is an argument of the query and moves every minute. While the next read is on its way the last
+  // one stays on the screen: the list does not blink and the scene is not torn down and built again.
+  const [data, setData] = useState(fresh);
+  if (fresh !== undefined && fresh !== data) setData(fresh);
   if (!data) return <ReactionLoading />;
   return <ReactionBundle data={data} now={now} scope={scope} />;
 }
@@ -153,24 +174,124 @@ function ReactionLive({ now, scope }: { now: number; scope: DashboardScope }) {
 function ReactionLoading() {
   return (
     <>
-      <AdminPanel className={cn(panelClass, "min-h-24", fullRow)}><AdminLoadingState compact /></AdminPanel>
+      <AdminPanel className={cn(panelClass, "min-h-48 @3xl:min-h-60", fullRow)}><AdminLoadingState compact /></AdminPanel>
       <AdminPanel className={cn(panelClass, "min-h-[28rem]", mainColumn)}><AdminLoadingState /></AdminPanel>
     </>
   );
 }
 
-function ReactionBundle({ data, now, scope, fixture = false }: { data: ReactionData; now: number; scope: DashboardScope; fixture?: boolean }) {
+type ReactionItem = ReactionData["items"][number];
+type ReactionDialog = { mode: "snooze" | "resolve" | null; actionItemId: Id<"actionItems"> };
+
+const quietButtonClass = "inline-flex min-h-11 shrink-0 items-center rounded-full px-3 text-xs font-semibold text-[var(--admin-text-muted)] transition-colors hover:bg-[var(--admin-surface-muted)] hover:text-[var(--admin-text)] focus-visible:outline-2 focus-visible:outline-offset-2 lg:min-h-8";
+
+function ReactionBundle({ data, now, scope, fixture = false, previewAim }: { data: ReactionData; now: number; scope: DashboardScope; fixture?: boolean; previewAim?: string }) {
   // Without counts no mission is published: a „Sve je čisto“ would be false. The scope the numbers are for
   // always is (X4): the day's ledger of „Sve“ and of „Moje“ are kept apart.
   const live = useMemo(() => ({ ...(data.counts ? { missions: reactionMissions(data.counts) } : {}), missionsScope: scope }), [data.counts, scope]);
   useAdminSidebarLive(live);
+  const router = useRouter();
+  const [quiet] = useQuietMode();
+  const hero = useSyncExternalStore(dashboardHeroStore.subscribe, dashboardHeroStore.get, dashboardHeroStore.getServer);
+  // V3: one dialog for the whole list, so a star opens the same one its row does.
+  const [dialog, setDialog] = useState<ReactionDialog | null>(null);
+  /** A row lights up its star (and the aim line); a star lights up its row. */
+  const [rowAim, setRowAim] = useState<string | null>(previewAim ?? null);
+  const [starAim, setStarAim] = useState<string | null>(null);
+  const [handle, setHandle] = useState<ConstellationHandle | null>(null);
+  const list = useRef<HTMLElement>(null);
+
+  const stars = useMemo<ConstellationItem[]>(
+    () => data.items.map((item) => ({ id: item.action.causeId, priority: item.action.priorityClass, relevantAt: item.action.relevantAt })),
+    [data.items],
+  );
+  const byId = useMemo(() => new Map(data.items.map((item) => [item.action.causeId, item])), [data.items]);
+  // The largest backlog seen while the page is open: the ring and the bar shorten from it (V4 keeps the day).
+  const [hpMax, setHpMax] = useState(0);
+  const backlog = backlogRing(data.counts, hpMax);
+  if (backlog && backlog.hpMax > hpMax) setHpMax(backlog.hpMax);
+
+  const open = useCallback((mode: "snooze" | "resolve", item: ReactionItem) => setDialog({ mode, actionItemId: item.action.actionItemId }), []);
+  const onPick = useCallback(
+    (star: Star) => {
+      const item = byId.get(star.id);
+      if (star.kind === "more") {
+        // The „+N“ star: its items are not named anywhere else, the list is the place to go on from.
+        list.current?.scrollIntoView({ block: "start", behavior: quiet || prefersReducedMotion() ? "auto" : "smooth" });
+        return;
+      }
+      if (!item) return;
+      if (item.action.resolutionRule === "manual_problem_resolution") {
+        open("resolve", item);
+        return;
+      }
+      window.dispatchEvent(new CustomEvent(ADMIN_NAV_INTENT_EVENT, { detail: item.href }));
+      router.push(item.href);
+    },
+    [byId, open, quiet, router],
+  );
+  const tooltip = useCallback(
+    (star: Star) => {
+      if (star.kind === "more") return <p className="text-xs leading-5 font-semibold">{fmt(adminV1Sr.dashboardConstellationMore, { orbit: orbitLabel(star.orbit), count: star.more })}</p>;
+      const item = byId.get(star.id);
+      if (!item) return null;
+      const causeLabel = causeTitle(item.action.source.domain);
+      return (
+        <>
+          <p className="text-sm leading-5 font-semibold tracking-[-0.015em]">{item.action.description ?? causeLabel}</p>
+          <p className="mt-1 flex flex-wrap gap-x-2 gap-y-0.5 text-xs leading-4 text-[var(--admin-text-muted)]">
+            <span className="font-semibold text-[var(--admin-text)]">{orbitLabel(star.orbit)}</span>
+            <span>{reactionContext(item) || causeLabel}</span>
+            <span>{relativeTime(item.action.relevantAt, now)}</span>
+            <span>{item.action.assigneeId ? adminV1Sr.dashboardScopeMine : adminV1Sr.dashboardUnassigned}</span>
+          </p>
+        </>
+      );
+    },
+    [byId, now],
+  );
+
   return (
     <>
-      <div className={cn("grid gap-3", fullRow)}>
-        <ReactionCount count={data.counts?.total ?? null} />
-        {data.counts ? <SignalStrip counts={data.counts} /> : <ProjectionUnavailable compact />}
-      </div>
-      <ReactionList data={data} now={now} fixture={fixture} />
+      {hero === "list" ? (
+        <div className={cn("grid gap-3", fullRow)}>
+          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+            <ReactionCount count={data.counts?.total ?? null} />
+            <button type="button" onClick={() => dashboardHeroStore.set("constellation")} className={quietButtonClass}>{adminV1Sr.dashboardConstellationShow}</button>
+          </div>
+          {data.counts ? <SignalStrip counts={data.counts} /> : <ProjectionUnavailable compact />}
+        </div>
+      ) : (
+        <AdminPanel data-admin-reveal="media" data-dashboard-hero="" className={cn(panelClass, "grid @3xl:grid-cols-[minmax(0,1.7fr)_minmax(17rem,1fr)]", fullRow)}>
+          <Constellation
+            items={stars}
+            counts={data.counts}
+            now={now}
+            hpMax={hpMax}
+            aimed={rowAim}
+            onStarHover={setStarAim}
+            onPick={onPick}
+            tooltip={tooltip}
+            onHandle={setHandle}
+            // The hero never pushes the list off the first screen: 13 rem on a low window, 15 rem, 20 rem on a tall one.
+            className="h-48 @3xl:h-60 @3xl:[@media(max-height:799px)]:h-52 @3xl:[@media(min-height:900px)]:h-80"
+          />
+          <div className="grid min-w-0 content-start gap-3 border-t border-[var(--admin-border)] p-4 @3xl:border-t-0 @3xl:border-l @3xl:p-5 @3xl:[@media(max-height:799px)]:p-4">
+            <div className="min-w-0">
+              <div className="flex items-center justify-between gap-3">
+                <ReactionCount count={data.counts?.total ?? null} />
+                <button type="button" onClick={() => dashboardHeroStore.set("list")} className={cn(quietButtonClass, "-my-2 -mr-2")}>{adminV1Sr.dashboardConstellationHide}</button>
+              </div>
+              <p className="text-xs leading-4 text-[var(--admin-text-muted)]">{adminV1Sr.dashboardConstellationHint}</p>
+            </div>
+            {data.counts ? <SignalStrip counts={data.counts} compact /> : <p className="text-sm leading-5 text-[var(--admin-text-muted)]">{adminV1Sr.dashboardProjectionUnavailableTitle}</p>}
+            {backlog ? <BacklogBar backlog={backlog} /> : null}
+          </div>
+        </AdminPanel>
+      )}
+      <ReactionList data={data} now={now} lit={starAim} onAim={setRowAim} onDialog={open} panelRef={list} />
+      {dialog ? <ActionDialog key={dialog.actionItemId} mode={dialog.mode} onOpenChange={(next) => { if (!next) setDialog({ ...dialog, mode: null }); }} actionItemId={dialog.actionItemId} fixture={fixture} /> : null}
+      {hero === "list" ? null : <AimLine aimed={rowAim} handle={handle} quiet={quiet} />}
     </>
   );
 }
@@ -187,55 +308,151 @@ function ReactionCount({ count }: { count: number | null }) {
   return <p className="text-base font-semibold tracking-[-0.02em]">{label}</p>;
 }
 
-function SignalStrip({ counts }: { counts: NonNullable<ReactionData["counts"]> }) {
+/** The four signals: a strip under the count, or (compact) the legend of the Constellation, two by two. */
+function SignalStrip({ counts, compact = false }: { counts: NonNullable<ReactionData["counts"]>; compact?: boolean }) {
   const signals: { label: string; value: number; tone: "danger" | "warning" | "neutral" | "success"; title?: string }[] = [
     { label: adminV1Sr.dashboardSignalUrgent, value: counts.urgent, tone: "danger" },
     { label: adminV1Sr.dashboardSignalToday, value: counts.today, tone: "warning" },
     { label: adminV1Sr.dashboardSignalWaitingClient, value: counts.waitingClient, tone: "neutral" },
     { label: adminV1Sr.dashboardSignalCalm, value: counts.calm, tone: "success", title: adminV1Sr.dashboardSignalCalmHelp },
   ];
+  const cells = signals.map((signal) => (
+    <div key={signal.label} title={signal.title} data-admin-reveal="kpi" data-admin-tilt="" className={cn("flex items-center justify-between gap-3", compact ? "min-h-12 bg-[var(--admin-surface-strong)] px-3 py-2 [@media(max-height:799px)]:min-h-10 [@media(max-height:799px)]:py-1" : "min-h-20 px-4 py-3 @xl:min-h-24 @xl:px-5")}>
+      <span className={cn("font-semibold text-[var(--admin-text-muted)]", compact ? "text-xs" : "text-sm")}>{signal.label}</span>
+      <span data-tone={signal.tone} className={cn("font-mono font-semibold tracking-[-0.05em] tabular-nums", compact ? "text-2xl" : "text-3xl", signal.tone === "danger" && "text-[var(--admin-danger)]", signal.tone === "warning" && "text-[var(--admin-warning)]", signal.tone === "success" && "text-[var(--admin-success)]")}><AdminOdometer value={signal.value} text={String(signal.value)} /></span>
+    </div>
+  ));
+  // Compact: the gaps of the grid are the dividers (the border colour shows through).
+  if (compact) return <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-[var(--admin-border)] bg-[var(--admin-border)]">{cells}</div>;
+  return <AdminPanel className={cn(panelClass, "grid grid-cols-2 divide-x divide-y divide-[var(--admin-border)] @xl:grid-cols-4 @xl:divide-y-0")}>{cells}</AdminPanel>;
+}
+
+/** The backlog of the day as a number and a bar: the same share as the ring around the core. */
+function BacklogBar({ backlog }: { backlog: BacklogRing }) {
+  const value = backlog.hpMax === 0 ? adminV1Sr.dashboardBacklogClear : fmt(adminV1Sr.dashboardBacklogValue, { hp: backlog.hp, max: backlog.hpMax });
   return (
-    <AdminPanel className={cn(panelClass, "grid grid-cols-2 divide-x divide-y divide-[var(--admin-border)] @xl:grid-cols-4 @xl:divide-y-0")}>
-      {signals.map((signal) => (
-        <div key={signal.label} title={signal.title} data-admin-reveal="kpi" data-admin-tilt="" className="flex min-h-20 items-center justify-between gap-3 px-4 py-3 @xl:min-h-24 @xl:px-5">
-          <span className="text-sm font-semibold text-[var(--admin-text-muted)]">{signal.label}</span>
-          <span data-tone={signal.tone} className={cn("font-mono text-3xl font-semibold tracking-[-0.05em] tabular-nums", signal.tone === "danger" && "text-[var(--admin-danger)]", signal.tone === "warning" && "text-[var(--admin-warning)]", signal.tone === "success" && "text-[var(--admin-success)]")}><AdminOdometer value={signal.value} text={String(signal.value)} /></span>
-        </div>
-      ))}
-    </AdminPanel>
+    <div data-dashboard-backlog="" title={adminV1Sr.dashboardBacklogHelp} className="grid gap-1.5">
+      <p className="flex items-baseline justify-between gap-3 text-xs font-semibold">
+        <span className="text-[var(--admin-text-muted)]">{adminV1Sr.dashboardBacklogLabel}</span>
+        <span className="font-mono tabular-nums">{value}</span>
+      </p>
+      <div role="progressbar" aria-label={adminV1Sr.dashboardBacklogLabel} aria-valuemin={0} aria-valuemax={backlog.hpMax} aria-valuenow={backlog.hp} aria-valuetext={value} className="h-1.5 overflow-hidden rounded-full bg-[var(--admin-surface-muted)]">
+        <span className="block h-full origin-left rounded-full bg-[var(--admin-danger)] transition-transform duration-[var(--admin-dur-3)] ease-[var(--admin-ease-out)] motion-reduce:transition-none" style={{ transform: `scaleX(${backlog.share})` }} />
+      </div>
+    </div>
   );
 }
 
-function ReactionList({ data, now, fixture = false }: { data: ReactionData; now: number; fixture?: boolean }) {
-  if (data.projection === "unavailable") return <AdminPanel className={cn(panelClass, "min-h-[28rem]", mainColumn)}><ProjectionUnavailable /></AdminPanel>;
+function ReactionList({ data, now, lit, onAim, onDialog, panelRef }: {
+  data: ReactionData;
+  now: number;
+  /** The row whose star is under the pointer. */
+  lit: string | null;
+  onAim: (id: string | null) => void;
+  onDialog: (mode: "snooze" | "resolve", item: ReactionItem) => void;
+  panelRef: RefObject<HTMLElement | null>;
+}) {
+  if (data.projection === "unavailable") return <AdminPanel ref={panelRef} className={cn(panelClass, "min-h-[28rem] scroll-mt-4", mainColumn)}><ProjectionUnavailable /></AdminPanel>;
   return (
-    <AdminPanel className={cn(panelClass, "min-h-[28rem]", mainColumn)}>
+    <AdminPanel ref={panelRef} className={cn(panelClass, "min-h-[28rem] scroll-mt-4", mainColumn)}>
       <div className="flex items-start justify-between gap-4 border-b border-[var(--admin-border)] px-5 py-5 sm:px-6">
         <div><h2 className="text-xl font-semibold tracking-[-0.03em]">{adminV1Sr.dashboardReactionTitle}</h2><p className="mt-1 text-sm leading-5 text-[var(--admin-text-muted)]">{adminV1Sr.dashboardReactionHint}</p></div>
         <AlertTriangle className="mt-1 size-5 text-[var(--admin-danger)]" aria-hidden="true" />
       </div>
-      {data.items.length === 0 ? <AdminEmptyState title={adminV1Sr.dashboardReactionEmptyTitle} body={adminV1Sr.dashboardReactionEmptyBody} className="min-h-[22rem]" /> : <ol data-admin-reveal="rows" className="divide-y divide-[var(--admin-border)]">{data.items.map((item) => <ReactionRow key={item.action.causeId} item={item} now={now} fixture={fixture} />)}</ol>}
+      {data.items.length === 0 ? <AdminEmptyState title={adminV1Sr.dashboardReactionEmptyTitle} body={adminV1Sr.dashboardReactionEmptyBody} className="min-h-[22rem]" /> : <ol data-admin-reveal="rows" className="divide-y divide-[var(--admin-border)]">{data.items.map((item) => <ReactionRow key={item.action.causeId} item={item} now={now} lit={lit === item.action.causeId} onAim={onAim} onDialog={onDialog} />)}</ol>}
       {data.capped ? <p className="border-t border-[var(--admin-border)] px-5 py-3 text-xs font-semibold text-[var(--admin-text-muted)]">{adminV1Sr.dashboardMoreActions}</p> : null}
     </AdminPanel>
   );
 }
 
-function ReactionRow({ item, now, fixture }: { item: ReactionData["items"][number]; now: number; fixture: boolean }) {
-  const [dialog, setDialog] = useState<"snooze" | "resolve" | null>(null);
+function ReactionRow({ item, now, lit, onAim, onDialog }: { item: ReactionItem; now: number; lit: boolean; onAim: (id: string | null) => void; onDialog: (mode: "snooze" | "resolve", item: ReactionItem) => void }) {
+  const id = item.action.causeId;
   const causeLabel = causeTitle(item.action.source.domain);
-  const context = [item.contextLabel, item.contextCode].filter(Boolean).join(" · ");
   return (
-    <li className="grid gap-3 px-4 py-4 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center sm:px-6">
-      <span className={cn("mt-1 size-2.5 rounded-full sm:mt-0", item.action.severity === "blocking" ? "bg-[var(--admin-danger)]" : item.action.severity === "warning" ? "bg-[var(--admin-warning)]" : "bg-[var(--admin-text-muted)]")} aria-hidden="true" />
-      <div className="min-w-0"><p className="font-semibold tracking-[-0.015em]">{item.action.description ?? causeLabel}</p><div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[var(--admin-text-muted)]"><span>{context || causeLabel}</span><span>{relativeTime(item.action.relevantAt, now)}</span><span>{item.action.assigneeId ? adminV1Sr.dashboardScopeMine : adminV1Sr.dashboardUnassigned}</span></div></div>
+    <li
+      data-reaction-row={id}
+      {...(lit ? { "data-lit": "" } : {})}
+      // The pointer of a mouse or the focus of the keyboard aims at the star of the row; a touch does not.
+      onPointerEnter={(event) => { if (event.pointerType !== "touch") onAim(id); }}
+      onPointerLeave={(event) => { if (event.pointerType !== "touch") onAim(null); }}
+      onFocus={() => onAim(id)}
+      onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) onAim(null); }}
+      className={cn("grid gap-3 px-4 py-4 transition-colors sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center sm:px-6", lit && "bg-[var(--admin-surface-muted)]")}
+    >
+      <span data-reaction-dot="" className={cn("mt-1 size-2.5 rounded-full sm:mt-0", item.action.severity === "blocking" ? "bg-[var(--admin-danger)]" : item.action.severity === "warning" ? "bg-[var(--admin-warning)]" : "bg-[var(--admin-text-muted)]")} aria-hidden="true" />
+      <div className="min-w-0"><p className="font-semibold tracking-[-0.015em]">{item.action.description ?? causeLabel}</p><div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[var(--admin-text-muted)]"><span>{reactionContext(item) || causeLabel}</span><span>{relativeTime(item.action.relevantAt, now)}</span><span>{item.action.assigneeId ? adminV1Sr.dashboardScopeMine : adminV1Sr.dashboardUnassigned}</span></div></div>
       <div className="flex flex-wrap items-center gap-1 sm:justify-end">
-        <button type="button" onClick={() => setDialog("snooze")} className={linkClass}><Pause className="size-4" aria-hidden="true" />{adminV1Sr.dashboardSnooze}</button>
-        {item.action.resolutionRule === "manual_problem_resolution" ? <button type="button" onClick={() => setDialog("resolve")} className={adminPrimaryButtonClass}>{adminV1Sr.dashboardResolve}</button> : <Link href={item.href} className={adminPrimaryButtonClass}>{adminV1Sr.dashboardResolve}<ArrowUpRight className="size-4" aria-hidden="true" /></Link>}
+        <button type="button" onClick={() => onDialog("snooze", item)} className={linkClass}><Pause className="size-4" aria-hidden="true" />{adminV1Sr.dashboardSnooze}</button>
+        {item.action.resolutionRule === "manual_problem_resolution" ? <button type="button" onClick={() => onDialog("resolve", item)} className={adminPrimaryButtonClass}>{adminV1Sr.dashboardResolve}</button> : <Link href={item.href} className={adminPrimaryButtonClass}>{adminV1Sr.dashboardResolve}<ArrowUpRight className="size-4" aria-hidden="true" /></Link>}
       </div>
-      <ActionDialog mode={dialog} onOpenChange={(open) => { if (!open) setDialog(null); }} actionItemId={item.action.actionItemId} fixture={fixture} />
     </li>
   );
 }
+
+/**
+ * The aim line: from the dot of a row to its star, drawn over the grid of the Dashboard. Decoration
+ * only (the row and the star are both lit without it); it is measured, never animated in place.
+ */
+function AimLine({ aimed, handle, quiet }: { aimed: string | null; handle: ConstellationHandle | null; quiet: boolean }) {
+  const svg = useRef<SVGSVGElement>(null);
+  const path = useRef<SVGPathElement>(null);
+  const [line, setLine] = useState<{ id: string; d: string } | null>(null);
+
+  useEffect(() => {
+    const element = svg.current;
+    if (!aimed || !handle?.host || !element) return;
+    const host = handle.host;
+    const measure = () => {
+      const dot = element.parentElement?.querySelector(`[data-reaction-row="${CSS.escape(aimed)}"] [data-reaction-dot]`);
+      const panel = dot?.closest('[data-admin-primitive="panel"]');
+      const star = handle.project(aimed);
+      if (!dot || !panel || !star) return setLine(null);
+      const origin = element.getBoundingClientRect();
+      const from = dot.getBoundingClientRect();
+      const stage = host.getBoundingClientRect();
+      const fixed = (value: number) => value.toFixed(1);
+      const x1 = from.left + from.width / 2 - origin.left;
+      const y1 = from.top + from.height / 2 - origin.top;
+      const x2 = stage.left + star.x - origin.left;
+      const y2 = stage.top + star.y - origin.top;
+      // Up the inner edge of the list, left of its text, then into the scene: the line never crosses a word.
+      const rail = panel.getBoundingClientRect().left + 10 - origin.left;
+      const turn = Math.min(8, Math.abs(x1 - rail));
+      const top = stage.bottom - origin.top;
+      const bend = (top - y2) * 0.5;
+      setLine({
+        id: aimed,
+        d: `M${fixed(x1)} ${fixed(y1)} L${fixed(rail + turn)} ${fixed(y1)} Q${fixed(rail)} ${fixed(y1)} ${fixed(rail)} ${fixed(y1 - turn)} L${fixed(rail)} ${fixed(top)} C${fixed(rail)} ${fixed(top - bend)} ${fixed(x2)} ${fixed(y2 + bend)} ${fixed(x2)} ${fixed(y2)}`,
+      });
+    };
+    // The observer measures once at the start and again whenever the grid changes its size.
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [aimed, handle]);
+
+  const shown = aimed && line?.id === aimed ? line : null;
+  useAdminGsap(({ reduced }) => {
+    if (!shown || reduced || quiet || !path.current) return;
+    adminMotion().gsap.fromTo(path.current, { drawSVG: "0%" }, { drawSVG: "100%", duration: ADMIN_DURATION.state, ease: ADMIN_EASE.out });
+    // Drawn once per row, not on every new measure.
+  }, [shown?.id, quiet]);
+
+  return (
+    <svg ref={svg} aria-hidden="true" focusable="false" data-dashboard-aim="" className="pointer-events-none absolute inset-0 z-[1] size-full overflow-visible">
+      {shown ? <path ref={path} d={shown.d} fill="none" stroke="var(--admin-text)" strokeOpacity="0.5" strokeWidth="1" strokeLinecap="round" /> : null}
+    </svg>
+  );
+}
+
+function orbitLabel(orbit: OrbitIndex) {
+  if (orbit === 1) return adminV1Sr.dashboardSignalUrgent;
+  if (orbit === 2) return adminV1Sr.dashboardSignalToday;
+  if (orbit === 3) return adminV1Sr.dashboardConstellationWaiting;
+  return adminV1Sr.dashboardSignalCalm;
+}
+
+const reactionContext = (item: ReactionItem) => [item.contextLabel, item.contextCode].filter(Boolean).join(" · ");
 
 function ActionDialog({ mode, onOpenChange, actionItemId, fixture }: { mode: "snooze" | "resolve" | null; onOpenChange: (open: boolean) => void; actionItemId: Id<"actionItems">; fixture: boolean }) {
   const snooze = useMutation(api.adminActions.snoozeFromDashboard);

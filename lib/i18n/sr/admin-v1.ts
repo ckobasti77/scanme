@@ -125,6 +125,21 @@ export const adminV1Sr = {
   dashboardMissionTasksOverdue: "Zadaci koji kasne",
   dashboardMissionTasksToday: "Zadaci za danas",
   dashboardMissionInboxUnread: "Nepročitani razgovori",
+  dashboardConstellationHint: "Bliže jezgru je hitnije. Veća zvezda duže čeka.",
+  dashboardConstellationSummary:
+    "Sazvežđe prikazuje otvorene stavke po hitnosti. Hitno: {urgent}. Danas: {today}. Čeka: {waiting}. Mirno: {calm}. Iste stavke su u listi „Za reakciju“ ispod.",
+  dashboardConstellationSummaryUnavailable:
+    "Sazvežđe prikazuje stavke iz liste „Za reakciju“ ispod. Zbirni brojevi trenutno nisu dostupni.",
+  dashboardConstellationWaiting: "Čeka",
+  dashboardConstellationMore: "{orbit}: još {count} van prikaza. Otvori listu.",
+  dashboardConstellationMoreMark: "+{count}",
+  dashboardConstellationHide: "Samo lista",
+  dashboardConstellationShow: "Prikaži sazvežđe",
+  dashboardBacklogLabel: "Zaostatak",
+  dashboardBacklogValue: "{hp} od {max}",
+  dashboardBacklogClear: "Nema zaostatka",
+  dashboardBacklogHelp:
+    "Hitno se računa tri puta, razgovor koji čeka odgovor dva puta, stavka za danas jednom. Najveći broj je najveći viđen dok je stranica otvorena.",
   moduleUnavailableTitle: "Ova stranica još nije povezana",
   moduleUnavailableBody:
     "Stranica je pripremljena. Funkcije za nju dolaze u sledećim koracima.",

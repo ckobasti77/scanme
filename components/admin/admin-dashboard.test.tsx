@@ -15,14 +15,17 @@ import { adminV1Sr as dict } from "@/lib/i18n/sr/admin-v1";
 // „Misije danas“ from the data the widgets already have. SSR markup, like the
 // other admin views.
 
-const mocks = vi.hoisted(() => ({ search: "" }));
+const mocks = vi.hoisted(() => ({ search: "", queries: [] as unknown[] }));
 
 vi.mock("next/link", () => ({
   default: ({ href, children, ...rest }: { href: string; children: ReactNode } & Record<string, unknown>) => <a href={href} {...rest}>{children}</a>,
 }));
 
 vi.mock("convex/react", () => ({
-  useQuery: () => undefined,
+  useQuery: (_query: unknown, args: unknown) => {
+    mocks.queries.push(args);
+    return undefined;
+  },
   useMutation: () => async () => undefined,
 }));
 
@@ -38,6 +41,7 @@ import { dashboardFixture } from "./admin-dashboard-fixtures";
 
 beforeEach(() => {
   mocks.search = "";
+  mocks.queries = [];
 });
 
 type FixtureState = Parameters<typeof dashboardFixture>[0];
@@ -73,7 +77,8 @@ describe("Dashboard page", () => {
   });
 
   test("the count is plain text next to the signals; an unavailable total says so without becoming the title", () => {
-    expect(html("ready")).toContain(count(8));
+    // V3 V2: the fixture has 12 named items and 74 open ones (4 urgent, 6 for today, 4 waiting, 60 calm).
+    expect(html("ready")).toContain(count(74));
     expect(html("empty")).toContain(`>${dict.dashboardCountZero}<`);
     const unavailable = html("unavailable");
     expect(unavailable).toContain(`>${dict.dashboardCountUnavailable}<`);
@@ -96,7 +101,9 @@ describe("Dashboard page", () => {
     const all = html("ready");
     expect(all).toContain("Obnova pretplate nije evidentirana");
     expect(all).toContain("Potrebna je potvrda dizajna pre štampe");
-    expect(all).toContain("Proveriti novu adresu za dostavu");
+    expect(all).toContain("Porudžbina čeka potvrdu uplate");
+    // V3 V2: the calm item is not among the 12 named ones of „Sve“; it is one of the 60 calm dots there.
+    expect(all).not.toContain("Proveriti novu adresu za dostavu");
     const mine = html("ready", "?obim=mine");
     expect(mine).toContain("Obnova pretplate nije evidentirana");
     expect(mine).toContain("Proveriti novu adresu za dostavu");
@@ -142,6 +149,75 @@ describe("Dashboard page", () => {
   });
 });
 
+describe("Dashboard hero: the Constellation (V3 V2)", () => {
+  test("the hero is the first block, the list „Za reakciju“ stays below it", () => {
+    const markup = html("ready");
+    const hero = markup.indexOf('data-dashboard-hero=""');
+    const list = markup.indexOf(`>${dict.dashboardReactionTitle}<`);
+    expect(hero).toBeGreaterThan(0);
+    expect(list).toBeGreaterThan(hero);
+    expect(markup).toContain('data-admin-reveal="media"');
+    expect(markup.match(/data-reaction-row="/g)).toHaveLength(12);
+  });
+
+  test("without JavaScript the same items are a still 2D picture: one star for every named item, one for the unnamed rest", () => {
+    const markup = html("ready");
+    expect(markup).toContain('data-stage-state="flat"');
+    expect(markup).toContain('data-constellation-2d=""');
+    const fixture = dashboardFixture("ready");
+    for (const item of fixture.reactions.all.items) expect(markup, item.action.causeId).toContain(`data-star="${item.action.causeId}"`);
+    // 4 urgent on the inner orbit, 4 + the „+2“ star for today, 4 waiting; the 60 calm ones are dots.
+    expect(markup.match(/data-star="[^"]+" data-orbit="1"/g)).toHaveLength(4);
+    expect(markup.match(/data-star="[^"]+" data-orbit="2"/g)).toHaveLength(5);
+    expect(markup.match(/data-star="[^"]+" data-orbit="3"/g)).toHaveLength(4);
+    expect(markup).toContain('data-star="more:2"');
+    expect(markup).toContain(">+2<");
+    expect(markup.match(/data-calm-dot=""/g)).toHaveLength(60);
+  });
+
+  test("the text equivalent says the numbers of the picture; the picture itself is hidden and has no tab stop", () => {
+    const markup = html("ready");
+    const summary = markup.match(/<p class="sr-only" data-constellation-summary="">(.*?)<\/p>/)?.[1] ?? "";
+    expect(summary).toBe(dict.dashboardConstellationSummary.replace("{urgent}", "4").replace("{today}", "6").replace("{waiting}", "4").replace("{calm}", "60"));
+    const picture = markup.match(/<svg[^>]*data-constellation-2d=""[\s\S]*?<\/svg>/)?.[0] ?? "";
+    expect(picture).toContain('aria-hidden="true"');
+    expect(picture).not.toContain("tabindex");
+    expect(html("unavailable")).toContain(dict.dashboardConstellationSummaryUnavailable);
+  });
+
+  test("the legend keeps the count, the four signals and the backlog as text", () => {
+    const markup = html("ready");
+    expect(markup).toContain(`>${dict.dashboardConstellationHint}<`);
+    expect(markup.match(/data-admin-reveal="kpi" data-admin-tilt=""/g)?.length).toBeGreaterThanOrEqual(4);
+    // 3 × 4 urgent + 2 × 1 waiting for a reply + 1 × 6 for today = 20, and the largest seen is the same.
+    expect(markup).toMatch(/role="progressbar" aria-label="Zaostatak" aria-valuemin="0" aria-valuemax="20" aria-valuenow="20"/);
+    expect(markup).toContain(`>${dict.dashboardBacklogValue.replace("{hp}", "20").replace("{max}", "20")}<`);
+  });
+
+  test("no counts: no ring of the backlog and no invented zero; an empty Dashboard still has its core and orbits", () => {
+    const unavailable = html("unavailable");
+    expect(unavailable).toContain('data-dashboard-hero=""');
+    expect(unavailable).not.toContain('role="progressbar"');
+    expect(unavailable).not.toContain("data-backlog-ring");
+    const empty = html("empty");
+    expect(empty).toContain('data-constellation-2d=""');
+    expect(empty).not.toContain("data-star=");
+    expect(empty.match(/data-orbit-ring="/g)).toHaveLength(4);
+    expect(empty).toContain(`>${dict.dashboardBacklogClear}<`);
+  });
+
+  test("the hero can be put away with a plain button (no pressed state, no tabs)", () => {
+    const markup = html("ready");
+    expect(markup).toMatch(new RegExp(`<button type="button"[^>]*>${dict.dashboardConstellationHide}</button>`));
+  });
+
+  test("the live list asks for 12 items, the most the query gives: the list and the picture show the same ones", () => {
+    mocks.queries = [];
+    renderToStaticMarkup(<AdminDashboardFoundation initialNow={Date.UTC(2026, 9, 13, 8)} />);
+    expect(mocks.queries).toContainEqual({ now: Date.UTC(2026, 9, 13, 8), scope: "all", limit: 12 });
+  });
+});
+
 describe("Dashboard sidebar", () => {
   const fixture = dashboardFixture("ready");
   const live: SidebarLive = {
@@ -176,9 +252,9 @@ describe("Dashboard sidebar", () => {
     for (const label of [dict.dashboardMissionUrgent, dict.dashboardMissionToday, dict.dashboardMissionTasksOverdue, dict.dashboardMissionTasksToday, dict.dashboardMissionInboxUnread]) {
       expect(markup).toContain(`>${label}</span>`);
     }
-    // Urgent: 2 items and 1 overdue task. Soon: 2 items for today and 2 tasks for today. Info: 1 unread conversation.
-    expect(badgeNumbers(markup, "hitno")).toEqual(["2", "1"]);
-    expect(badgeNumbers(markup, "uskoro")).toEqual(["2", "2"]);
+    // Urgent: 4 items and 1 overdue task. Soon: 6 items for today and 2 tasks for today. Info: 1 unread conversation.
+    expect(badgeNumbers(markup, "hitno")).toEqual(["4", "1"]);
+    expect(badgeNumbers(markup, "uskoro")).toEqual(["6", "2"]);
     expect(badgeNumbers(markup, "info")).toEqual(["1"]);
     expect(markup).toContain('href="/admin/zadaci?pogled=overdue"');
     expect(markup).toContain('href="/admin/inbox"');
