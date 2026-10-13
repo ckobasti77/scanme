@@ -28,6 +28,5 @@ export function AdminTableScroll({ children, flipSignature, ...props }: Componen
     observer.observe(table);
     return () => observer.disconnect();
   }, []);
-  // V3: the light that follows the cursor also lies on a table (`data-admin-glow`).
-  return <div ref={ref} data-admin-table-wrap="" data-admin-glow="" {...props}>{children}</div>;
+  return <div ref={ref} data-admin-table-wrap="" {...props}>{children}</div>;
 }

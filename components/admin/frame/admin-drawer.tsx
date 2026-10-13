@@ -116,8 +116,9 @@ export function AdminDrawer({ identity, onSignOut }: { identity: string; onSignO
         }}
         className="admin-v1 w-[min(88vw,22rem)] touch-pan-y gap-0 border-[var(--admin-border)] bg-[var(--admin-app)] p-0 text-[var(--admin-text)] shadow-[var(--admin-shadow-lg)] sm:max-w-none"
       >
-        <SheetHeader className="flex h-[var(--admin-navbar-h)] shrink-0 flex-row items-center px-4 text-left">
-          <BrandLogo width="6.4rem" />
+        {/* The logo stands on the line of the text below: the padding of the scroll (px-3), then of a row (px-3). */}
+        <SheetHeader className="flex h-[var(--admin-navbar-h)] shrink-0 flex-row items-center px-3 text-left">
+          <BrandLogo width="6.4rem" className="mx-3" />
           <SheetTitle className="sr-only">{dict.frame.drawerTitle}</SheetTitle>
           <SheetDescription className="sr-only">{dict.frame.drawerDescription}</SheetDescription>
         </SheetHeader>

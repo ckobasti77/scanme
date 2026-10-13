@@ -11,8 +11,9 @@ import { AdminHud } from "./admin-hud";
 import { AdminSidebarContent } from "./admin-sidebar-content";
 
 // ADMIN v2 — the sidebar of the frame (ZADATAK §2): fixed on the left over
-// the whole height from lg up, the ScanMe logo centred on top, the
-// contextual content of the page below it. Content that does not fit scrolls
+// the whole height from lg up, the ScanMe logo on top (left, on the line of
+// the text below: the padding of the scroll and of a row), the contextual
+// content of the page below it. Content that does not fit scrolls
 // inside the sidebar, with a soft fade where there is more. The HUD „Danas“
 // stands at the bottom while a fair is on (X4); the row „Operater“ of the game
 // stands above it on every page (V4).
@@ -21,7 +22,7 @@ export function AdminSidebar() {
   const frame = useAdminFrame();
   return (
     <aside data-admin-frame="sidebar" aria-label={dict.frame.sidebarAria} className="hidden min-h-0 w-[var(--admin-sidebar-w)] shrink-0 flex-col lg:flex">
-      <div className="flex h-[var(--admin-navbar-h)] shrink-0 items-center justify-center px-4">
+      <div className="flex h-[var(--admin-navbar-h)] shrink-0 items-center px-3">
         <Link href={routeHref("/admin", frame?.route ?? null)} aria-label={dict.frame.home} className="flex min-h-11 items-center rounded-lg px-2">
           <BrandLogo width="6.9rem" />
         </Link>

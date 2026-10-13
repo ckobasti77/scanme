@@ -36,11 +36,11 @@ const count = (markup: string, part: string) => markup.split(part).length - 1;
 const HIDING = /style="[^"]*(opacity|visibility|clip-path|transform)/;
 
 describe("the shared primitives carry the reveal attributes", () => {
-  test("a panel is a card and wears the light; the caller can keep it still", () => {
+  test("a panel is a card with no light that follows the cursor; the caller can keep it still", () => {
     const panel = html(<AdminPanel><p>TEST</p></AdminPanel>);
     expect(panel).toContain('data-admin-reveal="card"');
-    expect(panel).toContain('data-admin-glow=""');
-    // The light is one element of the screen, not a layer inside the panel: nothing is added to it and nothing is clipped.
+    expect(panel).not.toContain("data-admin-glow");
+    // No layer is added to the panel and nothing is clipped.
     expect(panel).toMatch(/^<section[^>]*><p>TEST<\/p><\/section>$/);
     expect(panel).not.toContain("overflow-hidden");
     expect(html(<AdminPanel data-admin-reveal="off" />)).toContain('data-admin-reveal="off"');
@@ -66,7 +66,7 @@ describe("the shared primitives carry the reveal attributes", () => {
     expect(row).toMatch(/<dd data-admin-count=""[^>]*>412<\/dd>/);
   });
 
-  test("a list: the toolbar is text, the table body and the card list are rows, the table wears the light", () => {
+  test("a list: the toolbar is text, the table body and the card list are rows, the table wears no light", () => {
     const rows = [{ id: "1", name: "TEST jedan" }, { id: "2", name: "TEST dva" }];
     const view = html(
       <AdminDataView listKey="test.reveal" caption="TEST lista" rows={rows} getRowId={(row) => row.id} columns={[{ id: "name", header: "Naziv", cell: (row) => row.name }]} renderCard={(row) => row.name} toolbar={<span>TEST alat</span>} />,
@@ -74,11 +74,12 @@ describe("the shared primitives carry the reveal attributes", () => {
     expect(view).toContain('<tbody data-admin-reveal="rows">');
     expect(view).toMatch(/<ul aria-label="TEST lista" data-admin-reveal="rows"/);
     expect(view).toMatch(/<div data-admin-reveal="text"[^>]*><span>TEST alat<\/span><\/div>/);
-    expect(view).toContain('data-admin-table-wrap="" data-admin-glow=""');
+    expect(view).toContain('data-admin-table-wrap=""');
+    expect(view).not.toContain("data-admin-glow");
     // The header row is never a row of the cascade (it is sticky).
     expect(view).not.toMatch(/<thead[^>]*data-admin/);
     const table = html(<AdminTable caption="TEST tabela"><tbody><tr><td>TEST</td></tr></tbody></AdminTable>);
-    expect(table).toContain('data-admin-glow=""');
+    expect(table).not.toContain("data-admin-glow");
   });
 
   test("a chart frame is a chart; bars say from where they grow", () => {
@@ -137,17 +138,31 @@ describe("the shared primitives carry the reveal attributes", () => {
 describe("the frame", () => {
   const frame = () => html(<AdminFrame previewIdentity="TEST admin"><AdminPageHeader title="TEST naslov" /></AdminFrame>);
 
-  test("keeps its three parts; the page is in the screen with the two decoration layers", () => {
+  test("keeps its three parts; the page is in the screen with the scan line, and no light follows the cursor", () => {
     const markup = frame();
     expect((markup.match(/data-admin-frame="(sidebar|navbar|screen)"/g) ?? []).sort()).toEqual(['data-admin-frame="navbar"', 'data-admin-frame="screen"', 'data-admin-frame="sidebar"']);
     expect(count(markup, 'data-admin-page=""')).toBe(1);
     expect(markup).toMatch(/<div aria-hidden="true" data-admin-scan="" class="admin-scan"><span class="admin-scan-line"><\/span><\/div>/);
-    expect(markup).toMatch(/<div aria-hidden="true" data-admin-glow-light="" class="admin-glow">/);
+    expect(markup).not.toContain("admin-glow");
     expect(markup).toMatch(/<div aria-hidden="true" data-admin-edge="" class="admin-edge">/);
     // The page content itself carries no inline style that would hide it.
     const page = markup.slice(markup.indexOf('data-admin-page=""'), markup.indexOf("data-admin-scan"));
     expect(page).toContain("TEST naslov");
     expect(page).not.toMatch(HIDING);
+  });
+
+  test("the logo of the sidebar stands left, on the padding of the sidebar's content and of a row", () => {
+    const markup = frame();
+    const sidebar = markup.slice(markup.indexOf('data-admin-frame="sidebar"'), markup.indexOf('data-admin-frame="navbar"'));
+    const row = /<div class="([^"]*)"><a [^>]*class="([^"]*)"[^>]*><span aria-hidden="true" class="scanme-wordmark"/.exec(sidebar);
+    expect(row).not.toBeNull();
+    const [, rowClass, linkClass] = row!;
+    expect(rowClass).toContain("h-[var(--admin-navbar-h)]");
+    expect(rowClass).not.toContain("justify-center");
+    // The same two paddings as the text below: the scroll of the sidebar, then a row of it.
+    expect(rowClass.split(" ")).toContain("px-3");
+    expect(linkClass.split(" ")).toContain("px-2");
+    expect(sidebar).toMatch(/class="admin-sidebar-scroll [^"]*\bpx-3\b/);
   });
 
   test("the Pulse is a hidden canvas on the navbar with its sentence for assistive technology", () => {

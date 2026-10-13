@@ -58,7 +58,7 @@ describe("content does not depend on the animation", () => {
   });
 
   test("the decoration layers take no pointer events, so the page is clickable from the first frame", () => {
-    for (const layer of [".admin-scan", ".admin-glow", ".admin-pulse", ".admin-edge"]) {
+    for (const layer of [".admin-scan", ".admin-pulse", ".admin-edge"]) {
       const body = new RegExp(`\\.admin-v1 \\${layer} \\{([^}]*)\\}`).exec(css)?.[1] ?? "";
       expect(body, layer).toContain("pointer-events: none");
     }

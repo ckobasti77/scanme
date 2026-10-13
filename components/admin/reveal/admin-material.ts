@@ -4,64 +4,27 @@ import { REDUCED_MOTION_QUERY } from "@/components/admin/frame/use-admin-gsap";
 import { ADMIN_EASE, ADMIN_MATERIAL } from "@/lib/admin-v2/motion";
 import { adminMotion } from "./gsap-plugins";
 
-// ADMIN v3 V1 — the material of the admin (ZADATAK-V3 §2; plan §2.8): a light
-// that follows the cursor over cards and tables, primary buttons that lean
-// towards the cursor (at most 6 px) and number tiles that tilt (at most 3°).
-// One delegated `pointermove` on the screen, handled once per frame; only on a
-// device with a fine pointer, never with reduced motion or in the quiet mode.
-// Only `transform` and `opacity` change. The light is ONE element of the
-// screen laid over the card under the cursor (not a layer inside every card):
-// a card keeps its own stacking, so menus that open out of it and sticky
-// table headers behave exactly as before.
-// V5 (RV V1): that one element lives in the scroller of the screen, so its box
-// counts into the height of the scroll also while the light is off. A light
-// that is off is therefore folded to nothing, and a light that is on follows
-// its card when the card changes its size under a still pointer (a filter
-// shortens the list): the light never leaves an empty stretch to scroll.
+// ADMIN v3 V1 — the material of the admin (ZADATAK-V3 §2; plan §2.8): primary
+// buttons that lean towards the cursor (at most 6 px) and number tiles that
+// tilt (at most 3°). One delegated `pointermove` on the screen, handled once
+// per frame; only on a device with a fine pointer, never with reduced motion
+// or in the quiet mode. Only `transform` changes.
 
 const POINTER_QUERY = "(hover: hover) and (pointer: fine)";
 const MAGNETS = '[data-admin-primitive="page-header"] .admin-button-primary, [data-admin-magnet]';
 /** How often the list of magnetic buttons is read again (ms). */
 const MAGNET_SCAN_MS = 600;
 
-type Box = { left: number; top: number; width: number; height: number; radius: string };
-
-export function attachMaterial(screen: HTMLElement, glow: HTMLElement | null): () => void {
+export function attachMaterial(screen: HTMLElement): () => void {
   if (!window.matchMedia(POINTER_QUERY).matches || window.matchMedia(REDUCED_MOTION_QUERY).matches) return () => undefined;
   const { gsap } = adminMotion();
-  const fill = glow?.querySelector<HTMLElement>("[data-admin-glow-fill]") ?? null;
-  const edge = glow?.querySelector<HTMLElement>("[data-admin-glow-edge-light]") ?? null;
-  const half = ADMIN_MATERIAL.light / 2;
 
   let pointer: { x: number; y: number; target: Element | null } | null = null;
   let frame = 0;
-  let host: Element | null = null;
-  let box: Box | null = null;
   let tilted: HTMLElement | null = null;
   let magnets: HTMLElement[] = [];
   let magnetsAt = -Infinity;
   const pulled = new Set<HTMLElement>();
-  let foldTimer: ReturnType<typeof setTimeout> | null = null;
-
-  /** The box of the light takes no room: nothing of it is left in the scroll of the screen. */
-  const fold = () => {
-    if (foldTimer) clearTimeout(foldTimer);
-    foldTimer = null;
-    if (glow && box) Object.assign(glow.style, { left: "0px", top: "0px", width: "0px", height: "0px" });
-    box = null;
-  };
-  // The card under the light changed its size (or left the page) while the pointer stood still.
-  const watcher = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(() => {
-    if (pointer && !frame) frame = requestAnimationFrame(draw);
-  });
-  /** The light goes out; its box is folded once it has faded. */
-  const lightOff = () => {
-    host = null;
-    watcher?.disconnect();
-    if (!glow) return;
-    glow.removeAttribute("data-on");
-    if (box && !foldTimer) foldTimer = setTimeout(fold, ADMIN_MATERIAL.glow * 1000 + 30);
-  };
 
   const release = (element: HTMLElement) => {
     pulled.delete(element);
@@ -80,9 +43,6 @@ export function attachMaterial(screen: HTMLElement, glow: HTMLElement | null): (
     const target = under && screen.contains(under) ? under : null;
 
     // Read first: everything that needs layout, in one go.
-    const nextHost = glow && target ? target.closest("[data-admin-glow]") : null;
-    const hostRect = nextHost?.getBoundingClientRect() ?? null;
-    const origin = hostRect ? screen.getBoundingClientRect() : null;
     const nextTilt = target?.closest<HTMLElement>("[data-admin-tilt]") ?? null;
     const tiltRect = nextTilt?.getBoundingClientRect() ?? null;
     const now = performance.now();
@@ -91,32 +51,8 @@ export function attachMaterial(screen: HTMLElement, glow: HTMLElement | null): (
       magnetsAt = now;
     }
     const magnetRects = magnets.map((element) => element.getBoundingClientRect());
-    const radius = nextHost && nextHost !== host ? getComputedStyle(nextHost).borderRadius : box?.radius ?? "0px";
 
     // Then write.
-    if (glow && fill && edge) {
-      if (nextHost && hostRect && origin) {
-        const next: Box = { left: hostRect.left - origin.left + screen.scrollLeft, top: hostRect.top - origin.top + screen.scrollTop, width: hostRect.width, height: hostRect.height, radius };
-        if (foldTimer) clearTimeout(foldTimer);
-        foldTimer = null;
-        if (!box || box.left !== next.left || box.top !== next.top || box.width !== next.width || box.height !== next.height || box.radius !== next.radius) {
-          Object.assign(glow.style, { left: `${next.left}px`, top: `${next.top}px`, width: `${next.width}px`, height: `${next.height}px`, borderRadius: next.radius });
-          box = next;
-        }
-        const light = `translate3d(${Math.round(x - hostRect.left - half)}px, ${Math.round(y - hostRect.top - half)}px, 0)`;
-        fill.style.transform = light;
-        edge.style.transform = light;
-        if (nextHost !== host) {
-          glow.setAttribute("data-on", "");
-          watcher?.disconnect();
-          watcher?.observe(nextHost);
-        }
-        host = nextHost;
-      } else if (host || box) {
-        lightOff();
-      }
-    }
-
     if (tilted && tilted !== nextTilt) level(tilted);
     tilted = nextTilt;
     if (nextTilt && tiltRect && tiltRect.width > 0 && tiltRect.height > 0) {
@@ -150,7 +86,6 @@ export function attachMaterial(screen: HTMLElement, glow: HTMLElement | null): (
   };
   const onLeave = () => {
     pointer = null;
-    lightOff();
     if (tilted) level(tilted);
     tilted = null;
     for (const element of [...pulled]) release(element);
@@ -162,9 +97,6 @@ export function attachMaterial(screen: HTMLElement, glow: HTMLElement | null): (
     screen.removeEventListener("pointermove", onMove);
     screen.removeEventListener("pointerleave", onLeave);
     if (frame) cancelAnimationFrame(frame);
-    watcher?.disconnect();
-    glow?.removeAttribute("data-on");
-    fold();
     for (const element of [tilted, ...pulled]) {
       if (!element) continue;
       gsap.killTweensOf(element);

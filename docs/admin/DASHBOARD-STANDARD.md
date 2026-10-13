@@ -28,7 +28,7 @@ Tri dela, uvek ista, nacrtana jednom u layoutu (`app/admin/layout.tsx` → `comp
 
 | Deo | Komponenta | Pravila |
 |---|---|---|
-| Sidebar | `frame/admin-sidebar.tsx` (`data-admin-frame="sidebar"`) | Levo, od vrha do dna prozora, fiksiran. Gore logo centriran u širini sidebara, ispod kontekst stranice (§2), na dnu HUD (§6). Širina `--admin-sidebar-w`: 17,5 rem, od 1440 px 18,5 rem. Skroluje sam, sa fade maskom od 1,5 rem gde ima još. |
+| Sidebar | `frame/admin-sidebar.tsx` (`data-admin-frame="sidebar"`) | Levo, od vrha do dna prozora, fiksiran. Gore logo, **poravnat levo**: leva ivica mu je na istoj liniji kao tekst ispod (isti padding kao sadržaj sidebara: `px-3` skrola pa `px-2` reda), a red sa logom je visok `--admin-navbar-h`, u ravni sa navbarom. I u fioci na telefonu logo je levo, na liniji stavki menija. Ispod kontekst stranice (§2), na dnu HUD (§6). Širina `--admin-sidebar-w`: 17,5 rem, od 1440 px 18,5 rem. Skroluje sam, sa fade maskom od 1,5 rem gde ima još. |
 | Navbar | `frame/admin-navbar.tsx` (`data-admin-frame="navbar"`) | Desno od sidebara, visina `--admin-navbar-h` (3,5 rem). Linkovi počinju uz sidebar. **Bez pozadine**: nema pilule ni popune aktivne stavke. Aktivna stavka je tekst u `--admin-nav-current` i linija `--admin-nav-line` (`#6fc05d`) koja klizi do nje. Desno: pretraga sa oznakom „Ctrl K“, podešavanja, obaveštenja, tema, profil. |
 | Ekran | `frame/admin-screen.tsx` (`data-admin-frame="screen"`) | Panel sa svojom površinom i uglom `--admin-radius-screen` (1 rem), razmak 0,75 rem desno i dole. **Jedini skrol kontejner**: prozor nikad ne skroluje. Sadržaj je centriran, najviše 90 rem (1440 px). |
 
@@ -321,7 +321,7 @@ Zamenjuje granicu „ništa preko 400 ms“ iz §5. Tokeni su i dalje u jednom f
 
 `ADMIN_LAYER_MAX = { interakcija: 0.25, reveal: 0.9, ceremonija: 1.8 }` je granica svakog sloja, a `lib/admin-v2/motion.test.ts` je čuva. Novo trajanje ne ide u komponentu, nego u `motion.ts` (v3 blok CSS-a nema nijedno trajanje u milisekundama; i to čuva test).
 
-Ostali tokeni: `ADMIN_AMBIENT_FPS = 30`, `ADMIN_MATERIAL` (svetlo, magnet, nagib), `ADMIN_SHIMMER` (1,4 s), `ADMIN_STAGE_MOTION` (pozornica 3D kita), `ADMIN_GAME_MOTION`, `ADMIN_EDGE_FADE`.
+Ostali tokeni: `ADMIN_AMBIENT_FPS = 30`, `ADMIN_MATERIAL` (magnet, nagib), `ADMIN_SHIMMER` (1,4 s), `ADMIN_STAGE_MOTION` (pozornica 3D kita), `ADMIN_GAME_MOTION`, `ADMIN_EDGE_FADE`.
 
 ### 12.2 Reveal engine
 
@@ -344,7 +344,7 @@ Jedan mehanizam za ulaz svake stranice. Stranica ne piše animaciju: nosi atribu
 | `data-admin-draw` | `bars`, `cells`, `funnel`, `ring`, `line` | crtanje marke grafikona |
 | `data-admin-bar="x\|y"`, `data-admin-cell` | — | traka koja raste od baze; ćelija u talasu |
 | `data-admin-count` | — | broj koji pri punom ulazu broji od nule |
-| `data-admin-glow`, `data-admin-tilt`, `data-admin-magnet` | — | materijal (§12.4) |
+| `data-admin-tilt`, `data-admin-magnet` | — | materijal (§12.4) |
 
 Deljeni primitivi ih već nose (`AdminPageHeader`, `AdminPanel`, `AdminDataView`, `AdminKpiRow`, `ChartFrame`, `HBar`, `StackedBar`, `MiniBars`, `AdminMissionRing`), pa stranica sastavljena od njih ulazi sama. Ručno se dodaje samo tamo gde stranica ne koristi primitiv:
 
@@ -387,7 +387,7 @@ Okvir stoji. Na klik na link ka drugoj admin putanji (i na „G pa slovo“) sta
 
 | Šta | Pravilo |
 |---|---|
-| **Svetlo za kursorom** | jedan sloj u ekranu (`.admin-glow`), postavlja se preko panela ili tabele pod kursorom; 6 % u svetloj i 9 % u tamnoj temi, ivica 1 px. Ugašen sloj se sklapa na 0 × 0, da ne ostavi prazan skrol. |
+| **Svetlo za kursorom** | **Uklonjeno (2026-10-13).** Kružnog svetla koje prati kursor preko panela i tabela više nema: nema sloja `.admin-glow`, atributa `data-admin-glow` ni tokena `--admin-glow-strength`. Ne vraćati ga. |
 | **Magnet** | glavno dugme u zaglavlju stranice i `[data-admin-magnet]`, najviše 6 px |
 | **Nagib** | `[data-admin-tilt]` (KPI pločice), najviše 3° |
 | **Shimmer** | skeleton (`AdminLoadingState`), 1,4 s; sadržaj koji ga zameni ulazi svojom koreografijom |

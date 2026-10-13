@@ -47,7 +47,7 @@ describe("the three layers of v3", () => {
     for (const key of ["feedback", "state", "move"] as const) expect(ADMIN_DURATION[key]).toBeLessThanOrEqual(ADMIN_LAYER_MAX.interakcija);
     expect(ADMIN_DURATION.frame).toBeGreaterThan(ADMIN_LAYER_MAX.interakcija);
     // The material answers the pointer: it belongs to the interaction layer.
-    for (const value of [ADMIN_MATERIAL.magnetIn, ADMIN_MATERIAL.magnetOut, ADMIN_MATERIAL.tilt, ADMIN_MATERIAL.glow]) expect(value).toBeLessThanOrEqual(ADMIN_LAYER_MAX.interakcija);
+    for (const value of [ADMIN_MATERIAL.magnetIn, ADMIN_MATERIAL.magnetOut, ADMIN_MATERIAL.tilt]) expect(value).toBeLessThanOrEqual(ADMIN_LAYER_MAX.interakcija);
     expect(ADMIN_MATERIAL.magnetMax).toBeLessThanOrEqual(6);
     expect(ADMIN_MATERIAL.tiltMax).toBeLessThanOrEqual(3);
   });

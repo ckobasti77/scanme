@@ -21,9 +21,8 @@ import { useAdminFrame } from "./admin-frame-context";
 // positioned and clipped inside it and never makes the window scroll.
 // V3: the screen is the root of the reveal engine (the entrance of a page in
 // the order of the scan line, the reveal on scroll, the dim of the old page)
-// and of the material (the light that follows the cursor, the magnet, the
-// tilt). Its two layers are decoration: the scan line and the light. Nothing
-// here hides content; with reduced motion and in the quiet mode a new page
+// and of the material (the magnet, the tilt). Its one layer is decoration:
+// the scan line. Nothing here hides content; with reduced motion and in the quiet mode a new page
 // only fades in, as in v2.
 
 export function AdminScreen({ children }: { children: ReactNode }) {
@@ -37,7 +36,6 @@ export function AdminScreen({ children }: { children: ReactNode }) {
   const back = useRef(false);
   const content = useRef<HTMLDivElement>(null);
   const scan = useRef<HTMLSpanElement>(null);
-  const glow = useRef<HTMLDivElement>(null);
   const shownPath = useRef(pathname);
 
   useEffect(() => {
@@ -74,10 +72,10 @@ export function AdminScreen({ children }: { children: ReactNode }) {
     history: back,
   });
 
-  // Attached per page: the light of the page that was left is put out and folded with it.
+  // Attached per page: a pull or a tilt of the page that was left is released with it.
   useEffect(() => {
     if (quiet || !ref.current) return;
-    return attachMaterial(ref.current, glow.current);
+    return attachMaterial(ref.current);
   }, [quiet, pathname]);
 
   return (
@@ -93,10 +91,6 @@ export function AdminScreen({ children }: { children: ReactNode }) {
       </div>
       <div aria-hidden="true" data-admin-scan="" className="admin-scan">
         <span ref={scan} className="admin-scan-line" />
-      </div>
-      <div ref={glow} aria-hidden="true" data-admin-glow-light="" className="admin-glow">
-        <i data-admin-glow-fill="" className="admin-glow-fill" />
-        <span className="admin-glow-edge"><i data-admin-glow-edge-light="" className="admin-glow-fill" /></span>
       </div>
     </main>
   );

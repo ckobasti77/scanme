@@ -143,7 +143,7 @@ export const ADMIN_STAGE_MOTION = { fade: 0.3, startAfter: 1, igniteAfter: 0.35,
 export const ADMIN_AMBIENT_FPS = 30;
 /** The live edge of the screen follows `--admin-energy` this slowly (seconds; `--admin-edge-fade` in CSS). */
 export const ADMIN_EDGE_FADE = 0.6;
-/** The material: the light that follows the cursor (px), the magnet (px) and the tilt (degrees). */
-export const ADMIN_MATERIAL = { light: 360, magnetRadius: 40, magnetMax: 6, magnetIn: 0.2, magnetOut: 0.18, tiltMax: 3, tilt: 0.15, glow: 0.12 } as const;
+/** The material: the magnet (px) and the tilt (degrees). */
+export const ADMIN_MATERIAL = { magnetRadius: 40, magnetMax: 6, magnetIn: 0.2, magnetOut: 0.18, tiltMax: 3, tilt: 0.15 } as const;
 /** One pass of the skeleton shimmer (seconds). */
 export const ADMIN_SHIMMER = 1.4;

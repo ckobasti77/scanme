@@ -218,7 +218,6 @@ html[data-theme="dark"] {
   --admin-ceremony-max: 1800ms;
   --admin-shimmer: 1400ms;
   --admin-shimmer-light: rgb(255 255 255 / 0.55);
-  --admin-glow-strength: 6%;
   /* ADMIN v3 V5 — the fill of energy (the XP bar, the ring of the combo, the progress of a
      challenge): the green that reads on this surface (light: the darker success green, dark:
      ScanMe green), as the Pulse does. The durations below are named in lib/admin-v2/motion.ts
@@ -299,7 +298,6 @@ html[data-theme="dark"] .admin-v1 {
   --admin-accent-soft: #22321f;
   --admin-accent-border: #3f6a35;
   --admin-shimmer-light: rgb(242 244 238 / 0.08);
-  --admin-glow-strength: 9%;
   --admin-energy-ink: var(--admin-nav-line);
   /* ADMIN v2 X3 — the same eight hues stepped for the dark surface; the
      sequential scale flips its anchor (near zero recedes into the surface). */
@@ -608,50 +606,6 @@ html[data-theme="dark"] .admin-v1 {
   border-bottom: 1.5px solid var(--admin-nav-line);
   background: linear-gradient(to bottom, transparent, color-mix(in srgb, var(--admin-nav-line) 25%, transparent));
   opacity: 0;
-}
-
-/* The light that follows the cursor: one element of the screen laid over the
-   card under the cursor; the two lights inside it only move (translate3d). */
-.admin-v1 .admin-glow {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 0;
-  height: 0;
-  overflow: hidden;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity var(--admin-dur-1) linear;
-}
-
-.admin-v1 .admin-glow[data-on] {
-  opacity: 1;
-}
-
-.admin-v1 .admin-glow-fill {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 360px;
-  height: 360px;
-  border-radius: 50%;
-  background: radial-gradient(closest-side, color-mix(in srgb, var(--admin-accent) var(--admin-glow-strength), transparent), transparent);
-}
-
-.admin-v1 .admin-glow-edge {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-  padding: 1px;
-  border-radius: inherit;
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  mask-composite: exclude;
-}
-
-.admin-v1 .admin-glow-edge > .admin-glow-fill {
-  background: radial-gradient(closest-side, color-mix(in srgb, var(--admin-accent) 45%, transparent), transparent);
 }
 
 /* The chip of the navbar after `G` pops in (the interaction layer: 180 ms). */

@@ -16,12 +16,10 @@ export function AdminPanel({
   ...props
 }: ComponentProps<"section">) {
   return (
-    // V3: a panel is a card of the reveal engine and wears the light that follows the cursor
-    // (`data-admin-reveal="off"` from the caller keeps it still).
+    // V3: a panel is a card of the reveal engine (`data-admin-reveal="off"` from the caller keeps it still).
     <section
       data-admin-primitive="panel"
       data-admin-reveal="card"
-      data-admin-glow=""
       className={cn(
         "rounded-[var(--admin-radius-panel)] border border-[var(--admin-border)] bg-[var(--admin-surface)] shadow-[var(--admin-shadow-sm)]",
         className,
