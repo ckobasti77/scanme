@@ -11,6 +11,8 @@ type Probe = { webgl: boolean; softwareRenderer: boolean };
 let probe: Probe | null = null;
 let contextLosses = 0;
 let downgraded = false;
+let kitLoaded = false;
+const kitListeners = new Set<() => void>();
 
 function probeWebgl(): Probe {
   try {
@@ -55,4 +57,22 @@ export const stageSession = {
     downgraded = true;
   },
   downgraded: () => downgraded,
+  /** V4 — the chunk of the kit (`three`) is in this tab: a page with a scene has loaded it. */
+  kitLoaded: () => kitLoaded,
+  markKitLoaded() {
+    if (kitLoaded) return;
+    kitLoaded = true;
+    for (const listener of kitListeners) listener();
+  },
+  /** Called once the kit is in the tab (at once when it already is). */
+  onKitLoaded(listener: () => void) {
+    if (kitLoaded) {
+      listener();
+      return () => {};
+    }
+    kitListeners.add(listener);
+    return () => {
+      kitListeners.delete(listener);
+    };
+  },
 };

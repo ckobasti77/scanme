@@ -57,7 +57,7 @@ describe("the React side never imports three", () => {
   const source = (file: string) => readFileSync(join(process.cwd(), file), "utf8");
 
   test("admin-stage.tsx and stage-session.ts reach the kit only through types and import()", () => {
-    for (const file of ["components/admin/three/admin-stage.tsx", "components/admin/three/stage-session.ts", "components/admin/dashboard/constellation.tsx", "components/admin/events/analytics/heat-map-3d.tsx", "components/admin/events/analytics/hall-mini.tsx"]) {
+    for (const file of ["components/admin/three/admin-stage.tsx", "components/admin/three/stage-session.ts", "components/admin/dashboard/constellation.tsx", "components/admin/events/analytics/heat-map-3d.tsx", "components/admin/events/analytics/hall-mini.tsx", "components/admin/game/medal-stage.tsx", "components/admin/game/vitrina.tsx", "components/admin/game/ceremony-layer.tsx", "components/admin/game/game-parts.tsx"]) {
       const text = source(file);
       expect(text, file).not.toMatch(/from "three/);
       expect(text, file).not.toMatch(/^import (?!type)[^;]*from "\.\/(stage|post|picking|particles)"/m);
@@ -66,6 +66,8 @@ describe("the React side never imports three", () => {
     expect(source("components/admin/three/admin-stage.tsx")).toContain('import("./stage")');
     expect(source("components/admin/dashboard/constellation.tsx")).toContain('import("@/components/admin/three/scenes/constellation-scene")');
     expect(source("components/admin/events/analytics/heat-map-3d.tsx")).toContain('import("@/components/admin/three/scenes/hall-scene")');
+    // V4: the medal of the Vitrina and of a ceremony.
+    expect(source("components/admin/game/medal-stage.tsx")).toContain('import("@/components/admin/three/scenes/medal-scene")');
   });
 
   test("every GPU resource of the kit goes through the stage, which disposes it", () => {
@@ -74,7 +76,7 @@ describe("the React side never imports three", () => {
       expect(stage, call).toContain(call);
     }
     // A geometry or a material made outside `stage.track(…)` would outlive the scene.
-    for (const file of ["components/admin/three/particles.ts", "components/admin/three/scenes/constellation-scene.ts", "components/admin/three/scenes/hall-scene.ts"]) {
+    for (const file of ["components/admin/three/particles.ts", "components/admin/three/scenes/constellation-scene.ts", "components/admin/three/scenes/hall-scene.ts", "components/admin/three/scenes/medal-scene.ts"]) {
       const untracked = source(file).split("\n").filter((line) => /new THREE\.(\w*Geometry|\w*Material)\(/.test(line) && !/stage\.track\(|^\s*(\?|:)\s*new THREE\.|^\s*new THREE\.\w+Material\(\{/.test(line));
       expect(untracked, file).toEqual([]);
     }

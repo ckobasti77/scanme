@@ -4,6 +4,7 @@ import { BellOff, ChevronDown, LogOut, Search, Settings } from "lucide-react";
 import Link from "next/link";
 import { Suspense, useRef, useState, type PointerEvent } from "react";
 import { useQuietMode } from "@/components/admin/admin-ui/admin-toast";
+import { GameOperator } from "@/components/admin/game/game-parts";
 import { BrandLogo } from "@/components/brand-logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Sheet, SheetClose, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -159,7 +160,8 @@ export function AdminDrawer({ identity, onSignOut }: { identity: string; onSignO
           <div className="pt-3">
             <Suspense fallback={null}><AdminSidebarContent large /></Suspense>
           </div>
-          <AdminHud className="mt-3 px-3" />
+          <GameOperator className="mt-3 px-3" />
+          <AdminHud className="px-3" />
           <p className="truncate border-t border-[var(--admin-border)] px-3 py-3 text-sm font-semibold">{identity}</p>
         </div>
 

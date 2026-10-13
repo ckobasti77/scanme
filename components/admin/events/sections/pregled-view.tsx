@@ -2,12 +2,15 @@
 
 import { ArrowRight, Building2, Car, CheckCircle2, FileText, Inbox, MessagesSquare, QrCode, Sparkles, type LucideIcon } from "lucide-react";
 import Link from "next/link";
-import { useId, useMemo, type ReactNode } from "react";
+import { useEffect, useId, useMemo, type ReactNode } from "react";
 import { AdminPanel, AdminStatus } from "@/components/admin/admin-primitives";
 import { ADMIN_URGENCY_ICONS, AdminKpiRow, AdminUrgencyBadge, adminSecondaryButtonClass, type AdminKpi } from "@/components/admin/admin-ui";
 import { AdminMissionSummary } from "@/components/admin/admin-ui/admin-missions";
 import { AdminOdometer } from "@/components/admin/admin-ui/admin-odometer";
 import { useMissionProgress } from "@/components/admin/admin-ui/use-mission-progress";
+import { FairChain } from "@/components/admin/game/fair-chain";
+import { FairChallenges } from "@/components/admin/game/fair-challenges";
+import { useGameApi } from "@/components/admin/game/game-context";
 import {
   actionCountText,
   actionText,
@@ -28,6 +31,9 @@ import { eventSectionHref, type EventSectionPath } from "@/lib/admin-v1/event-se
 import type { AdminQueryState } from "@/lib/admin-v1/query-state";
 import { formatCount } from "@/lib/admin-v2/analytics/format";
 import { liveDay, liveDayPercent, type LiveDay } from "@/lib/admin-v2/analytics/live-day";
+import { fairChain, fairChallenges, fairReady } from "@/lib/admin-v2/game/fair-missions";
+import { belgradeHour } from "@/lib/admin-v2/game/time";
+import type { FairChallengeInput } from "@/lib/admin-v2/game/types";
 import type { MissionInput } from "@/lib/admin-v2/missions";
 import type { AdminUrgencyTone } from "@/lib/admin-v1/subnav";
 import { fmt } from "@/lib/i18n/format";
@@ -46,6 +52,10 @@ import { cn } from "@/lib/utils";
 // the live strip stays here only below lg (the sidebar is in the drawer then):
 // from lg up the HUD „Danas“ of the sidebar shows the day on every page, and
 // its numbers are in the KPI row and beside the missions, so nothing is twice.
+// ADMIN v3 V4 — before the fair the mission map stands below the work list (a
+// node lights up when that part of the preparation is done); while a fair day
+// is open the daily challenges stand there, with the progress of every poll.
+// Both are rules over the numbers of this page; nothing is invented.
 
 const d = dict.dashboard;
 
@@ -380,7 +390,25 @@ function SectionCard({ card, urgency, href }: { card: CardDef; urgency: SectionU
   );
 }
 
-export function EventDashboardView({ dashboard, now, base, keep = {}, hall }: {
+/** The daily challenges of the open fair day, from the numbers of the dashboard (and the hours of the analytics when they are in). */
+function challengeInput(dashboard: EventDashboardData, now: number, hours: FairChallengeInput["hours"]): FairChallengeInput | null {
+  const { phase, days } = dashboard;
+  if (phase.kind !== "sajam" || !phase.dayOpen || !phase.dayIndex) return null;
+  const today = days[phase.dayIndex - 1];
+  if (!today) return null;
+  return {
+    dayIndex: phase.dayIndex,
+    todayKey: today.dateKey,
+    yesterdayKey: days[phase.dayIndex - 2]?.dateKey ?? null,
+    hour: belgradeHour(now),
+    scansToday: dashboard.kpis.scans.today,
+    leadsToday: dashboard.kpis.leads?.newToday ?? null,
+    urgentOpen: dashboard.actions.reduce((sum, action) => sum + (action.tone === "hitno" ? action.count : 0), 0),
+    hours,
+  };
+}
+
+export function EventDashboardView({ dashboard, now, base, keep = {}, hall, hours = null }: {
   dashboard: EventDashboardData;
   /** Browser time (minute) for the countdown; at least the query's `at`. */
   now: number;
@@ -390,6 +418,8 @@ export function EventDashboardView({ dashboard, now, base, keep = {}, hall }: {
   keep?: AdminQueryState;
   /** V3 — the excerpt of the Living hall while a fair day is open; below „Šta treba da uradim“ in the left column. */
   hall?: ReactNode;
+  /** V4 — scans per fair day and hour (the analytics of the event) for the daily challenges; null while that read is not in. */
+  hours?: FairChallengeInput["hours"];
 }) {
   const kpiId = useId();
   const cardsId = useId();
@@ -403,6 +433,18 @@ export function EventDashboardView({ dashboard, now, base, keep = {}, hall }: {
       if (acc.tone === next.tone) return { tone: acc.tone, count: acc.count + next.count };
       return acc.tone === "hitno" ? acc : next;
     }, undefined);
+  const game = useGameApi();
+  const nodes = useMemo(() => (dashboard.phase.kind === "pre" ? fairChain(dashboard) : []), [dashboard]);
+  const challenges = useMemo(() => {
+    const input = challengeInput(dashboard, Math.max(now, dashboard.at), hours);
+    return input ? fairChallenges(input) : [];
+  }, [dashboard, now, hours]);
+  // The fair badges are facts of the event: the map all lit before the opening, the first lead.
+  const ready = dashboard.phase.kind === "pre" && fairReady(nodes);
+  const firstLead = (dashboard.kpis.leads?.total ?? 0) > 0;
+  useEffect(() => {
+    if (ready || firstLead) game.reportFair({ ...(ready ? { ready } : {}), ...(firstLead ? { firstLead } : {}) });
+  }, [game, ready, firstLead]);
   const todo = <Todo dashboard={dashboard} now={Math.max(now, dashboard.at)} scope={`event:${base}:${dashboard.phase.kind}:${dashboard.phase.dayIndex ?? 0}:${dashboard.phase.dayOpen ? "otvoren" : "zatvoren"}`} actionHref={(action) => dashboardActionHref(base, action, keep)} />;
   return (
     <div className="grid min-w-0 gap-5">
@@ -410,7 +452,12 @@ export function EventDashboardView({ dashboard, now, base, keep = {}, hall }: {
       {/* From 2xl the work list keeps the wide column and the numbers sit beside it, above the fold. */}
       <div className="grid min-w-0 gap-5 2xl:grid-cols-[minmax(0,1fr)_minmax(0,34rem)] 2xl:items-start">
         {/* One wrapper with or without the hall: the work list keeps its place in the tree when a fair day opens or closes. */}
-        <div className="grid min-w-0 content-start gap-5">{todo}{hall}</div>
+        <div className="grid min-w-0 content-start gap-5">
+          {todo}
+          <FairChain nodes={nodes} />
+          <FairChallenges items={challenges} />
+          {hall}
+        </div>
         <div className="grid min-w-0 gap-5">
           <section aria-labelledby={kpiId} className="grid min-w-0 gap-2">
             <div className="flex flex-wrap items-baseline justify-between gap-2">

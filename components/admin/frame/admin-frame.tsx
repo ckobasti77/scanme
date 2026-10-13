@@ -6,6 +6,9 @@ import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { AdminSearchCommandPreviewGroups } from "@/components/admin/admin-search-command";
 import { AdminToaster, useQuietMode } from "@/components/admin/admin-ui/admin-toast";
+import type { GameFixture } from "@/components/admin/game/game-preview";
+import { GameLayers } from "@/components/admin/game/game-parts";
+import { GameProvider } from "@/components/admin/game/game-provider";
 import { api } from "@/convex/_generated/api";
 import { adminRoute } from "@/lib/admin-v2/frame/routes";
 import type { HudData } from "@/lib/admin-v2/hud";
@@ -31,6 +34,9 @@ import { AdminSidebarProvider } from "./admin-sidebar-store";
 // a dev preview shows a TEST HUD instead and reads nothing). V3: it also holds
 // the feed of the Pulse and the live edge of the screen, and says on its root
 // when the quiet mode is on (`data-admin-quiet`: the skeleton shimmer stands).
+// V4: it holds the game (the operator, the boss of the day, the badges): fed from
+// the admin's own journal of actions for a signed-in admin, a TEST game in a
+// dev preview; its layers (the Vitrina, the ceremonies, the spark) draw over it.
 
 export type AdminFrameProps = {
   children: ReactNode;
@@ -41,9 +47,11 @@ export type AdminFrameProps = {
   activePathname?: string;
   /** Dev preview: the TEST HUD „Danas“ of pages that do not send their own. */
   previewHud?: HudData;
+  /** Dev preview: the TEST game; a preview that gives none has no game. */
+  previewGame?: GameFixture;
 };
 
-export function AdminFrame({ children, previewIdentity, previewSearchGroups, activePathname, previewHud }: AdminFrameProps) {
+export function AdminFrame({ children, previewIdentity, previewSearchGroups, activePathname, previewHud, previewGame }: AdminFrameProps) {
   const pathname = usePathname();
   const me = useQuery(api.admin.me);
   const { signOut } = useAuthActions();
@@ -80,6 +88,7 @@ export function AdminFrame({ children, previewIdentity, previewSearchGroups, act
 
   return (
     <AdminFrameContext.Provider value={value}>
+      <GameProvider mode={previewIdentity !== undefined ? (previewGame ? "preview" : "off") : me?.isAdmin ? "live" : "off"} fixture={previewGame}>
       <AdminSidebarProvider>
         {/* data-reveal="off": the site's text reveal never hides admin text, also not on a client navigation. */}
         <div data-reveal="off" data-admin-quiet={quiet ? "" : undefined} className="admin-v1 relative flex h-[100dvh] w-full overflow-hidden bg-[var(--admin-app)] text-[var(--admin-text)]">
@@ -98,9 +107,11 @@ export function AdminFrame({ children, previewIdentity, previewSearchGroups, act
           {previewHud ? <AdminHudPreview hud={previewHud} /> : previewIdentity === undefined && me?.isAdmin ? <AdminHudLive /> : null}
           {previewIdentity === undefined ? (me?.isAdmin ? <AdminPulseFeedLive /> : null) : <AdminPulseFeedPreview />}
           <AdminShortcuts />
+          <GameLayers />
           <AdminToaster />
         </div>
       </AdminSidebarProvider>
+      </GameProvider>
     </AdminFrameContext.Provider>
   );
 }

@@ -2019,3 +2019,19 @@ Napomena runnera u `scripts/tasks/logs/admin-v2/X3-pad-a3.md` kaže da je prover
 Šta ostaje kao rizik za sledeće korake: ako neko ručno radi u ovom folderu dok lanac traje, runner pre svojih gejtova gasi svaki `next dev` ovog repoa i pušta build, pa se dve sesije sudaraju. Predlog za vlasnika: dok lanac radi, ručni rad voditi u drugom klonu repoa. **Deferred, awaiting owner decision** (o tome kako se ubuduće razdvajaju ručni rad i lanac).
 
 Gde je korak izašao iz slova pravila: jedan složeni Bash poziv je odbijen jer se završavao sa `git stash list` (pravila dozvoljavaju samo `status`, `diff`, `log` i `show`); ništa nije stavljeno u stash niti promenjeno, a deo poziva koji je bio potreban je ponovljen bez git-a. Pri čitanju spiska procesa ispisane su i komandne linije alata koji nisu deo ovog repoa; njihov sadržaj nije prenet ni u jedan fajl.
+
+## ADMIN v3 V4 (13. 10. 2026.) — dev server lanca se sam restartuje i posle toga ne zna rute
+
+Nije do koda koraka; zaobiđeno, korak je završen. **Deferred, awaiting owner decision** (o tome da li runner treba da prati i ovo stanje).
+
+Šta se desilo, redom:
+- Dev server koji drži runner (`next dev -p 3170`, Turbopack) se tokom koraka tri puta sam restartovao: u logu (`scripts/tasks/logs/admin-v2/dev-server.log`) stoji „Server is approaching the used memory threshold, restarting...“ (oko 08:59, 09:29 i 10:36). Okidač je bio rad skripte kadrova i alata za snimke (mnogo učitavanja stranica zaredom).
+- Posle prvog restarta rute su radile čim su se ponovo prevele (učitavanja su do tada isticala na 30 s).
+- Posle drugog restarta server je na `/` vraćao 200, a na `/admin/login` i na svaku `/dev/admin-*-preview` rutu **404** (provereno tri puta: 09:31, 09:33, 09:36). Generisani fajlovi `.next/dev/types/routes.d.ts` i `validator.ts` su ostali presečeni na pola reda, pa je i `npx tsc --noEmit` u tom prozoru vraćao sintaksne greške samo u tim generisanim fajlovima.
+- Korak nije pokretao drugi `next dev`, nije gasio procese i nije dirao `.next`.
+
+Kako je zaobiđeno:
+- Sitna izmena jednog fajla rute koraka (`app/dev/admin-igra-preview/page.tsx`, komentar) naterala je server da ponovo izgradi tabelu ruta i prepiše generisane tipove; rute su se vratile, a `tsc` je opet čist (exit 0).
+- Skripta kadrova koraka (`output/playwright/admin-v3/V4/kadrovi.mjs`) sada svako učitavanje pokušava do pet puta sa pauzom.
+
+Rizik za sledeće korake: runner proverava samo da server odgovara. Server u ovom stanju odgovara (200 na `/`), pa ga runner ne podiže ponovo, a snimci `/dev/admin-*-preview` bi dobili 404. Predlog za vlasnika: da runner pre snimaka proveri status jedne preview rute, a ne samo `/`.

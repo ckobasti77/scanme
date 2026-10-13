@@ -12,6 +12,7 @@ export type ShortcutId =
   | "goTasks"
   | "goEvents"
   | "goFinance"
+  | "goVitrina"
   | "escape";
 
 export const ADMIN_GO_SHORTCUTS: readonly { id: ShortcutId; key: string; href: string }[] = [
@@ -22,6 +23,11 @@ export const ADMIN_GO_SHORTCUTS: readonly { id: ShortcutId; key: string; href: s
   { id: "goEvents", key: "e", href: "/admin/dogadjaji" },
   { id: "goFinance", key: "f", href: "/admin/finansije" },
 ];
+
+/** V4: the letter after G that opens the Vitrina. */
+export const VITRINA_KEY = "v";
+/** V4: the window event that opens the Vitrina (the shortcut G V and the profile menu fire it). */
+export const ADMIN_VITRINA_EVENT = "scanme-admin:vitrina";
 
 export const ADMIN_SHORTCUT_GROUPS: readonly {
   id: "global" | "go" | "page";
@@ -37,7 +43,11 @@ export const ADMIN_SHORTCUT_GROUPS: readonly {
   },
   {
     id: "go",
-    items: ADMIN_GO_SHORTCUTS.map((go) => ({ id: go.id, keys: ["G", go.key.toUpperCase()], sequence: true })),
+    items: [
+      ...ADMIN_GO_SHORTCUTS.map((go) => ({ id: go.id, keys: ["G", go.key.toUpperCase()], sequence: true })),
+      // V4: the Vitrina is a dialog, not a page; G V opens it from anywhere.
+      { id: "goVitrina", keys: ["G", VITRINA_KEY.toUpperCase()], sequence: true },
+    ],
   },
   { id: "page", items: [{ id: "pageSearch", keys: ["/"] }] },
 ];
@@ -68,7 +78,7 @@ export type ShortcutInput = {
   /** Event time in ms. */
   at: number;
 };
-export type ShortcutAction = { type: "go"; href: string } | { type: "pageSearch" } | { type: "help" };
+export type ShortcutAction = { type: "go"; href: string } | { type: "pageSearch" } | { type: "help" } | { type: "vitrina" };
 export type ShortcutState = { goAt: number | null };
 export const SHORTCUT_IDLE: ShortcutState = { goAt: null };
 
@@ -85,6 +95,7 @@ export function shortcutStep(state: ShortcutState, input: ShortcutInput): { stat
   if (pending) {
     const go = ADMIN_GO_SHORTCUTS.find((item) => item.key === key);
     if (go) return { state: SHORTCUT_IDLE, action: { type: "go", href: go.href } };
+    if (key === VITRINA_KEY) return { state: SHORTCUT_IDLE, action: { type: "vitrina" } };
     // Any other key cancels the sequence; a second G starts a new one.
     return { state: key === "g" ? { goAt: input.at } : SHORTCUT_IDLE, action: null };
   }

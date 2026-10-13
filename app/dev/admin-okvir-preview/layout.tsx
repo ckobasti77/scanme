@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { PREVIEW_HUD } from "@/components/admin/events/preview-dashboard-fixtures";
 import { AdminFrame } from "@/components/admin/frame/admin-frame";
 import { adminV1Sr } from "@/lib/i18n/sr/admin-v1";
+import { PREVIEW_GAME } from "@/components/admin/game/game-fixtures";
 
 // ADMIN v2 — one persistent admin frame over every dev preview surface
 // (`/dev/admin-okvir-preview/<oblast>`), the same way app/admin/layout.tsx
@@ -15,5 +16,5 @@ export const metadata: Metadata = { title: "Okvir (TEST) | ScanMe Admin", robots
 
 export default function AdminFramePreviewLayout({ children }: { children: ReactNode }) {
   if (process.env.NODE_ENV === "production") notFound();
-  return <AdminFrame previewIdentity={adminV1Sr.fixtureIdentity} previewHud={PREVIEW_HUD}>{children}</AdminFrame>;
+  return <AdminFrame previewIdentity={adminV1Sr.fixtureIdentity} previewGame={PREVIEW_GAME} previewHud={PREVIEW_HUD}>{children}</AdminFrame>;
 }

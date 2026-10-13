@@ -5,6 +5,7 @@ import type { MailPreviewMessage, MailPreviewState } from "@/components/admin/ma
 import { postaSr } from "@/lib/i18n/sr/posta";
 import type { Metadata } from "next";
 import { adminTitle } from "@/lib/admin-v2/frame/titles";
+import { PREVIEW_GAME } from "@/components/admin/game/game-fixtures";
 
 export const metadata: Metadata = { title: adminTitle(postaSr.pageTitle), robots: { index: false, follow: false } };
 
@@ -20,7 +21,7 @@ export default async function AdminMailPreviewPage({ searchParams }: { searchPar
   const state = STATES.find((value) => value === stanje) ?? "spremno";
   const message = MESSAGES.find((value) => value === poruka) ?? "html";
   return (
-    <AdminShell previewIdentity={postaSr.previewBadge} activePathname="/admin/posta">
+    <AdminShell previewIdentity={postaSr.previewBadge} previewGame={PREVIEW_GAME} activePathname="/admin/posta">
       <AdminMailPreview state={state} message={message} />
     </AdminShell>
   );

@@ -135,11 +135,6 @@ export const adminV1Sr = {
   dashboardConstellationMoreMark: "+{count}",
   dashboardConstellationHide: "Samo lista",
   dashboardConstellationShow: "Prikaži sazvežđe",
-  dashboardBacklogLabel: "Zaostatak",
-  dashboardBacklogValue: "{hp} od {max}",
-  dashboardBacklogClear: "Nema zaostatka",
-  dashboardBacklogHelp:
-    "Hitno se računa tri puta, razgovor koji čeka odgovor dva puta, stavka za danas jednom. Najveći broj je najveći viđen dok je stranica otvorena.",
   moduleUnavailableTitle: "Ova stranica još nije povezana",
   moduleUnavailableBody:
     "Stranica je pripremljena. Funkcije za nju dolaze u sledećim koracima.",

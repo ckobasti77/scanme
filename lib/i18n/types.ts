@@ -12,6 +12,7 @@
 
 import type { ProductType, ServiceType } from "../admin-v1/catalog";
 import type { InsightId } from "../admin-v2/analytics/insight-ids";
+import type { BadgeId, FairChallengeId, FairNodeId, RankId, Rarity, XpActionId } from "../admin-v2/game/ids";
 import type {
   FairAdminIssueCode,
   FairAudienceQuestionStatus,
@@ -3104,10 +3105,6 @@ export interface AdminV1Dict {
   dashboardConstellationMoreMark: string;
   dashboardConstellationHide: string;
   dashboardConstellationShow: string;
-  dashboardBacklogLabel: string;
-  dashboardBacklogValue: string;
-  dashboardBacklogClear: string;
-  dashboardBacklogHelp: string;
   moduleUnavailableTitle: string;
   moduleUnavailableBody: string;
   loadingLabel: string;
@@ -6497,6 +6494,8 @@ export interface AdminUiDict {
       goTasks: string;
       goEvents: string;
       goFinance: string;
+      /** ADMIN v3 V4 — G V opens the Vitrina (the badges of the operator). */
+      goVitrina: string;
       escape: string;
     };
     inputNote: string;
@@ -6510,6 +6509,172 @@ export interface AdminUiDict {
   pulse: { description: string };
   /** ADMIN v2 X4 — the toast region of the frame. */
   toast: { region: string; dismiss: string };
+  /** ADMIN v3 V4 — the game: operator, combo, streak, boss of the day, badges, team, fair missions, ceremonies. */
+  game: AdminGameDict;
+}
+
+/** ADMIN v3 V4 — the texts of the game (lib/i18n/sr/admin-game.ts). */
+export interface AdminGameDict {
+  ranks: Record<RankId, string>;
+  rarity: Record<Rarity, string>;
+  operator: {
+    title: string;
+    /** {level} */
+    level: string;
+    /** {level}: the short form in the chip of the navbar. */
+    levelShort: string;
+    /** {rank} {level}: what the chip says to assistive technology. */
+    chip: string;
+    /** {into} {span} {next} */
+    progress: string;
+    progressLabel: string;
+    /** {xp} */
+    xp: string;
+    /** {xp} */
+    today: string;
+    /** {xp}: what an action has just carried, beside the chip. */
+    gain: string;
+    /** {date}: the history is longer than what was read. */
+    since: string;
+    loading: string;
+  };
+  xpActions: Record<XpActionId, string>;
+  combo: {
+    label: string;
+    /** {n} */
+    multiplier: string;
+    /** {count} {n} */
+    toNext: string;
+    top: string;
+    /** {n} {chain} */
+    aria: string;
+    help: string;
+  };
+  streak: {
+    label: string;
+    /** „dan“ after a number, in its three forms (1, 2–4, 5+). */
+    days: readonly [string, string, string];
+    /** {count} {noun} */
+    value: string;
+    none: string;
+    todayOpen: string;
+    todayDone: string;
+    /** {day} {best} {noun} */
+    broken: string;
+    /** {date} */
+    since: string;
+    rule: string;
+  };
+  boss: {
+    title: string;
+    /** {hp} {max} */
+    value: string;
+    /** {time} */
+    down: string;
+    none: string;
+    unavailable: string;
+    returned: string;
+    /** {damage} */
+    hitMine: string;
+    /** {damage} */
+    hitTeam: string;
+    snoozed: string;
+    /** {amount} */
+    grew: string;
+    help: string;
+  };
+  badges: Record<BadgeId, { name: string; condition: string }>;
+  vitrina: {
+    title: string;
+    description: string;
+    open: string;
+    /** {date} */
+    earned: string;
+    /** {count} {date} */
+    earnedCount: string;
+    locked: string;
+    /** {condition} */
+    condition: string;
+    /** {value} {goal} */
+    progress: string;
+    groupPersonal: string;
+    groupFair: string;
+    fairNote: string;
+    localNote: string;
+    /** {earned} {total} */
+    count: string;
+    /** {name} {rarity} {state}: one badge of the grid, for assistive technology. */
+    badgeAria: string;
+    sceneHint: string;
+    close: string;
+  };
+  team: {
+    title: string;
+    stripTitle: string;
+    /** {date} */
+    week: string;
+    columns: { place: string; member: string; xp: string; actions: string; combo: string; move: string };
+    me: string;
+    /** {xp} */
+    atLeast: string;
+    capped: string;
+    empty: string;
+    loading: string;
+    medals: readonly [string, string, string];
+    /** {rank} */
+    place: string;
+    /** {n} */
+    moveUp: string;
+    /** {n} */
+    moveDown: string;
+    moveSame: string;
+    openTeam: string;
+    note: string;
+  };
+  fair: {
+    chainTitle: string;
+    chainHint: string;
+    nodes: Record<FairNodeId, { name: string; hint: string }>;
+    state: { locked: string; open: string; lit: string };
+    /** {done} {total} */
+    progress: string;
+    challengesTitle: string;
+    challengesHint: string;
+    /** {goal} where the challenge has one. */
+    challenges: Record<FairChallengeId, string>;
+    done: string;
+    missed: string;
+    /** {value} {goal} */
+    value: string;
+  };
+  ceremony: {
+    /** {level} */
+    level: string;
+    /** {rank} */
+    rankUp: string;
+    /** {rank} {level}: the second line of a level or a rank. */
+    levelBody: string;
+    boss: string;
+    bossBody: string;
+    /** {name} */
+    badge: string;
+    record: string;
+    /** {count} */
+    more: string;
+    moreBody: string;
+    skipHint: string;
+    region: string;
+  };
+  /** The dev page that shows the states of the game with TEST data. */
+  demo: {
+    title: string;
+    description: string;
+    badge: string;
+    statesTitle: string;
+    actionsTitle: string;
+    buttons: { resolve: string; combo: string; level: string; badge: string; epicBadge: string; boss: string; record: string; many: string; newBacklog: string; reset: string; vitrina: string };
+    fairTitle: string;
+  };
 }
 
 /** Admin UX Z1 — Pošta: each admin's own Zoho mailbox, read live (ADMIN-UX-ZAHTEVI §10). */

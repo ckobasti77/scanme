@@ -4,7 +4,7 @@ import { Trophy } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { countOf, hourLabel, lowerFirst } from "@/lib/admin-v2/analytics/format";
 import { recordNews, recordsSeen, type FairRecords, type RecordsSeen } from "@/lib/admin-v2/analytics/records";
-import { pushAdminToast } from "@/lib/admin-v2/toast";
+import { useGameApi } from "@/components/admin/game/game-context";
 import { fmt } from "@/lib/i18n/format";
 import { adminEventsSr } from "@/lib/i18n/sr/admin-events";
 import { cn } from "@/lib/utils";
@@ -13,6 +13,9 @@ import { cn } from "@/lib/utils";
 // new one arrives (ZADATAK §5.4). A fact of the numbers, not a score: the name
 // of the record in bold, its value in plain text, both in text tokens; the
 // accent is only the icon and the thin border, so the tag reads without it.
+// ADMIN v3 V4 — a new record goes to the game of the frame: it is a small
+// ceremony beside the XP chip (the same toast as before where a ceremony cannot
+// show, and outside a frame), and the hour record feeds the fair badges.
 
 const d = adminEventsSr.analytics.v2;
 const v = d.records;
@@ -42,21 +45,29 @@ export function hourRecordValue(record: Pick<NonNullable<FairRecords["hour"]>, "
 /**
  * Toasts for the records that are new since the last look at this page. The
  * first look for a scope reports nothing; a new scope (another event or day)
- * starts over. The quiet mode drops the toasts inside `pushAdminToast`.
+ * starts over. The quiet mode says nothing about a record (as in v2).
  */
 export function useRecordToasts(scope: string, records: FairRecords, leadsTotal: number): void {
   const seen = useRef<{ scope: string; value: RecordsSeen } | null>(null);
+  const game = useGameApi();
   useEffect(() => {
     const last = seen.current?.scope === scope ? seen.current.value : null;
     for (const news of recordNews(last, records, leadsTotal)) {
       if (news.id === "hour" && records.hour) {
-        pushAdminToast({ key: news.key, title: fmt(v.toastHour, { scans: countOf(records.hour.value, d.units.scans), hour: hourLabel(records.hour.hour) }) });
+        game.celebrate({ key: news.key, title: fmt(v.toastHour, { scans: countOf(records.hour.value, d.units.scans), hour: hourLabel(records.hour.hour) }) });
+        game.reportFair({ hourRecordSeen: true });
       } else if (news.id === "stand" && records.stand) {
-        pushAdminToast({ key: news.key, title: fmt(v.toastStand, { stand: records.stand.standCode }) });
+        game.celebrate({ key: news.key, title: fmt(v.toastStand, { stand: records.stand.standCode }) });
       } else if (news.id === "firstLead") {
-        pushAdminToast({ key: news.key, title: v.toastFirstLead });
+        game.celebrate({ key: news.key, title: v.toastFirstLead });
       }
     }
     seen.current = { scope, value: recordsSeen(records, leadsTotal, last) };
-  }, [scope, records, leadsTotal]);
+  }, [scope, records, leadsTotal, game]);
+  // The facts the fair badges read: the record of an hour and the first lead of the event.
+  const hourRecord = records.hour?.value ?? null;
+  const firstLead = records.firstLead !== null;
+  useEffect(() => {
+    if (hourRecord !== null || firstLead) game.reportFair({ ...(hourRecord !== null ? { hourRecord } : {}), ...(firstLead ? { firstLead } : {}) });
+  }, [game, hourRecord, firstLead]);
 }

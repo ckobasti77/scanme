@@ -84,6 +84,7 @@ import { parseViewModeParam, type AdminViewMode } from "@/lib/admin-v1/view-mode
 import type { FairImportPayload } from "@/lib/fair-import/to-payload";
 import { FAIR_PII_PURGE_AT_MS, FAIR_PURGE_CATEGORIES } from "@/lib/fair-contract";
 import { adminEventsSr as dict } from "@/lib/i18n/sr/admin-events";
+import { PREVIEW_GAME } from "@/components/admin/game/game-fixtures";
 
 // Static TEST fixture of the `Događaji` sections (mirrors the B1 DEV TEST
 // catalog) for visual checks without an admin session or Convex. Admin UX
@@ -779,7 +780,7 @@ function PreviewPregled({ base, keep, phase, liveStep }: { base: string; keep: A
   const scansToday = dashboard.kpis.scans.today;
   const hallData = useMemo(() => previewHallToday(scansToday), [scansToday]);
   const hall = open ? <HallMini eventCode="test-elektromobilnost-2026" data={hallData} href={`${eventSectionHref(base, "analitika", keep)}#mapa`} /> : undefined;
-  return <EventDashboardView dashboard={dashboard} now={dashboard.at} base={base} keep={keep} hall={hall} />;
+  return <EventDashboardView dashboard={dashboard} now={dashboard.at} base={base} keep={keep} hall={hall} hours={open ? hallData.hours : null} />;
 }
 
 function PreviewSection({ base: PREVIEW_BASE, path, detailId, query, setQuery, keep, previewStep, liveStep, timelapseStart }: {
@@ -1026,7 +1027,7 @@ export function AdminEventsPreview({ section, base: PREVIEW_BASE = DEFAULT_PREVI
     return hudData({ title, href: eventSectionHref(PREVIEW_BASE, "pregled", keep) }, dashboard, dashboard.at);
   }, [PREVIEW_BASE, currentSlug, keep, query.faza, liveStep, active]);
   return (
-    <AdminShell previewIdentity={dict.fixtureIdentity} activePathname="/admin/dogadjaji">
+    <AdminShell previewIdentity={dict.fixtureIdentity} previewGame={PREVIEW_GAME} activePathname="/admin/dogadjaji">
       <AdminEventFrameView
         preview
         events={PREVIEW_EVENTS}

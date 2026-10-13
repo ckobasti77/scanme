@@ -26,12 +26,14 @@ describe("the shortcut list", () => {
   test("shows the keys as kbd", () => {
     const keys = kbd(markup);
     for (const key of ["Ctrl", "K", "G", "/", "?", "Esc"]) expect(keys).toContain(key);
-    expect(keys.filter((key) => key === "G")).toHaveLength(ADMIN_GO_SHORTCUTS.length);
+    // The six areas and, since V4, the Vitrina (G V).
+    expect(keys.filter((key) => key === "G")).toHaveLength(ADMIN_GO_SHORTCUTS.length + 1);
+    expect(markup).toContain(`>${dict.items.goVitrina}<`);
   });
 
   test("puts the word between the keys of a sequence", () => {
     expect(markup).toContain(`>${dict.then}<`);
-    expect(markup.split(`>${dict.then}<`)).toHaveLength(ADMIN_GO_SHORTCUTS.length + 1);
+    expect(markup.split(`>${dict.then}<`)).toHaveLength(ADMIN_GO_SHORTCUTS.length + 2);
   });
 
   test("pairs name and keys in a description list and ends with the input note", () => {

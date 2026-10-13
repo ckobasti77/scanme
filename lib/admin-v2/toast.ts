@@ -6,7 +6,11 @@
 import { celebrationsOn, quietModeStore } from "@/lib/admin-v2/quiet-mode";
 
 export type AdminToast = { id: number; key: string; title: string; body?: string };
-export type AdminToastInput = { key: string; title: string; body?: string };
+/**
+ * `personal` (V4): a level, a badge or a beaten boss is information about the operator, not a celebration,
+ * so the quiet mode keeps it as one calm line (the ceremony itself is what the quiet mode turns off).
+ */
+export type AdminToastInput = { key: string; title: string; body?: string; personal?: boolean };
 
 /** A toast leaves by itself after this long. */
 export const ADMIN_TOAST_MS = 4500;
@@ -24,8 +28,8 @@ export function createToastStore(isQuiet: () => boolean = quietModeStore.get) {
   };
   return {
     /** false: the toast was not shown (quiet mode, or the same one is already on the screen). */
-    push(input: AdminToastInput): boolean {
-      if (!celebrationsOn(isQuiet())) return false;
+    push({ personal, ...input }: AdminToastInput): boolean {
+      if (!personal && !celebrationsOn(isQuiet())) return false;
       if (toasts.some((toast) => toast.key === input.key)) return false;
       toasts = [...toasts, { id: nextId++, ...input }].slice(-ADMIN_TOAST_MAX);
       emit();

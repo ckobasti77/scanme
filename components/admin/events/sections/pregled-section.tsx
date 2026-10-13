@@ -23,8 +23,11 @@ import { adminEventsSr as dict } from "@/lib/i18n/sr/admin-events";
 // (fairEventAnalytics.getEventAnalytics, the read of Analitika) only while the
 // excerpt is on the screen, once and then every 60 s; nothing is read outside a
 // fair day.
+// ADMIN v3 V4 — the hours of that read also feed the daily challenges; an event
+// without a floor plan has none, so its challenges are the ones the dashboard
+// alone can count.
 
-function HallMiniLive() {
+function HallMiniLive({ onData }: { onData: (data: AnalyticsData) => void }) {
   const { eventId, base, catalog } = useAdminEvent();
   const host = useRef<HTMLDivElement>(null);
   const [inView, setInView] = useState(false);
@@ -38,6 +41,11 @@ function HallMiniLive() {
   // Off the screen nothing is read, and the last picture stays (the scene is not torn down by a scroll).
   const [kept, setKept] = useState<AnalyticsData>();
   if (analytics.data && analytics.data !== kept) setKept(analytics.data);
+  // V4 — the hours of the same read feed the daily challenges of the page.
+  const data = analytics.data;
+  useEffect(() => {
+    if (data) onData(data);
+  }, [data, onData]);
   return (
     <div ref={host} className="min-w-0">
       <HallMini eventCode={catalog.event.code} data={analytics.data ?? kept} href={`${eventSectionHref(base, "analitika")}#mapa`} />
@@ -48,6 +56,7 @@ function HallMiniLive() {
 export function PregledSection() {
   const { base, dashboard, catalog } = useAdminEvent();
   const now = useMinuteNow();
+  const [analytics, setAnalytics] = useState<AnalyticsData>();
   if (dashboard.data === undefined) {
     return dashboard.error
       ? <AdminPanel><AdminErrorState title={dict.dashboard.errorTitle} body={dict.dashboard.errorBody} retryLabel={dict.retry} onRetry={dashboard.refresh} /></AdminPanel>
@@ -57,7 +66,7 @@ export function PregledSection() {
   const dayOpen = dashboard.data.phase.kind === "sajam" && dashboard.data.phase.dayOpen && fairMapForEventCode(catalog.event.code) !== null;
   return (
     <>
-      <EventDashboardView dashboard={dashboard.data} now={now} base={base} hall={dayOpen ? <HallMiniLive /> : undefined} />
+      <EventDashboardView dashboard={dashboard.data} now={now} base={base} hall={dayOpen ? <HallMiniLive onData={setAnalytics} /> : undefined} hours={analytics?.hours ?? null} />
       <PreEventResetCard />
     </>
   );

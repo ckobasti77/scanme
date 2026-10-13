@@ -39,6 +39,8 @@ const PREVIEW_ROUTES: Readonly<Record<string, string>> = {
 /** `/dev/admin-services-preview?service=…` shows one of the three service pages. */
 const SERVICES_PREVIEW = "/dev/admin-services-preview";
 const SERVICE_PREVIEWS: readonly string[] = ["links", "review", "meni"];
+/** V4 — the dev page of the game: no admin page of its own, but its links stay in the previews. */
+const GAME_PREVIEW = "/dev/admin-igra-preview";
 /** `/dev/admin-18-preview?mode=debug` shows the support view instead of Pretraga. */
 const SEARCH_PREVIEW = "/dev/admin-18-preview";
 
@@ -96,6 +98,7 @@ export function adminRoute(pathname: string, search?: URLSearchParams | { get(na
     return { key: `/admin/usluge/${SERVICE_PREVIEWS.includes(service) ? service : "links"}`, events: null, previewBase: null, single: true };
   }
   if (path === SEARCH_PREVIEW && search?.get("mode") === "debug") return { key: "/admin/debug/preview", events: null, previewBase: null, single: true };
+  if (path === GAME_PREVIEW) return { key: "/admin/igra/preview", events: null, previewBase: null, single: true };
   if (Object.hasOwn(PREVIEW_ROUTES, path)) return { key: PREVIEW_ROUTES[path], events: null, previewBase: null, single: true };
 
   const event = /^\/admin\/dogadjaji\/([^/]+)(\/.*)?$/.exec(path);

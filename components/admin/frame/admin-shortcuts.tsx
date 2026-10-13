@@ -8,6 +8,7 @@ import {
   ADMIN_GO_PENDING_EVENT,
   ADMIN_SHORTCUT_GROUPS,
   ADMIN_SHORTCUTS_EVENT,
+  ADMIN_VITRINA_EVENT,
   SHORTCUT_IDLE,
   isEditableTarget,
   shortcutStep,
@@ -69,6 +70,7 @@ export function AdminShortcuts() {
         router.push(href);
       }
       else if (action.type === "pageSearch") focusPageSearch();
+      else if (action.type === "vitrina") window.dispatchEvent(new Event(ADMIN_VITRINA_EVENT));
       else setOpen(true);
     };
 

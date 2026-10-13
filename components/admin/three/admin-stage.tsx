@@ -8,7 +8,7 @@ import { ADMIN_REVEAL } from "@/lib/admin-v2/motion";
 import type { DrawQuality, StageQuality } from "@/lib/admin-v2/three/quality";
 import { cn } from "@/lib/utils";
 import type { Stage } from "./stage";
-import { sessionQuality } from "./stage-session";
+import { sessionQuality, stageSession } from "./stage-session";
 
 // ADMIN v3 V2 — the React side of the 3D kit. It never imports `three`: the
 // stage and the scene arrive through `import()`, and only when
@@ -83,6 +83,8 @@ export function AdminStage<Props>({
   summary,
   flatBelow = 0,
   flat = false,
+  eager = false,
+  exclusive = false,
   onScene,
   onUnavailable,
   className,
@@ -99,6 +101,10 @@ export function AdminStage<Props>({
   flatBelow?: number;
   /** The user chose the 2D view. */
   flat?: boolean;
+  /** V4 — a scene the user asked for (a dialog, a ceremony): it does not wait for the entrance of the page nor for an idle browser. */
+  eager?: boolean;
+  /** V4 — a scene in a dialog or a ceremony: every other scene stands while this one lives. */
+  exclusive?: boolean;
   /** The running scene, or null when the fallback is shown. */
   onScene?: (scene: StageScene<Props> | null) => void;
   /** The scene cannot run here (no WebGL, a weak device, a lost context, a chunk that did not load): the fallback stays. */
@@ -177,8 +183,9 @@ export function AdminStage<Props>({
     const start = async (drawQuality: DrawQuality) => {
       try {
         const [kit, module] = await Promise.all([import("./stage"), loader.current()]);
+        stageSession.markKitLoaded();
         if (cancelled) return;
-        stage = kit.createStage(mountElement, { quality: drawQuality, pinned: pinned !== null, onUnavailable: fail });
+        stage = kit.createStage(mountElement, { quality: drawQuality, pinned: pinned !== null, exclusive, onUnavailable: fail });
         if (!stage) {
           unavailable.current?.();
           return;
@@ -207,6 +214,10 @@ export function AdminStage<Props>({
       (entries) => {
         if (!entries.some((entry) => entry.isIntersecting)) return;
         watcher.disconnect();
+        if (eager) {
+          void start(quality);
+          return;
+        }
         const wait = Math.max(0, entered.current.enteredAt + START_AFTER_MS - performance.now());
         const timer = window.setTimeout(() => {
           cleanups.push(whenIdle(() => void start(quality)));
@@ -230,7 +241,7 @@ export function AdminStage<Props>({
       setCovered(false);
     };
     // The quiet mode and reduced motion stop the ambient loop of a scene: switching either starts it again, still.
-  }, [flat, flatBelow, quiet, reducedMotion]);
+  }, [flat, flatBelow, quiet, reducedMotion, eager, exclusive]);
 
   const live = mode === "live";
   return (

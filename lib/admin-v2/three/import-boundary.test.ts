@@ -116,7 +116,7 @@ describe("three import boundary", () => {
     expect(present).toContain("components/admin/three/stage.ts");
     expect(present.every((file) => valueImports(read(file)).some(isThree))).toBe(true);
     // The scenes of the kit are there and each imports the library.
-    for (const scene of ["constellation-scene.ts", "hall-scene.ts"]) {
+    for (const scene of ["constellation-scene.ts", "hall-scene.ts", "medal-scene.ts"]) {
       expect(valueImports(read(`${ALLOWED_DIR}${scene}`)).some(isThree), scene).toBe(true);
     }
   });
@@ -185,5 +185,9 @@ describe("candidates", () => {
     expect(isAllowed("components/admin/three/scenes/hall-scene.ts")).toBe(true);
     expect(isAllowed("components/admin/events/analytics/heat-map-3d.tsx")).toBe(false);
     expect(isAllowed("components/admin/three/admin-stage.tsx")).toBe(false);
+    // V4: the medal is a scene; its React side and the Vitrina are not.
+    expect(isAllowed("components/admin/three/scenes/medal-scene.ts")).toBe(true);
+    expect(isAllowed("components/admin/game/medal-stage.tsx")).toBe(false);
+    expect(isAllowed("components/admin/game/vitrina.tsx")).toBe(false);
   });
 });

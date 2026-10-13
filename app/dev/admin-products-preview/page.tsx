@@ -4,6 +4,7 @@ import { AdminShell } from "@/components/admin/admin-shell";
 import { getDict } from "@/lib/i18n";
 import type { Metadata } from "next";
 import { adminTitle } from "@/lib/admin-v2/frame/titles";
+import { PREVIEW_GAME } from "@/components/admin/game/game-fixtures";
 
 const dict = getDict("admin-products");
 
@@ -11,5 +12,5 @@ export const metadata: Metadata = { title: adminTitle(dict.pageTitle), robots: {
 
 export default function AdminProductsPreviewPage() {
   if (process.env.NODE_ENV === "production") notFound();
-  return <AdminShell previewIdentity={dict.fixtureIdentity} activePathname="/admin/operativa/proizvodi"><AdminProductsPreview /></AdminShell>;
+  return <AdminShell previewIdentity={dict.fixtureIdentity} previewGame={PREVIEW_GAME} activePathname="/admin/operativa/proizvodi"><AdminProductsPreview /></AdminShell>;
 }

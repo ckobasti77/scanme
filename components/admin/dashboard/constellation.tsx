@@ -5,7 +5,7 @@ import { AdminStage, type StageScene, type StageSceneModule } from "@/components
 import type { ConstellationSceneProps } from "@/components/admin/three/scenes/constellation-scene";
 import { ORBIT_RADIUS, flatProject } from "@/lib/admin-v2/constellation/geometry";
 import { orbitLayout } from "@/lib/admin-v2/constellation/layout";
-import type { ConstellationCounts, ConstellationItem, ConstellationLayout, Star } from "@/lib/admin-v2/constellation/types";
+import type { BacklogRing, ConstellationCounts, ConstellationItem, ConstellationLayout, Star } from "@/lib/admin-v2/constellation/types";
 import { fmt } from "@/lib/i18n/format";
 import { adminV1Sr } from "@/lib/i18n/sr/admin-v1";
 import { cn } from "@/lib/utils";
@@ -40,6 +40,7 @@ export function Constellation({
   counts,
   now,
   hpMax,
+  backlog,
   aimed,
   onStarHover,
   onPick,
@@ -52,6 +53,8 @@ export function Constellation({
   now: number;
   /** The largest backlog seen while the page is open. */
   hpMax: number;
+  /** V4 — the ring around the core as the game keeps it (the boss of the day); undefined: worked out from `counts` and `hpMax`. */
+  backlog?: BacklogRing | null;
   /** The star lit from its row of the list. */
   aimed: string | null;
   onStarHover: (id: string | null) => void;
@@ -62,7 +65,15 @@ export function Constellation({
   onHandle?: (handle: ConstellationHandle) => void;
   className?: string;
 }) {
-  const layout = useMemo<ConstellationLayout>(() => orbitLayout(items, counts, now, hpMax), [items, counts, now, hpMax]);
+  // The ring is its two numbers: a new object with the same numbers is not a new picture.
+  const fromGame = backlog !== undefined;
+  const backlogHp = backlog?.hp ?? null;
+  const backlogMax = backlog?.hpMax ?? null;
+  const layout = useMemo<ConstellationLayout>(() => {
+    const base = orbitLayout(items, counts, now, hpMax);
+    if (!fromGame) return base;
+    return { ...base, backlog: backlogHp === null || backlogMax === null ? null : { hp: backlogHp, hpMax: backlogMax, share: backlogMax > 0 ? backlogHp / backlogMax : 0 } };
+  }, [items, counts, now, hpMax, fromGame, backlogHp, backlogMax]);
   const host = useRef<HTMLDivElement>(null);
   const scene = useRef<StageScene<ConstellationSceneProps> | null>(null);
   const latest = useRef({ layout, onPick, onStarHover });

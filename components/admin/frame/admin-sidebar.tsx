@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Suspense, useEffect, useRef, type ReactNode } from "react";
+import { GameOperator } from "@/components/admin/game/game-parts";
 import { BrandLogo } from "@/components/brand-logo";
 import { routeHref } from "@/lib/admin-v2/frame/routes";
 import { adminUiSr as dict } from "@/lib/i18n/sr/admin-ui";
@@ -13,7 +14,8 @@ import { AdminSidebarContent } from "./admin-sidebar-content";
 // the whole height from lg up, the ScanMe logo centred on top, the
 // contextual content of the page below it. Content that does not fit scrolls
 // inside the sidebar, with a soft fade where there is more. The HUD „Danas“
-// stands at the bottom while a fair is on (X4).
+// stands at the bottom while a fair is on (X4); the row „Operater“ of the game
+// stands above it on every page (V4).
 
 export function AdminSidebar() {
   const frame = useAdminFrame();
@@ -28,6 +30,8 @@ export function AdminSidebar() {
         {/* The content reads the query string (useSearchParams). */}
         <Suspense fallback={null}><AdminSidebarContent /></Suspense>
       </AdminSidebarScroll>
+      {/* V4: the operator (rank, level, streak) is always here; „Danas“ below it only while a fair runs. */}
+      <GameOperator />
       <AdminHud />
     </aside>
   );

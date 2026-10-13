@@ -1,12 +1,13 @@
 "use client";
 
 import gsap from "gsap";
-import { Bell, BellOff, ChevronDown, Keyboard, Link2, LogOut, Menu, Moon, Package, QrCode, Settings, ShoppingBag, Star, UserRound, UtensilsCrossed } from "lucide-react";
+import { Award, Bell, BellOff, ChevronDown, Keyboard, Link2, LogOut, Menu, Moon, Package, QrCode, Settings, ShoppingBag, Star, UserRound, UtensilsCrossed } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState, useSyncExternalStore, type ComponentType } from "react";
 import { AdminSearchCommand, type AdminSearchCommandPreviewGroups } from "@/components/admin/admin-search-command";
 import { adminSegmentOnClass } from "@/components/admin/admin-ui/admin-controls";
 import { useQuietMode } from "@/components/admin/admin-ui/admin-toast";
+import { GameChip, GameProfileRing } from "@/components/admin/game/game-parts";
 import { BrandLogo } from "@/components/brand-logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import {
@@ -21,8 +22,9 @@ import {
 import { ADMIN_NAV_ITEMS, isAdminNavChildActive, isAdminNavItemActive } from "@/lib/admin-v1/navigation";
 import { routeHref } from "@/lib/admin-v2/frame/routes";
 import { ADMIN_DURATION, ADMIN_EASE } from "@/lib/admin-v2/motion";
-import { ADMIN_GO_PENDING_EVENT, ADMIN_SHORTCUTS_EVENT, GO_SEQUENCE_MS, goShortcutKeys } from "@/lib/admin-v2/shortcuts";
+import { ADMIN_GO_PENDING_EVENT, ADMIN_SHORTCUTS_EVENT, ADMIN_VITRINA_EVENT, GO_SEQUENCE_MS, goShortcutKeys } from "@/lib/admin-v2/shortcuts";
 import { fmt } from "@/lib/i18n/format";
+import { adminGameSr } from "@/lib/i18n/sr/admin-game";
 import { adminUiSr } from "@/lib/i18n/sr/admin-ui";
 import { adminV1Sr } from "@/lib/i18n/sr/admin-v1";
 import { cn } from "@/lib/utils";
@@ -40,6 +42,9 @@ import { AdminPulse } from "./admin-pulse";
 // shortcuts. X6: between lg and xl the nine links are set tighter so all of
 // them fit, and the theme (its button has no room there) is in the profile menu.
 // V3: the Pulse of the system runs along its bottom edge, under the links.
+// V4: the XP chip (the ring of the operator's level and „Nv 7“) stands left of the profile from 1400 px,
+// where the row has room for it; below that the nine links fill the row, so the ring stands around the
+// icon of the profile instead. The chip and the item „Vitrina“ of the profile menu open the Vitrina.
 
 type NavIcon = ComponentType<{ className?: string; "aria-hidden"?: boolean | "true" | "false" }>;
 
@@ -108,10 +113,12 @@ export function AdminNavbar({ identity, onSignOut, previewSearchGroups }: {
         </DropdownMenu>
         {/* Always in the DOM: the site's floating theme button hides only while a local one exists. */}
         <ThemeToggle className={cn(utilityClass, "hidden border-0 bg-transparent xl:inline-grid")} />
+        <GameChip className="hidden min-[87.5rem]:inline-flex" />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button type="button" className={cn(utilityClass, "hidden lg:grid")} aria-label={fmt(adminV1Sr.currentProfile, { name: identity })}>
+            <button type="button" className={cn(utilityClass, "relative hidden lg:grid")} aria-label={fmt(adminV1Sr.currentProfile, { name: identity })}>
               <UserRound className="size-[1.15rem]" aria-hidden="true" />
+              <GameProfileRing className="min-[87.5rem]:hidden" />
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" sideOffset={9} className="admin-v1 min-w-64 rounded-2xl border-[var(--admin-border)] bg-[var(--admin-surface-strong)] p-1.5 shadow-[var(--admin-shadow-md)]">
@@ -149,6 +156,11 @@ export function AdminNavbar({ identity, onSignOut, previewSearchGroups }: {
               </span>
               <span aria-hidden="true" data-on={quiet ? "" : undefined} className="admin-switch" />
             </DropdownMenuCheckboxItem>
+            <DropdownMenuItem onSelect={() => window.dispatchEvent(new Event(ADMIN_VITRINA_EVENT))} className="min-h-11 rounded-xl px-3 text-sm font-semibold focus:bg-[var(--admin-surface-muted)]">
+              <Award className="size-4" aria-hidden="true" />
+              <span className="flex-1">{adminGameSr.vitrina.title}</span>
+              <kbd aria-hidden="true" className="rounded-md border border-[var(--admin-border)] bg-[var(--admin-surface-muted)] px-1.5 py-0.5 font-sans text-[0.68rem] font-semibold text-[var(--admin-text-muted)]">G V</kbd>
+            </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => window.dispatchEvent(new Event(ADMIN_SHORTCUTS_EVENT))} className="min-h-11 rounded-xl px-3 text-sm font-semibold focus:bg-[var(--admin-surface-muted)]">
               <Keyboard className="size-4" aria-hidden="true" />
               <span className="flex-1">{adminUiSr.shortcuts.title}</span>

@@ -28,6 +28,7 @@ import { Button } from "@/components/ui/button";
 import { adminSecondaryButtonClass } from "@/components/admin/admin-ui/admin-controls";
 import { useAdminUrlState } from "@/components/admin/admin-ui/use-admin-query-state";
 import { AdminPageHeader } from "@/components/admin/frame/admin-page-header";
+import { GameTeam } from "@/components/admin/game/game-parts";
 import { useAdminSidebarLive } from "@/components/admin/frame/admin-sidebar-store";
 import {
   AdminEmptyState,
@@ -450,6 +451,8 @@ function TeamView({
           </>
         }
       />
+      {/* V4 — the weekly table of the team (XP from the journal of actions), above the member. */}
+      <GameTeam variant="full" />
       <AdminPanel className="p-4 sm:p-5">
         <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm sm:grid-cols-4">
           <Metric

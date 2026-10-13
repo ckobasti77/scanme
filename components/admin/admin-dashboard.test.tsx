@@ -7,6 +7,7 @@ import { readUrlState } from "@/lib/admin-v2/query/url-state";
 import { DASHBOARD_SCOPES, DASHBOARD_URL_FIELDS, dashboardSidebar } from "@/lib/admin-v2/sidebar/configs/pages";
 import { resolveAdminSidebar } from "@/lib/admin-v2/sidebar/registry";
 import type { SidebarLive } from "@/lib/admin-v2/sidebar/types";
+import { adminGameSr as game } from "@/lib/i18n/sr/admin-game";
 import { adminUiSr } from "@/lib/i18n/sr/admin-ui";
 import { adminV1Sr as dict } from "@/lib/i18n/sr/admin-v1";
 
@@ -190,8 +191,11 @@ describe("Dashboard hero: the Constellation (V3 V2)", () => {
     expect(markup).toContain(`>${dict.dashboardConstellationHint}<`);
     expect(markup.match(/data-admin-reveal="kpi" data-admin-tilt=""/g)?.length).toBeGreaterThanOrEqual(4);
     // 3 × 4 urgent + 2 × 1 waiting for a reply + 1 × 6 for today = 20, and the largest seen is the same.
-    expect(markup).toMatch(/role="progressbar" aria-label="Zaostatak" aria-valuemin="0" aria-valuemax="20" aria-valuenow="20"/);
-    expect(markup).toContain(`>${dict.dashboardBacklogValue.replace("{hp}", "20").replace("{max}", "20")}<`);
+    // V4: the backlog is the boss of the day. Outside a frame (no game) the numbers of the page stand in.
+    expect(markup).toContain('data-game-boss="alive"');
+    expect(markup).toContain(`>${game.boss.title}<`);
+    expect(markup).toMatch(/role="progressbar" aria-label="Šef dana: zaostatak" aria-valuemin="0" aria-valuemax="20" aria-valuenow="20"/);
+    expect(markup).toContain(`>${game.boss.value.replace("{hp}", "20").replace("{max}", "20")}<`);
   });
 
   test("no counts: no ring of the backlog and no invented zero; an empty Dashboard still has its core and orbits", () => {
@@ -203,7 +207,10 @@ describe("Dashboard hero: the Constellation (V3 V2)", () => {
     expect(empty).toContain('data-constellation-2d=""');
     expect(empty).not.toContain("data-star=");
     expect(empty.match(/data-orbit-ring="/g)).toHaveLength(4);
-    expect(empty).toContain(`>${dict.dashboardBacklogClear}<`);
+    // Nothing waited: there is no boss, and no victory is claimed.
+    expect(empty).toContain('data-game-boss="none"');
+    expect(empty).toContain(`>${game.boss.none}<`);
+    expect(unavailable).toContain(`>${game.boss.unavailable}<`);
   });
 
   test("the hero can be put away with a plain button (no pressed state, no tabs)", () => {

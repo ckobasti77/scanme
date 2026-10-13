@@ -87,6 +87,30 @@ describe("G then a letter", () => {
   });
 });
 
+describe("G then V opens the Vitrina (V4)", () => {
+  test("G V is the Vitrina, in either case", () => {
+    const first = press(SHORTCUT_IDLE, "g");
+    expect(press(first.state, "v", { at: 1100 })).toEqual({ state: SHORTCUT_IDLE, action: { type: "vitrina" } });
+    expect(press(press(SHORTCUT_IDLE, "G").state, "V", { at: 1100 }).action).toEqual({ type: "vitrina" });
+  });
+
+  test("V alone, and V after the sequence ran out, do nothing", () => {
+    expect(press(SHORTCUT_IDLE, "v").action).toBeNull();
+    const first = press(SHORTCUT_IDLE, "g");
+    expect(press(first.state, "v", { at: 1000 + GO_SEQUENCE_MS + 1 }).action).toBeNull();
+  });
+
+  test("it stays silent in a field for typing, with a dialog open and with a modifier", () => {
+    const first = press(SHORTCUT_IDLE, "g");
+    expect(press(first.state, "v", { at: 1100, editable: true }).action).toBeNull();
+    expect(press(first.state, "v", { at: 1100, modal: true }).action).toBeNull();
+    expect(press(first.state, "v", { at: 1100, ctrlKey: true }).action).toBeNull();
+    // G typed into a field never starts the sequence, so a V after it (outside the field) opens nothing.
+    const typed = press(SHORTCUT_IDLE, "g", { editable: true });
+    expect(press(typed.state, "v", { at: 1100 }).action).toBeNull();
+  });
+});
+
 describe("slash and question mark", () => {
   test("/ is page search", () => {
     expect(press(SHORTCUT_IDLE, "/").action).toEqual({ type: "pageSearch" });
@@ -212,7 +236,8 @@ describe("the shortcut table and the dictionary", () => {
   });
   test("the go group lists G plus the letter of each area", () => {
     const go = ADMIN_SHORTCUT_GROUPS.find((group) => group.id === "go");
-    expect(go?.items.map((item) => item.keys.join(" "))).toEqual(AREAS.map(([key]) => `G ${key.toUpperCase()}`));
+    // V4: after the areas, G V opens the Vitrina (a dialog, not an area).
+    expect(go?.items.map((item) => item.keys.join(" "))).toEqual([...AREAS.map(([key]) => `G ${key.toUpperCase()}`), "G V"]);
     expect(go?.items.every((item) => item.sequence)).toBe(true);
   });
 });

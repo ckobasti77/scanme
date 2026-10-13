@@ -8,6 +8,7 @@ import { PreviewDelay } from "@/components/admin/reveal/preview-delay";
 import { adminV1Sr } from "@/lib/i18n/sr/admin-v1";
 import type { Metadata } from "next";
 import { adminTitle } from "@/lib/admin-v2/frame/titles";
+import { PREVIEW_GAME } from "@/components/admin/game/game-fixtures";
 
 export const metadata: Metadata = { title: adminTitle(adminV1Sr.dashboardTitle), robots: { index: false, follow: false } };
 
@@ -31,7 +32,7 @@ export default async function AdminDashboardPreviewPage({
   const toStep = sazvezdje === "1" ? 1 : sazvezdje === "2" ? 2 : null;
   const fixture = dashboardFixture(state);
   return (
-    <AdminShell previewIdentity={adminV1Sr.fixtureIdentity} activePathname="/admin" previewHud={PREVIEW_HUD}>
+    <AdminShell previewIdentity={adminV1Sr.fixtureIdentity} previewGame={PREVIEW_GAME} activePathname="/admin" previewHud={PREVIEW_HUD}>
       <PreviewDelay ms={delay}>
         {toStep ? (
           <DashboardPreviewSteps fixtures={[fixture, dashboardFixture(state, toStep)]} delayMs={STEP_DELAY_MS} previewAim={previewAim} />

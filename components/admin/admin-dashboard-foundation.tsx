@@ -34,6 +34,10 @@ import { useQuietMode } from "@/components/admin/admin-ui/admin-toast";
 import { useAdminUrlState } from "@/components/admin/admin-ui/use-admin-query-state";
 import { Constellation, type ConstellationHandle } from "@/components/admin/dashboard/constellation";
 import { dashboardHeroStore } from "@/components/admin/dashboard/hero-choice";
+import { BossBar } from "@/components/admin/game/boss-bar";
+import { ComboMeter } from "@/components/admin/game/combo-meter";
+import { useGame, useGameApi } from "@/components/admin/game/game-context";
+import { GameTeam } from "@/components/admin/game/game-parts";
 import { AdminPageHeader } from "@/components/admin/frame/admin-page-header";
 import { prefersReducedMotion, useAdminGsap } from "@/components/admin/frame/use-admin-gsap";
 import { ADMIN_NAV_INTENT_EVENT } from "@/components/admin/reveal/admin-reveal-root";
@@ -44,6 +48,8 @@ import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { backlogRing } from "@/lib/admin-v2/constellation/layout";
 import type { BacklogRing, ConstellationItem, OrbitIndex, Star } from "@/lib/admin-v2/constellation/types";
+import { bossView } from "@/lib/admin-v2/game/boss";
+import type { BossView } from "@/lib/admin-v2/game/types";
 import { dashboardScope, inboxMissions, reactionMissions, taskMissions } from "@/lib/admin-v2/lists/dashboard-missions";
 import { ADMIN_DURATION, ADMIN_EASE } from "@/lib/admin-v2/motion";
 import { DASHBOARD_URL_FIELDS } from "@/lib/admin-v2/sidebar/configs/pages";
@@ -142,6 +148,9 @@ export function AdminDashboardFoundation({
           <DashboardWidgetBoundary>
             {fixture ? <ProductWidget data={fixture.products} /> : <ProductLive />}
           </DashboardWidgetBoundary>
+          {/* V4 — the week of the team in one thin row: the first three and me. It stands below „Za reakciju“,
+              so the hero and the first rows of the list keep the first screen (the rule of V2). */}
+          <GameTeam variant="strip" href="/admin/tim" className={fullRow} />
           <DashboardWidgetBoundary className="min-w-0 @4xl:col-span-2 @6xl:col-span-1">
             {fixture ? <FinanceWidget data={fixture.finance} /> : <FinanceLive now={now} />}
           </DashboardWidgetBoundary>
@@ -183,6 +192,9 @@ function ReactionLoading() {
 type ReactionItem = ReactionData["items"][number];
 type ReactionDialog = { mode: "snooze" | "resolve" | null; actionItemId: Id<"actionItems"> };
 
+/** Dev preview: how long the TEST answer to „Reši“ takes (the dialog has closed by then). */
+const PREVIEW_ANSWER_MS = 300;
+
 const quietButtonClass = "inline-flex min-h-11 shrink-0 items-center rounded-full px-3 text-xs font-semibold text-[var(--admin-text-muted)] transition-colors hover:bg-[var(--admin-surface-muted)] hover:text-[var(--admin-text)] focus-visible:outline-2 focus-visible:outline-offset-2 lg:min-h-8";
 
 function ReactionBundle({ data, now, scope, fixture = false, previewAim }: { data: ReactionData; now: number; scope: DashboardScope; fixture?: boolean; previewAim?: string }) {
@@ -206,12 +218,39 @@ function ReactionBundle({ data, now, scope, fixture = false, previewAim }: { dat
     [data.items],
   );
   const byId = useMemo(() => new Map(data.items.map((item) => [item.action.causeId, item])), [data.items]);
-  // The largest backlog seen while the page is open: the ring and the bar shorten from it (V4 keeps the day).
+  // V4 — the backlog is the boss of the day: the game of the frame keeps it (the counts of „Sve“ and the
+  // largest backlog seen today on this device). Until the game has its numbers, and outside a frame, the
+  // numbers of this page stand in (scope „Sve“ only). The boss belongs to the team: in „Moje“ its bar still
+  // shows the team's backlog (its help says so), but the ring around the core is not drawn, because every
+  // star of that picture is mine.
+  const game = useGame();
+  const gameApi = useGameApi();
   const [hpMax, setHpMax] = useState(0);
-  const backlog = backlogRing(data.counts, hpMax);
-  if (backlog && backlog.hpMax > hpMax) setHpMax(backlog.hpMax);
+  const local = scope === "all" ? backlogRing(data.counts, hpMax) : null;
+  if (local && local.hpMax > hpMax) setHpMax(local.hpMax);
+  const boss: BossView = game.view.boss.kind !== "unavailable" || scope !== "all" || !data.counts ? game.view.boss : bossView(data.counts, { work: false, clear: false, bossMax: hpMax, bossDown: null });
+  const backlog = scope === "all" ? bossRing(boss) : null;
+  // Dev preview: the TEST game follows the backlog of the TEST Dashboard.
+  const previewGame = fixture ? gameApi.preview : null;
+  const previewCounts = scope === "all" ? data.counts : undefined;
+  useEffect(() => {
+    if (previewGame && previewCounts !== undefined) previewGame.setCounts(previewCounts ? { urgent: previewCounts.urgent, needsReply: previewCounts.needsReply, today: previewCounts.today } : null);
+  }, [previewGame, previewCounts]);
 
   const open = useCallback((mode: "snooze" | "resolve", item: ReactionItem) => setDialog({ mode, actionItemId: item.action.actionItemId }), []);
+  // V4 — the spark of the XP a solved item carries starts at its star (or at its row when the hero is hidden).
+  const onResolved = useCallback(
+    (actionItemId: Id<"actionItems">) => {
+      const id = data.items.find((item) => item.action.actionItemId === actionItemId)?.action.causeId;
+      const star = id && handle?.host ? handle.project(id) : null;
+      const box = star ? handle?.host?.getBoundingClientRect() : null;
+      const dot = id ? list.current?.querySelector(`[data-reaction-row="${CSS.escape(id)}"] [data-reaction-dot]`)?.getBoundingClientRect() : null;
+      gameApi.aim(star && box ? { x: box.left + star.x, y: box.top + star.y } : dot ? { x: dot.left + dot.width / 2, y: dot.top + dot.height / 2 } : null);
+      // Dev preview: the TEST journal gets its row a moment later, as the answer of the server would come.
+      if (fixture) window.setTimeout(() => gameApi.preview?.act("resolved"), PREVIEW_ANSWER_MS);
+    },
+    [data.items, handle, gameApi, fixture],
+  );
   const onPick = useCallback(
     (star: Star) => {
       const item = byId.get(star.id);
@@ -268,6 +307,7 @@ function ReactionBundle({ data, now, scope, fixture = false, previewAim }: { dat
             counts={data.counts}
             now={now}
             hpMax={hpMax}
+            backlog={backlog}
             aimed={rowAim}
             onStarHover={setStarAim}
             onPick={onPick}
@@ -285,12 +325,16 @@ function ReactionBundle({ data, now, scope, fixture = false, previewAim }: { dat
               <p className="text-xs leading-4 text-[var(--admin-text-muted)]">{adminV1Sr.dashboardConstellationHint}</p>
             </div>
             {data.counts ? <SignalStrip counts={data.counts} compact /> : <p className="text-sm leading-5 text-[var(--admin-text-muted)]">{adminV1Sr.dashboardProjectionUnavailableTitle}</p>}
-            {backlog ? <BacklogBar backlog={backlog} /> : null}
+            <div data-dashboard-boss="" className="grid min-w-0 gap-2">
+              <BossBar boss={boss} event={game.bossEvent} />
+              <ComboMeter combo={game.view.combo} now={game.now} />
+            </div>
           </div>
         </AdminPanel>
       )}
+
       <ReactionList data={data} now={now} lit={starAim} onAim={setRowAim} onDialog={open} panelRef={list} />
-      {dialog ? <ActionDialog key={dialog.actionItemId} mode={dialog.mode} onOpenChange={(next) => { if (!next) setDialog({ ...dialog, mode: null }); }} actionItemId={dialog.actionItemId} fixture={fixture} /> : null}
+      {dialog ? <ActionDialog key={dialog.actionItemId} mode={dialog.mode} onOpenChange={(next) => { if (!next) setDialog({ ...dialog, mode: null }); }} actionItemId={dialog.actionItemId} fixture={fixture} onResolved={onResolved} /> : null}
       {hero === "list" ? null : <AimLine aimed={rowAim} handle={handle} quiet={quiet} />}
     </>
   );
@@ -327,20 +371,11 @@ function SignalStrip({ counts, compact = false }: { counts: NonNullable<Reaction
   return <AdminPanel className={cn(panelClass, "grid grid-cols-2 divide-x divide-y divide-[var(--admin-border)] @xl:grid-cols-4 @xl:divide-y-0")}>{cells}</AdminPanel>;
 }
 
-/** The backlog of the day as a number and a bar: the same share as the ring around the core. */
-function BacklogBar({ backlog }: { backlog: BacklogRing }) {
-  const value = backlog.hpMax === 0 ? adminV1Sr.dashboardBacklogClear : fmt(adminV1Sr.dashboardBacklogValue, { hp: backlog.hp, max: backlog.hpMax });
-  return (
-    <div data-dashboard-backlog="" title={adminV1Sr.dashboardBacklogHelp} className="grid gap-1.5">
-      <p className="flex items-baseline justify-between gap-3 text-xs font-semibold">
-        <span className="text-[var(--admin-text-muted)]">{adminV1Sr.dashboardBacklogLabel}</span>
-        <span className="font-mono tabular-nums">{value}</span>
-      </p>
-      <div role="progressbar" aria-label={adminV1Sr.dashboardBacklogLabel} aria-valuemin={0} aria-valuemax={backlog.hpMax} aria-valuenow={backlog.hp} aria-valuetext={value} className="h-1.5 overflow-hidden rounded-full bg-[var(--admin-surface-muted)]">
-        <span className="block h-full origin-left rounded-full bg-[var(--admin-danger)] transition-transform duration-[var(--admin-dur-3)] ease-[var(--admin-ease-out)] motion-reduce:transition-none" style={{ transform: `scaleX(${backlog.share})` }} />
-      </div>
-    </div>
-  );
+/** The ring of the backlog around the core of the Constellation: the health of the boss of the day; null: not known. */
+function bossRing(boss: BossView): BacklogRing | null {
+  if (boss.kind === "alive") return { hp: boss.hp, hpMax: boss.hpMax, share: boss.share };
+  if (boss.kind === "down") return { hp: 0, hpMax: boss.hpMax, share: 0 };
+  return boss.kind === "none" ? { hp: 0, hpMax: 0, share: 0 } : null;
 }
 
 function ReactionList({ data, now, lit, onAim, onDialog, panelRef }: {
@@ -454,7 +489,7 @@ function orbitLabel(orbit: OrbitIndex) {
 
 const reactionContext = (item: ReactionItem) => [item.contextLabel, item.contextCode].filter(Boolean).join(" · ");
 
-function ActionDialog({ mode, onOpenChange, actionItemId, fixture }: { mode: "snooze" | "resolve" | null; onOpenChange: (open: boolean) => void; actionItemId: Id<"actionItems">; fixture: boolean }) {
+function ActionDialog({ mode, onOpenChange, actionItemId, fixture, onResolved }: { mode: "snooze" | "resolve" | null; onOpenChange: (open: boolean) => void; actionItemId: Id<"actionItems">; fixture: boolean; onResolved: (actionItemId: Id<"actionItems">) => void }) {
   const snooze = useMutation(api.adminActions.snoozeFromDashboard);
   const resolve = useMutation(api.adminActions.resolveManualFromDashboard);
   const [reason, setReason] = useState("");
@@ -466,10 +501,14 @@ function ActionDialog({ mode, onOpenChange, actionItemId, fixture }: { mode: "sn
     try {
       if (fixture) {
         onOpenChange(false); setReason(""); setUntil("");
+        if (mode === "resolve") onResolved(actionItemId);
         return;
       }
       if (mode === "snooze") await snooze({ actionItemId, reason, until: new Date(until).getTime() });
-      else if (mode === "resolve") await resolve({ actionItemId, note: reason });
+      else if (mode === "resolve") {
+        await resolve({ actionItemId, note: reason });
+        onResolved(actionItemId);
+      }
       onOpenChange(false); setReason(""); setUntil("");
     } catch { setError(true); } finally { setPending(false); }
   }
