@@ -1,0 +1,122 @@
+{
+  "version": 1,
+  "eventCode": "auto-moto-fest-2026",
+  "participations": [
+    {
+      "externalKey": "auto-moto-fest-2026-audi-t",
+      "accountExternalKey": "SMK-SAJAM-26-AUDI-T",
+      "businessExternalKey": "SML-SAJAM-26-AUDI-T",
+      "clientSegment": "event_only",
+      "brands": [
+        {
+          "externalKey": "audi-t",
+          "name": "AUDI_T",
+          "stand": {
+            "externalKey": "auto-moto-fest-2026-stand-audi-t",
+            "code": "1",
+            "mapLocationId": "hala-1"
+          },
+          "models": [
+            {
+              "externalKey": "auto-moto-fest-2026-audi-t-rs3-t",
+              "displayName": "RS3_T",
+              "slug": "rs3-t",
+              "priceText": "Cena na upit",
+              "packageTier": "advanced",
+              "packageActiveFrom": "2026-10-30T00:00:00+01:00",
+              "specifications": [
+                {
+                  "label": "Snaga",
+                  "value": "294 kW (400 KS)",
+                  "order": 1
+                },
+                {
+                  "label": "Obrtni moment",
+                  "value": "500 Nm",
+                  "order": 2
+                },
+                {
+                  "label": "Ubrzanje 0-100 km/h",
+                  "value": "3,8 s",
+                  "order": 3
+                },
+                {
+                  "label": "Maksimalna brzina",
+                  "value": "250 km/h",
+                  "order": 4
+                }
+              ],
+              "photoUrl": "https://scanme.rs/fair/auto-moto-fest-2026/audi-rs-3-showroom.png",
+              "passportEligible": true,
+              "sortOrder": 1
+            },
+            {
+              "externalKey": "auto-moto-fest-2026-audi-t-a3-t",
+              "displayName": "A3_T",
+              "slug": "a3-t",
+              "priceText": "Cena na upit",
+              "packageTier": "advanced",
+              "packageActiveFrom": "2026-10-30T00:00:00+01:00",
+              "specifications": [
+                {
+                  "label": "Snaga",
+                  "value": "110 kW (150 KS)",
+                  "order": 1
+                },
+                {
+                  "label": "Obrtni moment",
+                  "value": "250 Nm",
+                  "order": 2
+                },
+                {
+                  "label": "Ubrzanje 0-100 km/h",
+                  "value": "8,4 s",
+                  "order": 3
+                },
+                {
+                  "label": "Maksimalna brzina",
+                  "value": "232 km/h",
+                  "order": 4
+                }
+              ],
+              "passportEligible": true,
+              "sortOrder": 2
+            },
+            {
+              "externalKey": "auto-moto-fest-2026-audi-t-q4-t",
+              "displayName": "Q4_T",
+              "slug": "q4-t",
+              "priceText": "Cena na upit",
+              "packageTier": "advanced",
+              "packageActiveFrom": "2026-10-30T00:00:00+01:00",
+              "specifications": [
+                {
+                  "label": "Snaga",
+                  "value": "210 kW (286 KS)",
+                  "order": 1
+                },
+                {
+                  "label": "Obrtni moment",
+                  "value": "545 Nm",
+                  "order": 2
+                },
+                {
+                  "label": "Ubrzanje 0-100 km/h",
+                  "value": "6,6 s",
+                  "order": 3
+                },
+                {
+                  "label": "Maksimalna brzina",
+                  "value": "180 km/h",
+                  "order": 4
+                }
+              ],
+              "passportEligible": true,
+              "sortOrder": 3
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

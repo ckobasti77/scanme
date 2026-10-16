@@ -29,4 +29,20 @@ describe("fairHaptic", () => {
     vi.stubGlobal("navigator", { vibrate: () => { throw new Error("blocked"); } });
     expect(() => fairHaptic(8)).not.toThrow();
   });
+
+  test("iosTick: without vibrate, clicks one hidden native switch (reused)", () => {
+    const click = vi.fn();
+    const label = { style: {} as Record<string, string>, isConnected: true, setAttribute: vi.fn(), click, innerHTML: "" };
+    const appendChild = vi.fn();
+    vi.stubGlobal("navigator", {});
+    vi.stubGlobal("document", { body: { appendChild }, createElement: vi.fn(() => label) });
+    fairHaptic(8);
+    expect(click).not.toHaveBeenCalled();
+    fairHaptic(8, { iosTick: true });
+    fairHaptic([8, 24], { iosTick: true });
+    expect(click).toHaveBeenCalledTimes(2);
+    expect(appendChild).toHaveBeenCalledTimes(1);
+    expect(label.innerHTML).toContain('type="checkbox" switch');
+  });
 });
+

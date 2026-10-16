@@ -3,6 +3,8 @@ const STORAGE_KEY = "scanme:fair-passport-visits:v1";
 type PassportVisitDocument = {
   version: 1;
   seen: Record<string, string[]>;
+  /** Stamp passport: when each seen model was stuck on this device (ms). */
+  stuckAt: Record<string, Record<string, number>>;
 };
 
 type PassportVisitStorage = Pick<Storage, "getItem" | "setItem">;
@@ -12,7 +14,7 @@ function entryKey(eventId: string, passportId: string) {
 }
 
 function emptyDocument(): PassportVisitDocument {
-  return { version: 1, seen: {} };
+  return { version: 1, seen: {}, stuckAt: {} };
 }
 
 function readDocument(storage: PassportVisitStorage): PassportVisitDocument {
@@ -30,7 +32,19 @@ function readDocument(storage: PassportVisitStorage): PassportVisitDocument {
       if (!Array.isArray(ids)) continue;
       seen[key] = [...new Set(ids.filter((id): id is string => typeof id === "string" && id.length > 0))];
     }
-    return { version: 1, seen };
+    const stuckSource = (value as { stuckAt?: unknown }).stuckAt;
+    const stuckAt: Record<string, Record<string, number>> = {};
+    if (stuckSource && typeof stuckSource === "object" && !Array.isArray(stuckSource)) {
+      for (const [key, dates] of Object.entries(stuckSource)) {
+        if (!dates || typeof dates !== "object" || Array.isArray(dates)) continue;
+        const entry: Record<string, number> = {};
+        for (const [modelId, at] of Object.entries(dates)) {
+          if (typeof at === "number" && Number.isFinite(at)) entry[modelId] = at;
+        }
+        stuckAt[key] = entry;
+      }
+    }
+    return { version: 1, seen, stuckAt };
   } catch {
     return emptyDocument();
   }
@@ -51,11 +65,18 @@ export function markPassportModelsSeen(
   eventId: string,
   passportId: string,
   modelIds: readonly string[],
+  /** Stamp passport: records the sticking moment for ids that have none yet. */
+  stuckAt?: number,
 ): boolean {
   try {
     const document = readDocument(storage);
     const key = entryKey(eventId, passportId);
     document.seen[key] = [...new Set([...(document.seen[key] ?? []), ...modelIds])];
+    if (stuckAt !== undefined) {
+      const dates = { ...(document.stuckAt[key] ?? {}) };
+      for (const modelId of modelIds) dates[modelId] ??= stuckAt;
+      document.stuckAt[key] = dates;
+    }
     storage.setItem(STORAGE_KEY, JSON.stringify(document));
     return true;
   } catch {
@@ -74,11 +95,23 @@ export function forgetPassportModelsSeen(
     const key = entryKey(eventId, passportId);
     const forgotten = new Set(modelIds);
     document.seen[key] = (document.seen[key] ?? []).filter((modelId) => !forgotten.has(modelId));
+    const dates = { ...(document.stuckAt[key] ?? {}) };
+    for (const modelId of forgotten) delete dates[modelId];
+    document.stuckAt[key] = dates;
     storage.setItem(STORAGE_KEY, JSON.stringify(document));
     return true;
   } catch {
     return false;
   }
+}
+
+/** Stamp passport: model id → moment it was stuck on this device. */
+export function passportStuckAt(
+  storage: PassportVisitStorage,
+  eventId: string,
+  passportId: string,
+): Record<string, number> {
+  return { ...(readDocument(storage).stuckAt[entryKey(eventId, passportId)] ?? {}) };
 }
 
 export const FAIR_PASSPORT_VISIT_CHANGE_EVENT = "scanme:fair-passport-visits-change";

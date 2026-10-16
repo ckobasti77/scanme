@@ -723,6 +723,27 @@ export interface FairPassportDict {
   devFavoritePublic: string;
   devNewStampPreview: string;
   devNewStampReplay: string;
+  // Stamp passport (Auto Moto Fest).
+  stampEyebrow: string;
+  stampCountOne: string;
+  stampCountMany: string;
+  stampComplete: string;
+  stampTapToStick: string;
+  stampStickAria: string;
+  stampNewState: string;
+  stampCollectedState: string;
+  stampLockedHint: string;
+  stampFindOnMap: string;
+  stampStuckStatus: string;
+  stampSealGhostTop: string;
+  stampSealGhostBottom: string;
+  stampFavoriteAsk: string;
+  stampFavoriteChosen: string;
+  stampFavoriteAria: string;
+  newStampEyebrowStamps: string;
+  newStampActionStamps: string;
+  newStampAriaStamps: string;
+  devResetStuck: string;
 }
 
 export interface AdminDomainDict {

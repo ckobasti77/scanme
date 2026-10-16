@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronRight, X } from "lucide-react";
+import { ChevronRight, Stamp, X } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { fairHaptic } from "@/lib/fair-client/haptics";
+import { fairEventPresentation } from "@/lib/fair-theme";
 import { fmt } from "@/lib/i18n/format";
 import { fairPassportSr } from "@/lib/i18n/sr/fair-passport";
 import type { FairPassportDict } from "@/lib/i18n/types";
@@ -38,6 +39,7 @@ export function NewStampCard({
   const leavingRef = useRef(false);
   const brand = brandName.replace(/^TEST\s+/i, "").trim();
   const href = `/sajam/${eventSlug}/pasosi/${brandSlug}?focus=${encodeURIComponent(modelSlug)}`;
+  const stamps = fairEventPresentation(eventSlug).passportStyle === "stamps";
 
   useEffect(() => {
     const root = rootRef.current;
@@ -81,20 +83,20 @@ export function NewStampCard({
 
   return (
     <div ref={rootRef} className={layout === "strip" ? `${styles.card} ${styles.strip}` : styles.card}>
-      <Link prefetch={false} href={href} className={styles.link} aria-label={fmt(dict.newStampAria, { brand })}>
+      <Link prefetch={false} href={href} className={styles.link} aria-label={fmt(stamps ? dict.newStampAriaStamps : dict.newStampAria, { brand })}>
         <span className={styles.tile} aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          {stamps ? <Stamp /> : <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <rect width="18" height="11" x="3" y="11" rx="2" />
             <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-          </svg>
+          </svg>}
           <i />
         </span>
         <span className={styles.copy}>
-          <span className={styles.eyebrow}>{dict.newStampEyebrow}</span>
+          <span className={styles.eyebrow}>{stamps ? dict.newStampEyebrowStamps : dict.newStampEyebrow}</span>
           <span className={styles.title}>{fmt(dict.newStampTitle, { brand })}</span>
         </span>
         <span className={styles.action} aria-hidden="true">
-          {dict.newStampAction}
+          {stamps ? dict.newStampActionStamps : dict.newStampAction}
           <ChevronRight />
         </span>
       </Link>

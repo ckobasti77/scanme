@@ -10,6 +10,7 @@ import { internal } from "./_generated/api";
 import schema from "./schema";
 import type { FairImportPayload } from "./fairImport";
 import payloadJson from "../docs/events/sajam-automobila-2026/intake/elektromobilnost-2026-2026-10-07/b1-payload.json";
+import amfPayloadJson from "../docs/events/auto-moto-fest-2026/intake/dev-2026-10-16/b1-payload.json";
 
 const modules = import.meta.glob("./**/*.ts");
 const NOW = Date.parse("2026-10-08T10:00:00+02:00");
@@ -103,4 +104,24 @@ test("the intake payload dry-runs clean, commits idempotently and publishes all 
   }));
   expect(state.models.every((row) => row.packageActivatedAt <= NOW)).toBe(true);
   expect(state.passports.map((row) => [state.brands.find((brand) => brand._id === row.brandId)?.name, row.status])).toEqual([["JMEV", "published"]]);
+});
+
+test("Auto Moto Fest: the DEV test intake (AUDI_T) imports and brings its passport", async () => {
+  vi.setSystemTime(Date.parse("2026-10-16T10:00:00+02:00"));
+  const t = await setup();
+  const amfPayload = amfPayloadJson as FairImportPayload;
+  const boot = await t.mutation(internal.fairSetup.bootstrapEvent, { actorEmail: ADMIN_EMAIL, eventCode: "auto-moto-fest-2026" });
+  expect(boot).toMatchObject({ event: "created", days: { created: 3 }, brands: { created: 1 } });
+  const event = await t.run((ctx) => ctx.db.get(boot.eventId));
+  expect(event).toMatchObject({ code: "auto-moto-fest-2026", title: "Auto Moto Fest 2026", venueName: "Hala Čair, Niš", status: "published" });
+
+  const dry = await t.query(internal.fairSetup.importDryRun, { payload: amfPayload });
+  expect(dry.issues.filter((issue) => issue.severity === "error")).toEqual([]);
+  await t.mutation(internal.fairSetup.importCommit, { payload: amfPayload, actorEmail: ADMIN_EMAIL });
+  const published = await t.mutation(internal.fairSetup.publishEventModels, { eventCode: "auto-moto-fest-2026", actorEmail: ADMIN_EMAIL });
+  expect([...published.published].sort()).toEqual(["a3-t", "q4-t", "rs3-t"]);
+
+  await t.finishAllScheduledFunctions(vi.runAllTimers);
+  const passports = await t.run((ctx) => ctx.db.query("fairPassportConfigs").collect());
+  expect(passports.map((row) => row.status)).toEqual(["published"]);
 });

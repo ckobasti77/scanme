@@ -1348,8 +1348,9 @@
   min-height: 100dvh;
   overflow-x: clip;
   background:
+    var(--fair-paper-tex, none) 0 0 / 420px 420px,
     radial-gradient(circle at 82% 5%, color-mix(in srgb, var(--fair-accent) 7%, transparent), transparent 28%),
-    #f7f8f8;
+    var(--fair-canvas, #f7f8f8);
 }
 
 .pageWithDock {
@@ -2869,7 +2870,7 @@
   bottom: 0;
   left: 0;
   padding: 18px 12px max(12px, env(safe-area-inset-bottom));
-  background: linear-gradient(180deg, rgb(247 248 248 / 0), #f7f8f8 30%);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--fair-canvas, #f7f8f8) 0%, transparent), var(--fair-canvas, #f7f8f8) 30%);
   pointer-events: none;
 }
 
