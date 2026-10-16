@@ -88,8 +88,9 @@ export function fairModelStand(event: { code: string }, model: { standMapLocatio
   const found = fairMapLocationById(event.code, model.standMapLocationId);
   if (!found) return null;
   const zone = fairMapSr.zones[found.zoneId];
+  const showStandNumber = event.code.replace(/^test-/, "") !== "auto-moto-fest-2026";
   const text =
-    found.location.kind === "stand" ? fmt(fairMapSr.standLocation, { label: found.location.label, zone }) : zone;
+    found.location.kind === "stand" && showStandNumber ? fmt(fairMapSr.standLocation, { label: found.location.label, zone }) : zone;
   return { text, href: `/sajam/${publicEventSlug}?stand=${encodeURIComponent(model.standMapLocationId)}` };
 }
 
