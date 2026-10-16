@@ -140,12 +140,14 @@ export function FairMapHeatLegend({
   view,
   failed,
   onRetry,
+  warm = false,
 }: {
   period: FairHeatPeriod;
   onPeriod: (period: FairHeatPeriod) => void;
   view: FairMapHeatView | null;
   failed: boolean;
   onRetry: () => void;
+  warm?: boolean;
 }) {
   const now = useMinuteClock();
   const gradient = useMemo(() => fairHeatGradientCss(), []);
@@ -175,7 +177,7 @@ export function FairMapHeatLegend({
         ) : view.enough ? (
           <div className={styles.heatScale}>
             <span>{dict.heatLegendLess}</span>
-            <span className={styles.heatBar} style={{ backgroundImage: gradient }} aria-hidden="true" />
+            <span className={styles.heatBar} style={{ backgroundImage: warm ? "linear-gradient(90deg, var(--fair-accent-soft), var(--fair-accent))" : gradient }} aria-hidden="true" />
             <span>{dict.heatLegendMore}</span>
           </div>
         ) : (

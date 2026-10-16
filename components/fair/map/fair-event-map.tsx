@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { List, LocateFixed, MousePointerClick, Search, X } from "lucide-react";
+import { Check, List, LocateFixed, Map as MapIcon, MousePointerClick, Search, Stamp, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from "react";
 import type { FairPassportCatalogEntry, FairPassportProgress, FairPassportState, FairSponsoredRotationView } from "@/lib/fair-contract";
 import {
@@ -12,6 +12,7 @@ import {
   fairMapFilterCounts,
   fairMapLitLocations,
   fairMapLocationSummary,
+  fairMapProgressByLocation,
   fairMapReadDeepLink,
   fairMapScanmeTarget,
   fairMapSearch,
@@ -24,7 +25,7 @@ import {
 } from "@/lib/fair-map";
 import { fmt } from "@/lib/i18n/format";
 import { fairMapSr as dict } from "@/lib/i18n/sr/fair-map";
-import { ZoneCanvas, type ZoneFocusRequest } from "./fair-map-canvas";
+import { ZoneCanvas, type FairMapProgressMarker, type ZoneFocusRequest } from "./fair-map-canvas";
 import { FairMapCloseButton, FairMapSheet, FairMapStandDetail, FairMapUnlocatedDetail, type FairMapPassportInfo } from "./fair-map-detail";
 import { FairMapDirectory } from "./fair-map-directory";
 import { FairMapHeatLegend, FairMapHeatSwitch, fairMapHeatView, useFairMapHeatData, useFairMapHeatPreference } from "./fair-map-heat";
@@ -108,6 +109,8 @@ export type FairEventMapProps = {
   display: boolean;
   /** `?zona=` / `?stand=` of the request. */
   initialLink?: { zona?: string | string[]; stand?: string | string[] };
+  /** DEV preview entry state; the public surface always opens on the map. */
+  initialMode?: "map" | "directory";
 };
 
 /** The public map: the rotation followed live over Convex (K2). */
@@ -124,6 +127,7 @@ export function FairEventMapView({
   rotation,
   display,
   initialLink,
+  initialMode = "map",
   passportProgress,
 }: Omit<FairEventMapProps, "initialRotation"> & {
   rotation: FairSponsoredRotationView | null;
@@ -142,6 +146,8 @@ export function FairEventMapView({
   const reducedMotion = useMedia(REDUCED_MOTION);
   const isDesktop = useMedia(DESKTOP);
   const isWide = useMedia(WIDE);
+  const autoMoto = eventSlug.replace(/^test-/, "") === "auto-moto-fest-2026";
+  const showStandNumbers = !autoMoto;
   // SAJAM SUPER Korak 3: „Gde je gužva“ — off by default, never on the fair display.
   const heatPreference = useFairMapHeatPreference();
   const heatOn = !display && heatPreference.on;
@@ -157,8 +163,10 @@ export function FairEventMapView({
   const [activeResult, setActiveResult] = useState(-1);
   const [selection, setSelection] = useState<Selection | null>(() => (link.locationId ? { locationId: link.locationId } : null));
   const [focus, setFocus] = useState<ZoneFocusRequest | null>(() => (link.locationId ? { locationId: link.locationId, key: 1, anchorY: 0.4 } : null));
+  const [viewMode, setViewMode] = useState<"map" | "directory">(link.locationId ? "map" : initialMode);
   const focusKey = useRef(1);
   const mapRef = useRef<HTMLDivElement>(null);
+  const directoryRef = useRef<HTMLDivElement>(null);
 
   // A deep-linked stand on a phone: bring the map up so the stand shows above the sheet.
   useEffect(() => {
@@ -185,25 +193,33 @@ export function FairEventMapView({
       ? { label: fmt(dict.passportProgress, { stamped: own.stamped, required: own.required }), aria: fmt(dict.passportProgressAria, { brand: entry.brandName, stamped: own.stamped, required: own.required }) }
       : { label: null, aria: dict.passportLabel };
   };
-  const passportMarkers = useMemo(() => {
-    const markers = new Map<string, string>();
-    for (const zone of view.zones) {
-      for (const row of zone.locations) {
-        const entries = [...new Map(row.stands.flatMap((placedStand) => placedStand.passports).map((entry) => [entry.passportId, entry])).values()];
-        if (!entries.length) continue;
-        markers.set(
-          row.location.id,
-          entries
-            .map((entry) => {
-              const own = fairPassportProgressFor(passport.status === "ready" ? passport.progress : null, entry);
-              return own ? fmt(dict.passportProgress, { stamped: own.stamped, required: own.required }) : "…";
-            })
-            .join(" · "),
-        );
+  const progressMarkers = useMemo(() => {
+    if (!autoMoto) {
+      const markers = new Map<string, FairMapProgressMarker>();
+      for (const zone of view.zones) {
+        for (const row of zone.locations) {
+          const entries = [...new Map(row.stands.flatMap((placedStand) => placedStand.passports).map((entry) => [entry.passportId, entry])).values()];
+          if (!entries.length) continue;
+          const label = entries.map((entry) => {
+            const own = fairPassportProgressFor(passport.status === "ready" ? passport.progress : null, entry);
+            return own ? fmt(dict.passportProgress, { stamped: own.stamped, required: own.required }) : "…";
+          }).join(" · ");
+          markers.set(row.location.id, { state: "loading", stamped: 0, required: 0, label, aria: dict.passportLabel });
+        }
       }
+      return markers;
     }
-    return markers;
-  }, [view, passport.status, passport.progress]);
+    const progress = fairMapProgressByLocation(view, passport.status === "ready" ? passport.progress : null);
+    return new Map<string, FairMapProgressMarker>(
+      [...progress].map(([locationId, own]) => {
+        if (own.state === "loading") return [locationId, { ...own, label: "…", aria: dict.passportLoading }];
+        if (own.state === "available") return [locationId, { ...own, label: dict.passportAvailable, aria: `${dict.passportLabel}: ${dict.passportAvailable}` }];
+        if (own.state === "complete") return [locationId, { ...own, label: "", aria: dict.passportComplete }];
+        const label = fmt(dict.passportProgress, { stamped: own.stamped, required: own.required });
+        return [locationId, { ...own, label, aria: `${dict.passportLabel}: ${label}` }];
+      }),
+    );
+  }, [autoMoto, view, passport.status, passport.progress]);
 
   const syncUrl = (zone: FairMapZoneId | null, locationId: string | null) => {
     const search = fairMapDeepLinkSearch(window.location.search, { zoneId: zone, locationId });
@@ -220,6 +236,7 @@ export function FairEventMapView({
     setZoneId(hit.zoneId);
     setSelection({ locationId, ...(participationId ? { participationId } : {}) });
     setFocus({ locationId, key: focusKey.current, anchorY: isDesktop ? 0.5 : 0.36 });
+    setViewMode("map");
     setQuery("");
     syncUrl(hit.zoneId, locationId);
     // On a phone the sheet covers the lower half: bring the map to the top so the stand stays visible.
@@ -236,6 +253,25 @@ export function FairEventMapView({
     setSelection(null);
     syncUrl(zoneId, null);
   };
+
+  const toggleDirectory = () => {
+    if (isDesktop) {
+      directoryRef.current?.scrollIntoView({ block: "start", behavior: reducedMotion ? "auto" : "smooth" });
+      return;
+    }
+    if (viewMode === "directory") {
+      setViewMode("map");
+      return;
+    }
+    setSelection(null);
+    syncUrl(zoneId, null);
+    setViewMode("directory");
+  };
+
+  useEffect(() => {
+    if (!autoMoto || viewMode !== "map" || !selectedLocationId || display) return;
+    mapRef.current?.scrollIntoView({ block: "nearest", behavior: "auto" });
+  }, [autoMoto, display, selectedLocationId, viewMode]);
 
   const changeQuery = (value: string) => {
     setQuery(value);
@@ -282,13 +318,20 @@ export function FairEventMapView({
   const bubble = summary
     ? summary.stands.length === 1
       ? summary.stands[0].stand.exhibitorName
-      : `${fairMapPlaceText(summary.location, summary.zoneId, summary.label)} · ${fairMapExhibitorCount(summary.stands.length)}`
+      : `${fairMapPlaceText(summary.location, summary.zoneId, summary.label, showStandNumbers)} · ${fairMapExhibitorCount(summary.stands.length)}`
     : null;
   const sheetOpen = !display && !isDesktop && (summary !== null || unlocated !== null);
 
   const detail = (headingId: string) =>
     summary ? (
-      <FairMapStandDetail summary={summary} eventSlug={eventSlug} passportInfo={passportInfo} headingId={headingId} action={<FairMapCloseButton onClose={closeSelection} />} />
+      <FairMapStandDetail
+        summary={summary}
+        eventSlug={eventSlug}
+        passportInfo={passportInfo}
+        headingId={headingId}
+        showStandNumber={showStandNumbers}
+        action={<FairMapCloseButton onClose={closeSelection} />}
+      />
     ) : unlocated ? (
       <FairMapUnlocatedDetail exhibitor={unlocated} placeText={unlocatedText(unlocated)} headingId={headingId} action={<FairMapCloseButton onClose={closeSelection} />} />
     ) : null;
@@ -299,7 +342,7 @@ export function FairEventMapView({
         <FairMapRotationCard
           state={rotationState}
           display={display}
-          locationText={rotationStand ? fairMapPlaceText(rotationStand.location, rotationStand.zoneId) : dict.standUnplaced}
+          locationText={rotationStand ? fairMapPlaceText(rotationStand.location, rotationStand.zoneId, undefined, showStandNumbers) : dict.standUnplaced}
           onShowStand={
             rotationStand
               ? () => {
@@ -355,7 +398,7 @@ export function FairEventMapView({
             <h2 id="fair-map-scanme-title" className={styles.guideTitle}>
               {dict.scanmeQuickTitle}
             </h2>
-            <p className={styles.scanmeQuickPlace}>{fairMapPlaceText(scanmePlace.location, scanmePlace.zoneId)}</p>
+            <p className={styles.scanmeQuickPlace}>{fairMapPlaceText(scanmePlace.location, scanmePlace.zoneId, undefined, showStandNumbers)}</p>
             <p className={styles.hint}>{dict.scanmeBody}</p>
           </div>
           <button type="button" className={styles.secondaryButton} onClick={findScanMe}>
@@ -382,9 +425,17 @@ export function FairEventMapView({
   const searchOpen = searchFocused || query !== "";
   const activeHit = activeResult >= 0 && activeResult < results.length ? activeResult : -1;
   const pick = (result: (typeof results)[number]) => (result.place ? selectLocation(result.place.location.id, result.participationId) : selectUnlocated(result.participationId));
+  const showingDirectory = !isDesktop && viewMode === "directory";
+  const viewLabel = showingDirectory ? dict.showMap : dict.showDirectory;
 
   return (
-    <div className={styles.root} data-display={display ? "on" : undefined} data-panel={display ? undefined : panelOpen ? "detail" : "guide"}>
+    <div
+      className={styles.root}
+      data-display={display ? "on" : undefined}
+      data-panel={display ? undefined : panelOpen ? "detail" : "guide"}
+      data-event={autoMoto ? "auto-moto" : undefined}
+      data-view={display ? undefined : viewMode}
+    >
       {display ? (
         <section className={styles.intro} aria-labelledby="fair-map-intro-title">
           <div className={styles.introText}>
@@ -491,7 +542,9 @@ export function FairEventMapView({
                                   {" · "}
                                 </>
                               ) : null}
-                              {result.place ? fairMapPlaceText(result.place.location, result.place.zoneId) : unlocatedText({ withoutLocation: { zoneId: result.zoneHint } })}
+                              {result.place
+                                ? fairMapPlaceText(result.place.location, result.place.zoneId, undefined, showStandNumbers)
+                                : unlocatedText({ withoutLocation: { zoneId: result.zoneHint } })}
                             </span>
                           </span>
                         </li>
@@ -502,10 +555,18 @@ export function FairEventMapView({
               ) : null}
             </AnimatePresence>
           </div>
-          <button type="button" className={styles.findButton} onClick={findScanMe} disabled={!scanmeTarget} aria-label={dict.findScanMe}>
-            <LocateFixed aria-hidden="true" />
-            <span className={styles.findLabel}>{dict.findScanMe}</span>
-          </button>
+          {scanmeTarget ? (
+            <button type="button" className={styles.findButton} onClick={findScanMe} aria-label={dict.findScanMe}>
+              <LocateFixed aria-hidden="true" />
+              <span className={styles.findLabel}>{dict.findScanMe}</span>
+            </button>
+          ) : null}
+          {autoMoto ? (
+            <button type="button" className={styles.viewButton} aria-label={viewLabel} title={viewLabel} onClick={toggleDirectory}>
+              {showingDirectory ? <MapIcon aria-hidden="true" /> : <List aria-hidden="true" />}
+              <span>{showingDirectory ? dict.mapShort : dict.directoryShort}</span>
+            </button>
+          ) : null}
         </div>
       )}
 
@@ -553,6 +614,8 @@ export function FairEventMapView({
         </div>
       )}
 
+      {autoMoto && !hasExhibitors ? <p className={styles.emptyNote} role="status">{dict.listEmpty}</p> : null}
+
       <div ref={mapRef} className={styles.mapArea} data-all-zones={allZones} aria-describedby="fair-map-hint">
         <p id="fair-map-hint" className={styles.srOnly}>
           {dict.mapHint}
@@ -567,8 +630,9 @@ export function FairEventMapView({
             lit={lit}
             selectedLocationId={summary?.zoneId === zoneView.zone.id ? selectedLocationId : null}
             focus={focus && zoneView.zone.locations.some((row) => row.id === focus.locationId) ? focus : null}
-            highlight={rotationStand && rotationState && rotationStand.zoneId === zoneView.zone.id ? { location: rotationStand.location, key: rotationState.slotNumber } : null}
-            passportMarkers={passportMarkers}
+            highlight={!autoMoto && rotationStand && rotationState && rotationStand.zoneId === zoneView.zone.id ? { location: rotationStand.location, key: rotationState.slotNumber } : null}
+            progressMarkers={progressMarkers}
+            showStandNumbers={showStandNumbers}
             heat={heatView}
             heatOn={heatOn}
             bubble={isDesktop && !display ? bubble : null}
@@ -577,6 +641,21 @@ export function FairEventMapView({
         ))}
       </div>
 
+      {autoMoto && hasPassports && !display ? (
+        <div className={styles.mapCaption}>
+          <div className={styles.progressLegend} aria-label={dict.progressLegend}>
+            <span><Check aria-hidden="true" />{dict.progressCollected}</span>
+            <span><Stamp aria-hidden="true" />{dict.passportAvailable}</span>
+          </div>
+          {passport.status === "error" ? (
+            <p className={styles.progressError} role="status">
+              {dict.passportUnavailable}{" "}
+              <button type="button" onClick={passport.retry}>{dict.retry}</button>
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
       {heatOn ? (
         <FairMapHeatLegend
           period={heatPreference.period}
@@ -584,6 +663,7 @@ export function FairEventMapView({
           view={heatView}
           failed={heatData.failed}
           onRetry={heatData.retry}
+          warm={autoMoto}
         />
       ) : null}
 
@@ -603,14 +683,18 @@ export function FairEventMapView({
           })}
         </section>
       ) : (
-        <FairMapDirectory
-          groups={directory}
-          filter={filter}
-          selectedParticipationId={selectedParticipationId}
-          unlocatedText={unlocatedText}
-          onSelectPlace={(locationId, participationId) => selectLocation(locationId, participationId)}
-          onSelectUnlocated={selectUnlocated}
-        />
+        <div ref={directoryRef} className={styles.directorySlot}>
+          <FairMapDirectory
+            groups={directory}
+            filter={filter}
+            showStandNumbers={showStandNumbers}
+            expanded={autoMoto}
+            selectedParticipationId={selectedParticipationId}
+            unlocatedText={unlocatedText}
+            onSelectPlace={(locationId, participationId) => selectLocation(locationId, participationId)}
+            onSelectUnlocated={selectUnlocated}
+          />
+        </div>
       )}
 
       {display ? (

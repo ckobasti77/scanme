@@ -146,6 +146,7 @@ export interface FairMapDict {
   passportLoading: string;
   passportUnavailable: string;
   passportHint: string;
+  passportAvailable: string;
   scanmeStand: string;
   // N3: every exhibitor, shared locations, partner points, the rear area
   categories: Record<FairExhibitorCategory, string>;
@@ -161,6 +162,14 @@ export interface FairMapDict {
   // N4 map v2 (test map look, real data)
   introTitle: string;
   findScanMe: string;
+  showDirectory: string;
+  showMap: string;
+  directoryShort: string;
+  mapShort: string;
+  progressLegend: string;
+  progressCollected: string;
+  previewTestNotice: string;
+  mapTapHint: string;
   filtersLabel: string;
   filterAll: string;
   filterAria: string;

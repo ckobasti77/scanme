@@ -1,4 +1,5 @@
 import Image from "next/image";
+import type { ReactNode } from "react";
 import {
   siAudi,
   siBmw,
@@ -19,7 +20,7 @@ const icons: Record<string, SimpleIcon> = {
   volvo: siVolvo,
 };
 
-export function FairBrandMark({ brandName, className }: { brandName: string; className?: string }) {
+export function FairBrandMark({ brandName, className, fallback }: { brandName: string; className?: string; fallback?: ReactNode }) {
   const key = brandName.replace(/^TEST\s+/i, "").trim().toLocaleLowerCase("sr-Latn");
   const icon = icons[key];
 
@@ -28,7 +29,7 @@ export function FairBrandMark({ brandName, className }: { brandName: string; cla
   }
 
   if (!icon) {
-    return <span className={className} aria-hidden="true">{key.slice(0, 2).toUpperCase()}</span>;
+    return fallback ?? <span className={className} aria-hidden="true">{key.slice(0, 2).toUpperCase()}</span>;
   }
 
   return (

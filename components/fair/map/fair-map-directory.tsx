@@ -17,6 +17,8 @@ import styles from "./fair-event-map.module.css";
 type DirectoryProps = {
   groups: FairMapDirectoryGroup[];
   filter: FairMapFilter;
+  showStandNumbers?: boolean;
+  expanded?: boolean;
   selectedParticipationId: string | null;
   unlocatedText: (entry: FairMapExhibitorEntry) => string;
   onSelectPlace: (locationId: string, participationId: string) => void;
@@ -33,7 +35,8 @@ function DirectoryGroup({
   unlocatedText,
   onSelectPlace,
   onSelectUnlocated,
-}: Omit<DirectoryProps, "groups" | "filter"> & { group: FairMapDirectoryGroup; defaultOpen: boolean }) {
+  showStandNumbers = true,
+}: Omit<DirectoryProps, "groups" | "filter" | "expanded"> & { group: FairMapDirectoryGroup; defaultOpen: boolean }) {
   const [open, setOpen] = useState(defaultOpen);
   // The cascade belongs to the first showing only; an open-by-default group is already on screen.
   const [cascade, setCascade] = useState(false);
@@ -67,7 +70,7 @@ function DirectoryGroup({
           <ul className={styles.entries} data-cascade={cascade ? "on" : undefined}>
             {group.entries.map((entry, index) => {
               const [firstPlace, ...more] = entry.places;
-              const firstText = firstPlace ? fairMapPlaceText(firstPlace.location, firstPlace.zoneId) : unlocatedText(entry);
+              const firstText = firstPlace ? fairMapPlaceText(firstPlace.location, firstPlace.zoneId, undefined, showStandNumbers) : unlocatedText(entry);
               return (
                 <li key={entry.participationId} className={styles.entry} style={{ "--fair-map-cascade": Math.min(index, CASCADE_STEPS) } as CSSProperties}>
                   <button
@@ -87,7 +90,7 @@ function DirectoryGroup({
                   {more.length ? (
                     <div className={styles.morePlaces}>
                       {more.map((place) => {
-                        const text = fairMapPlaceText(place.location, place.zoneId);
+                        const text = fairMapPlaceText(place.location, place.zoneId, undefined, showStandNumbers);
                         return (
                           <button
                             key={place.stand.standId}
@@ -112,7 +115,7 @@ function DirectoryGroup({
   );
 }
 
-export function FairMapDirectory({ groups, filter, ...rest }: DirectoryProps) {
+export function FairMapDirectory({ groups, filter, showStandNumbers = true, expanded = false, ...rest }: DirectoryProps) {
   if (!groups.length) return null;
   return (
     <section className={styles.directory} aria-labelledby="fair-map-directory-title">
@@ -125,7 +128,7 @@ export function FairMapDirectory({ groups, filter, ...rest }: DirectoryProps) {
       <div className={styles.groups}>
         {groups.map((group) => (
           // A new filter starts the list over: one category opens, "Sve" starts collapsed.
-          <DirectoryGroup key={`${group.key}-${filter}`} group={group} defaultOpen={filter !== "sve"} {...rest} />
+          <DirectoryGroup key={`${group.key}-${filter}`} group={group} defaultOpen={expanded || filter !== "sve"} showStandNumbers={showStandNumbers} {...rest} />
         ))}
       </div>
     </section>
