@@ -166,3 +166,71 @@
     animation: none;
   }
 }
+
+:global(.fair-event--auto-moto) .state {
+  margin: 24px 12px;
+  border-radius: 12px;
+  background: var(--fair-paper-sheet) var(--fair-paper-tex) 0 0 / 420px 420px;
+  box-shadow: 0 8px 24px rgb(62 46 31 / 0.08);
+}
+
+:global(.fair-event--auto-moto) .state a {
+  background: var(--fair-accent-strong);
+}
+
+:global(.fair-event--auto-moto) .skeleton {
+  padding: 8px 12px 24px;
+}
+
+:global(.fair-event--auto-moto) .skeletonMain {
+  gap: 8px;
+}
+
+:global(.fair-event--auto-moto) .skeletonIntro {
+  display: none;
+}
+
+:global(.fair-event--auto-moto) :is(.skeletonBar, .skeletonPill) {
+  height: 44px;
+  border-radius: 8px;
+}
+
+:global(.fair-event--auto-moto) .skeletonMap {
+  height: auto;
+  overflow: hidden;
+  border: var(--fair-border-strong);
+  border-radius: 13px 19px 15px 17px;
+  background: var(--fair-paper-sheet) var(--fair-paper-tex) 0 0 / 420px 420px;
+}
+
+.skeletonPlan {
+  display: block;
+  width: calc(100% - 24px);
+  margin: 12px;
+  max-height: calc(100svh - var(--fair-header-height) - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 228px);
+}
+
+.skeletonPlan polygon {
+  fill: var(--fair-surface-muted);
+  stroke: var(--fair-line-strong);
+  stroke-width: 3px;
+}
+
+.skeletonLabel {
+  margin: 0;
+  padding: 16px;
+  border-top: 1px dashed var(--fair-line);
+  color: var(--fair-ink-muted);
+  font-size: 14px;
+  line-height: 24px;
+}
+
+@media (min-width: 1024px) {
+  :global(.fair-event--auto-moto) .skeleton {
+    padding-inline: 32px;
+  }
+
+  :global(.fair-event--auto-moto) .state {
+    margin-inline: auto;
+  }
+}

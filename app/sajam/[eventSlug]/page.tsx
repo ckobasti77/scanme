@@ -82,7 +82,7 @@ export default async function FairEventMapPage({
         <h1 style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)", whiteSpace: "nowrap" }}>
           {fmt(dict.metaTitle, { event: event.title })}
         </h1>
-        <Suspense fallback={<MapSkeleton />}>
+        <Suspense fallback={<MapSkeleton autoMoto={event.code.replace(/^test-/, "") === "auto-moto-fest-2026"} />}>
           <MapSection eventSlug={event.slug} eventCode={event.code} display={display} link={{ zona: query.zona, stand: query.stand }} />
         </Suspense>
       </main>
