@@ -1,0 +1,64 @@
+# Topografska AMF mapa - koordinacija, 17.10.2026.
+
+Radni checkout: scanme-amf-pasos, grana feature/amf-pasos-markice. Prihvacena vizuelna referenca je drugi topografski mockup, mockup-v4-topografska-2026-10-17.png. Ovaj rad ne menja pasose, pakete, bazu, event slugove, javni prekidac ni dev server.
+
+## Kratak rezultat
+
+Implementiran je novi AMF vektorski prikaz sa izohipsama, stvarnim postojecim oznakama brendova, pretragom, spiskom i malim redom Brend + Vozila. Izbor ne zumira. Svi izlagaci ostaju dostupni, placanje menja samo heat tretman. Kod je spreman za integraciju; ruta i stvarni paid/active podatak jos zahtevaju izmene paralelnog agenta iz tacki 1-4 ispod. Prethodni prikaz drugih sajmova nije prepravljan.
+
+## Integracija koju treba da uradi paralelni agent (izvan mog dozvoljenog opsega)
+
+1. **Placena usluga u zajednickom ucitavacu:** trenutni fairPublic.getEventMap/FairPublicMapStand ne salje ni paket ni status usluge. Mapa cita aditivno heatEligible: boolean sa svakog standa/izlagaca, kroz postojeci MapSection -> buildFairMapView. Eksplicitni boolean ima prednost. Ako ga nema, podrzani su packageTier na izlagacu ili brands[].models[].packageTier; postojece getFairEntitlements(tier).modelAnalytics odredjuje placeni paket. Najmanje jedan placeni paket vazi za celog izlagaca, ne samo za jedan njegov stand. Nepoznato NE znaci placeno: bez pouzdanog podatka prikaz ostaje siv. Ne koristiti postojanje pasosa, logotip ili broj skenova kao zamenu za placenu uslugu. Prekidac usluge NE SME povlaciti ucesce/stand iz javnog kataloga. Prikaz preuzima promenu posle osvezavanja/nove navigacije, kao postojeci server-side katalog.
+2. **Deljene lokacije:** postojece heat vrednosti su po mapLocationId i mesaju vise izlagaca. Novi prikaz prihvata opciono today/hour.participationLevels: [{ participationId, level }] u postojecem javnom heat odgovoru. Kad toga nema, lokacijski nivo se koristi samo ako nema poznatog neplacenog izlagaca na toj lokaciji; kod mesavine placenih/neplacenih, placeni ostaje bledo narandzast umesto da mu pripisemo komsijine skenove. Backend treba da ukljuci samo eligible izlagace i u agregaciju/normalizaciju. Bez kontakata ili sirovih brojki u javnom odgovoru.
+3. **Ulaz na normalnom slugu:** /sajam/auto-moto-fest-2026 je cilj. FAIR_PUBLIC_MAP_ENABLED je jos false i stranica pre MapSection-a preusmerava u garazu; dugme u event shell-u je takodje sakriveno. Page, event-shell i fair-contract nisu dirani jer su izvan dogovorenih putanja. Paralelni agent treba da omoguci lokalni ulaz i dugme pored pasosa kroz svoj dogovoreni cutover. Nije uradjen deploy/push niti javno ukljucivanje iz ovog rada.
+4. **Recnik:** zbog zabrane preklapanja lib/i18n se ne menja. Privremena map-local tipizirana ekstenzija je amf-map-copy.ts, oslonjena na postojeci FairMapDict. Preneti nove kljuceve u FairMapDict i sr/fair-map.ts: entranceShort, vehiclesShort, interestLabel, heatServiceNote, heatServiceAria, noMeasurement. Posle toga lokalni modul moze samo da re-exportuje centralni recnik. Ovo je izricito evidentirano odstupanje od centralnog i18n rasporeda, ne tiha promena zajednickog ugovora.
+5. **Katalog:** staticki nazivi/graphic anchors su stvarni brendovi sa prihvacene organizatorske mape; ne stvaraju modele ili placene statuse. Zivi katalog dopunjava modele, ucesnike i markice. Veza brenda sa izlagacem mora biti potvrdjena imenom ili katalogom brendova; nije dovoljno da su na istoj lokaciji. Dodatni neplaceni izlagaci se ne filtriraju. Izlagaci bez potvrdene lokacije ostaju u spisku; ne izmisljati im polozaj. Sitne oznake Lotos, Vidovdan, Grawe i Raiffeisen ne uvode nove mapLocationIds u backend. Za deo moto brendova bez postojeceg vektorskog sredstva koristi se njihov citljiv naziv, bez izmisljanja znaka.
+
+## Ponasanje
+
+- Izbor brenda oznacava taj logo i prikazuje mali red Brend + Vozila, bez automatskog zuma ili modala.
+- Vozila otvara mali panel tek posle izricitog klika; vodi samo do modela dobijenih iz kataloga. Nema izmisljenih modela.
+- Pretraga, spisak, tastatura, rucni pinch/pan i povratak na celu mapu. Izbor ne menja kameru.
+- Izohipse rade stalno, bez prekidaca, vremenskih filtera, tehnickih objasnjenja metrike ili brojeva standova.
+- Placeni: uvek blaga narandzasta, toplije uz dostupne skenove. Neplaceni: neutralna siva, i kada lokacija ima veliki heat nivo. Dostupnost na mapi nije uslovljena paketom.
+- Markica se vezuje za konkretan brend/pasos, ne za celu deljenu lokaciju. Mapa ne dodeljuje pecate i ne belezi impresije.
+- Sponzorisana traka prikazuje samo stvarnu postojecu rotaciju; bez komercijalnog izdvajanja Raiffeisena i bez izmisljenog sponzora kad rotacije nema.
+- Samo Hala i Ulaz. Juzne stepenice su prav 2D simbol, severne nisu oznacene kao ulaz. Sve izlagacke povrsine su ravne.
+
+## Provere i telefon
+
+Proslo:
+
+- npx.cmd tsc --noEmit --incremental false.
+- Ciljani ESLint svih izmenjenih/novih TS/TSX/QA fajlova, bez gresaka i upozorenja.
+- npm.cmd test: 269 test fajlova i 2.425 testova proslo; 2 fajla/2 testa preskocena. Postoje Vite/Node runtime upozorenja, bez pada testova.
+- git diff --check za promene ovog rada.
+- node components/fair/map/amf-topographic.browser.mjs: izolovana prava Edge provera stvarne map komponente, sa testnim API odgovorima, Next Link/Image shimovima i zadatim passport progresom. Ne pokrece HTTP/Next server, ne kontaktira bazu i NIJE dokaz da je ziva Next ruta ukljucena. 0 neocekivanih console/page gresaka; 0 POST zahteva u tom izolovanom testu. Zivi prikaz koristi postojeci read-only POST /api/fair/passport za napredak.
+
+| Ekran | Sponzorska traka do y | Skrol/preliv |
+| --- | --- | --- |
+| 360x640 | 632 | Ne |
+| 375x812 | 804 | Ne |
+| 390x844 | 836 | Ne |
+| 430x932 | 924 | Ne |
+| 1280x900 | 892 | Ne |
+| 844x390 | 382 | Ne |
+
+Provereni su izbor bez promene kamere, Vozila -> pravilan model link, Escape/fokus, pretraga sa dijakriticima i bez rezultata, Spisak -> mali partner, Hala/Ulaz, pinch/fit i wheel/fit, reduced motion, tamna sistemska preferencija uz odobreni svetli AMF prikaz, greska heat-a/retry i nepoznata usluga bez lazne narandzaste. 390x844 provereno uz 4x sporiji CPU; nije fizicki telefon benchmark.
+
+Snimci poslednje provere (privremeni QA artefakti): C:\Users\user\AppData\Local\Temp\scanme-amf-topography-xCVgOi. Nisu produkcioni podaci niti screenshot zive Next rute.
+
+Browser pregled je otkrio i doveo do ispravke odsecenih sitnih naziva, sudaranja moto naziva i 1px vertikalnog preliva; mapa sada meri stvarnu visinu svog zaglavlja. UX provera je zadrzala 44px kontrole, fokus, alternativni Spisak, uvecane finger hit zone i uklanjanje automatskog zuma.
+
+NISU pokretani npm run check, npm run build, next build, dev server, golden harness koji startuje server, deploy ili push. Port 3227 u trenutku provere nije slusao. Snapshot components/menu/__snapshots__/item-icon-tile.test.tsx.snap je nakon punog test paketa oznacen kao M, ali git diff --exit-code za njega je prazan (samo upozorenje za LF/CRLF); fajl nije stage-ovan niti rucno menjan u ovom radu.
+
+### Proba na telefonu
+
+1. Paralelni agent prvo povezuje podatak o usluzi i lokalno otvara mapu/dugme, kako je gore navedeno; bez toga normalna ruta jos vodi u garazu, a nepoznati paketi su sivi.
+2. Na serveru/portu koji vlasnik sam pokrene, telefon na istoj mrezi otvara /sajam/auto-moto-fest-2026. Nema novog testa/sluga ili DEV bannera u prikazu ove mape.
+3. Izabrati Audi/Toyota, proveriti mali red, pa Vozila i povratak. Prvi izbor ne sme da promeni zum. Probati sitni Lotos/Raiffeisen, pretragu, Spisak, pinch i fit.
+4. Menjati placeno/aktivno preko koleginog alata, zatim osveziti mapu: svi izlagaci ostaju vidljivi; neplaceni je siv, placeni bez skenova bledo narandzast. Proveriti i mesovitu deljenu lokaciju.
+
+Otvoreno za vlasnikov sledeci vizuelni pregled: gustina sitnih oznaka i oblik reda Vozila na fizickom telefonu; nije izmisljena dodatna funkcionalnost za ovaj checkpoint.
+
+Posto se uvodi samo novi map-specific renderer i opcioni heat ulaz, obavestenje za integraciju je ovaj izvestaj. FRONTEND-DELTA u docs/events nije kreiran jer je izvan izricito dozvoljenih putanja.

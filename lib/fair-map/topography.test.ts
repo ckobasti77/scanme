@@ -96,4 +96,3 @@ describe("AMF topographic geometry and catalog", () => {
     expect(hitAmfTopographicExhibit(items, small.x, small.y, 0.3)?.key).toBe("lotos");
   });
 });
-

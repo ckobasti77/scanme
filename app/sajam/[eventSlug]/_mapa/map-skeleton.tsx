@@ -1,6 +1,5 @@
 import { fairMapSr as dict } from "@/lib/i18n/sr/fair-map";
-import { AUTO_MOTO_FEST_2026_MAP } from "@/lib/fair-map/auto-moto-fest-2026";
-import { fairMapPointsAttr } from "@/lib/fair-map/shape";
+import { AMF_HALL_ANCHORS, fairMapContourPath } from "@/lib/fair-map/topography";
 import styles from "./map-states.module.css";
 
 /**
@@ -9,6 +8,16 @@ import styles from "./map-states.module.css";
  * nothing moves when the content arrives.
  */
 export function MapSkeleton({ autoMoto = false }: { autoMoto?: boolean }) {
+  if (autoMoto) return (
+    <div className={styles.topographicSkeleton} aria-busy="true">
+      <span className={styles.srOnly} role="status">{dict.loadingLabel}</span>
+      <div className={styles.topographicBar} aria-hidden="true"><span /><span /><span /></div>
+      <svg className={styles.topographicPlan} viewBox="0 0 1000 1380" aria-hidden="true">
+        {AMF_HALL_ANCHORS.map((item) => <path key={item.key} d={fairMapContourPath(item, 0)} />)}
+      </svg>
+      <div className={styles.topographicFooter} aria-hidden="true" />
+    </div>
+  );
   return (
     <div className={styles.skeleton} aria-busy="true">
       <span className={styles.srOnly} role="status">
@@ -24,16 +33,7 @@ export function MapSkeleton({ autoMoto = false }: { autoMoto?: boolean }) {
           <span />
           <span />
         </div>
-        <div className={styles.skeletonMap}>
-          {autoMoto ? (
-            <>
-              <svg className={styles.skeletonPlan} viewBox="0 0 1375 1080" aria-hidden="true">
-                {AUTO_MOTO_FEST_2026_MAP.zones[0].locations.map((location) => <polygon key={location.id} points={fairMapPointsAttr(location.polygon)} />)}
-              </svg>
-              <p className={styles.skeletonLabel} aria-hidden="true">{dict.loadingLabel}</p>
-            </>
-          ) : null}
-        </div>
+        <div className={styles.skeletonMap} />
       </div>
       <div className={styles.skeletonPanel} aria-hidden="true">
         <div className={styles.skeletonCard} />

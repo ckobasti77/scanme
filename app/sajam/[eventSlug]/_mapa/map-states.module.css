@@ -1,5 +1,26 @@
 /* Loading / empty / error states of the map page; shared --fair-* tokens only. */
 
+.topographicSkeleton {
+  display: flex;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 820px;
+  height: calc(100svh - var(--fair-header-height, 80px) - 1px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  min-height: 360px;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0 auto;
+  padding: 8px 12px max(8px, env(safe-area-inset-bottom));
+}
+
+.topographicBar { display: grid; grid-template-columns: 44px 1fr 80px; gap: 8px; flex: 0 0 44px; }
+.topographicBar span, .topographicFooter { border-radius: 9px; background: var(--fair-surface-muted); }
+.topographicPlan { flex: 1 1 0; width: 100%; min-height: 0; }
+.topographicPlan path { fill: var(--fair-ink); fill-opacity: 0.045; stroke: var(--fair-line); stroke-width: 1; }
+.topographicFooter { flex: 0 0 100px; }
+
+@media (min-width: 768px) { .topographicSkeleton { padding-inline: 20px; } }
+
 .state {
   display: grid;
   max-width: 560px;
@@ -201,28 +222,6 @@
   border: var(--fair-border-strong);
   border-radius: 13px 19px 15px 17px;
   background: var(--fair-paper-sheet) var(--fair-paper-tex) 0 0 / 420px 420px;
-}
-
-.skeletonPlan {
-  display: block;
-  width: calc(100% - 24px);
-  margin: 12px;
-  max-height: calc(100svh - var(--fair-header-height) - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 228px);
-}
-
-.skeletonPlan polygon {
-  fill: var(--fair-surface-muted);
-  stroke: var(--fair-line-strong);
-  stroke-width: 3px;
-}
-
-.skeletonLabel {
-  margin: 0;
-  padding: 16px;
-  border-top: 1px dashed var(--fair-line);
-  color: var(--fair-ink-muted);
-  font-size: 14px;
-  line-height: 24px;
 }
 
 @media (min-width: 1024px) {

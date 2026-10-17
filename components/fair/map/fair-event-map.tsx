@@ -2,8 +2,8 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { Check, List, LocateFixed, Map as MapIcon, MousePointerClick, Search, Stamp, X } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from "react";
-import type { FairPassportCatalogEntry, FairPassportProgress, FairPassportState, FairSponsoredRotationView } from "@/lib/fair-contract";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from "react";
+import type { FairPassportCatalogEntry, FairPassportProgress, FairSponsoredRotationView } from "@/lib/fair-contract";
 import {
   FAIR_MAP_FILTERS,
   fairMapDeepLinkSearch,
@@ -33,6 +33,8 @@ import { useLiveFairMapRotation } from "./fair-map-live-rotation";
 import { FAIR_MAP_CATEGORY_ICONS, FairMapLogoBox, fairMapCategoryLabel } from "./fair-map-logo";
 import { FairMapRotationCard, useFairMapRotation } from "./fair-map-rotation";
 import { fairMapExhibitorCount, fairMapMarks, fairMapPlaceText, fairMapResultCount } from "./fair-map-text";
+import { AmfTopographicMap } from "./amf-topographic-map";
+import { usePassportProgress } from "./fair-map-passport";
 import { FAIR_DURATION, FAIR_EASE } from "../fair-motion";
 import styles from "./fair-event-map.module.css";
 
@@ -48,39 +50,6 @@ import styles from "./fair-event-map.module.css";
 // behind the gateway). The 12 s rotation is M2's (rotation-slot.ts), read
 // live (K2). All decisions are pure functions in lib/fair-map (explore,
 // layout, viewport).
-
-type PassportStatus = { status: "loading" | "ready" | "error"; progress: FairPassportProgress[] | null };
-
-function usePassportProgress(eventSlug: string, enabled: boolean) {
-  const [state, setState] = useState<PassportStatus>({ status: "loading", progress: null });
-  const [attempt, setAttempt] = useState(0);
-  useEffect(() => {
-    if (!enabled) return;
-    const controller = new AbortController();
-    fetch("/api/fair/passport", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ eventSlug }),
-      credentials: "same-origin",
-      cache: "no-store",
-      signal: controller.signal,
-    })
-      .then(async (response) => {
-        const body = (await response.json()) as { ok: boolean; value?: FairPassportState | null };
-        if (!response.ok || !body.ok) throw new Error("passport");
-        setState({ status: "ready", progress: body.value?.progress ?? [] });
-      })
-      .catch(() => {
-        if (!controller.signal.aborted) setState({ status: "error", progress: null });
-      });
-    return () => controller.abort();
-  }, [enabled, eventSlug, attempt]);
-  const retry = useCallback(() => {
-    setState({ status: "loading", progress: null });
-    setAttempt((value) => value + 1);
-  }, []);
-  return { ...state, retry };
-}
 
 function subscribeMedia(query: string) {
   return (onChange: () => void) => {
@@ -121,7 +90,16 @@ export function FairEventMap(props: FairEventMapProps) {
 
 type Selection = { locationId: string; participationId?: string } | { unlocated: string };
 
-export function FairEventMapView({
+export type FairEventMapViewProps = Omit<FairEventMapProps, "initialRotation"> & {
+  rotation: FairSponsoredRotationView | null;
+  passportProgress?: FairPassportProgress[];
+};
+
+export function FairEventMapView(props: FairEventMapViewProps) {
+  return props.eventSlug === "auto-moto-fest-2026" ? <AmfTopographicMap {...props} /> : <LegacyFairEventMapView {...props} />;
+}
+
+function LegacyFairEventMapView({
   eventSlug,
   view,
   rotation,
@@ -129,11 +107,7 @@ export function FairEventMapView({
   initialLink,
   initialMode = "map",
   passportProgress,
-}: Omit<FairEventMapProps, "initialRotation"> & {
-  rotation: FairSponsoredRotationView | null;
-  /** DEV preview only: a fixed passport state instead of the gateway read. */
-  passportProgress?: FairPassportProgress[];
-}) {
+}: FairEventMapViewProps) {
   const link = useMemo(() => fairMapReadDeepLink(initialLink ?? {}, view), [initialLink, view]);
   const rotationState = useFairMapRotation(rotation);
   const rotationStand = rotationState ? locateFairMapStand(view, rotationState.item.standMapLocationId) : null;
