@@ -2035,3 +2035,16 @@ Kako je zaobiđeno:
 - Skripta kadrova koraka (`output/playwright/admin-v3/V4/kadrovi.mjs`) sada svako učitavanje pokušava do pet puta sa pauzom.
 
 Rizik za sledeće korake: runner proverava samo da server odgovara. Server u ovom stanju odgovara (200 na `/`), pa ga runner ne podiže ponovo, a snimci `/dev/admin-*-preview` bi dobili 404. Predlog za vlasnika: da runner pre snimaka proveri status jedne preview rute, a ne samo `/`.
+
+## SCANME MENU V1 — K02 (17. 10. 2026.) — pravila temelja koja traže potvrdu vlasnika
+
+Korak je završen; kod radi po konzervativnom izboru iz zagrade. **Deferred, awaiting owner decision** za svaku stavku.
+
+1. **Legacy članstvo → Menu uloga.** Član lokala sa nemigriranim nalogom (`businessMemberships`, danas pun pristup uređivanju) dobija ulogu Menadžer. (Izbor: Menadžer, da ne izgubi pristup koji već ima, ali bez promene režima.)
+2. **`finance` i `view_only` članovi naloga.** (Izbor: bez pristupa Menu usluzi; master §10.6 ne predviđa ulogu samo za čitanje.)
+3. **Eksplicitna Menu uloga van naloga.** Red u `menuMembers` daje pristup i korisniku koji nije član naloga (npr. spoljni Urednik); važi jača od izvedene i eksplicitne uloge. (Izbor: da; pozivnice gradi K28 i one nikad ne prave `businessMemberships`.)
+4. **Jedna aktivna Menu usluga po lokalu u V1.** (Izbor: da; druga nezavisna usluga je zasebna pretplata ili Enterprise, master §3.2.)
+5. **Podrazumevana stranica i QR.** „Kompletan meni" sme da se obriše ili arhivira kad postoji druga aktivna stranica; oznaka podrazumevane prelazi na prvu sledeću. Brisanje **i arhiviranje** stranice sa aktivnom QR vezom su odbijeni. (Master §3.2 izričito pominje samo brisanje; arhiviranje je dodato konzervativno, jer bi QR vodio na stranicu koju gost ne vidi.)
+6. **Slug stranice se ne menja pri preimenovanju.** (Izbor: stabilan link; odštampani QR kodovi i linkovi ostaju ispravni.)
+7. **Isti artikal u više sekcija iste stranice.** (Izbor: dozvoljeno, najviše jednom po sekciji; master §5.1 „u više sekcija".)
+8. **Režim pri prvom otvaranju.** Kad usluga nastane iz klijentskog panela, režim je uvek Ugostiteljstvo (jedini V1 režim); izbor režima ima samo ScanMe admin (`menuServices.adminProvision`), a menja ga samo `menuServices.adminSetMode`.

@@ -61,6 +61,19 @@ import {
   menuDesignValidator,
   menuModelValidator,
 } from "./lib/menuValidators";
+import {
+  menuArticleKindValidator,
+  menuAuditActorKindValidator,
+  menuAuditDetailsValidator,
+  menuFeaturesValidator,
+  menuMediaModeValidator,
+  menuMemberRoleValidator,
+  menuMemberStatusValidator,
+  menuModeValidator,
+  menuPageNavigationValidator,
+  menuServiceStatusValidator,
+  menuVisibilityValidator,
+} from "./lib/menuDomainValidators";
 import { priceSnapshotValidator } from "./lib/orderSnapshot";
 import {
   agreementKind, billingActor, billingChange, billingPeriod, discountValue,
@@ -3301,6 +3314,181 @@ export default defineSchema({
     qty: v.number(),
     order: v.number(),
   }).index("by_requestId", ["requestId"]),
+
+  // ===========================================================================
+  // ScanMe Menu V1 — the new Menu domain (MENI run, K02; recipe
+  // docs/menu/MENU-ARHITEKTURA.md, plan docs/meni/planovi/K01.md §3). New
+  // tables only: the legacy `menus` model above and the RFC-004 ordering
+  // tables stay untouched (compatibility, K01 A1/A5). Every child row carries
+  // `menuServiceId`, and every id taken from a function argument is checked
+  // against it (convex/lib/menuAccess.ts loadOwned) — the tenant boundary.
+  // ===========================================================================
+
+  // One Menu service = one subscription of one business in one locked mode
+  // (master §3.1, §4.1). V1: at most one active service per business.
+  menuServices: defineTable({
+    businessId: v.id("businesses"),
+    serviceProfileId: v.optional(v.id("serviceProfiles")),
+    // The legacy `menus` row of the same business, when one exists (K06
+    // migrates from it). Informational link; the legacy path never reads it.
+    legacyMenuId: v.optional(v.id("menus")),
+    mode: menuModeValidator,
+    modeSetAt: v.number(),
+    modeSetByUserId: v.optional(v.id("users")),
+    status: menuServiceStatusValidator,
+    features: menuFeaturesValidator,
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_businessId", ["businessId"])
+    .index("by_serviceProfileId", ["serviceProfileId"]),
+
+  // High-churn draft bookkeeping, split from menuServices so editing never
+  // invalidates readers of the service row (one write per draft mutation).
+  menuDraftState: defineTable({
+    menuServiceId: v.id("menuServices"),
+    revision: v.number(),
+    // Exact count of menuArticles of the service (MENU_MAX_ARTICLES gate).
+    articleCount: v.number(),
+    lastEditAt: v.number(),
+    lastEditByUserId: v.optional(v.id("users")),
+  }).index("by_menuServiceId", ["menuServiceId"]),
+
+  // Standard pages ("Stranice menija", master §3.2). `slug` is derived once and
+  // never changes; `name` is internal (the default page is "Kompletan meni"),
+  // `publicTitle` is what the guest reads (absent = no page title).
+  menuPages: defineTable({
+    menuServiceId: v.id("menuServices"),
+    key: v.string(),
+    slug: v.string(),
+    name: v.string(),
+    publicTitle: v.optional(v.string()),
+    isDefault: v.boolean(),
+    order: v.number(),
+    visibility: menuVisibilityValidator,
+    archivedAt: v.optional(v.number()),
+    iconKey: v.optional(v.string()),
+    navigation: menuPageNavigationValidator,
+    // Exact count of menuPlacements on the page (MENU_MAX_PLACEMENTS_PER_PAGE).
+    placementCount: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    updatedByUserId: v.optional(v.id("users")),
+  })
+    .index("by_menuServiceId_and_order", ["menuServiceId", "order"])
+    .index("by_menuServiceId_and_slug", ["menuServiceId", "slug"])
+    .index("by_menuServiceId_and_key", ["menuServiceId", "key"]),
+
+  // Sections group placements inside one page (master §3.3: not menus).
+  menuSections: defineTable({
+    menuServiceId: v.id("menuServices"),
+    pageId: v.id("menuPages"),
+    key: v.string(),
+    name: v.string(),
+    description: v.optional(v.string()),
+    iconKey: v.optional(v.string()),
+    order: v.number(),
+    visibility: menuVisibilityValidator,
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_pageId_and_order", ["pageId", "order"])
+    .index("by_menuServiceId", ["menuServiceId"])
+    .index("by_menuServiceId_and_key", ["menuServiceId", "key"]),
+
+  // The shared article (master §5.1–§5.3): ONE identity and ONE base price in
+  // whole dinars, shown on any number of pages through menuPlacements.
+  menuArticles: defineTable({
+    menuServiceId: v.id("menuServices"),
+    key: v.string(),
+    kind: menuArticleKindValidator,
+    name: v.string(),
+    // lib/menu/text.ts normalizeArticleName — duplicate suggestions (§5.2).
+    nameNormalized: v.string(),
+    description: v.optional(v.string()),
+    quantityValue: v.optional(v.number()),
+    quantityUnit: v.optional(v.string()),
+    basePriceRsd: v.optional(v.number()),
+    mediaMode: menuMediaModeValidator,
+    imageMediaId: v.optional(v.id("mediaAssets")),
+    iconKey: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    updatedByUserId: v.optional(v.id("users")),
+  })
+    .index("by_menuServiceId_and_key", ["menuServiceId", "key"])
+    .index("by_menuServiceId_and_nameNormalized", ["menuServiceId", "nameNormalized"])
+    .index("by_menuServiceId_and_kind", ["menuServiceId", "kind"]),
+
+  // An article's appearance in one section of one page: order and visibility,
+  // NEVER a price (master §5.3: no per-page price or override).
+  menuPlacements: defineTable({
+    menuServiceId: v.id("menuServices"),
+    pageId: v.id("menuPages"),
+    sectionId: v.id("menuSections"),
+    articleId: v.id("menuArticles"),
+    order: v.number(),
+    visibility: menuVisibilityValidator,
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_sectionId_and_order", ["sectionId", "order"])
+    .index("by_sectionId_and_articleId", ["sectionId", "articleId"])
+    .index("by_articleId", ["articleId"])
+    .index("by_pageId", ["pageId"])
+    .index("by_menuServiceId", ["menuServiceId"]),
+
+  // QR card → Menu page (and, from K20, position). The ONLY place this link
+  // lives: cardTargets stay immutable history (K01 A8). A link blocks deleting
+  // or archiving its page while the row is active, the card is active and the
+  // card's current target is `menu` (master §3.2).
+  menuQrLinks: defineTable({
+    menuServiceId: v.id("menuServices"),
+    cardId: v.id("cards"),
+    pageKey: v.optional(v.string()),
+    active: v.boolean(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_cardId", ["cardId"])
+    .index("by_menuServiceId_and_pageKey", ["menuServiceId", "pageKey"])
+    .index("by_menuServiceId", ["menuServiceId"]),
+
+  // Explicit Menu roles (K01 §4.2). Account roles are DERIVED from
+  // accountMemberships / businessMemberships; a row here grants an explicit
+  // role (e.g. an outside Urednik) and the stronger of the two applies.
+  menuMembers: defineTable({
+    menuServiceId: v.id("menuServices"),
+    businessId: v.id("businesses"),
+    email: v.string(),
+    userId: v.optional(v.id("users")),
+    role: menuMemberRoleValidator,
+    status: menuMemberStatusValidator,
+    inviteTokenHash: v.optional(v.string()),
+    inviteExpiresAt: v.optional(v.number()),
+    invitedByUserId: v.id("users"),
+    acceptedAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_menuServiceId_and_userId", ["menuServiceId", "userId"])
+    .index("by_menuServiceId_and_email", ["menuServiceId", "email"])
+    .index("by_inviteTokenHash", ["inviteTokenHash"])
+    .index("by_userId", ["userId"]),
+
+  // Background audit of sensitive actions only (master §10.6; actions in
+  // lib/menu/audit.ts). Machine data; prose is localized in the UI.
+  menuAuditLog: defineTable({
+    menuServiceId: v.id("menuServices"),
+    actorKind: menuAuditActorKindValidator,
+    actorUserId: v.optional(v.id("users")),
+    actorRef: v.optional(v.string()),
+    action: v.string(),
+    entityType: v.optional(v.string()),
+    entityKey: v.optional(v.string()),
+    details: v.optional(menuAuditDetailsValidator),
+    createdAt: v.number(),
+  }).index("by_menuServiceId_and_createdAt", ["menuServiceId", "createdAt"]),
 
   // ===========================================================================
   // Sajam automobila 2026 — fair tables (B0; BACKEND-HANDOFF §5,

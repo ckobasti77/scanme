@@ -51,6 +51,7 @@ import type {
   FairSurveyStatus,
 } from "../fair-contract";
 import type { FairMapKey, FairMapZoneId } from "../fair-map/types";
+import type { MenuErrorCode } from "../menu/errors/core";
 
 export type Locale = "sr";
 
@@ -2323,6 +2324,30 @@ export interface MenuDict {
 // Concierge onboarding / migration tracking (primljeno → u izradi → na potvrdi → objavljeno),
 // PDF & Excel export actions, manual entitlement grant/deactivation, and
 // unsaved-changes publish warning. `{...}` placeholders go through fmt().
+// ScanMe Menu V1 (MENI run, K02) — shared domain words of the new Menu: the
+// default page name, mode and role labels, and the Serbian text of every core
+// error code (lib/menu/errors/core.ts). Panel, editor and waiter surfaces map
+// a caught code through `errors`.
+export interface MenuDomenDict {
+  /** Internal name of the page every new Menu service gets (master §3.2). */
+  defaultPageName: string;
+  /** Name of a duplicated page; {name}. */
+  pageCopyName: string;
+  modes: { hospitality: string; services: string; retail: string };
+  /** Unobtrusive service label (master §4.1); {mode}. */
+  serviceLabel: string;
+  roles: {
+    owner: string;
+    manager: string;
+    editor: string;
+    staff: string;
+    admin: string;
+  };
+  /** Admin warning before a mode change (master §4.1, §4.2). */
+  modeChangeNotice: string;
+  errors: Record<MenuErrorCode, string>;
+}
+
 export interface MenuAdminDict {
   // Screen chrome & navigation.
   eyebrow: string;
@@ -6906,6 +6931,7 @@ export interface DictBySurface {
   menu: MenuDict;
   "menu-editor": MenuEditorDict;
   "menu-admin": MenuAdminDict;
+  "menu-domen": MenuDomenDict;
   "ordering-admin": OrderingAdminDict;
   ordering: OrderingDict;
   "ordering-panel": OrderingPanelDict;
