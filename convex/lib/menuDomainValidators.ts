@@ -281,3 +281,20 @@ export const menuPresenceEntityTypeValidator = v.union(
   v.literal("settings"),
   v.literal("presentation"),
 );
+
+// K06 — migration of the legacy `menus` model (recipe §12). Kept on the Menu
+// service: which legacy menu it migrates, from which source (the inline
+// draft or the live generation) at which revision, and the phase. A source
+// that changes after the run started is refused (purge first, then migrate
+// again), so two runs never mix two versions of the old menu. `cutover`
+// blocks the legacy writers (convex/lib/menuLegacyGuard.ts).
+export const menuLegacyMigrationValidator = v.object({
+  status: v.union(v.literal("running"), v.literal("migrated"), v.literal("cutover")),
+  legacyMenuId: v.id("menus"),
+  sourceKind: v.union(v.literal("draft"), v.literal("live")),
+  // menus.draftRevision (draft) or menus.publishedGeneration (live).
+  sourceRevision: v.number(),
+  startedAt: v.number(),
+  migratedAt: v.optional(v.number()),
+  cutoverAt: v.optional(v.number()),
+});

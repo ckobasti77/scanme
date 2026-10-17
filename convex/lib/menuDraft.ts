@@ -26,7 +26,8 @@ export async function loadDraftState(
 export async function touchDraft(
   ctx: MutationCtx,
   menuServiceId: Id<"menuServices">,
-  userId: Id<"users">,
+  // null = a system edit (K06 migration): "who edited last" becomes nobody.
+  userId: Id<"users"> | null,
   change: { articleDelta?: number } = {},
 ): Promise<number> {
   const state = await loadDraftState(ctx, menuServiceId);
@@ -35,7 +36,7 @@ export async function touchDraft(
     revision,
     articleCount: Math.max(0, state.articleCount + (change.articleDelta ?? 0)),
     lastEditAt: Date.now(),
-    lastEditByUserId: userId,
+    lastEditByUserId: userId ?? undefined,
   });
   return revision;
 }

@@ -364,3 +364,162 @@ Noćni run MENI. Plan: `docs/MENI-PLAN.md`. Pravila: `.nocni-run/meni/rules.md`.
 **Za Jovana ujutru:**
 - Pregledaj `docs/tasks/BLOCKED.md` → `SCANME MENU V1 — K05`, posebno kada Room service ulazi u javni meni, zakazanu akciju bez Premium-a i QR stranice pri vraćanju verzije.
 - Recept §6 opisuje ceo tok objave i vraćanja. To je ugovor za K13 (javni meni čita `menuPublic`), K17 (izgled) i K18 (UI objave, verzija, prisustva i konflikta).
+
+## K06 — Migracija starog modela i sloj kompatibilnosti   (2026-10-17 23:26)
+**Fajlovi:**
+- novi: `convex/menuMigration.ts`, `convex/lib/menuLegacyMigration.ts`, `convex/lib/menuLegacyGuard.ts`; `lib/menu/legacy-mapping.ts`, `lib/menu/errors/migration.ts`, `lib/menu/testkit/legacy.ts`; testovi `convex/menuMigration.test.ts`, `convex/menuLegacyCompat.test.ts`, `convex/menuAdminImportV2.test.ts`, `lib/menu/legacy-mapping.test.ts`
+- izmenjeni:
+  - `convex/schema.ts` (samo dodato: +17 / −1, a „−1" je zarez pre novog indeksa);
+  - `convex/lib/menuDomainValidators.ts` (`menuLegacyMigrationValidator`);
+  - `convex/lib/menuDraft.ts`: `touchDraft` prima `null` (sistemska izmena);
+  - `convex/menu.ts`: zaštita u `saveDraft`, `publishDraft` i `setItemAvailable` (+4 reda);
+  - `convex/menuAdmin.ts`: zaštita u `importDraft` i `publishForClient`, nova `importDraftV2`;
+  - `lib/menu/audit.ts` (5 akcija `legacy.*`);
+  - `lib/i18n/types.ts`, `lib/i18n/sr/menu-domen.ts` (kodovi `migration/…`, `migrationIssues`, `migrationManualChecks`, `migrationFallbacks`), `lib/i18n/sr/menu-editor.ts` (`legacyMigrated`);
+  - `convex/_generated/api.d.ts` (`npx convex codegen`);
+  - `docs/menu/MENU-ARHITEKTURA.md` (§2.1e, §2.2, §3.1, §3.2, §10, §11 i ceo §12);
+  - `docs/tasks/BLOCKED.md` (`SCANME MENU V1 — K06`).
+
+**Šta je urađeno:**
+- **Šema (samo proširenje).** Novo je:
+  - `menuServices.migration?`: status `running` → `migrated` → `cutover`, stari meni, vrsta i revizija izvora, vremena;
+  - indeks `by_legacyMenuId`;
+  - `menuSections.legacyRef?` i `menuArticles.legacyRef?` (red koji su napravili migracija ili uvoz);
+  - `menuArticles.legacyPhotoStorageId?`.
+  Stare tabele i polja nisu ni dirani ni sužavani.
+- **Mapiranje (`lib/menu/legacy-mapping.ts`, čisto):**
+  - grupa → sekcija na „Kompletan meni";
+  - stavka → zajednički artikal + prikaz bez cene;
+  - varijante → `menuVariants`;
+  - ikonica ili tip proizvoda → `iconKey` (`mediaMode: "icon"`);
+  - fotografija → `legacyPhotoStorageId`;
+  - „nema više" → `menuAvailability`.
+  Video, „Ide uz", delovi dana i oblici grupa se prijavljuju kao „nemapirano". Ključevi se izvode iz starih id-jeva (`legacyKey`, standardni oblik `ar_…`), pa isti izvor uvek daje iste ključeve. Izveštaj pokriva master §6.3: brojeve, cene, varijante, duplikate, dijakritiku i prelom, slike, alergene, redosled, ručne provere, poklapanje sa `orderingItems` i razlike posle migracije.
+- **Migracija (`convex/menuMigration.ts`, samo internal, NIJE puštena):**
+  - `planLegacyMigration` je režim „samo izveštaj";
+  - `migrateLegacyMenuBatch` radi u serijama od najviše 100 artikala, sa nastavkom kroz scheduler, i idempotentno je;
+  - `purgeMigratedService` je rollback u serijama;
+  - `cutoverLegacyMenu` i `revertLegacyCutover` gase i vraćaju stare pisce.
+  Izvor je `menus.draftModel`, a bez njega samo živa generacija. Stare tabele se samo čitaju.
+- **Kompatibilnost:**
+  - nemigriran meni, i meni migriran samo u nacrt, gost vidi isto kao pre (`publicMenuBySlug`, `menuDaypartStateBySlug`, `menuPublic.entry` = `legacy`);
+  - posle objave novog modela `entry` je `new`, a stara ruta se ne menja do K13;
+  - kartice `menu` i dalje vode na `/{slug}/meni`;
+  - posle prelaska stari pisci odbijaju, pa nema dvostrukog upisa.
+- **Interni uvoz (`menuAdmin.importDraftV2`, `requireAdmin`):** `parseMenuImport` → isto mapiranje → nacrt nove usluge, uz `dryRun`. Nikad ne objavljuje i piše audit u oba dnevnika. Klijentski panel nema ni migraciju ni uvoz.
+- **Recept §12 „Migracija i rollback"** ima:
+  - redosled widen → migrate → narrow po tabeli;
+  - funkcije i pravila;
+  - tabelu provera iz master §6.3 (automatski i ručno);
+  - kompatibilnost;
+  - rollback po fazi;
+  - 12 koraka za produkciju uz Jovanovo odobrenje.
+
+**ODLUKE:**
+- **Bez `@convex-dev/migrations`.** Skill `convex-migration-helper` preporučuje taj paket, ali run ne uvodi pakete (P5). Serije su ručne: `internalMutation` + `scheduler.runAfter(0, …)` + kursor, po obrascu K05 `pruneVersion`.
+- **Ključevi.** Ključevi su izvedeni heš (60 bita iz dva 32-bitna heša), a ne `"lgc" + id` iz K01. Tako važi standardni oblik ključa (`isMenuKey`), a duge UUID vrednosti ne ulaze u ključeve. Kolizije unutar izvora se razrešavaju determinističkim sufiksom. BigInt nije korišćen, jer root `tsconfig` cilja ES2017.
+- **Idempotentnost.**
+  - Postojeći ključ se nikad ne prepisuje.
+  - Završena migracija (`migrated`, `cutover`) se ne pokreće ponovo, pa drugo pokretanje ništa ne menja.
+  - Prekinuta migracija (`running`) se nastavlja istim pozivom.
+  - Ako se izvor promeni posle početka (revizija nacrta ili generacija), vraća se `source_changed` i ništa se ne piše; prvo ide purge. Dva izvora se nikad ne mešaju.
+- **Šta dobija prednost u izvoru.**
+  - „Nema više" iz žive generacije pobeđuje nacrt koji kaže „dostupno".
+  - Nacrt sa neobjavljenim izmenama se migrira uz upozorenje, a ne javna verzija, jer i rezultat ide u nacrt na pregled.
+- **Duplikati se ne spajaju automatski**, nego se prijavljuju (master §6.2, korak 3).
+- **Slika.** Stara fotografija → `legacyPhotoStorageId` + `mediaMode: "icon"`, a ne `"image"` kao u K01. Slika bez `imageMediaId` bi u snapshotu bila slika bez izvora; K15 je obrađuje.
+- **Tekst.** Prelom teksta se sažima po pravilu novog modela (`cleanText`) i prijavljuje. Predug tekst se skraćuje uz upozorenje `text_cut`, jer prijavljeno nije tiho.
+- **Prelazak.** Dozvoljen je tek posle `migrated` I objavljene verzije novog modela: dok gosti vide stari meni, osoblje mora moći da označi „nema više". Zaštita starih pisaca vraća čitljiv tekst (`menu-editor.legacyMigrated`) umesto mašinskog koda `menu/legacy_migrated` iz K01, jer stari UI prikazuje `ConvexError.data` kao tekst.
+- **Purge.** Briše samo redove sa `legacyRef` koje niko nije menjao (`updatedAt === createdAt`) i koji nisu u grupi dodataka, kombou, Room service-u ni u tuđoj sekciji. Dok postoji objavljena verzija, ne briše red dostupnosti, jer njega briše objava (K05).
+- **Uvoz.** Ide samo u nacrt bez artikala, jer ponovni uvoz ne bi bio idempotentan. Prevelik uvoz (> 8.000 upisa, jedna transakcija) se odbija pre upisa.
+- **Plan čita ceo izvor u jednoj transakciji.** Obrazac po stavci je isti kao u starom `publicMenuBySlug`, pa se može planirati svaki stari meni koji gosti mogu da otvore. Serije ne čitaju „Ide uz".
+- **Nije urađeno iz K01 plana:**
+  - `lib/menu/public-entry.ts`: `menuPublic.entry` postoji od K05, a K13 ga koristi direktno;
+  - `dryRun` na seriji: režim izveštaja je `planLegacyMigration`;
+  - `migrationStatus` upit: plan vraća stanje.
+- **Provera u browseru nije urađena.** Pokretanje dev servera (`npm run dev -- -p 3170`) je odbio auto-mode klasifikator, pa ga nisam zaobilazio. UI nije menjan; `/dev/menu-public-preview` i `/[slug]/meni` prolaze `npm run build`, a javni upiti su pokriveni testovima kompatibilnosti.
+- **Radnici.**
+  - Četiri Sonnet radnika su pisala testove na disjunktnim fajlovima, a sve sam pregledao i pustio.
+  - Radnik za čiste testove je našao dve greške, koje sam ispravio u `lib/menu/legacy-mapping.ts`: cena −0,4 je davala negativnu nulu (sada je `price_invalid`), a skraćivanje je moglo da preseče emoji (surogatni par). Njegova dva `test.fails` su pretvorena u obične testove.
+  - Primedba drugog radnika o kombo artiklu u purge-u nije dostižna, jer migrirani artikli su uvek `kind: "item"`, a kombo nastaje samo kroz `menuCombos.createCombo`.
+  - Moj privremeni smoke test je uklonjen.
+- **Python i kraj redova.** Python na Windowsu je pri izmeni prepisao 8 fajlova sa CRLF; vraćeni su na LF skriptom `tmp/meni/k06-fix-eol.mjs`, i u diff-u nema promena kraja redova.
+- **Sajam.** `docs/events/**` je van obima runa, pa FRONTEND-DELTA nije pisan. Sajam ne koristi nove tabele ni izmenjene izvoze, resolver kartica nije menjan, a novijeg JOVAN-DELTA fajla od 2026-10-09 nema.
+- **Pitanja za vlasnika** su u `docs/tasks/BLOCKED.md` → `SCANME MENU V1 — K06`: delovi dana, duplikati, prelom teksta, ikonice, „nema više", prelazak, povratak gosta posle K13 i uvoz.
+
+**Novi paketi:** nema (run ne uvodi pakete)
+
+**Testovi** (210 novih testova u 4 nova fajla; ukupno 428 fajlova i 6.001 test, plus 2 stara bench fajla koja se preskaču):
+- `convex/menuMigration.test.ts` (23):
+  - **rezultat** (sekcije, artikli, prikazi, varijante, dostupnost, `legacyRef`, slika, brojači, stanje, audit);
+  - **idempotentnost** (drugo pokretanje: snimak svih redova usluge identičan);
+  - **serije preko granice** (21 stavka u serijama od 5; revizija +5; prekid i nastavak bez duplikata);
+  - **izveštaj** pre i posle migracije, sa razlikom `price_differs`;
+  - **nijedan stari dokument obrisan ni izmenjen** (posle migracije, drugog pokretanja i purge-a);
+  - živa generacija uz dve koegzistentne generacije;
+  - „nema više" iz žive verzije; `source_changed`; granice;
+  - purge (sve, zadržani izmenjeni i korišćeni redovi, ručni redovi, serije od 210);
+  - prelazak i vraćanje; samo interne funkcije; greške; tenant.
+- `convex/menuLegacyCompat.test.ts` (13):
+  - **nemigriran meni se prikazuje kao pre**; posle migracije u nacrt javni rezultat je identičan (`toEqual`); posle objave novog modela `entry` = `new`, a stari upiti isti;
+  - **QR kartica `menu` vodi na isto mesto** u sve četiri faze;
+  - stari pisci rade pre prelaska; posle prelaska pet pisaca odbija i ništa ne upisuje; vraćanje ih uključuje;
+  - tuđi lokal i lokal bez nove usluge rade kao pre.
+- `convex/menuAdminImportV2.test.ts` (20):
+  - uvoz u nacrt; nikad ne objavljuje (`entry` = `none`, `never_published`);
+  - `dryRun` ne piše ništa; samo u prazan nacrt; tačna granica od 8.000 upisa;
+  - duplikati; uloge (Vlasnik, Menadžer, Urednik, finansije, pregled, autsajder, drugi lokal, neprijavljen — svi odbijeni); tenant; arhiviran servis; preskočena stavka i zaokružena cena.
+- `lib/menu/legacy-mapping.test.ts` (154): ključevi (2.000 UUID-ova bez kolizije), izvor, plan, izveštaj, cene, tekst i kodiranje, duplikati, determinizam, cilj, granice, verifikacija, limit izveštaja, `plannedWrites`, `orderingItems`, kodovi.
+
+**Snimci:** nema UI izmena. Provera u browseru nije urađena (pokretanje dev servera je odbijeno); vidi ODLUKE.
+
+**Rezultat provere:**
+- `node .nocni-run/meni/alati/typecheck.mjs`: bez grešaka; `npx tsc --noEmit -p convex/tsconfig.json`: bez grešaka.
+- `npx eslint --ignore-pattern ".nocni-run/**"`: 0 grešaka; ostaju dva stara upozorenja (`components/admin/venue-admin.tsx`, `convex/purchaseLifecycle.test.ts`).
+- `npx vitest run --testTimeout=30000 --hookTimeout=60000`: 428 fajlova i 6.001 test prolaze; preskočena su 2 stara bench fajla.
+- `npm run harness:namespace`: prošlo.
+- `npm run build`: prošlo. `next-env.d.ts` je vraćen na sadržaj iz HEAD-a.
+- Nijedan proces nije ostao upaljen; dev server nije ni pokrenut.
+
+**Provera prihvatanja:**
+
+| Stavka | Dokaz | Stanje |
+|---|---|---|
+| Migracione funkcije postoje; testovi dokazuju rezultat, idempotentnost i rad u serijama | `convex/menuMigration.ts`; `menuMigration.test.ts` › A (rezultat), B (idempotentnost), C1 i C2 (serije preko granice, prekid i nastavak) | ispunjeno |
+| Test dokazuje da se nemigriran stari meni i dalje prikazuje | `menuLegacyCompat.test.ts` › „a legacy menu that is not migrated" i „migrated only into the new draft" (`toEqual` pre i posle) | ispunjeno |
+| Recept ima „Migracija i rollback" sa redosledom za produkciju | `docs/menu/MENU-ARHITEKTURA.md` §12.1–§12.6 | ispunjeno |
+| Provere prolaze; sekcija K06 u progress-u | gore | ispunjeno |
+
+**Za Jovana ujutru:**
+- Pregledaj `docs/tasks/BLOCKED.md` → `SCANME MENU V1 — K06`, posebno delove dana koji se ne prenose, prelom teksta u opisima i prekidač za povratak gosta na stari meni posle K13.
+- Recept §12.6 je tačan redosled za produkciju. Ništa od toga nije pokrenuto. Pre migracije na produkciji ide bekap, pa `planLegacyMigration` po lokalu.
+- Ako želiš browser proveru izloga, pokreni `npm run dev -- -p 3170` i otvori `/dev/menu-public-preview`. Ruta nije menjana u ovom koraku.
+
+### K06 — dopuna posle provere runnera: `npm run harness:check`   (2026-10-17 23:53)
+**Šta je palo:** runner je posle K06 pustio `npm run build` (23:36–23:37), pa odmah `harness:check` (23:37–23:42). Dev server harness-a (port 3199) je bio „Ready" za 2,7 s, ali je vratio `GET / 404` (14,8 s) i `GET /dev/template-gallery?harness=1 404`. Stranica korpusa se nije učitala, pa je `waitForSelector('[data-case-id]')` posle 240 s pao.
+
+**Uzrok (ispitano):**
+- K06 ne dira nijednu rutu, komponentu, `next.config.ts`, `proxy.ts`, `public/**` ni `harness/**`. `app/page.tsx` nema `notFound`, a proxy ne prepisuje `/`, pa 404 za `/` znači da dev server tada nije imao rutu u svom spisku.
+- `next dev` (`node_modules/next/dist/server/lib/router-utils/setup-dev-bundler.js`) gradi spisak ruta iz Watchpack snimka. Server se proglašava spremnim na prvom `aggregated` događaju (`aggregateTimeout: 5` ms, posmatra se ceo koren, propušta se samo `app/` i nekoliko fajlova u korenu). Pod jakim opterećenjem diska taj prvi snimak nosi samo deo `app/`: u K04 je falila `/dev/template-gallery`, a u K06 je spisak bio prazan.
+- `harness/run.mjs` `waitForServer` prihvata bilo koji odgovor, pa i 404, a posle 404 ne ponavlja `page.goto`. Isti mehanizam je opisan u dopuni K04.
+- U vreme pada nijedan proces ovog koraka nije radio: moja sesija je završila u 23:33, a radnici u 23:20. Spisak `node` procesa pokazuje samo MCP servere.
+- Ponovio sam istu proveru bez ikakve izmene koda, tri puta, i sva tri puta je dobijeno `harness:check passed — 177 cases × 2 viewports match the goldens byte-for-byte`:
+  1. sam `npm run harness:check` (23:43);
+  2. `npm run build` pa odmah `harness:check`, redom kao runner (23:43–23:48);
+  3. typecheck, eslint, namespace, ceo vitest, pa `npm run build` i odmah `harness:check`, ceo niz runnera pod istim opterećenjem (23:46–23:53).
+
+**ODLUKE:**
+- Kod nije menjan, jer pad ne potiče iz K06 izmena i ne ponavlja se.
+- Pravu popravku (harness da čeka da korpus odgovori sa 200 ili da ponovi `page.goto` posle 404) nisam uradio: `harness/**` i Next konfiguracija su van obima runa. Predlog je upisan u `docs/tasks/BLOCKED.md` → `SCANME MENU V1 — K06`, tačka 9.
+- Golden nije regenerisan, a testovi ni pravila lint-a nisu dirani.
+
+**Rezultat provere (ponovo, 23:43–23:53):**
+- `node .nocni-run/meni/alati/typecheck.mjs`: bez grešaka.
+- `npx eslint --ignore-pattern ".nocni-run/**"`: 0 grešaka (2 stara upozorenja).
+- `npx vitest run --testTimeout=30000 --hookTimeout=60000`: 428 fajlova i 6.001 test prolaze (2 stara bench fajla se preskaču).
+- `npm run harness:namespace`: prošlo.
+- `npm run build`: prošlo dva puta.
+- `npm run harness:check`: prošlo tri puta.
+- Nijedan dev server ni proces repoa nije ostao upaljen (provereno spiskom `node` procesa). `next-env.d.ts` je vraćen na sadržaj iz HEAD-a.
+
+**Za Jovana ujutru:** pad `harness:check` posle K04 i K06 je ista trka pri startu dev servera pod opterećenjem, ne regresija ScanMe Links renderera. Ako se ponavlja, odobri popravku iz BLOCKED (K06, tačka 9); izmena je samo u `harness/run.mjs`, a zlatni snimci ostaju isti.

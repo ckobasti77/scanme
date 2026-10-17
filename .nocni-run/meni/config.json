@@ -15,7 +15,7 @@
     { "name": "test", "cmd": "npx vitest run --testTimeout=30000 --hookTimeout=60000", "kind": "vitest", "timeoutMin": 45 },
     { "name": "namespace", "cmd": "npm run harness:namespace", "timeoutMin": 10 },
     { "name": "build", "cmd": "npm run build", "timeoutMin": 40, "agent": false },
-    { "name": "harness", "cmd": "npm run harness:check", "timeoutMin": 30, "agent": false }
+    { "name": "harness", "cmd": "node .nocni-run/meni/alati/harness.mjs", "timeoutMin": 40, "agent": false }
   ],
   "maxFixAttempts": 2,
   "budgetUsd": 2000,

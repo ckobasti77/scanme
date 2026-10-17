@@ -22,6 +22,16 @@ export const MENU_AUDIT_ACTIONS = [
   "version.published",
   /** A published version was restored into the draft (K05). */
   "version.restored",
+  /** The legacy menu was migrated into the draft (K06, internal; master §6.2). */
+  "legacy.migrated",
+  /** The rows a migration or import created were removed again (K06 rollback). */
+  "legacy.purged",
+  /** The legacy writers were switched off for the migrated menu (K06). */
+  "legacy.cutover",
+  /** The cutover was undone: the legacy writers work again (K06 rollback). */
+  "legacy.cutover_reverted",
+  /** ScanMe imported a menu into the draft (K06, internal import; master §6.2). */
+  "legacy.imported",
 ] as const;
 
 export type MenuAuditAction = (typeof MENU_AUDIT_ACTIONS)[number];

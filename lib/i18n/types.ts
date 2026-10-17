@@ -57,6 +57,11 @@ import type { RoomServiceErrorCode } from "../menu/errors/room-service";
 import type { ArticleErrorCode } from "../menu/errors/article";
 import type { MenuPublishIssueCode } from "../menu/errors/publish";
 import type { MenuPublishRefusal, MenuVersionErrorCode } from "../menu/errors/versions";
+import type {
+  MenuMigrationErrorCode,
+  MenuMigrationIssueCode,
+  MenuMigrationManualCheck,
+} from "../menu/errors/migration";
 import type { MenuAllergenCode } from "../menu/allergens";
 import type { MenuTagCode } from "../menu/tags";
 
@@ -2358,7 +2363,8 @@ export interface MenuDomenDict {
     | MenuPlanErrorCode
     | RoomServiceErrorCode
     | ArticleErrorCode
-    | MenuVersionErrorCode,
+    | MenuVersionErrorCode
+    | MenuMigrationErrorCode,
     string
   >;
   // --- K04: the article model (master §5.4–§5.7, §7.3, §7.6).
@@ -2379,6 +2385,13 @@ export interface MenuDomenDict {
   // --- K05: publishing and versions (master §6.1).
   /** Why a publish or restore was refused (lib/menu/errors/versions.ts); nothing was written. */
   publishRefusals: Record<MenuPublishRefusal, string>;
+  // --- K06: legacy migration and internal import (master §6.2, §6.3), for the ScanMe admin tool.
+  /** Report issues (lib/menu/errors/migration.ts): blockers, warnings, post-migration differences. */
+  migrationIssues: Record<MenuMigrationIssueCode, string>;
+  /** What the operator checks by hand before publishing (master §6.3). */
+  migrationManualChecks: Record<MenuMigrationManualCheck, string>;
+  /** Names used when the legacy one is empty. */
+  migrationFallbacks: { sectionName: string; variantName: string };
 }
 
 export interface MenuAdminDict {
@@ -2514,6 +2527,8 @@ export interface MenuEditorDict {
   menuAlreadyExists: string;
   draftChanged: string;
   itemNotFound: string;
+  /** K06: a legacy writer refused after the cutover to the new Menu model. */
+  legacyMigrated: string;
   // The five group shapes (components/menu/blocks/registry.tsx).
   shapeLabelLista: string;
   shapeLabelGalerija: string;

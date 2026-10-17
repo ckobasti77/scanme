@@ -2104,3 +2104,20 @@ Nijedna stavka ne blokira kod: run je izabrao konzervativnu opciju i kod radi po
 7. **Brisanje artikla i „Privremeno nedostupno".** Obrisan artikal ostaje u živoj verziji do objave, pa njegova oznaka nedostupnosti ostaje do objave (K04 ju je brisao odmah, pa bi gost do objave video artikal kao dostupan).
 8. **Upozorenje o prevodu** je jedno po jeziku (broj tekstova bez potvrđenog prevoda i prvih 20), ne po artiklu; AI predlog se ne računa kao prevod.
 9. **Izgled bez podešavanja:** paleta i fontovi „default" (renderer bira podrazumevano, nikad ScanMe crno-zelenu), layout `Tok`, bez pretrage, filtera i EUR prekidača. Premium pravila izgleda (dodatni layouti, smanjen brending) dodaje K17.
+
+## SCANME MENU V1 — K06 (17. 10. 2026.) — pravila migracije starog menija koja traže potvrdu vlasnika
+
+Nijedna stavka ne blokira kod: run je izabrao konzervativnu opciju i kod radi po njoj. Migracija NIJE puštana ni na jednom deploymentu. Vlasnik potvrđuje ili menja.
+
+1. **Delovi dana se ne prenose** (K01 OTV 11). Grupa vezana za doručak, ručak ili večeru postaje stalno vidljiva sekcija; izveštaj je navodi kao „nemapirano". Isto važi za „Ide uz", video i oblik grupe (Lista, Galerija, Traka…). Alternativa: zadržati delove dana kao novu funkciju novog modela (nije u masteru V1).
+2. **Duplikati se ne spajaju sami.** Dve stare stavke istog imena ostaju dva artikla; izveštaj ih navodi (sa istom ili različitom cenom), a operater odlučuje i spaja ih u editoru (master §6.2, korak 3).
+3. **Prelom teksta u opisu.** Novi model (K02) sažima prelome redova i višestruke razmake, pa opis „Sa lukom i⏎kajmakom" postaje „Sa lukom i kajmakom". Migracija to radi po istom pravilu i prijavljuje svaki takav tekst. Ako opisi treba da čuvaju prelom reda, to je izmena pravila teksta za ceo novi model.
+4. **Stari artikli dobijaju ikonicu** (`mediaMode: "icon"`, ključ iz starog tipa proizvoda), jer je stari javni meni uvek prikazivao ikonicu; nov artikal u editoru i dalje počinje bez medija. Stara fotografija se čuva i čeka obradu slika (K15); do tada se prikazuje ikonica.
+5. **„Nema više" iz žive verzije pobeđuje.** Ako nacrt starog menija kaže „dostupno", a javni meni „nema više", artikal se prebacuje kao privremeno nedostupan.
+6. **Prelazak (gašenje starog editora za taj lokal)** je dozvoljen tek kad je migracija završena i novi meni objavljen; do tada osoblje mora moći da označi „nema više" na starom meniju koji gosti još vide.
+7. **Povratak gosta na stari meni posle K13.** Do K13 javna ruta i dalje prikazuje stari meni i posle objave novog. Kad K13 prebaci rutu na novi model, rollback „vrati goste na stari meni" traži operaterski prekidač (npr. da ruta poštuje i stanje migracije). Treba odluka: da li takav prekidač postoji i ko sme da ga koristi (predlog: samo ScanMe admin).
+8. **Interni uvoz ide samo u nacrt bez artikala**, nikad ne objavljuje; ponovni uvoz traži da operater prvo ukloni prethodni (interni `purgeMigratedService`).
+9. **`npm run harness:check` povremeno pada odmah posle build-a** (runner posle K04 i posle K06). Kod nije uzrok: ista provera je posle K06 prošla 3 puta, i sama i redosledom runnera (build pa harness). Uzrok je trka na startu dev servera:
+   - `next dev` (`setup-dev-bundler.js`) proglašava server spremnim već na prvom `aggregated` događaju Watchpack-a (`aggregateTimeout: 5` ms). Pod jakim opterećenjem diska, odmah posle `next build` i 6.000 testova, spisak ruta iz `app/` tada je nepotpun (K04: nema `/dev/template-gallery`) ili prazan (K06: čak i `/` je 404).
+   - `harness/run.mjs` `waitForServer` prihvata bilo koji odgovor, pa i 404. Posle 404 ne ponavlja `page.goto`, nego čeka `[data-case-id]` 240 s i pada.
+   - Predlog popravke (traži „može", jer `harness/**` je van obima runa): `waitForServer` da čeka da `CORPUS_URL` odgovori sa 200, ili da `renderCorpus` ponovi `page.goto` dok korpus ne odgovori sa 200, u istom ukupnom roku. Zlatni snimci i provera bajt po bajt ostaju isti.

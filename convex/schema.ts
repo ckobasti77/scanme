@@ -73,6 +73,7 @@ import {
   menuEmphasisValidator,
   menuFeaturesValidator,
   menuLayoutValidator,
+  menuLegacyMigrationValidator,
   menuMediaModeValidator,
   menuMemberRoleValidator,
   menuMemberStatusValidator,
@@ -3363,9 +3364,14 @@ export default defineSchema({
     // version; absent = never published (the legacy path still applies).
     liveVersionId: v.optional(v.id("menuVersions")),
     liveVersionNumber: v.optional(v.number()),
+    // K06: migration of the legacy menu (`legacyMenuId`) into this service;
+    // absent = never migrated. Written only by convex/menuMigration.ts.
+    migration: v.optional(menuLegacyMigrationValidator),
   })
     .index("by_businessId", ["businessId"])
-    .index("by_serviceProfileId", ["serviceProfileId"]),
+    .index("by_serviceProfileId", ["serviceProfileId"])
+    // K06: the legacy writers find the service that took over their menu.
+    .index("by_legacyMenuId", ["legacyMenuId"]),
 
   // High-churn draft bookkeeping, split from menuServices so editing never
   // invalidates readers of the service row (one write per draft mutation).
@@ -3425,6 +3431,9 @@ export default defineSchema({
     updatedAt: v.number(),
     // K04 (written by K16): name and description per language.
     translations: v.optional(menuTranslationsValidator),
+    // K06: the legacy group (or imported group) this section was created
+    // from; absent = created in the editor. Purge removes only marked rows.
+    legacyRef: v.optional(v.string()),
   })
     .index("by_pageId_and_order", ["pageId", "order"])
     .index("by_menuServiceId", ["menuServiceId"])
@@ -3463,6 +3472,13 @@ export default defineSchema({
     priceCheck: v.optional(menuComboPriceCheckValidator),
     // Written by K16: name and description per language.
     translations: v.optional(menuTranslationsValidator),
+    // --- K06: migration of the legacy model (recipe §12).
+    // The legacy item (or imported line) this article was created from;
+    // absent = created in the editor. Purge removes only marked rows.
+    legacyRef: v.optional(v.string()),
+    // The legacy photo, kept until media processing (K15) turns it into a
+    // mediaAssets image; until then the article shows its icon.
+    legacyPhotoStorageId: v.optional(v.id("_storage")),
   })
     .index("by_menuServiceId_and_key", ["menuServiceId", "key"])
     .index("by_menuServiceId_and_nameNormalized", ["menuServiceId", "nameNormalized"])

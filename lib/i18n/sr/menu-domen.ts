@@ -57,6 +57,11 @@ export const menuDomenSr = {
       "Meni je prevelik za jednu objavu. Javni meni nije promenjen. Obratite se ScanMe timu.",
     "menu/restore_too_large":
       "Ova verzija je prevelika da bi se vratila odjednom. Nacrt nije promenjen. Obratite se ScanMe timu.",
+    "migration/legacy_menu_missing": "Ovaj lokal nema stari meni koji bi se prebacio.",
+    "migration/legacy_menu_mismatch":
+      "Usluga je povezana sa drugim starim menijem od onog koji gosti vide. Proverite vezu pre migracije.",
+    "migration/default_page_missing":
+      "Meni nema aktivnu stranicu „Kompletan meni“ u koju bi se uvezao sadržaj.",
   },
   allergens: {
     gluten: "Žitarice koje sadrže gluten",
@@ -122,5 +127,65 @@ export const menuDomenSr = {
     no_changes: "Nema neobjavljenih izmena. Javni meni je već ažuran.",
     validation_failed: "Objava nije moguća dok se ne isprave označene greške.",
     confirmation_required: "Pregledajte upozorenja i potvrdite da želite da objavite.",
+  },
+  migrationIssues: {
+    source_changed:
+      "Stari meni je izmenjen posle početka migracije. Prvo uklonite prebačen sadržaj, pa pokrenite migraciju ponovo.",
+    sections_limit: "Stranica bi imala više od 100 sekcija. Spojite grupe pre migracije.",
+    articles_limit: "Meni bi imao više od 2.000 artikala.",
+    placements_limit: "Stranica bi imala više od 4.000 prikaza artikala.",
+    import_target_not_empty:
+      "Nacrt već ima artikle. Uvoz ide samo u nacrt bez artikala.",
+    import_too_large: "Uvoz je prevelik za jedan korak. Podelite ga na manje delove.",
+    cutover_active:
+      "Stari meni je već isključen. Prvo poništite prelazak, pa uklonite prebačen sadržaj.",
+    not_migrated: "Migracija još nije završena.",
+    not_published:
+      "Novi meni još nije objavljen. Stari meni se isključuje tek kada gosti imaju novi.",
+    source_empty: "Stari meni nema nijednu stavku.",
+    draft_has_unpublished_changes:
+      "Stari meni ima neobjavljene izmene. Prebačen je nacrt, ne javna verzija.",
+    target_not_empty: "Nacrt već ima artikle koji ne dolaze iz starog menija.",
+    item_name_empty: "Stavka bez naziva nije prebačena.",
+    section_untitled: "Grupa nema naziv. Sekcija je dobila privremen naziv.",
+    variant_name_empty: "Varijanta nema naziv. Dobila je privremen naziv.",
+    text_whitespace_changed: "Prelom teksta ili višestruki razmaci su sažeti. Proverite tekst.",
+    text_cut: "Tekst je bio predug i skraćen je. Proverite tekst.",
+    text_encoding_suspect:
+      "Tekst izgleda kao da je izgubio dijakritiku (npr. „Ä‡“ umesto „ć“). Proverite tekst.",
+    diacritics_absent:
+      "Nijedan naziv nema dijakritiku (č, ć, š, ž, đ). Proverite da li se izgubila pri unosu.",
+    price_missing: "Artikal nema cenu ni varijantu sa cenom. Ne može da se objavi dok se ne dopuni.",
+    price_zero: "Cena je 0 RSD. Proverite da li je tačna.",
+    price_rounded: "Cena nije bila u celim dinarima i zaokružena je.",
+    price_invalid: "Cena nije ispravna i nije prebačena.",
+    variants_truncated: "Artikal ima više od 20 varijanti. Prebačeno je prvih 20.",
+    duplicate_name: "Više artikala ima isti naziv. Proverite da li je to isti proizvod.",
+    duplicate_source_id:
+      "Stavka je u starom meniju imala ponovljen ili prazan identifikator. Proverite da nije prebačena dvaput.",
+    image_pending: "Slika je sačuvana i čeka obradu. Do tada se prikazuje ikonica.",
+    unavailable_from_live:
+      "Na javnom meniju je označeno „nema više“. Artikal je prebačen kao privremeno nedostupan.",
+    video_unmapped: "Video se ne prenosi u novi meni.",
+    pairings_unmapped: "Preporuke „Ide uz“ se ne prenose u novi meni.",
+    daypart_unmapped: "Delovi dana (doručak, ručak, večera) se ne prenose. Sekcije se prikazuju stalno.",
+    group_shape_unmapped:
+      "Oblik grupe se ne prenosi. Izgled celog menija se bira u editoru.",
+    name_differs: "Naziv se razlikuje od starog menija.",
+    price_differs: "Cena se razlikuje od starog menija.",
+    variants_differ: "Varijante se razlikuju od starog menija.",
+    placement_missing: "Artikal nije u sekciji u koju je prebačen.",
+    order_differs: "Redosled artikala u sekciji se razlikuje od starog menija.",
+  },
+  migrationManualChecks: {
+    image_rights: "Proverite da lokal ima pravo da koristi svaku sliku.",
+    allergens_provided:
+      "Unesite alergene samo tamo gde ih je lokal dostavio. Stari meni ih nema.",
+    phone_layout: "Pogledajte pregled menija na telefonu pre objave.",
+    preview_before_publish: "Lokal ili ScanMe pregleda nacrt pre objave.",
+  },
+  migrationFallbacks: {
+    sectionName: "Bez naziva",
+    variantName: "Varijanta",
   },
 } as const satisfies MenuDomenDict;

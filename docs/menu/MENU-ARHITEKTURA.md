@@ -97,6 +97,14 @@ Nova opciona polja: `menuServices.liveVersionId?` (`menuVersions`) i `liveVersio
 
 `menuDraftState.lock?` (vraćanje u serijama) nije dodat: vraćanje je jedna transakcija ispod budžeta, a serije su odložene u K18.
 
+### 2.1e Migracija starog modela [K06 ✓]
+
+| Tabela | Nova opciona polja i indeksi | Značenje |
+|---|---|---|
+| `menuServices` | `migration?` {`status` `"running"\|"migrated"\|"cutover"`, `legacyMenuId`, `sourceKind` `"draft"\|"live"`, `sourceRevision`, `startedAt`, `migratedAt?`, `cutoverAt?`}; indeks `by_legacyMenuId` | faza migracije starog menija (`legacyMenuId`) u ovu uslugu; piše ga samo `convex/menuMigration.ts`; `cutover` gasi stare pisce (§12.4) |
+| `menuSections` | `legacyRef?` | stara grupa (`draft:<id>`, `live:<id>`) ili uvezena grupa (`import:<id>`) iz koje je sekcija nastala; odsutno = napravljena u editoru |
+| `menuArticles` | `legacyRef?`; `legacyPhotoStorageId?` (`_storage`) | stara stavka ili uvezen red iz kog je artikal nastao; stara fotografija čeka obradu (K15 je pretvara u `mediaAssets` sliku), a do tada artikal prikazuje ikonicu |
+
 ### 2.2 Tabele kasnijih koraka (plan iz K01 §3.2; korak ih uvodi i dopunjuje ovaj odeljak)
 
 | Korak | Tabele i polja |
@@ -104,7 +112,7 @@ Nova opciona polja: `menuServices.liveVersionId?` (`menuVersions`) i `liveVersio
 | K03 ✓ | tačka 2.1b i `menuServices.settings?.languages`. `markupPercent` iz plana je postao `markupBps` (ceo broj, bez float greške); `manualVariantPrices?` (ručna RS cena po varijanti) dodaje K04 uz varijante. |
 | K04 ✓ | tačka 2.1c; `priceCheck` je proširen u odnosu na plan (`changedComponentKeys`, `removedComponentNames` umesto `reason`), `menuAddonGroups.linkCount` je dodat (broj pogođenih artikala bez čitanja svih veza), `menuServices.settings.allergensEnabled` zamenjuje planirano `menuPresentation.allergensEnabled` |
 | K05 ✓ | tačka 2.1d; `lock?` odložen u K18; dodati `menuDraftState.restoredFromNumber?`, `menuVersions.retiredAt?` + `by_retiredAt` (ograničeno brisanje starih verzija) i `menuVersions.contentHash` |
-| K06 | `menuArticles.legacyPhotoStorageId?`; `menuServices.migration?`; indeks `by_legacyMenuId` |
+| K06 ✓ | tačka 2.1e; dodat je `legacyRef?` na `menuArticles` i `menuSections` (rollback briše samo redove koje je napravila migracija ili uvoz) |
 | K14 | `menuExchangeRates` |
 | K15 | `menuMediaUploads` |
 | K20 | `menuZones`, `menuPositions`, `menuGuestSessions`; `menuQrLinks.positionId?` + `by_positionId` |
@@ -130,6 +138,8 @@ Greške su mašinski kodovi (`throw new ConvexError(MENU_ERROR.x)`, `lib/menu/er
 | `convex/lib/menuDraft.ts` | `loadDraftState`, `touchDraft(ctx, menuServiceId, userId, { articleDelta })`, `writeMenuAudit`, `auditActorKind` | `touchDraft` se zove **tačno jednom** po uspešnoj mutaciji nacrta (revizija + 1, ko je poslednji menjao, broj artikala); nikad na odbijen poziv, CAS konflikt ili no-op. |
 | `convex/lib/menuDomainValidators.ts` | validatori | Deli ih šema i moduli. |
 | `convex/lib/menuCapabilities.ts` [K03 ✓] | `getMenuCapabilities(ctx, businessId)`, `requireMenuCapability(ctx, businessId, capability)` | Jedino mesto koje odlučuje Standard/Premium: proširuje lanac `getEntitlement(…, "scanme_menu")` (subscriptions_v1 Premium naloga → aktivan red lokala → plan naloga, enterprise = premium) i mapira ga kroz `lib/menu/capabilities.ts`. Premium važi za sve lokale naloga. `requireMenuCapability` baca `plan/premium_required`, i za ScanMe admina: komercijalni gate se ne zaobilazi, Premium se daje kroz entitlement. |
+| `convex/lib/menuLegacyMigration.ts` [K06 ✓] | `loadActiveMenuService`, `legacyMenuForService`, `defaultPageOf`, `loadLegacySource`, `loadLegacyTarget`, `writeLegacySlice`, `legacyPlanOptions`, `LEGACY_MIGRATION_ACTOR_REF` | Čita stari izvor (nacrt ili živu generaciju) i nacrt novog modela, i upisuje deo plana (`lib/menu/legacy-mapping.ts`). Stare tabele samo čita. |
+| `convex/lib/menuLegacyGuard.ts` [K06 ✓] | `assertLegacyMenuWritable(ctx, menuId)` | Posle prelaska (`migration.status === "cutover"`) stari pisci odbijaju sa tekstom `menu-editor.legacyMigrated`; pre prelaska rade kao pre. |
 | `convex/lib/menuStaffAccess.ts` [K22] | `requireMenuStaff` | Sesija osoblja (heš tokena) ili korisnik V/M. |
 | `convex/lib/menuGuestAccess.ts` [K20] | `requireMenuGuest` | Tenant i pozicija iz sesije gosta. |
 
@@ -154,7 +164,9 @@ Greške su mašinski kodovi (`throw new ConvexError(MENU_ERROR.x)`, `lib/menu/er
 | `convex/menuPresence.ts` | `heartbeat` (m · `menu.edit`; piše samo kad se entitet promeni ili red ističe), `leave` (m · `menu.read`), `listForService` (q · `menu.read`; `nowBucket` iz klijenta), `cleanupExpired` (internal; cron) | K05 ✓ |
 | `convex/menuPublic.ts` (bez prijave) | `entry` (`new`\|`legacy`\|`none`), `page` (`slug`, `pageSlug?`, `lang?`; jedna stranica ili `splitter`), `roomService` (samo uz živ prekidač), `availability` (`menuServiceId`; živo) — čitaju samo objavljenu verziju i žive slojeve | K05 ✓ |
 | `convex/lib/menuDraftLoad.ts`, `convex/lib/menuRestore.ts` | ceo nacrt jednim ograničenim upitom po tabeli → `MenuDraftSnapshot`; upis razlike pri vraćanju | K05 ✓ |
-| `convex/menuMigration.ts` (+ `menuAdmin.importDraftV2`) | interna migracija (internal), zaštita od dvostrukog upisa | K06 |
+| `convex/menuMigration.ts` (samo internal) | `planLegacyMigration` (iq; izveštaj bez upisa + provera već migriranih redova); `migrateLegacyMenuBatch` (im; ≤ 100 artikala po seriji, nastavak kroz scheduler, idempotentno); `purgeMigratedService` (im; rollback u serijama); `cutoverLegacyMenu` / `revertLegacyCutover` (im; gašenje i vraćanje starih pisaca) — §12 | K06 ✓ |
+| `convex/menuAdmin.ts` (dopuna) | `importDraftV2` (m · `requireAdmin`; `parseMenuImport` → nacrt nove usluge; `dryRun`; samo u nacrt bez artikala; nikad ne objavljuje; audit u oba dnevnika); zaštita `assertLegacyMenuWritable` u `importDraft` i `publishForClient` | K06 ✓ |
+| `convex/menu.ts` (dopuna) | zaštita `assertLegacyMenuWritable` u `saveDraft`, `publishDraft` i `setItemAvailable` | K06 ✓ |
 | `convex/menuPanel.ts` | shell i Početna, Operativa, ping | K08, K27 |
 | `convex/menuBulk.ts` | Izaberi više | K11 |
 | `convex/menuFx.ts` | kurs EUR (iza `MENU_FX_ENABLED`) | K14 |
@@ -274,6 +286,7 @@ Slug stranice se izvodi jednom iz naziva i nikad se ne menja (`lib/menu/slugs.ts
 | `lib/menu/**` | čista logika, bez `next`, `react`, `@/` i `node:` uvoza (proverava `lib/menu/purity.test.ts`); izuzeci `lib/menu/http/**` (logika route handlera kao `(Request, deps) => Response`) i `lib/menu/testkit/**` (seed za testove) |
 | `lib/menu/errors/*.ts` | mašinski kodovi grešaka po domenu, bez zavisnosti |
 | `lib/menu/testkit/seed.ts` | `seedMenuWorld`, `seedQrLink`, `addAccountMember`, `addMenuMember` |
+| `lib/menu/testkit/legacy.ts` [K06] | stari oblik za testove migracije: `legacyDraftModel`, `legacyBigModel`, `seedLegacyMenu` (nacrt i generacije kroz pravi `insertPublishedRows`), `legacySnapshot` |
 | `convex/menu*.ts` | Convex moduli (tačka 3.2); testovi pored modula |
 | `components/menu/zajednicko/**` | primitivi i tokeni panela [K07] |
 | `components/menu/fixtures/**` | tipizirani izmišljeni podaci za izlog [K07] |
@@ -286,7 +299,8 @@ Komponentni testovi idu u `components/menu/**/*.test.tsx`; testovi u `app/**`, `
 
 | Površina | Sadržaj | Korak |
 |---|---|---|
-| `menu-domen` | naziv podrazumevane stranice, „(kopija)", režimi, uloge, napomena o promeni režima, tekst svakog koda greške (`menu/…`; od K03 i `plan/…`, `room_service/…`; od K04 `article/…`); K04: nazivi alergena, „Sadrži" / „Može sadržati tragove", radni tekst upozorenja o alergenima (§7.3), oznake, oznake akcije, „Privremeno nedostupno", tekst svakog koda validacije za objavu; K05: kodovi `menu/publish_too_large` i `menu/restore_too_large`, upozorenja cele objave i `publishRefusals` (razlozi odbijanja objave i vraćanja) | K02 ✓, K03 ✓, K04 ✓, K05 ✓ |
+| `menu-domen` | naziv podrazumevane stranice, „(kopija)", režimi, uloge, napomena o promeni režima, tekst svakog koda greške (`menu/…`; od K03 i `plan/…`, `room_service/…`; od K04 `article/…`); K04: nazivi alergena, „Sadrži" / „Može sadržati tragove", radni tekst upozorenja o alergenima (§7.3), oznake, oznake akcije, „Privremeno nedostupno", tekst svakog koda validacije za objavu; K05: kodovi `menu/publish_too_large` i `menu/restore_too_large`, upozorenja cele objave i `publishRefusals` (razlozi odbijanja objave i vraćanja); K06: kodovi `migration/…`, `migrationIssues` (blokade, upozorenja i razlike izveštaja migracije), `migrationManualChecks`, `migrationFallbacks` | K02 ✓, K03 ✓, K04 ✓, K05 ✓, K06 ✓ |
+| `menu-editor` (postojeća, stari editor) | K06: `legacyMigrated` (stari pisac posle prelaska) | K06 ✓ |
 | `menu-zajednicko` | primitivi, stanja (prazno, greška, učitavanje) | K07 |
 | `menu-panel` | shell i sekcije klijentskog panela | K08 |
 | `menu-studio` | editor | K10 |
@@ -299,14 +313,86 @@ Komponentni testovi idu u `components/menu/**/*.test.tsx`; testovi u `app/**`, `
 
 Dodavanje: interfejs u `lib/i18n/types.ts` (sme da uvozi tipove samo iz fajlova bez uvoza, npr. `lib/menu/errors/core.ts`) + red u `DictBySurface`, `lib/i18n/sr/<površina>.ts` sa `as const satisfies`, registracija u `lib/i18n/index.ts`. Convex uvozi `../lib/i18n/sr/<površina>` direktno; klijentske komponente uvoze `sr` modul direktno i `fmt` iz `@/lib/i18n/format`.
 
-## 12. Migracija i rollback
+## 12. Migracija i rollback [K06 ✓]
 
-- **Widen (run):** samo nove tabele i opciona polja (tačka 2).
-- **Migrate [K06, ne pušta se]:** `convex/menuMigration.ts` — `planLegacyMigration` (dry-run izveštaj), `migrateLegacyMenuBatch` (≤ 100 stavki po seriji, nastavak kroz scheduler, idempotentno), `purgeMigratedService` (rollback). Izvor: `menus.draftModel` ili živa generacija. Mapiranje u `lib/menu/legacy-mapping.ts` (grupa → sekcija na „Kompletan meni", stavka → artikal sa `key = "lgc" + id`, varijante, slika kao `legacyPhotoStorageId`, nedostupno → `menuAvailability`; video, „Ide uz", dayparts i oblici grupa → izveštaj „nemapirano").
-- **Kompatibilnost:** stari javni meni i editor rade dok usluga nema objavljenu novu verziju (`menuPublic.entry`: `new` | `legacy` | `none`); posle prelaska stari pisci vraćaju `menu/legacy_migrated`.
-- **Narrow (posle runa, samo uz odobrenje vlasnika):** gašenje starog puta, brisanje starih tabela tek posle bekapa.
-- **Rollback po fazi:** šema (novi kod se ne koristi) → migracija (`purgeMigratedService`) → objava (`restoreVersion` ili povratak na stari meni) → radnje gosta (prekidači) → QR (`menuQrLinks.active = false` vraća karticu na `/{slug}/meni`).
-- **Za produkciju (K35):** deploy šeme → `menuAdmin:backfillMenuProfiles` → dry-run po lokalu → migracija → pregled → objava → praćenje → narrow uz odobrenje; env `MENU_PIN_PEPPER`, OAuth i ključ za šifrovanje, opciono `MENU_FX_ENABLED`.
+Stari model (`menus` sa inline nacrtom `draftModel` i objavljenim generacijama u `menuGroups`, `menuItems`, `itemVariants`, `itemPairings` i `menuDayparts`) i novi model žive paralelno. Migraciju radi ScanMe (master §6.2): sve migracione funkcije su `internal`, a klijentski panel nema ni migraciju ni uvoz. **U runu ništa nije pušteno ni na jednom deploymentu**; funkcije su dokazane testovima (`convex/menuMigration.test.ts`, `convex/menuLegacyCompat.test.ts`, `convex/menuAdminImportV2.test.ts`, `lib/menu/legacy-mapping.test.ts`).
+
+### 12.1 Redosled po tabeli (widen → migrate → narrow)
+
+| Tabela | Widen (run, K02–K06) | Migrate (K06, nepušteno) | Narrow (posle runa, samo uz Jovanovo odobrenje) |
+|---|---|---|---|
+| `menus` | ne menja se; samo se čita | izvor: `draftModel` kad postoji, inače samo živa generacija (`publishGeneration === publishedGeneration`; starija generacija koja čeka čišćenje se ne čita) | posle prelaska svih lokala: zamrzavanje, pa brisanje tek posle bekapa |
+| `menuGroups` | — | grupa → sekcija na „Kompletan meni" (`legacyRef`) | briše se sa `menus`, posle bekapa |
+| `menuItems` | — | stavka → artikal (`legacyRef`) + prikaz u sekciji; `priceRsd` → `basePriceRsd`; `iconKey` ili normalizovan `productType` → `iconKey` sa `mediaMode: "icon"`; `photoStorageId` → `legacyPhotoStorageId`; `available: false` (i „nema više" iz žive generacije) → red `menuAvailability` | isto; fotografije se ne brišu dok ih K15 ne prebaci u `mediaAssets` |
+| `itemVariants` | — | → `menuVariants` + `variantsEnabled` | isto |
+| `itemPairings`, `menuDayparts`, `daypartKey`, `daypartOverride`, video, oblik grupe | — | ne prenose se; izveštaj „nemapirano" (K01 OTV 11) | isto |
+| `orderingItems` (RFC-004) | — | ne menja se; izveštaj poklapanja sa artiklima po normalizovanom nazivu | odluka o RFC-004 poručivanju je poseban korak |
+| `menuServices` | `migration?`, indeks `by_legacyMenuId` | `migration.status`: `running` → `migrated` → `cutover` | `legacyMenuId` i `migration` ostaju kao istorija |
+| `menuSections`, `menuArticles` | `legacyRef?`; `menuArticles.legacyPhotoStorageId?` | pišu ih migracija i interni uvoz | `legacyPhotoStorageId` se uklanja kad K15 obradi slike; `legacyRef` ostaje |
+
+### 12.2 Funkcije i pravila
+
+| Funkcija | Šta radi |
+|---|---|
+| `menuMigration.planLegacyMigration({ menuServiceId })` (internal query) | **Samo izveštaj, ništa ne piše.** Čita ceo izvor u jednoj transakciji (isti obrazac po stavci kao stari `publicMenuBySlug`, pa se može planirati svaki stari meni koji gosti mogu da otvore) i vraća: brojeve izvora i plana, cene, tekst, duplikate, „nemapirano", blokade, upozorenja, ručne provere, poklapanje sa `orderingItems` i — za već migrirane redove — razlike prema izvoru. |
+| `menuMigration.migrateLegacyMenuBatch({ menuServiceId, cursor?, batchSize? })` (internal mutation) | Prva serija upisuje `migration` (`running`, izvor i njegova revizija). Svaka serija obezbeđuje planirane sekcije i upisuje artikle `[cursor, cursor + batchSize)` (najviše 100) čiji ključ još ne postoji, sa prikazom, varijantama i dostupnošću; `touchDraft(null)` jednom po seriji (sistemska izmena); nastavak kroz `scheduler.runAfter(0, …)`. Poslednja serija postavlja `migrated` i upisuje `legacy.migrated`. Završena migracija (`migrated`, `cutover`) se ne pokreće ponovo: drugo pokretanje ništa ne menja. Zaustavljena (`running`) se nastavlja ponovnim pozivom od bilo kog kursora. |
+| `menuMigration.purgeMigratedService({ menuServiceId })` (internal mutation) | Rollback migracije u serijama od 200: briše samo artikle sa `legacyRef` koje niko nije menjao (`updatedAt === createdAt`) i koji nisu u grupi dodataka, kombou, Room service-u ni u sekciji koju migracija nije napravila — sa prikazima, varijantama i redom dostupnosti koji je postavila migracija (dok postoji objavljena verzija, red ostaje; briše ga sledeća objava, K05). Zatim brišu se prazne migrirane sekcije i `migration`, pa se meni može migrirati ponovo. Zadržane redove broji (`keptSoFar`). Odbija se posle prelaska. |
+| `menuMigration.cutoverLegacyMenu` / `revertLegacyCutover` (internal mutation) | Prelazak je dozvoljen tek posle `migrated` I objavljene verzije novog modela (dok gosti ne dobiju novi meni, osoblje mora moći da označi „nema više" na starom); `revert` vraća `migrated`. Oba pišu audit. |
+| `menuAdmin.importDraftV2({ menuServiceId, model, dryRun? })` (`requireAdmin`) | Interni uvoz (master §6.2): `parseMenuImport` na admin ekranu → isti model → isto mapiranje → **nacrt** podrazumevane stranice. `dryRun` vraća samo izveštaj. Samo u nacrt bez artikala (`import_target_not_empty`); prevelik uvoz (> 8.000 upisa) se odbija pre upisa; nikad ne objavljuje; audit `legacy.imported` i `menu_import_draft_v2`. |
+
+- **Ključevi** se izvode iz starih id-jeva (`legacyKey`: oblik `<prefiks>_<12 base32>`, `isMenuKey` važi), pa isti izvor uvek daje iste ključeve; postojeći ključ se nikad ne prepisuje i ne gazi izmenu iz novog editora. Ponovljen ili prazan stari id dobija deterministički sufiks i upozorenje.
+- **Otisak izvora:** `migration` pamti vrstu izvora i reviziju (`draftRevision` ili `publishedGeneration`). Ako se stari meni promeni posle početka, svaka sledeća serija i plan vraćaju `source_changed` i ne pišu ništa: prvo `purgeMigratedService`, pa nova migracija. Dva izvora se nikad ne mešaju.
+- **Blokade** (ništa se ne piše): više od 100 sekcija na stranici, 2.000 artikala u usluzi ili 4.000 prikaza na stranici (`lib/menu/limits.ts`).
+- **Duplikati se ne spajaju automatski**: dve stare stavke istog imena ostaju dva artikla i prijavljuju se; operater odlučuje (master §6.2, korak 3).
+- **Stare tabele se nikad ne pišu ni ne brišu** u migraciji, planu, purge-u i uvozu.
+
+### 12.3 Provere posle migracije (master §6.3)
+
+| Provera | Automatski (`planLegacyMigration`) | Ručno |
+|---|---|---|
+| Broj artikala i sekcija | `report.source` (grupe, stavke) prema `report.planned`; posle migracije `target.pendingArticles = 0`, `pendingSections = 0`, `existingArticles = planned.articles`; preskočene stavke bez naziva u `planned.skippedItems` | — |
+| Cene i valute | `report.prices` (najmanja, najveća, bez cene, 0 RSD, zaokružene, neispravne); valuta je uvek RSD; posle migracije razlika `price_differs` | uporediti nekoliko cena sa dostavljenim menijem |
+| Varijante i količine | `planned.variants`, `variants_truncated`, razlika `variants_differ`; količina (npr. 0,33 l) ostaje u nazivu jer je stari model nema kao polje | — |
+| Duplikati | `report.duplicates` (nazivi, sekcije, iste ili različite cene, artikli u nacrtu) | odlučiti da li je isti proizvod |
+| Dijakritika i prelom teksta | `text_encoding_suspect` („Ä‡" umesto „ć"), `diacritics_absent`, `text_whitespace_changed` (prelom i razmaci se sažimaju po pravilu novog modela), `text_cut` | pročitati označene tekstove |
+| Slike i prava korišćenja | `planned.images`, `image_pending` | prava korišćenja (`image_rights`) |
+| Alergeni samo gde su dostavljeni | stari model ih nema, pa migracija ne upisuje ništa (odsustvo = nepoznato, nikad „bezbedno") | uneti samo dostavljene (`allergens_provided`) |
+| Redosled i pripadnost odredištima | sve ide na „Kompletan meni", sekcije i artikli redom kao u starom; razlike `placement_missing`, `order_differs` | — |
+| Ponašanje na telefonu | — | pregled nacrta na telefonu pre objave (`phone_layout`, `preview_before_publish`) |
+| Nemapirano i poručivanje | `report.unmapped` (video, „Ide uz", delovi dana, oblici grupa), `orderingItems` (poklopljeno, nepoklopljeno, druga cena) | odlučiti šta od toga lokal želi u novom meniju |
+
+### 12.4 Kompatibilnost (dok lokal nije prešao)
+
+- `menuPublic.entry` vraća `new` tek kad usluga ima objavljenu verziju; inače `legacy` (ili `none`). Migracija u nacrt ne menja ništa što gost vidi. Do K13 ruta `app/[slug]/meni` čita samo stare upite (`menuDaypartStateBySlug`, `publicMenuBySlug`), pa javni meni izgleda isto i posle objave novog modela; K13 je prebacuje na `entry`.
+- QR kartice `menu` (resolver `convex/cards.ts`, ruta `app/r/[cardCode]/route.ts`) i dalje vode na `/{slug}/meni`; migracija ne dira `cards`, `cardTargets` ni `menuQrLinks`.
+- Stari editor i stari admin alat rade do prelaska. Posle prelaska `assertLegacyMenuWritable` odbija `menu.saveDraft`, `publishDraft`, `setItemAvailable`, `menuAdmin.importDraft` i `publishForClient` (tekst `menu-editor.legacyMigrated`), pa nema dvostrukog upisa; drugi lokali i lokali bez nove usluge rade kao pre.
+- `/dev/menu-public-preview` ne zavisi od Convex-a i nije menjan.
+
+### 12.5 Rollback po fazi
+
+| Faza | Rollback | Šta ostaje |
+|---|---|---|
+| 1. Šema (widen) | ništa: nova polja i indeks su opcioni i prazni; kod se može vratiti jer nijedna stara tabela nije menjana | stari meni radi |
+| 2. Migracija | `purgeMigratedService` (u serijama, briše samo nepromenjene redove migracije; zadržane prijavljuje) | stari meni ostaje izvor; migracija se može ponoviti |
+| 3. Objava novog modela | `menuPublishing.restoreVersion` na prethodnu verziju; povratak gosta na stari meni posle K13 traži da K13 ruta poštuje `entry` i operaterski prekidač (otvoreno pitanje u BLOCKED, K06) | stari meni se ne briše do narrow faze |
+| 4. Prelazak | `revertLegacyCutover`: stari pisci rade ponovo | nacrt i verzije novog modela ostaju |
+| 5. Radnje gosta | prekidači u Funkcionalnostima (`menuServices.setFeature`) | — |
+| 6. QR | `menuQrLinks.active = false` vraća karticu na `/{slug}/meni` | kartica i istorija `cardTargets` |
+
+### 12.6 Za produkciju — samo uz Jovanovo odobrenje (redosled za K35)
+
+1. Bekap produkcionog deploymenta.
+2. Deploy proširene šeme i koda (widen). Sva nova polja su opciona; indeks `by_legacyMenuId` je na novoj, maloj tabeli `menuServices`, pa ne treba `staged`.
+3. `npx convex run menuAdmin:backfillMenuProfiles` (TASK-61).
+4. Po lokalu: `menuServices.adminProvision` ako usluga ne postoji.
+5. Plan bez upisa: `npx convex run menuMigration:planLegacyMigration '{"menuServiceId":"…"}'` — nema blokada, pregled liste iz §12.3; greške u starom meniju se ispravljaju u starom editoru pre migracije.
+6. Migracija: `npx convex run menuMigration:migrateLegacyMenuBatch '{"menuServiceId":"…"}'` (nastavlja se sama) dok `migration.status` ne bude `migrated`; ponovo plan: `pendingArticles: 0`, `differenceCount: 0`. Prekid se nastavlja istim pozivom.
+7. Pregled nacrta (operater i lokal): slike (K15), alergeni samo dostavljeni, telefon.
+8. Objava novog modela (`Objavi`); posle K13 javna ruta služi novi meni.
+9. Prelazak: `npx convex run menuMigration:cutoverLegacyMenu '{"menuServiceId":"…"}'`.
+10. Praćenje (javni meni, QR skenovi, greške); rollback po §12.5.
+11. Narrow, poseban korak posle svih lokala i bekapa: gašenje starog editora i javnog puta, odluka o RFC-004 poručivanju, brisanje starih tabela.
+12. Env ostalih koraka: `MENU_PIN_PEPPER`, OAuth i ključ za šifrovanje, opciono `MENU_FX_ENABLED`.
 
 ## 13. Konvencije imena
 
