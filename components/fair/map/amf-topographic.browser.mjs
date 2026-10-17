@@ -105,23 +105,49 @@ try {
     if (height > 520) { assert.equal(layout.scroll, false, `page scroll ${width}x${height}`); assert.ok(layout.sponsorBottom <= height + 1); }
     const before = await page.locator("[data-amf-layer]").getAttribute("style");
     await page.locator('[data-brand="audi"]').press("Enter");
-    await page.locator("[data-amf-selection]").filter({ hasText: "Audi" }).waitFor();
+    await page.getByRole("dialog", { name: "Audi" }).waitFor();
     assert.equal(await page.locator("[data-amf-layer]").getAttribute("style"), before, "selection must not zoom");
+    assert.equal(await page.getByRole("dialog").getByRole("link").getAttribute("href"), "https://www.brosauto.rs/");
+    assert.ok((await page.getByRole("dialog").innerText()).includes("1/1"));
+    assert.equal(await page.locator('a[href*="/model/"]').count(), 0, "map must not browse vehicles, including through the sponsor");
+    const popup = await page.locator("[data-amf-popup]").boundingBox();
+    const stage = await page.locator("[data-amf-canvas]").boundingBox();
+    assert.ok(popup.x >= stage.x && popup.x + popup.width <= stage.x + stage.width + 1, "pop-up fits horizontally");
+    assert.ok(popup.y >= stage.y && popup.y + popup.height <= stage.y + stage.height + 1, "pop-up fits vertically");
     await page.screenshot({ path: join(output, `selected-${width}x${height}.png`) });
-    await page.getByRole("button", { name: "Vozila", exact: true }).click();
-    await page.getByRole("link", { name: "QA Audi model" }).waitFor();
-    assert.equal(await page.getByRole("link", { name: "QA Audi model" }).getAttribute("href"), "/sajam/auto-moto-fest-2026/model/qa-audi");
     await page.keyboard.press("Escape");
-    assert.equal(await page.getByRole("link", { name: "QA Audi model" }).count(), 0);
-    await page.getByRole("button", { name: "Pronađi izlagača, brend ili model", exact: true }).click();
+    assert.equal(await page.getByRole("dialog").count(), 0);
+    assert.equal(await page.locator('[data-brand="audi"]').evaluate((element) => document.activeElement === element), true);
+    await page.getByRole("button", { name: "Pronađi brend ili izlagača", exact: true }).click();
     await page.getByRole("searchbox").fill("skoda");
     await page.locator("#amf-map-results button").first().click();
-    await page.locator("[data-amf-selection]").filter({ hasText: "Škoda" }).waitFor();
+    await page.getByRole("dialog", { name: "Škoda" }).waitFor();
     await page.getByRole("button", { name: "Prikaži spisak izlagača", exact: true }).click();
     await page.locator("#amf-map-directory").waitFor();
     await page.locator("#amf-map-directory button").filter({ hasText: "Raiffeisen" }).click();
-    await page.locator("[data-amf-selection]").filter({ hasText: "Raiffeisen" }).waitFor();
+    await page.getByRole("dialog", { name: "Raiffeisen" }).waitFor();
     await page.getByRole("button", { name: "Zatvori detalje štanda", exact: true }).click();
+    if (width < 500) {
+      const bounds = await page.evaluate(() => {
+        const wall = document.querySelector("[data-amf-wall]");
+        const box = document.querySelector("[data-amf-canvas]").getBoundingClientRect();
+        const rect = wall.getBoundingClientRect();
+        const inverse = wall.getScreenCTM().inverse();
+        const path = new Path2D(wall.getAttribute("d"));
+        const ctx = document.createElement("canvas").getContext("2d");
+        const inside = (x, y) => { const p = new DOMPoint(x, y).matrixTransform(inverse); return ctx.isPointInPath(path, p.x, p.y); };
+        const fit = document.querySelector('[data-amf-canvas] button').getBoundingClientRect();
+        return { width: rect.width / box.width, height: rect.height / box.height, labels: ["auto1", "honda-car"].map((key) => {
+          const label = document.querySelector(`[data-brand="${key}"] foreignObject`).getBoundingClientRect();
+          return { key, inside: [[label.left,label.top],[label.right,label.top],[label.left,label.bottom],[label.right,label.bottom]].every(([x,y]) => inside(x,y)), covered: label.left < fit.right && label.right > fit.left && label.top < fit.bottom && label.bottom > fit.top };
+        }) };
+      });
+      assert.ok(bounds.width > 0.9 && bounds.height > 0.9, `hall fills phone space ${width}: ${JSON.stringify(bounds)}`);
+      for (const label of bounds.labels) {
+        assert.equal(label.inside, true, `${label.key} stays inside hall`);
+        assert.equal(label.covered, false, `${label.key} is not covered by the fit button`);
+      }
+    }
     await page.screenshot({ path: join(output, `overview-${width}x${height}.png`) });
     if (width === 1280) {
       const original = await page.locator("[data-amf-layer]").evaluate((element) => new DOMMatrix(getComputedStyle(element).transform).a);
@@ -141,14 +167,14 @@ try {
       await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{id:1,x:cx-60,y:cy},{id:2,x:cx+60,y:cy}] });
       await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
       await page.waitForFunction((original) => new DOMMatrix(getComputedStyle(document.querySelector("[data-amf-layer]")).transform).a > original * 1.5, originalScale);
-      assert.equal(await page.locator("[data-amf-selection]").count(), 0, "pinch must not select a brand");
+      assert.equal(await page.getByRole("dialog").count(), 0, "pinch must not select a brand");
       await page.screenshot({ path: join(output, "pinched-390x844.png") });
       await page.getByRole("button", { name: "Prikaži ceo deo", exact: true }).click();
       await page.waitForFunction((original) => Math.abs(new DOMMatrix(getComputedStyle(document.querySelector("[data-amf-layer]")).transform).a - original) < 0.001, originalScale);
       await page.getByRole("button", { name: "Ulaz", exact: true }).click();
       await page.locator('[data-amf-canvas][data-zone="ispred"]').waitFor();
       await page.getByRole("button", { name: "Hala", exact: true }).click();
-      await page.getByRole("button", { name: "Pronađi izlagača, brend ili model", exact: true }).click();
+      await page.getByRole("button", { name: "Pronađi brend ili izlagača", exact: true }).click();
       await page.getByRole("searchbox").fill("nepostojeci");
       await page.getByRole("status").waitFor();
       await page.keyboard.press("Escape");

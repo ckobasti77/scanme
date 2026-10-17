@@ -1,15 +1,15 @@
 "use client";
 
-import { Check, ChevronRight, List, Map as MapIcon, Search, X } from "lucide-react";
-import Image from "next/image";
-import Link from "next/link";
+import { Check, ChevronRight, ExternalLink, List, Map as MapIcon, Search, Stamp, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { fairMapDeepLinkSearch, fairMapReadDeepLink, type FairMapZoneId } from "@/lib/fair-map";
+import { fairMapDeepLinkSearch, fairMapReadDeepLink, fairPassportProgressFor, type FairMapZoneId } from "@/lib/fair-map";
+import { fairBrandKey } from "@/lib/fair-brand-logo";
 import { buildAmfTopographicExhibits, fairMapTopographicLevel, searchAmfTopographicExhibits, type AmfTopographicExhibit } from "@/lib/fair-map/topography";
 import { fmt } from "@/lib/i18n/format";
 import type { FairEventMapViewProps } from "./fair-event-map";
 import { amfMapSr as dict } from "./amf-map-copy";
 import { AmfTopographicCanvas } from "./amf-topographic-canvas";
+import { AmfMapSponsor } from "./amf-map-sponsor";
 import { fairMapHeatView, useFairMapHeatData } from "./fair-map-heat";
 import { usePassportProgress } from "./fair-map-passport";
 import { useFairMapRotation } from "./fair-map-rotation";
@@ -23,13 +23,11 @@ export function AmfTopographicMap({ eventSlug, view, rotation, display, initialL
   const [query, setQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [directoryOpen, setDirectoryOpen] = useState(initialMode === "directory");
-  const [modelsOpen, setModelsOpen] = useState(false);
   const [activeResult, setActiveResult] = useState(0);
   const rootRef = useRef<HTMLElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
-  const vehicleButton = useRef<HTMLButtonElement>(null);
-  const modelsRef = useRef<HTMLElement>(null);
+  const popupRef = useRef<HTMLDivElement>(null);
   const directoryButton = useRef<HTMLButtonElement>(null);
   const selected = exhibits.find((item) => item.key === selectedKey) ?? null;
   const items = useMemo(() => exhibits.filter((item) => item.zoneId === zoneId), [exhibits, zoneId]);
@@ -42,6 +40,10 @@ export function AmfTopographicMap({ eventSlug, view, rotation, display, initialL
   const completed = useMemo(() => new Set(exhibits.filter((item) => item.passportIds.length > 0 && item.passportIds.every((id) => progress?.some((row) => row.passportId === id && row.completed))).map((item) => item.key)), [exhibits, progress]);
   const rotationState = useFairMapRotation(rotation);
   const sponsor = rotationState?.item ?? rotation?.items[0] ?? null;
+  const sponsorExhibit = sponsor ? exhibits.find((item) => item.locationId === sponsor.standMapLocationId && (item.brandId === sponsor.brandId || fairBrandKey(item.name) === fairBrandKey(sponsor.brandName))) : null;
+  const selectedPassports = [...new Map(view.zones.flatMap((zone) => zone.stands.flatMap((row) => row.passports)).filter((entry) => selected?.passportIds.includes(entry.passportId)).map((entry) => [entry.passportId, entry])).values()];
+  const stamped = selectedPassports.reduce((sum, entry) => sum + (fairPassportProgressFor(progress, entry)?.stamped ?? 0), 0);
+  const required = selectedPassports.reduce((sum, entry) => sum + (fairPassportProgressFor(progress, entry)?.required ?? entry.models.length), 0);
 
   const syncUrl = (zone: FairMapZoneId, item: AmfTopographicExhibit | null) => {
     const search = fairMapDeepLinkSearch(window.location.search, { zoneId: zone, locationId: item?.locationId ?? null });
@@ -52,27 +54,25 @@ export function AmfTopographicMap({ eventSlug, view, rotation, display, initialL
     setZoneId(item.zoneId);
     setDirectoryOpen(false);
     setSearchOpen(false);
-    setModelsOpen(false);
     setQuery("");
     syncUrl(item.zoneId, item);
-    // Selection changes ink and the compact row only: no camera focus request.
+    // Selection opens a pop-up at the summit, never a model browser or camera zoom.
   };
   const closeSelection = () => {
     setSelectedKey(null);
-    setModelsOpen(false);
     syncUrl(zoneId, null);
+    if (selectedKey) rootRef.current?.querySelector<SVGElement>(`[data-brand="${CSS.escape(selectedKey)}"]`)?.focus({ preventScroll: true });
   };
   const chooseZone = (next: FairMapZoneId) => {
     setZoneId(next);
     setSelectedKey(null);
-    setModelsOpen(false);
     setDirectoryOpen(false);
     syncUrl(next, null);
   };
 
   useEffect(() => { if (searchOpen) searchRef.current?.focus(); }, [searchOpen]);
   useEffect(() => { if (directoryOpen) listRef.current?.focus(); }, [directoryOpen]);
-  useEffect(() => { if (modelsOpen) modelsRef.current?.focus(); }, [modelsOpen]);
+  useEffect(() => { if (selectedKey && !directoryOpen && !searchOpen) popupRef.current?.focus({ preventScroll: true }); }, [selectedKey, directoryOpen, searchOpen]);
   useEffect(() => {
     const root = rootRef.current;
     if (!root) return;
@@ -87,13 +87,12 @@ export function AmfTopographicMap({ eventSlug, view, rotation, display, initialL
 
   return <section ref={rootRef} className={styles.root} data-amf-topographic="" data-display={display || undefined} data-reveal="off" aria-label={dict.pageTitle} onKeyDown={(event) => {
     if (event.key !== "Escape") return;
-    if (modelsOpen) { setModelsOpen(false); vehicleButton.current?.focus(); }
-    else if (directoryOpen) { setDirectoryOpen(false); directoryButton.current?.focus(); }
+    if (directoryOpen) { setDirectoryOpen(false); directoryButton.current?.focus(); }
     else if (searchOpen) { setSearchOpen(false); setQuery(""); }
     else if (selected) closeSelection();
   }}>
     {!display ? <div className={styles.controls}>
-      <button type="button" className={styles.iconButton} aria-label={searchOpen ? dict.searchClear : dict.searchLabel} aria-expanded={searchOpen} onClick={() => { setSearchOpen(!searchOpen); setQuery(""); setDirectoryOpen(false); setModelsOpen(false); }}>
+      <button type="button" className={styles.iconButton} aria-label={searchOpen ? dict.searchClear : dict.searchLabel} aria-expanded={searchOpen} onClick={() => { setSearchOpen(!searchOpen); setQuery(""); setDirectoryOpen(false); setSelectedKey(null); }}>
         {searchOpen ? <X aria-hidden="true" /> : <Search aria-hidden="true" />}
       </button>
       {searchOpen ? <div className={styles.searchField}>
@@ -101,19 +100,26 @@ export function AmfTopographicMap({ eventSlug, view, rotation, display, initialL
         <input ref={searchRef} id="amf-map-search" type="search" enterKeyHint="search" autoComplete="off" value={query} placeholder={dict.searchPlaceholder} aria-controls={query.trim() ? "amf-map-results" : undefined} onChange={(event) => { setQuery(event.target.value); setActiveResult(0); }} onKeyDown={(event) => {
           if (event.key === "ArrowDown") { event.preventDefault(); setActiveResult((value) => Math.min(value + 1, results.length - 1)); }
           if (event.key === "ArrowUp") { event.preventDefault(); setActiveResult((value) => Math.max(value - 1, 0)); }
-          if (event.key === "Enter" && results[activeResult]) { event.preventDefault(); select(results[activeResult]); vehicleButton.current?.focus(); }
+          if (event.key === "Enter" && results[activeResult]) { event.preventDefault(); select(results[activeResult]); }
         }} />
       </div> : <div className={styles.tabs} role="group" aria-label={dict.zoneSwitchLabel}>
         <button type="button" aria-pressed={zoneId === "hala"} onClick={() => chooseZone("hala")}>{dict.zones.hala}</button>
         <button type="button" aria-pressed={zoneId === "ispred"} onClick={() => chooseZone("ispred")}>{dict.entranceShort}</button>
       </div>}
-      <button ref={directoryButton} type="button" className={styles.listButton} aria-label={directoryOpen ? dict.showMap : dict.showDirectory} aria-expanded={directoryOpen} aria-controls="amf-map-directory" onClick={() => { setDirectoryOpen(!directoryOpen); setSearchOpen(false); setQuery(""); setModelsOpen(false); }}>
+      <button ref={directoryButton} type="button" className={styles.listButton} aria-label={directoryOpen ? dict.showMap : dict.showDirectory} aria-expanded={directoryOpen} aria-controls="amf-map-directory" onClick={() => { setDirectoryOpen(!directoryOpen); setSearchOpen(false); setQuery(""); setSelectedKey(null); }}>
         {directoryOpen ? <MapIcon aria-hidden="true" /> : <List aria-hidden="true" />}<span>{directoryOpen ? dict.mapShort : dict.directoryShort}</span>
       </button>
     </div> : null}
 
     <div className={styles.mapStage}>
-      <AmfTopographicCanvas items={items} zoneId={zoneId} selectedKey={selectedKey} levels={levels} completed={completed} onSelect={select} interactive={!display && !directoryOpen && !modelsOpen && !(searchOpen && query.trim())} />
+      <AmfTopographicCanvas items={items} zoneId={zoneId} selectedKey={selectedKey} levels={levels} completed={completed} onSelect={select} onDismiss={closeSelection} interactive={!display && !directoryOpen && !(searchOpen && query.trim())} popup={!display && selected && !directoryOpen && !searchOpen ? <div ref={popupRef} id="amf-map-popup" tabIndex={-1} role="dialog" aria-labelledby="amf-map-popup-title" className={styles.popupContent}>
+        <div className={styles.popupHead}><h2 id="amf-map-popup-title">{selected.name}</h2><button type="button" className={styles.iconButton} aria-label={dict.closeDetail} onClick={closeSelection}><X aria-hidden="true" /></button></div>
+        {selectedPassports.length > 0 ? <div className={styles.passportStatus}>
+          <Stamp aria-hidden="true" /><span>{dict.stampsShort}</span>
+          {progress ? <strong aria-label={fmt(dict.passportProgressAria, { brand: selected.name, stamped, required })}>{fmt(dict.passportProgress, { stamped, required })}</strong> : <small role="status">{passport.status === "error" ? dict.passportUnavailable : dict.passportLoading}</small>}
+        </div> : null}
+        {selected.websiteUrl ? <a className={styles.website} href={selected.websiteUrl} target="_blank" rel="noopener noreferrer" aria-label={fmt(dict.websiteLinkAria, { exhibitor: selected.name })}>{dict.websiteLink}<ExternalLink aria-hidden="true" /></a> : null}
+      </div> : null} />
       {searchOpen && query.trim() ? <section id="amf-map-results" className={styles.searchResults} aria-label={dict.searchResultsLabel}>
         {results.length ? results.slice(0, 12).map((item, index) => <button key={item.key} type="button" data-active={index === activeResult} onClick={() => select(item)}><span>{item.name}</span><small>{item.ownerName && item.ownerName !== item.name ? item.ownerName : item.zoneId === "hala" ? dict.zones.hala : dict.entranceShort}</small><ChevronRight aria-hidden="true" /></button>) : <p role="status">{fmt(dict.searchEmpty, { query })}</p>}
       </section> : null}
@@ -125,35 +131,16 @@ export function AmfTopographicMap({ eventSlug, view, rotation, display, initialL
         {view.unplaced.map((item) => <p key={item.standId}>{item.exhibitorName}<small>{dict.standUnplaced}</small></p>)}
       </div> : null}
 
-      {modelsOpen && selected ? <section ref={modelsRef} tabIndex={-1} className={styles.models} aria-labelledby="amf-map-models-title">
-        <div className={styles.overlayHead}><h2 id="amf-map-models-title">{selected.name}</h2><button type="button" className={styles.iconButton} aria-label={dict.closeDetail} onClick={() => { setModelsOpen(false); vehicleButton.current?.focus(); }}><X aria-hidden="true" /></button></div>
-        <p className={styles.srOnly}>{dict.modelsLabel}</p>
-        {selected.models.length ? <ul>{selected.models.map((model) => <li key={model.id}><Link prefetch={false} href={`/sajam/${eventSlug}/model/${model.slug}`}><span>{model.displayName}{model.variant ? <small>{model.variant}</small> : null}</span><ChevronRight aria-hidden="true" /></Link></li>)}</ul> : <p>{dict.noModels}</p>}
-      </section> : null}
     </div>
-
-    {!display ? <div className={styles.selectionSlot} aria-live="polite">
-      {selected ? <div className={styles.selection} data-amf-selection="">
-        <span className={styles.selectionName}>{selected.name}{selected.ownerName && selected.ownerName !== selected.name ? <small>{selected.ownerName}</small> : null}</span>
-        <button ref={vehicleButton} type="button" className={styles.vehicles} aria-expanded={modelsOpen} aria-controls={modelsOpen ? "amf-map-models-title" : undefined} onClick={() => { setModelsOpen(!modelsOpen); setDirectoryOpen(false); setSearchOpen(false); setQuery(""); }}>{dict.vehiclesShort}<ChevronRight aria-hidden="true" /></button>
-        <button type="button" className={styles.iconButton} aria-label={dict.closeDetail} onClick={closeSelection}><X aria-hidden="true" /></button>
-      </div> : null}
-    </div> : null}
 
     <div className={styles.legend}>
       <div className={styles.legendSymbols}>
         <span className={styles.interest}><span className={styles.dots} aria-hidden="true"><i /><i /><i /></span>{dict.interestLabel}</span>
         <span className={styles.collected}><Check aria-hidden="true" />{dict.progressCollected}</span>
       </div>
-      <p>{dict.heatServiceNote}</p>
-      <p id="amf-heat-explanation" className={styles.srOnly}>{dict.heatServiceAria}</p>
       {heat.failed ? <button type="button" className={styles.heatRetry} onClick={heat.retry}>{dict.heatRetry}</button> : null}
     </div>
 
-    {sponsor ? <Link prefetch={false} className={styles.sponsor} data-amf-sponsor="" href={`/sajam/${eventSlug}/model/${sponsor.slug}`} aria-label={`${dict.rotationLabel}: ${sponsor.brandName}, ${sponsor.displayName}`}>
-      <span className={styles.sponsorLabel}>{dict.rotationLabel}</span>
-      {sponsor.brandLogoUrl ? <Image src={sponsor.brandLogoUrl} alt="" width={100} height={30} unoptimized /> : null}
-      <strong>{sponsor.brandName}</strong><span className={styles.sponsorModel}>{sponsor.displayName}</span><ChevronRight aria-hidden="true" />
-    </Link> : null}
+    {sponsor ? <AmfMapSponsor item={sponsor} slotNumber={rotationState?.slotNumber ?? 0} rotation={rotation} display={display} onShowStand={sponsorExhibit ? () => select(sponsorExhibit) : null} /> : null}
   </section>;
 }

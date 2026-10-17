@@ -2,7 +2,8 @@ import { describe, expect, test } from "vitest";
 import type { FairPublicMapStand } from "../fair-contract";
 import { AUTO_MOTO_FEST_2026_MAP } from "./auto-moto-fest-2026";
 import { buildFairMapView } from "./view";
-import { AMF_HALL_ANCHORS, buildAmfTopographicExhibits, fairMapContourOpacity, fairMapContourPath, fairMapHeatEligible, fairMapTopographicLevel, hitAmfTopographicExhibit, searchAmfTopographicExhibits } from "./topography";
+import { AMF_HALL_ANCHORS, amfTopographicPopupPosition, amfTopographicSize, buildAmfTopographicExhibits, fairMapContourOpacity, fairMapContourPath, fairMapHeatEligible, fairMapTopographicLevel, hitAmfTopographicExhibit, searchAmfTopographicExhibits } from "./topography";
+import { fairMapWebsiteUrl } from "./websites";
 
 function stand(name: string, location: string, extra = {}): FairPublicMapStand {
   return {
@@ -79,6 +80,36 @@ describe("AMF topographic geometry and catalog", () => {
     expect(Math.hypot((bank.x - dongfeng.x) / dongfeng.rx, (bank.y - dongfeng.y) / dongfeng.ry)).toBeLessThan(1.3);
     expect(items.find((item) => item.key === "auto1")!.x).toBeLessThan(345);
     expect(items.find((item) => item.key === "grawe")!.y).toBeGreaterThan(140);
+  });
+  test("AUTO 1 clears the north stairs and still matches the organizer's old name", () => {
+    const all = buildAmfTopographicExhibits(buildFairMapView(AUTO_MOTO_FEST_2026_MAP, [stand("AUTO1.com", "hala-11")], []));
+    const auto1 = all.find((item) => item.key === "auto1")!;
+    expect(auto1.name).toBe("AUTO 1");
+    expect(auto1.participationId).toBe("fixture-AUTO1.com");
+    expect(auto1.x + 90).toBeLessThan(345);
+  });
+  test("each motorcycle brand has a separate contour footprint", () => {
+    const moto = AMF_HALL_ANCHORS.filter((item) => item.moto);
+    for (const [i, a] of moto.entries()) for (const b of moto.slice(i + 1)) {
+      expect(Math.abs(a.x - b.x) > (a.rx + b.rx) * 1.16 || Math.abs(a.y - b.y) > (a.ry + b.ry) * 1.16).toBe(true);
+    }
+  });
+  test("all organizer anchors offer a website even without a paid service", () => {
+    expect(items.filter((item) => AMF_HALL_ANCHORS.some((anchor) => anchor.key === item.key)).every((item) => Boolean(item.websiteUrl))).toBe(true);
+    const own = buildAmfTopographicExhibits(buildFairMapView(AUTO_MOTO_FEST_2026_MAP, [stand("Toyota", "hala-2", { websiteUrl: "https://example.org/dealer", heatEligible: false })], []));
+    expect(own.find((item) => item.key === "toyota")).toMatchObject({ paid: false, websiteUrl: "https://example.org/dealer" });
+    for (const url of ["javascript:alert(1)", "https://fixture.example.invalid", "not-a-url"]) expect(fairMapWebsiteUrl(url)).toBeUndefined();
+  });
+  test("the drawing fills phone space instead of retaining a fixed paper aspect ratio", () => {
+    expect(amfTopographicSize({ width: 378, height: 600 }).height).toBeCloseTo(1600);
+    expect(amfTopographicSize({ width: 348, height: 350 }).height).toBe(1100);
+  });
+  test.each([{ x: 8, y: 8 }, { x: 350, y: 490 }, { x: 180, y: 250 }, { x: -100, y: 900 }])("the summit pop-up stays on screen at %j", (anchor) => {
+    const position = amfTopographicPopupPosition(anchor, { width: 360, height: 500 }, { width: 232, height: 144 });
+    expect(position.x).toBeGreaterThanOrEqual(8);
+    expect(position.y).toBeGreaterThanOrEqual(8);
+    expect(position.x + 232).toBeLessThanOrEqual(352);
+    expect(position.y + 144).toBeLessThanOrEqual(492);
   });
   test("smooth nested contours are deterministic and finite", () => {
     const item = items.find((item) => item.key === "toyota")!;

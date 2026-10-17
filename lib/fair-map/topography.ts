@@ -3,8 +3,23 @@ import { getFairEntitlements } from "../fair-entitlements";
 import { fairMapBounds } from "./shape";
 import type { FairMapZoneId } from "./types";
 import { fairMapSearchKey, type FairMapPlacedStand, type FairMapView } from "./view";
+import { AMF_EXHIBITOR_WEBSITES, fairMapWebsiteUrl } from "./websites";
 
 export const AMF_TOPOGRAPHIC_SIZE = { width: 1000, height: 1380 } as const;
+export const AMF_TOPOGRAPHIC_HALL = "M220 26 H775 Q825 26 875 62 L946 96 Q990 119 990 181 V1230 Q990 1285 950 1315 L900 1340 H170 L72 1305 Q10 1272 10 1210 V180 Q10 127 66 99 L170 48 Q196 26 220 26 Z";
+
+/** Fill tall phone screens by stretching the hall, not the logos or text. */
+export function amfTopographicSize(viewport: { width: number; height: number }) {
+  return { width: AMF_TOPOGRAPHIC_SIZE.width, height: Math.max(1100, (viewport.height - 8) / Math.max(viewport.width - 8, 1) * AMF_TOPOGRAPHIC_SIZE.width) };
+}
+
+/** Keep the summit pop-up next to its anchor and inside the visible map. */
+export function amfTopographicPopupPosition(anchor: { x: number; y: number }, viewport: { width: number; height: number }, popup: { width: number; height: number }) {
+  return {
+    x: Math.max(8, Math.min(viewport.width - popup.width - 8, anchor.x - popup.width / 2)),
+    y: Math.max(8, Math.min(viewport.height - popup.height - 8, anchor.y - popup.height - 24 >= 8 ? anchor.y - popup.height - 24 : anchor.y + 24)),
+  };
+}
 
 type Anchor = {
   key: string;
@@ -25,7 +40,7 @@ export const AMF_HALL_ANCHORS: readonly Anchor[] = [
   { key: "mercedes", name: "Mercedes-Benz", locationId: "hala-9", x: 165, y: 555, rx: 145, ry: 175 },
   { key: "fiat", name: "Fiat", locationId: "hala-8", x: 155, y: 865, rx: 135, ry: 120 },
   { key: "dongfeng", name: "Dongfeng", locationId: "hala-8", x: 155, y: 1060, rx: 135, ry: 130 },
-  { key: "auto1", name: "AUTO1.com", locationId: "hala-11", x: 285, y: 88, rx: 57, ry: 54, small: true },
+  { key: "auto1", name: "AUTO 1", locationId: "hala-11", x: 235, y: 96, rx: 57, ry: 54, small: true },
   { key: "grawe", name: "Grawe", locationId: null, x: 340, y: 210, rx: 42, ry: 46, small: true },
   { key: "geely", name: "Geely", locationId: "hala-2", x: 490, y: 155, rx: 112, ry: 105 },
   { key: "motogrini", name: "Motogrini", locationId: "hala-2", x: 670, y: 170, rx: 113, ry: 106 },
@@ -44,10 +59,10 @@ export const AMF_HALL_ANCHORS: readonly Anchor[] = [
   { key: "opel", name: "Opel", locationId: "hala-6-7", x: 885, y: 1010, rx: 91, ry: 73 },
   { key: "suzuki", name: "Suzuki", locationId: "hala-6-7", x: 885, y: 1125, rx: 90, ry: 72 },
   { key: "honda-car", name: "Honda", locationId: "hala-6-7", x: 885, y: 1230, rx: 88, ry: 67 },
-  { key: "vespa", name: "Vespa", locationId: "hala-6-7", x: 435, y: 1155, rx: 99, ry: 100, moto: true },
-  { key: "aprilia", name: "Aprilia", locationId: "hala-6-7", x: 550, y: 1155, rx: 86, ry: 100, moto: true },
-  { key: "piaggio", name: "Piaggio", locationId: "hala-6-7", x: 655, y: 1155, rx: 86, ry: 100, moto: true },
-  { key: "honda-moto", name: "Honda", locationId: "hala-6-7", x: 760, y: 1155, rx: 87, ry: 100, moto: true },
+  { key: "vespa", name: "Vespa", locationId: "hala-6-7", x: 455, y: 1090, rx: 78, ry: 76, moto: true },
+  { key: "aprilia", name: "Aprilia", locationId: "hala-6-7", x: 660, y: 1090, rx: 78, ry: 76, moto: true },
+  { key: "piaggio", name: "Piaggio", locationId: "hala-6-7", x: 485, y: 1260, rx: 78, ry: 66, moto: true },
+  { key: "honda-moto", name: "Honda", locationId: "hala-6-7", x: 690, y: 1260, rx: 78, ry: 66, moto: true },
   { key: "raiffeisen", name: "Raiffeisen", locationId: null, x: 260, y: 1175, rx: 51, ry: 46, small: true },
 ];
 
@@ -77,6 +92,7 @@ export type AmfTopographicExhibit = Anchor & {
   brandId: string | null;
   ownerName: string | null;
   logoUrl?: string;
+  websiteUrl?: string;
   paid: boolean;
   models: FairPublicMapModel[];
   passportIds: string[];
@@ -103,7 +119,7 @@ function key(name: string): string {
 function sameBrand(name: string, anchor: Anchor): boolean {
   const value = key(name);
   const expected = key(anchor.name);
-  return value === expected || (anchor.key === "vw" && value === "vw") || (anchor.key === "mercedes" && value === "mercedes") || (anchor.key === "lotos" && value === "hotellotos") || (anchor.key === "vidovdan" && value === "restoranvidovdan") || (anchor.key === "raiffeisen" && value === "raiffeisenbank");
+  return value === expected || (anchor.key === "auto1" && value === "auto1com") || (anchor.key === "vw" && value === "vw") || (anchor.key === "mercedes" && value === "mercedes") || (anchor.key === "lotos" && value === "hotellotos") || (anchor.key === "vidovdan" && value === "restoranvidovdan") || (anchor.key === "raiffeisen" && value === "raiffeisenbank");
 }
 
 function modelData(row: FairMapPlacedStand, anchor: Anchor) {
@@ -138,6 +154,7 @@ export function buildAmfTopographicExhibits(view: FairMapView): AmfTopographicEx
       zoneId: "hala",
       participationId: source?.participationId ?? null,
       ownerName: source?.exhibitorName ?? null,
+      websiteUrl: fairMapWebsiteUrl(source?.websiteUrl) ?? AMF_EXHIBITOR_WEBSITES[anchor.key],
       ...(source?.logoUrl && (!row?.stand.brands.length || sameBrand(source.exhibitorName, anchor)) ? { logoUrl: source.logoUrl } : {}),
       paid: source ? paidByParticipation.get(source.participationId) ?? false : false,
       ...(row ? modelData(row, anchor) : { brandId: null, models: [], passportIds: [] }),
@@ -167,6 +184,7 @@ export function buildAmfTopographicExhibits(view: FairMapView): AmfTopographicEx
           brandId: null,
           ownerName: row.stand.exhibitorName,
           logoUrl: row.stand.logoUrl,
+          websiteUrl: fairMapWebsiteUrl(row.stand.websiteUrl),
           paid: paidByParticipation.get(row.stand.participationId) ?? false,
           models: row.stand.brands.flatMap((brand) => brand.models),
           passportIds: row.passports.map((entry) => entry.passportId),
