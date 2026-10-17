@@ -11,6 +11,7 @@ export const MENU_KEY_PREFIX = {
   page: "pg",
   section: "sc",
   article: "ar",
+  roomServiceCategory: "rc",
 } as const;
 export type MenuKeyKind = keyof typeof MENU_KEY_PREFIX;
 
@@ -32,7 +33,7 @@ export function newMenuKey(
   return `${MENU_KEY_PREFIX[kind]}_${body}`;
 }
 
-const KEY_PATTERN = /^(pg|sc|ar)_[0-9a-hjkmnp-tv-z]{12}$/;
+const KEY_PATTERN = /^(pg|sc|ar|rc)_[0-9a-hjkmnp-tv-z]{12}$/;
 
 export function isMenuKey(value: string, kind?: MenuKeyKind): boolean {
   if (!KEY_PATTERN.test(value)) return false;

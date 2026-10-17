@@ -12,6 +12,8 @@ export const MENU_AUDIT_ACTIONS = [
   "page.deleted",
   /** A page was archived. */
   "page.archived",
+  /** A Funkcionalnosti switch was turned on or off (K03). */
+  "feature.changed",
 ] as const;
 
 export type MenuAuditAction = (typeof MENU_AUDIT_ACTIONS)[number];

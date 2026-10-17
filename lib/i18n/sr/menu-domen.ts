@@ -37,5 +37,10 @@ export const menuDomenSr = {
     "menu/last_page": "Meni mora imati bar jednu aktivnu stranicu.",
     "menu/page_archived": "Stranica je arhivirana. Vratite je da biste je menjali.",
     "menu/placement_exists": "Artikal je već prikazan u ovoj sekciji.",
+    "plan/premium_required": "Ova mogućnost je deo Premium naloga.",
+    "plan/language_limit":
+      "Standard paket ima najviše dva jezika po meniju, uključujući srpski. Za više jezika potreban je Premium nalog.",
+    "room_service/category_not_empty":
+      "Kategorija nije prazna. Prvo premestite ili uklonite artikle iz nje.",
   },
 } as const satisfies MenuDomenDict;

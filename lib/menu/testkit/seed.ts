@@ -13,6 +13,10 @@
 //     otherOwner accountMemberships full_access on B only
 //   admin      SCANME_ADMIN_EMAILS
 //   outsider   no membership anywhere
+//
+// Both accounts start on the Basic plan (Menu Standard). K03 helpers:
+// addVenueToAccount (a second venue under the same account) and
+// grantAccountPremium (Premium on the ACCOUNT, by plan or by subscription).
 
 import type { GenericMutationCtx } from "convex/server";
 import type { DataModel, Id } from "../../../convex/_generated/dataModel";
@@ -63,6 +67,15 @@ async function tenant(
     createdAt: now,
     updatedAt: now,
   });
+  return await venue(ctx, { ...input, accountId });
+}
+
+async function venue(
+  ctx: Ctx,
+  input: { name: string; slug: string; actorUserId: Id<"users">; accountId: Id<"accounts"> },
+): Promise<MenuTenantSeed> {
+  const now = Date.now();
+  const accountId = input.accountId;
   const businessId = await ctx.db.insert("businesses", {
     name: input.name,
     slug: input.slug,
@@ -96,6 +109,58 @@ async function tenant(
     .first();
   if (!defaultPage) throw new Error("seed: default page missing");
   return { accountId, businessId, serviceProfileId, menuServiceId, defaultPageId: defaultPage._id };
+}
+
+/** One more venue (business + active Menu profile + Menu service) under an existing account. */
+export async function addVenueToAccount(
+  ctx: Ctx,
+  input: { accountId: Id<"accounts">; name: string; slug: string; actorUserId: Id<"users"> },
+): Promise<MenuTenantSeed> {
+  return await venue(ctx, input);
+}
+
+/**
+ * Premium on the ACCOUNT (master §2.2), through either existing path of
+ * getEntitlement: `plan` sets accounts.plan; `subscription` makes the account
+ * subscriptions_v1 with an account_premium subscription in `status`.
+ */
+export async function grantAccountPremium(
+  ctx: Ctx,
+  input: {
+    accountId: Id<"accounts">;
+    via: "plan" | "subscription";
+    plan?: "premium" | "enterprise";
+    status?: "inactive" | "active" | "grace" | "suspended";
+  },
+) {
+  const now = Date.now();
+  if (input.via === "plan") {
+    await ctx.db.patch(input.accountId, { plan: input.plan ?? "premium", updatedAt: now });
+    return;
+  }
+  await ctx.db.patch(input.accountId, { billingModel: "subscriptions_v1", updatedAt: now });
+  await ctx.db.insert("subscriptions", {
+    accountId: input.accountId,
+    target: { kind: "account_premium" },
+    targetKey: "premium",
+    period: "monthly",
+    startsAt: now,
+    anchorAt: now,
+    renewal: { kind: "manual" },
+    cancelAtPeriodEnd: false,
+    facts: {
+      status: input.status ?? "active",
+      warning: false,
+      currentPeriodStart: now,
+      paidThrough: now + 30 * 86_400_000,
+      graceEndsAt: null,
+      nextTransitionAt: null,
+    },
+    key: `menu-test-premium-${input.accountId}`,
+    fingerprint: `menu-test-premium-${input.accountId}`,
+    createdAt: now,
+    updatedAt: now,
+  });
 }
 
 export async function addAccountMember(

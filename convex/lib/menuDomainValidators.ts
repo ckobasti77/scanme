@@ -92,3 +92,44 @@ export const menuCasValueValidator = v.union(
   v.boolean(),
   v.null(),
 );
+
+// -----------------------------------------------------------------------------
+// K03 — settings, Funkcionalnosti switches and Room service
+// -----------------------------------------------------------------------------
+
+// The on/off switches of menuFeaturesValidator (reservations is three-state
+// and gets its own writer in K25).
+export const menuBooleanFeatureValidator = v.union(
+  v.literal("callWaiter"),
+  v.literal("billRequest"),
+  v.literal("ordering"),
+  v.literal("roomService"),
+  v.literal("occupancy"),
+);
+
+// menuServices.settings — grows one optional key per step that needs it
+// (working hours and reservations K25, panel thresholds K23/K28).
+export const menuServiceSettingsValidator = v.object({
+  // Master §7.7: managed in Settings, published with the menu. `translations`
+  // never holds the source language; Standard allows one translation
+  // (two languages), lib/menu/capabilities.ts.
+  languages: v.optional(
+    v.object({
+      source: v.string(),
+      translations: v.array(v.string()),
+    }),
+  ),
+});
+
+export const menuRoomServiceMarkupScopeValidator = v.union(
+  v.literal("all"),
+  v.literal("selected"),
+);
+
+// Raised when the base price of an article with a manual Room service price
+// changes (master §5.3); null = the article had / has no base price.
+export const menuRoomServicePriceWarningValidator = v.object({
+  oldBaseRsd: v.union(v.number(), v.null()),
+  newBaseRsd: v.union(v.number(), v.null()),
+  at: v.number(),
+});

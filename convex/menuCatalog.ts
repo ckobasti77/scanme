@@ -4,6 +4,7 @@ import { mutation, query, type MutationCtx } from "./_generated/server";
 import { getMenuAccess, loadOwned, requireMenuAccessToRow } from "./lib/menuAccess";
 import { menuVisibilityValidator } from "./lib/menuDomainValidators";
 import { loadDraftState, touchDraft } from "./lib/menuDraft";
+import { flagRoomServicePriceWarnings } from "./menuRoomService";
 import { checkCas, type CasValue } from "../lib/menu/cas";
 import { MENU_ERROR, type MenuErrorCode } from "../lib/menu/errors/core";
 import { newMenuKey } from "../lib/menu/keys";
@@ -426,7 +427,9 @@ export const updateArticleFields = mutation({
 /**
  * THE price writer (master §5.3): one base price in whole dinars, shown on
  * every page the article is on. `null` clears the price. Compare-and-set on
- * the price the editor last saw (null = none).
+ * the price the editor last saw (null = none). Room service follows in the same
+ * transaction (K03): a derived RS price needs nothing, a manual RS price stays
+ * and gets the old/new base warning.
  */
 export const setBasePrice = mutation({
   args: {
@@ -452,6 +455,12 @@ export const setBasePrice = mutation({
       updatedAt: Date.now(),
       updatedByUserId: access.user._id,
     });
+    await flagRoomServicePriceWarnings(
+      ctx,
+      article._id,
+      article.basePriceRsd ?? null,
+      args.priceRsd,
+    );
     await touchDraft(ctx, article.menuServiceId, access.user._id);
     return { ok: true as const };
   },

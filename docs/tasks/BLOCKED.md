@@ -2048,3 +2048,32 @@ Korak je završen; kod radi po konzervativnom izboru iz zagrade. **Deferred, awa
 6. **Slug stranice se ne menja pri preimenovanju.** (Izbor: stabilan link; odštampani QR kodovi i linkovi ostaju ispravni.)
 7. **Isti artikal u više sekcija iste stranice.** (Izbor: dozvoljeno, najviše jednom po sekciji; master §5.1 „u više sekcija".)
 8. **Režim pri prvom otvaranju.** Kad usluga nastane iz klijentskog panela, režim je uvek Ugostiteljstvo (jedini V1 režim); izbor režima ima samo ScanMe admin (`menuServices.adminProvision`), a menja ga samo `menuServices.adminSetMode`.
+
+## SCANME MENU V1 — K03 (17. 10. 2026.) — cene paketa i Room service pravila koja traže potvrdu vlasnika
+
+**BLOKADA (cene).** Nove cene ScanMe Menu (1.490 / 14.900 RSD) i paketa Menu + ScanMe Links (1.990 / 19.900 RSD) iz master §2.2.1 **nisu** upisane u `DEFAULT_PRICING_CONSTANTS` (`lib/pricing/constants.ts`), a `golden.json` nije regenerisan. **Deferred, awaiting owner decision.** Premium nalog je već 990 / 9.990 RSD.
+
+- **Zašto:** sa tim cenama i nepromenjenim paketom „Kompletan" (3.790 / 37.990) podskup {Links, Venue, Memories, Menu} košta 4.179 mesečno i 41.997 godišnje, više od cele korpe. Motor zato baca invarijantu 4 („dodavanje usluge snižava cenu") za obe uniformne korpe sa svih pet usluga (6 od 726 golden slučajeva). `npm run pricing:golden` tada ne može da prođe, a kupovina pet usluga bi bila odbijena. Prompt K03 zabranjuje promenu bilo koje druge cene, a cena paketa „Kompletan" je poslovna odluka.
+- **Dokaz:** `lib/pricing/menu-launch-proposal.test.ts` gradi kandidat-konstante (DEFAULT ostaje netaknut) i proverava:
+  - tačno tih 6 korpi pada, ostalih 720 prolazi;
+  - granica: Kompletan mora biti **najmanje 4.179 mesečno i 41.997 godišnje**;
+  - iznad **4.424 mesečno i 44.492 godišnje** (cena pet usluga bez paketa) Kompletan se nikad ne primenjuje;
+  - kandidat **4.290 / 42.900** prolazi svih 726 korpi; Menu sam je 1.490 / 14.900, Links + Menu je paket „lokal" 1.990 / 19.900;
+  - korpe bez Menu-a (240) ostaju bajt-identične; promenilo bi se 486 golden slučajeva (sve korpe sa Menu-om).
+- **Odluka vlasnika:** cena paketa „Kompletan" u opsegu [4.179, 4.424] mesečno i [41.997, 44.492] godišnje (ili drugačiji paket).
+- **Primena posle odluke (jedan commit):**
+  1. u `lib/pricing/constants.ts` postaviti `menu` na 1490 / 14900, `lokal` na 1990 / 19900 i `kompletan` na izabranu cenu, pa ažurirati komentar iznad paketa „kompletan" (opis pojasa);
+  2. pokrenuti `npm run pricing:golden`;
+  3. namerno ažurirati testove koji fiksiraju stare iznose. Proba u K03 (konstante privremeno postavljene na kandidat 4.290 / 42.900, pa vraćene; `git diff` prazan) je pokazala da pada samo 5 testova u 3 fajla: `lib/pricing/engine.test.ts` („merdevine rastu ka jeftinijoj usluzi", „paket se bira kad je najjeftiniji, i pokriva sve svoje usluge"), `lib/pricing/golden.test.ts` (dva testa, rešava ih korak 2) i test „domet promene" u `menu-launch-proposal.test.ts`, koji poredi kandidat sa DEFAULT-om (posle primene kandidat postaje DEFAULT, pa se fajl prepisuje kao test novih cena). `convex/priceParity.test.ts` i `components/purchase/step-plan-model.test.ts` u toj probi prolaze.
+- **PDV:** prikaz sa ili bez PDV-a nije menjan (P9, master §2.1 i §2.2.1: potvrda knjigovođe pre javnog cenovnika).
+
+**Room service i jezici** — kod radi po konzervativnom izboru iz zagrade:
+
+1. **Gubitak Premium-a.** Room service ostaje uključen dok ga neko ne isključi; isključivanje nikad ne traži Premium; sadržaj RS-a se ne briše; izmene RS sadržaja traže Premium. Objavljena verzija se ne menja; isključenje Premium sadržaja pri sledećoj objavi radi K05 (K01 OTV 5).
+2. **„Ceo meni" u Room service-u.** Jednokratno kopiranje vidljivih sekcija i artikala „Kompletnog menija"; kasnije izmene glavnog menija se ne preslikavaju same, a panel vidi koliko artikala nije u RS-u (K01 OTV 6).
+3. **Artikal je u Room service-u najviše jednom** (jedna ručna RS cena po artiklu).
+4. **Markup za „izabrane" artikle.** Novi RS artikal nije izabran; markup dobija tek kad ga klijent označi. Dodaci nemaju markup (K01 OTV 20).
+5. **Naknada 0 RSD** znači „bez naknade". Naknada se dodaje jednom na celu porudžbinu, nikad po artiklu.
+6. **Ručna RS cena po varijanti** dolazi sa varijantama u K04; obračun po ceni je isti.
+7. **Dva jezika u Standardu** uključuju izvorni srpski (srpski + jedan prevod). Nalog koji izgubi Premium može da ukloni ili preuredi jezike, ali ne i da doda nov dok je iznad limita. Spisak jezika za prevod je radni (`lib/menu/languages.ts`, 27 ISO kodova).
+8. **Pravo na izmenu.** Uključivanje RS-a je `Funkcionalnosti` (Vlasnik, Menadžer). Sadržaj, kategorije i cene RS-a su sadržaj ponude, pa ih menja i Urednik. Jezike menjaju Vlasnik i Menadžer (Podešavanja).

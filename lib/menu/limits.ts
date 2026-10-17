@@ -13,6 +13,11 @@ export const MENU_MAX_PLACEMENTS_PER_PAGE = 4000;
 /** QR links read when checking whether a page may be deleted or archived. */
 export const MENU_MAX_QR_LINKS_PER_PAGE = 500;
 
+/** Room service categories per Menu service (K03). An article is in Room service at most once, so items are bounded by MENU_MAX_ARTICLES. */
+export const MENU_MAX_ROOM_SERVICE_CATEGORIES = 100;
+/** Ids accepted by one Room service bulk call (add articles, markup selection). */
+export const MENU_MAX_ROOM_SERVICE_BATCH = 200;
+
 /** Text lengths, in characters after whitespace cleaning. */
 export const MENU_TEXT = {
   pageName: 80,
@@ -23,6 +28,7 @@ export const MENU_TEXT = {
   articleDescription: 600,
   quantityUnit: 20,
   iconKey: 60,
+  roomServiceCategoryName: 80,
 } as const;
 
 /** Whole dinars; inclusive upper bound of any single price. */

@@ -78,3 +78,73 @@ Noćni run MENI. Plan: `docs/MENI-PLAN.md`. Pravila: `.nocni-run/meni/rules.md`.
 **Za Jovana ujutru:**
 - Pregledaj pitanja u `docs/tasks/BLOCKED.md` → `SCANME MENU V1 — K02`, posebno legacy članstvo kao Menadžer i to da `finance` i `view_only` nemaju pristup.
 - Pročitaj `docs/menu/MENU-ARHITEKTURA.md` §2–§4; to je ugovor za sve sledeće korake.
+
+## K03 — Cene, entitlementi i Room service model   (2026-10-17 20:14)
+**Fajlovi:**
+- novi: `lib/menu/capabilities.ts`, `lib/menu/languages.ts`, `lib/menu/room-service-pricing.ts`, `lib/menu/errors/plan.ts`, `lib/menu/errors/room-service.ts`; `convex/lib/menuCapabilities.ts`, `convex/menuRoomService.ts`, `convex/menuSettings.ts`; testovi `lib/menu/capabilities.test.ts`, `lib/menu/room-service-pricing.test.ts`, `lib/pricing/menu-launch-proposal.test.ts`, `convex/menuCapabilities.test.ts`, `convex/menuSettings.test.ts`, `convex/menuRoomService.test.ts`
+- izmenjeni: `convex/schema.ts` (samo dodato: +49 / −0), `convex/lib/menuDomainValidators.ts`, `convex/lib/menuAccess.ts` (`MenuOwnedTable` + 3 tabele), `convex/menuServices.ts` (`context.capabilities`, `setFeature`), `convex/menuCatalog.ts` (`setBasePrice` → RS upozorenje), `lib/menu/{keys,limits,modes,audit}.ts`, `lib/menu/testkit/seed.ts` (`addVenueToAccount`, `grantAccountPremium`), `lib/i18n/types.ts` i `lib/i18n/sr/menu-domen.ts` (novi kodovi grešaka), `convex/_generated/api.d.ts` (`npx convex codegen`), `docs/menu/MENU-ARHITEKTURA.md`, `docs/tasks/BLOCKED.md` (sekcija `SCANME MENU V1 — K03`)
+
+**Šta je urađeno:**
+- **Capability helper na jednom mestu.** `lib/menu/capabilities.ts` je jedina tabela onoga što Premium otključava: Room service, AI predlog prevoda, zakazane akcije, dodatne layout i dizajn varijante, naprednu analitiku, CSV i smanjen brending. Standard ima najviše 2 jezika po Menu usluzi, izvorni uključen. `convex/lib/menuCapabilities.ts` (`getMenuCapabilities`, `requireMenuCapability`) samo proširuje postojeći lanac `getEntitlement(…, "scanme_menu")`: subscriptions_v1 Premium naloga, pa aktivan red lokala, pa plan naloga (enterprise = premium). Premium tako važi za sve lokale naloga. `menuServices.context` sada vraća i `capabilities`.
+- **Jezici.** `convex/menuSettings.ts` ima `languages` i `setLanguages` (Podešavanja, `settings.edit`, ide kroz nacrt). Standard dozvoljava srpski i jedan prevod, Premium do 10 (tehnička granica). Nalog iznad limita (izgubljen Premium) sme samo da ukloni ili preuredi jezike. Čuva se u `menuServices.settings.languages`.
+- **Room service model** (šema: `menuRoomService`, `menuRoomServiceCategories`, `menuRoomServiceItems`):
+  - uključen ili isključen kroz `menuServices.setFeature`, gde uključivanje traži Premium, a isključivanje nikad;
+  - izbor: izabrani artikli (`addItems`) ili ceo „Kompletan meni” kao jednokratna kopija (`importWholeMenu`);
+  - sopstvene kategorije i redosled;
+  - markup u procentima za sve ili izabrane artikle, ručna RS cena po artiklu, jednokratna naknada po porudžbini;
+  - artikal zadržava zajednički naziv, opis, sliku i alergene; RS čuva samo ručnu cenu.
+- **Obračun kao čiste funkcije** (`lib/menu/room-service-pricing.ts`): osnovna → markup → ručna → naknada jednom po porudžbini. Markup je celobrojan (bazni poeni) i zaokružuje se na najbliži dinar, pola naviše (450 + 15 % = 518). Ručna cena ostaje tačno uneta. Poreklo cene je `inherited`, `computed` ili `manual`. Upozorenje posle promene osnovne cene nosi staru osnovnu, novu osnovnu i RS cenu, uz akcije `keepManual` i `recomputeFromMarkup`.
+- `menuCatalog.setBasePrice` u istoj transakciji postavlja, ažurira ili briše upozorenje na RS stavci sa ručnom cenom.
+- Sve RS izmene proveravaju ulogu (`menu.edit`), tenant (`requireMenuAccessToRow`, `loadOwned`) i Premium. `get` radi i na Standardu (`available: false`), da panel može da prikaže zaključavanje.
+- **Cenovnik: BLOKADA.** Detalji su u redu BLOKADA ispod; `DEFAULT_PRICING_CONSTANTS` i `golden.json` nisu menjani.
+
+**Razlike u goldenu:** nema ih. Golden nije regenerisan, jer je `DEFAULT_PRICING_CONSTANTS` nepromenjen (BLOKADA). Kad vlasnik izabere cenu paketa „Kompletan”, promeniće se tačno 486 od 726 slučajeva, sve korpe koje sadrže Menu. Razlog je viša lista cena Menu-a (890 → 1.490 mesečno, 8.990 → 14.900 godišnje), cena paketa „lokal” (1.590 → 1.990, 15.990 → 19.900) i nova cena paketa „Kompletan”. Ostalih 240 slučajeva ostaje bajt-identično, što dokazuje test „domet promene”.
+
+**ODLUKE:**
+- Cenovnik nije aktiviran. Zaključane cene sa nepromenjenim paketom „Kompletan” obaraju invarijantu 4 (6 od 726 korpi), pa ni `npm run pricing:golden` ne bi prošao. Prompt zabranjuje promenu drugih cena, a K01 A9 je ovo predvideo. Izabrana je konzervativnija opcija: BLOKADA sa dokazom i proverenim kandidatom, bez izmišljanja cene paketa.
+- Primena kandidata (4.290 / 42.900) je probana na kopiji konstanti, a fajl je posle vraćen (`git diff` prazan). Pada samo 5 testova u 3 fajla (`engine.test.ts` 2, `golden.test.ts` 2, test „domet promene”). Tačan spisak je u BLOCKED; `priceParity` i `step-plan-model` u toj probi prolaze, suprotno pretpostavci iz K01 §5.
+- Markup se čuva kao `markupBps` (ceo broj), ne kao `markupPercent` iz plana, da nema float greške. API prima procenat sa najviše dve decimale, 0–300 %.
+- Ručna RS cena po varijanti prelazi u K04, jer varijante još ne postoje; obračun po ceni je isti.
+- Artikal je u Room service-u najviše jednom. Novi RS artikal nije izabran za markup. Naknada 0 znači „bez naknade”. Prazna RS kategorija može da se obriše, a neprazna ne može (`room_service/category_not_empty`).
+- „Ceo meni” je jednokratna kopija vidljivih sekcija i artikala „Kompletnog menija” (K01 OTV 6). Postojeća RS kategorija istog imena se ponovo koristi.
+- Pravo na izmenu: RS sadržaj i cene su `menu.edit` (i Urednik), uključivanje RS-a je `features.edit`, jezici su `settings.edit`.
+- Premium gate važi i za ScanMe admina. Premium se daje kroz entitlement, ne zaobilazi se.
+- Postojeći aktivan `scanme_menu` red na nivou lokala i dalje daje Premium tom lokalu: lanac je proširen, ne zamenjen.
+- `setFeature` pokriva prekidače koji su `boolean`; trostepeni prekidač rezervacija dobija svoj pisac u K25. Promena prekidača se upisuje u audit kao `feature.changed`.
+- Spisak jezika za prevod (27 ISO kodova) je radni.
+- Pitanja za vlasnika su u `docs/tasks/BLOCKED.md` → `SCANME MENU V1 — K03`.
+- `docs/events/**` je van obima runa; Sajam ne koristi nove tabele ni izvoze.
+
+**Novi paketi:** nema (run ne uvodi pakete)
+
+**Testovi** (229 novih testova u 6 novih fajlova; ukupno 403 fajla, 4.976 testova):
+- `lib/menu/room-service-pricing.test.ts` (101): tabela obračuna sa zaokruživanjem (450 + 15 % = 518, 335 + 10 % = 369, granice pola), ručna cena, procenti i bazni poeni, naknada jednom po porudžbini, upozorenje (prva i druga promena, povratak na staru osnovnu, brisanje cene), akcije, poređenje sa BigInt referencom.
+- `lib/menu/capabilities.test.ts` (21): Premium lista, 2 jezika u Standardu, mapiranje plana, provera jezika.
+- `lib/pricing/menu-launch-proposal.test.ts` (6): pad 6 korpi, granice 4.179 i 41.997, gornja granica 4.424 i 44.492, kandidat prolazi svih 726 korpi, domet promene.
+- `convex/menuCapabilities.test.ts` (21): Premium na nalogu (dva lokala istog naloga, preko plana i preko pretplate, `grace`, `suspended`, enterprise), postojeći red lokala, `context`, `setFeature` po ulogama, Premium za RS i audit.
+- `convex/menuSettings.test.ts` (22): limit od 2 jezika, Premium do 10, izgubljen Premium, validacija, uloge, nacrt, tenant.
+- `convex/menuRoomService.test.ts` (58): Premium gate za svih 12 izmena, uloge, `editing_disabled`, tenant izolacija u oba smera, obračun i poreklo, CAS, promena osnovne cene i obe akcije, uvoz celog menija, redosled, revizija nacrta.
+
+**Snimci:** nema UI izmena (UI Room service-a je K16, Premium zaključavanja dolaze sa površinama).
+
+**Rezultat provere:**
+- `node .nocni-run/meni/alati/typecheck.mjs`: bez grešaka; `npx tsc --noEmit -p convex/tsconfig.json`: bez grešaka.
+- `npx eslint --ignore-pattern ".nocni-run/**"`: 0 grešaka; ostaju dva stara upozorenja (`components/admin/venue-admin.tsx`, `convex/purchaseLifecycle.test.ts`).
+- `npx vitest run --testTimeout=30000 --hookTimeout=60000`: 403 fajla, 4.976 testova prolazi, 2 preskočena.
+- `npm run harness:namespace`: prošlo.
+- `npm run build`: prošlo; `next-env.d.ts` vraćen na sadržaj iz HEAD-a.
+
+**Provera prihvatanja:**
+
+| Stavka | Dokaz | Stanje |
+|---|---|---|
+| Capability helper postoji; testovi dokazuju Premium na nalogu i limit od 2 jezika | `lib/menu/capabilities.ts` + `convex/lib/menuCapabilities.ts`; `menuCapabilities.test.ts` (dva lokala istog naloga), `menuSettings.test.ts` i `capabilities.test.ts` (limit) | ispunjeno |
+| Nove cene paketa u `lib/pricing`, svaka razlika u goldenu objašnjena | cene su u `menu-launch-proposal.test.ts` kao proveren kandidat, a ne u `DEFAULT_PRICING_CONSTANTS`; golden bez razlike (objašnjeno gore) | **BLOKADA** |
+| Testovi obračuna: markup, zaokruživanje, ručna cena, naknada, upozorenje | `room-service-pricing.test.ts`, odeljci D i E u `menuRoomService.test.ts` | ispunjeno |
+| Provere prolaze; sekcija K03 u progress-u | gore | ispunjeno |
+
+**BLOKADA:** cene ScanMe Menu 1.490 / 14.900 i Menu + ScanMe Links 1.990 / 19.900 nisu upisane u `DEFAULT_PRICING_CONSTANTS`. Sa njima i nepromenjenim paketom „Kompletan” (3.790 / 37.990) motor baca invarijantu 4 za obe uniformne korpe sa pet usluga. Prompt zabranjuje promenu drugih cena, a cena paketa „Kompletan” je odluka vlasnika (dozvoljen opseg je [4.179, 4.424] mesečno i [41.997, 44.492] godišnje). Deferred, awaiting owner decision; recept za primenu je u `docs/tasks/BLOCKED.md` → `SCANME MENU V1 — K03`.
+
+**Za Jovana ujutru:**
+- Izaberi cenu paketa „Kompletan” (predlog 4.290 / 42.900 je proveren). Primena je jedan commit: tri vrednosti u `lib/pricing/constants.ts`, `npm run pricing:golden` i 5 namernih izmena testova po BLOCKED.
+- Pregledaj konzervativne izbore za Room service i jezike u BLOCKED, posebno to da novi RS artikal nije izabran za markup i da Urednik menja RS cene.

@@ -7,9 +7,11 @@ import {
   activeMenuServiceForBusiness,
   derivedMembership,
   getMenuAccess,
+  requireMenuAccessToRow,
 } from "./lib/menuAccess";
+import { getMenuCapabilities, requireMenuCapability } from "./lib/menuCapabilities";
 import { auditActorKind, writeMenuAudit } from "./lib/menuDraft";
-import { menuModeValidator } from "./lib/menuDomainValidators";
+import { menuBooleanFeatureValidator, menuModeValidator } from "./lib/menuDomainValidators";
 import { ensureMenuProfile } from "./menuAdmin";
 import { MENU_ERROR } from "../lib/menu/errors/core";
 import { newMenuKey } from "../lib/menu/keys";
@@ -17,6 +19,7 @@ import {
   DEFAULT_MENU_MODE,
   featuresDroppedByModeChange,
   isModeAvailable,
+  modeSupportsFeature,
   type MenuMode,
 } from "../lib/menu/modes";
 import { ORDER_STEP } from "../lib/menu/order";
@@ -131,8 +134,9 @@ async function activeMenuProfile(ctx: MutationCtx, businessId: Id<"businesses">)
 
 /**
  * What the panel needs to know about the caller and the service: the locked
- * mode (shown, never editable), the caller's Menu role and permissions, and
- * the live feature switches. null for every refusal.
+ * mode (shown, never editable), the caller's Menu role and permissions, the
+ * live feature switches and the account's Standard/Premium capabilities (K03).
+ * null for every refusal.
  */
 export const context = query({
   args: { businessSlug: v.string() },
@@ -149,7 +153,48 @@ export const context = query({
       permissions: access.permissions,
       canEdit: access.canEdit,
       features: menuService.features,
+      capabilities: await getMenuCapabilities(ctx, business._id),
     };
+  },
+});
+
+/**
+ * Turns one on/off switch of Funkcionalnosti on or off (master §13.7). Live at
+ * once, outside the draft (K01 A10). Room service needs the Premium account to
+ * be switched ON; switching any feature OFF never needs Premium. The three-state
+ * reservations switch has its own writer (K25).
+ */
+export const setFeature = mutation({
+  args: {
+    menuServiceId: v.id("menuServices"),
+    feature: menuBooleanFeatureValidator,
+    enabled: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    const access = await requireMenuAccessToRow(ctx, args.menuServiceId, "features.edit");
+    const { menuService } = access;
+    if (menuService.features[args.feature] === args.enabled) return { ok: true as const };
+    if (args.enabled) {
+      if (!modeSupportsFeature(menuService.mode, args.feature)) {
+        throw new ConvexError(MENU_ERROR.invalidInput);
+      }
+      if (args.feature === "roomService") {
+        await requireMenuCapability(ctx, menuService.businessId, "roomService");
+      }
+    }
+    await ctx.db.patch(menuService._id, {
+      features: { ...menuService.features, [args.feature]: args.enabled },
+      updatedAt: Date.now(),
+    });
+    await writeMenuAudit(ctx, {
+      menuServiceId: menuService._id,
+      actorKind: auditActorKind(access.actor),
+      actorUserId: access.user._id,
+      action: "feature.changed",
+      entityType: "menuServices",
+      details: { feature: args.feature, enabled: args.enabled },
+    });
+    return { ok: true as const };
   },
 });
 

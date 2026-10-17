@@ -52,6 +52,8 @@ import type {
 } from "../fair-contract";
 import type { FairMapKey, FairMapZoneId } from "../fair-map/types";
 import type { MenuErrorCode } from "../menu/errors/core";
+import type { MenuPlanErrorCode } from "../menu/errors/plan";
+import type { RoomServiceErrorCode } from "../menu/errors/room-service";
 
 export type Locale = "sr";
 
@@ -2345,7 +2347,8 @@ export interface MenuDomenDict {
   };
   /** Admin warning before a mode change (master §4.1, §4.2). */
   modeChangeNotice: string;
-  errors: Record<MenuErrorCode, string>;
+  /** Core (K02), plan gate and Room service (K03) error codes. */
+  errors: Record<MenuErrorCode | MenuPlanErrorCode | RoomServiceErrorCode, string>;
 }
 
 export interface MenuAdminDict {

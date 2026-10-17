@@ -39,6 +39,10 @@ const MODE_FEATURES: Record<MenuMode, readonly MenuFeatureKey[]> = {
   retail: [],
 };
 
+export function modeSupportsFeature(mode: MenuMode, feature: MenuFeatureKey): boolean {
+  return MODE_FEATURES[mode].includes(feature);
+}
+
 /**
  * Master §4.1/§4.2: data and settings are never carried blindly between modes.
  * The features a mode change would switch off — the admin sees this list and

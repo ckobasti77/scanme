@@ -71,6 +71,9 @@ import {
   menuMemberStatusValidator,
   menuModeValidator,
   menuPageNavigationValidator,
+  menuRoomServiceMarkupScopeValidator,
+  menuRoomServicePriceWarningValidator,
+  menuServiceSettingsValidator,
   menuServiceStatusValidator,
   menuVisibilityValidator,
 } from "./lib/menuDomainValidators";
@@ -3337,6 +3340,8 @@ export default defineSchema({
     modeSetByUserId: v.optional(v.id("users")),
     status: menuServiceStatusValidator,
     features: menuFeaturesValidator,
+    // K03: languages; later steps add their keys (validator comment).
+    settings: v.optional(menuServiceSettingsValidator),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
@@ -3489,6 +3494,50 @@ export default defineSchema({
     details: v.optional(menuAuditDetailsValidator),
     createdAt: v.number(),
   }).index("by_menuServiceId_and_createdAt", ["menuServiceId", "createdAt"]),
+
+  // Room service (K03; master §5.3, §21.4): a separate Premium channel, not a
+  // page. It shares the articles (name, description, image, allergens) and
+  // owns its selection, categories, order and price rules. Only a MANUAL price
+  // is stored; inherited and computed prices are derived from the article's
+  // base price (lib/menu/room-service-pricing.ts). Content changes go through
+  // the draft (touchDraft); the on/off switch is menuServices.features.
+  menuRoomService: defineTable({
+    menuServiceId: v.id("menuServices"),
+    // Basis points (1500 = 15 %), 0..30000; absent = no markup.
+    markupBps: v.optional(v.number()),
+    markupScope: menuRoomServiceMarkupScopeValidator,
+    // Added ONCE to the whole order; absent = no fee.
+    deliveryFeeRsd: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    updatedByUserId: v.optional(v.id("users")),
+  }).index("by_menuServiceId", ["menuServiceId"]),
+
+  menuRoomServiceCategories: defineTable({
+    menuServiceId: v.id("menuServices"),
+    key: v.string(),
+    name: v.string(),
+    order: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_menuServiceId_and_order", ["menuServiceId", "order"]),
+
+  // One row per article in Room service (an article is in it at most once).
+  menuRoomServiceItems: defineTable({
+    menuServiceId: v.id("menuServices"),
+    categoryId: v.id("menuRoomServiceCategories"),
+    articleId: v.id("menuArticles"),
+    order: v.number(),
+    // Read only when markupScope is "selected".
+    markupApplies: v.boolean(),
+    manualPriceRsd: v.optional(v.number()),
+    priceWarning: v.optional(menuRoomServicePriceWarningValidator),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_categoryId_and_order", ["categoryId", "order"])
+    .index("by_articleId", ["articleId"])
+    .index("by_menuServiceId", ["menuServiceId"]),
 
   // ===========================================================================
   // Sajam automobila 2026 — fair tables (B0; BACKEND-HANDOFF §5,

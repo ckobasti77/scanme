@@ -7,7 +7,7 @@
 
 | Pojam (master §3.1) | U kodu | Napomena |
 |---|---|---|
-| Nalog | `accounts` (postojeće) | Premium se vodi na nalogu (`getEntitlement`). |
+| Nalog | `accounts` (postojeće) | Premium se vodi na nalogu: `getMenuCapabilities` → `getEntitlement(…, "scanme_menu")` [K03 ✓]. |
 | Lokal | `businesses` (postojeće) | Tenant. |
 | Menu usluga | `menuServices` | Jedna pretplata jednog lokala u jednom zaključanom režimu. V1: najviše jedna aktivna usluga po lokalu. |
 | Režim rada | `menuServices.mode` | `hospitality` (V1), `services` (V1.1), `retail` (kasnije). Bira se pri kreiranju, klijent ga samo vidi. |
@@ -16,6 +16,7 @@
 | Artikal | `menuArticles` | Zajednički identitet i **jedna osnovna cena** u celim dinarima. |
 | Prikaz artikla | `menuPlacements` | Artikal u sekciji stranice: redosled i vidljivost, **nikad cena**. |
 | Kombo | `menuArticles.kind = "combo"` + `menuComboComponents` [K04] | Ručna cena. |
+| Room service | `menuRoomService` + `menuRoomServiceCategories` + `menuRoomServiceItems` [K03 ✓] | Poseban Premium kanal, nije stranica; deli artikle, ima svoj izbor, kategorije, redosled i cenovna pravila. |
 | Pozicija | `menuPositions` [K20] | Sto, soba ili druga tačka. |
 | QR veza | `menuQrLinks` | Kartica → stranica (i pozicija od K20). `cardTargets` se ne proširuje. |
 
@@ -35,7 +36,7 @@ Sve tabele su nove (`convex/schema.ts`, blok „ScanMe Menu V1 — the new Menu 
 
 | Tabela | Polja | Indeksi |
 |---|---|---|
-| `menuServices` | `businessId`; `serviceProfileId?`; `legacyMenuId?` (stari `menus` red istog lokala, samo informativno); `mode` `"hospitality"\|"services"\|"retail"`; `modeSetAt`; `modeSetByUserId?`; `status` `"active"\|"archived"`; `features` {`callWaiter`, `billRequest`, `ordering`, `roomService`, `occupancy`: boolean; `reservations` `"off"\|"form"\|"external"`}; `createdAt`; `updatedAt` | `by_businessId`, `by_serviceProfileId` |
+| `menuServices` | `businessId`; `serviceProfileId?`; `legacyMenuId?` (stari `menus` red istog lokala, samo informativno); `mode` `"hospitality"\|"services"\|"retail"`; `modeSetAt`; `modeSetByUserId?`; `status` `"active"\|"archived"`; `features` {`callWaiter`, `billRequest`, `ordering`, `roomService`, `occupancy`: boolean; `reservations` `"off"\|"form"\|"external"`}; `settings?` {`languages?` {`source` (`"sr"`), `translations`: string[] bez izvornog}} [K03 ✓]; `createdAt`; `updatedAt` | `by_businessId`, `by_serviceProfileId` |
 | `menuDraftState` | `menuServiceId`; `revision`; `articleCount` (tačan broj artikala, granica `MENU_MAX_ARTICLES`); `lastEditAt`; `lastEditByUserId?` | `by_menuServiceId` |
 | `menuPages` | `menuServiceId`; `key`; `slug` (stabilan); `name` (interni); `publicTitle?`; `isDefault`; `order`; `visibility` `"visible"\|"hidden"`; `archivedAt?`; `iconKey?`; `navigation` `"standalone"\|"back"\|"shared"`; `placementCount` (tačan broj prikaza na stranici); `createdAt`; `updatedAt`; `updatedByUserId?` | `by_menuServiceId_and_order`, `by_menuServiceId_and_slug`, `by_menuServiceId_and_key` |
 | `menuSections` | `menuServiceId`; `pageId`; `key`; `name`; `description?`; `iconKey?`; `order`; `visibility`; `createdAt`; `updatedAt` | `by_pageId_and_order`, `by_menuServiceId`, `by_menuServiceId_and_key` |
@@ -45,13 +46,23 @@ Sve tabele su nove (`convex/schema.ts`, blok „ScanMe Menu V1 — the new Menu 
 | `menuMembers` | `menuServiceId`; `businessId`; `email`; `userId?`; `role` `"owner"\|"manager"\|"editor"`; `status` `"invited"\|"active"\|"removed"`; `inviteTokenHash?`; `inviteExpiresAt?`; `invitedByUserId`; `acceptedAt?`; `createdAt`; `updatedAt` | `by_menuServiceId_and_userId`, `by_menuServiceId_and_email`, `by_inviteTokenHash`, `by_userId` |
 | `menuAuditLog` | `menuServiceId`; `actorKind` `"user"\|"staff"\|"admin"\|"guest"\|"system"`; `actorUserId?`; `actorRef?`; `action` (`lib/menu/audit.ts`); `entityType?`; `entityKey?`; `details?` (ravan zapis ≤ 20 ključeva); `createdAt` | `by_menuServiceId_and_createdAt` |
 
-Ne postoji polje `accountId` na `menuServices`: nalog se uvek čita sa `businesses.accountId`, da ne zastari kad lokal pređe na drugi nalog. `settings` se dodaje u koracima koji ih koriste (jezici [K03], radno vreme i rezervacije [K25], pragovi panela [K23]/[K28]) kao opciona polja.
+Ne postoji polje `accountId` na `menuServices`: nalog se uvek čita sa `businesses.accountId`, da ne zastari kad lokal pređe na drugi nalog. `settings` (`menuServiceSettingsValidator`) raste za jedan opcioni ključ po koraku: jezici [K03 ✓], radno vreme i rezervacije [K25], pragovi panela [K23]/[K28].
+
+### 2.1b Room service [K03 ✓]
+
+| Tabela | Polja | Indeksi |
+|---|---|---|
+| `menuRoomService` | `menuServiceId`; `markupBps?` (bazni poeni, 1500 = 15 %, 0–30.000; odsutno = bez markup-a); `markupScope` `"all"\|"selected"`; `deliveryFeeRsd?` (jednom po porudžbini; odsutno = bez naknade); `createdAt`; `updatedAt`; `updatedByUserId?` | `by_menuServiceId` |
+| `menuRoomServiceCategories` | `menuServiceId`; `key` (`rc_…`); `name`; `order`; `createdAt`; `updatedAt` | `by_menuServiceId_and_order` |
+| `menuRoomServiceItems` | `menuServiceId`; `categoryId`; `articleId` (artikal je u RS-u najviše jednom); `order`; `markupApplies` (važi kad je `markupScope = "selected"`; nov red: `false`); `manualPriceRsd?`; `priceWarning?` {`oldBaseRsd`, `newBaseRsd`: number\|null; `at`}; `createdAt`; `updatedAt` | `by_categoryId_and_order`, `by_articleId`, `by_menuServiceId` |
+
+Čuva se samo ručna RS cena; preuzeta i izračunata cena se uvek izvode iz `menuArticles.basePriceRsd` (`lib/menu/room-service-pricing.ts`). Naziv, opis, slika i alergeni ostaju na artiklu. Uključen/isključen je `menuServices.features.roomService`. Brisanje artikla [K04] mora da obriše i njegov `menuRoomServiceItems` red.
 
 ### 2.2 Tabele kasnijih koraka (plan iz K01 §3.2; korak ih uvodi i dopunjuje ovaj odeljak)
 
 | Korak | Tabele i polja |
 |---|---|
-| K03 | `menuRoomService` (markupPercent?, markupScope, deliveryFeeRsd?), `menuRoomServiceCategories`, `menuRoomServiceItems` (manualPriceRsd?, manualVariantPrices?, priceWarning?); `menuServices.settings?.languages` |
+| K03 ✓ | tačka 2.1b i `menuServices.settings?.languages`. `markupPercent` iz plana je postao `markupBps` (ceo broj, bez float greške); `manualVariantPrices?` (ručna RS cena po varijanti) dodaje K04 uz varijante. |
 | K04 | `menuArticles` + `allergens?`, `tags?`, `variantsEnabled?`, `addonsEnabled?`, `noteEnabled?`, `promo?`, `priceCheck?`, `translations?`; `translations?` na stranicama, sekcijama i RS kategorijama; `menuVariants`, `menuAddonGroups`, `menuAddonOptions`, `menuArticleAddonGroups`, `menuComboComponents`, `menuAvailability` |
 | K05 | `menuVersions`, `menuVersionParts` (javni delovi po jezik × stranica, interni deo `_all`), `menuPresentation`, `menuEditorPresence`; `menuServices.liveVersionId?`, `liveVersionNumber?`; `menuDraftState.publishedRevision?`, `lock?` |
 | K06 | `menuArticles.legacyPhotoStorageId?`; `menuServices.migration?`; indeks `by_legacyMenuId` |
@@ -79,6 +90,7 @@ Greške su mašinski kodovi (`throw new ConvexError(MENU_ERROR.x)`, `lib/menu/er
 | `convex/lib/menuAccess.ts` | `requireMenuAccess(ctx, target, permission)`, `requireMenuAccessToRow(ctx, menuServiceId, permission)`, `getMenuAccess(...)`, `loadOwned(ctx, id, menuServiceId)`, `loadManyOwned`, `activeMenuServiceForBusiness`, `derivedMembership` | Jedina provera uloge i tenanta za korisnike sa nalogom. `target` je `{ menuServiceId }` ili `{ businessSlug }`. Redosled: prijava → usluga → admin prolazi → arhivirana usluga ili neaktivan lokal (`not_found`) → uloga (`forbidden`) → aktivan `scanme_menu` profil (`service_inactive`) → `clientEditingEnabled === true` za `menu.edit` i `menu.publish` (`editing_disabled`) → `roleCan` (`forbidden`). Mutacija adresirana ID-jem reda (usluga se čita iz reda) koristi `requireMenuAccessToRow`: korisnik bez uloge u toj usluzi dobija `not_found`, isto kao za nepostojeći ID (nema otkrivanja tuđih redova); član čija uloga nema dozvolu dobija `forbidden`. Tuđi ID iz argumenta (`loadOwned`) je uvek `not_found`. |
 | `convex/lib/menuDraft.ts` | `loadDraftState`, `touchDraft(ctx, menuServiceId, userId, { articleDelta })`, `writeMenuAudit`, `auditActorKind` | `touchDraft` se zove **tačno jednom** po uspešnoj mutaciji nacrta (revizija + 1, ko je poslednji menjao, broj artikala); nikad na odbijen poziv, CAS konflikt ili no-op. |
 | `convex/lib/menuDomainValidators.ts` | validatori | Deli ih šema i moduli. |
+| `convex/lib/menuCapabilities.ts` [K03 ✓] | `getMenuCapabilities(ctx, businessId)`, `requireMenuCapability(ctx, businessId, capability)` | Jedino mesto koje odlučuje Standard/Premium: proširuje lanac `getEntitlement(…, "scanme_menu")` (subscriptions_v1 Premium naloga → aktivan red lokala → plan naloga, enterprise = premium) i mapira ga kroz `lib/menu/capabilities.ts`. Premium važi za sve lokale naloga. `requireMenuCapability` baca `plan/premium_required`, i za ScanMe admina: komercijalni gate se ne zaobilazi, Premium se daje kroz entitlement. |
 | `convex/lib/menuStaffAccess.ts` [K22] | `requireMenuStaff` | Sesija osoblja (heš tokena) ili korisnik V/M. |
 | `convex/lib/menuGuestAccess.ts` [K20] | `requireMenuGuest` | Tenant i pozicija iz sesije gosta. |
 
@@ -89,7 +101,9 @@ Greške su mašinski kodovi (`throw new ConvexError(MENU_ERROR.x)`, `lib/menu/er
 | `convex/menuServices.ts` | `context` (q · `menu.read`; režim, uloga, dozvole, prekidači; `null` pri odbijanju); `ensureForBusiness` (m · vlasnik ili menadžer lokala ili admin; traži aktivan `scanme_menu` profil; režim je V1 podrazumevani; idempotentno); `adminProvision` (m · `requireAdmin`; bira režim, V1 samo `hospitality`; obezbeđuje profil kao `grantMenu`; audit u `menuAuditLog` i `adminAuditLog`); `adminSetMode` (m · `requireAdmin`; jedini pisac režima; isključuje prekidače koje novi režim ne podržava; dupli audit); helper `provisionMenuService` | K02 ✓ |
 | `convex/menuPages.ts` | `list` (q · `menu.read`); `add`, `rename` (CAS), `duplicate`, `move`, `archive`, `restore`, `remove` (m · `menu.edit`); helper `pageHasActiveQr` | K02 ✓ |
 | `convex/menuCatalog.ts` | sekcije: `addSection`, `renameSection` (CAS), `moveSection`, `removeSection`; artikli: `quickAddArticle` (naziv + cena; vraća `similar` kad postoji isti normalizovan naziv), `updateArticleFields` (CAS), `setBasePrice` (CAS; jedina cena za sve stranice); prikazi: `addPlacement`, `removePlacement` („Ukloni sa ove stranice"), `setPlacementVisibility` („Sakrij"), `movePlacement`; upiti `findSimilarArticles`, `pageContent` (`menu.read`) | K02 ✓ |
-| `convex/menuRoomService.ts`, `convex/menuSettings.ts` | RS konfiguracija i obračun; jezici | K03 |
+| `convex/menuRoomService.ts` | `get` (q · `menu.read`; radi i na Standardu: `available`, `enabled`, pravila, kategorije sa artiklima, cena i poreklo, upozorenje, `notInRoomService`); `updateSettings` (CAS: `markupPercent` 0–300 sa najviše dve decimale, `markupScope`, `deliveryFeeRsd`; 0 ili null briše); `addCategory`, `renameCategory` (CAS), `moveCategory`, `removeCategory` (samo prazna, inače `room_service/category_not_empty`); `addItems` (≤200, preskače artikle koji su već u RS-u); `importWholeMenu` (jednokratno kopiranje vidljivih sekcija i artikala „Kompletnog menija“); `moveItem`, `removeItem`; `setItemsMarkup` (≤200); `setManualPrice` (CAS; briše upozorenje); `resolvePriceWarning` (`keepManual` \| `recomputeFromMarkup`). Sve izmene: `menu.edit` + Premium (`roomService`), `touchDraft` jednom. Helper `flagRoomServicePriceWarnings` zove `menuCatalog.setBasePrice` u istoj transakciji. | K03 ✓ |
+| `convex/menuSettings.ts` | `languages` (q · `menu.read`; izvorni, prevodi, `maxLanguages`, `tier`); `setLanguages` (m · `settings.edit`; Standard 2 jezika sa izvornim, Premium do 10; iznad limita samo uklanjanje i preuređivanje; `plan/language_limit`; ide kroz nacrt) | K03 ✓ |
+| `convex/menuServices.ts` (dopuna) | `context` vraća i `capabilities`; `setFeature` (m · `features.edit`; prekidači `callWaiter`, `billRequest`, `ordering`, `roomService`, `occupancy` važe odmah; uključivanje RS-a traži Premium, isključivanje nikad; audit `feature.changed`; `reservations` dobija svoj pisac u K25) | K03 ✓ |
 | `convex/menuArticleOptions.ts`, `menuCombos.ts`, `menuArticleDetails.ts`, `menuAvailability.ts` | varijante, dodaci, kombo, alergeni, oznake, akcije, brisanje artikla, živa dostupnost | K04 |
 | `convex/menuPublishing.ts`, `menuPresence.ts`, `menuPublic.ts` | objava, verzije, vraćanje, prisustvo, javno čitanje | K05 |
 | `convex/menuMigration.ts` (+ `menuAdmin.importDraftV2`) | interna migracija (internal), zaštita od dvostrukog upisa | K06 |
@@ -148,9 +162,10 @@ Efektivna uloga je **jača** od izvedene i eksplicitne. Postojeća članstva se 
 - RSD u celim dinarima je jedini izvor istine (`lib/menu/rsd.ts`: ceo broj 0–1.000.000). Prikaz `1.490 RSD`; EUR je informativan, `~ 12,70 EUR` [K14].
 - Artikal ima **jednu osnovnu cenu** (`menuArticles.basePriceRsd`); sve standardne stranice je koriste. Prikaz (`menuPlacements`) nema polje cene; stranica nema override. Promena cene ide kroz `menuCatalog.setBasePrice` (CAS) i ostaje u nacrtu do objave.
 - Varijante imaju sopstvene cene [K04]. Kombo ima ručnu cenu; promena cene sastavnog artikla postavlja `priceCheck` na kombou i ne menja objavljenu cenu [K04].
-- Room service [K03]: osnovna cena → procentualni markup (zaokruženje na najbliži dinar, npr. 450 + 15 % = 518) → ručna RS cena (tačno uneta) → jednokratna naknada na celu porudžbinu. Poreklo cene: `inherited` | `computed` | `manual`. Dodaci nemaju markup (K01 OTV 20).
-- Komercijalne cene usluge (`lib/pricing/**`) menja samo K03; promena Menu cene ruši invarijantu paketa „kompletan" (K01 A9) i ide kao BLOKADA uz test predloga.
-- Capability: Standard/Premium iz `getEntitlement(ctx, businessId, "scanme_menu")` + `lib/menu/capabilities.ts` [K03]; `MenuLimits` starog modela se ne menja.
+- Room service [K03 ✓, `lib/menu/room-service-pricing.ts`]: osnovna cena → procentualni markup za sve ili izabrane artikle (bazni poeni, celobrojno zaokruženje na najbliži dinar, pola naviše: 450 + 15 % = 518) → ručna RS cena (tačno uneta) → jednokratna naknada na celu porudžbinu (`roomServiceOrderTotal`). Poreklo cene: `inherited` | `computed` | `manual`. Bez ručne cene promena osnovne cene sama menja RS cenu. Sa ručnom cenom `setBasePrice` postavlja `priceWarning`: stara osnovna je cena uz koju je ručna potvrđena, a povratak na nju briše upozorenje. Akcije su `Zadrži ručnu cenu` i `Ponovo izračunaj prema markup-u`. Dodaci nemaju markup (K01 OTV 20).
+- Komercijalne cene usluge (`lib/pricing/**`): **BLOKADA K03**. Menu 1.490 / 14.900 i paket „lokal“ 1.990 / 19.900 uz nepromenjen paket „kompletan“ (3.790 / 37.990) ruše invarijantu 4 za korpe sa svih pet usluga (K01 A9). Zato `DEFAULT_PRICING_CONSTANTS` i golden ostaju isti dok vlasnik ne izabere cenu paketa „kompletan“ (opseg [4.179, 4.424] mesečno, [41.997, 44.492] godišnje). Dokaz i proveren kandidat (4.290 / 42.900) su u `lib/pricing/menu-launch-proposal.test.ts`, a recept za primenu u `docs/tasks/BLOCKED.md` → `SCANME MENU V1 — K03`. Premium 990 / 9.990 je već usklađen. PDV prikaz se ne menja (P9).
+- Capability [K03 ✓]: `lib/menu/capabilities.ts` (`MENU_STANDARD`, `MENU_PREMIUM`, `menuCapabilitiesFor`) je jedina tabela onoga što Premium otključava: `roomService`, `aiTranslations`, `scheduledPromos`, `extraLayouts`, `advancedAnalytics`, `csvExport`, `reducedBranding`; `maxLanguages` je 2 (Standard, sa izvornim) ili 10 (tehnička granica). Convex je čita kroz `convex/lib/menuCapabilities.ts`, a gate-ovi kasnijih koraka zovu `requireMenuCapability`. Gubitak Premium-a ništa ne briše: isključivanje je uvek dozvoljeno, jezici mogu samo da se smanje, a objava [K05] isključuje Premium sadržaj uz upozorenje. `MenuLimits` starog modela se ne menja.
+- Jezici [K03 ✓, `lib/menu/languages.ts`]: izvorni `sr`, prevodi iz radnog spiska ISO kodova; `checkLanguageChange` je jedina provera.
 
 ## 6. Nacrt, objava i snapshotovi
 
@@ -214,7 +229,7 @@ Komponentni testovi idu u `components/menu/**/*.test.tsx`; testovi u `app/**`, `
 
 | Površina | Sadržaj | Korak |
 |---|---|---|
-| `menu-domen` | naziv podrazumevane stranice, „(kopija)", režimi, uloge, napomena o promeni režima, tekst svakog koda greške | K02 ✓ |
+| `menu-domen` | naziv podrazumevane stranice, „(kopija)", režimi, uloge, napomena o promeni režima, tekst svakog koda greške (`menu/…`; od K03 i `plan/…`, `room_service/…`) | K02 ✓, K03 ✓ |
 | `menu-zajednicko` | primitivi, stanja (prazno, greška, učitavanje) | K07 |
 | `menu-panel` | shell i sekcije klijentskog panela | K08 |
 | `menu-studio` | editor | K10 |
@@ -240,7 +255,7 @@ Dodavanje: interfejs u `lib/i18n/types.ts` (sme da uvozi tipove samo iz fajlova 
 
 - Convex moduli: `menu<Oblast>.ts` (camelCase), validatori u `convex/lib/menu*Validators.ts`, helperi u `convex/lib/menu*.ts`.
 - Tabele: `menu<Množina>`; indeksi `by_<polje>_and_<polje>` po redu polja.
-- Ključevi: `pg_…` (stranica), `sc_…` (sekcija), `ar_…` (artikal), 12 znakova Crockford base32; novi tipovi dodaju prefiks u `lib/menu/keys.ts`.
+- Ključevi: `pg_…` (stranica), `sc_…` (sekcija), `ar_…` (artikal), `rc_…` (RS kategorija, K03), 12 znakova Crockford base32; novi tipovi dodaju prefiks u `lib/menu/keys.ts`.
 - Kodovi grešaka: `menu/<snake_case>` (jezgro); drugi domeni `<domen>/<snake_case>` u sopstvenom fajlu.
 - Audit akcije: `<entitet>.<glagol>` u `lib/menu/audit.ts`; u `adminAuditLog` admin radnje dobijaju `menu_<glagol>`.
 - Vrednosti unija na engleskom; sav tekst za korisnika na srpskom (latinica) kroz i18n.
