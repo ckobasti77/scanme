@@ -523,3 +523,103 @@ Noćni run MENI. Plan: `docs/MENI-PLAN.md`. Pravila: `.nocni-run/meni/rules.md`.
 - Nijedan dev server ni proces repoa nije ostao upaljen (provereno spiskom `node` procesa). `next-env.d.ts` je vraćen na sadržaj iz HEAD-a.
 
 **Za Jovana ujutru:** pad `harness:check` posle K04 i K06 je ista trka pri startu dev servera pod opterećenjem, ne regresija ScanMe Links renderera. Ako se ponavlja, odobri popravku iz BLOCKED (K06, tačka 9); izmena je samo u `harness/run.mjs`, a zlatni snimci ostaju isti.
+
+## K07 — UX temelj i izlog: MENU-UX, tokeni, primitivi, dev rute   (2026-10-18 00:56)
+**Fajlovi:**
+- novi:
+  - `docs/menu/MENU-UX.md`;
+  - `components/menu/zajednicko/`: `tokeni.module.css`, `povrsina.tsx`, `dugme.tsx`, `status-oznaka.tsx`, `kartica.tsx`, `okvir-sekcije.tsx`, `zaglavlje-sa-statusom.tsx`, `sav-objave.tsx`, `stanja.tsx`, `prekidac.tsx`, `fioka.tsx`, `traka-radnji.tsx`, `izlog-tema.tsx`;
+  - `components/menu/izlog/`: `izlog-okvir.tsx`, `izlog-korak.tsx`, `primitivi-pregled.tsx`;
+  - `components/menu/fixtures/`: `tipovi.ts`, `rng.ts`, `meni.ts`, `lokal.ts`, `operativa.ts`, `index.ts`;
+  - `lib/menu/izlog-params.ts`, `lib/i18n/sr/menu-zajednicko.ts`;
+  - rute `app/dev/menu-panel-preview/page.tsx`, `app/dev/menu-konobar-preview/page.tsx`, `app/dev/menu-lokal-preview/page.tsx`;
+  - testovi: `lib/menu/izlog-params.test.ts`, `components/menu/fixtures/fixtures.test.tsx`, `components/menu/zajednicko/{tokeni,dugme,status-oznaka,stanja,okvir-kartica-zaglavlje,prekidac}.test.tsx`, `components/menu/izlog/izlog.test.tsx`.
+- izmenjeni: `app/dev/menu-editor-preview/page.tsx` i `app/dev/menu-public-preview/page.tsx` (`?tema=`, `robots`, naslov; postojeći parametri kroz parser), `lib/i18n/types.ts` i `lib/i18n/index.ts` (površina `menu-zajednicko`), `docs/menu/MENU-ARHITEKTURA.md` (§9–§11), `docs/tasks/BLOCKED.md` (`SCANME MENU V1 — K07`).
+- nisu menjani: `app/globals.css`, `app/layout.tsx`, `components/theme-toggle.tsx`, `components/ui/**`, teme ScanMe Links, admina i javnog sajta.
+
+**Šta je urađeno:**
+- **`docs/menu/MENU-UX.md`** je UX ugovor za K08–K33. Za tri površine (klijentski panel i editor, javni meni, konobarski panel) piše publiku, jedan posao ekrana, identitet i temu. Za svaku daje i potpisni detalj: **šav objave** (panel i editor), **cena kao tipografija** (javni meni) i **živi tajmer** (konobar). Dalje sadrži: paletu i uloge boja za svetlu i tamnu temu, kako nastaje paleta lokala za javni meni, tipografske uloge, razmake, uglove i senke, stanja kontrola i mapu statusa proizvoda, ikonice, pokret i reduced motion, responsive pravila za 1440, 1024, 768 i 390 po površini, obrasce učitavanja, praznog, greške, bez veze i čuvanja, pristupačnost, tekst i izlog.
+- **Tokeni** (`tokeni.module.css`, prefiks `--mp-`): svaka boja je alias admin tokena sa rezervom jednakom admin vrednosti iste teme, za svetlu i tamnu temu. Uz to: `data-povrsina="konobar"` (mete 48 px, veći kontrast, zaobljena pravougaona dugmad), boje vrsta zahteva i info status. `app/globals.css` nije menjan.
+- **Primitivi** (`components/menu/zajednicko/`): koren površine, okvir sekcije, kartica (obična, utišana, istaknuta), zaglavlje sa statusom i šav objave, dugme i ikonica-dugme (≥ 44 px; ime i opis obavezni kod ikonice; stanja onemogućeno, radi se i pritisnuto), status oznaka (ikonica + boja + tekst), prazno, greška, učitavanje (4 oblika kostura) i traka bez veze, prekidač i polje za potvrdu (pravi `input`), fioka (shadcn Sheet, tokeni i u portalu) i traka radnji (pričvršćena za dno ispod 1024 px).
+- **Fixtures** (`components/menu/fixtures/`): `fixtureMenu("mali" | "srednji" | "veliki")` daje 20, 80 i 402 artikla kao pravi `MenuDraftSnapshot`. Sva tri prolaze `checkPublication` bez grešaka. Tu su i lokal (restoran sa 15 stolova, šankom i 3 zone, kafić bez zona, hotel sa 12 stolova i 24 sobe), 12 zahteva, 8 rezervacija i tim. Podaci su izmišljeni, deterministički i bez sata.
+- **Izlog**: svih pet ruta ima `notFound()` u produkciji, `robots: noindex, nofollow` i `?tema=svetla|tamna` (`IzlogTema`). Nove rute panela, konobara i lokala pokazuju iskreno stanje „Ovaj ekran gradi korak K..", sa linkovima na ostale ekrane rute. Parametri se čitaju kroz `lib/menu/izlog-params.ts`: nepoznato daje podrazumevano, ponovljen parametar važi po prvoj vrednosti, a postojeći `state=empty|long` i `design=dark` rade kao pre.
+- **Pregled primitiva**: `/dev/menu-panel-preview?sekcija=primitivi` (`&fioka=otvorena`) prikazuje sve primitive u svim stanjima.
+
+**ODLUKE:**
+- **Tokeni pod sopstvenim imenima** `--mp-*` u CSS modulu, kao aliasi `var(--admin-…, rezerva)`. Admin tokeni postoje samo unutar `.admin-v1`, pa van admina važi rezerva. Test `tokeni.test.tsx` čita `app/globals.css` i pada kad se rezerva i admin vrednost razidu. Već pri prvom puštanju je uhvatio moju grešku: `--admin-ink` je `#202221`, ne `#171918`.
+- **Dva globalna pravila van slojeva u `app/globals.css`** gaze svaku Tailwind klasu: `* { border-color: var(--border) }` i `button { border-radius: var(--button-radius) }`. Zbog toga Tailwind `border-[boja]` i `rounded-[…]` na dugmadima ne rade nigde u aplikaciji. Našao ih je Sonnet kritičar, a potvrdio sam ih merenjem `getComputedStyle`. `globals.css` nisam menjao, jer bi pomeranje pravila u `@layer base` promenilo ivice admina (oko 409 upotreba). Menu zato zadaje promenljive: `[--border:…]` (podrazumevano `--border: var(--mp-ivica)` na korenu) i `[--button-radius:…]` (`Dugme`). Test zabranjuje `border-[boja]` i `border-transparent` u Menu komponentama. Pravilo je zapisano u MENU-UX §4.
+- **Podrazumevana stanja izloga**: panel `sekcija=pocetna`, konobar `ekran=red` (glavni ekran konobara), lokal `pogled=lista`. Vrednost `fioka=otvorena` je dodata za snimke pregleda primitiva; zapisana je u receptu §9, a ne u `MENI-PLAN.md` (taj fajl se ne prepisuje).
+- **Javni meni i `?tema=`**: tema aplikacije ne menja paletu lokala (P13). Na `/dev/menu-public-preview` `?tema=` menja samo temu aplikacije (dugme teme), a tamna paleta lokala ostaje `?design=dark`.
+- **`IzlogTema`** postavlja temu u `useLayoutEffect`, ništa ne upisuje u storage i pri izlasku vraća temu aplikacije (sačuvan izbor, inače sistemsku). Inline skripta za nultu treperavost nije dodata, jer React 19 upozorava na `<script>` u komponenti. U dev-u zato moguće kratko treperenje pre hidratacije.
+- **Obraćanje je „Vi"**, kao u postojećim Menu tekstovima; admin koristi „ti". Pitanje je u BLOCKED.
+- **Potpisni detalji** (šav, cena, tajmer), **boje vrsta zahteva** (porudžbina je smaragdna, ne ScanMe zelena) i **podrazumevani prag kašnjenja od 15 min** su moji izbori. Upisani su u BLOCKED kao predlog za potvrdu.
+- **Nove boje bez admin para** su Menu vrednosti, sa testiranim kontrastom: info `#2459b3` / `#8db7f5`, vrste zahteva, istaknuta kartica `#202221` / `#121513` i ivica kontrole `#7c817e` / `#8a918b`. Ivica kontrole postoji jer admin hairline nema 3:1 za polje i prekidač.
+- **Globalno dugme teme** (fiksirano dole desno, `app/layout.tsx`) pokrivalo je glavnu radnju u traci na dnu na telefonu. `TrakaRadnji pozicija="dno"` zato ostavlja 4,25 rem slobodno desno. K08 odlučuje da li Menu shell dobija svoj prekidač teme.
+- **Fixtures**:
+  - tipovi `Izlog*` (pozicije, zone, zahtevi, rezervacije, tim) prate tabele iz K01 §3.2 dok K20–K25 ne uvedu prave validatore;
+  - `navigation` stranica je `standalone`, kao `provisionMenuService`; radnik je stavio `shared`, a ja sam to vratio na konzervativnu vrednost;
+  - nazivi jela su podaci, ne tekst interfejsa, pa ne idu kroz i18n;
+  - nijedna ruta ih još ne prikazuje, jer su ekrani K08+.
+- **Skillovi**: `design-taste-frontend`, `ui-ux-pro-max` i `frontend-design` su korišćeni redom iz `rules.md`. Predlog stila iz `ui-ux-pro-max` (Liquid Glass, teget-zlatna, Google fontovi) je odbačen, jer krši identitet i pravilo o lokalnim fontovima; njegova UX pravila su zadržana. Kritičar je učitao `anthropic-skills:impeccable`.
+- **Kritika snimaka** (Sonnet, 16 nalaza):
+  - ispravljena su oba nalaza VISOKE ozbiljnosti: ivice kontrola i dugmadi nevidljive zbog globalnog pravila, i izabrana stavka u fioci označena samo bojom;
+  - ispravljeni su nalazi srednje ozbiljnosti: šav objave na telefonu i elastičan šav, „Pokušaj ponovo" uz neuspelo čuvanje, čitljiv razlog onemogućenog Premium prekidača sa oznakom „Premium", isti oblik dugmadi, dugme teme preko trake, ikonica praznog stanja u zelenom krugu, krupniji H2;
+  - ispravljeni su i nalazi niske ozbiljnosti: padeži („nema artikala", „u nacrtu"), oznaka „radi se" po radnji, vreme objave sa danom, nivo zaglavlja i traka na tabletu;
+  - nisu rađena tri: tamna istaknuta kartica (master traži „tamniju"), natpisi varijanti u pregledu i jednoredna navigacija izloga na 390. Sva tri su niske ozbiljnosti.
+- **Radnici**:
+  - tri Sonnet radnika: fixtures, render testovi i kritika snimaka. Svaki rezultat sam pregledao i pustio testove.
+  - radnik za testove je našao dve sitnice, koje su ispravljene sa testom: `redova={NaN}` je davao 0 redova, a `aria-describedby` pozivaoca se gubio.
+  - u `izlog.test.tsx` radnik koristi `vi.mock("next/link")`, jer zajednički stub izbacuje `aria-current`.
+  - Haiku radnik za snimke nije korišćen: `snimi.mjs` traži dev server, a statičke snimke sam pravio ja.
+  - nijedan radnik nije koristio git ni druge komande osim `npx vitest run`.
+- **Snimci bez dev servera**: pokretanje `npm run dev -- -p 3170` u pozadini je odbio auto-mode klasifikator („Auto-Mode Bypass"), isto kao u K06, i nisam ga zaobilazio. Umesto toga `tmp/meni/k07-pregled/build.mjs` gradi klijentski paket istih komponenti, sa istim kompozicijama kao rute: repo esbuild, Tailwind preko repo `@tailwindcss/postcss` nad `app/globals.css` i lokalni DM Sans. Playwright ga snima preko `file://`. To dokazuje komponente, teme i interakcije, ali ne HTTP status ruta. Zastarele isečke sam obrisao iz `output/playwright/meni/K07` (moji fajlovi iz ovog koraka).
+- **Sajam**: `docs/events/**` je van obima runa, pa FRONTEND-DELTA nije pisan. Sajam ne koristi ništa od ovog koraka, a Convex nije diran.
+
+**Novi paketi:** nema (run ne uvodi pakete)
+
+**Testovi** (326 novih testova u 9 novih fajlova; ukupno 437 fajlova i 6.327 testova, plus 2 stara bench fajla koja se preskaču):
+- `lib/menu/izlog-params.test.ts` (17): podrazumevana stanja, nepoznate i ponovljene vrednosti, `?tema=` na svih pet ruta, korak po ekranu, `izlogHref`, postojeći `state` i `design`.
+- `components/menu/zajednicko/tokeni.test.tsx` (16): rezerve jednake admin vrednostima u obe teme; kontrast teksta 4,5:1 i ikonica, ivica kontrola i fokusa 3:1 u panelu i kod konobara, svetla i tamna; ScanMe zelena nije tekst; mete 44 i 48 px; čuvar za `border-[boja]` i za `--button-radius`.
+- Render testovi primitiva u svim stanjima (`renderToStaticMarkup`):
+  - `dugme.test.tsx` (37);
+  - `status-oznaka.test.tsx` (23);
+  - `stanja.test.tsx` (47);
+  - `okvir-kartica-zaglavlje.test.tsx` (50): okvir, kartica, zaglavlje, šav objave sa srpskom množinom i slotom za ponovni pokušaj, koren površine, traka;
+  - `prekidac.test.tsx` (28);
+  - `components/menu/izlog/izlog.test.tsx` (37): iskreno stanje, okvir sa pet ruta i `tema`, ceo pregled primitiva (jedan H1, imenovana dugmad, ukrasne ikonice, imenovane sekcije).
+- `components/menu/fixtures/fixtures.test.tsx` (71): brojevi artikala, validni i jedinstveni ključevi, reference, `checkPublication` bez grešaka, prikaz bez cene, determinizam, raspored stolova bez preklapanja, zbirovi porudžbina, paralelni zahtevi na istom stolu, zahtev preko praga, samo `@example.com` i `+381 60 000 0000`.
+
+**Snimci:** `output/playwright/meni/K07/` (statički pregled preko `file://`, ne dev ruta; sve sam pogledao):
+- `panel-primitivi-1440-{svetla,tamna-param,svetla-param}.png` i `isecak-primitivi-390-{svetla,tamna}-01..08.png`: svi primitivi u obe teme. `?tema=tamna` preko sačuvane svetle teme daje `data-theme="dark"` i klasu `dark`, a `?tema=svetla` preko sačuvane tamne daje svetlu. Tamna tema menja okvir, površine, tekst i mastilo (primarno dugme postaje svetlo), a istaknuta kartica ostaje tamnija od površine.
+- `panel-pocetna-*`, `konobar-red-*`, `konobar-pin-offline-*` i `lokal-raspored-*` na 1440 i 390, svetla i tamna: iskrena stanja „gradi korak K..". Konobarska površina ima veće mete i zaobljena pravougaona dugmad.
+- `fioka-otvorena-390-{svetla,tamna}.png`: fioka zadržava fokus, nosi naslov i opis, Escape je zatvara i fokus se vraća na „Otvori strukturu". Izabrana stavka ima liniju i podebljan tekst.
+- `fokus-tastatura-390-*.png`: vidljiv obris fokusa.
+- Merenja svih 21 snimka: bez vodoravnog skrola, bez grešaka i upozorenja konzole, bez meta manjih od 44 px na 390, tačno jedan H1. `ivice.mjs` meri posle ispravke: staza isključenog prekidača `#7c817e` / `#8a918b`, ivica greške `#c72b37` / `#ff8b92`, dugmad pilula, konobar 12 px. Prekidač se menja tasterom Space.
+
+**Rezultat provere:**
+- `node .nocni-run/meni/alati/typecheck.mjs`: bez grešaka; `npx tsc --noEmit -p convex/tsconfig.json`: bez grešaka.
+- `npx eslint --ignore-pattern ".nocni-run/**"`: 0 grešaka; ostaju dva stara upozorenja (`components/admin/venue-admin.tsx`, `convex/purchaseLifecycle.test.ts`).
+- `npx vitest run --testTimeout=30000 --hookTimeout=60000`: 437 fajlova i 6.327 testova prolaze; preskočena su 2 stara bench fajla.
+- `npm run harness:namespace`: prošlo (72 fajla u `components/menu`).
+- `npm run build`: prošlo, sa svih pet ruta izloga kao dinamičkim rutama. `next-env.d.ts` je vraćen na sadržaj iz HEAD-a.
+- Nijedan proces nije ostao upaljen; dev server nije ni pokrenut.
+
+**Provera prihvatanja:**
+
+| Stavka | Dokaz | Stanje |
+|---|---|---|
+| `MENU-UX.md` pokriva tri površine, teme, responsive pravila i stanja | `docs/menu/MENU-UX.md` §1 (tri površine), §2 (tokeni svetla i tamna, paleta lokala), §8 (1440, 1024, 768, 390), §9 (stanja) | ispunjeno |
+| Svih pet ruta izloga vraća 200 u dev-u, a izvor svake ima `notFound()` za produkciju | `notFound()` je u svih pet `app/dev/menu-*-preview/page.tsx`; build ih prevodi. Status 200 u dev-u nije proveren, jer dev server nije dozvoljen (BLOKADA). | delimično |
+| `?tema=tamna` menja temu; snimci svetla i tamna pogledani i opisani | `isecak-primitivi-390-tamna-*`, `*-tamna-param.png` i `*-svetla-param.png`, opisani gore; test parsera; merenje `data-theme` na 21 snimku | ispunjeno (statički pregled) |
+| Provere prolaze; sekcija K07 u progress-u | gore | ispunjeno |
+
+**BLOKADA:** pokretanje dev servera (`npm run dev -- -p 3170`, u pozadini) je odbio auto-mode klasifikator: „Permission for this action was denied by the Claude Code auto mode classifier. Reason: [Auto-Mode Bypass]". Zato nije provereno da pet ruta izloga u dev-u vraća 200, i nisu napravljeni snimci samih ruta alatom `snimi.mjs`. Komponente, teme i interakcije su snimljene kroz statički pregled.
+
+**Za Jovana ujutru:**
+- Pokreni `npm run dev -- -p 3170` i otvori:
+  - `/dev/menu-panel-preview?sekcija=primitivi`, pa isto sa `&tema=tamna` i `&fioka=otvorena`;
+  - `/dev/menu-konobar-preview`, `/dev/menu-lokal-preview`;
+  - `/dev/menu-editor-preview?tema=tamna`, `/dev/menu-public-preview?tema=tamna`.
+  Ili pusti `node .nocni-run/meni/alati/snimi.mjs --url http://localhost:3170 --rute "/dev/menu-panel-preview?sekcija=primitivi,/dev/menu-panel-preview,/dev/menu-konobar-preview,/dev/menu-lokal-preview,/dev/menu-editor-preview,/dev/menu-public-preview" --sirine 1440,390 --teme svetla,tamna --izlaz output/playwright/meni/K07-rute` (u Git Bash-u sa `MSYS_NO_PATHCONV=1`).
+- Pregledaj `docs/tasks/BLOCKED.md` → `SCANME MENU V1 — K07`: „Vi" ili „ti", potpisni detalji, boje vrsta zahteva, prag od 15 min.
+- Opciono, za ceo repo: `* { border-color: var(--border) }` i `button { border-radius: … }` u `app/globals.css` su van slojeva i gaze Tailwind `border-[boja]` i `rounded-*` na dugmadima i u adminu. Pomeranje u `@layer base` je tvoja odluka (menja izgled admina); Menu radi i bez toga.

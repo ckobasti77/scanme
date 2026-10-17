@@ -64,6 +64,7 @@ import type {
 } from "../menu/errors/migration";
 import type { MenuAllergenCode } from "../menu/allergens";
 import type { MenuTagCode } from "../menu/tags";
+import type { KonobarEkran, LokalPogled, PanelSekcija } from "../menu/izlog-params";
 
 export type Locale = "sr";
 
@@ -6939,6 +6940,132 @@ export interface PostaDict {
   >;
 }
 
+// ScanMe Menu V1 — shared panel primitives (components/menu/zajednicko) and the
+// izlog dev routes (K07).
+export interface MenuZajednickoDict {
+  stanja: {
+    ucitavanje: string;
+    greskaNaslov: string;
+    greskaOpis: string;
+    pokusajPonovo: string;
+    offlineNaslov: string;
+    /** {vreme} */
+    offlineOpis: string;
+    offlineBezVremena: string;
+  };
+  dugme: { radiSe: string };
+  fioka: { zatvori: string };
+  cuvanje: { sacuvano: string; cuvaSe: string; nijeSacuvano: string };
+  objava: {
+    oznaka: string;
+    /** {broj} */
+    objavljeno: string;
+    /** {kada}: "danas u 14:32", "12. 10. u 9:05" */
+    objavljenoKada: string;
+    nikadObjavljeno: string;
+    gostiNeVide: string;
+    bezIzmena: string;
+    /** {n}, Serbian plural categories (srPluralCategory). */
+    izmeneOne: string;
+    izmeneFew: string;
+    izmeneMany: string;
+  };
+  izlog: {
+    naslovi: Record<"panel" | "konobar" | "lokal" | "editor" | "javni", string>;
+    oznaka: string;
+    /** {korak} */
+    korakNaslov: string;
+    /** {korak} */
+    korakOpis: string;
+    /** {korak} */
+    offlineKorak: string;
+    /** {korak} */
+    panelOkvirKorak: string;
+    ostaliEkrani: string;
+    sveRute: string;
+    rute: Record<"panel" | "editor" | "javni" | "lokal" | "konobar", string>;
+    panelSekcije: Record<PanelSekcija, string>;
+    konobarEkrani: Record<KonobarEkran, string>;
+    lokalPogledi: Record<LokalPogled, string>;
+    primitivi: {
+      naslov: string;
+      opis: string;
+      sekcije: Record<
+        | "dugmad"
+        | "dugmadOpis"
+        | "ikoniceDugmad"
+        | "ikoniceDugmadOpis"
+        | "statusi"
+        | "statusiOpis"
+        | "zaglavlja"
+        | "zaglavljaOpis"
+        | "kartice"
+        | "karticeOpis"
+        | "stanja"
+        | "stanjaOpis"
+        | "kontrole"
+        | "kontroleOpis"
+        | "fioka"
+        | "fiokaOpis"
+        | "trakaRadnji"
+        | "trakaRadnjiOpis",
+        string
+      >;
+      primeri: Record<
+        | "objavi"
+        | "pregled"
+        | "sacuvaj"
+        | "dodajArtikal"
+        | "otkazi"
+        | "obrisi"
+        | "preuzmi"
+        | "zavrsi"
+        | "onemoguceno"
+        | "objavljujeSe"
+        | "cuvaSe"
+        | "dodajeSe"
+        | "briseSe"
+        | "objavljenoKada"
+        | "izmeni"
+        | "jos"
+        | "premesti"
+        | "zvuk"
+        | "statusObjavljeno"
+        | "statusNacrt"
+        | "statusNovi"
+        | "statusPrihvacen"
+        | "statusZavrsen"
+        | "statusOtkazan"
+        | "statusGreska"
+        | "statusZakljucano"
+        | "naslovStranice"
+        | "kontekst"
+        | "karticaNaslov"
+        | "karticaTekst"
+        | "karticaUtisana"
+        | "karticaIstaknuta"
+        | "karticaIstaknutaTekst"
+        | "praznoNaslov"
+        | "praznoOpis"
+        | "greskaNaslov"
+        | "prekidacNaziv"
+        | "prekidacOpis"
+        | "prekidacIskljucenNaziv"
+        | "prekidacIskljucenOpis"
+        | "potvrdaNaziv"
+        | "potvrdaOpis"
+        | "potvrdaGreska"
+        | "fiokaOtvori"
+        | "fiokaNaslov"
+        | "fiokaOpis"
+        | "trakaOznaka"
+        | "offlineVreme",
+        string
+      > & { fiokaStavke: readonly string[] };
+    };
+  };
+}
+
 export interface DictBySurface {
   "event-map": EventMapDict;
   "fair-map": FairMapDict;
@@ -6980,6 +7107,7 @@ export interface DictBySurface {
   "menu-editor": MenuEditorDict;
   "menu-admin": MenuAdminDict;
   "menu-domen": MenuDomenDict;
+  "menu-zajednicko": MenuZajednickoDict;
   "ordering-admin": OrderingAdminDict;
   ordering: OrderingDict;
   "ordering-panel": OrderingPanelDict;

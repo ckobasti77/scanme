@@ -9,7 +9,9 @@
 //   /dev/menu-editor-preview            → the fixture menu (default design)
 //   ?state=empty                        → a menu with no groups yet
 //   ?design=dark                        → dark token variant
+//   ?tema=svetla|tamna                  → forces the app theme while open (K07)
 
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import type { Id } from "@/convex/_generated/dataModel";
 import { MenuEditorWorkspace } from "@/components/menu/editor/menu-editor";
@@ -18,16 +20,24 @@ import {
   DARK_MENU_DESIGN,
   fixtureModel,
 } from "@/components/menu/menu-fixtures";
+import { IzlogTema } from "@/components/menu/zajednicko/izlog-tema";
+import { menuZajednickoSr } from "@/lib/i18n/sr/menu-zajednicko";
+import { parseEditorPreview } from "@/lib/menu/izlog-params";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: menuZajednickoSr.izlog.naslovi.editor,
+  robots: { index: false, follow: false },
+};
 
 export default async function MenuEditorPreviewPage({
   searchParams,
 }: PageProps<"/dev/menu-editor-preview">) {
   if (process.env.NODE_ENV === "production") notFound();
 
-  const resolved = await searchParams;
-  const empty = resolved.state === "empty";
+  const params = parseEditorPreview(await searchParams);
+  const empty = params.empty;
   const model = empty ? { groups: [], dayparts: [] } : fixtureModel();
 
   const data: MenuEditorData = {
@@ -41,7 +51,7 @@ export default async function MenuEditorPreviewPage({
       status: "draft",
       draftModel: model as unknown as NonNullable<MenuEditorData["menu"]>["draftModel"],
       draftDesign:
-        resolved.design === "dark"
+        params.darkDesign
           ? (DARK_MENU_DESIGN as unknown as NonNullable<
               MenuEditorData["menu"]
             >["draftDesign"])
@@ -54,5 +64,10 @@ export default async function MenuEditorPreviewPage({
     },
   };
 
-  return <MenuEditorWorkspace data={data} />;
+  return (
+    <>
+      <IzlogTema tema={params.tema} />
+      <MenuEditorWorkspace data={data} />
+    </>
+  );
 }

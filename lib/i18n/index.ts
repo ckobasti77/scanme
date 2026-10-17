@@ -37,6 +37,7 @@ import { menuSr } from "./sr/menu";
 import { menuEditorSr } from "./sr/menu-editor";
 import { menuAdminSr } from "./sr/menu-admin";
 import { menuDomenSr } from "./sr/menu-domen";
+import { menuZajednickoSr } from "./sr/menu-zajednicko";
 import { orderingAdminSr } from "./sr/ordering-admin";
 import { orderingSr } from "./sr/ordering";
 import { orderingPanelSr } from "./sr/ordering-panel";
@@ -87,6 +88,7 @@ export type {
   MenuEditorDict,
   MenuAdminDict,
   MenuDomenDict,
+  MenuZajednickoDict,
   OrderingAdminDict,
   OrderingDict,
   OrderingPanelDict,
@@ -133,6 +135,7 @@ export {
   menuEditorSr,
   menuAdminSr,
   menuDomenSr,
+  menuZajednickoSr,
   orderingAdminSr,
   orderingSr,
   orderingPanelSr,
@@ -196,6 +199,7 @@ const SR: DictBySurface = {
   "menu-editor": menuEditorSr,
   "menu-admin": menuAdminSr,
   "menu-domen": menuDomenSr,
+  "menu-zajednicko": menuZajednickoSr,
   "ordering-admin": orderingAdminSr,
   ordering: orderingSr,
   "ordering-panel": orderingPanelSr,

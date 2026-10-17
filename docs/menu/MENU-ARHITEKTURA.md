@@ -277,7 +277,7 @@ Slug stranice se izvodi jednom iz naziva i nikad se ne menja (`lib/menu/slugs.ts
 
 ## 9. Izlog (dev rute)
 
-`/dev/menu-editor-preview`, `/dev/menu-public-preview`, `/dev/menu-lokal-preview`, `/dev/menu-konobar-preview`, `/dev/menu-panel-preview` [K07]. Svaka: `notFound()` u produkciji, `metadata.robots = { index: false, follow: false }`, prave prezentacione komponente sa tipiziranim fixtures (`components/menu/fixtures/**`), bez Convex poziva, `?tema=svetla|tamna`, nepoznat parametar daje podrazumevano stanje (`lib/menu/izlog-params.ts`). Parametri: `docs/MENI-PLAN.md` §7; postojeći `state=empty|long` i `design=dark` i dalje rade.
+`/dev/menu-editor-preview`, `/dev/menu-public-preview`, `/dev/menu-lokal-preview`, `/dev/menu-konobar-preview`, `/dev/menu-panel-preview` [K07 ✓]. Svaka: `notFound()` u produkciji, `metadata.robots = { index: false, follow: false }`, prave prezentacione komponente sa tipiziranim fixtures (`components/menu/fixtures/**`), bez Convex poziva, `?tema=svetla|tamna`, nepoznat parametar daje podrazumevano stanje (`lib/menu/izlog-params.ts`). Parametri: `docs/MENI-PLAN.md` §7; postojeći `state=empty|long` i `design=dark` i dalje rade. K07: `?tema=` postavlja `IzlogTema` (`components/menu/zajednicko/izlog-tema.tsx`); ekran koji gradi kasniji korak pokazuje iskreno stanje „Ovaj ekran gradi korak K.." (`components/menu/izlog/izlog-korak.tsx`, korak po vrednosti parametra je u `lib/menu/izlog-params.ts`); pregled primitiva je `/dev/menu-panel-preview?sekcija=primitivi` (`&fioka=otvorena`). Novi ekran zamenjuje `IzlogKorak` svoje vrednosti parametra pravom komponentom. UX pravila: `docs/menu/MENU-UX.md`.
 
 ## 10. Struktura koda i komponenti
 
@@ -288,8 +288,10 @@ Slug stranice se izvodi jednom iz naziva i nikad se ne menja (`lib/menu/slugs.ts
 | `lib/menu/testkit/seed.ts` | `seedMenuWorld`, `seedQrLink`, `addAccountMember`, `addMenuMember` |
 | `lib/menu/testkit/legacy.ts` [K06] | stari oblik za testove migracije: `legacyDraftModel`, `legacyBigModel`, `seedLegacyMenu` (nacrt i generacije kroz pravi `insertPublishedRows`), `legacySnapshot` |
 | `convex/menu*.ts` | Convex moduli (tačka 3.2); testovi pored modula |
-| `components/menu/zajednicko/**` | primitivi i tokeni panela [K07] |
-| `components/menu/fixtures/**` | tipizirani izmišljeni podaci za izlog [K07] |
+| `components/menu/zajednicko/**` | primitivi i tokeni panela (`--mp-*`, `tokeni.module.css`; koren `MenuPovrsina`) [K07 ✓]; pravila u `docs/menu/MENU-UX.md` |
+| `components/menu/izlog/**` | okvir izloga, iskreno stanje „gradi korak K.." i pregled primitiva [K07 ✓] |
+| `lib/menu/izlog-params.ts` | parsiranje parametara izloga (nepoznato → podrazumevano) i korak po ekranu [K07 ✓] |
+| `components/menu/fixtures/**` | tipizirani izmišljeni podaci za izlog: `fixtureMenu(size)` za `mali`, `srednji` i `veliki` (20, 80, 402 artikla kao `MenuDraftSnapshot`), `fixtureVenue`, `fixtureRequests`, `fixtureReservations`, `fixtureTeam`, `IZLOG_SADA`; tipovi `Izlog*` za tabele K20–K25 dok ne postoje [K07 ✓] |
 | `components/menu/panel/**`, `studio/**`, `javni/**`, `gost/**`, `konobar/**`, `lokal/**`, `analitika/**` | UI po oblastima |
 | `app/[slug]/client-panel/meni/**`, `app/[slug]/meni/**`, `app/[slug]/konobar/**`, `app/r/[cardCode]/meni/**`, `app/api/meni/**` | rute (stranice samo povezuju upite) |
 
@@ -301,7 +303,7 @@ Komponentni testovi idu u `components/menu/**/*.test.tsx`; testovi u `app/**`, `
 |---|---|---|
 | `menu-domen` | naziv podrazumevane stranice, „(kopija)", režimi, uloge, napomena o promeni režima, tekst svakog koda greške (`menu/…`; od K03 i `plan/…`, `room_service/…`; od K04 `article/…`); K04: nazivi alergena, „Sadrži" / „Može sadržati tragove", radni tekst upozorenja o alergenima (§7.3), oznake, oznake akcije, „Privremeno nedostupno", tekst svakog koda validacije za objavu; K05: kodovi `menu/publish_too_large` i `menu/restore_too_large`, upozorenja cele objave i `publishRefusals` (razlozi odbijanja objave i vraćanja); K06: kodovi `migration/…`, `migrationIssues` (blokade, upozorenja i razlike izveštaja migracije), `migrationManualChecks`, `migrationFallbacks` | K02 ✓, K03 ✓, K04 ✓, K05 ✓, K06 ✓ |
 | `menu-editor` (postojeća, stari editor) | K06: `legacyMigrated` (stari pisac posle prelaska) | K06 ✓ |
-| `menu-zajednicko` | primitivi, stanja (prazno, greška, učitavanje) | K07 |
+| `menu-zajednicko` | primitivi, stanja (prazno, greška, učitavanje, bez veze), čuvanje i šav objave, izlog | K07 ✓ |
 | `menu-panel` | shell i sekcije klijentskog panela | K08 |
 | `menu-studio` | editor | K10 |
 | `menu-javni` | javni meni | K13 |

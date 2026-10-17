@@ -2121,3 +2121,12 @@ Nijedna stavka ne blokira kod: run je izabrao konzervativnu opciju i kod radi po
    - `next dev` (`setup-dev-bundler.js`) proglašava server spremnim već na prvom `aggregated` događaju Watchpack-a (`aggregateTimeout: 5` ms). Pod jakim opterećenjem diska, odmah posle `next build` i 6.000 testova, spisak ruta iz `app/` tada je nepotpun (K04: nema `/dev/template-gallery`) ili prazan (K06: čak i `/` je 404).
    - `harness/run.mjs` `waitForServer` prihvata bilo koji odgovor, pa i 404. Posle 404 ne ponavlja `page.goto`, nego čeka `[data-case-id]` 240 s i pada.
    - Predlog popravke (traži „može", jer `harness/**` je van obima runa): `waitForServer` da čeka da `CORPUS_URL` odgovori sa 200, ili da `renderCorpus` ponovi `page.goto` dok korpus ne odgovori sa 200, u istom ukupnom roku. Zlatni snimci i provera bajt po bajt ostaju isti.
+
+## SCANME MENU V1 — K07 (18. 10. 2026.) — UX izbori koji traže potvrdu vlasnika
+
+Nijedna stavka ne blokira kod: run je izabrao konzervativnu opciju, a pravila su u `docs/menu/MENU-UX.md`. Vlasnik potvrđuje ili menja.
+
+1. **Obraćanje u proizvodu ScanMe Menu je „Vi"** (rečenice), kao u postojećim Menu tekstovima (`menu-domen`, `menu-editor`, `ordering-panel`); dugmad su kratki glagoli („Objavi", „Pokušaj ponovo"). Interni admin i dalje koristi „ti" (DASHBOARD-STANDARD §7). Alternativa: „ti" i u klijentskom panelu.
+2. **Potpisni detalji tri površine** (MENU-UX §1): „šav objave" u panelu i editoru (jedan red: objavljena verzija ↔ broj neobjavljenih izmena + stanje čuvanja), „cena kao tipografija" na javnom meniju i „živi tajmer" u konobarskom panelu (`18:43 · čeka 08:12`, posle praga crveno, ikonica i „kasni", blag puls bez reduced motion). Master §13.3 smer označava kao privremeno odobren.
+3. **Boje vrsta zahteva u konobarskom panelu** (MENU-UX §2.2): poziv crvena, račun plava, porudžbina smaragdna (ne ScanMe zelena, da se ne pomeša sa stanjem „Završen"), rezervacija ćilibar. Statusi zahteva: Novi = info (plava), Prihvaćen i Otkazan = neutralno, Završen = uspeh.
+4. **Podrazumevani prag kašnjenja je 15 min** (master §10 kaže „npr. 15 min"); lokal ga menja u Podešavanjima (K23, K28).
