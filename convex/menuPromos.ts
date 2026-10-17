@@ -110,6 +110,7 @@ export const setPromo = mutation({
       { promo: canonical(stored) },
       // checkCas compares structured values as JSON; the shape is fixed by canonical().
       { promo: canonical(args.expected) as unknown as CasValue },
+      { promo: canonical(args.promo) },
     );
     if (!cas.ok) return cas;
 

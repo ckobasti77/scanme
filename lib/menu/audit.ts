@@ -18,6 +18,10 @@ export const MENU_AUDIT_ACTIONS = [
   "article.deleted",
   /** A shared add-on group was deleted from every article it was linked to (K04). */
   "addon_group.deleted",
+  /** The draft was published as a new version (K05, master §6.1). */
+  "version.published",
+  /** A published version was restored into the draft (K05). */
+  "version.restored",
 ] as const;
 
 export type MenuAuditAction = (typeof MENU_AUDIT_ACTIONS)[number];

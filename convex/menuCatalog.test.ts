@@ -387,10 +387,12 @@ describe("compare-and-set: nobody silently overwrites a newer change", () => {
       expectedPriceRsd: 250,
       priceRsd: 300,
     });
+    // K05 (intended change): a conflict also echoes the value this caller tried to write.
     expect(stale).toEqual({
       ok: false,
       conflicts: ["basePriceRsd"],
       current: { basePriceRsd: 280 },
+      attempted: { basePriceRsd: 300 },
     });
     expect(await snapshot(t, w.a.menuServiceId)).toEqual(before);
     expect(pricesOf(await content(t, w.managerId, w.a.defaultPageId))).toEqual([280]);
@@ -459,10 +461,12 @@ describe("compare-and-set: nobody silently overwrites a newer change", () => {
       expected: { name: "Vranac" },
       patch: { name: "Vranac Barrique" },
     });
+    // K05 (intended change): a conflict also echoes the value this caller tried to write.
     expect(stale).toEqual({
       ok: false,
       conflicts: ["name"],
       current: { name: "Vranac Rezerva" },
+      attempted: { name: "Vranac Barrique" },
     });
     expect(await snapshot(t, w.a.menuServiceId)).toEqual(before);
     // The rename is the same article on both pages.
@@ -560,7 +564,7 @@ describe("compare-and-set: nobody silently overwrites a newer change", () => {
         name: "Napici",
         expectedName: "Pica",
       }),
-    ).toEqual({ ok: false, conflicts: ["name"], current: { name: "Pića" } });
+    ).toEqual({ ok: false, conflicts: ["name"], current: { name: "Pića" }, attempted: { name: "Napici" } });
     expect(await snapshot(t, w.a.menuServiceId)).toEqual(before);
     await expect(
       owner.mutation(api.menuCatalog.renameSection, {

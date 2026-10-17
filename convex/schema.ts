@@ -67,14 +67,20 @@ import {
   menuArticleKindValidator,
   menuAuditActorKindValidator,
   menuAuditDetailsValidator,
+  menuBrandingValidator,
   menuComboPriceCheckValidator,
+  menuDensityValidator,
+  menuEmphasisValidator,
   menuFeaturesValidator,
+  menuLayoutValidator,
   menuMediaModeValidator,
   menuMemberRoleValidator,
   menuMemberStatusValidator,
   menuModeValidator,
   menuPageNavigationValidator,
+  menuPresenceEntityTypeValidator,
   menuPromoValidator,
+  menuPublishSummaryValidator,
   menuRoomServiceMarkupScopeValidator,
   menuRoomServicePriceWarningValidator,
   menuRoomServiceVariantPriceValidator,
@@ -82,6 +88,7 @@ import {
   menuServiceStatusValidator,
   menuTagCodeValidator,
   menuTranslationsValidator,
+  menuVersionPartScopeValidator,
   menuVisibilityValidator,
 } from "./lib/menuDomainValidators";
 import { priceSnapshotValidator } from "./lib/orderSnapshot";
@@ -3351,6 +3358,11 @@ export default defineSchema({
     settings: v.optional(menuServiceSettingsValidator),
     createdAt: v.number(),
     updatedAt: v.number(),
+    // K05: the published version guests read (master §6.1). Changed only by
+    // menuPublishing.publish, in the same transaction that writes the
+    // version; absent = never published (the legacy path still applies).
+    liveVersionId: v.optional(v.id("menuVersions")),
+    liveVersionNumber: v.optional(v.number()),
   })
     .index("by_businessId", ["businessId"])
     .index("by_serviceProfileId", ["serviceProfileId"]),
@@ -3364,6 +3376,12 @@ export default defineSchema({
     articleCount: v.number(),
     lastEditAt: v.number(),
     lastEditByUserId: v.optional(v.id("users")),
+    // K05: the draft revision the live version was compiled from; the draft
+    // has unpublished changes while `revision` differs (absent = never
+    // published). `restoredFromNumber` is the version restored into the draft
+    // since the last publication (the next version records it).
+    publishedRevision: v.optional(v.number()),
+    restoredFromNumber: v.optional(v.number()),
   }).index("by_menuServiceId", ["menuServiceId"]),
 
   // Standard pages ("Stranice menija", master §3.2). `slug` is derived once and
@@ -3669,6 +3687,106 @@ export default defineSchema({
   })
     .index("by_menuServiceId", ["menuServiceId"])
     .index("by_menuServiceId_and_articleKey", ["menuServiceId", "articleKey"]),
+
+  // ---------------------------------------------------------------------------
+  // K05 — publishing (master §6.1; recipe §6, lib/menu/snapshot.ts). A version
+  // is IMMUTABLE once written: the draft rows above are compiled into JSON
+  // parts in the same transaction that moves menuServices.liveVersionId, so a
+  // failed publish never touches what guests see. The newest 20 versions are
+  // kept; an older one is marked `retiredAt` by the publish that pushes it out
+  // and its parts are deleted in bounded batches (menuPublishing.pruneVersion,
+  // cron reserve).
+  // ---------------------------------------------------------------------------
+
+  menuVersions: defineTable({
+    menuServiceId: v.id("menuServices"),
+    // 1, 2, 3… per service; never reused.
+    number: v.number(),
+    publishedAt: v.number(),
+    publishedByUserId: v.id("users"),
+    actorKind: menuAuditActorKindValidator,
+    // menuDraftState.revision the version was compiled from.
+    draftRevision: v.number(),
+    summary: menuPublishSummaryValidator,
+    // The version restored into the draft before this publication.
+    restoredFromNumber: v.optional(v.number()),
+    // Published languages (source first) and the page count, for the list.
+    languages: v.array(v.string()),
+    pageCount: v.number(),
+    articleCount: v.number(),
+    bytes: v.number(),
+    partCount: v.number(),
+    // lib/menu/snapshot.ts MENU_SNAPSHOT_FORMAT.
+    formatVersion: v.number(),
+    // Hash of the internal (restorable) snapshot.
+    contentHash: v.string(),
+    // Hash of every public part: a clean draft is still publishable when what
+    // guests would get differs (Room service switch, lost Premium).
+    publicHash: v.optional(v.string()),
+    // Set when the version falls out of the newest 20; its parts are being deleted.
+    retiredAt: v.optional(v.number()),
+  })
+    .index("by_menuServiceId_and_number", ["menuServiceId", "number"])
+    .index("by_retiredAt", ["retiredAt"]),
+
+  // JSON parts of one version, each ≤ 512 KiB UTF-8 (lib/menu/budget.ts).
+  // `public` parts per (language, page key), plus `_splitter` (pages, languages,
+  // appearance) and `_rs` (Room service); `internal` (`_all`) is the full draft
+  // for restoring and for the publish summary — no public query reads it.
+  menuVersionParts: defineTable({
+    versionId: v.id("menuVersions"),
+    menuServiceId: v.id("menuServices"),
+    scope: menuVersionPartScopeValidator,
+    lang: v.string(),
+    pageKey: v.string(),
+    part: v.number(),
+    data: v.string(),
+  }).index("by_versionId_and_scope_and_lang_and_pageKey_and_part", [
+    "versionId",
+    "scope",
+    "lang",
+    "pageKey",
+    "part",
+  ]),
+
+  // Appearance of the public menu (K01 §3.2). K05 publishes it (defaults in
+  // lib/menu/presentation.ts when the row is absent), K17 edits it, K13
+  // renders it. Content: goes through Objavi. Alergeni are NOT here
+  // (menuServices.settings.allergensEnabled, K04).
+  menuPresentation: defineTable({
+    menuServiceId: v.id("menuServices"),
+    layout: menuLayoutValidator,
+    paletteId: v.string(),
+    brandColors: v.optional(v.array(v.string())),
+    fontPairId: v.string(),
+    density: menuDensityValidator,
+    emphasis: menuEmphasisValidator,
+    defaultMediaMode: menuMediaModeValidator,
+    search: v.boolean(),
+    filters: v.array(v.string()),
+    currencyToggle: v.boolean(),
+    branding: menuBrandingValidator,
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    updatedByUserId: v.optional(v.id("users")),
+  }).index("by_menuServiceId", ["menuServiceId"]),
+
+  // Who is editing what right now (master §6.1). High-churn, so it lives apart
+  // from every draft row; a heartbeat writes only when the entity changes or
+  // the row is about to expire, and the editor reads it with ONE subscription
+  // per service (menuPresence.listForService with a quantized `nowBucket`).
+  menuEditorPresence: defineTable({
+    menuServiceId: v.id("menuServices"),
+    userId: v.id("users"),
+    sessionId: v.string(),
+    entityType: v.optional(menuPresenceEntityTypeValidator),
+    entityKey: v.optional(v.string()),
+    expiresAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_menuServiceId_and_expiresAt", ["menuServiceId", "expiresAt"])
+    .index("by_userId_and_sessionId", ["userId", "sessionId"])
+    .index("by_expiresAt", ["expiresAt"]),
 
   // ===========================================================================
   // Sajam automobila 2026 — fair tables (B0; BACKEND-HANDOFF §5,

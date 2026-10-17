@@ -56,6 +56,7 @@ import type { MenuPlanErrorCode } from "../menu/errors/plan";
 import type { RoomServiceErrorCode } from "../menu/errors/room-service";
 import type { ArticleErrorCode } from "../menu/errors/article";
 import type { MenuPublishIssueCode } from "../menu/errors/publish";
+import type { MenuPublishRefusal, MenuVersionErrorCode } from "../menu/errors/versions";
 import type { MenuAllergenCode } from "../menu/allergens";
 import type { MenuTagCode } from "../menu/tags";
 
@@ -2353,7 +2354,11 @@ export interface MenuDomenDict {
   modeChangeNotice: string;
   /** Core (K02), plan gate and Room service (K03), article model (K04) error codes. */
   errors: Record<
-    MenuErrorCode | MenuPlanErrorCode | RoomServiceErrorCode | ArticleErrorCode,
+    | MenuErrorCode
+    | MenuPlanErrorCode
+    | RoomServiceErrorCode
+    | ArticleErrorCode
+    | MenuVersionErrorCode,
     string
   >;
   // --- K04: the article model (master §5.4–§5.7, §7.3, §7.6).
@@ -2371,6 +2376,9 @@ export interface MenuDomenDict {
   unavailable: string;
   /** Publish-validation issues (lib/menu/errors/publish.ts); errors block, warnings ask. */
   publishIssues: Record<MenuPublishIssueCode, string>;
+  // --- K05: publishing and versions (master §6.1).
+  /** Why a publish or restore was refused (lib/menu/errors/versions.ts); nothing was written. */
+  publishRefusals: Record<MenuPublishRefusal, string>;
 }
 
 export interface MenuAdminDict {

@@ -15,7 +15,11 @@ import {
   isMenuAllergenCode,
   type MenuAllergenCode,
 } from "./allergens";
-import { MENU_PUBLISH_ERRORS, MENU_PUBLISH_WARNINGS } from "./errors/publish";
+import {
+  MENU_PUBLICATION_WARNINGS,
+  MENU_PUBLISH_ERRORS,
+  MENU_PUBLISH_WARNINGS,
+} from "./errors/publish";
 import { MENU_TAG_CODES, isMenuTagCode, normalizeTags } from "./tags";
 
 /** The literal values of a union-of-literals validator. */
@@ -92,7 +96,8 @@ describe("tag codes", () => {
 
 describe("publish issue texts", () => {
   test("every error and warning code has a Serbian text, and there is no stray text", () => {
-    const codes = [...MENU_PUBLISH_ERRORS, ...MENU_PUBLISH_WARNINGS];
+    // K05 (intended change): the whole-publication warnings share the dictionary.
+    const codes = [...MENU_PUBLISH_ERRORS, ...MENU_PUBLISH_WARNINGS, ...MENU_PUBLICATION_WARNINGS];
     expect(new Set(codes).size).toBe(codes.length);
     for (const code of codes) {
       expect(menuDomenSr.publishIssues[code].trim().length).toBeGreaterThan(0);

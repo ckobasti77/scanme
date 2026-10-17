@@ -224,8 +224,10 @@ export const rename = mutation({
     const name = requiredText(args.name, MENU_TEXT.pageName);
     if (name === null) throw new ConvexError(MENU_ERROR.invalidInput);
 
-    const cas = checkCas({ name: page.name }, { name: args.expectedName });
-    if (!cas.ok) return { ok: false as const, conflicts: cas.conflicts, current: cas.current };
+    const cas = checkCas({ name: page.name }, { name: args.expectedName }, { name });
+    if (!cas.ok) {
+      return { ok: false as const, conflicts: cas.conflicts, current: cas.current, attempted: cas.attempted };
+    }
     if (name === page.name) return { ok: true as const };
 
     await ctx.db.patch(page._id, {

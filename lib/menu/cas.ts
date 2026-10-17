@@ -6,12 +6,22 @@
 //
 // `null` in `expected` means "the field was absent". Values are primitives
 // (string | number | boolean | null); structured fields compare via JSON.
+//
+// K05 (master §6.1 "konflikt iste vrednosti"): when the caller passes the
+// values it tried to write, a conflict also carries them as `attempted`, so
+// the second editor gets BOTH values — theirs and the one saved meanwhile.
 
 export type CasValue = string | number | boolean | null;
 
 export type CasResult<K extends string> =
   | { ok: true }
-  | { ok: false; conflicts: K[]; current: Record<K, CasValue> };
+  | {
+      ok: false;
+      conflicts: K[];
+      current: Record<K, CasValue>;
+      /** The conflicting fields' values this caller tried to write (when given). */
+      attempted?: Partial<Record<K, CasValue>>;
+    };
 
 function same(a: unknown, b: unknown): boolean {
   if (a === b) return true;
@@ -24,6 +34,7 @@ function same(a: unknown, b: unknown): boolean {
 export function checkCas<K extends string>(
   current: Partial<Record<K, unknown>>,
   expected: Partial<Record<K, CasValue>>,
+  attempted?: Partial<Record<K, unknown>>,
 ): CasResult<K> {
   const conflicts: K[] = [];
   const snapshot = {} as Record<K, CasValue>;
@@ -32,5 +43,11 @@ export function checkCas<K extends string>(
     snapshot[field] = now;
     if (!same(now, expected[field] ?? null)) conflicts.push(field);
   }
-  return conflicts.length === 0 ? { ok: true } : { ok: false, conflicts, current: snapshot };
+  if (conflicts.length === 0) return { ok: true };
+  if (!attempted) return { ok: false, conflicts, current: snapshot };
+  const tried: Partial<Record<K, CasValue>> = {};
+  for (const field of conflicts) {
+    if (field in attempted) tried[field] = (attempted[field] ?? null) as CasValue;
+  }
+  return { ok: false, conflicts, current: snapshot, attempted: tried };
 }

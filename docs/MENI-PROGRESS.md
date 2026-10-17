@@ -250,3 +250,117 @@ Noćni run MENI. Plan: `docs/MENI-PLAN.md`. Pravila: `.nocni-run/meni/rules.md`.
 - Nijedan dev server ni proces nije ostao upaljen (provereno spiskom `node` procesa). `next-env.d.ts` je vraćen na sadržaj iz HEAD-a.
 
 **Za Jovana ujutru:** ako se 404 korpusa ponovi u nekom koraku, to je tranzijentni problem dev servera pod opterećenjem, ne regresija ScanMe Links renderera. Harness bi mogao da ponovi `page.goto` kad korpus odgovori 404, ali je `harness/**` van obima ovog runa.
+
+## K05 — Nacrt, objava, snapshotovi i konflikti (backend)   (2026-10-17 22:34)
+**Fajlovi:**
+- novi: `convex/menuPublishing.ts`, `convex/menuPresence.ts`, `convex/menuPublic.ts`, `convex/lib/menuDraftLoad.ts`, `convex/lib/menuRestore.ts`; `lib/menu/{snapshot,budget,presentation,publish-checks,publish-summary,restore-plan}.ts`, `lib/menu/errors/versions.ts`; testovi `convex/menuPublishing.test.ts`, `convex/menuVersions.test.ts`, `convex/menuPublic.test.ts`, `convex/menuPresence.test.ts`, `convex/menuConflicts.test.ts`, `lib/menu/{snapshot,budget,publish-checks,publish-summary,restore-plan}.test.ts`
+- izmenjeni: `convex/schema.ts` (samo dodato), `convex/lib/menuDomainValidators.ts`, `convex/lib/menuAccess.ts` (`MenuOwnedTable` + 4 tabele), `convex/crons.ts` (2 nova posla), `convex/menuArticleDetails.ts` (brisanje artikla više ne briše dostupnost; CAS `attempted`), `convex/menuCatalog.ts`, `convex/menuPages.ts`, `convex/menuArticleOptions.ts`, `convex/menuPromos.ts`, `convex/menuRoomService.ts` (CAS `attempted`), `lib/menu/{cas,audit}.ts`, `lib/menu/errors/publish.ts` (`MENU_PUBLICATION_WARNINGS`), `lib/i18n/types.ts` i `lib/i18n/sr/menu-domen.ts`, `convex/_generated/api.d.ts` (`npx convex codegen`), `docs/menu/MENU-ARHITEKTURA.md` (§2.1d, §3.2, §6), `docs/tasks/BLOCKED.md` (`SCANME MENU V1 — K05`)
+- namerno izmenjene asercije (razlozi u ODLUKAMA): `convex/menuArticleDetails.test.ts`, `convex/menuArticleOptions.test.ts`, `convex/menuCatalog.test.ts`, `convex/menuPages.test.ts`, `convex/menuPromos.test.ts`, `convex/menuRoomServiceVariants.test.ts`, `lib/menu/allergens.test.ts`
+
+**Šta je urađeno:**
+- **Šema (samo proširenje).** Nove tabele `menuVersions`, `menuVersionParts`, `menuPresentation` i `menuEditorPresence`. Nova opciona polja `menuServices.liveVersionId?` i `liveVersionNumber?` te `menuDraftState.publishedRevision?` i `restoredFromNumber?`. Spisak polja i indeksa je u receptu §2.1d.
+- **Nacrt i status.** Svaka izmena i dalje podiže `menuDraftState.revision` (ko i kada, K02). `menuPublishing.draftStatus` daje stanje `never_published`, `clean` ili `dirty`, uz poslednjeg urednika, za editor i Početnu.
+- **Snapshot (`lib/menu/snapshot.ts`, čisto).** Ceo nacrt se jednim ograničenim upitom po tabeli pretvara u `MenuDraftSnapshot` po stabilnim ključevima (`convex/lib/menuDraftLoad.ts`). Od njega nastaje nepromenljiva verzija:
+  - interni deo `_all`, za vraćanje i sažetak;
+  - javni delovi po jeziku: `_splitter`, po jedan deo za svaku javnu stranicu (deli se po celim artiklima, ≤ 512 KiB) i `_rs`.
+  Javni deo nikad ne nosi skriveno, arhivirano, interne nazive („Kompletan meni") ni nepotvrđene AI prevode. Tekst je razrešen pri objavi (potvrđen prevod, inače izvorni). Budžet je u `lib/menu/budget.ts`, uz `ctx.meta.getTransactionMetrics()`.
+- **Objava (`menuPublishing.publish`).** Jedna transakcija, redom:
+  1. revizija pregledanog nacrta je zastarela (ista ili druga osoba) → `stale_draft`;
+  2. nema promene ni u nacrtu ni u onome što gost dobija → `no_changes`;
+  3. greške → `validation_failed`;
+  4. upozorenja bez tačnog `fingerprint`-a iz pregleda → `confirmation_required`;
+  5. upis verzije i svih delova, pa tek onda pokazivač `liveVersionId`.
+  Odbijanje ne piše ništa. Greška posle upisa delova poništava sve (dokazano ubrizganom greškom). `publishPreview` vraća reviziju, greške, upozorenja, otisak, sažetak posledica, budžet i `wouldChange`.
+- **Provere objave (`lib/menu/publish-checks.ts`).** K04 pravila se primenjuju na artikle koje gost vidi. Dodata su upozorenja cele objave:
+  - `translation_missing`, po jeziku;
+  - `room_service_premium` i `language_premium`, kad je Premium izgubljen.
+  Zakazana akcija bez Premium-a se ne objavljuje.
+- **Sažetak posledica (`lib/menu/publish-summary.ts`, Sonnet radnik).** Broji izmenjene cene, nove i uklonjene artikle i strukturne izmene: sakriveno, uklonjeno sa stranice, obrisano i redosled. Upisuje se u verziju i audit.
+- **Čuvanje.** Ostaje tačno 20 verzija. Verzija koja ispadne dobija `retiredAt` u istoj objavi, a `pruneVersion` briše njene delove u serijama od 100. `sweepRetiredVersions` (cron, svakog sata) pokreće brisanje kad se nastavak izgubi.
+- **Vraćanje (`restoreVersion`).** Pravi nacrt iz internog dela verzije i piše samo razliku, po ključevima, sa tačnim brojačima. Traži `expectedRevision`. Javni meni se ne menja do objave. Stranica sa aktivnom QR vezom se zadržava i prijavljuje. Vraćanje žive verzije poništava izmene nacrta (`clean`).
+- **Dostupnost uživo.** `Privremeno nedostupno` (K04) ide odmah, bez objave. Javni `menuPublic.availability` je poseban mali upit.
+- **Prisustvo (`menuPresence`).** Heartbeat sa entitetom (TTL 45 s); upis ide samo kad se entitet promeni ili red ističe. Postoji jedna pretplata po usluzi (`listForService` sa `nowBucket`), a stari redovi se brišu cron-om.
+- **Konflikt iste vrednosti.** CAS (K02) sada vraća i `attempted`, pa druga osoba dobija obe vrednosti: sačuvanu (`current`) i svoju. To važi za sve CAS pisce: cene, polja artikla, varijante, dodatke, akcije, alergene, oznake, RS i nazive.
+- **Javni read path (`menuPublic`: `entry`, `page`, `roomService`, `availability`).** Čita samo objavljenu verziju i žive slojeve. Stranica menija od 400 artikala čita 6 dokumenata i 6 upita (granica 15 / 10).
+
+**ODLUKE:**
+- **Odbijanje objave se vraća, ne baca.** Rezultat je `{ ok: false, reason }`, da UI prikaže razlog. Bacaju se samo greške pristupa i `menu/publish_too_large` (prevelik meni). Upozorenja se potvrđuju otiskom (`fingerprint`) tačno onih upozorenja koja je osoba videla. Novo ili izmenjeno upozorenje traži novu potvrdu.
+- **`no_changes`.** Ponovna objava bez izmena se odbija, da ne troši jedno od 20 mesta u istoriji. Objava ipak prolazi kad je nacrt isti, a gost bi dobio drugačiji meni (uključen Room service, izgubljen Premium). To se proverava preko `menuVersions.publicHash`. Pravilo je dodato posle nalaza Sonnet radnika.
+- **Room service u verziji.** Objavljuje se samo kad je prekidač uključen pri objavi i nalog ima Premium, jer se tada i proverava. Isključivanje važi odmah, a uključivanje posle sledeće objave.
+- **Gubitak Premium-a.** Objavljeno ostaje (K01 OTV 5). Sledeća objava izostavlja Room service i jezike iznad limita, uz upozorenje. Zakazana akcija bez Premium-a se ne objavljuje, pa gost vidi regularnu cenu.
+- **Brisanje artikla i dostupnost (izmena K04 ponašanja).** `deleteArticle` više ne briše red dostupnosti, jer bi gost do objave video obrisan (još objavljen) artikal kao dostupan. Red briše objava kad artikla više nema. Asercija u `menuArticleDetails.test.ts` je namerno promenjena.
+- **CAS `attempted` (izmena K02–K04 ugovora, aditivna).** Konflikt sada nosi i `attempted`. Asercije `toEqual` u 6 starih test fajlova su namerno dopunjene tim poljem.
+- **Kodovi upozorenja.** Upozorenja cele objave su u zasebnoj listi `MENU_PUBLICATION_WARNINGS`, da K04 test kataloga upozorenja artikla ostane važeći. Test pokrivenosti tekstova (`lib/menu/allergens.test.ts`) je namerno proširen tom listom.
+- **Vraćanje i QR stranice.** QR stranica ostaje kakva jeste, sa sekcijama, prikazima i artiklima koje prikazuje i koje verzija nema. Ako njen slug pripada stranici iz verzije, dobija nov slug. Podrazumevana stranica iz verzije ima prednost.
+- **Vraćanje bez izmena.** Ako nema razlike, ne piše se ništa (ni audit). Izuzetak je vraćanje žive verzije u nacrt koji se razlikuje samo po reviziji: on se označava kao čist.
+- **Bez `lock` i serija u vraćanju.** Vraćanje je jedna transakcija ispod budžeta (≤ 8.000 upisa), inače `menu/restore_too_large`. Serije su odložene u K18, kako plan dozvoljava. Ograničenja čitanja nacrta za objavu su `MENU_DRAFT_LOAD_LIMITS`; `publishPreview` za prevelik nacrt vraća `tooLarge`, ne baca.
+- **`menuPresentation`.** Tabela postoji, a bez reda važe podrazumevane vrednosti (`lib/menu/presentation.ts`): paleta i fontovi „default", nikad ScanMe paleta. `provisionMenuService` ne pravi red, a pisca dodaje K17. Premium pravila izgleda su K17.
+- **Slike.** Verzija nosi `imageMediaId` (ref na `mediaAssets`), ne URL. URL razrešava renderer (K13 i K15). Vraćanje slike koja više ne postoji pretvara u ikonicu ili ništa. Trajnost URL-ova nije proveravana u dokumentaciji, jer verzija ne čuva URL.
+- **Sekcija bez prikazanog artikla se ne prikazuje gostu.**
+- **Prisustvo.** Napravljena je sopstvena tabela umesto `@convex-dev/presence`, jer run ne uvodi pakete (P5). Heartbeat traži `menu.edit`, a lista `menu.read`.
+- **`menuPublic.availability` prima `menuServiceId`** (plan K01) i važi samo za javno objavljenu uslugu.
+- **Sajam.** `docs/events/**` je van obima runa, pa FRONTEND-DELTA nije pisan. Sajam ne koristi nove tabele ni izmenjene izvoze, a novijeg JOVAN-DELTA fajla od 2026-10-09 nema.
+- **Pitanja za vlasnika** su u `docs/tasks/BLOCKED.md` → `SCANME MENU V1 — K05`.
+- **Radnici.** Pet Sonnet radnika je radilo na disjunktnim fajlovima: sažetak posledica, testovi objave, testovi verzija i vraćanja, testovi javnog čitanja, prisustva i konflikata, i čisti testovi. Svaki rezultat sam pregledao i pustio. Nalazi radnika su prihvaćeni i ispravljeni u kodu:
+  - `no_changes` za Room service i Premium;
+  - doslednost `attempted`;
+  - varijanta bez cene se ne broji u prevode;
+  - vraćanje bez izmena ne piše audit.
+  Prekršaji brifa: jedan radnik je koristio `cat >>` za privremeni test (uklonjen), jedan `node -e` za brojanje redova, jedan `cd` uz vitest. Ništa nije odbijeno i nema drugih komandi.
+
+**Novi paketi:** nema (run ne uvodi pakete)
+
+**Testovi** (537 novih testova u 10 novih fajlova; ukupno 424 fajla, 5.791 test, plus 2 stara bench fajla koja se preskaču):
+- `convex/menuPublishing.test.ts` (67):
+  - **atomičnost:** ubrizgana greška posle upisa delova ne menja živu verziju, delove, nacrt ni gosta;
+  - greške blokiraju, a skriven nepotpun artikal ne blokira;
+  - upozorenja traže tačan otisak;
+  - **novije izmene iste ili druge osobe → `stale_draft`**;
+  - `no_changes`;
+  - **nacrt ne menja javni meni pre `Objavi`** (cena, naziv, sakrivanje, uklanjanje, brisanje);
+  - dostupnost uživo;
+  - uloge: Vlasnik, Menadžer, Urednik i admin objavljuju, a finansije, pregled, autsajder i uklonjen Urednik ne; **Osoblje ne objavljuje** (matrica i nema puta bez naloga); isključeno uređivanje;
+  - **drugi lokal ne vidi tuđi nacrt** i ne objavljuje ga;
+  - red verzije i audit.
+- `convex/menuVersions.test.ts` (38):
+  - **tačno 20 snapshotova posle 23 objave** (4–23, delovi 1–3 obrisani);
+  - ograničeno brisanje u serijama i cron rezerva;
+  - **vraćanje pravi nacrt, a javni meni ostaje v2 do objave**, pa v3 nosi `restoredFromNumber`;
+  - vraćanje žive verzije;
+  - zastarelo i nepostojeće vraćanje;
+  - QR stranica se zadržava;
+  - nestala slika;
+  - uloge, tenant i audit.
+- `convex/menuPublic.test.ts` (44): `entry` new/legacy/none; stranica i razdelnik; ništa skriveno ni interno; nacrt ne curi; tenant; gating; jezici; Room service sa živim prekidačem i gubitkom Premium-a (i objava bez izmene nacrta); dostupnost; **budžet za 400 i 2.000 artikala sa pravim Convex granicama**.
+- `convex/menuPresence.test.ts` (33): upis, preskakanje upisa, lista, `nowBucket`, `leave`, čišćenje u serijama, uloge, tenant, isključeno uređivanje.
+- `convex/menuConflicts.test.ts` (38): **konflikt iste vrednosti** (dve osobe, ista osoba u dva taba, `Promise.all` trka) za šest pisaca; druga izmena dobija `current` i `attempted`, ništa se ne upisuje i revizija stoji.
+- Čiste funkcije:
+  - `lib/menu/snapshot.test.ts` (126);
+  - `lib/menu/publish-checks.test.ts` (63);
+  - `lib/menu/restore-plan.test.ts` (49);
+  - `lib/menu/budget.test.ts` (33);
+  - `lib/menu/publish-summary.test.ts` (46).
+- Stari testovi objave generacija (`convex/menuPublishGeneration.test.ts`, `convex/menuAvailabilityConflict.test.ts`) nisu menjani i prolaze; `convex/menu.ts` nije diran.
+
+**Snimci:** nema UI izmena.
+
+**Rezultat provere:**
+- `node .nocni-run/meni/alati/typecheck.mjs`: bez grešaka; `npx tsc --noEmit -p convex/tsconfig.json`: bez grešaka.
+- `npx eslint --ignore-pattern ".nocni-run/**"`: 0 grešaka; ostaju dva stara upozorenja (`components/admin/venue-admin.tsx`, `convex/purchaseLifecycle.test.ts`).
+- `npx vitest run --testTimeout=30000 --hookTimeout=60000`: 424 fajla i 5.791 test prolaze; preskočena su 2 stara bench fajla.
+- `npm run harness:namespace`: prošlo.
+- `npm run build`: prošlo. `next-env.d.ts` je vraćen na sadržaj iz HEAD-a.
+- Nijedan dev server ni proces nije ostao upaljen.
+
+**Provera prihvatanja:**
+
+| Stavka | Dokaz | Stanje |
+|---|---|---|
+| Greška pri objavi ne menja javnu verziju; čuva se tačno poslednjih 20 | `menuPublishing.test.ts` › atomičnost (ubrizgana greška usred objave); `menuVersions.test.ts` › „23 publications leave exactly the newest 20" | ispunjeno |
+| Vraćanje pravi nacrt, javni meni isti do objave | `menuVersions.test.ts` › „restores a version into the draft… menuPublic.page still shows version 2" | ispunjeno |
+| Konflikt iste vrednosti i novije izmene ne prolaze tiho | `menuConflicts.test.ts` (obe vrednosti, ništa upisano); `menuPublishing.test.ts` › `stale_draft` (ista i druga osoba) | ispunjeno |
+| Provere prolaze; sekcija K05 u progress-u | gore | ispunjeno |
+
+**Za Jovana ujutru:**
+- Pregledaj `docs/tasks/BLOCKED.md` → `SCANME MENU V1 — K05`, posebno kada Room service ulazi u javni meni, zakazanu akciju bez Premium-a i QR stranice pri vraćanju verzije.
+- Recept §6 opisuje ceo tok objave i vraćanja. To je ugovor za K13 (javni meni čita `menuPublic`), K17 (izgled) i K18 (UI objave, verzija, prisustva i konflikta).

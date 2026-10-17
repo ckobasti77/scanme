@@ -388,7 +388,7 @@ export const updateSettings = mutation({
     for (const key of SETTINGS_KEYS) {
       if (args.expected[key] !== undefined) expected[key] = args.expected[key] ?? null;
     }
-    const cas = checkCas<SettingsKey>(current, expected);
+    const cas = checkCas<SettingsKey>(current, expected, args.patch);
     if (!cas.ok) return cas;
 
     const next = {
@@ -461,7 +461,7 @@ export const renameCategory = mutation({
     const { row: category, access } = await editRow(ctx, await ctx.db.get(args.categoryId));
     const name = requiredText(args.name, MENU_TEXT.roomServiceCategoryName);
     if (name === null) throw refuse(MENU_ERROR.invalidInput);
-    const cas = checkCas<"name">({ name: category.name }, { name: args.expectedName });
+    const cas = checkCas<"name">({ name: category.name }, { name: args.expectedName }, { name });
     if (!cas.ok) return cas;
     if (name === category.name) return { ok: true as const };
 
@@ -784,6 +784,7 @@ export const setManualPrice = mutation({
     const cas = checkCas<"manualPriceRsd">(
       { manualPriceRsd: item.manualPriceRsd },
       { manualPriceRsd: args.expectedManualPriceRsd },
+      { manualPriceRsd: args.manualPriceRsd },
     );
     if (!cas.ok) return cas;
     if (args.manualPriceRsd === (item.manualPriceRsd ?? null) && !item.priceWarning) {
@@ -867,6 +868,7 @@ export const setManualVariantPrice = mutation({
     const cas = checkCas<"manualPriceRsd">(
       { manualPriceRsd: current?.priceRsd },
       { manualPriceRsd: args.expectedManualPriceRsd },
+      { manualPriceRsd: args.manualPriceRsd },
     );
     if (!cas.ok) return cas;
     if (args.manualPriceRsd === (current?.priceRsd ?? null) && !current?.priceWarning) {

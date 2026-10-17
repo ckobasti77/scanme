@@ -2090,3 +2090,17 @@ Nijedna stavka ne blokira kod: run je izabrao konzervativnu opciju u zagradi i k
 6. **Povezane grupe dodataka.** Grupa koja više nije ni na jednom artiklu ostaje sačuvana i nudi se u izboru „postojeća grupa"; briše se samo izričitim brisanjem. Dodavanje varijante ili grupe sam uključuje prekidač „Varijante" ili „Dodaci" za taj artikal.
 7. **Kombo.** Sastavni artikal mora biti običan artikal (bez komboa u kombou), svaki najviše jednom, sa količinom od 1 do 20. Upozorenje „proveri cenu komboa" nastaje i kad se promeni cena varijante sastavnog artikla ili kad se sastavni artikal obriše. Upozorenje se ne briše samo od sebe: klijent bira „Zadrži cenu" ili unosi novu cenu.
 8. **Validacija za objavu.** Greške su samo tri pravila iz master §5.5 (naziv, sekcija, cena ili varijanta sa cenom). Proveravaju se samo artikli koje gost vidi: sakriven nepotpun artikal ne blokira objavu ostatka menija, a artikal bez ijednog prikaza daje samo upozorenje. Room service kategorija važi kao sekcija.
+
+## SCANME MENU V1 — K05 (17. 10. 2026.) — pravila objave i verzija koja traže potvrdu vlasnika
+
+Nijedna stavka ne blokira kod: run je izabrao konzervativnu opciju i kod radi po njoj. Vlasnik potvrđuje ili menja.
+
+1. **Room service posle uključivanja.** Prekidač važi odmah, ali sadržaj Room service-a ulazi u javni meni tek objavom dok je prekidač uključen (tada se i proverava). Uključen posle objave → gost ga vidi posle sledećeg `Objavi` (objava radi i bez izmene nacrta, jer se menja ono što gost dobija); isključen → nestaje odmah. Alternativa: objavljivati Room service uvek, pa bi uključivanje odmah pokazalo i neproveren sadržaj.
+2. **Zakazana akcija bez Premium-a se ne objavljuje.** Gost vidi regularnu cenu (nikad akciju koja bi tada trajala stalno). Upozorenje `promo_schedule_premium` to već najavljuje.
+3. **Ponovna objava bez izmena se odbija** (`no_changes`), da ne troši jedno od 20 mesta u istoriji. Izuzetak: nacrt je isti, ali bi gost dobio drugačiji meni (uključen Room service, izgubljen Premium) — tada objava prolazi.
+4. **Sekcija bez ijednog prikazanog artikla se ne prikazuje gostu** (prazan naslov sekcije izgleda kao greška).
+5. **Vraćanje verzije i QR stranice.** Stranica sa aktivnom QR vezom koje u verziji nema (ili je u verziji arhivirana) ostaje u nacrtu kakva jeste, sa sekcijama, prikazima i artiklima koje prikazuje, i prijavljuje se korisniku. Ako njen slug u verziji pripada drugoj stranici, zadržana stranica dobija novi slug (QR radi po ključu stranice, ali ručno deljen link sa starim slugom bi vodio na stranicu iz verzije).
+6. **Ko vraća verziju:** isto kao ko objavljuje (Vlasnik, Menadžer, Urednik), po matrici `menu.publish`.
+7. **Brisanje artikla i „Privremeno nedostupno".** Obrisan artikal ostaje u živoj verziji do objave, pa njegova oznaka nedostupnosti ostaje do objave (K04 ju je brisao odmah, pa bi gost do objave video artikal kao dostupan).
+8. **Upozorenje o prevodu** je jedno po jeziku (broj tekstova bez potvrđenog prevoda i prvih 20), ne po artiklu; AI predlog se ne računa kao prevod.
+9. **Izgled bez podešavanja:** paleta i fontovi „default" (renderer bira podrazumevano, nikad ScanMe crno-zelenu), layout `Tok`, bez pretrage, filtera i EUR prekidača. Premium pravila izgleda (dodatni layouti, smanjen brending) dodaje K17.

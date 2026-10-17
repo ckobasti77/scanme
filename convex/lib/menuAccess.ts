@@ -254,7 +254,11 @@ export type MenuOwnedTable =
   | "menuAddonOptions"
   | "menuArticleAddonGroups"
   | "menuComboComponents"
-  | "menuAvailability";
+  | "menuAvailability"
+  | "menuVersions"
+  | "menuVersionParts"
+  | "menuPresentation"
+  | "menuEditorPresence";
 
 export async function loadOwned<T extends MenuOwnedTable>(
   ctx: DatabaseCtx,

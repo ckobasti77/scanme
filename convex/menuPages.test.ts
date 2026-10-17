@@ -468,10 +468,12 @@ describe("rename", () => {
       name: "Piće",
       expectedName: "Stari naziv",
     });
+    // K05 (intended change): a conflict also echoes the value this caller tried to write.
     expect(result).toEqual({
       ok: false,
       conflicts: ["name"],
       current: { name: "Vinska karta" },
+      attempted: { name: "Piće" },
     });
     expect(await pageOf(t, wine.pageId)).toMatchObject({ name: "Vinska karta" });
     expect(await snapshotService(t, w.a.menuServiceId)).toEqual(before);

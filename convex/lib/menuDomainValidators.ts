@@ -237,3 +237,47 @@ export const menuRoomServiceVariantPriceValidator = v.object({
   priceRsd: v.number(),
   priceWarning: v.optional(menuRoomServicePriceWarningValidator),
 });
+
+// -----------------------------------------------------------------------------
+// K05 — draft, publishing, versions, appearance and editor presence
+// (master §6.1; lib/menu/snapshot.ts)
+// -----------------------------------------------------------------------------
+
+// What one publication changed for guests (lib/menu/publish-summary.ts).
+export const menuPublishSummaryValidator = v.object({
+  changedPrices: v.number(),
+  newArticles: v.number(),
+  removedArticles: v.number(),
+  structural: v.object({
+    hidden: v.number(),
+    removedFromPage: v.number(),
+    deleted: v.number(),
+    reordered: v.number(),
+  }),
+});
+
+export const menuVersionPartScopeValidator = v.union(v.literal("public"), v.literal("internal"));
+
+export const menuLayoutValidator = v.union(
+  v.literal("flow"),
+  v.literal("categories"),
+  v.literal("compact"),
+);
+export const menuDensityValidator = v.union(
+  v.literal("airy"),
+  v.literal("standard"),
+  v.literal("dense"),
+);
+export const menuEmphasisValidator = v.union(v.literal("calm"), v.literal("bold"));
+export const menuBrandingValidator = v.union(v.literal("standard"), v.literal("reduced"));
+
+// What the editor is looking at (master §6.1: "ko trenutno uređuje isti
+// artikal"). Later steps may add kinds (widening only).
+export const menuPresenceEntityTypeValidator = v.union(
+  v.literal("article"),
+  v.literal("section"),
+  v.literal("page"),
+  v.literal("room_service"),
+  v.literal("settings"),
+  v.literal("presentation"),
+);

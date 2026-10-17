@@ -693,7 +693,13 @@ describe("compare-and-set", () => {
       expected: null,
       promo: { active: true, mode: "percent", percent: 30 },
     });
-    expect(stale).toEqual({ ok: false, conflicts: ["promo"], current: { promo: percent15 } });
+    // K05 (intended change): a conflict also echoes the value this caller tried to write.
+    expect(stale).toEqual({
+      ok: false,
+      conflicts: ["promo"],
+      current: { promo: percent15 },
+      attempted: { promo: { active: true, mode: "percent", percent: 30 } },
+    });
 
     // It saw another promotion.
     const other = await as(t, w.managerId).mutation(P.setPromo, {
@@ -701,7 +707,7 @@ describe("compare-and-set", () => {
       expected: { active: true, mode: "percent", percent: 10 },
       promo: null,
     });
-    expect(other).toEqual({ ok: false, conflicts: ["promo"], current: { promo: percent15 } });
+    expect(other).toEqual({ ok: false, conflicts: ["promo"], current: { promo: percent15 }, attempted: { promo: null } });
 
     // It saw the same promotion, but switched off.
     const switched = await as(t, w.managerId).mutation(P.setPromo, {
@@ -723,7 +729,7 @@ describe("compare-and-set", () => {
       expected: percent15,
       promo: null,
     });
-    expect(result).toEqual({ ok: false, conflicts: ["promo"], current: { promo: null } });
+    expect(result).toEqual({ ok: false, conflicts: ["promo"], current: { promo: null }, attempted: { promo: null } });
   });
 
   test("the order of the keys in `expected` does not matter", async () => {

@@ -36,6 +36,23 @@ export const MENU_PUBLISH_WARNINGS = [
   "article_unplaced",
 ] as const;
 
+/**
+ * K05 — non-blocking warnings of the WHOLE publication (lib/menu/publish-checks.ts),
+ * not of one article; confirmed together with the article warnings.
+ */
+export const MENU_PUBLICATION_WARNINGS = [
+  /** A published language lacks a confirmed translation; guests read the source text there. */
+  "translation_missing",
+  /** Room service is switched on, but the account is no longer Premium: it is not published. */
+  "room_service_premium",
+  /** A language above the Standard limit (lost Premium) is not published. */
+  "language_premium",
+] as const;
+
 export type MenuPublishErrorCode = (typeof MENU_PUBLISH_ERRORS)[number];
 export type MenuPublishWarningCode = (typeof MENU_PUBLISH_WARNINGS)[number];
-export type MenuPublishIssueCode = MenuPublishErrorCode | MenuPublishWarningCode;
+export type MenuPublicationWarningCode = (typeof MENU_PUBLICATION_WARNINGS)[number];
+export type MenuPublishIssueCode =
+  | MenuPublishErrorCode
+  | MenuPublishWarningCode
+  | MenuPublicationWarningCode;

@@ -189,4 +189,24 @@ crons.interval(
   {},
 );
 
+//   • ScanMe Menu V1 (K05, master §6.1) — the hourly reserve of version
+//     retention: a publish retires the version pushed out of the newest 20 and
+//     schedules its bounded deletion; this restarts a deletion whose
+//     continuation was lost (retired more than 10 minutes ago, ≤ 20 per tick).
+crons.interval(
+  "menu retired versions sweep",
+  { hours: 1 },
+  internal.menuPublishing.sweepRetiredVersions,
+  {},
+);
+
+//   • ScanMe Menu V1 (K05) — deletes editor presence rows that expired more
+//     than a minute ago (≤ 500 per batch with a continuation).
+crons.interval(
+  "menu editor presence cleanup",
+  { minutes: 15 },
+  internal.menuPresence.cleanupExpired,
+  {},
+);
+
 export default crons;

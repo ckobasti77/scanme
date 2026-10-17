@@ -53,6 +53,10 @@ export const menuDomenSr = {
       "Proverite pravila grupe: najmanji broj izbora ne sme biti veći od najvećeg.",
     "article/addon_group_attached": "Ova grupa je već dodata na artikal.",
     "article/addon_group_not_attached": "Ova grupa nije dodata na artikal.",
+    "menu/publish_too_large":
+      "Meni je prevelik za jednu objavu. Javni meni nije promenjen. Obratite se ScanMe timu.",
+    "menu/restore_too_large":
+      "Ova verzija je prevelika da bi se vratila odjednom. Nacrt nije promenjen. Obratite se ScanMe timu.",
   },
   allergens: {
     gluten: "Žitarice koje sadrže gluten",
@@ -105,5 +109,18 @@ export const menuDomenSr = {
     combo_price_check: "Promenjena je cena artikla iz komboa. Proverite cenu komboa.",
     combo_empty: "Kombo nema nijedan artikal.",
     article_unplaced: "Artikal nije ni na jednoj stranici, pa ga gosti neće videti.",
+    translation_missing:
+      "Neki tekstovi nemaju potvrđen prevod. Gosti će na tom jeziku videti tekst na srpskom.",
+    room_service_premium:
+      "Room service je deo Premium naloga. Bez Premium-a neće biti objavljen.",
+    language_premium:
+      "Ovaj jezik prelazi broj jezika u Standard paketu i neće biti objavljen.",
+  },
+  publishRefusals: {
+    stale_draft:
+      "Nacrt je izmenjen posle vašeg pregleda. Pregledajte najnovije izmene pa objavite ponovo.",
+    no_changes: "Nema neobjavljenih izmena. Javni meni je već ažuran.",
+    validation_failed: "Objava nije moguća dok se ne isprave označene greške.",
+    confirmation_required: "Pregledajte upozorenja i potvrdite da želite da objavite.",
   },
 } as const satisfies MenuDomenDict;

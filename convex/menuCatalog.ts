@@ -166,7 +166,7 @@ export const renameSection = mutation({
     const name = requiredText(args.name, MENU_TEXT.sectionName);
     if (name === null) throw refuse(MENU_ERROR.invalidInput);
 
-    const cas = checkCas<"name">({ name: section.name }, { name: args.expectedName });
+    const cas = checkCas<"name">({ name: section.name }, { name: args.expectedName }, { name });
     if (!cas.ok) return cas;
     if (name === section.name) return { ok: true as const };
 
@@ -396,6 +396,7 @@ export const updateArticleFields = mutation({
         quantityUnit: article.quantityUnit,
       },
       expected,
+      args.patch,
     );
     if (!cas.ok) return cas;
 
@@ -449,6 +450,7 @@ export const setBasePrice = mutation({
     const cas = checkCas<"basePriceRsd">(
       { basePriceRsd: article.basePriceRsd },
       { basePriceRsd: args.expectedPriceRsd },
+      { basePriceRsd: args.priceRsd },
     );
     if (!cas.ok) return cas;
     if (args.priceRsd === (article.basePriceRsd ?? null)) return { ok: true as const };

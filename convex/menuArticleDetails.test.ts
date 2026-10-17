@@ -635,10 +635,12 @@ describe("allergens (master §7.3)", () => {
       contains: ["eggs"],
       mayContain: [],
     });
+    // K05 (intended change): a conflict also echoes the value this caller tried to write.
     expect(stale).toEqual({
       ok: false,
       conflicts: ["allergens"],
       current: { allergens: { contains: ["milk"], mayContain: [] } },
+      attempted: { allergens: { contains: ["eggs"], mayContain: [] } },
     });
     // A stale clear conflicts too.
     expect(await setAllergens(t, w.ownerId, f.articleId, null, null)).toMatchObject({
@@ -684,7 +686,7 @@ describe("allergens (master §7.3)", () => {
     // A conflict against "no record".
     expect(
       await setAllergens(t, w.ownerId, f.articleId, { contains: ["fish"], mayContain: [] }, null),
-    ).toEqual({ ok: false, conflicts: ["allergens"], current: { allergens: null } });
+    ).toEqual({ ok: false, conflicts: ["allergens"], current: { allergens: null }, attempted: { allergens: null } });
   });
 
   test("switching the system off keeps every stored record; new records are refused until it is on again", async () => {
@@ -784,7 +786,13 @@ describe("tags (master §5.5)", () => {
       expected: [],
       tags: ["homemade"],
     });
-    expect(stale).toEqual({ ok: false, conflicts: ["tags"], current: { tags: ["vegan", "spicy"] } });
+    // K05 (intended change): a conflict also echoes the value this caller tried to write.
+    expect(stale).toEqual({
+      ok: false,
+      conflicts: ["tags"],
+      current: { tags: ["vegan", "spicy"] },
+      attempted: { tags: ["homemade"] },
+    });
     expect(await world(t, w.a.menuServiceId)).toEqual(before);
 
     expect(
@@ -982,13 +990,15 @@ describe("deleting a shared article (master §5.6)", () => {
     expect(result.impact.articleKey).toBe(f.key);
 
     const rows = await world(t, w.a.menuServiceId);
-    // The article, its appearances, variant, add-on link, Room service row and availability row are gone.
+    // The article, its appearances, variant, add-on link and Room service row are gone.
     expect(rows.articles.map((article) => article._id)).not.toContain(f.articleId);
     expect(rows.placements.filter((placement) => placement.articleId === f.articleId)).toEqual([]);
     expect(rows.variants).toEqual([]);
     expect(rows.links.map((link) => link._id)).toEqual([f.otherLinkId]);
     expect(rows.roomServiceItems).toEqual([]);
-    expect(rows.availability).toEqual([]);
+    // K05 (intended change): the availability row is live state of the PUBLISHED
+    // menu, which still shows the article until Objavi; publish removes it.
+    expect(rows.availability.map((row) => row._id)).toEqual([f.availabilityId]);
     // Page counters follow.
     expect((await pageDoc(t, w.a.defaultPageId)).placementCount).toBe(1);
     expect((await pageDoc(t, f.winePageId)).placementCount).toBe(0);

@@ -182,7 +182,13 @@ export const setArticleAllergens = mutation({
       { allergens: allergenKey(expected) },
     );
     if (!cas.ok) {
-      return { ok: false as const, conflicts: cas.conflicts, current: { allergens: stored } };
+      return {
+        ok: false as const,
+        conflicts: cas.conflicts,
+        current: { allergens: stored },
+        // K05: the second editor gets both values.
+        attempted: { allergens: next },
+      };
     }
     // A stored explicit-empty record is junk that still reads as "unknown"; clearing it is a write.
     const same =
@@ -225,7 +231,9 @@ export const setArticleTags = mutation({
       { tags: JSON.stringify(stored) },
       { tags: JSON.stringify(expected) },
     );
-    if (!cas.ok) return { ok: false as const, conflicts: cas.conflicts, current: { tags: stored } };
+    if (!cas.ok) {
+      return { ok: false as const, conflicts: cas.conflicts, current: { tags: stored }, attempted: { tags: next } };
+    }
     if (next.join(",") === stored.join(",")) return { ok: true as const };
 
     await ctx.db.patch(article._id, {
@@ -380,7 +388,8 @@ export const articleDeletionImpact = query({
  * removed in one transaction: placements (each page's count goes down), variants,
  * the add-on links (the groups stay, their link counts go down), the article's
  * own combo components, its component rows in other combos (those combos get
- * "check the combo price"), its Room service rows and its availability row.
+ * "check the combo price") and its Room service rows. Its availability row
+ * stays until the next publish (K05: live state of the published menu).
  */
 export const deleteArticle = mutation({
   args: { articleId: v.id("menuArticles"), confirmToken: v.optional(v.string()) },
@@ -419,7 +428,9 @@ export const deleteArticle = mutation({
     for (const row of plan.ownComponents) await ctx.db.delete(row._id);
     await detachComponentFromCombos(ctx, article, now);
     for (const item of plan.roomServiceItems) await ctx.db.delete(item._id);
-    for (const row of plan.availability) await ctx.db.delete(row._id);
+    // K05: the availability row is LIVE state of the published menu, which
+    // still shows the article until Objavi; menuPublishing.publish deletes
+    // the rows of articles that are gone from the published version.
     await ctx.db.delete(article._id);
 
     await writeMenuAudit(ctx, {

@@ -185,7 +185,13 @@ describe("Room service — variant prices", () => {
       expectedManualPriceRsd: null,
       manualPriceRsd: 310,
     });
-    expect(stale).toEqual({ ok: false, conflicts: ["manualPriceRsd"], current: { manualPriceRsd: 299 } });
+    // K05 (intended change): a conflict also echoes the value this caller tried to write.
+    expect(stale).toEqual({
+      ok: false,
+      conflicts: ["manualPriceRsd"],
+      current: { manualPriceRsd: 299 },
+      attempted: { manualPriceRsd: 310 },
+    });
     expect(await revision(t, w.a.menuServiceId)).toBe(before + 1);
 
     await owner.mutation(RS.setManualVariantPrice, {

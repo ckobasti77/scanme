@@ -513,7 +513,13 @@ describe("variants", () => {
       expected: { name: "Mala" },
       patch: { name: "Druga" },
     });
-    expect(stale).toEqual({ ok: false, conflicts: ["name"], current: { name: "Mala šolja" } });
+    // K05 (intended change): a conflict also echoes the value this caller tried to write.
+    expect(stale).toEqual({
+      ok: false,
+      conflicts: ["name"],
+      current: { name: "Mala šolja" },
+      attempted: { name: "Druga" },
+    });
     expect(await snapshot(t, w.a.menuServiceId)).toEqual(afterRename);
 
     // One field right, one stale: nothing is applied, the current values of the expected keys come back.
@@ -526,6 +532,8 @@ describe("variants", () => {
       ok: false,
       conflicts: ["name"],
       current: { name: "Mala šolja", priceRsd: 150 },
+      // K05: only the conflicting field's attempted value is echoed.
+      attempted: { name: "Nova" },
     });
     expect(await snapshot(t, w.a.menuServiceId)).toEqual(afterRename);
 
@@ -541,7 +549,7 @@ describe("variants", () => {
         expected: { priceRsd: 150 },
         patch: { priceRsd: 170 },
       }),
-    ).toEqual({ ok: false, conflicts: ["priceRsd"], current: { priceRsd: 160 } });
+    ).toEqual({ ok: false, conflicts: ["priceRsd"], current: { priceRsd: 160 }, attempted: { priceRsd: 170 } });
     const view = await optionsView(t, w.ownerId, f.kafaId);
     expect(view.variants[0]).toMatchObject({ name: "Mala šolja", priceRsd: 160 });
   });
@@ -574,7 +582,7 @@ describe("variants", () => {
         expected: { priceRsd: 200 },
         patch: { priceRsd: 210 },
       }),
-    ).toEqual({ ok: false, conflicts: ["priceRsd"], current: { priceRsd: null } });
+    ).toEqual({ ok: false, conflicts: ["priceRsd"], current: { priceRsd: null }, attempted: { priceRsd: 210 } });
     expect(
       await owner.mutation(api.menuArticleOptions.updateVariant, {
         variantId: velika.variantId,
@@ -1658,6 +1666,8 @@ describe("a linked group: change it for ALL linked articles", () => {
       ok: false,
       conflicts: ["name"],
       current: { name: "Mleko 2", required: false },
+      // K05: only the conflicting field is echoed.
+      attempted: { name: "Mleko 3" },
     });
     expect(await snapshot(t, w.a.menuServiceId)).toEqual(before);
 
@@ -1712,7 +1722,12 @@ describe("a linked group: change it for ALL linked articles", () => {
         expected: { name: "Sojino", priceDeltaRsd: 30 },
         patch: { name: "Soja", priceDeltaRsd: 45 },
       }),
-    ).toEqual({ ok: false, conflicts: ["priceDeltaRsd"], current: { name: "Sojino", priceDeltaRsd: 35 } });
+    ).toEqual({
+      ok: false,
+      conflicts: ["priceDeltaRsd"],
+      current: { name: "Sojino", priceDeltaRsd: 35 },
+      attempted: { priceDeltaRsd: 45 },
+    });
     expect(await snapshot(t, w.a.menuServiceId)).toEqual(before);
 
     type Fields = { name?: string; priceDeltaRsd?: number };
@@ -2107,7 +2122,7 @@ describe("a linked group: an independent copy for ONE article", () => {
         patch: { name: "Novo" },
         onlyForArticleId: f.kafaId,
       }),
-    ).toEqual({ ok: false, conflicts: ["name"], current: { name: "Mleko" } });
+    ).toEqual({ ok: false, conflicts: ["name"], current: { name: "Mleko" }, attempted: { name: "Novo" } });
     expect(
       await owner.mutation(api.menuArticleOptions.updateAddonOption, {
         optionId: sojino.optionId,
@@ -2115,7 +2130,7 @@ describe("a linked group: an independent copy for ONE article", () => {
         patch: { priceDeltaRsd: 100 },
         onlyForArticleId: f.kafaId,
       }),
-    ).toEqual({ ok: false, conflicts: ["priceDeltaRsd"], current: { priceDeltaRsd: 30 } });
+    ).toEqual({ ok: false, conflicts: ["priceDeltaRsd"], current: { priceDeltaRsd: 30 }, attempted: { priceDeltaRsd: 100 } });
     expect(
       await owner.mutation(api.menuArticleOptions.updateAddonGroup, {
         groupId: milk.groupId,

@@ -315,6 +315,7 @@ export const updateVariant = mutation({
     const cas = checkCas<VariantFieldKey>(
       { name: variant.name, priceRsd: variant.priceRsd },
       expected,
+      args.patch,
     );
     if (!cas.ok) return cas;
 
@@ -765,6 +766,7 @@ export const updateAddonGroup = mutation({
         maxSelect: group.maxSelect,
       },
       expected,
+      args.patch,
     );
     if (!cas.ok) return cas;
 
@@ -911,6 +913,7 @@ export const updateAddonOption = mutation({
     const cas = checkCas<OptionFieldKey>(
       { name: option.name, priceDeltaRsd: option.priceDeltaRsd },
       expected,
+      args.patch,
     );
     if (!cas.ok) return cas;
 
