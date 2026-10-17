@@ -73,6 +73,8 @@ export const fairAdminDevSr = {
   working: "Radim…",
   simTitle: "Simulacija pasoša",
   simNote: "Samo u ovom browseru i samo u dev režimu. Ništa se ne upisuje u Convex.",
+  simMenuTitle: "DEV alati",
+  simTabAria: "Otvori DEV simulaciju pasoša",
   simBrands: "Brendovi",
   simBrandsAll: "Svi sa sajta ({count})",
   simBrandsTest: "Svi + test slučajevi",

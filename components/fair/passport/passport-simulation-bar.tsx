@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { fairPassportSimCookie } from "@/lib/fair-passport-simulation";
+import { showSimulationChange } from "../admin/fair-admin-simulation";
 import { fairAdminDevSr as dict } from "@/lib/i18n/sr/fair-admin-dev";
 
 // Shown above the passport pages while this browser runs the DEV passport
@@ -16,7 +17,7 @@ export function PassportSimulationBar() {
         type="button"
         onClick={() => {
           document.cookie = fairPassportSimCookie(null);
-          router.refresh();
+          showSimulationChange(router);
         }}
         style={{ height: 22, padding: "0 9px", border: "1px solid rgb(255 255 255 / .7)", borderRadius: 6, background: "rgb(0 0 0 / .18)", color: "#fff", font: "inherit", cursor: "pointer" }}
       >

@@ -22,6 +22,10 @@ Grana `feature/amf-pasos-markice`. Bez promene Convex-a, šeme, ruta i API-ja.
 
 ## DEV simulacija pasoša (samo `next dev`)
 
-- Kolačić `scanme_fair_passport_sim`, sekcija „Simulacija pasoša“ u admin DEV meniju, traka „DEV · SIMULACIJA“.
+- Kolačić `scanme_fair_passport_sim`, sekcija „Simulacija pasoša“ i traka „DEV · SIMULACIJA“.
+  Bez prijave: otvoreni DEV meni na stranama pasoša (`FairDevSimulationSheet`, i preko LAN IP-a);
+  prijavljeni admin istu sekciju ima u admin DEV meniju (jedan DEV tab na strani).
+  Posle promene/isključivanja na strani brenda ide se na pregled pasoša (brenda možda nema u novom skupu).
   Strane `/pasosi` i `/pasosi/[brand]` tada koriste `lib/fair-passport-simulation.ts` umesto kataloga i ne zovu Convex.
   U produkciji `lib/fair-server/passport-simulation.ts` uvek vraća `null`.
+- Provera: `node scripts/events/verify-amf-passports.mjs http://localhost:3000` (headless Playwright, 360/390/430 px).

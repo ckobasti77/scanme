@@ -1,13 +1,15 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { FairAdminTools } from "@/components/fair/admin/fair-admin-tools";
+import { FairDevSimulationSheet } from "@/components/fair/admin/fair-dev-simulation-sheet";
 import { FairEventShell } from "@/components/fair/event-shell";
 import { FairPassportExperience } from "@/components/fair/passport/fair-passport";
 import { PassportSimulationBar } from "@/components/fair/passport/passport-simulation-bar";
 import { fairPassportBrandSlug } from "@/lib/fair-passport";
 import { loadFairPassportPage } from "@/lib/fair-server/passport-page";
-import { fairPassportSimulation } from "@/lib/fair-server/passport-simulation";
+import { fairPassportSimulation, fairPassportSimulationMenu } from "@/lib/fair-server/passport-simulation";
 import { fairEventThemeClass } from "@/lib/fair-theme";
+import { fairAdminDevSr } from "@/lib/i18n/sr/fair-admin-dev";
 import { fairModelSr } from "@/lib/i18n/sr/fair-model";
 import { fairPassportSr as dict } from "@/lib/i18n/sr/fair-passport";
 
@@ -32,7 +34,11 @@ export default async function FairBrandPassportPage({
   const [{ eventSlug, brandSlug }, query] = await Promise.all([params, searchParams]);
   const devTools = process.env.NODE_ENV === "development" && (Array.isArray(query.dev) ? query.dev[0] : query.dev) === "1";
   const focus = Array.isArray(query.focus) ? query.focus[0] : query.focus;
-  const [data, sim] = await Promise.all([loadFairPassportPage(eventSlug).catch(() => null), fairPassportSimulation(eventSlug)]);
+  const [data, sim, simMenu] = await Promise.all([
+    loadFairPassportPage(eventSlug).catch(() => null),
+    fairPassportSimulation(eventSlug),
+    fairPassportSimulationMenu(eventSlug),
+  ]);
   if (!data) notFound();
   // DEV simulation (`next dev` only): simulated brands instead of the catalog, nothing from Convex.
   const simulation = sim?.simulation;
@@ -46,6 +52,7 @@ export default async function FairBrandPassportPage({
       data-reveal="off"
     >
       {simulation ? <PassportSimulationBar /> : null}
+      {simMenu ? <FairDevSimulationSheet dict={fairAdminDevSr} current={simMenu.current} /> : null}
       <FairEventShell
         eventId={data.event.id}
         eventSlug={eventSlug}

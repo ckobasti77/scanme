@@ -631,6 +631,8 @@ export interface FairAdminDevDict {
   // DEV simulation of passports (development only).
   simTitle: string;
   simNote: string;
+  simMenuTitle: string;
+  simTabAria: string;
   simBrands: string;
   simBrandsAll: string;
   simBrandsTest: string;

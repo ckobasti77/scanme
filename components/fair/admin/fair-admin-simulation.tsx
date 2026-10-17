@@ -21,6 +21,17 @@ import type { FairAdminDevDict } from "@/lib/i18n";
 
 const DEFAULT: FairPassportSimConfig = { brands: "all", models: "random", state: "mixed" };
 
+/**
+ * After the choice changed: a brand page may not exist in the new set (a
+ * simulated brand after "off", or one left out by "Samo N"), so a brand
+ * page goes back to the passport overview; any other page just refreshes.
+ */
+export function showSimulationChange(router: ReturnType<typeof useRouter>) {
+  const overview = window.location.pathname.match(/^(\/sajam\/[^/]+\/pasosi)\/[^/]+\/?$/)?.[1];
+  if (overview) router.replace(overview);
+  else router.refresh();
+}
+
 export function FairAdminSimulation({ dict, current, onToast }: { dict: FairAdminDevDict; current: FairPassportSimConfig | null; onToast: (message: string) => void }) {
   const router = useRouter();
   const [choice, setChoice] = useState<FairPassportSimConfig>(current ?? DEFAULT);
@@ -43,7 +54,7 @@ export function FairAdminSimulation({ dict, current, onToast }: { dict: FairAdmi
     }
     document.cookie = fairPassportSimCookie(config);
     onToast(config ? dict.toastSimOn : dict.toastSimOff);
-    router.refresh();
+    showSimulationChange(router);
   };
 
   return (
