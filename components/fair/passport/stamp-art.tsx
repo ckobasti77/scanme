@@ -108,6 +108,44 @@ export function Postmark({ top, bottom, date, seed }: { top: string; bottom: str
   );
 }
 
+/** Event postmark of the passport overview (prototype `eventMark`): name on top, city below, year in the middle. */
+export function EventPostmark({ top, bottom, year }: { top: string; bottom: string; year: string }) {
+  const id = svgId(useId());
+  return (
+    <svg viewBox="0 0 64 64" aria-hidden="true">
+      <defs>
+        <path id={`et${id}`} d="M10.6 32 a21.4 21.4 0 0 1 42.8 0" />
+        <path id={`eb${id}`} d="M8.6 32 a23.4 23.4 0 0 0 46.8 0" />
+        <filter id={`ef${id}`} x="-10%" y="-10%" width="120%" height="120%">
+          <feTurbulence type="fractalNoise" baseFrequency=".8" numOctaves={2} seed={5} result="n" />
+          <feDisplacementMap in="SourceGraphic" in2="n" scale={1.3} result="d" />
+          <feTurbulence type="fractalNoise" baseFrequency="2.3" numOctaves={2} seed={9} result="g" />
+          <feColorMatrix in="g" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -1.45 1.55" result="m" />
+          <feComposite in="d" in2="m" operator="in" result="c" />
+          <feTurbulence type="fractalNoise" baseFrequency=".05" numOctaves={1} seed={6} result="b" />
+          <feColorMatrix in="b" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -.9 1.35" result="bm" />
+          <feComposite in="c" in2="bm" operator="in" />
+        </filter>
+      </defs>
+      <g filter={`url(#ef${id})`}>
+        <g fill="none" stroke="currentColor">
+          <circle cx="32" cy="32" r="30" strokeWidth="1.8" />
+          <circle cx="32" cy="32" r="17.5" strokeWidth="1.2" />
+        </g>
+        <text fontFamily={FONT} fontSize="5.6" fontWeight="800" letterSpacing=".7" fill="currentColor">
+          <textPath href={`#et${id}`} startOffset="50%" textAnchor="middle">{top}</textPath>
+        </text>
+        <text fontFamily={FONT} fontSize="5.6" fontWeight="800" letterSpacing="1.6" fill="currentColor">
+          <textPath href={`#eb${id}`} startOffset="50%" textAnchor="middle" {...SIDE_LEFT}>{bottom}</textPath>
+        </text>
+        <text x="32" y="34.6" textAnchor="middle" fontFamily={FONT} fontSize="8.2" fontWeight="900" fill="currentColor">{year}</text>
+        <text x="11.5" y="34" textAnchor="middle" fontSize="4.6" fill="currentColor">★</text>
+        <text x="52.5" y="34" textAnchor="middle" fontSize="4.6" fill="currentColor">★</text>
+      </g>
+    </svg>
+  );
+}
+
 function SealBody({ top, bottom, center, year, ids }: { top: string; bottom: string; center: string; year: string; ids: { sa: string; sb: string } }) {
   const long = center.length > 4;
   return (

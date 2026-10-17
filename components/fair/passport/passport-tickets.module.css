@@ -1,0 +1,443 @@
+/* Pregled pasoša kao ulaznice (Auto Moto Fest) — port varijante „2 · Ulaznica“ +
+   „Prigušen brend“ iz public/prototip/pasosi-kartica-ulaznica.html. Akcenat i papir
+   iz teme događaja; kožu i zrno crta components/fair/fair-paper-texture.tsx. */
+
+.main {
+  --tk-ink: #1d1a17;
+  --tk-muted: #857a6c;
+  --tk-line: var(--fair-line, #e4dccd);
+  --tk-acc: var(--fair-accent, #e2602a);
+  --tk-acc-strong: var(--fair-accent-strong, #b8461a);
+  --tk-cream: #f6efe2;
+  --tk-l1: #2b221c;
+  --tk-l2: #1a1511;
+  width: min(100%, 560px);
+  margin-inline: auto;
+  padding: 20px 16px calc(40px + env(safe-area-inset-bottom));
+  color: var(--tk-ink);
+}
+
+/* Heading and the event postmark */
+
+.top {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.heading {
+  flex: 1;
+  min-width: 0;
+  padding-top: 2px;
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--tk-acc-strong);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+}
+
+.heading h1 {
+  margin: 6px 0;
+  font-size: 38px;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -.03em;
+}
+
+.intro {
+  margin: 0;
+  color: var(--tk-muted);
+  font-size: 13.5px;
+  line-height: 1.45;
+}
+
+.postmark {
+  flex: none;
+  width: 82px;
+  height: 82px;
+  margin: -4px -2px 0 0;
+  color: var(--tk-acc);
+  mix-blend-mode: multiply;
+  transform: rotate(-9deg);
+}
+
+.postmark svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Summary chips */
+
+.summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 14px 0 18px;
+}
+
+.summary span {
+  padding: 5px 9px 4px;
+  border-radius: 7px;
+  background: rgb(255 255 255 / .55);
+  box-shadow: inset 0 0 0 1px var(--tk-line);
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.summary em {
+  color: var(--tk-muted);
+  font-style: normal;
+  font-weight: 500;
+}
+
+.summary .chipAccent {
+  background: color-mix(in srgb, var(--tk-acc) 12%, transparent);
+  box-shadow: none;
+  color: var(--tk-acc-strong);
+}
+
+/* Until the visitor's progress is in, counts would read 0 and jump. */
+.main[data-loading] .summary,
+.main[data-loading] .stub > * {
+  visibility: hidden;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.empty {
+  padding: 22px 18px;
+  border-radius: 18px;
+  background: rgb(255 255 255 / .55);
+  box-shadow: inset 0 0 0 1px var(--tk-line);
+}
+
+.empty h2 {
+  margin: 0 0 6px;
+  font-size: 18px;
+}
+
+.empty p {
+  margin: 0;
+  color: var(--tk-muted);
+  font-size: 13.5px;
+  line-height: 1.45;
+}
+
+/* Ticket */
+
+.ticket {
+  position: relative;
+  display: flex;
+  width: 100%;
+  min-height: 118px;
+  color: inherit;
+  text-decoration: none;
+  filter: drop-shadow(0 1px 1px rgb(40 25 10 / .16)) drop-shadow(0 8px 16px rgb(40 25 10 / .13));
+  transition: transform .18s cubic-bezier(.3, .7, .3, 1);
+}
+
+.ticket:active {
+  transform: scale(.985);
+}
+
+.ticket:focus-visible {
+  border-radius: 18px;
+  outline: 2px solid var(--tk-acc);
+  outline-offset: 3px;
+}
+
+/* Left part: dark warm leather, brand glow, stitch, notches toward the stub */
+
+.leather {
+  --glow: rgb(226 96 42 / .16);
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 15px 14px 13px 17px;
+  border-radius: 18px 0 0 18px;
+  background:
+    radial-gradient(120% 120% at 92% 0%, var(--glow) 0%, transparent 58%),
+    linear-gradient(165deg, var(--tk-l1) 0%, var(--tk-l2) 78%);
+  color: #fff;
+  isolation: isolate;
+  -webkit-mask:
+    radial-gradient(circle 9px at 100% 0, #0000 98%, #000) top / 100% 51% no-repeat,
+    radial-gradient(circle 9px at 100% 100%, #0000 98%, #000) bottom / 100% 51% no-repeat;
+  mask:
+    radial-gradient(circle 9px at 100% 0, #0000 98%, #000) top / 100% 51% no-repeat,
+    radial-gradient(circle 9px at 100% 100%, #0000 98%, #000) bottom / 100% 51% no-repeat;
+}
+
+.leather::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  border-radius: inherit;
+  background-image: var(--fair-leather-url, none), var(--fair-leather-noise-url, none);
+  background-size: 150px 150px, 160px 160px;
+  mix-blend-mode: overlay;
+  opacity: .5;
+  pointer-events: none;
+}
+
+.stitch {
+  position: absolute;
+  inset: 6px 12px 6px 6px;
+  border: 1.4px dashed rgb(246 239 226 / .22);
+  border-right: 0;
+  border-radius: 13px 2px 2px 13px;
+  pointer-events: none;
+}
+
+.watermark {
+  position: absolute;
+  top: 50%;
+  right: -34px;
+  display: block;
+  color: var(--tk-cream);
+  opacity: .08;
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+
+.label {
+  position: relative;
+  overflow: hidden;
+  color: rgb(246 239 226 / .5);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .2em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* 360 px phones: the leather is ~30 px narrower, keep the label on one line. */
+@media (max-width: 380px) {
+  .label {
+    letter-spacing: .12em;
+  }
+}
+
+.brand {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  margin-top: auto;
+  padding-top: 12px;
+}
+
+.brand b {
+  display: -webkit-box;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--tk-cream);
+  font-size: 21px;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -.015em;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+/* Long brand names stay whole: "Mercedes-Benz" on one line at 360 px, longer ones on two. */
+.brandLong b {
+  font-size: 18px;
+}
+
+.brandLonger b {
+  font-size: 16px;
+}
+
+.mark {
+  display: block;
+  flex: none;
+  color: var(--tk-cream);
+}
+
+.markFile {
+  background: currentColor;
+  -webkit-mask: var(--mark) center / contain no-repeat;
+  mask: var(--mark) center / contain no-repeat;
+}
+
+.badge {
+  position: relative;
+  flex: none;
+  width: 44px;
+  height: 30px;
+  overflow: hidden;
+  border-radius: 8px;
+  background: var(--tk-cream);
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / .08);
+}
+
+.badge img {
+  padding: 4px 5px;
+  object-fit: contain;
+}
+
+.models {
+  position: relative;
+  margin-top: 7px;
+  overflow: hidden;
+  color: rgb(246 239 226 / .55);
+  font-size: 11.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.modelGot {
+  color: var(--tk-cream);
+  font-weight: 600;
+}
+
+.novo {
+  position: absolute;
+  z-index: 3;
+  top: -8px;
+  right: 27px;
+  padding: 4px 7px 3px;
+  border-radius: 6px;
+  background: var(--tk-acc);
+  box-shadow: 0 2px 10px rgb(226 96 42 / .45);
+  color: #fff;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+/* Stub: cream paper, dotted perforation, N/M, bars, the completion seal */
+
+.stub {
+  position: relative;
+  display: flex;
+  width: 106px;
+  flex: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  border-radius: 0 18px 18px 0;
+  background-color: var(--tk-cream);
+  background-image: var(--fair-paper-tex, none);
+  background-size: 420px 420px;
+  transform-origin: 0 100%;
+  -webkit-mask:
+    radial-gradient(circle 9px at 0 0, #0000 98%, #000) top / 100% 51% no-repeat,
+    radial-gradient(circle 9px at 0 100%, #0000 98%, #000) bottom / 100% 51% no-repeat;
+  mask:
+    radial-gradient(circle 9px at 0 0, #0000 98%, #000) top / 100% 51% no-repeat,
+    radial-gradient(circle 9px at 0 100%, #0000 98%, #000) bottom / 100% 51% no-repeat;
+}
+
+.stub::before {
+  content: "";
+  position: absolute;
+  top: 13px;
+  bottom: 13px;
+  left: 0;
+  border-left: 2px dotted #cbbda5;
+}
+
+/* The paper texture is opaque, so the tint is a layer over it. */
+.stubNew {
+  background-color: #fdf1e8;
+  background-image: linear-gradient(rgb(226 96 42 / .09), rgb(226 96 42 / .09)), var(--fair-paper-tex, none);
+  background-size: auto, 420px 420px;
+}
+
+.stubCount {
+  color: var(--tk-ink);
+  font-size: 38px;
+  font-weight: 900;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.stubCount i {
+  color: var(--tk-muted);
+  font-size: 19px;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.stub small {
+  color: var(--tk-muted);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+
+.bars {
+  display: flex;
+  max-width: 80px;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 3px;
+  margin-top: 9px;
+}
+
+.bars i {
+  width: 12px;
+  height: 4px;
+  border-radius: 2px;
+  background: #e1d5c1;
+}
+
+.bars .barOn {
+  background: var(--tk-acc);
+}
+
+.bars .barNew {
+  background: repeating-linear-gradient(90deg, var(--tk-acc) 0 2px, transparent 2px 4px);
+}
+
+.seal {
+  position: absolute;
+  inset: 4px;
+  color: var(--fair-seal-ink, var(--tk-acc));
+  mix-blend-mode: multiply;
+  opacity: 0;
+  pointer-events: none;
+  transform: rotate(-14deg);
+}
+
+.sealOn {
+  opacity: 1;
+}
+
+.seal svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ticket {
+    transition: none;
+  }
+
+  .ticket:active {
+    transform: none;
+  }
+}

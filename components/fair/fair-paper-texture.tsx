@@ -69,6 +69,53 @@ function paperGrain() {
   return canvas.toDataURL();
 }
 
+/** Pebbled leather of the passport tickets (prototype pasosi-kartica-ulaznica.html, 150 px tile, seed 31). */
+function leatherTexture() {
+  const size = 150;
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = size;
+  const g = canvas.getContext("2d");
+  if (!g) return null;
+  let seed = 31;
+  const r = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  g.fillStyle = "#808080";
+  g.fillRect(0, 0, size, size);
+  for (let k = 0; k < 900; k++) {
+    const x = r() * size, y = r() * size, radius = 1.2 + r() * 2.4;
+    for (const ox of [-size, 0, size]) {
+      for (const oy of [-size, 0, size]) {
+        const cx = x + ox, cy = y + oy;
+        if (cx < -6 || cx > size + 6 || cy < -6 || cy > size + 6) continue;
+        const gradient = g.createRadialGradient(cx - radius * 0.35, cy - radius * 0.4, 0, cx, cy, radius);
+        gradient.addColorStop(0, "rgba(255,255,255,.22)");
+        gradient.addColorStop(0.7, "rgba(128,128,128,0)");
+        gradient.addColorStop(1, "rgba(0,0,0,.22)");
+        g.fillStyle = gradient;
+        g.beginPath();
+        g.arc(cx, cy, radius, 0, 7);
+        g.fill();
+      }
+    }
+  }
+  return canvas.toDataURL();
+}
+
+/** Grey noise laid over the leather (prototype `--noise`). */
+function leatherNoise() {
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = 160;
+  const g = canvas.getContext("2d");
+  if (!g) return null;
+  const data = g.createImageData(160, 160);
+  for (let i = 0; i < data.data.length; i += 4) {
+    const value = (Math.random() * 255) | 0;
+    data.data[i] = data.data[i + 1] = data.data[i + 2] = value;
+    data.data[i + 3] = 60;
+  }
+  g.putImageData(data, 0, 0);
+  return canvas.toDataURL();
+}
+
 export function FairPaperTexture() {
   useEffect(() => {
     if (!document.querySelector(".fair-event--auto-moto")) return;
@@ -78,6 +125,10 @@ export function FairPaperTexture() {
     const grain = paperGrain();
     if (texture) root.setProperty("--fair-paper-texture-url", `url(${texture})`);
     if (grain) root.setProperty("--fair-paper-grain-url", `url(${grain})`);
+    const leather = leatherTexture();
+    const noise = leatherNoise();
+    if (leather) root.setProperty("--fair-leather-url", `url(${leather})`);
+    if (noise) root.setProperty("--fair-leather-noise-url", `url(${noise})`);
   }, []);
   return null;
 }

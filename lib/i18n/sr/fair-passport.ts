@@ -90,4 +90,17 @@ export const fairPassportSr = {
   newStampActionStamps: "Zalepi",
   newStampAriaStamps: "Nova markica za {brand} pasoš. Zalepi.",
   devResetStuck: "Vrati na početak",
+  // Pregled pasoša kao ulaznice (Auto Moto Fest).
+  ticketsIntro: "Skenirajte modele i skupite markice u pasoše.",
+  ticketsCompleteOne: "{count} kompletan pasoš",
+  ticketsCompleteFew: "{count} kompletna pasoša",
+  ticketsCompleteMany: "{count} kompletnih pasoša",
+  ticketsNewOne: "{count} nova čeka lepljenje",
+  ticketsNewFew: "{count} nove čekaju lepljenje",
+  ticketsNewMany: "{count} novih čeka lepljenje",
+  ticketStubOne: "markice",
+  ticketStubMany: "markica",
+  ticketAria: "Pasoš {brand}: {got} {count}",
+  ticketAriaComplete: "Pasoš {brand}: kompletan",
+  ticketsPostmarkAria: "Žig: {event}",
 } as const satisfies FairPassportDict;

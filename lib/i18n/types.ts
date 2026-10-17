@@ -628,6 +628,26 @@ export interface FairAdminDevDict {
   toastResetAll: string;
   toastFailed: string;
   working: string;
+  // DEV simulation of passports (development only).
+  simTitle: string;
+  simNote: string;
+  simBrands: string;
+  simBrandsAll: string;
+  simBrandsTest: string;
+  simBrandsSome: string;
+  simModels: string;
+  simModelsRandom: string;
+  simState: string;
+  simStateStart: string;
+  simStatePartial: string;
+  simStateNew: string;
+  simStateComplete: string;
+  simStateMixed: string;
+  simApply: string;
+  simOff: string;
+  simBar: string;
+  toastSimOn: string;
+  toastSimOff: string;
 }
 
 /** /sajam/privatnost. */
@@ -753,6 +773,19 @@ export interface FairPassportDict {
   newStampActionStamps: string;
   newStampAriaStamps: string;
   devResetStuck: string;
+  // Stamp passport overview "ulaznice" (Auto Moto Fest); plural forms via srPluralCategory.
+  ticketsIntro: string;
+  ticketsCompleteOne: string;
+  ticketsCompleteFew: string;
+  ticketsCompleteMany: string;
+  ticketsNewOne: string;
+  ticketsNewFew: string;
+  ticketsNewMany: string;
+  ticketStubOne: string;
+  ticketStubMany: string;
+  ticketAria: string;
+  ticketAriaComplete: string;
+  ticketsPostmarkAria: string;
 }
 
 export interface AdminDomainDict {

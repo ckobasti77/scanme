@@ -17,6 +17,8 @@ import {
   FAIR_PASSPORT_VISIT_CHANGE_EVENT,
   forgetPassportModelsSeen,
   markPassportModelsSeen,
+  markPassportSealShown,
+  passportSealShown,
   passportStuckAt,
   unreadPassportModelIds,
 } from "@/lib/fair-client/passport-visit-store";
@@ -33,6 +35,7 @@ import {
   passportDotCounts,
 } from "@/lib/fair-client/passport-unlock";
 import { fairPassportBrandSlug, fairPassportDisplayName } from "@/lib/fair-passport";
+import { FAIR_PASSPORT_SIM_SEEDED_PREFIX } from "@/lib/fair-passport-simulation";
 import { fairEventPresentation, fairEventThemeClass } from "@/lib/fair-theme";
 import { fmt } from "@/lib/i18n/format";
 import type { FairPassportDict } from "@/lib/i18n/types";
@@ -41,6 +44,7 @@ import styles from "./fair-passport.module.css";
 import { NewStampCard } from "./new-stamp-card";
 import { PassportFinale } from "./passport-finale";
 import { PassportSeal, passportBrandSealTexts, passportEventSealTexts } from "./passport-seal";
+import { PassportTickets } from "./passport-tickets";
 import { PassportUnlockCard } from "./passport-unlock-card";
 import { StampPassport } from "./stamp-passport";
 import { FAIR_PUBLIC_MAP_ENABLED } from "@/lib/fair-contract";
@@ -50,7 +54,35 @@ type EventView = {
   publicSlug: string;
   dataSlug: string;
   title: string;
+  /** Stamp passport overview postmark (city) and year fallback. */
+  venueName?: string;
+  startsAt?: number;
 };
+
+/** DEV passport simulation (lib/fair-passport-simulation.ts): progress comes from here, never from Convex. */
+type SimulationView = {
+  progress: FairPassportProgress[];
+  stuck: Record<string, string[]>;
+};
+
+/**
+ * First load of a simulation choice on this device: start from its own state
+ * (forget earlier sticking of the same choice), then stick what it says is stuck.
+ */
+function seedSimulation(storage: Storage, eventId: string, simulation: SimulationView) {
+  try {
+    if (storage.getItem(FAIR_PASSPORT_SIM_SEEDED_PREFIX + eventId)) return;
+    storage.setItem(FAIR_PASSPORT_SIM_SEEDED_PREFIX + eventId, "1");
+  } catch {
+    return;
+  }
+  const at = Date.now();
+  for (const row of simulation.progress) {
+    forgetPassportModelsSeen(storage, eventId, row.passportId, row.stampedModelIds);
+    const stuck = simulation.stuck[row.passportId] ?? [];
+    if (stuck.length > 0) markPassportModelsSeen(storage, eventId, row.passportId, stuck, at);
+  }
+}
 
 type LoadState = "loading" | "ready" | "error";
 
@@ -846,6 +878,7 @@ export function FairPassportExperience({
   dict,
   devTools = false,
   showDevEntry = false,
+  simulation,
 }: {
   event: EventView;
   catalog: FairPassportCatalogEntry[];
@@ -856,6 +889,7 @@ export function FairPassportExperience({
   dict: FairPassportDict;
   devTools?: boolean;
   showDevEntry?: boolean;
+  simulation?: SimulationView;
 }) {
   const stateCacheKey = passportCacheKey(event);
   const cachedState = readCachedPassportState(event);
@@ -868,24 +902,32 @@ export function FairPassportExperience({
   const [devThreshold, setDevThreshold] = useState<DevFavoriteThreshold>("public");
   const [devResetRun, setDevResetRun] = useState(0);
   const [stuckAt, setStuckAt] = useState<Record<string, Record<string, number>>>({});
+  // Stamp passport overview: completion seals that already landed on this device.
+  const [sealShown, setSealShown] = useState<Record<string, boolean>>({});
+  const [sealsLoaded, setSealsLoaded] = useState(false);
   const passportStyle = fairEventPresentation(event.publicSlug).passportStyle;
   const modelById = useMemo(() => new Map(models.map((model) => [model.id, model])), [models]);
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/fair/passport", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ eventSlug: event.dataSlug }),
-      cache: "no-store",
-    })
-      .then(async (response) => {
+    const load: Promise<FairPassportState> = simulation
+      ? Promise.resolve().then(() => {
+        seedSimulation(window.localStorage, event.id, simulation);
+        return { eventId: event.id, catalog, progress: simulation.progress };
+      })
+      : fetch("/api/fair/passport", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ eventSlug: event.dataSlug }),
+        cache: "no-store",
+      }).then(async (response) => {
         const body = (await response.json()) as { ok: boolean; value?: FairPassportState | null };
         if (!response.ok || !body.ok || !body.value) throw new Error("passport_failed");
+        return showDevEntry ? applyDevPassportStamps(window.localStorage, body.value) : body.value;
+      });
+    load
+      .then((nextState) => {
         if (cancelled) return;
-        const nextState = showDevEntry
-          ? applyDevPassportStamps(window.localStorage, body.value)
-          : body.value;
         const nextUnread: Record<string, string[]> = {};
         for (const progress of nextState.progress) {
           nextUnread[progress.passportId] = unreadPassportModelIds(
@@ -898,6 +940,7 @@ export function FairPassportExperience({
         // Stamp passport: the postmark shows the day a stamp was stuck on this
         // device; a stamp seen before dates were kept is dated once, today.
         const nextStuckAt: Record<string, Record<string, number>> = {};
+        const nextSealShown: Record<string, boolean> = {};
         if (passportStyle === "stamps") {
           const now = Date.now();
           for (const progress of nextState.progress) {
@@ -910,17 +953,22 @@ export function FairPassportExperience({
             }
             nextStuckAt[progress.passportId] = dates;
           }
+          for (const passport of nextState.catalog) {
+            nextSealShown[passport.passportId] = passportSealShown(window.localStorage, nextState.eventId, passport.passportId);
+          }
         }
         setState(cachePassportState(stateCacheKey, nextState));
         setUnread(nextUnread);
         setStuckAt(nextStuckAt);
+        setSealShown(nextSealShown);
+        setSealsLoaded(true);
         setLoadState("ready");
       })
       .catch(() => {
         if (!cancelled) setLoadState("error");
       });
     return () => { cancelled = true; };
-  }, [event.dataSlug, passportStyle, retryKey, showDevEntry, stateCacheKey]);
+  }, [catalog, event.dataSlug, event.id, passportStyle, retryKey, showDevEntry, simulation, stateCacheKey]);
 
   function updateProgress(next: FairPassportProgress) {
     setState((current) => cachePassportState(stateCacheKey, {
@@ -944,6 +992,11 @@ export function FairPassportExperience({
         [passportId]: { ...current[passportId], [modelId]: current[passportId]?.[modelId] ?? stuckAt },
       }));
     }
+  }
+
+  function markSealShown(passportId: string) {
+    markPassportSealShown(window.localStorage, event.id, passportId);
+    setSealShown((current) => ({ ...current, [passportId]: true }));
   }
 
   function updateDevStamp(passport: FairPassportCatalogEntry, eventModelId: string, collected: boolean) {
@@ -1010,7 +1063,7 @@ export function FairPassportExperience({
           dict={dict}
           onProgress={updateProgress}
           onStuck={(modelId, at) => markUnlocked(selected.passportId, modelId, at)}
-          devTools={devTools}
+          devTools={devTools || Boolean(simulation)}
           devThreshold={devThreshold}
           focusModelSlug={focusModelSlug}
           loaded={loadState === "ready"}
@@ -1033,6 +1086,16 @@ export function FairPassportExperience({
           devThreshold={devThreshold}
           focusModelSlug={focusModelSlug}
           loaded={loadState === "ready"}
+        />
+      ) : passportStyle === "stamps" ? (
+        <PassportTickets
+          event={event}
+          state={state}
+          unread={unread}
+          sealShown={sealShown}
+          ready={sealsLoaded}
+          dict={dict}
+          onSealed={markSealShown}
         />
       ) : (
         <Overview event={event} state={state} unread={unread} dict={dict} />

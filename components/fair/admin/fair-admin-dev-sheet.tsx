@@ -23,6 +23,8 @@ import { fairPassportSr } from "@/lib/i18n/sr/fair-passport";
 import { NewStampCard } from "../passport/new-stamp-card";
 import { PassportFinale } from "../passport/passport-finale";
 import { passportBrandSealTexts } from "../passport/passport-seal";
+import type { FairPassportSimConfig } from "@/lib/fair-passport-simulation";
+import { FairAdminSimulation } from "./fair-admin-simulation";
 
 // Admin DEV tools on the public fair pages (JOVAN-DELTA 2026-10-09), 1:1 the
 // "Admin (ti)" view of public/prototip/stranica-modela-v2.html. Rendered only
@@ -42,6 +44,8 @@ export type FairAdminDevSheetProps = {
   visitor: string;
   database: string;
   build: string;
+  /** DEV passport simulation (`next dev`, stamp passport events only); `current` is this browser's choice. */
+  simulation?: { current: FairPassportSimConfig | null };
 };
 
 type DevModel = { id: string; slug: string; name: string; brandName: string };
@@ -65,7 +69,7 @@ async function adminDev<T>(body: Record<string, unknown>): Promise<T> {
 
 const subscribeNothing = () => () => {};
 
-export function FairAdminDevSheet({ dict, event, model, brandName, preview, visitor, database, build }: FairAdminDevSheetProps) {
+export function FairAdminDevSheet({ dict, event, model, brandName, preview, visitor, database, build, simulation }: FairAdminDevSheetProps) {
   const router = useRouter();
   const mounted = useSyncExternalStore(subscribeNothing, () => true, () => false);
   const [open, setOpen] = useState(false);
@@ -225,6 +229,8 @@ export function FairAdminDevSheet({ dict, event, model, brandName, preview, visi
               <button type="button" aria-pressed={preview === null} onClick={() => setPreview(null)}>{dict.previewReal}</button>
             </div>
           </section>
+
+          {simulation ? <FairAdminSimulation dict={dict} current={simulation.current} onToast={say} /> : null}
 
           {catalogEntry ? (
             <section className="fair-admin-dev__sec">

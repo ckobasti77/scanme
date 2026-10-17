@@ -1,5 +1,7 @@
 import { cookies } from "next/headers";
 import { fairAdminPreview, fairIsAdminRequest } from "@/lib/fair-server/admin-session";
+import { FAIR_PASSPORT_SIM_COOKIE, parseFairPassportSim } from "@/lib/fair-passport-simulation";
+import { fairEventPresentation } from "@/lib/fair-theme";
 import {
   FAIR_VISITOR_COOKIE_NAME,
   fairVisitorEnv,
@@ -33,6 +35,10 @@ function database() {
 export async function FairAdminTools(props: Pick<FairAdminDevSheetProps, "event" | "model" | "brandName">) {
   if (!(await fairIsAdminRequest())) return null;
   const [preview, visitor] = await Promise.all([fairAdminPreview(), shortVisitor()]);
+  // DEV passport simulation: `next dev` and stamp passport events only.
+  const simulation = process.env.NODE_ENV === "development" && fairEventPresentation(props.event.slug).passportStyle === "stamps"
+    ? { current: parseFairPassportSim((await cookies()).get(FAIR_PASSPORT_SIM_COOKIE)?.value) }
+    : undefined;
   return (
     <>
       <div className="fair-admin-bar" role="note">{dict.bar}</div>
@@ -43,6 +49,7 @@ export async function FairAdminTools(props: Pick<FairAdminDevSheetProps, "event"
         visitor={visitor}
         database={database()}
         build={process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) || dict.stateLocalBuild}
+        simulation={simulation}
       />
     </>
   );

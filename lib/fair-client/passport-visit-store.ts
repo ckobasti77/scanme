@@ -5,6 +5,8 @@ type PassportVisitDocument = {
   seen: Record<string, string[]>;
   /** Stamp passport: when each seen model was stuck on this device (ms). */
   stuckAt: Record<string, Record<string, number>>;
+  /** Stamp passport overview: passports whose completion seal already landed here. */
+  sealShown: string[];
 };
 
 type PassportVisitStorage = Pick<Storage, "getItem" | "setItem">;
@@ -14,7 +16,7 @@ function entryKey(eventId: string, passportId: string) {
 }
 
 function emptyDocument(): PassportVisitDocument {
-  return { version: 1, seen: {}, stuckAt: {} };
+  return { version: 1, seen: {}, stuckAt: {}, sealShown: [] };
 }
 
 function readDocument(storage: PassportVisitStorage): PassportVisitDocument {
@@ -44,7 +46,11 @@ function readDocument(storage: PassportVisitStorage): PassportVisitDocument {
         stuckAt[key] = entry;
       }
     }
-    return { version: 1, seen, stuckAt };
+    const sealSource = (value as { sealShown?: unknown }).sealShown;
+    const sealShown = Array.isArray(sealSource)
+      ? [...new Set(sealSource.filter((key): key is string => typeof key === "string" && key.length > 0))]
+      : [];
+    return { version: 1, seen, stuckAt, sealShown };
   } catch {
     return emptyDocument();
   }
@@ -98,6 +104,8 @@ export function forgetPassportModelsSeen(
     const dates = { ...(document.stuckAt[key] ?? {}) };
     for (const modelId of forgotten) delete dates[modelId];
     document.stuckAt[key] = dates;
+    // Un-sticking breaks the full set, so its seal may land again later.
+    if (forgotten.size > 0) document.sealShown = document.sealShown.filter((entry) => entry !== key);
     storage.setItem(STORAGE_KEY, JSON.stringify(document));
     return true;
   } catch {
@@ -112,6 +120,23 @@ export function passportStuckAt(
   passportId: string,
 ): Record<string, number> {
   return { ...(readDocument(storage).stuckAt[entryKey(eventId, passportId)] ?? {}) };
+}
+
+/** Stamp passport overview: the completion seal of this passport already landed on this device. */
+export function passportSealShown(storage: PassportVisitStorage, eventId: string, passportId: string): boolean {
+  return readDocument(storage).sealShown.includes(entryKey(eventId, passportId));
+}
+
+export function markPassportSealShown(storage: PassportVisitStorage, eventId: string, passportId: string): boolean {
+  try {
+    const document = readDocument(storage);
+    const key = entryKey(eventId, passportId);
+    if (!document.sealShown.includes(key)) document.sealShown.push(key);
+    storage.setItem(STORAGE_KEY, JSON.stringify(document));
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export const FAIR_PASSPORT_VISIT_CHANGE_EVENT = "scanme:fair-passport-visits-change";
