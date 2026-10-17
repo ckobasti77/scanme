@@ -248,7 +248,13 @@ export type MenuOwnedTable =
   | "menuAuditLog"
   | "menuRoomService"
   | "menuRoomServiceCategories"
-  | "menuRoomServiceItems";
+  | "menuRoomServiceItems"
+  | "menuVariants"
+  | "menuAddonGroups"
+  | "menuAddonOptions"
+  | "menuArticleAddonGroups"
+  | "menuComboComponents"
+  | "menuAvailability";
 
 export async function loadOwned<T extends MenuOwnedTable>(
   ctx: DatabaseCtx,

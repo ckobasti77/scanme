@@ -42,5 +42,68 @@ export const menuDomenSr = {
       "Standard paket ima najviše dva jezika po meniju, uključujući srpski. Za više jezika potreban je Premium nalog.",
     "room_service/category_not_empty":
       "Kategorija nije prazna. Prvo premestite ili uklonite artikle iz nje.",
+    "article/promo_invalid":
+      "Akcijska cena mora biti niža od regularne, a popust između 1 i 99 %. Akcija sa unetom cenom ne može da se koristi uz varijante.",
+    "article/allergens_disabled":
+      "Alergeni nisu uključeni za ovaj meni. Uključite ih da biste ih unosili.",
+    "article/combo_component_invalid":
+      "Kombo može da sadrži samo postojeće obične artikle ovog menija, svaki jednom, sa količinom od 1 do 20.",
+    "article/not_combo": "Ova radnja nije dostupna za ovu vrstu artikla.",
+    "article/addon_rules_invalid":
+      "Proverite pravila grupe: najmanji broj izbora ne sme biti veći od najvećeg.",
+    "article/addon_group_attached": "Ova grupa je već dodata na artikal.",
+    "article/addon_group_not_attached": "Ova grupa nije dodata na artikal.",
+  },
+  allergens: {
+    gluten: "Žitarice koje sadrže gluten",
+    crustaceans: "Rakovi i proizvodi od rakova",
+    eggs: "Jaja",
+    fish: "Riba",
+    peanuts: "Kikiriki",
+    soybeans: "Soja",
+    milk: "Mleko i mlečni proizvodi (uključujući laktozu)",
+    nuts: "Orašasti plodovi",
+    celery: "Celer",
+    mustard: "Slačica",
+    sesame: "Susam",
+    sulphites: "Sumpor-dioksid i sulfiti",
+    lupin: "Lupina",
+    molluscs: "Mekušci",
+    other: "Drugo",
+  },
+  allergenKinds: {
+    contains: "Sadrži",
+    mayContain: "Može sadržati tragove",
+  },
+  allergenDisclaimer:
+    "Informacije o alergenima unosi lokal i mogu biti nepotpune. Ako imate alergiju ili intoleranciju, obavezno proverite sastav sa osobljem pre poručivanja.",
+  tags: {
+    vegan: "Vegansko",
+    vegetarian: "Vegetarijansko",
+    spicy: "Ljuto",
+    recommended: "Preporuka",
+    new: "Novo",
+    house_special: "Specijalitet kuće",
+    homemade: "Domaće",
+  },
+  promoLabels: {
+    promo: "Akcija",
+    recommended: "Preporuka",
+  },
+  unavailable: "Privremeno nedostupno",
+  publishIssues: {
+    name_missing: "Artikal nema naziv.",
+    section_missing: "Artikal nije ni u jednoj sekciji.",
+    price_missing: "Artikal nema cenu ni varijantu sa cenom.",
+    variants_empty: "Varijante su uključene, ali nijedna nije dodata. Prikazuje se osnovna cena.",
+    variant_price_missing: "Varijanta nema cenu, a artikal nema osnovnu cenu.",
+    addon_group_empty: "Grupa dodataka nema nijedan dodatak.",
+    addon_group_unsatisfiable: "Grupa traži više izbora nego što ima dodataka.",
+    promo_invalid: "Akcija ne može da se primeni, pa se prikazuje regularna cena.",
+    promo_schedule_premium:
+      "Zakazana akcija je deo Premium naloga. Bez Premium-a se neće zakazati.",
+    combo_price_check: "Promenjena je cena artikla iz komboa. Proverite cenu komboa.",
+    combo_empty: "Kombo nema nijedan artikal.",
+    article_unplaced: "Artikal nije ni na jednoj stranici, pa ga gosti neće videti.",
   },
 } as const satisfies MenuDomenDict;

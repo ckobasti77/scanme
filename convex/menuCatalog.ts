@@ -2,6 +2,7 @@ import { ConvexError, v, type Infer } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx } from "./_generated/server";
 import { getMenuAccess, loadOwned, requireMenuAccessToRow } from "./lib/menuAccess";
+import { flagCombosForPriceChange } from "./lib/menuArticleHooks";
 import { menuVisibilityValidator } from "./lib/menuDomainValidators";
 import { loadDraftState, touchDraft } from "./lib/menuDraft";
 import { flagRoomServicePriceWarnings } from "./menuRoomService";
@@ -40,7 +41,7 @@ function refuse(code: MenuErrorCode): ConvexError<string> {
   return new ConvexError(code);
 }
 
-function assertPageActive(page: Doc<"menuPages">): void {
+export function assertPageActive(page: Doc<"menuPages">): void {
   if (page.archivedAt !== undefined) throw refuse(MENU_ERROR.pageArchived);
 }
 
@@ -79,8 +80,8 @@ async function lastPlacementOrder(
   return last ? last.order : null;
 }
 
-/** Appends a visible placement to a section and counts it on the page. */
-async function appendPlacement(
+/** Appends a visible placement to a section and counts it on the page (also used by menuCombos, K04). */
+export async function appendPlacement(
   ctx: MutationCtx,
   input: {
     page: Doc<"menuPages">;
@@ -429,7 +430,9 @@ export const updateArticleFields = mutation({
  * every page the article is on. `null` clears the price. Compare-and-set on
  * the price the editor last saw (null = none). Room service follows in the same
  * transaction (K03): a derived RS price needs nothing, a manual RS price stays
- * and gets the old/new base warning.
+ * and gets the old/new base warning. Combos follow too (K04, master §5.4): a
+ * combo containing this article keeps its manual price and gets "check the
+ * combo price"; setting a combo's own price clears that flag.
  */
 export const setBasePrice = mutation({
   args: {
@@ -450,9 +453,12 @@ export const setBasePrice = mutation({
     if (!cas.ok) return cas;
     if (args.priceRsd === (article.basePriceRsd ?? null)) return { ok: true as const };
 
+    const now = Date.now();
     await ctx.db.patch(article._id, {
       basePriceRsd: args.priceRsd === null ? undefined : args.priceRsd,
-      updatedAt: Date.now(),
+      // K04: a new combo price is the client's decision on "check the combo price".
+      ...(article.kind === "combo" && article.priceCheck ? { priceCheck: undefined } : {}),
+      updatedAt: now,
       updatedByUserId: access.user._id,
     });
     await flagRoomServicePriceWarnings(
@@ -461,6 +467,8 @@ export const setBasePrice = mutation({
       article.basePriceRsd ?? null,
       args.priceRsd,
     );
+    // K04: combos containing this article keep their manual price and get the flag.
+    await flagCombosForPriceChange(ctx, article, now);
     await touchDraft(ctx, article.menuServiceId, access.user._id);
     return { ok: true as const };
   },

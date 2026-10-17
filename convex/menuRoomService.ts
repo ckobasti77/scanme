@@ -21,6 +21,7 @@ import {
   MENU_MAX_ROOM_SERVICE_BATCH,
   MENU_MAX_ROOM_SERVICE_CATEGORIES,
   MENU_MAX_SECTIONS_PER_PAGE,
+  MENU_MAX_VARIANTS_PER_ARTICLE,
   MENU_TEXT,
 } from "../lib/menu/limits";
 import {
@@ -82,6 +83,36 @@ async function loadConfig(
 
 function ruleOf(config: Doc<"menuRoomService"> | null): RoomServiceRule {
   return { markupBps: config?.markupBps ?? 0, markupScope: config?.markupScope ?? "all" };
+}
+
+/**
+ * K04 — one variant inside Room service: the same price order as the article
+ * (variant price, falling back to the base price → markup → manual RS price
+ * of THIS variant), its origin and its warning.
+ */
+function variantPriceView(
+  rule: RoomServiceRule,
+  item: Doc<"menuRoomServiceItems">,
+  variant: Doc<"menuVariants">,
+  basePriceRsd: number | null,
+) {
+  const manual = item.manualVariantPrices?.find((entry) => entry.variantKey === variant.key);
+  const pricing = {
+    basePriceRsd: variant.priceRsd ?? basePriceRsd,
+    markupApplies: item.markupApplies,
+    manualPriceRsd: manual?.priceRsd ?? null,
+  };
+  const price = roomServiceUnitPrice(rule, pricing);
+  return {
+    variantId: variant._id,
+    key: variant.key,
+    name: variant.name,
+    variantPriceRsd: pricing.basePriceRsd,
+    manualPriceRsd: pricing.manualPriceRsd,
+    priceRsd: price.priceRsd,
+    origin: price.origin,
+    warning: manual?.priceWarning ? priceWarningView(rule, pricing, manual.priceWarning) : null,
+  };
 }
 
 /** Service-addressed write: role and tenant, then the Premium gate. */
@@ -226,6 +257,20 @@ export const get = query({
       else byCategory.set(item.categoryId, [item]);
     }
 
+    // K04: variants of the articles whose variants are on (one bounded index
+    // read per such article; Room service selections are small).
+    const variantsByArticle = new Map<Id<"menuArticles">, Doc<"menuVariants">[]>();
+    for (const article of articles.values()) {
+      if (article.variantsEnabled !== true || !articleIds.has(article._id)) continue;
+      variantsByArticle.set(
+        article._id,
+        await ctx.db
+          .query("menuVariants")
+          .withIndex("by_articleId_and_order", (q) => q.eq("articleId", article._id))
+          .take(MENU_MAX_VARIANTS_PER_ARTICLE),
+      );
+    }
+
     let itemsWithArticle = 0;
     const view = categories.map((category) => ({
       categoryId: category._id,
@@ -264,6 +309,9 @@ export const get = query({
               priceRsd: price.priceRsd,
               origin: price.origin,
               warning: item.priceWarning ? priceWarningView(rule, pricing, item.priceWarning) : null,
+              variants: (variantsByArticle.get(article._id) ?? []).map((variant) =>
+                variantPriceView(rule, item, variant, pricing.basePriceRsd),
+              ),
             },
           ];
         }),
@@ -777,6 +825,93 @@ export const resolvePriceWarning = mutation({
 });
 
 // -----------------------------------------------------------------------------
+// K04 — manual Room service price per variant (K03 deferred it to K04)
+// -----------------------------------------------------------------------------
+
+type VariantPriceEntry = NonNullable<Doc<"menuRoomServiceItems">["manualVariantPrices"]>[number];
+
+function withVariantEntry(
+  entries: readonly VariantPriceEntry[],
+  variantKey: string,
+  entry: VariantPriceEntry | null,
+): VariantPriceEntry[] | undefined {
+  const next = entries.filter((candidate) => candidate.variantKey !== variantKey);
+  if (entry) next.push(entry);
+  return next.length > 0 ? next : undefined;
+}
+
+/**
+ * The manual Room service price of ONE variant of the item's article, kept
+ * exactly as entered; null goes back to the rule. Compare-and-set on the
+ * manual price the editor last saw. Setting a price resolves a pending warning
+ * of that variant. A variant price change raises the same old/new warning as
+ * the base price (convex/lib/menuArticleHooks.ts onVariantPriceChanged).
+ */
+export const setManualVariantPrice = mutation({
+  args: {
+    itemId: v.id("menuRoomServiceItems"),
+    variantId: v.id("menuVariants"),
+    expectedManualPriceRsd: v.union(v.number(), v.null()),
+    manualPriceRsd: v.union(v.number(), v.null()),
+  },
+  handler: async (ctx, args) => {
+    const { row: item, access } = await editRow(ctx, await ctx.db.get(args.itemId));
+    const variant = await loadOwned(ctx, args.variantId, item.menuServiceId);
+    if (variant.articleId !== item.articleId) throw refuse(MENU_ERROR.invalidInput);
+    if (args.manualPriceRsd !== null && !isValidRsd(args.manualPriceRsd)) {
+      throw refuse(MENU_ERROR.invalidInput);
+    }
+
+    const entries = item.manualVariantPrices ?? [];
+    const current = entries.find((entry) => entry.variantKey === variant.key) ?? null;
+    const cas = checkCas<"manualPriceRsd">(
+      { manualPriceRsd: current?.priceRsd },
+      { manualPriceRsd: args.expectedManualPriceRsd },
+    );
+    if (!cas.ok) return cas;
+    if (args.manualPriceRsd === (current?.priceRsd ?? null) && !current?.priceWarning) {
+      return { ok: true as const };
+    }
+    const next = withVariantEntry(
+      entries,
+      variant.key,
+      args.manualPriceRsd === null ? null : { variantKey: variant.key, priceRsd: args.manualPriceRsd },
+    );
+    if ((next?.length ?? 0) > MENU_MAX_VARIANTS_PER_ARTICLE) throw refuse(MENU_ERROR.limitReached);
+
+    await ctx.db.patch(item._id, { manualVariantPrices: next, updatedAt: Date.now() });
+    await touchDraft(ctx, item.menuServiceId, access.user._id);
+    return { ok: true as const };
+  },
+});
+
+/** "Zadrži ručnu cenu" / "Ponovo izračunaj prema markup-u" for one variant. */
+export const resolveVariantPriceWarning = mutation({
+  args: {
+    itemId: v.id("menuRoomServiceItems"),
+    variantKey: v.string(),
+    action: v.union(v.literal("keepManual"), v.literal("recomputeFromMarkup")),
+  },
+  handler: async (ctx, args) => {
+    const { row: item, access } = await editRow(ctx, await ctx.db.get(args.itemId));
+    const entries = item.manualVariantPrices ?? [];
+    const current = entries.find((entry) => entry.variantKey === args.variantKey);
+    if (!current?.priceWarning) return { ok: true as const };
+    const fields = resolveWarningFields(args.action, current.priceRsd);
+    const next = withVariantEntry(
+      entries,
+      args.variantKey,
+      fields.manualPriceRsd === null
+        ? null
+        : { variantKey: args.variantKey, priceRsd: fields.manualPriceRsd },
+    );
+    await ctx.db.patch(item._id, { manualVariantPrices: next, updatedAt: Date.now() });
+    await touchDraft(ctx, item.menuServiceId, access.user._id);
+    return { ok: true as const };
+  },
+});
+
+// -----------------------------------------------------------------------------
 // Hook for menuCatalog.setBasePrice
 // -----------------------------------------------------------------------------
 
@@ -811,7 +946,61 @@ export async function flagRoomServicePriceWarnings(
       nextBaseRsd,
       at,
     });
-    if (sameWarning(warning, existing)) continue;
-    await ctx.db.patch(item._id, { priceWarning: warning ?? undefined, updatedAt: at });
+    const variantPrices = await variantWarningsAfterBaseChange(
+      ctx,
+      item,
+      previousBaseRsd,
+      nextBaseRsd,
+      at,
+    );
+    if (sameWarning(warning, existing) && variantPrices === null) continue;
+    await ctx.db.patch(item._id, {
+      priceWarning: warning ?? undefined,
+      ...(variantPrices !== null ? { manualVariantPrices: variantPrices } : {}),
+      updatedAt: at,
+    });
   }
+}
+
+/**
+ * K04 — a variant WITHOUT its own price uses the base price, so a manual RS
+ * price of such a variant warns on a base price change too. null = nothing
+ * changed (the common case: no manual variant prices at all).
+ */
+async function variantWarningsAfterBaseChange(
+  ctx: MutationCtx,
+  item: Doc<"menuRoomServiceItems">,
+  previousBaseRsd: number | null,
+  nextBaseRsd: number | null,
+  at: number,
+): Promise<VariantPriceEntry[] | undefined | null> {
+  const entries = item.manualVariantPrices ?? [];
+  if (entries.length === 0) return null;
+  const variants = await ctx.db
+    .query("menuVariants")
+    .withIndex("by_articleId_and_order", (q) => q.eq("articleId", item.articleId))
+    .take(MENU_MAX_VARIANTS_PER_ARTICLE);
+  const followsBase = new Set(
+    variants.filter((variant) => variant.priceRsd === undefined).map((variant) => variant.key),
+  );
+  let changed = false;
+  const next = entries.map((entry) => {
+    if (!followsBase.has(entry.variantKey)) return entry;
+    const existing = entry.priceWarning ?? null;
+    const warning = nextPriceWarning({
+      existing,
+      manualPriceRsd: entry.priceRsd,
+      previousBaseRsd,
+      nextBaseRsd,
+      at,
+    });
+    if (sameWarning(warning, existing)) return entry;
+    changed = true;
+    return {
+      variantKey: entry.variantKey,
+      priceRsd: entry.priceRsd,
+      ...(warning ? { priceWarning: warning } : {}),
+    };
+  });
+  return changed ? next : null;
 }

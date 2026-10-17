@@ -62,19 +62,26 @@ import {
   menuModelValidator,
 } from "./lib/menuValidators";
 import {
+  menuAddonSelectionValidator,
+  menuArticleAllergensValidator,
   menuArticleKindValidator,
   menuAuditActorKindValidator,
   menuAuditDetailsValidator,
+  menuComboPriceCheckValidator,
   menuFeaturesValidator,
   menuMediaModeValidator,
   menuMemberRoleValidator,
   menuMemberStatusValidator,
   menuModeValidator,
   menuPageNavigationValidator,
+  menuPromoValidator,
   menuRoomServiceMarkupScopeValidator,
   menuRoomServicePriceWarningValidator,
+  menuRoomServiceVariantPriceValidator,
   menuServiceSettingsValidator,
   menuServiceStatusValidator,
+  menuTagCodeValidator,
+  menuTranslationsValidator,
   menuVisibilityValidator,
 } from "./lib/menuDomainValidators";
 import { priceSnapshotValidator } from "./lib/orderSnapshot";
@@ -3379,6 +3386,8 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
     updatedByUserId: v.optional(v.id("users")),
+    // K04 (written by K16): publicTitle per language.
+    translations: v.optional(menuTranslationsValidator),
   })
     .index("by_menuServiceId_and_order", ["menuServiceId", "order"])
     .index("by_menuServiceId_and_slug", ["menuServiceId", "slug"])
@@ -3396,6 +3405,8 @@ export default defineSchema({
     visibility: menuVisibilityValidator,
     createdAt: v.number(),
     updatedAt: v.number(),
+    // K04 (written by K16): name and description per language.
+    translations: v.optional(menuTranslationsValidator),
   })
     .index("by_pageId_and_order", ["pageId", "order"])
     .index("by_menuServiceId", ["menuServiceId"])
@@ -3420,6 +3431,20 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
     updatedByUserId: v.optional(v.id("users")),
+    // --- K04: the rest of the article model (master §5.4–§5.7, §7.3, §7.6).
+    // Everything is optional and OFF by default, so a plain article stays
+    // `Naziv + Cena`. The three switches keep their rows when turned off.
+    variantsEnabled: v.optional(v.boolean()),
+    addonsEnabled: v.optional(v.boolean()),
+    noteEnabled: v.optional(v.boolean()),
+    // Absent = unknown, never "safe" (master §7.3).
+    allergens: v.optional(menuArticleAllergensValidator),
+    tags: v.optional(v.array(menuTagCodeValidator)),
+    promo: v.optional(menuPromoValidator),
+    // Combos only: "check the combo price" (master §5.4).
+    priceCheck: v.optional(menuComboPriceCheckValidator),
+    // Written by K16: name and description per language.
+    translations: v.optional(menuTranslationsValidator),
   })
     .index("by_menuServiceId_and_key", ["menuServiceId", "key"])
     .index("by_menuServiceId_and_nameNormalized", ["menuServiceId", "nameNormalized"])
@@ -3520,6 +3545,8 @@ export default defineSchema({
     order: v.number(),
     createdAt: v.number(),
     updatedAt: v.number(),
+    // K04 (written by K16): name per language.
+    translations: v.optional(menuTranslationsValidator),
   }).index("by_menuServiceId_and_order", ["menuServiceId", "order"]),
 
   // One row per article in Room service (an article is in it at most once).
@@ -3534,10 +3561,114 @@ export default defineSchema({
     priceWarning: v.optional(menuRoomServicePriceWarningValidator),
     createdAt: v.number(),
     updatedAt: v.number(),
+    // K04: manual RS price per variant (at most MENU_MAX_VARIANTS_PER_ARTICLE).
+    manualVariantPrices: v.optional(v.array(menuRoomServiceVariantPriceValidator)),
   })
     .index("by_categoryId_and_order", ["categoryId", "order"])
     .index("by_articleId", ["articleId"])
     .index("by_menuServiceId", ["menuServiceId"]),
+
+  // ---------------------------------------------------------------------------
+  // K04 — the article model (master §5.4–§5.7, §7.3, §7.5, §7.6). Draft rows
+  // like the rest (touchDraft); only menuAvailability is live.
+  // ---------------------------------------------------------------------------
+
+  // Alternative versions of one article; the guest picks exactly one and each
+  // carries its own final price (master §5.7). Used only while the article's
+  // `variantsEnabled` is true. `priceRsd` may be absent in the draft (an
+  // incomplete row); publish validation reports it.
+  menuVariants: defineTable({
+    menuServiceId: v.id("menuServices"),
+    articleId: v.id("menuArticles"),
+    key: v.string(),
+    name: v.string(),
+    priceRsd: v.optional(v.number()),
+    order: v.number(),
+    translations: v.optional(menuTranslationsValidator),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_articleId_and_order", ["articleId", "order"])
+    .index("by_menuServiceId", ["menuServiceId"]),
+
+  // A LINKED add-on group: one group can be attached to many articles (the
+  // same milk choice on every coffee, master §5.7) through
+  // menuArticleAddonGroups. Changing it changes every linked article; "only
+  // this article" makes an independent copy. `minSelect` / `maxSelect` are
+  // the advanced rules (absent = derived from `selection` and `required`,
+  // lib/menu/addons.ts).
+  menuAddonGroups: defineTable({
+    menuServiceId: v.id("menuServices"),
+    key: v.string(),
+    name: v.string(),
+    selection: menuAddonSelectionValidator,
+    required: v.boolean(),
+    minSelect: v.optional(v.number()),
+    maxSelect: v.optional(v.number()),
+    // Exact number of menuArticleAddonGroups rows (the impact count).
+    linkCount: v.number(),
+    translations: v.optional(menuTranslationsValidator),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    updatedByUserId: v.optional(v.id("users")),
+  }).index("by_menuServiceId", ["menuServiceId"]),
+
+  // One add-on of a group: a positive surcharge or free (0).
+  menuAddonOptions: defineTable({
+    menuServiceId: v.id("menuServices"),
+    groupId: v.id("menuAddonGroups"),
+    key: v.string(),
+    name: v.string(),
+    priceDeltaRsd: v.number(),
+    order: v.number(),
+    translations: v.optional(menuTranslationsValidator),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_groupId_and_order", ["groupId", "order"])
+    .index("by_menuServiceId", ["menuServiceId"]),
+
+  // Article ↔ linked add-on group, ordered per article; one row per pair.
+  menuArticleAddonGroups: defineTable({
+    menuServiceId: v.id("menuServices"),
+    articleId: v.id("menuArticles"),
+    groupId: v.id("menuAddonGroups"),
+    order: v.number(),
+    createdAt: v.number(),
+  })
+    .index("by_articleId_and_order", ["articleId", "order"])
+    .index("by_groupId", ["groupId"])
+    .index("by_menuServiceId", ["menuServiceId"]),
+
+  // The components of a combo article (master §5.4): existing ordinary
+  // articles of the same service, each once, with a quantity. The combo price
+  // is manual (the combo article's basePriceRsd).
+  menuComboComponents: defineTable({
+    menuServiceId: v.id("menuServices"),
+    comboArticleId: v.id("menuArticles"),
+    componentArticleId: v.id("menuArticles"),
+    quantity: v.number(),
+    order: v.number(),
+    createdAt: v.number(),
+  })
+    .index("by_comboArticleId_and_order", ["comboArticleId", "order"])
+    .index("by_componentArticleId", ["componentArticleId"])
+    .index("by_menuServiceId", ["menuServiceId"]),
+
+  // "Privremeno nedostupno" (master §5.6): a LIVE operational layer outside
+  // the draft and outside published versions (K01 A2). A row exists only
+  // while the article is unavailable; keyed by the stable article key so
+  // restoring a version or migrating never loses it.
+  menuAvailability: defineTable({
+    menuServiceId: v.id("menuServices"),
+    articleKey: v.string(),
+    since: v.number(),
+    setByUserId: v.optional(v.id("users")),
+    // Staff (K22) or system actor reference.
+    setByRef: v.optional(v.string()),
+  })
+    .index("by_menuServiceId", ["menuServiceId"])
+    .index("by_menuServiceId_and_articleKey", ["menuServiceId", "articleKey"]),
 
   // ===========================================================================
   // Sajam automobila 2026 — fair tables (B0; BACKEND-HANDOFF §5,

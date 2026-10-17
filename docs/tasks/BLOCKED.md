@@ -2077,3 +2077,16 @@ Korak je završen; kod radi po konzervativnom izboru iz zagrade. **Deferred, awa
 6. **Ručna RS cena po varijanti** dolazi sa varijantama u K04; obračun po ceni je isti.
 7. **Dva jezika u Standardu** uključuju izvorni srpski (srpski + jedan prevod). Nalog koji izgubi Premium može da ukloni ili preuredi jezike, ali ne i da doda nov dok je iznad limita. Spisak jezika za prevod je radni (`lib/menu/languages.ts`, 27 ISO kodova).
 8. **Pravo na izmenu.** Uključivanje RS-a je `Funkcionalnosti` (Vlasnik, Menadžer). Sadržaj, kategorije i cene RS-a su sadržaj ponude, pa ih menja i Urednik. Jezike menjaju Vlasnik i Menadžer (Podešavanja).
+
+## SCANME MENU V1 — K04 (17. 10. 2026.) — pravila modela artikla koja traže potvrdu vlasnika
+
+Nijedna stavka ne blokira kod: run je izabrao konzervativnu opciju u zagradi i kod radi po njoj. Vlasnik potvrđuje ili menja.
+
+1. **Spisak oznaka** (`lib/menu/tags.ts`): Vegansko, Vegetarijansko, Ljuto, Preporuka, Novo, Specijalitet kuće, Domaće. Zatvoren spisak, bez slobodnih oznaka. Namerno **nema** „Bez glutena" ni „Bez laktoze", jer bi to bila tvrdnja o bezbednosti mimo sistema alergena (master §7.3).
+2. **Nazivi 14 kategorija alergena** (`lib/i18n/sr/menu-domen.ts`) prate Prilog II EU uredbe 1169/2011, koji preuzima srpski pravilnik o deklarisanju. Pravna provera naziva ide zajedno sa proverom radnog teksta upozorenja (master §7.3, P9).
+3. **Alergeni bez podatka.** Ako su obe liste prazne, zapis se briše i artikal je „nepoznato", nikad „ne sadrži ništa". `Drugo` traži kratak opis. Isključivanje alergena za meni ništa ne briše. Uključuje ih svako ko uređuje ponudu (i Urednik), a promena ide kroz `Objavi`.
+4. **Akcija.** Akcijska cena je ceo dinar, najmanje 1 i niža od regularne. Procenat je ceo broj od 1 do 99. Akcija sa unetom cenom ne može uz varijante; procenat važi i za cene varijanti. Premium se traži samo dok je zakazana akcija uključena; isključena akcija sa datumima i ručna akcija rade na Standardu.
+5. **„Preporuka" postoji dvaput:** kao oznaka i kao natpis akcije (master §5.5 i §7.6). Artikal sa oba prikazuje jedan natpis (K13/K14).
+6. **Povezane grupe dodataka.** Grupa koja više nije ni na jednom artiklu ostaje sačuvana i nudi se u izboru „postojeća grupa"; briše se samo izričitim brisanjem. Dodavanje varijante ili grupe sam uključuje prekidač „Varijante" ili „Dodaci" za taj artikal.
+7. **Kombo.** Sastavni artikal mora biti običan artikal (bez komboa u kombou), svaki najviše jednom, sa količinom od 1 do 20. Upozorenje „proveri cenu komboa" nastaje i kad se promeni cena varijante sastavnog artikla ili kad se sastavni artikal obriše. Upozorenje se ne briše samo od sebe: klijent bira „Zadrži cenu" ili unosi novu cenu.
+8. **Validacija za objavu.** Greške su samo tri pravila iz master §5.5 (naziv, sekcija, cena ili varijanta sa cenom). Proveravaju se samo artikli koje gost vidi: sakriven nepotpun artikal ne blokira objavu ostatka menija, a artikal bez ijednog prikaza daje samo upozorenje. Room service kategorija važi kao sekcija.

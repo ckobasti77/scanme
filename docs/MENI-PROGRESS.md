@@ -148,3 +148,105 @@ Noćni run MENI. Plan: `docs/MENI-PLAN.md`. Pravila: `.nocni-run/meni/rules.md`.
 **Za Jovana ujutru:**
 - Izaberi cenu paketa „Kompletan” (predlog 4.290 / 42.900 je proveren). Primena je jedan commit: tri vrednosti u `lib/pricing/constants.ts`, `npm run pricing:golden` i 5 namernih izmena testova po BLOCKED.
 - Pregledaj konzervativne izbore za Room service i jezike u BLOCKED, posebno to da novi RS artikal nije izabran za markup i da Urednik menja RS cene.
+
+## K04 — Model artikla: varijante, dodaci, kombo, akcije, alergeni   (2026-10-17 21:12)
+**Fajlovi:**
+- novi: `convex/menuArticleOptions.ts`, `convex/menuCombos.ts`, `convex/menuPromos.ts`, `convex/menuArticleDetails.ts`, `convex/menuAvailability.ts`, `convex/lib/menuArticleHooks.ts`; `lib/menu/{addons,allergens,tags,promo,combo,publish-validation,deletion}.ts`, `lib/menu/errors/{article,publish}.ts`; testovi `convex/menuArticleOptions.test.ts`, `convex/menuCombos.test.ts`, `convex/menuPromos.test.ts`, `convex/menuArticleDetails.test.ts`, `convex/menuAvailability.test.ts`, `convex/menuRoomServiceVariants.test.ts`, `lib/menu/{addons,allergens,promo,combo,publish-validation}.test.ts`
+- izmenjeni: `convex/schema.ts` (samo dodato: +131 / −0), `convex/lib/menuDomainValidators.ts` (+104 / −0), `convex/lib/menuAccess.ts` (`MenuOwnedTable` + 6 tabela), `convex/menuCatalog.ts` (`setBasePrice` → kombo oznaka; `appendPlacement` i `assertPageActive` izvezeni), `convex/menuRoomService.ts` (ručna RS cena po varijanti), `lib/menu/{keys,limits,audit}.ts`, `lib/i18n/types.ts` i `lib/i18n/sr/menu-domen.ts`, `convex/_generated/api.d.ts` (`npx convex codegen`), `docs/menu/MENU-ARHITEKTURA.md`, `docs/tasks/BLOCKED.md` (sekcija `SCANME MENU V1 — K04`)
+
+**Šta je urađeno:**
+- **Šema (samo proširenje).** `menuArticles` je dobio opciona polja `variantsEnabled`, `addonsEnabled`, `noteEnabled`, `allergens`, `tags`, `promo`, `priceCheck` i `translations`. `translations?` je dodat i na stranice, sekcije i RS kategorije, a `manualVariantPrices?` na RS stavke. `menuServices.settings` ima `allergensEnabled?`. Nove tabele: `menuVariants`, `menuAddonGroups` (sa tačnim `linkCount`), `menuAddonOptions`, `menuArticleAddonGroups`, `menuComboComponents` i `menuAvailability`. Spisak polja i indeksa je u receptu §2.1c.
+- **Varijante, dodaci i napomena** (`menuArticleOptions`). Sve je podrazumevano isključeno, pa običan artikal ostaje `Naziv + Cena`. Varijanta ima sopstvenu cenu. Grupa dodataka dozvoljava jedan ili više izbora, obavezna je ili opciona, a min i max su napredno podešavanje (`lib/menu/addons.ts`). Dodatak ima doplatu ili je besplatan.
+- **Povezana grupa.** Jedna grupa važi na više artikala. Upit `addonGroupUsage` kaže koje artikle pogađa. Svaka izmena grupe ili dodatka bez `onlyForArticleId` važi za sve artikle; sa njim se u istoj transakciji pravi nezavisna kopija za taj artikal i menja se kopija. „Primeni i na druge artikle” je `applyAddonGroupToArticles`.
+- **Kombo** (`menuCombos`). Kombo je poseban artikal od postojećih običnih artikala, sa ručnom cenom. Promena cene sastavnog artikla (osnovne ili varijante) ili njegovo brisanje postavlja `priceCheck` u istoj transakciji (`convex/lib/menuArticleHooks.ts`), a cena komboa ostaje ista. Klijent odlučuje: „Zadrži cenu” (`resolvePriceCheck`) ili nova cena kroz `setBasePrice`, koja briše oznaku.
+- **Akcija** (`menuPromos`, `lib/menu/promo.ts`). Klijent unosi akcijsku cenu ili procenat, a druga vrednost se izvodi (zaokruživanje na dinar, pola naviše). Oznaka je `Akcija` ili `Preporuka`. Ručna akcija je Standard. Zakazana uključena akcija traži Premium kroz capability helper iz K03 (`requireMenuCapability(…, "scheduledPromos")`). Aktivnost i povratak regularne cene računa `promoStateAt(promo, now)` iz vremena; unos ide u beogradskom vremenu (`promoWindowFromBelgradeLocal`).
+- **Alergeni i oznake** (`menuArticleDetails`, `lib/menu/allergens.ts`, `lib/menu/tags.ts`). Ima 14 kategorija sa srpskim nazivima i `Drugo`; `Sadrži` i `Može sadržati tragove` vode se odvojeno. Unose se samo kad lokal uključi alergene, a isključivanje ništa ne briše. Nepopunjen podatak je „nepoznato”, nikad „bezbedno” (`allergenMatch`). Oznake su zatvoren spisak.
+- **Dostupnost i struktura.** `menuAvailability.setAvailability` važi odmah: bez nacrta i van verzije, i radi i kad je uređivanje isključeno. Semantika `Sakrij`, `Ukloni sa ove stranice` i `Obriši artikal` je zapisana u receptu §6. `deleteArticle` radi u dva koraka: prvi poziv vraća pogođene stranice i kombo artikle sa tokenom i ništa ne briše; drugi sa tim tokenom briše artikal i sve njegove redove.
+- **Validacija za objavu** (`lib/menu/publish-validation.ts`). Greške su naziv, sekcija i cena ili varijanta sa cenom; ostalo su upozorenja. Proveravaju se samo artikli koje gost vidi, pa skriven nepotpun artikal ostaje u nacrtu i ne blokira ostatak menija. `articleIssues` daje rezultat za jedan artikal iz nacrta.
+- **Ručna RS cena po varijanti** (K03 ju je odložio u K04). Dodati su `setManualVariantPrice` i `resolveVariantPriceWarning`; `get` vraća i varijante sa cenom, poreklom i upozorenjem.
+
+**ODLUKE:**
+- **Alergeni.** Prekidač je `menuServices.settings.allergensEnabled`, a ne `menuPresentation.allergensEnabled` iz plana, jer `menuPresentation` nastaje tek u K05. K05 zato ne dodaje to polje (recept §2.2). Prekidač ide kroz nacrt i menja ga `menu.edit`, uključujući Urednika, jer je deo ponude.
+- **Validacija i artikal bez sekcije.** Master §5.5 važi za artikle koji se objavljuju. Stroga provera (`validateArticleForPublish`) zato odbija artikal bez naziva, sekcije ili cene. Provera nacrta (`validateDraftForPublish`) je primenjuje samo na artikle koje gost vidi. Skriven artikal ne daje ništa, artikal samo u kombou ne daje ništa, a artikal bez prikaza daje samo upozorenje `article_unplaced` (K01). Room service kategorija važi kao sekcija. Varijanta bez cene, prazna ili nezadovoljiva grupa, neprimenljiva akcija i kombo za proveru su upozorenja.
+- **Bez zapisa = nepoznato.** Prazne liste alergena brišu zapis, pa sistem nikad ne čuva tvrdnju „ne sadrži ništa”. `Drugo` traži opis. Kod u obe liste ostaje samo u „Sadrži”.
+- **Akcija.**
+  - Čuva se samo uneta vrednost, da akcija u procentima prati kasniju promenu cene.
+  - Procenat je ceo broj od 1 do 99; akcijska cena je najmanje 1 i niža od regularne.
+  - Akcija sa cenom nije dozvoljena uz varijante; procenat važi i na cene varijanti.
+  - Premium se traži samo za uključenu zakazanu akciju; isključivanje ga nikad ne traži.
+  - Admin ne zaobilazi Premium (kao u K03).
+- **Kombo.**
+  - Sastavni artikal je samo običan artikal, svaki jednom, količina 1–20.
+  - Oznaka nastaje i pri promeni cene varijante sastavnog artikla i pri brisanju sastavnog artikla; obrisano ime se čuva u oznaci.
+  - Nova cena komboa kroz `setBasePrice` briše oznaku; nema drugog pisca cene.
+  - Varijante na kombou nisu dozvoljene, a dodaci jesu.
+- **Povezane grupe.** Grupa bez ijedne veze ostaje i nudi se kao „postojeća grupa”; briše se samo izričito (`deleteAddonGroup`, audit). Dodavanje varijante ili grupe samo uključuje odgovarajući prekidač. Kopija grupe se broji u granicu od 500 grupa.
+- **Oznake.** Zatvoren spisak bez „Bez glutena” i „Bez laktoze”, jer bi to bila tvrdnja o bezbednosti. „Preporuka” postoji i kao oznaka i kao natpis akcije; renderer prikazuje jedan natpis (K13/K14).
+- **Dostupnost.** Važi samo za artikle, ne za varijante. Osoblje je ne menja u V1 (K01 OTV 4). Ne upisuje se u audit, jer nije osetljiva radnja.
+- **Varijanta bez sopstvene cene** koristi osnovnu cenu. Zato njena ručna RS cena dobija upozorenje i kad se promeni osnovna cena.
+- **Proširenje plana.** `priceCheck` nosi `changedComponentKeys` i `removedComponentNames` umesto `reason`, a `menuAddonGroups.linkCount` je dodat da broj pogođenih artikala ne traži čitanje svih veza.
+- **Prevodi.** Polja `translations?` postoje u šemi, a pisce dodaje K16.
+- **Pitanja za vlasnika** su u `docs/tasks/BLOCKED.md` → `SCANME MENU V1 — K04`: oznake, nazivi alergena, pravila akcije, „Preporuka”, grupe i kombo.
+- **Sajam.** `docs/events/**` je van obima runa. Sajam ne koristi nove tabele ni izmenjene izvoze.
+- **Radnici.** Tri Sonnet radnika su radila na disjunktnim fajlovima: (a) varijante i grupe, (b) kombo i akcije, (c) alergeni, validacija i brisanje. Deljene fajlove i čista pravila (`addons`, `promo`, `combo`, `allergens`, `tags`, hooks) sam pisao pre njih. Dva radnika su uz `npx vitest run` koristila `cd` i `| tail` u istoj komandi. Ništa nije odbijeno i nema drugih komandi.
+
+**Novi paketi:** nema (run ne uvodi pakete)
+
+**Testovi** (278 novih testova u 11 novih fajlova; ukupno 414 fajlova i 5.254 testa, plus 2 stara bench fajla koja se preskaču):
+- `convex/menuArticleOptions.test.ts` (62): običan artikal; varijante (CAS, granica, kombo odbijen); **povezana grupa — izmena za sve** (`addonGroupUsage` vidi sva tri artikla, izmena grupe i dodataka stiže do svih); **povezana grupa — nezavisna kopija** (Kafa dobija svoju grupu sa novim ključevima, Kapućino i Late ostaju isti, tačni `linkCount`; konflikt ili no-op ne pravi kopiju); „Primeni i na druge”; brisanje grupe; `touchDraft` tačno jednom; promena cene varijante → kombo oznaka i RS upozorenje; uloge; tenant.
+- `lib/menu/addons.test.ts` (25): podrazumevane granice, napredni min/max, kontradikcije.
+- `convex/menuCombos.test.ts` (22): **Burger meni 990 → promena cene Burgera i Pomfrita daje `priceCheck`, cena ostaje 990**; „Zadrži cenu”; nova cena briše oznaku; validacija sastava; uloge; tenant.
+- `convex/menuPromos.test.ts` (25): ručna akcija na Standardu; **zakazana akcija samo uz Premium** (plan i pretplata, istekli Premium); neispravne akcije; CAS; uloge; tenant.
+- `lib/menu/promo.test.ts` (24): procenat ↔ cena sa zaokruživanjem; **aktivna akcija po beogradskom vremenu** (leto UTC+2, zima UTC+1, prelaz 25. 10. 2026.).
+- `lib/menu/combo.test.ts` (16): oznaka, provera sastava, zbir.
+- `convex/menuArticleDetails.test.ts` (35): alergeni (isključeni, normalizacija, `Drugo`, prazno = brisanje, CAS); oznake; **brisanje sa spiskom posledica** (prvi poziv bez tokena ništa ne briše i vraća obe stranice i kombo, zastareo token traži novu potvrdu, pravi token briše sve redove i daje kombo oznaku i audit); `articleIssues` (**artikal bez cene ostaje u nacrtu sa greškom `price_missing`**, a sakriven je bez greške); uloge; tenant.
+- `lib/menu/publish-validation.test.ts` (32): **odbijanje bez naziva, sekcije ili cene**; sva upozorenja; nacrt čuva skriven nepotpun artikal.
+- `lib/menu/allergens.test.ts` (18): 14 + `Drugo`; jednakost sa validatorima šeme; srpski tekst za svaki kod; „nepoznato” nikad nije „bezbedno”.
+- `convex/menuAvailability.test.ts` (10): uživo bez promene revizije nacrta; radi uz isključeno uređivanje; uloge; tenant.
+- `convex/menuRoomServiceVariants.test.ts` (9): obračun varijanti, ručna cena (CAS), upozorenje i njegovo rešavanje, Premium, uloge, tenant.
+- Revizija pristupa `tmp/meni/k04-access-audit.mjs`: svih 52 funkcija u K04 modulima i u `menuRoomService` ide kroz `requireMenuAccessToRow` ili `getMenuAccess`, direktno ili kroz lokalni helper koji ih zove. Nijedna ne prima identitet kao argument. Rezultat: AUDIT PASSED.
+
+**Snimci:** nema UI izmena.
+
+**Rezultat provere:**
+- `node .nocni-run/meni/alati/typecheck.mjs`: bez grešaka; `npx tsc --noEmit -p convex/tsconfig.json`: bez grešaka.
+- `npx eslint --ignore-pattern ".nocni-run/**"`: 0 grešaka; ostaju dva stara upozorenja (`components/admin/venue-admin.tsx`, `convex/purchaseLifecycle.test.ts`).
+- `npx vitest run --testTimeout=30000 --hookTimeout=60000`: 414 fajlova i 5.254 testa prolaze; preskočena su 2 stara bench fajla.
+- `npm run harness:namespace`: prošlo.
+- `npm run build`: prošlo. `next-env.d.ts` je vraćen na sadržaj iz HEAD-a (prepisuju ga typegen i build).
+
+**Provera prihvatanja:**
+
+| Stavka | Dokaz | Stanje |
+|---|---|---|
+| Povezana grupa se menja za sve ili kopira za jedan artikal | `menuArticleOptions.test.ts` › „a linked group: change it for ALL linked articles” i „a linked group: an independent copy for ONE article” | ispunjeno |
+| Kombo upozorenje posle promene cene sastavnog artikla, objavljena cena komboa se ne menja | `menuCombos.test.ts` › „Burger meni 990 with Burger 650 and Pomfrit 250: the published price never changes by itself” | ispunjeno |
+| Validacija odbija artikal bez naziva, sekcije ili cene, a nacrt ga čuva | `publish-validation.test.ts` › „without a name, a section and a price” i „the SAME article, hidden, produces no issue at all: the draft keeps it”; `menuArticleDetails.test.ts` › „a shown article without a price is kept in the draft…” | ispunjeno |
+| Provere prolaze; sekcija K04 u progress-u | gore | ispunjeno |
+
+**Za Jovana ujutru:**
+- Pregledaj `docs/tasks/BLOCKED.md` → `SCANME MENU V1 — K04`, posebno spisak oznaka, nazive alergena (pravna provera zajedno sa radnim tekstom upozorenja) i pravila akcije.
+- Recept §2.1c, §5 i §6 opisuje model artikla, kombo, akcije, dostupnost i validaciju; to je ugovor za K05 (objava), K13–K16 (UI) i K21 (porudžbina).
+
+### K04 — dopuna posle provere runnera: `npm run harness:check`   (2026-10-17 21:45)
+**Šta je palo:** posle koraka K04 runner je pustio `harness:check` (21:19–21:24). Dev server harness-a (port 3199) je odgovorio `GET / 200`, a odmah zatim `GET /dev/template-gallery?harness=1 404` sa `Compiling /_not-found/page`. Stranica korpusa nije ni kompajlirana, pa `waitForSelector('[data-case-id]')` čeka 240 s i pada.
+
+**Uzrok (ispitano):**
+- K04 ne dira nijednu rutu, komponentu, `next.config.ts`, `proxy.ts`, `public/**` ni `harness/**`. Izmene su samo u `convex/**`, `lib/menu/**`, `lib/i18n/**` i dokumentima.
+- Ruta `app/dev/template-gallery/page.tsx` postoji i vraća `notFound()` samo kad je `NODE_ENV=production`. Log ne prikazuje upozorenje „non-standard NODE_ENV”, pa to nije uzrok.
+- Build runnera je isti kao u K03 (`K03_build.txt` i `K04_build.txt` se razlikuju samo u trajanju kompajliranja).
+- `next dev` gradi spisak ruta iz snimka watcher-a (`setup-dev-bundler.js`: na svaki `aggregated` događaj prazni `appFiles` i puni ga iz `wp.getTimeInfoEntries()`). Ruta koja još nije u snimku daje 404 bez kompajliranja stranice, upravo kao u logu. Runner je harness pustio odmah posle vitest-a (5.254 testa) i `next build`-a, pod najvećim opterećenjem mašine (`GET /` je trajao 15 s). Harness ne ponavlja zahtev posle 404.
+- Isti tok sam ponovio bez ikakve izmene koda: `npm run harness:check` (21:25), pa `npm run build` + `npm run harness:check` istim redom kao runner (21:30–21:40). Oba puta: `harness:check passed — 177 cases × 2 viewports match the goldens byte-for-byte`.
+
+**ODLUKE:** kod nije menjan, jer pad ne potiče iz K04 izmena i ne ponavlja se. Harness (`harness/**`) i Next konfiguracija su van obima runa, pa ni ponovni pokušaj posle 404 ni isključivanje Turbopack keša za dev nisu dodati. Golden nije regenerisan.
+
+**Rezultat provere (ponovo, 21:30–21:45):**
+- `node .nocni-run/meni/alati/typecheck.mjs`: bez grešaka.
+- `npx eslint --ignore-pattern ".nocni-run/**"`: 0 grešaka (2 stara upozorenja).
+- `npx vitest run --testTimeout=30000 --hookTimeout=60000`: 414 fajlova i 5.254 testa prolaze (2 stara bench fajla se preskaču).
+- `npm run harness:namespace`: prošlo.
+- `npm run build`: prošlo.
+- `npm run harness:check`: prošlo dva puta.
+- Nijedan dev server ni proces nije ostao upaljen (provereno spiskom `node` procesa). `next-env.d.ts` je vraćen na sadržaj iz HEAD-a.
+
+**Za Jovana ujutru:** ako se 404 korpusa ponovi u nekom koraku, to je tranzijentni problem dev servera pod opterećenjem, ne regresija ScanMe Links renderera. Harness bi mogao da ponovi `page.goto` kad korpus odgovori 404, ali je `harness/**` van obima ovog runa.

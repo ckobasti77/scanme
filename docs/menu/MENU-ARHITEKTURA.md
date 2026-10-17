@@ -15,7 +15,7 @@
 | Sekcija | `menuSections` | Grupa na jednoj stranici (master §3.3: nije poseban meni). |
 | Artikal | `menuArticles` | Zajednički identitet i **jedna osnovna cena** u celim dinarima. |
 | Prikaz artikla | `menuPlacements` | Artikal u sekciji stranice: redosled i vidljivost, **nikad cena**. |
-| Kombo | `menuArticles.kind = "combo"` + `menuComboComponents` [K04] | Ručna cena. |
+| Kombo | `menuArticles.kind = "combo"` + `menuComboComponents` [K04 ✓] | Ručna cena; promena cene sastavnog artikla daje `priceCheck`, objavljena cena se ne menja. |
 | Room service | `menuRoomService` + `menuRoomServiceCategories` + `menuRoomServiceItems` [K03 ✓] | Poseban Premium kanal, nije stranica; deli artikle, ima svoj izbor, kategorije, redosled i cenovna pravila. |
 | Pozicija | `menuPositions` [K20] | Sto, soba ili druga tačka. |
 | QR veza | `menuQrLinks` | Kartica → stranica (i pozicija od K20). `cardTargets` se ne proširuje. |
@@ -23,7 +23,7 @@
 Osnovne odluke (K01 §0):
 
 - **A1** — novi domen živi u novim tabelama `menu*`. Stari model (`menus`, `menuGroups`, `menuItems`, `itemVariants`, `itemPairings`, `menuDayparts`) i RFC-004 poručivanje (`orderingConfig`, `serviceRequests`, `staffPins`, …) ostaju netaknuti i rade kao pre (kompatibilnost).
-- **A2** — nacrt su normalizovani redovi (svaka izmena odmah u bazi). Objava je nepromenljiva verzija (`menuVersions` + `menuVersionParts`) [K05]; čuva se 20 verzija; dostupnost je živi sloj (`menuAvailability`) [K04] i nije deo verzije.
+- **A2** — nacrt su normalizovani redovi (svaka izmena odmah u bazi). Objava je nepromenljiva verzija (`menuVersions` + `menuVersionParts`) [K05]; čuva se 20 verzija; dostupnost je živi sloj (`menuAvailability`) [K04 ✓] i nije deo verzije.
 - **A3** — svaki entitet nacrta ima stabilan `key` (`lib/menu/keys.ts`); svaka podtabela nosi `menuServiceId` i indeks koji počinje njime.
 - **A4** — jedan helper pristupa `convex/lib/menuAccess.ts` i jedna matrica `lib/menu/permissions.ts`; identitet nikad iz argumenta.
 - **A10** — prekidači Funkcionalnosti (`menuServices.features`) važe odmah; sadržaj, izgled i jezici idu kroz `Objavi`.
@@ -56,15 +56,41 @@ Ne postoji polje `accountId` na `menuServices`: nalog se uvek čita sa `business
 | `menuRoomServiceCategories` | `menuServiceId`; `key` (`rc_…`); `name`; `order`; `createdAt`; `updatedAt` | `by_menuServiceId_and_order` |
 | `menuRoomServiceItems` | `menuServiceId`; `categoryId`; `articleId` (artikal je u RS-u najviše jednom); `order`; `markupApplies` (važi kad je `markupScope = "selected"`; nov red: `false`); `manualPriceRsd?`; `priceWarning?` {`oldBaseRsd`, `newBaseRsd`: number\|null; `at`}; `createdAt`; `updatedAt` | `by_categoryId_and_order`, `by_articleId`, `by_menuServiceId` |
 
-Čuva se samo ručna RS cena; preuzeta i izračunata cena se uvek izvode iz `menuArticles.basePriceRsd` (`lib/menu/room-service-pricing.ts`). Naziv, opis, slika i alergeni ostaju na artiklu. Uključen/isključen je `menuServices.features.roomService`. Brisanje artikla [K04] mora da obriše i njegov `menuRoomServiceItems` red.
+Čuva se samo ručna RS cena; preuzeta i izračunata cena se uvek izvode iz `menuArticles.basePriceRsd` (`lib/menu/room-service-pricing.ts`). Naziv, opis, slika i alergeni ostaju na artiklu. Uključen/isključen je `menuServices.features.roomService`. Brisanje artikla [K04 ✓] briše i njegov `menuRoomServiceItems` red.
+
+K04 dodaje `menuRoomServiceItems.manualVariantPrices?` (niz {`variantKey`, `priceRsd`, `priceWarning?`}, ≤ 20): ručna RS cena po varijanti, isti redosled obračuna (cena varijante, a bez nje osnovna cena → markup → ručna RS cena varijante) i isto upozorenje kad se promeni cena ispod ručne (sopstvena cena varijante ili osnovna cena za varijantu bez sopstvene).
+
+### 2.1c Model artikla [K04 ✓]
+
+Nova opciona polja na `menuArticles` (sve je podrazumevano isključeno, pa običan artikal ostaje `Naziv + Cena`):
+
+| Polje | Značenje |
+|---|---|
+| `variantsEnabled?`, `addonsEnabled?`, `noteEnabled?` | prekidači varijanti, dodataka i slobodne napomene; isključen prekidač čuva redove |
+| `allergens?` {`contains`: kod[], `mayContain`: kod[], `otherText?`} | 14 kategorija + `other` (`lib/menu/allergens.ts`); **odsustvo = nepoznato, nikad „bezbedno"**; prazna lista se ne čuva (zapis se briše) |
+| `tags?` (kod[]) | oznake i prehrambene karakteristike (`lib/menu/tags.ts`, zatvoren spisak, bez tvrdnji „bez glutena") |
+| `promo?` {`active`, `mode` `"price"\|"percent"`, `priceRsd?` \| `percent?` (ceo 1–99), `label?` `"promo"\|"recommended"`, `startsAt?`, `endsAt?`} | čuva se samo uneta vrednost; druga se izvodi (`lib/menu/promo.ts`); aktivnost se računa iz vremena gde se čita |
+| `priceCheck?` {`since`, `changedComponentKeys`, `removedComponentNames`} | samo kombo: „proveri cenu komboa" (`lib/menu/combo.ts`) |
+| `translations?` | prevodi po jeziku (piše K16); isto polje dobijaju `menuPages`, `menuSections`, `menuRoomServiceCategories`, `menuVariants`, `menuAddonGroups`, `menuAddonOptions` |
+
+`menuServices.settings.allergensEnabled?` — alergeni su opcioni sistem lokala (master §7.3); odsutno ili `false` = isključeno: javni meni ne prikazuje alergene i novi zapisi se ne primaju (postojeći se ne brišu). Ide kroz nacrt. Zato `menuPresentation` [K05] **nema** polje `allergensEnabled`.
+
+| Tabela | Polja | Indeksi |
+|---|---|---|
+| `menuVariants` | `menuServiceId`; `articleId`; `key` (`va_…`); `name`; `priceRsd?` (u nacrtu sme da fali); `order`; `translations?`; `createdAt`; `updatedAt` | `by_articleId_and_order`, `by_menuServiceId` |
+| `menuAddonGroups` (povezana grupa) | `menuServiceId`; `key` (`ag_…`); `name`; `selection` `"single"\|"multiple"`; `required`; `minSelect?`; `maxSelect?` (napredno, `lib/menu/addons.ts`); `linkCount` (tačan broj veza); `translations?`; `createdAt`; `updatedAt`; `updatedByUserId?` | `by_menuServiceId` |
+| `menuAddonOptions` | `menuServiceId`; `groupId`; `key` (`ao_…`); `name`; `priceDeltaRsd` (≥ 0, 0 = besplatno); `order`; `translations?`; `createdAt`; `updatedAt` | `by_groupId_and_order`, `by_menuServiceId` |
+| `menuArticleAddonGroups` | `menuServiceId`; `articleId`; `groupId`; `order`; `createdAt` | `by_articleId_and_order`, `by_groupId`, `by_menuServiceId` |
+| `menuComboComponents` | `menuServiceId`; `comboArticleId`; `componentArticleId` (samo `kind: "item"`); `quantity` (1–20); `order`; `createdAt` | `by_comboArticleId_and_order`, `by_componentArticleId`, `by_menuServiceId` |
+| `menuAvailability` (živo, van nacrta i verzije) | `menuServiceId`; `articleKey`; `since`; `setByUserId?`; `setByRef?` — red postoji samo dok je artikal nedostupan | `by_menuServiceId`, `by_menuServiceId_and_articleKey` |
 
 ### 2.2 Tabele kasnijih koraka (plan iz K01 §3.2; korak ih uvodi i dopunjuje ovaj odeljak)
 
 | Korak | Tabele i polja |
 |---|---|
 | K03 ✓ | tačka 2.1b i `menuServices.settings?.languages`. `markupPercent` iz plana je postao `markupBps` (ceo broj, bez float greške); `manualVariantPrices?` (ručna RS cena po varijanti) dodaje K04 uz varijante. |
-| K04 | `menuArticles` + `allergens?`, `tags?`, `variantsEnabled?`, `addonsEnabled?`, `noteEnabled?`, `promo?`, `priceCheck?`, `translations?`; `translations?` na stranicama, sekcijama i RS kategorijama; `menuVariants`, `menuAddonGroups`, `menuAddonOptions`, `menuArticleAddonGroups`, `menuComboComponents`, `menuAvailability` |
-| K05 | `menuVersions`, `menuVersionParts` (javni delovi po jezik × stranica, interni deo `_all`), `menuPresentation`, `menuEditorPresence`; `menuServices.liveVersionId?`, `liveVersionNumber?`; `menuDraftState.publishedRevision?`, `lock?` |
+| K04 ✓ | tačka 2.1c; `priceCheck` je proširen u odnosu na plan (`changedComponentKeys`, `removedComponentNames` umesto `reason`), `menuAddonGroups.linkCount` je dodat (broj pogođenih artikala bez čitanja svih veza), `menuServices.settings.allergensEnabled` zamenjuje planirano `menuPresentation.allergensEnabled` |
+| K05 | `menuVersions`, `menuVersionParts` (javni delovi po jezik × stranica, interni deo `_all`), `menuPresentation` (bez `allergensEnabled`, vidi 2.1c), `menuEditorPresence`; `menuServices.liveVersionId?`, `liveVersionNumber?`; `menuDraftState.publishedRevision?`, `lock?` |
 | K06 | `menuArticles.legacyPhotoStorageId?`; `menuServices.migration?`; indeks `by_legacyMenuId` |
 | K14 | `menuExchangeRates` |
 | K15 | `menuMediaUploads` |
@@ -104,7 +130,13 @@ Greške su mašinski kodovi (`throw new ConvexError(MENU_ERROR.x)`, `lib/menu/er
 | `convex/menuRoomService.ts` | `get` (q · `menu.read`; radi i na Standardu: `available`, `enabled`, pravila, kategorije sa artiklima, cena i poreklo, upozorenje, `notInRoomService`); `updateSettings` (CAS: `markupPercent` 0–300 sa najviše dve decimale, `markupScope`, `deliveryFeeRsd`; 0 ili null briše); `addCategory`, `renameCategory` (CAS), `moveCategory`, `removeCategory` (samo prazna, inače `room_service/category_not_empty`); `addItems` (≤200, preskače artikle koji su već u RS-u); `importWholeMenu` (jednokratno kopiranje vidljivih sekcija i artikala „Kompletnog menija“); `moveItem`, `removeItem`; `setItemsMarkup` (≤200); `setManualPrice` (CAS; briše upozorenje); `resolvePriceWarning` (`keepManual` \| `recomputeFromMarkup`). Sve izmene: `menu.edit` + Premium (`roomService`), `touchDraft` jednom. Helper `flagRoomServicePriceWarnings` zove `menuCatalog.setBasePrice` u istoj transakciji. | K03 ✓ |
 | `convex/menuSettings.ts` | `languages` (q · `menu.read`; izvorni, prevodi, `maxLanguages`, `tier`); `setLanguages` (m · `settings.edit`; Standard 2 jezika sa izvornim, Premium do 10; iznad limita samo uklanjanje i preuređivanje; `plan/language_limit`; ide kroz nacrt) | K03 ✓ |
 | `convex/menuServices.ts` (dopuna) | `context` vraća i `capabilities`; `setFeature` (m · `features.edit`; prekidači `callWaiter`, `billRequest`, `ordering`, `roomService`, `occupancy` važe odmah; uključivanje RS-a traži Premium, isključivanje nikad; audit `feature.changed`; `reservations` dobija svoj pisac u K25) | K03 ✓ |
-| `convex/menuArticleOptions.ts`, `menuCombos.ts`, `menuArticleDetails.ts`, `menuAvailability.ts` | varijante, dodaci, kombo, alergeni, oznake, akcije, brisanje artikla, živa dostupnost | K04 |
+| `convex/menuArticleOptions.ts` | `setArticleOptionSwitches` (prekidači varijanti, dodataka i napomene); varijante: `addVariant` (sam uključuje varijante; ne za kombo), `updateVariant` (CAS; promena cene zove `onVariantPriceChanged`), `removeVariant`, `moveVariant`; povezane grupe: `createAddonGroup`, `attachAddonGroup` („postojeća grupa"), `detachAddonGroup` (grupa ostaje), `moveArticleAddonGroup`, `applyAddonGroupToArticles` („Primeni i na druge artikle", ≤ 200), `updateAddonGroup` (CAS), `copyAddonGroupForArticle`, `addAddonOption`, `updateAddonOption` (CAS), `removeAddonOption`, `moveAddonOption`, `deleteAddonGroup` (audit) — sve izmene grupe i dodataka primaju `onlyForArticleId?`: bez njega menja se grupa za SVE povezane artikle, sa njim se u istoj transakciji pravi nezavisna kopija za taj artikal i menja kopija; upiti `articleOptions`, `addonGroupUsage` („koje artikle pogađa"), `listAddonGroups`. Sve izmene `menu.edit`, upiti `menu.read`. | K04 ✓ |
+| `convex/menuCombos.ts` | `createCombo` (kombo artikal sa ručnom cenom + prikaz u sekciji + sastavni artikli), `setComboComponents` (cela lista; cena i oznaka se ne diraju), `resolvePriceCheck` („Zadrži cenu"); upiti `comboDetail` (sastav, pojedinačne cene, zbir, oznaka sa imenima), `combosContainingArticle`. Nova cena komboa ide kroz `menuCatalog.setBasePrice`. | K04 ✓ |
+| `convex/menuPromos.ts` | `setPromo` (CAS na celu akciju; `checkPromo`; zakazana uključena akcija traži Premium `scheduledPromos`), `setPromoActive` (ručni prekidač), upit `articlePromo` (regularne i akcijske cene bez sata). | K04 ✓ |
+| `convex/menuArticleDetails.ts` | `setAllergensEnabled` (prekidač usluge, nacrt), `allergenSettings`; `setArticleAllergens` (CAS; samo uz uključene alergene; prazno = zapis se briše; `Drugo` traži opis), `setArticleTags` (CAS); `articleDeletionImpact` + `deleteArticle` (dva koraka sa tokenom; briše prikaze, varijante, veze grupa, sastav komboa, RS red i dostupnost; kombo artikli dobijaju oznaku; audit `article.deleted`); `articleIssues` (validacija za objavu jednog artikla iz nacrta). | K04 ✓ |
+| `convex/menuAvailability.ts` | `setAvailability` (m · `menu.availability`; živo, bez `touchDraft`, ne zavisi od `clientEditingEnabled`), `unavailableArticles` (q · `menu.read`). | K04 ✓ |
+| `convex/menuRoomService.ts` (dopuna) | `setManualVariantPrice` (CAS), `resolveVariantPriceWarning`; `get` vraća i varijante sa cenom, poreklom i upozorenjem. | K04 ✓ |
+| `convex/lib/menuArticleHooks.ts` | `flagCombosForPriceChange`, `detachComponentFromCombos`, `onVariantPriceChanged`, `onVariantRemoved` — posledice u istoj transakciji, bez `touchDraft` (zove ga pozivalac jednom). | K04 ✓ |
 | `convex/menuPublishing.ts`, `menuPresence.ts`, `menuPublic.ts` | objava, verzije, vraćanje, prisustvo, javno čitanje | K05 |
 | `convex/menuMigration.ts` (+ `menuAdmin.importDraftV2`) | interna migracija (internal), zaštita od dvostrukog upisa | K06 |
 | `convex/menuPanel.ts` | shell i Početna, Operativa, ping | K08, K27 |
@@ -161,7 +193,8 @@ Efektivna uloga je **jača** od izvedene i eksplicitne. Postojeća članstva se 
 
 - RSD u celim dinarima je jedini izvor istine (`lib/menu/rsd.ts`: ceo broj 0–1.000.000). Prikaz `1.490 RSD`; EUR je informativan, `~ 12,70 EUR` [K14].
 - Artikal ima **jednu osnovnu cenu** (`menuArticles.basePriceRsd`); sve standardne stranice je koriste. Prikaz (`menuPlacements`) nema polje cene; stranica nema override. Promena cene ide kroz `menuCatalog.setBasePrice` (CAS) i ostaje u nacrtu do objave.
-- Varijante imaju sopstvene cene [K04]. Kombo ima ručnu cenu; promena cene sastavnog artikla postavlja `priceCheck` na kombou i ne menja objavljenu cenu [K04].
+- Varijante [K04 ✓] imaju sopstvene konačne cene; varijanta bez sopstvene cene koristi osnovnu. Dodatak je doplata ≥ 0 (0 = besplatno). Kombo ima ručnu cenu (`basePriceRsd` kombo artikla); promena cene sastavnog artikla (osnovne ili varijante) ili njegovo brisanje postavlja `priceCheck` na kombou u istoj transakciji (`convex/lib/menuArticleHooks.ts`) i ne menja cenu; odluka klijenta je `menuCombos.resolvePriceCheck` („Zadrži cenu") ili nova cena kroz `menuCatalog.setBasePrice`, koja briše oznaku.
+- Akcija [K04 ✓, `lib/menu/promo.ts`]: akcijska cena (samo uz osnovnu cenu i bez varijanti, 1 ≤ cena < regularne) ili procenat (ceo 1–99, važi i za cene varijanti); druga vrednost se izvodi, cena iz procenta se zaokružuje na najbliži dinar, pola naviše (450 − 15 % = 383). Ručno uključivanje je Standard; `startsAt`/`endsAt` (unos u beogradskom vremenu, `promoWindowFromBelgradeLocal`) traže Premium (`scheduledPromos`) dok je akcija uključena. Posle `endsAt` regularna cena se vraća sama: `promoStateAt(promo, now)` računa javni meni i editor, nikad upit ni posao.
 - Room service [K03 ✓, `lib/menu/room-service-pricing.ts`]: osnovna cena → procentualni markup za sve ili izabrane artikle (bazni poeni, celobrojno zaokruženje na najbliži dinar, pola naviše: 450 + 15 % = 518) → ručna RS cena (tačno uneta) → jednokratna naknada na celu porudžbinu (`roomServiceOrderTotal`). Poreklo cene: `inherited` | `computed` | `manual`. Bez ručne cene promena osnovne cene sama menja RS cenu. Sa ručnom cenom `setBasePrice` postavlja `priceWarning`: stara osnovna je cena uz koju je ručna potvrđena, a povratak na nju briše upozorenje. Akcije su `Zadrži ručnu cenu` i `Ponovo izračunaj prema markup-u`. Dodaci nemaju markup (K01 OTV 20).
 - Komercijalne cene usluge (`lib/pricing/**`): **BLOKADA K03**. Menu 1.490 / 14.900 i paket „lokal“ 1.990 / 19.900 uz nepromenjen paket „kompletan“ (3.790 / 37.990) ruše invarijantu 4 za korpe sa svih pet usluga (K01 A9). Zato `DEFAULT_PRICING_CONSTANTS` i golden ostaju isti dok vlasnik ne izabere cenu paketa „kompletan“ (opseg [4.179, 4.424] mesečno, [41.997, 44.492] godišnje). Dokaz i proveren kandidat (4.290 / 42.900) su u `lib/pricing/menu-launch-proposal.test.ts`, a recept za primenu u `docs/tasks/BLOCKED.md` → `SCANME MENU V1 — K03`. Premium 990 / 9.990 je već usklađen. PDV prikaz se ne menja (P9).
 - Capability [K03 ✓]: `lib/menu/capabilities.ts` (`MENU_STANDARD`, `MENU_PREMIUM`, `menuCapabilitiesFor`) je jedina tabela onoga što Premium otključava: `roomService`, `aiTranslations`, `scheduledPromos`, `extraLayouts`, `advancedAnalytics`, `csvExport`, `reducedBranding`; `maxLanguages` je 2 (Standard, sa izvornim) ili 10 (tehnička granica). Convex je čita kroz `convex/lib/menuCapabilities.ts`, a gate-ovi kasnijih koraka zovu `requireMenuCapability`. Gubitak Premium-a ništa ne briše: isključivanje je uvek dozvoljeno, jezici mogu samo da se smanje, a objava [K05] isključuje Premium sadržaj uz upozorenje. `MenuLimits` starog modela se ne menja.
@@ -174,7 +207,9 @@ Efektivna uloga je **jača** od izvedene i eksplicitne. Postojeća članstva se 
 - **Verzija**: `menuVersions` + `menuVersionParts` (javni delovi po jezik × stranica, `_splitter`, `_rs`, ≤ 512 KiB UTF-8 po delu, deljeno po celim stavkama; interni deo `_all` za vraćanje). Javni deo nikad ne nosi skrivene i arhivirane elemente, interne nazive, nepotvrđene AI prevode ni ključeve van stranice.
 - **Čuvanje**: tačno 20 verzija (`pruneVersions` u serijama, cron rezerva).
 - **Vraćanje**: verzija → nacrt; javni meni se ne menja dok se ne objavi. Stranica sa QR vezom se nikad ne briše vraćanjem.
-- **Dostupnost** (`menuAvailability`) i **prekidači** (`menuServices.features`) važe odmah, van verzije.
+- **Dostupnost** (`menuAvailability`, `menuAvailability.setAvailability`, dozvola `menu.availability`, ne zavisi od `clientEditingEnabled`) i **prekidači** (`menuServices.features`) važe odmah, van verzije i bez `touchDraft`.
+- **Sakrij / Ukloni / Obriši** (master §5.6) [K04 ✓]: `Sakrij` = `menuCatalog.setPlacementVisibility` (prikaz na toj stranici ostaje na mestu); `Ukloni sa ove stranice` = `menuCatalog.removePlacement` (artikal ostaje na drugim stranicama i u bazi); `Obriši artikal` = `menuArticleDetails.deleteArticle` u dva koraka: prvi poziv vraća spisak pogođenih stranica i kombo artikala i token, drugi sa istim tokenom briše artikal i sve njegove redove. Sve tri idu u nacrt i uživo tek posle `Objavi`.
+- **Validacija za objavu** [K04 ✓, `lib/menu/publish-validation.ts`, kodovi `lib/menu/errors/publish.ts`]: artikal koji se objavljuje mora imati naziv, sekciju (Room service kategorija važi kao sekcija) i osnovnu cenu ili bar jednu varijantu sa cenom (kombo: ručnu cenu) — to su jedine greške; ostalo su upozorenja. Proveravaju se samo artikli koje gost vidi; skriven nepotpun artikal ostaje u nacrtu i ne blokira objavu ostatka; artikal bez ijednog prikaza daje samo upozorenje `article_unplaced`. Editor čita `menuArticleDetails.articleIssues`; K05 primenjuje `validateDraftForPublish`.
 - **Prisustvo** [K05/K18]: `menuEditorPresence`, jedna pretplata po usluzi, `nowBucket` argument.
 
 ## 7. Granice real-time pretplata
@@ -229,7 +264,7 @@ Komponentni testovi idu u `components/menu/**/*.test.tsx`; testovi u `app/**`, `
 
 | Površina | Sadržaj | Korak |
 |---|---|---|
-| `menu-domen` | naziv podrazumevane stranice, „(kopija)", režimi, uloge, napomena o promeni režima, tekst svakog koda greške (`menu/…`; od K03 i `plan/…`, `room_service/…`) | K02 ✓, K03 ✓ |
+| `menu-domen` | naziv podrazumevane stranice, „(kopija)", režimi, uloge, napomena o promeni režima, tekst svakog koda greške (`menu/…`; od K03 i `plan/…`, `room_service/…`; od K04 `article/…`); K04: nazivi alergena, „Sadrži" / „Može sadržati tragove", radni tekst upozorenja o alergenima (§7.3), oznake, oznake akcije, „Privremeno nedostupno", tekst svakog koda validacije za objavu | K02 ✓, K03 ✓, K04 ✓ |
 | `menu-zajednicko` | primitivi, stanja (prazno, greška, učitavanje) | K07 |
 | `menu-panel` | shell i sekcije klijentskog panela | K08 |
 | `menu-studio` | editor | K10 |
@@ -255,7 +290,7 @@ Dodavanje: interfejs u `lib/i18n/types.ts` (sme da uvozi tipove samo iz fajlova 
 
 - Convex moduli: `menu<Oblast>.ts` (camelCase), validatori u `convex/lib/menu*Validators.ts`, helperi u `convex/lib/menu*.ts`.
 - Tabele: `menu<Množina>`; indeksi `by_<polje>_and_<polje>` po redu polja.
-- Ključevi: `pg_…` (stranica), `sc_…` (sekcija), `ar_…` (artikal), `rc_…` (RS kategorija, K03), 12 znakova Crockford base32; novi tipovi dodaju prefiks u `lib/menu/keys.ts`.
+- Ključevi: `pg_…` (stranica), `sc_…` (sekcija), `ar_…` (artikal), `rc_…` (RS kategorija, K03), `va_…` (varijanta), `ag_…` (grupa dodataka), `ao_…` (dodatak) (K04), 12 znakova Crockford base32; novi tipovi dodaju prefiks u `lib/menu/keys.ts`.
 - Kodovi grešaka: `menu/<snake_case>` (jezgro); drugi domeni `<domen>/<snake_case>` u sopstvenom fajlu.
 - Audit akcije: `<entitet>.<glagol>` u `lib/menu/audit.ts`; u `adminAuditLog` admin radnje dobijaju `menu_<glagol>`.
 - Vrednosti unija na engleskom; sav tekst za korisnika na srpskom (latinica) kroz i18n.

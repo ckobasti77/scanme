@@ -18,6 +18,27 @@ export const MENU_MAX_ROOM_SERVICE_CATEGORIES = 100;
 /** Ids accepted by one Room service bulk call (add articles, markup selection). */
 export const MENU_MAX_ROOM_SERVICE_BATCH = 200;
 
+/** K04 — variants of one article (master §5.7: the guest picks one). */
+export const MENU_MAX_VARIANTS_PER_ARTICLE = 20;
+/** K04 — add-on groups attached to one article. */
+export const MENU_MAX_ADDON_GROUPS_PER_ARTICLE = 10;
+/** K04 — options inside one add-on group. */
+export const MENU_MAX_ADDON_OPTIONS_PER_GROUP = 30;
+/** K04 — add-on groups per Menu service (linked groups are shared, so few are needed). */
+export const MENU_MAX_ADDON_GROUPS = 500;
+/** K04 — articles one call may touch ("Primeni i na druge artikle", the impact list). */
+export const MENU_MAX_ARTICLE_BATCH = 200;
+/** K04 — components of one combo. */
+export const MENU_MAX_COMBO_COMPONENTS = 20;
+/** K04 — quantity of one combo component (e.g. 2 × Pivo). */
+export const MENU_MAX_COMBO_QUANTITY = 20;
+/** K04 — combos re-flagged by one component price change (bounded fan-out). */
+export const MENU_MAX_COMBOS_PER_COMPONENT = 200;
+/** K04 — placements of one article read by the deletion impact (pages × sections). */
+export const MENU_MAX_PLACEMENTS_PER_ARTICLE = 1000;
+/** K04 — tags (oznake) on one article. */
+export const MENU_MAX_TAGS_PER_ARTICLE = 12;
+
 /** Text lengths, in characters after whitespace cleaning. */
 export const MENU_TEXT = {
   pageName: 80,
@@ -29,6 +50,11 @@ export const MENU_TEXT = {
   quantityUnit: 20,
   iconKey: 60,
   roomServiceCategoryName: 80,
+  // K04
+  variantName: 60,
+  addonGroupName: 80,
+  addonOptionName: 60,
+  allergenOtherText: 200,
 } as const;
 
 /** Whole dinars; inclusive upper bound of any single price. */

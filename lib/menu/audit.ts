@@ -14,6 +14,10 @@ export const MENU_AUDIT_ACTIONS = [
   "page.archived",
   /** A Funkcionalnosti switch was turned on or off (K03). */
   "feature.changed",
+  /** A shared article was deleted from every page (K04, master §5.6). */
+  "article.deleted",
+  /** A shared add-on group was deleted from every article it was linked to (K04). */
+  "addon_group.deleted",
 ] as const;
 
 export type MenuAuditAction = (typeof MENU_AUDIT_ACTIONS)[number];

@@ -119,6 +119,10 @@ export const menuServiceSettingsValidator = v.object({
       translations: v.array(v.string()),
     }),
   ),
+  // K04 — master §7.3: allergens are an OPTIONAL system of the venue. Absent
+  // or false = off: no allergen UI in the public menu and no new records
+  // (existing records are kept, never deleted). Content: goes through Objavi.
+  allergensEnabled: v.optional(v.boolean()),
 });
 
 export const menuRoomServiceMarkupScopeValidator = v.union(
@@ -132,4 +136,104 @@ export const menuRoomServicePriceWarningValidator = v.object({
   oldBaseRsd: v.union(v.number(), v.null()),
   newBaseRsd: v.union(v.number(), v.null()),
   at: v.number(),
+});
+
+// -----------------------------------------------------------------------------
+// K04 — the article model: variants, add-on groups, combos, promotions,
+// allergens, tags, translations and live availability (master §5.4–§5.7,
+// §7.3, §7.5–§7.7)
+// -----------------------------------------------------------------------------
+
+// Inline translations of one entity (K01 A3; written by K16). Keys are
+// language codes (lib/menu/languages.ts); the source language is never a
+// key. `*Hash` is the hash of the source text the translation was made from,
+// so the editor can mark a stale translation (§7.7); `suggested` (AI) is never
+// published on its own.
+export const menuTranslationEntryValidator = v.object({
+  name: v.optional(v.string()),
+  description: v.optional(v.string()),
+  publicTitle: v.optional(v.string()),
+  nameHash: v.optional(v.string()),
+  descriptionHash: v.optional(v.string()),
+  titleHash: v.optional(v.string()),
+  status: v.union(v.literal("confirmed"), v.literal("suggested")),
+});
+export const menuTranslationsValidator = v.record(v.string(), menuTranslationEntryValidator);
+
+// lib/menu/allergens.ts MENU_ALLERGEN_CODES (a test keeps the two equal).
+export const menuAllergenCodeValidator = v.union(
+  v.literal("gluten"),
+  v.literal("crustaceans"),
+  v.literal("eggs"),
+  v.literal("fish"),
+  v.literal("peanuts"),
+  v.literal("soybeans"),
+  v.literal("milk"),
+  v.literal("nuts"),
+  v.literal("celery"),
+  v.literal("mustard"),
+  v.literal("sesame"),
+  v.literal("sulphites"),
+  v.literal("lupin"),
+  v.literal("molluscs"),
+  v.literal("other"),
+);
+
+// Absent on the article = UNKNOWN, never "safe" (§7.3). `otherText` describes
+// `other` ("Drugo") and exists only when `other` is listed.
+export const menuArticleAllergensValidator = v.object({
+  contains: v.array(menuAllergenCodeValidator),
+  mayContain: v.array(menuAllergenCodeValidator),
+  otherText: v.optional(v.string()),
+});
+
+// lib/menu/tags.ts MENU_TAG_CODES (a test keeps the two equal).
+export const menuTagCodeValidator = v.union(
+  v.literal("vegan"),
+  v.literal("vegetarian"),
+  v.literal("spicy"),
+  v.literal("recommended"),
+  v.literal("new"),
+  v.literal("house_special"),
+  v.literal("homemade"),
+);
+
+export const menuPromoModeValidator = v.union(v.literal("price"), v.literal("percent"));
+export const menuPromoLabelValidator = v.union(v.literal("promo"), v.literal("recommended"));
+
+// §7.6: a regular price and an optional promo price OR percent; the client
+// enters one and the other is derived (lib/menu/promo.ts). Only the entered
+// value is stored (`priceRsd` for mode "price", whole `percent` 1..99 for mode
+// "percent"), so a percent promo follows a later base-price change. `active`
+// is the manual switch (Standard); `startsAt` / `endsAt` are the Premium
+// schedule. The regular price comes back by itself after `endsAt`: activity
+// is computed from time where the promo is read, never by a job.
+export const menuPromoValidator = v.object({
+  active: v.boolean(),
+  mode: menuPromoModeValidator,
+  priceRsd: v.optional(v.number()),
+  percent: v.optional(v.number()),
+  label: v.optional(menuPromoLabelValidator),
+  startsAt: v.optional(v.number()),
+  endsAt: v.optional(v.number()),
+});
+
+// §5.4: "check the combo price" (lib/menu/combo.ts MenuComboPriceCheck). Set
+// when a component's price changes or a component is deleted; cleared only by
+// the client's decision. Never changes the combo price.
+export const menuComboPriceCheckValidator = v.object({
+  since: v.number(),
+  changedComponentKeys: v.array(v.string()),
+  removedComponentNames: v.array(v.string()),
+});
+
+export const menuAddonSelectionValidator = v.union(v.literal("single"), v.literal("multiple"));
+
+// A manual Room service price of one variant (K03 deferred it to K04). Same
+// warning semantics as the article's manual RS price: the variant price
+// change that made the manual price stale.
+export const menuRoomServiceVariantPriceValidator = v.object({
+  variantKey: v.string(),
+  priceRsd: v.number(),
+  priceWarning: v.optional(menuRoomServicePriceWarningValidator),
 });

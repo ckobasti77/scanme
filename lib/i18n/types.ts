@@ -54,6 +54,10 @@ import type { FairMapKey, FairMapZoneId } from "../fair-map/types";
 import type { MenuErrorCode } from "../menu/errors/core";
 import type { MenuPlanErrorCode } from "../menu/errors/plan";
 import type { RoomServiceErrorCode } from "../menu/errors/room-service";
+import type { ArticleErrorCode } from "../menu/errors/article";
+import type { MenuPublishIssueCode } from "../menu/errors/publish";
+import type { MenuAllergenCode } from "../menu/allergens";
+import type { MenuTagCode } from "../menu/tags";
 
 export type Locale = "sr";
 
@@ -2347,8 +2351,26 @@ export interface MenuDomenDict {
   };
   /** Admin warning before a mode change (master §4.1, §4.2). */
   modeChangeNotice: string;
-  /** Core (K02), plan gate and Room service (K03) error codes. */
-  errors: Record<MenuErrorCode | MenuPlanErrorCode | RoomServiceErrorCode, string>;
+  /** Core (K02), plan gate and Room service (K03), article model (K04) error codes. */
+  errors: Record<
+    MenuErrorCode | MenuPlanErrorCode | RoomServiceErrorCode | ArticleErrorCode,
+    string
+  >;
+  // --- K04: the article model (master §5.4–§5.7, §7.3, §7.6).
+  /** The 14 standard allergen categories and `other` ("Drugo"), master §7.3. */
+  allergens: Record<MenuAllergenCode, string>;
+  /** "Sadrži" and "Može sadržati tragove" are kept apart. */
+  allergenKinds: { contains: string; mayContain: string };
+  /** Working disclaimer of master §7.3 (legal review pending). */
+  allergenDisclaimer: string;
+  /** Tags and dietary characteristics (lib/menu/tags.ts). */
+  tags: Record<MenuTagCode, string>;
+  /** Promotion badges (master §7.6). */
+  promoLabels: { promo: string; recommended: string };
+  /** The live operational state (master §5.6). */
+  unavailable: string;
+  /** Publish-validation issues (lib/menu/errors/publish.ts); errors block, warnings ask. */
+  publishIssues: Record<MenuPublishIssueCode, string>;
 }
 
 export interface MenuAdminDict {
