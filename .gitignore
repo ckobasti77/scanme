@@ -19,3 +19,13 @@ npm-debug.log*
 
 # Logovi nocnog lanca (NightRun.ps1)
 scripts/tasks/logs/
+
+# nocni run meni (logovi i stanje runnera)
+.nocni-run/meni/logs/
+.nocni-run/meni/tmp/
+.nocni-run/meni/state.json
+.nocni-run/meni/state.json.tmp
+.nocni-run/meni/state.bad.json
+.nocni-run/meni/STOP
+.nocni-run/meni/baseline.txt
+.nocni-run/meni/mcp.json
