@@ -17,6 +17,7 @@ import { kljucCene, type AutosaveRed } from "@/lib/menu/studio/autosave-queue";
 import type { MenuPromoPriceContext } from "@/lib/menu/promo";
 import type {
   StudioDetaljArtikla,
+  StudioJezici,
   StudioKontekst,
   StudioRadnje,
   StudioRadniSadrzaj,
@@ -26,6 +27,8 @@ import { Dugme } from "../../zajednicko/dugme";
 import { Kartica } from "../../zajednicko/kartica";
 import { PraznoStanje, UcitavanjeStanje } from "../../zajednicko/stanja";
 import { StatusOznaka } from "../../zajednicko/status-oznaka";
+import { KomboDetalj } from "../kombo/kombo-detalj";
+import { PrevodiArtikla, sazetakPrevoda } from "../prevodi/prevodi-artikla";
 import { AlergeniIOznake } from "./alergeni-i-oznake";
 import { DostupnostIAkcija, stanjeAkcije } from "./dostupnost-i-akcija";
 import { GdeSePrikazuje } from "./gde-se-prikazuje";
@@ -37,7 +40,7 @@ import { VarijanteIDodaci, type VarijantePocetno } from "./varijante-i-dodaci";
 const t = menuStudioSr.artikal;
 const g = t.grupe;
 
-export type GrupaDetalja = "varijante" | "alergeni" | "gde" | "dostupnost";
+export type GrupaDetalja = "varijante" | "alergeni" | "gde" | "dostupnost" | "prevodi";
 
 /** What the izlog opens the detail with (`fokus=artikal`, `fokus=varijante`). */
 export type DetaljPocetno = {
@@ -52,7 +55,7 @@ function mnozina(grupa: { one: string; few: string; many: string }, n: number) {
 }
 
 /** The one-line summaries of the collapsed groups (a closed group still says what is in it). */
-export function sazeciGrupa(detalj: StudioDetaljArtikla, nedostupan: boolean, sada: number): Record<GrupaDetalja, string> {
+export function sazeciGrupa(detalj: StudioDetaljArtikla, nedostupan: boolean, sada: number): Record<Exclude<GrupaDetalja, "prevodi">, string> {
   const varijante = [
     detalj.ukljuceno.varijante ? mnozina(g.varijante, detalj.varijante.length) : null,
     detalj.ukljuceno.dodaci ? mnozina(g.dodaci, detalj.grupe.length) : null,
@@ -95,6 +98,8 @@ export function DetaljArtikla({
   sada,
   onNazad,
   najavi,
+  jezici,
+  podesavanjaHref = null,
 }: {
   /** undefined = loading, null = the article no longer exists. */
   detalj: StudioDetaljArtikla | null | undefined;
@@ -112,6 +117,9 @@ export function DetaljArtikla({
   sada: number;
   onNazad: () => void;
   najavi: (tekst: string) => void;
+  /** K16: the menu's languages (the "Prevodi" group); undefined = not loaded yet. */
+  jezici?: StudioJezici;
+  podesavanjaHref?: string | null;
 }) {
   const [otvorene, setOtvorene] = useState<ReadonlySet<GrupaDetalja>>(() => new Set(pocetno?.otvoreneGrupe ?? []));
   const prebaci = (grupa: GrupaDetalja) => (otvoreno: boolean) =>
@@ -207,6 +215,19 @@ export function DetaljArtikla({
         izvor={izvor ? { prikazId: izvor.prikazId, sekcijaId: izvor.sekcijaId } : null}
         nazivStranice={sadrzaj.stranica.naziv}
       />
+      {artikal.vrsta === "combo" && detalj.kombo ? (
+        <KomboDetalj
+          artikal={artikal}
+          kombo={detalj.kombo}
+          cena={cena}
+          radnje={radnje}
+          mozeUredjivanje={mozeUredjivanje}
+          najavi={najavi}
+          onNovaCena={() =>
+            document.querySelector<HTMLInputElement>(`[data-detalj-artikla="${CSS.escape(artikal.key)}"] input[data-cena-polje]`)?.focus()
+          }
+        />
+      ) : null}
       <PrikazMedija detalj={detalj} red={red} radnje={radnje} mozeUredjivanje={mozeUredjivanje} najavi={najavi} />
 
       <SklopivaGrupa
@@ -251,6 +272,25 @@ export function DetaljArtikla({
           pocetnoOtvorena={pocetno?.akcijaOtvorena}
         />
       </SklopivaGrupa>
+      {jezici && detalj.prevodi && (jezici.prevodi.length > 0 || jezici.vanLimita.length > 0) ? (
+        <SklopivaGrupa
+          id={`${naslovId}-prevodi`}
+          naslov={menuStudioSr.posebno.prevodi.naslov}
+          sazetak={sazetakPrevoda(detalj.prevodi, jezici)}
+          otvoreno={otvorene.has("prevodi")}
+          onOtvoreno={prebaci("prevodi")}
+        >
+          <PrevodiArtikla
+            stavke={detalj.prevodi}
+            jezici={jezici}
+            radnje={radnje}
+            red={red}
+            mozeUredjivanje={mozeUredjivanje}
+            najavi={najavi}
+            podesavanjaHref={podesavanjaHref ?? undefined}
+          />
+        </SklopivaGrupa>
+      ) : null}
     </article>
   );
 }

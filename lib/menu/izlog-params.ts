@@ -203,8 +203,15 @@ export type EditorStanje = (typeof EDITOR_STANJA)[number];
 export const EDITOR_POGLEDI = ["struktura", "uredi", "pregled"] as const;
 export type EditorPogled = (typeof EDITOR_POGLEDI)[number];
 
-/** K15: the article detail open (`artikal`: image and allergens; `varijante`: variants and a linked group with its impact). */
-export const EDITOR_FOKUSI = ["artikal", "varijante"] as const;
+/**
+ * K15: the article detail open (`artikal`: image and allergens; `varijante`: variants and a linked group with its impact).
+ * K16: `kombo` (a combo with "Proveri cenu"), `prevodi` (the translations view: missing, stale and an AI suggestion),
+ * `room-service` (the Room service context: rules, the three price origins and the price decision dialog open).
+ */
+export const EDITOR_FOKUSI = ["artikal", "varijante", "kombo", "prevodi", "room-service"] as const;
+
+/** K16: these show Premium features; without `plan` they open on Premium, `plan=standard` shows the locks. */
+const PREMIUM_FOKUSI: readonly EditorFokus[] = ["prevodi", "room-service"];
 export type EditorFokus = (typeof EDITOR_FOKUSI)[number];
 
 export type EditorPreviewParams = {
@@ -221,22 +228,23 @@ export type EditorPreviewParams = {
   plan: (typeof PANEL_PLANOVI)[number];
   /** K10: `editor=stari` shows the legacy editor (legacy menus still use it). */
   stariEditor: boolean;
-  /** K15: `fokus=artikal|varijante` opens the article detail; null = the list. */
+  /** K15: `fokus=artikal|varijante` opens the article detail; K16 adds `kombo|prevodi|room-service`; null = the list. */
   fokus: EditorFokus | null;
 };
 
 export function parseEditorPreview(params: IzlogSearchParams): EditorPreviewParams {
   const empty = firstParam(params.state) === "empty";
   const stanje = pickOptional(params.stanje, EDITOR_STANJA) ?? (empty ? "prazno" : null);
+  const fokus = pickOptional(params.fokus, EDITOR_FOKUSI);
   return {
     tema: parseTema(params.tema),
     empty: empty || stanje === "prazno",
     darkDesign: firstParam(params.design) === "dark",
     stanje,
     pogled: pickOptional(params.pogled, EDITOR_POGLEDI),
-    plan: pickParam(params.plan, PANEL_PLANOVI, "standard"),
+    plan: pickParam(params.plan, PANEL_PLANOVI, fokus && PREMIUM_FOKUSI.includes(fokus) ? "premium" : "standard"),
     stariEditor: firstParam(params.editor) === "stari",
-    fokus: pickOptional(params.fokus, EDITOR_FOKUSI),
+    fokus,
   };
 }
 

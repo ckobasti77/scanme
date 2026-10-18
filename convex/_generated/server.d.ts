@@ -35,6 +35,8 @@ type Env = {
   readonly FAIR_GATEWAY_SECRET: string | undefined;
   readonly FAIR_LEADS_ENABLED: string | undefined;
   readonly FAIR_PUBLIC_BASE_URL: string | undefined;
+  readonly MENU_AI_TRANSLATE_KEY: string | undefined;
+  readonly MENU_AI_TRANSLATE_MODEL: string | undefined;
   readonly MENU_FX_ENABLED: string | undefined;
   readonly MENU_FX_URL: string | undefined;
   readonly RESEND_API_KEY: string | undefined;

@@ -59,6 +59,16 @@ export type SnapshotTranslationEntry = {
   descriptionHash?: string;
   titleHash?: string;
   status: "confirmed" | "suggested";
+  /** K16: a pending AI suggestion (internal part only; never published). */
+  suggestion?: {
+    name?: string;
+    description?: string;
+    publicTitle?: string;
+    nameHash?: string;
+    descriptionHash?: string;
+    titleHash?: string;
+    at: number;
+  };
 };
 export type SnapshotTranslations = Record<string, SnapshotTranslationEntry> | null;
 

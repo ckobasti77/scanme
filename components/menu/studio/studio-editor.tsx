@@ -14,15 +14,15 @@
 // the selection survive, and `Nazad` returns to the same scroll position with
 // the focus on the row.
 
-import { BedDouble, ChevronDown, Palette } from "lucide-react";
-import { useCallback, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { ChevronDown, Palette } from "lucide-react";
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { fmt } from "@/lib/i18n/format";
 import { menuDomenSr } from "@/lib/i18n/sr/menu-domen";
 import { menuStudioSr } from "@/lib/i18n/sr/menu-studio";
 import type { MenuDesign } from "@/lib/design-engine/menu-tokens";
 import { kljucCene } from "@/lib/menu/studio/autosave-queue";
 import { javniPregled } from "@/lib/menu/studio/javni-pregled";
-import type { StudioPodaci, StudioRadnje, StudioRadniSadrzaj, StudioRed } from "@/lib/menu/studio/model";
+import type { StudioPodaci, StudioRadnje, StudioRadniSadrzaj, StudioRed, StudioRsUpozorenje } from "@/lib/menu/studio/model";
 import { sadrzajSaCekanjem } from "@/lib/menu/studio/overlay";
 import { cn } from "@/lib/utils";
 import { useMinutniSat } from "../javni/use-minutni-sat";
@@ -35,6 +35,9 @@ import { NoviKombo } from "./kombo/novi-kombo";
 import { ObjavaDijalog } from "./objava/objava-dijalog";
 import { PonudaRadniProstor, type PonudaPocetno, type PonudaRadnje } from "./ponuda/radni-prostor";
 import { PregledNacrta, type StudioUredjaj } from "./pregled/pregled-nacrta";
+import { PrevodiStranice } from "./prevodi/prevodi-stranice";
+import { RsKontekst } from "./room-service/rs-kontekst";
+import { RsUpozorenjeDijalog } from "./room-service/rs-upozorenje-dijalog";
 import { Segmenti } from "./shell/segmenti";
 import { useSirina } from "./shell/use-sirina";
 import { StudioZaglavlje, type StudioTab } from "./shell/zaglavlje";
@@ -46,6 +49,9 @@ const t = menuStudioSr;
 
 export type StudioPano = "struktura" | "uredi" | "pregled";
 
+/** K16: which views need data from the container (Room service, translations). */
+export type StudioPogled = { roomService: boolean; prevodi: "stranica" | "room-service" | null };
+
 export type StudioPocetno = {
   tab?: StudioTab;
   pano?: StudioPano;
@@ -56,11 +62,17 @@ export type StudioPocetno = {
   ponuda?: PonudaPocetno;
   /** K15: the open detail (izlog `fokus=artikal|varijante`) and the row it is shown from. */
   detalj?: DetaljPocetno & { izvorPrikaz?: string };
+  /** K16: the Room service context open (`?kontekst=room-service`, izlog `fokus=room-service`). */
+  roomService?: boolean;
+  /** K16: the translations view open (izlog `fokus=prevodi`). */
+  prevodi?: "stranica" | "room-service";
+  /** K16: the Room service price decision open (izlog `fokus=room-service`). */
+  rsUpozorenje?: StudioRsUpozorenje;
 };
 
 export function StudioEditor({
   podaci,
-  radnje,
+  radnje: radnjeSpolja,
   izabranaStranica,
   onIzaberiStranicu,
   pocetno = {},
@@ -68,6 +80,8 @@ export function StudioEditor({
   otvorenArtikal = null,
   onOtvoriArtikal,
   sada,
+  onPogled,
+  podesavanjaHref = null,
 }: {
   podaci: StudioPodaci;
   radnje: StudioRadnje;
@@ -83,6 +97,10 @@ export function StudioEditor({
   onOtvoriArtikal?: (artikalKey: string | null) => void;
   /** K15: a fixed instant (the izlog); without it the editor follows the clock by the minute. */
   sada?: number;
+  /** K16: the container subscribes to Room service and translations only while they are open. */
+  onPogled?: (pogled: StudioPogled) => void;
+  /** K16: where languages are managed (Podešavanja); null = no link. */
+  podesavanjaHref?: string | null;
 }) {
   const { kontekst, stranice, status, nedostupni } = podaci;
   const sirina = useSirina();
@@ -102,7 +120,14 @@ export function StudioEditor({
   const [strukturaOtvorena, setStrukturaOtvorena] = useState(pocetno.preklop === "struktura");
   const [pregledOtvoren, setPregledOtvoren] = useState(pocetno.preklop === "pregled");
   const [uredjaj, setUredjaj] = useState<StudioUredjaj>("telefon");
-  const [roomService, setRoomService] = useState(false);
+  const [roomService, setRoomService] = useState(Boolean(pocetno.roomService) && kontekst.roomService);
+  // K16: the translations view takes the work area; it belongs to the open page or to Room service.
+  const [prevodi, setPrevodi] = useState<"stranica" | "room-service" | null>(pocetno.prevodi ?? null);
+  const [rsUpozorenje, setRsUpozorenje] = useState<StudioRsUpozorenje | null>(pocetno.rsUpozorenje ?? null);
+  const prevodiNaslovId = useId();
+  useEffect(() => {
+    onPogled?.({ roomService, prevodi });
+  }, [onPogled, roomService, prevodi]);
   const [tabela, setTabela] = useState(pocetno.tabela ?? false);
   const [kombo, setKombo] = useState(false);
   const [objava, setObjava] = useState(false);
@@ -126,6 +151,33 @@ export function StudioEditor({
   const javni = useMemo(
     () => (sadrzaj ? javniPregled({ naziv: kontekst.lokal, slug: kontekst.slug }, sadrzaj, nedostupni) : null),
     [sadrzaj, kontekst.lokal, kontekst.slug, nedostupni],
+  );
+
+  // K16: a base price saved under a MANUAL Room service price asks at once (master §5.3) —
+  // wherever the price was typed (row, detail). The name comes from what the editor shows.
+  const naziviArtikala = useRef<(artikalId: string) => string | null>(() => null);
+  useLayoutEffect(() => {
+    naziviArtikala.current = (artikalId) => {
+      if (podaci.detalj?.artikal.id === artikalId) return podaci.detalj.artikal.naziv;
+      for (const sekcija of sadrzaj?.sekcije ?? []) {
+        for (const r of sekcija.redovi) if (r.artikal.id === artikalId) return r.artikal.naziv;
+      }
+      return null;
+    };
+  }, [podaci.detalj, sadrzaj]);
+  const radnje = useMemo<StudioRadnje>(
+    () => ({
+      ...radnjeSpolja,
+      postaviCenu: async (artikalId, ocekivana, nova) => {
+        const ishod = await radnjeSpolja.postaviCenu(artikalId, ocekivana, nova);
+        if (ishod.ok && ishod.vrednost) {
+          const upozorenje = ishod.vrednost;
+          setRsUpozorenje({ ...upozorenje, naziv: upozorenje.naziv || (naziviArtikala.current(artikalId) ?? "") });
+        }
+        return ishod;
+      },
+    }),
+    [radnjeSpolja],
   );
 
   const mozeUredjivanje = kontekst.mozeUredjivanje;
@@ -154,6 +206,7 @@ export function StudioEditor({
       dodajPostojeci: (sekcijaId, artikalId) => red.prati(() => radnje.dodajPostojeci(sekcijaId, artikalId)),
       otvoriTabelu: () => setTabela(true),
       otvoriKombo: () => setKombo(true),
+      otvoriPrevode: podaci.jezici && podaci.jezici.prevodi.length > 0 ? () => setPrevodi("stranica") : undefined,
       // K11: order, states and group actions. Writes are tracked by the save status; reads are not.
       premestiPrikaz: (prikazId, uSekciju, prePrikaza) => red.prati(() => radnje.premestiPrikaz(prikazId, uSekciju, prePrikaza)),
       premestiSekciju: (sekcijaId, naIndeks) => red.prati(() => radnje.premestiSekciju(sekcijaId, naIndeks)),
@@ -167,7 +220,7 @@ export function StudioEditor({
       uticajBrisanja: (artikalIds) => radnje.uticajBrisanja(artikalIds),
       obrisiArtikle: (artikalIds, token) => red.prati(() => radnje.obrisiArtikle(artikalIds, token)),
     }),
-    [red, radnje, onCena, aktivnaStranica],
+    [red, radnje, onCena, aktivnaStranica, podaci.jezici],
   );
   const druge = useMemo(
     () => (stranice ?? []).filter((s) => !s.arhivirana && s.id !== aktivnaStranica).map((s) => ({ id: s.id, naziv: s.naziv })),
@@ -253,6 +306,7 @@ export function StudioEditor({
     povratak.current = null;
     if (otvorenArtikal) onOtvoriArtikal?.(null);
     setRoomService(false);
+    setPrevodi(null);
     setTab("ponuda");
     setStrukturaOtvorena(false);
     if (sirina === "telefon") setPano("uredi");
@@ -270,6 +324,8 @@ export function StudioEditor({
       radnje={straniceRadnje}
       onIzaberi={izaberiStranicu}
       onRoomService={() => {
+        if (otvorenArtikal) onOtvoriArtikal?.(null);
+        setPrevodi(null);
         setRoomService(true);
         setTab("ponuda");
         setStrukturaOtvorena(false);
@@ -280,6 +336,7 @@ export function StudioEditor({
     <UcitavanjeStanje oblik="lista" redova={3} />
   );
 
+  const nazivStraniceRada = sadrzaj?.stranica.naziv ?? "";
   let rad: ReactNode;
   if (tab === "izgled") {
     rad = (
@@ -290,14 +347,34 @@ export function StudioEditor({
         <PraznoStanje ikonica={Palette} naslov={t.izgled.naslov} opis={t.izgled.opis} />
       </Kartica>
     );
-  } else if (roomService) {
+  } else if (prevodi !== null && podaci.jezici) {
     rad = (
-      <Kartica>
-        <h1 id={naslovId} className="sr-only">
-          {t.stranice.roomService}
-        </h1>
-        <PraznoStanje ikonica={BedDouble} naslov={t.stranice.roomService} opis={t.stranice.roomServiceUskoro} />
-      </Kartica>
+      <PrevodiStranice
+        pogled={podaci.prevodi}
+        jezici={podaci.jezici}
+        radnje={radnje}
+        red={red}
+        mozeUredjivanje={mozeUredjivanje}
+        naslovId={prevodiNaslovId}
+        nazadNa={prevodi === "room-service" ? t.stranice.roomService : nazivStraniceRada}
+        onNazad={() => setPrevodi(null)}
+        najavi={setNajava}
+        podesavanjaHref={podesavanjaHref ?? undefined}
+      />
+    );
+  } else if (roomService && kontekst.roomService) {
+    rad = (
+      <RsKontekst
+        rs={podaci.roomServicePodaci}
+        radnje={radnje}
+        red={red}
+        mozeUredjivanje={mozeUredjivanje}
+        naslovId={naslovId}
+        telefon={sirina === "telefon"}
+        najavi={setNajava}
+        onUpozorenje={setRsUpozorenje}
+        onPrevodi={podaci.jezici && podaci.jezici.prevodi.length > 0 ? () => setPrevodi("room-service") : undefined}
+      />
     );
   } else if (sadrzaj === undefined) {
     rad = <UcitavanjeStanje oblik="lista" redova={6} />;
@@ -348,6 +425,8 @@ export function StudioEditor({
             sada={sadaSat}
             onNazad={zatvoriArtikal}
             najavi={setNajava}
+            jezici={podaci.jezici}
+            podesavanjaHref={podesavanjaHref}
           />
         </>
       );
@@ -408,6 +487,12 @@ export function StudioEditor({
         podrazumevanaSekcija={sekcijeZaUnos[0]?.id ?? null}
         onDodaj={(sekcijaId, unos) => red.prati(() => radnje.noviKombo(sekcijaId, unos))}
       />
+      <RsUpozorenjeDijalog
+        upozorenje={rsUpozorenje}
+        onZatvori={() => setRsUpozorenje(null)}
+        onResi={(stavkaId, akcija) => red.prati(() => radnje.rsResiUpozorenje(stavkaId, akcija))}
+        najavi={setNajava}
+      />
       <ObjavaDijalog
         otvoreno={objava}
         onOtvoreno={setObjava}
@@ -466,7 +551,7 @@ export function StudioEditor({
         {samoCitanje}
         <div id={panelId} role="tabpanel" aria-labelledby={`studio-pano-${vidljivPano}`} data-pano={vidljivPano}>
           {vidljivPano === "uredi" ? null : (
-            <h1 className="sr-only">{roomService ? t.stranice.roomService : tab === "izgled" ? t.izgled.naslov : nazivStranice}</h1>
+            <h1 className="sr-only">{prevodi !== null ? t.posebno.prevodi.naslov : roomService ? t.stranice.roomService : tab === "izgled" ? t.izgled.naslov : nazivStranice}</h1>
           )}
           {vidljivPano === "struktura" ? struktura : vidljivPano === "pregled" ? pregled("pano") : rad}
         </div>

@@ -9,6 +9,11 @@
 //   ?design=dark                 TASK-51, the dark design of the preview
 //   ?pogled=struktura|uredi|pregled   the pane, drawer or overlay open (snapshots)
 //   ?plan=standard|premium       Premium switches Room service on
+//   ?fokus=artikal|varijante     K15: the article detail
+//   ?fokus=kombo|prevodi|room-service   K16: a combo with "Proveri cenu", the
+//                                translations view, the Room service context with the
+//                                price decision open (prevodi and room-service open on
+//                                Premium unless &plan=standard shows the locks)
 //   ?editor=stari                the legacy editor (legacy menus still use it)
 //   ?tema=svetla|tamna           the app theme (K07)
 

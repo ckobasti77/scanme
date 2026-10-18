@@ -6,11 +6,12 @@
 // recipe §7: the service context, the page column, ONE page's content, the
 // draft status and the live availability — nothing per article.
 
-import { useConvex, useConvexAuth, useConvexConnectionState, useMutation, useQuery } from "convex/react";
+import { useAction, useConvex, useConvexAuth, useConvexConnectionState, useMutation, useQuery } from "convex/react";
 import { useMemo } from "react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { menuImageType } from "@/lib/menu/image-validation";
+import type { MenuTranslations } from "@/lib/menu/translation-status";
 import type {
   StudioAlergeni,
   StudioBrisanjeRezultat,
@@ -18,8 +19,11 @@ import type {
   StudioCeneRezultat,
   StudioIshod,
   StudioKontekst,
+  StudioJezici,
   StudioPodaci,
   StudioPregledObjave,
+  StudioPrevodiPogled,
+  StudioRoomService,
   StudioRadnje,
   StudioRadniSadrzaj,
   StudioStatusNacrta,
@@ -28,6 +32,7 @@ import type {
   StudioUticajArtikla,
   StudioUticajBrisanja,
 } from "@/lib/menu/studio/model";
+import type { StudioPogled } from "../studio-editor";
 import { izGreske, izvrsi } from "./ishod";
 import { obradiNaServeru, posaljiOriginal } from "./otpremanje";
 
@@ -38,6 +43,10 @@ type Prikaz = Id<"menuPlacements">;
 type Varijanta = Id<"menuVariants">;
 type Grupa = Id<"menuAddonGroups">;
 type Opcija = Id<"menuAddonOptions">;
+type RsKategorija = Id<"menuRoomServiceCategories">;
+type RsStavka = Id<"menuRoomServiceItems">;
+
+const BEZ_POGLEDA: StudioPogled = { roomService: false, prevodi: null };
 
 const NEMA: StudioIshod<never> = { ok: false, vrsta: "greska", kod: "menu/not_found", ponovljivo: false };
 
@@ -92,6 +101,8 @@ export function useStudioVeza(
   izbor: { id: string | null; key: string | null },
   /** K15: the key of the article whose detail is open (null = none). */
   otvorenArtikal: string | null = null,
+  /** K16: Room service and the translations view are subscribed only while open. */
+  pogled: StudioPogled = BEZ_POGLEDA,
 ): StudioVeza {
   const { isLoading } = useConvexAuth();
   const convex = useConvex();
@@ -113,6 +124,18 @@ export function useStudioVeza(
     api.menuStudio.articleDetail,
     menuServiceId && otvorenArtikal ? { menuServiceId, articleKey: otvorenArtikal } : "skip",
   );
+
+  // K16: languages (always; small), the open translations view and Room service (only while open).
+  const jezici = useQuery(api.menuTranslations.status, menuServiceId ? { menuServiceId } : "skip");
+  const prevodi = useQuery(
+    api.menuTranslations.view,
+    menuServiceId && pogled.prevodi === "room-service"
+      ? { menuServiceId, scope: { kind: "roomService" as const } }
+      : menuServiceId && pogled.prevodi === "stranica" && pageId
+        ? { menuServiceId, scope: { kind: "page" as const, pageId } }
+        : "skip",
+  );
+  const roomService = useQuery(api.menuRoomService.get, menuServiceId && pogled.roomService ? { menuServiceId } : "skip");
 
   const addPage = useMutation(api.menuPages.add);
   const renamePage = useMutation(api.menuPages.rename);
@@ -159,6 +182,26 @@ export function useStudioVeza(
   const setAllergens = useMutation(api.menuArticleDetails.setArticleAllergens);
   const setTags = useMutation(api.menuArticleDetails.setArticleTags);
   const setPromo = useMutation(api.menuPromos.setPromo);
+  // K16
+  const setComponents = useMutation(api.menuCombos.setComboComponents);
+  const resolvePriceCheck = useMutation(api.menuCombos.resolvePriceCheck);
+  const setTranslation = useMutation(api.menuTranslations.setTranslation);
+  const confirmSuggestion = useMutation(api.menuTranslations.confirmSuggestion);
+  const dropSuggestion = useMutation(api.menuTranslations.dropSuggestion);
+  const markReviewed = useMutation(api.menuTranslations.markReviewed);
+  const suggest = useAction(api.menuTranslations.suggest);
+  const rsSettings = useMutation(api.menuRoomService.updateSettings);
+  const rsAddCategory = useMutation(api.menuRoomService.addCategory);
+  const rsRenameCategory = useMutation(api.menuRoomService.renameCategory);
+  const rsMoveCategory = useMutation(api.menuRoomService.moveCategory);
+  const rsRemoveCategory = useMutation(api.menuRoomService.removeCategory);
+  const rsImport = useMutation(api.menuRoomService.importWholeMenu);
+  const rsAddItems = useMutation(api.menuRoomService.addItems);
+  const rsRemoveItem = useMutation(api.menuRoomService.removeItem);
+  const rsMoveItem = useMutation(api.menuRoomService.moveItem);
+  const rsMarkup = useMutation(api.menuRoomService.setItemsMarkup);
+  const rsManual = useMutation(api.menuRoomService.setManualPrice);
+  const rsResolve = useMutation(api.menuRoomService.resolvePriceWarning);
 
 
   const radnje = useMemo<StudioRadnje | null>(() => {
@@ -241,7 +284,20 @@ export function useStudioVeza(
       postaviCenu: (artikalId, ocekivana, nova) =>
         izvrsi(
           () => setBasePrice({ articleId: artikalId as Artikal, expectedPriceRsd: ocekivana, priceRsd: nova }),
-          () => null,
+          (r) => {
+            // K16: the article has a manual Room service price: the editor asks at once.
+            const w = "roomServiceWarning" in r ? (r.roomServiceWarning ?? null) : null;
+            return w
+              ? {
+                  stavkaId: w.itemId,
+                  naziv: "",
+                  staraOsnovna: w.oldBaseRsd,
+                  novaOsnovna: w.newBaseRsd,
+                  rsCena: w.roomServicePriceRsd,
+                  izracunata: w.recomputedPriceRsd,
+                }
+              : null;
+          },
           "basePriceRsd",
           nova,
         ),
@@ -552,7 +608,7 @@ export function useStudioVeza(
         try {
           const r = await convex.query(api.menuStudio.searchArticles, { menuServiceId, query: upit });
           if (!r) return NEMA;
-          return { ok: true, vrednost: r.map((a) => ({ artikalId: a.articleId, naziv: a.name, cena: a.basePriceRsd })) };
+          return { ok: true, vrednost: r.map((a) => ({ artikalId: a.articleId, naziv: a.name, cena: a.basePriceRsd, vrsta: a.kind })) };
         } catch (error) {
           return izGreske(error);
         }
@@ -589,6 +645,77 @@ export function useStudioVeza(
           return izGreske(error);
         }
       },
+      // K16 — combos (menuCombos).
+      postaviSastav: (komboId, sastojci) =>
+        izvrsi(
+          () =>
+            setComponents({
+              comboArticleId: komboId as Artikal,
+              components: sastojci.map((s) => ({ articleId: s.artikalId as Artikal, quantity: s.kolicina })),
+            }),
+          () => null,
+        ),
+      zadrziCenuKomboa: (komboId) => izvrsi(() => resolvePriceCheck({ comboArticleId: komboId as Artikal }), () => null),
+      // K16 — translations (menuTranslations). Typed text is confirmed at once; the AI suggestion is only stored.
+      prevedi: (cilj, jezik, polje, ocekivano, vrednost) =>
+        izvrsi(
+          () => setTranslation({ kind: cilj.vrsta, id: cilj.id, lang: jezik, field: polje, expected: ocekivano, value: vrednost }),
+          () => null,
+          "translation",
+          vrednost,
+        ),
+      predloziPrevod: (cilj, jezik) => izvrsi(() => suggest({ kind: cilj.vrsta, id: cilj.id, lang: jezik }), (r) => ({ polja: r.fields })),
+      potvrdiPredlog: (cilj, jezik, izmene) =>
+        izvrsi(() => confirmSuggestion({ kind: cilj.vrsta, id: cilj.id, lang: jezik, edited: izmene }), () => null),
+      odbaciPredlog: (cilj, jezik) => izvrsi(() => dropSuggestion({ kind: cilj.vrsta, id: cilj.id, lang: jezik }), () => null),
+      prevodJeDobar: (cilj, jezik) => izvrsi(() => markReviewed({ kind: cilj.vrsta, id: cilj.id, lang: jezik }), () => null),
+      // K16 — Room service (menuRoomService; Premium).
+      rsPravila: (ocekivano, izmena) => {
+        const polja = (p: typeof izmena) => ({
+          ...(p.uvecanje !== undefined ? { markupPercent: p.uvecanje } : {}),
+          ...(p.obuhvat !== undefined ? { markupScope: p.obuhvat } : {}),
+          ...(p.naknada !== undefined ? { deliveryFeeRsd: p.naknada } : {}),
+        });
+        const kljucevi = Object.keys(izmena) as (keyof typeof izmena)[];
+        const ocekivanoSamo = Object.fromEntries(kljucevi.map((k) => [k, ocekivano[k] ?? null])) as typeof izmena;
+        return izvrsi(() => rsSettings({ menuServiceId, expected: polja(ocekivanoSamo), patch: polja(izmena) }), () => null);
+      },
+      rsDodajKategoriju: (naziv) => izvrsi(() => rsAddCategory({ menuServiceId, name: naziv }), (r) => ({ id: r.categoryId })),
+      rsPreimenujKategoriju: (id, naziv, ocekivano) =>
+        izvrsi(() => rsRenameCategory({ categoryId: id as RsKategorija, name: naziv, expectedName: ocekivano }), () => null, "name", naziv),
+      rsPremestiKategoriju: (id, naIndeks) => izvrsi(() => rsMoveCategory({ categoryId: id as RsKategorija, toIndex: naIndeks }), () => null),
+      rsObrisiKategoriju: (id) => izvrsi(() => rsRemoveCategory({ categoryId: id as RsKategorija }), () => null),
+      rsPreuzmiCeoMeni: () =>
+        izvrsi(
+          () => rsImport({ menuServiceId }),
+          (r) => ({ kategorija: r.categoriesCreated, artikala: r.itemsAdded, vecU: r.alreadyIn }),
+        ),
+      rsDodajArtikle: (kategorijaId, artikalIds) =>
+        izvrsi(
+          () => rsAddItems({ categoryId: kategorijaId as RsKategorija, articleIds: artikalIds as Artikal[] }),
+          (r) => ({ dodato: r.added, vecU: r.alreadyIn }),
+        ),
+      rsUkloni: (stavkaId) => izvrsi(() => rsRemoveItem({ itemId: stavkaId as RsStavka }), () => null),
+      rsPremestiStavku: (stavkaId, uKategoriju, preStavke) =>
+        izvrsi(
+          () =>
+            rsMoveItem({
+              itemId: stavkaId as RsStavka,
+              toCategoryId: uKategoriju as RsKategorija,
+              ...(preStavke ? { beforeItemId: preStavke as RsStavka } : {}),
+            }),
+          () => null,
+        ),
+      rsUvecanje: (stavkaIds, primeni) =>
+        izvrsi(() => rsMarkup({ menuServiceId, itemIds: stavkaIds as RsStavka[], markupApplies: primeni }), () => null),
+      rsRucnaCena: (stavkaId, ocekivana, nova) =>
+        izvrsi(
+          () => rsManual({ itemId: stavkaId as RsStavka, expectedManualPriceRsd: ocekivana, manualPriceRsd: nova }),
+          () => null,
+          "manualPriceRsd",
+          nova,
+        ),
+      rsResiUpozorenje: (stavkaId, akcija) => izvrsi(() => rsResolve({ itemId: stavkaId as RsStavka, action: akcija }), () => null),
     };
   }, [
     menuServiceId,
@@ -636,6 +763,25 @@ export function useStudioVeza(
     setAllergens,
     setTags,
     setPromo,
+    setComponents,
+    resolvePriceCheck,
+    setTranslation,
+    confirmSuggestion,
+    dropSuggestion,
+    markReviewed,
+    suggest,
+    rsSettings,
+    rsAddCategory,
+    rsRenameCategory,
+    rsMoveCategory,
+    rsRemoveCategory,
+    rsImport,
+    rsAddItems,
+    rsRemoveItem,
+    rsMoveItem,
+    rsMarkup,
+    rsManual,
+    rsResolve,
   ]);
 
   const kontekstEditora = useMemo<StudioKontekst | null>(() => {
@@ -754,6 +900,36 @@ export function useStudioVeza(
       alergeni: a.allergens ? { sadrzi: a.allergens.contains, tragovi: a.allergens.mayContain, drugo: a.allergens.otherText } : null,
       oznake: a.tags,
       akcija: a.promo,
+      kombo: detalj.combo
+        ? {
+            sastojci: detalj.combo.components.map((c) => ({ artikalId: c.articleId, key: c.key, naziv: c.name, kolicina: c.quantity, cena: c.unitPriceRsd })),
+            proveri: detalj.combo.priceCheck
+              ? { od: detalj.combo.priceCheck.since, promenjeni: detalj.combo.priceCheck.changedNames, uklonjeni: detalj.combo.priceCheck.removedNames }
+              : null,
+          }
+        : null,
+      prevodi: [
+        {
+          vrsta: "article" as const,
+          id: a.articleId,
+          key: a.key,
+          izvor: { name: a.name, description: a.description },
+          prevodi: (a.translations ?? null) as MenuTranslations | null,
+          grupa: { vrsta: "sekcija" as const, naziv: null },
+          pripada: null,
+        },
+        ...(a.variantsEnabled
+          ? detalj.variants.map((v) => ({
+              vrsta: "variant" as const,
+              id: v.variantId,
+              key: v.key,
+              izvor: { name: v.name },
+              prevodi: (v.translations ?? null) as MenuTranslations | null,
+              grupa: { vrsta: "sekcija" as const, naziv: null },
+              pripada: a.name,
+            }))
+          : []),
+      ],
       prikazi: detalj.placements.map((p) => ({
         prikazId: p.placementId,
         stranicaId: p.pageId,
@@ -766,6 +942,70 @@ export function useStudioVeza(
       })),
     };
   }, [detalj]);
+
+  const jeziciEditora = useMemo<StudioJezici | undefined>(
+    () =>
+      jezici
+        ? {
+            izvorni: jezici.source,
+            prevodi: jezici.translations,
+            vanLimita: jezici.overLimit,
+            max: jezici.maxLanguages,
+            ai: { dostupno: jezici.ai.available, razlog: jezici.ai.reason === "key" ? "kljuc" : jezici.ai.reason },
+          }
+        : undefined,
+    [jezici],
+  );
+
+  const prevodiEditora = useMemo<StudioPrevodiPogled | null | undefined>(() => {
+    if (!prevodi) return prevodi;
+    return {
+      obuhvat: pogled.prevodi === "room-service" ? "room-service" : "stranica",
+      naslov: prevodi.title ?? "",
+      stavke: prevodi.items.map((item) => ({ ...item, prevodi: item.prevodi as MenuTranslations | null })),
+      skraceno: prevodi.truncated,
+    };
+  }, [prevodi, pogled.prevodi]);
+
+  const roomServiceEditora = useMemo<StudioRoomService | null | undefined>(() => {
+    if (!roomService) return roomService;
+    return {
+      pravila: {
+        uvecanje: roomService.settings.markupPercent,
+        obuhvat: roomService.settings.markupScope,
+        naknada: roomService.settings.deliveryFeeRsd,
+      },
+      kategorije: roomService.categories.map((k) => ({
+        id: k.categoryId,
+        key: k.key,
+        naziv: k.name,
+        redovi: k.items.map((item) => ({
+          stavkaId: item.itemId,
+          artikalId: item.article.articleId,
+          artikalKey: item.article.key,
+          naziv: item.article.name,
+          osnovna: item.basePriceRsd,
+          uvecanje: item.markupApplies,
+          rucna: item.manualPriceRsd,
+          cena: item.priceRsd,
+          poreklo: item.origin,
+          upozorenje: item.warning
+            ? {
+                stavkaId: item.itemId,
+                naziv: item.article.name,
+                staraOsnovna: item.warning.oldBaseRsd,
+                novaOsnovna: item.warning.newBaseRsd,
+                rsCena: item.warning.roomServicePriceRsd,
+                izracunata: item.warning.recomputedPriceRsd,
+              }
+            : null,
+          varijante: item.variants.map((v) => ({ key: v.key, naziv: v.name, cena: v.priceRsd, poreklo: v.origin })),
+        })),
+      })),
+      vanRs: roomService.notInRoomService,
+      skraceno: roomService.truncated,
+    };
+  }, [roomService]);
 
   const nedostupniSet = useMemo(() => new Set(nedostupni?.map((row) => row.articleKey) ?? []), [nedostupni]);
 
@@ -783,6 +1023,9 @@ export function useStudioVeza(
       nedostupni: nedostupniSet,
       povezano: !veza.hasEverConnected || veza.isWebSocketConnected,
       detalj: otvorenArtikal ? detaljEditora : undefined,
+      jezici: jeziciEditora,
+      prevodi: pogled.prevodi ? prevodiEditora : undefined,
+      roomServicePodaci: pogled.roomService ? roomServiceEditora : undefined,
     },
   };
 }

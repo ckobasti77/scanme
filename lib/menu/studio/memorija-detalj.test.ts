@@ -1073,7 +1073,7 @@ describe("traziArtikle", () => {
     const korak = traziArtikle(s, "cevapi");
     const nadjeni = vrednost(korak);
     expect(nadjeni.map((k) => k.naziv)).toContain("Ćevapi");
-    expect(nadjeni.find((k) => k.naziv === "Ćevapi")).toEqual({ artikalId: artikal(s, "Ćevapi").key, naziv: "Ćevapi", cena: null });
+    expect(nadjeni.find((k) => k.naziv === "Ćevapi")).toEqual({ artikalId: artikal(s, "Ćevapi").key, naziv: "Ćevapi", cena: null, vrsta: "item" });
     expect(vrednost(traziArtikle(s, "ĆEVAPI")).map((k) => k.naziv)).toContain("Ćevapi");
     expect(vrednost(traziArtikle(s, "  cevapi ")).map((k) => k.naziv)).toContain("Ćevapi");
     nistaNijeUpisano(korak, s);

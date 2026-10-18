@@ -72,6 +72,12 @@ export const menuDomenSr = {
     "media/unreadable": "Ova slika ne može da se pročita. Sačuvajte je ponovo kao JPG ili PNG i pokušajte opet.",
     "media/disabled": "Otpremanje slika trenutno ne radi. Javite se ScanMe timu.",
     "media/invalid_secret": "Otpremanje slika trenutno ne radi. Javite se ScanMe timu.",
+    // K16 — translations and the AI suggestion (lib/menu/errors/translation.ts).
+    "translation/language_off": "Ovaj jezik nije uključen za meni. Jezike menjate u Podešavanjima.",
+    "translation/ai_disabled": "Predlog prevoda trenutno nije dostupan. Prevod možete upisati sami.",
+    "translation/ai_failed": "Predlog prevoda nije stigao. Pokušajte ponovo ili upišite prevod sami.",
+    "translation/source_changed": "Izvorni tekst je u međuvremenu promenjen. Zatražite predlog ponovo.",
+    "translation/nothing_to_translate": "Nema teksta za prevod: polja na srpskom su prazna.",
   },
   allergens: {
     gluten: "Žitarice koje sadrže gluten",

@@ -157,6 +157,20 @@ export const menuTranslationEntryValidator = v.object({
   descriptionHash: v.optional(v.string()),
   titleHash: v.optional(v.string()),
   status: v.union(v.literal("confirmed"), v.literal("suggested")),
+  // K16: a pending AI suggestion lives NEXT TO the confirmed text, so asking
+  // for one never un-publishes a confirmed translation; "suggested" status =
+  // the entry holds only a suggestion (lib/menu/translation-status.ts).
+  suggestion: v.optional(
+    v.object({
+      name: v.optional(v.string()),
+      description: v.optional(v.string()),
+      publicTitle: v.optional(v.string()),
+      nameHash: v.optional(v.string()),
+      descriptionHash: v.optional(v.string()),
+      titleHash: v.optional(v.string()),
+      at: v.number(),
+    }),
+  ),
 });
 export const menuTranslationsValidator = v.record(v.string(), menuTranslationEntryValidator);
 

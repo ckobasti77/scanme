@@ -143,6 +143,8 @@ describe("menuStudio.articleDetail", () => {
       allergens: null,
       tags: [],
       promo: null,
+      // K16: the article's translations (null = none yet).
+      translations: null,
     });
     expect(result.image).toBeNull();
     expect(result.allergensEnabled).toBe(false);
@@ -326,7 +328,7 @@ describe("menuStudio.searchArticles", () => {
     const { t, w, cevapi } = await setup();
     for (const query of ["cevapi", "ĆEVAPI", "Ćevapi", "  cevap  ", "vapi"]) {
       expect(await search(t, w.editorId, w.a.menuServiceId, query)).toEqual([
-        { articleId: cevapi.articleId, key: cevapi.key, name: "Ćevapi", basePriceRsd: 650 },
+        { articleId: cevapi.articleId, key: cevapi.key, name: "Ćevapi", basePriceRsd: 650, kind: "item" },
       ]);
     }
   });
@@ -339,7 +341,7 @@ describe("menuStudio.searchArticles", () => {
     });
     if (quick.status !== "created") throw new Error("not created");
     expect(await search(t, w.ownerId, w.a.menuServiceId, "dnevna")).toEqual([
-      { articleId: quick.articleId, key: quick.key, name: "Dnevna ponuda", basePriceRsd: null },
+      { articleId: quick.articleId, key: quick.key, name: "Dnevna ponuda", basePriceRsd: null, kind: "item" },
     ]);
     expect(await search(t, w.ownerId, w.a.menuServiceId, "nema takvog")).toEqual([]);
   });

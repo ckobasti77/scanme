@@ -1,5 +1,6 @@
 import type { MenuStudioDict } from "../types";
 import { menuStudioArtikalSr } from "./menu-studio-artikal";
+import { menuStudioPosebnoSr } from "./menu-studio-posebno";
 
 // ScanMe Menu V1 — the editor (K10; master §13.4, §5.3, §6.1). Sentences
 // address the client with "Vi"; buttons are short verbs. Error codes come
@@ -527,4 +528,6 @@ export const menuStudioSr = {
   },
   // K15 — the article detail (menu-studio-artikal.ts).
   artikal: menuStudioArtikalSr,
+  // K16 — combo, translations, Room service (menu-studio-posebno.ts).
+  posebno: menuStudioPosebnoSr,
 } as const satisfies MenuStudioDict;

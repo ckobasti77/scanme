@@ -2193,3 +2193,14 @@ Nijedna stavka ne blokira kod: run je izabrao konzervativnu opciju i kod radi po
 6. **Stare fotografije iz migracije** (`menuArticles.legacyPhotoStorageId`, K06) nisu pretvorene u nove slike; to traži interni posao uz obradu kroz istu rutu.
 7. **`Privremeno nedostupno` u detalju ne traži potvrdu** (meni reda je traži jednom po sesiji): u detalju je kontrola označena „Uživo” sa rečenicom „Važi odmah za goste, bez objave.”, a izbor su dugmad, ne radio polja.
 8. **Uklanjanje poslednjeg mesta artikla** („Gde se prikazuje”) je dozvoljeno uz upozorenje da ga gosti posle toga ne vide; artikal ostaje u meniju i objava ga prijavljuje kao upozorenje.
+
+## SCANME MENU V1 — K16 (18. 10. 2026.) — editor: kombo, prevodi, Room service kontekst
+
+Nijedna stavka ne blokira kod: run je izabrao konzervativnu opciju i kod radi po njoj. Vlasnik potvrđuje ili menja.
+
+1. **Provajder i trošak AI predloga prevoda.** Predlog ide na Anthropic Messages API (model `claude-opus-5-5`, menja se sa `MENU_AI_TRANSLATE_MODEL`), samo uz `MENU_AI_TRANSLATE_KEY` na Convex deployment-u. Bez ključa predlog je isključen i editor to kaže. Izbor provajdera, modela, budžeta i ograničenja broja predloga (npr. po satu po lokalu) je odluka vlasnika; run nije uveo ograničenje.
+2. **Predlog se pravi za jednu stavku i jedan jezik** (dugme po stavci). Nema „prevedi sve odjednom”, jer bi to bio veći i nepredvidiv trošak.
+3. **Kad lokal izgubi Premium**, jezici iznad Standard limita (2) se ne objavljuju i ne mogu se uređivati; njihovi prevodi ostaju sačuvani. Na Standardu predlog koji je već čekao i dalje može da se potvrdi ili odbaci (ne pravi se novi).
+4. **Ručna Room service cena po varijanti** se prikazuje (cena i poreklo po varijanti), ali je editor još ne menja; backend je ima od K04.
+5. **Grupna promena cena** (`Izaberi više → Promeni cene`) postavlja upozorenje Room service-a za artikle sa ručnom cenom, ali ne otvara dijalog; odluka je u Room service-u (traka „N cena traži odluku”).
+6. **Prevodi kategorija Room service-a** su u istom pogledu prevoda (⋯ u Room service-u); prevodi naziva stranica važe samo za naslov stranice za goste (`publicTitle`), ne za interni naziv.

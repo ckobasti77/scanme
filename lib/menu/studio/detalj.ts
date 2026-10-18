@@ -7,7 +7,8 @@
 
 import type { MenuDraftSnapshot } from "../snapshot";
 import { prikazId, artikalIzSnapshota } from "./iz-snapshota";
-import type { StudioDetaljArtikla, StudioGrupaDodataka, StudioPrikazArtikla } from "./model";
+import type { StudioDetaljArtikla, StudioGrupaDodataka, StudioKombo, StudioPrikazArtikla } from "./model";
+import { stavkeArtikla } from "./prevodi";
 
 const poRedu = <T extends { order: number; key?: string }>(a: T, b: T) =>
   a.order - b.order || ((a.key ?? "") < (b.key ?? "") ? -1 : 1);
@@ -90,5 +91,33 @@ export function detaljIzSnapshota(
     oznake: [...(article.tags ?? [])],
     akcija: article.promo,
     prikazi: prikaziArtikla(snapshot, article.key),
+    kombo: article.kind === "combo" ? komboIzSnapshota(snapshot, article.key) : null,
+    prevodi: stavkeArtikla(snapshot, article.key, { vrsta: "sekcija", naziv: null }),
+  };
+}
+
+/** K16: a combo's components (current names and regular prices) and its "Proveri cenu". */
+export function komboIzSnapshota(snapshot: MenuDraftSnapshot, komboKey: string): StudioKombo | null {
+  const combo = snapshot.articles.find((candidate) => candidate.key === komboKey);
+  if (!combo || combo.kind !== "combo") return null;
+  const articles = new Map(snapshot.articles.map((article) => [article.key, article]));
+  return {
+    sastojci: snapshot.comboComponents
+      .filter((row) => row.comboKey === komboKey)
+      .sort((a, b) => a.order - b.order)
+      .flatMap((row) => {
+        const part = articles.get(row.componentKey);
+        return part ? [{ artikalId: part.key, key: part.key, naziv: part.name, kolicina: row.quantity, cena: part.basePriceRsd }] : [];
+      }),
+    proveri: combo.priceCheck
+      ? {
+          od: combo.priceCheck.since,
+          promenjeni: combo.priceCheck.changedComponentKeys.flatMap((key) => {
+            const part = articles.get(key);
+            return part ? [part.name] : [];
+          }),
+          uklonjeni: [...combo.priceCheck.removedComponentNames],
+        }
+      : null,
   };
 }

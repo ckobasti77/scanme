@@ -538,7 +538,7 @@ export function traziArtikle(stanje: MemorijaStanje, upit: string): MemorijaKora
     .filter((article) => normalizeArticleName(article.name).includes(trazi))
     .sort((a, b) => (foldSerbian(a.name) < foldSerbian(b.name) ? -1 : 1))
     .slice(0, 50)
-    .map((article) => ({ artikalId: article.key, naziv: article.name, cena: article.basePriceRsd }));
+    .map((article) => ({ artikalId: article.key, naziv: article.name, cena: article.basePriceRsd, vrsta: article.kind }));
   return { stanje, ishod: { ok: true, vrednost: nadjeni } };
 }
 

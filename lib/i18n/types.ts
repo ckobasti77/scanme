@@ -58,6 +58,7 @@ import type { ArticleErrorCode } from "../menu/errors/article";
 import type { MenuPublishIssueCode } from "../menu/errors/publish";
 import type { MenuPublishRefusal, MenuVersionErrorCode } from "../menu/errors/versions";
 import type { MenuMediaErrorCode } from "../menu/errors/media";
+import type { TranslationErrorCode } from "../menu/errors/translation";
 import type {
   MenuMigrationErrorCode,
   MenuMigrationIssueCode,
@@ -2368,7 +2369,8 @@ export interface MenuDomenDict {
     | ArticleErrorCode
     | MenuVersionErrorCode
     | MenuMigrationErrorCode
-    | MenuMediaErrorCode,
+    | MenuMediaErrorCode
+    | TranslationErrorCode,
     string
   >;
   // --- K04: the article model (master §5.4–§5.7, §7.3, §7.6).
@@ -7496,6 +7498,281 @@ export interface MenuStudioArtikalDict {
   };
 }
 
+// ScanMe Menu V1 (K16) — the editor: combo, translations, Room service.
+export interface MenuStudioPosebnoDict {
+  kombo: {
+    naslov: string;
+    opis: string;
+    artikal: string;
+    kolicina: string;
+    redovnaCena: string;
+    kolicinaOznaka: string;
+    zbir: string;
+    zbirNepotpun: string;
+    usteda: string;
+    skuplje: string;
+    isto: string;
+    samoInfo: string;
+    izmeni: string;
+    sacuvaj: string;
+    otkazi: string;
+    ukloni: string;
+    dodajNaslov: string;
+    pretraga: string;
+    pretragaPomoc: string;
+    nemaRezultata: string;
+    dodaj: string;
+    vecU: string;
+    bezCene: string;
+    greske: {
+      prazno: string;
+      previse: string;
+      kolicina: string;
+      ponavljanje: string;
+    };
+    sacuvano: string;
+    proveriNaslov: string;
+    proveriOpis: string;
+    promenjeni: string;
+    uklonjeni: string;
+    zadrzi: string;
+    novaCena: string;
+    zadrzano: string;
+  };
+  prevodi: {
+    naslov: string;
+    naslovStranice: string;
+    naslovRs: string;
+    otvori: string;
+    otvoriOpis: string;
+    nazad: string;
+    opis: string;
+    nacrt: string;
+    nemaJezikaNaslov: string;
+    nemaJezikaOpis: string;
+    podesavanja: string;
+    jezik: string;
+    izvor: string;
+    jezici: {
+      sr: string;
+      en: string;
+      de: string;
+      fr: string;
+      it: string;
+      es: string;
+      pt: string;
+      nl: string;
+      ru: string;
+      uk: string;
+      pl: string;
+      cs: string;
+      sk: string;
+      hu: string;
+      ro: string;
+      bg: string;
+      el: string;
+      tr: string;
+      sl: string;
+      hr: string;
+      bs: string;
+      mk: string;
+      sq: string;
+      zh: string;
+      ja: string;
+      ko: string;
+      ar: string;
+      he: string;
+    };
+    polja: {
+      name: string;
+      description: string;
+      publicTitle: string;
+    };
+    vrste: {
+      page: string;
+      section: string;
+      article: string;
+      variant: string;
+      addonGroup: string;
+      addonOption: string;
+      roomServiceCategory: string;
+    };
+    grupe: {
+      stranica: string;
+      dodaci: string;
+      roomService: string;
+    };
+    statusi: {
+      missing: string;
+      stale: string;
+      suggested: string;
+      done: string;
+    };
+    statusOpis: {
+      missing: string;
+      stale: string;
+      suggested: string;
+      done: string;
+    };
+    sazetak: {
+      missing: string;
+      stale: string;
+      suggested: string;
+      done: string;
+    };
+    filter: {
+      oznaka: string;
+      treba: string;
+      sve: string;
+    };
+    sveGotovo: string;
+    prikaziJos: string;
+    skraceno: string;
+    poljeOznaka: string;
+    pripada: string;
+    jeDobar: string;
+    bezIzvora: string;
+    detaljSazetak: string;
+    nemaJezika: string;
+    ai: {
+      predlozi: string;
+      radi: string;
+      predlogNaslov: string;
+      predlogOpis: string;
+      potvrdi: string;
+      odbaci: string;
+      premium: string;
+      kljuc: string;
+      stigao: string;
+      potvrdjeno: string;
+      odbaceno: string;
+    };
+    limit: {
+      standard: string;
+      premium: string;
+      vanLimita: string;
+    };
+  };
+  roomService: {
+    naslov: string;
+    opis: string;
+    nacrt: string;
+    legenda: string;
+    dostava: string;
+    pravila: {
+      naslov: string;
+      uvecanje: string;
+      uvecanjePomoc: string;
+      obuhvat: string;
+      obuhvatSve: string;
+      obuhvatIzabrane: string;
+      naknada: string;
+      naknadaPomoc: string;
+      sacuvaj: string;
+      sacuvano: string;
+      sazetakUvecanje: string;
+      sazetakBezUvecanja: string;
+      sazetakNaknada: string;
+      sazetakBezNaknade: string;
+      obuhvatSveKratko: string;
+      obuhvatIzabraneKratko: string;
+      greskaProcenat: string;
+      greskaNaknada: string;
+    };
+    radnje: {
+      preuzmi: string;
+      preuzmiOpis: string;
+      dodaj: string;
+      kategorija: string;
+      prevodi: string;
+      jos: string;
+    };
+    preuzeto: string;
+    vanRs: MenuStudioMnozina;
+    skraceno: string;
+    praznoNaslov: string;
+    praznoOpis: string;
+    kategorija: {
+      nova: string;
+      primer: string;
+      dodaj: string;
+      radnje: string;
+      preimenuj: string;
+      nazivOznaka: string;
+      sacuvaj: string;
+      otkazi: string;
+      gore: string;
+      dole: string;
+      obrisi: string;
+      prazna: string;
+      dodajOvde: string;
+      broj: MenuStudioMnozina;
+    };
+    poreklo: {
+      inherited: string;
+      computed: string;
+      manual: string;
+      inheritedOpis: string;
+      computedOpis: string;
+      manualOpis: string;
+    };
+    red: {
+      osnovna: string;
+      rs: string;
+      rsCenaOznaka: string;
+      rucnaPomoc: string;
+      uvecanjeOznaka: string;
+      uvecanje: string;
+      uvecanjeRucna: string;
+      vratiNaPravilo: string;
+      radnje: string;
+      gore: string;
+      dole: string;
+      uKategoriju: string;
+      ukloni: string;
+      ukloniOpis: string;
+      bezCene: string;
+      varijante: string;
+      upozorenje: string;
+      odluci: string;
+    };
+    upozorenja: MenuStudioMnozina;
+    pregledaj: string;
+    dijalog: {
+      naslov: string;
+      opis: string;
+      stara: string;
+      nova: string;
+      rs: string;
+      izracunata: string;
+      zadrzi: string;
+      izracunaj: string;
+      kasnije: string;
+      posledicaZadrzi: string;
+      posledicaIzracunaj: string;
+      kasnijeOpis: string;
+      zadrzano: string;
+      izracunato: string;
+      bezCene: string;
+    };
+    dodajDijalog: {
+      naslov: string;
+      opis: string;
+      kategorija: string;
+      pretraga: string;
+      pomoc: string;
+      nema: string;
+      vecU: string;
+      izabrano: MenuStudioMnozina;
+      dodaj: string;
+      ukloniIzbor: string;
+      otkazi: string;
+      bezKategorije: string;
+      dodato: string;
+    };
+  };
+}
+
 export interface MenuStudioDict {
   meta: {
     naslov: string;
@@ -7922,6 +8199,8 @@ export interface MenuStudioDict {
   };
   // K15 — the article detail.
   artikal: MenuStudioArtikalDict;
+  // K16 — combo, translations, Room service.
+  posebno: MenuStudioPosebnoDict;
 }
 
 // ScanMe Menu V1 (MENI run, K13) — the public menu a guest reads (master §7).

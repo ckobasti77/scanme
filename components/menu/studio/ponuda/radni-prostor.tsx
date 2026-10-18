@@ -15,7 +15,7 @@
 // K15: a click on a card (or "Uredi artikal") opens the article detail.
 // Every result is announced (aria-live) and shown in one line above the list.
 
-import { FilePlus2, LayoutList, ListChecks, ListPlus, MoreHorizontal, Package, Plus, Rows3, Search, X } from "lucide-react";
+import { FilePlus2, Languages, LayoutList, ListChecks, ListPlus, MoreHorizontal, Package, Plus, Rows3, Search, X } from "lucide-react";
 import { useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { fmt, srPluralCategory } from "@/lib/i18n/format";
 import { menuStudioSr } from "@/lib/i18n/sr/menu-studio";
@@ -89,6 +89,8 @@ export type PonudaRadnje = RedRadnje &
     dodajPostojeci: (sekcijaId: string, artikalId: string) => Promise<StudioIshod>;
     otvoriTabelu: () => void;
     otvoriKombo: () => void;
+    /** K16: the translations of this page (only when the menu has translation languages). */
+    otvoriPrevode?: () => void;
   };
 
 /** What the izlog opens with (`stanje=izaberi-vise`). */
@@ -423,10 +425,15 @@ export function PonudaRadniProstor({
             {sadrzaj.stranica.podrazumevana ? t.stranice.podrazumevana : t.ponuda.cenaZajednicka}
           </p>
         </div>
-        {uredjivo ? (
+        {uredjivo || radnje.otvoriPrevode ? (
           <MeniRadnji
             okidac={<IkonicaDugme ikonica={MoreHorizontal} oznaka={t.ponuda.jos} vrsta="sekundarno" />}
-            stavke={[{ kljuc: "tabela", tekst: t.ponuda.brzoVise, ikonica: Rows3, onIzbor: radnje.otvoriTabelu }]}
+            stavke={[
+              ...(uredjivo ? [{ kljuc: "tabela", tekst: t.ponuda.brzoVise, ikonica: Rows3, onIzbor: radnje.otvoriTabelu }] : []),
+              ...(radnje.otvoriPrevode
+                ? [{ kljuc: "prevodi", tekst: t.posebno.prevodi.otvori, opis: t.posebno.prevodi.otvoriOpis, ikonica: Languages, onIzbor: radnje.otvoriPrevode }]
+                : []),
+            ]}
           />
         ) : null}
       </div>

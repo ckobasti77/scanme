@@ -17,6 +17,7 @@ import { nextComboPriceCheck } from "../combo";
 import { bulkDeletionConfirmToken, type ArticleDeletionImpact } from "../deletion";
 import { MENU_MAX_BULK_BATCH, MENU_TEXT } from "../limits";
 import { orderAfter, renumberedOrders } from "../order";
+import { nextPriceWarning } from "../room-service-pricing";
 import { checkPublication } from "../publish-checks";
 import { summarizePublication } from "../publish-summary";
 import { isValidRsd } from "../rsd";
@@ -32,6 +33,7 @@ import type {
   StudioCeneRezultat,
   StudioPregledObjave,
   StudioPromenaCene,
+  StudioRsUpozorenje,
   StudioSekcijaStranice,
   StudioUticajArtikla,
   StudioUticajBrisanja,
@@ -39,6 +41,7 @@ import type {
   TabelaUnosRed,
 } from "./model";
 import { prikazId } from "./iz-snapshota";
+import { rsUpozorenjeStavke } from "./room-service";
 
 export type MemorijaStanje = {
   snapshot: MenuDraftSnapshot;
@@ -488,14 +491,42 @@ export function postaviCenu(
   artikalId: string,
   ocekivana: number | null,
   nova: number | null,
-): MemorijaKorak {
+  sada = 0,
+): MemorijaKorak<StudioRsUpozorenje | null> {
   const article = stanje.snapshot.articles.find((candidate) => candidate.key === artikalId);
   if (!article) return greska(stanje, MENU_ERROR.notFound);
   if (nova !== null && !isValidRsd(nova)) return greska(stanje, MENU_ERROR.invalidInput);
   if (article.basePriceRsd !== ocekivana) return konflikt(stanje, article.basePriceRsd, nova);
   if (article.basePriceRsd === nova) return { stanje, ishod: OK };
-  const articles = stanje.snapshot.articles.map((candidate) => (candidate.key === artikalId ? { ...candidate, basePriceRsd: nova } : candidate));
-  return { stanje: nacrt(stanje, { ...stanje.snapshot, articles }), ishod: OK };
+  // K16: the same consequences as setBasePrice — a combo with this component gets "Proveri cenu"
+  // (its own new price clears it), and a manual Room service price keeps its value and gets the warning.
+  const uKombou = new Set(
+    article.kind === "item" ? stanje.snapshot.comboComponents.filter((row) => row.componentKey === artikalId).map((row) => row.comboKey) : [],
+  );
+  const articles = stanje.snapshot.articles.map((candidate) => {
+    if (candidate.key === artikalId) {
+      return { ...candidate, basePriceRsd: nova, ...(candidate.kind === "combo" ? { priceCheck: null } : {}) };
+    }
+    if (!uKombou.has(candidate.key)) return candidate;
+    return { ...candidate, priceCheck: nextComboPriceCheck(candidate.priceCheck, { kind: "price_changed", componentKey: artikalId, at: sada }) };
+  });
+  const items = stanje.snapshot.roomService.items.map((item) => {
+    if (item.articleKey !== artikalId) return item;
+    const priceWarning = nextPriceWarning({
+      existing: item.priceWarning,
+      manualPriceRsd: item.manualPriceRsd,
+      previousBaseRsd: article.basePriceRsd,
+      nextBaseRsd: nova,
+      at: sada,
+    });
+    return priceWarning === item.priceWarning ? item : { ...item, priceWarning };
+  });
+  const snapshot = { ...stanje.snapshot, articles, roomService: { ...stanje.snapshot.roomService, items } };
+  const stavka = items.find((item) => item.articleKey === artikalId);
+  return {
+    stanje: nacrt(stanje, snapshot),
+    ishod: { ok: true, vrednost: stavka ? rsUpozorenjeStavke(snapshot, stavka) : null },
+  };
 }
 
 // -----------------------------------------------------------------------------
@@ -873,8 +904,20 @@ export function postaviCene(
     return { ...sledeci, basePriceRsd: nove.get(article.key)!, ...(article.kind === "combo" ? { priceCheck: null } : {}) };
   });
   if (broj === 0) return { stanje, ishod: { ok: true, vrednost: { status: "promenjeno", broj: 0 } } };
+  // K16: a manual Room service price keeps its value and gets the warning (setPrices → flagRoomServicePriceWarnings).
+  const items = stanje.snapshot.roomService.items.map((item) => {
+    if (!promenjeni.has(item.articleKey)) return item;
+    const priceWarning = nextPriceWarning({
+      existing: item.priceWarning,
+      manualPriceRsd: item.manualPriceRsd,
+      previousBaseRsd: poKljucu.get(item.articleKey)!.basePriceRsd,
+      nextBaseRsd: nove.get(item.articleKey)!,
+      at: sada,
+    });
+    return priceWarning === item.priceWarning ? item : { ...item, priceWarning };
+  });
   return {
-    stanje: nacrt(stanje, { ...stanje.snapshot, articles }),
+    stanje: nacrt(stanje, { ...stanje.snapshot, articles, roomService: { ...stanje.snapshot.roomService, items } }),
     ishod: { ok: true, vrednost: { status: "promenjeno", broj } },
   };
 }

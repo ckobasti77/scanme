@@ -10,6 +10,8 @@ import type { CasValue } from "../cas";
 import type { MenuMode } from "../modes";
 import type { MenuActor } from "../permissions";
 import type { MenuPromo } from "../promo";
+import type { RoomServiceMarkupScope, RoomServicePriceOrigin } from "../room-service-pricing";
+import type { MenuTranslationField, MenuTranslations } from "../translation-status";
 
 export type StudioKontekst = {
   lokal: string;
@@ -100,6 +102,102 @@ export type StudioPodaci = {
   povezano: boolean;
   /** K15: the open article (undefined = loading or none open, null = it no longer exists). */
   detalj?: StudioDetaljArtikla | null;
+  /** K16: the languages of the menu (managed in Settings); undefined = loading. */
+  jezici?: StudioJezici;
+  /** K16: the open translations view (undefined = loading or closed, null = refused). */
+  prevodi?: StudioPrevodiPogled | null;
+  /** K16: Room service while its context is open (undefined = loading or closed, null = refused). */
+  roomServicePodaci?: StudioRoomService | null;
+};
+
+// -----------------------------------------------------------------------------
+// K16 — translations (master §7.7), Room service (master §5.3) and combos (§5.4)
+// -----------------------------------------------------------------------------
+
+export type StudioJezici = {
+  izvorni: string;
+  /** The translation languages this plan publishes, in the order of Settings. */
+  prevodi: string[];
+  /** Languages in Settings above the plan's limit (lost Premium): not published, not editable. */
+  vanLimita: string[];
+  /** Languages the plan allows, the source included (Standard 2). */
+  max: number;
+  /** AI suggestions: Premium AND a configured key (P7); `razlog` says why not. */
+  ai: { dostupno: boolean; razlog: "premium" | "kljuc" | null };
+};
+
+export type StudioPrevodVrsta = "page" | "section" | "article" | "variant" | "addonGroup" | "addonOption" | "roomServiceCategory";
+
+/** One translatable thing: its source texts and its translations (all languages). */
+export type StudioPrevodStavka = {
+  vrsta: StudioPrevodVrsta;
+  /** What the action addresses (a Convex id in the app, the key in the izlog). */
+  id: string;
+  key: string;
+  /** Source texts by field; a field absent here is not translated for this kind. */
+  izvor: Partial<Record<MenuTranslationField, string | null>>;
+  prevodi: MenuTranslations | null;
+  /** The heading it is listed under: the page itself, a section (by name), add-on groups or Room service. */
+  grupa: { vrsta: "stranica" | "sekcija" | "dodaci" | "room-service"; naziv: string | null };
+  /** A variant or add-on: the article or group it belongs to. */
+  pripada: string | null;
+};
+
+export type StudioPrevodiPogled = {
+  /** "stranica" = the open page; "room-service" = the Room service categories. */
+  obuhvat: "stranica" | "room-service";
+  naslov: string;
+  stavke: StudioPrevodStavka[];
+  skraceno: boolean;
+};
+
+export type StudioPrevodCilj = { vrsta: StudioPrevodVrsta; id: string };
+
+export type StudioRsUpozorenje = {
+  stavkaId: string;
+  naziv: string;
+  staraOsnovna: number | null;
+  novaOsnovna: number | null;
+  /** The manual Room service price that stays unless the owner recomputes. */
+  rsCena: number | null;
+  /** What "Ponovo izračunaj prema markup-u" would set. */
+  izracunata: number | null;
+};
+
+export type StudioRsVarijanta = { key: string; naziv: string; cena: number | null; poreklo: RoomServicePriceOrigin };
+
+export type StudioRsRed = {
+  stavkaId: string;
+  artikalId: string;
+  artikalKey: string;
+  naziv: string;
+  osnovna: number | null;
+  /** Selected for the markup (matters when the markup applies to selected articles). */
+  uvecanje: boolean;
+  rucna: number | null;
+  /** The price a guest in a room pays. */
+  cena: number | null;
+  poreklo: RoomServicePriceOrigin;
+  upozorenje: StudioRsUpozorenje | null;
+  varijante: StudioRsVarijanta[];
+};
+
+export type StudioRsKategorija = { id: string; key: string; naziv: string; redovi: StudioRsRed[] };
+
+export type StudioRoomService = {
+  pravila: { uvecanje: number | null; obuhvat: RoomServiceMarkupScope; naknada: number | null };
+  kategorije: StudioRsKategorija[];
+  /** Articles of the menu that are not in Room service yet. */
+  vanRs: number;
+  skraceno: boolean;
+};
+
+export type StudioRsPravila = StudioRoomService["pravila"];
+
+export type StudioKombo = {
+  sastojci: { artikalId: string; key: string; naziv: string; kolicina: number; cena: number | null }[];
+  /** "Proveri cenu": what changed since the combo price was last decided. */
+  proveri: { od: number; promenjeni: string[]; uklonjeni: string[] } | null;
 };
 
 // -----------------------------------------------------------------------------
@@ -128,7 +226,13 @@ export type StudioIshod<T = null> = { ok: true; vrednost: T } | StudioKonflikt |
 
 export const ISHOD_OK: StudioIshod = { ok: true, vrednost: null };
 
-export type StudioKandidat = { artikalId: string; naziv: string; cena: number | null };
+export type StudioKandidat = {
+  artikalId: string;
+  naziv: string;
+  cena: number | null;
+  /** K16: a combo cannot be a combo component (absent = unknown, treated as an ordinary article). */
+  vrsta?: "item" | "combo";
+};
 
 export type BrziUnosRezultat =
   | { status: "dodato"; artikalId: string; prikazId: string }
@@ -266,6 +370,10 @@ export type StudioDetaljArtikla = {
   oznake: string[];
   akcija: MenuPromo | null;
   prikazi: StudioPrikazArtikla[];
+  /** K16: a combo's components and its "Proveri cenu" (null = not a combo). */
+  kombo?: StudioKombo | null;
+  /** K16: the article and its variants as translatable things. */
+  prevodi?: StudioPrevodStavka[];
 };
 
 /** A linked group: the articles a change of it reaches (addonGroupUsage). */
@@ -317,8 +425,12 @@ export type StudioRadnje = {
     sekcijaId: string,
     unos: { naziv: string; cena: number | null; sastojci: string[] },
   ): Promise<StudioIshod<{ id: string }>>;
-  /** The shared base price (CAS on the price this person last saw). */
-  postaviCenu(artikalId: string, ocekivana: number | null, nova: number | null): Promise<StudioIshod>;
+  /**
+   * The shared base price (CAS on the price this person last saw). K16: when
+   * the article has a MANUAL Room service price, the value is that warning
+   * (old base, new base, RS price) so the editor asks at once; else null.
+   */
+  postaviCenu(artikalId: string, ocekivana: number | null, nova: number | null): Promise<StudioIshod<StudioRsUpozorenje | null>>;
   // Publishing (master §6.1).
   pregledObjave(): Promise<StudioIshod<StudioPregledObjave>>;
   objavi(revizija: number, potvrda: string | undefined): Promise<StudioIshod<StudioObjavaRezultat>>;
@@ -388,4 +500,36 @@ export type StudioRadnje = {
   postaviOznake(artikalId: string, ocekivano: readonly string[], oznake: readonly string[]): Promise<StudioIshod>;
   /** Sets, changes or removes (null) the promotion by compare-and-set (setPromo). */
   postaviAkciju(artikalId: string, ocekivano: MenuPromo | null, akcija: MenuPromo | null): Promise<StudioIshod>;
+  // K16 — combos (menuCombos): the components (a full new list) and "Zadrži cenu".
+  postaviSastav(komboId: string, sastojci: readonly { artikalId: string; kolicina: number }[]): Promise<StudioIshod>;
+  zadrziCenuKomboa(komboId: string): Promise<StudioIshod>;
+  // K16 — translations (menuTranslations). Typed text is confirmed at once (draft);
+  // an AI suggestion is stored next to it and published only after `potvrdiPredlog`.
+  prevedi(
+    cilj: StudioPrevodCilj,
+    jezik: string,
+    polje: MenuTranslationField,
+    ocekivano: string | null,
+    vrednost: string | null,
+  ): Promise<StudioIshod>;
+  predloziPrevod(cilj: StudioPrevodCilj, jezik: string): Promise<StudioIshod<{ polja: number }>>;
+  potvrdiPredlog(cilj: StudioPrevodCilj, jezik: string, izmene: Partial<Record<MenuTranslationField, string>>): Promise<StudioIshod>;
+  odbaciPredlog(cilj: StudioPrevodCilj, jezik: string): Promise<StudioIshod>;
+  /** A stale translation the owner looked at and keeps ("Prevod je i dalje dobar"). */
+  prevodJeDobar(cilj: StudioPrevodCilj, jezik: string): Promise<StudioIshod>;
+  // K16 — Room service (menuRoomService; Premium, its own selection, categories and prices).
+  rsPravila(ocekivano: Partial<StudioRsPravila>, izmena: Partial<StudioRsPravila>): Promise<StudioIshod>;
+  rsDodajKategoriju(naziv: string): Promise<StudioIshod<{ id: string }>>;
+  rsPreimenujKategoriju(id: string, naziv: string, ocekivano: string): Promise<StudioIshod>;
+  rsPremestiKategoriju(id: string, naIndeks: number): Promise<StudioIshod>;
+  rsObrisiKategoriju(id: string): Promise<StudioIshod>;
+  /** "Preuzmi ceo meni": a ONE-TIME copy of the visible sections and articles of `Kompletan meni`. */
+  rsPreuzmiCeoMeni(): Promise<StudioIshod<{ kategorija: number; artikala: number; vecU: number }>>;
+  /** "Dodaj iz postojeće ponude": chosen articles into a category (an article is in RS at most once). */
+  rsDodajArtikle(kategorijaId: string, artikalIds: readonly string[]): Promise<StudioIshod<{ dodato: number; vecU: number }>>;
+  rsUkloni(stavkaId: string): Promise<StudioIshod>;
+  rsPremestiStavku(stavkaId: string, uKategoriju: string, preStavke: string | null): Promise<StudioIshod>;
+  rsUvecanje(stavkaIds: readonly string[], primeni: boolean): Promise<StudioIshod>;
+  rsRucnaCena(stavkaId: string, ocekivana: number | null, nova: number | null): Promise<StudioIshod>;
+  rsResiUpozorenje(stavkaId: string, akcija: "keepManual" | "recomputeFromMarkup"): Promise<StudioIshod>;
 };

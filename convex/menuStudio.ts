@@ -12,6 +12,7 @@ import {
   MENU_MAX_ADDON_GROUPS_PER_ARTICLE,
   MENU_MAX_ADDON_OPTIONS_PER_GROUP,
   MENU_MAX_ARTICLES,
+  MENU_MAX_COMBO_COMPONENTS,
   MENU_MAX_PAGES,
   MENU_MAX_PLACEMENTS_PER_ARTICLE,
   MENU_MAX_VARIANTS_PER_ARTICLE,
@@ -34,7 +35,8 @@ import { normalizeArticleName, requiredText } from "../lib/menu/text";
 //     editor can explain a blocked delete BEFORE the person tries it;
 //   - quickAddMany: the table entry of several articles, all or nothing;
 //   - articleDetail (K15): the article detail in one subscription;
-//   - searchArticles (K15): articles by name for "Primeni i na druge artikle".
+//   - searchArticles (K15): articles by name for "Primeni i na druge artikle";
+//     K16 also uses it for "Dodaj iz postojeće ponude" and combo components.
 // =============================================================================
 
 /**
@@ -340,6 +342,42 @@ export const articleDetail = query({
     }
     placements.sort((a, b) => a.pageOrder - b.pageOrder || a.sectionOrder - b.sectionOrder || a.order - b.order);
 
+    // K16: a combo's components (current names and regular prices) and its "Proveri cenu".
+    let combo: {
+      components: { articleId: Id<"menuArticles">; key: string; name: string; quantity: number; unitPriceRsd: number | null }[];
+      priceCheck: { since: number; changedNames: string[]; removedNames: string[] } | null;
+    } | null = null;
+    if (article.kind === "combo") {
+      const rows = await ctx.db
+        .query("menuComboComponents")
+        .withIndex("by_comboArticleId_and_order", (q) => q.eq("comboArticleId", article._id))
+        .take(MENU_MAX_COMBO_COMPONENTS);
+      const parts = new Map<Id<"menuArticles">, Doc<"menuArticles">>();
+      const components = [];
+      for (const row of rows) {
+        const part = await ctx.db.get(row.componentArticleId);
+        if (!part || part.menuServiceId !== menuService._id) continue;
+        parts.set(part._id, part);
+        components.push({ articleId: part._id, key: part.key, name: part.name, quantity: row.quantity, unitPriceRsd: part.basePriceRsd ?? null });
+      }
+      let priceCheck = null;
+      if (article.priceCheck) {
+        const changedNames: string[] = [];
+        for (const key of article.priceCheck.changedComponentKeys.slice(0, MENU_MAX_COMBO_COMPONENTS)) {
+          const known = [...parts.values()].find((part) => part.key === key);
+          const part =
+            known ??
+            (await ctx.db
+              .query("menuArticles")
+              .withIndex("by_menuServiceId_and_key", (q) => q.eq("menuServiceId", menuService._id).eq("key", key))
+              .unique());
+          if (part) changedNames.push(part.name);
+        }
+        priceCheck = { since: article.priceCheck.since, changedNames, removedNames: article.priceCheck.removedComponentNames };
+      }
+      combo = { components, priceCheck };
+    }
+
     let image: { mediaId: Id<"mediaAssets">; url: string | null } | null = null;
     if (article.imageMediaId) {
       const asset = await ctx.db.get(article.imageMediaId);
@@ -376,7 +414,9 @@ export const articleDetail = query({
           : null,
         tags: article.tags ?? [],
         promo: article.promo ?? null,
+        translations: article.translations ?? null,
       },
+      combo,
       image,
       allergensEnabled: menuService.settings?.allergensEnabled === true,
       variants: variants.map((variant) => ({
@@ -384,6 +424,7 @@ export const articleDetail = query({
         key: variant.key,
         name: variant.name,
         priceRsd: variant.priceRsd ?? null,
+        translations: variant.translations ?? null,
       })),
       addonGroups,
       placements,
@@ -408,14 +449,14 @@ export const searchArticles = query({
     if (!access) return null;
     const needle = normalizeArticleName(args.query.slice(0, MENU_TEXT.articleName));
     if (needle === "") return [];
-    const found: { articleId: Id<"menuArticles">; key: string; name: string; basePriceRsd: number | null }[] = [];
+    const found: { articleId: Id<"menuArticles">; key: string; name: string; basePriceRsd: number | null; kind: "item" | "combo" }[] = [];
     const rows = await ctx.db
       .query("menuArticles")
       .withIndex("by_menuServiceId_and_nameNormalized", (q) => q.eq("menuServiceId", access.menuService._id))
       .take(MENU_MAX_ARTICLES);
     for (const article of rows) {
       if (!article.nameNormalized.includes(needle)) continue;
-      found.push({ articleId: article._id, key: article.key, name: article.name, basePriceRsd: article.basePriceRsd ?? null });
+      found.push({ articleId: article._id, key: article.key, name: article.name, basePriceRsd: article.basePriceRsd ?? null, kind: article.kind });
       if (found.length >= MENU_STUDIO_SEARCH_LIMIT) break;
     }
     return found;

@@ -927,13 +927,16 @@ function sameWarning(a: RoomServicePriceWarning | null, b: RoomServicePriceWarni
  * manual price needs nothing (its price is derived); an item WITH one keeps it
  * and gets / updates / loses the warning (lib/menu/room-service-pricing.ts
  * nextPriceWarning). Bounded: an article is in Room service at most once.
+ * K16: returns the warning that now stands (old base, new base, the manual RS
+ * price and what recomputing would give), so the editor can ask at once.
  */
 export async function flagRoomServicePriceWarnings(
   ctx: MutationCtx,
   articleId: Id<"menuArticles">,
   previousBaseRsd: number | null,
   nextBaseRsd: number | null,
-): Promise<void> {
+): Promise<RoomServiceWarningAnswer | null> {
+  let answer: RoomServiceWarningAnswer | null = null;
   const items = await ctx.db
     .query("menuRoomServiceItems")
     .withIndex("by_articleId", (q) => q.eq("articleId", articleId))
@@ -955,6 +958,15 @@ export async function flagRoomServicePriceWarnings(
       nextBaseRsd,
       at,
     );
+    if (warning && item.manualPriceRsd !== undefined) {
+      const rule = ruleOf(await loadConfig(ctx, item.menuServiceId));
+      const view = priceWarningView(
+        rule,
+        { basePriceRsd: nextBaseRsd, markupApplies: item.markupApplies, manualPriceRsd: item.manualPriceRsd },
+        warning,
+      );
+      answer = { itemId: item._id, ...view };
+    }
     if (sameWarning(warning, existing) && variantPrices === null) continue;
     await ctx.db.patch(item._id, {
       priceWarning: warning ?? undefined,
@@ -962,7 +974,16 @@ export async function flagRoomServicePriceWarnings(
       updatedAt: at,
     });
   }
+  return answer;
 }
+
+export type RoomServiceWarningAnswer = {
+  itemId: Id<"menuRoomServiceItems">;
+  oldBaseRsd: number | null;
+  newBaseRsd: number | null;
+  roomServicePriceRsd: number | null;
+  recomputedPriceRsd: number | null;
+};
 
 /**
  * K04 — a variant WITHOUT its own price uses the base price, so a manual RS

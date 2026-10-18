@@ -70,6 +70,11 @@ const app = defineApp({
     // EUR switch never shows.
     MENU_FX_ENABLED: v.optional(v.string()),
     MENU_FX_URL: v.optional(v.string()),
+    // ScanMe Menu V1 (K16): the AI translation SUGGESTION (Premium). Off unless
+    // the key is set: no network call, the editor says it is switched off. A
+    // suggestion is never published until the owner confirms it.
+    MENU_AI_TRANSLATE_KEY: v.optional(v.string()),
+    MENU_AI_TRANSLATE_MODEL: v.optional(v.string()),
   },
 });
 

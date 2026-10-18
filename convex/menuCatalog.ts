@@ -463,7 +463,7 @@ export const setBasePrice = mutation({
       updatedAt: now,
       updatedByUserId: access.user._id,
     });
-    await flagRoomServicePriceWarnings(
+    const roomServiceWarning = await flagRoomServicePriceWarnings(
       ctx,
       article._id,
       article.basePriceRsd ?? null,
@@ -472,7 +472,9 @@ export const setBasePrice = mutation({
     // K04: combos containing this article keep their manual price and get the flag.
     await flagCombosForPriceChange(ctx, article, now);
     await touchDraft(ctx, article.menuServiceId, access.user._id);
-    return { ok: true as const };
+    // K16: a manual Room service price kept its value; the editor asks at once (master §5.3).
+    // The field is present only with a warning, so the plain answer stays `{ ok: true }`.
+    return roomServiceWarning ? { ok: true as const, roomServiceWarning } : { ok: true as const };
   },
 });
 

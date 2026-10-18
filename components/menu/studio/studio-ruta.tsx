@@ -7,17 +7,19 @@
 // writers, K06): the route sends it there. The open page is kept in the URL
 // (`?stranica=<key>`), so a reload or a shared link opens the same page. K15: the
 // open article detail is `?artikal=<key>`; opening it adds a history entry, so
-// the browser's Back button returns to the list.
+// the browser's Back button returns to the list. K16: the Room service context
+// is `?kontekst=room-service`; Room service and the translations view are
+// subscribed only while open.
 
 import { useConvexAuth, useQuery } from "convex/react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api } from "@/convex/_generated/api";
 import { menuStudioSr } from "@/lib/i18n/sr/menu-studio";
-import { postojeciEditorHref } from "@/lib/menu/panel-nav";
+import { panelSekcijaHref, postojeciEditorHref } from "@/lib/menu/panel-nav";
 import { Kartica } from "../zajednicko/kartica";
 import { GreskaStanje, UcitavanjeStanje } from "../zajednicko/stanja";
-import { StudioEditor } from "./studio-editor";
+import { StudioEditor, type StudioPogled } from "./studio-editor";
 import { useStudioVeza } from "./veza/use-studio-veza";
 
 const t = menuStudioSr;
@@ -26,17 +28,30 @@ export function StudioRuta({
   slug,
   pocetnaStranica,
   pocetniArtikal = null,
+  pocetniKontekst = null,
 }: {
   slug: string;
   pocetnaStranica: string | null;
   pocetniArtikal?: string | null;
+  /** K16: `room-service` opens the Room service context. */
+  pocetniKontekst?: "room-service" | null;
 }) {
   const router = useRouter();
   const { isLoading } = useConvexAuth();
   const ulaz = useQuery(api.menuStudio.entry, isLoading ? "skip" : { slug });
   const [izabranaId, setIzabranaId] = useState<string | null>(null);
   const [artikal, setArtikal] = useState<string | null>(pocetniArtikal);
-  const veza = useStudioVeza(slug, { id: izabranaId, key: pocetnaStranica }, artikal);
+  const [pogled, setPogledStanje] = useState<StudioPogled>({ roomService: pocetniKontekst === "room-service", prevodi: null });
+  const veza = useStudioVeza(slug, { id: izabranaId, key: pocetnaStranica }, artikal, pogled);
+  // The Room service context in the address (replace: no history entry).
+  const setPogled = useCallback((sledeci: StudioPogled) => {
+    setPogledStanje((pre) => (pre.roomService === sledeci.roomService && pre.prevodi === sledeci.prevodi ? pre : sledeci));
+    const url = new URL(window.location.href);
+    if (sledeci.roomService === (url.searchParams.get("kontekst") === "room-service")) return;
+    if (sledeci.roomService) url.searchParams.set("kontekst", "room-service");
+    else url.searchParams.delete("kontekst");
+    window.history.replaceState(null, "", url);
+  }, []);
   const stranice = veza.stanje === "spremno" ? veza.podaci.stranice : undefined;
   const izKljuca = pocetnaStranica ? (stranice?.find((s) => s.key === pocetnaStranica)?.id ?? null) : null;
   const kljucIzabrane = izabranaId ? (stranice?.find((s) => s.id === izabranaId)?.key ?? null) : null;
@@ -89,6 +104,9 @@ export function StudioRuta({
       onIzaberiStranicu={setIzabranaId}
       otvorenArtikal={artikal}
       onOtvoriArtikal={otvoriArtikal}
+      onPogled={setPogled}
+      podesavanjaHref={panelSekcijaHref(slug, "podesavanja")}
+      pocetno={pocetniKontekst === "room-service" ? { roomService: true } : undefined}
     />
   );
 }

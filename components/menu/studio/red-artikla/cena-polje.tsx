@@ -27,6 +27,8 @@ export function CenaPolje({
   opisId,
   onPotvrdi,
   onGreska,
+  oznaka,
+  okvir = false,
 }: {
   id: string;
   /** The article name: the field's accessible name says whose price it is. */
@@ -41,6 +43,10 @@ export function CenaPolje({
   onPotvrdi: (nova: number | null, ocekivano: number | null) => void;
   /** The local check of what was typed (null = fine). */
   onGreska: (greska: CenaGreska | null) => void;
+  /** K16: another accessible name (the Room service price of an article). */
+  oznaka?: string;
+  /** K16: always show the field's border (a price that is edited only here, e.g. Room service). */
+  okvir?: boolean;
 }) {
   const [uredjuje, setUredjuje] = useState(false);
   const [tekst, setTekst] = useState("");
@@ -98,7 +104,7 @@ export function CenaPolje({
           enterKeyHint="done"
           data-no-drag=""
           data-cena-polje=""
-          aria-label={fmt(t.red.cena, { naziv })}
+          aria-label={oznaka ?? fmt(t.red.cena, { naziv })}
           aria-invalid={problem || undefined}
           aria-describedby={problem ? opisId : undefined}
           disabled={onemoguceno}
@@ -123,7 +129,9 @@ export function CenaPolje({
           }}
           className={cn(
             "h-[var(--mp-meta)] w-[6.5rem] rounded-[var(--mp-radius-kontrola)] border bg-transparent pl-3 pr-11 text-right text-[0.9375rem] font-semibold tabular-nums text-[var(--mp-tekst)]",
-            "[--border:transparent] hover:[--border:var(--mp-ivica-kontrole)] focus:[--border:var(--mp-mastilo)] focus:bg-[var(--mp-povrsina)]",
+            okvir
+              ? "[--border:var(--mp-ivica-kontrole)] bg-[var(--mp-povrsina)] focus:[--border:var(--mp-mastilo)]"
+              : "[--border:transparent] hover:[--border:var(--mp-ivica-kontrole)] focus:[--border:var(--mp-mastilo)] focus:bg-[var(--mp-povrsina)]",
             "placeholder:text-[var(--mp-tekst-sporedni)] disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:[--border:transparent]",
             "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--mp-fokus)]",
             problem && "[--border:var(--mp-opasnost)] hover:[--border:var(--mp-opasnost)]",
