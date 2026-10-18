@@ -845,3 +845,6 @@ Noćni run MENI. Plan: `docs/MENI-PLAN.md`. Pravila: `.nocni-run/meni/rules.md`.
 - Pregledaj `docs/tasks/BLOCKED.md` → `SCANME MENU V1 — K11` (varijante se preskaču u grupnoj promeni cene, upis broja pri grupnom brisanju, potvrda dostupnosti jednom po sesiji, granica 200, bez „Poništi").
 - Na velikom meniju (400 artikala) spuštanje traje oko 0,1 s na običnom računaru, ali oko 0,4 s uz 4× sporiji procesor; K33 meri na pravom produkcionom build-u.
 - Tamna tema: pozadina iza dijaloga postaje svetlija (deljeni `components/ui/dialog.tsx`, `bg-foreground/50`); promena važi za celu aplikaciju, pa je ostavljena tebi.
+
+## K12 - Plan: Javni meni   (2026-10-18 06:17)
+**Plan korak.** Plan je upisan u `docs/meni/planovi/K12.md`. Kod nije menjan.
