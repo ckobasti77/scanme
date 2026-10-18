@@ -1481,3 +1481,6 @@ Pokušaji 4–12 (14:37:26–14:38:13, jedan na svakih 6 s): u svakom MCP proces
 - Po pravilu cilja korak K18 se ovde zaustavlja. Uslovi 1–3 su ispunjeni: prihvatanje, provere i sekcija K18.
 
 Za Jovana: posle sesije proveriti da li PID 18620 i 18864 rade i po potrebi ih ugasiti ručno. U runneru ne učitavati Playwright MCP u goal sesijama, ili ga gasiti posle koraka.
+
+## K19 - Plan: Lokal i QR, zahtevi gosta, konobarski panel   (2026-10-18 15:07)
+**Plan korak.** Plan je upisan u `docs/meni/planovi/K19.md`. Kod nije menjan.
