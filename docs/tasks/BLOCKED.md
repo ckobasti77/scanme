@@ -2157,3 +2157,16 @@ Nijedna stavka ne blokira kod: run je izabrao konzervativnu opciju i kod radi po
 5. **Procenat smanjenja je najviše 100 %**, a rezultat ispod 0 ili iznad 1.000.000 RSD blokira celu promenu (ništa se ne seče tiho). Zaokruživanje je na ceo dinar, pola naviše (isto kao Room service uvećanje).
 6. **„Premesti u sekciju" i „Dodaj na drugu stranicu" preskaču** prikaz koji je već u ciljnoj sekciji i artikal koji ciljna sekcija već prikazuje (artikal je u sekciji najviše jednom), i to kažu u najavi; ostali se premeste ili dodaju.
 7. **„Ukloni sa ove stranice" nema „Poništi"** (plan K09 ga je predlagao kao toast). Izmena je u nacrtu, a artikal se vraća kroz `Dodaj stavku → Dodaj postojeći`. Ako „Poništi" treba, to je mala dopuna (ponovno dodavanje na isto mesto).
+
+## SCANME MENU V1 — K13 (18. 10. 2026.) — javni meni: izbori koji traže potvrdu vlasnika
+
+Nijedna stavka ne blokira kod: run je izabrao konzervativnu opciju i kod radi po njoj (plan `docs/meni/planovi/K12.md`). Vlasnik potvrđuje ili menja.
+
+1. **Povratak gostiju na stari meni (otvoreno pitanje K06, tačka 7).** Usluga nastala iz starog menija je javna tek posle prelaska (`migration.status === "cutover"`); pre toga gosti vide stari meni i kad je novi već objavljen. „Vrati goste na stari meni" je postojeći interni `revertLegacyCutover` (samo ScanMe, ne klijent). Novog operaterskog prekidača nema. Potvrditi da je to dovoljno.
+2. **Javni meni ostaje `noindex`** (i razdelnik i podlinkovi) dok `MENU_EXISTS` ne postane `true`. Kad se meni pusti, odlučiti da li se javni meni indeksira.
+3. **Nova objava dok gost čita meni** se nudi mirnom trakom „Meni je osvežen · Prikaži novu verziju", a sadržaj se ne menja sam (da se meni ne pomeri pod prstom). „Privremeno nedostupno" stiže odmah, bez trake. Alternativa: tiho osvežavanje.
+4. **Nepostojeća ili arhivirana stranica** postojećeg lokala pokazuje „Ova stranica menija nije dostupna" u identitetu lokala sa `Otvori meni` (status 200, `noindex`), a ne 404. Podlink lokala koji je još na starom meniju preusmerava na `/[slug]/meni`.
+5. **Dugme Nazad na telefonu ne zatvara detalj artikla**; detalj zatvaraju `Zatvori`, Esc i dodir pozadine. Vezivanje za istoriju bi se mešalo sa hešom kategorije (`#k-…`) i Next ruterom; ostavljeno za K33.
+6. **Razdelnik je lista stranica** (jedna kolona na svim širinama, do 36 rem), ne mreža od 3 kolone iz plana K12: lokal obično ima 2–4 stranice, a lista je čitljivija i mirnija.
+7. **Kurirane palete i parovi fontova** (7 + 7, `lib/menu/identity/`) su izbor runa; nazivi (`topla`, `espresso`, `bordo`, `more`, `kamen`, `ponoc`, `ugalj`; `osnovni`, `kafe`, `bistro`, `klasika`, `elegancija`, `knjiga`, `savremeno`) su interni, K17 daje tekst za korisnika.
+8. **Artikal u režimu ikonice bez sopstvene ikonice** dobija ikonicu svoje sekcije, pa podrazumevanu (viljuška i nož). Ikonicu sekcije u editoru dodaje K15/K16.

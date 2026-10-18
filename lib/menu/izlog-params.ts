@@ -228,18 +228,62 @@ export function parseEditorPreview(params: IzlogSearchParams): EditorPreviewPara
   };
 }
 
+/** K13: the three intentionally different venues of the public izlog (plan K12 §5.4). */
+export const JAVNI_PRIMERI = ["kafic", "restoran", "prestizni"] as const;
+export type JavniPrimer = (typeof JAVNI_PRIMERI)[number];
+export const JAVNI_LAYOUTI = ["tok", "kategorije", "kompaktno"] as const;
+export type JavniLayoutParam = (typeof JAVNI_LAYOUTI)[number];
+export const JAVNI_MEDIJI = ["slika", "ikonica", "bez"] as const;
+export type JavniMedijParam = (typeof JAVNI_MEDIJI)[number];
+export const JAVNA_STANJA = ["razdelnik", "veliki", "prazno"] as const;
+export type JavnoStanje = (typeof JAVNA_STANJA)[number];
+
+/** A palette id or a page slug as typed in the address bar: lowercase words and dashes. */
+const IZLOG_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+function pickId(value: string | string[] | undefined): string | null {
+  const first = firstParam(value);
+  return first !== undefined && first.length <= 60 && IZLOG_ID.test(first) ? first : null;
+}
+
 export type PublicPreviewParams = {
   tema: IzlogTema | null;
-  /** Existing `?state=long` (TASK-52). */
+  /** Existing `?state=long` (TASK-52); K13: the same as `stanje=veliki`. */
   long: boolean;
-  /** Existing `?design=dark`: the venue's dark palette. The app theme never restyles the public menu (P13). */
+  /** Existing `?design=dark`: the venue's dark palette (K13: `ponoc`). The app theme never restyles the public menu (P13). */
   darkDesign: boolean;
+  /** K13 — which venue (identity and content); `restoran` by default. */
+  primer: JavniPrimer;
+  /** K13 — overrides of the venue's presentation; null = as the venue has it. */
+  layout: JavniLayoutParam | null;
+  mediji: JavniMedijParam | null;
+  /** A palette id; the adapter ignores one it does not know. */
+  paleta: string | null;
+  stanje: JavnoStanje | null;
+  /** K13 — a page of the menu by its slug (e.g. `vinska-karta`). */
+  stranica: string | null;
+  /** K13 — `Kategorije` opened on a category, by its position (1 = the first). */
+  kategorija: number | null;
+  /** K13 — `detalj=1`: the detail of the richest article open. */
+  detalj: boolean;
+  /** K13 — `renderer=stari`: the legacy public renderer (TASK-52 QA). */
+  stariRenderer: boolean;
 };
 
 export function parsePublicPreview(params: IzlogSearchParams): PublicPreviewParams {
+  const kategorija = Number(firstParam(params.kategorija));
   return {
     tema: parseTema(params.tema),
     long: firstParam(params.state) === "long",
     darkDesign: firstParam(params.design) === "dark",
+    primer: pickParam(params.primer, JAVNI_PRIMERI, "restoran"),
+    layout: pickOptional(params.layout, JAVNI_LAYOUTI),
+    mediji: pickOptional(params.mediji, JAVNI_MEDIJI),
+    paleta: pickId(params.paleta),
+    stanje: pickOptional(params.stanje, JAVNA_STANJA),
+    stranica: pickId(params.stranica),
+    kategorija: Number.isInteger(kategorija) && kategorija >= 1 && kategorija <= 99 ? kategorija : null,
+    detalj: firstParam(params.detalj) === "1",
+    stariRenderer: firstParam(params.renderer) === "stari",
   };
 }

@@ -2,15 +2,19 @@ import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { query, type QueryCtx } from "./_generated/server";
 import { activeMenuServiceForBusiness } from "./lib/menuAccess";
+import { getUrl as storageGetUrl } from "./lib/storage";
 import { menuForBusiness } from "./menu";
 import { MENU_VERSION_MAX_BYTES, MENU_VERSION_PART_MAX_BYTES } from "../lib/menu/budget";
 import { MENU_MAX_ARTICLES } from "../lib/menu/limits";
+import type { PublicImage } from "../lib/menu/public-view";
 import {
   MENU_PART_ROOM_SERVICE,
   MENU_PART_SPLITTER,
   parsePublicPage,
   parseRoomService,
   parseSplitter,
+  type PublicPageDoc,
+  type PublicPageMeta,
   type PublicSplitterDoc,
 } from "../lib/menu/snapshot";
 
@@ -32,11 +36,23 @@ import {
 //                  several visible pages and no page was asked for.
 //   roomService    the Room service part, only while the live switch is on.
 //   availability   article keys temporarily unavailable right now.
+//   live           (K13) the small live layer an open phone subscribes to:
+//                  the version number and the unavailable articles, by slug.
+//   pageMedia      (K13) signed image URLs of one page, read once by the
+//                  server render (never subscribed), at most
+//                  MENU_PUBLIC_MEDIA_CAP point reads.
+//
+// K13 (plan K12-1): a service that replaced a legacy menu is public only after
+// the cutover. Until then guests see the legacy menu and only the legacy
+// writers mark "nema više" (K06), so the new model is not served beside it.
+// Reverting the cutover sends guests back to the legacy menu.
 // =============================================================================
 
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const LANG_PATTERN = /^[a-z]{2,3}(?:-[a-z0-9]{2,8})?$/;
 const MAX_PARTS_PER_DOC = Math.ceil(MENU_VERSION_MAX_BYTES / MENU_VERSION_PART_MAX_BYTES) + 1;
+/** The most images one page resolves; articles past it fall back to their icon. */
+export const MENU_PUBLIC_MEDIA_CAP = 400;
 
 async function activeBusinessBySlug(ctx: QueryCtx, slug: string): Promise<Doc<"businesses"> | null> {
   const clean = slug.trim().toLowerCase();
@@ -59,6 +75,8 @@ async function isPubliclyServed(ctx: QueryCtx, menuService: Doc<"menuServices">)
   if (menuService.status !== "active" || !menuService.liveVersionId || !menuService.serviceProfileId) {
     return false;
   }
+  // K12-1: a migrated service goes public only with the cutover.
+  if (menuService.legacyMenuId !== undefined && menuService.migration?.status !== "cutover") return false;
   const profile = await ctx.db.get(menuService.serviceProfileId);
   return profile?.status === "active" && profile.businessId === menuService.businessId;
 }
@@ -98,11 +116,21 @@ async function splitterOf(ctx: QueryCtx, service: PublicService, lang: string): 
   return data ? parseSplitter(data) : null;
 }
 
-function common(service: PublicService, splitter: PublicSplitterDoc) {
+/** The venue logo for the splitter and the header (K13): a stored file first, else an external URL. */
+async function logoUrlOf(ctx: QueryCtx, business: Doc<"businesses">): Promise<string | null> {
+  if (business.logoStorageId) {
+    const url = await storageGetUrl(ctx, business.logoStorageId);
+    if (url) return url;
+  }
+  return business.logoUrl ?? null;
+}
+
+function common(service: PublicService, splitter: PublicSplitterDoc, logoUrl: string | null) {
   return {
     menuServiceId: service.menuService._id,
     versionNumber: service.version.number,
     business: { name: service.business.name, slug: service.business.slug },
+    logoUrl,
     lang: splitter.lang,
     sourceLang: splitter.sourceLang,
     languages: splitter.languages,
@@ -133,27 +161,82 @@ export const entry = query({
  * visible page, or `kind: "splitter"` when there are several (or none). null
  * when the venue has no published menu or the page is not public.
  */
+type PageArgs = { slug: string; pageSlug?: string; lang?: string };
+
+type LoadedPage =
+  | { kind: "splitter"; service: PublicService; splitter: PublicSplitterDoc }
+  | { kind: "page"; service: PublicService; splitter: PublicSplitterDoc; meta: PublicPageMeta; doc: PublicPageDoc };
+
+/** The splitter, or the page asked for (the only page without a slug), of the published version. */
+async function loadPage(ctx: QueryCtx, args: PageArgs): Promise<LoadedPage | null> {
+  const business = await activeBusinessBySlug(ctx, args.slug);
+  if (!business) return null;
+  const service = await publicServiceOf(ctx, business);
+  if (!service) return null;
+  const splitter = await splitterOf(ctx, service, resolveLang(service.version, args.lang));
+  if (!splitter) return null;
+
+  let meta = splitter.pages[0];
+  if (args.pageSlug !== undefined) {
+    const found = splitter.pages.find((row) => row.slug === args.pageSlug);
+    if (!found) return null;
+    meta = found;
+  } else if (splitter.pages.length !== 1) {
+    return { kind: "splitter", service, splitter };
+  }
+  const doc = parsePublicPage(await publicParts(ctx, service.version._id, splitter.lang, meta.key));
+  if (!doc) return null;
+  return { kind: "page", service, splitter, meta, doc };
+}
+
 export const page = query({
   args: { slug: v.string(), pageSlug: v.optional(v.string()), lang: v.optional(v.string()) },
   handler: async (ctx, args) => {
-    const business = await activeBusinessBySlug(ctx, args.slug);
-    if (!business) return null;
-    const service = await publicServiceOf(ctx, business);
-    if (!service) return null;
-    const splitter = await splitterOf(ctx, service, resolveLang(service.version, args.lang));
-    if (!splitter) return null;
-
-    let meta = splitter.pages[0];
-    if (args.pageSlug !== undefined) {
-      const found = splitter.pages.find((row) => row.slug === args.pageSlug);
-      if (!found) return null;
-      meta = found;
-    } else if (splitter.pages.length !== 1) {
-      return { kind: "splitter" as const, ...common(service, splitter) };
+    const loaded = await loadPage(ctx, args);
+    if (!loaded) return null;
+    const logoUrl = await logoUrlOf(ctx, loaded.service.business);
+    if (loaded.kind === "splitter") {
+      return { kind: "splitter" as const, ...common(loaded.service, loaded.splitter, logoUrl) };
     }
-    const doc = parsePublicPage(await publicParts(ctx, service.version._id, splitter.lang, meta.key));
-    if (!doc) return null;
-    return { kind: "page" as const, ...common(service, splitter), page: doc.page, sections: doc.sections };
+    return {
+      kind: "page" as const,
+      ...common(loaded.service, loaded.splitter, logoUrl),
+      page: loaded.doc.page,
+      sections: loaded.doc.sections,
+    };
+  },
+});
+
+/**
+ * Signed URLs of the images of one page (K13, plan K12-7), keyed by
+ * imageMediaId. Read once by the server render, never subscribed. Only ready
+ * assets of the venue itself; an article without an entry falls back to its
+ * icon. At most MENU_PUBLIC_MEDIA_CAP point reads.
+ */
+export const pageMedia = query({
+  args: { slug: v.string(), pageSlug: v.optional(v.string()), lang: v.optional(v.string()) },
+  handler: async (ctx, args) => {
+    const out: Record<string, PublicImage> = {};
+    const loaded = await loadPage(ctx, args);
+    if (!loaded || loaded.kind !== "page") return out;
+    const ids = new Set<string>();
+    for (const section of loaded.doc.sections) {
+      for (const article of section.articles) {
+        if (article.media.mode === "image" && article.media.imageMediaId) ids.add(article.media.imageMediaId);
+      }
+    }
+    const businessId = loaded.service.business._id;
+    for (const id of [...ids].slice(0, MENU_PUBLIC_MEDIA_CAP)) {
+      const assetId = ctx.db.normalizeId("mediaAssets", id);
+      if (!assetId) continue;
+      const asset = await ctx.db.get(assetId);
+      if (!asset || asset.status !== "ready" || asset.businessId !== businessId) continue;
+      const thumbUrl = await storageGetUrl(ctx, asset.variants.thumb.ref as Id<"_storage">);
+      const url = await storageGetUrl(ctx, asset.variants.webp.ref as Id<"_storage">);
+      if (!thumbUrl || !url) continue;
+      out[id] = { thumbUrl, url, width: asset.variants.webp.width, height: asset.variants.webp.height };
+    }
+    return out;
   },
 });
 
@@ -169,7 +252,7 @@ export const roomService = query({
     if (!splitter || !splitter.roomService) return null;
     const parts = await publicParts(ctx, service.version._id, splitter.lang, MENU_PART_ROOM_SERVICE);
     if (parts.length === 0) return null;
-    return { ...common(service, splitter), ...parseRoomService(parts) };
+    return { ...common(service, splitter, await logoUrlOf(ctx, business)), ...parseRoomService(parts) };
   },
 });
 
@@ -190,5 +273,31 @@ export const availability = query({
       .withIndex("by_menuServiceId", (q) => q.eq("menuServiceId", menuService._id))
       .take(MENU_MAX_ARTICLES);
     return { articleKeys: rows.map((row) => row.articleKey).sort() };
+  },
+});
+
+/**
+ * The live layer of the public menu (K13, plan K12-3): what an open phone
+ * subscribes to instead of the whole page. A new versionNumber is a new
+ * publication (the guest is offered it; the page never jumps on its own);
+ * unavailableKeys is "Privremeno nedostupno" right now. null when the venue
+ * serves no published new-model menu.
+ */
+export const live = query({
+  args: { slug: v.string() },
+  handler: async (ctx, args) => {
+    const business = await activeBusinessBySlug(ctx, args.slug);
+    if (!business) return null;
+    const service = await publicServiceOf(ctx, business);
+    if (!service) return null;
+    const rows = await ctx.db
+      .query("menuAvailability")
+      .withIndex("by_menuServiceId", (q) => q.eq("menuServiceId", service.menuService._id))
+      .take(MENU_MAX_ARTICLES);
+    return {
+      menuServiceId: service.menuService._id,
+      versionNumber: service.version.number,
+      unavailableKeys: rows.map((row) => row.articleKey).sort(),
+    };
   },
 });

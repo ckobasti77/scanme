@@ -279,15 +279,29 @@ describe("a legacy menu migrated only into the new draft", () => {
 // =============================================================================
 
 describe("a legacy menu whose new model is already published", () => {
-  test("the entry switches to 'new' but the legacy public queries keep returning the old content", async () => {
+  // K13 (plan K12-1, intentional change of the K06 assertion): a migrated
+  // service is public only after the cutover. Before it the entry stays
+  // legacy, because only the legacy writers mark "nema više" until then.
+  test("the entry stays legacy until the cutover, switches to 'new' with it, and the legacy public queries keep returning the old content", async () => {
     const { t, w } = await setup();
     const before = await legacyPublicView(t);
 
     await migrate(t, w.a.menuServiceId);
     await publishNow(t, w.ownerId, w.a.menuServiceId);
 
+    expect(await entryOf(t)).toEqual({ kind: "legacy" });
+    expect(await t.query(api.menuPublic.page, { slug: SLUG_A })).toBeNull();
+    expect(await t.query(api.menuPublic.live, { slug: SLUG_A })).toBeNull();
+    expect(await legacyPublicView(t)).toEqual(before);
+
+    await cutover(t, w.a.menuServiceId);
     expect(await entryOf(t)).toEqual({ kind: "new", versionNumber: 1 });
-    // The route switch is K13; until then the old queries serve the same menu.
+    expect(await t.query(api.menuPublic.page, { slug: SLUG_A })).not.toBeNull();
+
+    // Reverting the cutover sends guests back to the legacy menu.
+    const reverted = await t.mutation(internal.menuMigration.revertLegacyCutover, { menuServiceId: w.a.menuServiceId });
+    expect(reverted).toMatchObject({ ok: true });
+    expect(await entryOf(t)).toEqual({ kind: "legacy" });
     expect(await legacyPublicView(t)).toEqual(before);
   });
 });

@@ -30,6 +30,18 @@ Jedan pažljivo osmišljen način rada (master §15.1): kontekstualne kontrole, 
 
 Brz, čitljiv, mobilni prvi; ne sme da izgleda kao generički template. Prestižni lokal dobija miran, tipografski rezultat (bez ikonica, sa jakom tipografijom i prostorom). Layouti `Tok`, `Kategorije` i `Kompaktno` (Kompaktno je samo tekst, bez slike i ikonice). Detalje grade K13 (linkovi, razdelnik, layouti, detalj), K14 (pretraga, alergeni, jezici, valuta) i K17 (izgled).
 
+Kako izgleda od K13 (`components/menu/javni/`):
+- **`Tok`**: na telefonu lepljiva traka sa nazivima sekcija (vodoravni skrol, aktivna sekcija podvučena, kod naglaska `bold` ispunjena); od 1024 px ista lista je lepljiv indeks levo od kolone čitanja od 44 rem. Red: medij 52 px | naziv, količina, opis (najviše 3 reda), oznake | cena. Skok na sekciju je običan link (`#s-…`), radi i bez JavaScript-a; glatko samo bez `prefers-reduced-motion`.
+- **`Kategorije`**: prvo mreža pločica (2 kolone na telefonu, 3 od 768, 4 od 1024; slika prvog artikla sa slikom ili ikonica, naziv, broj artikala). Izabrana kategorija je u hešu adrese (`#k-…`): dugme Nazad na telefonu vraća na mrežu, link se može podeliti. Prikaz kategorije: `‹ Sve kategorije`, naslov (fokus prelazi na njega), kartice artikala (slika 88 px), na kraju `Sledeća: …`; od 1024 px lista kategorija levo.
+- **`Kompaktno`**: jedna kolona od 38 rem po sredini, naziv lokala serifno i krupno, naslovi sekcija u rečeničnom obliku sa kratkom linijom akcenta, naziv → tačkasti vodič → cena; varijante u svom redu sa vodičem; opis kurzivom. Nikad slika ni ikonica. Na telefonu tanka lepljiva traka sa tekućom sekcijom i dugmetom `Sadržaj` (dijalog sa sekcijama); od 768 px sadržaj je red linkova ispod zaglavlja. Red otvara detalj samo kad detalj donosi nešto što red ne pokazuje (dodaci, kombo, alergeni, dug opis).
+- **Razdelnik** (više javnih stranica): logo ili monogram, naziv lokala (`h1`), „Izaberite stranicu menija", red po stranici (naslovna slika ili ikonica, naslov u licu naslova, strelica), redosled iz objave; podrazumevana stranica se zove „Meni", nikad „Kompletan meni". Serverska komponenta, bez JavaScript-a.
+- **Navigacija između stranica** po `navigation` stranice: `standalone` ništa (vinska karta sa svojim QR-om), `back` link `‹ Sve stranice menija`, `shared` red linkova svih stranica.
+- **Detalj artikla**: izvorni `<dialog>` (`showModal`; fokus ostaje unutra, Esc, `Zatvori` i klik na pozadinu ga zatvaraju, fokus se vraća na red); na telefonu list odozdo do 92 % visine, od 768 px centriran do 36 rem. Redom: slika, naziv (`h2`), količina, oznake, `Privremeno nedostupno`, opis, cena ili varijante, akcija (precrtana redovna, „Akcija važi do …"), dodaci sa pravilom izbora („bira se jedno", „može više, obavezno, tačno 2"), sastav komboa, alergeni (samo kad ih lokal vodi: `Sadrži`, `Može sadržati tragove`, „Lokal nije uneo alergene za ovaj artikal" kad zapisa nema, i radni tekst iz master §7.3). Upozorenja za gostove alergene su K14.
+- **Mediji**: slika (`thumb` u listi, `webp` u detalju; `loading="lazy"`, `alt=""` jer je naziv odmah pored), ikonica iz Menu seta (`components/menu/menu-glyph-map.ts`; bez sopstvene → ikonica sekcije → podrazumevana), ili ništa. Slika koja nedostaje ili se ne učita daje ikonicu, nikad prazan okvir.
+- **Stanja**: prazna stranica, nedostupna stranica (link `Otvori meni`), „Meni trenutno nije dostupan" kad lokal skloni meni dok ga gost gleda, traka „Meni je osvežen · Prikaži novu verziju" posle nove objave (sadržaj ne skače sam).
+- **Tamna paleta**: `ponoc` i `ugalj`; tema aplikacije ne menja paletu lokala, a globalno dugme teme je na javnom meniju sakriveno.
+- **Bez animacionih biblioteka** na javnom meniju (budžet JS-a); jedini pokret je ulazak detalja (220 ms), isključen uz `prefers-reduced-motion`.
+
 **Potpisni detalj — cena kao tipografija.** Cena je uvek u istom obliku i na istom mestu: cele cifre sa tačkom za hiljade i „RSD" (`1.490 RSD`), cifre iste širine (`tabular-nums`), poravnate uz desnu ivicu reda artikla, u boji naslova lokala. Akcija pokazuje regularnu cenu precrtanu i akcijsku pored nje, nikad samo procenat. EUR je sekundarni red, informativan: `~ 12,70 EUR`, samo uz svež kurs. Cena se nikad ne lomi u dva reda.
 
 ### 1.3 Konobarski panel
@@ -91,10 +103,10 @@ Porudžbina je smaragdna, ne ScanMe zelena i ne zelena uspeha, da se vrsta ne po
 
 Javni meni ne koristi `--mp-*` ni temu aplikacije. Njegova paleta ima 8 uloga (`page`, `surface`, `title`, `body`, `accent`, `border`, `focus`, `icon`; `MENU_ROLES` u `lib/design-engine/menu-tokens.ts`) i nastaje ovako:
 
-1. Lokal bira u Izgledu (K17) jednu od kuriranih paleta (`menuPresentation.paletteId`), svetlu ili tamnu, namenjenu hrani, piću i ugostiteljstvu, ili unosi do 3 boje brenda (`brandColors`).
-2. Iz boja brenda `deriveMenuRoleColors` izvodi svih 8 uloga.
-3. `compileMenuTokens` izvodi pratioce sa pragovima: `accent-text` i `body-muted` najmanje 4,5:1 prema stranici i površini, `on-accent` 4,5:1 na akcentu, `input-border` 3:1. Rezultat su promenljive `--menu-*` na korenu javnog menija.
-4. Bez izbora važi paleta `default` (`MENU_DEFAULT_PRESENTATION`): topla neutralna (stranica `#F7F8F3`, akcent `#7A5C43`), ne ScanMe crno-zelena.
+1. Lokal bira u Izgledu (K17) jednu od kuriranih paleta (`menuPresentation.paletteId`), svetlu ili tamnu, namenjenu hrani, piću i ugostiteljstvu, ili unosi do 3 boje brenda (`brandColors`). Katalog je `lib/menu/identity/palettes.ts` (K13): `topla` (opšta, svetla), `espresso` (kafić), `bordo` (restoran, vino), `more` (riba, hotel), `kamen` (prestižni, svetla), `ponoc` (prestižni, tamna), `ugalj` (bar, kafić noću, tamna). Nijedna nema zelen akcenat (test: ΔE u OKLab najmanje 0,10 od ScanMe zelenih).
+2. Iz boja brenda nastaje 5 boja (`generateMaterialRoles`), pa `deriveMenuRoleColors` izvodi svih 8 uloga, a `proveriKontrast` (`lib/menu/identity/contrast.ts`) odbija nečitljivu kombinaciju (K17).
+3. `compileMenuTokens` izvodi pratioce sa pragovima: `accent-text` i `body-muted` najmanje 4,5:1 prema stranici i površini, `on-accent` 4,5:1 na akcentu, `input-border` 3:1. `javniIzgled` (`lib/menu/identity/public-tokens.ts`) dodaje lice naslova, gustinu i `color-scheme`. Rezultat su promenljive `--menu-*` na korenu javnog menija, izračunate na serveru.
+4. Bez izbora važi paleta `default` = `topla` (`MENU_DEFAULT_PRESENTATION`): stranica `#F7F8F3`, akcenat `#7A5C43`, iste boje kao stari meni; ne ScanMe crno-zelena.
 
 Lokal bira svetlu ili tamnu paletu; gostova tema uređaja i tema aplikacije je ne menjaju. Izlog pokazuje tamnu paletu lokala sa postojećim `?design=dark`; `?tema=` tu menja samo temu aplikacije (dugme teme), ne meni. Opcija „ScanMe" se ne nudi kao paleta javnog menija.
 
@@ -116,7 +128,7 @@ Panel, editor i konobarski panel koriste **DM Sans** (variable, već se učitava
 
 - Dužina reda najviše 65 znakova za opise (`max-w-[65ch]`).
 - Polje za unos na telefonu ima najmanje 16 px, da iOS ne uvećava stranicu.
-- Javni meni: par fontova lokala iz kuriranog spiska (`fontPairId`, K17; svi fontovi su lokalni, `@fontsource`). Telo najmanje 16 px. Serifni naslovi su dozvoljeni samo na javnom meniju (prestižni lokal), nikad u panelu.
+- Javni meni: par fontova lokala iz kuriranog spiska (`fontPairId`; katalog `lib/menu/identity/font-pairs.ts` od K13, bira ga K17; svi fontovi su lokalni, `@fontsource`, sa `latin-ext` za č, ć, š, ž, đ): `osnovni` (DM Sans; = `default`), `kafe` (Space Grotesk / Nunito Sans), `bistro` (Archivo / Source Sans 3), `klasika` (Playfair Display / Source Sans 3), `elegancija` (Cormorant Garamond / Lora), `knjiga` (Libre Baskerville / Source Sans 3), `savremeno` (Manrope / Inter). Naslovi su u rečeničnom obliku, nikad velikim slovima. Telo najmanje 16 px (gustina `airy` 17 px). Serifni naslovi su dozvoljeni samo na javnom meniju (prestižni lokal), nikad u panelu.
 
 ## 4. Razmak, uglovi i senke
 
@@ -269,7 +281,7 @@ Pet dev ruta (`docs/MENI-PLAN.md` §7, recept §9): `/dev/menu-panel-preview`, `
 - Svaka ruta: `notFound()` kad je `NODE_ENV=production`, `metadata.robots = { index: false, follow: false }`, bez Convex poziva i bez prijave.
 - Parametri se čitaju samo kroz `lib/menu/izlog-params.ts` (test `lib/menu/izlog-params.test.ts`): nepoznata vrednost daje podrazumevano stanje, ponovljen parametar važi po prvoj vrednosti.
 - `?tema=svetla|tamna`: `IzlogTema` dok je ruta otvorena postavlja `data-theme` i klasu `dark` na `<html>`; pri izlasku vraća temu aplikacije (sačuvan izbor, inače sistemsku). Ništa ne upisuje u storage. Bez parametra važi tema aplikacije.
-- Postojeći parametri i dalje rade: editor `state=empty`, `design=dark`; javni meni `state=long`, `design=dark`.
+- Postojeći parametri i dalje rade: editor `state=empty`, `design=dark`; javni meni `state=long` (= `stanje=veliki`), `design=dark` (= `paleta=ponoc`). K13: javni meni ima i `primer`, `layout`, `mediji`, `paleta`, `stanje`, `stranica`, `kategorija`, `detalj`, `renderer=stari` (recept §9).
 - Ekran koji gradi kasniji korak pokazuje iskreno stanje „Ovaj ekran gradi korak K..", sa linkovima na ostale ekrane rute, nikad lažan ekran.
 - Fixtures: `components/menu/fixtures/` (mali oko 20, srednji oko 80 i veliki oko 400 artikala kao `MenuDraftSnapshot`; lokal sa stolovima, sobama i zonama; zahtevi, rezervacije i tim). Samo izmišljeni podaci (`gost@example.com`, `+381 60 000 0000`).
 

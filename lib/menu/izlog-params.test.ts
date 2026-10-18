@@ -204,11 +204,24 @@ describe("existing parameters keep working (TASK-51, TASK-52)", () => {
   });
 
   test("public: state=long and design=dark, independent of ?tema", () => {
-    expect(parsePublicPreview({})).toEqual({ tema: null, long: false, darkDesign: false });
+    // K13 (intentional): the public izlog gained its own parameters; their defaults are below.
+    const PODRAZUMEVANO = {
+      primer: "restoran",
+      layout: null,
+      mediji: null,
+      paleta: null,
+      stanje: null,
+      stranica: null,
+      kategorija: null,
+      detalj: false,
+      stariRenderer: false,
+    };
+    expect(parsePublicPreview({})).toEqual({ tema: null, long: false, darkDesign: false, ...PODRAZUMEVANO });
     expect(parsePublicPreview({ state: "long", design: "dark", tema: "svetla" })).toEqual({
       tema: "svetla",
       long: true,
       darkDesign: true,
+      ...PODRAZUMEVANO,
     });
     // The app theme never chooses the venue palette (P13): tema=tamna alone keeps the light design.
     expect(parsePublicPreview({ tema: "tamna" }).darkDesign).toBe(false);

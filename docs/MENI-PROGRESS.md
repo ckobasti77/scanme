@@ -848,3 +848,133 @@ Noćni run MENI. Plan: `docs/MENI-PLAN.md`. Pravila: `.nocni-run/meni/rules.md`.
 
 ## K12 - Plan: Javni meni   (2026-10-18 06:17)
 **Plan korak.** Plan je upisan u `docs/meni/planovi/K12.md`. Kod nije menjan.
+
+## K13 — Javni meni: linkovi, razdelnik, tri layouta, mediji, detalj   (2026-10-18 07:15)
+**Fajlovi:**
+- Novo:
+  - rute: `app/[slug]/meni/[stranica]/page.tsx` (podlink stranice), `app/[slug]/meni/_lib/ucitaj.ts` (serverski loader: `page` + `live` + `pageMedia` paralelno, sat i tokeni na serveru), `app/[slug]/meni/_lib/prikaz.tsx` (prikaz, metapodaci, viewport), `app/[slug]/meni/_stari/stari-meni.tsx` (dosadašnji javni meni, premešten bez izmene ponašanja);
+  - renderer `components/menu/javni/`: `javni-meni.tsx` (jedina klijentska granica), `javni-meni-uzivo.tsx` (jedina pretplata), `okvir.tsx`, `razdelnik.tsx`, `tok.tsx`, `use-aktivna-sekcija.ts`, `kategorije.tsx`, `kompaktno.tsx`, `artikal.tsx`, `detalj.tsx`, `navigacija-stranica.tsx`, `stanja.tsx`, `glif.tsx`, `javni.module.css`;
+  - čista logika: `lib/menu/public-view.ts`, `lib/menu/identity/{palettes,font-pairs,contrast,public-tokens}.ts`, `lib/menu/studio/javni-pregled.ts`, `lib/menu/analitika/track.ts`;
+  - izlog: `components/menu/fixtures/javni.ts`, `components/menu/izlog/javni-izlog.tsx`;
+  - i18n: `lib/i18n/sr/menu-javni.ts` (nova površina `menu-javni`);
+  - testovi: `convex/menuPublicK13.test.ts`, `lib/menu/public-view.test.ts`, `lib/menu/identity/identity.test.ts`, `lib/menu/studio/javni-pregled.test.ts`, `components/menu/javni/javni.test.tsx`, `components/menu/javni/razdelnik.test.tsx`.
+- Izmenjeno: `app/[slug]/meni/page.tsx`, `app/dev/menu-public-preview/page.tsx`, `convex/menuPublic.ts` (`live`, `pageMedia`, `logoUrl`, pravilo prelaska), `components/menu/studio/pregled/{pregled-sadrzaj,pregled-nacrta}.tsx` i `components/menu/studio/studio-editor.tsx` (pregled kroz javni renderer), `lib/menu/izlog-params.ts`, `lib/i18n/{types,index}.ts`, `docs/menu/MENU-ARHITEKTURA.md` (§3.2, §7, §8 + „Javni meni: SSR i keš", §9, §10, §11, §12.4, §12.5), `docs/menu/MENU-UX.md` (§1.2, §2.3, §3, §12), `docs/tasks/BLOCKED.md` (`SCANME MENU V1 — K13`).
+- Namerno izmenjeni testovi: `convex/menuLegacyCompat.test.ts`, `components/menu/studio/studio.test.tsx`, `lib/menu/izlog-params.test.ts` (razlozi u ODLUKAMA).
+- Obrisano (ova izmena ih je ostavila bez korisnika): `lib/menu/studio/legacy-preview.ts` i njegov test.
+
+**Šta je urađeno:**
+- **Linkovi.** `/[slug]/meni` je stabilan javni link: jedina javna stranica se prikazuje odmah, a više stranica daje razdelnik. `/[slug]/meni/[stranica]` je podlink svake standardne stranice (podrazumevana ima slug `glavni`). Nepostojeća ili arhivirana stranica daje iskreno stanje u identitetu lokala sa `Otvori meni`; lokal na starom meniju dobija preusmerenje na `/[slug]/meni`; nepoznat lokal dobija 404. Ruta ne čita i ne izmišlja poziciju. Lokal bez javnog novog menija dobija stari meni, nepromenjen.
+- **Read path.** Čita se samo objavljena verzija: `menuPublic.page` (6 dokumenata), novi `menuPublic.live` (broj verzije i nedostupni artikli; 7 dokumenata u 5 upita) i novi `menuPublic.pageMedia` (potpisani URL-ovi slika samo za `ready` assete tog lokala, najviše 400). Telefon se pretplaćuje samo na `live`: „Privremeno nedostupno" stiže odmah, a nova objava se nudi trakom „Meni je osvežen". Nema per-item upita. Usluga nastala iz starog menija je javna tek posle prelaska.
+- **Renderer.** Jedan okvir (tokeni lokala, jedan `h1`, podnozje) i tri layouta:
+  - `Tok`: lepljiva traka sekcija na telefonu i lepljiv indeks od 1024 px;
+  - `Kategorije`: mreža pločica, kategorija u hešu `#k-…`, `‹ Sve kategorije` i `Sledeća`;
+  - `Kompaktno`: serifno, tačkasti vodič do cene, nikad slika ni ikonica, `Sadržaj` u lepljivoj traci.
+  Razdelnik je serverska komponenta bez JS-a. Detalj artikla je izvorni `<dialog>` (list odozdo na telefonu, centriran od 768 px) sa nazivom, količinom, opisom, cenom ili varijantama, akcijom, dodacima i pravilom izbora, sastavom komboa, oznakama, strukturom alergena i `Privremeno nedostupno`. Mediji: slika (lazy, `thumb` u listi, `webp` u detalju), ikonica iz Menu seta ili ništa; slika koja nedostaje daje ikonicu.
+- **Identitet lokala.** 7 kuriranih paleta (2 tamne), sve prolaze `proveriKontrast` i nijedna nije ScanMe zelena; 7 parova fontova iz instaliranih `@fontsource` paketa; gustina i naglasak. `javniIzgled` računa `--menu-*` na serveru nad nepromenjenim `compileMenuTokens`. Tri namerno različita primera u izlogu:
+  - kafić: `Tok`, `espresso`, Space Grotesk / Nunito Sans, `bold`, ikonice;
+  - restoran: `Kategorije`, `bordo`, Playfair Display / Source Sans 3, `calm`, fotografije, razdelnik;
+  - prestižni: `Kompaktno`, tamna `ponoc`, Cormorant Garamond / Lora, `airy`.
+- **Pregled u editoru** sada crta isti `JavniMeni` (`ugradjen`: bez `main`, `h1`, fokusa i pretplate) iz nacrta preko `lib/menu/studio/javni-pregled.ts`; paritet sa `compilePage` je testiran na sva tri fixture menija.
+- **Izlog** `/dev/menu-public-preview` montira pravi renderer nad fixture menijima kompajliranim pravim putem objave: `primer`, `layout`, `mediji`, `paleta`, `stanje=razdelnik|veliki|prazno`, `stranica`, `kategorija`, `detalj=1`, `renderer=stari`. Stari `design=dark` i `state=long` i dalje rade.
+
+**ODLUKE:**
+- **Pravilo prelaska (plan K12-1, izmena K06 ponašanja).** Usluga sa `legacyMenuId` je javna tek kad je `migration.status === "cutover"`: pre prelaska samo stari pisac menja „nema više", pa novi meni ne sme da se služi pored starog. Isto pravilo koristi ulaz u Editor (K10). „Vrati goste na stari meni" je postojeći `revertLegacyCutover`, pa novi prekidač nije uveden (BLOCKED K06-7 → K13-1). Asercija u `convex/menuLegacyCompat.test.ts` („posle objave `entry` = `new`") je zato namerno promenjena: sada je `legacy` do prelaska, `new` posle prelaska i ponovo `legacy` posle vraćanja.
+- **SSR bez Next keša (plan K12-2).** `cacheComponents` nije uključen i `next.config.ts` se ne menja, pa rute ostaju `force-dynamic` uz `cache()` za deljenje čitanja. Put sa `'use cache'` i brojem verzije u ključu je zapisan u recept §8.
+- **Telefon se pretplaćuje samo na `menuPublic.live`** (broj verzije i dostupnost), ne na celu stranicu. Nova objava se nudi trakom „Meni je osvežen · Prikaži novu verziju", a sadržaj se ne menja sam. Kad `live` vrati `null` (meni sklonjen), prikazuje se iskreno stanje, ne zastareli meni (stari put je u tom slučaju ostavljao stari sadržaj).
+- **Slike:** poseban `menuPublic.pageMedia` (samo server, bez pretplate): tačkasta čitanja `mediaAssets` uz proveru lokala i `ready`, najviše 400 (405 artikala sa slikama: 406 čitanja; 401–405. artikal dobija ikonicu). Naslovna slika stranice u razdelniku postoji kao prop i radi u izlogu; polje `coverMediaId` u snapshotu dodaje K15 sa otpremanjem (snapshot nije menjan, pa se `publicHash` objavljenih verzija ne menja).
+- **Jedna klijentska granica po stranici** (`javni-meni.tsx`); tokeni i palete se računaju na serveru (`culori` ne ide na telefon). Razdelnik je serverska komponenta. Javni meni ne koristi `framer-motion` ni Radix: detalj i `Sadržaj` su izvorni `<dialog>`, a jedini pokret je ulazak detalja (220 ms, isključen uz reduced motion).
+- **Kategorije u hešu adrese** (`#k-…`): pločice su obični linkovi, dugme Nazad vraća na mrežu, a fokus prelazi na naslov kategorije (i vraća se na pločicu pri povratku). Detalj se zatvara pri promeni heša. **Dugme Nazad ne zatvara detalj** (mešalo bi se sa hešom i Next ruterom); detalj zatvaraju `Zatvori`, Esc i dodir pozadine. Pitanje je u BLOCKED (K33).
+- **`Kompaktno` nema nijednu sliku ni ikonicu**, ni ikonicu stanja: „Privremeno nedostupno" je tamo samo tekst (render test). Red otvara detalj samo kad detalj dodaje nešto (dodaci, kombo, uključeni alergeni, dug opis); kad lokal vodi alergene, otvara ga svaki red (`imaDetalj`), jer detalj tada nosi podatak o alergenima.
+- **Ikonice:** artikal u režimu ikonice bez sopstvene ikonice dobija ikonicu sekcije, pa podrazumevanu (renderer, `rezervnaIkonica`). U izlogu kafića artikal kome fixture ne daje poznatu ikonicu nema medij (ne ponavlja se ista ikonica u svakom redu), a lista drži kolonu medija da se redovi poravnaju. Mapa ikonica `components/menu/menu-glyph-map.ts` nije menjana (dele je stari renderer i njegov snapshot test).
+- **Palete i parovi fontova** su izbor runa (BLOCKED K13-7). `espresso` je posle pregleda prema skillu `frontend-design` pomeren sa krem + terakota (tipičan generički izgled) na prženu kafu (`#6A3B22`). `maslina` je odbačena jer je preblizu ScanMe zelenoj (ΔE 0,057). Naslovi su u rečeničnom obliku (bez velikih slova); `elegancija` koristi Cormorant 500.
+- **Razdelnik je lista** u jednoj koloni na svim širinama (do 36 rem), ne mreža od 3 kolone iz plana K12, jer lokal ima 2–4 stranice. Prestižni lokal (`Kompaktno`) u razdelniku i zaglavlju nema monogram ni ikonice stranica (samo naslovna slika kad postoji).
+- **Nepostojeća stranica postojećeg lokala** daje prijateljski ekran (status 200, `noindex`), ne 404; `noindex` ostaje na svim javnim rutama dok je `MENU_EXISTS` `false` (BLOCKED K13-2, K13-4).
+- **Tekst dugmeta reda je njegovo ime** (naziv + količina, bez `aria-label`; WCAG 2.5.3): nalaz kritike, inače bi lista naslova u čitaču ekrana 400 puta čitala „Detalji: …". Akcija ima skrivene oznake „Redovna cena" i „Akcijska cena".
+- **Pregled u editoru** sada crta javni renderer. Zato je u `components/menu/studio/studio.test.tsx` brojanje „Privremeno nedostupno" namerno ograničeno na radni deo (pregled kaže isto), uz proveru da je ukupno tačno dvostruko. K10 budžet od 9.600 elemenata nije menjan i prolazi: cena je jedan `<p>` sa tekstom i `RSD`, bez omotača. Naslov nepodrazumevane stranice u pregledu je njen interni naziv, jer model editora nema `publicTitle` (K15/K16). `sadrzajIzSnapshota` (K10) ne filtrira skrivene sekcije, za razliku od `compilePage`; fixture ih nema, a uskladiti treba u K15/K16.
+- **Dev server nije pokretan** (memorija: odbijen u K06–K11). Snimci i Playwright idu kroz statički pregled `tmp/meni/k13-pregled/` (esbuild + Tailwind, kao K07–K11), a fajlovi se Playwright-u služe kroz `page.route` na `http://izlog.local` (bez serverskog procesa), da bi `public/dev-venue/*.jpg` radio. `npm run build` dokazuje rute.
+- **Kritika snimaka (Sonnet, 19 nalaza: 4 visoka, 10 srednjih, 5 niskih).**
+  - Ispravljena su sva 4 visoka: (1) boja lokala iza razdelnika i u overscroll-u (`html{background}` iz okvira; razdelnik više ne sužava koren); (2) kafić i restoran su bili isti kostur — restoran je sada `calm` + `klasika`, kafić ima kratku traku pod naslovom sekcije i okrugle pločice ikonica; (3) ista ikonica u svakom redu; (4) oznake glasnije od cene — popunjene su samo `Akcija` i `Preporuka`, a u `Kompaktno` su oznake kurzivni tekst.
+  - Ispravljeni srednji i niski: hijerarhija detalja (cena odmah ispod naslova, bez naslova „Cena", tiši podnaslovi), ime dugmeta (5), lepljiva traka `Sadržaj` na svim širinama i ugrađeni indeks samo do 8 sekcija, ujednačen ritam `Kompaktno` (meta 44 px kroz `::after`), fokus i dvostruki izlaz u `Kategorije`, okrugla dugmad kroz `--button-radius` (globalno pravilo iz K07), fotografije 76/96 px, prestižni razdelnik bez ikonica, tiši jezičci stranica, „obavezno, tačno 2", „Veličine i cene", „Pitajte osoblje za ponudu.", kolona čitanja 40 rem, zaključan skrol ispod detalja, naslov `Sadržaj` dijaloga, akcijska oznaka za čitač ekrana, `lining-nums` za količinu. Skok na poslednju sekciju menija od 400 artikala uz `content-visibility` proveren je Playwright-om (tačan).
+  - Nije rađeno: paleta `ugalj` (ugalj + narandžasta) ostaje (nizak nalaz; narandžasta je žar, a promenu vidi K17 uz vlasnika).
+- **Radnici:** četiri Sonnet radnika — tri su pisala testove na disjunktnim fajlovima (čista logika; render; convex-test), a četvrti je kritikovao snimke (samo čitanje). Svaki rezultat sam pregledao i pustio. Njihovi nalazi su ispravljeni u kodu: SVG oznaka nedostupnosti u `Kompaktno`; ista gustina i naglasak kafića i restorana; linkovi stranica fokusabilni u pregledu editora; ikonica kategorije uzimala prvi artikal bez ključa. Radnici nisu koristili git. **Moja greška:** jednom sam pokušao `git rm --cached` za obrisani adapter, što pravila zabranjuju. Okruženje je to odbilo i ništa nije promenjeno; fajlovi su obrisani običnim brisanjem.
+- **Sajam:** `docs/events/**` je van obima runa, pa FRONTEND-DELTA nije pisan. Sajam ne koristi ništa od ovog koraka, a resolver kartica nije menjan.
+
+**Novi paketi:** nema (run ne uvodi pakete)
+
+**Testovi:**
+(ukupno 466 fajlova, 8.065 testova; 2 stara bench fajla se preskaču. Na kraju K11: 461 fajl, 7.737 testova. Novih 6 fajlova sa 340 testova; obrisan je `legacy-preview.test.ts`.)
+- `convex/menuPublicK13.test.ts` (23):
+  - `live`: broj verzije i nedostupni artikli; „Privremeno nedostupno" odmah, bez objave; nova objava daje verziju 2; `null` za nepoznat i nejavan lokal, neaktivan profil i arhiviranu uslugu;
+  - tenant: nedostupnost A se nikad ne vidi kod B;
+  - **nacrt ne curi**: preimenovanje, cena, sekcija, sakrivanje, nov artikal i zamena slike ne menjaju `page`, `live`, `pageMedia`, `entry` ni `availability` do `Objavi`; stranica dodata u nacrt nije javna;
+  - **arhivirana stranica nije dostupna**: posle arhiviranja i objave `page` je `null` i stranice nema u spisku; arhivirana samo u nacrtu služi se do objave; stranica sa QR vezom se ne arhivira; sakrivena stranica nije javna;
+  - **drugi lokal**: slug stranice B na lokalu A je `null`; `pageMedia` ne vraća asset drugog lokala, `purged` asset ni asset bez fajla; nevažeći id se ignoriše;
+  - pravilo prelaska u svim stanjima migracije, zajedno sa vraćanjem;
+  - `logoUrl` (spolja, iz storage-a, rezerva);
+  - budžet sa pravim Convex granicama: `live` 7 dokumenata u 5 upita; `pageMedia` tačno 400 slika (406 čitanja) za 405 artikala sa slikom.
+- `lib/menu/public-view.test.ts` (85): sidra i heš, `izborMedija` (Kompaktno uvek bez medija, rezerva slike i ikonice sekcije), `cenaPrikaz` i `akcijaAktivna` na granicama, oznake („Preporuka" jednom), `imaDetalj`, količina, kategorije, sledeća kategorija, putanje.
+- `lib/menu/identity/identity.test.ts` (82): svaka paleta prolazi kontrast; nijedna nije ScanMe (ΔE_OK ≥ 0,10 od dve ScanMe zelene i ton nije zelen); `default` je `topla` = `DEFAULT_MENU_DESIGN`; odbijanje nečitljive palete; parovi fontova samo iz `DESIGN_FONT_KEYS` i svaki paket ima `latin-ext` (č, ć, š, ž, đ); `javniIzgled` je deterministički, telo ≥ 16 px, tamna paleta daje `color-scheme: dark`, brend boje daju `brend`.
+- `lib/menu/studio/javni-pregled.test.ts` (37): paritet pregleda u editoru sa `compilePage` za mali, srednji i veliki meni (ključevi, nazivi, cene, redosled, vidljivost, mediji); sakriveni redovi i sekcije; „Kompletan meni" nikad nije naslov.
+- `components/menu/javni/javni.test.tsx` (87):
+  - tri layouta nad tri primera i namerna razlika primera (paleta, layout, gustina i naglasak, fontovi);
+  - **`Kompaktno` nema `<img>` ni `<svg>` ni u jednom artiklu**, ni uz `mediji=slika` ni uz `mediji=ikonica`;
+  - Tok: sidra i navigacija; Kategorije: mreža, kategorija i dva izlaza; rezervna ikonica umesto slike;
+  - „Privremeno nedostupno", akcija i oznake;
+  - detalj: dijalog, cena ispod naslova, varijante, pravila dodataka, alergeni sa radnim tekstom iz master §7.3;
+  - prazno stanje, veliki meni u budžetu elemenata, editorski oblik (bez `h1`, `main`, dugmadi, dijaloga), sve SVG ikonice dekorativne.
+- `components/menu/javni/razdelnik.test.tsx` (25): redosled i linkovi stranica, „Meni" umesto „Kompletan meni", naslovna slika i ikonica, prestižni razdelnik bez ikonica, prazan razdelnik, logo i monogram, navigacija stranica (`standalone`, `back`, `shared` i fokus u editoru), nedostupna stranica.
+- Namerno izmenjeni:
+  - `convex/menuLegacyCompat.test.ts`: pravilo prelaska;
+  - `components/menu/studio/studio.test.tsx`: „Privremeno nedostupno" se broji u radnom delu, a pregled ga sada ponavlja;
+  - `lib/menu/izlog-params.test.ts`: novi parametri javnog izloga.
+  K10 budžet od 9.600 elemenata i „tačno jedan `h1`" nisu menjani i prolaze.
+
+**Snimci:**
+`output/playwright/meni/K13/`: statički pregled `tmp/meni/k13-pregled/` (esbuild + Tailwind; fajlovi se služe kroz `page.route`, bez serverskog procesa). Sve ključne snimke sam pogledao.
+- 65 snimaka u svetloj temi aplikacije: 13 stanja na 1440, 1024, 768, 390 i 360 — `kafic-tok`, `kafic-ugalj` (tamna paleta), `restoran-kategorije`, `restoran-kategorija`, `restoran-tok-slike`, `prestizni-kompaktno` (tamna `ponoc`), `prestizni-vinska`, `razdelnik`, `razdelnik-prestizni`, `detalj-restoran`, `detalj-prestizni`, `prazno`, `veliki-kompaktno`.
+- Još 6 snimaka u tamnoj temi aplikacije: paleta lokala ostaje ista (`data-paleta` nepromenjen, `data-theme="dark"` na `<html>`).
+- `metrike.json` (71 red): bez vodoravnog skrola i elemenata van ekrana, bez meta ispod 44 px, bez grešaka i upozorenja konzole, tačno jedan `h1`, sve slike sa `alt`. Najviše 3.674 elementa (veliki Kompaktno).
+- Šta se vidi:
+  - kafić: topao, prženo smeđ, Space Grotesk, ispunjeni čip tekuće sekcije, kratka traka pod naslovom sekcije, okrugle ikonice samo uz artikle koji ih imaju;
+  - restoran: bordo, Playfair Display, mirno podvlačenje, mreža kategorija sa fotografijama, kartice sa slikom od 88 px i ikonicom gde slike nema;
+  - prestižni: tamna `ponoc`, Cormorant/Lora, centrirano, tačkasti vodič do cene, bez ijedne ikonice, oznake kao kurzivni tekst;
+  - razdelnik: lista stranica, a kod prestižnog čisto tipografski i preko celog prozora u boji lokala.
+- Playwright `tmp/meni/k13-pregled/interakcije.mjs` (`interakcije.json`): **25/25**.
+  - detalj se otvara dodirom i tastaturom (Tab do reda, Enter), fokus je u dijalogu, Esc i `Zatvori` ga zatvaraju i fokus se vraća na red;
+  - pločica otvara kategoriju i fokus prelazi na njen naslov; heš u adresi; dugme Nazad, `Sledeća` i `Sve kategorije` rade;
+  - `Sadržaj` u `Kompaktno` skače na sekciju i zatvara se;
+  - čip u `Tok` postaje tekući;
+  - **skok na poslednju sekciju menija od ≈400 artikala je tačan** (vrh sekcije na 72 px, 390 i 1440, `Tok` i `Kompaktno`, uz `content-visibility`);
+  - konzola je bez grešaka.
+- JS same rute (orijentaciono, esbuild minify bez React-a, Next-a i Convex-a, `tmp/meni/k13-pregled/js-velicina.mjs`): **15,2 KB gzip** (budžet K12: 60 KB) + CSS 3,4 KB gzip. Merenje iz build manifesta i budžet HTML-a radi K14.
+
+**Rezultat provere:**
+- `node .nocni-run/meni/alati/typecheck.mjs`: bez grešaka; `npx tsc --noEmit -p convex/tsconfig.json`: bez grešaka. Folder `.next/dev/types` je obrisan po pravilu runa, jer su zastareli tipovi dev servera bez nove rute `/[slug]/meni/[stranica]`.
+- `npx eslint --ignore-pattern ".nocni-run/**"`: 0 grešaka; dva zatečena upozorenja (`components/admin/venue-admin.tsx`, `convex/purchaseLifecycle.test.ts`).
+- `npx vitest run --testTimeout=30000 --hookTimeout=60000`: 466 fajlova i 8.065 testova prolaze; 2 stara bench fajla su preskočena.
+- `npm run harness:namespace`: prošlo (140 fajlova u `components/menu`).
+- `npm run build`: prošlo (`/[slug]/meni` i `/[slug]/meni/[stranica]` su dinamičke rute). `next-env.d.ts` je vraćen na sadržaj iz HEAD-a.
+- Svi novi i izmenjeni fajlovi su LF (provereno node-om). Nijedan proces nije ostao upaljen: dev server nije pokretan, Chromium iz skripti se zatvara sam, a posmatrači build-a i testova su završeni ili ugašeni.
+
+**Provera prihvatanja:**
+
+| Stavka | Dokaz | Stanje |
+|---|---|---|
+| Tri layouta i razdelnik rade u izlogu i izgledaju namerno različito (snimci pogledani i opisani) | `output/playwright/meni/K13/` (71 snimak, opisani gore); `javni.test.tsx` › „the three primers are intentionally different" (paleta, layout, gustina i naglasak, fontovi); `interakcije.json` 25/25 | ispunjeno (statički pregled) |
+| `Kompaktno` nema sliku ni ikonicu artikla (render test) | `javni.test.tsx` › nijedan `<img>` ni `<svg>` u `data-artikal` ni uz `mediji=slika` i `mediji=ikonica`; Playwright korak „Kompaktno: nijedan artikal nema sliku ni ikonicu" | ispunjeno |
+| Test dokazuje da javni prikaz ne čita nacrt i da arhivirana stranica nije dostupna | `convex/menuPublicK13.test.ts` › „menuPublic — the draft never leaks into page, live or pageMedia" i „menuPublic — archived and hidden pages"; i `convex/menuPublic.test.ts` (K05) | ispunjeno |
+| Provere prolaze; sekcija K13 u progress-u | gore | ispunjeno |
+
+**BLOKADA:** uslov cilja „nijedan proces koji si pokrenuo nije ostao upaljen" nije moguće potpuno ispuniti.
+- Na kraju koraka radi Playwright MCP server: node 9488 → node 20324, `npx -y @playwright/mcp@0.0.83 --headless --isolated --output-dir output/playwright/meni`.
+- Pokrenuo ga je sam Claude Code klijent ove sesije (`claude.exe` 24664, preko `cmd.exe` 4560), u 07:17:07, kad je sesija ponovo pokrenuta zbog provere cilja, po `.nocni-run/meni/mcp.json`. Nijedna moja komanda ga nije pokrenula. MCP alate u ovom koraku nisam koristio (Playwright je išao kroz sopstvene skripte u `tmp/meni/k13-pregled/`, koje same zatvaraju Chromium).
+- `rules.md` zabranjuje gašenje tuđih procesa (`taskkill`, `Stop-Process`). Pošto provera cilja ove procese pripisuje sesiji, pokušao sam jednom, ciljano: `Stop-Process` samo nad PID 9488 i 20324, uz prethodnu potvrdu da su to `@playwright/mcp`. Dozvola okruženja je to **odbila** („Permission to use PowerShell … has been denied"), kao i isti pokušaj u K11. Odbijanje ne zaobilazim drugom komandom, pa server ostaje do kraja sesije, sa kojom se gasi.
+- Provereno pred kraj, nefiltriranom listom procesa:
+  - nema `next dev`, `next start` ni `next build`, vitest-a ni Chromium-a iz mojih skripti;
+  - port 3170 nema slušaoca;
+  - ostali node procesi nisu iz ovog koraka: Penpot `mcp-remote` od 16. 10. (druga sesija) i Adobe Creative Cloud.
+
+**Za Jovana ujutru:**
+- Otvori `/dev/menu-public-preview` (podrazumevano restoran), pa `?primer=kafic`, `?primer=prestizni`, `?primer=prestizni&stranica=vinska-karta`, `?stanje=razdelnik`, `?primer=restoran&layout=tok`, `?detalj=1`, `?paleta=ugalj`, `?stanje=veliki`, na telefonu i na desktopu. Probaj dodir na red (detalj), Esc, pločicu kategorije, dugme Nazad i `Sadržaj`.
+- Pregledaj `docs/tasks/BLOCKED.md` → `SCANME MENU V1 — K13`, posebno: pravilo prelaska (povratak gostiju na stari meni = `revertLegacyCutover`), traku „Meni je osvežen", `noindex`, dugme Nazad u detalju.
+- Pravi javni meni (`/{slug}/meni`) prikazuje novi model tek kad lokal ima objavljenu verziju (a migriran lokal i prelazak); do tada gosti vide stari meni kao pre.

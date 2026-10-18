@@ -1,53 +1,39 @@
-// ScanMe Menu V1 — the body of the interim editor preview (K10, until K13).
-// The same tokens, CSS module and group renderers as the public MenuTemplate
-// (components/menu/menu-template.tsx), but without its page landmarks (main,
-// header, footer, h1): inside the editor the preview is a picture of the
-// page, and the editor already has its own main region and its one h1.
+// ScanMe Menu V1 — the body of the editor preview (K10; K13: the public
+// renderer itself). JavniMeni in its `ugradjen` form: no main, no h1, no
+// footer landmark, nothing focusable, no live subscription — inside the editor
+// the preview is a picture of the page, and the editor already has its own
+// main region and its one h1. The appearance is the venue's (K17 will pass the
+// draft presentation; until then the default), or the izlog's dark colours.
 
-import { memo, type CSSProperties } from "react";
-import { clampMenuDesign, compileMenuTokens, type MenuDesign } from "@/lib/design-engine/menu-tokens";
-import { menuSr } from "@/lib/i18n/sr/menu";
-import type { StudioPregledView } from "@/lib/menu/studio/legacy-preview";
-import { MenuGroupRender } from "../../blocks/registry";
-import styles from "../../menu-template.module.css";
+import { memo, useMemo } from "react";
+import type { MenuDesign } from "@/lib/design-engine/menu-tokens";
+import { javniIzgled } from "@/lib/menu/identity/public-tokens";
+import { MENU_DEFAULT_PRESENTATION } from "@/lib/menu/presentation";
+import type { JavniPregled } from "@/lib/menu/studio/javni-pregled";
+import { JavniMeni } from "../../javni/javni-meni";
 
-function izgled(design: MenuDesign) {
-  const tokens = compileMenuTokens(design) as Record<string, string>;
-  if (design.background.category === "media") {
-    tokens["--menu-background-base-image"] = "linear-gradient(var(--menu-page), var(--menu-page))";
-  }
-  return { style: tokens as CSSProperties, scale: design.typography.scale, align: design.typography.alignment };
-}
+const BEZ_SLIKA = {};
+// The editor model carries no promotions yet (K15), so no moment is needed to judge them.
+const BEZ_AKCIJA = 0;
 
 // K11: memoized — the save status changes on every drag, move or group action, and
 // redrawing a 400-article preview each time made a drop wait (props are stable).
 export const PregledSadrzaj = memo(function PregledSadrzaj({
-  view,
-  slug,
+  pregled,
   dizajn,
 }: {
-  view: StudioPregledView;
-  slug: string;
+  pregled: JavniPregled;
   dizajn: MenuDesign | null;
 }) {
-  const { style, scale, align } = izgled(clampMenuDesign(dizajn));
-  const ctx = { businessSlug: slug, businessName: view.businessName };
+  const izgled = useMemo(() => javniIzgled(MENU_DEFAULT_PRESENTATION, dizajn?.colors ?? null), [dizajn]);
   return (
-    <div className={styles.root} style={style} data-menu-scale={scale} data-menu-align={align}>
-      <div className={styles.backgroundDetail} aria-hidden="true" />
-      <div className={styles.frame}>
-        <div className={styles.masthead}>
-          <p className={styles.title}>{view.businessName}</p>
-        </div>
-        <div className={styles.groups}>
-          {view.groups.map((group) => (
-            <MenuGroupRender key={group.base.id} group={group} ctx={ctx} />
-          ))}
-        </div>
-        <div className={styles.footer}>
-          <p className={styles.footerBrand}>{menuSr.poweredBy}</p>
-        </div>
-      </div>
-    </div>
+    <JavniMeni
+      view={pregled.view}
+      izgled={izgled}
+      slike={BEZ_SLIKA}
+      sadaMs={BEZ_AKCIJA}
+      nedostupni={pregled.nedostupni}
+      ugradjen
+    />
   );
 });

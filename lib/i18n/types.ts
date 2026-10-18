@@ -7590,6 +7590,65 @@ export interface MenuStudioDict {
   };
 }
 
+// ScanMe Menu V1 (MENI run, K13) — the public menu a guest reads (master §7).
+// K14 adds search, filters, allergens, languages and currency here.
+export interface MenuJavniDict {
+  meta: { naslov: string; naslovStranice: string; opis: string };
+  razdelnik: { uvod: string; meni: string; stranice: string };
+  navigacija: {
+    sekcije: string;
+    sadrzaj: string;
+    otvoriSadrzaj: string;
+    sveStranice: string;
+    stranice: string;
+    sveKategorije: string;
+    kategorije: string;
+    sledeca: string;
+  };
+  kategorije: { artikli: MenuStudioMnozina };
+  artikal: {
+    redovnaCena: string;
+    akcijskaCena: string;
+    nedostupnoOpis: string;
+  };
+  detalj: {
+    zatvori: string;
+    varijante: string;
+    dodaci: string;
+    biraSeJedno: string;
+    biraSeVise: string;
+    obavezno: string;
+    izborOdDo: string;
+    izborDo: string;
+    izborTacno: string;
+    sastav: string;
+    kolicinaKomada: string;
+    oznake: string;
+    alergeni: string;
+    alergeniNepoznato: string;
+    alergeniNista: string;
+    drugo: string;
+    akcijaDo: string;
+  };
+  stanja: {
+    praznoNaslov: string;
+    praznoOpis: string;
+    praznoPitajte: string;
+    praznoMeniNaslov: string;
+    praznoMeniOpis: string;
+    nedostupnaNaslov: string;
+    nedostupnaOpis: string;
+    otvoriMeni: string;
+    nijeDostupanNaslov: string;
+    nijeDostupanOpis: string;
+    sadrzajNaslov: string;
+    novaVerzija: string;
+    prikaziNovu: string;
+  };
+  podnozje: { pokrece: string; kratko: string };
+  izlog: { naslov: string };
+}
+
 export interface DictBySurface {
   "event-map": EventMapDict;
   "fair-map": FairMapDict;
@@ -7634,6 +7693,7 @@ export interface DictBySurface {
   "menu-zajednicko": MenuZajednickoDict;
   "menu-panel": MenuPanelDict;
   "menu-studio": MenuStudioDict;
+  "menu-javni": MenuJavniDict;
   "ordering-admin": OrderingAdminDict;
   ordering: OrderingDict;
   "ordering-panel": OrderingPanelDict;

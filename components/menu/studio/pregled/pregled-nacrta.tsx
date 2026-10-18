@@ -1,8 +1,8 @@
 "use client";
 
 // ScanMe Menu V1 — live preview of the draft (K10; master §13.4, §6.1). Until
-// the new public renderer exists (K13), the draft is shown through the
-// EXISTING public renderer (MenuTemplate) via lib/menu/studio/legacy-preview.
+// K13 the draft is shown through the PUBLIC renderer itself
+// (components/menu/javni, via lib/menu/studio/javni-pregled).
 // The preview is for looking only: it is inert and hidden from assistive
 // technology, because the same content is editable — and announced — in the
 // work area next to it. A note says it shows the draft, not what guests see.
@@ -11,7 +11,7 @@ import { Monitor, Smartphone } from "lucide-react";
 import { fmt } from "@/lib/i18n/format";
 import { menuStudioSr } from "@/lib/i18n/sr/menu-studio";
 import type { MenuDesign } from "@/lib/design-engine/menu-tokens";
-import type { StudioPregledView } from "@/lib/menu/studio/legacy-preview";
+import type { JavniPregled } from "@/lib/menu/studio/javni-pregled";
 import { cn } from "@/lib/utils";
 import { IkonicaDugme } from "../../zajednicko/dugme";
 import { PregledSadrzaj } from "./pregled-sadrzaj";
@@ -21,8 +21,7 @@ const t = menuStudioSr;
 export type StudioUredjaj = "telefon" | "desktop";
 
 export function PregledNacrta({
-  view,
-  slug,
+  pregled,
   naziv,
   dizajn = null,
   uredjaj,
@@ -31,8 +30,7 @@ export function PregledNacrta({
   visina = "kolona",
 }: {
   /** null = the page has nothing guests would see yet. */
-  view: StudioPregledView | null;
-  slug: string;
+  pregled: JavniPregled | null;
   /** Name of the page shown (for the accessible description). */
   naziv: string;
   /** The izlog's `design=dark`; the real editor passes nothing (K17 brings the design). */
@@ -87,7 +85,7 @@ export function PregledNacrta({
             visina === "pano" && "h-[calc(100dvh-16rem)] min-h-[24rem]",
           )}
         >
-          {view ? (
+          {pregled ? (
             <div
               inert
               aria-hidden="true"
@@ -95,7 +93,7 @@ export function PregledNacrta({
               className="[&>div]:min-h-full [&_[class*=frame]]:min-h-0"
               style={uredjaj === "desktop" ? { width: "64rem", zoom: 0.34 } : undefined}
             >
-              <PregledSadrzaj view={view} slug={slug} dizajn={dizajn} />
+              <PregledSadrzaj pregled={pregled} dizajn={dizajn} />
             </div>
           ) : (
             <p className="grid h-full place-items-center p-6 text-center text-sm text-[var(--mp-tekst-sporedni)]">

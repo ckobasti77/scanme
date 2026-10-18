@@ -775,7 +775,11 @@ describe("articles that are temporarily unavailable", () => {
     for (const { key, markup } of redovi(html)) {
       expect(markup.includes(`>${esc(t.red.nedostupno)}</span>`)).toBe(nedostupni.has(key));
     }
-    expect(count(html, esc(t.red.nedostupno))).toBe(nedostupni.size);
+    // K13 (intentional): the live preview is now the public renderer, which says
+    // "Privremeno nedostupno" in the same words, so only the work area is counted here.
+    const radniDeo = html.slice(0, html.indexOf("data-pregled-sadrzaj"));
+    expect(count(radniDeo, esc(t.red.nedostupno))).toBe(nedostupni.size);
+    expect(count(html, esc(t.red.nedostupno))).toBe(nedostupni.size * 2);
   });
 
   test("an unavailable article is still editable", () => {

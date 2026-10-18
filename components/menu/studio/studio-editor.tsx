@@ -17,7 +17,7 @@ import { menuDomenSr } from "@/lib/i18n/sr/menu-domen";
 import { menuStudioSr } from "@/lib/i18n/sr/menu-studio";
 import type { MenuDesign } from "@/lib/design-engine/menu-tokens";
 import { kljucCene } from "@/lib/menu/studio/autosave-queue";
-import { pregledIzSadrzaja } from "@/lib/menu/studio/legacy-preview";
+import { javniPregled } from "@/lib/menu/studio/javni-pregled";
 import type { StudioPodaci, StudioRadnje, StudioRadniSadrzaj } from "@/lib/menu/studio/model";
 import { sadrzajSaCekanjem } from "@/lib/menu/studio/overlay";
 import { cn } from "@/lib/utils";
@@ -64,7 +64,7 @@ export function StudioEditor({
   izabranaStranica: string | null;
   onIzaberiStranicu: (id: string) => void;
   pocetno?: StudioPocetno;
-  /** The izlog's `design=dark` for the interim preview. */
+  /** The izlog's `design=dark`: the dark colours for the preview. */
   dizajnPregleda?: MenuDesign | null;
 }) {
   const { kontekst, stranice, status, nedostupni } = podaci;
@@ -99,9 +99,9 @@ export function StudioEditor({
     () => (podaci.sadrzaj ? sadrzajSaCekanjem(podaci.sadrzaj, naCekanju) : podaci.sadrzaj),
     [podaci.sadrzaj, naCekanju],
   );
-  const view = useMemo(
-    () => (sadrzaj ? pregledIzSadrzaja(kontekst.lokal, sadrzaj, nedostupni) : null),
-    [sadrzaj, kontekst.lokal, nedostupni],
+  const javni = useMemo(
+    () => (sadrzaj ? javniPregled({ naziv: kontekst.lokal, slug: kontekst.slug }, sadrzaj, nedostupni) : null),
+    [sadrzaj, kontekst.lokal, kontekst.slug, nedostupni],
   );
 
   const mozeUredjivanje = kontekst.mozeUredjivanje;
@@ -252,8 +252,7 @@ export function StudioEditor({
   const nazivStranice = sadrzaj?.stranica.naziv ?? "";
   const pregled = (visina: "kolona" | "preklop" | "pano", naslov = true) => (
     <PregledNacrta
-      view={view && view.groups.length > 0 ? view : null}
-      slug={kontekst.slug}
+      pregled={javni && javni.view.sekcije.length > 0 ? javni : null}
       naziv={nazivStranice}
       dizajn={dizajnPregleda}
       uredjaj={uredjaj}
