@@ -203,6 +203,10 @@ export type EditorStanje = (typeof EDITOR_STANJA)[number];
 export const EDITOR_POGLEDI = ["struktura", "uredi", "pregled"] as const;
 export type EditorPogled = (typeof EDITOR_POGLEDI)[number];
 
+/** K15: the article detail open (`artikal`: image and allergens; `varijante`: variants and a linked group with its impact). */
+export const EDITOR_FOKUSI = ["artikal", "varijante"] as const;
+export type EditorFokus = (typeof EDITOR_FOKUSI)[number];
+
 export type EditorPreviewParams = {
   tema: IzlogTema | null;
   /** Existing `?state=empty` (TASK-51); since K10 the same as `stanje=prazno`. */
@@ -217,6 +221,8 @@ export type EditorPreviewParams = {
   plan: (typeof PANEL_PLANOVI)[number];
   /** K10: `editor=stari` shows the legacy editor (legacy menus still use it). */
   stariEditor: boolean;
+  /** K15: `fokus=artikal|varijante` opens the article detail; null = the list. */
+  fokus: EditorFokus | null;
 };
 
 export function parseEditorPreview(params: IzlogSearchParams): EditorPreviewParams {
@@ -230,6 +236,7 @@ export function parseEditorPreview(params: IzlogSearchParams): EditorPreviewPara
     pogled: pickOptional(params.pogled, EDITOR_POGLEDI),
     plan: pickParam(params.plan, PANEL_PLANOVI, "standard"),
     stariEditor: firstParam(params.editor) === "stari",
+    fokus: pickOptional(params.fokus, EDITOR_FOKUSI),
   };
 }
 

@@ -3817,6 +3817,26 @@ export default defineSchema({
     source: v.literal("nbs"),
   }).index("by_pair_and_fetchedAt", ["pair", "fetchedAt"]),
 
+  // ScanMe Menu V1 (K15) — one image upload of an article (master §7.9). The
+  // browser stores the original straight to Convex storage; the Next.js route
+  // /api/meni/slike makes the web versions (convex/menuMedia.ts protocol:
+  // reserveUpload → uploadContext → commitProcessed). `storageId` is the
+  // original, set when the route claims it and deleted at commit; a reserved
+  // or failed upload older than a day is reaped with its blob.
+  menuMediaUploads: defineTable({
+    menuServiceId: v.id("menuServices"),
+    articleId: v.id("menuArticles"),
+    userId: v.id("users"),
+    status: v.union(v.literal("reserved"), v.literal("processed"), v.literal("failed")),
+    storageId: v.optional(v.id("_storage")),
+    mediaId: v.optional(v.id("mediaAssets")),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_storageId", ["storageId"])
+    .index("by_status_and_createdAt", ["status", "createdAt"])
+    .index("by_menuServiceId_and_createdAt", ["menuServiceId", "createdAt"]),
+
   // ===========================================================================
   // Sajam automobila 2026 — fair tables (B0; BACKEND-HANDOFF §5,
   // JOVAN-DELTA-2026-10-02). Contract: docs/events/sajam-automobila-2026/

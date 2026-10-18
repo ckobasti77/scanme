@@ -5,7 +5,9 @@
 // panel shell (which already checked sign-in and role). A venue whose Menu
 // still mirrors an unmigrated legacy menu keeps the legacy editor (no double
 // writers, K06): the route sends it there. The open page is kept in the URL
-// (`?stranica=<key>`), so a reload or a shared link opens the same page.
+// (`?stranica=<key>`), so a reload or a shared link opens the same page. K15: the
+// open article detail is `?artikal=<key>`; opening it adds a history entry, so
+// the browser's Back button returns to the list.
 
 import { useConvexAuth, useQuery } from "convex/react";
 import { useRouter } from "next/navigation";
@@ -20,12 +22,21 @@ import { useStudioVeza } from "./veza/use-studio-veza";
 
 const t = menuStudioSr;
 
-export function StudioRuta({ slug, pocetnaStranica }: { slug: string; pocetnaStranica: string | null }) {
+export function StudioRuta({
+  slug,
+  pocetnaStranica,
+  pocetniArtikal = null,
+}: {
+  slug: string;
+  pocetnaStranica: string | null;
+  pocetniArtikal?: string | null;
+}) {
   const router = useRouter();
   const { isLoading } = useConvexAuth();
   const ulaz = useQuery(api.menuStudio.entry, isLoading ? "skip" : { slug });
   const [izabranaId, setIzabranaId] = useState<string | null>(null);
-  const veza = useStudioVeza(slug, { id: izabranaId, key: pocetnaStranica });
+  const [artikal, setArtikal] = useState<string | null>(pocetniArtikal);
+  const veza = useStudioVeza(slug, { id: izabranaId, key: pocetnaStranica }, artikal);
   const stranice = veza.stanje === "spremno" ? veza.podaci.stranice : undefined;
   const izKljuca = pocetnaStranica ? (stranice?.find((s) => s.key === pocetnaStranica)?.id ?? null) : null;
   const kljucIzabrane = izabranaId ? (stranice?.find((s) => s.id === izabranaId)?.key ?? null) : null;
@@ -41,6 +52,24 @@ export function StudioRuta({ slug, pocetnaStranica }: { slug: string; pocetnaStr
     url.searchParams.set("stranica", kljucIzabrane);
     window.history.replaceState(null, "", url);
   }, [kljucIzabrane]);
+
+  // The detail in the address: opening pushes an entry, Back (popstate) closes it.
+  useEffect(() => {
+    const naPovratak = () => setArtikal(new URL(window.location.href).searchParams.get("artikal"));
+    window.addEventListener("popstate", naPovratak);
+    return () => window.removeEventListener("popstate", naPovratak);
+  }, []);
+  const otvoriArtikal = (kljuc: string | null) => {
+    const url = new URL(window.location.href);
+    if (kljuc) {
+      url.searchParams.set("artikal", kljuc);
+      window.history.pushState(null, "", url);
+    } else if (url.searchParams.has("artikal")) {
+      url.searchParams.delete("artikal");
+      window.history.replaceState(null, "", url);
+    }
+    setArtikal(kljuc);
+  };
 
   if (ulaz === undefined || ulaz.kind === "legacy" || veza.stanje === "ucitava") {
     return <UcitavanjeStanje oblik="lista" redova={6} oznaka={ulaz?.kind === "legacy" ? t.stanja.stariEditor : t.stanja.ucitava} />;
@@ -58,6 +87,8 @@ export function StudioRuta({ slug, pocetnaStranica }: { slug: string; pocetnaStr
       radnje={veza.radnje}
       izabranaStranica={izabranaId ?? izKljuca}
       onIzaberiStranicu={setIzabranaId}
+      otvorenArtikal={artikal}
+      onOtvoriArtikal={otvoriArtikal}
     />
   );
 }

@@ -6,14 +6,21 @@
 // (lib/menu/studio/memorija.ts) after a short pause, so saving, conflicts of
 // the queue and the publish dialog behave as in the app — without a backend.
 // Invented data only (components/menu/fixtures).
+// K15: `fokus=artikal` opens the detail of an article with an image and its
+// allergens group open; `fokus=varijante` the detail of an article with three
+// variants and a group linked to six articles, with the impact dialog open.
+// An upload in the izlog stays in the browser (an object URL), nothing is sent.
 
 import { useCallback, useMemo, useRef, useState } from "react";
 import { fixtureMenu, IZLOG_SADA } from "@/components/menu/fixtures";
 import { DARK_MENU_DESIGN } from "@/components/menu/menu-fixtures";
 import type { EditorPreviewParams } from "@/lib/menu/izlog-params";
 import { sadrzajIzSnapshota, straniceIzSnapshota } from "@/lib/menu/studio/iz-snapshota";
+import { detaljIzSnapshota } from "@/lib/menu/studio/detalj";
 import * as m from "@/lib/menu/studio/memorija";
+import * as md from "@/lib/menu/studio/memorija-detalj";
 import type { StudioIshod, StudioPodaci, StudioRadnje } from "@/lib/menu/studio/model";
+import type { DetaljPocetno } from "../studio/artikal/detalj-artikla";
 import type { PonudaPocetno } from "../studio/ponuda/radni-prostor";
 import { StudioEditor } from "../studio/studio-editor";
 
@@ -42,7 +49,54 @@ function prazanMeni() {
   };
 }
 
-function pocetno(params: EditorPreviewParams): { stanje: m.MemorijaStanje; lokal: string; slug: string } {
+const IZLOG_SLIKA = "/dev-venue/1.jpg";
+
+/** The key of an article by name and of its first row on the main page (fixtures are deterministic). */
+function nadji(stanje: m.MemorijaStanje, naziv: string): { key: string; prikaz: string } | null {
+  const article = stanje.snapshot.articles.find((candidate) => candidate.name === naziv);
+  const glavna = stanje.snapshot.pages.find((page) => page.isDefault);
+  const placement = stanje.snapshot.placements.find((candidate) => candidate.articleKey === article?.key && candidate.pageKey === glavna?.key);
+  return article && placement ? { key: article.key, prikaz: `${placement.sectionKey}/${article.key}` } : null;
+}
+
+/** The fixture as it was last published: the izlog's setup is not an unpublished change. */
+function kaoObjavljeno(stanje: m.MemorijaStanje): m.MemorijaStanje {
+  return stanje.objavljeno ? { ...stanje, objavljeno: stanje.snapshot, objavljenaRevizija: stanje.revizija } : stanje;
+}
+
+type Fokus = { artikal: string; detalj: DetaljPocetno & { izvorPrikaz?: string } };
+
+/**
+ * K15 `fokus=artikal`: "Kajmak sa pogačom" with an image (its icon stays the stand-in) and the
+ * allergens group open. `fokus=varijante`: "Ćevapi" with three variants and "Izaberite dva
+ * priloga" linked to six articles, the group open with its impact dialog.
+ */
+function saFokusom(stanje: m.MemorijaStanje, fokus: EditorPreviewParams["fokus"]): { stanje: m.MemorijaStanje; fokus: Fokus | null } {
+  if (fokus === "artikal") {
+    const kajmak = nadji(stanje, "Kajmak sa pogačom");
+    if (!kajmak) return { stanje, fokus: null };
+    const korak = md.sacuvajOtpremljenuSliku(stanje, kajmak.key, IZLOG_SLIKA);
+    return {
+      stanje: kaoObjavljeno(korak.stanje),
+      fokus: { artikal: kajmak.key, detalj: { izvorPrikaz: kajmak.prikaz, otvoreneGrupe: ["alergeni"] } },
+    };
+  }
+  if (fokus === "varijante") {
+    const cevapi = nadji(stanje, "Ćevapi");
+    const prilozi = stanje.snapshot.addonGroups.find((group) => group.name === "Izaberite dva priloga");
+    if (!cevapi || !prilozi) return { stanje, fokus: null };
+    let sledece = md.dodajVarijantu(stanje, cevapi.key, "15 komada", 1240).stanje;
+    const drugi = ["Ćevapi", "Pljeskavica sa kajmakom", "Ražnjići"].map((naziv) => nadji(sledece, naziv)?.key).filter((key): key is string => Boolean(key));
+    sledece = md.primeniGrupuNa(sledece, prilozi.key, drugi).stanje;
+    return {
+      stanje: kaoObjavljeno(sledece),
+      fokus: { artikal: cevapi.key, detalj: { izvorPrikaz: cevapi.prikaz, otvoreneGrupe: ["varijante"], varijante: { uticajGrupe: prilozi.key } } },
+    };
+  }
+  return { stanje, fokus: null };
+}
+
+function pocetno(params: EditorPreviewParams): { stanje: m.MemorijaStanje; lokal: string; slug: string; fokus: Fokus | null } {
   const meni = params.stanje === "prazno" ? prazanMeni() : fixtureMenu(params.stanje === "veliki" ? "veliki" : "srednji");
   const glavna = meni.snapshot.pages.find((page) => page.isDefault);
   const premium = params.plan === "premium";
@@ -54,7 +108,8 @@ function pocetno(params: EditorPreviewParams): { stanje: m.MemorijaStanje; lokal
     roomService: premium,
     premium,
   });
-  return { stanje, lokal: meni.venueName, slug: meni.slug };
+  const sa = saFokusom(stanje, params.stanje === null ? params.fokus : null);
+  return { stanje: sa.stanje, lokal: meni.venueName, slug: meni.slug, fokus: sa.fokus };
 }
 
 /**
@@ -81,7 +136,8 @@ function izaberiVisePocetno(stanje: m.MemorijaStanje): PonudaPocetno {
 }
 
 export function EditorIzlog({ params }: { params: EditorPreviewParams }) {
-  const [{ lokal, slug, stanje: prvo }] = useState(() => pocetno(params));
+  const [{ lokal, slug, stanje: prvo, fokus }] = useState(() => pocetno(params));
+  const [otvorenArtikal, setOtvorenArtikal] = useState<string | null>(fokus?.artikal ?? null);
   const [stanje, setStanje] = useState(prvo);
   const poslednje = useRef(prvo);
   const [stranicaKey, setStranicaKey] = useState<string | null>(null);
@@ -131,6 +187,37 @@ export function EditorIzlog({ params }: { params: EditorPreviewParams }) {
       postaviCene: (promene) => izvrsi((s) => m.postaviCene(s, promene, IZLOG_SADA)),
       uticajBrisanja: (artikalIds) => izvrsi((s) => m.uticajBrisanja(s, artikalIds)),
       obrisiArtikle: (artikalIds, token) => izvrsi((s) => m.obrisiArtikle(s, artikalIds, token, IZLOG_SADA)),
+      // K15 — the article detail.
+      izmeniPolje: (artikalId, polje, ocekivano, vrednost) => izvrsi((s) => md.izmeniPolje(s, artikalId, polje, ocekivano, vrednost)),
+      postaviMedij: (artikalId, ocekivano, novo) => izvrsi((s) => md.postaviMedij(s, artikalId, ocekivano, novo)),
+      otpremiSliku: async (artikalId, fajl, onNapredak) => {
+        // Nothing leaves the browser: a short pretend upload, then the local file is the image.
+        for (const udeo of [0.25, 0.6, 1]) {
+          onNapredak({ faza: "slanje", udeo });
+          await new Promise((resolve) => setTimeout(resolve, 120));
+        }
+        onNapredak({ faza: "obrada" });
+        const url = URL.createObjectURL(fajl);
+        return izvrsi((s) => md.sacuvajOtpremljenuSliku(s, artikalId, url));
+      },
+      postaviPrekidace: (artikalId, prekidaci) => izvrsi((s) => md.postaviPrekidace(s, artikalId, prekidaci)),
+      dodajVarijantu: (artikalId, naziv, cena) => izvrsi((s) => md.dodajVarijantu(s, artikalId, naziv, cena)),
+      izmeniVarijantu: (varijantaId, ocekivano, izmena) => izvrsi((s) => md.izmeniVarijantu(s, varijantaId, ocekivano, izmena, IZLOG_SADA)),
+      obrisiVarijantu: (varijantaId) => izvrsi((s) => md.obrisiVarijantu(s, varijantaId)),
+      novaGrupa: (artikalId, unos, opcije) => izvrsi((s) => md.novaGrupa(s, artikalId, unos, opcije)),
+      postojeceGrupe: () => izvrsi((s) => md.postojeceGrupe(s)),
+      prikaciGrupu: (artikalId, grupaId) => izvrsi((s) => md.prikaciGrupu(s, artikalId, grupaId)),
+      otkaciGrupu: (artikalId, grupaId) => izvrsi((s) => md.otkaciGrupu(s, artikalId, grupaId)),
+      uticajGrupe: (grupaId) => izvrsi((s) => md.uticajGrupe(s, grupaId)),
+      izmeniGrupu: (grupaId, ocekivano, izmena, samoZaArtikal) => izvrsi((s) => md.izmeniGrupu(s, grupaId, ocekivano, izmena, samoZaArtikal)),
+      dodajOpciju: (grupaId, opcija, samoZaArtikal) => izvrsi((s) => md.dodajOpciju(s, grupaId, opcija, samoZaArtikal)),
+      izmeniOpciju: (opcijaId, ocekivano, izmena, samoZaArtikal) => izvrsi((s) => md.izmeniOpciju(s, opcijaId, ocekivano, izmena, samoZaArtikal)),
+      obrisiOpciju: (opcijaId, samoZaArtikal) => izvrsi((s) => md.obrisiOpciju(s, opcijaId, samoZaArtikal)),
+      primeniGrupuNa: (grupaId, artikalIds) => izvrsi((s) => md.primeniGrupuNa(s, grupaId, artikalIds)),
+      traziArtikle: (upit) => izvrsi((s) => md.traziArtikle(s, upit)),
+      postaviAlergene: (artikalId, ocekivano, alergeni) => izvrsi((s) => md.postaviAlergene(s, artikalId, ocekivano, alergeni)),
+      postaviOznake: (artikalId, ocekivano, oznake) => izvrsi((s) => md.postaviOznake(s, artikalId, ocekivano, oznake)),
+      postaviAkciju: (artikalId, ocekivano, akcija) => izvrsi((s) => md.postaviAkciju(s, artikalId, ocekivano, akcija)),
     }),
     [izvrsi],
   );
@@ -141,6 +228,11 @@ export function EditorIzlog({ params }: { params: EditorPreviewParams }) {
   const sadrzaj = useMemo(
     () => (aktivna ? sadrzajIzSnapshota(stanje.snapshot, aktivna) : null),
     [stanje.snapshot, aktivna],
+  );
+
+  const detalj = useMemo(
+    () => (otvorenArtikal ? detaljIzSnapshota(stanje.snapshot, otvorenArtikal, (id) => stanje.slike?.get(id) ?? null) : undefined),
+    [stanje.snapshot, stanje.slike, otvorenArtikal],
   );
 
   const premium = params.plan === "premium";
@@ -165,6 +257,7 @@ export function EditorIzlog({ params }: { params: EditorPreviewParams }) {
     },
     nedostupni: stanje.nedostupni,
     povezano: true,
+    detalj,
   };
 
   return (
@@ -174,11 +267,15 @@ export function EditorIzlog({ params }: { params: EditorPreviewParams }) {
       izabranaStranica={stranicaKey}
       onIzaberiStranicu={setStranicaKey}
       dizajnPregleda={params.darkDesign ? DARK_MENU_DESIGN : null}
+      otvorenArtikal={otvorenArtikal}
+      onOtvoriArtikal={setOtvorenArtikal}
+      sada={IZLOG_SADA}
       pocetno={{
         tabela: params.stanje === "brzi-unos",
         ...(params.stanje === "izaberi-vise" ? { ponuda: izaberiVisePocetno(prvo) } : {}),
         ...(params.pogled === "struktura" ? { pano: "struktura" as const, preklop: "struktura" as const } : {}),
         ...(params.pogled === "pregled" ? { pano: "pregled" as const, preklop: "pregled" as const } : {}),
+        ...(fokus ? { detalj: fokus.detalj } : {}),
       }}
     />
   );

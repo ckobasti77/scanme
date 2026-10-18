@@ -9,22 +9,28 @@
 //   1024–1279 structure | work, preview as an overlay
 //   768–1023 work, structure in a drawer, preview as an overlay
 //   < 768 `Struktura / Uredi / Pregled`
+// K15: a click on an article opens its detail IN the work area (no new tab or
+// section); the list stays mounted (hidden), so search, collapsed sections and
+// the selection survive, and `Nazad` returns to the same scroll position with
+// the focus on the row.
 
 import { BedDouble, ChevronDown, Palette } from "lucide-react";
-import { useCallback, useId, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { fmt } from "@/lib/i18n/format";
 import { menuDomenSr } from "@/lib/i18n/sr/menu-domen";
 import { menuStudioSr } from "@/lib/i18n/sr/menu-studio";
 import type { MenuDesign } from "@/lib/design-engine/menu-tokens";
 import { kljucCene } from "@/lib/menu/studio/autosave-queue";
 import { javniPregled } from "@/lib/menu/studio/javni-pregled";
-import type { StudioPodaci, StudioRadnje, StudioRadniSadrzaj } from "@/lib/menu/studio/model";
+import type { StudioPodaci, StudioRadnje, StudioRadniSadrzaj, StudioRed } from "@/lib/menu/studio/model";
 import { sadrzajSaCekanjem } from "@/lib/menu/studio/overlay";
 import { cn } from "@/lib/utils";
+import { useMinutniSat } from "../javni/use-minutni-sat";
 import { Dugme } from "../zajednicko/dugme";
 import { Fioka } from "../zajednicko/fioka";
 import { Kartica } from "../zajednicko/kartica";
 import { PraznoStanje, UcitavanjeStanje } from "../zajednicko/stanja";
+import { DetaljArtikla, type DetaljPocetno } from "./artikal/detalj-artikla";
 import { NoviKombo } from "./kombo/novi-kombo";
 import { ObjavaDijalog } from "./objava/objava-dijalog";
 import { PonudaRadniProstor, type PonudaPocetno, type PonudaRadnje } from "./ponuda/radni-prostor";
@@ -48,6 +54,8 @@ export type StudioPocetno = {
   tabela?: boolean;
   /** K11: `Izaberi više` on with these rows selected, and the price dialog (izlog `stanje=izaberi-vise`). */
   ponuda?: PonudaPocetno;
+  /** K15: the open detail (izlog `fokus=artikal|varijante`) and the row it is shown from. */
+  detalj?: DetaljPocetno & { izvorPrikaz?: string };
 };
 
 export function StudioEditor({
@@ -57,6 +65,9 @@ export function StudioEditor({
   onIzaberiStranicu,
   pocetno = {},
   dizajnPregleda = null,
+  otvorenArtikal = null,
+  onOtvoriArtikal,
+  sada,
 }: {
   podaci: StudioPodaci;
   radnje: StudioRadnje;
@@ -66,12 +77,25 @@ export function StudioEditor({
   pocetno?: StudioPocetno;
   /** The izlog's `design=dark`: the dark colours for the preview. */
   dizajnPregleda?: MenuDesign | null;
+  /** K15: the key of the article whose detail is open (null = the list). */
+  otvorenArtikal?: string | null;
+  /** K15: open (a key) or close (null) the detail; the container loads its data. */
+  onOtvoriArtikal?: (artikalKey: string | null) => void;
+  /** K15: a fixed instant (the izlog); without it the editor follows the clock by the minute. */
+  sada?: number;
 }) {
   const { kontekst, stranice, status, nedostupni } = podaci;
   const sirina = useSirina();
   const red = useAutosave();
   const panelId = useId();
   const naslovId = useId();
+  const detaljNaslovId = useId();
+  const sadaSat = useMinutniSat(sada ?? 0, sada === undefined);
+  // K15: the row a detail was opened from, and where the list was, for the way back.
+  const [izvorPrikaz, setIzvorPrikaz] = useState<string | null>(pocetno.detalj?.izvorPrikaz ?? null);
+  const povratak = useRef<{ y: number; vrh: number | null; prikazId: string | null } | null>(null);
+  // The izlog's opening state of the detail holds for the first article only.
+  const [detaljPocetno, setDetaljPocetno] = useState(pocetno.detalj);
 
   const [tab, setTab] = useState<StudioTab>(pocetno.tab ?? "ponuda");
   const [pano, setPano] = useState<StudioPano>(pocetno.pano ?? "uredi");
@@ -173,8 +197,61 @@ export function StudioEditor({
     [sadrzaj],
   );
 
+  const otvoriArtikal = useCallback(
+    (stavka: StudioRed) => {
+      // Where the row was on screen: the way back puts it there again, even if rows above changed height.
+      const vrh = document.querySelector(`[data-meni-reda="${CSS.escape(stavka.prikazId)}"]`)?.closest("[data-red-artikla]")?.getBoundingClientRect().top ?? null;
+      povratak.current = { y: window.scrollY, vrh, prikazId: stavka.prikazId };
+      setIzvorPrikaz(stavka.prikazId);
+      setDetaljPocetno(undefined);
+      onOtvoriArtikal?.(stavka.artikal.key);
+    },
+    [onOtvoriArtikal],
+  );
+  const zatvoriArtikal = useCallback(() => {
+    setDetaljPocetno(undefined);
+    onOtvoriArtikal?.(null);
+  }, [onOtvoriArtikal]);
+  // Opening: the detail starts at its top with the focus on its title. Closing: the list is
+  // back where it was, with the focus on the row's menu (or its price), as before the click.
+  const bioOtvoren = useRef(otvorenArtikal !== null);
+  useLayoutEffect(() => {
+    const otvoren = otvorenArtikal !== null;
+    if (otvoren === bioOtvoren.current) return;
+    bioOtvoren.current = otvoren;
+    if (otvoren) {
+      // Instant: the app scrolls smoothly by default, which would race the focus and the way back.
+      window.scrollTo({ top: 0, behavior: "instant" });
+      document.getElementById(detaljNaslovId)?.focus({ preventScroll: true });
+      return;
+    }
+    const nazad = povratak.current;
+    povratak.current = null;
+    if (!nazad) return;
+    window.scrollTo({ top: nazad.y, behavior: "instant" });
+    if (!nazad.prikazId) return;
+    const meta =
+      document.querySelector<HTMLElement>(`[data-meni-reda="${CSS.escape(nazad.prikazId)}"]`) ??
+      document.getElementById(`cena-${nazad.prikazId}`);
+    meta?.focus({ preventScroll: true });
+    // Rows off screen keep an estimated height (content-visibility) until drawn: the row is put
+    // back where it was on screen once now and again over the next two frames.
+    const kartica = meta?.closest("[data-red-artikla]");
+    const vrh = nazad.vrh;
+    if (!kartica || vrh === null) return;
+    const namesti = () => window.scrollBy({ top: kartica.getBoundingClientRect().top - vrh, behavior: "instant" });
+    namesti();
+    const okvir = requestAnimationFrame(() => {
+      namesti();
+      requestAnimationFrame(namesti);
+    });
+    return () => cancelAnimationFrame(okvir);
+  }, [otvorenArtikal, detaljNaslovId]);
+
   const izaberiStranicu = (id: string) => {
     setPonudaPocetno(undefined);
+    povratak.current = null;
+    if (otvorenArtikal) onOtvoriArtikal?.(null);
     setRoomService(false);
     setTab("ponuda");
     setStrukturaOtvorena(false);
@@ -231,7 +308,7 @@ export function StudioEditor({
       </Kartica>
     );
   } else {
-    rad = (
+    const ponuda = (
       <PonudaRadniProstor
         key={sadrzaj.stranica.id}
         sadrzaj={sadrzaj}
@@ -245,8 +322,35 @@ export function StudioEditor({
         pocetno={ponudaPocetno}
         radnje={ponudaRadnje}
         naslovId={naslovId}
+        onOtvoriArtikal={onOtvoriArtikal ? otvoriArtikal : undefined}
       />
     );
+    rad =
+      otvorenArtikal === null ? (
+        ponuda
+      ) : (
+        <>
+          <div hidden data-lista-ispod-detalja="">
+            {ponuda}
+          </div>
+          <DetaljArtikla
+            key={otvorenArtikal}
+            detalj={podaci.detalj}
+            sadrzaj={sadrzaj}
+            izvorPrikazId={izvorPrikaz}
+            stranice={stranice ?? []}
+            nedostupni={nedostupni}
+            kontekst={kontekst}
+            red={red}
+            radnje={radnje}
+            naslovId={detaljNaslovId}
+            pocetno={detaljPocetno}
+            sada={sadaSat}
+            onNazad={zatvoriArtikal}
+            najavi={setNajava}
+          />
+        </>
+      );
   }
 
   const nazivStranice = sadrzaj?.stranica.naziv ?? "";

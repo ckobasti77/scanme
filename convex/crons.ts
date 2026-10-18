@@ -215,4 +215,8 @@ crons.interval(
 // exactly "true" (convex/menuFx.ts).
 crons.interval("menu fx rate", { hours: 6 }, internal.menuFx.refreshRate, {});
 
+// ScanMe Menu V1 (K15): image uploads that never finished (reserved or failed
+// for over a day) lose their row and their blob (convex/menuMedia.ts).
+crons.interval("menu media orphans", { hours: 6 }, internal.menuMedia.reapOrphans, {});
+
 export default crons;

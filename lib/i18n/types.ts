@@ -57,6 +57,7 @@ import type { RoomServiceErrorCode } from "../menu/errors/room-service";
 import type { ArticleErrorCode } from "../menu/errors/article";
 import type { MenuPublishIssueCode } from "../menu/errors/publish";
 import type { MenuPublishRefusal, MenuVersionErrorCode } from "../menu/errors/versions";
+import type { MenuMediaErrorCode } from "../menu/errors/media";
 import type {
   MenuMigrationErrorCode,
   MenuMigrationIssueCode,
@@ -2366,7 +2367,8 @@ export interface MenuDomenDict {
     | RoomServiceErrorCode
     | ArticleErrorCode
     | MenuVersionErrorCode
-    | MenuMigrationErrorCode,
+    | MenuMigrationErrorCode
+    | MenuMediaErrorCode,
     string
   >;
   // --- K04: the article model (master §5.4–§5.7, §7.3, §7.6).
@@ -7164,6 +7166,336 @@ export interface MenuPanelDict {
 // braces are filled via fmt(); MenuStudioMnozina is chosen by srPluralCategory.
 export type MenuStudioMnozina = { one: string; few: string; many: string };
 
+// K15 — the article detail of the editor (lib/i18n/sr/menu-studio-artikal.ts).
+export interface MenuStudioArtikalDict {
+  ucitava: string;
+  nePostojiNaslov: string;
+  nePostojiOpis: string;
+  nazad: string;
+  nazadOznaka: string;
+  urediStavka: string;
+  urediStavkaOpis: string;
+  otvoriStavka: string;
+  kombo: string;
+  nacrt: string;
+  samoCitanje: string;
+  cuvaSe: string;
+  sacuvano: string;
+  nijeSacuvano: string;
+  pokusajPonovo: string;
+  konflikt: string;
+  zadrziMoje: string;
+  uzmiSacuvano: string;
+  bezVrednosti: string;
+  znakova: string;
+  osnovno: {
+    naslov: string;
+    naziv: string;
+    cena: string;
+    cenaOznaka: string;
+    cenaZajednicka: string;
+    cenaVarijante: string;
+    sekcija: string;
+    sekcijaOpis: string;
+    opis: string;
+    opisPrimer: string;
+    kolicina: string;
+    kolicinaPrimer: string;
+    jedinica: string;
+    jedinicaPrimer: string;
+    greske: {
+      obavezno: string;
+      predugo: string;
+      neispravno: string;
+    };
+  };
+  prikaz: {
+    naslov: string;
+    izbor: string;
+    slika: string;
+    ikonica: string;
+    bez: string;
+    bezOpis: string;
+    izaberi: string;
+    zameni: string;
+    ukloni: string;
+    pravila: string;
+    alt: string;
+    nemaPregleda: string;
+    nemaSlike: string;
+    salje: string;
+    obrada: string;
+    gotovo: string;
+    uklonjena: string;
+    greske: {
+      too_large: string;
+      wrong_type: string;
+      heic: string;
+      empty: string;
+      neuspeh: string;
+    };
+    rezerva: string;
+    rezervaOpis: string;
+    ikonicaOpis: string;
+    podrazumevana: string;
+    ikonice: {
+      rakija: string;
+      "domaca kafa": string;
+      "turska kafa": string;
+      pivo: string;
+      vino: string;
+      sok: string;
+      voda: string;
+      burek: string;
+      pljeskavica: string;
+      cevapi: string;
+      kajmak: string;
+      ajvar: string;
+      supa: string;
+      salata: string;
+      riba: string;
+      rostilj: string;
+      testenina: string;
+      palacinke: string;
+      sladoled: string;
+      kolac: string;
+    };
+  };
+  grupe: {
+    otvori: string;
+    varijanteIDodaci: string;
+    alergeniIOznake: string;
+    oznake: string;
+    gdeSePrikazuje: string;
+    dostupnostIAkcija: string;
+    iskljuceno: string;
+    varijante: MenuStudioMnozina;
+    dodaci: MenuStudioMnozina;
+    napomena: string;
+    alergeni: MenuStudioMnozina;
+    alergeniNisuUneti: string;
+    sadrziBroj: string;
+    tragoviBroj: string;
+    oznakeBroj: MenuStudioMnozina;
+    bezOznaka: string;
+    stranice: MenuStudioMnozina;
+    nijednaStranica: string;
+    dostupno: string;
+    nedostupno: string;
+    bezAkcije: string;
+    akcija: string;
+  };
+  varijante: {
+    prekidac: string;
+    prekidacOpis: string;
+    komboNe: string;
+    naziv: string;
+    nazivOznaka: string;
+    cenaOznaka: string;
+    nazivPrimer: string;
+    cenaKolona: string;
+    nova: string;
+    novaCena: string;
+    dodaj: string;
+    ukloni: string;
+    prazno: string;
+    bezCene: string;
+  };
+  dodaci: {
+    prekidac: string;
+    prekidacOpis: string;
+    prazno: string;
+    dodajGrupu: string;
+    dodajGrupuNaslov: string;
+    nova: string;
+    novaOpis: string;
+    postojeca: string;
+    postojecaOpis: string;
+    nemaPostojecih: string;
+    vecNaArtiklu: string;
+    artikalaUGrupi: MenuStudioMnozina;
+    dodajPostojecu: string;
+    nazivGrupe: string;
+    nazivPrimer: string;
+    izbor: string;
+    jedan: string;
+    vise: string;
+    obavezna: string;
+    obaveznaOpis: string;
+    napredno: string;
+    min: string;
+    max: string;
+    naprednoOpis: string;
+    pravila: {
+      jedanObavezan: string;
+      jedanOpcion: string;
+      viseObavezno: string;
+      viseOpciono: string;
+      tacno: string;
+      odDo: string;
+      najvise: string;
+      najmanje: string;
+    };
+    povezana: MenuStudioMnozina;
+    dodatak: string;
+    dodatakNaziv: string;
+    dodatakOznaka: string;
+    doplata: string;
+    doplataOznaka: string;
+    besplatno: string;
+    doplataPrikaz: string;
+    noviDodatak: string;
+    novaDoplata: string;
+    dodajDodatak: string;
+    ukloniDodatak: string;
+    bezDodataka: string;
+    izmeni: string;
+    gotovo: string;
+    sacuvaj: string;
+    otkazi: string;
+    ukloni: string;
+    ukloniOpis: string;
+    primeni: string;
+    menjaSeZaSve: MenuStudioMnozina;
+    menjaSeKopija: string;
+    radnjeGrupe: string;
+  };
+  napomena: {
+    prekidac: string;
+    opis: string;
+  };
+  uticaj: {
+    naslov: string;
+    opis: MenuStudioMnozina;
+    ucitava: string;
+    greska: string;
+    artikli: string;
+    ovaj: string;
+    jos: MenuStudioMnozina;
+    izbor: string;
+    zaSve: string;
+    zaSveOpis: MenuStudioMnozina;
+    kopija: string;
+    kopijaOpis: string;
+    izaberiPrvo: string;
+    nastavi: string;
+    otkazi: string;
+  };
+  primeni: {
+    naslov: string;
+    opis: string;
+    pretraga: string;
+    pretragaPomoc: string;
+    trazi: string;
+    nemaRezultata: string;
+    vecIma: string;
+    izaberi: string;
+    izabrano: MenuStudioMnozina;
+    primeni: MenuStudioMnozina;
+    otkazi: string;
+    gotovo: MenuStudioMnozina;
+    preskoceno: MenuStudioMnozina;
+  };
+  alergeni: {
+    naslov: string;
+    alergen: string;
+    oznakaPolja: string;
+    sadrzi: string;
+    sadrziOpis: string;
+    tragovi: string;
+    tragoviOpis: string;
+    drugo: string;
+    drugoPrimer: string;
+    drugoObavezno: string;
+    nepoznato: string;
+    obrisi: string;
+  };
+  oznake: {
+    naslov: string;
+    opis: string;
+  };
+  gde: {
+    cena: string;
+    bezCene: string;
+    sakriveno: string;
+    arhivirana: string;
+    podrazumevana: string;
+    ukloni: string;
+    ukloniOznaka: string;
+    poslednje: string;
+    nijedna: string;
+    dodaj: string;
+    stranica: string;
+    sekcija: string;
+    izaberiStranicu: string;
+    dodajDugme: string;
+    vecTu: string;
+    nemaSekcija: string;
+    dodato: string;
+    uklonjeno: string;
+  };
+  dostupnost: {
+    naslov: string;
+    uzivo: string;
+    dostupno: string;
+    nedostupno: string;
+    opis: string;
+    najavaDostupno: string;
+    najavaNedostupno: string;
+  };
+  akcija: {
+    naslov: string;
+    nema: string;
+    dodaj: string;
+    izmeni: string;
+    sazetakProcenat: string;
+    sazetakCena: string;
+    ukloniTermin: string;
+    nacin: string;
+    cena: string;
+    procenat: string;
+    vrednostCena: string;
+    vrednostProcenat: string;
+    izvedeno: string;
+    izvedenoVarijanta: string;
+    natpis: string;
+    natpisi: {
+      promo: string;
+      recommended: string;
+      bez: string;
+    };
+    ukljucena: string;
+    ukljucenaOpis: string;
+    termin: string;
+    terminOpis: string;
+    pocetak: string;
+    kraj: string;
+    premium: string;
+    premiumRazlog: string;
+    varijanteCena: string;
+    sacuvaj: string;
+    ukloni: string;
+    otkazi: string;
+    stanje: {
+      off: string;
+      scheduled: string;
+      active: string;
+      ended: string;
+    };
+    greske: {
+      vrednost: string;
+      cena: string;
+      procenat: string;
+      varijante: string;
+      bez_cene: string;
+      termin: string;
+      premium: string;
+    };
+    sacuvano: string;
+    uklonjena: string;
+  };
+}
+
 export interface MenuStudioDict {
   meta: {
     naslov: string;
@@ -7588,6 +7920,8 @@ export interface MenuStudioDict {
     prevelik: string;
     greska: string;
   };
+  // K15 — the article detail.
+  artikal: MenuStudioArtikalDict;
 }
 
 // ScanMe Menu V1 (MENI run, K13) — the public menu a guest reads (master §7).

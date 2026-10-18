@@ -62,6 +62,16 @@ export const menuDomenSr = {
       "Usluga je povezana sa drugim starim menijem od onog koji gosti vide. Proverite vezu pre migracije.",
     "migration/default_page_missing":
       "Meni nema aktivnu stranicu „Kompletan meni“ u koju bi se uvezao sadržaj.",
+    // K15 — the article image (lib/menu/errors/media.ts).
+    "media/too_large": "Slika je veća od 10 MB. Izaberite manju sliku.",
+    "media/wrong_type": "Ovaj fajl nije slika u formatu JPG, PNG ili WebP.",
+    "media/heic": "HEIC fotografije nisu podržane. Sačuvajte sliku kao JPG pa je izaberite ponovo.",
+    "media/empty": "Fajl je prazan ili nije stigao do servera. Izaberite sliku ponovo.",
+    "media/wrong_state": "Ova slika je već obrađena ili je otpremanje prekinuto. Izaberite sliku ponovo.",
+    "media/too_many": "Previše slika u kratkom roku. Pokušajte ponovo za sat vremena.",
+    "media/unreadable": "Ova slika ne može da se pročita. Sačuvajte je ponovo kao JPG ili PNG i pokušajte opet.",
+    "media/disabled": "Otpremanje slika trenutno ne radi. Javite se ScanMe timu.",
+    "media/invalid_secret": "Otpremanje slika trenutno ne radi. Javite se ScanMe timu.",
   },
   allergens: {
     gluten: "Žitarice koje sadrže gluten",

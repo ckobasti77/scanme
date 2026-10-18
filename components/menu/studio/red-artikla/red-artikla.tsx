@@ -11,6 +11,10 @@
 // once), `Sakrij` and `Ukloni sa ove stranice` (draft), `Obriši artikal` (after
 // its consequences are shown). In `Izaberi više` the row gets a checkbox and a
 // click on the card toggles it; dragging is off.
+// K15: a click (or a short tap) on the free area of the card opens the
+// article detail in the same work area; a press that moved, a long press
+// (that picked the card up) and a click on a control never do. The keyboard
+// way is "Uredi artikal", the first item of the row menu.
 // Memoized in two layers: the sortable shell (`RedArtikla`, re-rendered by
 // dnd-kit on every drag event) and the content (`TeloReda`), which renders
 // again only when its own data changes — so a drop on a 400-article page
@@ -20,6 +24,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
   ArrowRightLeft,
+  PencilLine,
   CircleCheck,
   CircleSlash,
   Eye,
@@ -30,7 +35,7 @@ import {
   TriangleAlert,
   Unlink,
 } from "lucide-react";
-import { memo, useState, type ReactNode } from "react";
+import { memo, useRef, useState, type ReactNode } from "react";
 import { fmt } from "@/lib/i18n/format";
 import { menuDomenSr } from "@/lib/i18n/sr/menu-domen";
 import { menuStudioSr } from "@/lib/i18n/sr/menu-studio";
@@ -49,7 +54,11 @@ import { useSmanjenPokret } from "../dnd/use-smanjen-pokret";
 
 const t = menuStudioSr;
 
-export type RadnjaReda = "premesti" | "nedostupno" | "dostupno" | "sakrij" | "prikazi" | "ukloni" | "obrisi";
+export type RadnjaReda = "uredi" | "premesti" | "nedostupno" | "dostupno" | "sakrij" | "prikazi" | "ukloni" | "obrisi";
+
+/** A press that moved this far, or was held this long, was a drag or a long press, not a click. */
+const KLIK_POMERAJ_PX = 6;
+const KLIK_TRAJANJE_MS = 300;
 
 export type RedRadnje = {
   onCena: (artikalId: string, ocekivana: number | null, nova: number | null) => void;
@@ -127,18 +136,32 @@ export const RedArtikla = memo(function RedArtikla(props: RedProps) {
     disabled: !prevlacenje,
     transition: smanjenPokret ? null : { duration: 240, easing: "cubic-bezier(0.2, 0, 0, 1)" },
   });
+  const pritisak = useRef<{ x: number; y: number; u: number } | null>(null);
   return (
     <li
       ref={setNodeRef}
       style={{ transform: CSS.Translate.toString(transform), transition }}
       {...(prevlacenje ? listeners : {})}
-      onClick={
-        izborAktivan && radnje.onIzaberi
-          ? (event) => {
-              if (!jeInteraktivnaMeta(event.target as Element)) radnje.onIzaberi?.(red.prikazId);
-            }
-          : undefined
-      }
+      onPointerDown={(event) => {
+        pritisak.current = { x: event.clientX, y: event.clientY, u: event.timeStamp };
+      }}
+      onClick={(event) => {
+        const meta = event.target as Element;
+        if (izborAktivan) {
+          if (radnje.onIzaberi && !jeInteraktivnaMeta(meta)) radnje.onIzaberi(red.prikazId);
+          return;
+        }
+        // K15: the free area opens the detail; the handle (Premesti) and the controls do not.
+        if (!radnje.onRadnja || jeInteraktivnaMeta(meta) || meta.closest?.("[data-rucica]")) return;
+        const pocetak = pritisak.current;
+        if (
+          pocetak &&
+          (Math.hypot(event.clientX - pocetak.x, event.clientY - pocetak.y) > KLIK_POMERAJ_PX || event.timeStamp - pocetak.u > KLIK_TRAJANJE_MS)
+        ) {
+          return;
+        }
+        radnje.onRadnja(red, sekcijaId, "uredi");
+      }}
       data-red-artikla=""
       data-artikal={red.artikal.key}
       data-sakriven={red.sakriven ? "" : undefined}
@@ -177,9 +200,23 @@ const TeloReda = memo(function TeloReda({
   const porukaId = `${poljeId}-poruka`;
   const bezCene = artikal.cena === null && !artikal.varijante;
   const radnja = radnje.onRadnja;
-  const stavke = radnja
+  const stanja = radnja
     ? stavkeReda(red, { nedostupan, mozeUredjivanje, mozeDostupnost }, (izbor) => radnja(red, sekcijaId, izbor))
     : [];
+  // K15: the detail first — the keyboard way to what a click on the card opens.
+  const stavke: StavkaMenija[] =
+    radnja && stanja.length > 0
+      ? [
+          {
+            kljuc: "uredi",
+            tekst: mozeUredjivanje ? t.artikal.urediStavka : t.artikal.otvoriStavka,
+            opis: mozeUredjivanje ? t.artikal.urediStavkaOpis : undefined,
+            ikonica: PencilLine,
+            onIzbor: () => radnja(red, sekcijaId, "uredi"),
+          },
+          ...stanja,
+        ]
+      : [];
   const rucica = Boolean(radnja) && prevlacenje;
 
   let poruka: ReactNode = null;

@@ -5,9 +5,18 @@ import { appendPlacement, assertPageActive } from "./menuCatalog";
 import { pageHasActiveQr } from "./menuPages";
 import { getMenuAccess, loadOwned, requireMenuAccessToRow, resolveMenuAccess } from "./lib/menuAccess";
 import { loadDraftState, touchDraft } from "./lib/menuDraft";
+import { getUrl as storageGetUrl } from "./lib/storage";
 import { MENU_ERROR } from "../lib/menu/errors/core";
 import { newMenuKey } from "../lib/menu/keys";
-import { MENU_MAX_ARTICLES, MENU_MAX_PAGES, MENU_TEXT } from "../lib/menu/limits";
+import {
+  MENU_MAX_ADDON_GROUPS_PER_ARTICLE,
+  MENU_MAX_ADDON_OPTIONS_PER_GROUP,
+  MENU_MAX_ARTICLES,
+  MENU_MAX_PAGES,
+  MENU_MAX_PLACEMENTS_PER_ARTICLE,
+  MENU_MAX_VARIANTS_PER_ARTICLE,
+  MENU_TEXT,
+} from "../lib/menu/limits";
 import { roleCan } from "../lib/menu/permissions";
 import { isValidRsd } from "../lib/menu/rsd";
 import { MENU_STUDIO_MAX_QUICK_ROWS } from "../lib/menu/studio/quick-add";
@@ -23,7 +32,9 @@ import { normalizeArticleName, requiredText } from "../lib/menu/text";
 //   - entry: which editor a venue opens (the new one or the legacy one);
 //   - pages: the page column, with "a QR card points here" per page, so the
 //     editor can explain a blocked delete BEFORE the person tries it;
-//   - quickAddMany: the table entry of several articles, all or nothing.
+//   - quickAddMany: the table entry of several articles, all or nothing;
+//   - articleDetail (K15): the article detail in one subscription;
+//   - searchArticles (K15): articles by name for "Primeni i na druge artikle".
 // =============================================================================
 
 /**
@@ -238,5 +249,175 @@ export const quickAddMany = mutation({
       await touchDraft(ctx, page.menuServiceId, access.user._id, { articleDelta: created });
     }
     return { status: "added" as const, created, reused, skipped };
+  },
+});
+
+// -----------------------------------------------------------------------------
+// K15 — the article detail (master §5.5–§5.7, §7.3–§7.6, §7.9, §13.4)
+// -----------------------------------------------------------------------------
+
+/**
+ * Everything the article detail shows, in ONE subscription while it is open:
+ * the shared article (base price, quantity, media, switches, allergens, tags,
+ * promotion), its variants, its add-on groups with their add-ons and how many
+ * articles each group is linked to (a linked group shows its impact before a
+ * change), its image URL, and every page and section that shows it. Bounded
+ * reads only (≤ 20 variants, ≤ 10 groups × ≤ 30 add-ons, ≤ 1.000 placements).
+ * null for a missing article and for every refusal.
+ */
+export const articleDetail = query({
+  args: { menuServiceId: v.id("menuServices"), articleKey: v.string() },
+  handler: async (ctx, args) => {
+    const access = await getMenuAccess(ctx, { menuServiceId: args.menuServiceId }, "menu.read");
+    if (!access) return null;
+    const { menuService } = access;
+    const article = await ctx.db
+      .query("menuArticles")
+      .withIndex("by_menuServiceId_and_key", (q) => q.eq("menuServiceId", menuService._id).eq("key", args.articleKey))
+      .unique();
+    if (!article) return null;
+
+    const variants = await ctx.db
+      .query("menuVariants")
+      .withIndex("by_articleId_and_order", (q) => q.eq("articleId", article._id))
+      .take(MENU_MAX_VARIANTS_PER_ARTICLE);
+    const links = await ctx.db
+      .query("menuArticleAddonGroups")
+      .withIndex("by_articleId_and_order", (q) => q.eq("articleId", article._id))
+      .take(MENU_MAX_ADDON_GROUPS_PER_ARTICLE);
+    const addonGroups = [];
+    for (const link of links) {
+      const group = await ctx.db.get(link.groupId);
+      if (!group || group.menuServiceId !== menuService._id) continue;
+      const options = await ctx.db
+        .query("menuAddonOptions")
+        .withIndex("by_groupId_and_order", (q) => q.eq("groupId", group._id))
+        .take(MENU_MAX_ADDON_OPTIONS_PER_GROUP);
+      addonGroups.push({
+        groupId: group._id,
+        key: group.key,
+        name: group.name,
+        selection: group.selection,
+        required: group.required,
+        minSelect: group.minSelect ?? null,
+        maxSelect: group.maxSelect ?? null,
+        linkCount: group.linkCount,
+        options: options.map((option) => ({
+          optionId: option._id,
+          key: option.key,
+          name: option.name,
+          priceDeltaRsd: option.priceDeltaRsd,
+        })),
+      });
+    }
+
+    const placementRows = await ctx.db
+      .query("menuPlacements")
+      .withIndex("by_articleId", (q) => q.eq("articleId", article._id))
+      .take(MENU_MAX_PLACEMENTS_PER_ARTICLE + 1);
+    const pages = new Map<Id<"menuPages">, Doc<"menuPages"> | null>();
+    const sections = new Map<Id<"menuSections">, Doc<"menuSections"> | null>();
+    const placements = [];
+    for (const placement of placementRows.slice(0, MENU_MAX_PLACEMENTS_PER_ARTICLE)) {
+      if (!pages.has(placement.pageId)) pages.set(placement.pageId, await ctx.db.get(placement.pageId));
+      if (!sections.has(placement.sectionId)) sections.set(placement.sectionId, await ctx.db.get(placement.sectionId));
+      const page = pages.get(placement.pageId);
+      const section = sections.get(placement.sectionId);
+      if (!page || !section || page.menuServiceId !== menuService._id) continue;
+      placements.push({
+        placementId: placement._id,
+        pageId: page._id,
+        pageName: page.name,
+        pageOrder: page.order,
+        pageIsDefault: page.isDefault,
+        pageArchived: page.archivedAt !== undefined,
+        sectionId: section._id,
+        sectionName: section.name,
+        sectionOrder: section.order,
+        order: placement.order,
+        visibility: placement.visibility,
+      });
+    }
+    placements.sort((a, b) => a.pageOrder - b.pageOrder || a.sectionOrder - b.sectionOrder || a.order - b.order);
+
+    let image: { mediaId: Id<"mediaAssets">; url: string | null } | null = null;
+    if (article.imageMediaId) {
+      const asset = await ctx.db.get(article.imageMediaId);
+      const usable = asset !== null && asset.status === "ready" && asset.businessId === access.business._id;
+      image = {
+        mediaId: article.imageMediaId,
+        url: usable ? await storageGetUrl(ctx, asset.variants.webp.ref as Id<"_storage">) : null,
+      };
+    }
+
+    return {
+      article: {
+        articleId: article._id,
+        key: article.key,
+        kind: article.kind,
+        name: article.name,
+        description: article.description ?? null,
+        basePriceRsd: article.basePriceRsd ?? null,
+        quantityValue: article.quantityValue ?? null,
+        quantityUnit: article.quantityUnit ?? null,
+        mediaMode: article.mediaMode,
+        iconKey: article.iconKey ?? null,
+        imageMediaId: article.imageMediaId ?? null,
+        variantsEnabled: article.variantsEnabled ?? false,
+        addonsEnabled: article.addonsEnabled ?? false,
+        noteEnabled: article.noteEnabled ?? false,
+        priceCheck: article.priceCheck !== undefined,
+        allergens: article.allergens
+          ? {
+              contains: article.allergens.contains,
+              mayContain: article.allergens.mayContain,
+              otherText: article.allergens.otherText ?? null,
+            }
+          : null,
+        tags: article.tags ?? [],
+        promo: article.promo ?? null,
+      },
+      image,
+      allergensEnabled: menuService.settings?.allergensEnabled === true,
+      variants: variants.map((variant) => ({
+        variantId: variant._id,
+        key: variant.key,
+        name: variant.name,
+        priceRsd: variant.priceRsd ?? null,
+      })),
+      addonGroups,
+      placements,
+      placementsTruncated: placementRows.length > MENU_MAX_PLACEMENTS_PER_ARTICLE,
+    };
+  },
+});
+
+/** At most this many articles answer one search ("Primeni i na druge artikle"). */
+const MENU_STUDIO_SEARCH_LIMIT = 50;
+
+/**
+ * Articles of the whole menu whose name contains the query (diacritics, case
+ * and punctuation ignored, as duplicate detection does), by name, at most
+ * MENU_STUDIO_SEARCH_LIMIT. Called once per (debounced) query, never
+ * subscribed; the scan is bounded by the article ceiling of a menu.
+ */
+export const searchArticles = query({
+  args: { menuServiceId: v.id("menuServices"), query: v.string() },
+  handler: async (ctx, args) => {
+    const access = await getMenuAccess(ctx, { menuServiceId: args.menuServiceId }, "menu.read");
+    if (!access) return null;
+    const needle = normalizeArticleName(args.query.slice(0, MENU_TEXT.articleName));
+    if (needle === "") return [];
+    const found: { articleId: Id<"menuArticles">; key: string; name: string; basePriceRsd: number | null }[] = [];
+    const rows = await ctx.db
+      .query("menuArticles")
+      .withIndex("by_menuServiceId_and_nameNormalized", (q) => q.eq("menuServiceId", access.menuService._id))
+      .take(MENU_MAX_ARTICLES);
+    for (const article of rows) {
+      if (!article.nameNormalized.includes(needle)) continue;
+      found.push({ articleId: article._id, key: article.key, name: article.name, basePriceRsd: article.basePriceRsd ?? null });
+      if (found.length >= MENU_STUDIO_SEARCH_LIMIT) break;
+    }
+    return found;
   },
 });

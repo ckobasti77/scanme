@@ -81,6 +81,7 @@ export function PanelIzlog({
             pogled: null,
             plan,
             stariEditor: false,
+            fokus: null,
           }
         }
       />

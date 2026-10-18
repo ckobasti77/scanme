@@ -9,6 +9,7 @@
 import type { CasValue } from "../cas";
 import type { MenuMode } from "../modes";
 import type { MenuActor } from "../permissions";
+import type { MenuPromo } from "../promo";
 
 export type StudioKontekst = {
   lokal: string;
@@ -97,6 +98,8 @@ export type StudioPodaci = {
   nedostupni: ReadonlySet<string>;
   /** False while the connection to the server is down (the editor says so). */
   povezano: boolean;
+  /** K15: the open article (undefined = loading or none open, null = it no longer exists). */
+  detalj?: StudioDetaljArtikla | null;
 };
 
 // -----------------------------------------------------------------------------
@@ -206,6 +209,89 @@ export type StudioBrisanjeRezultat =
 
 export type StudioSekcijaStranice = { id: string; naziv: string };
 
+// K15 — the article detail (master §5.5–§5.7, §7.3–§7.6, §7.9, §13.4). One
+// subscription while the detail is open (menuStudio.articleDetail in the app,
+// lib/menu/studio/detalj.ts in the izlog); nothing per row.
+
+export type StudioVarijanta = { id: string; key: string; naziv: string; cena: number | null };
+
+export type StudioOpcijaDodatka = { id: string; key: string; naziv: string; doplata: number };
+
+export type StudioGrupaDodataka = {
+  id: string;
+  key: string;
+  naziv: string;
+  izbor: "single" | "multiple";
+  obavezna: boolean;
+  /** Advanced rules; null = the default of the choice (lib/menu/addons.ts). */
+  min: number | null;
+  max: number | null;
+  /** Articles the group is linked to, this one included: more than one = a linked (shared) group. */
+  brojArtikala: number;
+  opcije: StudioOpcijaDodatka[];
+};
+
+/** One appearance of the article: page, section, visibility on that page. */
+export type StudioPrikazArtikla = {
+  prikazId: string;
+  stranicaId: string;
+  stranica: string;
+  podrazumevana: boolean;
+  arhivirana: boolean;
+  sekcijaId: string;
+  sekcija: string;
+  sakriven: boolean;
+};
+
+export type StudioAlergeni = {
+  sadrzi: string[];
+  tragovi: string[];
+  /** Describes `other` ("Drugo"). */
+  drugo: string | null;
+};
+
+export type StudioMedijArtikla = { medij: StudioMedij; ikonica: string | null; slikaId: string | null };
+
+export type StudioDetaljArtikla = {
+  artikal: StudioArtikal;
+  /** The image (when one is set): its preview URL (null while it cannot be shown). */
+  slika: { id: string; url: string | null } | null;
+  ukljuceno: { varijante: boolean; dodaci: boolean; napomena: boolean };
+  varijante: StudioVarijanta[];
+  grupe: StudioGrupaDodataka[];
+  /** The venue keeps allergens (an optional system of the venue, master §7.3). */
+  alergeniUkljuceni: boolean;
+  /** null = no record: UNKNOWN, never "safe". */
+  alergeni: StudioAlergeni | null;
+  oznake: string[];
+  akcija: MenuPromo | null;
+  prikazi: StudioPrikazArtikla[];
+};
+
+/** A linked group: the articles a change of it reaches (addonGroupUsage). */
+export type StudioUticajGrupe = { artikli: { id: string; naziv: string }[]; ukupno: number; skraceno: boolean };
+
+export type StudioPostojecaGrupa = {
+  id: string;
+  naziv: string;
+  izbor: "single" | "multiple";
+  obavezna: boolean;
+  brojArtikala: number;
+};
+
+export type StudioPoljeArtikla = "name" | "description" | "quantityValue" | "quantityUnit";
+
+export type StudioGrupaUnos = {
+  naziv: string;
+  izbor: "single" | "multiple";
+  obavezna: boolean;
+  min: number | null;
+  max: number | null;
+};
+
+/** Where an upload is: bytes sent (0–1), then the server makes the web versions. */
+export type StudioNapredakSlike = { faza: "slanje"; udeo: number } | { faza: "obrada" };
+
 export type StudioRadnje = {
   // Pages (master §3.2) — the page column only.
   dodajStranicu(naziv: string): Promise<StudioIshod<{ id: string }>>;
@@ -251,4 +337,55 @@ export type StudioRadnje = {
   postaviCene(promene: readonly StudioPromenaCene[]): Promise<StudioIshod<StudioCeneRezultat>>;
   uticajBrisanja(artikalIds: readonly string[]): Promise<StudioIshod<StudioUticajBrisanja>>;
   obrisiArtikle(artikalIds: readonly string[], token: string): Promise<StudioIshod<StudioBrisanjeRezultat>>;
+  // K15 — the article detail. Everything goes into the draft, except availability (live).
+  /** Name, description, quantity or unit by compare-and-set (updateArticleFields). */
+  izmeniPolje(artikalId: string, polje: StudioPoljeArtikla, ocekivano: CasValue, vrednost: CasValue): Promise<StudioIshod>;
+  /** Image, icon or nothing; the icon also stands in for a missing image (setArticleMedia). */
+  postaviMedij(artikalId: string, ocekivano: StudioMedijArtikla, novo: StudioMedijArtikla): Promise<StudioIshod>;
+  /** Uploads one checked file and makes it the article's image (lib/menu/image-validation.ts). */
+  otpremiSliku(
+    artikalId: string,
+    fajl: File,
+    onNapredak: (napredak: StudioNapredakSlike) => void,
+  ): Promise<StudioIshod<{ slikaId: string }>>;
+  postaviPrekidace(artikalId: string, prekidaci: Partial<StudioDetaljArtikla["ukljuceno"]>): Promise<StudioIshod>;
+  dodajVarijantu(artikalId: string, naziv: string, cena: number | null): Promise<StudioIshod<{ id: string }>>;
+  izmeniVarijantu(
+    varijantaId: string,
+    ocekivano: { naziv?: string; cena?: number | null },
+    izmena: { naziv?: string; cena?: number | null },
+  ): Promise<StudioIshod>;
+  obrisiVarijantu(varijantaId: string): Promise<StudioIshod>;
+  novaGrupa(artikalId: string, unos: StudioGrupaUnos, opcije: { naziv: string; doplata: number }[]): Promise<StudioIshod<{ id: string }>>;
+  postojeceGrupe(): Promise<StudioIshod<StudioPostojecaGrupa[]>>;
+  prikaciGrupu(artikalId: string, grupaId: string): Promise<StudioIshod>;
+  otkaciGrupu(artikalId: string, grupaId: string): Promise<StudioIshod>;
+  uticajGrupe(grupaId: string): Promise<StudioIshod<StudioUticajGrupe>>;
+  /**
+   * A change of a group or of one of its add-ons. `samoZaArtikal` = an
+   * independent copy for that article first (same transaction); null = the
+   * change reaches every linked article.
+   */
+  izmeniGrupu(
+    grupaId: string,
+    ocekivano: Partial<StudioGrupaUnos>,
+    izmena: Partial<StudioGrupaUnos>,
+    samoZaArtikal: string | null,
+  ): Promise<StudioIshod>;
+  dodajOpciju(grupaId: string, opcija: { naziv: string; doplata: number }, samoZaArtikal: string | null): Promise<StudioIshod>;
+  izmeniOpciju(
+    opcijaId: string,
+    ocekivano: { naziv?: string; doplata?: number },
+    izmena: { naziv?: string; doplata?: number },
+    samoZaArtikal: string | null,
+  ): Promise<StudioIshod>;
+  obrisiOpciju(opcijaId: string, samoZaArtikal: string | null): Promise<StudioIshod>;
+  /** "Primeni i na druge artikle" (applyAddonGroupToArticles). */
+  primeniGrupuNa(grupaId: string, artikalIds: readonly string[]): Promise<StudioIshod<{ dodato: number; preskoceno: number }>>;
+  /** Articles of the whole menu by name (≤ 50), for "Primeni i na druge artikle". */
+  traziArtikle(upit: string): Promise<StudioIshod<StudioKandidat[]>>;
+  postaviAlergene(artikalId: string, ocekivano: StudioAlergeni | null, alergeni: StudioAlergeni | null): Promise<StudioIshod>;
+  postaviOznake(artikalId: string, ocekivano: readonly string[], oznake: readonly string[]): Promise<StudioIshod>;
+  /** Sets, changes or removes (null) the promotion by compare-and-set (setPromo). */
+  postaviAkciju(artikalId: string, ocekivano: MenuPromo | null, akcija: MenuPromo | null): Promise<StudioIshod>;
 };

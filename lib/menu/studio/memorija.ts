@@ -57,27 +57,29 @@ export type MemorijaStanje = {
   /** Room service available and switched on (publish context). */
   roomService: boolean;
   premium: boolean;
+  /** K15: preview URLs of the images, by image id (the izlog's uploads and fixtures). */
+  slike?: ReadonlyMap<string, string>;
 };
 
 export type MemorijaKorak<T = null> = { stanje: MemorijaStanje; ishod: StudioIshod<T> };
 
 const OK = { ok: true as const, vrednost: null };
 
-function greska<T>(stanje: MemorijaStanje, kod: string): MemorijaKorak<T> {
+export function greska<T>(stanje: MemorijaStanje, kod: string): MemorijaKorak<T> {
   return { stanje, ishod: { ok: false, vrsta: "greska", kod, ponovljivo: false } };
 }
 
-function konflikt<T>(stanje: MemorijaStanje, sacuvano: CasValue, pokusano: CasValue): MemorijaKorak<T> {
+export function konflikt<T>(stanje: MemorijaStanje, sacuvano: CasValue, pokusano: CasValue): MemorijaKorak<T> {
   return { stanje, ishod: { ok: false, vrsta: "konflikt", sacuvano, pokusano } };
 }
 
-function kljuc(stanje: MemorijaStanje, prefiks: string): [string, number] {
+export function kljuc(stanje: MemorijaStanje, prefiks: string): [string, number] {
   const broj = stanje.brojac + 1;
   return [`${prefiks}_mem${String(broj).padStart(4, "0")}`, broj];
 }
 
 /** A changed draft: bumps the revision (what `touchDraft` does on the server). */
-function nacrt(stanje: MemorijaStanje, snapshot: MenuDraftSnapshot, brojac = stanje.brojac): MemorijaStanje {
+export function nacrt(stanje: MemorijaStanje, snapshot: MenuDraftSnapshot, brojac = stanje.brojac): MemorijaStanje {
   return { ...stanje, snapshot, brojac, revizija: stanje.revizija + 1 };
 }
 
@@ -345,7 +347,7 @@ function noviArtikal(key: string, naziv: string, cena: number | null, vrsta: "it
   };
 }
 
-function prikaz(snapshot: MenuDraftSnapshot, sekcijaKey: string, artikalKey: string): SnapshotPlacement | null {
+export function prikaz(snapshot: MenuDraftSnapshot, sekcijaKey: string, artikalKey: string): SnapshotPlacement | null {
   const section = snapshot.sections.find((candidate) => candidate.key === sekcijaKey);
   if (!section) return null;
   const poslednji = snapshot.placements
@@ -354,7 +356,7 @@ function prikaz(snapshot: MenuDraftSnapshot, sekcijaKey: string, artikalKey: str
   return { pageKey: section.pageKey, sectionKey: sekcijaKey, articleKey: artikalKey, order: orderAfter(poslednji), visibility: "visible" };
 }
 
-function aktivnaSekcija(stanje: MemorijaStanje, sekcijaId: string): string | null {
+export function aktivnaSekcija(stanje: MemorijaStanje, sekcijaId: string): string | null {
   const section = stanje.snapshot.sections.find((candidate) => candidate.key === sekcijaId);
   if (!section) return MENU_ERROR.notFound;
   const page = stanje.snapshot.pages.find((candidate) => candidate.key === section.pageKey);
@@ -574,7 +576,7 @@ export function objavi(
 // -----------------------------------------------------------------------------
 
 /** The placement behind a row id ("<sectionKey>/<articleKey>"). */
-function nadjiPrikaz(snapshot: MenuDraftSnapshot, id: string): SnapshotPlacement | null {
+export function nadjiPrikaz(snapshot: MenuDraftSnapshot, id: string): SnapshotPlacement | null {
   const kosa = id.indexOf("/");
   if (kosa <= 0) return null;
   const sekcija = id.slice(0, kosa);

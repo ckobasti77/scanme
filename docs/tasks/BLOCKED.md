@@ -2180,3 +2180,16 @@ Nijedna stavka ne blokira kod: run je izabrao konzervativnu opciju i kod radi po
 3. **Prevod teksta interfejsa javnog menija.** Meni (nazivi, opisi) se prikazuje na izabranom jeziku, a dugmad, poruke i radni tekst o alergenima ostaju na srpskom. Prevod radnog teksta traži i pravnu proveru na tom jeziku.
 4. **Napomena uz EUR**: „Cene u evrima su približne, po srednjem kursu NBS od {datum}. Važeća cena je u dinarima.“ — tekst je izbor runa.
 5. **Svežina kursa: 4 beogradska kalendarska dana** (petkova lista važi do utorka). Kraći ili duži rok je odluka vlasnika (`MENU_KURS_SVEZINA_DANA`, `lib/menu/currency.ts`).
+
+## SCANME MENU V1 — K15 (18. 10. 2026.) — editor: detalj artikla, slike, varijante, alergeni, akcije
+
+Nijedna stavka ne blokira kod: run je izabrao konzervativnu opciju i kod radi po njoj. Vlasnik potvrđuje ili menja.
+
+1. **Formati slike: JPG, PNG i WebP do 10 MB.** HEIC (iPhone) se odbija sa porukom da se slika sačuva kao JPG, jer ga gotov `sharp` ne čita na svakoj platformi. Ako HEIC treba podržati, to traži drugu obradu.
+2. **Najviše 60 otpremanja slika na sat po meniju** (zaštita od zloupotrebe). Broj je izbor runa.
+3. **Obrada slika koristi postojeću tajnu `SCANME_PIPELINE_SECRET`** (ista kao Memories cev), da ne bi nastala nova promenljiva okruženja. Za rad u produkciji tajna mora biti postavljena i u Next (Vercel) i na Convex deploymentu; bez nje otpremanje kaže „Otpremanje slika trenutno ne radi”.
+4. **Zamenjena ili uklonjena slika se ne briše** iz skladišta, jer je objavljena verzija možda još prikazuje. Čišćenje slika koje nijedna verzija ne koristi je kasniji posao.
+5. **Otpremljena slika odmah postaje slika artikla u nacrtu** (bez provere da li je neko drugi u međuvremenu promenio prikaz artikla). Izbor slika/ikonica/bez i dalje ide sa proverom konflikta.
+6. **Stare fotografije iz migracije** (`menuArticles.legacyPhotoStorageId`, K06) nisu pretvorene u nove slike; to traži interni posao uz obradu kroz istu rutu.
+7. **`Privremeno nedostupno` u detalju ne traži potvrdu** (meni reda je traži jednom po sesiji): u detalju je kontrola označena „Uživo” sa rečenicom „Važi odmah za goste, bez objave.”, a izbor su dugmad, ne radio polja.
+8. **Uklanjanje poslednjeg mesta artikla** („Gde se prikazuje”) je dozvoljeno uz upozorenje da ga gosti posle toga ne vide; artikal ostaje u meniju i objava ga prijavljuje kao upozorenje.

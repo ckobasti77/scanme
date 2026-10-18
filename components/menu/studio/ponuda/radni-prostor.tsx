@@ -12,6 +12,7 @@
 //     (live at once, confirmed the first time), `Sakrij` / `Ukloni sa ove
 //     stranice` (draft), `Obriši artikal` (after the consequences);
 //   - `Izaberi više`: a mode with checkboxes and a bar of group actions.
+// K15: a click on a card (or "Uredi artikal") opens the article detail.
 // Every result is announced (aria-live) and shown in one line above the list.
 
 import { FilePlus2, LayoutList, ListChecks, ListPlus, MoreHorizontal, Package, Plus, Rows3, Search, X } from "lucide-react";
@@ -119,6 +120,7 @@ export function PonudaRadniProstor({
   pocetno,
   radnje,
   naslovId,
+  onOtvoriArtikal,
 }: {
   sadrzaj: StudioRadniSadrzaj;
   nedostupni: ReadonlySet<string>;
@@ -134,6 +136,8 @@ export function PonudaRadniProstor({
   pocetno?: PonudaPocetno;
   radnje: PonudaRadnje;
   naslovId: string;
+  /** K15: a click on a card or "Uredi artikal" opens the detail of that row. */
+  onOtvoriArtikal?: (red: StudioRed) => void;
 }) {
   const [upit, setUpit] = useState("");
   const odlozeniUpit = useDeferredValue(upit);
@@ -345,7 +349,8 @@ export function PonudaRadniProstor({
   const naRadnjuReda = useRef<(red: StudioRed, sekcijaId: string, radnja: RadnjaReda) => void>(() => undefined);
   useLayoutEffect(() => {
     naRadnjuReda.current = (stavka, sekcijaId, radnja) => {
-      if (radnja === "premesti") setPremesti({ vrsta: "red", red: stavka, sekcijaId });
+      if (radnja === "uredi") onOtvoriArtikal?.(stavka);
+      else if (radnja === "premesti") setPremesti({ vrsta: "red", red: stavka, sekcijaId });
       else if (radnja === "nedostupno") zatraziNedostupno([stavka.artikal.id]);
       else if (radnja === "dostupno") void postaviDostupnost([stavka.artikal.id], true);
       else if (radnja === "sakrij" || radnja === "prikazi") void postaviVidljivost([stavka.prikazId], radnja === "sakrij");

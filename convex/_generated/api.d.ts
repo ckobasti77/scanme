@@ -179,6 +179,7 @@ import type * as menuExport from "../menuExport.js";
 import type * as menuFx from "../menuFx.js";
 import type * as menuInquiryEmails from "../menuInquiryEmails.js";
 import type * as menuInquiryEmailsData from "../menuInquiryEmailsData.js";
+import type * as menuMedia from "../menuMedia.js";
 import type * as menuMigration from "../menuMigration.js";
 import type * as menuPages from "../menuPages.js";
 import type * as menuPanel from "../menuPanel.js";
@@ -391,6 +392,7 @@ declare const fullApi: ApiFromModules<{
   menuFx: typeof menuFx;
   menuInquiryEmails: typeof menuInquiryEmails;
   menuInquiryEmailsData: typeof menuInquiryEmailsData;
+  menuMedia: typeof menuMedia;
   menuMigration: typeof menuMigration;
   menuPages: typeof menuPages;
   menuPanel: typeof menuPanel;

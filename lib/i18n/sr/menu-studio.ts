@@ -1,4 +1,5 @@
 import type { MenuStudioDict } from "../types";
+import { menuStudioArtikalSr } from "./menu-studio-artikal";
 
 // ScanMe Menu V1 — the editor (K10; master §13.4, §5.3, §6.1). Sentences
 // address the client with "Vi"; buttons are short verbs. Error codes come
@@ -524,4 +525,6 @@ export const menuStudioSr = {
     prevelik: "Jedan od artikala je na previše mesta da bi se obrisao odjednom. Obratite se ScanMe timu.",
     greska: "Provera posledica nije uspela. Pokušajte ponovo.",
   },
+  // K15 — the article detail (menu-studio-artikal.ts).
+  artikal: menuStudioArtikalSr,
 } as const satisfies MenuStudioDict;

@@ -10,8 +10,11 @@ import { useConvex, useConvexAuth, useConvexConnectionState, useMutation, useQue
 import { useMemo } from "react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
+import { menuImageType } from "@/lib/menu/image-validation";
 import type {
+  StudioAlergeni,
   StudioBrisanjeRezultat,
+  StudioDetaljArtikla,
   StudioCeneRezultat,
   StudioIshod,
   StudioKontekst,
@@ -26,11 +29,33 @@ import type {
   StudioUticajBrisanja,
 } from "@/lib/menu/studio/model";
 import { izGreske, izvrsi } from "./ishod";
+import { obradiNaServeru, posaljiOriginal } from "./otpremanje";
 
 type Stranice = Id<"menuPages">;
 type Sekcija = Id<"menuSections">;
 type Artikal = Id<"menuArticles">;
 type Prikaz = Id<"menuPlacements">;
+type Varijanta = Id<"menuVariants">;
+type Grupa = Id<"menuAddonGroups">;
+type Opcija = Id<"menuAddonOptions">;
+
+const NEMA: StudioIshod<never> = { ok: false, vrsta: "greska", kod: "menu/not_found", ponovljivo: false };
+
+/** A compare-and-set answer whose `current` is an object: the conflict carries it as JSON. */
+function kaoKonflikt(rezultat: unknown, sacuvano: (current: Record<string, unknown>) => unknown): StudioIshod | null {
+  if (typeof rezultat !== "object" || rezultat === null || (rezultat as { ok?: unknown }).ok !== false) return null;
+  const current = ((rezultat as { current?: Record<string, unknown> }).current ?? {}) as Record<string, unknown>;
+  return { ok: false, vrsta: "konflikt", sacuvano: JSON.stringify(sacuvano(current)), pokusano: null };
+}
+
+function alergeniZaServer(alergeni: StudioAlergeni | null) {
+  if (alergeni === null) return null;
+  return {
+    contains: alergeni.sadrzi as never[],
+    mayContain: alergeni.tragovi as never[],
+    ...(alergeni.drugo ? { otherText: alergeni.drugo } : {}),
+  };
+}
 
 /** One article of menuBulk's deletion impact as the editor shows it. */
 function uticajIzImpacta(impact: {
@@ -62,7 +87,12 @@ export type StudioVeza =
  * `izbor`: the page open in the work area — by id once chosen in the editor,
  * by key from the URL on entry; neither = the default page.
  */
-export function useStudioVeza(slug: string, izbor: { id: string | null; key: string | null }): StudioVeza {
+export function useStudioVeza(
+  slug: string,
+  izbor: { id: string | null; key: string | null },
+  /** K15: the key of the article whose detail is open (null = none). */
+  otvorenArtikal: string | null = null,
+): StudioVeza {
   const { isLoading } = useConvexAuth();
   const convex = useConvex();
   const veza = useConvexConnectionState();
@@ -78,6 +108,11 @@ export function useStudioVeza(slug: string, izbor: { id: string | null; key: str
     stranice?.find((page) => !page.archived)?.pageId ??
     null;
   const sadrzaj = useQuery(api.menuCatalog.pageContent, pageId ? { pageId } : "skip");
+  // K15: one subscription for the open article only.
+  const detalj = useQuery(
+    api.menuStudio.articleDetail,
+    menuServiceId && otvorenArtikal ? { menuServiceId, articleKey: otvorenArtikal } : "skip",
+  );
 
   const addPage = useMutation(api.menuPages.add);
   const renamePage = useMutation(api.menuPages.rename);
@@ -105,6 +140,25 @@ export function useStudioVeza(slug: string, izbor: { id: string | null; key: str
   const bulkAdd = useMutation(api.menuBulk.addToPage);
   const bulkPrices = useMutation(api.menuBulk.setPrices);
   const bulkDelete = useMutation(api.menuBulk.deleteArticles);
+  // K15
+  const updateFields = useMutation(api.menuCatalog.updateArticleFields);
+  const setMedia = useMutation(api.menuMedia.setArticleMedia);
+  const reserveUpload = useMutation(api.menuMedia.reserveUpload);
+  const setSwitches = useMutation(api.menuArticleOptions.setArticleOptionSwitches);
+  const addVariant = useMutation(api.menuArticleOptions.addVariant);
+  const updateVariant = useMutation(api.menuArticleOptions.updateVariant);
+  const removeVariant = useMutation(api.menuArticleOptions.removeVariant);
+  const createGroup = useMutation(api.menuArticleOptions.createAddonGroup);
+  const attachGroup = useMutation(api.menuArticleOptions.attachAddonGroup);
+  const detachGroup = useMutation(api.menuArticleOptions.detachAddonGroup);
+  const updateGroup = useMutation(api.menuArticleOptions.updateAddonGroup);
+  const addOption = useMutation(api.menuArticleOptions.addAddonOption);
+  const updateOption = useMutation(api.menuArticleOptions.updateAddonOption);
+  const removeOption = useMutation(api.menuArticleOptions.removeAddonOption);
+  const applyGroup = useMutation(api.menuArticleOptions.applyAddonGroupToArticles);
+  const setAllergens = useMutation(api.menuArticleDetails.setArticleAllergens);
+  const setTags = useMutation(api.menuArticleDetails.setArticleTags);
+  const setPromo = useMutation(api.menuPromos.setPromo);
 
 
   const radnje = useMemo<StudioRadnje | null>(() => {
@@ -317,6 +371,224 @@ export function useStudioVeza(slug: string, izbor: { id: string | null; key: str
               ? { status: "potvrdi", uticaj: { artikli: r.articles.map(uticajIzImpacta), token: r.confirmToken, prevelik: false } }
               : { status: "obrisano", broj: r.deleted },
         ),
+      // K15 — the article detail (convex/menuCatalog, menuMedia, menuArticleOptions, menuArticleDetails, menuPromos).
+      izmeniPolje: (artikalId, polje, ocekivano, vrednost) =>
+        izvrsi(
+          () =>
+            updateFields({
+              articleId: artikalId as Artikal,
+              expected: { [polje]: ocekivano } as never,
+              patch: { [polje]: vrednost } as never,
+            }),
+          () => null,
+          polje,
+          vrednost,
+        ),
+      postaviMedij: async (artikalId, ocekivano, novo) => {
+        const izbor = (m: typeof novo) => ({
+          mediaMode: m.medij,
+          iconKey: m.ikonica,
+          imageMediaId: m.slikaId as Id<"mediaAssets"> | null,
+        });
+        return izvrsi(() => setMedia({ articleId: artikalId as Artikal, expected: izbor(ocekivano), next: izbor(novo) }), () => null, "media");
+      },
+      otpremiSliku: async (artikalId, fajl, onNapredak) => {
+        const tip = menuImageType(fajl);
+        if (tip === null || tip === "heic") return { ok: false, vrsta: "greska", kod: "media/wrong_type", ponovljivo: false };
+        let rezervacija: { uploadId: string; uploadUrl: string };
+        try {
+          rezervacija = await reserveUpload({ articleId: artikalId as Artikal, contentType: tip, size: fajl.size });
+        } catch (error) {
+          return izGreske(error);
+        }
+        onNapredak({ faza: "slanje", udeo: 0 });
+        const storageId = await posaljiOriginal(rezervacija.uploadUrl, fajl, tip, (udeo) => onNapredak({ faza: "slanje", udeo }));
+        if (!storageId) return { ok: false, vrsta: "greska", kod: "mreza", ponovljivo: true };
+        onNapredak({ faza: "obrada" });
+        const obrada = await obradiNaServeru(rezervacija.uploadId, storageId);
+        if (!obrada.ok) return { ok: false, vrsta: "greska", kod: obrada.kod ?? "mreza", ponovljivo: obrada.kod === null };
+        return { ok: true, vrednost: { slikaId: obrada.slikaId } };
+      },
+      postaviPrekidace: (artikalId, prekidaci) =>
+        izvrsi(
+          () =>
+            setSwitches({
+              articleId: artikalId as Artikal,
+              ...(prekidaci.varijante !== undefined ? { variantsEnabled: prekidaci.varijante } : {}),
+              ...(prekidaci.dodaci !== undefined ? { addonsEnabled: prekidaci.dodaci } : {}),
+              ...(prekidaci.napomena !== undefined ? { noteEnabled: prekidaci.napomena } : {}),
+            }),
+          () => null,
+        ),
+      dodajVarijantu: (artikalId, naziv, cena) =>
+        izvrsi(
+          () => addVariant({ articleId: artikalId as Artikal, name: naziv, ...(cena !== null ? { priceRsd: cena } : {}) }),
+          (r) => ({ id: r.variantId }),
+        ),
+      izmeniVarijantu: (varijantaId, ocekivano, izmena) =>
+        izvrsi(
+          () =>
+            updateVariant({
+              variantId: varijantaId as Varijanta,
+              expected: {
+                ...(ocekivano.naziv !== undefined ? { name: ocekivano.naziv } : {}),
+                ...(ocekivano.cena !== undefined ? { priceRsd: ocekivano.cena } : {}),
+              },
+              patch: {
+                ...(izmena.naziv !== undefined ? { name: izmena.naziv } : {}),
+                ...(izmena.cena !== undefined ? { priceRsd: izmena.cena } : {}),
+              },
+            }),
+          () => null,
+        ),
+      obrisiVarijantu: (varijantaId) => izvrsi(() => removeVariant({ variantId: varijantaId as Varijanta }), () => null),
+      novaGrupa: (artikalId, unos, opcije) =>
+        izvrsi(
+          () =>
+            createGroup({
+              articleId: artikalId as Artikal,
+              name: unos.naziv,
+              selection: unos.izbor,
+              required: unos.obavezna,
+              ...(unos.min !== null ? { minSelect: unos.min } : {}),
+              ...(unos.max !== null ? { maxSelect: unos.max } : {}),
+              options: opcije.map((opcija) => ({ name: opcija.naziv, priceDeltaRsd: opcija.doplata })),
+            }),
+          (r) => ({ id: r.groupId }),
+        ),
+      postojeceGrupe: async () => {
+        try {
+          const r = await convex.query(api.menuArticleOptions.listAddonGroups, { menuServiceId });
+          if (!r) return NEMA;
+          return {
+            ok: true,
+            vrednost: r.map((grupa) => ({
+              id: grupa.groupId,
+              naziv: grupa.name,
+              izbor: grupa.selection,
+              obavezna: grupa.required,
+              brojArtikala: grupa.linkCount,
+            })),
+          };
+        } catch (error) {
+          return izGreske(error);
+        }
+      },
+      prikaciGrupu: (artikalId, grupaId) =>
+        izvrsi(() => attachGroup({ articleId: artikalId as Artikal, groupId: grupaId as Grupa }), () => null),
+      otkaciGrupu: (artikalId, grupaId) =>
+        izvrsi(() => detachGroup({ articleId: artikalId as Artikal, groupId: grupaId as Grupa }), () => null),
+      uticajGrupe: async (grupaId) => {
+        try {
+          const r = await convex.query(api.menuArticleOptions.addonGroupUsage, { groupId: grupaId as Grupa });
+          if (!r) return NEMA;
+          return {
+            ok: true,
+            vrednost: { artikli: r.articles.map((a) => ({ id: a.articleId, naziv: a.name })), ukupno: r.linkCount, skraceno: r.truncated },
+          };
+        } catch (error) {
+          return izGreske(error);
+        }
+      },
+      izmeniGrupu: (grupaId, ocekivano, izmena, samoZaArtikal) => {
+        const polja = (unos: typeof izmena) => ({
+          ...(unos.naziv !== undefined ? { name: unos.naziv } : {}),
+          ...(unos.izbor !== undefined ? { selection: unos.izbor } : {}),
+          ...(unos.obavezna !== undefined ? { required: unos.obavezna } : {}),
+          ...(unos.min !== undefined ? { minSelect: unos.min } : {}),
+          ...(unos.max !== undefined ? { maxSelect: unos.max } : {}),
+        });
+        return izvrsi(
+          () =>
+            updateGroup({
+              groupId: grupaId as Grupa,
+              expected: polja(ocekivano),
+              patch: polja(izmena),
+              ...(samoZaArtikal ? { onlyForArticleId: samoZaArtikal as Artikal } : {}),
+            }),
+          () => null,
+        );
+      },
+      dodajOpciju: (grupaId, opcija, samoZaArtikal) =>
+        izvrsi(
+          () =>
+            addOption({
+              groupId: grupaId as Grupa,
+              name: opcija.naziv,
+              priceDeltaRsd: opcija.doplata,
+              ...(samoZaArtikal ? { onlyForArticleId: samoZaArtikal as Artikal } : {}),
+            }),
+          () => null,
+        ),
+      izmeniOpciju: (opcijaId, ocekivano, izmena, samoZaArtikal) =>
+        izvrsi(
+          () =>
+            updateOption({
+              optionId: opcijaId as Opcija,
+              expected: {
+                ...(ocekivano.naziv !== undefined ? { name: ocekivano.naziv } : {}),
+                ...(ocekivano.doplata !== undefined ? { priceDeltaRsd: ocekivano.doplata } : {}),
+              },
+              patch: {
+                ...(izmena.naziv !== undefined ? { name: izmena.naziv } : {}),
+                ...(izmena.doplata !== undefined ? { priceDeltaRsd: izmena.doplata } : {}),
+              },
+              ...(samoZaArtikal ? { onlyForArticleId: samoZaArtikal as Artikal } : {}),
+            }),
+          () => null,
+        ),
+      obrisiOpciju: (opcijaId, samoZaArtikal) =>
+        izvrsi(
+          () =>
+            removeOption({ optionId: opcijaId as Opcija, ...(samoZaArtikal ? { onlyForArticleId: samoZaArtikal as Artikal } : {}) }),
+          () => null,
+        ),
+      primeniGrupuNa: (grupaId, artikalIds) =>
+        izvrsi(
+          () => applyGroup({ groupId: grupaId as Grupa, articleIds: artikalIds as Artikal[] }),
+          (r) => ({ dodato: r.attached, preskoceno: r.alreadyAttached + r.skippedAtLimit }),
+        ),
+      traziArtikle: async (upit) => {
+        try {
+          const r = await convex.query(api.menuStudio.searchArticles, { menuServiceId, query: upit });
+          if (!r) return NEMA;
+          return { ok: true, vrednost: r.map((a) => ({ artikalId: a.articleId, naziv: a.name, cena: a.basePriceRsd })) };
+        } catch (error) {
+          return izGreske(error);
+        }
+      },
+      postaviAlergene: async (artikalId, ocekivano, alergeni) => {
+        try {
+          const r = await setAllergens({
+            articleId: artikalId as Artikal,
+            expected: alergeniZaServer(ocekivano),
+            allergens: alergeniZaServer(alergeni),
+          });
+          const konflikt = kaoKonflikt(r, (current) => {
+            const zapis = current.allergens as { contains: string[]; mayContain: string[]; otherText?: string } | null;
+            return zapis ? { sadrzi: zapis.contains, tragovi: zapis.mayContain, drugo: zapis.otherText ?? null } : null;
+          });
+          return konflikt ?? { ok: true, vrednost: null };
+        } catch (error) {
+          return izGreske(error);
+        }
+      },
+      postaviOznake: async (artikalId, ocekivano, oznake) => {
+        try {
+          const r = await setTags({ articleId: artikalId as Artikal, expected: ocekivano as never[], tags: oznake as never[] });
+          return kaoKonflikt(r, (current) => current.tags) ?? { ok: true, vrednost: null };
+        } catch (error) {
+          return izGreske(error);
+        }
+      },
+      postaviAkciju: async (artikalId, ocekivano, akcija) => {
+        try {
+          const r = await setPromo({ articleId: artikalId as Artikal, expected: ocekivano, promo: akcija });
+          return kaoKonflikt(r, (current) => current.promo) ?? { ok: true, vrednost: null };
+        } catch (error) {
+          return izGreske(error);
+        }
+      },
     };
   }, [
     menuServiceId,
@@ -346,6 +618,24 @@ export function useStudioVeza(slug: string, izbor: { id: string | null; key: str
     bulkAdd,
     bulkPrices,
     bulkDelete,
+    updateFields,
+    setMedia,
+    reserveUpload,
+    setSwitches,
+    addVariant,
+    updateVariant,
+    removeVariant,
+    createGroup,
+    attachGroup,
+    detachGroup,
+    updateGroup,
+    addOption,
+    updateOption,
+    removeOption,
+    applyGroup,
+    setAllergens,
+    setTags,
+    setPromo,
   ]);
 
   const kontekstEditora = useMemo<StudioKontekst | null>(() => {
@@ -428,6 +718,55 @@ export function useStudioVeza(slug: string, izbor: { id: string | null; key: str
     [status],
   );
 
+  const detaljEditora = useMemo<StudioDetaljArtikla | null | undefined>(() => {
+    if (!detalj) return detalj;
+    const a = detalj.article;
+    return {
+      artikal: {
+        id: a.articleId,
+        key: a.key,
+        vrsta: a.kind,
+        naziv: a.name,
+        opis: a.description,
+        cena: a.basePriceRsd,
+        kolicina: a.quantityValue,
+        jedinica: a.quantityUnit,
+        medij: a.mediaMode,
+        ikonica: a.iconKey,
+        varijante: a.variantsEnabled,
+        proveriCenu: a.priceCheck,
+      },
+      slika: detalj.image ? { id: detalj.image.mediaId, url: detalj.image.url } : null,
+      ukljuceno: { varijante: a.variantsEnabled, dodaci: a.addonsEnabled, napomena: a.noteEnabled },
+      varijante: detalj.variants.map((v) => ({ id: v.variantId, key: v.key, naziv: v.name, cena: v.priceRsd })),
+      grupe: detalj.addonGroups.map((g) => ({
+        id: g.groupId,
+        key: g.key,
+        naziv: g.name,
+        izbor: g.selection,
+        obavezna: g.required,
+        min: g.minSelect,
+        max: g.maxSelect,
+        brojArtikala: g.linkCount,
+        opcije: g.options.map((o) => ({ id: o.optionId, key: o.key, naziv: o.name, doplata: o.priceDeltaRsd })),
+      })),
+      alergeniUkljuceni: detalj.allergensEnabled,
+      alergeni: a.allergens ? { sadrzi: a.allergens.contains, tragovi: a.allergens.mayContain, drugo: a.allergens.otherText } : null,
+      oznake: a.tags,
+      akcija: a.promo,
+      prikazi: detalj.placements.map((p) => ({
+        prikazId: p.placementId,
+        stranicaId: p.pageId,
+        stranica: p.pageName,
+        podrazumevana: p.pageIsDefault,
+        arhivirana: p.pageArchived,
+        sekcijaId: p.sectionId,
+        sekcija: p.sectionName,
+        sakriven: p.visibility === "hidden",
+      })),
+    };
+  }, [detalj]);
+
   const nedostupniSet = useMemo(() => new Set(nedostupni?.map((row) => row.articleKey) ?? []), [nedostupni]);
 
   if (kontekst === undefined) return { stanje: "ucitava" };
@@ -443,6 +782,7 @@ export function useStudioVeza(slug: string, izbor: { id: string | null; key: str
       status: statusEditora,
       nedostupni: nedostupniSet,
       povezano: !veza.hasEverConnected || veza.isWebSocketConnected,
+      detalj: otvorenArtikal ? detaljEditora : undefined,
     },
   };
 }
