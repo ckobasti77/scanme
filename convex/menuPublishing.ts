@@ -44,6 +44,7 @@ import {
   summaryCounts,
   type MenuPublishSummaryDetail,
 } from "../lib/menu/publish-summary";
+import { issueTargets } from "../lib/menu/publish-targets";
 import { planRestore } from "../lib/menu/restore-plan";
 import {
   MENU_INTERNAL_LANG,
@@ -232,6 +233,7 @@ export const publishPreview = query({
           errors: [],
           warnings: [],
           fingerprint: issuesFingerprint([]),
+          targets: {},
           languages: [],
           roomService: false,
           summary: null,
@@ -260,6 +262,9 @@ export const publishPreview = query({
       errors: prep.check.errors,
       warnings: prep.check.warnings,
       fingerprint: prep.check.fingerprint,
+      // K18: where each issue's article is (name, a page that shows it), so the
+      // dialog takes the owner to it. Additive; the checks themselves are K05's.
+      targets: issueTargets(prep.snapshot, [...prep.check.errors, ...prep.check.warnings]),
       languages: prep.check.languages.languages,
       roomService: prep.check.roomServicePublished,
       summary: prep.summary,

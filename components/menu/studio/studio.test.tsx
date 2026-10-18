@@ -839,9 +839,10 @@ describe("RedArtikla price states", () => {
     const html = prikaz({ faza: "konflikt", vrednost: 250, sacuvano: 260, pokusano: 250 });
     const poruka = /<div\b[^>]*\srole="alert"[^>]*>[\s\S]*?<\/div>/.exec(html)?.[0] ?? "";
     expect(poruka).toContain(`<p>${esc(fmt(t.red.konflikt, { sacuvano: `260 ${t.red.rsd}` }))}</p>`);
+    // K18 (intended change, ODLUKE K18): both ways out name their value and weigh the same.
     expect(dugmad(poruka).map((dugme) => dugme.text)).toEqual([
       esc(fmt(t.red.zadrziMoju, { moja: `250 ${t.red.rsd}` })),
-      esc(t.red.uzmiSacuvanu),
+      esc(fmt(t.objavljivanje.konflikt.uzmiSacuvanu, { vrednost: `260 ${t.red.rsd}` })),
     ]);
     const polje = cenaPolje(html);
     expect(attr(polje, "aria-invalid")).toBe("true");

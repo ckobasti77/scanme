@@ -196,7 +196,7 @@ export function parseLokalPreview(params: IzlogSearchParams): LokalPreviewParams
 // ---------------------------------------------------------------------------
 
 /** K10: the editor's showcase states (docs/MENI-PLAN.md §7); absent = a realistic medium menu. */
-export const EDITOR_STANJA = ["prazno", "veliki", "brzi-unos", "izaberi-vise"] as const;
+export const EDITOR_STANJA = ["prazno", "veliki", "brzi-unos", "izaberi-vise", "konflikt"] as const;
 export type EditorStanje = (typeof EDITOR_STANJA)[number];
 
 /** K10: which pane, drawer or overlay is open on the narrower layouts (for snapshots). */
@@ -210,6 +210,13 @@ export type EditorPogled = (typeof EDITOR_POGLEDI)[number];
  */
 export const EDITOR_FOKUSI = ["artikal", "varijante", "kombo", "prevodi", "room-service"] as const;
 
+/**
+ * K18: a dialog open on the first render — `objava` (consequences and a warning to confirm), `objava-greske`
+ * (two errors that lead to their articles), `objava-zastarelo` (the draft changed after the review), `verzije`.
+ */
+export const EDITOR_MODALI = ["objava", "objava-greske", "objava-zastarelo", "verzije"] as const;
+export type EditorModal = (typeof EDITOR_MODALI)[number];
+
 /** K16: these show Premium features; without `plan` they open on Premium, `plan=standard` shows the locks. */
 const PREMIUM_FOKUSI: readonly EditorFokus[] = ["prevodi", "room-service"];
 export type EditorFokus = (typeof EDITOR_FOKUSI)[number];
@@ -220,7 +227,7 @@ export type EditorPreviewParams = {
   empty: boolean;
   /** Existing `?design=dark` (TASK-51): the dark design of the old renderer, not the app theme. */
   darkDesign: boolean;
-  /** K10: `stanje=prazno|veliki|brzi-unos`; K11: `izaberi-vise`; null = the medium menu. */
+  /** K10: `stanje=prazno|veliki|brzi-unos`; K11: `izaberi-vise`; K18: `konflikt`; null = the medium menu. */
   stanje: EditorStanje | null;
   /** K10: `pogled=struktura|uredi|pregled`. */
   pogled: EditorPogled | null;
@@ -234,6 +241,8 @@ export type EditorPreviewParams = {
   tab: "izgled" | null;
   /** K17: `paleta=<id>` — the venue's published palette (a curated id; an unknown one is ignored). */
   paleta: string | null;
+  /** K18: `modal=objava|objava-greske|objava-zastarelo|verzije`. */
+  modal: EditorModal | null;
 };
 
 export function parseEditorPreview(params: IzlogSearchParams): EditorPreviewParams {
@@ -251,6 +260,7 @@ export function parseEditorPreview(params: IzlogSearchParams): EditorPreviewPara
     fokus,
     tab: firstParam(params.tab) === "izgled" ? "izgled" : null,
     paleta: pickId(params.paleta),
+    modal: pickOptional(params.modal, EDITOR_MODALI),
   };
 }
 

@@ -16,6 +16,12 @@
 //                                Premium unless &plan=standard shows the locks)
 //   ?tab=izgled                  K17: the Izgled mode (&plan=premium unlocks the Premium variants)
 //   ?paleta=<id>                 K17: the venue starts on this curated palette (as published)
+//   ?modal=objava|objava-greske|objava-zastarelo|verzije
+//                                K18: Objavi open (consequences and a warning to confirm; two
+//                                errors that lead to their articles; a review made stale by a
+//                                colleague) or the previous publications (restore makes a draft)
+//   ?stanje=konflikt             K18: a price saved meanwhile by a colleague, both values shown,
+//                                and who else is in the editor
 //   ?editor=stari                the legacy editor (legacy menus still use it)
 //   ?tema=svetla|tamna           the app theme (K07)
 

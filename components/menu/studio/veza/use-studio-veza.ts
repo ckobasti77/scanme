@@ -5,6 +5,8 @@
 // mutations become StudioRadnje (lib/menu/studio/model.ts). Subscriptions per
 // recipe §7: the service context, the page column, ONE page's content, the
 // draft status and the live availability — nothing per article.
+// K18: presence (one list per service, the heartbeat of this session), the
+// versions list and restore, and the publish review's targets and prices.
 
 import { useAction, useConvex, useConvexAuth, useConvexConnectionState, useMutation, useQuery } from "convex/react";
 import { useMemo } from "react";
@@ -14,6 +16,8 @@ import { menuImageType } from "@/lib/menu/image-validation";
 import { izgledKaoTekst, izmenaIzCas } from "@/lib/menu/studio/izgled-red";
 import type { MenuTranslations } from "@/lib/menu/translation-status";
 import type {
+  StudioEntitetPrisustva,
+  StudioVerzije,
   StudioAlergeni,
   StudioBrisanjeRezultat,
   StudioDetaljArtikla,
@@ -37,6 +41,7 @@ import { ISHOD_OK } from "@/lib/menu/studio/model";
 import type { StudioPogled } from "../studio-editor";
 import { izGreske, izvrsi } from "./ishod";
 import { obradiNaServeru, posaljiOriginal } from "./otpremanje";
+import { usePrisustvo } from "./use-prisustvo";
 
 type Stranice = Id<"menuPages">;
 type Sekcija = Id<"menuSections">;
@@ -105,6 +110,8 @@ export function useStudioVeza(
   otvorenArtikal: string | null = null,
   /** K16: Room service and the translations view are subscribed only while open. */
   pogled: StudioPogled = BEZ_POGLEDA,
+  /** K18: what the editor has open (presence heartbeat). */
+  prisustvoEntitet: StudioEntitetPrisustva | null = null,
 ): StudioVeza {
   const { isLoading } = useConvexAuth();
   const convex = useConvex();
@@ -155,6 +162,7 @@ export function useStudioVeza(
   const createCombo = useMutation(api.menuCombos.createCombo);
   const setBasePrice = useMutation(api.menuCatalog.setBasePrice);
   const publish = useMutation(api.menuPublishing.publish);
+  const restoreVersion = useMutation(api.menuPublishing.restoreVersion);
   // K11
   const movePlacement = useMutation(api.menuCatalog.movePlacement);
   const moveSection = useMutation(api.menuCatalog.moveSection);
@@ -318,14 +326,33 @@ export function useStudioVeza(
               mozeObjavu: r.canPublish,
               menjaSe: r.wouldChange,
               prevelik: r.tooLarge,
-              greske: r.errors.map((issue) => ({ kod: issue.code, artikalKey: issue.articleKey ?? null })),
+              greske: r.errors.map((issue) => ({
+                kod: issue.code,
+                artikalKey: issue.articleKey ?? null,
+                ...(issue.entityKey ? { entitetKey: issue.entityKey } : {}),
+              })),
               upozorenja: r.warnings.map((issue) => ({
                 kod: issue.code,
                 artikalKey: issue.articleKey ?? null,
                 jezik: issue.lang ?? null,
                 broj: issue.count ?? null,
+                ...(issue.entityKey ? { entitetKey: issue.entityKey } : {}),
               })),
               otisak: r.fingerprint,
+              // K18: the live version, where each issue's article is, the prices old → new.
+              objavljenaVerzija: r.liveVersionNumber,
+              ciljevi: Object.fromEntries(
+                Object.entries(r.targets).map(([key, cilj]) => [
+                  key,
+                  { naziv: cilj.name, stranicaKey: cilj.pageKey, stranica: cilj.pageName, roomService: cilj.inRoomService },
+                ]),
+              ),
+              promeneCena: (r.summary?.priceChanges ?? []).map((promena) => ({
+                artikalKey: promena.articleKey,
+                naziv: promena.name,
+                pre: promena.before,
+                posle: promena.after,
+              })),
               sazetak: r.summary
                 ? {
                     cene: r.summary.changedPrices,
@@ -354,6 +381,52 @@ export function useStudioVeza(
           (r) =>
             r.ok
               ? { status: "objavljeno" as const, verzija: r.versionNumber }
+              : { status: "odbijeno" as const, razlog: r.reason },
+        ),
+      // K18 — versions (one read when the dialog opens) and restore into the draft.
+      verzije: async (): Promise<StudioIshod<StudioVerzije>> => {
+        try {
+          const r = await convex.query(api.menuPublishing.listVersions, { menuServiceId });
+          if (!r) return NEMA;
+          return {
+            ok: true,
+            vrednost: {
+              uzivo: r.liveVersionNumber,
+              verzije: r.versions.map((verzija) => ({
+                broj: verzija.number,
+                objavljenoU: verzija.publishedAt,
+                objavio: verzija.publishedBy.name,
+                sazetak: {
+                  cene: verzija.summary.changedPrices,
+                  novi: verzija.summary.newArticles,
+                  uklonjeni: verzija.summary.removedArticles,
+                  sakriveno: verzija.summary.structural.hidden,
+                  uklonjenoSaStranice: verzija.summary.structural.removedFromPage,
+                  obrisano: verzija.summary.structural.deleted,
+                  redosled: verzija.summary.structural.reordered,
+                },
+                vracenoIz: verzija.restoredFromNumber,
+                uzivo: verzija.isLive,
+              })),
+            },
+          };
+        } catch (error) {
+          return izGreske(error);
+        }
+      },
+      vratiVerziju: (broj, revizija) =>
+        izvrsi(
+          () => restoreVersion({ menuServiceId, versionNumber: broj, expectedRevision: revizija }),
+          (r) =>
+            r.ok
+              ? {
+                  status: "vraceno" as const,
+                  broj: r.versionNumber,
+                  stanje: r.state,
+                  izmena: r.changes,
+                  zadrzaneStranice: r.keptPages.map((page) => page.name),
+                  bezSlike: r.droppedImages,
+                }
               : { status: "odbijeno" as const, razlog: r.reason },
         ),
       // K11 — order, states and group actions (convex/menuBulk.ts).
@@ -752,6 +825,7 @@ export function useStudioVeza(
     createCombo,
     setBasePrice,
     publish,
+    restoreVersion,
     movePlacement,
     moveSection,
     bulkAvailability,
@@ -876,7 +950,17 @@ export function useStudioVeza(
   const statusEditora = useMemo<StudioStatusNacrta | undefined>(
     () =>
       status
-        ? { stanje: status.state, objavljenaVerzija: status.liveVersionNumber, objavljenoU: status.livePublishedAt }
+        ? {
+            stanje: status.state,
+            objavljenaVerzija: status.liveVersionNumber,
+            objavljenoU: status.livePublishedAt,
+            // K18: a review of an older revision is stale; who changed it last; a restored draft.
+            revizija: status.revision,
+            poslednjaIzmena: status.lastEditBy
+              ? { ime: status.lastEditBy.name, ja: status.lastEditBy.isMe, u: status.lastEditAt }
+              : null,
+            vracenoIz: status.restoredFromNumber,
+          }
         : undefined,
     [status],
   );
@@ -1030,6 +1114,8 @@ export function useStudioVeza(
   );
 
   const nedostupniSet = useMemo(() => new Set(nedostupni?.map((row) => row.articleKey) ?? []), [nedostupni]);
+  // K18: only people who may edit send a heartbeat; everyone who reads the editor sees the list.
+  const prisustvo = usePrisustvo(menuServiceId, prisustvoEntitet, Boolean(kontekstEditora?.mozeUredjivanje));
 
   if (kontekst === undefined) return { stanje: "ucitava" };
   if (kontekst === null || !kontekstEditora || !radnje || !menuServiceId) return { stanje: "nema" };
@@ -1049,6 +1135,7 @@ export function useStudioVeza(
       prevodi: pogled.prevodi ? prevodiEditora : undefined,
       roomServicePodaci: pogled.roomService ? roomServiceEditora : undefined,
       izgled: izgledEditora,
+      prisustvo,
     },
   };
 }

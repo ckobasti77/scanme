@@ -6,6 +6,8 @@
 // last key and on leaving the field, a choice at once; a value saved by
 // someone else meanwhile is never overwritten silently (K10 queue, master
 // §6.1). Panel tokens only (MENU-UX §2, §4).
+// K18: a conflict uses the shared pattern (konflikt/konflikt-polja.tsx) and
+// names the other people who have this article open.
 
 import { ChevronDown, CircleCheck, LoaderCircle } from "lucide-react";
 import { useEffect, useId, useState, type ReactNode } from "react";
@@ -14,9 +16,12 @@ import { menuStudioSr } from "@/lib/i18n/sr/menu-studio";
 import type { CasValue } from "@/lib/menu/cas";
 import type { AutosaveRed } from "@/lib/menu/studio/autosave-queue";
 import type { PoljeGreska, PoljeProvera } from "@/lib/menu/studio/article-form";
+import { opisKonflikta } from "@/lib/menu/studio/conflict";
 import type { StudioIshod } from "@/lib/menu/studio/model";
 import { cn } from "@/lib/utils";
 import { Dugme } from "../../zajednicko/dugme";
+import { KonfliktPolja } from "../konflikt/konflikt-polja";
+import { useDrugiNaArtiklu } from "../prisustvo/kontekst";
 import { porukaGreske } from "../red-artikla/red-artikla";
 
 const t = menuStudioSr.artikal;
@@ -68,36 +73,35 @@ export function ProblemKljuca({
   prikaz?: (vrednost: CasValue) => string;
 }) {
   const stanje = red.stanje(kljuc);
+  const drugi = useDrugiNaArtiklu();
   if (stanje?.faza !== "greska" && stanje?.faza !== "konflikt") return null;
+  if (stanje.faza === "konflikt") {
+    return (
+      <KonfliktPolja
+        id={id}
+        opis={opisKonflikta(stanje, prikaz, drugi)}
+        tekst={fmt(t.konflikt, { sacuvano: prikaz(stanje.sacuvano) })}
+        zadrziMoju={t.zadrziMoje}
+        uzmiSacuvanu={t.uzmiSacuvano}
+        onZadrziMoju={() => red.zadrziMoju(kljuc)}
+        onUzmiSacuvanu={() => red.odbaci(kljuc)}
+        prikaziMoju
+      />
+    );
+  }
   return (
     <div
       id={id}
       role="alert"
       className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-[var(--mp-radius-kontrola)] border [--border:var(--mp-opasnost-ivica)] bg-[var(--mp-opasnost-meko)] px-3 py-1.5 text-sm font-medium text-[var(--mp-tekst)]"
     >
-      {stanje.faza === "greska" ? (
-        <>
-          <p>
-            {t.nijeSacuvano}
-            {stanje.ponovljivo ? null : ` ${porukaGreske(stanje.kod) ?? ""}`}
-          </p>
-          <Dugme vrsta="tiho" velicina="kompaktna" onClick={() => red.pokusajPonovo(kljuc)}>
-            {t.pokusajPonovo}
-          </Dugme>
-        </>
-      ) : (
-        <>
-          <p>{fmt(t.konflikt, { sacuvano: prikaz(stanje.sacuvano) })}</p>
-          <span className="flex flex-wrap gap-2">
-            <Dugme vrsta="sekundarno" velicina="kompaktna" onClick={() => red.zadrziMoju(kljuc)}>
-              {t.zadrziMoje}
-            </Dugme>
-            <Dugme vrsta="tiho" velicina="kompaktna" onClick={() => red.odbaci(kljuc)}>
-              {t.uzmiSacuvano}
-            </Dugme>
-          </span>
-        </>
-      )}
+      <p>
+        {t.nijeSacuvano}
+        {stanje.ponovljivo ? null : ` ${porukaGreske(stanje.kod) ?? ""}`}
+      </p>
+      <Dugme vrsta="tiho" velicina="kompaktna" onClick={() => red.pokusajPonovo(kljuc)}>
+        {t.pokusajPonovo}
+      </Dugme>
     </div>
   );
 }

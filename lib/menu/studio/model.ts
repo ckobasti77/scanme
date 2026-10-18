@@ -91,7 +91,73 @@ export type StudioStatusNacrta = {
   stanje: "never_published" | "clean" | "dirty";
   objavljenaVerzija: number | null;
   objavljenoU: number | null;
+  /** K18: the draft revision now; a publish review of an older one is stale (master §6.1). */
+  revizija?: number;
+  /** K18: who changed the draft last and when (null = unknown). */
+  poslednjaIzmena?: { ime: string | null; ja: boolean; u: number } | null;
+  /** K18: the draft was made from this published version (restore) and is not published yet. */
+  vracenoIz?: number | null;
 };
+
+// -----------------------------------------------------------------------------
+// K18 — who else is in the editor (master §6.1: "sistem prikazuje ko trenutno
+// uređuje isti artikal"). A signal, never a lock.
+// -----------------------------------------------------------------------------
+
+export type StudioEntitetPrisustva = { vrsta: "article" | "page" | "room_service"; key: string };
+
+/** Another person in this menu's editor now (never the person themself). */
+export type StudioPrisutan = {
+  /** Stable per person (the user id in the app). */
+  id: string;
+  ime: string | null;
+  /** What they have open (null = the editor, nothing in particular). */
+  entitet: StudioEntitetPrisustva | null;
+};
+
+// -----------------------------------------------------------------------------
+// K18 — versions (master §6.1: the newest 20 publications; a restore makes a NEW
+// DRAFT and the public menu does not change until Objavi).
+// -----------------------------------------------------------------------------
+
+export type StudioSazetakObjave = {
+  cene: number;
+  novi: number;
+  uklonjeni: number;
+  sakriveno: number;
+  uklonjenoSaStranice: number;
+  obrisano: number;
+  redosled: number;
+};
+
+export type StudioVerzija = {
+  broj: number;
+  objavljenoU: number;
+  /** Who published it (a name or e-mail; null = unknown). */
+  objavio: string | null;
+  sazetak: StudioSazetakObjave;
+  /** It was published from a draft restored from this version. */
+  vracenoIz: number | null;
+  /** Guests see this one now. */
+  uzivo: boolean;
+};
+
+export type StudioVerzije = { uzivo: number | null; verzije: StudioVerzija[] };
+
+export type StudioVracanjeRezultat =
+  | {
+      status: "vraceno";
+      broj: number;
+      /** clean = the draft is the live version again (unpublished changes discarded). */
+      stanje: "clean" | "dirty";
+      /** Rows the draft changed by (0 = it already was this version). */
+      izmena: number;
+      /** Pages with a QR card kept as they are (a restore never removes them). */
+      zadrzaneStranice: string[];
+      /** Images of the version that no longer exist (the article got its icon or nothing). */
+      bezSlike: number;
+    }
+  | { status: "odbijeno"; razlog: "stale_draft" };
 
 /** Everything the editor shows. undefined = still loading. */
 export type StudioPodaci = {
@@ -113,6 +179,8 @@ export type StudioPodaci = {
   roomServicePodaci?: StudioRoomService | null;
   /** K17: the draft appearance and what the account may choose (undefined = loading, null = refused). */
   izgled?: StudioIzgled | null;
+  /** K18: other people in this menu's editor now (lib/menu/studio/presence-view.ts). */
+  prisustvo?: readonly StudioPrisutan[];
 };
 
 // -----------------------------------------------------------------------------
@@ -268,24 +336,39 @@ export type TabelaRezultat =
   | { status: "dodato"; novih: number; postojecih: number; preskoceno: number }
   | { status: "slicno"; redovi: { indeks: number; kandidati: StudioKandidat[] }[] };
 
+/** K18: where an issue's article is, so the dialog can take the owner there. */
+export type StudioCiljProblema = {
+  naziv: string;
+  /** A page that shows the article (the default page first); null = on no page. */
+  stranicaKey: string | null;
+  stranica: string | null;
+  /** The article is in Room service. */
+  roomService: boolean;
+};
+
 export type StudioPregledObjave = {
   revizija: number;
   stanje: StudioStatusNacrta["stanje"];
   mozeObjavu: boolean;
   menjaSe: boolean;
   prevelik: boolean;
-  greske: { kod: string; artikalKey: string | null }[];
-  upozorenja: { kod: string; artikalKey: string | null; jezik: string | null; broj: number | null }[];
+  greske: { kod: string; artikalKey: string | null; entitetKey?: string | null }[];
+  upozorenja: {
+    kod: string;
+    artikalKey: string | null;
+    jezik: string | null;
+    broj: number | null;
+    /** K18: the variant or add-on group an article warning is about. */
+    entitetKey?: string | null;
+  }[];
   otisak: string;
-  sazetak: {
-    cene: number;
-    novi: number;
-    uklonjeni: number;
-    sakriveno: number;
-    uklonjenoSaStranice: number;
-    obrisano: number;
-    redosled: number;
-  } | null;
+  sazetak: StudioSazetakObjave | null;
+  /** K18: the live version before this publish (null = never published). */
+  objavljenaVerzija?: number | null;
+  /** K18: the articles of the issues by key (lib/menu/publish-targets.ts). */
+  ciljevi?: Readonly<Record<string, StudioCiljProblema>>;
+  /** K18: the first changed prices, old → new (the count stays in `sazetak.cene`). */
+  promeneCena?: { artikalKey: string; naziv: string; pre: number | null; posle: number | null }[];
 };
 
 export type StudioObjavaRezultat =
@@ -450,6 +533,10 @@ export type StudioRadnje = {
   // Publishing (master §6.1).
   pregledObjave(): Promise<StudioIshod<StudioPregledObjave>>;
   objavi(revizija: number, potvrda: string | undefined): Promise<StudioIshod<StudioObjavaRezultat>>;
+  // K18 — versions: the newest 20 publications; a restore makes a NEW DRAFT (`revizija`
+  // = the draft the person saw; a newer one is refused, never overwritten).
+  verzije(): Promise<StudioIshod<StudioVerzije>>;
+  vratiVerziju(broj: number, revizija: number): Promise<StudioIshod<StudioVracanjeRezultat>>;
   // K11 — order: drag and drop and `Premesti` (draft).
   /** Moves a row into `uSekciju` (same page), directly before `prePrikaza` (null = the end). */
   premestiPrikaz(prikazId: string, uSekciju: string, prePrikaza: string | null): Promise<StudioIshod>;

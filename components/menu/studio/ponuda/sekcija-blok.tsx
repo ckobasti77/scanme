@@ -63,6 +63,7 @@ export function SekcijaBlok({
   izborAktivan = false,
   izabrani = PRAZAN_IZBOR,
   onIzaberiSekciju,
+  uredjuju,
 }: {
   sekcija: StudioSekcija;
   /** The rows to show (all of them, or what the search found). */
@@ -95,6 +96,8 @@ export function SekcijaBlok({
   izborAktivan?: boolean;
   izabrani?: ReadonlySet<string>;
   onIzaberiSekciju?: (prikazIds: readonly string[]) => void;
+  /** K18: article key → other people editing it (presence). */
+  uredjuju?: ReadonlyMap<string, readonly string[]>;
 }) {
   const telo = useId();
   const smanjenPokret = useSmanjenPokret();
@@ -246,6 +249,7 @@ export function SekcijaBlok({
                     izborAktivan={izborAktivan}
                     izabran={izabrani.has(stavka.prikazId)}
                     prevlacenje={prevlacenje}
+                    uredjuju={uredjuju?.get(stavka.artikal.key)}
                     radnje={redRadnje}
                   />
                 ))}

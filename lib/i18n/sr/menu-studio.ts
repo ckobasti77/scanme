@@ -1,6 +1,7 @@
 import type { MenuStudioDict } from "../types";
 import { menuStudioArtikalSr } from "./menu-studio-artikal";
 import { menuStudioIzgledSr } from "./menu-studio-izgled";
+import { menuStudioObjavljivanjeSr } from "./menu-studio-objava";
 import { menuStudioPosebnoSr } from "./menu-studio-posebno";
 
 // ScanMe Menu V1 — the editor (K10; master §13.4, §5.3, §6.1). Sentences
@@ -531,4 +532,6 @@ export const menuStudioSr = {
   artikal: menuStudioArtikalSr,
   // K16 — combo, translations, Room service (menu-studio-posebno.ts).
   posebno: menuStudioPosebnoSr,
+  // K18 — publishing, versions, presence and conflicts (menu-studio-objava.ts).
+  objavljivanje: menuStudioObjavljivanjeSr,
 } as const satisfies MenuStudioDict;

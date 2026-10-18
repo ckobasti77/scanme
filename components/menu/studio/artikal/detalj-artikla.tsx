@@ -8,6 +8,8 @@
 // are collapsed until opened, so a plain article stays `Naziv + Cena`:
 //   Varijante i dodaci · Alergeni i oznake · Gde se prikazuje · Dostupnost i akcija.
 // Everything goes into the draft by itself, except availability (live).
+// K18: when someone else has the same article open, a quiet strip under the
+// title says so (nothing is locked; a conflict of one field is asked about).
 
 import { ArrowLeft, CircleSlash, Package, TriangleAlert } from "lucide-react";
 import { useState } from "react";
@@ -28,6 +30,9 @@ import { Kartica } from "../../zajednicko/kartica";
 import { PraznoStanje, UcitavanjeStanje } from "../../zajednicko/stanja";
 import { StatusOznaka } from "../../zajednicko/status-oznaka";
 import { KomboDetalj } from "../kombo/kombo-detalj";
+import { useDrugiNaArtiklu } from "../prisustvo/kontekst";
+import { PrisustvoTraka } from "../prisustvo/prisustvo";
+import { ProblemObjaveTraka, type ProblemIzObjave } from "./problem-objave";
 import { PrevodiArtikla, sazetakPrevoda } from "../prevodi/prevodi-artikla";
 import { AlergeniIOznake } from "./alergeni-i-oznake";
 import { DostupnostIAkcija, stanjeAkcije } from "./dostupnost-i-akcija";
@@ -48,6 +53,8 @@ export type DetaljPocetno = {
   varijante?: VarijantePocetno;
   /** The promotion form open (inside `Dostupnost i akcija`). */
   akcijaOtvorena?: boolean;
+  /** K18: opened from Objavi — what blocked or warned (a strip under the title says it and what to do). */
+  problemi?: ProblemIzObjave;
 };
 
 function mnozina(grupa: { one: string; few: string; many: string }, n: number) {
@@ -100,6 +107,7 @@ export function DetaljArtikla({
   najavi,
   jezici,
   podesavanjaHref = null,
+  onObjavi = null,
 }: {
   /** undefined = loading, null = the article no longer exists. */
   detalj: StudioDetaljArtikla | null | undefined;
@@ -120,8 +128,11 @@ export function DetaljArtikla({
   /** K16: the menu's languages (the "Prevodi" group); undefined = not loaded yet. */
   jezici?: StudioJezici;
   podesavanjaHref?: string | null;
+  /** K18: opens Objavi again (the strip of an article reached from it). */
+  onObjavi?: (() => void) | null;
 }) {
   const [otvorene, setOtvorene] = useState<ReadonlySet<GrupaDetalja>>(() => new Set(pocetno?.otvoreneGrupe ?? []));
+  const drugi = useDrugiNaArtiklu();
   const prebaci = (grupa: GrupaDetalja) => (otvoreno: boolean) =>
     setOtvorene((pre) => {
       const sledece = new Set(pre);
@@ -205,6 +216,20 @@ export function DetaljArtikla({
         ) : null}
         <p className="text-sm text-[var(--mp-tekst-sporedni)]">{mozeUredjivanje ? t.nacrt : t.samoCitanje}</p>
       </header>
+      <PrisustvoTraka imena={drugi} />
+      {pocetno?.problemi ? (
+        <ProblemObjaveTraka
+          problem={pocetno.problemi}
+          stanje={{
+            naziv: artikal.naziv,
+            cena,
+            varijanteUkljucene: detalj.ukljuceno.varijante,
+            ceneVarijanti: detalj.varijante.map((varijanta) => varijanta.cena),
+            prikaza: detalj.prikazi.filter((prikaz) => !prikaz.arhivirana).length,
+          }}
+          onObjavi={onObjavi}
+        />
+      ) : null}
 
       <OsnovnoArtikla
         detalj={detalj}

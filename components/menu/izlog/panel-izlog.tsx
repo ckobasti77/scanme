@@ -84,6 +84,7 @@ export function PanelIzlog({
             fokus: null,
             tab: null,
             paleta: null,
+            modal: null,
           }
         }
       />

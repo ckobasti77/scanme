@@ -17,6 +17,13 @@
 // Its controls take the work area and the preview the rest of the width (no
 // page column: the appearance is the same on every page); the preview in
 // both modes draws the DRAFT appearance in a real device frame.
+// K18: `Objavi` is the full publish dialog (objava/objava-modal.tsx: errors
+// lead to the article, warnings need a conscious yes, consequences, a stale
+// review is refreshed first), `Verzije` lists previous publications and makes
+// a draft from one (verzije/verzije-dijalog.tsx), and presence shows who else
+// has an article open (header, row, detail; conflicts name them). The editor
+// tells the container what it has open (`onPrisustvo`); the app sends the
+// heartbeat, the izlog shows invented colleagues.
 
 import { ChevronDown } from "lucide-react";
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
@@ -30,7 +37,16 @@ import { MENU_DEFAULT_PRESENTATION } from "@/lib/menu/presentation";
 import { izgledSaCekanjem } from "@/lib/menu/studio/izgled-red";
 import { kljucCene } from "@/lib/menu/studio/autosave-queue";
 import { javniPregled } from "@/lib/menu/studio/javni-pregled";
-import type { StudioPodaci, StudioRadnje, StudioRadniSadrzaj, StudioRed, StudioRsUpozorenje } from "@/lib/menu/studio/model";
+import type {
+  StudioEntitetPrisustva,
+  StudioPodaci,
+  StudioRadnje,
+  StudioRadniSadrzaj,
+  StudioRed,
+  StudioRsUpozorenje,
+} from "@/lib/menu/studio/model";
+import { imenaPoArtiklu, osobe } from "@/lib/menu/studio/presence-view";
+import type { ProblemArtikla } from "@/lib/menu/studio/publish-view";
 import { sadrzajSaCekanjem } from "@/lib/menu/studio/overlay";
 import { cn } from "@/lib/utils";
 import { useMinutniSat } from "../javni/use-minutni-sat";
@@ -42,7 +58,8 @@ import { IzgledRadniProstor } from "./izgled/izgled-radni-prostor";
 import { miniSadrzaj } from "./izgled/raspored-izbor";
 import { DetaljArtikla, type DetaljPocetno } from "./artikal/detalj-artikla";
 import { NoviKombo } from "./kombo/novi-kombo";
-import { ObjavaDijalog } from "./objava/objava-dijalog";
+import { ObjavaModal, type ObjavaPocetno } from "./objava/objava-modal";
+import { DrugiNaArtikluKontekst } from "./prisustvo/kontekst";
 import { PonudaRadniProstor, type PonudaPocetno, type PonudaRadnje } from "./ponuda/radni-prostor";
 import { PregledNacrta, type StudioUredjaj } from "./pregled/pregled-nacrta";
 import { PrevodiStranice } from "./prevodi/prevodi-stranice";
@@ -54,6 +71,7 @@ import { StudioZaglavlje, type StudioTab } from "./shell/zaglavlje";
 import { useAutosave } from "./status-cuvanja/use-autosave";
 import { StraniceKolona, type StraniceRadnje } from "./stranice/stranice-kolona";
 import { dodatoTekst, TabelarniUnos } from "./tabelarni-unos/tabelarni-unos";
+import { VerzijeDijalog, type VerzijePocetno } from "./verzije/verzije-dijalog";
 
 const t = menuStudioSr;
 
@@ -78,7 +96,15 @@ export type StudioPocetno = {
   prevodi?: "stranica" | "room-service";
   /** K16: the Room service price decision open (izlog `fokus=room-service`). */
   rsUpozorenje?: StudioRsUpozorenje;
+  /** K18: the publish dialog open with its review loaded (izlog `modal=objava|objava-greske`). */
+  objava?: ObjavaPocetno;
+  /** K18: the versions dialog open with its list loaded (izlog `modal=verzije`). */
+  verzije?: VerzijePocetno;
+  /** K18: an inline price already in conflict (izlog `stanje=konflikt`). */
+  konflikt?: { artikalId: string; ocekivano: number | null; pokusano: number | null; sacuvano: number | null };
 };
+
+const NIKO: readonly string[] = [];
 
 export function StudioEditor({
   podaci,
@@ -93,6 +119,8 @@ export function StudioEditor({
   onPogled,
   podesavanjaHref = null,
   onTab,
+  onPrisustvo,
+  javniMeniHref = null,
 }: {
   podaci: StudioPodaci;
   radnje: StudioRadnje;
@@ -114,10 +142,26 @@ export function StudioEditor({
   podesavanjaHref?: string | null;
   /** K17: the mode changed (the app keeps it in the address). */
   onTab?: (tab: StudioTab) => void;
+  /** K18: what this person has open (the app's presence heartbeat). */
+  onPrisustvo?: (entitet: StudioEntitetPrisustva | null) => void;
+  /** K18: where guests open the menu (offered after a publish, new tab); null = no link. */
+  javniMeniHref?: string | null;
 }) {
   const { kontekst, stranice, status, nedostupni } = podaci;
   const sirina = useSirina();
-  const red = useAutosave();
+  // K18: the izlog's `stanje=konflikt` starts with a price in conflict.
+  const konfliktNaPocetku = pocetno.konflikt;
+  const red = useAutosave(
+    konfliktNaPocetku
+      ? (novi) =>
+          novi.postaviKonflikt(kljucCene(konfliktNaPocetku.artikalId), {
+            ocekivano: konfliktNaPocetku.ocekivano,
+            pokusano: konfliktNaPocetku.pokusano,
+            sacuvano: konfliktNaPocetku.sacuvano,
+            posalji: (o, v) => radnjeSpolja.postaviCenu(konfliktNaPocetku.artikalId, o as number | null, v as number | null),
+          })
+      : undefined,
+  );
   const panelId = useId();
   const naslovId = useId();
   const detaljNaslovId = useId();
@@ -143,7 +187,8 @@ export function StudioEditor({
   }, [onPogled, roomService, prevodi]);
   const [tabela, setTabela] = useState(pocetno.tabela ?? false);
   const [kombo, setKombo] = useState(false);
-  const [objava, setObjava] = useState(false);
+  const [objava, setObjava] = useState(Boolean(pocetno.objava));
+  const [verzijeOtvoreno, setVerzijeOtvoreno] = useState(Boolean(pocetno.verzije));
   const [najava, setNajava] = useState("");
   // K11: "Privremeno nedostupno" is confirmed once per editor session (it goes live at once).
   const [dostupnostPotvrdjena, setDostupnostPotvrdjena] = useState(false);
@@ -192,6 +237,18 @@ export function StudioEditor({
       ),
     [sadrzaj],
   );
+
+  // K18: who else is here; per article for the rows and the open detail.
+  const prisutni = podaci.prisustvo;
+  const osobeUEditoru = useMemo(() => osobe(prisutni ?? []), [prisutni]);
+  const drugiUEditoru = useMemo(() => osobeUEditoru.map((osoba) => osoba.ime), [osobeUEditoru]);
+  const uredjuju = useMemo(() => imenaPoArtiklu(prisutni ?? []), [prisutni]);
+  const drugiNaOtvorenom = (otvorenArtikal ? uredjuju.get(otvorenArtikal) : undefined) ?? NIKO;
+  const entitetVrsta: StudioEntitetPrisustva["vrsta"] | null = otvorenArtikal ? "article" : roomService ? "room_service" : sadrzaj ? "page" : null;
+  const entitetKey = otvorenArtikal ?? (roomService ? "room-service" : (sadrzaj?.stranica.key ?? null));
+  useEffect(() => {
+    onPrisustvo?.(entitetVrsta && entitetKey ? { vrsta: entitetVrsta, key: entitetKey } : null);
+  }, [onPrisustvo, entitetVrsta, entitetKey]);
 
   // K16: a base price saved under a MANUAL Room service price asks at once (master §5.3) —
   // wherever the price was typed (row, detail). The name comes from what the editor shows.
@@ -279,6 +336,11 @@ export function StudioEditor({
     [red, radnje],
   );
   const onPregledObjave = useCallback(() => radnje.pregledObjave(), [radnje]);
+  const onVerzije = useCallback(() => radnje.verzije(), [radnje]);
+  const onVratiVerziju = useCallback(
+    (broj: number, revizija: number) => red.prati(() => radnje.vratiVerziju(broj, revizija)),
+    [red, radnje],
+  );
   const onObjavi = useCallback((revizija: number, potvrda: string | undefined) => red.prati(() => radnje.objavi(revizija, potvrda)), [red, radnje]);
   const nazivArtikla = useCallback(
     (artikalKey: string) => {
@@ -340,6 +402,58 @@ export function StudioEditor({
     });
     return () => cancelAnimationFrame(okvir);
   }, [otvorenArtikal, detaljNaslovId]);
+
+  // K18: an error or warning of the publish dialog leads to its article: on a page that shows
+  // it (the default page first), its variants open when the issue is there.
+  const idiNaArtikal = (problem: ProblemArtikla, greska: boolean) => {
+    setPonudaPocetno(undefined);
+    povratak.current = null;
+    setRoomService(false);
+    setPrevodi(null);
+    if (tab !== "ponuda") {
+      setTab("ponuda");
+      onTab?.("ponuda");
+    }
+    setStrukturaOtvorena(false);
+    setPregledOtvoren(false);
+    if (sirina === "telefon") setPano("uredi");
+    const kljuc = problem.cilj?.stranicaKey;
+    const stranica = kljuc ? stranice?.find((s) => s.key === kljuc && !s.arhivirana) : undefined;
+    if (stranica && stranica.id !== aktivnaStranica) onIzaberiStranicu(stranica.id);
+    setIzvorPrikaz(null);
+    setDetaljPocetno({
+      ...(problem.uVarijantama ? { otvoreneGrupe: ["varijante"] as const } : {}),
+      problemi: { kodovi: problem.kodovi, greska },
+    });
+    onOtvoriArtikal?.(problem.artikalKey);
+  };
+  const otvoriPrevodeIzObjave =
+    podaci.jezici && podaci.jezici.prevodi.length > 0
+      ? () => {
+          if (otvorenArtikal) onOtvoriArtikal?.(null);
+          setRoomService(false);
+          if (tab !== "ponuda") {
+            setTab("ponuda");
+            onTab?.("ponuda");
+          }
+          setPrevodi("stranica");
+          if (sirina === "telefon") setPano("uredi");
+        }
+      : null;
+  // K18: the header's "Idi na izbor" — to the first conflict box, on the pane that shows it.
+  const idiNaKonflikt = () => {
+    if (sirina === "telefon" && pano !== "uredi") setPano("uredi");
+    setStrukturaOtvorena(false);
+    requestAnimationFrame(() => {
+      const okvir = document.querySelector<HTMLElement>("[data-konflikt]");
+      okvir?.scrollIntoView({ block: "center", behavior: "instant" });
+      okvir?.querySelector<HTMLElement>("button")?.focus({ preventScroll: true });
+    });
+  };
+  const pregledNacrta = () => {
+    if (sirina === "telefon") setPano("pregled");
+    else setPregledOtvoren(true);
+  };
 
   const izaberiStranicu = (id: string) => {
     setPonudaPocetno(undefined);
@@ -446,6 +560,7 @@ export function StudioEditor({
         radnje={ponudaRadnje}
         naslovId={naslovId}
         onOtvoriArtikal={onOtvoriArtikal ? otvoriArtikal : undefined}
+        uredjuju={uredjuju}
       />
     );
     rad =
@@ -456,6 +571,7 @@ export function StudioEditor({
           <div hidden data-lista-ispod-detalja="">
             {ponuda}
           </div>
+          <DrugiNaArtikluKontekst.Provider value={drugiNaOtvorenom}>
           <DetaljArtikla
             key={otvorenArtikal}
             detalj={podaci.detalj}
@@ -473,7 +589,9 @@ export function StudioEditor({
             najavi={setNajava}
             jezici={podaci.jezici}
             podesavanjaHref={podesavanjaHref}
+            onObjavi={kontekst.mozeObjavu ? () => setObjava(true) : null}
           />
+          </DrugiNaArtikluKontekst.Provider>
         </>
       );
   }
@@ -509,9 +627,13 @@ export function StudioEditor({
       povezano={podaci.povezano}
       mozeObjavu={kontekst.mozeObjavu}
       prikaziPregled={sirina !== "telefon"}
-      onPonovo={() => red.pokusajPonovo()}
+      onPonovo={red.zbir().neuspelo > red.brojKonflikata() ? () => red.pokusajPonovo() : undefined}
       onPregled={() => setPregledOtvoren(true)}
       onObjavi={() => setObjava(true)}
+      onVerzije={status?.objavljenaVerzija != null ? () => setVerzijeOtvoreno(true) : null}
+      prisutni={osobeUEditoru}
+      sada={sada}
+      onIdiNaKonflikt={red.brojKonflikata() > 0 && red.zbir().neuspelo === red.brojKonflikata() ? idiNaKonflikt : null}
     />
   );
 
@@ -541,12 +663,34 @@ export function StudioEditor({
         onResi={(stavkaId, akcija) => red.prati(() => radnje.rsResiUpozorenje(stavkaId, akcija))}
         najavi={setNajava}
       />
-      <ObjavaDijalog
+      <ObjavaModal
         otvoreno={objava}
         onOtvoreno={setObjava}
+        status={status}
+        cuvanje={red.zbir()}
+        konflikata={red.brojKonflikata()}
+        sada={sadaSat}
+        onPokusajCuvanje={() => red.pokusajPonovo()}
         nazivArtikla={nazivArtikla}
         onPregled={onPregledObjave}
         onObjavi={onObjavi}
+        onIdiNaArtikal={idiNaArtikal}
+        onOtvoriPrevode={otvoriPrevodeIzObjave}
+        onPregledNacrta={pregledNacrta}
+        pocetno={pocetno.objava}
+        drugi={drugiUEditoru}
+        javniMeniHref={javniMeniHref}
+      />
+      <VerzijeDijalog
+        otvoreno={verzijeOtvoreno}
+        onOtvoreno={setVerzijeOtvoreno}
+        status={status}
+        mozeVracanje={kontekst.mozeObjavu}
+        sada={sadaSat}
+        onUcitaj={onVerzije}
+        onVrati={onVratiVerziju}
+        onPregledajIObjavi={() => setObjava(true)}
+        pocetno={pocetno.verzije}
       />
       <p role="status" aria-live="polite" className="sr-only" data-studio-najava="">
         {najava}

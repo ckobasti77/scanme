@@ -6,8 +6,13 @@
 // dialog for screen readers); actions sit in a row at the bottom. K11:
 // `bezVracanjaFokusa` keeps Radix from returning focus to the trigger on
 // close, when the caller moves focus itself (the card moved by `Premesti`).
+// K18: Radix returns focus only to a DialogTrigger, and the editor opens its
+// dialogs from state (no trigger), so focus fell to <body> on close. The
+// dialog now remembers what had focus when it opened and returns focus there
+// — unless something outside the dialog already took it (a caller that
+// focuses its own target keeps it).
 
-import type { ReactNode } from "react";
+import { useRef, type ReactNode } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { MENU_TOKENI_KLASA } from "../zajednicko/povrsina";
@@ -20,6 +25,7 @@ export function StudioDijalog({
   podnozje,
   sirina = "obicna",
   bezVracanjaFokusa = false,
+  fokusNaDijalog = false,
   children,
 }: {
   otvoreno: boolean;
@@ -29,14 +35,35 @@ export function StudioDijalog({
   podnozje?: ReactNode;
   sirina?: "obicna" | "siroka";
   bezVracanjaFokusa?: boolean;
+  /** K18: start on the dialog itself, not on its first button (a list whose first button is destructive). */
+  fokusNaDijalog?: boolean;
   children?: ReactNode;
 }) {
+  const okidac = useRef<HTMLElement | null>(null);
+  const sadrzaj = useRef<HTMLDivElement | null>(null);
   return (
     <Dialog open={otvoreno} onOpenChange={onOtvoreno}>
       <DialogContent
+        ref={sadrzaj}
         data-povrsina="panel"
         {...(opis ? {} : { "aria-describedby": undefined })}
-        onCloseAutoFocus={bezVracanjaFokusa ? (event) => event.preventDefault() : undefined}
+        onOpenAutoFocus={(event) => {
+          // Still the opener here: Radix moves focus into the dialog right after this event.
+          const aktivan = document.activeElement;
+          okidac.current = aktivan instanceof HTMLElement && aktivan !== document.body ? aktivan : null;
+          if (fokusNaDijalog) {
+            event.preventDefault();
+            sadrzaj.current?.focus({ preventScroll: true });
+          }
+        }}
+        onCloseAutoFocus={(event) => {
+          event.preventDefault();
+          if (bezVracanjaFokusa) return;
+          const aktivan = document.activeElement;
+          const preuzet = aktivan instanceof HTMLElement && aktivan !== document.body && !sadrzaj.current?.contains(aktivan);
+          const meta = okidac.current;
+          if (!preuzet && meta?.isConnected) meta.focus({ preventScroll: true });
+        }}
         className={cn(
           MENU_TOKENI_KLASA,
           "max-h-[calc(100dvh-2rem)] gap-0 overflow-hidden rounded-[var(--mp-radius-okvir)] border [--border:var(--mp-ivica)] bg-[var(--mp-povrsina)] p-0 text-[var(--mp-tekst)] shadow-[var(--mp-senka-md)]",

@@ -6,10 +6,14 @@
 // header carries the venue name and the mode line (MENU-UX §8). The save
 // state is the publish seam (SavObjave, MENU-UX §1.1); on a phone a single
 // line says the same in less space.
+// K18: next to the seam — "Nacrt iz verzije N" after a restore (guests see
+// it only after Objavi), `Verzije` (previous publications, restore) and who
+// else is in the editor. The same draft status feeds Početna (K27).
 
-import { CircleCheck, Eye, LoaderCircle, TriangleAlert, Upload } from "lucide-react";
+import { CircleCheck, Eye, History, LoaderCircle, RotateCcw, TriangleAlert, Upload } from "lucide-react";
 import { useSyncExternalStore } from "react";
 import { menuStudioSr } from "@/lib/i18n/sr/menu-studio";
+import { fmt } from "@/lib/i18n/format";
 import { menuZajednickoSr } from "@/lib/i18n/sr/menu-zajednicko";
 import type { AutosaveZbir } from "@/lib/menu/studio/autosave-queue";
 import { kadaTekst } from "@/lib/menu/studio/kada";
@@ -18,6 +22,8 @@ import { cn } from "@/lib/utils";
 import { Dugme } from "../../zajednicko/dugme";
 import { SavObjave } from "../../zajednicko/sav-objave";
 import { OfflineTraka } from "../../zajednicko/stanja";
+import { StatusOznaka } from "../../zajednicko/status-oznaka";
+import { PrisustvoZaglavlje } from "../prisustvo/prisustvo";
 import { Segmenti } from "./segmenti";
 import type { StudioSirina } from "./use-sirina";
 
@@ -56,6 +62,10 @@ export function StudioZaglavlje({
   onPonovo,
   onPregled,
   onObjavi,
+  onVerzije = null,
+  prisutni = [],
+  sada: sadaSpolja,
+  onIdiNaKonflikt = null,
 }: {
   lokal: string;
   rezim: string;
@@ -69,11 +79,21 @@ export function StudioZaglavlje({
   mozeObjavu: boolean;
   /** The `Pregled` button (not on a phone, where Pregled is a pane). */
   prikaziPregled: boolean;
-  onPonovo: () => void;
+  /** "Pokušaj ponovo" for failed saves; absent while only conflicts wait (they need a choice in the field). */
+  onPonovo?: () => void;
   onPregled: () => void;
   onObjavi: () => void;
+  /** K18: opens the previous publications; null = never published (nothing to show). */
+  onVerzije?: (() => void) | null;
+  /** K18: other people in this editor now, once each, by name. */
+  prisutni?: readonly { id: string; ime: string }[];
+  /** K18: the editor's clock (the izlog's fixed instant), so header and dialogs agree. */
+  sada?: number;
+  /** K18: only conflicts wait (no failed save): "Idi na izbor" leads to the first one. */
+  onIdiNaKonflikt?: (() => void) | null;
 }) {
-  const sada = useSadaMinut();
+  const satZaglavlja = useSadaMinut();
+  const sada = sadaSpolja ?? satZaglavlja;
   const imaIzmena = status ? status.stanje !== "clean" : false;
   const objavljeno =
     status?.objavljenaVerzija && status.objavljenoU
@@ -83,6 +103,30 @@ export function StudioZaglavlje({
         }
       : null;
 
+  const o = t.objavljivanje;
+  const vracenoIz = status?.vracenoIz ?? null;
+  const nacrtIz =
+    vracenoIz !== null && imaIzmena ? (
+      <span title={o.nacrtIzOpis} data-nacrt-iz={vracenoIz} className="inline-flex">
+        <StatusOznaka ton="info" ikonica={RotateCcw} velicina="mala">
+          {fmt(o.nacrtIz, { broj: vracenoIz })}
+        </StatusOznaka>
+        <span className="sr-only">{o.nacrtIzOpis}</span>
+      </span>
+    ) : null;
+  const verzije = onVerzije ? (
+    <Dugme
+      vrsta="tiho"
+      velicina="kompaktna"
+      ikonica={History}
+      onClick={onVerzije}
+      title={o.verzije.dugmeOznaka}
+      className={sirina === "telefon" ? "-my-2" : undefined}
+      data-verzije-dugme=""
+    >
+      {o.verzije.dugme}
+    </Dugme>
+  ) : null;
   const tabovi = (
     <Segmenti<StudioTab>
       oznaka={t.zaglavlje.rezimi}
@@ -129,17 +173,34 @@ export function StudioZaglavlje({
               )}
             />
             <span className={cn(cuvanje.stanje === "greska" && "font-semibold text-[var(--mp-tekst)]")}>
-              {cuvanje.stanje === "cuva-se" ? z.cuvanje.cuvaSe : cuvanje.stanje === "greska" ? z.cuvanje.nijeSacuvano : z.cuvanje.sacuvano}
+              {cuvanje.stanje === "cuva-se"
+                ? z.cuvanje.cuvaSe
+                : cuvanje.stanje === "greska"
+                  ? onIdiNaKonflikt
+                    ? o.konflikt.cekaIzbor
+                    : z.cuvanje.nijeSacuvano
+                  : z.cuvanje.sacuvano}
             </span>
           </span>
           <span aria-hidden="true">·</span>
           <span>{imaIzmena ? z.objava.imaIzmena : z.objava.bezIzmena}</span>
-          {cuvanje.stanje === "greska" ? (
+          {cuvanje.stanje === "greska" && onPonovo ? (
             <Dugme vrsta="tiho" velicina="kompaktna" onClick={onPonovo} className="-my-2">
               {z.stanja.pokusajPonovo}
             </Dugme>
+          ) : cuvanje.stanje === "greska" && onIdiNaKonflikt ? (
+            <Dugme vrsta="tiho" velicina="kompaktna" onClick={onIdiNaKonflikt} className="-my-2" data-idi-na-konflikt="">
+              {o.konflikt.idiNaIzbor}
+            </Dugme>
           ) : null}
         </p>
+        {nacrtIz || verzije || prisutni.length > 0 ? (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            {nacrtIz}
+            {verzije}
+            <PrisustvoZaglavlje osobe={prisutni} />
+          </div>
+        ) : null}
         {!povezano ? <OfflineTraka /> : null}
       </div>
     );
@@ -174,7 +235,17 @@ export function StudioZaglavlje({
           neobjavljeneIzmene={imaIzmena ? "ima" : 0}
           cuvanje={cuvanje.stanje}
           onPonovo={onPonovo}
+          akcija={
+            cuvanje.stanje === "greska" && !onPonovo && onIdiNaKonflikt ? (
+              <Dugme vrsta="tiho" velicina="kompaktna" onClick={onIdiNaKonflikt} className="-my-1.5" data-idi-na-konflikt="">
+                {o.konflikt.idiNaIzbor}
+              </Dugme>
+            ) : undefined
+          }
         />
+        {nacrtIz}
+        {verzije}
+        <PrisustvoZaglavlje osobe={prisutni} className="ml-auto" />
       </div>
       {!povezano ? <OfflineTraka /> : null}
     </div>

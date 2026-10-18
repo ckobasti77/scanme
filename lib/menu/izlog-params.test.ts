@@ -169,7 +169,7 @@ describe("/dev/menu-lokal-preview", () => {
 describe("existing parameters keep working (TASK-51, TASK-52)", () => {
   // K10 (intended change, ODLUKE K10): the result carries the new editor states;
   // state=empty and design=dark mean what they meant before. K15 adds `fokus` (ODLUKE K15),
-  // K17 adds `tab` and `paleta` (ODLUKE K17).
+  // K17 adds `tab` and `paleta` (ODLUKE K17), K18 adds `modal` (ODLUKE K18).
   test("editor: state=empty and design=dark", () => {
     const podrazumevano = {
       tema: null,
@@ -182,6 +182,7 @@ describe("existing parameters keep working (TASK-51, TASK-52)", () => {
       fokus: null,
       tab: null,
       paleta: null,
+      modal: null,
     };
     expect(parseEditorPreview({})).toEqual(podrazumevano);
     expect(parseEditorPreview({ state: "empty", design: "dark" })).toEqual({

@@ -19,6 +19,9 @@
 // dnd-kit on every drag event) and the content (`TeloReda`), which renders
 // again only when its own data changes — so a drop on a 400-article page
 // does not redraw 400 rows.
+// K18: someone else editing the article shows as "Marko Ilić uređuje" on the
+// row, and a price conflict uses the shared conflict pattern (both values,
+// who else has the article open, `Zadrži moju` / `Uzmi sačuvanu`).
 
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -40,6 +43,7 @@ import { fmt } from "@/lib/i18n/format";
 import { menuDomenSr } from "@/lib/i18n/sr/menu-domen";
 import { menuStudioSr } from "@/lib/i18n/sr/menu-studio";
 import type { StanjePolja } from "@/lib/menu/studio/autosave-queue";
+import { opisKonflikta } from "@/lib/menu/studio/conflict";
 import { jeInteraktivnaMeta } from "@/lib/menu/studio/drag-guard";
 import type { StudioRed } from "@/lib/menu/studio/model";
 import { formatCenaPolje, type CenaGreska } from "@/lib/menu/studio/price-input";
@@ -47,7 +51,9 @@ import { cn } from "@/lib/utils";
 import { Dugme } from "../../zajednicko/dugme";
 import { StatusOznaka } from "../../zajednicko/status-oznaka";
 import { IzborPolje } from "../izaberi-vise/izbor-polje";
+import { KonfliktPolja } from "../konflikt/konflikt-polja";
 import { MeniRadnji, type StavkaMenija } from "../meni-radnji";
+import { PrisustvoOznaka } from "../prisustvo/prisustvo";
 import { CenaPolje } from "./cena-polje";
 import tacke from "./tacke.module.css";
 import { useSmanjenPokret } from "../dnd/use-smanjen-pokret";
@@ -124,6 +130,8 @@ type RedProps = {
   izabran?: boolean;
   /** K11: this row may be dragged now (not while searching, selecting or read-only). */
   prevlacenje?: boolean;
+  /** K18: other people who have this article open now (presence); the same array while unchanged. */
+  uredjuju?: readonly string[];
   radnje: RedRadnje;
 };
 
@@ -191,6 +199,7 @@ const TeloReda = memo(function TeloReda({
   izborAktivan = false,
   izabran = false,
   prevlacenje = false,
+  uredjuju,
   radnje,
   podignut,
 }: RedProps & { podignut: boolean }) {
@@ -235,21 +244,20 @@ const TeloReda = memo(function TeloReda({
         </Dugme>
       </>
     );
-  } else if (cenaStanje?.faza === "konflikt") {
-    poruka = (
-      <>
-        <p>{fmt(t.red.konflikt, { sacuvano: tekstCene(cenaStanje.sacuvano) })}</p>
-        <span className="flex flex-wrap gap-2">
-          <Dugme vrsta="sekundarno" velicina="kompaktna" onClick={() => radnje.onZadrziMoju(artikal.id)}>
-            {fmt(t.red.zadrziMoju, { moja: tekstCene(cenaStanje.pokusano) })}
-          </Dugme>
-          <Dugme vrsta="tiho" velicina="kompaktna" onClick={() => radnje.onUzmiSacuvanu(artikal.id)}>
-            {t.red.uzmiSacuvanu}
-          </Dugme>
-        </span>
-      </>
-    );
   }
+  const konflikt =
+    !lokalnaGreska && cenaStanje?.faza === "konflikt" ? (
+      <KonfliktPolja
+        id={porukaId}
+        opis={opisKonflikta(cenaStanje, tekstCene, uredjuju)}
+        tekst={fmt(t.red.konflikt, { sacuvano: tekstCene(cenaStanje.sacuvano) })}
+        zadrziMoju={fmt(t.red.zadrziMoju, { moja: tekstCene(cenaStanje.pokusano) })}
+        uzmiSacuvanu={fmt(t.objavljivanje.konflikt.uzmiSacuvanu, { vrednost: tekstCene(cenaStanje.sacuvano) })}
+        onZadrziMoju={() => radnje.onZadrziMoju(artikal.id)}
+        onUzmiSacuvanu={() => radnje.onUzmiSacuvanu(artikal.id)}
+        className="mb-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-[var(--mp-radius-kontrola)] border [--border:var(--mp-opasnost-ivica)] bg-[var(--mp-opasnost-meko)] px-3 py-1.5 text-sm font-medium text-[var(--mp-tekst)]"
+      />
+    ) : null;
 
   return (
     <>
@@ -285,8 +293,9 @@ const TeloReda = memo(function TeloReda({
           {artikal.opis ? (
             <p className="line-clamp-1 text-sm leading-snug text-[var(--mp-tekst-sporedni)]">{artikal.opis}</p>
           ) : null}
-          {red.sakriven || nedostupan || artikal.varijante || artikal.vrsta === "combo" || artikal.proveriCenu || bezCene ? (
+          {red.sakriven || nedostupan || artikal.varijante || artikal.vrsta === "combo" || artikal.proveriCenu || bezCene || (uredjuju?.length ?? 0) > 0 ? (
             <span className="flex flex-wrap gap-1.5 pt-0.5">
+              {uredjuju ? <PrisustvoOznaka imena={uredjuju} /> : null}
               {red.sakriven ? (
                 <>
                   <StatusOznaka ton="neutralno" ikonica={EyeOff} velicina="mala">
@@ -354,6 +363,7 @@ const TeloReda = memo(function TeloReda({
           />
         ) : null}
       </div>
+      {konflikt}
       {poruka ? (
         <div
           id={porukaId}

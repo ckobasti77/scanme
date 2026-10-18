@@ -9,12 +9,14 @@
 // open article detail is `?artikal=<key>`; opening it adds a history entry, so
 // the browser's Back button returns to the list. K16: the Room service context
 // is `?kontekst=room-service`; Room service and the translations view are
-// subscribed only while open. K17: the Izgled mode is `?tab=izgled`.
+// subscribed only while open. K17: the Izgled mode is `?tab=izgled`. K18: what
+// the editor has open feeds the presence heartbeat (veza/use-prisustvo.ts).
 
 import { useConvexAuth, useQuery } from "convex/react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { api } from "@/convex/_generated/api";
+import type { StudioEntitetPrisustva } from "@/lib/menu/studio/model";
 import { menuStudioSr } from "@/lib/i18n/sr/menu-studio";
 import { panelSekcijaHref, postojeciEditorHref } from "@/lib/menu/panel-nav";
 import { Kartica } from "../zajednicko/kartica";
@@ -45,7 +47,11 @@ export function StudioRuta({
   const [izabranaId, setIzabranaId] = useState<string | null>(null);
   const [artikal, setArtikal] = useState<string | null>(pocetniArtikal);
   const [pogled, setPogledStanje] = useState<StudioPogled>({ roomService: pocetniKontekst === "room-service", prevodi: null });
-  const veza = useStudioVeza(slug, { id: izabranaId, key: pocetnaStranica }, artikal, pogled);
+  const [entitet, setEntitetStanje] = useState<StudioEntitetPrisustva | null>(null);
+  const setEntitet = useCallback((sledeci: StudioEntitetPrisustva | null) => {
+    setEntitetStanje((pre) => (pre?.vrsta === sledeci?.vrsta && pre?.key === sledeci?.key ? pre : sledeci));
+  }, []);
+  const veza = useStudioVeza(slug, { id: izabranaId, key: pocetnaStranica }, artikal, pogled, entitet);
   // The Room service context in the address (replace: no history entry).
   const setPogled = useCallback((sledeci: StudioPogled) => {
     setPogledStanje((pre) => (pre.roomService === sledeci.roomService && pre.prevodi === sledeci.prevodi ? pre : sledeci));
@@ -118,6 +124,8 @@ export function StudioRuta({
       onPogled={setPogled}
       podesavanjaHref={panelSekcijaHref(slug, "podesavanja")}
       onTab={onTab}
+      onPrisustvo={setEntitet}
+      javniMeniHref={`/${encodeURIComponent(slug)}/meni`}
       pocetno={{
         ...(pocetniKontekst === "room-service" ? { roomService: true } : {}),
         ...(pocetniTab === "izgled" && pocetniKontekst !== "room-service" ? { tab: "izgled" as const } : {}),

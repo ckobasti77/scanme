@@ -19,6 +19,16 @@
 // K17: `tab=izgled` opens Izgled (`plan=premium` unlocks the Premium
 // variants); `paleta=<id>` starts the venue on a curated palette, as published.
 // Izgled choices go into the draft in memory, by the server's rules.
+// K18: the venue has seven published versions (invented team: Ana Petrović,
+// Marko Ilić). `modal=objava` opens Objavi on a draft with three changed
+// prices, a new, a hidden and a moved article and a language without
+// translations (a warning to confirm); `modal=objava-greske` adds two articles
+// without a price (errors that lead to them); `modal=objava-zastarelo` opens a
+// review that Marko's newer edit made stale; `modal=verzije` the previous
+// publications with a draft that has an unpublished change. `stanje=konflikt`:
+// Marko saved "Pršut sa sirom" at 980 RSD while this person typed 950 — the
+// row shows both values and "Marko Ilić uređuje"; Jelena Kostić is in the
+// editor too. Restore and publish run by the server's rules in memory.
 
 import { useCallback, useMemo, useRef, useState } from "react";
 import { fixtureMenu, IZLOG_SADA } from "@/components/menu/fixtures";
@@ -30,16 +40,26 @@ import * as m from "@/lib/menu/studio/memorija";
 import * as md from "@/lib/menu/studio/memorija-detalj";
 import * as mk from "@/lib/menu/studio/memorija-k16";
 import * as mi from "@/lib/menu/studio/memorija-izgled";
+import * as mv from "@/lib/menu/studio/memorija-verzije";
 import { paletaPoId } from "@/lib/menu/identity/palettes";
 import { MENU_DEFAULT_PRESENTATION } from "@/lib/menu/presentation";
-import type { StudioIshod, StudioJezici, StudioPodaci, StudioRadnje, StudioRsUpozorenje } from "@/lib/menu/studio/model";
+import type {
+  StudioIshod,
+  StudioJezici,
+  StudioPodaci,
+  StudioPregledObjave,
+  StudioPrisutan,
+  StudioRadnje,
+  StudioRsUpozorenje,
+  StudioStatusNacrta,
+} from "@/lib/menu/studio/model";
 import { prevodiRoomServicea, prevodiStranice } from "@/lib/menu/studio/prevodi";
 import { roomServiceIzSnapshota } from "@/lib/menu/studio/room-service";
 import { publishedLanguages } from "@/lib/menu/snapshot";
 import { withSuggestion, withTypedTranslation, type MenuTranslationField, type MenuTranslations } from "@/lib/menu/translation-status";
 import type { DetaljPocetno } from "../studio/artikal/detalj-artikla";
 import type { PonudaPocetno } from "../studio/ponuda/radni-prostor";
-import { StudioEditor, type StudioPogled } from "../studio/studio-editor";
+import { StudioEditor, type StudioPocetno, type StudioPogled } from "../studio/studio-editor";
 
 const PAUZA_MS = 250;
 
@@ -67,6 +87,94 @@ function prazanMeni() {
 }
 
 const IZLOG_SLIKA = "/dev-venue/1.jpg";
+
+/** K18: the venue's invented team (versions, presence); this person is the owner. */
+const IZLOG_JA = "Ana Petrović";
+const IZLOG_TIM = [IZLOG_JA, "Marko Ilić"] as const;
+
+/** K18: what the izlog opens with beyond the editor itself. */
+type Postavka = {
+  objava?: StudioPregledObjave;
+  verzije?: boolean;
+  konflikt?: StudioPocetno["konflikt"];
+  prisustvo?: StudioPrisutan[];
+  poslednjaIzmena?: StudioStatusNacrta["poslednjaIzmena"];
+};
+
+/** One price into the draft, by the server's rules (shared price, combos get "Proveri cenu"). */
+function cenaU(stanje: m.MemorijaStanje, naziv: string, nova: number | null, u: number): m.MemorijaStanje {
+  const artikal = stanje.snapshot.articles.find((candidate) => candidate.name === naziv);
+  return artikal ? m.postaviCenu(stanje, artikal.key, artikal.basePriceRsd, nova, u).stanje : stanje;
+}
+
+/** The draft of `modal=objava`: what a working day of edits looks like before Objavi. */
+function izmeneZaObjavu(stanje: m.MemorijaStanje): m.MemorijaStanje {
+  const u = IZLOG_SADA - 1_800_000;
+  let s = cenaU(stanje, "Kajmak sa pogačom", 520, u);
+  s = cenaU(s, "Pršut sa sirom", 960, u);
+  const paprike = s.snapshot.articles.find((article) => article.name === "Punjene paprike");
+  if (paprike) s = cenaU(s, "Punjene paprike", (paprike.basePriceRsd ?? 0) + 60, u);
+  const glavna = s.snapshot.pages.find((page) => page.isDefault);
+  const predjela = s.snapshot.sections.find((section) => section.name === "Predjela" && section.pageKey === glavna?.key);
+  if (predjela) {
+    s = m.brziUnos(s, predjela.key, { naziv: "Proja sa kajmakom", cena: 390 }, true).stanje;
+    const prvi = s.snapshot.placements
+      .filter((placement) => placement.sectionKey === predjela.key)
+      .sort((a, b) => a.order - b.order)[0];
+    const gibanica = nadji(s, "Gibanica");
+    if (gibanica && prvi) s = m.premestiPrikaz(s, gibanica.prikaz, predjela.key, `${prvi.sectionKey}/${prvi.articleKey}`).stanje;
+  }
+  const kulen = nadji(s, "Domaći kulen");
+  if (kulen) s = m.postaviVidljivost(s, [kulen.prikaz], true).stanje;
+  // English is on, nothing is translated yet: a warning to confirm, not an error.
+  return {
+    ...s,
+    snapshot: { ...s.snapshot, settings: { ...s.snapshot.settings, languages: { source: "sr", translations: ["en"] } } },
+    revizija: s.revizija + 1,
+  };
+}
+
+/** K18 `modal=*` and `stanje=konflikt`: the draft, the dialog and the colleagues they start with. */
+function saPostavkom(stanje: m.MemorijaStanje, params: EditorPreviewParams): { stanje: m.MemorijaStanje; postavka: Postavka } {
+  if (params.stanje === "konflikt") {
+    // Marko saved 980 RSD meanwhile; this person had seen 920 and typed 950.
+    const prsut = stanje.snapshot.articles.find((article) => article.name === "Pršut sa sirom");
+    const glavna = stanje.snapshot.pages.find((page) => page.isDefault);
+    if (!prsut || !glavna) return { stanje, postavka: {} };
+    const posle = cenaU(stanje, prsut.name, 980, IZLOG_SADA - 120_000);
+    return {
+      stanje: posle,
+      postavka: {
+        konflikt: { artikalId: prsut.key, ocekivano: prsut.basePriceRsd, pokusano: 950, sacuvano: 980 },
+        prisustvo: [
+          { id: "izlog-marko", ime: "Marko Ilić", entitet: { vrsta: "article", key: prsut.key } },
+          { id: "izlog-jelena", ime: "Jelena Kostić", entitet: { vrsta: "page", key: glavna.key } },
+        ],
+        poslednjaIzmena: { ime: "Marko Ilić", ja: false, u: IZLOG_SADA - 120_000 },
+      },
+    };
+  }
+  if (params.stanje !== null || !params.modal) return { stanje, postavka: {} };
+  if (params.modal === "verzije") {
+    return { stanje: cenaU(stanje, "Kajmak sa pogačom", 520, IZLOG_SADA - 1_800_000), postavka: { verzije: true } };
+  }
+  let s = izmeneZaObjavu(stanje);
+  if (params.modal === "objava-greske") {
+    // Two articles guests could not order: a new one without a price and one whose price was cleared.
+    const glavna = s.snapshot.pages.find((page) => page.isDefault);
+    const supe = s.snapshot.sections.find((section) => section.name === "Supe i salate" && section.pageKey === glavna?.key);
+    if (supe) s = m.brziUnos(s, supe.key, { naziv: "Čorba od graška", cena: null }, true).stanje;
+    s = cenaU(s, "Ajvar sa tostom", null, IZLOG_SADA - 900_000);
+  }
+  const pregled = m.pregledObjave(s, true);
+  if (params.modal === "objava-zastarelo") {
+    // Marko changed a price a minute after this review was made.
+    const cobra = s.snapshot.articles.find((article) => article.name === "Teleća čorba");
+    s = cenaU(s, "Teleća čorba", (cobra?.basePriceRsd ?? 0) + 40, IZLOG_SADA - 60_000);
+    return { stanje: s, postavka: { objava: pregled, poslednjaIzmena: { ime: "Marko Ilić", ja: false, u: IZLOG_SADA - 60_000 } } };
+  }
+  return { stanje: s, postavka: { objava: pregled } };
+}
 
 /** The key of an article by name and of its first row on the main page (fixtures are deterministic). */
 function nadji(stanje: m.MemorijaStanje, naziv: string): { key: string; prikaz: string } | null {
@@ -225,7 +333,13 @@ function svePrevodneStavke(stanje: m.MemorijaStanje) {
   ];
 }
 
-function pocetno(params: EditorPreviewParams): { stanje: m.MemorijaStanje; lokal: string; slug: string; fokus: Fokus | null } {
+function pocetno(params: EditorPreviewParams): {
+  stanje: m.MemorijaStanje;
+  lokal: string;
+  slug: string;
+  fokus: Fokus | null;
+  postavka: Postavka;
+} {
   const meni = params.stanje === "prazno" ? prazanMeni() : fixtureMenu(params.stanje === "veliki" ? "veliki" : "srednji");
   const glavna = meni.snapshot.pages.find((page) => page.isDefault);
   const premium = params.plan === "premium";
@@ -243,8 +357,15 @@ function pocetno(params: EditorPreviewParams): { stanje: m.MemorijaStanje; lokal
     roomService: premium,
     premium,
   });
-  const sa = saFokusom(stanje, params.stanje === null ? params.fokus : null);
-  return { stanje: sa.stanje, lokal: meni.venueName, slug: meni.slug, fokus: sa.fokus };
+  const sa = saFokusom({ ...stanje, ja: IZLOG_JA }, params.stanje === null ? params.fokus : null);
+  // K18: the history ends with what is published now (after the setup of `fokus`).
+  const objavljeno = sa.stanje.objavljeno;
+  const saIstorijom: m.MemorijaStanje =
+    objavljeno && sa.stanje.objavljenaVerzija !== null && sa.stanje.objavljenoU !== null
+      ? { ...sa.stanje, verzije: mv.istorijaVerzija(objavljeno, sa.stanje.objavljenaVerzija, sa.stanje.objavljenoU, IZLOG_TIM) }
+      : sa.stanje;
+  const k18 = saPostavkom(saIstorijom, params);
+  return { stanje: k18.stanje, lokal: meni.venueName, slug: meni.slug, fokus: sa.fokus, postavka: k18.postavka };
 }
 
 /**
@@ -271,7 +392,7 @@ function izaberiVisePocetno(stanje: m.MemorijaStanje): PonudaPocetno {
 }
 
 export function EditorIzlog({ params }: { params: EditorPreviewParams }) {
-  const [{ lokal, slug, stanje: prvo, fokus }] = useState(() => pocetno(params));
+  const [{ lokal, slug, stanje: prvo, fokus, postavka }] = useState(() => pocetno(params));
   const [otvorenArtikal, setOtvorenArtikal] = useState<string | null>(fokus?.artikal ?? null);
   const [stanje, setStanje] = useState(prvo);
   const poslednje = useRef(prvo);
@@ -310,6 +431,9 @@ export function EditorIzlog({ params }: { params: EditorPreviewParams }) {
       postaviCenu: (artikalId, ocekivana, nova) => izvrsi((s) => m.postaviCenu(s, artikalId, ocekivana, nova, IZLOG_SADA)),
       pregledObjave: () => izvrsi((s) => ({ stanje: s, ishod: { ok: true, vrednost: m.pregledObjave(s, true) } })),
       objavi: (revizija, potvrda) => izvrsi((s) => m.objavi(s, revizija, potvrda, IZLOG_SADA)),
+      // K18 — versions and restore (memorija-verzije.ts).
+      verzije: () => izvrsi((s) => ({ stanje: s, ishod: { ok: true, vrednost: mv.verzijeIzMemorije(s) } })),
+      vratiVerziju: (broj, revizija) => izvrsi((s) => mv.vratiVerziju(s, broj, revizija)),
       // K11
       premestiPrikaz: (prikazId, uSekciju, prePrikaza) => izvrsi((s) => m.premestiPrikaz(s, prikazId, uSekciju, prePrikaza)),
       premestiSekciju: (sekcijaId, naIndeks) => izvrsi((s) => m.premestiSekciju(s, sekcijaId, naIndeks)),
@@ -444,6 +568,10 @@ export function EditorIzlog({ params }: { params: EditorPreviewParams }) {
       stanje: m.stanjeNacrta(stanje),
       objavljenaVerzija: stanje.objavljenaVerzija,
       objavljenoU: stanje.objavljenoU,
+      // K18: the revision tells a stale review; the last edit is the setup's until this person edits.
+      revizija: stanje.revizija,
+      poslednjaIzmena: stanje.revizija === prvo.revizija ? (postavka.poslednjaIzmena ?? null) : { ime: IZLOG_JA, ja: true, u: IZLOG_SADA },
+      vracenoIz: stanje.vracenoIz ?? null,
     },
     nedostupni: stanje.nedostupni,
     povezano: true,
@@ -452,6 +580,7 @@ export function EditorIzlog({ params }: { params: EditorPreviewParams }) {
     prevodi: prevodiPogled,
     roomServicePodaci,
     izgled: mi.izgledIzMemorije(stanje),
+    prisustvo: postavka.prisustvo,
   };
 
   return (
@@ -465,6 +594,7 @@ export function EditorIzlog({ params }: { params: EditorPreviewParams }) {
       onOtvoriArtikal={setOtvorenArtikal}
       onPogled={setPogled}
       sada={IZLOG_SADA}
+      javniMeniHref="/dev/menu-public-preview"
       pocetno={{
         tabela: params.stanje === "brzi-unos",
         ...(params.stanje === "izaberi-vise" ? { ponuda: izaberiVisePocetno(prvo) } : {}),
@@ -475,6 +605,9 @@ export function EditorIzlog({ params }: { params: EditorPreviewParams }) {
         ...(fokus?.prevodi ? { prevodi: fokus.prevodi } : {}),
         ...(fokus?.rsUpozorenje ? { rsUpozorenje: fokus.rsUpozorenje } : {}),
         ...(params.tab === "izgled" && !fokus ? { tab: "izgled" as const } : {}),
+        ...(postavka.objava ? { objava: { pregled: postavka.objava } } : {}),
+        ...(postavka.verzije ? { verzije: { verzije: mv.verzijeIzMemorije(prvo) } } : {}),
+        ...(postavka.konflikt ? { konflikt: postavka.konflikt } : {}),
       }}
     />
   );

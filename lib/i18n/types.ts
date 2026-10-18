@@ -8207,6 +8207,164 @@ export interface MenuStudioDict {
   artikal: MenuStudioArtikalDict;
   // K16 — combo, translations, Room service.
   posebno: MenuStudioPosebnoDict;
+  // K18 — publishing, versions, presence and conflicts.
+  objavljivanje: MenuStudioObjavljivanjeDict;
+}
+
+/** "jedan" for one person, "vise" for two or more (present tense: no gender is guessed). */
+export type MenuStudioOsobe = { jedan: string; vise: string };
+
+// ScanMe Menu V1 (MENI run, K18) — the editor's publishing: the publish dialog
+// (consequences, errors that lead to the article, warnings that need a
+// conscious yes, a stale review), versions (a restore makes a new draft),
+// presence and conflicts (master §6.1). Placeholders are filled via fmt().
+export interface MenuStudioObjavljivanjeDict {
+  modal: {
+    cekaCuvanje: string;
+    nesacuvano: MenuStudioMnozina;
+    pokusajCuvanje: string;
+    /** Replaces the dialog's "Nacrt je sačuvan." while a save failed or waits for a choice. */
+    opisNesacuvano: string;
+    konflikti: MenuStudioMnozina;
+    /** "{imena}": who else is in the editor while publishing. */
+    drugiUEditoru: MenuStudioOsobe;
+    otvoriJavniMeni: string;
+    noviProzor: string;
+    posledice: {
+      naslov: string;
+      strukturneDetalji: {
+        sakriveno: MenuStudioMnozina;
+        uklonjenoSaStranice: MenuStudioMnozina;
+        obrisano: MenuStudioMnozina;
+        redosled: MenuStudioMnozina;
+      };
+      pogledajCene: string;
+      cenaPre: string;
+      cenaPosle: string;
+      bezCene: string;
+      josCena: MenuStudioMnozina;
+    };
+    greske: {
+      broj: MenuStudioMnozina;
+      idiNaArtikal: string;
+      /** "{naziv}" */
+      idiNaArtikalOznaka: string;
+      naStranici: string;
+      roomService: string;
+      bezStranice: string;
+      bezNaziva: string;
+      upozorenjaKasnije: MenuStudioMnozina;
+    };
+    upozorenja: {
+      opis: string;
+      /** "{jezik}" and "{n}" */
+      jezik: MenuStudioMnozina;
+      otvoriPrevode: string;
+    };
+    pregledNacrta: string;
+    pregledNacrtaOpis: string;
+    sigurnostVerzija: string;
+    sigurnostPrva: string;
+    zastarelo: {
+      naslov: string;
+      /** "{ime}", "{kada}" */
+      poslednja: string;
+      ja: string;
+      uputstvo: string;
+      osvezi: string;
+      osvezeno: string;
+    };
+    razlozi: {
+      greske: string;
+      zastarelo: string;
+      konflikt: string;
+      cuvaSe: string;
+      potvrda: string;
+      bezPromena: string;
+      prevelik: string;
+    };
+    uspehNaslov: string;
+    uspeh: string;
+    neuspehNaslov: string;
+    neuspeh: string;
+    neuspehPrva: string;
+    pokusajObjavu: string;
+  };
+  verzije: {
+    dugme: string;
+    dugmeOznaka: string;
+    naslov: string;
+    opis: string;
+    ucitava: string;
+    greska: string;
+    prazno: string;
+    verzija: string;
+    uzivo: string;
+    uzivoOpis: string;
+    nepoznato: string;
+    iz: string;
+    bezPromenaPonude: string;
+    vrati: string;
+    vratiOznaka: string;
+    odbaci: string;
+    odbaciOznaka: string;
+    bezDozvole: string;
+    potvrda: {
+      naslov: string;
+      /** "{broj}", "{kada}", "{ko}" */
+      objavljena: string;
+      tekst: string;
+      gubi: string;
+      qr: string;
+      potvrdi: string;
+      odbaciNaslov: string;
+      odbaciTekst: string;
+      odbaciPotvrdi: string;
+      otkazi: string;
+    };
+    rezultat: {
+      naslov: string;
+      tekst: string;
+      odbacenoNaslov: string;
+      odbaceno: string;
+      bezIzmena: string;
+      zadrzane: string;
+      bezSlike: MenuStudioMnozina;
+      zastarelo: string;
+      pregledaj: string;
+      nazad: string;
+    };
+  };
+  nacrtIz: string;
+  nacrtIzOpis: string;
+  prisustvo: {
+    oznaka: string;
+    uredjuje: MenuStudioOsobe;
+    dvoje: string;
+    jos: string;
+    clanTima: string;
+    naArtiklu: MenuStudioOsobe;
+    detalj: MenuStudioOsobe;
+    detaljOpis: string;
+  };
+  konflikt: {
+    drugi: MenuStudioOsobe;
+    nistaPrepisano: string;
+    moja: string;
+    ista: string;
+    uRedu: string;
+    /** "{vrednost}": the saved value on the button, equal in weight to `Zadrži moju`. */
+    uzmiSacuvanu: string;
+    cekaIzbor: string;
+    idiNaIzbor: string;
+  };
+  problemObjave: {
+    greska: string;
+    upozorenje: string;
+    saveti: { price_missing: string; name_missing: string; section_missing: string };
+    reseno: string;
+    ponovoObjavi: string;
+  };
 }
 
 // ScanMe Menu V1 (MENI run, K17) — the editor's Izgled: the curated

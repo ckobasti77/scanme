@@ -123,6 +123,7 @@ export function PonudaRadniProstor({
   radnje,
   naslovId,
   onOtvoriArtikal,
+  uredjuju,
 }: {
   sadrzaj: StudioRadniSadrzaj;
   nedostupni: ReadonlySet<string>;
@@ -140,6 +141,8 @@ export function PonudaRadniProstor({
   naslovId: string;
   /** K15: a click on a card or "Uredi artikal" opens the detail of that row. */
   onOtvoriArtikal?: (red: StudioRed) => void;
+  /** K18: article key → other people editing it now (presence). */
+  uredjuju?: ReadonlyMap<string, readonly string[]>;
 }) {
   const [upit, setUpit] = useState("");
   const odlozeniUpit = useDeferredValue(upit);
@@ -577,6 +580,7 @@ export function PonudaRadniProstor({
               izborAktivan={izborAktivan}
               izabrani={izabrani}
               onIzaberiSekciju={(prikazIds) => setIzabrani((pre) => prebaciSekciju(pre, prikazIds))}
+              uredjuju={uredjuju}
             />
           ))
         }

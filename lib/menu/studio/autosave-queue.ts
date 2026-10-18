@@ -209,6 +209,25 @@ export class AutosaveRed {
     this.posalji(kljuc);
   }
 
+  /**
+   * K18: a key that is already in conflict (the izlog's `stanje=konflikt`
+   * starts with one): `pokusano` is this person's value, `sacuvano` the value
+   * saved meanwhile. The field shows both and the two ways out, as after a
+   * refused save.
+   */
+  postaviKonflikt(kljuc: string, izmena: { ocekivano: CasValue; pokusano: CasValue; sacuvano: CasValue; posalji: RedPosiljalac }): void {
+    const postojeci = this.unosi.get(kljuc);
+    if (postojeci?.tajmer !== undefined) this.sat.otkazi(postojeci.tajmer);
+    this.unosi.set(kljuc, {
+      ocekivano: izmena.ocekivano,
+      vrednost: izmena.pokusano,
+      posalji: izmena.posalji,
+      faza: "konflikt",
+      konflikt: { sacuvano: izmena.sacuvano, pokusano: izmena.pokusano },
+    });
+    this.javi();
+  }
+
   /** Forgets a key (e.g. "Uzmi sačuvanu" after a conflict, or Escape). */
   odbaci(kljuc: string): void {
     const unos = this.unosi.get(kljuc);
@@ -280,6 +299,13 @@ export class AutosaveRed {
       neuspelo,
       poslednjeU: this.poslednjeU,
     };
+  }
+
+  /** K18: keys waiting for the person's choice after a conflict ("Pokušaj ponovo" does not solve them). */
+  brojKonflikata(): number {
+    let broj = 0;
+    for (const unos of this.unosi.values()) if (unos.faza === "konflikt") broj += 1;
+    return broj;
   }
 
   /** Something would be lost by leaving the page now. */

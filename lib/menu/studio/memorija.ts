@@ -18,8 +18,10 @@ import { bulkDeletionConfirmToken, type ArticleDeletionImpact } from "../deletio
 import { MENU_MAX_BULK_BATCH, MENU_TEXT } from "../limits";
 import { orderAfter, renumberedOrders } from "../order";
 import { nextPriceWarning } from "../room-service-pricing";
+import { MENU_RETAINED_VERSIONS } from "../budget";
 import { checkPublication } from "../publish-checks";
-import { summarizePublication } from "../publish-summary";
+import { summarizePublication, summaryCounts } from "../publish-summary";
+import { issueTargets } from "../publish-targets";
 import { isValidRsd } from "../rsd";
 import { uniquePageSlug } from "../slugs";
 import type { MenuDraftSnapshot, SnapshotArticle, SnapshotPlacement } from "../snapshot";
@@ -62,7 +64,37 @@ export type MemorijaStanje = {
   premium: boolean;
   /** K15: preview URLs of the images, by image id (the izlog's uploads and fixtures). */
   slike?: ReadonlyMap<string, string>;
+  /** K18: the published versions, oldest first, at most the newest 20 (master §6.1). */
+  verzije?: readonly MemorijaVerzija[];
+  /** K18: the draft was made from this version (restore) and is not published yet. */
+  vracenoIz?: number | null;
+  /** K18: who publishes in this memory (the izlog's owner); null = unknown. */
+  ja?: string | null;
 };
+
+/** K18: one published version as the memory keeps it (the server's menuVersions + its internal part). */
+export type MemorijaVerzija = {
+  broj: number;
+  u: number;
+  ko: string | null;
+  snapshot: MenuDraftSnapshot;
+  sazetak: { cene: number; novi: number; uklonjeni: number; sakriveno: number; uklonjenoSaStranice: number; obrisano: number; redosled: number };
+  vracenoIz: number | null;
+};
+
+/** K18: the counts a version stores, in the editor's words (from the summary of publish-summary.ts). */
+export function sazetakVerzije(prethodno: MenuDraftSnapshot | null, sledece: MenuDraftSnapshot): MemorijaVerzija["sazetak"] {
+  const s = summaryCounts(summarizePublication(prethodno, sledece));
+  return {
+    cene: s.changedPrices,
+    novi: s.newArticles,
+    uklonjeni: s.removedArticles,
+    sakriveno: s.structural.hidden,
+    uklonjenoSaStranice: s.structural.removedFromPage,
+    obrisano: s.structural.deleted,
+    redosled: s.structural.reordered,
+  };
+}
 
 export type MemorijaKorak<T = null> = { stanje: MemorijaStanje; ishod: StudioIshod<T> };
 
@@ -554,14 +586,29 @@ export function pregledObjave(stanje: MemorijaStanje, mozeObjavu: boolean): Stud
     mozeObjavu,
     menjaSe: stanjeN !== "clean",
     prevelik: false,
-    greske: check.errors.map((issue) => ({ kod: issue.code, artikalKey: issue.articleKey ?? null })),
+    greske: check.errors.map((issue) => ({ kod: issue.code, artikalKey: issue.articleKey ?? null, ...(issue.entityKey ? { entitetKey: issue.entityKey } : {}) })),
     upozorenja: check.warnings.map((issue) => ({
       kod: issue.code,
       artikalKey: issue.articleKey ?? null,
       jezik: issue.lang ?? null,
       broj: issue.count ?? null,
+      ...(issue.entityKey ? { entitetKey: issue.entityKey } : {}),
     })),
     otisak: check.fingerprint,
+    // K18: the live version, where each issue's article is, and the prices old → new.
+    objavljenaVerzija: stanje.objavljenaVerzija,
+    ciljevi: Object.fromEntries(
+      Object.entries(issueTargets(stanje.snapshot, [...check.errors, ...check.warnings])).map(([key, cilj]) => [
+        key,
+        { naziv: cilj.name, stranicaKey: cilj.pageKey, stranica: cilj.pageName, roomService: cilj.inRoomService },
+      ]),
+    ),
+    promeneCena: sazetak.priceChanges.map((promena) => ({
+      artikalKey: promena.articleKey,
+      naziv: promena.name,
+      pre: promena.before,
+      posle: promena.after,
+    })),
     sazetak: {
       cene: sazetak.changedPrices,
       novi: sazetak.newArticles,
@@ -590,6 +637,15 @@ export function objavi(
   if (!check.ok) return odbij("validation_failed");
   if (check.warnings.length > 0 && potvrda !== check.fingerprint) return odbij("confirmation_required");
   const verzija = (stanje.objavljenaVerzija ?? 0) + 1;
+  // K18: the version joins the history (the newest 20 stay), restore marker included.
+  const nova: MemorijaVerzija = {
+    broj: verzija,
+    u: sada,
+    ko: stanje.ja ?? null,
+    snapshot: stanje.snapshot,
+    sazetak: sazetakVerzije(stanje.objavljeno, stanje.snapshot),
+    vracenoIz: stanje.vracenoIz ?? null,
+  };
   return {
     stanje: {
       ...stanje,
@@ -597,6 +653,8 @@ export function objavi(
       objavljenaVerzija: verzija,
       objavljenoU: sada,
       objavljenaRevizija: stanje.revizija,
+      verzije: [...(stanje.verzije ?? []), nova].slice(-MENU_RETAINED_VERSIONS),
+      vracenoIz: null,
     },
     ishod: { ok: true, vrednost: { status: "objavljeno", verzija } },
   };
