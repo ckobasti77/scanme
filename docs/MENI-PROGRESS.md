@@ -723,3 +723,6 @@ Noćni run MENI. Plan: `docs/MENI-PLAN.md`. Pravila: `.nocni-run/meni/rules.md`.
 - Pregledaj `docs/tasks/BLOCKED.md` → `SCANME MENU V1 — K08`, posebno: Urednik vidi samo Početnu i Editor; ulaz je vezan za postojanje nove usluge, ne za `MENU_EXISTS`; nova stranica `/[slug]/konobar`; nema dugmeta za odjavu u Menu panelu.
 - Ako pokreneš `npm run dev -- -p 3170`, otvori `/dev/menu-panel-preview` sa `&uloga=urednik`, `&uloga=osoblje`, `&sekcija=editor`, `&plan=premium&sekcija=analitika`, `&stanje=prijava` i `&tema=tamna`, na širini telefona i desktopa.
 - Pravi panel (`/{slug}/client-panel/meni`) se otvara tek kad lokal ima uslugu novog modela (`menuServices.adminProvision` ili migracija). Na DEV-u je nema dok se ne pusti `npx convex dev` i ne napravi usluga.
+
+## K09 - Plan: Editor   (2026-10-18 02:32)
+**Plan korak.** Plan je upisan u `docs/meni/planovi/K09.md`. Kod nije menjan.
