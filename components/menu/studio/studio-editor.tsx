@@ -27,7 +27,7 @@ import { Kartica } from "../zajednicko/kartica";
 import { PraznoStanje, UcitavanjeStanje } from "../zajednicko/stanja";
 import { NoviKombo } from "./kombo/novi-kombo";
 import { ObjavaDijalog } from "./objava/objava-dijalog";
-import { PonudaRadniProstor, type PonudaRadnje } from "./ponuda/radni-prostor";
+import { PonudaRadniProstor, type PonudaPocetno, type PonudaRadnje } from "./ponuda/radni-prostor";
 import { PregledNacrta, type StudioUredjaj } from "./pregled/pregled-nacrta";
 import { Segmenti } from "./shell/segmenti";
 import { useSirina } from "./shell/use-sirina";
@@ -46,6 +46,8 @@ export type StudioPocetno = {
   /** Opens the structure drawer or the preview overlay on the narrower layouts (izlog `pogled`). */
   preklop?: "struktura" | "pregled";
   tabela?: boolean;
+  /** K11: `Izaberi više` on with these rows selected, and the price dialog (izlog `stanje=izaberi-vise`). */
+  ponuda?: PonudaPocetno;
 };
 
 export function StudioEditor({
@@ -81,6 +83,10 @@ export function StudioEditor({
   const [kombo, setKombo] = useState(false);
   const [objava, setObjava] = useState(false);
   const [najava, setNajava] = useState("");
+  // K11: "Privremeno nedostupno" is confirmed once per editor session (it goes live at once).
+  const [dostupnostPotvrdjena, setDostupnostPotvrdjena] = useState(false);
+  // The izlog's opening state of `Ponuda` holds for the first page only.
+  const [ponudaPocetno, setPonudaPocetno] = useState(pocetno.ponuda);
 
   const aktivnaStranica =
     izabranaStranica ??
@@ -124,8 +130,24 @@ export function StudioEditor({
       dodajPostojeci: (sekcijaId, artikalId) => red.prati(() => radnje.dodajPostojeci(sekcijaId, artikalId)),
       otvoriTabelu: () => setTabela(true),
       otvoriKombo: () => setKombo(true),
+      // K11: order, states and group actions. Writes are tracked by the save status; reads are not.
+      premestiPrikaz: (prikazId, uSekciju, prePrikaza) => red.prati(() => radnje.premestiPrikaz(prikazId, uSekciju, prePrikaza)),
+      premestiSekciju: (sekcijaId, naIndeks) => red.prati(() => radnje.premestiSekciju(sekcijaId, naIndeks)),
+      postaviDostupnost: (artikalIds, dostupno) => red.prati(() => radnje.postaviDostupnost(artikalIds, dostupno)),
+      postaviVidljivost: (prikazIds, sakriveno) => red.prati(() => radnje.postaviVidljivost(prikazIds, sakriveno)),
+      ukloniSaStranice: (prikazIds) => red.prati(() => radnje.ukloniSaStranice(prikazIds)),
+      premestiUSekciju: (prikazIds, sekcijaId) => red.prati(() => radnje.premestiUSekciju(prikazIds, sekcijaId)),
+      dodajNaStranicu: (artikalIds, sekcijaId) => red.prati(() => radnje.dodajNaStranicu(artikalIds, sekcijaId)),
+      sekcijeStranice: (stranicaId) => radnje.sekcijeStranice(stranicaId),
+      postaviCene: (promene) => red.prati(() => radnje.postaviCene(promene)),
+      uticajBrisanja: (artikalIds) => radnje.uticajBrisanja(artikalIds),
+      obrisiArtikle: (artikalIds, token) => red.prati(() => radnje.obrisiArtikle(artikalIds, token)),
     }),
     [red, radnje, onCena, aktivnaStranica],
+  );
+  const druge = useMemo(
+    () => (stranice ?? []).filter((s) => !s.arhivirana && s.id !== aktivnaStranica).map((s) => ({ id: s.id, naziv: s.naziv })),
+    [stranice, aktivnaStranica],
   );
   const straniceRadnje = useMemo<StraniceRadnje>(
     () => ({
@@ -152,6 +174,7 @@ export function StudioEditor({
   );
 
   const izaberiStranicu = (id: string) => {
+    setPonudaPocetno(undefined);
     setRoomService(false);
     setTab("ponuda");
     setStrukturaOtvorena(false);
@@ -215,6 +238,11 @@ export function StudioEditor({
         nedostupni={nedostupni}
         red={red}
         mozeUredjivanje={mozeUredjivanje}
+        mozeDostupnost={kontekst.mozeDostupnost}
+        druge={druge}
+        dostupnostPotvrdjena={dostupnostPotvrdjena}
+        onDostupnostPotvrdjena={() => setDostupnostPotvrdjena(true)}
+        pocetno={ponudaPocetno}
         radnje={ponudaRadnje}
         naslovId={naslovId}
       />

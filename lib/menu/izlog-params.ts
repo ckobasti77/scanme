@@ -191,7 +191,7 @@ export function parseLokalPreview(params: IzlogSearchParams): LokalPreviewParams
 // ---------------------------------------------------------------------------
 
 /** K10: the editor's showcase states (docs/MENI-PLAN.md §7); absent = a realistic medium menu. */
-export const EDITOR_STANJA = ["prazno", "veliki", "brzi-unos"] as const;
+export const EDITOR_STANJA = ["prazno", "veliki", "brzi-unos", "izaberi-vise"] as const;
 export type EditorStanje = (typeof EDITOR_STANJA)[number];
 
 /** K10: which pane, drawer or overlay is open on the narrower layouts (for snapshots). */
@@ -204,7 +204,7 @@ export type EditorPreviewParams = {
   empty: boolean;
   /** Existing `?design=dark` (TASK-51): the dark design of the old renderer, not the app theme. */
   darkDesign: boolean;
-  /** K10: `stanje=prazno|veliki|brzi-unos`; null = the medium menu. */
+  /** K10: `stanje=prazno|veliki|brzi-unos`; K11: `izaberi-vise`; null = the medium menu. */
   stanje: EditorStanje | null;
   /** K10: `pogled=struktura|uredi|pregled`. */
   pogled: EditorPogled | null;

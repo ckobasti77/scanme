@@ -250,7 +250,7 @@ export const setArticleTags = mutation({
 // Deletion with consequences (master §5.6)
 // -----------------------------------------------------------------------------
 
-type DeletionPlan = {
+export type DeletionPlan = {
   impact: ArticleDeletionImpact;
   /** More placements than one deletion may remove (nothing is deleted then). */
   overLimit: boolean;
@@ -264,8 +264,8 @@ type DeletionPlan = {
   availability: Doc<"menuAvailability">[];
 };
 
-/** Everything a deletion removes, with bounded reads (also the source of the impact the client confirms). */
-async function loadDeletionPlan(ctx: DbCtx, article: Doc<"menuArticles">): Promise<DeletionPlan> {
+/** Everything a deletion removes, with bounded reads (also the source of the impact the client confirms). Also used by menuBulk (K11). */
+export async function loadDeletionPlan(ctx: DbCtx, article: Doc<"menuArticles">): Promise<DeletionPlan> {
   const menuServiceId = article.menuServiceId;
 
   const placementRows = await ctx.db
@@ -358,6 +358,63 @@ async function loadDeletionPlan(ctx: DbCtx, article: Doc<"menuArticles">): Promi
 }
 
 /**
+ * The writes of "Obriši artikal" for a confirmed plan (no touchDraft: the caller
+ * calls it once). Shared by deleteArticle and menuBulk.deleteArticles (K11).
+ */
+export async function applyArticleDeletion(
+  ctx: MutationCtx,
+  article: Doc<"menuArticles">,
+  plan: DeletionPlan,
+  access: MenuAccess,
+): Promise<void> {
+  const now = Date.now();
+  const removedPerPage = new Map<Id<"menuPages">, number>();
+  for (const placement of plan.placements) {
+    await ctx.db.delete(placement._id);
+    removedPerPage.set(placement.pageId, (removedPerPage.get(placement.pageId) ?? 0) + 1);
+  }
+  for (const [pageId, removed] of removedPerPage) {
+    // Read again: a batch (menuBulk.deleteArticles) may have changed the count since the plan.
+    const page = plan.pages.has(pageId) ? await ctx.db.get(pageId) : null;
+    if (page) {
+      await ctx.db.patch(page._id, { placementCount: Math.max(0, page.placementCount - removed) });
+    }
+  }
+
+  for (const variant of plan.variants) await ctx.db.delete(variant._id);
+  for (const link of plan.links) {
+    await ctx.db.delete(link._id);
+    const group = await ctx.db.get(link.groupId);
+    if (group && group.menuServiceId === article.menuServiceId) {
+      await ctx.db.patch(group._id, { linkCount: Math.max(0, group.linkCount - 1) });
+    }
+  }
+
+  for (const row of plan.ownComponents) await ctx.db.delete(row._id);
+  await detachComponentFromCombos(ctx, article, now);
+  for (const item of plan.roomServiceItems) await ctx.db.delete(item._id);
+  // K05: the availability row is LIVE state of the published menu, which
+  // still shows the article until Objavi; menuPublishing.publish deletes
+  // the rows of articles that are gone from the published version.
+  await ctx.db.delete(article._id);
+
+  await writeMenuAudit(ctx, {
+    menuServiceId: article.menuServiceId,
+    actorKind: auditActorKind(access.actor),
+    actorUserId: access.user._id,
+    action: "article.deleted",
+    entityType: "menuArticles",
+    entityKey: article.key,
+    details: {
+      name: article.name,
+      pages: plan.impact.pages.length,
+      placements: plan.placements.length,
+      combos: plan.impact.combos.length,
+    },
+  });
+}
+
+/**
  * What deleting the article would remove: the pages that show it (with how many
  * placements each), the combos that contain it, its variants and add-on links,
  * Room service and availability — plus the token that confirms exactly this
@@ -403,50 +460,7 @@ export const deleteArticle = mutation({
       return { status: "confirm" as const, impact: plan.impact, confirmToken };
     }
 
-    const now = Date.now();
-    const removedPerPage = new Map<Id<"menuPages">, number>();
-    for (const placement of plan.placements) {
-      await ctx.db.delete(placement._id);
-      removedPerPage.set(placement.pageId, (removedPerPage.get(placement.pageId) ?? 0) + 1);
-    }
-    for (const [pageId, removed] of removedPerPage) {
-      const page = plan.pages.get(pageId);
-      if (page) {
-        await ctx.db.patch(page._id, { placementCount: Math.max(0, page.placementCount - removed) });
-      }
-    }
-
-    for (const variant of plan.variants) await ctx.db.delete(variant._id);
-    for (const link of plan.links) {
-      await ctx.db.delete(link._id);
-      const group = await ctx.db.get(link.groupId);
-      if (group && group.menuServiceId === article.menuServiceId) {
-        await ctx.db.patch(group._id, { linkCount: Math.max(0, group.linkCount - 1) });
-      }
-    }
-
-    for (const row of plan.ownComponents) await ctx.db.delete(row._id);
-    await detachComponentFromCombos(ctx, article, now);
-    for (const item of plan.roomServiceItems) await ctx.db.delete(item._id);
-    // K05: the availability row is LIVE state of the published menu, which
-    // still shows the article until Objavi; menuPublishing.publish deletes
-    // the rows of articles that are gone from the published version.
-    await ctx.db.delete(article._id);
-
-    await writeMenuAudit(ctx, {
-      menuServiceId: article.menuServiceId,
-      actorKind: auditActorKind(access.actor),
-      actorUserId: access.user._id,
-      action: "article.deleted",
-      entityType: "menuArticles",
-      entityKey: article.key,
-      details: {
-        name: article.name,
-        pages: plan.impact.pages.length,
-        placements: plan.placements.length,
-        combos: plan.impact.combos.length,
-      },
-    });
+    await applyArticleDeletion(ctx, article, plan, access);
     await touchDraft(ctx, article.menuServiceId, access.user._id, { articleDelta: -1 });
     return { status: "deleted" as const, impact: plan.impact };
   },

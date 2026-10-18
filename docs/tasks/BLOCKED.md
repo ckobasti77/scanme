@@ -2145,3 +2145,15 @@ Nijedna stavka ne blokira kod: run je izabrao konzervativnu opciju i kod radi po
 8. **Tekst ulaza i povratka:** „Otvori ScanMe Menu" (klijentski panel) i „Nazad na klijentski panel" (iz Menu panela). Radni tekst; potvrditi.
 9. **Iz starog editora nazad vodi u stari klijentski panel.** Do K10 „Otvori Editor" otvara `/[slug]/meni/editor`, čiji linkovi „nazad" i logo vode na `/[slug]/client-panel`, ne u Menu panel. Stari editor (`components/menu/editor/**`) K08 nije menjao; tekst u panelu zato kaže da se Editor otvara na posebnom ekranu. K10 ovo rešava pravim editorom u panelu.
 10. **Nema dugmeta za odjavu u Menu panelu.** Zadatak K08 kaže „ne diraj auth tok", pa shell nema „Odjava" ni „Promeni nalog". Vlasnik prijavljen pogrešnim nalogom vidi „Ovaj nalog ne otvara ScanMe Menu" i karticu „Upravljate ovim lokalom?", a odjavu nalazi u postojećem klijentskom panelu (dugme „Odjava" u sekcijama Links i Google Review; ekran „Nemate pristup ovom lokalu" ga ni danas nema). Predlog: „Odjava" u podnožju navigacije Menu panela, preko postojećeg `signOut` (K28 ili posebna odluka).
+
+## SCANME MENU V1 — K11 (18. 10. 2026.) — editor: premeštanje, `Izaberi više` i stanja artikla, izbori koji traže potvrdu vlasnika
+
+Nijedna stavka ne blokira kod: run je izabrao konzervativnu opciju i kod radi po njoj (plan `docs/meni/planovi/K09.md` §8, ⚑7 i ⚑8). Vlasnik potvrđuje ili menja.
+
+1. **Grupna promena cena menja samo osnovnu cenu.** Artikal sa varijantama se preskače uz razlog „ima varijante sa svojim cenama" (cene varijanti se ne menjaju), jer bi promena samo osnovne cene bila pola promene. Master ne kaže šta se radi sa varijantama. Alternativa: ista promena i na cene varijanti.
+2. **Grupno brisanje više artikala traži da se upiše broj artikala** („Upišite 14 da potvrdite brisanje"), pored pregleda posledica (stranice i kombo artikli po artiklu). Brisanje jednog artikla traži samo potvrdu posle pregleda posledica.
+3. **„Označi kao nedostupno" traži potvrdu prvi put u sesiji editora** („Gosti odmah vide… ne ide u nacrt i ne čeka Objavi"); posle toga radi odmah. Važi i za grupnu radnju.
+4. **Najviše 200 artikala (ili prikaza) po grupnoj radnji** (`MENU_MAX_BULK_BATCH`); iznad toga radnje su onemogućene uz razlog. Tehnička granica jedne transakcije, ne komercijalna.
+5. **Procenat smanjenja je najviše 100 %**, a rezultat ispod 0 ili iznad 1.000.000 RSD blokira celu promenu (ništa se ne seče tiho). Zaokruživanje je na ceo dinar, pola naviše (isto kao Room service uvećanje).
+6. **„Premesti u sekciju" i „Dodaj na drugu stranicu" preskaču** prikaz koji je već u ciljnoj sekciji i artikal koji ciljna sekcija već prikazuje (artikal je u sekciji najviše jednom), i to kažu u najavi; ostali se premeste ili dodaju.
+7. **„Ukloni sa ove stranice" nema „Poništi"** (plan K09 ga je predlagao kao toast). Izmena je u nacrtu, a artikal se vraća kroz `Dodaj stavku → Dodaj postojeći`. Ako „Poništi" treba, to je mala dopuna (ponovno dodavanje na isto mesto).

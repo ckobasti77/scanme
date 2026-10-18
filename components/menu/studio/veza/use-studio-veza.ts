@@ -11,6 +11,8 @@ import { useMemo } from "react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import type {
+  StudioBrisanjeRezultat,
+  StudioCeneRezultat,
   StudioIshod,
   StudioKontekst,
   StudioPodaci,
@@ -18,13 +20,38 @@ import type {
   StudioRadnje,
   StudioRadniSadrzaj,
   StudioStatusNacrta,
+  StudioSekcijaStranice,
   StudioStranica,
+  StudioUticajArtikla,
+  StudioUticajBrisanja,
 } from "@/lib/menu/studio/model";
 import { izGreske, izvrsi } from "./ishod";
 
 type Stranice = Id<"menuPages">;
 type Sekcija = Id<"menuSections">;
 type Artikal = Id<"menuArticles">;
+type Prikaz = Id<"menuPlacements">;
+
+/** One article of menuBulk's deletion impact as the editor shows it. */
+function uticajIzImpacta(impact: {
+  articleId: string;
+  name: string;
+  kind: "item" | "combo";
+  pages: { name: string; archived: boolean; placements: number }[];
+  combos: { name: string }[];
+  variants: number;
+  inRoomService: boolean;
+}): StudioUticajArtikla {
+  return {
+    artikalId: impact.articleId,
+    naziv: impact.name,
+    vrsta: impact.kind,
+    stranice: impact.pages.map((page) => ({ naziv: page.name, arhivirana: page.archived, prikaza: page.placements })),
+    kombo: impact.combos.map((combo) => combo.name),
+    varijante: impact.variants,
+    roomService: impact.inRoomService,
+  };
+}
 
 export type StudioVeza =
   | { stanje: "ucitava" }
@@ -68,6 +95,16 @@ export function useStudioVeza(slug: string, izbor: { id: string | null; key: str
   const createCombo = useMutation(api.menuCombos.createCombo);
   const setBasePrice = useMutation(api.menuCatalog.setBasePrice);
   const publish = useMutation(api.menuPublishing.publish);
+  // K11
+  const movePlacement = useMutation(api.menuCatalog.movePlacement);
+  const moveSection = useMutation(api.menuCatalog.moveSection);
+  const bulkAvailability = useMutation(api.menuBulk.setAvailability);
+  const bulkVisibility = useMutation(api.menuBulk.setVisibility);
+  const bulkRemove = useMutation(api.menuBulk.removeFromPage);
+  const bulkMove = useMutation(api.menuBulk.moveToSection);
+  const bulkAdd = useMutation(api.menuBulk.addToPage);
+  const bulkPrices = useMutation(api.menuBulk.setPrices);
+  const bulkDelete = useMutation(api.menuBulk.deleteArticles);
 
 
   const radnje = useMemo<StudioRadnje | null>(() => {
@@ -204,6 +241,82 @@ export function useStudioVeza(slug: string, izbor: { id: string | null; key: str
               ? { status: "objavljeno" as const, verzija: r.versionNumber }
               : { status: "odbijeno" as const, razlog: r.reason },
         ),
+      // K11 — order, states and group actions (convex/menuBulk.ts).
+      premestiPrikaz: (prikazId, uSekciju, prePrikaza) =>
+        izvrsi(
+          () =>
+            movePlacement({
+              placementId: prikazId as Prikaz,
+              toSectionId: uSekciju as Sekcija,
+              ...(prePrikaza ? { beforePlacementId: prePrikaza as Prikaz } : {}),
+            }),
+          () => null,
+        ),
+      premestiSekciju: (sekcijaId, naIndeks) => izvrsi(() => moveSection({ sectionId: sekcijaId as Sekcija, toIndex: naIndeks }), () => null),
+      postaviDostupnost: (artikalIds, dostupno) =>
+        izvrsi(
+          () => bulkAvailability({ menuServiceId, articleIds: artikalIds as Artikal[], available: dostupno }),
+          (r) => ({ promenjeno: r.changed }),
+        ),
+      postaviVidljivost: (prikazIds, sakriveno) =>
+        izvrsi(
+          () => bulkVisibility({ menuServiceId, placementIds: prikazIds as Prikaz[], visibility: sakriveno ? "hidden" : "visible" }),
+          (r) => ({ promenjeno: r.changed }),
+        ),
+      ukloniSaStranice: (prikazIds) =>
+        izvrsi(() => bulkRemove({ menuServiceId, placementIds: prikazIds as Prikaz[] }), (r) => ({ uklonjeno: r.removed })),
+      premestiUSekciju: (prikazIds, sekcijaId) =>
+        izvrsi(
+          () => bulkMove({ menuServiceId, placementIds: prikazIds as Prikaz[], toSectionId: sekcijaId as Sekcija }),
+          (r) => ({ premesteno: r.moved, preskoceno: r.skipped }),
+        ),
+      dodajNaStranicu: (artikalIds, sekcijaId) =>
+        izvrsi(
+          () => bulkAdd({ menuServiceId, articleIds: artikalIds as Artikal[], sectionId: sekcijaId as Sekcija }),
+          (r) => ({ dodato: r.added, preskoceno: r.skipped }),
+        ),
+      sekcijeStranice: async (stranicaId): Promise<StudioIshod<StudioSekcijaStranice[]>> => {
+        try {
+          const r = await convex.query(api.menuBulk.pageSections, { pageId: stranicaId as Stranice });
+          if (!r) return { ok: false, vrsta: "greska", kod: "menu/not_found", ponovljivo: false };
+          return { ok: true, vrednost: r.sections.map((section) => ({ id: section.sectionId, naziv: section.name })) };
+        } catch (error) {
+          return izGreske(error);
+        }
+      },
+      postaviCene: (promene) =>
+        izvrsi(
+          () =>
+            bulkPrices({
+              menuServiceId,
+              changes: promene.map((promena) => ({
+                articleId: promena.artikalId as Artikal,
+                expectedPriceRsd: promena.ocekivana,
+                priceRsd: promena.nova,
+              })),
+            }),
+          (r): StudioCeneRezultat =>
+            r.status === "conflict"
+              ? { status: "konflikt", artikli: r.conflicts.map((c) => ({ artikalId: c.articleId, sacuvano: c.currentPriceRsd })) }
+              : { status: "promenjeno", broj: r.changed },
+        ),
+      uticajBrisanja: async (artikalIds): Promise<StudioIshod<StudioUticajBrisanja>> => {
+        try {
+          const r = await convex.query(api.menuBulk.deleteImpact, { menuServiceId, articleIds: artikalIds as Artikal[] });
+          if (!r) return { ok: false, vrsta: "greska", kod: "menu/not_found", ponovljivo: false };
+          return { ok: true, vrednost: { artikli: r.articles.map(uticajIzImpacta), token: r.confirmToken, prevelik: r.overLimit } };
+        } catch (error) {
+          return izGreske(error);
+        }
+      },
+      obrisiArtikle: (artikalIds, token) =>
+        izvrsi(
+          () => bulkDelete({ menuServiceId, articleIds: artikalIds as Artikal[], confirmToken: token }),
+          (r): StudioBrisanjeRezultat =>
+            r.status === "confirm"
+              ? { status: "potvrdi", uticaj: { artikli: r.articles.map(uticajIzImpacta), token: r.confirmToken, prevelik: false } }
+              : { status: "obrisano", broj: r.deleted },
+        ),
     };
   }, [
     menuServiceId,
@@ -224,6 +337,15 @@ export function useStudioVeza(slug: string, izbor: { id: string | null; key: str
     createCombo,
     setBasePrice,
     publish,
+    movePlacement,
+    moveSection,
+    bulkAvailability,
+    bulkVisibility,
+    bulkRemove,
+    bulkMove,
+    bulkAdd,
+    bulkPrices,
+    bulkDelete,
   ]);
 
   const kontekstEditora = useMemo<StudioKontekst | null>(() => {

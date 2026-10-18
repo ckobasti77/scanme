@@ -3,7 +3,9 @@
 // ScanMe Menu V1 — the editor's dialog (K10): the shadcn/ui Dialog (Radix:
 // focus trap, Escape, focus returns to the trigger) with the panel tokens on
 // its portal, so it keeps the app theme. Title is required (it names the
-// dialog for screen readers); actions sit in a row at the bottom.
+// dialog for screen readers); actions sit in a row at the bottom. K11:
+// `bezVracanjaFokusa` keeps Radix from returning focus to the trigger on
+// close, when the caller moves focus itself (the card moved by `Premesti`).
 
 import type { ReactNode } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
@@ -17,6 +19,7 @@ export function StudioDijalog({
   opis,
   podnozje,
   sirina = "obicna",
+  bezVracanjaFokusa = false,
   children,
 }: {
   otvoreno: boolean;
@@ -25,6 +28,7 @@ export function StudioDijalog({
   opis?: ReactNode;
   podnozje?: ReactNode;
   sirina?: "obicna" | "siroka";
+  bezVracanjaFokusa?: boolean;
   children?: ReactNode;
 }) {
   return (
@@ -32,6 +36,7 @@ export function StudioDijalog({
       <DialogContent
         data-povrsina="panel"
         {...(opis ? {} : { "aria-describedby": undefined })}
+        onCloseAutoFocus={bezVracanjaFokusa ? (event) => event.preventDefault() : undefined}
         className={cn(
           MENU_TOKENI_KLASA,
           "max-h-[calc(100dvh-2rem)] gap-0 overflow-hidden rounded-[var(--mp-radius-okvir)] border [--border:var(--mp-ivica)] bg-[var(--mp-povrsina)] p-0 text-[var(--mp-tekst)] shadow-[var(--mp-senka-md)]",

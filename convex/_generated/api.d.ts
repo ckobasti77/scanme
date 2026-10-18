@@ -172,6 +172,7 @@ import type * as menuAdmin from "../menuAdmin.js";
 import type * as menuArticleDetails from "../menuArticleDetails.js";
 import type * as menuArticleOptions from "../menuArticleOptions.js";
 import type * as menuAvailability from "../menuAvailability.js";
+import type * as menuBulk from "../menuBulk.js";
 import type * as menuCatalog from "../menuCatalog.js";
 import type * as menuCombos from "../menuCombos.js";
 import type * as menuExport from "../menuExport.js";
@@ -382,6 +383,7 @@ declare const fullApi: ApiFromModules<{
   menuArticleDetails: typeof menuArticleDetails;
   menuArticleOptions: typeof menuArticleOptions;
   menuAvailability: typeof menuAvailability;
+  menuBulk: typeof menuBulk;
   menuCatalog: typeof menuCatalog;
   menuCombos: typeof menuCombos;
   menuExport: typeof menuExport;

@@ -177,6 +177,15 @@ Pregled svih primitiva u svim stanjima: `/dev/menu-panel-preview?sekcija=primiti
 | Premium (zaključano) | `neutralno` | `Lock` |
 | Privremeno nedostupno (artikal) | `upozorenje` | `CircleSlash` |
 
+### 5.3 Premeštanje, izbor i stanja artikla (K11)
+
+- **Prevlačenje:** cela slobodna površina kartice artikla i zaglavlja sekcije; mišem posle 6 px, prstom posle dugog pritiska (350 ms, tolerancija 8 px; raniji pokret je skrol). Kontrole (polje cene, dugmad, meni reda, polje za potvrdu, link) nikad ne pokreću prevlačenje (`lib/menu/studio/drag-guard.ts`). Iz polja cene se ne može prevući ni u njega spustiti tekst. Tačkasta ručica (od 640 px) je deo slobodne površine i nije posebna tab-stanica; klik mišem na nju otvara `Premesti`. Skupljena sekcija prima artikal na zaglavlje (na kraj). Dok se prevlači sekcija, sve sekcije su skupljene. Prevlačenje je isključeno u pretrazi, u `Izaberi više` i u samo-čitanju. Esc otkazuje. Čitač ekrana čuje svaki korak (srpske najave).
+- **`Premesti`** je tastaturna alternativa (meni reda i meni sekcije): dijalog sa dva izvorna `select`-a (sekcija, mesto „Na početak" / „Posle: …", sadašnje mesto je označeno). Rezultat se najavljuje i piše u liniji iznad liste („Premešteno: Espresso u sekciju Doručak, mesto 1 od 3."), a fokus ide na premeštenu karticu; otkazivanje vraća fokus na karticu.
+- **Red artikla** ima dve tab-stanice: cenu i meni reda (`⋯`, CSS tačke, ne SVG — 400 redova). Meni reda: Premesti; `Privremeno nedostupno` / `Ponovo dostupno` sa opisom „Važi odmah za goste, bez objave" (prvi put u sesiji traži potvrdu); `Sakrij` / `Prikaži` sa opisom „U nacrtu, gosti vide posle objave"; `Ukloni sa ove stranice`; `Obriši artikal` (opasno, posle dijaloga posledica). Bez dozvole za uređivanje ostaje samo dostupnost.
+- **`Izaberi više`** je prekidačko dugme (`aria-pressed`); podrazumevani prikaz nema polja za potvrdu ni traku. U režimu: polje za potvrdu po redu i u zaglavlju sekcije (tri stanja, crtica = deo), klik na karticu menja izbor, traka lepljiva na dnu radnog stubca sa brojem izabranih (`aria-live`) i napomenom „Izmene idu u nacrt, osim dostupnosti koja važi odmah". Ispod 640 px sve radnje su u jednom meniju „Radnje". Najviše 200 odjednom (iznad: radnje onemogućene uz razlog). Esc ili `Završi` izlaze.
+- **Promeni cene:** procenat (gore/dole), iznos (dodaj/oduzmi) ili ista cena; tabela „Artikal | Stara | Nova | Razlika" (RSD u zaglavlju kolone) za svaki artikal pre potvrde; preskočeni sa razlogom (varijante, bez cene, ista cena); nevažeći (ispod 0, iznad 1.000.000) blokiraju potvrdu. Konflikt: ništa se ne piše, pregled se osvežava.
+- **Brisanje** (jedan ili više): dijalog prvo učita posledice po artiklu (stranice, kombo artikli koji dobijaju „Proveri cenu", varijante, Room service) i predloži `Ukloni sa ove stranice` kao blažu radnju; za više artikala traži da se upiše broj.
+
 ## 6. Ikonice
 
 - Samo `lucide-react`, linija 1,75 (statusi 2), 20 px u dugmetu, 16 px u oznaci, 24 px u konobarskom panelu i praznim stanjima.
@@ -196,9 +205,9 @@ Pokret samo objašnjava promenu stanja (master §15.1) i nikad ne zadržava rad.
 
 - Animiraju se samo `transform` i `opacity`. Izlaz je kraći od ulaza. Nema ulaza stranice ni animacije pri prvom prikazu i kad pretplata donese iste podatke.
 - Jedina stalna animacija je odsjaj kostura učitavanja (staje uz reduced motion) i puls tajmera koji kasni (§1.3).
-- Prevlačenje (K11): podignuta kartica dobija senku `md` i blagi nagib 1°, mesto spuštanja je linija; uz reduced motion bez nagiba.
+- Prevlačenje (K11): podignuta kartica je kopija pod pokazivačem sa ivicom u `--mp-fokus`, senkom `md` i `scale(1.02)`; na mestu gde će pasti ostaje isprekidani okvir u `--mp-fokus` (sadržaj na 40 %); ostale kartice se razmiču za 240 ms (samo `transform`). Uz reduced motion nema skaliranja, razmicanja ni animacije spuštanja.
 - `prefers-reduced-motion: reduce`: ništa se ne pomera ni ne okreće; ostaju promene boje i pretapanje do 120 ms. Sadržaj nikad ne zavisi od animacije.
-- Biblioteka: CSS za sve što može (prelaz, fioka iz shadcn/ui), Framer Motion za lokalne prelaze rasporeda (K11 premeštanje). GSAP se ne uvodi u Menu panel.
+- Biblioteka: CSS za sve što može (prelaz, fioka iz shadcn/ui); premeštanje (K11) je `@dnd-kit` sa CSS `transform`, bez Framer Motion-a; Framer Motion samo za lokalne prelaze gde CSS ne može. GSAP se ne uvodi u Menu panel.
 
 ## 8. Responsive pravila
 

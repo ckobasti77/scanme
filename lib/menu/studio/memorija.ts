@@ -13,7 +13,9 @@ import { fmt } from "../../i18n/format";
 import { menuDomenSr } from "../../i18n/sr/menu-domen";
 import type { CasValue } from "../cas";
 import { MENU_ERROR } from "../errors/core";
-import { MENU_TEXT } from "../limits";
+import { nextComboPriceCheck } from "../combo";
+import { bulkDeletionConfirmToken, type ArticleDeletionImpact } from "../deletion";
+import { MENU_MAX_BULK_BATCH, MENU_TEXT } from "../limits";
 import { orderAfter, renumberedOrders } from "../order";
 import { checkPublication } from "../publish-checks";
 import { summarizePublication } from "../publish-summary";
@@ -26,7 +28,13 @@ import type {
   StudioIshod,
   StudioKandidat,
   StudioObjavaRezultat,
+  StudioBrisanjeRezultat,
+  StudioCeneRezultat,
   StudioPregledObjave,
+  StudioPromenaCene,
+  StudioSekcijaStranice,
+  StudioUticajArtikla,
+  StudioUticajBrisanja,
   TabelaRezultat,
   TabelaUnosRed,
 } from "./model";
@@ -559,4 +567,421 @@ export function objavi(
     },
     ishod: { ok: true, vrednost: { status: "objavljeno", verzija } },
   };
+}
+
+// -----------------------------------------------------------------------------
+// K11 — order (drag and drop, `Premesti`), article states and `Izaberi više`
+// -----------------------------------------------------------------------------
+
+/** The placement behind a row id ("<sectionKey>/<articleKey>"). */
+function nadjiPrikaz(snapshot: MenuDraftSnapshot, id: string): SnapshotPlacement | null {
+  const kosa = id.indexOf("/");
+  if (kosa <= 0) return null;
+  const sekcija = id.slice(0, kosa);
+  const artikal = id.slice(kosa + 1);
+  return snapshot.placements.find((placement) => placement.sectionKey === sekcija && placement.articleKey === artikal) ?? null;
+}
+
+function istiPrikaz(a: SnapshotPlacement, b: SnapshotPlacement): boolean {
+  return a.sectionKey === b.sectionKey && a.articleKey === b.articleKey;
+}
+
+function stranicaZaIzmenu(stanje: MemorijaStanje, pageKey: string): string | null {
+  const page = stanje.snapshot.pages.find((candidate) => candidate.key === pageKey);
+  if (!page) return MENU_ERROR.notFound;
+  return page.archivedAt !== null ? MENU_ERROR.pageArchived : null;
+}
+
+/** Distinct ids of one group action (1–200), or null. */
+function serija(ids: readonly string[]): string[] | null {
+  const unique = [...new Set(ids)];
+  return unique.length === 0 || unique.length > MENU_MAX_BULK_BATCH ? null : unique;
+}
+
+/** The placements of the rows, or an error code (a missing row refuses the whole batch). */
+function prikaziSerije(stanje: MemorijaStanje, prikazIds: readonly string[]): SnapshotPlacement[] | string {
+  const ids = serija(prikazIds);
+  if (!ids) return MENU_ERROR.invalidInput;
+  const placements: SnapshotPlacement[] = [];
+  for (const id of ids) {
+    const placement = nadjiPrikaz(stanje.snapshot, id);
+    if (!placement) return MENU_ERROR.notFound;
+    const problem = stranicaZaIzmenu(stanje, placement.pageKey);
+    if (problem) return problem;
+    placements.push(placement);
+  }
+  return placements;
+}
+
+function artikliSerije(stanje: MemorijaStanje, artikalIds: readonly string[]): SnapshotArticle[] | string {
+  const ids = serija(artikalIds);
+  if (!ids) return MENU_ERROR.invalidInput;
+  const articles: SnapshotArticle[] = [];
+  for (const id of ids) {
+    const article = stanje.snapshot.articles.find((candidate) => candidate.key === id);
+    if (!article) return MENU_ERROR.notFound;
+    articles.push(article);
+  }
+  return articles;
+}
+
+function poslednjiRedosled(snapshot: MenuDraftSnapshot, sekcijaKey: string): number | null {
+  return snapshot.placements
+    .filter((placement) => placement.sectionKey === sekcijaKey)
+    .reduce<number | null>((max, placement) => (max === null || placement.order > max ? placement.order : max), null);
+}
+
+const poRedu = (a: SnapshotPlacement, b: SnapshotPlacement) => a.order - b.order || (a.articleKey < b.articleKey ? -1 : 1);
+
+/** One row into `uSekciju` (same page), directly before `prePrikaza` (null = the end): movePlacement. */
+export function premestiPrikaz(stanje: MemorijaStanje, prikazIdArg: string, uSekciju: string, prePrikaza: string | null): MemorijaKorak {
+  const { snapshot } = stanje;
+  const placement = nadjiPrikaz(snapshot, prikazIdArg);
+  if (!placement) return greska(stanje, MENU_ERROR.notFound);
+  const cilj = snapshot.sections.find((section) => section.key === uSekciju);
+  if (!cilj) return greska(stanje, MENU_ERROR.notFound);
+  if (cilj.pageKey !== placement.pageKey) return greska(stanje, MENU_ERROR.invalidInput);
+  const problem = stranicaZaIzmenu(stanje, placement.pageKey);
+  if (problem) return greska(stanje, problem);
+  const pre = prePrikaza === null ? null : nadjiPrikaz(snapshot, prePrikaza);
+  if (prePrikaza !== null && (!pre || pre.sectionKey !== cilj.key)) return greska(stanje, MENU_ERROR.invalidInput);
+  if (pre && istiPrikaz(pre, placement)) return { stanje, ishod: OK };
+  const menjaSekciju = placement.sectionKey !== cilj.key;
+  if (
+    menjaSekciju &&
+    snapshot.placements.some((candidate) => candidate.sectionKey === cilj.key && candidate.articleKey === placement.articleKey)
+  ) {
+    return greska(stanje, MENU_ERROR.placementExists);
+  }
+  if (!menjaSekciju) {
+    const sada = snapshot.placements.filter((candidate) => candidate.sectionKey === cilj.key).sort(poRedu);
+    const sledeci = sada[sada.findIndex((candidate) => istiPrikaz(candidate, placement)) + 1] ?? null;
+    if ((sledeci === null && pre === null) || (sledeci !== null && pre !== null && istiPrikaz(sledeci, pre))) {
+      return { stanje, ishod: OK };
+    }
+  }
+  const ostali = snapshot.placements
+    .filter((candidate) => candidate.sectionKey === cilj.key && !istiPrikaz(candidate, placement))
+    .sort(poRedu);
+  const mesto = pre ? ostali.findIndex((candidate) => istiPrikaz(candidate, pre)) : ostali.length;
+  const pomeren: SnapshotPlacement = { ...placement, sectionKey: cilj.key };
+  const novi = [...ostali.slice(0, mesto), pomeren, ...ostali.slice(mesto)];
+  const redosled = renumberedOrders(novi.length);
+  const nove = new Map(novi.map((candidate, index) => [candidate.articleKey, redosled[index]]));
+  const placements = snapshot.placements.map((candidate) => {
+    if (istiPrikaz(candidate, placement)) return { ...pomeren, order: nove.get(placement.articleKey)! };
+    if (candidate.sectionKey === cilj.key) return { ...candidate, order: nove.get(candidate.articleKey)! };
+    return candidate;
+  });
+  return { stanje: nacrt(stanje, { ...snapshot, placements }), ishod: OK };
+}
+
+/** A section to `naIndeks` among the sections of its page: moveSection. */
+export function premestiSekciju(stanje: MemorijaStanje, sekcijaId: string, naIndeks: number): MemorijaKorak {
+  const section = stanje.snapshot.sections.find((candidate) => candidate.key === sekcijaId);
+  if (!section) return greska(stanje, MENU_ERROR.notFound);
+  const problem = stranicaZaIzmenu(stanje, section.pageKey);
+  if (problem) return greska(stanje, problem);
+  const sekcije = stanje.snapshot.sections
+    .filter((candidate) => candidate.pageKey === section.pageKey)
+    .sort((a, b) => a.order - b.order || (a.key < b.key ? -1 : 1));
+  const od = sekcije.findIndex((candidate) => candidate.key === sekcijaId);
+  const cilj = Math.max(0, Math.min(sekcije.length - 1, Math.trunc(naIndeks)));
+  if (cilj === od) return { stanje, ishod: OK };
+  const [pomerena] = sekcije.splice(od, 1);
+  sekcije.splice(cilj, 0, pomerena);
+  const redosled = renumberedOrders(sekcije.length);
+  const nove = new Map(sekcije.map((candidate, index) => [candidate.key, redosled[index]]));
+  const sections = stanje.snapshot.sections.map((candidate) =>
+    nove.has(candidate.key) ? { ...candidate, order: nove.get(candidate.key)! } : candidate,
+  );
+  return { stanje: nacrt(stanje, { ...stanje.snapshot, sections }), ishod: OK };
+}
+
+/** LIVE "Privremeno nedostupno" / "Dostupno": no draft change, no revision step. */
+export function postaviDostupnost(
+  stanje: MemorijaStanje,
+  artikalIds: readonly string[],
+  dostupno: boolean,
+): MemorijaKorak<{ promenjeno: number }> {
+  const articles = artikliSerije(stanje, artikalIds);
+  if (typeof articles === "string") return greska(stanje, articles);
+  const nedostupni = new Set(stanje.nedostupni);
+  let promenjeno = 0;
+  for (const article of articles) {
+    if (dostupno && nedostupni.delete(article.key)) promenjeno += 1;
+    if (!dostupno && !nedostupni.has(article.key)) {
+      nedostupni.add(article.key);
+      promenjeno += 1;
+    }
+  }
+  return { stanje: promenjeno > 0 ? { ...stanje, nedostupni } : stanje, ishod: { ok: true, vrednost: { promenjeno } } };
+}
+
+/** "Sakrij" / "Prikaži" on this page (the rows keep their place): setVisibility. */
+export function postaviVidljivost(
+  stanje: MemorijaStanje,
+  prikazIds: readonly string[],
+  sakriveno: boolean,
+): MemorijaKorak<{ promenjeno: number }> {
+  const placements = prikaziSerije(stanje, prikazIds);
+  if (typeof placements === "string") return greska(stanje, placements);
+  const vidljivost: "hidden" | "visible" = sakriveno ? "hidden" : "visible";
+  const meta = placements.filter((placement) => placement.visibility !== vidljivost);
+  if (meta.length === 0) return { stanje, ishod: { ok: true, vrednost: { promenjeno: 0 } } };
+  const sledece = stanje.snapshot.placements.map((candidate) =>
+    meta.some((placement) => istiPrikaz(placement, candidate)) ? { ...candidate, visibility: vidljivost } : candidate,
+  );
+  return {
+    stanje: nacrt(stanje, { ...stanje.snapshot, placements: sledece }),
+    ishod: { ok: true, vrednost: { promenjeno: meta.length } },
+  };
+}
+
+/** "Ukloni sa ove stranice": the rows go, the articles stay: removeFromPage. */
+export function ukloniSaStranice(stanje: MemorijaStanje, prikazIds: readonly string[]): MemorijaKorak<{ uklonjeno: number }> {
+  const placements = prikaziSerije(stanje, prikazIds);
+  if (typeof placements === "string") return greska(stanje, placements);
+  const sledece = stanje.snapshot.placements.filter(
+    (candidate) => !placements.some((placement) => istiPrikaz(placement, candidate)),
+  );
+  return {
+    stanje: nacrt(stanje, { ...stanje.snapshot, placements: sledece }),
+    ishod: { ok: true, vrednost: { uklonjeno: placements.length } },
+  };
+}
+
+/** Rows of one page to the end of a section of that page, in page order: moveToSection. */
+export function premestiUSekciju(
+  stanje: MemorijaStanje,
+  prikazIds: readonly string[],
+  sekcijaId: string,
+): MemorijaKorak<{ premesteno: number; preskoceno: number }> {
+  const cilj = stanje.snapshot.sections.find((section) => section.key === sekcijaId);
+  if (!cilj) return greska(stanje, MENU_ERROR.notFound);
+  const problem = stranicaZaIzmenu(stanje, cilj.pageKey);
+  if (problem) return greska(stanje, problem);
+  const placements = prikaziSerije(stanje, prikazIds);
+  if (typeof placements === "string") return greska(stanje, placements);
+  if (placements.some((placement) => placement.pageKey !== cilj.pageKey)) return greska(stanje, MENU_ERROR.invalidInput);
+  const redSekcije = new Map(
+    stanje.snapshot.sections
+      .filter((section) => section.pageKey === cilj.pageKey)
+      .sort((a, b) => a.order - b.order || (a.key < b.key ? -1 : 1))
+      .map((section, index) => [section.key, index]),
+  );
+  const poStranici = placements
+    .slice()
+    .sort((a, b) => (redSekcije.get(a.sectionKey) ?? 0) - (redSekcije.get(b.sectionKey) ?? 0) || poRedu(a, b));
+  let redosled = poslednjiRedosled(stanje.snapshot, cilj.key);
+  const stizu = new Set<string>();
+  const premestanja = new Map<SnapshotPlacement, number>();
+  let preskoceno = 0;
+  for (const placement of poStranici) {
+    const vecTu = stanje.snapshot.placements.some(
+      (candidate) => candidate.sectionKey === cilj.key && candidate.articleKey === placement.articleKey,
+    );
+    if (placement.sectionKey === cilj.key || vecTu || stizu.has(placement.articleKey)) {
+      preskoceno += 1;
+      continue;
+    }
+    stizu.add(placement.articleKey);
+    redosled = orderAfter(redosled);
+    premestanja.set(placement, redosled);
+  }
+  if (premestanja.size === 0) return { stanje, ishod: { ok: true, vrednost: { premesteno: 0, preskoceno } } };
+  const sledece = stanje.snapshot.placements.map((candidate) => {
+    const order = premestanja.get(candidate);
+    return order === undefined ? candidate : { ...candidate, sectionKey: cilj.key, order };
+  });
+  return {
+    stanje: nacrt(stanje, { ...stanje.snapshot, placements: sledece }),
+    ishod: { ok: true, vrednost: { premesteno: premestanja.size, preskoceno } },
+  };
+}
+
+/** "Dodaj na stranicu": the articles shown in a section (re-use, the same price): addToPage. */
+export function dodajNaStranicu(
+  stanje: MemorijaStanje,
+  artikalIds: readonly string[],
+  sekcijaId: string,
+): MemorijaKorak<{ dodato: number; preskoceno: number }> {
+  const problem = aktivnaSekcija(stanje, sekcijaId);
+  if (problem) return greska(stanje, problem);
+  const articles = artikliSerije(stanje, artikalIds);
+  if (typeof articles === "string") return greska(stanje, articles);
+  let snapshot = stanje.snapshot;
+  let dodato = 0;
+  let preskoceno = 0;
+  for (const article of articles) {
+    if (snapshot.placements.some((placement) => placement.sectionKey === sekcijaId && placement.articleKey === article.key)) {
+      preskoceno += 1;
+      continue;
+    }
+    snapshot = { ...snapshot, placements: [...snapshot.placements, prikaz(snapshot, sekcijaId, article.key)!] };
+    dodato += 1;
+  }
+  return { stanje: dodato > 0 ? nacrt(stanje, snapshot) : stanje, ishod: { ok: true, vrednost: { dodato, preskoceno } } };
+}
+
+/** The sections of one page, for "Dodaj na stranicu" (pageSections). */
+export function sekcijeStranice(stanje: MemorijaStanje, stranicaId: string): MemorijaKorak<StudioSekcijaStranice[]> {
+  if (!stanje.snapshot.pages.some((page) => page.key === stranicaId)) return greska(stanje, MENU_ERROR.notFound);
+  const sekcije = stanje.snapshot.sections
+    .filter((section) => section.pageKey === stranicaId)
+    .sort((a, b) => a.order - b.order || (a.key < b.key ? -1 : 1))
+    .map((section) => ({ id: section.key, naziv: section.name }));
+  return { stanje, ishod: { ok: true, vrednost: sekcije } };
+}
+
+/** `Promeni cene`: compare-and-set on every price first, all or nothing (setPrices). */
+export function postaviCene(
+  stanje: MemorijaStanje,
+  promene: readonly StudioPromenaCene[],
+  sada = 0,
+): MemorijaKorak<StudioCeneRezultat> {
+  const ids = promene.map((promena) => promena.artikalId);
+  if (!serija(ids) || new Set(ids).size !== ids.length) return greska(stanje, MENU_ERROR.invalidInput);
+  if (promene.some((promena) => !isValidRsd(promena.nova))) return greska(stanje, MENU_ERROR.invalidInput);
+  const poKljucu = new Map(stanje.snapshot.articles.map((article) => [article.key, article]));
+  if (ids.some((id) => !poKljucu.has(id))) return greska(stanje, MENU_ERROR.notFound);
+  const konflikti = promene
+    .filter((promena) => poKljucu.get(promena.artikalId)!.basePriceRsd !== promena.ocekivana)
+    .map((promena) => ({ artikalId: promena.artikalId, sacuvano: poKljucu.get(promena.artikalId)!.basePriceRsd }));
+  if (konflikti.length > 0) return { stanje, ishod: { ok: true, vrednost: { status: "konflikt", artikli: konflikti } } };
+  const nove = new Map(promene.map((promena) => [promena.artikalId, promena.nova]));
+  const promenjeni = new Set(
+    promene.filter((promena) => poKljucu.get(promena.artikalId)!.basePriceRsd !== promena.nova).map((promena) => promena.artikalId),
+  );
+  const broj = promenjeni.size;
+  // A combo keeps its manual price and gets "Proveri cenu" when a component's price changes
+  // (flagCombosForPriceChange); a combo whose own price is set in the batch loses the flag.
+  const komboPromene = new Map<string, string[]>();
+  for (const row of stanje.snapshot.comboComponents) {
+    if (!promenjeni.has(row.componentKey) || poKljucu.get(row.componentKey)?.kind !== "item") continue;
+    komboPromene.set(row.comboKey, [...(komboPromene.get(row.comboKey) ?? []), row.componentKey]);
+  }
+  const articles = stanje.snapshot.articles.map((article) => {
+    let sledeci = article;
+    for (const componentKey of komboPromene.get(article.key) ?? []) {
+      sledeci = { ...sledeci, priceCheck: nextComboPriceCheck(sledeci.priceCheck, { kind: "price_changed", componentKey, at: sada }) };
+    }
+    if (!promenjeni.has(article.key)) return sledeci;
+    // A new combo price is the owner's answer to "Proveri cenu" (setBasePrice).
+    return { ...sledeci, basePriceRsd: nove.get(article.key)!, ...(article.kind === "combo" ? { priceCheck: null } : {}) };
+  });
+  if (broj === 0) return { stanje, ishod: { ok: true, vrednost: { status: "promenjeno", broj: 0 } } };
+  return {
+    stanje: nacrt(stanje, { ...stanje.snapshot, articles }),
+    ishod: { ok: true, vrednost: { status: "promenjeno", broj } },
+  };
+}
+
+function uticajArtikla(
+  stanje: MemorijaStanje,
+  article: SnapshotArticle,
+): { uticaj: ArticleDeletionImpact; prikaz: StudioUticajArtikla } {
+  const { snapshot } = stanje;
+  const poStranici = new Map<string, number>();
+  for (const placement of snapshot.placements) {
+    if (placement.articleKey === article.key) poStranici.set(placement.pageKey, (poStranici.get(placement.pageKey) ?? 0) + 1);
+  }
+  const stranice = snapshot.pages
+    .filter((page) => poStranici.has(page.key))
+    .sort((a, b) => a.order - b.order || (a.key < b.key ? -1 : 1));
+  const komboKljucevi = [
+    ...new Set(snapshot.comboComponents.filter((row) => row.componentKey === article.key).map((row) => row.comboKey)),
+  ];
+  const kombo = komboKljucevi
+    .map((key) => snapshot.articles.find((candidate) => candidate.key === key && candidate.kind === "combo"))
+    .filter((combo): combo is SnapshotArticle => combo !== undefined);
+  const varijante = snapshot.variants.filter((variant) => variant.articleKey === article.key).length;
+  const roomService = snapshot.roomService.items.some((item) => item.articleKey === article.key);
+  const uticaj: ArticleDeletionImpact = {
+    articleKey: article.key,
+    pages: stranice.map((page) => ({
+      pageKey: page.key,
+      name: page.name,
+      archived: page.archivedAt !== null,
+      placements: poStranici.get(page.key)!,
+    })),
+    combos: kombo.map((combo) => ({ articleKey: combo.key, name: combo.name })),
+    comboComponents: snapshot.comboComponents.filter((row) => row.comboKey === article.key).length,
+    variants: varijante,
+    addonGroupLinks: snapshot.articleAddonGroups.filter((row) => row.articleKey === article.key).length,
+    inRoomService: roomService,
+    unavailable: stanje.nedostupni.has(article.key),
+  };
+  return {
+    uticaj,
+    prikaz: {
+      artikalId: article.key,
+      naziv: article.name,
+      vrsta: article.kind,
+      stranice: uticaj.pages.map((page) => ({ naziv: page.name, arhivirana: page.archived, prikaza: page.placements })),
+      kombo: uticaj.combos.map((combo) => combo.name),
+      varijante,
+      roomService,
+    },
+  };
+}
+
+function uticajSerije(stanje: MemorijaStanje, articles: readonly SnapshotArticle[]): StudioUticajBrisanja {
+  const svi = articles.map((article) => uticajArtikla(stanje, article));
+  return {
+    artikli: svi.map((jedan) => jedan.prikaz),
+    token: bulkDeletionConfirmToken(svi.map((jedan) => jedan.uticaj)),
+    prevelik: false,
+  };
+}
+
+/** What deleting the articles removes, per article (deleteImpact). */
+export function uticajBrisanja(stanje: MemorijaStanje, artikalIds: readonly string[]): MemorijaKorak<StudioUticajBrisanja> {
+  const articles = artikliSerije(stanje, artikalIds);
+  if (typeof articles === "string") return greska(stanje, articles);
+  return { stanje, ishod: { ok: true, vrednost: uticajSerije(stanje, articles) } };
+}
+
+/**
+ * "Obriši artikal" for one or many: only with the token of the impact shown;
+ * otherwise nothing is deleted and the current impact comes back (deleteArticles).
+ * Combos that contained a deleted article lose it and get "Proveri cenu".
+ */
+export function obrisiArtikle(
+  stanje: MemorijaStanje,
+  artikalIds: readonly string[],
+  token: string,
+  sada: number,
+): MemorijaKorak<StudioBrisanjeRezultat> {
+  const articles = artikliSerije(stanje, artikalIds);
+  if (typeof articles === "string") return greska(stanje, articles);
+  const uticaj = uticajSerije(stanje, articles);
+  if (uticaj.token !== token) return { stanje, ishod: { ok: true, vrednost: { status: "potvrdi", uticaj } } };
+  const kljucevi = new Set(articles.map((article) => article.key));
+  const { snapshot } = stanje;
+  const pogodjeniKombo = new Map<string, string[]>();
+  for (const row of snapshot.comboComponents) {
+    if (!kljucevi.has(row.componentKey) || kljucevi.has(row.comboKey)) continue;
+    const ime = snapshot.articles.find((article) => article.key === row.componentKey)!.name;
+    pogodjeniKombo.set(row.comboKey, [...(pogodjeniKombo.get(row.comboKey) ?? []), ime]);
+  }
+  const sledeci: MenuDraftSnapshot = {
+    ...snapshot,
+    articles: snapshot.articles
+      .filter((article) => !kljucevi.has(article.key))
+      .map((article) => {
+        const imena = pogodjeniKombo.get(article.key);
+        if (!imena) return article;
+        // detachComponentFromCombos: each removed component's name once (lib/menu/combo.ts).
+        let priceCheck = article.priceCheck;
+        for (const componentName of imena) priceCheck = nextComboPriceCheck(priceCheck, { kind: "removed", componentName, at: sada });
+        return { ...article, priceCheck };
+      }),
+    placements: snapshot.placements.filter((placement) => !kljucevi.has(placement.articleKey)),
+    variants: snapshot.variants.filter((variant) => !kljucevi.has(variant.articleKey)),
+    articleAddonGroups: snapshot.articleAddonGroups.filter((row) => !kljucevi.has(row.articleKey)),
+    comboComponents: snapshot.comboComponents.filter((row) => !kljucevi.has(row.comboKey) && !kljucevi.has(row.componentKey)),
+    roomService: { ...snapshot.roomService, items: snapshot.roomService.items.filter((item) => !kljucevi.has(item.articleKey)) },
+  };
+  return { stanje: nacrt(stanje, sledeci), ishod: { ok: true, vrednost: { status: "obrisano", broj: articles.length } } };
 }

@@ -4,7 +4,7 @@
 // header, footer, h1): inside the editor the preview is a picture of the
 // page, and the editor already has its own main region and its one h1.
 
-import type { CSSProperties } from "react";
+import { memo, type CSSProperties } from "react";
 import { clampMenuDesign, compileMenuTokens, type MenuDesign } from "@/lib/design-engine/menu-tokens";
 import { menuSr } from "@/lib/i18n/sr/menu";
 import type { StudioPregledView } from "@/lib/menu/studio/legacy-preview";
@@ -19,7 +19,9 @@ function izgled(design: MenuDesign) {
   return { style: tokens as CSSProperties, scale: design.typography.scale, align: design.typography.alignment };
 }
 
-export function PregledSadrzaj({
+// K11: memoized — the save status changes on every drag, move or group action, and
+// redrawing a 400-article preview each time made a drop wait (props are stable).
+export const PregledSadrzaj = memo(function PregledSadrzaj({
   view,
   slug,
   dizajn,
@@ -48,4 +50,4 @@ export function PregledSadrzaj({
       </div>
     </div>
   );
-}
+});

@@ -111,6 +111,11 @@ export function CenaPolje({
             event.currentTarget.select();
           }}
           onChange={(event) => setTekst(event.target.value)}
+          // K11: the focused price is selected; the browser would let that text be dragged out
+          // (moving it into another field and leaving this one empty, i.e. "no price") or a
+          // text be dropped in. A price changes only by typing.
+          onDragStart={(event) => event.preventDefault()}
+          onDrop={(event) => event.preventDefault()}
           onKeyDown={naTaster}
           onBlur={() => {
             potvrdi();

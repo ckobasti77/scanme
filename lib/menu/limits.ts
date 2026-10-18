@@ -38,6 +38,8 @@ export const MENU_MAX_COMBOS_PER_COMPONENT = 200;
 export const MENU_MAX_PLACEMENTS_PER_ARTICLE = 1000;
 /** K04 — tags (oznake) on one article. */
 export const MENU_MAX_TAGS_PER_ARTICLE = 12;
+/** K11 — articles or placements one `Izaberi više` action may touch (menuBulk). */
+export const MENU_MAX_BULK_BATCH = 200;
 
 /** Text lengths, in characters after whitespace cleaning. */
 export const MENU_TEXT = {

@@ -169,6 +169,43 @@ export type StudioObjavaRezultat =
   | { status: "objavljeno"; verzija: number }
   | { status: "odbijeno"; razlog: "stale_draft" | "no_changes" | "validation_failed" | "confirmation_required" };
 
+// K11 — group actions and deletion with consequences (master §5.6, §13.4).
+
+/** One price of `Promeni cene`, with the price the owner saw (compare-and-set). */
+export type StudioPromenaCene = { artikalId: string; ocekivana: number | null; nova: number };
+
+export type StudioCeneRezultat =
+  | { status: "promenjeno"; broj: number }
+  /** A price changed meanwhile: nothing was written (all or nothing). */
+  | { status: "konflikt"; artikli: { artikalId: string; sacuvano: number | null }[] };
+
+/** What deleting one article removes: the pages that show it and the combos that contain it. */
+export type StudioUticajArtikla = {
+  artikalId: string;
+  naziv: string;
+  vrsta: "item" | "combo";
+  stranice: { naziv: string; arhivirana: boolean; prikaza: number }[];
+  /** Names of the combo articles that lose it (and get "Proveri cenu"). */
+  kombo: string[];
+  varijante: number;
+  roomService: boolean;
+};
+
+export type StudioUticajBrisanja = {
+  artikli: StudioUticajArtikla[];
+  /** Confirms exactly this impact; a changed impact needs a new look. */
+  token: string;
+  /** An article is on more places than one deletion may remove. */
+  prevelik: boolean;
+};
+
+export type StudioBrisanjeRezultat =
+  | { status: "obrisano"; broj: number }
+  /** The impact changed since it was shown: nothing was deleted. */
+  | { status: "potvrdi"; uticaj: StudioUticajBrisanja };
+
+export type StudioSekcijaStranice = { id: string; naziv: string };
+
 export type StudioRadnje = {
   // Pages (master §3.2) — the page column only.
   dodajStranicu(naziv: string): Promise<StudioIshod<{ id: string }>>;
@@ -199,4 +236,19 @@ export type StudioRadnje = {
   // Publishing (master §6.1).
   pregledObjave(): Promise<StudioIshod<StudioPregledObjave>>;
   objavi(revizija: number, potvrda: string | undefined): Promise<StudioIshod<StudioObjavaRezultat>>;
+  // K11 — order: drag and drop and `Premesti` (draft).
+  /** Moves a row into `uSekciju` (same page), directly before `prePrikaza` (null = the end). */
+  premestiPrikaz(prikazId: string, uSekciju: string, prePrikaza: string | null): Promise<StudioIshod>;
+  premestiSekciju(sekcijaId: string, naIndeks: number): Promise<StudioIshod>;
+  // K11 — article states and `Izaberi više` (one call each, at most 200 ids).
+  /** LIVE: "Privremeno nedostupno" goes to guests at once, without Objavi. */
+  postaviDostupnost(artikalIds: readonly string[], dostupno: boolean): Promise<StudioIshod<{ promenjeno: number }>>;
+  postaviVidljivost(prikazIds: readonly string[], sakriveno: boolean): Promise<StudioIshod<{ promenjeno: number }>>;
+  ukloniSaStranice(prikazIds: readonly string[]): Promise<StudioIshod<{ uklonjeno: number }>>;
+  premestiUSekciju(prikazIds: readonly string[], sekcijaId: string): Promise<StudioIshod<{ premesteno: number; preskoceno: number }>>;
+  dodajNaStranicu(artikalIds: readonly string[], sekcijaId: string): Promise<StudioIshod<{ dodato: number; preskoceno: number }>>;
+  sekcijeStranice(stranicaId: string): Promise<StudioIshod<StudioSekcijaStranice[]>>;
+  postaviCene(promene: readonly StudioPromenaCene[]): Promise<StudioIshod<StudioCeneRezultat>>;
+  uticajBrisanja(artikalIds: readonly string[]): Promise<StudioIshod<StudioUticajBrisanja>>;
+  obrisiArtikle(artikalIds: readonly string[], token: string): Promise<StudioIshod<StudioBrisanjeRezultat>>;
 };

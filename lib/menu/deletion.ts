@@ -56,3 +56,12 @@ export function deletionConfirmToken(impact: ArticleDeletionImpact): string {
     `un:${impact.unavailable ? 1 : 0}`,
   ].join("|");
 }
+
+/**
+ * K11 — "Izaberi više" → Obriši: one token over the impact of every article
+ * of the batch (order-independent). It changes when the impact of any one of
+ * them changes, so the batch is deleted only as it was shown.
+ */
+export function bulkDeletionConfirmToken(impacts: readonly ArticleDeletionImpact[]): string {
+  return ["bulk1", ...impacts.map(deletionConfirmToken).sort(byText)].join("#");
+}

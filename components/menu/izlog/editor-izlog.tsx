@@ -14,6 +14,7 @@ import type { EditorPreviewParams } from "@/lib/menu/izlog-params";
 import { sadrzajIzSnapshota, straniceIzSnapshota } from "@/lib/menu/studio/iz-snapshota";
 import * as m from "@/lib/menu/studio/memorija";
 import type { StudioIshod, StudioPodaci, StudioRadnje } from "@/lib/menu/studio/model";
+import type { PonudaPocetno } from "../studio/ponuda/radni-prostor";
 import { StudioEditor } from "../studio/studio-editor";
 
 const PAUZA_MS = 250;
@@ -56,6 +57,29 @@ function pocetno(params: EditorPreviewParams): { stanje: m.MemorijaStanje; lokal
   return { stanje, lokal: meni.venueName, slug: meni.slug };
 }
 
+/**
+ * K11 `stanje=izaberi-vise`: the mode on, five rows selected in two sections
+ * (one of them an article with variants, which the price change skips) and
+ * the price dialog open with +10 %.
+ */
+function izaberiVisePocetno(stanje: m.MemorijaStanje): PonudaPocetno {
+  const glavna = stanje.snapshot.pages.find((page) => page.isDefault);
+  const sadrzaj = glavna ? sadrzajIzSnapshota(stanje.snapshot, glavna.key) : null;
+  const sekcije = sadrzaj?.sekcije ?? [];
+  const sVarijantama = sekcije.find((sekcija) => sekcija.redovi.some((red) => red.artikal.varijante));
+  const prva = sekcije.find((sekcija) => sekcija !== sVarijantama) ?? sekcije[0];
+  const izbor = [
+    ...(prva?.redovi.filter((red) => !red.artikal.varijante).slice(0, 3) ?? []),
+    ...(sVarijantama
+      ? [
+          sVarijantama.redovi.find((red) => red.artikal.varijante),
+          sVarijantama.redovi.find((red) => !red.artikal.varijante),
+        ].filter((red) => red !== undefined)
+      : []),
+  ].map((red) => red.prikazId);
+  return { izbor, cene: { nacin: "procenat", smer: "povecaj", vrednost: "10" } };
+}
+
 export function EditorIzlog({ params }: { params: EditorPreviewParams }) {
   const [{ lokal, slug, stanje: prvo }] = useState(() => pocetno(params));
   const [stanje, setStanje] = useState(prvo);
@@ -95,6 +119,18 @@ export function EditorIzlog({ params }: { params: EditorPreviewParams }) {
       postaviCenu: (artikalId, ocekivana, nova) => izvrsi((s) => m.postaviCenu(s, artikalId, ocekivana, nova)),
       pregledObjave: () => izvrsi((s) => ({ stanje: s, ishod: { ok: true, vrednost: m.pregledObjave(s, true) } })),
       objavi: (revizija, potvrda) => izvrsi((s) => m.objavi(s, revizija, potvrda, IZLOG_SADA)),
+      // K11
+      premestiPrikaz: (prikazId, uSekciju, prePrikaza) => izvrsi((s) => m.premestiPrikaz(s, prikazId, uSekciju, prePrikaza)),
+      premestiSekciju: (sekcijaId, naIndeks) => izvrsi((s) => m.premestiSekciju(s, sekcijaId, naIndeks)),
+      postaviDostupnost: (artikalIds, dostupno) => izvrsi((s) => m.postaviDostupnost(s, artikalIds, dostupno)),
+      postaviVidljivost: (prikazIds, sakriveno) => izvrsi((s) => m.postaviVidljivost(s, prikazIds, sakriveno)),
+      ukloniSaStranice: (prikazIds) => izvrsi((s) => m.ukloniSaStranice(s, prikazIds)),
+      premestiUSekciju: (prikazIds, sekcijaId) => izvrsi((s) => m.premestiUSekciju(s, prikazIds, sekcijaId)),
+      dodajNaStranicu: (artikalIds, sekcijaId) => izvrsi((s) => m.dodajNaStranicu(s, artikalIds, sekcijaId)),
+      sekcijeStranice: (stranicaId) => izvrsi((s) => m.sekcijeStranice(s, stranicaId)),
+      postaviCene: (promene) => izvrsi((s) => m.postaviCene(s, promene, IZLOG_SADA)),
+      uticajBrisanja: (artikalIds) => izvrsi((s) => m.uticajBrisanja(s, artikalIds)),
+      obrisiArtikle: (artikalIds, token) => izvrsi((s) => m.obrisiArtikle(s, artikalIds, token, IZLOG_SADA)),
     }),
     [izvrsi],
   );
@@ -140,6 +176,7 @@ export function EditorIzlog({ params }: { params: EditorPreviewParams }) {
       dizajnPregleda={params.darkDesign ? DARK_MENU_DESIGN : null}
       pocetno={{
         tabela: params.stanje === "brzi-unos",
+        ...(params.stanje === "izaberi-vise" ? { ponuda: izaberiVisePocetno(prvo) } : {}),
         ...(params.pogled === "struktura" ? { pano: "struktura" as const, preklop: "struktura" as const } : {}),
         ...(params.pogled === "pregled" ? { pano: "pregled" as const, preklop: "pregled" as const } : {}),
       }}
