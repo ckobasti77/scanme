@@ -3,13 +3,16 @@
 // venue and the role and plan from the query string. Links stay inside the
 // izlog (the same route with another `sekcija`, the waiter izlog for staff).
 
-import { Construction } from "lucide-react";
-import Link from "next/link";
 import { fixtureVenue } from "@/components/menu/fixtures";
 import { fmt } from "@/lib/i18n/format";
 import { menuDomenSr } from "@/lib/i18n/sr/menu-domen";
 import { menuPanelSr } from "@/lib/i18n/sr/menu-panel";
-import { izlogHref, PANEL_ULOGA_AKTER, type PanelPreviewParams } from "@/lib/menu/izlog-params";
+import {
+  izlogHref,
+  PANEL_ULOGA_AKTER,
+  type EditorPreviewParams,
+  type PanelPreviewParams,
+} from "@/lib/menu/izlog-params";
 import {
   panelNavStavke,
   panelPristup,
@@ -25,44 +28,24 @@ import {
   PanelUcitavanje,
   SekcijaZabranjena,
 } from "../panel/stanja-panela";
-import { Dugme } from "../zajednicko/dugme";
-import { Kartica } from "../zajednicko/kartica";
-import { PraznoStanje } from "../zajednicko/stanja";
-import { ZaglavljeSaStatusom } from "../zajednicko/zaglavlje-sa-statusom";
+import { EditorIzlog } from "./editor-izlog";
 
 const t = menuPanelSr;
 export const PANEL_IZLOG_PUTANJA = "/dev/menu-panel-preview";
 
-/** Until K10 the Editor item opens the existing editor; the izlog shows the collapsed rail with an honest note. */
-function IzlogEditor({ editorIzlogHref }: { editorIzlogHref: string }) {
-  return (
-    <>
-      <ZaglavljeSaStatusom naslov={t.sekcije.editor} opis={t.sekcija.opisi.editor} />
-      <Kartica data-izlog-korak="K10">
-        <PraznoStanje
-          ikonica={Construction}
-          naslov={fmt(t.izlog.editorKorak, { korak: "K10" })}
-          opis={t.izlog.editorOpis}
-          akcija={
-            <Dugme asChild vrsta="sekundarno">
-              <Link href={editorIzlogHref}>{t.izlog.otvoriIzlogEditora}</Link>
-            </Dugme>
-          }
-        />
-      </Kartica>
-    </>
-  );
-}
-
 export function PanelIzlog({
   params,
+  editor,
 }: {
   /** `sekcija=primitivi` is the primitives page of the route, not a panel section. */
   params: PanelPreviewParams & { sekcija: PanelNavSekcija };
+  /** /dev/menu-editor-preview passes its own editor states. */
+  editor?: EditorPreviewParams;
 }) {
   const { tema, plan, uloga, sekcija, stanje } = params;
   const actor = PANEL_ULOGA_AKTER[uloga];
-  const lokal = fixtureVenue("restaurant").name;
+  // The large editor fixture is the hotel; every other screen shows the restaurant.
+  const lokal = fixtureVenue(sekcija === "editor" && editor?.stanje === "veliki" ? "hotel" : "restaurant").name;
   const href = (cilj: PanelNavSekcija) => izlogHref(PANEL_IZLOG_PUTANJA, { sekcija: cilj, uloga, plan, tema });
   const pocetnaIzloga = izlogHref(PANEL_IZLOG_PUTANJA, { tema });
   const konobarIzloga = izlogHref("/dev/menu-konobar-preview", { ekran: "pin", tema });
@@ -86,7 +69,22 @@ export function PanelIzlog({
   if (!sekcijaVidljiva(actor, sekcija)) {
     sadrzaj = <SekcijaZabranjena naslov={t.sekcije[sekcija]} uloga={ulogaTekst} pocetnaHref={href("pocetna")} />;
   } else if (sekcija === "editor") {
-    sadrzaj = <IzlogEditor editorIzlogHref={izlogHref("/dev/menu-editor-preview", { tema })} />;
+    // K10: the real editor with the invented menu; /dev/menu-editor-preview has its states.
+    sadrzaj = (
+      <EditorIzlog
+        params={
+          editor ?? {
+            tema,
+            empty: false,
+            darkDesign: false,
+            stanje: null,
+            pogled: null,
+            plan,
+            stariEditor: false,
+          }
+        }
+      />
+    );
   } else {
     sadrzaj = (
       <SekcijaUPripremi

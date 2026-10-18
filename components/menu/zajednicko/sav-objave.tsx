@@ -34,7 +34,8 @@ export function SavObjave({
 }: {
   /** The live version and when, already phrased ("danas u 14:32", "12. 10. u 9:05"); null = never published. */
   objavljeno: { broj: number; kada: string } | null;
-  neobjavljeneIzmene: number;
+  /** How many unpublished changes; "ima" when only their existence is known (the editor, K10). */
+  neobjavljeneIzmene: number | "ima";
   /** Autosave state of the draft; omitted where nothing is edited. */
   cuvanje?: SavObjaveCuvanje;
   /** Shown as "Pokušaj ponovo" while saving failed (client callers); the edit stays on screen. */
@@ -43,7 +44,7 @@ export function SavObjave({
   akcija?: ReactNode;
   className?: string;
 }) {
-  const imaIzmena = neobjavljeneIzmene > 0;
+  const imaIzmena = neobjavljeneIzmene === "ima" || neobjavljeneIzmene > 0;
   return (
     <div
       role="group"
@@ -88,7 +89,7 @@ export function SavObjave({
         ) : (
           <CircleCheck aria-hidden="true" strokeWidth={2} className="size-4 shrink-0 text-[var(--mp-uspeh)]" />
         )}
-        <span>{izmeneTekst(neobjavljeneIzmene)}</span>
+        <span>{neobjavljeneIzmene === "ima" ? t.objava.imaIzmena : izmeneTekst(neobjavljeneIzmene)}</span>
       </span>
 
       {cuvanje ? (

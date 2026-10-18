@@ -188,6 +188,7 @@ import type * as menuPublishing from "../menuPublishing.js";
 import type * as menuRoomService from "../menuRoomService.js";
 import type * as menuServices from "../menuServices.js";
 import type * as menuSettings from "../menuSettings.js";
+import type * as menuStudio from "../menuStudio.js";
 import type * as migrations from "../migrations.js";
 import type * as offerLogoUploads from "../offerLogoUploads.js";
 import type * as ordering from "../ordering.js";
@@ -397,6 +398,7 @@ declare const fullApi: ApiFromModules<{
   menuRoomService: typeof menuRoomService;
   menuServices: typeof menuServices;
   menuSettings: typeof menuSettings;
+  menuStudio: typeof menuStudio;
   migrations: typeof migrations;
   offerLogoUploads: typeof offerLogoUploads;
   ordering: typeof ordering;

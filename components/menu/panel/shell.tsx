@@ -222,9 +222,15 @@ export function MenuPanelShell({
       <main
         id={MENU_PANEL_SADRZAJ_ID}
         tabIndex={-1}
-        className="min-w-0 px-4 pb-24 pt-6 outline-none sm:px-6 lg:px-8 lg:pb-16 lg:pt-10"
+        className={cn(
+          "min-w-0 px-4 pb-24 pt-6 outline-none sm:px-6 lg:pb-16",
+          // K10: the Editor needs the width for structure, work and live preview (MENU-UX §8).
+          aktivna === "editor" ? "pt-0 lg:px-6" : "lg:px-8 lg:pt-10",
+        )}
       >
-        <div className="mx-auto grid max-w-[72rem] gap-8">{children}</div>
+        <div className={cn("mx-auto grid gap-8", aktivna === "editor" ? "max-w-[100rem]" : "max-w-[72rem]")}>
+          {children}
+        </div>
       </main>
     </MenuPovrsina>
   );

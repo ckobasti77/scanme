@@ -32,6 +32,7 @@ export const menuZajednickoSr = {
     nikadObjavljeno: "Meni još nije objavljen",
     gostiNeVide: "gosti još ne vide meni",
     bezIzmena: "Nema neobjavljenih izmena",
+    imaIzmena: "Ima neobjavljenih izmena",
     izmeneOne: "{n} neobjavljena izmena",
     izmeneFew: "{n} neobjavljene izmene",
     izmeneMany: "{n} neobjavljenih izmena",

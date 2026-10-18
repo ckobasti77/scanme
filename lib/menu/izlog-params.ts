@@ -190,19 +190,41 @@ export function parseLokalPreview(params: IzlogSearchParams): LokalPreviewParams
 // /dev/menu-editor-preview and /dev/menu-public-preview (existing routes)
 // ---------------------------------------------------------------------------
 
+/** K10: the editor's showcase states (docs/MENI-PLAN.md §7); absent = a realistic medium menu. */
+export const EDITOR_STANJA = ["prazno", "veliki", "brzi-unos"] as const;
+export type EditorStanje = (typeof EDITOR_STANJA)[number];
+
+/** K10: which pane, drawer or overlay is open on the narrower layouts (for snapshots). */
+export const EDITOR_POGLEDI = ["struktura", "uredi", "pregled"] as const;
+export type EditorPogled = (typeof EDITOR_POGLEDI)[number];
+
 export type EditorPreviewParams = {
   tema: IzlogTema | null;
-  /** Existing `?state=empty` (TASK-51). */
+  /** Existing `?state=empty` (TASK-51); since K10 the same as `stanje=prazno`. */
   empty: boolean;
   /** Existing `?design=dark` (TASK-51): the dark design of the old renderer, not the app theme. */
   darkDesign: boolean;
+  /** K10: `stanje=prazno|veliki|brzi-unos`; null = the medium menu. */
+  stanje: EditorStanje | null;
+  /** K10: `pogled=struktura|uredi|pregled`. */
+  pogled: EditorPogled | null;
+  /** K10: `plan=standard|premium` (Premium switches Room service on). */
+  plan: (typeof PANEL_PLANOVI)[number];
+  /** K10: `editor=stari` shows the legacy editor (legacy menus still use it). */
+  stariEditor: boolean;
 };
 
 export function parseEditorPreview(params: IzlogSearchParams): EditorPreviewParams {
+  const empty = firstParam(params.state) === "empty";
+  const stanje = pickOptional(params.stanje, EDITOR_STANJA) ?? (empty ? "prazno" : null);
   return {
     tema: parseTema(params.tema),
-    empty: firstParam(params.state) === "empty",
+    empty: empty || stanje === "prazno",
     darkDesign: firstParam(params.design) === "dark",
+    stanje,
+    pogled: pickOptional(params.pogled, EDITOR_POGLEDI),
+    plan: pickParam(params.plan, PANEL_PLANOVI, "standard"),
+    stariEditor: firstParam(params.editor) === "stari",
   };
 }
 

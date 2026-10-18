@@ -33,7 +33,6 @@ const LINKS_NS = ["--", "links", "-"].join("");
 
 const PUTANJA = "/dev/menu-panel-preview";
 const KONOBAR_PIN = "/dev/menu-konobar-preview?ekran=pin";
-const EDITOR_IZLOG = "/dev/menu-editor-preview";
 const SVE_SEKCIJE: readonly PanelNavSekcija[] = PANEL_NAV_SEKCIJE;
 
 /**
@@ -297,7 +296,9 @@ describe("uloga=urednik", () => {
   test("the Editor section is shown to the editor role, with the collapsed rail", () => {
     const html = panel({ uloga: "urednik", sekcija: "editor" });
     expect(html).toContain('data-nav="skupljena"');
-    expect(html).toContain('data-izlog-korak="K10"');
+    // K10: the real editor, not an "in preparation" note.
+    expect(html).toContain("data-studio=");
+    expect(html).not.toContain("data-izlog-korak");
     expect(html).not.toContain("data-sekcija-zabranjena");
   });
 });
@@ -414,15 +415,14 @@ describe("sekcija=editor", () => {
     for (const link of navLinks(html)) expect(attr(link.tag, "title")).toBe(t.sekcije[link.sekcija as PanelNavSekcija]);
   });
 
-  test("the content says which step builds the Editor and links to the izlog Editor", () => {
+  // K10 (intended change, ODLUKE K10): the section is the real editor on an
+  // invented menu, so the old "built in K10" note and its link are gone.
+  test("the content is the real editor, opened on the main page of the menu", () => {
     const main = element(html, "main");
     expect(count(html, "<h1")).toBe(1);
-    expect(naslovi(main, 1)).toEqual([esc(t.sekcije.editor)]);
-    expect(main).toContain('data-izlog-korak="K10"');
-    expect(naslovi(main, 2)).toEqual([esc(fmt(t.izlog.editorKorak, { korak: "K10" }))]);
-    expect(main).toContain(`>${esc(t.izlog.editorOpis)}</p>`);
-    const editor = sidra(main).filter((link) => link.text === esc(t.izlog.otvoriIzlogEditora));
-    expect(editor.map((link) => link.href)).toEqual([EDITOR_IZLOG]);
+    expect(naslovi(main, 1)).toEqual([esc(menuDomenSr.defaultPageName)]);
+    expect(main).toContain("data-studio=");
+    expect(main).not.toContain("data-izlog-korak");
   });
 
   test("no section-in-preparation list is shown for the Editor", () => {
@@ -534,13 +534,6 @@ describe("tema", () => {
     expect(sidra(panel({ uloga: "osoblje", tema: "tamna" })).map((link) => link.href)).toEqual([
       `${PUTANJA}?tema=tamna`,
       `${KONOBAR_PIN}&tema=tamna`,
-    ]);
-  });
-
-  test("the Editor section keeps the theme in its link to the izlog Editor", () => {
-    const links = sidra(panel({ sekcija: "editor", tema: "tamna" }));
-    expect(links.filter((link) => link.text === esc(t.izlog.otvoriIzlogEditora)).map((link) => link.href)).toEqual([
-      `${EDITOR_IZLOG}?tema=tamna`,
     ]);
   });
 

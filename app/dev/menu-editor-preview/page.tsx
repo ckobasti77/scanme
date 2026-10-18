@@ -1,25 +1,25 @@
-// Dev-only Menu editor preview (TASK-51 browser QA): mounts the REAL
-// MenuEditorWorkspace with fixture data so the five group shapes, every
-// panel, the desktop rail and the mobile dock can be exercised in a browser
-// without an authenticated business. Autosave/publish hit Convex with a fake
-// menu id and land in the honest failed-with-retry state — the server paths
-// are proven by convex/menu.test.ts; this page proves the chrome and the
-// preview. Unavailable in production, mirroring app/dev/venue-preview.
+// Dev-only editor izlog (K10): the REAL ScanMe Menu editor inside the real
+// panel shell, on an invented menu held in memory — every action works
+// (lib/menu/studio/memorija.ts), nothing calls Convex. Unavailable in
+// production, not indexed. Parameters (docs/MENI-PLAN.md §7; unknown → default):
 //
-//   /dev/menu-editor-preview            → the fixture menu (default design)
-//   ?state=empty                        → a menu with no groups yet
-//   ?design=dark                        → dark token variant
-//   ?tema=svetla|tamna                  → forces the app theme while open (K07)
+//   (none)                       the medium menu ("Demo restoran"), Standard plan
+//   ?stanje=prazno|veliki|brzi-unos
+//   ?state=empty                 TASK-51, the same as stanje=prazno
+//   ?design=dark                 TASK-51, the dark design of the preview
+//   ?pogled=struktura|uredi|pregled   the pane, drawer or overlay open (snapshots)
+//   ?plan=standard|premium       Premium switches Room service on
+//   ?editor=stari                the legacy editor (legacy menus still use it)
+//   ?tema=svetla|tamna           the app theme (K07)
 
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import type { Id } from "@/convex/_generated/dataModel";
 import { MenuEditorWorkspace } from "@/components/menu/editor/menu-editor";
 import type { MenuEditorData } from "@/components/menu/editor/menu-editor-types";
-import {
-  DARK_MENU_DESIGN,
-  fixtureModel,
-} from "@/components/menu/menu-fixtures";
+import { IzlogOkvir } from "@/components/menu/izlog/izlog-okvir";
+import { PanelIzlog } from "@/components/menu/izlog/panel-izlog";
+import { DARK_MENU_DESIGN, fixtureModel } from "@/components/menu/menu-fixtures";
 import { IzlogTema } from "@/components/menu/zajednicko/izlog-tema";
 import { menuZajednickoSr } from "@/lib/i18n/sr/menu-zajednicko";
 import { parseEditorPreview } from "@/lib/menu/izlog-params";
@@ -31,15 +31,9 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default async function MenuEditorPreviewPage({
-  searchParams,
-}: PageProps<"/dev/menu-editor-preview">) {
-  if (process.env.NODE_ENV === "production") notFound();
-
-  const params = parseEditorPreview(await searchParams);
-  const empty = params.empty;
+/** The legacy editor as TASK-51 showed it (autosave lands in its honest failed-with-retry state). */
+function StariEditor({ empty, darkDesign }: { empty: boolean; darkDesign: boolean }) {
   const model = empty ? { groups: [], dayparts: [] } : fixtureModel();
-
   const data: MenuEditorData = {
     businessId: "businesses_fixture" as Id<"businesses">,
     businessName: "Kafana kod Mike",
@@ -50,12 +44,9 @@ export default async function MenuEditorPreviewPage({
       id: "menus_fixture" as Id<"menus">,
       status: "draft",
       draftModel: model as unknown as NonNullable<MenuEditorData["menu"]>["draftModel"],
-      draftDesign:
-        params.darkDesign
-          ? (DARK_MENU_DESIGN as unknown as NonNullable<
-              MenuEditorData["menu"]
-            >["draftDesign"])
-          : null,
+      draftDesign: darkDesign
+        ? (DARK_MENU_DESIGN as unknown as NonNullable<MenuEditorData["menu"]>["draftDesign"])
+        : null,
       blockImageUrls: {},
       draftRevision: 0,
       publishedRevision: 0,
@@ -63,11 +54,32 @@ export default async function MenuEditorPreviewPage({
       hasUnpublishedChanges: false,
     },
   };
+  return <MenuEditorWorkspace data={data} />;
+}
 
+export default async function MenuEditorPreviewPage({
+  searchParams,
+}: PageProps<"/dev/menu-editor-preview">) {
+  if (process.env.NODE_ENV === "production") notFound();
+
+  const params = parseEditorPreview(await searchParams);
+  if (params.stariEditor) {
+    return (
+      <>
+        <IzlogTema tema={params.tema} />
+        <StariEditor empty={params.empty} darkDesign={params.darkDesign} />
+      </>
+    );
+  }
   return (
     <>
       <IzlogTema tema={params.tema} />
-      <MenuEditorWorkspace data={data} />
+      <IzlogOkvir ruta="editor" tema={params.tema} ceoEkran>
+        <PanelIzlog
+          params={{ tema: params.tema, sekcija: "editor", plan: params.plan, uloga: "vlasnik", stanje: null, fiokaOtvorena: false }}
+          editor={params}
+        />
+      </IzlogOkvir>
     </>
   );
 }

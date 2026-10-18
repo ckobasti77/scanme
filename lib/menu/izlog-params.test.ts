@@ -167,14 +167,40 @@ describe("/dev/menu-lokal-preview", () => {
 });
 
 describe("existing parameters keep working (TASK-51, TASK-52)", () => {
+  // K10 (intended change, ODLUKE K10): the result carries the new editor states;
+  // state=empty and design=dark mean what they meant before.
   test("editor: state=empty and design=dark", () => {
-    expect(parseEditorPreview({})).toEqual({ tema: null, empty: false, darkDesign: false });
-    expect(parseEditorPreview({ state: "empty", design: "dark" })).toEqual({
+    const podrazumevano = {
       tema: null,
+      empty: false,
+      darkDesign: false,
+      stanje: null,
+      pogled: null,
+      plan: "standard",
+      stariEditor: false,
+    };
+    expect(parseEditorPreview({})).toEqual(podrazumevano);
+    expect(parseEditorPreview({ state: "empty", design: "dark" })).toEqual({
+      ...podrazumevano,
       empty: true,
       darkDesign: true,
+      stanje: "prazno",
     });
     expect(parseEditorPreview({ state: "full", design: "light" })).toEqual(parseEditorPreview({}));
+  });
+
+  test("editor (K10): stanje, pogled, plan and editor=stari; unknown values give the default", () => {
+    expect(parseEditorPreview({ stanje: "veliki" }).stanje).toBe("veliki");
+    expect(parseEditorPreview({ stanje: "brzi-unos" }).stanje).toBe("brzi-unos");
+    expect(parseEditorPreview({ stanje: "prazno" }).empty).toBe(true);
+    expect(parseEditorPreview({ stanje: "ogroman" }).stanje).toBeNull();
+    expect(parseEditorPreview({ pogled: "pregled" }).pogled).toBe("pregled");
+    expect(parseEditorPreview({ pogled: "3d" }).pogled).toBeNull();
+    expect(parseEditorPreview({ plan: "premium" }).plan).toBe("premium");
+    expect(parseEditorPreview({ plan: "zlatni" }).plan).toBe("standard");
+    expect(parseEditorPreview({ editor: "stari" }).stariEditor).toBe(true);
+    expect(parseEditorPreview({ editor: "novi" }).stariEditor).toBe(false);
+    expect(parseEditorPreview({ stanje: ["veliki", "prazno"] }).stanje).toBe("veliki");
   });
 
   test("public: state=long and design=dark, independent of ?tema", () => {

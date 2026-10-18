@@ -1,0 +1,406 @@
+"use client";
+
+// ScanMe Menu V1 — the editor (K10; master §13.4, docs/meni/planovi/K09.md).
+// Presentational: data comes in as StudioPodaci, every change goes out through
+// StudioRadnje (Convex in the app, memory in the izlog). This component owns
+// only UI state: the mode (`Ponuda` / `Izgled`), the phone pane, overlays and
+// the save queue. Layout by window width (MENU-UX §8):
+//   ≥ 1280 structure | work | live preview
+//   1024–1279 structure | work, preview as an overlay
+//   768–1023 work, structure in a drawer, preview as an overlay
+//   < 768 `Struktura / Uredi / Pregled`
+
+import { BedDouble, ChevronDown, Palette } from "lucide-react";
+import { useCallback, useId, useMemo, useState, type ReactNode } from "react";
+import { fmt } from "@/lib/i18n/format";
+import { menuDomenSr } from "@/lib/i18n/sr/menu-domen";
+import { menuStudioSr } from "@/lib/i18n/sr/menu-studio";
+import type { MenuDesign } from "@/lib/design-engine/menu-tokens";
+import { kljucCene } from "@/lib/menu/studio/autosave-queue";
+import { pregledIzSadrzaja } from "@/lib/menu/studio/legacy-preview";
+import type { StudioPodaci, StudioRadnje, StudioRadniSadrzaj } from "@/lib/menu/studio/model";
+import { sadrzajSaCekanjem } from "@/lib/menu/studio/overlay";
+import { cn } from "@/lib/utils";
+import { Dugme } from "../zajednicko/dugme";
+import { Fioka } from "../zajednicko/fioka";
+import { Kartica } from "../zajednicko/kartica";
+import { PraznoStanje, UcitavanjeStanje } from "../zajednicko/stanja";
+import { NoviKombo } from "./kombo/novi-kombo";
+import { ObjavaDijalog } from "./objava/objava-dijalog";
+import { PonudaRadniProstor, type PonudaRadnje } from "./ponuda/radni-prostor";
+import { PregledNacrta, type StudioUredjaj } from "./pregled/pregled-nacrta";
+import { Segmenti } from "./shell/segmenti";
+import { useSirina } from "./shell/use-sirina";
+import { StudioZaglavlje, type StudioTab } from "./shell/zaglavlje";
+import { useAutosave } from "./status-cuvanja/use-autosave";
+import { StraniceKolona, type StraniceRadnje } from "./stranice/stranice-kolona";
+import { dodatoTekst, TabelarniUnos } from "./tabelarni-unos/tabelarni-unos";
+
+const t = menuStudioSr;
+
+export type StudioPano = "struktura" | "uredi" | "pregled";
+
+export type StudioPocetno = {
+  tab?: StudioTab;
+  pano?: StudioPano;
+  /** Opens the structure drawer or the preview overlay on the narrower layouts (izlog `pogled`). */
+  preklop?: "struktura" | "pregled";
+  tabela?: boolean;
+};
+
+export function StudioEditor({
+  podaci,
+  radnje,
+  izabranaStranica,
+  onIzaberiStranicu,
+  pocetno = {},
+  dizajnPregleda = null,
+}: {
+  podaci: StudioPodaci;
+  radnje: StudioRadnje;
+  /** The open page (null = the default page). */
+  izabranaStranica: string | null;
+  onIzaberiStranicu: (id: string) => void;
+  pocetno?: StudioPocetno;
+  /** The izlog's `design=dark` for the interim preview. */
+  dizajnPregleda?: MenuDesign | null;
+}) {
+  const { kontekst, stranice, status, nedostupni } = podaci;
+  const sirina = useSirina();
+  const red = useAutosave();
+  const panelId = useId();
+  const naslovId = useId();
+
+  const [tab, setTab] = useState<StudioTab>(pocetno.tab ?? "ponuda");
+  const [pano, setPano] = useState<StudioPano>(pocetno.pano ?? "uredi");
+  const [strukturaOtvorena, setStrukturaOtvorena] = useState(pocetno.preklop === "struktura");
+  const [pregledOtvoren, setPregledOtvoren] = useState(pocetno.preklop === "pregled");
+  const [uredjaj, setUredjaj] = useState<StudioUredjaj>("telefon");
+  const [roomService, setRoomService] = useState(false);
+  const [tabela, setTabela] = useState(pocetno.tabela ?? false);
+  const [kombo, setKombo] = useState(false);
+  const [objava, setObjava] = useState(false);
+  const [najava, setNajava] = useState("");
+
+  const aktivnaStranica =
+    izabranaStranica ??
+    stranice?.find((s) => s.podrazumevana && !s.arhivirana)?.id ??
+    stranice?.find((s) => !s.arhivirana)?.id ??
+    null;
+  // A new map only when the queue changed (lib/menu/studio/autosave-queue.ts).
+  const naCekanju = red.naCekanju();
+  const sadrzaj = useMemo<StudioRadniSadrzaj | null | undefined>(
+    () => (podaci.sadrzaj ? sadrzajSaCekanjem(podaci.sadrzaj, naCekanju) : podaci.sadrzaj),
+    [podaci.sadrzaj, naCekanju],
+  );
+  const view = useMemo(
+    () => (sadrzaj ? pregledIzSadrzaja(kontekst.lokal, sadrzaj, nedostupni) : null),
+    [sadrzaj, kontekst.lokal, nedostupni],
+  );
+
+  const mozeUredjivanje = kontekst.mozeUredjivanje;
+  const rezim = fmt(menuDomenSr.serviceLabel, { mode: menuDomenSr.modes[kontekst.rezim] });
+
+  // --- actions -------------------------------------------------------------
+  const onCena = useCallback(
+    (artikalId: string, ocekivana: number | null, nova: number | null) =>
+      red.zakazi(kljucCene(artikalId), {
+        ocekivano: ocekivana,
+        vrednost: nova,
+        posalji: (o, v) => radnje.postaviCenu(artikalId, o as number | null, v as number | null),
+      }),
+    [red, radnje],
+  );
+  const ponudaRadnje = useMemo<PonudaRadnje>(
+    () => ({
+      onCena,
+      onPonovo: (artikalId) => red.pokusajPonovo(kljucCene(artikalId)),
+      onZadrziMoju: (artikalId) => red.zadrziMoju(kljucCene(artikalId)),
+      onUzmiSacuvanu: (artikalId) => red.odbaci(kljucCene(artikalId)),
+      dodajSekciju: (naziv) => red.prati(() => radnje.dodajSekciju(aktivnaStranica ?? "", naziv)),
+      preimenujSekciju: (id, naziv, ocekivano) => red.prati(() => radnje.preimenujSekciju(id, naziv, ocekivano)),
+      obrisiSekciju: (id) => red.prati(() => radnje.obrisiSekciju(id)),
+      brziUnos: (sekcijaId, unos, dozvoliDuplikat) => red.prati(() => radnje.brziUnos(sekcijaId, unos, dozvoliDuplikat)),
+      dodajPostojeci: (sekcijaId, artikalId) => red.prati(() => radnje.dodajPostojeci(sekcijaId, artikalId)),
+      otvoriTabelu: () => setTabela(true),
+      otvoriKombo: () => setKombo(true),
+    }),
+    [red, radnje, onCena, aktivnaStranica],
+  );
+  const straniceRadnje = useMemo<StraniceRadnje>(
+    () => ({
+      dodaj: (naziv) => red.prati(() => radnje.dodajStranicu(naziv)),
+      preimenuj: (id, naziv, ocekivano) => red.prati(() => radnje.preimenujStranicu(id, naziv, ocekivano)),
+      dupliraj: (id) => red.prati(() => radnje.duplirajStranicu(id)),
+      premesti: (id, naIndeks) => red.prati(() => radnje.premestiStranicu(id, naIndeks)),
+      arhiviraj: (id) => red.prati(() => radnje.arhivirajStranicu(id)),
+      vrati: (id) => red.prati(() => radnje.vratiStranicu(id)),
+      obrisi: (id) => red.prati(() => radnje.obrisiStranicu(id)),
+    }),
+    [red, radnje],
+  );
+  const onPregledObjave = useCallback(() => radnje.pregledObjave(), [radnje]);
+  const onObjavi = useCallback((revizija: number, potvrda: string | undefined) => red.prati(() => radnje.objavi(revizija, potvrda)), [red, radnje]);
+  const nazivArtikla = useCallback(
+    (artikalKey: string) => {
+      for (const sekcija of sadrzaj?.sekcije ?? []) {
+        for (const r of sekcija.redovi) if (r.artikal.key === artikalKey) return r.artikal.naziv;
+      }
+      return null;
+    },
+    [sadrzaj],
+  );
+
+  const izaberiStranicu = (id: string) => {
+    setRoomService(false);
+    setTab("ponuda");
+    setStrukturaOtvorena(false);
+    if (sirina === "telefon") setPano("uredi");
+    onIzaberiStranicu(id);
+  };
+
+  // --- regions -------------------------------------------------------------
+  const struktura = stranice ? (
+    <StraniceKolona
+      stranice={stranice}
+      izabrana={aktivnaStranica}
+      roomService={kontekst.roomService}
+      roomServiceIzabran={roomService}
+      mozeUredjivanje={mozeUredjivanje}
+      radnje={straniceRadnje}
+      onIzaberi={izaberiStranicu}
+      onRoomService={() => {
+        setRoomService(true);
+        setTab("ponuda");
+        setStrukturaOtvorena(false);
+        if (sirina === "telefon") setPano("uredi");
+      }}
+    />
+  ) : (
+    <UcitavanjeStanje oblik="lista" redova={3} />
+  );
+
+  let rad: ReactNode;
+  if (tab === "izgled") {
+    rad = (
+      <Kartica>
+        <h1 id={naslovId} className="sr-only">
+          {t.izgled.naslov}
+        </h1>
+        <PraznoStanje ikonica={Palette} naslov={t.izgled.naslov} opis={t.izgled.opis} />
+      </Kartica>
+    );
+  } else if (roomService) {
+    rad = (
+      <Kartica>
+        <h1 id={naslovId} className="sr-only">
+          {t.stranice.roomService}
+        </h1>
+        <PraznoStanje ikonica={BedDouble} naslov={t.stranice.roomService} opis={t.stranice.roomServiceUskoro} />
+      </Kartica>
+    );
+  } else if (sadrzaj === undefined) {
+    rad = <UcitavanjeStanje oblik="lista" redova={6} />;
+  } else if (sadrzaj === null) {
+    rad = (
+      <Kartica>
+        <PraznoStanje naslov={t.stanja.greskaNaslov} opis={t.stanja.greskaOpis} />
+      </Kartica>
+    );
+  } else {
+    rad = (
+      <PonudaRadniProstor
+        key={sadrzaj.stranica.id}
+        sadrzaj={sadrzaj}
+        nedostupni={nedostupni}
+        red={red}
+        mozeUredjivanje={mozeUredjivanje}
+        radnje={ponudaRadnje}
+        naslovId={naslovId}
+      />
+    );
+  }
+
+  const nazivStranice = sadrzaj?.stranica.naziv ?? "";
+  const pregled = (visina: "kolona" | "preklop" | "pano", naslov = true) => (
+    <PregledNacrta
+      view={view && view.groups.length > 0 ? view : null}
+      slug={kontekst.slug}
+      naziv={nazivStranice}
+      dizajn={dizajnPregleda}
+      uredjaj={uredjaj}
+      onUredjaj={setUredjaj}
+      naslov={naslov}
+      visina={visina}
+    />
+  );
+
+  const zaglavlje = (
+    <StudioZaglavlje
+      lokal={kontekst.lokal}
+      rezim={rezim}
+      sirina={sirina}
+      tab={tab}
+      onTab={(sledeci) => {
+        setTab(sledeci);
+        if (sirina === "telefon" && pano === "struktura" && sledeci === "izgled") setPano("uredi");
+      }}
+      panelId={panelId}
+      cuvanje={red.zbir()}
+      status={status}
+      povezano={podaci.povezano}
+      mozeObjavu={kontekst.mozeObjavu}
+      prikaziPregled={sirina !== "telefon"}
+      onPonovo={() => red.pokusajPonovo()}
+      onPregled={() => setPregledOtvoren(true)}
+      onObjavi={() => setObjava(true)}
+    />
+  );
+
+  const sekcijeZaUnos = sadrzaj?.sekcije ?? [];
+  const dijalozi = (
+    <>
+      <TabelarniUnos
+        key={`tabela-${aktivnaStranica ?? ""}`}
+        otvoreno={tabela}
+        onOtvoreno={setTabela}
+        sekcije={sekcijeZaUnos}
+        podrazumevanaSekcija={sekcijeZaUnos[0]?.id ?? null}
+        onPosalji={(redovi) => red.prati(() => radnje.brziUnosVise(aktivnaStranica ?? "", redovi))}
+        onDodato={(broj) => setNajava(dodatoTekst(broj))}
+      />
+      <NoviKombo
+        key={`kombo-${aktivnaStranica ?? ""}`}
+        otvoreno={kombo}
+        onOtvoreno={setKombo}
+        sekcije={sekcijeZaUnos}
+        podrazumevanaSekcija={sekcijeZaUnos[0]?.id ?? null}
+        onDodaj={(sekcijaId, unos) => red.prati(() => radnje.noviKombo(sekcijaId, unos))}
+      />
+      <ObjavaDijalog
+        otvoreno={objava}
+        onOtvoreno={setObjava}
+        nazivArtikla={nazivArtikla}
+        onPregled={onPregledObjave}
+        onObjavi={onObjavi}
+      />
+      <p role="status" aria-live="polite" className="sr-only" data-studio-najava="">
+        {najava}
+      </p>
+    </>
+  );
+
+  const samoCitanje = !mozeUredjivanje ? (
+    <p role="status" className="rounded-[var(--mp-radius-kontrola)] border px-4 py-3 text-sm [--border:var(--mp-info-ivica)] bg-[var(--mp-info-meko)]">
+      {t.zaglavlje.samoCitanje}
+    </p>
+  ) : null;
+
+  const zaglavljeOkvir = (deca: ReactNode) => (
+    <div className="sticky top-16 z-20 -mx-4 border-b bg-[var(--mp-okvir)] px-4 py-3 [--border:var(--mp-ivica)] sm:-mx-6 sm:px-6 lg:top-0 lg:mx-0 lg:rounded-b-[var(--mp-radius-kartica)] lg:px-0">
+      {deca}
+    </div>
+  );
+
+  // --- phone ---------------------------------------------------------------
+  if (sirina === "telefon") {
+    const panoi =
+      tab === "izgled"
+        ? [
+            { vrednost: "uredi" as const, tekst: t.panoi.podesavanja },
+            { vrednost: "pregled" as const, tekst: t.panoi.pregled },
+          ]
+        : [
+            { vrednost: "struktura" as const, tekst: t.panoi.struktura },
+            { vrednost: "uredi" as const, tekst: t.panoi.uredi },
+            { vrednost: "pregled" as const, tekst: t.panoi.pregled },
+          ];
+    const vidljivPano = tab === "izgled" && pano === "struktura" ? "uredi" : pano;
+    return (
+      <div className="grid gap-4" data-studio="telefon">
+        {zaglavljeOkvir(
+          <div className="grid gap-3">
+            {zaglavlje}
+            <Segmenti<StudioPano>
+              oznaka={t.panoi.oznaka}
+              idPrefiks="studio-pano"
+              kontrolise={panelId}
+              izabrano={vidljivPano}
+              onIzbor={setPano}
+              vrednosti={panoi}
+              className="flex w-full"
+            />
+          </div>,
+        )}
+        {samoCitanje}
+        <div id={panelId} role="tabpanel" aria-labelledby={`studio-pano-${vidljivPano}`} data-pano={vidljivPano}>
+          {vidljivPano === "uredi" ? null : (
+            <h1 className="sr-only">{roomService ? t.stranice.roomService : tab === "izgled" ? t.izgled.naslov : nazivStranice}</h1>
+          )}
+          {vidljivPano === "struktura" ? struktura : vidljivPano === "pregled" ? pregled("pano") : rad}
+        </div>
+        {dijalozi}
+      </div>
+    );
+  }
+
+  // --- tablet and desktop ----------------------------------------------------
+  const prekrivniPregled =
+    sirina !== "desktop" || pregledOtvoren ? (
+      <Fioka
+        naslov={t.pregled.naslov}
+        strana="desno"
+        otvoreno={pregledOtvoren}
+        onOtvoreno={setPregledOtvoren}
+        className={sirina === "desktop" ? "w-[min(40rem,94vw)] sm:max-w-[40rem]" : "w-[min(26rem,94vw)] sm:max-w-[26rem]"}
+      >
+        {pregled("preklop", false)}
+      </Fioka>
+    ) : null;
+
+  return (
+    <div className="grid gap-5" data-studio={sirina}>
+      {zaglavljeOkvir(zaglavlje)}
+      {samoCitanje}
+      <div
+        className={cn(
+          "grid items-start gap-5",
+          sirina === "desktop" && "grid-cols-[17rem_minmax(0,1fr)_24rem] gap-6",
+          sirina === "siroko" && "grid-cols-[16rem_minmax(0,1fr)]",
+        )}
+      >
+        {sirina === "usko" ? null : (
+          <aside className="sticky top-36 max-h-[calc(100dvh-10rem)] overflow-y-auto rounded-[var(--mp-radius-kartica)] border bg-[var(--mp-povrsina)] p-3 [--border:var(--mp-ivica)] shadow-[var(--mp-senka-xs)]">
+            {struktura}
+          </aside>
+        )}
+        <div id={panelId} role="tabpanel" aria-labelledby={`studio-tab-${tab}`} className="grid min-w-0 gap-4">
+          {sirina === "usko" ? (
+            <Fioka
+              naslov={t.stranice.naslov}
+              strana="levo"
+              otvoreno={strukturaOtvorena}
+              onOtvoreno={setStrukturaOtvorena}
+              okidac={
+                <Dugme vrsta="sekundarno" velicina="kompaktna" className="justify-self-start" data-struktura-dugme="">
+                  {fmt(t.stranice.otvori, { naziv: roomService ? t.stranice.roomService : nazivStranice })}
+                  <ChevronDown aria-hidden="true" strokeWidth={1.75} />
+                </Dugme>
+              }
+            >
+              {struktura}
+            </Fioka>
+          ) : null}
+          {rad}
+        </div>
+        {sirina === "desktop" ? (
+          <aside className="sticky top-36 rounded-[var(--mp-radius-kartica)] border bg-[var(--mp-povrsina)] p-4 [--border:var(--mp-ivica)] shadow-[var(--mp-senka-xs)]">
+            {pregled("kolona")}
+          </aside>
+        ) : null}
+      </div>
+      {prekrivniPregled}
+      {dijalozi}
+    </div>
+  );
+}

@@ -757,6 +757,9 @@ export const pageContent = query({
                   basePriceRsd: article.basePriceRsd ?? null,
                   mediaMode: article.mediaMode,
                   iconKey: article.iconKey ?? null,
+                  // K10: the editor row shows these without another read.
+                  variantsEnabled: article.variantsEnabled === true,
+                  priceCheck: article.priceCheck !== undefined,
                 },
               },
             ];

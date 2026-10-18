@@ -162,10 +162,4 @@ export const menuPanelSr = {
     bezLinka: "Nemate link ili QR kod? Zamolite vlasnika ili menadžera lokala da vam ih pošalje.",
     vlasnik: "Vlasnik ste ili menadžer? Idite na klijentski panel.",
   },
-  izlog: {
-    editorKorak: "Editor u panelu gradi korak {korak}",
-    editorOpis:
-      "U pravom panelu stavka Editor do tada otvara postojeći editor menija. Ovde se vidi kako se navigacija skuplja dok je Editor otvoren.",
-    otvoriIzlogEditora: "Otvori izlog editora",
-  },
 } as const satisfies MenuPanelDict;

@@ -1,11 +1,22 @@
 // /[slug]/client-panel/meni/editor — "Editor" opens the real menu directly
-// (master §13.4: no intro screen). Until the new editor exists (K10) that is
-// the existing menu editor of the venue, which checks access on its own.
+// (master §13.4: no intro screen, no wizard). The panel layout has already
+// checked sign-in and role; the editor itself reads and writes through Convex
+// (components/menu/studio). `?stranica=<key>` opens a given page.
 
-import { redirect } from "next/navigation";
-import { postojeciEditorHref } from "@/lib/menu/panel-nav";
+import type { Metadata } from "next";
+import { StudioRuta } from "@/components/menu/studio/studio-ruta";
+import { menuStudioSr } from "@/lib/i18n/sr/menu-studio";
+import { firstParam } from "@/lib/menu/izlog-params";
 
-export default async function MenuPanelEditorPage({ params }: PageProps<"/[slug]/client-panel/meni/editor">) {
+export const metadata: Metadata = {
+  title: menuStudioSr.meta.naslov,
+};
+
+export default async function MenuPanelEditorPage({
+  params,
+  searchParams,
+}: PageProps<"/[slug]/client-panel/meni/editor">) {
   const { slug } = await params;
-  redirect(postojeciEditorHref(slug));
+  const stranica = firstParam((await searchParams).stranica) ?? null;
+  return <StudioRuta slug={slug} pocetnaStranica={stranica} />;
 }
