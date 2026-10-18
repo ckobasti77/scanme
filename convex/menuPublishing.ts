@@ -244,6 +244,8 @@ export const publishPreview = query({
       languages: prep.check.languages.languages,
       roomService: prep.check.roomServicePublished,
       scheduledPromos: prep.capabilities.scheduledPromos,
+      extraLayouts: prep.capabilities.extraLayouts,
+      reducedBranding: prep.capabilities.reducedBranding,
     });
     const budget = checkVersionBudget(compiled.parts);
     return {
@@ -306,6 +308,8 @@ export async function executePublish(
     languages: check.languages.languages,
     roomService: check.roomServicePublished,
     scheduledPromos: prep.capabilities.scheduledPromos,
+    extraLayouts: prep.capabilities.extraLayouts,
+    reducedBranding: prep.capabilities.reducedBranding,
   });
   // Nothing to publish only when the draft is the live one AND guests would
   // get exactly the live output (a Room service switch or a lost Premium

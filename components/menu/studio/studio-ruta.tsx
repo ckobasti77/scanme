@@ -9,7 +9,7 @@
 // open article detail is `?artikal=<key>`; opening it adds a history entry, so
 // the browser's Back button returns to the list. K16: the Room service context
 // is `?kontekst=room-service`; Room service and the translations view are
-// subscribed only while open.
+// subscribed only while open. K17: the Izgled mode is `?tab=izgled`.
 
 import { useConvexAuth, useQuery } from "convex/react";
 import { useRouter } from "next/navigation";
@@ -29,12 +29,15 @@ export function StudioRuta({
   pocetnaStranica,
   pocetniArtikal = null,
   pocetniKontekst = null,
+  pocetniTab = null,
 }: {
   slug: string;
   pocetnaStranica: string | null;
   pocetniArtikal?: string | null;
   /** K16: `room-service` opens the Room service context. */
   pocetniKontekst?: "room-service" | null;
+  /** K17: `izgled` opens the Izgled mode. */
+  pocetniTab?: "izgled" | null;
 }) {
   const router = useRouter();
   const { isLoading } = useConvexAuth();
@@ -50,6 +53,14 @@ export function StudioRuta({
     if (sledeci.roomService === (url.searchParams.get("kontekst") === "room-service")) return;
     if (sledeci.roomService) url.searchParams.set("kontekst", "room-service");
     else url.searchParams.delete("kontekst");
+    window.history.replaceState(null, "", url);
+  }, []);
+  // K17: the mode in the address (replace: no history entry).
+  const onTab = useCallback((tab: "ponuda" | "izgled") => {
+    const url = new URL(window.location.href);
+    if ((url.searchParams.get("tab") === "izgled") === (tab === "izgled")) return;
+    if (tab === "izgled") url.searchParams.set("tab", "izgled");
+    else url.searchParams.delete("tab");
     window.history.replaceState(null, "", url);
   }, []);
   const stranice = veza.stanje === "spremno" ? veza.podaci.stranice : undefined;
@@ -106,7 +117,11 @@ export function StudioRuta({
       onOtvoriArtikal={otvoriArtikal}
       onPogled={setPogled}
       podesavanjaHref={panelSekcijaHref(slug, "podesavanja")}
-      pocetno={pocetniKontekst === "room-service" ? { roomService: true } : undefined}
+      onTab={onTab}
+      pocetno={{
+        ...(pocetniKontekst === "room-service" ? { roomService: true } : {}),
+        ...(pocetniTab === "izgled" && pocetniKontekst !== "room-service" ? { tab: "izgled" as const } : {}),
+      }}
     />
   );
 }

@@ -11,6 +11,7 @@ import { useMemo } from "react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { menuImageType } from "@/lib/menu/image-validation";
+import { izgledKaoTekst, izmenaIzCas } from "@/lib/menu/studio/izgled-red";
 import type { MenuTranslations } from "@/lib/menu/translation-status";
 import type {
   StudioAlergeni,
@@ -32,6 +33,7 @@ import type {
   StudioUticajArtikla,
   StudioUticajBrisanja,
 } from "@/lib/menu/studio/model";
+import { ISHOD_OK } from "@/lib/menu/studio/model";
 import type { StudioPogled } from "../studio-editor";
 import { izGreske, izvrsi } from "./ishod";
 import { obradiNaServeru, posaljiOriginal } from "./otpremanje";
@@ -202,6 +204,9 @@ export function useStudioVeza(
   const rsMarkup = useMutation(api.menuRoomService.setItemsMarkup);
   const rsManual = useMutation(api.menuRoomService.setManualPrice);
   const rsResolve = useMutation(api.menuRoomService.resolvePriceWarning);
+  // K17 — Izgled: the draft appearance (small; also feeds the preview) and its writer.
+  const izgled = useQuery(api.menuPresentation.get, menuServiceId ? { menuServiceId } : "skip");
+  const postaviIzgled = useMutation(api.menuPresentation.update);
 
 
   const radnje = useMemo<StudioRadnje | null>(() => {
@@ -716,6 +721,17 @@ export function useStudioVeza(
           nova,
         ),
       rsResiUpozorenje: (stavkaId, akcija) => izvrsi(() => rsResolve({ itemId: stavkaId as RsStavka, action: akcija }), () => null),
+      // K17 — Izgled (draft).
+      postaviIzgled: async (ocekivano, izmena) => {
+        const ishod = await izvrsi(() => postaviIzgled({ menuServiceId, expected: ocekivano, patch: izmena }), (r) => r);
+        if (!ishod.ok) return ishod;
+        const rezultat = ishod.vrednost;
+        // A conflict: the whole group as saved meanwhile (the queue holds Izgled by group, as JSON text).
+        if (rezultat.ok === false) {
+          return { ok: false, vrsta: "konflikt", sacuvano: izgledKaoTekst(izmenaIzCas(rezultat.current)), pokusano: izgledKaoTekst(izmena) };
+        }
+        return ISHOD_OK;
+      },
     };
   }, [
     menuServiceId,
@@ -782,6 +798,7 @@ export function useStudioVeza(
     rsMarkup,
     rsManual,
     rsResolve,
+    postaviIzgled,
   ]);
 
   const kontekstEditora = useMemo<StudioKontekst | null>(() => {
@@ -1007,6 +1024,11 @@ export function useStudioVeza(
     };
   }, [roomService]);
 
+  const izgledEditora = useMemo(
+    () => (izgled ? { vrednosti: izgled.values, plan: izgled.plan } : izgled),
+    [izgled],
+  );
+
   const nedostupniSet = useMemo(() => new Set(nedostupni?.map((row) => row.articleKey) ?? []), [nedostupni]);
 
   if (kontekst === undefined) return { stanje: "ucitava" };
@@ -1026,6 +1048,7 @@ export function useStudioVeza(
       jezici: jeziciEditora,
       prevodi: pogled.prevodi ? prevodiEditora : undefined,
       roomServicePodaci: pogled.roomService ? roomServiceEditora : undefined,
+      izgled: izgledEditora,
     },
   };
 }

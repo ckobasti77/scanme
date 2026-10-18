@@ -7,6 +7,13 @@
 // `paletteId` / `fontPairId` "default" mean "the renderer's default" (never the
 // ScanMe black-and-green panel palette, master §15.2 / mockup README); K17 maps
 // them to its real ids.
+//
+// K17: `layoutVariant` is a Premium variant of the layout
+// (lib/menu/identity/varijante.ts), absent when there is none — absent, not
+// null, so a presentation without one serializes exactly as before.
+// `defaultMediaMode` is the menu-wide display of article media, at most this
+// much: "image" shows each article as it is set (photo, else its icon),
+// "icon" turns photos into icons, "none" shows text only (master §7.4).
 
 export type MenuLayout = "flow" | "categories" | "compact";
 export type MenuDensity = "airy" | "standard" | "dense";
@@ -16,6 +23,8 @@ export type MenuBranding = "standard" | "reduced";
 
 export type MenuPresentationValues = {
   layout: MenuLayout;
+  /** K17: a Premium variant of the layout; absent = none. */
+  layoutVariant?: string;
   paletteId: string;
   /** Up to three brand colours (hex); null = none. */
   brandColors: string[] | null;
@@ -39,7 +48,8 @@ export const MENU_DEFAULT_PRESENTATION: MenuPresentationValues = {
   fontPairId: "default",
   density: "standard",
   emphasis: "calm",
-  defaultMediaMode: "none",
+  // K17: no menu-wide limit (every article as it is set), as the K13 renderer showed it.
+  defaultMediaMode: "image",
   search: false,
   filters: [],
   currencyToggle: false,

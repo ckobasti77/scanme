@@ -2,13 +2,11 @@
 // renderer itself). JavniMeni in its `ugradjen` form: no main, no h1, no
 // footer landmark, nothing focusable, no live subscription — inside the editor
 // the preview is a picture of the page, and the editor already has its own
-// main region and its one h1. The appearance is the venue's (K17 will pass the
-// draft presentation; until then the default), or the izlog's dark colours.
+// main region and its one h1. K17: the appearance is the DRAFT's (Izgled),
+// as guests would get it on this account (lib/menu/identity/premium.ts).
 
-import { memo, useMemo } from "react";
-import type { MenuDesign } from "@/lib/design-engine/menu-tokens";
-import { javniIzgled } from "@/lib/menu/identity/public-tokens";
-import { MENU_DEFAULT_PRESENTATION } from "@/lib/menu/presentation";
+import { memo } from "react";
+import type { JavniIzgled } from "@/lib/menu/identity/public-tokens";
 import type { JavniPregled } from "@/lib/menu/studio/javni-pregled";
 import { JavniMeni } from "../../javni/javni-meni";
 
@@ -20,12 +18,11 @@ const BEZ_AKCIJA = 0;
 // redrawing a 400-article preview each time made a drop wait (props are stable).
 export const PregledSadrzaj = memo(function PregledSadrzaj({
   pregled,
-  dizajn,
+  izgled,
 }: {
   pregled: JavniPregled;
-  dizajn: MenuDesign | null;
+  izgled: JavniIzgled;
 }) {
-  const izgled = useMemo(() => javniIzgled(MENU_DEFAULT_PRESENTATION, dizajn?.colors ?? null), [dizajn]);
   return (
     <JavniMeni
       view={pregled.view}

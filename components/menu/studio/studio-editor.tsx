@@ -13,13 +13,21 @@
 // section); the list stays mounted (hidden), so search, collapsed sections and
 // the selection survive, and `Nazad` returns to the same scroll position with
 // the focus on the row.
+// K17: `Izgled` — the curated appearance (izgled/izgled-radni-prostor.tsx).
+// Its controls take the work area and the preview the rest of the width (no
+// page column: the appearance is the same on every page); the preview in
+// both modes draws the DRAFT appearance in a real device frame.
 
-import { ChevronDown, Palette } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { fmt } from "@/lib/i18n/format";
 import { menuDomenSr } from "@/lib/i18n/sr/menu-domen";
 import { menuStudioSr } from "@/lib/i18n/sr/menu-studio";
 import type { MenuDesign } from "@/lib/design-engine/menu-tokens";
+import { izgledZaPlan } from "@/lib/menu/identity/premium";
+import { javniIzgled } from "@/lib/menu/identity/public-tokens";
+import { MENU_DEFAULT_PRESENTATION } from "@/lib/menu/presentation";
+import { izgledSaCekanjem } from "@/lib/menu/studio/izgled-red";
 import { kljucCene } from "@/lib/menu/studio/autosave-queue";
 import { javniPregled } from "@/lib/menu/studio/javni-pregled";
 import type { StudioPodaci, StudioRadnje, StudioRadniSadrzaj, StudioRed, StudioRsUpozorenje } from "@/lib/menu/studio/model";
@@ -30,6 +38,8 @@ import { Dugme } from "../zajednicko/dugme";
 import { Fioka } from "../zajednicko/fioka";
 import { Kartica } from "../zajednicko/kartica";
 import { PraznoStanje, UcitavanjeStanje } from "../zajednicko/stanja";
+import { IzgledRadniProstor } from "./izgled/izgled-radni-prostor";
+import { miniSadrzaj } from "./izgled/raspored-izbor";
 import { DetaljArtikla, type DetaljPocetno } from "./artikal/detalj-artikla";
 import { NoviKombo } from "./kombo/novi-kombo";
 import { ObjavaDijalog } from "./objava/objava-dijalog";
@@ -82,6 +92,7 @@ export function StudioEditor({
   sada,
   onPogled,
   podesavanjaHref = null,
+  onTab,
 }: {
   podaci: StudioPodaci;
   radnje: StudioRadnje;
@@ -101,6 +112,8 @@ export function StudioEditor({
   onPogled?: (pogled: StudioPogled) => void;
   /** K16: where languages are managed (Podešavanja); null = no link. */
   podesavanjaHref?: string | null;
+  /** K17: the mode changed (the app keeps it in the address). */
+  onTab?: (tab: StudioTab) => void;
 }) {
   const { kontekst, stranice, status, nedostupni } = podaci;
   const sirina = useSirina();
@@ -151,6 +164,33 @@ export function StudioEditor({
   const javni = useMemo(
     () => (sadrzaj ? javniPregled({ naziv: kontekst.lokal, slug: kontekst.slug }, sadrzaj, nedostupni) : null),
     [sadrzaj, kontekst.lokal, kontekst.slug, nedostupni],
+  );
+  // K17: the draft appearance with the choices still on the way, as guests would get it on this account.
+  const izgledServera = podaci.izgled?.vrednosti ?? null;
+  const premiumNalog = kontekst.plan === "premium";
+  const planIzgleda = podaci.izgled?.plan ?? { extraLayouts: premiumNalog, reducedBranding: premiumNalog };
+  const prikazIzgleda = useMemo(
+    () => (izgledServera ? izgledSaCekanjem(izgledServera, naCekanju) : null),
+    [izgledServera, naCekanju],
+  );
+  const { extraLayouts, reducedBranding } = planIzgleda;
+  const izgledNacrta = useMemo(
+    () =>
+      javniIzgled(
+        izgledZaPlan(prikazIzgleda ?? MENU_DEFAULT_PRESENTATION, { extraLayouts, reducedBranding }),
+        dizajnPregleda?.colors ?? null,
+      ),
+    [prikazIzgleda, extraLayouts, reducedBranding, dizajnPregleda],
+  );
+  const mini = useMemo(
+    () =>
+      miniSadrzaj(
+        (sadrzaj?.sekcije ?? []).map((sekcija) => ({
+          naziv: sekcija.naziv,
+          redovi: sekcija.redovi.filter((r) => !r.sakriven).map((r) => ({ naziv: r.artikal.naziv, cena: r.artikal.cena })),
+        })),
+      ),
+    [sadrzaj],
   );
 
   // K16: a base price saved under a MANUAL Room service price asks at once (master §5.3) —
@@ -340,12 +380,18 @@ export function StudioEditor({
   let rad: ReactNode;
   if (tab === "izgled") {
     rad = (
-      <Kartica>
-        <h1 id={naslovId} className="sr-only">
-          {t.izgled.naslov}
-        </h1>
-        <PraznoStanje ikonica={Palette} naslov={t.izgled.naslov} opis={t.izgled.opis} />
-      </Kartica>
+      <IzgledRadniProstor
+        izgled={podaci.izgled}
+        prikaz={prikazIzgleda}
+        javni={prikazIzgleda ? izgledNacrta : null}
+        mini={mini}
+        radnje={radnje}
+        red={red}
+        mozeUredjivanje={mozeUredjivanje}
+        naslovId={naslovId}
+        lokal={kontekst.lokal}
+        slug={kontekst.slug}
+      />
     );
   } else if (prevodi !== null && podaci.jezici) {
     rad = (
@@ -433,11 +479,12 @@ export function StudioEditor({
   }
 
   const nazivStranice = sadrzaj?.stranica.naziv ?? "";
-  const pregled = (visina: "kolona" | "preklop" | "pano", naslov = true) => (
+  const pregled = (visina: "kolona" | "preklop" | "pano" | "izgled", naslov = true) => (
     <PregledNacrta
+      onUvecaj={visina === "kolona" || visina === "izgled" ? () => setPregledOtvoren(true) : undefined}
       pregled={javni && javni.view.sekcije.length > 0 ? javni : null}
       naziv={nazivStranice}
-      dizajn={dizajnPregleda}
+      izgled={izgledNacrta}
       uredjaj={uredjaj}
       onUredjaj={setUredjaj}
       naslov={naslov}
@@ -453,6 +500,7 @@ export function StudioEditor({
       tab={tab}
       onTab={(sledeci) => {
         setTab(sledeci);
+        onTab?.(sledeci);
         if (sirina === "telefon" && pano === "struktura" && sledeci === "izgled") setPano("uredi");
       }}
       panelId={panelId}
@@ -568,12 +616,21 @@ export function StudioEditor({
         strana="desno"
         otvoreno={pregledOtvoren}
         onOtvoreno={setPregledOtvoren}
-        className={sirina === "desktop" ? "w-[min(40rem,94vw)] sm:max-w-[40rem]" : "w-[min(26rem,94vw)] sm:max-w-[26rem]"}
+        // K17: a tablet or desktop preview needs room to be read (the frame scales to the overlay's width).
+        className={
+          uredjaj !== "telefon"
+            ? "w-[min(84rem,96vw)] sm:max-w-[84rem]"
+            : sirina === "desktop"
+              ? "w-[min(40rem,94vw)] sm:max-w-[40rem]"
+              : "w-[min(26rem,94vw)] sm:max-w-[26rem]"
+        }
       >
         {pregled("preklop", false)}
       </Fioka>
     ) : null;
 
+  // K17: Izgled is the same on every page — no page column; the preview takes the rest of the width.
+  const izgledTab = tab === "izgled";
   return (
     <div className="grid gap-5" data-studio={sirina}>
       {zaglavljeOkvir(zaglavlje)}
@@ -581,17 +638,19 @@ export function StudioEditor({
       <div
         className={cn(
           "grid items-start gap-5",
-          sirina === "desktop" && "grid-cols-[17rem_minmax(0,1fr)_24rem] gap-6",
-          sirina === "siroko" && "grid-cols-[16rem_minmax(0,1fr)]",
+          !izgledTab && sirina === "desktop" && "grid-cols-[17rem_minmax(0,1fr)_24rem] gap-6",
+          !izgledTab && sirina === "siroko" && "grid-cols-[16rem_minmax(0,1fr)]",
+          izgledTab && sirina === "desktop" && "grid-cols-[minmax(0,35rem)_minmax(0,1fr)] gap-6",
+          izgledTab && sirina === "siroko" && "grid-cols-[minmax(0,1fr)_21rem]",
         )}
       >
-        {sirina === "usko" ? null : (
+        {sirina === "usko" || izgledTab ? null : (
           <aside className="sticky top-36 max-h-[calc(100dvh-10rem)] overflow-y-auto rounded-[var(--mp-radius-kartica)] border bg-[var(--mp-povrsina)] p-3 [--border:var(--mp-ivica)] shadow-[var(--mp-senka-xs)]">
             {struktura}
           </aside>
         )}
         <div id={panelId} role="tabpanel" aria-labelledby={`studio-tab-${tab}`} className="grid min-w-0 gap-4">
-          {sirina === "usko" ? (
+          {sirina === "usko" && !izgledTab ? (
             <Fioka
               naslov={t.stranice.naslov}
               strana="levo"
@@ -609,9 +668,9 @@ export function StudioEditor({
           ) : null}
           {rad}
         </div>
-        {sirina === "desktop" ? (
+        {sirina === "desktop" || (izgledTab && sirina === "siroko") ? (
           <aside className="sticky top-36 rounded-[var(--mp-radius-kartica)] border bg-[var(--mp-povrsina)] p-4 [--border:var(--mp-ivica)] shadow-[var(--mp-senka-xs)]">
-            {pregled("kolona")}
+            {pregled(izgledTab ? "izgled" : "kolona")}
           </aside>
         ) : null}
       </div>

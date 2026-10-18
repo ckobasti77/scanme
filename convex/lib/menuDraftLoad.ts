@@ -57,6 +57,8 @@ function translationsOf(value: Doc<"menuArticles">["translations"]): SnapshotTra
 export function presentationValues(row: Doc<"menuPresentation">): MenuPresentationValues {
   return {
     layout: row.layout,
+    // K17: only when set, so a presentation without a variant serializes as before.
+    ...(row.layoutVariant !== undefined ? { layoutVariant: row.layoutVariant } : {}),
     paletteId: row.paletteId,
     brandColors: row.brandColors ?? null,
     fontPairId: row.fontPairId,

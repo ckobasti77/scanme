@@ -31,6 +31,7 @@ import {
   type MenuMediaMode,
   type MenuPresentationValues,
 } from "./presentation";
+import { izgledZaPlan } from "./identity/premium";
 import {
   roomServiceUnitPrice,
   type RoomServicePriceOrigin,
@@ -407,6 +408,14 @@ export type CompileContext = {
   roomService: boolean;
   /** Premium: a scheduled promotion stays scheduled; otherwise it is left out. */
   scheduledPromos: boolean;
+  /**
+   * K17 — the account's appearance capabilities. Without Premium the Premium
+   * parts of the appearance (palettes, font pairs, layout variants; reduced
+   * branding) publish as their Standard fallback (lib/menu/identity/premium.ts).
+   * Absent = published as drafted (callers that predate K17).
+   */
+  extraLayouts?: boolean;
+  reducedBranding?: boolean;
 };
 
 export type PublishedLanguages = { source: string; languages: string[]; dropped: string[] };
@@ -889,7 +898,14 @@ export function compileSnapshot(input: MenuDraftSnapshot, context: CompileContex
   const index = indexSnapshot(snapshot);
   const sourceLang = context.languages[0] ?? snapshot.settings.languages?.source ?? "sr";
   const allergensEnabled = snapshot.settings.allergensEnabled === true;
-  const presentation = snapshot.presentation ?? MENU_DEFAULT_PRESENTATION;
+  const drafted = snapshot.presentation ?? MENU_DEFAULT_PRESENTATION;
+  const presentation =
+    context.extraLayouts === undefined && context.reducedBranding === undefined
+      ? drafted
+      : izgledZaPlan(drafted, {
+          extraLayouts: context.extraLayouts ?? true,
+          reducedBranding: context.reducedBranding ?? true,
+        });
   const publicPages = snapshot.pages.filter(isPagePublic);
 
   const internalJson = JSON.stringify(snapshot);

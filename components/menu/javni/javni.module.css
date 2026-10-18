@@ -1737,3 +1737,101 @@
     overflow: visible;
   }
 }
+
+/* =========================================================================
+   K17 — Premium layout variants (lib/menu/identity/varijante.ts). Each only
+   re-arranges what its layout already shows; the markup is the same.
+   ========================================================================= */
+
+/* Tok · kartice: every article on its own card; two columns from 768 px. */
+.koren[data-varijanta="kartice"] .lista {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.koren[data-varijanta="kartice"] .red {
+  padding: 12px 14px;
+  border: 1px solid var(--menu-border);
+  border-radius: 14px;
+  background: var(--menu-surface);
+}
+
+/* A card without media does not keep the empty media column the list keeps for alignment. */
+.koren[data-varijanta="kartice"] .lista[data-ima-medij] .red:not([data-medij]) {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.koren[data-varijanta="kartice"] .lista[data-ima-medij] .red:not([data-medij]) .redTelo {
+  grid-column: auto;
+}
+
+/* Kategorije · lista: the categories as rows (image or icon beside the name), not tiles. */
+.koren[data-varijanta="lista"] .mreza {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+}
+
+.koren[data-varijanta="lista"] .plocica {
+  grid-template-columns: 64px minmax(0, 1fr);
+  align-items: center;
+  gap: 2px 14px;
+  min-height: 80px;
+  padding: 8px 14px 8px 8px;
+}
+
+.koren[data-varijanta="lista"] .plocica .medij {
+  grid-row: 1 / span 2;
+  width: 64px;
+  height: 64px;
+  aspect-ratio: auto;
+}
+
+.koren[data-varijanta="lista"] .plocica .glif {
+  width: 44%;
+  height: 44%;
+}
+
+.koren[data-varijanta="lista"] .plocicaNaziv,
+.koren[data-varijanta="lista"] .plocicaBroj {
+  padding: 0;
+}
+
+@media (min-width: 768px) {
+  .koren[data-varijanta="kartice"] .lista {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  /* The cards get a wider reading column beside the index rail. */
+  .koren[data-varijanta="kartice"] .tok {
+    grid-template-columns: 14rem minmax(0, 52rem);
+  }
+
+  .koren[data-varijanta="lista"] .mreza {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  /* Kompaktno · dve kolone: a long wine list in two text columns. */
+  .koren[data-varijanta="dve-kolone"] [data-kompaktno] {
+    max-width: 66rem;
+    columns: 2;
+    column-gap: 4rem;
+  }
+
+  .koren[data-varijanta="dve-kolone"] .kSekcija {
+    content-visibility: visible;
+    padding-top: 0;
+    margin-top: var(--menu-section-gap);
+    break-inside: auto;
+  }
+
+  .koren[data-varijanta="dve-kolone"] .kSekcijaNaslov {
+    break-after: avoid;
+  }
+
+  .koren[data-varijanta="dve-kolone"] .kLista > li {
+    break-inside: avoid;
+  }
+}

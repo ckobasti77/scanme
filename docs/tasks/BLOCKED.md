@@ -2204,3 +2204,15 @@ Nijedna stavka ne blokira kod: run je izabrao konzervativnu opciju i kod radi po
 4. **Ručna Room service cena po varijanti** se prikazuje (cena i poreklo po varijanti), ali je editor još ne menja; backend je ima od K04.
 5. **Grupna promena cena** (`Izaberi više → Promeni cene`) postavlja upozorenje Room service-a za artikle sa ručnom cenom, ali ne otvara dijalog; odluka je u Room service-u (traka „N cena traži odluku”).
 6. **Prevodi kategorija Room service-a** su u istom pogledu prevoda (⋯ u Room service-u); prevodi naziva stranica važe samo za naslov stranice za goste (`publicTitle`), ne za interni naziv.
+
+## SCANME MENU V1 — K17 (18. 10. 2026.) — editor: Izgled (raspored, palete, pisma, pregled)
+
+Nijedna stavka ne blokira kod: run je izabrao konzervativnu opciju i kod radi po njoj. Vlasnik potvrđuje ili menja.
+
+1. **Šta su „dodatne Premium layout i dizajn varijante”.** Run je napravio: po jednu Premium varijantu svakog rasporeda (`Tok · Kartice`, `Kategorije · Lista kategorija`, `Kompaktno · Dve kolone` — samo CSS nad istim sadržajem), 4 Premium palete (Šampanjac, Indigo, Vino, Sumrak) i 3 Premium para pisma (Galerija, Atelje, Grotesk). Na Standardu su vidljive i zaključane uz razlog. Koje varijante, koliko i kojim imenima je odluka vlasnika.
+2. **Izgubljen Premium.** Nacrt zadržava Premium izbore, a sledeća objava objavljuje osnovnu varijantu istog tona (svetla Premium paleta → Topla, tamna → Ponoć; Premium par → Osnovno; varijanta → osnovni raspored; smanjen potpis → standardni). Editor to kaže napomenom. Alternativa (zadržati objavljeni izgled do sledeće ručne izmene) nije izabrana.
+3. **„Zatraži prilagođen dizajn”** otvara program za e-poštu korisnika ka javnoj adresi `office@scanme.rs` (ista adresa kao na stranici ponude) sa pripremljenom porukom; aplikacija ništa ne šalje i ne pamti zahtev, i ne navodi cenu. Ako ScanMe želi zahtev u internom adminu (red u bazi, status, odgovor), to je zaseban posao (K28 ili posle runa), kao i tačan tekst o načinu procene.
+4. **Smanjen potpis (Premium)** u podnožju menija ostaje mala oznaka „ScanMe”; potpuno uklanjanje potpisa nije ponuđeno (master kaže „uklanjanje ili smanjenje”; run je izabrao smanjenje).
+5. **Prikaz medija celog menija** (`Slika / Ikonica / Bez`) je gornja granica izbora artikla: `Ikonica` pretvara fotografije u ikonice, `Bez` sakriva sve medije; pojedinačni artikal i dalje bira u detalju. Podrazumevano je `Slika` (svaki artikal kako je podešen). Alternativa „podrazumevano samo za nove artikle” nije izabrana jer slika traži otpremljenu sliku (K15).
+6. **Boje brenda iz logotipa** se čitaju u pregledaču iz fajla koji korisnik izabere (slika se ne šalje); logotip lokala iz baze se ne koristi automatski.
+7. **Izvođenje brend palete** ne koristi `generateMaterialRoles` (plan K12 §5.5), jer ono stranicu stavlja na komplementarni ton (crveni brend → cijan stranica) i pada kontrast za tamne i žute boje; stranica se izvodi u tonu glavne boje. Ako vlasnik želi i „komplementarnu” šemu kao izbor, to je dodatna opcija.

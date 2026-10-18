@@ -27,7 +27,7 @@ import { menuJavniSr } from "@/lib/i18n/sr/menu-javni";
 import { dostupniFilteri, filtrirajStranicu, normalizujFiltere, type MenuFilterCode } from "@/lib/menu/filters";
 import { saJezikom } from "@/lib/menu/i18n-fallback";
 import type { JavniIzgled } from "@/lib/menu/identity/public-tokens";
-import { brojArtikala, putStranice, type JavnaStranicaView, type PublicImage } from "@/lib/menu/public-view";
+import { brojArtikala, primeniPrikazMedija, putStranice, type JavnaStranicaView, type PublicImage } from "@/lib/menu/public-view";
 import { pretraziStranicu, reciUpita } from "@/lib/menu/search";
 import type { PublicArticle } from "@/lib/menu/snapshot";
 import { AlergeniDugme, AlergeniFioka, AlergeniTraka } from "./alergeni";
@@ -98,7 +98,7 @@ function citajPregled(raw: string): Pregled {
 }
 
 export function JavniMeni({
-  view,
+  view: viewUlaz,
   izgled,
   slike,
   sadaMs,
@@ -113,6 +113,11 @@ export function JavniMeni({
   pocetno = {},
   jezikLinkovi,
 }: JavniMeniProps) {
+  // K17: the venue's menu-wide media display caps every article (master §7.4).
+  const view = useMemo(() => {
+    const sekcije = primeniPrikazMedija(viewUlaz.sekcije, izgled.mediji);
+    return sekcije === viewUlaz.sekcije ? viewUlaz : { ...viewUlaz, sekcije };
+  }, [viewUlaz, izgled.mediji]);
   const [otvoren, setOtvoren] = useState<string | null>(ugradjen ? null : pocetniDetalj);
   const nedostupniSet = useMemo(() => new Set(nedostupni), [nedostupni]);
   const slug = view.lokal.slug;

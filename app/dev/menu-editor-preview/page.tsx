@@ -14,6 +14,8 @@
 //                                translations view, the Room service context with the
 //                                price decision open (prevodi and room-service open on
 //                                Premium unless &plan=standard shows the locks)
+//   ?tab=izgled                  K17: the Izgled mode (&plan=premium unlocks the Premium variants)
+//   ?paleta=<id>                 K17: the venue starts on this curated palette (as published)
 //   ?editor=stari                the legacy editor (legacy menus still use it)
 //   ?tema=svetla|tamna           the app theme (K07)
 

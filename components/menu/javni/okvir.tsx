@@ -62,6 +62,8 @@ export function JavniOkvir({
       data-layout={izgled.layout}
       data-gustina={izgled.gustina}
       data-naglasak={izgled.naglasak}
+      data-varijanta={izgled.varijanta ?? undefined}
+      data-mediji={izgled.mediji === "image" ? undefined : izgled.mediji}
       data-ugradjen={ugradjen ? "" : undefined}
     >
       {ugradjen ? null : <style>{stilStrane(izgled.boje.page)}</style>}

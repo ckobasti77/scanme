@@ -2,7 +2,8 @@
 // (master §13.4: no intro screen, no wizard). The panel layout has already
 // checked sign-in and role; the editor itself reads and writes through Convex
 // (components/menu/studio). `?stranica=<key>` opens a given page, `?artikal=<key>`
-// the detail of an article (K15), `?kontekst=room-service` the Room service context (K16).
+// the detail of an article (K15), `?kontekst=room-service` the Room service context (K16),
+// `?tab=izgled` the Izgled mode (K17).
 
 import type { Metadata } from "next";
 import { StudioRuta } from "@/components/menu/studio/studio-ruta";
@@ -22,5 +23,8 @@ export default async function MenuPanelEditorPage({
   const stranica = firstParam(query.stranica) ?? null;
   const artikal = firstParam(query.artikal) ?? null;
   const kontekst = firstParam(query.kontekst) === "room-service" ? "room-service" : null;
-  return <StudioRuta slug={slug} pocetnaStranica={stranica} pocetniArtikal={artikal} pocetniKontekst={kontekst} />;
+  const tab = firstParam(query.tab) === "izgled" ? "izgled" : null;
+  return (
+    <StudioRuta slug={slug} pocetnaStranica={stranica} pocetniArtikal={artikal} pocetniKontekst={kontekst} pocetniTab={tab} />
+  );
 }

@@ -78,6 +78,13 @@ export const menuDomenSr = {
     "translation/ai_failed": "Predlog prevoda nije stigao. Pokušajte ponovo ili upišite prevod sami.",
     "translation/source_changed": "Izvorni tekst je u međuvremenu promenjen. Zatražite predlog ponovo.",
     "translation/nothing_to_translate": "Nema teksta za prevod: polja na srpskom su prazna.",
+    // K17 — the menu appearance (lib/menu/errors/presentation.ts).
+    "presentation/unknown_palette": "Ova paleta ne postoji. Izaberite jednu od ponuđenih paleta.",
+    "presentation/unknown_font_pair": "Ovaj par pisma ne postoji. Izaberite jedan od ponuđenih.",
+    "presentation/variant_mismatch": "Ova varijanta ne pripada izabranom rasporedu.",
+    "presentation/invalid_brand_colors": "Upišite boju brenda u obliku #RRGGBB, na primer #8C2633.",
+    "presentation/unreadable":
+      "Sa ovim bojama tekst ne bi bio dovoljno čitljiv. Izaberite tamniji tekst ili svetliju pozadinu (ili obrnuto).",
   },
   allergens: {
     gluten: "Žitarice koje sadrže gluten",

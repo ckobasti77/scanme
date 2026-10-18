@@ -8,7 +8,11 @@
 //
 // compileMenuTokens is reused unchanged (shared with the legacy renderer);
 // this module only adds the heading face, density, the colour scheme and (K14)
-// the allergen warning colour.
+// the allergen warning colour. K17: the venue's brand palette (paletteId
+// "brend" / "brend-tamna" + brandColors, ./brand-palette.ts) is derived here
+// again on every render; one that would not be readable falls back to the
+// default palette of its tone, so guests never get an unreadable menu. The
+// layout variant and the menu-wide media display ride along for the renderer.
 
 import {
   DEFAULT_MENU_DESIGN,
@@ -22,10 +26,13 @@ import type {
   MenuDensity,
   MenuEmphasis,
   MenuLayout,
+  MenuMediaMode,
   MenuPresentationValues,
 } from "../presentation";
+import { brendUloge, paletaIzBrenda } from "./brand-palette";
 import { parPoId } from "./font-pairs";
-import { paletaPoId, type JavnaPaletaTon } from "./palettes";
+import { jeBrendPaleta, MENU_BREND_PALETA_TAMNA, paletaPoId, type JavnaPaletaTon } from "./palettes";
+import { varijantaRasporeda } from "./varijante";
 
 export type JavniIzgled = {
   /** `--menu-*` custom properties for the style of the menu root. */
@@ -39,7 +46,20 @@ export type JavniIzgled = {
   parId: string;
   /** The resolved colours (the browser theme colour, tests). */
   boje: MenuColors;
+  /** K17: the Premium variant of the layout (null = the layout itself). */
+  varijanta: string | null;
+  /** K17: the menu-wide media display, at most this much (lib/menu/public-view.ts primeniPrikazMedija). */
+  mediji: MenuMediaMode;
 };
+
+/** K17: the colours of a brand palette, or null (not a brand palette, no valid colours, unreadable). */
+export function bojeBrenda(presentation: MenuPresentationValues): MenuColors | null {
+  if (!jeBrendPaleta(presentation.paletteId)) return null;
+  const uloge = brendUloge(presentation.brandColors);
+  if (!uloge) return null;
+  const ishod = paletaIzBrenda(uloge, presentation.paletteId === MENU_BREND_PALETA_TAMNA ? "tamna" : "svetla");
+  return ishod.ok ? ishod.boje : null;
+}
 
 type Gustina = { redRazmak: number; sekcijaRazmak: number; teloPx: number; visinaReda: number };
 
@@ -59,11 +79,15 @@ export function javniIzgled(
   presentation: MenuPresentationValues,
   boje: MenuColors | null = null,
 ): JavniIzgled {
-  const paleta = paletaPoId(presentation.paletteId);
+  // A brand palette that cannot be used falls back to the default palette of its tone.
+  const brend = boje ?? bojeBrenda(presentation);
+  const paleta = jeBrendPaleta(presentation.paletteId)
+    ? paletaPoId(presentation.paletteId === MENU_BREND_PALETA_TAMNA ? "ponoc" : "default")
+    : paletaPoId(presentation.paletteId);
   const par = parPoId(presentation.fontPairId);
   const gustina = MENU_GUSTINE[presentation.density] ?? MENU_GUSTINE.standard;
-  const colors = boje ?? paleta.boje;
-  const ton: JavnaPaletaTon = boje ? (isDark(boje.page) ? "tamna" : "svetla") : paleta.ton;
+  const colors = brend ?? paleta.boje;
+  const ton: JavnaPaletaTon = brend ? (isDark(brend.page) ? "tamna" : "svetla") : paleta.ton;
 
   const tokeni: Record<string, string> = {
     ...compileMenuTokens({
@@ -98,9 +122,11 @@ export function javniIzgled(
     gustina: presentation.density,
     naglasak: presentation.emphasis,
     brending: presentation.branding,
-    paletaId: boje ? "brend" : paleta.id,
+    paletaId: brend ? "brend" : paleta.id,
     parId: par.id,
     boje: colors,
+    varijanta: varijantaRasporeda(presentation.layout, presentation.layoutVariant)?.id ?? null,
+    mediji: presentation.defaultMediaMode ?? "image",
   };
 }
 

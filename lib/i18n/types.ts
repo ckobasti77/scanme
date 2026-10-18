@@ -59,6 +59,7 @@ import type { MenuPublishIssueCode } from "../menu/errors/publish";
 import type { MenuPublishRefusal, MenuVersionErrorCode } from "../menu/errors/versions";
 import type { MenuMediaErrorCode } from "../menu/errors/media";
 import type { TranslationErrorCode } from "../menu/errors/translation";
+import type { PresentationErrorCode } from "../menu/errors/presentation";
 import type {
   MenuMigrationErrorCode,
   MenuMigrationIssueCode,
@@ -2370,7 +2371,8 @@ export interface MenuDomenDict {
     | MenuVersionErrorCode
     | MenuMigrationErrorCode
     | MenuMediaErrorCode
-    | TranslationErrorCode,
+    | TranslationErrorCode
+    | PresentationErrorCode,
     string
   >;
   // --- K04: the article model (master §5.4–§5.7, §7.3, §7.6).
@@ -7980,15 +7982,19 @@ export interface MenuStudioDict {
     nazivDug: string;
     nazivKonflikt: string;
   };
-  izgled: {
-    naslov: string;
-    opis: string;
-  };
+  /** K17 — Izgled (menu-studio-izgled.ts). */
+  izgled: MenuStudioIzgledDict;
   pregled: {
     naslov: string;
     uredjaj: string;
     telefon: string;
+    /** K17: the tablet frame of the preview. */
+    tablet: string;
     desktop: string;
+    /** K17: "{uredjaj}, {px} px" under the device switch. */
+    sirina: string;
+    /** K17: opens the large preview (tablet and desktop read better there). */
+    uvecaj: string;
     napomena: string;
     zatvori: string;
     prazno: string;
@@ -8201,6 +8207,134 @@ export interface MenuStudioDict {
   artikal: MenuStudioArtikalDict;
   // K16 — combo, translations, Room service.
   posebno: MenuStudioPosebnoDict;
+}
+
+// ScanMe Menu V1 (MENI run, K17) — the editor's Izgled: the curated
+// appearance of the public menu (master §7.1, §7.4, §15.2).
+export interface MenuStudioIzgledDict {
+  naslov: string;
+  uvod: string;
+  ucitava: string;
+  greska: string;
+  premium: string;
+  izabrano: string;
+  drugiIzbor: string;
+  izgubljenPremium: string;
+  raspored: {
+    naslov: string;
+    opis: string;
+    layouti: Record<"flow" | "categories" | "compact", { naziv: string; opis: string }>;
+    varijante: {
+      naslov: string;
+      osnovna: string;
+      osnovnaOpis: string;
+      opisi: Record<"kartice" | "lista" | "dve-kolone", { naziv: string; opis: string }>;
+      zakljucano: string;
+    };
+    /** Stand-in content of the layout miniatures while the page is empty. */
+    mini: { sekcija: string; druga: string; treca: string; cetvrta: string; artikli: readonly string[] };
+  };
+  boje: {
+    naslov: string;
+    opis: string;
+    ton: Record<"svetla" | "tamna", string>;
+    /** "{ton}, {zaKoga}" under a palette name. */
+    opisPalete: string;
+    zakljucano: string;
+    /** Names of the curated palettes (lib/menu/identity/palettes.ts). */
+    palete: Record<
+      "topla" | "espresso" | "bordo" | "more" | "kamen" | "ponoc" | "ugalj" | "sampanjac" | "indigo" | "vino" | "sumrak",
+      string
+    >;
+    zaKoga: Record<"kafic" | "restoran" | "prestizni" | "opste", string>;
+    uzorak: { sekcija: string; druga: string; naziv: string; cena: string };
+    brend: {
+      naslov: string;
+      opis: string;
+      kartica: string;
+      karticaOpis: string;
+      uloge: Record<"glavna" | "pozadina" | "tekst", string>;
+      ulogeOpis: Record<"glavna" | "pozadina" | "tekst", string>;
+      opciono: string;
+      polje: string;
+      birac: string;
+      ocisti: string;
+      podloga: string;
+      svetla: string;
+      tamna: string;
+      podlogaOpis: string;
+      logotip: string;
+      logotipOpis: string;
+      logotipCita: string;
+      logotipGreska: string;
+      logotipPredlog: string;
+      citljivo: string;
+      necitljivo: string;
+      par: string;
+      potrebno: string;
+      /** The roles of the contrast check (lib/menu/identity/contrast.ts pairs "role/background"). */
+      parovi: Record<"title" | "body" | "focus" | "accent-text", string>;
+      savetTekst: string;
+      savetPozadina: string;
+      izvediTekst: string;
+      izvediPozadinu: string;
+      neispravno: string;
+      primeni: string;
+      primenjeno: string;
+      otkazi: string;
+      izmeni: string;
+      dodaj: string;
+    };
+  };
+  pismo: {
+    naslov: string;
+    opis: string;
+    /** Names of the curated font pairs (lib/menu/identity/font-pairs.ts). */
+    parovi: Record<
+      "osnovni" | "kafe" | "bistro" | "klasika" | "elegancija" | "knjiga" | "savremeno" | "galerija" | "atelje" | "grotesk",
+      string
+    >;
+    uzorakNaslov: string;
+    uzorakTekst: string;
+    lica: string;
+    zakljucano: string;
+  };
+  gustina: { naslov: string; opis: string; vrednosti: Record<"airy" | "standard" | "dense", string> };
+  naglasak: { naslov: string; opis: string; vrednosti: Record<"calm" | "bold", string> };
+  mediji: {
+    naslov: string;
+    opis: string;
+    vrednosti: Record<"image" | "icon" | "none", string>;
+    opisi: Record<"image" | "icon" | "none", string>;
+    kompaktno: string;
+  };
+  zaGoste: {
+    naslov: string;
+    opis: string;
+    pretraga: string;
+    pretragaOpis: string;
+    filteri: string;
+    filteriOpis: string;
+    valuta: string;
+    valutaOpis: string;
+  };
+  brending: {
+    naslov: string;
+    opis: string;
+    vrednosti: Record<"standard" | "reduced", string>;
+    opisi: Record<"standard" | "reduced", string>;
+    zakljucano: string;
+  };
+  prilagodjen: {
+    naslov: string;
+    opis: string;
+    akcija: string;
+    akcijaOpis: string;
+    kopiraj: string;
+    kopirano: string;
+    tema: string;
+    telo: string;
+  };
 }
 
 // ScanMe Menu V1 (MENI run, K13) — the public menu a guest reads (master §7).

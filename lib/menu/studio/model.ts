@@ -7,10 +7,13 @@
 // without a backend. Ids are plain strings here; the Convex side casts them.
 
 import type { CasValue } from "../cas";
+import type { IzgledIzmena } from "../identity/izbor";
+import type { MenuIzgledPlan } from "../identity/premium";
 import type { MenuMode } from "../modes";
 import type { MenuActor } from "../permissions";
 import type { MenuPromo } from "../promo";
 import type { RoomServiceMarkupScope, RoomServicePriceOrigin } from "../room-service-pricing";
+import type { MenuPresentationValues } from "../presentation";
 import type { MenuTranslationField, MenuTranslations } from "../translation-status";
 
 export type StudioKontekst = {
@@ -108,6 +111,19 @@ export type StudioPodaci = {
   prevodi?: StudioPrevodiPogled | null;
   /** K16: Room service while its context is open (undefined = loading or closed, null = refused). */
   roomServicePodaci?: StudioRoomService | null;
+  /** K17: the draft appearance and what the account may choose (undefined = loading, null = refused). */
+  izgled?: StudioIzgled | null;
+};
+
+// -----------------------------------------------------------------------------
+// K17 — Izgled: the appearance of the public menu (master §7.1, §7.4, §15.2)
+// -----------------------------------------------------------------------------
+
+export type StudioIzgled = {
+  /** The DRAFT appearance (guests see the published one until Objavi). */
+  vrednosti: MenuPresentationValues;
+  /** Premium design variants and reduced branding (the account). */
+  plan: MenuIzgledPlan;
 };
 
 // -----------------------------------------------------------------------------
@@ -532,4 +548,10 @@ export type StudioRadnje = {
   rsUvecanje(stavkaIds: readonly string[], primeni: boolean): Promise<StudioIshod>;
   rsRucnaCena(stavkaId: string, ocekivana: number | null, nova: number | null): Promise<StudioIshod>;
   rsResiUpozorenje(stavkaId: string, akcija: "keepManual" | "recomputeFromMarkup"): Promise<StudioIshod>;
+  /**
+   * K17 — Izgled (menuPresentation.update): one change by compare-and-set; draft.
+   * A conflict carries the saved and the tried values of the change's fields as
+   * JSON text (lib/menu/studio/izgled-red.ts), the form the save queue holds.
+   */
+  postaviIzgled(ocekivano: IzgledIzmena, izmena: IzgledIzmena): Promise<StudioIshod>;
 };

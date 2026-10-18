@@ -211,7 +211,12 @@ export async function applyRestore(
   if (diffs.presentation) {
     if (docs.presentation && !final.presentation) await ctx.db.delete(docs.presentation._id);
     else if (final.presentation) {
-      const values = { ...final.presentation, brandColors: opt(final.presentation.brandColors) };
+      const values = {
+        ...final.presentation,
+        // K17: undefined removes a variant the restored version does not have.
+        layoutVariant: final.presentation.layoutVariant,
+        brandColors: opt(final.presentation.brandColors),
+      };
       if (docs.presentation) {
         await ctx.db.patch(docs.presentation._id, { ...values, updatedAt: now, updatedByUserId: userId });
       } else {

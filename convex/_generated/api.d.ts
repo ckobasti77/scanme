@@ -186,6 +186,7 @@ import type * as menuPages from "../menuPages.js";
 import type * as menuPanel from "../menuPanel.js";
 import type * as menuPerfSeed from "../menuPerfSeed.js";
 import type * as menuPresence from "../menuPresence.js";
+import type * as menuPresentation from "../menuPresentation.js";
 import type * as menuPromos from "../menuPromos.js";
 import type * as menuPublic from "../menuPublic.js";
 import type * as menuPublishing from "../menuPublishing.js";
@@ -401,6 +402,7 @@ declare const fullApi: ApiFromModules<{
   menuPanel: typeof menuPanel;
   menuPerfSeed: typeof menuPerfSeed;
   menuPresence: typeof menuPresence;
+  menuPresentation: typeof menuPresentation;
   menuPromos: typeof menuPromos;
   menuPublic: typeof menuPublic;
   menuPublishing: typeof menuPublishing;

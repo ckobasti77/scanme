@@ -3772,6 +3772,8 @@ export default defineSchema({
   menuPresentation: defineTable({
     menuServiceId: v.id("menuServices"),
     layout: menuLayoutValidator,
+    // K17: a Premium variant of the layout (lib/menu/identity/varijante.ts); absent = none.
+    layoutVariant: v.optional(v.string()),
     paletteId: v.string(),
     brandColors: v.optional(v.array(v.string())),
     fontPairId: v.string(),

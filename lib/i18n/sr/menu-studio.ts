@@ -1,5 +1,6 @@
 import type { MenuStudioDict } from "../types";
 import { menuStudioArtikalSr } from "./menu-studio-artikal";
+import { menuStudioIzgledSr } from "./menu-studio-izgled";
 import { menuStudioPosebnoSr } from "./menu-studio-posebno";
 
 // ScanMe Menu V1 — the editor (K10; master §13.4, §5.3, §6.1). Sentences
@@ -231,16 +232,16 @@ export const menuStudioSr = {
     nazivDug: "Naziv može imati najviše {n} znakova.",
     nazivKonflikt: "U međuvremenu je sačuvan drugi naziv: „{naziv}“. Vaša izmena nije upisana; pokušajte ponovo ako je i dalje želite.",
   },
-  izgled: {
-    naslov: "Izgled menija",
-    opis:
-      "Ovde birate raspored, boje, pismo i prikaz artikala za ceo meni. Izbor izgleda još nije uključen; do tada gosti vide podrazumevani izgled.",
-  },
+  // K17 — Izgled (menu-studio-izgled.ts).
+  izgled: menuStudioIzgledSr,
   pregled: {
     naslov: "Pregled uživo",
     uredjaj: "Prikaz za uređaj",
     telefon: "Telefon",
+    tablet: "Tablet",
     desktop: "Desktop",
+    sirina: "{uredjaj}, {px} px",
+    uvecaj: "Uvećaj pregled",
     napomena: "Pregled prikazuje nacrt. Gosti vide objavljenu verziju dok ne objavite.",
     zatvori: "Zatvori pregled",
     prazno: "Dodajte prvi artikal da vidite pregled.",

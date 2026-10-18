@@ -82,6 +82,8 @@ export function PanelIzlog({
             plan,
             stariEditor: false,
             fokus: null,
+            tab: null,
+            paleta: null,
           }
         }
       />

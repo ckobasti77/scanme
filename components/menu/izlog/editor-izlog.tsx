@@ -16,6 +16,9 @@
 // the Room service context with its rules, the three price origins and the
 // price decision open. `plan=standard` shows the Premium locks. The izlog's AI
 // suggestion is made in the browser from a tiny invented glossary: no network.
+// K17: `tab=izgled` opens Izgled (`plan=premium` unlocks the Premium
+// variants); `paleta=<id>` starts the venue on a curated palette, as published.
+// Izgled choices go into the draft in memory, by the server's rules.
 
 import { useCallback, useMemo, useRef, useState } from "react";
 import { fixtureMenu, IZLOG_SADA } from "@/components/menu/fixtures";
@@ -26,6 +29,9 @@ import { detaljIzSnapshota } from "@/lib/menu/studio/detalj";
 import * as m from "@/lib/menu/studio/memorija";
 import * as md from "@/lib/menu/studio/memorija-detalj";
 import * as mk from "@/lib/menu/studio/memorija-k16";
+import * as mi from "@/lib/menu/studio/memorija-izgled";
+import { paletaPoId } from "@/lib/menu/identity/palettes";
+import { MENU_DEFAULT_PRESENTATION } from "@/lib/menu/presentation";
 import type { StudioIshod, StudioJezici, StudioPodaci, StudioRadnje, StudioRsUpozorenje } from "@/lib/menu/studio/model";
 import { prevodiRoomServicea, prevodiStranice } from "@/lib/menu/studio/prevodi";
 import { roomServiceIzSnapshota } from "@/lib/menu/studio/room-service";
@@ -223,7 +229,13 @@ function pocetno(params: EditorPreviewParams): { stanje: m.MemorijaStanje; lokal
   const meni = params.stanje === "prazno" ? prazanMeni() : fixtureMenu(params.stanje === "veliki" ? "veliki" : "srednji");
   const glavna = meni.snapshot.pages.find((page) => page.isDefault);
   const premium = params.plan === "premium";
-  const stanje = m.pocetnoStanje(meni.snapshot, {
+  // K17: a curated palette the plan allows, as the venue last published it.
+  const paleta = params.paleta ? paletaPoId(params.paleta) : null;
+  const snapshot =
+    paleta && paleta.id === params.paleta && (premium || !paleta.premium)
+      ? { ...meni.snapshot, presentation: { ...(meni.snapshot.presentation ?? MENU_DEFAULT_PRESENTATION), paletteId: paleta.id } }
+      : meni.snapshot;
+  const stanje = m.pocetnoStanje(snapshot, {
     nedostupni: meni.unavailableArticleKeys,
     // A printed QR card points at the main page, as in most venues.
     qrStranice: glavna && params.stanje !== "prazno" ? [glavna.key] : [],
@@ -367,6 +379,8 @@ export function EditorIzlog({ params }: { params: EditorPreviewParams }) {
       rsUvecanje: (stavkaIds, primeni) => izvrsi((s) => mk.rsUvecanje(s, stavkaIds, primeni)),
       rsRucnaCena: (stavkaId, ocekivana, nova) => izvrsi((s) => mk.rsRucnaCena(s, stavkaId, ocekivana, nova)),
       rsResiUpozorenje: (stavkaId, akcija) => izvrsi((s) => mk.rsResiUpozorenje(s, stavkaId, akcija)),
+      // K17 — Izgled (draft).
+      postaviIzgled: (ocekivano, izmena) => izvrsi((s) => mi.postaviIzgled(s, ocekivano, izmena)),
     }),
     [izvrsi],
   );
@@ -437,6 +451,7 @@ export function EditorIzlog({ params }: { params: EditorPreviewParams }) {
     jezici,
     prevodi: prevodiPogled,
     roomServicePodaci,
+    izgled: mi.izgledIzMemorije(stanje),
   };
 
   return (
@@ -459,6 +474,7 @@ export function EditorIzlog({ params }: { params: EditorPreviewParams }) {
         ...(fokus?.roomService ? { roomService: true } : {}),
         ...(fokus?.prevodi ? { prevodi: fokus.prevodi } : {}),
         ...(fokus?.rsUpozorenje ? { rsUpozorenje: fokus.rsUpozorenje } : {}),
+        ...(params.tab === "izgled" && !fokus ? { tab: "izgled" as const } : {}),
       }}
     />
   );

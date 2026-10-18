@@ -14,7 +14,7 @@
 // Input is the published page (lib/menu/snapshot.ts Public*), never a draft.
 
 import { promoPrices, promoStateAt } from "./promo";
-import type { MenuLayout, MenuPresentationValues } from "./presentation";
+import type { MenuLayout, MenuMediaMode, MenuPresentationValues } from "./presentation";
 import type { PublicArticle, PublicPageMeta, PublicSection } from "./snapshot";
 
 /** A resolved article image: the small variant for lists, the large one for the detail. */
@@ -104,6 +104,30 @@ export function izborMedija(
     if (slika) return { vrsta: "slika", slika };
   }
   return { vrsta: "ikonica", iconKey: iconKey ?? rezervnaIkonica };
+}
+
+const MEDIJ_NIVO: Record<MenuMediaMode, number> = { none: 0, icon: 1, image: 2 };
+
+/**
+ * K17 — the venue's menu-wide media display (`presentation.defaultMediaMode`,
+ * master §7.4) as a ceiling over each article's own choice: "image" leaves
+ * every article as it is set, "icon" turns photos into icons (the article's,
+ * else its section's, else the default glyph), "none" leaves text only. The
+ * same sections come back when nothing changes; unchanged articles keep
+ * their identity.
+ */
+export function primeniPrikazMedija(sekcije: PublicSection[], najvise: MenuMediaMode): PublicSection[] {
+  const granica = MEDIJ_NIVO[najvise] ?? MEDIJ_NIVO.image;
+  if (granica >= MEDIJ_NIVO.image) return sekcije;
+  return sekcije.map((sekcija) => {
+    let promena = false;
+    const articles = sekcija.articles.map((article) => {
+      if (MEDIJ_NIVO[article.media.mode] <= granica) return article;
+      promena = true;
+      return { ...article, media: { ...article.media, mode: najvise } };
+    });
+    return promena ? { ...sekcija, articles } : sekcija;
+  });
 }
 
 // -----------------------------------------------------------------------------

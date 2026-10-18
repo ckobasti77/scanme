@@ -230,6 +230,10 @@ export type EditorPreviewParams = {
   stariEditor: boolean;
   /** K15: `fokus=artikal|varijante` opens the article detail; K16 adds `kombo|prevodi|room-service`; null = the list. */
   fokus: EditorFokus | null;
+  /** K17: `tab=izgled` opens the Izgled mode (`plan=premium` unlocks the Premium variants). */
+  tab: "izgled" | null;
+  /** K17: `paleta=<id>` — the venue's published palette (a curated id; an unknown one is ignored). */
+  paleta: string | null;
 };
 
 export function parseEditorPreview(params: IzlogSearchParams): EditorPreviewParams {
@@ -245,6 +249,8 @@ export function parseEditorPreview(params: IzlogSearchParams): EditorPreviewPara
     plan: pickParam(params.plan, PANEL_PLANOVI, fokus && PREMIUM_FOKUSI.includes(fokus) ? "premium" : "standard"),
     stariEditor: firstParam(params.editor) === "stari",
     fokus,
+    tab: firstParam(params.tab) === "izgled" ? "izgled" : null,
+    paleta: pickId(params.paleta),
   };
 }
 
