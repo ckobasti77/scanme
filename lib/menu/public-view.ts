@@ -14,7 +14,7 @@
 // Input is the published page (lib/menu/snapshot.ts Public*), never a draft.
 
 import { promoPrices, promoStateAt } from "./promo";
-import type { MenuLayout } from "./presentation";
+import type { MenuLayout, MenuPresentationValues } from "./presentation";
 import type { PublicArticle, PublicPageMeta, PublicSection } from "./snapshot";
 
 /** A resolved article image: the small variant for lists, the large one for the detail. */
@@ -32,7 +32,24 @@ export type JavnaStranicaView = {
   jezik: string;
   jezici: string[];
   alergeniUkljuceni: boolean;
+  /** K14: what the venue turned on for guests; absent = none (the editor preview). */
+  mogucnosti?: JavneMogucnosti;
 };
+
+/** K14: the guest tools of a published presentation (master §7.2, §5.3). */
+export type JavneMogucnosti = {
+  pretraga: boolean;
+  /** The venue's filter codes; the renderer shows only those the page has. */
+  filteri: string[];
+  /** The RSD/EUR switch; shown only with a fresh rate. */
+  valuta: boolean;
+};
+
+export function mogucnostiIzPrezentacije(
+  presentation: Pick<MenuPresentationValues, "search" | "filters" | "currencyToggle">,
+): JavneMogucnosti {
+  return { pretraga: presentation.search, filteri: [...presentation.filters], valuta: presentation.currencyToggle };
+}
 
 /** The splitter as the renderer gets it. */
 export type JavniRazdelnikView = {

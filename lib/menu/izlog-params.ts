@@ -6,6 +6,11 @@
 // (`?a=1&a=2`) counts by its first value. Each screen value also names the
 // run step that builds it, so a route can say honestly which step is missing.
 
+import { normalizujAlergene } from "./allergen-warnings";
+import { normalizujFiltere } from "./filters";
+import { MENU_SOURCE_LANGUAGE, MENU_TRANSLATION_LANGUAGES } from "./languages";
+import { MENU_PRETRAGA_MAX } from "./search";
+
 export type IzlogSearchParams = Record<string, string | string[] | undefined>;
 
 /** The app theme the izlog forces while a route is open; null = keep the app's own theme. */
@@ -268,7 +273,44 @@ export type PublicPreviewParams = {
   detalj: boolean;
   /** K13 — `renderer=stari`: the legacy public renderer (TASK-52 QA). */
   stariRenderer: boolean;
+  /** K14 — `alergen=mleko,gluten` (codes of lib/menu/allergens.ts; `mleko` = `milk`): marked from the start. */
+  alergeni: string[];
+  /** K14 — `jezik=en`: the menu published in two languages, shown in this one. */
+  jezik: string | null;
+  /** K14 — `valuta=eur`: the EUR switch on (fixture rate) and EUR chosen. */
+  valuta: "eur" | null;
+  /** K14 — `kurs=star`: the fixture rate is too old, so the switch must not show. */
+  starKurs: boolean;
+  /** K14 — `pretraga=<tekst>` and `filter=vegan,promo`: search and filters on, filled from the start. */
+  pretraga: string | null;
+  filteri: string[];
 };
+
+/** K14: Serbian words for allergen codes in the izlog address (`alergen=mleko`). */
+const IZLOG_ALERGENI: Record<string, string> = {
+  mleko: "milk",
+  gluten: "gluten",
+  jaja: "eggs",
+  riba: "fish",
+  kikiriki: "peanuts",
+  soja: "soybeans",
+  orasi: "nuts",
+  celer: "celery",
+  slacica: "mustard",
+  susam: "sesame",
+  sulfiti: "sulphites",
+  rakovi: "crustaceans",
+  lupina: "lupin",
+  mekusci: "molluscs",
+  drugo: "other",
+};
+
+const IZLOG_JEZICI: ReadonlySet<string> = new Set([MENU_SOURCE_LANGUAGE, ...MENU_TRANSLATION_LANGUAGES]);
+
+function pickList(value: string | string[] | undefined): string[] {
+  const first = firstParam(value);
+  return first ? first.split(",").map((part) => part.trim().toLowerCase()).filter(Boolean).slice(0, 20) : [];
+}
 
 export function parsePublicPreview(params: IzlogSearchParams): PublicPreviewParams {
   const kategorija = Number(firstParam(params.kategorija));
@@ -285,5 +327,21 @@ export function parsePublicPreview(params: IzlogSearchParams): PublicPreviewPara
     kategorija: Number.isInteger(kategorija) && kategorija >= 1 && kategorija <= 99 ? kategorija : null,
     detalj: firstParam(params.detalj) === "1",
     stariRenderer: firstParam(params.renderer) === "stari",
+    alergeni: normalizujAlergene(pickList(params.alergen).map((kod) => IZLOG_ALERGENI[kod] ?? kod)),
+    jezik: pickJezik(params.jezik),
+    valuta: firstParam(params.valuta) === "eur" ? "eur" : null,
+    starKurs: firstParam(params.kurs) === "star",
+    pretraga: pickPretraga(params.pretraga),
+    filteri: normalizujFiltere(pickList(params.filter)),
   };
+}
+
+function pickJezik(value: string | string[] | undefined): string | null {
+  const first = firstParam(value)?.trim().toLowerCase();
+  return first && IZLOG_JEZICI.has(first) ? first : null;
+}
+
+function pickPretraga(value: string | string[] | undefined): string | null {
+  const first = firstParam(value)?.trim();
+  return first ? first.slice(0, MENU_PRETRAGA_MAX) : null;
 }

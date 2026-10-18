@@ -3804,6 +3804,19 @@ export default defineSchema({
     .index("by_userId_and_sessionId", ["userId", "sessionId"])
     .index("by_expiresAt", ["expiresAt"]),
 
+  // ScanMe Menu V1 (K14, master §5.3, P6) — the informative EUR rate of the
+  // public menu: the NBS middle rate, refreshed by a cron action only while
+  // MENU_FX_ENABLED is "true" (convex/menuFx.ts). A row is written only when
+  // the rate or its date changes; the last 30 are kept. RSD stays the only
+  // price that counts; without a fresh row the EUR switch does not show.
+  menuExchangeRates: defineTable({
+    pair: v.literal("EUR_RSD"),
+    rate: v.number(),
+    effectiveDate: v.string(),
+    fetchedAt: v.number(),
+    source: v.literal("nbs"),
+  }).index("by_pair_and_fetchedAt", ["pair", "fetchedAt"]),
+
   // ===========================================================================
   // Sajam automobila 2026 — fair tables (B0; BACKEND-HANDOFF §5,
   // JOVAN-DELTA-2026-10-02). Contract: docs/events/sajam-automobila-2026/

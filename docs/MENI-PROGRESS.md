@@ -978,3 +978,114 @@ Noćni run MENI. Plan: `docs/MENI-PLAN.md`. Pravila: `.nocni-run/meni/rules.md`.
 - Otvori `/dev/menu-public-preview` (podrazumevano restoran), pa `?primer=kafic`, `?primer=prestizni`, `?primer=prestizni&stranica=vinska-karta`, `?stanje=razdelnik`, `?primer=restoran&layout=tok`, `?detalj=1`, `?paleta=ugalj`, `?stanje=veliki`, na telefonu i na desktopu. Probaj dodir na red (detalj), Esc, pločicu kategorije, dugme Nazad i `Sadržaj`.
 - Pregledaj `docs/tasks/BLOCKED.md` → `SCANME MENU V1 — K13`, posebno: pravilo prelaska (povratak gostiju na stari meni = `revertLegacyCutover`), traku „Meni je osvežen", `noindex`, dugme Nazad u detalju.
 - Pravi javni meni (`/{slug}/meni`) prikazuje novi model tek kad lokal ima objavljenu verziju (a migriran lokal i prelazak); do tada gosti vide stari meni kao pre.
+
+## K14 — Javni meni: pretraga, alergeni, jezici, valuta, performanse   (2026-10-18 08:27)
+**Fajlovi:**
+- Novo:
+  - čista logika: `lib/menu/search.ts`, `lib/menu/filters.ts`, `lib/menu/allergen-warnings.ts`, `lib/menu/i18n-fallback.ts`, `lib/menu/currency.ts`, `lib/menu/fx/nbs.ts`;
+  - Convex: `convex/menuFx.ts` (kurs EUR: `current`, `storeRate`, `refreshRate`);
+  - renderer `components/menu/javni/`: `alati.tsx` (pretraga, filteri, red rezultata), `alergeni.tsx` (upozorenje, dugme, fioka, traka), `jezik-valuta.tsx` (prekidač jezika, prekidač valute, EUR red), `kontekst.ts` (izbor gosta za redove i detalj), `use-sacuvano.ts` (sessionStorage / localStorage), `use-minutni-sat.ts`;
+  - testovi: `lib/menu/{search,filters,allergen-warnings,i18n-fallback,currency,promo-active}.test.ts`, `lib/menu/fx/nbs.test.ts`, `convex/menuFx.test.ts`, `components/menu/javni/pretraga-alergeni.test.tsx`, `components/menu/javni/budzet.test.tsx`.
+- Izmenjeno: `convex/schema.ts` (samo nova tabela `menuExchangeRates`), `convex/crons.ts` (cron `menu fx rate`), `convex/convex.config.ts` (`MENU_FX_ENABLED`, `MENU_FX_URL` kao `v.optional`), `convex/_generated/{api,server}.d.ts` (`npx convex codegen`), `.env.example`; `components/menu/javni/{javni-meni,javni-meni-uzivo,artikal,detalj,kategorije,okvir,navigacija-stranica,razdelnik}.tsx`, `javni.module.css`; `app/[slug]/meni/_lib/{ucitaj.ts,prikaz.tsx}`; `app/dev/menu-public-preview/page.tsx` (komentar parametara), `components/menu/fixtures/javni.ts`, `components/menu/izlog/javni-izlog.tsx`, `lib/menu/izlog-params.ts`, `lib/menu/public-view.ts` (`JavneMogucnosti`), `lib/menu/identity/public-tokens.ts` (`--menu-warning`); `lib/i18n/{types.ts,sr/menu-javni.ts}`; `docs/menu/MENU-ARHITEKTURA.md` (§2.2, §3.2, §7, „Javni meni: alati gosta“, „Kurs EUR“, „Budžet performansi“, §9, §11), `docs/menu/MENU-UX.md` (§1.2), `docs/tasks/BLOCKED.md` (`SCANME MENU V1 — K14`).
+- Namerno izmenjeni testovi: `components/menu/javni/javni.test.tsx`, `lib/menu/izlog-params.test.ts` (razlozi u ODLUKAMA).
+
+**Šta je urađeno:**
+- **Pretraga i filteri** (master §7.2) postoje samo kad ih lokal uključi u izgledu (`presentation.search`, `presentation.filters`). Pretraga ne zavisi od dijakritike („cevapi“ nalazi „Ćevapi“) i grupiše rezultate po sekcijama; u `Kategorije` traži kroz sve kategorije odjednom. Filteri su oznake artikla i `Akcija` (aktivna u ovom trenutku). Prikazuju se samo oni koje lokal uključi i koje ima bar jedan artikal stranice, a više izabranih se kombinuje sa I. Filtera raspona cena nema. Stanje pretrage i filtera ostaje posle detalja, druge stranice i osvežavanja (`sessionStorage` po stranici).
+- **Alergeni** (master §7.3) postoje samo kad ih lokal vodi. Gost označava alergene u fioci (14 kategorija + `Drugo`, radni tekst doslovno). Problematičan artikal dobija upozorenje na redu ili kartici i u detalju: `Sadrži: mleko` i `Može sadržati tragove: …`, odvojeno; ikonica, reč i boja lokala `--menu-warning` (≥ 4,5:1), a u `Kompaktno` bez ikonice. Ništa se ne sakriva. Artikal bez zapisa kaže „Lokal nije uneo alergene za ovaj artikal“ (neutralno, nikad „bezbedno“). Traka „Označeno: … · upozorenje na N artikala · bez podataka o alergenima za M artikala“ nosi radni tekst.
+- **Akcije**: aktivnost po trenutku (početak i kraj, prikaz datuma po Beogradu) već računa `public-view.ts` (K13). K14 dodaje minutni sat na telefonu, pa akcija počinje i završava se bez osvežavanja; prvi render koristi serverski trenutak. Granice su testirane po beogradskom vremenu, uključujući promenu na zimsko računanje vremena.
+- **Jezici** (master §7.7): prekidač postoji samo kad meni ima više jezika, i na razdelniku. Opcije su linkovi sa `?jezik=` (rade bez JS-a), a nazivi su na svom jeziku. Svi javni linkovi čuvaju jezik. Nedostajući prevod pokazuje izvorni tekst (render test).
+- **Valuta** (P6, master §5.3): prekidač `RSD | RSD + EUR` pri vrhu, samo uz `currencyToggle` i svež kurs. EUR je drugi, utišan red ispod svake RSD cene (`~ 12,71 EUR`), i za varijante, akcije i dodatke. Uz to stoji napomena sa datumom kursa NBS. Kurs ide kroz `convex/menuFx.ts` (cron 6 h, keš sa vremenom, iza env-a) i opisan je u receptu.
+- **Performanse:** budžet je meren za mali i veliki meni u sva tri layouta, a JS rute iz build manifesta; brojevi su ispod i u receptu. Izlog dobija `alergen`, `jezik`, `valuta=eur`, `kurs=star`, `pretraga`, `filter`; `stanje=veliki` uključuje pretragu i filtere.
+
+**Brojevi performansi** (fixture `kafic`; HTML = markup + props kao RSC niz + ljuska 16 KB; `components/menu/javni/budzet.test.tsx`):
+
+| Mera | Mali (20) Tok / Kategorije / Kompaktno | Veliki (402) Tok / Kategorije (mreža) / Kompaktno | Prag |
+|---|---|---|---|
+| HTML | 39,5 / 30,6 / 38,2 KB | 421,1 / 210,7 / 389,0 KB; najgori slučaj (ikonica na svakom redu, 2 alergena, EUR) 524,5 KB | 80 / 600 KB |
+| HTML gzip | 9,3 / 8,5 / 9,1 KB | 38,3 / 24,1 / 36,2 KB; najgori 41,6 KB | 20 / 110 KB |
+| DOM elementi | 209 / 47 / 200 | 4.199 / 277 / 3.670; najgori 5.799 | 1.000 / 8.000 |
+| Props granice | 9,3 KB | 152,5 KB | 20 / 220 KB |
+| JS rute iz build manifesta (gzip, bez root layout-a) | `/[slug]/meni/[stranica]` **33,5 KB**; `/[slug]/meni` **70,4 KB** (≈ 54 KB je stari renderer, vidi BLOKADA) | isto | 60 KB |
+| JS granice (esbuild, bez React/Next/Convex) | 20,9 KB gzip + CSS 4,4 KB | isto | — |
+| Vreme do prvog artikla, **dev merenje** (statički pregled, produkcioni React, CPU ×4, 390 × 844, medijana 5) | Tok 303 ms, Kompaktno 304 ms | Tok 381, Kompaktno 382, Kategorije 346 ms | 150 / 800 ms |
+
+Dev vreme obuhvata parsiranje celog paketa pregleda (425 KB, svi fontovi, kompajliranje fixture menija u browseru) i klijentski render, a ne hidrataciju na pravom build-u. Trošak 400 artikala je razlika malog i velikog menija, ≈ 80 ms na CPU ×4. Produkciono merenje sa pravim podacima ostaje za Jovana (i K33).
+
+**ODLUKE:**
+- **Izvor kursa (P6).** Uzet je srednji kurs NBS za EUR, kao JSON sa `MENU_FX_URL`, u obliku javnih servisa koji prenose NBS kursnu listu (zvanični NBS servis traži registraciju). Uključuje se samo sa `MENU_FX_ENABLED=true` i https adresom; bez toga nema mrežnog poziva ni prekidača. Cron radi na 6 h. Upis ide samo pri promeni kursa ili datuma i čuva se poslednjih 30 redova. Svež je kurs od najviše 4 beogradska dana. Izbor izvora i rok su pitanja vlasnika (BLOCKED K14-1, K14-5).
+- **Kurs se čita paralelno** sa stranicom (jedno indeksno čitanje), a ne posle nje kao u planu K12 §2.1. Koristi se samo uz `currencyToggle`, pa nema dodatnog kruga do servera.
+- **Svežinu računa renderer** (`kursJeSvez` nad minutnim satom), ne upit: upit ne čita sat (Convex pravilo).
+- **Prekidač valute je `RSD | RSD + EUR`** (posle kritike: `EUR` je izgledao kao da menja valutu). RSD se nikad ne menja, a EUR je drugi red.
+- **`promo-active.ts` nije napravljen.** `akcijaAktivna` i `cenaPrikaz` iz `public-view.ts` (K13) već računaju akciju u trenutku. K14 dodaje minutni sat i test granica (`lib/menu/promo-active.test.ts`); duplikat logike bi se razišao.
+- **Jedan red alata za sva tri layouta** (iznad menija), umesto polja u traci `Sadržaj` kod `Kompaktno` kako je predložio plan, jer je jednostavnije i isto na svim širinama. Jezik i valuta su u zaglavlju; na telefonu u svom redu ispod naziva lokala.
+- **Izbor gosta je u kontekstu** (`kontekst.ts`), ne kroz props tri layouta. Pregled u editoru (`ugradjen`) nema alate, upozorenja ni EUR (K10 pravilo: ništa fokusabilno); K17 može da ih pokaže.
+- **Fioka alergena se montira tek pri otvaranju.** Inače bi svaki meni sa alergenima nosio dijalog od 15 polja, a K13 testovi (jedan dijalog, jedan `h2`) bi se promenili.
+- **Ikonica upozorenja i upitnik su CSS maske**, ne SVG po redu. Najgori slučaj velikog menija je bio 676 KB (> 600), a sada je 524,5 KB. EUR red ima dva čvora: „~“ je CSS sa praznim alternativnim tekstom, a čitač čuje „otprilike 12,71 EUR“.
+- **„Nema podataka“ se u detalju kaže jednom** (u bloku alergena), a ne i kao upozorenje iznad. Traka nikad ne kaže „nijedan artikal“ kad lokal za neke artikle nema podatke; kaže „bez podataka o alergenima za M artikala“ (nalaz kritike: inače bi se čitalo kao „bezbedno“).
+- **Nazivi alergena:** u fioci i detalju su puni nazivi iz `menu-domen`, a u upozorenju na redu kratki („mleko“) iz `menu-javni` (`alergeni.kratko`). Nazivi jezika su na svom jeziku (`jezik.nazivi`).
+- **Izlog:** `alergen=` prima srpske reči (`mleko`, `orasi`…) i kodove i uključuje alergene lokala; `jezik=<kod>` objavljuje meni na srpskom i tom jeziku (`sr` dodaje engleski), uz prevode za deo naziva iz `PREVODI_EN` (ostatak namerno nije preveden). `valuta=eur` uključuje prekidač sa izmišljenim kursom 117,2 od dana izloga, a `kurs=star` daje kurs star 10 dana. `stanje=veliki` uključuje pretragu i sve filtere. Izlog ne čuva izbor u storage-u (`cuvaj={false}`), pa adresa uvek određuje početno stanje.
+- **Namerno izmenjeni testovi:**
+  - `javni.test.tsx` (Kompaktno, „the contents…“): regex je hvatao prvo dugme sa `aria-haspopup="dialog"`, a sada je prvo dugme `Alergeni`. Test sada bira dugme čiji je tekst `Sadržaj`, uz iste provere.
+  - `izlog-params.test.ts`: podrazumevani objekat je dopunjen K14 poljima.
+  - Dva testa radnika su usklađena sa namernim izmenama posle kritike: datumi u testu čuvanja 30 redova su bili nemogući (32.–35. oktobar), a „nema podataka“ u traci i detalju je promenjen.
+- **Greška nađena testom radnika:** `parseNbsMiddleRate` je primao nemoguć datum (`2026-02-31`), jer ga `Date.parse` prevaljuje u drugi dan. Ispravljeno je strogom proverom (`jeIspravanDatum`), koju koristi i `storeRate`.
+- **Dev server nije pokretan** (memorija: odbijen u K06–K11). Snimci i Playwright idu kroz statički pregled `tmp/meni/k14-pregled/` (kopija K13 alata), a `npm run build` dokazuje rute.
+- **Kritika snimaka (Sonnet, 15 nalaza: 2 visoka, 9 srednjih, 4 niska).**
+  - Ispravljeno: oba visoka („nema podataka“ u traci i na redu), odricanje u istoj kutiji kao traka u boji teksta, oznaka prekidača valute, napomena o kursu ispod alata, EUR varijante u svom redu na telefonu, upozorenje u `Kompaktno` levo i masnije, blede ivice reda čipova na telefonu, savet u praznoj pretrazi, razmak trake na 1440 i snimci fioke, detalja sa upozorenjem i EN+EUR detalja.
+  - Nije rađeno:
+    - blok alergena u detalju ostaje na svom K13 mestu, a upozorenje je već odmah ispod cene (K15/K33);
+    - `lang="sr"` na neprevedenim poljima traži informaciju o prevodu po polju u javnom dokumentu (K16);
+    - visina zaglavlja na telefonu i lepljiva pretraga ostaju za K32/K33;
+    - prevod teksta interfejsa ide u BLOCKED K14-3.
+- **Radnici:** četiri Sonnet radnika — tri su pisala testove na disjunktnim fajlovima (čista logika; convex-test; render), a četvrti je kritikovao snimke. Svaki rezultat sam pregledao i pustio. Radnici nisu koristili git.
+- **Sajam:** ništa od ovoga ne koristi Sajam (`docs/events/**` je van obima runa). Resolver kartica nije menjan.
+
+**Novi paketi:** nema (run ne uvodi pakete)
+
+**Testovi:**
+(ukupno 476 fajlova, 8.288 testova; 2 stara bench fajla se preskaču. Na kraju K13: 466 fajlova, 8.065 testova.)
+- `lib/menu/search.test.ts` (23): bez dijakritike („cevapi“, „djuvec“), I nad rečima, opis, varijanta i naziv sekcije, grupisanje i redosled, prazan upit, predug upit.
+- `lib/menu/filters.test.ts` (33): prazni filteri skriveni, `promo` samo dok akcija traje, „Preporuka“ iz akcije, I-kombinacija; **nema `price*` koda** i nijedan se ne primenjuje.
+- `lib/menu/allergen-warnings.test.ts` (20): svi ishodi; `nepoznato` nikad nije `null` ni „bezbedno“; kanonski redosled; broj upozorenja i broj artikala bez podataka; ništa se ne sakriva.
+- `lib/menu/i18n-fallback.test.ts` (14), `lib/menu/currency.test.ts` (23: zaokruživanje na cent uključujući 0,005, format sa hiljadama, svežina 4 dana preko vikenda, beogradska granica dana leti i zimi, budući i nemoguć datum), `lib/menu/fx/nbs.test.ts` (16: fixture JSON, paritet, druga valuta, nemoguć datum), `lib/menu/promo-active.test.ts` (18: minut pre početka, početak, poslednji minut, kraj, prelaz na zimsko vreme, ručna akcija, varijante).
+- `convex/menuFx.test.ts` (39): isključeno bez env-a i bez https (fetch se ne zove), upis i `current`, „unchanged“, greške izvora, čuvanje tačno 30 najnovijih, odbijanje neverovatnog kursa i nemogućeg datuma, javni `current`; cron „menu fx rate“ na 6 h bez mreže (`fetch` je mock svuda).
+- `components/menu/javni/pretraga-alergeni.test.tsx` (30): **označen alergen daje upozorenje na kartici i u detalju, a artikal ostaje vidljiv** (Tok, Kategorije, Kompaktno, kafić bez podataka); **bez svežeg kursa EUR prekidač se ne prikazuje** (star, `null`, budući, neverovatan, isključen); **nedostajući prevod prikazuje izvorni tekst** (`en` delimično, `de` bez prevoda, ista struktura, `lang`); pretraga, prazan rezultat, filteri, editorski oblik bez alata.
+- `components/menu/javni/budzet.test.tsx` (7): pragovi plana K12 §7.2 za mali i veliki meni u tri layouta i najgori slučaj.
+
+**Snimci:** `output/playwright/meni/K14/` — statički pregled `tmp/meni/k14-pregled/` (esbuild + Tailwind; fajlovi kroz `page.route`, bez serverskog procesa). Ključne snimke sam pogledao.
+- 52 snimka (13 stanja × 1440 i 390 × svetla i tamna tema aplikacije): `alergen-restoran`, `alergen-kategorija`, `alergen-kompaktno`, `alergen-nepoznato`, `alergen-detalj`, `jezik-valuta`, `jezik-valuta-kafic`, `valuta-star-kurs`, `veliki`, `veliki-kompaktno`, `pretraga`, `pretraga-prazno`, `filter`. Tu je još 6 snimaka iz skripte: `fioka-alergena`, `detalj-upozorenje` i `detalj-en-eur` na 390 i 1440. Dodatno sam proverio 360 i 768 (6 stanja): bez nalaza.
+- `metrike.json`: 0 vodoravnog skrola i elemenata van ekrana, 0 meta ispod 44 px, 0 grešaka i upozorenja konzole, tačno jedan `h1`, sve slike sa `alt`.
+- `interakcije.json`: **17/17**. Pretraga sužava bez dijakritike i ostaje posle detalja; bez rezultata se vraća ceo meni; filter `Vegansko` radi. Fioka alergena je dijalog sa 15 polja, a upozorenja se pojavljuju bez sakrivanja redova. Fokus se vraća na `Alergeni` i detalj nosi upozorenje. EUR se uključuje i isključuje, `lang=en` je postavljen, a linkovi jezika ostaju u izlogu. Star kurs nema prekidač. Konzola je bez grešaka. `vreme.json` sadrži dev merenje iz tabele.
+
+**Rezultat provere:**
+- `node .nocni-run/meni/alati/typecheck.mjs`: bez grešaka; `npx tsc --noEmit -p convex/tsconfig.json`: bez grešaka.
+- `npx eslint --ignore-pattern ".nocni-run/**"`: 0 grešaka, samo dva zatečena upozorenja.
+- `npx vitest run --testTimeout=30000 --hookTimeout=60000`: 476 fajlova i 8.288 testova prolaze; 2 stara bench fajla su preskočena.
+- `npm run harness:namespace`: prošlo.
+- `npm run build`: prošlo dva puta (posle izmena i na kraju). `next-env.d.ts` je vraćen na sadržaj iz HEAD-a.
+- `npx convex codegen` je osvežio `convex/_generated`, uz poruku „Uploading functions to Convex…“ (deo codegen-a, dozvoljen pravilima); `npx convex dev` i deploy nisu pokretani.
+- Svi novi i izmenjeni fajlovi su LF (provereno node-om). Nijedan moj proces nije ostao upaljen: dev server nije pokretan, a Chromium iz skripti se zatvara sam. Preostali node procesi nisu iz ovog koraka: Penpot `mcp-remote` od 16. 10. i Playwright MCP koji pokreće klijent sesije.
+
+**Provera prihvatanja:**
+
+| Stavka | Dokaz | Stanje |
+|---|---|---|
+| Označen alergen daje upozorenje na kartici i u detalju, artikal ostaje vidljiv (render test) | `pretraga-alergeni.test.tsx` › „a marked allergen warns on the card and in the detail, and the article stays visible“; Playwright „označeno mleko…“, „detalj nosi upozorenje“ | ispunjeno |
+| Bez svežeg kursa EUR prekidač se ne prikazuje (test) | `pretraga-alergeni.test.tsx` › „without a fresh rate the EUR switch is not shown“; `currency.test.ts`; Playwright „star kurs“ | ispunjeno |
+| Nedostajući prevod prikazuje izvorni tekst (test) | `pretraga-alergeni.test.tsx` › „a missing translation shows the source text“ | ispunjeno |
+| Brojevi performansi za mali i veliki meni u progress-u | tabela „Brojevi performansi“ gore (mali i veliki meni, sva tri layouta) i recept „Budžet performansi“ | ispunjeno (brojevi su u progress-u); posebno: jedan izmereni broj, JS rute `/[slug]/meni` (70,4 KB gzip), prelazi prag plana od 60 KB i upisan je kao BLOKADA sa razlogom |
+| Provere prolaze; sekcija K14 u progress-u | gore | ispunjeno |
+
+**BLOKADA:** JS budžet rute `/[slug]/meni` je prekoračen: **70,4 KB gzip** sopstvenih chunkova prema pragu od 60 KB (plan K12 §7.2), mereno iz `page_client-reference-manifest.js` posle `npm run build` (`tmp/meni/k14-manifest.mjs`).
+- **Uzrok:** isti segment služi i stari renderer za nemigrirane lokale (`app/[slug]/meni/_stari/stari-meni.tsx`, K13). Njegovi chunkovi (≈ 54 KB gzip, `menu-public` + `framer-motion`) su u `entryJSFiles` stranice, pa ih preuzima i gost novog menija.
+- **Novi renderer sam staje u budžet:** `/[slug]/meni/[stranica]` je 33,5 KB gzip, a granica preko esbuild-a 20,9 KB.
+- **Zašto nije ispravljeno u K14:** ispravka traži premeštanje starog puta (poseban segment ili rewrite) ili njegovo uklanjanje posle migracije. To menja zamrznut stari put i usmeravanje QR linkova, a K14 to ne sme da radi uzgred.
+- **Predlog za K33:** stari meni služiti sa posebnog segmenta, uz interni rewrite iz `proxy.ts` uz odobrenje, ili ga ukloniti posle prelaska svih lokala.
+
+**Za Jovana ujutru:**
+- Otvori `/dev/menu-public-preview?primer=restoran&layout=tok&alergen=mleko`, `?primer=kafic&alergen=mleko`, `?primer=kafic&jezik=en&valuta=eur`, `?primer=kafic&valuta=eur&kurs=star` (prekidača nema), `?primer=kafic&stanje=veliki` (pretraga i filteri), `?primer=prestizni&alergen=sulfiti`. Na telefonu probaj `Alergeni` → označi → `Gotovo`, otvori artikal sa upozorenjem, ukucaj „cevapi“, uključi čip, prebaci `RSD + EUR`.
+- Pregledaj `docs/tasks/BLOCKED.md` → `SCANME MENU V1 — K14`: izvor kursa i uslovi (pa `MENU_FX_ENABLED` i `MENU_FX_URL` na Convex-u), pravna provera radnog teksta i kratkih naziva alergena, prevod interfejsa, napomena uz EUR, rok svežine kursa.
+- Odluči o BLOKADI JS budžeta `/[slug]/meni` (stari renderer na istoj ruti).
+- Prvo pravo merenje na build-u sa podacima: hidratacija velikog menija na slabom telefonu.
+
+**Završna provera cilja (08:30):** `.nocni-run/meni/prompts/K14.md` je pročitan alatom Read; odeljak „Prihvatanje“ ima istih 5 stavki kao tabela gore (četiri ispunjene, JS rute `/[slug]/meni` je BLOKADA sa merenjem). Ponovo pušteno posle poslednje izmene koda: typecheck bez grešaka, eslint 0 grešaka (2 zatečena upozorenja), vitest 476 fajlova / 8.288 testova, `harness:namespace` prošao; `next-env.d.ts` koji typecheck prepisuje vraćen je na sadržaj iz HEAD-a. Potpun spisak procesa `node`/`chrome`/`esbuild`/`next`: nema `next`, vitest, esbuild ni Chromium procesa iz ovog koraka; ostali su Penpot `mcp-remote` (16. 10.), Adobe Creative Cloud i Playwright MCP (PID 21724 ← `cmd.exe` 8800 ← `claude.exe` 26572, pokreće ga klijent sesije po `.nocni-run/meni/mcp.json`, ne moja komanda).

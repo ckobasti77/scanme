@@ -8,6 +8,8 @@
 //   ?design=dark  = paleta=ponoc        ?state=long = stanje=veliki (existing)
 //   ?renderer=stari                    the legacy renderer with its fixture (TASK-52 QA)
 //   ?tema=svetla|tamna                 the app theme only; the menu keeps the venue palette (P13)
+// K14: ?alergen=mleko,gluten  ?jezik=en  ?valuta=eur  ?kurs=star  ?pretraga=<tekst>  ?filter=vegan,promo
+//   (stanje=veliki also turns search and every filter on)
 
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";

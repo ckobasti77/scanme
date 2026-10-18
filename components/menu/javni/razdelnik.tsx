@@ -9,9 +9,11 @@ import Image from "next/image";
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { menuJavniSr } from "@/lib/i18n/sr/menu-javni";
+import { saJezikom } from "@/lib/menu/i18n-fallback";
 import type { JavniIzgled } from "@/lib/menu/identity/public-tokens";
 import type { JavniRazdelnikView, PublicImage } from "@/lib/menu/public-view";
 import { JavniGlif } from "./glif";
+import { JezikIzbor } from "./jezik-valuta";
 import { naslovStraniceJavno } from "./navigacija-stranica";
 import { JavniOkvir } from "./okvir";
 import { PrazanMeni } from "./stanja";
@@ -24,13 +26,19 @@ export function JavniRazdelnik({
   izgled,
   naslovne = {},
   ugradjen = false,
+  jezikLinkovi,
 }: {
   view: JavniRazdelnikView;
   izgled: JavniIzgled;
   /** Optional cover image per page key (K15 fills it from the version; the izlog shows it). */
   naslovne?: Readonly<Record<string, PublicImage | null>>;
   ugradjen?: boolean;
+  /** K14: the splitter in each language (default: the menu link with `?jezik=`). */
+  jezikLinkovi?: Readonly<Record<string, string>>;
 }) {
+  const meni = `/${view.lokal.slug}/meni`;
+  const linkovi =
+    jezikLinkovi ?? Object.fromEntries(view.jezici.map((kod) => [kod, saJezikom(meni, kod, view.jezici)]));
   return (
     <JavniOkvir
       izgled={izgled}
@@ -39,6 +47,7 @@ export function JavniRazdelnik({
       jezik={view.jezik}
       ugradjen={ugradjen}
       className={styles.razdelnik}
+      alati={ugradjen || view.jezici.length <= 1 ? null : <JezikIzbor jezik={view.jezik} jezici={view.jezici} linkovi={linkovi} />}
     >
       {view.stranice.length === 0 ? (
         <PrazanMeni />
@@ -54,7 +63,7 @@ export function JavniRazdelnik({
                 <li key={stranica.key}>
                   <Link
                     className={styles.stranicaLink}
-                    href={`/${view.lokal.slug}/meni/${stranica.slug}`}
+                    href={saJezikom(`${meni}/${stranica.slug}`, view.jezik, view.jezici)}
                     data-stranica={stranica.slug}
                     data-bez-medija={bezMedija ? "" : undefined}
                   >

@@ -1288,3 +1288,452 @@
     padding-inline: 0;
   }
 }
+
+/* =========================================================================
+   K14 — the guest's tools: language and currency switches, search, filters,
+   allergens, and the warnings and EUR line they add (master §5.3, §7.2, §7.3,
+   §7.7). Same venue tokens; targets at least 44 px.
+   ========================================================================= */
+
+.zaglavljeAlati {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.koren[data-layout="compact"] .zaglavljeAlati,
+.razdelnik .zaglavljeAlati {
+  justify-content: center;
+  margin-left: 0;
+}
+
+.prekidac {
+  display: inline-flex;
+  padding: 2px;
+  border: 1px solid var(--menu-input-border);
+  border-radius: 999px;
+  background: var(--menu-surface);
+}
+
+.prekidacOpcija {
+  --button-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--menu-body);
+  font: inherit;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.prekidacOpcija[aria-pressed="true"],
+.prekidacOpcija[aria-current="true"] {
+  background: var(--menu-accent);
+  color: var(--menu-on-accent);
+}
+
+.eur {
+  display: block;
+  color: var(--menu-body-muted);
+  font-size: 0.8125em;
+  font-weight: 500;
+}
+
+.eur::before {
+  content: "~ " / "";
+}
+
+.cenaStavka .eur,
+.detaljStavka .eur {
+  display: inline;
+  margin-left: 0.4em;
+}
+
+.alati {
+  display: grid;
+  gap: 10px;
+  max-width: 44rem;
+  margin: 0 auto;
+  padding: 4px 20px 14px;
+}
+
+.koren[data-layout="categories"] .alati,
+.koren[data-layout="categories"] .alergeniTraka,
+.koren[data-layout="categories"] .rezultati {
+  max-width: 72rem;
+}
+
+.koren[data-layout="compact"] .alati,
+.koren[data-layout="compact"] .alergeniTraka,
+.koren[data-layout="compact"] .rezultati {
+  max-width: 38rem;
+}
+
+.alatiRed {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.pretraga {
+  position: relative;
+  display: flex;
+  flex: 1;
+  align-items: center;
+  min-width: 0;
+}
+
+.pretragaIkonica {
+  position: absolute;
+  left: 14px;
+  width: 18px;
+  height: 18px;
+  color: var(--menu-body-muted);
+  pointer-events: none;
+}
+
+.pretragaPolje {
+  width: 100%;
+  min-height: 46px;
+  padding: 0 44px 0 42px;
+  border: 1px solid var(--menu-input-border);
+  border-radius: 999px;
+  background: var(--menu-surface);
+  color: var(--menu-title);
+  font: inherit;
+  font-size: max(16px, 1rem);
+  appearance: none;
+}
+
+.pretragaPolje::placeholder {
+  color: var(--menu-body-muted);
+  opacity: 1;
+}
+
+.pretragaPolje::-webkit-search-cancel-button {
+  display: none;
+}
+
+.pretragaObrisi {
+  --button-radius: 999px;
+  position: absolute;
+  right: 1px;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  background: none;
+  color: var(--menu-body);
+  cursor: pointer;
+}
+
+.alatDugme {
+  --button-radius: 999px;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  min-height: 46px;
+  padding: 0 16px;
+  border: 1px solid var(--menu-input-border);
+  border-radius: 999px;
+  background: var(--menu-surface);
+  color: var(--menu-title);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.alatDugme[aria-pressed="true"] {
+  border-color: var(--menu-warning);
+  box-shadow: inset 0 0 0 1px var(--menu-warning);
+}
+
+.filteri {
+  display: flex;
+  gap: 6px;
+  margin: 0 -20px;
+  padding: 0 20px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+}
+
+.filteri::-webkit-scrollbar {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  /* Phones: a soft fade says the chip row continues; a variant's EUR line goes under its price. */
+  .filteri {
+    -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent);
+    mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent);
+  }
+
+  .cenaStavka .eur {
+    display: block;
+    margin-left: 0;
+  }
+}
+
+.filter {
+  --button-radius: 999px;
+  flex: none;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--menu-input-border);
+  border-radius: 999px;
+  background: none;
+  color: var(--menu-body);
+  font: inherit;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.filter[aria-pressed="true"] {
+  border-color: var(--menu-accent);
+  background: var(--menu-accent);
+  color: var(--menu-on-accent);
+  font-weight: 600;
+}
+
+.rezultati {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 12px;
+  max-width: 44rem;
+  margin: 0 auto;
+  padding: 0 20px 4px;
+}
+
+.rezultatiBroj {
+  margin: 0;
+  color: var(--menu-body-muted);
+  font-size: 0.9375rem;
+}
+
+.stanjeDugme {
+  --button-radius: 999px;
+  min-height: 44px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--menu-accent);
+  color: var(--menu-on-accent);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* --- allergens ----------------------------------------------------------- */
+
+.alergeniTraka {
+  max-width: 44rem;
+  margin: 0 auto 12px;
+  padding: 0 20px;
+}
+
+/* One box: what is marked, how many articles warn or have no data, and the venue's working text. */
+.alergeniSazetak {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0 10px;
+  margin: 0;
+  padding: 8px 6px 2px 14px;
+  border-left: 3px solid var(--menu-warning);
+  background: var(--menu-surface);
+  color: var(--menu-title);
+  font-weight: 600;
+}
+
+.alergeniNapomena {
+  margin: 0;
+  padding: 0 14px 10px 14px;
+  border-left: 3px solid var(--menu-warning);
+  background: var(--menu-surface);
+  color: var(--menu-body);
+  font-size: 0.875rem;
+}
+
+.valutaNapomena {
+  max-width: 44rem;
+  margin: -6px auto 12px;
+  padding: 0 20px;
+  color: var(--menu-body-muted);
+  font-size: 0.875rem;
+}
+
+.upozorenje,
+.upozorenjeNepoznato {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 6px 0 0;
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+.upozorenje {
+  color: var(--menu-title);
+}
+
+.upozorenje strong {
+  color: var(--menu-warning);
+}
+
+.upozorenjeNepoznato {
+  color: var(--menu-body);
+}
+
+/* "No data": a neutral question mark (lucide "circle-help"), never the warning red. */
+.upozorenjeNepoznato::before {
+  content: "";
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin-top: 1px;
+  background: var(--menu-body-muted);
+  -webkit-mask: var(--menu-upitnik) center / contain no-repeat;
+  mask: var(--menu-upitnik) center / contain no-repeat;
+}
+
+.upozorenjeNepoznato[data-bez-ikonice]::before {
+  content: none;
+}
+
+/* The warning triangle (lucide "triangle-alert"), drawn once in CSS instead of an SVG per row. */
+.upozorenje::before {
+  content: "";
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin-top: 1px;
+  background: var(--menu-warning);
+  -webkit-mask: var(--menu-trougao) center / contain no-repeat;
+  mask: var(--menu-trougao) center / contain no-repeat;
+}
+
+.upozorenje[data-bez-ikonice]::before {
+  content: none;
+}
+
+.koren {
+  --menu-upitnik: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpath d='M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3'/%3E%3Cpath d='M12 17h.01'/%3E%3C/svg%3E");
+  --menu-trougao: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3'/%3E%3Cpath d='M12 9v4'/%3E%3Cpath d='M12 17h.01'/%3E%3C/svg%3E");
+}
+
+.upozorenjeDeo {
+  display: block;
+}
+
+/* The highlight on the row or card itself: a warning rule on the leading edge, never hiding anything. */
+.red[data-upozorenje="sadrzi"],
+.red[data-upozorenje="tragovi"],
+.kartica[data-upozorenje="sadrzi"],
+.kartica[data-upozorenje="tragovi"],
+.stavka[data-upozorenje="sadrzi"],
+.stavka[data-upozorenje="tragovi"] {
+  box-shadow: inset 3px 0 0 var(--menu-warning);
+  padding-left: 12px;
+}
+
+.kompaktno .upozorenje strong {
+  font-weight: 700;
+}
+
+.alergeniPolja {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.alergenPolje {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  color: var(--menu-title);
+  cursor: pointer;
+}
+
+.alergenPolje input {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  margin: 0;
+  accent-color: var(--menu-accent);
+}
+
+.alergeniRadnje {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 -22px -28px;
+  padding: 12px 22px;
+  border-top: 1px solid var(--menu-border);
+  background: var(--menu-surface);
+}
+
+.alergeniRadnje .sadrzajDugme:disabled {
+  color: var(--menu-body-muted);
+  cursor: default;
+}
+
+@media (min-width: 768px) {
+  .alergeniPolja {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 16px;
+  }
+}
+
+@media (min-width: 1024px) {
+  /* Tok: the tools line up with the reading column beside the index rail. */
+  .koren[data-layout="flow"] .alati,
+  .koren[data-layout="flow"] .alergeniTraka,
+  .koren[data-layout="flow"] .rezultati {
+    max-width: calc(14rem + 3.5rem + 40rem);
+    padding-left: calc(14rem + 3.5rem);
+    padding-right: 0;
+  }
+}
+
+/* Phones: the switches take their own row under the venue name, which keeps its line. */
+@media (max-width: 767px) {
+  .zaglavlje:has(.zaglavljeAlati) {
+    flex-wrap: wrap;
+  }
+
+  .zaglavljeAlati {
+    flex-basis: 100%;
+    margin-left: 0;
+  }
+}
+
+@media (min-width: 768px) {
+  /* Wide screens have room: the filter chips wrap instead of scrolling sideways. */
+  .filteri {
+    flex-wrap: wrap;
+    margin: 0;
+    padding: 0;
+    overflow: visible;
+  }
+}

@@ -2,9 +2,9 @@
 
 // ScanMe Menu V1 (K13) — the article detail (master §7.3–§7.6): name,
 // quantity, description, price or variants, add-ons (information until the
-// guest can order, K21), combo contents, badges, the allergen structure (the
-// warnings for a guest's own allergens are K14), the promotion and
-// "Privremeno nedostupno". A native <dialog> opened with showModal(): focus
+// guest can order, K21), combo contents, badges, the allergen structure, the
+// promotion and "Privremeno nedostupno"; K14: the warning for the guest's
+// marked allergens and the EUR note. A native <dialog> opened with showModal(): focus
 // stays inside, Esc and `Zatvori` close it, focus returns to the row. A sheet
 // from the bottom on phones, centred from 768 px (CSS).
 
@@ -16,6 +16,7 @@ import { fmt } from "@/lib/i18n/format";
 import { menuDomenSr } from "@/lib/i18n/sr/menu-domen";
 import { menuJavniSr } from "@/lib/i18n/sr/menu-javni";
 import { isMenuAllergenCode } from "@/lib/menu/allergens";
+import { datumKursa } from "@/lib/menu/currency";
 import {
   akcijaAktivna,
   cenaPrikaz,
@@ -26,7 +27,10 @@ import {
 import type { MenuLayout } from "@/lib/menu/presentation";
 import type { PublicAddonGroup, PublicArticle } from "@/lib/menu/snapshot";
 import { formatRsd } from "../menu-view";
+import { Upozorenje } from "./alergeni";
 import { Cena, Nedostupno, Oznake } from "./artikal";
+import { EurIznos } from "./jezik-valuta";
+import { useJavniIzbor, useUpozorenje } from "./kontekst";
 import styles from "./javni.module.css";
 
 const t = menuJavniSr;
@@ -74,6 +78,8 @@ export function DetaljSadrzaj({
   const cena = cenaPrikaz(article, sadaMs);
   const promoKraj = article.promo && akcijaAktivna(article, sadaMs) ? article.promo.endsAt ?? null : null;
   const alergeni = article.allergens;
+  const upozorenje = useUpozorenje(article);
+  const { eurKurs, eurDatum } = useJavniIzbor();
   return (
     <>
       {izbor.vrsta === "slika" ? (
@@ -98,7 +104,14 @@ export function DetaljSadrzaj({
             <p className={styles.detaljNapomena}>{fmt(t.detalj.akcijaDo, { datum: formatBelgradeDate(promoKraj) })}</p>
           ) : null}
           <Oznake article={article} sadaMs={sadaMs} />
+          {/* "No data" is already said by the allergen block below; only real warnings repeat up here. */}
+          <Upozorenje upozorenje={upozorenje?.vrsta === "nepoznato" ? null : upozorenje} />
           {nedostupan ? <Nedostupno /> : null}
+          {eurKurs !== null && eurDatum ? (
+            <p className={styles.detaljNapomena} data-eur-napomena="">
+              {fmt(t.valuta.napomena, { datum: datumKursa(eurDatum) })}
+            </p>
+          ) : null}
         </div>
         {article.description ? <p className={styles.detaljOpis}>{article.description}</p> : null}
 
@@ -135,6 +148,7 @@ export function DetaljSadrzaj({
                         <span className={styles.cena}>
                           +{formatRsd(opcija.priceDeltaRsd)}
                           <span className={styles.valuta}>RSD</span>
+                          <EurIznos rsd={opcija.priceDeltaRsd} />
                         </span>
                       ) : null}
                     </li>

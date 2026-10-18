@@ -21,7 +21,10 @@ import {
 import type { MenuLayout } from "@/lib/menu/presentation";
 import type { PublicArticle } from "@/lib/menu/snapshot";
 import { formatRsd } from "../menu-view";
+import { Upozorenje } from "./alergeni";
 import { JavniGlif } from "./glif";
+import { EurIznos } from "./jezik-valuta";
+import { useUpozorenje } from "./kontekst";
 import styles from "./javni.module.css";
 
 const t = menuJavniSr;
@@ -72,6 +75,7 @@ function Iznos({ rsd, akcijska }: { rsd: number; akcijska: number | null }) {
       {akcijska !== null ? <span className={styles.vizuelnoSkriveno}>{t.artikal.akcijskaCena} </span> : null}
       {formatRsd(akcijska ?? rsd)}
       <span className={styles.valuta}>RSD</span>
+      <EurIznos rsd={akcijska ?? rsd} />
     </>
   );
 }
@@ -188,6 +192,7 @@ function Naziv({ article, onOtvori, className }: Pick<ArtikalProps, "article" | 
 /** Tok: [media] name, description, badges | price. */
 export function ArtikalRed({ article, layout, slike, sadaMs, nedostupan, sekcijaIkonica = null, onOtvori }: ArtikalProps) {
   const izbor = izborMedija(article, layout, slike, sekcijaIkonica);
+  const upozorenje = useUpozorenje(article);
   return (
     <li
       id={sidroArtikla(article.key)}
@@ -195,12 +200,14 @@ export function ArtikalRed({ article, layout, slike, sadaMs, nedostupan, sekcija
       data-artikal=""
       data-medij={izbor.vrsta === "bez" ? undefined : izbor.vrsta}
       data-nedostupno={nedostupan ? "" : undefined}
+      data-upozorenje={upozorenje?.vrsta}
     >
       <Medij izbor={izbor} px={96} rezerva={sekcijaIkonica} />
       <div className={styles.redTelo}>
         <Naziv article={article} onOtvori={onOtvori} className={styles.nazivArtikla} />
         {article.description ? <p className={styles.opis}>{article.description}</p> : null}
         <Oznake article={article} sadaMs={sadaMs} />
+        <Upozorenje upozorenje={upozorenje} />
         {nedostupan ? <Nedostupno /> : null}
       </div>
       <Cena cena={cenaPrikaz(article, sadaMs)} />
@@ -211,6 +218,7 @@ export function ArtikalRed({ article, layout, slike, sadaMs, nedostupan, sekcija
 /** Kategorije: a card with a larger image or icon. */
 export function ArtikalKartica({ article, layout, slike, sadaMs, nedostupan, sekcijaIkonica = null, onOtvori }: ArtikalProps) {
   const izbor = izborMedija(article, layout, slike, sekcijaIkonica);
+  const upozorenje = useUpozorenje(article);
   return (
     <li
       id={sidroArtikla(article.key)}
@@ -218,12 +226,14 @@ export function ArtikalKartica({ article, layout, slike, sadaMs, nedostupan, sek
       data-artikal=""
       data-medij={izbor.vrsta === "bez" ? undefined : izbor.vrsta}
       data-nedostupno={nedostupan ? "" : undefined}
+      data-upozorenje={upozorenje?.vrsta}
     >
       <Medij izbor={izbor} px={88} rezerva={sekcijaIkonica} />
       <div className={styles.karticaTelo}>
         <Naziv article={article} onOtvori={onOtvori} className={styles.nazivArtikla} />
         {article.description ? <p className={styles.opis}>{article.description}</p> : null}
         <Oznake article={article} sadaMs={sadaMs} />
+        <Upozorenje upozorenje={upozorenje} />
         {nedostupan ? <Nedostupno /> : null}
       </div>
       <Cena cena={cenaPrikaz(article, sadaMs)} />
@@ -234,12 +244,14 @@ export function ArtikalKartica({ article, layout, slike, sadaMs, nedostupan, sek
 /** Kompaktno: a typographic line, never any media (master §7.1, §15.2). */
 export function KompaktnaStavka({ article, sadaMs, nedostupan, onOtvori }: Omit<ArtikalProps, "layout" | "slike" | "sekcijaIkonica">) {
   const cena = cenaPrikaz(article, sadaMs);
+  const upozorenje = useUpozorenje(article);
   return (
     <li
       id={sidroArtikla(article.key)}
       className={styles.stavka}
       data-artikal=""
       data-nedostupno={nedostupan ? "" : undefined}
+      data-upozorenje={upozorenje?.vrsta}
     >
       <div className={styles.stavkaRed}>
         <Naziv article={article} onOtvori={onOtvori} className={`${styles.stavkaNaziv} ${styles.nazivArtikla}`} />
@@ -263,6 +275,7 @@ export function KompaktnaStavka({ article, sadaMs, nedostupan, onOtvori }: Omit<
       ) : null}
       {article.description ? <p className={styles.stavkaOpis}>{article.description}</p> : null}
       <Oznake article={article} sadaMs={sadaMs} />
+      <Upozorenje upozorenje={upozorenje} bezIkonice />
       {nedostupan ? <Nedostupno bezIkonice /> : null}
     </li>
   );

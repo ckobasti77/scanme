@@ -6,6 +6,7 @@
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import { menuJavniSr } from "@/lib/i18n/sr/menu-javni";
+import { saJezikom } from "@/lib/menu/i18n-fallback";
 import type { PublicPageMeta } from "@/lib/menu/snapshot";
 import styles from "./javni.module.css";
 
@@ -20,17 +21,23 @@ export function NavigacijaStranica({
   stranica,
   stranice,
   ugradjen = false,
+  jezik = "sr",
+  jezici = [],
 }: {
   slug: string;
   stranica: PublicPageMeta;
   stranice: readonly PublicPageMeta[];
   ugradjen?: boolean;
+  /** K14: links keep the guest's language. */
+  jezik?: string;
+  jezici?: readonly string[];
 }) {
+  const href = (put: string) => saJezikom(put, jezik, jezici);
   if (stranice.length <= 1 || stranica.navigation === "standalone") return null;
   if (stranica.navigation === "back") {
     return (
       <div className={styles.nazadOkvir}>
-        <Link href={`/${slug}/meni`} className={styles.nazadLink} tabIndex={ugradjen ? -1 : undefined}>
+        <Link href={href(`/${slug}/meni`)} className={styles.nazadLink} tabIndex={ugradjen ? -1 : undefined}>
           <ChevronLeft aria-hidden="true" className={styles.ikonicaLinka} />
           {t.navigacija.sveStranice}
         </Link>
@@ -42,7 +49,7 @@ export function NavigacijaStranica({
       {stranice.map((druga) => (
         <Link
           key={druga.key}
-          href={`/${slug}/meni/${druga.slug}`}
+          href={href(`/${slug}/meni/${druga.slug}`)}
           className={styles.stranicaLinkMali}
           aria-current={druga.key === stranica.key ? "page" : undefined}
           tabIndex={ugradjen ? -1 : undefined}

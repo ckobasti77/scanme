@@ -39,7 +39,8 @@ export function JavniPrikaz({ ucitano }: { ucitano: JavnoUcitano }) {
       izgled={ucitano.izgled}
       slike={ucitano.slike}
       sadaMs={ucitano.sadaMs}
-      pocetno={ucitano.uzivo}
+      uzivo={ucitano.uzivo}
+      kurs={ucitano.kurs}
     />
   );
 }

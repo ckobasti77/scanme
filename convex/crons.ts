@@ -209,4 +209,10 @@ crons.interval(
   {},
 );
 
+
+// ScanMe Menu V1 (K14): the informative EUR rate of the public menu (NBS
+// middle rate). Does nothing, with no network call, unless MENU_FX_ENABLED is
+// exactly "true" (convex/menuFx.ts).
+crons.interval("menu fx rate", { hours: 6 }, internal.menuFx.refreshRate, {});
+
 export default crons;

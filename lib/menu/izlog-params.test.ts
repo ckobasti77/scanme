@@ -215,6 +215,13 @@ describe("existing parameters keep working (TASK-51, TASK-52)", () => {
       kategorija: null,
       detalj: false,
       stariRenderer: false,
+      // K14
+      alergeni: [],
+      jezik: null,
+      valuta: null,
+      starKurs: false,
+      pretraga: null,
+      filteri: [],
     };
     expect(parsePublicPreview({})).toEqual({ tema: null, long: false, darkDesign: false, ...PODRAZUMEVANO });
     expect(parsePublicPreview({ state: "long", design: "dark", tema: "svetla" })).toEqual({

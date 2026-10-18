@@ -691,7 +691,10 @@ describe("Kompaktno (primer prestizni)", () => {
     expect(prikaz.view.sekcije.length).toBeLessThanOrEqual(MENU_KRATAK_SADRZAJ);
     const html = prikazi(prikaz);
     // The bar button: a visible "Sadržaj" with an explicit name.
-    const dugme = /<button\b([^>]*\saria-haspopup="dialog"[^>]*)>([\s\S]*?)<\/button>/.exec(html);
+    // K14: the allergen button also opens a dialog, so the bar button is the one that says "Sadržaj".
+    const dugme = [...html.matchAll(/<button\b([^>]*\saria-haspopup="dialog"[^>]*)>([\s\S]*?)<\/button>/g)].find(
+      (match) => bezTagova(match[2]) === esc(t.navigacija.sadrzaj),
+    );
     expect(attr(`<button${dugme?.[1] ?? ""}>`, "aria-label")).toBe(t.navigacija.otvoriSadrzaj);
     expect(bezTagova(dugme?.[2] ?? "")).toBe(esc(t.navigacija.sadrzaj));
     // The dialog is named by its visible h2, not by an aria-label.

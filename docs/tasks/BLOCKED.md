@@ -2170,3 +2170,13 @@ Nijedna stavka ne blokira kod: run je izabrao konzervativnu opciju i kod radi po
 6. **Razdelnik je lista stranica** (jedna kolona na svim širinama, do 36 rem), ne mreža od 3 kolone iz plana K12: lokal obično ima 2–4 stranice, a lista je čitljivija i mirnija.
 7. **Kurirane palete i parovi fontova** (7 + 7, `lib/menu/identity/`) su izbor runa; nazivi (`topla`, `espresso`, `bordo`, `more`, `kamen`, `ponoc`, `ugalj`; `osnovni`, `kafe`, `bistro`, `klasika`, `elegancija`, `knjiga`, `savremeno`) su interni, K17 daje tekst za korisnika.
 8. **Artikal u režimu ikonice bez sopstvene ikonice** dobija ikonicu svoje sekcije, pa podrazumevanu (viljuška i nož). Ikonicu sekcije u editoru dodaje K15/K16.
+
+## SCANME MENU V1 — K14 (18. 10. 2026.) — javni meni: pretraga, alergeni, jezici, valuta
+
+Nijedna stavka ne blokira kod: run je izabrao konzervativnu opciju i kod radi po njoj. Vlasnik potvrđuje ili menja.
+
+1. **Izvor kursa EUR i uslovi korišćenja.** Kod čita srednji kurs NBS za EUR kao JSON sa adrese iz `MENU_FX_URL` (oblik javnih servisa koji prenose NBS kursnu listu), samo kad je `MENU_FX_ENABLED=true`. Zvanični NBS veb-servis traži registraciju. Potrebno: izbor izvora (NBS servis uz registraciju ili posrednik), provera uslova korišćenja i postavljanje env-a na Convex deploymentu. Do tada EUR prekidač se nigde ne prikazuje.
+2. **Pravna provera radnog teksta o alergenima** (master §7.3): tekst se prikazuje doslovno u fioci, traci i detalju. Isto važi za rečenicu „Lokal nije uneo alergene za ovaj artikal“ i za kratke nazive alergena u upozorenju na redu (npr. „mleko“, „sulfiti“; puni nazivi su u fioci i detalju).
+3. **Prevod teksta interfejsa javnog menija.** Meni (nazivi, opisi) se prikazuje na izabranom jeziku, a dugmad, poruke i radni tekst o alergenima ostaju na srpskom. Prevod radnog teksta traži i pravnu proveru na tom jeziku.
+4. **Napomena uz EUR**: „Cene u evrima su približne, po srednjem kursu NBS od {datum}. Važeća cena je u dinarima.“ — tekst je izbor runa.
+5. **Svežina kursa: 4 beogradska kalendarska dana** (petkova lista važi do utorka). Kraći ili duži rok je odluka vlasnika (`MENU_KURS_SVEZINA_DANA`, `lib/menu/currency.ts`).

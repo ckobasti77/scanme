@@ -7,7 +7,8 @@
 // bundle, which carries the colour library anyway.
 //
 // compileMenuTokens is reused unchanged (shared with the legacy renderer);
-// this module only adds the heading face, density and the colour scheme.
+// this module only adds the heading face, density, the colour scheme and (K14)
+// the allergen warning colour.
 
 import {
   DEFAULT_MENU_DESIGN,
@@ -15,6 +16,7 @@ import {
   type MenuColors,
 } from "../../design-engine/menu-tokens";
 import { FONT_STACKS } from "../../design-engine/typography";
+import { ensureContrast } from "../../scanme-color-science";
 import type {
   MenuBranding,
   MenuDensity,
@@ -84,6 +86,9 @@ export function javniIzgled(
     "--menu-section-gap": `${gustina.sekcijaRazmak}px`,
     "--menu-body-size": `${gustina.teloPx / 16}rem`,
     "--menu-color-scheme": ton === "tamna" ? "dark" : "light",
+    // K14: the allergen warning (master §7.3). A red that reads on the page and on cards (4.5:1);
+    // it is never the only signal (an icon and the words "Sadrži" / "Može sadržati tragove" go with it).
+    "--menu-warning": ensureContrast(ton === "tamna" ? "#FF8E80" : "#B42318", [colors.page, colors.surface], 4.5),
   };
 
   return {

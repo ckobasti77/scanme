@@ -162,3 +162,35 @@ export function Kategorije({
     </div>
   );
 }
+
+/**
+ * K14: search and filter results in `Kategorije` — the matches of every
+ * category at once, grouped under the category name (plan K12 §6.1), as cards.
+ */
+export function KategorijeRezultati({ sekcije, slike, sadaMs, nedostupni, onOtvori }: LayoutProps) {
+  return (
+    <div className={styles.kategorije} data-kategorije="rezultati">
+      {sekcije.map((sekcija) => (
+        <section key={sekcija.key} className={styles.sekcija} aria-labelledby={`r-${sidroKategorije(sekcija.key)}`}>
+          <h2 id={`r-${sidroKategorije(sekcija.key)}`} className={`${styles.naslov} ${styles.sekcijaNaslov}`}>
+            {sekcija.name}
+          </h2>
+          <ul className={styles.kartice}>
+            {sekcija.articles.map((article) => (
+              <ArtikalKartica
+                key={article.key}
+                article={article}
+                layout="categories"
+                slike={slike}
+                sadaMs={sadaMs}
+                nedostupan={nedostupni.has(article.key)}
+                sekcijaIkonica={sekcija.iconKey}
+                onOtvori={onOtvori}
+              />
+            ))}
+          </ul>
+        </section>
+      ))}
+    </div>
+  );
+}

@@ -64,6 +64,12 @@ const app = defineApp({
     ZOHO_MAIL_CLIENT_ENABLED: v.optional(v.string()),
     ZOHO_TOKEN_ENCRYPTION_KEY: v.optional(v.string()),
     ZOHO_MAIL_REDIRECT_URI: v.optional(v.string()),
+    // ScanMe Menu V1 (K14): the informative EUR rate of the public menu
+    // (convex/menuFx.ts). On only when the switch is exactly "true" AND the
+    // URL is https; otherwise the cron does nothing (no network call) and the
+    // EUR switch never shows.
+    MENU_FX_ENABLED: v.optional(v.string()),
+    MENU_FX_URL: v.optional(v.string()),
   },
 });
 

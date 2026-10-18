@@ -31,6 +31,7 @@ export function JavniOkvir({
   jezik,
   ugradjen = false,
   navigacija,
+  alati,
   children,
   className,
 }: {
@@ -41,6 +42,8 @@ export function JavniOkvir({
   jezik: string;
   ugradjen?: boolean;
   navigacija?: ReactNode;
+  /** K14: the language and currency switches at the top. */
+  alati?: ReactNode;
   children: ReactNode;
   className?: string;
 }) {
@@ -74,6 +77,7 @@ export function JavniOkvir({
           <Naslov className={`${styles.naslov} ${styles.lokal}`}>{lokal.naziv}</Naslov>
           {naslovStranice ? <p className={styles.stranicaNaslov}>{naslovStranice}</p> : null}
         </div>
+        {alati ? <div className={styles.zaglavljeAlati}>{alati}</div> : null}
       </Zaglavlje>
       {navigacija}
       <Glavni>{children}</Glavni>

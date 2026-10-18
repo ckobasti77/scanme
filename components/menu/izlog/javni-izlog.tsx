@@ -14,7 +14,7 @@ export function JavniIzlog({ params }: { params: PublicPreviewParams }) {
   if (prikaz.vrsta === "stari") return null;
   const izgled = javniIzgled(prikaz.presentation);
   if (prikaz.vrsta === "razdelnik") {
-    return <JavniRazdelnik view={prikaz.view} izgled={izgled} naslovne={prikaz.naslovne} />;
+    return <JavniRazdelnik view={prikaz.view} izgled={izgled} naslovne={prikaz.naslovne} jezikLinkovi={prikaz.jezikLinkovi} />;
   }
   return (
     <JavniMeni
@@ -25,6 +25,10 @@ export function JavniIzlog({ params }: { params: PublicPreviewParams }) {
       nedostupni={prikaz.nedostupni}
       pocetniDetalj={prikaz.pocetniDetalj}
       pocetnaKategorija={prikaz.pocetnaKategorija}
+      kurs={prikaz.kurs}
+      pocetno={prikaz.pocetno}
+      jezikLinkovi={prikaz.jezikLinkovi}
+      cuvaj={false}
     />
   );
 }

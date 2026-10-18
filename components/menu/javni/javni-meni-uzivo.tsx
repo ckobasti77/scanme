@@ -17,9 +17,9 @@ import { MeniNijeDostupan, NovaVerzija } from "./stanja";
 export type JavnoUzivo = { versionNumber: number; unavailableKeys: string[] };
 
 export function JavniMeniUzivo({
-  pocetno,
+  uzivo,
   ...props
-}: Omit<JavniMeniProps, "nedostupni" | "dodatak"> & { pocetno: JavnoUzivo }) {
+}: Omit<JavniMeniProps, "nedostupni" | "dodatak" | "satUzivo"> & { uzivo: JavnoUzivo }) {
   const router = useRouter();
   const live = useQuery(api.menuPublic.live, { slug: props.view.lokal.slug });
   if (live === null) {
@@ -29,11 +29,12 @@ export function JavniMeniUzivo({
       </JavniOkvir>
     );
   }
-  const trenutno = live ?? pocetno;
-  const novija = live !== undefined && live.versionNumber > pocetno.versionNumber;
+  const trenutno = live ?? uzivo;
+  const novija = live !== undefined && live.versionNumber > uzivo.versionNumber;
   return (
     <JavniMeni
       {...props}
+      satUzivo
       nedostupni={trenutno.unavailableKeys}
       dodatak={novija ? <NovaVerzija onPrikazi={() => router.refresh()} /> : null}
     />

@@ -7591,7 +7591,6 @@ export interface MenuStudioDict {
 }
 
 // ScanMe Menu V1 (MENI run, K13) — the public menu a guest reads (master §7).
-// K14 adds search, filters, allergens, languages and currency here.
 export interface MenuJavniDict {
   meta: { naslov: string; naslovStranice: string; opis: string };
   razdelnik: { uvod: string; meni: string; stranice: string };
@@ -7647,6 +7646,39 @@ export interface MenuJavniDict {
   };
   podnozje: { pokrece: string; kratko: string };
   izlog: { naslov: string };
+  /** K14 — search and filters (master §7.2). */
+  pretraga: {
+    oznaka: string;
+    placeholder: string;
+    obrisi: string;
+    nemaRezultata: string;
+    nemaZaFiltere: string;
+    nemaSavet: string;
+    prikaziSve: string;
+    rezultati: MenuStudioMnozina;
+    filteri: string;
+  };
+  /** K14 — the guest's allergens (master §7.3); names and the disclaimer stay in menu-domen. */
+  alergeni: {
+    dugme: string;
+    dugmeBroj: string;
+    naslov: string;
+    uvod: string;
+    gotovo: string;
+    ponisti: string;
+    oznaceno: string;
+    brojUpozorenja: MenuStudioMnozina;
+    bezUpozorenja: string;
+    bezPodataka: MenuStudioMnozina;
+    promeni: string;
+    nepoznato: string;
+    /** Short lowercase names for a row warning ("Sadrži: mleko"); the full names stay in menu-domen. */
+    kratko: Record<string, string>;
+  };
+  /** K14 — languages (master §7.7); language names in their own language. */
+  jezik: { oznaka: string; nazivi: Record<string, string> };
+  /** K14 — the informative EUR price (master §5.3). */
+  valuta: { oznaka: string; rsd: string; eur: string; eurCitac: string; napomena: string };
 }
 
 export interface DictBySurface {

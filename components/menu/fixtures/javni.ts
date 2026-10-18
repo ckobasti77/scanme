@@ -8,6 +8,10 @@
 // small photos already in public/dev-venue; every fourth article has no
 // resolved image, to show the icon fallback (master §7.9).
 
+import { epochToBelgradeLocal } from "@/lib/belgrade-time";
+import type { JavniPocetno } from "../javni/javni-meni";
+import type { MenuKurs } from "@/lib/menu/currency";
+import { MENU_FILTER_CODES } from "@/lib/menu/filters";
 import { jePoznataPaleta } from "@/lib/menu/identity/palettes";
 import { MENU_KNOWN_PRODUCT_TYPES, normalizeProductType } from "../menu-glyph-map";
 import type {
@@ -18,7 +22,12 @@ import type {
 } from "@/lib/menu/izlog-params";
 import type { MenuLayout, MenuMediaMode, MenuPresentationValues } from "@/lib/menu/presentation";
 import { MENU_DEFAULT_PRESENTATION } from "@/lib/menu/presentation";
-import type { JavniRazdelnikView, JavnaStranicaView, PublicImage } from "@/lib/menu/public-view";
+import {
+  mogucnostiIzPrezentacije,
+  type JavniRazdelnikView,
+  type JavnaStranicaView,
+  type PublicImage,
+} from "@/lib/menu/public-view";
 import {
   MENU_PART_SPLITTER,
   compileSnapshot,
@@ -94,12 +103,17 @@ export type JavniIzlogPrikaz =
       sadaMs: number;
       pocetniDetalj: string | null;
       pocetnaKategorija: string | null;
+      /** K14 */
+      kurs: MenuKurs | null;
+      pocetno: JavniPocetno;
+      jezikLinkovi: Record<string, string>;
     }
   | {
       vrsta: "razdelnik";
       view: JavniRazdelnikView;
       presentation: MenuPresentationValues;
       naslovne: Record<string, PublicImage | null>;
+      jezikLinkovi: Record<string, string>;
     }
   | { vrsta: "stari" };
 
@@ -147,9 +161,9 @@ function pripremi(
   };
 }
 
-function compile(snapshot: MenuDraftSnapshot) {
-  const version = compileSnapshot(snapshot, { languages: ["sr"], roomService: false, scheduledPromos: true });
-  const publicParts = version.parts.filter((part) => part.scope === "public" && part.lang === "sr");
+function compile(snapshot: MenuDraftSnapshot, languages: readonly string[], lang: string) {
+  const version = compileSnapshot(snapshot, { languages, roomService: false, scheduledPromos: true });
+  const publicParts = version.parts.filter((part) => part.scope === "public" && part.lang === lang);
   const splitterPart = publicParts.find((part) => part.pageKey === MENU_PART_SPLITTER);
   if (!splitterPart) throw new Error("izlog: the compiled version has no splitter");
   const splitter = parseSplitter(splitterPart.data);
@@ -175,6 +189,107 @@ function bogatstvo(article: PublicArticle): number {
   );
 }
 
+// K14: English names for part of the fixture menus. The rest is left untranslated on
+// purpose, so the izlog shows the fallback to the source text (master §7.7).
+const PREVODI_EN: Readonly<Record<string, string>> = {
+  Kafa: "Coffee",
+  Sokovi: "Juices",
+  "Doručak": "Breakfast",
+  Slatko: "Sweets",
+  "Produžena kafa": "Long coffee",
+  "Kafa sa mlekom": "Coffee with milk",
+  "Topla čokolada": "Hot chocolate",
+  "Domaća limunada": "Homemade lemonade",
+  "Ceđena pomorandža": "Fresh orange juice",
+  "Mineralna voda": "Sparkling water",
+  "Kajgana sa slaninom": "Scrambled eggs with bacon",
+  "Palačinke sa čokoladom": "Chocolate pancakes",
+  Predjela: "Starters",
+  "Supe i salate": "Soups and salads",
+  "Sa roštilja": "From the grill",
+  "Glavna jela": "Main courses",
+  Prilozi: "Sides",
+  Dezerti: "Desserts",
+  "Pića": "Drinks",
+  Vina: "Wines",
+  "Vinska karta": "Wine list",
+  "Bela vina": "White wines",
+  "Crvena vina": "Red wines",
+  "Ajvar sa tostom": "Ajvar with toast",
+  "Domaći kulen": "Homemade kulen sausage",
+  "Pržene lignje": "Fried squid",
+  "Bruschetta sa paradajzom": "Tomato bruschetta",
+  "Teleća čorba": "Veal soup",
+  "Paradajz čorba": "Tomato soup",
+  "Riblja čorba": "Fish soup",
+  "Krem supa od pečuraka": "Cream of mushroom soup",
+  "Šopska salata": "Shopska salad",
+  "Grčka salata": "Greek salad",
+  "Cezar salata sa piletinom": "Chicken Caesar salad",
+  "Gurmanska pljeskavica": "Gourmet burger patty",
+  "Pileći file na žaru": "Grilled chicken fillet",
+  "Svinjski vrat": "Pork neck",
+  "Jagnjeći kotleti": "Lamb chops",
+  "Punjene paprike": "Stuffed peppers",
+  "Gulaš od junetine": "Beef goulash",
+  "Brancin na žaru": "Grilled sea bass",
+  "Rižoto sa pečurkama": "Mushroom risotto",
+  "Pečeni krompir": "Roast potatoes",
+  "Grilovano povrće": "Grilled vegetables",
+  "Čokoladni sufle": "Chocolate soufflé",
+  "Voćna salata": "Fruit salad",
+  "Točeno pivo": "Draught beer",
+  "Gazirani sok": "Soft drink",
+};
+
+type Prevodi = MenuDraftSnapshot["articles"][number]["translations"];
+
+/** Confirmed translations for the names this fixture knows; others keep what they had. */
+function prevedi(translations: Prevodi, naziv: string | null, lang: string, polje: "name" | "publicTitle"): Prevodi {
+  const prevod = naziv && lang === "en" ? PREVODI_EN[naziv] : undefined;
+  if (!prevod) return translations;
+  return { ...(translations ?? {}), [lang]: { ...(translations?.[lang] ?? {}), [polje]: prevod, status: "confirmed" as const } };
+}
+
+/** The menu in two languages (source + the asked one; `sr` adds English), part of it translated. */
+function dvaJezika(snapshot: MenuDraftSnapshot, prevod: string): MenuDraftSnapshot {
+  return {
+    ...snapshot,
+    settings: { ...snapshot.settings, languages: { source: "sr", translations: [prevod] } },
+    sections: snapshot.sections.map((row) => ({ ...row, translations: prevedi(row.translations, row.name, prevod, "name") })),
+    articles: snapshot.articles.map((row) => ({ ...row, translations: prevedi(row.translations, row.name, prevod, "name") })),
+    pages: snapshot.pages.map((row) => ({
+      ...row,
+      translations: prevedi(row.translations, row.publicTitle, prevod, "publicTitle"),
+    })),
+  };
+}
+
+/** K14: the fixture EUR rate (an invented value, dated the izlog day; `kurs=star` = ten days older). */
+function izlogKurs(star: boolean): MenuKurs {
+  const dan = epochToBelgradeLocal(IZLOG_SADA - (star ? 10 : 0) * 24 * 60 * 60 * 1000).slice(0, 10);
+  return { rate: 117.2, effectiveDate: dan, fetchedAt: IZLOG_SADA - 2 * 60 * 60 * 1000 };
+}
+
+/** The izlog address with one parameter changed (the language links stay inside the izlog). */
+function izlogHref(params: PublicPreviewParams, jezik: string): string {
+  const upit = new URLSearchParams();
+  upit.set("primer", params.primer);
+  if (params.layout) upit.set("layout", params.layout);
+  if (params.mediji) upit.set("mediji", params.mediji);
+  if (params.paleta) upit.set("paleta", params.paleta);
+  if (params.stanje) upit.set("stanje", params.stanje);
+  if (params.stranica) upit.set("stranica", params.stranica);
+  if (params.alergeni.length > 0) upit.set("alergen", params.alergeni.join(","));
+  if (params.valuta) upit.set("valuta", params.valuta);
+  if (params.starKurs) upit.set("kurs", "star");
+  if (params.pretraga) upit.set("pretraga", params.pretraga);
+  if (params.filteri.length > 0) upit.set("filter", params.filteri.join(","));
+  if (params.tema) upit.set("tema", params.tema);
+  upit.set("jezik", jezik);
+  return `/dev/menu-public-preview?${upit.toString()}`;
+}
+
 export function javniIzlog(params: PublicPreviewParams): JavniIzlogPrikaz {
   if (params.stariRenderer) return { vrsta: "stari" };
   const spec = PRIMERI[params.primer];
@@ -192,11 +307,26 @@ export function javniIzlog(params: PublicPreviewParams): JavniIzlogPrikaz {
     ...spec.presentation,
     paletteId,
     ...(params.layout ? { layout: LAYOUT[params.layout] } : {}),
+    // K14: search and every filter for the tool states and the large menu; the EUR switch for valuta/kurs.
+    ...(params.pretraga || params.filteri.length > 0 || stanje === "veliki"
+      ? { search: true, filters: [...MENU_FILTER_CODES] }
+      : {}),
+    ...(params.valuta || params.starKurs ? { currencyToggle: true } : {}),
   };
   const mediji = params.mediji ? MEDIJ[params.mediji] : spec.mediji;
   const navigacija = stanje === "razdelnik" && spec.navigacija === "standalone" ? "back" : spec.navigacija;
-  const { snapshot, slike } = pripremi(menu, presentation, mediji, navigacija, stanje === "prazno");
-  const { splitter, page } = compile(snapshot);
+  const pripremljeno = pripremi(menu, presentation, mediji, navigacija, stanje === "prazno");
+  const slike = pripremljeno.slike;
+  // K14: `alergen=` means the venue keeps allergens; `jezik=` publishes a second language.
+  let snapshot = params.alergeni.length > 0
+    ? { ...pripremljeno.snapshot, settings: { ...pripremljeno.snapshot.settings, allergensEnabled: true } }
+    : pripremljeno.snapshot;
+  const prevod = params.jezik ? (params.jezik === "sr" ? "en" : params.jezik) : null;
+  if (prevod) snapshot = dvaJezika(snapshot, prevod);
+  const languages = prevod ? ["sr", prevod] : ["sr"];
+  const lang = params.jezik ?? "sr";
+  const { splitter, page } = compile(snapshot, languages, lang);
+  const jezikLinkovi = Object.fromEntries(splitter.languages.map((kod) => [kod, izlogHref(params, kod)]));
   const lokal = { naziv: spec.naziv ?? menu.venueName, slug: menu.slug, logoUrl: null };
 
   if (stanje === "razdelnik") {
@@ -209,6 +339,7 @@ export function javniIzlog(params: PublicPreviewParams): JavniIzlogPrikaz {
       view: { lokal, stranice: splitter.pages, jezik: splitter.lang, jezici: splitter.languages },
       presentation,
       naslovne,
+      jezikLinkovi,
     };
   }
 
@@ -235,6 +366,7 @@ export function javniIzlog(params: PublicPreviewParams): JavniIzlogPrikaz {
       jezik: splitter.lang,
       jezici: splitter.languages,
       alergeniUkljuceni: splitter.allergensEnabled,
+      mogucnosti: mogucnostiIzPrezentacije(presentation),
     },
     presentation,
     slike,
@@ -242,5 +374,13 @@ export function javniIzlog(params: PublicPreviewParams): JavniIzlogPrikaz {
     sadaMs: IZLOG_SADA,
     pocetniDetalj: najbogatiji?.key ?? null,
     pocetnaKategorija: kategorija,
+    kurs: presentation.currencyToggle ? izlogKurs(params.starKurs) : null,
+    pocetno: {
+      upit: params.pretraga ?? undefined,
+      filteri: params.filteri,
+      alergeni: params.alergeni,
+      valuta: params.valuta ?? undefined,
+    },
+    jezikLinkovi,
   };
 }
