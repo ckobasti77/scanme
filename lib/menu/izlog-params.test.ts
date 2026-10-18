@@ -6,6 +6,7 @@ import {
   LOKAL_POGLED_KORAK,
   PANEL_SEKCIJE,
   PANEL_SEKCIJA_KORAK,
+  PANEL_ULOGA_AKTER,
   firstParam,
   izlogHref,
   parseEditorPreview,
@@ -86,6 +87,7 @@ describe("/dev/menu-panel-preview", () => {
       sekcija: "pocetna",
       plan: "standard",
       uloga: "vlasnik",
+      stanje: null,
       fiokaOtvorena: false,
     });
   });
@@ -93,11 +95,21 @@ describe("/dev/menu-panel-preview", () => {
   test("known values are read", () => {
     expect(
       parsePanelPreview({ sekcija: "primitivi", plan: "premium", uloga: "urednik", fioka: "otvorena" }),
-    ).toEqual({ tema: null, sekcija: "primitivi", plan: "premium", uloga: "urednik", fiokaOtvorena: true });
+    ).toEqual({ tema: null, sekcija: "primitivi", plan: "premium", uloga: "urednik", stanje: null, fiokaOtvorena: true });
+  });
+
+  test("K08: staff and ScanMe admin roles and the whole-screen states of the shell", () => {
+    expect(parsePanelPreview({ uloga: "osoblje" }).uloga).toBe("osoblje");
+    expect(parsePanelPreview({ uloga: "admin" }).uloga).toBe("admin");
+    for (const stanje of ["ucitava", "prijava", "neaktivno", "bez-pristupa"] as const) {
+      expect(parsePanelPreview({ stanje }).stanje).toBe(stanje);
+    }
+    expect(parsePanelPreview({ stanje: "malo-podataka" }).stanje).toBeNull();
+    expect(PANEL_ULOGA_AKTER).toEqual({ vlasnik: "owner", menadzer: "manager", urednik: "editor", osoblje: "staff", admin: "admin" });
   });
 
   test("unknown values fall back to the default state", () => {
-    expect(parsePanelPreview({ sekcija: "kuhinja", plan: "enterprise", uloga: "osoblje", fioka: "da" })).toEqual(
+    expect(parsePanelPreview({ sekcija: "kuhinja", plan: "enterprise", uloga: "konobar", stanje: "pokvareno", fioka: "da" })).toEqual(
       parsePanelPreview({}),
     );
   });

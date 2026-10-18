@@ -118,7 +118,13 @@ async function explicitRole(
   return rows.find((row) => row.status === "active")?.role ?? null;
 }
 
-async function resolveMenuAccess(
+/**
+ * The access, or the MENU_ERROR code that refuses it (checks 1–6 above; the
+ * permission is checked by the callers). Exported for a query that has to TELL
+ * the refusals apart — the panel shell (convex/menuPanel.ts) shows a different
+ * screen for "sign in", "no access" and "service switched off".
+ */
+export async function resolveMenuAccess(
   ctx: DatabaseCtx,
   target: MenuTarget,
 ): Promise<MenuAccess | MenuErrorCode> {

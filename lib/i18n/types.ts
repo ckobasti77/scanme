@@ -65,6 +65,7 @@ import type {
 import type { MenuAllergenCode } from "../menu/allergens";
 import type { MenuTagCode } from "../menu/tags";
 import type { KonobarEkran, LokalPogled, PanelSekcija } from "../menu/izlog-params";
+import type { MenuPermission } from "../menu/permissions";
 
 export type Locale = "sr";
 
@@ -7066,6 +7067,102 @@ export interface MenuZajednickoDict {
   };
 }
 
+// ScanMe Menu V1 — the client panel shell and its sections (K08). The eight
+// sections of master §13.1, in order; `lib/menu/panel-nav.ts` owns the list.
+export type MenuPanelSekcija =
+  | "pocetna"
+  | "editor"
+  | "operativa"
+  | "lokal"
+  | "funkcionalnosti"
+  | "tim"
+  | "analitika"
+  | "podesavanja";
+/** Sections whose screen is not built yet show an honest "coming here" state. Editor opens the editor. */
+export type MenuPanelSekcijaUPripremi = Exclude<MenuPanelSekcija, "editor">;
+/**
+ * One line of "what will be here"; `premium` marks what the Premium account
+ * unlocks; `dozvola` hides a line from a role that will not see it (an Urednik
+ * is not promised the Operativa summary).
+ */
+export type MenuPanelStavka = { readonly tekst: string; readonly premium?: true; readonly dozvola?: MenuPermission };
+
+export interface MenuPanelDict {
+  meta: {
+    /** {sekcija} */
+    naslov: string;
+    naslovPanela: string;
+  };
+  sekcije: Record<MenuPanelSekcija, string>;
+  shell: {
+    preskoci: string;
+    navigacija: string;
+    otvoriNavigaciju: string;
+    skupiNavigaciju: string;
+    prosiriNavigaciju: string;
+    /** {uloga} */
+    uloga: string;
+    /** Under the role line when the role sees fewer than eight sections. */
+    ostaleSekcije: string;
+    nazadNaKlijentskiPanel: string;
+    premium: string;
+  };
+  sekcija: {
+    opisi: Record<MenuPanelSekcija, string>;
+    uPripremi: string;
+    praznoNaslov: string;
+    praznoOpis: Record<MenuPanelSekcijaUPripremi, string>;
+    staDolazi: string;
+    stavke: Record<MenuPanelSekcijaUPripremi, readonly MenuPanelStavka[]>;
+    premiumOznaka: string;
+    premiumUkljucen: string;
+    premiumZakljucan: string;
+    premiumNapomena: string;
+    napomenaMenadzer: Partial<Record<MenuPanelSekcijaUPripremi, string>>;
+    otvoriEditor: string;
+    zaSadaEditor: string;
+  };
+  stanja: {
+    ucitavanje: string;
+    prijavaNaslov: string;
+    prijavaOpis: string;
+    prijavaDugme: string;
+    bezPristupaNaslov: string;
+    bezPristupaOpis: string;
+    nazadNaKlijentskiPanel: string;
+    vlasnikNaslov: string;
+    vlasnikOpis: string;
+    osobljeNaslov: string;
+    osobljeOpis: string;
+    osobljeDugme: string;
+    neaktivnoNaslov: string;
+    neaktivnoOpis: string;
+    zabranjenoNaslov: string;
+    /** {uloga} */
+    zabranjenoOpis: string;
+    idiNaPocetnu: string;
+    greskaNaslov: string;
+  };
+  ulaz: {
+    naziv: string;
+    opis: string;
+    dugme: string;
+  };
+  konobar: {
+    naslov: string;
+    opis: string;
+    koraci: readonly string[];
+    bezLinka: string;
+    vlasnik: string;
+  };
+  izlog: {
+    /** {korak} */
+    editorKorak: string;
+    editorOpis: string;
+    otvoriIzlogEditora: string;
+  };
+}
+
 export interface DictBySurface {
   "event-map": EventMapDict;
   "fair-map": FairMapDict;
@@ -7108,6 +7205,7 @@ export interface DictBySurface {
   "menu-admin": MenuAdminDict;
   "menu-domen": MenuDomenDict;
   "menu-zajednicko": MenuZajednickoDict;
+  "menu-panel": MenuPanelDict;
   "ordering-admin": OrderingAdminDict;
   ordering: OrderingDict;
   "ordering-panel": OrderingPanelDict;

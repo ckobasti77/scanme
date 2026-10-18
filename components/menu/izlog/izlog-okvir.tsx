@@ -26,15 +26,18 @@ export function IzlogOkvir({
   ruta,
   tema,
   povrsina = "panel",
+  ceoEkran = false,
   children,
 }: {
   ruta: IzlogRuta;
   tema: IzlogTema | null;
   povrsina?: MenuPovrsinaVrsta;
+  /** The screen brings its own frame and <main> (the panel shell, K08): no wrapper, no padding. */
+  ceoEkran?: boolean;
   children: ReactNode;
 }) {
   return (
-    <MenuPovrsina povrsina={povrsina} className="min-h-[100dvh] pb-24">
+    <MenuPovrsina povrsina={povrsina} className={ceoEkran ? "min-h-[100dvh]" : "min-h-[100dvh] pb-24"}>
       <header className="border-b [--border:var(--mp-ivica)] bg-[var(--mp-povrsina)]">
         <div className="mx-auto flex max-w-[90rem] flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-2 sm:px-6 lg:px-8">
           <StatusOznaka ton="info" ikonica={FlaskConical}>
@@ -57,7 +60,11 @@ export function IzlogOkvir({
           </nav>
         </div>
       </header>
-      <main className="mx-auto grid max-w-[90rem] gap-8 px-4 py-6 sm:px-6 lg:px-8 lg:py-10">{children}</main>
+      {ceoEkran ? (
+        children
+      ) : (
+        <main className="mx-auto grid max-w-[90rem] gap-8 px-4 py-6 sm:px-6 lg:px-8 lg:py-10">{children}</main>
+      )}
     </MenuPovrsina>
   );
 }

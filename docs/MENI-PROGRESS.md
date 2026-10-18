@@ -623,3 +623,103 @@ Noćni run MENI. Plan: `docs/MENI-PLAN.md`. Pravila: `.nocni-run/meni/rules.md`.
   Ili pusti `node .nocni-run/meni/alati/snimi.mjs --url http://localhost:3170 --rute "/dev/menu-panel-preview?sekcija=primitivi,/dev/menu-panel-preview,/dev/menu-konobar-preview,/dev/menu-lokal-preview,/dev/menu-editor-preview,/dev/menu-public-preview" --sirine 1440,390 --teme svetla,tamna --izlaz output/playwright/meni/K07-rute` (u Git Bash-u sa `MSYS_NO_PATHCONV=1`).
 - Pregledaj `docs/tasks/BLOCKED.md` → `SCANME MENU V1 — K07`: „Vi" ili „ti", potpisni detalji, boje vrsta zahteva, prag od 15 min.
 - Opciono, za ceo repo: `* { border-color: var(--border) }` i `button { border-radius: … }` u `app/globals.css` su van slojeva i gaze Tailwind `border-[boja]` i `rounded-*` na dugmadima i u adminu. Pomeranje u `@layer base` je tvoja odluka (menja izgled admina); Menu radi i bez toga.
+
+## K08 — Klijentski panel: shell, navigacija, uloge, rute   (2026-10-18 02:06)
+**Fajlovi:**
+- novi:
+  - rute: `app/[slug]/client-panel/meni/layout.tsx`, `page.tsx` (Početna), `operativa/`, `lokal/`, `funkcionalnosti/`, `tim/`, `analitika/`, `podesavanja/` (svaka `page.tsx`), `editor/page.tsx` (preusmerenje do K10), `error.tsx`; `app/[slug]/konobar/page.tsx`;
+  - `components/menu/panel/`: `shell.tsx`, `nav.tsx`, `sekcija.tsx`, `stanja-panela.tsx`, `ruta.tsx`, `ulaz.tsx`; `components/menu/konobar/ulaz.tsx`; `components/menu/izlog/panel-izlog.tsx`;
+  - `lib/menu/panel-nav.ts`, `lib/menu/client-panel-entry.ts`, `lib/i18n/sr/menu-panel.ts`, `convex/menuPanel.ts`;
+  - testovi: `convex/menuPanel.test.ts`, `lib/menu/panel-nav.test.ts`, `lib/menu/client-panel-entry.test.ts`, `components/menu/panel/{shell,sekcija-stanja,klijentski-panel-regresija}.test.tsx` (+ `__snapshots__/klijentski-panel-regresija.test.tsx.snap`), `components/menu/izlog/panel-izlog.test.tsx`.
+- izmenjeni:
+  - `components/client-panel/client-panel.tsx`: ulaz u Menu na tri mesta (+25 / −0);
+  - `convex/lib/menuAccess.ts`: `resolveMenuAccess` izvezen, uz komentar (+7 / −1);
+  - `convex/_generated/api.d.ts` (`npx convex codegen`);
+  - `app/dev/menu-panel-preview/page.tsx`, `components/menu/izlog/izlog-okvir.tsx` (`ceoEkran`), `lib/menu/izlog-params.ts` (uloge `osoblje` i `admin`, `stanje`, `PANEL_ULOGA_AKTER`) i njegov test;
+  - `lib/i18n/types.ts` i `lib/i18n/index.ts` (površina `menu-panel`);
+  - `docs/menu/MENU-ARHITEKTURA.md` (§3.1, §3.2, §8, §9, §10, §11), `docs/menu/MENU-UX.md` (§1.1, §8, §10), `docs/tasks/BLOCKED.md` (`SCANME MENU V1 — K08`).
+
+**Šta je urađeno:**
+- **Navigacija** (`lib/menu/panel-nav.ts`, čisto): tačno osam sekcija redom Početna, Editor, Operativa, Lokal i QR, Funkcionalnosti, Tim i pristupi, Analitika, Podešavanja (Analitika pretposlednja). Svaka sekcija traži jednu dozvolu iz iste matrice koju sprovodi backend (`roleCan`). Vlasnik, Menadžer i ScanMe admin vide svih osam, a Urednik Početnu i Editor. Osoblje (`panelPristup`) nema panel i šalje se ka konobarskom panelu. Uloga samo skraćuje listu, nikad je ne preuređuje.
+- **Shell** (`components/menu/panel/shell.tsx`): od 1024 px bočna navigacija na toplom okviru sadrži znak ScanMe, naziv lokala, tihi red „ScanMe Menu · Ugostiteljstvo" (bez ikakve kontrole) i oznaku „Premium nalog". „Skupi navigaciju" je pretvara u traku ikonica, a dok je otvoren Editor traka je podrazumevana. Ispod 1024 px postoje gornja traka („Sekcije", lokal i režim) i ista lista u fioci sleva. Shell ima „Pređi na sadržaj", `aria-current` i izabranu stavku koja se ne razlikuje samo bojom (meka zelena, linija mastila, prsten, podebljano), obe teme i 8 px između meta.
+- **Rute:** layout montira shell jednom za svih osam sekcija. `ruta.tsx` povezuje `menuPanel.shellContext` i aktivni segment i daje stranicama plan i ulogu kroz kontekst. Sekcija koju uloga ne vidi, otvorena linkom, kaže ko je vidi. `/editor` do K10 preusmerava na postojeći editor. Ostalih šest sekcija i Početna pokazuju iskreno stanje: oznaka „U pripremi", šta ćete ovde raditi, „Otvori Editor" i šta će biti ovde, bez brojki. Stavke koje uloga neće videti se ne obećavaju, a Premium stavke nose oznaku (katanac na Standardu).
+- **Stanja:** učitavanje (kostur okvira), prijava (vodi u postojeći klijentski panel, bez sopstvene forme), „Ovaj nalog ne otvara ScanMe Menu" (kartica za vlasnika na pogrešnom nalogu i kartica „Radite u smeni?"), isključena usluga, zabranjena sekcija i greška sekcije (`error.tsx`, `unstable_retry`). Osoblje bez naloga stiže na ekran prijave, pa i on ima karticu za osoblje. `/[slug]/konobar` objašnjava kako se ulazi u konobarski panel, a sam kod panela nikad ne otkriva.
+- **Backend** (`convex/menuPanel.ts`): `shellContext` vraća `unauthenticated`, `forbidden` (bez uloge ili bez usluge, isti odgovor), `inactive` ili mali `available` (`menuServiceId`, lokal, režim, akter, `canEdit`, plan). `entry` vraća `available` ili `none` za postojeći klijentski panel. Oba prolaze kroz isti helper pristupa; identitet se uzima iz `ctx.auth`.
+- **Ulaz iz postojećeg klijentskog panela:** blok „ScanMe Menu · Otvori ScanMe Menu" stoji iznad tabova drugih usluga ili iznad Venue/Memories. Za lokal koji ima samo Menu stoji umesto ekrana „Nemate pristup ovom lokalu", a dok upit radi prikazuje se kostur. Bez Menu usluge panel je bajt-identičan kao pre (regresioni snimak).
+- **Izlog:** `/dev/menu-panel-preview?sekcija=&uloga=vlasnik|menadzer|urednik|osoblje|admin&plan=standard|premium&stanje=ucitava|prijava|neaktivno|bez-pristupa&tema=` montira pravi shell i prava stanja sa izmišljenim lokalom („Demo restoran"). `sekcija=primitivi` radi kao pre.
+
+**ODLUKE:**
+- **Urednik** vidi Početnu i Editor (K01 §4.1). „Editor i pregled" iz prompta je protumačen kao Editor i Početna sa statusom menija; pregled nacrta je deo Editora.
+- **Menadžer i admin** vide svih osam sekcija. Menadžer uz Tim i Podešavanja dobija napomenu da ulogu Vlasnik dodeljuje i naplatu vodi vlasnik. Naplata nije deo Menu panela (recept §4.1). Admin u panelu ne menja režim; to ostaje interni alat (K28).
+- **Bez uloge i bez usluge isti odgovor** (`forbidden`), da slug ne otkriva koji lokal ima ScanMe Menu. Arhivirana usluga po slug-u nema panel ni za admina, jer K02 helper traži samo aktivnu uslugu; Sonnet radnik je to prijavio kao razliku od brifa, a ponašanje je zadržano i opisano u testu.
+- **`resolveMenuAccess` je izvezen** umesto drugog helpera, da shell razlikuje prijavu, zabranu i isključenu uslugu bez druge putanje provere.
+- **Uloga u UI-ju se računa na klijentu** iz `actor`-a i iste matrice. Svaka sekcija će svojim upitom ponovo proveriti dozvolu na backendu (K27+).
+- **Editor do K10:** `/[slug]/client-panel/meni/editor` preusmerava (server `redirect`) na `/[slug]/meni/editor`. Stari editor se vraća u stari klijentski panel; tekst panela zato kaže da se Editor otvara na posebnom ekranu. Stari editor (`components/menu/editor/**`) nije menjan; BLOCKED 9.
+- **Ulaz je vezan za podatke, ne za `MENU_EXISTS`.** Blok se vidi samo kad lokal ima aktivnu uslugu novog modela i nalog ima ulogu u njoj, pa ga u produkciji niko ne vidi dok ScanMe ne napravi uslugu. Zastavica ostaje kuka za preimenovanje u adminu (BLOCKED 4). Panel ne zove `ensureForBusiness` pri otvaranju, jer bi tiho pravio nov model pored starog menija (BLOCKED 5).
+- **Link za osoblje** vodi na novu stranicu `/[slug]/konobar` (bez Convex poziva, `noindex`). Pravi panel je iza tajnog koda (K22), a link na nepostojeću stranicu ne bi bio iskren. K22 sme da je proširi preusmerenjem zapamćenog uređaja. Ruta je upisana u recept §8.
+- **Bez dugmeta za odjavu u shell-u** („ne diraj auth tok"). Prijava ostaje u postojećem klijentskom panelu; predlog „Odjava" u podnožju je BLOCKED 10.
+- **Tema:** shell nema svoj prekidač; globalno dugme teme ostaje jedino (MENU-UX §8). Ono je prvi Tab na svakoj stranici (`app/layout.tsx`, van obima), pa je „Pređi na sadržaj" drugi Tab, odmah posle njega. MENU-UX §10 je ispravljen.
+- **Fioka umesto donje navigacije na telefonu,** jer osam stavki ne staje u donju traku bez skrivanja. Dugme fioke ima vidljiv tekst „Sekcije", a ne „Meni", jer je meni ovde jelovnik.
+- **Režim prikazuje shell,** a ne naslov sekcije: red ispod naziva lokala u bočnoj navigaciji, gornjoj traci i naslovu fioke. U traci ikonica ga nema, pa ga Editor (K10) nosi u svom zaglavlju (MENU-UX §1.1, §8).
+- **Izlog:** uloge `osoblje` i `admin` i parametar `stanje=ucitava|prijava|neaktivno|bez-pristupa` su dodati (plan §7 je minimum). Test „nepoznata vrednost" u `lib/menu/izlog-params.test.ts` je namerno promenjen: `uloga: "osoblje"` je sada poznata vrednost, pa je primer nepoznate uloge `"konobar"`.
+- **Regresija starog panela:** snimci (`toMatchSnapshot`) su napravljeni iz NEIZMENJENOG `client-panel.tsx` pre K08 izmene (kopija `tmp/meni/k08-regresija-pre.snap`), pa je posle izmene potvrđeno da su bajt-identični. React/Radix id-jevi se normalizuju, jer novi sused pre tabova menja brojeve `useId` bez vidljive razlike. Sekcije drugih proizvoda su u testu markeri.
+- **Dev server nije pokretan** (memorija: K06 i K07 su odbijeni, ne pokušavati ponovo). Snimci su iz statičkog pregleda po uzoru na K07: `tmp/meni/k08-pregled/` (esbuild + Tailwind; zamene za `convex/react`, auth i `next/navigation`; maske logotipa kao data URI). Pregled dokazuje komponente, uloge, teme i interakcije, ne HTTP status ruta. `npm run build` dokazuje rute.
+- **Kritika snimaka** (Sonnet, 20 nalaza):
+  - ispravljeni su VISOKI nalazi 2–5: osoblje i na ekranu prijave; jasniji ekran bez pristupa sa karticom za vlasnika; tačni naslovi i dugme ulaza osoblja bez petlje; status „U pripremi" i „Otvori Editor" u svakoj sekciji;
+  - ispravljeni su SREDNJI nalazi 6–12: stavke filtrirane po ulozi i napomena za Urednika; tekst zabranjene i isključene sekcije; Premium kvačica, katanac i rečenica; obris fokusa u bočnoj traci; jasniji tekstovi; jedan naziv za povratak;
+  - ispravljeni su i nalazi 13–20: ulaz kao sporedno dugme sa `ArrowRight`; jedna kartica umesto dve; razmak 8 px; prsten izabrane stavke; „Sekcije"; kostur; „Prijavi se" i „Ova sekcija nije učitana"; `LayoutGrid`;
+  - nalaz 1 (povratak iz starog editora) i deo nalaza 3 (odjava) su BLOCKED 9 i 10, jer traže izmenu starog editora ili auth UI-ja.
+- **Radnici:** četiri Sonnet radnika su radila na disjunktnim fajlovima (Convex test, čisti testovi, render testovi i njihovo ažuriranje), a peti je kritikovao snimke. Svaki rezultat sam pregledao i pustio. Jedan radnik je u ranim puštanjima vitest-a izlaz provlačio kroz `tail`, `grep` i `cut`; nije bilo git ni drugih komandi.
+- **Sajam:** `docs/events/**` je van obima runa, pa FRONTEND-DELTA nije pisan. Sajam ne koristi nove tabele, izvoze ni rute; novijeg JOVAN-DELTA fajla od 2026-10-09 nema.
+- **Pitanja za vlasnika** su u `docs/tasks/BLOCKED.md` → `SCANME MENU V1 — K08` (10 tačaka).
+
+**Novi paketi:** nema (run ne uvodi pakete)
+
+**Testovi** (569 novih testova u 7 novih fajlova; ukupno 444 fajla i 6.896 testova, plus 2 stara bench fajla koja se preskaču):
+- `lib/menu/panel-nav.test.ts` (144): tačno 8 sekcija ovim redom, Analitika na mestu dužina−2, srpski nazivi; izlog i shell imaju isti spisak; tabela 5 uloga × 8 sekcija; lista uvek u zaključanom redu; vidljivost = `roleCan`; osoblje → konobarski panel; linkovi i kodiranje sluga; segment ↔ sekcija; traka ikonica samo u Editoru.
+- `lib/menu/client-panel-entry.test.ts` (38): cela tabela 24 kombinacije; bez Menu usluge uvek `null`.
+- `convex/menuPanel.test.ts` (65): uloge (Vlasnik, Menadžer, Urednik, admin) i tačan, ograničen oblik rezultata; odbijanja (neprijavljen, finansije, pregled, autsajder, uklonjen i pozvan Urednik); tenant izolacija (drugi nalog, drugi lokal, isti odgovor za nepostojeći slug); isključen profil, arhivirana usluga, neaktivan i arhiviran lokal, isključeno uređivanje; Premium preko plana i pretplate; `entry` za sve slučajeve; upiti ništa ne pišu.
+- `components/menu/panel/shell.test.tsx` (58): 8 linkova redom i Analitika pretposlednja; vidljivost po ulozi; jedan `aria-current`; režim prikazan, bez `select`, `combobox` ili `input`; „Pređi na sadržaj" i jedan `main`; Premium; uloga i napomena o skraćenoj listi; traka ikonica; dugme fioke.
+- `components/menu/panel/sekcija-stanja.test.tsx` (188): sedam sekcija (jedan H1, status, jedna kartica, sve stavke); bez izmišljenih brojki za četiri uloge; filtriranje po ulozi; Premium kvačica i katanac; napomena Menadžera; „Otvori Editor"; sva stanja; ulaz osoblja.
+- `components/menu/izlog/panel-izlog.test.tsx` (58): izlog po ulozi, planu, sekciji, stanju i temi.
+- `components/menu/panel/klijentski-panel-regresija.test.tsx` (17): 8 snimaka postojećeg panela bez Menu-a (bajt-identični snimcima napravljenim pre izmene); sa Menu-om ulaz stoji pre tabova, a ostatak je identičan panelu bez Menu-a; samo Menu; kostur dok upit radi.
+- `lib/menu/izlog-params.test.ts`: +1 test (nove uloge i `stanje`) i namerno promenjen primer nepoznate uloge.
+
+**Snimci:** `output/playwright/meni/K08/` (162 PNG; statički pregled preko `file://`, sve sam proverio merenjem, a ključne i pogledom):
+- 19 prikaza × 1440, 1024, 768, 390 × svetla i tamna:
+  - Početna (Vlasnik i Urednik); Operativa i Tim (Menadžer); Analitika na Standardu i Premium-u; Funkcionalnosti; Lokal; Podešavanja (admin);
+  - Editor sa trakom ikonica; zabranjena sekcija za Urednika; osoblje; prijava; isključeno; učitavanje;
+  - ulaz osoblja;
+  - postojeći klijentski panel bez Menu-a, sa Menu-om i samo sa Menu-om.
+- Interakcije:
+  - `fioka-otvorena-{390,768}-{svetla,tamna}`: fioka ima naslov lokala i 8 sekcija, fokus ostaje unutra, Escape je zatvara i fokus se vraća na „Sekcije", a izbor sekcije zatvara fioku;
+  - `preskoci-1440-*`, `fokus-nav-1440-*`: „Pređi na sadržaj" je prvi element shell-a, a sledeći Tab ide na „Početna" sa vidljivim obrisom od 2 px;
+  - `rail-1440-*`: skupljanje i širenje trake;
+  - `?tema=` preko sačuvane teme daje očekivanu temu.
+- Merenje svih 158 snimaka posle ispravki:
+  - nema vodoravnog skrola ni grešaka konzole;
+  - nema malih meta u Menu ekranima;
+  - tačno jedan H1, osim kostura učitavanja, koji ga namerno nema;
+  - male mete postoje samo u STAROM klijentskom panelu i iste su sa ulazom i bez njega (zatečeno).
+
+**Rezultat provere:**
+- `node .nocni-run/meni/alati/typecheck.mjs`: bez grešaka; `npx tsc --noEmit -p convex/tsconfig.json`: bez grešaka.
+- `npx eslint --ignore-pattern ".nocni-run/**"`: 0 grešaka; ostaju dva stara upozorenja (`components/admin/venue-admin.tsx`, `convex/purchaseLifecycle.test.ts`).
+- `npx vitest run --testTimeout=30000 --hookTimeout=60000`: 444 fajla i 6.896 testova prolaze; preskočena su 2 stara bench fajla.
+- `npm run harness:namespace`: prošlo (85 fajlova u `components/menu`).
+- `npm run build`: prošlo; sve nove rute (`/[slug]/client-panel/meni/**`, `/[slug]/konobar`) se prevode. `next-env.d.ts` je vraćen na sadržaj iz HEAD-a.
+- Svi izmenjeni i novi fajlovi su LF (provereno node-om). Nijedan proces nije ostao upaljen; dev server nije ni pokrenut.
+
+**Provera prihvatanja:**
+
+| Stavka | Dokaz | Stanje |
+|---|---|---|
+| Navigacija ima tačno osam stavki ovim redom, Analitika pretposlednja (test) | `lib/menu/panel-nav.test.ts` (redosled, indeks dužina−2, nazivi); `shell.test.tsx` (8 linkova u renderu, redom) | ispunjeno |
+| Vidljivost sekcija po ulozi pokrivena testom | `panel-nav.test.ts` (tabela 5 × 8 i podniz); `shell.test.tsx`, `panel-izlog.test.tsx` (render po ulozi, zabranjena sekcija, osoblje); `convex/menuPanel.test.ts` (akter i tenant) | ispunjeno |
+| Panel druge usluge renderuje se kao pre (test ili snimak) | `klijentski-panel-regresija.test.tsx`: 8 snimaka iz neizmenjenog koda ostaju bajt-identični; `klijentski-bez-menija-*` i `klijentski-sa-menijem-*` PNG | ispunjeno |
+| Provere prolaze; sekcija K08 u progress-u | gore | ispunjeno |
+
+**Za Jovana ujutru:**
+- Pregledaj `docs/tasks/BLOCKED.md` → `SCANME MENU V1 — K08`, posebno: Urednik vidi samo Početnu i Editor; ulaz je vezan za postojanje nove usluge, ne za `MENU_EXISTS`; nova stranica `/[slug]/konobar`; nema dugmeta za odjavu u Menu panelu.
+- Ako pokreneš `npm run dev -- -p 3170`, otvori `/dev/menu-panel-preview` sa `&uloga=urednik`, `&uloga=osoblje`, `&sekcija=editor`, `&plan=premium&sekcija=analitika`, `&stanje=prijava` i `&tema=tamna`, na širini telefona i desktopa.
+- Pravi panel (`/{slug}/client-panel/meni`) se otvara tek kad lokal ima uslugu novog modela (`menuServices.adminProvision` ili migracija). Na DEV-u je nema dok se ne pusti `npx convex dev` i ne napravi usluga.

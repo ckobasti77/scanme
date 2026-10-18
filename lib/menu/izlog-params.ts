@@ -86,13 +86,29 @@ export const PANEL_SEKCIJA_KORAK: IzlogScreens<PanelSekcija> = {
 };
 
 export const PANEL_PLANOVI = ["standard", "premium"] as const;
-export const PANEL_ULOGE = ["vlasnik", "menadzer", "urednik"] as const;
+/** K08 adds `osoblje` (no client panel: message + waiter-panel link) and `admin` (ScanMe admin). */
+export const PANEL_ULOGE = ["vlasnik", "menadzer", "urednik", "osoblje", "admin"] as const;
+
+/** Whole-screen states of the shell (K08); absent = the section itself. */
+export const PANEL_STANJA = ["ucitava", "prijava", "neaktivno", "bez-pristupa"] as const;
+export type PanelStanje = (typeof PANEL_STANJA)[number];
+
+/** The Menu actor (lib/menu/permissions.ts) behind each izlog role. */
+export const PANEL_ULOGA_AKTER = {
+  vlasnik: "owner",
+  menadzer: "manager",
+  urednik: "editor",
+  osoblje: "staff",
+  admin: "admin",
+} as const satisfies Record<(typeof PANEL_ULOGE)[number], string>;
 
 export type PanelPreviewParams = {
   tema: IzlogTema | null;
   sekcija: PanelSekcija;
   plan: (typeof PANEL_PLANOVI)[number];
   uloga: (typeof PANEL_ULOGE)[number];
+  /** `?stanje=ucitava|prijava|neaktivno|bez-pristupa`: a whole-screen state of the shell instead of a section. */
+  stanje: PanelStanje | null;
   /** `?fioka=otvorena`: the primitives page opens its drawer example (for snapshots). */
   fiokaOtvorena: boolean;
 };
@@ -103,6 +119,7 @@ export function parsePanelPreview(params: IzlogSearchParams): PanelPreviewParams
     sekcija: pickParam(params.sekcija, PANEL_SEKCIJE, "pocetna"),
     plan: pickParam(params.plan, PANEL_PLANOVI, "standard"),
     uloga: pickParam(params.uloga, PANEL_ULOGE, "vlasnik"),
+    stanje: pickOptional(params.stanje, PANEL_STANJA),
     fiokaOtvorena: firstParam(params.fioka) === "otvorena",
   };
 }
