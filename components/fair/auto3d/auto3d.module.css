@@ -1,0 +1,2631 @@
+/* 3D Rendgen: okvir stranice prati sajamski DNA (tokeni iz .fair-event), a scena je tamni studio
+   (PLAN P5, A03 §4.1, §5). Raspored (A05):
+   - telefon (< 768): studio preko cele širine, panel sa jezičcima ispod, kao donji sheet;
+   - tablet (768–1023): isto, sa gutter-om i zaobljenim studijom;
+   - desktop (≥ 1024): traka grupa levo i panel (lista ili kartica) desno plutaju u studiju.
+   Brojevi --a3-inset, --a3-rail-w, --a3-panel-w i --a3-poster-left su isti kao u lib/auto3d/layout.ts. */
+
+.page {
+  --a3-bg: #0a0d11;
+  --a3-panel: rgb(18 23 29 / 0.94);
+  --a3-line: #26303a;
+  --a3-ink: #e8eef2;
+  --a3-muted: #9aa6b2;
+  --a3-focus: #ffffff;
+  --a3-hover: rgb(232 238 242 / 0.08);
+  --a3-inset: 12px;
+  --a3-rail-w: 0px;
+  --a3-panel-w: 0px;
+  --a3-poster-left: 0px;
+  --a3-free-left: var(--a3-inset);
+  --a3-free-right: var(--a3-inset);
+  --a3-sheet-overlap: 24px;
+  --fair-shell-width: 1440px;
+  min-height: 100svh;
+}
+
+@media (min-width: 768px) {
+  .page {
+    --a3-sheet-overlap: 0px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .page {
+    --a3-inset: 16px;
+    --a3-rail-w: 216px;
+    --a3-panel-w: 344px;
+    --a3-poster-left: calc(var(--a3-inset) + var(--a3-rail-w));
+    --a3-free-left: calc(var(--a3-inset) * 2 + var(--a3-rail-w));
+    --a3-free-right: calc(var(--a3-inset) * 2 + var(--a3-panel-w));
+  }
+}
+
+@media (min-width: 1280px) {
+  .page {
+    --a3-rail-w: 248px;
+    --a3-panel-w: 384px;
+  }
+}
+
+.shellInner {
+  padding-inline: var(--fair-space-4);
+}
+
+.main {
+  max-width: 1440px;
+  margin-inline: auto;
+  padding: 0 0 var(--fair-space-6);
+}
+
+.intro {
+  display: flex;
+  align-items: baseline;
+  gap: var(--fair-space-1) var(--fair-space-4);
+  padding: var(--fair-space-3) var(--fair-space-4);
+  flex-wrap: wrap;
+}
+
+.intro h1 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 780;
+  line-height: 1.15;
+  letter-spacing: -0.035em;
+}
+
+.intro p {
+  margin: 0;
+  color: var(--fair-ink-muted);
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.intro .summary {
+  display: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.skip {
+  position: absolute;
+  top: var(--fair-space-2);
+  left: var(--fair-space-2);
+  z-index: 40;
+  padding: var(--fair-space-3) var(--fair-space-4);
+  border-radius: var(--fair-radius-md);
+  background: var(--fair-ink);
+  color: var(--fair-accent-ink);
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  transform: translateY(-160%);
+}
+
+.skip:focus-visible {
+  transform: none;
+}
+
+@media (min-width: 768px) {
+  .main {
+    padding: 0 var(--fair-space-6) var(--fair-space-6);
+  }
+
+  .intro {
+    min-height: 64px;
+    padding-inline: 0;
+  }
+
+  .intro h1 {
+    font-size: 26px;
+  }
+
+  .intro p {
+    font-size: 15px;
+  }
+
+  .intro .summary {
+    display: block;
+    margin-left: auto;
+    font-size: 14px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .main {
+    padding-inline: var(--fair-space-8);
+  }
+}
+
+/* ------------------------------------------------------------------ studio */
+
+.stage {
+  position: relative;
+}
+
+.studio {
+  position: relative;
+  height: 56svh;
+  min-height: 380px;
+  overflow: hidden;
+  isolation: isolate;
+  background: var(--a3-bg);
+  color: var(--a3-ink);
+  outline: none;
+}
+
+@media (min-width: 768px) {
+  .studio {
+    height: clamp(440px, 62svh, 680px);
+    border-radius: var(--fair-radius-xl);
+  }
+}
+
+@media (min-width: 1024px) {
+  .studio {
+    height: clamp(560px, calc(100svh - 152px), 900px);
+  }
+}
+
+/* A12: položen telefon (npr. 844 × 390). Studio je tačno onoliko visok koliko ostaje ispod lepljivog
+   zaglavlja, pa posle kratkog skrola cela scena i obe trake staju na ekran (pre: 440 px od 326). */
+@media (orientation: landscape) and (max-height: 540px) and (pointer: coarse) {
+  .studio {
+    height: calc(100svh - var(--fair-header-height));
+    min-height: 280px;
+  }
+}
+
+/* A12: prsten je u ::after iznad postera i canvasa; unutrašnja senka samog studija se crtala ispod
+   njih, pa fokus na studiju nije bio vidljiv. */
+.studio:focus-visible::after {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 3px var(--a3-focus);
+  content: "";
+  pointer-events: none;
+}
+
+.posterLayer,
+.canvasLayer {
+  position: absolute;
+  inset: 0;
+}
+
+.poster {
+  position: absolute;
+  inset: 0 0 0 var(--a3-poster-left);
+  display: block;
+}
+
+.poster img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: 50% 50%;
+}
+
+.posterAlt {
+  position: absolute;
+  inset: 0;
+  background: var(--a3-bg);
+  animation: a3-fade var(--fair-dur-state) var(--fair-ease-enter) both;
+}
+
+@keyframes a3-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+.posterLayer {
+  transition: visibility 0s linear var(--fair-dur-overlay);
+}
+
+.studio[data-auto3d-status="ready"] .posterLayer {
+  visibility: hidden;
+}
+
+.canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  transition: opacity var(--fair-dur-overlay) var(--fair-ease-enter);
+}
+
+.studio[data-auto3d-status="ready"] .canvas {
+  opacity: 1;
+}
+
+.studio :is(button, input, a):focus-visible {
+  outline: 3px solid var(--a3-focus);
+  outline-offset: 2px;
+}
+
+/* ------------------------------------------------------------------ traka grupa (desktop) */
+
+.rail {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .rail {
+    position: absolute;
+    top: var(--a3-inset);
+    left: var(--a3-inset);
+    z-index: 2;
+    display: block;
+    width: var(--a3-rail-w);
+    max-height: calc(100% - var(--a3-inset) * 2);
+    overflow-y: auto;
+    padding: var(--fair-space-2);
+    border: 1px solid var(--a3-line);
+    border-radius: var(--fair-radius-lg);
+    background: var(--a3-panel);
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+  }
+}
+
+.railTitle {
+  margin: 0;
+  padding: var(--fair-space-1) var(--fair-space-2) var(--fair-space-2);
+  color: var(--a3-muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.groups,
+.rows {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.groups {
+  gap: var(--fair-space-1);
+}
+
+.groupButton {
+  display: grid;
+  width: 100%;
+  min-height: 48px;
+  grid-template-columns: 12px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 0 var(--fair-space-3);
+  border: 1px solid transparent;
+  border-radius: var(--fair-radius-md);
+  background: transparent;
+  color: var(--fair-ink);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 620;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color var(--fair-dur-feedback) linear,
+    color var(--fair-dur-feedback) linear,
+    transform var(--fair-dur-feedback) var(--fair-ease-enter);
+}
+
+.groupButton:active {
+  transform: scale(0.98);
+}
+
+.groupDot,
+.rowDot {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  border-radius: var(--fair-radius-round);
+  background: var(--a3-dot, currentColor);
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.2);
+}
+
+.groupDot[data-all] {
+  background: transparent;
+  box-shadow: inset 0 0 0 2px currentColor;
+}
+
+.groupName {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.groupCount {
+  color: var(--fair-ink-muted);
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.groupButton[aria-pressed="true"] {
+  background: var(--fair-ink);
+  color: var(--fair-surface);
+}
+
+.groupButton[aria-pressed="true"] .groupCount {
+  color: rgb(255 253 248 / 0.72);
+}
+
+@media (hover: hover) {
+  .groupButton:hover:not([aria-pressed="true"]) {
+    background: var(--fair-canvas);
+  }
+}
+
+/* Traka u studiju: tamna, naziv u boji sistema, izbor je svetao. A12: mete od 44 px bez razmaka
+   (isti korak redova kao 40 + 4 px pre). */
+.groupsRail .groups {
+  gap: 0;
+}
+
+.groupsRail .groupButton {
+  min-height: 44px;
+  padding: 0 10px;
+  border-radius: var(--fair-radius-sm);
+  color: var(--a3-dot, var(--a3-ink));
+  font-size: 14px;
+}
+
+.groupsRail .groupCount {
+  color: var(--a3-muted);
+}
+
+.groupsRail .groupButton[aria-pressed="true"] {
+  background: var(--a3-ink);
+  color: var(--a3-bg);
+}
+
+.groupsRail .groupButton[aria-pressed="true"] .groupCount {
+  color: #3d4955;
+}
+
+.groupsRail .groupButton[aria-pressed="true"] .groupDot {
+  box-shadow: inset 0 0 0 1px rgb(10 13 17 / 0.35);
+}
+
+@media (hover: hover) {
+  .groupsRail .groupButton:hover:not([aria-pressed="true"]) {
+    background: var(--a3-hover);
+  }
+}
+
+/* ------------------------------------------------------------------ prekidač prikaza i donja traka */
+
+.topBar {
+  position: absolute;
+  top: var(--a3-inset);
+  left: var(--a3-free-left);
+  z-index: 2;
+}
+
+@media (min-width: 1024px) {
+  .topBar {
+    right: var(--a3-free-right);
+    width: fit-content;
+    margin-inline: auto;
+  }
+}
+
+.modeSwitch {
+  display: inline-flex;
+  padding: var(--fair-space-1);
+  gap: var(--fair-space-1);
+  border: 1px solid var(--a3-line);
+  border-radius: var(--fair-radius-pill);
+  background: var(--a3-panel);
+}
+
+.modeButton {
+  min-width: 72px;
+  min-height: 44px;
+  padding: 0 var(--fair-space-4);
+  border: 0;
+  border-radius: var(--fair-radius-pill);
+  background: transparent;
+  color: var(--a3-muted);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 680;
+  cursor: pointer;
+  transition:
+    background-color var(--fair-dur-state) var(--fair-ease-enter),
+    color var(--fair-dur-feedback) linear;
+}
+
+.modeButton[aria-checked="true"] {
+  background: var(--a3-ink);
+  color: var(--a3-bg);
+}
+
+@media (hover: hover) {
+  .modeButton:hover:not([aria-checked="true"]) {
+    color: var(--a3-ink);
+  }
+}
+
+.toolbar {
+  position: absolute;
+  right: var(--a3-free-right);
+  bottom: calc(var(--a3-inset) + var(--a3-sheet-overlap));
+  left: var(--a3-free-left);
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: var(--fair-space-2);
+  padding: var(--fair-space-1) var(--fair-space-1) var(--fair-space-1) var(--fair-space-3);
+  border: 1px solid var(--a3-line);
+  border-radius: var(--fair-radius-lg);
+  background: var(--a3-panel);
+}
+
+@media (min-width: 1024px) {
+  .toolbar {
+    width: fit-content;
+    max-width: calc(100% - var(--a3-free-left) - var(--a3-free-right));
+    margin-inline: auto;
+  }
+
+  /* Bez panela traka i prekidač stoje ispod i iznad auta (sredina kutije postera). */
+  .stage[data-panel="closed"] :is(.toolbar, .topBar) {
+    right: var(--a3-inset);
+  }
+}
+
+.slider {
+  display: flex;
+  min-width: 0;
+  min-height: 44px;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: var(--fair-space-3);
+  color: var(--a3-muted);
+  font-size: 13px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.slider input {
+  width: 100%;
+  min-width: 72px;
+  min-height: 44px;
+  flex: 1;
+  accent-color: var(--a3-ink);
+  cursor: pointer;
+}
+
+@media (min-width: 1024px) {
+  .slider input {
+    width: 140px;
+  }
+}
+
+@media (min-width: 1280px) {
+  .slider input {
+    width: 180px;
+  }
+}
+
+.noticeButton,
+.toolButton {
+  display: inline-flex;
+  min-height: 44px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: var(--fair-space-2);
+  padding: 0 var(--fair-space-4);
+  border: 1px solid var(--a3-line);
+  border-radius: var(--fair-radius-md);
+  background: #1b222b;
+  color: var(--a3-ink);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 650;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color var(--fair-dur-feedback) linear,
+    transform var(--fair-dur-feedback) var(--fair-ease-enter);
+}
+
+.toolButton svg {
+  width: 18px;
+  height: 18px;
+}
+
+.iconButton {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  flex: none;
+  place-items: center;
+  border: 1px solid var(--a3-line);
+  border-radius: var(--fair-radius-md);
+  background: #1b222b;
+  color: var(--a3-ink);
+  cursor: pointer;
+  transition:
+    background-color var(--fair-dur-feedback) linear,
+    transform var(--fair-dur-feedback) var(--fair-ease-enter);
+}
+
+.iconButton svg {
+  width: 20px;
+  height: 20px;
+}
+
+:is(.noticeButton, .toolButton, .iconButton):active {
+  transform: scale(0.97);
+}
+
+@media (hover: hover) {
+  :is(.noticeButton, .toolButton, .iconButton):hover {
+    background: #242d38;
+  }
+}
+
+.allParts {
+  display: none;
+}
+
+.toolButton[aria-expanded="true"] {
+  background: var(--a3-ink);
+  color: var(--a3-bg);
+}
+
+@media (min-width: 1024px) {
+  .allParts {
+    display: inline-flex;
+  }
+}
+
+/* Uža slobodna zona (1024–1279): oznake ostaju samo za čitače ekrana. */
+@media (min-width: 1024px) and (max-width: 1279px) {
+  .sliderLabel,
+  .allPartsLabel {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .allParts {
+    width: 44px;
+    padding: 0;
+  }
+}
+
+/* ------------------------------------------------------------------ stanja */
+
+.loading {
+  position: absolute;
+  inset: auto 0 0;
+  z-index: 1;
+  color: var(--a3-muted);
+  font-size: 13px;
+  font-weight: 620;
+  pointer-events: none;
+}
+
+.loading > span:first-child {
+  position: absolute;
+  bottom: calc(var(--a3-inset) + var(--a3-sheet-overlap) + 64px);
+  left: var(--a3-free-left);
+}
+
+.progress {
+  position: absolute;
+  inset: auto 0 var(--a3-sheet-overlap);
+  display: block;
+  height: 2px;
+  overflow: hidden;
+  background: rgb(232 238 242 / 0.12);
+}
+
+.progress > span {
+  display: block;
+  height: 100%;
+  background: rgb(232 238 242 / 0.6);
+  transform-origin: 0 50%;
+  transition: transform var(--fair-dur-state) linear;
+}
+
+.progress[data-indeterminate] > span {
+  animation: a3-progress var(--fair-dur-loop) var(--fair-ease-move) infinite;
+}
+
+@keyframes a3-progress {
+  from {
+    transform: translateX(-100%) scaleX(0.3);
+  }
+  to {
+    transform: translateX(330%) scaleX(0.3);
+  }
+}
+
+.notice {
+  position: absolute;
+  bottom: calc(var(--a3-inset) + var(--a3-sheet-overlap) + 64px);
+  left: var(--a3-free-left);
+  z-index: 2;
+  display: flex;
+  max-width: min(440px, calc(100% - var(--a3-free-left) - var(--a3-free-right)));
+  margin: 0;
+  align-items: center;
+  gap: var(--fair-space-3);
+  flex-wrap: wrap;
+  padding: var(--fair-space-3) var(--fair-space-4);
+  border: 1px solid var(--a3-line);
+  border-radius: var(--fair-radius-lg);
+  background: var(--a3-panel);
+  color: var(--a3-ink);
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.notice p {
+  margin: 0;
+}
+
+/* ------------------------------------------------------------------ panel: jezičci, lista, kartica */
+
+/* Ispod 1024 px panel je u toku strane (bez ugnježdenog skrola na dodir): jezičci se lepe ispod
+   zaglavlja, a strana skroluje. Od 1024 px panel pluta u studiju i ima svoj skrol. */
+.panel {
+  --a3-tabs-h: 49px;
+  position: relative;
+  z-index: 3;
+  display: flex;
+  min-height: max(320px, calc(100svh - var(--fair-header-height) - 56svh + var(--a3-sheet-overlap)));
+  margin-top: calc(var(--a3-sheet-overlap) * -1);
+  flex-direction: column;
+  border-top: var(--fair-border);
+  border-radius: var(--fair-radius-xl) var(--fair-radius-xl) 0 0;
+  background: var(--fair-surface);
+  box-shadow: var(--fair-shadow-3-up);
+  color: var(--fair-ink);
+}
+
+.handle {
+  width: 40px;
+  height: 4px;
+  flex: none;
+  margin: var(--fair-space-2) auto 0;
+  border-radius: var(--fair-radius-pill);
+  background: var(--fair-line);
+}
+
+@media (min-width: 768px) {
+  .panel {
+    min-height: 420px;
+    margin-top: var(--fair-space-3);
+    border: var(--fair-border);
+    border-radius: var(--fair-radius-xl);
+    box-shadow: var(--fair-shadow-2);
+  }
+
+  .handle {
+    display: none;
+  }
+}
+
+@media (min-width: 1024px) {
+  .panel {
+    position: absolute;
+    top: var(--a3-inset);
+    right: var(--a3-inset);
+    bottom: var(--a3-inset);
+    width: var(--a3-panel-w);
+    min-height: 0;
+    margin: 0;
+    overflow: hidden;
+    box-shadow: var(--fair-shadow-3);
+    transition:
+      opacity var(--fair-dur-overlay) var(--fair-ease-enter),
+      transform var(--fair-dur-overlay) var(--fair-ease-enter),
+      visibility 0s linear 0s;
+  }
+
+  .panel[data-open="false"] {
+    visibility: hidden;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(24px);
+    transition:
+      opacity var(--fair-dur-state) var(--fair-ease-exit),
+      transform var(--fair-dur-state) var(--fair-ease-exit),
+      visibility 0s linear var(--fair-dur-state);
+  }
+}
+
+.panelHead {
+  position: sticky;
+  top: var(--fair-header-height);
+  z-index: 2;
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--fair-space-2);
+  padding: 0 var(--fair-space-2);
+  border-bottom: var(--fair-border);
+  background: var(--fair-surface);
+}
+
+@media (min-width: 1024px) {
+  .panelHead {
+    position: static;
+  }
+}
+
+.tabs {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+}
+
+.tab {
+  display: inline-flex;
+  min-height: 48px;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 var(--fair-space-2);
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--fair-ink-muted);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 760;
+  letter-spacing: -0.02em;
+  cursor: pointer;
+  transition:
+    color var(--fair-dur-feedback) linear,
+    border-color var(--fair-dur-state) var(--fair-ease-enter);
+}
+
+.tab[aria-selected="true"] {
+  border-bottom-color: var(--fair-accent);
+  color: var(--fair-ink);
+}
+
+.tabCount {
+  min-width: 24px;
+  padding: 1px 6px;
+  border-radius: var(--fair-radius-pill);
+  background: var(--fair-surface-muted);
+  color: var(--fair-ink);
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
+.panelClose {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .tab[data-tab="grupe"] {
+    display: none;
+  }
+
+  .panelClose {
+    display: grid;
+    width: 44px;
+    height: 44px;
+    flex: none;
+    place-items: center;
+    border: var(--fair-border);
+    border-radius: var(--fair-radius-md);
+    background: var(--fair-surface);
+    color: var(--fair-ink);
+    cursor: pointer;
+  }
+
+  .panelClose svg {
+    width: 20px;
+    height: 20px;
+  }
+}
+
+.tabPanel {
+  min-height: 0;
+  flex: 1;
+  padding: var(--fair-space-3) var(--fair-space-4) var(--fair-space-6);
+}
+
+@media (min-width: 1024px) {
+  .tabPanel {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+  }
+}
+
+.tabPanel:not([data-active]) {
+  display: none;
+}
+
+.lightButton {
+  min-height: 44px;
+  padding: 0 var(--fair-space-4);
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-md);
+  background: var(--fair-surface);
+  color: var(--fair-ink);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .lightButton:hover,
+  .panelClose:hover {
+    background: var(--fair-canvas);
+  }
+}
+
+/* lista */
+
+.list {
+  display: grid;
+  gap: var(--fair-space-2);
+}
+
+.listTop {
+  position: sticky;
+  top: calc(var(--fair-header-height) + var(--a3-tabs-h));
+  z-index: 1;
+  display: grid;
+  gap: var(--fair-space-2);
+  margin: calc(var(--fair-space-3) * -1) calc(var(--fair-space-4) * -1) 0;
+  padding: var(--fair-space-3) var(--fair-space-4) var(--fair-space-1);
+  background: var(--fair-surface);
+}
+
+@media (min-width: 1024px) {
+  .listTop {
+    top: calc(var(--fair-space-3) * -1);
+  }
+}
+
+.search {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 14px;
+  width: 18px;
+  height: 18px;
+  color: var(--fair-ink-muted);
+  pointer-events: none;
+}
+
+.searchInput {
+  width: 100%;
+  min-height: 48px;
+  padding: 0 44px 0 42px;
+  border: var(--fair-border-strong);
+  border-radius: var(--fair-radius-md);
+  background: var(--fair-surface);
+  color: var(--fair-ink);
+  font: inherit;
+  font-size: 16px;
+  appearance: none;
+}
+
+.searchInput::placeholder {
+  color: var(--fair-ink-muted);
+  opacity: 1;
+}
+
+.searchInput::-webkit-search-cancel-button {
+  appearance: none;
+}
+
+.searchInput:focus-visible {
+  outline: 3px solid var(--fair-focus);
+  outline-offset: 2px;
+}
+
+.searchClear {
+  position: absolute;
+  right: 2px;
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border: 0;
+  border-radius: var(--fair-radius-md);
+  background: transparent;
+  color: var(--fair-ink-muted);
+  cursor: pointer;
+}
+
+.searchClear svg {
+  width: 18px;
+  height: 18px;
+}
+
+.listStatus {
+  display: flex;
+  min-height: 32px;
+  align-items: center;
+  gap: var(--fair-space-2);
+  color: var(--fair-ink-muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.groupChip {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--fair-space-2);
+  color: var(--fair-ink);
+  font-weight: 700;
+}
+
+.chipButton {
+  min-height: 44px;
+  padding: 0 var(--fair-space-2);
+  border: 0;
+  border-radius: var(--fair-radius-sm);
+  background: transparent;
+  color: var(--fair-accent-strong);
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.listCount {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+
+.listForm {
+  display: block;
+}
+
+.section + .section {
+  margin-top: var(--fair-space-3);
+}
+
+.sectionHead {
+  display: flex;
+  margin: 0;
+  align-items: center;
+  gap: var(--fair-space-2);
+  padding: var(--fair-space-2) var(--fair-space-1);
+  color: var(--fair-ink-muted);
+  font-size: 12px;
+  font-weight: 760;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.sectionHead .rowDot {
+  width: 10px;
+  height: 10px;
+}
+
+.sectionCount {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
+.rows {
+  gap: 2px;
+}
+
+.row {
+  display: grid;
+  width: 100%;
+  min-height: 48px;
+  grid-template-columns: 10px minmax(0, 1fr) auto 18px;
+  align-items: center;
+  gap: 10px;
+  padding: var(--fair-space-1) var(--fair-space-2) var(--fair-space-1) var(--fair-space-3);
+  border: 1px solid transparent;
+  border-radius: var(--fair-radius-md);
+  background: transparent;
+  color: var(--fair-ink);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.25;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color var(--fair-dur-feedback) linear,
+    border-color var(--fair-dur-feedback) linear,
+    transform var(--fair-dur-feedback) var(--fair-ease-enter);
+}
+
+.row .rowDot {
+  width: 10px;
+  height: 10px;
+}
+
+.row:active {
+  transform: scale(0.99);
+}
+
+.row[aria-current="true"] {
+  border-color: var(--fair-accent);
+  background: var(--fair-accent-soft);
+}
+
+@media (hover: hover) {
+  .row:hover:not([aria-current="true"]) {
+    background: var(--fair-canvas);
+  }
+}
+
+.rowText {
+  display: grid;
+  min-width: 0;
+}
+
+.rowName {
+  overflow-wrap: anywhere;
+}
+
+.rowSystem {
+  color: var(--fair-ink-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.rowBadge,
+.badge {
+  padding: 1px 7px;
+  border-radius: var(--fair-radius-pill);
+  background: var(--fair-surface-muted);
+  color: var(--fair-ink);
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.rowChevron {
+  grid-column: 4;
+  width: 18px;
+  height: 18px;
+  color: var(--fair-ink-muted);
+}
+
+.empty,
+.emptyPart {
+  display: grid;
+  justify-items: center;
+  gap: var(--fair-space-3);
+  padding: var(--fair-space-6) var(--fair-space-2);
+  text-align: center;
+}
+
+.empty p,
+.emptyPart p {
+  max-width: 34ch;
+  margin: 0;
+  color: var(--fair-ink-muted);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.emptyPart > svg {
+  width: 48px;
+  height: 48px;
+  padding: 12px;
+  border-radius: var(--fair-radius-md);
+  background: var(--fair-accent-soft);
+  color: var(--fair-accent-strong);
+}
+
+.emptyPart h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 450;
+  letter-spacing: -0.04em;
+}
+
+/* kartica dela */
+
+.card {
+  display: grid;
+  gap: var(--fair-space-4);
+}
+
+.cardHead {
+  position: relative;
+  display: grid;
+  gap: var(--fair-space-1);
+  padding-right: 52px;
+}
+
+.cardSystem {
+  display: flex;
+  margin: 0;
+  align-items: center;
+  gap: var(--fair-space-2);
+  color: var(--fair-ink-muted);
+  font-size: 12px;
+  font-weight: 760;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.cardTitle {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 760;
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+  scroll-margin-top: calc(var(--fair-header-height) + var(--a3-tabs-h) + var(--fair-space-6));
+}
+
+@media (min-width: 1024px) {
+  .cardTitle {
+    scroll-margin-top: var(--fair-space-6);
+  }
+}
+
+.cardTitle:focus {
+  outline: none;
+}
+
+.cardTitle:focus-visible {
+  outline: 3px solid var(--fair-focus);
+  outline-offset: 4px;
+  border-radius: var(--fair-radius-2xs);
+}
+
+.cardClose {
+  position: absolute;
+  top: -2px;
+  right: 0;
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-md);
+  background: var(--fair-surface);
+  color: var(--fair-ink);
+  cursor: pointer;
+}
+
+.cardClose svg {
+  width: 20px;
+  height: 20px;
+}
+
+@media (min-width: 1024px) {
+  .cardHead {
+    padding-right: 0;
+  }
+
+  .cardClose {
+    display: none;
+  }
+}
+
+.cardDesc {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+.specs {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.specs caption {
+  padding-bottom: var(--fair-space-2);
+  color: var(--fair-ink-muted);
+  font-size: 12px;
+  font-weight: 760;
+  letter-spacing: 0.05em;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.specs tbody th,
+.specs td {
+  padding: 9px 0;
+  border-top: var(--fair-border);
+  vertical-align: baseline;
+}
+
+.specs tbody tr:last-child :is(th, td) {
+  border-bottom: var(--fair-border);
+}
+
+.specs tbody th {
+  padding-right: var(--fair-space-3);
+  color: var(--fair-ink-muted);
+  font-weight: 500;
+  text-align: left;
+}
+
+.specs td {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.fact {
+  padding: var(--fair-space-3) var(--fair-space-4);
+  border-left: 3px solid var(--a3-dot);
+  border-radius: var(--fair-radius-2xs) var(--fair-radius-md) var(--fair-radius-md) var(--fair-radius-2xs);
+  background: var(--fair-canvas);
+}
+
+.fact h3 {
+  display: flex;
+  margin: 0 0 var(--fair-space-1);
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 760;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.fact h3 svg {
+  width: 14px;
+  height: 14px;
+}
+
+.fact p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.note {
+  display: flex;
+  margin: 0;
+  align-items: flex-start;
+  gap: var(--fair-space-2);
+  color: var(--fair-ink-muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.note svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  margin-top: 1px;
+}
+
+.cardFoot {
+  display: grid;
+  gap: var(--fair-space-2);
+  padding-top: var(--fair-space-1);
+}
+
+@media (min-width: 1024px) {
+  /* Prethodni, sledeći i „Kopiraj link“ su uvek pri dnu panela. Lepljivi okvir u panelu se
+     računa bez njegovog unutrašnjeg odmaka, pa se odmak oduzima. */
+  .cardFoot {
+    position: sticky;
+    bottom: calc(var(--fair-space-6) * -1);
+    z-index: 1;
+    margin: 0 calc(var(--fair-space-4) * -1) calc(var(--fair-space-6) * -1);
+    padding: var(--fair-space-3) var(--fair-space-4);
+    border-top: var(--fair-border);
+    background: var(--fair-surface);
+  }
+}
+
+.neighbors {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--fair-space-2);
+}
+
+.neighbor {
+  display: flex;
+  min-width: 0;
+  min-height: 48px;
+  align-items: center;
+  gap: 6px;
+  padding: var(--fair-space-1) var(--fair-space-2);
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-md);
+  background: var(--fair-surface);
+  color: var(--fair-ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color var(--fair-dur-feedback) linear,
+    transform var(--fair-dur-feedback) var(--fair-ease-enter);
+}
+
+.neighbor[data-dir="next"] {
+  justify-content: flex-end;
+  text-align: right;
+}
+
+.neighbor svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  color: var(--fair-ink-muted);
+}
+
+.neighbor:active {
+  transform: scale(0.98);
+}
+
+@media (hover: hover) {
+  .neighbor:hover {
+    background: var(--fair-canvas);
+  }
+}
+
+.neighborText {
+  display: grid;
+  min-width: 0;
+}
+
+.neighborText small {
+  color: var(--fair-ink-muted);
+  font-size: 11px;
+  font-weight: 760;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.neighborText span {
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.position {
+  color: var(--fair-ink-muted);
+  font-size: 12px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.copyButton {
+  display: inline-flex;
+  width: 100%;
+  min-height: 48px;
+  align-items: center;
+  justify-content: center;
+  gap: var(--fair-space-2);
+  border: 1px solid var(--fair-accent-strong);
+  border-radius: var(--fair-radius-md);
+  background: var(--fair-accent);
+  color: var(--fair-accent-ink);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background-color var(--fair-dur-feedback) linear,
+    transform var(--fair-dur-feedback) var(--fair-ease-enter);
+}
+
+.copyButton svg {
+  width: 18px;
+  height: 18px;
+}
+
+.copyButton:active {
+  transform: scale(0.98);
+}
+
+@media (hover: hover) {
+  .copyButton:hover {
+    background: var(--fair-accent-strong);
+  }
+}
+
+.copyField {
+  display: grid;
+  gap: 6px;
+  color: var(--fair-ink-muted);
+  font-size: 13px;
+}
+
+.copyField input {
+  min-height: 44px;
+  padding: 0 var(--fair-space-3);
+  border: var(--fair-border-strong);
+  border-radius: var(--fair-radius-md);
+  background: var(--fair-surface);
+  color: var(--fair-ink);
+  font: inherit;
+  font-size: 14px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .progress[data-indeterminate] > span {
+    animation: none;
+    transform: scaleX(0.3);
+  }
+}
+
+/* ------------------------------------------------------------------ A10: tura, boja laka, presek */
+
+/* Dugme ture u zaglavlju: crno dugme (DNA §9). Na telefonu stoji desno od naslova, a opis ide ispod. */
+.tourButton {
+  display: inline-flex;
+  min-height: 44px;
+  flex: none;
+  align-items: center;
+  gap: var(--fair-space-2);
+  order: 1;
+  margin-left: auto;
+  padding: 0 var(--fair-space-4) 0 var(--fair-space-3);
+  border: 0;
+  border-radius: var(--fair-radius-md);
+  background: var(--fair-ink);
+  color: var(--fair-surface);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color var(--fair-dur-feedback) linear,
+    transform var(--fair-dur-feedback) var(--fair-ease-enter);
+}
+
+.tourButton svg {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+}
+
+.tourButton small {
+  padding-left: var(--fair-space-2);
+  border-left: 1px solid rgb(255 253 248 / 0.28);
+  color: rgb(255 253 248 / 0.72);
+  font-size: 12px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.tourButton:active {
+  transform: scale(0.97);
+}
+
+.tourButton:focus-visible {
+  outline: 3px solid var(--fair-focus);
+  outline-offset: 2px;
+}
+
+.tourButton[aria-pressed="true"] {
+  background: var(--fair-accent);
+  color: var(--fair-accent-ink);
+}
+
+/* A12: na crvenoj podlozi „1 min“ u 72 % beline ima 3,2 : 1; puna boja teksta prolazi AA. */
+.tourButton[aria-pressed="true"] small {
+  color: inherit;
+}
+
+@media (hover: hover) {
+  .tourButton:hover:not([aria-pressed="true"]) {
+    background: #2a2622;
+  }
+}
+
+.intro > p:not(.summary) {
+  flex-basis: 100%;
+  order: 2;
+}
+
+/* A12: naslov na telefonu uvek zauzima ceo red. Da li dugme ture staje pored njega zavisilo je od
+   širine fonta, pa je dolazak fonta Archivo prelamao dugme u novi red i pomerao studio (CLS 0,033). */
+.intro h1 {
+  flex-basis: 100%;
+}
+
+@media (min-width: 768px) {
+  .intro h1 {
+    flex-basis: auto;
+  }
+
+  .intro > p:not(.summary) {
+    flex-basis: auto;
+    order: 0;
+  }
+
+  .tourButton {
+    order: 3;
+    margin-left: 0;
+  }
+
+  .intro .summary {
+    order: 2;
+  }
+}
+
+/* Gornja traka: prekidač prikaza, a u laku ispod njega boje. */
+.topBar {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--fair-space-2);
+}
+
+@media (min-width: 1024px) {
+  .topBar {
+    align-items: center;
+  }
+}
+
+.paints {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--fair-space-2);
+  padding: 0 var(--fair-space-4) 0 var(--fair-space-1);
+  border: 1px solid var(--a3-line);
+  border-radius: var(--fair-radius-pill);
+  background: var(--a3-panel);
+  animation: a3-fade var(--fair-dur-state) var(--fair-ease-enter) both;
+}
+
+.swatches {
+  display: flex;
+}
+
+.swatch {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: var(--fair-radius-pill);
+  background: transparent;
+  cursor: pointer;
+}
+
+/* Uzorak: boja laka sa odsjajem odozgo levo i tamnim dnom, kao zakrivljen lim pod svetlom. */
+.swatch > span {
+  width: 26px;
+  height: 26px;
+  border-radius: var(--fair-radius-pill);
+  background:
+    radial-gradient(circle at 34% 28%, rgb(255 255 255 / 0.55), rgb(255 255 255 / 0) 42%),
+    radial-gradient(circle at 60% 85%, rgb(0 0 0 / 0.35), rgb(0 0 0 / 0) 55%),
+    var(--a3-swatch);
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 0.22),
+    0 1px 2px rgb(0 0 0 / 0.5);
+  transition: transform var(--fair-dur-feedback) var(--fair-ease-enter);
+}
+
+.swatch[aria-checked="true"] > span {
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 0.22),
+    0 0 0 2px var(--a3-bg),
+    0 0 0 4px var(--a3-ink);
+}
+
+.swatch:active > span {
+  transform: scale(0.92);
+}
+
+@media (hover: hover) {
+  .swatch:hover:not([aria-checked="true"]) > span {
+    transform: scale(1.08);
+  }
+}
+
+.paintName {
+  min-width: 13ch;
+  color: var(--a3-ink);
+  font-size: 13px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+@media (max-width: 400px) {
+  .paints {
+    padding-right: var(--fair-space-1);
+  }
+
+  .paintName {
+    display: none;
+  }
+}
+
+/* Presek: dugme u donjoj traci i klizač iznad nje. */
+.toolButton[aria-pressed="true"] {
+  background: var(--a3-ink);
+  color: var(--a3-bg);
+}
+
+.sectionToggle {
+  width: 44px;
+  padding: 0;
+}
+
+.sectionToggleLabel {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (min-width: 1280px) {
+  .sectionToggle {
+    width: auto;
+    padding: 0 var(--fair-space-4);
+  }
+
+  .sectionToggleLabel {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip-path: none;
+  }
+}
+
+/* Na telefonu traka nema mesta za natpis rasklapanja (ostaje za čitače ekrana). */
+@media (max-width: 767px) {
+  .sliderLabel {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
+.sectionBar {
+  position: absolute;
+  right: var(--a3-free-right);
+  bottom: calc(var(--a3-inset) + var(--a3-sheet-overlap) + 62px);
+  left: var(--a3-free-left);
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: var(--fair-space-2);
+  padding: var(--fair-space-1) var(--fair-space-1) var(--fair-space-1) var(--fair-space-3);
+  border: 1px solid var(--a3-line);
+  border-radius: var(--fair-radius-lg);
+  background: var(--a3-panel);
+  animation: a3-rise var(--fair-dur-overlay) var(--fair-ease-enter) both;
+}
+
+@keyframes a3-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+.sliderLabelAlways {
+  color: var(--a3-muted);
+}
+
+@media (min-width: 1024px) {
+  .sectionBar {
+    width: fit-content;
+    margin-inline: auto;
+  }
+
+  .stage[data-panel="closed"] .sectionBar {
+    right: var(--a3-inset);
+  }
+}
+
+/* Tura: titl umesto donje trake. Tačka i naziv sistema, korak, opis, dugmad i segmenti napretka. */
+.tourBar {
+  position: absolute;
+  right: var(--a3-free-right);
+  bottom: calc(var(--a3-inset) + var(--a3-sheet-overlap));
+  left: var(--a3-free-left);
+  z-index: 2;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "text controls"
+    "segments segments";
+  align-items: start;
+  gap: var(--fair-space-3) var(--fair-space-3);
+  padding: var(--fair-space-3) var(--fair-space-3) var(--fair-space-3) var(--fair-space-4);
+  border: 1px solid var(--a3-line);
+  border-radius: var(--fair-radius-lg);
+  background: var(--a3-panel);
+  animation: a3-rise var(--fair-dur-overlay) var(--fair-ease-enter) both;
+}
+
+@media (min-width: 1024px) {
+  .tourBar {
+    width: min(640px, calc(100% - var(--a3-free-left) - var(--a3-free-right)));
+    margin-inline: auto;
+  }
+
+  .stage[data-panel="closed"] .tourBar {
+    right: var(--a3-inset);
+  }
+}
+
+.tourText {
+  display: grid;
+  min-width: 0;
+  grid-area: text;
+  gap: 4px;
+  animation: a3-fade var(--fair-dur-state) var(--fair-ease-enter) both;
+}
+
+.tourTitle {
+  display: flex;
+  margin: 0;
+  align-items: center;
+  gap: var(--fair-space-2);
+  color: var(--a3-ink);
+  font-size: 16px;
+  font-weight: 760;
+  letter-spacing: -0.01em;
+}
+
+.tourPosition {
+  color: var(--a3-muted);
+  font-size: 12px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.tourDesc {
+  max-width: 62ch;
+  margin: 0;
+  color: rgb(232 238 242 / 0.82);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.tourControls {
+  display: flex;
+  grid-area: controls;
+  gap: var(--fair-space-2);
+}
+
+.tourControls .iconButton[aria-pressed="true"] {
+  background: var(--a3-ink);
+  color: var(--a3-bg);
+}
+
+.tourSegments {
+  display: flex;
+  height: 3px;
+  grid-area: segments;
+  gap: 3px;
+}
+
+.tourSegments > span {
+  position: relative;
+  flex: 1;
+  overflow: hidden;
+  border-radius: 2px;
+  background: rgb(232 238 242 / 0.16);
+}
+
+.tourSegments > span[data-state="done"] {
+  background: rgb(232 238 242 / 0.7);
+}
+
+.tourSegments i {
+  position: absolute;
+  inset: 0;
+  background: var(--a3-ink);
+  transform-origin: 0 50%;
+  animation: a3-step var(--a3-step) linear both;
+}
+
+.tourSegments[data-paused] i {
+  animation-play-state: paused;
+}
+
+@keyframes a3-step {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@media (max-width: 767px) {
+  /* Na telefonu opis ide celom širinom: dugmad su u uglu, u visini naslova. */
+  .tourBar {
+    grid-template-areas:
+      "text text"
+      "segments segments";
+    gap: var(--fair-space-2);
+    padding: var(--fair-space-2) var(--fair-space-2) var(--fair-space-3) var(--fair-space-3);
+  }
+
+  .tourControls {
+    position: absolute;
+    top: var(--fair-space-2);
+    right: var(--fair-space-2);
+  }
+
+  .tourTitle {
+    min-height: 44px;
+    padding-right: 148px;
+    font-size: 15px;
+  }
+
+  .tourDesc {
+    font-size: 13px;
+  }
+
+  .tourControls {
+    gap: var(--fair-space-1);
+  }
+}
+
+/* ------------------------------------------------------------------ A10: kiosk 1920 × 1080 */
+
+/* Ceo ekran je studio. Brojevi (48, 320, 376) su isti kao STUDIO_CHROME.kiosk u lib/auto3d/layout.ts. */
+.kioskPage {
+  --a3-inset: 48px;
+  --a3-rail-w: 248px;
+  --a3-panel-w: 384px;
+  --a3-poster-left: 0px;
+  --a3-free-left: 320px;
+  --a3-free-right: 376px;
+  --a3-sheet-overlap: 0px;
+  min-height: 100svh;
+  background: var(--a3-bg);
+}
+
+.kioskPage .main {
+  max-width: none;
+  padding: 0;
+}
+
+.kioskPage .studio {
+  height: 100svh;
+  min-height: 0;
+  border-radius: 0;
+}
+
+.kioskPage .rail {
+  top: 156px;
+  left: var(--a3-inset);
+  max-height: calc(100% - 156px - var(--a3-inset));
+}
+
+.kioskPage .panel {
+  bottom: calc(var(--a3-inset) + 340px + var(--fair-space-6));
+}
+
+.stage[data-kiosk] :is(.rail, .topBar, .toolbar, .sectionBar, .panel[data-open="true"]) {
+  transition:
+    opacity var(--fair-dur-overlay) var(--fair-ease-enter),
+    visibility 0s linear 0s;
+}
+
+.stage[data-kiosk="auto"] :is(.rail, .topBar, .toolbar, .sectionBar, .panel) {
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity var(--fair-dur-state) var(--fair-ease-exit),
+    visibility 0s linear var(--fair-dur-state);
+}
+
+.stage[data-cursor="hidden"],
+.stage[data-cursor="hidden"] * {
+  cursor: none !important;
+}
+
+.kioskLockup {
+  position: absolute;
+  top: var(--a3-inset);
+  left: var(--a3-inset);
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: var(--fair-space-4);
+  pointer-events: none;
+}
+
+.kioskLockup > span:first-child {
+  width: 6px;
+  height: 64px;
+}
+
+.kioskLockup > span:last-child {
+  display: grid;
+  gap: 2px;
+}
+
+.kioskLockup strong {
+  color: var(--a3-ink);
+  font-size: 34px;
+  font-weight: 780;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.kioskLockup small {
+  color: var(--a3-muted);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.kioskHint {
+  position: absolute;
+  top: 144px;
+  left: var(--a3-inset);
+  z-index: 3;
+  display: flex;
+  margin: 0;
+  align-items: center;
+  gap: var(--fair-space-3);
+  color: rgb(232 238 242 / 0.78);
+  font-size: 19px;
+  font-weight: 620;
+  pointer-events: none;
+  animation: a3-fade var(--fair-dur-overlay) var(--fair-ease-enter) both;
+}
+
+.kioskHint svg {
+  width: 24px;
+  height: 24px;
+}
+
+.kioskLegend {
+  position: absolute;
+  top: var(--a3-inset);
+  right: var(--a3-inset);
+  z-index: 3;
+  display: grid;
+  width: 280px;
+  margin: 0;
+  padding: 0;
+  gap: var(--fair-space-3);
+  list-style: none;
+  pointer-events: none;
+}
+
+.kioskLegend li {
+  display: flex;
+  align-items: center;
+  gap: var(--fair-space-3);
+  color: var(--a3-ink);
+  font-size: 20px;
+  font-weight: 650;
+  transition: opacity var(--fair-dur-overlay) var(--fair-ease-enter);
+}
+
+.kioskLegend .groupDot {
+  width: 14px;
+  height: 14px;
+}
+
+/* A12: 0,52 drži prigušen naziv na ≥ 4,5 : 1 prema studiju (0,38 je davalo 3,2 : 1). */
+.kioskLegend[data-focus] li:not([data-active]) {
+  opacity: 0.52;
+}
+
+.kioskCaption {
+  position: absolute;
+  bottom: var(--a3-inset);
+  left: var(--a3-inset);
+  z-index: 3;
+  display: grid;
+  width: min(960px, calc(100% - 280px - var(--a3-inset) * 3));
+  gap: var(--fair-space-6);
+  pointer-events: none;
+}
+
+.kioskCaption > * {
+  grid-area: auto;
+}
+
+.kioskCaption .tourText {
+  gap: var(--fair-space-3);
+}
+
+.kioskCaptionTitle {
+  display: flex;
+  margin: 0;
+  align-items: center;
+  gap: var(--fair-space-4);
+  color: var(--a3-ink);
+  font-size: 46px;
+  font-weight: 780;
+  letter-spacing: -0.025em;
+  line-height: 1.05;
+}
+
+.kioskCaptionTitle .groupDot {
+  width: 18px;
+  height: 18px;
+}
+
+.kioskCaptionText {
+  max-width: 44ch;
+  margin: 0;
+  color: rgb(232 238 242 / 0.82);
+  font-size: 26px;
+  line-height: 1.35;
+}
+
+.kioskCaption .tourSegments {
+  width: 720px;
+  height: 4px;
+}
+
+.kioskQr {
+  position: absolute;
+  right: var(--a3-inset);
+  bottom: var(--a3-inset);
+  z-index: 3;
+  display: grid;
+  width: 280px;
+  justify-items: center;
+  gap: var(--fair-space-3);
+  padding: var(--fair-space-6) var(--fair-space-6) 20px;
+  border-radius: var(--fair-radius-xl);
+  background: var(--fair-surface);
+  box-shadow: 0 24px 48px -24px rgb(0 0 0 / 0.6);
+  color: var(--fair-ink);
+  text-align: center;
+}
+
+.kioskQr p {
+  display: grid;
+  margin: 0;
+  gap: 4px;
+}
+
+.kioskQr strong {
+  font-size: 20px;
+  font-weight: 780;
+  letter-spacing: -0.01em;
+}
+
+.kioskQr span {
+  color: var(--fair-ink-muted);
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.qrCode {
+  display: block;
+  width: 216px;
+  height: 216px;
+  border-radius: var(--fair-radius-sm);
+}
+
+/* Kiosk na užem ekranu (telefon, tablet): isti tok, manji natpis i titl, bez legende i nagoveštaja;
+   QR ostaje samo od 768 px (na telefonu „nastavi na telefonu“ nema smisla). Brojevi su isti kao
+   STUDIO_CHROME.kioskNarrow u lib/auto3d/layout.ts. */
+@media (max-width: 1023px) {
+  .kioskPage {
+    --a3-inset: 16px;
+    --a3-free-left: 16px;
+    --a3-free-right: 16px;
+  }
+
+  .kioskLockup {
+    gap: var(--fair-space-3);
+  }
+
+  .kioskLockup > span:first-child {
+    height: 40px;
+  }
+
+  .kioskLockup strong {
+    font-size: 22px;
+  }
+
+  .kioskLockup small {
+    font-size: 11px;
+  }
+
+  .kioskHint,
+  .kioskLegend {
+    display: none;
+  }
+
+  .kioskCaption {
+    right: calc(200px + var(--a3-inset) * 2);
+    width: auto;
+    gap: var(--fair-space-3);
+  }
+
+  .kioskPage .topBar {
+    top: 76px;
+  }
+
+  .kioskCaptionTitle {
+    gap: var(--fair-space-2);
+    font-size: 24px;
+  }
+
+  .kioskCaptionTitle .groupDot {
+    width: 12px;
+    height: 12px;
+  }
+
+  .kioskCaptionText {
+    font-size: 15px;
+  }
+
+  .kioskCaption .tourSegments {
+    width: 100%;
+    height: 3px;
+  }
+
+  .kioskQr {
+    width: 200px;
+    padding: var(--fair-space-4);
+  }
+
+  .kioskQr .qrCode {
+    width: 150px;
+    height: 150px;
+  }
+
+  .kioskPage .rail {
+    top: 88px;
+  }
+}
+
+@media (max-width: 767px) {
+  .kioskQr {
+    display: none;
+  }
+
+  .kioskCaption {
+    right: var(--a3-inset);
+  }
+}
+
+/* ------------------------------------------------------------------ paketi (A11)
+   Sekcija ispod scene obraća se izlagaču: svetla papirna podloga sajma, a nivo „3D Rendgen“ je tamna
+   kartica u boji studija, pa se odmah vidi da je najviši. Na telefonu je on prvi (order), na
+   768–1099 zauzima ceo red iznad ostala tri, a od 1100 su sva četiri u jednom redu. */
+
+.packages {
+  display: grid;
+  gap: var(--fair-space-6);
+  padding: var(--fair-space-12) var(--fair-space-4) 0;
+}
+
+.packagesHead {
+  display: grid;
+  gap: var(--fair-space-2);
+  max-width: 62ch;
+}
+
+.packagesEyebrow {
+  margin: 0;
+  color: var(--fair-ink-muted);
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  line-height: 18px;
+  text-transform: uppercase;
+}
+
+.packagesHead h2 {
+  margin: 0;
+  font-size: clamp(27px, 7vw, 35px);
+  font-weight: 760;
+  letter-spacing: -0.045em;
+  line-height: 1.04;
+}
+
+.packagesHead p:last-child {
+  margin: 0;
+  color: var(--fair-ink-muted);
+  font-size: 16px;
+  line-height: 1.45;
+}
+
+.tiers {
+  display: grid;
+  gap: var(--fair-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tier {
+  display: grid;
+  min-width: 0;
+}
+
+.tier[data-featured="true"] {
+  order: -1;
+}
+
+.tier > .tierCard {
+  display: grid;
+  align-content: start;
+  gap: var(--fair-space-4);
+  padding: var(--fair-space-6) var(--fair-space-4);
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-lg);
+  background: var(--fair-surface);
+  box-shadow: var(--fair-shadow-1);
+}
+
+.tier[data-featured="true"] > .tierCard {
+  border-color: var(--a3-line);
+  border-top: 2px solid #9fe9ff;
+  background: var(--a3-bg);
+  color: var(--a3-ink);
+  box-shadow: var(--fair-shadow-2);
+}
+
+.tierHead,
+.tierBody {
+  display: grid;
+  align-content: start;
+  gap: var(--fair-space-3);
+  min-width: 0;
+}
+
+.tierBadge {
+  justify-self: start;
+  margin: 0;
+  padding: 2px var(--fair-space-3);
+  border-radius: var(--fair-radius-pill);
+  background: #9fe9ff;
+  color: var(--a3-bg);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 20px;
+}
+
+.tierName {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 760;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.tierPrice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 var(--fair-space-2);
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.tierPrice strong {
+  font-size: 28px;
+  font-weight: 780;
+  letter-spacing: -0.04em;
+  line-height: 1.1;
+}
+
+.tierPrice span {
+  color: var(--fair-ink-muted);
+  font-size: 14px;
+  font-weight: 560;
+}
+
+.tier[data-featured="true"] .tierPrice span {
+  color: var(--a3-muted);
+}
+
+.tierInherits {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 20px;
+}
+
+.tierItems {
+  display: grid;
+  gap: var(--fair-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tierItems li {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: var(--fair-space-2);
+  font-size: 15px;
+  line-height: 22px;
+}
+
+.tierItems svg {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  color: var(--fair-ink-muted);
+}
+
+.tier[data-featured="true"] .tierItems svg {
+  color: #9fe9ff;
+}
+
+.tierNote {
+  margin: 0;
+  color: var(--a3-muted);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.packagesExample {
+  margin: 0;
+  color: var(--fair-ink-muted);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.stand {
+  display: grid;
+  gap: var(--fair-space-4);
+}
+
+.stand h3,
+.contact h3 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 760;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+}
+
+.steps {
+  display: grid;
+  gap: var(--fair-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.step {
+  display: grid;
+  align-content: start;
+  gap: var(--fair-space-2);
+  padding: var(--fair-space-4);
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-lg);
+  background: var(--fair-surface);
+}
+
+.stepNumber {
+  color: var(--fair-ink-muted);
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  line-height: 18px;
+  text-transform: uppercase;
+}
+
+.step h4 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 720;
+  line-height: 1.25;
+}
+
+.step p {
+  margin: 0;
+  color: var(--fair-ink-muted);
+  font-size: 15px;
+  line-height: 22px;
+}
+
+.stepLink {
+  display: inline-flex;
+  align-items: center;
+  align-self: end;
+  justify-self: start;
+  min-height: 44px;
+  margin-top: var(--fair-space-1);
+  color: var(--fair-accent-strong);
+  font-size: 15px;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  transition: color var(--fair-dur-feedback) var(--fair-ease-enter);
+}
+
+.contact {
+  display: grid;
+  gap: var(--fair-space-4);
+  padding: var(--fair-space-6) var(--fair-space-4);
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-xl);
+  background: var(--fair-surface);
+  box-shadow: var(--fair-shadow-2);
+}
+
+.contact p {
+  margin: var(--fair-space-2) 0 0;
+  max-width: 48ch;
+  color: var(--fair-ink-muted);
+  font-size: 15px;
+  line-height: 22px;
+}
+
+.contactList {
+  display: grid;
+  gap: var(--fair-space-3);
+  margin: 0;
+}
+
+.contactList dt {
+  color: var(--fair-ink-muted);
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 18px;
+}
+
+.contactList dd {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--fair-space-1) var(--fair-space-3);
+  margin: 0;
+}
+
+/* Kontakt mora da se izabere i kopira: .fair-event gasi izbor teksta samo na dugmadi i linkovima. */
+.contactValue {
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 760;
+  letter-spacing: -0.02em;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.contactPerson {
+  color: var(--fair-ink-muted);
+  font-size: 14px;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.contactAction {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--fair-space-2);
+  min-height: 44px;
+  padding: 0 var(--fair-space-4);
+  border: var(--fair-border-strong);
+  border-radius: var(--fair-radius-md);
+  background: var(--fair-surface);
+  color: var(--fair-ink);
+  font-size: 15px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: background-color var(--fair-dur-feedback) var(--fair-ease-enter);
+}
+
+.contactAction svg {
+  width: 18px;
+  height: 18px;
+}
+
+@media (hover: hover) {
+  .stepLink:hover {
+    color: var(--fair-ink);
+  }
+
+  .contactAction:hover {
+    background: var(--fair-canvas);
+  }
+}
+
+.contactAction:active {
+  transform: scale(0.98);
+}
+
+@media (min-width: 768px) {
+  .packages {
+    gap: var(--fair-space-8);
+    padding: 64px 0 0;
+  }
+
+  .tiers {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--fair-space-4);
+  }
+
+  .tier[data-featured="true"] {
+    grid-column: 1 / -1;
+  }
+
+  .tier > .tierCard {
+    padding: var(--fair-space-6);
+  }
+
+  .tier[data-featured="true"] > .tierCard {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr);
+    gap: var(--fair-space-8);
+    padding: var(--fair-space-8);
+  }
+
+  .steps {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--fair-space-4);
+  }
+
+  .step {
+    padding: var(--fair-space-6);
+  }
+
+  .contact {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: var(--fair-space-8);
+    padding: var(--fair-space-8);
+  }
+}
+
+@media (min-width: 1100px) {
+  .tiers {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(0, 1.35fr);
+    align-items: stretch;
+  }
+
+  .tier[data-featured="true"] {
+    grid-column: auto;
+    order: 0;
+  }
+
+  .tier[data-featured="true"] > .tierCard {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--fair-space-4);
+    padding: var(--fair-space-6);
+  }
+}

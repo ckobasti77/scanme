@@ -1,0 +1,16 @@
+[
+  { "id": "A01", "title": "Arhitektura: auto, delovi, pipeline, stranica (plan)", "model": "claude-opus-5-5", "effort": "max", "mode": "plan", "session": "nova", "resumeFrom": null, "timeoutMin": 120 },
+  { "id": "A02", "title": "Temelj: Blender pipeline, katalog delova, ugovor, prvi GLB", "model": "claude-opus-5-5", "effort": "xhigh", "mode": "goal", "session": "ista", "resumeFrom": "A01", "timeoutMin": 240 },
+  { "id": "A03", "title": "Plan: 3D pregledač i stranica", "model": "claude-opus-5-5", "effort": "high", "mode": "plan", "session": "nova", "resumeFrom": null, "timeoutMin": 90 },
+  { "id": "A04", "title": "Pregledač: rendgen, izbor dela, kamera, rasklapanje", "model": "claude-opus-5-5", "effort": "xhigh", "mode": "goal", "session": "ista", "resumeFrom": "A03", "timeoutMin": 240 },
+  { "id": "A05", "title": "Stranica /sajam/3d: grupe, kartica dela, lista, telefon", "model": "claude-opus-5-5", "effort": "xhigh", "mode": "goal", "session": "nova", "resumeFrom": null, "timeoutMin": 240 },
+  { "id": "A06", "title": "Karoserija: proporcije, površine, paneli", "model": "claude-opus-5-5", "effort": "xhigh", "mode": "goal", "session": "nova", "resumeFrom": null, "timeoutMin": 240 },
+  { "id": "A07", "title": "Karoserija: svetla, maska, stakla, točkovi", "model": "claude-opus-5-5", "effort": "xhigh", "mode": "goal", "session": "nova", "resumeFrom": null, "timeoutMin": 240 },
+  { "id": "A08", "title": "Mehanika i enterijer", "model": "claude-opus-5-5", "effort": "xhigh", "mode": "goal", "session": "nova", "resumeFrom": null, "timeoutMin": 240 },
+  { "id": "A09", "title": "Vizuelna revizija auta, izvoz, lite i posteri", "model": "claude-opus-5-5", "effort": "xhigh", "mode": "goal", "session": "nova", "resumeFrom": null, "timeoutMin": 240 },
+  { "id": "A10", "title": "Tura, kiosk, režimi, presek, boja laka", "model": "claude-opus-5-5", "effort": "xhigh", "mode": "goal", "session": "nova", "resumeFrom": null, "timeoutMin": 240 },
+  { "id": "A11", "title": "Paket 3D Rendgen na stranici i materijal za prodaju", "model": "claude-sonnet-5-5", "effort": "high", "mode": "goal", "session": "nova", "resumeFrom": null, "timeoutMin": 150 },
+  { "id": "A12", "title": "Performanse, telefon, pristupačnost", "model": "claude-opus-5-5", "effort": "xhigh", "mode": "goal", "session": "nova", "resumeFrom": null, "timeoutMin": 210 },
+  { "id": "A13", "title": "Revizija celog runa", "model": "claude-opus-5-5", "effort": "max", "mode": "goal", "session": "nova", "resumeFrom": null, "timeoutMin": 240 },
+  { "id": "A14", "title": "Završni izveštaj i snimci", "model": "claude-sonnet-5-5", "effort": "high", "mode": "auto", "session": "nova", "resumeFrom": null, "timeoutMin": 150 }
+]

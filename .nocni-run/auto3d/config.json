@@ -1,0 +1,100 @@
+{
+  "name": "AUTO3D",
+  "slug": "auto3d",
+  "branch": "codex/jovan-auto3d-2026-10-16",
+  "owner": "Jovan",
+  "lang": "sr",
+  "defaultModel": "claude-opus-5-5",
+  "planDoc": "docs/AUTO3D-PLAN.md",
+  "progressDoc": "docs/AUTO3D-PROGRESS.md",
+  "plansDir": "docs/auto3d/planovi",
+  "screenshotsDir": "output/playwright/auto3d",
+  "gates": [
+    {
+      "name": "typecheck",
+      "cmd": "npx tsc --noEmit",
+      "timeoutMin": 20
+    },
+    {
+      "name": "lint",
+      "cmd": "npx eslint --ignore-pattern \".nocni-run/**\"",
+      "timeoutMin": 20
+    },
+    {
+      "name": "test",
+      "cmd": "npx vitest run",
+      "kind": "vitest",
+      "timeoutMin": 40
+    },
+    {
+      "name": "build",
+      "cmd": "npm run build",
+      "timeoutMin": 30,
+      "agent": false
+    }
+  ],
+  "maxFixAttempts": 2,
+  "budgetUsd": 0,
+  "deny": [
+    "Bash(npx convex:*)",
+    "Bash(npx.cmd convex:*)",
+    "Bash(convex:*)",
+    "Bash(npm run dev:convex:*)",
+    "Bash(vercel:*)",
+    "Bash(npx vercel:*)",
+    "Bash(npm install:*)",
+    "Bash(npm i:*)",
+    "Bash(npm ci:*)",
+    "Bash(npm uninstall:*)",
+    "Bash(npm update:*)",
+    "Bash(pip install:*)",
+    "Bash(git remote:*)",
+    "Bash(git fetch:*)",
+    "Bash(git pull:*)",
+    "Bash(git restore:*)",
+    "Bash(git worktree:*)",
+    "Bash(gh:*)",
+    "Edit(convex/**)",
+    "Edit(package.json)",
+    "Edit(package-lock.json)",
+    "Edit(proxy.ts)",
+    "Edit(next.config.ts)",
+    "Edit(tsconfig.json)",
+    "Edit(vitest.config.ts)",
+    "Edit(vitest.config.mts)",
+    "Edit(eslint.config.mjs)",
+    "Edit(app/layout.tsx)",
+    "Edit(lib/fair-entitlements.ts)",
+    "Edit(lib/fair-contract.ts)",
+    "Edit(.env*)"
+  ],
+  "commitExclude": [
+    "output",
+    "next-env.d.ts",
+    "tsconfig.json"
+  ],
+  "ownPaths": [
+    "3d/auto3d",
+    "public/3d/auto3d",
+    "app/sajam/3d",
+    "components/fair/auto3d",
+    "lib/auto3d",
+    "lib/i18n/sr/fair-auto3d.ts",
+    "lib/i18n/sr/fair-auto3d-delovi.ts",
+    "docs/auto3d",
+    ".claude/skills/auto3d-blender"
+  ],
+  "mcp": {
+    "playwright": true,
+    "playwrightPackage": "@playwright/mcp@0.0.83"
+  },
+  "env": {
+    "BLENDER_EXE": "C:\\Program Files\\Blender Foundation\\Blender 5.1\\blender.exe"
+  },
+  "devPorts": [
+    3180,
+    3181
+  ],
+  "selfTestMaxAgeHours": 12,
+  "commitTrailer": "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+}

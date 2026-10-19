@@ -16,6 +16,18 @@ npm-debug.log*
 *.tsbuildinfo
 
 .playwright-mcp/
+# nocni run auto3d (logovi i stanje runnera)
+.nocni-run/auto3d/logs/
+.nocni-run/auto3d/tmp/
+.nocni-run/auto3d/state.json
+.nocni-run/auto3d/state.json.tmp
+.nocni-run/auto3d/state.bad.json
+.nocni-run/auto3d/STOP
+.nocni-run/auto3d/baseline.txt
+.nocni-run/auto3d/mcp.json
+# auto3d: Blender .blend i QA renderi (lokalno)
+output/auto3d/
+3d/auto3d/**/__pycache__/
 
 # Logovi nocnog lanca (NightRun.ps1)
 scripts/tasks/logs/
