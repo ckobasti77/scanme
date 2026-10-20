@@ -1,7 +1,7 @@
 "use client";
 
 import { Check, ChevronRight, CircleHelp, ExternalLink, List, Map as MapIcon, Search, Stamp, X } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useDemoHeat } from "../demo/use-demo-heat";
 import { FAIR_DEMO_PASSPORTS } from "@/lib/fair-demo";
 import { getDict } from "@/lib/i18n";
@@ -15,6 +15,8 @@ import { AmfMapSponsor } from "./amf-map-sponsor";
 import { fairMapHeatView, useFairMapHeatData } from "./fair-map-heat";
 import { usePassportProgress } from "./fair-map-passport";
 import styles from "./amf-topographic-map.module.css";
+
+const useIsomorphicLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
 export function AmfTopographicMap({ eventSlug, view, rotation, display, initialLink, initialMode, passportProgress, demo = false }: FairEventMapViewProps & { demo?: boolean }) {
   const demoDict = getDict("fair-demo");
@@ -78,7 +80,7 @@ export function AmfTopographicMap({ eventSlug, view, rotation, display, initialL
   useEffect(() => { if (searchOpen) searchRef.current?.focus(); }, [searchOpen]);
   useEffect(() => { if (directoryOpen) listRef.current?.focus(); }, [directoryOpen]);
   useEffect(() => { if (selectedKey && !directoryOpen && !searchOpen) popupRef.current?.focus({ preventScroll: true }); }, [selectedKey, directoryOpen, searchOpen]);
-  useEffect(() => {
+  useIsomorphicLayoutEffect(() => {
     const root = rootRef.current;
     if (!root) return;
     const measure = () => root.style.setProperty("--topo-offset", `${Math.ceil(root.getBoundingClientRect().top + window.scrollY)}px`);

@@ -57,9 +57,9 @@ export function PrelaunchLanding() {
       <div className={styles.scanBeam} aria-hidden="true" />
       <div className={`${styles.contentLayer} landing-atmosphere`} data-text-reveal-root>
         <main id="glavni-sadrzaj">
-          <div className={styles.firstScreen}>
+          <div id="pocetak" className={styles.firstScreen}>
             {FAIR_BANNER_ENABLED ? <PrelaunchFairBanner /> : null}
-            <section id="pocetak" data-reveal="off" className={`${styles.hero} hero-scan-depth`}>
+            <section data-reveal="off" className={`${styles.hero} hero-scan-depth`}>
               <HeroMedia hasVideo={hasVideo} hasPoster={hasPoster} />
               <HeroIntro
                 heightFromParent

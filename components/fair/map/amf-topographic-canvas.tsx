@@ -3,7 +3,7 @@
 import { motion, useMotionValue, useTransform } from "framer-motion";
 import { Check, Maximize2 } from "lucide-react";
 import { siAudi, siDacia, siFord, siOpel, siVespa } from "simple-icons";
-import { useCallback, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from "react";
 import { fairMapClamp, fairMapFit, fairMapLimits, fairMapZoomAt, type FairMapSize, type FairMapViewport, type FairMapZoneId } from "@/lib/fair-map";
 import { AMF_TOPOGRAPHIC_HALL, AMF_TOPOGRAPHIC_SIZE, amfTopographicPopupPosition, amfTopographicSize, fairMapContourOpacity, fairMapContourPath, hitAmfTopographicExhibit, type AmfTopographicExhibit } from "@/lib/fair-map/topography";
 import { FairBrandMark } from "../garage/fair-brand-mark";
@@ -18,6 +18,8 @@ import apriliaLogo from "./brand-assets/aprilia.jpg";
 import { amfEntranceLogos, amfEntranceLogoCrops } from "./amf-entrance-logos";
 import { amfEntrancePoint, AMF_ENTRANCE_PLAN, AMF_ENTRANCE_SIZE, AMF_FORECOURT_SCALE } from "@/lib/fair-map/amf-entrance-plan";
 import { BrandLogo } from "@/components/brand-logo";
+
+const useIsomorphicLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
 const ENTRANCE_FOYER = AMF_ENTRANCE_PLAN.foyer.map((point, i) => `${i ? "L" : "M"}${amfEntrancePoint(point).join(" ")}`).join(" ");
 const ENTRANCE_STAIRS = amfEntrancePoint([AMF_ENTRANCE_PLAN.stairs.x, AMF_ENTRANCE_PLAN.stairs.y]);
@@ -105,7 +107,8 @@ export function AmfTopographicCanvas({ items, zoneId, selectedKey, levels, compl
   const viewport = useRef<HTMLDivElement>(null);
   const x = useMotionValue(0), y = useMotionValue(0), scale = useMotionValue(1);
   const [size, setSize] = useState<FairMapSize | null>(null);
-  const content = useMemo(() => size ? amfTopographicSize(size) : zoneId === "ispred" ? AMF_ENTRANCE_SIZE : AMF_TOPOGRAPHIC_SIZE, [size, zoneId]);
+  const [ready, setReady] = useState(false);
+  const content = useMemo(() => zoneId === "ispred" ? AMF_ENTRANCE_SIZE : size ? amfTopographicSize(size) : AMF_TOPOGRAPHIC_SIZE, [size, zoneId]);
   const stretchY = content.height / (zoneId === "ispred" ? AMF_ENTRANCE_SIZE.height : AMF_TOPOGRAPHIC_SIZE.height);
   const drawingItems = useMemo(() => items.map((item) => ({ ...item, y: item.y * stretchY, ry: item.ry * stretchY, footprint: item.footprint?.map(([x, y]) => [x, y * stretchY] as const) })), [items, stretchY]);
   const [rings, setRings] = useState<Record<string, { cx: number; cy: number; rx: number; ry: number }>>({});
@@ -117,6 +120,11 @@ export function AmfTopographicCanvas({ items, zoneId, selectedKey, levels, compl
   const limits = useMemo(() => size ? fairMapLimits(size, content, 4) : null, [size, content]);
   const current = useCallback(() => ({ x: x.get(), y: y.get(), scale: scale.get() }), [x, y, scale]);
   const apply = useCallback((next: FairMapViewport) => { x.set(next.x); y.set(next.y); scale.set(next.scale); }, [x, y, scale]);
+  const fitSize = useCallback((targetSize: FairMapSize, targetZone: FairMapZoneId) => {
+    const targetContent = targetZone === "ispred" ? AMF_ENTRANCE_SIZE : amfTopographicSize(targetSize);
+    const targetLimits = fairMapLimits(targetSize, targetContent, 4);
+    apply(fairMapFit(targetSize, targetContent, targetLimits));
+  }, [apply]);
   const fit = useCallback(() => { if (size && limits) apply(fairMapFit(size, content, limits)); }, [apply, content, size, limits]);
   const popupPosition = () => amfTopographicPopupPosition({ x: x.get() + (selected?.x ?? 0) * scale.get(), y: y.get() + (selected?.y ?? 0) * scale.get() }, size ?? content, popupSize);
   const popupX = useTransform(() => popupPosition().x);
@@ -132,16 +140,45 @@ export function AmfTopographicCanvas({ items, zoneId, selectedKey, levels, compl
     return () => observer.disconnect();
   }, [popup]);
 
-  useEffect(() => {
+  useIsomorphicLayoutEffect(() => {
     const element = viewport.current;
     if (!element) return;
+    const root = element.closest<HTMLElement>("[data-amf-topographic]");
+    if (root) {
+      root.style.setProperty("--topo-offset", `${Math.ceil(root.getBoundingClientRect().top + window.scrollY)}px`);
+    }
+    let raf = 0;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let lastWidth = -1;
+    let lastHeight = -1;
+    const commitSize = (width: number, height: number) => {
+      const w = Math.round(width);
+      const h = Math.round(height);
+      if (w <= 0 || h <= 0) return;
+      if (w === lastWidth && h === lastHeight) return;
+      lastWidth = w;
+      lastHeight = h;
+      const next = { width: w, height: h };
+      fitSize(next, zoneId);
+      setSize((old) => old?.width === next.width && old.height === next.height ? old : next);
+      cancelAnimationFrame(raf);
+      if (timer !== undefined) clearTimeout(timer);
+      raf = requestAnimationFrame(() => {
+        timer = setTimeout(() => setReady(true), 60);
+      });
+    };
+    const rect = element.getBoundingClientRect();
+    commitSize(rect.width, rect.height);
     const observer = new ResizeObserver(([entry]) => {
-      const next = { width: entry.contentRect.width, height: entry.contentRect.height };
-      if (next.width > 0 && next.height > 0) setSize((old) => old?.width === next.width && old.height === next.height ? old : next);
+      commitSize(entry.contentRect.width, entry.contentRect.height);
     });
     observer.observe(element);
-    return () => observer.disconnect();
-  }, []);
+    return () => {
+      cancelAnimationFrame(raf);
+      if (timer !== undefined) clearTimeout(timer);
+      observer.disconnect();
+    };
+  }, [fitSize, zoneId]);
 
   useEffect(() => {
     const root = viewport.current;
@@ -168,7 +205,7 @@ export function AmfTopographicCanvas({ items, zoneId, selectedKey, levels, compl
     return () => observer.disconnect();
   }, [drawingItems, size]);
 
-  useEffect(() => { fit(); }, [fit, zoneId]);
+  useIsomorphicLayoutEffect(() => { fit(); }, [fit, zoneId]);
   useEffect(() => {
     const element = viewport.current;
     if (!element || !interactive || !size || !limits) return;
@@ -252,9 +289,10 @@ export function AmfTopographicCanvas({ items, zoneId, selectedKey, levels, compl
     </svg>
   );
 
-  return <div ref={viewport} className={styles.canvas} data-amf-canvas="" data-zone={zoneId} onPointerDown={start} onPointerMove={move} onPointerUp={end} onPointerCancel={end}>
-    {size ? <motion.div className={styles.mapLayer} data-amf-layer="" style={{ x, y, scale, width: content.width, height: content.height }}>{drawing}</motion.div> : drawing}
-    {selected && popup && interactive ? <motion.div ref={popupElement} className={styles.popup} data-amf-popup="" style={{ x: popupX, y: popupY }}>{popup}</motion.div> : null}
-    {interactive ? <button type="button" className={styles.fit} onClick={fit} aria-label={dict.fitMap} title={dict.fitMap}><Maximize2 aria-hidden="true" /></button> : null}
+  return <div ref={viewport} className={styles.canvas} data-amf-canvas="" data-ready={ready || undefined} data-zone={zoneId} onPointerDown={start} onPointerMove={move} onPointerUp={end} onPointerCancel={end}>
+    <motion.div className={styles.mapLayer} data-amf-layer="" style={{ x, y, scale, width: content.width, height: content.height, opacity: ready ? 1 : 0, visibility: ready ? "visible" : "hidden", pointerEvents: ready ? "auto" : "none" }}>{drawing}</motion.div>
+    {!ready ? <div className={styles.canvasLoader} role="status" aria-live="polite"><span className={styles.canvasSpinner} aria-hidden="true" /><span>{dict.loadingLabel}</span></div> : null}
+    {ready && selected && popup && interactive ? <motion.div ref={popupElement} className={styles.popup} data-amf-popup="" style={{ x: popupX, y: popupY }}>{popup}</motion.div> : null}
+    {interactive ? <button type="button" className={styles.fit} onClick={fit} aria-label={dict.fitMap} title={dict.fitMap} style={{ opacity: ready ? 1 : 0, visibility: ready ? "visible" : "hidden", pointerEvents: ready ? "auto" : "none" }}><Maximize2 aria-hidden="true" /></button> : null}
   </div>;
 }

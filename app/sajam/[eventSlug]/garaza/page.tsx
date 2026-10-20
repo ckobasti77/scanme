@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { FairAdminTools } from "@/components/fair/admin/fair-admin-tools";
 import { FairGarage } from "@/components/fair/garage/fair-garage";
 import {
@@ -32,6 +32,9 @@ export default async function FairGaragePage({
   const [{ eventSlug }, query] = await Promise.all([params, searchParams]);
   const definition = fairGarageDefinition(eventSlug);
   if (!definition) notFound();
+  if (eventSlug === "auto-moto-fest-2026" && Date.now() < definition.fallbackStartsAt) {
+    redirect(`/sajam/${eventSlug}`);
+  }
 
   // The garage renders the one event in the URL; the switch (when enabled)
   // only links to the other event's own garage URL.

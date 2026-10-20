@@ -20,7 +20,19 @@ export function PrelaunchNav() {
   return (
     <header className={styles.header} data-reveal="off">
       <nav className={`${styles.nav} section-shell`} aria-label={dict.nav.aria}>
-        <Link href="#pocetak" className="focus-signal inline-flex min-h-11 items-center" aria-label={dict.nav.homeAria} onClick={() => setOpen(false)}>
+        <Link
+          href="#pocetak"
+          className="focus-signal inline-flex min-h-11 items-center"
+          aria-label={dict.nav.homeAria}
+          onClick={(event) => {
+            event.preventDefault();
+            setOpen(false);
+            window.scrollTo({ top: 0, behavior: "smooth" });
+            if (window.location.hash) {
+              window.history.replaceState(null, "", window.location.pathname + window.location.search);
+            }
+          }}
+        >
           <BrandLogo />
           <span className="sr-only">ScanMe</span>
         </Link>
