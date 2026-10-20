@@ -158,6 +158,19 @@
 }
 
 @media (prefers-reduced-motion: no-preference) {
+  /* Od prvog iscrtavanja tačke stoje u početnom stanju animacije, da složena
+     ikonica ne bljesne pre animacije. Klasu stavlja inline skripta ispred
+     kartica (prelaunch-landing.tsx), pa su bez JavaScripta ikonice cele. */
+  :global(.service-dots-armed) .dot {
+    opacity: 0;
+    transform: translate(calc(var(--sx) * 26px), calc(var(--sy) * 26px)) scale(0.35);
+  }
+
+  :global(.service-dots-armed) .card[data-status="soon"] .dot {
+    opacity: 0.12;
+    transform: scale(0.4);
+  }
+
   /* Jednom, pri prvom ulasku u ekran: tačke dolete i slože ikonicu. */
   .iconStage[data-run="true"] .dot {
     animation: service-dot-assemble 1.1s cubic-bezier(0.16, 1, 0.3, 1) calc(var(--n) * 9ms) both;

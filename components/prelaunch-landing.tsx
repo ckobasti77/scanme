@@ -81,6 +81,11 @@ export function PrelaunchLanding() {
               <h2>{dict.services.title}</h2>
               <p className={styles.servicesBody}>{dict.services.body}</p>
             </div>
+            {/* Pre iscrtavanja kartica: tačke ikonica kreću iz početnog stanja animacije
+                (prelaunch-service-cards.module.css). Bez JS-a klase nema i ikonice su cele. */}
+            <script
+              dangerouslySetInnerHTML={{ __html: 'document.documentElement.classList.add("service-dots-armed")' }}
+            />
             <PrelaunchServiceCards />
           </section>
 
