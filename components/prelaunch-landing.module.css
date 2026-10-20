@@ -90,14 +90,60 @@
   z-index: 3;
 }
 
-/* Hero sam zauzima punu visinu ekrana; svh ne skače kad se traka pregledača
-   na telefonu sakrije, vh je rezerva za starije pregledače. */
-.hero {
-  position: relative;
+/* Prvi ekran: nav, sajam baner i hero zajedno zauzimaju visinu ekrana, a hero
+   popunjava ostatak ispod banera. svh ne skače kad se traka pregledača na
+   telefonu sakrije, vh je rezerva za starije pregledače. --hero-offset je
+   visina nav + banera (meri je prelaunch-fair-banner.tsx; ovde je rezerva do
+   hidratacije). */
+.firstScreen {
+  --hero-offset: 72px;
+  display: flex;
   min-height: 100vh;
   min-height: 100svh;
+  flex-direction: column;
+}
+
+.firstScreen:has(> .fairBanner) { --hero-offset: 245px; }
+
+/* Bez banera hero sam pravi mesto za fiksni nav. */
+.firstScreen > .hero:first-child { padding-top: 72px; }
+
+/* Razmaci hera rastu sa visinom ekrana; gornji i donji su jednaki, a sadržaj
+   je vertikalno centriran (components/hero-intro.tsx, heightFromParent). */
+.hero {
+  --hero-pad: clamp(0.75rem, 3svh, 3rem);
+  --hero-gap: clamp(0.75rem, 2.5svh, 2.25rem);
+  --hero-fill: calc(100svh - var(--hero-offset) - 2 * var(--hero-pad));
+  --hero-anim-min: 10rem;
+  position: relative;
+  display: flex;
+  flex: 1 0 auto;
+  flex-direction: column;
   overflow: hidden;
   border-bottom: 1px solid color-mix(in srgb, var(--foreground) 10%, transparent);
+}
+
+@media (min-width: 640px) {
+  .firstScreen:has(> .fairBanner) { --hero-offset: 258px; }
+  .hero {
+    --hero-pad: clamp(1rem, 4svh, 3rem);
+    --hero-gap: clamp(1rem, 3svh, 2.25rem);
+  }
+}
+
+/* Dve kolone: QR scena i tabovi iznad nje (u dva reda dok je kolona uska)
+   staju u visinu ispod banera. */
+@media (min-width: 1024px) {
+  .hero {
+    --hero-gap: 1.25rem;
+    --hero-tabs: 5.75rem;
+    --hero-anim: clamp(18rem, calc(var(--hero-fill) - var(--hero-tabs) - var(--hero-gap)), 38rem);
+  }
+}
+
+@media (min-width: 1280px) {
+  .firstScreen:has(> .fairBanner) { --hero-offset: 206px; }
+  .hero { --hero-tabs: 2.75rem; }
 }
 
 /* --- Sajam baner (privremen) ------------------------------------------------
@@ -138,18 +184,20 @@
   transform: translate3d(-100%, 0, 0);
 }
 
+/* Na telefonu baner nema red mesto/partner (naziv banera ga i dalje nosi u
+   aria-label), da hero sa QR scenom stane u prvi ekran. */
 .fairBannerInner {
   position: relative;
   z-index: 1;
   display: grid;
-  grid-template-areas: "top" "headline" "events" "cta";
-  gap: 0.7rem;
-  padding-block: 0.8rem 0.95rem;
+  grid-template-areas: "headline" "events" "cta";
+  gap: 0.6rem;
+  padding-block: 0.75rem 0.85rem;
 }
 
 .fairBannerTop {
   grid-area: top;
-  display: flex;
+  display: none;
   min-height: 2rem;
   align-items: center;
   justify-content: space-between;
@@ -322,9 +370,10 @@ html[data-theme="dark"] .fairEvents { --fair-shine: rgb(255 255 255 / 0.95); }
     grid-template-columns: minmax(0, 1fr) auto;
     grid-template-areas: "top top" "headline headline" "events cta";
     align-items: end;
-    column-gap: 1.25rem;
+    gap: 0.7rem 1.25rem;
     padding-block: 1rem 1.15rem;
   }
+  .fairBannerTop { display: flex; }
   .fairPartner { display: flex; gap: 0.55rem; font-size: 0.7rem; }
   .fairPartner i { display: inline; }
   /* Čipovi sa datumima i CTA su u istom redu i iste visine. */

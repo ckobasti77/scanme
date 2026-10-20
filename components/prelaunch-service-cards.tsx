@@ -59,30 +59,26 @@ const ICONS = {
 } as const;
 
 const CARD_KEYS = ["links", "review", "menu"] as const;
-// Prva dostupna usluga dobija primary CTA, ostale ghost (sekundarni).
-const CTA_CLASSES = ["button-primary", "button-ghost", "button-ghost"] as const;
 
 type Service = (typeof dict.services.items)[number];
 
 function ServiceCard({ service, index }: { service: Service; index: number }) {
   const cardRef = useRef<HTMLLIElement>(null);
-  const reducedMotionRef = useRef(true);
-  const [inView, setInView] = useState(false);
-  // 0 = animacija nije krenula: ikonica je statična i cela. Svaka promena
-  // ključa ponovo montira scenu i iznova pokreće CSS animaciju.
-  const [run, setRun] = useState(0);
+  // false = animacija nije krenula: ikonica je statična i cela. Tačke se slažu
+  // samo jednom, kad kartica prvi put uđe u ekran; hover ih ne pokreće ponovo.
+  const [run, setRun] = useState(false);
   const soon = service.status === "soon";
 
   useEffect(() => {
     const card = cardRef.current;
     if (!card) return;
-    reducedMotionRef.current = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reducedMotionRef.current) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
     const observer = new IntersectionObserver(
       ([entry]) => {
-        setInView(entry.isIntersecting);
-        if (entry.isIntersecting) setRun((current) => (current === 0 ? 1 : current));
+        if (!entry.isIntersecting) return;
+        setRun(true);
+        observer.disconnect();
       },
       { threshold: 0.35 },
     );
@@ -90,30 +86,16 @@ function ServiceCard({ service, index }: { service: Service; index: number }) {
     return () => observer.disconnect();
   }, []);
 
-  const replay = () => {
-    if (!reducedMotionRef.current) setRun((current) => current + 1);
-  };
-
   return (
-    <li
-      ref={cardRef}
-      className={styles.card}
-      data-status={service.status}
-      data-in-view={inView ? "true" : "false"}
-      onPointerEnter={(event) => {
-        if (event.pointerType === "mouse") replay();
-      }}
-      onFocus={replay}
-    >
+    <li ref={cardRef} className={styles.card} data-status={service.status}>
       <div className={styles.cardTop}>
-        <span className={styles.index} aria-hidden="true">{String(index + 1).padStart(2, "0")}</span>
         <span className={styles.status}>
           <span className={styles.statusDot} aria-hidden="true" />
           {soon ? dict.services.soon : dict.services.available}
         </span>
       </div>
 
-      <div key={run} className={styles.iconStage} data-run={run > 0 ? "true" : undefined}>
+      <div className={styles.iconStage} data-run={run ? "true" : undefined}>
         <DotMatrix
           pattern={ICONS[CARD_KEYS[index]]}
           className={styles.icon}
@@ -130,7 +112,7 @@ function ServiceCard({ service, index }: { service: Service; index: number }) {
         {soon ? (
           <span className={styles.soonNote}>{dict.services.soonNote}</span>
         ) : (
-          <a href="#kontakt" className={`${styles.cta} ${CTA_CLASSES[index]} focus-signal`}>
+          <a href="#kontakt" className={`${styles.cta} button-primary focus-signal`}>
             {dict.services.cta}
             <span className="sr-only"> — {service.name}</span>
             <ArrowRight aria-hidden="true" className="size-4" strokeWidth={1.75} />

@@ -210,16 +210,15 @@ export function HeroLinksAnimation({
       const centerInRoot = (element: Element) => {
         const rootBox = root.getBoundingClientRect();
         const elementBox = element.getBoundingClientRect();
+        // Scena može biti umanjena transformom (hero-intro.tsx); razlika se
+        // vraća u sopstvene piksele korena.
+        const scale = root.offsetWidth > 0 ? rootBox.width / root.offsetWidth : 1;
         return {
           x:
-            elementBox.left +
-            elementBox.width / 2 -
-            rootBox.left -
+            (elementBox.left + elementBox.width / 2 - rootBox.left) / scale -
             root.clientLeft,
           y:
-            elementBox.top +
-            elementBox.height / 2 -
-            rootBox.top -
+            (elementBox.top + elementBox.height / 2 - rootBox.top) / scale -
             root.clientTop,
         };
       };

@@ -57,19 +57,21 @@ export function PrelaunchLanding() {
       <div className={styles.scanBeam} aria-hidden="true" />
       <div className={`${styles.contentLayer} landing-atmosphere`} data-text-reveal-root>
         <main id="glavni-sadrzaj">
-          {FAIR_BANNER_ENABLED ? <PrelaunchFairBanner /> : null}
-          <section id="pocetak" data-reveal="off" className={`${styles.hero} hero-scan-depth`}>
-            <HeroMedia hasVideo={hasVideo} hasPoster={hasPoster} />
-            <HeroIntro
-              heightFromParent
-              primaryLabel={dict.hero.primaryCta}
-              primaryHref="#kako-radi"
-              singleCta
-              showMenuSoon
-              menuLabel={dict.services.items[2].name}
-              soonLabel={dict.services.soon}
-            />
-          </section>
+          <div className={styles.firstScreen}>
+            {FAIR_BANNER_ENABLED ? <PrelaunchFairBanner /> : null}
+            <section id="pocetak" data-reveal="off" className={`${styles.hero} hero-scan-depth`}>
+              <HeroMedia hasVideo={hasVideo} hasPoster={hasPoster} />
+              <HeroIntro
+                heightFromParent
+                primaryLabel={dict.hero.primaryCta}
+                primaryHref="#kako-radi"
+                singleCta
+                showMenuSoon
+                menuLabel={dict.services.items[2].name}
+                soonLabel={dict.services.soon}
+              />
+            </section>
+          </div>
 
           <ScanStory title={dict.story.title} compact />
 

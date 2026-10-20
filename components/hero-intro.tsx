@@ -113,8 +113,10 @@ export function HeroIntro({
   secondaryLabel?: string;
   primaryHref?: string;
   compact?: boolean;
-  /** Visinu određuje roditeljska sekcija (npr. `min-height: 100svh`), umesto
-   *  sopstvenog `100dvh`; izgled i veličina QR scene ostaju nekompaktni. */
+  /** Visinu određuje roditeljska sekcija (flex kolona koja popunjava prvi
+   *  ekran), umesto sopstvenog `100dvh`. Razmake i veličinu QR scene daju CSS
+   *  promenljive roditelja (`--hero-pad`, `--hero-gap`, `--hero-anim-min`,
+   *  `--hero-anim`; prelaunch-landing.module.css), da ceo hero stane u ekran. */
   heightFromParent?: boolean;
   singleCta?: boolean;
   showMenuSoon?: boolean;
@@ -129,6 +131,22 @@ export function HeroIntro({
   const [completedCycles, setCompletedCycles] = useState(0);
   const animationPaused = selectorHovered || selectorFocused;
   const textStageRef = useRef<HTMLDivElement>(null);
+  const animationBoxRef = useRef<HTMLDivElement>(null);
+  // Clamp minimumi QR scene su podešeni za 20rem i više; kad je mesto manje
+  // (heightFromParent na telefonu i tabletu), scena se crta na 20rem i umanjuje
+  // kao celina, umesto da se njen sadržaj preslaže.
+  const [animationScale, setAnimationScale] = useState(1);
+
+  useEffect(() => {
+    const box = animationBoxRef.current;
+    if (!heightFromParent || !box) return;
+    const observer = new ResizeObserver(() => {
+      const base = 20 * Number.parseFloat(getComputedStyle(document.documentElement).fontSize);
+      setAnimationScale(Math.min(1, box.clientWidth / base));
+    });
+    observer.observe(box);
+    return () => observer.disconnect();
+  }, [heightFromParent]);
 
   // The hero owns its own copy timing (it is opted out of the site-wide reveal),
   // but the headline and body still arrive word by word — re-running on every
@@ -202,24 +220,77 @@ export function HeroIntro({
     [autoplayEnabled, completedCycles],
   );
 
-  return (
-    <div
-      className={`relative z-10 flex items-center ${
-        compact
-          ? "min-h-0 py-6 sm:py-8 lg:py-8"
-          : heightFromParent
-            ? "min-h-[inherit] py-24 sm:py-28 lg:py-24"
-            : "min-h-[100dvh] py-24 sm:py-28 lg:py-24"
+  const animationPresence = (
+    <AnimatePresence initial={false}>
+      <HeroAnimationPlayer
+        key={activeService}
+        service={activeService}
+        paused={animationPaused}
+        reducedMotion={Boolean(reduce)}
+        onCycleBoundary={() => reachServiceCycleBoundary(activeService)}
+      />
+    </AnimatePresence>
+  );
+
+  const animationBox = (
+    <motion.div
+      ref={animationBoxRef}
+      {...enter(0.18)}
+      className={`relative isolate aspect-square overflow-hidden rounded-[var(--button-radius)] bg-card ${
+        heightFromParent
+          ? "w-full max-w-[20rem] sm:w-[min(100cqw,100cqh,24rem)] sm:max-w-none lg:w-full lg:max-w-[var(--hero-anim)]"
+          : `order-3 mx-auto w-full max-w-[20rem] sm:max-w-[24rem] lg:col-start-2 lg:row-start-2 lg:mx-0 lg:justify-self-end ${
+              compact
+                ? "lg:max-w-[min(38rem,calc(100dvh-26rem))]"
+                : "lg:max-w-[38rem]"
+            }`
       }`}
     >
-      <div className="section-shell">
-        <div className="grid items-center gap-x-12 gap-y-9 lg:grid-cols-2 lg:grid-rows-[auto_1fr] lg:gap-x-12 lg:gap-y-5 xl:gap-x-16">
+      {heightFromParent ? (
+        <div
+          className="absolute left-0 top-0 origin-top-left"
+          style={{
+            width: `${100 / animationScale}%`,
+            height: `${100 / animationScale}%`,
+            transform: animationScale < 1 ? `scale(${animationScale})` : undefined,
+          }}
+        >
+          {animationPresence}
+        </div>
+      ) : (
+        animationPresence
+      )}
+    </motion.div>
+  );
+
+  return (
+    <div
+      className={`relative z-10 flex ${
+        compact
+          ? "min-h-0 items-center py-6 sm:py-8 lg:py-8"
+          : heightFromParent
+            ? "flex-1 flex-col py-[var(--hero-pad)]"
+            : "min-h-[100dvh] items-center py-24 sm:py-28 lg:py-24"
+      }`}
+    >
+      <div className={heightFromParent ? "section-shell flex flex-1 flex-col" : "section-shell"}>
+        <div
+          className={`grid items-center gap-x-12 lg:grid-cols-2 lg:gap-x-12 xl:gap-x-16 ${
+            heightFromParent
+              ? "min-h-[var(--hero-fill)] content-center gap-y-[var(--hero-gap)] max-sm:grid-cols-[auto_minmax(0,1fr)] max-sm:grid-rows-[auto_auto] max-sm:gap-x-4 sm:grid-rows-[auto_auto_minmax(var(--hero-anim-min),1fr)] lg:min-h-0 lg:flex-1 lg:grid-rows-[auto_auto]"
+              : "gap-y-9 lg:grid-rows-[auto_1fr] lg:gap-y-5"
+          }`}
+        >
           <motion.div
             {...enter(0.12)}
             aria-label="Izaberite ScanMe uslugu"
             role="group"
             className={`order-1 flex w-full flex-wrap items-center justify-center gap-x-3 gap-y-1 sm:gap-x-7 lg:col-start-2 lg:row-start-1 lg:justify-self-end ${
-              compact ? "lg:max-w-[min(38rem,calc(100dvh-26rem))]" : "lg:max-w-[38rem]"
+              compact
+                ? "lg:max-w-[min(38rem,calc(100dvh-26rem))]"
+                : heightFromParent
+                  ? "max-sm:col-start-1 max-sm:row-start-1 max-sm:w-auto max-sm:flex-col max-sm:flex-nowrap max-sm:items-start lg:w-[var(--hero-anim)] lg:min-w-fit"
+                  : "lg:max-w-[38rem]"
             }`}
             onBlurCapture={(event) => {
               if (!event.currentTarget.contains(event.relatedTarget)) {
@@ -280,7 +351,7 @@ export function HeroIntro({
             ) : null}
           </motion.div>
 
-          <div className="order-2 max-w-4xl lg:col-start-1 lg:row-span-2 lg:row-start-1 lg:justify-self-start">
+          <div className={`order-2 max-w-4xl lg:col-start-1 lg:row-span-2 lg:row-start-1 lg:justify-self-start ${heightFromParent ? "max-sm:col-span-2 max-sm:row-start-2" : ""}`}>
             <div ref={textStageRef} className="grid">
               {services.map((service) => {
                 const active = service.id === activeService;
@@ -303,7 +374,7 @@ export function HeroIntro({
                       ease: "linear",
                     }}
                   >
-                    <p className="mb-5 font-mono text-sm font-semibold uppercase tracking-[0.14em] text-accent-readable sm:text-base">
+                    <p className={`font-mono text-sm font-semibold uppercase tracking-[0.14em] text-accent-readable sm:text-base ${heightFromParent ? "mb-3 sm:mb-5" : "mb-5"}`}>
                       {service.label}
                     </p>
                     <h1
@@ -311,11 +382,11 @@ export function HeroIntro({
                         service.id === "links"
                           ? "max-w-[15ch] text-[clamp(3.25rem,5vw,5rem)]"
                           : "max-w-[13ch] text-[clamp(3.25rem,5vw,7.5rem)]"
-                      }`}
+                      } ${heightFromParent ? "max-sm:text-[clamp(2rem,9vw,3.25rem)]" : ""}`}
                     >
                       {service.headline}
                     </h1>
-                    <p data-hero-body className="mt-6 max-w-[58ch] text-base leading-7 text-foreground/76 sm:text-lg">
+                    <p data-hero-body className={`max-w-[58ch] text-base text-foreground/76 sm:text-lg ${heightFromParent ? "mt-3 leading-6 sm:mt-6 sm:leading-7" : "mt-6 leading-7"}`}>
                       {service.body}
                     </p>
                   </motion.div>
@@ -323,7 +394,7 @@ export function HeroIntro({
               })}
             </div>
 
-            <motion.div {...enter(0.27)} className="mt-8 flex flex-col gap-3 sm:flex-row">
+            <motion.div {...enter(0.27)} className={`flex flex-col gap-3 sm:flex-row ${heightFromParent ? "mt-5 sm:mt-8" : "mt-8"}`}>
               <Link href={primaryHref} className="button-primary focus-signal">
                 {primaryLabel}
                 {singleCta ? (
@@ -341,24 +412,17 @@ export function HeroIntro({
             </motion.div>
           </div>
 
-          <motion.div
-            {...enter(0.18)}
-            className={`relative isolate order-3 mx-auto aspect-square w-full max-w-[20rem] overflow-hidden rounded-[var(--button-radius)] bg-card sm:max-w-[24rem] lg:col-start-2 lg:row-start-2 lg:mx-0 lg:justify-self-end ${
-              compact
-                ? "lg:max-w-[min(38rem,calc(100dvh-26rem))]"
-                : "lg:max-w-[38rem]"
-            }`}
-          >
-            <AnimatePresence initial={false}>
-              <HeroAnimationPlayer
-                key={activeService}
-                service={activeService}
-                paused={animationPaused}
-                reducedMotion={Boolean(reduce)}
-                onCycleBoundary={() => reachServiceCycleBoundary(activeService)}
-              />
-            </AnimatePresence>
-          </motion.div>
+          {heightFromParent ? (
+            // Telefon: scena je desno od tabova, široka koliko i kolona. sm–lg:
+            // mesto za scenu je ostatak visine (size container), pa je scena
+            // kvadrat koji staje i po širini i po visini. Od lg širinu
+            // ograničava --hero-anim.
+            <div className="order-3 grid h-full min-h-0 w-full place-items-center self-stretch max-sm:col-start-2 max-sm:row-start-1 max-sm:justify-items-end sm:[container-type:size] lg:col-start-2 lg:row-start-2 lg:justify-items-end lg:[container-type:normal]">
+              {animationBox}
+            </div>
+          ) : (
+            animationBox
+          )}
         </div>
       </div>
     </div>

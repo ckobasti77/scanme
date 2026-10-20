@@ -49,22 +49,29 @@ export function PrelaunchFairBanner() {
 
   // Trenutak kada linija stigne ispod levog ruba „2026“ zavisi od rasporeda,
   // pa se meri (i ponovo meri na promenu veličine) i daje CSS-u kao --fair-sync.
+  // Visina banera (sa mestom za nav) ide roditelju kao --hero-offset, da QR
+  // scena u heru stane u ostatak prvog ekrana (prelaunch-landing.module.css).
   useLayoutEffect(() => {
     const banner = bannerRef.current;
     const year = banner?.querySelector<SVGSVGElement>("[data-fair-year]");
     if (!banner || !year) return;
+    const firstScreen = banner.parentElement;
     const measure = () => {
-      const width = banner.getBoundingClientRect().width;
-      const yearLeft = year.getBoundingClientRect().left - banner.getBoundingClientRect().left;
-      if (width <= 0) return;
-      const progress = (yearLeft / (SCAN_WIDTH * width) + 0.5) / SCAN_TRAVEL;
+      const rect = banner.getBoundingClientRect();
+      const yearLeft = year.getBoundingClientRect().left - rect.left;
+      if (rect.width <= 0) return;
+      const progress = (yearLeft / (SCAN_WIDTH * rect.width) + 0.5) / SCAN_TRAVEL;
       const reach = Math.min(Math.max(progress, 0), 1) * SCAN_SWEEP_MS;
       banner.style.setProperty("--fair-sync", `${Math.round(reach)}ms`);
+      firstScreen?.style.setProperty("--hero-offset", `${Math.round(rect.height)}px`);
     };
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(banner);
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      firstScreen?.style.removeProperty("--hero-offset");
+    };
   }, []);
 
   return (

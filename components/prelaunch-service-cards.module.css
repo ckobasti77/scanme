@@ -1,7 +1,9 @@
 /* Kartice usluga na javnom landingu (#usluge). Sopstveni modul: klasični
    landing i dalje koristi landing-packages.module.css, koji se ne menja.
    Ikonice su dot-matrix SVG (components/dot-matrix.tsx); animira se samo
-   transform i opacity, a bez animacije (ili uz reduced motion) ikonica je cela. */
+   transform i opacity, a bez animacije (ili uz reduced motion) ikonica je cela.
+   Podloga kartice je neprozirna (ista nijansa kao ranije providna 42 %), da
+   scan linija sajta (.scanBeam, ispod sadržaja) ne prosija kroz kartice. */
 
 .grid {
   display: grid;
@@ -20,12 +22,16 @@
   grid-template-rows: auto minmax(8rem, 1fr) auto auto;
   row-gap: 1.1rem;
   min-width: 0;
+  z-index: 1;
   border: 1px solid var(--card-line);
   border-radius: var(--button-radius);
-  background: color-mix(in srgb, var(--card) 42%, transparent);
+  background: color-mix(in srgb, var(--card) 42%, var(--background));
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.04);
   color: var(--card-ink);
   padding: 1.15rem;
-  transition: transform 260ms cubic-bezier(0.16, 1, 0.3, 1);
+  transition:
+    transform 180ms ease-out,
+    box-shadow 180ms ease-out;
 }
 
 /* ScanMe Meni (uskoro): ista podloga, isprekidana ivica; ikonica se još „slaže“. */
@@ -39,7 +45,7 @@
   display: flex;
   min-height: 1.75rem;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 0.75rem;
   font-family: var(--font-mono), monospace;
   font-size: 0.7rem;
@@ -48,8 +54,6 @@
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }
-
-.index { color: var(--card-muted); }
 
 .status {
   display: inline-flex;
@@ -68,9 +72,9 @@
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--foreground) 30%, transparent);
 }
 
+/* Uskoro: puna narandžasta tačka (dizajn sistem nema narandžasti token). */
 .card[data-status="soon"] .statusDot {
-  background: transparent;
-  box-shadow: inset 0 0 0 1px currentColor;
+  background: #e2602a;
 }
 
 .iconStage {
@@ -145,27 +149,23 @@
   }
 }
 
-@media (hover: hover) and (pointer: fine) {
-  .card:hover { transform: translate3d(0, -4px, 0); }
+/* Hover samo blago podigne celu karticu; tačke ikonice miruju. */
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .card:hover {
+    transform: translate3d(0, -3px, 0);
+    box-shadow: 0 10px 24px -14px rgb(0 0 0 / 0.28);
+  }
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  /* Dostupne usluge: tačke dolete i slože ikonicu, pa je posle pauze blag
-     dijagonalni sjaj preleti — najviše tri puta, da ne bude napadno. */
+  /* Jednom, pri prvom ulasku u ekran: tačke dolete i slože ikonicu. */
   .iconStage[data-run="true"] .dot {
-    animation:
-      service-dot-assemble 1.1s cubic-bezier(0.16, 1, 0.3, 1) calc(var(--n) * 9ms) both,
-      service-dot-glint 9s ease-in-out calc(2.4s + (var(--r) + var(--c)) * 45ms) 3;
+    animation: service-dot-assemble 1.1s cubic-bezier(0.16, 1, 0.3, 1) calc(var(--n) * 9ms) both;
   }
 
-  /* Uskoro: ikonica se sklapa, rasklapa i ponovo sklapa, pa ostaje cela. */
+  /* Uskoro: ikonica se jednom sklopi i ostaje cela. */
   .card[data-status="soon"] .iconStage[data-run="true"] .dot {
-    animation: service-dot-build 3.2s ease-in-out calc(var(--n) * 28ms) 3 alternate both;
-  }
-
-  /* Van ekrana sve stoji (posle pravila iznad, iste ili veće specifičnosti). */
-  .card[data-in-view="false"] .iconStage[data-run="true"] .dot {
-    animation-play-state: paused;
+    animation: service-dot-build 3.2s ease-in-out calc(var(--n) * 28ms) both;
   }
 }
 
@@ -179,11 +179,6 @@
     transform: translate(calc(var(--sx) * 26px), calc(var(--sy) * 26px)) scale(0.35);
   }
   100% { opacity: 1; transform: none; }
-}
-
-@keyframes service-dot-glint {
-  0%, 9%, 100% { opacity: 1; transform: none; }
-  4.5% { opacity: 0.55; transform: scale(1.3); }
 }
 
 @keyframes service-dot-build {
