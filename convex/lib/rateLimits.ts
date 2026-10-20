@@ -96,6 +96,18 @@ export const rateLimiter = new RateLimiter(components.rateLimiter, {
   // dining room sits behind ONE NAT, so this never throttles a real room; it
   // only caps a flood from one address across many positions.
   menuGuestActionIp: { kind: "token bucket", rate: 300, period: MINUTE, capacity: 300 },
+  // ScanMe Menu V1 (K22, plan K19 §6) — the waiter panel.
+  // menuPinIp — per IP hash, spent only by a WRONG PIN (menuWaiter.loginWithPin
+  // checks it first and consumes it on a miss), so a whole shift signing in
+  // behind the venue's one NAT never waits. 20 wrong PINs in 15 minutes from
+  // one address is far beyond fat fingers. The device and venue locks
+  // (menuPinAttempts) are the real boundary; the IP hash comes from the Next
+  // handler, so this bucket only slows a flood that goes through the site.
+  menuPinIp: { kind: "token bucket", rate: 20, period: 15 * MINUTE, capacity: 20 },
+  // menuStaffAction — per signed-in staff session (or account): Preuzmi,
+  // Završi, Otkaži. A busy waiter taps a few times a minute; 60/min only
+  // stops a stuck client from hammering the requests.
+  menuStaffAction: { kind: "token bucket", rate: 60, period: MINUTE, capacity: 60 },
   // TASK-66 (RFC-004 §2.9): the two GUEST ACTIONS. Deliberately keyed
   // differently from each other, and from the per-IP hop buckets above —
   // §2.9 rejects a per-IP action limit outright, because a whole hall sits

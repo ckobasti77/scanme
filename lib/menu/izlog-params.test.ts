@@ -136,7 +136,30 @@ describe("/dev/menu-panel-preview", () => {
 
 describe("/dev/menu-konobar-preview", () => {
   test("defaults to the work queue, online", () => {
-    expect(parseKonobarPreview({})).toEqual({ tema: null, ekran: "red", offline: false });
+    expect(parseKonobarPreview({})).toEqual({
+      tema: null,
+      ekran: "red",
+      offline: false,
+      stanje: null,
+      uloga: "osoblje",
+      zahtev: null,
+      potvrdaOtkaza: false,
+    });
+  });
+
+  test("K22: states, role, request and the cancel confirmation; unknown values give the default", () => {
+    for (const stanje of ["blokada", "pogresan-pin", "bez-peppera", "prazno", "mnogo"] as const) {
+      expect(parseKonobarPreview({ stanje }).stanje).toBe(stanje);
+      expect(parseKonobarPreview({ stanje }).offline).toBe(false);
+    }
+    expect(parseKonobarPreview({ veza: "offline" }).offline).toBe(true);
+    expect(parseKonobarPreview({ stanje: "pokvareno" }).stanje).toBeNull();
+    expect(parseKonobarPreview({ uloga: "menadzer" }).uloga).toBe("menadzer");
+    expect(parseKonobarPreview({ uloga: "vlasnik" }).uloga).toBe("osoblje");
+    expect(parseKonobarPreview({ ekran: "detalj", zahtev: "rq_01" }).zahtev).toBe("rq_01");
+    expect(parseKonobarPreview({ zahtev: "<script>" }).zahtev).toBeNull();
+    expect(parseKonobarPreview({ potvrda: "otkazi" }).potvrdaOtkaza).toBe(true);
+    expect(parseKonobarPreview({ potvrda: "da" }).potvrdaOtkaza).toBe(false);
   });
 
   test("every documented screen is read and names its step", () => {

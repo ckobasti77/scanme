@@ -45,3 +45,16 @@ export async function deviceKeyHashFor(menuServiceId: string, deviceKey: string)
 export async function sessionTokenHash(token: string): Promise<string> {
   return await sha256Hex(`menu-session:${token}`);
 }
+
+/**
+ * K22 — the stored hash of a waiter-panel device key, scoped to ONE Menu
+ * service and kept apart from the guest namespace.
+ */
+export async function staffDeviceKeyHashFor(menuServiceId: string, deviceKey: string): Promise<string> {
+  return await sha256Hex(`menu-staff-device:${menuServiceId}:${deviceKey}`);
+}
+
+/** K22 — the stored hash of a staff session token. */
+export async function staffSessionTokenHash(token: string): Promise<string> {
+  return await sha256Hex(`menu-staff-session:${token}`);
+}

@@ -379,3 +379,29 @@ export const menuRequestItemAddonValidator = v.object({
   optionName: v.string(),
   priceDeltaRsd: v.number(),
 });
+
+// -----------------------------------------------------------------------------
+// K22 — staff, PINs and the waiter panel (master §10.6; plan
+// docs/meni/planovi/K19.md §2.3)
+// -----------------------------------------------------------------------------
+
+// What a PIN identity may do in the waiter panel: every staff member works
+// requests; a `manager` also re-assigns zones (K23). Account roles (Vlasnik,
+// Menadžer, Urednik) are a different thing and live in menuMembers.
+export const menuStaffPanelRoleValidator = v.union(v.literal("staff"), v.literal("manager"));
+
+// Why a staff session ended (the trace of the 12-hour device sign-in).
+export const menuStaffSessionEndReasonValidator = v.union(
+  v.literal("logout"),
+  v.literal("expired"),
+  v.literal("pin_reset"),
+  v.literal("deactivated"),
+  v.literal("code_rotated"),
+  v.literal("replaced"),
+);
+
+// The two counters of wrong PINs: one device, and every NEW device of the venue.
+export const menuPinAttemptScopeValidator = v.union(v.literal("device"), v.literal("venue"));
+
+// Server-side secrets of a Menu service. V1: the waiter-panel code only.
+export const menuSecretKindValidator = v.literal("panel_code");

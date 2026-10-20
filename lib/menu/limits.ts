@@ -71,6 +71,17 @@ export const MENU_REQUEST_DEDUPE_MS = 30 * 60 * 1000;
 /** K21 — the guest's own requests "Moji zahtevi" lists (newest first). */
 export const MENU_MAX_MY_REQUESTS = 20;
 
+/** K22 — active staff members (PIN identities) of one Menu service. */
+export const MENU_MAX_STAFF = 100;
+/** K22 — requests of ONE status the waiter panel reads (`Novi`, `Prihvaćen`); more = `truncated`. */
+export const MENU_MAX_ACTIVE_REQUESTS = 300;
+/** K22 — the last cancelled requests the waiter panel reads (to tell the waiter "Gost je otkazao"). */
+export const MENU_MAX_RECENT_CANCELLED = 20;
+/** K22 — other open requests of the same position shown in a request detail ("Ostalo na ovom stolu"). */
+export const MENU_MAX_OTHERS_ON_POSITION = 20;
+/** K22 — live staff sessions one sweep (panel code change, PIN reset) ends in one transaction. */
+export const MENU_MAX_STAFF_SESSIONS_ENDED = 500;
+
 /** Text lengths, in characters after whitespace cleaning. */
 export const MENU_TEXT = {
   pageName: 80,
@@ -92,6 +103,8 @@ export const MENU_TEXT = {
   positionLabel: 40,
   // K21 — the guest's free note on a cart line (only where the article has the note on).
   cartLineNote: 280,
+  // K22 — the name of a staff member as the waiter panel shows it ("Ana", "Marko I.").
+  staffName: 40,
 } as const;
 
 /** Whole dinars; inclusive upper bound of any single price. */

@@ -50,6 +50,28 @@ export const MENU_AUDIT_ACTIONS = [
   // recorded here as well, whoever cancels.
   /** A request (call, bill, order) was cancelled by the guest or the staff. */
   "request.cancelled",
+  // K22 — staff, PINs and the waiter panel (master §10.6; plan K19-16). Never
+  // the PIN itself, its hash or a token: only who, what and when.
+  /** A staff member was created. */
+  "staff.created",
+  /** A staff member's role in the panel changed (a panel `manager` re-assigns zones, K23). */
+  "staff.role_changed",
+  /** A staff member was deactivated (their PIN is cleared, their sessions end). */
+  "staff.deactivated",
+  /** A PIN was set or changed by the Owner or a Manager (the PIN is never written here). */
+  "staff.pin_set",
+  /** A PIN was reset (cleared) by the Owner or a Manager; the member's sessions end. */
+  "staff.pin_reset",
+  /** Too many wrong PINs locked a device or every new device of the venue. */
+  "staff.pin_locked",
+  /** The Owner or a Manager lifted the PIN locks. */
+  "staff.pins_unlocked",
+  /** The waiter-panel link (its code) was created or changed; every staff session ended. */
+  "panel.code_rotated",
+  /** Someone signed in to the waiter panel (PIN, or the Owner/Manager account). */
+  "staff.login",
+  /** A staff member signed out of the waiter panel. */
+  "staff.logout",
 ] as const;
 
 export type MenuAuditAction = (typeof MENU_AUDIT_ACTIONS)[number];

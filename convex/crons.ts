@@ -224,4 +224,9 @@ crons.interval("menu media orphans", { hours: 6 }, internal.menuMedia.reapOrphan
 // (convex/menuGuest.ts).
 crons.interval("menu guest sessions sweep", { minutes: 30 }, internal.menuGuest.sweepExpiredSessions, {});
 
+// ScanMe Menu V1 (K22): waiter-panel sign-ins (12 h) — ends sessions whose
+// scheduled expiry was lost, deletes them a day after they expired, and
+// forgets PIN counters nobody touched for over 12 h (convex/menuWaiter.ts).
+crons.interval("menu staff sessions sweep", { minutes: 30 }, internal.menuWaiter.sweepExpiredSessions, {});
+
 export default crons;

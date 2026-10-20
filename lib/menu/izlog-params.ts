@@ -154,18 +154,46 @@ export const KONOBAR_EKRAN_KORAK: IzlogScreens<KonobarEkran> = {
   rezervacije: { korak: "K25" },
 };
 
+/**
+ * K22: the state of the shown screen. `blokada` (PIN locked after five wrong
+ * tries), `pogresan-pin` (a wrong PIN, attempts left), `bez-peppera` (PINs
+ * switched off on the deployment), `prazno` (no active request), `mnogo`
+ * (300 waiting requests and the "truncated" note); `offline` as before.
+ */
+export const KONOBAR_STANJA = ["offline", "blokada", "pogresan-pin", "bez-peppera", "prazno", "mnogo"] as const;
+export type KonobarStanje = (typeof KONOBAR_STANJA)[number];
+
+/** K22: who is on the device: a PIN waiter (default) or the Manager with the account. */
+export const KONOBAR_ULOGE = ["osoblje", "menadzer"] as const;
+export type KonobarUloga = (typeof KONOBAR_ULOGE)[number];
+
+const KONOBAR_ZAHTEV = /^rq_[a-z0-9]{2,4}$/;
+
 export type KonobarPreviewParams = {
   tema: IzlogTema | null;
   /** Default: the work queue, the waiter's main screen. */
   ekran: KonobarEkran;
+  /** `stanje=offline` or `veza=offline`: no connection, actions wait. */
   offline: boolean;
+  stanje: KonobarStanje | null;
+  uloga: KonobarUloga;
+  /** `ekran=detalj`: which fixture request is open (default: the order at Sto 7). */
+  zahtev: string | null;
+  /** `potvrda=otkazi`: the cancel confirmation of the detail is open. */
+  potvrdaOtkaza: boolean;
 };
 
 export function parseKonobarPreview(params: IzlogSearchParams): KonobarPreviewParams {
+  const stanje = pickOptional(params.stanje, KONOBAR_STANJA);
+  const zahtev = firstParam(params.zahtev);
   return {
     tema: parseTema(params.tema),
     ekran: pickParam(params.ekran, KONOBAR_EKRANI, "red"),
-    offline: firstParam(params.stanje) === "offline",
+    offline: stanje === "offline" || firstParam(params.veza) === "offline",
+    stanje,
+    uloga: pickParam(params.uloga, KONOBAR_ULOGE, "osoblje"),
+    zahtev: zahtev !== undefined && KONOBAR_ZAHTEV.test(zahtev) ? zahtev : null,
+    potvrdaOtkaza: firstParam(params.potvrda) === "otkazi",
   };
 }
 

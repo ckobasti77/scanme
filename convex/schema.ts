@@ -95,6 +95,10 @@ import {
   menuRoomServiceVariantPriceValidator,
   menuServiceSettingsValidator,
   menuServiceStatusValidator,
+  menuPinAttemptScopeValidator,
+  menuSecretKindValidator,
+  menuStaffPanelRoleValidator,
+  menuStaffSessionEndReasonValidator,
   menuTagCodeValidator,
   menuTranslationsValidator,
   menuVersionPartScopeValidator,
@@ -3599,7 +3603,8 @@ export default defineSchema({
   // move only through lib/menu/request-status.ts; who accepted, finished or
   // cancelled stays on the row (accept/finish are not audited, K19-16).
   // `deviceKeyHash` is the guest device pseudonym of THIS venue (Moji zahtevi);
-  // no query for staff or panels may return it. K22 adds the staff fields.
+  // no query for staff or panels may return it. K22 adds the staff fields: a
+  // PIN waiter is recorded by `…ByStaffId`, an Owner/Manager account by `…ByUserId`.
   menuRequests: defineTable({
     menuServiceId: v.id("menuServices"),
     businessId: v.id("businesses"),
@@ -3631,6 +3636,10 @@ export default defineSchema({
     cancelledAt: v.optional(v.number()),
     cancelledBy: v.optional(menuRequestCancelledByValidator),
     cancelledByUserId: v.optional(v.id("users")),
+    // K22 — the PIN waiter who accepted, finished or cancelled it.
+    acceptedByStaffId: v.optional(v.id("menuStaff")),
+    doneByStaffId: v.optional(v.id("menuStaff")),
+    cancelledByStaffId: v.optional(v.id("menuStaff")),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
@@ -3663,6 +3672,84 @@ export default defineSchema({
     note: v.optional(v.string()),
     order: v.number(),
   }).index("by_requestId", ["requestId"]),
+
+  // K22 — the staff of a venue: PIN identities of the waiter panel, never
+  // account users (master §10.6; plan K19 §2.3). A PIN is three digits, unique
+  // among ACTIVE members of one service, and stored only as
+  //   pinLookup = HMAC-SHA256(MENU_PIN_PEPPER, menuServiceId:pin)  (O(1) find, uniqueness)
+  //   pinHash   = salted PBKDF2-SHA256 (convex/orderingShifts.ts hashPin)
+  // Deactivation clears both. No query returns either of them.
+  menuStaff: defineTable({
+    menuServiceId: v.id("menuServices"),
+    businessId: v.id("businesses"),
+    displayName: v.string(),
+    panelRole: menuStaffPanelRoleValidator,
+    active: v.boolean(),
+    pinHash: v.optional(v.string()),
+    pinLookup: v.optional(v.string()),
+    pinSetAt: v.optional(v.number()),
+    pinSetByUserId: v.optional(v.id("users")),
+    // K23: the waiter's own zone filter (zones are a filter, not routing).
+    activeZoneId: v.optional(v.id("menuZones")),
+    createdByUserId: v.optional(v.id("users")),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    deactivatedAt: v.optional(v.number()),
+  })
+    .index("by_menuServiceId_and_active", ["menuServiceId", "active"])
+    .index("by_menuServiceId_and_pinLookup", ["menuServiceId", "pinLookup"]),
+
+  // K22 — a device signed in with a PIN, for 12 hours or until it signs out
+  // (master §10.6). The 256-bit token rides the HttpOnly cookie smk_s; only its
+  // SHA-256 is stored. Queries see only the materialized endedAt (a scheduled
+  // expiry + the cron backstop); mutations also compare expiresAt with the clock.
+  menuStaffSessions: defineTable({
+    menuServiceId: v.id("menuServices"),
+    staffId: v.id("menuStaff"),
+    deviceKeyHash: v.string(),
+    tokenHash: v.string(),
+    createdAt: v.number(),
+    expiresAt: v.number(),
+    endedAt: v.optional(v.number()),
+    endReason: v.optional(menuStaffSessionEndReasonValidator),
+  })
+    .index("by_tokenHash", ["tokenHash"])
+    .index("by_staffId", ["staffId"])
+    .index("by_menuServiceId_and_deviceKeyHash", ["menuServiceId", "deviceKeyHash"])
+    .index("by_menuServiceId_and_expiresAt", ["menuServiceId", "expiresAt"])
+    .index("by_expiresAt", ["expiresAt"]),
+
+  // K22 — wrong-PIN counters (K01 §4.4): one row per device (`device`, key =
+  // the device hash) and one per venue (`venue`, failures of devices WITHOUT a
+  // sign-in in the last 12 h). 5 wrong PINs in 15 min lock the device for 15
+  // min; 30 lock every new device of the venue for 15 min. A wrong PIN is
+  // returned as a value, never thrown, so the counter is never rolled back.
+  menuPinAttempts: defineTable({
+    menuServiceId: v.id("menuServices"),
+    scope: menuPinAttemptScopeValidator,
+    scopeKey: v.string(),
+    failures: v.number(),
+    windowStartedAt: v.number(),
+    lockedUntil: v.optional(v.number()),
+    lastSuccessAt: v.optional(v.number()),
+    updatedAt: v.number(),
+  })
+    .index("by_menuServiceId_and_scope_and_scopeKey", ["menuServiceId", "scope", "scopeKey"])
+    .index("by_updatedAt", ["updatedAt"]),
+
+  // K22 — server-side secrets of a Menu service. V1: the code of the waiter
+  // panel link /[slug]/konobar/[kod] (10 characters, about 50 bits). A wrong
+  // code is a 404; changing it ends every staff session. Only the Owner or a
+  // Manager reads it (menuStaff.panelLink).
+  menuSecrets: defineTable({
+    menuServiceId: v.id("menuServices"),
+    kind: menuSecretKindValidator,
+    value: v.string(),
+    createdAt: v.number(),
+    rotatedAt: v.optional(v.number()),
+  })
+    .index("by_menuServiceId_and_kind", ["menuServiceId", "kind"])
+    .index("by_kind_and_value", ["kind", "value"]),
 
   // Explicit Menu roles (K01 §4.2). Account roles are DERIVED from
   // accountMemberships / businessMemberships; a row here grants an explicit

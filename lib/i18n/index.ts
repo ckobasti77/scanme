@@ -43,6 +43,7 @@ import { menuStudioSr } from "./sr/menu-studio";
 import { menuJavniSr } from "./sr/menu-javni";
 import { menuLokalSr } from "./sr/menu-lokal";
 import { menuGostSr } from "./sr/menu-gost";
+import { menuKonobarSr } from "./sr/menu-konobar";
 import { orderingAdminSr } from "./sr/ordering-admin";
 import { orderingSr } from "./sr/ordering";
 import { orderingPanelSr } from "./sr/ordering-panel";
@@ -213,6 +214,7 @@ const SR: DictBySurface = {
   "menu-javni": menuJavniSr,
   "menu-lokal": menuLokalSr,
   "menu-gost": menuGostSr,
+  "menu-konobar": menuKonobarSr,
   "ordering-admin": orderingAdminSr,
   ordering: orderingSr,
   "ordering-panel": orderingPanelSr,

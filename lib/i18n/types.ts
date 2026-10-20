@@ -62,6 +62,7 @@ import type { TranslationErrorCode } from "../menu/errors/translation";
 import type { PresentationErrorCode } from "../menu/errors/presentation";
 import type { FloorErrorCode } from "../menu/errors/floor";
 import type { RequestErrorCode } from "../menu/errors/requests";
+import type { StaffErrorCode } from "../menu/errors/waiter";
 import type {
   MenuMigrationErrorCode,
   MenuMigrationIssueCode,
@@ -2376,7 +2377,8 @@ export interface MenuDomenDict {
     | TranslationErrorCode
     | PresentationErrorCode
     | FloorErrorCode
-    | RequestErrorCode,
+    | RequestErrorCode
+    | StaffErrorCode,
     string
   >;
   // --- K04: the article model (master §5.4–§5.7, §7.3, §7.6).
@@ -9095,6 +9097,122 @@ export interface MenuGostDict {
   greska: { nepoznata: string; pokusaj: string };
 }
 
+// ScanMe Menu V1 (MENI run, K22) — the waiter panel (lib/i18n/sr/menu-konobar.ts;
+// master §8.4, §10). Request kinds, statuses, payment preferences and error
+// codes (request/*, staff/*) are in menu-domen, shared with the guest.
+export interface MenuKonobarDict {
+  meta: { naslov: string; naslovLokala: string };
+  pin: {
+    podnaslov: string;
+    naslov: string;
+    uputstvo: string;
+    uneto: MenuStudioMnozina;
+    tastatura: string;
+    obrisi: string;
+    prijava: string;
+    proverava: string;
+    pogresan: MenuStudioMnozina;
+    blokada: string;
+    blokadaOpis: string;
+    mreza: string;
+    bezPeppera: string;
+    bezPepperaOpis: string;
+    greska: string;
+    istekla: string;
+    nalog: string;
+    nalogOpis: string;
+    pomoc: string;
+  };
+  zaglavlje: {
+    panel: string;
+    uSmeni: string;
+    vaziDo: string;
+    nalogom: string;
+    meniKorisnika: string;
+    bezVeze: string;
+    nalogBezImena: string;
+    odjava: string;
+    odjavljuje: string;
+    izlaz: string;
+    aktivni: MenuStudioMnozina;
+    aktivniKratko: string;
+    bezAktivnih: string;
+  };
+  nav: { oznaka: string; red: string; sala: string };
+  red: {
+    naslov: string;
+    filteri: string;
+    filter: { sve: string; zahtevi: string; rezervacije: string };
+    sazetak: string;
+    sazetakSviPreuzeti: string;
+    prazno: { naslov: string; opis: string };
+    praznoRezervacije: { naslov: string; opis: string };
+    uskoro: string;
+    skraceno: string;
+    otvori: string;
+    radnja: { accept: string; review: string; complete: string };
+    radnjaCitac: string;
+    noviBroj: MenuStudioMnozina;
+    grupaNovi: string;
+    grupaPrihvaceni: string;
+    potvrda: { accepted: string; done: string; cancelled: string };
+    novo: string;
+    preuzetoVi: string;
+    stavke: MenuStudioMnozina;
+    najava: string;
+    otkazaoGost: string;
+    zatvoriObavestenje: string;
+    preuzeto: string;
+    zavrseno: string;
+    otkazano: string;
+  };
+  vreme: {
+    par: string;
+    ceka: string;
+    kasni: string;
+    citac: string;
+    sati: string;
+    minuti: string;
+    sekunde: string;
+  };
+  detalj: {
+    nazad: string;
+    nazadCitac: string;
+    stiglo: string;
+    ceka: string;
+    izvor: string;
+    kartica: string;
+    placanje: string;
+    porudzbina: string;
+    roomService: string;
+    napomena: string;
+    dostava: string;
+    medjuzbir: string;
+    ukupno: string;
+    iznos: string;
+    preuzmi: string;
+    zavrsi: string;
+    otkazi: string;
+    otkaziPitanje: string;
+    otkaziOpis: string;
+    otkaziDa: string;
+    otkaziNe: string;
+    prihvacen: string;
+    zavrsen: string;
+    otkazanGost: string;
+    otkazanOsoblje: string;
+    zavrsenoNaslov: string;
+    ostalo: { table: string; room: string; other: string };
+    nemaOstalog: string;
+    vec: string;
+    nestao: { naslov: string; opis: string };
+    offline: string;
+    ucitava: string;
+  };
+  sala: { naslov: string; uskoroNaslov: string; uskoroOpis: string; naRed: string };
+  greska: { nepoznata: string; mreza: string };
+}
+
 export interface DictBySurface {
   "event-map": EventMapDict;
   "fair-map": FairMapDict;
@@ -9142,6 +9260,7 @@ export interface DictBySurface {
   "menu-javni": MenuJavniDict;
   "menu-lokal": MenuLokalDict;
   "menu-gost": MenuGostDict;
+  "menu-konobar": MenuKonobarDict;
   "ordering-admin": OrderingAdminDict;
   ordering: OrderingDict;
   "ordering-panel": OrderingPanelDict;

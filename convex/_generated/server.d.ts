@@ -39,6 +39,7 @@ type Env = {
   readonly MENU_AI_TRANSLATE_MODEL: string | undefined;
   readonly MENU_FX_ENABLED: string | undefined;
   readonly MENU_FX_URL: string | undefined;
+  readonly MENU_PIN_PEPPER: string | undefined;
   readonly RESEND_API_KEY: string | undefined;
   readonly RESEND_FROM_EMAIL: string | undefined;
   readonly SCANME_ACTIVATION_REQUEST_EMAIL: string | undefined;

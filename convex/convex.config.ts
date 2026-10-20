@@ -75,6 +75,11 @@ const app = defineApp({
     // suggestion is never published until the owner confirms it.
     MENU_AI_TRANSLATE_KEY: v.optional(v.string()),
     MENU_AI_TRANSLATE_MODEL: v.optional(v.string()),
+    // ScanMe Menu V1 (K22): the pepper of the three-digit staff PINs of the
+    // waiter panel (pinLookup = HMAC-SHA256(pepper, service:pin)). Without it no
+    // PIN can be set or used (the panel says so; Owner/Manager still enter with
+    // their account). Changing it invalidates every PIN (staff get new ones).
+    MENU_PIN_PEPPER: v.optional(v.string()),
   },
 });
 
