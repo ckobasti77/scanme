@@ -74,7 +74,7 @@ export const create = mutation({
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       throw new ConvexError("Unesite ispravnu imejl adresu.");
     }
-    if (phone && phone.replace(/\D/g, "").length < 7) {
+    if (phone && (!/^[0-9+\s()/-]+$/.test(phone) || phone.replace(/\D/g, "").length < 7)) {
       throw new ConvexError("Unesite ispravan broj telefona.");
     }
 

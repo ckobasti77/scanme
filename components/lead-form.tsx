@@ -121,7 +121,7 @@ function validate(values: FormValues): FieldErrors {
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       errors.email = "Unesite ispravnu email adresu.";
     }
-    if (phone && phone.replace(/\D/g, "").length < 7) {
+    if (phone && (!/^[0-9+\s()/-]+$/.test(phone) || phone.replace(/\D/g, "").length < 7)) {
       errors.phone = "Unesite ispravan broj telefona.";
     }
   }
@@ -465,7 +465,7 @@ export function LeadForm({
               inputMode="tel"
               autoComplete="tel"
               value={values.phone}
-              onChange={(event) => update("phone", event.target.value)}
+              onChange={(event) => update("phone", event.target.value.replace(/[^\d+\s()/-]/g, ""))}
               onBlur={() => validateOnBlur("phone")}
               aria-invalid={Boolean(errors.phone)}
               aria-describedby={errors.phone ? "phone-error" : undefined}

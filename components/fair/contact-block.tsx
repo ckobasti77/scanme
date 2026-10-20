@@ -124,7 +124,12 @@ export function ContactBlock({
             value={draft[field]}
             aria-invalid={hint === field || undefined}
             onBlur={() => setTouched(true)}
-            onChange={(event) => onChange({ ...draft, [field]: event.target.value })}
+            onChange={(event) =>
+              onChange({
+                ...draft,
+                [field]: field === "phone" ? event.target.value.replace(/[^\d+\s()/-]/g, "") : event.target.value,
+              })
+            }
           />
         </label>
       ))}

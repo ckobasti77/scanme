@@ -79,7 +79,7 @@ export function ExhibitorRegistration({ dict }: { dict: FairExhibitorRegistratio
     if (value("businessName").length < 2) invalid.businessName = dict.companyError;
     if (value("contactName").length < 2) invalid.contactName = dict.nameError;
     if (!value("phone") && !value("email")) invalid.phone = dict.contactError;
-    if (value("phone") && value("phone").replace(/\D/g, "").length < 7) invalid.phone = dict.phoneError;
+    if (value("phone") && (!/^[0-9+\s()/-]+$/.test(value("phone")) || value("phone").replace(/\D/g, "").length < 7)) invalid.phone = dict.phoneError;
     if (value("email") && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value("email"))) invalid.email = dict.emailError;
     vehicles.forEach((vehicle, index) => {
       if (vehicle.model.trim() || vehicle.package || index === 0) {
@@ -150,7 +150,7 @@ export function ExhibitorRegistration({ dict }: { dict: FairExhibitorRegistratio
         </div>
         <div><Label htmlFor="businessName">{dict.company} {requiredMark}</Label><Input id="businessName" name="businessName" autoComplete="organization" required minLength={2} maxLength={120} {...errorProps("businessName")} />{fieldError("businessName")}</div>
         <div><Label htmlFor="contactName">{dict.contact} {requiredMark}</Label><Input id="contactName" name="contactName" autoComplete="name" required minLength={2} maxLength={100} {...errorProps("contactName")} />{fieldError("contactName")}</div>
-        <div><Label htmlFor="phone">{dict.phone}</Label><Input id="phone" name="phone" type="tel" autoComplete="tel" value={phone} onChange={(event) => setPhone(event.target.value)} required={!email.trim()} maxLength={40} {...errorProps("phone")} aria-describedby={`contact-hint${fieldErrors.phone ? " phone-error" : ""}`} />{fieldError("phone")}</div>
+        <div><Label htmlFor="phone">{dict.phone}</Label><Input id="phone" name="phone" type="tel" inputMode="numeric" pattern="[0-9+\s()/-]*" autoComplete="tel" value={phone} onChange={(event) => setPhone(event.target.value.replace(/[^\d+\s()/-]/g, ""))} required={!email.trim()} maxLength={40} {...errorProps("phone")} aria-describedby={`contact-hint${fieldErrors.phone ? " phone-error" : ""}`} />{fieldError("phone")}</div>
         <div><Label htmlFor="email">{dict.email}</Label><Input id="email" name="email" type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} required={!phone.trim()} maxLength={160} {...errorProps("email")} aria-describedby={`contact-hint${fieldErrors.email ? " email-error" : ""}`} />{fieldError("email")}</div>
         <section className={`${styles.vehicleList} ${styles.wide}`} aria-labelledby="vehicles-title">
           <div className={styles.sectionHead}>
