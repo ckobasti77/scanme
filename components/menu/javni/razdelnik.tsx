@@ -8,6 +8,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
+import type { ReactNode } from "react";
 import { menuJavniSr } from "@/lib/i18n/sr/menu-javni";
 import { saJezikom } from "@/lib/menu/i18n-fallback";
 import type { JavniIzgled } from "@/lib/menu/identity/public-tokens";
@@ -27,6 +28,7 @@ export function JavniRazdelnik({
   naslovne = {},
   ugradjen = false,
   jezikLinkovi,
+  dodatak = null,
 }: {
   view: JavniRazdelnikView;
   izgled: JavniIzgled;
@@ -35,6 +37,8 @@ export function JavniRazdelnik({
   ugradjen?: boolean;
   /** K14: the splitter in each language (default: the menu link with `?jezik=`). */
   jezikLinkovi?: Readonly<Record<string, string>>;
+  /** K21: the guest actions of a scanned position (a client island), below the pages. */
+  dodatak?: ReactNode;
 }) {
   const meni = `/${view.lokal.slug}/meni`;
   const linkovi =
@@ -85,6 +89,7 @@ export function JavniRazdelnik({
           </ul>
         </nav>
       )}
+      {ugradjen ? null : dodatak}
     </JavniOkvir>
   );
 }

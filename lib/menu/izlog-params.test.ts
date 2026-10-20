@@ -244,6 +244,14 @@ describe("existing parameters keep working (TASK-51, TASK-52)", () => {
       starKurs: false,
       pretraga: null,
       filteri: [],
+      // K21
+      pozicija: null,
+      korpa: false,
+      mojiZahtevi: false,
+      zahtev: null,
+      stanjeZahteva: null,
+      greska: null,
+      offline: false,
     };
     expect(parsePublicPreview({})).toEqual({ tema: null, long: false, darkDesign: false, ...PODRAZUMEVANO });
     expect(parsePublicPreview({ state: "long", design: "dark", tema: "svetla" })).toEqual({
@@ -254,5 +262,32 @@ describe("existing parameters keep working (TASK-51, TASK-52)", () => {
     });
     // The app theme never chooses the venue palette (P13): tema=tamna alone keeps the light design.
     expect(parsePublicPreview({ tema: "tamna" }).darkDesign).toBe(false);
+  });
+
+  test("public K21: the guest at a position, the cart, Moji zahtevi and their states", () => {
+    const params = parsePublicPreview({
+      pozicija: "sto",
+      korpa: "1",
+      "moji-zahtevi": "1",
+      zahtev: "racun",
+      "stanje-zahteva": "prihvacen",
+      greska: "cena",
+      veza: "offline",
+    });
+    expect(params).toMatchObject({
+      pozicija: "sto",
+      korpa: true,
+      mojiZahtevi: true,
+      zahtev: "racun",
+      stanjeZahteva: "prihvacen",
+      greska: "cena",
+      offline: true,
+    });
+    expect(parsePublicPreview({ pozicija: "soba" }).pozicija).toBe("soba");
+    // Unknown values give the default state, never an error; the first of a repeated value counts.
+    expect(
+      parsePublicPreview({ pozicija: "terasa", korpa: "da", zahtev: "kuhinja", "stanje-zahteva": "krenuo", greska: "x", veza: "spora" }),
+    ).toMatchObject({ pozicija: null, korpa: false, zahtev: null, stanjeZahteva: null, greska: null, offline: false });
+    expect(parsePublicPreview({ pozicija: ["soba", "sto"] }).pozicija).toBe("soba");
   });
 });

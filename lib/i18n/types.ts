@@ -61,6 +61,7 @@ import type { MenuMediaErrorCode } from "../menu/errors/media";
 import type { TranslationErrorCode } from "../menu/errors/translation";
 import type { PresentationErrorCode } from "../menu/errors/presentation";
 import type { FloorErrorCode } from "../menu/errors/floor";
+import type { RequestErrorCode } from "../menu/errors/requests";
 import type {
   MenuMigrationErrorCode,
   MenuMigrationIssueCode,
@@ -2374,7 +2375,8 @@ export interface MenuDomenDict {
     | MenuMediaErrorCode
     | TranslationErrorCode
     | PresentationErrorCode
-    | FloorErrorCode,
+    | FloorErrorCode
+    | RequestErrorCode,
     string
   >;
   // --- K04: the article model (master §5.4–§5.7, §7.3, §7.6).
@@ -2405,6 +2407,13 @@ export interface MenuDomenDict {
   // --- K20: Lokal i QR (master §9.2).
   /** Printed label of a new QR card that opens no particular page or position. */
   qrCardDefaultLabel: string;
+  // --- K21: guest requests (master §8.1, §8.4), shared by the guest and the waiter panel.
+  /** Novi, Prihvaćen, Završen, Otkazan — never "Konobar je krenuo". */
+  requestStatuses: { new: string; accepted: string; done: string; cancelled: string };
+  /** Poziv konobara, Račun, Porudžbina. */
+  requestKinds: { call: string; bill: string; order: string };
+  /** How the guest wants to pay the bill (a preference, not a payment). */
+  paymentPreferences: { cash: string; card: string };
 }
 
 export interface MenuAdminDict {
@@ -8966,6 +8975,126 @@ export interface MenuLokalDict {
   };
 }
 
+// ScanMe Menu V1 (MENI run, K21) — the guest's requests from the public menu
+// (lib/i18n/sr/menu-gost.ts; master §8.1–§8.4, §9.1). Statuses, request kinds,
+// payment preferences and error codes are in menu-domen (shared with the waiter).
+export interface MenuGostDict {
+  traka: {
+    oblast: string;
+    mesto: string;
+    pozovi: string;
+    racun: string;
+    korpa: string;
+    korpaCitac: MenuStudioMnozina;
+    roomService: string;
+    mojiZahtevi: string;
+    otvoreni: MenuStudioMnozina;
+    saljeSe: string;
+    bezVeze: string;
+    dodato: string;
+  };
+  potvrda: {
+    poziv: string;
+    racun: string;
+    porudzbina: string;
+    porudzbinaRs: string;
+    vecPoslatPoziv: string;
+    vecPoslatRacun: string;
+    vecPoslatPozivDrugi: string;
+    vecPoslatRacunDrugi: string;
+    vreme: string;
+    porudzbinaOpis: string;
+    porudzbinaRsOpis: string;
+    racunNacin: string;
+    zatvori: string;
+    nazadNaMeni: string;
+  };
+  racun: {
+    naslov: string;
+    pitanje: string;
+    opis: string;
+    gotovinom: string;
+    karticom: string;
+    odustani: string;
+  };
+  korpa: {
+    naslov: string;
+    naslovRs: string;
+    zaMesto: string;
+    prazno: string;
+    praznoOpis: string;
+    smanji: string;
+    povecaj: string;
+    kolicina: string;
+    ukloni: string;
+    ukloniCitac: string;
+    napomena: string;
+    nedostupno: string;
+    nemaViseUMeniju: string;
+    artikli: string;
+    dostava: string;
+    dostavaJednom: string;
+    ukupno: string;
+    proveraOpis: string;
+    proveraOpisRs: string;
+    posalji: string;
+    posaljiRs: string;
+    posaljiNovo: string;
+    ceneNove: string;
+    nedostupnoGreska: string;
+    stareStavke: string;
+    puna: string;
+    zatvori: string;
+  };
+  dodaj: {
+    naslov: string;
+    izaberite: string;
+    obavezno: string;
+    bezDodatka: string;
+    napomena: string;
+    napomenaPrimer: string;
+    napomenaBroj: string;
+    kolicina: string;
+    manje: string;
+    vise: string;
+    dodaj: string;
+    dodajBezIznosa: string;
+    nedostaje: string;
+    nedostupno: string;
+    bezCene: string;
+  };
+  zahtevi: {
+    naslov: string;
+    uvod: string;
+    prazno: string;
+    bezUredjaja: string;
+    nazad: string;
+    otvoriMeni: string;
+    stavke: MenuStudioMnozina;
+    mestoVreme: string;
+    prihvacenU: string;
+    zavrsenU: string;
+    otkazaliSteU: string;
+    otkazaloOsobljeU: string;
+    otkazi: string;
+    otkaziPitanje: string;
+    otkaziOpis: string;
+    otkaziDa: string;
+    otkaziNe: string;
+    otkazano: string;
+    ucitava: string;
+  };
+  roomService: {
+    naslov: string;
+    cene: string;
+    dostava: string;
+    izSobe: string;
+    nedostupanNaslov: string;
+    nedostupanOpis: string;
+  };
+  greska: { nepoznata: string; pokusaj: string };
+}
+
 export interface DictBySurface {
   "event-map": EventMapDict;
   "fair-map": FairMapDict;
@@ -9012,6 +9141,7 @@ export interface DictBySurface {
   "menu-studio": MenuStudioDict;
   "menu-javni": MenuJavniDict;
   "menu-lokal": MenuLokalDict;
+  "menu-gost": MenuGostDict;
   "ordering-admin": OrderingAdminDict;
   ordering: OrderingDict;
   "ordering-panel": OrderingPanelDict;

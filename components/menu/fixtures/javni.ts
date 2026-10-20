@@ -29,13 +29,16 @@ import {
   type PublicImage,
 } from "@/lib/menu/public-view";
 import {
+  MENU_PART_ROOM_SERVICE,
   MENU_PART_SPLITTER,
   compileSnapshot,
   parsePublicPage,
+  parseRoomService,
   parseSplitter,
   type MenuDraftSnapshot,
   type PublicArticle,
   type PublicPageDoc,
+  type PublicRoomServiceDoc,
 } from "@/lib/menu/snapshot";
 import { IZLOG_SADA } from "./lokal";
 import { fixtureMenu } from "./meni";
@@ -382,5 +385,65 @@ export function javniIzlog(params: PublicPreviewParams): JavniIzlogPrikaz {
       valuta: params.valuta ?? undefined,
     },
     jezikLinkovi,
+  };
+}
+
+// =============================================================================
+// K21 — Room service of "Hotel Primer" (the large fixture, Room service on)
+// =============================================================================
+
+/** K21: the identity of the hotel in the izlog (its own palette, never ScanMe's). */
+const HOTEL_PRESENTATION: Partial<MenuPresentationValues> = {
+  layout: "flow",
+  paletteId: "more",
+  fontPairId: "savremeno",
+  density: "standard",
+  emphasis: "calm",
+};
+
+export type JavniRoomServiceIzlog = {
+  lokal: JavnaStranicaView["lokal"];
+  presentation: MenuPresentationValues;
+  doc: PublicRoomServiceDoc;
+  slike: Record<string, PublicImage>;
+  nedostupni: string[];
+  sadaMs: number;
+  jezik: string;
+  jezici: string[];
+  alergeniUkljuceni: boolean;
+};
+
+/**
+ * K21: the Room service part of the hotel fixture, compiled through the real
+ * publish path with Room service on (markup 15 % for all, a manual price on
+ * "Club sendvič", delivery 300 RSD once per order).
+ */
+export function javniRoomServiceIzlog(params: PublicPreviewParams): JavniRoomServiceIzlog {
+  const menu = fixtureMenu("veliki");
+  const paletteId = params.paleta && jePoznataPaleta(params.paleta) ? params.paleta : HOTEL_PRESENTATION.paletteId ?? "more";
+  const presentation: MenuPresentationValues = {
+    ...MENU_DEFAULT_PRESENTATION,
+    ...HOTEL_PRESENTATION,
+    paletteId,
+    ...(params.layout ? { layout: LAYOUT[params.layout] } : {}),
+  };
+  const mediji = params.mediji ? MEDIJ[params.mediji] : "image";
+  const { snapshot, slike } = pripremi(menu, presentation, mediji, "back", false);
+  const version = compileSnapshot(snapshot, { languages: ["sr"], roomService: true, scheduledPromos: true });
+  const parts = version.parts
+    .filter((part) => part.scope === "public" && part.lang === "sr" && part.pageKey === MENU_PART_ROOM_SERVICE)
+    .sort((a, b) => a.part - b.part)
+    .map((part) => part.data);
+  if (parts.length === 0) throw new Error("izlog: the hotel fixture has no Room service part");
+  return {
+    lokal: { naziv: menu.venueName, slug: menu.slug, logoUrl: null },
+    presentation,
+    doc: parseRoomService(parts),
+    slike,
+    nedostupni: menu.unavailableArticleKeys,
+    sadaMs: IZLOG_SADA,
+    jezik: "sr",
+    jezici: ["sr"],
+    alergeniUkljuceni: snapshot.settings.allergensEnabled === true,
   };
 }

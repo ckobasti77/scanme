@@ -268,7 +268,10 @@ export type MenuOwnedTable =
   // K20
   | "menuZones"
   | "menuPositions"
-  | "menuGuestSessions";
+  | "menuGuestSessions"
+  // K21
+  | "menuRequests"
+  | "menuRequestItems";
 
 export async function loadOwned<T extends MenuOwnedTable>(
   ctx: DatabaseCtx,

@@ -66,7 +66,7 @@ export type JavniMeniProps = {
   pocetniDetalj?: string | null;
   /** The izlog's open category (`Kategorije`). */
   pocetnaKategorija?: string | null;
-  /** A note above the menu (a newer version, K21 guest actions later). */
+  /** A note above the menu (a newer version is published). */
   dodatak?: ReactNode;
   /** K14: the latest stored EUR rate (convex/menuFx.ts); shown only when fresh. */
   kurs?: MenuKurs | null;
@@ -77,7 +77,16 @@ export type JavniMeniProps = {
   pocetno?: JavniPocetno;
   /** K14: the href of this page in each language (default: the public path with `?jezik=`). */
   jezikLinkovi?: Readonly<Record<string, string>>;
+  /** K21: a note above the menu that belongs to the page (the Room service prices and fee). */
+  napomena?: ReactNode;
+  /** K21: the guest's actions at a position (the bar and its sheets); absent = a plain menu link, nothing invented. */
+  radnjeGosta?: ReactNode;
+  /** K21: ordering inside the detail, for a guest who may order; absent = the detail only informs. */
+  dodajUKorpu?: (args: JavniDodajArgs) => ReactNode;
 };
+
+/** K21: what the ordering slot of the detail gets. */
+export type JavniDodajArgs = { article: PublicArticle; sadaMs: number; nedostupan: boolean; zatvori: () => void };
 
 type Pregled = { u: string; f: string[] };
 
@@ -112,6 +121,9 @@ export function JavniMeni({
   cuvaj = true,
   pocetno = {},
   jezikLinkovi,
+  napomena,
+  radnjeGosta,
+  dodajUKorpu,
 }: JavniMeniProps) {
   // K17: the venue's menu-wide media display caps every article (master §7.4).
   const view = useMemo(() => {
@@ -234,7 +246,11 @@ export function JavniMeni({
 
   const layout =
     izgled.layout === "compact" ? (
-      <Kompaktno {...zajednicko} alergeniUkljuceni={view.alergeniUkljuceni} />
+      <Kompaktno
+        {...zajednicko}
+        alergeniUkljuceni={view.alergeniUkljuceni}
+        uvekDetalj={!ugradjen && dodajUKorpu !== undefined}
+      />
     ) : izgled.layout === "categories" ? (
       pretrazuje ? (
         <KategorijeRezultati {...zajednicko} />
@@ -266,6 +282,7 @@ export function JavniMeni({
         }
       >
         {dodatak}
+        {napomena}
         {view.sekcije.length > 0 && mogucnosti ? (
           <TrakaAlata
             pretraga={mogucnosti.pretraga}
@@ -326,6 +343,16 @@ export function JavniMeni({
             nedostupan={nedostupniSet.has(article.key)}
             alergeniUkljuceni={view.alergeniUkljuceni}
             onZatvori={() => setOtvoren(null)}
+            poruci={
+              dodajUKorpu && !ugradjen
+                ? dodajUKorpu({
+                    article,
+                    sadaMs: sada,
+                    nedostupan: nedostupniSet.has(article.key),
+                    zatvori: () => setOtvoren(null),
+                  })
+                : null
+            }
           />
         ) : null}
         {alergeniUkljuceni && fioka ? (
@@ -335,6 +362,7 @@ export function JavniMeni({
             onZatvori={() => setFioka(false)}
           />
         ) : null}
+        {ugradjen ? null : radnjeGosta}
       </JavniOkvir>
     </JavniIzborKontekst.Provider>
   );

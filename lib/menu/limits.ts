@@ -54,6 +54,23 @@ export const MENU_MAX_QR_MINT_BATCH = 50;
 /** K20 — seats of one position (master §9.2: optional). */
 export const MENU_MAX_SEATS = 99;
 
+/** K21 — lines of one order sent to the waiter (plan K19-8). */
+export const MENU_MAX_CART_LINES = 30;
+/** K21 — quantity of one cart line. */
+export const MENU_MAX_CART_QUANTITY = 50;
+/** K21 — different standard pages one order may draw articles from (bounded reads of the version). */
+export const MENU_MAX_CART_PAGES = 5;
+/** K21 — add-ons picked on one cart line (≤ MENU_MAX_ADDON_GROUPS_PER_ARTICLE × a few options). */
+export const MENU_MAX_CART_ADDONS = 20;
+/** K21 — orders of one position still `Novi` (waiting for the waiter); one more is refused (flood guard). */
+export const MENU_MAX_OPEN_ORDERS_PER_POSITION = 5;
+/** K21 — orders of one guest device still `Novi` in one venue. */
+export const MENU_MAX_OPEN_ORDERS_PER_DEVICE = 3;
+/** K21 — an open call or bill is returned instead of a new one only while it is this recent (a forgotten one never blocks the table). */
+export const MENU_REQUEST_DEDUPE_MS = 30 * 60 * 1000;
+/** K21 — the guest's own requests "Moji zahtevi" lists (newest first). */
+export const MENU_MAX_MY_REQUESTS = 20;
+
 /** Text lengths, in characters after whitespace cleaning. */
 export const MENU_TEXT = {
   pageName: 80,
@@ -73,6 +90,8 @@ export const MENU_TEXT = {
   // K20
   zoneName: 60,
   positionLabel: 40,
+  // K21 — the guest's free note on a cart line (only where the article has the note on).
+  cartLineNote: 280,
 } as const;
 
 /** Whole dinars; inclusive upper bound of any single price. */

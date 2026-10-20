@@ -335,7 +335,31 @@ export type PublicPreviewParams = {
   /** K14 — `pretraga=<tekst>` and `filter=vegan,promo`: search and filters on, filled from the start. */
   pretraga: string | null;
   filteri: string[];
+  /** K21 — `pozicija=sto|soba`: the menu opened from a table card (call, bill, cart) or a room card (Room service). */
+  pozicija: JavnaPozicijaParam | null;
+  /** K21 — `korpa=1`: the cart open with a few lines (with `pozicija`). */
+  korpa: boolean;
+  /** K21 — `moji-zahtevi=1`: "Moji zahtevi" with a request in every status. */
+  mojiZahtevi: boolean;
+  /** K21 — `zahtev=poziv|racun|porudzbina`: the confirmation right after sending. */
+  zahtev: JavniZahtevParam | null;
+  /** K21 — `stanje-zahteva=novi|prihvacen|zavrsen|otkazan`: the status the confirmation shows. */
+  stanjeZahteva: JavnoStanjeZahtevaParam | null;
+  /** K21 — `greska=cena|nedostupno|limit`: the cart after the server refused it. */
+  greska: JavnaGreskaParam | null;
+  /** K21 — `veza=offline`: the phone has no connection (nothing can be sent, nothing says "poslato"). */
+  offline: boolean;
 };
+
+/** K21 — guest requests in the public izlog (docs/MENI-PLAN.md §7; plan K19 §6 K21). */
+export const JAVNE_POZICIJE = ["sto", "soba"] as const;
+export type JavnaPozicijaParam = (typeof JAVNE_POZICIJE)[number];
+export const JAVNI_ZAHTEVI = ["poziv", "racun", "porudzbina"] as const;
+export type JavniZahtevParam = (typeof JAVNI_ZAHTEVI)[number];
+export const JAVNA_STANJA_ZAHTEVA = ["novi", "prihvacen", "zavrsen", "otkazan"] as const;
+export type JavnoStanjeZahtevaParam = (typeof JAVNA_STANJA_ZAHTEVA)[number];
+export const JAVNE_GRESKE = ["cena", "nedostupno", "limit"] as const;
+export type JavnaGreskaParam = (typeof JAVNE_GRESKE)[number];
 
 /** K14: Serbian words for allergen codes in the izlog address (`alergen=mleko`). */
 const IZLOG_ALERGENI: Record<string, string> = {
@@ -384,6 +408,13 @@ export function parsePublicPreview(params: IzlogSearchParams): PublicPreviewPara
     starKurs: firstParam(params.kurs) === "star",
     pretraga: pickPretraga(params.pretraga),
     filteri: normalizujFiltere(pickList(params.filter)),
+    pozicija: pickOptional(params.pozicija, JAVNE_POZICIJE),
+    korpa: firstParam(params.korpa) === "1",
+    mojiZahtevi: firstParam(params["moji-zahtevi"]) === "1",
+    zahtev: pickOptional(params.zahtev, JAVNI_ZAHTEVI),
+    stanjeZahteva: pickOptional(params["stanje-zahteva"], JAVNA_STANJA_ZAHTEVA),
+    greska: pickOptional(params.greska, JAVNE_GRESKE),
+    offline: firstParam(params.veza) === "offline",
   };
 }
 

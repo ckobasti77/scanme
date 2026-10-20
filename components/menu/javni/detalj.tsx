@@ -10,7 +10,7 @@
 
 import Image from "next/image";
 import { X } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { formatBelgradeDate } from "@/lib/belgrade-time";
 import { fmt } from "@/lib/i18n/format";
 import { menuDomenSr } from "@/lib/i18n/sr/menu-domen";
@@ -64,6 +64,7 @@ export function DetaljSadrzaj({
   nedostupan,
   alergeniUkljuceni,
   naslovId,
+  poruci = null,
 }: {
   article: PublicArticle;
   layout: MenuLayout;
@@ -72,6 +73,8 @@ export function DetaljSadrzaj({
   nedostupan: boolean;
   alergeniUkljuceni: boolean;
   naslovId: string;
+  /** K21: ordering for a guest at a position (variants, add-ons, note, quantity); it replaces the read-only lists. */
+  poruci?: ReactNode;
 }) {
   const izbor = izborMedija(article, layout, slike);
   const kolicina = kolicinaTekst(article);
@@ -115,7 +118,9 @@ export function DetaljSadrzaj({
         </div>
         {article.description ? <p className={styles.detaljOpis}>{article.description}</p> : null}
 
-        {cena.vrsta === "varijante" ? (
+        {poruci}
+
+        {cena.vrsta === "varijante" && !poruci ? (
           <div className={styles.detaljBlok}>
             <h3 className={styles.detaljPodnaslov}>{t.detalj.varijante}</h3>
             <ul className={styles.detaljStavke}>
@@ -132,7 +137,7 @@ export function DetaljSadrzaj({
           </div>
         ) : null}
 
-        {article.addonGroups.length > 0 ? (
+        {article.addonGroups.length > 0 && !poruci ? (
           <div className={styles.detaljBlok}>
             <h3 className={styles.detaljPodnaslov}>{t.detalj.dodaci}</h3>
             {article.addonGroups.map((grupa) => (

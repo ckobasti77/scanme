@@ -968,7 +968,8 @@
 .novaVerzija {
   position: fixed;
   right: 12px;
-  bottom: 12px;
+  /* K21: above the guest's action bar when there is one (--gost-traka, components/menu/gost). */
+  bottom: calc(12px + var(--gost-traka, 0px));
   left: 12px;
   z-index: 3;
   display: flex;

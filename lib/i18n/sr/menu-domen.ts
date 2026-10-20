@@ -96,6 +96,20 @@ export const menuDomenSr = {
     "floor/card_read_only": "Ovom karticom upravlja ScanMe. Za promenu se obratite podršci.",
     "floor/card_not_menu": "Ova kartica ne otvara meni, pa ne može da se veže za stranicu ili mesto.",
     "floor/page_unavailable": "Ova stranica menija je arhivirana ili ne postoji. Izaberite drugu stranicu.",
+    // K21 — guest requests (lib/menu/errors/requests.ts).
+    "request/invalid_input": "Zahtev nije ispravan. Proverite korpu i pokušajte ponovo.",
+    "request/no_session": "Veza sa Vašim mestom je istekla. Skenirajte QR kod na stolu ili u sobi ponovo.",
+    "request/action_off": "Ova radnja trenutno nije dostupna. Obratite se osoblju.",
+    "request/rate_limited": "Previše zahteva u kratkom roku. Pokušajte ponovo za minut.",
+    "request/menu_unavailable": "Meni trenutno nije dostupan, pa zahtev nije poslat.",
+    "request/cart_unavailable": "Neki artikli su upravo postali nedostupni. Uklonite ih da biste poslali porudžbinu.",
+    "request/cart_stale": "Neki artikli više nisu u meniju. Uklonite ih i pokušajte ponovo.",
+    "request/cart_price_changed": "Cene su se promenile od kada ste ih videli. Proverite novi iznos i pošaljite ponovo.",
+    "request/not_found": "Ovaj zahtev ne postoji.",
+    "request/not_cancellable": "Ovaj zahtev je osoblje već prihvatilo. Za izmenu se obratite osoblju.",
+    "request/invalid_transition": "Zahtev ne može da pređe u ovo stanje.",
+    "request/too_many_open": "Više porudžbina sa ovog mesta još čeka konobara. Sačekajte da ih preuzme, pa pošaljite novu.",
+    "request/taken": "Ovaj zahtev je već preuzeo neko drugi.",
   },
   allergens: {
     gluten: "Žitarice koje sadrže gluten",
@@ -223,4 +237,7 @@ export const menuDomenSr = {
     variantName: "Varijanta",
   },
   qrCardDefaultLabel: "Meni",
+  requestStatuses: { new: "Novi", accepted: "Prihvaćen", done: "Završen", cancelled: "Otkazan" },
+  requestKinds: { call: "Poziv konobara", bill: "Račun", order: "Porudžbina" },
+  paymentPreferences: { cash: "Gotovina", card: "Kartica" },
 } as const satisfies MenuDomenDict;

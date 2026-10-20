@@ -79,9 +79,15 @@ import {
   menuMemberStatusValidator,
   menuModeValidator,
   menuPageNavigationValidator,
+  menuPaymentPreferenceValidator,
   menuPositionKindValidator,
   menuPositionLayoutValidator,
   menuPresenceEntityTypeValidator,
+  menuRequestCancelledByValidator,
+  menuRequestChannelValidator,
+  menuRequestItemAddonValidator,
+  menuRequestKindValidator,
+  menuRequestStatusValidator,
   menuPromoValidator,
   menuPublishSummaryValidator,
   menuRoomServiceMarkupScopeValidator,
@@ -3583,6 +3589,80 @@ export default defineSchema({
     .index("by_tokenHash", ["tokenHash"])
     .index("by_menuServiceId_and_deviceKeyHash", ["menuServiceId", "deviceKeyHash"])
     .index("by_expiresAt", ["expiresAt"]),
+
+  // K21 — what a guest at a position sends to the staff (master §8; plan
+  // docs/meni/planovi/K19.md §2.2): call the waiter, ask for the bill (cash or
+  // card, a preference only), or an order for the waiter to review — never
+  // straight to the kitchen, never a payment, no "paid" state. The position,
+  // the card label and every name and price are SNAPSHOTS taken when the
+  // request was sent (the published version may change afterwards). Statuses
+  // move only through lib/menu/request-status.ts; who accepted, finished or
+  // cancelled stays on the row (accept/finish are not audited, K19-16).
+  // `deviceKeyHash` is the guest device pseudonym of THIS venue (Moji zahtevi);
+  // no query for staff or panels may return it. K22 adds the staff fields.
+  menuRequests: defineTable({
+    menuServiceId: v.id("menuServices"),
+    businessId: v.id("businesses"),
+    kind: menuRequestKindValidator,
+    status: menuRequestStatusValidator,
+    channel: menuRequestChannelValidator,
+    positionId: v.id("menuPositions"),
+    positionLabel: v.string(),
+    positionKind: menuPositionKindValidator,
+    zoneId: v.optional(v.id("menuZones")),
+    cardId: v.optional(v.id("cards")),
+    sourceLabel: v.optional(v.string()),
+    guestSessionId: v.id("menuGuestSessions"),
+    deviceKeyHash: v.string(),
+    paymentPreference: v.optional(menuPaymentPreferenceValidator),
+    // Orders only: informative sums for the waiter (whole RSD).
+    itemCount: v.optional(v.number()),
+    subtotalRsd: v.optional(v.number()),
+    deliveryFeeRsd: v.optional(v.number()),
+    totalRsd: v.optional(v.number()),
+    versionNumber: v.optional(v.number()),
+    // The phone's key of one send attempt of an order: a retry after a lost
+    // answer returns the request already written instead of a second order.
+    clientRequestId: v.optional(v.string()),
+    acceptedAt: v.optional(v.number()),
+    acceptedByUserId: v.optional(v.id("users")),
+    doneAt: v.optional(v.number()),
+    doneByUserId: v.optional(v.id("users")),
+    cancelledAt: v.optional(v.number()),
+    cancelledBy: v.optional(menuRequestCancelledByValidator),
+    cancelledByUserId: v.optional(v.id("users")),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_menuServiceId_and_status_and_createdAt", ["menuServiceId", "status", "createdAt"])
+    .index("by_positionId_and_status", ["positionId", "status"])
+    // The one-open-call / one-open-bill rule (K19-7) reads exactly its kind, however many orders are open.
+    .index("by_positionId_and_kind_and_status", ["positionId", "kind", "status"])
+    .index("by_menuServiceId_and_deviceKeyHash_and_createdAt", ["menuServiceId", "deviceKeyHash", "createdAt"])
+    .index("by_menuServiceId_and_createdAt", ["menuServiceId", "createdAt"])
+    .index("by_guestSessionId_and_clientRequestId", ["guestSessionId", "clientRequestId"]),
+
+  // K21 — the lines of an order, as published when it was sent: the SAME
+  // business article (`articleKey`) and the page it was ordered from
+  // (`pageKey`; absent on Room service), names in the menu's source language,
+  // the unit price (promotion applied on standard pages; the Room service
+  // price on Room service), the add-ons and the line total. Never rewritten.
+  menuRequestItems: defineTable({
+    requestId: v.id("menuRequests"),
+    menuServiceId: v.id("menuServices"),
+    pageKey: v.optional(v.string()),
+    articleKey: v.string(),
+    name: v.string(),
+    variantKey: v.optional(v.string()),
+    variantName: v.optional(v.string()),
+    addons: v.array(menuRequestItemAddonValidator),
+    unitPriceRsd: v.number(),
+    quantity: v.number(),
+    lineTotalRsd: v.number(),
+    promoApplied: v.optional(v.boolean()),
+    note: v.optional(v.string()),
+    order: v.number(),
+  }).index("by_requestId", ["requestId"]),
 
   // Explicit Menu roles (K01 §4.2). Account roles are DERIVED from
   // accountMemberships / businessMemberships; a row here grants an explicit

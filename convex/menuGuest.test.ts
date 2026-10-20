@@ -246,6 +246,8 @@ describe("the hop (menuGuest.mintFromCard) and the guest session", () => {
 
     expect(await t.query(api.menuGuest.sessionView, { slug: SLUG_A, guestToken: outcome.session.guestToken })).toEqual({
       position: { label: "Sto 12", kind: "table" },
+      // K21: the actions the position offers; none while the venue has no published menu.
+      actions: { call: false, bill: false, order: false, roomService: false },
       expiresAt: sessions[0].expiresAt,
     });
     // Another venue's menu never sees this session.

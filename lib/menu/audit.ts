@@ -45,6 +45,11 @@ export const MENU_AUDIT_ACTIONS = [
   "qr.unlinked",
   /** A QR card was disabled or enabled again. */
   "qr.card_status",
+  // K21 — guest requests (master §8.4). Accepting and finishing are recorded on
+  // the request row itself (who and when, plan K19-16); a cancellation is
+  // recorded here as well, whoever cancels.
+  /** A request (call, bill, order) was cancelled by the guest or the staff. */
+  "request.cancelled",
 ] as const;
 
 export type MenuAuditAction = (typeof MENU_AUDIT_ACTIONS)[number];

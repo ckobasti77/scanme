@@ -78,7 +78,9 @@ async function positionsOf(t: T, menuServiceId: Id<"menuServices">) {
       .withIndex("by_menuServiceId_and_key", (q) => q.eq("menuServiceId", menuServiceId))
       .collect(),
   );
-  return rows.sort((a, b) => a.order - b.order);
+  // `order` is counted among ACTIVE positions, so an archived one and its successor can share it;
+  // creation time breaks the tie (the index is by a random key, so without it the order was random).
+  return rows.sort((a, b) => a.order - b.order || a._creationTime - b._creationTime);
 }
 
 async function positionOf(t: T, positionId: Id<"menuPositions">) {

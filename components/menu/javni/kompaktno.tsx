@@ -28,7 +28,12 @@ export function Kompaktno({
   onOtvori,
   ugradjen,
   alergeniUkljuceni,
-}: Omit<LayoutProps, "slike"> & { alergeniUkljuceni: boolean }) {
+  uvekDetalj = false,
+}: Omit<LayoutProps, "slike"> & {
+  alergeniUkljuceni: boolean;
+  /** K21: a guest who can order opens every article (ordering lives in the detail). */
+  uvekDetalj?: boolean;
+}) {
   const ids = sekcije.map((sekcija) => sidroSekcije(sekcija.key));
   const aktivna = useAktivnaSekcija(ugradjen ? [] : ids, ids[0] ?? null);
   const sadrzajRef = useRef<HTMLDialogElement>(null);
@@ -113,7 +118,7 @@ export function Kompaktno({
                   article={article}
                   sadaMs={sadaMs}
                   nedostupan={nedostupni.has(article.key)}
-                  onOtvori={onOtvori && imaDetalj(article, "compact", alergeniUkljuceni) ? onOtvori : null}
+                  onOtvori={onOtvori && (uvekDetalj || imaDetalj(article, "compact", alergeniUkljuceni)) ? onOtvori : null}
                 />
               ))}
             </ul>

@@ -54,7 +54,7 @@ const MAX_PARTS_PER_DOC = Math.ceil(MENU_VERSION_MAX_BYTES / MENU_VERSION_PART_M
 /** The most images one page resolves; articles past it fall back to their icon. */
 export const MENU_PUBLIC_MEDIA_CAP = 400;
 
-async function activeBusinessBySlug(ctx: QueryCtx, slug: string): Promise<Doc<"businesses"> | null> {
+export async function activeBusinessBySlug(ctx: QueryCtx, slug: string): Promise<Doc<"businesses"> | null> {
   const clean = slug.trim().toLowerCase();
   if (clean.length > 80 || !SLUG_PATTERN.test(clean)) return null;
   const business = await ctx.db
@@ -65,13 +65,13 @@ async function activeBusinessBySlug(ctx: QueryCtx, slug: string): Promise<Doc<"b
   return business;
 }
 
-type PublicService = {
+export type PublicService = {
   business: Doc<"businesses">;
   menuService: Doc<"menuServices">;
   version: Doc<"menuVersions">;
 };
 
-async function isPubliclyServed(ctx: QueryCtx, menuService: Doc<"menuServices">): Promise<boolean> {
+export async function isPubliclyServed(ctx: QueryCtx, menuService: Doc<"menuServices">): Promise<boolean> {
   if (menuService.status !== "active" || !menuService.liveVersionId || !menuService.serviceProfileId) {
     return false;
   }
@@ -81,7 +81,7 @@ async function isPubliclyServed(ctx: QueryCtx, menuService: Doc<"menuServices">)
   return profile?.status === "active" && profile.businessId === menuService.businessId;
 }
 
-async function publicServiceOf(ctx: QueryCtx, business: Doc<"businesses">): Promise<PublicService | null> {
+export async function publicServiceOf(ctx: QueryCtx, business: Doc<"businesses">): Promise<PublicService | null> {
   const menuService = await activeMenuServiceForBusiness(ctx, business._id);
   if (!menuService || !(await isPubliclyServed(ctx, menuService))) return null;
   const version = await ctx.db.get(menuService.liveVersionId as Id<"menuVersions">);
@@ -89,7 +89,7 @@ async function publicServiceOf(ctx: QueryCtx, business: Doc<"businesses">): Prom
   return { business, menuService, version };
 }
 
-async function publicParts(
+export async function publicParts(
   ctx: QueryCtx,
   versionId: Id<"menuVersions">,
   lang: string,
@@ -111,7 +111,7 @@ function resolveLang(version: Doc<"menuVersions">, lang: string | undefined): st
   return version.languages[0] ?? "sr";
 }
 
-async function splitterOf(ctx: QueryCtx, service: PublicService, lang: string): Promise<PublicSplitterDoc | null> {
+export async function splitterOf(ctx: QueryCtx, service: PublicService, lang: string): Promise<PublicSplitterDoc | null> {
   const [data] = await publicParts(ctx, service.version._id, lang, MENU_PART_SPLITTER);
   return data ? parseSplitter(data) : null;
 }

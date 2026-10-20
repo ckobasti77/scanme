@@ -337,3 +337,45 @@ export const menuPositionLayoutValidator = v.object({
   h: v.number(),
   shape: v.union(v.literal("rect"), v.literal("round")),
 });
+
+// -----------------------------------------------------------------------------
+// K21 — guest requests (master §8; plan docs/meni/planovi/K19.md §2.2)
+// -----------------------------------------------------------------------------
+
+// Call the waiter, ask for the bill, or send an order to the waiter for review
+// (never straight to the kitchen and never a payment, master §8.2).
+export const menuRequestKindValidator = v.union(
+  v.literal("call"),
+  v.literal("bill"),
+  v.literal("order"),
+);
+
+// Master §8.4: Novi → Prihvaćen → Završen, and Otkazan as a separate end.
+// There is no "Konobar je krenuo" (lib/menu/request-status.ts is the one table
+// of transitions).
+export const menuRequestStatusValidator = v.union(
+  v.literal("new"),
+  v.literal("accepted"),
+  v.literal("done"),
+  v.literal("cancelled"),
+);
+
+// An order from the standard pages, or a Room service order from a room.
+export const menuRequestChannelValidator = v.union(
+  v.literal("standard"),
+  v.literal("room_service"),
+);
+
+// How the guest wants to pay the bill (a preference for the waiter, not a payment).
+export const menuPaymentPreferenceValidator = v.union(v.literal("cash"), v.literal("card"));
+
+export const menuRequestCancelledByValidator = v.union(v.literal("guest"), v.literal("staff"));
+
+// One add-on of an order line, as published when the order was sent.
+export const menuRequestItemAddonValidator = v.object({
+  groupKey: v.string(),
+  groupName: v.string(),
+  optionKey: v.string(),
+  optionName: v.string(),
+  priceDeltaRsd: v.number(),
+});
