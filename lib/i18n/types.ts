@@ -218,6 +218,11 @@ export interface FairMapDict {
   heatEmptyHint: string;
   heatError: string;
   heatRetry: string;
+  upcomingEyebrow: string;
+  upcomingTitle: string;
+  upcomingDates: string;
+  upcomingBody: string;
+  upcomingBackHome: string;
 }
 
 export interface FairModelDict {
@@ -6300,6 +6305,8 @@ export interface FairDemoDict {
   automatic: string;
   consent: string;
   question: string;
+  surveyQuestion: string;
+  surveyOptions: readonly string[];
   yes: string;
   no: string;
   dates: string;

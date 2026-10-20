@@ -20,7 +20,7 @@ export function useDemoHeat(keys: readonly string[], enabled: boolean) {
         setLevels(demoHeatAt(order, elapsed));
       }
       previous = now;
-      timer = setTimeout(tick, 200);
+      timer = setTimeout(tick, 120);
     };
     const resume = () => { previous = performance.now(); };
     document.addEventListener("visibilitychange", resume);

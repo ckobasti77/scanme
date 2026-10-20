@@ -20,7 +20,7 @@ export const FAIR_DEMO_MODELS: FairPublicModel[] = Array.from({ length: 3 }, (_,
   photoUrl: ["/fair/demo/vehicle-showroom.webp", "/fair/demo/vehicle-showroom-blue.png", "/fair/demo/vehicle-showroom-copper.png"][index],
   specificationGroups: [{ id: "demo-specs", label: dict.specsTitle, order: 0, items: [
     { id: "demo-power", label: dict.power, value: `${150 + index * 20} kW`, order: 0, isHighlight: true },
-    { id: "demo-range", label: dict.range, value: `${400 + index * 50} km`, order: 1, isHighlight: true },
+    { id: "demo-range", label: dict.range, value: `${210 + index * 15} km/h`, order: 1, isHighlight: true },
     { id: "demo-transmission", label: dict.transmission, value: dict.automatic, order: 2, isHighlight: true },
   ] }],
   capabilities: { ratingMode: "dimensions", canSubmitInterest: true, canRequestTestDrive: true, hasAudienceQuestions: true, hasSurvey: true, isSponsored: true },
@@ -52,5 +52,5 @@ export const FAIR_DEMO_ROTATION: FairSponsoredRotationView = {
 };
 
 export function isFairDemoId(value: unknown): value is string {
-  return typeof value === "string" && (value === FAIR_DEMO_SLUG || value === FAIR_DEMO_EVENT.id || FAIR_DEMO_MODELS.some((model) => model.id === value));
+  return typeof value === "string" && (value === FAIR_DEMO_SLUG || value === FAIR_DEMO_EVENT.id || value === "demo-survey" || FAIR_DEMO_MODELS.some((model) => model.id === value));
 }

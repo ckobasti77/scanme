@@ -294,9 +294,17 @@
   padding: 0.4rem 0.6rem;
 }
 
+.fairEventTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
 .fairEvent strong {
   font-family: var(--font-mono), monospace;
-  font-size: clamp(0.7rem, 3.1vw, 0.86rem);
+  font-size: clamp(0.68rem, 2.9vw, 0.84rem);
   font-weight: 700;
   line-height: 1.1;
   letter-spacing: -0.02em;
@@ -314,6 +322,24 @@
 .fairEvent[data-state="live"],
 .fairEvent[data-state="next"] {
   border-color: color-mix(in srgb, var(--foreground) 34%, transparent);
+}
+
+.fairEvent[data-state="ended"] {
+  border-color: color-mix(in srgb, var(--primary) 55%, var(--foreground) 14%);
+  background:
+    repeating-linear-gradient(
+      -45deg,
+      color-mix(in srgb, var(--primary) 22%, transparent) 0px,
+      color-mix(in srgb, var(--primary) 22%, transparent) 5px,
+      transparent 5px,
+      transparent 10px
+    ),
+    color-mix(in srgb, var(--card) 58%, transparent);
+}
+
+.fairEvent[data-state="ended"] strong,
+.fairEvent[data-state="ended"] span {
+  opacity: 0.82;
 }
 
 .fairEvent[data-state="live"] span { color: var(--accent-text); }
@@ -347,16 +373,22 @@ a.fairEvent:hover { border-color: color-mix(in srgb, var(--foreground) 58%, tran
 html[data-theme="dark"] .fairEvents { --fair-shine: rgb(255 255 255 / 0.95); }
 
 .fairEventState {
-  position: absolute;
-  top: 0.45rem;
-  right: 0.55rem;
+  flex: 0 0 auto;
   color: var(--accent-text);
   font-family: var(--font-mono), monospace;
-  font-size: 0.6rem;
+  font-size: 0.58rem;
   font-weight: 700;
   line-height: 1;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.fairEvent[data-state="ended"] .fairEventState {
+  padding: 0.16rem 0.34rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--primary) 58%, transparent);
+  background: color-mix(in srgb, var(--primary) 22%, var(--card) 78%);
 }
 
 .fairCta {

@@ -32,6 +32,7 @@ export interface PrelaunchDict {
     openEventAria: string;
     status: {
       live: string;
+      ended: string;
     };
     events: Array<{ name: string; date: string; shortDate: string }>;
   };
@@ -188,6 +189,7 @@ export const prelaunchSr: PrelaunchDict = {
     openEventAria: "{name}, {dates} — otvori digitalni sajam",
     status: {
       live: "U toku",
+      ended: "Završeno",
     },
     events: [
       {

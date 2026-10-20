@@ -2875,12 +2875,12 @@
 }
 
 .spInline { width: 100%; min-width: 0; }
-.spInline .spCard { width: 100%; }
+.spInline .spCard { width: min(100%, 440px); }
 
 .spCard {
   position: relative;
   isolation: isolate;
-  width: min(100%, 560px);
+  width: min(100%, 440px);
   height: 122px;
   margin-inline: auto;
   overflow: hidden;
@@ -2934,7 +2934,7 @@
   top: 0;
   right: 0;
   bottom: 0;
-  width: 58%;
+  width: min(58%, 228px);
   overflow: hidden;
   -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 34%);
   mask-image: linear-gradient(90deg, transparent 0, #000 34%);

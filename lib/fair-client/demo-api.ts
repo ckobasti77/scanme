@@ -7,7 +7,7 @@ const ratings = new Map<string, FairRatingState>();
 export function fairDemoRequest<T>(path: string, body: unknown): FairResult<T> | null {
   if (!body || typeof body !== "object") return null;
   const data = body as Record<string, unknown>;
-  if (!isFairDemoId(data.eventModelId) && !isFairDemoId(data.eventSlug)) return null;
+  if (!isFairDemoId(data.eventModelId) && !isFairDemoId(data.eventSlug) && !isFairDemoId(data.surveyId)) return null;
   const model = FAIR_DEMO_MODELS.find((item) => item.id === data.eventModelId);
   let value: unknown;
   if (path === "/api/fair/model-state" && model) {
@@ -21,7 +21,7 @@ export function fairDemoRequest<T>(path: string, body: unknown): FairResult<T> |
     ratings.set(model.id, value as FairRatingState);
   } else if (path === "/api/fair/lead" && model) {
     value = { eventModelId: model.id, kind: data.kind, submittedAt: Date.now(), duplicate: false, confirmationEmail: false, followUpScheduled: false };
-  } else if (path === "/api/fair/survey" && model) {
+  } else if (path === "/api/fair/survey" && (model || data.surveyId === "demo-survey")) {
     value = { surveyId: "demo-survey", version: 1, submittedAt: Date.now(), duplicate: false };
   } else return { ok: false, code: "SERVICE_UNAVAILABLE" };
   return { ok: true, value: value as T };

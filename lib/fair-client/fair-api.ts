@@ -11,7 +11,7 @@ import type { FairMyModelState, FairResult } from "@/lib/fair-contract";
 export async function postFair<T>(path: string, body: unknown): Promise<FairResult<T>> {
   if (body && typeof body === "object") {
     const data = body as Record<string, unknown>;
-    if ((typeof data.eventModelId === "string" && data.eventModelId.startsWith("demo-model-")) || data.eventSlug === "demo-auto-moto-fest-2026") {
+    if ((typeof data.eventModelId === "string" && data.eventModelId.startsWith("demo-model-")) || data.eventSlug === "demo-auto-moto-fest-2026" || data.surveyId === "demo-survey") {
       const { fairDemoRequest } = await import("./demo-api");
       return fairDemoRequest<T>(path, body) ?? { ok: false, code: "SERVICE_UNAVAILABLE" };
     }

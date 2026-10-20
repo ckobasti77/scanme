@@ -23,8 +23,8 @@ test("every stand receives the same slow peak, duration and total heat per loop"
     expect(demoHeatAt(order, start).get(key)).toBe(0);
     expect(demoHeatAt(order, start + DEMO_HEAT_PULSE_MS / 2).get(key)).toBeCloseTo(1);
     expect(demoHeatAt(order, start + DEMO_HEAT_PULSE_MS).get(key)).toBe(0);
-    expect(totals.get(key)).toBeCloseTo(totals.get(order[0])!, 8);
-    expect(demoHeatAt(order, start + 1000).get(key)).toBeLessThan(.06);
+    expect(totals.get(key)).toBeCloseTo(totals.get(order[0])!, 6);
+    expect(demoHeatAt(order, start + 350).get(key)).toBeLessThan(.06);
   }
 });
 
@@ -34,7 +34,7 @@ test("several staggered breaths overlap smoothly, including across the loop seam
     const current = demoHeatAt(keys, time);
     const next = demoHeatAt(keys, time + 200);
     expect([...current.values()].filter(value => value > .4).length).toBeGreaterThanOrEqual(3);
-    for (const key of keys) expect(Math.abs(next.get(key)! - current.get(key)!)).toBeLessThan(.05);
+    for (const key of keys) expect(Math.abs(next.get(key)! - current.get(key)!)).toBeLessThan(.15);
   }
   expect(demoHeatAt(keys, cycle)).toEqual(demoHeatAt(keys, 0));
 });

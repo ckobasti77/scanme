@@ -105,12 +105,25 @@ export function PrelaunchFairBanner() {
 
         <ul className={styles.fairEvents}>
           {dict.fair.events.map((event, position) => {
-            const state = position === eventIndex ? kind : undefined;
+            const state =
+              position === eventIndex
+                ? kind
+                : kind === "ended" || (eventIndex >= 0 && position < eventIndex)
+                  ? "ended"
+                  : undefined;
+            const statusText =
+              state === "live"
+                ? dict.fair.status.live
+                : state === "ended"
+                  ? dict.fair.status.ended
+                  : null;
             const content = (
               <>
-                <strong>{event.shortDate}</strong>
+                <div className={styles.fairEventTop}>
+                  <strong>{event.shortDate}</strong>
+                  {statusText ? <small className={styles.fairEventState}>{statusText}</small> : null}
+                </div>
                 <span>{event.name}</span>
-                {state === "live" ? <small className={styles.fairEventState}>{dict.fair.status.live}</small> : null}
               </>
             );
             return (
@@ -118,7 +131,7 @@ export function PrelaunchFairBanner() {
                 {/* Sajam koji je u toku vodi na digitalni sajam, kao i CTA. */}
                 {state === "live" ? (
                   <Link
-                    href="/sajam"
+                    href="/sajam/auto-moto-fest-2026"
                     prefetch={false}
                     className={`${styles.fairEvent} focus-signal`}
                     data-state={state}
@@ -136,8 +149,7 @@ export function PrelaunchFairBanner() {
           })}
         </ul>
 
-        {/* /sajam vraća 307 na sajam koji je u toku (app/sajam/route.ts). */}
-        <Link href="/sajam" prefetch={false} className={`${styles.fairCta} button-primary focus-signal`}>
+        <Link href="/sajam/auto-moto-fest-2026" prefetch={false} className={`${styles.fairCta} button-primary focus-signal`}>
           {dict.fair.cta}
           <ArrowRight aria-hidden="true" className="size-4" strokeWidth={1.75} />
         </Link>

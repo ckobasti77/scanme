@@ -11,12 +11,16 @@ const EVENT_DEFINITIONS = [
     fallbackId: "elektromobilnost-2026",
     fallbackTitle: dict.electromobilityTitle,
     fallbackDates: dict.electromobilityDates,
+    fallbackStartsAt: Date.parse("2026-10-09T10:00:00+02:00"),
+    fallbackEndsAt: Date.parse("2026-10-11T20:00:00+02:00"),
   },
   {
     publicSlug: "auto-moto-fest-2026",
     fallbackId: "auto-moto-fest-2026",
     fallbackTitle: dict.autoMotoTitle,
     fallbackDates: dict.autoMotoDates,
+    fallbackStartsAt: Date.parse("2026-10-30T10:00:00+01:00"),
+    fallbackEndsAt: Date.parse("2026-11-01T20:00:00+01:00"),
   },
 ] as const;
 
@@ -121,12 +125,15 @@ export async function loadFairGarageEvents(): Promise<FairGarageEventView[]> {
 /** Public slug of the event an event-less fair URL redirects to. */
 export async function loadFairActiveEventSlug(now = Date.now()): Promise<string> {
   const events = await Promise.all(
-    visibleDefinitions().map(async (definition) => ({
-      publicSlug: definition.publicSlug,
-      event: await loadEvent(definition.publicSlug),
-    })),
+    EVENT_DEFINITIONS.map(async (definition) => {
+      const loaded = await loadEvent(definition.publicSlug);
+      return {
+        publicSlug: definition.publicSlug,
+        event: loaded ?? { startsAt: definition.fallbackStartsAt, endsAt: definition.fallbackEndsAt },
+      };
+    }),
   );
-  return fairNavigationEvent(events.sort(byEventOrder), now)?.publicSlug ?? "elektromobilnost-2026";
+  return fairNavigationEvent(events.sort(byEventOrder), now)?.publicSlug ?? "auto-moto-fest-2026";
 }
 
 /** DEV design check only: published models shown as the garage recommendation when no snapshot exists. */

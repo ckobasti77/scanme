@@ -1,5 +1,5 @@
-export const DEMO_HEAT_PULSE_MS = 14000;
-export const DEMO_HEAT_STAGGER_MS = 1800;
+export const DEMO_HEAT_PULSE_MS = 4800;
+export const DEMO_HEAT_STAGGER_MS = 600;
 
 /** Shuffle once per viewing: every stand gets one identical breath per loop. */
 export function demoHeatOrder(keys: readonly string[], random = Math.random): string[] {

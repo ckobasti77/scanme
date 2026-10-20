@@ -138,4 +138,9 @@ export const fairMapSr = {
   heatEmptyHint: "Boje se pojavljuju kad posetioci počnu da skeniraju modele.",
   heatError: "Gužva trenutno nije dostupna.",
   heatRetry: "Pokušaj ponovo",
+  upcomingEyebrow: "Auto Moto Fest 2026 · Hala Čair, Niš",
+  upcomingTitle: "Vidimo se uskoro",
+  upcomingDates: "30. oktobar – 1. novembar 2026.",
+  upcomingBody: "Digitalna sajamska aplikacija postaje aktivna sa početkom sajma 30. oktobra.",
+  upcomingBackHome: "Nazad na početnu",
 } as const satisfies FairMapDict;
