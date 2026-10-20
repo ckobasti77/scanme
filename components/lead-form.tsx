@@ -1,9 +1,9 @@
 "use client";
 
 import { ConvexError } from "convex/values";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useMutation } from "convex/react";
-import { Check, ChevronDown, LoaderCircle } from "lucide-react";
+import { Check, LoaderCircle } from "lucide-react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { Input } from "@/components/ui/input";
@@ -61,6 +61,39 @@ export type LeadFormGeneralCopy = {
   successBody: string;
 };
 
+const BUSINESS_TYPES = [
+  "Kafić ili restoran",
+  "Salon ili studio",
+  "Prodavnica",
+  "Klub ili prostor za događaje",
+  "Uslužni biznis",
+  "Drugo",
+] as const;
+
+/**
+ * Visina sadržaja se menja animirano (greška servera, prelaz na potvrdu), da
+ * ništa u opštoj formi ne skače. Unutrašnji okvir je za 8 px širi sa svih
+ * strana, pa `overflow: hidden` ne seče fokus prstenove.
+ */
+function AutoHeight({ children }: { children: ReactNode }) {
+  const innerRef = useRef<HTMLDivElement>(null);
+  const [height, setHeight] = useState<number | null>(null);
+
+  useEffect(() => {
+    const inner = innerRef.current;
+    if (!inner) return;
+    const observer = new ResizeObserver(() => setHeight(inner.offsetHeight));
+    observer.observe(inner);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <div className={styles.autoHeight} style={height === null ? undefined : { height }}>
+      <div ref={innerRef}>{children}</div>
+    </div>
+  );
+}
+
 const initialValues: FormValues = {
   contactName: "",
   businessName: "",
@@ -82,11 +115,11 @@ function validate(values: FormValues): FieldErrors {
   const email = values.email.trim();
   const phone = values.phone.trim();
   if (!email && !phone) {
-    errors.phone = "Unesite telefon ili imejl.";
-    errors.email = "Unesite imejl ili telefon.";
+    errors.phone = "Unesite telefon ili email.";
+    errors.email = "Unesite email ili telefon.";
   } else {
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      errors.email = "Unesite ispravnu imejl adresu.";
+      errors.email = "Unesite ispravnu email adresu.";
     }
     if (phone && phone.replace(/\D/g, "").length < 7) {
       errors.phone = "Unesite ispravan broj telefona.";
@@ -182,7 +215,8 @@ export function LeadForm({
     }
 
     setStatus("pending");
-    setServerError("");
+    // Opšta forma zadržava poslednju poruku dok se okvir greške animirano skuplja.
+    if (!generalCopy) setServerError("");
     submissionId.current ??= crypto.randomUUID();
     const chosen = generalCopy?.services.filter((option) => services.includes(option.value)) ?? [];
     const interest = generalCopy
@@ -244,11 +278,11 @@ export function LeadForm({
   };
 
   if (status === "success") {
-    return (
+    const success = (
       <div
         className={
           generalCopy
-            ? "flex min-h-[320px] flex-col justify-between"
+            ? `flex min-h-[320px] flex-col justify-between ${styles.fadeIn}`
             : "flex min-h-[420px] flex-col justify-between border border-primary p-6 sm:p-8"
         }
         aria-live="polite"
@@ -263,11 +297,12 @@ export function LeadForm({
             {generalCopy?.successTitle ?? "Zahtev je sačuvan."}
           </h3>
           <p className="mt-3 max-w-[42ch] leading-7 text-foreground/66">
-            {generalCopy?.successBody ?? "Hvala. Javićemo se preko telefona ili imejla koji ste ostavili."}
+            {generalCopy?.successBody ?? "Hvala. Javićemo se preko telefona ili emaila koji ste ostavili."}
           </p>
         </div>
       </div>
     );
+    return generalCopy ? <AutoHeight>{success}</AutoHeight> : success;
   }
 
   // Opšta forma: polja sa linijom ispod (lead-form.module.css). Klasična ostaje ista.
@@ -286,14 +321,23 @@ export function LeadForm({
       </p>
     ) : null;
 
-  return (
+  const form = (
     <form
       noValidate
       onSubmit={handleSubmit}
       className={generalCopy ? `grid gap-5 ${styles.form}` : "grid gap-5"}
       aria-label={generalCopy?.formAria ?? "Zahtev za ScanMe ponudu"}
     >
-      {status === "error" ? (
+      {generalCopy ? (
+        // Uvek u DOM-u; otvara se i zatvara animirano (visina i razmak ispod).
+        <div className={styles.banner} data-open={status === "error" ? "true" : "false"} aria-hidden={status !== "error"}>
+          <div className={styles.bannerInner}>
+            <div className="border border-destructive bg-destructive/10 p-4 text-sm leading-6 text-destructive" role="alert">
+              {status === "error" ? serverError : ""}
+            </div>
+          </div>
+        </div>
+      ) : status === "error" ? (
         <div className="border border-destructive bg-destructive/10 p-4 text-sm leading-6 text-destructive" role="alert">
           {serverError}
         </div>
@@ -336,7 +380,29 @@ export function LeadForm({
       <div className="grid gap-5 sm:grid-cols-2">
         <div className={field}>
           <Label htmlFor="businessType">Tip biznisa *</Label>
-          <div className={generalCopy ? styles.selectWrap : undefined}>
+          {generalCopy ? (
+            <Select
+              name="businessType"
+              value={values.businessType}
+              onValueChange={(value) => update("businessType", value)}
+            >
+              <SelectTrigger
+                id="businessType"
+                aria-invalid={Boolean(errors.businessType)}
+                aria-describedby={errors.businessType ? "businessType-error" : undefined}
+                className={styles.selectTrigger}
+              >
+                <SelectValue placeholder="Izaberite" />
+              </SelectTrigger>
+              <SelectContent position="popper" sideOffset={6} className={styles.selectContent}>
+                {BUSINESS_TYPES.map((type) => (
+                  <SelectItem key={type} value={type} className={styles.selectItem}>
+                    {type}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : (
             <select
               id="businessType"
               name="businessType"
@@ -345,23 +411,16 @@ export function LeadForm({
               onBlur={() => validateOnBlur("businessType")}
               aria-invalid={Boolean(errors.businessType)}
               aria-describedby={errors.businessType ? "businessType-error" : undefined}
-              data-empty={values.businessType ? undefined : "true"}
-              className={
-                generalCopy
-                  ? `${styles.line} ${styles.select}`
-                  : "form-control h-12 w-full appearance-none px-3 text-base"
-              }
+              className="form-control h-12 w-full appearance-none px-3 text-base"
             >
               <option value="">Izaberite</option>
-              <option value="Kafić ili restoran">Kafić ili restoran</option>
-              <option value="Salon ili studio">Salon ili studio</option>
-              <option value="Prodavnica">Prodavnica</option>
-              <option value="Klub ili prostor za događaje">Klub ili prostor za događaje</option>
-              <option value="Uslužni biznis">Uslužni biznis</option>
-              <option value="Drugo">Drugo</option>
+              {BUSINESS_TYPES.map((type) => (
+                <option key={type} value={type}>
+                  {type}
+                </option>
+              ))}
             </select>
-            {generalCopy ? <ChevronDown aria-hidden="true" className={styles.chevron} strokeWidth={1.75} /> : null}
-          </div>
+          )}
           {errorFor("businessType")}
         </div>
 
@@ -395,7 +454,7 @@ export function LeadForm({
 
       <fieldset className="grid gap-3">
         <legend className="text-sm font-medium">Kontakt *</legend>
-        <p className="text-sm leading-5 text-foreground/56">Dovoljan je telefon ili imejl.</p>
+        <p className="text-sm leading-5 text-foreground/56">Dovoljan je telefon ili email.</p>
         <div className="grid gap-5 sm:grid-cols-2">
           <div className={field}>
             <Label htmlFor="phone">Telefon</Label>
@@ -415,7 +474,7 @@ export function LeadForm({
             {errorFor("phone")}
           </div>
           <div className={field}>
-            <Label htmlFor="email">Imejl</Label>
+            <Label htmlFor="email">Email</Label>
             <Input
               id="email"
               name="email"
@@ -457,14 +516,16 @@ export function LeadForm({
                   onClick={() => toggleService(option.value)}
                   className={`focus-signal ${styles.chip}`}
                 >
-                  <Check aria-hidden="true" className={styles.chipCheck} strokeWidth={2.25} />
-                  {option.label}
-                  {option.tag ? (
-                    <>
-                      <span className="sr-only">, </span>
-                      <span className={styles.chipTag}>{option.tag}</span>
-                    </>
-                  ) : null}
+                  <Check aria-hidden="true" className={styles.chipCheck} strokeWidth={2.5} />
+                  <span className={styles.chipLabel}>
+                    {option.label}
+                    {option.tag ? (
+                      <>
+                        <span className="sr-only">, </span>
+                        <span className={styles.chipTag}>{option.tag}</span>
+                      </>
+                    ) : null}
+                  </span>
                 </button>
               );
             })}
@@ -579,4 +640,6 @@ export function LeadForm({
       </button>
     </form>
   );
+
+  return generalCopy ? <AutoHeight>{form}</AutoHeight> : form;
 }

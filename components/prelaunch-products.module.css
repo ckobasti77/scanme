@@ -1,8 +1,8 @@
 /* #proizvodi — promo view of the physical products in the /ponuda
    configurator's language (scene photo, glass product strip, product on the
    scene). The scene has /ponuda's geometry (height, image framing, tone) and
-   the product is /ponuda's preview with its own size, position and shadows —
-   no landing overrides. Phone: strip, scene with the product, short copy.
+   the product is /ponuda's preview with its own size and shadows; the
+   sticker and the film sit in the middle of the table / glass. Phone: strip, scene with the product, short copy.
    1024 px: strip on the left, product in the middle, copy and CTA on the
    right (where /ponuda has its sidebar), so nothing covers the product. Motion is transform/opacity (+ a short blur on the product);
    reduced motion shows every state at once. */
@@ -202,6 +202,15 @@
   pointer-events: none;
 }
 
+/* Sticker and film are stuck to the middle of the table / glass, not low
+   on it (/ponuda's `bottom`); horizontal position and size stay /ponuda's. */
+.objectLayer:is([data-product="stickers"], [data-product="window-film"]) > * {
+  top: 50%;
+  bottom: auto;
+  transform: translate(-50%, -50%) scale(var(--product-scale));
+  transform-origin: center;
+}
+
 /* ----------------------------------------------------------------- copy */
 
 .copy {
@@ -332,7 +341,6 @@
   .tone {
     background:
       linear-gradient(90deg, rgb(249 245 239 / 0.68) 0%, rgb(249 245 239 / 0.34) 17%, transparent 42%),
-      linear-gradient(270deg, rgb(249 245 239 / 0.42) 0%, transparent 24%),
       linear-gradient(0deg, rgb(44 31 23 / 0.14), transparent 42%),
       rgb(255 244 238 / 0.04);
   }
@@ -413,27 +421,21 @@
 
   .copy > * { pointer-events: auto; }
 
-  .copyStack { position: relative; }
+  /* Glass card behind the copy (same language as the product strip): plain
+     readable text on every scene. */
+  .copyStack {
+    border: 1px solid rgb(255 255 255 / 0.6);
+    border-radius: calc(var(--button-radius) * 1.5);
+    background: rgb(250 246 240 / 0.82);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.7),
+      0 14px 34px -22px rgb(54 38 28 / 0.45);
+    -webkit-backdrop-filter: blur(14px) saturate(120%);
+    backdrop-filter: blur(14px) saturate(120%);
+    padding: 1.1rem 1.25rem 1.2rem;
+  }
 
   .cta { margin-top: auto; }
-
-  /* A soft light pool behind the copy keeps it readable on any scene. */
-  .copyStack::before {
-    position: absolute;
-    z-index: -1;
-    inset: 0.4rem -0.5rem -0.8rem 0.6rem;
-    border-radius: 48% 42% 46% 38%;
-    background: radial-gradient(
-      ellipse at 34% 40%,
-      rgb(250 246 240 / 0.92) 0%,
-      rgb(250 246 240 / 0.7) 46%,
-      rgb(250 246 240 / 0.28) 68%,
-      transparent 84%
-    );
-    content: "";
-    filter: blur(14px);
-    pointer-events: none;
-  }
 
   .title {
     font-size: clamp(1.75rem, 2.3vw, 2.35rem);
@@ -452,7 +454,6 @@
   :global(html[data-theme="dark"]) .tone {
     background:
       linear-gradient(90deg, rgb(18 21 19 / 0.76), rgb(18 21 19 / 0.24) 30%, transparent 56%),
-      linear-gradient(270deg, rgb(18 21 19 / 0.5), transparent 26%),
       linear-gradient(0deg, rgb(10 12 11 / 0.36), transparent 48%);
   }
 
@@ -465,14 +466,12 @@
     color: #f1f3ed;
   }
 
-  :global(html[data-theme="dark"]) .copyStack::before {
-    background: radial-gradient(
-      ellipse at 34% 40%,
-      rgb(18 21 19 / 0.9) 0%,
-      rgb(18 21 19 / 0.7) 46%,
-      rgb(18 21 19 / 0.28) 68%,
-      transparent 84%
-    );
+  :global(html[data-theme="dark"]) .copyStack {
+    border-color: rgb(241 243 237 / 0.12);
+    background: rgb(20 23 21 / 0.8);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.08),
+      0 14px 34px -22px rgb(0 0 0 / 0.6);
   }
 
   :global(html[data-theme="dark"]) .subtitle {

@@ -20,8 +20,8 @@ import styles from "./prelaunch-products.module.css";
 // #proizvodi — the /ponuda configurator as a promo view: the product strip,
 // the scene and the product on it, its name and "Najbolje za". No prices,
 // quantities or settings; one CTA leads to the contact form. The product is
-// /ponuda's own preview (same scene, size, position and shadows, no landing
-// overrides), carrying the approved client designs.
+// /ponuda's own preview (same scene, size and shadows; sticker and film are
+// centred on the table / glass), carrying the approved client designs.
 
 type ShowcaseId = Exclude<ProductId, "premium-engraved-stand">;
 

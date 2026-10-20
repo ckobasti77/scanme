@@ -1,6 +1,8 @@
 /* Opšta kontakt forma (javni landing, LeadForm sa generalCopy): polja sa
-   linijom ispod, jasan fokus (deblja zelena linija i zelena oznaka), select sa
-   vidljivom strelicom i „Zanima me“ kao čipovi sa višestrukim izborom.
+   linijom ispod, jasan fokus (deblja zelena linija i zelena oznaka), padajući
+   meni u stilu sajta (uokviren, animiran) i „Zanima me“ kao čipovi sa
+   višestrukim izborom. Ništa ne skače: čipovi imaju stalnu širinu, a greška
+   servera i prelaz na potvrdu menjaju visinu animirano.
    Nesloženi (unlayered) stilovi modula idu preko Tailwind klasa iz
    components/ui; klasična forma (#ponuda) ih ne koristi. */
 
@@ -67,43 +69,113 @@
   box-shadow: inset 0 -1px 0 var(--destructive);
 }
 
-.selectWrap {
-  position: relative;
-}
+/* ------------------------------------------------- padajući meni (Radix) */
 
-.select {
-  appearance: none;
-  padding-right: 2rem;
+.selectTrigger {
+  display: flex;
+  width: 100%;
+  min-height: 3rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: var(--button-radius);
+  background: color-mix(in srgb, var(--card) 45%, transparent);
+  box-shadow: none;
+  padding: 0 0.9rem;
+  color: var(--foreground);
+  font-size: 1rem;
+  line-height: 1.4;
   cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease,
+    box-shadow 160ms ease;
 }
 
-.select[data-empty="true"] {
+.selectTrigger:hover {
+  border-color: var(--line-hover);
+  background: color-mix(in srgb, var(--card) 80%, transparent);
+}
+
+.selectTrigger:focus-visible,
+.selectTrigger[data-state="open"] {
+  border-color: var(--line-focus);
+  outline: none;
+  box-shadow: inset 0 0 0 1px var(--line-focus);
+}
+
+.selectTrigger[data-placeholder] {
   color: color-mix(in srgb, var(--foreground) 56%, transparent);
 }
 
-.select option {
-  background: var(--popover);
-  color: var(--popover-foreground);
+.selectTrigger[aria-invalid="true"] {
+  border-color: var(--destructive);
 }
 
-.chevron {
-  position: absolute;
-  top: 50%;
-  right: 0.15rem;
+.selectTrigger svg {
   width: 1.1rem;
   height: 1.1rem;
   color: color-mix(in srgb, var(--foreground) 70%, transparent);
-  pointer-events: none;
-  transform: translateY(-50%);
-  transition: color 160ms ease;
+  opacity: 1;
+  transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1), color 160ms ease;
 }
 
-.selectWrap:focus-within .chevron {
+.selectTrigger[data-state="open"] svg {
+  color: var(--accent-text);
+  transform: rotate(180deg);
+}
+
+.selectContent {
+  border: 1px solid color-mix(in srgb, var(--foreground) 14%, transparent);
+  border-radius: var(--button-radius);
+  background: var(--popover);
+  box-shadow: 0 22px 44px -24px rgb(0 0 0 / 0.38);
+  color: var(--popover-foreground);
+  transform-origin: var(--radix-select-content-transform-origin);
+}
+
+.selectContent[data-state="open"] {
+  animation: select-open 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.selectContent[data-state="closed"] {
+  animation: select-close 140ms ease-in forwards;
+}
+
+.selectItem {
+  min-height: 2.75rem;
+  border-radius: calc(var(--button-radius) - 0.15rem);
+  padding: 0.6rem 0.9rem 0.6rem 2.3rem;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+
+.selectItem > span:first-child {
+  left: 0.85rem;
   color: var(--accent-text);
 }
 
-/* Poruka: vrlo diskretan okvir, jer sama linija ispod velikog praznog
-   prostora ne izgleda kao polje. */
+.selectItem[data-highlighted] {
+  background: color-mix(in srgb, var(--primary) 18%, transparent);
+  color: var(--foreground);
+}
+
+.selectItem[data-state="checked"] {
+  font-weight: 600;
+}
+
+@keyframes select-open {
+  from { opacity: 0; transform: translateY(-6px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes select-close {
+  from { opacity: 1; transform: none; }
+  to { opacity: 0; transform: translateY(-4px) scale(0.98); }
+}
+
 .textarea {
   min-height: 7.5rem;
   border: 1px solid var(--line);
@@ -144,11 +216,14 @@
   margin-top: 0.45rem;
 }
 
+/* Stalna širina: izbor ne menja raspored. Kvačica se pojavi u levom razmaku,
+   a natpis se pomeri transformom (ne utiče na raspored), pa se ništa ne
+   pomera i ne prelazi u novi red. */
 .chip {
+  position: relative;
   display: inline-flex;
   min-height: 2.75rem;
   align-items: center;
-  gap: 0.45rem;
   border: 1px solid color-mix(in srgb, var(--foreground) 24%, transparent);
   background: color-mix(in srgb, var(--card) 40%, transparent);
   padding: 0 1rem;
@@ -158,13 +233,14 @@
   line-height: 1;
   cursor: pointer;
   transition:
-    background-color 160ms ease,
-    border-color 160ms ease,
-    color 160ms ease;
+    background-color 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease;
 }
 
 .chip:hover {
   border-color: color-mix(in srgb, var(--foreground) 50%, transparent);
+  background: color-mix(in srgb, var(--card) 85%, transparent);
 }
 
 .chip[aria-pressed="true"] {
@@ -178,19 +254,37 @@
   background: var(--primary-hover);
 }
 
-/* Kvačica rezerviše mesto samo kad je čip izabran. */
 .chipCheck {
-  display: none;
-  width: 0.95rem;
-  height: 0.95rem;
-  margin-left: -0.15rem;
+  position: absolute;
+  top: 50%;
+  left: 0.5rem;
+  width: 0.75rem;
+  height: 0.75rem;
+  margin-top: -0.375rem;
+  opacity: 0;
+  transform: scale(0.4);
+  transition:
+    opacity 180ms ease,
+    transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .chip[aria-pressed="true"] .chipCheck {
-  display: block;
+  opacity: 1;
+  transform: none;
+}
+
+.chipLabel {
+  display: inline-flex;
+  align-items: center;
+  transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.chip[aria-pressed="true"] .chipLabel {
+  transform: translateX(0.5rem);
 }
 
 .chipTag {
+  margin-left: 0.45rem;
   border: 1px solid currentColor;
   border-radius: 999px;
   padding: 0.2rem 0.4rem;
@@ -204,11 +298,66 @@
   border-color: var(--destructive);
 }
 
+/* ------------------------------------------------- animirane promene visine */
+
+/* Greška servera: uvek u DOM-u; otvaranje animira visinu (0fr → 1fr) i
+   razmak ispod (poništava gap forme dok je zatvorena). */
+.banner {
+  display: grid;
+  grid-template-rows: 0fr;
+  margin-bottom: -1.25rem;
+  opacity: 0;
+  transition:
+    grid-template-rows 260ms cubic-bezier(0.22, 1, 0.36, 1),
+    margin 260ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 200ms ease;
+}
+
+.banner[data-open="true"] {
+  grid-template-rows: 1fr;
+  margin-bottom: 0;
+  opacity: 1;
+}
+
+.bannerInner {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.autoHeight {
+  box-sizing: content-box;
+  margin: -8px;
+  overflow: hidden;
+  padding: 8px;
+  transition: height 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.fadeIn {
+  animation: lead-fade-in 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes lead-fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .line,
   .chip,
-  .chevron,
+  .chipCheck,
+  .chipLabel,
+  .selectTrigger,
+  .selectTrigger svg,
+  .selectItem,
+  .banner,
+  .autoHeight,
   .field label {
     transition: none;
+  }
+
+  .selectContent[data-state="open"],
+  .selectContent[data-state="closed"],
+  .fadeIn {
+    animation: none;
   }
 }
