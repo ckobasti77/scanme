@@ -3,7 +3,7 @@
 import { ConvexError } from "convex/values";
 import { useEffect, useRef, useState } from "react";
 import { useMutation } from "convex/react";
-import { Check, LoaderCircle } from "lucide-react";
+import { Check, ChevronDown, LoaderCircle } from "lucide-react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { Input } from "@/components/ui/input";
@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { readOfferLogoSession } from "@/lib/offer-logo-session";
+import styles from "./lead-form.module.css";
 
 type FormValues = {
   contactName: string;
@@ -34,15 +35,18 @@ type FieldName = keyof FormValues;
 type FieldErrors = Partial<Record<FieldName, string>>;
 
 /**
- * Opšta ScanMe kontakt forma (javni landing). Bez ovog propa forma je ista kao
- * u klasičnom #ponuda toku. Argumenti leads.create se ne menjaju: usluga bez
- * tačne `interest` vrednosti šalje "not_sure", a prvi red poruke je
- * „<interestLinePrefix> <messageLabel>“.
+ * Opšta ScanMe kontakt forma (javni landing): polja sa linijom ispod i
+ * „Zanima me“ kao višestruki izbor (čipovi). Bez ovog propa forma je ista kao
+ * u klasičnom #ponuda toku. Argumenti leads.create se ne menjaju (`interest`
+ * je jedna vrednost): izbor koji sadrži ScanMe Review šalje "review", ostali
+ * "not_sure", a kad izbor nije samo Review ili „Nisam siguran/na“, prvi red
+ * poruke je „<interestLinePrefix> <usluga>, <usluga>“.
  */
 export type LeadFormGeneralCopy = {
   formAria: string;
   cityLabel: string;
-  interestAria: string;
+  interestHint: string;
+  interestRequired: string;
   interestLinePrefix: string;
   services: ReadonlyArray<{
     value: string;
@@ -51,7 +55,6 @@ export type LeadFormGeneralCopy = {
     tag?: string;
     messageLabel?: string;
   }>;
-  defaultService: string;
   submit: string;
   submitting: string;
   successTitle: string;
@@ -111,13 +114,13 @@ export function LeadForm({
     ...(generalCopy ? { city: "" } : {}),
     message: initialMessage,
   }));
-  const [service, setService] = useState(generalCopy?.defaultService ?? "");
+  const [services, setServices] = useState<string[]>([]);
   const successHeadingRef = useRef<HTMLHeadingElement>(null);
-  // Prvi red „Zanima me: <usluga>“ ulazi u isto ograničenje od 5000 znakova na serveru.
+  // Prvi red „Zanima me: <usluge>“ ulazi u isto ograničenje od 5000 znakova na serveru.
   const messageMaxLength = generalCopy
     ? 5000 -
       (generalCopy.interestLinePrefix.length +
-        Math.max(0, ...generalCopy.services.map((option) => option.messageLabel?.length ?? 0)) +
+        generalCopy.services.reduce((total, option) => total + (option.messageLabel ?? option.label).length + 2, 0) +
         3)
     : 5000;
   const [errors, setErrors] = useState<FieldErrors>({});
@@ -142,6 +145,16 @@ export function LeadForm({
     }
   };
 
+  // „Nisam siguran/na“ isključuje usluge i obrnuto; ostalo se pali i gasi.
+  const toggleService = (value: string) => {
+    setServices((current) => {
+      if (current.includes(value)) return current.filter((item) => item !== value);
+      if (value === "not_sure") return [value];
+      return [...current.filter((item) => item !== "not_sure"), value];
+    });
+    if (errors.interest) setErrors((current) => ({ ...current, interest: undefined }));
+  };
+
   const validateOnBlur = (field: FieldName) => {
     const next = validate(values);
     if (field === "email" || field === "phone") {
@@ -160,6 +173,7 @@ export function LeadForm({
     if (status === "pending") return;
 
     const nextErrors = validate(values);
+    if (generalCopy && services.length === 0) nextErrors.interest = generalCopy.interestRequired;
     setErrors(nextErrors);
     const firstInvalid = Object.keys(nextErrors)[0] as FieldName | undefined;
     if (firstInvalid) {
@@ -170,10 +184,19 @@ export function LeadForm({
     setStatus("pending");
     setServerError("");
     submissionId.current ??= crypto.randomUUID();
-    const serviceOption = generalCopy?.services.find((option) => option.value === service);
-    const interest = serviceOption?.interest ?? values.interest;
-    const message = serviceOption?.messageLabel
-      ? [`${generalCopy?.interestLinePrefix} ${serviceOption.messageLabel}`, values.message.trim()]
+    const chosen = generalCopy?.services.filter((option) => services.includes(option.value)) ?? [];
+    const interest = generalCopy
+      ? chosen.some((option) => option.interest === "review")
+        ? "review"
+        : "not_sure"
+      : values.interest;
+    // Usluge bez tačne `interest` vrednosti (ili više njih) idu u prvi red poruke.
+    const listed = chosen.filter((option) => option.value !== "not_sure");
+    const message = listed.some((option) => option.messageLabel)
+      ? [
+          `${generalCopy?.interestLinePrefix} ${listed.map((option) => option.messageLabel ?? option.label).join(", ")}`,
+          values.message.trim(),
+        ]
           .filter(Boolean)
           .join("\n\n")
       : values.message;
@@ -247,6 +270,10 @@ export function LeadForm({
     );
   }
 
+  // Opšta forma: polja sa linijom ispod (lead-form.module.css). Klasična ostaje ista.
+  const control = generalCopy ? styles.line : "form-control";
+  const field = generalCopy ? `form-field ${styles.field}` : "form-field";
+
   // Opšta forma drži mesto za poruku o grešci, pa poruka ne pomera polja.
   const errorFor = (field: FieldName) =>
     generalCopy ? (
@@ -260,7 +287,12 @@ export function LeadForm({
     ) : null;
 
   return (
-    <form noValidate onSubmit={handleSubmit} className="grid gap-5" aria-label={generalCopy?.formAria ?? "Zahtev za ScanMe ponudu"}>
+    <form
+      noValidate
+      onSubmit={handleSubmit}
+      className={generalCopy ? `grid gap-5 ${styles.form}` : "grid gap-5"}
+      aria-label={generalCopy?.formAria ?? "Zahtev za ScanMe ponudu"}
+    >
       {status === "error" ? (
         <div className="border border-destructive bg-destructive/10 p-4 text-sm leading-6 text-destructive" role="alert">
           {serverError}
@@ -268,7 +300,7 @@ export function LeadForm({
       ) : null}
 
       <div className="grid gap-5 sm:grid-cols-2">
-        <div className="form-field">
+        <div className={field}>
           <Label htmlFor="contactName">Ime i prezime *</Label>
           <Input
             id="contactName"
@@ -279,12 +311,12 @@ export function LeadForm({
             onBlur={() => validateOnBlur("contactName")}
             aria-invalid={Boolean(errors.contactName)}
             aria-describedby={errors.contactName ? "contactName-error" : undefined}
-            className="form-control"
+            className={control}
           />
           {errorFor("contactName")}
         </div>
 
-        <div className="form-field">
+        <div className={field}>
           <Label htmlFor="businessName">Naziv biznisa *</Label>
           <Input
             id="businessName"
@@ -295,37 +327,45 @@ export function LeadForm({
             onBlur={() => validateOnBlur("businessName")}
             aria-invalid={Boolean(errors.businessName)}
             aria-describedby={errors.businessName ? "businessName-error" : undefined}
-            className="form-control"
+            className={control}
           />
           {errorFor("businessName")}
         </div>
       </div>
 
       <div className="grid gap-5 sm:grid-cols-2">
-        <div className="form-field">
+        <div className={field}>
           <Label htmlFor="businessType">Tip biznisa *</Label>
-          <select
-            id="businessType"
-            name="businessType"
-            value={values.businessType}
-            onChange={(event) => update("businessType", event.target.value)}
-            onBlur={() => validateOnBlur("businessType")}
-            aria-invalid={Boolean(errors.businessType)}
-            aria-describedby={errors.businessType ? "businessType-error" : undefined}
-            className="form-control h-12 w-full appearance-none px-3 text-base"
-          >
-            <option value="">Izaberite</option>
-            <option value="Kafić ili restoran">Kafić ili restoran</option>
-            <option value="Salon ili studio">Salon ili studio</option>
-            <option value="Prodavnica">Prodavnica</option>
-            <option value="Klub ili prostor za događaje">Klub ili prostor za događaje</option>
-            <option value="Uslužni biznis">Uslužni biznis</option>
-            <option value="Drugo">Drugo</option>
-          </select>
+          <div className={generalCopy ? styles.selectWrap : undefined}>
+            <select
+              id="businessType"
+              name="businessType"
+              value={values.businessType}
+              onChange={(event) => update("businessType", event.target.value)}
+              onBlur={() => validateOnBlur("businessType")}
+              aria-invalid={Boolean(errors.businessType)}
+              aria-describedby={errors.businessType ? "businessType-error" : undefined}
+              data-empty={values.businessType ? undefined : "true"}
+              className={
+                generalCopy
+                  ? `${styles.line} ${styles.select}`
+                  : "form-control h-12 w-full appearance-none px-3 text-base"
+              }
+            >
+              <option value="">Izaberite</option>
+              <option value="Kafić ili restoran">Kafić ili restoran</option>
+              <option value="Salon ili studio">Salon ili studio</option>
+              <option value="Prodavnica">Prodavnica</option>
+              <option value="Klub ili prostor za događaje">Klub ili prostor za događaje</option>
+              <option value="Uslužni biznis">Uslužni biznis</option>
+              <option value="Drugo">Drugo</option>
+            </select>
+            {generalCopy ? <ChevronDown aria-hidden="true" className={styles.chevron} strokeWidth={1.75} /> : null}
+          </div>
           {errorFor("businessType")}
         </div>
 
-        <div className="form-field">
+        <div className={field}>
           <Label htmlFor="city">{generalCopy?.cityLabel ?? "Grad"}</Label>
           {generalCopy ? (
             <Input
@@ -335,7 +375,7 @@ export function LeadForm({
               maxLength={80}
               value={values.city}
               onChange={(event) => update("city", event.target.value)}
-              className="form-control"
+              className={control}
             />
           ) : (
             <select
@@ -357,7 +397,7 @@ export function LeadForm({
         <legend className="text-sm font-medium">Kontakt *</legend>
         <p className="text-sm leading-5 text-foreground/56">Dovoljan je telefon ili imejl.</p>
         <div className="grid gap-5 sm:grid-cols-2">
-          <div className="form-field">
+          <div className={field}>
             <Label htmlFor="phone">Telefon</Label>
             <Input
               id="phone"
@@ -370,11 +410,11 @@ export function LeadForm({
               onBlur={() => validateOnBlur("phone")}
               aria-invalid={Boolean(errors.phone)}
               aria-describedby={errors.phone ? "phone-error" : undefined}
-              className="form-control"
+              className={control}
             />
             {errorFor("phone")}
           </div>
-          <div className="form-field">
+          <div className={field}>
             <Label htmlFor="email">Imejl</Label>
             <Input
               id="email"
@@ -387,47 +427,53 @@ export function LeadForm({
               onBlur={() => validateOnBlur("email")}
               aria-invalid={Boolean(errors.email)}
               aria-describedby={errors.email ? "email-error" : undefined}
-              className="form-control"
+              className={control}
             />
             {errorFor("email")}
           </div>
         </div>
       </fieldset>
 
-      <div className="form-field">
-        <Label htmlFor="interest">Zanima me *</Label>
-        {generalCopy ? (
-          <Select name="interest" value={service} onValueChange={setService}>
-            <SelectTrigger
-              id="interest"
-              className="form-control h-12 w-full px-3 text-base"
-              aria-label={generalCopy.interestAria}
-            >
-              <SelectValue>
-                {generalCopy.services.find((option) => option.value === service)?.label}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent className="rounded-[var(--button-radius)] border-border bg-popover p-0 shadow-none">
-              {generalCopy.services.map((option) => (
-                <SelectItem
+      {generalCopy ? (
+        <div className={field}>
+          <p id="interest-label" className={styles.groupLabel}>
+            Zanima me *<span className={styles.groupHint}>{generalCopy.interestHint}</span>
+          </p>
+          <div
+            role="group"
+            aria-labelledby="interest-label"
+            aria-describedby={errors.interest ? "interest-error" : undefined}
+            data-invalid={errors.interest ? "true" : undefined}
+            className={styles.chips}
+          >
+            {generalCopy.services.map((option, index) => {
+              const pressed = services.includes(option.value);
+              return (
+                <button
                   key={option.value}
-                  value={option.value}
-                  className={`min-h-11 rounded-none pl-9 ${option.tag ? "pr-24" : "pr-3"}`}
+                  id={index === 0 ? "interest" : undefined}
+                  type="button"
+                  aria-pressed={pressed}
+                  onClick={() => toggleService(option.value)}
+                  className={`focus-signal ${styles.chip}`}
                 >
+                  <Check aria-hidden="true" className={styles.chipCheck} strokeWidth={2.25} />
                   {option.label}
                   {option.tag ? (
                     <>
                       <span className="sr-only">, </span>
-                      <span className="absolute right-3 text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                        {option.tag}
-                      </span>
+                      <span className={styles.chipTag}>{option.tag}</span>
                     </>
                   ) : null}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        ) : (
+                </button>
+              );
+            })}
+          </div>
+          {errorFor("interest")}
+        </div>
+      ) : (
+      <div className={field}>
+        <Label htmlFor="interest">Zanima me *</Label>
         <Select
           name="interest"
           value={values.interest}
@@ -489,10 +535,10 @@ export function LeadForm({
             </SelectItem>
           </SelectContent>
         </Select>
-        )}
       </div>
+      )}
 
-      <div className="form-field">
+      <div className={field}>
         <Label htmlFor="message">Poruka</Label>
         <Textarea
           id="message"
@@ -501,7 +547,7 @@ export function LeadForm({
           maxLength={messageMaxLength}
           value={values.message}
           onChange={(event) => update("message", event.target.value)}
-          className="form-control min-h-32 resize-y"
+          className={generalCopy ? `${styles.line} ${styles.textarea}` : "form-control min-h-32 resize-y"}
         />
       </div>
 

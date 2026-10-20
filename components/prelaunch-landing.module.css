@@ -630,13 +630,16 @@ html[data-theme="dark"] .fairEvents { --fair-shine: rgb(255 255 255 / 0.95); }
   text-decoration: underline;
   text-underline-offset: 0.3em;
 }
+/* Mek panel oko forme sa linijskim poljima (components/lead-form.module.css). */
 .contactFormFrame {
   min-width: 0;
-  border: 1px solid color-mix(in srgb, var(--foreground) 14%, transparent);
-  border-radius: var(--button-radius);
-  background: color-mix(in srgb, var(--card) 72%, transparent);
-  box-shadow: inset 0 1px 0 var(--nav-glass-inner);
-  padding: clamp(1.15rem, 4vw, 2.25rem);
+  border: 1px solid color-mix(in srgb, var(--foreground) 9%, transparent);
+  border-radius: calc(var(--button-radius) * 2);
+  background: color-mix(in srgb, var(--card) 62%, transparent);
+  box-shadow:
+    inset 0 1px 0 var(--nav-glass-inner),
+    0 24px 48px -36px rgb(0 0 0 / 0.28);
+  padding: clamp(1.25rem, 4vw, 2.75rem);
 }
 
 .footer { border-top: 1px solid color-mix(in srgb, var(--foreground) 10%, transparent); background: var(--landing-footer-surface); padding-block: 2rem 1.25rem; }

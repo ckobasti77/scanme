@@ -115,8 +115,10 @@ export interface PrelaunchDict {
     form: {
       formAria: string;
       cityLabel: string;
-      interestAria: string;
-      /** Prvi red poruke za uslugu bez tačne `interest` vrednosti. */
+      /** Ispod oznake „Zanima me“: može više usluga. */
+      interestHint: string;
+      interestRequired: string;
+      /** Prvi red poruke kad izbor nije samo usluga sa tačnom `interest` vrednošću. */
       interestLinePrefix: string;
       services: Array<{
         value: string;
@@ -125,7 +127,6 @@ export interface PrelaunchDict {
         tag?: string;
         messageLabel?: string;
       }>;
-      defaultService: string;
       submit: string;
       submitting: string;
       successTitle: string;
@@ -311,7 +312,8 @@ export const prelaunchSr: PrelaunchDict = {
     form: {
       formAria: "Upit za ScanMe",
       cityLabel: "Grad",
-      interestAria: "Zanima me",
+      interestHint: "Možete izabrati više.",
+      interestRequired: "Izaberite bar jednu uslugu.",
       interestLinePrefix: "Zanima me:",
       services: [
         { value: "links", label: "ScanMe Links", interest: "not_sure", messageLabel: "ScanMe Links" },
@@ -319,7 +321,6 @@ export const prelaunchSr: PrelaunchDict = {
         { value: "menu", label: "ScanMe Meni", interest: "not_sure", tag: "Uskoro", messageLabel: "ScanMe Meni" },
         { value: "not_sure", label: "Nisam siguran/na", interest: "not_sure" },
       ],
-      defaultService: "not_sure",
       submit: "Pošalji upit",
       submitting: "Šaljemo upit...",
       successTitle: "Upit je poslat.",
