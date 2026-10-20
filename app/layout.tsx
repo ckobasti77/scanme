@@ -21,6 +21,7 @@ import "@fontsource/libre-baskerville/700.css";
 import "@fontsource-variable/space-grotesk";
 import "@fontsource-variable/archivo";
 import { ConvexAuthNextjsServerProvider } from "@convex-dev/auth/nextjs/server";
+import { Analytics } from "@vercel/analytics/next";
 import { ConvexClientProvider } from "./convex-client-provider";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { TextRevealGlobal } from "@/components/text-reveal-global";
@@ -72,6 +73,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           <ConvexClientProvider>{children}</ConvexClientProvider>
         </ConvexAuthNextjsServerProvider>
         <Toaster />
+        <Analytics />
       </body>
     </html>
   );
