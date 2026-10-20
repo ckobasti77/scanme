@@ -3,7 +3,7 @@ import type { FairExhibitorRegistrationDict } from "../types";
 export const fairExhibitorRegistrationSr = {
   title: "Prijava izlagača",
   intro: "Upišite modele za koje želite ScanMe i izaberite paket za svaki.",
-  deadline: "Prijave do 26. oktobra 2026. u 12 h",
+  deadline: "Prijave do 23. oktobra u 17h",
   event: "ScanMe × Auto Moto Fest 2026",
   back: "Pogledajte demo aplikacije",
   company: "Naziv firme", contact: "Ime i prezime", contactHeading: "Vaš kontakt",

@@ -118,11 +118,18 @@ export function ExhibitorRegistration({ dict }: { dict: FairExhibitorRegistratio
 
   return <main className={styles.main}>
     <header className={styles.header}>
-      <p className={styles.brand}>{dict.event}</p>
-      <p className={styles.deadline}>{dict.deadline}</p>
-      <h1>{dict.title}</h1>
-      <p>{dict.intro}</p>
-      <Link href="/sajam/demo-auto-moto-fest-2026">{dict.back}<ArrowUpRight size={16} aria-hidden="true" /></Link>
+      <div className={styles.headerTop}>
+        <div className={styles.headerMeta}>
+          <p className={styles.brand}>{dict.event}</p>
+          <span className={styles.metaDot} aria-hidden="true">·</span>
+          <p className={styles.deadline}>{dict.deadline}</p>
+        </div>
+        <Link href="/sajam/demo-auto-moto-fest-2026">{dict.back}<ArrowUpRight size={16} aria-hidden="true" /></Link>
+      </div>
+      <div className={styles.headerMain}>
+        <h1>{dict.title}</h1>
+        <p className={styles.intro}>{dict.intro}</p>
+      </div>
     </header>
     {status === "success" ? <section className={styles.success} role="status" tabIndex={-1} ref={(node) => node?.focus()}>
       <CheckCircle2 size={36} aria-hidden="true" /><h2>{dict.success}</h2><p>{dict.successBody}</p>
@@ -137,14 +144,19 @@ export function ExhibitorRegistration({ dict }: { dict: FairExhibitorRegistratio
       });
     }}>
       <fieldset disabled={status === "pending"} className={styles.fields}>
-        <h2 className={`${styles.contactTitle} ${styles.wide}`}>{dict.contactHeading}</h2>
-        <div className={styles.wide}><Label htmlFor="businessName">{dict.company} {requiredMark}</Label><Input id="businessName" name="businessName" autoComplete="organization" required minLength={2} maxLength={120} {...errorProps("businessName")} />{fieldError("businessName")}</div>
-        <div className={styles.wide}><Label htmlFor="contactName">{dict.contact} {requiredMark}</Label><Input id="contactName" name="contactName" autoComplete="name" required minLength={2} maxLength={100} {...errorProps("contactName")} />{fieldError("contactName")}</div>
-        <p className={`${styles.contactHint} ${styles.wide}`} id="contact-hint">{requiredMark} {dict.contactHint}</p>
+        <div className={`${styles.sectionHead} ${styles.wide}`}>
+          <h2 className={styles.contactTitle}>{dict.contactHeading}</h2>
+          <p className={styles.contactHint} id="contact-hint">{requiredMark} {dict.contactHint}</p>
+        </div>
+        <div><Label htmlFor="businessName">{dict.company} {requiredMark}</Label><Input id="businessName" name="businessName" autoComplete="organization" required minLength={2} maxLength={120} {...errorProps("businessName")} />{fieldError("businessName")}</div>
+        <div><Label htmlFor="contactName">{dict.contact} {requiredMark}</Label><Input id="contactName" name="contactName" autoComplete="name" required minLength={2} maxLength={100} {...errorProps("contactName")} />{fieldError("contactName")}</div>
         <div><Label htmlFor="phone">{dict.phone}</Label><Input id="phone" name="phone" type="tel" autoComplete="tel" value={phone} onChange={(event) => setPhone(event.target.value)} required={!email.trim()} maxLength={40} {...errorProps("phone")} aria-describedby={`contact-hint${fieldErrors.phone ? " phone-error" : ""}`} />{fieldError("phone")}</div>
         <div><Label htmlFor="email">{dict.email}</Label><Input id="email" name="email" type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} required={!phone.trim()} maxLength={160} {...errorProps("email")} aria-describedby={`contact-hint${fieldErrors.email ? " email-error" : ""}`} />{fieldError("email")}</div>
         <section className={`${styles.vehicleList} ${styles.wide}`} aria-labelledby="vehicles-title">
-          <h2 id="vehicles-title">{dict.vehicles}</h2>
+          <div className={styles.sectionHead}>
+            <h2 id="vehicles-title">{dict.vehicles}</h2>
+            <p className={styles.packageNote}>{dict.packageNote}</p>
+          </div>
           <AnimatePresence initial={false}>
           {vehicles.map((vehicle, index) => <VehicleReveal key={vehicle.id} reducedMotion={reducedMotion}>
           <fieldset className={styles.vehicle}>
@@ -168,13 +180,14 @@ export function ExhibitorRegistration({ dict }: { dict: FairExhibitorRegistratio
             {(index < vehicles.length - 1 || vehicle.package) && <button type="button" className={styles.remove} onClick={() => removeVehicle(vehicle.id, index)} aria-label={fmt(dict.removeVehicle, { number: index + 1 })}><X size={18} aria-hidden="true" /></button>}
           </fieldset></VehicleReveal>)}
           </AnimatePresence>
-          <p>{dict.packageNote}</p>
         </section>
         <div hidden aria-hidden="true"><label htmlFor="website">{dict.honeypot}</label><input id="website" name="website" tabIndex={-1} autoComplete="off" /></div>
       </fieldset>
-      <p className={styles.privacy}>{dict.privacy}</p>
-      {error && <p role="alert" className={styles.error}>{error}</p>}
-      <button className={styles.submit} disabled={status === "pending"} type="submit">{status === "pending" && <LoaderCircle size={18} aria-hidden="true" />}{status === "pending" ? dict.pending : dict.submit}</button>
+      <div className={styles.formFooter}>
+        <p className={styles.privacy}>{dict.privacy}</p>
+        {error && <p role="alert" className={styles.error}>{error}</p>}
+        <button className={styles.submit} disabled={status === "pending"} type="submit">{status === "pending" && <LoaderCircle size={18} aria-hidden="true" />}{status === "pending" ? dict.pending : dict.submit}</button>
+      </div>
     </form>}
   </main>;
 }
