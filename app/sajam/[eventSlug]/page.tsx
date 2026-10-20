@@ -83,6 +83,7 @@ export default async function FairEventMapPage({
   }
 
   const startsAt = event?.startsAt ?? AUTO_MOTO_FEST_STARTS_AT;
+  // eslint-disable-next-line react-hooks/purity -- async server component: the lock is decided once per request
   if (eventSlug === "auto-moto-fest-2026" && Date.now() < startsAt) {
     return (
       <div

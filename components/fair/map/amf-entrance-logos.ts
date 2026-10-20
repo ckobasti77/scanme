@@ -1,40 +1,34 @@
-import aodes from "./brand-assets/aodes.jpg";
-import autoHappy from "./brand-assets/auto-happy.jpg";
-import amerikanac from "./brand-assets/amerikanac.jpg";
-import benni from "./brand-assets/benni.jpg";
-import goes from "./brand-assets/goes.jpg";
-import kia from "./brand-assets/kia.jpg";
-import nm from "./brand-assets/nm-stomatologija.jpg";
-import servoremont from "./brand-assets/servoremont.jpg";
-import swm from "./brand-assets/swm.jpg";
-
-const transparent = (name: string) => `/sajam/izlagaci/2026/providni/${name}.webp`;
+// Entrance-zone logos for the AMF map, pre-baked to the map's monochrome look
+// (black + alpha, crops included) by scripts/fair/bake-map-logos.mjs. They are
+// plain <img> with no CSS filter or mix-blend-mode: iOS Safari did not paint
+// filtered/blended map labels reliably.
+import aodes from "./brand-assets/map/aodes.png";
+import amerikanac from "./brand-assets/map/amerikanac.png";
+import aster from "./brand-assets/map/aster.png";
+import autoHappy from "./brand-assets/map/auto-happy.png";
+import benni from "./brand-assets/map/benni.png";
+import detailing from "./brand-assets/map/detailing.png";
+import direkcija from "./brand-assets/map/direkcija.png";
+import goes from "./brand-assets/map/goes.png";
+import kia from "./brand-assets/map/kia.png";
+import kostic from "./brand-assets/map/kostic.png";
+import nm from "./brand-assets/map/nm.png";
+import parking from "./brand-assets/map/parking.png";
+import servoremont from "./brand-assets/map/servoremont.png";
+import swm from "./brand-assets/map/swm.png";
+import ton from "./brand-assets/map/ton.png";
+import xtreme from "./brand-assets/map/xtreme.png";
+import zepter from "./brand-assets/map/zepter.png";
 
 export const amfEntranceLogos = {
-  aster: transparent("aster-marketing"),
-  zepter: transparent("zepter"),
-  detailing: transparent("detailing-store"),
-  kostic: transparent("kostic-rent-a-car"),
-  direkcija: transparent("jkp-direkcija-za-javni-prevoz"),
-  ton: transparent("turisticka-organizacija-nis"),
-  parking: transparent("jkp-parking-servis-nis"),
-  xtreme: "/fair/izlagaci/2026/xtreme-motors.jpg",
+  aster, zepter, detailing, kostic, direkcija, ton, parking, xtreme,
   aodes, amerikanac, benni, goes, kia, nm, servoremont, swm,
   "auto-happy-foyer": autoHappy,
   "auto-happy-outdoor": autoHappy,
 };
 
-// Crop the presentation viewport, not the original artwork: padded square JPGs
-// otherwise reduce long wordmarks to a few pixels on a phone.
-export const amfEntranceLogoCrops = {
-  servoremont: { width: 300, height: 300, box: [12, 122, 278, 48] },
-  swm: { width: 300, height: 300, box: [0, 122, 300, 56] },
-  kia: { width: 301, height: 301, box: [3, 112, 294, 77] },
-  aodes: { width: 300, height: 300, box: [0, 55, 300, 190] },
-  "auto-happy-foyer": { width: 301, height: 301, box: [10, 75, 286, 140] },
-  "auto-happy-outdoor": { width: 301, height: 301, box: [10, 75, 286, 140] },
-  benni: { width: 300, height: 300, box: [6, 15, 286, 273] },
-  nm: { width: 301, height: 301, box: [6, 16, 290, 250] },
-  goes: { width: 301, height: 301, box: [19, 55, 264, 197] },
-  xtreme: { width: 301, height: 301, box: [16, 22, 272, 260] },
-} as const;
+// Formerly cropped in an <svg viewBox> (the crop is now baked in): they keep the
+// crop's sizing — full width, natural height — instead of the 60 % height box.
+export const amfEntranceCroppedLogos: ReadonlySet<string> = new Set([
+  "servoremont", "swm", "kia", "aodes", "auto-happy-foyer", "auto-happy-outdoor", "benni", "nm", "goes", "xtreme",
+]);

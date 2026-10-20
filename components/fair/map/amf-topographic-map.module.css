@@ -115,7 +115,13 @@
 .entranceText { fill: var(--topo-ink); font-size: 34px; font-weight: 750; text-transform: uppercase; letter-spacing: 1px; }
 .summit { cursor: pointer; outline: none; }
 .focusRing { fill: transparent; stroke: transparent; stroke-width: 3; stroke-dasharray: 6 5; }
-.brandFrame { mix-blend-mode: multiply; }
+/* HTML label layer over the drawing (amf-topographic-canvas.tsx), no
+   foreignObject, no filters inside SVG and no mix-blend-mode: iOS Safari did
+   not paint the labels. Boxes are percentages of the drawing. */
+.labels { position: absolute; inset: 0; pointer-events: none; }
+.brandFrame,
+.completedFrame,
+.labels > .entranceLabel { position: absolute; }
 .summit[data-selected="true"] .focusRing,
 .summit:focus-visible .focusRing { stroke: var(--topo-orange); stroke-width: 4; stroke-dasharray: 6 5; }
 .brand { display: flex; width: 100%; height: 100%; flex-direction: column; align-items: center; justify-content: center; gap: calc(10px * var(--summit-scale, 1)); color: var(--topo-ink); text-align: center; }
@@ -123,12 +129,15 @@
 .brand > .vespaLogo { width: calc(136px * var(--summit-scale, 1)); height: calc(52px * var(--summit-scale, 1)); max-width: 100%; }
 .brand > img { width: calc(90px * var(--summit-scale, 1)); height: calc(65px * var(--summit-scale, 1)); max-width: 100%; object-fit: contain; filter: brightness(0) saturate(0); opacity: 0.88; }
 .brand > img[data-demo-logo] { filter: none; }
+/* Logos with the monochrome look baked in (scripts/fair/bake-map-logos.mjs). */
+.brand > img[data-baked] { filter: none; opacity: 1; }
 .brand > .wideHallLogo { flex-shrink: 0; width: calc(120px * var(--summit-scale, 1)); height: calc(70px * var(--summit-scale, 1)); max-width: 100%; }
 .brand[data-mark="ford"] > .wideHallLogo { width: calc(140px * var(--summit-scale, 1)); }
 .brand[data-mark="audi"] > .wideHallLogo { width: calc(128px * var(--summit-scale, 1)); }
 .brand[data-mark="opel"] > .wideHallLogo { width: calc(108px * var(--summit-scale, 1)); }
-.brand > .entranceLogo { width: 100%; min-height: 0; flex: 0 1 auto; height: auto; max-height: 100%; object-fit: contain; filter: grayscale(1) contrast(1.15); mix-blend-mode: multiply; opacity: 1; overflow: hidden; }
-.brand > img.entranceLogo { flex: 1 1 0; height: 60%; }
+.brand > .entranceLogo { width: 100%; min-height: 0; flex: 0 1 auto; height: auto; max-height: 100%; object-fit: contain; opacity: 1; overflow: hidden; }
+.brand > .entranceLogo:not([data-baked]) { filter: grayscale(1) contrast(1.15); }
+.brand > img.entranceLogo:where(:not([data-crop])) { flex: 1 1 0; height: 60%; }
 .brand[data-area] { gap: 4px; overflow: hidden; }
 .brand[data-mark="parking"] { flex-direction: row; gap: 10px; }
 .brand[data-mark="parking"] > .entranceLogo { flex: 0 0 64px; width: 64px; height: 100%; }
@@ -137,10 +146,11 @@
 .brand[data-mark="amerikanac"] .entranceName { font-size: 22px; }
 .scanmeLogo { --wordmark-ink: var(--topo-ink); --wordmark-accent: var(--fair-scanme, #6fc05d); max-width: 100%; }
 .maketeName { font-size: 32px; font-weight: 750; line-height: 1.1; }
-.lukacLogo { font-family: Georgia, serif; font-size: 42px; font-style: italic; font-weight: 700; line-height: 1.1; }
-.entranceLabel { display: flex; align-items: center; justify-content: center; gap: 10px; height: 100%; color: var(--topo-ink); background: transparent; font-size: 34px; font-weight: 750; text-transform: uppercase; }
+.lukacLogo { font-family: Georgia, serif; font-size: 38px; font-style: italic; font-weight: 700; line-height: 1.1; }
+.entranceLabel { display: flex; align-items: center; justify-content: center; gap: 10px; color: var(--topo-ink); background: transparent; font-size: 34px; font-weight: 750; text-transform: uppercase; }
 .entranceLabel svg { width: 28px; height: 64px; flex: 0 0 28px; fill: none; stroke: var(--topo-orange); stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
-.brand > .motorcycleLogo { width: calc(120px * var(--summit-scale, 1)); height: calc(90px * var(--summit-scale, 1)); filter: grayscale(1) contrast(1.3); mix-blend-mode: multiply; opacity: 0.95; }
+.brand > .motorcycleLogo { width: calc(120px * var(--summit-scale, 1)); height: calc(90px * var(--summit-scale, 1)); }
+.brand > .motorcycleLogo:not([data-baked]) { filter: grayscale(1) contrast(1.3); opacity: 0.95; }
 .brand[data-mark="motogrini"] > .motorcycleLogo { width: calc(145px * var(--summit-scale, 1)); }
 .brand[data-mark="tvs"] > .motorcycleLogo { width: calc(170px * var(--summit-scale, 1)); filter: brightness(0); }
 .brand[data-mark="piaggio"] > .motorcycleLogo { width: calc(125px * var(--summit-scale, 1)); }

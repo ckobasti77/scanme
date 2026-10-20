@@ -32,6 +32,7 @@ export default async function FairGaragePage({
   const [{ eventSlug }, query] = await Promise.all([params, searchParams]);
   const definition = fairGarageDefinition(eventSlug);
   if (!definition) notFound();
+  // eslint-disable-next-line react-hooks/purity -- async server component: the lock is decided once per request
   if (eventSlug === "auto-moto-fest-2026" && Date.now() < definition.fallbackStartsAt) {
     redirect(`/sajam/${eventSlug}`);
   }

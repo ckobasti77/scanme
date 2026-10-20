@@ -109,7 +109,7 @@ try {
     if (height > 520) { assert.equal(layout.scroll, false, `page scroll ${width}x${height}`); assert.ok(layout.sponsorBottom <= height + 1); }
     await page.waitForFunction(() => [...document.querySelectorAll('[data-moto="true"] img')].every(img => img.complete && img.naturalWidth > 0));
     const brands = await page.evaluate(() => {
-      const bounds = (key) => document.querySelector(`[data-brand="${key}"] foreignObject`).getBoundingClientRect().toJSON();
+      const bounds = (key) => document.querySelector(`[data-label="${key}"]`).getBoundingClientRect().toJSON();
       return { dongfeng: bounds("dongfeng"), bank: bounds("raiffeisen"), mercedes: bounds("mercedes"), lotos: bounds("lotos"), vidovdan: bounds("vidovdan"), mercedesMark: document.querySelector('[data-mark="mercedes"] > :is(svg,img)').getBoundingClientRect().width, vwMark: document.querySelector('[data-mark="vw"] > :is(svg,img)').getBoundingClientRect().width };
     });
     assert.ok(brands.dongfeng.bottom < brands.bank.top, `Dongfeng/Raiffeisen labels clear at ${width}x${height}`);
@@ -151,7 +151,7 @@ try {
     await page.screenshot({ path: join(output, `selected-${width}x${height}.png`) });
     if (width < 900) {
       for (const [key, name] of [["vw", "Volkswagen"], ["audi", "Audi"]]) {
-        const mark = await page.locator(`[data-brand="${key}"] foreignObject`).first().boundingBox();
+        const mark = await page.locator(`[data-label="${key}"]`).first().boundingBox();
         await page.touchscreen.tap(mark.x + mark.width / 2, mark.y + mark.height / 2);
         await page.getByRole("dialog", { name, exact: true }).waitFor();
       }
@@ -171,7 +171,7 @@ try {
     await page.getByRole("button", { name: "Zatvori detalje štanda", exact: true }).click();
     for (const key of ["motogrini", "tvs", "vespa", "aprilia", "piaggio", "honda-moto"]) {
       const mark = page.locator(`[data-brand="${key}"]`);
-      const box = await mark.locator("foreignObject").boundingBox();
+      const box = await page.locator(`[data-label="${key}"]`).boundingBox();
       if (width < 900) await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2);
       else await mark.press("Enter");
       await page.getByRole("dialog").waitFor();
@@ -189,7 +189,7 @@ try {
         const inside = (x, y) => { const p = new DOMPoint(x, y).matrixTransform(inverse); return ctx.isPointInPath(path, p.x, p.y); };
         const fit = document.querySelector('[data-amf-canvas] button').getBoundingClientRect();
         return { width: rect.width / box.width, height: rect.height / box.height, labels: ["auto1", "honda-car"].map((key) => {
-          const label = document.querySelector(`[data-brand="${key}"] foreignObject`).getBoundingClientRect();
+          const label = document.querySelector(`[data-label="${key}"]`).getBoundingClientRect();
           return { key, inside: [[label.left,label.top],[label.right,label.top],[label.left,label.bottom],[label.right,label.bottom]].every(([x,y]) => inside(x,y)), covered: label.left < fit.right && label.right > fit.left && label.top < fit.bottom && label.bottom > fit.top };
         }) };
       });
@@ -226,9 +226,9 @@ try {
     for (const key of ["aodes", "xtreme", "auto-happy-outdoor", "swm", "kia"]) {
       assert.equal(await page.locator(`[data-exhibit="${key}"] :is(polygon,rect)`).count(), 0, `${key} has contours, no rectangular outline`);
       assert.equal(await page.locator(`[data-exhibit="${key}"] path`).count(), 6);
-      const stand = await page.locator(`[data-brand="${key}"] foreignObject`).boundingBox();
+      const stand = await page.locator(`[data-label="${key}"]`).boundingBox();
       assert.ok(stand.x > entrance.x + entrance.width, `${key} is entirely right of the entrance`);
-      const mark = page.locator(`[data-brand="${key}"] [data-entrance-logo]`);
+      const mark = page.locator(`[data-mark="${key}"] [data-entrance-logo]`);
       assert.equal(await mark.evaluate((image) => getComputedStyle(image).objectFit), "contain", `${key} logo retains its aspect ratio`);
       const artwork = await mark.boundingBox();
       const summit = await page.locator(`[data-exhibit="${key}"] path:last-child`).boundingBox();
@@ -236,17 +236,29 @@ try {
       // difference between the anchor and the contour's bounding-box center.
       assert.ok(Math.abs(artwork.x + artwork.width / 2 - summit.x - summit.width / 2) < summit.width * 0.05, `${key} logo is centered on the contour horizontally`);
       assert.ok(Math.abs(artwork.y + artwork.height / 2 - summit.y - summit.height / 2) < summit.height * 0.05, `${key} logo is centered on the contour vertically`);
-      const logo = await page.locator(`[data-brand="${key}"] foreignObject`).boundingBox();
+      const logo = await page.locator(`[data-label="${key}"]`).boundingBox();
       const canvas = await page.locator("[data-amf-canvas]").boundingBox();
       assert.ok(logo.x >= canvas.x && logo.x + logo.width <= canvas.x + canvas.width && logo.y >= canvas.y && logo.y + logo.height <= canvas.y + canvas.height, `${key} logo frame is entirely visible`);
     }
     const benni = await page.locator('[data-exhibit="benni"] > polygon').boundingBox();
     assert.ok(benni.x > entrance.x + entrance.width, "Benni leaves the entrance opening free");
-    const entranceMarks = await page.evaluate(() => [...document.querySelectorAll('[data-brand][data-area], [data-brand]:has([data-area])')].map(element => {
-      const frame = element.querySelector('foreignObject').getBoundingClientRect();
+    const entranceMarks = await page.evaluate(() => [...document.querySelectorAll('[data-amf-labels] [data-mark][data-area]')].map(mark => {
+      const element = document.querySelector(`[data-brand="${mark.dataset.mark}"]`);
+      const frame = mark.parentElement.getBoundingClientRect();
       const ring = element.querySelector('ellipse').getBoundingClientRect();
-      const ellipseContains = [...element.querySelector('[data-area]').children].every(child => {
+      // The visible part of each child: contain-fitted artwork, text line boxes.
+      const visible = (child) => {
         const box = child.getBoundingClientRect();
+        if (child instanceof HTMLImageElement && child.naturalWidth) {
+          const fit = Math.min(box.width / child.naturalWidth, box.height / child.naturalHeight);
+          const width = child.naturalWidth * fit, height = child.naturalHeight * fit;
+          return { left: box.left + (box.width - width) / 2, right: box.left + (box.width + width) / 2, top: box.top + (box.height - height) / 2, bottom: box.top + (box.height + height) / 2 };
+        }
+        if (!child.childElementCount && child.textContent.trim()) { const range = document.createRange(); range.selectNodeContents(child); return range.getBoundingClientRect(); }
+        return box;
+      };
+      const ellipseContains = [...mark.children].every(child => {
+        const box = visible(child);
         return [[box.left,box.top],[box.right,box.top],[box.left,box.bottom],[box.right,box.bottom]].every(([x,y]) => ((x-(ring.x+ring.width/2))/(ring.width/2))**2 + ((y-(ring.y+ring.height/2))/(ring.height/2))**2 <= 1.02);
       });
       const label = element.querySelector('[class*="entranceName"]');
@@ -265,14 +277,14 @@ try {
     assert.equal(await page.locator('[data-mark="makete"] :is(img,image)').count(), 0, 'Makete has no miniature car logo');
     assert.equal(await page.locator('[data-mark="makete"]').textContent(), 'Makete');
     if (width === 1280) {
-      const benniLogo = await page.locator('[data-brand="benni"] foreignObject').boundingBox();
+      const benniLogo = await page.locator('[data-label="benni"]').boundingBox();
       await page.mouse.move(benniLogo.x+benniLogo.width/2,benniLogo.y+benniLogo.height/2);
       assert.notEqual(await page.locator('[data-brand="benni"] ellipse').evaluate(e=>getComputedStyle(e).strokeDasharray), 'none', 'hover is dashed too');
     }
     for (const key of ["scanme", "aster", "benni", "servoremont", "parking", "direkcija", "goes", "aodes", "xtreme", "swm", "kia", "auto-happy-outdoor"]) {
       const mark = page.locator(`[data-brand="${key}"]`);
       if (width < 900) {
-        const box = await mark.locator("foreignObject").boundingBox();
+        const box = await page.locator(`[data-label="${key}"]`).boundingBox();
         await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2);
       } else await mark.press("Enter");
       await page.getByRole("dialog").waitFor();

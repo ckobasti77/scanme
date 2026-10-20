@@ -3,19 +3,20 @@
 import { motion, useMotionValue, useTransform } from "framer-motion";
 import { Check, Maximize2 } from "lucide-react";
 import { siAudi, siDacia, siFord, siOpel, siVespa } from "simple-icons";
-import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from "react";
+import { Fragment, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from "react";
 import { fairMapClamp, fairMapFit, fairMapLimits, fairMapZoomAt, type FairMapSize, type FairMapViewport, type FairMapZoneId } from "@/lib/fair-map";
 import { AMF_TOPOGRAPHIC_HALL, AMF_TOPOGRAPHIC_SIZE, amfTopographicPopupPosition, amfTopographicSize, fairMapContourOpacity, fairMapContourPath, hitAmfTopographicExhibit, type AmfTopographicExhibit } from "@/lib/fair-map/topography";
 import { FairBrandMark } from "../garage/fair-brand-mark";
 import Image from "next/image";
 import { amfMapSr as dict } from "./amf-map-copy";
 import styles from "./amf-topographic-map.module.css";
-import hondaMotoLogo from "./brand-assets/honda-moto.jpg";
-import motogriniLogo from "./brand-assets/motogrini.jpg";
-import piaggioLogo from "./brand-assets/piaggio.webp";
+// Monochrome look baked into the raster logos (scripts/fair/bake-map-logos.mjs).
+import hondaMotoLogo from "./brand-assets/map/honda-moto.png";
+import motogriniLogo from "./brand-assets/map/motogrini.png";
+import piaggioLogo from "./brand-assets/map/piaggio.png";
 import tvsLogo from "./brand-assets/tvs.svg";
-import apriliaLogo from "./brand-assets/aprilia.jpg";
-import { amfEntranceLogos, amfEntranceLogoCrops } from "./amf-entrance-logos";
+import apriliaLogo from "./brand-assets/map/aprilia.png";
+import { amfEntranceCroppedLogos, amfEntranceLogos } from "./amf-entrance-logos";
 import { amfEntrancePoint, AMF_ENTRANCE_PLAN, AMF_ENTRANCE_SIZE, AMF_FORECOURT_SCALE } from "@/lib/fair-map/amf-entrance-plan";
 import { BrandLogo } from "@/components/brand-logo";
 
@@ -25,6 +26,16 @@ const ENTRANCE_FOYER = AMF_ENTRANCE_PLAN.foyer.map((point, i) => `${i ? "L" : "M
 const ENTRANCE_STAIRS = amfEntrancePoint([AMF_ENTRANCE_PLAN.stairs.x, AMF_ENTRANCE_PLAN.stairs.y]);
 const OUTSIDE_STEPS = amfEntrancePoint([AMF_ENTRANCE_PLAN.outsideSteps.x, AMF_ENTRANCE_PLAN.outsideSteps.y]);
 const ENTRANCE_LABEL = amfEntrancePoint([252.5, 835]);
+
+/** A drawing-space box as percentages of the drawing, for the HTML label layer. */
+function percentBox(box: { x: number; y: number; width: number; height: number }, content: FairMapSize): CSSProperties {
+  return {
+    left: `${(box.x / content.width) * 100}%`,
+    top: `${(box.y / content.height) * 100}%`,
+    width: `${(box.width / content.width) * 100}%`,
+    height: `${(box.height / content.height) * 100}%`,
+  };
+}
 
 const motorcycleLogos = {
   "honda-moto": hondaMotoLogo,
@@ -63,14 +74,14 @@ function Brand({ item }: { item: AmfTopographicExhibit }) {
     if (item.key === "scanme") return <BrandLogo className={styles.scanmeLogo} width="100%" />;
     if (item.key === "lukac") return <span className={styles.lukacLogo}>{item.name}</span>;
     if (item.key === "makete") return <span className={styles.maketeName}>{item.name}</span>;
-    const logo = amfEntranceLogos[item.key as keyof typeof amfEntranceLogos] ?? item.logoUrl;
-    const crop = amfEntranceLogoCrops[item.key as keyof typeof amfEntranceLogoCrops];
+    const baked = amfEntranceLogos[item.key as keyof typeof amfEntranceLogos];
+    const logo = baked ?? item.logoUrl;
     const caption = dict.entranceCaptions[item.key as keyof typeof dict.entranceCaptions] ?? item.name;
     const needsCaption = !logo || ["direkcija", "ton", "parking"].includes(item.key);
-    return <>{logo ? crop ? <svg className={styles.entranceLogo} data-entrance-logo="" viewBox={crop.box.join(" ")} width={crop.box[2]} height={crop.box[3]} aria-hidden="true"><image href={typeof logo === "string" ? logo : logo.src} width={crop.width} height={crop.height} /></svg> : <Image className={styles.entranceLogo} data-entrance-logo="" src={logo} alt="" width={200} height={100} unoptimized /> : null}{needsCaption ? <span className={styles.entranceName}>{caption}</span> : null}</>;
+    return <>{logo ? <Image className={styles.entranceLogo} data-entrance-logo="" data-baked={baked ? "" : undefined} data-crop={amfEntranceCroppedLogos.has(item.key) ? "" : undefined} src={logo} alt="" width={200} height={100} unoptimized /> : null}{needsCaption ? <span className={styles.entranceName}>{caption}</span> : null}</>;
   }
   const logo = motorcycleLogos[item.key as keyof typeof motorcycleLogos];
-  if (logo) return <Image className={styles.motorcycleLogo} src={logo} alt="" width={160} height={100} unoptimized />;
+  if (logo) return <Image className={styles.motorcycleLogo} data-baked={logo === tvsLogo ? undefined : ""} src={logo} alt="" width={160} height={100} unoptimized />;
   const wideLogo = wideHallLogos[item.key as keyof typeof wideHallLogos];
   if (wideLogo) return <><svg className={styles.wideHallLogo} viewBox={wideLogo.viewBox} aria-hidden="true"><path d={wideLogo.path} fill="currentColor" /></svg><span className={styles.brandName}>{item.name}</span></>;
   return (
@@ -83,6 +94,27 @@ function Brand({ item }: { item: AmfTopographicExhibit }) {
       {!["geely", "vespa"].includes(item.key) && <span className={styles.brandName}>{item.name}</span>}
     </>
   );
+}
+
+/**
+ * The part of a label child that is actually visible: an <img> with
+ * `object-fit: contain` only paints its letterboxed artwork, and a text span
+ * only its line boxes. The selection ring circles this, not the element box.
+ */
+function visibleRect(element: Element): DOMRect {
+  const box = element.getBoundingClientRect();
+  if (element instanceof HTMLImageElement && element.naturalWidth && element.naturalHeight) {
+    const fit = Math.min(box.width / element.naturalWidth, box.height / element.naturalHeight);
+    const width = element.naturalWidth * fit, height = element.naturalHeight * fit;
+    return new DOMRect(box.left + (box.width - width) / 2, box.top + (box.height - height) / 2, width, height);
+  }
+  if (element.childElementCount === 0 && element.textContent?.trim()) {
+    const range = document.createRange();
+    range.selectNodeContents(element);
+    const text = range.getBoundingClientRect();
+    if (text.width && text.height) return text;
+  }
+  return box;
 }
 
 function Stairs({ x, y, width, height }: { x: number; y: number; width: number; height: number }) {
@@ -183,26 +215,32 @@ export function AmfTopographicCanvas({ items, zoneId, selectedKey, levels, compl
   useEffect(() => {
     const root = viewport.current;
     if (!root || !size) return;
-    const marks = [...root.querySelectorAll<SVGGElement>("[data-brand]")];
+    const marks = [...root.querySelectorAll<HTMLElement>("[data-amf-labels] [data-mark]")];
     const measure = () => {
       const matrix = root.querySelector<SVGSVGElement>('svg[role="group"]')?.getScreenCTM()?.inverse();
       if (!matrix) return;
       const next: typeof rings = {};
       for (const mark of marks) {
-        const points = [...mark.querySelector("[data-mark]")!.children].flatMap(child => {
-          const box = child.getBoundingClientRect();
+        const points = [...mark.children].flatMap(child => {
+          const box = visibleRect(child);
           return [[box.left, box.top], [box.right, box.bottom]].map(([x, y]) => new DOMPoint(x, y).matrixTransform(matrix));
         });
         if (!points.length) continue;
         const xs = points.map(p => p.x), ys = points.map(p => p.y);
         const left = Math.min(...xs), right = Math.max(...xs), top = Math.min(...ys), bottom = Math.max(...ys);
-        next[mark.dataset.brand!] = { cx: (left + right) / 2, cy: (top + bottom) / 2, rx: (right - left) * 0.75 + 8, ry: (bottom - top) * 0.75 + 8 };
+        next[mark.dataset.mark!] = { cx: (left + right) / 2, cy: (top + bottom) / 2, rx: (right - left) * 0.75 + 8, ry: (bottom - top) * 0.75 + 8 };
       }
       setRings(previous => JSON.stringify(previous) === JSON.stringify(next) ? previous : next);
     };
     const observer = new ResizeObserver(measure);
-    for (const mark of marks) for (const child of mark.querySelector("[data-mark]")!.children) observer.observe(child);
-    return () => observer.disconnect();
+    for (const mark of marks) for (const child of mark.children) observer.observe(child);
+    // An image's visible box is known only once it has loaded (natural size).
+    const images = marks.flatMap(mark => [...mark.querySelectorAll("img")]);
+    for (const image of images) image.addEventListener("load", measure);
+    return () => {
+      observer.disconnect();
+      for (const image of images) image.removeEventListener("load", measure);
+    };
   }, [drawingItems, size]);
 
   useIsomorphicLayoutEffect(() => { fit(); }, [fit, zoneId]);
@@ -273,24 +311,34 @@ export function AmfTopographicCanvas({ items, zoneId, selectedKey, levels, compl
         <g data-amf-inner-stairs=""><Stairs x={ENTRANCE_STAIRS[0]} y={ENTRANCE_STAIRS[1] * stretchY} width={AMF_ENTRANCE_PLAN.stairs.width * 0.85} height={AMF_ENTRANCE_PLAN.stairs.height * 0.85 * stretchY} /></g>
         <line className={styles.stairDivider} x1={ENTRANCE_STAIRS[0] + AMF_ENTRANCE_PLAN.stairs.width * 0.85 / 2} x2={ENTRANCE_STAIRS[0] + AMF_ENTRANCE_PLAN.stairs.width * 0.85 / 2} y1={ENTRANCE_STAIRS[1] * stretchY} y2={(ENTRANCE_STAIRS[1] + AMF_ENTRANCE_PLAN.stairs.height * 0.85) * stretchY} />
         <g data-amf-main-entrance=""><Stairs x={OUTSIDE_STEPS[0]} y={OUTSIDE_STEPS[1] * stretchY} width={AMF_ENTRANCE_PLAN.outsideSteps.width * 0.85} height={AMF_ENTRANCE_PLAN.outsideSteps.height * 0.85 * stretchY} /></g>
-        <foreignObject x={ENTRANCE_LABEL[0] - 90} y={(ENTRANCE_LABEL[1] - 8) * stretchY} width="180" height="64"><div className={styles.entranceLabel}><svg viewBox="0 0 28 64" aria-hidden="true"><path d="M14 60V5M3 17L14 5L25 17" /></svg><span>{dict.entranceShort}</span></div></foreignObject>
       </g>}
       {drawingItems.map((item) => <g key={item.key} role={interactive ? "button" : undefined} tabIndex={interactive ? 0 : undefined} aria-label={`${item.name}${completed.has(item.key) ? `. ${dict.passportComplete}` : ""}`} aria-pressed={interactive ? selectedKey === item.key : undefined} aria-expanded={interactive ? selectedKey === item.key : undefined} aria-controls={selectedKey === item.key && popup ? "amf-map-popup" : undefined} className={styles.summit} data-selected={selectedKey === item.key} data-brand={item.key} onKeyDown={(event) => {
         if (interactive && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); onSelect(items.find((original) => original.key === item.key)!); }
       }}>
         <title>{item.name}</title>
         <ellipse className={styles.focusRing} {...(rings[item.key] ?? { cx: item.x, cy: item.y, rx: brandFrame(item, stretchY).width * 0.75 + 8, ry: brandFrame(item, stretchY).height * 0.75 + 8 })} />
-        <foreignObject className={styles.brandFrame} {...brandFrame(item, stretchY)} pointerEvents="none">
-          <div className={styles.brand} data-small={item.small} data-moto={item.moto} data-mark={item.key} data-area={item.area} style={{ "--summit-scale": Math.min(stretchY, 1) } as CSSProperties}><Brand item={item} /></div>
-        </foreignObject>
-        {completed.has(item.key) ? <foreignObject x={item.x + Math.min(item.rx * 0.58, 63)} y={item.y - 60} width="38" height="38" pointerEvents="none"><span className={styles.completed}><Check aria-hidden="true" /></span></foreignObject> : null}
       </g>)}
       {zoneId === "hala" ? <g aria-hidden="true" data-amf-hall-entrance=""><path className={styles.entranceArrow} d={`M350 ${1424 * stretchY} V${1370 * stretchY} M337 ${1384 * stretchY} L350 ${1370 * stretchY} L363 ${1384 * stretchY}`} /><text className={styles.entranceText} x="382" y={1410 * stretchY}>{dict.entranceShort}</text></g> : null}
     </svg>
   );
 
+  // Logos, names, completed checks and the entrance label are HTML positioned
+  // over the drawing (same box, percentages of the drawing), not <foreignObject>:
+  // iOS Safari does not paint foreignObject content inside a transformed SVG.
+  const labels = (
+    <div className={styles.labels} data-amf-labels="" aria-hidden="true">
+      {zoneId === "ispred" ? <div className={styles.entranceLabel} style={percentBox({ x: ENTRANCE_LABEL[0] - 90, y: (ENTRANCE_LABEL[1] - 8) * stretchY, width: 180, height: 64 }, content)}><svg viewBox="0 0 28 64" aria-hidden="true"><path d="M14 60V5M3 17L14 5L25 17" /></svg><span>{dict.entranceShort}</span></div> : null}
+      {drawingItems.map((item) => <Fragment key={item.key}>
+        <div className={styles.brandFrame} data-label={item.key} style={percentBox(brandFrame(item, stretchY), content)}>
+          <div className={styles.brand} data-small={item.small} data-moto={item.moto} data-mark={item.key} data-area={item.area} style={{ "--summit-scale": Math.min(stretchY, 1) } as CSSProperties}><Brand item={item} /></div>
+        </div>
+        {completed.has(item.key) ? <div className={styles.completedFrame} style={percentBox({ x: item.x + Math.min(item.rx * 0.58, 63), y: item.y - 60, width: 38, height: 38 }, content)}><span className={styles.completed}><Check aria-hidden="true" /></span></div> : null}
+      </Fragment>)}
+    </div>
+  );
+
   return <div ref={viewport} className={styles.canvas} data-amf-canvas="" data-ready={ready || undefined} data-zone={zoneId} onPointerDown={start} onPointerMove={move} onPointerUp={end} onPointerCancel={end}>
-    <motion.div className={styles.mapLayer} data-amf-layer="" style={{ x, y, scale, width: content.width, height: content.height, opacity: ready ? 1 : 0, visibility: ready ? "visible" : "hidden", pointerEvents: ready ? "auto" : "none" }}>{drawing}</motion.div>
+    <motion.div className={styles.mapLayer} data-amf-layer="" style={{ x, y, scale, width: content.width, height: content.height, opacity: ready ? 1 : 0, visibility: ready ? "visible" : "hidden", pointerEvents: ready ? "auto" : "none" }}>{drawing}{labels}</motion.div>
     {!ready ? <div className={styles.canvasLoader} role="status" aria-live="polite"><span className={styles.canvasSpinner} aria-hidden="true" /><span>{dict.loadingLabel}</span></div> : null}
     {ready && selected && popup && interactive ? <motion.div ref={popupElement} className={styles.popup} data-amf-popup="" style={{ x: popupX, y: popupY }}>{popup}</motion.div> : null}
     {interactive ? <button type="button" className={styles.fit} onClick={fit} aria-label={dict.fitMap} title={dict.fitMap} style={{ opacity: ready ? 1 : 0, visibility: ready ? "visible" : "hidden", pointerEvents: ready ? "auto" : "none" }}><Maximize2 aria-hidden="true" /></button> : null}

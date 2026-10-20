@@ -7,7 +7,8 @@ const NIKOM = "https://nikom.co.rs/o_nama.html";
 
 export const AMF_EXHIBITOR_WEBSITES: Readonly<Record<string, string>> = {
   skoda: "https://www.skoda-auto.rs/content/acp-nis",
-  mercedes: "https://www.mercedes-benz-kemoimpexauto.rs/sr/desktop/passenger-cars.html",
+  // The organiser's deep link 404s (20 Oct 2026); the dealer homepage works.
+  mercedes: "https://mercedes-benz-kemoimpexauto.rs",
   fiat: NIKOM,
   dongfeng: NIKOM,
   auto1: "https://www.auto1.com/sr/home",
