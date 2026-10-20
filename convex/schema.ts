@@ -79,6 +79,8 @@ import {
   menuMemberStatusValidator,
   menuModeValidator,
   menuPageNavigationValidator,
+  menuPositionKindValidator,
+  menuPositionLayoutValidator,
   menuPresenceEntityTypeValidator,
   menuPromoValidator,
   menuPublishSummaryValidator,
@@ -3502,7 +3504,7 @@ export default defineSchema({
     .index("by_pageId", ["pageId"])
     .index("by_menuServiceId", ["menuServiceId"]),
 
-  // QR card → Menu page (and, from K20, position). The ONLY place this link
+  // QR card → Menu page and (K20) position. The ONLY place this link
   // lives: cardTargets stay immutable history (K01 A8). A link blocks deleting
   // or archiving its page while the row is active, the card is active and the
   // card's current target is `menu` (master §3.2).
@@ -3510,13 +3512,77 @@ export default defineSchema({
     menuServiceId: v.id("menuServices"),
     cardId: v.id("cards"),
     pageKey: v.optional(v.string()),
+    // K20: the table, room or other spot the card stands on (master §9.1).
+    // Absent = the card opens its page with no position; a guest never picks
+    // one and nothing invents one.
+    positionId: v.optional(v.id("menuPositions")),
     active: v.boolean(),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
     .index("by_cardId", ["cardId"])
     .index("by_menuServiceId_and_pageKey", ["menuServiceId", "pageKey"])
-    .index("by_menuServiceId", ["menuServiceId"]),
+    .index("by_menuServiceId", ["menuServiceId"])
+    .index("by_positionId", ["positionId"]),
+
+  // K20 — optional zones of the venue (master §9.3). A position without a
+  // zone is listed under "Bez zone" and belongs to all staff. Archiving a zone
+  // moves its positions to "Bez zone" (never deletes them).
+  menuZones: defineTable({
+    menuServiceId: v.id("menuServices"),
+    key: v.string(),
+    name: v.string(),
+    // lib/menu/text.ts normalizeArticleName: unique among ACTIVE zones.
+    nameNormalized: v.string(),
+    order: v.number(),
+    active: v.boolean(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_menuServiceId_and_active_and_order", ["menuServiceId", "active", "order"])
+    .index("by_menuServiceId_and_nameNormalized", ["menuServiceId", "nameNormalized"]),
+
+  // K20 — tables, rooms and other spots (master §9.1, §9.2). Operational data:
+  // changes apply at once, outside the draft (K19-12). What a guest carries is
+  // the QR card plus a server session, never the id or key of this row.
+  menuPositions: defineTable({
+    menuServiceId: v.id("menuServices"),
+    key: v.string(),
+    kind: menuPositionKindValidator,
+    label: v.string(),
+    // Unique among ACTIVE positions of the service.
+    labelNormalized: v.string(),
+    seats: v.optional(v.number()),
+    zoneId: v.optional(v.id("menuZones")),
+    layout: v.optional(menuPositionLayoutValidator),
+    order: v.number(),
+    active: v.boolean(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_menuServiceId_and_active_and_order", ["menuServiceId", "active", "order"])
+    .index("by_menuServiceId_and_key", ["menuServiceId", "key"])
+    .index("by_menuServiceId_and_labelNormalized", ["menuServiceId", "labelNormalized"])
+    .index("by_menuServiceId_and_active_and_zoneId", ["menuServiceId", "active", "zoneId"]),
+
+  // K20 — the guest session a scanned position card opens (master §9.1; K19-2).
+  // Only hashes are stored: the 256-bit token rides the HttpOnly cookie smm_g
+  // (3 h), the device key the cookie smm_d. A query sees only the
+  // materialized endedAt; mutations also compare expiresAt with the clock.
+  menuGuestSessions: defineTable({
+    menuServiceId: v.id("menuServices"),
+    tokenHash: v.string(),
+    deviceKeyHash: v.string(),
+    positionId: v.optional(v.id("menuPositions")),
+    cardId: v.optional(v.id("cards")),
+    createdAt: v.number(),
+    lastSeenAt: v.number(),
+    expiresAt: v.number(),
+    endedAt: v.optional(v.number()),
+  })
+    .index("by_tokenHash", ["tokenHash"])
+    .index("by_menuServiceId_and_deviceKeyHash", ["menuServiceId", "deviceKeyHash"])
+    .index("by_expiresAt", ["expiresAt"]),
 
   // Explicit Menu roles (K01 §4.2). Account roles are DERIVED from
   // accountMemberships / businessMemberships; a row here grants an explicit

@@ -130,7 +130,7 @@
   ],
   "ownPaths": [],
   "mcp": { "playwright": true, "playwrightPackage": "@playwright/mcp@0.0.83" },
-  "env": { "NEXT_TELEMETRY_DISABLED": "1" },
+  "env": { "NEXT_TELEMETRY_DISABLED": "1", "DISABLE_AUTOUPDATER": "1" },
   "devPorts": [3000, 3001, 3170, 3171, 3199],
   "commitTrailer": "Co-Authored-By: Claude <noreply@anthropic.com>"
 }

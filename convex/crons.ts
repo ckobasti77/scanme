@@ -219,4 +219,9 @@ crons.interval("menu fx rate", { hours: 6 }, internal.menuFx.refreshRate, {});
 // for over a day) lose their row and their blob (convex/menuMedia.ts).
 crons.interval("menu media orphans", { hours: 6 }, internal.menuMedia.reapOrphans, {});
 
+// ScanMe Menu V1 (K20): guest sessions of scanned positions — ends sessions
+// whose scheduled expiry was lost and deletes those expired over a day ago
+// (convex/menuGuest.ts).
+crons.interval("menu guest sessions sweep", { minutes: 30 }, internal.menuGuest.sweepExpiredSessions, {});
+
 export default crons;

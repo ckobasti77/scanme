@@ -29,6 +29,7 @@ import {
   SekcijaZabranjena,
 } from "../panel/stanja-panela";
 import { EditorIzlog } from "./editor-izlog";
+import { LokalIzlog } from "./lokal-izlog";
 
 const t = menuPanelSr;
 export const PANEL_IZLOG_PUTANJA = "/dev/menu-panel-preview";
@@ -89,6 +90,9 @@ export function PanelIzlog({
         }
       />
     );
+  } else if (sekcija === "lokal") {
+    // K20: the real "Lokal i QR" over the invented restaurant; /dev/menu-lokal-preview has its states.
+    sadrzaj = <LokalIzlog params={{ tema, pogled: "lista", stanje: null, fokusPozicija: false, stampa: false }} />;
   } else {
     sadrzaj = (
       <SekcijaUPripremi

@@ -312,3 +312,28 @@ export const menuLegacyMigrationValidator = v.object({
   migratedAt: v.optional(v.number()),
   cutoverAt: v.optional(v.number()),
 });
+
+// -----------------------------------------------------------------------------
+// K20 — Lokal i QR: zones, positions and the schematic floor layout (master
+// §9, §13.6; docs/meni/planovi/K19.md §2.1)
+// -----------------------------------------------------------------------------
+
+// A table, a hotel room or anything else a QR card can stand on (bar, terrace
+// lounger). The kind decides the guest actions (K19-5: a room orders only
+// through Room service).
+export const menuPositionKindValidator = v.union(
+  v.literal("table"),
+  v.literal("room"),
+  v.literal("other"),
+);
+
+// Schematic, not photorealistic (mockups README): a rectangle or a circle on
+// the grid of the position's zone (lib/menu/floor-layout.ts: 24 columns,
+// rows grow with the content). Absent = placed automatically by `order`.
+export const menuPositionLayoutValidator = v.object({
+  x: v.number(),
+  y: v.number(),
+  w: v.number(),
+  h: v.number(),
+  shape: v.union(v.literal("rect"), v.literal("round")),
+});

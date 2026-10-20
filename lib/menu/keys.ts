@@ -16,6 +16,9 @@ export const MENU_KEY_PREFIX = {
   variant: "va",
   addonGroup: "ag",
   addonOption: "ao",
+  // K20 — the venue (master §9): zones and positions (tables, rooms, other).
+  zone: "zn",
+  position: "ps",
 } as const;
 export type MenuKeyKind = keyof typeof MENU_KEY_PREFIX;
 
@@ -37,7 +40,7 @@ export function newMenuKey(
   return `${MENU_KEY_PREFIX[kind]}_${body}`;
 }
 
-const KEY_PATTERN = /^(pg|sc|ar|rc|va|ag|ao)_[0-9a-hjkmnp-tv-z]{12}$/;
+const KEY_PATTERN = /^(pg|sc|ar|rc|va|ag|ao|zn|ps)_[0-9a-hjkmnp-tv-z]{12}$/;
 
 export function isMenuKey(value: string, kind?: MenuKeyKind): boolean {
   if (!KEY_PATTERN.test(value)) return false;

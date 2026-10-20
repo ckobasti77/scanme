@@ -4,6 +4,7 @@ import {
   KONOBAR_EKRAN_KORAK,
   LOKAL_POGLEDI,
   LOKAL_POGLED_KORAK,
+  LOKAL_STANJA,
   PANEL_SEKCIJE,
   PANEL_SEKCIJA_KORAK,
   PANEL_ULOGA_AKTER,
@@ -157,12 +158,28 @@ describe("/dev/menu-konobar-preview", () => {
 
 describe("/dev/menu-lokal-preview", () => {
   test("defaults to the list and reads every documented view", () => {
-    expect(parseLokalPreview({})).toEqual({ tema: null, pogled: "lista" });
+    expect(parseLokalPreview({})).toEqual({
+      tema: null,
+      pogled: "lista",
+      stanje: null,
+      fokusPozicija: false,
+      stampa: false,
+    });
     for (const pogled of LOKAL_POGLEDI) {
       expect(parseLokalPreview({ pogled }).pogled).toBe(pogled);
       expect(LOKAL_POGLED_KORAK[pogled].korak).toBe("K20");
     }
     expect(parseLokalPreview({ pogled: "3d" }).pogled).toBe("lista");
+  });
+
+  test("K20: venue states, the open drawer and the print sheet; unknown values give the default", () => {
+    for (const stanje of LOKAL_STANJA) expect(parseLokalPreview({ stanje }).stanje).toBe(stanje);
+    expect(parseLokalPreview({ stanje: "pun" }).stanje).toBeNull();
+    expect(parseLokalPreview({ fokus: "pozicija" }).fokusPozicija).toBe(true);
+    expect(parseLokalPreview({ fokus: "sto" }).fokusPozicija).toBe(false);
+    expect(parseLokalPreview({ modal: "stampa" }).stampa).toBe(true);
+    expect(parseLokalPreview({ modal: ["stampa", "x"] }).stampa).toBe(true);
+    expect(parseLokalPreview({ modal: "objava" }).stampa).toBe(false);
   });
 });
 

@@ -3,6 +3,7 @@
 
 export { fixtureMenu, IZLOG_MENU_SIZES } from "./meni";
 export { fixtureVenue, IZLOG_SADA } from "./lokal";
+export { fixtureLokalPodaci, LOKAL_QR_ARHIVIRANA_STRANICA, type LokalQrStanje } from "./lokal-qr";
 export { fixtureRequests, fixtureReservations, fixtureTeam } from "./operativa";
 export { createRng, fixtureKey, fixturePrefixedKey } from "./rng";
 export type { Rng } from "./rng";

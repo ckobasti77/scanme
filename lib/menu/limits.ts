@@ -41,6 +41,19 @@ export const MENU_MAX_TAGS_PER_ARTICLE = 12;
 /** K11 — articles or placements one `Izaberi više` action may touch (menuBulk). */
 export const MENU_MAX_BULK_BATCH = 200;
 
+/** K20 — positions (tables, rooms, other) per Menu service, archived excluded (master §9). */
+export const MENU_MAX_POSITIONS = 500;
+/** K20 — active zones per Menu service (master §9.3: zones are optional). */
+export const MENU_MAX_ZONES = 30;
+/** K20 — positions one call may create ("Dodaj stolove 1–20") or lay out. */
+export const MENU_MAX_POSITION_BATCH = 100;
+/** K20 — Menu QR cards of one business read by the Lokal i QR section. */
+export const MENU_MAX_QR_CARDS = 500;
+/** K20 — Menu QR cards minted by one call. */
+export const MENU_MAX_QR_MINT_BATCH = 50;
+/** K20 — seats of one position (master §9.2: optional). */
+export const MENU_MAX_SEATS = 99;
+
 /** Text lengths, in characters after whitespace cleaning. */
 export const MENU_TEXT = {
   pageName: 80,
@@ -57,6 +70,9 @@ export const MENU_TEXT = {
   addonGroupName: 80,
   addonOptionName: 60,
   allergenOtherText: 200,
+  // K20
+  zoneName: 60,
+  positionLabel: 40,
 } as const;
 
 /** Whole dinars; inclusive upper bound of any single price. */

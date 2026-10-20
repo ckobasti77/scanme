@@ -85,6 +85,17 @@ export const menuDomenSr = {
     "presentation/invalid_brand_colors": "Upišite boju brenda u obliku #RRGGBB, na primer #8C2633.",
     "presentation/unreadable":
       "Sa ovim bojama tekst ne bi bio dovoljno čitljiv. Izaberite tamniji tekst ili svetliju pozadinu (ili obrnuto).",
+    // K20 — Lokal i QR (lib/menu/errors/floor.ts).
+    "floor/position_label_taken": "Već postoji sto ili soba sa ovim nazivom. Izaberite drugi naziv ili broj.",
+    "floor/zone_name_taken": "Već postoji zona sa ovim nazivom.",
+    "floor/position_has_qr":
+      "QR kartica i dalje otvara ovo mesto. Prvo je povežite sa drugim mestom ili je isključite.",
+    "floor/position_archived": "Ovo mesto je arhivirano i ne može da se menja.",
+    "floor/zone_archived": "Ova zona je arhivirana. Izaberite drugu zonu ili „Bez zone“.",
+    "floor/invalid_layout": "Ovo mesto ne staje tu. Pomerite ga unutar rasporeda, na slobodno polje.",
+    "floor/card_read_only": "Ovom karticom upravlja ScanMe. Za promenu se obratite podršci.",
+    "floor/card_not_menu": "Ova kartica ne otvara meni, pa ne može da se veže za stranicu ili mesto.",
+    "floor/page_unavailable": "Ova stranica menija je arhivirana ili ne postoji. Izaberite drugu stranicu.",
   },
   allergens: {
     gluten: "Žitarice koje sadrže gluten",
@@ -211,4 +222,5 @@ export const menuDomenSr = {
     sectionName: "Bez naziva",
     variantName: "Varijanta",
   },
+  qrCardDefaultLabel: "Meni",
 } as const satisfies MenuDomenDict;

@@ -32,6 +32,19 @@ export const MENU_AUDIT_ACTIONS = [
   "legacy.cutover_reverted",
   /** ScanMe imported a menu into the draft (K06, internal import; master §6.2). */
   "legacy.imported",
+  // K20 — Lokal i QR (master §9, §10.6: sensitive venue actions only).
+  /** A zone was archived; its positions moved to "Bez zone". */
+  "zone.archived",
+  /** A position (table, room) was archived. */
+  "position.archived",
+  /** Menu QR cards were created for positions or pages. */
+  "qr.minted",
+  /** A QR card was linked to a page and/or position (or the link changed). */
+  "qr.linked",
+  /** A QR card lost its Menu link (opens the menu without a page or position). */
+  "qr.unlinked",
+  /** A QR card was disabled or enabled again. */
+  "qr.card_status",
 ] as const;
 
 export type MenuAuditAction = (typeof MENU_AUDIT_ACTIONS)[number];

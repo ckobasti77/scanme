@@ -2227,3 +2227,17 @@ Nijedna stavka ne blokira kod: run je izabrao konzervativnu opciju i kod radi po
 4. **Imena u editoru.** Prisustvo i lista verzija pokazuju ime člana tima, a kad ime ne postoji — e-poštu naloga (`users.name ?? users.email`, K05). Članovi istog lokala tako mogu da vide tuđu e-poštu. Alternativa: bez imena „Član tima”.
 5. **`Objavi` ostaje vidljivo i kad uloga ne sme da objavi** (onemogućeno, uz razlog), jer master §13.4 kaže da su `Pregled`, status i `Objavi` „stalno dostupni”; plan K09 je predlagao da se sakrije. Osoblje (PIN) editor uopšte ne otvara.
 6. **Vraćanje verzije je i dalje jedna transakcija** (K05: do 8.000 upisa, inače `menu/restore_too_large`); vraćanje u serijama (plan K09, „samo ako stane u korak”) nije rađeno. Za veoma velike menije vraćanje može biti odbijeno uz poruku.
+
+## SCANME MENU V1 — K19/K20 (18–20. 10. 2026.) — Lokal i QR, pozicija iz QR koda
+
+Nijedna stavka ne blokira kod: run je izabrao konzervativnu opciju i kod radi po njoj. Vlasnik potvrđuje ili menja. Stavke 1–4 su iz plana K19 (`docs/meni/planovi/K19.md` §10) i tiču se K21; stavke 5–9 su odluke K20.
+
+1. **Soba i standardna porudžbina (K19-5).** Mesto vrste „soba" poručuje samo kroz Room service (markup i naknada); sto i „ostalo" poručuju po cenama standardnih stranica. Pitanje: sme li soba da poruči i po cenama standardne stranice? Izbor runa: ne.
+2. **Zadržavanje zahteva gostiju i napomena (K19-23).** Sesije gosta se brišu dan posle isteka; zahtevi (K21) se u runu ne brišu automatski. Uz K01 OTV 8 traži pravnu proveru roka.
+3. **Stare kartice za poručivanje (RFC-004, `table_ordering`) i stari panel `/panel/[venueCode]`** rade kao pre; prebacivanje na Menu mesta nije u runu (K19-1).
+4. **Otkazivanje prihvaćenog zahteva (K19-6).** Gost otkazuje samo zahtev u statusu „Novi"; prihvaćen otkazuje samo osoblje.
+5. **Kolačići gosta (K20).** Kartica na stolu otvara sesiju gosta: kolačić `smm_g` (3 h, putanja menija lokala) i kolačić uređaja `smm_d` (180 dana, dvaput: putanja menija i `/r`, da ponovno skeniranje zadrži isti uređaj za „Moji zahtevi"). U bazi su samo heševi; heš uređaja je drugačiji za svaki lokal (bez povezivanja lokala). Tretirani su kao funkcionalni (kao K01 OTV 10); trajanje i obaveštenje gostu traže pravnu proveru.
+6. **Fizičke ADMIN-12 kartice** (kojima upravlja ScanMe preko pristupnih kanala) su u „Lokal i QR" samo za čitanje: klijent ih ne vezuje za sto i ne isključuje (K01 OTV 19). Ako treba, to je posao internog admina.
+7. **Granica od 500 kartica po lokalu.** Sekcija čita najviše 500 kartica lokala (svih vrsta, i Memories i Links), pa nove Menu kartice ne mogu da se naprave iznad te granice. Za lokal sa mnogo kartica drugih usluga to treba proširiti (straničenje).
+8. **Kartice za stranicu** („Nova kartica za stranicu", npr. vinska karta za šank) dobijaju isti naziv (naziv stranice ili „Meni") i razlikuju se samo po kodu; klijent ih može vezati za mesto. Numeracija naziva nije uvedena.
+9. **Mesta, zone i QR veze važe odmah**, bez `Objavi` (kao prekidači, K19-12). Arhiviranje mesta na kom stoji aktivna kartica je blokirano dok se kartica ne preveže ili isključi.

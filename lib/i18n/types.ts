@@ -60,6 +60,7 @@ import type { MenuPublishRefusal, MenuVersionErrorCode } from "../menu/errors/ve
 import type { MenuMediaErrorCode } from "../menu/errors/media";
 import type { TranslationErrorCode } from "../menu/errors/translation";
 import type { PresentationErrorCode } from "../menu/errors/presentation";
+import type { FloorErrorCode } from "../menu/errors/floor";
 import type {
   MenuMigrationErrorCode,
   MenuMigrationIssueCode,
@@ -2372,7 +2373,8 @@ export interface MenuDomenDict {
     | MenuMigrationErrorCode
     | MenuMediaErrorCode
     | TranslationErrorCode
-    | PresentationErrorCode,
+    | PresentationErrorCode
+    | FloorErrorCode,
     string
   >;
   // --- K04: the article model (master §5.4–§5.7, §7.3, §7.6).
@@ -2400,6 +2402,9 @@ export interface MenuDomenDict {
   migrationManualChecks: Record<MenuMigrationManualCheck, string>;
   /** Names used when the legacy one is empty. */
   migrationFallbacks: { sectionName: string; variantName: string };
+  // --- K20: Lokal i QR (master §9.2).
+  /** Printed label of a new QR card that opens no particular page or position. */
+  qrCardDefaultLabel: string;
 }
 
 export interface MenuAdminDict {
@@ -8586,6 +8591,381 @@ export interface MenuJavniDict {
   valuta: { oznaka: string; rsd: string; eur: string; eurCitac: string; napomena: string };
 }
 
+// ScanMe Menu V1 (MENI run, K20) — "Lokal i QR" (lib/i18n/sr/menu-lokal.ts, master §9, §13.6).
+// Plural groups carry one key per Serbian category (srPluralCategory).
+// The floor layout editor's text lives in its own module (lib/i18n/sr/menu-lokal-raspored.ts).
+export interface MenuLokalRasporedDict {
+  oblast: string;
+  prazno: {
+    naslov: string;
+    opis: string;
+  };
+  bezZone: string;
+  mesto: string;
+  mesta: string;
+  sediste: string;
+  sedista: string;
+  praznaZona: string;
+  grupa: string;
+  pomoc: {
+    tastatura: string;
+    pokazivac: string;
+  };
+  legenda: {
+    naslov: string;
+    sto: string;
+    soba: string;
+    ostalo: string;
+    oblik: string;
+    izabrano: string;
+  };
+  vrsta: {
+    table: string;
+    room: string;
+    other: string;
+  };
+  oblik: {
+    rect: string;
+    round: string;
+  };
+  polozaj: string;
+  velicina: string;
+  izabrano: {
+    naslov: string;
+    uredi: string;
+    uKrug: string;
+    uPravougaonik: string;
+    ponisti: string;
+  };
+  automatski: {
+    dugme: string;
+    pitanjeZona: string;
+    pitanjeSve: string;
+    potvrdi: string;
+    odustani: string;
+    gotovo: string;
+  };
+  lista: {
+    zona: string;
+    sva: string;
+    opis: string;
+  };
+  najava: {
+    izabrano: string;
+    ponisteno: string;
+    pomereno: string;
+    velicina: string;
+    oblik: string;
+    nemozeDalje: string;
+    nemozeVelicina: string;
+    cuvaSe: string;
+  };
+  zauzeto: string;
+  nijeSacuvano: string;
+  greskaOpste: string;
+  zatvori: string;
+  prevlacenje: {
+    uputstvo: string;
+    podignuto: string;
+    otkazano: string;
+  };
+}
+
+export interface MenuLokalDict {
+  raspored: MenuLokalRasporedDict;
+  ruta: {
+    ucitavanje: string;
+    greskaNaslov: string;
+    greskaOpis: string;
+  };
+  ekran: {
+    naslov: string;
+    opis: string;
+    otvoriJavniMeni: string;
+    otvaraSeUNovomTabu: string;
+    pogledi: {
+      oznaka: string;
+      lista: string;
+      raspored: string;
+      kartice: string;
+    };
+    sazetak: {
+      razdelnik: string;
+      nista: string;
+    };
+  };
+  brojevi: {
+    mesta: {
+      one: string;
+      few: string;
+      many: string;
+    };
+    zone: {
+      one: string;
+      few: string;
+      many: string;
+    };
+    qrKartice: {
+      one: string;
+      few: string;
+      many: string;
+    };
+    sedista: {
+      one: string;
+      few: string;
+      many: string;
+    };
+  };
+  vrste: {
+    oznaka: string;
+    table: string;
+    room: string;
+    other: string;
+    prefiks: {
+      table: string;
+      room: string;
+      other: string;
+    };
+    primer: {
+      table: string;
+      room: string;
+      other: string;
+    };
+  };
+  zajednicko: {
+    bezZone: string;
+    zona: string;
+    sedista: string;
+    nijeObavezno: string;
+    sedistaPomoc: string;
+    otkazi: string;
+    cuvaSe: string;
+    nazivPrazan: string;
+    nazivPredug: string;
+    sedistaNeispravno: string;
+    greskaOpsta: string;
+    greskaOznaka: string;
+  };
+  lista: {
+    naslov: string;
+    opis: string;
+    oznakaListe: string;
+    dodajMesta: string;
+    zone: string;
+    podeliNaZone: string;
+    praznaZona: string;
+    uredi: string;
+    urediOznaka: string;
+    kartice: {
+      imaKartice: {
+        one: string;
+        few: string;
+        many: string;
+      };
+      nemaKartice: string;
+      neRadi: string;
+    };
+    prazno: {
+      naslov: string;
+      opis: string;
+      akcija: string;
+    };
+  };
+  dodaj: {
+    naslov: string;
+    opis: string;
+    vrsta: string;
+    nacin: string;
+    jedno: string;
+    vise: string;
+    naziv: string;
+    prefiks: string;
+    prefiksPrazan: string;
+    od: string;
+    odNeispravno: string;
+    koliko: string;
+    kolikoPomoc: string;
+    kolikoNeispravno: string;
+    pregled: string;
+    pregledOpseg: string;
+    dugmeJedno: string;
+    dugmeVise: {
+      one: string;
+      few: string;
+      many: string;
+    };
+    uspeh: {
+      one: string;
+      few: string;
+      many: string;
+    };
+  };
+  pozicija: {
+    opis: string;
+    naziv: string;
+    vrsta: string;
+    sacuvaj: string;
+    sacuvano: string;
+    kartice: {
+      naslov: string;
+      prazno: string;
+      napravi: string;
+      napravljena: string;
+      kod: string;
+    };
+    arhiviraj: {
+      naslov: string;
+      dugme: string;
+      potvrda: string;
+      potvrdi: string;
+      odustani: string;
+      uspeh: string;
+    };
+  };
+  zone: {
+    naslov: string;
+    opis: string;
+    prazno: string;
+    oznakaListe: string;
+    novaOznaka: string;
+    novaPrimer: string;
+    dodaj: string;
+    dodata: string;
+    preimenuj: string;
+    nazivZone: string;
+    sacuvaj: string;
+    preimenovana: string;
+    gore: string;
+    dole: string;
+    pomerena: string;
+    arhiviraj: string;
+    potvrda: string;
+    potvrdi: string;
+    odustani: string;
+    arhivirana: string;
+    nazivPrazan: string;
+    nazivPredug: string;
+    limit: string;
+  };
+  kartice: {
+    naslov: string;
+    napomena: string;
+    oznakaListe: string;
+    prazno: {
+      naslov: string;
+      opis: string;
+    };
+    traka: {
+      oznaka: string;
+      zaMesta: string;
+      zaMestaBroj: string;
+      novaZaStranicu: string;
+      stampajIzabrane: string;
+      stampajSve: string;
+      izabrano: string;
+    };
+    skraceno: string;
+    kod: string;
+    zaStampu: string;
+    stanje: {
+      aktivna: string;
+      iskljucena: string;
+      drugoOdrediste: string;
+    };
+    drugoOdrediste: string;
+    otvara: {
+      prefiks: string;
+      razdelnik: string;
+      meni: string;
+      ulaz: string;
+      bezMesta: string;
+    };
+    sken: {
+      poslednji: string;
+      kadaFormat: string;
+      nikad: string;
+      ukupno: string;
+    };
+    problemi: {
+      oznaka: string;
+      vezaIskljucena: string;
+      stranicaNedostupna: string;
+      pozicijaNedostupna: string;
+    };
+    scanMe: string;
+    radnje: {
+      poveziOznaka: string;
+      poveziAria: string;
+      iskljuci: string;
+      iskljuciAria: string;
+      ukljuci: string;
+      ukljuciAria: string;
+      preuzmi: string;
+      preuzmiAria: string;
+    };
+    iskljuciPotvrda: string;
+    iskljuciDa: string;
+    iskljuciNe: string;
+    iskljucena: string;
+    ukljucena: string;
+    povezana: string;
+    preuzeta: string;
+    povezi: {
+      naslov: string;
+      opis: string;
+      stranica: string;
+      mesto: string;
+      ulaz: string;
+      bezMesta: string;
+      sacuvaj: string;
+    };
+    zaMesta: {
+      naslov: string;
+      opis: string;
+      stranica: string;
+      broj: {
+        one: string;
+        few: string;
+        many: string;
+      };
+      serija: string;
+      napravi: string;
+      uspeh: {
+        one: string;
+        few: string;
+        many: string;
+      };
+    };
+    zaStranicu: {
+      naslov: string;
+      opis: string;
+      stranica: string;
+      broj: string;
+      brojPomoc: string;
+      brojNeispravno: string;
+      napravi: string;
+      uspeh: {
+        one: string;
+        few: string;
+        many: string;
+      };
+    };
+  };
+  stampa: {
+    naslov: string;
+    opis: string;
+    savet: string;
+    stampaj: string;
+    zatvori: string;
+    broj: string;
+    prazno: string;
+    oznakaListe: string;
+  };
+  qr: {
+    oznaka: string;
+  };
+}
+
 export interface DictBySurface {
   "event-map": EventMapDict;
   "fair-map": FairMapDict;
@@ -8631,6 +9011,7 @@ export interface DictBySurface {
   "menu-panel": MenuPanelDict;
   "menu-studio": MenuStudioDict;
   "menu-javni": MenuJavniDict;
+  "menu-lokal": MenuLokalDict;
   "ordering-admin": OrderingAdminDict;
   ordering: OrderingDict;
   "ordering-panel": OrderingPanelDict;

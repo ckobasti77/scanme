@@ -82,7 +82,7 @@ export const PANEL_SEKCIJA_KORAK: IzlogScreens<PanelSekcija> = {
   pocetna: { korak: "K27" },
   editor: { korak: "K10" },
   operativa: { korak: "K27" },
-  lokal: { korak: "K27" },
+  lokal: { korak: "K20" },
   funkcionalnosti: { korak: "K27" },
   tim: { korak: "K28" },
   analitika: { korak: "K30" },
@@ -182,12 +182,32 @@ export const LOKAL_POGLED_KORAK: IzlogScreens<LokalPogled> = {
   kartice: { korak: "K20" },
 };
 
-export type LokalPreviewParams = { tema: IzlogTema | null; pogled: LokalPogled };
+/**
+ * K20: which invented venue the izlog shows. Absent = "Demo restoran" (three
+ * zones, fifteen tables, a bar, cards in every diagnostic state);
+ * `prazno` = a venue with no positions yet; `bez-zona` = a café without
+ * zones (no zone controls at all, master §9.3); `hotel` = tables and rooms.
+ */
+export const LOKAL_STANJA = ["prazno", "bez-zona", "hotel"] as const;
+export type LokalStanje = (typeof LOKAL_STANJA)[number];
+
+export type LokalPreviewParams = {
+  tema: IzlogTema | null;
+  pogled: LokalPogled;
+  stanje: LokalStanje | null;
+  /** `?fokus=pozicija`: the drawer of "Sto 12" is open (for snapshots). */
+  fokusPozicija: boolean;
+  /** `?modal=stampa`: the print sheet of the QR cards is open. */
+  stampa: boolean;
+};
 
 export function parseLokalPreview(params: IzlogSearchParams): LokalPreviewParams {
   return {
     tema: parseTema(params.tema),
     pogled: pickParam(params.pogled, LOKAL_POGLEDI, "lista"),
+    stanje: pickOptional(params.stanje, LOKAL_STANJA),
+    fokusPozicija: firstParam(params.fokus) === "pozicija",
+    stampa: firstParam(params.modal) === "stampa",
   };
 }
 

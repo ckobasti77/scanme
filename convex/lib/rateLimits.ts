@@ -52,6 +52,16 @@ export const rateLimiter = new RateLimiter(components.rateLimiter, {
   // guestCreate, spent exactly once per ordering guest, in its OWN bucket so
   // ordering never contends with Memories' guestCreate.
   orderGuestCreate: { kind: "token bucket", rate: 300, period: MINUTE, capacity: 300 },
+  // ScanMe Menu V1 (K20, docs/meni/planovi/K19.md §3.3): the card-aware Menu
+  // hop /r/[cardCode]/meni (menuGuest.mintFromCard), spent once per position
+  // scan, after cardResolve. Keyed by the same ipHash and sized like
+  // tableOrderingHop for the same reason: a whole dining room sits behind ONE
+  // NAT and scans in the same minute.
+  menuGuestHop: { kind: "token bucket", rate: 300, period: MINUTE, capacity: 300 },
+  // …and keyed per CARD (the table): a six-top scanning at once fits
+  // capacity 30, while a script hammering one printed card is stopped without
+  // touching the rest of the room.
+  menuGuestHopCard: { kind: "token bucket", rate: 60, period: MINUTE, capacity: 30 },
   // TASK-66 (RFC-004 §2.9): the two GUEST ACTIONS. Deliberately keyed
   // differently from each other, and from the per-IP hop buckets above —
   // §2.9 rejects a per-IP action limit outright, because a whole hall sits

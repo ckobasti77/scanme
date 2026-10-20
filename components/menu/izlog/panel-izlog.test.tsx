@@ -201,10 +201,11 @@ describe("the default panel ({})", () => {
 });
 
 describe("the Editor action, on every section in the izlog", () => {
-  const SA_EKRANOM = SVE_SEKCIJE.filter((sekcija) => sekcija !== "editor");
+  // K20: "lokal" has its real screen (Lokal i QR), so it is no longer a section in preparation.
+  const SA_EKRANOM = SVE_SEKCIJE.filter((sekcija) => sekcija !== "editor" && sekcija !== "lokal");
 
-  test("each of the seven sections in preparation offers the Editor, with the sentence, in the card", () => {
-    expect(SA_EKRANOM).toHaveLength(7);
+  test("each of the six sections in preparation offers the Editor, with the sentence, in the card", () => {
+    expect(SA_EKRANOM).toHaveLength(6);
     for (const sekcija of SA_EKRANOM) {
       const main = element(panel({ sekcija }), "main");
       expect(sidra(main).filter((link) => link.text === esc(t.sekcija.otvoriEditor)).map((link) => link.href)).toEqual([
@@ -213,6 +214,13 @@ describe("the Editor action, on every section in the izlog", () => {
       expect(main).toContain(`>${esc(t.sekcija.zaSadaEditor)}</p>`);
       expect(sidra(element(main, "header"))).toEqual([]);
     }
+  });
+
+  test("K20: Lokal i QR is the real screen, not a section in preparation", () => {
+    const main = element(panel({ sekcija: "lokal" }), "main");
+    expect(main).toContain("data-lokal-izlog");
+    expect(main).toContain(">Lokal i QR</h1>");
+    expect(main).not.toContain(esc(t.sekcija.zaSadaEditor));
   });
 
   test("it keeps the role, the plan and the theme in its link", () => {
