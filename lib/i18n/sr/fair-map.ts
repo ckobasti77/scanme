@@ -1,6 +1,7 @@
 import type { FairMapDict } from "../types";
 
 export const fairMapSr = {
+  entranceCaptions: { direkcija: "JKP Direkcija", ton: "TON Niš", nm: "NM" },
   overlayTitle: "Preklop geometrije mape",
   overlayIntro:
     "Razvojna provera: poligoni lokacija (mapLocationId) preko izvornih mapa organizatora. Ovo nije izgled javne mape.",
@@ -90,7 +91,7 @@ export const fairMapSr = {
   directoryShort: "Spisak",
   mapShort: "Mapa",
   progressLegend: "Vaše markice na mapi",
-  progressCollected: "Sakupljeno",
+  progressCollected: "Popunjen pasoš",
   previewTestNotice: "DEV · TEST podaci",
   mapTapHint: "Dodirni izlagača",
   filtersLabel: "Kategorije izlagača",

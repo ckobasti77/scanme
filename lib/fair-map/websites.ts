@@ -34,6 +34,27 @@ export const AMF_EXHIBITOR_WEBSITES: Readonly<Record<string, string>> = {
   piaggio: "https://www.piaggio.com/",
   "honda-moto": CAR_BOX,
   raiffeisen: "https://www.raiffeisenbank.rs/sr/stanovnistvo.html",
+  // Organizer's entrance/forecourt listings, checked 19 Oct 2026.
+  aster: "https://www.instagram.com/aster.event.design/",
+  zepter: "https://www.zepter.rs/",
+  lukac: "https://lukac.co.rs/",
+  nm: "https://nmstomatologija.rs/",
+  detailing: "https://detailingstore.rs/",
+  kostic: "https://www.instagram.com/rentacar_kostic/",
+  scanme: "https://www.scanme.rs/",
+  amerikanac: "https://www.facebook.com/Amerikanac.restoran/",
+  direkcija: "https://jgpnis.rs/",
+  ton: "https://visitnis.org/",
+  goes: "https://goes.rs/",
+  "auto-happy-foyer": "https://autohappy.in.rs/",
+  "auto-happy-outdoor": "https://autohappy.in.rs/",
+  benni: "https://benniplus.rs/",
+  servoremont: "http://www.servoremont.rs/",
+  parking: "https://www.nisparking.rs/sr/",
+  aodes: "https://odes.rs/",
+  xtreme: "https://xtreme.rs/",
+  swm: "https://swm-auto.rs/",
+  kia: "https://kiaveljaauto.rs/",
 };
 
 /** Never offer executable or deliberately non-routable fixture destinations. */

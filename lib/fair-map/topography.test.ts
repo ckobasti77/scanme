@@ -2,8 +2,9 @@ import { describe, expect, test } from "vitest";
 import type { FairPublicMapStand } from "../fair-contract";
 import { AUTO_MOTO_FEST_2026_MAP } from "./auto-moto-fest-2026";
 import { buildFairMapView } from "./view";
-import { AMF_HALL_ANCHORS, amfTopographicPopupPosition, amfTopographicSize, buildAmfTopographicExhibits, fairMapContourOpacity, fairMapContourPath, fairMapHeatEligible, fairMapTopographicLevel, hitAmfTopographicExhibit, searchAmfTopographicExhibits } from "./topography";
+import { AMF_ENTRANCE_ANCHORS, AMF_HALL_ANCHORS, amfTopographicPopupPosition, amfTopographicSize, buildAmfTopographicExhibits, fairMapContourOpacity, fairMapContourPath, fairMapHeatEligible, fairMapTopographicLevel, hitAmfTopographicExhibit, searchAmfTopographicExhibits } from "./topography";
 import { fairMapWebsiteUrl } from "./websites";
+import { amfEntrancePoint } from "./amf-entrance-plan";
 
 function stand(name: string, location: string, extra = {}): FairPublicMapStand {
   return {
@@ -42,6 +43,30 @@ describe("AMF topographic heat eligibility", () => {
 describe("AMF topographic geometry and catalog", () => {
   const view = buildFairMapView(AUTO_MOTO_FEST_2026_MAP, [stand("Toyota", "hala-2", { heatEligible: true }), stand("Audi", "hala-1", { heatEligible: false }), stand("Partner bez paketa", "hala-3", { brands: [] })], []);
   const items = buildAmfTopographicExhibits(view);
+
+  test("all entrance exhibitors remain visible, with the forecourt separate from the foyer", () => {
+    for (const anchor of AMF_ENTRANCE_ANCHORS) expect(items.find((item) => item.key === anchor.key)).toMatchObject({ zoneId: "ispred", area: anchor.area, models: [], paid: false });
+    expect(AMF_ENTRANCE_ANCHORS.filter((item) => item.area === "outdoor").map((item) => item.key)).toEqual(["aodes", "xtreme", "auto-happy-outdoor", "swm", "kia"]);
+    const [x, y] = amfEntrancePoint([380, 205]);
+    expect(items.find((item) => item.key === "scanme")).toMatchObject({ locationId: "ispred-14", x, y, paid: false });
+    expect(items.find((item) => item.key === "swm")?.locationId).toBeNull();
+  });
+  test("foyer booths cannot heat, even if the same paid exhibitor also has outdoor vehicles", () => {
+    const paid = { heatEligible: true, participationId: "same-auto-happy" };
+    const catalog = [stand("Auto Happy", "ispred-19", paid), stand("Auto Happy", "ispred-s4", paid), stand("Goes", "ispred-17", { heatEligible: true })];
+    const all = buildAmfTopographicExhibits(buildFairMapView(AUTO_MOTO_FEST_2026_MAP, catalog, []));
+    expect(all.find((item) => item.key === "auto-happy-foyer")).toMatchObject({ paid: false, locationId: "ispred-19" });
+    expect(all.find((item) => item.key === "auto-happy-outdoor")).toMatchObject({ paid: true, locationId: "ispred-s4" });
+    const goes = all.find((item) => item.key === "goes")!;
+    expect(goes.paid).toBe(false);
+    expect(fairMapTopographicLevel(goes, all, new Map([["ispred-17", 1]]), new Map([["fixture-Goes", 1]]))).toBe(0);
+  });
+  test("entrance website links work without payment; an unpublished Makete URL is not invented", () => {
+    for (const anchor of AMF_ENTRANCE_ANCHORS.filter((item) => item.key !== "makete")) expect(items.find((item) => item.key === anchor.key)?.websiteUrl).toMatch(/^https?:\/\//);
+    expect(items.find((item) => item.key === "makete")?.websiteUrl).toBeUndefined();
+    const all = buildAmfTopographicExhibits(buildFairMapView(AUTO_MOTO_FEST_2026_MAP, [stand("Enigma IT", "ispred-14", { websiteUrl: "https://www.enigmait.rs/" })], []));
+    expect(all.find((item) => item.key === "scanme")).toMatchObject({ participationId: "fixture-Enigma IT", websiteUrl: "https://www.enigmait.rs/" });
+  });
 
   test("all plan brands and every additional free catalog exhibitor remain visible", () => {
     for (const anchor of AMF_HALL_ANCHORS) expect(items.some((item) => item.key === anchor.key)).toBe(true);
@@ -92,6 +117,20 @@ describe("AMF topographic geometry and catalog", () => {
     const moto = AMF_HALL_ANCHORS.filter((item) => item.moto);
     for (const [i, a] of moto.entries()) for (const b of moto.slice(i + 1)) {
       expect(Math.abs(a.x - b.x) > (a.rx + b.rx) * 1.16 || Math.abs(a.y - b.y) > (a.ry + b.ry) * 1.16).toBe(true);
+    }
+  });
+  test("preserves the organizer's shared-stand arrangement across the whole hall", () => {
+    const byKey = (key: string) => AMF_HALL_ANCHORS.find((item) => item.key === key)!;
+    expect(byKey("skoda").ry).toBeGreaterThan(byKey("mercedes").ry);
+    expect(byKey("mercedes").y).toBe((byKey("lotos").y + byKey("vidovdan").y) / 2);
+    expect(byKey("mercedes").y).toBeGreaterThan(byKey("toyota").y + 200);
+    expect(Math.abs(byKey("fiat").y - byKey("dongfeng").y)).toBeLessThan(50);
+    expect(byKey("fiat").x).toBeLessThan(byKey("dongfeng").x);
+    expect(Math.abs(byKey("dacia").y - byKey("renault").y)).toBeLessThan(50);
+    expect(byKey("dacia").x).toBeLessThan(byKey("renault").x);
+    for (const key of ["motogrini", "tvs"]) {
+      expect(byKey(key).y).toBeGreaterThan(byKey("geely").y);
+      expect(byKey(key).y).toBeLessThan(byKey("toyota").y);
     }
   });
   test("all organizer anchors offer a website even without a paid service", () => {

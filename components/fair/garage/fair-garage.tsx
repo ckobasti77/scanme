@@ -638,7 +638,7 @@ function SponsoredSlideVisual({ item, dict }: { item: FairSponsoredModelCard; di
     return (
       <Image
         fill
-        sizes="240px"
+          sizes="(min-width: 768px) 480px, 240px"
         src={photoUrl}
         unoptimized={fairPhotoUnoptimized(photoUrl)}
         alt={fmt(dict.sponsoredPhotoAlt, { brand: cleanTestLabel(item.brandName), model: displayModelName(item.brandName, item.displayName) })}
@@ -659,12 +659,14 @@ function SponsoredSlideVisual({ item, dict }: { item: FairSponsoredModelCard; di
  * stay deterministic (server epoch + interval), so every visitor sees the
  * same model at the same time.
  */
-function SponsoredStrip({ event, document: garageDocument, dict, onDocument }: { event: FairGarageEventView; document: FairGarageDocument; dict: FairGarageDict; onDocument: (next: FairGarageDocument) => boolean }) {
+export function SponsoredStrip({ event, document: garageDocument, dict, onDocument, inline = false, display = false }: { event: Pick<FairGarageEventView, "publicSlug" | "sponsoredRotation">; document: FairGarageDocument; dict: FairGarageDict; onDocument: (next: FairGarageDocument) => boolean; inline?: boolean; display?: boolean }) {
   const rotation = event.sponsoredRotation;
   const items = rotation?.items ?? [];
   const intervalMs = rotation ? Math.max(SPONSORED_INTERVAL_MS, rotation.intervalMs) : SPONSORED_INTERVAL_MS;
-  const [now, setNow] = useState(() => Date.now());
-  const slot = rotation ? getFairRotationItem(items, { epochMs: rotation.epochMs, nowMs: now, intervalMs }) : null;
+  // Map renders this card on the server too: hydrate the same first model,
+  // then join the live clock (including a device with a different clock).
+  const [now, setNow] = useState(0);
+  const slot = rotation && now > 0 ? getFairRotationItem(items, { epochMs: rotation.epochMs, nowMs: now, intervalMs }) : null;
   const targetIndex = slot?.slot.index ?? 0;
   const nextSlotAt = slot?.slot.nextSlotAt;
   const slotStartedAt = slot?.slot.slotStartedAt;
@@ -678,6 +680,11 @@ function SponsoredStrip({ event, document: garageDocument, dict, onDocument }: {
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const barsRef = useRef<HTMLDivElement | null>(null);
   const addAttemptRef = useRef<{ id: string; committed: boolean; fallback: number | null } | null>(null);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setNow(Date.now()), 0);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   // Next slot boundary: read the clock again (rotation keeps running while paused).
   useEffect(() => {
@@ -764,6 +771,7 @@ function SponsoredStrip({ event, document: garageDocument, dict, onDocument }: {
   if (!rotation || items.length === 0 || !item) return null;
 
   function record(kind: FairSponsoredActionKind, model: FairSponsoredModelCard) {
+    if (inline || model.eventSlug === "demo-auto-moto-fest-2026") return;
     void fetch("/api/fair/sponsored-action", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -802,7 +810,7 @@ function SponsoredStrip({ event, document: garageDocument, dict, onDocument }: {
       record("garage_add", model);
       fairHaptic([18, 40, 28]);
       // The new car parks as MESTO 01: back to the top of the garage.
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      if (!inline) window.scrollTo({ top: 0, behavior: "smooth" });
     }
     setAddingId(null);
     addAttemptRef.current = null;
@@ -858,7 +866,10 @@ function SponsoredStrip({ event, document: garageDocument, dict, onDocument }: {
   const incoming = incomingIndex === null ? null : items[incomingIndex];
   return (
     <aside
-      className={styles.spDock}
+      className={inline ? styles.spInline : styles.spDock}
+      data-fair-sponsored={inline ? "map" : "garage"}
+      data-sponsored-model={item.eventModelId}
+      data-sponsored-slot={slot?.slot.slotNumber}
       aria-label={dict.sponsoredLabel}
       onPointerEnter={(pointerEvent) => { if (pointerEvent.pointerType === "mouse") setPaused(true); }}
       onPointerLeave={(pointerEvent) => { if (pointerEvent.pointerType === "mouse") resume(); }}
@@ -876,8 +887,8 @@ function SponsoredStrip({ event, document: garageDocument, dict, onDocument }: {
             </div>
           ) : null}
         </div>
-        <div className={styles.spBars} ref={barsRef} aria-hidden="true">
-          {items.map((entry) => <i key={entry.eventModelId}><b /></i>)}
+        <div className={styles.spBars} ref={barsRef} data-sponsored-progress="" data-slot={slot?.slot.slotNumber} aria-hidden="true">
+          {items.map((entry, index) => <i key={entry.eventModelId} data-active={index === activeIndex}><b /></i>)}
         </div>
         <div className={styles.spLeft}>
           <span className={styles.spTag}>{dict.sponsoredTag}</span>
@@ -885,7 +896,7 @@ function SponsoredStrip({ event, document: garageDocument, dict, onDocument }: {
             <span>{cleanTestLabel(nameItem.brandName)}</span>
             <strong>{displayModelName(nameItem.brandName, nameItem.displayName)}</strong>
           </div>
-          <div className={styles.spActions}>
+          {!display ? <div className={styles.spActions}>
             <button type="button" className={styles.spAdd} data-done={saved || undefined} disabled={saved || adding} onClick={() => add(item)}>
               {saved ? <Check aria-hidden="true" /> : <CarFront aria-hidden="true" />}
               {saved ? dict.sponsoredAdded : adding ? dict.sponsoredAdding : dict.sponsoredAdd}
@@ -893,7 +904,7 @@ function SponsoredStrip({ event, document: garageDocument, dict, onDocument }: {
             <Link prefetch={false} className={styles.spView} href={`/sajam/${event.publicSlug}/model/${item.slug}`} onClick={() => record("open_model", item)}>
               {dict.sponsoredView}
             </Link>
-          </div>
+          </div> : null}
         </div>
       </div>
       {storageError ? <p className={styles.spError} role="alert">{dict.sponsoredAddError}</p> : null}
@@ -1037,7 +1048,8 @@ export function FairGarage({
 
   useEffect(() => {
     if (!mounted) return;
-    const allIds = [...new Set(Object.values(garageDocument.events).flat().map((item) => item.modelId))];
+    const demo = activeEvent.publicSlug === "demo-auto-moto-fest-2026";
+    const allIds = [...new Set((demo ? fairGarageItemsForEvent(garageDocument, activeEvent) : Object.values(garageDocument.events).flat()).map((item) => item.modelId).filter((id) => !demo || id.startsWith("demo-model-")))];
     const ids = process.env.NODE_ENV === "development" ? allIds.filter((id) => !/^(garage|showcase|test)-/i.test(id)) : allIds;
     if (ids.length === 0) {
       const frame = window.requestAnimationFrame(() => setRefreshState("ready"));
@@ -1058,7 +1070,7 @@ export function FairGarage({
       })
       .catch(() => { if (!cancelled) setRefreshState("error"); });
     return () => { cancelled = true; window.cancelAnimationFrame(loadingFrame); };
-  }, [garageDocument, mounted, refreshNonce, writeDocument]);
+  }, [activeEvent, garageDocument, mounted, refreshNonce, writeDocument]);
 
   const hasSponsored = Boolean(activeEvent.sponsoredRotation?.items.length);
   const compareHref = `/sajam/${activeEvent.publicSlug}/garaza/poredjenje?${new URLSearchParams(selected.map((id) => ["model", id])).toString()}`;
@@ -1101,6 +1113,7 @@ export function FairGarage({
   }
 
   async function recordShareAction(input: { eventModelId?: string; shareCollectionId?: string; channel: FairShareChannel; modelCount: number }) {
+    if (activeEvent.publicSlug === "demo-auto-moto-fest-2026") return;
     await fetch("/api/fair/traffic", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -1119,6 +1132,8 @@ export function FairGarage({
       if (models.length === 1) {
         const model = models[0];
         url = `${window.location.origin}/sajam/${model.eventSlug}/model/${model.modelSlug}`;
+      } else if (activeEvent.publicSlug === "demo-auto-moto-fest-2026") {
+        url = `${window.location.origin}/sajam/${activeEvent.publicSlug}/garaza`;
       } else {
         const response = await fetch("/api/fair/share-collection", {
           method: "POST",

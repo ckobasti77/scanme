@@ -1,9 +1,11 @@
 "use client";
 
-import { Check, ChevronRight, ExternalLink, List, Map as MapIcon, Search, Stamp, X } from "lucide-react";
+import { Check, ChevronRight, CircleHelp, ExternalLink, List, Map as MapIcon, Search, Stamp, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useDemoHeat } from "../demo/use-demo-heat";
+import { FAIR_DEMO_PASSPORTS } from "@/lib/fair-demo";
+import { getDict } from "@/lib/i18n";
 import { fairMapDeepLinkSearch, fairMapReadDeepLink, fairPassportProgressFor, type FairMapZoneId } from "@/lib/fair-map";
-import { fairBrandKey } from "@/lib/fair-brand-logo";
 import { buildAmfTopographicExhibits, fairMapTopographicLevel, searchAmfTopographicExhibits, type AmfTopographicExhibit } from "@/lib/fair-map/topography";
 import { fmt } from "@/lib/i18n/format";
 import type { FairEventMapViewProps } from "./fair-event-map";
@@ -12,11 +14,16 @@ import { AmfTopographicCanvas } from "./amf-topographic-canvas";
 import { AmfMapSponsor } from "./amf-map-sponsor";
 import { fairMapHeatView, useFairMapHeatData } from "./fair-map-heat";
 import { usePassportProgress } from "./fair-map-passport";
-import { useFairMapRotation } from "./fair-map-rotation";
 import styles from "./amf-topographic-map.module.css";
 
-export function AmfTopographicMap({ eventSlug, view, rotation, display, initialLink, initialMode, passportProgress }: FairEventMapViewProps) {
-  const exhibits = useMemo(() => buildAmfTopographicExhibits(view), [view]);
+export function AmfTopographicMap({ eventSlug, view, rotation, display, initialLink, initialMode, passportProgress, demo = false }: FairEventMapViewProps & { demo?: boolean }) {
+  const demoDict = getDict("fair-demo");
+  const exhibits = useMemo(() => buildAmfTopographicExhibits(view).map(item => demo ? {
+    ...item, paid: item.area !== "foyer" && !item.small && !["auto1", "grawe", "raiffeisen"].includes(item.key),
+  } : item), [view, demo]);
+  const heatKeys = useMemo(() => exhibits.filter(item => item.paid).map(item => item.key), [exhibits]);
+  const demoLevels = useDemoHeat(heatKeys, demo);
+  const [heatHelpOpen, setHeatHelpOpen] = useState(false);
   const link = useMemo(() => fairMapReadDeepLink(initialLink ?? {}, view), [initialLink, view]);
   const [zoneId, setZoneId] = useState<FairMapZoneId>(() => link.zoneId ?? "hala");
   const [selectedKey, setSelectedKey] = useState<string | null>(() => (exhibits.find((item) => link.locationId && item.locationId === link.locationId && item.participationId) ?? exhibits.find((item) => link.locationId && item.locationId === link.locationId))?.key ?? null);
@@ -32,16 +39,14 @@ export function AmfTopographicMap({ eventSlug, view, rotation, display, initialL
   const selected = exhibits.find((item) => item.key === selectedKey) ?? null;
   const items = useMemo(() => exhibits.filter((item) => item.zoneId === zoneId), [exhibits, zoneId]);
   const results = useMemo(() => searchAmfTopographicExhibits(exhibits, query), [exhibits, query]);
-  const heat = useFairMapHeatData(eventSlug, true);
+  const heat = useFairMapHeatData(eventSlug, !demo);
   const heatView = useMemo(() => fairMapHeatView(heat.value, "today"), [heat.value]);
-  const levels = useMemo(() => new Map(exhibits.map((item) => [item.key, heatView?.enough ? fairMapTopographicLevel(item, exhibits, heatView.levels, heatView.participationLevels) : 0])), [exhibits, heatView]);
+  const levels = useMemo(() => demoLevels ?? new Map(exhibits.map(item => [item.key, heatView?.enough ? fairMapTopographicLevel(item, exhibits, heatView.levels, heatView.participationLevels) : 0])), [exhibits, heatView, demoLevels]);
   const passport = usePassportProgress(eventSlug, !passportProgress && exhibits.some((item) => item.passportIds.length > 0));
   const progress = passportProgress ?? passport.progress;
   const completed = useMemo(() => new Set(exhibits.filter((item) => item.passportIds.length > 0 && item.passportIds.every((id) => progress?.some((row) => row.passportId === id && row.completed))).map((item) => item.key)), [exhibits, progress]);
-  const rotationState = useFairMapRotation(rotation);
-  const sponsor = rotationState?.item ?? rotation?.items[0] ?? null;
-  const sponsorExhibit = sponsor ? exhibits.find((item) => item.locationId === sponsor.standMapLocationId && (item.brandId === sponsor.brandId || fairBrandKey(item.name) === fairBrandKey(sponsor.brandName))) : null;
-  const selectedPassports = [...new Map(view.zones.flatMap((zone) => zone.stands.flatMap((row) => row.passports)).filter((entry) => selected?.passportIds.includes(entry.passportId)).map((entry) => [entry.passportId, entry])).values()];
+  const sponsor = rotation?.items[0] ?? null;
+  const selectedPassports = [...new Map((demo ? FAIR_DEMO_PASSPORTS : view.zones.flatMap((zone) => zone.stands.flatMap((row) => row.passports))).filter((entry) => selected?.passportIds.includes(entry.passportId)).map((entry) => [entry.passportId, entry])).values()];
   const stamped = selectedPassports.reduce((sum, entry) => sum + (fairPassportProgressFor(progress, entry)?.stamped ?? 0), 0);
   const required = selectedPassports.reduce((sum, entry) => sum + (fairPassportProgressFor(progress, entry)?.required ?? entry.models.length), 0);
 
@@ -85,9 +90,12 @@ export function AmfTopographicMap({ eventSlug, view, rotation, display, initialL
     return () => { observer.disconnect(); window.removeEventListener("resize", measure); };
   }, []);
 
-  return <section ref={rootRef} className={styles.root} data-amf-topographic="" data-display={display || undefined} data-reveal="off" aria-label={dict.pageTitle} onKeyDown={(event) => {
+  return <section ref={rootRef} className={styles.root} data-amf-topographic="" data-demo={demo || undefined} data-display={display || undefined} data-reveal="off" aria-label={dict.pageTitle} onPointerDownCapture={event => {
+    if (heatHelpOpen && !(event.target as Element).closest('[data-demo-heat]')) setHeatHelpOpen(false);
+  }} onKeyDown={(event) => {
     if (event.key !== "Escape") return;
-    if (directoryOpen) { setDirectoryOpen(false); directoryButton.current?.focus(); }
+    if (heatHelpOpen) setHeatHelpOpen(false);
+    else if (directoryOpen) { setDirectoryOpen(false); directoryButton.current?.focus(); }
     else if (searchOpen) { setSearchOpen(false); setQuery(""); }
     else if (selected) closeSelection();
   }}>
@@ -114,11 +122,13 @@ export function AmfTopographicMap({ eventSlug, view, rotation, display, initialL
     <div className={styles.mapStage}>
       <AmfTopographicCanvas items={items} zoneId={zoneId} selectedKey={selectedKey} levels={levels} completed={completed} onSelect={select} onDismiss={closeSelection} interactive={!display && !directoryOpen && !(searchOpen && query.trim())} popup={!display && selected && !directoryOpen && !searchOpen ? <div ref={popupRef} id="amf-map-popup" tabIndex={-1} role="dialog" aria-labelledby="amf-map-popup-title" className={styles.popupContent}>
         <div className={styles.popupHead}><h2 id="amf-map-popup-title">{selected.name}</h2><button type="button" className={styles.iconButton} aria-label={dict.closeDetail} onClick={closeSelection}><X aria-hidden="true" /></button></div>
-        {selectedPassports.length > 0 ? <div className={styles.passportStatus}>
-          <Stamp aria-hidden="true" /><span>{dict.stampsShort}</span>
-          {progress ? <strong aria-label={fmt(dict.passportProgressAria, { brand: selected.name, stamped, required })}>{fmt(dict.passportProgress, { stamped, required })}</strong> : <small role="status">{passport.status === "error" ? dict.passportUnavailable : dict.passportLoading}</small>}
-        </div> : null}
-        {selected.websiteUrl ? <a className={styles.website} href={selected.websiteUrl} target="_blank" rel="noopener noreferrer" aria-label={fmt(dict.websiteLinkAria, { exhibitor: selected.name })}>{dict.websiteLink}<ExternalLink aria-hidden="true" /></a> : null}
+        <div className={styles.popupActions}>
+          {selectedPassports.length > 0 ? <div className={`${styles.popupTile} ${styles.passportStatus}`}>
+            <Stamp aria-hidden="true" /><span>{dict.stampsShort}</span>
+            {progress ? <strong aria-label={fmt(dict.passportProgressAria, { brand: selected.name, stamped, required })}>{fmt(dict.passportProgress, { stamped, required })}</strong> : <small role="status">{passport.status === "error" ? dict.passportUnavailable : dict.passportLoading}</small>}
+          </div> : null}
+          {selected.websiteUrl ? <a className={`${styles.popupTile} ${styles.website}`} href={selected.websiteUrl} target="_blank" rel="noopener noreferrer" aria-label={fmt(dict.websiteLinkAria, { exhibitor: selected.name })}>{dict.websiteLink}<ExternalLink aria-hidden="true" /></a> : null}
+        </div>
       </div> : null} />
       {searchOpen && query.trim() ? <section id="amf-map-results" className={styles.searchResults} aria-label={dict.searchResultsLabel}>
         {results.length ? results.slice(0, 12).map((item, index) => <button key={item.key} type="button" data-active={index === activeResult} onClick={() => select(item)}><span>{item.name}</span><small>{item.ownerName && item.ownerName !== item.name ? item.ownerName : item.zoneId === "hala" ? dict.zones.hala : dict.entranceShort}</small><ChevronRight aria-hidden="true" /></button>) : <p role="status">{fmt(dict.searchEmpty, { query })}</p>}
@@ -136,11 +146,16 @@ export function AmfTopographicMap({ eventSlug, view, rotation, display, initialL
     <div className={styles.legend}>
       <div className={styles.legendSymbols}>
         <span className={styles.interest}><span className={styles.dots} aria-hidden="true"><i /><i /><i /></span>{dict.interestLabel}</span>
+        {demo ? <span className={styles.demoHeat} data-demo-heat="">
+          <span>{demoDict.heatSimulation}</span>
+          <button type="button" aria-label={demoDict.heatHelp} aria-expanded={heatHelpOpen} aria-describedby={heatHelpOpen ? "demo-heat-help" : undefined} onClick={() => setHeatHelpOpen(value => !value)}><CircleHelp aria-hidden="true" /></button>
+          {heatHelpOpen ? <span role="tooltip" id="demo-heat-help" className={styles.heatTooltip}>{demoDict.heatExplanation}</span> : null}
+        </span> : null}
         <span className={styles.collected}><Check aria-hidden="true" />{dict.progressCollected}</span>
       </div>
       {heat.failed ? <button type="button" className={styles.heatRetry} onClick={heat.retry}>{dict.heatRetry}</button> : null}
     </div>
 
-    {sponsor ? <AmfMapSponsor item={sponsor} slotNumber={rotationState?.slotNumber ?? 0} rotation={rotation} display={display} onShowStand={sponsorExhibit ? () => select(sponsorExhibit) : null} /> : null}
+    {sponsor ? <AmfMapSponsor item={sponsor} rotation={rotation} display={display} /> : null}
   </section>;
 }

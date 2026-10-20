@@ -61,6 +61,7 @@ type EventView = {
 
 /** DEV passport simulation (lib/fair-passport-simulation.ts): progress comes from here, never from Convex. */
 type SimulationView = {
+  version?: string;
   progress: FairPassportProgress[];
   stuck: Record<string, string[]>;
 };
@@ -71,8 +72,9 @@ type SimulationView = {
  */
 function seedSimulation(storage: Storage, eventId: string, simulation: SimulationView) {
   try {
-    if (storage.getItem(FAIR_PASSPORT_SIM_SEEDED_PREFIX + eventId)) return;
-    storage.setItem(FAIR_PASSPORT_SIM_SEEDED_PREFIX + eventId, "1");
+    const version = simulation.version ?? "1";
+    if (storage.getItem(FAIR_PASSPORT_SIM_SEEDED_PREFIX + eventId) === version) return;
+    storage.setItem(FAIR_PASSPORT_SIM_SEEDED_PREFIX + eventId, version);
   } catch {
     return;
   }

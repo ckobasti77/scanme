@@ -2874,6 +2874,9 @@
   pointer-events: none;
 }
 
+.spInline { width: 100%; min-width: 0; }
+.spInline .spCard { width: 100%; }
+
 .spCard {
   position: relative;
   isolation: isolate;
@@ -2978,7 +2981,7 @@
   right: 12px;
   bottom: 10px;
   display: flex;
-  width: calc(58% - 56px);
+  width: calc(100% - 220px);
   gap: 4px;
 }
 
@@ -3028,8 +3031,8 @@
   height: 6px;
   flex: none;
   border-radius: 50%;
-  background: #7fd4ff;
-  box-shadow: 0 0 0 0 rgb(127 212 255 / 0.6);
+  background: var(--fair-accent, #7fd4ff);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--fair-accent, #7fd4ff) 60%, transparent);
   content: "";
   animation: sp-dot 2s ease-in-out infinite;
 }
@@ -3076,10 +3079,12 @@
   display: flex;
   margin-top: auto;
   gap: 6px;
+  width: max-content;
+  max-width: 100%;
 }
 
-.spAdd,
-.spView {
+.spActions .spAdd,
+.spActions .spView {
   display: flex;
   height: 30px;
   padding: 0 8px;
@@ -3108,7 +3113,7 @@
 
 .spAdd {
   position: relative;
-  flex: 1.4;
+  flex: 0 0 auto;
   border: 0;
   background: #fff;
   color: var(--fair-ink);
@@ -3132,7 +3137,7 @@
 
 .spView {
   position: relative;
-  flex: 1;
+  flex: 0 0 auto;
   border: 1px solid rgb(255 255 255 / 0.3);
   background: rgb(255 255 255 / 0.05);
   color: #fff;

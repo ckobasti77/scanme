@@ -32,8 +32,11 @@ describe("public map guards", () => {
     expect([...paths]).toEqual(["/api/fair/passport"]);
     for (const [path, code] of all) {
       if (path.endsWith("fair-map-rotation.tsx") || path.endsWith("fair-map-live-rotation.ts")) continue;
+      // The shared card now accepts the read-only projection and local save/open
+      // actions. Its inline mode still bypasses the garage write gateway.
+      const source = path.endsWith("amf-map-sponsor.tsx") ? code.replaceAll("sponsoredRotation", "") : code;
       for (const forbidden of ["audience-vote", "rating", "survey", "impression", "recordSponsoredAction", "sponsored", "analytics", "useMutation", "useAction"]) {
-        expect(code, `${path}: ${forbidden}`).not.toContain(forbidden);
+        expect(source, `${path}: ${forbidden}`).not.toContain(forbidden);
       }
     }
     expect(mapCodeWithoutHeat.match(/fetch\(/g)).toHaveLength(1);

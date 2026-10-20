@@ -206,10 +206,14 @@
 .watermark {
   position: absolute;
   top: 50%;
-  right: -34px;
+  right: 14px;
+  width: 100px;
+  height: 92px;
+  max-width: 44%;
   display: block;
   color: var(--tk-cream);
-  opacity: .08;
+  opacity: .14;
+  filter: drop-shadow(0 1px 0 rgb(255 255 255 / .2)) drop-shadow(0 -1px 1px rgb(0 0 0 / .8));
   pointer-events: none;
   transform: translateY(-50%);
 }

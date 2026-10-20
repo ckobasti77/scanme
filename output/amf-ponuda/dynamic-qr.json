@@ -1,0 +1,19 @@
+{
+  "deployment": "adamant-warbler-746",
+  "businessId": "j575kh721f190h3g6g0xyvmy6x8fs4qq",
+  "temporaryDestination": "https://www.scanme.rs/",
+  "cards": [
+    {
+      "cardCode": "S08AJ7H2",
+      "cardId": "nn7ds4p31z8pkys1j2z53zzz318gh7yt",
+      "label": "AMF 2026 · Ponuda · Demo",
+      "url": "https://www.scanme.rs/r/S08AJ7H2"
+    },
+    {
+      "cardCode": "KZ739G7D",
+      "cardId": "nn7enckx11w6sr4vhb1dpnat8n8ghvv5",
+      "label": "AMF 2026 · Ponuda · Prijava izlagača",
+      "url": "https://www.scanme.rs/r/KZ739G7D"
+    }
+  ]
+}

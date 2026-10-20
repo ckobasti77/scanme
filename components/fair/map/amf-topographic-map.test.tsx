@@ -6,6 +6,7 @@ import { AUTO_MOTO_FEST_2026_MAP } from "@/lib/fair-map/auto-moto-fest-2026";
 import { buildFairMapView } from "@/lib/fair-map/view";
 import { FairEventMapView } from "./fair-event-map";
 import { MapSkeleton } from "@/app/sajam/[eventSlug]/_mapa/map-skeleton";
+import { AmfTopographicMap } from "./amf-topographic-map";
 
 function stand(name: string, location: string, heatEligible: boolean): FairPublicMapStand {
   return {
@@ -35,6 +36,16 @@ describe("canonical AMF visitor markup", () => {
     expect(html).toContain("1/1");
     expect(html).toContain('href="https://www.brosauto.rs/"');
   });
+  test("the demo uses the same real exhibitors and website pop-up, not anonymous demo logos", () => {
+    const demo = renderToStaticMarkup(createElement(AmfTopographicMap, { demo: true, eventSlug: "demo-auto-moto-fest-2026", view, rotation: null, display: false, initialLink: { stand: "hala-1" }, passportProgress: [] }));
+    expect(demo).toContain('aria-label="Audi"');
+    expect(demo).toContain('aria-label="Toyota"');
+    expect(demo).not.toContain('/fair/demo/logo.svg');
+    expect(demo).toContain('href="https://www.brosauto.rs/"');
+    expect(demo).toContain('Demo simulacija toplotne mape');
+    expect(demo).not.toContain('Pauziraj animaciju');
+    expect(demo).not.toContain('zagrevaju i hlade u krug');
+  });
   test("a completion belongs to Audi, not Volkswagen sharing the same location", () => {
     expect(html).toContain('aria-label="Audi. Pasoš je kompletiran"');
     expect(html).toContain('aria-label="Volkswagen"');
@@ -58,10 +69,34 @@ describe("canonical AMF visitor markup", () => {
     expect(unpaid).toContain('target="_blank" rel="noopener noreferrer"');
     expect(unpaid).not.toContain('/model/');
   });
+  test.each(["honda-moto", "piaggio", "tvs", "motogrini", "aprilia"])("%s uses an actual logo without a duplicate text label", (key) => {
+    const brand = html.match(new RegExp(`data-brand="${key}"[^]*?<\\/g>`))?.[0] ?? "";
+    expect(brand).toMatch(/<img[^>]+src=/);
+    expect(brand).not.toContain("<span");
+  });
+  test.each([
+    ["audi", "-0.2 7.6 24.4 8.8"], ["dacia", "-0.2 8.4 24.4 7.2"],
+    ["ford", "-0.2 7.3 24.4 9.4"], ["opel", "-0.2 4.3 24.4 15.4"],
+  ])("%s uses a tight wide emblem instead of a padded square", (key, viewBox) => {
+    const brand = html.match(new RegExp(`data-brand="${key}"[^]*?<\\/g>`))?.[0] ?? "";
+    expect(brand).toContain(`viewBox="${viewBox}"`);
+    expect(brand).toContain("wideHallLogo");
+  });
   test("AMF loading keeps the portrait topographic frame", () => {
     const skeleton = renderToStaticMarkup(createElement(MapSkeleton, { autoMoto: true }));
-    expect(skeleton).toContain('viewBox="0 0 1000 1380"');
+    expect(skeleton).toContain('viewBox="0 0 1000 1450"');
     expect(skeleton).toContain('aria-busy="true"');
     expect(skeleton).not.toContain("1375 1080");
+  });
+  test("entrance wordmarks have no duplicate captions and Makete is text only", () => {
+    const entrance = renderToStaticMarkup(createElement(FairEventMapView, { eventSlug: "auto-moto-fest-2026", view, rotation: null, display: false, initialLink: { zona: "ispred" }, passportProgress: [] }));
+    for (const key of ["servoremont", "zepter", "goes", "benni", "xtreme", "nm", "auto-happy-foyer", "auto-happy-outdoor", "swm", "kia"]) {
+      const brand = entrance.match(new RegExp(`data-brand="${key}"[^]*?<\\/g>`))?.[0] ?? "";
+      expect(brand, key).toMatch(/<img|<image/);
+      expect(brand, key).not.toContain("<span");
+    }
+    const makete = entrance.match(/data-brand="makete"[^]*?<\/g>/)?.[0] ?? "";
+    expect(makete).not.toMatch(/<img|<image/);
+    expect(makete.match(/>Makete<\/span>/g)).toHaveLength(1);
   });
 });

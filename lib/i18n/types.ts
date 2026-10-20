@@ -91,6 +91,7 @@ export interface EventMapDict {
 // Sajam 2026 map geometry (M0). Only the DEV overlay check on /dev/sajam-cair
 // for now; the public map (M1) grows this surface.
 export interface FairMapDict {
+  entranceCaptions: Record<"direkcija" | "ton" | "nm", string>;
   overlayTitle: string;
   overlayIntro: string;
   overlayDraft: string;
@@ -220,6 +221,7 @@ export interface FairMapDict {
 }
 
 export interface FairModelDict {
+  autoMotoEventName: string;
   metaTitle: string;
   metaDescription: string;
   mapNav: string;
@@ -6273,7 +6275,39 @@ export interface PostaDict {
   >;
 }
 
+export interface FairDemoDict {
+  headerLabel: string;
+  heatSimulation: string;
+  heatExplanation: string;
+  heatHelp: string;
+  modelCopy: Pick<FairModelDict, "interestHeading" | "interestBody" | "testDriveHeading" | "testDriveBody" | "interestSent" | "testDriveSent" | "leadSuccessTitle" | "leadSuccessBody">;
+  title: string;
+  eventName: string;
+  venueName: string;
+  notice: string;
+  heatNotice: string;
+  pause: string;
+  play: string;
+  brand: string;
+  exhibitor: string;
+  models: readonly string[];
+  price: string;
+  specsTitle: string;
+  power: string;
+  range: string;
+  transmission: string;
+  electric: string;
+  automatic: string;
+  consent: string;
+  question: string;
+  yes: string;
+  no: string;
+  dates: string;
+}
+
 export interface DictBySurface {
+  "fair-exhibitor-registration": FairExhibitorRegistrationDict;
+  "fair-demo": FairDemoDict;
   "event-map": EventMapDict;
   "fair-map": FairMapDict;
   "fair-model": FairModelDict;
@@ -6320,3 +6354,13 @@ export interface DictBySurface {
 }
 
 export type Surface = keyof DictBySurface;
+
+export interface FairExhibitorRegistrationDict {
+  title: string; intro: string; deadline: string; event: string; back: string;
+  company: string; contact: string; contactHeading: string; email: string; phone: string;
+  package: string; starter: string; advanced: string; starterPrice: string; advancedPrice: string;
+  packageNote: string; vehicles: string; model: string; vehicleNumber: string; removeVehicle: string;
+  contactHint: string; contactError: string; companyError: string; nameError: string; modelError: string; packageError: string; emailError: string;
+  privacy: string; submit: string; pending: string;
+  success: string; successBody: string; error: string; phoneError: string; lengthError: string; source: string; honeypot: string;
+}

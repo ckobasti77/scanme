@@ -415,20 +415,17 @@ button.mount {
 .info {
   display: flex;
   min-width: 0;
+  min-height: 96px;
   flex: 1;
   flex-direction: column;
   gap: 5px;
 }
 
-.swap {
-  display: grid;
-}
-
-.swap > div {
+.status {
   display: flex;
   flex-direction: column;
   gap: 5px;
-  grid-area: 1 / 1;
+  min-height: 64px;
 }
 
 .modelName {

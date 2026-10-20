@@ -195,7 +195,6 @@ export function StampPassport({
   const gotCount = models.filter((model) => stateOf(model.eventModelId) === "got").length;
 
   const rootRef = useRef<HTMLElement>(null);
-  const sheetRef = useRef<HTMLElement>(null);
   const fxRef = useRef<HTMLDivElement>(null);
   const dimRef = useRef<HTMLDivElement>(null);
   const flyRef = useRef<HTMLDivElement>(null);
@@ -204,14 +203,12 @@ export function StampPassport({
   const pillTextRef = useRef<HTMLSpanElement>(null);
   const busyRef = useRef(false);
   const timersRef = useRef<number[]>([]);
-  const swapHeightRef = useRef(0);
   const completeRef = useRef(complete);
   const wasCompleteRef = useRef(complete);
   const focusHandledRef = useRef(false);
 
   const [flying, setFlying] = useState<{ id: string; index: number; left: number; top: number } | null>(null);
   const [landed, setLanded] = useState<string | null>(null);
-  const [swapping, setSwapping] = useState<string | null>(null);
   const [sealOn, setSealOn] = useState(complete);
   const [sealRun, setSealRun] = useState(0);
   const [countDone, setCountDone] = useState(complete);
@@ -237,7 +234,9 @@ export function StampPassport({
   }, []);
 
   function later(fn: () => void, ms: number) {
-    timersRef.current.push(window.setTimeout(fn, ms));
+    const timer = window.setTimeout(fn, ms);
+    timersRef.current.push(timer);
+    return timer;
   }
 
   function rowEl(modelId: string) {
@@ -258,16 +257,8 @@ export function StampPassport({
     }
     node.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 140 }).onfinish = () => {
       setPillOverride(text);
-      node.animate([{ opacity: 0, transform: "translateY(3px)" }, { opacity: 1, transform: "none" }], { duration: 220 });
+      node.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 220 });
     };
-  }
-
-  function scrollToRow(row: HTMLElement) {
-    const rect = row.getBoundingClientRect();
-    const delta = rect.top - (window.innerHeight - rect.height) / 2;
-    if (Math.abs(delta) <= 40) return false;
-    window.scrollBy({ top: delta, behavior: reducedMotion() ? "auto" : "smooth" });
-    return true;
   }
 
   /* Completion: a wave runs through every row, then the seal is pressed. */
@@ -280,7 +271,6 @@ export function StampPassport({
       setPick(true);
       return;
     }
-    window.scrollTo({ top: 0, behavior: "smooth" });
     const rows = Array.from(rootRef.current?.querySelectorAll<HTMLElement>("[data-row]") ?? []);
     later(() => {
       rows.forEach((row, k) =>
@@ -316,11 +306,8 @@ export function StampPassport({
   }
 
   function land(modelId: string, index: number, at: number) {
-    const info = rowEl(modelId)?.querySelector<HTMLElement>("[data-info]");
-    swapHeightRef.current = info?.offsetHeight ?? 0;
     // One commit: the flying stamp disappears as the page stamp appears in the same spot.
     setFlying(null);
-    setSwapping(reducedMotion() ? null : modelId);
     setLanded(modelId);
     onStuck(modelId, at);
     setLiveText(fmt(dict.stampStuckStatus, { model: nameOf(modelId) }));
@@ -340,13 +327,11 @@ export function StampPassport({
   function stick(modelId: string, index: number) {
     if (busyRef.current || stateOf(modelId) !== "new") return;
     busyRef.current = true;
-    const row = rowEl(modelId);
-    const moved = row ? scrollToRow(row) : false;
     if (reducedMotion()) {
       land(modelId, index, nowMs());
       return;
     }
-    later(() => fly(modelId, index), moved ? 320 : 0);
+    fly(modelId, index);
   }
 
   // ?focus=<modelSlug> from the new-stamp card: bring that row into view.
@@ -370,7 +355,7 @@ export function StampPassport({
     const dx = W / 2 - (flying.left + 66);
     const dy = H * 0.38 - (flying.top + 48);
     const t = tilt(flying.index);
-    dimRef.current?.animate([{ opacity: 0 }, { opacity: 1, offset: 0.25 }, { opacity: 1, offset: 0.6 }, { opacity: 0 }], { duration: FLIGHT_MS });
+    const dim = dimRef.current?.animate([{ opacity: 0 }, { opacity: 1, offset: 0.25 }, { opacity: 1, offset: 0.6 }, { opacity: 0 }], { duration: FLIGHT_MS });
     const flight = node.animate(
       [
         { transform: `translate(${dx + 30}px,${dy - H * 0.5}px) rotate(-16deg) scale(1.55)`, filter: "drop-shadow(0 34px 22px rgb(30 15 5/.32)) brightness(1)", offset: 0, easing: "cubic-bezier(.2,.8,.3,1)" },
@@ -384,15 +369,20 @@ export function StampPassport({
     );
     const { id, index } = flying;
     flight.onfinish = () => land(id, index, nowMs());
-    later(() => {
+    const impact = later(() => {
       fairHaptic(30, { iosTick: true });
       if (fxRef.current) paperPuff(fxRef.current, slot.getBoundingClientRect());
       slot.animate(
         [{ boxShadow: "0 0 0 0 color-mix(in srgb, var(--fair-accent) 35%, transparent)" }, { boxShadow: "0 0 0 9px color-mix(in srgb, var(--fair-accent) 0%, transparent)" }],
         { duration: 420, easing: "ease-out" },
       );
-      sheetRef.current?.animate([{ transform: "translateY(0)" }, { transform: "translateY(1.5px)" }, { transform: "translateY(0)" }], { duration: 140, easing: "ease-out" });
     }, FLIGHT_MS * 0.86);
+    return () => {
+      flight.onfinish = null;
+      flight.cancel();
+      dim?.cancel();
+      window.clearTimeout(impact);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [flying]);
 
@@ -411,20 +401,9 @@ export function StampPassport({
     }
     row.querySelector<HTMLElement>("[data-sheen]")?.animate([{ transform: "translateX(-120%)" }, { transform: "translateX(120%)" }], { duration: 700, delay: 60, easing: "ease-in-out" });
 
-    const info = row.querySelector<HTMLElement>("[data-info]");
-    const oldPart = info?.querySelector<HTMLElement>("[data-swap-old]");
-    const newPart = info?.querySelector<HTMLElement>("[data-swap-new]");
-    if (info && oldPart && newPart) {
-      newPart.style.position = "absolute";
-      newPart.style.visibility = "hidden";
-      const h1 = newPart.offsetHeight;
-      newPart.style.position = "";
-      newPart.style.visibility = "";
-      oldPart.animate([{ opacity: 1, transform: "none" }, { opacity: 0, transform: "translateY(-6px)" }], { duration: 220, easing: EASE, fill: "forwards" });
-      newPart.animate([{ opacity: 0, transform: "translateY(6px)" }, { opacity: 1, transform: "none" }], { duration: 300, delay: 90, easing: EASE, fill: "backwards" });
-      info.animate([{ height: `${swapHeightRef.current}px` }, { height: `${h1}px` }], { duration: 320, easing: EASE });
-      later(() => setSwapping(null), 420);
-    }
+    row.querySelector<HTMLElement>("[data-stamp-status]")?.animate(
+      [{ opacity: 0 }, { opacity: 1 }], { duration: 220, easing: EASE },
+    );
 
     if (postmark) {
       const base = postmark.style.transform;
@@ -463,13 +442,12 @@ export function StampPassport({
     );
     later(() => {
       fairHaptic([50, 40, 90], { iosTick: true });
-      sheetRef.current?.animate([{ transform: "translateY(0)" }, { transform: "translateY(2px)" }, { transform: "translateY(0)" }], { duration: 200 });
       if (fxRef.current) inkBurst(fxRef.current, seal.getBoundingClientRect());
       const count = countRef.current;
       if (count) {
         count.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 160 }).onfinish = () => {
           setCountDone(true);
-          count.animate([{ opacity: 0, transform: "translateY(4px)" }, { opacity: 1, transform: "none" }], { duration: 260 });
+          count.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 260 });
         };
       } else {
         setCountDone(true);
@@ -526,7 +504,6 @@ export function StampPassport({
     const percent = publicResult?.options.find((option) => option.eventModelId === modelId)?.percentage;
     return (
       <>
-        <div className={styles.modelName}>{name}</div>
         {at ? <div className={styles.state}>{fmt(dict.stampCollectedState, { date: dateParts(at).label })}</div> : null}
         {percent !== undefined ? (
           <div className={styles.result} aria-label={fmt(dict.favoritePercentAria, { model: name, percent })}>
@@ -539,10 +516,9 @@ export function StampPassport({
     );
   };
 
-  const infoNew = (name: string) => (
+  const infoNew = () => (
     <>
       <span className={styles.chip}>{dict.newStamp}</span>
-      <div className={styles.modelName}>{name}</div>
       <div className={styles.state}>{dict.stampNewState}</div>
     </>
   );
@@ -556,7 +532,7 @@ export function StampPassport({
         <span>{dict.passportsNav}</span>
       </Link>
 
-      <section ref={sheetRef} className={sheetClass} aria-label={fmt(dict.brandPassportTitle, { brand })}>
+      <section className={sheetClass} aria-label={fmt(dict.brandPassportTitle, { brand })}>
         <div className={styles.head}>
           <div className={styles.headText}>
             <div className={styles.eyebrow}>{fmt(dict.stampEyebrow, { event: parts.full })}</div>
@@ -637,21 +613,13 @@ export function StampPassport({
               );
 
             let info;
-            if (state === "got" && swapping === id) {
-              info = (
-                <div className={styles.swap}>
-                  <div data-swap-old>{infoNew(name)}</div>
-                  <div data-swap-new>{infoGot(id, name)}</div>
-                </div>
-              );
-            } else if (state === "got") {
+            if (state === "got") {
               info = infoGot(id, name);
             } else if (state === "new") {
-              info = infoNew(name);
+              info = infoNew();
             } else {
               info = (
                 <>
-                  <div className={styles.modelName}>{name}</div>
                   {FAIR_PUBLIC_MAP_ENABLED ? (
                     <Link prefetch={false} href={mapHref} className={styles.find}>{dict.stampFindOnMap}</Link>
                   ) : (
@@ -665,11 +633,15 @@ export function StampPassport({
               <div
                 key={id}
                 data-row={id}
+                data-stamp-state={state}
                 className={[styles.row, styles[`row_${state}`], isFav ? styles.rowFav : ""].filter(Boolean).join(" ")}
               >
                 <span className={styles.glow} data-glow aria-hidden="true" />
                 {mount}
-                <div className={styles.info} data-info>{info}</div>
+                <div className={styles.info} data-info>
+                  <div className={styles.modelName} data-model-name>{name}</div>
+                  <div className={styles.status} data-stamp-status>{info}</div>
+                </div>
                 <div className={styles.mark} aria-hidden="true">
                   <span className={styles.ring} />
                   {state === "got" && at ? (

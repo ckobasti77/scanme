@@ -1,0 +1,49 @@
+.main { max-width: 840px; margin: auto; padding: 40px 24px 80px; color: var(--fair-ink); }
+.header { max-width: 680px; margin-bottom: 32px; }
+.header h1 { font-family: var(--font-archivo), sans-serif; font-size: clamp(36px, 6vw, 56px); line-height: 1.05; font-weight: 800; margin: 16px 0; letter-spacing: -.04em; }
+.header p { line-height: 1.65; }
+.header .brand { font-weight: 800; color: var(--fair-accent); }
+.header .deadline { margin-top: 20px; font-size: 14px; font-weight: 600; }
+.header a { display: inline-flex; align-items: center; gap: 8px; margin-top: 16px; font-weight: 600; text-decoration: underline; text-underline-offset: 4px; }
+.form { padding: 28px; border: var(--fair-border); border-radius: 20px; background: var(--fair-surface); box-shadow: var(--fair-shadow-2); }
+.fields { display: grid; grid-template-columns: 1fr 1fr; gap: 24px 20px; min-width: 0; }
+.fields > div { min-width: 0; }
+.fields label { margin-bottom: 8px; line-height: 1.4; }
+.fields input:not([type=radio]) { min-height: 48px; border-color: var(--fair-line-strong); color: var(--fair-ink); background: #fff; font-size: 16px; }
+.fields input:focus-visible, .submit:focus-visible, .remove:focus-visible, .packages label:has(:focus-visible) { outline: 3px solid var(--fair-accent); outline-offset: 3px; }
+.wide { grid-column: 1 / -1; }
+.fields p, .privacy { font-size: 13px; line-height: 1.6; color: var(--fair-ink-muted); margin-top: 8px; }
+.vehicleList h2, .contactTitle { font-size: 20px; font-weight: 700; }
+.vehicleList h2 { margin-bottom: 20px; }
+.vehicleReveal { display: flow-root; }
+.vehicle { position: relative; min-width: 0; margin-top: 20px; padding: 16px 0 20px; border-bottom: var(--fair-border); }
+.vehicleFields { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); align-items: start; gap: 16px; }
+.vehicle > legend { font-weight: 600; font-size: 14px; color: var(--fair-ink-muted); padding-right: 44px; }
+.vehicleModel { min-width: 0; }
+.vehicleModel > label, .fields .packageLabel { display: flex; align-items: center; gap: 4px; min-height: 20px; margin: 0 0 8px; font-size: 14px; line-height: 20px; font-weight: 600; color: var(--fair-ink); }
+.vehicleModel input { height: 64px; }
+.packages { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; min-width: 0; }
+.packages label { display: flex; align-items: center; gap: 8px; min-height: 64px; padding: 10px; border: var(--fair-border); border-radius: 10px; cursor: pointer; margin: 0; }
+.packages label:has(:checked) { border-color: var(--fair-accent); background: var(--fair-accent-soft); }
+.packages input { width: 18px; height: 18px; accent-color: var(--fair-accent); flex: 0 0 auto; }
+.packages strong, .packages small { display: block; }
+.packages strong { font-size: 14px; }
+.packages small { font-size: 12px; margin-top: 2px; color: var(--fair-ink-muted); }
+.remove { position: absolute; right: -8px; top: -24px; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 8px; color: var(--fair-ink-muted); cursor: pointer; }
+.remove:hover { color: var(--fair-ink); background: var(--fair-accent-soft); }
+.remove:disabled { cursor: wait; opacity: .5; }
+.contactTitle { margin-top: 8px; }
+.fields .contactHint { margin: -8px 0 -12px; }
+.required { color: var(--fair-accent); }
+.fields .fieldError { color: var(--fair-danger); margin: 8px 0 0; font-size: 13px; }
+.fields input[aria-invalid=true], .packages:has(input[aria-invalid=true]) label { border-color: var(--fair-danger); }
+.privacy { margin: 28px 0 20px; }
+.privacy a { text-decoration: underline; text-underline-offset: 3px; }
+.submit { display: flex; justify-content: center; align-items: center; gap: 10px; min-height: 52px; padding: 12px 24px; border-radius: 10px; background: var(--fair-accent); color: var(--fair-accent-ink); font-weight: 700; width: 100%; cursor: pointer; }
+.submit:disabled { opacity: .65; cursor: wait; }
+.error { color: var(--fair-danger); margin-bottom: 16px; line-height: 1.5; }
+.success { padding: 32px; background: var(--fair-surface); border: var(--fair-border); border-radius: 20px; }
+.success svg { color: var(--fair-accent); }
+.success h2 { font-size: 26px; font-weight: 700; margin: 16px 0; }
+.success p { line-height: 1.65; }
+@media (max-width: 560px) { .main { padding: 24px 16px 48px; } .form { padding: 20px 16px; } .fields, .vehicleFields { grid-template-columns: 1fr; } }

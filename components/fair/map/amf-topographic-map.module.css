@@ -78,40 +78,71 @@
 
 .mapStage { position: relative; flex: 1 1 0; min-height: 0; }
 .canvas { position: relative; width: 100%; height: 100%; overflow: hidden; touch-action: none; }
-.mapLayer { position: absolute; top: 0; left: 0; transform-origin: 0 0; }
+.mapLayer { position: absolute; top: 0; left: 0; transform-origin: 0 0; mix-blend-mode: multiply; }
 .wall { fill: none; stroke: #aaa59b; stroke-width: 7; stroke-linejoin: round; }
+.canvas[data-zone="ispred"] .wall { stroke-linejoin: miter; }
 .stairs rect { fill: var(--fair-paper-sheet, #fbf8f2); stroke: #a6a39b; stroke-width: 3; }
 .stairs line { stroke: #a6a39b; stroke-width: 2; }
-.entranceArrow { width: 100%; height: 100%; color: var(--topo-orange); stroke-width: 3; }
-.entranceText { fill: var(--topo-ink); font-size: 25px; font-weight: 650; text-transform: uppercase; letter-spacing: 1px; }
+.stairDivider { stroke: #a6a39b; stroke-width: 6; }
+.foyerStand { fill: var(--topo-grey); fill-opacity: 0.04; stroke: var(--topo-grey); stroke-opacity: 0.2; stroke-width: 1.5; }
+.foyerStand[data-scanme] { fill: var(--fair-scanme, #6fc05d); fill-opacity: 0.1; stroke: var(--fair-scanme, #6fc05d); stroke-opacity: 0.65; stroke-width: 2; }
+.entranceArrow { fill: none; stroke: var(--topo-orange); stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; }
+.entranceText { fill: var(--topo-ink); font-size: 34px; font-weight: 750; text-transform: uppercase; letter-spacing: 1px; }
 .summit { cursor: pointer; outline: none; }
-.focusRing { fill: transparent; stroke: transparent; stroke-width: 3; }
+.focusRing { fill: transparent; stroke: transparent; stroke-width: 3; stroke-dasharray: 6 5; }
+.brandFrame { mix-blend-mode: multiply; }
 .summit[data-selected="true"] .focusRing,
 .summit:focus-visible .focusRing { stroke: var(--topo-orange); stroke-width: 4; stroke-dasharray: 6 5; }
 .brand { display: flex; width: 100%; height: 100%; flex-direction: column; align-items: center; justify-content: center; gap: calc(10px * var(--summit-scale, 1)); color: var(--topo-ink); text-align: center; }
 .brand > svg { width: calc(90px * var(--summit-scale, 1)); height: calc(65px * var(--summit-scale, 1)); overflow: visible; }
 .brand > .vespaLogo { width: calc(136px * var(--summit-scale, 1)); height: calc(52px * var(--summit-scale, 1)); max-width: 100%; }
 .brand > img { width: calc(90px * var(--summit-scale, 1)); height: calc(65px * var(--summit-scale, 1)); max-width: 100%; object-fit: contain; filter: brightness(0) saturate(0); opacity: 0.88; }
+.brand > img[data-demo-logo] { filter: none; }
+.brand > .wideHallLogo { flex-shrink: 0; width: calc(120px * var(--summit-scale, 1)); height: calc(70px * var(--summit-scale, 1)); max-width: 100%; }
+.brand[data-mark="ford"] > .wideHallLogo { width: calc(140px * var(--summit-scale, 1)); }
+.brand[data-mark="audi"] > .wideHallLogo { width: calc(128px * var(--summit-scale, 1)); }
+.brand[data-mark="opel"] > .wideHallLogo { width: calc(108px * var(--summit-scale, 1)); }
+.brand > .entranceLogo { width: 100%; min-height: 0; flex: 0 1 auto; height: auto; max-height: 100%; object-fit: contain; filter: grayscale(1) contrast(1.15); mix-blend-mode: multiply; opacity: 1; overflow: hidden; }
+.brand > img.entranceLogo { flex: 1 1 0; height: 60%; }
+.brand[data-area] { gap: 4px; overflow: hidden; }
+.brand[data-mark="parking"] { flex-direction: row; gap: 10px; }
+.brand[data-mark="parking"] > .entranceLogo { flex: 0 0 64px; width: 64px; height: 100%; }
+.brand[data-mark="parking"] .entranceName { flex: 1; min-width: 0; font-size: 24px; text-align: left; }
+.entranceName { flex: 0 0 auto; max-width: 100%; font-size: 26px; font-weight: 750; line-height: 1.05; overflow-wrap: normal; }
+.brand[data-mark="amerikanac"] .entranceName { font-size: 22px; }
+.scanmeLogo { --wordmark-ink: var(--topo-ink); --wordmark-accent: var(--fair-scanme, #6fc05d); max-width: 100%; }
+.maketeName { font-size: 32px; font-weight: 750; line-height: 1.1; }
+.lukacLogo { font-family: Georgia, serif; font-size: 42px; font-style: italic; font-weight: 700; line-height: 1.1; }
+.entranceLabel { display: flex; align-items: center; justify-content: center; gap: 10px; height: 100%; color: var(--topo-ink); background: transparent; font-size: 34px; font-weight: 750; text-transform: uppercase; }
+.entranceLabel svg { width: 28px; height: 64px; flex: 0 0 28px; fill: none; stroke: var(--topo-orange); stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
+.brand > .motorcycleLogo { width: calc(120px * var(--summit-scale, 1)); height: calc(90px * var(--summit-scale, 1)); filter: grayscale(1) contrast(1.3); mix-blend-mode: multiply; opacity: 0.95; }
+.brand[data-mark="motogrini"] > .motorcycleLogo { width: calc(145px * var(--summit-scale, 1)); }
+.brand[data-mark="tvs"] > .motorcycleLogo { width: calc(170px * var(--summit-scale, 1)); filter: brightness(0); }
+.brand[data-mark="piaggio"] > .motorcycleLogo { width: calc(125px * var(--summit-scale, 1)); }
+.brand[data-mark="mercedes"] > :is(svg, img):not([data-demo-logo]) { width: calc(130px * var(--summit-scale, 1)); height: calc(105px * var(--summit-scale, 1)); }
+.brand > img[data-demo-logo] + .brandName { font-size: calc(23px * var(--summit-scale, 1)); white-space: nowrap; }
 .brandName { font-size: 25px; line-height: 1.1; font-weight: 750; text-transform: uppercase; }
 .smallName { font-size: 20px; font-weight: 750; line-height: 1.1; text-transform: uppercase; white-space: nowrap; }
 .wordmark { font-size: 36px; font-weight: 800; line-height: 1; }
-.brand[data-moto="true"] .wordmark { font-size: 20px; letter-spacing: 0.2px; text-transform: uppercase; }
+.brand[data-moto="true"] .wordmark { font-size: calc(25px * var(--summit-scale, 1)); letter-spacing: 0.2px; text-transform: uppercase; }
 .completed { display: flex; box-sizing: border-box; width: 36px; height: 36px; align-items: center; justify-content: center; border: 2px solid var(--topo-orange); border-radius: 50%; background: var(--fair-paper-sheet, #fbf8f2); color: var(--topo-ink); }
 .completed svg { width: 25px; height: 25px; stroke-width: 3; }
 .fit { position: absolute; left: 0; bottom: 0; display: flex; width: 44px; height: 44px; align-items: center; justify-content: center; border: 1px solid var(--fair-line, #d9d2c9); border-radius: 9px; background: var(--fair-paper-sheet, #fbf8f2); color: var(--topo-ink); }
 .fit svg { width: 18px; height: 18px; }
 
-.popup { position: absolute; z-index: 3; top: 0; left: 0; box-sizing: border-box; width: 232px; max-width: calc(100% - 16px); max-height: calc(100% - 16px); overflow: auto; overscroll-behavior: contain; border: 1px solid var(--fair-line, #d9d2c9); border-radius: 12px; background: var(--fair-paper-sheet, #fbf8f2); box-shadow: 0 8px 24px rgb(55 43 29 / 0.16); touch-action: pan-y; }
-.popupContent { padding: 0 10px 10px; outline: none; }
-.popupHead { display: flex; min-height: 46px; align-items: center; justify-content: space-between; gap: 6px; }
-.popupHead h2 { margin: 0; font-size: 16px; font-weight: 750; line-height: 1.2; }
-.popupHead .iconButton { flex: 0 0 44px; border: 0; background: transparent; }
-.passportStatus { display: flex; min-height: 32px; align-items: center; gap: 7px; padding-bottom: 8px; font-size: 13px; }
-.passportStatus > svg { flex: 0 0 18px; width: 18px; height: 18px; color: var(--topo-orange); }
-.passportStatus strong { margin-left: auto; font-variant-numeric: tabular-nums; }
-.passportStatus small { font-size: 11px; }
-.website { display: flex; box-sizing: border-box; min-height: 44px; align-items: center; justify-content: space-between; gap: 8px; padding: 0 10px; border: 1px solid var(--fair-line, #d9d2c9); border-radius: 8px; background: var(--fair-paper, #f4efe6); color: var(--topo-ink); font-size: 13px; font-weight: 650; text-decoration: none; }
-.website svg { width: 16px; height: 16px; color: var(--topo-orange); }
+.popup { position: absolute; z-index: 3; top: 0; left: 0; box-sizing: border-box; width: 220px; max-width: calc(100% - 16px); max-height: calc(100% - 16px); overflow: auto; overscroll-behavior: contain; border: 1px solid var(--fair-line, #d9d2c9); border-radius: 10px; background: var(--fair-paper-sheet, #fbf8f2); box-shadow: 0 5px 16px rgb(55 43 29 / 0.14); touch-action: pan-y; }
+.popupContent { padding: 0 6px 6px; outline: none; }
+.popupHead { display: grid; grid-template-columns: minmax(0, 1fr) 44px; min-height: 44px; align-items: center; gap: 4px; padding-left: 7px; }
+.popupHead h2 { min-width: 0; margin: 0; font-size: 14px; font-weight: 750; line-height: 1.25; overflow-wrap: anywhere; }
+.popupHead .iconButton { width: 44px; height: 44px; justify-content: flex-end; padding: 0 7px 0 0; border: 0; background: transparent; }
+.popupHead .iconButton svg, .popupActions .website > svg { flex: 0 0 18px; width: 18px; height: 18px; }
+.popupActions { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); align-items: stretch; gap: 6px; }
+.popupTile { display: flex; box-sizing: border-box; min-width: 0; min-height: 44px; align-items: center; gap: 4px; padding: 6px; border: 1px solid var(--fair-line, #d9d2c9); border-radius: 6px; background: var(--fair-paper, #f4efe6); color: var(--topo-ink); font-size: 12px; font-weight: 650; line-height: 1.2; }
+.popupTile > svg { flex: 0 0 14px; width: 14px; height: 14px; color: var(--topo-orange); }
+.passportStatus { flex-wrap: wrap; }
+.passportStatus strong { margin-left: auto; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.passportStatus small { flex-basis: 100%; font-size: 10px; }
+.website { justify-content: space-between; text-decoration: none; touch-action: manipulation; }
 
 .legend { position: relative; flex: 0 0 auto; padding: 0 6px; }
 .legendSymbols { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 11px; line-height: 20px; }
@@ -123,12 +154,6 @@
 .heatRetry { min-height: 44px; padding: 0 4px; border: 0; background: none; color: var(--topo-ink); font-size: 11px; text-decoration: underline; }
 
 .sponsor { flex: 0 0 auto; min-width: 0; }
-.sponsor .sponsorCard { width: 100%; background: #231c17; box-shadow: 0 4px 12px rgb(55 43 29 / 0.13); }
-.sponsor .sponsorCard::before { background: radial-gradient(ellipse at 35% 50%, rgb(226 96 42 / 0.38), transparent 60%); }
-.sponsor .sponsorTag::before { background: var(--topo-orange); box-shadow: none; }
-.sponsor .sponsorAction { min-height: 32px; flex: 0 0 auto; padding-inline: 10px; color: #fff; cursor: pointer; }
-.sponsorAction svg { width: 14px; height: 14px; }
-.sponsor .sponsorAction:focus-visible { outline-color: #fff; }
 
 .searchResults,
 .directory { position: absolute; z-index: 3; box-sizing: border-box; width: 100%; overflow: auto; overscroll-behavior: contain; border: 1px solid var(--fair-line, #d9d2c9); border-radius: 12px; background: var(--fair-paper-sheet, #fbf8f2); box-shadow: 0 8px 22px rgb(55 43 29 / 0.1); }
@@ -147,14 +172,20 @@
 .directory > p, .searchResults > p { margin: 0; padding: 16px; font-size: 14px; }
 
 .srOnly { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+.demoHeat { display: inline-flex; min-width: 0; align-items: center; gap: 2px; font-size: 9px; line-height: 1.25; }
+.demoHeat > span:first-child { max-width: 100px; }
+.demoHeat button { display: grid; flex: 0 0 44px; width: 44px; height: 44px; padding: 0; place-items: center; border: 0; background: none; color: inherit; }
+.demoHeat button svg { width: 16px; height: 16px; }
+.heatTooltip { position: absolute; z-index: 5; right: 6px; bottom: calc(100% + 6px); box-sizing: border-box; width: min(280px, 100%); padding: 12px; border: 1px solid var(--fair-line); border-radius: 10px; background: var(--fair-paper-sheet); box-shadow: 0 5px 16px rgb(55 43 29 / .14); font-size: 12px; line-height: 1.5; }
 
 @media (hover: hover) {
-  .root button:hover, .website:hover { background-color: rgb(37 34 30 / 0.045); }
+  .controls button:hover, .fit:hover, .heatRetry:hover, .website:hover, .popupHead button:hover, .directory button:hover, .searchResults button:hover, .demoHeat button:hover { background-color: rgb(37 34 30 / 0.045); }
   .tabs button[aria-pressed="true"]:hover { background: var(--topo-orange); }
   .summit:hover .focusRing { stroke: var(--topo-orange); stroke-opacity: 0.6; }
 }
 
 @media (prefers-reduced-motion: no-preference) {
+  .root[data-demo] .canvas path { transition: fill-opacity 220ms linear; }
   .root button, .focusRing { transition: background-color 150ms ease, stroke 150ms ease; }
 }
 
@@ -164,7 +195,7 @@
 }
 
 @media (max-height: 720px) {
-  .sponsor .sponsorCard { height: 108px; }
+  .root[data-demo] .demoHeat { font-size: 8px; }
 }
 
 @media (max-height: 520px) and (orientation: landscape) {

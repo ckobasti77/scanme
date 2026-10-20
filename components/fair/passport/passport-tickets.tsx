@@ -2,6 +2,7 @@
 
 import type { FairPassportCatalogEntry, FairPassportState } from "@/lib/fair-contract";
 import { fairBrandVector } from "@/lib/fair-brand-logo";
+import { fairDemoPassportArtwork } from "@/lib/fair-demo-passport";
 import {
   passportEventMark,
   passportTicketView,
@@ -94,6 +95,7 @@ export function PassportTickets({
           <section className={styles.list} aria-label={dict.overviewTitle}>
             {tickets.map(({ passport, view }) => {
               const brand = cleanLabel(passport.brandName);
+              const artwork = fairDemoPassportArtwork(passport.passportId);
               const stuck = new Set(passport.models.filter((_, index) => view.cells[index] === "got").map((model) => model.eventModelId));
               const freshText = view.fresh > 0 ? `. ${plural(view.fresh, dict.ticketsNewOne, dict.ticketsNewFew, dict.ticketsNewMany)}` : "";
               const seal = !view.complete ? "none" : sealShown[passport.passportId] || !ready ? "static" : "slam";
@@ -105,7 +107,8 @@ export function PassportTickets({
                     ? fmt(dict.ticketAriaComplete, { brand })
                     : `${fmt(dict.ticketAria, { brand, got: view.got, count: stampCount(dict, view.total) })}${freshText}`}
                   brand={brand}
-                  mark={fairBrandVector(passport.brandName)}
+                  mark={artwork?.mark ?? fairBrandVector(passport.brandName)}
+                  accent={artwork?.accent}
                   logoUrl={passport.brandLogoUrl}
                   label={fmt(dict.stampEyebrow, { event: eventLabel })}
                   models={passport.models.map((model) => ({

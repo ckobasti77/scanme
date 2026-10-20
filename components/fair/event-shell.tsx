@@ -4,6 +4,8 @@ import { CarFront, MapPin, Stamp } from "lucide-react";
 import type { FairModelDict } from "@/lib/i18n";
 import { GarageBadge } from "./garage-controls";
 import { FAIR_PUBLIC_MAP_ENABLED } from "@/lib/fair-contract";
+import { getDict } from "@/lib/i18n";
+import { fmt } from "@/lib/i18n/format";
 
 export function FairEventShell({
   eventId,
@@ -23,10 +25,13 @@ export function FairEventShell({
   /** Admin DEV tools (components/fair/admin): null for every visitor. */
   adminTools?: ReactNode;
 }) {
-  const publicEventName = eventName
+  const demo = eventSlug === "demo-auto-moto-fest-2026";
+  const mapEnabled = FAIR_PUBLIC_MAP_ENABLED || demo;
+  const baseEventName = demo || eventSlug.replace(/^test-/, "") === "auto-moto-fest-2026" ? dict.autoMotoEventName : eventName
     .replace(/^TEST\s+/i, "")
     .replace(/\s+2026\s*$/i, "")
     .trim();
+  const publicEventName = demo ? fmt(getDict("fair-demo").headerLabel, { event: baseEventName }) : baseEventName;
   return (
     <header className="fair-shell">
       <div className="fair-shell__inner">
@@ -39,10 +44,10 @@ export function FairEventShell({
         </div>
 
         <nav className="fair-shell__nav" aria-label={eventTitle}>
-          {!FAIR_PUBLIC_MAP_ENABLED ? null : current === "map" ? (
+          {!mapEnabled ? null : current === "map" ? (
             <span className="fair-shell__current" aria-current="page"><MapPin aria-hidden="true" /><span>{dict.mapNav}</span></span>
           ) : (
-            <Link prefetch={false} href={`/sajam/${eventSlug}`}><MapPin aria-hidden="true" /><span>{dict.mapNav}</span></Link>
+            <Link prefetch={false} href={`/sajam/${eventSlug}${demo ? "/mapa" : ""}`}><MapPin aria-hidden="true" /><span>{dict.mapNav}</span></Link>
           )}
           {current === "passports" ? (
             <span className="fair-shell__current" aria-current="page"><Stamp aria-hidden="true" /><span>{dict.passportsNav}</span></span>
