@@ -1,0 +1,667 @@
+/* Pasoš sa markicama (Auto Moto Fest) — port prototipa public/prototip/pasos-markice.html.
+   Sve boje dolaze iz teme događaja (fair-event.css: .fair-event--auto-moto). */
+
+.main {
+  --stamp-acc: var(--fair-accent);
+  --stamp-acc-soft: color-mix(in srgb, var(--fair-accent) 12%, transparent);
+  --stamp-ink: #1d1a17;
+  --stamp-muted: #857a6c;
+  --stamp-line: var(--fair-line);
+  --stamp-sheet: var(--fair-paper-sheet, #fbf8f2);
+  --stamp-dash: #d2c6b1;
+  position: relative;
+  width: min(100%, 560px);
+  margin-inline: auto;
+  padding: 12px 12px calc(40px + env(safe-area-inset-bottom));
+  color: var(--stamp-ink);
+}
+
+.back {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 6px;
+  padding: 0 6px;
+  color: var(--stamp-ink);
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.back svg {
+  width: 18px;
+  height: 18px;
+}
+
+.back:focus-visible,
+.mount:focus-visible,
+.rowHit:focus-visible,
+.find:focus-visible {
+  outline: 2px solid var(--stamp-acc);
+  outline-offset: 2px;
+}
+
+/* Sheet: paper texture, edge shading and fine grain. */
+.sheet {
+  position: relative;
+  padding: 18px 16px 8px;
+  border-radius: 14px;
+  background-color: var(--stamp-sheet);
+  background-image: var(--fair-paper-tex, none);
+  background-size: 420px 420px;
+  box-shadow: 0 1px 2px rgb(60 40 20 / 0.06), 0 12px 28px rgb(60 40 20 / 0.09);
+}
+
+.sheet::before {
+  position: absolute;
+  inset: 0;
+  border-radius: 14px;
+  background: radial-gradient(120% 90% at 50% 40%, transparent 55%, rgb(120 90 50 / 0.1) 100%);
+  content: "";
+  pointer-events: none;
+}
+
+.sheet::after {
+  position: absolute;
+  inset: 0;
+  border-radius: 14px;
+  background-image: var(--fair-noise, none);
+  content: "";
+  mix-blend-mode: multiply;
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.sheet > * {
+  position: relative;
+  z-index: 1;
+}
+
+.head {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--stamp-line);
+}
+
+.headText {
+  min-width: 0;
+  flex: 1;
+}
+
+.eyebrow {
+  color: var(--stamp-acc);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.brand {
+  margin: 6px 0 10px;
+  font-size: 40px;
+  font-weight: 900;
+  letter-spacing: -0.025em;
+  line-height: 1;
+  overflow-wrap: anywhere;
+}
+
+.progress {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.slots {
+  display: flex;
+  gap: 4px;
+}
+
+.slots i {
+  display: block;
+  width: 12px;
+  height: 15px;
+  border: 1.5px dashed #cfc3ae;
+  border-radius: 2px;
+}
+
+.slots i.slotOn {
+  border: 0;
+  background: var(--stamp-acc);
+  box-shadow: inset 0 0 0 2px var(--stamp-sheet), 0 0 0 1px color-mix(in srgb, var(--stamp-acc) 40%, transparent);
+}
+
+.count {
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.count strong {
+  font-weight: 700;
+}
+
+.count em {
+  color: var(--stamp-muted);
+  font-style: normal;
+  font-weight: 500;
+}
+
+/* Favorite pick prompt. */
+.ask {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.askOpen {
+  grid-template-rows: 1fr;
+}
+
+.ask > div {
+  overflow: hidden;
+}
+
+.pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 8px 10px;
+  border-radius: 9px;
+  background: var(--stamp-acc-soft);
+  color: var(--fair-accent-strong);
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.pillDot {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--stamp-acc);
+  animation: pill-dot 1.6s ease-in-out infinite;
+}
+
+@keyframes pill-dot {
+  0%,
+  100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--fair-accent) 45%, transparent); }
+  60% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--fair-accent) 0%, transparent); }
+}
+
+.resultsSoon {
+  margin: 6px 2px 0;
+  color: var(--stamp-muted);
+  font-size: 11.5px;
+  line-height: 1.35;
+}
+
+/* Seal on its dashed ring. */
+.sealBox {
+  position: relative;
+  width: 96px;
+  height: 96px;
+  flex: none;
+}
+
+.sealGhost {
+  position: absolute;
+  display: grid;
+  inset: 4px;
+  place-items: center;
+  border: 1.5px dashed #d8ccb6;
+  border-radius: 50%;
+  color: #b3a68f;
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  line-height: 1.5;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.sealGhost b {
+  font-weight: 700;
+  transition: opacity 0.25s;
+}
+
+.sealBoxDone .sealGhost b {
+  opacity: 0;
+}
+
+.seal {
+  position: absolute;
+  inset: 0;
+  color: var(--fair-seal-ink, var(--fair-accent));
+  opacity: 0;
+}
+
+.seal svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.sealOn {
+  opacity: 1;
+}
+
+/* Rows. */
+.rows {
+  display: flex;
+  flex-direction: column;
+}
+
+.row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 2px;
+  border-bottom: 1px solid var(--stamp-line);
+  isolation: isolate;
+}
+
+.row:last-child {
+  border-bottom: 0;
+}
+
+.glow {
+  position: absolute;
+  z-index: -1;
+  inset: 4px -6px;
+  border-radius: 12px;
+  background: var(--stamp-acc-soft);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.rowFav .glow {
+  opacity: 1;
+}
+
+.mount {
+  position: relative;
+  width: 132px;
+  height: 96px;
+  flex: none;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+}
+
+button.mount {
+  cursor: pointer;
+}
+
+.slot {
+  position: absolute;
+  display: grid;
+  inset: 0;
+  place-items: center;
+  border: 1.5px dashed var(--stamp-dash);
+  border-radius: 4px;
+  background: #f6f1e8;
+}
+
+.slot svg {
+  width: 104px;
+  height: auto;
+}
+
+.row_new .slot {
+  border-color: var(--stamp-acc);
+  background: color-mix(in srgb, var(--fair-accent) 6%, #fff);
+  animation: slot-breathe 2s ease-in-out infinite;
+}
+
+.row_new .slot svg :is(path, circle) {
+  stroke: var(--stamp-acc);
+}
+
+@keyframes slot-breathe {
+  0%,
+  100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--fair-accent) 0%, transparent); }
+  50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--fair-accent) 13%, transparent); }
+}
+
+.tap {
+  position: absolute;
+  bottom: 7px;
+  left: 50%;
+  color: var(--stamp-acc);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.preload {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Perforated stamp: real photo inside a white margin with punched edges. */
+.stampWrap {
+  position: absolute;
+  inset: 0;
+  filter: drop-shadow(0 1px 1px rgb(40 25 10 / 0.22)) drop-shadow(0 4px 8px rgb(40 25 10 / 0.12));
+  transform-origin: 50% 60%;
+}
+
+.stamp {
+  --r: 3px;
+  width: 132px;
+  height: 96px;
+  padding: 6px;
+  background: #fff;
+  -webkit-mask:
+    radial-gradient(var(--r) at var(--r) var(--r), #0000 97%, #000) calc(-1 * var(--r)) calc(-1 * var(--r)) / calc(3 * var(--r)) calc(3 * var(--r)) round,
+    linear-gradient(#000 0 0) content-box;
+  mask:
+    radial-gradient(var(--r) at var(--r) var(--r), #0000 97%, #000) calc(-1 * var(--r)) calc(-1 * var(--r)) / calc(3 * var(--r)) calc(3 * var(--r)) round,
+    linear-gradient(#000 0 0) content-box;
+}
+
+.stampInner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #e9e4dc;
+}
+
+.stampInner::after {
+  position: absolute;
+  inset: 0;
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.08);
+  content: "";
+}
+
+.stampArt {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, #eceae6, #d9d5ce);
+}
+
+.stampArt svg {
+  position: absolute;
+  top: 54%;
+  left: 50%;
+  width: 92%;
+  transform: translate(-50%, -50%);
+}
+
+/* Sheen stays inside the photo; the perforation never shines. */
+.sheen {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 30%, rgb(255 255 255 / 0.22) 50%, transparent 70%);
+  pointer-events: none;
+  transform: translateX(-120%);
+}
+
+.info {
+  display: flex;
+  min-width: 0;
+  min-height: 96px;
+  flex: 1;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.status {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-height: 64px;
+}
+
+.modelName {
+  font-size: 19px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+}
+
+.state {
+  color: var(--stamp-muted);
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+.row_lock .modelName {
+  color: #9a8f81;
+}
+
+.chip {
+  align-self: flex-start;
+  padding: 3px 7px 2px;
+  border-radius: 4px;
+  background: var(--stamp-acc);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.find {
+  align-self: flex-start;
+  color: var(--stamp-acc);
+  font-size: 12.5px;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.result {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--stamp-ink);
+  font-size: 11.5px;
+}
+
+.resultTrack {
+  position: relative;
+  height: 4px;
+  flex: 1;
+  overflow: hidden;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--fair-accent) 14%, transparent);
+}
+
+.resultTrack i {
+  position: absolute;
+  inset: 0;
+  background: var(--stamp-acc);
+  transform-origin: 0 50%;
+}
+
+.result b {
+  font-variant-numeric: tabular-nums;
+}
+
+.crowdPick {
+  align-self: flex-start;
+  color: var(--fair-accent-strong);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* Postmark ring on the right; the ink lands on it a little off-center. */
+.mark {
+  position: relative;
+  width: 62px;
+  height: 62px;
+  flex: none;
+  margin-right: -6px;
+}
+
+.ring {
+  position: absolute;
+  inset: 4px;
+  border: 1.5px dashed var(--stamp-dash);
+  border-radius: 50%;
+}
+
+.postmark {
+  position: absolute;
+  inset: 0;
+  color: var(--stamp-acc);
+  mix-blend-mode: multiply;
+}
+
+.postmark svg {
+  display: block;
+  width: 62px;
+  height: 62px;
+}
+
+/* Favorite pick on the stamps. */
+.halo {
+  position: absolute;
+  inset: -6px;
+  border: 1.5px dashed var(--stamp-acc);
+  border-radius: 7px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.sheetWaiting .halo {
+  animation: halo 2.4s ease-in-out infinite;
+  animation-delay: var(--d);
+}
+
+@keyframes halo {
+  0%,
+  100% { opacity: 0; }
+  35% { opacity: 0.9; }
+  65% { opacity: 0; }
+}
+
+.rowHit {
+  position: absolute;
+  z-index: 5;
+  inset: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.favBadge {
+  position: absolute;
+  z-index: 4;
+  top: -9px;
+  right: -9px;
+  display: grid;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--stamp-acc);
+  box-shadow: 0 2px 6px rgb(120 40 10 / 0.35);
+  color: #fff;
+}
+
+.favBadge svg {
+  width: 13px;
+  height: 13px;
+}
+
+/* Flight layer. */
+.dim {
+  position: fixed;
+  z-index: 60;
+  inset: 0;
+  background: rgb(20 14 8 / 0.22);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.fx {
+  position: fixed;
+  z-index: 61;
+  inset: 0;
+  pointer-events: none;
+}
+
+.fly {
+  position: absolute;
+  width: 132px;
+  height: 96px;
+  will-change: transform, filter;
+}
+
+.paperBit {
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  border-radius: 1px;
+  background: #d8cbb3;
+}
+
+.inkBit {
+  position: absolute;
+  border-radius: 50%;
+  background: var(--fair-accent);
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* Narrow phones (360 px): the stamp keeps its size, the text column gives way. */
+@media (max-width: 374px) {
+  .eyebrow {
+    letter-spacing: 0.1em;
+  }
+
+  .row {
+    gap: 12px;
+  }
+
+  .modelName {
+    font-size: 17px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .row_new .slot,
+  .pillDot {
+    animation: none;
+  }
+
+  .ask {
+    transition: none;
+  }
+
+  .sheetWaiting .halo {
+    animation: none;
+    opacity: 0.6;
+  }
+}

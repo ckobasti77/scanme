@@ -112,6 +112,7 @@ export function FairMapStandDetail({
   passportInfo,
   headingId,
   action,
+  showStandNumber = true,
 }: {
   summary: FairMapLocationSummary;
   eventSlug: string;
@@ -119,6 +120,8 @@ export function FairMapStandDetail({
   headingId: string;
   /** Close button (sheet / panel). */
   action?: ReactNode;
+  /** AMF visitor UI identifies places by zone and exhibitor, never by stand number. */
+  showStandNumber?: boolean;
 }) {
   const single = summary.stands.length === 1;
   return (
@@ -127,7 +130,7 @@ export function FairMapStandDetail({
         <div className={styles.detailHeading}>
           <h2 id={headingId} className={styles.detailPlace} tabIndex={-1}>
             <span className={styles.srOnly}>{dict.selectedStand}: </span>
-            {fairMapSummaryText(summary)}
+            {fairMapSummaryText(summary, showStandNumber)}
           </h2>
           <p className={styles.detailTitle}>{exhibitorLine(summary)}</p>
         </div>
@@ -425,8 +428,7 @@ function SheetPanel({ labelledBy, onClose, children }: { labelledBy: string; onC
         data-snap={twoHeights ? snap : "full"}
         data-scrolled={scrolled}
         style={{ y }}
-        initial={reduceMotion ? { opacity: 0 } : false}
-        animate={reduceMotion ? { opacity: 1, transition: { duration: FAIR_DURATION.state } } : undefined}
+        initial={false}
         exit={reduceMotion ? { opacity: 0, transition: { duration: FAIR_DURATION.state } } : { y: exitY, transition: { duration: FAIR_DURATION.state, ease: FAIR_EASE.exit } }}
         onPointerDown={onPointerDown}
       >

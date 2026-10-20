@@ -24,6 +24,11 @@ describe("fairMapSummaryText", () => {
   test("a place without an organizer area has no m² at all", () => {
     expect(header("hala-partner-10b")).not.toContain("m²");
   });
+
+  test("AMF visitor copy keeps the zone and area but never exposes the stand number", () => {
+    expect(fairMapSummaryText(fairMapLocationSummary(preview.view, "hala-2")!, false)).toBe("Hala · 490 m²");
+    expect(fairMapSummaryText(fairMapLocationSummary(preview.view, "ispred-14")!, false)).toBe("Ispred hale · 3 m²");
+  });
 });
 
 describe("fairMapMarks (the search hit is marked)", () => {

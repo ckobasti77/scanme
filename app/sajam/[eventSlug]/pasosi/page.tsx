@@ -1,10 +1,14 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { FairAdminTools } from "@/components/fair/admin/fair-admin-tools";
+import { FairDevSimulationSheet } from "@/components/fair/admin/fair-dev-simulation-sheet";
 import { FairEventShell } from "@/components/fair/event-shell";
 import { FairPassportExperience } from "@/components/fair/passport/fair-passport";
+import { PassportSimulationBar } from "@/components/fair/passport/passport-simulation-bar";
 import { loadFairPassportPage } from "@/lib/fair-server/passport-page";
+import { fairPassportSimulation, fairPassportSimulationMenu } from "@/lib/fair-server/passport-simulation";
 import { fairEventThemeClass } from "@/lib/fair-theme";
+import { fairAdminDevSr } from "@/lib/i18n/sr/fair-admin-dev";
 import { fairModelSr } from "@/lib/i18n/sr/fair-model";
 import { fairPassportSr as dict } from "@/lib/i18n/sr/fair-passport";
 
@@ -28,14 +32,23 @@ export default async function FairPassportsPage({
 }) {
   const [{ eventSlug }, query] = await Promise.all([params, searchParams]);
   const devTools = process.env.NODE_ENV === "development" && (Array.isArray(query.dev) ? query.dev[0] : query.dev) === "1";
-  const data = await loadFairPassportPage(eventSlug).catch(() => null);
+  const [data, sim, simMenu] = await Promise.all([
+    loadFairPassportPage(eventSlug).catch(() => null),
+    fairPassportSimulation(eventSlug),
+    fairPassportSimulationMenu(eventSlug),
+  ]);
   if (!data) notFound();
+  // DEV simulation (`next dev` only): simulated brands instead of the catalog, nothing from Convex.
+  const simulation = sim?.simulation;
+  const catalog = simulation?.catalog ?? data.catalog;
 
   return (
     <div
       className={`fair-event ${fairEventThemeClass(eventSlug)}`}
       data-reveal="off"
     >
+      {simulation ? <PassportSimulationBar /> : null}
+      {simMenu ? <FairDevSimulationSheet dict={fairAdminDevSr} current={simMenu.current} /> : null}
       <FairEventShell
         eventId={data.event.id}
         eventSlug={eventSlug}
@@ -46,12 +59,20 @@ export default async function FairPassportsPage({
         adminTools={<FairAdminTools event={{ id: data.event.id, slug: eventSlug, dataSlug: data.event.slug, title: data.event.title }} />}
       />
       <FairPassportExperience
-        event={{ id: data.event.id, publicSlug: eventSlug, dataSlug: data.event.slug, title: data.event.title }}
-        catalog={data.catalog}
-        models={data.models}
+        event={{
+          id: simulation?.eventId ?? data.event.id,
+          publicSlug: eventSlug,
+          dataSlug: data.event.slug,
+          title: data.event.title,
+          venueName: data.event.venueName,
+          startsAt: data.event.startsAt,
+        }}
+        catalog={catalog}
+        models={simulation ? [] : data.models}
         dict={dict}
         devTools={devTools}
         showDevEntry={process.env.NODE_ENV === "development"}
+        simulation={simulation ? { progress: simulation.progress, stuck: simulation.stuck } : undefined}
       />
     </div>
   );

@@ -11,38 +11,71 @@ import { createEventOnlyClient } from "./fairAdmin";
 import { commitFairImport, fairImportPayload, planFairImport } from "./fairImport";
 import { FAIR_ADMIN_LIST_LIMIT } from "../lib/fair-contract";
 
-// Sajam elektromobilnosti 2026 — REAL event setup (docs/events/sajam-automobila-2026/
+// Fair events — REAL event setup (docs/events/sajam-automobila-2026/
 // RUNBOOK-EVENT-SETUP.md). Internal only, run with `npx convex run` (DEV first,
 // then `--prod`). Same write paths as the admin `Događaji` tab and the B1
 // import; every step is idempotent. Exhibitor contacts are unknown, so each
 // event_only client gets a placeholder contact (no email/phone) to fill later.
 // Nothing here invents prices, specifications, photos or stands: those come
-// only from the intake payload (intake/elektromobilnost-2026-2026-10-07/b1-payload.json).
+// only from the intake payload (intake/elektromobilnost-2026-2026-10-07/b1-payload.json,
+// docs/events/auto-moto-fest-2026/intake/).
 
-const EVENT = {
-  code: "elektromobilnost-2026",
-  title: "Sajam elektromobilnosti 2026",
-  venueName: "Hala Čair, Niš",
-  startsAt: Date.parse("2026-10-09T00:00:00+02:00"),
-  endsAt: Date.parse("2026-10-12T00:00:00+02:00"),
-  // TEST fixtures: elektromobilnost 1, Auto Moto Fest 2 (garage shows it first).
-  garagePriority: 1,
-  days: [
-    { dateKey: "2026-10-09", label: "Petak, 9. oktobar" },
-    { dateKey: "2026-10-10", label: "Subota, 10. oktobar" },
-    { dateKey: "2026-10-11", label: "Nedelja, 11. oktobar" },
-  ],
-} as const;
+type SetupEvent = {
+  code: string;
+  title: string;
+  venueName: string;
+  startsAt: number;
+  endsAt: number;
+  garagePriority: number;
+  days: ReadonlyArray<{ dateKey: string; label: string }>;
+  // SMK/SML follow the existing fair format (SMK-SAJAM-26-QR); fixed codes keep
+  // the same payload valid on DEV and PROD.
+  exhibitors: ReadonlyArray<{ code: string; accountName: string; shortName: string; brands: readonly string[]; city?: string }>;
+};
 
-// SMK/SML follow the existing fair format (SMK-SAJAM-26-QR); fixed codes keep
-// the same payload valid on DEV and PROD.
-const EXHIBITORS = [
-  { code: "CUBI", accountName: "CUBI d.o.o.", shortName: "CUBI", brands: ["JMEV"] },
-  { code: "GRAND-MOTORS", accountName: "Grand Motors d.o.o.", shortName: "Grand Motors", brands: ["Mazda", "Chery"] },
-  { code: "AUTO-MIG", accountName: "AUTO MIG d.o.o. Niš", shortName: "Auto Mig", brands: ["Foton"], city: "Niš" },
-  { code: "FERUM", accountName: "Ferum d.o.o.", shortName: "Ferum", brands: ["Yudo"] },
-  { code: "BENTU", accountName: "BENTU MOTORS D.O.O", shortName: "BENTU", brands: ["BENTU"] },
-] as const;
+const DEFAULT_EVENT_CODE = "elektromobilnost-2026";
+
+const EVENTS: Record<string, SetupEvent> = {
+  "elektromobilnost-2026": {
+    code: "elektromobilnost-2026",
+    title: "Sajam elektromobilnosti 2026",
+    venueName: "Hala Čair, Niš",
+    startsAt: Date.parse("2026-10-09T00:00:00+02:00"),
+    endsAt: Date.parse("2026-10-12T00:00:00+02:00"),
+    // TEST fixtures: elektromobilnost 1, Auto Moto Fest 2 (garage shows it first).
+    garagePriority: 1,
+    days: [
+      { dateKey: "2026-10-09", label: "Petak, 9. oktobar" },
+      { dateKey: "2026-10-10", label: "Subota, 10. oktobar" },
+      { dateKey: "2026-10-11", label: "Nedelja, 11. oktobar" },
+    ],
+    exhibitors: [
+      { code: "CUBI", accountName: "CUBI d.o.o.", shortName: "CUBI", brands: ["JMEV"] },
+      { code: "GRAND-MOTORS", accountName: "Grand Motors d.o.o.", shortName: "Grand Motors", brands: ["Mazda", "Chery"] },
+      { code: "AUTO-MIG", accountName: "AUTO MIG d.o.o. Niš", shortName: "Auto Mig", brands: ["Foton"], city: "Niš" },
+      { code: "FERUM", accountName: "Ferum d.o.o.", shortName: "Ferum", brands: ["Yudo"] },
+      { code: "BENTU", accountName: "BENTU MOTORS D.O.O", shortName: "BENTU", brands: ["BENTU"] },
+    ],
+  },
+  "auto-moto-fest-2026": {
+    code: "auto-moto-fest-2026",
+    title: "Auto Moto Fest 2026",
+    venueName: "Hala Čair, Niš",
+    startsAt: Date.parse("2026-10-30T00:00:00+01:00"),
+    endsAt: Date.parse("2026-11-02T00:00:00+01:00"),
+    garagePriority: 2,
+    days: [
+      { dateKey: "2026-10-30", label: "Petak, 30. oktobar" },
+      { dateKey: "2026-10-31", label: "Subota, 31. oktobar" },
+      { dateKey: "2026-11-01", label: "Nedelja, 1. novembar" },
+    ],
+    // DEV only until the real AMF intake arrives: "_T" marks test data
+    // (exhibitor AUDI-T, brand AUDI_T) to be replaced before PROD.
+    exhibitors: [
+      { code: "AUDI-T", accountName: "AUDI_T", shortName: "AUDI_T", brands: ["AUDI_T"] },
+    ],
+  },
+};
 
 /** The admin user the audit rows are written for; must be a configured admin. */
 async function setupActor(ctx: MutationCtx, email: string) {
@@ -55,7 +88,7 @@ async function setupActor(ctx: MutationCtx, email: string) {
 const counts = v.object({ created: v.number(), updated: v.number(), unchanged: v.number() });
 
 export const bootstrapEvent = internalMutation({
-  args: { actorEmail: v.string() },
+  args: { actorEmail: v.string(), eventCode: v.optional(v.string()) },
   returns: v.object({
     eventId: v.id("fairEvents"),
     event: v.union(v.literal("created"), v.literal("updated"), v.literal("unchanged")),
@@ -64,6 +97,8 @@ export const bootstrapEvent = internalMutation({
     brands: v.object({ created: v.number(), unchanged: v.number() }),
   }),
   handler: async (ctx, args) => {
+    const EVENT = EVENTS[args.eventCode ?? DEFAULT_EVENT_CODE];
+    if (!EVENT) throw new Error("fair_setup_event_unknown");
     const actorUserId = await setupActor(ctx, args.actorEmail);
     const now = Date.now();
     const event = await upsertFairEvent(ctx, {
@@ -83,7 +118,7 @@ export const bootstrapEvent = internalMutation({
     }
     const clients = [];
     const brands = { created: 0, unchanged: 0 };
-    for (const exhibitor of EXHIBITORS) {
+    for (const exhibitor of EVENT.exhibitors) {
       const smkCode = `SMK-SAJAM-26-${exhibitor.code}`;
       const smlCode = `SML-SAJAM-26-${exhibitor.code}`;
       const client = await createEventOnlyClient(ctx, {
@@ -95,7 +130,7 @@ export const bootstrapEvent = internalMutation({
           name: exhibitor.accountName,
           slug: `sajam-26-${exhibitor.code.toLowerCase()}`,
           smlCode,
-          ...("city" in exhibitor ? { city: exhibitor.city } : {}),
+          ...(exhibitor.city ? { city: exhibitor.city } : {}),
         },
       }, actorUserId, now);
       clients.push({ accountName: exhibitor.accountName, smkCode, smlCode, result: client.result });

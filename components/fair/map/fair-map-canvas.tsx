@@ -1,5 +1,5 @@
 import { animate, motion, useMotionValue, useReducedMotion, useTransform } from "framer-motion";
-import { MapPin, Maximize2, Minus, Plus, Stamp } from "lucide-react";
+import { Check, MapPin, Maximize2, Minus, Plus, Stamp } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
 import type { FairPublicMapStand } from "@/lib/fair-contract";
 import {
@@ -19,6 +19,7 @@ import {
   fairMapTouchLocation,
   fairMapZoomAt,
   type FairMapLocation,
+  type FairMapLocationProgress,
   type FairMapPlacedStand,
   type FairMapPoint,
   type FairMapRect,
@@ -32,6 +33,7 @@ import { fairMapSr as dict } from "@/lib/i18n/sr/fair-map";
 import type { FairMapHeatView } from "./fair-map-heat";
 import { fairMapPlaceText } from "./fair-map-text";
 import { FAIR_DURATION, FAIR_EASE } from "../fair-motion";
+import { FairBrandMark } from "../garage/fair-brand-mark";
 import styles from "./fair-event-map.module.css";
 
 // N4 — one zone of the map as a vector drawing from the organizer geometry
@@ -52,6 +54,7 @@ const BADGE_MIN_PX = 11;
 const BADGE_MIN_PX_DISPLAY = 19;
 
 export type ZoneFocusRequest = { locationId: string; key: number; anchorY: number };
+export type FairMapProgressMarker = FairMapLocationProgress & { label: string; aria: string };
 
 type ZoneItem = {
   location: FairMapLocation;
@@ -61,12 +64,22 @@ type ZoneItem = {
   box: FairMapRect;
 };
 
-function Chip({ rect, stand }: { rect: FairMapRect; stand: FairPublicMapStand }) {
+function Chip({ rect, stand, brandMarks }: { rect: FairMapRect; stand: FairPublicMapStand; brandMarks: boolean }) {
   const logo = fairMapLogo(stand.logoUrl);
   const pad = Math.min(rect.height, rect.width) * 0.12;
   const fontSize = rect.height * 0.26;
   const maxChars = Math.max(Math.floor((rect.width - 2 * pad) / (fontSize * 0.56)), 3);
   const name = stand.exhibitorName.length > maxChars ? `${stand.exhibitorName.slice(0, maxChars - 1)}…` : stand.exhibitorName;
+  if (brandMarks && stand.brands.length === 1) {
+    const brandName = stand.brands[0].brandName.replace(/^TEST\s+/i, "");
+    return (
+      <foreignObject x={rect.x} y={rect.y} width={rect.width} height={rect.height} pointerEvents="none">
+        <div className={styles.brandChip} style={{ fontSize: rect.height * 0.4 }}>
+          <FairBrandMark brandName={brandName} fallback={<span>{brandName}</span>} />
+        </div>
+      </foreignObject>
+    );
+  }
   return (
     <g className={styles.chip}>
       <rect x={rect.x} y={rect.y} width={rect.width} height={rect.height} rx={rect.height * 0.2} />
@@ -104,7 +117,8 @@ export function ZoneCanvas({
   selectedLocationId,
   focus,
   highlight,
-  passportMarkers,
+  progressMarkers,
+  showStandNumbers,
   bubble,
   heat = null,
   heatOn = false,
@@ -122,8 +136,10 @@ export function ZoneCanvas({
   focus: ZoneFocusRequest | null;
   /** M2: the rotation's active stand in this zone; `key` restarts the reveal each slot. */
   highlight: { location: FairMapLocation; key: number } | null;
-  /** Location id → the visitor's passport N/M label. */
-  passportMarkers: ReadonlyMap<string, string>;
+  /** Location id → the visitor's own passport state and its compact label. */
+  progressMarkers: ReadonlyMap<string, FairMapProgressMarker>;
+  /** AMF keeps organizer stand numbers out of every visitor-facing map surface. */
+  showStandNumbers: boolean;
   /** Small callout over the selected stand (desktop); null for none. */
   bubble: string | null;
   /** SAJAM SUPER: the last heat levels (kept after the switch goes off, so the layer fades out). */
@@ -279,15 +295,17 @@ export function ZoneCanvas({
 
   const items = useMemo<ZoneItem[]>(() => {
     const occupied = new Map(zoneView.locations.map((row) => [row.location.id, row.stands]));
-    const chipOptions = { aspect: CHIP_ASPECT, gap: zone.image.width * 0.006, padding: zone.image.width * 0.006, maxWidth: zone.image.width * 0.15 };
+    const chipOptions = { aspect: CHIP_ASPECT, gap: zone.image.width * 0.006, padding: zone.image.width * 0.006, maxWidth: zone.image.width * (showStandNumbers ? 0.15 : 0.22) };
     // D1 (RN nisko): a placeholder (AMF "scanme") is not on the organizer map — not drawn.
     return zone.locations.filter(fairMapLocationTakesStands).map((location) => {
       const stands = [...(occupied.get(location.id) ?? [])].sort((a, b) => a.stand.exhibitorName.localeCompare(b.stand.exhibitorName, "sr"));
       const layout = fairMapStandLayout(location, radius);
-      const chips = location.kind === "partner" ? [] : fairMapChipGrid(layout.chips, stands.length, chipOptions).map((rect, index) => ({ rect, stand: stands[index].stand }));
-      return { location, stands, badge: layout.badge, chips, box: fairMapInscribedRect(location.polygon) };
+      const box = fairMapInscribedRect(location.polygon);
+      const chipBox = showStandNumbers ? layout.chips : box;
+      const chips = location.kind === "partner" ? [] : fairMapChipGrid(chipBox, stands.length, chipOptions).map((rect, index) => ({ rect, stand: stands[index].stand }));
+      return { location, stands, badge: layout.badge, chips, box };
     });
-  }, [radius, zone, zoneView.locations]);
+  }, [radius, showStandNumbers, zone, zoneView.locations]);
 
   const selectedItem = items.find((item) => item.location.id === selectedLocationId && item.stands.length) ?? null;
   const dimmed = (item: ZoneItem) => (item.stands.length ? lit !== null && !lit.has(item.location.id) : lit !== null);
@@ -310,7 +328,11 @@ export function ZoneCanvas({
   const heatStyle = (locationId: string) => {
     const level = heatLevel(locationId);
     return level > 0
-      ? ({ "--heat": fairHeatColor(level), "--heat-alpha": (0.34 + 0.4 * level).toFixed(2), "--heat-mix": Math.round(14 + 22 * level) } as CSSProperties)
+      ? ({
+          "--heat": showStandNumbers ? fairHeatColor(level) : "var(--fair-accent)",
+          "--heat-alpha": ((showStandNumbers ? 0.34 : 0.16) + 0.4 * level).toFixed(2),
+          "--heat-mix": Math.round(showStandNumbers ? 14 + 22 * level : 8 + 46 * level),
+        } as CSSProperties)
       : undefined;
   };
 
@@ -429,6 +451,7 @@ export function ZoneCanvas({
                 const { location } = item;
                 const open = item.stands.length > 0;
                 const selected = open && location.id === selectedLocationId;
+                const progress = progressMarkers.get(location.id);
                 const shape = <polygon className={styles.standShape} points={fairMapPointsAttr(location.polygon)} strokeWidth={stroke * (selected ? 4 : 2)} />;
                 return (
                   <g
@@ -439,12 +462,25 @@ export function ZoneCanvas({
                     data-selected={selected}
                     data-dimmed={lit !== null && !lit.has(location.id)}
                     data-heat={heatLevel(location.id) > 0 ? "on" : undefined}
+                    data-progress={progress?.state}
                     style={heatStyle(location.id)}
                     role={open ? "button" : undefined}
                     tabIndex={open ? (interactive && active ? 0 : -1) : undefined}
                     aria-hidden={open ? undefined : true}
                     aria-pressed={open ? selected : undefined}
-                    aria-label={open ? fmt(dict.locationAria, { location: fairMapPlaceText(location, zone.id), exhibitors: item.stands.map((row) => row.stand.exhibitorName).join(", ") }) : undefined}
+                    aria-label={
+                      open
+                        ? [
+                            fmt(dict.locationAria, {
+                              location: fairMapPlaceText(location, zone.id, undefined, showStandNumbers),
+                              exhibitors: item.stands.map((row) => row.stand.exhibitorName).join(", "),
+                            }),
+                            progress?.aria,
+                          ]
+                            .filter(Boolean)
+                            .join(". ")
+                        : undefined
+                    }
                     onClick={(event) => {
                       // Keyboard / assistive activation; pointer taps are handled on the viewport.
                       if (open && event.detail === 0 && interactive) onSelect(location.id);
@@ -471,7 +507,7 @@ export function ZoneCanvas({
                     )}
                     {location.kind === "partner" ? <PartnerPoint box={item.box} stand={item.stands[0]?.stand} /> : null}
                     {item.chips.map((chip) => (
-                      <Chip key={chip.stand.standId} rect={chip.rect} stand={chip.stand} />
+                      <Chip key={chip.stand.standId} rect={chip.rect} stand={chip.stand} brandMarks={!showStandNumbers} />
                     ))}
                   </g>
                 );
@@ -485,8 +521,8 @@ export function ZoneCanvas({
             ) : null}
           </svg>
 
-          {/* Stand numbers (a split stand's label once, where the organizer prints it). */}
-          {badges.map((badge) => (
+          {/* Stand numbers stay available to the older event; AMF identifies places by exhibitor and zone. */}
+          {showStandNumbers ? badges.map((badge) => (
             <motion.span
               key={`badge-${badge.key}`}
               className={styles.badge}
@@ -498,7 +534,7 @@ export function ZoneCanvas({
             >
               {badge.label}
             </motion.span>
-          ))}
+          )) : null}
           {highlight
             ? (() => {
                 const bounds = fairMapBounds(highlight.location.polygon);
@@ -518,18 +554,22 @@ export function ZoneCanvas({
               })()
             : null}
           {items
-            .filter((item) => passportMarkers.has(item.location.id))
-            .map((item) => (
-              <motion.span
-                key={`passport-${item.location.id}`}
-                className={styles.marker}
-                aria-hidden="true"
-                style={{ left: item.box.x + item.box.width, top: item.box.y + item.box.height, scale: inverse, x: "-100%", y: "-100%" }}
-              >
-                <Stamp />
-                {passportMarkers.get(item.location.id)}
-              </motion.span>
-            ))}
+            .filter((item) => progressMarkers.has(item.location.id))
+            .map((item) => {
+              const marker = progressMarkers.get(item.location.id)!;
+              return (
+                <motion.span
+                  key={`passport-${item.location.id}`}
+                  className={styles.marker}
+                  data-progress={marker.state}
+                  aria-hidden="true"
+                  style={{ left: item.box.x + item.box.width, top: item.box.y + item.box.height, scale: inverse, x: "-100%", y: "-100%" }}
+                >
+                  {marker.state === "complete" ? <Check /> : <Stamp />}
+                  {marker.label}
+                </motion.span>
+              );
+            })}
           {bubble && selectedItem ? (
             <motion.span
               key={`bubble-${selectedItem.location.id}`}
@@ -554,6 +594,7 @@ export function ZoneCanvas({
           <button type="button" className={styles.controlButton} aria-label={dict.fitMap} onClick={() => size && limits && apply(fairMapFit(size, content, limits), true)}>
             <Maximize2 aria-hidden="true" />
           </button>
+          {!showStandNumbers ? <span className={styles.controlHint}>{dict.mapTapHint}</span> : null}
         </div>
       ) : null}
     </section>

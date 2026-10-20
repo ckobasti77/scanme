@@ -1,0 +1,74 @@
+{
+  "viewports": [
+    {
+      "width": 375,
+      "height": 812,
+      "top": 257,
+      "bottom": 594.109375,
+      "overflow": false
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "top": 257,
+      "bottom": 605.890625,
+      "overflow": false
+    },
+    {
+      "width": 360,
+      "height": 640,
+      "top": 249,
+      "bottom": 574.328125,
+      "overflow": false
+    },
+    {
+      "width": 430,
+      "height": 932,
+      "top": 257,
+      "bottom": 637.3125,
+      "overflow": false
+    }
+  ],
+  "interactions": [
+    {
+      "viewport": "375x812",
+      "mapTap": true,
+      "modelLinks": true,
+      "focusTrap": true,
+      "escape": true,
+      "directory": true,
+      "deepLink": true,
+      "heat": true,
+      "loading": true,
+      "empty": true,
+      "errorRetry": true
+    },
+    {
+      "viewport": "390x844",
+      "mapTap": true,
+      "modelLinks": true,
+      "focusTrap": true,
+      "escape": true,
+      "directory": true,
+      "deepLink": true,
+      "heat": true,
+      "loading": true,
+      "empty": true,
+      "errorRetry": true
+    }
+  ],
+  "gestureSmoke": {
+    "cpuThrottle": 4,
+    "reducedMotion": false,
+    "pinch": true,
+    "pan": true,
+    "fit": true,
+    "keyboardSearch": true,
+    "emptySearchRecovery": true
+  },
+  "errors": [],
+  "warnings": [],
+  "expectedDevNotices": [
+    "Motion: reduced motion enabled"
+  ]
+}

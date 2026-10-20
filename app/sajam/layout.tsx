@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { FairPaperTexture } from "@/components/fair/fair-paper-texture";
 import "./fair-event.css";
 
 export const metadata: Metadata = {
@@ -13,5 +14,10 @@ export const metadata: Metadata = {
 };
 
 export default function FairLayout({ children }: { children: React.ReactNode }) {
-  return children;
+  return (
+    <>
+      {children}
+      <FairPaperTexture />
+    </>
+  );
 }

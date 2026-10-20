@@ -11,8 +11,9 @@
   --passport-glow: color-mix(in srgb, var(--passport-blue) 15%, #fff);
   min-height: calc(100dvh - var(--fair-header-height));
   background:
+    var(--fair-paper-tex, none) 0 0 / 420px 420px,
     radial-gradient(circle at 82% 5%, color-mix(in srgb, var(--passport-blue) 7%, transparent), transparent 28%),
-    #f7f8f8;
+    var(--fair-canvas, #f7f8f8);
   color: var(--passport-ink);
 }
 
@@ -58,7 +59,7 @@
 }
 
 .eventSeal {
-  --seal-paper: #f7f8f8;
+  --seal-paper: var(--fair-canvas, #f7f8f8);
   display: block;
   width: 108px;
   height: 108px;

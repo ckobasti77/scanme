@@ -91,6 +91,7 @@ export interface EventMapDict {
 // Sajam 2026 map geometry (M0). Only the DEV overlay check on /dev/sajam-cair
 // for now; the public map (M1) grows this surface.
 export interface FairMapDict {
+  entranceCaptions: Record<"direkcija" | "ton" | "nm", string>;
   overlayTitle: string;
   overlayIntro: string;
   overlayDraft: string;
@@ -146,6 +147,7 @@ export interface FairMapDict {
   passportLoading: string;
   passportUnavailable: string;
   passportHint: string;
+  passportAvailable: string;
   scanmeStand: string;
   // N3: every exhibitor, shared locations, partner points, the rear area
   categories: Record<FairExhibitorCategory, string>;
@@ -161,6 +163,14 @@ export interface FairMapDict {
   // N4 map v2 (test map look, real data)
   introTitle: string;
   findScanMe: string;
+  showDirectory: string;
+  showMap: string;
+  directoryShort: string;
+  mapShort: string;
+  progressLegend: string;
+  progressCollected: string;
+  previewTestNotice: string;
+  mapTapHint: string;
   filtersLabel: string;
   filterAll: string;
   filterAria: string;
@@ -211,6 +221,7 @@ export interface FairMapDict {
 }
 
 export interface FairModelDict {
+  autoMotoEventName: string;
   metaTitle: string;
   metaDescription: string;
   mapNav: string;
@@ -619,6 +630,28 @@ export interface FairAdminDevDict {
   toastResetAll: string;
   toastFailed: string;
   working: string;
+  // DEV simulation of passports (development only).
+  simTitle: string;
+  simNote: string;
+  simMenuTitle: string;
+  simTabAria: string;
+  simBrands: string;
+  simBrandsAll: string;
+  simBrandsTest: string;
+  simBrandsSome: string;
+  simModels: string;
+  simModelsRandom: string;
+  simState: string;
+  simStateStart: string;
+  simStatePartial: string;
+  simStateNew: string;
+  simStateComplete: string;
+  simStateMixed: string;
+  simApply: string;
+  simOff: string;
+  simBar: string;
+  toastSimOn: string;
+  toastSimOff: string;
 }
 
 /** /sajam/privatnost. */
@@ -723,6 +756,40 @@ export interface FairPassportDict {
   devFavoritePublic: string;
   devNewStampPreview: string;
   devNewStampReplay: string;
+  // Stamp passport (Auto Moto Fest).
+  stampEyebrow: string;
+  stampCountOne: string;
+  stampCountMany: string;
+  stampComplete: string;
+  stampTapToStick: string;
+  stampStickAria: string;
+  stampNewState: string;
+  stampCollectedState: string;
+  stampLockedHint: string;
+  stampFindOnMap: string;
+  stampStuckStatus: string;
+  stampSealGhostTop: string;
+  stampSealGhostBottom: string;
+  stampFavoriteAsk: string;
+  stampFavoriteChosen: string;
+  stampFavoriteAria: string;
+  newStampEyebrowStamps: string;
+  newStampActionStamps: string;
+  newStampAriaStamps: string;
+  devResetStuck: string;
+  // Stamp passport overview "ulaznice" (Auto Moto Fest); plural forms via srPluralCategory.
+  ticketsIntro: string;
+  ticketsCompleteOne: string;
+  ticketsCompleteFew: string;
+  ticketsCompleteMany: string;
+  ticketsNewOne: string;
+  ticketsNewFew: string;
+  ticketsNewMany: string;
+  ticketStubOne: string;
+  ticketStubMany: string;
+  ticketAria: string;
+  ticketAriaComplete: string;
+  ticketsPostmarkAria: string;
 }
 
 export interface AdminDomainDict {
@@ -6208,7 +6275,39 @@ export interface PostaDict {
   >;
 }
 
+export interface FairDemoDict {
+  headerLabel: string;
+  heatSimulation: string;
+  heatExplanation: string;
+  heatHelp: string;
+  modelCopy: Pick<FairModelDict, "interestHeading" | "interestBody" | "testDriveHeading" | "testDriveBody" | "interestSent" | "testDriveSent" | "leadSuccessTitle" | "leadSuccessBody">;
+  title: string;
+  eventName: string;
+  venueName: string;
+  notice: string;
+  heatNotice: string;
+  pause: string;
+  play: string;
+  brand: string;
+  exhibitor: string;
+  models: readonly string[];
+  price: string;
+  specsTitle: string;
+  power: string;
+  range: string;
+  transmission: string;
+  electric: string;
+  automatic: string;
+  consent: string;
+  question: string;
+  yes: string;
+  no: string;
+  dates: string;
+}
+
 export interface DictBySurface {
+  "fair-exhibitor-registration": FairExhibitorRegistrationDict;
+  "fair-demo": FairDemoDict;
   "event-map": EventMapDict;
   "fair-map": FairMapDict;
   "fair-model": FairModelDict;
@@ -6255,3 +6354,13 @@ export interface DictBySurface {
 }
 
 export type Surface = keyof DictBySurface;
+
+export interface FairExhibitorRegistrationDict {
+  title: string; intro: string; deadline: string; event: string; back: string;
+  company: string; contact: string; contactHeading: string; email: string; phone: string;
+  package: string; starter: string; advanced: string; starterPrice: string; advancedPrice: string;
+  packageNote: string; vehicles: string; model: string; vehicleNumber: string; removeVehicle: string;
+  contactHint: string; contactError: string; companyError: string; nameError: string; modelError: string; packageError: string; emailError: string;
+  privacy: string; submit: string; pending: string;
+  success: string; successBody: string; error: string; phoneError: string; lengthError: string; source: string; honeypot: string;
+}

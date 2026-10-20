@@ -1,6 +1,7 @@
 import type { FairMapDict } from "../types";
 
 export const fairMapSr = {
+  entranceCaptions: { direkcija: "JKP Direkcija", ton: "TON Niš", nm: "NM" },
   overlayTitle: "Preklop geometrije mape",
   overlayIntro:
     "Razvojna provera: poligoni lokacija (mapLocationId) preko izvornih mapa organizatora. Ovo nije izgled javne mape.",
@@ -63,6 +64,7 @@ export const fairMapSr = {
   passportLoading: "Učitavanje pasoša…",
   passportUnavailable: "Napredak pasoša trenutno nije dostupan.",
   passportHint: "Skenirajte QR kodove modela ovog brenda da sakupite pečate.",
+  passportAvailable: "Novo",
   scanmeStand: "ScanMe",
   categories: {
     automobili: "Automobili",
@@ -84,6 +86,14 @@ export const fairMapSr = {
   websiteLinkAria: "Sajt izlagača {exhibitor} (otvara se u novom prozoru)",
   introTitle: "Mapa sajma",
   findScanMe: "Pronađi ScanMe",
+  showDirectory: "Prikaži spisak izlagača",
+  showMap: "Prikaži mapu",
+  directoryShort: "Spisak",
+  mapShort: "Mapa",
+  progressLegend: "Vaše markice na mapi",
+  progressCollected: "Popunjen pasoš",
+  previewTestNotice: "DEV · TEST podaci",
+  mapTapHint: "Dodirni izlagača",
   filtersLabel: "Kategorije izlagača",
   filterAll: "Sve",
   filterAria: "{label}, {count}",
@@ -106,7 +116,7 @@ export const fairMapSr = {
   landmarkParking: "P",
   displayHint: "Skenirajte QR kod pored automobila za sve o modelu.",
   previewTitle: "Mapa sajma — DEV pregled",
-  previewNotice: "DEV pregled: izlagači i geometrija su stvarni, a modeli, rotacija i pasoš su TEST podaci. Stanja: ?stand=hala-2, ?zona=ispred, ?prikaz=ekran.",
+  previewNotice: "DEV pregled: geometrija je organizatorska, a posetioci, modeli, rotacija i pasoš su TEST podaci. Stanja: ?stand=hala-2, ?pogled=spisak, ?stanje=ucitavanje.",
   rotationLabel: "Sponzorisano",
   rotationAria: "Izdvojeni model u rotaciji",
   rotationWaiting: "Glasanje je u toku",

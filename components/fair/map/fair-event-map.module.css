@@ -224,6 +224,44 @@
   cursor: default;
 }
 
+/* One-tap fallback between the spatial map and the exhibitor directory. */
+.viewButton {
+  display: inline-flex;
+  min-width: 88px;
+  height: 48px;
+  padding: 0 12px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: var(--fair-border-strong);
+  border-radius: var(--fair-radius-md);
+  background: var(--fair-surface);
+  color: var(--fair-ink);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background-color var(--fair-dur-feedback) var(--fair-ease-enter),
+    transform var(--fair-dur-feedback) var(--fair-ease-enter);
+}
+
+.viewButton:active {
+  transform: scale(0.96);
+}
+
+.viewButton svg {
+  width: 20px;
+  height: 20px;
+}
+
+@media (hover: hover) {
+  .viewButton:hover {
+    background: var(--fair-canvas);
+  }
+}
+
 /* ------------------------------------------------------------- top bar */
 
 /* First row: search + "Pronađi ScanMe", one line at every width. The results
@@ -988,6 +1026,11 @@
 }
 
 /* ------------------------------------------------------- list + detail */
+
+.directorySlot {
+  min-width: 0;
+  scroll-margin-top: calc(var(--fair-header-height) + env(safe-area-inset-top) + var(--fair-space-2));
+}
 
 .directory {
   display: grid;
@@ -2347,6 +2390,100 @@
   }
 }
 
+/* On phones the map and directory are two focused views. The directory is
+   reachable from the first row without adding another vertical control row. */
+@media (max-width: 1023px) {
+  .root[data-event="auto-moto"][data-view="map"] .directorySlot {
+    display: none;
+  }
+
+  .root[data-event="auto-moto"][data-view="directory"] :is(.zoneSwitch, .mapArea, .heatLegend, .rotationInline, .mapCaption) {
+    display: none;
+  }
+
+  .root[data-event="auto-moto"][data-view="directory"] :is(.heatSwitch, .filterDivider) {
+    display: none;
+  }
+}
+
+/* AMF: warm paper, dark ink and the single event orange. The heat layer keeps
+   its own scale only while the visitor explicitly turns it on. */
+.root[data-event="auto-moto"] :is(.zone, .directory, .card, .heatLegend) {
+  border-color: color-mix(in srgb, var(--fair-ink) 18%, var(--fair-line));
+  background-color: var(--fair-paper-sheet);
+  background-image: var(--fair-noise), var(--fair-paper-tex);
+  background-size: 160px 160px, 420px 420px;
+  box-shadow:
+    0 2px 0 rgb(62 46 31 / 0.08),
+    0 14px 30px rgb(62 46 31 / 0.08);
+}
+
+.root[data-event="auto-moto"] .zone {
+  border-radius: 13px 19px 15px 17px;
+}
+
+.root[data-event="auto-moto"] .viewport {
+  background-color: var(--fair-canvas);
+  background-image: var(--fair-noise), var(--fair-paper-tex);
+  background-size: 160px 160px, 420px 420px;
+}
+
+.root[data-event="auto-moto"] .gridLine {
+  stroke: rgb(103 75 45 / 0.09);
+}
+
+.root[data-event="auto-moto"] .zoneOutline {
+  fill: rgb(251 248 242 / 0.78);
+  stroke: color-mix(in srgb, var(--fair-ink) 42%, var(--fair-line));
+}
+
+.root[data-event="auto-moto"] .standShape {
+  fill: var(--fair-paper-sheet);
+  stroke: rgb(45 39 34 / 0.38);
+}
+
+.root[data-event="auto-moto"] .stand[data-progress="available"] .standShape {
+  stroke: var(--fair-accent);
+  stroke-dasharray: 10 7;
+}
+
+.root[data-event="auto-moto"] .stand[data-progress="started"] .standShape,
+.root[data-event="auto-moto"] .stand[data-progress="complete"] .standShape {
+  stroke: var(--fair-accent);
+}
+
+.root[data-event="auto-moto"] .marker {
+  border-color: var(--fair-accent);
+  background: var(--fair-paper-sheet);
+  color: var(--fair-accent-strong);
+  box-shadow: 0 2px 8px rgb(78 45 25 / 0.16);
+}
+
+.root[data-event="auto-moto"] .marker[data-progress="available"],
+.root[data-event="auto-moto"] .marker[data-progress="complete"] {
+  border-color: var(--fair-accent-strong);
+  background: var(--fair-accent-soft);
+  color: var(--fair-accent-strong);
+}
+
+.root[data-event="auto-moto"] .marker[data-progress="complete"] {
+  min-width: 28px;
+  padding-inline: 5px;
+  justify-content: center;
+  background: var(--fair-accent-strong);
+  color: var(--fair-accent-ink);
+}
+
+.root[data-event="auto-moto"] .marker[data-progress="loading"] {
+  border-color: var(--fair-line-strong);
+  color: var(--fair-ink-muted);
+  opacity: 0.72;
+}
+
+.root[data-event="auto-moto"] .zone[data-heat="on"] .paper {
+  fill: #f1ede5;
+}
+
 /* --------------------------------------- „Gde je gužva“ (SAJAM SUPER Korak 3) */
 
 /* The switch sits first in the filter row, a hairline away from the filters. */
@@ -2672,5 +2809,198 @@
 @media (min-width: 1440px) {
   :global(.fair-event):has(.root[data-panel]) {
     --fair-shell-width: 1920px;
+  }
+}
+
+/* AMF map furniture stays compact enough for the full hall above the fold. */
+.brandChip {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  color: var(--fair-ink);
+  font-weight: 800;
+  line-height: 1.1;
+  text-align: center;
+}
+
+.brandChip > svg {
+  width: 100%;
+  height: 100%;
+}
+
+.brandChip > img {
+  width: auto;
+  height: 100%;
+  max-width: 100%;
+  object-fit: contain;
+}
+
+.controlHint {
+  margin-left: auto;
+  align-self: center;
+  color: var(--fair-ink-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.mapCaption {
+  display: grid;
+  gap: 4px;
+}
+
+.progressLegend {
+  display: flex;
+  padding: 0 4px;
+  gap: 16px;
+  color: var(--fair-ink-muted);
+  font-size: 12px;
+}
+
+.progressLegend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.progressLegend svg {
+  width: 14px;
+  height: 14px;
+  color: var(--fair-accent-strong);
+}
+
+.progressError,
+.emptyNote {
+  margin: 0;
+  color: var(--fair-ink-muted);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.emptyNote {
+  padding: 12px;
+  border: 1px dashed var(--fair-line-strong);
+  border-radius: 8px;
+  background: var(--fair-paper-sheet);
+}
+
+.progressError button {
+  min-height: 44px;
+  padding: 4px 8px;
+  border: 0;
+  background: transparent;
+  color: var(--fair-accent-strong);
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+}
+
+.root[data-event="auto-moto"] .paper {
+  fill: var(--fair-paper-sheet);
+}
+
+.root[data-event="auto-moto"] .standEmpty polygon {
+  fill: var(--fair-canvas);
+  stroke: #b9ad9d;
+  stroke-dasharray: none;
+}
+
+.root[data-event="auto-moto"] .marker {
+  min-height: 24px;
+  padding: 2px 6px;
+  font-size: 11px;
+  line-height: 18px;
+}
+
+.root[data-event="auto-moto"] .marker svg {
+  width: 14px;
+  height: 14px;
+}
+
+.root[data-event="auto-moto"] .marker[data-progress="complete"] {
+  min-width: 24px;
+}
+
+.root[data-event="auto-moto"] .heatSwitch[aria-checked="true"] .heatFlame {
+  color: var(--fair-accent-strong);
+  fill: var(--fair-accent-soft);
+}
+
+.root[data-event="auto-moto"] .findButton {
+  flex: 0 0 44px;
+  min-width: 44px;
+  padding-inline: 0;
+  border: var(--fair-border-strong);
+  border-radius: 8px;
+  background: var(--fair-paper-sheet);
+  color: var(--fair-ink);
+}
+
+.root[data-event="auto-moto"] .findLabel {
+  display: none;
+}
+
+.root[data-event="auto-moto"] .sheet {
+  border-color: var(--fair-line-strong);
+  border-radius: 18px 18px 0 0;
+  background: var(--fair-paper-sheet) var(--fair-paper-tex) 0 0 / 420px 420px;
+}
+
+.root[data-event="auto-moto"] .sheet .detailHeader {
+  background: var(--fair-paper-sheet) var(--fair-paper-tex) 0 0 / 420px 420px;
+}
+
+.root[data-event="auto-moto"] .modelLink {
+  border-radius: 8px;
+  border-bottom-color: var(--fair-line-strong);
+}
+
+@media (max-width: 1023px) {
+  .root[data-event="auto-moto"] {
+    --fair-map-gutter: 12px;
+    padding-top: 8px;
+    gap: 8px;
+  }
+
+  .root[data-event="auto-moto"] :is(.searchInput, .viewButton, .findButton) {
+    height: 44px;
+    border-radius: 8px;
+  }
+
+  .root[data-event="auto-moto"] .viewButton {
+    min-width: 88px;
+    padding-inline: 10px;
+  }
+
+  .root[data-event="auto-moto"] .zoneSwitch {
+    border-radius: 9px;
+    box-shadow: 0 2px 0 rgb(62 46 31 / 0.06);
+  }
+
+  .root[data-event="auto-moto"] .zoneButton {
+    min-height: 44px;
+    font-size: 14px;
+  }
+
+  .root[data-event="auto-moto"] .viewport {
+    height: auto;
+    min-height: 0;
+    max-height: calc(100svh - var(--fair-header-height) - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 204px);
+    aspect-ratio: var(--fair-map-ratio);
+  }
+
+  .root[data-event="auto-moto"] .controls {
+    padding: 8px;
+    border-top-style: dashed;
+  }
+
+  .root[data-event="auto-moto"] .controlButton {
+    border-radius: 8px;
+  }
+
+  .root[data-event="auto-moto"] .directory {
+    padding: 12px;
+    border-radius: 10px;
   }
 }

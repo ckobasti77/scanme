@@ -119,6 +119,10 @@ export function fairGarageModelView(
 
 export async function fetchFairGarageModels(ids: string[]): Promise<FairPublicModel[]> {
   if (ids.length === 0) return [];
+  if (ids.every((id) => id.startsWith("demo-model-"))) {
+    const { FAIR_DEMO_MODELS } = await import("../fair-demo");
+    return FAIR_DEMO_MODELS.filter((model) => ids.includes(model.id));
+  }
   const response = await fetch("/api/fair/garage-models", {
     method: "POST",
     headers: { "content-type": "application/json" },

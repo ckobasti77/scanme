@@ -1,6 +1,7 @@
 import type { FairModelDict } from "../types";
 
 export const fairModelSr = {
+  autoMotoEventName: "Auto Moto Fest 2026.",
   metaTitle: "{model} | {event}",
   metaDescription: "Ključne informacije i dostupne sajamske akcije za model {model}.",
   mapNav: "Mapa",

@@ -13,13 +13,20 @@ import styles from "./fair-event-map.module.css";
 // page is visible; no live subscription) and the legend. The map colours come
 // from fair-map-canvas.tsx; there are never numbers on the public map.
 
-type HeatValue = {
-  at: number;
-  today: { enough: boolean; levels: Array<{ locationId: string; level: number }> };
-  hour: { enough: boolean; levels: Array<{ locationId: string; level: number }> };
+type HeatPeriodValue = {
+  enough: boolean;
+  levels: Array<{ locationId: string; level: number }>;
+  /** Optional shared-loader projection for exhibitors sharing a physical location. */
+  participationLevels?: Array<{ participationId: string; level: number }>;
 };
 
-export type FairMapHeatView = { enough: boolean; levels: ReadonlyMap<string, number>; at: number };
+type HeatValue = {
+  at: number;
+  today: HeatPeriodValue;
+  hour: HeatPeriodValue;
+};
+
+export type FairMapHeatView = { enough: boolean; levels: ReadonlyMap<string, number>; at: number; participationLevels?: ReadonlyMap<string, number> };
 
 const PREFERENCE_KEY = "scanme:fair-map-heat";
 const listeners = new Set<() => void>();
@@ -109,7 +116,12 @@ export function useFairMapHeatData(eventSlug: string, on: boolean) {
 export function fairMapHeatView(value: HeatValue | null, period: FairHeatPeriod): FairMapHeatView | null {
   if (!value) return null;
   const result = value[period];
-  return { enough: result.enough, levels: new Map(result.levels.map((row) => [row.locationId, row.level])), at: value.at };
+  return {
+    enough: result.enough,
+    levels: new Map(result.levels.map((row) => [row.locationId, row.level])),
+    at: value.at,
+    ...(result.participationLevels ? { participationLevels: new Map(result.participationLevels.map((row) => [row.participationId, row.level])) } : {}),
+  };
 }
 
 /** A clock for „pre X min“ that ticks every 30 s while mounted. */
@@ -140,12 +152,14 @@ export function FairMapHeatLegend({
   view,
   failed,
   onRetry,
+  warm = false,
 }: {
   period: FairHeatPeriod;
   onPeriod: (period: FairHeatPeriod) => void;
   view: FairMapHeatView | null;
   failed: boolean;
   onRetry: () => void;
+  warm?: boolean;
 }) {
   const now = useMinuteClock();
   const gradient = useMemo(() => fairHeatGradientCss(), []);
@@ -175,7 +189,7 @@ export function FairMapHeatLegend({
         ) : view.enough ? (
           <div className={styles.heatScale}>
             <span>{dict.heatLegendLess}</span>
-            <span className={styles.heatBar} style={{ backgroundImage: gradient }} aria-hidden="true" />
+            <span className={styles.heatBar} style={{ backgroundImage: warm ? "linear-gradient(90deg, var(--fair-accent-soft), var(--fair-accent))" : gradient }} aria-hidden="true" />
             <span>{dict.heatLegendMore}</span>
           </div>
         ) : (

@@ -1195,7 +1195,7 @@ export function sortFairDashboardActions<T extends Pick<FairDashboardAction, "ru
  * (and the entrance panel QR PANEL-2026-EVENT,
  * which opens it) shows the map, `/sajam` opens the active fair's map, the nav
  * has Mapa, and the garage, passport and model page link to the map again.
- * Set to `false` to hide it once more: everything above then falls back to the
- * garage, with no "coming soon" text anywhere.
+ * Local development is enabled for the owner's map review (17 Oct 2026).
+ * Production remains hidden until its exhibitor data is ready.
  */
-export const FAIR_PUBLIC_MAP_ENABLED = false;
+export const FAIR_PUBLIC_MAP_ENABLED = process.env.NODE_ENV === "development";

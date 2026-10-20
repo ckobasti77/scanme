@@ -1348,8 +1348,9 @@
   min-height: 100dvh;
   overflow-x: clip;
   background:
+    var(--fair-paper-tex, none) 0 0 / 420px 420px,
     radial-gradient(circle at 82% 5%, color-mix(in srgb, var(--fair-accent) 7%, transparent), transparent 28%),
-    #f7f8f8;
+    var(--fair-canvas, #f7f8f8);
 }
 
 .pageWithDock {
@@ -2869,9 +2870,12 @@
   bottom: 0;
   left: 0;
   padding: 18px 12px max(12px, env(safe-area-inset-bottom));
-  background: linear-gradient(180deg, rgb(247 248 248 / 0), #f7f8f8 30%);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--fair-canvas, #f7f8f8) 0%, transparent), var(--fair-canvas, #f7f8f8) 30%);
   pointer-events: none;
 }
+
+.spInline { width: 100%; min-width: 0; }
+.spInline .spCard { width: 100%; }
 
 .spCard {
   position: relative;
@@ -2977,7 +2981,7 @@
   right: 12px;
   bottom: 10px;
   display: flex;
-  width: calc(58% - 56px);
+  width: calc(100% - 220px);
   gap: 4px;
 }
 
@@ -3027,8 +3031,8 @@
   height: 6px;
   flex: none;
   border-radius: 50%;
-  background: #7fd4ff;
-  box-shadow: 0 0 0 0 rgb(127 212 255 / 0.6);
+  background: var(--fair-accent, #7fd4ff);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--fair-accent, #7fd4ff) 60%, transparent);
   content: "";
   animation: sp-dot 2s ease-in-out infinite;
 }
@@ -3075,10 +3079,12 @@
   display: flex;
   margin-top: auto;
   gap: 6px;
+  width: max-content;
+  max-width: 100%;
 }
 
-.spAdd,
-.spView {
+.spActions .spAdd,
+.spActions .spView {
   display: flex;
   height: 30px;
   padding: 0 8px;
@@ -3107,7 +3113,7 @@
 
 .spAdd {
   position: relative;
-  flex: 1.4;
+  flex: 0 0 auto;
   border: 0;
   background: #fff;
   color: var(--fair-ink);
@@ -3131,7 +3137,7 @@
 
 .spView {
   position: relative;
-  flex: 1;
+  flex: 0 0 auto;
   border: 1px solid rgb(255 255 255 / 0.3);
   background: rgb(255 255 255 / 0.05);
   color: #fff;

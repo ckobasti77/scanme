@@ -19,6 +19,9 @@
   --fair-photo-scrim: rgb(20 19 18 / 0.82);
   --fair-photo-clear: rgb(20 19 18 / 0);
   --fair-header-height: 64px;
+  /* Papirna tekstura i zrno: samo Auto Moto Fest ih uključuje (ispod). */
+  --fair-paper-tex: none;
+  --fair-noise: none;
 
   /* Tokeni sajamskog dizajna — docs/events/sajam-automobila-2026/FAIR-DESIGN-DNA.md.
      Razmak: skala sa bazom 4. */
@@ -76,7 +79,7 @@
   min-height: 100dvh;
   overflow-x: clip;
   color-scheme: light;
-  background: var(--fair-canvas-glow), var(--fair-canvas);
+  background: var(--fair-paper-tex) 0 0 / 420px 420px, var(--fair-canvas-glow), var(--fair-canvas);
   color: var(--fair-ink);
   font-family: "Archivo Variable", "Archivo", "Segoe UI", Arial, sans-serif;
   font-size: 16px;
@@ -90,11 +93,19 @@
   --fair-focus: #075fb9;
 }
 
+/* Auto Moto Fest: jedan narandžasti akcenat i topli papir (pasoš sa markicama).
+   Teksturu i zrno crta components/fair/fair-paper-texture.tsx. */
 .fair-event--auto-moto {
-  --fair-accent: #bd4f39;
-  --fair-accent-strong: #a9412e;
-  --fair-accent-soft: #f4d7ce;
-  --fair-focus: #6f3025;
+  --fair-accent: #e2602a;
+  --fair-accent-strong: #b8461a;
+  --fair-accent-soft: #f2decf;
+  --fair-focus: #b8461a;
+  --fair-canvas: #f4efe6;
+  --fair-paper-sheet: #fbf8f2;
+  --fair-line: #e4dccd;
+  --fair-seal-ink: #d4521f;
+  --fair-paper-tex: var(--fair-paper-texture-url, none);
+  --fair-noise: var(--fair-paper-grain-url, none);
 }
 
 .fair-event *,

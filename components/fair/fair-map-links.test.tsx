@@ -81,6 +81,10 @@ describe.each([true, false])("javna mapa: enabled=%s", (enabled) => {
       text: expect.stringContaining("9"),
       href: "/sajam/elektromobilnost-2026?stand=hala-9",
     } : null);
+    expect(fairModelStand({ code: "auto-moto-fest-2026" }, { standMapLocationId: "hala-1" }, "auto-moto-fest-2026")).toEqual(enabled ? {
+      text: "Hala",
+      href: "/sajam/auto-moto-fest-2026?stand=hala-1",
+    } : null);
     expect(fairModelStand({ code: "elektromobilnost-2026" }, { standMapLocationId: "nema-na-mapi" }, "elektromobilnost-2026")).toBeNull();
   });
 });

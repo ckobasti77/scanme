@@ -12,6 +12,8 @@
 // interfaces and extend getDict.
 
 import { fmt, srPluralCategory } from "./format";
+import { fairDemoSr } from "./sr/fair-demo";
+import { fairExhibitorRegistrationSr } from "./sr/fair-exhibitor-registration";
 import type { DictBySurface, Surface } from "./types";
 import { eventMapSr } from "./sr/event-map";
 import { fairMapSr } from "./sr/fair-map";
@@ -153,6 +155,8 @@ export {
 };
 
 const SR: DictBySurface = {
+  "fair-demo": fairDemoSr,
+  "fair-exhibitor-registration": fairExhibitorRegistrationSr,
   "event-map": eventMapSr,
   "fair-map": fairMapSr,
   "fair-model": fairModelSr,
