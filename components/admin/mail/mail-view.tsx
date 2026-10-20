@@ -9,36 +9,31 @@ import {
   ReplyAll,
   ChevronRight,
   Download,
-  FileText,
-  Folder,
   ImageOff,
-  Inbox,
   Paperclip,
   Plus,
   RotateCcw,
-  Search,
-  Send,
-  ShieldAlert,
-  Trash2,
   Unplug,
   X,
 } from "lucide-react";
-import type { ComponentType, ReactNode } from "react";
-import type { AdminMailAddress, AdminMailFolder, AdminMailMessage, AdminMailMessagePage } from "@/convex/lib/adminMailContract";
+import type { ReactNode } from "react";
+import type { AdminMailAddress, AdminMailMessage, AdminMailMessagePage } from "@/convex/lib/adminMailContract";
 import { AdminEmptyState, AdminLoadingState, AdminPanel, AdminStatus } from "@/components/admin/admin-primitives";
-import { adminFieldClass, adminPrimaryButtonClass, adminSecondaryButtonClass } from "@/components/admin/admin-ui/admin-controls";
+import { adminPrimaryButtonClass, adminSecondaryButtonClass } from "@/components/admin/admin-ui/admin-controls";
+import { AdminPageHeader } from "@/components/admin/frame/admin-page-header";
 import { fmt } from "@/lib/i18n/format";
 import { postaSr as dict } from "@/lib/i18n/sr/posta";
 import { cn } from "@/lib/utils";
 import { MailHtmlFrame } from "./mail-html-frame";
 import { mailHasRemoteImages } from "./mail-srcdoc";
-import { mailErrorText, mailFolderLabel, mailFullTime, mailListTime, mailSize, type MailFailure } from "./mail-format";
-import type { MailFilter, MailNotice, MailViewActions, MailViewModel } from "./use-mail-workspace";
+import { mailErrorText, mailFullTime, mailListTime, mailSize, type MailFailure } from "./mail-format";
+import type { MailNotice, MailViewActions, MailViewModel } from "./use-mail-workspace";
 
 // Admin UX Z1/Z2 — the Pošta screen (props only; the container and the preview
-// pass the same model). Desktop ≥1280: folders | list | message. 1024–1279:
-// folders as a row above list | message. Phone: a stack — folders and list,
-// and an opened message replaces them (with "Nazad na listu").
+// pass the same model). ADMIN v2: the mailbox, the folders, „Sve /
+// Nepročitane“ and the search are in the sidebar; the screen is list | message
+// from 48 rem of screen width, and below that a stack where an opened message
+// replaces the list (with "Nazad na listu").
 
 const focusRing = "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--admin-focus,var(--admin-ink))]";
 const smallButton = cn(
@@ -46,44 +41,41 @@ const smallButton = cn(
   focusRing,
 );
 
-type Icon = ComponentType<{ className?: string; "aria-hidden"?: boolean | "true" | "false" }>;
-const FOLDER_ICONS: Record<string, Icon> = { Inbox, Sent: Send, Drafts: FileText, Spam: ShieldAlert, Trash: Trash2 };
-
 export function AdminMailView({ model, actions, badge }: { model: MailViewModel; actions: MailViewActions; badge?: string }) {
   return (
     <div className="grid min-w-0 gap-4" data-admin-mail={model.mode}>
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div className="min-w-0">
-          {badge ? <p className="text-xs font-semibold tracking-[0.12em] text-[var(--admin-text-muted)] uppercase">{badge}</p> : null}
-          <h1 className="text-3xl font-semibold tracking-[-0.04em] sm:text-4xl">{dict.pageTitle}</h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--admin-text-muted)]">{dict.pageSubtitle}</p>
-        </div>
-        {model.mode === "ready" ? (
-          <div className="flex flex-wrap gap-2">
-            <button type="button" className={adminSecondaryButtonClass} onClick={actions.openSignature}>
-              <PenLine className="size-4" aria-hidden="true" />
-              {dict.settings.open}
-            </button>
-            <button type="button" className={adminSecondaryButtonClass} onClick={actions.connect} disabled={model.busyConnect}>
+      <AdminPageHeader
+        title={dict.pageTitle}
+        description={dict.pageSubtitle}
+        badge={badge ? <AdminStatus label={badge} tone="waiting" /> : undefined}
+        actions={
+          model.mode === "ready" ? (
+            <>
+              <button type="button" className={adminSecondaryButtonClass} onClick={actions.openSignature}>
+                <PenLine className="size-4" aria-hidden="true" />
+                {dict.settings.open}
+              </button>
+              <button type="button" className={adminSecondaryButtonClass} onClick={actions.connect} disabled={model.busyConnect}>
+                <Plus className="size-4" aria-hidden="true" />
+                {model.busyConnect ? dict.connecting : dict.connect}
+              </button>
+              <button type="button" className={adminPrimaryButtonClass} onClick={() => actions.compose("new")}>
+                <PenLine className="size-4" aria-hidden="true" />
+                {dict.compose.newMessage}
+              </button>
+            </>
+          ) : model.mode !== "not_configured" ? (
+            <button type="button" className={adminPrimaryButtonClass} onClick={actions.connect} disabled={model.busyConnect}>
               <Plus className="size-4" aria-hidden="true" />
               {model.busyConnect ? dict.connecting : dict.connect}
             </button>
-            <button type="button" className={adminPrimaryButtonClass} onClick={() => actions.compose("new")}>
-              <PenLine className="size-4" aria-hidden="true" />
-              {dict.compose.newMessage}
-            </button>
-          </div>
-        ) : model.mode !== "not_configured" ? (
-          <button type="button" className={adminPrimaryButtonClass} onClick={actions.connect} disabled={model.busyConnect}>
-            <Plus className="size-4" aria-hidden="true" />
-            {model.busyConnect ? dict.connecting : dict.connect}
-          </button>
-        ) : null}
-      </header>
+          ) : undefined
+        }
+      />
 
       {model.notice ? <NoticeBar notice={model.notice} onDismiss={actions.dismissNotice} onOpenSent={actions.openSentFolder} /> : null}
 
-      {model.connections.length > 0 ? <ConnectionsBar model={model} actions={actions} className={cn(model.selected && "hidden lg:flex")} /> : null}
+      {model.connections.length > 0 ? <ConnectionsBar model={model} actions={actions} className={cn(model.selected && "hidden @3xl:flex")} /> : null}
 
       {model.mode === "not_configured" ? (
         <AdminPanel>
@@ -98,14 +90,13 @@ export function AdminMailView({ model, actions, badge }: { model: MailViewModel;
           </button>
         </AdminPanel>
       ) : (
-        <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(17rem,22rem)_minmax(0,1fr)] xl:grid-cols-[13.5rem_minmax(19rem,24rem)_minmax(0,1fr)]">
-          <FolderPane model={model} actions={actions} className={cn("lg:col-span-2 xl:col-span-1", model.selected && "hidden lg:block")} />
-          <ListPane model={model} actions={actions} className={cn(model.selected && "hidden lg:flex")} />
-          <ReaderPane model={model} actions={actions} className={cn(!model.selected && "hidden lg:flex")} />
+        <div className="grid min-w-0 gap-4 @3xl:grid-cols-[minmax(17rem,22rem)_minmax(0,1fr)]">
+          <ListPane model={model} actions={actions} className={cn(model.selected && "hidden @3xl:flex")} />
+          <ReaderPane model={model} actions={actions} className={cn(!model.selected && "hidden @3xl:flex")} />
         </div>
       )}
 
-      {model.mode === "ready" ? <p className="text-xs leading-5 text-[var(--admin-text-muted)]">{dict.privacyNote}</p> : null}
+      {model.mode === "ready" ? <p data-admin-reveal="text" className="text-xs leading-5 text-[var(--admin-text-muted)]">{dict.privacyNote}</p> : null}
     </div>
   );
 }
@@ -189,131 +180,25 @@ function Problem({ failure, onRetry, onReconnect }: { failure: MailFailure; onRe
   );
 }
 
-function FolderPane({ model, actions, className }: { model: MailViewModel; actions: MailViewActions; className?: string }) {
-  const account = model.accounts.find((option) => option.key === model.accountKey);
-  return (
-    <AdminPanel aria-label={dict.foldersLabel} className={cn("min-w-0 p-3", className)}>
-      {model.accounts.length > 1 ? (
-        <label className="grid gap-1.5 text-xs font-semibold text-[var(--admin-text-muted)]">
-          {dict.mailboxLabel}
-          <select className={adminFieldClass} value={model.accountKey ?? ""} onChange={(event) => actions.selectAccount(event.target.value)}>
-            {model.accounts.map((option) => (
-              <option key={option.key} value={option.key}>{option.label}</option>
-            ))}
-          </select>
-        </label>
-      ) : account ? (
-        <p className="truncate px-1 text-xs text-[var(--admin-text-muted)]">
-          {dict.mailboxLabel}: <strong className="font-semibold text-[var(--admin-text)]">{account.emailAddress}</strong>
-        </p>
-      ) : null}
-      <h2 className="sr-only">{dict.foldersLabel}</h2>
-      {model.folders.status === "error" ? (
-        <Problem failure={model.folders.failure} onRetry={actions.retryFolders} onReconnect={actions.connect} />
-      ) : model.folders.status !== "ready" ? (
-        <AdminLoadingState compact label={dict.loadingFolders} />
-      ) : model.folders.data.length === 0 ? (
-        <p className="px-1 py-4 text-sm text-[var(--admin-text-muted)]">{dict.foldersEmpty}</p>
-      ) : (
-        <nav aria-label={dict.foldersLabel} className="mt-2">
-          <ul className="flex gap-1.5 overflow-x-auto pb-1 xl:flex-col xl:overflow-visible xl:pb-0">
-            {model.folders.data.map((folder) => (
-              <li key={folder.folderId} className="shrink-0">
-                <FolderButton folder={folder} active={!model.search && folder.folderId === model.folderId} onSelect={actions.selectFolder} />
-              </li>
-            ))}
-          </ul>
-        </nav>
-      )}
-    </AdminPanel>
-  );
-}
-
-function FolderButton({ folder, active, onSelect }: { folder: AdminMailFolder; active: boolean; onSelect: (folderId: string) => void }) {
-  const Icon = FOLDER_ICONS[folder.type] ?? Folder;
-  return (
-    <button
-      type="button"
-      onClick={() => onSelect(folder.folderId)}
-      aria-current={active ? "true" : undefined}
-      title={folder.path ?? undefined}
-      className={cn(
-        "inline-flex min-h-10 w-full items-center gap-2 rounded-lg px-3 text-left text-sm font-medium whitespace-nowrap transition-colors",
-        active ? "bg-[var(--admin-ink)] text-[var(--admin-on-ink)]" : "hover:bg-[var(--admin-surface-muted)]",
-        focusRing,
-      )}
-    >
-      <Icon className="size-4 shrink-0" aria-hidden="true" />
-      <span className="truncate">{mailFolderLabel(folder)}</span>
-    </button>
-  );
-}
-
-const FILTERS: { value: MailFilter; label: string }[] = [
-  { value: "all", label: dict.filterAll },
-  { value: "unread", label: dict.filterUnread },
-];
-
 function ListPane({ model, actions, className }: { model: MailViewModel; actions: MailViewActions; className?: string }) {
   return (
     <AdminPanel aria-label={dict.listLabel} className={cn("flex min-w-0 flex-col overflow-hidden", className)}>
-      <div className="grid gap-2 border-b border-[var(--admin-border)] p-3">
-        <form
-          role="search"
-          className="flex min-w-0 gap-2"
-          onSubmit={(event) => {
-            event.preventDefault();
-            actions.submitSearch();
-          }}
-        >
-          <label htmlFor="admin-mail-search" className="sr-only">{dict.searchLabel}</label>
-          <div className="relative min-w-0 flex-1">
-            <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-[var(--admin-text-muted)]" aria-hidden="true" />
-            <input
-              id="admin-mail-search"
-              type="search"
-              value={model.searchDraft}
-              onChange={(event) => actions.setSearchDraft(event.target.value)}
-              placeholder={dict.searchPlaceholder}
-              maxLength={100}
-              className={cn(adminFieldClass, "pl-9")}
-            />
-          </div>
-          <button type="submit" className={adminSecondaryButtonClass}>{dict.searchSubmit}</button>
-        </form>
-        {model.search ? (
-          <p className="flex min-w-0 flex-wrap items-center justify-between gap-2 text-xs text-[var(--admin-text-muted)]">
-            <span className="min-w-0 break-words">{fmt(dict.searchScope, { query: model.search })}</span>
-            <button type="button" className={smallButton} onClick={actions.clearSearch}>
-              <X className="size-3.5" aria-hidden="true" />
-              {dict.searchClear}
-            </button>
-          </p>
-        ) : (
-          <div role="group" aria-label={dict.filterLabel} className="inline-flex w-fit gap-0.5 rounded-full border border-[var(--admin-border)] bg-[var(--admin-surface-strong)] p-0.5">
-            {FILTERS.map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                aria-pressed={model.filter === option.value}
-                onClick={() => actions.setFilter(option.value)}
-                className={cn(
-                  "min-h-9 rounded-full px-3.5 text-xs font-semibold",
-                  model.filter === option.value ? "bg-[var(--admin-ink)] text-[var(--admin-on-ink)]" : "text-[var(--admin-text-muted)] hover:text-[var(--admin-text)]",
-                  focusRing,
-                )}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
+      {/* What the list shows while a search runs; the search itself is in the sidebar. */}
+      {model.search ? (
+        <p className="min-w-0 border-b border-[var(--admin-border)] px-4 py-3 text-xs leading-5 break-words text-[var(--admin-text-muted)]">
+          {fmt(dict.searchScope, { query: model.search })}
+          {model.filter === "unread" ? ` ${dict.searchIgnoresUnread}` : null}
+        </p>
+      ) : null}
       <div className="min-h-[16rem] flex-1">
-        {model.list.status === "error" ? (
+        {model.folders.status === "error" ? (
+          <Problem failure={model.folders.failure} onRetry={actions.retryFolders} onReconnect={actions.connect} />
+        ) : model.list.status === "error" ? (
           <Problem failure={model.list.failure} onRetry={actions.retryList} onReconnect={actions.connect} />
+        ) : model.folders.status === "ready" && model.folders.data.length === 0 && model.list.status !== "ready" ? (
+          <p className="px-4 py-6 text-sm text-[var(--admin-text-muted)]">{dict.foldersEmpty}</p>
         ) : model.list.status !== "ready" ? (
-          <AdminLoadingState label={dict.loadingList} />
+          <AdminLoadingState label={model.folders.status === "ready" ? dict.loadingList : dict.loadingFolders} />
         ) : model.list.data.messages.length === 0 ? (
           <AdminEmptyState
             title={model.search ? dict.searchEmptyTitle : dict.listEmptyTitle}
@@ -344,7 +229,7 @@ function ListPane({ model, actions, className }: { model: MailViewModel; actions
 
 function MessageRows({ page, model, actions }: { page: AdminMailMessagePage; model: MailViewModel; actions: MailViewActions }) {
   return (
-    <ul className="divide-y divide-[var(--admin-border)]">
+    <ul data-admin-reveal="rows" className="divide-y divide-[var(--admin-border)]">
       {page.messages.map((row) => {
         const unread = row.unread && !model.readIds.has(row.messageId);
         const active = model.selected?.messageId === row.messageId;
@@ -387,9 +272,9 @@ function MessageRows({ page, model, actions }: { page: AdminMailMessagePage; mod
 
 function ReaderPane({ model, actions, className }: { model: MailViewModel; actions: MailViewActions; className?: string }) {
   return (
-    <AdminPanel aria-label={dict.readerLabel} className={cn("flex min-w-0 flex-col overflow-hidden lg:self-start", className)}>
+    <AdminPanel aria-label={dict.readerLabel} className={cn("flex min-w-0 flex-col overflow-hidden @3xl:self-start", className)}>
       {model.selected ? (
-        <div className="border-b border-[var(--admin-border)] p-2 lg:hidden">
+        <div className="border-b border-[var(--admin-border)] p-2 @3xl:hidden">
           <button type="button" className={smallButton} onClick={actions.closeMessage}>
             <ArrowLeft className="size-3.5" aria-hidden="true" />
             {dict.back}

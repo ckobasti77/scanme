@@ -1,10 +1,11 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { InterakcijeIzlagacSection, InterakcijeSection } from "@/components/admin/events/sections/interakcije-section";
-import { AnalitikaSection } from "@/components/admin/events/sections/analitika-section";
 import { BrisanjeSection } from "@/components/admin/events/sections/brisanje-section";
 import { ImportSection } from "@/components/admin/events/sections/import-section";
 import { IzlagaciSection } from "@/components/admin/events/sections/izlagaci-section";
+import { SectionLoading } from "@/components/admin/events/sections/loading";
 import { IzvestajiSection } from "@/components/admin/events/sections/izvestaji-section";
 import { FollowUpSection, LeadoviSection, PodesavanjaSection } from "@/components/admin/events/sections/leadovi-section";
 import { ModelDetailSection, ModeliSection } from "@/components/admin/events/sections/modeli-section";
@@ -16,6 +17,9 @@ import type { EventSectionPath } from "@/lib/admin-v1/event-sections";
 
 // Admin UX A2 — the section route → its container. Only the open section is
 // mounted, so only its queries run.
+
+// The charts of Analitika (and their drawer and 3D map) are the heaviest part of the event routes: they load when that section is opened, not with every section.
+const AnalitikaSection = dynamic(() => import("@/components/admin/events/sections/analitika-section").then((module) => module.AnalitikaSection), { loading: () => <SectionLoading /> });
 
 export function AdminEventSection({ path, detailId }: { path: EventSectionPath; detailId?: string }) {
   switch (path) {

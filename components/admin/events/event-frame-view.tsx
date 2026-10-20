@@ -2,57 +2,95 @@
 
 import { QrCode } from "lucide-react";
 import Link from "next/link";
-import { useId, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { AdminEmptyState, AdminLoadingState, AdminPanel } from "@/components/admin/admin-primitives";
-import { AdminSubnav, adminFieldClass, adminPrimaryButtonClass } from "@/components/admin/admin-ui";
+import { adminPrimaryButtonClass, adminSecondaryButtonClass } from "@/components/admin/admin-ui";
+import { AdminPageHeader } from "@/components/admin/frame/admin-page-header";
+import { useAdminSidebarLive } from "@/components/admin/frame/admin-sidebar-store";
 import { cn } from "@/lib/utils";
 import type { AdminSubnavGroup } from "@/lib/admin-v1/subnav";
+import type { HudData } from "@/lib/admin-v2/hud";
+import type { SidebarLive } from "@/lib/admin-v2/sidebar/types";
 import type { FairEventStatus } from "@/lib/fair-contract";
 import { fmt } from "@/lib/i18n/format";
 import { adminEventsSr as dict } from "@/lib/i18n/sr/admin-events";
 
-// Admin UX A2 — the frame of every `Događaji` page: event title, event
-// switch (keeps the section) and the section navigation. Presentational; the
-// admin (AdminEventFrame) and the dev preview fill it.
+// Admin UX A2 / ADMIN v2 — the frame of every `Događaji` page. The event
+// switch (keeps the section) and the section navigation live in the sidebar
+// of the admin frame: this view sends them there (useAdminSidebarLive) and
+// renders the page header (the event above, the section as the title, the
+// one „Poveži nalepnicu“ entry on the right). Presentational; the admin
+// (AdminEventFrame) and the dev preview fill it. X6: a section may put its own
+// actions into that header (Analitika: „Osveži“, „Izvezi CSV“); the sticker
+// entry is then the secondary button beside them.
 
 export type FrameEvent = { slug: string; title: string; status: FairEventStatus };
 
-export function AdminEventFrameView({ preview, events, currentSlug, onSelectEvent, nav, linkStickerHref, children }: {
+const HeaderActionsContext = createContext<((actions: ReactNode) => void) | null>(null);
+
+/**
+ * The actions of the open section, shown on the right of the page header (ZADATAK §2). Returns false
+ * when no event frame is around the section (a test): the section then renders them itself.
+ * `actions` should be memoized; they are taken out again when the section unmounts.
+ */
+export function useEventHeaderActions(actions: ReactNode): boolean {
+  const set = useContext(HeaderActionsContext);
+  useEffect(() => {
+    set?.(actions);
+  }, [set, actions]);
+  useEffect(() => () => set?.(null), [set]);
+  return set !== null;
+}
+
+export function AdminEventFrameView({ preview, events, currentSlug, onSelectEvent, nav, linkStickerHref, title, hud, children }: {
   preview?: boolean;
   events: readonly FrameEvent[];
   currentSlug: string;
   onSelectEvent: (slug: string) => void;
   nav: readonly AdminSubnavGroup[];
-  /** N2 — „Poveži nalepnicu“ right under the title (the field team's entry on the phone); null on that page. */
+  /** N2 — „Poveži nalepnicu“, the field team's entry (also on the phone); null on that page. */
   linkStickerHref?: string | null;
+  /** The open section (the H1 of the screen); the event title when there is none. */
+  title?: string;
+  /** X4 — the HUD „Danas“ of this event while its fair is on (from the dashboard the frame already reads). */
+  hud?: HudData | null;
   children: ReactNode;
 }) {
-  const selectId = useId();
   const current = events.find((event) => event.slug === currentSlug);
+  const [sectionActions, setSectionActions] = useState<ReactNode>(null);
+  const live = useMemo<SidebarLive>(() => ({
+    context: {
+      value: currentSlug,
+      options: events.map((event) => ({ value: event.slug, label: fmt(dict.eventOption, { title: event.title, status: dict.eventStatus[event.status] }) })),
+      onChange: onSelectEvent,
+    },
+    nav,
+    ...(hud ? { hud } : {}),
+  }), [currentSlug, events, nav, onSelectEvent, hud]);
+  useAdminSidebarLive(live);
+  const eventTitle = current?.title ?? dict.pageTitle;
   return (
     <div className="grid min-w-0 gap-5">
-      <header className="grid min-w-0 gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)] lg:items-end">
-        <div className="grid min-w-0 gap-1.5">
-          {preview ? <span className="w-fit rounded-full border border-[var(--admin-warning-border)] bg-[var(--admin-warning-soft)] px-2.5 py-1 text-xs font-bold text-[var(--admin-warning)]">{dict.previewBadge}</span> : null}
-          <p className="text-xs font-bold tracking-[0.08em] text-[var(--admin-text-muted)] uppercase">{dict.pageTitle}</p>
-          <h1 className="text-[clamp(1.6rem,3.2vw,2.6rem)] leading-tight font-semibold tracking-[-0.045em] [overflow-wrap:anywhere]">{current?.title ?? dict.pageTitle}</h1>
-          {preview ? <p className="max-w-2xl text-sm text-[var(--admin-text-muted)]">{dict.previewDescription}</p> : null}
-          {linkStickerHref ? (
-            <Link href={linkStickerHref} data-link-sticker-entry className={cn(adminPrimaryButtonClass, "mt-1.5 min-h-12 w-full text-base sm:w-fit")}>
-              <QrCode className="size-5" aria-hidden="true" />{dict.linkSticker.entry}
-            </Link>
-          ) : null}
-        </div>
-        <label htmlFor={selectId} className="grid min-w-0 gap-1.5 text-sm font-semibold">{dict.eventLabel}
-          <select id={selectId} value={currentSlug} onChange={(event) => onSelectEvent(event.target.value)} className={adminFieldClass}>
-            {events.map((event) => <option key={event.slug} value={event.slug}>{fmt(dict.eventOption, { title: event.title, status: dict.eventStatus[event.status] })}</option>)}
-          </select>
-        </label>
-      </header>
-      <div className="grid min-w-0 gap-5 lg:grid-cols-[13.5rem_minmax(0,1fr)] lg:items-start">
-        <AdminSubnav ariaLabel={dict.sectionsAria} groups={nav} />
+      <AdminPageHeader
+        badge={preview ? <span className="inline-block w-fit rounded-full border border-[var(--admin-warning-border)] bg-[var(--admin-warning-soft)] px-2.5 py-1 text-xs font-bold text-[var(--admin-warning)]">{dict.previewBadge}</span> : undefined}
+        eyebrow={title ? `${dict.pageTitle} · ${eventTitle}` : dict.pageTitle}
+        title={title ?? eventTitle}
+        description={preview ? dict.previewDescription : undefined}
+        actions={sectionActions || linkStickerHref ? (
+          <>
+            {sectionActions}
+            {linkStickerHref ? (
+              // Beside the actions of a section it is the secondary button; alone it is the primary action of the page.
+              <Link href={linkStickerHref} data-link-sticker-entry className={sectionActions ? adminSecondaryButtonClass : cn(adminPrimaryButtonClass, "min-h-12 text-base")}>
+                <QrCode className={sectionActions ? "size-4" : "size-5"} aria-hidden="true" />{dict.linkSticker.entry}
+              </Link>
+            ) : null}
+          </>
+        ) : undefined}
+      />
+      <HeaderActionsContext.Provider value={setSectionActions}>
         <div className="min-w-0">{children}</div>
-      </div>
+      </HeaderActionsContext.Provider>
     </div>
   );
 }
@@ -61,7 +99,7 @@ export function AdminEventFrameView({ preview, events, currentSlug, onSelectEven
 export function AdminEventsEntryView({ empty }: { empty: boolean }) {
   return (
     <div className="grid min-w-0 gap-5">
-      <h1 className="text-[clamp(1.6rem,3.2vw,2.6rem)] leading-tight font-semibold tracking-[-0.045em]">{dict.pageTitle}</h1>
+      <AdminPageHeader title={dict.pageTitle} />
       <AdminPanel>
         {empty ? <AdminEmptyState title={dict.noEventsTitle} body={dict.noEventsBody} /> : <AdminLoadingState label={dict.loading} />}
       </AdminPanel>

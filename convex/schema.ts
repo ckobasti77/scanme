@@ -61,6 +61,45 @@ import {
   menuDesignValidator,
   menuModelValidator,
 } from "./lib/menuValidators";
+import {
+  menuAddonSelectionValidator,
+  menuArticleAllergensValidator,
+  menuArticleKindValidator,
+  menuAuditActorKindValidator,
+  menuAuditDetailsValidator,
+  menuBrandingValidator,
+  menuComboPriceCheckValidator,
+  menuDensityValidator,
+  menuEmphasisValidator,
+  menuFeaturesValidator,
+  menuLayoutValidator,
+  menuLegacyMigrationValidator,
+  menuMediaModeValidator,
+  menuMemberRoleValidator,
+  menuMemberStatusValidator,
+  menuModeValidator,
+  menuPageNavigationValidator,
+  menuPaymentPreferenceValidator,
+  menuPositionKindValidator,
+  menuPositionLayoutValidator,
+  menuPresenceEntityTypeValidator,
+  menuRequestCancelledByValidator,
+  menuRequestChannelValidator,
+  menuRequestItemAddonValidator,
+  menuRequestKindValidator,
+  menuRequestStatusValidator,
+  menuPromoValidator,
+  menuPublishSummaryValidator,
+  menuRoomServiceMarkupScopeValidator,
+  menuRoomServicePriceWarningValidator,
+  menuRoomServiceVariantPriceValidator,
+  menuServiceSettingsValidator,
+  menuServiceStatusValidator,
+  menuTagCodeValidator,
+  menuTranslationsValidator,
+  menuVersionPartScopeValidator,
+  menuVisibilityValidator,
+} from "./lib/menuDomainValidators";
 import { priceSnapshotValidator } from "./lib/orderSnapshot";
 import {
   agreementKind, billingActor, billingChange, billingPeriod, discountValue,
@@ -3301,6 +3340,650 @@ export default defineSchema({
     qty: v.number(),
     order: v.number(),
   }).index("by_requestId", ["requestId"]),
+
+  // ===========================================================================
+  // ScanMe Menu V1 — the new Menu domain (MENI run, K02; recipe
+  // docs/menu/MENU-ARHITEKTURA.md, plan docs/meni/planovi/K01.md §3). New
+  // tables only: the legacy `menus` model above and the RFC-004 ordering
+  // tables stay untouched (compatibility, K01 A1/A5). Every child row carries
+  // `menuServiceId`, and every id taken from a function argument is checked
+  // against it (convex/lib/menuAccess.ts loadOwned) — the tenant boundary.
+  // ===========================================================================
+
+  // One Menu service = one subscription of one business in one locked mode
+  // (master §3.1, §4.1). V1: at most one active service per business.
+  menuServices: defineTable({
+    businessId: v.id("businesses"),
+    serviceProfileId: v.optional(v.id("serviceProfiles")),
+    // The legacy `menus` row of the same business, when one exists (K06
+    // migrates from it). Informational link; the legacy path never reads it.
+    legacyMenuId: v.optional(v.id("menus")),
+    mode: menuModeValidator,
+    modeSetAt: v.number(),
+    modeSetByUserId: v.optional(v.id("users")),
+    status: menuServiceStatusValidator,
+    features: menuFeaturesValidator,
+    // K03: languages; later steps add their keys (validator comment).
+    settings: v.optional(menuServiceSettingsValidator),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    // K05: the published version guests read (master §6.1). Changed only by
+    // menuPublishing.publish, in the same transaction that writes the
+    // version; absent = never published (the legacy path still applies).
+    liveVersionId: v.optional(v.id("menuVersions")),
+    liveVersionNumber: v.optional(v.number()),
+    // K06: migration of the legacy menu (`legacyMenuId`) into this service;
+    // absent = never migrated. Written only by convex/menuMigration.ts.
+    migration: v.optional(menuLegacyMigrationValidator),
+  })
+    .index("by_businessId", ["businessId"])
+    .index("by_serviceProfileId", ["serviceProfileId"])
+    // K06: the legacy writers find the service that took over their menu.
+    .index("by_legacyMenuId", ["legacyMenuId"]),
+
+  // High-churn draft bookkeeping, split from menuServices so editing never
+  // invalidates readers of the service row (one write per draft mutation).
+  menuDraftState: defineTable({
+    menuServiceId: v.id("menuServices"),
+    revision: v.number(),
+    // Exact count of menuArticles of the service (MENU_MAX_ARTICLES gate).
+    articleCount: v.number(),
+    lastEditAt: v.number(),
+    lastEditByUserId: v.optional(v.id("users")),
+    // K05: the draft revision the live version was compiled from; the draft
+    // has unpublished changes while `revision` differs (absent = never
+    // published). `restoredFromNumber` is the version restored into the draft
+    // since the last publication (the next version records it).
+    publishedRevision: v.optional(v.number()),
+    restoredFromNumber: v.optional(v.number()),
+  }).index("by_menuServiceId", ["menuServiceId"]),
+
+  // Standard pages ("Stranice menija", master §3.2). `slug` is derived once and
+  // never changes; `name` is internal (the default page is "Kompletan meni"),
+  // `publicTitle` is what the guest reads (absent = no page title).
+  menuPages: defineTable({
+    menuServiceId: v.id("menuServices"),
+    key: v.string(),
+    slug: v.string(),
+    name: v.string(),
+    publicTitle: v.optional(v.string()),
+    isDefault: v.boolean(),
+    order: v.number(),
+    visibility: menuVisibilityValidator,
+    archivedAt: v.optional(v.number()),
+    iconKey: v.optional(v.string()),
+    navigation: menuPageNavigationValidator,
+    // Exact count of menuPlacements on the page (MENU_MAX_PLACEMENTS_PER_PAGE).
+    placementCount: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    updatedByUserId: v.optional(v.id("users")),
+    // K04 (written by K16): publicTitle per language.
+    translations: v.optional(menuTranslationsValidator),
+  })
+    .index("by_menuServiceId_and_order", ["menuServiceId", "order"])
+    .index("by_menuServiceId_and_slug", ["menuServiceId", "slug"])
+    .index("by_menuServiceId_and_key", ["menuServiceId", "key"]),
+
+  // Sections group placements inside one page (master §3.3: not menus).
+  menuSections: defineTable({
+    menuServiceId: v.id("menuServices"),
+    pageId: v.id("menuPages"),
+    key: v.string(),
+    name: v.string(),
+    description: v.optional(v.string()),
+    iconKey: v.optional(v.string()),
+    order: v.number(),
+    visibility: menuVisibilityValidator,
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    // K04 (written by K16): name and description per language.
+    translations: v.optional(menuTranslationsValidator),
+    // K06: the legacy group (or imported group) this section was created
+    // from; absent = created in the editor. Purge removes only marked rows.
+    legacyRef: v.optional(v.string()),
+  })
+    .index("by_pageId_and_order", ["pageId", "order"])
+    .index("by_menuServiceId", ["menuServiceId"])
+    .index("by_menuServiceId_and_key", ["menuServiceId", "key"]),
+
+  // The shared article (master §5.1–§5.3): ONE identity and ONE base price in
+  // whole dinars, shown on any number of pages through menuPlacements.
+  menuArticles: defineTable({
+    menuServiceId: v.id("menuServices"),
+    key: v.string(),
+    kind: menuArticleKindValidator,
+    name: v.string(),
+    // lib/menu/text.ts normalizeArticleName — duplicate suggestions (§5.2).
+    nameNormalized: v.string(),
+    description: v.optional(v.string()),
+    quantityValue: v.optional(v.number()),
+    quantityUnit: v.optional(v.string()),
+    basePriceRsd: v.optional(v.number()),
+    mediaMode: menuMediaModeValidator,
+    imageMediaId: v.optional(v.id("mediaAssets")),
+    iconKey: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    updatedByUserId: v.optional(v.id("users")),
+    // --- K04: the rest of the article model (master §5.4–§5.7, §7.3, §7.6).
+    // Everything is optional and OFF by default, so a plain article stays
+    // `Naziv + Cena`. The three switches keep their rows when turned off.
+    variantsEnabled: v.optional(v.boolean()),
+    addonsEnabled: v.optional(v.boolean()),
+    noteEnabled: v.optional(v.boolean()),
+    // Absent = unknown, never "safe" (master §7.3).
+    allergens: v.optional(menuArticleAllergensValidator),
+    tags: v.optional(v.array(menuTagCodeValidator)),
+    promo: v.optional(menuPromoValidator),
+    // Combos only: "check the combo price" (master §5.4).
+    priceCheck: v.optional(menuComboPriceCheckValidator),
+    // Written by K16: name and description per language.
+    translations: v.optional(menuTranslationsValidator),
+    // --- K06: migration of the legacy model (recipe §12).
+    // The legacy item (or imported line) this article was created from;
+    // absent = created in the editor. Purge removes only marked rows.
+    legacyRef: v.optional(v.string()),
+    // The legacy photo, kept until media processing (K15) turns it into a
+    // mediaAssets image; until then the article shows its icon.
+    legacyPhotoStorageId: v.optional(v.id("_storage")),
+  })
+    .index("by_menuServiceId_and_key", ["menuServiceId", "key"])
+    .index("by_menuServiceId_and_nameNormalized", ["menuServiceId", "nameNormalized"])
+    .index("by_menuServiceId_and_kind", ["menuServiceId", "kind"]),
+
+  // An article's appearance in one section of one page: order and visibility,
+  // NEVER a price (master §5.3: no per-page price or override).
+  menuPlacements: defineTable({
+    menuServiceId: v.id("menuServices"),
+    pageId: v.id("menuPages"),
+    sectionId: v.id("menuSections"),
+    articleId: v.id("menuArticles"),
+    order: v.number(),
+    visibility: menuVisibilityValidator,
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_sectionId_and_order", ["sectionId", "order"])
+    .index("by_sectionId_and_articleId", ["sectionId", "articleId"])
+    .index("by_articleId", ["articleId"])
+    .index("by_pageId", ["pageId"])
+    .index("by_menuServiceId", ["menuServiceId"]),
+
+  // QR card → Menu page and (K20) position. The ONLY place this link
+  // lives: cardTargets stay immutable history (K01 A8). A link blocks deleting
+  // or archiving its page while the row is active, the card is active and the
+  // card's current target is `menu` (master §3.2).
+  menuQrLinks: defineTable({
+    menuServiceId: v.id("menuServices"),
+    cardId: v.id("cards"),
+    pageKey: v.optional(v.string()),
+    // K20: the table, room or other spot the card stands on (master §9.1).
+    // Absent = the card opens its page with no position; a guest never picks
+    // one and nothing invents one.
+    positionId: v.optional(v.id("menuPositions")),
+    active: v.boolean(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_cardId", ["cardId"])
+    .index("by_menuServiceId_and_pageKey", ["menuServiceId", "pageKey"])
+    .index("by_menuServiceId", ["menuServiceId"])
+    .index("by_positionId", ["positionId"]),
+
+  // K20 — optional zones of the venue (master §9.3). A position without a
+  // zone is listed under "Bez zone" and belongs to all staff. Archiving a zone
+  // moves its positions to "Bez zone" (never deletes them).
+  menuZones: defineTable({
+    menuServiceId: v.id("menuServices"),
+    key: v.string(),
+    name: v.string(),
+    // lib/menu/text.ts normalizeArticleName: unique among ACTIVE zones.
+    nameNormalized: v.string(),
+    order: v.number(),
+    active: v.boolean(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_menuServiceId_and_active_and_order", ["menuServiceId", "active", "order"])
+    .index("by_menuServiceId_and_nameNormalized", ["menuServiceId", "nameNormalized"]),
+
+  // K20 — tables, rooms and other spots (master §9.1, §9.2). Operational data:
+  // changes apply at once, outside the draft (K19-12). What a guest carries is
+  // the QR card plus a server session, never the id or key of this row.
+  menuPositions: defineTable({
+    menuServiceId: v.id("menuServices"),
+    key: v.string(),
+    kind: menuPositionKindValidator,
+    label: v.string(),
+    // Unique among ACTIVE positions of the service.
+    labelNormalized: v.string(),
+    seats: v.optional(v.number()),
+    zoneId: v.optional(v.id("menuZones")),
+    layout: v.optional(menuPositionLayoutValidator),
+    order: v.number(),
+    active: v.boolean(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_menuServiceId_and_active_and_order", ["menuServiceId", "active", "order"])
+    .index("by_menuServiceId_and_key", ["menuServiceId", "key"])
+    .index("by_menuServiceId_and_labelNormalized", ["menuServiceId", "labelNormalized"])
+    .index("by_menuServiceId_and_active_and_zoneId", ["menuServiceId", "active", "zoneId"]),
+
+  // K20 — the guest session a scanned position card opens (master §9.1; K19-2).
+  // Only hashes are stored: the 256-bit token rides the HttpOnly cookie smm_g
+  // (3 h), the device key the cookie smm_d. A query sees only the
+  // materialized endedAt; mutations also compare expiresAt with the clock.
+  menuGuestSessions: defineTable({
+    menuServiceId: v.id("menuServices"),
+    tokenHash: v.string(),
+    deviceKeyHash: v.string(),
+    positionId: v.optional(v.id("menuPositions")),
+    cardId: v.optional(v.id("cards")),
+    createdAt: v.number(),
+    lastSeenAt: v.number(),
+    expiresAt: v.number(),
+    endedAt: v.optional(v.number()),
+  })
+    .index("by_tokenHash", ["tokenHash"])
+    .index("by_menuServiceId_and_deviceKeyHash", ["menuServiceId", "deviceKeyHash"])
+    .index("by_expiresAt", ["expiresAt"]),
+
+  // K21 — what a guest at a position sends to the staff (master §8; plan
+  // docs/meni/planovi/K19.md §2.2): call the waiter, ask for the bill (cash or
+  // card, a preference only), or an order for the waiter to review — never
+  // straight to the kitchen, never a payment, no "paid" state. The position,
+  // the card label and every name and price are SNAPSHOTS taken when the
+  // request was sent (the published version may change afterwards). Statuses
+  // move only through lib/menu/request-status.ts; who accepted, finished or
+  // cancelled stays on the row (accept/finish are not audited, K19-16).
+  // `deviceKeyHash` is the guest device pseudonym of THIS venue (Moji zahtevi);
+  // no query for staff or panels may return it. K22 adds the staff fields.
+  menuRequests: defineTable({
+    menuServiceId: v.id("menuServices"),
+    businessId: v.id("businesses"),
+    kind: menuRequestKindValidator,
+    status: menuRequestStatusValidator,
+    channel: menuRequestChannelValidator,
+    positionId: v.id("menuPositions"),
+    positionLabel: v.string(),
+    positionKind: menuPositionKindValidator,
+    zoneId: v.optional(v.id("menuZones")),
+    cardId: v.optional(v.id("cards")),
+    sourceLabel: v.optional(v.string()),
+    guestSessionId: v.id("menuGuestSessions"),
+    deviceKeyHash: v.string(),
+    paymentPreference: v.optional(menuPaymentPreferenceValidator),
+    // Orders only: informative sums for the waiter (whole RSD).
+    itemCount: v.optional(v.number()),
+    subtotalRsd: v.optional(v.number()),
+    deliveryFeeRsd: v.optional(v.number()),
+    totalRsd: v.optional(v.number()),
+    versionNumber: v.optional(v.number()),
+    // The phone's key of one send attempt of an order: a retry after a lost
+    // answer returns the request already written instead of a second order.
+    clientRequestId: v.optional(v.string()),
+    acceptedAt: v.optional(v.number()),
+    acceptedByUserId: v.optional(v.id("users")),
+    doneAt: v.optional(v.number()),
+    doneByUserId: v.optional(v.id("users")),
+    cancelledAt: v.optional(v.number()),
+    cancelledBy: v.optional(menuRequestCancelledByValidator),
+    cancelledByUserId: v.optional(v.id("users")),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_menuServiceId_and_status_and_createdAt", ["menuServiceId", "status", "createdAt"])
+    .index("by_positionId_and_status", ["positionId", "status"])
+    // The one-open-call / one-open-bill rule (K19-7) reads exactly its kind, however many orders are open.
+    .index("by_positionId_and_kind_and_status", ["positionId", "kind", "status"])
+    .index("by_menuServiceId_and_deviceKeyHash_and_createdAt", ["menuServiceId", "deviceKeyHash", "createdAt"])
+    .index("by_menuServiceId_and_createdAt", ["menuServiceId", "createdAt"])
+    .index("by_guestSessionId_and_clientRequestId", ["guestSessionId", "clientRequestId"]),
+
+  // K21 — the lines of an order, as published when it was sent: the SAME
+  // business article (`articleKey`) and the page it was ordered from
+  // (`pageKey`; absent on Room service), names in the menu's source language,
+  // the unit price (promotion applied on standard pages; the Room service
+  // price on Room service), the add-ons and the line total. Never rewritten.
+  menuRequestItems: defineTable({
+    requestId: v.id("menuRequests"),
+    menuServiceId: v.id("menuServices"),
+    pageKey: v.optional(v.string()),
+    articleKey: v.string(),
+    name: v.string(),
+    variantKey: v.optional(v.string()),
+    variantName: v.optional(v.string()),
+    addons: v.array(menuRequestItemAddonValidator),
+    unitPriceRsd: v.number(),
+    quantity: v.number(),
+    lineTotalRsd: v.number(),
+    promoApplied: v.optional(v.boolean()),
+    note: v.optional(v.string()),
+    order: v.number(),
+  }).index("by_requestId", ["requestId"]),
+
+  // Explicit Menu roles (K01 §4.2). Account roles are DERIVED from
+  // accountMemberships / businessMemberships; a row here grants an explicit
+  // role (e.g. an outside Urednik) and the stronger of the two applies.
+  menuMembers: defineTable({
+    menuServiceId: v.id("menuServices"),
+    businessId: v.id("businesses"),
+    email: v.string(),
+    userId: v.optional(v.id("users")),
+    role: menuMemberRoleValidator,
+    status: menuMemberStatusValidator,
+    inviteTokenHash: v.optional(v.string()),
+    inviteExpiresAt: v.optional(v.number()),
+    invitedByUserId: v.id("users"),
+    acceptedAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_menuServiceId_and_userId", ["menuServiceId", "userId"])
+    .index("by_menuServiceId_and_email", ["menuServiceId", "email"])
+    .index("by_inviteTokenHash", ["inviteTokenHash"])
+    .index("by_userId", ["userId"]),
+
+  // Background audit of sensitive actions only (master §10.6; actions in
+  // lib/menu/audit.ts). Machine data; prose is localized in the UI.
+  menuAuditLog: defineTable({
+    menuServiceId: v.id("menuServices"),
+    actorKind: menuAuditActorKindValidator,
+    actorUserId: v.optional(v.id("users")),
+    actorRef: v.optional(v.string()),
+    action: v.string(),
+    entityType: v.optional(v.string()),
+    entityKey: v.optional(v.string()),
+    details: v.optional(menuAuditDetailsValidator),
+    createdAt: v.number(),
+  }).index("by_menuServiceId_and_createdAt", ["menuServiceId", "createdAt"]),
+
+  // Room service (K03; master §5.3, §21.4): a separate Premium channel, not a
+  // page. It shares the articles (name, description, image, allergens) and
+  // owns its selection, categories, order and price rules. Only a MANUAL price
+  // is stored; inherited and computed prices are derived from the article's
+  // base price (lib/menu/room-service-pricing.ts). Content changes go through
+  // the draft (touchDraft); the on/off switch is menuServices.features.
+  menuRoomService: defineTable({
+    menuServiceId: v.id("menuServices"),
+    // Basis points (1500 = 15 %), 0..30000; absent = no markup.
+    markupBps: v.optional(v.number()),
+    markupScope: menuRoomServiceMarkupScopeValidator,
+    // Added ONCE to the whole order; absent = no fee.
+    deliveryFeeRsd: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    updatedByUserId: v.optional(v.id("users")),
+  }).index("by_menuServiceId", ["menuServiceId"]),
+
+  menuRoomServiceCategories: defineTable({
+    menuServiceId: v.id("menuServices"),
+    key: v.string(),
+    name: v.string(),
+    order: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    // K04 (written by K16): name per language.
+    translations: v.optional(menuTranslationsValidator),
+  }).index("by_menuServiceId_and_order", ["menuServiceId", "order"]),
+
+  // One row per article in Room service (an article is in it at most once).
+  menuRoomServiceItems: defineTable({
+    menuServiceId: v.id("menuServices"),
+    categoryId: v.id("menuRoomServiceCategories"),
+    articleId: v.id("menuArticles"),
+    order: v.number(),
+    // Read only when markupScope is "selected".
+    markupApplies: v.boolean(),
+    manualPriceRsd: v.optional(v.number()),
+    priceWarning: v.optional(menuRoomServicePriceWarningValidator),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    // K04: manual RS price per variant (at most MENU_MAX_VARIANTS_PER_ARTICLE).
+    manualVariantPrices: v.optional(v.array(menuRoomServiceVariantPriceValidator)),
+  })
+    .index("by_categoryId_and_order", ["categoryId", "order"])
+    .index("by_articleId", ["articleId"])
+    .index("by_menuServiceId", ["menuServiceId"]),
+
+  // ---------------------------------------------------------------------------
+  // K04 — the article model (master §5.4–§5.7, §7.3, §7.5, §7.6). Draft rows
+  // like the rest (touchDraft); only menuAvailability is live.
+  // ---------------------------------------------------------------------------
+
+  // Alternative versions of one article; the guest picks exactly one and each
+  // carries its own final price (master §5.7). Used only while the article's
+  // `variantsEnabled` is true. `priceRsd` may be absent in the draft (an
+  // incomplete row); publish validation reports it.
+  menuVariants: defineTable({
+    menuServiceId: v.id("menuServices"),
+    articleId: v.id("menuArticles"),
+    key: v.string(),
+    name: v.string(),
+    priceRsd: v.optional(v.number()),
+    order: v.number(),
+    translations: v.optional(menuTranslationsValidator),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_articleId_and_order", ["articleId", "order"])
+    .index("by_menuServiceId", ["menuServiceId"]),
+
+  // A LINKED add-on group: one group can be attached to many articles (the
+  // same milk choice on every coffee, master §5.7) through
+  // menuArticleAddonGroups. Changing it changes every linked article; "only
+  // this article" makes an independent copy. `minSelect` / `maxSelect` are
+  // the advanced rules (absent = derived from `selection` and `required`,
+  // lib/menu/addons.ts).
+  menuAddonGroups: defineTable({
+    menuServiceId: v.id("menuServices"),
+    key: v.string(),
+    name: v.string(),
+    selection: menuAddonSelectionValidator,
+    required: v.boolean(),
+    minSelect: v.optional(v.number()),
+    maxSelect: v.optional(v.number()),
+    // Exact number of menuArticleAddonGroups rows (the impact count).
+    linkCount: v.number(),
+    translations: v.optional(menuTranslationsValidator),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    updatedByUserId: v.optional(v.id("users")),
+  }).index("by_menuServiceId", ["menuServiceId"]),
+
+  // One add-on of a group: a positive surcharge or free (0).
+  menuAddonOptions: defineTable({
+    menuServiceId: v.id("menuServices"),
+    groupId: v.id("menuAddonGroups"),
+    key: v.string(),
+    name: v.string(),
+    priceDeltaRsd: v.number(),
+    order: v.number(),
+    translations: v.optional(menuTranslationsValidator),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_groupId_and_order", ["groupId", "order"])
+    .index("by_menuServiceId", ["menuServiceId"]),
+
+  // Article ↔ linked add-on group, ordered per article; one row per pair.
+  menuArticleAddonGroups: defineTable({
+    menuServiceId: v.id("menuServices"),
+    articleId: v.id("menuArticles"),
+    groupId: v.id("menuAddonGroups"),
+    order: v.number(),
+    createdAt: v.number(),
+  })
+    .index("by_articleId_and_order", ["articleId", "order"])
+    .index("by_groupId", ["groupId"])
+    .index("by_menuServiceId", ["menuServiceId"]),
+
+  // The components of a combo article (master §5.4): existing ordinary
+  // articles of the same service, each once, with a quantity. The combo price
+  // is manual (the combo article's basePriceRsd).
+  menuComboComponents: defineTable({
+    menuServiceId: v.id("menuServices"),
+    comboArticleId: v.id("menuArticles"),
+    componentArticleId: v.id("menuArticles"),
+    quantity: v.number(),
+    order: v.number(),
+    createdAt: v.number(),
+  })
+    .index("by_comboArticleId_and_order", ["comboArticleId", "order"])
+    .index("by_componentArticleId", ["componentArticleId"])
+    .index("by_menuServiceId", ["menuServiceId"]),
+
+  // "Privremeno nedostupno" (master §5.6): a LIVE operational layer outside
+  // the draft and outside published versions (K01 A2). A row exists only
+  // while the article is unavailable; keyed by the stable article key so
+  // restoring a version or migrating never loses it.
+  menuAvailability: defineTable({
+    menuServiceId: v.id("menuServices"),
+    articleKey: v.string(),
+    since: v.number(),
+    setByUserId: v.optional(v.id("users")),
+    // Staff (K22) or system actor reference.
+    setByRef: v.optional(v.string()),
+  })
+    .index("by_menuServiceId", ["menuServiceId"])
+    .index("by_menuServiceId_and_articleKey", ["menuServiceId", "articleKey"]),
+
+  // ---------------------------------------------------------------------------
+  // K05 — publishing (master §6.1; recipe §6, lib/menu/snapshot.ts). A version
+  // is IMMUTABLE once written: the draft rows above are compiled into JSON
+  // parts in the same transaction that moves menuServices.liveVersionId, so a
+  // failed publish never touches what guests see. The newest 20 versions are
+  // kept; an older one is marked `retiredAt` by the publish that pushes it out
+  // and its parts are deleted in bounded batches (menuPublishing.pruneVersion,
+  // cron reserve).
+  // ---------------------------------------------------------------------------
+
+  menuVersions: defineTable({
+    menuServiceId: v.id("menuServices"),
+    // 1, 2, 3… per service; never reused.
+    number: v.number(),
+    publishedAt: v.number(),
+    publishedByUserId: v.id("users"),
+    actorKind: menuAuditActorKindValidator,
+    // menuDraftState.revision the version was compiled from.
+    draftRevision: v.number(),
+    summary: menuPublishSummaryValidator,
+    // The version restored into the draft before this publication.
+    restoredFromNumber: v.optional(v.number()),
+    // Published languages (source first) and the page count, for the list.
+    languages: v.array(v.string()),
+    pageCount: v.number(),
+    articleCount: v.number(),
+    bytes: v.number(),
+    partCount: v.number(),
+    // lib/menu/snapshot.ts MENU_SNAPSHOT_FORMAT.
+    formatVersion: v.number(),
+    // Hash of the internal (restorable) snapshot.
+    contentHash: v.string(),
+    // Hash of every public part: a clean draft is still publishable when what
+    // guests would get differs (Room service switch, lost Premium).
+    publicHash: v.optional(v.string()),
+    // Set when the version falls out of the newest 20; its parts are being deleted.
+    retiredAt: v.optional(v.number()),
+  })
+    .index("by_menuServiceId_and_number", ["menuServiceId", "number"])
+    .index("by_retiredAt", ["retiredAt"]),
+
+  // JSON parts of one version, each ≤ 512 KiB UTF-8 (lib/menu/budget.ts).
+  // `public` parts per (language, page key), plus `_splitter` (pages, languages,
+  // appearance) and `_rs` (Room service); `internal` (`_all`) is the full draft
+  // for restoring and for the publish summary — no public query reads it.
+  menuVersionParts: defineTable({
+    versionId: v.id("menuVersions"),
+    menuServiceId: v.id("menuServices"),
+    scope: menuVersionPartScopeValidator,
+    lang: v.string(),
+    pageKey: v.string(),
+    part: v.number(),
+    data: v.string(),
+  }).index("by_versionId_and_scope_and_lang_and_pageKey_and_part", [
+    "versionId",
+    "scope",
+    "lang",
+    "pageKey",
+    "part",
+  ]),
+
+  // Appearance of the public menu (K01 §3.2). K05 publishes it (defaults in
+  // lib/menu/presentation.ts when the row is absent), K17 edits it, K13
+  // renders it. Content: goes through Objavi. Alergeni are NOT here
+  // (menuServices.settings.allergensEnabled, K04).
+  menuPresentation: defineTable({
+    menuServiceId: v.id("menuServices"),
+    layout: menuLayoutValidator,
+    // K17: a Premium variant of the layout (lib/menu/identity/varijante.ts); absent = none.
+    layoutVariant: v.optional(v.string()),
+    paletteId: v.string(),
+    brandColors: v.optional(v.array(v.string())),
+    fontPairId: v.string(),
+    density: menuDensityValidator,
+    emphasis: menuEmphasisValidator,
+    defaultMediaMode: menuMediaModeValidator,
+    search: v.boolean(),
+    filters: v.array(v.string()),
+    currencyToggle: v.boolean(),
+    branding: menuBrandingValidator,
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    updatedByUserId: v.optional(v.id("users")),
+  }).index("by_menuServiceId", ["menuServiceId"]),
+
+  // Who is editing what right now (master §6.1). High-churn, so it lives apart
+  // from every draft row; a heartbeat writes only when the entity changes or
+  // the row is about to expire, and the editor reads it with ONE subscription
+  // per service (menuPresence.listForService with a quantized `nowBucket`).
+  menuEditorPresence: defineTable({
+    menuServiceId: v.id("menuServices"),
+    userId: v.id("users"),
+    sessionId: v.string(),
+    entityType: v.optional(menuPresenceEntityTypeValidator),
+    entityKey: v.optional(v.string()),
+    expiresAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_menuServiceId_and_expiresAt", ["menuServiceId", "expiresAt"])
+    .index("by_userId_and_sessionId", ["userId", "sessionId"])
+    .index("by_expiresAt", ["expiresAt"]),
+
+  // ScanMe Menu V1 (K14, master §5.3, P6) — the informative EUR rate of the
+  // public menu: the NBS middle rate, refreshed by a cron action only while
+  // MENU_FX_ENABLED is "true" (convex/menuFx.ts). A row is written only when
+  // the rate or its date changes; the last 30 are kept. RSD stays the only
+  // price that counts; without a fresh row the EUR switch does not show.
+  menuExchangeRates: defineTable({
+    pair: v.literal("EUR_RSD"),
+    rate: v.number(),
+    effectiveDate: v.string(),
+    fetchedAt: v.number(),
+    source: v.literal("nbs"),
+  }).index("by_pair_and_fetchedAt", ["pair", "fetchedAt"]),
+
+  // ScanMe Menu V1 (K15) — one image upload of an article (master §7.9). The
+  // browser stores the original straight to Convex storage; the Next.js route
+  // /api/meni/slike makes the web versions (convex/menuMedia.ts protocol:
+  // reserveUpload → uploadContext → commitProcessed). `storageId` is the
+  // original, set when the route claims it and deleted at commit; a reserved
+  // or failed upload older than a day is reaped with its blob.
+  menuMediaUploads: defineTable({
+    menuServiceId: v.id("menuServices"),
+    articleId: v.id("menuArticles"),
+    userId: v.id("users"),
+    status: v.union(v.literal("reserved"), v.literal("processed"), v.literal("failed")),
+    storageId: v.optional(v.id("_storage")),
+    mediaId: v.optional(v.id("mediaAssets")),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_storageId", ["storageId"])
+    .index("by_status_and_createdAt", ["status", "createdAt"])
+    .index("by_menuServiceId_and_createdAt", ["menuServiceId", "createdAt"]),
 
   // ===========================================================================
   // Sajam automobila 2026 — fair tables (B0; BACKEND-HANDOFF §5,

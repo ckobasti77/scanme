@@ -1,0 +1,188 @@
+/*
+ * ScanMe Menu V1 — tokens of the app-theme surfaces (K07, docs/menu/MENU-UX.md §2).
+ *
+ * The client panel, the editor and the waiter panel follow the app theme
+ * (`data-theme` on <html>). They share one token set under the `--mp-` prefix
+ * ("Menu panel"). The public menu does NOT use these tokens: it is styled by the
+ * venue palette (`--menu-*`, lib/design-engine/menu-tokens.ts).
+ *
+ * Every colour is an alias of the ScanMe admin token (`--admin-*`, defined only
+ * inside `.admin-v1` in app/globals.css) with a fallback equal to the admin
+ * value of the same theme. Outside the admin the fallback applies; inside it the
+ * panel follows the admin. tokeni.test.tsx keeps the fallbacks equal to
+ * app/globals.css, so the two never drift. app/globals.css is not changed.
+ */
+
+.povrsina {
+  /* Surfaces and text */
+  --mp-okvir: var(--admin-app, #f8f7ef);
+  --mp-povrsina: var(--admin-surface-strong, #fffefa);
+  --mp-povrsina-utisana: var(--admin-surface-muted, #eeeee8);
+  --mp-tekst: var(--admin-text, #171918);
+  --mp-tekst-sporedni: var(--admin-text-muted, #5f6462);
+  --mp-mastilo: var(--admin-ink, #202221);
+  --mp-na-mastilu: var(--admin-on-ink, #ffffff);
+  --mp-ivica: var(--admin-border, rgb(23 25 24 / 0.1));
+  /* app/globals.css colours every border with var(--border) in an unlayered rule that beats
+     Tailwind border-colour utilities; Menu sets --border instead (default: the hairline). */
+  --border: var(--mp-ivica);
+  /* An input or switch boundary needs 3:1 (WCAG 1.4.11); the hairline above does not. */
+  --mp-ivica-kontrole: #7c817e;
+  --mp-kostur: var(--admin-skeleton, rgb(23 25 24 / 0.09));
+  --mp-kostur-sjaj: var(--admin-shimmer-light, rgb(255 255 255 / 0.55));
+  /* The one darker card of a screen (master §13.3: analytics of the last 7 days) */
+  --mp-istaknuto: #202221;
+  --mp-na-istaknutom: #f2f4ee;
+  --mp-na-istaknutom-sporedni: #b0b6af;
+
+  /* ScanMe green: a fill, never text on a light surface (2.08:1) */
+  --mp-akcent: var(--admin-accent, #6fc05d);
+  --mp-na-akcentu: #171918;
+  --mp-akcent-tekst: var(--accent-text, #2f6d23);
+  --mp-akcent-meko: var(--admin-accent-soft, #e9f5e4);
+  --mp-akcent-ivica: var(--admin-accent-border, #b7deab);
+
+  /* Status: always icon + colour + text; the text itself stays in --mp-tekst */
+  --mp-uspeh: var(--admin-success, #477d12);
+  --mp-uspeh-meko: var(--admin-success-soft, #eef8df);
+  --mp-uspeh-ivica: var(--admin-success-border, #c8dfa8);
+  --mp-upozorenje: var(--admin-warning, #9a5b00);
+  --mp-upozorenje-meko: var(--admin-warning-soft, #fff3d6);
+  --mp-upozorenje-ivica: var(--admin-warning-border, #f2cf84);
+  --mp-opasnost: var(--admin-danger, #c72b37);
+  --mp-opasnost-meko: var(--admin-danger-soft, #fff0f1);
+  --mp-opasnost-ivica: var(--admin-danger-border, #efb4ba);
+  --mp-na-opasnosti: #ffffff;
+  /* The admin has no info status; Menu's own (6.6:1 on the surface) */
+  --mp-info: #2459b3;
+  --mp-info-meko: #eaf1fc;
+  --mp-info-ivica: #b9cff0;
+
+  /* Waiter request kinds (K22–K23): call, bill, order, reservation */
+  --mp-vrsta-poziv: #c4323d;
+  --mp-vrsta-poziv-meko: #fdecee;
+  --mp-vrsta-racun: #2459b3;
+  --mp-vrsta-racun-meko: #eaf1fc;
+  --mp-vrsta-porudzbina: #0f7a68;
+  --mp-vrsta-porudzbina-meko: #e3f4f0;
+  --mp-vrsta-rezervacija: #9a5b00;
+  --mp-vrsta-rezervacija-meko: #fff3d6;
+
+  /* Focus: the global :focus-visible rule reads --focus-ring */
+  --mp-fokus: var(--admin-focus, #202221);
+  --focus-ring: var(--mp-fokus);
+
+  /* Depth, tinted to the frame */
+  --mp-senka-xs: var(--admin-shadow-xs, 0 1px 2px rgb(28 32 30 / 0.05));
+  --mp-senka-sm: var(--admin-shadow-sm, 0 8px 24px rgb(45 49 47 / 0.07));
+  --mp-senka-md: var(--admin-shadow-md, 0 18px 48px rgb(38 42 40 / 0.16));
+
+  /* Shape: an inner radius is half of the outer one */
+  --mp-radius-okvir: 1.25rem;
+  --mp-radius-kartica: 1rem;
+  --mp-radius-unutra: 0.5rem;
+  --mp-radius-kontrola: 0.625rem;
+  --mp-radius-dugme: 999px;
+
+  /* Touch target: 44 px everywhere in the panel and editor, 48 px in the waiter panel */
+  --mp-meta: 2.75rem;
+
+  /* Motion (same values as the admin interaction layer, DASHBOARD-STANDARD §5) */
+  --mp-trajanje-1: var(--admin-dur-1, 120ms);
+  --mp-trajanje-2: var(--admin-dur-2, 180ms);
+  --mp-trajanje-3: var(--admin-dur-3, 240ms);
+  --mp-kriva-ulaz: var(--admin-ease-out, cubic-bezier(0.16, 1, 0.3, 1));
+  --mp-kriva-izlaz: var(--admin-ease-in, cubic-bezier(0.4, 0, 1, 1));
+
+  font-family: "DM Sans Variable", "DM Sans", ui-sans-serif, system-ui, sans-serif;
+  color: var(--mp-tekst);
+  -webkit-tap-highlight-color: transparent;
+}
+
+:global(html[data-theme="dark"]) .povrsina {
+  --mp-okvir: var(--admin-app, #1d211f);
+  --mp-povrsina: var(--admin-surface-strong, #292e2b);
+  --mp-povrsina-utisana: var(--admin-surface-muted, #343a36);
+  --mp-tekst: var(--admin-text, #f2f4ee);
+  --mp-tekst-sporedni: var(--admin-text-muted, #b0b6af);
+  --mp-mastilo: var(--admin-ink, #f2f4ee);
+  --mp-na-mastilu: var(--admin-on-ink, #171918);
+  --mp-ivica: var(--admin-border, rgb(242 244 238 / 0.12));
+  --mp-ivica-kontrole: #8a918b;
+  --mp-kostur: var(--admin-skeleton, rgb(242 244 238 / 0.1));
+  --mp-kostur-sjaj: var(--admin-shimmer-light, rgb(242 244 238 / 0.08));
+  --mp-istaknuto: #121513;
+
+  --mp-akcent-meko: var(--admin-accent-soft, #22321f);
+  --mp-akcent-ivica: var(--admin-accent-border, #3f6a35);
+
+  --mp-uspeh: var(--admin-success, #a9dc70);
+  --mp-uspeh-meko: var(--admin-success-soft, #26351f);
+  --mp-uspeh-ivica: var(--admin-success-border, #4a6635);
+  --mp-upozorenje: var(--admin-warning, #ffc45f);
+  --mp-upozorenje-meko: var(--admin-warning-soft, #3d3220);
+  --mp-upozorenje-ivica: var(--admin-warning-border, #6a542d);
+  --mp-opasnost: var(--admin-danger, #ff8b92);
+  --mp-opasnost-meko: var(--admin-danger-soft, #40272a);
+  --mp-opasnost-ivica: var(--admin-danger-border, #754047);
+  --mp-na-opasnosti: #171918;
+  --mp-info: #8db7f5;
+  --mp-info-meko: #1f2a3b;
+  --mp-info-ivica: #3b5683;
+
+  --mp-vrsta-poziv: #ff8b92;
+  --mp-vrsta-poziv-meko: #40272a;
+  --mp-vrsta-racun: #8db7f5;
+  --mp-vrsta-racun-meko: #1f2a3b;
+  --mp-vrsta-porudzbina: #5fd0b8;
+  --mp-vrsta-porudzbina-meko: #1b3530;
+  --mp-vrsta-rezervacija: #ffc45f;
+  --mp-vrsta-rezervacija-meko: #3d3220;
+
+  /* The admin focus token is the ink, which is light in the dark theme */
+  --mp-fokus: var(--admin-focus, #f2f4ee);
+
+  --mp-senka-xs: var(--admin-shadow-xs, 0 1px 2px rgb(0 0 0 / 0.18));
+  --mp-senka-sm: var(--admin-shadow-sm, 0 8px 24px rgb(0 0 0 / 0.2));
+  --mp-senka-md: var(--admin-shadow-md, 0 18px 48px rgb(0 0 0 / 0.34));
+}
+
+/* Waiter panel: operational, higher contrast, bigger targets (master §10) */
+.povrsina[data-povrsina="konobar"] {
+  /* Big rounded-rectangle actions, as in the waiter mockups (10, 13) */
+  --mp-radius-dugme: 0.75rem;
+  --mp-okvir: #f3f4f1;
+  --mp-povrsina: #ffffff;
+  --mp-ivica: rgb(16 18 17 / 0.16);
+  --mp-meta: 3rem;
+}
+
+:global(html[data-theme="dark"]) .povrsina[data-povrsina="konobar"] {
+  --mp-okvir: #161917;
+  --mp-povrsina: #202422;
+  --mp-ivica: rgb(242 244 238 / 0.18);
+}
+
+/* Skeleton: one quiet shimmer; it stands still with reduced motion */
+.kostur {
+  position: relative;
+  overflow: hidden;
+  background: var(--mp-kostur);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .kostur::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent, var(--mp-kostur-sjaj), transparent);
+    animation: mp-sjaj 1400ms var(--mp-kriva-ulaz) infinite;
+  }
+}
+
+@keyframes mp-sjaj {
+  to {
+    transform: translateX(100%);
+  }
+}

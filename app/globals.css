@@ -187,7 +187,87 @@ html[data-theme="dark"] {
   --admin-shadow-sm: 0 8px 24px rgb(45 49 47 / 0.07);
   --admin-shadow-md: 0 18px 48px rgb(38 42 40 / 0.16);
   --admin-shadow-lg: 0 28px 80px rgb(35 40 46 / 0.2);
+  /* ADMIN v2 — tokens the admin already used without a definition. */
+  --admin-focus: var(--admin-ink);
+  --admin-accent-soft: #e9f5e4;
+  --admin-accent-border: #b7deab;
+  --admin-nav-active: #2f6d23;
+  --admin-link: var(--accent-text);
+  /* ADMIN v2 — the frame (sidebar, navbar, screen). The current navbar item is
+     green text (light: the darker --accent-text for contrast, dark: #6fc05d);
+     the line under it is always #6fc05d. */
+  --admin-nav-current: var(--accent-text);
+  --admin-nav-line: #6fc05d;
+  --admin-sidebar-w: 17.5rem;
+  --admin-navbar-h: 3.5rem;
+  --admin-radius-screen: 1rem;
+  --admin-radius-inner: 0.25rem;
+  /* ADMIN v2 — motion tokens (the same values as lib/admin-v2/motion.ts). */
+  --admin-dur-1: 120ms;
+  --admin-dur-2: 180ms;
+  --admin-dur-3: 240ms;
+  --admin-dur-4: 320ms;
+  --admin-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --admin-ease-in: cubic-bezier(0.4, 0, 1, 1);
+  /* ADMIN v3 V1 — the three layers of motion (the same values as
+     lib/admin-v2/motion.ts): interaction is --admin-dur-1…3 (at most 250 ms),
+     a page enters within --admin-reveal-budget after the old one dimmed for
+     --admin-reveal-exit, a ceremony lasts at most --admin-ceremony-max. */
+  --admin-reveal-exit: 140ms;
+  --admin-reveal-budget: 900ms;
+  --admin-ceremony-max: 1800ms;
+  --admin-shimmer: 1400ms;
+  --admin-shimmer-light: rgb(255 255 255 / 0.55);
+  /* ADMIN v3 V5 — the fill of energy (the XP bar, the ring of the combo, the progress of a
+     challenge): the green that reads on this surface (light: the darker success green, dark:
+     ScanMe green), as the Pulse does. The durations below are named in lib/admin-v2/motion.ts
+     (ADMIN_EDGE_FADE, ADMIN_REVEAL.liveEdge) and lib/admin-v2/hall/motion.ts (HALL_MOTION.ring). */
+  --admin-energy-ink: var(--admin-success);
+  --admin-edge-fade: 600ms;
+  --admin-live-edge: 1200ms;
+  --admin-hall-ping: 600ms;
+  /* ADMIN v2 X3 — chart colours (ZADATAK §4; lib/admin-v2/analytics/palette.ts).
+     Categorical: eight slots in a fixed order, the colour follows the entity.
+     Validated on the admin surfaces with the dataviz validator: worst adjacent
+     pair CVD 9.1 light / 8.4 dark, normal vision 19.6 / 19.3. Slots 3, 4, 5
+     (light) and 6 (dark) are below 3:1 on the surface, so every chart has
+     visible labels and a table view. */
+  --admin-chart-1: #2a78d6;
+  --admin-chart-2: #eb6834;
+  --admin-chart-3: #1baf7a;
+  --admin-chart-4: #eda100;
+  --admin-chart-5: #e87ba4;
+  --admin-chart-6: #008300;
+  --admin-chart-7: #6250d6;
+  --admin-chart-8: #e34948;
+  --admin-chart-other: #8f9490;
+  /* Sequential (matrices): one blue, 100 = near zero … 700 = the maximum;
+     `-on-` is the text colour on that step. */
+  --admin-seq-100: #cde2fb;
+  --admin-seq-200: #9ec5f4;
+  --admin-seq-300: #6da7ec;
+  --admin-seq-400: #3987e5;
+  --admin-seq-500: #256abf;
+  --admin-seq-600: #184f95;
+  --admin-seq-700: #0d366b;
+  --admin-seq-on-100: #171918;
+  --admin-seq-on-200: #171918;
+  --admin-seq-on-300: #171918;
+  --admin-seq-on-400: #171918;
+  --admin-seq-on-500: #ffffff;
+  --admin-seq-on-600: #ffffff;
+  --admin-seq-on-700: #ffffff;
+  /* Medals of a ranking: an accent ring, never a series colour. */
+  --admin-medal-1: #b8890f;
+  --admin-medal-2: #7f878b;
+  --admin-medal-3: #a8623a;
   font-family: "DM Sans Variable", "DM Sans", ui-sans-serif, system-ui, sans-serif;
+}
+
+@media (min-width: 90rem) {
+  .admin-v1 {
+    --admin-sidebar-w: 18.5rem;
+  }
 }
 
 html[data-theme="dark"] .admin-v1 {
@@ -215,16 +295,42 @@ html[data-theme="dark"] .admin-v1 {
   --admin-sponsored: #c9a8f5;
   --admin-sponsored-soft: #2f2540;
   --admin-sponsored-border: #5a4478;
+  --admin-accent-soft: #22321f;
+  --admin-accent-border: #3f6a35;
+  --admin-shimmer-light: rgb(242 244 238 / 0.08);
+  --admin-energy-ink: var(--admin-nav-line);
+  /* ADMIN v2 X3 — the same eight hues stepped for the dark surface; the
+     sequential scale flips its anchor (near zero recedes into the surface). */
+  --admin-chart-1: #3987e5;
+  --admin-chart-2: #d95926;
+  --admin-chart-3: #199e70;
+  --admin-chart-4: #c98500;
+  --admin-chart-5: #d55181;
+  --admin-chart-6: #008300;
+  --admin-chart-7: #9085e9;
+  --admin-chart-8: #e66767;
+  --admin-chart-other: #7d837e;
+  --admin-seq-100: #0d366b;
+  --admin-seq-200: #184f95;
+  --admin-seq-300: #256abf;
+  --admin-seq-400: #3987e5;
+  --admin-seq-500: #6da7ec;
+  --admin-seq-600: #9ec5f4;
+  --admin-seq-700: #cde2fb;
+  --admin-seq-on-100: #f2f4ee;
+  --admin-seq-on-200: #f2f4ee;
+  --admin-seq-on-300: #ffffff;
+  --admin-seq-on-400: #171918;
+  --admin-seq-on-500: #171918;
+  --admin-seq-on-600: #171918;
+  --admin-seq-on-700: #171918;
+  --admin-medal-1: #e0b84a;
+  --admin-medal-2: #b4bbbf;
+  --admin-medal-3: #d08a5c;
   --admin-shadow-xs: 0 1px 2px rgb(0 0 0 / 0.18);
   --admin-shadow-sm: 0 8px 24px rgb(0 0 0 / 0.2);
   --admin-shadow-md: 0 18px 48px rgb(0 0 0 / 0.34);
   --admin-shadow-lg: 0 28px 80px rgb(0 0 0 / 0.42);
-}
-
-.admin-v1-frame {
-  background-image:
-    radial-gradient(circle at 88% 8%, rgb(255 239 119 / 0.28), transparent 27rem),
-    radial-gradient(circle at 20% 100%, rgb(111 192 93 / 0.08), transparent 31rem);
 }
 
 .admin-v1 :is(button, a, input) {
@@ -237,15 +343,19 @@ html[data-theme="dark"] .admin-v1 {
   border-radius: var(--button-radius);
 }
 
-/* Ista dugmad kao sajt: puna (crna) dugmad su primary u ScanMe zelenoj, a
-   sekundarna dugmad su ghost (zelena slova, bez pozadine, ivica 2 px). */
-.admin-v1 :is(button, a)[class*="bg-[var(--admin-ink)]"] {
+/* Ista dugmad kao sajt: primarno dugme je u ScanMe zelenoj, a sekundarna
+   dugmad su ghost (zelena slova, bez pozadine, ivica 2 px).
+   ADMIN v2 X6 — the one primary button of the admin (adminPrimaryButtonClass in
+   components/admin/admin-ui/admin-controls.ts) and the chosen option of a
+   segmented control. A named class: until X6 every button or link whose class
+   list contained `bg-[var(--admin-ink)]` was painted green by a substring match. */
+.admin-v1 .admin-button-primary {
   border-color: var(--primary);
   background-color: var(--primary);
   color: var(--primary-foreground);
 }
 
-.admin-v1 :is(button, a)[class*="bg-[var(--admin-ink)]"]:hover:not(:disabled) {
+.admin-v1 .admin-button-primary:hover:not(:disabled) {
   border-color: var(--primary-hover);
   background-color: var(--primary-hover);
 }
@@ -269,13 +379,401 @@ html[data-theme="dark"] .admin-v1 {
   outline-color: var(--admin-ink);
 }
 
-@media (max-width: 1279px) {
-  .admin-v1-frame {
-    background-image: radial-gradient(
-      circle at 92% 4%,
-      rgb(255 239 119 / 0.18),
-      transparent 19rem
-    );
+/* ADMIN v2 — the frame. The sidebar keeps its own scroll; a soft fade shows
+   where more content is (the attributes are set while it can scroll there). */
+.admin-v1 .admin-sidebar-scroll {
+  --admin-fade-top: 0px;
+  --admin-fade-bottom: 0px;
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 var(--admin-fade-top),
+    #000 calc(100% - var(--admin-fade-bottom)),
+    transparent 100%
+  );
+}
+
+.admin-v1 .admin-sidebar-scroll[data-fade-top] {
+  --admin-fade-top: 1.5rem;
+}
+
+.admin-v1 .admin-sidebar-scroll[data-fade-bottom] {
+  --admin-fade-bottom: 1.5rem;
+}
+
+/* The navbar links never wrap. All nine fit from lg up (tighter between lg and xl, admin-navbar.tsx);
+   with a large text zoom the row scrolls sideways, without a scrollbar. */
+.admin-v1 .admin-navbar-links {
+  scrollbar-width: none;
+}
+
+.admin-v1 .admin-navbar-links::-webkit-scrollbar {
+  display: none;
+}
+
+/* Filter accordion: the height opens through grid rows (no measured height),
+   the arrow turns 180 degrees. */
+.admin-v1 .admin-acc-body {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows var(--admin-dur-2) var(--admin-ease-out);
+}
+
+.admin-v1 .admin-acc-body[data-open] {
+  grid-template-rows: 1fr;
+}
+
+.admin-v1 .admin-acc-body > div {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.admin-v1 .admin-acc-chevron {
+  transition: transform var(--admin-dur-2) var(--admin-ease-out);
+}
+
+.admin-v1 [aria-expanded="true"] > .admin-acc-chevron {
+  transform: rotate(180deg);
+}
+
+/* The phone drawer follows the motion tokens (in 240 ms, out 180 ms). */
+.admin-v1[data-admin-drawer][data-state="open"] {
+  animation-duration: var(--admin-dur-3);
+  animation-timing-function: var(--admin-ease-out);
+}
+
+.admin-v1[data-admin-drawer][data-state="closed"] {
+  animation-duration: var(--admin-dur-2);
+  animation-timing-function: var(--admin-ease-in);
+}
+
+/* ADMIN v2 X4 — motion of the whole admin (ZADATAK §7; the same tokens as
+   lib/admin-v2/motion.ts). Only transform-like properties and opacity move,
+   nothing lasts longer than --admin-dur-4, and with prefers-reduced-motion
+   nothing moves (the block at the end of the admin rules).
+
+   A pressed button gives way a little. `scale` is its own property, so it
+   never fights a transform of Tailwind or GSAP on the same element. */
+.admin-v1 :is(button, [role="button"], .admin-press):active:not(:disabled, [aria-disabled="true"]) {
+  scale: 0.98;
+}
+
+@layer base {
+  .admin-v1 :is(button, [role="button"], .admin-press) {
+    transition: scale var(--admin-dur-1) var(--admin-ease-out);
+  }
+}
+
+/* Menus open from the control that opened them (Radix gives the point), the
+   search palette from its button in the navbar (--admin-origin, set when it
+   opens); every other admin dialog from its centre. Out is shorter than in. */
+@keyframes admin-pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+
+@keyframes admin-pop-out {
+  to {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+}
+
+@keyframes admin-origin-in {
+  from {
+    opacity: 0;
+    transform: scale(0.86);
+  }
+}
+
+@keyframes admin-origin-out {
+  to {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+}
+
+.admin-v1[data-slot="dropdown-menu-content"] {
+  transform-origin: var(--radix-dropdown-menu-content-transform-origin);
+}
+
+.admin-v1[data-slot="dropdown-menu-content"][data-state="open"] {
+  animation: admin-pop-in var(--admin-dur-2) var(--admin-ease-out);
+}
+
+.admin-v1[data-slot="dropdown-menu-content"][data-state="closed"] {
+  animation: admin-pop-out var(--admin-dur-1) var(--admin-ease-in);
+}
+
+.admin-v1[data-slot="dialog-content"][data-state="open"] {
+  animation: admin-pop-in var(--admin-dur-3) var(--admin-ease-out);
+}
+
+.admin-v1[data-slot="dialog-content"][data-state="closed"] {
+  animation: admin-pop-out var(--admin-dur-2) var(--admin-ease-in);
+}
+
+.admin-v1[data-admin-dialog="palette"] {
+  transform-origin: var(--admin-origin, 100% 0);
+}
+
+.admin-v1[data-admin-dialog="palette"][data-state="open"] {
+  animation-name: admin-origin-in;
+}
+
+.admin-v1[data-admin-dialog="palette"][data-state="closed"] {
+  animation-name: admin-origin-out;
+}
+
+/* The quiet mode switch of the phone drawer (the profile menu uses a checked item). */
+.admin-v1 .admin-switch {
+  position: relative;
+  flex: none;
+  width: 2rem;
+  height: 1.125rem;
+  border-radius: 9999px;
+  background-color: color-mix(in srgb, var(--admin-text-muted) 45%, transparent);
+  transition: background-color var(--admin-dur-1) var(--admin-ease-out);
+}
+
+.admin-v1 .admin-switch::after {
+  content: "";
+  position: absolute;
+  top: 0.125rem;
+  left: 0.125rem;
+  width: 0.875rem;
+  height: 0.875rem;
+  border-radius: 9999px;
+  background-color: var(--admin-surface-strong);
+  transition: transform var(--admin-dur-1) var(--admin-ease-out);
+}
+
+.admin-v1 .admin-switch[data-on] {
+  background-color: var(--admin-nav-line);
+}
+
+.admin-v1 .admin-switch[data-on]::after {
+  transform: translateX(0.875rem);
+}
+
+/* ADMIN v3 V1 — the reveal engine, the material and the Pulse (ZADATAK-V3 §2).
+   None of these rules hides content: what enters is hidden by the engine
+   itself (JavaScript, after its gate), so without it everything is simply
+   there. The layers below are decoration and take no pointer events. */
+
+/* Skeleton: a light passes over each bar (transform only). */
+.admin-v1 .admin-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.admin-v1 .admin-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, var(--admin-shimmer-light), transparent);
+  animation: admin-shimmer var(--admin-shimmer) linear infinite;
+}
+
+.admin-v1[data-admin-quiet] .admin-shimmer::after {
+  animation: none;
+}
+
+@keyframes admin-shimmer {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+/* The scan line of a full entrance: 1.5 px with a 16 px trail, moved by the engine. */
+.admin-v1 .admin-scan {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.admin-v1 .admin-scan-line {
+  position: absolute;
+  top: -17.5px;
+  right: 0;
+  left: 0;
+  height: 17.5px;
+  border-bottom: 1.5px solid var(--admin-nav-line);
+  background: linear-gradient(to bottom, transparent, color-mix(in srgb, var(--admin-nav-line) 25%, transparent));
+  opacity: 0;
+}
+
+/* The chip of the navbar after `G` pops in (the interaction layer: 180 ms). */
+.admin-v1 .admin-go-chip {
+  animation: admin-pop-in var(--admin-dur-2) var(--admin-ease-out);
+}
+
+/* A row that arrived while the page is open: a green left edge that fades. */
+@layer base {
+  .admin-v1 [data-admin-live-edge] {
+    position: relative;
+  }
+}
+
+.admin-v1 [data-admin-live-edge]::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 2px;
+  background: var(--admin-nav-line);
+  pointer-events: none;
+  animation: admin-live-edge var(--admin-live-edge) linear forwards;
+}
+
+@keyframes admin-live-edge {
+  to {
+    opacity: 0;
+  }
+}
+
+/* The Pulse: a canvas on the bottom edge of the navbar, under the links. */
+.admin-v1 .admin-pulse {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: -1;
+  width: 100%;
+  height: 20px;
+  pointer-events: none;
+}
+
+/* The live edge of the screen: the busier the last minute, the greener.
+   --admin-energy (0–1) is written by the Pulse at most once a second. */
+.admin-v1 .admin-edge {
+  position: absolute;
+  top: var(--admin-navbar-h);
+  right: 0.75rem;
+  bottom: 0.75rem;
+  left: 0;
+  display: none;
+  overflow: hidden;
+  border-radius: var(--admin-radius-screen);
+  pointer-events: none;
+}
+
+@media (min-width: 64rem) {
+  .admin-v1 .admin-edge {
+    display: block;
+  }
+}
+
+.admin-v1 .admin-edge-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 1px var(--admin-nav-line);
+  opacity: calc(var(--admin-energy, 0) * 0.55);
+  transition: opacity var(--admin-edge-fade) linear;
+}
+
+.admin-v1 .admin-edge-glow {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 1.5rem;
+  background: linear-gradient(to bottom, var(--admin-nav-line), transparent);
+  opacity: 0;
+  transition: opacity var(--admin-edge-fade) linear;
+}
+
+html[data-theme="dark"] .admin-v1 .admin-edge-glow {
+  opacity: calc(var(--admin-energy, 0) * 0.18);
+}
+
+/* V5 — while a big ceremony is on the screen the live edge is fully lit: the whole
+   screen takes part in the moment (opacity only; the ceremony layer sets the mark). */
+.admin-v1[data-admin-celebrating] .admin-edge-ring {
+  opacity: 0.9;
+  transition-duration: var(--admin-dur-2);
+}
+
+html[data-theme="dark"] .admin-v1[data-admin-celebrating] .admin-edge-glow {
+  opacity: 0.32;
+  transition-duration: var(--admin-dur-2);
+}
+
+/* V5 (RV S13) — the scrim of an admin dialog. The shared dialog dims with the
+   text colour, which is light in the dark theme: the page behind the Vitrina
+   turned lighter than the dialog. An admin dialog (its content carries
+   `admin-v1`) gets a dark scrim there; components/ui is not touched. */
+html[data-theme="dark"] [data-slot="dialog-overlay"]:has(+ .admin-v1[data-slot="dialog-content"]) {
+  background-color: rgb(8 10 9 / 0.68);
+}
+
+/* The Living hall (v3 V3). The clock of the Vremeplov ticks on every new hour
+   (opacity only: the text never moves), and in the 2D map a new scan of a poll
+   is a ring that goes out from its stand (transform and opacity, 600 ms). Both
+   stand in the quiet mode and with reduced motion (the rule below). */
+.admin-v1 .admin-hall-tick {
+  animation: admin-hall-tick var(--admin-dur-2) var(--admin-ease-out);
+}
+
+@keyframes admin-hall-tick {
+  from {
+    opacity: 0.45;
+  }
+}
+
+.admin-v1 .admin-hall-ping {
+  transform-box: fill-box;
+  transform-origin: center;
+  opacity: 0;
+  pointer-events: none;
+  animation: admin-hall-ping var(--admin-hall-ping) var(--admin-ease-out);
+}
+
+@keyframes admin-hall-ping {
+  from {
+    opacity: 0.9;
+    transform: scale(0.35);
+  }
+
+  to {
+    opacity: 0;
+    transform: scale(1.5);
+  }
+}
+
+.admin-v1[data-admin-quiet] :is(.admin-hall-tick, .admin-hall-ping) {
+  animation: none;
+}
+
+/* Tables scroll with the screen, never in their own box: the header row
+   stays under the top edge of the screen. A table too wide for the screen
+   gets a sideways scroll from its wrapper ([data-overflow-x]) and then the
+   header scrolls with it. */
+.admin-v1 [data-admin-table-wrap] {
+  overflow-x: clip;
+}
+
+.admin-v1 [data-admin-table-wrap][data-overflow-x] {
+  overflow-x: auto;
+}
+
+.admin-v1 [data-admin-table-wrap] thead {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  box-shadow: inset 0 -1px 0 var(--admin-border);
+}
+
+@layer base {
+  .admin-v1 [data-admin-table-wrap] thead {
+    background-color: var(--admin-surface-strong);
   }
 }
 
@@ -285,11 +783,40 @@ html[data-theme="dark"] .admin-v1 {
   .admin-v1 *::after,
   [data-slot="sheet-overlay"],
   [data-slot="sheet-content"],
+  [data-slot="dialog-overlay"],
+  [data-slot="dialog-content"],
   [data-slot="dropdown-menu-content"] {
     scroll-behavior: auto !important;
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+
+  /* Nothing moves: a pressed button keeps its size (the same selector as the rule above, so it wins). */
+  .admin-v1 :is(button, [role="button"], .admin-press):active:not(:disabled, [aria-disabled="true"]) {
+    scale: none;
+  }
+
+  /* ...but what opens still cross-fades (ZADATAK §7: no movement, only a fade): menus, dialogs and the
+     drawers of the admin fade in --admin-dur-1 instead of appearing at once. No transform is animated. */
+  @keyframes admin-fade-in {
+    from {
+      opacity: 0;
+    }
+  }
+
+  @keyframes admin-fade-out {
+    to {
+      opacity: 0;
+    }
+  }
+
+  .admin-v1:is([data-slot="dropdown-menu-content"], [data-slot="dialog-content"], [data-slot="sheet-content"])[data-state="open"] {
+    animation: admin-fade-in var(--admin-dur-1) linear !important;
+  }
+
+  .admin-v1:is([data-slot="dropdown-menu-content"], [data-slot="dialog-content"], [data-slot="sheet-content"])[data-state="closed"] {
+    animation: admin-fade-out var(--admin-dur-1) linear !important;
   }
 }
 

@@ -7,6 +7,7 @@ import {
   eventNavGroups,
   eventPathSegments,
   eventRedirectHref,
+  eventSectionHeading,
   eventSectionHref,
   eventSectionTitle,
   interactionExhibitorHref,
@@ -157,18 +158,19 @@ describe("eventNavGroups marks the open section (A2)", () => {
     expect(item?.children).toBeUndefined();
   });
 
-  test("every section is reachable from the navigation, in groups with labels", () => {
+  test("every section is reachable from the navigation, in groups with labels (ADMIN v2: „Poveži nalepnicu“ from the page header)", () => {
     const groups = eventNavGroups(href, null);
     const ids = groups.flatMap((group) => group.items.flatMap((item) => (item.children ? item.children.map((child) => child.id) : [item.id])));
-    expect(ids.sort()).toEqual([...REQUIRED].sort());
+    expect(ids.sort()).toEqual(REQUIRED.filter((path) => path !== "povezi").sort());
     expect(groups.map((group) => group.label)).toEqual([undefined, adminEventsSr.navGroups.katalog, adminEventsSr.navGroups.sajam, adminEventsSr.navGroups.posle]);
     expect(groups.flatMap((group) => group.items).some((item) => item.active || item.activeChild)).toBe(false);
   });
 
-  test("N2: „Poveži nalepnicu“ is right after Pregled; the /r/ admin shortcut opens it with the scanned code", () => {
-    const [main] = eventNavGroups(href, null);
-    expect(main.items.map((item) => item.id)).toEqual(["pregled", "povezi"]);
-    expect(main.items[1]).toMatchObject({ href: "/x/povezi", label: "Poveži nalepnicu" });
+  test("N2 / ADMIN v2: „Poveži nalepnicu“ has one entry (the page header), so it is a route but not a navigation item; the /r/ admin shortcut opens it with the scanned code", () => {
+    const [main] = eventNavGroups(href, "povezi");
+    expect(main.items.map((item) => item.id)).toEqual(["pregled"]);
+    expect(eventNavGroups(href, "povezi").flatMap((group) => group.items).some((item) => item.active || item.activeChild)).toBe(false);
+    expect(eventSectionHeading(resolveEventSection(["povezi"]))).toBe("Poveži nalepnicu");
     // fairAdminLinkPath (lib/fair-contract.ts) → this route, with `kod` kept by the section.
     expect(resolveEventSection(["povezi"])).toEqual({ kind: "section", path: "povezi" });
     expect(eventRedirectHref("/admin/dogadjaji/test-em", { kind: "redirect", path: "povezi" }, "?kod=7KQ2M9XA&izlagac=p1&model=m1&q=x")).toBe("/admin/dogadjaji/test-em/povezi?kod=7KQ2M9XA&izlagac=p1&model=m1");

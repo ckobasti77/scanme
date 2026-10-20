@@ -36,6 +36,13 @@ import { adminLocationSr } from "./sr/admin-location";
 import { menuSr } from "./sr/menu";
 import { menuEditorSr } from "./sr/menu-editor";
 import { menuAdminSr } from "./sr/menu-admin";
+import { menuDomenSr } from "./sr/menu-domen";
+import { menuZajednickoSr } from "./sr/menu-zajednicko";
+import { menuPanelSr } from "./sr/menu-panel";
+import { menuStudioSr } from "./sr/menu-studio";
+import { menuJavniSr } from "./sr/menu-javni";
+import { menuLokalSr } from "./sr/menu-lokal";
+import { menuGostSr } from "./sr/menu-gost";
 import { orderingAdminSr } from "./sr/ordering-admin";
 import { orderingSr } from "./sr/ordering";
 import { orderingPanelSr } from "./sr/ordering-panel";
@@ -85,6 +92,9 @@ export type {
   MenuDict,
   MenuEditorDict,
   MenuAdminDict,
+  MenuDomenDict,
+  MenuZajednickoDict,
+  MenuPanelDict,
   OrderingAdminDict,
   OrderingDict,
   OrderingPanelDict,
@@ -130,6 +140,10 @@ export {
   menuSr,
   menuEditorSr,
   menuAdminSr,
+  menuDomenSr,
+  menuZajednickoSr,
+  menuPanelSr,
+  menuStudioSr,
   orderingAdminSr,
   orderingSr,
   orderingPanelSr,
@@ -192,6 +206,13 @@ const SR: DictBySurface = {
   menu: menuSr,
   "menu-editor": menuEditorSr,
   "menu-admin": menuAdminSr,
+  "menu-domen": menuDomenSr,
+  "menu-zajednicko": menuZajednickoSr,
+  "menu-panel": menuPanelSr,
+  "menu-studio": menuStudioSr,
+  "menu-javni": menuJavniSr,
+  "menu-lokal": menuLokalSr,
+  "menu-gost": menuGostSr,
   "ordering-admin": orderingAdminSr,
   ordering: orderingSr,
   "ordering-panel": orderingPanelSr,

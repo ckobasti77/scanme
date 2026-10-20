@@ -189,4 +189,39 @@ crons.interval(
   {},
 );
 
+//   • ScanMe Menu V1 (K05, master §6.1) — the hourly reserve of version
+//     retention: a publish retires the version pushed out of the newest 20 and
+//     schedules its bounded deletion; this restarts a deletion whose
+//     continuation was lost (retired more than 10 minutes ago, ≤ 20 per tick).
+crons.interval(
+  "menu retired versions sweep",
+  { hours: 1 },
+  internal.menuPublishing.sweepRetiredVersions,
+  {},
+);
+
+//   • ScanMe Menu V1 (K05) — deletes editor presence rows that expired more
+//     than a minute ago (≤ 500 per batch with a continuation).
+crons.interval(
+  "menu editor presence cleanup",
+  { minutes: 15 },
+  internal.menuPresence.cleanupExpired,
+  {},
+);
+
+
+// ScanMe Menu V1 (K14): the informative EUR rate of the public menu (NBS
+// middle rate). Does nothing, with no network call, unless MENU_FX_ENABLED is
+// exactly "true" (convex/menuFx.ts).
+crons.interval("menu fx rate", { hours: 6 }, internal.menuFx.refreshRate, {});
+
+// ScanMe Menu V1 (K15): image uploads that never finished (reserved or failed
+// for over a day) lose their row and their blob (convex/menuMedia.ts).
+crons.interval("menu media orphans", { hours: 6 }, internal.menuMedia.reapOrphans, {});
+
+// ScanMe Menu V1 (K20): guest sessions of scanned positions — ends sessions
+// whose scheduled expiry was lost and deletes those expired over a day ago
+// (convex/menuGuest.ts).
+crons.interval("menu guest sessions sweep", { minutes: 30 }, internal.menuGuest.sweepExpiredSessions, {});
+
 export default crons;

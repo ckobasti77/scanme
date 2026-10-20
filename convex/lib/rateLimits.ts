@@ -52,6 +52,50 @@ export const rateLimiter = new RateLimiter(components.rateLimiter, {
   // guestCreate, spent exactly once per ordering guest, in its OWN bucket so
   // ordering never contends with Memories' guestCreate.
   orderGuestCreate: { kind: "token bucket", rate: 300, period: MINUTE, capacity: 300 },
+  // ScanMe Menu V1 (K20, docs/meni/planovi/K19.md §3.3): the card-aware Menu
+  // hop /r/[cardCode]/meni (menuGuest.mintFromCard), spent once per position
+  // scan, after cardResolve. Keyed by the same ipHash and sized like
+  // tableOrderingHop for the same reason: a whole dining room sits behind ONE
+  // NAT and scans in the same minute.
+  menuGuestHop: { kind: "token bucket", rate: 300, period: MINUTE, capacity: 300 },
+  // …and keyed per CARD (the table): a six-top scanning at once fits
+  // capacity 30, while a script hammering one printed card is stopped without
+  // touching the rest of the room.
+  menuGuestHopCard: { kind: "token bucket", rate: 60, period: MINUTE, capacity: 30 },
+  // K21 (plan K19 §6): the guest ACTIONS of a scanned position
+  // (menuGuest.callWaiter / requestBill / submitOrder / cancelRequest). Keyed
+  // three ways on purpose — the table, the guest and the address:
+  //
+  // menuCall / menuBill — per POSITION (the table or room), shared by every
+  // phone at it: the table, not the guest, is the stable identifier (clearing
+  // cookies cannot conjure a new printed card). A repeated tap while a call or
+  // bill is open never reaches these (it returns the open request, K19-7), so
+  // they only count NEW calls: a four-top where the waiter finished one call
+  // and someone rings again fits capacity 3; a script is held at 3/min.
+  menuCall: { kind: "token bucket", rate: 3, period: MINUTE, capacity: 3 },
+  menuBill: { kind: "token bucket", rate: 3, period: MINUTE, capacity: 3 },
+  // menuOrder — per POSITION, spent only when an order is actually written
+  // (a price-change confirmation does not burn the table's capacity). A table
+  // sends a round, a forgotten drink, a dessert: capacity 4, refill 6/min.
+  menuOrder: { kind: "token bucket", rate: 6, period: MINUTE, capacity: 4 },
+  // menuOrderAttempt — per POSITION, every order that gets PRICED (read from
+  // the published version), written or refused: fresh sessions of one table
+  // cannot turn refused carts into unbounded reads. A table re-sending after a
+  // price change or an unavailable article stays far below 30/min.
+  menuOrderAttempt: { kind: "token bucket", rate: 30, period: MINUTE, capacity: 30 },
+  // menuGuestSession — per GUEST SESSION, every action that may write or
+  // price an order: one person cannot outpace a human (10/min), and it is
+  // spent BEFORE an order reads the published version, so a flood of
+  // well-formed but refused carts stays bounded too.
+  menuGuestSession: { kind: "token bucket", rate: 10, period: MINUTE, capacity: 10 },
+  // menuGuestCancel — per guest DEVICE (Moji zahtevi): a few cancellations a
+  // minute is far above any human use.
+  menuGuestCancel: { kind: "token bucket", rate: 10, period: MINUTE, capacity: 10 },
+  // menuGuestActionIp — per IP hash (the handler's salted hash; "shared" when
+  // a caller sends none). Sized like the hop for the same reason: a whole
+  // dining room sits behind ONE NAT, so this never throttles a real room; it
+  // only caps a flood from one address across many positions.
+  menuGuestActionIp: { kind: "token bucket", rate: 300, period: MINUTE, capacity: 300 },
   // TASK-66 (RFC-004 §2.9): the two GUEST ACTIONS. Deliberately keyed
   // differently from each other, and from the per-IP hop buckets above —
   // §2.9 rejects a per-IP action limit outright, because a whole hall sits
