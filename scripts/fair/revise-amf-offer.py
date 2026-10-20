@@ -189,6 +189,9 @@ def build():
     quote = "Spoj QR kodova i stručne podrške tima stvorio je besprekorno iskustvo na štandu. Posetioci su pristupali informacijama direktno sa svojih telefona, a tim se fokusirao na kvalitetne, konkretne i brže razgovore."
     last_y = wrap(c, quote, 705, H - 244, 405, 16, 23, INK)
     text(c, "Iskustvo JMEV tima sa sajma", 705, last_y - 30, 11, color=MUTED)
+    text(c, "Istaknuta QR nalepnica na svakom modelu", 723.65, H - 444, 15.75, "AMFBold", INK)
+    text(c, "Tim koji dopunjuje digitalne informacije", 723.65, H - 487.5, 15.75, "AMFBold", INK)
+    text(c, "Trenutni pristup kompletnim specifikacijama", 723.65, H - 531, 15.75, "AMFBold", INK)
     c.showPage()
 
     # Page 5: lighter Starter header and a positive discount treatment.
@@ -244,6 +247,7 @@ def build():
             out.insert_pdf(original, from_page=i, to_page=i)
     page = out[3]
     page.add_redact_annot(pdf.Rect(677, 207, 1141, 401), fill=tuple(PAPER.rgb()), cross_out=False)
+    page.add_redact_annot(pdf.Rect(720, 420, 1145, 545), fill=tuple(PAPER.rgb()), cross_out=False)
     page.apply_redactions()
     page.show_pdf_page(page.rect, overlay, 3)
     page = out[4]
@@ -276,6 +280,9 @@ def build():
     assert "[TELEFON]" not in final[5].get_text()
     assert "scanme.rs/r/" not in final[0].get_text()
     assert "besprekorno iskustvo na štandu" in final[3].get_text()
+    assert "Istaknuta QR nalepnica na svakom modelu" in final[3].get_text()
+    assert "Tim koji dopunjuje digitalne informacije" in final[3].get_text()
+    assert "Trenutni pristup kompletnim specifikacijama" in final[3].get_text()
     for i, page in enumerate(final):
         page.get_pixmap(matrix=pdf.Matrix(1.5, 1.5), alpha=False).save(ASSETS / f"page-{i + 1}.png")
     print(OUT)
