@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { fairNewSubmissionId } from "./lead-form-model";
 import { fmt } from "@/lib/i18n/format";
 import type { FairExhibitorRegistrationDict } from "@/lib/i18n/types";
-import { emptyExhibitorVehicle, exhibitorRegistrationSelection, type ExhibitorVehicleDraft } from "./exhibitor-registration-model";
+import { emptyExhibitorVehicle, exhibitorRegistrationMessage, exhibitorRegistrationSelection, type ExhibitorVehicleDraft } from "./exhibitor-registration-model";
 import styles from "./exhibitor-registration.module.css";
 
 function VehicleReveal({ children, reducedMotion }: { children: React.ReactNode; reducedMotion: boolean | null }) {
@@ -105,6 +105,7 @@ export function ExhibitorRegistration({ dict }: { dict: FairExhibitorRegistratio
       await createLead({
         contactName: value("contactName"), businessName: value("businessName"),
         businessType: dict.source, email: value("email"), phone: value("phone"), interest: "not_sure",
+        message: exhibitorRegistrationMessage(vehicles),
         offerSelection,
         submissionId: submissionId.current, formStartedAt: startedAt.current, website: value("website"),
       });

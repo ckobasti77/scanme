@@ -23,9 +23,26 @@ export interface LeadEmailDict {
     interest: string;
     message: string;
     offerSelection: string;
+    amfSummary: string;
+    amfVehicles: string;
+    amfVehicleColNumber: string;
+    amfVehicleColModel: string;
+    amfVehicleColPackage: string;
+    amfVehicleColPrice: string;
     logo: string;
     time: string;
     leadId: string;
+  };
+  amf: {
+    subject: string;
+    heading: string;
+    intro: string;
+    summaryValue: string;
+    starterLabel: string;
+    starterPrice: string;
+    advancedLabel: string;
+    advancedPrice: string;
+    vehicleLine: string;
   };
   interests: {
     review: string;
@@ -61,9 +78,26 @@ export const leadEmailSr = {
     interest: "Zanima me",
     message: "Poruka",
     offerSelection: "Izbor iz ponude",
+    amfSummary: "Pregled paketa",
+    amfVehicles: "Prijavljena vozila",
+    amfVehicleColNumber: "#",
+    amfVehicleColModel: "Marka i model",
+    amfVehicleColPackage: "Paket",
+    amfVehicleColPrice: "Cena",
     logo: "Logo",
     time: "Vreme",
     leadId: "ID upita",
+  },
+  amf: {
+    subject: "Prijava izlagača · AMF 2026 — {business} ({count})",
+    heading: "Prijava izlagača — Auto Moto Fest 2026",
+    intro: "Izlagač je poslao prijavu vozila i paketa kroz obrazac za Auto Moto Fest 2026.",
+    summaryValue: "Ukupno vozila: {total} (Napredni: {advanced} · Starter: {starter})",
+    starterLabel: "Starter",
+    starterPrice: "3.000 RSD",
+    advancedLabel: "Napredni",
+    advancedPrice: "5.000 RSD",
+    vehicleLine: "{number}. {model} — {package} ({price})",
   },
   interests: {
     review: "ScanMe Review",
@@ -79,3 +113,4 @@ export const leadEmailSr = {
     unknown: "Slanje mejla nije uspelo.",
   },
 } as const satisfies LeadEmailDict;
+

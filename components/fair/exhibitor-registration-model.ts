@@ -15,3 +15,18 @@ export function exhibitorRegistrationSelection(vehicles: ExhibitorVehicleDraft[]
     })),
   };
 }
+
+export function exhibitorRegistrationMessage(vehicles: ExhibitorVehicleDraft[]) {
+  const selected = exhibitorRegistrationSelection(vehicles).vehicles;
+  const advancedCount = selected.filter((v) => v.package === "advanced").length;
+  const starterCount = selected.filter((v) => v.package === "starter").length;
+  const lines = selected.map((v, i) => {
+    const pkg = v.package === "advanced" ? "Napredni (5.000 RSD)" : "Starter (3.000 RSD)";
+    return `${i + 1}. ${v.model} — ${pkg}`;
+  });
+  return [
+    `Ukupno vozila: ${selected.length} (Napredni: ${advancedCount} · Starter: ${starterCount})`,
+    ...lines,
+  ].join("\n");
+}
+

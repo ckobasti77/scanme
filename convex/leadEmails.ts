@@ -31,7 +31,110 @@ function formatBelgradeTime(epoch: number) {
   return `${pad(parts.day)}.${pad(parts.month)}.${parts.year}. ${pad(parts.hour)}:${pad(parts.minute)}`;
 }
 
+type AmfVehicleItem = {
+  model: string;
+  package: "starter" | "advanced";
+};
+
+function parseAmfExhibitorSelection(raw: string | undefined): AmfVehicleItem[] | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as {
+      source?: unknown;
+      vehicles?: Array<{ model?: unknown; package?: unknown }>;
+    };
+    if (parsed?.source !== "amf-2026-exhibitor-registration" || !Array.isArray(parsed.vehicles)) {
+      return null;
+    }
+    const vehicles = parsed.vehicles
+      .filter(
+        (item): item is AmfVehicleItem =>
+          typeof item?.model === "string" &&
+          item.model.trim().length > 0 &&
+          (item.package === "starter" || item.package === "advanced"),
+      )
+      .map((item) => ({ model: item.model.trim(), package: item.package }));
+    return vehicles.length > 0 ? vehicles : null;
+  } catch {
+    return null;
+  }
+}
+
 export function buildLeadEmail(lead: Doc<"leads">) {
+  const amfVehicles = parseAmfExhibitorSelection(lead.offerSelection);
+  if (amfVehicles) {
+    const advancedCount = amfVehicles.filter((v) => v.package === "advanced").length;
+    const starterCount = amfVehicles.filter((v) => v.package === "starter").length;
+    const summaryText = fmt(dict.amf.summaryValue, {
+      total: amfVehicles.length,
+      advanced: advancedCount,
+      starter: starterCount,
+    });
+    const vehicleLines = amfVehicles.map((v, idx) =>
+      fmt(dict.amf.vehicleLine, {
+        number: idx + 1,
+        model: v.model,
+        package: v.package === "advanced" ? dict.amf.advancedLabel : dict.amf.starterLabel,
+        price: v.package === "advanced" ? dict.amf.advancedPrice : dict.amf.starterPrice,
+      }),
+    );
+
+    const rows: Array<[string, string]> = [
+      [dict.fields.businessName, lead.businessName],
+      [dict.fields.contactName, lead.contactName],
+      [dict.fields.phone, lead.phone ?? dict.notProvided],
+      [dict.fields.email, lead.email ?? dict.notProvided],
+      [dict.fields.businessType, lead.businessType],
+      [dict.fields.amfSummary, summaryText],
+      [dict.fields.amfVehicles, vehicleLines.join("\n")],
+      [dict.fields.time, fmt(dict.timeValue, { time: formatBelgradeTime(lead.createdAt) })],
+      [dict.fields.leadId, lead._id],
+    ];
+
+    const text = [
+      dict.amf.heading,
+      "",
+      ...rows.map(([label, value]) => `${label}: ${value}`),
+      ...(lead.email ? ["", dict.replyHint] : []),
+    ].join("\n");
+
+    const contactRows: Array<[string, string]> = [
+      [dict.fields.businessName, lead.businessName],
+      [dict.fields.contactName, lead.contactName],
+      [dict.fields.phone, lead.phone ?? dict.notProvided],
+      [dict.fields.email, lead.email ?? dict.notProvided],
+      [dict.fields.amfSummary, summaryText],
+      [dict.fields.time, fmt(dict.timeValue, { time: formatBelgradeTime(lead.createdAt) })],
+      [dict.fields.leadId, lead._id],
+    ];
+
+    const htmlContactRows = contactRows
+      .map(
+        ([label, value]) =>
+          `<tr><th align="left" valign="top" style="padding:6px 14px 6px 0;white-space:nowrap;color:#5f6462;font-weight:600">${escapeHtml(label)}</th><td style="padding:6px 0;white-space:pre-wrap;font-weight:500">${escapeHtml(value)}</td></tr>`,
+      )
+      .join("");
+
+    const htmlVehicleRows = amfVehicles
+      .map((v, idx) => {
+        const pkgLabel = v.package === "advanced" ? dict.amf.advancedLabel : dict.amf.starterLabel;
+        const priceLabel = v.package === "advanced" ? dict.amf.advancedPrice : dict.amf.starterPrice;
+        const badgeBg = v.package === "advanced" ? "#fbe8df" : "#eee8dc";
+        const badgeColor = v.package === "advanced" ? "#b93d0b" : "#3a342b";
+        return `<tr><td style="padding:8px 10px;border-bottom:1px solid #e6dfd3;color:#5f6462">${idx + 1}.</td><td style="padding:8px 10px;border-bottom:1px solid #e6dfd3;font-weight:600">${escapeHtml(v.model)}</td><td style="padding:8px 10px;border-bottom:1px solid #e6dfd3"><span style="display:inline-block;padding:2px 8px;border-radius:4px;background:${badgeBg};color:${badgeColor};font-weight:700;font-size:12px">${escapeHtml(pkgLabel)}</span></td><td style="padding:8px 10px;border-bottom:1px solid #e6dfd3;white-space:nowrap">${escapeHtml(priceLabel)}</td></tr>`;
+      })
+      .join("");
+
+    const html = `<div style="font-family:Arial,sans-serif;color:#151713;max-width:640px"><h1 style="font-size:20px;margin:0 0 6px">${escapeHtml(dict.amf.heading)}</h1><p style="margin:0 0 16px;color:#5f6462">${escapeHtml(dict.amf.intro)}</p><table cellspacing="0" cellpadding="0" style="margin-bottom:18px">${htmlContactRows}</table><h2 style="font-size:15px;margin:16px 0 8px">${escapeHtml(dict.fields.amfVehicles)}</h2><table cellspacing="0" cellpadding="0" style="width:100%;border-collapse:collapse;border:1px solid #ded4c3;background:#faf7ef"><thead><tr style="background:#f1eadc"><th align="left" style="padding:8px 10px;border-bottom:1px solid #ded4c3;font-size:12px;color:#5f6462">${escapeHtml(dict.fields.amfVehicleColNumber)}</th><th align="left" style="padding:8px 10px;border-bottom:1px solid #ded4c3;font-size:12px;color:#5f6462">${escapeHtml(dict.fields.amfVehicleColModel)}</th><th align="left" style="padding:8px 10px;border-bottom:1px solid #ded4c3;font-size:12px;color:#5f6462">${escapeHtml(dict.fields.amfVehicleColPackage)}</th><th align="left" style="padding:8px 10px;border-bottom:1px solid #ded4c3;font-size:12px;color:#5f6462">${escapeHtml(dict.fields.amfVehicleColPrice)}</th></tr></thead><tbody>${htmlVehicleRows}</tbody></table>${lead.email ? `<p style="color:#5f6462;margin-top:16px">${escapeHtml(dict.replyHint)}</p>` : ""}</div>`;
+
+    return {
+      subject: fmt(dict.amf.subject, { business: lead.businessName, count: amfVehicles.length }),
+      text,
+      html,
+      ...(lead.email ? { replyTo: lead.email } : {}),
+    };
+  }
+
   const rows: Array<[string, string]> = [
     [dict.fields.contactName, lead.contactName],
     [dict.fields.businessName, lead.businessName],

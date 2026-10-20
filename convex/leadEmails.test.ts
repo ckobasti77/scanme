@@ -266,4 +266,34 @@ describe("buildLeadEmail", () => {
     expect(email.text).toContain("Zanima me: ScanMe Review");
     expect(email).not.toHaveProperty("replyTo");
   });
+
+  test("AMF prijava izlagača formatira preglednu tabelu vozila i paketa", () => {
+    const amfLead: Doc<"leads"> = {
+      ...lead,
+      businessName: "Auto Čačak d.o.o.",
+      contactName: "Marko Marković",
+      businessType: "Izlagač · Auto Moto Fest 2026",
+      email: "marko@example.invalid",
+      phone: "+381 60 123 4567",
+      interest: "not_sure",
+      offerSelection: JSON.stringify({
+        source: "amf-2026-exhibitor-registration",
+        eventSlug: "auto-moto-fest-2026",
+        vehicles: [
+          { model: "Škoda Octavia", package: "advanced" },
+          { model: "Škoda Fabia", package: "starter" },
+        ],
+      }),
+    };
+    const email = buildLeadEmail(amfLead);
+    expect(email.subject).toBe("Prijava izlagača · AMF 2026 — Auto Čačak d.o.o. (2)");
+    expect(email.text).toContain("Ukupno vozila: 2 (Napredni: 1 · Starter: 1)");
+    expect(email.text).toContain("1. Škoda Octavia — Napredni (5.000 RSD)");
+    expect(email.text).toContain("2. Škoda Fabia — Starter (3.000 RSD)");
+    expect(email.html).toContain("Škoda Octavia");
+    expect(email.html).toContain("Škoda Fabia");
+    expect(email.html).not.toContain("amf-2026-exhibitor-registration");
+    expect(email.replyTo).toBe("marko@example.invalid");
+  });
 });
+
