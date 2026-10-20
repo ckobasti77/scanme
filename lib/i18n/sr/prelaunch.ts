@@ -55,6 +55,18 @@ export interface PrelaunchDict {
     body: string;
     selectorAria: string;
     cta: string;
+    /** Tekst na odobrenim klijentskim dizajnima proizvoda (prelaunch-products-artworks.tsx). */
+    artwork: {
+      powered: string;
+      stand: {
+        title: string;
+        subtitle: string;
+        icons: { menu: string; reviews: string; wifi: string; instagram: string };
+        thanks: string;
+      };
+      sticker: { title: string; subtitle: string; band: string };
+      film: { welcome: string; title: string; hoursLabel: string; hours: string };
+    };
   };
   lead: {
     eyebrow: string;
@@ -226,6 +238,17 @@ export const prelaunchSr: PrelaunchDict = {
       "Izaberite format koji odgovara vašem lokalu ili događaju. Svaki proizvod povezujemo sa ScanMe uslugom i prilagođavamo vašem vizuelnom identitetu.",
     selectorAria: "Izaberite fizički proizvod",
     cta: "Zanima me ovaj proizvod",
+    artwork: {
+      powered: "powered by ScanMe",
+      stand: {
+        title: "SKENIRAJTE",
+        subtitle: "Meni, recenzije i Wi-Fi na jednom mestu",
+        icons: { menu: "Meni", reviews: "Recenzije", wifi: "Wi-Fi", instagram: "Instagram" },
+        thanks: "Hvala na poseti!",
+      },
+      sticker: { title: "SKENIRAJ", subtitle: "meni i recenzije", band: "OCENITE NAS" },
+      film: { welcome: "DOBRO DOŠLI", title: "Skenirajte", hoursLabel: "Radno vreme", hours: "pon–ned 08–23 h" },
+    },
   },
   lead: {
     eyebrow: "Prelaunch prijava",

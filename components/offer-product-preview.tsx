@@ -53,7 +53,7 @@ const COMPACT_STAND_TRANSFORM: ProductMockupTransformConfig = {
 };
 
 /** QR modules as one SVG path, with the 4-module quiet zone inside `dimension`. */
-function qrPath(value: string) {
+export function qrPath(value: string) {
   const matrix = qrMatrix(value, "MEDIUM");
   const dimension = matrix.length + QR_QUIET_ZONE * 2;
   let path = "";
@@ -105,34 +105,6 @@ export function BasicReviewArtwork({
       <div aria-hidden="true" className={styles.basicStars}>★★★★★</div>
       <PreviewQr />
       <p className={styles.basicInstruction}>{dict.basicReviewInstruction}</p>
-    </div>
-  );
-}
-
-/**
- * Landing design for the compact L stand (black FOREX face): the ScanMe mark
- * and a real QR to scanme.rs on a light tile with its quiet zone, framed by
- * green viewfinder corners. Sized in container units of the printed face.
- */
-export function ScanMeStandArtwork() {
-  const { path, dimension } = useMemo(() => qrPath("https://scanme.rs"), []);
-
-  return (
-    <div className={styles.standArtwork}>
-      <div className={styles.standLayout}>
-        <span className={styles.standMark}>ScanMe</span>
-        <div className={styles.standCode}>
-          <svg
-            aria-hidden="true"
-            viewBox={`0 0 ${dimension} ${dimension}`}
-            shapeRendering="crispEdges"
-            className={styles.standQr}
-          >
-            <rect width={dimension} height={dimension} rx="1.25" fill="#f4f3ee" />
-            <path d={path} fill="#121513" />
-          </svg>
-        </div>
-      </div>
     </div>
   );
 }

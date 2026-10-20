@@ -3,9 +3,10 @@
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 import Image from "next/image";
-import { useState } from "react";
-import { OfferProductPreview, ScanMeStandArtwork } from "@/components/offer-product-preview";
+import { useState, type ReactNode } from "react";
+import { OfferProductPreview } from "@/components/offer-product-preview";
 import { PRODUCT_SCENES, SCENE_ASSETS, type SceneId } from "@/components/offer-scenes";
+import { FilmArtwork, StandArtwork, StickerArtwork } from "@/components/prelaunch-products-artworks";
 import { offerSr } from "@/lib/i18n/sr/offer";
 import { prelaunchSr as dict } from "@/lib/i18n/sr/prelaunch";
 import {
@@ -18,20 +19,28 @@ import styles from "./prelaunch-products.module.css";
 
 // #proizvodi — the /ponuda configurator as a promo view: the product strip,
 // the scene and the product on it, its name and "Najbolje za". No prices,
-// quantities or settings; one CTA leads to the contact form. Only the compact
-// stand carries a design (ScanMeStandArtwork); the others show a clean
-// surface until their designs are approved.
+// quantities or settings; one CTA leads to the contact form. The product is
+// /ponuda's own preview (same scene, size, position and shadows, no landing
+// overrides), carrying the approved client designs.
 
 type ShowcaseId = Exclude<ProductId, "premium-engraved-stand">;
 
 const ORDER: readonly ShowcaseId[] = ["compact-stand", "two-piece-stand", "stickers", "window-film"];
 
+// /ponuda defaults (white FOREX compact stand, A5 portrait insert, square sticker).
 const SELECTIONS: Record<ShowcaseId, ProductSelection> = {
-  "compact-stand": { ...createDefaultProductSelection("compact-stand"), background: "black" },
+  "compact-stand": { ...createDefaultProductSelection("compact-stand"), background: "white" },
   "two-piece-stand": createDefaultProductSelection("two-piece-stand"),
   stickers: createDefaultProductSelection("stickers"),
   // A white film: a clear one without print would not be visible on the glass.
   "window-film": { ...createDefaultProductSelection("window-film"), background: "white" },
+};
+
+const ARTWORKS: Record<ShowcaseId, ReactNode> = {
+  "compact-stand": <StandArtwork />,
+  "two-piece-stand": <StandArtwork />,
+  stickers: <StickerArtwork />,
+  "window-film": <FilmArtwork />,
 };
 
 const SCENES = [...new Set(ORDER.map((id) => PRODUCT_SCENES[id]))] as SceneId[];
@@ -115,12 +124,7 @@ export function PrelaunchProducts() {
           exit={reduceMotion ? { opacity: 0, transition: { duration: 0 } } : { opacity: 0, y: -6, filter: "blur(4px)", transition: { duration: 0.16, ease: "easeIn" } }}
           transition={reduceMotion ? { duration: 0 } : { y: { type: "spring", stiffness: 170, damping: 22 }, opacity: { duration: 0.38, ease: EASE }, filter: { duration: 0.5, ease: EASE } }}
         >
-          <OfferProductPreview
-            selected={SELECTIONS[activeId]}
-            logoUrl={null}
-            artwork={activeId === "compact-stand" ? <ScanMeStandArtwork /> : null}
-            className={styles.object}
-          />
+          <OfferProductPreview selected={SELECTIONS[activeId]} logoUrl={null} artwork={ARTWORKS[activeId]} />
         </motion.div>
       </AnimatePresence>
 

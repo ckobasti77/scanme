@@ -1,14 +1,17 @@
 /* #proizvodi — promo view of the physical products in the /ponuda
    configurator's language (scene photo, glass product strip, product on the
-   scene), sized for the landing: never the full screen height. Phone: strip,
-   scene with the product, short copy. 1024 px: strip on the left over the
-   scene, copy at the top of the scene. Motion is transform/opacity (+ a short
-   blur on the product); reduced motion shows every state at once. */
+   scene). The scene has /ponuda's geometry (height, image framing, tone) and
+   the product is /ponuda's preview with its own size, position and shadows —
+   no landing overrides. Phone: strip, scene with the product, short copy.
+   1024 px: strip on the left, product in the middle, copy and CTA on the
+   right (where /ponuda has its sidebar), so nothing covers the product. Motion is transform/opacity (+ a short blur on the product);
+   reduced motion shows every state at once. */
 
 .stage {
   --stage-ink: #171310;
   --stage-muted: rgb(23 19 16 / 0.72);
-  --scene-height: clamp(19rem, 88vw, 25rem);
+  /* /ponuda phone stage row. */
+  --scene-height: minmax(460px, 58dvh);
   --ease-settle: cubic-bezier(0.22, 1, 0.36, 1);
 
   position: relative;
@@ -53,18 +56,15 @@
     transform 1400ms var(--ease-settle);
 }
 
+/* Image framing and tone as in /ponuda (offer-configurator.module.css). */
 .sceneImage {
   object-fit: cover;
-  object-position: 46% 56%;
+  object-position: 43% center;
   filter: saturate(0.92) contrast(0.96);
 }
 
 .scene[data-scene="windowFilm"] .sceneImage {
-  object-position: 50% 50%;
-}
-
-.scene[data-scene="stickers"] .sceneImage {
-  object-position: 50% 50%;
+  object-position: 45% center;
 }
 
 .tone {
@@ -72,8 +72,17 @@
   z-index: 2;
   inset: 0;
   background:
-    linear-gradient(180deg, rgb(249 245 239 / 0.62), rgb(249 245 239 / 0.12) 34%, transparent 52%),
-    linear-gradient(0deg, rgb(44 31 23 / 0.2), transparent 46%);
+    linear-gradient(180deg, rgb(249 245 239 / 0.5), transparent 36%),
+    linear-gradient(0deg, rgb(44 31 23 / 0.22), transparent 52%);
+}
+
+@media (min-width: 768px) {
+  .stage { --scene-height: 570px; }
+
+  .sceneImage { object-position: center 52%; }
+  .scene[data-scene="windowFilm"] .sceneImage { object-position: center 50%; }
+  .scene[data-scene="stickers"] .sceneImage { object-position: center center; }
+  .scene:is([data-scene="twoPiece"], [data-scene="compact"]) .sceneImage { object-position: center 54%; }
 }
 
 /* ---------------------------------------------------------------- strip */
@@ -193,37 +202,6 @@
   pointer-events: none;
 }
 
-/* Overrides the /ponuda sizes (vw based, made for a full-height stage). */
-.objectLayer[data-product] .object {
-  --product-scale: 1 !important;
-  left: var(--object-x, 50%);
-}
-
-.objectLayer[data-product="compact-stand"] .object {
-  bottom: 7%;
-  width: min(56%, 15rem);
-}
-
-.objectLayer[data-product="two-piece-stand"] .object {
-  bottom: 6%;
-  width: min(54%, 14.5rem);
-}
-
-.objectLayer[data-product="stickers"] .object {
-  bottom: 22%;
-  width: min(34%, 8.5rem);
-}
-
-/* A sticker lies on the table as it was put there, not square to the frame. */
-.objectLayer[data-product="stickers"] .object > div {
-  transform: rotate(-7deg);
-}
-
-.objectLayer[data-product="window-film"] .object {
-  bottom: 34%;
-  width: min(30%, 7.5rem);
-}
-
 /* ----------------------------------------------------------------- copy */
 
 .copy {
@@ -339,9 +317,11 @@
 /* ------------------------------------------- 1024 px: strip | scene */
 
 @media (min-width: 1024px) {
+  /* /ponuda stage: same height and rail width, so its preview lands on the
+     same spot of the same scene. */
   .stage {
-    grid-template-columns: minmax(15.5rem, 18rem) minmax(0, 1fr);
-    grid-template-rows: clamp(27.5rem, 36vw, 32rem);
+    grid-template-columns: minmax(300px, 320px) minmax(0, 1fr) minmax(17rem, 23rem);
+    grid-template-rows: clamp(610px, calc(100dvh - 6.5rem), 820px);
   }
 
   .backdrop {
@@ -349,14 +329,12 @@
     grid-column: 1 / -1;
   }
 
-  .sceneImage {
-    object-position: 50% 58%;
-  }
-
   .tone {
     background:
-      linear-gradient(90deg, rgb(249 245 239 / 0.66) 0%, rgb(249 245 239 / 0.3) 24%, transparent 50%),
-      linear-gradient(0deg, rgb(44 31 23 / 0.16), transparent 42%);
+      linear-gradient(90deg, rgb(249 245 239 / 0.68) 0%, rgb(249 245 239 / 0.34) 17%, transparent 42%),
+      linear-gradient(270deg, rgb(249 245 239 / 0.42) 0%, transparent 24%),
+      linear-gradient(0deg, rgb(44 31 23 / 0.14), transparent 42%),
+      rgb(255 244 238 / 0.04);
   }
 
   .rail {
@@ -411,49 +389,36 @@
     color: rgb(241 243 237 / 0.7);
   }
 
+  /* Over the whole stage, like /ponuda's product layer. */
   .objectLayer {
-    --object-x: 69%;
     grid-row: 1;
     grid-column: 1 / -1;
   }
 
-  .objectLayer:is([data-product="stickers"], [data-product="window-film"]) {
-    --object-x: 66%;
-  }
-
-  .objectLayer[data-product="compact-stand"] .object {
-    bottom: 9%;
-    width: clamp(15rem, 23vw, 19rem);
-  }
-
-  .objectLayer[data-product="two-piece-stand"] .object {
-    bottom: 8%;
-    width: clamp(14.5rem, 22vw, 18.5rem);
-  }
-
-  .objectLayer[data-product="stickers"] .object {
-    bottom: 24%;
-    width: clamp(9rem, 12.5vw, 11rem);
-  }
-
-  .objectLayer[data-product="window-film"] .object {
-    bottom: 34%;
-    width: clamp(8.5rem, 11.5vw, 10.5rem);
-  }
-
+  /* Copy at the top of the right column, CTA at its bottom: both clear of
+     the product, which stands in the middle of the stage. */
   .copy {
+    display: flex;
     grid-row: 1;
-    grid-column: 2;
-    align-self: start;
-    max-width: 25rem;
+    grid-column: 3;
+    flex-direction: column;
+    align-items: flex-start;
+    align-self: stretch;
     gap: 1.15rem;
     border-top: 0;
-    padding: 1.6rem 1.75rem;
+    padding: 1.45rem 1.75rem 1.75rem;
     color: var(--stage-ink);
+    pointer-events: none;
   }
 
+  .copy > * { pointer-events: auto; }
+
+  .copyStack { position: relative; }
+
+  .cta { margin-top: auto; }
+
   /* A soft light pool behind the copy keeps it readable on any scene. */
-  .copy::before {
+  .copyStack::before {
     position: absolute;
     z-index: -1;
     inset: 0.4rem -0.5rem -0.8rem 0.6rem;
@@ -487,6 +452,7 @@
   :global(html[data-theme="dark"]) .tone {
     background:
       linear-gradient(90deg, rgb(18 21 19 / 0.76), rgb(18 21 19 / 0.24) 30%, transparent 56%),
+      linear-gradient(270deg, rgb(18 21 19 / 0.5), transparent 26%),
       linear-gradient(0deg, rgb(10 12 11 / 0.36), transparent 48%);
   }
 
@@ -499,7 +465,7 @@
     color: #f1f3ed;
   }
 
-  :global(html[data-theme="dark"]) .copy::before {
+  :global(html[data-theme="dark"]) .copyStack::before {
     background: radial-gradient(
       ellipse at 34% 40%,
       rgb(18 21 19 / 0.9) 0%,
@@ -518,18 +484,18 @@
   }
 }
 
-/* A narrower computer: the product moves right, clear of the copy. */
+/* A narrower computer: a narrower copy column. */
 @media (min-width: 1024px) and (max-width: 1279px) {
+  .stage {
+    grid-template-columns: minmax(300px, 320px) minmax(0, 1fr) minmax(14.5rem, 18rem);
+  }
+
   .copy {
-    max-width: 21rem;
+    padding-inline: 1.25rem 1.5rem;
   }
 
-  .objectLayer {
-    --object-x: 76%;
-  }
-
-  .objectLayer:is([data-product="stickers"], [data-product="window-film"]) {
-    --object-x: 73%;
+  .title {
+    font-size: 1.6rem;
   }
 }
 
