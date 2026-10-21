@@ -13,6 +13,7 @@ import { menuKonobarSr } from "@/lib/i18n/sr/menu-konobar";
 import { formatElapsed } from "@/lib/menu/elapsed-time";
 import { reservationTiming } from "@/lib/menu/reservation-late";
 import { cn } from "@/lib/utils";
+import { useSatLista } from "../use-sat";
 import { KASNI_CIP, trajanjeZaCitac } from "../vreme";
 
 const t = menuKonobarSr.rezervacije;
@@ -20,14 +21,16 @@ const t = menuKonobarSr.rezervacije;
 export function KasnjenjeRezervacije({
   requestedAt,
   holdMin,
-  sadaMs,
+  sadaMs: sadaMsProp,
   className,
 }: {
   requestedAt: number;
   holdMin: number;
+  /** K33: under a memoised card, tile or row the clock comes from SatKontekst; this is what a chip drawn alone shows. */
   sadaMs: number;
   className?: string;
 }) {
+  const sadaMs = useSatLista(sadaMsProp);
   const { phase, lateSeconds } = reservationTiming(requestedAt, holdMin, sadaMs);
   if (lateSeconds === null) return null;
   const kasni = phase === "kasni";

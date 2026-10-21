@@ -208,7 +208,9 @@ describe("the floor (Raspored): every parallel state of a table side by side", (
     const html = izlog(RASPORED);
     const sala = stranaSale(html);
     expect(sala).toContain('data-sala="raspored"');
-    expect(naslovi(sala, 2)).toEqual([t.sala.naslov]);
+    // K33 (A7, intentional): on a phone the floor is the only visible pane, so its heading is the screen's h1 (it was an h2 with no h1).
+    expect(naslovi(sala, 1)).toEqual([t.sala.naslov]);
+    expect(naslovi(sala, 2)).toEqual([]);
     const prikaz = dugmad(sala).filter((b) => ([t.sala.raspored, t.sala.tabela] as string[]).includes(b.tekst));
     expect(prikaz.map((b) => [b.tekst, b.pritisnuto])).toEqual([
       [t.sala.raspored, "true"],
@@ -775,7 +777,8 @@ describe("the sound switch in the header", () => {
     const b = zvuk(izlog());
     expect(attr(b.otvor, "data-zvuk")).toBe("ukljucen");
     expect(b.pritisnuto).toBe("true");
-    expect(b.ime).toBe(t.zvuk.oznaka);
+    // K33 (A9, intentional): the visible word ("Zvuk uključen") leads the name (WCAG 2.5.3), the long label follows.
+    expect(b.ime).toBe(`${t.zvuk.ukljucen} · ${t.zvuk.oznaka}`);
     expect(attr(b.otvor, "title")).toBe(t.zvuk.ukljucen);
     expect(imaMin48(b.klase)).toBe(true);
   });
@@ -785,7 +788,7 @@ describe("the sound switch in the header", () => {
       const b = zvuk(izlog(upit));
       expect(attr(b.otvor, "data-zvuk")).toBe("iskljucen");
       expect(b.pritisnuto).toBe("false");
-      expect(b.ime).toBe(t.zvuk.oznaka);
+      expect(b.ime).toBe(`${t.zvuk.iskljucen} · ${t.zvuk.oznaka}`);
       expect(attr(b.otvor, "title")).toBe(t.zvuk.iskljucen);
     }
   });
@@ -848,8 +851,16 @@ const K23_EKRANI: [string, IzlogSearchParams][] = [
 ];
 
 describe("accessibility basics on the K23 screens", () => {
+  // K33 (A7): on the floor screens the side pane is `hidden lg:block` on a phone and keeps its own h1 in the markup;
+  // "exactly one h1" is what a phone shows (a hidden pane is not in the accessibility tree).
+  const h1NaTelefonu = (html: string) => {
+    const pocetak = pocetakPana(html);
+    const sakriven = (attr(html.slice(pocetak, html.indexOf(">", pocetak)), "class") ?? "").split(/\s+/).includes("hidden");
+    return count(html, "<h1") - (sakriven ? count(bocniPano(html), "<h1") : 0);
+  };
+
   test.each(K23_EKRANI)("%s: exactly one h1", (_ime, upit) => {
-    expect(count(izlog(upit), "<h1")).toBe(1);
+    expect(h1NaTelefonu(izlog(upit))).toBe(1);
   });
 
   test.each(K23_EKRANI)("%s: every button has visible text or an accessible name", (_ime, upit) => {

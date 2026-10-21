@@ -152,13 +152,9 @@ export const overview = query({
         migrationStage: (menu.migrationStage ?? null) as MigrationStage | null,
         migrationReceivedAt: menu.migrationReceivedAt ?? null,
         migrationStageAt: menu.migrationStageAt ?? null,
+        // K33 C1: a query never reads the clock. "Overdue" is worked out on the
+        // device from `deadlineAt` and `migrationStage`.
         deadlineAt,
-        // A display hint evaluated when the query runs (re-evaluated on any
-        // change to the menu row); not a stored fact.
-        overdue:
-          deadlineAt !== null &&
-          menu.migrationStage !== "published" &&
-          Date.now() > deadlineAt,
         groupsCount: model.groups.length,
         itemsCount: countItems(model),
         publishedAt: menu.publishedAt ?? null,

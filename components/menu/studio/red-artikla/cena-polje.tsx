@@ -144,7 +144,7 @@ export function CenaPolje({
           {t.red.rsd}
         </span>
       </span>
-      <span className="grid size-4 place-items-center sm:size-5" data-cena-stanje={cuvaSe ? "cuva-se" : problem ? "problem" : sacuvano ? "sacuvano" : "mirno"}>
+      <span role="status" className="grid size-4 place-items-center sm:size-5" data-cena-stanje={cuvaSe ? "cuva-se" : problem ? "problem" : sacuvano ? "sacuvano" : "mirno"}>
         {cuvaSe ? (
           <>
             <LoaderCircle aria-hidden="true" strokeWidth={2} className="size-4 animate-spin text-[var(--mp-tekst-sporedni)] motion-reduce:animate-none" />

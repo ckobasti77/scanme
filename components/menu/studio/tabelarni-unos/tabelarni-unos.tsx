@@ -164,14 +164,16 @@ export function TabelarniUnos({
         <p className="text-[0.9375rem] text-[var(--mp-tekst-sporedni)]">{t.tabela.bezSekcija}</p>
       ) : (
         <div className="grid gap-3" data-tabelarni-unos="">
+          {/* K33: on a phone the header names the two columns of the first line of each row card (its 9 px
+              inset is the card's border and padding); Sekcija sits on a line of its own there. */}
           <div
             aria-hidden="true"
-            className="hidden grid-cols-[minmax(0,1fr)_7.5rem_minmax(0,11rem)_var(--mp-meta)] gap-2 px-1 text-sm font-semibold text-[var(--mp-tekst-sporedni)] sm:grid"
+            className="grid grid-cols-[minmax(0,1fr)_7.5rem] gap-2 px-[calc(0.5rem+1px)] text-sm font-semibold text-[var(--mp-tekst-sporedni)] sm:grid-cols-[minmax(0,1fr)_7.5rem_minmax(0,11rem)_var(--mp-meta)] sm:px-1"
           >
             <span>{t.tabela.naziv}</span>
             <span>{t.tabela.cena}</span>
-            <span>{t.tabela.sekcija}</span>
-            <span />
+            <span className="hidden sm:block">{t.tabela.sekcija}</span>
+            <span className="hidden sm:block" />
           </div>
           <ol className="grid gap-3 sm:gap-2">
             {redovi.map((red, indeks) => {

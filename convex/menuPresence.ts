@@ -4,6 +4,7 @@ import type { Id } from "./_generated/dataModel";
 import { internalMutation, mutation, query } from "./_generated/server";
 import { getMenuAccess, requireMenuAccessToRow } from "./lib/menuAccess";
 import { menuPresenceEntityTypeValidator } from "./lib/menuDomainValidators";
+import { userNameForOthers } from "./lib/menuStaffAccess";
 import { MENU_ERROR } from "../lib/menu/errors/core";
 
 // =============================================================================
@@ -138,7 +139,12 @@ export const listForService = query({
       seen.add(id);
       if (!names.has(row.userId)) {
         const user = await ctx.db.get(row.userId);
-        names.set(row.userId, user?.name ?? user?.email ?? null);
+        // Only the viewer's own e-mail may stand in for a missing name; a
+        // colleague gets the name or the neutral label, never an e-mail (K33 B6).
+        names.set(
+          row.userId,
+          !user ? null : user._id === access.user._id ? (user.name ?? user.email ?? null) : userNameForOthers(user),
+        );
       }
       entries.push({
         userId: row.userId,

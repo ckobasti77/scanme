@@ -903,7 +903,10 @@ describe("skenovi", () => {
       const result = await t.mutation(internal.menuAnalyticsRollup.skenovi, {});
       if (result.dan === null) break;
     }
-    expect(moved).toBe(30);
+    // K33 C2: one service per transaction, so a day takes one run per service (the world has two).
+    const services = (await t.run(async (ctx) => await ctx.db.query("menuServices").collect())).length;
+    expect(services).toBe(2);
+    expect(moved).toBe(30 * services);
     // Running it again moves nothing and counts nothing twice.
     expect(await t.mutation(internal.menuAnalyticsRollup.skenovi, {})).toEqual({ dan: null });
 

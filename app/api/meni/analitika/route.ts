@@ -4,6 +4,7 @@ import { api } from "@/convex/_generated/api";
 import { resolverIpHash } from "@/lib/card-resolver-http";
 import { analitikaRezim } from "@/lib/menu/analitika/saglasnost";
 import { MAX_TELO_BAJTOVA, pripremiUlaz } from "@/lib/menu/analitika/ulaz";
+import { menuGatewayArg } from "@/lib/menu/http/gateway";
 
 // ScanMe Menu V1 (K29) — POST /api/meni/analitika: the public menu's analytics
 // events (lib/menu/analitika/track.ts sends them with sendBeacon). Drops bots,
@@ -37,6 +38,7 @@ export async function POST(request: Request) {
     await fetchMutation(api.menuAnalytics.ingest, {
       slug: ulaz.slug,
       ipHash: resolverIpHash(request),
+      ...menuGatewayArg(),
       uredjaj: ulaz.uredjaj,
       dogadjaji: ulaz.dogadjaji,
     });

@@ -82,7 +82,7 @@ export function StubniGrafikon({
                   className="flex h-full min-w-0 flex-1 items-end justify-center"
                 >
                   <div
-                    className={cn("w-full max-w-6 rounded-t-[4px]", boja, danas && "opacity-50")}
+                    className={cn("w-full max-w-6 rounded-t-[4px]", boja, danas && "opacity-70")}
                     style={{ height: visinaStuba }}
                   />
                 </div>

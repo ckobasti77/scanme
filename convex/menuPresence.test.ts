@@ -15,6 +15,7 @@ import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { PRESENCE_REFRESH_MS, PRESENCE_TTL_MS } from "./menuPresence";
 import schema from "./schema";
+import { menuKonobarSr } from "../lib/i18n/sr/menu-konobar";
 import { MENU_ERROR } from "../lib/menu/errors/core";
 import {
   TEST_ADMIN_EMAIL,
@@ -484,7 +485,8 @@ describe("menuPresence.listForService", () => {
       isMe: false,
       entityType: null,
       entityKey: null,
-      name: "urednik@example.com",
+      // K33 B6: a colleague's e-mail is never shown; the editor has no display name.
+      name: menuKonobarSr.zaglavlje.nalogBezImena,
     });
   });
 

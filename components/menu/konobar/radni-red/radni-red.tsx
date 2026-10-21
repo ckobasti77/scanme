@@ -15,6 +15,10 @@
 // only when the venue takes reservations through the ScanMe form or has some to
 // show. Without reservation data at all (`rezervacije` undefined) the filter
 // stays and is honestly empty, as in K22.
+//
+// K33: the cards are memoised (kartica-zahteva.tsx, kartica-rezervacije.tsx). The clock goes
+// to the leaves that show time through SatKontekst, and the callbacks the cards get never
+// change (useStabilno, they take the id), so a tick redraws the timers and not the cards.
 
 import { CalendarClock, ConciergeBell, Info, X } from "lucide-react";
 import { useState, type ReactNode } from "react";
@@ -38,6 +42,8 @@ import type { KonobarOtkazan, KonobarRed, KonobarRezervacije, KonobarZahtev } fr
 import { GrupeRezervacija, KarticeRezervacija, imaRezervacija } from "../rezervacije/lista";
 import { KarticaRezervacije } from "../rezervacije/kartica-rezervacije";
 import { terminTekst } from "../rezervacije/tekst";
+import { SatKontekst } from "../use-sat";
+import { useStabilno } from "../use-stabilno";
 import { KarticaZahteva } from "./kartica-zahteva";
 
 const t = menuKonobarSr.red;
@@ -81,12 +87,20 @@ export function aktivniTekst(broj: number): string {
 
 const NISTA = () => undefined;
 
-export function RadniRed({
+export function RadniRed(props: RadniRedProps) {
+  return (
+    <SatKontekst.Provider value={props.sadaMs}>
+      <RadniRedTelo {...props} />
+    </SatKontekst.Provider>
+  );
+}
+
+function RadniRedTelo({
   red,
   sadaMs,
   radiId,
-  onOtvori,
-  onRadnja,
+  onOtvori: onOtvoriZahtev,
+  onRadnja: onRadnjaZahteva,
   radnjeIskljucene,
   obavestenja,
   onZatvoriObavestenje,
@@ -96,11 +110,16 @@ export function RadniRed({
   podsetnik,
   rezervacije,
   radiRezId = null,
-  onOtvoriRezervaciju = NISTA,
-  onRezervacijaStigli = NISTA,
+  onOtvoriRezervaciju: onOtvoriRez = NISTA,
+  onRezervacijaStigli: onStigliRez = NISTA,
   obavestenjaRez = [],
 }: RadniRedProps) {
   const [filter, setFilter] = useState<QueueFilter>(pocetniFilter);
+  // The cards are memoised: what they get must not change on a tick, and a click must reach the latest handler.
+  const onOtvori = useStabilno(onOtvoriZahtev);
+  const onRadnja = useStabilno(onRadnjaZahteva);
+  const onOtvoriRezervaciju = useStabilno(onOtvoriRez);
+  const onRezervacijaStigli = useStabilno(onStigliRez);
   const sortirani = red ? sortQueue(red.zahtevi) : [];
   const sazetak = queueSummary(sortirani);
 
@@ -151,7 +170,11 @@ export function RadniRed({
     <section aria-labelledby="radni-red-naslov" className="grid content-start gap-4">
       <header className="grid gap-3">
         <div className="grid gap-1">
-          <h1 id="radni-red-naslov" className="text-2xl font-bold leading-tight tracking-[-0.01em] text-[var(--mp-tekst)]">
+          <h1
+            id="radni-red-naslov"
+            tabIndex={-1}
+            className="scroll-mt-24 text-2xl font-bold leading-tight tracking-[-0.01em] text-[var(--mp-tekst)] outline-none"
+          >
             {t.naslov}
           </h1>
           {red && sazetak.active > 0 ? (
@@ -270,8 +293,8 @@ export function RadniRed({
                         zahtev={zahtev}
                         sadaMs={sadaMs}
                         radi={radiId === zahtev.id}
-                        onOtvori={() => onOtvori(zahtev.id)}
-                        onRadnja={(radnja) => onRadnja(zahtev, radnja)}
+                        onOtvori={onOtvori}
+                        onRadnja={onRadnja}
                         radnjeIskljucene={radnjeIskljucene}
                         podsetnik={podsetnik?.has(zahtev.id) ?? false}
                       />
@@ -284,8 +307,8 @@ export function RadniRed({
                         sadaMs={sadaMs}
                         holdMin={zajednicko.holdMin}
                         radi={radiRezId === rezervacija.id}
-                        onOtvori={() => onOtvoriRezervaciju(rezervacija.id)}
-                        onStigli={() => onRezervacijaStigli(rezervacija)}
+                        onOtvori={onOtvoriRezervaciju}
+                        onStigli={onRezervacijaStigli}
                         radnjeIskljucene={radnjeIskljucene}
                       />
                     </li>

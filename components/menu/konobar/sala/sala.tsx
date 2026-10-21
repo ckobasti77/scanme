@@ -50,6 +50,7 @@ export function Sala({
   zonaNaziv = null,
   napomena,
   rezervacije,
+  nivo = 2,
 }: {
   /** undefined = loading. */
   sala: KonobarSala | undefined;
@@ -71,7 +72,10 @@ export function Sala({
   napomena?: ReactNode;
   /** K25: the venue's reservations and its hold; given only when the venue takes reservations (or has some). */
   rezervacije?: { redovi: readonly KonobarRezervacija[]; holdMin: number };
+  /** 1 when the floor is the only visible pane (a phone on Sala), so the screen has exactly one h1; otherwise 2. */
+  nivo?: 1 | 2;
 }) {
+  const Naslov = nivo === 1 ? "h1" : "h2";
   const [pretraga, setPretraga] = useState(pocetnaPretraga);
   const pretragaId = useId();
   const prag = usePragKasnjenja();
@@ -103,9 +107,9 @@ export function Sala({
   return (
     <section aria-labelledby="sala-naslov" className="grid content-start gap-4" data-sala={prikaz}>
       <header className="flex flex-wrap items-center gap-x-4 gap-y-3">
-        <h2 id="sala-naslov" className="text-2xl font-bold leading-tight tracking-[-0.01em] text-[var(--mp-tekst)]">
+        <Naslov id="sala-naslov" className="text-2xl font-bold leading-tight tracking-[-0.01em] text-[var(--mp-tekst)]">
           {t.sala.naslov}
-        </h2>
+        </Naslov>
         <div
           role="group"
           aria-label={t.sala.prikaz}

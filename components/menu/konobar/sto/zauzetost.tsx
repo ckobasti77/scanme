@@ -56,7 +56,7 @@ const PLOCICA = [
   "rounded-[var(--mp-radius-dugme)] [--button-radius:var(--mp-radius-dugme)] border px-2 py-2.5",
   "text-center text-[0.9375rem] font-semibold leading-tight text-[var(--mp-tekst)]",
   "transition-[background-color,border-color,box-shadow] duration-[var(--mp-trajanje-1)] ease-[var(--mp-kriva-ulaz)] motion-reduce:transition-none",
-  "disabled:cursor-not-allowed disabled:opacity-50 aria-disabled:cursor-wait",
+  "disabled:cursor-not-allowed aria-disabled:cursor-wait",
 ].join(" ");
 
 export function ZauzetostStola({ stanje, meta, radi, iskljuceno, onPromena }: ZauzetostStolaProps) {
@@ -115,8 +115,9 @@ export function ZauzetostStola({ stanje, meta, radi, iskljuceno, onPromena }: Za
                 trenutno
                   ? cn("[--border:var(--mp-mastilo)] shadow-[inset_0_0_0_1px_var(--mp-mastilo)]", ZAUZETOST[stanjeDugmeta].meko)
                   : cn(
-                      "[--border:var(--mp-ivica-kontrole)] bg-[var(--mp-povrsina)]",
-                      radi ? "opacity-60" : "hover:bg-[var(--mp-povrsina-utisana)]",
+                      // Waiting (offline or a change in flight) is a muted surface with secondary text, not an opacity fade.
+                      "[--border:var(--mp-ivica-kontrole)] bg-[var(--mp-povrsina)] disabled:bg-[var(--mp-povrsina-utisana)] disabled:text-[var(--mp-tekst-sporedni)] disabled:[--border:var(--mp-ivica)]",
+                      radi ? "bg-[var(--mp-povrsina-utisana)] text-[var(--mp-tekst-sporedni)]" : "hover:bg-[var(--mp-povrsina-utisana)]",
                     ),
               )}
             >

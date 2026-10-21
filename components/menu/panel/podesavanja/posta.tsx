@@ -11,7 +11,7 @@
 // token), what the OAuth callback reported, the action in flight and its error.
 
 import { CircleCheck, Mail, TriangleAlert, Unlink } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { belgradeParts } from "@/lib/belgrade-time";
 import { fmt } from "@/lib/i18n/format";
 import { menuOdgovorSr } from "@/lib/i18n/sr/menu-odgovor";
@@ -81,6 +81,14 @@ function DugmadPovezivanja({
 
 export function PoslovnaPosta({ stanje, povratak = null, radi = null, greska = null, onPovezi, onPrekini, pocetnoPotvrda = false, nivo = 2 }: PoslovnaPostaProps) {
   const [potvrda, setPotvrda] = useState(pocetnoPotvrda);
+  // "Prekini vezu" is replaced by the question while it is open: after "Odustani" focus goes back once the button is there again.
+  const prekiniRef = useRef<HTMLButtonElement>(null);
+  const vratiFokus = useRef(false);
+  useEffect(() => {
+    if (potvrda || !vratiFokus.current) return;
+    vratiFokus.current = false;
+    prekiniRef.current?.focus();
+  }, [potvrda]);
   const veza = stanje?.connection ?? null;
   // The question belongs to a connection: once it is gone the question is too.
   if (stanje && veza === null && potvrda) setPotvrda(false);
@@ -131,11 +139,14 @@ export function PoslovnaPosta({ stanje, povratak = null, radi = null, greska = n
                     odustani={t.odustani}
                     radi={radi === "prekid"}
                     onPotvrdi={onPrekini}
-                    onOdustani={() => setPotvrda(false)}
+                    onOdustani={() => {
+                      vratiFokus.current = true;
+                      setPotvrda(false);
+                    }}
                   />
                 ) : (
                   <div>
-                    <Dugme vrsta="sekundarno" ikonica={Unlink} disabled={radi !== null} onClick={() => setPotvrda(true)}>
+                    <Dugme ref={prekiniRef} vrsta="sekundarno" ikonica={Unlink} disabled={radi !== null} onClick={() => setPotvrda(true)}>
                       {t.prekini}
                     </Dugme>
                   </div>

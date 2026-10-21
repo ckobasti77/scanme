@@ -108,7 +108,7 @@ export function ZonaIzbor({ zones, filterZoneId, onIzbor, iskljuceno = false, ra
                       disabled={iskljuceno}
                       onClick={() => izaberi(zona.id)}
                       className={cn(
-                        "flex min-h-12 w-full items-center justify-between gap-3 rounded-[var(--mp-radius-kontrola)] px-3 text-left text-base font-semibold disabled:opacity-60",
+                        "flex min-h-12 w-full items-center justify-between gap-3 rounded-[var(--mp-radius-kontrola)] px-3 text-left text-base font-semibold disabled:text-[var(--mp-tekst-sporedni)]",
                         izabrana ? "bg-[var(--mp-akcent-meko)] text-[var(--mp-tekst)]" : "text-[var(--mp-tekst)] hover:bg-[var(--mp-povrsina-utisana)]",
                       )}
                     >
@@ -207,7 +207,7 @@ function RaspodelaZona({
                   value={clan.activeZoneId ?? ""}
                   disabled={iskljuceno || radi === clan.id}
                   onChange={(event) => void promeni(clan, event.target.value)}
-                  className="min-h-12 w-full rounded-[var(--mp-radius-kontrola)] border bg-[var(--mp-povrsina)] px-3 text-base text-[var(--mp-tekst)] [--border:var(--mp-ivica-kontrole)] disabled:opacity-60"
+                  className="min-h-12 w-full rounded-[var(--mp-radius-kontrola)] border bg-[var(--mp-povrsina)] px-3 text-base text-[var(--mp-tekst)] [--border:var(--mp-ivica-kontrole)] disabled:bg-[var(--mp-povrsina-utisana)] disabled:text-[var(--mp-tekst-sporedni)]"
                 >
                   <option value="">{t.sve}</option>
                   {zones.map((zona) => (
@@ -256,7 +256,7 @@ export function VanZone({ broj, kasni, onSve }: { broj: number; kasni: number; o
         {fmt(t.vanZone[srPluralCategory(broj)], { n: broj })}
         {kasni > 0 ? ` · ${fmt(t.vanZoneKasni, { n: kasni })}` : ""}
       </span>
-      <Dugme vrsta="sekundarno" onClick={onSve} className="min-h-11">
+      <Dugme vrsta="sekundarno" onClick={onSve}>
         {t.prikaziSve}
       </Dugme>
     </div>

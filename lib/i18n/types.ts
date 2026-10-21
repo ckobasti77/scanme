@@ -9123,6 +9123,10 @@ export interface MenuJavniDict {
     sadrzajNaslov: string;
     novaVerzija: string;
     prikaziNovu: string;
+    /** K33: error boundary of the public menu routes (app/[slug]/meni/error.tsx). */
+    greskaNaslov: string;
+    greskaOpis: string;
+    pokusajPonovo: string;
   };
   podnozje: { pokrece: string; kratko: string };
   izlog: { naslov: string };
@@ -9779,6 +9783,8 @@ export interface MenuKonobarDict {
   };
   zaglavlje: {
     panel: string;
+    /** K33: the skip link to the work queue. */
+    preskociNaRed: string;
     uSmeni: string;
     vaziDo: string;
     nalogom: string;
@@ -9948,8 +9954,10 @@ export interface MenuKonobarDict {
     prikaziSve: string;
   };
   zvuk: { ukljucen: string; iskljucen: string; oznaka: string; podsetnik: string };
-  veza: { vracena: string; pokusajPonovo: string };
-  greska: { nepoznata: string; mreza: string };
+  /** nema: K33 polite announcement when the connection goes away. */
+  veza: { vracena: string; pokusajPonovo: string; nema: string };
+  /** panelNaslov/panelOpis: K33 error boundary of app/[slug]/konobar. */
+  greska: { nepoznata: string; mreza: string; panelNaslov: string; panelOpis: string };
   // K25 — reservations in the waiter panel (master §10.3, §10.4, §11.3–§11.7).
   rezervacije: {
     naslov: string;

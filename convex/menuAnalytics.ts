@@ -9,6 +9,7 @@ import {
   menuAnalyticsMetricValidator,
 } from "./lib/menuAnalyticsValidators";
 import { requireMenuCapability } from "./lib/menuCapabilities";
+import { menuIpKey } from "./lib/menuGateway";
 import { rateLimiter } from "./lib/rateLimits";
 import { activeBusinessBySlug, isPubliclyServed } from "./menuPublic";
 import { menuCardRows } from "./menuQr";
@@ -59,9 +60,6 @@ import { ANALYTICS_ERROR } from "../lib/menu/errors/analytics";
 // row and one breakdown row per day of the period, the venue's Menu cards.
 // =============================================================================
 
-const IP_HASH_PATTERN = /^[0-9a-f]{16,64}$/;
-const ipKeyOf = (ipHash: string | undefined) => (ipHash && IP_HASH_PATTERN.test(ipHash) ? ipHash : "shared");
-
 /** The most top articles / cards / breakdown values a query returns. */
 const TOP_ARTIKALA = 10;
 /** Article keys checked against the menu for the top list (removed articles are skipped): a bound on reads. */
@@ -73,7 +71,11 @@ const MAX_DANA_SKENOVA_UZIVO = 3;
 export const ingest = mutation({
   args: {
     slug: v.string(),
+    // A rate-limit key only; absent or untrusted → one shared bucket (K33: convex/lib/menuGateway.ts).
     ipHash: v.optional(v.string()),
+    // K33: MENU_GATEWAY_SECRET of the Next handler; with it set on the
+    // deployment, the ipHash counts only together with it.
+    gateway: v.optional(v.string()),
     uredjaj: menuAnalyticsDeviceValidator,
     dogadjaji: v.array(menuAnalyticsIncomingEventValidator),
   },
@@ -85,7 +87,7 @@ export const ingest = mutation({
     const menuService = await activeMenuServiceForBusiness(ctx, business._id);
     if (!menuService || !(await isPubliclyServed(ctx, menuService))) return odbijeno;
     const limit = await rateLimiter.limit(ctx, "menuAnalyticsIp", {
-      key: ipKeyOf(args.ipHash),
+      key: menuIpKey(args.ipHash, args.gateway),
       count: args.dogadjaji.length,
     });
     if (!limit.ok) return odbijeno;

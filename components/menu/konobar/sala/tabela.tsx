@@ -20,9 +20,14 @@
 // carries everything (pogled.ts opisMestaSale), so its inner visuals are
 // aria-hidden. Both are rendered, CSS shows one. The parent swaps the side
 // pane to the table detail on `onIzaberi`.
+//
+// K33: a row is memoised. A tick of the panel clock changes the digits of the
+// states (leaves that read SatKontekst: StanjeVrste, CelijaVrste, CelijaRezervacije,
+// KasnjenjeRezervacije) and, now and then, the sentence of the row's button or
+// which states are late (`potpisVremena`); only then is the row itself redrawn.
 
 import { Check, ClockAlert } from "lucide-react";
-import type { ReactNode } from "react";
+import { memo, type ReactNode } from "react";
 import { fmt } from "@/lib/i18n/format";
 import { menuKonobarSr } from "@/lib/i18n/sr/menu-konobar";
 import { clockTime, elapsedSeconds, formatElapsed, isLate } from "@/lib/menu/elapsed-time";
@@ -32,9 +37,11 @@ import { cn } from "@/lib/utils";
 import { KasnjenjeRezervacije } from "../rezervacije/kasnjenje";
 import { gostiTekst } from "../rezervacije/tekst";
 import { usePragKasnjenja } from "../prag";
+import { SatKontekst, useSatLista } from "../use-sat";
+import { useStabilno } from "../use-stabilno";
 import { KASNI_CIP, trajanjeZaCitac } from "../vreme";
 import { VRSTA } from "../vrsta";
-import { opisMestaSale, opisRezervacijeStola, sedistaTekst, type SalaMesto } from "./pogled";
+import { opisMestaSale, opisRezervacijeStola, potpisVremena, sedistaTekst, type SalaMesto } from "./pogled";
 import { ZauzetostOznaka } from "./zauzetost-oznaka";
 
 const t = menuKonobarSr;
@@ -92,7 +99,7 @@ function KrugVrste({ vrsta, className, ikonica }: { vrsta: TableKind; className:
 function StanjeVrste({
   vrsta,
   stanje,
-  sadaMs,
+  sadaMs: sadaMsProp,
   kasni,
   lista = false,
 }: {
@@ -102,6 +109,7 @@ function StanjeVrste({
   kasni: boolean;
   lista?: boolean;
 }) {
+  const sadaMs = useSatLista(sadaMsProp);
   const sekunde = elapsedSeconds(stanje.oldestAt, sadaMs);
   const vreme = clockTime(stanje.oldestAt);
   return (
@@ -177,7 +185,7 @@ function Zaglavlje({ children, prvo = false }: { children: ReactNode; prvo?: boo
 function CelijaVrste({
   vrsta,
   mesto,
-  sadaMs,
+  sadaMs: sadaMsProp,
   prag,
 }: {
   vrsta: TableKind;
@@ -185,6 +193,7 @@ function CelijaVrste({
   sadaMs: number;
   prag: number;
 }) {
+  const sadaMs = useSatLista(sadaMsProp);
   const stanje = mesto.summary.kinds[vrsta];
   if (!stanje) {
     return (
@@ -210,7 +219,8 @@ function CelijaVrste({
  * `data-rez-kasni`), because its threshold is the venue's hold. In the table the
  * screen reader hears one sentence (pogled.ts opisRezervacijeStola).
  */
-function CelijaRezervacije({ mesto, sadaMs }: { mesto: SalaMesto; sadaMs: number }) {
+function CelijaRezervacije({ mesto, sadaMs: sadaMsProp }: { mesto: SalaMesto; sadaMs: number }) {
+  const sadaMs = useSatLista(sadaMsProp);
   const rezervacija = mesto.rezervacija;
   if (!rezervacija) {
     return (
@@ -237,7 +247,33 @@ function CelijaRezervacije({ mesto, sadaMs }: { mesto: SalaMesto; sadaMs: number
   );
 }
 
-function RedTabele({
+type RedProps = {
+  mesto: SalaMesto;
+  izabran: boolean;
+  /** The clock: a row reads it for `potpisVremena`; its digits read SatKontekst. */
+  sadaMs: number;
+  prag: number;
+  onIzaberi(id: string): void;
+  prikaziZonu: boolean;
+  zauzetost: boolean;
+  vrste: readonly TableKind[];
+};
+
+/** The comparison of memo() for a row: redrawn when its data or its `potpisVremena` change, never for the clock alone. */
+export function redSaleJednak(a: RedProps, b: RedProps): boolean {
+  return (
+    a.mesto === b.mesto &&
+    a.izabran === b.izabran &&
+    a.prag === b.prag &&
+    a.onIzaberi === b.onIzaberi &&
+    a.prikaziZonu === b.prikaziZonu &&
+    a.zauzetost === b.zauzetost &&
+    a.vrste === b.vrste &&
+    (a.sadaMs === b.sadaMs || potpisVremena(a.mesto, a.sadaMs, a.prag) === potpisVremena(b.mesto, b.sadaMs, b.prag))
+  );
+}
+
+export const RedTabele = memo(function RedTabele({
   mesto,
   izabran,
   sadaMs,
@@ -246,16 +282,7 @@ function RedTabele({
   prikaziZonu,
   zauzetost,
   vrste,
-}: {
-  mesto: SalaMesto;
-  izabran: boolean;
-  sadaMs: number;
-  prag: number;
-  onIzaberi(id: string): void;
-  prikaziZonu: boolean;
-  zauzetost: boolean;
-  vrste: readonly TableKind[];
-}) {
+}: RedProps) {
   const opis = [prikaziZonu ? (mesto.zoneName ?? tk.bezZone) : null, sedistaTekst(mesto.seats)].filter(Boolean).join(" · ");
   const ko = konobari(mesto);
   return (
@@ -307,9 +334,9 @@ function RedTabele({
       <td className={cn(CELIJA, "max-w-[12rem] break-words")}>{ko || <Crta />}</td>
     </tr>
   );
-}
+}, redSaleJednak);
 
-function RedListe({
+export const RedListe = memo(function RedListe({
   mesto,
   izabran,
   sadaMs,
@@ -318,16 +345,7 @@ function RedListe({
   prikaziZonu,
   zauzetost,
   vrste,
-}: {
-  mesto: SalaMesto;
-  izabran: boolean;
-  sadaMs: number;
-  prag: number;
-  onIzaberi(id: string): void;
-  prikaziZonu: boolean;
-  zauzetost: boolean;
-  vrste: readonly TableKind[];
-}) {
+}: RedProps) {
   const aktivne = vrste.flatMap((vrsta) => {
     const stanje = mesto.summary.kinds[vrsta];
     return stanje ? [{ vrsta, stanje, kasni: isLate(stanje.oldestAt, sadaMs, prag) }] : [];
@@ -410,13 +428,13 @@ function RedListe({
       </button>
     </li>
   );
-}
+}, redSaleJednak);
 
 export function TabelaSale({
   mesta,
   sadaMs,
   izabranoId,
-  onIzaberi,
+  onIzaberi: onIzaberiMesto,
   prikaziZonu,
   zauzetost,
   vrste,
@@ -437,8 +455,10 @@ export function TabelaSale({
   vrste: readonly TableKind[];
 }) {
   const prag = usePragKasnjenja();
+  // K33: the rows are memoised, so they get a callback that never changes and the clock through SatKontekst.
+  const onIzaberi = useStabilno(onIzaberiMesto);
   return (
-    <>
+    <SatKontekst.Provider value={sadaMs}>
       <div className="hidden overflow-x-auto rounded-[var(--mp-radius-kartica)] border bg-[var(--mp-povrsina)] [--border:var(--mp-ivica)] md:block lg:hidden xl:block">
         <table className="w-full border-collapse text-left tabular-nums">
           <caption className="sr-only">{tk.tabela}</caption>
@@ -489,6 +509,6 @@ export function TabelaSale({
           />
         ))}
       </ul>
-    </>
+    </SatKontekst.Provider>
   );
 }

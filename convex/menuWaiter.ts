@@ -10,6 +10,7 @@ import {
 } from "./_generated/server";
 import { getMenuAccess } from "./lib/menuAccess";
 import { writeMenuAudit } from "./lib/menuDraft";
+import { menuIpKey } from "./lib/menuGateway";
 import { menuOccupancyStateValidator, menuRequestStatusValidator } from "./lib/menuDomainValidators";
 import { activeStaffByLookup, pinLookupOf, pinPepper, verifyStaffPin } from "./lib/menuPin";
 import { applyRequestAction } from "./lib/menuRequests";
@@ -45,6 +46,7 @@ import { roleCan } from "../lib/menu/permissions";
 import {
   PIN_ATTEMPT_RETENTION_MS,
   PIN_DEVICE_MAX_FAILURES,
+  PIN_VENUE_ALL_MAX_FAILURES,
   PIN_VENUE_MAX_FAILURES,
   STAFF_SESSION_MS,
   evaluateAttempt,
@@ -102,8 +104,9 @@ import { isMenuToken, newMenuToken, staffDeviceKeyHashFor, staffSessionTokenHash
 const panelArgs = { slug: v.string(), panelCode: v.string() };
 const staffArgs = { ...panelArgs, sessionToken: v.optional(v.string()) };
 
-const IP_HASH_PATTERN = /^[0-9a-f]{16,64}$/;
 const VENUE_SCOPE_KEY = "venue";
+/** K33: the venue counter of EVERY device's misses, known devices too (lib/menu/pin-policy.ts). */
+const VENUE_ALL_SCOPE_KEY = "venue:all";
 const SWEEP_BATCH = 200;
 
 // -----------------------------------------------------------------------------
@@ -169,6 +172,7 @@ async function writeCounter(
     windowStartedAt: counter.windowStartedAt,
     lockedUntil: counter.lockedUntil,
     lastSuccessAt: counter.lastSuccessAt,
+    lockStreak: counter.lockStreak,
     updatedAt: now,
   };
   if (existing) await ctx.db.patch(existing._id, fields);
@@ -179,7 +183,8 @@ async function writeCounter(
  * Sign in with a PIN. Called only by the Next handler of
  * /[slug]/konobar/[kod]/sesija, which keeps the raw tokens in HttpOnly
  * cookies; a direct call gains nothing, since the venue lock counts every new
- * device. Every refusal is a value (see the header).
+ * device and (K33) the all-devices lock counts every miss. Every refusal is a
+ * value (see the header).
  */
 export const loginWithPin = mutation({
   args: {
@@ -189,8 +194,11 @@ export const loginWithPin = mutation({
     // anything malformed starts a new device.
     deviceToken: v.optional(v.string()),
     // A salted hash of the caller IP computed by the handler (a bucket key
-    // only); absent → one shared bucket.
+    // only); absent or untrusted → one shared bucket (K33: convex/lib/menuGateway.ts).
     ipHash: v.optional(v.string()),
+    // K33: MENU_GATEWAY_SECRET of the Next handler; with it set on the
+    // deployment, the ipHash counts only together with it.
+    gateway: v.optional(v.string()),
   },
   handler: async (ctx, args): Promise<PinLoginOutcome> => {
     const now = Date.now();
@@ -204,16 +212,18 @@ export const loginWithPin = mutation({
     const deviceKeyHash = await staffDeviceKeyHashFor(menuServiceId, deviceToken);
     const deviceKey = { menuServiceId, scope: "device", scopeKey: deviceKeyHash } as const;
     const venueKey = { menuServiceId, scope: "venue", scopeKey: VENUE_SCOPE_KEY } as const;
+    const allKey = { menuServiceId, scope: "venue", scopeKey: VENUE_ALL_SCOPE_KEY } as const;
     const deviceRow = await counterOf(ctx, menuServiceId, "device", deviceKeyHash);
     const venueRow = await counterOf(ctx, menuServiceId, "venue", VENUE_SCOPE_KEY);
+    const allRow = await counterOf(ctx, menuServiceId, "venue", VENUE_ALL_SCOPE_KEY);
 
     // A locked device is refused even with the right PIN (the sixth try).
-    const verdict = evaluateAttempt({ device: deviceRow, venue: venueRow }, now);
+    const verdict = evaluateAttempt({ device: deviceRow, venue: venueRow, all: allRow }, now);
     if (verdict.kind === "locked") {
       return { ok: false, code: STAFF_ERROR.locked, deviceToken, lockedUntil: verdict.lockedUntil };
     }
 
-    const ipKey = args.ipHash && IP_HASH_PATTERN.test(args.ipHash) ? args.ipHash : "shared";
+    const ipKey = menuIpKey(args.ipHash, args.gateway);
     const ipBucket = await rateLimiter.check(ctx, "menuPinIp", { key: ipKey });
     if (!ipBucket.ok) {
       return { ok: false, code: STAFF_ERROR.rateLimited, deviceToken, retryAt: ipBucket.retryAfter ? now + ipBucket.retryAfter : null };
@@ -239,7 +249,7 @@ export const loginWithPin = mutation({
       }
       // The venue counts only devices without a sign-in in the last 12 h.
       if (!known) {
-        const venue = registerFailure(venueRow, now, PIN_VENUE_MAX_FAILURES);
+        const venue = registerFailure(venueRow, now, PIN_VENUE_MAX_FAILURES, true);
         await writeCounter(ctx, venueRow, venueKey, venue.counter, now);
         if (venue.justLocked) {
           await writeMenuAudit(ctx, {
@@ -247,9 +257,21 @@ export const loginWithPin = mutation({
             actorKind: "system",
             action: "staff.pin_locked",
             entityType: "panel",
-            details: { scope: "venue", lockedUntil: venue.counter.lockedUntil ?? null },
+            details: { scope: "venue", lockedUntil: venue.counter.lockedUntil ?? null, streak: venue.counter.lockStreak ?? 1 },
           });
         }
+      }
+      // K33: every miss, known device or not, so minting known devices with one valid PIN probes nothing more.
+      const all = registerFailure(allRow, now, PIN_VENUE_ALL_MAX_FAILURES, true);
+      await writeCounter(ctx, allRow, allKey, all.counter, now);
+      if (all.justLocked) {
+        await writeMenuAudit(ctx, {
+          menuServiceId,
+          actorKind: "system",
+          action: "staff.pin_locked",
+          entityType: "panel",
+          details: { scope: "venue_all", lockedUntil: all.counter.lockedUntil ?? null, streak: all.counter.lockStreak ?? 1 },
+        });
       }
       await rateLimiter.limit(ctx, "menuPinIp", { key: ipKey });
       if (device.justLocked) {

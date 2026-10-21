@@ -21,9 +21,13 @@
 // appear only with the venue's optional module. Tiles are at least 44 px, and
 // below `md` the plan keeps a readable width and scrolls sideways inside its
 // frame; the table view (Tabela) is the list alternative.
+//
+// K33: a tile is memoised. A tick of the panel clock changes the digits of its badges
+// (leaves that read SatKontekst) and, now and then, the sentence of its button; the tile
+// itself is redrawn only when that sentence (or anything it is made of) changes.
 
 import { Check } from "lucide-react";
-import { useMemo, type CSSProperties } from "react";
+import { memo, useMemo, type CSSProperties } from "react";
 import {
   efektivniRasporedi,
   povrsiRasporeda,
@@ -38,6 +42,8 @@ import { activeKinds, type TableKind } from "@/lib/menu/table-summary";
 import { cn } from "@/lib/utils";
 import stil from "../konobar.module.css";
 import type { KonobarSala } from "../model";
+import { SatKontekst } from "../use-sat";
+import { useStabilno } from "../use-stabilno";
 import { opisMestaSale, zaRaspored, type SalaMesto } from "./pogled";
 import { ZAUZETOST, ZauzetostOznaka } from "./zauzetost-oznaka";
 import { ZnackaRezervacije, ZnackaStanja } from "./znacka-stanja";
@@ -86,7 +92,33 @@ function Mreza({ kolona, redova }: { kolona: number; redova: number }) {
 const VAN_UPOTREBE =
   "border-dashed [background-image:repeating-linear-gradient(135deg,transparent_0_7px,color-mix(in_oklab,var(--mp-tekst)_12%,transparent)_7px_9px)]";
 
-function StoNaRasporedu({
+type StoProps = {
+  mesto: SalaMesto;
+  layout: FloorLayout;
+  kolona: number;
+  redova: number;
+  /** The clock: the tile reads it for the sentence of its button; the badges read SatKontekst. */
+  sadaMs: number;
+  izabrano: boolean;
+  podsetnik: boolean;
+  onIzaberi(id: string): void;
+};
+
+/** The comparison of memo() for a tile: redrawn when its data or the sentence of its button change, never for the clock alone. */
+export function stoJednako(a: StoProps, b: StoProps): boolean {
+  return (
+    a.mesto === b.mesto &&
+    a.layout === b.layout &&
+    a.kolona === b.kolona &&
+    a.redova === b.redova &&
+    a.izabrano === b.izabrano &&
+    a.podsetnik === b.podsetnik &&
+    a.onIzaberi === b.onIzaberi &&
+    (a.sadaMs === b.sadaMs || opisMestaSale(a.mesto, a.sadaMs) === opisMestaSale(b.mesto, b.sadaMs))
+  );
+}
+
+export const StoNaRasporedu = memo(function StoNaRasporedu({
   mesto,
   layout,
   kolona,
@@ -95,16 +127,7 @@ function StoNaRasporedu({
   izabrano,
   podsetnik,
   onIzaberi,
-}: {
-  mesto: SalaMesto;
-  layout: FloorLayout;
-  kolona: number;
-  redova: number;
-  sadaMs: number;
-  izabrano: boolean;
-  podsetnik: boolean;
-  onIzaberi(id: string): void;
-}) {
+}: StoProps) {
   // The oldest kind first: its badge always carries the time.
   const vrste: TableKind[] = activeKinds(mesto.summary).sort(
     (a, b) => (mesto.summary.kinds[a]?.oldestAt ?? 0) - (mesto.summary.kinds[b]?.oldestAt ?? 0),
@@ -178,7 +201,7 @@ function StoNaRasporedu({
       ) : null}
     </button>
   );
-}
+}, stoJednako);
 
 /** The room above the top row for the tallest badge column that rises over the frame (never less than 1.75 rem). */
 function gornjiRazmak(
@@ -201,7 +224,7 @@ export function RasporedSale({
   sadaMs,
   izabranoId,
   podsetnik,
-  onIzaberi,
+  onIzaberi: onIzaberiMesto,
 }: {
   sala: Pick<KonobarSala, "zones">;
   /** The positions under the zone filter (not the search: the plan keeps every table in place). */
@@ -236,61 +259,65 @@ export function RasporedSale({
     const brojZnacaka = new Map(mesta.map((mesto) => [mesto.id, activeKinds(mesto.summary).length + (mesto.rezervacija ? 1 : 0)]));
     return { povrsi: sve, kolona: Math.min(FLOOR_COLUMNS, Math.max(NAJMANJE_KOLONA, desno + 1)), brojZnacaka };
   }, [sala, mesta]);
+  // K33: the tiles are memoised, so they get a callback that never changes and the clock through SatKontekst.
+  const onIzaberi = useStabilno(onIzaberiMesto);
 
   return (
-    <div className="grid gap-4" data-raspored>
-      <p className="text-sm text-[var(--mp-tekst-sporedni)] md:hidden">{t.pomeriRaspored}</p>
-      {povrsi.map(({ povrs, layouts, redova, redom }) => {
-        const naslov = povrs.bezNaslova ? null : (povrs.zona?.name ?? t.bezZone);
-        const naslovId = `sala-zona-${povrs.kljuc}`;
-        return (
-          <section
-            key={povrs.kljuc}
-            aria-labelledby={naslov ? naslovId : undefined}
-            aria-label={naslov ? undefined : t.raspored}
-            data-zona={povrs.kljuc}
-            className="grid gap-2 rounded-[var(--mp-radius-kartica)] border bg-[var(--mp-povrsina)] p-3 [--border:var(--mp-ivica)]"
-          >
-            {naslov ? (
-              <h3 id={naslovId} className="flex items-baseline gap-2 text-base font-bold text-[var(--mp-tekst)]">
-                {naslov}
-                <span className="text-sm font-semibold tabular-nums text-[var(--mp-tekst-sporedni)]">
-                  {fmt(t.brojMesta[srPluralCategory(povrs.pozicije.length)], { n: povrs.pozicije.length })}
-                </span>
-              </h3>
-            ) : null}
-            <div
-              className="-mx-1 overflow-x-auto px-3 pb-3 pt-[var(--sala-gore)] md:overflow-visible"
-              style={{ "--sala-gore": `${gornjiRazmak(povrs.pozicije, layouts, brojZnacaka)}rem` } as CSSProperties}
+    <SatKontekst.Provider value={sadaMs}>
+      <div className="grid gap-4" data-raspored>
+        <p className="text-sm text-[var(--mp-tekst-sporedni)] md:hidden">{t.pomeriRaspored}</p>
+        {povrsi.map(({ povrs, layouts, redova, redom }) => {
+          const naslov = povrs.bezNaslova ? null : (povrs.zona?.name ?? t.bezZone);
+          const naslovId = `sala-zona-${povrs.kljuc}`;
+          return (
+            <section
+              key={povrs.kljuc}
+              aria-labelledby={naslov ? naslovId : undefined}
+              aria-label={naslov ? undefined : t.raspored}
+              data-zona={povrs.kljuc}
+              className="grid gap-2 rounded-[var(--mp-radius-kartica)] border bg-[var(--mp-povrsina)] p-3 [--border:var(--mp-ivica)]"
             >
+              {naslov ? (
+                <h3 id={naslovId} className="flex items-baseline gap-2 text-base font-bold text-[var(--mp-tekst)]">
+                  {naslov}
+                  <span className="text-sm font-semibold tabular-nums text-[var(--mp-tekst-sporedni)]">
+                    {fmt(t.brojMesta[srPluralCategory(povrs.pozicije.length)], { n: povrs.pozicije.length })}
+                  </span>
+                </h3>
+              ) : null}
               <div
-                className="relative min-w-[34rem] md:min-w-0"
-                style={{ aspectRatio: `${kolona} / ${redova}` }}
-                data-redova={redova}
-                data-kolona={kolona}
+                className="-mx-1 overflow-x-auto px-3 pb-3 pt-[var(--sala-gore)] md:overflow-visible"
+                style={{ "--sala-gore": `${gornjiRazmak(povrs.pozicije, layouts, brojZnacaka)}rem` } as CSSProperties}
               >
-                <Mreza kolona={kolona} redova={redova} />
-                {redom.map((mesto) => {
-                  const layout = layouts.get(mesto.id);
-                  return layout ? (
-                    <StoNaRasporedu
-                      key={mesto.id}
-                      mesto={mesto}
-                      layout={layout}
-                      kolona={kolona}
-                      redova={redova}
-                      sadaMs={sadaMs}
-                      izabrano={izabranoId === mesto.id}
-                      podsetnik={podsetnik.has(mesto.id)}
-                      onIzaberi={onIzaberi}
-                    />
-                  ) : null;
-                })}
+                <div
+                  className="relative min-w-[34rem] md:min-w-0"
+                  style={{ aspectRatio: `${kolona} / ${redova}` }}
+                  data-redova={redova}
+                  data-kolona={kolona}
+                >
+                  <Mreza kolona={kolona} redova={redova} />
+                  {redom.map((mesto) => {
+                    const layout = layouts.get(mesto.id);
+                    return layout ? (
+                      <StoNaRasporedu
+                        key={mesto.id}
+                        mesto={mesto}
+                        layout={layout}
+                        kolona={kolona}
+                        redova={redova}
+                        sadaMs={sadaMs}
+                        izabrano={izabranoId === mesto.id}
+                        podsetnik={podsetnik.has(mesto.id)}
+                        onIzaberi={onIzaberi}
+                      />
+                    ) : null;
+                  })}
+                </div>
               </div>
-            </div>
-          </section>
-        );
-      })}
-    </div>
+            </section>
+          );
+        })}
+      </div>
+    </SatKontekst.Provider>
   );
 }

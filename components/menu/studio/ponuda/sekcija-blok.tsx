@@ -12,7 +12,7 @@
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { ArrowRightLeft, ChevronDown, MoreHorizontal, PencilLine, Trash2 } from "lucide-react";
-import { useId, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { fmt, srPluralCategory } from "@/lib/i18n/format";
 import { menuStudioSr } from "@/lib/i18n/sr/menu-studio";
 import type { AutosaveRed } from "@/lib/menu/studio/autosave-queue";
@@ -110,14 +110,16 @@ export function SekcijaBlok({
     transition: smanjenPokret ? null : { duration: 240, easing: "cubic-bezier(0.2, 0, 0, 1)" },
   });
   const zatvoreno = skupljena || sekcijaSePrevlaci;
-  const redIds = redovi.map((stavka) => stavka.prikazId);
+  // K33 (C6): one array per row list, so SortableContext's value (and every row's useSortable) stays put.
+  const redIds = useMemo(() => redovi.map((stavka) => stavka.prikazId), [redovi]);
   const izborSekcije = stanjeSekcije(redIds, izabrani);
 
   return (
     <div
       ref={setNodeRef}
       style={{ transform: CSS.Translate.toString(transform), transition }}
-      className={cn("relative", isDragging && "z-10")}
+      // K33 (T2): under 1024 px a control scrolled into view by Tab stays above the floating theme button.
+      className={cn("relative max-lg:[&_button]:scroll-mb-24 max-lg:[&_input]:scroll-mb-24", isDragging && "z-10")}
     >
       <Kartica
         as="section"
@@ -147,6 +149,7 @@ export function SekcijaBlok({
               maks={MENU_TEXT.sectionName}
               greskaPrazno={t.opste.nazivObavezan}
               greskaDugo={fmt(t.opste.nazivDug, { n: MENU_TEXT.sectionName })}
+              vratiFokusNa={`${telo}-dugme`}
               onSacuvaj={async (naziv) => {
                 setPreimenuje(false);
                 const ishod = await onPreimenuj(sekcija.id, naziv, sekcija.naziv);
@@ -183,6 +186,7 @@ export function SekcijaBlok({
               <h2 id={`${telo}-naslov`} className="min-w-0 flex-1">
                 <button
                   type="button"
+                  id={`${telo}-dugme`}
                   // The title drags the section too; a click without movement opens and closes it.
                   data-drag-ok={prevlacenje ? "" : undefined}
                   aria-expanded={!zatvoreno}

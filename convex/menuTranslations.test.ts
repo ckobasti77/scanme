@@ -9,6 +9,7 @@
 // request ever leaves the process. All data below is invented.
 
 import { convexTest } from "convex-test";
+import rateLimiterTest from "@convex-dev/rate-limiter/test";
 import { ConvexError } from "convex/values";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { api } from "./_generated/api";
@@ -31,7 +32,12 @@ import {
 
 const modules = import.meta.glob("./**/*.ts");
 
-const newTest = () => convexTest(schema, modules);
+// K33 B9: suggest spends the menuAiSuggest bucket, so the limiter is mounted.
+const newTest = () => {
+  const t = convexTest(schema, modules);
+  rateLimiterTest.register(t);
+  return t;
+};
 type T = ReturnType<typeof newTest>;
 type Kind = "page" | "section" | "article" | "variant" | "addonGroup" | "addonOption" | "roomServiceCategory";
 type Field = "name" | "description" | "publicTitle";

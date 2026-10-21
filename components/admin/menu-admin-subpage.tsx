@@ -113,6 +113,8 @@ export function MenuAdminSubpage({ businessId }: { businessId: Id<"businesses"> 
   const [importText, setImportText] = useState("");
   const [replaceOpen, setReplaceOpen] = useState(false);
   const [kept, setKept] = useState<string[]>([]);
+  // The clock for "overdue": read once on the device (the overview query never reads it).
+  const [now] = useState(() => Date.now());
 
   const parsed = useMemo(() => parseMenuImport(importText), [importText]);
   const tooLarge = parsed.items > MENU_MAX_ITEMS;
@@ -140,8 +142,9 @@ export function MenuAdminSubpage({ businessId }: { businessId: Id<"businesses"> 
   const { business, menu } = data;
   const currentStage = menu?.migrationStage ?? null;
   const selectedStage = stagePick ?? currentStage;
-  // Evaluated by the overview query (render stays pure).
-  const overdue = menu?.overdue ?? false;
+  // Worked out here from the deadline and the stage (the overview query reads no clock).
+  const deadlineAt = menu?.deadlineAt ?? null;
+  const overdue = deadlineAt !== null && currentStage !== "published" && now > deadlineAt;
 
   async function run<T>(kind: Busy, work: () => Promise<T>, fallback: string) {
     setBusy(kind);

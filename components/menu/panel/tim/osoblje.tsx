@@ -12,7 +12,7 @@
 // the venue has zones. Presentational: the actions come from `radnje`.
 
 import { Ellipsis, KeyRound, Lock, Pencil, RotateCcw, UserPlus, UserX } from "lucide-react";
-import { useId, useState, type FormEvent } from "react";
+import { useId, useRef, useState, type FormEvent } from "react";
 import { fmt } from "@/lib/i18n/format";
 import { menuPanelSr } from "@/lib/i18n/sr/menu-panel";
 import { roleCan, type MenuActor } from "@/lib/menu/permissions";
@@ -284,6 +284,9 @@ function OsobaRed({
 }) {
   const id = useId();
   const radnjeId = `${id}-radnje`;
+  // "Odustani" gives focus back to the button that asked the question.
+  const resetRef = useRef<HTMLButtonElement>(null);
+  const deaktivirajRef = useRef<HTMLButtonElement>(null);
   const aktivnaPotvrda = potvrda !== null && potvrda.id === osoba.id ? potvrda : null;
   const zonaId = zone.some((zona) => zona.id === osoba.activeZoneId) ? (osoba.activeZoneId ?? "") : "";
 
@@ -358,6 +361,7 @@ function OsobaRed({
             </Dugme>
             {osoba.hasPin ? (
               <Dugme
+                ref={resetRef}
                 vrsta="sekundarno"
                 velicina="kompaktna"
                 ikonica={RotateCcw}
@@ -368,6 +372,7 @@ function OsobaRed({
               </Dugme>
             ) : null}
             <Dugme
+              ref={deaktivirajRef}
               vrsta="tiho"
               velicina="kompaktna"
               ikonica={UserX}
@@ -391,7 +396,10 @@ function OsobaRed({
           odustani={t.odustani}
           radi={zauzeto}
           onPotvrdi={() => r.potvrdi(aktivnaPotvrda)}
-          onOdustani={() => r.potvrda(null)}
+          onOdustani={() => {
+            r.potvrda(null);
+            (aktivnaPotvrda.vrsta === "reset" ? resetRef : deaktivirajRef).current?.focus();
+          }}
         />
       ) : null}
     </li>

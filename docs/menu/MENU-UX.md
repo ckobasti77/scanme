@@ -410,6 +410,7 @@ Prelom je širina prozora, ne vrsta uređaja. Bez vodoravnog skrola stranice na 
 
 - Konobarski panel bez veze: tajmeri nastavljaju da teku lokalno, a radnje `Preuzmi`, `Završi`, `Otkaži`, status stola i sopstvena zona su onemogućene uz razlog; ništa se ne stavlja u red; posle povratka veze stanje se ponovo čita, prikaz i izbor ostaju i najavljuje se „Veza je vraćena.“ (K23, §5.11).
 - Gost bez veze (K21): zahtev se ne šalje dok veze nema i to piše na dugmetu; gost nikad ne vidi „poslato" za nešto što nije stiglo.
+- Granice grešaka (K33): svaki glavni segment ima svoj `error.tsx` sa „Pokušaj ponovo" (`unstable_retry`) i tačno jednim h1 — sekcije klijentskog panela (`app/[slug]/client-panel/meni/`), konobarski panel (`app/[slug]/konobar/`, površina konobara), javni meni (`app/[slug]/meni/`, neutralno u temi aplikacije, jer paleta lokala tu nije poznata) i stari editor (`app/[slug]/meni/editor/`, greška panela, ne tekst za gosta).
 
 ## 10. Pristupačnost (WCAG 2.1 AA)
 
@@ -422,6 +423,9 @@ Prelom je širina prozora, ne vrsta uređaja. Bez vodoravnog skrola stranice na 
 - Mete 44 px (konobar 48 px); 8 px razmaka između susednih.
 - Zum 200 % i tekst 1,5× bez gubitka sadržaja i bez vodoravnog skrola na 390 px.
 - `prefers-reduced-motion` (§7). Jezik dokumenta je `sr-Latn`; sav tekst za čitač ekrana je na srpskom.
+- K33 (`docs/menu/HARDENING.md`): kad radnja ukloni ili premesti element koji je imao fokus (potvrda „Ne"/„Odustani", preimenovanje, „Preuzmi" koje premešta karticu u drugu grupu, zatvaranje `Premesti` bez premeštanja), fokus se vraća na okidač ili na isti element na novom mestu, nikad na `<body>`. Gubitak veze se najavljuje u stalno montiranom polite regionu (traka koja se tek montira se ne najavljuje pouzdano). Fokusabilni elementi blizu donje ivice na telefonu imaju `scroll-mb-*`, da ih posle Tab skrola ne zakloni globalno dugme teme ni donja navigacija. Bočni pano detalja (zahtev, sto) zatvara i Escape, kao „Nazad". Konobarski panel ima „Pređi na radni red" kao prvi element.
+- Onemogućen element koji nosi podatak ne bledi preko `opacity`: sporedna boja teksta uz utišanu pozadinu (obrazac `Dugme`).
+- Izuzeci (svesno, K33): pločice stolova u šematskom planu sale konobara su 44 px, ne 48 (plan od 24 ćelije u 34 rem; `Tabela` je zamena sa redovima od 48 px); polje cene u redu artikla nema ivicu u mirovanju (gustina 400 redova; prepoznaje se po sufiksu „RSD", ivica na prelaz i fokus).
 
 ## 11. Tekst
 

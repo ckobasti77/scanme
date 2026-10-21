@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { MENU_JAVNE_PALETE } from "../menu/identity/palettes";
+import { contrastRatio } from "../scanme-color-science";
 import {
   clampMenuDesign,
   compileMenuTokens,
@@ -75,6 +77,24 @@ describe("compileMenuTokens", () => {
     expect(tokens["--menu-accent-text"]).toBeDefined();
     expect(tokens["--menu-on-accent"]).toBeDefined();
     expect(tokens["--menu-accent-text"]).not.toBe(design.colors.accent);
+  });
+
+  it("keeps --menu-input-border at 3:1 on the page and on the surface (K33 A12)", () => {
+    // The filter chips and the status controls have no fill, so they sit on the
+    // page; a boundary guaranteed only against the surface was ~2.8:1 there.
+    const designs: Array<[string, MenuDesign["colors"]]> = [
+      ["default design", DEFAULT_MENU_DESIGN.colors],
+      ...MENU_JAVNE_PALETE.map((paleta): [string, MenuDesign["colors"]] => [paleta.id, paleta.boje]),
+    ];
+    // The raw hairline really was short of 3:1 on the page for the default design.
+    expect(contrastRatio(DEFAULT_MENU_DESIGN.colors.border, DEFAULT_MENU_DESIGN.colors.page)).toBeLessThan(3);
+    for (const [naziv, colors] of designs) {
+      const tokens = compileMenuTokens({ ...DEFAULT_MENU_DESIGN, colors });
+      const granica = tokens["--menu-input-border"];
+      expect(granica, naziv).toBeDefined();
+      expect(contrastRatio(granica, colors.page), `${naziv} on page`).toBeGreaterThanOrEqual(3);
+      expect(contrastRatio(granica, colors.surface), `${naziv} on surface`).toBeGreaterThanOrEqual(3);
+    }
   });
 });
 

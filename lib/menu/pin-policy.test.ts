@@ -9,6 +9,7 @@ import {
   PIN_DEVICE_MAX_FAILURES,
   PIN_KNOWN_DEVICE_MS,
   PIN_LOCK_MS,
+  PIN_VENUE_ALL_MAX_FAILURES,
   PIN_VENUE_MAX_FAILURES,
   PIN_WINDOW_MS,
   STAFF_SESSION_MS,
@@ -20,6 +21,7 @@ import {
   lockedUntilAt,
   registerFailure,
   registerSuccess,
+  venueLockMs,
   type PinCounter,
 } from "./pin-policy";
 
@@ -404,5 +406,37 @@ describe("five wrong PINs, then the sixth try", () => {
     const device = registerSuccess(null, now);
     const venueLocked: PinCounter = { failures: 0, windowStartedAt: now, lockedUntil: now + 10 * MINUTE };
     expect(evaluateAttempt({ device, venue: venueLocked }, now + 1000)).toEqual({ kind: "allowed" });
+  });
+});
+
+describe("K33: all-devices lock and escalation (security review B1, B2)", () => {
+  test("60 misses of all devices; the venue locks last 15 min, 1 h, 4 h, then 12 h", () => {
+    expect(PIN_VENUE_ALL_MAX_FAILURES).toBe(60);
+    expect([1, 2, 3, 4, 5, 9].map(venueLockMs)).toEqual([PIN_LOCK_MS, HOUR, 4 * HOUR, 12 * HOUR, 12 * HOUR, 12 * HOUR]);
+    expect(venueLockMs(0)).toBe(PIN_LOCK_MS);
+  });
+
+  test("an escalating counter counts its streak; a plain one (the device) never does", () => {
+    let venue: PinCounter | null = null;
+    for (let i = 0; i < PIN_VENUE_MAX_FAILURES; i += 1) venue = registerFailure(venue, T0, PIN_VENUE_MAX_FAILURES, true).counter;
+    expect(venue).toMatchObject({ lockedUntil: T0 + PIN_LOCK_MS, lockStreak: 1, failures: 0 });
+    const t1 = T0 + PIN_LOCK_MS;
+    for (let i = 0; i < PIN_VENUE_MAX_FAILURES; i += 1) venue = registerFailure(venue, t1, PIN_VENUE_MAX_FAILURES, true).counter;
+    expect(venue).toMatchObject({ lockedUntil: t1 + HOUR, lockStreak: 2 });
+
+    let device: PinCounter | null = null;
+    for (let i = 0; i < PIN_DEVICE_MAX_FAILURES; i += 1) device = registerFailure(device, T0, PIN_DEVICE_MAX_FAILURES).counter;
+    expect(device).toEqual({ failures: 0, windowStartedAt: T0, lockedUntil: T0 + PIN_LOCK_MS });
+  });
+
+  test("the all-devices lock stops a known device too; the new-device lock does not", () => {
+    const known = registerSuccess(null, T0);
+    const locked: PinCounter = { failures: 0, windowStartedAt: T0, lockedUntil: T0 + 10 * MINUTE };
+    expect(evaluateAttempt({ device: known, venue: locked }, T0 + 1000)).toEqual({ kind: "allowed" });
+    expect(evaluateAttempt({ device: known, venue: null, all: locked }, T0 + 1000)).toEqual({
+      kind: "locked",
+      scope: "venue",
+      lockedUntil: T0 + 10 * MINUTE,
+    });
   });
 });

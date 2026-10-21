@@ -142,6 +142,7 @@ import type * as lib_menuCapabilities from "../lib/menuCapabilities.js";
 import type * as lib_menuDomainValidators from "../lib/menuDomainValidators.js";
 import type * as lib_menuDraft from "../lib/menuDraft.js";
 import type * as lib_menuDraftLoad from "../lib/menuDraftLoad.js";
+import type * as lib_menuGateway from "../lib/menuGateway.js";
 import type * as lib_menuGuestAccess from "../lib/menuGuestAccess.js";
 import type * as lib_menuLegacyGuard from "../lib/menuLegacyGuard.js";
 import type * as lib_menuLegacyMigration from "../lib/menuLegacyMigration.js";
@@ -380,6 +381,7 @@ declare const fullApi: ApiFromModules<{
   "lib/menuDomainValidators": typeof lib_menuDomainValidators;
   "lib/menuDraft": typeof lib_menuDraft;
   "lib/menuDraftLoad": typeof lib_menuDraftLoad;
+  "lib/menuGateway": typeof lib_menuGateway;
   "lib/menuGuestAccess": typeof lib_menuGuestAccess;
   "lib/menuLegacyGuard": typeof lib_menuLegacyGuard;
   "lib/menuLegacyMigration": typeof lib_menuLegacyMigration;

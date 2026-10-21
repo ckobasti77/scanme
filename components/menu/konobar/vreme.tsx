@@ -24,6 +24,7 @@ import {
 import { cn } from "@/lib/utils";
 import stil from "./konobar.module.css";
 import { usePragKasnjenja } from "./prag";
+import { useSatLista } from "./use-sat";
 
 /** The late chip: soft danger fill, the pulsing ring of konobar.module.css. */
 export const KASNI_CIP = cn("relative rounded-full bg-[var(--mp-opasnost-meko)]", stil.kasni);
@@ -43,12 +44,13 @@ export function trajanjeZaCitac(sekunde: number): string {
  */
 export function VremePar({
   od,
-  sadaMs,
+  sadaMs: sadaMsProp,
   pragMin,
   slozeno = false,
   className,
 }: {
   od: number;
+  /** K33: under a memoised card the clock comes from SatKontekst; this is what a timer drawn alone shows. */
   sadaMs: number;
   /** Overrides the venue's threshold (PragKasnjenja). */
   pragMin?: number;
@@ -56,6 +58,7 @@ export function VremePar({
   className?: string;
 }) {
   const pragVenue = usePragKasnjenja();
+  const sadaMs = useSatLista(sadaMsProp);
   const sekunde = elapsedSeconds(od, sadaMs);
   const kasni = isLate(od, sadaMs, pragMin ?? pragVenue);
   const vreme = clockTime(od);

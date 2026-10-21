@@ -10,7 +10,7 @@
 // subscription. Nothing is shown when the phone has no reservation here.
 
 import { CalendarClock } from "lucide-react";
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { fmt } from "@/lib/i18n/format";
 import { menuGostSr } from "@/lib/i18n/sr/menu-gost";
 import { clockTime } from "@/lib/menu/elapsed-time";
@@ -39,6 +39,18 @@ function Rezervacija({
   const [radi, setRadi] = useState(false);
   const [greska, setGreska] = useState<string | null>(null);
   const [otkazano, setOtkazano] = useState(false);
+  // The question replaces "Otkaži": focus moves to the question when it opens and back to "Otkaži" on "Ne".
+  const pitanjeRef = useRef<HTMLParagraphElement>(null);
+  const otkaziRef = useRef<HTMLButtonElement>(null);
+  const vratiFokus = useRef(false);
+
+  useEffect(() => {
+    if (pitanje) pitanjeRef.current?.focus();
+    else if (vratiFokus.current) {
+      vratiFokus.current = false;
+      otkaziRef.current?.focus();
+    }
+  }, [pitanje]);
 
   const otkazi = async () => {
     setRadi(true);
@@ -90,10 +102,19 @@ function Rezervacija({
       {canGuestCancel(rezervacija.status) && !otkazano ? (
         pitanje ? (
           <div className={gost.prazno} role="group" aria-label={t.link.otkaziPitanje}>
-            <p className={gost.linijaNaziv}>{t.link.otkaziPitanje}</p>
+            <p ref={pitanjeRef} tabIndex={-1} className={gost.linijaNaziv}>
+              {t.link.otkaziPitanje}
+            </p>
             <p className={gost.sitno}>{t.link.otkaziOpis}</p>
             <div className={gost.dvaDugmeta}>
-              <button type="button" className={gost.dugmeSporedno} onClick={() => setPitanje(false)}>
+              <button
+                type="button"
+                className={gost.dugmeSporedno}
+                onClick={() => {
+                  vratiFokus.current = true;
+                  setPitanje(false);
+                }}
+              >
                 {t.link.otkaziNe}
               </button>
               <button
@@ -111,6 +132,7 @@ function Rezervacija({
         ) : (
           <div>
             <button
+              ref={otkaziRef}
               type="button"
               className={gost.dugmeSporedno}
               disabled={!online}

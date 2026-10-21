@@ -7,6 +7,7 @@ import { getMenuAccess, requireMenuAccessToRow, type MenuAccess } from "./lib/me
 import { getMenuCapabilities, requireMenuCapability } from "./lib/menuCapabilities";
 import { touchDraft } from "./lib/menuDraft";
 import { loadDraft } from "./lib/menuDraftLoad";
+import { rateLimiter } from "./lib/rateLimits";
 import { MENU_ERROR } from "../lib/menu/errors/core";
 import { MENU_PLAN_ERROR } from "../lib/menu/errors/plan";
 import { TRANSLATION_ERROR } from "../lib/menu/errors/translation";
@@ -284,7 +285,7 @@ export const suggestionContext = internalQuery({
       if (source) texts[field] = source;
     }
     const languages = access.menuService.settings?.languages;
-    return { from: languages?.source ?? "sr", texts };
+    return { menuServiceId: access.menuService._id, from: languages?.source ?? "sr", texts };
   },
 });
 
@@ -325,10 +326,20 @@ export const storeSuggestion = internalMutation({
 export const suggest = action({
   args: { kind: kindValidator, id: v.string(), lang: v.string() },
   handler: async (ctx, args): Promise<{ fields: number }> => {
-    const context: { from: string; texts: Record<string, string> } = await ctx.runQuery(internal.menuTranslations.suggestionContext, args);
+    const context: { menuServiceId: Id<"menuServices">; from: string; texts: Record<string, string> } = await ctx.runQuery(
+      internal.menuTranslations.suggestionContext,
+      args,
+    );
     const config = aiTranslateConfig(env);
     if (!config) throw new ConvexError(TRANSLATION_ERROR.aiDisabled);
     if (Object.keys(context.texts).length === 0) throw new ConvexError(TRANSLATION_ERROR.nothingToTranslate);
+    // K33 B9: the provider call is paid for by ScanMe, so it is throttled per
+    // Menu service (after the access and Premium checks, right before the call).
+    // No translation code says "too many", so the answer is the one for a
+    // suggestion that did not arrive: nothing is stored, try again later.
+    if (!(await rateLimiter.limit(ctx, "menuAiSuggest", { key: context.menuServiceId })).ok) {
+      throw new ConvexError(TRANSLATION_ERROR.aiFailed);
+    }
     const result = await aiTranslate(config, { from: context.from, to: args.lang, texts: context.texts });
     if (!result.ok) throw new ConvexError(TRANSLATION_ERROR.aiFailed);
     const sourceHashes: Partial<Record<MenuTranslationField, string>> = {};

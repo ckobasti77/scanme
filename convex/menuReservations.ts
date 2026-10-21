@@ -4,6 +4,7 @@ import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/s
 import { activeMenuServiceForBusiness } from "./lib/menuAccess";
 import { zabeleziDogadjaj } from "./lib/menuAnalytics";
 import { menuReservationStatusValidator } from "./lib/menuDomainValidators";
+import { menuIpKey } from "./lib/menuGateway";
 import { applyReservationAction, type ReservationActorDoc } from "./lib/menuReservationWriter";
 import {
   loadMenuStaff,
@@ -70,14 +71,11 @@ import { RESERVATION_MAX_DAYS_AHEAD } from "../lib/menu/working-hours";
 // a hash or the guest's device pseudonym.
 // =============================================================================
 
-const IP_HASH_PATTERN = /^[0-9a-f]{16,64}$/;
 const DEVICE_KEY_PATTERN = /^[0-9a-f]{64}$/;
 const CLIENT_REQUEST_ID_PATTERN = /^[A-Za-z0-9_-]{8,64}$/;
 const DAY_MS = 24 * 60 * 60 * 1000;
 /** Raw strings longer than this are refused before anything is read (the form allows far less). */
 const RAW_TEXT_MAX = 2000;
-
-const ipKeyOf = (ipHash: string | undefined) => (ipHash && IP_HASH_PATTERN.test(ipHash) ? ipHash : "shared");
 
 type Served = { business: Doc<"businesses">; menuService: Doc<"menuServices"> };
 
@@ -141,7 +139,11 @@ export const submit = mutation({
     contactEmail: v.optional(v.string()),
     contactPhone: v.optional(v.string()),
     note: v.optional(v.string()),
+    // A rate-limit key only; absent or untrusted → one shared bucket (K33: convex/lib/menuGateway.ts).
     ipHash: v.optional(v.string()),
+    // K33: MENU_GATEWAY_SECRET of the Next handler; with it set on the
+    // deployment, the ipHash counts only together with it.
+    gateway: v.optional(v.string()),
   },
   handler: async (ctx, args): Promise<ReservationSubmitOutcome> => {
     if (
@@ -185,7 +187,7 @@ export const submit = mutation({
     const parsed = parseReservationForm(args, config.contact, config.workingHours, now);
     if (!parsed.ok) return { ok: false, code: parsed.code, fieldErrors: parsed.fieldErrors };
 
-    if (!(await rateLimiter.limit(ctx, "menuReservationIp", { key: ipKeyOf(args.ipHash) })).ok) {
+    if (!(await rateLimiter.limit(ctx, "menuReservationIp", { key: menuIpKey(args.ipHash, args.gateway) })).ok) {
       return refused(RESERVATION_ERROR.rateLimited);
     }
     if (!(await rateLimiter.limit(ctx, "menuReservationDevice", { key: deviceKeyHash })).ok) {
@@ -297,10 +299,16 @@ async function guestCancel(ctx: MutationCtx, reservation: Doc<"menuReservations"
 
 /** The guest cancels through the link, until the reservation is realized (master §11.7). */
 export const cancelByToken = mutation({
-  args: { slug: v.string(), token: v.string(), ipHash: v.optional(v.string()) },
+  args: {
+    slug: v.string(),
+    token: v.string(),
+    ipHash: v.optional(v.string()),
+    // K33: MENU_GATEWAY_SECRET of the Next handler (convex/lib/menuGateway.ts).
+    gateway: v.optional(v.string()),
+  },
   handler: async (ctx, args): Promise<GuestReservationCancelOutcome> => {
     if (!isMenuToken(args.token)) return refused(RESERVATION_ERROR.notFound);
-    if (!(await rateLimiter.limit(ctx, "menuReservationCancel", { key: ipKeyOf(args.ipHash) })).ok) {
+    if (!(await rateLimiter.limit(ctx, "menuReservationCancel", { key: menuIpKey(args.ipHash, args.gateway) })).ok) {
       return refused(RESERVATION_ERROR.rateLimited);
     }
     const found = await byToken(ctx, args.slug, args.token);
@@ -364,10 +372,17 @@ export const mine = query({
 
 /** The guest cancels from "Moji zahtevi": the device token proves the reservation is theirs. */
 export const cancelByDevice = mutation({
-  args: { slug: v.string(), deviceToken: v.string(), reservationId: v.string(), ipHash: v.optional(v.string()) },
+  args: {
+    slug: v.string(),
+    deviceToken: v.string(),
+    reservationId: v.string(),
+    ipHash: v.optional(v.string()),
+    // K33: MENU_GATEWAY_SECRET of the Next handler (convex/lib/menuGateway.ts).
+    gateway: v.optional(v.string()),
+  },
   handler: async (ctx, args): Promise<GuestReservationCancelOutcome> => {
     if (!isMenuToken(args.deviceToken)) return refused(RESERVATION_ERROR.notFound);
-    if (!(await rateLimiter.limit(ctx, "menuReservationCancel", { key: ipKeyOf(args.ipHash) })).ok) {
+    if (!(await rateLimiter.limit(ctx, "menuReservationCancel", { key: menuIpKey(args.ipHash, args.gateway) })).ok) {
       return refused(RESERVATION_ERROR.rateLimited);
     }
     const served = await servedBySlug(ctx, args.slug);

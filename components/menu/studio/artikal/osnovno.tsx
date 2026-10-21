@@ -75,6 +75,7 @@ export function OsnovnoArtikla({
         posalji={posalji("name")}
         proveri={proveriNaziv}
         maks={MENU_TEXT.articleName}
+        obavezno
         onemoguceno={!mozeUredjivanje}
       />
 

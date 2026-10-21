@@ -130,6 +130,7 @@ export function TekstPolje<T extends CasValue>({
   pomoc,
   visina = "red",
   inputMode,
+  obavezno = false,
   onemoguceno,
   sirina,
 }: {
@@ -146,6 +147,8 @@ export function TekstPolje<T extends CasValue>({
   pomoc?: ReactNode;
   visina?: "red" | "vise";
   inputMode?: "numeric" | "decimal" | "text";
+  /** K33: an empty value is refused (e.g. the article name); said to screen readers before any error. */
+  obavezno?: boolean;
   onemoguceno: boolean;
   sirina?: string;
 }) {
@@ -179,6 +182,7 @@ export function TekstPolje<T extends CasValue>({
     disabled: onemoguceno,
     placeholder: primer,
     autoComplete: "off",
+    "aria-required": obavezno ? true : undefined,
     "aria-invalid": greska ? true : undefined,
     "aria-describedby": opisIds || undefined,
     onFocus: () => {

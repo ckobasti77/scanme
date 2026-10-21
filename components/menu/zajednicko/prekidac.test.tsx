@@ -264,7 +264,7 @@ describe("a caller's aria-describedby is kept next to the built-in links", () =>
 });
 
 describe("a disabled switch keeps its reason readable", () => {
-  test("only the track and the name dim; the opis and the label slot stay at full strength", () => {
+  test("only the track dims; the name turns secondary text, and the opis and the label slot stay at full strength", () => {
     const html = render(
       <Prekidac id="rs" naziv="Room service" opis="Dostupno uz Premium nalog." oznaka={<span data-oznaka="">Premium</span>} disabled />,
     );
@@ -273,5 +273,22 @@ describe("a disabled switch keeps its reason readable", () => {
     const opis = /<span id="rs-opis"[^>]*>/.exec(html)?.[0] ?? "";
     expect(opis).not.toContain("opacity");
     expect(html).toContain("group-has-[:disabled]:opacity-55");
+    // K33 A10: the name carries information, so it is not faded by opacity (≈3.4:1) but set in the readable muted text colour.
+    const naziv = /<span class="[^"]*">Room service<\/span>/.exec(html)?.[0] ?? "";
+    expect(naziv).toContain("group-has-[:disabled]:text-[var(--mp-tekst-sporedni)]");
+    expect(naziv).not.toContain("opacity");
+  });
+
+  test("PoljePotvrde: the label no longer fades; the box dims, the name turns secondary text", () => {
+    const html = render(<PoljePotvrde id="pc" naziv="Razumem posledice" opis="Opis" disabled />);
+    const label = openTag(html, "label");
+    expect(klase(label)).toContain("group");
+    expect(label).not.toContain("opacity");
+    const naziv = /<span class="[^"]*">Razumem posledice<\/span>/.exec(html)?.[0] ?? "";
+    expect(naziv).toContain("group-has-[:disabled]:text-[var(--mp-tekst-sporedni)]");
+    expect(naziv).not.toContain("opacity");
+    expect(html).toContain("group-has-[:disabled]:opacity-55");
+    const opis = /<span id="pc-opis"[^>]*>/.exec(html)?.[0] ?? "";
+    expect(opis).not.toContain("opacity");
   });
 });

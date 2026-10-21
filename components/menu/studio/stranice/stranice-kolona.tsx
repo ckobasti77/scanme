@@ -48,6 +48,10 @@ export type StraniceRadnje = {
 
 type Potvrda = { vrsta: "obrisi" | "arhiviraj"; stranica: StudioStranica } | null;
 
+// K33: where the focus goes when the rename / add field closes (the field replaced these buttons).
+const stranicaDugmeId =(id: string) => `studio-stranica-${id}`;
+const DODAJ_STRANICU_ID = "studio-stranica-dodaj";
+
 const stavkaKlase =
   "flex min-h-[var(--mp-meta)] w-full min-w-0 items-center gap-2 rounded-[var(--mp-radius-kontrola)] px-3 text-left text-[0.9375rem] font-medium [--button-radius:var(--mp-radius-kontrola)] transition-colors duration-[var(--mp-trajanje-1)] motion-reduce:transition-none";
 
@@ -149,6 +153,7 @@ export function StraniceKolona({
             maks={MENU_TEXT.pageName}
             greskaPrazno={t.opste.nazivObavezan}
             greskaDugo={fmt(t.opste.nazivDug, { n: MENU_TEXT.pageName })}
+            vratiFokusNa={stranicaDugmeId(stranica.id)}
             onSacuvaj={(naziv) => {
               setPreimenuje(null);
               void izvrsi(() => radnje.preimenuj(stranica.id, naziv, stranica.naziv));
@@ -162,6 +167,7 @@ export function StraniceKolona({
       <li key={stranica.id} className="flex items-center gap-1" data-stranica={stranica.key}>
         <button
           type="button"
+          id={stranicaDugmeId(stranica.id)}
           aria-current={aktivna ? "page" : undefined}
           onClick={() => onIzaberi(stranica.id)}
           className={cn(
@@ -211,6 +217,7 @@ export function StraniceKolona({
             greskaPrazno={t.opste.nazivObavezan}
             greskaDugo={fmt(t.opste.nazivDug, { n: MENU_TEXT.pageName })}
             radi={radi}
+            vratiFokusNa={DODAJ_STRANICU_ID}
             onSacuvaj={async (naziv) => {
               const ishod = await izvrsi(() => radnje.dodaj(naziv));
               if (ishod.ok) {
@@ -223,6 +230,7 @@ export function StraniceKolona({
           />
         ) : (
           <Dugme
+            id={DODAJ_STRANICU_ID}
             vrsta="tiho"
             velicina="kompaktna"
             ikonica={Plus}

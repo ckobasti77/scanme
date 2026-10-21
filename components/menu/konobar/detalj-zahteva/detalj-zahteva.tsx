@@ -93,6 +93,8 @@ export function DetaljZahteva({
   const naslovRef = useRef<HTMLHeadingElement>(null);
   const pitanjeRef = useRef<HTMLParagraphElement>(null);
   const potvrdaRef = useRef<HTMLDivElement>(null);
+  const otkaziRef = useRef<HTMLButtonElement>(null);
+  const prethodnaPotvrda = useRef(potvrda);
   const id = detalj?.request.id ?? null;
 
   // A newly opened request starts at its title (the place of reading), without a ring.
@@ -100,9 +102,15 @@ export function DetaljZahteva({
     if (id) naslovRef.current?.focus({ preventScroll: false });
   }, [id]);
 
-  // The whole confirmation comes into view (question AND both answers), then the question gets focus.
+  // The whole confirmation comes into view (question AND both answers), then the question gets focus;
+  // "Ne" removes the focused button, so focus goes back to "Otkaži" (as in detalj-rezervacije).
   useEffect(() => {
-    if (!potvrda) return;
+    const pre = prethodnaPotvrda.current;
+    prethodnaPotvrda.current = potvrda;
+    if (!potvrda) {
+      if (pre) otkaziRef.current?.focus({ preventScroll: true });
+      return;
+    }
     potvrdaRef.current?.scrollIntoView({ block: "nearest" });
     pitanjeRef.current?.focus({ preventScroll: true });
   }, [potvrda]);
@@ -311,6 +319,12 @@ export function DetaljZahteva({
             {potvrda ? (
               <div
                 ref={potvrdaRef}
+                // K33: Escape answers "Ne" (the focus returns to "Otkaži"); the panel then does not close the detail with the same key.
+                onKeyDown={(event) => {
+                  if (event.key !== "Escape") return;
+                  event.preventDefault();
+                  setPotvrda(false);
+                }}
                 className="grid scroll-mb-28 scroll-mt-24 gap-3 rounded-[var(--mp-radius-kontrola)] border p-4 [--border:var(--mp-opasnost-ivica)] bg-[var(--mp-opasnost-meko)]"
               >
                 <p ref={pitanjeRef} tabIndex={-1} className="text-[1.0625rem] font-bold text-[var(--mp-tekst)] outline-none">
@@ -335,6 +349,7 @@ export function DetaljZahteva({
               </div>
             ) : (
               <Dugme
+                ref={otkaziRef}
                 vrsta="tiho"
                 ikonica={CircleSlash}
                 disabled={radnjeIskljucene || radi !== null}

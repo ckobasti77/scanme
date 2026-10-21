@@ -18,6 +18,7 @@ import {
   pinPepper,
 } from "./lib/menuPin";
 import { endSessionsOfService, endSessionsOfStaff, panelCodeRowOf } from "./lib/menuStaffAccess";
+import { rateLimiter } from "./lib/rateLimits";
 import { STAFF_ERROR } from "../lib/menu/errors/waiter";
 import { MENU_MAX_STAFF, MENU_TEXT } from "../lib/menu/limits";
 import { newPanelCode, waiterPanelPath } from "../lib/menu/panel-code";
@@ -261,6 +262,13 @@ export const setPin = mutation({
     let pin: string;
     if (args.pin !== undefined) {
       if (!isPinFormat(args.pin)) throw new ConvexError(STAFF_ERROR.pinFormat);
+      // K33 B8: the answer to a PIN chosen by hand says whether a colleague
+      // holds it, so choosing one is throttled per account, BEFORE that lookup.
+      // (A probe that hits a held PIN throws, which rolls its own charge back;
+      // every free candidate tried on the way commits and spends a token.)
+      if (!(await rateLimiter.limit(ctx, "menuStaffPinManual", { key: access.user._id })).ok) {
+        throw new ConvexError(STAFF_ERROR.rateLimited);
+      }
       const holder = await activeStaffByLookup(ctx, menuServiceId, await pinLookupOf(pepper, menuServiceId, args.pin));
       if (holder && holder._id !== staff._id) throw new ConvexError(STAFF_ERROR.pinTaken);
       pin = args.pin;
@@ -326,13 +334,14 @@ export const unlockPins = mutation({
   handler: async (ctx, args): Promise<{ unlocked: number }> => {
     const access = await requireMenuAccess(ctx, { menuServiceId: args.menuServiceId }, PERMISSION);
     const now = Date.now();
-    // The venue-wide row first (by its key), so a flood of device rows can never hide it.
+    // The venue-wide rows first (by their key: new devices, and since K33 all
+    // devices), so a flood of device rows can never hide them.
     const venueRows = await ctx.db
       .query("menuPinAttempts")
       .withIndex("by_menuServiceId_and_scope_and_scopeKey", (q) =>
         q.eq("menuServiceId", args.menuServiceId).eq("scope", "venue"),
       )
-      .take(1);
+      .take(2);
     const deviceRows = await ctx.db
       .query("menuPinAttempts")
       .withIndex("by_menuServiceId_and_scope_and_scopeKey", (q) =>
@@ -343,8 +352,9 @@ export const unlockPins = mutation({
     let unlocked = 0;
     for (const row of rows) {
       const locked = row.lockedUntil !== undefined && row.lockedUntil > now;
-      if (!locked && row.failures === 0) continue;
-      await ctx.db.patch(row._id, { failures: 0, windowStartedAt: now, lockedUntil: undefined, updatedAt: now });
+      if (!locked && row.failures === 0 && row.lockStreak === undefined) continue;
+      // Lifting by hand also ends the escalation streak (K33).
+      await ctx.db.patch(row._id, { failures: 0, windowStartedAt: now, lockedUntil: undefined, lockStreak: undefined, updatedAt: now });
       if (locked) unlocked += 1;
     }
     await writeMenuAudit(ctx, {

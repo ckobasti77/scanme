@@ -12,15 +12,36 @@
 //           minutes. A device that signed in during the shift keeps working.
 // A success makes the device "known" for 12 h; misses of a window that is
 // still open stay counted, so a valid PIN cannot be used to probe the others.
+//
+// K33 (security review B1, B2): a known device is made by ANY valid PIN, so one
+// valid PIN could mint known devices and probe the others five at a time each.
+// A third counter therefore counts the misses of EVERY device of the venue:
+//   all     60 wrong PINs within 15 minutes stop PIN sign-in on every device of
+//           the venue, known ones too (live sessions keep working; the Owner
+//           and Managers enter with their account and can lift it).
+// The two venue counters escalate: the n-th lock in a row lasts 15 min, 1 h,
+// 4 h, then 12 h; a row untouched for 12 h 15 min is swept by the cron, which
+// ends the streak (`unlockPins` ends it too). The device lock stays as master
+// §10.6 says: five misses, 15 minutes.
 
 /** Wrong PINs one device may type before it is locked (master §10.6). */
 export const PIN_DEVICE_MAX_FAILURES = 5;
 /** Wrong PINs from new devices of one venue before every new device is locked. */
 export const PIN_VENUE_MAX_FAILURES = 30;
+/** K33: wrong PINs from all devices of one venue (known too) before PIN sign-in stops everywhere. */
+export const PIN_VENUE_ALL_MAX_FAILURES = 60;
 /** The window the failures are counted in. */
 export const PIN_WINDOW_MS = 15 * 60 * 1000;
 /** How long a lock lasts. */
 export const PIN_LOCK_MS = 15 * 60 * 1000;
+/** K33: how long the n-th venue lock in a row lasts (the last step repeats). */
+export const PIN_VENUE_LOCK_STEPS_MS = [PIN_LOCK_MS, 60 * 60 * 1000, 4 * 60 * 60 * 1000, 12 * 60 * 60 * 1000] as const;
+
+/** The length of the `streak`-th venue lock in a row (1 = the first). */
+export function venueLockMs(streak: number): number {
+  const index = Math.min(Math.max(1, Math.floor(streak)), PIN_VENUE_LOCK_STEPS_MS.length) - 1;
+  return PIN_VENUE_LOCK_STEPS_MS[index];
+}
 /** A staff sign-in lasts this long (master §10.6: "do 12 sati ili do ručne odjave"). */
 export const STAFF_SESSION_MS = 12 * 60 * 60 * 1000;
 /** A device that signed in this recently is "known": the venue lock never stops it. */
@@ -41,6 +62,8 @@ export type PinCounter = {
   windowStartedAt: number;
   lockedUntil?: number;
   lastSuccessAt?: number;
+  /** K33: venue locks in a row (venue counters only). */
+  lockStreak?: number;
 };
 
 /** The lock end when `counter` is locked at `now`, otherwise null. */
@@ -64,15 +87,18 @@ export type AttemptVerdict =
   | { kind: "locked"; scope: "device" | "venue"; lockedUntil: number };
 
 /**
- * May this device try a PIN now? The device lock always applies; the venue
- * lock applies only to a device that is not known (no sign-in in 12 h).
+ * May this device try a PIN now? The device lock always applies; the
+ * all-devices lock (K33) applies to every device; the new-device venue lock
+ * applies only to a device that is not known (no sign-in in 12 h).
  */
 export function evaluateAttempt(
-  input: { device: PinCounter | null; venue: PinCounter | null },
+  input: { device: PinCounter | null; venue: PinCounter | null; all?: PinCounter | null },
   now: number,
 ): AttemptVerdict {
   const deviceLock = lockedUntilAt(input.device, now);
   if (deviceLock !== null) return { kind: "locked", scope: "device", lockedUntil: deviceLock };
+  const allLock = lockedUntilAt(input.all ?? null, now);
+  if (allLock !== null) return { kind: "locked", scope: "venue", lockedUntil: allLock };
   if (!isKnownDevice(input.device, now)) {
     const venueLock = lockedUntilAt(input.venue, now);
     if (venueLock !== null) return { kind: "locked", scope: "venue", lockedUntil: venueLock };
@@ -88,17 +114,33 @@ export type FailureResult = {
   attemptsLeft: number;
 };
 
-/** Count one wrong PIN against a counter that allows `max` within the window. */
-export function registerFailure(counter: PinCounter | null, now: number, max: number): FailureResult {
+/**
+ * Count one wrong PIN against a counter that allows `max` within the window.
+ * `escalate` (the venue counters, K33): each lock in a row lasts longer.
+ */
+export function registerFailure(counter: PinCounter | null, now: number, max: number, escalate = false): FailureResult {
   const windowAlive = counter !== null && now - counter.windowStartedAt < PIN_WINDOW_MS;
   const failures = (windowAlive ? counter.failures : 0) + 1;
   const windowStartedAt = windowAlive ? counter.windowStartedAt : now;
   const lastSuccessAt = counter?.lastSuccessAt;
-  const base = { failures, windowStartedAt, ...(lastSuccessAt !== undefined ? { lastSuccessAt } : {}) };
+  const lockStreak = counter?.lockStreak;
+  const base = {
+    failures,
+    windowStartedAt,
+    ...(lastSuccessAt !== undefined ? { lastSuccessAt } : {}),
+    ...(lockStreak !== undefined ? { lockStreak } : {}),
+  };
   if (failures >= max) {
     // A full window starts again after the lock, so the next five are counted afresh.
+    const streak = escalate ? (lockStreak ?? 0) + 1 : undefined;
     return {
-      counter: { ...base, failures: 0, windowStartedAt: now, lockedUntil: now + PIN_LOCK_MS },
+      counter: {
+        ...base,
+        failures: 0,
+        windowStartedAt: now,
+        lockedUntil: now + (streak !== undefined ? venueLockMs(streak) : PIN_LOCK_MS),
+        ...(streak !== undefined ? { lockStreak: streak } : {}),
+      },
       justLocked: true,
       attemptsLeft: 0,
     };

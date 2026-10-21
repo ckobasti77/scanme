@@ -66,7 +66,10 @@ export function MeniRadnji({
               data-stavka={stavka.kljuc}
               onSelect={stavka.onIzbor}
               className={cn(
-                "min-h-[var(--mp-meta)] items-start gap-3 rounded-[calc(var(--mp-radius-kontrola)-2px)] px-3 py-2.5 text-[0.9375rem] focus:bg-[var(--mp-povrsina-utisana)] focus:text-[var(--mp-tekst)]",
+                // K33: the base item has `outline-none` (Tailwind 4 sets --tw-outline-style: none), so the
+                // ring needs `outline-solid` too; inset, because the content clips with overflow-hidden.
+                // Radix focuses the item with element.focus(), which :focus-visible matches after a key.
+                "min-h-[var(--mp-meta)] items-start gap-3 rounded-[calc(var(--mp-radius-kontrola)-2px)] px-3 py-2.5 text-[0.9375rem] focus:bg-[var(--mp-povrsina-utisana)] focus:text-[var(--mp-tekst)] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-solid focus-visible:outline-[var(--mp-fokus)]",
                 stavka.opasno && "text-[var(--mp-opasnost)] focus:text-[var(--mp-opasnost)]",
               )}
             >

@@ -26,7 +26,7 @@
 // (forPanel) feeds all of it; the detail subscription lives only while one is open.
 
 import { Grid2x2, ListChecks, OctagonAlert, RotateCw } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { fmt, srPluralCategory } from "@/lib/i18n/format";
 import { menuDomenSr } from "@/lib/i18n/sr/menu-domen";
 import { menuKonobarSr } from "@/lib/i18n/sr/menu-konobar";
@@ -44,6 +44,7 @@ import { Dugme } from "../zajednicko/dugme";
 import { MenuPovrsina } from "../zajednicko/povrsina";
 import { OfflineTraka, UcitavanjeStanje } from "../zajednicko/stanja";
 import { DetaljZahteva, type DetaljRadnja } from "./detalj-zahteva/detalj-zahteva";
+import { vratiFokus, zapamtiKarticu, type CekaFokus } from "./fokus-posle-radnje";
 import type {
   KonobarDetalj,
   KonobarDetaljMesta,
@@ -83,6 +84,8 @@ const OTKAZI_SKORO_MS = 30 * 60 * 1000;
 const POTVRDA_MS = 4000;
 /** How long a reminder keeps its row or table marked (the flash itself is shorter; reduced motion shows it still). */
 const PODSETNIK_MS = 6000;
+/** How long the panel waits for the list to show the answer of an action before it leaves the focus alone. */
+const FOKUS_ROK_MS = 5000;
 const PRAZNO: ReadonlySet<string> = new Set();
 const NEMA_REZERVACIJA: readonly ReservationRow[] = [];
 
@@ -135,6 +138,9 @@ export type KonobarPanelProps = {
   // K26 — the reply to the guest
   /** The sheet "Obavesti gosta" of the open reservation (the live route and the izlog wire it). */
   odgovorGostu?(rezervacijaId: string, detalj: KonobarRezervacijaDetalj): ReactNode;
+  // K33 — the sign-in
+  /** The sign-in (PIN or account) has just happened on this page: the heading of the queue takes the focus once, so it does not fall to the page. */
+  fokusNaRed?: boolean;
 };
 
 type Greska = { id: string | null; tekst: string; ponovo: boolean };
@@ -179,6 +185,7 @@ export function KonobarPanel({
   detaljRezervacije,
   pocetniFilterReda,
   odgovorGostu,
+  fokusNaRed = false,
 }: KonobarPanelProps) {
   const sadaMs = useSat(pocetnoMs, { izlogOd });
   const siroko = useSiroko();
@@ -207,6 +214,7 @@ export function KonobarPanel({
   const poslednjiOtvoren = useRef<string | null>(null);
   const poslednjaRezervacija = useRef<string | null>(null);
   const poslednjeMesto = useRef<string | null>(null);
+  const cekaFokus = useRef<CekaFokus | null>(null);
   const podsetnici = useRef<Map<string, number>>(new Map());
   const vezaRef = useRef(POCETNA_VEZA);
   const ponovi = useRef<(() => void) | null>(null);
@@ -308,7 +316,12 @@ export function KonobarPanel({
     const pre = vezaRef.current;
     const sledeca = sledecaVeza(pre, veza === "online", sadaMs);
     vezaRef.current = sledeca;
-    if (pre.stanje !== "offline" && sledeca.stanje === "offline") setOfflineOd(sledeca.poslednjeOsvezenje);
+    if (pre.stanje !== "offline" && sledeca.stanje === "offline") {
+      setOfflineOd(sledeca.poslednjeOsvezenje);
+      // K33: the strip mounts with the change, which screen readers may skip; the standing region
+      // says it (screen readers only: the strip already shows it).
+      setNajava({ tekst: t.veza.nema, vidljiva: false });
+    }
     if (pre.stanje === "offline" && sledeca.stanje === "ponovo") setNajava({ tekst: t.veza.vracena, vidljiva: true });
   }, [veza, sadaMs]);
 
@@ -352,6 +365,18 @@ export function KonobarPanel({
     );
     (sto ?? document.querySelector<HTMLElement>("#sala-naslov"))?.focus();
   }, [mestoId]);
+
+  // K33: after an action on a card (Preuzmi moves it to another group, Završi removes it) the keyboard focus follows it.
+  useEffect(() => {
+    const ceka = cekaFokus.current;
+    if (ceka === null) return;
+    if (vratiFokus(ceka, mestoId ? "sto-naslov" : "radni-red-naslov") || Date.now() > ceka.rok) cekaFokus.current = null;
+  });
+
+  // K33: the sign-in has just happened on this page: the heading of the queue takes the focus once, not the page.
+  useEffect(() => {
+    if (fokusNaRed) document.getElementById("radni-red-naslov")?.focus();
+  }, [fokusNaRed]);
 
   function otvori(id: string | null) {
     if (id !== null) poslednjiOtvoren.current = id;
@@ -429,6 +454,8 @@ export function KonobarPanel({
 
   async function izvrsi(zahtev: Pick<KonobarZahtev, "id">, radnja: DetaljRadnja, posao: () => Promise<KonobarIshod>) {
     if (radi || radiRez || offline) return;
+    // K33: from a card, by keyboard — the focus will have to follow the card (see fokus-posle-radnje.ts).
+    const redosled = zapamtiKarticu(zahtev.id);
     setRadi({ id: zahtev.id, radnja });
     setGreska(null);
     ponovi.current = null;
@@ -450,6 +477,7 @@ export function KonobarPanel({
       const tekst = potvrda(zahtev.id, ishod.status);
       const kratko = ishod.status === "done" ? t.red.zavrseno : ishod.status === "accepted" ? t.red.preuzeto : t.red.otkazano;
       setNajava({ tekst: tekst ? `${kratko} ${tekst}` : kratko, vidljiva: true });
+      if (redosled) cekaFokus.current = { id: zahtev.id, ishod: ishod.status, redosled, rok: Date.now() + FOKUS_ROK_MS };
       if (ishod.status !== "accepted" && izabranId === zahtev.id) otvori(null);
     }
   }
@@ -561,10 +589,33 @@ export function KonobarPanel({
   const modulZauzetosti = Boolean(sala?.occupancyEnabled && zauzetost && !zauzetost.off);
   const kontekst = izabranId !== null ? "zahtev" : rezId !== null ? "rezervacija" : mestoId !== null ? "sto" : "red";
   const panoVidljiv = prikaz === "red" || kontekst !== "red";
+  // K33: the queue's heading exists on screen only when the queue is the visible pane (below lg the floor may be).
+  const redVidljiv = kontekst === "red" && (prikaz === "red" || siroko);
+
+  // K33: Escape closes the detail of a request or of a table like "Nazad" (MENU-UX §10). A layer inside the
+  // pane (the cancel confirmation, the list of reservations to bind) takes the key first and prevents the
+  // default; a menu of the header (its own Escape) is not closed twice.
+  function naTasterPana(event: KeyboardEvent<HTMLDivElement>) {
+    if (event.key !== "Escape" || event.defaultPrevented) return;
+    if (document.querySelector("header [aria-expanded='true']")) return;
+    if (kontekst === "zahtev") otvori(null);
+    else if (kontekst === "sto") izaberiMesto(null);
+    else return;
+    event.preventDefault();
+  }
 
   return (
     <MenuPovrsina povrsina="konobar" className="min-h-[100dvh]">
       <PragKasnjenja minuta={timing.lateThresholdMin}>
+        {/* K33: the first stop of the page — past the header's controls to the work queue (visible only on focus). */}
+        {redVidljiv ? (
+          <a
+            href="#radni-red-naslov"
+            className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-50 focus:inline-flex focus:min-h-[var(--mp-meta)] focus:items-center focus:rounded-[var(--mp-radius-kontrola)] focus:bg-[var(--mp-mastilo)] focus:px-4 focus:text-sm focus:font-semibold focus:text-[var(--mp-na-mastilu)]"
+          >
+            {t.zaglavlje.preskociNaRed}
+          </a>
+        ) : null}
         <Zaglavlje
           lokal={lokal}
           korisnik={korisnik}
@@ -616,6 +667,7 @@ export function KonobarPanel({
               zonaNaziv={zonaNaziv}
               napomena={vanZoneTraka}
               rezervacije={rezZaSalu}
+              nivo={panoVidljiv || siroko ? 2 : 1}
             />
           </div>
 
@@ -626,6 +678,7 @@ export function KonobarPanel({
             )}
             data-bocni-pano
             data-kontekst={kontekst}
+            onKeyDown={naTasterPana}
           >
             {kontekst === "zahtev" && izabranId !== null ? (
               <div className="grid gap-4">

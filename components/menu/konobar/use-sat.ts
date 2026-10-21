@@ -8,7 +8,7 @@
 // snapshots) and then runs at real speed, so a Playwright fake clock can move
 // it (08:12 → 08:13).
 
-import { useState, useSyncExternalStore } from "react";
+import { createContext, useContext, useState, useSyncExternalStore } from "react";
 
 const SEKUNDA = 1000;
 const slusaoci = new Set<() => void>();
@@ -40,6 +40,18 @@ function pretplati(promena: () => void) {
 }
 
 const naSekundu = (ms: number) => Math.floor(ms / SEKUNDA) * SEKUNDA;
+
+/**
+ * K33: the clock for the leaves that show time (the timers, the badges). A parent that memoises its children
+ * puts `sadaMs` here instead of handing it down as a prop, so a tick redraws these leaves and not the cards,
+ * tiles and rows around them.
+ */
+export const SatKontekst = createContext<number | null>(null);
+
+/** The clock of the nearest provider, or `zaPropu` when none gives one (a leaf drawn alone, as in a detail view). */
+export function useSatLista(zaPropu: number): number {
+  return useContext(SatKontekst) ?? zaPropu;
+}
 
 /** The current second (epoch ms, floored), stable between ticks. */
 export function useSat(pocetnoMs: number, opcije: { izlogOd?: number } = {}): number {

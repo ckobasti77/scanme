@@ -43,6 +43,7 @@ export const menuKonobarSr = {
   },
   zaglavlje: {
     panel: "Konobarski panel",
+    preskociNaRed: "Pređi na radni red",
     uSmeni: "U smeni",
     vaziDo: "Prijava važi do {vreme}",
     nalogom: "Prijavljeni nalogom",
@@ -294,10 +295,13 @@ export const menuKonobarSr = {
   veza: {
     vracena: "Veza je vraćena. Prikaz je osvežen.",
     pokusajPonovo: "Pokušaj ponovo",
+    nema: "Nema veze sa internetom. Radnje čekaju da se veza vrati.",
   },
   greska: {
     nepoznata: "Radnja nije uspela. Pokušajte ponovo.",
     mreza: "Nema veze sa serverom. Pokušajte ponovo kad se veza vrati.",
+    panelNaslov: "Konobarski panel trenutno ne može da se učita",
+    panelOpis: "Proverite vezu sa internetom i pokušajte ponovo. Zahtevi gostiju ostaju sačuvani.",
   },
   rezervacije: {
     naslov: "Rezervacije",

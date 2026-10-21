@@ -236,12 +236,15 @@ export function GostPanel({
             ) : null}
           </Link>
         </div>
-        {!online ? (
-          <p className={styles.bezVeze} role="status">
-            <WifiOff aria-hidden="true" className={styles.ikonica} />
-            {t.traka.bezVeze}
-          </p>
-        ) : null}
+        {/* Always mounted (empty while the connection is there), so a screen reader announces the text when the connection is lost. */}
+        <div className={styles.zivo} role="status">
+          {!online ? (
+            <p className={styles.bezVeze}>
+              <WifiOff aria-hidden="true" className={styles.ikonica} />
+              {t.traka.bezVeze}
+            </p>
+          ) : null}
+        </div>
         <div className={styles.zivo} aria-live="polite" aria-atomic="true">
           {poruka}
         </div>
@@ -250,7 +253,9 @@ export function GostPanel({
             <button
               type="button"
               className={styles.radnja}
-              disabled={!online || salje !== null}
+              disabled={!online}
+              // While sending: aria-disabled, not disabled, so focus stays here; stoZahtev ignores the click.
+              aria-disabled={salje !== null || undefined}
               aria-busy={salje === "call" || undefined}
               onClick={() => stoZahtev("call", null)}
               data-radnja="poziv"

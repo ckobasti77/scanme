@@ -93,6 +93,12 @@ const app = defineApp({
     MENU_MAIL_GOOGLE_CLIENT_SECRET: v.optional(v.string()),
     MENU_MAIL_MICROSOFT_CLIENT_ID: v.optional(v.string()),
     MENU_MAIL_MICROSOFT_CLIENT_SECRET: v.optional(v.string()),
+    // ScanMe Menu V1 (K33): shared secret of the Next handlers → the public
+    // guest, reservation, analytics and PIN functions (convex/lib/menuGateway.ts).
+    // With it set, a caller IP hash counts only together with this secret, so a
+    // direct call cannot dodge the per-IP buckets. Same value in the Next env.
+    // Missing = the IP hash is trusted as before (development).
+    MENU_GATEWAY_SECRET: v.optional(v.string()),
   },
 });
 

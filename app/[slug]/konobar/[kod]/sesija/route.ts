@@ -1,6 +1,7 @@
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
 import { resolverIpHash } from "@/lib/card-resolver-http";
+import { menuGatewayArg } from "@/lib/menu/http/gateway";
 import { handleStaffLogin, handleStaffLogout } from "@/lib/menu/http/staff-session";
 import { normalizePanelCode } from "@/lib/menu/panel-code";
 
@@ -32,7 +33,7 @@ export async function POST(request: Request, { params }: RouteContext<"/[slug]/k
     request,
     { slug, panelCode },
     {
-      login: (input) => convex.mutation(api.menuWaiter.loginWithPin, input),
+      login: (input) => convex.mutation(api.menuWaiter.loginWithPin, { ...input, ...menuGatewayArg() }),
       logout: (input) => convex.mutation(api.menuWaiter.logout, input),
       secret: process.env.SCANME_GUEST_SECRET || null,
       ipHash: resolverIpHash(request),

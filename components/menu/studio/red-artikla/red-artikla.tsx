@@ -177,7 +177,11 @@ export const RedArtikla = memo(function RedArtikla(props: RedProps) {
       data-podignut={isDragging ? "" : undefined}
       className={cn(
         "relative border-t [--border:var(--mp-ivica)] first:border-t-0",
-        prevlacenje && "cursor-grab touch-manipulation select-none [-webkit-touch-callout:none] [&_input]:select-text",
+        // K33: below 1024 px the global theme button (fixed bottom right, 44 px) must not cover a
+        // control the keyboard scrolled to the bottom edge: the menu button, the price field and
+        // the buttons of the row stop 6 rem above it (the free space at the bottom of the panel).
+        "max-lg:[&_button]:scroll-mb-24 max-lg:[&_input]:scroll-mb-24",
+        prevlacenje &&"cursor-grab touch-manipulation select-none [-webkit-touch-callout:none] [&_input]:select-text",
         izborAktivan && "cursor-pointer",
         izabran && "bg-[var(--mp-akcent-meko)]",
         isDragging && "z-10",

@@ -398,9 +398,11 @@ describe("sign-in with a PIN", () => {
     await addStaff(env, "Ana", "246");
     expect(await login(env, WRONG)).toMatchObject({ ok: false, code: "staff/wrong_pin", attemptsLeft: 4 });
     const attempts = await attemptRows(env.t);
-    expect(attempts.map((row) => [row.scope, row.failures]).sort()).toEqual([
+    // K33: a third counter (scope "venue", key "venue:all") counts every device's misses.
+    expect(attempts.map((row) => [row.scope === "venue" ? row.scopeKey : row.scope, row.failures]).sort()).toEqual([
       ["device", 1],
       ["venue", 1],
+      ["venue:all", 1],
     ]);
     expect(await sessionRows(env.t)).toHaveLength(0);
   });
@@ -566,7 +568,7 @@ describe("venue lock", () => {
     },
   );
 
-  test("wrong PINs of a known device never reach the venue counter", async () => {
+  test("wrong PINs of a known device never reach the new-device venue counter", async () => {
     const env = await world();
     await addStaff(env, "Ana", "246");
     const known = await signIn(env, "246");
@@ -575,7 +577,10 @@ describe("venue lock", () => {
     }
     // Its own device lock still applies to it.
     expect(await login(env, WRONG, { deviceToken: known.deviceToken })).toMatchObject({ code: "staff/locked" });
-    expect((await attemptRows(env.t)).filter((row) => row.scope === "venue")).toHaveLength(0);
+    const venueRows = (await attemptRows(env.t)).filter((row) => row.scope === "venue");
+    expect(venueRows.filter((row) => row.scopeKey === "venue")).toHaveLength(0);
+    // K33 (security review B1): they do count in the all-devices counter.
+    expect(venueRows.filter((row) => row.scopeKey === "venue:all").map((row) => row.failures)).toEqual([5]);
   });
 });
 
@@ -627,6 +632,94 @@ describe("network bucket", () => {
     }
     expect(await login(env, WRONG)).toMatchObject({ code: "staff/rate_limited" });
     expect(await login(env, WRONG, { ipHash: "not-hex" })).toMatchObject({ code: "staff/rate_limited" });
+  });
+});
+
+// =============================================================================
+// 5b. K33 (security review B1–B3): all-devices lock, escalation, gateway
+// =============================================================================
+
+describe("K33: PIN hardening", () => {
+  test(
+    "one valid PIN cannot mint known devices to probe the others: 60 misses stop PIN sign-in everywhere",
+    { timeout: 180_000 },
+    async () => {
+      const env = await world();
+      await addStaff(env, "Ana", "246");
+      await addStaff(env, "Marko", "135");
+      const marko = await signIn(env, "135", { ipHash: ip(400) }); // a live session that must survive
+      let misses = 0;
+      let lastKnown = marko;
+      for (let device = 0; misses < 60; device += 1) {
+        // A fresh device signed in with the one known PIN, then four misses: below its own lock.
+        lastKnown = await signIn(env, "246", { ipHash: ip(device) });
+        for (let i = 0; i < 4 && misses < 60; i += 1) {
+          expect(await login(env, WRONG, { deviceToken: lastKnown.deviceToken, ipHash: ip(device) })).toMatchObject({
+            code: "staff/wrong_pin",
+          });
+          misses += 1;
+        }
+      }
+      // The 61st try: a KNOWN device is refused too, even with a right PIN; so is a new one.
+      expect(await login(env, "246", { deviceToken: lastKnown.deviceToken, ipHash: ip(500) })).toMatchObject({
+        ok: false,
+        code: "staff/locked",
+        lockedUntil: T0 + PIN_LOCK_MS,
+      });
+      expect(await login(env, "135", { ipHash: ip(501) })).toMatchObject({ code: "staff/locked" });
+      // Live sessions keep working; the lock is audited once.
+      expect(await getMe(env, marko.sessionToken)).not.toBeNull();
+      const locks = (await auditRows(env.t, "staff.pin_locked")).filter((row) => row.details?.scope === "venue_all");
+      expect(locks).toHaveLength(1);
+      // The Owner lifts it.
+      await env.owner.mutation(api.menuStaff.unlockPins, { menuServiceId: env.w.a.menuServiceId });
+      expect(await login(env, "246", { deviceToken: lastKnown.deviceToken, ipHash: ip(502) })).toMatchObject({ ok: true });
+    },
+  );
+
+  test(
+    "venue locks in a row last longer (15 min, then 1 h); lifting them by hand ends the streak",
+    { timeout: 180_000 },
+    async () => {
+      const env = await world();
+      await addStaff(env, "Ana", "246");
+      const burst = async (from: number) => {
+        for (let device = 0; device < 30; device += 1) await login(env, WRONG, { ipHash: ip(from + Math.floor(device / 10)) });
+      };
+      await burst(0);
+      expect(await login(env, "246", { ipHash: ip(90) })).toMatchObject({ code: "staff/locked", lockedUntil: T0 + PIN_LOCK_MS });
+
+      const t1 = T0 + PIN_LOCK_MS;
+      vi.setSystemTime(t1);
+      await burst(10);
+      expect(await login(env, "246", { ipHash: ip(91) })).toMatchObject({ code: "staff/locked", lockedUntil: t1 + 60 * MINUTE });
+      const second = (await auditRows(env.t, "staff.pin_locked")).filter((row) => row.details?.scope === "venue");
+      expect(second.map((row) => row.details?.streak)).toEqual([1, 2]);
+
+      await env.owner.mutation(api.menuStaff.unlockPins, { menuServiceId: env.w.a.menuServiceId });
+      expect(await login(env, "246", { ipHash: ip(92) })).toMatchObject({ ok: true });
+      await burst(20);
+      expect(await login(env, "246", { ipHash: ip(93) })).toMatchObject({ code: "staff/locked", lockedUntil: t1 + PIN_LOCK_MS });
+    },
+  );
+
+  test("with MENU_GATEWAY_SECRET set, an IP hash without the secret lands in the shared bucket", { timeout: 120_000 }, async () => {
+    const secret = "k33-test-gateway-secret-0123456789abcdef";
+    process.env.MENU_GATEWAY_SECRET = secret;
+    try {
+      const env = await world();
+      await addStaff(env, "Ana", "246");
+      // 20 misses, each claiming its own address but without the secret: ONE shared bucket.
+      for (let miss = 0; miss < 20; miss += 1) await login(env, WRONG, { ipHash: ip(miss) });
+      expect(await login(env, WRONG, { ipHash: ip(99) })).toMatchObject({ code: "staff/rate_limited" });
+      const call = (pin: string, ipHash: string, gateway: string) =>
+        env.t.mutation(api.menuWaiter.loginWithPin, { slug: SLUG_A, panelCode: env.code, pin, ipHash, gateway });
+      // The Next handler's call (with the secret) keeps its own bucket; a wrong secret is no secret.
+      expect(await call("246", ip(7), secret)).toMatchObject({ ok: true });
+      expect(await call(WRONG, ip(8), "wrong-k33-secret-0123456789abcdef0123")).toMatchObject({ code: "staff/rate_limited" });
+    } finally {
+      delete process.env.MENU_GATEWAY_SECRET;
+    }
   });
 });
 
@@ -867,14 +960,14 @@ describe("session", () => {
     const env = await world();
     await addStaff(env, "Ana", "246");
     const ana = await signIn(env, "246");
-    await login(env, WRONG); // a new device with one miss: two more counters
-    expect(await attemptRows(env.t)).toHaveLength(3);
+    await login(env, WRONG); // a new device with one miss: three more counters (K33: all devices)
+    expect(await attemptRows(env.t)).toHaveLength(4);
 
     vi.setSystemTime(T0 + STAFF_SESSION_MS + 1000); // the scheduled expiry never ran
     await env.t.mutation(internal.menuWaiter.sweepExpiredSessions, {});
     expect(await getMe(env, ana.sessionToken)).toBeNull();
     expect((await sessionRows(env.t))[0]).toMatchObject({ endReason: "expired", endedAt: ana.expiresAt });
-    expect(await attemptRows(env.t)).toHaveLength(3); // 12 h old: not yet stale (12 h 15 min)
+    expect(await attemptRows(env.t)).toHaveLength(4); // 12 h old: not yet stale (12 h 15 min)
 
     vi.setSystemTime(T0 + STAFF_SESSION_MS + 24 * 60 * MINUTE + 1000);
     await env.t.mutation(internal.menuWaiter.sweepExpiredSessions, {});

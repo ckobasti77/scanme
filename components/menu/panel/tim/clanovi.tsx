@@ -11,7 +11,7 @@
 // permission matrix.
 
 import { Building2, Check, Mail, PenLine, Send, ShieldCheck, UserCog, UserMinus, UserPlus, X, type LucideIcon } from "lucide-react";
-import { useId, useState, type FormEvent } from "react";
+import { useId, useRef, useState, type FormEvent } from "react";
 import { formatBelgradeDate } from "@/lib/belgrade-time";
 import { fmt } from "@/lib/i18n/format";
 import { menuPanelSr } from "@/lib/i18n/sr/menu-panel";
@@ -122,6 +122,8 @@ function ClanRed({
   onPotvrdi: (potvrda: PotvrdaVrsta) => void;
 }) {
   const razlogId = useId();
+  // "Ukloni" (active) and "Opozovi" (pending) never exist in the same row; "Odustani" gives focus back to the one that asked.
+  const okidacRef = useRef<HTMLButtonElement>(null);
   const status = statusClana(clan, sada);
   const ime = clan.name ?? clan.email;
   const mozeTim = roleCan(actor, "team.manage");
@@ -167,6 +169,7 @@ function ClanRed({
                     {t.promeniUlogu}
                   </Dugme>
                   <Dugme
+                    ref={okidacRef}
                     vrsta="opasno"
                     velicina="kompaktna"
                     ikonica={UserMinus}
@@ -192,6 +195,7 @@ function ClanRed({
                     </Dugme>
                   ) : null}
                   <Dugme
+                    ref={okidacRef}
                     vrsta="opasno"
                     velicina="kompaktna"
                     ikonica={X}
@@ -225,7 +229,10 @@ function ClanRed({
             odustani={t.odustani}
             radi={zauzeto}
             onPotvrdi={() => onPotvrdi(aktivnaPotvrda)}
-            onOdustani={() => onPotvrda(null)}
+            onOdustani={() => {
+              onPotvrda(null);
+              okidacRef.current?.focus();
+            }}
           />
         </div>
       ) : null}

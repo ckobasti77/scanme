@@ -21,6 +21,7 @@ import { reservationTiming } from "@/lib/menu/reservation-late";
 import type { KindState, TableKind } from "@/lib/menu/table-summary";
 import { cn } from "@/lib/utils";
 import { usePragKasnjenja } from "../prag";
+import { useSatLista } from "../use-sat";
 import { KASNI_CIP } from "../vreme";
 import { VRSTA } from "../vrsta";
 import type { SalaRezervacija } from "./pogled";
@@ -36,18 +37,20 @@ export const IVICA_VRSTE: Record<TableKind, string> = {
 export function ZnackaStanja({
   vrsta,
   stanje,
-  sadaMs,
+  sadaMs: sadaMsProp,
   saVremenom = true,
   className,
 }: {
   vrsta: TableKind;
   stanje: KindState;
+  /** K33: on a memoised tile the clock comes from SatKontekst; this is what a badge drawn alone shows. */
   sadaMs: number;
   /** false on a tile too narrow for the time: only the icon (the time is in the table's name and detail). */
   saVremenom?: boolean;
   className?: string;
 }) {
   const prag = usePragKasnjenja();
+  const sadaMs = useSatLista(sadaMsProp);
   const kasni = isLate(stanje.oldestAt, sadaMs, prag);
   const prihvaceno = stanje.newCount === 0;
   const v = VRSTA[vrsta];
@@ -97,13 +100,15 @@ export function ZnackaStanja({
  */
 export function ZnackaRezervacije({
   rezervacija,
-  sadaMs,
+  sadaMs: sadaMsProp,
   className,
 }: {
   rezervacija: SalaRezervacija;
+  /** K33: on a memoised tile the clock comes from SatKontekst; this is what a badge drawn alone shows. */
   sadaMs: number;
   className?: string;
 }) {
+  const sadaMs = useSatLista(sadaMsProp);
   const { row, more, holdMin } = rezervacija;
   const { phase, lateSeconds } = reservationTiming(row.requestedAt, holdMin, sadaMs);
   const kasni = phase === "kasni";

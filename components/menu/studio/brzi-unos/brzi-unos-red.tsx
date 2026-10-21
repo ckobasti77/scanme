@@ -223,8 +223,12 @@ export function BrziUnosRed({
       }}
       className="mt-1 grid gap-2 rounded-[var(--mp-radius-kontrola)] border [--border:var(--mp-ivica-kontrole)] bg-[var(--mp-povrsina)] p-2"
     >
-      <div className="flex flex-wrap items-start gap-2">
+      <div className="flex flex-wrap items-end gap-2 sm:items-start">
         <label className="grid min-w-[10rem] flex-1 gap-1">
+          {/* K33: a short visible label on a phone, where a placeholder is all there is; the full name stays for readers. */}
+          <span aria-hidden="true" className="text-sm font-semibold leading-5 text-[var(--mp-tekst-sporedni)] sm:hidden">
+            {t.brziUnos.naziv}
+          </span>
           <span className="sr-only">{t.brziUnos.nazivOznaka}</span>
           <input
             ref={nazivRef}
@@ -234,6 +238,7 @@ export function BrziUnosRed({
             enterKeyHint="next"
             placeholder={t.brziUnos.naziv}
             value={naziv}
+            aria-required="true"
             aria-invalid={nazivGreska ? true : undefined}
             aria-describedby={nazivGreska ? `${id}-naziv-greska` : `${id}-pomoc`}
             onChange={(event) => setNaziv(event.target.value)}
@@ -247,6 +252,9 @@ export function BrziUnosRed({
           />
         </label>
         <label className="relative grid w-[7.5rem] gap-1">
+          <span aria-hidden="true" className="text-sm font-semibold leading-5 text-[var(--mp-tekst-sporedni)] sm:hidden">
+            {t.brziUnos.cena}
+          </span>
           <span className="sr-only">{t.brziUnos.cenaOznaka}</span>
           <input
             ref={cenaRef}
@@ -261,7 +269,7 @@ export function BrziUnosRed({
             onChange={(event) => setCena(event.target.value)}
             className="h-[var(--mp-meta)] w-full rounded-[var(--mp-radius-kontrola)] border [--border:var(--mp-ivica-kontrole)] bg-[var(--mp-povrsina)] pl-3 pr-10 text-right text-[0.9375rem] tabular-nums text-[var(--mp-tekst)] placeholder:text-left placeholder:text-[var(--mp-tekst-sporedni)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--mp-fokus)] aria-[invalid=true]:[--border:var(--mp-opasnost)]"
           />
-          <span aria-hidden="true" className="pointer-events-none absolute right-3 top-3 text-xs font-medium text-[var(--mp-tekst-sporedni)]">
+          <span aria-hidden="true" className="pointer-events-none absolute right-3 top-9 text-xs font-medium sm:top-3 text-[var(--mp-tekst-sporedni)]">
             {t.red.rsd}
           </span>
         </label>

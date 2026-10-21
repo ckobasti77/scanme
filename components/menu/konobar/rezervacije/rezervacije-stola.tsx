@@ -11,7 +11,7 @@
 // has nothing to show and nothing waits for a table.
 
 import { Armchair } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { fmt } from "@/lib/i18n/format";
 import { menuKonobarSr } from "@/lib/i18n/sr/menu-konobar";
 import { clockTime } from "@/lib/menu/elapsed-time";
@@ -126,6 +126,7 @@ export function RezervacijeStola({
   pocetnoPovezivanje?: boolean;
 }) {
   const [povezivanje, setPovezivanje] = useState(pocetnoPovezivanje);
+  const okidacRef = useRef<HTMLButtonElement>(null);
   const njegove = reservationsOfTable(redovi, mestoId, sadaMs);
   const nevezane = unboundToday(redovi, sadaMs);
   if (njegove.length === 0 && nevezane.length === 0) return null;
@@ -157,9 +158,19 @@ export function RezervacijeStola({
       {nevezane.length === 0 ? (
         <p className="text-base text-[var(--mp-tekst-sporedni)]">{t.sto.nemaZaPovezivanje}</p>
       ) : (
-        <div className="grid gap-3">
+        <div
+          className="grid gap-3"
+          // K33: Escape closes the open list and returns to its button; the panel then does not close the table detail with the same key.
+          onKeyDown={(event) => {
+            if (event.key !== "Escape" || !povezivanje) return;
+            event.preventDefault();
+            setPovezivanje(false);
+            okidacRef.current?.focus();
+          }}
+        >
           <div>
             <Dugme
+              ref={okidacRef}
               vrsta="sekundarno"
               ikonica={Armchair}
               aria-expanded={povezivanje}
@@ -183,9 +194,9 @@ export function RezervacijeStola({
                       data-povezi={red.id}
                       aria-label={fmt(t.sto.poveziCitac, { ime: red.guestName, termin: terminTekst(red.requestedAt, sadaMs) })}
                       onClick={() => onPovezi(red)}
-                      className="grid min-h-12 w-full gap-0.5 rounded-[var(--mp-radius-kontrola)] border bg-[var(--mp-povrsina)] px-3 py-2 text-left [--border:var(--mp-ivica-kontrole)] hover:bg-[var(--mp-povrsina-utisana)] disabled:cursor-not-allowed disabled:opacity-50"
+                      className="grid min-h-12 w-full gap-0.5 rounded-[var(--mp-radius-kontrola)] border bg-[var(--mp-povrsina)] px-3 py-2 text-left text-[var(--mp-tekst)] [--border:var(--mp-ivica-kontrole)] hover:bg-[var(--mp-povrsina-utisana)] disabled:cursor-not-allowed disabled:bg-[var(--mp-povrsina-utisana)] disabled:text-[var(--mp-tekst-sporedni)] disabled:[--border:var(--mp-ivica)]"
                     >
-                      <span className="break-words text-base font-bold text-[var(--mp-tekst)]">{red.guestName}</span>
+                      <span className="break-words text-base font-bold">{red.guestName}</span>
                       <span className="text-[0.9375rem] tabular-nums text-[var(--mp-tekst-sporedni)]">
                         {terminTekst(red.requestedAt, sadaMs)} · {gostiTekst(red.partySize)}
                       </span>

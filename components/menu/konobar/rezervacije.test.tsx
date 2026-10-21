@@ -1098,8 +1098,16 @@ const K25_EKRANI: [string, IzlogSearchParams][] = [
 ];
 
 describe("every K25 screen", () => {
+  // K33 (A7): on the floor screens the side pane is `hidden lg:block` on a phone and keeps its own h1 in the markup;
+  // "exactly one h1" is what a phone shows (a hidden pane is not in the accessibility tree).
+  const h1NaTelefonu = (html: string) => {
+    const pocetak = pocetakPana(html);
+    const sakriven = (attr(html.slice(pocetak, html.indexOf(">", pocetak)), "class") ?? "").split(/\s+/).includes("hidden");
+    return count(html, "<h1") - (sakriven ? count(bocniPano(html), "<h1") : 0);
+  };
+
   test.each(K25_EKRANI)("%s: exactly one h1", (_ime, upit) => {
-    expect(count(izlog(upit), "<h1")).toBe(1);
+    expect(h1NaTelefonu(izlog(upit))).toBe(1);
   });
 
   test.each(K25_EKRANI)("%s: every button has visible text or an accessible name", (_ime, upit) => {

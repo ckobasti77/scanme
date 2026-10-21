@@ -3749,6 +3749,9 @@ export default defineSchema({
     windowStartedAt: v.number(),
     lockedUntil: v.optional(v.number()),
     lastSuccessAt: v.optional(v.number()),
+    // K33: venue locks in a row without a quiet 12 h (the row is swept then);
+    // each one lasts longer (lib/menu/pin-policy.ts venueLockMs).
+    lockStreak: v.optional(v.number()),
     updatedAt: v.number(),
   })
     .index("by_menuServiceId_and_scope_and_scopeKey", ["menuServiceId", "scope", "scopeKey"])

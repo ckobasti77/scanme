@@ -20,6 +20,7 @@ import {
   type GuestActionResult,
   type GuestCancelResult,
 } from "@/lib/menu/http/guest-actions";
+import { menuGatewayArg } from "@/lib/menu/http/gateway";
 
 async function deps(): Promise<GuestActionDeps> {
   const jar = await cookies();
@@ -32,10 +33,10 @@ async function deps(): Promise<GuestActionDeps> {
     onError: (error) =>
       console.error("MENU_GUEST_ACTION_FAILED", error instanceof Error ? error.name : typeof error),
     convex: {
-      callWaiter: (args) => fetchMutation(api.menuGuest.callWaiter, args),
-      requestBill: (args) => fetchMutation(api.menuGuest.requestBill, args),
-      submitOrder: (args) => fetchMutation(api.menuGuest.submitOrder, args),
-      cancelRequest: (args) => fetchMutation(api.menuGuest.cancelRequest, args),
+      callWaiter: (args) => fetchMutation(api.menuGuest.callWaiter, { ...args, ...menuGatewayArg() }),
+      requestBill: (args) => fetchMutation(api.menuGuest.requestBill, { ...args, ...menuGatewayArg() }),
+      submitOrder: (args) => fetchMutation(api.menuGuest.submitOrder, { ...args, ...menuGatewayArg() }),
+      cancelRequest: (args) => fetchMutation(api.menuGuest.cancelRequest, { ...args, ...menuGatewayArg() }),
     },
   };
 }

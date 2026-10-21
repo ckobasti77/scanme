@@ -72,6 +72,8 @@ export function Zaglavlje({
 
   const aktivniTekst =
     aktivni === null ? null : aktivni === 0 ? t.bezAktivnih : fmt(t.aktivni[srPluralCategory(aktivni)], { n: aktivni });
+  // The visible text of the sound switch (from xl) leads its accessible name, so voice control finds it (WCAG 2.5.3).
+  const zvukTekst = zvuk?.ukljucen ? t.zvuk.ukljucen : t.zvuk.iskljucen;
 
   return (
     <header className="sticky top-0 z-30 border-b bg-[var(--mp-povrsina)] [--border:var(--mp-ivica)]">
@@ -114,8 +116,8 @@ export function Zaglavlje({
           <button
             type="button"
             aria-pressed={zvuk.ukljucen}
-            aria-label={t.zvuk.oznaka}
-            title={zvuk.ukljucen ? t.zvuk.ukljucen : t.zvuk.iskljucen}
+            aria-label={`${zvukTekst} · ${t.zvuk.oznaka}`}
+            title={zvukTekst}
             onClick={zvuk.onPrebaci}
             data-zvuk={zvuk.ukljucen ? "ukljucen" : "iskljucen"}
             className={cn(
@@ -131,7 +133,7 @@ export function Zaglavlje({
               <VolumeX aria-hidden="true" strokeWidth={2} className="size-5 shrink-0 text-[var(--mp-upozorenje)]" />
             )}
             <span aria-hidden="true" className="hidden whitespace-nowrap xl:inline">
-              {zvuk.ukljucen ? t.zvuk.ukljucen : t.zvuk.iskljucen}
+              {zvukTekst}
             </span>
           </button>
         ) : null}

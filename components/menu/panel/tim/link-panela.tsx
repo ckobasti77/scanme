@@ -8,7 +8,7 @@
 // actions come from `radnje`.
 
 import { CircleCheck, Copy, Link2, RefreshCw, TriangleAlert } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { fmt } from "@/lib/i18n/format";
 import { menuPanelSr } from "@/lib/i18n/sr/menu-panel";
 import { Napomena, PorukaGreske, PorukaUspeha, Potvrda } from "../../lokal/zajednicko";
@@ -97,6 +97,15 @@ export function LinkPanela({
   const { faza, kod, pokreni } = useCuvanje();
   const [pita, setPita] = useState(pocetnoPromeni);
   const [odjavljeno, setOdjavljeno] = useState<number | null>(null);
+  // "Promeni link" is replaced by the question while it is open: after "Odustani" focus goes back once the button is there again.
+  const promeniRef = useRef<HTMLButtonElement>(null);
+  const vratiFokus = useRef(false);
+
+  useEffect(() => {
+    if (pita || !vratiFokus.current) return;
+    vratiFokus.current = false;
+    promeniRef.current?.focus();
+  }, [pita]);
 
   const napravi = () => void pokreni(() => radnje.napraviLink());
 
@@ -156,11 +165,15 @@ export function LinkPanela({
                     odustani={t.odustani}
                     radi={faza === "cuva"}
                     onPotvrdi={() => void promeni()}
-                    onOdustani={() => setPita(false)}
+                    onOdustani={() => {
+                      vratiFokus.current = true;
+                      setPita(false);
+                    }}
                   />
                 ) : (
                   <div>
                     <Dugme
+                      ref={promeniRef}
                       vrsta="sekundarno"
                       velicina="kompaktna"
                       ikonica={RefreshCw}

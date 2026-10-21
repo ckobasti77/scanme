@@ -22,6 +22,7 @@ import { api } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { executePublish } from "./menuPublishing";
 import schema from "./schema";
+import { menuKonobarSr } from "../lib/i18n/sr/menu-konobar";
 import { MENU_ERROR } from "../lib/menu/errors/core";
 import { permissionsOf, roleCan } from "../lib/menu/permissions";
 import {
@@ -876,12 +877,14 @@ describe("publish — translations", () => {
 // =============================================================================
 
 describe("publish — newer changes", () => {
+  // K33 B6: the owner (who publishes here) sees their own e-mail, never the
+  // manager's: that one has no display name, so the neutral label stands in.
   test.each([
     ["owner", "ownerId", "vlasnik@example.com"],
-    ["manager", "managerId", "menadzer@example.com"],
+    ["manager", "managerId", menuKonobarSr.zaglavlje.nalogBezImena],
   ] as const)(
     "an edit by the %s after the preview is refused as stale_draft with who edited",
-    async (_label, who, email) => {
+    async (_label, who, shownName) => {
       const { t, w } = await setup();
       const menu = await publishedA(t, w);
       const guestBefore = await guestMenu(t);
@@ -897,7 +900,7 @@ describe("publish — newer changes", () => {
       );
 
       expect(result.revision).toBe(preview.revision + 1);
-      expect(result.lastEditBy).toEqual({ userId: w[who], name: email });
+      expect(result.lastEditBy).toEqual({ userId: w[who], name: shownName });
       expect(typeof result.lastEditAt).toBe("number");
       expect(await footprint(t, w.a.menuServiceId)).toEqual(before);
       expect(await guestMenu(t)).toEqual(guestBefore);
@@ -1196,9 +1199,10 @@ describe("publish — the draft does not reach guests before Objavi", () => {
       publishedRevision: drafted?.revision,
       liveVersionNumber: 1,
     });
+    // K33 B6: the manager's e-mail is not shown to the owner (no display name: the neutral label).
     expect(dirty?.lastEditBy).toEqual({
       userId: w.managerId,
-      name: "menadzer@example.com",
+      name: menuKonobarSr.zaglavlje.nalogBezImena,
       isMe: false,
     });
     expect((await statusOf(t, w.managerId, w.a.menuServiceId))?.lastEditBy?.isMe).toBe(true);
@@ -1792,7 +1796,7 @@ describe("publish — the version and its audit trail", () => {
     ]);
     expect(listing?.versions[0].publishedBy).toEqual({
       userId: w.managerId,
-      name: "menadzer@example.com",
+      name: menuKonobarSr.zaglavlje.nalogBezImena,
     });
     expect(listing?.versions[0].summary).toMatchObject({ changedPrices: 1 });
     expect(listing?.versions[1].publishedBy.userId).toBe(w.ownerId);

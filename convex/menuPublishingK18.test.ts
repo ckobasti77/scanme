@@ -21,6 +21,7 @@ import { beforeEach, describe, expect, test } from "vitest";
 import { api } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import schema from "./schema";
+import { menuKonobarSr } from "../lib/i18n/sr/menu-konobar";
 import { MENU_ERROR } from "../lib/menu/errors/core";
 import { roleCan } from "../lib/menu/permissions";
 import type { MenuIssueTarget } from "../lib/menu/publish-targets";
@@ -642,10 +643,11 @@ describe("K18 — a restore makes a draft and says so", () => {
     });
     expect(typeof status.lastEditAt).toBe("number");
     expect(status.lastEditBy).toEqual({ userId: w.ownerId, name: "vlasnik@example.com", isMe: true });
-    // For somebody else the same edit is not "me".
+    // For somebody else the same edit is not "me", and (K33 B6) their e-mail is
+    // not shown: the owner has no display name, so the neutral label stands in.
     expect((await statusOf(t, w.managerId, id)).lastEditBy).toEqual({
       userId: w.ownerId,
-      name: "vlasnik@example.com",
+      name: menuKonobarSr.zaglavlje.nalogBezImena,
       isMe: false,
     });
     expect(await draftPrice(t, menu.pljeskavica.articleId)).toBe(450);
@@ -662,7 +664,8 @@ describe("K18 — a restore makes a draft and says so", () => {
       [2, true, null],
       [1, false, null],
     ]);
-    expect(listing.versions[0].publishedBy).toEqual({ userId: w.managerId, name: "menadzer@example.com" });
+    // K33 B6: the owner sees their own e-mail, but not the manager's (no display name: the neutral label).
+    expect(listing.versions[0].publishedBy).toEqual({ userId: w.managerId, name: menuKonobarSr.zaglavlje.nalogBezImena });
     expect(listing.versions[1].publishedBy).toEqual({ userId: w.ownerId, name: "vlasnik@example.com" });
     expect(listing.versions[0].summary).toMatchObject({ changedPrices: 1 });
     expect(await versionNumbers(t, id)).toEqual([1, 2]);
@@ -744,12 +747,14 @@ describe("K18 — a restore makes a draft and says so", () => {
 // =============================================================================
 
 describe("K18 — a restore on a stale revision", () => {
+  // K33 B6: the owner is told WHO edited, but never by e-mail: neither person has
+  // a display name here, so the neutral label stands in.
   test.each([
-    ["manager", "managerId", "menadzer@example.com"],
-    ["editor", "editorId", "urednik@example.com"],
+    ["manager", "managerId", menuKonobarSr.zaglavlje.nalogBezImena],
+    ["editor", "editorId", menuKonobarSr.zaglavlje.nalogBezImena],
   ] as const)(
     "an edit by the %s after the owner's preview makes the owner's restore stale and names them",
-    async (_label, who, email) => {
+    async (_label, who, shownName) => {
       const { t, w } = await setup();
       const id = w.a.menuServiceId;
       const menu = await twoVersions(t, w);
@@ -768,7 +773,7 @@ describe("K18 — a restore on a stale revision", () => {
         ok: false,
         reason: "stale_draft",
         revision: reviewed + 1,
-        lastEditBy: { userId: w[who], name: email },
+        lastEditBy: { userId: w[who], name: shownName },
       });
       if (result.ok) throw new Error("expected a refusal");
       expect(result.lastEditAt).toBe(statusBefore.lastEditAt);
@@ -779,7 +784,7 @@ describe("K18 — a restore on a stale revision", () => {
       expect(await draftPrice(t, menu.cevapi.articleId)).toBe(650);
       expect(await statusOf(t, w.ownerId, id)).toEqual(statusBefore);
       expect(statusBefore.restoredFromNumber).toBeNull();
-      expect(statusBefore.lastEditBy).toMatchObject({ userId: w[who], name: email, isMe: false });
+      expect(statusBefore.lastEditBy).toMatchObject({ userId: w[who], name: shownName, isMe: false });
       expect(await restoreAudits(t, id)).toEqual([]);
       expect(await versionNumbers(t, id)).toEqual([1, 2]);
       expect(await guestView(t)).toMatchObject({ versionNumber: guestBefore.versionNumber });

@@ -466,7 +466,9 @@ describe("K16 the Room service context in the izlog", () => {
     const redovi = redoviRs(html);
     const upozorenje = rsUpozorenje(mora(roomServicePodaci, "no data"));
     expect(upozorenje.naziv).toBe(SOPSKA);
-    const poruka = elementSaTragom(redovi[SOPSKA], "div", 'role="status"');
+    // K33 A18: the saving state of the price field in the same row is a status too (a <span role="status">),
+    // so the selector names the warning's <div role="status"> and nothing is loosened.
+    const poruka = elementSaTragom(redovi[SOPSKA], "div", '<div role="status"');
     // K16 critique: the warning also says what guests pay; the numbers do not break (no-break space).
     expect(bezTagova(poruka).replace(/ |&nbsp;|&#160;/g, " ")).toContain(
       fmt(rs.red.upozorenje, { stara: tekstCene(osnovna(SOPSKA)), nova: tekstCene(osnovna(SOPSKA) + 40), rs: tekstCene(520) }),

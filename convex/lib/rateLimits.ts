@@ -141,6 +141,17 @@ export const rateLimiter = new RateLimiter(components.rateLimiter, {
   // full hall behind one NAT and bounds what one address can write. Over it the
   // events are dropped silently (an undercount, never an error for the guest).
   menuAnalyticsIp: { kind: "token bucket", rate: 300, period: MINUTE, capacity: 300 },
+  // ScanMe Menu V1 (K33, security review B5, B8, B9). menuInquiryItem: the old
+  // public item inquiry (menuInquiryEmails.sendItemInquiry, no identity) sends
+  // the owner an e-mail; per menu item, 3 an hour, and menuInquiryBusiness per
+  // venue 20 an hour, so it can never become a mail bomb or burn the e-mail
+  // quota. menuAiSuggest: per Menu service, AI translation suggestions (a paid
+  // call), 30 an hour. menuStaffPinManual: per account, choosing a staff PIN by
+  // hand (its answer says whether a PIN is taken), 10 per 15 minutes.
+  menuInquiryItem: { kind: "token bucket", rate: 3, period: HOUR, capacity: 3 },
+  menuInquiryBusiness: { kind: "token bucket", rate: 20, period: HOUR, capacity: 20 },
+  menuAiSuggest: { kind: "token bucket", rate: 30, period: HOUR, capacity: 30 },
+  menuStaffPinManual: { kind: "token bucket", rate: 10, period: 15 * MINUTE, capacity: 10 },
   // TASK-66 (RFC-004 §2.9): the two GUEST ACTIONS. Deliberately keyed
   // differently from each other, and from the per-IP hop buckets above —
   // §2.9 rejects a per-IP action limit outright, because a whole hall sits

@@ -12,6 +12,7 @@ import { getMenuAccess, requireMenuAccessToRow } from "./lib/menuAccess";
 import { getMenuCapabilities } from "./lib/menuCapabilities";
 import { auditActorKind, loadDraftState, touchDraft, writeMenuAudit } from "./lib/menuDraft";
 import { loadDraft, type DraftDocs } from "./lib/menuDraftLoad";
+import { userNameForOthers } from "./lib/menuStaffAccess";
 import {
   applyRestore,
   restoreChanges,
@@ -166,10 +167,19 @@ async function wouldChangeLive(
   return live?.publicHash !== publicHash;
 }
 
-async function lastEditor(ctx: DatabaseCtx, userId: Id<"users"> | undefined) {
+/**
+ * How a person is named to the viewer. The viewer's own e-mail may stand in for
+ * a missing name; a colleague's (or a ScanMe admin's) never does (K33 B6): the
+ * name, else the neutral label.
+ */
+function nameSeenBy(user: Doc<"users"> | null, viewerId: Id<"users">): string | null {
+  if (!user) return null;
+  return user._id === viewerId ? (user.name ?? user.email ?? null) : userNameForOthers(user);
+}
+
+async function lastEditor(ctx: DatabaseCtx, userId: Id<"users"> | undefined, viewerId: Id<"users">) {
   if (!userId) return null;
-  const user = await ctx.db.get(userId);
-  return { userId, name: user?.name ?? user?.email ?? null };
+  return { userId, name: nameSeenBy(await ctx.db.get(userId), viewerId) };
 }
 
 // -----------------------------------------------------------------------------
@@ -188,7 +198,7 @@ export const draftStatus = query({
     const { menuService } = access;
     const state = await loadDraftState(ctx, menuService._id);
     const live = menuService.liveVersionId ? await ctx.db.get(menuService.liveVersionId) : null;
-    const editor = await lastEditor(ctx, state.lastEditByUserId);
+    const editor = await lastEditor(ctx, state.lastEditByUserId, access.user._id);
     const publishState = publishStateOf(menuService, state);
     return {
       state: publishState,
@@ -305,7 +315,7 @@ export async function executePublish(
       reason: "stale_draft" as const,
       revision: state.revision,
       lastEditAt: state.lastEditAt,
-      lastEditBy: await lastEditor(ctx, state.lastEditByUserId),
+      lastEditBy: await lastEditor(ctx, state.lastEditByUserId, userId),
     };
   }
   const prep = await prepare(ctx, menuService);
@@ -494,7 +504,7 @@ export const listVersions = query({
     for (const row of versions) {
       if (names.has(row.publishedByUserId)) continue;
       const user = await ctx.db.get(row.publishedByUserId);
-      names.set(row.publishedByUserId, user?.name ?? user?.email ?? null);
+      names.set(row.publishedByUserId, nameSeenBy(user, access.user._id));
     }
     return {
       liveVersionNumber: menuService.liveVersionNumber ?? null,
@@ -557,7 +567,7 @@ export const restoreVersion = mutation({
         reason: "stale_draft" as const,
         revision: state.revision,
         lastEditAt: state.lastEditAt,
-        lastEditBy: await lastEditor(ctx, state.lastEditByUserId),
+        lastEditBy: await lastEditor(ctx, state.lastEditByUserId, access.user._id),
       };
     }
     const version = await ctx.db

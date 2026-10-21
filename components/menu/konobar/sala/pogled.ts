@@ -12,7 +12,7 @@
 
 import { fmt, srPluralCategory } from "@/lib/i18n/format";
 import { menuKonobarSr } from "@/lib/i18n/sr/menu-konobar";
-import { clockTime, elapsedSeconds } from "@/lib/menu/elapsed-time";
+import { clockTime, elapsedSeconds, isLate } from "@/lib/menu/elapsed-time";
 import { compareLabels } from "@/lib/menu/floor-layout";
 import type { LokalPozicija, LokalZona } from "@/lib/menu/lokal/model";
 import { occupancyView, type OccupancyView } from "@/lib/menu/occupancy";
@@ -200,4 +200,16 @@ export function opisMestaSale(mesto: SalaMesto, sadaMs: number): string {
   if (delovi.length === 0) delovi.push(t.sala.neutralnoCitac);
   if (mesto.occupancy !== "neutral") delovi.push(`${t.sto.status}: ${t.zauzetost[mesto.occupancy]}`);
   return fmt(t.sala.mestoCitac, { mesto: ime, stanje: delovi.join("; ") });
+}
+
+/**
+ * K33: what a floor row draws from the clock apart from its ticking digits (those are leaves of their
+ * own): the sentence a screen reader hears and which states are late. Two instants with the same
+ * potpis draw the same row, so a memoised row is redrawn only when this changes.
+ */
+export function potpisVremena(mesto: SalaMesto, sadaMs: number, prag: number): string {
+  const kasni = activeKinds(mesto.summary)
+    .map((vrsta) => (isLate(mesto.summary.kinds[vrsta]?.oldestAt ?? sadaMs, sadaMs, prag) ? "1" : "0"))
+    .join("");
+  return `${opisMestaSale(mesto, sadaMs)}|${kasni}`;
 }

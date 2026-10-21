@@ -12,7 +12,7 @@
 
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { fmt } from "@/lib/i18n/format";
 import { menuDomenSr } from "@/lib/i18n/sr/menu-domen";
 import { menuGostSr } from "@/lib/i18n/sr/menu-gost";
@@ -56,7 +56,19 @@ function Zahtev({
   const [radi, setRadi] = useState(false);
   const [greska, setGreska] = useState<string | null>(null);
   const [otkazano, setOtkazano] = useState(false);
+  // The question replaces "Otkaži": focus moves to the question when it opens and back to "Otkaži" on "Ne".
+  const pitanjeRef = useRef<HTMLParagraphElement>(null);
+  const otkaziRef = useRef<HTMLButtonElement>(null);
+  const vratiFokus = useRef(false);
   const Ikonica = IKONICA_VRSTE[zahtev.kind];
+
+  useEffect(() => {
+    if (pitanje) pitanjeRef.current?.focus();
+    else if (vratiFokus.current) {
+      vratiFokus.current = false;
+      otkaziRef.current?.focus();
+    }
+  }, [pitanje]);
 
   const otkazi = async () => {
     setRadi(true);
@@ -129,10 +141,19 @@ function Zahtev({
       {zahtev.status === "new" ? (
         pitanje ? (
           <div className={styles.prazno} role="group" aria-label={t.zahtevi.otkaziPitanje}>
-            <p className={styles.linijaNaziv}>{t.zahtevi.otkaziPitanje}</p>
+            <p ref={pitanjeRef} tabIndex={-1} className={styles.linijaNaziv}>
+              {t.zahtevi.otkaziPitanje}
+            </p>
             <p className={styles.sitno}>{t.zahtevi.otkaziOpis}</p>
             <div className={styles.dvaDugmeta}>
-              <button type="button" className={styles.dugmeSporedno} onClick={() => setPitanje(false)}>
+              <button
+                type="button"
+                className={styles.dugmeSporedno}
+                onClick={() => {
+                  vratiFokus.current = true;
+                  setPitanje(false);
+                }}
+              >
                 {t.zahtevi.otkaziNe}
               </button>
               <button
@@ -149,7 +170,14 @@ function Zahtev({
           </div>
         ) : (
           <div>
-            <button type="button" className={styles.dugmeSporedno} disabled={!online} onClick={() => setPitanje(true)} data-otkazi="">
+            <button
+              ref={otkaziRef}
+              type="button"
+              className={styles.dugmeSporedno}
+              disabled={!online}
+              onClick={() => setPitanje(true)}
+              data-otkazi=""
+            >
               {t.zahtevi.otkazi}
             </button>
           </div>

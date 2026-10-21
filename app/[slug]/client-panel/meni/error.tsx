@@ -12,6 +12,8 @@ import { menuPanelSr } from "@/lib/i18n/sr/menu-panel";
 export default function MenuPanelSekcijaGreska({ unstable_retry }: { error: Error & { digest?: string }; unstable_retry: () => void }) {
   return (
     <Kartica>
+      {/* K33: the section's own h1 is gone with it; the screen keeps exactly one. */}
+      <h1 className="sr-only">{menuPanelSr.stanja.greskaNaslov}</h1>
       <GreskaStanje naslov={menuPanelSr.stanja.greskaNaslov} onPonovo={unstable_retry} />
     </Kartica>
   );

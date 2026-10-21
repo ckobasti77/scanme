@@ -19,7 +19,7 @@ import { DATUM_OZNAKE } from "./tekst";
 const t = menuKonobarSr.rezervacije.predlog;
 
 const POLJE =
-  "min-h-12 w-full rounded-[var(--mp-radius-kontrola)] border bg-[var(--mp-povrsina)] px-3 text-base text-[var(--mp-tekst)] [--border:var(--mp-ivica-kontrole)] disabled:opacity-60";
+  "min-h-12 w-full rounded-[var(--mp-radius-kontrola)] border bg-[var(--mp-povrsina)] px-3 text-base text-[var(--mp-tekst)] [--border:var(--mp-ivica-kontrole)] disabled:bg-[var(--mp-povrsina-utisana)] disabled:text-[var(--mp-tekst-sporedni)]";
 
 export function PredlogIzmene({
   zahtevaniTermin,
@@ -117,7 +117,7 @@ export function PredlogIzmene({
           rows={3}
           placeholder={t.porukaPrimer}
           disabled={radi}
-          className="min-h-24 w-full resize-y rounded-[var(--mp-radius-kontrola)] border bg-[var(--mp-povrsina)] px-3 py-2.5 text-base text-[var(--mp-tekst)] [--border:var(--mp-ivica-kontrole)] placeholder:text-[var(--mp-tekst-sporedni)] disabled:opacity-60"
+          className="min-h-24 w-full resize-y rounded-[var(--mp-radius-kontrola)] border bg-[var(--mp-povrsina)] px-3 py-2.5 text-base text-[var(--mp-tekst)] [--border:var(--mp-ivica-kontrole)] placeholder:text-[var(--mp-tekst-sporedni)] disabled:bg-[var(--mp-povrsina-utisana)] disabled:text-[var(--mp-tekst-sporedni)]"
         />
       </div>
       <div className="grid grid-cols-2 gap-3">

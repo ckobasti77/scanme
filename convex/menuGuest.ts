@@ -12,6 +12,7 @@ import { normalizeCode } from "./lib/codes";
 import { activeMenuServiceForBusiness } from "./lib/menuAccess";
 import { zabeleziDogadjaj } from "./lib/menuAnalytics";
 import { menuRequestChannelValidator, menuPaymentPreferenceValidator } from "./lib/menuDomainValidators";
+import { menuIpKey } from "./lib/menuGateway";
 import { guestActionsOf, loadMenuGuest, type MenuGuest } from "./lib/menuGuestAccess";
 import { resolveMenuCardLink } from "./lib/menuQrResolve";
 import { applyRequestAction } from "./lib/menuRequests";
@@ -87,7 +88,6 @@ const SESSION_RETENTION_MS = 24 * 60 * 60 * 1000;
 const SESSION_SWEEP_BATCH = 200;
 /** Sessions of one device in one venue read when reusing or ending them. */
 const DEVICE_SESSIONS_READ = 20;
-const IP_HASH_PATTERN = /^[0-9a-f]{16,64}$/;
 
 export type MenuGuestHopOutcome =
   | { kind: "invalid" }
@@ -124,14 +124,18 @@ export const mintFromCard = mutation({
   args: {
     cardCode: v.string(),
     // A salted hash of the caller IP computed by the handler, a rate-limit key
-    // only (the cards.resolveAndRecord contract); absent → one shared bucket.
+    // only (the cards.resolveAndRecord contract); absent or untrusted → one
+    // shared bucket (K33: convex/lib/menuGateway.ts).
     ipHash: v.optional(v.string()),
+    // K33: MENU_GATEWAY_SECRET of the Next handler; with it set on the
+    // deployment, the ipHash counts only together with it.
+    gateway: v.optional(v.string()),
     // The raw device token from the HttpOnly cookie smm_d (Path=/r), already
     // verified by the handler; anything malformed starts a new device.
     deviceToken: v.optional(v.string()),
   },
   handler: async (ctx, args): Promise<MenuGuestHopOutcome> => {
-    const ipKey = args.ipHash && IP_HASH_PATTERN.test(args.ipHash) ? args.ipHash : "shared";
+    const ipKey = menuIpKey(args.ipHash, args.gateway);
     const allowed = await rateLimiter.limit(ctx, "menuGuestHop", { key: ipKey });
     if (!allowed.ok) return { kind: "rate_limited" };
 
@@ -333,10 +337,8 @@ export type GuestRequestOutcome =
 
 const refused = (code: RequestErrorCode): { ok: false; code: RequestErrorCode } => ({ ok: false, code });
 
-const ipKeyOf = (ipHash: string | undefined) => (ipHash && IP_HASH_PATTERN.test(ipHash) ? ipHash : "shared");
-
-async function ipAllowed(ctx: MutationCtx, ipHash: string | undefined): Promise<boolean> {
-  return (await rateLimiter.limit(ctx, "menuGuestActionIp", { key: ipKeyOf(ipHash) })).ok;
+async function ipAllowed(ctx: MutationCtx, ipHash: string | undefined, gateway: string | undefined): Promise<boolean> {
+  return (await rateLimiter.limit(ctx, "menuGuestActionIp", { key: menuIpKey(ipHash, gateway) })).ok;
 }
 
 /** The open (new or accepted) request of this kind at the position, if any. */
@@ -418,14 +420,14 @@ async function insertRequest(
 /** Call the waiter or ask for the bill: one open request of each kind per position (K19-7). */
 async function tableRequest(
   ctx: MutationCtx,
-  args: { slug: string; guestToken: string; ipHash?: string },
+  args: { slug: string; guestToken: string; ipHash?: string; gateway?: string },
   kind: "call" | "bill",
   payment: MenuPaymentPreference | null,
 ): Promise<GuestRequestOutcome> {
   const now = Date.now();
   const guest = await loadMenuGuest(ctx, args, now);
   if (!guest) return refused(REQUEST_ERROR.noSession);
-  if (!(await ipAllowed(ctx, args.ipHash))) return refused(REQUEST_ERROR.rateLimited);
+  if (!(await ipAllowed(ctx, args.ipHash, args.gateway))) return refused(REQUEST_ERROR.rateLimited);
   const { served, actions } = await guestActionsOf(ctx, guest);
   if (!served) return refused(REQUEST_ERROR.menuUnavailable);
   if (!(kind === "call" ? actions.call : actions.bill)) return refused(REQUEST_ERROR.actionOff);
@@ -469,7 +471,8 @@ async function tableRequest(
   return { ok: true, requestId, status: "new", createdAt: now, deduped: false, totals: null, paymentPreference: payment };
 }
 
-const guestArgs = { slug: v.string(), guestToken: v.string(), ipHash: v.optional(v.string()) };
+// K33: `gateway` is MENU_GATEWAY_SECRET of the Next handler (convex/lib/menuGateway.ts).
+const guestArgs = { slug: v.string(), guestToken: v.string(), ipHash: v.optional(v.string()), gateway: v.optional(v.string()) };
 
 /** `Pozovi konobara` (master §8.1). Tables and other spots only, never a room (K19-5). */
 export const callWaiter = mutation({
@@ -576,7 +579,7 @@ export const submitOrder = mutation({
         };
       }
     }
-    if (!(await ipAllowed(ctx, args.ipHash))) return refused(REQUEST_ERROR.rateLimited);
+    if (!(await ipAllowed(ctx, args.ipHash, args.gateway))) return refused(REQUEST_ERROR.rateLimited);
     const { served, actions } = await guestActionsOf(ctx, guest);
     if (!served) return refused(REQUEST_ERROR.menuUnavailable);
     if (!(args.channel === "room_service" ? actions.roomService : actions.order)) {
@@ -672,10 +675,17 @@ export const submitOrder = mutation({
  * `request/not_found`.
  */
 export const cancelRequest = mutation({
-  args: { slug: v.string(), deviceToken: v.string(), requestId: v.string(), ipHash: v.optional(v.string()) },
+  args: {
+    slug: v.string(),
+    deviceToken: v.string(),
+    requestId: v.string(),
+    ipHash: v.optional(v.string()),
+    // K33: MENU_GATEWAY_SECRET of the Next handler (convex/lib/menuGateway.ts).
+    gateway: v.optional(v.string()),
+  },
   handler: async (ctx, args): Promise<{ ok: true; status: MenuRequestStatus } | { ok: false; code: RequestErrorCode }> => {
     if (!isMenuToken(args.deviceToken)) return refused(REQUEST_ERROR.noSession);
-    if (!(await ipAllowed(ctx, args.ipHash))) return refused(REQUEST_ERROR.rateLimited);
+    if (!(await ipAllowed(ctx, args.ipHash, args.gateway))) return refused(REQUEST_ERROR.rateLimited);
     const business = await activeBusinessBySlug(ctx, args.slug);
     const menuService = business ? await activeMenuServiceForBusiness(ctx, business._id) : null;
     const requestId = ctx.db.normalizeId("menuRequests", args.requestId);

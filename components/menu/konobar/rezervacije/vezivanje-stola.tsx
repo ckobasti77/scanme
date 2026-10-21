@@ -79,13 +79,14 @@ export function VezivanjeStola({
                       data-izbor-sto={mesto.id}
                       onClick={() => onIzaberi(mesto.id)}
                       className={cn(
-                        "grid min-h-12 w-full content-center gap-0.5 rounded-[var(--mp-radius-kontrola)] border px-3 py-2 text-left disabled:cursor-not-allowed disabled:opacity-50",
+                        // Disabled is a muted surface with secondary text (readable), not an opacity fade; the current table keeps its ink.
+                        "grid min-h-12 w-full content-center gap-0.5 rounded-[var(--mp-radius-kontrola)] border px-3 py-2 text-left text-[var(--mp-tekst)] disabled:cursor-not-allowed",
                         trenutno
                           ? "bg-[var(--mp-akcent-meko)] [--border:var(--mp-mastilo)]"
-                          : "bg-[var(--mp-povrsina)] [--border:var(--mp-ivica-kontrole)] hover:bg-[var(--mp-povrsina-utisana)]",
+                          : "bg-[var(--mp-povrsina)] [--border:var(--mp-ivica-kontrole)] hover:bg-[var(--mp-povrsina-utisana)] disabled:bg-[var(--mp-povrsina-utisana)] disabled:text-[var(--mp-tekst-sporedni)] disabled:[--border:var(--mp-ivica)]",
                       )}
                     >
-                      <span className="inline-flex items-center gap-1.5 break-words text-base font-bold text-[var(--mp-tekst)]">
+                      <span className="inline-flex items-center gap-1.5 break-words text-base font-bold">
                         {mesto.label}
                         {trenutno ? <Check aria-hidden="true" strokeWidth={2.5} className="size-4 shrink-0" /> : null}
                       </span>

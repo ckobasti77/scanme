@@ -857,7 +857,7 @@ describe("[skenovi] scans", () => {
   test("[skenovi] a day that spans several pages of services is moved once, page by page", async () => {
     const { t, w, cardA } = await scanWorld();
     const a = w.a.menuServiceId;
-    // Seven services (A, B and five more): five per transaction means two pages.
+    // Seven services (A, B and five more): one per transaction (K33: SKENOVI_USLUGA_PO_SERIJI) means seven pages.
     const extras = await t.run(async (ctx) => {
       const created: MenuTenantSeed[] = [];
       for (let index = 1; index <= 5; index += 1) {

@@ -21,6 +21,7 @@ import {
   type ReservationCancelResult,
   type ReservationSendResult,
 } from "@/lib/menu/http/reservation";
+import { menuGatewayArg } from "@/lib/menu/http/gateway";
 
 async function deps(): Promise<ReservationActionDeps> {
   const jar = await cookies();
@@ -35,9 +36,9 @@ async function deps(): Promise<ReservationActionDeps> {
     onError: (error) =>
       console.error("MENU_RESERVATION_ACTION_FAILED", error instanceof Error ? error.name : typeof error),
     convex: {
-      submit: (args) => fetchMutation(api.menuReservations.submit, args),
-      cancelByToken: (args) => fetchMutation(api.menuReservations.cancelByToken, args),
-      cancelByDevice: (args) => fetchMutation(api.menuReservations.cancelByDevice, args),
+      submit: (args) => fetchMutation(api.menuReservations.submit, { ...args, ...menuGatewayArg() }),
+      cancelByToken: (args) => fetchMutation(api.menuReservations.cancelByToken, { ...args, ...menuGatewayArg() }),
+      cancelByDevice: (args) => fetchMutation(api.menuReservations.cancelByDevice, { ...args, ...menuGatewayArg() }),
     },
   };
 }

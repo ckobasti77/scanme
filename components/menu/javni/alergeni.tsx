@@ -191,8 +191,8 @@ export function AlergeniTraka({
   if (delovi.length === 1) delovi.push(t.alergeni.bezUpozorenja);
   return (
     <div className={styles.alergeniTraka} data-alergeni-traka="">
-      <p className={styles.alergeniSazetak} aria-live="polite">
-        {delovi.join(" · ")}
+      <p className={styles.alergeniSazetak}>
+        <span aria-live="polite">{delovi.join(" · ")}</span>
         <button type="button" className={styles.sadrzajDugme} onClick={onPromeni} aria-haspopup="dialog">
           {t.alergeni.promeni}
         </button>

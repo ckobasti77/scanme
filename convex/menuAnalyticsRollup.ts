@@ -39,10 +39,20 @@ import { addDays } from "../lib/menu/working-hours";
 export const ZBIR_SERIJA = 500;
 export const ZBIR_ZASTITA_MS = 2 * 60 * 1000;
 export const MAX_NASTAVAKA = 20;
-export const SKENOVI_USLUGA_PO_SERIJI = 5;
-export const SKENOVI_MAX_NASTAVAKA = 250;
+// K33: the cost of one service grows with its cards (up to MENU_MAX_QR_CARDS = 500, three
+// to five index reads each), so one transaction takes ONE service; with five, a few big
+// venues on the same page would exceed the 4,096 query ranges, the cursor would not
+// move, and every later service would wait behind that page forever. The continuation
+// bound keeps the old reach of one run (5 services x 250 continuations = 1,250).
+export const SKENOVI_USLUGA_PO_SERIJI = 1;
+export const SKENOVI_MAX_NASTAVAKA = 1250;
 export const SKENOVI_PRVI_PRENOS_DANA = 30;
 export const RETENCIJA_SERIJA = 500;
+// K33: `zbir` sums up to ZBIR_SERIJA x (MAX_NASTAVAKA + 1) events per run and runs every
+// 15 minutes, so retention (hourly) must be able to delete four times that, or the raw
+// table grows whenever the intake stays above its own deletion capacity. The batch size
+// stays; only the chain is longer: 4 x (MAX_NASTAVAKA + 1) transactions = 1 + this many.
+export const RETENCIJA_MAX_NASTAVAKA = 4 * MAX_NASTAVAKA + 3;
 
 type KljucKursora = Doc<"menuAnalyticsCursors">["kljuc"];
 
@@ -264,7 +274,7 @@ export const retencija = internalMutation({
 
     const pun = [sirovi, sesije, dnevni, raspodele].some((rows) => rows.length === RETENCIJA_SERIJA);
     const nastavak = args.nastavak ?? 0;
-    if (pun && nastavak < MAX_NASTAVAKA) {
+    if (pun && nastavak < RETENCIJA_MAX_NASTAVAKA) {
       await ctx.scheduler.runAfter(0, internal.menuAnalyticsRollup.retencija, { nastavak: nastavak + 1 });
     }
     return { sirovi: sirovi.length, sesije: sesije.length, dnevni: dnevni.length, raspodele: raspodele.length };

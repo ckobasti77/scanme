@@ -153,6 +153,15 @@ export function StudioZaglavlje({
     </Dugme>
   );
 
+  // K33: always in the page, empty while the connection is there. A live region that is added together
+  // with its text is often skipped by screen readers; text written into one that was already there is
+  // read. It says what the bar below says (the bar itself appears only when the connection is gone).
+  const vezaNajava = (
+    <div role="status" aria-live="polite" data-veza-najava="" className="sr-only">
+      {povezano ? null : `${z.stanja.offlineNaslov}. ${z.stanja.offlineBezVremena}`}
+    </div>
+  );
+
   if (sirina === "telefon") {
     const Ikonica = cuvanje.stanje === "cuva-se" ? LoaderCircle : cuvanje.stanje === "greska" ? TriangleAlert : CircleCheck;
     return (
@@ -201,6 +210,7 @@ export function StudioZaglavlje({
             <PrisustvoZaglavlje osobe={prisutni} />
           </div>
         ) : null}
+        {vezaNajava}
         {!povezano ? <OfflineTraka /> : null}
       </div>
     );
@@ -247,6 +257,7 @@ export function StudioZaglavlje({
         {nacrtIz}
         <PrisustvoZaglavlje osobe={prisutni} className="ml-auto" />
       </div>
+      {vezaNajava}
       {!povezano ? <OfflineTraka /> : null}
     </div>
   );

@@ -282,7 +282,7 @@ export const menuStudioSr = {
     rucica: "Premesti {naziv}",
     rucicaSekcija: "Premesti sekciju {naziv}",
     uputstvo:
-      "Artikal premeštate prevlačenjem kartice mišem, ili pritiskom i zadržavanjem prstom pa pomeranjem. Tastaturom: dugme Premesti uz artikal.",
+      "Artikal premeštate prevlačenjem kartice mišem, ili pritiskom i zadržavanjem prstom pa pomeranjem. Tastaturom: meni Radnje uz artikal, stavka Premesti.",
     podignuto: "Podignuto: {naziv}.",
     kodArtikla: "{naziv} je kod artikla {cilj}, u sekciji {sekcija}.",
     naKrajSekcije: "{naziv} ide na kraj sekcije {sekcija}.",

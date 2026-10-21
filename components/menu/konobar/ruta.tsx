@@ -54,6 +54,8 @@ export function KonobarRuta({ slug, panelCode, lokal, pinDostupan, pocetniToken,
   const [rezervacijaId, setRezervacijaId] = useState<string | null>(null);
   const [odjavljuje, setOdjavljuje] = useState(false);
   const [bioPrijavljen, setBioPrijavljen] = useState(pocetniToken !== null);
+  // K33: the sign-in happened on this page (PIN or account): the panel puts the focus on the queue's heading once.
+  const [upravoPrijavljen, setUpravoPrijavljen] = useState(false);
   // The reservations' time window moves once an hour (the query never reads the clock).
   const [okvirMs, setOkvirMs] = useState(() => okvirOd(pocetnoMs));
   useEffect(() => {
@@ -147,6 +149,7 @@ export function KonobarRuta({ slug, panelCode, lokal, pinDostupan, pocetniToken,
       setRezervacijaId(null);
       setToken(telo.sessionToken);
       setBioPrijavljen(true);
+      setUpravoPrijavljen(true);
       return { ok: true };
     }
     switch (telo.code) {
@@ -172,6 +175,7 @@ export function KonobarRuta({ slug, panelCode, lokal, pinDostupan, pocetniToken,
     if (ishod.ok) {
       setToken(null);
       setNalogom(true);
+      setUpravoPrijavljen(true);
     }
   }
 
@@ -296,6 +300,7 @@ export function KonobarRuta({ slug, panelCode, lokal, pinDostupan, pocetniToken,
       izabranaRezervacijaId={rezervacijaId}
       onIzaberiRezervaciju={setRezervacijaId}
       detaljRezervacije={detaljRezervacije}
+      fokusNaRed={upravoPrijavljen}
       odgovorGostu={(id, d) => (
         <ObavestiGostaRuta
           key={id}

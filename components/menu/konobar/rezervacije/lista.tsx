@@ -32,8 +32,8 @@ export function KarticeRezervacija({ redovi, ...ostalo }: KarticeRezervacijaProp
             sadaMs={ostalo.sadaMs}
             holdMin={ostalo.holdMin}
             radi={ostalo.radiId === red.id}
-            onOtvori={() => ostalo.onOtvori(red.id)}
-            onStigli={() => ostalo.onStigli(red)}
+            onOtvori={ostalo.onOtvori}
+            onStigli={ostalo.onStigli}
             radnjeIskljucene={ostalo.radnjeIskljucene}
           />
         </li>

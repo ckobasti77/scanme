@@ -39,6 +39,7 @@ type Env = {
   readonly MENU_AI_TRANSLATE_MODEL: string | undefined;
   readonly MENU_FX_ENABLED: string | undefined;
   readonly MENU_FX_URL: string | undefined;
+  readonly MENU_GATEWAY_SECRET: string | undefined;
   readonly MENU_MAIL_ENABLED: string | undefined;
   readonly MENU_MAIL_GOOGLE_CLIENT_ID: string | undefined;
   readonly MENU_MAIL_GOOGLE_CLIENT_SECRET: string | undefined;

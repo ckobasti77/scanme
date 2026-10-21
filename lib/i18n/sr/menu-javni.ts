@@ -70,6 +70,9 @@ export const menuJavniSr = {
     sadrzajNaslov: "Sadržaj menija",
     novaVerzija: "Meni je osvežen.",
     prikaziNovu: "Prikaži novu verziju",
+    greskaNaslov: "Meni trenutno ne može da se učita",
+    greskaOpis: "Proverite vezu sa internetom i pokušajte ponovo. Ako se ponavlja, pitajte osoblje za ponudu.",
+    pokusajPonovo: "Pokušaj ponovo",
   },
   podnozje: {
     pokrece: "Meni pokreće ScanMe",

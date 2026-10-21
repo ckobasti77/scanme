@@ -73,7 +73,7 @@ export function Prekidac({
       </span>
       <span className="grid min-w-0 gap-0.5 pt-0.5">
         <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <span className="font-medium leading-snug text-[var(--mp-tekst)] group-has-[:disabled]:opacity-55">{naziv}</span>
+          <span className="font-medium leading-snug text-[var(--mp-tekst)] group-has-[:disabled]:text-[var(--mp-tekst-sporedni)]">{naziv}</span>
           {oznaka}
         </span>
         {opis ? (
@@ -109,9 +109,9 @@ export function PoljePotvrde({
     <div data-polje-potvrde="" className={cn("grid gap-1", className)}>
       <label
         htmlFor={inputId}
-        className="flex min-h-[var(--mp-meta)] cursor-pointer items-start gap-3 py-2 has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-55"
+        className="group flex min-h-[var(--mp-meta)] cursor-pointer items-start gap-3 py-2 has-[:disabled]:cursor-not-allowed"
       >
-        <span className="relative mt-0.5 inline-flex size-6 shrink-0">
+        <span className="relative mt-0.5 inline-flex size-6 shrink-0 group-has-[:disabled]:opacity-55">
           <input
             id={inputId}
             type="checkbox"
@@ -136,7 +136,7 @@ export function PoljePotvrde({
           />
         </span>
         <span className="grid min-w-0 gap-0.5 pt-0.5">
-          <span className="font-medium leading-snug text-[var(--mp-tekst)]">{naziv}</span>
+          <span className="font-medium leading-snug text-[var(--mp-tekst)] group-has-[:disabled]:text-[var(--mp-tekst-sporedni)]">{naziv}</span>
           {opis ? (
             <span id={opisId} className="text-sm leading-relaxed text-[var(--mp-tekst-sporedni)]">
               {opis}

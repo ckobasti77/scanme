@@ -2,6 +2,7 @@ import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
 import { resolverIpHash } from "@/lib/card-resolver-http";
 import { handleGuestHop } from "@/lib/menu/http/guest-hop";
+import { menuGatewayArg } from "@/lib/menu/http/gateway";
 
 // ScanMe Menu V1 (K20) — the card-aware Menu hop: GET /r/[cardCode]/meni →
 // open the guest session of the card's table or room → Set-Cookie → 302 to the
@@ -21,7 +22,7 @@ export async function GET(request: Request, { params }: RouteContext<"/r/[cardCo
   }
   const convex = new ConvexHttpClient(convexUrl);
   return await handleGuestHop(request, cardCode, {
-    mint: (input) => convex.mutation(api.menuGuest.mintFromCard, input),
+    mint: (input) => convex.mutation(api.menuGuest.mintFromCard, { ...input, ...menuGatewayArg() }),
     secret: process.env.SCANME_GUEST_SECRET || null,
     ipHash: resolverIpHash(request),
     onMissingSecret: () => {

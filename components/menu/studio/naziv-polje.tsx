@@ -7,6 +7,7 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { cleanText } from "@/lib/menu/text";
 import { cn } from "@/lib/utils";
+import { useVracanjeFokusa } from "../lokal/zajednicko";
 import { Dugme } from "../zajednicko/dugme";
 
 export function NazivPolje({
@@ -19,6 +20,7 @@ export function NazivPolje({
   greskaPrazno,
   greskaDugo,
   radi = false,
+  vratiFokusNa,
   onSacuvaj,
   onOtkazi,
   className,
@@ -32,6 +34,12 @@ export function NazivPolje({
   greskaPrazno: string;
   greskaDugo: string;
   radi?: boolean;
+  /**
+   * K33: id of the element that gets focus when the field is gone (Enter, Escape, Cancel). The
+   * button that opened the field is replaced by it, so the element in view when it opened no
+   * longer exists; the focus would fall to the page.
+   */
+  vratiFokusNa?: string;
   onSacuvaj: (naziv: string) => void;
   onOtkazi: () => void;
   className?: string;
@@ -40,6 +48,7 @@ export function NazivPolje({
   const [naziv, setNaziv] = useState(pocetno);
   const [greska, setGreska] = useState<string | null>(null);
   const ref = useRef<HTMLInputElement>(null);
+  useVracanjeFokusa(vratiFokusNa);
   useEffect(() => {
     ref.current?.focus();
     ref.current?.select();
@@ -74,6 +83,8 @@ export function NazivPolje({
         autoComplete="off"
         value={naziv}
         placeholder={primer}
+        // K33: an empty name is always refused, so the field says it is required up front.
+        aria-required="true"
         aria-invalid={greska ? true : undefined}
         aria-describedby={greska ? `${id}-greska` : undefined}
         onChange={(event) => setNaziv(event.target.value)}

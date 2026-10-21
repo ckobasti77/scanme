@@ -3,6 +3,7 @@
 import { ConvexError, v } from "convex/values";
 import { internal } from "./_generated/api";
 import { action, env } from "./_generated/server";
+import { rateLimiter } from "./lib/rateLimits";
 
 function escapeHtml(value: string) {
   return value.replace(/[&<>"']/g, (character) => {
@@ -40,6 +41,16 @@ export const sendItemInquiry = action({
       "office@scanme.rs";
     if (!apiKey.startsWith("re_") || !from) {
       throw new ConvexError("Slanje upita nije podešeno.");
+    }
+
+    // K33 B5: the action is public and has no identity, so it is throttled per
+    // item and per venue before anything is sent (the UI shows any thrown error
+    // as a failed send). The idempotency key below stays: it is the Resend key.
+    if (!(await rateLimiter.limit(ctx, "menuInquiryItem", { key: args.itemId })).ok) {
+      throw new ConvexError("rate_limited");
+    }
+    if (!(await rateLimiter.limit(ctx, "menuInquiryBusiness", { key: data.businessId })).ok) {
+      throw new ConvexError("rate_limited");
     }
 
     const response = await fetch("https://api.resend.com/emails", {

@@ -104,6 +104,8 @@ export function KonobarIzlog({ params }: { params: KonobarPreviewParams }) {
   const pin = pocetniPin(params.stanje);
   const nalogom = params.uloga === "menadzer";
   const [prijavljen, setPrijavljen] = useState(params.ekran !== "pin" && params.stanje !== "bez-peppera");
+  // K33: signed in on the PIN screen of this page (PIN or account): the panel puts the focus on the queue's heading once.
+  const [poPrijavi, setPoPrijavi] = useState(false);
   const [korisnik, setKorisnik] = useState<KonobarKorisnik>(fx.korisnik);
   const [zahtevi, setZahtevi] = useState<KonobarZahtev[]>(fx.zahtevi);
   const [detalji, setDetalji] = useState<Record<string, KonobarDetalj>>(fx.detalji);
@@ -301,6 +303,7 @@ export function KonobarIzlog({ params }: { params: KonobarPreviewParams }) {
     setBrojac(registerSuccess(brojac, sada));
     setKorisnik(fixtureKonobar({ uloga: "osoblje" }).korisnik);
     setPrijavljen(true);
+    setPoPrijavi(true);
     return { ok: true };
   }
 
@@ -314,6 +317,7 @@ export function KonobarIzlog({ params }: { params: KonobarPreviewParams }) {
         onNalog={() => {
           setKorisnik({ kind: "account", displayName: KONOBAR_IZLOG_MENADZER, expiresAt: null });
           setPrijavljen(true);
+          setPoPrijavi(true);
         }}
         pocetnoMs={IZLOG_SADA}
         izlogOd={IZLOG_SADA}
@@ -393,6 +397,7 @@ export function KonobarIzlog({ params }: { params: KonobarPreviewParams }) {
         />
       )}
       pocetniFilterReda={params.ekran === "rezervacije" ? "rezervacije" : undefined}
+      fokusNaRed={poPrijavi}
     />
   );
 }

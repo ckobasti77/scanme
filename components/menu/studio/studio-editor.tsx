@@ -26,7 +26,7 @@
 // heartbeat, the izlog shows invented colleagues.
 
 import { ChevronDown } from "lucide-react";
-import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useDeferredValue, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { fmt } from "@/lib/i18n/format";
 import { menuDomenSr } from "@/lib/i18n/sr/menu-domen";
 import { menuStudioSr } from "@/lib/i18n/sr/menu-studio";
@@ -36,6 +36,7 @@ import { javniIzgled } from "@/lib/menu/identity/public-tokens";
 import { MENU_DEFAULT_PRESENTATION } from "@/lib/menu/presentation";
 import { izgledSaCekanjem } from "@/lib/menu/studio/izgled-red";
 import { kljucCene } from "@/lib/menu/studio/autosave-queue";
+import { zadrziSadrzaj } from "@/lib/menu/studio/deljenje-redova";
 import { javniPregled } from "@/lib/menu/studio/javni-pregled";
 import type {
   StudioEntitetPrisustva,
@@ -200,16 +201,30 @@ export function StudioEditor({
     stranice?.find((s) => s.podrazumevana && !s.arhivirana)?.id ??
     stranice?.find((s) => !s.arhivirana)?.id ??
     null;
+  // K33 (audit C6): every answer of the server brings new objects for every row. A row whose
+  // data is the same keeps the object it had, so the `memo` of a row skips it and one saved
+  // price redraws one row, not the whole page (lib/menu/studio/deljenje-redova.ts).
+  const [deljeno, setDeljeno] = useState({ izvor: podaci.sadrzaj, sadrzaj: podaci.sadrzaj });
+  const novoSaServera = deljeno.izvor !== podaci.sadrzaj;
+  const sadrzajServera = !novoSaServera
+    ? deljeno.sadrzaj
+    : podaci.sadrzaj
+      ? zadrziSadrzaj(deljeno.sadrzaj, podaci.sadrzaj)
+      : podaci.sadrzaj;
+  if (novoSaServera) setDeljeno({ izvor: podaci.sadrzaj, sadrzaj: sadrzajServera });
   // A new map only when the queue changed (lib/menu/studio/autosave-queue.ts).
   const naCekanju = red.naCekanju();
   const sadrzaj = useMemo<StudioRadniSadrzaj | null | undefined>(
-    () => (podaci.sadrzaj ? sadrzajSaCekanjem(podaci.sadrzaj, naCekanju) : podaci.sadrzaj),
-    [podaci.sadrzaj, naCekanju],
+    () => (sadrzajServera ? sadrzajSaCekanjem(sadrzajServera, naCekanju) : sadrzajServera),
+    [sadrzajServera, naCekanju],
   );
   const javni = useMemo(
     () => (sadrzaj ? javniPregled({ naziv: kontekst.lokal, slug: kontekst.slug }, sadrzaj, nedostupni) : null),
     [sadrzaj, kontekst.lokal, kontekst.slug, nedostupni],
   );
+  // The preview is the heaviest part of a redraw (the whole public renderer, memoized on this
+  // value): it follows the list a moment later, so typing and saving a price never wait for it.
+  const javniOdlozen = useDeferredValue(javni);
   // K17: the draft appearance with the choices still on the way, as guests would get it on this account.
   const izgledServera = podaci.izgled?.vrednosti ?? null;
   const premiumNalog = kontekst.plan === "premium";
@@ -290,12 +305,17 @@ export function StudioEditor({
       }),
     [red, radnje],
   );
+  // K33: the row actions stay the same functions for the whole session (the rows are memoized
+  // on them), whatever else changes `ponudaRadnje` (the page, the languages).
+  const onPonovo = useCallback((artikalId: string) => red.pokusajPonovo(kljucCene(artikalId)), [red]);
+  const onZadrziMoju = useCallback((artikalId: string) => red.zadrziMoju(kljucCene(artikalId)), [red]);
+  const onUzmiSacuvanu = useCallback((artikalId: string) => red.odbaci(kljucCene(artikalId)), [red]);
   const ponudaRadnje = useMemo<PonudaRadnje>(
     () => ({
       onCena,
-      onPonovo: (artikalId) => red.pokusajPonovo(kljucCene(artikalId)),
-      onZadrziMoju: (artikalId) => red.zadrziMoju(kljucCene(artikalId)),
-      onUzmiSacuvanu: (artikalId) => red.odbaci(kljucCene(artikalId)),
+      onPonovo,
+      onZadrziMoju,
+      onUzmiSacuvanu,
       dodajSekciju: (naziv) => red.prati(() => radnje.dodajSekciju(aktivnaStranica ?? "", naziv)),
       preimenujSekciju: (id, naziv, ocekivano) => red.prati(() => radnje.preimenujSekciju(id, naziv, ocekivano)),
       obrisiSekciju: (id) => red.prati(() => radnje.obrisiSekciju(id)),
@@ -317,7 +337,7 @@ export function StudioEditor({
       uticajBrisanja: (artikalIds) => radnje.uticajBrisanja(artikalIds),
       obrisiArtikle: (artikalIds, token) => red.prati(() => radnje.obrisiArtikle(artikalIds, token)),
     }),
-    [red, radnje, onCena, aktivnaStranica, podaci.jezici],
+    [red, radnje, onCena, onPonovo, onZadrziMoju, onUzmiSacuvanu, aktivnaStranica, podaci.jezici],
   );
   const druge = useMemo(
     () => (stranice ?? []).filter((s) => !s.arhivirana && s.id !== aktivnaStranica).map((s) => ({ id: s.id, naziv: s.naziv })),
@@ -600,7 +620,7 @@ export function StudioEditor({
   const pregled = (visina: "kolona" | "preklop" | "pano" | "izgled", naslov = true) => (
     <PregledNacrta
       onUvecaj={visina === "kolona" || visina === "izgled" ? () => setPregledOtvoren(true) : undefined}
-      pregled={javni && javni.view.sekcije.length > 0 ? javni : null}
+      pregled={javniOdlozen && javniOdlozen.view.sekcije.length > 0 ? javniOdlozen : null}
       naziv={nazivStranice}
       izgled={izgledNacrta}
       uredjaj={uredjaj}

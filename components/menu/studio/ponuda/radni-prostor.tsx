@@ -165,7 +165,7 @@ export function PonudaRadniProstor({
   const [potvrdaDostupnosti, setPotvrdaDostupnosti] = useState<string[] | null>(null);
   const [radiGrupno, setRadiGrupno] = useState(false);
   const [osveziFokus, setOsveziFokus] = useState(0);
-  const fokusPosle = useRef<{ sekcijaKey: string; artikalKey: string | null; cekaj: boolean } | null>(null);
+  const fokusPosle = useRef<{ sekcijaKey: string; artikalKey: string | null; cekaj: boolean; bezPremestanja?: boolean } | null>(null);
   const koren = useRef<HTMLDivElement>(null);
 
   const uredjivo = mozeUredjivanje && !sadrzaj.stranica.arhivirana;
@@ -217,7 +217,10 @@ export function PonudaRadniProstor({
     const kandidati = cilj.artikalKey
       ? sekcija?.querySelectorAll<HTMLElement>(`[data-artikal="${css(cilj.artikalKey)}"] [data-meni-reda], [data-artikal="${css(cilj.artikalKey)}"] input[data-cena-polje]`)
       : sekcija?.querySelectorAll<HTMLElement>("h2 button");
-    const element = [...(kandidati ?? [])].find((candidate) => candidate.offsetParent !== null);
+    const vidljivi = [...(kandidati ?? [])].filter((candidate) => candidate.offsetParent !== null);
+    // Closed without a move: back to the menu button that opened `Premesti` (the price field comes
+    // before it in the row); after a move the focus stays where the moved card is, as before.
+    const element = (cilj.bezPremestanja ? vidljivi.find((candidate) => candidate.hasAttribute("data-meni-reda")) : undefined) ?? vidljivi[0];
     if (!element) return;
     fokusPosle.current = null;
     requestAnimationFrame(() => element.focus());
@@ -306,7 +309,7 @@ export function PonudaRadniProstor({
       const sekcijaId = premesti.vrsta === "red" ? premesti.sekcijaId : premesti.sekcija.id;
       const sekcijaKey = sekcijePrikaz.find((sekcija) => sekcija.id === sekcijaId)?.key;
       if (sekcijaKey) {
-        fokusPosle.current = { sekcijaKey, artikalKey: premesti.vrsta === "red" ? premesti.red.artikal.key : null, cekaj: false };
+        fokusPosle.current = { sekcijaKey, artikalKey: premesti.vrsta === "red" ? premesti.red.artikal.key : null, cekaj: false, bezPremestanja: true };
         setOsveziFokus((broj) => broj + 1);
       }
     }

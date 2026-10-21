@@ -4,8 +4,14 @@
 // call or a bill, Pregledaj for an order, Završi for a request I took). The
 // title opens the detail and its target stretches over the whole card (a
 // big, forgiving tap area); the action sits above it. Two tab stops per card.
+//
+// K33: the card is memoised. The shared clock ticks every second; the only thing a tick
+// changes on the card is its timer (a leaf that reads SatKontekst) and, once, the
+// "Novo" mark 15 s after the request came. So a tick redraws the card only when
+// `jeSvez` turns over; the callbacks are the panel's (stable, they take the id).
 
 import { ChevronRight } from "lucide-react";
+import { memo } from "react";
 import { fmt } from "@/lib/i18n/format";
 import { menuKonobarSr } from "@/lib/i18n/sr/menu-konobar";
 import { primaryAction, type QueueAction } from "@/lib/menu/waiter-queue";
@@ -23,7 +29,39 @@ const SVEZ_MS = 15_000;
 // Preuzmi is the one green action (mockup 10), Završi the ink one, Pregledaj only opens.
 const VRSTA_DUGMETA = { accept: "akcent", complete: "primarno", review: "sekundarno" } as const;
 
-export function KarticaZahteva({
+export type KarticaZahtevaProps = {
+  zahtev: KonobarZahtev;
+  /** The clock: the card reads it only for the "Novo" mark; its timer reads SatKontekst. */
+  sadaMs: number;
+  /** The action in flight for this card (spinner, clicks ignored). */
+  radi: boolean;
+  onOtvori(id: string): void;
+  onRadnja(zahtev: KonobarZahtev, radnja: QueueAction): void;
+  /** Offline: actions wait for the connection (the reason is in the strip above the queue). */
+  radnjeIskljucene: boolean;
+  /** K23: the reminder of this request is flashing now (master §8.5). */
+  podsetnik?: boolean;
+};
+
+/** A request this young is marked "Novo". */
+export function jeSvez(zahtev: Pick<KonobarZahtev, "status" | "createdAt">, sadaMs: number): boolean {
+  return zahtev.status === "new" && sadaMs - zahtev.createdAt < SVEZ_MS;
+}
+
+/** The comparison of memo(): the card is redrawn when its data, its state or its "Novo" mark change, never for the clock alone. */
+export function karticaZahtevaJednaka(a: KarticaZahtevaProps, b: KarticaZahtevaProps): boolean {
+  return (
+    a.zahtev === b.zahtev &&
+    a.radi === b.radi &&
+    a.radnjeIskljucene === b.radnjeIskljucene &&
+    Boolean(a.podsetnik) === Boolean(b.podsetnik) &&
+    a.onOtvori === b.onOtvori &&
+    a.onRadnja === b.onRadnja &&
+    jeSvez(a.zahtev, a.sadaMs) === jeSvez(b.zahtev, b.sadaMs)
+  );
+}
+
+export const KarticaZahteva = memo(function KarticaZahteva({
   zahtev,
   sadaMs,
   radi,
@@ -31,22 +69,11 @@ export function KarticaZahteva({
   onRadnja,
   radnjeIskljucene,
   podsetnik = false,
-}: {
-  zahtev: KonobarZahtev;
-  sadaMs: number;
-  /** The action in flight for this card (spinner, clicks ignored). */
-  radi: boolean;
-  onOtvori(): void;
-  onRadnja(radnja: QueueAction): void;
-  /** Offline: actions wait for the connection (the reason is in the strip above the queue). */
-  radnjeIskljucene: boolean;
-  /** K23: the reminder of this request is flashing now (master §8.5). */
-  podsetnik?: boolean;
-}) {
+}: KarticaZahtevaProps) {
   const radnja = primaryAction(zahtev);
   const naslov = vrstaNaslov(zahtev);
   const mesto = mestoTekst(zahtev);
-  const svez = zahtev.status === "new" && sadaMs - zahtev.createdAt < SVEZ_MS;
+  const svez = jeSvez(zahtev, sadaMs);
   return (
     <article
       data-zahtev={zahtev.id}
@@ -67,7 +94,7 @@ export function KarticaZahteva({
         <h3 className="min-w-0">
           <button
             type="button"
-            onClick={onOtvori}
+            onClick={() => onOtvori(zahtev.id)}
             aria-label={fmt(t.otvori, { vrsta: naslov, mesto })}
             data-razvucen
             className="-mx-1 -my-[calc((var(--mp-meta)-1.5469rem)/2)] inline-flex min-h-[var(--mp-meta)] scroll-mb-28 scroll-mt-24 max-w-full items-center gap-1 rounded-[var(--mp-radius-unutra)] px-1 text-left text-[1.125rem] font-bold leading-snug text-[var(--mp-tekst)] after:absolute after:inset-0 after:rounded-[var(--mp-radius-kartica)] after:content-[''] hover:underline hover:underline-offset-4"
@@ -93,12 +120,12 @@ export function KarticaZahteva({
         vrsta={VRSTA_DUGMETA[radnja]}
         ucitava={radi}
         disabled={radnjeIskljucene}
-        onClick={() => onRadnja(radnja)}
+        onClick={() => onRadnja(zahtev, radnja)}
         aria-label={fmt(t.radnjaCitac, { radnja: t.radnja[radnja], vrsta: naslov, mesto })}
-        className="relative z-10 min-h-12 min-w-[6.5rem] px-4 text-base @[30rem]/kartica:min-w-[8.5rem]"
+        className="relative z-10 min-h-12 min-w-[6.5rem] scroll-mb-28 px-4 text-base @[30rem]/kartica:min-w-[8.5rem]"
       >
         {t.radnja[radnja]}
       </Dugme>
     </article>
   );
-}
+}, karticaZahtevaJednaka);
